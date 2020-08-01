@@ -1,4 +1,4 @@
-; RUN: opt -scoped-noalias -hir-ssa-deconstruction -disable-output -hir-runtime-dd -hir-vec-dir-insert -print-after=hir-vec-dir-insert -hir-details < %s 2>&1 | FileCheck %s
+; RUN: opt -scoped-noalias-aa -hir-ssa-deconstruction -disable-output -hir-runtime-dd -hir-vec-dir-insert -print-after=hir-vec-dir-insert -hir-details < %s 2>&1 | FileCheck %s
 
 ; HIR:
 ; BEGIN REGION { }

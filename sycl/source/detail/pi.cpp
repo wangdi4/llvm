@@ -324,14 +324,13 @@ static void initializePlugins(vector_class<plugin> *Plugins) {
       // Use the CUDA plugin as the GlobalPlugin
       GlobalPlugin = std::make_shared<plugin>(PluginInformation, backend::cuda);
 #endif
+#endif // INTEL_CUSTOMIZATION
     } else if (InteropBE == backend::level0 &&
-               PluginNames[I].first.find(LEVEL0_PLUGIN_NAME) !=
-                   std::string::npos) {
+               PluginNames[I].first.find("level0") != std::string::npos) {
       // Use the LEVEL0 plugin as the GlobalPlugin
       GlobalPlugin =
           std::make_shared<plugin>(PluginInformation, backend::level0);
     }
-#endif // INTEL_CUSTOMIZATION
     Plugins->emplace_back(plugin(PluginInformation, PluginNames[I].second));
     if (trace(TraceLevel::PI_TRACE_BASIC))
       std::cerr << "SYCL_PI_TRACE[basic]: "
@@ -558,6 +557,7 @@ void DeviceBinaryImage::init(pi_device_binary Bin) {
     Format = getBinaryImageFormat(Bin->BinaryStart, getSize());
 
   SpecConstIDMap.init(Bin, PI_PROPERTY_SET_SPEC_CONST_MAP);
+  DeviceLibReqMask.init(Bin, PI_PROPERTY_SET_DEVICELIB_REQ_MASK);
 }
 
 } // namespace pi

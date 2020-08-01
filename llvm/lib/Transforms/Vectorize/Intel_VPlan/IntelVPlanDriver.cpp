@@ -831,7 +831,7 @@ bool VPlanDriver::runOnFunction(Function &Fn) {
   auto WR = &getAnalysis<WRegionInfoWrapperPass>().getWRegionInfo();
 
   return Impl.runImpl(Fn, LI, SE, DT, AC, AA, DB, GetLAA, ORE, Verbosity, WR,
-                      TTI, TLI);
+                      TTI, TLI, nullptr, nullptr);
 }
 
 PreservedAnalyses VPlanDriverPass::run(Function &F,
@@ -862,7 +862,7 @@ PreservedAnalyses VPlanDriverPass::run(Function &F,
   };
 
   if (!Impl.runImpl(F, LI, SE, DT, AC, AA, DB, GetLAA, ORE, Verbosity, WR, TTI,
-                    TLI))
+                    TLI, nullptr, nullptr))
     return PreservedAnalyses::all();
 
   auto PA = PreservedAnalyses::none();
@@ -876,7 +876,8 @@ bool VPlanDriverImpl::runImpl(
     AssumptionCache *AC, AliasAnalysis *AA, DemandedBits *DB,
     std::function<const LoopAccessInfo &(Loop &)> GetLAA,
     OptimizationRemarkEmitter *ORE, OptReportVerbosity::Level Verbosity,
-    WRegionInfo *WR, TargetTransformInfo *TTI, TargetLibraryInfo *TLI) {
+    WRegionInfo *WR, TargetTransformInfo *TTI, TargetLibraryInfo *TLI,
+    BlockFrequencyInfo *BFI, ProfileSummaryInfo *PSI) {
 
 #if INTEL_CUSTOMIZATION
   LLVM_DEBUG(dbgs() << "VPlan LLVM-IR Driver for Function: " << Fn.getName()
@@ -1288,7 +1289,7 @@ bool VPlanDriverImpl::isVPlanCandidate(Function &Fn, Loop *Lp) {
   LoopVectorizationRequirements Requirements(*ORE);
   LoopVectorizeHints Hints(Lp, true, *ORE);
   LoopVectorizationLegality LVL(Lp, PSE, DT, TTI, TLI, AA, &Fn, GetLAA, LI, ORE,
-                                &Requirements, &Hints, DB, AC);
+                                &Requirements, &Hints, DB, AC, BFI, PSI);
 
   if (!LVL.canVectorize(false /* EnableVPlanNativePath */))
     return false;

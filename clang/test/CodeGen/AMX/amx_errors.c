@@ -1,3 +1,8 @@
+// INTEL_CUSTOMIZATION
+// INTEL_FEATURE_ISA_AMX
+// UNSUPPORTED: intel_feature_isa_amx
+// end INTEL_FEATURE_ISA_AMX
+// end INTEL_CUSTOMIZATION
 // RUN: %clang_cc1 %s -ffreestanding -triple=x86_64-unknown-unknown -target-feature +amx-tile -target-feature +amx-int8 -target-feature +amx-bf16 -emit-llvm -fsyntax-only -verify
 // INTEL: Enable test for every configuration with CMPLRLLVM-21156 fix.
 // REQUIRES: intel_feature_isa_amx

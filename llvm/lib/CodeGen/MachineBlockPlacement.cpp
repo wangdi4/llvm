@@ -178,6 +178,14 @@ static cl::opt<unsigned> TailDupPlacementPenalty(
     cl::init(2),
     cl::Hidden);
 
+// Heuristic for tail duplication if profile count is used in cost model.
+static cl::opt<unsigned> TailDupProfilePercentThreshold(
+    "tail-dup-profile-percent-threshold",
+    cl::desc("If profile count information is used in tail duplication cost "
+             "model, the gained fall through number from tail duplication "
+             "should be at least this percent of hot count."),
+    cl::init(50), cl::Hidden);
+
 // Heuristic for triangle chains.
 static cl::opt<unsigned> TriangleChainCount(
     "triangle-chain-count",
@@ -378,6 +386,10 @@ class MachineBlockPlacement : public MachineFunctionPass {
   /// Partial tail duplication threshold.
   BlockFrequency DupThreshold;
 
+  /// True:  use block profile count to compute tail duplication cost.
+  /// False: use block frequency to compute tail duplication cost.
+  bool UseProfileCount;
+
   /// Allocator and owner of BlockChain structures.
   ///
   /// We build BlockChains lazily while processing the loop structure of
@@ -402,6 +414,19 @@ class MachineBlockPlacement : public MachineFunctionPass {
   /// blocks and their successors through the pass.
   SmallPtrSet<MachineBasicBlock *, 4> BlocksWithUnanalyzableExits;
 #endif
+
+  /// Get block profile count or frequency according to UseProfileCount.
+  /// The return value is used to model tail duplication cost.
+  BlockFrequency getBlockCountOrFrequency(const MachineBasicBlock *BB) {
+    if (UseProfileCount) {
+      auto Count = MBFI->getMBFI().getBlockProfileCount(BB);
+      if (Count)
+        return *Count;
+      else
+        return 0;
+    } else
+      return MBFI->getBlockFreq(BB);
+  }
 
   /// Scale the DupThreshold according to basic block size.
   BlockFrequency scaleThreshold(MachineBasicBlock *BB);
@@ -3123,7 +3148,7 @@ bool MachineBlockPlacement::isBestSuccessor(MachineBasicBlock *BB,
 
   // Compute the number of reduced taken branches if Pred falls through to BB
   // instead of another successor. Then compare it with threshold.
-  BlockFrequency PredFreq = MBFI->getBlockFreq(Pred);
+  BlockFrequency PredFreq = getBlockCountOrFrequency(Pred);
   BlockFrequency Gain = PredFreq * (BBProb - BestProb);
   return Gain > scaleThreshold(BB);
 }
@@ -3197,7 +3222,7 @@ void MachineBlockPlacement::findDuplicateCandidates(
   // it. But it can beneficially fall through to BB, and duplicate BB into other
   // predecessors.
   for (MachineBasicBlock *Pred : Preds) {
-    BlockFrequency PredFreq = MBFI->getBlockFreq(Pred);
+    BlockFrequency PredFreq = getBlockCountOrFrequency(Pred);
 
     if (!TailDup.canTailDuplicate(BB, Pred)) {
       // BB can't be duplicated into Pred, but it is possible to be layout
@@ -3246,6 +3271,15 @@ void MachineBlockPlacement::initDupThreshold() {
   if (!F->getFunction().hasProfileData())
     return;
 
+  // We prefer to use prifile count.
+  uint64_t HotThreshold = PSI->getOrCompHotCountThreshold();
+  if (HotThreshold != UINT64_MAX) {
+    UseProfileCount = true;
+    DupThreshold = HotThreshold * TailDupProfilePercentThreshold / 100;
+    return;
+  }
+
+  // Profile count is not available, we can use block frequency instead.
   BlockFrequency MaxFreq = 0;
   for (MachineBasicBlock &MBB : *F) {
     BlockFrequency Freq = MBFI->getBlockFreq(&MBB);
@@ -3253,10 +3287,9 @@ void MachineBlockPlacement::initDupThreshold() {
       MaxFreq = Freq;
   }
 
-  // FIXME: we may use profile count instead of frequency,
-  // and need more fine tuning.
   BranchProbability ThresholdProb(TailDupPlacementPenalty, 100);
   DupThreshold = MaxFreq * ThresholdProb;
+  UseProfileCount = false;
 }
 
 bool MachineBlockPlacement::runOnMachineFunction(MachineFunction &MF) {

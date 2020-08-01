@@ -177,8 +177,9 @@ struct DeviceTy {
   uint64_t getMapEntryRefCnt(void *HstPtrBegin);
   LookupResult lookupMapping(void *HstPtrBegin, int64_t Size);
   void *getOrAllocTgtPtr(void *HstPtrBegin, void *HstPtrBase, int64_t Size,
-      bool &IsNew, bool &IsHostPtr, bool IsImplicit, bool UpdateRefCount = true,
-      bool HasCloseModifier = false);
+                         bool &IsNew, bool &IsHostPtr, bool IsImplicit,
+                         bool UpdateRefCount, bool HasCloseModifier,
+                         bool HasPresentModifier);
   void *getTgtPtrBegin(void *HstPtrBegin, int64_t Size);
   void *getTgtPtrBegin(void *HstPtrBegin, int64_t Size, bool &IsLast,
       bool UpdateRefCount, bool &IsHostPtr);
@@ -244,6 +245,7 @@ struct DeviceTy {
   void *data_alloc_managed(int64_t Size);
   int32_t data_delete_managed(void *Ptr);
   int32_t is_managed_ptr(void *Ptr);
+  int32_t managed_memory_supported();
   void *data_alloc_explicit(int64_t Size, int32_t Kind);
 #endif // INTEL_COLLAB
 

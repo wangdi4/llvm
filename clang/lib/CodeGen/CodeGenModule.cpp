@@ -273,14 +273,6 @@ void CodeGenModule::createOpenMPRuntime() {
       OpenMPRuntime.reset(new CGOpenMPRuntime(*this));
     break;
   }
-
-  // The OpenMP-IR-Builder should eventually replace the above runtime codegens
-  // but we are not there yet so they both reside in CGModule for now and the
-  // OpenMP-IR-Builder is opt-in only.
-  if (LangOpts.OpenMPIRBuilder) {
-    OMPBuilder.reset(new llvm::OpenMPIRBuilder(TheModule));
-    OMPBuilder->initialize();
-  }
 }
 
 void CodeGenModule::createCUDARuntime() {
@@ -718,12 +710,12 @@ void CodeGenModule::Release() {
     SPIRVerMD->addOperand(llvm::MDNode::get(Ctx, SPIRVerElts));
     // We are trying to look like OpenCL C++ for SPIR-V translator.
     // 4 - OpenCL_CPP, 100000 - OpenCL C++ version 1.0
-    // 6 - ESIMD, if any kernel or function is an explicit SIMD one
+    // 0 - ESIMD, if any kernel or function is an explicit SIMD one
     int Lang = llvm::any_of(TheModule,
                             [](const auto &F) {
                               return F.getMetadata("sycl_explicit_simd");
                             })
-                   ? 6
+                   ? 0
                    : 4;
 
     llvm::Metadata *SPIRVSourceElts[] = {
@@ -1347,6 +1339,9 @@ void CodeGenModule::AddGlobalCtor(llvm::Function *Ctor, int Priority,
 /// when the module is unloaded.
 void CodeGenModule::AddGlobalDtor(llvm::Function *Dtor, int Priority) {
   if (CodeGenOpts.RegisterGlobalDtorsWithAtExit) {
+    if (getCXXABI().useSinitAndSterm())
+      llvm::report_fatal_error(
+          "register global dtors with atexit() is not supported yet");
     DtorsUsingAtExit[Priority].push_back(Dtor);
     return;
   }
@@ -2924,11 +2919,6 @@ void CodeGenModule::EmitGlobal(GlobalDecl GD) {
     }
   }
 
-  if (LangOpts.SYCLIsDevice && MustBeEmitted(Global)) {
-    addDeferredDeclToEmit(GD);
-    return;
-  }
-
   // Ignore declarations, they will be emitted on their first use.
   if (const auto *FD = dyn_cast<FunctionDecl>(Global)) {
     // Forward declarations are emitted lazily on first use.
@@ -2978,6 +2968,13 @@ void CodeGenModule::EmitGlobal(GlobalDecl GD) {
         GetAddrOfGlobalVar(VD);
       return;
     }
+  }
+
+  // clang::ParseAST ensures that we emit the SYCL devices at the end, so
+  // anything that is a device (or indirectly called) will be handled later.
+  if (LangOpts.SYCLIsDevice && MustBeEmitted(Global)) {
+    addDeferredDeclToEmit(GD);
+    return;
   }
 
   // Defer code generation to first use when possible, e.g. if this is an inline
@@ -3886,16 +3883,14 @@ static void maybeEmitPipeStorageMetadata(const VarDecl *D,
     return;
 
   if (auto *IOAttr = D->getAttr<SYCLIntelPipeIOAttr>()) {
-    llvm::APSInt ID(32);
+    Optional<llvm::APSInt> ID =
+        IOAttr->getID()->getIntegerConstantExpr(D->getASTContext());
     llvm::LLVMContext &Context = CGM.getLLVMContext();
-    bool IsValid =
-        IOAttr->getID()->isIntegerConstantExpr(ID, D->getASTContext());
-    assert(IsValid && "Not an integer constant expression");
-    (void)IsValid;
+    assert(bool(ID) && "Not an integer constant expression");
 
     llvm::Metadata *AttrMDArgs[] = {
         llvm::ConstantAsMetadata::get(llvm::ConstantInt::get(
-            llvm::Type::getInt32Ty(Context), ID.getSExtValue()))};
+            llvm::Type::getInt32Ty(Context), ID->getSExtValue()))};
     GV->setMetadata(IOAttr->getSpelling(),
                     llvm::MDNode::get(Context, AttrMDArgs));
   }

@@ -90,6 +90,8 @@ static const char *const GCCRegNames[] = {
     "tmm0",  "tmm1",  "tmm2",  "tmm3",  "tmm4",    "tmm5",  "tmm6",  "tmm7",
     // Just align with ICC for tmm8-15
     "tmm8",  "tmm9",  "tmm10", "tmm11", "tmm12",   "tmm13", "tmm14", "tmm15",
+    "tmm16", "tmm17", "tmm18", "tmm19", "tmm20",   "tmm21", "tmm22", "tmm23",
+    "tmm24", "tmm25", "tmm26", "tmm27", "tmm28",   "tmm29", "tmm30", "tmm31",
 #else // INTEL_FEATURE_ISA_AMX
     "tmm0",  "tmm1",  "tmm2",  "tmm3",  "tmm4",    "tmm5",  "tmm6",  "tmm7",
 #endif // INTEL_FEATURE_ISA_AMX
@@ -139,18 +141,18 @@ bool X86TargetInfo::initFeatureMap(
   // FIXME: This *really* should not be here.
   // X86_64 always has SSE2.
   if (getTriple().getArch() == llvm::Triple::x86_64)
-    setFeatureEnabledImpl(Features, "sse2", true);
+    setFeatureEnabled(Features, "sse2", true);
 
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ICECODE
   // Enable icecode-mode for IceCode target.
   if (getTriple().getArch() == llvm::Triple::x86_icecode) {
     Features["icecode-mode"] = true;
-    setFeatureEnabledImpl(Features, "avx512f", true);
-    setFeatureEnabledImpl(Features, "avx512cd", true);
-    setFeatureEnabledImpl(Features, "avx512dq", true);
-    setFeatureEnabledImpl(Features, "avx512bw", true);
-    setFeatureEnabledImpl(Features, "avx512vl", true);
+    setFeatureEnabled(Features, "avx512f", true);
+    setFeatureEnabled(Features, "avx512cd", true);
+    setFeatureEnabled(Features, "avx512dq", true);
+    setFeatureEnabled(Features, "avx512bw", true);
+    setFeatureEnabled(Features, "avx512vl", true);
     return true;
   }
 #endif // INTEL_FEATURE_ICECODE
@@ -161,7 +163,7 @@ bool X86TargetInfo::initFeatureMap(
   SmallVector<StringRef, 16> CPUFeatures;
   getFeaturesForCPU(CPU, CPUFeatures);
   for (auto &F : CPUFeatures)
-    setFeatureEnabledImpl(Features, F, true);
+    setFeatureEnabled(Features, F, true);
 
   if (!TargetInfo::initFeatureMap(Features, Diags, CPU, FeaturesVec))
     return false;
@@ -191,199 +193,8 @@ bool X86TargetInfo::initFeatureMap(
   return true;
 }
 
-void X86TargetInfo::setSSELevel(llvm::StringMap<bool> &Features,
-                                X86SSEEnum Level, bool Enabled) {
-  if (Enabled) {
-    switch (Level) {
-    case AVX512F:
-      Features["avx512f"] = true;
-      Features["fma"] = true;
-      Features["f16c"] = true;
-      LLVM_FALLTHROUGH;
-    case AVX2:
-      Features["avx2"] = true;
-      LLVM_FALLTHROUGH;
-    case AVX:
-      Features["avx"] = true;
-      LLVM_FALLTHROUGH;
-    case SSE42:
-      Features["sse4.2"] = true;
-      LLVM_FALLTHROUGH;
-    case SSE41:
-      Features["sse4.1"] = true;
-      LLVM_FALLTHROUGH;
-    case SSSE3:
-      Features["ssse3"] = true;
-      LLVM_FALLTHROUGH;
-    case SSE3:
-      Features["sse3"] = true;
-      LLVM_FALLTHROUGH;
-    case SSE2:
-      Features["sse2"] = true;
-      LLVM_FALLTHROUGH;
-    case SSE1:
-      Features["sse"] = true;
-      LLVM_FALLTHROUGH;
-    case NoSSE:
-      break;
-    }
-    return;
-  }
-
-  switch (Level) {
-  case NoSSE:
-  case SSE1:
-    Features["sse"] = false;
-    LLVM_FALLTHROUGH;
-  case SSE2:
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_KEYLOCKER
-    Features["keylocker"] = false;
-#endif // INTEL_FEATURE_ISA_KEYLOCKER
-#endif // INTEL_CUSTOMIZATION
-    Features["sse2"] = Features["pclmul"] = Features["aes"] = false;
-    Features["sha"] = Features["gfni"] = false;
-    LLVM_FALLTHROUGH;
-  case SSE3:
-    Features["sse3"] = false;
-    setXOPLevel(Features, NoXOP, false);
-    LLVM_FALLTHROUGH;
-  case SSSE3:
-    Features["ssse3"] = false;
-    LLVM_FALLTHROUGH;
-  case SSE41:
-    Features["sse4.1"] = false;
-    LLVM_FALLTHROUGH;
-  case SSE42:
-    Features["sse4.2"] = false;
-    LLVM_FALLTHROUGH;
-  case AVX:
-    Features["fma"] = Features["avx"] = Features["f16c"] = false;
-    Features["vaes"] = Features["vpclmulqdq"] = false;
-    setXOPLevel(Features, FMA4, false);
-    LLVM_FALLTHROUGH;
-  case AVX2:
-    Features["avx2"] = false;
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_AVX_VNNI
-    Features["avxvnni"] = false;
-#endif // INTEL_FEATURE_ISA_AVX_VNNI
-#if INTEL_FEATURE_ISA_AVX_IFMA
-    Features["avxifma"] = false;
-#endif // INTEL_FEATURE_ISA_AVX_IFMA
-#if INTEL_FEATURE_ISA_AVX_DOTPROD_INT8
-    Features["avxdotprodint8"] = false;
-#endif // INTEL_FEATURE_ISA_AVX_DOTPROD_INT8
-#if INTEL_FEATURE_ISA_AVX_DOTPROD_PHPS
-    Features["avxdotprodphps"] = false;
-#endif // INTEL_FEATURE_ISA_AVX_DOTPROD_PHPS
-#if INTEL_FEATURE_ISA_AVX_CONVERT
-    Features["avxconvert"] = false;
-#endif // INTEL_FEATURE_ISA_AVX_CONVERT
-#if INTEL_FEATURE_ISA_AVX_BF16
-    Features["avxbf16"] = false;
-#endif // INTEL_FEATURE_ISA_AVX_BF16
-#if INTEL_FEATURE_ISA_AVX_COMPRESS
-    Features["avxcompress"] = false;
-#endif // INTEL_FEATURE_ISA_AVX_COMPRESS
-#endif // INTEL_CUSTOMIZATION
-    LLVM_FALLTHROUGH;
-  case AVX512F:
-    Features["avx512f"] = Features["avx512cd"] = Features["avx512er"] = false;
-    Features["avx512pf"] = Features["avx512dq"] = Features["avx512bw"] = false;
-    Features["avx512vl"] = Features["avx512vbmi"] = false;
-    Features["avx512ifma"] = Features["avx512vpopcntdq"] = false;
-    Features["avx512bitalg"] = Features["avx512vnni"] = false;
-    Features["avx512vbmi2"] = Features["avx512bf16"] = false;
-    Features["avx512vp2intersect"] = false;
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_FP16
-    Features["avx512fp16"] = false;
-#endif // INTEL_FEATURE_ISA_FP16
-#if INTEL_FEATURE_ISA_AVX512_DOTPROD_INT8
-    Features["avx512dotprodint8"] = false;
-#endif // INTEL_FEATURE_ISA_AVX512_DOTPROD_INT8
-#if INTEL_FEATURE_ISA_AVX512_DOTPROD_PHPS
-    Features["avx512dotprodphps"] = false;
-#endif // INTEL_FEATURE_ISA_AVX512_DOTPROD_PHPS
-#if INTEL_FEATURE_ISA_AVX512_CONVERT
-    Features["avx512convert"] = false;
-#endif // INTEL_FEATURE_ISA_AVX512_CONVERT
-#endif // INTEL_CUSTOMIZATION
-    break;
-  }
-}
-
-void X86TargetInfo::setMMXLevel(llvm::StringMap<bool> &Features,
-                                MMX3DNowEnum Level, bool Enabled) {
-  if (Enabled) {
-    switch (Level) {
-    case AMD3DNowAthlon:
-      Features["3dnowa"] = true;
-      LLVM_FALLTHROUGH;
-    case AMD3DNow:
-      Features["3dnow"] = true;
-      LLVM_FALLTHROUGH;
-    case MMX:
-      Features["mmx"] = true;
-      LLVM_FALLTHROUGH;
-    case NoMMX3DNow:
-      break;
-    }
-    return;
-  }
-
-  switch (Level) {
-  case NoMMX3DNow:
-  case MMX:
-    Features["mmx"] = false;
-    LLVM_FALLTHROUGH;
-  case AMD3DNow:
-    Features["3dnow"] = false;
-    LLVM_FALLTHROUGH;
-  case AMD3DNowAthlon:
-    Features["3dnowa"] = false;
-    break;
-  }
-}
-
-void X86TargetInfo::setXOPLevel(llvm::StringMap<bool> &Features, XOPEnum Level,
-                                bool Enabled) {
-  if (Enabled) {
-    switch (Level) {
-    case XOP:
-      Features["xop"] = true;
-      LLVM_FALLTHROUGH;
-    case FMA4:
-      Features["fma4"] = true;
-      setSSELevel(Features, AVX, true);
-      LLVM_FALLTHROUGH;
-    case SSE4A:
-      Features["sse4a"] = true;
-      setSSELevel(Features, SSE3, true);
-      LLVM_FALLTHROUGH;
-    case NoXOP:
-      break;
-    }
-    return;
-  }
-
-  switch (Level) {
-  case NoXOP:
-  case SSE4A:
-    Features["sse4a"] = false;
-    LLVM_FALLTHROUGH;
-  case FMA4:
-    Features["fma4"] = false;
-    LLVM_FALLTHROUGH;
-  case XOP:
-    Features["xop"] = false;
-    break;
-  }
-}
-
-void X86TargetInfo::setFeatureEnabledImpl(llvm::StringMap<bool> &Features,
-                                          StringRef Name, bool Enabled) {
+void X86TargetInfo::setFeatureEnabled(llvm::StringMap<bool> &Features,
+                                      StringRef Name, bool Enabled) const {
   if (Name == "sse4") {
     // We can get here via the __target__ attribute since that's not controlled
     // via the -msse4/-mno-sse4 command line alias. Handle this the same way
@@ -397,298 +208,10 @@ void X86TargetInfo::setFeatureEnabledImpl(llvm::StringMap<bool> &Features,
 
   Features[Name] = Enabled;
 
-  if (Name == "mmx") {
-    setMMXLevel(Features, MMX, Enabled);
-  } else if (Name == "sse") {
-    setSSELevel(Features, SSE1, Enabled);
-  } else if (Name == "sse2") {
-    setSSELevel(Features, SSE2, Enabled);
-  } else if (Name == "sse3") {
-    setSSELevel(Features, SSE3, Enabled);
-  } else if (Name == "ssse3") {
-    setSSELevel(Features, SSSE3, Enabled);
-  } else if (Name == "sse4.2") {
-    setSSELevel(Features, SSE42, Enabled);
-  } else if (Name == "sse4.1") {
-    setSSELevel(Features, SSE41, Enabled);
-  } else if (Name == "3dnow") {
-    setMMXLevel(Features, AMD3DNow, Enabled);
-  } else if (Name == "3dnowa") {
-    setMMXLevel(Features, AMD3DNowAthlon, Enabled);
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_KEYLOCKER
-  } else if (Name == "keylocker") {
-    if (Enabled)
-      setSSELevel(Features, SSE2, Enabled);
-#endif // INTEL_FEATURE_ISA_KEYLOCKER
-#endif // INTEL_CUSTOMIZATION
-  } else if (Name == "aes") {
-    if (Enabled)
-      setSSELevel(Features, SSE2, Enabled);
-    else
-      Features["vaes"] = false;
-  } else if (Name == "vaes") {
-    if (Enabled) {
-      setSSELevel(Features, AVX, Enabled);
-      Features["aes"] = true;
-    }
-  } else if (Name == "pclmul") {
-    if (Enabled)
-      setSSELevel(Features, SSE2, Enabled);
-    else
-      Features["vpclmulqdq"] = false;
-  } else if (Name == "vpclmulqdq") {
-    if (Enabled) {
-      setSSELevel(Features, AVX, Enabled);
-      Features["pclmul"] = true;
-    }
-  } else if (Name == "gfni") {
-     if (Enabled)
-      setSSELevel(Features, SSE2, Enabled);
-  } else if (Name == "avx") {
-    setSSELevel(Features, AVX, Enabled);
-  } else if (Name == "avx2") {
-    setSSELevel(Features, AVX2, Enabled);
-  } else if (Name == "avx512f") {
-    setSSELevel(Features, AVX512F, Enabled);
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_AMX_LNC
-    if (!Enabled) {
-      Features["amx-avx512"] = false;
-    }
-#endif // INTEL_FEATURE_ISA_AMX_LNC
-#endif // INTEL_CUSTOMIZATION
-  } else if (Name.startswith("avx512")) {
-    if (Enabled)
-      setSSELevel(Features, AVX512F, Enabled);
-    // Enable BWI instruction if certain features are being enabled.
-    if ((Name == "avx512vbmi" || Name == "avx512vbmi2" ||
-         Name == "avx512bitalg" || Name == "avx512bf16") && Enabled)
-      Features["avx512bw"] = true;
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_FP16
-    // Enable BW and VL if AVX512FP16 is being enabled.
-    if (Name == "avx512fp16") {
-      if (Enabled) {
-        Features["avx512bw"] = true;
-        Features["avx512dq"] = true;
-        Features["avx512vl"] = true;
-      }
-      else {
-#endif // INTEL_FEATURE_ISA_FP16
-#if INTEL_FEATURE_ISA_AMX_FP16
-        Features["amx-fp16"] = false;
-#endif // INTEL_FEATURE_ISA_AMX_FP16
-#if INTEL_FEATURE_ISA_AVX512_CONVERT
-        Features["avx512convert"] = false;
-#endif // INTEL_FEATURE_ISA_AVX512_CONVERT
-#if INTEL_FEATURE_ISA_AVX512_DOTPROD_PHPS
-        Features["avx512dotprodphps"] = false;
-#endif // INTEL_FEATURE_ISA_AVX512_DOTPROD_PHPS
-#if INTEL_FEATURE_ISA_FP16
-      }
-    }
-#endif // INTEL_FEATURE_ISA_FP16
-#endif // INTEL_CUSTOMIZATION
-    // Also disable some features if BWI is being disabled.
-    if (Name == "avx512bw" && !Enabled) {
-      Features["avx512vbmi"] = false;
-      Features["avx512vbmi2"] = false;
-      Features["avx512bitalg"] = false;
-      Features["avx512bf16"] = false;
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_FP16
-      setFeatureEnabledImpl(Features, "avx512fp16", false);
-#endif // INTEL_FEATURE_ISA_FP16
-    }
-#if INTEL_FEATURE_ISA_FP16
-    if (Name == "avx512dq" && !Enabled)
-      setFeatureEnabledImpl(Features, "avx512fp16", false);
-    if (Name == "avx512vl" && !Enabled)
-      setFeatureEnabledImpl(Features, "avx512fp16", false);
-#endif // INTEL_FEATURE_ISA_FP16
-#if INTEL_FEATURE_ISA_AVX512_CONVERT
-    if (Name == "avx512bf16" && !Enabled) {
-      Features["avx512convert"] = false;
-    }
-#endif // INTEL_FEATURE_ISA_AVX512_CONVERT
-#if INTEL_FEATURE_ISA_AVX512_DOTPROD_PHPS
-    if (Name == "avx512dotprodphps" && Enabled) {
-      setFeatureEnabledImpl(Features, "avx512fp16", true);
-#endif // INTEL_FEATURE_ISA_AVX512_DOTPROD_PHPS
-#if INTEL_FEATURE_ISA_AVX_DOTPROD_PHPS
-      Features["avxdotprodphps"] = true;
-#endif // INTEL_FEATURE_ISA_AVX_DOTPROD_PHPS
-#if INTEL_FEATURE_ISA_AVX512_DOTPROD_PHPS
-    }
-#endif // INTEL_FEATURE_ISA_AVX512_DOTPROD_PHPS
-#if INTEL_FEATURE_ISA_AVX512_DOTPROD_INT8
-    if (Name == "avx512dotprodint8" && Enabled) {
-#endif // INTEL_FEATURE_ISA_AVX512_DOTPROD_INT8
-#if INTEL_FEATURE_ISA_AVX_DOTPROD_INT8
-      Features["avxdotprodint8"] = true;
-#endif // INTEL_FEATURE_ISA_AVX_DOTPROD_INT8
-#if INTEL_FEATURE_ISA_AVX512_DOTPROD_INT8
-    }
-#endif // INTEL_FEATURE_ISA_AVX512_DOTPROD_INT8
-#if INTEL_FEATURE_ISA_AVX512_CONVERT
-    if (Name == "avx512convert" && Enabled) {
-      setFeatureEnabledImpl(Features, "avx512fp16", true);
-#endif // INTEL_FEATURE_ISA_AVX512_CONVERT
-#if INTEL_FEATURE_ISA_AVX_CONVERT
-      Features["avxconvert"] = true;
-#endif // INTEL_FEATURE_ISA_AVX_CONVERT
-#if INTEL_FEATURE_ISA_AVX512_CONVERT
-    }
-#endif // INTEL_FEATURE_ISA_AVX512_CONVERT
-#endif // INTEL_CUSTOMIZATION
-  } else if (Name == "fma") {
-    if (Enabled)
-      setSSELevel(Features, AVX, Enabled);
-    else
-      setSSELevel(Features, AVX512F, Enabled);
-  } else if (Name == "fma4") {
-    setXOPLevel(Features, FMA4, Enabled);
-  } else if (Name == "xop") {
-    setXOPLevel(Features, XOP, Enabled);
-  } else if (Name == "sse4a") {
-    setXOPLevel(Features, SSE4A, Enabled);
-  } else if (Name == "f16c") {
-    if (Enabled)
-      setSSELevel(Features, AVX, Enabled);
-    else
-      setSSELevel(Features, AVX512F, Enabled);
-  } else if (Name == "sha") {
-    if (Enabled)
-      setSSELevel(Features, SSE2, Enabled);
-  } else if (Name == "xsave") {
-    if (!Enabled)
-      Features["xsaveopt"] = Features["xsavec"] = Features["xsaves"] = false;
-  } else if (Name == "xsaveopt" || Name == "xsavec" || Name == "xsaves") {
-    if (Enabled)
-      Features["xsave"] = true;
-  } else if (Name == "amx-tile" && !Enabled) {
-    Features["amx-bf16"] = Features["amx-int8"] = false;
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_AMX_FUTURE
-    Features["amx-reduce"] = Features["amx-memory"] =
-    Features["amx-format"] = Features["amx-element"] = false;
-#endif // INTEL_FEATURE_ISA_AMX_FUTURE
-#if INTEL_FEATURE_ISA_AMX_LNC
-    Features["amx-transpose"] = false;
-#endif // INTEL_FEATURE_ISA_AMX_LNC
-#if INTEL_FEATURE_ISA_AMX_FP16
-    Features["amx-fp16"] = false;
-#endif // INTEL_FEATURE_ISA_AMX_FP16
-#if INTEL_FEATURE_ISA_AMX_MEMORY2
-    Features["amx-memory2"] = false;
-#endif // INTEL_FEATURE_ISA_AMX_MEMORY2
-#if INTEL_FEATURE_ISA_AMX_BF16_EVEX
-    Features["amx-bf16-evex"] = false;
-#endif // INTEL_FEATURE_ISA_AMX_BF16_EVEX
-#if INTEL_FEATURE_ISA_AMX_ELEMENT_EVEX
-    Features["amx-element-evex"] = false;
-#endif // INTEL_FEATURE_ISA_AMX_ELEMENT_EVEX
-#if INTEL_FEATURE_ISA_AMX_INT8_EVEX
-    Features["amx-int8-evex"] = false;
-#endif // INTEL_FEATURE_ISA_AMX_INT8_EVEX
-#if INTEL_FEATURE_ISA_AMX_TILE_EVEX
-    Features["amx-tile-evex"] = false;
-#endif // INTEL_FEATURE_ISA_AMX_TILE_EVEX
-#if INTEL_FEATURE_ISA_AMX_TRANSPOSE2
-    Features["amx-transpose2"] = false;
-#endif // INTEL_FEATURE_ISA_AMX_TRANSPOSE2
-#if INTEL_FEATURE_ISA_AMX_CONVERT
-    Features["amx-convert"] = false;
-#endif // INTEL_FEATURE_ISA_AMX_CONVERT
-#if INTEL_FEATURE_ISA_AMX_TILE2
-    Features["amx-tile2"] = false;
-#endif // INTEL_FEATURE_ISA_AMX_TILE2
-  } else if ((Name == "amx-bf16" || Name == "amx-int8") && Enabled)
-    Features["amx-tile"] = true;
-#if INTEL_FEATURE_ISA_AMX_FUTURE
-  else if ((Name == "amx-reduce" || Name == "amx-memory" ||
-            Name == "amx-format" || Name == "amx-element") && Enabled)
-    Features["amx-tile"] = true;
-#endif // INTEL_FEATURE_ISA_AMX_FUTURE
-#if INTEL_FEATURE_ISA_AMX_LNC
-  else if (Name == "amx-transpose" && Enabled)
-    Features["amx-tile"] = true;
-  else if ((Name == "amx-avx512") && Enabled) {
-    Features["amx-tile"] = true;
-    setFeatureEnabledImpl(Features, "avx512f", true);
-  }
-#endif // INTEL_FEATURE_ISA_AMX_LNC
-#if INTEL_FEATURE_ISA_AMX_FP16
-  else if (Name == "amx-fp16" && Enabled)
-    Features["amx-tile"] = true;
-#endif // INTEL_FEATURE_ISA_AMX_FP16
-#if INTEL_FEATURE_ISA_AMX_MEMORY2
-  else if (Name == "amx-memory2" && Enabled)
-    Features["amx-tile"] = true;
-#endif // INTEL_FEATURE_ISA_AMX_MEMORY2
-#if INTEL_FEATURE_ISA_AMX_BF16_EVEX
-  else if (Name == "amx-bf16-evex" && Enabled)
-    Features["amx-tile"] = true;
-#endif // INTEL_FEATURE_ISA_AMX_BF16_EVEX
-#if INTEL_FEATURE_ISA_AMX_ELEMENT_EVEX
-  else if (Name == "amx-element-evex" && Enabled)
-    Features["amx-tile"] = true;
-#endif // INTEL_FEATURE_ISA_AMX_ELEMENT_EVEX
-#if INTEL_FEATURE_ISA_AMX_INT8_EVEX
-  else if (Name == "amx-int8-evex" && Enabled)
-    Features["amx-tile"] = true;
-#endif // INTEL_FEATURE_ISA_AMX_INT8_EVEX
-#if INTEL_FEATURE_ISA_AMX_TILE_EVEX
-  else if (Name == "amx-tile-evex" && Enabled)
-    Features["amx-tile"] = true;
-#endif // INTEL_FEATURE_ISA_AMX_TILE_EVEX
-#if INTEL_FEATURE_ISA_AMX_TRANSPOSE2
-  else if (Name == "amx-transpose2" && Enabled)
-    Features["amx-tile"] = true;
-#endif // INTEL_FEATURE_ISA_AMX_TRANSPOSE2
-#if INTEL_FEATURE_ISA_AMX_CONVERT
-  else if (Name == "amx-convert" && Enabled)
-    Features["amx-tile"] = true;
-#endif // INTEL_FEATURE_ISA_AMX_CONVERT
-#if INTEL_FEATURE_ISA_AMX_TILE2
-  else if (Name == "amx-tile2" && Enabled)
-    Features["amx-tile"] = true;
-#endif // INTEL_FEATURE_ISA_AMX_TILE2
-#if INTEL_FEATURE_ISA_AVX_VNNI
-  else if (Name == "avxvnni") {
-    if (Enabled)
-      setSSELevel(Features, AVX2, Enabled);
-  }
-#endif // INTEL_FEATURE_ISA_AVX_VNNI
-#if INTEL_FEATURE_ISA_AVX_IFMA
-  else if (Name == "avxifma" && Enabled) {
-    setSSELevel(Features, AVX2, Enabled);
-  }
-#endif // INTEL_FEATURE_ISA_AVX_IFMA
-#if INTEL_FEATURE_ISA_AVX_CONVERT
-  else if (Name == "avxconvert" && Enabled)
-    setSSELevel(Features, AVX2, Enabled);
-#endif // INTEL_FEATURE_ISA_AVX_CONVERT
-#if INTEL_FEATURE_ISA_AVX_DOTPROD_INT8
-  else if (Name == "avxdotprodint8" && Enabled)
-    setSSELevel(Features, AVX2, Enabled);
-#endif // INTEL_FEATURE_ISA_AVX_DOTPROD_INT8
-#if INTEL_FEATURE_ISA_AVX_DOTPROD_PHPS
-  else if (Name == "avxdotprodphps" && Enabled)
-    setSSELevel(Features, AVX2, Enabled);
-#endif // INTEL_FEATURE_ISA_AVX_DOTPROD_PHPS
-#if INTEL_FEATURE_ISA_AVX_BF16
-  else if (Name == "avxbf16" && Enabled) {
-    setSSELevel(Features, AVX2, Enabled);
-  }
-#endif // INTEL_FEATURE_ISA_AVX_BF16
-#if INTEL_FEATURE_ISA_AVX_COMPRESS
-  else if (Name == "avxcompress" && Enabled) {
-    setSSELevel(Features, AVX2, Enabled);
-  }
-#endif // INTEL_FEATURE_ISA_AVX_COMPRESS
-#endif // INTEL_CUSTOMIZATION
+  SmallVector<StringRef, 8> ImpliedFeatures;
+  llvm::X86::getImpliedFeatures(Name, Enabled, ImpliedFeatures);
+  for (const auto &F : ImpliedFeatures)
+    Features[F] = Enabled;
 }
 
 /// handleTargetFeatures - Perform initialization based on the user
@@ -2085,9 +1608,9 @@ void X86TargetInfo::getCPUSpecificCPUDispatchFeatures(
 bool X86TargetInfo::validateCpuIs(StringRef FeatureStr) const {
   return llvm::StringSwitch<bool>(FeatureStr)
 #define X86_VENDOR(ENUM, STRING) .Case(STRING, true)
-#define X86_CPU_TYPE_COMPAT_ALIAS(ENUM, ALIAS) .Case(ALIAS, true)
-#define X86_CPU_TYPE_COMPAT(ARCHNAME, ENUM, STR) .Case(STR, true)
-#define X86_CPU_SUBTYPE_COMPAT(ARCHNAME, ENUM, STR) .Case(STR, true)
+#define X86_CPU_TYPE_ALIAS(ENUM, ALIAS) .Case(ALIAS, true)
+#define X86_CPU_TYPE(ENUM, STR) .Case(STR, true)
+#define X86_CPU_SUBTYPE(ENUM, STR) .Case(STR, true)
 #include "llvm/Support/X86TargetParser.def"
       .Default(false);
 }

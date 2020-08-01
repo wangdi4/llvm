@@ -28,23 +28,30 @@ from datetime import date
 # coming with Sphinx (named 'sphinx.ext.*') or your custom ones.
 extensions = ['sphinx.ext.intersphinx', 'sphinx.ext.todo']
 
-import sphinx
-if sphinx.version_info >= (3, 0):
-  # This requires 0.5 or later.
-# INTEL_CUSTOMIZATION
-  extensions.extend(['recommonmark', 'sphinx.ext.mathjax', 'sphinx.ext.graphviz'])
-# // INTEL_CUSTOMIZATION
-else:
-  source_parsers = {'.md': 'recommonmark.parser.CommonMarkParser'}
-
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ['_templates']
 
 # The suffix of source filenames.
 source_suffix = {
     '.rst': 'restructuredtext',
-    '.md': 'markdown',
 }
+
+try:
+  import recommonmark
+except ImportError:
+  # manpages do not use any .md sources
+  if not tags.has('builder-man'):
+    raise
+else:
+  import sphinx
+  if sphinx.version_info >= (3, 0):
+    # This requires 0.5 or later.
+# INTEL_CUSTOMIZATION
+    extensions.extend(['recommonmark', 'sphinx.ext.mathjax', 'sphinx.ext.graphviz'])
+# // INTEL_CUSTOMIZATION
+  else:
+    source_parsers = {'.md': 'recommonmark.parser.CommonMarkParser'}
+  source_suffix['.md'] = 'markdown'
 
 # The encoding of source files.
 #source_encoding = 'utf-8-sig'

@@ -46,12 +46,18 @@ std::string X86_MC::ParseX86Triple(const Triple &TT) {
   std::string FS;
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ICECODE
-  if (TT.getArch() == Triple::x86_icecode || TT.getArch() == Triple::x86_64)
+  // SSE2 is disabled in IceCode mode.
+  // FIXME: Why? The frontend code forces avx512 which forces sse2.
+  if (TT.getArch() == Triple::x86_icecode)
+    FS = "+64bit-mode,-32bit-mode,-16bit-mode,+icecode-mode";
+  else
 #else // INTEL_FEATURE_ICECODE
-  if (TT.getArch() == Triple::x86_64)
 #endif // INTEL_FEATURE_ICECODE
 #endif // INTEL_CUSTOMIZATION
-    FS = "+64bit-mode,-32bit-mode,-16bit-mode";
+  if (TT.isArch64Bit())
+  // SSE2 should default to enabled in 64-bit mode, but can be turned off
+  // explicitly.
+    FS = "+64bit-mode,-32bit-mode,-16bit-mode,+sse2";
   else if (TT.getEnvironment() != Triple::CODE16)
     FS = "-64bit-mode,+32bit-mode,-16bit-mode";
   else
@@ -302,11 +308,10 @@ MCSubtargetInfo *X86_MC::createX86MCSubtargetInfo(const Triple &TT,
   if (!FS.empty())
     ArchFS = (Twine(ArchFS) + "," + FS).str();
 
-  std::string CPUName = std::string(CPU);
-  if (CPUName.empty())
-    CPUName = "generic";
+  if (CPU.empty())
+    CPU = "generic";
 
-  return createX86MCSubtargetInfoImpl(TT, CPUName, ArchFS);
+  return createX86MCSubtargetInfoImpl(TT, CPU, ArchFS);
 }
 
 static MCInstrInfo *createX86MCInstrInfo() {

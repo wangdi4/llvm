@@ -1,9 +1,9 @@
 ; Inline report
 ; RUN: opt -inline -inline-threshold=15 -inline-report=7 < %s -disable-output 2>&1 | FileCheck %s
-; RUN: opt -passes='cgscc(inline)' -Os -inline-report=7 < %s -disable-output 2>&1 | FileCheck %s
+; RUN: opt -passes='cgscc(inline)' -inline-report=7 < %s -disable-output 2>&1 | FileCheck %s
 ; Inline report via metadata
 ; RUN: opt -inlinereportsetup -inline-report=0x86 < %s -S | opt -inline -inline-report=0x86 -inline-threshold=15 -S | opt -inlinereportemitter -inline-report=0x86 -inline-threshold=15 -S 2>&1 | FileCheck %s
-; RUN: opt -passes='inlinereportsetup' -inline-report=0x86 < %s -S | opt -passes='cgscc(inline)' -Os -inline-report=0x86 -S | opt -passes='inlinereportemitter' -inline-report=0x86 -S 2>&1 | FileCheck %s
+; RUN: opt -passes='inlinereportsetup' -inline-report=0x86 < %s -S | opt -passes='cgscc(inline)' -inline-report=0x86 -S | opt -passes='inlinereportemitter' -inline-report=0x86 -S 2>&1 | FileCheck %s
 
 ; CQ378383: Test to see that a single branch with a test for a global against
 ; a constant is tolerated when we are inlining with -Os (inline threshold 15).

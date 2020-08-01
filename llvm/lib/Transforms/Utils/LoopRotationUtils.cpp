@@ -44,6 +44,8 @@ using namespace llvm;
 
 #define DEBUG_TYPE "loop-rotate"
 
+STATISTIC(NumNotRotatedDueToHeaderSize,
+          "Number of loops not rotated due to the header size");
 STATISTIC(NumRotated, "Number of loops rotated");
 
 static cl::opt<bool>
@@ -458,6 +460,7 @@ bool LoopRotate::rotateLoop(Loop *L, bool SimplifiedLatch) {
                           << " instructions, which is more than the threshold ("
                           << MaxHeaderSize << " instructions): ";
                    L->dump());
+        ++NumNotRotatedDueToHeaderSize;
         return Rotated;
       }
     }
@@ -887,12 +890,7 @@ bool llvm::LoopRotation(Loop *L, LoopInfo *LI, const TargetTransformInfo *TTI,
                         const SimplifyQuery &SQ, bool RotationOnly = true,
                         unsigned Threshold = unsigned(-1),
                         bool IsUtilMode = true) {
-  if (MSSAU && VerifyMemorySSA)
-    MSSAU->getMemorySSA()->verifyMemorySSA();
   LoopRotate LR(Threshold, LI, TTI, AC, DT, SE, MSSAU, SQ, RotationOnly,
                 IsUtilMode);
-  if (MSSAU && VerifyMemorySSA)
-    MSSAU->getMemorySSA()->verifyMemorySSA();
-
   return LR.processLoop(L);
 }

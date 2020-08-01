@@ -1333,8 +1333,9 @@ Sema::DiagnoseAssignmentEnum(QualType DstType, QualType SrcType,
     }
 }
 
-StmtResult Sema::ActOnWhileStmt(SourceLocation WhileLoc, ConditionResult Cond,
-                                Stmt *Body) {
+StmtResult Sema::ActOnWhileStmt(SourceLocation WhileLoc,
+                                SourceLocation LParenLoc, ConditionResult Cond,
+                                SourceLocation RParenLoc, Stmt *Body) {
   if (Cond.isInvalid())
     return StmtError();
 
@@ -1349,7 +1350,7 @@ StmtResult Sema::ActOnWhileStmt(SourceLocation WhileLoc, ConditionResult Cond,
     getCurCompoundScope().setHasEmptyLoopBodies();
 
   return WhileStmt::Create(Context, CondVal.first, CondVal.second, Body,
-                           WhileLoc);
+                           WhileLoc, LParenLoc, RParenLoc);
 }
 
 StmtResult
@@ -3776,31 +3777,33 @@ StmtResult Sema::BuildReturnStmt(SourceLocation ReturnLoc, Expr *RetValExp) {
   } else if (!RetValExp && !HasDependentReturnType) {
     FunctionDecl *FD = getCurFunctionDecl();
 
-    unsigned DiagID;
-#if INTEL_CUSTOMIZATION
-    // Issue a warning, not error in IntelMSCompat and IntelCompat modes
-    // (CQ#364256).
-    if (getLangOpts().IntelMSCompat || getLangOpts().IntelCompat) {
-      DiagID = diag::warn_return_missing_expr_no_err;
-    } else
-#endif // INTEL_CUSTOMIZATION
     if (getLangOpts().CPlusPlus11 && FD && FD->isConstexpr()) {
       // C++11 [stmt.return]p2
-      DiagID = diag::err_constexpr_return_missing_expr;
+      Diag(ReturnLoc, diag::err_constexpr_return_missing_expr)
+          << FD << FD->isConsteval();
       FD->setInvalidDecl();
-    } else if (getLangOpts().C99) {
-      // C99 6.8.6.4p1 (ext_ since GCC warns)
-      DiagID = diag::ext_return_missing_expr;
     } else {
-      // C90 6.6.6.4p4
-      DiagID = diag::warn_return_missing_expr;
+#if INTEL_CUSTOMIZATION
+      unsigned DiagID;
+      // Issue a warning, not error in IntelMSCompat and IntelCompat modes
+      // (CQ#364256).
+      if (getLangOpts().IntelMSCompat || getLangOpts().IntelCompat)
+        DiagID = diag::warn_return_missing_expr_no_err;
+      else
+        // C99 6.8.6.4p1 (ext_ since GCC warns)
+        // C90 6.6.6.4p4
+        DiagID = getLangOpts().C99 ? diag::ext_return_missing_expr
+                                   : diag::warn_return_missing_expr;
+#endif // INTEL_CUSTOMIZATION
+      // Note that at this point one of getCurFunctionDecl() or
+      // getCurMethodDecl() must be non-null (see above).
+      assert((getCurFunctionDecl() || getCurMethodDecl()) &&
+             "Not in a FunctionDecl or ObjCMethodDecl?");
+      bool IsMethod = FD == nullptr;
+      const NamedDecl *ND =
+          IsMethod ? cast<NamedDecl>(getCurMethodDecl()) : cast<NamedDecl>(FD);
+      Diag(ReturnLoc, DiagID) << ND << IsMethod;
     }
-
-    if (FD)
-      Diag(ReturnLoc, DiagID)
-          << FD->getIdentifier() << 0 /*fn*/ << FD->isConsteval();
-    else
-      Diag(ReturnLoc, DiagID) << getCurMethodDecl()->getDeclName() << 1/*meth*/;
 
     Result = ReturnStmt::Create(Context, ReturnLoc, /* RetExpr=*/nullptr,
                                 /* NRVOCandidate=*/nullptr);

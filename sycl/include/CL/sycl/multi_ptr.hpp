@@ -275,6 +275,7 @@ public:
     return multi_ptr(m_Pointer - r);
   }
 
+#ifdef __ENABLE_USM_ADDR_SPACE__
   // Explicit conversion to global_space
   // Only available if Space == address_space::global_device_space ||
   // Space == address_space::global_host_space
@@ -288,8 +289,9 @@ public:
     using global_pointer_t = typename detail::PtrValueType<
         ElementType, access::address_space::global_space>::type *;
     return multi_ptr<ElementType, access::address_space::global_space>(
-        (global_pointer_t)m_Pointer);
+        reinterpret_cast<global_pointer_t>(m_Pointer));
   }
+#endif // __ENABLE_USM_ADDR_SPACE__
 
   // Only if Space == global_space
   template <access::address_space _Space = Space,

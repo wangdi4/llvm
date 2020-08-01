@@ -21,6 +21,7 @@
 #include "llvm/IR/DataLayout.h"
 #include "llvm/IR/InstrTypes.h"
 #include "llvm/IR/Intrinsics.h"
+#include "llvm/IR/Operator.h"
 #include <cassert>
 #include <cstdint>
 
@@ -437,6 +438,10 @@ class Value;
   /// Return true if the only users of this pointer are lifetime markers.
   bool onlyUsedByLifetimeMarkers(const Value *V);
 
+  /// Return true if the only users of this pointer are lifetime markers or
+  /// droppable instructions.
+  bool onlyUsedByLifetimeMarkersOrDroppableInsts(const Value *V);
+
   /// Return true if speculation of the given load must be suppressed to avoid
   /// ordering or interfering with an active sanitizer.  If not suppressed,
   /// dereferenceability and alignment must be proven separately.  Note: This
@@ -444,7 +449,7 @@ class Value;
   /// (isSafeToSpeculativelyExecute), this is handled internally.
   bool mustSuppressSpeculation(const LoadInst &LI);
 
-  bool onlyUsedByLifetimeAndVarAnnot(const Value *V);    //INTEL
+  bool onlyUsedByVarAnnot(const Value *V); // INTEL
 
   /// Return true if the instruction does not have any effects besides
   /// calculating the result and does not have undefined behavior.
@@ -615,18 +620,26 @@ class Value;
   /// the parent of I.
   bool programUndefinedIfPoison(const Instruction *PoisonI);
 
-  /// Return true if I can create poison from non-poison operands.
-  /// For vectors, canCreatePoison returns true if there is potential poison in
-  /// any element of the result when vectors without poison are given as
+  /// canCreateUndefOrPoison returns true if Op can create undef or poison from
+  /// non-undef & non-poison operands.
+  /// For vectors, canCreateUndefOrPoison returns true if there is potential
+  /// poison or undef in any element of the result when vectors without
+  /// undef/poison poison are given as operands.
+  /// For example, given `Op = shl <2 x i32> %x, <0, 32>`, this function returns
+  /// true. If Op raises immediate UB but never creates poison or undef
+  /// (e.g. sdiv I, 0), canCreatePoison returns false.
+  ///
+  /// canCreatePoison returns true if Op can create poison from non-poison
   /// operands.
-  /// For example, given `I = shl <2 x i32> %x, <0, 32>`, this function returns
-  /// true. If I raises immediate UB but never creates poison (e.g. sdiv I, 0),
-  /// canCreatePoison returns false.
-  bool canCreatePoison(const Instruction *I);
+  bool canCreateUndefOrPoison(const Operator *Op);
+  bool canCreatePoison(const Operator *Op);
 
   /// Return true if this function can prove that V is never undef value
-  /// or poison value.
-  //
+  /// or poison value. If V is an aggregate value or vector, check whether all
+  /// elements (except padding) are not undef or poison.
+  /// Note that this is different from canCreateUndefOrPoison because the
+  /// function assumes Op's operands are not poison/undef.
+  ///
   /// If CtxI and DT are specified this method performs flow-sensitive analysis
   /// and returns true if it is guaranteed to be never undef or poison
   /// immediately before the CtxI.

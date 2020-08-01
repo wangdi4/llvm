@@ -27,6 +27,7 @@
 #include "llvm/CodeGen/RegAllocRegistry.h"
 #include "llvm/CodeGen/SchedulerRegistry.h"
 #include "llvm/CodeGen/TargetSubtargetInfo.h"
+#include "llvm/GenXIntrinsics/GenXSPIRVWriterAdaptor.h"
 #include "llvm/IR/DataLayout.h"
 #include "llvm/IR/IRPrintingPasses.h"
 #include "llvm/IR/LegacyPassManager.h"
@@ -42,7 +43,6 @@
 #include "llvm/Passes/StandardInstrumentations.h"
 #include "llvm/Support/BuryPointer.h"
 #include "llvm/Support/CommandLine.h"
-#include "llvm/Support/Debug.h"
 #include "llvm/Support/MemoryBuffer.h"
 #include "llvm/Support/PrettyStackTrace.h"
 #include "llvm/Support/TargetRegistry.h"
@@ -76,6 +76,7 @@
 #include "llvm/Transforms/ObjCARC.h"
 #include "llvm/Transforms/Scalar.h"
 #include "llvm/Transforms/Scalar/GVN.h"
+#include "llvm/Transforms/Scalar/LowerMatrixIntrinsics.h"
 #include "llvm/Transforms/Utils.h"
 #include "llvm/Transforms/Utils/CanonicalizeAliases.h"
 #include "llvm/Transforms/Utils/EntryExitInstrumenter.h"
@@ -83,11 +84,6 @@
 #include "llvm/Transforms/Utils/SymbolRewriter.h"
 #include "llvm/Transforms/Utils/UniqueInternalLinkageNames.h"
 #include <memory>
-
-namespace SPIRV {
-  extern llvm::cl::opt<bool> SPIRVNoDerefAttr;
-}
-
 using namespace clang;
 using namespace llvm;
 
@@ -631,51 +627,22 @@ void EmitAssemblyHelper::CreatePasses(legacy::PassManager &MPM,
     CodeGenOpts.DisableIntelProprietaryOpts;
 #endif // INTEL_CUSTOMIZATION
 
-  // FIXME: This code is a workaround for a number of problems with optimized
-  // SYCL code for the SPIR target. This change trying to balance between doing
-  // too few and too many optimizations. The current approach is to disable as
-  // much as possible just to keep the compiler functional. Eventually we can
-  // consider allowing -On option to configure the optimization set for the FE
-  // device compiler as well, but before that we must fix all the functional and
-  // performance issues caused by LLVM transformantions.
-  // E.g. LLVM optimizations make use of llvm intrinsics, instructions, data
-  // types, etc., which are not supported by the SPIR-V translator (current
-  // "back-end" for SYCL device compiler).
-  // NOTE: We use "normal" inliner (i.e. from O2/O3), but limit the rest of
-  // optimization pipeline. Inliner is a must for enabling size reduction
-  // optimizations.
-  if (LangOpts.SYCLIsDevice && TargetTriple.isSPIR()) {
-    PMBuilder.OptLevel = 1;
-    PMBuilder.SizeLevel = 2;
-    PMBuilder.SLPVectorize = false;
-    PMBuilder.LoopVectorize = false;
-    PMBuilder.DivergentTarget = true;
-    PMBuilder.DisableGVNLoadPRE = true;
-    PMBuilder.ForgetAllSCEVInLoopUnroll = true;
+  PMBuilder.OptLevel = CodeGenOpts.OptimizationLevel;
+  PMBuilder.SizeLevel = CodeGenOpts.OptimizeSize;
+  PMBuilder.SLPVectorize = CodeGenOpts.VectorizeSLP;
+  PMBuilder.LoopVectorize = CodeGenOpts.VectorizeLoop;
+  // Only enable CGProfilePass when using integrated assembler, since
+  // non-integrated assemblers don't recognize .cgprofile section.
+  PMBuilder.CallGraphProfile = !CodeGenOpts.DisableIntegratedAS;
 
-    PMBuilder.DisableUnrollLoops = true;
-    // Loop interleaving in the loop vectorizer has historically been set to be
-    // enabled when loop unrolling is enabled.
-    PMBuilder.LoopsInterleaved = false;
-    PMBuilder.MergeFunctions = false;
-    PMBuilder.PrepareForThinLTO = false;
-    PMBuilder.PrepareForLTO = false;
-    PMBuilder.RerollLoops = false;
-  } else {
-    PMBuilder.OptLevel = CodeGenOpts.OptimizationLevel;
-    PMBuilder.SizeLevel = CodeGenOpts.OptimizeSize;
-    PMBuilder.SLPVectorize = CodeGenOpts.VectorizeSLP;
-    PMBuilder.LoopVectorize = CodeGenOpts.VectorizeLoop;
-
-    PMBuilder.DisableUnrollLoops = !CodeGenOpts.UnrollLoops;
-    // Loop interleaving in the loop vectorizer has historically been set to be
-    // enabled when loop unrolling is enabled.
-    PMBuilder.LoopsInterleaved = CodeGenOpts.UnrollLoops;
-    PMBuilder.MergeFunctions = CodeGenOpts.MergeFunctions;
-    PMBuilder.PrepareForThinLTO = CodeGenOpts.PrepareForThinLTO;
-    PMBuilder.PrepareForLTO = CodeGenOpts.PrepareForLTO;
-    PMBuilder.RerollLoops = CodeGenOpts.RerollLoops;
-  }
+  PMBuilder.DisableUnrollLoops = !CodeGenOpts.UnrollLoops;
+  // Loop interleaving in the loop vectorizer has historically been set to be
+  // enabled when loop unrolling is enabled.
+  PMBuilder.LoopsInterleaved = CodeGenOpts.UnrollLoops;
+  PMBuilder.MergeFunctions = CodeGenOpts.MergeFunctions;
+  PMBuilder.PrepareForThinLTO = CodeGenOpts.PrepareForThinLTO;
+  PMBuilder.PrepareForLTO = CodeGenOpts.PrepareForLTO;
+  PMBuilder.RerollLoops = CodeGenOpts.RerollLoops;
 
   MPM.add(new TargetLibraryInfoWrapperPass(*TLII));
 
@@ -933,6 +900,9 @@ void EmitAssemblyHelper::EmitAssembly(BackendAction Action,
   // Clean-up SYCL device code if LLVM passes are disabled
   if (LangOpts.SYCLIsDevice && CodeGenOpts.DisableLLVMPasses)
     PerModulePasses.add(createDeadCodeEliminationPass());
+
+  if (LangOpts.SYCLIsDevice && LangOpts.SYCLExplicitSIMD)
+    PerModulePasses.add(createGenXSPIRVWriterAdaptorPass());
 
   switch (Action) {
   case Backend_EmitNothing:
@@ -1195,11 +1165,13 @@ void EmitAssemblyHelper::EmitAssemblyWithNewPassManager(
   PTO.LoopInterleaving = CodeGenOpts.UnrollLoops;
   PTO.LoopVectorization = CodeGenOpts.VectorizeLoop;
   PTO.SLPVectorization = CodeGenOpts.VectorizeSLP;
-  PTO.CallGraphProfile = CodeGenOpts.CallGraphProfile;
+  // Only enable CGProfilePass when using integrated assembler, since
+  // non-integrated assemblers don't recognize .cgprofile section.
+  PTO.CallGraphProfile = !CodeGenOpts.DisableIntegratedAS;
   PTO.Coroutines = LangOpts.Coroutines;
 
   PassInstrumentationCallbacks PIC;
-  StandardInstrumentations SI;
+  StandardInstrumentations SI(CodeGenOpts.DebugPassManager);
   SI.registerCallbacks(PIC);
   PassBuilder PB(TM.get(), PTO, PGOOpt, &PIC);
 
@@ -1419,6 +1391,13 @@ void EmitAssemblyHelper::EmitAssemblyWithNewPassManager(
     }
 
     if (CodeGenOpts.OptimizationLevel == 0) {
+      // FIXME: the backends do not handle matrix intrinsics currently. Make
+      // sure they are also lowered in O0. A lightweight version of the pass
+      // should run in the backend pipeline on demand.
+      if (LangOpts.MatrixTypes)
+        MPM.addPass(
+            createModuleToFunctionPassAdaptor(LowerMatrixIntrinsicsPass()));
+
       addCoroutinePassesAtO0(MPM, LangOpts, CodeGenOpts);
       addSanitizersAtO0(MPM, TargetTriple, LangOpts, CodeGenOpts);
     }
@@ -1614,7 +1593,9 @@ static void runThinLTOBackend(
   Conf.PTO.LoopInterleaving = CGOpts.UnrollLoops;
   Conf.PTO.LoopVectorization = CGOpts.VectorizeLoop;
   Conf.PTO.SLPVectorization = CGOpts.VectorizeSLP;
-  Conf.PTO.CallGraphProfile = CGOpts.CallGraphProfile;
+  // Only enable CGProfilePass when using integrated assembler, since
+  // non-integrated assemblers don't recognize .cgprofile section.
+  Conf.PTO.CallGraphProfile = !CGOpts.DisableIntegratedAS;
 
   // Context sensitive profile.
   if (CGOpts.hasProfileCSIRInstr()) {

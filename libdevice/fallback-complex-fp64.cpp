@@ -12,6 +12,10 @@
 #ifdef __SPIR__
 #include <cmath>
 
+// To support fallback device libraries on-demand loading, please update the
+// DeviceLibFuncMap in llvm/tools/sycl-post-link/sycl-post-link.cpp if you add
+// or remove any item in this file.
+
 #if INTEL_COLLAB
 #if OMP_LIBDEVICE
 #pragma omp declare target

@@ -228,44 +228,17 @@ bool X86Subtarget::isLegalToCallImmediateAddr() const {
 }
 
 void X86Subtarget::initSubtargetFeatures(StringRef CPU, StringRef FS) {
-  std::string CPUName = std::string(CPU);
-  if (CPUName.empty())
-    CPUName = "generic";
+  if (CPU.empty())
+    CPU = "generic";
 
-  std::string FullFS = std::string(FS);
-  if (In64BitMode) {
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ICECODE
-    // SSE2 is disabled in IceCode mode.
-    if (!InIceCodeMode)
-#endif // INTEL_FEATURE_ICECODE
-#endif // INTEL_CUSTOMIZATION
-    // SSE2 should default to enabled in 64-bit mode, but can be turned off
-    // explicitly.
-    if (!FullFS.empty())
-      FullFS = "+sse2," + FullFS;
-    else
-      FullFS = "+sse2";
+  std::string FullFS = X86_MC::ParseX86Triple(TargetTriple);
+  assert(!FullFS.empty() && "Failed to parse X86 triple");
 
-    // If no CPU was specified, enable 64bit feature to satisy later check.
-    if (CPUName == "generic") {
-      if (!FullFS.empty())
-        FullFS = "+64bit," + FullFS;
-      else
-        FullFS = "+64bit";
-    }
-  }
-
-  // LAHF/SAHF are always supported in non-64-bit mode.
-  if (!In64BitMode) {
-    if (!FullFS.empty())
-      FullFS = "+sahf," + FullFS;
-    else
-      FullFS = "+sahf";
-  }
+  if (!FS.empty())
+    FullFS = (Twine(FullFS) + "," + FS).str();
 
   // Parse features string and set the CPU.
-  ParseSubtargetFeatures(CPUName, FullFS);
+  ParseSubtargetFeatures(CPU, FullFS);
 
   // All CPUs that implement SSE4.2 or SSE4A support unaligned accesses of
   // 16-bytes and under that are reasonably fast. These features were
@@ -273,17 +246,6 @@ void X86Subtarget::initSubtargetFeatures(StringRef CPU, StringRef FS) {
   // micro-architectures respectively.
   if (hasSSE42() || hasSSE4A())
     IsUAMem16Slow = false;
-
-  // It's important to keep the MCSubtargetInfo feature bits in sync with
-  // target data structure which is shared with MC code emitter, etc.
-  if (In64BitMode)
-    ToggleFeature(X86::Mode64Bit);
-  else if (In32BitMode)
-    ToggleFeature(X86::Mode32Bit);
-  else if (In16BitMode)
-    ToggleFeature(X86::Mode16Bit);
-  else
-    llvm_unreachable("Not 16-bit, 32-bit or 64-bit mode!");
 
   LLVM_DEBUG(dbgs() << "Subtarget features: SSELevel " << X86SSELevel
                     << ", 3DNowLevel " << X863DNowLevel << ", 64bit "
@@ -335,19 +297,6 @@ X86Subtarget::X86Subtarget(const Triple &TT, StringRef CPU, StringRef FS,
       TM(TM), TargetTriple(TT), StackAlignOverride(StackAlignOverride),
       PreferVectorWidthOverride(PreferVectorWidthOverride),
       RequiredVectorWidth(RequiredVectorWidth),
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ICECODE
-      InIceCodeMode(TargetTriple.getArch() == Triple::x86_icecode),
-      In64BitMode(TargetTriple.getArch() == Triple::x86_64 ||
-                  TargetTriple.getArch() == Triple::x86_icecode),
-#else // INTEL_FEATURE_ICECODE
-      In64BitMode(TargetTriple.getArch() == Triple::x86_64),
-#endif // INTEL_FEATURE_ICECODE
-#endif // INTEL_CUSTOMIZATION
-      In32BitMode(TargetTriple.getArch() == Triple::x86 &&
-                  TargetTriple.getEnvironment() != Triple::CODE16),
-      In16BitMode(TargetTriple.getArch() == Triple::x86 &&
-                  TargetTriple.getEnvironment() == Triple::CODE16),
       InstrInfo(initializeSubtargetDependencies(CPU, FS)), TLInfo(TM, *this),
       FrameLowering(*this, getStackAlignment()) {
   // Determine the PICStyle based on the target selected.

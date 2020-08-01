@@ -1,4 +1,4 @@
-; RUN: opt -basicaa -gvn -S < %s 2>&1 | FileCheck %s
+; RUN: opt -basic-aa -gvn -S < %s 2>&1 | FileCheck %s
 ; AA and GVN of memrefs from constant-index subscripts should work.
 ; %add36 should be propagated to the mul, in place of the load.
 

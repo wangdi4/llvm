@@ -394,6 +394,8 @@ BUILTIN(__builtin_ctanl, "XLdXLd", "Fne")
 BUILTIN(__builtin_ctanh, "XdXd", "Fne")
 BUILTIN(__builtin_ctanhf, "XfXf", "Fne")
 BUILTIN(__builtin_ctanhl, "XLdXLd", "Fne")
+// GCC-compatible C99 CMPLX implementation.
+BUILTIN(__builtin_complex, "v.", "nct")
 
 #if INTEL_CUSTOMIZATION
 // CQ#366852. MCU high-priority (according to D. Kreitzer) builtins.

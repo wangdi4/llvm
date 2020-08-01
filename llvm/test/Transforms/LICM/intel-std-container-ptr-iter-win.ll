@@ -1,4 +1,4 @@
-; RUN: opt < %s  -tbaa  -std-container-alias  -basiccg -domtree -basicaa -aa -std-container-opt -loops  -loop-rotate -licm   -S | FileCheck %s
+; RUN: opt < %s  -tbaa  -std-container-alias  -basiccg -domtree -basic-aa -aa -std-container-opt -loops  -loop-rotate -licm   -S | FileCheck %s
 ;
 ; The compiler is expected to hoist out the load *ita. The header file vector
 ; is pre-processed under Windows.

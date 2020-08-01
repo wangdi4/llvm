@@ -1313,6 +1313,7 @@ void DeclSpec::Finish(Sema &S, const PrintingPolicy &Policy) {
 #endif // INTEL_FEATURE_ISA_FP16
 #endif // INTEL_CUSTOMIZATION
                TypeSpecType != TST_float128) {
+      // FIXME: _Float16, __fp16?
       S.Diag(TSCLoc, diag::err_invalid_complex_spec)
           << getSpecifierName((TST)TypeSpecType, Policy);
       TypeSpecComplex = TSC_unspecified;

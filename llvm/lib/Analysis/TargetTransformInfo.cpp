@@ -322,6 +322,29 @@ bool TargetTransformInfo::emitGetActiveLaneMask() const {
   return TTIImpl->emitGetActiveLaneMask();
 }
 
+Optional<Instruction *>
+TargetTransformInfo::instCombineIntrinsic(InstCombiner &IC,
+                                          IntrinsicInst &II) const {
+  return TTIImpl->instCombineIntrinsic(IC, II);
+}
+
+Optional<Value *> TargetTransformInfo::simplifyDemandedUseBitsIntrinsic(
+    InstCombiner &IC, IntrinsicInst &II, APInt DemandedMask, KnownBits &Known,
+    bool &KnownBitsComputed) const {
+  return TTIImpl->simplifyDemandedUseBitsIntrinsic(IC, II, DemandedMask, Known,
+                                                   KnownBitsComputed);
+}
+
+Optional<Value *> TargetTransformInfo::simplifyDemandedVectorEltsIntrinsic(
+    InstCombiner &IC, IntrinsicInst &II, APInt DemandedElts, APInt &UndefElts,
+    APInt &UndefElts2, APInt &UndefElts3,
+    std::function<void(Instruction *, unsigned, APInt, APInt &)>
+        SimplifyAndSetOp) const {
+  return TTIImpl->simplifyDemandedVectorEltsIntrinsic(
+      IC, II, DemandedElts, UndefElts, UndefElts2, UndefElts3,
+      SimplifyAndSetOp);
+}
+
 void TargetTransformInfo::getUnrollingPreferences(
     Loop *L, ScalarEvolution &SE, UnrollingPreferences &UP) const {
   return TTIImpl->getUnrollingPreferences(L, SE, UP);
@@ -337,6 +360,11 @@ bool TargetTransformInfo::needsStructuredCFG() const {
   return TTIImpl->needsStructuredCFG();
 }
 #endif
+
+void TargetTransformInfo::getPeelingPreferences(Loop *L, ScalarEvolution &SE,
+                                                PeelingPreferences &PP) const {
+  return TTIImpl->getPeelingPreferences(L, SE, PP);
+}
 
 bool TargetTransformInfo::isLegalAddImmediate(int64_t Imm) const {
   return TTIImpl->isLegalAddImmediate(Imm);
@@ -1014,7 +1042,8 @@ static bool matchPairwiseShuffleMask(ShuffleVectorInst *SI, bool IsLeft,
   else if (!SI)
     return false;
 
-  SmallVector<int, 32> Mask(SI->getType()->getNumElements(), -1);
+  SmallVector<int, 32> Mask(
+      cast<FixedVectorType>(SI->getType())->getNumElements(), -1);
 
   // Build a mask of 0, 2, ... (left) or 1, 3, ... (right) depending on whether
   // we look at the left or right side.
@@ -1153,7 +1182,7 @@ TTI::ReductionKind TTI::matchPairwiseReduction(
   if (!RD)
     return TTI::RK_None;
 
-  auto *VecTy = cast<VectorType>(RdxStart->getType());
+  auto *VecTy = cast<FixedVectorType>(RdxStart->getType());
   unsigned NumVecElems = VecTy->getNumElements();
   if (!isPowerOf2_32(NumVecElems))
     return TTI::RK_None;
@@ -1218,7 +1247,7 @@ TTI::ReductionKind TTI::matchVectorSplittingReduction(
   if (!RD)
     return TTI::RK_None;
 
-  auto *VecTy = cast<VectorType>(ReduxRoot->getOperand(0)->getType());
+  auto *VecTy = cast<FixedVectorType>(ReduxRoot->getOperand(0)->getType());
   unsigned NumVecElems = VecTy->getNumElements();
   if (!isPowerOf2_32(NumVecElems))
     return TTI::RK_None;

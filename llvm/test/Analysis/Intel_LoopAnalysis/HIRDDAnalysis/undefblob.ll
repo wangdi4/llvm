@@ -1,6 +1,6 @@
 ;  There was a compfail to get BlobValue.
 ;  It's sufficient to check if HIR is produced at the end
-; RUN: opt -scoped-noalias -hir-ssa-deconstruction -hir-runtime-dd -hir-vec-dir-insert -VPlanDriverHIR  -print-after=VPlanDriverHIR < %s 2>&1 | FileCheck %s
+; RUN: opt -scoped-noalias-aa -hir-ssa-deconstruction -hir-runtime-dd -hir-vec-dir-insert -VPlanDriverHIR  -print-after=VPlanDriverHIR < %s 2>&1 | FileCheck %s
 ;
 ; CHECK: After
 ; CHECK: DO i1

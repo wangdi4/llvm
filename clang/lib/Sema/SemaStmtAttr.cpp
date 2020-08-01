@@ -62,14 +62,15 @@ static bool HandleLoopFuseAttrArg(Sema &S, ArgsUnion AU,
     if (!E)
       return true;
 
-    llvm::APSInt ArgVal;
-    if (E->isIntegerConstantExpr(ArgVal, S.getASTContext())) {
-      if (!ArgVal.isStrictlyPositive()) {
+    Optional<llvm::APSInt> ArgVal =
+        E->getIntegerConstantExpr(S.getASTContext());
+    if (ArgVal) {
+      if (!ArgVal->isStrictlyPositive()) {
         S.Diag(E->getExprLoc(), diag::err_attribute_requires_positive_integer)
             << "'loop_fuse'" << /* positive */ 0;
         return false;
       }
-      DepthValue = ArgVal.getZExtValue();
+      DepthValue = ArgVal->getZExtValue();
       return true;
     }
     S.Diag(E->getExprLoc(), diag::err_loop_fuse_unknown_arg);
@@ -78,7 +79,6 @@ static bool HandleLoopFuseAttrArg(Sema &S, ArgsUnion AU,
     if (!IE)
       return true;
     Independent = true;
-    return true;
   }
   return true;
 }
@@ -188,12 +188,11 @@ static IVDepExprResult HandleFPGAIVDepAttrExpr(Sema &S, Expr *E,
   if (E->isInstantiationDependent())
     return IVDepExprResult::Dependent;
 
-  llvm::APSInt ArgVal;
-
-  if (E->isIntegerConstantExpr(ArgVal, S.getASTContext())) {
-    if (checkSYCLIntelFPGAIVDepSafeLen(S, ArgVal, E))
+  Optional<llvm::APSInt> ArgVal = E->getIntegerConstantExpr(S.getASTContext());
+  if (ArgVal) {
+    if (checkSYCLIntelFPGAIVDepSafeLen(S, *ArgVal, E))
       return IVDepExprResult::Invalid;
-    SafelenValue = ArgVal.getZExtValue();
+    SafelenValue = ArgVal->getZExtValue();
     return IVDepExprResult::SafeLen;
   }
 
@@ -833,6 +832,7 @@ public:
   bool foundCallExpr() { return FoundCallExpr; }
 
   void VisitCallExpr(const CallExpr *E) { FoundCallExpr = true; }
+  void VisitAsmStmt(const AsmStmt *S) { FoundCallExpr = true; }
 
   void Visit(const Stmt *St) {
     if (!St)
@@ -1347,20 +1347,19 @@ static bool CheckLoopUnrollAttrExpr(Sema &S, Expr *E,
                                     const AttributeCommonInfo &A,
                                     unsigned *UnrollFactor = nullptr) {
   if (E && !E->isInstantiationDependent()) {
-    llvm::APSInt ArgVal(32);
-
-    if (!E->isIntegerConstantExpr(ArgVal, S.Context))
+    Optional<llvm::APSInt> ArgVal = E->getIntegerConstantExpr(S.Context);
+    if (!ArgVal)
       return S.Diag(E->getExprLoc(), diag::err_attribute_argument_type)
              << A.getAttrName() << AANT_ArgumentIntegerConstant
              << E->getSourceRange();
 
-    if (ArgVal.isNonPositive())
+    if (ArgVal->isNonPositive())
       return S.Diag(E->getExprLoc(),
                     diag::err_attribute_requires_positive_integer)
              << A.getAttrName() << /* positive */ 0;
 
     if (UnrollFactor)
-      *UnrollFactor = ArgVal.getZExtValue();
+      *UnrollFactor = ArgVal->getZExtValue();
   }
   return false;
 }

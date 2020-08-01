@@ -39,9 +39,9 @@ llvm_config.use_default_substitutions()
 llvm_config.use_lld()
 
 tool_patterns = [
-    'llc', 'llvm-as', 'llvm-mc', 'llvm-nm', 'llvm-objdump', 'llvm-pdbutil',
-    'llvm-dwarfdump', 'llvm-readelf', 'llvm-readobj', 'obj2yaml', 'yaml2obj',
-    'opt', 'llvm-dis']
+    'extract', 'llc', 'llvm-as', 'llvm-mc', 'llvm-nm', 'llvm-objdump',
+    'llvm-pdbutil', 'llvm-dwarfdump', 'llvm-readelf', 'llvm-readobj',
+    'obj2yaml', 'yaml2obj', 'opt', 'llvm-dis']
 # INTEL_CUSTOMIZATION
 tool_patterns.append('clang-cl')
 # Note: 'clang' was added in the tools instead of 'clang++' because there is
@@ -104,7 +104,7 @@ config.environment['INTEL_LLD_IN_TEST'] = '1'
 # Indirectly check if the mt.exe Microsoft utility exists by searching for
 # cvtres, which always accompanies it.  Alternatively, check if we can use
 # libxml2 to merge manifests.
-if (lit.util.which('cvtres', config.environment['PATH']) or 
+if (lit.util.which('cvtres', config.environment['PATH']) or
         config.llvm_libxml2_enabled):
     config.available_features.add('manifest_tool')
 

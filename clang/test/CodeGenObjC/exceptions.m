@@ -25,12 +25,13 @@ void f1() {
     // CHECK-NEXT: icmp
     // CHECK-NEXT: br i1
     @try {
+    // INTEL  this CHECK line moved down verbatim
     // CHECK:      call void asm sideeffect "", "*m"
     // CHECK-NEXT: call void @foo()
       foo();
     // CHECK:      call void @objc_exception_try_exit
+    // CHECK:      call void asm sideeffect "", "=*m"   ;INTEL
 
-    // CHECK:      call void asm sideeffect "", "=*m"
     } @finally {
       break;
     }
@@ -53,14 +54,12 @@ int f2() {
   // CHECK-NEXT:   [[CAUGHT:%.*]] = icmp eq i32 [[SETJMP]], 0
   // CHECK-NEXT:   br i1 [[CAUGHT]]
   @try {
-    // CHECK: store i32 6, i32* [[X]]
-    x++;
-    // CHECK-NEXT: call void asm sideeffect "", "*m,*m"(i32* nonnull [[X]]
-    // CHECK-NEXT: call void @foo()
-    // CHECK-NEXT: call void @objc_exception_try_exit
-    // CHECK-NEXT: [[T:%.*]] = load i32, i32* [[X]]
-    foo();
-  } @catch (id) {
+    // CHECK: store i32 6, i32* [[X]]                                      ;INTEL
+    // CHECK-NEXT: call void asm sideeffect "", "*m,*m"(i32* nonnull [[X]] ;INTEL
+    // CHECK-NEXT: call void @foo()                                        ;INTEL
+    // CHECK-NEXT: call void @objc_exception_try_exit                      ;INTEL
+    // CHECK-NEXT: [[T:%.*]] = load i32, i32* [[X]]                        ;INTEL
+
     // Landing pad.  Note that we elide the re-enter.
     // CHECK:      call void asm sideeffect "", "=*m,=*m"(i32* nonnull [[X]]
     // CHECK-NEXT: call i8* @objc_exception_extract
@@ -69,6 +68,12 @@ int f2() {
 
     // This store is dead.
     // CHECK-NEXT: store i32 [[T2]], i32* [[X]]
+
+    // COM: CHECK: store i32 6, i32* [[X]] ;INTEL this line moved up verbatim
+    x++;
+    // ;INTEL  4 lines from here moved up verbatim
+    foo();
+  } @catch (id) {
     x--;
   }
 
@@ -89,23 +94,23 @@ void f3() {
 
   // CHECK:      call void @objc_exception_try_enter(
   // CHECK:      call i32 @_setjmp
-  // CHECK-NEXT: icmp eq
-  // CHECK-NEXT: br i1
+  // CHECK-NEXT: [[DEST1:%.*]] = icmp eq
+  // CHECK-NEXT: br i1 [[DEST1]]
 
   @try {
     // CHECK:    call void @f3_helper(i32 0, i32* nonnull [[X]])
     // CHECK:    call void @objc_exception_try_exit(
     f3_helper(0, &x);
   } @finally {
-    // CHECK:    [[DEST1:%.*]] = phi i1 [ true, {{%.*}} ], [ false, {{%.*}} ]
     // CHECK:    call void @objc_exception_try_enter
     // CHECK:    call i32 @_setjmp
+    // CHECK-NEXT: [[DEST2:%.*]] = icmp eq
+    // CHECK-NEXT: br i1 [[DEST2]]
     @try {
       // CHECK:  call void @f3_helper(i32 1, i32* nonnull [[X]])
       // CHECK:  call void @objc_exception_try_exit(
       f3_helper(1, &x);
     } @finally {
-      // CHECK:  [[DEST2:%.*]] = phi i1 [ true, {{%.*}} ], [ false, {{%.*}} ]
       // CHECK:  call void @f3_helper(i32 2, i32* nonnull [[X]])
       f3_helper(2, &x);
 

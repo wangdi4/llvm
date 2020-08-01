@@ -386,9 +386,9 @@ cl::opt<bool> EnableOrderFileInstrumentation(
     "enable-order-file-instrumentation", cl::init(false), cl::Hidden,
     cl::desc("Enable order file instrumentation (default = off)"));
 
-static cl::opt<bool>
-    EnableMatrix("enable-matrix", cl::init(false), cl::Hidden,
-                 cl::desc("Enable lowering of the matrix intrinsics"));
+cl::opt<bool> EnableMatrix(
+    "enable-matrix", cl::init(false), cl::Hidden,
+    cl::desc("Enable lowering of the matrix intrinsics"));
 
 cl::opt<AttributorRunOption> AttributorRun(
     "attributor-enable", cl::Hidden, cl::init(AttributorRunOption::NONE),
@@ -433,6 +433,7 @@ PassManagerBuilder::PassManagerBuilder() {
 #if INTEL_CUSTOMIZATION
     DisableIntelProprietaryOpts = false;
 #endif // INTEL_CUSTOMIZATION
+    CallGraphProfile = true;
 }
 
 PassManagerBuilder::~PassManagerBuilder() {
@@ -584,6 +585,12 @@ void PassManagerBuilder::populateFunctionPassManager(
     }
   }
 #endif // INTEL_COLLAB
+  // The backends do not handle matrix intrinsics currently.
+  // Make sure they are also lowered in O0.
+  // FIXME: A lightweight version of the pass should run in the backend
+  //        pipeline on demand.
+  if (EnableMatrix && OptLevel == 0)
+    FPM.add(createLowerMatrixIntrinsicsMinimalPass());
 
   if (OptLevel == 0) return;
 
@@ -861,6 +868,7 @@ void PassManagerBuilder::populateModulePassManager(
       MPM.add(createBarrierNoopPass());
 
     if (PerformThinLTO) {
+      MPM.add(createLowerTypeTestsPass(nullptr, nullptr, true));
       // Drop available_externally and unreferenced globals. This is necessary
       // with ThinLTO in order to avoid leaving undefined references to dead
       // globals in the object file.
@@ -923,9 +931,11 @@ void PassManagerBuilder::populateModulePassManager(
   // inter-module indirect calls. For that we perform indirect call promotion
   // earlier in the pass pipeline, here before globalopt. Otherwise imported
   // available_externally functions look unreferenced and are removed.
-  if (PerformThinLTO)
+  if (PerformThinLTO) {
     MPM.add(createPGOIndirectCallPromotionLegacyPass(/*InLTO = */ true,
                                                      !PGOSampleUse.empty()));
+    MPM.add(createLowerTypeTestsPass(nullptr, nullptr, true));
+  }
 
   // For SamplePGO in ThinLTO compile phase, we do not want to unroll loops
   // as it will change the CFG too much to make the 2nd profile annotation
@@ -1247,7 +1257,11 @@ void PassManagerBuilder::populateModulePassManager(
   // convert to more optimized IR using more aggressive simplify CFG options.
   // The extra sinking transform can create larger basic blocks, so do this
   // before SLP vectorization.
-  MPM.add(createCFGSimplificationPass(1, true, true, false, true));
+  MPM.add(createCFGSimplificationPass(SimplifyCFGOptions()
+                                          .forwardSwitchCondToPhi(true)
+                                          .convertSwitchToLookupTable(true)
+                                          .needCanonicalLoops(false)
+                                          .sinkCommonInsts(true)));
 
   if (SLPVectorize) {
     MPM.add(createSLPVectorizerPass()); // Vectorize parallel scalar chains.
@@ -1334,6 +1348,10 @@ void PassManagerBuilder::populateModulePassManager(
 
   if (MergeFunctions)
     MPM.add(createMergeFunctionsPass());
+
+  // Add Module flag "CG Profile" based on Branch Frequency Information.
+  if (CallGraphProfile)
+    MPM.add(createCGProfileLegacyPass());
 
   // LoopSink pass sinks instructions hoisted by LICM, which serves as a
   // canonicalization pass that enables other optimizations. As a result,
@@ -2231,8 +2249,8 @@ void PassManagerBuilder::populateThinLTOPassManager(
     PM.add(createVerifierPass());
 
   if (ImportSummary) {
-    // These passes import type identifier resolutions for whole-program
-    // devirtualization and CFI. They must run early because other passes may
+    // This pass imports type identifier resolutions for whole-program
+    // devirtualization and CFI. It must run early because other passes may
     // disturb the specific instruction patterns that these passes look for,
     // creating dependencies on resolutions that may not appear in the summary.
     //
@@ -2280,6 +2298,9 @@ void PassManagerBuilder::populateLTOPassManager(legacy::PassManagerBase &PM) {
   // control flow integrity mechanisms (-fsanitize=cfi*) and needs to run at
   // link time if CFI is enabled. The pass does nothing if CFI is disabled.
   PM.add(createLowerTypeTestsPass(ExportSummary, nullptr));
+  // Run a second time to clean up any type tests left behind by WPD for use
+  // in ICP (which is performed earlier than this in the regular LTO pipeline).
+  PM.add(createLowerTypeTestsPass(nullptr, nullptr, true));
 
   if (OptLevel != 0)
     addLateLTOOptimizationPasses(PM);

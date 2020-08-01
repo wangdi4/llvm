@@ -6,7 +6,7 @@
 
 ; REQUIRES: asserts
 ; RUN: opt -O2  -debug-only=hir-loop-interchange -hir-loop-interchange   < %s 2>&1 | FileCheck %s
-; RUN: opt -passes="hir-loop-interchange" -aa-pipeline="basic-aa" -O2  -debug-only=hir-loop-interchange   < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-loop-interchange" -aa-pipeline="basic-aa" -debug-only=hir-loop-interchange   < %s 2>&1 | FileCheck %s
 ; CHECK: Interchanged:
 ; CHECK-SAME:  ( 2 1 )
 

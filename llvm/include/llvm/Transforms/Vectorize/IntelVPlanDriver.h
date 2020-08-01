@@ -34,6 +34,8 @@ private:
   AssumptionCache *AC;
   AliasAnalysis *AA;
   DemandedBits *DB;
+  BlockFrequencyInfo *BFI;
+  ProfileSummaryInfo *PSI;
   std::function<const LoopAccessInfo &(Loop &)> *GetLAA;
   OptimizationRemarkEmitter *ORE;
   LoopOptReportBuilder LORBuilder;
@@ -114,7 +116,8 @@ public:
                std::function<const LoopAccessInfo &(Loop &)> GetLAA,
                OptimizationRemarkEmitter *ORE,
                OptReportVerbosity::Level Verbosity, WRegionInfo *WR,
-               TargetTransformInfo *TTI, TargetLibraryInfo *TLI);
+               TargetTransformInfo *TTI, TargetLibraryInfo *TLI,
+               BlockFrequencyInfo *BFI, ProfileSummaryInfo *PSI);
 };
 
 class VPlanDriverPass : public PassInfoMixin<VPlanDriverPass> {
