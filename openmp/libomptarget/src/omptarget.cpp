@@ -519,14 +519,9 @@ int targetDataEnd(DeviceTy &Device, int32_t ArgNum, void **ArgBases,
 #else // INTEL_COLLAB
         if (!(RTLs->RequiresFlags & OMP_REQ_UNIFIED_SHARED_MEMORY) ||
             HasCloseModifier) {
-<<<<<<< HEAD
 #endif // INTEL_COLLAB
-          if ((arg_types[i] & OMP_TGT_MAPTYPE_MEMBER_OF) &&
-              !(arg_types[i] & OMP_TGT_MAPTYPE_PTR_AND_OBJ)) {
-=======
           if ((ArgTypes[I] & OMP_TGT_MAPTYPE_MEMBER_OF) &&
               !(ArgTypes[I] & OMP_TGT_MAPTYPE_PTR_AND_OBJ)) {
->>>>>>> 0f1016562648e0c5ab0618823d5d6b7280ca86ba
             // Copy data only if the "parent" struct has RefCount==1.
             int32_t ParentIdx = getParentIndex(ArgTypes[I]);
             uint64_t ParentRC = Device.getMapEntryRefCnt(Args[ParentIdx]);
