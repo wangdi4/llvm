@@ -627,7 +627,7 @@ int main(int argc, char **argv) {
   // console, print out a warning message and refuse to do it.  We don't
   // impress anyone by spewing tons of binary goo to a terminal.
   if (!Force && !NoOutput && !AnalyzeOnly && !OutputAssembly)
-    if (CheckBitcodeOutputToConsole(Out->os(), !Quiet))
+    if (CheckBitcodeOutputToConsole(Out->os()))
       NoOutput = true;
 
   if (PassPipeline.getNumOccurrences() > 0) {

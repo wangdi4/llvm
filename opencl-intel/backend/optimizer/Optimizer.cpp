@@ -564,9 +564,12 @@ static void populatePassesPostFailCheck(
         // return instruction.
         PM.add(createUnifyFunctionExitNodesPass());
         PM.add(createCFGSimplificationPass(
-            /* Threshold */ 1, /* ForwardSwitchCond */ false,
-            /* ConvertSwitch */ false, /* KeepLoops */ true,
-            /* SinkCommon */ true));
+            SimplifyCFGOptions()
+            .bonusInstThreshold(1)
+            .forwardSwitchCondToPhi(false)
+            .convertSwitchToLookupTable(false)
+            .needCanonicalLoops(true)
+            .sinkCommonInsts(true)));
         PM.add(createInstructionCombiningPass());
         PM.add(createGVNHoistPass());
         PM.add(createDeadCodeEliminationPass());
