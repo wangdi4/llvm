@@ -243,7 +243,7 @@ static bool isNonEscapingPtrNoAliasLoad(const Value *V, const DataLayout &DL,
   }
 
   auto *V1 = LI->getPointerOperand()->stripPointerCastsAndInvariantGroups();
-  V1 = GetUnderlyingObject(V1, DL, MaxLookupSearchDepth);
+  V1 = getUnderlyingObject(V1, DL, MaxLookupSearchDepth);
 
   auto *A = dyn_cast<Argument>(V1);
   if (!A) {
@@ -548,7 +548,7 @@ static unsigned getMaxPointerSize(const DataLayout &DL) {
 
 #if INTEL_CUSTOMIZATION
 /// Matches DecomposedGEP for SubscriptInst, internals are exposed.
-/// Only single llvm.intel.subscript processed to match GetUnderlyingObject
+/// Only single llvm.intel.subscript processed to match getUnderlyingObject
 /// MaxLookupSearchDepth in DecomposeGEPExpression.
 void BasicAAResult::DecomposeSubscript(const SubscriptInst *Subs,
                                        DecomposedGEP &Decomposed,
@@ -689,7 +689,7 @@ bool BasicAAResult::DecomposeGEPExpression(const Value *V,
       }
 
 #if INTEL_CUSTOMIZATION
-      // Matches GetUnderlyingObject
+      // Matches getUnderlyingObject
       if (auto *Subs = dyn_cast<SubscriptInst>(V)) {
         const Value *Stride = Subs->getStride();
         const ConstantInt *CStride = dyn_cast<ConstantInt>(Stride);
@@ -2121,7 +2121,7 @@ static const Value* getArgumentBasePtr(const Value* U, const DataLayout &DL) {
 
   Worklist.push_back(U);
   do {
-    const Value *V = GetUnderlyingObject(Worklist.pop_back_val(), DL);
+    const Value *V = getUnderlyingObject(Worklist.pop_back_val(), DL);
     if (!Visited.insert(V).second)
       continue;
 

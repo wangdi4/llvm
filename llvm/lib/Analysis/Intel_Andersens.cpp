@@ -4751,7 +4751,7 @@ private:
   // Handle for getting information about library function calls.
   AndersGetTLITy GetTLI;
 
-  // Pointer for DataLayout for GetUnderlyingObject calls
+  // Pointer for DataLayout for getUnderlyingObject calls
   const DataLayout *DL;
 
   // Mapping between Functions and the ModRef sets for them.
@@ -5663,7 +5663,7 @@ unsigned IntelModRefImpl::findFormatCheckReadOnlyStart(const CallBase *Call,
 
   if (ArgCount > StringPos) {
     const Value *Object =
-        GetUnderlyingObject(Call->getArgOperand(StringPos), *DL);
+        getUnderlyingObject(Call->getArgOperand(StringPos), *DL);
     if (auto *GV = dyn_cast<GlobalVariable>(Object)) {
       // Check if the global variable is a constant char array.
       llvm::Type *GVElemType = GV->getValueType();
@@ -5744,7 +5744,7 @@ ModRefInfo IntelModRefImpl::getLibFuncModRefInfo(LibFunc TheLibFunc,
       // the memory location of interest. If it does, then the memory location
       // may be modified or referenced.
       const Value *Object =
-          GetUnderlyingObject(Call->getArgOperand(ArgNo), *DL);
+          getUnderlyingObject(Call->getArgOperand(ArgNo), *DL);
 
       MemoryLocation Loc2 = MemoryLocation(Object);
       AAQueryInfo AAQIP;
@@ -5788,7 +5788,7 @@ ModRefInfo IntelModRefImpl::getModRefInfo(const CallBase *Call,
                                           const MemoryLocation &Loc,
                                           AAQueryInfo &AAQI) {
   ModRefInfo Result = ModRefInfo::ModRef;
-  const Value *Object = GetUnderlyingObject(Loc.Ptr, *DL);
+  const Value *Object = getUnderlyingObject(Loc.Ptr, *DL);
   const Function *F = Call->getCalledFunction();
 
   DEBUG_WITH_TYPE("imr-query",
