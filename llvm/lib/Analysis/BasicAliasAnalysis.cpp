@@ -97,7 +97,7 @@ STATISTIC(SearchTimes, "Number of times a GEP is decomposed");
 const unsigned MaxNumPhiBBsValueReachabilityCheck = 20;
 
 // The max limit of the search depth in DecomposeGEPExpression() and
-// GetUnderlyingObject(), both functions need to use the same search
+// getUnderlyingObject(), both functions need to use the same search
 // depth otherwise the algorithm in aliasGEP will assert.
 static const unsigned MaxLookupSearchDepth = 6;
 
@@ -630,8 +630,8 @@ void BasicAAResult::DecomposeSubscript(const SubscriptInst *Subs,
 /// such, the gep cannot necessarily be reconstructed from its decomposed form.
 ///
 /// When DataLayout is around, this function is capable of analyzing everything
-/// that GetUnderlyingObject can look through. To be able to do that
-/// GetUnderlyingObject and DecomposeGEPExpression must use the same search
+/// that getUnderlyingObject can look through. To be able to do that
+/// getUnderlyingObject and DecomposeGEPExpression must use the same search
 /// depth (MaxLookupSearchDepth). When DataLayout not is around, it just looks
 /// through pointer casts.
 bool BasicAAResult::DecomposeGEPExpression(const Value *V,
@@ -857,7 +857,7 @@ bool BasicAAResult::pointsToConstantMemory(const MemoryLocation &Loc,
   SmallVector<const Value *, 16> Worklist;
   Worklist.push_back(Loc.Ptr);
   do {
-    const Value *V = GetUnderlyingObject(Worklist.pop_back_val(), DL);
+    const Value *V = getUnderlyingObject(Worklist.pop_back_val(), DL);
     if (!Visited.insert(V).second) {
       Visited.clear();
       return AAResultBase::pointsToConstantMemory(Loc, AAQI, OrLocal);
@@ -1071,7 +1071,7 @@ ModRefInfo BasicAAResult::getModRefInfo(const CallBase *Call,
   assert(notDifferentParent(Call, Loc.Ptr) &&
          "AliasAnalysis query involving multiple functions!");
 
-  const Value *Object = GetUnderlyingObject(Loc.Ptr, DL);
+  const Value *Object = getUnderlyingObject(Loc.Ptr, DL);
 
   // Calls marked 'tail' cannot read or write allocas from the current frame
   // because the current frame might be destroyed by the time they run. However,
@@ -1513,7 +1513,7 @@ bool BasicAAResult::isGEPBaseAtNegativeOffset(const AddressOperator *GEPOp, // I
 /// another pointer.
 ///
 /// We know that V1 is a GEP, but we don't know anything about V2.
-/// UnderlyingV1 is GetUnderlyingObject(GEP1, DL), UnderlyingV2 is the same for
+/// UnderlyingV1 is getUnderlyingObject(GEP1, DL), UnderlyingV2 is the same for
 /// V2.
 AliasResult BasicAAResult::aliasGEP(const AddressOperator *GEP1, // INTEL
                                     LocationSize V1Size,         // INTEL
@@ -1546,7 +1546,7 @@ AliasResult BasicAAResult::aliasGEP(const AddressOperator *GEP1, // INTEL
          (DecompGEP2.Base == UnderlyingV2 ||       // INTEL
           isa<SubscriptInst>(DecompGEP2.Base)) &&  // INTEL
          "DecomposeGEPExpression returned a result different from "
-         "GetUnderlyingObject");
+         "getUnderlyingObject");
 
   // If the GEP's offset relative to its base is such that the base would
   // fall below the start of the object underlying V2, then the GEP and V2
@@ -2192,10 +2192,10 @@ AliasResult BasicAAResult::aliasCheck(const Value *V1, LocationSize V1Size,
 
   // Figure out what objects these things are pointing to if we can.
   if (O1 == nullptr)
-    O1 = GetUnderlyingObject(V1, DL, MaxLookupSearchDepth);
+    O1 = getUnderlyingObject(V1, DL, MaxLookupSearchDepth);
 
   if (O2 == nullptr)
-    O2 = GetUnderlyingObject(V2, DL, MaxLookupSearchDepth);
+    O2 = getUnderlyingObject(V2, DL, MaxLookupSearchDepth);
 
   // Null values in the default address space don't point to any object, so they
   // don't alias any other pointer.
