@@ -243,7 +243,7 @@ static bool isNonEscapingPtrNoAliasLoad(const Value *V, const DataLayout &DL,
   }
 
   auto *V1 = LI->getPointerOperand()->stripPointerCastsAndInvariantGroups();
-  V1 = getUnderlyingObject(V1, DL, MaxLookupSearchDepth);
+  V1 = getUnderlyingObject(V1, MaxLookupSearchDepth);
 
   auto *A = dyn_cast<Argument>(V1);
   if (!A) {
@@ -2121,7 +2121,7 @@ static const Value* getArgumentBasePtr(const Value* U, const DataLayout &DL) {
 
   Worklist.push_back(U);
   do {
-    const Value *V = getUnderlyingObject(Worklist.pop_back_val(), DL);
+    const Value *V = getUnderlyingObject(Worklist.pop_back_val());
     if (!Visited.insert(V).second)
       continue;
 
