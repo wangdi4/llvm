@@ -134,8 +134,7 @@ void inline Command::DetachEventSharedPtr()
 /******************************************************************
  *
  ******************************************************************/
-//Todo: remove clCmdId param
-cl_err_code Command::NotifyCmdStatusChanged(cl_dev_cmd_id clCmdId, cl_int iCmdStatus, cl_int iCompletionResult, cl_ulong ulTimer)
+cl_err_code Command::NotifyCmdStatusChanged(cl_int iCmdStatus, cl_int iCompletionResult, cl_ulong ulTimer)
 {
 #if defined(USE_ITT)
     ocl_gpa_data* pGPAData = m_pCommandQueue->GetGPAData();
@@ -351,7 +350,7 @@ cl_err_code Command::Cancel()
 {
     LogDebugA("Command - Cancel for %s (Id: %d)", GetCommandName(), m_Event->GetId());
 
-    NotifyCmdStatusChanged(0, CL_COMPLETE, CL_DEVICE_NOT_AVAILABLE, Intel::OpenCL::Utils::HostTime());
+    NotifyCmdStatusChanged(CL_COMPLETE, CL_DEVICE_NOT_AVAILABLE, Intel::OpenCL::Utils::HostTime());
 
     return CL_SUCCESS;
 }
@@ -3228,8 +3227,7 @@ void PrePostFixRuntimeCommand::DoAction()
 
     m_returnCode = CL_SUCCESS;
 
-    cl_dev_cmd_id id = (cl_dev_cmd_id)m_Event->GetId();
-    NotifyCmdStatusChanged(id, CL_RUNNING,  m_returnCode, Intel::OpenCL::Utils::HostTime());
+    NotifyCmdStatusChanged(CL_RUNNING,  m_returnCode, Intel::OpenCL::Utils::HostTime());
 
     m_returnCode = ( PREFIX_MODE == m_working_mode ) ?
                         m_relatedUserCommand->PrefixExecute() 
@@ -3237,7 +3235,7 @@ void PrePostFixRuntimeCommand::DoAction()
                         m_relatedUserCommand->PostfixExecute();
 
     LogDebugA("PrePostFixRuntimeCommand - DoAction Finished: PrePostFixRuntimeCommand for %s (Id: %d)", GetCommandName(), m_Event->GetId());
-    NotifyCmdStatusChanged(id, CL_COMPLETE, m_returnCode, Intel::OpenCL::Utils::HostTime());
+    NotifyCmdStatusChanged(CL_COMPLETE, m_returnCode, Intel::OpenCL::Utils::HostTime());
 }
 
 /******************************************************************
@@ -3245,9 +3243,8 @@ void PrePostFixRuntimeCommand::DoAction()
  ******************************************************************/
 void PrePostFixRuntimeCommand::CancelAction()
 {
-    cl_dev_cmd_id id = (cl_dev_cmd_id)m_Event->GetId();
     LogDebugA("PrePostFixRuntimeCommand - DoAction Canceled: PrePostFixRuntimeCommand for %s (Id: %d)", GetCommandName(), m_Event->GetId());
-    NotifyCmdStatusChanged(id, CL_COMPLETE, CL_DEVICE_NOT_AVAILABLE, Intel::OpenCL::Utils::HostTime());
+    NotifyCmdStatusChanged(CL_COMPLETE, CL_DEVICE_NOT_AVAILABLE, Intel::OpenCL::Utils::HostTime());
 }
 
 /******************************************************************
@@ -3264,7 +3261,7 @@ cl_err_code PrePostFixRuntimeCommand::Execute()
 
         ret = CL_OUT_OF_RESOURCES;
         m_returnCode = ret;    
-        NotifyCmdStatusChanged(0, CL_COMPLETE, ret, Intel::OpenCL::Utils::HostTime());
+        NotifyCmdStatusChanged(CL_COMPLETE, ret, Intel::OpenCL::Utils::HostTime());
 
         return m_returnCode;
     }

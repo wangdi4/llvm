@@ -113,7 +113,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
         virtual const SharedPtr<IOclCommandQueueBase>& GetCommandQueue() { return m_pCommandQueue; }
         
         // ICmdStatusChangedObserver function
-        cl_err_code NotifyCmdStatusChanged(cl_dev_cmd_id clCmdId, cl_int iCmdStatus, cl_int iCompletionResult, cl_ulong ulTimer);
+        cl_err_code NotifyCmdStatusChanged(cl_int iCmdStatus, cl_int iCompletionResult, cl_ulong ulTimer) override;
         
         // Command general functions
         const SharedPtr<QueueEvent>& GetEvent()                             { return m_Event; }

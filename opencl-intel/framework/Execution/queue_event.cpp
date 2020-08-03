@@ -319,7 +319,7 @@ cl_err_code QueueEvent::ObservedEventStateChanged(const SharedPtr<OclEvent>& pEv
         {
             ullHostTime = Intel::OpenCL::Utils::HostTime();
         }
-        m_pCommand->NotifyCmdStatusChanged(0, CL_COMPLETE, returnCode, ullHostTime);
+        m_pCommand->NotifyCmdStatusChanged(CL_COMPLETE, returnCode, ullHostTime);
         //Everything else will be handled from the command routine
         return CL_SUCCESS;
     }
