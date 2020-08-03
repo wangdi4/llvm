@@ -1,7 +1,7 @@
 ; REQUIRES: asserts
 
 ; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -tbaa -hir-post-vec-complete-unroll -debug-only=hir-complete-unroll 2>&1 < %s | FileCheck %s
-; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-post-vec-complete-unroll" -aa-pipeline="type-based-aa" -debug-only=hir-complete-unroll 2>&1 < %s | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-post-vec-complete-unroll" -aa-pipeline="tbaa" -debug-only=hir-complete-unroll 2>&1 < %s | FileCheck %s
 
 ; Verify that the GEPSavings from A[i2] are zero because it is not invariant in unrolled loop due to the presence of A[i2] in non-candidate sibling loop.
 

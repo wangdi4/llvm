@@ -1,7 +1,7 @@
 ; REQUIRES: asserts
 
 ; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -tbaa -hir-pre-vec-complete-unroll -debug-only=hir-complete-unroll 2>&1 < %s | FileCheck %s
-; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-pre-vec-complete-unroll" -aa-pipeline="type-based-aa" -debug-only=hir-complete-unroll 2>&1 < %s | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-pre-vec-complete-unroll" -aa-pipeline="tbaa" -debug-only=hir-complete-unroll 2>&1 < %s | FileCheck %s
 
 ; This test case checks the following-
 ; - We do not assume that alloca stores can be optimized out in pre-vec pass as it is an optimistic assumption. The only GEP savings here are due to address simplification (base ptr + index) of (%4)[0][8 * i1 + i2].

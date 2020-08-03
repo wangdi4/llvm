@@ -1,7 +1,7 @@
 ; REQUIRES: asserts
 
 ; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -tbaa -hir-pre-vec-complete-unroll -debug-only=hir-complete-unroll 2>&1 < %s | FileCheck %s
-; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-pre-vec-complete-unroll" -aa-pipeline="basic-aa,type-based-aa" -debug-only=hir-complete-unroll 2>&1 < %s | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-pre-vec-complete-unroll" -aa-pipeline="basic-aa,tbaa" -debug-only=hir-complete-unroll 2>&1 < %s | FileCheck %s
 
 ; Verify that we have GEP savings of 42 composed of the following-
 ; Savings of 4 (1 * 4) due to address simplification in parameter load (%arg)[i1][%tmp211].

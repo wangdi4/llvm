@@ -1,7 +1,7 @@
 ; REQUIRES: asserts
 
 ; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -tbaa -hir-pre-vec-complete-unroll -debug-only=hir-complete-unroll 2>&1 < %s | FileCheck %s
-; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-pre-vec-complete-unroll" -aa-pipeline="type-based-aa" -debug-only=hir-complete-unroll 2>&1 < %s | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-pre-vec-complete-unroll" -aa-pipeline="tbaa" -debug-only=hir-complete-unroll 2>&1 < %s | FileCheck %s
 
 ; Verify that we are able to disambiguate between (%A)[i3] and (%F)[%1] using tbaa even though they have the same symbase (because both of them alias with (%C)[i1] which is (char*)).
 ; This allows use to analyze them as invariant in the unrolled i2 loop. Memory motion can hoist them out of i2 loop later.

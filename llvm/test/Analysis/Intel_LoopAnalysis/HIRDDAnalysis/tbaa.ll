@@ -14,7 +14,7 @@
 ; RUN: opt -hir-dd-analysis -hir-dd-analysis-verify=Region -analyze -tbaa < %s | FileCheck %s
 ; RUN: opt -hir-dd-analysis -hir-dd-analysis-verify=Region -analyze < %s | FileCheck %s --check-prefix=NOTBAA
 
-; RUN: opt -passes="require<type-based-aa>,print<hir-dd-analysis>" -hir-dd-analysis-verify=Region -disable-output 2>&1 < %s | FileCheck %s
+; RUN: opt -passes="require<tbaa>,print<hir-dd-analysis>" -hir-dd-analysis-verify=Region -disable-output 2>&1 < %s | FileCheck %s
 ; RUN: opt -passes="print<hir-dd-analysis>" -hir-dd-analysis-verify=Region -disable-output 2>&1 < %s | FileCheck %s --check-prefix=NOTBAA
 
 ; CHECK: DD graph for function
