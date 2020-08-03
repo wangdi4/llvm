@@ -70,8 +70,11 @@ void simple_nontemporal(float *a, float *b) {
   //CHECK50: [[B:%b.*]] = alloca float*,
   //CHECK50: [[S:%s.*]] = alloca %struct.S,
   S s, *p = &s;
+
+  //CHECK50: [[LA:%[0-9]+]] = load float*, float** [[A]], align 8
+  //CHECK50: [[LB:%[0-9]+]] = load float*, float** [[B]], align 8
   //CHECK50: region.entry() [ "DIR.OMP.SIMD"()
-  //CHECK50-SAME: "QUAL.OMP.NONTEMPORAL"(float** [[A]], float** [[B]]
+  //CHECK50-SAME: "QUAL.OMP.NONTEMPORAL"(float* [[LA]], float* [[LB]]
   //CHECK50-SAME: "QUAL.OMP.NONTEMPORAL"(%struct.S* [[S]]
   //CHECK50: region.exit{{.*}}"DIR.OMP.END.SIMD"()
   #pragma omp simd nontemporal(a, b) nontemporal(s)
