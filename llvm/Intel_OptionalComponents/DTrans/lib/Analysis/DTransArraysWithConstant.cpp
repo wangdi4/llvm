@@ -1440,8 +1440,9 @@ insertConstantData(DTransAnalysisInfo *DTInfo,
       auto &FieldInfo = STInfo->getField(FieldNum);
       for (auto ConstEntry : Field->getConstantEntires()) {
         if (ConstEntry.first && ConstEntry.second)
-          FieldInfo.addConstantEntryIntoTheArray(ConstEntry.first,
-                                                 ConstEntry.second);
+          FieldInfo.addConstantEntryIntoTheArray(
+              cast<Constant>(ConstEntry.first),
+              cast<Constant>(ConstEntry.second));
       }
     }
   }

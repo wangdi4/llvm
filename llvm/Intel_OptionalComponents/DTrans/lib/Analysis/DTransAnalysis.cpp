@@ -147,7 +147,7 @@ static cl::opt<bool> DTransTestPaddedStructs("dtrans-test-padded-structs",
 
 // Enable the analysis process for arrays with constant entries
 static cl::opt<bool> DTransArraysWithConstEntries(
-    "dtrans-arrays-with-const-entries", cl::init(false), cl::ReallyHidden);
+    "dtrans-arrays-with-const-entries", cl::init(true), cl::ReallyHidden);
 
 using GetTLIFnType = std::function<const TargetLibraryInfo &(const Function &)>;
 
@@ -11263,7 +11263,8 @@ bool DTransAnalysisInfo::analyzeModule(
         DTImmutInfo.addStructFieldInfo(
             cast<StructType>(StructInfo->getLLVMType()), I,
             StructInfo->getField(I).values(),
-            StructInfo->getField(I).iavalues());
+            StructInfo->getField(I).iavalues(),
+            StructInfo->getField(I).getArrayWithConstantEntries());
       }
   }
 

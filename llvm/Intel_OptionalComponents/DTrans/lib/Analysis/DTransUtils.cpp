@@ -759,7 +759,7 @@ void dtrans::FieldInfo::print(raw_ostream &OS,
     OS << "    Array with constant entries: [ ";
     dtrans::printCollectionSorted(OS, getArrayWithConstantEntries().begin(),
                                   getArrayWithConstantEntries().end(), ", ",
-                                  [](std::pair<ConstantInt *, ConstantInt*>
+                                  [](std::pair<Constant *, Constant*>
                                       Pair) {
                                     std::string OutputVal;
                                     raw_string_ostream OutputStream(OutputVal);
@@ -847,12 +847,15 @@ bool dtrans::FieldInfo::processNewSingleAllocFunction(llvm::Function *F) {
 // Insert a new entry in ArrayConstEntries assuming that the current field
 // is an array with constant entries. Index is the entry in the array that
 // is constant and ConstVal is the constant value for that index.
-void dtrans::FieldInfo::addConstantEntryIntoTheArray(ConstantInt *Index,
-                                                     ConstantInt* ConstVal) {
+void dtrans::FieldInfo::addConstantEntryIntoTheArray(Constant *Index,
+                                                     Constant* ConstVal) {
 
-  assert ((Index && ConstVal) && "Inserting non-constant information into "
-                                 "a space reserved for constants");
-  assert (!Index->isNegative() && "Accessing array with negative index");
+  assert ((Index && ConstVal && isa<ConstantInt>(Index) &&
+           isa<ConstantInt>(ConstVal)) && "Inserting non-constant information "
+                                          "into a space reserved for constants "
+                                          "integers");
+  assert (!(cast<ConstantInt>(Index)->isNegative()) &&
+          "Accessing array with negative index");
 
   ArrayConstEntries.insert({Index, ConstVal});
 }
