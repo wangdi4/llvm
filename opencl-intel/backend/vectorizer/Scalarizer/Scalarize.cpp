@@ -1128,9 +1128,8 @@ void ScalarizeFunction::scalarizeInstruction(StoreInst *SI) {
     obtainScalarizedValues(operand1, NULL, SI->getOperand(1), SI);
 
     // Generate new (scalar) instructions
-    Value *newScalarizedInsts[MAX_INPUT_VECTOR_WIDTH];
     for (unsigned dup = 0; dup < numElements; dup++) {
-      newScalarizedInsts[dup] = new StoreInst(operand0[dup], operand1[dup], SI);
+      new StoreInst(operand0[dup], operand1[dup], SI);
     }
 
     // Remove original instruction

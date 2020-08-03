@@ -2192,17 +2192,14 @@ cl_dev_err_code CPUDevice::clDevPartition(  cl_dev_partition_prop IN props, cl_u
 
     cl_dev_internal_subdevice_id* pParent = static_cast<cl_dev_internal_subdevice_id*>(parent_id);
     size_t availableComputeUnits;
-    unsigned int* pParentComputeUnits;
 
     if (nullptr == pParent)
     {
         availableComputeUnits = m_numCores;
-        pParentComputeUnits   = m_pComputeUnitMap;
     }
     else
     {
         availableComputeUnits = pParent->num_compute_units;
-        pParentComputeUnits   = pParent->legal_core_ids;
     }
 
     switch (props)

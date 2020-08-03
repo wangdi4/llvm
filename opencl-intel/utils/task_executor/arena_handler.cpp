@@ -399,6 +399,7 @@ void TEDevice::on_scheduler_entry( bool bIsWorker, ArenaHandler& arena )
         {
             errno_t error;
             error = MEMCPY_S( tls->position, sizeof(tls->position), arena.GetArenaPosition(), sizeof(unsigned  int)*m_deviceDescriptor.uiNumOfLevels );
+            (void)error;
             assert( (0 == error) && "Too many levels to copy to position?" );
             tls->is_master = false;
         }

@@ -295,22 +295,26 @@ void VectInfoGenerator::run(raw_ostream &os) {
                 });
 
   std::stringstream ss;
-  auto funcIt = funcs.cbegin(), funcEnd = funcs.cend();
+  auto funcIt = funcs.cbegin();
   for (const auto &numEntry : numEntries) {
     size_t i = 0;
+    assert(funcIt != funcs.cend() && funcIt != funcs.cend() - 1 &&
+           "the number of tblgen function and llvm functions should be the same");
     decodeParamKind((*funcIt)->getName().str(),
                     (*(funcIt + 1))->getName().str());
     while (i++ < numEntry.first) {
       size_t j = 0;
       std::vector<std::string> funcNames;
       while (j++ < numEntry.second) {
+        assert(funcIt != funcs.cend() &&
+               "the number of tblgen function and llvm functions should be the same");
         funcNames.push_back(std::string((*funcIt)->getName()));
         funcIt++;
       }
       ss << VectEntry{funcNames};
     }
   }
-  assert(funcIt == funcEnd &&
+  assert(funcIt == funcs.cend() &&
          "the number of tblgen function and llvm functions should be the same");
   os << ss.str();
   ss.clear();

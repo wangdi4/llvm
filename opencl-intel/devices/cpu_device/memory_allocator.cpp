@@ -153,6 +153,7 @@ m_pBackingStore(nullptr),  m_pImageService(pImageService)
 	// Get only if there is available backing store.
 	cl_dev_err_code bsErr;
 	bsErr = m_pRTMemObjService->GetBackingStore(CL_DEV_BS_GET_ALWAYS, &m_pBackingStore);
+	(void)bsErr;
 	assert( CL_DEV_SUCCEEDED(bsErr) && (nullptr != m_pBackingStore) );
 
 	m_pBackingStore->AddPendency();

@@ -80,7 +80,7 @@ bool EventDependenciesTest()
     cl_event   events[TEST_COUNT + 1];
     cl_program program;
 
-    int i, loop_count, event_count, expected_value;
+    int i, loop_count, event_count;
     int max_count = TEST_SIZE;
     
     // Create a buffer
@@ -92,7 +92,6 @@ bool EventDependenciesTest()
     cl_int *values = new cl_int[TEST_SIZE];
     for (i = 0; i < (int)TEST_SIZE; i++)
         values[i] = 0;
-    expected_value = 0;
     
     // Build the kernels
     program = clCreateProgramWithSource(context, 1, &ocl_test_program, NULL, &err);
@@ -123,7 +122,6 @@ bool EventDependenciesTest()
     if (!bResult)
         return bResult;
 
-    expected_value = 1;
     size_t global_size[1] = {TEST_SIZE};
 
     printf("Starting iterations....\n");fflush(0);

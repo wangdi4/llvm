@@ -236,9 +236,8 @@ int main(int argc, char** argv)
         if (args.size() == 0)
             s += "<none>";
         else {
-            vector<string>::const_iterator i = args.begin(), end = args.end();
-            for (; i != args.end(); ++i)
-                s += *i + " ";
+            for (const string& arg : args)
+                s += arg + " ";
         }
         DTT_LOG(s);
 

@@ -163,6 +163,7 @@ bool ChooseVectorizationDimensionImpl::hasDim(Function* F, unsigned int dim) {
     unsigned inst_dim = 0;
     isTidGen = m_rtServices->isTIDGenerator(pInstCall, &err, &inst_dim);
     // KernelAnalysis should have set noBarrierPath to false if err is true.
+    (void)isTidGen;
     V_ASSERT(isTidGen && !err &&
       "TIDGen inst receives non-constant input. Cannot vectorize!");
     if (dim == inst_dim)

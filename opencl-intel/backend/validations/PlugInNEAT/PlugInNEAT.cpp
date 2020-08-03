@@ -68,6 +68,7 @@ const NEATStructLayout * NEATDataLayout ::getStructLayout( const StructType *Ty 
 
   // Set SL before calling StructLayout's ctor.  The ctor could cause other
   // entries to be added to TheMap, invalidating our reference.
+  (void)SL;
   SL = L;
 
   new (L) NEATStructLayout(Ty, *this);

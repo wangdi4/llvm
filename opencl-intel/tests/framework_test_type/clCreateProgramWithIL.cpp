@@ -28,17 +28,21 @@ TEST_F(CL21, CreateProgramWithIL_Negative)
     program = clCreateProgramWithIL(nullptr, spirv.data(), spirv.size(), &iRet);
     ASSERT_EQ(CL_INVALID_CONTEXT, iRet)
                  << " clCreateProgramWithIL with invalid context failed. ";
+    ASSERT_EQ(CL_INVALID_HANDLE, program);
 
     program = clCreateProgramWithIL(m_context, nullptr, spirv.size(), &iRet);
     ASSERT_EQ(CL_INVALID_VALUE, iRet)
                 << " clCreateProgramWithIL with nullptr IL buffer failed. ";
+    ASSERT_EQ(CL_INVALID_HANDLE, program);
 
     program = clCreateProgramWithIL(m_context, spirv.data(), /*length*/0, &iRet);
     ASSERT_EQ(CL_INVALID_VALUE, iRet) << " clCreateProgramWithIL with 0 length failed. ";
+    ASSERT_EQ(CL_INVALID_HANDLE, program);
 
     std::string wrong_IL("trash trash trash");
     program = clCreateProgramWithIL(m_context, &wrong_IL[0], wrong_IL.size(), &iRet);
     ASSERT_EQ(CL_INVALID_VALUE, iRet) << " clCreateProgramWithIL with invalid IL failed. ";
+    ASSERT_EQ(CL_INVALID_HANDLE, program);
 }
 
 TEST_F(CL21, CreateProgramWithIL)

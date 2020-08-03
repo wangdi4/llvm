@@ -170,6 +170,7 @@ cl_err_code GenericMemObject::Initialize(
 
         err = dev->GetDeviceAgent()->clDevGetMemoryAllocProperties( m_clMemObjectType, &device_properties );
 
+        (void)err;
         assert( CL_DEV_SUCCEEDED( err ) );
         assert( (unsigned int)device_properties.imageSharingGroupId  < MAX_DEVICE_SHARING_GROUP_ID );
         assert( (unsigned int)device_properties.bufferSharingGroupId < MAX_DEVICE_SHARING_GROUP_ID );
@@ -1462,6 +1463,7 @@ bool GenericMemObjectSubBuffer::IsSupportedByDevice(const SharedPtr<FissionableD
                                     m_clMemObjectType,
                                     &device_properties );
 
+    (void)err;
     assert( CL_DEV_SUCCEEDED( err ) );
 
     return IS_ALIGNED_ON(m_stOrigin[0], device_properties.alignment );
@@ -1478,6 +1480,7 @@ cl_err_code    GenericMemObjectSubBuffer::GetInfo(cl_int iParamName, size_t szPa
         const IOCLDevBackingStore* pBackingStore, *pBufBackingStore;
 
         cl_dev_err_code err = m_rBuffer.GetBackingStore(CL_DEV_BS_GET_IF_AVAILABLE, &pBufBackingStore);
+        (void)err;
         assert(CL_SUCCEEDED(err));
         const void* const pUserHostPtr = pBufBackingStore->GetUserProvidedHostMapPtr();
         assert(nullptr != pUserHostPtr);

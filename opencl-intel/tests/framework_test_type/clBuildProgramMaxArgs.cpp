@@ -89,7 +89,7 @@ bool clBuildProgramMaxArgsTest()
 		return false;
 	}
 
-	int retVal, i;
+	int i;
 	size_t maxSize;
 	char *programSrc;
 	char *ptr;
@@ -218,7 +218,6 @@ bool clBuildProgramMaxArgsTest()
 
 		kernel = clCreateKernel(prog, "sample_test", &iRet);
 		/* Try to set a large argument to the kernel */
-		retVal = 0;
 
 		mem = clCreateBuffer(context, (cl_mem_flags)(CL_MEM_READ_WRITE), sizeof(cl_long), NULL, &iRet);
 		bResult &= Check("clCreateBuffer", CL_SUCCESS, iRet);
