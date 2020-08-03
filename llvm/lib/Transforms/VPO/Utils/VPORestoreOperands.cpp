@@ -301,7 +301,10 @@ bool VPOUtils::restoreOperands(Function &F) {
             VAddrUsersInLifetimeMarkers.push_back(CastI);
         }   // For all users of VAddr
 
-        assert(VAddrStore && "No store found to OPERAND.ADDR opnd.");
+        // We must see a store to VAddr, unless VOrig has been optimized away
+        // and replaced with an "undef" (e.g. rename_and_restore_undef.ll).
+        assert((VAddrStore || isa<UndefValue>(VOrig)) &&
+               "No store found to OPERAND.ADDR opnd.");
 
         if (VRenamed) {
           LLVM_DEBUG(dbgs() << "RestoreOperands: Replacing "
@@ -320,7 +323,8 @@ bool VPOUtils::restoreOperands(Function &F) {
                      VAddr->printAsOperand(dbgs());
                      dbgs() << "'). Deleting it.\n");
 
-        VAddrStore->eraseFromParent();
+        if (VAddrStore)
+          VAddrStore->eraseFromParent();
 
         for (auto *VAU : VAddrUsersInLifetimeMarkers) {
           if (VAU != VAddrLoadCast && VAU != VAddrStoreCast)
