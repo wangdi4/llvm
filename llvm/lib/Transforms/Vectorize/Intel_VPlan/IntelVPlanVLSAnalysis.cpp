@@ -80,7 +80,7 @@ void VPlanVLSAnalysis::collectMemrefs(OVLSMemrefVector &MemrefVector,
 
   // VPlanVLSLevel option allows users to override TTI::isVPlanVLSProfitable().
   if (VPlanVLSLevel == VPlanVLSRunNever ||
-      VPlanVLSLevel == VPlanVLSRunAuto && !TTI->isVPlanVLSProfitable())
+      (VPlanVLSLevel == VPlanVLSRunAuto && !TTI->isVPlanVLSProfitable()))
     return;
 
   if (!TTI->isAggressiveVLSProfitable())
@@ -186,7 +186,7 @@ void VPlanVLSAnalysis::dump() const {
 void VPVLSClientMemref::print(raw_ostream &OS, unsigned Indent) const {
   OVLSMemref::print(OS, Indent);
   OS << ": ";
-  Inst->print(OS);
+  Inst->printWithoutAnalyses(OS);
 }
 
 #endif // !NDEBUG || LLVM_ENABLE_DUMP

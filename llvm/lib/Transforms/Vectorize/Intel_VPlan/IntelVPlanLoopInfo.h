@@ -75,9 +75,7 @@ public:
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   void printRPOT(raw_ostream &OS, const VPLoopInfo *VPLI = nullptr,
-                 unsigned Indent = 0,
-                 const VPlanDivergenceAnalysis *DA = nullptr,
-                 const VPlanScalVecAnalysis *SVA = nullptr) const;
+                 unsigned Indent = 0) const;
 
   LLVM_DUMP_METHOD void dump() const { print(dbgs()); }
   LLVM_DUMP_METHOD void dumpVerbose() const {

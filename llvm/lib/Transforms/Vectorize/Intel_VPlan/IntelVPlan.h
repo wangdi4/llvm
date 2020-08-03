@@ -22,32 +22,22 @@
 #ifndef LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_INTELVPLAN_H
 #define LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_INTELVPLAN_H
 
-#if INTEL_CUSTOMIZATION
-#include "IntelVPlanValue.h"
+#include "IntelVPBasicBlock.h"
+#include "IntelVPLoopAnalysis.h"
+#include "IntelVPlanAlignmentAnalysis.h"
+#include "IntelVPlanDivergenceAnalysis.h"
 #include "IntelVPlanExternals.h"
-#else
-#include "VPlanValue.h"
-#endif // INTEL_CUSTOMIZATION
+#include "IntelVPlanLoopInfo.h"
+#include "IntelVPlanScalVecAnalysis.h"
+#include "IntelVPlanValue.h"
+#include "IntelVPlanValueTracking.h"
+#include "VPlanHIR/IntelVPlanInstructionDataHIR.h"
+#include "llvm/ADT/DepthFirstIterator.h"
 #include "llvm/ADT/GraphTraits.h"
 #include "llvm/ADT/SmallSet.h"
 #include "llvm/ADT/ilist.h"
 #include "llvm/ADT/ilist_node.h"
 #include "llvm/ADT/simple_ilist.h"
-#include "llvm/IR/IRBuilder.h"
-#include "llvm/Support/GenericDomTreeConstruction.h"
-#include "llvm/Support/raw_ostream.h"
-#include <atomic>
-
-#if INTEL_CUSTOMIZATION
-#include "IntelVPBasicBlock.h"
-#include "IntelVPLoopAnalysis.h"
-#include "IntelVPlanAlignmentAnalysis.h"
-#include "IntelVPlanDivergenceAnalysis.h"
-#include "IntelVPlanLoopInfo.h"
-#include "IntelVPlanScalVecAnalysis.h"
-#include "IntelVPlanValueTracking.h"
-#include "VPlanHIR/IntelVPlanInstructionDataHIR.h"
-#include "llvm/ADT/DepthFirstIterator.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRFramework.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/IR/Diag.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/IR/HLGoto.h"
@@ -55,8 +45,11 @@
 #include "llvm/Analysis/Intel_OptReport/LoopOptReportBuilder.h"
 #include "llvm/Analysis/Intel_VectorVariant.h"
 #include "llvm/Analysis/VectorUtils.h"
+#include "llvm/IR/IRBuilder.h"
 #include "llvm/Support/FormattedStream.h"
-#endif // INTEL_CUSTOMIZATION
+#include "llvm/Support/GenericDomTreeConstruction.h"
+#include "llvm/Support/raw_ostream.h"
+#include <atomic>
 
 namespace llvm {
 // The (re)use of existing LoopVectorize classes is subject to future VPlan
@@ -89,7 +82,6 @@ public:
   void deleteNode(vpo::VPBasicBlock *VPBB);
 };
 
-#if INTEL_CUSTOMIZATION
 namespace loopopt {
 class RegDDRef;
 class HLLoop;
@@ -104,12 +96,10 @@ class VPOCodeGenHIR;
 class VPOVectorizationLegality;
 class VPDominatorTree;
 class VPPostDominatorTree;
-#if INTEL_CUSTOMIZATION
 class VPlanCostModel; // INTEL: to be later declared as a friend
 class VPlanCostModelProprietary; // INTEL: to be later declared as a friend
 class VPlanDivergenceAnalysis;
 class VPlanBranchDependenceAnalysis;
-#endif // INTEL_CUSTOMIZATION
 typedef SmallPtrSet<VPValue *, 8> UniformsTy;
 
 // Class names mapping to minimize the diff:
@@ -117,7 +107,6 @@ typedef SmallPtrSet<VPValue *, 8> UniformsTy;
 #define LoopVectorizationLegality VPOVectorizationLegality
 
 struct TripCountInfo;
-#endif // INTEL_CUSTOMIZATION
 
 // This class is used to create all the necessairy analyses that are needed for
 // VPlan.
@@ -272,9 +261,7 @@ struct VPTransformState {
   class InnerLoopVectorizer *ILV;
 
   VPCallback &Callback;
-#if INTEL_CUSTOMIZATION
   VPLoopInfo *VPLI;
-#endif
 };
 
 /// Class to model a single VPlan-level instruction - it may generate a sequence
@@ -319,25 +306,15 @@ struct VPTransformState {
 class VPInstruction : public VPUser,
                       public ilist_node_with_parent<VPInstruction, VPBasicBlock,
                                              ilist_sentinel_tracking<true>> {
-#if INTEL_CUSTOMIZATION
-  friend class HIRSpecifics;
   friend class VPBasicBlock;
   friend class VPBranchInst;
   friend class VPBuilder;
-  friend class VPBuilderHIR;
-  friend class VPDecomposerHIR;
-  // To get underlying HIRData until we have proper VPType.
-  friend class VPVLSClientMemrefHIR;
   friend class VPlanCostModel;
-  friend class VPlanCostModelProprietary;
   friend class VPlanDivergenceAnalysis;
-  friend class VPlanIdioms;
   friend class VPlanValueTrackingLLVM;
   friend class VPlanVLSAnalysis;
-  friend class VPlanVLSAnalysisHIR;
   friend class VPlanVerifier;
   friend class VPOCodeGen;
-  friend class VPOCodeGenHIR;
   friend class VPCloneUtils;
   friend class VPValueMapper;
   friend class VPLoopEntityList;
@@ -346,6 +323,18 @@ class VPInstruction : public VPUser,
   // retire it and use full VPValue-based codegen, underlying IR copying won't
   // be necessary.
   friend class VPlanPredicator;
+
+  friend class VPlanCostModelProprietary;
+  friend class VPlanIdioms;
+
+#if INTEL_CUSTOMIZATION
+  friend class HIRSpecifics;
+  friend class VPBuilderHIR;
+  friend class VPDecomposerHIR;
+  friend class VPlanVLSAnalysisHIR;
+  // To get underlying HIRData until we have proper VPType.
+  friend class VPVLSClientMemrefHIR;
+  friend class VPOCodeGenHIR;
 
   /// Hold all the HIR-specific data and interfaces for a VPInstruction.
   class HIRSpecifics {
@@ -566,6 +555,7 @@ class VPInstruction : public VPUser,
                "Cloned isValid() value should be equal to the original one");
     }
   };
+#endif // INTEL_CUSTOMIZATION
 
   /// Central class to capture and differentiate operator-specific attributes
   /// that are attached to an instruction. All operators in LLVM are mutually
@@ -713,10 +703,8 @@ class VPInstruction : public VPUser,
       ExactFlag = InExactFlag;
     }
   };
-#endif // INTEL_CUSTOMIZATION
 
 public:
-#if INTEL_CUSTOMIZATION
   /// VPlan opcodes, extending LLVM IR with idiomatics instructions.
   enum {
       Not = Instruction::OtherOpsEnd + 1,
@@ -737,13 +725,10 @@ public:
       AllocatePrivate,
       Subscript,
       Blend,
-      HIRCopy,
+      HIRCopy, // INTEL
       OrigTripCountCalculation,
       VectorTripCountCalculation,
   };
-#else
-  enum { Not = Instruction::OtherOpsEnd + 1 };
-#endif
 
 private:
   typedef unsigned char OpcodeTy;
@@ -772,15 +757,12 @@ private:
       invalidateUnderlyingIR();
   }
 
-#if INTEL_CUSTOMIZATION
   void copyAttributesFrom(const VPInstruction &Inst) {
     DbgLoc = Inst.DbgLoc;
     // Copy other general attributes here when imported.
     OperatorFlags = Inst.OperatorFlags;
   }
-#endif
 
-#if INTEL_CUSTOMIZATION
 protected:
   /// Return the underlying Instruction attached to this VPInstruction. Return
   /// null if there is no Instruction attached. This interface is similar to
@@ -792,6 +774,7 @@ protected:
     return cast_or_null<Instruction>(getUnderlyingValue());
   }
 
+#if INTEL_CUSTOMIZATION
   /// Return true if this is a new VPInstruction (i.e., an VPInstruction that is
   /// not coming from the underlying IR.
   bool isNew() const { return getUnderlyingValue() == nullptr && !HIR.isSet(); }
@@ -866,7 +849,6 @@ public:
   }
 
   unsigned getOpcode() const { return Opcode; }
-#if INTEL_CUSTOMIZATION
   // FIXME: Temporary workaround for TTI problems that make the cost
   // modeling incorrect. The getCMType() returns nullptr in case the underlying
   // instruction is not set and this makes the cost of this instruction
@@ -971,7 +953,6 @@ public:
   void setIsExact(bool IsExact) {
     OperatorFlags.setValueAsExactFlag(getOpcode(), IsExact);
   }
-#endif // INTEL_CUSTOMIZATION
 
   // ilist should have access to VPInstruction node.
   friend struct ilist_traits<VPInstruction>;
@@ -988,27 +969,10 @@ public:
   virtual void execute(VPTransformState &State);
 #if INTEL_CUSTOMIZATION
   virtual void executeHIR(VPOCodeGenHIR *CG);
-#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-  /// Dump the VPInstruction.
-  void dump(raw_ostream &O) const override { dump(O, nullptr, nullptr); };
-  void dump(raw_ostream &O, const VPlanDivergenceAnalysis *DA,
-            const VPlanScalVecAnalysis *SVA) const;
-
-  void dump() const override { dump(errs()); }
-  void dump(const VPlanDivergenceAnalysis *DA,
-            const VPlanScalVecAnalysis *SVA) const {
-    dump(dbgs(), DA, SVA);
-  }
-#endif // !NDEBUG || LLVM_ENABLE_DUMP
 #endif
-
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-  /// Print the VPInstruction.
-  virtual void print(raw_ostream &O, const Twine &Indent) const;
-
-  /// Print the VPInstruction.
-  void print(raw_ostream &O, const VPlanDivergenceAnalysis *DA = nullptr,
-             const VPlanScalVecAnalysis *SVA = nullptr) const;
+  void print(raw_ostream &O) const override;
+  void printWithoutAnalyses(raw_ostream &O) const;
   static const char *getOpcodeName(unsigned Opcode);
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 
@@ -1020,7 +984,6 @@ public:
   }
 };
 
-#if INTEL_CUSTOMIZATION
 /// Concrete class for comparison. Represents both integers and floats.
 class VPCmpInst : public VPInstruction {
 public:
@@ -1100,7 +1063,7 @@ public:
   }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-  void print(raw_ostream &O) const;
+  void printImpl(raw_ostream &O) const;
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 
   static inline bool classof(const VPInstruction *VPI) {
@@ -1210,7 +1173,7 @@ public:
   void addIncoming(VPValue *IncomingVal, VPValue *BlockPred, VPlan *Plan = nullptr);
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-  void print(raw_ostream &O) const;
+  void printImpl(raw_ostream &O) const;
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 
   // Method to support type inquiry through isa, cast, and dyn_cast.
@@ -1784,7 +1747,7 @@ private:
     unsigned UseMaskedForUnmasked : 1;
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-    void print(raw_ostream &OS) const {
+    void printImpl(raw_ostream &OS) const {
       std::string VecVariantName =
           MatchedVecVariant != nullptr ? MatchedVecVariant->toString() : "None";
       OS << "  VecVariant: " << VecVariantName << "\n";
@@ -1794,7 +1757,6 @@ private:
       OS << "  VecLibFn: " << VectorLibraryFn << "\n";
       OS << "  PumpFactor: " << PumpFactor << "\n";
     }
-    void dump() const { print(outs()); }
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
   } VecProperties;
 
@@ -2016,7 +1978,7 @@ public:
   }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-  void print(raw_ostream &O) const;
+  void printImpl(raw_ostream &O) const;
 
   void dumpVecProperties(raw_ostream &OS) const {
     OS << "For VF=" << VecProperties.VF << "\n";
@@ -2041,7 +2003,7 @@ public:
       llvm_unreachable("Unexpected VecScenario.");
     }
     OS << "\n";
-    VecProperties.print(OS);
+    VecProperties.printImpl(OS);
     OS << "\n";
   }
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
@@ -2515,7 +2477,6 @@ private:
   bool IsSOASafe;
   bool IsSOAProfitable;
 };
-#endif // INTEL_CUSTOMIZATION
 
 /// VPlan models a candidate for vectorization, encoding various decisions take
 /// to produce efficient output IR, including which branches, basic-blocks and
@@ -2895,7 +2856,7 @@ inline raw_ostream &operator<<(raw_ostream &OS, const VPlan &Plan) {
 
 // Set of print functions
 inline raw_ostream &operator<<(raw_ostream &OS, const VPInstruction &I) {
-  I.dump(OS);
+  I.print(OS);
   return OS;
 }
 inline raw_ostream &operator<<(raw_ostream &OS, const VPBasicBlock &BB) {

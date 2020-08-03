@@ -121,9 +121,8 @@ bool VPLoop::isRecursivelyLCSSAForm(const VPLoopInfo &LI) const {
 }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
-void VPLoop::printRPOT(raw_ostream &OS, const VPLoopInfo *VPLI, unsigned Indent,
-                       const VPlanDivergenceAnalysis *DA,
-                       const VPlanScalVecAnalysis *SVA) const {
+void VPLoop::printRPOT(raw_ostream &OS, const VPLoopInfo *VPLI,
+                       unsigned Indent) const {
   ReversePostOrderTraversal<
       const VPLoop *, VPLoopBodyTraits,
       std::set<std::pair<const VPLoop *, const VPBasicBlock *>>>
@@ -148,7 +147,7 @@ void VPLoop::printRPOT(raw_ostream &OS, const VPLoopInfo *VPLI, unsigned Indent,
       BBIndent +=
           (this->getLoopDepth() - VPLI->getLoopFor(BB)->getLoopDepth()) * 2;
 
-    BB->print(OS, BBIndent, DA, SVA, NamePrefix);
+    BB->print(OS, BBIndent, NamePrefix);
   }
   OS << "\n";
 }
