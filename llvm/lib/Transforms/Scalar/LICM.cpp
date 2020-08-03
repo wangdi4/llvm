@@ -1918,7 +1918,7 @@ bool llvm::promoteLoopAccessesToScalars(
     // we have to prove that the store is dead along the unwind edge.  We do
     // this by proving that the caller can't have a reference to the object
     // after return and thus can't possibly load from the object.
-    Value *Object = getUnderlyingObject(SomePtr, MDL);
+    Value *Object = getUnderlyingObject(SomePtr);
     if (!isKnownNonEscaping(Object, TLI))
       return false;
     // Subtlety: Alloca's aren't visible to callers, but *are* potentially
@@ -2050,7 +2050,7 @@ bool llvm::promoteLoopAccessesToScalars(
     if (IsKnownThreadLocalObject)
       SafeToInsertStore = true;
     else {
-      Value *Object = getUnderlyingObject(SomePtr, MDL);
+      Value *Object = getUnderlyingObject(SomePtr);
       SafeToInsertStore =
           (isAllocLikeFn(Object, TLI) || isa<AllocaInst>(Object)) &&
           !PointerMayBeCaptured(Object, true, true);
