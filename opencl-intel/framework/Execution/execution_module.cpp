@@ -690,19 +690,11 @@ cl_err_code ExecutionModule::WaitForEvents( cl_uint uiNumEvents, const cl_event*
         return CL_INVALID_VALUE;
 
     // Validate event context
-    cl_context clEventsContext = 0;
     SharedPtr<OclEvent> pEvent = m_pEventsManager->GetEventClass<OclEvent>(cpEventList[0]);
     if ( NULL == pEvent )
     {
         return CL_INVALID_EVENT_WAIT_LIST;
     }
-
-    clEventsContext = pEvent->GetParentHandle();
-
-    // Before waiting all on events, the function need to flush all relevant queues,
-    // Since the dependencies between events in different queues is unknown it is better
-    // to flush all queues in the context.
-    //FlushAllQueuesForContext(clEventsContext);
 
     // This call is blocking
     errVal = m_pEventsManager->WaitForEvents(uiNumEvents, cpEventList);

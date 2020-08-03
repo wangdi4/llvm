@@ -73,17 +73,21 @@ bool clCreateBufferTest()
 
 	bufferForErr = PROV_OBJ( clCreateBuffer(context, CL_MEM_HOST_NO_ACCESS | CL_MEM_HOST_READ_ONLY, 100, NULL, &iRet) );
 	EXPECT_EQ(oclErr(CL_INVALID_VALUE),oclErr(iRet)) << "clCreateBuffer with flags (CL_MEM_HOST_NO_ACCESS | CL_MEM_HOST_READ_ONLY) should fail.";
+	EXPECT_EQ(bufferForErr,nullptr);
 
 	bufferForErr = PROV_OBJ( clCreateBuffer(context, CL_MEM_HOST_NO_ACCESS | CL_MEM_HOST_WRITE_ONLY, 100, NULL, &iRet) );
 	EXPECT_EQ(oclErr(CL_INVALID_VALUE),oclErr(iRet)) << "clCreateBuffer with flags (CL_MEM_HOST_NO_ACCESS | CL_MEM_HOST_WRITE_ONLY) should fail.";
+	EXPECT_EQ(bufferForErr,nullptr);
 
 	bufferForErr = PROV_OBJ( clCreateBuffer(context, CL_MEM_HOST_READ_ONLY | CL_MEM_HOST_WRITE_ONLY, 100, NULL, &iRet) );
 	EXPECT_EQ(oclErr(CL_INVALID_VALUE),oclErr(iRet)) << "clCreateBuffer with flags (CL_MEM_HOST_READ_ONLY | CL_MEM_HOST_WRITE_ONLY) should fail.";
+	EXPECT_EQ(bufferForErr,nullptr);
 
 	cl_mem bufferWithNoHostAccess =
 			PROV_OBJ( clCreateBuffer(context, CL_MEM_HOST_NO_ACCESS, 100, NULL, &iRet) );
 
     // Release all
+    clReleaseMemObject(bufferForErr);
     clReleaseMemObject(bufferWithNoHostAccess);
     clReleaseMemObject(buffer3);
     clReleaseMemObject(buffer2);
@@ -137,6 +141,7 @@ bool clCreateBufferWithPropertiesINTELTest()
         printf("buffer2 = %p\n", (void*)buffer2);
         // Release all
         clReleaseMemObject(buffer1);
+        clReleaseMemObject(buffer2);
         clReleaseContext(context);
 
         PROV_RETURN_AND_ABANDON(true);

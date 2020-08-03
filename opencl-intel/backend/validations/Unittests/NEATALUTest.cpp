@@ -756,9 +756,6 @@ TYPED_TEST(NEATAluTyped, shufflevector)
     TypeParam firstFloat[NUM_TESTS][16];
     TypeParam secondFloat[NUM_TESTS][16];
 
-    TypeParam add[NUM_TESTS][16];
-    TypeParam mul[NUM_TESTS][16];
-
     if(sizeof(TypeParam) == sizeof(float)) {
         GenerateRandomVectors(F32, &firstFloat[0][0], V16, NUM_TESTS);
         GenerateRandomVectors(F32, &secondFloat[0][0], V16, NUM_TESTS);
@@ -768,15 +765,6 @@ TYPED_TEST(NEATAluTyped, shufflevector)
     } else {
         GTEST_FAIL();
     }
-
-        for(int i = 0; i<NUM_TESTS; i++)
-        {
-            for(int j = 0; j<16; j++)
-            {
-                add[i][j] = firstFloat[i][j] + secondFloat[i][j];
-                mul[i][j] = firstFloat[i][j] * secondFloat[i][j];
-            }
-        }
 
         {
             // test to make dst vector from two src vectors
@@ -6950,7 +6938,6 @@ TYPED_TEST(NEATAluTypedMath, asinpi)
             } else
             {
                 refAccValFloat = RefALU::asinpi(SuperT(*accurate[i].GetAcc<TypeP>()));
-                NEATValue testAccVal = NEATALU::asinpi<TypeP>(accurate[i]);
                 bool passed = TestAccExpanded<SuperT>(refAccValFloat,testAccVec[i],NEATALU::ASINPI_ERROR);
                 EXPECT_TRUE(passed);
             }

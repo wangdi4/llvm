@@ -151,6 +151,7 @@ namespace intel {
         isIntegerOverflowType = VectorType::get(isIntegerOverflowType, vecType->getNumElements());
       }
 
+      (void)divisorElemType;
       assert(divisorElemType->isIntegerTy() && "Unexpected divisor element type");
 
       // Get dividend

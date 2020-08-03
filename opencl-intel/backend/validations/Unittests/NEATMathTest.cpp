@@ -4449,8 +4449,6 @@ public:
 
     void TestSpecValues(NEATFuncP NEATFunc, RefFuncP RefFunc)
     {
-        NEATValue unkn = NEATValue(NEATValue::UNKNOWN);
-        NEATValue unwr = NEATValue(NEATValue::UNWRITTEN);
         NEATValue any  = NEATValue(NEATValue::ANY);
         NEATValue nan  = NEATValue::NaN<T>();
         NEATValue tmp;

@@ -70,7 +70,7 @@ static cl_device_id* getDevices(cl_platform_id platform, cl_uint *uiNumDevices){
 static bool runAndVerify(int numberOfIntParametersToTry, cl_context context,
   const char* sample_large_parmam_kernel_pattern[], cl_uint uiNumDevices,
     cl_device_id *pDevices, cl_command_queue queue){
-  int retVal, i;
+  int i;
   cl_int iRet;
   std::auto_ptr<char> argumentLine, codeLines, programSrc;
   std::auto_ptr<cl_long> ptrLongs;
@@ -139,7 +139,6 @@ static bool runAndVerify(int numberOfIntParametersToTry, cl_context context,
     clReleaseProgram(prog);
   kernel = clCreateKernel(prog, "sample_test", &iRet);
   /* Try to set a large argument to the kernel */
-  retVal = 0;
 
   mem = clCreateBuffer(context, (cl_mem_flags)(CL_MEM_READ_WRITE), sizeof(cl_long), NULL, &iRet);
   bResult &= Check("clCreateBuffer", CL_SUCCESS, iRet);
@@ -326,7 +325,6 @@ TEST(OclRecorder, dupKernels){
 
 static bool runAndVerify_forLocalMem(cl_context context, cl_uint uiNumDevices,
     cl_device_id *pDevices, cl_command_queue queue){
-  int retVal;
   cl_int iRet;
   std::auto_ptr<char> argumentLine, codeLines, programSrc;
   std::auto_ptr<cl_long> ptrLongs;
@@ -378,7 +376,6 @@ static bool runAndVerify_forLocalMem(cl_context context, cl_uint uiNumDevices,
     clReleaseProgram(prog);
   kernel = clCreateKernel(prog, "sample_test", &iRet);
   /* Try to set a large argument to the kernel */
-  retVal = 0;
 
   mem0 = clCreateBuffer(context, (cl_mem_flags)(CL_MEM_READ_WRITE), sizeof(cl_long), NULL, &iRet);
   bResult &= Check("clCreateBuffer", CL_SUCCESS, iRet);

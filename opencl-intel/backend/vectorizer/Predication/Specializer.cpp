@@ -609,6 +609,7 @@ BasicBlock* FunctionSpecializer::createIntermediateBlock(
   for (unsigned i=0; i<br->getNumSuccessors(); ++i) {
     if (br->getSuccessor(i) == after) { changed = true; br->setSuccessor(i, new_block); }
   }
+  (void)changed;
   V_ASSERT(changed);
 
   // Fix after block

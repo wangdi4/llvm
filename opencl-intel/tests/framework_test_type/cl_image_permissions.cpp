@@ -98,18 +98,6 @@ bool clImagePermissions()
     imgFormat.image_channel_order = CL_BGRA;
     imgFormat.image_channel_data_type = CL_UNORM_INT8;
 
-    cl_image_desc   imgDesc;
-    imgDesc.image_type = CL_MEM_OBJECT_IMAGE3D;
-    imgDesc.image_width  = IMG_W;
-    imgDesc.image_height = IMG_H;
-    imgDesc.image_depth  = IMG_D;
-    imgDesc.image_array_size = 1;
-    imgDesc.image_row_pitch = 0;
-    imgDesc.image_slice_pitch = 0;
-    imgDesc.num_mip_levels = 0;
-    imgDesc.num_samples = 0;
-    imgDesc.mem_object = NULL;
-
     //TODO: once new clCreateImage() interface is here, use it!
     //imgForErr = PROV_OBJ( clCreateImage(context, CL_MEM_HOST_NO_ACCESS, &imgFormat, &imgDesc, NULL, &iRet) );
     imgForErr = PROV_OBJ( clCreateImage3D(context, CL_MEM_HOST_NO_ACCESS, &imgFormat, IMG_W, IMG_H, IMG_D, 0, 0, NULL, &iRet) );

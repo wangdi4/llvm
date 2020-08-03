@@ -329,7 +329,7 @@ GenericValue lle_X_work_group_prefixsum_max_impl(FunctionType *FT,
   GenericValue gv = initWithMin<T>();
 
   uint64_t idx0, idx1, idx2;//indexes if current WI
-  uint64_t size0, size1, size2;//global work sizes
+  uint64_t size0, size1;//global work sizes
 
   //NOTE: Take local sizes instead of global
   //it's because in our model globalid = tid_x + lid_x
@@ -341,7 +341,6 @@ GenericValue lle_X_work_group_prefixsum_max_impl(FunctionType *FT,
 
   size0 = pI->GetLocalSize(0);
   size1 = pI->GetLocalSize(1);
-  size2 = pI->GetLocalSize(2);
 
   //create linear order
   uint64_t idx = idx2*size1*size0 + idx1*size0 + idx0;
@@ -367,7 +366,7 @@ GenericValue lle_X_work_group_prefixsum_add_impl(FunctionType *FT,
   GenericValue gv = initWithZero<T>();
 
   uint64_t idx0, idx1, idx2;//indexes if current WI
-  uint64_t size0, size1, size2;//global work sizes
+  uint64_t size0, size1;//global work sizes
 
   //NOTE: Take local sizes instead of global
   //it's because in our model globalid = tid_x + lid_x
@@ -379,7 +378,6 @@ GenericValue lle_X_work_group_prefixsum_add_impl(FunctionType *FT,
 
   size0 = pI->GetLocalSize(0);
   size1 = pI->GetLocalSize(1);
-  size2 = pI->GetLocalSize(2);
 
   //create linear order
   uint64_t idx = idx2*size1*size0 + idx1*size0 + idx0;
@@ -405,7 +403,7 @@ GenericValue lle_X_work_group_prefixsum_min_impl(FunctionType *FT,
   GenericValue gv = initWithMax<T>();
 
   uint64_t idx0, idx1, idx2;//indexes if current WI
-  uint64_t size0, size1, size2;//global work sizes
+  uint64_t size0, size1;//global work sizes
 
   //NOTE: Take local sizes instead of global
   //it's because in our model globalid = tid_x + lid_x
@@ -417,7 +415,6 @@ GenericValue lle_X_work_group_prefixsum_min_impl(FunctionType *FT,
 
   size0 = pI->GetLocalSize(0);
   size1 = pI->GetLocalSize(1);
-  size2 = pI->GetLocalSize(2);
 
   //create linear order
   uint64_t idx = idx2*size1*size0 + idx1*size0 + idx0;

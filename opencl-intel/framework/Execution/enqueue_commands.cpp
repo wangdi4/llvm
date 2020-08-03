@@ -3215,6 +3215,7 @@ void PrePostFixRuntimeCommand::ErrorEnqueue(cl_event* intermediate_pEvent, cl_ev
     err = event_manager->RegisterEvents( m_error_event, 1, intermediate_pEvent );
 
     // in our case RegisterEvents() cannot return failure by construction
+    (void)err;
     assert( CL_SUCCEEDED( err ));
 }
 

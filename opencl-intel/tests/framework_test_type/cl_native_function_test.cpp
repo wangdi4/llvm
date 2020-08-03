@@ -280,10 +280,6 @@ bool clNativeFunctionTest()
 
     size_t	stBuffSize = BUFFER_SIZE;
     cl_float		pBuff[BUFFER_SIZE];
-    cl_float		pBuff2[BUFFER_SIZE];
-    cl_double		pBuffD[BUFFER_SIZE];
-    cl_double		pBuff2D[BUFFER_SIZE];
-    cl_double		PospBuffD[BUFFER_SIZE];
     cl_float		PospBuff[BUFFER_SIZE];
 
     cl_float* OneBuffer[]={pBuff};
@@ -311,11 +307,7 @@ bool clNativeFunctionTest()
 	for( unsigned ui = 0; ui < BUFFER_SIZE; ui++ )
     {
         pBuff[ui] = (cl_float)(rand() - RAND_MAX/2) / (cl_float)RAND_MAX ;
-		pBuffD[ui] = (cl_double)(rand() - RAND_MAX/2) / (cl_double)RAND_MAX ;
-		PospBuff[ui]=fabs(pBuff[ui]);
-		PospBuffD[ui]=fabs(pBuffD[ui]);
-		pBuff2[ui] = (cl_float)(rand() - RAND_MAX/2) / (cl_float)RAND_MAX ;
-		pBuff2D[ui] = (cl_double)(rand() - RAND_MAX/2) / (cl_double)RAND_MAX ;
+        PospBuff[ui]=fabs(pBuff[ui]);
     }
 
 	try
