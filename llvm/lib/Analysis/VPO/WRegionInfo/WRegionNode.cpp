@@ -152,6 +152,14 @@ void WRegionNode::finalize(Instruction *ExitDir, DominatorTree *DT) {
       if (UDPI->getIsPointerToPointer())
         continue;
 
+#if INTEL_CUSTOMIZATION
+      // For use_device_ptr:f90_dv(QNCA* %dv), the mapped value needs to be
+      // a load from getelementpointer (%dv, 0, 0). That map will be created in
+      // VPOParoptTransform::addMapForUseDevicePtr().
+      if (UDPI->getIsF90DopeVector())
+        continue;
+
+#endif // INTEL_CUSTOMIZATION
       Value *Orig = UDPI->getOrig();
       MapItem *MapI = WRegionUtils::wrnSeenAsMap(this, Orig);
       if (!MapI)
@@ -1635,6 +1643,15 @@ void WRegionNode::getClausesFromOperandBundles(IntrinsicInst *Call) {
     // Extract clause properties
     ClauseSpecifier ClauseInfo(ClauseString);
 
+#if INTEL_CUSTOMIZATION
+    if (ClauseInfo.getId() == QUAL_OMP_IS_DEVICE_PTR &&
+        ClauseInfo.getIsF90DopeVector()) {
+      // IS.DEVICE.PTR:F90_DV("DV"* %x) is treated as FIRSTPRIVATE("DV"* %x).
+      ClauseInfo.setId(QUAL_OMP_FIRSTPRIVATE);
+      ClauseInfo.setIsF90DopeVector(false);
+    }
+
+#endif // INTEL_CUSTOMIZATION
     // Get the argument list from the current OperandBundle
     ArrayRef<llvm::Use> Args = BU.Inputs;
     unsigned NumArgs = Args.size(); // BU.Inputs.size()

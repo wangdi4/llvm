@@ -180,7 +180,13 @@ class Item
     void setIsByRef(bool Flag)    { IsByRef = Flag;     }
     void setIsNonPod(bool Flag)   { IsNonPod = Flag;    }
     void setIsVla(bool Flag)      { IsVla = Flag;       }
-    void setIsPointerToPointer(bool Flag) { IsPointerToPointer = Flag; }
+    void setIsPointerToPointer(bool Flag) {
+#if INTEL_CUSTOMIZATION
+      assert((!Flag || !IsF90DopeVector) &&
+             "Unexpected: item has both F90_DV and PTR_TO_PTR modifiers.");
+#endif // INTEL_CUSTOMIZATION
+      IsPointerToPointer = Flag;
+    }
     void setThunkBufferSize(EXPR Size) { ThunkBufferSize = Size; }
     void setNewThunkBufferSize(EXPR Size) { NewThunkBufferSize = Size; }
     void setPrivateThunkIdx(int I) { PrivateThunkIdx = I; }
@@ -208,7 +214,11 @@ class Item
 #if INTEL_CUSTOMIZATION
     void setHOrig(HVAR V)         { HOrigItem = V;         }
     template <IRKind IR = LLVMIR> VarType<IR> getOrig() const;
-    void setIsF90DopeVector(bool Flag) { IsF90DopeVector = Flag;  }
+    void setIsF90DopeVector(bool Flag) {
+      assert((!Flag || !IsPointerToPointer) &&
+             "Unexpected: item has both F90_DV and PTR_TO_PTR modifiers.");
+      IsF90DopeVector = Flag;
+    }
     bool getIsF90DopeVector()  const   { return IsF90DopeVector;  }
     void setF90DVNumElements(EXPR Size){ F90DVNumElements = Size; }
     EXPR getF90DVNumElements() const   { return F90DVNumElements; }
