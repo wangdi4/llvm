@@ -299,11 +299,21 @@ unsigned VPlanCostModel::getArithmeticInstructionCost(const unsigned Opcode,
 }
 
 unsigned VPlanCostModel::getLoadStoreCost(const VPInstruction *VPInst) {
+  unsigned Alignment = getMemInstAlignment(VPInst);
+  return getLoadStoreCost(VPInst, Align(Alignment));
+}
+
+unsigned VPlanCostModel::getLoadStoreCost(
+  const VPInstruction *VPInst, Align Alignment) {
+  assert(VPInst &&
+         ((VPInst->getOpcode() == Instruction::Load) ||
+         (VPInst->getOpcode() == Instruction::Store)) &&
+         "Expect Load or Store operation!");
+
   Type *OpTy = getMemInstValueType(VPInst);
   assert(OpTy && "Can't get type of the load/store instruction!");
 
   unsigned Opcode = VPInst->getOpcode();
-  unsigned Alignment = getMemInstAlignment(VPInst);
   unsigned AddrSpace = getMemInstAddressSpace(VPInst);
   Type *VecTy;
   unsigned Scale;
@@ -353,10 +363,8 @@ unsigned VPlanCostModel::getLoadStoreCost(const VPInstruction *VPInst) {
     }
 
     Cost += IsMasked ?
-      Scale * TTI->getMaskedMemoryOpCost(Opcode, VecTy, Align(Alignment), AddrSpace) :
-      Scale * TTI->getMemoryOpCost(Opcode, VecTy,
-                                   Alignment ? Align(Alignment): Align(),
-                                   AddrSpace);
+      Scale * TTI->getMaskedMemoryOpCost(Opcode, VecTy, Alignment, AddrSpace) :
+      Scale * TTI->getMemoryOpCost(Opcode, VecTy, Alignment, AddrSpace);
     return Cost;
   }
 
@@ -365,7 +373,7 @@ unsigned VPlanCostModel::getLoadStoreCost(const VPInstruction *VPInst) {
   // gather/scatter operation is implemented with two HW gathers/scatters.
   return TTI->getGatherScatterOpCost(
     Opcode, VecTy, getLoadStoreIndexSize(VPInst),
-    IsMasked, Alignment, AddrSpace);
+    IsMasked, Alignment.value(), AddrSpace);
 }
 
 unsigned VPlanCostModel::getInsertExtractElementsCost(
