@@ -425,6 +425,13 @@ class X86Subtarget final : public X86GenSubtargetInfo {
   bool HasHRESET = false;
 #endif // INTEL_FEATURE_ISA_HRESET
 
+#if INTEL_FEATURE_ISA_AMX_BF8
+  bool HasAMXBF8 = false;
+#endif // INTEL_FEATURE_ISA_AMX_BF8
+#if INTEL_FEATURE_ISA_AMX_MEMADVISE
+  bool HasAMXMEMADVISE = false;
+#endif // INTEL_FEATURE_ISA_AMX_MEMADVISE
+
 #if INTEL_FEATURE_ISA_AMX_FUTURE
   bool HasAMXELEMENT = false;
   bool HasAMXREDUCE = false;
@@ -889,6 +896,12 @@ public:
     return UseRetpolineIndirectBranches;
   }
 #if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AMX_BF8
+  bool hasAMXBF8() const { return HasAMXBF8; }
+#endif // INTEL_FEATURE_ISA_AMX_BF8
+#if INTEL_FEATURE_ISA_AMX_MEMADVISE
+  bool hasAMXMEMADVISE() const { return HasAMXMEMADVISE; }
+#endif // INTEL_FEATURE_ISA_AMX_MEMADVISE
 #if INTEL_FEATURE_ISA_AMX_FUTURE
   bool hasAMXELEMENT() const { return HasAMXELEMENT; }
   bool hasAMXREDUCE() const { return HasAMXREDUCE; }

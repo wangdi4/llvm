@@ -130,8 +130,29 @@ let Predicates = [HasAMXBF16, In64BitMode] in {
     }
   }
 } // HasAMXTILE, HasAMXBF16
-
 // end INTEL_FEATURE_ISA_AMX
+
+// INTEL_FEATURE_ISA_AMX_BF8
+let Predicates = [HasAMXBF8, In64BitMode] in {
+  let SchedRW = [WriteSystem] in {
+    let Constraints = "$src1 = $dst" in
+    def TDPBF8PS : I<0x5c, MRMSrcReg4VOp3, (outs TILE:$dst),
+                      (ins TILE:$src1, TILE:$src2, TILE:$src3),
+                      "tdpbf8ps\t{$src3, $src2, $dst|$dst, $src2, $src3}",
+                      []>, VEX_4V, T8PD;
+
+    let usesCustomInserter = 1 in {
+      // Pseudo instructions, using immediates instead of tile registers.
+      // To be translated to the actual instructions in X86ISelLowering.cpp
+      def PTDPBF8PS : PseudoI<(outs), (ins u8imm:$src1,
+                               u8imm:$src2, u8imm:$src3),
+                               [(int_x86_tdpbf8ps imm:$src1,
+                                 imm:$src2, imm:$src3)]>;
+    }
+  }
+} // HasAMXTILE, HasAMXBF8
+// end INTEL_FEATURE_ISA_AMX_BF8
+
 // INTEL_FEATURE_ISA_AMX_FUTURE
 
 // TADDPS check tmemrow
@@ -1468,3 +1489,31 @@ let usesCustomInserter = 1 in
                            [(int_x86_tilemov timm:$dst, timm:$src)]>;
 }
 #endif // INTEL_FEATURE_ISA_AMX_TILE2
+
+#if INTEL_FEATURE_ISA_AMX_MEMADVISE
+multiclass m_tmovadvise {
+  let Predicates = [HasAMXMEMADVISE, In64BitMode] in {
+    let SchedRW = [WriteSystem] in {
+      def rmi : Ii8<0x12, MRMSrcMemFSIB, (outs TILE:$dst),
+                    (ins sibmem:$src1, u8imm:$src2),
+                    "tmovadvise\t{$src2, $src1, $dst|$dst, $src1, $src2}",
+                    []>, VEX, TAXD;
+      def mri : Ii8<0x13, MRMDestMemFSIB, (outs),
+                    (ins sibmem:$dst, TILE:$src1, u8imm:$src2),
+                    "tmovadvise\t{$src2, $src1, $dst|$dst, $src1, $src2}",
+                    []>, VEX, TAXD;
+    }
+  } // HasAMXTILE, HasAMXMEMADVISZE
+}
+
+defm TMOVADVISE : m_tmovadvise;
+
+let Predicates = [HasAMXMEMADVISE, In64BitMode],
+    SchedRW = [WriteSystem] in {
+  let  usesCustomInserter = 1 in {
+    def PTMOVADVISErmi: PseudoI<(outs), (ins u8imm:$dst, sibmem:$src1, u8imm:$src2), []>;
+    def PTMOVADVISEmri: PseudoI<(outs), (ins sibmem:$dst, u8imm:$src1, u8imm:$src2), []>;
+  }
+} // HasAMXMEMADVISE
+
+#endif // INTEL_FEATURE_ISA_AMX_MEMADVISE

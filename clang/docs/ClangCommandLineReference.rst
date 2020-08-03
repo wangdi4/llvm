@@ -3142,6 +3142,14 @@ X86
 .. option:: -mamx-tile, -mno-amx-tile
 
 .. INTEL_CUSTOMIZATION
+.. INTEL_FEATURE_ISA_AMX_BF8
+.. option:: -mamx-bf8, -mno-amx-bf8
+
+.. end INTEL_FEATURE_ISA_AMX_BF8
+.. INTEL_FEATURE_ISA_AMX_MEMADVISE
+.. option:: -mamx-memadvise, -mno-amx-memadvise
+
+.. end INTEL_FEATURE_ISA_AMX_MEMADVISE
 .. INTEL_FEATURE_ISA_AMX_FUTURE
 .. option:: -mamx-reduce, -mno-amx-reduce
 

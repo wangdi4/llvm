@@ -335,6 +335,16 @@ def FeatureAMXBF16     : SubtargetFeature<"amx-bf16", "HasAMXBF16", "true",
                                       "Support AMX-BF16 instructions",
                                       [FeatureAMXTILE]>;
 #if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AMX_BF8
+def FeatureAMXBF8     : SubtargetFeature<"amx-bf8", "HasAMXBF8", "true",
+                                      "Support AMX-BF8 instructions",
+                                      [FeatureAMXTILE]>;
+#endif // INTEL_FEATURE_ISA_AMX_BF8
+#if INTEL_FEATURE_ISA_AMX_MEMADVISE
+def FeatureAMXMEMADVISE   : SubtargetFeature<"amx-memadvise", "HasAMXMEMADVISE", "true",
+                                    "Support AMX-MEMADVISE instructions",
+                                    [FeatureAMXTILE]>;
+#endif // INTEL_FEATURE_ISA_AMX_MEMADVISE
 #if INTEL_FEATURE_ISA_AMX_FUTURE
 def FeatureAMXELEMENT     : SubtargetFeature<"amx-element", "HasAMXELEMENT", "true",
                                       "Support AMX amx-element instructions",

@@ -134,6 +134,15 @@ TARGET_BUILTIN(__builtin_ia32_tdpbusd, "vIUcIUcIUc", "n", "amx-int8")
 TARGET_BUILTIN(__builtin_ia32_tdpbuud, "vIUcIUcIUc", "n", "amx-int8")
 TARGET_BUILTIN(__builtin_ia32_tdpbf16ps, "vIUcIUcIUc", "n", "amx-bf16")
 
+#if INTEL_FEATURE_ISA_AMX_BF8
+TARGET_BUILTIN(__builtin_ia32_tdpbf8ps, "vIUcIUcIUc", "n", "amx-bf8")
+#endif // INTEL_FEATURE_ISA_AMX_BF8
+
+#if INTEL_FEATURE_ISA_AMX_MEMADVISE
+TARGET_BUILTIN(__builtin_ia32_tmovadvise_load, "vIUcvC*zIc", "n", "amx-memadvise")
+TARGET_BUILTIN(__builtin_ia32_tmovadvise_store, "vv*zIUcIc", "n", "amx-memadvise")
+#endif // INTEL_FEATURE_ISA_AMX_MEMADVISE
+
 #if INTEL_FEATURE_ISA_AMX_FUTURE
 // AMX_FUTURE Reduce
 TARGET_BUILTIN(__builtin_ia32_tcoladdbcastps, "vIUcIUc", "n", "amx-reduce")

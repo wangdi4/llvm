@@ -208,10 +208,319 @@ void X86TargetInfo::setFeatureEnabled(llvm::StringMap<bool> &Features,
 
   Features[Name] = Enabled;
 
+<<<<<<< HEAD
   SmallVector<StringRef, 8> ImpliedFeatures;
   llvm::X86::getImpliedFeatures(Name, Enabled, ImpliedFeatures);
   for (const auto &F : ImpliedFeatures)
     Features[F] = Enabled;
+=======
+  if (Name == "mmx") {
+    setMMXLevel(Features, MMX, Enabled);
+  } else if (Name == "sse") {
+    setSSELevel(Features, SSE1, Enabled);
+  } else if (Name == "sse2") {
+    setSSELevel(Features, SSE2, Enabled);
+  } else if (Name == "sse3") {
+    setSSELevel(Features, SSE3, Enabled);
+  } else if (Name == "ssse3") {
+    setSSELevel(Features, SSSE3, Enabled);
+  } else if (Name == "sse4.2") {
+    setSSELevel(Features, SSE42, Enabled);
+  } else if (Name == "sse4.1") {
+    setSSELevel(Features, SSE41, Enabled);
+  } else if (Name == "3dnow") {
+    setMMXLevel(Features, AMD3DNow, Enabled);
+  } else if (Name == "3dnowa") {
+    setMMXLevel(Features, AMD3DNowAthlon, Enabled);
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_KEYLOCKER
+  } else if (Name == "keylocker") {
+    if (Enabled)
+      setSSELevel(Features, SSE2, Enabled);
+#endif // INTEL_FEATURE_ISA_KEYLOCKER
+#endif // INTEL_CUSTOMIZATION
+  } else if (Name == "aes") {
+    if (Enabled)
+      setSSELevel(Features, SSE2, Enabled);
+    else
+      Features["vaes"] = false;
+  } else if (Name == "vaes") {
+    if (Enabled) {
+      setSSELevel(Features, AVX, Enabled);
+      Features["aes"] = true;
+    }
+  } else if (Name == "pclmul") {
+    if (Enabled)
+      setSSELevel(Features, SSE2, Enabled);
+    else
+      Features["vpclmulqdq"] = false;
+  } else if (Name == "vpclmulqdq") {
+    if (Enabled) {
+      setSSELevel(Features, AVX, Enabled);
+      Features["pclmul"] = true;
+    }
+  } else if (Name == "gfni") {
+     if (Enabled)
+      setSSELevel(Features, SSE2, Enabled);
+  } else if (Name == "avx") {
+    setSSELevel(Features, AVX, Enabled);
+  } else if (Name == "avx2") {
+    setSSELevel(Features, AVX2, Enabled);
+  } else if (Name == "avx512f") {
+    setSSELevel(Features, AVX512F, Enabled);
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AMX_LNC
+    if (!Enabled) {
+      Features["amx-avx512"] = false;
+    }
+#endif // INTEL_FEATURE_ISA_AMX_LNC
+#endif // INTEL_CUSTOMIZATION
+  } else if (Name.startswith("avx512")) {
+    if (Enabled)
+      setSSELevel(Features, AVX512F, Enabled);
+    // Enable BWI instruction if certain features are being enabled.
+    if ((Name == "avx512vbmi" || Name == "avx512vbmi2" ||
+         Name == "avx512bitalg" || Name == "avx512bf16") && Enabled)
+      Features["avx512bw"] = true;
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+    // Enable BW and VL if AVX512FP16 is being enabled.
+    if (Name == "avx512fp16") {
+      if (Enabled) {
+        Features["avx512bw"] = true;
+        Features["avx512dq"] = true;
+        Features["avx512vl"] = true;
+      }
+      else {
+#endif // INTEL_FEATURE_ISA_FP16
+#if INTEL_FEATURE_ISA_AMX_FP16
+        Features["amx-fp16"] = false;
+#endif // INTEL_FEATURE_ISA_AMX_FP16
+#if INTEL_FEATURE_ISA_AVX512_CONVERT
+        Features["avx512convert"] = false;
+#endif // INTEL_FEATURE_ISA_AVX512_CONVERT
+#if INTEL_FEATURE_ISA_AVX512_DOTPROD_PHPS
+        Features["avx512dotprodphps"] = false;
+#endif // INTEL_FEATURE_ISA_AVX512_DOTPROD_PHPS
+#if INTEL_FEATURE_ISA_FP16
+      }
+    }
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
+    // Also disable some features if BWI is being disabled.
+    if (Name == "avx512bw" && !Enabled) {
+      Features["avx512vbmi"] = false;
+      Features["avx512vbmi2"] = false;
+      Features["avx512bitalg"] = false;
+      Features["avx512bf16"] = false;
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+      setFeatureEnabledImpl(Features, "avx512fp16", false);
+#endif // INTEL_FEATURE_ISA_FP16
+    }
+#if INTEL_FEATURE_ISA_FP16
+    if (Name == "avx512dq" && !Enabled)
+      setFeatureEnabledImpl(Features, "avx512fp16", false);
+    if (Name == "avx512vl" && !Enabled)
+      setFeatureEnabledImpl(Features, "avx512fp16", false);
+#endif // INTEL_FEATURE_ISA_FP16
+#if INTEL_FEATURE_ISA_AVX512_CONVERT
+    if (Name == "avx512bf16" && !Enabled) {
+      Features["avx512convert"] = false;
+    }
+#endif // INTEL_FEATURE_ISA_AVX512_CONVERT
+#if INTEL_FEATURE_ISA_AVX512_DOTPROD_PHPS
+    if (Name == "avx512dotprodphps" && Enabled) {
+      setFeatureEnabledImpl(Features, "avx512fp16", true);
+#endif // INTEL_FEATURE_ISA_AVX512_DOTPROD_PHPS
+#if INTEL_FEATURE_ISA_AVX_DOTPROD_PHPS
+      Features["avxdotprodphps"] = true;
+#endif // INTEL_FEATURE_ISA_AVX_DOTPROD_PHPS
+#if INTEL_FEATURE_ISA_AVX512_DOTPROD_PHPS
+    }
+#endif // INTEL_FEATURE_ISA_AVX512_DOTPROD_PHPS
+#if INTEL_FEATURE_ISA_AVX512_DOTPROD_INT8
+    if (Name == "avx512dotprodint8" && Enabled) {
+#endif // INTEL_FEATURE_ISA_AVX512_DOTPROD_INT8
+#if INTEL_FEATURE_ISA_AVX_DOTPROD_INT8
+      Features["avxdotprodint8"] = true;
+#endif // INTEL_FEATURE_ISA_AVX_DOTPROD_INT8
+#if INTEL_FEATURE_ISA_AVX512_DOTPROD_INT8
+    }
+#endif // INTEL_FEATURE_ISA_AVX512_DOTPROD_INT8
+#if INTEL_FEATURE_ISA_AVX512_CONVERT
+    if (Name == "avx512convert" && Enabled) {
+      setFeatureEnabledImpl(Features, "avx512fp16", true);
+#endif // INTEL_FEATURE_ISA_AVX512_CONVERT
+#if INTEL_FEATURE_ISA_AVX_CONVERT
+      Features["avxconvert"] = true;
+#endif // INTEL_FEATURE_ISA_AVX_CONVERT
+#if INTEL_FEATURE_ISA_AVX512_CONVERT
+    }
+#endif // INTEL_FEATURE_ISA_AVX512_CONVERT
+#endif // INTEL_CUSTOMIZATION
+  } else if (Name == "fma") {
+    if (Enabled)
+      setSSELevel(Features, AVX, Enabled);
+    else
+      setSSELevel(Features, AVX512F, Enabled);
+  } else if (Name == "fma4") {
+    setXOPLevel(Features, FMA4, Enabled);
+  } else if (Name == "xop") {
+    setXOPLevel(Features, XOP, Enabled);
+  } else if (Name == "sse4a") {
+    setXOPLevel(Features, SSE4A, Enabled);
+  } else if (Name == "f16c") {
+    if (Enabled)
+      setSSELevel(Features, AVX, Enabled);
+    else
+      setSSELevel(Features, AVX512F, Enabled);
+  } else if (Name == "sha") {
+    if (Enabled)
+      setSSELevel(Features, SSE2, Enabled);
+  } else if (Name == "xsave") {
+    if (!Enabled)
+      Features["xsaveopt"] = Features["xsavec"] = Features["xsaves"] = false;
+  } else if (Name == "xsaveopt" || Name == "xsavec" || Name == "xsaves") {
+    if (Enabled)
+      Features["xsave"] = true;
+  } else if (Name == "amx-tile" && !Enabled) {
+    Features["amx-bf16"] = Features["amx-int8"] = false;
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AMX_BF8
+    Features["amx-bf8"] = false;
+#endif // INTEL_FEATURE_ISA_AMX_BF8
+#if INTEL_FEATURE_ISA_AMX_MEMADVISE
+    Features["amx-memadvise"] = false;
+#endif // INTEL_FEATURE_ISA_AMX_MEMADVISE
+#if INTEL_FEATURE_ISA_AMX_FUTURE
+    Features["amx-reduce"] = Features["amx-memory"] =
+    Features["amx-format"] = Features["amx-element"] = false;
+#endif // INTEL_FEATURE_ISA_AMX_FUTURE
+#if INTEL_FEATURE_ISA_AMX_LNC
+    Features["amx-transpose"] = false;
+#endif // INTEL_FEATURE_ISA_AMX_LNC
+#if INTEL_FEATURE_ISA_AMX_FP16
+    Features["amx-fp16"] = false;
+#endif // INTEL_FEATURE_ISA_AMX_FP16
+#if INTEL_FEATURE_ISA_AMX_MEMORY2
+    Features["amx-memory2"] = false;
+#endif // INTEL_FEATURE_ISA_AMX_MEMORY2
+#if INTEL_FEATURE_ISA_AMX_BF16_EVEX
+    Features["amx-bf16-evex"] = false;
+#endif // INTEL_FEATURE_ISA_AMX_BF16_EVEX
+#if INTEL_FEATURE_ISA_AMX_ELEMENT_EVEX
+    Features["amx-element-evex"] = false;
+#endif // INTEL_FEATURE_ISA_AMX_ELEMENT_EVEX
+#if INTEL_FEATURE_ISA_AMX_INT8_EVEX
+    Features["amx-int8-evex"] = false;
+#endif // INTEL_FEATURE_ISA_AMX_INT8_EVEX
+#if INTEL_FEATURE_ISA_AMX_TILE_EVEX
+    Features["amx-tile-evex"] = false;
+#endif // INTEL_FEATURE_ISA_AMX_TILE_EVEX
+#if INTEL_FEATURE_ISA_AMX_TRANSPOSE2
+    Features["amx-transpose2"] = false;
+#endif // INTEL_FEATURE_ISA_AMX_TRANSPOSE2
+#if INTEL_FEATURE_ISA_AMX_CONVERT
+    Features["amx-convert"] = false;
+#endif // INTEL_FEATURE_ISA_AMX_CONVERT
+#if INTEL_FEATURE_ISA_AMX_TILE2
+    Features["amx-tile2"] = false;
+#endif // INTEL_FEATURE_ISA_AMX_TILE2
+  } else if ((Name == "amx-bf16" || Name == "amx-int8") && Enabled)
+    Features["amx-tile"] = true;
+#if INTEL_FEATURE_ISA_AMX_BF8
+  else if (Name == "amx-bf8" && Enabled)
+    Features["amx-tile"] = true;
+#endif // INTEL_FEATURE_ISA_AMX_BF8
+#if INTEL_FEATURE_ISA_AMX_MEMADVISE
+  else if (Name == "amx-memadvise" && Enabled)
+     Features["amx-tile"] = true;
+#endif // INTEL_FEATURE_ISA_AMX_MEMADVISE
+#if INTEL_FEATURE_ISA_AMX_FUTURE
+  else if ((Name == "amx-reduce" || Name == "amx-memory" ||
+            Name == "amx-format" || Name == "amx-element") && Enabled)
+    Features["amx-tile"] = true;
+#endif // INTEL_FEATURE_ISA_AMX_FUTURE
+#if INTEL_FEATURE_ISA_AMX_LNC
+  else if (Name == "amx-transpose" && Enabled)
+    Features["amx-tile"] = true;
+  else if ((Name == "amx-avx512") && Enabled) {
+    Features["amx-tile"] = true;
+    setFeatureEnabledImpl(Features, "avx512f", true);
+  }
+#endif // INTEL_FEATURE_ISA_AMX_LNC
+#if INTEL_FEATURE_ISA_AMX_FP16
+  else if (Name == "amx-fp16" && Enabled)
+    Features["amx-tile"] = true;
+#endif // INTEL_FEATURE_ISA_AMX_FP16
+#if INTEL_FEATURE_ISA_AMX_MEMORY2
+  else if (Name == "amx-memory2" && Enabled)
+    Features["amx-tile"] = true;
+#endif // INTEL_FEATURE_ISA_AMX_MEMORY2
+#if INTEL_FEATURE_ISA_AMX_BF16_EVEX
+  else if (Name == "amx-bf16-evex" && Enabled)
+    Features["amx-tile"] = true;
+#endif // INTEL_FEATURE_ISA_AMX_BF16_EVEX
+#if INTEL_FEATURE_ISA_AMX_ELEMENT_EVEX
+  else if (Name == "amx-element-evex" && Enabled)
+    Features["amx-tile"] = true;
+#endif // INTEL_FEATURE_ISA_AMX_ELEMENT_EVEX
+#if INTEL_FEATURE_ISA_AMX_INT8_EVEX
+  else if (Name == "amx-int8-evex" && Enabled)
+    Features["amx-tile"] = true;
+#endif // INTEL_FEATURE_ISA_AMX_INT8_EVEX
+#if INTEL_FEATURE_ISA_AMX_TILE_EVEX
+  else if (Name == "amx-tile-evex" && Enabled)
+    Features["amx-tile"] = true;
+#endif // INTEL_FEATURE_ISA_AMX_TILE_EVEX
+#if INTEL_FEATURE_ISA_AMX_TRANSPOSE2
+  else if (Name == "amx-transpose2" && Enabled)
+    Features["amx-tile"] = true;
+#endif // INTEL_FEATURE_ISA_AMX_TRANSPOSE2
+#if INTEL_FEATURE_ISA_AMX_CONVERT
+  else if (Name == "amx-convert" && Enabled)
+    Features["amx-tile"] = true;
+#endif // INTEL_FEATURE_ISA_AMX_CONVERT
+#if INTEL_FEATURE_ISA_AMX_TILE2
+  else if (Name == "amx-tile2" && Enabled)
+    Features["amx-tile"] = true;
+#endif // INTEL_FEATURE_ISA_AMX_TILE2
+#if INTEL_FEATURE_ISA_AVX_VNNI
+  else if (Name == "avxvnni") {
+    if (Enabled)
+      setSSELevel(Features, AVX2, Enabled);
+  }
+#endif // INTEL_FEATURE_ISA_AVX_VNNI
+#if INTEL_FEATURE_ISA_AVX_IFMA
+  else if (Name == "avxifma" && Enabled) {
+    setSSELevel(Features, AVX2, Enabled);
+  }
+#endif // INTEL_FEATURE_ISA_AVX_IFMA
+#if INTEL_FEATURE_ISA_AVX_CONVERT
+  else if (Name == "avxconvert" && Enabled)
+    setSSELevel(Features, AVX2, Enabled);
+#endif // INTEL_FEATURE_ISA_AVX_CONVERT
+#if INTEL_FEATURE_ISA_AVX_DOTPROD_INT8
+  else if (Name == "avxdotprodint8" && Enabled)
+    setSSELevel(Features, AVX2, Enabled);
+#endif // INTEL_FEATURE_ISA_AVX_DOTPROD_INT8
+#if INTEL_FEATURE_ISA_AVX_DOTPROD_PHPS
+  else if (Name == "avxdotprodphps" && Enabled)
+    setSSELevel(Features, AVX2, Enabled);
+#endif // INTEL_FEATURE_ISA_AVX_DOTPROD_PHPS
+#if INTEL_FEATURE_ISA_AVX_BF16
+  else if (Name == "avxbf16" && Enabled) {
+    setSSELevel(Features, AVX2, Enabled);
+  }
+#endif // INTEL_FEATURE_ISA_AVX_BF16
+#if INTEL_FEATURE_ISA_AVX_COMPRESS
+  else if (Name == "avxcompress" && Enabled) {
+    setSSELevel(Features, AVX2, Enabled);
+  }
+#endif // INTEL_FEATURE_ISA_AVX_COMPRESS
+#endif // INTEL_CUSTOMIZATION
+>>>>>>> deffe4db6da5807debee66c49c65a2cd824b2ac4
 }
 
 /// handleTargetFeatures - Perform initialization based on the user
@@ -374,6 +683,14 @@ bool X86TargetInfo::handleTargetFeatures(std::vector<std::string> &Features,
       HasAMXINT8 = true;
     } else if (Feature == "+amx-tile") {
       HasAMXTILE = true;
+#if INTEL_FEATURE_ISA_AMX_BF8
+    } else if (Feature == "+amx-bf8") {
+      HasAMXBF8 = true;
+#endif // INTEL_FEATURE_ISA_AMX_BF8
+#if INTEL_FEATURE_ISA_AMX_MEMADVISE
+    } else if (Feature == "+amx-memadvise") {
+      HasAMXMEMADVISE = true;
+#endif // INTEL_FEATURE_ISA_AMX_MEMADVISE
 #if INTEL_FEATURE_ISA_AMX_FUTURE
     } else if (Feature == "+amx-reduce") {
       HasAMXREDUCE = true;
@@ -929,6 +1246,16 @@ void X86TargetInfo::getTargetDefines(const LangOptions &Opts,
   if (HasAMXBF16)
     Builder.defineMacro("__AMXBF16__");
   Builder.defineMacro("__AMX_SUPPORTED__");
+#if INTEL_FEATURE_ISA_AMX_BF8
+  if (HasAMXBF8)
+    Builder.defineMacro("__AMX_BF8__");
+  Builder.defineMacro("__AMX_BF8_SUPPORTED__");
+#endif // INTEL_FEATURE_ISA_AMX_BF8
+#if INTEL_FEATURE_ISA_AMX_MEMADVISE
+  if (HasAMXMEMADVISE)
+    Builder.defineMacro("__AMX_MEMADVISE__");
+  Builder.defineMacro("__AMX_MEMADVISE_SUPPORTED__");
+#endif // INTEL_FEATURE_ISA_AMX_MEMADVISE
 #if INTEL_FEATURE_ISA_AMX_MEMORY2
   if (HasAMXMEMORY2)
     Builder.defineMacro("__AMX_MEMORY2__");
@@ -1165,6 +1492,12 @@ bool X86TargetInfo::isValidFeatureName(StringRef Name) const {
       .Case("amx-int8", true)
       .Case("amx-tile", true)
 #if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AMX_BF8
+      .Case("amx-bf8", true)
+#endif // INTEL_FEATURE_ISA_AMX_BF8
+#if INTEL_FEATURE_ISA_AMX_MEMADVISE
+      .Case("amx-memadvise", true)
+#endif // INTEL_FEATURE_ISA_AMX_MEMADVISE
 #if INTEL_FEATURE_ISA_AMX_FUTURE
       .Case("amx-reduce", true)
       .Case("amx-memory", true)
@@ -1345,6 +1678,12 @@ bool X86TargetInfo::hasFeature(StringRef Feature) const {
       .Case("amx-int8", HasAMXINT8)
       .Case("amx-tile", HasAMXTILE)
 #if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AMX_BF8
+      .Case("amx-bf8", HasAMXBF8)
+#endif // INTEL_FEATURE_ISA_AMX_BF8
+#if INTEL_FEATURE_ISA_AMX_MEMADVISE
+      .Case("amx-memadvise", HasAMXMEMADVISE)
+#endif // INTEL_FEATURE_ISA_AMX_MEMADVISE
 #if INTEL_FEATURE_ISA_AMX_FUTURE
       .Case("amx-reduce", HasAMXREDUCE)
       .Case("amx-memory", HasAMXMEMORY)
