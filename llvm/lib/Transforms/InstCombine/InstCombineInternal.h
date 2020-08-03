@@ -481,6 +481,16 @@ public:
     assert(I.use_empty() && "Cannot erase instruction that is used!");
     salvageDebugInfo(I);
 
+#if INTEL_CUSTOMIZATION
+    //
+    // CMPLRLLVM-21632: If 'I' is a CallBase feeding a potentially dead
+    // module level BitCastOperator, set 'BCOS' to that BitCastOperator
+    // so it can be checked to see if it has no Uses after 'I' is deleted.
+    //
+    BitCastOperator *BCOS = nullptr;
+    if (auto CB = dyn_cast<CallBase>(&I))
+      BCOS = dyn_cast<BitCastOperator>(CB->getCalledOperand());
+#endif // INTEL_CUSTOMIZATION
     // Make sure that we reprocess all operands now that we reduced their
     // use counts.
     for (Use &Operand : I.operands())
@@ -489,6 +499,24 @@ public:
 
     Worklist.remove(&I);
     I.eraseFromParent();
+#if INTEL_CUSTOMIZATION
+    //
+    // CMPLRLLVM-21632: If 'BCOS' has no uses and is a module level
+    // constant BitCastOperator using a Function 'F', delete it so that
+    // we keep an accurate count of the uses of 'F'.
+    //
+    if (BCOS && BCOS->use_empty())
+      if (auto F = dyn_cast<Function>(BCOS->stripPointerCasts()))
+        //
+        // Right now, we need to do this just for Fortran, as there is
+        // a regression caused by this change's enabling of extra inlining
+        // of single callsite Functions on an important C/C++ code. I
+        // will leave CMPLRLLVM-21632 open until that is solved.
+        //
+        if (F->isFortran())
+          if (auto *CE = dyn_cast<ConstantExpr>(BCOS))
+            CE->destroyConstant();
+#endif // INTEL_CUSTOMIZATION
     MadeIRChange = true;
     return nullptr; // Don't do anything with FI
   }
