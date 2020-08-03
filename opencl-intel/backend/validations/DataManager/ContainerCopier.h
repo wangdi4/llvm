@@ -47,7 +47,7 @@ namespace Validation
             assert(m_pList->GetBufferContainerCount() == 1);
             IBufferContainer* pBc = m_pList->GetBufferContainer(0);
             const IMemoryObjectDesc* pDesc = in_pImage->GetMemoryObjectDesc();
-            std::auto_ptr<ImageDesc> pNewDesc(static_cast<ImageDesc *>(pDesc->Clone()));
+            std::unique_ptr<ImageDesc> pNewDesc(static_cast<ImageDesc *>(pDesc->Clone()));
             IMemoryObject* pNewBuf = pBc->CreateImage(*pNewDesc);
             void *pNewData = pNewBuf->GetDataPtr();
             void *pOldData = in_pImage->GetDataPtr();
@@ -61,7 +61,7 @@ namespace Validation
             assert(m_pList->GetBufferContainerCount() == 1);
             IBufferContainer* pBc = m_pList->GetBufferContainer(0);
             const IMemoryObjectDesc* pDesc = in_pBuffer->GetMemoryObjectDesc();
-            std::auto_ptr<BufferDesc> pNewDesc(static_cast<BufferDesc *>(pDesc->Clone()));
+            std::unique_ptr<BufferDesc> pNewDesc(static_cast<BufferDesc *>(pDesc->Clone()));
             IMemoryObject* pNewBuf = pBc->CreateBuffer(*pNewDesc);
             void *pNewData = pNewBuf->GetDataPtr();
             void *pOldData = in_pBuffer->GetDataPtr();

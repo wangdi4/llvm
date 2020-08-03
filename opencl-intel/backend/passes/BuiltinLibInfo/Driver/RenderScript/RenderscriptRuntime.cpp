@@ -135,9 +135,9 @@ bool RenderscriptRuntime::isStreamFunc(const std::string &funcName) const {
   return false;
 }
 
-std::auto_ptr<VectorizerFunction>
+std::unique_ptr<VectorizerFunction>
 RenderscriptRuntime::findBuiltinFunction(StringRef mangledName) const {
-  std::auto_ptr<VectorizerFunction> ret(new RenderscriptVFunction(std::string(mangledName)));
+  std::unique_ptr<VectorizerFunction> ret(new RenderscriptVFunction(std::string(mangledName)));
   return ret;
 }
 

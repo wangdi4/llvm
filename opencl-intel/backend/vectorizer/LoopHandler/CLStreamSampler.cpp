@@ -207,7 +207,7 @@ void CLStreamSampler::CollectReadImgAttributes(CallInst *readImgCall) {
   if (!m_rtServices->isTransposedReadImg(funcName)) return;
 
   // Obtain entry in the builtin hash.
-  std::auto_ptr<VectorizerFunction> foundFunction =
+  std::unique_ptr<VectorizerFunction> foundFunction =
     m_rtServices->findBuiltinFunction(funcName);
   assert(!foundFunction->isNull() && "should have hash entry");
   assert(foundFunction->getWidth() > 1 && "func should be soa_write_image");
@@ -472,7 +472,7 @@ void CLStreamSampler::CollectWriteImgAttributes(CallInst *writeImgCall) {
   if (!m_rtServices->isTransposedWriteImg(funcName)) return;
 
   // Obtain entry in the builtin hash.
-  std::auto_ptr<VectorizerFunction> foundFunction =
+  std::unique_ptr<VectorizerFunction> foundFunction =
                      m_rtServices->findBuiltinFunction(funcName);
   assert(!foundFunction->isNull() && "should have hash entry");
   assert(foundFunction->getWidth() > 1 && "func should be soa_write_image");

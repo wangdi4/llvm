@@ -440,7 +440,7 @@ Validation::COMP_RESULT Comparator::CompareImages( const Image* pImgAct, const I
     // check descriptors in actual and NEAT
     if(m_IsNEATSupportedMemObj)
     {
-        std::auto_ptr<ImageDesc> pNeatModifiedForSizeComparison( (ImageDesc*) pNEATDesc->Clone());
+        std::unique_ptr<ImageDesc> pNeatModifiedForSizeComparison( (ImageDesc*) pNEATDesc->Clone());
         pNeatModifiedForSizeComparison->SetNeat(false);
         if(m_IsNEATSupportedMemObj && (*pActDesc != *pNeatModifiedForSizeComparison))
             return NOT_PASSED;

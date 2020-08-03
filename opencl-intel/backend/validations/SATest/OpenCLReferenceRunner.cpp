@@ -232,7 +232,7 @@ void OpenCLReferenceRunner::StoreOutput(const IRunResult* pRunResult, const IPro
         /// Execution index
         ContainerCopier cc;
         const IBufferContainerList& pBcl = pRunResult->GetOutput( kernelName.c_str() );
-        std::auto_ptr<IBufferContainerList> pNewBcl(cc.CloneBufferContainer(&pBcl, bcIdx));
+        std::unique_ptr<IBufferContainerList> pNewBcl(cc.CloneBufferContainer(&pBcl, bcIdx));
         /// Save it to file
         std::cout << " generating reference " << (*it)->GetStampedPathReference() << std::endl;
         WriteReferenceBuffer( *it, pNewBcl.get());
@@ -240,7 +240,7 @@ void OpenCLReferenceRunner::StoreOutput(const IRunResult* pRunResult, const IPro
         if( m_bUseNEAT )
         {
             const IBufferContainerList& neatBCL = pRunResult->GetNEATOutput( kernelName.c_str() );
-            std::auto_ptr<IBufferContainerList> pNewBclNeat(cc.CloneBufferContainer(&neatBCL, bcIdx));
+            std::unique_ptr<IBufferContainerList> pNewBclNeat(cc.CloneBufferContainer(&neatBCL, bcIdx));
             std::cout << " generating NEAT " << (*it)->GetStampedPathNeat() << std::endl;
             WriteNEATBuffer(*it, pNewBclNeat.get());
         }

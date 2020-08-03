@@ -58,7 +58,7 @@ bool ScalarizeFunction::scanFunctionCall(CallInst *CI, funcRootsVect &rootVals)
   V_ASSERT(vectorFunc && "Unexpected indirect function invocation");
   std::string vectorFuncName = vectorFunc->getName().str();
   V_PRINT(scalarizer, "\tRoot function scanning for function: " << vectorFuncName << "\n");
-  const std::auto_ptr<VectorizerFunction> foundFunction =
+  const std::unique_ptr<VectorizerFunction> foundFunction =
     m_rtServices->findBuiltinFunction(vectorFuncName);
   unsigned vectorWidth = 0;
   if (!foundFunction->isNull())

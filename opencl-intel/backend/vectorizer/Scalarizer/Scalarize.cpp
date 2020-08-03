@@ -778,7 +778,7 @@ void ScalarizeFunction::scalarizeInstruction(CallInst *CI)
     return; // skip indirect calls
   }
   llvm::StringRef funcName = CI->getCalledFunction()->getName();
-  const std::auto_ptr<VectorizerFunction> foundFunction =
+  const std::unique_ptr<VectorizerFunction> foundFunction =
     m_rtServices->findBuiltinFunction(funcName);
   bool RequireFakeInsertExtracts =
       m_rtServices->needsConcatenatedVectorParams(funcName) ||
@@ -1192,7 +1192,7 @@ void ScalarizeFunction::scalarizeCallWithVecArgsToScalarCallsWithScalarArgs(Call
   Function *pCalledFunc = CI->getCalledFunction();
   V_ASSERT(pCalledFunc && "Unexpected indirect function invocation");
   std::string name = pCalledFunc->getName().str();
-  const std::auto_ptr<VectorizerFunction> foundFunction =
+  const std::unique_ptr<VectorizerFunction> foundFunction =
     m_rtServices->findBuiltinFunction(name);
   V_ASSERT(!foundFunction->isNull() && "Unknown name");
   const FunctionType* ScalarFunctionType = pCalledFunc->getFunctionType();

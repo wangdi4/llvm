@@ -1750,7 +1750,7 @@ void PacketizeFunction::packetizeInstruction(CallInst *CI)
   } else {
     // Look for the function in the builtin functions hash
     unsigned vecWidth = 0;
-    const std::auto_ptr<VectorizerFunction> foundFunction =
+    const std::unique_ptr<VectorizerFunction> foundFunction =
       m_rtServices->findBuiltinFunction(scalarFuncName);
     if (!foundFunction->isNull() && foundFunction->isPacketizable()) {
       vecWidth = foundFunction->getWidth();

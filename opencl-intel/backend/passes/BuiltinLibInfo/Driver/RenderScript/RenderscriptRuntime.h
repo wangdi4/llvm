@@ -46,7 +46,7 @@ public:
 
   /// @brief Search for a builtin function (used by scalarizer abd packetizer)
   /// @param inp_name Function name to look for
-  virtual std::auto_ptr<VectorizerFunction>
+  virtual std::unique_ptr<VectorizerFunction>
   findBuiltinFunction(StringRef inp_name) const;
 
   /// @brief RS is an ordered programming language. WIAnalysis is needed

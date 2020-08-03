@@ -56,7 +56,7 @@ cl_dev_err_code CompileService::CreateProgram( const void* pBinary,
             return CL_DEV_INVALID_VALUE;
         }
 
-        std::auto_ptr<Program> spProgram(m_backendFactory->CreateProgram());
+        std::unique_ptr<Program> spProgram(m_backendFactory->CreateProgram());
 
         //check if it is Binary object
         if( OCLElfBinaryReader::IsValidOpenCLBinary((const char*)pBinary, uiBinarySize))

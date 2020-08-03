@@ -71,7 +71,7 @@ BuiltinLibrary* BuiltinModuleManager::GetOrLoadDeviceLibrary(Intel::CPUId cpuId)
         return it->second;
     }
 
-    std::auto_ptr<BuiltinLibrary> pLibrary( new DeviceBuiltinLibrary(cpuId) );
+    std::unique_ptr<BuiltinLibrary> pLibrary( new DeviceBuiltinLibrary(cpuId) );
     pLibrary->Load();
 
     m_BuiltinLibs[key] = pLibrary.get();

@@ -83,7 +83,7 @@ public:
 private:
     static DebugServer instance;
     struct DebugServerImpl;
-    std::auto_ptr<DebugServerImpl> d;
+    std::unique_ptr<DebugServerImpl> d;
 
     // No copying
     DebugServer(const DebugServer&);

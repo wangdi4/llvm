@@ -100,7 +100,7 @@ private:
 
     unsigned short m_port;
     OclSocket m_server_socket;
-    std::auto_ptr<OclSocket> m_connected_socket;
+    std::unique_ptr<OclSocket> m_connected_socket;
 
     // Lock for synchronizing between internal thread and external callers.
     //

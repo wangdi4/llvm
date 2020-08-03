@@ -166,7 +166,7 @@ cl_dev_err_code CPUSerializationService::DeSerializeProgram(
         SerializationStatus stats;
         stats.SetBackendFactory(m_pBackendFactory);
 
-        std::auto_ptr<ICLDevBackendProgram_> tmpProgram(stats.GetBackendFactory()->CreateProgram());
+        std::unique_ptr<ICLDevBackendProgram_> tmpProgram(stats.GetBackendFactory()->CreateProgram());
         cl_dev_err_code err = ReloadProgram(serializationType, *ppProgram, pBlob, blobSize, 0);
         if(CL_DEV_SUCCESS == err) *ppProgram = tmpProgram.release();
         return err;

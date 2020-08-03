@@ -40,7 +40,7 @@ public:
 
   /// @brief Search for a builtin function (used by scalarizer abd packetizer)
   /// @param inp_name Function name to look for
-  virtual std::auto_ptr<VectorizerFunction>
+  virtual std::unique_ptr<VectorizerFunction>
   findBuiltinFunction(StringRef) const = 0;
 
   /// @brief Check if specified instruction is an ID generator

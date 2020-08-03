@@ -578,7 +578,7 @@ namespace Validation
     {
         assert( m_contexts.end()== m_contexts.find(pProgram));
         llvm::LLVMContext context;
-        std::auto_ptr<RecorderContext> spContext(new RecorderContext(m_logsDir, m_prefix));
+        std::unique_ptr<RecorderContext> spContext(new RecorderContext(m_logsDir, m_prefix));
         // Create target data object.
         llvm::StringRef bitCodeStr((const char*)pBinary, uiBinarySize);
         std::unique_ptr<llvm::MemoryBuffer> pMemBuff = llvm::MemoryBuffer::getMemBufferCopy(bitCodeStr);

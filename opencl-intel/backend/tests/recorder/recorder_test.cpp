@@ -52,7 +52,7 @@ static cl_platform_id getPlatformIds(){
 static cl_device_id* getDevices(cl_platform_id platform, cl_uint *uiNumDevices){
   // get device(s)
   cl_int iRet = clGetDeviceIDs(platform, gDeviceType, 0, NULL, uiNumDevices);
-  std::auto_ptr<cl_device_id> devices;
+  std::unique_ptr<cl_device_id> devices;
   if (CL_SUCCESS != iRet){
     printf("clGetDeviceIDs = %s\n",ClErrTxt(iRet));
     return nullptr;
@@ -72,8 +72,8 @@ static bool runAndVerify(int numberOfIntParametersToTry, cl_context context,
     cl_device_id *pDevices, cl_command_queue queue){
   int i;
   cl_int iRet;
-  std::auto_ptr<char> argumentLine, codeLines, programSrc;
-  std::auto_ptr<cl_long> ptrLongs;
+  std::unique_ptr<char> argumentLine, codeLines, programSrc;
+  std::unique_ptr<cl_long> ptrLongs;
   long long result, expectedResult;
   cl_event event;
   cl_int event_status;
@@ -121,7 +121,7 @@ static bool runAndVerify(int numberOfIntParametersToTry, cl_context context,
   bResult &= Check("clCreateProgramWithSource", CL_SUCCESS, iRet);
   assert(bResult && "clCreateProgramWithSource");
 
-  std::auto_ptr<size_t> ptrSize (new size_t[uiNumDevices]);
+  std::unique_ptr<size_t> ptrSize (new size_t[uiNumDevices]);
   size_t*const szSize = ptrSize.get();
   for (unsigned int j = 0; j < uiNumDevices; j++)
     szSize[j] = -1;
@@ -205,7 +205,7 @@ bool clBuildProgramMaxArgsTest(){
 
   printf("clBuildProgramMaxArgsTest\n");
   cl_uint uiNumDevices = 0;
-  std::auto_ptr<cl_device_id> ptrDevices;
+  std::unique_ptr<cl_device_id> ptrDevices;
   cl_device_id *pDevices;
   cl_context context;
   cl_int iRet;
@@ -326,8 +326,8 @@ TEST(OclRecorder, dupKernels){
 static bool runAndVerify_forLocalMem(cl_context context, cl_uint uiNumDevices,
     cl_device_id *pDevices, cl_command_queue queue){
   cl_int iRet;
-  std::auto_ptr<char> argumentLine, codeLines, programSrc;
-  std::auto_ptr<cl_long> ptrLongs;
+  std::unique_ptr<char> argumentLine, codeLines, programSrc;
+  std::unique_ptr<cl_long> ptrLongs;
   long long result, expectedResult = 2; // expectedResult is the pre-calucated result of execution of kernel
   cl_event event;
   cl_int event_status;
@@ -358,7 +358,7 @@ static bool runAndVerify_forLocalMem(cl_context context, cl_uint uiNumDevices,
   bResult &= Check("clCreateProgramWithSource", CL_SUCCESS, iRet);
   assert(bResult && "clCreateProgramWithSource");
 
-  std::auto_ptr<size_t> ptrSize (new size_t[uiNumDevices]);
+  std::unique_ptr<size_t> ptrSize (new size_t[uiNumDevices]);
   size_t*const szSize = ptrSize.get();
   for (unsigned int j = 0; j < uiNumDevices; j++)
     szSize[j] = -1;
@@ -452,7 +452,7 @@ bool clBuildRunLocalMemTest(){
 
   printf("clBuildRunLocalMemTest\n");
   cl_uint uiNumDevices = 0;
-  std::auto_ptr<cl_device_id> ptrDevices;
+  std::unique_ptr<cl_device_id> ptrDevices;
   cl_device_id *pDevices;
   cl_context context;
   cl_int iRet;
