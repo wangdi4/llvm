@@ -524,3 +524,12 @@
 // RUN: %clang_cl -### /Zc:wchar_t -c %s 2>&1 | FileCheck -check-prefix=CHECK-WCHAR_T %s
 // CHECK-NO-WCHAR_T: "-fno-wchar"
 // CHECK-WCHAR_T-NOT: "-fno-wchar"
+
+// Tests for -qopenmp-link and -qopenmp-stubs
+// RUN: %clang -### -target x86_64-linux-gnu -qopenmp -qopenmp-link=static %s 2>&1 | FileCheck -check-prefix CHECK-QOPENMP-STATIC %s
+// RUN: %clang -### -target x86_64-linux-gnu -qopenmp-stubs %s 2>&1 | FileCheck -check-prefix CHECK-QOPENMP-STUBS %s
+// RUN: %clang_cl -### --target=x86_64-pc-windows-msvc /QopenmpS %s 2>&1 | FileCheck -check-prefix CHECK-QOPENMP-STUBS-WIN %s
+// CHECK-QOPENMP-STATIC: "-Bstatic" "-liomp5" "-Bdynamic"
+// CHECK-QOPENMP-STUBS: "-liompstubs5"
+// CHECK-QOPENMP-STUBS-NOT: "-lpthread"
+// CHECK-QOPENMP-STUBS-WIN: "-defaultlib:libiompstubs5md.lib"
