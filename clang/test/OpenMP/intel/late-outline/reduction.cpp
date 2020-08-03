@@ -675,17 +675,14 @@ void test1()
   // CHECK: [[TOK0:%[0-9]*]] = call token @llvm.directive.region.entry()
   // CHECK-SAME: "QUAL.OMP.REDUCTION.UDR"(double* %dz,
   // CHECK-SAME: i8* null,
-  // CHECK-SAME: void (double*)* @_ZTSd.omp.destr,
   // CHECK-SAME: void (double*, double*)* [[COMB1:@.omp_combiner..[0-9]*]]
   // CHECK-SAME: void (double*, double*)* [[INIT:@.omp_initializer..[0-9]*]]
   // CHECK-SAME: "QUAL.OMP.REDUCTION.UDR"(i64* %lz,
   // CHECK-SAME: i8* null,
-  // CHECK-SAME: void (i64*)* @_ZTSl.omp.destr,
   // CHECK-SAME: void (i64*, i64*)* [[COMB1:@.omp_combiner..[0-9]*]]
   // CHECK-SAME: void (i64*, i64*)* [[INIT:@.omp_initializer..[0-9]*]]
   // CHECK-SAME: QUAL.OMP.REDUCTION.UDR"(i32* %z3,
   // CHECK-SAME: i8* null,
-  // CHECK-SAME: void (i32*)* @_ZTSi.omp.destr,
   // CHECK-SAME: void (i32*, i32*)* [[COMB1:@.omp_combiner..[0-9]*]]
   // CHECK-SAME: void (i32*, i32*)* [[INIT:@.omp_initializer..[0-9]*]]
   #pragma omp parallel reduction(add:dz,lz,z3)

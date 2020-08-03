@@ -7960,7 +7960,11 @@ public:
           // this map is the first one that relates with the current capture
           // (there is a set of entries for each capture).
           OpenMPOffloadMappingFlags Flags =
+<<<<<<< HEAD
               getMapTypeBits(MapType, MapModifiers, MotionModifiers, IsImplicit,
+=======
+              getMapTypeBits(MapType, MapModifiers, IsImplicit,
+>>>>>>> 7b17b59e85053053ed66155c73115b751a6fa378
                              !IsExpressionFirstInfo || RequiresReference ||
                                  FirstPointerInComplexData,
                              IsCaptureFirstInfo && !RequiresReference);

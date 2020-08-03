@@ -5590,8 +5590,13 @@ def _SLASH_Zc_twoPhase_ : CLFlag<"Zc:twoPhase-">,
 #if INTEL_CUSTOMIZATION
 def _SLASH_Zc_wchar_t : CLFlag<"Zc:wchar_t">,
   HelpText<"Specify that wchar_t is a native data type">;
+<<<<<<< HEAD
   def _SLASH_Zc_wchar_t_ : CLFlag<"Zc:wchar_t-">,
     HelpText<"Do not specify that wchar_t is a native data type">;
+=======
+def _SLASH_Zc_wchar_t_ : CLFlag<"Zc:wchar_t-">,
+  HelpText<"Do not specify that wchar_t is a native data type">;
+>>>>>>> 7b17b59e85053053ed66155c73115b751a6fa378
 #endif // INTEL_CUSTOMIZATION
 def _SLASH_Z7 : CLFlag<"Z7">,
   HelpText<"Enable CodeView debug information in object files">;

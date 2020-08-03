@@ -25,11 +25,12 @@ void f1() {
     // CHECK-NEXT: icmp
     // CHECK-NEXT: br i1
     @try {
-    // CHECK:      call void asm sideeffect "", "=*m"
+    // INTEL  this CHECK line moved down verbatim
     // CHECK:      call void asm sideeffect "", "*m"
     // CHECK-NEXT: call void @foo()
       foo();
     // CHECK:      call void @objc_exception_try_exit
+    // CHECK:      call void asm sideeffect "", "=*m"   ;INTEL
 
     } @finally {
       break;
@@ -53,6 +54,12 @@ int f2() {
   // CHECK-NEXT:   [[CAUGHT:%.*]] = icmp eq i32 [[SETJMP]], 0
   // CHECK-NEXT:   br i1 [[CAUGHT]]
   @try {
+    // CHECK: store i32 6, i32* [[X]]                                      ;INTEL
+    // CHECK-NEXT: call void asm sideeffect "", "*m,*m"(i32* nonnull [[X]] ;INTEL
+    // CHECK-NEXT: call void @foo()                                        ;INTEL
+    // CHECK-NEXT: call void @objc_exception_try_exit                      ;INTEL
+    // CHECK-NEXT: [[T:%.*]] = load i32, i32* [[X]]                        ;INTEL
+
     // Landing pad.  Note that we elide the re-enter.
     // CHECK:      call void asm sideeffect "", "=*m,=*m"(i32* nonnull [[X]]
     // CHECK-NEXT: call i8* @objc_exception_extract
@@ -62,12 +69,9 @@ int f2() {
     // This store is dead.
     // CHECK-NEXT: store i32 [[T2]], i32* [[X]]
 
-    // CHECK: store i32 6, i32* [[X]]
+    // COM: CHECK: store i32 6, i32* [[X]] ;INTEL this line moved up verbatim
     x++;
-    // CHECK-NEXT: call void asm sideeffect "", "*m,*m"(i32* nonnull [[X]]
-    // CHECK-NEXT: call void @foo()
-    // CHECK-NEXT: call void @objc_exception_try_exit
-    // CHECK-NEXT: [[T:%.*]] = load i32, i32* [[X]]
+    // ;INTEL  4 lines from here moved up verbatim
     foo();
   } @catch (id) {
     x--;

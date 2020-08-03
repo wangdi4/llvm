@@ -7,7 +7,11 @@ foo
 # CFG is changed. (same change was done for indirectbr.proftext in
 # changeset: f5e1ee20dcb70ea55e5d091b7a157d3e5c58d5ea due to
 # changes made for critical edge splitting during CodeGen processing)
+<<<<<<< HEAD
 536873290444569913
+=======
+43592973625
+>>>>>>> 7b17b59e85053053ed66155c73115b751a6fa378
 # end INTEL_CUSTOMIZATION
 # Num Counters:
 4

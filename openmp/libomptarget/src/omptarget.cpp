@@ -372,7 +372,11 @@ int targetDataBegin(DeviceTy &Device, int32_t arg_num, void **args_base,
       bool copy = false;
 #if INTEL_COLLAB
       if (!(RTLs->RequiresFlags & OMP_REQ_UNIFIED_SHARED_MEMORY) ||
-          !Device.is_managed_ptr(HstPtrBegin) || HasCloseModifier) {
+          // If the device does not support the concept of managed memory,
+          // do not take into account the result of is_managed_ptr().
+          !(Device.is_managed_ptr(HstPtrBegin) ||
+            !Device.managed_memory_supported()) ||
+          HasCloseModifier) {
 #else // INTEL_COLLAB
       if (!(RTLs->RequiresFlags & OMP_REQ_UNIFIED_SHARED_MEMORY) ||
           HasCloseModifier) {
@@ -536,7 +540,11 @@ int targetDataEnd(DeviceTy &Device, int32_t ArgNum, void **ArgBases,
         bool CopyMember = false;
 #if INTEL_COLLAB
         if (!(RTLs->RequiresFlags & OMP_REQ_UNIFIED_SHARED_MEMORY) ||
-            !Device.is_managed_ptr(HstPtrBegin) || HasCloseModifier) {
+            // If the device does not support the concept of managed memory,
+            // do not take into account the result of is_managed_ptr().
+            !(Device.is_managed_ptr(HstPtrBegin) ||
+              !Device.managed_memory_supported()) ||
+            HasCloseModifier) {
 #else // INTEL_COLLAB
         if (!(RTLs->RequiresFlags & OMP_REQ_UNIFIED_SHARED_MEMORY) ||
             HasCloseModifier) {
@@ -953,10 +961,17 @@ int processDataBefore(int64_t DeviceId, void *HostPtr, int32_t ArgNum,
         }
       }
     } else {
+<<<<<<< HEAD
       if (ArgTypes[I] & OMP_TGT_MAPTYPE_PTR_AND_OBJ)
         HstPtrBase = *reinterpret_cast<void **>(HstPtrBase);
       TgtPtrBegin = Device.getTgtPtrBegin(HstPtrBegin, ArgSizes[I], IsLast,
                                           false, IsHostPtr);
+=======
+      if (arg_types[i] & OMP_TGT_MAPTYPE_PTR_AND_OBJ)
+        HstPtrBase = *reinterpret_cast<void **>(HstPtrBase);
+      TgtPtrBegin = Device.getTgtPtrBegin(HstPtrBegin, arg_sizes[i], IsLast,
+          false, IsHostPtr);
+>>>>>>> 7b17b59e85053053ed66155c73115b751a6fa378
       TgtBaseOffset = (intptr_t)HstPtrBase - (intptr_t)HstPtrBegin;
 #ifdef OMPTARGET_DEBUG
 #if INTEL_COLLAB

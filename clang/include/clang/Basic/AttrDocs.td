@@ -3521,6 +3521,7 @@ used to specify full unrolling or partial unrolling by a specified amount.
 
 def IntelReqdSubGroupSizeDocs : Documentation {
   let Category = DocCatStmt;
+  let Heading = "intel_reqd_sub_group_size, reqd_sub_group_size";
   let Content = [{
 This attribute can be used in both OpenCL and SYCL.
 

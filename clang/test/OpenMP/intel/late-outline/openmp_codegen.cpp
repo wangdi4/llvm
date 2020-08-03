@@ -327,9 +327,9 @@ int main(int argc, char **argv) {
 // CHECK: [[TARGD_TOKENVAL:%[0-9]+]] = call token{{.*}}region.entry()
 // CHECK-SAME: "DIR.OMP.TARGET.DATA"()
 // CHECK-SAME: "QUAL.OMP.USE_DEVICE_PTR:PTR_TO_PTR"(i32** %a, i32** %b)
+// CHECK-SAME: "QUAL.OMP.MAP.TOFROM"(i32* %z{{.*}}, i32* %z{{.*}}, i64 4, i64 35)
 // CHECK-SAME: "QUAL.OMP.MAP.TOFROM"(i32* [[L0]], i32* [[L0]], i64 0, i64 96)
 // CHECK-SAME: "QUAL.OMP.MAP.TOFROM"(i32* [[L1]], i32* [[L1]], i64 0, i64 96)
-// CHECK-SAME: "QUAL.OMP.MAP.TOFROM"(i32* %z{{.*}}, i32* %z{{.*}}, i64 4, i64 35)
 // CHECK: region.exit(token [[TARGD_TOKENVAL]]) [ "DIR.OMP.END.TARGET.DATA"() ]
     #pragma omp target data map(tofrom:z) use_device_ptr(a,b)
     {
