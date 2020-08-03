@@ -1664,10 +1664,16 @@ static void decideLoopKernelGroupArguments(
   uint32_t tripCounts[3] = {1, 1, 1};
 
   for (int32_t i = 0; i < numLoopLevels; i++) {
-    assert((level[i].Ub >= level[i].Lb && level[i].Stride > 0) &&
-           "Invalid loop nest description for ND partitioning");
+    assert(level[i].Stride > 0 && "Invalid loop stride for ND partitioning");
     DP("Level %" PRIu32 ": Lb = %" PRId64 ", Ub = %" PRId64 ", Stride = %"
        PRId64 "\n", i, level[i].Lb, level[i].Ub, level[i].Stride);
+    if (level[i].Ub < level[i].Lb) {
+      GroupCounts.groupCountX = 1;
+      GroupCounts.groupCountY = 1;
+      GroupCounts.groupCountZ = 1;
+      std::fill(GroupSizes, GroupSizes + 3, 1);
+      return;
+    }
     tripCounts[i] =
         (level[i].Ub - level[i].Lb + level[i].Stride) / level[i].Stride;
   }
