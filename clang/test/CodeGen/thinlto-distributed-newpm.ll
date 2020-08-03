@@ -101,6 +101,7 @@
 ; CHECK-O: Running pass: JumpThreadingPass on main
 ; CHECK-O: Running analysis: LazyValueAnalysis on main
 ; CHECK-O: Running pass: CorrelatedValuePropagationPass on main
+; CHECK-O: Invalidating analysis: LazyValueAnalysis on main
 ; CHECK-O: Running pass: SimplifyCFGPass on main
 ; CHECK-O3: Running pass: AggressiveInstCombinePass on main
 ; CHECK-O: Running pass: InstCombinePass on main
@@ -148,7 +149,6 @@
 ; CHECK-O: Invalidating analysis: BasicAA on main
 ; CHECK-O: Invalidating analysis: AAManager on main
 ; CHECK-O: Invalidating analysis: MemorySSAAnalysis on main
-; CHECK-O: Invalidating analysis: LazyValueAnalysis on main
 ; CHECK-O: Invalidating analysis: LoopAnalysis on main
 ; CHECK-O: Invalidating analysis: PhiValuesAnalysis on main
 ; CHECK-O: Invalidating analysis: MemoryDependenceAnalysis on main

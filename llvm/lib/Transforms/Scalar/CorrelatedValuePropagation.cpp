@@ -1003,13 +1003,27 @@ CorrelatedValuePropagationPass::run(Function &F, FunctionAnalysisManager &AM) {
 
   bool Changed = runImpl(F, LVI, DT, getBestSimplifyQuery(AM, F));
 
-  if (!Changed)
-    return PreservedAnalyses::all();
   PreservedAnalyses PA;
+<<<<<<< HEAD
   PA.preserve<GlobalsAA>();
   PA.preserve<DominatorTreeAnalysis>();
   PA.preserve<LazyValueAnalysis>();
   PA.preserve<AndersensAA>();       // INTEL
   PA.preserve<WholeProgramAnalysis>(); // INTEL
+=======
+  if (!Changed) {
+    PA = PreservedAnalyses::all();
+  } else {
+    PA.preserve<GlobalsAA>();
+    PA.preserve<DominatorTreeAnalysis>();
+    PA.preserve<LazyValueAnalysis>();
+  }
+
+  // Keeping LVI alive is expensive, both because it uses a lot of memory, and
+  // because invalidating values in LVI is expensive. While CVP does preserve
+  // LVI, we know that passes after JumpThreading+CVP will not need the result
+  // of this analysis, so we forcefully discard it early.
+  PA.abandon<LazyValueAnalysis>();
+>>>>>>> 25af353b0e74907d5d50c8616b885bd1f73a68b3
   return PA;
 }
