@@ -694,6 +694,12 @@ static constexpr FeatureBitset ImpliedFeaturesAMX_CONVERT = FeatureAMX_TILE;
 #if INTEL_FEATURE_ISA_AMX_TILE2
 static constexpr FeatureBitset ImpliedFeaturesAMX_TILE2 = FeatureAMX_TILE;
 #endif // INTEL_FEATURE_ISA_AMX_TILE2
+#if INTEL_FEATURE_ISA_AMX_BF8
+static constexpr FeatureBitset ImpliedFeaturesAMX_BF8 = FeatureAMX_TILE;
+#endif // INTEL_FEATURE_ISA_AMX_BF8
+#if INTEL_FEATURE_ISA_AMX_MEMADVISE
+static constexpr FeatureBitset ImpliedFeaturesAMX_MEMADVISE = FeatureAMX_TILE;
+#endif // INTEL_FEATURE_ISA_AMX_MEMADVISE
 #endif // INTEL_CUSTOMIZATION
 
 static constexpr FeatureInfo FeatureInfos[X86::CPU_FEATURE_MAX] = {
