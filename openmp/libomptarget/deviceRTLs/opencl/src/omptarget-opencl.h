@@ -703,6 +703,8 @@ EXTERN int omp_get_thread_num(void);
 
 EXTERN int omp_get_num_threads(void);
 
+EXTERN void omp_set_num_threads(int);
+
 EXTERN int omp_in_parallel(void);
 
 EXTERN int omp_get_max_threads(void);
