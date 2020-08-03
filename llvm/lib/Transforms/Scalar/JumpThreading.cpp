@@ -34,6 +34,7 @@
 #include "llvm/Transforms/Utils/IntrinsicUtils.h"   // INTEL
 #include "llvm/Analysis/Loads.h"
 #include "llvm/Analysis/LoopInfo.h"
+#include "llvm/Analysis/PostDominators.h"           // INTEL
 #include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/Analysis/TargetTransformInfo.h"      // INTEL
 #include "llvm/Analysis/ValueTracking.h"
@@ -172,6 +173,7 @@ namespace {
       AU.addPreserved<WholeProgramWrapperPass>();                       // INTEL
       AU.addRequired<TargetLibraryInfoWrapperPass>();
       AU.addRequired<TargetTransformInfoWrapperPass>();                 // INTEL
+      AU.addRequired<PostDominatorTreeWrapperPass>();                   // INTEL
     }
 
     void releaseMemory() override { Impl.releaseMemory(); }
@@ -187,6 +189,7 @@ INITIALIZE_PASS_DEPENDENCY(DominatorTreeWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(LazyValueInfoWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(TargetLibraryInfoWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(AAResultsWrapperPass)
+INITIALIZE_PASS_DEPENDENCY(PostDominatorTreeWrapperPass) // INTEL
 INITIALIZE_PASS_END(JumpThreading, "jump-threading",
                 "Jump Threading", false, false)
 
@@ -338,6 +341,7 @@ bool JumpThreading::runOnFunction(Function &F) {
   auto TTI = &getAnalysis<TargetTransformInfoWrapperPass>().getTTI(F);
   if (TTI->needsStructuredCFG())
     return false;
+  auto *PDT = &getAnalysis<PostDominatorTreeWrapperPass>().getPostDomTree();
 #endif
   auto DT = &getAnalysis<DominatorTreeWrapperPass>().getDomTree();
   auto LVI = &getAnalysis<LazyValueInfoWrapperPass>().getLVI();
@@ -352,7 +356,7 @@ bool JumpThreading::runOnFunction(Function &F) {
   }
 
   bool Changed = Impl.runImpl(F, TLI, LVI, AA, &DTU, F.hasProfileData(),
-                              std::move(BFI), std::move(BPI));
+                              std::move(BFI), std::move(BPI), PDT); // INTEL
   if (PrintLVIAfterJumpThreading) {
     dbgs() << "LVI for function '" << F.getName() << "':\n";
     LVI->printLVI(F, DTU.getDomTree(), dbgs());
@@ -366,6 +370,7 @@ PreservedAnalyses JumpThreadingPass::run(Function &F,
   auto &DT = AM.getResult<DominatorTreeAnalysis>(F);
   auto &LVI = AM.getResult<LazyValueAnalysis>(F);
   auto &AA = AM.getResult<AAManager>(F);
+  auto &PDT = AM.getResult<PostDominatorTreeAnalysis>(F); // INTEL
   DomTreeUpdater DTU(DT, DomTreeUpdater::UpdateStrategy::Lazy);
 
   std::unique_ptr<BlockFrequencyInfo> BFI;
@@ -377,7 +382,7 @@ PreservedAnalyses JumpThreadingPass::run(Function &F,
   }
 
   bool Changed = runImpl(F, &TLI, &LVI, &AA, &DTU, F.hasProfileData(),
-                         std::move(BFI), std::move(BPI));
+                         std::move(BFI), std::move(BPI), &PDT); // INTEL
 
   if (!Changed)
     return PreservedAnalyses::all();
@@ -393,7 +398,10 @@ bool JumpThreadingPass::runImpl(Function &F, TargetLibraryInfo *TLI_,
                                 LazyValueInfo *LVI_, AliasAnalysis *AA_,
                                 DomTreeUpdater *DTU_, bool HasProfileData_,
                                 std::unique_ptr<BlockFrequencyInfo> BFI_,
-                                std::unique_ptr<BranchProbabilityInfo> BPI_) {
+#if INTEL_CUSTOMIZATION
+                                std::unique_ptr<BranchProbabilityInfo> BPI_,
+                                PostDominatorTree *PDT_) {
+#endif // INTEL_CUSTOMIZATION
   LLVM_DEBUG(dbgs() << "Jump threading on function '" << F.getName() << "'\n");
   TLI = TLI_;
   LVI = LVI_;
@@ -401,6 +409,7 @@ bool JumpThreadingPass::runImpl(Function &F, TargetLibraryInfo *TLI_,
   DTU = DTU_;
   BFI.reset();
   BPI.reset();
+  PDT = PDT_;               // INTEL
   BlockThreadCount.clear(); // INTEL
   // When profile data is available, we need to update edge weights after
   // successful jump threading, which requires both BPI and BFI being available.
@@ -481,8 +490,8 @@ bool JumpThreadingPass::runImpl(Function &F, TargetLibraryInfo *TLI_,
                           << "' with terminator: " << *BB.getTerminator()
                           << '\n');
         LoopHeaders.erase(&BB);
-        CountableLoopLatches.erase(&BB);   // INTEL
-        CountableLoopHeaders.erase(&BB);   // INTEL
+        CountableSingleExitLoopLatches.erase(&BB);   // INTEL
+        CountableSingleExitLoopHeaders.erase(&BB);   // INTEL
         LVI->eraseBlock(&BB);
         DeleteDeadBlock(&BB, DTU);
         Changed = true;
@@ -505,8 +514,8 @@ bool JumpThreadingPass::runImpl(Function &F, TargetLibraryInfo *TLI_,
           // BB is valid for cleanup here because we passed in DTU. F remains
           // BB's parent until a DTU->getDomTree() event.
           LVI->eraseBlock(&BB);
-          CountableLoopLatches.erase(&BB); // INTEL
-          CountableLoopHeaders.erase(&BB); // INTEL
+          CountableSingleExitLoopLatches.erase(&BB);   // INTEL
+          CountableSingleExitLoopHeaders.erase(&BB);   // INTEL
           Changed = true;
         }
       }
@@ -515,8 +524,8 @@ bool JumpThreadingPass::runImpl(Function &F, TargetLibraryInfo *TLI_,
   } while (Changed);
 
   LoopHeaders.clear();
-  CountableLoopLatches.clear(); // INTEL
-  CountableLoopHeaders.clear(); // INTEL
+  CountableSingleExitLoopLatches.clear();   // INTEL
+  CountableSingleExitLoopHeaders.clear();   // INTEL
   // Flush only the Dominator Tree.
   return EverChanged;
 }
@@ -684,6 +693,39 @@ static bool isCountableLoop(const BasicBlock *HeaderBB,
   return false;
 }
 
+static bool isCountableSingleExitLoop(const BasicBlock *HeaderBB,
+                                      const BasicBlock *LatchBB,
+                                      PostDominatorTree *PDT) {
+  if (!isCountableLoop(HeaderBB, LatchBB))
+    return false;
+
+  // Check whether the loop is single exit by checking whether latch
+  // post-dominates all loop bblocks.
+  SmallVector<const BasicBlock *, 8> WorkListBBs;
+  SmallPtrSet<const BasicBlock *, 16> VisitedLoopBBs;
+
+  WorkListBBs.push_back(HeaderBB);
+
+  do {
+    auto *CurBB = WorkListBBs.pop_back_val();
+
+    if (CurBB == LatchBB)
+      continue;
+
+    if (!VisitedLoopBBs.insert(CurBB).second)
+      continue;
+
+    if (!PDT->dominates(LatchBB, CurBB))
+      return false;
+
+    for (auto *SuccBB : make_range(succ_begin(CurBB), succ_end(CurBB))) {
+      WorkListBBs.push_back(SuccBB);
+    }
+
+  } while (!WorkListBBs.empty());
+
+  return true;
+}
 #endif // INTEL_CUSTOMIZATION
 
 /// FindLoopHeaders - We do not want jump threading to turn proper loop
@@ -709,9 +751,9 @@ void JumpThreadingPass::FindLoopHeaders(Function &F) {
 #if INTEL_CUSTOMIZATION
   if (F.isPreLoopOpt())
     for (const auto &Edge : Edges)
-      if (isCountableLoop(Edge.second, Edge.first)) {
-        CountableLoopLatches.insert(Edge.first);
-        CountableLoopHeaders.insert(Edge.second);
+      if (isCountableSingleExitLoop(Edge.second, Edge.first, PDT)) {
+        CountableSingleExitLoopLatches.insert(Edge.first);
+        CountableSingleExitLoopHeaders.insert(Edge.second);
       }
 #endif // INTEL_CUSTOMIZATION
 }
@@ -2042,7 +2084,8 @@ bool JumpThreadingPass::ProcessThreadableEdges(Value *Cond, BasicBlock *BB,
       continue;
 
 #if INTEL_CUSTOMIZATION
-    if (CountableLoopLatches.count(BB) && CountableLoopHeaders.count(DestBB))
+    if (CountableSingleExitLoopLatches.count(BB) &&
+        CountableSingleExitLoopHeaders.count(DestBB))
       ThreadingBackedge = true;
 #endif // INTEL_CUSTOMIZATION
     PredToDestList.emplace_back(Pred, DestBB);
@@ -2343,8 +2386,8 @@ bool JumpThreadingPass::MaybeMergeBasicBlockIntoOnlyPred(BasicBlock *BB) {
   if (LoopHeaders.erase(SinglePred))
     LoopHeaders.insert(BB);
 
-  CountableLoopLatches.erase(SinglePred);   // INTEL
-  CountableLoopHeaders.erase(SinglePred);   // INTEL
+  CountableSingleExitLoopLatches.erase(SinglePred);   // INTEL
+  CountableSingleExitLoopHeaders.erase(SinglePred);   // INTEL
   LVI->eraseBlock(SinglePred);
   MergeBasicBlockIntoOnlyPred(BB, DTU);
 
@@ -2634,6 +2677,12 @@ bool JumpThreadingPass::MaybeThreadThroughTwoBasicBlocks(BasicBlock *BB,
   // Don't thread across a loop header.
   if (LoopHeaders.count(PredBB))
     return false;
+#if INTEL_CUSTOMIZATION
+  // Suppress threading for countable single exit loop headers/latches.
+  if (CountableSingleExitLoopHeaders.count(PredBB) ||
+      CountableSingleExitLoopLatches.count(PredBB))
+    return false;
+#endif // INTEL_CUSTOMIZATION
 
   // Avoid complication with duplicating EH pads.
   if (PredBB->isEHPad())
@@ -2862,12 +2911,12 @@ bool JumpThreadingPass::TryThreadEdge(
       }
     }
 
-    // We are using CountableLoopHeaders here instead because-
+    // We are using CountableSingleExitLoopHeaders here instead because-
     // 1) They are only populated when function has pre_loopopt attribute.
     // 2) This function seems to be conservatively adding some bblocks which
     //    are not true loop headers in LoopHeaders.
-    if (CountableLoopHeaders.count(BB)
-        && isa<SwitchInst>(BB->getTerminator())) {
+    if (CountableSingleExitLoopHeaders.count(BB) &&
+        isa<SwitchInst>(BB->getTerminator())) {
       LLVM_DEBUG(
           dbgs()
           << "  Not threading across loop header BB '" << BB->getName()
