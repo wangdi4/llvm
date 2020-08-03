@@ -1652,7 +1652,7 @@ bool IPOPrefetcher::identifyPrefetchPositions(Function *F) {
 
 // Search module, find and save the main() function
 bool IPOPrefetcher::identifyMainFunction(void) {
-  return (MainF = WPInfo.getMainFunction(M));
+  return (MainF = WPInfo.getMainFunction());
 }
 
 // Check if a StoreInst is to write into a stack-allocated memory.

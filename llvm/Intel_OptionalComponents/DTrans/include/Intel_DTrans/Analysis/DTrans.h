@@ -260,6 +260,32 @@ public:
   bool isPaddedField() const { return PaddedField != PFK_NoPadding; }
   bool isCleanPaddedField() const { return PaddedField == PFK_Clean; }
 
+  // Return true if the current field is an array with constant entries
+  bool isArrayWithConstantEntries() const {
+    if (ArrayConstEntries.empty())
+      return false;
+
+    // If there is a nullptr in ArrayConstEntries, then we will treat
+    // the information as invalid
+    for (auto &Entry : ArrayConstEntries) {
+      (void)Entry;
+      assert((Entry.first && Entry.second) &&
+             "Non-constant information found in a field "
+             "reserved for constant data");
+    }
+
+    return true;
+  }
+
+  // Return the information if the current field is an array with
+  // constant entries
+  const SetVector< std::pair<ConstantInt*, ConstantInt*> >
+      &getArrayWithConstantEntries() const { return ArrayConstEntries; }
+
+  // Insert a new entry in ArrayConstEntries assuming that the current field
+  // is an array with constant entries.
+  void addConstantEntryIntoTheArray(ConstantInt *Index, ConstantInt* ConstVal);
+
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   void dump() const { print(dbgs()); }
 
@@ -314,6 +340,12 @@ private:
   // is used for the application binary interface (ABI) and it will
   // be identified as the PaddedField.
   PF_Kind PaddedField = PFK_NoPadding;
+
+  // Set vector that stores the index and the value that are constant if
+  // the current field is an array with constant entries. The first
+  // entry in the pair is the index in the array, the second entry is
+  // the constant value.
+  SetVector< std::pair<ConstantInt*, ConstantInt*> > ArrayConstEntries;
 };
 
 /// DTrans optimization safety conditions for a structure type.

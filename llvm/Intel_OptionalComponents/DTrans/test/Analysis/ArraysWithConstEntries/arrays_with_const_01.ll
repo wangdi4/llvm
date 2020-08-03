@@ -38,7 +38,7 @@ bb2:
   ret i32 %tmp3
 }
 
-; CHECK-LABEL: Result after data collection:
+; CHECK: Final result for fields that are arrays with constant entries:
 ; CHECK: Type: %class.TestClass = type <{ i32, [4 x i32] }>
 ; CHECK:   Is structure available: YES
 ; CHECK:   Field number: 1

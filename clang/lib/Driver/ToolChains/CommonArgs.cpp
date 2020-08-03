@@ -769,6 +769,16 @@ void tools::addArchSpecificRPath(const ToolChain &TC, const ArgList &Args,
 bool tools::addOpenMPRuntime(ArgStringList &CmdArgs, const ToolChain &TC,
                              const ArgList &Args, bool ForceStaticHostRuntime,
                              bool IsOffloadingHost, bool GompNeedsRT) {
+#if INTEL_CUSTOMIZATION
+  if (Arg *A = Args.getLastArg(options::OPT_qopenmp_stubs,
+      options::OPT_fopenmp, options::OPT_fopenmp_EQ, options::OPT_fiopenmp)) {
+    if (A->getOption().matches(options::OPT_qopenmp_stubs)) {
+      CmdArgs.push_back("-liompstubs5");
+      // With the stubs lib, we don't want lpthread linked.
+      return false;
+    }
+  }
+#endif // INTEL_CUSTOMIZATION
   if (!Args.hasFlag(options::OPT_fopenmp, options::OPT_fopenmp_EQ,
 #if INTEL_COLLAB
                     options::OPT_fno_openmp, false) &&

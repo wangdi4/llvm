@@ -1696,24 +1696,6 @@ def SYCLIntelFPGAIVDep : Attr {
     static const char *getName() {
       return "ivdep";
     }
-    // INTEL_CUSTOMIZATION
-    std::string getDiagnosticName(const PrintingPolicy &Policy) const {
-      std::string ValueName;
-      llvm::raw_string_ostream OS(ValueName);
-      if (auto *E = getSafelenExpr()) {
-        OS << "(";
-        E->printPretty(OS, nullptr, Policy);
-        OS << ")";
-      } else if (auto *E = getArrayExpr()) {
-        OS << "(";
-        E->printPretty(OS, nullptr, Policy);
-        OS << ")";
-      }
-      if (hasScope())
-        return "[[intelfpga::ivdep" + OS.str() + "]]";
-      return "#pragma ivdep";
-    }
-    // end INTEL_CUSTOMIZATION
     bool isDependent() const {
       return (getSafelenExpr() &&
               getSafelenExpr()->isInstantiationDependent()) ||
@@ -1749,78 +1731,120 @@ def SYCLIntelFPGAIVDep : Attr {
 }
 
 def SYCLIntelFPGAII : Attr {
-  let Spellings = [CXX11<"intelfpga","ii">];
+  let Spellings = [CXX11<"intelfpga","ii">, //INTEL
+                   Pragma<"", "ii">]; //INTEL
   let Args = [ExprArgument<"IntervalExpr">];
-  let LangOpts = [SYCLIsDevice, SYCLIsHost];
-  let HasCustomTypeTransform = 1;
+  let LangOpts = [SYCLIsDevice, SYCLIsHost, HLS, OpenCL]; //INTEL
+  let HasCustomTypeTransform = 0; //INTEL
   let AdditionalMembers = [{
     static const char *getName() {
       return "ii";
     }
+    // INTEL_CUSTOMIZATION
+    void printPrettyPragma(raw_ostream &OS, const PrintingPolicy &Policy) const {
+      OS << getDiagnosticName(Policy);
+    }
+    std::string getDiagnosticName(const PrintingPolicy &Policy) const {
+      return "#pragma ii";
+    }
+    // end INTEL_CUSTOMIZATION
   }];
   let Documentation = [SYCLIntelFPGAIIAttrDocs];
 }
 
 def SYCLIntelFPGAMaxConcurrency : Attr {
-  let Spellings = [CXX11<"intelfpga","max_concurrency">];
+  let Spellings = [CXX11<"intelfpga","max_concurrency">, //INTEL
+                   Pragma<"", "max_concurrency">]; //INTEL
   let Args = [ExprArgument<"NThreadsExpr">];
-  let LangOpts = [SYCLIsDevice, SYCLIsHost];
-  let HasCustomTypeTransform = 1;
+  let LangOpts = [SYCLIsDevice, SYCLIsHost, HLS, OpenCL]; //INTEL
+  let HasCustomTypeTransform = 0; //INTEL
   let AdditionalMembers = [{
     static const char *getName() {
       return "max_concurrency";
     }
+    // INTEL_CUSTOMIZATION
+    void printPrettyPragma(raw_ostream &OS, const PrintingPolicy &Policy) const {
+      OS << "#pragma max_concurrency" << getNThreadsExpr();
+    }
+    // end INTEL_CUSTOMIZATION
   }];
   let Documentation = [SYCLIntelFPGAMaxConcurrencyAttrDocs];
 }
 
 def SYCLIntelFPGALoopCoalesce : Attr {
-  let Spellings = [CXX11<"intelfpga","loop_coalesce">];
+  let Spellings = [CXX11<"intelfpga","loop_coalesce">, //INTEL
+                   Pragma<"", "loop_coalesce">]; //INTEL
   let Args = [ExprArgument<"NExpr">];
-  let LangOpts = [SYCLIsDevice, SYCLIsHost];
-  let HasCustomTypeTransform = 1;
+  let LangOpts = [SYCLIsDevice, SYCLIsHost, HLS, OpenCL]; //INTEL
+  let HasCustomTypeTransform = 0; //INTEL
   let AdditionalMembers = [{
     static const char *getName() {
       return "loop_coalesce";
     }
+    // INTEL_CUSTOMIZATION
+    void printPrettyPragma(raw_ostream &OS, const PrintingPolicy &Policy) const {
+      OS << "#pragma loop_coalesce" << getNExpr();
+    }
+    // end INTEL_CUSTOMIZATION
   }];
   let Documentation = [SYCLIntelFPGALoopCoalesceAttrDocs];
 }
 
 def SYCLIntelFPGADisableLoopPipelining : Attr {
-  let Spellings = [CXX11<"intelfpga","disable_loop_pipelining">];
-  let LangOpts = [SYCLIsDevice, SYCLIsHost];
-  let HasCustomTypeTransform = 1;
+  let Spellings = [CXX11<"intelfpga","disable_loop_pipelining">, //INTEL
+                   Pragma<"", "disable_loop_pipelining">]; //INTEL
+  let LangOpts = [SYCLIsDevice, SYCLIsHost, HLS, OpenCL]; //INTEL
+  let HasCustomTypeTransform = 0; //INTEL
   let AdditionalMembers = [{
     static const char *getName() {
       return "disable_loop_pipelining";
     }
+    // INTEL_CUSTOMIZATION
+    void printPrettyPragma(raw_ostream &OS, const PrintingPolicy &Policy) const {
+      OS << getDiagnosticName(Policy);
+    }
+    std::string getDiagnosticName(const PrintingPolicy &Policy) const {
+      return "#pragma disable_loop_pipelining";
+    }
+    // end INTEL_CUSTOMIZATION
   }];
   let Documentation = [SYCLIntelFPGADisableLoopPipeliningAttrDocs];
 }
 
 def SYCLIntelFPGAMaxInterleaving : Attr {
-  let Spellings = [CXX11<"intelfpga","max_interleaving">];
+  let Spellings = [CXX11<"intelfpga","max_interleaving">, //INTEL
+                   Pragma<"", "max_interleaving">]; //INTEL
   let Args = [ExprArgument<"NExpr">];
-  let LangOpts = [SYCLIsDevice, SYCLIsHost];
-  let HasCustomTypeTransform = 1;
+  let LangOpts = [SYCLIsDevice, SYCLIsHost, HLS, OpenCL]; //INTEL
+  let HasCustomTypeTransform = 0; //INTEL
   let AdditionalMembers = [{
     static const char *getName() {
       return "max_interleaving";
     }
+    // INTEL_CUSTOMIZATION
+    void printPrettyPragma(raw_ostream &OS, const PrintingPolicy &Policy) const {
+      OS << "#pragma max_interleaving" << getNExpr();
+    }
+    // end INTEL_CUSTOMIZATION
   }];
   let Documentation = [SYCLIntelFPGAMaxInterleavingAttrDocs];
 }
 
 def SYCLIntelFPGASpeculatedIterations : Attr {
-  let Spellings = [CXX11<"intelfpga","speculated_iterations">];
+  let Spellings = [CXX11<"intelfpga","speculated_iterations">, //INTEL
+                   Pragma<"", "speculated_iterations">]; //INTEL
   let Args = [ExprArgument<"NExpr">];
-  let LangOpts = [SYCLIsDevice, SYCLIsHost];
-  let HasCustomTypeTransform = 1;
+  let LangOpts = [SYCLIsDevice, SYCLIsHost, OpenCL, HLS]; //INTEL
+  let HasCustomTypeTransform = 0; //INTEL
   let AdditionalMembers = [{
     static const char *getName() {
       return "speculated_iterations";
     }
+    // INTEL_CUSTOMIZATION
+    void printPrettyPragma(raw_ostream &OS, const PrintingPolicy &Policy) const {
+      OS << "#pragma speculated_iterations" << getNExpr();
+    }
+    // end INTEL_CUSTOMIZATION
   }];
   let Documentation = [SYCLIntelFPGASpeculatedIterationsAttrDocs];
 }
@@ -3741,14 +3765,9 @@ def LoopHint : Attr {
                    Pragma<"", "nounroll">, Pragma<"", "unroll_and_jam">,
 // INTEL_CUSTOMIZATION
                    Pragma<"", "nounroll_and_jam">,
-                   Pragma<"", "ii">, Pragma<"", "ivdep">,
-                   Pragma<"", "loop_coalesce">,
-                   Pragma<"", "max_concurrency">,
-                   Pragma<"", "max_interleaving">,
+                   Pragma<"", "ivdep">,
                    Pragma<"", "ii_at_most">,Pragma<"", "ii_at_least">,
                    Pragma<"", "min_ii_at_target_fmax">,
-                   Pragma<"", "speculated_iterations">,
-                   Pragma<"", "disable_loop_pipelining">,
                    Pragma<"", "force_hyperopt">,
                    Pragma<"", "force_no_hyperopt">,
                    Pragma<"", "distribute_point">,
@@ -3766,12 +3785,11 @@ def LoopHint : Attr {
 // INTEL_CUSTOMIZATION
                            "pipeline", "pipeline_initiation_interval",
                            "distribute",
-                           "ii", "ivdep", "ivdep-loop", "ivdep-back",
+                           "ivdep", "ivdep-loop", "ivdep-back",
                            "ivdep-hls", "ivdep-hls-intel",
-                           "loop_coalesce", "max_concurrency", "max_interleaving",
                            "ii_at_most", "ii_at_least",
-                           "min_ii_at_target_fmax", "speculated_iterations",
-                           "disable_loop_pipelining", "force_hyperopt",
+                           "min_ii_at_target_fmax",
+                           "force_hyperopt",
                            "distribute_point", "fusion",
                            "novector", "always",
                            "loop_count", "max", "min", "avg"],
@@ -3782,11 +3800,9 @@ def LoopHint : Attr {
 // INTEL_CUSTOMIZATION
                            "PipelineDisabled", "PipelineInitiationInterval",
                            "Distribute",
-                           "II", "IVDep", "IVDepLoop", "IVDepBack",
+                           "IVDep", "IVDepLoop", "IVDepBack",
                            "IVDepHLS", "IVDepHLSIntel",
-                           "LoopCoalesce", "MaxConcurrency", "MaxInterleaving",
                            "IIAtMost", "IIAtLeast", "MinIIAtFmax",
-                           "SpeculatedIterations", "DisableLoopPipelining",
                            "ForceHyperopt", "Distribute", "Fusion", "Vectorize",
                            "VectorizeAlways", "LoopCount",
                            "LoopCountMax", "LoopCountMin","LoopCountAvg"]>,

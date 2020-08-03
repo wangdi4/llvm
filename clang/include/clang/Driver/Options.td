@@ -1942,6 +1942,12 @@ def qno_openmp_simd: Flag<["-"], "qno-openmp-simd">, Alias<fno_iopenmp_simd>,
 def qno_openmp : Flag<["-"], "qno-openmp">, Group<f_Group>, Flags<[NoArgumentUnused, DpcppUnsupported]>, Alias<fno_iopenmp>, HelpText<"Disable OpenMP support">;
 def qopenmp: Flag<["-"], "qopenmp">, Alias<fiopenmp>, Flags<[DpcppUnsupported]>,
   HelpText<"Parse OpenMP pragmas and generate parallel code.">;
+def qopenmp_stubs : Flag<["-"], "qopenmp-stubs">, Flags<[DpcppUnsupported]>,
+  HelpText<"enables the user to compile OpenMP programs in sequential mode. "
+  "The OpenMP directives are ignored and a stub OpenMP library is linked.">;
+def qopenmp_link_EQ : Joined<["-"], "qopenmp-link=">, Flags<[DpcppUnsupported]>,
+  HelpText<"Choose whether to link with the static or dynamic OpenMP "
+  "libraries. Default is dynamic.">;
 #endif // INTEL_CUSTOMIZATION
 def fopenmp_cuda_parallel_target_regions : Flag<["-"], "fopenmp-cuda-parallel-target-regions">, Group<f_Group>,
   Flags<[CC1Option, NoArgumentUnused, HelpHidden]>,
@@ -3472,6 +3478,14 @@ def mno_amx_int8 : Flag<["-"], "mno-amx-int8">, Group<m_x86_Features_Group>;
 def mamx_tile : Flag<["-"], "mamx-tile">, Group<m_x86_Features_Group>;
 def mno_amx_tile : Flag<["-"], "mno-amx-tile">, Group<m_x86_Features_Group>;
 #if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AMX_BF8
+def mamx_bf8 : Flag<["-"], "mamx-bf8">, Group<m_x86_Features_Group>;
+def mno_amx_bf8 : Flag<["-"], "mno-amx-bf8">, Group<m_x86_Features_Group>;
+#endif // INTEL_FEATURE_ISA_AMX_BF8
+#if INTEL_FEATURE_ISA_AMX_MEMADVISE
+def mamx_memadvise : Flag<["-"], "mamx-memadvise">, Group<m_x86_Features_Group>;
+def mno_amx_memadvise : Flag<["-"], "mno-amx-memadvise">, Group<m_x86_Features_Group>;
+#endif // INTEL_FEATURE_ISA_AMX_MEMADVISE
 #if INTEL_FEATURE_ISA_AMX_FUTURE
 def mamx_reduce : Flag<["-"], "mamx-reduce">, Group<m_x86_Features_Group>;
 def mno_amx_reduce : Flag<["-"], "mno-amx-reduce">, Group<m_x86_Features_Group>;
@@ -5290,6 +5304,9 @@ def _SLASH_Qopenmp_ : CLFlagNoDpcpp<"Qopenmp-">, Alias<fno_iopenmp>,
   HelpText<"Disable OpenMP support">;
 def _SLASH_QopenmpP_ : CLFlagNoDpcpp<"QopenmpP-">, Alias<fno_iopenmp>,
   HelpText<"Disable OpenMP support">;
+def _SLASH_QopenmpS : CLFlagNoDpcpp<"QopenmpS">, Alias<qopenmp_stubs>,
+  HelpText<"Enables the user to compile OpenMP programs in seqential mode. "
+    "The OpenMP directives are ignored and a stub OpenMP library is linked.">;
 def _SLASH_Qiopenmp : CLFlag<"Qiopenmp">, Alias<fiopenmp>;
 def _SLASH_Qopenmp_simd : CLFlagNoDpcpp<"Qopenmp-simd">, Alias<fiopenmp_simd>,
   HelpText<"Emit OpenMP code only for SIMD-based constructs.">;

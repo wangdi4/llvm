@@ -1372,6 +1372,10 @@ bool Parser::HandlePragmaLoopHint(LoopHint &Hint) {
           PragmaNameInfo->getName() == "speculated_iterations";
   bool PragmaUnroll = PragmaNameInfo->getName() == "unroll";
   bool PragmaUnrollAndJam = PragmaNameInfo->getName() == "unroll_and_jam";
+  bool PragmaMaxConcurrency =
+          PragmaNameInfo->getName() == "max_concurrency";
+  bool PragmaMaxInterleaving =
+          PragmaNameInfo->getName() == "max_interleaving";
 #endif // INTEL_CUSTOMIZATION
   auto IsLoopHint = llvm::StringSwitch<bool>(PragmaNameInfo->getName())
 #if INTEL_CUSTOMIZATION
@@ -1502,7 +1506,8 @@ bool Parser::HandlePragmaLoopHint(LoopHint &Hint) {
 
 #if INTEL_CUSTOMIZATION
     bool AllowZero = false;
-    if (PragmaSpeculatedIterations)
+    if (PragmaSpeculatedIterations ||
+        PragmaMaxConcurrency || PragmaMaxInterleaving)
       AllowZero = true;
     if ((PragmaUnroll || PragmaUnrollAndJam) &&
         getLangOpts().isIntelCompat(LangOptions::UnrollZero))

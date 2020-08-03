@@ -7294,7 +7294,7 @@ void Clang::AddClangCLArgs(const ArgList &Args, types::ID InputType,
   }
 
   unsigned VolatileOptionID;
-  if (getToolChain().getTriple().isX86())
+  if (getToolChain().getTriple().isX86() && !D.IsIntelMode()) // INTEL
     VolatileOptionID = options::OPT__SLASH_volatile_ms;
   else
     VolatileOptionID = options::OPT__SLASH_volatile_iso;

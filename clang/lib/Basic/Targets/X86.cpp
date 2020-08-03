@@ -374,6 +374,14 @@ bool X86TargetInfo::handleTargetFeatures(std::vector<std::string> &Features,
       HasAMXINT8 = true;
     } else if (Feature == "+amx-tile") {
       HasAMXTILE = true;
+#if INTEL_FEATURE_ISA_AMX_BF8
+    } else if (Feature == "+amx-bf8") {
+      HasAMXBF8 = true;
+#endif // INTEL_FEATURE_ISA_AMX_BF8
+#if INTEL_FEATURE_ISA_AMX_MEMADVISE
+    } else if (Feature == "+amx-memadvise") {
+      HasAMXMEMADVISE = true;
+#endif // INTEL_FEATURE_ISA_AMX_MEMADVISE
 #if INTEL_FEATURE_ISA_AMX_FUTURE
     } else if (Feature == "+amx-reduce") {
       HasAMXREDUCE = true;
@@ -929,6 +937,16 @@ void X86TargetInfo::getTargetDefines(const LangOptions &Opts,
   if (HasAMXBF16)
     Builder.defineMacro("__AMXBF16__");
   Builder.defineMacro("__AMX_SUPPORTED__");
+#if INTEL_FEATURE_ISA_AMX_BF8
+  if (HasAMXBF8)
+    Builder.defineMacro("__AMX_BF8__");
+  Builder.defineMacro("__AMX_BF8_SUPPORTED__");
+#endif // INTEL_FEATURE_ISA_AMX_BF8
+#if INTEL_FEATURE_ISA_AMX_MEMADVISE
+  if (HasAMXMEMADVISE)
+    Builder.defineMacro("__AMX_MEMADVISE__");
+  Builder.defineMacro("__AMX_MEMADVISE_SUPPORTED__");
+#endif // INTEL_FEATURE_ISA_AMX_MEMADVISE
 #if INTEL_FEATURE_ISA_AMX_MEMORY2
   if (HasAMXMEMORY2)
     Builder.defineMacro("__AMX_MEMORY2__");
@@ -1165,6 +1183,12 @@ bool X86TargetInfo::isValidFeatureName(StringRef Name) const {
       .Case("amx-int8", true)
       .Case("amx-tile", true)
 #if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AMX_BF8
+      .Case("amx-bf8", true)
+#endif // INTEL_FEATURE_ISA_AMX_BF8
+#if INTEL_FEATURE_ISA_AMX_MEMADVISE
+      .Case("amx-memadvise", true)
+#endif // INTEL_FEATURE_ISA_AMX_MEMADVISE
 #if INTEL_FEATURE_ISA_AMX_FUTURE
       .Case("amx-reduce", true)
       .Case("amx-memory", true)
@@ -1345,6 +1369,12 @@ bool X86TargetInfo::hasFeature(StringRef Feature) const {
       .Case("amx-int8", HasAMXINT8)
       .Case("amx-tile", HasAMXTILE)
 #if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AMX_BF8
+      .Case("amx-bf8", HasAMXBF8)
+#endif // INTEL_FEATURE_ISA_AMX_BF8
+#if INTEL_FEATURE_ISA_AMX_MEMADVISE
+      .Case("amx-memadvise", HasAMXMEMADVISE)
+#endif // INTEL_FEATURE_ISA_AMX_MEMADVISE
 #if INTEL_FEATURE_ISA_AMX_FUTURE
       .Case("amx-reduce", HasAMXREDUCE)
       .Case("amx-memory", HasAMXMEMORY)
