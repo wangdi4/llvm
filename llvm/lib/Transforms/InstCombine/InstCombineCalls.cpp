@@ -900,6 +900,7 @@ Instruction *InstCombinerImpl::visitCallInst(CallInst &CI) {
     if (Value *V = lowerObjectSizeCall(II, DL, &TLI, /*MustSucceed=*/false))
       return replaceInstUsesWith(CI, V);
     return nullptr;
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   case Intrinsic::experimental_vector_reduce_and:
   case Intrinsic::experimental_vector_reduce_or:
@@ -922,6 +923,18 @@ Instruction *InstCombinerImpl::visitCallInst(CallInst &CI) {
     break;
   }
 #endif
+=======
+  case Intrinsic::abs: {
+    Value *IIOperand = II->getArgOperand(0);
+    // abs(-x) -> abs(x)
+    // TODO: Copy nsw if it was present on the neg?
+    Value *X;
+    if (match(IIOperand, m_Neg(m_Value(X))))
+      return replaceOperand(*II, 0, X);
+
+    break;
+  }
+>>>>>>> 4a19e6156ed5b6e87d708e6de29b675be69c574f
   case Intrinsic::bswap: {
     Value *IIOperand = II->getArgOperand(0);
     Value *X = nullptr;
