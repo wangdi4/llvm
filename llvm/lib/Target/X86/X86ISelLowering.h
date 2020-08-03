@@ -1443,8 +1443,6 @@ namespace llvm {
                                           Align Alignment,
                                           SelectionDAG &DAG) const;
 
-    bool isNoopAddrSpaceCast(unsigned SrcAS, unsigned DestAS) const override;
-
     /// Customize the preferred legalization strategy for certain types.
     LegalizeTypeAction getPreferredVectorAction(MVT VT) const override;
 
