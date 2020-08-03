@@ -1844,7 +1844,13 @@ void ItaniumRecordLayoutBuilder::LayoutField(const FieldDecl *D,
     // aligned appropriately for their element type.
     EffectiveFieldSize = FieldSize =
         IsIncompleteArrayType ? CharUnits::Zero()
-                              : Context.toCharUnitsFromBits(TI.Width);
+#if INTEL_CUSTOMIZATION
+            // toCharUnitsFromBits always rounds down and is depended on, but
+            // AP-Int size needs to be the next size up.
+            : (Context.toCharUnitsFromBits(TI.Width) +
+               (TI.Width % Context.getCharWidth() == 0 ? CharUnits::Zero()
+                                                       : CharUnits::One()));
+#endif // INTEL_CUSTOMIZATION
     AlignIsRequired = TI.AlignIsRequired;
   };
 
