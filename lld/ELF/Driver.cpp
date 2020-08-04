@@ -1536,8 +1536,13 @@ void LinkerDriver::doGnuLTOLinking() {
 
   warn("GNU LTO files found in the command line.");
 
+  // Find ld.bfd
+  ErrorOr<std::string> exeOrErr = sys::findProgramByName("ld.bfd");
+  if (auto ec = exeOrErr.getError())
+    fatal("unable to find ld.bfd in PATH: " + ec.message());
+
   // Find G++
-  ErrorOr<std::string> exeOrErr = sys::findProgramByName("g++");
+  exeOrErr = sys::findProgramByName("g++");
   if (auto ec = exeOrErr.getError())
     fatal("unable to find g++ in PATH: " + ec.message());
 
@@ -1560,9 +1565,9 @@ void LinkerDriver::doGnuLTOLinking() {
 
   StringRef exec = saver.save(*exeOrErr);
 
-  // Build the command g++ -r GNU-LTO-FILES -nostdlib
+  // Build the command g++ -fuse-ld=bfd -r GNU-LTO-FILES -nostdlib
   //                    -nostartfiles -o /tmp/gnulto.o
-  std::string gnuFlags = "-r ";
+  std::string gnuFlags = "-fuse-ld=bfd -r ";
 
   gnuFlags += gNULTOFilesCmd;
 

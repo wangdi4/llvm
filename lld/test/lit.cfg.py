@@ -75,6 +75,22 @@ if platform.system() not in ['Windows']:
 ics_wsvariant = os.environ.get("ICS_WSVARIANT")
 if ics_wsvariant and ics_wsvariant.startswith('xmainocl'):
     config.available_features.add("intel_opencl")
+
+# Check if the default linker is set in the ICS options
+ics_setopts = os.environ.get("ICS_SETOPTS")
+if ics_setopts:
+    # The ICS options command is case insensitive. The string stored
+    # in the environment variable could have any letter casing.
+    ics_setopts = ics_setopts.lower()
+    # Check if lld is the default linker
+    if ics_setopts == 'ld=lld':
+        config.available_features.add('default_linker_lld')
+    # Check if gold is the default linker
+    elif ics_setopts == 'ld=gold':
+        config.available_features.add('default_linker_gold')
+    # Check if bfd is the default linker
+    elif ics_setopts == 'ld=bfd':
+        config.available_features.add('default_linker_bfd')
 # end INTEL_CUSTOMIZATION
 
 llvm_config.feature_config(
