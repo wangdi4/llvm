@@ -1110,11 +1110,14 @@ bool MapIntrinToImlImpl::runImpl() {
     CallInst *CI = dyn_cast<CallInst>(&*Inst);
     if (CI && CI->getCalledFunction()) {
       StringRef FuncName = CI->getCalledFunction()->getName();
-      if (FuncName.startswith("__svml") &&
-          getVectorTypeForSVMLFunction(CI->getFunctionType()))
-        InstToTranslate.insert(CI);
-      else if (is_libm_function(FuncName.str().c_str()))
+      // Only transform functions with SVML naming scheme if SVML is enabled.
+      if (FuncName.startswith("__svml")) {
+        if (TLI->isSVMLEnabled() &&
+            getVectorTypeForSVMLFunction(CI->getFunctionType()))
+          InstToTranslate.insert(CI);
+      } else if (is_libm_function(FuncName.str().c_str())) {
         ScalarCallsToTranslate.insert(CI);
+      }
     }
   }
 

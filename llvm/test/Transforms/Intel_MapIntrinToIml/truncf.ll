@@ -1,7 +1,7 @@
 ; Check to see that __svml_truncf4 is translated to the medium accuracy svml variant.
 
-; RUN: opt -iml-trans -S < %s | FileCheck %s
-; RUN: opt -passes="map-intrin-to-iml" -S < %s | FileCheck %s
+; RUN: opt -vector-library=SVML -iml-trans -S < %s | FileCheck %s
+; RUN: opt -vector-library=SVML -passes="map-intrin-to-iml" -S < %s | FileCheck %s
 
 ; CHECK-LABEL: @vector_foo
 ; CHECK: call svml_cc <4 x float> @__svml_truncf4(

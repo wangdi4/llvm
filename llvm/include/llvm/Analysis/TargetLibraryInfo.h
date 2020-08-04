@@ -98,6 +98,14 @@ public:
 #endif
   };
 
+#if INTEL_CUSTOMIZATION
+private:
+  // Stores the vector math library the compiler is currently using.
+  VectorLibrary CurVectorLibrary = NoLibrary;
+
+public:
+#endif // INTEL_CUSTOMIZATION
+
   TargetLibraryInfoImpl();
   explicit TargetLibraryInfoImpl(const Triple &T);
 

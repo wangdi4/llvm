@@ -1,6 +1,6 @@
 ; Check to see that __svml_sinf8 is translated to two __svml_sinf4 medium accuracy variant calls.
 
-; RUN: opt -iml-trans -S < %s | FileCheck %s
+; RUN: opt -vector-library=SVML -iml-trans -S < %s | FileCheck %s
 
 ; CHECK-LABEL: @vector_foo
 ; CHECK: call svml_cc <4 x float> @__svml_sinf4(
