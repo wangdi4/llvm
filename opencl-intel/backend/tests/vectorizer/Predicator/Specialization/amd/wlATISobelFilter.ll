@@ -1,9 +1,5 @@
 ; RUN: llvm-as %s -o %t.bc
-<<<<<<< HEAD
 ; RUN: %oclopt -targetlibinfo -tbaa -basic-aa -domtree -globalopt -ipsccp -deadargelim       -instcombine -simplifycfg -basiccg -prune-eh -inline -function-attrs -argpromotion -sroa -early-cse -lazy-value-info -jump-threading -correlated-propagation -tailcallelim -reassociate   -loops -lcssa -loop-rotate -licm -loop-unswitch -scalar-evolution -loop-simplify -indvars -loop-idiom -loop-deletion -loop-unroll -memdep -gvn -memcpyopt -sccp -dse -adce -strip-dead-prototypes       -globaldce -constmerge -inline-threshold=4096 -inline -lowerswitch -mergereturn -loop-simplify -phicanon -predicate -specialize -verify %t.bc -S -o %t1.ll
-=======
-; RUN: %oclopt -targetlibinfo -tbaa -basic-aa -domtree -globalopt -ipsccp -deadargelim       -instcombine -simplifycfg -basiccg -prune-eh -inline -functionattrs -argpromotion -sroa -early-cse -lazy-value-info -jump-threading -correlated-propagation -tailcallelim -reassociate   -loops -lcssa -loop-rotate -licm -loop-unswitch -scalar-evolution -loop-simplify -indvars -loop-idiom -loop-deletion -loop-unroll -memdep -gvn -memcpyopt -sccp -dse -adce -strip-dead-prototypes       -globaldce -constmerge -inline-threshold=4096 -inline -lowerswitch -mergereturn -loop-simplify -phicanon -predicate -specialize -verify %t.bc -S -o %t1.ll
->>>>>>> 58a51c396df072a1f5cd693f1c17eed8e283db50
 ; RUN: FileCheck %s --input-file=%t1.ll
 
 ; ModuleID = 'wlATISobelFilter.cl'
