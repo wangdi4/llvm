@@ -1108,6 +1108,7 @@ not made control-dependent on any additional values, e.g., unrolling a loop
 executed by all work items.
 
 Sample usage:
+
 .. code-block:: c
 
   void convfunc(void) __attribute__((convergent));

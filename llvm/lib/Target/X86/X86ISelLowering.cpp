@@ -5858,11 +5858,6 @@ static bool scaleShuffleElements(ArrayRef<int> Mask, unsigned NumDstElts,
   return false;
 }
 
-static bool canScaleShuffleElements(ArrayRef<int> Mask, unsigned NumDstElts) {
-  SmallVector<int, 32> WidenedMask;
-  return scaleShuffleElements(Mask, NumDstElts, WidenedMask);
-}
-
 /// Returns true if Elt is a constant zero or a floating point constant +0.0.
 bool X86::isZeroNode(SDValue Elt) {
   return isNullConstant(Elt) || isNullFPConstant(Elt);
@@ -7614,40 +7609,6 @@ static bool getFauxShuffleMask(SDValue N, const APInt &DemandedElts,
     return true;
   }
   case ISD::OR: {
-    // Inspect each operand at the byte level. We can merge these into a
-    // blend shuffle mask if for each byte at least one is masked out (zero).
-    KnownBits Known0 =
-        DAG.computeKnownBits(N.getOperand(0), DemandedElts, Depth + 1);
-    KnownBits Known1 =
-        DAG.computeKnownBits(N.getOperand(1), DemandedElts, Depth + 1);
-    if (Known0.One.isNullValue() && Known1.One.isNullValue()) {
-      bool IsByteMask = true;
-      APInt ZeroMask = APInt::getNullValue(NumBytesPerElt);
-      APInt SelectMask = APInt::getNullValue(NumBytesPerElt);
-      for (unsigned i = 0; i != NumBytesPerElt && IsByteMask; ++i) {
-        unsigned LHS = Known0.Zero.extractBits(8, i * 8).getZExtValue();
-        unsigned RHS = Known1.Zero.extractBits(8, i * 8).getZExtValue();
-        if (LHS == 255 && RHS == 0)
-          SelectMask.setBit(i);
-        else if (LHS == 255 && RHS == 255)
-          ZeroMask.setBit(i);
-        else if (!(LHS == 0 && RHS == 255))
-          IsByteMask = false;
-      }
-      if (IsByteMask) {
-        for (unsigned i = 0; i != NumSizeInBytes; i += NumBytesPerElt) {
-          for (unsigned j = 0; j != NumBytesPerElt; ++j) {
-            unsigned Ofs = (SelectMask[j] ? NumSizeInBytes : 0);
-            int Idx = (ZeroMask[j] ? (int)SM_SentinelZero : (i + j + Ofs));
-            Mask.push_back(Idx);
-          }
-        }
-        Ops.push_back(N.getOperand(0));
-        Ops.push_back(N.getOperand(1));
-        return true;
-      }
-    }
-
     // Handle OR(SHUFFLE,SHUFFLE) case where one source is zero and the other
     // is a valid shuffle index.
     SDValue N0 = peekThroughBitcasts(N.getOperand(0));
@@ -10946,6 +10907,35 @@ static bool isLaneCrossingShuffleMask(unsigned LaneSizeInBits,
 /// shuffle mask.
 static bool is128BitLaneCrossingShuffleMask(MVT VT, ArrayRef<int> Mask) {
   return isLaneCrossingShuffleMask(128, VT.getScalarSizeInBits(), Mask);
+}
+
+/// Test whether elements in each LaneSizeInBits lane in this shuffle mask come
+/// from multiple lanes - this is different to isLaneCrossingShuffleMask to
+/// better support 'repeated mask + lane permute' style shuffles.
+static bool isMultiLaneShuffleMask(unsigned LaneSizeInBits,
+                                   unsigned ScalarSizeInBits,
+                                   ArrayRef<int> Mask) {
+  assert(LaneSizeInBits && ScalarSizeInBits &&
+         (LaneSizeInBits % ScalarSizeInBits) == 0 &&
+         "Illegal shuffle lane size");
+  int NumElts = Mask.size();
+  int NumEltsPerLane = LaneSizeInBits / ScalarSizeInBits;
+  int NumLanes = NumElts / NumEltsPerLane;
+  if (NumLanes > 1) {
+    for (int i = 0; i != NumLanes; ++i) {
+      int SrcLane = -1;
+      for (int j = 0; j != NumEltsPerLane; ++j) {
+        int M = Mask[(i * NumEltsPerLane) + j];
+        if (M < 0)
+          continue;
+        int Lane = (M % NumElts) / NumEltsPerLane;
+        if (SrcLane >= 0 && SrcLane != Lane)
+          return true;
+        SrcLane = Lane;
+      }
+    }
+  }
+  return false;
 }
 
 /// Test whether a shuffle mask is equivalent within each sub-lane.
@@ -46730,12 +46720,9 @@ static bool isHorizontalBinOp(SDValue &LHS, SDValue &RHS, SelectionDAG &DAG,
   if (IsIdentityPostShuffle)
     PostShuffleMask.clear();
 
-  // Avoid 128-bit lane crossing if pre-AVX2 and FP (integer will split), unless
-  // the shuffle can widen to shuffle entire lanes, which should still be quick.
+  // Avoid 128-bit multi lane shuffles if pre-AVX2 and FP (integer will split).
   if (!IsIdentityPostShuffle && !Subtarget.hasAVX2() && VT.isFloatingPoint() &&
-      isLaneCrossingShuffleMask(128, VT.getScalarSizeInBits(),
-                                PostShuffleMask) &&
-      !canScaleShuffleElements(PostShuffleMask, 2))
+      isMultiLaneShuffleMask(128, VT.getScalarSizeInBits(), PostShuffleMask))
     return false;
 
   // Assume a SingleSource HOP if we only shuffle one input and don't need to
