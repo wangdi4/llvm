@@ -1725,6 +1725,15 @@ public:
 
   bool isSimple() const { return !isAtomic() && !isVolatile(); }
 
+  MDNode *getMetadata(unsigned KindID) const {
+    MDNodesTy MDs;
+    getUnderlyingNonDbgMetadata(MDs);
+    auto Iter = find_if(MDs, [KindID](auto &P) -> bool {
+      return P.first == KindID;
+    });
+    return (Iter != MDs.end()) ? Iter->second : nullptr;
+  }
+
   // Use underlying IR knowledge to access metadata attached to the incoming
   // instruction.
   void getUnderlyingNonDbgMetadata(MDNodesTy &MDs) const {
