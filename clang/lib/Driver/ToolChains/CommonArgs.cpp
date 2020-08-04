@@ -688,7 +688,7 @@ void tools::addIntelOptimizationArgs(const ToolChain &TC,
 
   RenderOptReportOptions(TC, IsLink, Args, CmdArgs);
   auto addMultiVersionFlag = [&](const Arg &OptArg, OptSpecifier Opt) {
-    if (OptArg.getOption().matches(Opt) &&
+    if (IsLink && OptArg.getOption().matches(Opt) &&
         x86::isValidIntelCPU(OptArg.getValue(), TC.getTriple()))
       addllvmOption("-enable-multiversioning");
   };

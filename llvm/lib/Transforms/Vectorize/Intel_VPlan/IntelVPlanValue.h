@@ -21,24 +21,18 @@
 #ifndef LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_INTELVPLANVALUE_H
 #define LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_INTELVPLANVALUE_H
 
+#include "VPlanHIR/IntelVPlanInstructionDataHIR.h"
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/SmallString.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
 
-#if INTEL_CUSTOMIZATION
-#include "VPlanHIR/IntelVPlanInstructionDataHIR.h"
-#endif
-
 namespace llvm {
-#if INTEL_CUSTOMIZATION
 namespace vpo {
-#endif
 
 // Forward declarations.
 class VPUser;
 
-#if INTEL_CUSTOMIZATION
 // Forward declaration (need them to friend them within VPInstruction)
 // TODO: This needs to be refactored
 class VPBasicBlock;
@@ -46,14 +40,12 @@ class VPlanPredicator;
 class VPlan;
 class VPLoop;
 class VPExternalUse;
-#endif
 
 // This is the base class of the VPlan Def/Use graph, used for modeling the data
 // flow into, within and out of the VPlan. VPValues can stand for live-ins
 // coming from the input IR, instructions which VPlan will generate if executed
 // and live-outs which the VPlan will need to fix accordingly.
 class VPValue {
-#if INTEL_CUSTOMIZATION
   // The following need access to the underlying IR Value
   friend class VPlan;
   friend class VPBasicBlock;
@@ -65,12 +57,10 @@ class VPValue {
   friend class VPInstruction;
   friend class VPVLSClientMemref;
   friend class VPlanScalarEvolutionLLVM;
-#endif
 
 private:
   const unsigned char SubclassID; ///< Subclass identifier (for isa/dyn_cast).
 
-#if INTEL_CUSTOMIZATION
   // TODO: This will probably be replaced by a VPType that would additionally
   // keep the number of vector elements in the resulting type as a symbolic
   // expression with VF/UF as parameters to it.
@@ -82,7 +72,6 @@ private:
   // llvm::Context (probably the separate HCFG class once we refactor it out of
   // the VPlan).
   std::string Name;
-#endif // INTEL_CUSTOMIZATION
 
   SmallVector<VPUser *, 1> Users;
 
@@ -105,7 +94,6 @@ private:
 
 protected:
 
-#if INTEL_CUSTOMIZATION
   VPValue(const unsigned char SC, Type *BaseTy, Value *UV = nullptr)
       : SubclassID(SC), BaseTy(BaseTy), UnderlyingVal(UV),
         IsUnderlyingValueValid(UV ? true : false) {
@@ -113,10 +101,6 @@ protected:
     if (UV && !UV->getName().empty())
       Name = (getVPNamePrefix() + UV->getName()).str();
   }
-#else
-  VPValue(const unsigned char SC, Value *UV = nullptr)
-      : SubclassID(SC), UnderlyingVal(UV) {}
-#endif // INTEL_CUSTOMIZATION
 
   // DESIGN PRINCIPLE: Access to the underlying IR must be strictly limited to
   // the front-end and back-end of VPlan so that the middle-end is as
@@ -143,7 +127,6 @@ public:
   /// that are actually instantiated. Values of this enumeration are kept in
   /// the SubclassID field of the VPValue objects. They are used for concrete
   /// type identification.
-#if INTEL_CUSTOMIZATION
   enum {
     VPValueSC,
     VPUserSC,
@@ -155,20 +138,14 @@ public:
     VPPrivateMemorySC,
     VPBasicBlockSC,
   };
-#else
-  enum { VPValueSC, VPUserSC, VPInstructionSC };
-#endif // INTEL_CUSTOMIZATION
 
-#if INTEL_CUSTOMIZATION
   VPValue(Type *BaseTy, Value *UV = nullptr)
       : SubclassID(VPValueSC), BaseTy(BaseTy), UnderlyingVal(UV) {
     assert(BaseTy && "BaseTy can't be null!");
   }
-#endif // INTEL_CUSTOMIZATION
   VPValue(const VPValue &) = delete;
   VPValue &operator=(const VPValue &) = delete;
 
-#if INTEL_CUSTOMIZATION
   virtual ~VPValue() {}
   // FIXME: To be replaced by a proper VPType.
   Type *getType() const { return BaseTy; }
@@ -214,23 +191,19 @@ public:
     else
       return NameRef;
   }
-#endif
 
   /// \return an ID for the concrete type of this object.
   /// This is used to implement the classof checks. This should not be used
   /// for any other purpose, as the values may change as LLVM evolves.
   unsigned getVPValueID() const { return SubclassID; }
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-#if INTEL_CUSTOMIZATION
-  virtual void dump(raw_ostream &OS) const { printAsOperand(OS); }
-  virtual void dump() const { dump(errs()); }
+  virtual void print(raw_ostream &OS) const { printAsOperand(OS); }
+  void dump() const { print(errs()); errs()<< '\n'; }
   virtual void printAsOperand(raw_ostream &OS) const;
-#endif
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 
   unsigned getNumUsers() const { return Users.size(); }
   void addUser(VPUser &User) { Users.push_back(&User); }
-#if INTEL_CUSTOMIZATION
   void removeUser(const VPUser &User) {
     auto It = std::find(user_begin(), user_end(), &User);
     assert(It != user_end() && "User not found!");
@@ -276,7 +249,6 @@ public:
 
   /// Invalidate the underlying Value or HIR node.
   void invalidateUnderlyingIR();
-#endif // INTEL_CUSTOMIZATION
 
   typedef SmallVectorImpl<VPUser *>::iterator user_iterator;
   typedef SmallVectorImpl<VPUser *>::const_iterator const_user_iterator;
@@ -305,7 +277,6 @@ private:
   SmallVector<VPValue *, 2> Operands;
 
 protected:
-#if INTEL_CUSTOMIZATION
   VPUser(const unsigned char SC, Type *BaseTy) : VPValue(SC, BaseTy) {}
   VPUser(const unsigned char SC, ArrayRef<VPValue *> Operands, Type *BaseTy)
       : VPValue(SC, BaseTy) {
@@ -326,26 +297,8 @@ protected:
     // (vtable not ready at that time). However, this shouldn't be a problem
     // because the HIR is invalid by default at construction.
   }
-#endif
 
 public:
-#ifndef INTEL_CUSTOMIZATION
-  VPUser(const unsigned char SC) : VPValue(SC) {}
-  VPUser(const unsigned char SC, std::initializer_list<VPValue *> Operands)
-      : VPValue(SC) {
-    for (VPValue *Operand : Operands)
-      addOperand(Operand);
-  }
-
-  VPUser() : VPValue(VPValue::VPUserSC) {}
-  VPUser(ArrayRef<VPValue *> Operands) : VPValue(VPValue::VPUserSC) {
-    for (VPValue *Operand : Operands)
-      addOperand(Operand);
-  }
-  VPUser(std::initializer_list<VPValue *> Operands)
-      : VPUser(ArrayRef<VPValue *>(Operands)) {}
-#endif // INTEL_CUSTOMIZATION
-
   VPUser(const VPUser &) = delete;
   VPUser &operator=(const VPUser &) = delete;
 
@@ -366,7 +319,6 @@ public:
     assert(N < Operands.size() && "Operand index out of bounds");
     return Operands[N];
   }
-#if INTEL_CUSTOMIZATION
   void setOperand(const unsigned Idx, VPValue *Operand) {
     assert(Idx < getNumOperands() && "Out of range");
     Operands[Idx]->removeUser(*this);
@@ -408,7 +360,6 @@ public:
       return std::distance(op_begin(), It);
     return -1;
   }
-#endif // INTEL_CUSTOMIZATION
 
   typedef SmallVectorImpl<VPValue *>::iterator operand_iterator;
   typedef SmallVectorImpl<VPValue *>::const_iterator const_operand_iterator;
@@ -425,7 +376,6 @@ public:
   }
 };
 
-#if INTEL_CUSTOMIZATION
 /// This class augments VPValue with constant operands that encapsulates LLVM
 /// Constant information. In the same way as LLVM Constant, VPConstant is
 /// immutable (once created they never change) and are fully shared by
@@ -477,8 +427,7 @@ public:
   void printAsOperand(raw_ostream &OS) const override {
     getUnderlyingValue()->printAsOperand(OS);
   }
-  void dump(raw_ostream &OS) const override { printAsOperand(OS); }
-  void dump() const override { dump(errs()); }
+  void print(raw_ostream &OS) const override { printAsOperand(OS); }
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 
   /// Method to support type inquiry through isa, cast, and dyn_cast.
@@ -517,8 +466,7 @@ public:
   void printAsOperand(raw_ostream &OS) const override {
     getUnderlyingValue()->printAsOperand(OS);
   }
-  void dump(raw_ostream &OS) const override { printAsOperand(OS); }
-  void dump() const override { dump(errs()); }
+  void print(raw_ostream &OS) const override { printAsOperand(OS); }
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 
   /// Method to support type inquiry through isa, cast, and dyn_cast.
@@ -675,7 +623,7 @@ public:
   }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-  void dump(raw_ostream &OS) const override {
+  void print(raw_ostream &OS) const override {
     if (auto *HIROp = getOperandHIR()) {
       for (auto *Op : operands()) {
         Op->printAsOperand(OS);
@@ -743,8 +691,7 @@ public:
   void printAsOperand(raw_ostream &OS) const override {
     getUnderlyingValue()->printAsOperand(OS);
   }
-  void dump(raw_ostream &OS) const override { printAsOperand(OS); }
-  void dump() const override { dump(errs()); }
+  void print(raw_ostream &OS) const override { printAsOperand(OS); }
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 
   /// Method to support type inquiry through isa, cast, and dyn_cast.
@@ -754,6 +701,5 @@ public:
 };
 
 } // namespace vpo
-#endif // INTEL_CUSTOMIZATION
 } // namespace llvm
 #endif // LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_INTELVPLANVALUE_H

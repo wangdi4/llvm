@@ -67,20 +67,25 @@ function tables.
 (2) Indirect Calls
 ------------------
 
-All indirect calls need to use a new intrinsic.
+All indirect calls need to use a specially-named function.  Due to toolchain
+considerations, the llvm intrinsic mechanism is not used and special
+functionality has been implemented.
 
 .. code-block:: c
 
- fp1(1);  // uses intrinsic
- fp2(2);  // uses intrinsic
+ fp1(1);  // uses special function
+ fp2(2);  // uses special function
 
-The intrinsic used is:
+An example of the special function is:
 
- Ret llvm.indirect.call(<addrVariantTable>, Arg...)
+ Ret __intel_indirect_call_[0-9]+(<addrVariantTable>, Arg...)
 
 The first argument is the address of the variant table previously generated
 when the address of a function was generated.  `Arg...` is the call arguments
 and `Ret` is the return value of the call.
+
+Each different function type will generate a unique function with the
+"__intel_indirect_call_" prefix followed by a number.
 
 Note that the type of the variant table is not the same as a normal function
 pointer.  To deal with this we will keep function pointers the normal type and
@@ -110,7 +115,7 @@ Example:
    store i32 (i32)* bitcast ([1 x i32 (i32)*]* @"_Z3fooi$SIMDTable" to i32 (i32)*), i32 (i32)** %fp, align 8
    %1 = load i32 (i32)*, i32 (i32)** %fp, align 8, !tbaa !5
    %2 = bitcast i32 (i32)* %1 to i32 (i32)**
-   %3 = call i32 (i32 (i32)**, ...) @llvm.indirect.call.i32.p0p0f_i32i32f(i32 (i32)** %2, i32 6)
+   %3 = call i32 @__intel_indirect_call_0(i32 (i32)** %2, i32 6)
    ret i32 %call1
  }
 
@@ -144,18 +149,18 @@ Example:
  int (*fp)(int, float) =
    __builtin_generate_SIMD_variant(foo, 4, std::add_pointer_t<unmasked(linear,uniform)>());
 
-This will generate a call to this llvm intrinsic:
+This will generate a call to this special intrinsic-like function:
 
- Func* llvm.create.SIMD.variant(Func)
+ Func* __intel_create_simd_variant_[0-9]+(Func)
 
 A vector ABI (https://software.intel.com/sites/default/files/managed/b4/c8/Intel-Vector-Function-ABI.pdf)
 mangled name is created from the passed function type SpecType and provided as
-a attribute to the intrinsic call.
+a attribute to the __intel_create_simd_variant call.
 
 .. code-block:: llvm
 
  %fp = alloca i32 (i32, float)*, align 8
- %call = call i32 (i32, float)* @llvm.create.SIMD.variant(i32 (i32, float)* @foo) #0
+ %call = call i32 (i32, float)* @__intel_create_simd_variant_0(i32 (i32, float)* @foo) #0
  store i32 (i32, float)* %call, i32 (i32, float)** %fp, align 8
 
  attributes #0 = { "vector-variants"="_ZGVxN4lu_foo" }
@@ -183,14 +188,15 @@ As an example, the templates used may expand to something like this:
  // The call
  int i = __builtin_call_SIMD_variant(detail::variant_list<unmasked(linear,uniform), masked(varying,varying)>(), int_list<4>, ptrs, 1, 2.0);
 
-This call also uses the llvm intrinsic llvm.indirect.call but in this case
-the call attribute must be specified.
+This call also uses the special intrinsic-like function
+__intel_indirect_call_[0-9]+ but in this case the call attribute must be
+specified.
 
 The IR for the call would be something like:
 
 .. code-block:: llvm
 
- %call = call i32 @llvm.indirect.call(i32 (i32, float)** @ptrs, i32 1, float 2.000000e+00) #0
+ %call = call i32 @__intel_indirect_call_0(i32 (i32, float)** @ptrs, i32 1, float 2.000000e+00) #0
  store i32 %call1, i32* %i, align 4
 
  attributes #0 = { "vector-variants"="_ZGVxN4lu_foo,_ZGVxM4vv_foo" }

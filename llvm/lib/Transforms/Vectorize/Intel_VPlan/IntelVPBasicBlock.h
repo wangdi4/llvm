@@ -337,12 +337,10 @@ public:
     OS << getName();
   }
 
-  void print(raw_ostream &OS, unsigned Indent = 0,
-             const VPlanDivergenceAnalysis *DA = nullptr,
-             const VPlanScalVecAnalysis *SVA = nullptr,
+  void print(raw_ostream &OS, unsigned Indent,
              const Twine &NamePrefix = "") const;
 
-  void dump() const { print(dbgs()); };
+  void print(raw_ostream &OS) const override { print(OS, 0); };
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
   void setCBlock(BasicBlock *CB) { CBlock = CB; }
   void setFBlock(BasicBlock *FB) { FBlock = FB; }

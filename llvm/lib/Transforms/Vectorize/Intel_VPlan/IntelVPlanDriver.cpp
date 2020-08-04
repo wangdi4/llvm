@@ -284,7 +284,7 @@ bool VPlanDriverImpl::processLoop(Loop *Lp, Function &Fn,
   VPAnalysesFactory VPAF(SE, Lp, DT, AC, DL, true);
 
   for (auto &Pair : LVP.getAllVPlans()) {
-    auto &Plan = *Pair.second;
+    auto &Plan = *Pair.second.MainPlan;
     if (!Plan.getVPSE())
       Plan.setVPSE(VPAF.createVPSE());
     if (!Plan.getVPVT())

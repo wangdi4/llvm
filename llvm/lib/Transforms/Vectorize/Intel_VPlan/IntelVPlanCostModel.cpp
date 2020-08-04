@@ -669,7 +669,7 @@ unsigned VPlanCostModel::getCost() {
 void VPlanCostModel::printForVPInstruction(
   raw_ostream &OS, const VPInstruction *VPInst) {
   OS << "  Cost " << getCostNumberString(getCost(VPInst)) << " for ";
-  VPInst->print(OS);
+  VPInst->printWithoutAnalyses(OS);
   OS << '\n';
 }
 

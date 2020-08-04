@@ -753,7 +753,8 @@ void VPlanDivergenceAnalysis::print(raw_ostream &OS, const VPLoop *VPLp) {
         OS << "Uniform: ";
       getVectorShape(&VPInst).print(OS);
       OS << ' ';
-      VPInst.dump(OS);
+      VPInst.printWithoutAnalyses(OS);
+      OS << '\n';
     }
     OS << "\n";
   }

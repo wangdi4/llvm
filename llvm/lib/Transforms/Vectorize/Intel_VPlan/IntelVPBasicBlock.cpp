@@ -563,8 +563,6 @@ VPBasicBlock::getNonPredicateInstructions() const {
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 void VPBasicBlock::print(raw_ostream &OS, unsigned Indent,
-                         const VPlanDivergenceAnalysis *DA,
-                         const VPlanScalVecAnalysis *SVA,
                          const Twine &NamePrefix) const {
   std::string StrIndent = std::string(2 * Indent, ' ');
   OS << StrIndent << NamePrefix << getName() << ":";
@@ -580,8 +578,8 @@ void VPBasicBlock::print(raw_ostream &OS, unsigned Indent,
   OS << "\n";
 
   // Print block body
-  if (empty() || !PrintTerminatorInst && size() == 1 &&
-                     !cast<VPBranchInst>(front()).getHLGoto()) {
+  if (empty() || (!PrintTerminatorInst && size() == 1 &&
+                  !cast<VPBranchInst>(front()).getHLGoto())) {
     OS << StrIndent << " <Empty Block>\n";
   } else {
     for (const VPInstruction &Inst : Instructions) {
@@ -589,7 +587,8 @@ void VPBasicBlock::print(raw_ostream &OS, unsigned Indent,
           !cast<VPBranchInst>(Inst).getHLGoto())
         continue;
       OS << StrIndent << " ";
-      Inst.dump(OS, DA, SVA);
+      Inst.print(OS);
+      OS << '\n';
     }
   }
   const VPValue *CB = getCondBit();
@@ -602,7 +601,8 @@ void VPBasicBlock::print(raw_ostream &OS, unsigned Indent,
           OS << CBI->getParent()->getName();
         }
         OS << "): ";
-        CBI->dump(OS, DA, SVA);
+        CBI->print(OS);
+        OS << '\n';
       }
     } else {
       // We fall here if VPInstruction has no operands or Value is

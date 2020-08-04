@@ -156,7 +156,7 @@ void VPInduction::dump(raw_ostream &OS) const {
 void VPPrivate::dump(raw_ostream &OS) const { printLinkedValues(OS); }
 
 void VPLoopEntityMemoryDescriptor::dump(raw_ostream &OS) const {
-  MemoryPtr->dump(OS);
+  MemoryPtr->print(OS);
 }
 
 void VPLoopEntity::printLinkedValues(raw_ostream &OS) const {
