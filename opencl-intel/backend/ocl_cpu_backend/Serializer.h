@@ -202,7 +202,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
         {
             bool isNullPointer = false;
             DeserialPrimitive<bool>(&isNullPointer, stream);
-            *item = (void*)(isNullPointer ? 0 : 1);
+            *item = reinterpret_cast<void*>((intptr_t)!isNullPointer);
         }
     };
 

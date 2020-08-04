@@ -93,7 +93,7 @@ void GenericMemObject::drive_copy_between_groups( DataCopyState starting_state,
                 }
                 SharingGroup& from = m_sharing_groups[ from_grp_id ];
 
-                dev_error = from.m_dev_mem_obj->clDevMemObjUpdateBackingStore( (void*)to_grp_id, &update_mode );
+                dev_error = from.m_dev_mem_obj->clDevMemObjUpdateBackingStore( reinterpret_cast<void*>((uintptr_t)to_grp_id), &update_mode );
                 assert( CL_DEV_SUCCEEDED(dev_error) && "clDevMemObjUpdateBackingStore() failed" );
                 
                 if (CL_DEV_FAILED(dev_error))
@@ -121,7 +121,7 @@ void GenericMemObject::drive_copy_between_groups( DataCopyState starting_state,
         case DATA_COPY_STATE_FROM_BS:
             m_pBackingStore->SetDataValid(true); // data was copied into BS
             
-            dev_error = to.m_dev_mem_obj->clDevMemObjUpdateFromBackingStore( (void*)to_grp_id, &update_mode );
+            dev_error = to.m_dev_mem_obj->clDevMemObjUpdateFromBackingStore( reinterpret_cast<void*>((uintptr_t)to_grp_id), &update_mode );
             assert( CL_DEV_SUCCEEDED(dev_error) && "clDevMemObjUpdateFromBackingStore() failed" );
             
             // in parallel to update from BS - finalize lazy copy to BS
