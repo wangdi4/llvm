@@ -575,7 +575,6 @@ doPromotion(Function *F, SmallPtrSetImpl<Argument *> &ArgsToPromote,
         GEP->eraseFromParent();
       }
     }
-<<<<<<< HEAD
 
 #if INTEL_CUSTOMIZATION
     // Normally, the original function will be deleted, which will replace
@@ -596,8 +595,6 @@ doPromotion(Function *F, SmallPtrSetImpl<Argument *> &ArgsToPromote,
       ValueAsMetadata::handleRAUW(I, UndefValue::get(I->getType()));
 #endif
 
-=======
->>>>>>> 1e392fc44584a4909b4dced02b8386b48963002b
     // Increment I2 past all of the arguments added for this promoted pointer.
     std::advance(I2, ArgIndices.size());
   }
