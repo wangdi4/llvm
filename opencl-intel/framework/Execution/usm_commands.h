@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2006-2018 Intel Corporation.
+// Copyright 2006-2020 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -14,6 +14,7 @@
 
 #pragma once
 
+#include "cl_sys_info.h"
 #include "enqueue_commands.h"
 #include <vector>
 
@@ -47,8 +48,15 @@ public:
   // overriden methods:
 
   cl_err_code Execute() override {
+    NotifyCmdStatusChanged(CL_RUNNING, CL_SUCCESS,
+                           Intel::OpenCL::Utils::HostTime());
+
     MEMCPY_S(m_pDstPtr, m_size, m_pSrcPtr, m_size);
-    return RuntimeCommand::Execute();
+
+    NotifyCmdStatusChanged(CL_COMPLETE, CL_SUCCESS,
+                           Intel::OpenCL::Utils::HostTime());
+
+    return m_returnCode;
   };
 
   cl_command_type GetCommandType() const override {
@@ -92,8 +100,15 @@ public:
   // overriden methods:
 
   cl_err_code Execute() override {
+    NotifyCmdStatusChanged(CL_RUNNING, CL_SUCCESS,
+                           Intel::OpenCL::Utils::HostTime());
+
     CopyPattern(m_pattern, m_patternSize, m_usmPtr, m_size);
-    return RuntimeCommand::Execute();
+
+    NotifyCmdStatusChanged(CL_COMPLETE, CL_SUCCESS,
+                           Intel::OpenCL::Utils::HostTime());
+
+    return m_returnCode;
   }
 
   cl_command_type GetCommandType() const override {

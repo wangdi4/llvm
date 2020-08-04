@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Intel Corporation
+// Copyright (c) 2019-2020 Intel Corporation
 // All rights reserved.
 //
 // WARRANTY DISCLAIMER
@@ -27,7 +27,7 @@ extern cl_device_type gDeviceType;
 
 class USMTest : public ::testing::Test {
 protected:
-  virtual void SetUp() {
+  virtual void SetUp() override {
     cl_int err = clGetPlatformIDs(1, &m_platform, NULL);
     ASSERT_OCL_SUCCESS(err, "clGetPlatformIDs");
 
@@ -37,12 +37,14 @@ protected:
     m_context = clCreateContext(NULL, 1, &m_device, NULL, NULL, &err);
     ASSERT_OCL_SUCCESS(err, "clCreateContext");
 
-    m_queue =
-        clCreateCommandQueueWithProperties(m_context, m_device, NULL, &err);
+    cl_command_queue_properties properties[] = {CL_QUEUE_PROPERTIES,
+                                                CL_QUEUE_PROFILING_ENABLE, 0};
+    m_queue = clCreateCommandQueueWithProperties(m_context, m_device,
+                                                 properties, &err);
     ASSERT_OCL_SUCCESS(err, "clCreateCommandQueueWithProperties");
   }
 
-  virtual void TearDown() {
+  virtual void TearDown() override {
     cl_int err = clReleaseCommandQueue(m_queue);
     EXPECT_OCL_SUCCESS(err, "clReleaseCommandQueue");
     err = clReleaseContext(m_context);
@@ -128,8 +130,8 @@ TEST_F(USMTest, checkCapacities) {
     cl_device_unified_shared_memory_capabilities_intel caps;
     cl_int err = clGetDeviceInfo(
         m_device, param_name,
-        sizeof(cl_device_unified_shared_memory_capabilities_intel),
-        &caps, NULL);
+        sizeof(cl_device_unified_shared_memory_capabilities_intel), &caps,
+        NULL);
     ASSERT_OCL_SUCCESS(err, "clGetDeviceInfo");
     ASSERT_EQ(caps, caps_expected);
   }
@@ -316,14 +318,30 @@ TEST_F(USMTest, enqueueMemFill) {
 
   // Fill host ptr
   char *data = new char[size1];
+  cl_event event;
   err = clEnqueueMemFillINTEL(m_queue, data, pattern1, pattern1_size, size1, 0,
-                              NULL, NULL);
+                              NULL, &event);
   ASSERT_OCL_SUCCESS(err, "clEnqueueMemFillINTEL");
+  err = clFinish(m_queue);
+  ASSERT_OCL_SUCCESS(err, "clFinish");
+
+  // Verify result
   countErrors = 0;
   for (size_t i = 0; i < size1; i += pattern1_size)
     if (0 != strncmp(&data[i], pattern1, pattern1_size))
       countErrors++;
   ASSERT_EQ(countErrors, 0);
+
+  // Check elapsed time
+  cl_ulong start, end;
+  err = clGetEventProfilingInfo(event, CL_PROFILING_COMMAND_START,
+                                sizeof(cl_ulong), &start, nullptr);
+  ASSERT_OCL_SUCCESS(err, "clGetEventProfilingInfo CL_PROFILING_COMMAND_START");
+  err = clGetEventProfilingInfo(event, CL_PROFILING_COMMAND_END,
+                                sizeof(cl_ulong), &end, nullptr);
+  ASSERT_OCL_SUCCESS(err, "clGetEventProfilingInfo CL_PROFILING_COMMAND_END");
+  EXPECT_NE(start, end) << "Command elapsed time should not be zero";
+
   delete[] data;
 }
 
@@ -359,8 +377,6 @@ TEST_F(USMTest, enqueueMemcpy) {
   err = clEnqueueMemcpyINTEL(m_queue, CL_TRUE, buffer3, buffer2, size, 0, NULL,
                              NULL);
   ASSERT_OCL_SUCCESS(err, "clEnqueueMemcpyINTEL");
-  err = clFinish(m_queue);
-  ASSERT_OCL_SUCCESS(err, "clFinish");
 
   for (size_t i = 0; i < num; i++)
     ASSERT_EQ(buffer3[i], i);
@@ -370,8 +386,6 @@ TEST_F(USMTest, enqueueMemcpy) {
   err = clEnqueueMemcpyINTEL(m_queue, CL_TRUE, bufferHost, buffer2, size, 0,
                              NULL, NULL);
   ASSERT_OCL_SUCCESS(err, "clEnqueueMemcpyINTEL");
-  err = clFinish(m_queue);
-  ASSERT_OCL_SUCCESS(err, "clFinish");
 
   for (size_t i = 0; i < num; i++) {
     ASSERT_EQ(bufferHost[i], i);
@@ -380,22 +394,29 @@ TEST_F(USMTest, enqueueMemcpy) {
 
   // Copy from arbitrary host memory to arbitrary host memory
   int *bufferHost2 = new int[num];
+  cl_event event;
   err = clEnqueueMemcpyINTEL(m_queue, CL_TRUE, bufferHost2, bufferHost, size, 0,
-                             NULL, NULL);
+                             NULL, &event);
   ASSERT_OCL_SUCCESS(err, "clEnqueueMemcpyINTEL");
-  err = clFinish(m_queue);
-  ASSERT_OCL_SUCCESS(err, "clFinish");
 
   for (size_t i = 0; i < num; i++)
     ASSERT_EQ(bufferHost2[i], i + 1);
+
+  // Check elapsed time
+  cl_ulong start, end;
+  err = clGetEventProfilingInfo(event, CL_PROFILING_COMMAND_START,
+                                sizeof(cl_ulong), &start, nullptr);
+  ASSERT_OCL_SUCCESS(err, "clGetEventProfilingInfo CL_PROFILING_COMMAND_START");
+  err = clGetEventProfilingInfo(event, CL_PROFILING_COMMAND_END,
+                                sizeof(cl_ulong), &end, nullptr);
+  ASSERT_OCL_SUCCESS(err, "clGetEventProfilingInfo CL_PROFILING_COMMAND_END");
+  EXPECT_NE(start, end) << "Command elapsed time should not be zero";
 
   // Test overlap
   size_t offset = size / 4;
   err = clEnqueueMemcpyINTEL(m_queue, CL_TRUE, (char *)buffer + offset, buffer,
                              size / 2, 0, NULL, NULL);
   EXPECT_OCL_EQ(CL_MEM_COPY_OVERLAP, err, "clEnqueueMemcpyINTEL");
-  err = clFinish(m_queue);
-  ASSERT_OCL_SUCCESS(err, "clFinish");
 
   delete[] bufferHost;
   delete[] bufferHost2;

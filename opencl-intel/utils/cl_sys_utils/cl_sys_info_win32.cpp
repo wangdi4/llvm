@@ -294,6 +294,7 @@ unsigned int Intel::OpenCL::Utils::GetNumberOfCpuSockets()
             ptr += lpi->Size;
         }
     }
+    assert(numCpuSockets != 0 && "Number of sockets should not be 0");
     return numCpuSockets;
 }
 
