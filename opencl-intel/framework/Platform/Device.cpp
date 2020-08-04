@@ -469,13 +469,14 @@ void Device::clDevBuildStatusUpdate(cl_dev_program clDevProg, void * pData, cl_b
 
 void Device::clDevCmdStatusChanged(cl_dev_cmd_id cmd_id, void * pData, cl_int cmd_status, cl_int status_result, cl_ulong timer)
 {
+    (void)cmd_id;
     if (nullptr == pData)  // it's a device-side command
     {
         return;
     }
     ICmdStatusChangedObserver *pObserver = (ICmdStatusChangedObserver *)pData;
 
-    pObserver->NotifyCmdStatusChanged(cmd_id, cmd_status, 
+    pObserver->NotifyCmdStatusChanged(cmd_status, 
                                       (cl_int(CL_DEV_COMMAND_CANCELLED)==status_result) ? CL_DEVICE_NOT_AVAILABLE : status_result, 
                                       timer);
     return;

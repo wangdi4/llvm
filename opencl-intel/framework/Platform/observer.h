@@ -45,7 +45,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 	class ICmdStatusChangedObserver
 	{
 	public:
-		virtual cl_err_code NotifyCmdStatusChanged(cl_dev_cmd_id clCmdId, cl_int iCmdStatus, cl_int iCompletionResult, cl_ulong ulTimer) = 0;
+		virtual cl_err_code NotifyCmdStatusChanged(cl_int iCmdStatus, cl_int iCompletionResult, cl_ulong ulTimer) = 0;
 
         virtual ~ICmdStatusChangedObserver(){}; // Virtual D'tor
 	};

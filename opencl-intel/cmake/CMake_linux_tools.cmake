@@ -27,8 +27,8 @@ endmacro()
 # Warning level
 ocl_add_flags_if_supported(
   -pedantic -Wall -Wextra -Wno-strict-aliasing
-  -Wno-variadic-macros -Wno-long-long -Wno-unused-parameter -Wno-deprecated-declarations -Werror
-  -Wno-unused-function -Wno-implicit-fallthrough
+  -Wno-deprecated-declarations -Werror
+  -Wno-implicit-fallthrough
   -Wno-int-to-pointer-cast)
 
 # Compiler switches that CANNOT be modified during makefile generation
