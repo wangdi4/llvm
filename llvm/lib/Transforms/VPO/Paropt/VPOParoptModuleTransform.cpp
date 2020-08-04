@@ -520,7 +520,7 @@ bool VPOParoptModuleTransform::doParoptTransforms(
 
     WRegionInfo &WI = WRegionInfoGetter(*F, &Changed);
 
-    if ((Mode & OmpPar) && (Mode & ParTrans)) {
+    if (Mode & ParTrans) {
       auto *DT = WI.getDomTree();
       auto *TLI = WI.getTargetLibraryInfo();
       Changed |= VPOUtils::removeBranchesFromBeginToEndDirective(*F, TLI, DT);
