@@ -9148,6 +9148,7 @@ void CGOpenMPRuntime::getLOMapInfo(const OMPExecutableDirective &Dir,
     MEHandler.generateAllInfo(CombinedInfo, &VarChain);
   } else {
     llvm::DenseMap<llvm::Value *, llvm::Value *> LambdaPointers;
+    llvm::DenseSet<CanonicalDeclPtr<const Decl>> MappedVarSet;
     const CapturedStmt &CS = *Dir.getCapturedStmt(OMPD_target);
     auto RI = CS.getCapturedRecordDecl()->field_begin();
     llvm::SmallVector<llvm::Value *, 16> CapturedVars;
@@ -9171,6 +9172,10 @@ void CGOpenMPRuntime::getLOMapInfo(const OMPExecutableDirective &Dir,
       // 'is_device_ptr' it won't be a problem here.
       MEHandler.generateInfoForCapture(CI, *CV, CurInfo, PartialStruct);
 
+      if (!CI->capturesThis())
+        MappedVarSet.insert(CI->getCapturedVar());
+      else
+        MappedVarSet.insert(nullptr);
       // Generate default map information for a given capture
       if (CurInfo.BasePointers.empty()) {
         // Skip captures without CapturedVar. This happens if we've decided in
@@ -9203,6 +9208,7 @@ void CGOpenMPRuntime::getLOMapInfo(const OMPExecutableDirective &Dir,
       CombinedInfo.Types.append(CurInfo.Types.begin(),
                                 CurInfo.Types.end());
     }
+    MEHandler.generateAllInfo(CombinedInfo, &VarChain, MappedVarSet);
   }
   for (int I = 0, E = CombinedInfo.BasePointers.size(); I < E; ++I) {
     Info->push_back(
