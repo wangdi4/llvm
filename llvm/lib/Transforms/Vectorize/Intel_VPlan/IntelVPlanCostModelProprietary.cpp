@@ -215,8 +215,10 @@ const RegDDRef* VPlanCostModelProprietary::getHIRMemref(
 }
 
 unsigned VPlanCostModelProprietary::getLoadStoreCost(
-  const VPInstruction *VPInst, const bool UseVLSCost) {
-  unsigned Cost = VPlanCostModel::getLoadStoreCost(VPInst);
+  const VPInstruction *VPInst, Align Alignment,
+  const bool UseVLSCost) {
+  unsigned Cost =
+    VPlanCostModel::getLoadStoreCost(VPInst, Alignment);
 
   if (!UseOVLSCM || !VLSCM || !UseVLSCost || VF == 1)
     return Cost;
@@ -237,7 +239,7 @@ unsigned VPlanCostModelProprietary::getLoadStoreCost(
   unsigned TTIGroupCost = 0;
   for (OVLSMemref *OvlsMemref : Group->getMemrefVec())
     TTIGroupCost += VPlanCostModel::getLoadStoreCost(
-      cast<VPVLSClientMemref>(OvlsMemref)->getInstruction());
+      cast<VPVLSClientMemref>(OvlsMemref)->getInstruction(), Alignment);
 
   if (VLSGroupCost >= TTIGroupCost) {
     LLVM_DEBUG(dbgs() << "Cost for "; VPInst->printWithoutAnalyses(dbgs());

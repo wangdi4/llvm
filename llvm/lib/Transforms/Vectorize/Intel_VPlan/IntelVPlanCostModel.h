@@ -82,6 +82,7 @@ public:
     : Plan(Plan), VF(VF), TTI(TTI), TLI(TLI), DL(DL) {}
 #endif // INTEL_CUSTOMIZATION
   virtual unsigned getCost();
+  virtual unsigned getLoadStoreCost(const VPInstruction *LoadOrStore, Align Alignment);
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   void print(raw_ostream &OS, const std::string &Header);
 #endif // !NDEBUG || LLVM_ENABLE_DUMP

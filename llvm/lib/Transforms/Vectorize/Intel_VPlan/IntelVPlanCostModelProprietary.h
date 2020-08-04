@@ -31,6 +31,11 @@ public:
   }
 
   virtual unsigned getCost() final;
+  virtual unsigned getLoadStoreCost(
+    const VPInstruction *VPInst, Align Alignment) final {
+    return getLoadStoreCost(VPInst, Alignment,
+                            false /* Don't use VLS cost by default */);
+  }
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   void print(raw_ostream &OS, const std::string &Header);
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
@@ -40,11 +45,14 @@ public:
 private:
   virtual unsigned getCost(const VPInstruction *VPInst) final;
   virtual unsigned getCost(const VPBasicBlock *VPBB) final;
-  virtual unsigned getLoadStoreCost(const VPInstruction *VPInst) {
-    return getLoadStoreCost(VPInst, false /* Don't use VLS cost by default */);
-  }
   unsigned getLoadStoreCost(const VPInstruction *VPInst,
+                            Align Alignment,
                             const bool UseVLSCost);
+  unsigned getLoadStoreCost(const VPInstruction *VPInst,
+                            const bool UseVLSCost) {
+    unsigned Alignment = VPlanCostModel::getMemInstAlignment(VPInst);
+    return getLoadStoreCost(VPInst, Align(Alignment), UseVLSCost);
+  }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   void printForVPInstruction(
