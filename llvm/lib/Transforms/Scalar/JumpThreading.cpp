@@ -870,15 +870,19 @@ bool JumpThreadingPass::ComputeValueKnownInPredecessorsImpl(
 #endif // INTEL_CUSTOMIZATION
   }
 
-  // Handle Cast instructions.  Only see through Cast when the source operand is
-  // PHI, Cmp, or Freeze to save the compilation time.
+  // Handle Cast instructions.
   if (CastInst *CI = dyn_cast<CastInst>(I)) {
     Value *Source = CI->getOperand(0);
+<<<<<<< HEAD
     if (!isa<PHINode>(Source) && !isa<CmpInst>(Source) &&
         !isa<FreezeInst>(Source))
       return false;
     ComputeValueKnownInPredecessorsImpl(Source, BB, Result, RegionInfo, // INTEL
                                         Preference, RecursionSet, CxtI);// INTEL
+=======
+    ComputeValueKnownInPredecessorsImpl(Source, BB, Result, Preference,
+                                        RecursionSet, CxtI);
+>>>>>>> e734e8286b4b521d829aaddb6d1cbbd264953625
     if (Result.empty())
       return false;
 
