@@ -11972,7 +11972,6 @@ ScalarEvolution::howManyGreaterThans(const SCEV *LHS, const SCEV *RHS,
 #endif // INTEL_CUSTOMIZATION
   const SCEV *Start = IV->getStart();
   const SCEV *End = RHS;
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   if (!isLoopEntryGuardedByCond(L, Cond, getAddExpr(Start, Stride), RHS) &&
       // getAddExpr(Start, Stride) in the call above may create add without any
@@ -11980,8 +11979,6 @@ ScalarEvolution::howManyGreaterThans(const SCEV *LHS, const SCEV *RHS,
       // match when stride is 1.
       !(Stride->isOne() && isLoopEntryGuardedByCond(L, AltCond, Start, RHS)))
 #endif // INTEL_CUSTOMIZATION
-    End = IsSigned ? getSMinExpr(RHS, Start) : getUMinExpr(RHS, Start);
-=======
   if (!isLoopEntryGuardedByCond(L, Cond, getAddExpr(Start, Stride), RHS)) {
     // If we know that Start >= RHS in the context of loop, then we know that
     // min(RHS, Start) = RHS at this point.
@@ -11991,7 +11988,6 @@ ScalarEvolution::howManyGreaterThans(const SCEV *LHS, const SCEV *RHS,
     else
       End = IsSigned ? getSMinExpr(RHS, Start) : getUMinExpr(RHS, Start);
   }
->>>>>>> ee1c12708a4519361729205168dedb2b61bc2638
 
   const SCEV *BECount = computeBECount(getMinusSCEV(Start, End), Stride, false);
 
