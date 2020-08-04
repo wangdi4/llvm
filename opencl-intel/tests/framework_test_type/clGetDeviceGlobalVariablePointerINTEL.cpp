@@ -293,6 +293,33 @@ TEST_F(GVPointerExtensionTest, singleProgramUnreferencedGlobal) {
   ASSERT_NO_FATAL_FAILURE(TestProgramWithBinary(program, "x", gvSize, "y"));
 }
 
+// Constant global variable should be queryable.
+TEST_F(GVPointerExtensionTest, constantGlobal) {
+  // Build program
+  const char *source = "constant int x = 0;";
+  cl_int err;
+  cl_program program =
+      clCreateProgramWithSource(m_context, 1, &source, nullptr, &err);
+  ASSERT_OCL_SUCCESS(err, "clCreateProgramWithSource");
+  err =
+      clBuildProgram(program, 1, &m_device, "-cl-std=CL2.0", nullptr, nullptr);
+  ASSERT_NO_FATAL_FAILURE(CheckBuildError(program, err));
+
+  // Get global variable pointer
+  size_t gvSize;
+  void *gvPtr;
+  err = m_clGetDeviceGlobalVariablePointerINTEL(m_device, program, "x", &gvSize,
+                                                &gvPtr);
+  ASSERT_OCL_SUCCESS(err, "clGetDeviceGlobalVariablePointerINTEL");
+  ASSERT_NE(nullptr, gvPtr)
+      << "clGetDeviceGlobalVariablePointerINTEL must return a non-nullptr "
+         "value via global_variable_pointer_ret on success";
+  ASSERT_EQ(sizeof(cl_int), gvSize);
+
+  // Test JIT save/load
+  ASSERT_NO_FATAL_FAILURE(TestProgramWithBinary(program, "x", gvSize, "y"));
+}
+
 // Static global variable has internal linkage and should not be queryable by
 // clGetDeviceGlobalVariablePointerINTEL.
 TEST_F(GVPointerExtensionTest, singleProgramStaticGlobal) {
