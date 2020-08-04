@@ -296,7 +296,8 @@ public:
   }
 
   /// \brief Print the inlining report at the given level.
-  void print() const;
+  /// 'IsAlwaysInline' is 'true' if this is a report from the always inliner.
+  void print(bool IsAlwaysInline) const;
 
   /// \brief Check if report has data
   bool isEmpty() { return IRFunctionMap.empty(); }

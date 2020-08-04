@@ -564,8 +564,10 @@ void InlineReportFunction::print(unsigned Level) const {
   printInlineReportCallSiteVector(CallSites, 1, Level);
 }
 
-void InlineReport::print(void) const {
+void InlineReport::print(bool IsAlwaysInline) const {
   if (!isClassicIREnabled())
+    return;
+  if (IsAlwaysInline && !(Level & InlineReportTypes::AlwaysInline))
     return;
   llvm::errs() << "---- Begin Inlining Report ----\n";
   printOptionValues();

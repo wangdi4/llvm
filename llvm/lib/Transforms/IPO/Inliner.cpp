@@ -787,7 +787,7 @@ bool LegacyInlinerBase::doFinalization(CallGraph &CG) {
                                 InlinerFunctionImportStatsOpts::Verbose);
 #if INTEL_CUSTOMIZATION
   bool ReturnValue = removeDeadFunctions(CG);
-  getReport().print();
+  getReport().print(/*IsAlwaysInline=*/false);
   return ReturnValue;
 #endif // INTEL_CUSTOMIZATION
 }
@@ -905,7 +905,7 @@ InlinerPass::~InlinerPass() {
   }
 #if INTEL_CUSTOMIZATION
   if (!Report.isEmpty())
-    Report.print();
+    Report.print(/*IsAlwaysInline=*/false);
 #endif  // INTEL_CUSTOMIZATION
 }
 
