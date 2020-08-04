@@ -168,12 +168,9 @@ ModulePass *llvm::createDeadArgEliminationPass() { return new DAE(); }
 
 ModulePass *llvm::createDeadArgHackingPass() { return new DAH(); }
 
-<<<<<<< HEAD
-#if INTEL_CUSTOMIZATION
-=======
 ModulePass *llvm::createDeadArgEliminationSYCLPass() { return new DAESYCL(); }
 
->>>>>>> 0f33f7a57df5e4f9a6517ffd854ddc0ca86f8941
+#if INTEL_CUSTOMIZATION
 /// DeleteDeadVarargs - If this is an function that takes a ... list, and if
 /// llvm.va_start, llvm.va_arg_pack and llvm.va_arg_pack_len are never called, 
 // the varargs list is dead for the function.
