@@ -1280,7 +1280,12 @@ void VPOCodeGen::predicateInstructions() {
       Value *IncomingTrue = nullptr;
       Value *IncomingFalse = nullptr;
 
-      if (I->hasOneUse() && isa<InsertElementInst>(*I->user_begin())) {
+      if (I->hasOneUse() && isa<InsertElementInst>(*I->user_begin()) &&
+          // If InsertElementInst is predicated itself, the movement isn't safe.
+          none_of(PredicatedInstructions,
+                  [&I](std::pair<Instruction *, Value *> InstPredicatePair) {
+                    return InstPredicatePair.first == *I->user_begin();
+                  })) {
         // If the predicated instruction is feeding an insert-element, move it
         // into the Then block; Phi node will be created for the vector.
         InsertElementInst *IEI = cast<InsertElementInst>(*I->user_begin());
