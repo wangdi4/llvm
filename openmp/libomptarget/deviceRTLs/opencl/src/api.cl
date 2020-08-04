@@ -81,6 +81,10 @@ EXTERN int omp_get_num_threads(void) {
   return __kmp_get_num_omp_threads(__kmp_is_spmd_mode());
 }
 
+EXTERN void omp_set_num_threads(int num_threads) {
+  // There is nothing we can do here now
+}
+
 EXTERN int omp_get_max_threads(void) {
   if (GLOBAL.assume_simple_spmd_mode) {
     // Distinguish sequential/parallel region

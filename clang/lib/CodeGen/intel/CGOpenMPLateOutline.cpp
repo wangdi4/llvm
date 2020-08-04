@@ -1728,8 +1728,13 @@ void OpenMPLateOutliner::emitOMPNontemporalClause(
     const OMPNontemporalClause *Cl) {
   ClauseEmissionHelper CEH(*this, OMPC_nontemporal);
   addArg("QUAL.OMP.NONTEMPORAL");
-  for (auto *E : Cl->varlists())
-    addArg(E);
+  for (auto *E : Cl->varlists()) {
+    E = E->IgnoreParenImpCasts();
+    if (E->getType()->isPointerType())
+      addArg(CGF.EmitScalarExpr(E));
+    else
+      addArg(E);
+  }
 }
 
 void OpenMPLateOutliner::emitOMPReadClause(const OMPReadClause *) {}
