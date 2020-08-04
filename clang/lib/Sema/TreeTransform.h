@@ -1621,6 +1621,20 @@ public:
     return getSema().ActOnOpenMPBindClause(Kind, KindKwLoc, StartLoc, LParenLoc,
                                            EndLoc);
   }
+
+  /// Build a new OpenMP 'subdevice' clause.
+  ///
+  /// By default, performs semantic analysis to build the new OpenMP clause.
+  /// Subclasses may override this routine to provide different behavior.
+  OMPClause *RebuildOMPSubdeviceClause(Expr *Level,
+                                       Expr *Start,
+                                       Expr *Length,
+                                       Expr *Stride,
+                                       SourceLocation StartLoc,
+                                       SourceLocation EndLoc) {
+    return getSema().ActOnOpenMPSubdeviceClause(Level, Start, Length, Stride,
+                                                StartLoc, EndLoc);
+  }
 #endif // INTEL_COLLAB
 #if INTEL_CUSTOMIZATION
   /// Build a new OpenMP 'tile' clause.
@@ -9219,6 +9233,21 @@ TreeTransform<Derived>::TransformOMPBindClause(OMPBindClause *C) {
   return getDerived().RebuildOMPBindClause(
       C->getBindKind(), C->getBindKindKwLoc(), C->getBeginLoc(),
       C->getLParenLoc(), C->getEndLoc());
+}
+
+template <typename Derived>
+OMPClause *
+TreeTransform<Derived>::TransformOMPSubdeviceClause(OMPSubdeviceClause *C) {
+  ExprResult Level = getDerived().TransformExpr(C->getLevel());
+  ExprResult Start = getDerived().TransformExpr(C->getStart());
+  ExprResult Length = getDerived().TransformExpr(C->getLength());
+  ExprResult Stride = getDerived().TransformExpr(C->getStride());
+  if (Level.isInvalid() && Start.isInvalid() && Length.isInvalid() &&
+      Stride.isInvalid())
+    return nullptr;
+  return getDerived().RebuildOMPSubdeviceClause(
+      Level.get(), Start.get(), Length.get(), Stride.get(), C->getBeginLoc(),
+      C->getEndLoc());
 }
 #endif // INTEL_COLLAB
 #if INTEL_CUSTOMIZATION

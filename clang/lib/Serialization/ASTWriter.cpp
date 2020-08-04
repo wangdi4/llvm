@@ -6190,6 +6190,14 @@ void OMPClauseWriter::VisitOMPBindClause(OMPBindClause *C) {
   Record.AddSourceLocation(C->getLParenLoc());
   Record.AddSourceLocation(C->getBindKindKwLoc());
 }
+
+void OMPClauseWriter::VisitOMPSubdeviceClause(OMPSubdeviceClause *C) {
+  VisitOMPClauseWithPreInit(C);
+  Record.AddStmt(C->getLevel());
+  Record.AddStmt(C->getStart());
+  Record.AddStmt(C->getLength());
+  Record.AddStmt(C->getStride());
+}
 #endif // INTEL_COLLAB
 #if INTEL_CUSTOMIZATION
 void OMPClauseWriter::VisitOMPTileClause(OMPTileClause *C) {
