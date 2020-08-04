@@ -891,16 +891,8 @@ bool JumpThreadingPass::ComputeValueKnownInPredecessorsImpl(
 
   if (FreezeInst *FI = dyn_cast<FreezeInst>(I)) {
     Value *Source = FI->getOperand(0);
-<<<<<<< HEAD
-    if (!isa<PHINode>(Source) && !isa<CmpInst>(Source) &&
-        !isa<CastInst>(Source))
-      return false;
     ComputeValueKnownInPredecessorsImpl(Source, BB, Result, RegionInfo, // INTEL
                                         Preference, RecursionSet, CxtI);// INTEL
-=======
-    ComputeValueKnownInPredecessorsImpl(Source, BB, Result, Preference,
-                                        RecursionSet, CxtI);
->>>>>>> 6f97103b561cb14e26aafa3b90ecec97f1d08944
 
     erase_if(Result, [](auto &Pair) {
       return !isGuaranteedNotToBeUndefOrPoison(Pair.first);
