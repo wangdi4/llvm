@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2006-2018 Intel Corporation.
+// Copyright 2006-2020 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -16,9 +16,11 @@
 #include "command_queue.h"
 #include "context_module.h"
 #include "cl_shared_ptr.hpp"
+#include "cl_sys_info.h"
 #include "cl_user_logger.h"
 
 using namespace Intel::OpenCL::Framework;
+using namespace Intel::OpenCL::Utils;
 
 cl_err_code SVMFreeCommand::Execute()
 {
@@ -44,14 +46,22 @@ cl_err_code SVMFreeCommand::Execute()
     return RuntimeCommand::Execute();
 }
 
-cl_err_code RuntimeSVMMemcpyCommand::Execute()
-{
-	MEMCPY_S(m_pDstPtr, m_size, m_pSrcPtr, m_size);
-	return RuntimeCommand::Execute();
+cl_err_code RuntimeSVMMemcpyCommand::Execute() {
+    NotifyCmdStatusChanged(CL_RUNNING, CL_SUCCESS, HostTime());
+
+    MEMCPY_S(m_pDstPtr, m_size, m_pSrcPtr, m_size);
+
+    NotifyCmdStatusChanged(CL_COMPLETE, CL_SUCCESS, HostTime());
+
+    return m_returnCode;
 }
 
-cl_err_code RuntimeSVMMemFillCommand::Execute()
-{
-	CopyPattern(m_pPattern, m_szPatternSize, m_pSvmPtr, m_size);
-	return RuntimeCommand::Execute();
+cl_err_code RuntimeSVMMemFillCommand::Execute() {
+    NotifyCmdStatusChanged(CL_RUNNING, CL_SUCCESS, HostTime());
+
+    CopyPattern(m_pPattern, m_szPatternSize, m_pSvmPtr, m_size);
+
+    NotifyCmdStatusChanged(CL_COMPLETE, CL_SUCCESS, HostTime());
+
+    return m_returnCode;
 }

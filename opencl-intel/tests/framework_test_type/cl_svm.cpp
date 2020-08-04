@@ -1,4 +1,4 @@
-// Copyright (c) 2006-2013 Intel Corporation
+// Copyright (c) 2006-2020 Intel Corporation
 // All rights reserved.
 //
 // WARRANTY DISCLAIMER
@@ -23,6 +23,7 @@
 #include "test_utils.h"
 #include <cstdlib>
 #include <cstring>
+#include <gtest/gtest.h>
 #include <iostream>
 
 #define BUF_SIZE 1024
@@ -358,6 +359,62 @@ static void TestEnqueueSVMCommands(cl_context context, cl_command_queue queue,
   }
 }
 
+static void TestEnqueueSVMRuntimeCommand(cl_context context,
+                                         cl_command_queue queue) {
+  size_t len = 256;
+  std::vector<int> src(len, 2);
+  std::vector<int> dst(len);
+
+  // clEnqueueSVMMemcpy
+  cl_int err;
+  cl_event event;
+  err = clEnqueueSVMMemcpy(queue, CL_TRUE, &dst[0], &src[0], len * sizeof(int),
+                           0, nullptr, &event);
+  CheckException("clEnqueueSVMMemcpy", CL_SUCCESS, err);
+
+  for (size_t i = 0; i < len; ++i)
+    ASSERT_EQ(dst[i], src[i]);
+
+  // Check elapsed time
+  cl_ulong start, end;
+  err = clGetEventProfilingInfo(event, CL_PROFILING_COMMAND_START,
+                                sizeof(cl_ulong), &start, nullptr);
+  CheckException("clGetEventProfilingInfo CL_PROFILING_COMMAND_START",
+                 CL_SUCCESS, err);
+  err = clGetEventProfilingInfo(event, CL_PROFILING_COMMAND_END,
+                                sizeof(cl_ulong), &end, nullptr);
+  CheckException("clGetEventProfilingInfo CL_PROFILING_COMMAND_END", CL_SUCCESS,
+                 err);
+  EXPECT_NE(start, end) << "Command elapsed time should not be zero";
+
+  // clEnqueueSVMMemFill
+  const char pattern[4] = {'0', '1', '2', '3'};
+  size_t patternSize = sizeof(pattern) / sizeof(pattern[0]);
+  size_t bufSize = patternSize * len;
+  std::vector<char> buffer(bufSize);
+  cl_event event2;
+  cl_int iRet = clEnqueueSVMMemFill(queue, &buffer[0], pattern, sizeof(pattern),
+                                    bufSize, 0, nullptr, &event2);
+  CheckException("clEnqueueSVMMemFill", CL_SUCCESS, iRet);
+
+  int countErrors = 0;
+  for (size_t i = 0; i < bufSize; i += patternSize)
+    if (0 != strncmp(&buffer[i], pattern, patternSize))
+      countErrors++;
+  ASSERT_EQ(countErrors, 0);
+
+  // Check elapsed time
+  err = clGetEventProfilingInfo(event2, CL_PROFILING_COMMAND_START,
+                                sizeof(cl_ulong), &start, nullptr);
+  CheckException("clGetEventProfilingInfo CL_PROFILING_COMMAND_START",
+                 CL_SUCCESS, err);
+  err = clGetEventProfilingInfo(event2, CL_PROFILING_COMMAND_END,
+                                sizeof(cl_ulong), &end, nullptr);
+  CheckException("clGetEventProfilingInfo CL_PROFILING_COMMAND_END", CL_SUCCESS,
+                 err);
+  EXPECT_NE(start, end) << "Command elapsed time should not be zero";
+}
+
 static void TestMigrate(cl_context context, cl_device_id device,
                         cl_command_queue queue, cl_program prog) {
   cl_int err;
@@ -445,13 +502,14 @@ bool clSvmTest() {
     context = clCreateContextFromType(prop, gDeviceType, NULL, NULL, &iRet);
     CheckException("clCreateContextFromType", CL_SUCCESS, iRet);
 
+    cl_command_queue_properties properties[] = {CL_QUEUE_PROPERTIES,
+                                                CL_QUEUE_PROFILING_ENABLE, 0};
 #if _WIN32
 #pragma warning(suppress : 4996)
-    queue = clCreateCommandQueue(context, device, 0, &iRet);
-#else
-    queue = clCreateCommandQueue(context, device, 0, &iRet);
 #endif
-    CheckException("clCreateCommandQueue", CL_SUCCESS, iRet);
+    queue =
+        clCreateCommandQueueWithProperties(context, device, properties, &iRet);
+    CheckException("clCreateCommandQueueWithProperties", CL_SUCCESS, iRet);
 
     TestEnqueueSVMCommands(context, queue, MEMCPY);
     TestEnqueueSVMCommands(context, queue, MEM_FILL);
@@ -459,6 +517,8 @@ bool clSvmTest() {
     TestEnqueueSVMCommands(context, queue, MEMCPY, true);
     TestEnqueueSVMCommands(context, queue, MEMCPY, true, SVMFreeCallback,
                            &context);
+
+    TestEnqueueSVMRuntimeCommand(context, queue);
 
     const size_t szLengths = {strlen(sProg)};
     cl_program prog =
