@@ -365,6 +365,7 @@ unsigned int Intel::OpenCL::Utils::GetNumberOfCpuSockets()
         else
             assert(false && "Failed to open /proc/cpuinfo");
     }
+    assert(numCpuSockets != 0 && "Number of sockets should not be 0");
     return numCpuSockets;
 }
 

@@ -423,6 +423,10 @@ void CPUDevice::calculateComputeUnitMap()
     clTranslateAffinityMask(&myParentMask, m_pComputeUnitMap, m_numCores);
 #endif
 
+    // Prevent divide by 0.
+    if (m_numCores <= 1)
+      return;
+
     // DPCPP_CPU_CU_AFFINITY = {close | spread | master} controls thread
     // affinity, similar to OMP_PROC_BIND in OpenMP.
     // By default, the DPCPP_CPU_CU_AFFINITY variable is not set.
