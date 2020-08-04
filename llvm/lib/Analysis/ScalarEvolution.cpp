@@ -11965,20 +11965,8 @@ ScalarEvolution::howManyGreaterThans(const SCEV *LHS, const SCEV *RHS,
   ICmpInst::Predicate Cond = IsSigned ? ICmpInst::ICMP_SGT
                                       : ICmpInst::ICMP_UGT;
 
-#if INTEL_CUSTOMIZATION
-  // Used when stride is -1.
-  ICmpInst::Predicate AltCond =
-      IsSigned ? ICmpInst::ICMP_SGE : ICmpInst::ICMP_UGE;
-#endif // INTEL_CUSTOMIZATION
   const SCEV *Start = IV->getStart();
   const SCEV *End = RHS;
-#if INTEL_CUSTOMIZATION
-  if (!isLoopEntryGuardedByCond(L, Cond, getAddExpr(Start, Stride), RHS) &&
-      // getAddExpr(Start, Stride) in the call above may create add without any
-      // nowrap flags which makes the analysis conservative. We can try 'exact'
-      // match when stride is 1.
-      !(Stride->isOne() && isLoopEntryGuardedByCond(L, AltCond, Start, RHS)))
-#endif // INTEL_CUSTOMIZATION
   if (!isLoopEntryGuardedByCond(L, Cond, getAddExpr(Start, Stride), RHS)) {
     // If we know that Start >= RHS in the context of loop, then we know that
     // min(RHS, Start) = RHS at this point.

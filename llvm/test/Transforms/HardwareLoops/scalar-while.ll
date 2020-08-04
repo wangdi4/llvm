@@ -76,7 +76,6 @@ while.end:
 ; CHECK-GUARD:   br i1 %cmp4, label %while.end, label %while.body.preheader
 ; CHECK-GUARD: while.body.preheader:
 ; CHECK-GUARD:   [[ADD:%[^ ]+]] = add i32 %i, 1
-; INTEL: simplified trip count
 ; CHECK-GUARD:   [[COUNT:%[^ ]+]] = sub i32 [[ADD]], %N
 ; CHECK-GUARD:   call void @llvm.set.loop.iterations.i32(i32 [[COUNT]])
 ; CHECK-GUARD:   br label %while.body
@@ -84,7 +83,6 @@ while.end:
 ; CHECK-LABEL: while_gte
 ; CHECK: while.body.preheader:
 ; CHECK: [[ADD:%[^ ]+]] = add i32 %i, 1
-; INTEL: simplified trip count
 ; CHECK: [[COUNT:%[^ ]+]] = sub i32 [[ADD]], %N
 ; CHECK: call void @llvm.set.loop.iterations.i32(i32 [[COUNT]])
 ; CHECK: br label %while.body
