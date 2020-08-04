@@ -135,7 +135,7 @@ private:
   doLoopCarriedScalarReplacement(HLLoop *Lp,
                                  SmallVectorImpl<HLInst *> &ExpensiveInsts);
 
-  bool hasSameExprTree(unsigned LoopLevel, DDGraph &DDG,
+  bool hasSameExprTree(HLLoop *InnermostLp, DDGraph &DDG,
                        SmallVectorImpl<HLInst *> &ExpensiveInsts);
 
   void collectInstsInExprTree(DDGraph &DDG, HLInst *HInst,
@@ -262,47 +262,57 @@ static bool checkIV(const BlobDDRef *Ref, DDGraph &DDG, unsigned LoopLevel,
 }
 
 static bool compareMemRefs(RegDDRef *Ref1, RegDDRef *Ref2, DDGraph &DDG,
-                           unsigned LoopLevel) {
+                           HLLoop *Lp) {
   // We check:
   // 1) Ref1 does not have any blobs
   // 2) All its indices are either constant or linear
   // 3) The IV levels should be in increasing order
   // Ref1 should have the format, like %A[i1+1][i2][i3][0]
   // Ref2 might have the format, like %A[i1+2[%rem][%rem6+1]
-  unsigned Dim = 1;
+  unsigned LoopLevel = 1;
   unsigned Level = 0;
 
-  for (auto Iter = Ref1->canon_rbegin(), End = Ref1->canon_rend(); Iter != End;
-       ++Iter, ++Dim) {
+  for (unsigned Dim = Ref1->getNumDimensions(); Dim > 0; --Dim, ++LoopLevel) {
+    auto *CE = Ref1->getDimensionIndex(Dim);
 
-    CanonExpr *CE = *Iter;
     if (CE->hasBlob()) {
       return false;
     }
 
     switch (Dim) {
-    case 1:
-      if (!CE->hasIV(Dim)) {
-        return false;
-      }
-      break;
-    case 2:
-      if (!CE->isStandAloneIV(false, &Level) && Level == Dim) {
+    case 4:
+      if (!CE->hasIV(LoopLevel)) {
         return false;
       }
       break;
     case 3:
-      if (!CE->isStandAloneIV(false, &Level) && Level == Dim) {
+      if (!CE->isStandAloneIV(false, &Level) && Level == LoopLevel) {
         return false;
       }
       break;
-    case 4:
+    case 2:
+      if (!CE->isStandAloneIV(false, &Level) && Level == LoopLevel) {
+        return false;
+      }
+      break;
+    case 1:
       if (!CE->isConstant()) {
         return false;
       }
       break;
     default:
       return false;
+    }
+
+    if (Dim > 1) {
+      CanonExpr *MemRefLowerDimCE = Ref1->getDimensionLower(Dim);
+
+      if (!MemRefLowerDimCE->isZero() &&
+          !CanonExprUtils::canAdd(Lp->getUpperCanonExpr(), MemRefLowerDimCE,
+                                  true)) {
+        return false;
+      }
+      Lp = Lp->getParentLoop();
     }
   }
 
@@ -359,7 +369,7 @@ static bool compareMemRefs(RegDDRef *Ref1, RegDDRef *Ref2, DDGraph &DDG,
 
 // Compare whether the two Refs are corresponding
 static bool corresponds(RegDDRef *Ref1, RegDDRef *Ref2, DDGraph &DDG,
-                        unsigned LoopLevel) {
+                        HLLoop *InnermostLp) {
   if (!((Ref1->isTerminalRef() && Ref2->isTerminalRef()) ||
         (Ref1->isMemRef() && Ref2->isMemRef()))) {
     return false;
@@ -378,7 +388,7 @@ static bool corresponds(RegDDRef *Ref1, RegDDRef *Ref2, DDGraph &DDG,
             Ref2->isNonLinear());
   }
 
-  if (!compareMemRefs(Ref1, Ref2, DDG, LoopLevel)) {
+  if (!compareMemRefs(Ref1, Ref2, DDG, InnermostLp)) {
     return false;
   }
 
@@ -403,7 +413,7 @@ static bool corresponds(RegDDRef *Ref1, RegDDRef *Ref2, DDGraph &DDG,
 //  %t6 = pow(%t5, 5);    - expensive inst2
 // END DO
 static bool corresponds(HLInst *Inst1, HLInst *Inst2, DDGraph &DDG,
-                        unsigned LoopLevel) {
+                        HLLoop *InnermostLp) {
   auto *LLVMInst1 = Inst1->getLLVMInstruction();
   auto *LLVMInst2 = Inst2->getLLVMInstruction();
 
@@ -431,7 +441,7 @@ static bool corresponds(HLInst *Inst1, HLInst *Inst2, DDGraph &DDG,
 
   for (auto End = Inst1->rval_op_ddref_end(); RvalIt1 != End;
        ++RvalIt1, ++RvalIt2) {
-    if (!corresponds(*RvalIt1, *RvalIt2, DDG, LoopLevel)) {
+    if (!corresponds(*RvalIt1, *RvalIt2, DDG, InnermostLp)) {
       return false;
     }
 
@@ -466,7 +476,7 @@ static bool corresponds(HLInst *Inst1, HLInst *Inst2, DDGraph &DDG,
       HLInst *SrcInst1 = cast<HLInst>(Src1->getHLDDNode());
       HLInst *SrcInst2 = cast<HLInst>(Src2->getHLDDNode());
 
-      if (!corresponds(SrcInst1, SrcInst2, DDG, LoopLevel)) {
+      if (!corresponds(SrcInst1, SrcInst2, DDG, InnermostLp)) {
         return false;
       }
     }
@@ -490,7 +500,7 @@ static bool corresponds(HLInst *Inst1, HLInst *Inst2, DDGraph &DDG,
 // Check whether the expensive insts have the same expression tree in the loop
 // Collect all the insts for each expensive inst, then compare the sequences
 bool HIRStoreResultIntoTempArray::hasSameExprTree(
-    unsigned LoopLevel, DDGraph &DDG,
+    HLLoop *InnermostLp, DDGraph &DDG,
     SmallVectorImpl<HLInst *> &ExpensiveInsts) {
   HLInst *FirstInst = *(ExpensiveInsts.begin());
 
@@ -498,7 +508,7 @@ bool HIRStoreResultIntoTempArray::hasSameExprTree(
        It != End; ++It) {
     HLInst *CurInst = *It;
 
-    if (!corresponds(FirstInst, CurInst, DDG, LoopLevel)) {
+    if (!corresponds(FirstInst, CurInst, DDG, InnermostLp)) {
       return false;
     }
   }
@@ -567,7 +577,7 @@ bool HIRStoreResultIntoTempArray::isLegalForLoopCarriedScalarReplacement(
 
   DDG = DDA.getGraph(Lp->getOutermostParentLoop());
 
-  if (!hasSameExprTree(LoopLevel, DDG, ExpensiveInsts)) {
+  if (!hasSameExprTree(Lp, DDG, ExpensiveInsts)) {
     return false;
   }
 
@@ -840,6 +850,7 @@ static HLLoop *createExtractedLoopNest(DDGraph DDG, HLLoop *Lp, HLLoop *NewLoop,
   CanonExpr *MaxCanonExpr = nullptr;
   CanonExpr *MinCE = nullptr;
   CanonExpr *MaxCE = nullptr;
+  CanonExpr *MemRefLowerDimCE = nullptr;
   unsigned NumDimension = MinRef->getNumDimensions();
   unsigned Dim = 1;
 
@@ -850,6 +861,7 @@ static HLLoop *createExtractedLoopNest(DDGraph DDG, HLLoop *Lp, HLLoop *NewLoop,
     do {
       MinCanonExpr = MinRef->getDimensionIndex(Dim);
       MaxCanonExpr = MaxRef->getDimensionIndex(Dim);
+      MemRefLowerDimCE = MinRef->getDimensionLower(Dim);
       Dim++;
     } while (MaxCanonExpr->isConstant() && Dim <= NumDimension);
 
@@ -887,6 +899,10 @@ static HLLoop *createExtractedLoopNest(DDGraph DDG, HLLoop *Lp, HLLoop *NewLoop,
       } else {
         updateUpperBound(DDG, MaxRef, LoopLevel, NewLoop);
       }
+    }
+
+    if (!MemRefLowerDimCE->isZero()) {
+      CanonExprUtils::add(NewLoop->getUpperCanonExpr(), MemRefLowerDimCE, true);
     }
 
     LoopLevel--;
