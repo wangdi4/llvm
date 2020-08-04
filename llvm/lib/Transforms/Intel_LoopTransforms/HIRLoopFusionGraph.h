@@ -75,12 +75,7 @@ public:
 
   HLLoop *pilotLoop() const { return loops().front(); }
 
-  SmallVectorImpl<HLLoop *> &loops() {
-    assert(isGoodNode() && "Getting loops from the bad node");
-    return LoopsVector;
-  }
-
-  const SmallVectorImpl<HLLoop *> &loops() const {
+  ArrayRef<HLLoop *> loops() const {
     assert(isGoodNode() && "Getting loops from the bad node");
     return LoopsVector;
   }

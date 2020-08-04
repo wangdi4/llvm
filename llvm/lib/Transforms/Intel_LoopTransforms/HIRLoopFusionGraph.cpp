@@ -349,7 +349,7 @@ unsigned FuseNode::getTopSortNumber() const {
 }
 
 void FuseNode::merge(const FuseNode &Node) {
-  loops().append(Node.loops().begin(), Node.loops().end());
+  LoopsVector.append(Node.loops().begin(), Node.loops().end());
   HasUnsafeSideEffects = HasUnsafeSideEffects || Node.HasUnsafeSideEffects;
 }
 

@@ -1608,11 +1608,15 @@ HLLoop *setupPragmaBlocking(HIRDDAnalysis &DDA, HIRSafeReductionAnalysis &SRA,
       for (int i = 1; i < PragmaLevel; i++) {
         TargetLp = cast_or_null<HLLoop>(TargetLp->getFirstChild());
         if (!TargetLp) {
-
           LLVM_DEBUG(dbgs() << "Ignoring block_loop directive due to invalid "
                                "level\n");
-          continue;
+          break;
         }
+      }
+
+      // Bailout due to invalid Pragma TargetLoop
+      if (!TargetLp) {
+        break;
       }
 
       if (LoopMap.find(TargetLp) == LoopMap.end()) {

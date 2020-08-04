@@ -269,8 +269,9 @@ public:
     // the information as invalid
     for (auto &Entry : ArrayConstEntries) {
       (void)Entry;
-      assert((Entry.first && Entry.second) &&
-             "Non-constant information found in a field "
+      assert((Entry.first && isa<ConstantInt>(Entry.first) &&
+              Entry.second && isa<ConstantInt>(Entry.second)) &&
+             "Non-constant integer information found in a field "
              "reserved for constant data");
     }
 
@@ -279,12 +280,12 @@ public:
 
   // Return the information if the current field is an array with
   // constant entries
-  const SetVector< std::pair<ConstantInt*, ConstantInt*> >
+  const SetVector< std::pair<Constant*, Constant*> >
       &getArrayWithConstantEntries() const { return ArrayConstEntries; }
 
   // Insert a new entry in ArrayConstEntries assuming that the current field
   // is an array with constant entries.
-  void addConstantEntryIntoTheArray(ConstantInt *Index, ConstantInt* ConstVal);
+  void addConstantEntryIntoTheArray(Constant *Index, Constant* ConstVal);
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   void dump() const { print(dbgs()); }
@@ -345,7 +346,7 @@ private:
   // the current field is an array with constant entries. The first
   // entry in the pair is the index in the array, the second entry is
   // the constant value.
-  SetVector< std::pair<ConstantInt*, ConstantInt*> > ArrayConstEntries;
+  SetVector< std::pair<Constant*, Constant*> > ArrayConstEntries;
 };
 
 /// DTrans optimization safety conditions for a structure type.
