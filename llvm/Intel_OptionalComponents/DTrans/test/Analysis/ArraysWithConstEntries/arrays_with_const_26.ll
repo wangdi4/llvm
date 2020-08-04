@@ -1,10 +1,13 @@
 ; REQUIRES: asserts
 
-; RUN: opt < %s -whole-program-assume -dtrans-outofboundsok=false -dtrans-arrays-with-const-entries -dtransanalysis -debug-only=dtrans-arrays-with-const-entries-verbose -disable-output 2>&1 | FileCheck %s
-; RUN: opt < %s -whole-program-assume -dtrans-outofboundsok=false -dtrans-arrays-with-const-entries -passes='require<dtransanalysis>' -debug-only=dtrans-arrays-with-const-entries-verbose -disable-output 2>&1 | FileCheck %s
+; RUN: opt < %s -whole-program-assume -dtrans-outofboundsok=false -dtrans-arrays-with-const-entries -dtransanalysis -dtrans-print-types -disable-output 2>&1 | FileCheck %s
+; RUN: opt < %s -whole-program-assume -dtrans-outofboundsok=false -dtrans-arrays-with-const-entries -passes='require<dtransanalysis>' -dtrans-print-types -disable-output 2>&1 | FileCheck %s
 
-; This test case checks that field 1 in %class.TestClass is invalid since there
-; is a load to it in @baz.
+; This test case checks that entries 0 and 1 in the field 1 for
+; %class.TestClass, which is an array, are collected as constants.
+; This is the same test as arrays_with_const_01.ll. The goal of this
+; test is to check that the information in the FieldInfo for DTransAnalysis
+; was added correctly.
 
 %class.TestClass = type <{i32, [4 x i32]}>
 
@@ -38,15 +41,6 @@ bb2:
   ret i32 %tmp3
 }
 
-define void @baz(%class.TestClass* %0) {
-  %tmp1 = getelementptr inbounds %class.TestClass, %class.TestClass* %0, i64 0, i32 1
-  %tmp2 = load [4 x i32], [4 x i32]* %tmp1
-  ret void
-}
-
-; CHECK-LABEL: Result after data collection:
-; CHECK: Type: %class.TestClass = type <{ i32, [4 x i32] }>
-; CHECK:   Is structure available: YES
-; CHECK:   Field number: 1
-; CHECK:     Field available: NO
-; CHECK:     Constants: No constant data found
+; CHECK: LLVMType: %class.TestClass = type <{ i32, [4 x i32] }>
+; CHECK: {{.*}})Field LLVM Type: [4 x i32]
+; CHECK: Array with constant entries: [ Index: 0  Constant: 1, Index: 1  Constant: 2 ]

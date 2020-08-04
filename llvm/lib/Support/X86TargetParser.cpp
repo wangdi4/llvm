@@ -659,6 +659,12 @@ static constexpr FeatureBitset ImpliedFeaturesAVX512CONVERT = FeatureAVX512F |
 static constexpr FeatureBitset ImpliedFeaturesAMX_FP16 = FeatureAMX_TILE |
     FeatureAVX512FP16;
 #endif // INTEL_FEATURE_ISA_AMX_FP16
+#if INTEL_FEATURE_ISA_AMX_BF8
+static constexpr FeatureBitset ImpliedFeaturesAMX_BF8 = FeatureAMX_TILE;
+#endif // INTEL_FEATURE_ISA_AMX_BF8
+#if INTEL_FEATURE_ISA_AMX_MEMADVISE
+static constexpr FeatureBitset ImpliedFeaturesAMX_MEMADVISE = FeatureAMX_TILE;
+#endif // INTEL_FEATURE_ISA_AMX_MEMADVISE
 #if INTEL_FEATURE_ISA_AMX_FUTURE
 static constexpr FeatureBitset ImpliedFeaturesAMX_REDUCE = FeatureAMX_TILE;
 static constexpr FeatureBitset ImpliedFeaturesAMX_MEMORY = FeatureAMX_TILE;

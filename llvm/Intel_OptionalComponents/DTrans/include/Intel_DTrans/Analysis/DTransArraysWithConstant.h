@@ -75,15 +75,14 @@ namespace dtrans {
 class FieldWithConstantArray {
 public:
   FieldWithConstantArray(ConstantInt *FieldNumber)
-      : FieldNumber(FieldNumber), GEPForStore(nullptr), FieldDisabled(false),
+      : FieldNumber(FieldNumber), FieldDisabled(false),
         IntType(nullptr) {}
 
   ~FieldWithConstantArray() { clean(); }
 
-  // Set the GEP that accesses the current field, and will be used for storing
-  // the constant values. If a GEPForStore is already set then we disable
-  // the field for the constant array optimization.
-  void setGEPForStore(GetElementPtrInst *GEPStore);
+  // Add the GEP that accesses the current field, and will be used for storing
+  // the constant values.
+  void addGEPForStore(GetElementPtrInst *GEPStore);
 
   // Given the constant integers Index and ConstValue, pair them and
   // add them in ConstantEntries. If the Index is already is inserted
@@ -100,11 +99,13 @@ public:
   // Insert a new Load instruction
   void insertLoadInstruction(LoadInst *Load) { LoadInstructions.insert(Load); }
 
-  GetElementPtrInst *getGEPUsedForStore() { return GEPForStore; }
+  SetVector<GetElementPtrInst *>
+      &getGEPsUsedForStore() { return GEPsForStore; }
   IntegerType *getIntegerType() { return IntType; }
   ConstantInt *getFieldNumber() { return FieldNumber; }
-  auto &getConstantEntires() { return ConstantEntries; }
-  auto &getLoadInstructions() { return LoadInstructions; }
+  SmallVectorImpl< std::pair<ConstantInt *, ConstantInt *> >
+      &getConstantEntires() { return ConstantEntries; }
+  SetVector<LoadInst *> &getLoadInstructions() { return LoadInstructions; }
 
   // If we find something that is not a load or a store from the array
   // in the field then disable it. For example:
@@ -131,7 +132,7 @@ public:
   void clean() {
     FieldNumber = nullptr;
     ConstantEntries.clear();
-    GEPForStore = nullptr;
+    GEPsForStore.clear();
     LoadInstructions.clear();
     FieldDisabled = true;
     IntType = nullptr;
@@ -150,9 +151,9 @@ private:
   // value 1 ({i64 0, i32 1}).
   SmallVector<std::pair<ConstantInt *, ConstantInt *>, 8> ConstantEntries;
 
-  // The GEP that accesses the field and will be used by StoreInst instructions
-  // to store the data in the array. From the example, %tmp1 in @foo.
-  GetElementPtrInst *GEPForStore;
+  // SetVector that holds the GEPs used by StoreInst instructions to store
+  // constants in the array. From the example, %tmp1 in @foo.
+  SetVector<GetElementPtrInst *> GEPsForStore;
 
   // Store the load instructions that are used for collecting the entry in
   // the array
@@ -164,6 +165,14 @@ private:
 
   // The integer type that is being stored in the array.
   IntegerType *IntType;
+
+  // Return true if at least one entry in ConstantEntries is not nullptr
+  bool hasAtLeastOneConstantEntry() {
+    for (auto Entry : ConstantEntries)
+      if (Entry.second)
+        return true;
+    return false;
+  }
 };
 
 // Helper class to handle the structures with possible fields that could be
@@ -194,8 +203,10 @@ public:
   // Print the structure with the full information for all fields
   void printStructureFull();
 
-  // Print the structure with the fields information simplified
-  void printStructureSimple();
+  // Print the structure with the fields information simplified. If PrintAll
+  // is true then all the structures collected will be printed, even
+  // structures that were invalidated.
+  void printStructureSimple(bool PrintAll);
 #endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 
   // Destroy the data
@@ -228,9 +239,6 @@ class DtransArraysWithConstant {
 public:
   DtransArraysWithConstant() {}
   void runArraysWithConstAnalysis(Module &M, DTransAnalysisInfo *DTInfo);
-
-private:
-  DenseMap<llvm::StructType *, StructWithArrayFields *> StructsWithConstArrays;
 };
 
 } // namespace dtrans

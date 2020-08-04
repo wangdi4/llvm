@@ -1,13 +1,11 @@
 ; REQUIRES: asserts
 
-; RUN: opt < %s -whole-program-assume -dtrans-outofboundsok=false -dtrans-arrays-with-const-entries -dtransanalysis -debug-only=dtrans-arrays-with-const-entries -disable-output 2>&1 | FileCheck %s
-; RUN: opt < %s -whole-program-assume -dtrans-outofboundsok=false -dtrans-arrays-with-const-entries -passes='require<dtransanalysis>' -debug-only=dtrans-arrays-with-const-entries -disable-output 2>&1 | FileCheck %s
+; RUN: opt < %s -whole-program-assume -dtrans-outofboundsok=false -dtrans-arrays-with-const-entries -dtransanalysis -debug-only=dtrans-arrays-with-const-entries-verbose -disable-output 2>&1 | FileCheck %s
+; RUN: opt < %s -whole-program-assume -dtrans-outofboundsok=false -dtrans-arrays-with-const-entries -passes='require<dtransanalysis>' -debug-only=dtrans-arrays-with-const-entries-verbose -disable-output 2>&1 | FileCheck %s
 
 ; This test case checks that entries 0 and 1 in the field 1 for
-; %class.TestClass are constant, but the field will be invalidated
-; because they are written by two different functions. NOTE: This
-; is conservative, we can expand later to consider that writing
-; in the same entry with the same constant is OK.
+; %class.TestClass aren't constant, because they are written by
+; two different functions with different values.
 
 %class.TestClass = type <{i32, [4 x i32]}>
 
@@ -27,9 +25,9 @@ define void @foo(%class.TestClass* %0, i32 %var) {
 define void @baz(%class.TestClass* %0, i32 %var) {
   %tmp1 = getelementptr inbounds %class.TestClass, %class.TestClass* %0, i64 0, i32 1
   %tmp2 = getelementptr inbounds [4 x i32], [4 x i32]* %tmp1, i64 0, i32 0
-  store i32 1, i32* %tmp2
+  store i32 3, i32* %tmp2
   %tmp3 = getelementptr inbounds [4 x i32], [4 x i32]* %tmp1, i64 0, i32 1
-  store i32 2, i32* %tmp3
+  store i32 4, i32* %tmp3
   %tmp4 = getelementptr inbounds [4 x i32], [4 x i32]* %tmp1, i64 0, i32 2
   store i32 %var, i32* %tmp4
   %tmp5 = getelementptr inbounds [4 x i32], [4 x i32]* %tmp1, i64 0, i32 3
@@ -58,5 +56,14 @@ bb2:
 ; CHECK: Type: %class.TestClass = type <{ i32, [4 x i32] }>
 ; CHECK:   Is structure available: YES
 ; CHECK:   Field number: 1
-; CHECK:     Field available: NO
+; CHECK:     Field available: YES
 ; CHECK:     Constants: No constant data found
+
+; CHECK-LABEL: Analyzing results:
+; CHECK: Removing Field: 1 from class.TestClass
+; CHECK: Reason: Field didn't pass checks
+; CHECK: Removing: class.TestClass
+; CHECK: Reason: None of the fields qualify as array with constant entries
+
+; CHECK: Final result for fields that are arrays with constant entries:
+; CHECK:  No structure found

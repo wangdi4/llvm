@@ -5,37 +5,38 @@
 
 ; This test case checks that entries 0 and 1 in the field 1 for
 ; %class.TestClass, which is an array, are collected as constants.
+; This is the same test case as arrays_with_const_01.ll, but rather
+; than access the entries in the array by multiple GEPs, it will
+; use one GEP with multiple indices.
 
 %class.TestClass = type <{i32, [4 x i32]}>
 
 define void @foo(%class.TestClass* %0, i32 %var) {
-  %tmp1 = getelementptr inbounds %class.TestClass, %class.TestClass* %0, i64 0, i32 1
-  %tmp2 = getelementptr inbounds [4 x i32], [4 x i32]* %tmp1, i64 0, i32 0
-  store i32 1, i32* %tmp2
-  %tmp3 = getelementptr inbounds [4 x i32], [4 x i32]* %tmp1, i64 0, i32 1
-  store i32 2, i32* %tmp3
-  %tmp4 = getelementptr inbounds [4 x i32], [4 x i32]* %tmp1, i64 0, i32 2
+  %tmp1 = getelementptr inbounds %class.TestClass, %class.TestClass* %0, i64 0, i32 1, i32 0
+  store i32 1, i32* %tmp1
+  %tmp2 = getelementptr inbounds %class.TestClass, %class.TestClass* %0, i64 0, i32 1, i32 1
+  store i32 2, i32* %tmp2
+  %tmp3 = getelementptr inbounds %class.TestClass, %class.TestClass* %0, i64 0, i32 1, i32 2
+  store i32 %var, i32* %tmp3
+  %tmp4 = getelementptr inbounds %class.TestClass, %class.TestClass* %0, i64 0, i32 1, i32 3
   store i32 %var, i32* %tmp4
-  %tmp5 = getelementptr inbounds [4 x i32], [4 x i32]* %tmp1, i64 0, i32 3
-  store i32 %var, i32* %tmp5
   ret void
 }
 
 define i32 @bar(%class.TestClass* nocapture readonly %0) {
 entry:
-  %tmp1 = getelementptr inbounds %class.TestClass, %class.TestClass* %0, i64 0, i32 1
   br label %bb1
 
 bb1:
   %phi1 = phi i32 [ 0, %entry], [ %var, %bb1]
-  %tmp2 = getelementptr inbounds [4 x i32], [4 x i32]* %tmp1, i64 0, i32 %phi1
-  %tmp3 = load i32, i32* %tmp2
+  %tmp1 = getelementptr inbounds %class.TestClass, %class.TestClass* %0, i64 0, i32 1, i32 %phi1
+  %tmp2 = load i32, i32* %tmp1
   %var = add nuw nsw i32 1, %phi1
-  %tmp4 = icmp eq i32 4, %var
-  br i1 %tmp4, label %bb2, label %bb1
+  %tmp3 = icmp eq i32 4, %var
+  br i1 %tmp3, label %bb2, label %bb1
 
 bb2:
-  ret i32 %tmp3
+  ret i32 %tmp2
 }
 
 ; CHECK: Final result for fields that are arrays with constant entries:
@@ -44,5 +45,5 @@ bb2:
 ; CHECK:   Field number: 1
 ; CHECK:     Field available: YES
 ; CHECK:     Constants:
-; CHECK:       Index: i32 1      Value: i32 2
 ; CHECK:       Index: i32 0      Value: i32 1
+; CHECK:       Index: i32 1      Value: i32 2
