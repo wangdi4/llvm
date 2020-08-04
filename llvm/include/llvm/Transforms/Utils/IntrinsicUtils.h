@@ -16,6 +16,8 @@
 #ifndef LLVM_TRANSFORM_UTILS_INTRINSICUTILS_H
 #define LLVM_TRANSFORM_UTILS_INTRINSICUTILS_H
 
+#include "llvm/IR/Instructions.h"
+
 namespace llvm {
 
 /// This class provides a set of utility functions that operate on

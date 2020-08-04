@@ -18,15 +18,16 @@
 
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/StringMap.h"
-#include "llvm/Analysis/LoopInfo.h"
-#include "llvm/Support/raw_ostream.h"
-#include "llvm/Support/Debug.h"
-#include "llvm/IR/IRBuilder.h"
-#include "llvm/Transforms/Utils/ValueMapper.h"
-#include "llvm/Transforms/Utils/Cloning.h"
 #include "llvm/Analysis/Directives.h"
+#include "llvm/Analysis/LoopInfo.h"
 #include "llvm/Analysis/VPO/Utils/VPOAnalysisUtils.h"
 #include "llvm/Analysis/VPO/WRegionInfo/WRegionNode.h"
+#include "llvm/IR/Dominators.h"
+#include "llvm/IR/IRBuilder.h"
+#include "llvm/Support/Debug.h"
+#include "llvm/Support/raw_ostream.h"
+#include "llvm/Transforms/Utils/Cloning.h"
+#include "llvm/Transforms/Utils/ValueMapper.h"
 #include <unordered_map>
 
 // Used for Parallel Section Transformations
@@ -296,6 +297,33 @@ public:
                                          IRBuilder<> &Builder,
                                          unsigned Alignment, Value *Mask);
 
+  /// Creates a clone of \p CI, and adds \p OpBundlesToAdd the new
+  /// CallInst. \returns the created CallInst, if it created one, \p CI
+  /// otherwise (when \p OpBundlesToAdd is empty).
+  static CallInst *addOperandBundlesInCall(
+      CallInst *CI,
+      ArrayRef<std::pair<StringRef, ArrayRef<Value *>>> OpBundlesToAdd);
+
+  /// Creates a clone of \p CI without any operand bundles whose tags match an
+  /// entry in \p OpBundlesToRemove. Replaces all uses of the original \p CI
+  /// with the new Instruction created.
+  /// \returns the created CallInst, if it created one, \p CI otherwise (when \p
+  /// OpBundlesToRemove is empty, or has no matching bundle on \p CI).
+  static CallInst *
+  removeOperandBundlesFromCall(CallInst *CI,
+                               ArrayRef<StringRef> OpBundlesToRemove);
+
+  /// "Privatizes" an Instruction \p I by adding it to a supported entry
+  /// directive clause.
+  /// If the Instruction is already used in a directive, nothing is done.
+  /// \p BlockPos: The first dominating entry directive over this block is
+  /// chosen.
+  /// \p SimdOnly: Only search for SIMD directives.
+  /// Return false if no directive was found.
+  /// Intended to be used outside of paropt when creating new values inside
+  /// a region.
+  static bool addPrivateToEnclosingRegion(Instruction *I, BasicBlock *BlockPos,
+                                          DominatorTree &DT, bool SimdOnly);
   /// @}
 };
 

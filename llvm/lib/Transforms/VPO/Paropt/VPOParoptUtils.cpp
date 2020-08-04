@@ -4868,55 +4868,6 @@ static Value *findChainToLoad(Value *V,
   llvm_unreachable("findChainToLoad: unhandled instruction");
 }
 
-// Creates a clone of CI, adds OpBundlesToAdd to it, and returns it.
-CallInst *VPOParoptUtils::addOperandBundlesInCall(
-    CallInst *CI,
-    ArrayRef<std::pair<StringRef, ArrayRef<Value *>>> OpBundlesToAdd) {
-
-  assert(CI && "addOperandBundlesInCall: Null CallInst");
-
-  if (OpBundlesToAdd.empty())
-    return CI;
-
-  SmallVector<Value *, 8> Args;
-  for (auto AI = CI->arg_begin(), AE = CI->arg_end(); AI != AE; AI++)
-    Args.push_back(*AI);
-
-  SmallVector<OperandBundleDef, 1> OpBundles;
-  CI->getOperandBundlesAsDefs(OpBundles);
-
-  for (auto &StrValVec : OpBundlesToAdd) {
-    OperandBundleDef B(std::string(StrValVec.first), StrValVec.second);
-    OpBundles.push_back(B);
-  }
-
-  FunctionType *FnTy = CI->getFunctionType();
-  Value *Fn = CI->getCalledOperand();
-  auto NewI = CallInst::Create(FnTy, Fn, Args, OpBundles, "", CI);
-
-  NewI->takeName(CI);
-  NewI->setCallingConv(CI->getCallingConv());
-  NewI->setAttributes(CI->getAttributes());
-  NewI->setDebugLoc(CI->getDebugLoc());
-
-  CI->replaceAllUsesWith(NewI);
-  CI->eraseFromParent();
-
-  return NewI;
-}
-
-// Creates a clone of CI without the operand bundles in OpBundlesToRemove from
-// it, and returns it.
-CallInst *VPOParoptUtils::removeOperandBundlesFromCall(
-    CallInst *CI, ArrayRef<StringRef> OpBundlesToRemove) {
-  return IntrinsicUtils::removeOperandBundlesFromCall(
-      CI, [&OpBundlesToRemove](const OperandBundleDef &Bundle) {
-        return std::any_of(
-            OpBundlesToRemove.begin(), OpBundlesToRemove.end(),
-            [&Bundle](StringRef S) { return Bundle.getTag() == S; });
-      });
-}
-
 // Check if the given value may be cloned before the given region.
 // This method does not do all the necessary checks to guarantee
 // cloneability in general. It works correctly only for a special
@@ -4999,38 +4950,6 @@ Instruction *VPOParoptUtils::getInsertionPtForAllocas(
   assert(BB && "Couldn't find single successor of the region entry block.");
 
   return BB->getFirstNonPHI();
-}
-
-// Find the first directive that dominates "PosInst" and which supports
-// the private clause, and add a private clause for "I" into that directive.
-// Return false if no directive was found. Intended to be called outside paropt,
-// where region information is unavailable.
-// "I" should not be previously used in a llvm.directive.region.entry
-// (this is checked by assertion)
-bool VPOParoptUtils::addPrivateToEnclosingRegion(Instruction *I,
-                                                 Instruction *PosInst,
-                                                 DominatorTree &DT) {
-#if !defined(NDEBUG)
-  for (User *UseI : I->users()) {
-    if (auto *IntrInst = dyn_cast<IntrinsicInst>(UseI))
-      if (IntrInst->getIntrinsicID() == Intrinsic::directive_region_entry)
-        llvm_unreachable("Value to privatize is already in a region clause.");
-  }
-#endif // NDEBUG
-
-  // Search upwards through the dominator tree until we find a block
-  // that supports the private clause.
-  auto *IDom = DT[PosInst->getParent()]->getIDom();
-  while (IDom) {
-    auto *IDomBlock = IDom->getBlock();
-    if (VPOAnalysisUtils::supportsPrivateClause(IDomBlock)) {
-      CallInst *CI = cast<CallInst>(&(IDomBlock->front()));
-      VPOParoptUtils::addOperandBundlesInCall(CI, {{"QUAL.OMP.PRIVATE", {I}}});
-      return true;
-    }
-    IDom = DT[IDomBlock]->getIDom();
-  }
-  return false;
 }
 
 // Clones the load instruction and inserts before the InsertPt.
@@ -5223,8 +5142,14 @@ Function *VPOParoptUtils::genOutlineFunction(const WRegionNode &W,
     }
   }
 
-  CodeExtractor CE(makeArrayRef(W.bbset_begin(), W.bbset_end()), DT, false,
-                   nullptr, nullptr, AC, false, true, true,
+  CodeExtractor CE(makeArrayRef(W.bbset_begin(), W.bbset_end()), DT,
+                   /* AggregateArgs */ false,
+                   /* BlockFrequencyInfo */ nullptr,
+                   /* BranchProbabilityInfo */ nullptr,
+                   /* AssumptionCache */ AC,
+                   /* AllowVarArgs */ false,
+                   /* AllowAlloca */ true,
+                   /* AllowEHTypeID */ true,
                    IsTarget ? &TgtClauseArgs : nullptr);
   CE.setDeclLoc(W.getEntryDirective()->getDebugLoc());
   assert(CE.isEligible() && "Region is not eligible for extraction.");
@@ -5236,7 +5161,7 @@ Function *VPOParoptUtils::genOutlineFunction(const WRegionNode &W,
       W.getEntryDirective()->getModule()->getContext()));
 
   CodeExtractorAnalysisCache CEAC(*W.getEntryBBlock()->getParent());
-  auto *NewFunction = CE.extractCodeRegion(CEAC);
+  auto *NewFunction = CE.extractCodeRegion(CEAC, /* hoistAlloca */ true);
   assert(NewFunction && "Code extraction failed for the region.");
   assert(NewFunction->hasOneUse() && "New function should have one use.");
 

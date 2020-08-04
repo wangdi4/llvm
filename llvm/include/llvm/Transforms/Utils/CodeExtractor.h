@@ -181,10 +181,18 @@ public:
 #endif // INTEL_COLLAB
 
     /// Perform the extraction, returning the new function.
+    /// HoistAlloca: local allocas in the extracted region will
+    /// be hoisted to the entry. This improves scalar optimizations and is also
+    /// required for nested simd loops.
     ///
     /// Returns zero when called on a CodeExtractor instance where isEligible
     /// returns false.
+#if INTEL_COLLAB
+    Function *extractCodeRegion(const CodeExtractorAnalysisCache &CEAC,
+                                bool hoistAlloca = false);
+#else
     Function *extractCodeRegion(const CodeExtractorAnalysisCache &CEAC);
+#endif // INTEL_COLLAB
 
     /// Verify that assumption cache isn't stale after a region is extracted.
     /// Returns true when verifier finds errors. AssumptionCache is passed as
@@ -242,12 +250,6 @@ public:
     /// will be returned. Otherwise CommonExitBlock will be split and the
     /// original block will be added to the outline region.
     BasicBlock *findOrCreateBlockForHoisting(BasicBlock *CommonExitBlock);
-
-#if INTEL_COLLAB
-    // Hoisting the alloca instructions in the non-entry blocks to the entry
-    // block.
-    void hoistAlloca(Function &F);
-#endif // INTEL_COLLAB
 
   private:
     struct LifetimeMarkerInfo {

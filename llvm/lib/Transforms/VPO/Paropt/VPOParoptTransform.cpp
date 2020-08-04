@@ -1234,7 +1234,7 @@ void VPOParoptTransform::addBranchToEndDirective(WRegionNode *W) {
       VPOAnalysisUtils::getClauseString(QUAL_OMP_JUMP_TO_END_IF);
 
   CallInst *CI = cast<CallInst>(EntryDirective);
-  CI = VPOParoptUtils::addOperandBundlesInCall(
+  CI = VPOUtils::addOperandBundlesInCall(
       CI, {{ClauseString, {TempAddr}}}); //                             (2)
   W->setEntryDirective(CI);
 
@@ -2002,10 +2002,9 @@ bool VPOParoptTransform::paroptTransforms() {
             if (W->getIsSIMD()) {
               StringRef OrderedThreadString =
                   VPOAnalysisUtils::getClauseString(QUAL_OMP_ORDERED_THREADS);
-              CallInst *UpdatedDir =
-                  VPOParoptUtils::removeOperandBundlesFromCall(
-                      cast<CallInst>(W->getEntryDirective()),
-                      {OrderedThreadString});
+              CallInst *UpdatedDir = VPOUtils::removeOperandBundlesFromCall(
+                  cast<CallInst>(W->getEntryDirective()),
+                  {OrderedThreadString});
               W->setEntryDirective(UpdatedDir);
               RemoveDirectives = false;
             } else
@@ -6405,7 +6404,7 @@ bool VPOParoptTransform::renameOperandsUsingStoreThenLoad(WRegionNode *W) {
     BundleOpndAddrs.emplace_back(OperandAddrClauseString,
                                  makeArrayRef(OpndAddrPair));
 
-  CI = VPOParoptUtils::addOperandBundlesInCall(CI, BundleOpndAddrs);
+  CI = VPOUtils::addOperandBundlesInCall(CI, BundleOpndAddrs);
   W->setEntryDirective(CI);
 
   return true;
@@ -8702,7 +8701,7 @@ bool VPOParoptTransform::propagateCancellationPointsToIR(WRegionNode *W) {
 
   // (2) Add the list of allocas where cancellation points' return values are
   // stored, as an operand bundle in the region.entry() directive.
-  CI = VPOParoptUtils::addOperandBundlesInCall(
+  CI = VPOUtils::addOperandBundlesInCall(
       CI, {{"QUAL.OMP.CANCELLATION.POINTS", CancellationPointAllocas}});
 
   LLVM_DEBUG(dbgs() << "propagateCancellationPointsToIR: Added "
@@ -9132,8 +9131,7 @@ bool VPOParoptTransform::addNormUBsToParents(WRegionNode* W) {
           VPOAnalysisUtils::getClauseString(QUAL_OMP_SHARED);
 
       CallInst *CI = cast<CallInst>(P->getEntryDirective());
-      CI = VPOParoptUtils::addOperandBundlesInCall(CI,
-                                                   {{ClauseString, {NormUBs}}});
+      CI = VPOUtils::addOperandBundlesInCall(CI, {{ClauseString, {NormUBs}}});
       P->setEntryDirective(CI);
       Changed = true;
 
@@ -9148,8 +9146,7 @@ bool VPOParoptTransform::addNormUBsToParents(WRegionNode* W) {
           VPOAnalysisUtils::getClauseString(QUAL_OMP_MAP_TO);
 
       CallInst *CI = cast<CallInst>(P->getEntryDirective());
-      CI = VPOParoptUtils::addOperandBundlesInCall(CI,
-                                                   {{ClauseString, {NormUBs}}});
+      CI = VPOUtils::addOperandBundlesInCall(CI, {{ClauseString, {NormUBs}}});
       P->setEntryDirective(CI);
       Changed = true;
     }
@@ -9527,8 +9524,8 @@ bool VPOParoptTransform::replaceGenericLoop(WRegionNode *W) {
   SmallVector<OperandBundleDef, 8> OpBundles;
   EntryCI->getOperandBundlesAsDefs(OpBundles);
   for (unsigned i = 0; i < OpBundles.size(); i++) {
-    EntryCI = VPOParoptUtils::removeOperandBundlesFromCall(
-        EntryCI, OpBundles[i].getTag());
+    EntryCI =
+        VPOUtils::removeOperandBundlesFromCall(EntryCI, OpBundles[i].getTag());
   }
   SmallVector<std::pair<StringRef, ArrayRef<Value *>>, 8> OpBundlesToAdd;
   OpBundlesToAdd.emplace_back(MappedEntryDirStr, ArrayRef<Value *>{});
@@ -9548,7 +9545,7 @@ bool VPOParoptTransform::replaceGenericLoop(WRegionNode *W) {
 
     OpBundlesToAdd.emplace_back(Tag, OpBundles[i].inputs());
   }
-  EntryCI = VPOParoptUtils::addOperandBundlesInCall(EntryCI, OpBundlesToAdd);
+  EntryCI = VPOUtils::addOperandBundlesInCall(EntryCI, OpBundlesToAdd);
   W->setEntryDirective(EntryCI);
 
   // replace exit directive accordingly
@@ -9561,8 +9558,8 @@ bool VPOParoptTransform::replaceGenericLoop(WRegionNode *W) {
   LLVM_DEBUG(dbgs() << "Exit directive: " << ExitDirStr
                     << " maps to directive: " << MappedExitDirStr << "\n");
 
-  ExitCI = VPOParoptUtils::removeOperandBundlesFromCall(ExitCI, {ExitDirStr});
-  ExitCI = VPOParoptUtils::addOperandBundlesInCall(
+  ExitCI = VPOUtils::removeOperandBundlesFromCall(ExitCI, {ExitDirStr});
+  ExitCI = VPOUtils::addOperandBundlesInCall(
       ExitCI, {{MappedExitDirStr, ArrayRef<Value *>{}}});
 
   return Changed;
@@ -10418,31 +10415,27 @@ bool VPOParoptTransform::collapseOmpLoops(WRegionNode *W) {
       VPOAnalysisUtils::getClauseString(QUAL_OMP_NORMALIZED_IV);
   StringRef UBString =
       VPOAnalysisUtils::getClauseString(QUAL_OMP_NORMALIZED_UB);
-  EntryCI = VPOParoptUtils::removeOperandBundlesFromCall(
-      EntryCI, { IVString, UBString });
+  EntryCI =
+      VPOUtils::removeOperandBundlesFromCall(EntryCI, {IVString, UBString});
   StringRef FirstPrivateString =
     VPOAnalysisUtils::getClauseString(QUAL_OMP_FIRSTPRIVATE);
   StringRef PrivateString =
     VPOAnalysisUtils::getClauseString(QUAL_OMP_PRIVATE);
   assert(W->canHavePrivate() && "OpenMP loop region cannot have PRIVATE?");
-  EntryCI = VPOParoptUtils::addOperandBundlesInCall(
-      EntryCI,
-      {
-        { IVString, { NewIVPtrDef } },
-        { UBString, { NewUBPtrDef } },
-        { PrivateString, OldIVPtrDefs } });
+  EntryCI = VPOUtils::addOperandBundlesInCall(EntryCI,
+                                              {{IVString, {NewIVPtrDef}},
+                                               {UBString, {NewUBPtrDef}},
+                                               {PrivateString, OldIVPtrDefs}});
   if (W->canHaveFirstprivate()) {
     // SIMD cannot have firstprivate() clause.
-    EntryCI = VPOParoptUtils::addOperandBundlesInCall(
-        EntryCI,
-        {
-          // We should probably make LB PRIVATE, since we assume that
-          // it is always 0. For the time being make it FIRSTPRIVATE,
-          // just as FE does.
-          { FirstPrivateString, { NewLBPtrDef } },
-          // The old UBs' values are used inside the region
-          // to compute the dimensions.
-          { FirstPrivateString, OldUBPtrDefs } });
+    EntryCI = VPOUtils::addOperandBundlesInCall(
+        EntryCI, {// We should probably make LB PRIVATE, since we assume that
+                  // it is always 0. For the time being make it FIRSTPRIVATE,
+                  // just as FE does.
+                  {FirstPrivateString, {NewLBPtrDef}},
+                  // The old UBs' values are used inside the region
+                  // to compute the dimensions.
+                  {FirstPrivateString, OldUBPtrDefs}});
   }
   W->setEntryDirective(EntryCI);
 
@@ -10488,8 +10481,8 @@ bool VPOParoptTransform::collapseOmpLoops(WRegionNode *W) {
         if (MarkLBUBWILocal)
           ClauseString += ":WILOCAL";
 #endif  // INTEL_CUSTOMIZATION
-        EntryCI = VPOParoptUtils::addOperandBundlesInCall(
-            EntryCI, { { ClauseString, { NewLBPtrDef, NewUBPtrDef } } });
+        EntryCI = VPOUtils::addOperandBundlesInCall(
+            EntryCI, {{ClauseString, {NewLBPtrDef, NewUBPtrDef}}});
       }
     } else if (!FPString.empty()) {
       std::string ClauseString = FPString.str();
@@ -10497,14 +10490,14 @@ bool VPOParoptTransform::collapseOmpLoops(WRegionNode *W) {
       if (MarkLBUBWILocal)
         ClauseString += ":WILOCAL";
 #endif  // INTEL_CUSTOMIZATION
-      EntryCI = VPOParoptUtils::addOperandBundlesInCall(
-          EntryCI, { { ClauseString, { NewLBPtrDef, NewUBPtrDef } } });
+      EntryCI = VPOUtils::addOperandBundlesInCall(
+          EntryCI, {{ClauseString, {NewLBPtrDef, NewUBPtrDef}}});
     }
 
     if (!PrivateString.empty())
       // IV is always private for the parent regions.
-      EntryCI = VPOParoptUtils::addOperandBundlesInCall(
-          EntryCI, { { PrivateString, { NewIVPtrDef } } });
+      EntryCI = VPOUtils::addOperandBundlesInCall(
+          EntryCI, {{PrivateString, {NewIVPtrDef}}});
 
     P->setEntryDirective(EntryCI);
 
@@ -10538,15 +10531,14 @@ void VPOParoptTransform::setNDRangeClause(
   StringRef Clause =
       VPOAnalysisUtils::getClauseString(QUAL_OMP_OFFLOAD_NDRANGE);
 
-  EntryCI = VPOParoptUtils::addOperandBundlesInCall(EntryCI,
-                                                    {{Clause, NDRangeDims}});
+  EntryCI = VPOUtils::addOperandBundlesInCall(EntryCI, {{Clause, NDRangeDims}});
   WT->setEntryDirective(EntryCI);
 
   // The region's loop(s) now have its tripcounts in the NDRANGE clause
   // of the "omp target" region. Mark it as such.
   EntryCI = cast<CallInst>(WL->getEntryDirective());
   Clause = VPOAnalysisUtils::getClauseString(QUAL_OMP_OFFLOAD_KNOWN_NDRANGE);
-  EntryCI = VPOParoptUtils::addOperandBundlesInCall(EntryCI, {{Clause, {}}});
+  EntryCI = VPOUtils::addOperandBundlesInCall(EntryCI, {{Clause, {}}});
   WL->setEntryDirective(EntryCI);
 }
 
@@ -10648,14 +10640,14 @@ bool VPOParoptTransform::fixupKnownNDRange(WRegionNode *W) const {
   CallInst *EntryCI = cast<CallInst>(W->getEntryDirective());
   StringRef ClauseName =
       VPOAnalysisUtils::getClauseString(QUAL_OMP_OFFLOAD_KNOWN_NDRANGE);
-  EntryCI = VPOParoptUtils::removeOperandBundlesFromCall(EntryCI, ClauseName);
+  EntryCI = VPOUtils::removeOperandBundlesFromCall(EntryCI, ClauseName);
   W->setEntryDirective(EntryCI);
   W->getWRNLoopInfo().resetKnownNDRange();
 
   // Remove QUAL.OMP.OFFLOAD.NDRANGE from the parent target region.
   EntryCI = cast<CallInst>(WTarget->getEntryDirective());
   ClauseName = VPOAnalysisUtils::getClauseString(QUAL_OMP_OFFLOAD_NDRANGE);
-  EntryCI = VPOParoptUtils::removeOperandBundlesFromCall(EntryCI, ClauseName);
+  EntryCI = VPOUtils::removeOperandBundlesFromCall(EntryCI, ClauseName);
   WTarget->setEntryDirective(EntryCI);
   WTarget->resetUncollapsedNDRangeDimensions();
 

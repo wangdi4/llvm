@@ -62,6 +62,9 @@
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
 #include "llvm/Transforms/Utils/Local.h"
+#if INTEL_COLLAB
+#include "llvm/Transforms/VPO/Utils/VPOUtils.h"
+#endif // INTEL_COLLAB
 #include <cassert>
 #include <cstdint>
 #include <iterator>
@@ -1072,16 +1075,32 @@ Function *CodeExtractor::constructFunction(const ValueSet &inputs,
 }
 
 #if INTEL_COLLAB
-// Hoisting the alloca instructions in the non-entry blocks to the entry block.
-void CodeExtractor::hoistAlloca(Function &F) {
-  Function::iterator I = F.begin();
-  Instruction *FirstTerminatorInst = (I++)->getTerminator();
+// Used after outlining an OpenMP function, "F".
+// Hoist the alloca instructions in the non-entry blocks to the entry block.
+// If these allocas were local-scope in an omp simd loop, a private clause
+// is added to the omp simd directive.
+// Other OpenMP directives are not modified, as this will cause errors in
+// processing.
+// Requires a DominatorTree for "F".
+// The hoisting is done for performance (SROA, etc.) but also to remove
+// possible alloca memory leaks from the containing loops.
+static void doHoistAlloca(Function &F, DominatorTree &DTF) {
+  Function::iterator FI = F.begin();
+  Instruction *FirstTerminatorInst = (FI++)->getTerminator();
 
-  for (Function::iterator E = F.end(); I != E; ++I) {
-    for (BasicBlock::iterator BI = I->begin(), BE = I->end(); BI != BE;) {
+  for (Function::iterator E = F.end(); FI != E; ++FI) {
+    bool lookForSimd = true;
+    for (BasicBlock::iterator BI = FI->begin(), BE = FI->end(); BI != BE;) {
       AllocaInst *AI = dyn_cast<AllocaInst>(BI++);
-      if (AI && isa<ConstantInt>(AI->getArraySize()))
+      if (AI && isa<ConstantInt>(AI->getArraySize())) {
         AI->moveBefore(FirstTerminatorInst);
+        LLVM_DEBUG(dbgs() << "CE hoisted " << *AI << "\n");
+        // If we didn't find any simd directives for this block, don't look
+        // until the next block.
+        if (lookForSimd)
+          lookForSimd &= llvm::vpo::VPOUtils::addPrivateToEnclosingRegion(
+              AI, &*FI, DTF, true /* SimdOnly */);
+      }
     }
   }
 }
@@ -1876,7 +1895,12 @@ void CodeExtractor::updateDebugInfo(
 #endif // INTEL_COLLAB
 
 Function *
+#if INTEL_COLLAB
+CodeExtractor::extractCodeRegion(const CodeExtractorAnalysisCache &CEAC,
+                                 bool hoistAlloca) {
+#else
 CodeExtractor::extractCodeRegion(const CodeExtractorAnalysisCache &CEAC) {
+#endif // INTEL_COLLAB
   if (!isEligible())
     return nullptr;
 
@@ -2152,7 +2176,10 @@ CodeExtractor::extractCodeRegion(const CodeExtractorAnalysisCache &CEAC) {
     newFunction->setDoesNotReturn();
 
 #if INTEL_COLLAB
-  hoistAlloca(*newFunction);
+  if (hoistAlloca) {
+    DominatorTree ChildDT(*newFunction);
+    doHoistAlloca(*newFunction, ChildDT);
+  }
 
   if (IntelCodeExtractorDebug)
     updateDebugInfo(oldFunction, newFunction, inputs, outputs);

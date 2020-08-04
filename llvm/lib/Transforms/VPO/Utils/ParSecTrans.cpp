@@ -214,8 +214,8 @@ bool VPOUtils::parSectTransformer(
         new AllocaInst(IntTy, DL.getAllocaAddrSpace(), "num.sects", InsertPt);
     Instruction *Inst = Root->Children[0]->EntryBB->getFirstNonPHI();
     CallInst *CI = dyn_cast<CallInst>(Inst);
-    VPOParoptUtils::addOperandBundlesInCall(CI,
-        {{"QUAL.OMP.NORMALIZED.UB", {NormalizedUB}}});
+    VPOUtils::addOperandBundlesInCall(
+        CI, {{"QUAL.OMP.NORMALIZED.UB", {NormalizedUB}}});
   } else
 #endif // INTEL_FEATURE_CSA
 #endif // INTEL_CUSTOMIZATION
@@ -706,7 +706,7 @@ void VPOUtils::doParSectTrans(
   Instruction *Inst = Node->EntryBB->getFirstNonPHI();
   CallInst *CI = dyn_cast<CallInst>(Inst);
 
-  VPOParoptUtils::addOperandBundlesInCall(
+  VPOUtils::addOperandBundlesInCall(
       CI, {{"QUAL.OMP.NORMALIZED.IV", {IV}},
            {"QUAL.OMP.NORMALIZED.UB", {NormalizedUB}}});
 
