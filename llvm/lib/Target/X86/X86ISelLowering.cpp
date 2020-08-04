@@ -6930,7 +6930,7 @@ static bool getTargetShuffleMaskIndices(SDValue MaskNode,
     return false;
 
   // Insert the extracted elements into the mask.
-  for (APInt Elt : EltBits)
+  for (const APInt &Elt : EltBits)
     RawMask.push_back(Elt.getZExtValue());
 
   return true;
@@ -29018,8 +29018,8 @@ bool X86TargetLowering::lowerAtomicLoadAsLoadSDNode(const LoadInst &LI) const {
 /// a) very likely accessed only by a single thread to minimize cache traffic,
 /// and b) definitely dereferenceable.  Returns the new Chain result.
 static SDValue emitLockedStackOp(SelectionDAG &DAG,
-                                 const X86Subtarget &Subtarget,
-                                 SDValue Chain, SDLoc DL) {
+                                 const X86Subtarget &Subtarget, SDValue Chain,
+                                 const SDLoc &DL) {
   // Implementation notes:
   // 1) LOCK prefix creates a full read/write reordering barrier for memory
   // operations issued by the current processor.  As such, the location
@@ -36354,6 +36354,10 @@ static SDValue combineX86ShuffleChain(ArrayRef<SDValue> Inputs, SDValue Root,
   assert((Inputs.size() == 1 || Inputs.size() == 2) &&
          "Unexpected number of shuffle inputs!");
 
+  MVT RootVT = Root.getSimpleValueType();
+  unsigned RootSizeInBits = RootVT.getSizeInBits();
+  unsigned NumRootElts = RootVT.getVectorNumElements();
+
   // Find the inputs that enter the chain. Note that multiple uses are OK
   // here, we're not going to remove the operands we find.
   bool UnaryShuffle = (Inputs.size() == 1);
@@ -36363,10 +36367,8 @@ static SDValue combineX86ShuffleChain(ArrayRef<SDValue> Inputs, SDValue Root,
 
   MVT VT1 = V1.getSimpleValueType();
   MVT VT2 = V2.getSimpleValueType();
-  MVT RootVT = Root.getSimpleValueType();
-  assert(VT1.getSizeInBits() == RootVT.getSizeInBits() &&
-         VT2.getSizeInBits() == RootVT.getSizeInBits() &&
-         "Vector size mismatch");
+  assert(VT1.getSizeInBits() == RootSizeInBits &&
+         VT2.getSizeInBits() == RootSizeInBits && "Vector size mismatch");
 
   SDLoc DL(Root);
   SDValue Res;
@@ -36378,8 +36380,6 @@ static SDValue combineX86ShuffleChain(ArrayRef<SDValue> Inputs, SDValue Root,
   }
 
   bool OptForSize = DAG.shouldOptForSize();
-  unsigned RootSizeInBits = RootVT.getSizeInBits();
-  unsigned NumRootElts = RootVT.getVectorNumElements();
   unsigned BaseMaskEltSizeInBits = RootSizeInBits / NumBaseMaskElts;
   bool FloatDomain = VT1.isFloatingPoint() || VT2.isFloatingPoint() ||
                      (RootVT.isFloatingPoint() && Depth >= 1) ||
@@ -40244,7 +40244,7 @@ static SDValue createMMXBuildVector(BuildVectorSDNode *BV, SelectionDAG &DAG,
 // a vector/float/double that got truncated/extended/bitcast to/from a scalar
 // integer. If so, replace the scalar ops with bool vector equivalents back down
 // the chain.
-static SDValue combineBitcastToBoolVector(EVT VT, SDValue V, SDLoc DL,
+static SDValue combineBitcastToBoolVector(EVT VT, SDValue V, const SDLoc &DL,
                                           SelectionDAG &DAG,
                                           const X86Subtarget &Subtarget) {
   const TargetLowering &TLI = DAG.getTargetLoweringInfo();
@@ -44870,7 +44870,22 @@ static SDValue combineAndLoadToBZHI(SDNode *Node, SelectionDAG &DAG,
 // Turn it into series of XORs and a setnp.
 static SDValue combineParity(SDNode *N, SelectionDAG &DAG,
                              const X86Subtarget &Subtarget) {
-  EVT VT = N->getValueType(0);
+  SDValue N0 = N->getOperand(0);
+  SDValue N1 = N->getOperand(1);
+
+  // RHS needs to be 1.
+  if (!isOneConstant(N1))
+    return SDValue();
+
+  // Popcnt may be truncated.
+  if (N0.getOpcode() == ISD::TRUNCATE && N0.hasOneUse())
+    N0 = N0.getOperand(0);
+
+  // LHS needs to be a single use CTPOP.
+  if (N0.getOpcode() != ISD::CTPOP || !N0.hasOneUse())
+    return SDValue();
+
+  EVT VT = N0.getValueType();
 
   // We only support 64-bit and 32-bit. 64-bit requires special handling
   // unless the 64-bit popcnt instruction is legal.
@@ -44881,19 +44896,19 @@ static SDValue combineParity(SDNode *N, SelectionDAG &DAG,
   if (TLI.isTypeLegal(VT) && TLI.isOperationLegal(ISD::CTPOP, VT))
     return SDValue();
 
-  SDValue N0 = N->getOperand(0);
-  SDValue N1 = N->getOperand(1);
-
-  // LHS needs to be a single use CTPOP.
-  if (N0.getOpcode() != ISD::CTPOP || !N0.hasOneUse())
-    return SDValue();
-
-  // RHS needs to be 1.
-  if (!isOneConstant(N1))
-    return SDValue();
-
   SDLoc DL(N);
   SDValue X = N0.getOperand(0);
+
+  // Special case. If the input fits in 8-bits we can use a single 8-bit TEST.
+  if (DAG.MaskedValueIsZero(X, APInt::getBitsSetFrom(VT.getSizeInBits(), 8))) {
+    X = DAG.getNode(ISD::TRUNCATE, DL, MVT::i8, X);
+    SDValue Flags = DAG.getNode(X86ISD::CMP, DL, MVT::i32, X,
+                                DAG.getConstant(0, DL, MVT::i8));
+    // Copy the inverse of the parity flag into a register with setcc.
+    SDValue Setnp = getSETCC(X86::COND_NP, Flags, DL, DAG);
+    // Extend or truncate to the original type.
+    return DAG.getZExtOrTrunc(Setnp, DL, N->getValueType(0));
+  }
 
   // If this is 64-bit, its always best to xor the two 32-bit pieces together
   // even if we have popcnt.
@@ -44908,7 +44923,7 @@ static SDValue combineParity(SDNode *N, SelectionDAG &DAG,
     SDValue Parity = DAG.getNode(ISD::AND, DL, MVT::i32,
                                  DAG.getNode(ISD::CTPOP, DL, MVT::i32, X),
                                  DAG.getConstant(1, DL, MVT::i32));
-    return DAG.getNode(ISD::ZERO_EXTEND, DL, VT, Parity);
+    return DAG.getZExtOrTrunc(Parity, DL, N->getValueType(0));
   }
   assert(VT == MVT::i32 && "Unexpected VT!");
 
@@ -44929,8 +44944,8 @@ static SDValue combineParity(SDNode *N, SelectionDAG &DAG,
 
   // Copy the inverse of the parity flag into a register with setcc.
   SDValue Setnp = getSETCC(X86::COND_NP, Flags, DL, DAG);
-  // Zero extend to original type.
-  return DAG.getNode(ISD::ZERO_EXTEND, DL, N->getValueType(0), Setnp);
+  // Extend or truncate to the original type.
+  return DAG.getZExtOrTrunc(Setnp, DL, N->getValueType(0));
 }
 
 
@@ -45101,7 +45116,7 @@ static SDValue combineAnd(SDNode *N, SelectionDAG &DAG,
     if (VT == SrcVecVT.getScalarType() &&
         N->getOperand(0)->isOnlyUserOf(SrcVec.getNode()) &&
         getTargetConstantBitsFromNode(BitMask, 8, UndefElts, EltBits) &&
-        llvm::all_of(EltBits, [](APInt M) {
+        llvm::all_of(EltBits, [](const APInt &M) {
           return M.isNullValue() || M.isAllOnesValue();
         })) {
       unsigned NumElts = SrcVecVT.getVectorNumElements();
@@ -52297,8 +52312,8 @@ LowerXConstraint(EVT ConstraintVT) const {
 
 // Lower @cc targets via setcc.
 SDValue X86TargetLowering::LowerAsmOutputForConstraint(
-    SDValue &Chain, SDValue &Flag, SDLoc DL, const AsmOperandInfo &OpInfo,
-    SelectionDAG &DAG) const {
+    SDValue &Chain, SDValue &Flag, const SDLoc &DL,
+    const AsmOperandInfo &OpInfo, SelectionDAG &DAG) const {
   X86::CondCode Cond = parseConstraintCode(OpInfo.ConstraintCode);
   if (Cond == X86::COND_INVALID)
     return SDValue();
