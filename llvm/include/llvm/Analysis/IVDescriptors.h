@@ -311,7 +311,15 @@ public:
   /// Returns true if all source operands of the recurrence are SExtInsts.
   bool isSigned() { return IsSigned; }
 
+<<<<<<< HEAD
 #endif
+=======
+  /// Attempts to find a chain of operations from Phi to LoopExitInst that can
+  /// be treated as a set of reductions instructions for in-loop reductions.
+  SmallVector<Instruction *, 4> getReductionOpChain(PHINode *Phi,
+                                                    Loop *L) const;
+
+>>>>>>> e9761688e41cb979a1fa6a79eb18145a75104933
 private:
 #if !INTEL_CUSTOMIZATION
   // The starting value of the recurrence.
