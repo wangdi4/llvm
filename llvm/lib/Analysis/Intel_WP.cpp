@@ -695,10 +695,103 @@ bool WholeProgramInfo::analyzeAndResolveFunctions() {
   return Resolved;
 }
 
+// Given a Value, check if it is a Function or a GlobalVariable, if so insert
+// it in Aliasees. If not, then check if it is a Constant and recurse with
+// the Operands as input. The DataChecked vector is used to prevent infinite
+// recursion.
+static void CollectAliasedInformation(const Value *BaseVal,
+                                      SetVector<const Value*> &Aliasees,
+                                      SetVector<const Value*> &DataChecked) {
+
+  // Return true if ConstVal is a Function or a GlobalAlias, and insert it
+  // in Aliasees. Also, return true if ConstVal is in Aliasees. Else, return
+  // false.
+  auto CheckValue = [&Aliasees](const Value* ConstVal) -> bool {
+    const Value *Val = ConstVal->stripPointerCasts();
+
+    if (Aliasees.count(Val))
+      return true;
+
+    if (isa<const Function>(Val) || isa<const GlobalAlias>(Val))
+      return Aliasees.insert(Val);
+
+    return false;
+  };
+
+  if (!BaseVal)
+    return;
+
+  if (!DataChecked.insert(BaseVal))
+    return;
+
+  // Check if BaseVal is a Function or a GlobalAlias
+  if (CheckValue(BaseVal) || !isa<const Constant>(BaseVal))
+    return;
+
+  // Functions and GlobalAliases are Constants. We are just going to traverse
+  // through any constant that holds them (array, structure, etc.).
+  auto *BaseConst = cast<const Constant>(BaseVal);
+  for (unsigned I = 0, E = BaseConst->getNumOperands(); I < E; I++) {
+    const Value *OP = BaseConst->getOperand(I);
+    CollectAliasedInformation(OP, Aliasees, DataChecked);
+  }
+}
+
+// Given a GlobalAlias GA, return true if the alias was resolved, else return
+// false. An alias is identified as resolved if:
+//
+//   * All functions in the alias must be internal functions or libfuncs
+//   * All aliases in the alias must be resolved too
+//   * There is no recursion in the alias
+//
+// The GlobalAlias OriginalGA is used for checking any recursion (Alias A
+// points to Alias B which points to Alias A).
+bool WholeProgramInfo::isValidAlias(const GlobalAlias *GA,
+                                    const GlobalAlias *OriginalGA) {
+
+  if (!GA || !OriginalGA)
+    return false;
+
+  // If the alias was collected before then there is nothing to check
+  if (AliasesFound.count(GA))
+    return true;
+
+  const Value *BaseObject = cast<const GlobalValue>(GA->getBaseObject());
+
+  // Collect what GA is aliasing
+  SetVector<const Value*> Aliasees;
+  SetVector<const Value*> DataChecked;
+  CollectAliasedInformation(BaseObject, Aliasees, DataChecked);
+
+  // If GA or OriginalGA are in the vector of aliasees, then return false.
+  // This means that we found some sort of recursion.
+  if (Aliasees.count(GA) > 0 || Aliasees.count(OriginalGA))
+    return false;
+
+  // Go through all the Functions and GlobalAliases collected.
+  for (auto *Aliasee : Aliasees) {
+    // A Function must have local linkage with IR or must be a libfunc
+    if (auto *Func = dyn_cast<const Function>(Aliasee)) {
+      if (!isValidFunction(Func))
+        return false;
+    }
+    else {
+      // A GlobalAlias must be resolveed too
+      auto *GlobAlias = cast<const GlobalAlias>(Aliasee);
+      if (AliasesFound.count(GlobAlias))
+        continue;
+      if (!isValidAlias(GlobAlias, OriginalGA))
+        return false;
+    }
+  }
+
+  AliasesFound.insert(GA);
+  return true;
+}
+
 // Return true if all the aliases in the Module were resolved. An alias is
 // "resolved" if it has the following properties:
 //
-//   * has local linkange
 //   * aliasees that are functions must be identified as "resolved"
 //   * aliasees that are aliases must be resolved
 //
@@ -708,8 +801,6 @@ bool WholeProgramInfo::analyzeAndResolveAliases() {
   // Walk through all aliases to find unresolved aliases.
   bool AllAliasesResolved = true;
   for (auto &GA : M->aliases()) {
-    if (GA.hasLocalLinkage())
-      continue;
 
     SetVector<const Value *> DataChecked;
     // Skip those aliases that won't be used in the program
@@ -717,19 +808,19 @@ bool WholeProgramInfo::analyzeAndResolveAliases() {
                            LLVMSpecialGlobalVars))
       continue;
 
-    // TODO: The function that analyzes the alias GA needs to be implemented.
-    // This is the function that will walk the alias and check if the aliasees
-    // are resolved. We might need to check all aliases, even if they have
-    // local linkage. Possible case: an alias with local linkage aliasing
-    // an alias with non-local linkage.
+    bool AliasResolved = isValidAlias(&GA, &GA);
+
+    if (!AliasResolved) {
 #ifdef USING_DEBUG_MODE
-    // Store the unresolved aliases if we are debugging
-    AliasesNotFound.insert(&GA);
-    AllAliasesResolved = false;
+      // Store the unresolved aliases if we are debugging
+      AliasesNotFound.insert(&GA);
 #else
-    // Return early if we aren't debugging
-    return false;
+      // Return early if we aren't debugging
+      return false;
 #endif // USING_DEBUG_MODE
+    }
+
+    AllAliasesResolved &= AliasResolved;
   }
 
   return AllAliasesResolved;

@@ -1,0 +1,15 @@
+; This function is part of the whole_program_alias_03.ll and
+; whole_program_alias_05.ll test cases. The function @sub2 will be called from
+; @main. The whole program analysis should produce whole program not detected
+; since @sub2 will be treated as missing libfunc.
+
+target datalayout = "e-m:w-i64:64-f80:128-n8:16:32:64-S128"
+target triple = "x86_64-pc-windows-msvc"
+
+declare i32 @sub(i32 %a)
+
+define i32 @sub2(i32 %a) {
+entry:
+  %sub = call i32 @sub(i32 %a)
+  ret i32 %sub
+}
