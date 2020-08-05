@@ -1506,7 +1506,6 @@ void CodeGenModule::GenOpenCLArgMetadata(llvm::Function *Fn,
   // MDNode for the kernel argument names.
   SmallVector<llvm::Metadata *, 8> argNames;
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   // MDNode for the intel_host_accessible attribute.
   SmallVector<llvm::Metadata*, 8> argHostAccessible;
@@ -1520,11 +1519,9 @@ void CodeGenModule::GenOpenCLArgMetadata(llvm::Function *Fn,
   // MDNode for the intel_buffer_location attribute.
   SmallVector<llvm::Metadata*, 8> argBufferLocationAttr;
 #endif // INTEL_CUSTOMIZATION
-=======
   // MDNode for the intel_buffer_location attribute.
   SmallVector<llvm::Metadata *, 8> argSYCLBufferLocationAttr;
 
->>>>>>> 0c38b3595d2606c2ad4a8e84c2cca9a603948b6c
   if (FD && CGF)
     for (unsigned i = 0, e = FD->getNumParams(); i != e; ++i) {
       const ParmVarDecl *parm = FD->getParamDecl(i);
@@ -1648,7 +1645,6 @@ void CodeGenModule::GenOpenCLArgMetadata(llvm::Function *Fn,
 
       // Get argument name.
       argNames.push_back(llvm::MDString::get(VMContext, parm->getName()));
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
       bool IsHostAccessible = ty->isPipeType() &&
 	      parm->getAttr<OpenCLHostAccessibleAttr>();
@@ -1677,7 +1673,6 @@ void CodeGenModule::GenOpenCLArgMetadata(llvm::Function *Fn,
 			      BufferLocationAttr->getBufferLocation())
 		      : llvm::MDString::get(VMContext, ""));
 #endif // INTEL_CUSTOMIZATION
-=======
 
       auto *SYCLBufferLocationAttr =
           parm->getAttr<SYCLIntelBufferLocationAttr>();
@@ -1686,7 +1681,6 @@ void CodeGenModule::GenOpenCLArgMetadata(llvm::Function *Fn,
               ? llvm::ConstantAsMetadata::get(CGF->Builder.getInt32(
                     SYCLBufferLocationAttr->getLocationID()))
               : llvm::ConstantAsMetadata::get(CGF->Builder.getInt32(-1)));
->>>>>>> 0c38b3595d2606c2ad4a8e84c2cca9a603948b6c
     }
 
   Fn->setMetadata("kernel_arg_addr_space",
