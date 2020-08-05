@@ -44,8 +44,9 @@ namespace intel {
     for (auto &GVar : M.globals()) {
       // According to llvm/LangRef, unreferenced globals of common, weak and
       // weak_odr linkage may not be discarded.
+      unsigned AS = GVar.getType()->getAddressSpace();
       bool MayNotDiscardLinkage =
-        IS_ADDR_SPACE_GLOBAL(GVar.getType()->getAddressSpace()) &&
+        (IS_ADDR_SPACE_GLOBAL(AS) || IS_ADDR_SPACE_CONSTANT(AS)) &&
         (GVar.hasCommonLinkage() || GVar.hasExternalLinkage() ||
          GVar.hasWeakLinkage() || GVar.hasWeakODRLinkage());
       if (TLSGlobals.count(&GVar) || MayNotDiscardLinkage ||

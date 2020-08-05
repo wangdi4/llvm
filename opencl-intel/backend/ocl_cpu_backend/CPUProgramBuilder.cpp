@@ -345,7 +345,8 @@ void CPUProgramBuilder::PostOptimizationProcessing(Program* pProgram) const
         for (auto &GV : spModule->globals())
         {
             llvm::PointerType *PT = GV.getType();
-            if (!IS_ADDR_SPACE_GLOBAL(PT->getAddressSpace()))
+            unsigned AS = PT->getAddressSpace();
+            if (!IS_ADDR_SPACE_GLOBAL(AS) && !IS_ADDR_SPACE_CONSTANT(AS))
                 continue;
 
             size_t Size = DL.getTypeAllocSize(PT->getContainedType(0));
