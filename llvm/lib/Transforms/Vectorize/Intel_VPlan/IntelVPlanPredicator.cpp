@@ -430,7 +430,10 @@ void VPlanPredicator::linearizeRegion() {
   // a single outgoing edge (to the CurrBlock, see below) and remove another
   // one. Keep track of the removed ones to properly process another successor
   // later on.
-  DenseMap<VPBasicBlock * /* Dst */, SmallVector<VPBasicBlock * /* Src */, 4>>
+  //
+  // Use std::map to avoid invalidation of references to the values stored in
+  // the map when insertions happen.
+  std::map<VPBasicBlock * /* Dst */, SmallVector<VPBasicBlock * /* Src */, 4>>
       RemovedDivergentEdgesMap;
 
   // VPlan entry block is assumed to be unmasked.

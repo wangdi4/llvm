@@ -93,13 +93,13 @@ attributes #5 = { nounwind "correctly-rounded-divide-sqrt-fp-math"="false" "disa
 !llvm.module.flags = !{!3, !4, !5}
 !llvm.ident = !{!6}
 
-!0 = distinct !DICompileUnit(language: DW_LANG_C_plus_plus_14, file: !1, producer: "clang based Intel(R) oneAPI DPC++ Compiler 2021.1 (YYYY.x.0.MMDD)", isOptimized: true, runtimeVersion: 0, emissionKind: FullDebug, enums: !2, nameTableKind: None)
+!0 = distinct !DICompileUnit(language: DW_LANG_C_plus_plus_14, file: !1, producer: "clang version 10.0.0", isOptimized: true, runtimeVersion: 0, emissionKind: FullDebug, enums: !2, nameTableKind: None)
 !1 = !DIFile(filename: "test.cpp", directory: "/home/users/clin1/test/18968")
 !2 = !{}
 !3 = !{i32 7, !"Dwarf Version", i32 4}
 !4 = !{i32 2, !"Debug Info Version", i32 3}
 !5 = !{i32 1, !"wchar_size", i32 4}
-!6 = !{!"Intel(R) oneAPI DPC++ Compiler 2021.1 (YYYY.x.0.MMDD)"}
+!6 = !{!"clang version 10.0.0"}
 !7 = distinct !DISubprogram(name: "func_of_A", linkageName: "_ZN1A9func_of_AEv", scope: !8, file: !1, line: 15, type: !28, scopeLine: 15, flags: DIFlagPrototyped, spFlags: DISPFlagDefinition | DISPFlagOptimized, unit: !0, declaration: !27, retainedNodes: !32)
 !8 = distinct !DICompositeType(tag: DW_TAG_structure_type, name: "A", file: !1, line: 9, size: 8, flags: DIFlagTypePassByReference | DIFlagNonTrivial, elements: !9, identifier: "_ZTS1A")
 !9 = !{!10, !27}
