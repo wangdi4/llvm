@@ -531,28 +531,6 @@ bool X86CmovConverterPass::checkForProfitableCmovCandidates(
   CmovGroups TempGroups;
   std::swap(TempGroups, CmovInstGroups);
 
-#if INTEL_CUSTOMIZATION
-  // This an attempt to fix CMPLRLLVM-11143. The code in question has a
-  // loop that has been unrolled 8 times. There are pairs of cmovs that share
-  // a condition. One of the cmovs along with the compare implements a
-  // min/max. The code here looks at one of the pairs of cmovs that is part
-  // of a set of at least 8 other pairs. All in the same basic block.
-  // Then checks if the operands of one of the cmovs matches the operands of
-  // the condition and that the condition code is for a signed min/max. If so
-  // we keep the pair as cmovs.
-  bool CheckMinMaxChain = false;
-  if (!TempGroups.empty() && !TempGroups[0].empty()) {
-    MachineBasicBlock *CommParent = TempGroups[0][0]->getParent();
-    if (TempGroups.size() >= 8 &&
-        all_of(TempGroups, [&](const CmovGroup &G) {
-                             return G.size() == 2 &&
-                                    G[0]->getParent() == CommParent &&
-                                    G[1]->getParent() == CommParent;
-                           }))
-      CheckMinMaxChain = true;
-  }
-#endif
-
   for (auto &Group : TempGroups) {
     bool WorthOpGroup = true;
     for (auto *MI : Group) {
@@ -580,41 +558,28 @@ bool X86CmovConverterPass::checkForProfitableCmovCandidates(
     }
 
 #if INTEL_CUSTOMIZATION
-    if (CheckMinMaxChain) {
-      // Group should have 2 cmovs, checked when CheckMinMaxChain was set.
-      assert(Group.size() == 2 && "Unexpected group size!");
-      MachineInstr *Cmov0 = Group[0];
-      MachineInstr *Cmov1 = Group[1];
-
-      MachineInstr *Flags0 = OperandToDefMap.lookup(&Cmov0->getOperand(4));
-      MachineInstr *Flags1 = OperandToDefMap.lookup(&Cmov1->getOperand(4));
-
-      X86::CondCode CC = X86::CondCode(X86::getCondFromCMov(*Cmov0));
-
-      // Make sure we found the condition instruction and that its the same
-      // for both cmovs.
-      // CMP is implemented as a SUB at this point in the pipeline. It will be
-      // turned into CMP later if the data result is unused.
-      // FIXME: There's really no reason for the condition code check other than
-      // to restrict this to a specific sequence seen in the wild.
-      if (Flags0 && Flags0 == Flags1 &&
-          (Flags0->getOpcode() == X86::SUB32rr ||
-           Flags0->getOpcode() == X86::SUB64rr) &&
-          (CC == X86::COND_LE || CC == X86::COND_G)) {
-        MachineInstr *LHS0 = OperandToDefMap.lookup(&Cmov0->getOperand(1));
-        MachineInstr *RHS0 = OperandToDefMap.lookup(&Cmov0->getOperand(2));
-        MachineInstr *LHS1 = OperandToDefMap.lookup(&Cmov1->getOperand(1));
-        MachineInstr *RHS1 = OperandToDefMap.lookup(&Cmov1->getOperand(2));
-        MachineInstr *CmpLHS = OperandToDefMap.lookup(&Flags0->getOperand(1));
-        MachineInstr *CmpRHS = OperandToDefMap.lookup(&Flags0->getOperand(2));
-
-        // Check the compare against the operands of both cmovs accounting for
-        // operands possibly being reversed.
-        if ((CmpLHS == LHS0 && CmpRHS == RHS0) ||
-            (CmpLHS == RHS0 && CmpRHS == LHS0) ||
-            (CmpLHS == LHS1 && CmpRHS == RHS1) ||
-            (CmpLHS == RHS1 && CmpRHS == LHS1)) {
-          WorthOpGroup = false;
+    // MIN/MAX usually implies unpredictable branch condition and CMOV can
+    // provide better performance than branch in general.
+    // JIRA: CMPLRLLVM-11143, CMPLRLLVM-19857
+    if (WorthOpGroup) {
+      MachineInstr *Cmov = Group[0];
+      MachineInstr *Flags = OperandToDefMap.lookup(&Cmov->getOperand(4));
+      X86::CondCode CC = X86::CondCode(X86::getCondFromCMov(*Cmov));
+      if ((Flags->getOpcode() == X86::SUB32rr ||
+           Flags->getOpcode() == X86::SUB64rr) &&
+          (CC == X86::COND_L || CC == X86::COND_GE ||
+           CC == X86::COND_LE || CC == X86::COND_G)) {
+        MachineInstr *CmpLHS = OperandToDefMap.lookup(&Flags->getOperand(1));
+        MachineInstr *CmpRHS = OperandToDefMap.lookup(&Flags->getOperand(2));
+        for (auto *MI : Group) {
+          MachineInstr *CmovLHS = OperandToDefMap.lookup(&MI->getOperand(1));
+          MachineInstr *CmovRHS = OperandToDefMap.lookup(&MI->getOperand(2));
+          if ((CmpLHS == CmovLHS && CmpRHS == CmovRHS) ||
+              (CmpLHS == CmovRHS && CmpRHS == CmovLHS)) {
+            // disable converting to branch for MIN/MAX condition
+            WorthOpGroup = false;
+            break;
+          }
         }
       }
     }

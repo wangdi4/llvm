@@ -27,6 +27,15 @@ if(LIBOMPTARGET_DEP_LEVEL0_FOUND)
       add_definitions(-DOMPTARGET_LEVEL0_DEBUG)
     endif()
 
+    # Add a switch to differentiate old/new API in transition period
+    # TODO: check if there is a better input common to llvm build later
+    string(FIND ${LIBOMPTARGET_DEP_LEVEL0_LIBRARIES} "0.91" OLD_API)
+    if(${OLD_API} MATCHES "-1")
+      add_definitions(-DUSE_NEW_API=1)
+    else()
+      add_definitions(-DUSE_NEW_API=0)
+    endif()
+
     include_directories(${LIBOMPTARGET_DEP_LEVEL0_INCLUDE_DIRS})
     add_library(omptarget.rtl.level0 SHARED src/rtl.cpp src/ompt-level0.cpp)
 
