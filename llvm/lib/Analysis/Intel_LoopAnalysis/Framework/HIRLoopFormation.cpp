@@ -166,10 +166,23 @@ bool HIRLoopFormation::hasNSWSemantics(const Loop *Lp, Type *IVType,
                                        const SCEV *BECount) const {
   assert(IVType->isIntegerTy() && "Integer IV type expected!");
 
-  // Loop has NSW if backedge taken count is in signed range.
+  // Loop has signed IV if backedge taken count is in signed range.
   if (!isa<SCEVCouldNotCompute>(BECount) &&
       ScopedSE.isKnownNonNegative(BECount)) {
     return true;
+  }
+
+  // Single exit loop has signed IV if max backedge taken count is in signed
+  // range.
+  if (Lp->getExitingBlock()) {
+    ScopedSE.setBackedgeTakenCountLoop(Lp);
+    auto *MaxBECount = ScopedSE.getConstantMaxBackedgeTakenCount(Lp);
+    ScopedSE.resetBackedgeTakenCountLoop();
+
+    if (!isa<SCEVCouldNotCompute>(MaxBECount) &&
+        ScopedSE.isKnownNonNegative(MaxBECount)) {
+      return true;
+    }
   }
 
   // Set NSW if there is a non-negative integer IV in the loop header (less
