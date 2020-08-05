@@ -628,7 +628,6 @@ Pass *createLoopSimplifyCFGPass();
 //
 Pass *createWarnMissedTransformationsPass();
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 //===----------------------------------------------------------------------===//
 //
@@ -636,14 +635,13 @@ Pass *createWarnMissedTransformationsPass();
 //
 FunctionPass *createIVSplitLegacyPass();
 #endif // INTEL_CUSTOMIZATION
-=======
+
 //===----------------------------------------------------------------------===//
 //
 // This pass does instruction simplification on each
 // instruction in a function.
 //
 FunctionPass *createInstSimplifyLegacyPass();
->>>>>>> f50b3ff02e3245b44b5452b409ca1df22e91be45
 } // End llvm namespace
 
 #endif
