@@ -56,6 +56,7 @@ add_opencl_library (${TARGET_NAME} SHARED
     ${CL_API_HEADERS}
     ${OCL_CPU_DEBUGGING_IMPORT_DIRS}
     ${OCL_SOURCE_DIR}/externals/tbb/include
+    ${OCL_SOURCE_DIR}/externals/itt/include
 
     LINK_LIBS
     ${SOCKETLIB}

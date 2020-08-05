@@ -24,6 +24,9 @@ if (CMAKE_SIZEOF_VOID_P EQUAL 8)
     endif (WIN32)
 endif (CMAKE_SIZEOF_VOID_P EQUAL 8)
 
+
+include(itt)
+
 # add a target named ${TARGET_NAME}
 add_opencl_library (${TARGET_NAME} STATIC
     ${TARGET_SOURCES}

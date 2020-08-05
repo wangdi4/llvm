@@ -49,6 +49,7 @@
 #include "cl_utils.h"
 #include "hw_utils.h"
 #include "cl_sys_defines.h"
+#include "ittnotify.h"
 
 namespace Intel { namespace OpenCL { namespace Utils {
 
@@ -231,6 +232,8 @@ namespace Intel { namespace OpenCL { namespace Utils {
                 hw_pause();
             };
 
+            // Notify Intel Inspector that the lock is acquired
+            __itt_sync_acquired(this);
             assert( 1 == m_val && "Mutex expected to be in locked");
         }
 
@@ -238,6 +241,9 @@ namespace Intel { namespace OpenCL { namespace Utils {
         {
             assert( 1 == m_val && "Mutex expected to be in locked");
             _mm_mfence(); // ensure all memory accesses inside critical sections are flushed by HW
+
+            // Notify Intel Inspector that the lock is releasing
+            __itt_sync_releasing(this);
             m_val = 0;
         }
         

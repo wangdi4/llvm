@@ -29,6 +29,7 @@ add_opencl_library (${TARGET_NAME} STATIC
     INCLUDE_DIRS
     ${HW_UTILS_HEADERS}
     ${CL_API_HEADERS}
+    ${OCL_SOURCE_DIR}/externals/itt/include
 
     INSTALL_PATH
     ${OUTPUT_ARCH_SUFF}

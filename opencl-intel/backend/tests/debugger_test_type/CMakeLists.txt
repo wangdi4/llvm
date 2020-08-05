@@ -3,6 +3,7 @@ set(TARGET debugger_test_type)
 if (NOT WIN32)
   # remove the restriction of warning as error for this component
   remove_definitions(-Werror)
+  add_compile_options(-Wno-attributes)
 endif (NOT WIN32)
 
 # some debugger tests have to use deprecated OpenCL API functions.
@@ -24,6 +25,7 @@ add_opencl_executable(${TARGET}
     ${CL_API_HEADERS}
     ${OCL_SOURCE_DIR}/utils/cl_hw_utils/export
     ${OCL_SOURCE_DIR}/utils/cl_sys_utils/export
+    ${OCL_SOURCE_DIR}/externals/itt/include
 
     LINK_LIBS
       ${OpenCL_LIBRARY}

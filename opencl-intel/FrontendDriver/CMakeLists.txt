@@ -96,6 +96,8 @@ endif (WIN32)
 
 add_subdirectory(pre_release_header)
 
+include(itt)
+
 set(LINK_LIBS
     OclPluginManager
     CacheBinaryHandler

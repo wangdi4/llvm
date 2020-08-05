@@ -19,6 +19,8 @@ include_directories( ${CL_API_HEADERS} )
 FIND_SOURCES()
 CALCULATE_TARGET_SOURCES()
 
+include(itt)
+
 if (WIN32)
     set( LIB_TYPE STATIC  )
     set( SYSTEM_LIBS      )
