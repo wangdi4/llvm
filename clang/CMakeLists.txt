@@ -324,6 +324,11 @@ set(CLANG_DEFAULT_OBJCOPY "objcopy" CACHE STRING
 # INTEL_CUSTOMIZATION
 set(CLANG_DEFAULT_OPENMP_RUNTIME "libiomp5" CACHE STRING
   "Default OpenMP runtime used by -fopenmp.")
+# Create 'dummy file' to enable Compiler Pro.  This file is used to determine
+# if OpenMP should be enabled and other possible 'Pro' behaviors.
+set(COMPILER_PRO_AUTH_FILE ${LLVM_RUNTIME_OUTPUT_INTDIR}/compiler-pro-auth)
+file(WRITE ${COMPILER_PRO_AUTH_FILE} "${DPCPP_PRODUCT_VERSION}\n")
+install(FILES ${COMPILER_PRO_AUTH_FILE} DESTINATION bin COMPONENT clang)
 # end INTEL_CUSTOMIZATION
 
 # OpenMP offloading requires at least sm_35 because we use shuffle instructions
