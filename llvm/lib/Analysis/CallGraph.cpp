@@ -281,6 +281,10 @@ void CallGraphNode::replaceCallEdge(CallBase &Call, CallBase &NewCall,
       I->second = NewNode;
       NewNode->AddRef();
 
+<<<<<<< HEAD
+=======
+#if INTEL_CUSTOMIZATION
+>>>>>>> d97a84665fb06593232eca1ddd745492d6c29ce7
       // Refresh callback references. Do not resize CalledFunctions if the
       // number of callbacks is the same for new and old call sites.
       SmallVector<CallGraphNode *, 4u> OldCBs;
@@ -312,6 +316,10 @@ void CallGraphNode::replaceCallEdge(CallBase &Call, CallBase &NewCall,
         for (auto *CGN : NewCBs)
           addCalledFunction(nullptr, CGN);
       }
+<<<<<<< HEAD
+=======
+#endif // INTEL_CUSTOMIZATION
+>>>>>>> d97a84665fb06593232eca1ddd745492d6c29ce7
       return;
     }
   }

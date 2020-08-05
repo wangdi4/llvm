@@ -16,8 +16,13 @@
 #include "llvm/Analysis/CallGraphSCCPass.h"
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/Analysis/LoopPass.h"
+<<<<<<< HEAD
 #include "llvm/AsmParser/Parser.h"
 #include "llvm/IR/AbstractCallSite.h"
+=======
+#include "llvm/AsmParser/Parser.h"    // INTEL
+#include "llvm/IR/AbstractCallSite.h" // INTEL
+>>>>>>> d97a84665fb06593232eca1ddd745492d6c29ce7
 #include "llvm/IR/BasicBlock.h"
 #include "llvm/IR/CallingConv.h"
 #include "llvm/IR/DataLayout.h"
@@ -30,7 +35,11 @@
 #include "llvm/IR/OptBisect.h"
 #include "llvm/InitializePasses.h"
 #include "llvm/Support/MathExtras.h"
+<<<<<<< HEAD
 #include "llvm/Support/SourceMgr.h"
+=======
+#include "llvm/Support/SourceMgr.h" // INTEL
+>>>>>>> d97a84665fb06593232eca1ddd745492d6c29ce7
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Transforms/Utils/CallGraphUpdater.h"
 #include "gtest/gtest.h"
@@ -698,6 +707,10 @@ namespace llvm {
       ASSERT_EQ(P->NumExtCalledAfter, /* test1, 3repl, 4 */ 3U);
     }
 
+<<<<<<< HEAD
+=======
+#if INTEL_CUSTOMIZATION
+>>>>>>> d97a84665fb06593232eca1ddd745492d6c29ce7
     // Test for call graph SCC pass that replaces all callback call instructions
     // with clones and updates CallGraph by calling CallGraph::replaceCallEdge()
     // method. Test is expected to complete successfully after running pass on
@@ -780,6 +793,10 @@ namespace llvm {
       Passes.add(P);
       Passes.run(*M);
     }
+<<<<<<< HEAD
+=======
+#endif // INTEL_CUSTOMIZATION
+>>>>>>> d97a84665fb06593232eca1ddd745492d6c29ce7
   }
 }
 
