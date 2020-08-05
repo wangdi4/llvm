@@ -25,6 +25,13 @@
 #define TARGET_NAME CUDA
 #endif
 
+#if INTEL_CUSTOMIZATION
+// This source below is clang-compatible and does not build with xmain's
+// very strict GCC options.
+// Turn this off to avoid excessive source modifications.
+#pragma GCC diagnostic ignored "-Wsign-compare"
+#endif // INTEL_CUSTOMIZATION
+
 #ifdef OMPTARGET_DEBUG
 static int DebugLevel = 0;
 
@@ -586,10 +593,6 @@ public:
           return nullptr;
         }
 
-#if INTEL_COLLAB
-EXTERN
-#endif  // INTEL_COLLAB
-int32_t __tgt_rtl_init_device(int32_t device_id) {
         if (CUSize != E->size) {
           DP("Loading global '%s' - size mismatch (%zd != %zd)\n", E->name,
              CUSize, E->size);
@@ -1102,6 +1105,9 @@ int32_t __tgt_rtl_data_retrieve_async(int32_t device_id, void *hst_ptr,
                                 async_info_ptr);
 }
 
+#if INTEL_COLLAB
+EXTERN
+#endif  // INTEL_COLLAB
 int32_t __tgt_rtl_data_exchange_async(int32_t src_dev_id, void *src_ptr,
                                       int dst_dev_id, void *dst_ptr,
                                       int64_t size,
@@ -1114,6 +1120,9 @@ int32_t __tgt_rtl_data_exchange_async(int32_t src_dev_id, void *src_ptr,
                                 async_info_ptr);
 }
 
+#if INTEL_COLLAB
+EXTERN
+#endif  // INTEL_COLLAB
 int32_t __tgt_rtl_data_exchange(int32_t src_dev_id, void *src_ptr,
                                 int32_t dst_dev_id, void *dst_ptr,
                                 int64_t size) {
@@ -1218,6 +1227,11 @@ int32_t __tgt_rtl_synchronize(int32_t device_id,
 
   return DeviceRTL.synchronize(device_id, async_info_ptr);
 }
+
+#if INTEL_CUSTOMIZATION
+// -Wsign-compare
+#pragma GCC diagnostic pop
+#endif // INTEL_CUSTOMIZATION
 
 #ifdef __cplusplus
 }
