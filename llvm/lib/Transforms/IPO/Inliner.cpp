@@ -311,7 +311,22 @@ static bool inlineHistoryIncludes(
 
 #if INTEL_CUSTOMIZATION
 static void collectDtransFuncs(Module &M) {
+
 #if INTEL_INCLUDE_DTRANS
+  // Returns true if “Fn” is empty.
+  auto IsEmptyFunction = [] (Function *Fn) {
+    if (Fn->isDeclaration())
+      return false;
+    for (auto &I : Fn->getEntryBlock()) {
+      if (isa<DbgInfoIntrinsic>(I))
+        continue;
+      if (isa<ReturnInst>(I))
+        return true;
+      break;
+    }
+    return false;
+  };
+
   // Set of SOAToAOS candidates.
   SmallPtrSet<StructType*, 4> SOAToAOSCandidates;
   // Suppress inlining for SOAToAOS candidates.
@@ -355,8 +370,11 @@ static void collectDtransFuncs(Module &M) {
     SOAToAOSCandidates.insert(Str);
     Info.collectFuncs(&SOAToAOSCandidateMethods);
   }
+  // Don’t need to track empty functions for DTrans. Analysis will
+  // be simpler if empty functions are inlined.
   for (Function *F: SOAToAOSCandidateMethods)
-    F->addFnAttr("noinline-dtrans");
+    if (!IsEmptyFunction(F))
+      F->addFnAttr("noinline-dtrans");
 
   SmallSet<Function *, 32> MemInitFuncs;
   // Only SOAToAOS candidates are considered for MemInitTrimDown.
@@ -391,7 +409,8 @@ static void collectDtransFuncs(Module &M) {
   //   1. Member functions of candidate struct
   //   2. Member functions of all candidate array field structs.
   for (Function *F: MemInitFuncs)
-    F->addFnAttr("noinline-dtrans");
+    if (!IsEmptyFunction(F))
+      F->addFnAttr("noinline-dtrans");
 #endif // INTEL_INCLUDE_DTRANS
 }
 #endif // INTEL_CUSTOMIZATION

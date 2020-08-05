@@ -576,12 +576,20 @@ private:
     bool HasExternalSideEffect = false;
     // For correct EH terminate block handling.
     bool HasClangCallTerminate = false;
+    // No methods are allowed to return "this" pointer except
+    // MK_Dtor/MK_Ctor/MK_CCtor methods. Later, we will prove
+    // that return values from MK_Dtor/MK_Ctor/MK_CCtor calls
+    // are not really used.
+    bool ReturnsThisPtr = false;
 
     MethodKind classifyMethod(const ArraySummaryForIdiom &S) const {
       if (HasClangCallTerminate && !HasBasePtrFree)
         return MK_Unknown;
       // Don't allow ElemPtrFree except in Dtor/Set.
       if (HasElemPtrFree && !(HasBasePtrFree || HasElementSetFromArg))
+        return MK_Unknown;
+      // Don't allow ReturnsThisPtr except in Dtor/Ctor/CCtor.
+      if (ReturnsThisPtr && !(HasBasePtrFree || HasBasePtrInitFromNewMemory))
         return MK_Unknown;
 
       // MK_Append/MK_Set
@@ -634,6 +642,19 @@ private:
   private:
     static bool checkTransformRestriction(const ArraySummaryForIdiom &S,
                                           MethodKind Kind) {
+      // Return true if return value of “F” is never used at callsites.
+      auto IsReturnValueNeverUsed = [](const Function *F) {
+        if (F->getReturnType()->isVoidTy())
+          return true;
+        for (auto *U : F->users()) {
+          auto *CB = dyn_cast<CallBase>(U);
+          assert(CB && "Unexpected function use");
+          if (!CB->hasNUses(0))
+            return false;
+        }
+        return true;
+      };
+
       // Some calls to combined methods are removed.
       // Avoid complications with returned value in IR transformation.
       bool HasVoidRes = S.Method->getReturnType()->isVoidTy();
@@ -647,10 +668,11 @@ private:
         if (!HasVoidRes)
           return false;
         break;
+      // Makes sure return value of Ctor/CCtor/Dtor is never used.
       case MK_Ctor:
       case MK_CCtor:
       case MK_Dtor:
-        return HasVoidRes;
+        return IsReturnValueNeverUsed(S.Method);
       case MK_Set:
       case MK_GetInteger:
       case MK_GetElement:
@@ -993,6 +1015,25 @@ public:
       return true;
     };
 
+    // Return true if "AI" is passed to "_CxxThrowException" call.
+    auto IsAllocaUsedByEHLib = [this, &IsLibFunction](const AllocaInst *AI) {
+      bool PassedToEHCall = false;
+      for (auto *UI : AI->users()) {
+        auto *CB = dyn_cast<CallBase>(UI);
+        if (isa<BitCastInst>(UI)) {
+          if (!UI->hasOneUse())
+            return false;
+          CB = dyn_cast<CallBase>(*UI->user_begin());
+        }
+        if (!CB)
+          return false;
+        if (IsLibFunction(cast<Function>(CB->getCalledOperand()),
+                          LibFunc_msvc_std_CxxThrowException))
+          PassedToEHCall = true;
+      }
+      return PassedToEHCall;
+    };
+
     MethodClassification MC;
     bool Invalid = false;
 
@@ -1132,6 +1173,30 @@ public:
         else if (ArrayIdioms::isElementLoad(D, S)) {
           MC.ReturnsElement = true;
           break;
+        } else if (Idioms::isThisArg(D, S)) {
+          MC.ReturnsThisPtr = true;
+          break;
+        }
+        Handled = false;
+        break;
+      case Instruction::CleanupRet:
+      case Instruction::CleanupPad:
+        if (ArrayIdioms::isBasePtrFree(D, S)) {
+          MC.HasBasePtrFree = true;
+          break;
+        } else if (ArrayIdioms::isElementPtrFree(D, S)) {
+          MC.HasElemPtrFree = true;
+          break;
+        } else if (ArrayIdioms::isBaseElementPtrFree(D, S)) {
+          // Checking that external side effect is not related to updates of
+          // fields. Loads of MemoryInterface is allowed.
+          MC.HasBasePtrFree = true;
+          MC.HasElemPtrFree = true;
+          break;
+        }
+        if (ArrayIdioms::isExternaSideEffect(D, S)) {
+          MC.HasExternalSideEffect = true;
+          break;
         }
         Handled = false;
         break;
@@ -1177,7 +1242,8 @@ public:
             break;
           }
           if (Function *F = cast<Function>(Call->getCalledOperand()))
-            if (IsLibFunction(F, LibFunc_clang_call_terminate)) {
+            if (IsLibFunction(F, LibFunc_clang_call_terminate) ||
+                IsLibFunction(F, LibFunc_dunder_std_terminate)) {
               MC.HasClangCallTerminate = true;
               break;
             }
@@ -1211,7 +1277,16 @@ public:
         }
         Handled = false;
         break;
-      case Instruction::Alloca: // Not handled here
+      case Instruction::Alloca: {
+        // Allow only alloca that is related to EH.
+        if (IsAllocaUsedByEHLib(cast<AllocaInst>(&I)))
+          break;
+        Handled = false;
+        break;
+      }
+      // Not handled here
+      case Instruction::CatchSwitch:
+      case Instruction::CatchPad:
       default:
         Handled = false;
         break;
