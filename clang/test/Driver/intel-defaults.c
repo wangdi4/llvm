@@ -135,3 +135,8 @@
 // RUN:   | FileCheck -check-prefix CHECK-PROFLIB %s
 // CHECK-PROFLIB-NOT: clang_rt.profile
 
+// Debug kind is limited
+// RUN: %clang -### --intel -c -g %s 2>&1 | FileCheck -check-prefix CHECK-INTEL-DEBUG %s
+// RUN: %clang_cl -### --intel -c -Zi %s 2>&1 | FileCheck -check-prefix CHECK-INTEL-DEBUG %s
+// CHECK-INTEL-DEBUG: "-debug-info-kind=limited"
+

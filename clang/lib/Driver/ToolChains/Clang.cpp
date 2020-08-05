@@ -2463,9 +2463,14 @@ static void CollectArgsForIntegratedAssembler(Compilation &C,
         if (DwarfVersion == 0) { // Send it onward, and let cc1as complain.
           CmdArgs.push_back(Value.data());
         } else {
-          RenderDebugEnablingArgs(Args, CmdArgs,
-                                  codegenoptions::DebugInfoConstructor,
-                                  DwarfVersion, llvm::DebuggerKind::Default);
+#if INTEL_CUSTOMIZATION
+          codegenoptions::DebugInfoKind DebugKind =
+                                        codegenoptions::DebugInfoConstructor;
+          if (D.IsIntelMode())
+            DebugKind = codegenoptions::LimitedDebugInfo;
+          RenderDebugEnablingArgs(Args, CmdArgs, DebugKind, DwarfVersion,
+                                  llvm::DebuggerKind::Default);
+#endif // INTEL_CUSTOMIZATION
         }
       } else if (Value.startswith("-mcpu") || Value.startswith("-mfpu") ||
                  Value.startswith("-mhwdiv") || Value.startswith("-march")) {
@@ -3895,6 +3900,11 @@ static void RenderDebugOptions(const ToolChain &TC, const Driver &D,
        DebugInfoKind == codegenoptions::DebugInfoConstructor) &&
       NeedFullDebug)
     DebugInfoKind = codegenoptions::FullDebugInfo;
+
+#if INTEL_CUSTOMIZATION
+  if (D.IsIntelMode() && DebugInfoKind == codegenoptions::DebugInfoConstructor)
+    DebugInfoKind = codegenoptions::LimitedDebugInfo;
+#endif // INTEL_CUSTOMIZATION
 
   if (Args.hasFlag(options::OPT_gembed_source, options::OPT_gno_embed_source,
                    false)) {
@@ -7587,8 +7597,14 @@ void ClangAs::ConstructJob(Compilation &C, const JobAction &JA,
     // the guard for source type, however there is a test which asserts
     // that some assembler invocation receives no -debug-info-kind,
     // and it's not clear whether that test is just overly restrictive.
-    DebugInfoKind = (WantDebug ? codegenoptions::DebugInfoConstructor
+#if INTEL_CUSTOMIZATION
+    codegenoptions::DebugInfoKind DebugKind =
+                                  codegenoptions::DebugInfoConstructor;
+    if (D.IsIntelMode())
+      DebugKind = codegenoptions::LimitedDebugInfo;
+    DebugInfoKind = (WantDebug ? DebugKind
                                : codegenoptions::NoDebugInfo);
+#endif // INTEL_CUSTOMIZATION
     // Add the -fdebug-compilation-dir flag if needed.
     addDebugCompDirArg(Args, CmdArgs, C.getDriver().getVFS());
 
