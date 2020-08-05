@@ -88,7 +88,7 @@ bool opencl_mul_add_calc( T * a, T * b, T * c, T * results, std::string *program
   if ( err ) return false;
 
   //Command queue
-  cmd_queue = clCreateCommandQueue( context, device, 0, &err );
+  cmd_queue = clCreateCommandQueueWithProperties( context, device, 0, &err );
   if ( err ) return false;
   //Program
   const char * prog = program_source->c_str();

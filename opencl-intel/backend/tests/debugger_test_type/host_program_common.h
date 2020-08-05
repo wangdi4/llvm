@@ -27,10 +27,27 @@
 #pragma warning(push)
 #pragma warning(disable: 4290)
 #endif  // _MSC_VER
+
+// Disable warning 'deprecated-declarations' emitted from CL/cl.hpp
+#if defined(__clang__)
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+#elif defined(__GNUC__)
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
+#endif
+
 #include "CL/cl.hpp"
+
 #ifdef _MSC_VER
 #pragma warning(pop)
 #endif  // _MSC_VER
+
+#if defined(__clang__)
+#pragma clang diagnostic pop
+#elif defined(__GNUC__)
+#pragma GCC diagnostic pop
+#endif
 
 
 #include <vector>
