@@ -8677,7 +8677,16 @@ public:
       CombinedInfo.Sizes.push_back(
           CGF.Builder.CreateIntCast(CGF.getTypeSize(CGF.getContext().VoidPtrTy),
                                     CGF.Int64Ty, /*isSigned=*/true));
+#if INTEL_COLLAB
+      // Port of https://reviews.llvm.org/D84887. If it is accepted we can
+      // remove this customization.
+      CombinedInfo.Types.push_back(
+          (Cap->capturesVariable() && CGF.getLangOpts().OpenMPLateOutline
+               ? OMP_MAP_TO
+               : OMP_MAP_LITERAL) | OMP_MAP_TARGET_PARAM);
+#else // INTEL_COLLAB
       CombinedInfo.Types.push_back(OMP_MAP_LITERAL | OMP_MAP_TARGET_PARAM);
+#endif // INTEL_COLLAB
       CombinedInfo.Mappers.push_back(nullptr);
       return;
     }
