@@ -513,7 +513,6 @@ int targetDataEnd(DeviceTy &Device, int32_t ArgNum, void **ArgBases,
       DP("Mapping does not exist (%s)\n",
          (HasPresentModifier ? "'present' map type modifier" : "ignored"));
       if (HasPresentModifier) {
-<<<<<<< HEAD
         // This should be an error upon entering an "omp target exit data".  It
         // should not be an error upon exiting an "omp target data" or "omp
         // target".  For "omp target data", Clang thus doesn't include present
@@ -522,22 +521,15 @@ int targetDataEnd(DeviceTy &Device, int32_t ArgNum, void **ArgBases,
         // program can guarantee that data is present at the beginning of an
         // "omp target" region so that there's no error there, that data is also
         // guaranteed to be present at the end.
-        MESSAGE("device mapping required by 'present' map type modifier does "
-                "not exist for host address " DPxMOD " (%ld bytes)",
-                DPxPTR(HstPtrBegin), DataSize);
-=======
-        // FIXME: This should not be an error on exit from "omp target data",
-        // but it should be an error upon entering an "omp target exit data".
 #if INTEL_COLLAB
         MESSAGE("device mapping required by 'present' map type modifier does "
                 "not exist for host address " DPxMOD " (%" PRId64 " bytes)",
-                DPxPTR(HstPtrBegin), data_size);
+                DPxPTR(HstPtrBegin), DataSize);
 #else // INTEL_COLLAB
         MESSAGE("device mapping required by 'present' map type modifier does "
                 "not exist for host address " DPxMOD " (%ld bytes)",
-                DPxPTR(HstPtrBegin), data_size);
+                DPxPTR(HstPtrBegin), DataSize);
 #endif // INTEL_COLLAB
->>>>>>> c60e90da6e28356090e42b429a7446592c0aa123
         return OFFLOAD_FAIL;
       }
     } else {
