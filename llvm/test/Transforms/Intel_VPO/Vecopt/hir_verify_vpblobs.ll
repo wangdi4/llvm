@@ -60,7 +60,7 @@
 ; CHECK:      Selecting VF for VPlan #1
 ; CHECK-NEXT: Cost of Scalar VPlan: 92
 ; CHECK-NEXT: '#pragma vector always'/ '#pragma omp simd' is used for the given loop
-; CHECK-NEXT: Scalar Cost = 4 x 23000 = 92000 < VectorCost = 0 + 2 x 112063 + 0 = 224126
+; CHECK:      Scalar Cost = 4 x 23000 = 92000 < VectorCost = 0 + 2 x 112063 + 0 = 224126
 ; CHECK:      Scalar Cost = 4 x 23000 = 92000 < VectorCost = 0 + 1 x 519188 + 0 = 519188
 ; CHECK:      Selecting VPlan with VF=2
 
