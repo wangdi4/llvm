@@ -993,7 +993,7 @@ OclBuiltinImpl::appendImpl(const Record* R)
     return;
   }
 
-  std::auto_ptr<Impl> impl;
+  std::unique_ptr<Impl> impl;
   // Types
   {
     std::vector<Record*> Tys;

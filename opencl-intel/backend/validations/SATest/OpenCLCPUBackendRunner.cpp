@@ -98,7 +98,7 @@ public:
         for (int i = 0; i < kernelParamCnt; i++) {
             const cl_kernel_argument arg = pKernel->GetKernelParams()[i];
 
-            std::auto_ptr<IArgument> pArg;
+            std::unique_ptr<IArgument> pArg;
 
             switch (arg.type) {
                 case CL_KRNL_ARG_PTR_GLOBAL:
@@ -399,7 +399,7 @@ void OpenCLCPUBackendRunner::Run(IRunResult* runResult,
     const BERunOptions  *pOCLRunConfig = static_cast<const BERunOptions *>(runConfig);
     const OpenCLProgram *pOCLProgram   = static_cast<const OpenCLProgram *>(program);
 
-    std::auto_ptr<CPUBackendOptions> options;
+    std::unique_ptr<CPUBackendOptions> options;
     if( pOCLRunConfig->GetValue<bool>(RC_BR_USE_SDE, false))
     {
         options.reset(new SDEBackendOptions());

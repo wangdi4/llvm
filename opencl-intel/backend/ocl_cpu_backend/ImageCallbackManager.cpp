@@ -63,15 +63,13 @@ ImageCallbackManager* ImageCallbackManager::GetInstance()
 
 bool ImageCallbackManager::InitLibrary(const ICompilerConfig& config, bool isCpu, Intel::CPUId& cpuId)
 {
-  std::auto_ptr<CPUCompiler> spCompiler;
-
-  // Initialize compiler first to get archId and CPUFeatures
-  if (isCpu) {
-      spCompiler = std::auto_ptr<CPUCompiler>(new CPUCompiler(config));
-  } else {
+  if (!isCpu) {
     // Nothing but CPU is supported
     return true;
   }
+
+  // Initialize compiler first to get archId and CPUFeatures
+  std::unique_ptr<CPUCompiler> spCompiler(new CPUCompiler(config));
 
   // Retrieve CPU ID
   cpuId = spCompiler->GetCpuId();
@@ -86,7 +84,7 @@ bool ImageCallbackManager::InitLibrary(const ICompilerConfig& config, bool isCpu
 
 
   // ImageCallbackLibrary becomes the owner of compiler. So release compiler here
-  std::auto_ptr<ImageCallbackLibrary> spLibrary(new ImageCallbackLibrary(cpuId, spCompiler.release()));
+  std::unique_ptr<ImageCallbackLibrary> spLibrary(new ImageCallbackLibrary(cpuId, spCompiler.release()));
   spLibrary->Load();
   spLibrary->Build();
 

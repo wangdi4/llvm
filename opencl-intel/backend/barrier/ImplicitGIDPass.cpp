@@ -37,7 +37,7 @@ ImplicitGlobalIdPass::ImplicitGlobalIdPass() :
 bool ImplicitGlobalIdPass::runOnModule(Module& M)
 {
     m_pModule = &M;
-    m_pDIB = std::auto_ptr<DIBuilder>(new DIBuilder(M));
+    m_pDIB = std::unique_ptr<DIBuilder>(new DIBuilder(M));
 
     m_pContext = &M.getContext();
 

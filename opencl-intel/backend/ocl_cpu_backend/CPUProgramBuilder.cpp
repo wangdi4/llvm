@@ -64,7 +64,7 @@ void CPUProgramBuilder::BuildProgramCachedExecutable(ObjectCodeCache* pCache, Pr
 
     // calculate the required buffer size
     size_t serializationSize = 0;
-    std::auto_ptr<CPUSerializationService> pCPUSerializationService(new CPUSerializationService(nullptr));
+    std::unique_ptr<CPUSerializationService> pCPUSerializationService(new CPUSerializationService(nullptr));
     pCPUSerializationService->GetSerializationBlobSize(
         SERIALIZE_PERSISTENT_IMAGE, pProgram, &serializationSize);
 
@@ -85,7 +85,7 @@ void CPUProgramBuilder::BuildProgramCachedExecutable(ObjectCodeCache* pCache, Pr
     else if (m_compiler.GetCpuId().HasAVX1())
         maxSupportedVectorISA = CLElfLib::EH_FLAG_AVX1;
 
-    std::auto_ptr<CacheBinaryWriter> pWriter(new CacheBinaryWriter(bitOS, maxSupportedVectorISA));
+    std::unique_ptr<CacheBinaryWriter> pWriter(new CacheBinaryWriter(bitOS, maxSupportedVectorISA));
 
     // fill the IR bit code
     const char* irStart = ((const char*)(pProgram->GetProgramIRCodeContainer()->GetCode()));
@@ -178,7 +178,7 @@ bool CPUProgramBuilder::ReloadProgramFromCachedExecutable(Program* pProgram)
     pProgram->SetLLJIT(std::move(LLJIT));
 
     // deserialize the management objects
-    std::auto_ptr<CPUSerializationService> pCPUSerializationService(new CPUSerializationService(nullptr));
+    std::unique_ptr<CPUSerializationService> pCPUSerializationService(new CPUSerializationService(nullptr));
     pCPUSerializationService->ReloadProgram(
         SERIALIZE_PERSISTENT_IMAGE,
         pProgram,
@@ -287,7 +287,7 @@ KernelSet* CPUProgramBuilder::CreateKernels(Program* pProgram,
                 //Update vecSize according to vectorWidth of vectorized function
                 vecSize = vkimd.VectorizedWidth.get();
                 // Create the vectorized kernel - no need to pass argument list here
-                std::auto_ptr<KernelJITProperties> spVKernelJITProps(CreateKernelJITProperties(vecSize));
+                std::unique_ptr<KernelJITProperties> spVKernelJITProps(CreateKernelJITProperties(vecSize));
                 spKernelProps->SetMinGroupSizeFactorial(vecSize);
                 AddKernelJIT(static_cast<CPUProgram*>(pProgram),
                               spKernel.get(),
@@ -406,7 +406,7 @@ void CPUProgramBuilder::JitProcessing(
             llvm::StringRef(injectedObjStart, injectedObjSize));
 
     if (useLLDJIT) {
-      std::auto_ptr<StaticObjectLoader> objectLoader(new StaticObjectLoader());
+      std::unique_ptr<StaticObjectLoader> objectLoader(new StaticObjectLoader());
       objectLoader->addPreCompiled(module, injectedObj.release());
       // Add the injected object to the execution engine cache
       static_cast<CPUProgram *>(program)->GetExecutionEngine()->setObjectCache(

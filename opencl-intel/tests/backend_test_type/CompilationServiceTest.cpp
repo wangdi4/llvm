@@ -36,7 +36,7 @@ TEST_F(BackEndTests_CompilationService, CreateProgramSuccess)
 
     //-----------------------------------------------------------------
     // load pre created bitcode buffer in correct format - with kernels
-    std::auto_ptr<BackendWrapper> pBackendWrapper(new BackendWrapper());
+    std::unique_ptr<BackendWrapper> pBackendWrapper(new BackendWrapper());
     ASSERT_TRUE(pBackendWrapper.get());
     std::vector<char> program;
     pBackendWrapper->CreateProgramContainer(get_exe_dir() + FILE_BC_WITH_KERNELS, program);
@@ -65,7 +65,7 @@ TEST_F(BackEndTests_CompilationService, CreateProgramNoKernels)
 
     //-----------------------------------------------------------------
     // load pre created bitcode buffer in correct format - with no kernels
-    std::auto_ptr<BackendWrapper> pBackendWrapper(new BackendWrapper());
+    std::unique_ptr<BackendWrapper> pBackendWrapper(new BackendWrapper());
     ASSERT_TRUE(pBackendWrapper.get());
     std::vector<char> program;
     pBackendWrapper->CreateProgramContainer(get_exe_dir() + FILE_BC_NO_KERNELS, program);
@@ -103,7 +103,7 @@ TEST_F(BackEndTests_CompilationService, CreateProgramFailure)
     //-----------------------------------------------------------------
     // call the CreateProgram with invalid parameters - NULL in ppProgram
     // load pre created bitcode buffer in correct format
-    std::auto_ptr<BackendWrapper> pBackendWrapper(new BackendWrapper());
+    std::unique_ptr<BackendWrapper> pBackendWrapper(new BackendWrapper());
     ASSERT_TRUE(pBackendWrapper.get());
     std::vector<char> program;
     pBackendWrapper->CreateProgramContainer(get_exe_dir() + FILE_BC_WITH_KERNELS, program);
@@ -134,7 +134,7 @@ TEST_F(BackEndTests_CompilationService, BuildProgramSuccess)
 
     //-----------------------------------------------------------------
     // create & build program with valid parameters - with kernels - valid options
-    std::auto_ptr<BackendWrapper> pBackendWrapper(new BackendWrapper());
+    std::unique_ptr<BackendWrapper> pBackendWrapper(new BackendWrapper());
     ASSERT_TRUE(pBackendWrapper.get());
     std::vector<char> program;
     pBackendWrapper->CreateProgramContainer(get_exe_dir() + FILE_BC_WITH_KERNELS, program);
@@ -151,7 +151,7 @@ TEST_F(BackEndTests_CompilationService, BuildProgramSuccess)
 
     //-----------------------------------------------------------------
     // create & build program with valid parameters - with no kernels - valid options
-    std::auto_ptr<BackendWrapper> pBackendWrapper2(new BackendWrapper());
+    std::unique_ptr<BackendWrapper> pBackendWrapper2(new BackendWrapper());
     ASSERT_TRUE(pBackendWrapper2.get());
     std::vector<char> program2;
     pBackendWrapper2->CreateProgramContainer(get_exe_dir() + FILE_BC_NO_KERNELS, program2);
@@ -168,7 +168,7 @@ TEST_F(BackEndTests_CompilationService, BuildProgramSuccess)
 
     //-----------------------------------------------------------------
     // create & build program with valid parameters - with kernels - NULL options
-    std::auto_ptr<BackendWrapper> pBackendWrapper3(new BackendWrapper());
+    std::unique_ptr<BackendWrapper> pBackendWrapper3(new BackendWrapper());
     ASSERT_TRUE(pBackendWrapper3.get());
     std::vector<char> program3;
     pBackendWrapper3->CreateProgramContainer(get_exe_dir() + FILE_BC_WITH_KERNELS, program3);
@@ -185,7 +185,7 @@ TEST_F(BackEndTests_CompilationService, BuildProgramSuccess)
 
     //-----------------------------------------------------------------
     // create & build program with valid parameters - with no kernels - NULL options
-    std::auto_ptr<BackendWrapper> pBackendWrapper4(new BackendWrapper());
+    std::unique_ptr<BackendWrapper> pBackendWrapper4(new BackendWrapper());
     ASSERT_TRUE(pBackendWrapper4.get());
     std::vector<char> program4;
     pBackendWrapper4->CreateProgramContainer(get_exe_dir() + FILE_BC_NO_KERNELS, program4);
@@ -218,7 +218,7 @@ TEST_F(BackEndTests_CompilationService, BuildProgramFailure)
     //-----------------------------------------------------------------
     // call BuildProgram with invalid parameters - invalid pProgram
     // create program with invalid bitcode
-    std::auto_ptr<BackendWrapper> pBackendWrapper(new BackendWrapper());
+    std::unique_ptr<BackendWrapper> pBackendWrapper(new BackendWrapper());
     ASSERT_TRUE(pBackendWrapper.get());
     std::vector<char> program;
     pBackendWrapper->CreateProgramContainer(get_exe_dir() + FILE_BC_NOISE, program);

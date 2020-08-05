@@ -280,7 +280,7 @@ protected:
     ObjectCodeContainer* m_pObjectCodeContainer;
     BitCodeContainer* m_pIRCodeContainer;
     std::string       m_buildLog;
-    std::auto_ptr<KernelSet> m_kernels;
+    std::unique_ptr<KernelSet> m_kernels;
     /// Runtime service. Reference counted
     RuntimeServiceSharedPtr m_RuntimeService;
     // Total size, in bytes, of program variables in the global address space

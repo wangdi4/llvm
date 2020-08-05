@@ -41,7 +41,7 @@ OpenCLComparator::OpenCLComparator(const OpenCLProgramConfiguration* pProgramCon
 /// @brief Compares the result of two runs
 IRunResultComparison* OpenCLComparator::Compare( IRunResult* volcanoRunResults, IRunResult* referenceRunResults ) const
 {
-    std::auto_ptr<RunResultComparison> spResult(new RunResultComparison());
+    std::unique_ptr<RunResultComparison> spResult(new RunResultComparison());
 
     if( volcanoRunResults->GetOutputsCount() != referenceRunResults->GetOutputsCount() )
     {
@@ -58,7 +58,7 @@ IRunResultComparison* OpenCLComparator::Compare( IRunResult* volcanoRunResults, 
         IBufferContainerList* neatOutput = m_useNeat? &referenceRunResults->GetNEATOutput(i->c_str() ) : NULL;
 
         // run comparison for OpenCL kernel
-        std::auto_ptr<ComparisonResults> spres(new ComparisonResults(*i, m_detailedStat));
+        std::unique_ptr<ComparisonResults> spres(new ComparisonResults(*i, m_detailedStat));
         COMP_RESULT compRes = comparator.Compare(*spres,
                                                  volcanoRunResults->GetComparatorIgnoreList(i->c_str()),
                                                  volcanoOutput,

@@ -463,7 +463,7 @@ void Device::clDevBuildStatusUpdate(cl_dev_program clDevProg, void * pData, cl_b
     IBuildDoneObserver * pBuildDoneObserver = (IBuildDoneObserver*)pData;
 
     assert(pBuildDoneObserver);
-    pBuildDoneObserver->NotifyBuildDone((cl_device_id)m_iId, clBuildStatus);
+    pBuildDoneObserver->NotifyBuildDone(reinterpret_cast<cl_device_id>((intptr_t)m_iId), clBuildStatus);
     return;
 }
 

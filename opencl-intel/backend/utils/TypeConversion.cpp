@@ -111,7 +111,7 @@ public:
 
   virtual void visit(const reflection::VectorType *VTy){
     VTy->getScalarType()->accept(this);
-    m_llvmTy = llvm::VectorType::get(m_llvmTy, VTy->getLength());
+    m_llvmTy = llvm::FixedVectorType::get(m_llvmTy, VTy->getLength());
   }
 
   virtual void visit(const reflection::PointerType *PTy){

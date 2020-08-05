@@ -41,11 +41,11 @@ Function* DXRuntime::findInRuntimeModule(StringRef Name) const {
   return nullptr;
 }
 
-std::auto_ptr<VectorizerFunction>
+std::unique_ptr<VectorizerFunction>
 DXRuntime::findBuiltinFunction(StringRef inp_name) const {
   std::string strName = inp_name.str();
   funcEntry fe = m_vfh.findFunctionInHash(strName);
-  return std::auto_ptr<VectorizerFunction>(new funcEntry(fe));
+  return std::unique_ptr<VectorizerFunction>(new funcEntry(fe));
 }
 
 bool DXRuntime::orderedWI() const { return false; }

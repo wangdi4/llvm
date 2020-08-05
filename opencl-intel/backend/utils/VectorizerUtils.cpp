@@ -558,7 +558,7 @@ Instruction *VectorizerUtils::createBroadcast(Value *pVal, unsigned int width, I
   Instruction *insertBefore = insertAfter? nullptr: whereTo;
   Constant *index = ConstantInt::get(Type::getInt32Ty(pVal->getContext()), 0);
   Constant *zeroVector = ConstantVector::get(std::vector<Constant*>(width, index));
-  UndefValue *undefVec = UndefValue::get(VectorType::get(pVal->getType(), width));
+  UndefValue *undefVec = UndefValue::get(FixedVectorType::get(pVal->getType(), width));
   Instruction *tmpInst = InsertElementInst::Create(undefVec, pVal, index, "temp", insertBefore);
   Instruction *shuffle = new ShuffleVectorInst(tmpInst, undefVec, zeroVector , "vector", insertBefore);
 
@@ -616,7 +616,7 @@ Type* VectorizerUtils::convertSoaAllocaType(Type *type, unsigned int width) {
     // Need to vectorize type (assuming original is not vector type)
     assert(!type->isVectorTy() && "Base type is not a scalar!");
     // Create vector type of the alloca base original type
-    type = VectorType::get(type, width);
+    type = FixedVectorType::get(type, width);
   }
 
   // Re-create the array types of the original alloca upon the new type.

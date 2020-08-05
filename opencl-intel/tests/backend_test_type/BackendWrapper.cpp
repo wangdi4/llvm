@@ -194,7 +194,7 @@ void BackEndTests_Plugins::CreateTestEvent()
     ASSERT_TRUE(pCompileService);
 
     // load pre created bitcode buffer in correct format - with kernels
-    std::auto_ptr<BackendWrapper> pBackendWrapper(new BackendWrapper());
+    std::unique_ptr<BackendWrapper> pBackendWrapper(new BackendWrapper());
     ASSERT_TRUE(pBackendWrapper.get());
     std::vector<char> program;
     pBackendWrapper->CreateProgramContainer(get_exe_dir() + FILE_BC_WITH_KERNELS, program);
@@ -213,14 +213,14 @@ void BackEndTests_Plugins::CreateTestEvent()
 void BackEndTests_Plugins::CreateTestEvent(Intel::OpenCL::PluginManager* pManager)
 {
     // load pre created bitcode buffer in correct format - with kernels
-    std::auto_ptr<BackendWrapper> pBackendWrapper(new BackendWrapper());
+    std::unique_ptr<BackendWrapper> pBackendWrapper(new BackendWrapper());
     ASSERT_TRUE(pBackendWrapper.get());
     std::vector<char> program;
     pBackendWrapper->CreateProgramContainer(get_exe_dir() + FILE_BC_WITH_KERNELS, program);
     ASSERT_TRUE(program.size() > 0);
 
     // create the program with valid parameters - should success
-    std::auto_ptr<ICLDevBackendProgram_> pProgram (new OCLProgramMock() );
+    std::unique_ptr<ICLDevBackendProgram_> pProgram (new OCLProgramMock() );
     pManager->OnCreateProgram(program.data(), program.size(), pProgram.get());
 }
 

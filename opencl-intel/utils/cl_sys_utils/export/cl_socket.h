@@ -99,7 +99,7 @@ private:
     OclSocket(const OSSocketDescriptor& sock_fd);
 
     struct OclSocketImpl;
-    std::auto_ptr<OclSocketImpl> d;
+    std::unique_ptr<OclSocketImpl> d;
 private:
     // Disallow copying
     OclSocket(const OclSocket&);

@@ -336,7 +336,7 @@ void Command::RelinquishMemoryObjects( MemoryObjectArgList& argList, const Share
 inline
 void Command::prepare_command_descriptor( cl_dev_cmd_type type, void* params, size_t params_size )
 {
-    m_DevCmd.id             = (cl_dev_cmd_id)m_Event->GetId(); // event ID is set inside queue, so we cannot save it in constructor
+    m_DevCmd.id             = reinterpret_cast<cl_dev_cmd_id>((intptr_t)m_Event->GetId()); // event ID is set inside queue, so we cannot save it in constructor
     m_DevCmd.type           = type;
     m_DevCmd.param_size     = params_size;
     m_DevCmd.params         = params;

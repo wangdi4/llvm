@@ -71,7 +71,7 @@ namespace intel {
       assert(scaPromoTy && "unsupported source type");
 
       if (VectorType *srcVecTy = dyn_cast<VectorType>(srcTy))
-        return VectorType::get(scaPromoTy, srcVecTy->getNumElements());
+        return FixedVectorType::get(scaPromoTy, srcVecTy->getNumElements());
       return scaPromoTy;
     }
   }

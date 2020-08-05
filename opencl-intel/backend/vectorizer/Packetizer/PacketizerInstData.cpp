@@ -125,7 +125,7 @@ void PacketizeFunction::obtainVectorizedValue(Value **retValue, Value * origValu
           //   %temp.vect.3 = insertelement <4 x type> %indx.vect.2, type %scalar.3, i32 3
           V_ASSERT(nullptr != foundEntry->multiScalarValues[0] && "expected to find multi-scalar");
           UndefValue *undefVect =
-            UndefValue::get(VectorType::get(origValue->getType(), m_packetWidth));
+            UndefValue::get(FixedVectorType::get(origValue->getType(), m_packetWidth));
 
           Instruction * insertPoint = foundEntry->multiScalarValues[m_packetWidth - 1];
           Value * prevResult = undefVect;
@@ -375,7 +375,7 @@ void PacketizeFunction::createDummyVectorVal(Value *origValue, Value **vectorVal
   Type* origType = origValue->getType();
   Type *dummyType = m_soaAllocaAnalysis->isSoaAllocaRelatedPointer(origValue) ?
     VectorizerUtils::convertSoaAllocaType(origType, m_packetWidth) :
-    VectorType::get(origType, m_packetWidth);
+    FixedVectorType::get(origType, m_packetWidth);
   V_PRINT(packetizer, "\t\tCreate Dummy Vector value/s (of type " << *dummyType << ")\n");
   Constant *dummyPtr = ConstantPointerNull::get(dummyType->getPointerTo());
 

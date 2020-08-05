@@ -983,7 +983,7 @@ void PacketizeFunction::packetizeInstruction(CastInst * CI)
   }
 
   // Obtain packetized arguments
-  Type * targetDestType = VectorType::get(origInstType, m_packetWidth);
+  Type * targetDestType = FixedVectorType::get(origInstType, m_packetWidth);
   Value * operand0;
   obtainVectorizedValue(&operand0, CI->getOperand(0), CI);
 
@@ -1072,7 +1072,7 @@ Instruction* PacketizeFunction::widenScatterGatherOp(MemoryOperation &MO) {
     ElemTy = (cast<VectorType>(ElemTy))->getElementType();
   }
 
-  VectorType *VecElemTy = VectorType::get(ElemTy, m_packetWidth);
+  VectorType *VecElemTy = FixedVectorType::get(ElemTy, m_packetWidth);
 
   Mangler::GatherScatterType type = Mangler::Scatter;
 
@@ -1264,7 +1264,7 @@ Instruction* PacketizeFunction::widenConsecutiveUnmaskedMemOp(MemoryOperation &M
 
   // BitCast the "scalar" pointer to a "vector" pointer
   Type *elementType = inPtr->getElementType();
-  Type *vectorElementType = VectorType::get(elementType, m_packetWidth);
+  Type *vectorElementType = FixedVectorType::get(elementType, m_packetWidth);
   PointerType *vectorInPtr = PointerType::get(vectorElementType, inPtr->getAddressSpace());
   Value *bitCastPtr = CastInst::CreatePointerCast(inAddr[0], vectorInPtr, "ptrTypeCast", MO.Orig);
 
@@ -1332,7 +1332,7 @@ Instruction* PacketizeFunction::widenConsecutiveMaskedMemOp(MemoryOperation &MO)
   PointerType * PtrTy = dyn_cast<PointerType>(MO.Ptr->getType());
   V_ASSERT(PtrTy && "Pointer must be of pointer type");
   Type *ElemType = PtrTy->getElementType();
-  Type *VecElemTy = VectorType::get(ElemType, m_packetWidth);
+  Type *VecElemTy = FixedVectorType::get(ElemType, m_packetWidth);
   PointerType *VecTy = PointerType::get(VecElemTy, PtrTy->getAddressSpace());
   Value *bitCastPtr = CastInst::CreatePointerCast(SclrPtr[0], VecTy, "ptrTypeCast",MO.Orig);
   Type *DT = VecElemTy;
@@ -1750,7 +1750,7 @@ void PacketizeFunction::packetizeInstruction(CallInst *CI)
   } else {
     // Look for the function in the builtin functions hash
     unsigned vecWidth = 0;
-    const std::auto_ptr<VectorizerFunction> foundFunction =
+    const std::unique_ptr<VectorizerFunction> foundFunction =
       m_rtServices->findBuiltinFunction(scalarFuncName);
     if (!foundFunction->isNull() && foundFunction->isPacketizable()) {
       vecWidth = foundFunction->getWidth();
@@ -2069,7 +2069,7 @@ bool PacketizeFunction::handleCallReturn(CallInst *CI, CallInst * newCall) {
       return handleReturnValueSOA(CI, newCall);
     }
   } else {
-    Instruction *newFuncCall = VectorizerUtils::getCastedRetIfNeeded(newCall, VectorType::get(CI->getType(), m_packetWidth));
+    Instruction *newFuncCall = VectorizerUtils::getCastedRetIfNeeded(newCall, FixedVectorType::get(CI->getType(), m_packetWidth));
     createVCMEntryWithVectorValue(CI, newFuncCall);
   }
   return true;
@@ -2104,7 +2104,7 @@ bool PacketizeFunction::handleReturnValueSOA(CallInst* CI, CallInst *soaRet){
   // first validate that the new call return is proper array of vectors.
   V_ASSERT(CI->getType()->isVectorTy() && "expected vector type");
   VectorType *aosType = cast<VectorType>(CI->getType());
-  ArrayType *soaType = ArrayType::get(VectorType::get(
+  ArrayType *soaType = ArrayType::get(FixedVectorType::get(
       aosType->getElementType(), m_packetWidth) , aosType->getNumElements());
   if (soaType != soaRet->getType()) {
     // failed to handle return - remove call and duplicate original instruciton
@@ -2137,7 +2137,7 @@ bool PacketizeFunction::handleReturnValueSOAVPlanStyle(CallInst *CI,
            "do not expect vector type");
   unsigned soaTypeLength = aosType->getNumElements() * m_packetWidth;
   VectorType *soaType =
-      VectorType::get(elementType, soaTypeLength);
+      FixedVectorType::get(elementType, soaTypeLength);
 
   if (soaType != soaRet->getType()) {
     V_ASSERT(0 && "unsupported parameter type");
@@ -2207,7 +2207,7 @@ bool PacketizeFunction::handleReturnByPointers(CallInst* CI, CallInst *newCall) 
     Instruction* LI = new LoadInst(Ty, ptr, "", CI);
     V_ASSERT(LI->getType()->isVectorTy() && "bad signature");
     V_ASSERT(cast<VectorType>(LI->getType()) ==
-     VectorType::get(vTy->getElementType(), m_packetWidth) && "bad signature");
+     FixedVectorType::get(vTy->getElementType(), m_packetWidth) && "bad signature");
     loads.push_back(LI);
   }
 
@@ -2224,7 +2224,7 @@ Value *PacketizeFunction::handleParamSOA(CallInst* CI, Value *scalarParam){
   /// foo(<2 float> %a) --> foo4([2 x <4 x float>]%a)
   V_ASSERT(scalarParam->getType()->isVectorTy() && "expected vector type");
   VectorType *aosType = cast<VectorType>(scalarParam->getType());
-  ArrayType *soaType = ArrayType::get(VectorType::get(aosType->getElementType(),
+  ArrayType *soaType = ArrayType::get(FixedVectorType::get(aosType->getElementType(),
                                       m_packetWidth),aosType->getNumElements());
 
   // Try to find the source elements for the vector argument.
@@ -2257,7 +2257,7 @@ Value *PacketizeFunction::handleParamSOAVPlanStyle(CallInst *CI,
            "do not expect vector type");
   unsigned soaTypeLength = aosType->getNumElements() * m_packetWidth;
   VectorType *soaType =
-      VectorType::get(aosType->getElementType(), soaTypeLength);
+      FixedVectorType::get(aosType->getElementType(), soaTypeLength);
 
   // Try to find the source elements for the vector argument.
   // In case of failure, need to duplicate the call.
@@ -2944,7 +2944,7 @@ void PacketizeFunction::createLoadAndTranspose(Instruction* I, Value* loadPtrVal
   VectorType* origVecType = cast<VectorType>(loadType);
   unsigned int numDestVectors = origVecType->getNumElements();
   unsigned int numDestVectElems = m_packetWidth;
-  Type* destVecType = VectorType::get(origVecType->getElementType(), numDestVectElems);
+  Type* destVecType = FixedVectorType::get(origVecType->getElementType(), numDestVectElems);
   bool isScatterGather = isScatterGatherAddr(loadPtrVal);
   bool isMasked = (Mask != nullptr);
 
@@ -3240,7 +3240,7 @@ void PacketizeFunction::packetizeInstruction(PHINode *PI)
     }
   }
 
-  Type * vectorPHIType = VectorType::get(retType, m_packetWidth);
+  Type * vectorPHIType = FixedVectorType::get(retType, m_packetWidth);
 
   // Create new PHI node
   PHINode *newPHINode = PHINode::Create(vectorPHIType, numValues, "vectorPHI", PI);

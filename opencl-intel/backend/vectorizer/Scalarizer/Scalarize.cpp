@@ -778,7 +778,7 @@ void ScalarizeFunction::scalarizeInstruction(CallInst *CI)
     return; // skip indirect calls
   }
   llvm::StringRef funcName = CI->getCalledFunction()->getName();
-  const std::auto_ptr<VectorizerFunction> foundFunction =
+  const std::unique_ptr<VectorizerFunction> foundFunction =
     m_rtServices->findBuiltinFunction(funcName);
   bool RequireFakeInsertExtracts =
       m_rtServices->needsConcatenatedVectorParams(funcName) ||
@@ -1192,7 +1192,7 @@ void ScalarizeFunction::scalarizeCallWithVecArgsToScalarCallsWithScalarArgs(Call
   Function *pCalledFunc = CI->getCalledFunction();
   V_ASSERT(pCalledFunc && "Unexpected indirect function invocation");
   std::string name = pCalledFunc->getName().str();
-  const std::auto_ptr<VectorizerFunction> foundFunction =
+  const std::unique_ptr<VectorizerFunction> foundFunction =
     m_rtServices->findBuiltinFunction(name);
   V_ASSERT(!foundFunction->isNull() && "Unknown name");
   const FunctionType* ScalarFunctionType = pCalledFunc->getFunctionType();
@@ -1458,7 +1458,7 @@ bool ScalarizeFunction::getScalarizedFunctionType(std::string &strScalarFuncName
     V_ASSERT(fdesc.parameters.size() == 1 && "supported built-ins must have one parameter");
     Type *scalarType = reflectionToLLVM(m_currFunc->getContext(), fdesc.parameters[0]);
     SmallVector<Type *, 1> types(1, scalarType);
-    Type* retType = static_cast<Type*>(VectorType::get(scalarType, 2));
+    Type* retType = static_cast<Type*>(FixedVectorType::get(scalarType, 2));
     funcType = FunctionType::get(retType, types, false);
     (void) funcAttr.addAttribute(m_currFunc->getContext(), ~0, Attribute::ReadNone);
     (void) funcAttr.addAttribute(m_currFunc->getContext(), ~0, Attribute::NoUnwind);

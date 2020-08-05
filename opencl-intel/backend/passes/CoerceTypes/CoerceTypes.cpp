@@ -287,7 +287,7 @@ Type *CoerceTypes::getSSEType(StructType *T, unsigned Offset) const {
     // Coerce to <2 x float> in the first case
     Type *TyAt4 = getNonCompositeTypeAtExactOffset(T, Offset + 4);
     if (TyAt4 && TyAt4->isFloatTy())
-      return VectorType::get(Type::getFloatTy(m_pModule->getContext()), 2);
+      return FixedVectorType::get(Type::getFloatTy(m_pModule->getContext()), 2);
     // Coerce to float in the second
     return Type::getFloatTy(m_pModule->getContext());
   }

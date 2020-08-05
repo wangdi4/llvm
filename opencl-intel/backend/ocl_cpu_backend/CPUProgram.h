@@ -74,7 +74,7 @@ private:
     llvm::ExecutionEngine*  m_pExecutionEngine;
     std::unique_ptr<llvm::orc::LLJIT> m_LLJIT;
     llvm::SmallVector<llvm::Module*, 2> m_bltnFuncList;
-    std::auto_ptr<ObjectCodeCache> m_ObjectCodeCache;
+    std::unique_ptr<ObjectCodeCache> m_ObjectCodeCache;
 
 private:
     // Disable copy ctor and assignment operator

@@ -92,8 +92,8 @@ void SATest::Run(TEST_MODE mode, IRunConfiguration* pRunConfiguration)
 
 void SATest::RunValidation(IRunConfiguration* pRunConfiguration)
 {
-    std::auto_ptr<IProgramRunner> spRunner(m_factory.CreateProgramRunner(pRunConfiguration->GetBackendRunnerConfiguration()));
-    std::auto_ptr<IRunResultComparator> spComparator(
+    std::unique_ptr<IProgramRunner> spRunner(m_factory.CreateProgramRunner(pRunConfiguration->GetBackendRunnerConfiguration()));
+    std::unique_ptr<IRunResultComparator> spComparator(
         m_factory.CreateComparator(m_pProgramConfiguration, pRunConfiguration));
 
     RunResult runResult;
@@ -104,7 +104,7 @@ void SATest::RunValidation(IRunConfiguration* pRunConfiguration)
     {
         RunResult refResult;
         LoadOrGenerateReference(pRunConfiguration, &refResult);
-        std::auto_ptr<IRunResultComparison> spCompResult(
+        std::unique_ptr<IRunResultComparison> spCompResult(
             spComparator->Compare( &runResult, &refResult ));
 
         if( spCompResult->isFailed() )
@@ -137,7 +137,7 @@ void SATest::RunValidation(IRunConfiguration* pRunConfiguration)
 
 void SATest::RunPerformance(const IRunComponentConfiguration* pRunConfiguration)
 {
-    std::auto_ptr<IProgramRunner> spRunner( m_factory.CreateProgramRunner(pRunConfiguration));
+    std::unique_ptr<IProgramRunner> spRunner( m_factory.CreateProgramRunner(pRunConfiguration));
 
     RunResult runResult;
     spRunner->Run(&runResult, m_pProgram, m_pProgramConfiguration, pRunConfiguration);
@@ -150,14 +150,14 @@ void SATest::RunReference(const IRunComponentConfiguration* pRunConfiguration)
 {
     RunResult runResult;
 
-    std::auto_ptr<IProgramRunner> spRunner( m_factory.CreateReferenceRunner(pRunConfiguration));
+    std::unique_ptr<IProgramRunner> spRunner( m_factory.CreateReferenceRunner(pRunConfiguration));
     GenerateReference( &runResult, spRunner.get(), pRunConfiguration);
     std::cout << "Reference output generated successfully" << endl;
 }
 
 void SATest::RunBuildOnly(const IRunComponentConfiguration* pRunConfiguration)
 {
-    std::auto_ptr<IProgramRunner> spRunner( m_factory.CreateProgramRunner(pRunConfiguration));
+    std::unique_ptr<IProgramRunner> spRunner( m_factory.CreateProgramRunner(pRunConfiguration));
 
     RunResult runResult;
     spRunner->Run(&runResult, m_pProgram, m_pProgramConfiguration, pRunConfiguration);
@@ -173,7 +173,7 @@ void SATest::GenerateReference(IRunResult* pResult, IProgramRunner* pRunner, con
 
 void SATest::LoadOrGenerateReference(IRunConfiguration* pRunConfiguration, IRunResult* pResult)
 {
-    std::auto_ptr<IProgramRunner> spRefRunner( m_factory.CreateReferenceRunner(pRunConfiguration->GetReferenceRunnerConfiguration()));
+    std::unique_ptr<IProgramRunner> spRefRunner( m_factory.CreateReferenceRunner(pRunConfiguration->GetReferenceRunnerConfiguration()));
 #if STAMP_ENABLED
     OCLStamp stamp(pRunConfiguration->GetReferenceRunnerConfiguration(),m_pProgramConfiguration,m_pProgram);
 

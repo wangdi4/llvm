@@ -77,7 +77,7 @@ bool HandleVPlanMask::runOnModule(Module &M) {
     unsigned LastArgIdx = F.arg_size() - 1;
     auto *MaskType = cast<VectorType>(FnType->getParamType(LastArgIdx));
     unsigned VF = MaskType->getNumElements();
-    auto *ExpectMaskType = VectorType::get(Int32Type, VF);
+    auto *ExpectMaskType = FixedVectorType::get(Int32Type, VF);
     auto *MaskElementType = dyn_cast<IntegerType>(MaskType->getElementType());
 
     // VPlan uses characteristic data type as the element type of mask arg.

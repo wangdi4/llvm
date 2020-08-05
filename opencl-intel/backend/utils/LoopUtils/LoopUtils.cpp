@@ -314,7 +314,7 @@ Value* generateRemainderMask(unsigned packetWidth, Value* loopLen, BasicBlock* B
 
   auto IndTy = getIndTy(m);
   auto Int32Ty = Type::getInt32Ty(m->getContext());
-  auto MaskTy = VectorType::get(Int32Ty, packetWidth);
+  auto MaskTy = FixedVectorType::get(Int32Ty, packetWidth);
 
   ConstantInt* constZero = ConstantInt::get(Int32Ty, 0);
 
@@ -328,7 +328,7 @@ Value* generateRemainderMask(unsigned packetWidth, Value* loopLen, BasicBlock* B
   Constant* sequenceVec = ConstantVector::get(indVec);
 
   // Generate splat vector loopLen ... loopLen.
-  Value* loopLenVec = UndefValue::get(VectorType::get(IndTy, packetWidth));
+  Value* loopLenVec = UndefValue::get(FixedVectorType::get(IndTy, packetWidth));
   Instruction* lenInsertVec = InsertElementInst::Create(loopLenVec, loopLen, constZero, "", BB);
 
   Constant *shuffleMask =
