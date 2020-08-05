@@ -273,64 +273,65 @@ for.body:                                         ; preds = %for.body, %entry
 }
 
 ; Full unroll case: trip count is known and it is 8 or 16 but SLP is expected
-; to trigger.
+; to trigger.  The loop is fully unrolled by after VPlan but before SLP.
 ; Should not be vectorized.
 define dso_local i32 @full_unroll_with_slp(i32 %t) {
 ; CHECK-LABEL:  HIR Cost Model for VPlan full_unroll_with_slp.52 with VF = 1:
-; CHECK-NEXT:  Total VPlan Cost: 38
+; CHECK-NEXT:  Total VPlan Cost: 0
 ; CHECK-NEXT:  VPlan Base Cost before adjustments: 38
+; CHECK-NEXT:  PSADBW pattern adjustment: -55
 ; CHECK-NEXT:  Analyzing VPBasicBlock [[BB0:BB[0-9]+]], total cost: 0
 ; CHECK-NEXT:  Analyzing VPBasicBlock [[BB1:BB[0-9]+]], total cost: 0
-; CHECK-NEXT:    Cost Unknown for i32 [[VP__RED_INIT:%.*]] = reduction-init i32 0 i32 [[S_0100:%.*]]
+; CHECK-NEXT:    Cost Unknown for i32 [[VP__RED_INIT:%.*]] = reduction-init i32 0 i32 [[S_0100:%.*]] ( PSADBW )
 ; CHECK-NEXT:    Cost Unknown for i64 [[VP__IND_INIT:%.*]] = induction-init{add} i64 0 i64 1
 ; CHECK-NEXT:    Cost Unknown for i64 [[VP__IND_INIT_STEP:%.*]] = induction-init-step{add} i64 1
 ; CHECK-NEXT:  Analyzing VPBasicBlock [[BB2:BB[0-9]+]], total cost: 38
-; CHECK-NEXT:    Cost Unknown for i32 [[VP0:%.*]] = phi  [ i32 [[VP__RED_INIT]], [[BB1]] ],  [ i32 [[VP1:%.*]], [[BB2]] ]
+; CHECK-NEXT:    Cost Unknown for i32 [[VP0:%.*]] = phi  [ i32 [[VP__RED_INIT]], [[BB1]] ],  [ i32 [[VP1:%.*]], [[BB2]] ] ( PSADBW )
 ; CHECK-NEXT:    Cost Unknown for i64 [[VP2:%.*]] = phi  [ i64 [[VP__IND_INIT]], [[BB1]] ],  [ i64 [[VP3:%.*]], [[BB2]] ]
 ; CHECK-NEXT:    Cost 0 for i8* [[VP_SUBSCRIPT:%.*]] = subscript inbounds [1024 x i8]* @a i64 0 i64 [[VP2]]
 ; CHECK-NEXT:    Cost 1 for i8 [[VP4:%.*]] = load i8* [[VP_SUBSCRIPT]]
 ; CHECK-NEXT:    Cost 0 for i8* [[VP_SUBSCRIPT_1:%.*]] = subscript inbounds [1024 x i8]* @b i64 0 i64 [[VP2]]
 ; CHECK-NEXT:    Cost 1 for i8 [[VP5:%.*]] = load i8* [[VP_SUBSCRIPT_1]]
-; CHECK-NEXT:    Cost 1 for i32 [[VP6:%.*]] = zext i8 [[VP4]] to i32
-; CHECK-NEXT:    Cost 1 for i32 [[VP7:%.*]] = zext i8 [[VP5]] to i32
-; CHECK-NEXT:    Cost 1 for i32 [[VP8:%.*]] = mul i32 [[VP7]] i32 -1
-; CHECK-NEXT:    Cost 1 for i32 [[VP9:%.*]] = add i32 [[VP6]] i32 [[VP8]]
-; CHECK-NEXT:    Cost 2 for i32 [[VP10:%.*]] = abs i32 [[VP9]]
+; CHECK-NEXT:    Cost 1 for i32 [[VP6:%.*]] = zext i8 [[VP4]] to i32 ( PSADBW )
+; CHECK-NEXT:    Cost 1 for i32 [[VP7:%.*]] = zext i8 [[VP5]] to i32 ( PSADBW )
+; CHECK-NEXT:    Cost 1 for i32 [[VP8:%.*]] = mul i32 [[VP7]] i32 -1 ( PSADBW )
+; CHECK-NEXT:    Cost 1 for i32 [[VP9:%.*]] = add i32 [[VP6]] i32 [[VP8]] ( PSADBW )
+; CHECK-NEXT:    Cost 2 for i32 [[VP10:%.*]] = abs i32 [[VP9]] ( PSADBW )
 ; CHECK-NEXT:    Cost 0 for i8* [[VP_SUBSCRIPT_2:%.*]] = subscript inbounds [1024 x i8]* @a i64 0 i64 [[VP2]]
 ; CHECK-NEXT:    Cost 1 for i8 [[VP11:%.*]] = load i8* [[VP_SUBSCRIPT_2]]
 ; CHECK-NEXT:    Cost 0 for i8* [[VP_SUBSCRIPT_3:%.*]] = subscript inbounds [1024 x i8]* @b i64 0 i64 [[VP2]]
 ; CHECK-NEXT:    Cost 1 for i8 [[VP12:%.*]] = load i8* [[VP_SUBSCRIPT_3]]
-; CHECK-NEXT:    Cost 1 for i32 [[VP13:%.*]] = zext i8 [[VP11]] to i32
-; CHECK-NEXT:    Cost 1 for i32 [[VP14:%.*]] = zext i8 [[VP12]] to i32
-; CHECK-NEXT:    Cost 1 for i32 [[VP15:%.*]] = mul i32 [[VP14]] i32 -1
-; CHECK-NEXT:    Cost 1 for i32 [[VP16:%.*]] = add i32 [[VP13]] i32 [[VP15]]
-; CHECK-NEXT:    Cost 2 for i32 [[VP17:%.*]] = abs i32 [[VP16]]
+; CHECK-NEXT:    Cost 1 for i32 [[VP13:%.*]] = zext i8 [[VP11]] to i32 ( PSADBW )
+; CHECK-NEXT:    Cost 1 for i32 [[VP14:%.*]] = zext i8 [[VP12]] to i32 ( PSADBW )
+; CHECK-NEXT:    Cost 1 for i32 [[VP15:%.*]] = mul i32 [[VP14]] i32 -1 ( PSADBW )
+; CHECK-NEXT:    Cost 1 for i32 [[VP16:%.*]] = add i32 [[VP13]] i32 [[VP15]] ( PSADBW )
+; CHECK-NEXT:    Cost 2 for i32 [[VP17:%.*]] = abs i32 [[VP16]] ( PSADBW )
 ; CHECK-NEXT:    Cost 0 for i8* [[VP_SUBSCRIPT_4:%.*]] = subscript inbounds [1024 x i8]* @a i64 0 i64 [[VP2]]
 ; CHECK-NEXT:    Cost 1 for i8 [[VP18:%.*]] = load i8* [[VP_SUBSCRIPT_4]]
 ; CHECK-NEXT:    Cost 0 for i8* [[VP_SUBSCRIPT_5:%.*]] = subscript inbounds [1024 x i8]* @b i64 0 i64 [[VP2]]
 ; CHECK-NEXT:    Cost 1 for i8 [[VP19:%.*]] = load i8* [[VP_SUBSCRIPT_5]]
-; CHECK-NEXT:    Cost 1 for i32 [[VP20:%.*]] = zext i8 [[VP18]] to i32
-; CHECK-NEXT:    Cost 1 for i32 [[VP21:%.*]] = zext i8 [[VP19]] to i32
-; CHECK-NEXT:    Cost 1 for i32 [[VP22:%.*]] = mul i32 [[VP21]] i32 -1
-; CHECK-NEXT:    Cost 1 for i32 [[VP23:%.*]] = add i32 [[VP20]] i32 [[VP22]]
-; CHECK-NEXT:    Cost 2 for i32 [[VP24:%.*]] = abs i32 [[VP23]]
+; CHECK-NEXT:    Cost 1 for i32 [[VP20:%.*]] = zext i8 [[VP18]] to i32 ( PSADBW )
+; CHECK-NEXT:    Cost 1 for i32 [[VP21:%.*]] = zext i8 [[VP19]] to i32 ( PSADBW )
+; CHECK-NEXT:    Cost 1 for i32 [[VP22:%.*]] = mul i32 [[VP21]] i32 -1 ( PSADBW )
+; CHECK-NEXT:    Cost 1 for i32 [[VP23:%.*]] = add i32 [[VP20]] i32 [[VP22]] ( PSADBW )
+; CHECK-NEXT:    Cost 2 for i32 [[VP24:%.*]] = abs i32 [[VP23]] ( PSADBW )
 ; CHECK-NEXT:    Cost 0 for i8* [[VP_SUBSCRIPT_6:%.*]] = subscript inbounds [1024 x i8]* @a i64 0 i64 [[VP2]]
 ; CHECK-NEXT:    Cost 1 for i8 [[VP25:%.*]] = load i8* [[VP_SUBSCRIPT_6]]
 ; CHECK-NEXT:    Cost 0 for i8* [[VP_SUBSCRIPT_7:%.*]] = subscript inbounds [1024 x i8]* @b i64 0 i64 [[VP2]]
 ; CHECK-NEXT:    Cost 1 for i8 [[VP26:%.*]] = load i8* [[VP_SUBSCRIPT_7]]
-; CHECK-NEXT:    Cost 1 for i32 [[VP27:%.*]] = zext i8 [[VP25]] to i32
-; CHECK-NEXT:    Cost 1 for i32 [[VP28:%.*]] = zext i8 [[VP26]] to i32
-; CHECK-NEXT:    Cost 1 for i32 [[VP29:%.*]] = mul i32 [[VP28]] i32 -1
-; CHECK-NEXT:    Cost 1 for i32 [[VP30:%.*]] = add i32 [[VP27]] i32 [[VP29]]
-; CHECK-NEXT:    Cost 2 for i32 [[VP31:%.*]] = abs i32 [[VP30]]
-; CHECK-NEXT:    Cost 1 for i32 [[VP32:%.*]] = add i32 [[VP17]] i32 [[VP10]]
-; CHECK-NEXT:    Cost 1 for i32 [[VP33:%.*]] = add i32 [[VP32]] i32 [[VP31]]
-; CHECK-NEXT:    Cost 1 for i32 [[VP34:%.*]] = add i32 [[VP33]] i32 [[VP24]]
-; CHECK-NEXT:    Cost 1 for i32 [[VP1]] = add i32 [[VP34]] i32 [[VP0]]
+; CHECK-NEXT:    Cost 1 for i32 [[VP27:%.*]] = zext i8 [[VP25]] to i32 ( PSADBW )
+; CHECK-NEXT:    Cost 1 for i32 [[VP28:%.*]] = zext i8 [[VP26]] to i32 ( PSADBW )
+; CHECK-NEXT:    Cost 1 for i32 [[VP29:%.*]] = mul i32 [[VP28]] i32 -1 ( PSADBW )
+; CHECK-NEXT:    Cost 1 for i32 [[VP30:%.*]] = add i32 [[VP27]] i32 [[VP29]] ( PSADBW )
+; CHECK-NEXT:    Cost 2 for i32 [[VP31:%.*]] = abs i32 [[VP30]] ( PSADBW )
+; CHECK-NEXT:    Cost 1 for i32 [[VP32:%.*]] = add i32 [[VP17]] i32 [[VP10]] ( PSADBW )
+; CHECK-NEXT:    Cost 1 for i32 [[VP33:%.*]] = add i32 [[VP32]] i32 [[VP31]] ( PSADBW )
+; CHECK-NEXT:    Cost 1 for i32 [[VP34:%.*]] = add i32 [[VP33]] i32 [[VP24]] ( PSADBW )
+; CHECK-NEXT:    Cost 1 for i32 [[VP1]] = add i32 [[VP34]] i32 [[VP0]] ( PSADBW )
 ; CHECK-NEXT:    Cost 1 for i64 [[VP3]] = add i64 [[VP2]] i64 [[VP__IND_INIT_STEP]]
 ; CHECK-NEXT:    Cost 1 for i1 [[VP35:%.*]] = icmp i64 [[VP3]] i64 15
 ; CHECK-NEXT:  Analyzing VPBasicBlock [[BB3:BB[0-9]+]], total cost: 0
-; CHECK-NEXT:    Cost Unknown for i32 [[VP__RED_FINAL:%.*]] = reduction-final{u_add} i32 [[VP1]]
+; CHECK-NEXT:    Cost Unknown for i32 [[VP__RED_FINAL:%.*]] = reduction-final{u_add} i32 [[VP1]] ( PSADBW )
 ; CHECK-NEXT:    Cost Unknown for i64 [[VP__IND_FINAL:%.*]] = induction-final{add} i64 0 i64 1
 ; CHECK-NEXT:  Analyzing VPBasicBlock [[BB4:BB[0-9]+]], total cost: 0
 ;

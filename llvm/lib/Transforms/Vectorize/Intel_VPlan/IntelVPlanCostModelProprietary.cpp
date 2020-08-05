@@ -333,18 +333,6 @@ unsigned VPlanCostModelProprietary::getPsadwbPatternCost() {
     if (VPL->getLoopDepth() != 1)
       continue;
 
-    // If loop has known number of iterations and it is 8/16 we skip it here
-    // since vectorizing by VPlan leads to complete unroll and ISel can handle
-    // vectorized by VPlan code (i.e. recognize PSADBW).  Also if the loop has
-    // an outer loop of known trip count it also can be completely unrolled
-    // causing better performance comparing to PSADDBW in a loop.
-    // Otherwise if vectorize in SLP, not in VPlan the unroller doesn't unroll
-    // outer loop (the current pipeline is VPlan -> Unroll -> SLP).
-    TripCountInfo LoopTCI = VPL->getTripCountInfo();
-    if (!LoopTCI.IsEstimated &&
-        (LoopTCI.TripCount == 8 || LoopTCI.TripCount == 16))
-      continue;
-
     VPBasicBlock *Block = VPL->getHeader();
     VPBasicBlock *PH = VPL->getLoopPreheader();
     VPBasicBlock *Latch = VPL->getLoopLatch();
@@ -465,6 +453,27 @@ unsigned VPlanCostModelProprietary::getPsadwbPatternCost() {
                  CurrPsadbwPatternInsts.count(RHS) > 0)
           CurrPsadbwPatternInsts.insert(&VPInst);
       }
+
+      // If loop has known number of iterations and it is 8/16 and SLP within
+      // the loop iteration is not possible we skip such loop since vectorizing
+      // by VPlan leads to complete unroll and ISel can handle vectorized by
+      // VPlan code (i.e. recognize PSADBW).  Also if the loop has an outer
+      // loop of known trip count it also can be completely unrolled causing
+      // better performance comparing to PSADDBW in a loop. Otherwise if
+      // vectorize in SLP, not in VPlan the unroller doesn't unroll
+      // outer loop (the current pipeline is VPlan -> Unroll -> SLP).
+      //
+      // If there is 4 or more psadbw patterns contributing in the same
+      // accumulator we expect SLP to trigger.
+      TripCountInfo LoopTCI = VPL->getTripCountInfo();
+      unsigned NumberOfPatterns = std::count_if(
+        CurrPsadbwPatternInsts.begin(), CurrPsadbwPatternInsts.end(),
+        [](const VPInstruction *I) {
+          return I->getOpcode() == VPInstruction::Abs; });
+
+      if (!LoopTCI.IsEstimated && NumberOfPatterns < 4 &&
+          (LoopTCI.TripCount == 8 || LoopTCI.TripCount == 16))
+        continue;
 
       // Sum up costs of all instructions in CurrPsadbwPatternInsts.
       // If there an instruction in the pattern has more than one use the whole
