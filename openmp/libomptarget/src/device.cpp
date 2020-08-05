@@ -222,12 +222,24 @@ void *DeviceTy::getOrAllocTgtPtr(void *HstPtrBegin, void *HstPtrBase,
       rc = HstPtrBegin;
     }
   } else if (HasPresentModifier) {
+#if INTEL_COLLAB
+    DP("Mapping required by 'present' map type modifier does not exist for "
+       "HstPtrBegin=" DPxMOD ", Size=%" PRId64 "\n",
+       DPxPTR(HstPtrBegin), Size);
+#else // INTEL_COLLAB
     DP("Mapping required by 'present' map type modifier does not exist for "
        "HstPtrBegin=" DPxMOD ", Size=%ld\n",
        DPxPTR(HstPtrBegin), Size);
+#endif // INTEL_COLLAB
+#if INTEL_COLLAB
+    MESSAGE("device mapping required by 'present' map type modifier does not "
+            "exist for host address " DPxMOD " (%" PRId64 " bytes)",
+            DPxPTR(HstPtrBegin), Size);
+#else // INTEL_COLLAB
     MESSAGE("device mapping required by 'present' map type modifier does not "
             "exist for host address " DPxMOD " (%ld bytes)",
             DPxPTR(HstPtrBegin), Size);
+#endif // INTEL_COLLAB
   } else if (Size) {
     // If it is not contained and Size > 0, we should create a new entry for it.
     IsNew = true;

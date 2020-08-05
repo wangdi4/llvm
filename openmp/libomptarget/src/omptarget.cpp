@@ -493,9 +493,15 @@ int target_data_end(DeviceTy &Device, int32_t arg_num, void **args_base,
       if (HasPresentModifier) {
         // FIXME: This should not be an error on exit from "omp target data",
         // but it should be an error upon entering an "omp target exit data".
+#if INTEL_COLLAB
+        MESSAGE("device mapping required by 'present' map type modifier does "
+                "not exist for host address " DPxMOD " (%" PRId64 " bytes)",
+                DPxPTR(HstPtrBegin), data_size);
+#else // INTEL_COLLAB
         MESSAGE("device mapping required by 'present' map type modifier does "
                 "not exist for host address " DPxMOD " (%ld bytes)",
                 DPxPTR(HstPtrBegin), data_size);
+#endif // INTEL_COLLAB
         return OFFLOAD_FAIL;
       }
     } else {
