@@ -813,8 +813,8 @@ bool BranchProbabilityInfo::calcLoopBranchHeuristics(const BasicBlock *BB,
 
 #if INTEL_CUSTOMIZATION
   bool IsADIL = false;
-  if (L && enableAbnormalDeepLoopHeuristics &&
-      maxLoopDepth(L) >= AbnormalLoopDepthThreshold)
+  if (LB.getLoop() && enableAbnormalDeepLoopHeuristics &&
+      maxLoopDepth(LB.getLoop()) >= AbnormalLoopDepthThreshold)
     IsADIL = true;
 #endif // INTEL_CUSTOMIZATIO
 
@@ -854,7 +854,7 @@ bool BranchProbabilityInfo::calcLoopBranchHeuristics(const BasicBlock *BB,
     for (unsigned SuccIdx : InEdges) {
       BasicBlock *SuccBB = BB->getTerminator()->getSuccessor(SuccIdx);
       bool CrossInnerLoop = false;
-      for (Loop *SubLoop : *L) {
+      for (Loop *SubLoop : *LB.getLoop()) {
         if (CurrentDT->dominates(SuccBB, SubLoop->getHeader())) {
           CrossInnerLoop = true;
           break;
