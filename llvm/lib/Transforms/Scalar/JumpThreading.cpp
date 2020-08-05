@@ -605,9 +605,32 @@ static unsigned getJumpThreadDuplicationCost(
       if (isa<BitCastInst>(I) && I->getType()->isPointerTy())
         continue;
 
+<<<<<<< HEAD
       // Bail out if this instruction gives back a token type, it is not
       // possible to duplicate it if it is used outside this BB.
       if (I->getType()->isTokenTy() && I->isUsedOutsideOfBlock(BB))
+=======
+    // Freeze instruction is free, too.
+    if (isa<FreezeInst>(I))
+      continue;
+
+    // Bail out if this instruction gives back a token type, it is not possible
+    // to duplicate it if it is used outside this BB.
+    if (I->getType()->isTokenTy() && I->isUsedOutsideOfBlock(BB))
+      return ~0U;
+
+    // All other instructions count for at least one unit.
+    ++Size;
+
+    // Calls are more expensive.  If they are non-intrinsic calls, we model them
+    // as having cost of 4.  If they are a non-vector intrinsic, we model them
+    // as having cost of 2 total, and if they are a vector intrinsic, we model
+    // them as having cost 1.
+    if (const CallInst *CI = dyn_cast<CallInst>(I)) {
+      if (CI->cannotDuplicate() || CI->isConvergent())
+        // Blocks with NoDuplicate are modelled as having infinite cost, so they
+        // are never duplicated.
+>>>>>>> e0d99e9aaf51dac0555655cbf17909377ed37a27
         return ~0U;
 
       // All other instructions count for at least one unit.
