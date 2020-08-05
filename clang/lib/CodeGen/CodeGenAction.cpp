@@ -1243,8 +1243,7 @@ void CodeGenAction::ExecuteAction() {
 
   // Otherwise follow the normal AST path.
 #if INTEL_CUSTOMIZATION
-  auto *Ctx = takeLLVMContext();
-  OptRecordFileRAII ORF(*this, *Ctx, *BEConsumer);
+  OptRecordFileRAII ORF(*this, *VMContext, *BEConsumer);
 #endif //INTEL_CUSTOMIZATION
   this->ASTFrontendAction::ExecuteAction();
 }
