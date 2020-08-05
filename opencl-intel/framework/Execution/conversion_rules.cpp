@@ -58,6 +58,8 @@
 
 #include "conversion_rules.h"
 
+#include "llvm/Support/Compiler.h" // LLVM_FALLTHROUGH
+
 // to overcome WinDef.h problem of min/max macro:
 #define OCL_MIN(x, y) (x < y) ? x : y
 
@@ -317,12 +319,15 @@ cl_int __arrange_by_channel_order(VecType *trgtColor, const VecType *srcColor, c
         case CL_RGBA:
         case CL_RGBx:
             MAP_CHANNEL(3, 3);
+            LLVM_FALLTHROUGH;
         case CL_RGB:
         case CL_RGx:
             MAP_CHANNEL(2, 2);
+            LLVM_FALLTHROUGH;
         case CL_RG:
         case CL_Rx:
             MAP_CHANNEL(1, 1);
+            LLVM_FALLTHROUGH;
         case CL_R:
             MAP_CHANNEL(0, 0);
             break;
@@ -358,6 +363,7 @@ cl_int __arrange_by_channel_order(VecType *trgtColor, const VecType *srcColor, c
         case CL_sRGBA:
         case CL_sRGBx:
             trgtColor->s[3] = srcColor->s[3];
+            LLVM_FALLTHROUGH;
         case CL_sRGB:
             trgtColor->s[0] = tosRGB(srcColor->s[0]);
             trgtColor->s[1] = tosRGB(srcColor->s[1]);
@@ -369,6 +375,7 @@ cl_int __arrange_by_channel_order(VecType *trgtColor, const VecType *srcColor, c
             trgtColor->s[1] = tosRGB(srcColor->s[1]);
             trgtColor->s[2] = tosRGB(srcColor->s[0]);
             trgtColor->s[3] = srcColor->s[3];
+            break;
         default:
             return CL_IMAGE_FORMAT_NOT_SUPPORTED;
     }

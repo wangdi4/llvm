@@ -5,6 +5,11 @@
 # ITT/VTune integration
 add_definitions( -DUSE_ITT )
 
+# disable "implicit-fallthrough" warning in itt/ittnotify/ittnotify.c
+if (NOT WIN32)
+  add_compile_options(-Wno-implicit-fallthrough)
+endif (NOT WIN32)
+
 # From CMake documentation:
 # If the SYSTEM option is given, the compiler will be
 # told the directories are meant as system include directories on some

@@ -20,6 +20,7 @@
 #include "GenericMemObj.h"
 #include "cl_shared_ptr.hpp"
 #include "cl_shutdown.h"
+#include "llvm/Support/Compiler.h" // LLVM_FALLTHROUGH
 
 using namespace std;
 using namespace Intel::OpenCL::Framework;
@@ -116,7 +117,7 @@ void GenericMemObject::drive_copy_between_groups( DataCopyState starting_state,
                     break;
                 }
             }
-            // fall through
+            LLVM_FALLTHROUGH;
 
         case DATA_COPY_STATE_FROM_BS:
             m_pBackingStore->SetDataValid(true); // data was copied into BS
@@ -156,7 +157,7 @@ void GenericMemObject::drive_copy_between_groups( DataCopyState starting_state,
                 need_event_allocation = (NULL == to.m_data_copy_in_process_event);
                 break;
             }
-            // fall through
+            LLVM_FALLTHROUGH;
 
         case DATA_COPY_STATE_VALID:
             need_event_completion = true;
@@ -875,8 +876,8 @@ cl_err_code GenericMemObject::updateParentInt(unsigned int destDevSharingGroupId
                 return CL_SUCCESS;
             }
         }
-        // fall through
     }
+    LLVM_FALLTHROUGH;
     case PARENT_STAGE_MOVE_ALL_CHILDS_TO_PARENT_DEVICE:
     {
         assert(true == isParent && "Only parent can reach this stage");
@@ -911,8 +912,8 @@ cl_err_code GenericMemObject::updateParentInt(unsigned int destDevSharingGroupId
             pOutEvent = dataCopyJointEvent;
             return CL_SUCCESS;
         }
-        // fall through
     }
+    LLVM_FALLTHROUGH;
     case PARENT_STAGE_MOVE_PARENT_TO_DESTINATION_DEVICE:
     {
         assert(true == isParent && "Only parent can reach this stage");
@@ -942,8 +943,8 @@ cl_err_code GenericMemObject::updateParentInt(unsigned int destDevSharingGroupId
                 return CL_SUCCESS;
             }
         }
-        // fall through
     }
+    LLVM_FALLTHROUGH;
     case PARENT_STAGE_LOCK_CHILDS_ON_DESTINATION_DEVICE:
     {
         assert(true == isParent && "Only parent can reach this stage");
@@ -986,8 +987,8 @@ cl_err_code GenericMemObject::updateParentInt(unsigned int destDevSharingGroupId
                 return CL_SUCCESS;
             }
         }
-        // fall through
     }
+    LLVM_FALLTHROUGH;
     case PARENT_STAGE_UNLOCK_CHILDS_FROM_DESTINATION_DEVICE:
     {
         assert(true == isParent && "Only parent can reach this stage");
@@ -1001,8 +1002,8 @@ cl_err_code GenericMemObject::updateParentInt(unsigned int destDevSharingGroupId
         {
             subBuffersListSnapshot[i]->unLockOnDeviceInt(destDevSharingGroupId, usage);
         }
-        // fall through
     }
+    LLVM_FALLTHROUGH;
     case PARENT_STAGE_FINAL:
     {
         // If one of the stages was async than notify the events that we return to command.

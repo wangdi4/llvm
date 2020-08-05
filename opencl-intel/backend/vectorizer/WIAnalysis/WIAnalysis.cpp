@@ -730,6 +730,7 @@ WIAnalysis::WIDependancy WIAnalysis::calculate_dep(const BinaryOperator* inst) {
       // promoted to strided.
       return mul_conversion[dep0][dep1];
     }
+    LLVM_FALLTHROUGH;
   default:
     //TODO: Support more arithmetic if needed
     return WIAnalysis::RANDOM;

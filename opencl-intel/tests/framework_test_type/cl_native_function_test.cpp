@@ -16,6 +16,7 @@
 #include <math.h>
 #include "FrameworkTest.h"
 #include <emmintrin.h>
+#include "llvm/Support/Compiler.h" // LLVM_FALLTHROUGH
 
 #define BUFFER_SIZE 128	// number of iterations the test will do 
 #define MAX_BUFFS 3			//max number of arguments to a kernel
@@ -233,15 +234,17 @@ void RunFunctionTest (const char* FuncName,const char* ocl_test_program,int vec,
 		switch (error){
 			case RELEASE_IMAGES:
 				for (int i=0 ; i< (numBuffs+1) ;i++){
-				clReleaseMemObject(clBuff[i]);		
+					clReleaseMemObject(clBuff[i]);		
 				}
-		   case RELEASE_KERNEL:
-			   clReleaseKernel(kernel);
-		   case RELEASE_PROGRAM:
-			   clReleaseProgram(program);
-			   throw RELEASE_QUEUE;
-		   default:
-			   throw error;
+				LLVM_FALLTHROUGH;
+			case RELEASE_KERNEL:
+				clReleaseKernel(kernel);
+				LLVM_FALLTHROUGH;
+			case RELEASE_PROGRAM:
+				clReleaseProgram(program);
+				throw RELEASE_QUEUE;
+			default:
+				throw error;
 		}
 	}
 	//finished successfully 

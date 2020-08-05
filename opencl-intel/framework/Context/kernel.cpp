@@ -33,6 +33,7 @@
 #include <cl_utils.h>
 #include <CL/cl_fpga_ext.h>
 
+#include "llvm/Support/Compiler.h" // LLVM_FALLTHROUGH
 
 using namespace Intel::OpenCL::Utils;
 using namespace Intel::OpenCL::Framework;
@@ -1335,7 +1336,7 @@ cl_err_code Kernel::GetKernelArgInfo (    cl_uint argIndx,
             stParamSize = sizeof(cl_bool);
             break;
         }
-        // FALL THROUGH
+        LLVM_FALLTHROUGH;
     default:
         return CL_INVALID_VALUE;        
     }

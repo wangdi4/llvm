@@ -19,6 +19,8 @@
 #include "command_queue.h"
 #include "cl_shared_ptr.hpp"
 
+#include "llvm/Support/Compiler.h" // LLVM_FALLTHROUGH
+
 using namespace Intel::OpenCL::Framework;
 
 #ifdef __GNUC__
@@ -325,8 +327,10 @@ void OclEvent::NotifyObservers(const cl_int retCode)
     {
     case CL_COMPLETE:
         NotifyObserversOfSingleExecState(m_CompleteObserversList, retCode);
+        LLVM_FALLTHROUGH;
     case CL_RUNNING:
         NotifyObserversOfSingleExecState(m_RunningObserversList, retCode);
+        LLVM_FALLTHROUGH;
     case CL_SUBMITTED:
         NotifyObserversOfSingleExecState(m_SubmittedObserversList, retCode);
         break;

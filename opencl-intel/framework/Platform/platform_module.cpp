@@ -28,6 +28,7 @@
 #include "cl_local_array.h"
 #include "cl_shared_ptr.hpp"
 #include "cl_sys_info.h"
+#include "llvm/Support/Compiler.h" // LLVM_FALLTHROUGH
 
 using namespace Intel::OpenCL::Utils;
 using namespace Intel::OpenCL::Framework;
@@ -382,6 +383,7 @@ cl_int    PlatformModule::GetPlatformInfo(cl_platform_id clPlatform,
             szParamSize = sizeof(cl_ulong);
             break;
         }
+        LLVM_FALLTHROUGH;
     default:
         return CL_INVALID_VALUE;
     }

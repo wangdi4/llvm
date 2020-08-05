@@ -21,6 +21,7 @@
 #include "Context.h"
 #include "cl_shared_ptr.hpp"
 #include <assert.h>
+#include "llvm/Support/Compiler.h" // LLVM_FALLTHROUGH
 
 using namespace Intel::OpenCL::Framework;
 
@@ -128,7 +129,7 @@ cl_err_code InOrderCommandQueue::NotifyStateChange( const SharedPtr<QueueEvent>&
         {
             --m_commandsInExecution;
         }
-        // Fallback to next case
+        LLVM_FALLTHROUGH;
     case EVENT_STATE_READY_TO_EXECUTE:
         //one of the commands became ready. Trigger a SendToDevice as it may be on top of the queue. Todo: this can probably be improved
         SendCommandsToDevice();

@@ -37,6 +37,7 @@
 #include "svm_buffer.h"
 #include "usm_buffer.h"
 #include "pipe.h"
+#include "llvm/Support/Compiler.h" // LLVM_FALLTHROUGH
 
 using namespace Intel::OpenCL::Utils;
 using namespace Intel::OpenCL::Framework;
@@ -2885,11 +2886,11 @@ cl_err_code ContextModule::CheckContextSpecificParameters(SharedPtr<Context>pCon
     {
         case CL_MEM_OBJECT_IMAGE3D:
             if (image_depth > maxD) return CL_INVALID_IMAGE_SIZE;
-
+            LLVM_FALLTHROUGH;
         case CL_MEM_OBJECT_IMAGE2D_ARRAY:
         case CL_MEM_OBJECT_IMAGE2D:
             if (image_height > maxH) return CL_INVALID_IMAGE_SIZE;
-
+            LLVM_FALLTHROUGH;
         case CL_MEM_OBJECT_IMAGE1D:
             // for 1D NOT created from a buffer, use CL_DEVICE_IMAGE2D_MAX_WIDTH
             if (image_width > maxW) return CL_INVALID_IMAGE_SIZE;
