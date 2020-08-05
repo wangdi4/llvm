@@ -581,14 +581,16 @@ struct RTLFlagsTy {
   uint64_t DumpTargetImage : 1;
   uint64_t EnableProfile : 1;
   uint64_t EnableTargetGlobals : 1;
+  uint64_t LinkLibDevice : 1;
   uint64_t UseHostMemForUSM : 1;
   uint64_t UseMemoryPool : 1;
   uint64_t UseDriverGroupSizes : 1;
-  uint64_t Reserved : 58;
+  uint64_t Reserved : 57;
   RTLFlagsTy() :
       DumpTargetImage(0),
       EnableProfile(0),
       EnableTargetGlobals(0),
+      LinkLibDevice(0), // TODO: change it to 1 when L0 issue is resolved
       UseHostMemForUSM(0),
       UseMemoryPool(0),
       UseDriverGroupSizes(0),
@@ -836,6 +838,13 @@ public:
       parseGroupSizes("LIBOMPTARGET_GLOBAL_WG_SIZE", env, ForcedGlobalSizes);
     }
 #endif // INTEL_INTERNAL_BUILD
+
+    // Link libdevice
+    if (char *env = readEnvVar("LIBOMPTARGET_LEVEL0_LINK_LIBDEVICE")) {
+      // TODO: turn this on by default when L0 issue is resolved.
+      if (env[0] == 'T' || env[0] == 't' || env[0] == '1')
+        Flags.LinkLibDevice = 1;
+    }
   }
 
   ze_command_list_handle_t getCmdList(int32_t DeviceId) {
@@ -1374,6 +1383,10 @@ int32_t __tgt_rtl_init_device(int32_t DeviceId) {
     return OFFLOAD_FAIL;
   }
 
+#if USE_NEW_API
+  DeviceInfo->Context = createContext(DeviceInfo->Driver);
+#endif // USE_NEW_API
+
   if (DeviceInfo->Flags.UseMemoryPool)
 #if USE_NEW_API
     DeviceInfo->PagePools[DeviceId].initialize(DeviceId, DeviceInfo->Context,
@@ -1382,9 +1395,6 @@ int32_t __tgt_rtl_init_device(int32_t DeviceId) {
 #endif // !USE_NEW_API
         DeviceInfo->Devices[DeviceId], DeviceInfo->TargetAllocKind);
 
-#if USE_NEW_API
-  DeviceInfo->Context = createContext(DeviceInfo->Driver);
-#endif // USE_NEW_API
   DeviceInfo->Initialized[DeviceId] = true;
 
   OMPT_CALLBACK(ompt_callback_device_initialize, DeviceId,
@@ -1448,23 +1458,25 @@ __tgt_target_table *__tgt_rtl_load_binary(int32_t DeviceId,
     modules.push_back(deviceLibModule);
   }
 
-  int32_t rc;
-  ze_module_build_log_handle_t linkLog;
-  CALL_ZE_RC(rc, zeModuleDynamicLink, modules.size(), modules.data(), &linkLog);
-  if (rc != ZE_RESULT_SUCCESS) {
-    if (DebugLevel > 0) {
-      size_t logSize;
-      CALL_ZE_RET_NULL(zeModuleBuildLogGetString, linkLog, &logSize, nullptr);
-      std::vector<char> logString(logSize);
-      CALL_ZE_RET_NULL(zeModuleBuildLogGetString, linkLog, &logSize,
-                       logString.data());
-      DP("Error: module link failed -- see below for details.\n");
-      fprintf(stderr, "%s\n", logString.data());
+  if (DeviceInfo->Flags.LinkLibDevice) {
+    int32_t rc;
+    ze_module_build_log_handle_t linkLog;
+    CALL_ZE_RC(rc, zeModuleDynamicLink, modules.size(), modules.data(), &linkLog);
+    if (rc != ZE_RESULT_SUCCESS) {
+      if (DebugLevel > 0) {
+        size_t logSize;
+        CALL_ZE_RET_NULL(zeModuleBuildLogGetString, linkLog, &logSize, nullptr);
+        std::vector<char> logString(logSize);
+        CALL_ZE_RET_NULL(zeModuleBuildLogGetString, linkLog, &logSize,
+                         logString.data());
+        DP("Error: module link failed -- see below for details.\n");
+        fprintf(stderr, "%s\n", logString.data());
+      }
+      CALL_ZE_RET_NULL(zeModuleBuildLogDestroy, linkLog);
+      return nullptr;
     }
     CALL_ZE_RET_NULL(zeModuleBuildLogDestroy, linkLog);
-    return nullptr;
   }
-  CALL_ZE_RET_NULL(zeModuleBuildLogDestroy, linkLog);
 #else // !USE_NEW_API
   ze_module_desc_t moduleDesc = {
     ZE_MODULE_DESC_VERSION_CURRENT,
