@@ -205,11 +205,8 @@ set (SUPPORT_SOURCES
   LINK_LIBS ${system_libs} ${delayload_flags} ${Z3_LINK_FILES}
   )
 
-<<<<<<< HEAD
 # INTEL_CUSTOMIZATION
 add_llvm_component_library(LLVMSupport ${SUPPORT_SOURCES})
-set_property(TARGET LLVMSupport PROPERTY LLVM_SYSTEM_LIBS "${system_libs}")
-
 if (LLVM_LIBCXX_USED AND NOT SYCL_USE_LIBCXX)
   add_llvm_component_library(LLVMSupport_stdcpp ${SUPPORT_SOURCES}
                              STDLIB stdc++)
@@ -218,35 +215,7 @@ if (LLVM_LIBCXX_USED AND NOT SYCL_USE_LIBCXX)
 endif()
 #end INTEL_CUSTOMIZATION
 
-set(llvm_system_libs ${system_libs})
-
-if(LLVM_ENABLE_ZLIB)
-  # CMAKE_BUILD_TYPE is only meaningful to single-configuration generators.
-  if(CMAKE_BUILD_TYPE)
-    string(TOUPPER ${CMAKE_BUILD_TYPE} build_type)
-    get_property(zlib_library TARGET ZLIB::ZLIB PROPERTY LOCATION_${build_type})
-  endif()
-  if(NOT zlib_library)
-    get_property(zlib_library TARGET ZLIB::ZLIB PROPERTY LOCATION)
-  endif()
-  get_filename_component(zlib_library ${zlib_library} NAME)
-  if(CMAKE_STATIC_LIBRARY_PREFIX AND CMAKE_STATIC_LIBRARY_SUFFIX AND
-      zlib_library MATCHES "^${CMAKE_STATIC_LIBRARY_PREFIX}.*${CMAKE_STATIC_LIBRARY_SUFFIX}$")
-    STRING(REGEX REPLACE "^${CMAKE_STATIC_LIBRARY_PREFIX}" "" zlib_library ${zlib_library})
-    STRING(REGEX REPLACE "${CMAKE_STATIC_LIBRARY_SUFFIX}$" "" zlib_library ${zlib_library})
-  endif()
-  if(CMAKE_SHARED_LIBRARY_PREFIX AND CMAKE_SHARED_LIBRARY_SUFFIX AND
-      zlib_library MATCHES "^${CMAKE_SHARED_LIBRARY_PREFIX}.*${CMAKE_SHARED_LIBRARY_SUFFIX}$")
-    STRING(REGEX REPLACE "^${CMAKE_SHARED_LIBRARY_PREFIX}" "" zlib_library ${zlib_library})
-    STRING(REGEX REPLACE "${CMAKE_SHARED_LIBRARY_SUFFIX}$" "" zlib_library ${zlib_library})
-  endif()
-  set(llvm_system_libs ${llvm_system_libs} "${zlib_library}")
-endif()
-
-set_property(TARGET LLVMSupport PROPERTY LLVM_SYSTEM_LIBS "${llvm_system_libs}")
-=======
 set_property(TARGET LLVMSupport PROPERTY LLVM_SYSTEM_LIBS "${system_libs}")
->>>>>>> 3ab01550b632dad46f9595d74855749557ffd25c
 
 if(LLVM_WITH_Z3)
   target_include_directories(LLVMSupport SYSTEM
