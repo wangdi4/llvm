@@ -228,7 +228,7 @@ void CLStreamSampler::CollectReadImgAttributes(CallInst *readImgCall) {
 
   // Obtain the coord arguments.
   VectorType *coordTy =
-      VectorType::get(Type::getFloatTy(*m_context), attrs.m_width);
+      FixedVectorType::get(Type::getFloatTy(*m_context), attrs.m_width);
   attrs.m_firstCoords.clear();
   for (unsigned i=2; i<4; ++i) {
     Value *arg = readImgCall->getArgOperand(i);
@@ -322,7 +322,7 @@ void CLStreamSampler::hoistReadImgCall(TranspReadImgAttr &attr,
   generateAllocasForStream(attr.m_width, colorAllocas, colorStorage);
 
   // Pre-prepare index values for input to stream sampler
-  VectorType *float2Ty = VectorType::get(Type::getFloatTy(*m_context), 2);
+  VectorType *float2Ty = FixedVectorType::get(Type::getFloatTy(*m_context), 2);
   UndefValue *undefF2 = UndefValue::get(float2Ty);
 
   // Obtain original  xCoord yCoord and stream size
@@ -488,7 +488,7 @@ void CLStreamSampler::CollectWriteImgAttributes(CallInst *writeImgCall) {
 
   // Obtain the colors.
   VectorType *colorTy =
-      VectorType::get(Type::getFloatTy(*m_context), attrs.m_width);
+      FixedVectorType::get(Type::getFloatTy(*m_context), attrs.m_width);
   for (unsigned i=3; i<7; ++i) {
     Value *arg = writeImgCall->getArgOperand(i);
     Value *root = VectorizerUtils::RootInputArgument(arg, colorTy, attrs.m_call);
@@ -612,7 +612,7 @@ void CLStreamSampler::generateAllocasForStream(unsigned width,
                                SmallVector<Instruction *, 4>& colorAllocas,
                                SmallVector<Instruction *, 4>& colorStorage) {
   // Fill buffers with Alloca's for storing all the output RGBA data...
-  Type *colorTy = VectorType::get(Type::getFloatTy(*m_context), width);
+  Type *colorTy = FixedVectorType::get(Type::getFloatTy(*m_context), width);
   Type *arrTy  = ArrayType::get(colorTy, m_tripCountUpperBound);
   SmallVector<Value *, 2> indices(2, m_zero);
   ArrayRef<Value *> indicesArr = llvm::makeArrayRef(indices);
@@ -629,7 +629,7 @@ void CLStreamSampler::generateAllocasForStream(unsigned width,
       // Workaround : even for transpose 8 stream sampler, the buffers have <4 x float>*
       // type, so we bitcast to the pointer accordingly.
       PointerType *float4PtrTy =
-         PointerType::get(VectorType::get(Type::getFloatTy(*m_context), 4), 0);
+         PointerType::get(FixedVectorType::get(Type::getFloatTy(*m_context), 4), 0);
       ptr = CastInst::CreatePointerCast(ptr, float4PtrTy, "ptr.cast", loc);
     }
     colorAllocas.push_back(AI);

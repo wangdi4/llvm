@@ -159,7 +159,7 @@ namespace intel{
         // be good for unaligned loads on targets that support instructions such as MOVUPS
         unsigned VecSize = kimd.VectorizedWidth.hasValue() ? kimd.VectorizedWidth.get() : 1;
         if (VecSize != 1 && VectorType::isValidElementType(EltTy))
-          EltTy = VectorType::get(EltTy, VecSize);
+          EltTy = FixedVectorType::get(EltTy, VecSize);
         Alignment = llvm::NextPowerOf2(m_DL->getTypeAllocSize(EltTy) - 1);
         // We can't use overload without explicit alloca addrspace because the
         // BB does not have a parent yet.

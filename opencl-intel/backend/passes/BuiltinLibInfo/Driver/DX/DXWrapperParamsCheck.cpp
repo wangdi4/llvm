@@ -48,7 +48,7 @@ bool DXWrapperParamsCheck::checkVec(Type* packetizeType,
 {
   bool scalarizeTypeOK = (scalarizeType->isIntegerTy() ||
                        scalarizeType->isFloatTy());
-  return scalarizeTypeOK && (packetizeType == VectorType::get(
+  return scalarizeTypeOK && (packetizeType == FixedVectorType::get(
       scalarizeType, packetWidth));
 }
 
@@ -62,7 +62,7 @@ bool DXWrapperParamsCheck::checkSOA(Type* packetizeType,
     bool scalarizeTypeOK = (primitive->isIntegerTy(32) ||
                             primitive->isFloatTy());
     return scalarizeTypeOK && (packetizeType == ArrayType::get(
-        VectorType::get(primitive, packetWidth),numElements));
+        FixedVectorType::get(primitive, packetWidth),numElements));
   }
   return false;
 }

@@ -61,7 +61,7 @@ TEST(ReflectionToLLVM, i1){
 TEST(ReflectionToLLVM, VectorOfInt){
   llvm::LLVMContext CTX;
   llvm::Type *LLVM_I32_TY = llvm::IntegerType::get(CTX, 32);
-  llvm::Type *LLVM_V4i32_TY = llvm::VectorType::get(LLVM_I32_TY, 4U);
+  llvm::Type *LLVM_V4i32_TY = llvm::FixedVectorType::get(LLVM_I32_TY, 4U);
   reflection::RefParamType iTy(new reflection::PrimitiveType(reflection::PRIMITIVE_INT));
   reflection::RefParamType vTy(new reflection::VectorType(iTy, 4));
   llvm::Type* llvmITy = intel::reflectionToLLVM(CTX, vTy);

@@ -97,9 +97,9 @@ bool ScalarizeFunction::scanFunctionCall(CallInst *CI, funcRootsVect &rootVals)
     // Handle case: [2 x <4 x float>] sincos_retbyarray(<4 x float> %arg) --> <2 x float> prevec_sincos(float %arg)
     VectorType *SFRTAsVec = cast<VectorType>(SFRT);
     assert(cast<ArrayType>(vectorFuncType->getReturnType())->getNumElements() == SFRTAsVec->getNumElements());
-    desiredRetValType = ArrayType::get(VectorType::get(SFRTAsVec->getElementType(), vectorWidth) ,2);
+    desiredRetValType = ArrayType::get(FixedVectorType::get(SFRTAsVec->getElementType(), vectorWidth) ,2);
   } else {
-    desiredRetValType = VectorType::get(SFRT, vectorWidth);
+    desiredRetValType = FixedVectorType::get(SFRT, vectorWidth);
   }
   unsigned vectorIndex = isVectorFuncReturnsVoid ? 1 : 0;
   for (unsigned scalarIndex = 0; scalarIndex < numInputParams; ++scalarIndex, ++vectorIndex) {
@@ -111,7 +111,7 @@ bool ScalarizeFunction::scanFunctionCall(CallInst *CI, funcRootsVect &rootVals)
     else
     {
       // Different arg type means value requires scalarization (and maybe a cast)
-      desiredArgsTypes.push_back(VectorType::get(
+      desiredArgsTypes.push_back(FixedVectorType::get(
         scalarFuncType->getParamType(scalarIndex), vectorWidth));
     }
   }

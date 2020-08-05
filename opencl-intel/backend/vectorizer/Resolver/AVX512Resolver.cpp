@@ -107,7 +107,7 @@ Instruction* AVX512Resolver::CreateGatherScatterAndReplaceCall(
   switch (type) {
   case Mangler::GatherPrefetch: {
     Type * ElemTy = cast<PointerType>(Ptr->getType())->getElementType();
-    dataTy = VectorType::get(ElemTy, 16);
+    dataTy = FixedVectorType::get(ElemTy, 16);
     break;
   }
   case Mangler::Gather:
@@ -165,7 +165,7 @@ void AVX512Resolver::FixBaseAndIndexIfNeeded(
   VectorType *IndexType = cast<VectorType>(Index->getType());
 
   Type *i32Ty = Type::getInt32Ty(caller->getContext());
-  Type *i32Vec = VectorType::get(i32Ty, IndexType->getNumElements());
+  Type *i32Vec = FixedVectorType::get(i32Ty, IndexType->getNumElements());
 
   // Calculate the safe valid bits in index that allows using gather/scatter without modifications
   // This number is refferring to signed index, for unsigned the safe index is one bit less.

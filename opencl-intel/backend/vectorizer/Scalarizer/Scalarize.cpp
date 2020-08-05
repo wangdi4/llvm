@@ -1458,7 +1458,7 @@ bool ScalarizeFunction::getScalarizedFunctionType(std::string &strScalarFuncName
     V_ASSERT(fdesc.parameters.size() == 1 && "supported built-ins must have one parameter");
     Type *scalarType = reflectionToLLVM(m_currFunc->getContext(), fdesc.parameters[0]);
     SmallVector<Type *, 1> types(1, scalarType);
-    Type* retType = static_cast<Type*>(VectorType::get(scalarType, 2));
+    Type* retType = static_cast<Type*>(FixedVectorType::get(scalarType, 2));
     funcType = FunctionType::get(retType, types, false);
     (void) funcAttr.addAttribute(m_currFunc->getContext(), ~0, Attribute::ReadNone);
     (void) funcAttr.addAttribute(m_currFunc->getContext(), ~0, Attribute::NoUnwind);

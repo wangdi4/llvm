@@ -1661,7 +1661,7 @@ void PrefetchCandidateUtils::insertPF (Instruction *I) {
   Type *pi8 = PointerType::get(i8, 0);
   Type *i16 =  IntegerType::get(context, 16);
   Type *i32 =  IntegerType::get(context, 32);
-  Type *v16i32 = VectorType::get(i32, 16);
+  Type *v16i32 = FixedVectorType::get(i32, 16);
   Value *mask8Bit = nullptr;
 
   bool isExclusive = false;

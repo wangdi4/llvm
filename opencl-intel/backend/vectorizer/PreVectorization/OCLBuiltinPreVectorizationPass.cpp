@@ -112,7 +112,7 @@ void OCLBuiltinPreVectorizationPass::handleWriteImage(CallInst *CI, std::string 
   // handling image coords fake function contains x,y coords separate since they are not
   // packetized but transfered as multi-scalar value (assuming x consequtive y uniform)
   Type *i32Ty = Type::getInt32Ty(CI->getContext());
-  Type *coordType = VectorType::get(i32Ty, 2);
+  Type *coordType = FixedVectorType::get(i32Ty, 2);
   Constant *constZero = ConstantInt::get(i32Ty, 0);
   Constant *constOne = ConstantInt::get(i32Ty, 1);
   Value *origCoords = CI->getArgOperand(1);
@@ -123,7 +123,7 @@ void OCLBuiltinPreVectorizationPass::handleWriteImage(CallInst *CI, std::string 
   fakeFuncArgs[2] = ExtractElementInst::Create(rootCoords, constOne, "extract.y", CI);
 
   // handling colors just root to 4xfloat
-  Type *colorType = VectorType::get(Type::getFloatTy(CI->getContext()), 4);
+  Type *colorType = FixedVectorType::get(Type::getFloatTy(CI->getContext()), 4);
   Value *origColors = CI->getArgOperand(2);
   Value *rootColors = VectorizerUtils::RootInputArgument(origColors, colorType, CI);
   V_ASSERT(rootColors && "failed rooting colors");
@@ -256,7 +256,7 @@ void OCLBuiltinPreVectorizationPass::handleReturnByPtrBuiltin(CallInst* CI, cons
   SmallVector<Value *, 1> args(1, Op0);
   Type* retType = isOriginalFuncRetVector ?
     static_cast<Type*>(ArrayType::get(retValType, 2)) :
-    static_cast<Type*>(VectorType::get(retValType, 2));
+    static_cast<Type*>(FixedVectorType::get(retValType, 2));
   SmallVector<Attribute::AttrKind, 4> attrs;
   attrs.push_back(Attribute::ReadNone);
   attrs.push_back(Attribute::NoUnwind);
@@ -299,7 +299,7 @@ void OCLBuiltinPreVectorizationPass::handleInlineDot(CallInst* CI, unsigned opWi
   if (!CI->getType()->isFloatingPointTy()) return;
 
   Type *opDesiredType = CI->getType();
-  if(opWidth > 1) opDesiredType = VectorType::get(CI->getType(), opWidth);
+  if(opWidth > 1) opDesiredType = FixedVectorType::get(CI->getType(), opWidth);
   Value *A =  VectorizerUtils::RootInputArgument(CI->getArgOperand(0), opDesiredType, CI);
   Value *B =  VectorizerUtils::RootInputArgument(CI->getArgOperand(1), opDesiredType, CI);
   V_ASSERT(A && B && "failed rooting");

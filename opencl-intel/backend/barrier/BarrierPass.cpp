@@ -99,8 +99,7 @@ namespace intel {
           M, m_LocalIdArrayTy, false, GlobalValue::LinkOnceODRLinkage,
           UndefValue::get(m_LocalIdArrayTy), "LocalIds", nullptr,
           GlobalValue::GeneralDynamicTLSModel);
-      m_LocalIds->setAlignment(
-          MaybeAlign(M.getDataLayout().getPreferredAlignment(m_LocalIds)));
+      m_LocalIds->setAlignment(M.getDataLayout().getPreferredAlign(m_LocalIds));
     }
 
     //Find all functions that call synchronize instructions
@@ -749,7 +748,7 @@ namespace intel {
         // base type is i1 need to ZEXT/TRUNC to/from i32
         VectorType *pVecType = dyn_cast<VectorType>(pInst->getType());
         if (pVecType) {
-          pTypeInSP = VectorType::get(IntegerType::get(*m_pContext, 32), pVecType->getNumElements());
+          pTypeInSP = FixedVectorType::get(IntegerType::get(*m_pContext, 32), pVecType->getNumElements());
         } else {
           pTypeInSP = IntegerType::get(*m_pContext, 32);
         }

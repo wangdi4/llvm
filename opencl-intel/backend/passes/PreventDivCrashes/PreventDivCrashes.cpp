@@ -148,7 +148,7 @@ namespace intel {
         VectorType* vecType = static_cast<VectorType *>(divisorType);
         divisorElemType = vecType->getElementType();
         // Create vector type of i1 to represent a vector of booleans
-        isIntegerOverflowType = VectorType::get(isIntegerOverflowType, vecType->getNumElements());
+        isIntegerOverflowType = FixedVectorType::get(isIntegerOverflowType, vecType->getNumElements());
       }
 
       (void)divisorElemType;
