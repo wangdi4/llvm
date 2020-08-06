@@ -48,6 +48,7 @@
 #include "llvm/Support/GenericDomTree.h"            // INTEL
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Transforms/IPO/Intel_IPCloning.h"    // INTEL
+#include "llvm/Transforms/IPO/Intel_InlineReportCommon.h" // INTEL
 #include <algorithm>                                // INTEL
 #include <queue>                                    // INTEL
 
@@ -245,6 +246,7 @@ static cl::opt<unsigned> ForcedInlineOptLevel(
     "forced-inline-opt-level", cl::init(0), cl::ReallyHidden,
     cl::desc("Forced inlining opt level"));
 
+extern cl::opt<unsigned> IntelInlineReportLevel;
 #endif // INTEL_CUSTOMIZATION
 
 namespace {
@@ -5974,6 +5976,10 @@ InlineParams llvm::getInlineParams(int Threshold) {
   } else if (ColdThreshold.getNumOccurrences() > 0) {
     Params.ColdThreshold = ColdThreshold;
   }
+#if INTEL_CUSTOMIZATION
+  if (IntelInlineReportLevel & InlineReportOptions::RealCost)
+      Params.ComputeFullInlineCost = true;
+#endif // INTEL_CUSTOMIZATION
   return Params;
 }
 

@@ -599,11 +599,19 @@ inlineCallsImpl(CallGraphSCC &SCC, CallGraph &CG,
       // in turn BFI on demand.  With the new PM, the ORE dependency should
       // just become a regular analysis dependency.
       OptimizationRemarkEmitter ORE(Caller);
-
-      auto OIC = shouldInline(CB, GetInlineCost, ORE, &IR); // INTEL
+#if INTEL_CUSTOMIZATION
+      InlineCost IC = shouldInline(CB, GetInlineCost, ORE);
+      if (IC.getIsRecommended()) {
+        IR.setReasonIsInlined(&CB, IC);
+        llvm::setMDReasonIsInlined(&CB, IC);
+      } else {
+        IR.setReasonNotInlined(&CB, IC);
+        llvm::setMDReasonNotInlined(&CB, IC);
+      }
+#endif // INTEL_CUSTOMIZATION
       // If the policy determines that we should inline this function,
       // delete the call instead.
-      if (!OIC)
+      if (!IC.getIsRecommended())  // INTEL
         continue;
 
       // If this call site is dead and it is to a readonly function, we should
@@ -650,7 +658,7 @@ inlineCallsImpl(CallGraphSCC &SCC, CallGraph &CG,
           MDIR.endUpdate();
           llvm::setMDReasonNotInlined(&CB, Reason);
           setInlineRemark(CB, std::string(LIR.getFailureReason()) + "; " +
-                                  inlineCostStr(*OIC));
+                                  inlineCostStr(IC));
 #endif // INTEL_CUSTOMIZATION
           ORE.emit([&]() {
             return OptimizationRemarkMissed(DEBUG_TYPE, "NotInlined", DLoc,
@@ -680,15 +688,13 @@ inlineCallsImpl(CallGraphSCC &SCC, CallGraph &CG,
           if (RecursiveCallCountNew > RecursiveCallCountOld)
             Caller->addFnAttr("no-more-recursive-inlining");
         }
+        ILIC->invalidateFunction(Caller);
+        emitInlinedInto(ORE, DLoc, Block, *Callee, *Caller, IC);
+        IR.inlineCallSite();
+        IR.endUpdate();
+        MDIR.updateInliningReport();
+        MDIR.endUpdate();
 #endif // INTEL_CUSTOMIZATION
-        ILIC->invalidateFunction(Caller); // INTEL
-
-        emitInlinedInto(ORE, DLoc, Block, *Callee, *Caller, *OIC);
-
-        IR.inlineCallSite();           // INTEL
-        IR.endUpdate();                // INTEL
-        MDIR.updateInliningReport();   // INTEL
-        MDIR.endUpdate();              // INTEL
         // If inlining this function gave us any new call sites, throw them
         // onto our worklist to process.  They are useful inline candidates.
         if (!InlineInfo.InlinedCalls.empty()) {
@@ -1144,16 +1150,22 @@ PreservedAnalyses InlinerPass::run(LazyCallGraph::SCC &InitialC,
         setInlineRemark(*CB, "recursive SCC split");
         continue;
       }
-
-      auto Advice = Advisor.getAdvice(*CB, ILIC, WPI, &Report); // INTEL
+      InlineCost *IC = nullptr; // INTEL
+      auto Advice = Advisor.getAdvice(*CB, ILIC, WPI, &IC); // INTEL
       // Check whether we want to inline this callsite.
       if (!Advice->isInliningRecommended()) {
         Advice->recordUnattemptedInlining();
+        Report.setReasonNotInlined(CB, *IC);   // INTEL
+        llvm::setMDReasonNotInlined(CB, *IC);  // INTEL
         continue;
       }
 
-      Report.beginUpdate(CB);              // INTEL
-      MDReport->beginUpdate(CB);           // INTEL
+#if INTEL_CUSTOMIZATION
+      Report.beginUpdate(CB);
+      MDReport->beginUpdate(CB);
+      Report.setReasonIsInlined(CB, *IC);
+      llvm::setMDReasonIsInlined(CB, *IC);
+#endif // INTEL_CUSTOMIZATION
 
       // Setup the data structure used to plumb customization into the
       // `InlineFunction` routine.
@@ -1168,13 +1180,18 @@ PreservedAnalyses InlinerPass::run(LazyCallGraph::SCC &InitialC,
       unsigned RecursiveCallCountOld = 0;
       if (&Caller == &Callee)
         RecursiveCallCountOld = recursiveCallCount(Caller);
+      InlineResult IR = InlineFunction(*CB, IFI, &Report, MDReport);
 #endif // INTEL_CUSTOMIZATION
-      InlineResult IR = InlineFunction(*CB, IFI, &Report, MDReport); // INTEL
-      InlineReason Reason = IR.getIntelInlReason();                  // INTEL
 
       if (!IR.isSuccess()) {
-        Advice->recordUnsuccessfulInlining(IR, &Reason, &Report, // INTEL
-                                           MDReport);            // INTEL
+        Advice->recordUnsuccessfulInlining(IR);
+#if INTEL_CUSTOMIZATION
+        InlineReason Reason = IR.getIntelInlReason();
+        Report.setReasonNotInlined(CB, Reason);
+        Report.endUpdate();
+        llvm::setMDReasonNotInlined(CB, Reason);
+        MDReport->endUpdate();
+#endif // INTEL_CUSTOMIZATION
         continue;
       }
 
@@ -1198,16 +1215,18 @@ PreservedAnalyses InlinerPass::run(LazyCallGraph::SCC &InitialC,
         if (RecursiveCallCountNew > RecursiveCallCountOld)
           Caller.addFnAttr("no-more-recursive-inlining");
       }
+      ILIC->invalidateFunction(&Caller);
 #endif // INTEL_CUSTOMIZATION
 
-      ILIC->invalidateFunction(&Caller); // INTEL
       InlinedCallees.insert(&Callee);
       ++NumInlined;
 
-      Report.inlineCallSite();          // INTEL
-      Report.endUpdate();               // INTEL
-      MDReport->updateInliningReport(); // INTEL
-      MDReport->endUpdate();            // INTEL
+#if INTEL_CUSTOMIZATION
+      Report.inlineCallSite();
+      Report.endUpdate();
+      MDReport->updateInliningReport();
+      MDReport->endUpdate();
+#endif // INTEL_CUSTOMIZATION
 
       // Add any new callsites to defined functions to the worklist.
       if (!IFI.InlinedCallSites.empty()) {
