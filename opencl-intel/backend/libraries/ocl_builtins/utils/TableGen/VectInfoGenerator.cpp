@@ -31,6 +31,7 @@ const VectorVariant::ISAClass VectEntry::isaClass =
     VectorVariant::ISAClass::XMM;
 const std::string VectEntry::baseName = "";
 bool VectEntry::isMasked = false;
+bool VectEntry::kernelCallOnce = true;
 std::vector<VectorKind> VectEntry::vectorKindEncode;
 
 OclBuiltinDB *VectInfo::builtinDB = nullptr;
@@ -62,6 +63,7 @@ static VecVec<T> transpose(const std::vector<std::vector<T>> &matrix) {
 VectInfo::VectInfo(Record *record) : m_builtins(4) {
   m_handleAlias = record->getValueAsBit("HandleAlias");
 
+  m_kernelCallOnce = record->getValueAsBit("KernelCallOnce");
   const Record *pV1Func = record->getValueAsDef("v1Func");
   const Record *pV4Func = record->getValueAsDef("v4Func");
   const Record *pV8Func = record->getValueAsDef("v8Func");
@@ -117,8 +119,13 @@ VectInfo::VectInfo(Record *record) : m_builtins(4) {
 std::ostream &operator<<(std::ostream &output, const VectEntry &Ent) {
   unsigned numVariants = Ent.funcNames.size();
   for (unsigned i = 1; i < numVariants; ++i) {
-    output << "{\"" << Ent.funcNames[0] << "\",\""
-           << VectorVariant{VectEntry::isaClass,    VectEntry::isMasked,
+    output << "{\"" << Ent.funcNames[0] << "\",\"";
+    if (Ent.kernelCallOnce) {
+      output << "kernel-call-once\",\"";
+    } else {
+      output << "\",\"";
+    }
+    output << VectorVariant{VectEntry::isaClass,    VectEntry::isMasked,
                             (unsigned)2 << i, VectEntry::vectorKindEncode,
                             VectEntry::baseName,    Ent.funcNames[i]}
                   .toString()
@@ -232,9 +239,12 @@ void VectInfoGenerator::run(raw_ostream &os) {
   // Record the num of types and num of variants for the same Builtin.
   // Since they share the same vector kind info.
   std::vector<std::pair<size_t, size_t>> numEntries;
+  std::vector<bool> kernelCallOnceAttrs;
 
   for (Record *record : vectInfos) {
     VectInfo vectInfo{record};
+
+    kernelCallOnceAttrs.push_back(vectInfo.kernelCallOnce());
     const auto &builtins = vectInfo.getBuiltins();
 
     auto *pV1Builtin = builtins[0];
@@ -296,7 +306,10 @@ void VectInfoGenerator::run(raw_ostream &os) {
 
   std::stringstream ss;
   auto funcIt = funcs.cbegin();
+
+  size_t k = 0;
   for (const auto &numEntry : numEntries) {
+    VectEntry::kernelCallOnce = kernelCallOnceAttrs[k++];
     size_t i = 0;
     assert(funcIt != funcs.cend() && funcIt != funcs.cend() - 1 &&
            "the number of tblgen function and llvm functions should be the same");
@@ -314,6 +327,8 @@ void VectInfoGenerator::run(raw_ostream &os) {
       ss << VectEntry{funcNames};
     }
   }
+  assert(k == kernelCallOnceAttrs.size() &&
+         "the number of entries and kernel call once attrs should be the same");
   assert(funcIt == funcs.cend() &&
          "the number of tblgen function and llvm functions should be the same");
   os << ss.str();

@@ -33,6 +33,7 @@ struct VectEntry {
   std::vector<std::string> funcNames;
   static std::vector<VectorKind> vectorKindEncode;
   static bool isMasked;
+  static bool kernelCallOnce;
   const static VectorVariant::ISAClass isaClass;
   const static std::string baseName;
 };
@@ -57,8 +58,12 @@ public:
 
   bool handleAlias() const { return m_handleAlias; }
 
+  bool kernelCallOnce() const { return m_kernelCallOnce; }
+
 private:
   bool m_handleAlias;
+
+  bool m_kernelCallOnce;
 
   TVecVec m_types;
 
