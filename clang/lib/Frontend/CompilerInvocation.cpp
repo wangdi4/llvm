@@ -2680,6 +2680,7 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
     Opts.SYCLValueFitInMaxInt =
         Args.hasFlag(options::OPT_fsycl_id_queries_fit_in_int,
                      options::OPT_fno_sycl_id_queries_fit_in_int, false);
+    Opts.EnableDAEInSpirKernels = Args.hasArg(options::OPT_fenable_sycl_dae);
   }
 
 #if INTEL_CUSTOMIZATION
