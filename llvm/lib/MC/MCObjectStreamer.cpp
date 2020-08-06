@@ -148,6 +148,12 @@ void MCObjectStreamer::emitAbsoluteSymbolDiff(const MCSymbol *Hi,
   MCStreamer::emitAbsoluteSymbolDiff(Hi, Lo, Size);
 }
 
+#if INTEL_CUSTOMIZATION
+void MCObjectStreamer::emitTraceLine(const MCTraceLine &Line) {
+  insert(new MCTraceLineFragment(Line.getDeltaLine(), Line.getDeltaPC()));
+}
+#endif // INTEL_CUSTOMIZATION
+
 void MCObjectStreamer::emitAbsoluteSymbolDiffAsULEB128(const MCSymbol *Hi,
                                                        const MCSymbol *Lo) {
   if (Optional<uint64_t> Diff = absoluteSymbolDiff(getAssembler(), Hi, Lo)) {
