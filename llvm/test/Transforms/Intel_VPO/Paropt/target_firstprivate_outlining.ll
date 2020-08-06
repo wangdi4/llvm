@@ -1,5 +1,5 @@
 ; RUN: opt < %s -loop-rotate -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -simplifycfg  -sroa -vpo-cfg-restructuring -vpo-paropt  -S | FileCheck %s
-; RUN: opt < %s -passes='function(loop(rotate),vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,simplify-cfg,loop(simplify-cfg),sroa,vpo-cfg-restructuring),vpo-paropt'  -S | FileCheck %s
+; RUN: opt < %s -passes='function(loop(loop-rotate),vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,simplify-cfg,loop(simplify-cfg),sroa,vpo-cfg-restructuring),vpo-paropt'  -S | FileCheck %s
 
 ; Verify that CodeExtractor does not shrinkwrap alloca for 'i',
 ; when lifetime markers are present.
