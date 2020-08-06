@@ -9,7 +9,7 @@
 //
 //===----------------------------------------------------------------------===//
 //
-// This file implements multiversioning of the loops with variable strides.
+// This file implements multiversioning of the loops with variable strides,
 // checking if variable strides are actually unit-strided.
 //
 // Useful for assumed shape arrays of Fortran.
@@ -260,7 +260,7 @@ void LoopTreeForMV::buildTreeByTrackingAncestors() {
 
 class HIRMVForVariableStride {
   typedef SmallVector<HLLoop *, 8> LoopSetTy;
-  typedef DDRefGatherer<RegDDRef, MemRefs> MemRefGatherer;
+  typedef DDRefGatherer<RegDDRef, MemRefs | FakeRefs> MemRefGatherer;
 
 public:
   HIRMVForVariableStride(HIRFramework &HIRF) : HIRF(HIRF) {}
@@ -282,7 +282,11 @@ public:
     return Ref->getDimensionIndex(HIRMVForVariableStride::getInnermostDimNum());
   }
 
-  static CanonExpr *getDimensionLower(RegDDRef *Ref) {
+  static const CanonExpr *getLowerCE(const RegDDRef *Ref) {
+    return Ref->getDimensionLower(HIRMVForVariableStride::getInnermostDimNum());
+  }
+
+  static CanonExpr *getLowerCE(RegDDRef *Ref) {
     return Ref->getDimensionLower(getInnermostDimNum());
   }
 
@@ -321,10 +325,11 @@ private:
 
     /// Get the outermost loop to be MV given a candidate innermost \p Loop
     HLLoop *
-    calcOutermostLoopToMV(HLLoop *Loop,
+    calcOutermostLoopToMV(HLLoop *InnermostLoop,
                           ArrayRef<StrideAndSizeTy> StrideAndConstSize) const;
 
-    bool transformLoop(HLLoop *Loop, ArrayRef<RegDDRef *> RefsToRewrite);
+    bool transformLoop(HLLoop *InnermostLoop,
+                       ArrayRef<RegDDRef *> RefsToRewrite);
 
     int64_t getDimensionElementSizeInByte(const RegDDRef *Ref) const {
       Type *DimTy = Ref->getDimensionElementType(
@@ -358,7 +363,7 @@ void HIRMVForVariableStride::MVTransformer::updateStrideCEs(
 }
 
 HLLoop *HIRMVForVariableStride::MVTransformer::calcOutermostLoopToMV(
-    HLLoop *Loop, ArrayRef<StrideAndSizeTy> StrideAndConstSize) const {
+    HLLoop *InnermostLoop, ArrayRef<StrideAndSizeTy> StrideAndConstSize) const {
 
   // Calc maxDefAtLevel for all strides to MV.
   unsigned MaxDefAtLevel = 0;
@@ -368,23 +373,25 @@ HLLoop *HIRMVForVariableStride::MVTransformer::calcOutermostLoopToMV(
       MaxDefAtLevel = DefAtLevel;
   }
 
+  assert(CanonExprUtils::isValidLoopLevel(MaxDefAtLevel + 1));
+
   // Get the lowest level of the loop it can go
-  HLLoop *OuterLoopToMV = LoopStructure.getValidLowestAncestor(Loop);
+  HLLoop *OuterLoopToMV = LoopStructure.getValidLowestAncestor(InnermostLoop);
 
   LLVM_DEBUG(dbgs() << "OutermostLevel from LoopTree: ");
   LLVM_DEBUG(dbgs() << OuterLoopToMV->getNestingLevel() << "\n");
 
-  // Loop at the level of (MaxDefAtLevel + 1) is the Lowest level
+  // InnermostLoop at the level of (MaxDefAtLevel + 1) is the Lowest level
   // that can be MVed.
   if (MaxDefAtLevel + 1 > OuterLoopToMV->getNestingLevel()) {
-    OuterLoopToMV = Loop->getParentLoopAtLevel(MaxDefAtLevel + 1);
+    OuterLoopToMV = InnermostLoop->getParentLoopAtLevel(MaxDefAtLevel + 1);
   }
 
   return OuterLoopToMV;
 }
 
 bool HIRMVForVariableStride::MVTransformer::transformLoop(
-    HLLoop *Loop, ArrayRef<RegDDRef *> RefsToRewrite) {
+    HLLoop *InnermostLoop, ArrayRef<RegDDRef *> RefsToRewrite) {
 
   // Collect LHS and RHS of Pred of If
   // Also calculate the maximum (deepest) defined at level
@@ -427,11 +434,11 @@ bool HIRMVForVariableStride::MVTransformer::transformLoop(
     return false;
 
   // Create If-stmt with Preds
-  DDRefUtils &DRU = Loop->getDDRefUtils();
+  DDRefUtils &DRU = InnermostLoop->getDDRefUtils();
   // makeConsistent updates SB later
   RegDDRef *LHS = DRU.createScalarRegDDRef(
       GenericRvalSymbase, StrideAndConstSize.front().first->clone());
-  HLIf *If = Loop->getHLNodeUtils().createHLIf(
+  HLIf *If = InnermostLoop->getHLNodeUtils().createHLIf(
       PredicateTy::ICMP_EQ, LHS,
       DRU.createConstDDRef(LHS->getDestType(),
                            StrideAndConstSize.front().second));
@@ -443,8 +450,9 @@ bool HIRMVForVariableStride::MVTransformer::transformLoop(
                      DRU.createConstDDRef(LHS->getDestType(), Pair.second));
   }
 
-  // Find the outermost loop enclosing Loop to MV
-  HLLoop *OuterLoopToMV = calcOutermostLoopToMV(Loop, StrideAndConstSize);
+  // Find the outermost loop enclosing InnermostLoop to MV
+  HLLoop *OuterLoopToMV =
+      calcOutermostLoopToMV(InnermostLoop, StrideAndConstSize);
 
   // Actual MV of OuterLoop
 
@@ -454,7 +462,7 @@ bool HIRMVForVariableStride::MVTransformer::transformLoop(
   OuterLoopToMV->extractPreheaderAndPostexit();
 
   // Multiversioned loop is not the innermost loop
-  if (OuterLoopToMV != Loop)
+  if (OuterLoopToMV != InnermostLoop)
     OuterLoopsMultiversioned++;
 
   // TODO: invalidation might be called redundantly?
@@ -471,8 +479,8 @@ bool HIRMVForVariableStride::MVTransformer::transformLoop(
         RefsToRewrite, OuterLoopToMV->getNestingLevel() - 1);
   }
 
-  // Update Loop's body
-  updateStrideCEs(Loop, RefsToRewrite);
+  // Update InnermostLoop's body
+  updateStrideCEs(InnermostLoop, RefsToRewrite);
 
   return true;
 }
@@ -518,9 +526,14 @@ bool HIRMVForVariableStride::Analyzer::checkAndAddIfCandidate(
                               InnermostLoop->child_end(), Refs);
 
   bool FoundVariableStride = false;
+  LLVM_DEBUG(dbgs() << "Refs being examined:\n");
   for (auto *Ref : Refs) {
+    LLVM_DEBUG(Ref->dumpDims(1); dbgs() << "\n");
+    LLVM_DEBUG(getStrideCE(Ref)->dump(1); dbgs() << "\n");
+    LLVM_DEBUG(getLowerCE(Ref)->dump(1); dbgs() << "\n");
+
     if (HIRMVForVariableStride::getStrideCE(Ref)->isNonLinear() ||
-        HIRMVForVariableStride::getDimensionLower(Ref)->isNonLinear())
+        HIRMVForVariableStride::getLowerCE(Ref)->isNonLinear())
       return false;
 
     if (!hasVariableStride(Ref))
@@ -533,6 +546,7 @@ bool HIRMVForVariableStride::Analyzer::checkAndAddIfCandidate(
 
     if (IndexCE->getDenominator() != 1)
       return false;
+
     int64_t Coeff = 0;
     unsigned BlobIndex = InvalidBlobIndex;
     IndexCE->getIVCoeff(InnermostLoop->getNestingLevel(), &BlobIndex, &Coeff);
