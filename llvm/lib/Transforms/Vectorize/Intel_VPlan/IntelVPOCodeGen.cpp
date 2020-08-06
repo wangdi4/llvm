@@ -140,26 +140,24 @@ Value *VPOCodeGen::generateSerialInstruction(VPInstruction *VPInst,
     assert(ScalarOperands.size() == 1 &&
            "Load VPInstruction has incorrect number of operands.");
     SerialInst = Builder.CreateLoad(Ops[0]);
-    if (auto *Underlying = VPInst->getUnderlyingValue()) {
-      auto *NewLoad = cast<LoadInst>(SerialInst);
-      auto *Load = cast<LoadInst>(Underlying);
-      NewLoad->setVolatile(Load->isVolatile());
-      NewLoad->setOrdering(Load->getOrdering());
-      NewLoad->setSyncScopeID(Load->getSyncScopeID());
-      NewLoad->setAlignment(Load->getAlign());
-    }
+    auto *NewLoad = cast<LoadInst>(SerialInst);
+    auto *VPLoad = cast<VPLoadStoreInst>(VPInst);
+    NewLoad->setVolatile(VPLoad->isVolatile());
+    NewLoad->setOrdering(VPLoad->getOrdering());
+    if (VPLoad->isAtomic())
+      NewLoad->setSyncScopeID(VPLoad->getSyncScopeID());
+    NewLoad->setAlignment(VPLoad->getAlignment());
   } else if (VPInst->getOpcode() == Instruction::Store) {
     assert(ScalarOperands.size() == 2 &&
            "Store VPInstruction has incorrect number of operands.");
     SerialInst = Builder.CreateStore(Ops[0], Ops[1]);
-    if (auto *Underlying = VPInst->getUnderlyingValue()) {
-      auto *NewStore = cast<StoreInst>(SerialInst);
-      auto *OldStore = cast<StoreInst>(Underlying);
-      NewStore->setVolatile(OldStore->isVolatile());
-      NewStore->setOrdering(OldStore->getOrdering());
-      NewStore->setSyncScopeID(OldStore->getSyncScopeID());
-      NewStore->setAlignment(OldStore->getAlign());
-    }
+    auto *NewStore = cast<StoreInst>(SerialInst);
+    auto *VPStore = cast<VPLoadStoreInst>(VPInst);
+    NewStore->setVolatile(VPStore->isVolatile());
+    NewStore->setOrdering(VPStore->getOrdering());
+    if (VPStore->isAtomic())
+      NewStore->setSyncScopeID(VPStore->getSyncScopeID());
+    NewStore->setAlignment(VPStore->getAlignment());
   } else if (VPInst->getOpcode() == Instruction::Call) {
     assert(ScalarOperands.size() > 0 &&
            "Call VPInstruction should have atleast one operand.");
@@ -207,8 +205,8 @@ Value *VPOCodeGen::generateSerialInstruction(VPInstruction *VPInst,
     auto *Ty = cast<PointerType>(VPInst->getType());
     AllocaInst *SerialAlloca = Builder.CreateAlloca(
         Ty->getElementType(), Ty->getAddressSpace(), Ops[0]);
-    // TODO: We don't represent alignment in VPInstruction, so underlying
-    // instruction must exist!
+    // TODO: We don't represent alloca attributes in VPInstruction, so
+    // underlying instruction must exist!
     auto *OrigAlloca = cast<AllocaInst>(VPInst->getUnderlyingValue());
     SerialAlloca->setAlignment(OrigAlloca->getAlign());
     SerialAlloca->setUsedWithInAlloca(OrigAlloca->isUsedWithInAlloca());
@@ -1715,9 +1713,9 @@ Align VPOCodeGen::getOriginalLoadStoreAlignment(const VPInstruction *VPInst) {
   assert((VPInst->getOpcode() == Instruction::Load ||
           VPInst->getOpcode() == Instruction::Store) &&
          "Alignment helper called on non load/store instruction.");
-  // TODO: Peeking at underlying Value for alignment info.
-  auto *UV = VPInst->getUnderlyingValue();
-  if (!UV)
+  // TODO: Using align 1 for new loads/stores introduced by VPlan-to-VPlan
+  // transforms.
+  if (VPInst->getUnderlyingValue() == nullptr)
     return Align(1);
 
   const DataLayout &DL = OrigLoop->getHeader()->getModule()->getDataLayout();
@@ -1725,7 +1723,8 @@ Align VPOCodeGen::getOriginalLoadStoreAlignment(const VPInstruction *VPInst) {
 
   // Absence of alignment means target abi alignment. We need to use the
   // scalar's target abi alignment in such a case.
-  return DL.getValueOrABITypeAlignment(getLoadStoreAlignment(UV), OrigTy);
+  return DL.getValueOrABITypeAlignment(
+      cast<VPLoadStoreInst>(VPInst)->getAlignment(), OrigTy);
 }
 
 Align VPOCodeGen::getAlignmentForGatherScatter(const VPInstruction *VPInst) {
@@ -1904,8 +1903,6 @@ void VPOCodeGen::vectorizeLoadInstruction(VPInstruction *VPInst,
   int LinStride = 0;
 
   // Loads that are non-vectorizable should be serialized.
-  // TODO: First-class representation for volatile/atomic property inside
-  // VPInstruction's subclass.
   if (!isVectorizableLoadStore(VPInst)) {
     return serializeWithPredication(VPInst);
   }
@@ -2199,31 +2196,16 @@ void VPOCodeGen::vectorizeStoreInstruction(VPInstruction *VPInst,
 }
 
 bool VPOCodeGen::isVectorizableLoadStore(const VPValue *V) {
-  auto *VPInst = dyn_cast<VPInstruction>(V);
-  if (!VPInst)
-    return false;
-
-  if (VPInst->getOpcode() != Instruction::Load &&
-      VPInst->getOpcode() != Instruction::Store)
+  auto *VPLoadStore = dyn_cast<VPLoadStoreInst>(V);
+  if (!VPLoadStore)
     return false;
 
   // TODO: Load/store to struct types can be potentially vectorized by doing a
   // wide load/store followed by shuffle + bitcast.
-  if (!isVectorizableTy(getLoadStoreType(VPInst)))
+  if (!isVectorizableTy(getLoadStoreType(VPLoadStore)))
     return false;
 
-  // FIXME: Represent volatile/atomic property in VPInstruction itself,
-  // without using underlying LLVM instruction.
-  auto *Underlying = VPInst->getUnderlyingValue();
-  if (!Underlying)
-    return true;
-
-  unsigned Opcode = VPInst->getOpcode();
-
-  if (Opcode == Instruction::Load)
-    return cast<LoadInst>(Underlying)->isSimple();
-
-  return cast<StoreInst>(Underlying)->isSimple();
+  return VPLoadStore->isSimple();
 }
 
 // This function returns computed addresses of memory locations which should be
