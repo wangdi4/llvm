@@ -115,13 +115,8 @@ LookupResult DeviceTy::lookupMapping(void *HstPtrBegin, int64_t Size) {
   uintptr_t hp = (uintptr_t)HstPtrBegin;
   LookupResult lr;
 
-<<<<<<< HEAD
-  DP("Looking up mapping(HstPtrBegin=" DPxMOD ", Size=%" PRId64 ")...\n", DPxPTR(hp),
-      Size);
-=======
   DP("Looking up mapping(HstPtrBegin=" DPxMOD ", Size=%" PRId64 ")...\n",
       DPxPTR(hp), Size);
->>>>>>> 40470eb27a5c97b01e89d8825626487b0682abec
 
   if (HostDataToTargetMap.empty())
     return lr;
@@ -214,19 +209,9 @@ void *DeviceTy::getOrAllocTgtPtr(void *HstPtrBegin, void *HstPtrBase,
     // In addition to the mapping rules above, the close map modifier forces the
     // mapping of the variable to the device.
     if (Size) {
-<<<<<<< HEAD
-#if INTEL_COLLAB
       DP("Return HstPtrBegin " DPxMOD " Size=%" PRId64 " RefCount=%s\n",
          DPxPTR((uintptr_t)HstPtrBegin), Size,
          (UpdateRefCount ? " updated" : ""));
-#else // INTEL_COLLAB
-      DP("Return HstPtrBegin " DPxMOD " Size=%ld RefCount=%s\n",
-=======
-      DP("Return HstPtrBegin " DPxMOD " Size=%" PRId64 " RefCount=%s\n",
->>>>>>> 40470eb27a5c97b01e89d8825626487b0682abec
-         DPxPTR((uintptr_t)HstPtrBegin), Size,
-         (UpdateRefCount ? " updated" : ""));
-#endif // INTEL_COLLAB
       IsHostPtr = true;
       rc = HstPtrBegin;
     }
@@ -293,13 +278,8 @@ void *DeviceTy::getTgtPtrBegin(void *HstPtrBegin, int64_t Size, bool &IsLast,
 
     uintptr_t tp = HT.TgtPtrBegin + ((uintptr_t)HstPtrBegin - HT.HstPtrBegin);
     DP("Mapping exists with HstPtrBegin=" DPxMOD ", TgtPtrBegin=" DPxMOD ", "
-<<<<<<< HEAD
-        "Size=%" PRId64 ",%s RefCount=%s\n", DPxPTR(HstPtrBegin), DPxPTR(tp), Size,
-        (UpdateRefCount ? " updated" : ""),
-=======
         "Size=%" PRId64 ",%s RefCount=%s\n", DPxPTR(HstPtrBegin), DPxPTR(tp),
         Size, (UpdateRefCount ? " updated" : ""),
->>>>>>> 40470eb27a5c97b01e89d8825626487b0682abec
         HT.isRefCountInf() ? "INF" : std::to_string(HT.getRefCount()).c_str());
     rc = (void *)tp;
 #if INTEL_COLLAB
