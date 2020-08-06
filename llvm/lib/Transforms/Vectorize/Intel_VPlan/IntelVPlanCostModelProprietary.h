@@ -208,12 +208,6 @@ private:
   // Frequency info to correctly calculate the cost. Until it's done, just
   // report high vector cost for loops with too many i1 instructions.
   unsigned NumberOfBoolComputations = 0;
-
-  /// \Returns True iff \p VPInst is Unit Strided load or store.
-  /// When load/store is strided NegativeStride is set to true if the stride is
-  /// negative (-1 in number of elements) or to false otherwise.
-  virtual bool isUnitStrideLoadStore(
-    const VPInstruction *VPInst, bool &NegativeStride) const final;
 };
 
 } // namespace vpo
