@@ -1,5 +1,22 @@
 defvar khr_shuffle_gentype = [v1i8, v1u8, v1i16, v1u16, v1i32, v1u32, v1i64, v1u64, v1f32, v1f64];
 
+defvar intel_shuffle_gentype = [v1i32, v1u32, v1i64, v1u64, v1f32, v1f64, v1i8, v1u8, v1i16, v1u16,
+                                v2i32, v4i32, v8i32, v16i32, v3i32,
+                                v2u32, v4u32, v8u32, v16u32, v3u32,
+                                v2f32, v4f32, v8f32, v16f32, v3f32,
+                                v2i64, v4i64, v8i64, v16i64, v3i64,
+                                v2u64, v4u64, v8u64, v16u64, v3u64,
+                                v2i8 , v4i8 , v8i8 , v16i8 , v3i8 ,
+                                v2u8 , v4u8 , v8u8 , v16u8 , v3u8 ,
+                                v2i16, v4i16, v8i16, v16i16, v3i16,
+                                v2u16, v4u16, v8u16, v16u16, v3u16];
+
+defvar broadcast_extended_types = [v2i8, v2u8, v2i16, v2u16, v2i32, v2u32, v2i64, v2u64, v2f32, v2f64,
+                                   v3i8, v3u8, v3i16, v3u16, v3i32, v3u32, v3i64, v3u64, v3f32, v3f64,
+                                   v4i8, v4u8, v4i16, v4u16, v4i32, v4u32, v4i64, v4u64, v4f32, v4f64,
+                                   v8i8, v8u8, v8i16, v8u16, v8i32, v8u32, v8i64, v8u64, v8f32, v8f64,
+                                   v16i8, v16u8, v16i16, v16u16, v16i32, v16u32, v16i64, v16u64, v16f32, v16f64];
+
 let NeedForwardDecl = 1, Types = [ v1u32 ],
    Attrs = [OVERLOADABLE] in {
   def get_sub_group_size : OclBuiltin<"get_sub_group_size", (outs uint:$ret), (ins void), [], [], 1, 0>;
@@ -42,7 +59,7 @@ Attrs = [OVERLOADABLE] in {
     def sub_group_any  : OclBuiltin<"sub_group_any",  (outs gentype:$ret), (ins gentype:$predicate), [], [], 1, 0>;
   }
 
-  let Types = [ v4i32,  v8i32,  v16i32 ] in {
+  let Types = [ v4i32,  v8i32,  v16i32, v32i32, v64i32] in {
     def sub_group_all_vec  : OclBuiltin<"sub_group_all",  (outs gentype:$ret), (ins gentype:$predicate, u32gentype:$vec_mask), [], [], 1, 0>;
     def sub_group_any_vec  : OclBuiltin<"sub_group_any",  (outs gentype:$ret), (ins gentype:$predicate, u32gentype:$vec_mask), [], [], 1, 0>;
   }
@@ -65,12 +82,6 @@ Attrs = [OVERLOADABLE] in {
     }
   }
 
-  defvar broadcast_extended_types = [v2i8, v2u8, v2i16, v2u16, v2i32, v2u32, v2i64, v2u64, v2f32, v2f64,
-                                     v3i8, v3u8, v3i16, v3u16, v3i32, v3u32, v3i64, v3u64, v3f32, v3f64,
-                                     v4i8, v4u8, v4i16, v4u16, v4i32, v4u32, v4i64, v4u64, v4f32, v4f64,
-                                     v8i8, v8u8, v8i16, v8u16, v8i32, v8u32, v8i64, v8u64, v8f32, v8f64,
-                                     v16i8, v16u8, v16i16, v16u16, v16i32, v16u32, v16i64, v16u64, v16f32, v16f64];
-
   let Types = broadcast_extended_types in {
     def sub_group_broadcast_extended : OclBuiltin<"sub_group_broadcast", (outs gentype:$ret), (ins gentype:$src, uint:$sub_group_local_id), [], [], 1, 0>;
   }
@@ -87,12 +98,12 @@ Attrs = [OVERLOADABLE] in {
     def sub_group_broadcast_extended_avx512 : OclBuiltin<"sub_group_broadcast", (outs gentype:$ret), (ins gentype:$src, uint:$sub_group_local_id, v16u32:$vec_mask), [], [], 1, 0>;
   }
 
-  let Types = [ v4i32, v8i32, v16i32,
-                v4u32, v8u32, v16u32,
-                v4i64, v8i64, v16i64,
-                v4u64, v8u64, v16u64,
-                v4f32, v8f32, v16f32,
-                v4f64, v8f64, v16f64 ] in {
+  let Types = [ v4i32, v8i32, v16i32, v32i32, v64i32,
+                v4u32, v8u32, v16u32, v32u32, v64u32,
+                v4i64, v8i64, v16i64, v32i64, v64i64,
+                v4u64, v8u64, v16u64, v32u64, v64u64,
+                v4f32, v8f32, v16f32, v32f32, v64f32,
+                v4f64, v8f64, v16f64, v32f64, v64f64 ] in {
     def sub_group_broadcast_vec : OclBuiltin<"sub_group_broadcast", (outs gentype:$ret), (ins gentype:$src, uint:$sub_group_local_id, u32gentype:$vec_mask), [], [], 1, 0>;
     foreach func = ["reduce", "scan_inclusive", "scan_exclusive"] in {
       foreach op = ["add", "min", "max"] in {
@@ -101,8 +112,11 @@ Attrs = [OVERLOADABLE] in {
     }
   }
 
-  let Types = [v4i8, v4u8, v8i8, v8u8, v16i8, v16u8,
-               v4i16, v4u16, v8i16, v8u16, v16i16, v16u16] in {
+  let Types = [v4i8 , v4u8 , v4i16 , v4u16 ,
+               v8i8 , v8u8 , v8i16 , v8u16 ,
+               v16i8, v16u8, v16i16, v16u16,
+               v32i8, v32u8, v32i16, v32u16,
+               v64i8, v64u8, v64i16, v64u16] in {
     def sub_group_broadcast_vec_cs : OclBuiltin<"intel_sub_group_broadcast", (outs gentype:$ret), (ins gentype:$src, uint:$sub_group_local_id, u32gentype:$vec_mask), [], [], 1, 0>;
     foreach func = ["reduce", "scan_inclusive", "scan_exclusive"] in {
       foreach op = ["add", "min", "max"] in {
@@ -185,16 +199,7 @@ Attrs = [OVERLOADABLE] in {
   }
 
   // Declare "scalar" (not vectorized) versions of shuffle.
-  let Types = [v1i32, v1u32, v1i64, v1u64, v1f32, v1f64, v1i8, v1u8, v1i16, v1u16,
-               v2i32, v4i32, v8i32, v16i32, v3i32,
-               v2u32, v4u32, v8u32, v16u32, v3u32,
-               v2f32, v4f32, v8f32, v16f32, v3f32,
-               v2i64, v4i64, v8i64, v16i64, v3i64,
-               v2u64, v4u64, v8u64, v16u64, v3u64,
-               v2i8 , v4i8 , v8i8 , v16i8 , v3i8 ,
-               v2u8 , v4u8 , v8u8 , v16u8 , v3u8 ,
-               v2i16, v4i16, v8i16, v16i16, v3i16,
-               v2u16, v4u16, v8u16, v16u16, v3u16] in {
+  let Types = intel_shuffle_gentype in {
         def sub_group_shuffle :     OclBuiltin<"intel_sub_group_shuffle", (outs gentype:$ret), (ins gentype:$data, v1u32: $sub_group_local_id), [], [], 1, 0>;
         def sub_group_shuffle_xor : OclBuiltin<"intel_sub_group_shuffle_xor", (outs gentype:$ret), (ins gentype:$data, v1u32: $value), [], [], 1, 0>;
         def sub_group_shuffle_down : OclBuiltin<"intel_sub_group_shuffle_down", (outs gentype:$ret), (ins gentype:$current, gentype:$next, v1u32:$value), [], [], 1, 0>;
@@ -211,16 +216,7 @@ Attrs = [OVERLOADABLE] in {
   }
 
   // AVX (VF = 4)
-  let Types = [v4i32, v4u32, v4i64, v4u64, v4f32, v4f64, v4i8, v4u8, v4i16, v4u16,
-               v8i32, v16i32, v32i32, v64i32, v12i32,
-               v8u32, v16u32, v32u32, v64u32, v12u32,
-               v8f32, v16f32, v32f32, v64f32, v12f32,
-               v8i64, v16i64, v32i64, v64i64, v12i64,
-               v8u64, v16u64, v32u64, v64u64, v12u64,
-               v8i8 , v16i8 , v32i8 , v64i8 , v12i8 ,
-               v8u8 , v16u8 , v32u8 , v64u8 , v12u8 ,
-               v8i16, v16i16, v32i16, v64i16, v12i16,
-               v8u16, v16u16, v32u16, v64u16, v12u16] in {
+  let Types = VFType<intel_shuffle_gentype, "_avx">.Tout in {
         def sub_group_shuffle_avx : OclBuiltin<"intel_sub_group_shuffle", (outs gentype:$ret), (ins gentype:$data, v4u32:$sub_group_local_id, v4u32:$vec_mask), [], [], 1, 0>;
         def sub_group_shuffle_xor_avx : OclBuiltin<"intel_sub_group_shuffle_xor", (outs gentype:$ret), (ins gentype:$data, v4u32:$value, v4u32:$vec_mask), [], [], 1, 0>;
         def sub_group_shuffle_down_avx : OclBuiltin<"intel_sub_group_shuffle_down", (outs gentype:$ret), (ins gentype:$current, gentype:$next, v4u32:$value, v4u32:$vec_mask), [], [], 1, 0>;
@@ -228,16 +224,7 @@ Attrs = [OVERLOADABLE] in {
       }
 
   // AVX2 (VF = 8)
-  let Types = [v8i32, v8u32, v8i64, v8u64, v8f32, v8f64, v8i8, v8u8, v8i16, v8u16,
-               v16i32, v32i32, v64i32, v128i32, v24i32,
-               v16u32, v32u32, v64u32, v128u32, v24u32,
-               v16f32, v32f32, v64f32, v128f32, v24f32,
-               v16i64, v32i64, v64i64, v128i64, v24i64,
-               v16u64, v32u64, v64u64, v128u64, v24u64,
-               v16i8 , v32i8 , v64i8 , v128i8 , v24i8 ,
-               v16u8 , v32u8 , v64u8 , v128u8 , v24u8 ,
-               v16i16, v32i16, v64i16, v128i16, v24i16,
-               v16u16, v32u16, v64u16, v128u16, v24u16] in {
+  let Types = VFType<intel_shuffle_gentype, "_avx2">.Tout in {
         def sub_group_shuffle_avx2 : OclBuiltin<"intel_sub_group_shuffle", (outs gentype:$ret), (ins gentype:$data, v8u32:$sub_group_local_id, v8u32:$vec_mask), [], [], 1, 0>;
         def sub_group_shuffle_xor_avx2 : OclBuiltin<"intel_sub_group_shuffle_xor", (outs gentype:$ret), (ins gentype:$data, v8u32:$value, v8u32:$vec_mask), [], [], 1, 0>;
         def sub_group_shuffle_down_avx2 : OclBuiltin<"intel_sub_group_shuffle_down", (outs gentype:$ret), (ins gentype:$current, gentype:$next, v8u32:$value, v8u32:$vec_mask), [], [], 1, 0>;
@@ -245,21 +232,29 @@ Attrs = [OVERLOADABLE] in {
       }
 
   // AVX512 (VF = 16)
-  let Types = [v16i32, v16u32, v16i64, v16u64, v16f32, v16f64, v16i8, v16u8, v16i16, v16u16,
-               v32i32, v64i32, v128i32, v256i32, v48i32,
-               v32u32, v64u32, v128u32, v256u32, v48u32,
-               v32f32, v64f32, v128f32, v256f32, v48f32,
-               v32i64, v64i64, v128i64, v256i64, v48i64,
-               v32u64, v64u64, v128u64, v256u64, v48u64,
-               v32i8 , v64i8 , v128i8 , v256i8 , v48i8 ,
-               v32u8 , v64u8 , v128u8 , v256u8 , v48u8 ,
-               v32i16, v64i16, v128i16, v256i16, v48i16,
-               v32u16, v64u16, v128u16, v256u16, v48u16] in {
+  let Types = VFType<intel_shuffle_gentype, "_avx512">.Tout in {
         def sub_group_shuffle_avx512 : OclBuiltin<"intel_sub_group_shuffle", (outs gentype:$ret), (ins gentype:$data, v16u32:$sub_group_local_id, v16u32:$vec_mask), [], [], 1, 0>;
         def sub_group_shuffle_xor_avx512 : OclBuiltin<"intel_sub_group_shuffle_xor", (outs gentype:$ret), (ins gentype:$data, v16u32:$value, v16u32:$vec_mask), [], [], 1, 0>;
         def sub_group_shuffle_down_avx512 : OclBuiltin<"intel_sub_group_shuffle_down", (outs gentype:$ret), (ins gentype:$current, gentype:$next, v16u32:$value, v16u32:$vec_mask), [], [], 1, 0>;
         def sub_group_shuffle_up_avx512 : OclBuiltin<"intel_sub_group_shuffle_up", (outs gentype:$ret), (ins gentype:$previous, gentype:$current, v16u32:$value, v16u32:$vec_mask), [], [], 1, 0>;
       }
+
+  // Rename sub_group_shuffle_avx/avx2/avx512 to sub_group_shuffle_x4/8/16
+  // X32 shuffle
+  let Types = VFType<intel_shuffle_gentype, "_x32">.Tout in {
+        def sub_group_shuffle_x32 : OclBuiltin<"intel_sub_group_shuffle", (outs gentype:$ret), (ins gentype:$data, v32u32:$sub_group_local_id, v32u32:$vec_mask), [], [], 1, 0>;
+        def sub_group_shuffle_xor_x32 : OclBuiltin<"intel_sub_group_shuffle_xor", (outs gentype:$ret), (ins gentype:$data, v32u32:$value, v32u32:$vec_mask), [], [], 1, 0>;
+        def sub_group_shuffle_down_x32 : OclBuiltin<"intel_sub_group_shuffle_down", (outs gentype:$ret), (ins gentype:$current, gentype:$next, v32u32:$value, v32u32:$vec_mask), [], [], 1, 0>;
+        def sub_group_shuffle_up_x32 : OclBuiltin<"intel_sub_group_shuffle_up", (outs gentype:$ret), (ins gentype:$previous, gentype:$current, v32u32:$value, v32u32:$vec_mask), [], [], 1, 0>;
+  }
+
+  // X64 shuffle
+  let Types = VFType<intel_shuffle_gentype, "_x64">.Tout in {
+        def sub_group_shuffle_x64 : OclBuiltin<"intel_sub_group_shuffle", (outs gentype:$ret), (ins gentype:$data, v64u32:$sub_group_local_id, v64u32:$vec_mask), [], [], 1, 0>;
+        def sub_group_shuffle_xor_x64 : OclBuiltin<"intel_sub_group_shuffle_xor", (outs gentype:$ret), (ins gentype:$data, v64u32:$value, v64u32:$vec_mask), [], [], 1, 0>;
+        def sub_group_shuffle_down_x64 : OclBuiltin<"intel_sub_group_shuffle_down", (outs gentype:$ret), (ins gentype:$current, gentype:$next, v64u32:$value, v64u32:$vec_mask), [], [], 1, 0>;
+        def sub_group_shuffle_up_x64 : OclBuiltin<"intel_sub_group_shuffle_up", (outs gentype:$ret), (ins gentype:$previous, gentype:$current, v64u32:$value, v64u32:$vec_mask), [], [], 1, 0>;
+  }
 
   // Sub group block read & write
   // uint
@@ -270,15 +265,19 @@ Attrs = [OVERLOADABLE] in {
         def intel_sub_group_block_write : OclBuiltin<"intel_sub_group_block_write", (outs void:$ret), (ins gpv1u32:$p, gentype:$data), [], [], 1, 0>;
         def intel_sub_group_block_read_img  : OclBuiltin<"intel_sub_group_block_read",  (outs gentype:$ret), (ins image2d_ro:$img, v2i32:$coord), [], [], 1, 0>;
         def intel_sub_group_block_write_img : OclBuiltin<"intel_sub_group_block_write", (outs void:$ret), (ins image2d_wo:$img, v2i32:$coord, gentype:$data), [], [], 1, 0>;
+        def intel_sub_group_block_read_img_rw  : OclBuiltin<"intel_sub_group_block_read",  (outs gentype:$ret), (ins image2d_rw:$img_rw, v2i32:$coord), [], [], 1, 0>;
+        def intel_sub_group_block_write_img_rw : OclBuiltin<"intel_sub_group_block_write", (outs void:$ret), (ins image2d_rw:$img_rw, v2i32:$coord, gentype:$data), [], [], 1, 0>;
         foreach len = [ 2, 4, 8 ] in {
           def intel_sub_group_block_read#!cast<string>(len) : OclBuiltin<"intel_sub_group_block_read"#len,  (outs !cast<OclType>("v"#len#"u32"):$ret), (ins cgpv1u32:$p), [], [], 1, 0>;
           def intel_sub_group_block_write#!cast<string>(len) : OclBuiltin<"intel_sub_group_block_write"#len, (outs void:$ret), (ins gpv1u32:$p, !cast<OclType>("v"#len#"u32"):$data), [], [], 1, 0>;
           def intel_sub_group_block_read#!cast<string>(len)#_img  : OclBuiltin<"intel_sub_group_block_read"#len,  (outs !cast<OclType>("v"#len#"u32"):$ret), (ins image2d_ro:$img, v2i32:$coord), [], [], 1, 0>;
           def intel_sub_group_block_write#!cast<string>(len)#_img : OclBuiltin<"intel_sub_group_block_write"#len, (outs void:$ret), (ins image2d_wo:$img, v2i32:$coord, !cast<OclType>("v"#len#"u32"):$data), [], [], 1, 0>;
+          def intel_sub_group_block_read#!cast<string>(len)#_img_rw  : OclBuiltin<"intel_sub_group_block_read"#len,  (outs !cast<OclType>("v"#len#"u32"):$ret), (ins image2d_rw:$img_rw, v2i32:$coord), [], [], 1, 0>;
+          def intel_sub_group_block_write#!cast<string>(len)#_img_rw : OclBuiltin<"intel_sub_group_block_write"#len, (outs void:$ret), (ins image2d_rw:$img_rw, v2i32:$coord, !cast<OclType>("v"#len#"u32"):$data), [], [], 1, 0>;
         }
         // vector
         foreach len = [ 1, 2, 4, 8 ] in {
-          foreach vf = [ 4, 8, 16 ] in {
+          foreach vf = [ 4, 8, 16, 32, 64 ] in {
             def intel_sub_group_block_read#!cast<string>(len)#"_"#!cast<string>(vf) :
               OclBuiltin<"intel_sub_group_block_read"#len#"_"#vf, (outs !cast<OclType>("v"#!mul(len, vf)#"u32"):$ret), (ins cgpv1u32:$data, !cast<OclType>("v"#vf#"u32"):$vec_mask), [], [], 1, 0>;
             def intel_sub_group_block_write#!cast<string>(len)#"_"#!cast<string>(vf) :
@@ -287,28 +286,13 @@ Attrs = [OVERLOADABLE] in {
               OclBuiltin<"intel_sub_group_block_read"#len#"_"#vf,  (outs !cast<OclType>("v"#!mul(len, vf)#"u32"):$ret), (ins image2d_ro:$img, v2i32:$coord, !cast<OclType>("v"#vf#"u32"):$vec_mask), [], [], 1, 0>;
             def intel_sub_group_block_write#!cast<string>(len)#_#!cast<string>(vf)#_img :
               OclBuiltin<"intel_sub_group_block_write"#len#"_"#vf, (outs void:$ret), (ins image2d_wo:$img, v2i32:$coord, !cast<OclType>("v"#!mul(len, vf)#"u32"):$data, !cast<OclType>("v"#vf#"u32"):$vec_mask), [], [], 1, 0>;
+            def intel_sub_group_block_read#!cast<string>(len)#_#!cast<string>(vf)#_img_rw :
+              OclBuiltin<"intel_sub_group_block_read"#len#"_"#vf,  (outs !cast<OclType>("v"#!mul(len, vf)#"u32"):$ret), (ins image2d_rw:$img_rw, v2i32:$coord, !cast<OclType>("v"#vf#"u32"):$vec_mask), [], [], 1, 0>;
+            def intel_sub_group_block_write#!cast<string>(len)#_#!cast<string>(vf)#_img_rw :
+              OclBuiltin<"intel_sub_group_block_write"#len#"_"#vf, (outs void:$ret), (ins image2d_rw:$img_rw, v2i32:$coord, !cast<OclType>("v"#!mul(len, vf)#"u32"):$data, !cast<OclType>("v"#vf#"u32"):$vec_mask), [], [], 1, 0>;
           }
         }
       }
-
-  let Types = [ v1u32 ] in {
-    // scalar
-    def intel_sub_group_block_read_img_rw  : OclBuiltin<"intel_sub_group_block_read",  (outs gentype:$ret), (ins image2d_rw:$img_rw, v2i32:$coord), [], [], 1, 0>;
-    def intel_sub_group_block_write_img_rw : OclBuiltin<"intel_sub_group_block_write", (outs void:$ret), (ins image2d_rw:$img_rw, v2i32:$coord, gentype:$data), [], [], 1, 0>;
-    foreach len = [2, 4, 8] in {
-      def intel_sub_group_block_read#!cast<string>(len)#_img_rw  : OclBuiltin<"intel_sub_group_block_read"#len,  (outs !cast<OclType>("v"#len#"u32"):$ret), (ins image2d_rw:$img_rw, v2i32:$coord), [], [], 1, 0>;
-      def intel_sub_group_block_write#!cast<string>(len)#_img_rw : OclBuiltin<"intel_sub_group_block_write"#len, (outs void:$ret), (ins image2d_rw:$img_rw, v2i32:$coord, !cast<OclType>("v"#len#"u32"):$data), [], [], 1, 0>;
-    }
-    // vector
-    foreach len = [1, 2, 4, 8] in {
-      foreach vf = [4, 8, 16] in {
-        def intel_sub_group_block_read#!cast<string>(len)#_#!cast<string>(vf)#_img_rw :
-          OclBuiltin<"intel_sub_group_block_read"#len#"_"#vf,  (outs !cast<OclType>("v"#!mul(len, vf)#"u32"):$ret), (ins image2d_rw:$img_rw, v2i32:$coord, !cast<OclType>("v"#vf#"u32"):$vec_mask), [], [], 1, 0>;
-        def intel_sub_group_block_write#!cast<string>(len)#_#!cast<string>(vf)#_img_rw :
-          OclBuiltin<"intel_sub_group_block_write"#len#"_"#vf, (outs void:$ret), (ins image2d_rw:$img_rw, v2i32:$coord, !cast<OclType>("v"#!mul(len, vf)#"u32"):$data, !cast<OclType>("v"#vf#"u32"):$vec_mask), [], [], 1, 0>;
-      }
-    }
-  }
 
   let Types = [v1u64, v1u32, v1u16, v1u8] in {
     def intel_sub_group_block_read_us_img  : OclBuiltin<"intel_sub_group_block_read_$RetSGBlockOpSuffix",   (outs gentype:$ret),  (ins image2d_ro:$img, v2i32:$coord), [], [], 1, 0>;
@@ -323,7 +307,7 @@ Attrs = [OVERLOADABLE] in {
     }
 
     // vectorized
-    foreach vf = [4, 8, 16] in {
+    foreach vf = [4, 8, 16, 32, 64] in {
       foreach len = [1, 2, 4, 8] in {
         def intel_sub_group_block_read_us#len#_#vf#_img  : OclBuiltin<"intel_sub_group_block_read_$RetSGBlockOpSuffix#"#len#_#vf,  (outs !cast<OclType>("gentype"#!mul(vf,len)):$ret),  (ins image2d_ro:$img, v2i32:$coord, !cast<OclType>("v"#vf#"u32"):$vec_mask), [], [], 1, 0>;
         def intel_sub_group_block_read_us#len#_#vf#_img_rw  : OclBuiltin<"intel_sub_group_block_read_$RetSGBlockOpSuffix#"#len#_#vf,  (outs !cast<OclType>("gentype"#!mul(vf,len)):$ret),  (ins image2d_rw:$img, v2i32:$coord, !cast<OclType>("v"#vf#"u32"):$vec_mask), [], [], 1, 0>;
@@ -337,7 +321,7 @@ Attrs = [OVERLOADABLE] in {
   def intel_sub_group_block_read_us16_img_rw : OclBuiltin<"intel_sub_group_block_read_$RetSGBlockOpSuffix#16", (outs gentype16:$ret), (ins image2d_rw:$img, v2i32:$coord), [v1u8], [], 1, 0>;
   def intel_sub_group_block_write_us16_img : OclBuiltin<"intel_sub_group_block_write_$Arg2SGBlockOpSuffix#16", (outs void:$ret), (ins image2d_wo:$img, v2i32:$coord, gentype16:$data), [v1u8], [], 1, 0>;
   def intel_sub_group_block_write_us16_img_rw : OclBuiltin<"intel_sub_group_block_write_$Arg2SGBlockOpSuffix#16", (outs void:$ret), (ins image2d_rw:$img, v2i32:$coord, gentype16:$data), [v1u8], [], 1, 0>;
-  foreach vf = [4, 8, 16] in {
+  foreach vf = [4, 8, 16, 32, 64] in {
     def intel_sub_group_block_read_us16_#vf#_img : OclBuiltin<"intel_sub_group_block_read_$RetSGBlockOpSuffix#16_"#vf, (outs !cast<OclType>("gentype"#!mul(16, vf)):$ret),(ins image2d_ro:$img, v2i32:$coord, !cast<OclType>("v"#vf#"u32"):$vec_mask), [v1u8], [], 1, 0>;
     def intel_sub_group_block_read_us16_#vf#_img_rw : OclBuiltin<"intel_sub_group_block_read_$RetSGBlockOpSuffix#16_"#vf, (outs !cast<OclType>("gentype"#!mul(16, vf)):$ret),(ins image2d_rw:$img, v2i32:$coord, !cast<OclType>("v"#vf#"u32"):$vec_mask), [v1u8], [], 1, 0>;
     def intel_sub_group_block_write_us16_#vf#_img  : OclBuiltin<"intel_sub_group_block_write_$Arg2SGBlockOpSuffix#16_"#vf,  (outs void:$ret), (ins image2d_wo:$img, v2i32:$coord, !cast<OclType>("gentype"#!mul(16, vf)):$data, !cast<OclType>("v"#vf#"u32"):$vec_mask), [v1u8], [], 1, 0>;
@@ -353,7 +337,7 @@ Attrs = [OVERLOADABLE] in {
     }
     // vectorized
     foreach len = [1, 2, 4, 8] in {
-      foreach vf = [4, 8, 16] in {
+      foreach vf = [4, 8, 16, 32, 64] in {
         def intel_sub_group_block_read_us#len#_#vf : OclBuiltin<"intel_sub_group_block_read_$Arg0SGBlockOpSuffix#"#len#_#vf,  (outs !cast<OclType>("gentype"#!mul(len, vf)):$ret),  (ins cgpgentype:$p, !cast<OclType>("v"#vf#"u32"):$vec_mask), [], [], 1, 0>;
         def intel_sub_group_block_write_us#len#_#vf : OclBuiltin<"intel_sub_group_block_write_$Arg0SGBlockOpSuffix#"#len#_#vf,  (outs void:$ret), (ins gpgentype:$p, !cast<OclType>("gentype"#!mul(len, vf)):$data, !cast<OclType>("v"#vf#"u32"):$vec_mask), [], [], 1, 0>;
       }
@@ -362,7 +346,7 @@ Attrs = [OVERLOADABLE] in {
   // block read/write for uchar16.
   def intel_sub_group_block_read_us16 : OclBuiltin<"intel_sub_group_block_read_$Arg0SGBlockOpSuffix#16", (outs gentype16:$ret), (ins cgpgentype:$p), [v1u8], [], 1, 0>;
   def intel_sub_group_block_write_us16 : OclBuiltin<"intel_sub_group_block_write_$Arg0SGBlockOpSuffix#16", (outs void:$ret), (ins gpgentype:$p, gentype16:$data), [v1u8], [], 1, 0>;
-  foreach vf = [4, 8, 16] in {
+  foreach vf = [4, 8, 16, 32, 64] in {
     def intel_sub_group_block_read_us16_#vf : OclBuiltin<"intel_sub_group_block_read_$Arg0SGBlockOpSuffix#16_"#vf, (outs !cast<OclType>("gentype"#!mul(16, vf)):$ret),(ins cgpgentype:$p, !cast<OclType>("v"#vf#"u32"):$vec_mask), [v1u8], [], 1, 0>;
     def intel_sub_group_block_write_us16_#vf : OclBuiltin<"intel_sub_group_block_write_$Arg0SGBlockOpSuffix#16_"#vf, (outs void:$ret), (ins gpgentype:$p, !cast<OclType>("gentype"#!mul(16, vf)):$data, !cast<OclType>("v"#vf#"u32"):$vec_mask), [v1u8], [], 1, 0>;
   }
@@ -670,7 +654,7 @@ foreach func_name = [ "sub_group_shuffle", "sub_group_shuffle_xor", "sub_group_s
 // AliasMap
 //
 
-foreach suffix = ["", "_avx", "_avx2", "_avx512"] in {
+foreach suffix = ["", "_avx", "_avx2", "_avx512", "_x32", "_x64"] in {
   defvar types = VFType<[v1i8, v1u8, v1i16, v1u16, v1i32, v1u32, v1i64, v1u64, v1f32, v1f64], suffix>.Tout;
   def subgroup_shuffle_alias#suffix : AliasMap<[
     ["sub_group_shuffle"#suffix, "sub_group_shuffle"],
@@ -722,14 +706,15 @@ let Types = [v1i32] in {
 }
 
 let Types = [v1i32] in {
-  def sub_group_all_vect_info : VectInfo<[], sub_group_all, sub_group_all_vec, sub_group_all_vec, sub_group_all_vec>;
-  def sub_group_any_vect_info : VectInfo<[], sub_group_any, sub_group_any_vec, sub_group_any_vec, sub_group_any_vec>;
+  def sub_group_all_vect_info : VectInfo<[], sub_group_all, sub_group_all_vec, sub_group_all_vec, sub_group_all_vec, sub_group_all_vec, sub_group_all_vec>;
+  def sub_group_any_vect_info : VectInfo<[], sub_group_any, sub_group_any_vec, sub_group_any_vec, sub_group_any_vec, sub_group_any_vec, sub_group_any_vec>;
 }
 let Types = [ v1i32, v1u32, v1i64, v1u64, v1f32, v1f64 ] in {
   def sub_group_broadcast_vect_info  : VectInfo<[], sub_group_broadcast, sub_group_broadcast_vec, sub_group_broadcast_vec, sub_group_broadcast_vec>;
   foreach func = ["reduce", "scan_inclusive", "scan_exclusive"] in {
     foreach op = ["add", "min", "max"] in {
-      def sub_group_#func#_#op#_vect_info : VectInfo<[], !cast<OclBuiltin>("sub_group_"#func#_#op), !cast<OclBuiltin>("sub_group_"#func#_#op#"_vec"), !cast<OclBuiltin>("sub_group_"#func#_#op#"_vec"), !cast<OclBuiltin>("sub_group_"#func#_#op#"_vec")>;
+      defvar vec_variant = !cast<OclBuiltin>("sub_group_"#func#_#op#"_vec");
+      def sub_group_#func#_#op#_vect_info : VectInfo<[], !cast<OclBuiltin>("sub_group_"#func#_#op), vec_variant, vec_variant, vec_variant, vec_variant, vec_variant>;
     }
   }
 }
@@ -738,7 +723,8 @@ let Types = [v1i8, v1u8, v1i16, v1u16] in {
    def sub_group_broadcast_cs_vect_info  : VectInfo<[], sub_group_broadcast_cs, sub_group_broadcast_vec_cs, sub_group_broadcast_vec_cs, sub_group_broadcast_vec_cs>;
   foreach func = ["reduce", "scan_inclusive", "scan_exclusive"] in {
     foreach op = ["add", "min", "max"] in {
-      def sub_group_#func#_#op#_cs_vect_info : VectInfo<[], !cast<OclBuiltin>("sub_group_"#func#_#op#"_cs"), !cast<OclBuiltin>("sub_group_"#func#_#op#"_vec_cs"), !cast<OclBuiltin>("sub_group_"#func#_#op#"_vec_cs"), !cast<OclBuiltin>("sub_group_"#func#_#op#"_vec_cs")>;
+      defvar vec_variant = !cast<OclBuiltin>("sub_group_"#func#_#op#"_vec_cs");
+      def sub_group_#func#_#op#_cs_vect_info : VectInfo<[], !cast<OclBuiltin>("sub_group_"#func#_#op#"_cs"), vec_variant, vec_variant, vec_variant, vec_variant, vec_variant>;
     }
   }
 }
@@ -760,54 +746,54 @@ let Types = [v1i32, v1u32, v1i64, v1u64, v1f32, v1f64, v1i8, v1u8, v1i16, v1u16,
              v2u8 , v4u8 , v8u8 , v16u8 , v3u8 ,
              v2i16, v4i16, v8i16, v16i16, v3i16,
              v2u16, v4u16, v8u16, v16u16, v3u16] in {
-def sub_group_shuffle_vect_info : VectInfo<[], sub_group_shuffle, sub_group_shuffle_avx, sub_group_shuffle_avx2, sub_group_shuffle_avx512>;
-def sub_group_shuffle_xor_vect_info : VectInfo<[], sub_group_shuffle_xor, sub_group_shuffle_xor_avx, sub_group_shuffle_xor_avx2, sub_group_shuffle_xor_avx512>;
-def sub_group_shuffle_down_vect_info : VectInfo<[], sub_group_shuffle_down, sub_group_shuffle_down_avx, sub_group_shuffle_down_avx2, sub_group_shuffle_down_avx512>;
-def sub_group_shuffle_up_vect_info : VectInfo<[], sub_group_shuffle_up, sub_group_shuffle_up_avx, sub_group_shuffle_up_avx2, sub_group_shuffle_up_avx512>;
+def sub_group_shuffle_vect_info : VectInfo<[], sub_group_shuffle, sub_group_shuffle_avx, sub_group_shuffle_avx2, sub_group_shuffle_avx512, sub_group_shuffle_x32, sub_group_shuffle_x64>;
+def sub_group_shuffle_xor_vect_info : VectInfo<[], sub_group_shuffle_xor, sub_group_shuffle_xor_avx, sub_group_shuffle_xor_avx2, sub_group_shuffle_xor_avx512, sub_group_shuffle_xor_x32, sub_group_shuffle_xor_x64>;
+def sub_group_shuffle_down_vect_info : VectInfo<[], sub_group_shuffle_down, sub_group_shuffle_down_avx, sub_group_shuffle_down_avx2, sub_group_shuffle_down_avx512, sub_group_shuffle_down_x32, sub_group_shuffle_down_x64>;
+def sub_group_shuffle_up_vect_info : VectInfo<[], sub_group_shuffle_up, sub_group_shuffle_up_avx, sub_group_shuffle_up_avx2, sub_group_shuffle_up_avx512, sub_group_shuffle_up_x32, sub_group_shuffle_up_x64>;
 }
 
 let Types = [v1u32], NeedWidenTypes = 0 in {
-  def intel_sub_group_block_read_vect_info :VectInfo<[], intel_sub_group_block_read, intel_sub_group_block_read1_4, intel_sub_group_block_read1_8, intel_sub_group_block_read1_16>;
-  def intel_sub_group_block_write_vect_info :VectInfo<[], intel_sub_group_block_write, intel_sub_group_block_write1_4, intel_sub_group_block_write1_8, intel_sub_group_block_write1_16>;
-  def intel_sub_group_block_read_img_vect_info :VectInfo<[], intel_sub_group_block_read_img, intel_sub_group_block_read1_4_img, intel_sub_group_block_read1_8_img, intel_sub_group_block_read1_16_img>;
-  def intel_sub_group_block_write_img_vect_info :VectInfo<[], intel_sub_group_block_write_img, intel_sub_group_block_write1_4_img, intel_sub_group_block_write1_8_img, intel_sub_group_block_write1_16_img>;
-  def intel_sub_group_block_read_img_rw_vect_info :VectInfo<[], intel_sub_group_block_read_img_rw, intel_sub_group_block_read1_4_img_rw, intel_sub_group_block_read1_8_img_rw, intel_sub_group_block_read1_16_img_rw>;
-  def intel_sub_group_block_write_img_rw_vect_info :VectInfo<[], intel_sub_group_block_write_img_rw, intel_sub_group_block_write1_4_img_rw, intel_sub_group_block_write1_8_img_rw, intel_sub_group_block_write1_16_img_rw>;
+  def intel_sub_group_block_read_vect_info :VectInfo<[], intel_sub_group_block_read, intel_sub_group_block_read1_4, intel_sub_group_block_read1_8, intel_sub_group_block_read1_16, intel_sub_group_block_read1_32, intel_sub_group_block_read1_64>;
+  def intel_sub_group_block_write_vect_info :VectInfo<[], intel_sub_group_block_write, intel_sub_group_block_write1_4, intel_sub_group_block_write1_8, intel_sub_group_block_write1_16, intel_sub_group_block_write1_32, intel_sub_group_block_write1_64>;
+  def intel_sub_group_block_read_img_vect_info :VectInfo<[], intel_sub_group_block_read_img, intel_sub_group_block_read1_4_img, intel_sub_group_block_read1_8_img, intel_sub_group_block_read1_16_img, intel_sub_group_block_read1_32_img, intel_sub_group_block_read1_64_img>;
+  def intel_sub_group_block_write_img_vect_info :VectInfo<[], intel_sub_group_block_write_img, intel_sub_group_block_write1_4_img, intel_sub_group_block_write1_8_img, intel_sub_group_block_write1_16_img, intel_sub_group_block_write1_32_img, intel_sub_group_block_write1_64_img>;
+  def intel_sub_group_block_read_img_rw_vect_info :VectInfo<[], intel_sub_group_block_read_img_rw, intel_sub_group_block_read1_4_img_rw, intel_sub_group_block_read1_8_img_rw, intel_sub_group_block_read1_16_img_rw, intel_sub_group_block_read1_32_img_rw, intel_sub_group_block_read1_64_img_rw>;
+  def intel_sub_group_block_write_img_rw_vect_info :VectInfo<[], intel_sub_group_block_write_img_rw, intel_sub_group_block_write1_4_img_rw, intel_sub_group_block_write1_8_img_rw, intel_sub_group_block_write1_16_img_rw, intel_sub_group_block_write1_32_img_rw, intel_sub_group_block_write1_64_img_rw>;
   foreach len = [2, 4, 8 ] in {
-    def intel_sub_group_block_read#len#_vect_info :VectInfo<[], !cast<OclBuiltin>("intel_sub_group_block_read"#len), !cast<OclBuiltin>("intel_sub_group_block_read"#len#"_4"), !cast<OclBuiltin>("intel_sub_group_block_read"#len#"_8"), !cast<OclBuiltin>("intel_sub_group_block_read"#len#"_16")>;
-    def intel_sub_group_block_write#len#_vect_info :VectInfo<[], !cast<OclBuiltin>("intel_sub_group_block_write"#len), !cast<OclBuiltin>("intel_sub_group_block_write"#len#"_4"), !cast<OclBuiltin>("intel_sub_group_block_write"#len#"_8"), !cast<OclBuiltin>("intel_sub_group_block_write"#len#"_16")>;
-    def intel_sub_group_block_read#len#_img_vect_info :VectInfo<[], !cast<OclBuiltin>("intel_sub_group_block_read"#len#"_img"), !cast<OclBuiltin>("intel_sub_group_block_read"#len#"_4_img"), !cast<OclBuiltin>("intel_sub_group_block_read"#len#"_8_img"), !cast<OclBuiltin>("intel_sub_group_block_read"#len#"_16_img")>;
-    def intel_sub_group_block_write#len#_img_vect_info :VectInfo<[], !cast<OclBuiltin>("intel_sub_group_block_write"#len#"_img"), !cast<OclBuiltin>("intel_sub_group_block_write"#len#"_4_img"), !cast<OclBuiltin>("intel_sub_group_block_write"#len#"_8_img"), !cast<OclBuiltin>("intel_sub_group_block_write"#len#"_16_img")>;
-    def intel_sub_group_block_read#len#_img_rw_vect_info :VectInfo<[], !cast<OclBuiltin>("intel_sub_group_block_read"#len#"_img_rw"), !cast<OclBuiltin>("intel_sub_group_block_read"#len#"_4_img_rw"), !cast<OclBuiltin>("intel_sub_group_block_read"#len#"_8_img_rw"), !cast<OclBuiltin>("intel_sub_group_block_read"#len#"_16_img_rw")>;
-    def intel_sub_group_block_write#len#_img_rw_vect_info :VectInfo<[], !cast<OclBuiltin>("intel_sub_group_block_write"#len#"_img_rw"), !cast<OclBuiltin>("intel_sub_group_block_write"#len#"_4_img_rw"), !cast<OclBuiltin>("intel_sub_group_block_write"#len#"_8_img_rw"), !cast<OclBuiltin>("intel_sub_group_block_write"#len#"_16_img_rw")>;
+    def intel_sub_group_block_read#len#_vect_info :VectInfo<[], !cast<OclBuiltin>("intel_sub_group_block_read"#len), !cast<OclBuiltin>("intel_sub_group_block_read"#len#"_4"), !cast<OclBuiltin>("intel_sub_group_block_read"#len#"_8"), !cast<OclBuiltin>("intel_sub_group_block_read"#len#"_16"), !cast<OclBuiltin>("intel_sub_group_block_read"#len#"_32"), !cast<OclBuiltin>("intel_sub_group_block_read"#len#"_64")>;
+    def intel_sub_group_block_write#len#_vect_info :VectInfo<[], !cast<OclBuiltin>("intel_sub_group_block_write"#len), !cast<OclBuiltin>("intel_sub_group_block_write"#len#"_4"), !cast<OclBuiltin>("intel_sub_group_block_write"#len#"_8"), !cast<OclBuiltin>("intel_sub_group_block_write"#len#"_16"), !cast<OclBuiltin>("intel_sub_group_block_write"#len#"_32"), !cast<OclBuiltin>("intel_sub_group_block_write"#len#"_64")>;
+    def intel_sub_group_block_read#len#_img_vect_info :VectInfo<[], !cast<OclBuiltin>("intel_sub_group_block_read"#len#"_img"), !cast<OclBuiltin>("intel_sub_group_block_read"#len#"_4_img"), !cast<OclBuiltin>("intel_sub_group_block_read"#len#"_8_img"), !cast<OclBuiltin>("intel_sub_group_block_read"#len#"_16_img"), !cast<OclBuiltin>("intel_sub_group_block_read"#len#"_32_img"), !cast<OclBuiltin>("intel_sub_group_block_read"#len#"_64_img")>;
+    def intel_sub_group_block_write#len#_img_vect_info :VectInfo<[], !cast<OclBuiltin>("intel_sub_group_block_write"#len#"_img"), !cast<OclBuiltin>("intel_sub_group_block_write"#len#"_4_img"), !cast<OclBuiltin>("intel_sub_group_block_write"#len#"_8_img"), !cast<OclBuiltin>("intel_sub_group_block_write"#len#"_16_img"), !cast<OclBuiltin>("intel_sub_group_block_write"#len#"_32_img"), !cast<OclBuiltin>("intel_sub_group_block_write"#len#"_64_img")>;
+    def intel_sub_group_block_read#len#_img_rw_vect_info :VectInfo<[], !cast<OclBuiltin>("intel_sub_group_block_read"#len#"_img_rw"), !cast<OclBuiltin>("intel_sub_group_block_read"#len#"_4_img_rw"), !cast<OclBuiltin>("intel_sub_group_block_read"#len#"_8_img_rw"), !cast<OclBuiltin>("intel_sub_group_block_read"#len#"_16_img_rw"), !cast<OclBuiltin>("intel_sub_group_block_read"#len#"_32_img_rw"), !cast<OclBuiltin>("intel_sub_group_block_read"#len#"_64_img_rw")>;
+    def intel_sub_group_block_write#len#_img_rw_vect_info :VectInfo<[], !cast<OclBuiltin>("intel_sub_group_block_write"#len#"_img_rw"), !cast<OclBuiltin>("intel_sub_group_block_write"#len#"_4_img_rw"), !cast<OclBuiltin>("intel_sub_group_block_write"#len#"_8_img_rw"), !cast<OclBuiltin>("intel_sub_group_block_write"#len#"_16_img_rw"), !cast<OclBuiltin>("intel_sub_group_block_write"#len#"_32_img_rw"), !cast<OclBuiltin>("intel_sub_group_block_write"#len#"_64_img_rw")>;
   }
 }
 
 let Types = [v1u8, v1u16, v1u32, v1u64], NeedWidenTypes = 0 in {
-  def intel_sub_group_block_read_us_vect_info :VectInfo<[], intel_sub_group_block_read_us, intel_sub_group_block_read_us1_4, intel_sub_group_block_read_us1_8, intel_sub_group_block_read_us1_16>;
-  def intel_sub_group_block_write_us_vect_info :VectInfo<[], intel_sub_group_block_write_us, intel_sub_group_block_write_us1_4, intel_sub_group_block_write_us1_8, intel_sub_group_block_write_us1_16>;
-  def intel_sub_group_block_read_us_img_vect_info :VectInfo<[], intel_sub_group_block_read_us_img, intel_sub_group_block_read_us1_4_img, intel_sub_group_block_read_us1_8_img, intel_sub_group_block_read_us1_16_img>;
-  def intel_sub_group_block_write_us_img_vect_info :VectInfo<[], intel_sub_group_block_write_us_img, intel_sub_group_block_write_us1_4_img, intel_sub_group_block_write_us1_8_img, intel_sub_group_block_write_us1_16_img>;
-  def intel_sub_group_block_read_us_img_rw_vect_info :VectInfo<[], intel_sub_group_block_read_us_img_rw, intel_sub_group_block_read_us1_4_img_rw, intel_sub_group_block_read_us1_8_img_rw, intel_sub_group_block_read_us1_16_img_rw>;
-  def intel_sub_group_block_write_us_img_rw_vect_info :VectInfo<[], intel_sub_group_block_write_us_img_rw, intel_sub_group_block_write_us1_4_img_rw, intel_sub_group_block_write_us1_8_img_rw, intel_sub_group_block_write_us1_16_img_rw>;
+  def intel_sub_group_block_read_us_vect_info :VectInfo<[], intel_sub_group_block_read_us, intel_sub_group_block_read_us1_4, intel_sub_group_block_read_us1_8, intel_sub_group_block_read_us1_16, intel_sub_group_block_read_us1_32, intel_sub_group_block_read_us1_64>;
+  def intel_sub_group_block_write_us_vect_info :VectInfo<[], intel_sub_group_block_write_us, intel_sub_group_block_write_us1_4, intel_sub_group_block_write_us1_8, intel_sub_group_block_write_us1_16, intel_sub_group_block_write_us1_32, intel_sub_group_block_write_us1_64>;
+  def intel_sub_group_block_read_us_img_vect_info :VectInfo<[], intel_sub_group_block_read_us_img, intel_sub_group_block_read_us1_4_img, intel_sub_group_block_read_us1_8_img, intel_sub_group_block_read_us1_16_img, intel_sub_group_block_read_us1_32_img, intel_sub_group_block_read_us1_64_img>;
+  def intel_sub_group_block_write_us_img_vect_info :VectInfo<[], intel_sub_group_block_write_us_img, intel_sub_group_block_write_us1_4_img, intel_sub_group_block_write_us1_8_img, intel_sub_group_block_write_us1_16_img, intel_sub_group_block_write_us1_32_img, intel_sub_group_block_write_us1_64_img>;
+  def intel_sub_group_block_read_us_img_rw_vect_info :VectInfo<[], intel_sub_group_block_read_us_img_rw, intel_sub_group_block_read_us1_4_img_rw, intel_sub_group_block_read_us1_8_img_rw, intel_sub_group_block_read_us1_16_img_rw, intel_sub_group_block_read_us1_32_img_rw, intel_sub_group_block_read_us1_64_img_rw>;
+  def intel_sub_group_block_write_us_img_rw_vect_info :VectInfo<[], intel_sub_group_block_write_us_img_rw, intel_sub_group_block_write_us1_4_img_rw, intel_sub_group_block_write_us1_8_img_rw, intel_sub_group_block_write_us1_16_img_rw, intel_sub_group_block_write_us1_32_img_rw, intel_sub_group_block_write_us1_64_img_rw>;
   foreach len = [2, 4, 8 ] in {
-    def intel_sub_group_block_read_us#len#_vect_info :VectInfo<[], !cast<OclBuiltin>("intel_sub_group_block_read_us"#len), !cast<OclBuiltin>("intel_sub_group_block_read_us"#len#"_4"), !cast<OclBuiltin>("intel_sub_group_block_read_us"#len#"_8"), !cast<OclBuiltin>("intel_sub_group_block_read_us"#len#"_16")>;
-    def intel_sub_group_block_write_us#len#_vect_info :VectInfo<[], !cast<OclBuiltin>("intel_sub_group_block_write_us"#len), !cast<OclBuiltin>("intel_sub_group_block_write_us"#len#"_4"), !cast<OclBuiltin>("intel_sub_group_block_write_us"#len#"_8"), !cast<OclBuiltin>("intel_sub_group_block_write_us"#len#"_16")>;
-    def intel_sub_group_block_read_us#len#_img_vect_info :VectInfo<[], !cast<OclBuiltin>("intel_sub_group_block_read_us"#len#"_img"), !cast<OclBuiltin>("intel_sub_group_block_read_us"#len#"_4_img"), !cast<OclBuiltin>("intel_sub_group_block_read_us"#len#"_8_img"), !cast<OclBuiltin>("intel_sub_group_block_read_us"#len#"_16_img")>;
-    def intel_sub_group_block_write_us#len#_img_vect_info :VectInfo<[], !cast<OclBuiltin>("intel_sub_group_block_write_us"#len#"_img"), !cast<OclBuiltin>("intel_sub_group_block_write_us"#len#"_4_img"), !cast<OclBuiltin>("intel_sub_group_block_write_us"#len#"_8_img"), !cast<OclBuiltin>("intel_sub_group_block_write_us"#len#"_16_img")>;
-    def intel_sub_group_block_read_us#len#_img_rw_vect_info :VectInfo<[], !cast<OclBuiltin>("intel_sub_group_block_read_us"#len#"_img_rw"), !cast<OclBuiltin>("intel_sub_group_block_read_us"#len#"_4_img_rw"), !cast<OclBuiltin>("intel_sub_group_block_read_us"#len#"_8_img_rw"), !cast<OclBuiltin>("intel_sub_group_block_read_us"#len#"_16_img_rw")>;
-    def intel_sub_group_block_write_us#len#_img_rw_vect_info :VectInfo<[], !cast<OclBuiltin>("intel_sub_group_block_write_us"#len#"_img_rw"), !cast<OclBuiltin>("intel_sub_group_block_write_us"#len#"_4_img_rw"), !cast<OclBuiltin>("intel_sub_group_block_write_us"#len#"_8_img_rw"), !cast<OclBuiltin>("intel_sub_group_block_write_us"#len#"_16_img_rw")>;
+    def intel_sub_group_block_read_us#len#_vect_info :VectInfo<[], !cast<OclBuiltin>("intel_sub_group_block_read_us"#len), !cast<OclBuiltin>("intel_sub_group_block_read_us"#len#"_4"), !cast<OclBuiltin>("intel_sub_group_block_read_us"#len#"_8"), !cast<OclBuiltin>("intel_sub_group_block_read_us"#len#"_16"), !cast<OclBuiltin>("intel_sub_group_block_read_us"#len#"_32"), !cast<OclBuiltin>("intel_sub_group_block_read_us"#len#"_64")>;
+    def intel_sub_group_block_write_us#len#_vect_info :VectInfo<[], !cast<OclBuiltin>("intel_sub_group_block_write_us"#len), !cast<OclBuiltin>("intel_sub_group_block_write_us"#len#"_4"), !cast<OclBuiltin>("intel_sub_group_block_write_us"#len#"_8"), !cast<OclBuiltin>("intel_sub_group_block_write_us"#len#"_16"), !cast<OclBuiltin>("intel_sub_group_block_write_us"#len#"_32"), !cast<OclBuiltin>("intel_sub_group_block_write_us"#len#"_64")>;
+    def intel_sub_group_block_read_us#len#_img_vect_info :VectInfo<[], !cast<OclBuiltin>("intel_sub_group_block_read_us"#len#"_img"), !cast<OclBuiltin>("intel_sub_group_block_read_us"#len#"_4_img"), !cast<OclBuiltin>("intel_sub_group_block_read_us"#len#"_8_img"), !cast<OclBuiltin>("intel_sub_group_block_read_us"#len#"_16_img"), !cast<OclBuiltin>("intel_sub_group_block_read_us"#len#"_32_img"), !cast<OclBuiltin>("intel_sub_group_block_read_us"#len#"_64_img")>;
+    def intel_sub_group_block_write_us#len#_img_vect_info :VectInfo<[], !cast<OclBuiltin>("intel_sub_group_block_write_us"#len#"_img"), !cast<OclBuiltin>("intel_sub_group_block_write_us"#len#"_4_img"), !cast<OclBuiltin>("intel_sub_group_block_write_us"#len#"_8_img"), !cast<OclBuiltin>("intel_sub_group_block_write_us"#len#"_16_img"), !cast<OclBuiltin>("intel_sub_group_block_write_us"#len#"_32_img"), !cast<OclBuiltin>("intel_sub_group_block_write_us"#len#"_64_img")>;
+    def intel_sub_group_block_read_us#len#_img_rw_vect_info :VectInfo<[], !cast<OclBuiltin>("intel_sub_group_block_read_us"#len#"_img_rw"), !cast<OclBuiltin>("intel_sub_group_block_read_us"#len#"_4_img_rw"), !cast<OclBuiltin>("intel_sub_group_block_read_us"#len#"_8_img_rw"), !cast<OclBuiltin>("intel_sub_group_block_read_us"#len#"_16_img_rw"), !cast<OclBuiltin>("intel_sub_group_block_read_us"#len#"_32_img_rw"), !cast<OclBuiltin>("intel_sub_group_block_read_us"#len#"_64_img_rw")>;
+    def intel_sub_group_block_write_us#len#_img_rw_vect_info :VectInfo<[], !cast<OclBuiltin>("intel_sub_group_block_write_us"#len#"_img_rw"), !cast<OclBuiltin>("intel_sub_group_block_write_us"#len#"_4_img_rw"), !cast<OclBuiltin>("intel_sub_group_block_write_us"#len#"_8_img_rw"), !cast<OclBuiltin>("intel_sub_group_block_write_us"#len#"_16_img_rw"), !cast<OclBuiltin>("intel_sub_group_block_write_us"#len#"_32_img_rw"), !cast<OclBuiltin>("intel_sub_group_block_write_us"#len#"_64_img_rw")>;
   }
 }
 
 // Mapping for uchar16 block read/write
 let Types = [v1u8], NeedWidenTypes=0 in {
-    def intel_sub_group_block_read_us16_vect_info :VectInfo<[], !cast<OclBuiltin>("intel_sub_group_block_read_us16"), !cast<OclBuiltin>("intel_sub_group_block_read_us16_4"), !cast<OclBuiltin>("intel_sub_group_block_read_us16_8"), !cast<OclBuiltin>("intel_sub_group_block_read_us16_16")>;
-    def intel_sub_group_block_write_us16_vect_info :VectInfo<[], !cast<OclBuiltin>("intel_sub_group_block_write_us16"), !cast<OclBuiltin>("intel_sub_group_block_write_us16_4"), !cast<OclBuiltin>("intel_sub_group_block_write_us16_8"), !cast<OclBuiltin>("intel_sub_group_block_write_us16_16")>;
-    def intel_sub_group_block_read_us16_img_vect_info :VectInfo<[], !cast<OclBuiltin>("intel_sub_group_block_read_us16_img"), !cast<OclBuiltin>("intel_sub_group_block_read_us16_4_img"), !cast<OclBuiltin>("intel_sub_group_block_read_us16_8_img"), !cast<OclBuiltin>("intel_sub_group_block_read_us16_16_img")>;
-    def intel_sub_group_block_write_us16_img_vect_info :VectInfo<[], !cast<OclBuiltin>("intel_sub_group_block_write_us16_img"), !cast<OclBuiltin>("intel_sub_group_block_write_us16_4_img"), !cast<OclBuiltin>("intel_sub_group_block_write_us16_8_img"), !cast<OclBuiltin>("intel_sub_group_block_write_us16_16_img")>;
-    def intel_sub_group_block_read_us16_img_rw_vect_info :VectInfo<[], !cast<OclBuiltin>("intel_sub_group_block_read_us16_img_rw"), !cast<OclBuiltin>("intel_sub_group_block_read_us16_4_img_rw"), !cast<OclBuiltin>("intel_sub_group_block_read_us16_8_img_rw"), !cast<OclBuiltin>("intel_sub_group_block_read_us16_16_img_rw")>;
-    def intel_sub_group_block_write_us16_img_rw_vect_info :VectInfo<[], !cast<OclBuiltin>("intel_sub_group_block_write_us16_img_rw"), !cast<OclBuiltin>("intel_sub_group_block_write_us16_4_img_rw"), !cast<OclBuiltin>("intel_sub_group_block_write_us16_8_img_rw"), !cast<OclBuiltin>("intel_sub_group_block_write_us16_16_img_rw")>;
+    def intel_sub_group_block_read_us16_vect_info :VectInfo<[], intel_sub_group_block_read_us16, intel_sub_group_block_read_us16_4, intel_sub_group_block_read_us16_8, intel_sub_group_block_read_us16_16, intel_sub_group_block_read_us16_32, intel_sub_group_block_read_us16_64>;
+    def intel_sub_group_block_write_us16_vect_info :VectInfo<[], intel_sub_group_block_write_us16, intel_sub_group_block_write_us16_4, intel_sub_group_block_write_us16_8, intel_sub_group_block_write_us16_16, intel_sub_group_block_write_us16_32, intel_sub_group_block_write_us16_64>;
+    def intel_sub_group_block_read_us16_img_vect_info :VectInfo<[], intel_sub_group_block_read_us16_img, intel_sub_group_block_read_us16_4_img, intel_sub_group_block_read_us16_8_img, intel_sub_group_block_read_us16_16_img, intel_sub_group_block_read_us16_32_img, intel_sub_group_block_read_us16_64_img>;
+    def intel_sub_group_block_write_us16_img_vect_info :VectInfo<[], intel_sub_group_block_write_us16_img, intel_sub_group_block_write_us16_4_img, intel_sub_group_block_write_us16_8_img, intel_sub_group_block_write_us16_16_img, intel_sub_group_block_write_us16_32_img, intel_sub_group_block_write_us16_64_img>;
+    def intel_sub_group_block_read_us16_img_rw_vect_info :VectInfo<[], intel_sub_group_block_read_us16_img_rw, intel_sub_group_block_read_us16_4_img_rw, intel_sub_group_block_read_us16_8_img_rw, intel_sub_group_block_read_us16_16_img_rw, intel_sub_group_block_read_us16_32_img_rw, intel_sub_group_block_read_us16_64_img_rw>;
+    def intel_sub_group_block_write_us16_img_rw_vect_info :VectInfo<[], intel_sub_group_block_write_us16_img_rw, intel_sub_group_block_write_us16_4_img_rw, intel_sub_group_block_write_us16_8_img_rw, intel_sub_group_block_write_us16_16_img_rw, intel_sub_group_block_write_us16_32_img_rw, intel_sub_group_block_write_us16_64_img_rw>;
 }
 
 let Types = [v1i32] in {

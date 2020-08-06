@@ -201,6 +201,13 @@ OclType::getCVecLength() const
     case 64: return "64";
     case 128: return "128";
     case 256: return "256";
+    case 512: return "512";
+    case 1024: return "1024";
+    case 12: return "12";
+    case 24: return "24";
+    case 48: return "48";
+    case 96: return "96";
+    case 192: return "192";
   }
   GENOCL_WARNING("Invalid vector length(" << m_VecLength << ") is found for type '" << m_Name << "' on rewrite pattern $VecLength.\n");
   return "__invalid_vec_length__";
@@ -1359,6 +1366,52 @@ OclBuiltinDB::rewritePattern(const OclBuiltin* OB, const OclType* OT, const std:
           val = OB->getReturnCName(OT->getName());
         } else if ("$Return" == pat.substr(0, 7) && pat.substr(7).find("gentype") != std::string::npos) {
           val = OB->getReturnCGenType(pat.substr(7), OT->getName());
+        } else if ("$MinVal" == pat) {
+          std::string baseType = OT->getBaseCType();
+          if (baseType == "char") {
+            val = "CHAR_MIN";
+          } else if (baseType == "uchar") {
+            val = "0";
+          } else if (baseType == "short") {
+            val = "SHRT_MIN";
+          } else if (baseType == "ushort") {
+            val = "0";
+          } else if (baseType == "int") {
+            val = "INT_MIN";
+          } else if (baseType == "uint") {
+            val = "0";
+          } else if (baseType == "long") {
+            val = "LONG_MIN";
+          } else if (baseType == "ulong") {
+            val = "0";
+          } else if (baseType == "float" || baseType == "double") {
+            val = "(-INFINITY)";
+          } else {
+            llvm_unreachable("Unexpected base type!");
+          }
+        } else if ("$MaxVal" == pat) {
+          std::string baseType = OT->getBaseCType();
+          if (baseType == "char") {
+            val = "CHAR_MAX";
+          } else if (baseType == "uchar") {
+            val = "UCHAR_MAX";
+          } else if (baseType == "short") {
+            val = "SHRT_MAX";
+          } else if (baseType == "ushort") {
+            val = "USHRT_MAX";
+          } else if (baseType == "int") {
+            val = "INT_MAX";
+          } else if (baseType == "uint") {
+            val = "UINT_MAX";
+          } else if (baseType == "long") {
+            val = "LONG_MAX";
+          } else if (baseType == "ulong") {
+            val = "ULONG_MAX";
+          } else if (baseType == "float" || baseType == "double") {
+            val = "INFINITY";
+          } else {
+            llvm_unreachable("Unexpected base type!");
+          }
         } else if ("$Arg" == pat.substr(0, 4) && pat.size() == 9 && "Type" == pat.substr(5)) {
           unsigned i = pat[4] - '0';
           val = OB->getArgumentCType(i, OT->getName());

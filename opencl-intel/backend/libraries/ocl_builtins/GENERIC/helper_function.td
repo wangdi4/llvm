@@ -172,36 +172,107 @@ let Types = [v4i8, v4i16, v4i32, v4f32],
 
 let Attrs = [OVERLOADABLE],
   NeedForwardDecl = 1 in {
-    let Types = [v32i64, v32u64,
+
+    let Types = [v4i64,  v4u64, v4i32, v4u32, v4f32, v4i16, v4u16, v4i8, v4u8] in {
+      def __ocl_shuffle_transpose_1x4 : OclBuiltin<"__ocl_shuffle_transpose_$Arg0BaseType_1x4", (outs gentype:$ret), (ins gentype:$src), [], [], 0, 0>, PRIVATE;
+      def __ocl_shuffle_transpose_4x1 : OclBuiltin<"__ocl_shuffle_transpose_$Arg0BaseType_4x1", (outs gentype:$ret), (ins gentype:$src), [], [], 0, 0>, PRIVATE;
+    }
+
+    let Types = [v8i64,  v8u64, v8i32, v8u32, v8f32, v8i16, v8u16, v8i8, v8u8] in {
+      def __ocl_shuffle_transpose_1x8 : OclBuiltin<"__ocl_shuffle_transpose_$Arg0BaseType_1x8", (outs gentype:$ret), (ins gentype:$src), [], [], 0, 0>, PRIVATE;
+      def __ocl_shuffle_transpose_8x1 : OclBuiltin<"__ocl_shuffle_transpose_$Arg0BaseType_8x1", (outs gentype:$ret), (ins gentype:$src), [], [], 0, 0>, PRIVATE;
+      def __ocl_shuffle_transpose_2x4 : OclBuiltin<"__ocl_shuffle_transpose_$Arg0BaseType_2x4", (outs gentype:$ret), (ins gentype:$src), [], [], 0, 0>, PRIVATE;
+      def __ocl_shuffle_transpose_4x2 : OclBuiltin<"__ocl_shuffle_transpose_$Arg0BaseType_4x2", (outs gentype:$ret), (ins gentype:$src), [], [], 0, 0>, PRIVATE;
+    }
+
+    let Types = [v16i64,  v16u64, v16i32, v16u32, v16f32, v16i16, v16u16, v16i8, v16u8] in {
+      def __ocl_shuffle_transpose_1x16 : OclBuiltin<"__ocl_shuffle_transpose_$Arg0BaseType_1x16", (outs gentype:$ret), (ins gentype:$src), [], [], 0, 0>, PRIVATE;
+      def __ocl_shuffle_transpose_16x1 : OclBuiltin<"__ocl_shuffle_transpose_$Arg0BaseType_16x1", (outs gentype:$ret), (ins gentype:$src), [], [], 0, 0>, PRIVATE;
+      def __ocl_shuffle_transpose_2x8 : OclBuiltin<"__ocl_shuffle_transpose_$Arg0BaseType_2x8", (outs gentype:$ret), (ins gentype:$src), [], [], 0, 0>, PRIVATE;
+      def __ocl_shuffle_transpose_8x2 : OclBuiltin<"__ocl_shuffle_transpose_$Arg0BaseType_8x2", (outs gentype:$ret), (ins gentype:$src), [], [], 0, 0>, PRIVATE;
+      def __ocl_shuffle_transpose_4x4 : OclBuiltin<"__ocl_shuffle_transpose_$Arg0BaseType_4x4", (outs gentype:$ret), (ins gentype:$src), [], [], 0, 0>, PRIVATE;
+    }
+
+    let Types = [v32i64, v32u64, v32f64,
                  v32i32, v32u32, v32f32,
                  v32i16, v32u16,
                  v32i8,  v32u8] in {
+      def __ocl_shuffle_transpose_1x32 : OclBuiltin<"__ocl_shuffle_transpose_$Arg0BaseType_1x32", (outs gentype:$ret), (ins gentype:$src), [], [], 0, 0>, PRIVATE;
+      def __ocl_shuffle_transpose_32x1 : OclBuiltin<"__ocl_shuffle_transpose_$Arg0BaseType_32x1", (outs gentype:$ret), (ins gentype:$src), [], [], 0, 0>, PRIVATE;
+      def __ocl_shuffle_transpose_2x16 : OclBuiltin<"__ocl_shuffle_transpose_$Arg0BaseType_2x16", (outs gentype:$ret), (ins gentype:$src), [], [], 0, 0>, PRIVATE;
+      def __ocl_shuffle_transpose_16x2 : OclBuiltin<"__ocl_shuffle_transpose_$Arg0BaseType_16x2", (outs gentype:$ret), (ins gentype:$src), [], [], 0, 0>, PRIVATE;
       def __ocl_shuffle_transpose_8x4 : OclBuiltin<"__ocl_shuffle_transpose_$Arg0BaseType_8x4", (outs gentype:$ret), (ins gentype:$src), [], [], 0, 0>, PRIVATE;
       def __ocl_shuffle_transpose_4x8 : OclBuiltin<"__ocl_shuffle_transpose_$Arg0BaseType_4x8", (outs gentype:$ret), (ins gentype:$src), [], [], 0, 0>, PRIVATE;
     }
 
-    let Types = [v64i64, v64u64,
+    let Types = [v64i64, v64u64, v64f64,
                  v64i32, v64u32, v64f32,
                  v64i16, v64u16,
                  v64i8,  v64u8] in {
+      def __ocl_shuffle_transpose_1x64 : OclBuiltin<"__ocl_shuffle_transpose_$Arg0BaseType_1x64", (outs gentype:$ret), (ins gentype:$src), [], [], 0, 0>, PRIVATE;
+      def __ocl_shuffle_transpose_64x1 : OclBuiltin<"__ocl_shuffle_transpose_$Arg0BaseType_64x1", (outs gentype:$ret), (ins gentype:$src), [], [], 0, 0>, PRIVATE;
+      def __ocl_shuffle_transpose_2x32 : OclBuiltin<"__ocl_shuffle_transpose_$Arg0BaseType_2x32", (outs gentype:$ret), (ins gentype:$src), [], [], 0, 0>, PRIVATE;
+      def __ocl_shuffle_transpose_32x2 : OclBuiltin<"__ocl_shuffle_transpose_$Arg0BaseType_32x2", (outs gentype:$ret), (ins gentype:$src), [], [], 0, 0>, PRIVATE;
       def __ocl_shuffle_transpose_4x16 : OclBuiltin<"__ocl_shuffle_transpose_$Arg0BaseType_4x16", (outs gentype:$ret), (ins gentype:$src), [], [], 0, 0>, PRIVATE;
       def __ocl_shuffle_transpose_16x4 : OclBuiltin<"__ocl_shuffle_transpose_$Arg0BaseType_16x4", (outs gentype:$ret), (ins gentype:$src), [], [], 0, 0>, PRIVATE;
       def __ocl_shuffle_transpose_8x8  : OclBuiltin<"__ocl_shuffle_transpose_$Arg0BaseType_8x8",  (outs gentype:$ret), (ins gentype:$src), [], [], 0, 0>, PRIVATE;
     }
 
-    let Types = [v128i64, v128u64,
+    let Types = [v128i64, v128u64, v128f64,
                  v128i32, v128u32, v128f32,
                  v128i16, v128u16,
                  v128i8,  v128u8] in {
       def __ocl_shuffle_transpose_8x16 : OclBuiltin<"__ocl_shuffle_transpose_$Arg0BaseType_8x16", (outs gentype:$ret), (ins gentype:$src), [], [], 0, 0>, PRIVATE;
       def __ocl_shuffle_transpose_16x8 : OclBuiltin<"__ocl_shuffle_transpose_$Arg0BaseType_16x8", (outs gentype:$ret), (ins gentype:$src), [], [], 0, 0>, PRIVATE;
+      def __ocl_shuffle_transpose_4x32 : OclBuiltin<"__ocl_shuffle_transpose_$Arg0BaseType_4x32", (outs gentype:$ret), (ins gentype:$src), [], [], 0, 0>, PRIVATE;
+      def __ocl_shuffle_transpose_32x4 : OclBuiltin<"__ocl_shuffle_transpose_$Arg0BaseType_32x4", (outs gentype:$ret), (ins gentype:$src), [], [], 0, 0>, PRIVATE;
+      def __ocl_shuffle_transpose_2x64 : OclBuiltin<"__ocl_shuffle_transpose_$Arg0BaseType_2x64", (outs gentype:$ret), (ins gentype:$src), [], [], 0, 0>, PRIVATE;
+      def __ocl_shuffle_transpose_64x2 : OclBuiltin<"__ocl_shuffle_transpose_$Arg0BaseType_64x2", (outs gentype:$ret), (ins gentype:$src), [], [], 0, 0>, PRIVATE;
     }
 
-    let Types = [v256i64, v256u64,
+    let Types = [v256i64, v256u64, v256f64,
                  v256i32, v256u32, v256f32,
                  v256i16, v256u16,
                  v256i8,  v256u8] in {
       def __ocl_shuffle_transpose_16x16 : OclBuiltin<"__ocl_shuffle_transpose_$Arg0BaseType_16x16", (outs gentype:$ret), (ins gentype:$src), [], [], 0, 0>, PRIVATE;
+      def __ocl_shuffle_transpose_8x32 : OclBuiltin<"__ocl_shuffle_transpose_$Arg0BaseType_8x32", (outs gentype:$ret), (ins gentype:$src), [], [], 0, 0>, PRIVATE;
+      def __ocl_shuffle_transpose_32x8 : OclBuiltin<"__ocl_shuffle_transpose_$Arg0BaseType_32x8", (outs gentype:$ret), (ins gentype:$src), [], [], 0, 0>, PRIVATE;
+      def __ocl_shuffle_transpose_4x64 : OclBuiltin<"__ocl_shuffle_transpose_$Arg0BaseType_4x64", (outs gentype:$ret), (ins gentype:$src), [], [], 0, 0>, PRIVATE;
+      def __ocl_shuffle_transpose_64x4 : OclBuiltin<"__ocl_shuffle_transpose_$Arg0BaseType_64x4", (outs gentype:$ret), (ins gentype:$src), [], [], 0, 0>, PRIVATE;
+    }
+
+    let Types = [v512i64, v512u64, v512f64,
+                 v512i32, v512u32, v512f32,
+                 v512i16, v512u16,
+                 v512i8,  v512u8] in {
+      def __ocl_shuffle_transpose_16x32 : OclBuiltin<"__ocl_shuffle_transpose_$Arg0BaseType_16x32", (outs gentype:$ret), (ins gentype:$src), [], [], 0, 0>, PRIVATE;
+      def __ocl_shuffle_transpose_32x16 : OclBuiltin<"__ocl_shuffle_transpose_$Arg0BaseType_32x16", (outs gentype:$ret), (ins gentype:$src), [], [], 0, 0>, PRIVATE;
+      def __ocl_shuffle_transpose_8x64 : OclBuiltin<"__ocl_shuffle_transpose_$Arg0BaseType_8x64", (outs gentype:$ret), (ins gentype:$src), [], [], 0, 0>, PRIVATE;
+      def __ocl_shuffle_transpose_64x8 : OclBuiltin<"__ocl_shuffle_transpose_$Arg0BaseType_64x8", (outs gentype:$ret), (ins gentype:$src), [], [], 0, 0>, PRIVATE;
+    }
+
+    let Types = [v1024i64, v1024u64, v1024f64,
+                 v1024i32, v1024u32, v1024f32,
+                 v1024i16, v1024u16,
+                 v1024i8,  v1024u8] in {
+      def __ocl_shuffle_transpose_16x64 : OclBuiltin<"__ocl_shuffle_transpose_$Arg0BaseType_16x64", (outs gentype:$ret), (ins gentype:$src), [], [], 0, 0>, PRIVATE;
+      def __ocl_shuffle_transpose_64x16 : OclBuiltin<"__ocl_shuffle_transpose_$Arg0BaseType_64x16", (outs gentype:$ret), (ins gentype:$src), [], [], 0, 0>, PRIVATE;
+    }
+
+    let Types = [v192i64, v192u64, v192f64,
+                 v192i32, v192u32, v192f32,
+                 v192i16, v192u16,
+                 v192i8,  v192u8] in {
+      def __ocl_shuffle_transpose_3x64 : OclBuiltin<"__ocl_shuffle_transpose_$Arg0BaseType_3x64", (outs gentype:$ret), (ins gentype:$src), [], [], 0, 0>, PRIVATE;
+      def __ocl_shuffle_transpose_64x3 : OclBuiltin<"__ocl_shuffle_transpose_$Arg0BaseType_64x3", (outs gentype:$ret), (ins gentype:$src), [], [], 0, 0>, PRIVATE;
+    }
+
+    let Types = [v96i64, v96u64, v96f64,
+                 v96i32, v96u32, v96f32,
+                 v96i16, v96u16,
+                 v96i8,  v96u8] in {
+      def __ocl_shuffle_transpose_3x32 : OclBuiltin<"__ocl_shuffle_transpose_$Arg0BaseType_3x32", (outs gentype:$ret), (ins gentype:$src), [], [], 0, 0>, PRIVATE;
+      def __ocl_shuffle_transpose_32x3 : OclBuiltin<"__ocl_shuffle_transpose_$Arg0BaseType_32x3", (outs gentype:$ret), (ins gentype:$src), [], [], 0, 0>, PRIVATE;
     }
 
     let Types = [v48i64, v48u64, v48f64,
