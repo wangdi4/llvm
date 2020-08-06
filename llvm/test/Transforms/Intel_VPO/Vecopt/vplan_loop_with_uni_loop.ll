@@ -5,17 +5,15 @@
 ; Verify the divergence information for the outermost loop for.body.
 
 define void @test1(float* nocapture %ptr, i64 %n) {
-; CHECK:       Printing Divergence info for Loop at depth 1 containing: [[BB0:BB[0-9]+]]<header>,[[BB1:BB[0-9]+]],[[BB2:BB[0-9]+]],[[BB3:BB[0-9]+]],[[BB4:BB[0-9]+]]<latch><exiting>
+; CHECK:       Printing Divergence info for Loop at depth 1 containing: [[BB0:BB[0-9]+]]<header>,[[BB1:BB[0-9]+]],[[BB2:BB[0-9]+]]<latch><exiting>
 ; CHECK-NEXT:      Loop at depth 2 containing: [[BB1]]<header><latch><exiting>
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Basic Block: [[BB0]]
-; CHECK-NEXT:  Uniform: [Shape: Uniform] i64 [[VP_VECTOR_LOOP_IV:%.*]] = phi  [ i64 0, [[BB5:BB[0-9]+]] ],  [ i64 [[VP_VECTOR_LOOP_IV_NEXT:%.*]], [[BB4]] ]
-; CHECK-NEXT:  Divergent: [Shape: Unit Stride, Stride: i64 1] i64 [[VP_IV:%.*]] = phi  [ i64 [[VP_IV_IND_INIT:%.*]], [[BB5]] ],  [ i64 [[VP_IV_NEXT:%.*]], [[BB4]] ]
-; CHECK-EMPTY:
-; CHECK-NEXT:  Basic Block: [[BB3]]
+; CHECK-NEXT:  Uniform: [Shape: Uniform] i64 [[VP_VECTOR_LOOP_IV:%.*]] = phi  [ i64 0, [[BB3:BB[0-9]+]] ],  [ i64 [[VP_VECTOR_LOOP_IV_NEXT:%.*]], [[BB2]] ]
+; CHECK-NEXT:  Divergent: [Shape: Unit Stride, Stride: i64 1] i64 [[VP_IV:%.*]] = phi  [ i64 [[VP_IV_IND_INIT:%.*]], [[BB3]] ],  [ i64 [[VP_IV_NEXT:%.*]], [[BB2]] ]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Basic Block: [[BB1]]
-; CHECK-NEXT:  Uniform: [Shape: Uniform] i64 [[VP_IV2:%.*]] = phi  [ i64 0, [[BB3]] ],  [ i64 [[VP_IV_NEXT2:%.*]], [[BB1]] ]
+; CHECK-NEXT:  Uniform: [Shape: Uniform] i64 [[VP_IV2:%.*]] = phi  [ i64 0, [[BB0]] ],  [ i64 [[VP_IV_NEXT2:%.*]], [[BB1]] ]
 ; CHECK-NEXT:  Divergent: [Shape: Strided, Stride: ?] i64 [[VP_ROW:%.*]] = mul i64 [[N0:%.*]] i64 [[VP_IV]]
 ; CHECK-NEXT:  Divergent: [Shape: Strided, Stride: ?] i64 [[VP_IDX:%.*]] = add i64 [[VP_ROW]] i64 [[VP_IV2]]
 ; CHECK-NEXT:  Divergent: [Shape: Random] i32 [[VP_TRUNC:%.*]] = trunc i64 [[VP_IDX]] to i32
@@ -30,12 +28,10 @@ define void @test1(float* nocapture %ptr, i64 %n) {
 ; CHECK-NEXT:  Uniform: [Shape: Uniform] i64 [[VP_VECTOR_LOOP_IV_NEXT]] = add i64 [[VP_VECTOR_LOOP_IV]] i64 [[VP_VF:%.*]]
 ; CHECK-NEXT:  Uniform: [Shape: Uniform] i1 [[VP_VECTOR_LOOP_EXITCOND:%.*]] = icmp i64 [[VP_VECTOR_LOOP_IV_NEXT]] i64 [[VP_VECTOR_TRIP_COUNT:%.*]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:  Basic Block: [[BB4]]
-; CHECK-EMPTY:
-; CHECK-NEXT:  Basic Block: [[BB6:BB[0-9]+]]
+; CHECK-NEXT:  Basic Block: [[BB4:BB[0-9]+]]
 ; CHECK-NEXT:  Uniform: [Shape: Uniform] i64 [[VP_IV_IND_FINAL:%.*]] = induction-final{add} i64 0 i64 1
 ; CHECK-EMPTY:
-; CHECK-NEXT:  Basic Block: [[BB7:BB[0-9]+]]
+; CHECK-NEXT:  Basic Block: [[BB5:BB[0-9]+]]
 ;
 entry:
   %cmp = icmp sgt i64 %n, 0

@@ -7,22 +7,20 @@
 
 
 define void @test1(i64 %n, i64* %arr, float* %arr1) {
-; CHECK:       Printing Divergence info for Loop at depth 1 containing: [[BB0:BB[0-9]+]]<header>,[[BB1:BB[0-9]+]],[[BB2:BB[0-9]+]],[[BB3:BB[0-9]+]],[[BB4:BB[0-9]+]]<latch><exiting>
+; CHECK:       Printing Divergence info for Loop at depth 1 containing: [[BB0:BB[0-9]+]]<header>,[[BB1:BB[0-9]+]],[[BB2:BB[0-9]+]]<latch><exiting>
 ; CHECK-NEXT:      Loop at depth 2 containing: [[BB1]]<header><latch><exiting>
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Basic Block: [[BB0]]
-; CHECK-NEXT:  Uniform: [Shape: Uniform] i32 [[VP_VECTOR_LOOP_IV:%.*]] = phi  [ i32 0, [[BB5:BB[0-9]+]] ],  [ i32 [[VP_VECTOR_LOOP_IV_NEXT:%.*]], [[BB4]] ]
-; CHECK-NEXT:  Divergent: [Shape: Unit Stride, Stride: i32 1] i32 [[VP_IV:%.*]] = phi  [ i32 [[VP_IV_IND_INIT:%.*]], [[BB5]] ],  [ i32 [[VP_IV_NEXT:%.*]], [[BB4]] ]
+; CHECK-NEXT:  Uniform: [Shape: Uniform] i32 [[VP_VECTOR_LOOP_IV:%.*]] = phi  [ i32 0, [[BB3:BB[0-9]+]] ],  [ i32 [[VP_VECTOR_LOOP_IV_NEXT:%.*]], [[BB2]] ]
+; CHECK-NEXT:  Divergent: [Shape: Unit Stride, Stride: i32 1] i32 [[VP_IV:%.*]] = phi  [ i32 [[VP_IV_IND_INIT:%.*]], [[BB3]] ],  [ i32 [[VP_IV_NEXT:%.*]], [[BB2]] ]
 ; CHECK-NEXT:  Divergent: [Shape: Unit Stride, Stride: i32 1] i64 [[VP_OUTER_IV:%.*]] = sext i32 [[VP_IV]] to i64
 ; CHECK-NEXT:  Divergent: [Shape: Unit Stride, Stride: i64 1] i64 [[VP_UNIT_ADD:%.*]] = add i64 [[VP_OUTER_IV]] i64 [[UNI_CALL0:%.*]]
 ; CHECK-NEXT:  Uniform: [Shape: Uniform] i64* [[VP_OUTER_GEP:%.*]] = getelementptr inbounds i64* [[ARR0:%.*]] i64 42
 ; CHECK-NEXT:  Uniform: [Shape: Uniform] i64 [[VP_OUTER_LOAD:%.*]] = load i64* [[VP_OUTER_GEP]]
 ; CHECK-NEXT:  Uniform: [Shape: Uniform] float* [[VP_OUTER_GEP2:%.*]] = getelementptr inbounds float* [[ARR10:%.*]] i64 [[VP_OUTER_LOAD]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:  Basic Block: [[BB3]]
-; CHECK-EMPTY:
 ; CHECK-NEXT:  Basic Block: [[BB1]]
-; CHECK-NEXT:  Uniform: [Shape: Uniform] i64 [[VP_IV2:%.*]] = phi  [ i64 0, [[BB3]] ],  [ i64 [[VP_IV_NEXT2:%.*]], [[BB1]] ]
+; CHECK-NEXT:  Uniform: [Shape: Uniform] i64 [[VP_IV2:%.*]] = phi  [ i64 0, [[BB0]] ],  [ i64 [[VP_IV_NEXT2:%.*]], [[BB1]] ]
 ; CHECK-NEXT:  Uniform: [Shape: Uniform] i64 [[VP_MUL:%.*]] = mul i64 [[VP_IV2]] i64 [[UNI_CALL20:%.*]]
 ; CHECK-NEXT:  Divergent: [Shape: Unit Stride, Stride: i64 1] i64 [[VP_ADD:%.*]] = add i64 [[VP_MUL]] i64 [[VP_UNIT_ADD]]
 ; CHECK-NEXT:  Divergent: [Shape: Unit Stride, Stride: i64 1] i64 [[VP_OVERFLOW_CLAMP:%.*]] = and i64 [[VP_ADD]] i64 4294967295
@@ -36,12 +34,10 @@ define void @test1(i64 %n, i64* %arr, float* %arr1) {
 ; CHECK-NEXT:  Uniform: [Shape: Uniform] i32 [[VP_VECTOR_LOOP_IV_NEXT]] = add i32 [[VP_VECTOR_LOOP_IV]] i32 [[VP_VF:%.*]]
 ; CHECK-NEXT:  Uniform: [Shape: Uniform] i1 [[VP_VECTOR_LOOP_EXITCOND:%.*]] = icmp i32 [[VP_VECTOR_LOOP_IV_NEXT]] i32 [[VP_VECTOR_TRIP_COUNT:%.*]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:  Basic Block: [[BB4]]
-; CHECK-EMPTY:
-; CHECK-NEXT:  Basic Block: [[BB6:BB[0-9]+]]
+; CHECK-NEXT:  Basic Block: [[BB4:BB[0-9]+]]
 ; CHECK-NEXT:  Uniform: [Shape: Uniform] i32 [[VP_IV_IND_FINAL:%.*]] = induction-final{add} i32 0 i32 1
 ; CHECK-EMPTY:
-; CHECK-NEXT:  Basic Block: [[BB7:BB[0-9]+]]
+; CHECK-NEXT:  Basic Block: [[BB5:BB[0-9]+]]
 ;
 entry:
   %cmp = icmp sgt i64 %n, 0

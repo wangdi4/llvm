@@ -50,12 +50,12 @@ target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: nounwind uwtable
 define dso_local i32 @getElement(i32 %n) {
-; CHECK:       Printing Divergence info for Loop at depth 1 containing: [[BB0:BB[0-9]+]]<header>,[[BB1:BB[0-9]+]],[[BB2:BB[0-9]+]],[[BB3:BB[0-9]+]],[[BB4:BB[0-9]+]]<latch><exiting>
+; CHECK:       Printing Divergence info for Loop at depth 1 containing: [[BB0:BB[0-9]+]]<header>,[[BB1:BB[0-9]+]],[[BB2:BB[0-9]+]]<latch><exiting>
 ; CHECK-NEXT:      Loop at depth 2 containing: [[BB1]]<header><latch><exiting>
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Basic Block: [[BB0]]
-; CHECK-NEXT:  Uniform: [Shape: Uniform] i64 [[VP_VECTOR_LOOP_IV:%.*]] = phi  [ i64 0, [[BB5:BB[0-9]+]] ],  [ i64 [[VP_VECTOR_LOOP_IV_NEXT:%.*]], [[BB4]] ]
-; CHECK-NEXT:  Divergent: [Shape: Unit Stride, Stride: i64 1] i64 [[VP_INDVARS_IV42:%.*]] = phi  [ i64 [[VP_INDVARS_IV_NEXT43:%.*]], [[BB4]] ],  [ i64 [[VP_INDVARS_IV42_IND_INIT:%.*]], [[BB5]] ]
+; CHECK-NEXT:  Uniform: [Shape: Uniform] i64 [[VP_VECTOR_LOOP_IV:%.*]] = phi  [ i64 0, [[BB3:BB[0-9]+]] ],  [ i64 [[VP_VECTOR_LOOP_IV_NEXT:%.*]], [[BB2]] ]
+; CHECK-NEXT:  Divergent: [Shape: Unit Stride, Stride: i64 1] i64 [[VP_INDVARS_IV42:%.*]] = phi  [ i64 [[VP_INDVARS_IV_NEXT43:%.*]], [[BB2]] ],  [ i64 [[VP_INDVARS_IV42_IND_INIT:%.*]], [[BB3]] ]
 ; CHECK-NEXT:  Divergent: [Shape: Random] i32* [[VP_ARRAYIDX:%.*]] = getelementptr inbounds [1024 x i32]* [[VP_ARR_PRIV:%.*]] i64 0 i64 [[VP_INDVARS_IV42]]
 ; CHECK-NEXT:  Divergent: [Shape: Random] i32 [[VP0:%.*]] = load i32* [[VP_ARRAYIDX]]
 ; CHECK-NEXT:  Divergent: [Shape: Strided, Stride: i64 4] i32* [[VP_ARRAYIDX2:%.*]] = getelementptr inbounds [1024 x i32]* @b i64 0 i64 [[VP_INDVARS_IV42]]
@@ -71,10 +71,8 @@ define dso_local i32 @getElement(i32 %n) {
 ; CHECK-NEXT:  Divergent: [Shape: Random] i32 [[VP_ADD12:%.*]] = add i32 [[VP0]] i32 [[TMP0:%.*]]
 ; CHECK-NEXT:  Divergent: [Shape: Random] i32 [[VP_ADD13:%.*]] = add i32 [[VP_ADD12]] i32 [[VP2]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:  Basic Block: [[BB3]]
-; CHECK-EMPTY:
 ; CHECK-NEXT:  Basic Block: [[BB1]]
-; CHECK-NEXT:  Uniform: [Shape: Uniform] i64 [[VP_INDVARS_IV:%.*]] = phi  [ i64 0, [[BB3]] ],  [ i64 [[VP_INDVARS_IV_NEXT:%.*]], [[BB1]] ]
+; CHECK-NEXT:  Uniform: [Shape: Uniform] i64 [[VP_INDVARS_IV:%.*]] = phi  [ i64 0, [[BB0]] ],  [ i64 [[VP_INDVARS_IV_NEXT:%.*]], [[BB1]] ]
 ; CHECK-NEXT:  Divergent: [Shape: Strided, Stride: i64 4096] i32* [[VP_ARRAYIDX7:%.*]] = getelementptr inbounds [1024 x i32]* [[VP_ARR_PRIV]] i64 0 i64 [[VP_INDVARS_IV]]
 ; CHECK-NEXT:  Divergent: [Shape: Random] i32 [[VP3:%.*]] = load i32* [[VP_ARRAYIDX7]]
 ; CHECK-NEXT:  Uniform: [Shape: Uniform] i32* [[VP_ARRAYIDX9:%.*]] = getelementptr inbounds [1024 x i32]* @b i64 0 i64 [[VP_INDVARS_IV]]
