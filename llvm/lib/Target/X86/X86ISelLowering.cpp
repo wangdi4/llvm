@@ -2084,8 +2084,6 @@ X86TargetLowering::X86TargetLowering(const X86TargetMachine &TM,
     setOperationAction(ISD::UDIV, MVT::i128, Custom);
     setOperationAction(ISD::SREM, MVT::i128, Custom);
     setOperationAction(ISD::UREM, MVT::i128, Custom);
-    setOperationAction(ISD::SDIVREM, MVT::i128, Custom);
-    setOperationAction(ISD::UDIVREM, MVT::i128, Custom);
   }
 
   // On 32 bit MSVC, `fmodf(f32)` is not defined - only `fmod(f64)`
@@ -27791,8 +27789,6 @@ SDValue X86TargetLowering::LowerWin64_i128OP(SDValue Op, SelectionDAG &DAG) cons
   case ISD::UDIV:      isSigned = false; LC = RTLIB::UDIV_I128;    break;
   case ISD::SREM:      isSigned = true;  LC = RTLIB::SREM_I128;    break;
   case ISD::UREM:      isSigned = false; LC = RTLIB::UREM_I128;    break;
-  case ISD::SDIVREM:   isSigned = true;  LC = RTLIB::SDIVREM_I128; break;
-  case ISD::UDIVREM:   isSigned = false; LC = RTLIB::UDIVREM_I128; break;
   }
 
   SDLoc dl(Op);
@@ -30440,10 +30436,6 @@ void X86TargetLowering::ReplaceNodeResults(SDNode *N,
       return;
     }
 
-    LLVM_FALLTHROUGH;
-  }
-  case ISD::SDIVREM:
-  case ISD::UDIVREM: {
     SDValue V = LowerWin64_i128OP(SDValue(N,0), DAG);
     Results.push_back(V);
     return;
