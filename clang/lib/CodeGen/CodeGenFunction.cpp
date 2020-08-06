@@ -955,6 +955,7 @@ void CodeGenFunction::StartFunction(GlobalDecl GD, QualType RetTy,
   if (D && D->hasAttr<CFICanonicalJumpTableAttr>())
     Fn->addFnAttr("cfi-canonical-jump-table");
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   if (getLangOpts().HLS) {
     // Add metadata for HLS components
@@ -969,6 +970,10 @@ void CodeGenFunction::StartFunction(GlobalDecl GD, QualType RetTy,
       EmitOpenCLHLSComponentMetadata(FD, Fn);
   }
 #endif // INTEL_CUSTOMIZATION
+=======
+  if (getLangOpts().SYCLIsHost && D && D->hasAttr<SYCLKernelAttr>())
+    Fn->addFnAttr("sycl_kernel");
+>>>>>>> 414c1e5e61bb63dd4ab43ac0a94477941b637620
 
   if (getLangOpts().OpenCL || getLangOpts().SYCLIsDevice) {
     // Add metadata for a kernel function.
