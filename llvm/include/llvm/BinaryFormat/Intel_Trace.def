@@ -1,0 +1,80 @@
+//===--- Intel_Trace.def - TraceBack Tag && Attribute Database---*- C++ -*-===//
+//
+// Copyright (C) 2020 Intel Corporation. All rights reserved.
+//
+// The information and source code contained herein is the exclusive
+// property of Intel Corporation and may not be disclosed, examined
+// or reproduced in whole or in part without explicit written authorization
+// from the company.
+//
+//===----------------------------------------------------------------------===//
+///
+/// \file
+/// This file defines the TraceBack tag && attribute database, including the
+/// name, encoding, size and the mapping from tag to attribute. Users of this
+/// file must optionally #define the HANDLE_TB_TAG, HANDLE_TB_AT or
+/// TB_TAG_TO_TB_AT macros to make use of this file.
+///
+//===----------------------------------------------------------------------===//
+
+#ifndef HANDLE_TB_TAG
+#define HANDLE_TB_TAG(NAME,ENCODING)
+#endif
+
+#ifndef HANDLE_TB_AT
+#define HANDLE_TB_AT(NAME,SIZE)
+#endif
+
+#ifndef TB_TAG_TO_TB_AT
+#define TB_TAG_TO_TB_AT(TAG,AT)
+#endif
+
+HANDLE_TB_TAG(Module,0x0A)
+HANDLE_TB_TAG(RTN32,0x02)
+HANDLE_TB_TAG(RTN64,0x0C)
+HANDLE_TB_TAG(File,0x03)
+// Line delta tag
+HANDLE_TB_TAG(LN1,0x04)
+HANDLE_TB_TAG(LN2,0x05)
+HANDLE_TB_TAG(LN4,0x06)
+// PC delta tag
+HANDLE_TB_TAG(PC1,0x07)
+HANDLE_TB_TAG(PC2,0x08)
+HANDLE_TB_TAG(PC4,0x09)
+// Correlation tag
+HANDLE_TB_TAG(CO1,0x80)
+HANDLE_TB_TAG(CO2,0xC0)
+
+HANDLE_TB_AT(MajorV,2)
+HANDLE_TB_AT(MinorV,1)
+HANDLE_TB_AT(TraceSize,4)
+HANDLE_TB_AT(TextBegin,0)
+HANDLE_TB_AT(NumOfFiles,4)
+HANDLE_TB_AT(FileIdx,4)
+HANDLE_TB_AT(TextSize,4)
+HANDLE_TB_AT(NameLength,2)
+HANDLE_TB_AT(ModuleName,0)
+HANDLE_TB_AT(FileName,0)
+HANDLE_TB_AT(Padding,1)
+HANDLE_TB_AT(RoutineBegin,0)
+HANDLE_TB_AT(RoutineName,0)
+// Line delta attribute
+HANDLE_TB_AT(LN1,1)
+HANDLE_TB_AT(LN2,2)
+HANDLE_TB_AT(LN4,4)
+// PC delta attribute
+HANDLE_TB_AT(PC1,1)
+HANDLE_TB_AT(PC2,2)
+HANDLE_TB_AT(PC4,4)
+
+// Map Tag to Attribute
+TB_TAG_TO_TB_AT(LN1,LN1)
+TB_TAG_TO_TB_AT(LN2,LN2)
+TB_TAG_TO_TB_AT(LN4,LN4)
+TB_TAG_TO_TB_AT(PC1,PC1)
+TB_TAG_TO_TB_AT(PC2,PC2)
+TB_TAG_TO_TB_AT(PC4,PC4)
+
+#undef HANDLE_TB_TAG
+#undef HANDLE_TB_AT
+#undef TB_TAG_TO_TB_AT
