@@ -509,6 +509,13 @@ unsigned Module::getDwarfVersion() const {
   return cast<ConstantInt>(Val->getValue())->getZExtValue();
 }
 
+#if INTEL_CUSTOMIZATION
+bool Module::hasTraceBackFlag() const {
+  auto *Val = cast_or_null<ConstantAsMetadata>(getModuleFlag("TraceBack"));
+  return Val;
+}
+#endif // INTEL_CUSTOMIZATION
+
 unsigned Module::getCodeViewFlag() const {
   auto *Val = cast_or_null<ConstantAsMetadata>(getModuleFlag("CodeView"));
   if (!Val)

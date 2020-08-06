@@ -13,6 +13,9 @@ add_llvm_component_library(LLVMAsmPrinter
   DwarfCFIException.cpp
   DwarfCompileUnit.cpp
   DwarfDebug.cpp
+#if INTEL_CUSTOMIZATION
+  Intel_TraceBackDebug.cpp
+#end INTEL_CUSTOMIZATION
   DwarfExpression.cpp
   DwarfFile.cpp
   DwarfStringPool.cpp

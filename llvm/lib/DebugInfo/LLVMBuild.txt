@@ -15,7 +15,9 @@
 ;===------------------------------------------------------------------------===;
 
 [common]
-subdirectories = DWARF GSYM MSF CodeView PDB Symbolize
+; INTEL_CUSTOMIZATION
+subdirectories = DWARF Intel_TraceBack GSYM MSF CodeView PDB Symbolize
+; end INTEL_CUSTOMIZATION
 
 [component_0]
 type = Group
