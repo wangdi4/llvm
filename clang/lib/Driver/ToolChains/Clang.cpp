@@ -3911,6 +3911,23 @@ static void RenderDebugOptions(const ToolChain &TC, const Driver &D,
       CmdArgs.push_back("-gembed-source");
   }
 
+#if INTEL_CUSTOMIZATION
+  // Pass -traceback to the cc1 and require the minimal debug info if
+  // necessary.
+  if (Args.hasArg(options::OPT_traceback)) {
+    if (!T.isX86()) {
+      D.Diag(diag::err_drv_unsupported_opt_for_target)
+          << Args.getLastArg(options::OPT_traceback)->getAsString(Args)
+          << T.str();
+    } else {
+      CmdArgs.push_back("-traceback");
+      // traceback needs debug info about line and PC delta at least.
+      if (DebugInfoKind < codegenoptions::DebugDirectivesOnly)
+        DebugInfoKind = codegenoptions::DebugDirectivesOnly;
+    }
+  }
+#endif // INTEL_CUSTOMIZATION
+
   if (EmitCodeView) {
     CmdArgs.push_back("-gcodeview");
 

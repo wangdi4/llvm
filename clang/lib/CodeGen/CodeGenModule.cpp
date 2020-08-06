@@ -570,6 +570,14 @@ void CodeGenModule::Release() {
   if (CodeGenOpts.CodeViewGHash) {
     getModule().addModuleFlag(llvm::Module::Warning, "CodeViewGHash", 1);
   }
+
+#if INTEL_CUSTOMIZATION
+  if (CodeGenOpts.EmitTraceBack) {
+    // Indicate that we want TraceBack debug information in the metadata.
+    getModule().addModuleFlag(llvm::Module::Warning, "TraceBack", 1);
+  }
+#endif // INTEL_CUSTOMIZATION
+
 #if INTEL_CUSTOMIZATION
   if (CodeGenOpts.EmitIntelSTI) {
     // Indicate that we want Intel STI debug information in the metadata.
