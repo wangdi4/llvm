@@ -917,8 +917,9 @@ bool operator<(const LocalPointerInfo::PointeeLoc &A,
 class LocalPointerAnalyzer {
 public:
   LocalPointerAnalyzer(const DataLayout &DL, GetTLIFnType GetTLI,
+                       DTransAnalysisInfo &DTAI,
                        dtrans::DTransAllocAnalyzer &DTAA)
-      : DL(DL), GetTLI(GetTLI), DTAA(DTAA) {}
+      : DL(DL), GetTLI(GetTLI), DTAI(DTAI), DTAA(DTAA) {}
 
   LocalPointerInfo &getLocalPointerInfo(Value *V) {
     LocalPointerInfo &Info = LocalMap[V];
@@ -954,6 +955,7 @@ public:
 private:
   const DataLayout &DL;
   GetTLIFnType GetTLI;
+  DTransAnalysisInfo &DTAI;
   dtrans::DTransAllocAnalyzer &DTAA;
   // We cannot use DenseMap or ValueMap here because we are inserting values
   // during recursive calls to analyzeValue() and with a DenseMap or ValueMap
@@ -1619,7 +1621,7 @@ private:
       // If the last argument is not constant and out-of-bound flag is false
       // then it is safe to have non-constant array access. Use 0 index for
       // Pointee set.
-      if (!dtrans::DTransOutOfBoundsOK)
+      if (!DTAI.getDTransOutOfBoundsOK())
         Info.addElementPointee(IndexedTy, 0);
     }
 
@@ -3756,8 +3758,9 @@ public:
                     DTransBadCastingAnalyzer &DTBCA,
                     function_ref<BlockFrequencyInfo &(Function &)> &GetBFI,
                     std::function<DominatorTree &(Function &)> GetDomTree)
-      : DTInfo(Info), DL(DL), GetTLI(GetTLI), LPA(DL, GetTLI, DTAA), DTAA(DTAA),
-        DTBCA(DTBCA), GetBFI(GetBFI), BFI(nullptr), GetDomTree(GetDomTree) {
+      : DTInfo(Info), DL(DL), GetTLI(GetTLI), LPA(DL, GetTLI, DTInfo, DTAA),
+        DTAA(DTAA), DTBCA(DTBCA), GetBFI(GetBFI), BFI(nullptr),
+        GetDomTree(GetDomTree) {
     // Save pointers to some commonly referenced types.
     Int8PtrTy = llvm::Type::getInt8PtrTy(Context);
     PtrSizeIntTy = llvm::Type::getIntNTy(Context, DL.getPointerSizeInBits());
@@ -4725,7 +4728,7 @@ public:
                                  ? DL.getTypeSizeInBits(
                                    ParentStInfo->getField(0).getLLVMType())
                                  : TypeSize(0, false);
-            if (dtrans::DTransOutOfBoundsOK || LoadSize > FieldSize) {
+            if (DTInfo.getDTransOutOfBoundsOK() || LoadSize > FieldSize) {
               for (auto &FI : ParentStInfo->getFields())
                 FI.setMismatchedElementAccess();
             } else if (ParentStInfo->getNumFields() != 0) {
@@ -7493,7 +7496,7 @@ private:
       LLVM_DEBUG(dbgs() << "dtrans-safety: Bad casting (related types) -- "
                       << "unsafe cast of aliased pointer:\n"
                       << "  " << *I << "\n");
-      if (dtrans::DTransOutOfBoundsOK)
+      if (DTInfo.getDTransOutOfBoundsOK())
         setValueTypeInfoSafetyData(I->getOperand(0),
                                   dtrans::BadCastingForRelatedTypes);
       else
@@ -7511,14 +7514,14 @@ private:
              << "unsafe cast of aliased pointer:\n"
              << "  " << *I << "\n";
     });
-    if (dtrans::DTransOutOfBoundsOK)
+    if (DTInfo.getDTransOutOfBoundsOK())
       setValueTypeInfoSafetyData(I->getOperand(0), dtrans::BadCasting);
     else
       (void)setValueTypeInfoSafetyDataBase(I->getOperand(0),
                                            dtrans::BadCasting);
 
     if (DTInfo.isTypeOfInterest(DestTy)) {
-      if (dtrans::DTransOutOfBoundsOK)
+      if (DTInfo.getDTransOutOfBoundsOK())
         setValueTypeInfoSafetyData(I, dtrans::BadCasting);
       else
         (void)setValueTypeInfoSafetyDataBase(I, dtrans::BadCasting);
@@ -8036,7 +8039,7 @@ private:
             LLVM_DEBUG(dbgs() << "dtrans-safety: Mismatched element access"
                               << " -- zero element access\n");
             LLVM_DEBUG(dbgs() << "  " << I << "\n");
-            if (dtrans::DTransOutOfBoundsOK) {
+            if (DTInfo.getDTransOutOfBoundsOK()) {
               // Assuming out of bound access, set safety issue for the entire
               // ParentTy.
               setBaseTypeInfoSafetyData(ParentTy,
@@ -8050,7 +8053,7 @@ private:
           } else {
             LLVM_DEBUG(dbgs() << "dtrans-safety: Mismatched element access:\n");
             LLVM_DEBUG(dbgs() << "  " << I << "\n");
-            if (dtrans::DTransOutOfBoundsOK) {
+            if (DTInfo.getDTransOutOfBoundsOK()) {
               // Assuming out of bound access, set safety issue for the entire
               // ParentTy.
               setBaseTypeInfoSafetyData(ParentTy,
@@ -8065,7 +8068,7 @@ private:
             TypeSize ValSize = DL.getTypeSizeInBits(ValTy);
             TypeSize FieldSize = DL.getTypeSizeInBits(
                 ParentStInfo->getField(ElementNum).getLLVMType());
-            if (dtrans::DTransOutOfBoundsOK || ValSize > FieldSize) {
+            if (DTInfo.getDTransOutOfBoundsOK() || ValSize > FieldSize) {
               for (auto &FI : ParentStInfo->getFields())
                 FI.setMismatchedElementAccess();
             } else {
@@ -10143,7 +10146,7 @@ private:
   // the bounds of a structure. This is strictly not allowed in C/C++, but
   // is allowed under the definition of LLVM IR.
   bool isCascadingSafetyCondition(dtrans::SafetyData Data) {
-    if (dtrans::DTransOutOfBoundsOK)
+    if (DTInfo.getDTransOutOfBoundsOK())
       return true;
     switch (Data) {
     // We can add additional cases here to reduce the conservative behavior
@@ -10193,7 +10196,7 @@ private:
       // possible to access elements of pointed-to objects, as well, in methods
       // that DTrans would not be able to analyze.
     case dtrans::FieldAddressTaken:
-      return dtrans::DTransOutOfBoundsOK;
+      return DTInfo.getDTransOutOfBoundsOK();
 
     default:
       return false;
@@ -10953,6 +10956,16 @@ void DTransAnalysisInfo::setCallGraphStats(Module &M) {
                     << "  Instructions: " << InstructionCount << "\n");
 }
 
+// Set 'SawFortran' if there is a Fortran function. This will disable
+// settings like DTransOutOfBoundsOK.
+void DTransAnalysisInfo::checkLanguages(Module &M) {
+  for (auto &F : M.functions())
+    if (F.isFortran()) {
+      SawFortran = true;
+      break;
+    }
+}
+
 // Return true if we should run DTransAnalysis.
 // Right now, we just disable DTransAnalysis if the call graph is too large.
 bool DTransAnalysisInfo::shouldComputeDTransAnalysis(void) const {
@@ -10972,7 +10985,7 @@ bool DTransAnalysisInfo::useDTransAnalysis(void) const {
 }
 
 bool DTransAnalysisInfo::getDTransOutOfBoundsOK() {
-  return dtrans::DTransOutOfBoundsOK;
+  return SawFortran || dtrans::DTransOutOfBoundsOK;
 }
 
 bool DTransAnalysisInfo::requiresBadCastValidation(
@@ -11035,6 +11048,7 @@ bool DTransAnalysisInfo::analyzeModule(
                             DTAA, DTBCA, GetBFI, GetDomTree);
   parseIgnoreList();
 
+  checkLanguages(M);
   DTBCA.analyzeBeforeVisit();
   Visitor.visit(M);
   Visitor.collectCallGraphInfo(M);
