@@ -5387,29 +5387,6 @@ bool VPOParoptTransform::genLastPrivatizationCode(
 
     BasicBlock *EntryBB = W->getEntryBBlock();
 
-    if (isa<WRNVecLoopNode>(W))
-      // Insert privatization code (e.g. allocas, constructor calls)
-      // in a block preceeding the SIMD region's entry block.
-      // We should minimize the code between SIMD entry/exit points
-      // that is not related to the loop itself, otherwise, vectorizer
-      // may complain. Note that the last value copy is still generated
-      // inside the SIMD region - if this is a problem, we should run
-      // sinkSIMDDirectives() for standalone SIMD regions as well.
-      //
-      // FIXME: if there is no parent region that will be outlined, then
-      //        the allocas will remain inside the function body, and
-      //        may not be handled by optimizations (e.g. promote memory
-      //        to register pass). In such case we have to insert allocas
-      //        inside the function's entry block. Moreover, insertion
-      //        of allocas next to the SIMD region is not correct, if
-      //        there is an enclosing loop - such an alloca may cause
-      //        stack saturation.
-      //        This is relevant to WRNWksLoop as well.
-      //
-      // Note that EntryBB points to the new empty block after the call
-      // below.
-      W->setEntryBBlock(SplitBlock(EntryBB, &EntryBB->front(), DT, LI));
-
     W->populateBBSet();
 
     bool ForTask = W->getWRegionKindID() == WRegionNode::WRNTaskloop ||
@@ -5429,9 +5406,12 @@ bool VPOParoptTransform::genLastPrivatizationCode(
 
       Value *NewPrivInst;
       Instruction *InsertPt = &EntryBB->front();
-      if (!ForTask)
-        NewPrivInst = genPrivatizationAlloca(LprivI, InsertPt, ".lpriv");
-      else {
+      if (!ForTask) {
+        Instruction *AllocaInsertPt =
+            IsVecLoop ? VPOParoptUtils::getInsertionPtForAllocas(W, F)
+                      : InsertPt;
+        NewPrivInst = genPrivatizationAlloca(LprivI, AllocaInsertPt, ".lpriv");
+      } else {
         NewPrivInst = LprivI->getNew();
         InsertPt = cast<Instruction>(NewPrivInst)->getParent()->getTerminator();
       }
@@ -6457,30 +6437,6 @@ bool VPOParoptTransform::genPrivatizationCode(WRegionNode *W) {
   // Process all PrivateItems in the private clause
   PrivateClause &PrivClause = W->getPriv();
   if (!PrivClause.empty()) {
-
-    if (isa<WRNVecLoopNode>(W))
-      // Insert privatization code (e.g. allocas, constructor calls)
-      // in a block preceeding the SIMD region's entry block.
-      // We should minimize the code between SIMD entry/exit points
-      // that is not related to the loop itself, otherwise, vectorizer
-      // may complain. Note that the last value copy is still generated
-      // inside the SIMD region - if this is a problem, we should run
-      // sinkSIMDDirectives() for standalone SIMD regions as well.
-      //
-      // FIXME: if there is no parent region that will be outlined, then
-      //        the allocas will remain inside the function body, and
-      //        may not be handled by optimizations (e.g. promote memory
-      //        to register pass). In such case we have to insert allocas
-      //        inside the function's entry block. Moreover, insertion
-      //        of allocas next to the SIMD region is not correct, if
-      //        there is an enclosing loop - such an alloca may cause
-      //        stack saturation.
-      //        This is relevant to WRNWksLoop as well.
-      //
-      // Note that EntryBB points to the new empty block after the call
-      // below.
-      W->setEntryBBlock(SplitBlock(EntryBB, &EntryBB->front(), DT, LI));
-
     W->populateBBSet();
 
     bool ForTask = W->getWRegionKindID() == WRegionNode::WRNTaskloop ||
@@ -6495,16 +6451,24 @@ bool VPOParoptTransform::genPrivatizationCode(WRegionNode *W) {
           GeneralUtils::isOMPItemLocalVAR(Orig)) {
         Value *NewPrivInst;
 
-        // Insert alloca for privatization right after the BEGIN directive.
+        // Insert alloca for privatization right after the BEGIN directive for
+        // all directives except simd. For simd allocas are inserted either into
+        // the function's entry block or into the entry block of the parent
+        // region that needs outlining. This is done to avoid adding dynamic
+        // allocas to the function body.
         // Note: do not hoist the following InsertPt computation out of
         // this for-loop. InsertPt may be a clause directive that is
         // removed by genPrivatizationReplacement(), so we need to recompute
         // InsertPt at every iteration of this for-loop.
         Instruction *InsertPt = EntryBB->getFirstNonPHI();
         if (!ForTask) {
+          Instruction *AllocaInsertPt =
+              isa<WRNVecLoopNode>(W)
+                  ? VPOParoptUtils::getInsertionPtForAllocas(W, F)
+                  : InsertPt;
           auto AllocaAddrSpace = getPrivatizationAllocaAddrSpace(W, PrivI);
-          NewPrivInst =
-              genPrivatizationAlloca(PrivI, InsertPt, ".priv", AllocaAddrSpace);
+          NewPrivInst = genPrivatizationAlloca(PrivI, AllocaInsertPt, ".priv",
+                                               AllocaAddrSpace);
         } else {
           NewPrivInst = PrivI->getNew();
           InsertPt =
