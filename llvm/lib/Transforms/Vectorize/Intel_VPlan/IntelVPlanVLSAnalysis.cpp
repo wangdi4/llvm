@@ -155,19 +155,19 @@ void VPlanVLSAnalysis::dump(const VPlan *Plan) const {
   const auto VLSInfoIt = Plan2VLSInfo.find(Plan);
   assert(VLSInfoIt != Plan2VLSInfo.end() && "No VLSInfo for a given VPlan.");
   const OVLSMemrefVector &Memrefs = VLSInfoIt->second.Memrefs;
-  for (const auto Memref : Memrefs)
-    cast<VPVLSClientMemrefHIR>(Memref)->dump();
+  for (const auto *Memref : Memrefs)
+    Memref->dump();
 
   // For each collected memref print information about distance and dependency
   // to each next memref from the vector of memrefs.
   for (auto I = Memrefs.begin(), E = Memrefs.end(); I != E; ++I) {
     dbgs() << "Information about ";
-    auto From = cast<VPVLSClientMemrefHIR>(*I);
+    auto *From = *I;
     From->print(dbgs());
     dbgs() << '\n';
     for (auto J = I + 1; J != E; ++J) {
       dbgs() << "\t distance to ";
-      const auto To = cast<VPVLSClientMemrefHIR>(*J);
+      const auto *To = *J;
       To->print(dbgs(), 2);
       dbgs() << "  " << From->getConstDistanceFrom(*To);
 
