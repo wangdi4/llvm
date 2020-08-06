@@ -53,7 +53,7 @@ define internal void @.omp_outlined.(i32* noalias %.global_tid., i32* noalias %.
 ; CHECK-NEXT:    [[DOTOMP_UB:%.*]] = alloca i32, align 4
 ; CHECK-NEXT:    [[DOTOMP_STRIDE:%.*]] = alloca i32, align 4
 ; CHECK-NEXT:    [[DOTOMP_IS_LAST:%.*]] = alloca i32, align 4
-; CHECK-NEXT:    store i64 [[Q:%.*]], i64* [[Q_ADDR]], align 8
+; CHECK-NEXT:    store i64 4617315517961601024, i64* [[Q_ADDR]], align 8  ;INTEL
 ; CHECK-NEXT:    [[CONV:%.*]] = bitcast i64* [[Q_ADDR]] to double*
 ; CHECK-NEXT:    [[TMP:%.*]] = load i32, i32* [[N:%.*]], align 4
 ; CHECK-NEXT:    [[SUB3:%.*]] = add nsw i32 [[TMP]], -3

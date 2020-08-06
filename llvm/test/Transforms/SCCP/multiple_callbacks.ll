@@ -39,7 +39,7 @@ target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 define internal i32 @cb0(i32 %zero) {
 ; CHECK-LABEL: @cb0(
 ; CHECK-NEXT:  entry:
-; CHECK-NEXT:    ret i32 [[ZERO:%.*]]
+; CHECK-NEXT:    ret i32 0  ;INTEL
 ;
 entry:
   ret i32 %zero

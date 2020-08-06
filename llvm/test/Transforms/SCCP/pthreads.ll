@@ -44,7 +44,7 @@ declare !callback !0 dso_local i32 @pthread_create(i64*, %union.pthread_attr_t*,
 define internal i8* @foo(i8* %arg) {
 ; CHECK-LABEL: @foo(
 ; CHECK-NEXT:  entry:
-; CHECK-NEXT:    ret i8* [[ARG:%.*]]
+; CHECK-NEXT:    ret i8* null   ;INTEL
 ;
 entry:
   ret i8* %arg
@@ -53,7 +53,7 @@ entry:
 define internal i8* @bar(i8* %arg) {
 ; CHECK-LABEL: @bar(
 ; CHECK-NEXT:  entry:
-; CHECK-NEXT:    ret i8* [[ARG:%.*]]
+; CHECK-NEXT:    ret i8* bitcast (i8** @GlobalVPtr to i8*)  ;INTEL
 ;
 entry:
   ret i8* %arg
