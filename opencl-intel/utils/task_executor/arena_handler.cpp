@@ -78,7 +78,9 @@ void ArenaHandler::Init(
         m_arena.initialize( uiMaxNumThreads, uiReservedPlacesForMasters );
 #if __TBB_NUMA_SUPPORT
     else
-        m_arena.initialize(tbb::task_arena::constraints(numaNode));
+        m_arena.initialize(
+            tbb::task_arena::constraints(numaNode, uiMaxNumThreads),
+            uiReservedPlacesForMasters);
 #endif
     StartMonitoring();
 }
