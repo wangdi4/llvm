@@ -121,6 +121,9 @@ struct PendingCtorDtorListsTy {
 };
 typedef std::map<__tgt_bin_desc *, PendingCtorDtorListsTy>
     PendingCtorsDtorsPerLibrary;
+#if INTEL_COLLAB
+typedef std::vector<std::set<void *>> UsedPtrsTy;
+#endif // INTEL_COLLAB
 
 struct DeviceTy {
   int32_t DeviceID;
@@ -137,6 +140,10 @@ struct DeviceTy {
   ShadowPtrListTy ShadowPtrMap;
 
   std::mutex DataMapMtx, PendingGlobalsMtx, ShadowMtx;
+#if INTEL_COLLAB
+  std::map<int32_t, UsedPtrsTy> UsedPtrs;
+  std::mutex UsedPtrsMtx;
+#endif // INTEL_COLLAB
 
   // NOTE: Once libomp gains full target-task support, this state should be
   // moved into the target task in libomp.

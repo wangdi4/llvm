@@ -567,6 +567,18 @@ int32_t DeviceTy::manifest_data_for_region(void *TgtEntryPtr) {
   }
   ShadowMtx.unlock();
 
+  UsedPtrsMtx.lock();
+  DP("Manifesting used target pointers:\n");
+  for (auto &PtrSetList : UsedPtrs) {
+    for (auto &PtrSet : PtrSetList.second) {
+      for (auto Ptr : PtrSet) {
+        DP("\tUsedTargetPtr=" DPxMOD "\n", DPxPTR(Ptr));
+        ObjectPtrs.push_back(Ptr);
+      }
+    }
+  }
+  UsedPtrsMtx.unlock();
+
   if (ObjectPtrs.empty())
     return OFFLOAD_SUCCESS;
 
