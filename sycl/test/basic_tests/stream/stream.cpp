@@ -1,7 +1,14 @@
+<<<<<<< HEAD
 // UNSUPPORTED: debug
 // CMPLRLLVM-20714: disable test which causes timeout
 
 // RUN: %clangxx -fsycl -fsycl-targets=%sycl_triple %s -o %t.out
+=======
+// TODO: Enable compilation w/o -fno-sycl-std-optimizations option.
+// See https://github.com/intel/llvm/issues/2264 for more details.
+
+// RUN: %clangxx -fsycl -fno-sycl-std-optimizations -fsycl-targets=%sycl_triple %s -o %t.out
+>>>>>>> 5976ff0d2776e0c438275fb4f111470032ccc53e
 // RUN: env SYCL_DEVICE_TYPE=HOST %t.out | FileCheck %s
 // RUN: %CPU_RUN_PLACEHOLDER %t.out %CPU_CHECK_PLACEHOLDER
 // RUN: %GPU_RUN_ON_LINUX_PLACEHOLDER %t.out %GPU_CHECK_ON_LINUX_PLACEHOLDER
