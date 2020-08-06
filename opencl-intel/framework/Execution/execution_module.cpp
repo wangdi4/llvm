@@ -53,11 +53,22 @@ using namespace Intel::OpenCL::Utils;
 #define SetIfZero(X,VALUE) {if ((X)==0) (X)=(VALUE);}
 #define CheckIfAnyDimIsZero(X) (((X)[0] == 0) || ((X)[1] == 0) || ((X)[2] == 0))
 
+namespace {
 /**
  * Check mutex of map flags.
  * @return CL_SUCCESS if OK.
  */
 inline cl_int checkMapFlagsMutex(const cl_map_flags clMapFlags);
+/**
+ * Callback to update kernle-event map if event status is changed to CL_COMPLETE.
+ */
+void callbackForKernelEventMap(cl_event pEvent, cl_int expectedStatus, void *data);
+/**
+ * Sync for the access of ExecutionModule::m_OclKernelEventMap
+ */
+Intel::OpenCL::Utils::OclMutex KernelEventMutex;
+
+} //anonymous namespace
 
 /******************************************************************
  * Constructor. Only assign pointers, for objects initilaztion use
@@ -2241,27 +2252,34 @@ cl_err_code ExecutionModule::EnqueueNDRangeKernel(
             {
                 return errVal;
             }
-            auto it = m_OclKernelEventMap.find(kernelName);
-            if (it != m_OclKernelEventMap.end())
             {
-                cl_event prevClEvent = *it->second;
-                SharedPtr<OclEvent> prevEvent =
-                    m_pEventsManager->GetEventClass<OclEvent>(prevClEvent);
-                if (prevEvent && CL_COMPLETE != prevEvent->GetEventExecState())
+                OclAutoMutex mu(&KernelEventMutex);
+                auto it = m_OclKernelEventMap.find(kernelName);
+                if (it != m_OclKernelEventMap.end())
                 {
-                    EventListToWait.push_back(prevClEvent);
+                    cl_event prevClEvent = *it->second;
+                    SharedPtr<OclEvent> prevEvent =
+                        m_pEventsManager->GetEventClass<OclEvent>(prevClEvent);
+                    if (prevEvent && CL_COMPLETE != prevEvent->GetEventExecState())
+                    {
+                        EventListToWait.push_back(prevClEvent);
+                    }
+                    // Update the map replacing old with a newer one.
+                    m_OclKernelEventMap.erase(kernelName);
                 }
-                // Update the map replacing old with a newer one.
-                m_OclKernelEventMap.erase(kernelName);
             }
             // To track kernel execution we need to implicitly set a tracker
             // event even if a user set it as null.
-            auto newPair = m_OclKernelEventMap.insert(
-                std::make_pair(kernelName, pEvent ? pEvent : ::new cl_event));
+            cl_event* trackerEvent = pEvent ? pEvent : ::new cl_event;
+            m_OclKernelEventMap.insert(std::make_pair(kernelName, trackerEvent));
             errVal = pNDRangeKernelCmd->EnqueueSelf(
                 false/*never blocking*/, EventListToWait.size(),
                 EventListToWait.empty() ? nullptr : &EventListToWait[0],
-                newPair.first->second, apiLogger);
+                trackerEvent, apiLogger);
+            // Set call back which will erase this tracker kernel-event pair from this map
+            // when the event status is changed to CL_COMPLETE.
+            SetEventCallback(*trackerEvent, CL_COMPLETE, (eventCallbackFn)callbackForKernelEventMap,
+                &m_OclKernelEventMap);
             updatedEventList = true;
         }
     }
@@ -3974,6 +3992,7 @@ void ExecutionModule::DeleteAllActiveQueues(bool preserve_user_handles)
     m_pOclCommandQueueMap->ReleaseAllObjects(false);
 }
 
+namespace {
 /**
  * internal util function.
  */
@@ -3989,3 +4008,25 @@ cl_int checkMapFlagsMutex(const cl_map_flags clMapFlags)
 
     return CL_SUCCESS;
 }
+
+/**
+ * Callback for pEvent status change. if it's changed to CL_COMPLETE, we need to remove
+ * it from kernel-event map.
+ */
+void callbackForKernelEventMap(cl_event pEvent, cl_int returnStatus, void *data) {
+    OclAutoMutex mu(&KernelEventMutex);
+    std::map<std::string, cl_event *>* kernelevent_map =
+        (std::map<std::string, cl_event *>*)data;
+    assert(kernelevent_map && "Kernel-event map should not be null.");
+    for (auto it = kernelevent_map->begin(); it != kernelevent_map->end(); it++)
+    {
+       if (pEvent == *(it->second))
+       {
+           kernelevent_map->erase(it->first);
+           break;
+       }
+    }
+    return;
+}
+
+} //anonymous namespace
