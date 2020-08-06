@@ -9,6 +9,7 @@ string(REGEX REPLACE "/MD" "/MT" ${flag_var} "${${flag_var}}")
 # end INTEL_CUSTOMIZATION
 endforeach()
 
+<<<<<<< HEAD
 # add_sycl_unittest(test_dirname SHARED|OBJECT file1.cpp, file2.cpp ...)
 #
 # Will compile the list of files together and link against SYCL.
@@ -68,10 +69,13 @@ function(add_sycl_unittest test_dirname link_variant)
       CXX_STANDARD_REQUIRED ON
     )
 endfunction()
+=======
+include(AddSYCLUnitTest)
+>>>>>>> 1a71a4a9ca13873e0bf14b8376a2dc04b9e3493c
 
 add_subdirectory(misc)
 add_subdirectory(pi)
-add_subdirectory(program)
+add_subdirectory(kernel-and-program)
 add_subdirectory(queue)
 add_subdirectory(scheduler)
 add_subdirectory(thread_safety)
