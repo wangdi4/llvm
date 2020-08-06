@@ -262,6 +262,63 @@ foreach bi = ["sincos", "native_sincos", "modf", "fract", "native_fract"] in {
     0,1>;
 }
 
+//VecInfo for OCLVecClone
+let KernelCallOnce = 0 in {
+  let Types = [v1f32, v1f64] in {
+    foreach bi = ["acos", "acosh", "acospi", "asin", "asinh", "asinpi", "atan", "atan2", "atanh", "atanpi",
+                  "atan2pi", "cbrt", "ceil", "copysign", "cos", "cosh", "cospi", "erfc", "erf", "exp", "exp2",
+                  "exp10", "expm1", "fabs", "fdim", "floor", "fma", "fmax", "fmax_common", "fmin", "fmin_common",
+                  "fmod", "fract_pas", "fract_las", "fract_gas", "fract_gen", "fract_pas2", "frexp_pas",
+                  "frexp_las", "frexp_gas", "frexp_gen", "hypot", "ilogb", "ldexp", "lgamma", "lgamma_r_pas",
+                  "lgamma_r_las", "lgamma_r_gas", "lgamma_r_gen", "log", "log2", "log10", "log1p", "logb",
+                  "mad", "maxmag", "minmag", "modf_pas", "modf_las", "modf_gas", "modf_gen", "modf_pas2", "nan",
+                  "nextafter", "pow", "pown", "powr", "remainder", "remquo_pas", "remquo_las", "remquo_gas",
+                  "remquo_gen", "rint", "rootn", "round", "rsqrt", "sin", "sincos_pas", "sincos_las", "sincos_gas",
+                  "sincos_gen", "sincos_pas2", "sinh", "sinpi", "sqrt", "tan", "tanh", "tanpi", "tgamma", "trunc"] in {
+      def intel_#bi : VectInfo<[], !cast<OclBuiltin>(bi), !cast<OclBuiltin>(bi), !cast<OclBuiltin>(bi), !cast<OclBuiltin>(bi)>;
+    }
+  }
+
+  let HandleAlias = 0 in {
+    def intel_fmax_s : VectInfo<[v1f32, v1f64], fmax, fmax_s, fmax_s, fmax_s>;
+    def intel_fmin_s : VectInfo<[v1f32, v1f64], fmin, fmin_s, fmin_s, fmin_s>;
+    def intel_ldexp_s : VectInfo<[v1f32, v1f64], ldexp, ldexp_s, ldexp_s, ldexp_s>;
+  }
+
+  let Types = [v1f32] in {
+    foreach bi = ["half_cos", "half_divide", "half_exp", "half_exp2", "half_exp10",
+                  "half_log", "half_log2", "half_log10", "half_powr", "half_recip",
+                  "half_rsqrt", "half_sin", "half_sqrt", "half_tan"] in {
+      def intel_#bi : VectInfo<[], !cast<OclBuiltin>(bi), !cast<OclBuiltin>(bi), !cast<OclBuiltin>(bi), !cast<OclBuiltin>(bi)>;
+    }
+  }
+
+  let Types = [v1f32, v1f64] in {
+    foreach bi = ["native_cos", "native_divide", "native_exp", "native_exp2",
+                  "native_exp10", "native_log", "native_log2", "native_log10",
+                  "native_powr", "native_recip", "native_rsqrt", "native_sin",
+                  "native_sqrt", "native_tan", "native_acos", "native_acosh",
+                  "native_acospi", "native_asin", "native_asinh", "native_asinpi",
+                  "native_atan", "native_atan2", "native_atanh", "native_atanpi",
+                  "native_atan2pi", "native_cbrt", "native_cosh", "native_cospi",
+                  "native_erfc", "native_erf", "native_expm1", "native_fdim",
+                  "native_fmax", "native_fmin", "native_fmod", "native_fract_pas",
+                  "native_fract_las", "native_fract_gas", "native_fract_gen",
+                  "native_fract_pas2", "native_hypot", "native_ilogb", "native_log1p",
+                  "native_logb", "native_pow", "native_pown", "native_rcbrt",
+                  "native_rootn", "native_sincos_pas", "native_sincos_las",
+                  "native_sincos_gas", "native_sincos_gen", "native_sincos_pas2",
+                  "native_sinh", "native_sinpi", "native_tanh", "native_tanpi"] in {
+      def intel_#bi : VectInfo<[], !cast<OclBuiltin>(bi), !cast<OclBuiltin>(bi), !cast<OclBuiltin>(bi), !cast<OclBuiltin>(bi)>;
+    }
+  }
+
+  let HandleAlias = 0 in {
+    def intel_native_fmax_s : VectInfo<[v1f32, v1f64], native_fmax, native_fmax_s, native_fmax_s, native_fmax_s>;
+    def intel_native_fmin_s : VectInfo<[v1f32, v1f64], native_fmin, native_fmin_s, native_fmin_s, native_fmin_s>;
+  }
+}
+
 // OpenCL 1.2 rev 15, Table 6.10
 let Types = [ v1i8,  v2i8,  v3i8,  v4i8,  v8i8,  v16i8,
               v1u8,  v2u8,  v3u8,  v4u8,  v8u8,  v16u8,
@@ -310,6 +367,36 @@ def min_s   : OclBuiltin<"min",   (outs gentype:$ret), (ins gentype:$x, sgentype
               Except<[v1i8, v1u8, v1i16, v1u16, v1i32, v1u32, v1i64, v1u64, v1f32, v1f64]>;
 }
 
+// VectInfo for OclVecClone
+let KernelCallOnce = 0 in {
+  let Types = [v1i8, v1u8, v1i16, v1u16, v1i32, v1u32, v1i64, v1u64] in {
+    foreach bi = ["abs", "abs_diff", "add_sat", "hadd", "rhadd",
+                  "clz", "mad_hi", "mad_sat", "mul_hi", "rotate",
+                  "sub_sat"] in {
+      def intel_#bi : VectInfo<[], !cast<OclBuiltin>(bi), !cast<OclBuiltin>(bi), !cast<OclBuiltin>(bi), !cast<OclBuiltin>(bi)>;
+    }
+  }
+
+  let Types = [v1i8, v1u8, v1i16, v1u16, v1i32, v1u32] in {
+    def intel_upsample : VectInfo<[], upsample, upsample, upsample, upsample>;
+  }
+
+  let Types = [ v1i8, v1u8, v1i16, v1u16,
+                v1i32, v1u32, v1i64, v1u64,
+                v1f32, v1f64] in {
+    foreach bi = ["clamp", "max", "min"] in {
+      def intel_#bi : VectInfo<[], !cast<OclBuiltin>(bi), !cast<OclBuiltin>(bi), !cast<OclBuiltin>(bi), !cast<OclBuiltin>(bi)>;
+    }
+  }
+
+  let HandleAlias = 0 in {
+    let Types = [v1i8, v1u8, v1i16, v1u16, v1i32, v1u32, v1i64, v1u64, v1f32, v1f64] in {
+      def intel_clamp_s : VectInfo<[], clamp, clamp_s, clamp_s, clamp_s>;
+      def intel_min_s : VectInfo<[], min, min_s, min_s, min_s>;
+      def intel_max_s : VectInfo<[], max, max_s, max_s, max_s>;
+    }
+  }
+}
 
 // OpenCL 1.2 rev 15, Table 6.11
 let Types = [v1i32, v2i32, v3i32, v4i32, v8i32, v16i32,
@@ -317,6 +404,14 @@ let Types = [v1i32, v2i32, v3i32, v4i32, v8i32, v16i32,
     Attrs = [CONSTFUNC, OVERLOADABLE] in {
 def mad24   : OclBuiltin<"mad24", (outs gentype:$ret), (ins gentype:$x, gentype:$y, gentype:$z), [], [], 0, 0>;
 def mul24   : OclBuiltin<"mul24", (outs gentype:$ret), (ins gentype:$x, gentype:$y), [], [], 0, 0>;
+}
+
+// VectInfo for OclVecClone
+let KernelCallOnce = 0 in {
+  let Types = [v1i32, v1u32] in {
+    def intel_mad24 : VectInfo<[], mad24, mad24, mad24, mad24>;
+    def intel_mul24 : VectInfo<[], mul24, mul24, mul24, mul24>;
+  }
 }
 
 // OpenCL 1.2 rev 15, Table 6.12
@@ -332,6 +427,23 @@ def step_s        : OclBuiltin<"step",        (outs gentype:$ret), (ins sgentype
 def smoothstep    : OclBuiltin<"smoothstep",  (outs gentype:$ret), (ins gentype:$edge0, gentype:$edge1, gentype:$x), [], [], 0, 0>;
 def smoothstep_s  : OclBuiltin<"smoothstep",  (outs gentype:$ret), (ins sgentype:$edge0, sgentype:$edge1, gentype:$x), [], [], 0, 0>, Except<[v1f32, v1f64]>;
 def sign          : OclBuiltin<"sign",        (outs gentype:$ret), (ins gentype:$x), [], [], 0, 0>;
+}
+
+// VectInfo for OclVecClone
+let KernelCallOnce = 0 in {
+  let Types = [v1f32, v1f64] in {
+    foreach bi = ["degrees", "mix", "radians", "step", "smoothstep", "sign"] in {
+      def intel_#bi : VectInfo<[], !cast<OclBuiltin>(bi), !cast<OclBuiltin>(bi), !cast<OclBuiltin>(bi), !cast<OclBuiltin>(bi)>;
+    }
+  }
+
+  let HandleAlias = 0 in {
+    let Types = [v1f32, v1f64] in {
+      def intel_mix_s : VectInfo<[], mix, mix_s, mix_s, mix_s>;
+      def intel_step_s : VectInfo<[], step, step_s, step_s, step_s>;
+      def intel_smoothstep_s : VectInfo<[], smoothstep, smoothstep_s, smoothstep_s, smoothstep_s>;
+    }
+  }
 }
 
 // OpenCL 1.2 rev 15, Table 6.13
@@ -353,8 +465,8 @@ def fast_normalize : OclBuiltin<"fast_normalize", (outs gentype:$ret), (ins gent
 }
 
 // OpenCL 1.2 rev 15, Table 6.14
-let Types = [v1f32, v2f32, v3f32, v4f32, v8f32, v16f32,
-             v1f64, v2f64, v3f64, v4f64, v8f64, v16f64],
+let Types = [v1f32, v2f32, v3f32, v4f32, v8f32, v16f32, v32f32, v64f32,
+             v1f64, v2f64, v3f64, v4f64, v8f64, v16f64, v32f64, v64f64],
     Attrs = [CONSTFUNC, OVERLOADABLE] in {
 //def isequal         : OclBuiltin<"isequal",         (outs rf2igentype:$ret), (ins gentype:$x, gentype:$y), [], [], 0, 0>;
 //def isnotequal      : OclBuiltin<"isnotequal",      (outs rf2igentype:$ret), (ins gentype:$x, gentype:$y), [], [], 0, 0>;
@@ -373,28 +485,50 @@ def isunordered     : OclBuiltin<"isunordered",     (outs rf2igentype:$ret), (in
 def signbit         : OclBuiltin<"signbit",         (outs rf2igentype:$ret), (ins gentype:$x), [], [], 0, 1>;
 }
 }
-let Types = [v1i8,  v2i8,  v3i8,  v4i8,  v8i8,  v16i8,
-             v1i16, v2i16, v3i16, v4i16, v8i16, v16i16,
-             v1i32, v2i32, v3i32, v4i32, v8i32, v16i32,
-             v1i64, v2i64, v3i64, v4i64, v8i64, v16i64],
+let Types = [v1i8,  v2i8,  v3i8,  v4i8,  v8i8,  v16i8,   v32i8,  v64i8,
+             v1i16, v2i16, v3i16, v4i16, v8i16, v16i16, v32i16, v64i16,
+             v1i32, v2i32, v3i32, v4i32, v8i32, v16i32, v32i32, v64i32,
+             v1i64, v2i64, v3i64, v4i64, v8i64, v16i64, v32i64, v64i64],
     Attrs = [CONSTFUNC, OVERLOADABLE] in {
 def any : OclBuiltin<"any", (outs si32gentype:$ret), (ins gentype:$x), [], [], 0, 0>;
 def all : OclBuiltin<"all", (outs si32gentype:$ret), (ins gentype:$x), [], [], 0, 0>;
 }
-let Types = [ v1i8,  v2i8,  v3i8,  v4i8,  v8i8,  v16i8,
-              v1u8,  v2u8,  v3u8,  v4u8,  v8u8,  v16u8,
-             v1i16, v2i16, v3i16, v4i16, v8i16, v16i16,
-             v1u16, v2u16, v3u16, v4u16, v8u16, v16u16,
-             v1i32, v2i32, v3i32, v4i32, v8i32, v16i32,
-             v1u32, v2u32, v3u32, v4u32, v8u32, v16u32,
-             v1i64, v2i64, v3i64, v4i64, v8i64, v16i64,
-             v1u64, v2u64, v3u64, v4u64, v8u64, v16u64,
-             v1f32, v2f32, v3f32, v4f32, v8f32, v16f32,
-             v1f64, v2f64, v3f64, v4f64, v8f64, v16f64],
+let Types = [ v1i8,  v2i8,  v3i8,  v4i8,  v8i8,  v16i8,  v32i8,  v64i8,
+              v1u8,  v2u8,  v3u8,  v4u8,  v8u8,  v16u8,  v32u8,  v64u8,
+             v1i16, v2i16, v3i16, v4i16, v8i16, v16i16, v32i16, v64i16,
+             v1u16, v2u16, v3u16, v4u16, v8u16, v16u16, v32u16, v64u16,
+             v1i32, v2i32, v3i32, v4i32, v8i32, v16i32, v32i32, v64i32,
+             v1u32, v2u32, v3u32, v4u32, v8u32, v16u32, v32u32, v64u32,
+             v1i64, v2i64, v3i64, v4i64, v8i64, v16i64, v32i64, v64i64,
+             v1u64, v2u64, v3u64, v4u64, v8u64, v16u64, v32u64, v64u64,
+             v1f32, v2f32, v3f32, v4f32, v8f32, v16f32, v32f32, v64f32,
+             v1f64, v2f64, v3f64, v4f64, v8f64, v16f64, v32f64, v64f64 ],
     Attrs = [CONSTFUNC, OVERLOADABLE] in {
 def bitselect   : OclBuiltin<"bitselect", (outs gentype:$ret), (ins gentype:$a, gentype:$b, gentype:$c), [], [], 0, 0>;
 def iselect     : OclBuiltin<"select",    (outs gentype:$ret), (ins gentype:$a, gentype:$b, igentype:$c), [], [], 0, 0>;
 def uselect     : OclBuiltin<"select",    (outs gentype:$ret), (ins gentype:$a, gentype:$b, ugentype:$c), [], [], 0, 0>;
+}
+
+// VectInfo for OclVecClone
+let KernelCallOnce = 0 in {
+  let Types = [v1f32, v1f64] in {
+    foreach bi = ["islessgreater", "isfinite", "isinf", "isnan",
+                  "isnormal", "isordered", "isunordered", "signbit"] in {
+      def intel_#bi : VectInfo<[], !cast<OclBuiltin>(bi), !cast<OclBuiltin>(bi), !cast<OclBuiltin>(bi), !cast<OclBuiltin>(bi), !cast<OclBuiltin>(bi), !cast<OclBuiltin>(bi)>;
+    }
+  }
+
+  let Types = [v1i8, v1i16, v1i32, v1i64] in {
+    def intel_any : VectInfo<[], any, any, any, any, any, any>;
+    def intel_all : VectInfo<[], all, all, all, all, all, all>;
+  }
+
+  let Types = [v1i8, v1u8, v1i16, v1u16, v1i32, v1u32,
+               v1i64, v1u64, v1f32, v1f64] in {
+    def intel_bitselect : VectInfo<[], bitselect, bitselect, bitselect, bitselect, bitselect, bitselect>;
+    def intel_iselect : VectInfo<[], iselect, iselect, iselect, iselect, iselect, iselect>;
+    def intel_uselect : VectInfo<[], uselect, uselect, uselect, uselect, uselect, uselect>;
+  }
 }
 
 // OpenCL 1.2 rev 15, Table 6.15
@@ -747,6 +881,28 @@ def _convert_f64_sat_rte : OclBuiltin<"convert_$ReturnType_sat_rte", (outs f64ge
 def _convert_f64_sat_rtz : OclBuiltin<"convert_$ReturnType_sat_rtz", (outs f64gentype:$ret), (ins gentype:$x), [], [], 0, 0>;
 def _convert_f64_sat_rtp : OclBuiltin<"convert_$ReturnType_sat_rtp", (outs f64gentype:$ret), (ins gentype:$x), [], [], 0, 0>;
 def _convert_f64_sat_rtn : OclBuiltin<"convert_$ReturnType_sat_rtn", (outs f64gentype:$ret), (ins gentype:$x), [], [], 0, 0>;
+}
+
+// VectInfo for OclVecClone
+let KernelCallOnce = 0 in {
+// conversion to integer has satured mode.
+  let Types = [ v1i8, v1u8, v1i16, v1u16, v1i32,
+                v1u32, v1i64, v1u64, v1f32, v1f64] in {
+    foreach type = ["u8", "i8", "u16", "i16", "u32", "i32", "u64", "i64"] in {
+      def intel_convert_#type : VectInfo<[], !cast<OclBuiltin>("convert_"#type), !cast<OclBuiltin>("convert_"#type), !cast<OclBuiltin>("convert_"#type), !cast<OclBuiltin>("convert_"#type)>;
+      def intel_convert_#type#_sat : VectInfo<[], !cast<OclBuiltin>("convert_"#type#"_sat"), !cast<OclBuiltin>("convert_"#type#"_sat"), !cast<OclBuiltin>("convert_"#type#"_sat"), !cast<OclBuiltin>("convert_"#type#"_sat")>;
+    }
+  }
+
+// conversions from floating to integer also honor rounding mode as well as saturated mode.
+  let Types = [v1f32, v1f64] in {
+    foreach type = ["u8", "i8", "u16", "i16", "u32", "i32", "u64", "i64"] in {
+      foreach op = ["rte", "rtz", "rtp", "rtn"] in {
+        def intel_convert_#type#_#op : VectInfo<[], !cast<OclBuiltin>("convert_"#type#_#op), !cast<OclBuiltin>("convert_"#type#_#op), !cast<OclBuiltin>("convert_"#type#_#op), !cast<OclBuiltin>("convert_"#type#_#op)>;
+        def intel_convert_#type#_sat_#op : VectInfo<[], !cast<OclBuiltin>("convert_"#type#"_sat_"#op), !cast<OclBuiltin>("convert_"#type#"_sat_"#op), !cast<OclBuiltin>("convert_"#type#"_sat_"#op), !cast<OclBuiltin>("convert_"#type#"_sat_"#op)>;
+      }
+    }
+  }
 }
 
 // Extended OpenCL built-in for SOA Geometry functions
