@@ -1,6 +1,13 @@
 // INTEL_COLLAB
 // RUN: %clang_cc1 -emit-llvm -o - -fopenmp -fopenmp-late-outline \
-// RUN:   -triple x86_64-unknown-linux-gnu %s | FileCheck %s
+// RUN:   -triple x86_64-unknown-linux-gnu -emit-pch -o %t %s
+
+// RUN: %clang_cc1 -emit-llvm -o - -fopenmp -fopenmp-late-outline \
+// RUN:   -triple x86_64-unknown-linux-gnu -include-pch %t %s     \
+// RUN:   | FileCheck %s
+
+#ifndef HEADER
+#define HEADER
 
 struct S1 {
   ~S1() {}
@@ -562,4 +569,5 @@ void enter_exit_data() {
   #pragma omp target exit data map(always,from: a[9:13])
 }
 
+#endif // HEADER
 // end INTEL_COLLAB

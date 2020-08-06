@@ -2281,6 +2281,7 @@ void ASTStmtReader::VisitOMPLoopDirective(OMPLoopDirective *D) {
   D->setPreCond(Record.readSubExpr());
   D->setCond(Record.readSubExpr());
 #if INTEL_COLLAB
+  D->setUpperBoundVariable(Record.readSubExpr());
   D->setLateOutlineCond(Record.readSubExpr());
   D->setLateOutlineLinearCounterStep(Record.readSubExpr());
   D->setLateOutlineLinearCounterIncrement(Record.readSubExpr());
@@ -2293,7 +2294,11 @@ void ASTStmtReader::VisitOMPLoopDirective(OMPLoopDirective *D) {
       isOpenMPDistributeDirective(D->getDirectiveKind())) {
     D->setIsLastIterVariable(Record.readSubExpr());
     D->setLowerBoundVariable(Record.readSubExpr());
+#if INTEL_COLLAB
+    // UpperBound used in all loops, processed above.
+#else // INTEL_COLLAB
     D->setUpperBoundVariable(Record.readSubExpr());
+#endif // INTEL_COLLAB
     D->setStrideVariable(Record.readSubExpr());
     D->setEnsureUpperBound(Record.readSubExpr());
     D->setNextLowerBound(Record.readSubExpr());
