@@ -405,6 +405,42 @@ Instruction *InstCombinerImpl::SimplifyAnyMemSet(AnyMemSetInst *MI) {
   return nullptr;
 }
 
+#if INTEL_CUSTOMIZATION
+// Convert for.cpystr with constant dst and src length to memmove and memset.
+static Instruction *simplifyForCpyStr(ForCpyStrInst *FCSI, InstCombiner &IC) {
+  auto *DestLenC = dyn_cast<ConstantInt>(FCSI->getDestLength());
+  auto *SrcLenC = dyn_cast<ConstantInt>(FCSI->getSourceLength());
+  auto *PaddingC = dyn_cast<ConstantInt>(FCSI->getPadding());
+  if (!DestLenC || !SrcLenC || !PaddingC)
+    return nullptr;
+
+  Value *Dest = FCSI->getDest();
+  Value *Src = FCSI->getSource();
+  auto DestAlign = FCSI->getDestAlign();
+  auto SrcAlign = FCSI->getSourceAlign();
+  const int64_t DestLen = DestLenC->getSExtValue();
+  const int64_t SrcLen = SrcLenC->getSExtValue();
+  const int64_t Padding = PaddingC->getSExtValue();
+  if (DestLen < 0 || SrcLen < 0)
+    return nullptr;
+
+  auto &Builder = IC.Builder;
+  if (DestLen <= SrcLen) {
+    Builder.CreateMemMove(Dest, DestAlign, Src, SrcAlign, DestLen);
+  } else {
+    auto *PaddingAddr = Builder.CreateConstGEP1_64(Dest, SrcLen);
+    auto *PaddingVal = Padding == 0 ? Builder.getInt8(' ') : Builder.getInt8(0);
+    const int64_t PaddingLen = DestLen - SrcLen;
+    MaybeAlign PaddingAlign;
+    if (DestAlign)
+      PaddingAlign = commonAlignment(DestAlign, SrcLen);
+    Builder.CreateMemMove(Dest, DestAlign, Src, SrcAlign, SrcLen);
+    Builder.CreateMemSet(PaddingAddr, PaddingVal, PaddingLen, PaddingAlign);
+  }
+  return IC.eraseInstFromFunction(*FCSI);
+}
+#endif // INTEL_CUSTOMIZATION
+
 // TODO, Obvious Missing Transforms:
 // * Narrow width by halfs excluding zero/undef lanes
 Value *InstCombinerImpl::simplifyMaskedLoad(IntrinsicInst &II) {
@@ -880,6 +916,11 @@ Instruction *InstCombinerImpl::visitCallInst(CallInst &CI) {
 
     if (Changed) return II;
   }
+
+#if INTEL_CUSTOMIZATION
+  if (auto *FCSI = dyn_cast<ForCpyStrInst>(II))
+    return simplifyForCpyStr(FCSI, *this);
+#endif // INTEL_CUSTOMIZATION
 
   // For fixed width vector result intrinsics, use the generic demanded vector
   // support.
