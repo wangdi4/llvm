@@ -222,6 +222,17 @@ static cl::opt<bool> EnablePathSteering(
     "enable-path-steering", cl::init(true), cl::Hidden,
     cl::desc("Enable path-steering by the Multi-Node exploration ."));
 
+// When set to true limit the number of phis grabbed by vectorizeChainsInBlock
+// by a maximum number of vector elements (MaxNumElts) of given type supported
+// by current target. This practically decreases surface searched by SLP for
+// vectorizable chains. Otherwise we increase chain length by (MaxNumElts -1)
+// which still results in same maximum vector length as outcome but in corner
+// cases (when we have perfectly vectorizable long power-of-two length chains)
+// we end up with worse vectorized code.
+static cl::opt<bool> LimitPhiChainLengthByMaxVecElemenets(
+    "limit-phi-chain-by-max-vec-elems", cl::init(false), cl::Hidden,
+    cl::desc("When collecting phis to vectorize limit chain length by a "
+             "maximum number elements in a vector of given type as per TTI"));
 #endif // INTEL_CUSTOMIZATION
 
 static cl::opt<bool>
@@ -10568,6 +10579,9 @@ bool SLPVectorizerPass::vectorizeChainsInBlock(BasicBlock *BB, BoUpSLP &R) {
         ++IncIt;
         continue;
       }
+
+      if (!LimitPhiChainLengthByMaxVecElemenets) // INTEL
+        MaxNumElts = MaxNumElts * 2 - 1;         // INTEL
 
       while (SameTypeIt != E &&
              (*SameTypeIt)->getType() == EltTy &&
