@@ -113,6 +113,27 @@ TEST_P(MultipleDevicesBase, Simple) {
   }
 }
 
+
+TEST_P(MultipleDevicesBase, DeviceMismatch) {
+  if (GetParam() > 1) { // There are multi devices.
+    cl_context context0 = createContext(devices()[0]);
+    cl_int error = CL_SUCCESS;
+    const char *sources_str = "";
+    cl_program program_with_source =
+        clCreateProgramWithSource(context0, 1, &sources_str, nullptr, &error);
+    EXPECT_EQ(CL_SUCCESS, error)
+        << "clCreateProgramWithSource failed with error " << ErrToStr(error);
+    cl_device_id seconddevice = devices()[1];
+    // Invoke clBuildProgram with another device which is not associated with
+    // this program, CL_INVALID_DEVICE should be returned.
+    error = clBuildProgram(program_with_source, 1, &seconddevice,
+        nullptr, nullptr, nullptr);
+    EXPECT_EQ(CL_INVALID_DEVICE, error)
+        << "clBuildProgram does not return expected error " << ErrToStr(error);
+  }
+}
+
+
 TEST_P(MultipleDevicesBase, SharedContext) {
   cl_context context = createContext(devices());
   ASSERT_NE(nullptr, context) << "createContext failed";

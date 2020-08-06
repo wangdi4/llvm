@@ -1429,6 +1429,15 @@ cl_err_code ProgramService::BuildProgram(const SharedPtr<Program>& program, cl_u
         }
     }
 
+    // Device programs may be null. CL_INVALID_DEVICE will be returned according to spec.
+    for (cl_uint i = 0; i < uiNumDevices; ++i)
+    {
+        if (NULL == ppDevicePrograms[i])
+        {
+            return CL_INVALID_DEVICE;
+        }
+    }
+
     // Acquire the program devices
     for (cl_uint i = 0; i < uiNumDevices; ++i)
     {
