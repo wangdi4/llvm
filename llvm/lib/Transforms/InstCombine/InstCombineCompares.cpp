@@ -3811,7 +3811,6 @@ Value *InstCombinerImpl::foldUnsignedMultiplicationOverflowCheck(ICmpInst &I) {
   return Res;
 }
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 // Checks if \p Cmp is the loop backedge condition.
 // For example-
@@ -3845,7 +3844,6 @@ static bool isLoopBackedgeCompare(ICmpInst *Cmp, Value *IV, Value *CmpOp1) {
           (Br->getSuccessor(0) == IVPhiBB || Br->getSuccessor(1) == IVPhiBB));
 }
 #endif // INTEL_CUSTOMIZATION
-=======
 Instruction *foldICmpXNegX(ICmpInst &I) {
   CmpInst::Predicate Pred;
   Value *X;
@@ -3867,7 +3865,6 @@ Instruction *foldICmpXNegX(ICmpInst &I) {
   return ICmpInst::Create(Instruction::ICmp, NewPred, X, NewRHS, I.getName());
 }
 
->>>>>>> 5060f5682b011d2a8c708b3c1b16bd4e0c408afb
 /// Try to fold icmp (binop), X or icmp X, (binop).
 /// TODO: A large part of this logic is duplicated in InstSimplify's
 /// simplifyICmpWithBinOp(). We should be able to share that and avoid the code
