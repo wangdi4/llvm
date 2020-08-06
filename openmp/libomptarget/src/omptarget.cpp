@@ -531,7 +531,7 @@ int targetDataEnd(DeviceTy &Device, int32_t ArgNum, void **ArgBases,
                 DPxPTR(HstPtrBegin), DataSize);
 #else // INTEL_COLLAB
         MESSAGE("device mapping required by 'present' map type modifier does "
-                "not exist for host address " DPxMOD " (%ld bytes)",
+                "not exist for host address " DPxMOD " (%" PRId64 " bytes)",
                 DPxPTR(HstPtrBegin), DataSize);
 #endif // INTEL_COLLAB
         return OFFLOAD_FAIL;
@@ -702,7 +702,7 @@ int target_data_update(DeviceTy &Device, int32_t arg_num,
       DP("hst data:" DPxMOD " not found, becomes a noop\n", DPxPTR(HstPtrBegin));
       if (arg_types[i] & OMP_TGT_MAPTYPE_PRESENT) {
         MESSAGE("device mapping required by 'present' motion modifier does not "
-                "exist for host address " DPxMOD " (%ld bytes)",
+                "exist for host address " DPxMOD " (%" PRId64 " bytes)",
                 DPxPTR(HstPtrBegin), MapSize);
         return OFFLOAD_FAIL;
       }
