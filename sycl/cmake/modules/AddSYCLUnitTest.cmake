@@ -6,9 +6,14 @@ macro(add_sycl_unittest test_dirname link_variant)
   # Enable exception handling for these unit tests
   set(LLVM_REQUIRES_EH 1)
 
+# INTEL_CUSTOMIZATION
   if (MSVC AND CMAKE_BUILD_TYPE MATCHES "Debug")
-    set(sycl_obj_target "sycld_object")
-    set(sycl_so_target "sycld")
+    set(sycl_obj_target "syclmtd_object")
+    set(sycl_so_target "syclmtd")
+  elseif (MSVC)
+    set(sycl_obj_target "syclmt_object")
+    set(sycl_so_target "syclmt")
+#end INTEL_CUSTOMIZATION
   else()
     set(sycl_obj_target "sycl_object")
     set(sycl_so_target "sycl")
@@ -25,12 +30,21 @@ macro(add_sycl_unittest test_dirname link_variant)
     get_target_property(SYCL_LINK_LIBS ${sycl_so_target} LINK_LIBRARIES)
   endif()
 
+# INTEL_CUSTOMIZATION
+  if (LLVM_LIBCXX_USED AND NOT SYCL_USE_LIBCXX)
+    set(TESTING_SUPPORT_LIB LLVMTestingSupport_stdcpp)
+  else()
+    set(TESTING_SUPPORT_LIB LLVMTestingSupport)
+  endif()
+
   target_link_libraries(${test_dirname}
     PRIVATE
-      LLVMTestingSupport
+      ${TESTING_SUPPORT_LIB}
       OpenCL-Headers
       ${SYCL_LINK_LIBS}
     )
+# end INTEL_CUSTOMIZATION
+
   target_include_directories(${test_dirname} PRIVATE SYSTEM
       ${sycl_inc_dir}
       ${SYCL_SOURCE_DIR}/source/
