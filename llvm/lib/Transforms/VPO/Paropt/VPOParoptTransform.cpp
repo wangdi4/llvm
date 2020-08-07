@@ -1634,6 +1634,7 @@ bool VPOParoptTransform::paroptTransforms() {
           StructType *KmpSharedTy;
           Value *LBPtr, *UBPtr, *STPtr, *LastIterGep;
           BasicBlock *IfLastIterBB = nullptr;
+          Changed |= addFirstprivateForNormalizedUB(W);
           Changed |=
               genTaskLoopInitCode(W, KmpTaskTTWithPrivatesTy, KmpSharedTy,
                                   LBPtr, UBPtr, STPtr, LastIterGep);
@@ -5258,6 +5259,25 @@ bool VPOParoptTransform::genLinearCodeForVecLoop(WRegionNode *W,
 
   LLVM_DEBUG(dbgs() << "\nExit VPOParoptTransform::genLinearCodeForVecLoop\n");
   W->resetBBSet(); // CFG changed; clear BBSet
+  return true;
+}
+
+// For a taskloop, the NormalizedUB variable is added to Firstprivate Clause.
+// This enables the existing code to create a variable in kmpc_struct_t
+// structure for the NormalizedUB variable, to pass to an outlined function.
+bool VPOParoptTransform::addFirstprivateForNormalizedUB(WRegionNode *W) {
+  if (!isa<WRNTaskloopNode>(W))
+    return false;
+  WRNLoopInfo L = W->getWRNLoopInfo();
+  unsigned NumNormUB = L.getNormUBSize();
+  for (unsigned i = 0; i < NumNormUB; i++) {
+    Value *V = L.getNormUB(i);
+    FirstprivateClause &FP = W->getFpriv();
+    FP.add(V);
+    LLVM_DEBUG(dbgs() << "addFirstprivateForNormalizedUB: Created Firstprivate "
+                         "Clause for NormalizedUB Var: "
+                      << *V << "\n");
+  }
   return true;
 }
 

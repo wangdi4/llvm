@@ -29,7 +29,7 @@
 ; !       end program
 ; Check for the space allocated for the private copy. First field is for the
 ; dope vector struct, followed by two i64s for array size and thunk buffer offset.
-; CHECK: %__struct.kmp_privates.t = type { { i16*, i64, i64, i64, i64, i64, [3 x { i64, i64, i64 }] }, i64, i64, i32, i32 }
+; CHECK: %__struct.kmp_privates.t = type { { i16*, i64, i64, i64, i64, i64, [3 x { i64, i64, i64 }] }, i64, i64, i32, i32, i32 }
 
 ; There should be one pointer to the dv struct in the shared struct for
 ; lastprivate copyout.
@@ -56,14 +56,14 @@ alloca:
 ; CHECK: [[ARR_SIZE_IN_BYTES:%[^ ]+]] = call i64 @_f90_dope_vector_size(i8* [[FOO_A_CAST]])
 
 ; Check that we call _task_alloc with total size of task_t_with_privates + arr_size
-; CHECK: [[TOTAL_SIZE:%[^ ]+]] = add i64 216, [[ARR_SIZE_IN_BYTES]]
+; CHECK: [[TOTAL_SIZE:%[^ ]+]] = add i64 224, [[ARR_SIZE_IN_BYTES]]
 ; CHECK: [[TASK_ALLOC:[^ ]+]] = call i8* @__kmpc_omp_task_alloc({{.*}}i64 [[TOTAL_SIZE]]{{.*}})
 
 ; Check that F90 DV's array size and offset are stored in the thunk
 ; CHECK: [[ARR_SIZE_GEP:%[^ ]+]] = getelementptr inbounds %__struct.kmp_privates.t, %__struct.kmp_privates.t* %{{[^ ]+}}, i32 0, i32 1
 ; CHECK: store i64 [[ARR_SIZE_IN_BYTES]], i64* [[ARR_SIZE_GEP]]
 ; CHECK: [[ARR_OFFSET_GEP:%[^ ]+]] = getelementptr inbounds %__struct.kmp_privates.t, %__struct.kmp_privates.t* %{{[^ ]+}}, i32 0, i32 2
-; CHECK: store i64 216, i64* [[ARR_OFFSET_GEP]]
+; CHECK: store i64 224, i64* [[ARR_OFFSET_GEP]]
 
 ; Check that the new DV is initialized using the original DV
 ; CHECK: [[FOO_A_PRIV:%[^ ]+]] = getelementptr inbounds %__struct.kmp_privates.t, %__struct.kmp_privates.t* %.privates, i32 0, i32 0

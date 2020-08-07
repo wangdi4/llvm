@@ -65,7 +65,7 @@ entry:
 ; CHECK-NOT: call token @llvm.directive.region.exit()
 
 ; Check that the task thunk has space for private copies of lastprivate variables.
-; CHECK: [[PRIV_STRTY:%[a-zA-Z._0-9]+]] = type { i64, i16, [12 x i16], i32 }
+; CHECK: [[PRIV_STRTY:%[a-zA-Z._0-9]+]] = type { i64, i64, i16, [12 x i16], i32 }
 ; CHECK: [[SHARED_STRTY:%[a-zA-Z._0-9]+]] = type { i16**, [12 x i16]**, i16**, i16** }
 
 ; Check for lastprivate variables' addresses being stored to the shared area of task thunk.
@@ -153,10 +153,10 @@ omp.loop.exit:                                    ; preds = %omp.inner.for.end
 
 ; Check for lastprivate copyout
 
-; CHECK: [[LP4:%[a-zA-Z._0-9]+]] = getelementptr inbounds [[PRIV_STRTY]], [[PRIV_STRTY]]* [[PRIVS:%[a-zA-Z._0-9]+]], i32 0, i32 1
+; CHECK: [[LP4:%[a-zA-Z._0-9]+]] = getelementptr inbounds [[PRIV_STRTY]], [[PRIV_STRTY]]* [[PRIVS:%[a-zA-Z._0-9]+]], i32 0, i32 2
 ; CHECK: [[LS4:%[a-zA-Z._0-9]+]] = getelementptr inbounds [[SHARED_STRTY]], [[SHARED_STRTY]]* [[SHAREDS:%[a-zA-Z._0-9]+]], i32 0, i32 0
 ; CHECK: [[LS4_STAR:%[a-zA-Z._0-9]+]] = load i16**, i16*** [[LS4]]
-; CHECK: [[LP3:%[a-zA-Z._0-9]+]] = getelementptr inbounds [[PRIV_STRTY]], [[PRIV_STRTY]]* [[PRIVS]], i32 0, i32 2
+; CHECK: [[LP3:%[a-zA-Z._0-9]+]] = getelementptr inbounds [[PRIV_STRTY]], [[PRIV_STRTY]]* [[PRIVS]], i32 0, i32 3
 ; CHECK: [[LS3:%[a-zA-Z._0-9]+]] = getelementptr inbounds [[SHARED_STRTY]], [[SHARED_STRTY]]* [[SHAREDS]], i32 0, i32 1
 ; CHECK: [[LS3_STAR:%[a-zA-Z._0-9]+]] = load [12 x i16]**, [12 x i16]*** [[LS3]]
 
