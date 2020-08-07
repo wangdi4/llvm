@@ -114,7 +114,10 @@ public:
 
     virtual cl_err_code SynchDataFromHost(cl_dev_cmd_param_map* IN pMapInfo, void* IN pHostMapDataPtr);
 
-    virtual cl_err_code CreateSubBuffer(cl_mem_flags clFlags, cl_buffer_create_type buffer_create_type,    const void* buffer_create_info, SharedPtr<MemoryObject>* ppBuffer);
+    virtual cl_err_code CreateSubBuffer(
+        cl_mem_flags clFlags, cl_buffer_create_type buffer_create_type,
+        const void *buffer_create_info, SharedPtr<MemoryObject> *ppBuffer,
+        bool RequireAlign) override;
 
     virtual bool IsSupportedByDevice(const SharedPtr<FissionableDevice>& pDevice);
 

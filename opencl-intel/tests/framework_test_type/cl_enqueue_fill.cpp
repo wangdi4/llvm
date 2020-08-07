@@ -10,6 +10,8 @@
 
 #include "FrameworkTest.h"
 
+#include "llvm/Support/Compiler.h" // LLVM_FALLTHROUGH
+
 #define IMG_W 128
 #define IMG_H 128
 #define IMG_D 128
@@ -418,6 +420,7 @@ static inline size_t AT_LEAST1(const size_t val) { return val ? val : 1; }
 				origin_qrtr[1] = 0;
 				region_full[1] = 1;
 				region_half[1] = 1;
+				LLVM_FALLTHROUGH;
 			case CL_MEM_OBJECT_IMAGE2D:
 			case CL_MEM_OBJECT_IMAGE1D_ARRAY:
 				origin_base[2] = 0;

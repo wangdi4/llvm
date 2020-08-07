@@ -61,7 +61,10 @@ cl_err_code SharedPointerArg::SynchDataFromHost(cl_dev_cmd_param_map* IN pMapInf
     ASSERT_RET_VAL(false, "this method should never be called", CL_INVALID_OPERATION);
 }
 
-cl_err_code SharedPointerArg::CreateSubBuffer(cl_mem_flags clFlags, cl_buffer_create_type buffer_create_type,    const void* buffer_create_info, SharedPtr<MemoryObject>* ppBuffer)
+cl_err_code SharedPointerArg::CreateSubBuffer(
+    cl_mem_flags clFlags, cl_buffer_create_type buffer_create_type,
+    const void *buffer_create_info, SharedPtr<MemoryObject> *ppBuffer,
+    bool RequireAlign)
 {
     ASSERT_RET_VAL(false, "this method should never be called", CL_INVALID_OPERATION);
 }

@@ -1,6 +1,7 @@
 #include "CL/cl.h"
 #include "FrameworkTest.h"
 #include "FrameworkTestThreads.h"
+#include "llvm/Support/Compiler.h" // LLVM_FALLTHROUGH
 
 #ifdef _WIN32
 #include <io.h>
@@ -259,10 +260,13 @@ void run_kernel_printf_special_chars(cl_context& context,cl_device_id& device,cl
 	   switch (error){
 		   case RELEASE_MEM:
 			   clReleaseMemObject(count);
+			   LLVM_FALLTHROUGH;
 		   case REOPEN_STDOUT:
 			   restore_stdout(fp,old_stdout);
+			   LLVM_FALLTHROUGH;
 		   case RELEASE_KERNEL:
 			   clReleaseKernel(kernel);
+			   LLVM_FALLTHROUGH;
 		   case RELEASE_PROGRAM:
 			   clReleaseProgram(program);	   
 			   throw RELEASE_QUEUE;
@@ -343,6 +347,7 @@ void run_kernel_printf_simple(cl_context& context,cl_device_id& device,cl_comman
 // 			   restore_stdout(fp,old_stdout);
 		   case RELEASE_KERNEL:
 			   clReleaseKernel(kernel);
+			   LLVM_FALLTHROUGH;
 		   case RELEASE_PROGRAM:
 			   clReleaseProgram(program);	   
 			   throw RELEASE_QUEUE;
@@ -421,6 +426,7 @@ catch (int error)
 	switch (error){
 	   case RELEASE_KERNEL:
 		   clReleaseKernel(kernel);
+		   LLVM_FALLTHROUGH;
 	   case RELEASE_PROGRAM:
 		   clReleaseProgram(program);
 		   throw REOPEN_STDOUT;
@@ -569,10 +575,13 @@ void run_kernel_printf_format(cl_context& context,cl_device_id& device,cl_comman
 		switch (error){
 		   case RELEASE_MEM:
 			   clReleaseMemObject(count);
+			   LLVM_FALLTHROUGH;
 		   case REOPEN_STDOUT:
 			   restore_stdout(fp,old_stdout);
+			   LLVM_FALLTHROUGH;
 		   case RELEASE_KERNEL:
 			   clReleaseKernel(kernel);
+			   LLVM_FALLTHROUGH;
 		   case RELEASE_PROGRAM:
 			   clReleaseProgram(program);	   
 			   throw RELEASE_QUEUE;
@@ -703,10 +712,13 @@ void run_kernel_printf_chars(cl_context& context,cl_device_id& device,cl_command
 		switch (error){
 		   case RELEASE_MEM:
 			   clReleaseMemObject(count);
+			   LLVM_FALLTHROUGH;
 		   case REOPEN_STDOUT:
 			   restore_stdout(fp,old_stdout);
+			   LLVM_FALLTHROUGH;
 		   case RELEASE_KERNEL:
 			   clReleaseKernel(kernel);
+			   LLVM_FALLTHROUGH;
 		   case RELEASE_PROGRAM:
 			   clReleaseProgram(program);	   
 			   throw RELEASE_QUEUE;
@@ -910,8 +922,10 @@ catch (int error)
 		clFinish(cmd_queue);
 		fflush(stdout);
 		clReleaseCommandQueue(cmd_queue);
+		LLVM_FALLTHROUGH;
 	case RELEASE_CONTEXT:
 		clReleaseContext(context);
+		LLVM_FALLTHROUGH;
 	case RELEASE_END:
 		return bResult;
 	default:
