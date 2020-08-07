@@ -1,5 +1,7 @@
 ; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-opt-predicate -hir-loop-reroll -print-before=hir-loop-reroll -print-after=hir-loop-reroll < %s 2>&1 | FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-opt-predicate,print<hir>,hir-loop-reroll,print<hir>" -aa-pipeline="basic-aa"  < %s 2>&1 | FileCheck %s
+; INTEL Re-enable after CMPLRLLVM-21845 fixed.
+; XFAIL: *
 
 ; Make sure a pattern of safe reduction chains, that are not handled by HIR Loop Reroll currently, does not cause a compilation failure.
 ; The safe reduction pattern was in the in the i5-loop of else part of "if (trunc.i32.i1(%mod_mp_noncolin__fetch) == 0)"
