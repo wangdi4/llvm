@@ -42,15 +42,19 @@ namespace intel {
 
 char CLWGLoopBoundaries::ID = 0;
 
-OCL_INITIALIZE_PASS_BEGIN(CLWGLoopBoundaries, "cl-loop-bound", "create loop boundaries array function", false, false)
+OCL_INITIALIZE_PASS_BEGIN(CLWGLoopBoundaries, "cl-loop-bound",
+                          "create loop boundaries array function", false, false)
 OCL_INITIALIZE_PASS_DEPENDENCY(BuiltinLibInfo)
-OCL_INITIALIZE_PASS_END(CLWGLoopBoundaries, "cl-loop-bound", "create loop boundaries array function", false, false)
+OCL_INITIALIZE_PASS_END(CLWGLoopBoundaries, "cl-loop-bound",
+                        "create loop boundaries array function", false, false)
 
-CLWGLoopBoundaries::CLWGLoopBoundaries() : ModulePass(ID), m_clRtServices(nullptr),
-OCLSTAT_INIT(Created_Early_Exit,
-"one if early exit (or late start) was done for the kernel. Value is never greater for one, even if early-exit done for several dimensions.",
-    m_kernelStats)
-{
+CLWGLoopBoundaries::CLWGLoopBoundaries()
+    : ModulePass(ID), m_clRtServices(nullptr),
+      OCLSTAT_INIT(Created_Early_Exit,
+                   "one if early exit (or late start) was done for the kernel."
+                   " Value is never greater for one, even if early-exit done "
+                   "for several dimensions.",
+                   m_kernelStats) {
   initializeCLWGLoopBoundariesPass(*PassRegistry::getPassRegistry());
 }
 
@@ -68,11 +72,10 @@ bool CLWGLoopBoundaries::runOnModule(Module &M) {
     return changed;
   }
 
-  m_clRtServices = static_cast<OpenclRuntime *>(getAnalysis<BuiltinLibInfo>().getRuntimeServices());
+  m_clRtServices = static_cast<OpenclRuntime *>(
+      getAnalysis<BuiltinLibInfo>().getRuntimeServices());
   assert(m_clRtServices && "expected to have openCL runtime");
 
-  // Obtain OpenCL C version from this module
-  m_oclVersion = CompilationUtils::fetchCLVersionFromMetadata(M);
   // Collect all users of atomic/pipe built-ins
   collectWIUniqueFuncUsers(M);
   // Get the kernels using the barrier for work group loops.
@@ -124,13 +127,14 @@ bool CLWGLoopBoundaries::isUniformByOps(Instruction *I) {
 
 void CLWGLoopBoundaries::CollectBlockData(BasicBlock *BB) {
   // Run over all instructions in the block (excluding the terminator)
-  for (BasicBlock::iterator BBIter=BB->begin(), BBEndIter= --(BB->end()); BBIter!=BBEndIter ; ++BBIter) {
+  for (BasicBlock::iterator BBIter = BB->begin(), BBEndIter = --(BB->end());
+       BBIter != BBEndIter; ++BBIter) {
     Instruction *I = &*BBIter;
     if (CallInst *CI = dyn_cast<CallInst>(I)) {
       Function *F = CI->getCalledFunction();
-      // If the function is defined in the module than it is not uniform.
+      // If the function is defined in the module then it is not uniform.
       // If the function is ID generator it is not uniform.
-      if (!F || !F->isDeclaration() || m_varibaleTIDCalls.count(CI) ||
+      if (!F || !F->isDeclaration() || m_variableTIDCalls.count(CI) ||
           m_TIDs.count(CI)) {
         m_Uni[I] = false;
         continue;
@@ -150,7 +154,7 @@ void CLWGLoopBoundaries::processTIDCall(CallInst *CI, bool isGID) {
   ConstantInt *dimC = dyn_cast<ConstantInt>(CI->getArgOperand(0));
   if (!dimC) {
     m_hasVariableTid = true;
-    m_varibaleTIDCalls.insert(CI);
+    m_variableTIDCalls.insert(CI);
     return;
   }
   unsigned dim = static_cast<unsigned>(dimC->getValue().getZExtValue());
@@ -200,8 +204,6 @@ bool CLWGLoopBoundaries::runOnFunction(Function& F) {
   collectTIDData();
   // Collects uniform data from the current basic block.
   CollectBlockData(&m_F->getEntryBlock());
-  // Check if the function calls an atomic/pipe built-in.
-  m_hasWIUniqueCalls = currentFunctionHasWIUniqueCalls();
 
   // Iteratively examines if the entry block branch is early exit branch,
   // min\max with uniform value.
@@ -257,7 +259,7 @@ void CLWGLoopBoundaries::recoverInstructions (VMap &valueMap, VVec &roots,
     valueMap[arg] = newArg;
   }
 
-  // Adding all Instructions leading to the boundry to reconstruct set.
+  // Adding all Instructions leading to the boundary to reconstruct set.
   // Creating a clone for each instruction on the path.
   VVec toAdd = roots; //hard copy of roots
   BasicBlock *entry = &m_F->getEntryBlock();
@@ -288,7 +290,8 @@ void CLWGLoopBoundaries::recoverInstructions (VMap &valueMap, VVec &roots,
   // each instruction to the operands in the new function. The order of the
   // original function ensures the corretness of the order of the inserted
   // Instructions.
-  for (BasicBlock::iterator IIter=entry->begin(), E=entry->end(); IIter!=E ; ++IIter) {
+  for (BasicBlock::iterator IIter = entry->begin(), E = entry->end();
+       IIter != E; ++IIter) {
     Instruction* I = &*IIter;
     if (valueMap.count(I)) {
       Instruction *clone = cast<Instruction>(valueMap[I]);
@@ -376,7 +379,8 @@ bool CLWGLoopBoundaries::handleCmpSelectBoundary(Instruction *tidInst) {
   Value *tid, *bound[2] = {0};
   if (!traceBackCmp(cmp, &bound[0], tid)) return false;
   // Update the eeVec with the boundary descriptions.
-  if (!obtainBoundaryCmpSelect(cmp, *bound, tid, cmpOp0 == trueOp)) return false;
+  if (!obtainBoundaryCmpSelect(cmp, *bound, tid, cmpOp0 == trueOp))
+    return false;
   // Replace the uses of the select with the original tid call, and mark
   // redundant instructions for removal.
   SI->replaceAllUsesWith(tidInst);
@@ -428,7 +432,8 @@ bool CLWGLoopBoundaries::findAndHandleTIDMinMaxBound() {
   // In case there is an atomic/pipe call we cannot avoid running two work items
   // that use essentially the same id (due to min(get***id(),uniform) as
   // the atomic/pipe call may have different consequences for the same id.
-  if (m_hasWIUniqueCalls) return false;
+  if (m_WIUniqueFuncUsers.count(m_F))
+    return false;
 
   bool removedMinMaxBound = false;
   assert(m_TIDByDim.size() == m_numDim && "num dimension mismatch");
@@ -454,19 +459,13 @@ bool CLWGLoopBoundaries::findAndHandleTIDMinMaxBound() {
   return removedMinMaxBound;
 }
 
-bool CLWGLoopBoundaries::currentFunctionHasWIUniqueCalls() const {
-  // return true if the current function is a recursive user of atomic/pipe built-in.
-  return m_WIUniqueFuncUsers.count(m_F);
-}
-
 bool CLWGLoopBoundaries::findAndCollapseEarlyExit() {
   // Supported pattern is that entry block ends with conditional branch,
   // and has no side effect instructions.
   BasicBlock *entry = &m_F->getEntryBlock();
   BranchInst *Br = dyn_cast<BranchInst>(entry->getTerminator());
-  if (!Br) return false;
-  if (!Br->isConditional()) return false;
-  if (hasSideEffectInst(entry)) return false;
+  if (!Br || !Br->isConditional() || hasSideEffectInst(entry))
+    return false;
 
   // Collect Description of early exit if exists.
   BasicBlock *trueSuc = Br->getSuccessor(0);
@@ -491,7 +490,7 @@ bool CLWGLoopBoundaries::findAndCollapseEarlyExit() {
   // An early exit was found, remove the branch at the entry block, and merge
   // it with the non exit successor if possible.
   if (EEremove) {
-    Created_Early_Exit=1;
+    Created_Early_Exit = 1;
     EEremove->removePredecessor(entry);
     m_toRemove.insert(Br);
     BranchInst::Create(EEsucc, entry);
@@ -503,7 +502,7 @@ bool CLWGLoopBoundaries::findAndCollapseEarlyExit() {
       // Since the entry is the only pred the successor is not part of a loop.
       CollectBlockData(EEsucc);
       // Try to Merge the block into it's pred.
-      // If the blocks were merged we might have another early exit oppurunity.
+      // If the blocks were merged we might have another early exit opportunity.
       if (MergeBlockIntoPredecessor(EEsucc)) return true;
     }
   }
@@ -552,7 +551,7 @@ bool CLWGLoopBoundaries::createRightBound(bool isCmpSigned, Instruction *loc,
 
   if (!isCmpSigned){
     *bound = BinaryOperator::Create(inst, *bound, leftBound,
-        "right_boundary_align", loc);
+                                    "right_boundary_align", loc);
     return true;
   }
 
@@ -563,48 +562,45 @@ bool CLWGLoopBoundaries::createRightBound(bool isCmpSigned, Instruction *loc,
   // overflow and as we check the left bound prior to it.
   // Thus before adding a into the right bound we perform Sext(Trunc(a))
   if (originalType) {
-    Value * castedLeftBound = new TruncInst(leftBound, originalType,
-      "casted_left_bound",loc);
-    leftBound = new SExtInst(castedLeftBound, newType, "left_sext_bound",
-      loc);
+    Value *castedLeftBound =
+        new TruncInst(leftBound, originalType, "casted_left_bound", loc);
+    leftBound = new SExtInst(castedLeftBound, newType, "left_sext_bound", loc);
   }
 
   //checking if empty range is created - right bound is negative
   Value * createEmptyRange = nullptr;
-  bool isLT = cmp->getPredicate() == CmpInst::ICMP_SLT;
-  bool isGT = cmp->getPredicate() == CmpInst::ICMP_SGT;
 
-  CmpInst::Predicate condCmpInst = CmpInst::ICMP_SLT;
-  if (isLT || isGT) {
-    condCmpInst = CmpInst::ICMP_SLE;
-  }
+  CmpInst::Predicate condCmpInst =
+      cmp->isFalseWhenEqual() ? CmpInst::ICMP_SLT : CmpInst::ICMP_SLE;
   assert(inst == Instruction::Sub || inst == Instruction::Add);
   if (inst == Instruction::Sub) {
-    createEmptyRange = new ICmpInst(loc, condCmpInst,
-      *(bound), leftBound, "right_lt_left");
+    createEmptyRange =
+        new ICmpInst(loc, condCmpInst, *(bound), leftBound, "right_lt_left");
   }
   else {
-    Value * negLeft = BinaryOperator::CreateNeg(leftBound, "left_boundary",
-        loc);
-    createEmptyRange = new ICmpInst(loc, condCmpInst,
-      *(bound), negLeft, "right_lt_left");
+    Value *negLeft = BinaryOperator::CreateNeg(leftBound, "left_boundary", loc);
+    createEmptyRange =
+        new ICmpInst(loc, condCmpInst, *(bound), negLeft, "right_lt_left");
   }
 
   //detect right bound overflow
-  Value * nonNegativeRightBound =  BinaryOperator::CreateNot(createEmptyRange,
-    "non_negative_right_bound", loc);
+  Value *nonNegativeRightBound = BinaryOperator::CreateNot(
+      createEmptyRange, "non_negative_right_bound", loc);
   *bound = BinaryOperator::Create(inst, *bound, leftBound,
-    "right_boundary_align", loc);
+                                  "right_boundary_align", loc);
 
-  //make upper bound inclusive
-  //beause in case of overflow we would like to make it maximum value inclusive
-  if (isLT || isGT) {
+  // make upper bound inclusive
+  // because in case of overflow we would like to make it maximum value
+  // inclusive
+  if (cmp->isFalseWhenEqual()) {
+    bool isLT = cmp->getPredicate() == CmpInst::ICMP_SLT;
     Instruction::BinaryOps inst = isLT ? Instruction::Sub : Instruction::Add;
     CmpInst::Predicate cmpInst = isLT ? CmpInst::ICMP_SGT : CmpInst::ICMP_SLT;
     Value * one = ConstantInt::get((*bound)->getType(), 1);
-    Value * inclusiveBound = BinaryOperator::Create(inst, *bound, one,
-      "inclusive_right_boundary", loc);
-    Instruction *compare = new ICmpInst(loc, cmpInst , inclusiveBound, *bound, "");
+    Value *inclusiveBound = BinaryOperator::Create(
+        inst, *bound, one, "inclusive_right_boundary", loc);
+    Instruction *compare =
+        new ICmpInst(loc, cmpInst, inclusiveBound, *bound, "");
     *(bound) = SelectInst::Create(compare, *(bound), inclusiveBound,
       "inclusive_right_bound", loc);
     m_rightBoundInc = true;
@@ -656,8 +652,8 @@ bool CLWGLoopBoundaries::doesLeftBoundFit(Type * comparisonType,
       // in this case we want to check the original type of the left bound.
       unsigned int op = leftBoundInst->getOpcode();
       if (op==Instruction::SExt || op==Instruction::ZExt) {
-        typeSize = TD.getTypeAllocSizeInBits(leftBoundInst->getOperand(0)->
-          getType());
+        typeSize =
+            TD.getTypeAllocSizeInBits(leftBoundInst->getOperand(0)->getType());
       }
     }
     if (typeSize > (TD.getTypeAllocSizeInBits(comparisonType))) {
@@ -677,6 +673,7 @@ bool CLWGLoopBoundaries::traceBackBound(Value *v1, Value *v2, bool isCmpSigned,
   bool isV2Uniform = isUniform(v2);
   if (isV1Uniform == isV2Uniform) return false;
   *bound = isV1Uniform ? v1 : v2;
+
   tid   = isV1Uniform ? v2 : v1;
   Type * originalType = nullptr;
   Type * comparisonType = v1->getType();
@@ -684,7 +681,7 @@ bool CLWGLoopBoundaries::traceBackBound(Value *v1, Value *v2, bool isCmpSigned,
 
   // The pattern of boundary condition is: comparison between TID and Uniform.
   // But more general pattern is comparison between f(TID) and Uniform.
-  // In that case the bound will be f_inverse(Unifrom).
+  // In that case the bound will be f_inverse(Uniform).
   while (Instruction *tidInst = dyn_cast<Instruction>(tid)) {
     bool isFirstOperandUniform = isUniform(tidInst->getOperand(0));
     switch (tidInst->getOpcode()) {
@@ -696,8 +693,8 @@ bool CLWGLoopBoundaries::traceBackBound(Value *v1, Value *v2, bool isCmpSigned,
         *bound = CastInst::CreateIntegerCast(*bound, tid->getType(),
                                              isCmpSigned, "to_tid_type", loc);
         if (*(bound+1)) {
-          *(bound+1) = CastInst::CreateIntegerCast(*(bound+1), tid->getType(),
-                                                   isCmpSigned, "to_tid_type", loc);
+          *(bound + 1) = CastInst::CreateIntegerCast(
+              *(bound + 1), tid->getType(), isCmpSigned, "to_tid_type", loc);
         }
         break;
       }
@@ -724,7 +721,7 @@ bool CLWGLoopBoundaries::traceBackBound(Value *v1, Value *v2, bool isCmpSigned,
         }
 
         assert((*bound)->getType() == leftBound->getType() &&
-            "Types must match.");
+               "Types of left and right boundaries must match.");
         // Compute right (upper) boundary for the id:
         //   id < (b - a)
         Value* rightBound = *bound;
@@ -749,8 +746,11 @@ bool CLWGLoopBoundaries::traceBackBound(Value *v1, Value *v2, bool isCmpSigned,
           // slack inequality i.e. id <= (b - a), we need to set bounds so,
           // there are no local id that will comply with both of them.
           // We use the following bounds: (b - a + 1) <= id <= (b - a).
-          Instruction* rightOverflowCheck = new ICmpInst(loc,
-            CmpInst::ICMP_SLT, rightBound, leftBound, "right_lt_left");
+          CmpInst::Predicate condCmpInst =
+              dyn_cast<CmpInst>(loc)->isFalseWhenEqual() ? CmpInst::ICMP_SLT
+                                                         : CmpInst::ICMP_SLE;
+          Instruction *rightOverflowCheck = new ICmpInst(
+              loc, condCmpInst, rightBound, leftBound, "right_lt_left");
           // Compute left (lower) boundary for the id: -a <= id
           // Add additional check for unsigned overflow i.e. -a < 0
           // If overflow has happend for right boundary computation,
@@ -803,8 +803,11 @@ bool CLWGLoopBoundaries::traceBackBound(Value *v1, Value *v2, bool isCmpSigned,
                                         zero, "left_lt_zero");
           *(bound+1) = SelectInst::Create(cmp, zero, *(bound+1),
                                         "non_negative_left_bound", loc);
-          Instruction* rightOverflowCheck = new ICmpInst(loc,
-            CmpInst::ICMP_SLT, *bound, rightBound, "right_lt_left");
+          CmpInst::Predicate condCmpInst =
+              dyn_cast<CmpInst>(loc)->isFalseWhenEqual() ? CmpInst::ICMP_SLT
+                                                         : CmpInst::ICMP_SLE;
+          Instruction *rightOverflowCheck = new ICmpInst(
+              loc, condCmpInst, *bound, rightBound, "right_lt_left");
           // If overflow has happend for right boundary computation,
           // set upper bound to maximum possible value.
           // Compute right (upper) boundary for the id:
@@ -876,8 +879,9 @@ void CLWGLoopBoundaries::replaceTidWithBound (bool isGID, unsigned dim,
                                               Value *toRep) {
   assert(toRep->getType() == m_indTy && "bad type");
   SmallVector<CallInst *, 4> tidCalls;
-  if (isGID) LoopUtils::getAllCallInFunc(CompilationUtils::mangledGetGID(), m_F, tidCalls);
-  else       LoopUtils::getAllCallInFunc(CompilationUtils::mangledGetLID(), m_F, tidCalls);
+  LoopUtils::getAllCallInFunc(isGID ? CompilationUtils::mangledGetGID()
+                                    : CompilationUtils::mangledGetLID(),
+                              m_F, tidCalls);
   for (CallInst *tidCall : tidCalls) {
     assert(isa<ConstantInt>(tidCall->getArgOperand(0)) && "non const dim");
     ConstantInt *dimConst = cast<ConstantInt>(tidCall->getArgOperand(0));
@@ -917,7 +921,8 @@ void CLWGLoopBoundaries::replaceTidWithBound (bool isGID, unsigned dim,
   }
 }
 
-bool CLWGLoopBoundaries::isSupportedRelationalComparePredicate(CmpInst::Predicate p) {
+bool CLWGLoopBoundaries::isSupportedRelationalComparePredicate(
+    CmpInst::Predicate p) {
   return (p == CmpInst::ICMP_ULT || p == CmpInst::ICMP_ULE ||
           p == CmpInst::ICMP_SLT || p == CmpInst::ICMP_SLE ||
           p == CmpInst::ICMP_UGT || p == CmpInst::ICMP_UGE ||
@@ -970,12 +975,12 @@ bool CLWGLoopBoundaries::obtainBoundaryEE(ICmpInst *cmp, Value **bound,
       eeVec.push_back(TIDDesc(*bound, dim, false, true, false, isGID));
       return true;
     } else {
-      // In general we do not support case where single work item does not execute,
-      // meaning the branch is one of the two options:
+      // In general we do not support case where single work item does not
+      // execute, meaning the branch is one of the two options:
       // a. if (tid != bound) { kernel_code}
       // b. if (tid == bound) exit
-      // However, if bound=0 we can treat this as exclusive lower bound since tid is
-      // known to be >=0.
+      // However, if bound=0 we can treat this as exclusive lower bound since
+      // tid is known to be >=0.
       Constant *constBound = dyn_cast<Constant>(*bound);
       // In case the bound is not a constant try constant fold it.
       if (!constBound) {
@@ -1024,9 +1029,10 @@ bool CLWGLoopBoundaries::obtainBoundaryEE(ICmpInst *cmp, Value **bound,
   eeVec.push_back(TIDDesc(*bound, dim, isUpper, containsVal, isSigned, isGID));
 
   if (*(bound+1)) {
-    // Second bound keeps the offset of the left bound which was 0 in the unsigned case.
-    // might also keep a value in the signed case in some special cases.
-    // for instance get_global_id(0)+x<y and y<x result in upper and lower bound.
+    // Second bound keeps the offset of the left bound which was 0 in the
+    // unsigned case. might also keep a value in the signed case in some special
+    // cases. for instance get_global_id(0)+x<y and y<x result in upper and
+    // lower bound.
     eeVec.push_back(TIDDesc(*(bound+1), dim, !isUpper, true, isSigned, isGID));
   }
   return true;
@@ -1131,8 +1137,10 @@ Value *getMin(bool isSigned, Value *a, Value *b, BasicBlock *BB) {
   Instruction *compare = new ICmpInst(*BB, pred, a, b, "");
   if (isSigned){
     Value * zero = ConstantInt::get(a->getType(), 0);
-    Instruction *compareNonNegative = new ICmpInst(*BB, CmpInst::ICMP_SLT, b , zero, "");
-    Instruction *selectA = BinaryOperator::Create(Instruction::Or, compareNonNegative, compare, "", BB);
+    Instruction *compareNonNegative =
+        new ICmpInst(*BB, CmpInst::ICMP_SLT, b, zero, "");
+    Instruction *selectA = BinaryOperator::Create(
+        Instruction::Or, compareNonNegative, compare, "", BB);
     return SelectInst::Create(selectA, a, b, "", BB);
   }
   return SelectInst::Create(compare, a, b, "", BB);
@@ -1180,7 +1188,8 @@ void CLWGLoopBoundaries::fillInitialBoundaries(BasicBlock *BB) {
   for (unsigned dim=0; dim < m_numDim; ++dim) {
     CallInst *localSize = LoopUtils::getWICall(
       m_M, CompilationUtils::mangledGetLocalSize(), m_indTy, dim, BB);
-    CallInst *baseGID = LoopUtils::getWICall(m_M, baseGIDName, m_indTy, dim, BB, "");
+    CallInst *baseGID =
+        LoopUtils::getWICall(m_M, baseGIDName, m_indTy, dim, BB, "");
     m_localSizes.push_back(localSize);
     m_baseGIDs.push_back(baseGID);
     m_lowerBounds.push_back(baseGID);
@@ -1188,7 +1197,8 @@ void CLWGLoopBoundaries::fillInitialBoundaries(BasicBlock *BB) {
   }
 }
 
-void CLWGLoopBoundaries::recoverBoundInstructions(VMap &valueMap, BasicBlock *BB) {
+void CLWGLoopBoundaries::recoverBoundInstructions(VMap &valueMap,
+                                                  BasicBlock *BB) {
   // collect the boundaries and uniform conditions and recover the instructions
   // leading to them in BB.
   VVec toRecover;
