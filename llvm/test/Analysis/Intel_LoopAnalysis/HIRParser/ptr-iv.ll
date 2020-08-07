@@ -7,7 +7,7 @@
 
 ; RUN: opt < %s -hir-ssa-deconstruction | opt -analyze -hir-framework -hir-framework-debug=parser -hir-details | FileCheck -check-prefix=DETAIL %s
 ; Verify that we are able to detect no signed wrap for pointer IV loops.
-; DETAIL: NSW: Yes
+; DETAIL: HasSignedIV: Yes
 
 ; ModuleID = 'ptr-iv.c'
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"

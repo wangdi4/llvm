@@ -175,9 +175,7 @@ bool HIRLoopFormation::hasNSWSemantics(const Loop *Lp, Type *IVType,
   // Single exit loop has signed IV if max backedge taken count is in signed
   // range.
   if (Lp->getExitingBlock()) {
-    ScopedSE.setBackedgeTakenCountLoop(Lp);
-    auto *MaxBECount = ScopedSE.getConstantMaxBackedgeTakenCount(Lp);
-    ScopedSE.resetBackedgeTakenCountLoop();
+    auto *MaxBECount = ScopedSE.getScopedConstantMaxBackedgeTakenCount(Lp);
 
     if (!isa<SCEVCouldNotCompute>(MaxBECount) &&
         ScopedSE.isKnownNonNegative(MaxBECount)) {
@@ -533,9 +531,7 @@ void HIRLoopFormation::formLoops() {
     // Found a loop
     Loop *Lp = LI.getLoopFor(HeaderBB);
 
-    ScopedSE.setBackedgeTakenCountLoop(Lp);
-    auto BECount = ScopedSE.getBackedgeTakenCount(Lp);
-    ScopedSE.resetBackedgeTakenCountLoop();
+    auto BECount = ScopedSE.getScopedBackedgeTakenCount(Lp);
 
     bool IsUnknownLoop = isa<SCEVCouldNotCompute>(BECount);
     bool IsConstTripLoop = isa<SCEVConstant>(BECount);

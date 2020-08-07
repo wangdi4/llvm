@@ -18,7 +18,7 @@ define void @example(i64* %dest) {
 ; CHECK-NEXT:       + Ztt: No
 ; CHECK-NEXT:       + NumExits: 1
 ; CHECK-NEXT:       + Innermost: Yes
-; CHECK-NEXT:       + NSW: Yes
+; CHECK-NEXT:       + HasSignedIV: Yes
 ; CHECK-NEXT:       + LiveIn symbases: 6
 ; CHECK-NEXT:       + LiveOut symbases:
 ; CHECK-NEXT:       + Loop metadata: No

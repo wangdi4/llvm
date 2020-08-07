@@ -1661,9 +1661,7 @@ bool HIRRegionIdentification::isSelfGenerable(const Loop &Lp,
     return false;
   }
 
-  ScopedSE->setBackedgeTakenCountLoop(&Lp);
-  auto BECount = ScopedSE->getBackedgeTakenCount(&Lp);
-  ScopedSE->resetBackedgeTakenCountLoop();
+  auto BECount = ScopedSE->getScopedBackedgeTakenCount(&Lp);
 
   auto ConstBECount = dyn_cast<SCEVConstant>(BECount);
 
