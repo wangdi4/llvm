@@ -281,6 +281,10 @@ LANGOPT(SYCL              , 1, 0, "SYCL")
 LANGOPT(SYCLIsDevice      , 1, 0, "Generate code for SYCL device")
 LANGOPT(SYCLIsHost        , 1, 0, "SYCL host compilation")
 LANGOPT(SYCLAllowFuncPtr  , 1, 0, "Allow function pointers in SYCL device code")
+#if INTEL_CUSTOMIZATION
+LANGOPT(EnableVariantVirtualCalls , 1, 0, "Allow Virtual function call with vecttor variants")
+LANGOPT(EnableVariantFunctionPointers, 1, 0, "Allow function pointers with vector variants")
+#endif // INTEL_CUSTOMIZATION
 LANGOPT(SYCLStdLayoutKernelParams, 1, 0, "Enable standard layout requirement for SYCL kernel parameters")
 LANGOPT(SYCLUnnamedLambda , 1, 0, "Allow unnamed lambda SYCL kernels")
 LANGOPT(SYCLVersion       , 32, 0, "Version of the SYCL standard used")

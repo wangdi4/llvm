@@ -365,6 +365,9 @@ public:
       }
 
       if (const CXXMethodDecl *Method = dyn_cast<CXXMethodDecl>(Callee))
+#if INTEL_CUSTOMIZATION
+        if (!SemaRef.getLangOpts().EnableVariantVirtualCalls)
+#endif // INTEL_CUSTOMIZATION
         if (Method->isVirtual())
           SemaRef.Diag(e->getExprLoc(), diag::err_sycl_restrict)
               << Sema::KernelCallVirtualFunction;
@@ -390,6 +393,9 @@ public:
             << Name << "SYCL device";
       }
     } else if (!SemaRef.getLangOpts().SYCLAllowFuncPtr &&
+#if INTEL_CUSTOMIZATION
+               !SemaRef.getLangOpts().EnableVariantFunctionPointers &&
+#endif //INTEL_CUSTOMIZATION
                !e->isTypeDependent() &&
                !isa<CXXPseudoDestructorExpr>(e->getCallee()))
       SemaRef.Diag(e->getExprLoc(), diag::err_sycl_restrict)

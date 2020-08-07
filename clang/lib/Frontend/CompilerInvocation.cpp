@@ -2679,6 +2679,15 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
     Opts.SYCLExplicitSIMD = Args.hasArg(options::OPT_fsycl_esimd);
   }
 
+#if INTEL_CUSTOMIZATION
+  Opts.EnableVariantVirtualCalls =
+      Args.hasFlag(options::OPT_fenable_variant_virtual_calls,
+                   options::OPT_fno_enable_variant_virtual_calls, false);
+  Opts.EnableVariantFunctionPointers =
+      Args.hasFlag(options::OPT_fenable_variant_function_pointers,
+                   options::OPT_fno_enable_variant_function_pointers, false);
+#endif // INTEL_CUSTOMIZATION
+
   Opts.IncludeDefaultHeader = Args.hasArg(OPT_finclude_default_header);
   Opts.DeclareOpenCLBuiltins = Args.hasArg(OPT_fdeclare_opencl_builtins);
   Opts.DeclareSPIRVBuiltins = Args.hasArg(OPT_fdeclare_spirv_builtins);

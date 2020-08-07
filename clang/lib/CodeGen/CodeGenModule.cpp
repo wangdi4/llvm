@@ -67,6 +67,9 @@
 #include "llvm/Support/ConvertUTF.h"
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/MD5.h"
+#if INTEL_CUSTOMIZATION
+#include "llvm/Support/ScopedPrinter.h"
+#endif  // INTEL_CUSTOMIZATION
 #include "llvm/Support/TimeProfiler.h"
 
 using namespace clang;
@@ -4628,6 +4631,60 @@ void CodeGenModule::addGlobalIntelFPGAAnnotation(const VarDecl *VD,
     Annotations.push_back(llvm::ConstantStruct::getAnon(Fields));
   }
 }
+
+#if INTEL_CUSTOMIZATION
+llvm::GlobalVariable *
+CodeGenModule::CreateSIMDFnTableVar(llvm::Constant *FnPtr) {
+  llvm::GlobalVariable *GV = nullptr;
+  SmallString<256> Name;
+  llvm::raw_svector_ostream Out(Name);
+  Out << FnPtr->getName();
+  Out << "$SIMDTable";
+  //Adding function variants
+  GV = getModule().getGlobalVariable(Name);
+  if (!GV) {
+    llvm::ArrayType *AT = llvm::ArrayType::get(FnPtr->getType(), 1);
+    GV = new llvm::GlobalVariable(getModule(), AT,
+                                  /*isConstant=*/false,
+                                  llvm::GlobalValue::WeakAnyLinkage,
+                                  /*Initializer=*/0, Name);
+    llvm::ArrayRef<llvm::Constant *> V = FnPtr;
+    llvm::Constant *Init = llvm::ConstantArray::get(AT, V);
+    GV->setInitializer(Init);
+    GV->setAlignment(
+        llvm::Align(getDataLayout().getABITypeAlignment(Init->getType())));
+    Out << "()";
+    if (auto *IFn = dyn_cast<llvm::GlobalIFunc>(FnPtr))
+      FnPtr = IFn->getResolver();
+    if (auto *Fn = dyn_cast<llvm::Function>(FnPtr))
+      Fn->addAttribute(llvm::AttributeList::FunctionIndex,
+                       llvm::Attribute::get(getLLVMContext(),
+                                            "vector_functions_ptrs", Name));
+  }
+  return GV;
+}
+
+StringRef CodeGenModule::GetIntelGeneratedFnName(llvm::FunctionType *FTy,
+                                                 IntelGenFnMap &Map,
+                                                 StringRef Prefix) {
+  if (Map.find(FTy) != Map.end())
+    return Map[FTy];
+  std::string MangledName = Prefix.str();
+  MangledName += llvm::to_string(Map.size());
+  Map.insert(std::make_pair(FTy, MangledName));
+  return Map[FTy];
+}
+
+StringRef CodeGenModule::GetIntelIndirectFnName(llvm::FunctionType *FTy) {
+  return GetIntelGeneratedFnName(FTy, IntelIndirectFnMap,
+                                 "__intel_indirect_call_");
+}
+
+StringRef CodeGenModule::GetIntelSimdVariantFnName(llvm::FunctionType *FTy) {
+  return GetIntelGeneratedFnName(FTy, IntelSimdVariantFnMap,
+                                 "__intel_create_simd_variant_");
+}
+#endif // INTEL_CUSTOMIZATION
 
 /// Pass IsTentative as true if you want to create a tentative definition.
 void CodeGenModule::EmitGlobalVarDefinition(const VarDecl *D,

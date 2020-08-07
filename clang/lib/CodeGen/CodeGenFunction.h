@@ -4544,6 +4544,15 @@ public:
   RValue EmitIntelFPGARegBuiltin(const CallExpr *E,
                                  ReturnValueSlot ReturnValue);
   RValue EmitIntelFPGAMemBuiltin(const CallExpr *E);
+#if INTEL_CUSTOMIZATION
+  RValue
+  EmitBuiltinIndirectCall(llvm::FunctionType *IRFuncTy,
+                          const SmallVectorImpl<llvm::Value *> &IRArgs,
+                          llvm::Value *FnPtr);
+
+  RValue EmitBuiltinGenerateSIMDVariant(const CallExpr *E);
+  RValue EmitBuiltinCallSIMDVariant(const CallExpr *E);
+#endif  // INTEL_CUSTOMIZATION
 
 private:
   enum class MSVCIntrin;

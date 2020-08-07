@@ -4265,6 +4265,15 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
     }
   }
 
+#if INTEL_CUSTOMIZATION
+  if (Args.hasFlag(options::OPT_fenable_variant_virtual_calls,
+                   options::OPT_fno_enable_variant_virtual_calls, false))
+    CmdArgs.push_back("-fenable-variant-virtual-call");
+  if (Args.hasFlag(options::OPT_fenable_variant_function_pointers,
+                   options::OPT_fno_enable_variant_function_pointers, false))
+    CmdArgs.push_back("-fenable-variant-function-pointers");
+#endif // INTEL_CUSTOMIZATION
+
   if (IsOpenMPDevice) {
     // We have to pass the triple of the host if compiling for an OpenMP device.
     std::string NormalizedTriple =
