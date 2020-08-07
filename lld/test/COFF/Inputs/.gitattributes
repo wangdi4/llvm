@@ -1,0 +1,2 @@
+# disable automatic EOF handling for *.natvis
+*.natvis -text

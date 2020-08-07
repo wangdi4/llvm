@@ -11440,6 +11440,12 @@ bool ScalarEvolution::isImpliedViaOperations(ICmpInst::Predicate Pred,
     if (!LHSAddExpr->hasNoSignedWrap())
       return false;
 
+#if INTEL_CUSTOMIZATION
+    // Code below assumes 2 operands.
+    if (LHSAddExpr->getNumOperands() != 2)
+      return false;
+#endif // INTEL_CUSTOMIZATION
+
     auto *LL = LHSAddExpr->getOperand(0);
     auto *LR = LHSAddExpr->getOperand(1);
     auto *MinusOne = getNegativeSCEV(getOne(RHS->getType()));
