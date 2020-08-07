@@ -31,6 +31,7 @@ namespace objdump {
 
 extern cl::opt<bool> ArchiveHeaders;
 extern cl::opt<bool> Demangle;
+extern cl::opt<bool> TraceBack; // INTEL
 extern cl::opt<bool> Disassemble;
 extern cl::opt<bool> DisassembleAll;
 extern cl::opt<DIDumpType> DwarfDumpType;

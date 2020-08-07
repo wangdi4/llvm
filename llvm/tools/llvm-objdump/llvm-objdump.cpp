@@ -31,6 +31,7 @@
 #include "llvm/ADT/Triple.h"
 #include "llvm/CodeGen/FaultMaps.h"
 #include "llvm/DebugInfo/DWARF/DWARFContext.h"
+#include "llvm/DebugInfo/Intel_TraceBack/TraceContext.h" // INTEL
 #include "llvm/DebugInfo/Symbolize/Symbolize.h"
 #include "llvm/Demangle/Demangle.h"
 #include "llvm/MC/MCAsmInfo.h"
@@ -118,6 +119,12 @@ cl::opt<bool> objdump::Demangle("demangle", cl::desc("Demangle symbols names"),
 static cl::alias DemangleShort("C", cl::desc("Alias for --demangle"),
                                cl::NotHidden, cl::Grouping,
                                cl::aliasopt(Demangle));
+#if INTEL_CUSTOMIZATION
+cl::opt<bool>
+    objdump::TraceBack("traceback",
+                       cl::desc("Display record information for traceback"),
+                       cl::cat(ObjdumpCat));
+#endif // INTEL_CUSTOMIZATION
 
 cl::opt<bool> objdump::Disassemble(
     "disassemble",
@@ -2236,6 +2243,50 @@ static void disassembleObject(const ObjectFile *Obj, bool InlineRelocs) {
                     SP, InlineRelocs);
 }
 
+#if INTEL_CUSTOMIZATION
+/// \returns the mapping from the offset in .trace section to its value string
+/// of relocations for object file \p Obj.
+static DenseMap<uint32_t, SmallString<32>>
+getRelocationMapForTraceBack(const ObjectFile *Obj) {
+  DenseMap<uint32_t, SmallString<32>> RelMap;
+  // Return directly if it's not a relocatable file.
+  if (!Obj->isRelocatableObject())
+    return RelMap;
+
+  for (const SectionRef Section : Obj->sections()) {
+    // Start the next iteration if this section has no reloactions.
+    if (Section.relocation_begin() == Section.relocation_end())
+      continue;
+    auto SecOrErr = Section.getRelocatedSection();
+    if (!SecOrErr) {
+      consumeError(SecOrErr.takeError());
+      continue;
+    }
+    auto RelocatedSection = **SecOrErr;
+    auto NameOrErr = RelocatedSection.getName();
+    if (!NameOrErr) {
+      consumeError(NameOrErr.takeError());
+      continue;
+    }
+    // Start the next iteration if the relocated section is not .trace.
+    if (*NameOrErr != TraceContext::TraceName)
+      continue;
+    for (const RelocationRef &Reloc : Section.relocations()) {
+      uint64_t Address = Reloc.getOffset();
+      assert(Address <= UINT32_MAX && "Exceed maximum size of .trace size!");
+      SmallString<32> ValueStr;
+      if (Error E = getRelocationValueString(Reloc, ValueStr))
+        reportError(std::move(E), Obj->getFileName());
+      // Insert the pair of the offset in .trace sectiion and the value string
+      // of this reloaction.
+      RelMap.insert({static_cast<uint32_t>(Address), ValueStr});
+    }
+    return RelMap;
+  }
+  return RelMap;
+}
+#endif // INTEL_CUSTOMIZATION
+
 void objdump::printRelocations(const ObjectFile *Obj) {
   StringRef Fmt = Obj->getBytesInAddress() > 4 ? "%016" PRIx64 :
                                                  "%08" PRIx64;
@@ -2853,6 +2904,14 @@ static void dumpObject(ObjectFile *O, const Archive *A = nullptr,
     printDynamicRelocations(O);
   if (SectionContents)
     printSectionContents(O);
+#if INTEL_CUSTOMIZATION
+  // traceback is only supported on X86.
+  if (TraceBack && O->makeTriple().isX86()) {
+    std::unique_ptr<TraceContext> Ctx =
+        TraceContext::create(*O, getRelocationMapForTraceBack(O));
+    Ctx->dump(outs());
+  }
+#endif // INTEL_CUSTOMIZATION
   if (Disassemble)
     disassembleObject(O, Relocations);
   if (UnwindInfo)
@@ -2977,10 +3036,12 @@ int main(int argc, char **argv) {
       !DisassembleSymbols.empty())
     Disassemble = true;
 
+#if INTEL_CUSTOMIZATION
   if (!ArchiveHeaders && !Disassemble && DwarfDumpType == DIDT_Null &&
       !DynamicRelocations && !FileHeaders && !PrivateHeaders && !RawClangAST &&
-      !Relocations && !SectionHeaders && !SectionContents && !SymbolTable &&
-      !DynamicSymbolTable && !UnwindInfo && !FaultMapSection &&
+      !Relocations && !SectionHeaders && !TraceBack && !SectionContents &&
+      !SymbolTable && !DynamicSymbolTable && !UnwindInfo && !FaultMapSection &&
+#endif // INTEL_CUSTOMIZATION
       !(MachOOpt &&
         (Bind || DataInCode || DylibId || DylibsUsed || ExportsTrie ||
          FirstPrivateHeader || IndirectSymbols || InfoPlist || LazyBind ||
