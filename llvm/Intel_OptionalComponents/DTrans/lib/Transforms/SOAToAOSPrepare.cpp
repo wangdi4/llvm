@@ -669,7 +669,7 @@ void SOAToAOSPrepCandidateInfo::replicateMemberFunctions() {
             if (OrigF && ClassI->isCandidateMemberFunction(OrigF)) {
               Function *NewF = OrigToNewFuncMap[OrigF];
               assert(NewF && "Expected cloned function");
-              CB->setCalledFunction(NewF);
+              CB->setCalledOperand(NewF);
               UpdateCGWithClonedMemberFunctions(NewF, ProcessedFunctions);
             } else {
               UpdateCGWithClonedMemberFunctions(OrigF, ProcessedFunctions);
@@ -1945,7 +1945,7 @@ void SOAToAOSPrepCandidateInfo::convertCtorToCCtor(Function *NewCtor) {
       NewParams.push_back(A->getType());
     }
     // 1st time cloning.
-    FunctionType *NewFTy = FunctionType::get(Type::getVoidTy(M.getContext()),
+    FunctionType *NewFTy = FunctionType::get(CtorFTy->getReturnType(),
                                              NewParams, CtorFTy->isVarArg());
     Function *NewF =
         Function::Create(NewFTy, CtorF->getLinkage(), CtorF->getName(), &M);
@@ -2029,8 +2029,8 @@ void SOAToAOSPrepCandidateInfo::convertCtorToCCtor(Function *NewCtor) {
                                     GetElementPtrInst *GEP) {
     GetElementPtrInst *NewGEP = cast<GetElementPtrInst>(GEP->clone());
     NewGEP->insertBefore(CtorCB);
-    LoadInst *NewLd = new LoadInst(NewCCtor->getArg(1)->getType(), NewGEP, "",
-                                   CtorCB);
+    LoadInst *NewLd =
+        new LoadInst(NewCCtor->getArg(1)->getType(), NewGEP, "", CtorCB);
     DEBUG_WITH_TYPE(DTRANS_SOATOAOSPREPARE, {
       dbgs() << "  Replacing Ctor call with CCtor call: \n";
       dbgs() << " GEP: " << *NewGEP << "\n";

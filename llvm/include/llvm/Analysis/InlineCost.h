@@ -215,15 +215,20 @@ class InlineCost {
   /// Must be set for Always and Never instances.
   const char *Reason = nullptr;
 
-  InlineReportTypes::InlineReason IntelReason; // INTEL
-
 #if INTEL_CUSTOMIZATION
+  InlineReportTypes::InlineReason IntelReason;
+  bool IsRecommended = false;
+
   /// \brief The cost and the threshold used for early exit from usual inlining
   /// process. A value of INT_MAX for either of these indicates that no value
   /// has been seen yet. They are expected to be set at the same time, so we
-  /// need test only EarlyExitCost to see if the value of either is set yet.
-  const int EarlyExitCost;
-  const int EarlyExitThreshold;
+  /// need test only EarlyExitCost to see whether the value of either is set
+  /// yet.
+  const int EarlyExitCost = INT_MAX;
+  const int EarlyExitThreshold = INT_MAX;
+  /// \brief Total secondary cost computed to determine whether inlining
+  /// should be inhibited because inlining an enclosing function is preferred.
+  int TotalSecondaryCost = 0;
 #endif // INTEL_CUSTOMIZATION
 
   // Trivial constructor, interesting logic in the factory functions below.
@@ -232,9 +237,10 @@ class InlineCost {
   InlineCost(int Cost, int Threshold, const char* Reason = nullptr,
     InlineReportTypes::InlineReason IntelReason
     = InlineReportTypes::NinlrNoReason, int EarlyExitCost = INT_MAX,
-    int EarlyExitThreshold = INT_MAX) :
+    int EarlyExitThreshold = INT_MAX, int TotalSecondaryCost = INT_MAX) :
     Cost(Cost), Threshold(Threshold), Reason(Reason), IntelReason(IntelReason),
-    EarlyExitCost(EarlyExitCost), EarlyExitThreshold(EarlyExitThreshold) {
+    EarlyExitCost(EarlyExitCost), EarlyExitThreshold(EarlyExitThreshold),
+    TotalSecondaryCost(TotalSecondaryCost) {
     assert((isVariable() || Reason) &&
             "Reason must be provided for Never or Always");
   }
@@ -310,10 +316,16 @@ public:
     { return IntelReason; }
   void setInlineReason(InlineReportTypes::InlineReason MyReason)
     { IntelReason = MyReason; }
+  void setTotalSecondaryCost(int TheTotalSecondaryCost)
+    { TotalSecondaryCost = TheTotalSecondaryCost; }
+  void setIsRecommended(bool Recommended) { IsRecommended = Recommended; }
   int getEarlyExitCost() const
     { return EarlyExitCost; }
   int getEarlyExitThreshold() const
     { return EarlyExitThreshold; }
+  int getTotalSecondaryCost() const
+    { return TotalSecondaryCost; }
+  bool getIsRecommended() { return IsRecommended; }
 #endif // INTEL_CUSTOMIZATION
 
 };

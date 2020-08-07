@@ -1,6 +1,6 @@
 //===---------------- SOAToAOSCommon.h - Part of SOAToAOSPass -------------===//
 //
-// Copyright (C) 2018-2019 Intel Corporation. All rights reserved.
+// Copyright (C) 2018-2020 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -54,6 +54,15 @@ struct SummaryForIdiom {
 // It is a part of checks related side-effect analysis.
 struct Idioms {
 protected:
+  // (Arg 0).
+  static bool isThisArg(const Dep *D, const SummaryForIdiom &S) {
+    if (D->Kind != Dep::DK_Argument)
+      return false;
+    if (D->Const != 0)
+      return false;
+    return true;
+  }
+
   // GEP (Arg ArgNo) FieldInd.
   static bool isArgAddr(const Dep *D, unsigned &ArgNo, unsigned &FieldInd) {
     if (D->Kind != Dep::DK_GEP)
@@ -285,7 +294,8 @@ private:
     if (D->Kind == Dep::DK_Function) {
       bool ExtSE = false;
       for (auto *A : *D->Args)
-        if (A->Kind == Dep::DK_Const || isMemoryInterfaceFieldLoad(A, S))
+        if (A->Kind == Dep::DK_Const || isMemoryInterfaceFieldLoad(A, S) ||
+            isAlloc(A, S))
           continue;
         else if (isExternaSideEffectRec(A, S, SeenUnknownTerminal))
           ExtSE = true;

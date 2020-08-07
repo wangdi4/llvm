@@ -487,6 +487,8 @@ void InlineReport::setReasonIsInlined(CallBase *Call,
     return;
   InlineReportCallSite *IRCS = MapIt->second;
   IRCS->setReason(IC.getInlineReason());
+  if (IC.isAlways())
+    return;
   IRCS->setInlineCost(IC.getCost());
   IRCS->setInlineThreshold(IC.getCost() + IC.getCostDelta());
 }
@@ -518,6 +520,8 @@ void InlineReport::setReasonNotInlined(CallBase *Call,
     return;
   InlineReportCallSite *IRCS = MapIt->second;
   IRCS->setReason(Reason);
+  if (IC.isNever())
+    return;
   IRCS->setInlineCost(IC.getCost());
   IRCS->setInlineThreshold(IC.getCost() + IC.getCostDelta());
   IRCS->setEarlyExitInlineCost(IC.getEarlyExitCost());
