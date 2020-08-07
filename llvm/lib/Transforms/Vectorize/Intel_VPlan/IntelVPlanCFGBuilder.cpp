@@ -87,7 +87,8 @@ void VPlanCFGBuilderBase<CFGBuilder>::addExternalUses(Value *Val,
         // TODO: As region vectorization infrastructure evolves, we might
         // consider weakening the restriction, but having a single use does
         // looks very handy, and a phi is a natural way to represent single use.
-        VPExternalUse *User = Plan->getVPExternalUse(cast<PHINode>(Inst));
+        VPExternalUse *User =
+            Plan->getExternals().getOrCreateVPExternalUse(cast<PHINode>(Inst));
         User->addOperandWithUnderlyingValue(NewVPInst, Val);
       }
 }
