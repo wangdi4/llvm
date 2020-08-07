@@ -3502,17 +3502,10 @@ pi_result piextUSMHostAlloc(void **ResultPtr, pi_context Context,
   assert(!Properties || (Properties && !(*Properties & ~PI_MEM_ALLOC_FLAGS)));
 
   ze_host_mem_alloc_desc_t ZeDesc = {};
-<<<<<<< HEAD:sycl/plugins/level_zero/pi_level_zero.cpp
-  ZeDesc.flags = ZE_HOST_MEM_ALLOC_FLAG_DEFAULT;
-  // TODO: translate PI properties to Level Zero flags
-  ZE_CALL(zeDriverAllocHostMem(Context->Device->Platform->ZeDriver, &ZeDesc,
-                               Size, Alignment, ResultPtr));
-=======
   ZeDesc.flags = 0;
   // TODO: translate PI properties to Level Zero flags
   ZE_CALL(zeMemAllocHost(Context->Device->Platform->ZeContext, &ZeDesc, Size,
                          Alignment, ResultPtr));
->>>>>>> 4dd7b3c140bb5e1badc11b524f689387e1b07499:sycl/plugins/level_zero/pi_level0.cpp
 
   return PI_SUCCESS;
 }
