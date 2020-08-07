@@ -1416,9 +1416,7 @@ define i1 @icmp_v32i8_v32i1(<32 x i8>) {
 ; AVX512F-NEXT:    movl %eax, %ecx ;INTEL
 ; AVX512F-NEXT:    shrl $16, %ecx ;INTEL
 ; AVX512F-NEXT:    xorl %eax, %ecx ;INTEL
-; AVX512F-NEXT:    movl %ecx, %eax ;INTEL
-; AVX512F-NEXT:    shrl $8, %eax ;INTEL
-; AVX512F-NEXT:    xorb %cl, %al ;INTEL
+; AVX512F-NEXT:    xorb %ch, %cl ;INTEL
 ; AVX512F-NEXT:    setnp %al ;INTEL
 ; AVX512F-NEXT:    vzeroupper
 ; AVX512F-NEXT:    retq
