@@ -1,17 +1,17 @@
-//===-------- pi_level_zero.cpp - Level Zero Plugin --------------------==//
+//===----------- pi_level0.cpp - Level Zero Plugin--------------------------==//
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 //
-//===------------------------------------------------------------------===//
+//===----------------------------------------------------------------------===//
 
-/// \file pi_level_zero.cpp
+/// \file pi_level0.cpp
 /// Implementation of Level Zero Plugin.
 ///
-/// \ingroup sycl_pi_level_zero
+/// \ingroup sycl_pi_level0
 
-#include "pi_level_zero.hpp"
+#include "pi_level0.hpp"
 #include <cstdarg>
 #include <cstdio>
 #include <cstring>
@@ -26,8 +26,8 @@
 
 namespace {
 
-// Controls Level Zero calls serialization to w/a Level Zero driver being not MT
-// ready. Recognized values (can be used as a bit mask):
+// Controls L0 calls serialization to w/a L0 driver being not MT ready.
+// Recognized values (can be used as a bit mask):
 enum {
   ZeSerializeNone =
       0, // no locking or blocking (except when SYCL RT requested blocking)
@@ -37,10 +37,10 @@ enum {
 };
 static pi_uint32 ZeSerialize = 0;
 
-// This class encapsulates actions taken along with a call to Level Zero API.
+// This class encapsulates actions taken along with a call to L0 API.
 class ZeCall {
 private:
-  // The global mutex that is used for total serialization of Level Zero calls.
+  // The global mutex that is used for total serialization of L0 calls.
   static std::mutex GlobalLock;
 
 public:
@@ -61,7 +61,7 @@ public:
 };
 std::mutex ZeCall::GlobalLock;
 
-// Controls Level Zero calls tracing in zePrint.
+// Controls L0 calls tracing in zePrint.
 static bool ZeDebug = false;
 
 static void zePrint(const char *Format, ...) {
@@ -112,20 +112,6 @@ pi_result getInfoArray(size_t array_length, size_t param_value_size,
                        T *value) {
   return getInfoImpl(param_value_size, param_value, param_value_size_ret, value,
                      array_length * sizeof(T), memcpy);
-}
-
-template <typename T, typename RetType>
-pi_result getInfoArray(size_t array_length, size_t param_value_size,
-                       void *param_value, size_t *param_value_size_ret,
-                       T *value) {
-  if (param_value) {
-    memset(param_value, 0, param_value_size);
-    for (uint32_t I = 0; I < array_length; I++)
-      ((RetType *)param_value)[I] = (RetType)value[I];
-  }
-  if (param_value_size_ret)
-    *param_value_size_ret = array_length * sizeof(RetType);
-  return PI_SUCCESS;
 }
 
 template <>
@@ -215,13 +201,14 @@ _pi_context::getFreeSlotInExistingOrNewPool(ze_event_pool_handle_t &ZePool,
     std::lock_guard<std::mutex> NumEventsLiveInEventPoolGuard(
         NumEventsLiveInEventPoolMutex, std::adopt_lock);
 
-    ze_event_pool_desc_t ZeEventPoolDesc = {};
+    ze_event_pool_desc_t ZeEventPoolDesc;
     ZeEventPoolDesc.count = MaxNumEventsPerPool;
-    ZeEventPoolDesc.flags = ZE_EVENT_POOL_FLAG_KERNEL_TIMESTAMP;
+    ZeEventPoolDesc.flags = ZE_EVENT_POOL_FLAG_TIMESTAMP;
+    ZeEventPoolDesc.version = ZE_EVENT_POOL_DESC_VERSION_CURRENT;
 
     ze_device_handle_t ZeDevice = Device->ZeDevice;
     if (ze_result_t ZeRes =
-            zeEventPoolCreate(Device->Platform->ZeContext, &ZeEventPoolDesc, 1,
+            zeEventPoolCreate(Device->Platform->ZeDriver, &ZeEventPoolDesc, 1,
                               &ZeDevice, &ZeEventPool))
       return ZeRes;
     NumEventsAvailableInEventPool[ZeEventPool] = MaxNumEventsPerPool - 1;
@@ -246,12 +233,12 @@ _pi_context::decrementAliveEventsInPool(ze_event_pool_handle_t ZePool) {
   return ZE_RESULT_SUCCESS;
 }
 
-// Some opencl extensions we know are supported by all Level Zero devices.
+// Some opencl extensions we know are supported by all Level0 devices.
 constexpr char ZE_SUPPORTED_EXTENSIONS[] =
     "cl_khr_il_program cl_khr_subgroups cl_intel_subgroups "
     "cl_intel_subgroups_short cl_intel_required_subgroup_size ";
 
-// Map Level Zero runtime error code to PI error code
+// Map L0 runtime error code to PI error code
 static pi_result mapError(ze_result_t ZeResult) {
   // TODO: these mapping need to be clarified and synced with the PI API return
   // values, which is TBD.
@@ -367,45 +354,20 @@ ze_result_t ZeCall::doCall(ze_result_t ZeResult, const char *CallStr,
 #define ZE_CALL_NOCHECK(Call) ZeCall().doCall(Call, #Call, false)
 
 pi_result _pi_device::initialize() {
-  uint32_t numQueueGroups = 0;
-  ZE_CALL(zeDeviceGetCommandQueueGroupProperties(ZeDevice, &numQueueGroups,
-                                                 nullptr));
-  if (numQueueGroups == 0) {
-    return PI_ERROR_UNKNOWN;
-  }
-  std::vector<ze_command_queue_group_properties_t> queueProperties(
-      numQueueGroups);
-  ZE_CALL(zeDeviceGetCommandQueueGroupProperties(ZeDevice, &numQueueGroups,
-                                                 queueProperties.data()));
-
-  int ComputeGroupIndex = -1;
-  for (uint32_t i = 0; i < numQueueGroups; i++) {
-    if (queueProperties[i].flags &
-        ZE_COMMAND_QUEUE_GROUP_PROPERTY_FLAG_COMPUTE) {
-      ComputeGroupIndex = i;
-      break;
-    }
-  }
-  // How is it possible that there are no "compute" capabilities?
-  if (ComputeGroupIndex < 0) {
-    return PI_ERROR_UNKNOWN;
-  }
-  this->ZeComputeQueueGroupIndex = ComputeGroupIndex;
-
   // Create the immediate command list to be used for initializations
   // Created as synchronous so level-zero performs implicit synchronization and
   // there is no need to query for completion in the plugin
   ze_command_queue_desc_t ZeCommandQueueDesc = {};
-  ZeCommandQueueDesc.ordinal = ZeComputeQueueGroupIndex;
-  ZeCommandQueueDesc.index = 0;
+  ZeCommandQueueDesc.version = ZE_COMMAND_QUEUE_DESC_VERSION_CURRENT;
+  ZeCommandQueueDesc.ordinal = 0;
   ZeCommandQueueDesc.mode = ZE_COMMAND_QUEUE_MODE_SYNCHRONOUS;
-  ZE_CALL(zeCommandListCreateImmediate(this->Platform->ZeContext, ZeDevice,
-                                       &ZeCommandQueueDesc,
+  ZE_CALL(zeCommandListCreateImmediate(ZeDevice, &ZeCommandQueueDesc,
                                        &ZeCommandListInit));
   // Cache device properties
-  ZeDeviceProperties = {};
+  ZeDeviceProperties.version = ZE_DEVICE_PROPERTIES_VERSION_CURRENT;
   ZE_CALL(zeDeviceGetProperties(ZeDevice, &ZeDeviceProperties));
-  ZeDeviceComputeProperties = {};
+  ZeDeviceComputeProperties.version =
+      ZE_DEVICE_COMPUTE_PROPERTIES_VERSION_CURRENT;
   ZE_CALL(zeDeviceGetComputeProperties(ZeDevice, &ZeDeviceComputeProperties));
   return PI_SUCCESS;
 }
@@ -413,17 +375,17 @@ pi_result _pi_device::initialize() {
 // Crate a new command list to be used in a PI call
 pi_result
 _pi_device::createCommandList(ze_command_list_handle_t *ZeCommandList) {
-  // Create the command list, because in Level Zero commands are added to
+  // Create the command list, because in L0 commands are added to
   // the command lists, and later are then added to the command queue.
   //
   // TODO: Figure out how to lower the overhead of creating a new list
   // for each PI command, if that appears to be important.
   ze_command_list_desc_t ZeCommandListDesc = {};
+  ZeCommandListDesc.version = ZE_COMMAND_LIST_DESC_VERSION_CURRENT;
 
   // TODO: can we just reset the command-list created when an earlier
   // command was submitted to the queue?
-  ZE_CALL(zeCommandListCreate(Platform->ZeContext, ZeDevice, &ZeCommandListDesc,
-                              ZeCommandList));
+  ZE_CALL(zeCommandListCreate(ZeDevice, &ZeCommandListDesc, ZeCommandList));
 
   return PI_SUCCESS;
 }
@@ -488,12 +450,12 @@ pi_result piPlatformsGet(pi_uint32 NumEntries, pi_platform *Platforms,
     return PI_INVALID_VALUE;
   }
 
-  // This is a good time to initialize Level Zero.
+  // This is a good time to initialize L0.
   // TODO: We can still safely recover if something goes wrong during the init.
   // Implement handling segfault using sigaction.
   // TODO: We should not call zeInit multiples times ever, so
   // this code should be changed.
-  ze_result_t ZeResult = ZE_CALL_NOCHECK(zeInit(ZE_INIT_FLAG_GPU_ONLY));
+  ze_result_t ZeResult = ZE_CALL_NOCHECK(zeInit(ZE_INIT_FLAG_NONE));
 
   // Absorb the ZE_RESULT_ERROR_UNINITIALIZED and just return 0 Platforms.
   if (ZeResult == ZE_RESULT_ERROR_UNINITIALIZED) {
@@ -507,7 +469,7 @@ pi_result piPlatformsGet(pi_uint32 NumEntries, pi_platform *Platforms,
     return mapError(ZeResult);
   }
 
-  // Level Zero does not have concept of Platforms, but Level Zero driver is the
+  // L0 does not have concept of Platforms, but L0 driver is the
   // closest match.
   if (Platforms && NumEntries > 0) {
     uint32_t ZeDriverCount = 0;
@@ -517,6 +479,7 @@ pi_result piPlatformsGet(pi_uint32 NumEntries, pi_platform *Platforms,
       *NumPlatforms = 0;
       return PI_SUCCESS;
     }
+
     ze_driver_handle_t ZeDriver;
     assert(ZeDriverCount == 1);
     ZE_CALL(zeDriverGet(&ZeDriverCount, &ZeDriver));
@@ -524,14 +487,6 @@ pi_result piPlatformsGet(pi_uint32 NumEntries, pi_platform *Platforms,
     try {
       // TODO: figure out how/when to release this memory
       *Platforms = new _pi_platform(ZeDriver);
-
-      // Create the single L0 context to be used for everything now.
-      // TODO[1.0]: this should probably be moved into PI context.
-      //
-      ze_context_desc_t ContextDesc =
-          {ZE_STRUCTURE_TYPE_CONTEXT_DESC, nullptr, 0};
-      ZE_CALL(zeContextCreate(ZeDriver, &ContextDesc,
-                              &Platforms[0]->ZeContext));
 
       // Cache driver properties
       ze_driver_properties_t ZeDriverProperties;
@@ -580,10 +535,10 @@ pi_result piPlatformGetInfo(pi_platform Platform, pi_platform_info ParamName,
 
   switch (ParamName) {
   case PI_PLATFORM_INFO_NAME:
-    // TODO: Query Level Zero driver when relevant info is added there.
+    // TODO: Query L0 driver when relevant info is added there.
     return ReturnValue("Intel(R) Level-Zero");
   case PI_PLATFORM_INFO_VENDOR:
-    // TODO: Query Level Zero driver when relevant info is added there.
+    // TODO: Query L0 driver when relevant info is added there.
     return ReturnValue("Intel(R) Corporation");
   case PI_PLATFORM_INFO_EXTENSIONS:
     // Convention adopted from OpenCL:
@@ -594,7 +549,7 @@ pi_result piPlatformGetInfo(pi_platform Platform, pi_platform_info ParamName,
     //
     // TODO: Check the common extensions supported by all connected devices and
     // return them. For now, hardcoding some extensions we know are supported by
-    // all Level Zero devices.
+    // all Level0 devices.
     return ReturnValue(ZE_SUPPORTED_EXTENSIONS);
   case PI_PLATFORM_INFO_PROFILE:
     // TODO: figure out what this means and how is this used
@@ -622,7 +577,7 @@ pi_result piextPlatformGetNativeHandle(pi_platform Platform,
   assert(NativeHandle);
 
   auto ZeDriver = pi_cast<ze_driver_handle_t *>(NativeHandle);
-  // Extract the Level Zero driver handle from the given PI platform
+  // Extract the L0 driver handle from the given PI platform
   *ZeDriver = Platform->ZeDriver;
   return PI_SUCCESS;
 }
@@ -632,7 +587,7 @@ pi_result piextPlatformCreateWithNativeHandle(pi_native_handle NativeHandle,
   assert(NativeHandle);
   assert(Platform);
 
-  // Create PI platform from the given Level Zero driver handle.
+  // Create PI platform from the given L0 driver handle.
   auto ZeDriver = pi_cast<ze_driver_handle_t>(NativeHandle);
   *Platform = new _pi_platform(ZeDriver);
   return PI_SUCCESS;
@@ -645,7 +600,7 @@ pi_result piDevicesGet(pi_platform Platform, pi_device_type DeviceType,
   assert(Platform);
   ze_driver_handle_t ZeDriver = Platform->ZeDriver;
 
-  // Get number of devices supporting Level Zero
+  // Get number of devices supporting L0
   uint32_t ZeDeviceCount = 0;
   const bool AskingForGPU = (DeviceType & PI_DEVICE_TYPE_GPU);
   const bool AskingForDefault = (DeviceType == PI_DEVICE_TYPE_DEFAULT);
@@ -733,29 +688,26 @@ pi_result piDeviceGetInfo(pi_device Device, pi_device_info ParamName,
   }
 
   for (uint32_t I = 0; I < ZeAvailMemCount; I++) {
-    ZeDeviceMemoryProperties[I] = {};
+    ZeDeviceMemoryProperties[I].version =
+        ZE_DEVICE_MEMORY_PROPERTIES_VERSION_CURRENT;
   }
   // TODO: cache various device properties in the PI device object,
   // and initialize them only upon they are first requested.
   ZE_CALL(zeDeviceGetMemoryProperties(ZeDevice, &ZeAvailMemCount,
                                       ZeDeviceMemoryProperties.data()));
 
-  ze_device_image_properties_t ZeDeviceImageProperties = {};
+  ze_device_image_properties_t ZeDeviceImageProperties;
+  ZeDeviceImageProperties.version = ZE_DEVICE_IMAGE_PROPERTIES_VERSION_CURRENT;
   ZE_CALL(zeDeviceGetImageProperties(ZeDevice, &ZeDeviceImageProperties));
 
-  ze_device_module_properties_t ZeDeviceModuleProperties = {};
-  ZE_CALL(zeDeviceGetModuleProperties(ZeDevice, &ZeDeviceModuleProperties));
+  ze_device_kernel_properties_t ZeDeviceKernelProperties;
+  ZeDeviceKernelProperties.version =
+      ZE_DEVICE_KERNEL_PROPERTIES_VERSION_CURRENT;
+  ZE_CALL(zeDeviceGetKernelProperties(ZeDevice, &ZeDeviceKernelProperties));
 
-  // TODO[1.0]: there can be multiple cache properites now, adjust.
-  // For now remember the first one, if any.
-  uint32_t Count = 0;
-  ze_device_cache_properties_t ZeDeviceCacheProperties = {};
-  ZE_CALL(zeDeviceGetCacheProperties(ZeDevice, &Count, nullptr));
-  if (Count > 0) {
-    Count = 1;
-    ZE_CALL(
-        zeDeviceGetCacheProperties(ZeDevice, &Count, &ZeDeviceCacheProperties));
-  }
+  ze_device_cache_properties_t ZeDeviceCacheProperties;
+  ZeDeviceCacheProperties.version = ZE_DEVICE_CACHE_PROPERTIES_VERSION_CURRENT;
+  ZE_CALL(zeDeviceGetCacheProperties(ZeDevice, &ZeDeviceCacheProperties));
 
   ReturnHelper ReturnValue(ParamValueSize, ParamValue, ParamValueSizeRet);
 
@@ -768,7 +720,7 @@ pi_result piDeviceGetInfo(pi_device Device, pi_device_info ParamName,
     return ReturnValue(PI_DEVICE_TYPE_GPU);
   }
   case PI_DEVICE_INFO_PARENT_DEVICE:
-    // TODO: all Level Zero devices are parent ?
+    // TODO: all L0 devices are parent ?
     return ReturnValue(pi_device{0});
   case PI_DEVICE_INFO_PLATFORM:
     return ReturnValue(Device->Platform);
@@ -779,8 +731,8 @@ pi_result piDeviceGetInfo(pi_device Device, pi_device_info ParamName,
     //     "Returns a space separated list of extension names (the extension
     // names themselves do not contain any spaces) supported by the device."
     //
-    // TODO: Use proper mechanism to get this information from Level Zero after
-    // it is added to Level Zero.
+    // TODO: Use proper mechanism to get this information from Level0 after
+    // it is added to Level0.
     // Hardcoding the few we know are supported by the current hardware.
     //
     //
@@ -804,18 +756,17 @@ pi_result piDeviceGetInfo(pi_device Device, pi_device_info ParamName,
     // cl_khr_3d_image_writes - Extension to enable writes to 3D image memory
     //   objects.
     //
-    // Hardcoding some extensions we know are supported by all Level Zero
-    // devices.
+    // Hardcoding some extensions we know are supported by all Level0 devices.
     SupportedExtensions += (ZE_SUPPORTED_EXTENSIONS);
-    if (ZeDeviceModuleProperties.flags & ZE_DEVICE_MODULE_FLAG_FP16)
+    if (ZeDeviceKernelProperties.fp16Supported)
       SupportedExtensions += ("cl_khr_fp16 ");
-    if (ZeDeviceModuleProperties.flags & ZE_DEVICE_MODULE_FLAG_FP64)
+    if (ZeDeviceKernelProperties.fp64Supported)
       SupportedExtensions += ("cl_khr_fp64 ");
-    if (ZeDeviceModuleProperties.flags & ZE_DEVICE_MODULE_FLAG_INT64_ATOMICS)
+    if (ZeDeviceKernelProperties.int64AtomicsSupported)
       // int64AtomicsSupported indicates support for both.
       SupportedExtensions +=
           ("cl_khr_int64_base_atomics cl_khr_int64_extended_atomics ");
-    if (ZeDeviceImageProperties.maxImageDims3D > 0)
+    if (ZeDeviceImageProperties.supported)
       // Supports reading and writing of images.
       SupportedExtensions += ("cl_khr_3d_image_writes ");
 
@@ -835,7 +786,7 @@ pi_result piDeviceGetInfo(pi_device Device, pi_device_info ParamName,
     return ReturnValue(pi_uint32{MaxComputeUnits});
   }
   case PI_DEVICE_INFO_MAX_WORK_ITEM_DIMENSIONS:
-    // Level Zero spec defines only three dimensions
+    // L0 spec defines only three dimensions
     return ReturnValue(pi_uint32{3});
   case PI_DEVICE_INFO_MAX_WORK_GROUP_SIZE:
     return ReturnValue(
@@ -873,11 +824,10 @@ pi_result piDeviceGetInfo(pi_device Device, pi_device_info ParamName,
     return ReturnValue(
         pi_uint64{Device->ZeDeviceComputeProperties.maxSharedLocalMemory});
   case PI_DEVICE_INFO_IMAGE_SUPPORT:
-    return ReturnValue(pi_bool{ZeDeviceImageProperties.maxImageDims1D > 0});
+    return ReturnValue(pi_bool{ZeDeviceImageProperties.supported});
   case PI_DEVICE_INFO_HOST_UNIFIED_MEMORY:
     return ReturnValue(
-        // TODO[1.0]: how to query for USM support now?
-        pi_bool{true});
+        pi_bool{Device->ZeDeviceProperties.unifiedMemorySupported});
   case PI_DEVICE_INFO_AVAILABLE:
     return ReturnValue(pi_bool{ZeDevice ? true : false});
   case PI_DEVICE_INFO_VENDOR:
@@ -897,7 +847,7 @@ pi_result piDeviceGetInfo(pi_device Device, pi_device_info ParamName,
     return ReturnValue(pi_uint32{Device->RefCount});
   case PI_DEVICE_INFO_PARTITION_PROPERTIES: {
     // It is debatable if SYCL sub-device and partitioning APIs sufficient to
-    // expose Level Zero sub-devices / tiles?  We start with support of // INTEL
+    // expose Level0 sub-devices / tiles?  We start with support of // INTEL
     // "partition_by_affinity_domain" and "numa" but if that doesn't seem to
     // be a good fit we could look at adding a more descriptive partitioning
     // type.
@@ -932,7 +882,7 @@ pi_result piDeviceGetInfo(pi_device Device, pi_device_info ParamName,
   case PI_DEVICE_INFO_PREFERRED_INTEROP_USER_SYNC:
     return ReturnValue(pi_bool{true});
   case PI_DEVICE_INFO_PRINTF_BUFFER_SIZE:
-    return ReturnValue(size_t{ZeDeviceModuleProperties.printfBufferSize});
+    return ReturnValue(size_t{ZeDeviceKernelProperties.printfBufferSize});
   case PI_DEVICE_INFO_PROFILE:
     return ReturnValue("FULL_PROFILE");
   case PI_DEVICE_INFO_BUILT_IN_KERNELS:
@@ -947,8 +897,7 @@ pi_result piDeviceGetInfo(pi_device Device, pi_device_info ParamName,
   case PI_DEVICE_INFO_ENDIAN_LITTLE:
     return ReturnValue(pi_bool{true});
   case PI_DEVICE_INFO_ERROR_CORRECTION_SUPPORT:
-    return ReturnValue(pi_bool{Device->ZeDeviceProperties.flags &
-                               ZE_DEVICE_PROPERTY_FLAG_ECC});
+    return ReturnValue(pi_bool{Device->ZeDeviceProperties.eccMemorySupported});
   case PI_DEVICE_INFO_PROFILING_TIMER_RESOLUTION:
     return ReturnValue(size_t{Device->ZeDeviceProperties.timerResolution});
   case PI_DEVICE_INFO_LOCAL_MEM_TYPE:
@@ -961,16 +910,15 @@ pi_result piDeviceGetInfo(pi_device Device, pi_device_info ParamName,
     return ReturnValue(PI_DEVICE_MEM_CACHE_TYPE_READ_WRITE_CACHE);
   case PI_DEVICE_INFO_GLOBAL_MEM_CACHELINE_SIZE:
     return ReturnValue(
-        // TODO[1.0]: how to query cache line-size?
-        pi_uint32{1});
+        pi_uint32{ZeDeviceCacheProperties.lastLevelCachelineSize});
   case PI_DEVICE_INFO_GLOBAL_MEM_CACHE_SIZE:
-    return ReturnValue(pi_uint64{ZeDeviceCacheProperties.cacheSize});
+    return ReturnValue(pi_uint64{ZeDeviceCacheProperties.lastLevelCacheSize});
   case PI_DEVICE_INFO_MAX_PARAMETER_SIZE:
-    return ReturnValue(size_t{ZeDeviceModuleProperties.maxArgumentsSize});
+    return ReturnValue(size_t{ZeDeviceKernelProperties.maxArgumentsSize});
   case PI_DEVICE_INFO_MEM_BASE_ADDR_ALIGN:
     // SYCL/OpenCL spec is vague on what this means exactly, but seems to
     // be for "alignment requirement (in bits) for sub-buffer offsets."
-    // An OpenCL implementation returns 8*128, but Level Zero can do just 8,
+    // An OpenCL implementation returns 8*128, but L0 can do just 8,
     // meaning unaligned access for values of types larger than 8 bits.
     return ReturnValue(pi_uint32{8});
   case PI_DEVICE_INFO_MAX_SAMPLERS:
@@ -981,72 +929,72 @@ pi_result piDeviceGetInfo(pi_device Device, pi_device_info ParamName,
     return ReturnValue(pi_uint32{ZeDeviceImageProperties.maxWriteImageArgs});
   case PI_DEVICE_INFO_SINGLE_FP_CONFIG: {
     uint64_t SingleFPValue = 0;
-    ze_device_fp_flags_t ZeSingleFPCapabilities =
-        ZeDeviceModuleProperties.fp32flags;
-    if (ZE_DEVICE_FP_FLAG_DENORM & ZeSingleFPCapabilities) {
+    ze_fp_capabilities_t ZeSingleFPCapabilities =
+        ZeDeviceKernelProperties.singleFpCapabilities;
+    if (ZE_FP_CAPS_DENORM & ZeSingleFPCapabilities) {
       SingleFPValue |= PI_FP_DENORM;
     }
-    if (ZE_DEVICE_FP_FLAG_INF_NAN & ZeSingleFPCapabilities) {
+    if (ZE_FP_CAPS_INF_NAN & ZeSingleFPCapabilities) {
       SingleFPValue |= PI_FP_INF_NAN;
     }
-    if (ZE_DEVICE_FP_FLAG_ROUND_TO_NEAREST & ZeSingleFPCapabilities) {
+    if (ZE_FP_CAPS_ROUND_TO_NEAREST & ZeSingleFPCapabilities) {
       SingleFPValue |= PI_FP_ROUND_TO_NEAREST;
     }
-    if (ZE_DEVICE_FP_FLAG_ROUND_TO_ZERO & ZeSingleFPCapabilities) {
+    if (ZE_FP_CAPS_ROUND_TO_ZERO & ZeSingleFPCapabilities) {
       SingleFPValue |= PI_FP_ROUND_TO_ZERO;
     }
-    if (ZE_DEVICE_FP_FLAG_ROUND_TO_INF & ZeSingleFPCapabilities) {
+    if (ZE_FP_CAPS_ROUND_TO_INF & ZeSingleFPCapabilities) {
       SingleFPValue |= PI_FP_ROUND_TO_INF;
     }
-    if (ZE_DEVICE_FP_FLAG_FMA & ZeSingleFPCapabilities) {
+    if (ZE_FP_CAPS_FMA & ZeSingleFPCapabilities) {
       SingleFPValue |= PI_FP_FMA;
     }
     return ReturnValue(pi_uint64{SingleFPValue});
   }
   case PI_DEVICE_INFO_HALF_FP_CONFIG: {
     uint64_t HalfFPValue = 0;
-    ze_device_fp_flags_t ZeHalfFPCapabilities =
-        ZeDeviceModuleProperties.fp16flags;
-    if (ZE_DEVICE_FP_FLAG_DENORM & ZeHalfFPCapabilities) {
+    ze_fp_capabilities_t ZeHalfFPCapabilities =
+        ZeDeviceKernelProperties.halfFpCapabilities;
+    if (ZE_FP_CAPS_DENORM & ZeHalfFPCapabilities) {
       HalfFPValue |= PI_FP_DENORM;
     }
-    if (ZE_DEVICE_FP_FLAG_INF_NAN & ZeHalfFPCapabilities) {
+    if (ZE_FP_CAPS_INF_NAN & ZeHalfFPCapabilities) {
       HalfFPValue |= PI_FP_INF_NAN;
     }
-    if (ZE_DEVICE_FP_FLAG_ROUND_TO_NEAREST & ZeHalfFPCapabilities) {
+    if (ZE_FP_CAPS_ROUND_TO_NEAREST & ZeHalfFPCapabilities) {
       HalfFPValue |= PI_FP_ROUND_TO_NEAREST;
     }
-    if (ZE_DEVICE_FP_FLAG_ROUND_TO_ZERO & ZeHalfFPCapabilities) {
+    if (ZE_FP_CAPS_ROUND_TO_ZERO & ZeHalfFPCapabilities) {
       HalfFPValue |= PI_FP_ROUND_TO_ZERO;
     }
-    if (ZE_DEVICE_FP_FLAG_ROUND_TO_INF & ZeHalfFPCapabilities) {
+    if (ZE_FP_CAPS_ROUND_TO_INF & ZeHalfFPCapabilities) {
       HalfFPValue |= PI_FP_ROUND_TO_INF;
     }
-    if (ZE_DEVICE_FP_FLAG_FMA & ZeHalfFPCapabilities) {
+    if (ZE_FP_CAPS_FMA & ZeHalfFPCapabilities) {
       HalfFPValue |= PI_FP_FMA;
     }
     return ReturnValue(pi_uint64{HalfFPValue});
   }
   case PI_DEVICE_INFO_DOUBLE_FP_CONFIG: {
     uint64_t DoubleFPValue = 0;
-    ze_device_fp_flags_t ZeDoubleFPCapabilities =
-        ZeDeviceModuleProperties.fp64flags;
-    if (ZE_DEVICE_FP_FLAG_DENORM & ZeDoubleFPCapabilities) {
+    ze_fp_capabilities_t ZeDoubleFPCapabilities =
+        ZeDeviceKernelProperties.doubleFpCapabilities;
+    if (ZE_FP_CAPS_DENORM & ZeDoubleFPCapabilities) {
       DoubleFPValue |= PI_FP_DENORM;
     }
-    if (ZE_DEVICE_FP_FLAG_INF_NAN & ZeDoubleFPCapabilities) {
+    if (ZE_FP_CAPS_INF_NAN & ZeDoubleFPCapabilities) {
       DoubleFPValue |= PI_FP_INF_NAN;
     }
-    if (ZE_DEVICE_FP_FLAG_ROUND_TO_NEAREST & ZeDoubleFPCapabilities) {
+    if (ZE_FP_CAPS_ROUND_TO_NEAREST & ZeDoubleFPCapabilities) {
       DoubleFPValue |= PI_FP_ROUND_TO_NEAREST;
     }
-    if (ZE_DEVICE_FP_FLAG_ROUND_TO_ZERO & ZeDoubleFPCapabilities) {
+    if (ZE_FP_CAPS_ROUND_TO_ZERO & ZeDoubleFPCapabilities) {
       DoubleFPValue |= PI_FP_ROUND_TO_ZERO;
     }
-    if (ZE_DEVICE_FP_FLAG_ROUND_TO_INF & ZeDoubleFPCapabilities) {
+    if (ZE_FP_CAPS_ROUND_TO_INF & ZeDoubleFPCapabilities) {
       DoubleFPValue |= PI_FP_ROUND_TO_INF;
     }
-    if (ZE_DEVICE_FP_FLAG_FMA & ZeDoubleFPCapabilities) {
+    if (ZE_FP_CAPS_FMA & ZeDoubleFPCapabilities) {
       DoubleFPValue |= PI_FP_FMA;
     }
     return ReturnValue(pi_uint64{DoubleFPValue});
@@ -1055,36 +1003,36 @@ pi_result piDeviceGetInfo(pi_device Device, pi_device_info ParamName,
 #if INTEL_CUSTOMIZATION
     // TODO: https://gitlab.devtools.intel.com/one-api/level_zero/issues/288
 #endif // INTEL_CUSTOMIZATION
-    // Until Level Zero provides needed info, hardcode default minimum values
-    // required by the SYCL specification.
+    // Until L0 provides needed info, hardcode default minimum values required
+    // by the SYCL specification.
     return ReturnValue(size_t{8192});
   case PI_DEVICE_INFO_IMAGE2D_MAX_HEIGHT:
 #if INTEL_CUSTOMIZATION
     // TODO: https://gitlab.devtools.intel.com/one-api/level_zero/issues/288
 #endif // INTEL_CUSTOMIZATION
-    // Until Level Zero provides needed info, hardcode default minimum values
-    // required by the SYCL specification.
+    // Until L0 provides needed info, hardcode default minimum values required
+    // by the SYCL specification.
     return ReturnValue(size_t{8192});
   case PI_DEVICE_INFO_IMAGE3D_MAX_WIDTH:
 #if INTEL_CUSTOMIZATION
     // TODO: https://gitlab.devtools.intel.com/one-api/level_zero/issues/288
 #endif // INTEL_CUSTOMIZATION
-    // Until Level Zero provides needed info, hardcode default minimum values
-    // required by the SYCL specification.
+    // Until L0 provides needed info, hardcode default minimum values required
+    // by the SYCL specification.
     return ReturnValue(size_t{2048});
   case PI_DEVICE_INFO_IMAGE3D_MAX_HEIGHT:
 #if INTEL_CUSTOMIZATION
     // TODO: https://gitlab.devtools.intel.com/one-api/level_zero/issues/288
 #endif // INTEL_CUSTOMIZATION
-    // Until Level Zero provides needed info, hardcode default minimum values
-    // required by the SYCL specification.
+    // Until L0 provides needed info, hardcode default minimum values required
+    // by the SYCL specification.
     return ReturnValue(size_t{2048});
   case PI_DEVICE_INFO_IMAGE3D_MAX_DEPTH:
 #if INTEL_CUSTOMIZATION
     // TODO: https://gitlab.devtools.intel.com/one-api/level_zero/issues/288
 #endif // INTEL_CUSTOMIZATION
-    // Until Level Zero provides needed info, hardcode default minimum values
-    // required by the SYCL specification.
+    // Until L0 provides needed info, hardcode default minimum values required
+    // by the SYCL specification.
     return ReturnValue(size_t{2048});
   case PI_DEVICE_INFO_IMAGE_MAX_BUFFER_SIZE:
     return ReturnValue(size_t{ZeDeviceImageProperties.maxImageBufferSize});
@@ -1138,17 +1086,16 @@ pi_result piDeviceGetInfo(pi_device Device, pi_device_info ParamName,
   case PI_DEVICE_INFO_SUB_GROUP_SIZES_INTEL: {
     // ze_device_compute_properties.subGroupSizes is in uint32_t whereas the
     // expected return is size_t datatype. size_t can be 8 bytes of data.
-    return getInfoArray<uint32_t, size_t>(
-        Device->ZeDeviceComputeProperties.numSubGroupSizes, ParamValueSize,
-        ParamValue, ParamValueSizeRet,
-        Device->ZeDeviceComputeProperties.subGroupSizes);
+    return getInfoArray(Device->ZeDeviceComputeProperties.numSubGroupSizes,
+                        ParamValueSize, ParamValue, ParamValueSizeRet,
+                        Device->ZeDeviceComputeProperties.subGroupSizes);
   }
   case PI_DEVICE_INFO_IL_VERSION: {
     // Set to a space separated list of IL version strings of the form
     // <IL_Prefix>_<Major_version>.<Minor_version>.
     // "SPIR-V" is a required IL prefix when cl_khr_il_progam extension is
     // reported.
-    uint32_t SpirvVersion = ZeDeviceModuleProperties.spirvVersionSupported;
+    uint32_t SpirvVersion = ZeDeviceKernelProperties.spirvVersionSupported;
     uint32_t SpirvVersionMajor = ZE_MAJOR_VERSION(SpirvVersion);
     uint32_t SpirvVersionMinor = ZE_MINOR_VERSION(SpirvVersion);
 
@@ -1165,8 +1112,7 @@ pi_result piDeviceGetInfo(pi_device Device, pi_device_info ParamName,
   case PI_DEVICE_INFO_USM_CROSS_SHARED_SUPPORT:
   case PI_DEVICE_INFO_USM_SYSTEM_SHARED_SUPPORT: {
     pi_uint64 Supported = 0;
-    // TODO[1.0]: how to query for USM support now?
-    if (true) {
+    if (Device->ZeDeviceProperties.unifiedMemorySupported) {
       // TODO: Use ze_memory_access_capabilities_t
       Supported = PI_USM_ACCESS | PI_USM_ATOMIC_ACCESS |
                   PI_USM_CONCURRENT_ACCESS | PI_USM_CONCURRENT_ATOMIC_ACCESS;
@@ -1186,7 +1132,7 @@ pi_result piDevicePartition(pi_device Device,
                             const pi_device_partition_property *Properties,
                             pi_uint32 NumDevices, pi_device *OutDevices,
                             pi_uint32 *OutNumDevices) {
-  // Other partitioning ways are not supported by Level Zero
+  // Other partitioning ways are not supported by L0
   if (Properties[0] != PI_DEVICE_PARTITION_BY_AFFINITY_DOMAIN ||
       Properties[1] != PI_DEVICE_AFFINITY_DOMAIN_NEXT_PARTITIONABLE) {
     return PI_INVALID_VALUE;
@@ -1220,7 +1166,7 @@ pi_result piDevicePartition(pi_device Device,
     auto ZeSubdevices = new ze_device_handle_t[Count];
     ZE_CALL(zeDeviceGetSubDevices(Device->ZeDevice, &Count, ZeSubdevices));
 
-    // Wrap the Level Zero sub-devices into PI sub-devices, and write them out.
+    // Wrap the L0 sub-devices into PI sub-devices, and write them out.
     for (uint32_t I = 0; I < Count; ++I) {
       OutDevices[I] = new _pi_device(ZeSubdevices[I], Device->Platform,
                                      true /* isSubDevice */);
@@ -1264,7 +1210,7 @@ pi_result piextDeviceGetNativeHandle(pi_device Device,
   assert(NativeHandle);
 
   auto ZeDevice = pi_cast<ze_device_handle_t *>(NativeHandle);
-  // Extract the Level Zero module handle from the given PI device
+  // Extract the L0 module handle from the given PI device
   *ZeDevice = Device->ZeDevice;
   return PI_SUCCESS;
 }
@@ -1276,7 +1222,7 @@ pi_result piextDeviceCreateWithNativeHandle(pi_native_handle NativeHandle,
   assert(Device);
   assert(Platform);
 
-  // Create PI device from the given Level Zero device handle.
+  // Create PI device from the given L0 device handle.
   auto ZeDevice = pi_cast<ze_device_handle_t>(NativeHandle);
   *Device = new _pi_device(ZeDevice, Platform);
   return (*Device)->initialize();
@@ -1289,7 +1235,7 @@ pi_result piContextCreate(const pi_context_properties *Properties,
                                             void *UserData),
                           void *UserData, pi_context *RetContext) {
 
-  // Level Zero does not have notion of contexts.
+  // L0 does not have notion of contexts.
   // Return the device handle (only single device is allowed) as a context
   // handle.
   if (NumDevices != 1) {
@@ -1389,12 +1335,12 @@ pi_result piQueueCreate(pi_context Context, pi_device Device,
   assert(Device);
   ZeDevice = Device->ZeDevice;
   ze_command_queue_desc_t ZeCommandQueueDesc = {};
-  ZeCommandQueueDesc.ordinal = Device->ZeComputeQueueGroupIndex;
-  ZeCommandQueueDesc.index = 0;
+  ZeCommandQueueDesc.version = ZE_COMMAND_QUEUE_DESC_VERSION_CURRENT;
+  ZeCommandQueueDesc.ordinal = 0;
   ZeCommandQueueDesc.mode = ZE_COMMAND_QUEUE_MODE_ASYNCHRONOUS;
 
   ZE_CALL(
-      zeCommandQueueCreate(Context->Device->Platform->ZeContext, ZeDevice,
+      zeCommandQueueCreate(ZeDevice,
                            &ZeCommandQueueDesc, // TODO: translate properties
                            &ZeCommandQueue));
 
@@ -1468,7 +1414,7 @@ pi_result piextQueueGetNativeHandle(pi_queue Queue,
   assert(NativeHandle);
 
   auto ZeQueue = pi_cast<ze_command_queue_handle_t *>(NativeHandle);
-  // Extract the Level Zero queue handle from the given PI queue
+  // Extract the L0 queue handle from the given PI queue
   *ZeQueue = Queue->ZeCommandQueue;
   return PI_SUCCESS;
 }
@@ -1497,18 +1443,18 @@ pi_result piMemBufferCreate(pi_context Context, pi_mem_flags Flags, size_t Size,
   ze_device_handle_t ZeDevice = Context->Device->ZeDevice;
 
   ze_device_mem_alloc_desc_t ZeDesc = {};
-  ZeDesc.flags = 0;
+  ZeDesc.flags = ZE_DEVICE_MEM_ALLOC_FLAG_DEFAULT;
   ZeDesc.ordinal = 0;
-  ZE_CALL(zeMemAllocDevice(Context->Device->Platform->ZeContext, &ZeDesc, Size,
-                           1, // TODO: alignment
-                           ZeDevice, &Ptr));
+  ZE_CALL(zeDriverAllocDeviceMem(Context->Device->Platform->ZeDriver, &ZeDesc,
+                                 Size,
+                                 1, // TODO: alignment
+                                 ZeDevice, &Ptr));
 
   if ((Flags & PI_MEM_FLAGS_HOST_PTR_USE) != 0 ||
       (Flags & PI_MEM_FLAGS_HOST_PTR_COPY) != 0) {
     // Initialize the buffer synchronously with immediate offload
     ZE_CALL(zeCommandListAppendMemoryCopy(Context->Device->ZeCommandListInit,
-                                          Ptr, HostPtr, Size, nullptr, 0,
-                                          nullptr));
+                                          Ptr, HostPtr, Size, nullptr));
   } else if (Flags == 0 || (Flags == PI_MEM_FLAGS_ACCESS_RW)) {
     // Nothing more to do.
   } else {
@@ -1518,9 +1464,9 @@ pi_result piMemBufferCreate(pi_context Context, pi_mem_flags Flags, size_t Size,
   auto HostPtrOrNull =
       (Flags & PI_MEM_FLAGS_HOST_PTR_USE) ? pi_cast<char *>(HostPtr) : nullptr;
   try {
-    *RetMem = new _pi_buffer(
-        Context->Device->Platform,
-        pi_cast<char *>(Ptr) /* Level Zero Memory Handle */, HostPtrOrNull);
+    *RetMem = new _pi_buffer(Context->Device->Platform,
+                             pi_cast<char *>(Ptr) /* L0 Memory Handle */,
+                             HostPtrOrNull);
   } catch (const std::bad_alloc &) {
     return PI_OUT_OF_HOST_MEMORY;
   } catch (...) {
@@ -1552,7 +1498,7 @@ pi_result piMemRelease(pi_mem Mem) {
     } else {
       auto Buf = static_cast<_pi_buffer *>(Mem);
       if (!Buf->isSubBuffer()) {
-        ZE_CALL(zeMemFree(Mem->Platform->ZeContext, Mem->getZeHandle()));
+        ZE_CALL(zeDriverFreeMem(Mem->Platform->ZeDriver, Mem->getZeHandle()));
       }
     }
     delete Mem;
@@ -1653,7 +1599,7 @@ pi_result piMemImageCreate(pi_context Context, pi_mem_flags Flags,
     break;
   }
 
-  ze_image_format_t ZeFormatDesc = {
+  ze_image_format_desc_t ZeFormatDesc = {
       ZeImageFormatLayout, ZeImageFormatType,
       // TODO: are swizzles deducted from image_format->image_channel_order?
       ZE_IMAGE_FORMAT_SWIZZLE_R, ZE_IMAGE_FORMAT_SWIZZLE_G,
@@ -1681,19 +1627,20 @@ pi_result piMemImageCreate(pi_context Context, pi_mem_flags Flags,
     return PI_INVALID_VALUE;
   }
 
-  ze_image_desc_t ZeImageDesc = {};
-  ZeImageDesc.arraylevels = ZeImageDesc.flags = 0;
-  ZeImageDesc.type = ZeImageType;
-  ZeImageDesc.format = ZeFormatDesc;
-  ZeImageDesc.width = pi_cast<uint32_t>(ImageDesc->image_width);
-  ZeImageDesc.height = pi_cast<uint32_t>(ImageDesc->image_height);
-  ZeImageDesc.depth = pi_cast<uint32_t>(ImageDesc->image_depth);
-  ZeImageDesc.arraylevels = pi_cast<uint32_t>(ImageDesc->image_array_size);
-  ZeImageDesc.miplevels = ImageDesc->num_mip_levels;
+  ze_image_desc_t ZeImageDesc = {
+      ZE_IMAGE_DESC_VERSION_CURRENT,
+      pi_cast<ze_image_flag_t>(ZE_IMAGE_FLAG_PROGRAM_READ |
+                               ZE_IMAGE_FLAG_PROGRAM_WRITE),
+      ZeImageType,
+      ZeFormatDesc,
+      pi_cast<uint32_t>(ImageDesc->image_width),
+      pi_cast<uint32_t>(ImageDesc->image_height),
+      pi_cast<uint32_t>(ImageDesc->image_depth),
+      pi_cast<uint32_t>(ImageDesc->image_array_size),
+      ImageDesc->num_mip_levels};
 
   ze_image_handle_t ZeHImage;
-  ZE_CALL(zeImageCreate(Context->Device->Platform->ZeContext,
-                        Context->Device->ZeDevice, &ZeImageDesc, &ZeHImage));
+  ZE_CALL(zeImageCreate(Context->Device->ZeDevice, &ZeImageDesc, &ZeHImage));
 
   auto HostPtrOrNull =
       (Flags & PI_MEM_FLAGS_HOST_PTR_USE) ? pi_cast<char *>(HostPtr) : nullptr;
@@ -1711,7 +1658,7 @@ pi_result piMemImageCreate(pi_context Context, pi_mem_flags Flags,
       // Initialize image synchronously with immediate offload
       ZE_CALL(zeCommandListAppendImageCopyFromMemory(
           Context->Device->ZeCommandListInit, ZeHImage, HostPtr, nullptr,
-          nullptr, 0, nullptr));
+          nullptr));
     }
 
     *RetImage = ZePIImage;
@@ -1739,12 +1686,12 @@ pi_result piProgramCreate(pi_context Context, const void *IL, size_t Length,
 
   assert(Context);
   assert(Program);
-
-  // NOTE: the Level Zero module creation is also building the program, so we
-  // are deferring it until the program is ready to be built in piProgramBuild
+  // NOTE: the L0 module creation is also building the program, so we are
+  // deferring it until the program is ready to be built in piProgramBuild
   // and piProgramCompile. Also it is only then we know the build options.
   //
   ze_module_desc_t ZeModuleDesc = {};
+  ZeModuleDesc.version = ZE_MODULE_DESC_VERSION_CURRENT;
   ZeModuleDesc.format = ZE_MODULE_FORMAT_IL_SPIRV;
   ZeModuleDesc.inputSize = Length;
   ZeModuleDesc.pInputModule = new uint8_t[Length];
@@ -1780,6 +1727,7 @@ pi_result piProgramCreateWithBinary(pi_context Context, pi_uint32 NumDevices,
   auto Binary = pi_cast<const uint8_t *>(Binaries[0]);
 
   ze_module_desc_t ZeModuleDesc = {};
+  ZeModuleDesc.version = ZE_MODULE_DESC_VERSION_CURRENT;
   ZeModuleDesc.format = ZE_MODULE_FORMAT_NATIVE;
   ZeModuleDesc.inputSize = Length;
   ZeModuleDesc.pInputModule = new uint8_t[Length];
@@ -1804,7 +1752,7 @@ pi_result piclProgramCreateWithSource(pi_context Context, pi_uint32 Count,
                                       const size_t *Lengths,
                                       pi_program *RetProgram) {
 
-  zePrint("piclProgramCreateWithSource: not supported in Level Zero\n");
+  zePrint("piclProgramCreateWithSource: not supported in L0\n");
   return PI_INVALID_OPERATION;
 }
 
@@ -1818,7 +1766,7 @@ pi_result piProgramGetInfo(pi_program Program, pi_program_info ParamName,
   case PI_PROGRAM_INFO_REFERENCE_COUNT:
     return ReturnValue(pi_uint32{Program->RefCount});
   case PI_PROGRAM_INFO_NUM_DEVICES:
-    // Level Zero Module is always for a single device.
+    // L0 Module is always for a single device.
     return ReturnValue(pi_uint32{1});
   case PI_PROGRAM_INFO_DEVICES:
     return ReturnValue(Program->Context->Device);
@@ -1842,7 +1790,7 @@ pi_result piProgramGetInfo(pi_program Program, pi_program_info ParamName,
   case PI_PROGRAM_INFO_KERNEL_NAMES:
     try {
       // There are extra allocations/copying here dictated by the difference
-      // in Level Zero and PI interfaces.
+      // in L0 and PI interfaces.
       // https://gitlab.devtools.intel.com/one-api/level_zero/issues/305. // INTEL
       uint32_t Count = 0;
       ZE_CALL(zeModuleGetKernelNames(Program->ZeModule, &Count, nullptr));
@@ -1874,9 +1822,7 @@ pi_result piProgramLink(pi_context Context, pi_uint32 NumDevices,
                         const pi_program *InputPrograms,
                         void (*PFnNotify)(pi_program Program, void *UserData),
                         void *UserData, pi_program *RetProgram) {
-
-  // TODO: Level Zero does not [yet] support linking so dummy implementation
-  // here.
+  // TODO: L0 does not [yet] support linking so dummy implementation here.
   assert(NumInputPrograms == 1 && InputPrograms);
   assert(RetProgram);
   *RetProgram = InputPrograms[0];
@@ -1893,7 +1839,7 @@ pi_result piProgramCompile(
   assert(NumInputHeaders == 0);
   assert(!InputHeaders);
 
-  // There is no support for linking yet in Level Zero so "compile" actually
+  // There is no support foe linking yet in L0 so "compile" actually
   // does the "build".
   return piProgramBuild(Program, NumDevices, DeviceList, Options, PFnNotify,
                         UserData);
@@ -1929,8 +1875,7 @@ pi_result piProgramBuild(pi_program Program, pi_uint32 NumDevices,
       ZeSpecContantsValuesIt++;
     }
     ZeSpecConstants.pConstantIds = ZeSpecContantsIds.data();
-    ZeSpecConstants.pConstantValues = const_cast<const void **>(
-        reinterpret_cast<void **>(ZeSpecContantsValues.data()));
+    ZeSpecConstants.pConstantValues = ZeSpecContantsValues.data();
   }
 
   // Complete the module's descriptor
@@ -1938,10 +1883,8 @@ pi_result piProgramBuild(pi_program Program, pi_uint32 NumDevices,
   Program->ZeModuleDesc.pConstants = &ZeSpecConstants;
 
   ze_device_handle_t ZeDevice = Program->Context->Device->ZeDevice;
-  ZE_CALL(zeModuleCreate(Program->Context->Device->Platform->ZeContext,
-                         ZeDevice, &Program->ZeModuleDesc, &Program->ZeModule,
+  ZE_CALL(zeModuleCreate(ZeDevice, &Program->ZeModuleDesc, &Program->ZeModule,
                          &Program->ZeBuildLog));
-
   return PI_SUCCESS;
 }
 
@@ -1952,14 +1895,14 @@ pi_result piProgramGetBuildInfo(pi_program Program, pi_device Device,
 
   ReturnHelper ReturnValue(ParamValueSize, ParamValue, ParamValueSizeRet);
   if (ParamName == CL_PROGRAM_BINARY_TYPE) {
-    // TODO: is this the only supported binary type in Level Zero?
+    // TODO: is this the only supported binary type in L0?
     // We should probably return CL_PROGRAM_BINARY_TYPE_NONE if asked
     // before the program was compiled.
     return ReturnValue(
         cl_program_binary_type{CL_PROGRAM_BINARY_TYPE_EXECUTABLE});
   }
   if (ParamName == CL_PROGRAM_BUILD_OPTIONS) {
-    // TODO: how to get module build options out of Level Zero?
+    // TODO: how to get module build options out of L0?
     // For the programs that we compiled we can remember the options
     // passed with piProgramCompile/piProgramBuild, but what can we
     // return for programs that were built outside and registered
@@ -1993,7 +1936,7 @@ pi_result piProgramRelease(pi_program Program) {
     delete[] Program->ZeModuleDesc.pInputModule;
     if (Program->ZeBuildLog)
       zeModuleBuildLogDestroy(Program->ZeBuildLog);
-    // TODO: call zeModuleDestroy for non-interop Level Zero modules
+    // TODO: call zeModuleDestroy for non-interop L0 modules
     delete Program;
   }
   return PI_SUCCESS;
@@ -2005,7 +1948,7 @@ pi_result piextProgramGetNativeHandle(pi_program Program,
   assert(NativeHandle);
 
   auto ZeModule = pi_cast<ze_module_handle_t *>(NativeHandle);
-  // Extract the Level Zero module handle from the given PI program
+  // Extract the L0 module handle from the given PI program
   *ZeModule = Program->ZeModule;
   return PI_SUCCESS;
 }
@@ -2019,13 +1962,14 @@ pi_result piextProgramCreateWithNativeHandle(pi_native_handle NativeHandle,
 
   auto ZeModule = pi_cast<ze_module_handle_t>(NativeHandle);
 
-  // Create PI program from the given Level Zero module handle.
+  // Create PI program from the given L0 module handle.
   //
-  // TODO: We don't have the real Level Zero module descriptor with
+  // TODO: We don't have the real L0 module descriptor with
   // which it was created, but that's only needed for zeModuleCreate,
   // which we don't expect to be called on the interop program.
   //
   ze_module_desc_t ZeModuleDesc = {};
+  ZeModuleDesc.version = ZE_MODULE_DESC_VERSION_CURRENT;
   ZeModuleDesc.format = ZE_MODULE_FORMAT_NATIVE;
   ZeModuleDesc.inputSize = 0;
   ZeModuleDesc.pInputModule = nullptr;
@@ -2047,7 +1991,8 @@ pi_result piKernelCreate(pi_program Program, const char *KernelName,
   assert(RetKernel);
   assert(KernelName);
   ze_kernel_desc_t ZeKernelDesc = {};
-  ZeKernelDesc.flags = 0;
+  ZeKernelDesc.version = ZE_KERNEL_DESC_VERSION_CURRENT;
+  ZeKernelDesc.flags = ZE_KERNEL_FLAG_NONE;
   ZeKernelDesc.pKernelName = KernelName;
 
   ze_kernel_handle_t ZeKernel;
@@ -2121,7 +2066,8 @@ pi_result piKernelGetInfo(pi_kernel Kernel, pi_kernel_info ParamName,
                           size_t ParamValueSize, void *ParamValue,
                           size_t *ParamValueSizeRet) {
   assert(Kernel);
-  ze_kernel_properties_t ZeKernelProperties = {};
+  ze_kernel_properties_t ZeKernelProperties;
+  ZeKernelProperties.version = ZE_KERNEL_PROPERTIES_VERSION_CURRENT;
   ZE_CALL(zeKernelGetProperties(Kernel->ZeKernel, &ZeKernelProperties));
 
   ReturnHelper ReturnValue(ParamValueSize, ParamValue, ParamValueSizeRet);
@@ -2131,9 +2077,9 @@ pi_result piKernelGetInfo(pi_kernel Kernel, pi_kernel_info ParamName,
   case PI_KERNEL_INFO_PROGRAM:
     return ReturnValue(pi_program{Kernel->Program});
   case PI_KERNEL_INFO_FUNCTION_NAME:
-    // TODO: Replace with the line in the comment once bug in the Level Zero
-    // driver will be fixed. Problem is that currently Level Zero driver
-    // truncates name of the returned kernel if it is longer than 256 symbols.
+    // TODO: Replace with the line in the comment once bug in the L0 driver will
+    // be fixed. Problem is that currently L0 driver truncates name of the
+    // returned kernel if it is longer than 256 symbols.
 #if INTEL_CUSTOMIZATION
     // Details:
     // https://gitlab.devtools.intel.com/one-api/level_zero_gpu_driver/issues/72
@@ -2148,10 +2094,12 @@ pi_result piKernelGetInfo(pi_kernel Kernel, pi_kernel_info ParamName,
   case PI_KERNEL_INFO_ATTRIBUTES:
     try {
       uint32_t Size;
-      ZE_CALL(zeKernelGetSourceAttributes(Kernel->ZeKernel, &Size, nullptr));
+      ZE_CALL(zeKernelGetAttribute(
+          Kernel->ZeKernel, ZE_KERNEL_ATTR_SOURCE_ATTRIBUTE, &Size, nullptr));
       char *attributes = new char[Size];
-      ZE_CALL(
-          zeKernelGetSourceAttributes(Kernel->ZeKernel, &Size, &attributes));
+      ZE_CALL(zeKernelGetAttribute(Kernel->ZeKernel,
+                                   ZE_KERNEL_ATTR_SOURCE_ATTRIBUTE, &Size,
+                                   attributes));
       auto Res = ReturnValue(attributes);
       delete[] attributes;
       return Res;
@@ -2176,10 +2124,13 @@ pi_result piKernelGetGroupInfo(pi_kernel Kernel, pi_device Device,
   assert(Kernel);
   assert(Device);
   ze_device_handle_t ZeDevice = Device->ZeDevice;
-  ze_device_compute_properties_t ZeDeviceComputeProperties = {};
+  ze_device_compute_properties_t ZeDeviceComputeProperties;
+  ZeDeviceComputeProperties.version =
+      ZE_DEVICE_COMPUTE_PROPERTIES_VERSION_CURRENT;
   ZE_CALL(zeDeviceGetComputeProperties(ZeDevice, &ZeDeviceComputeProperties));
 
-  ze_kernel_properties_t ZeKernelProperties = {};
+  ze_kernel_properties_t ZeKernelProperties;
+  ZeKernelProperties.version = ZE_KERNEL_PROPERTIES_VERSION_CURRENT;
   ZE_CALL(zeKernelGetProperties(Kernel->ZeKernel, &ZeKernelProperties));
 
   ReturnHelper ReturnValue(ParamValueSize, ParamValue, ParamValueSizeRet);
@@ -2207,16 +2158,24 @@ pi_result piKernelGetGroupInfo(pi_kernel Kernel, pi_device Device,
                  ZeKernelProperties.requiredGroupSizeZ}};
     return ReturnValue(WgSize);
   }
-  case PI_KERNEL_GROUP_INFO_LOCAL_MEM_SIZE:
-    return ReturnValue(pi_uint32{ZeKernelProperties.localMemSize});
+  case PI_KERNEL_GROUP_INFO_LOCAL_MEM_SIZE: {
+    // TODO: Assume 0 for now, replace with ze_kernel_properties_t::localMemSize
+    // once released in RT.
+    // https://gitlab.devtools.intel.com/one-api/level_zero/issues/285 // INTEL
+    return ReturnValue(pi_uint32{0});
+  }
   case PI_KERNEL_GROUP_INFO_PREFERRED_WORK_GROUP_SIZE_MULTIPLE: {
-    ze_device_properties_t ZeDeviceProperties = {};
+    ze_device_properties_t ZeDeviceProperties;
+    ZeDeviceProperties.version = ZE_DEVICE_PROPERTIES_VERSION_CURRENT;
     ZE_CALL(zeDeviceGetProperties(ZeDevice, &ZeDeviceProperties));
 
     return ReturnValue(size_t{ZeDeviceProperties.physicalEUSimdWidth});
   }
   case PI_KERNEL_GROUP_INFO_PRIVATE_MEM_SIZE:
-    return ReturnValue(pi_uint32{ZeKernelProperties.privateMemSize});
+    // TODO: Assume 0 for now, replace with
+    // ze_kernel_properties_t::privateMemSize once released in RT.
+    // https://gitlab.devtools.intel.com/one-api/level_zero/issues/285 // INTEL
+    return ReturnValue(pi_uint32{0});
   default:
     zePrint("Unknown ParamName in piKernelGetGroupInfo: ParamName=%d(0x%x)\n",
             ParamName, ParamName);
@@ -2225,30 +2184,30 @@ pi_result piKernelGetGroupInfo(pi_kernel Kernel, pi_device Device,
   return PI_SUCCESS;
 }
 
-pi_result piKernelGetSubGroupInfo(pi_kernel Kernel, pi_device Device,
-                                  pi_kernel_sub_group_info ParamName,
-                                  size_t InputValueSize, const void *InputValue,
-                                  size_t ParamValueSize, void *ParamValue,
-                                  size_t *ParamValueSizeRet) {
+pi_result piKernelGetSubGroupInfo(
+    pi_kernel Kernel, pi_device Device,
+    pi_kernel_sub_group_info ParamName, // TODO: untie from OpenCL
+    size_t InputValueSize, const void *InputValue, size_t ParamValueSize,
+    void *ParamValue, size_t *ParamValueSizeRet) {
 
-  ze_kernel_properties_t ZeKernelProperties;
-  ZE_CALL(zeKernelGetProperties(Kernel->ZeKernel, &ZeKernelProperties));
-
-  ReturnHelper ReturnValue(ParamValueSize, ParamValue, ParamValueSizeRet);
-
-  if (ParamName == PI_KERNEL_MAX_SUB_GROUP_SIZE) {
-    ReturnValue(size_t{ZeKernelProperties.maxSubgroupSize});
-  } else if (ParamName == PI_KERNEL_MAX_NUM_SUB_GROUPS) {
-    ReturnValue(size_t{ZeKernelProperties.maxNumSubgroups});
-  } else if (ParamName == PI_KERNEL_COMPILE_NUM_SUB_GROUPS) {
-    ReturnValue(size_t{ZeKernelProperties.requiredNumSubGroups});
-  } else if (ParamName == PI_KERNEL_COMPILE_SUB_GROUP_SIZE_INTEL) {
-    ReturnValue(size_t{ZeKernelProperties.requiredSubgroupSize});
-  } else {
-    die("piKernelGetSubGroupInfo: parameter not implemented");
-    return {};
-  }
-  return PI_SUCCESS;
+#if INTEL_CUSTOMIZATION
+  // Uncomment the code below after the Level0 driver is updated to L0 spec
+  // 0.91.73. Tracked as a part of CMPLRXDEPS-8
+  // ze_kernel_properties_t ZeKernelProperties;
+  // ZE_CALL(zeKernelGetProperties(Kernel->L0Kernel, &ZeKernelProperties));
+  // if (ParamName == PI_KERNEL_MAX_SUB_GROUP_SIZE) {
+  //   SET_PARAM_VALUE(ZeKernelProperties.maxSubGroupSize);
+  // } else if (ParamName == PI_KERNEL_MAX_NUM_SUB_GROUPS) {
+  //   SET_PARAM_VALUE(ZeKernelProperties.maxNumSubgroups);
+  // } else if (ParamName == PI_KERNEL_COMPILE_NUM_SUB_GROUPS) {
+  //   SET_PARAM_VALUE(ZeKernelProperties.requiredNumSubGroups);
+  // } else if (ParamName == PI_KERNEL_COMPILE_SUB_GROUP_SIZE_INTEL) {
+  //   SET_PARAM_VALUE(ZeKernelProperties.requiredSubgroupSize);
+  // }
+  // return PI_SUCCESS;
+#endif // INTEL_CUSTOMIZATION
+  die("piKernelGetSubGroupInfo: not implemented");
+  return {};
 }
 
 pi_result piKernelRetain(pi_kernel Kernel) {
@@ -2348,8 +2307,6 @@ piEnqueueKernelLaunch(pi_queue Queue, pi_kernel Kernel, pi_uint32 WorkDim,
 
   ze_event_handle_t *ZeEventWaitList =
       _pi_event::createZeEventList(NumEventsInWaitList, EventWaitList);
-  if (!ZeEventWaitList)
-    return PI_OUT_OF_HOST_MEMORY;
 
   // Add the command to the command list
   ZE_CALL(zeCommandListAppendLaunchKernel(
@@ -2384,8 +2341,9 @@ pi_result piEventCreate(pi_context Context, pi_event *RetEvent) {
   ZE_CALL(Context->getFreeSlotInExistingOrNewPool(ZeEventPool, Index));
   ze_event_handle_t ZeEvent;
   ze_event_desc_t ZeEventDesc = {};
-  ZeEventDesc.signal = 0;
+  ZeEventDesc.signal = ZE_EVENT_SCOPE_FLAG_NONE;
   ZeEventDesc.wait = ZE_EVENT_SCOPE_FLAG_HOST;
+  ZeEventDesc.version = ZE_EVENT_DESC_VERSION_CURRENT;
   ZeEventDesc.index = Index;
 
   ZE_CALL(zeEventCreate(ZeEventPool, &ZeEventDesc, &ZeEvent));
@@ -2444,7 +2402,6 @@ pi_result piEventGetProfilingInfo(pi_event Event, pi_profiling_info ParamName,
                                   size_t ParamValueSize, void *ParamValue,
                                   size_t *ParamValueSizeRet) {
 
-#if 0
   assert(Event);
   uint64_t ZeTimerResolution =
       Event->Queue->Context->Device->ZeDeviceProperties.timerResolution;
@@ -2467,14 +2424,13 @@ pi_result piEventGetProfilingInfo(pi_event Event, pi_profiling_info ParamName,
   }
   case PI_PROFILING_INFO_COMMAND_QUEUED:
   case PI_PROFILING_INFO_COMMAND_SUBMIT:
-    // TODO: Support these when Level Zero supported is added.
+    // TODO: Support these when L0 supported is added.
     // https://gitlab.devtools.intel.com/one-api/level_zero/issues/373 // INTEL
     return ReturnValue(uint64_t{0});
   default:
     zePrint("piEventGetProfilingInfo: not supported ParamName\n");
     return PI_INVALID_VALUE;
   }
-#endif
 
   return PI_SUCCESS;
 }
@@ -2533,8 +2489,8 @@ pi_result piEventRelease(pi_event Event) {
     if (Event->CommandType == PI_COMMAND_TYPE_MEM_BUFFER_UNMAP &&
         Event->CommandData) {
       // Free the memory allocated in the piEnqueueMemBufferMap.
-      ZE_CALL(zeMemFree(Event->Queue->Context->Device->Platform->ZeContext,
-                        Event->CommandData));
+      ZE_CALL(zeDriverFreeMem(Event->Queue->Context->Device->Platform->ZeDriver,
+                              Event->CommandData));
       Event->CommandData = nullptr;
     }
     ZE_CALL(zeEventDestroy(Event->ZeEvent));
@@ -2573,6 +2529,7 @@ pi_result piSamplerCreate(pi_context Context,
 
   ze_sampler_handle_t ZeSampler;
   ze_sampler_desc_t ZeSamplerDesc = {};
+  ZeSamplerDesc.version = ZE_SAMPLER_DESC_VERSION_CURRENT;
 
   // Set the default values for the ZeSamplerDesc.
   ZeSamplerDesc.isNormalized = PI_TRUE;
@@ -2657,7 +2614,7 @@ pi_result piSamplerCreate(pi_context Context,
     }
   }
 
-  ZE_CALL(zeSamplerCreate(Context->Device->Platform->ZeContext, ZeDevice,
+  ZE_CALL(zeSamplerCreate(ZeDevice,
                           &ZeSamplerDesc, // TODO: translate properties
                           &ZeSampler));
 
@@ -2802,14 +2759,12 @@ enqueueMemCopyHelper(pi_command_type CommandType, pi_queue Queue, void *Dst,
 
   ze_event_handle_t *ZeEventWaitList =
       _pi_event::createZeEventList(NumEventsInWaitList, EventWaitList);
-  if (!ZeEventWaitList)
-    return PI_OUT_OF_HOST_MEMORY;
 
   ZE_CALL(zeCommandListAppendWaitOnEvents(ZeCommandList, NumEventsInWaitList,
                                           ZeEventWaitList));
 
-  ZE_CALL(zeCommandListAppendMemoryCopy(ZeCommandList, Dst, Src, Size, ZeEvent,
-                                        0, nullptr));
+  ZE_CALL(
+      zeCommandListAppendMemoryCopy(ZeCommandList, Dst, Src, Size, ZeEvent));
 
   if (auto Res = Queue->executeCommandList(ZeCommandList, BlockingWrite))
     return Res;
@@ -2862,8 +2817,6 @@ static pi_result enqueueMemCopyRectHelper(
 
   ze_event_handle_t *ZeEventWaitList =
       _pi_event::createZeEventList(NumEventsInWaitList, EventWaitList);
-  if (!ZeEventWaitList)
-    return PI_OUT_OF_HOST_MEMORY;
 
   ZE_CALL(zeCommandListAppendWaitOnEvents(ZeCommandList, NumEventsInWaitList,
                                           ZeEventWaitList));
@@ -2909,7 +2862,7 @@ static pi_result enqueueMemCopyRectHelper(
 
   ZE_CALL(zeCommandListAppendMemoryCopyRegion(
       ZeCommandList, DstBuffer, &ZeDstRegion, DstPitch, DstSlicePitch,
-      SrcBuffer, &ZeSrcRegion, SrcPitch, SrcSlicePitch, nullptr, 0, nullptr));
+      SrcBuffer, &ZeSrcRegion, SrcPitch, SrcSlicePitch, nullptr));
 
   zePrint("calling zeCommandListAppendMemoryCopyRegion()\n");
 
@@ -3024,8 +2977,6 @@ enqueueMemFillHelper(pi_command_type CommandType, pi_queue Queue, void *Ptr,
 
   ze_event_handle_t *ZeEventWaitList =
       _pi_event::createZeEventList(NumEventsInWaitList, EventWaitList);
-  if (!ZeEventWaitList)
-    return PI_OUT_OF_HOST_MEMORY;
 
   ZE_CALL(zeCommandListAppendWaitOnEvents(ZeCommandList, NumEventsInWaitList,
                                           ZeEventWaitList));
@@ -3033,8 +2984,8 @@ enqueueMemFillHelper(pi_command_type CommandType, pi_queue Queue, void *Ptr,
   // Pattern size must be a power of two
   assert((PatternSize > 0) && ((PatternSize & (PatternSize - 1)) == 0));
 
-  ZE_CALL(zeCommandListAppendMemoryFill(
-      ZeCommandList, Ptr, Pattern, PatternSize, Size, ZeEvent, 0, nullptr));
+  ZE_CALL(zeCommandListAppendMemoryFill(ZeCommandList, Ptr, Pattern,
+                                        PatternSize, Size, ZeEvent));
 
   zePrint("calling zeCommandListAppendMemoryFill() with\n"
           "  xe_event %lx\n"
@@ -3108,8 +3059,8 @@ piEnqueueMemBufferMap(pi_queue Queue, pi_mem Buffer, pi_bool BlockingMap,
   ZE_CALL(zeCommandListAppendWaitOnEvents(ZeCommandList, NumEventsInWaitList,
                                           ZeEventWaitList));
 
-  // TODO: Level Zero is missing the memory "mapping" capabilities, so we are
-  // left to doing new memory allocation and a copy (read).
+  // TODO: L0 is missing the memory "mapping" capabilities, so we are left
+  // to doing new memory allocation and a copy (read).
   // See https://gitlab.devtools.intel.com/one-api/level_zero/issues/293. // INTEL
   //
   // TODO: check if the input buffer is already allocated in shared
@@ -3129,16 +3080,16 @@ piEnqueueMemBufferMap(pi_queue Queue, pi_mem Buffer, pi_bool BlockingMap,
     *RetMap = Buffer->MapHostPtr + Offset;
   } else {
     ze_host_mem_alloc_desc_t ZeDesc = {};
-    ZeDesc.flags = 0;
-    ZE_CALL(zeMemAllocHost(Queue->Context->Device->Platform->ZeContext, &ZeDesc,
-                           Size,
-                           1, // TODO: alignment
-                           RetMap));
+    ZeDesc.flags = ZE_HOST_MEM_ALLOC_FLAG_DEFAULT;
+    ZE_CALL(zeDriverAllocHostMem(Queue->Context->Device->Platform->ZeDriver,
+                                 &ZeDesc, Size,
+                                 1, // TODO: alignment
+                                 RetMap));
   }
 
   ZE_CALL(zeCommandListAppendMemoryCopy(
       ZeCommandList, *RetMap, pi_cast<char *>(Buffer->getZeHandle()) + Offset,
-      Size, ZeEvent, 0, nullptr));
+      Size, ZeEvent));
 
   if (auto Res = Queue->executeCommandList(ZeCommandList, BlockingMap))
     return Res;
@@ -3180,8 +3131,8 @@ pi_result piEnqueueMemUnmap(pi_queue Queue, pi_mem MemObj, void *MappedPtr,
   ZE_CALL(zeCommandListAppendWaitOnEvents(ZeCommandList, NumEventsInWaitList,
                                           ZeEventWaitList));
 
-  // TODO: Level Zero is missing the memory "mapping" capabilities, so we are
-  // left to doing copy (write back to the device).
+  // TODO: L0 is missing the memory "mapping" capabilities, so we are left
+  // to doing copy (write back to the device).
   // See https://gitlab.devtools.intel.com/one-api/level_zero/issues/293. // INTEL
   //
   // NOTE: Keep this in sync with the implementation of
@@ -3192,14 +3143,13 @@ pi_result piEnqueueMemUnmap(pi_queue Queue, pi_mem MemObj, void *MappedPtr,
 
   ZE_CALL(zeCommandListAppendMemoryCopy(
       ZeCommandList, pi_cast<char *>(MemObj->getZeHandle()) + MapInfo.Offset,
-      MappedPtr, MapInfo.Size, ZeEvent, 0, nullptr));
+      MappedPtr, MapInfo.Size, ZeEvent));
 
   // NOTE: we still have to free the host memory allocated/returned by
   // piEnqueueMemBufferMap, but can only do so after the above copy
   // is completed. Instead of waiting for It here (blocking), we shall
   // do so in piEventRelease called for the pi_event tracking the unmap.
-  if (Event)
-    (*Event)->CommandData = MemObj->MapHostPtr ? nullptr : MappedPtr;
+  (*Event)->CommandData = MemObj->MapHostPtr ? nullptr : MappedPtr;
 
   // Execute command list asynchronously, as the event will be used
   // to track down its completion.
@@ -3299,7 +3249,7 @@ enqueueMemImageCommandHelper(pi_command_type CommandType, pi_queue Queue,
     const ze_image_region_t ZeSrcRegion =
         getImageRegionHelper(SrcMem, SrcOrigin, Region);
 
-    // TODO: Level Zero does not support row_pitch/slice_pitch for images yet.
+    // TODO: L0 does not support row_pitch/slice_pitch for images yet.
     // https://gitlab.devtools.intel.com/one-api/level_zero/issues/303 // INTEL
     // Check that SYCL RT did not want pitch larger than default.
 #ifndef NDEBUG
@@ -3319,13 +3269,13 @@ enqueueMemImageCommandHelper(pi_command_type CommandType, pi_queue Queue,
 
     ZE_CALL(zeCommandListAppendImageCopyToMemory(
         ZeCommandList, Dst, pi_cast<ze_image_handle_t>(SrcMem->getZeHandle()),
-        &ZeSrcRegion, ZeEvent, 0, nullptr));
+        &ZeSrcRegion, ZeEvent));
   } else if (CommandType == PI_COMMAND_TYPE_IMAGE_WRITE) {
     pi_mem DstMem = pi_cast<pi_mem>(Dst);
     const ze_image_region_t ZeDstRegion =
         getImageRegionHelper(DstMem, DstOrigin, Region);
 
-    // TODO: Level Zero does not support row_pitch/slice_pitch for images yet.
+    // TODO: L0 does not support row_pitch/slice_pitch for images yet.
     // https://gitlab.devtools.intel.com/one-api/level_zero/issues/303 // INTEL
     // Check that SYCL RT did not want pitch larger than default.
 #ifndef NDEBUG
@@ -3345,7 +3295,7 @@ enqueueMemImageCommandHelper(pi_command_type CommandType, pi_queue Queue,
 
     ZE_CALL(zeCommandListAppendImageCopyFromMemory(
         ZeCommandList, pi_cast<ze_image_handle_t>(DstMem->getZeHandle()), Src,
-        &ZeDstRegion, ZeEvent, 0, nullptr));
+        &ZeDstRegion, ZeEvent));
   } else if (CommandType == PI_COMMAND_TYPE_IMAGE_COPY) {
     pi_mem SrcImage = pi_cast<pi_mem>(const_cast<void *>(Src));
     pi_mem DstImage = pi_cast<pi_mem>(Dst);
@@ -3358,7 +3308,7 @@ enqueueMemImageCommandHelper(pi_command_type CommandType, pi_queue Queue,
     ZE_CALL(zeCommandListAppendImageCopyRegion(
         ZeCommandList, pi_cast<ze_image_handle_t>(DstImage->getZeHandle()),
         pi_cast<ze_image_handle_t>(SrcImage->getZeHandle()), &ZeDstRegion,
-        &ZeSrcRegion, ZeEvent, 0, nullptr));
+        &ZeSrcRegion, ZeEvent));
   } else {
     zePrint("enqueueMemImageUpdate: unsupported image command type\n");
     return PI_INVALID_OPERATION;
@@ -3457,7 +3407,7 @@ pi_result piMemBufferPartition(pi_mem Buffer, pi_mem_flags Flags,
     *RetMem =
         new _pi_buffer(Buffer->Platform,
                        pi_cast<char *>(Buffer->getZeHandle()) +
-                           Region->origin /* Level Zero memory handle */,
+                           Region->origin /* L0 memory handle */,
                        nullptr /* Host pointer */, Buffer /* Parent buffer */,
                        Region->origin /* Sub-buffer origin */,
                        Region->size /*Sub-buffer size*/);
@@ -3502,17 +3452,10 @@ pi_result piextUSMHostAlloc(void **ResultPtr, pi_context Context,
   assert(!Properties || (Properties && !(*Properties & ~PI_MEM_ALLOC_FLAGS)));
 
   ze_host_mem_alloc_desc_t ZeDesc = {};
-<<<<<<< HEAD:sycl/plugins/level_zero/pi_level_zero.cpp
   ZeDesc.flags = ZE_HOST_MEM_ALLOC_FLAG_DEFAULT;
-  // TODO: translate PI properties to Level Zero flags
+  // TODO: translate PI properties to L0 flags
   ZE_CALL(zeDriverAllocHostMem(Context->Device->Platform->ZeDriver, &ZeDesc,
                                Size, Alignment, ResultPtr));
-=======
-  ZeDesc.flags = 0;
-  // TODO: translate PI properties to Level Zero flags
-  ZE_CALL(zeMemAllocHost(Context->Device->Platform->ZeContext, &ZeDesc, Size,
-                         Alignment, ResultPtr));
->>>>>>> 4dd7b3c140bb5e1badc11b524f689387e1b07499:sycl/plugins/level_zero/pi_level0.cpp
 
   return PI_SUCCESS;
 }
@@ -3527,12 +3470,12 @@ pi_result piextUSMDeviceAlloc(void **ResultPtr, pi_context Context,
   // Check that incorrect bits are not set in the properties.
   assert(!Properties || (Properties && !(*Properties & ~PI_MEM_ALLOC_FLAGS)));
 
-  // TODO: translate PI properties to Level Zero flags
+  // TODO: translate PI properties to L0 flags
   ze_device_mem_alloc_desc_t ZeDesc = {};
-  ZeDesc.flags = 0;
+  ZeDesc.flags = ZE_DEVICE_MEM_ALLOC_FLAG_DEFAULT;
   ZeDesc.ordinal = 0;
-  ZE_CALL(zeMemAllocDevice(Context->Device->Platform->ZeContext, &ZeDesc, Size,
-                           Alignment, Device->ZeDevice, ResultPtr));
+  ZE_CALL(zeDriverAllocDeviceMem(Context->Device->Platform->ZeDriver, &ZeDesc,
+                                 Size, Alignment, Device->ZeDevice, ResultPtr));
 
   return PI_SUCCESS;
 }
@@ -3547,21 +3490,21 @@ pi_result piextUSMSharedAlloc(void **ResultPtr, pi_context Context,
   // Check that incorrect bits are not set in the properties.
   assert(!Properties || (Properties && !(*Properties & ~PI_MEM_ALLOC_FLAGS)));
 
-  // TODO: translate PI properties to Level Zero flags
+  // TODO: translate PI properties to L0 flags
   ze_host_mem_alloc_desc_t ZeHostDesc = {};
-  ZeHostDesc.flags = 0;
+  ZeHostDesc.flags = ZE_HOST_MEM_ALLOC_FLAG_DEFAULT;
   ze_device_mem_alloc_desc_t ZeDevDesc = {};
-  ZeDevDesc.flags = 0;
+  ZeDevDesc.flags = ZE_DEVICE_MEM_ALLOC_FLAG_DEFAULT;
   ZeDevDesc.ordinal = 0;
-  ZE_CALL(zeMemAllocShared(Context->Device->Platform->ZeContext, &ZeDevDesc,
-                           &ZeHostDesc, Size, Alignment, Device->ZeDevice,
-                           ResultPtr));
+  ZE_CALL(zeDriverAllocSharedMem(Context->Device->Platform->ZeDriver,
+                                 &ZeDevDesc, &ZeHostDesc, Size, Alignment,
+                                 Device->ZeDevice, ResultPtr));
 
   return PI_SUCCESS;
 }
 
 pi_result piextUSMFree(pi_context Context, void *Ptr) {
-  ZE_CALL(zeMemFree(Context->Device->Platform->ZeContext, Ptr));
+  ZE_CALL(zeDriverFreeMem(Context->Device->Platform->ZeDriver, Ptr));
   return PI_SUCCESS;
 }
 
@@ -3659,7 +3602,7 @@ pi_result piextUSMEnqueuePrefetch(pi_queue Queue, const void *Ptr, size_t Size,
   // TODO: figure out how to translate "flags"
   ZE_CALL(zeCommandListAppendMemoryPrefetch(ZeCommandList, Ptr, Size));
 
-  // TODO: Level Zero does not have a completion "event" with the prefetch API,
+  // TODO: L0 does not have a completion "event" with the prefetch API,
   // so manually add command to signal our event.
   ZE_CALL(zeCommandListAppendSignalEvent(ZeCommandList, ZeEvent));
 
@@ -3696,6 +3639,12 @@ pi_result piextUSMEnqueueMemAdvise(pi_queue Queue, const void *Ptr,
     break;
   case PI_MEM_ADVICE_CLEAR_PREFERRED_LOCATION:
     ZeAdvice = ZE_MEMORY_ADVICE_CLEAR_PREFERRED_LOCATION;
+    break;
+  case PI_MEM_ADVICE_SET_ACCESSED_BY:
+    ZeAdvice = ZE_MEMORY_ADVICE_SET_ACCESSED_BY;
+    break;
+  case PI_MEM_ADVICE_CLEAR_ACCESSED_BY:
+    ZeAdvice = ZE_MEMORY_ADVICE_CLEAR_ACCESSED_BY;
     break;
   case PI_MEM_ADVICE_SET_NON_ATOMIC_MOSTLY:
     ZeAdvice = ZE_MEMORY_ADVICE_SET_NON_ATOMIC_MOSTLY;
@@ -3736,7 +3685,7 @@ pi_result piextUSMEnqueueMemAdvise(pi_queue Queue, const void *Ptr,
   ZE_CALL(zeCommandListAppendMemAdvise(
       ZeCommandList, Queue->Context->Device->ZeDevice, Ptr, Length, ZeAdvice));
 
-  // TODO: Level Zero does not have a completion "event" with the advise API,
+  // TODO: L0 does not have a completion "event" with the advise API,
   // so manually add command to signal our event.
   ZE_CALL(zeCommandListAppendSignalEvent(ZeCommandList, ZeEvent));
 
@@ -3765,11 +3714,12 @@ pi_result piextUSMGetMemAllocInfo(pi_context Context, const void *Ptr,
                                   void *ParamValue, size_t *ParamValueSizeRet) {
   assert(Context);
   ze_device_handle_t ZeDeviceHandle;
-  ze_memory_allocation_properties_t ZeMemoryAllocationProperties = {};
+  ze_memory_allocation_properties_t ZeMemoryAllocationProperties = {
+      ZE_MEMORY_ALLOCATION_PROPERTIES_VERSION_CURRENT};
 
-  ZE_CALL(zeMemGetAllocProperties(Context->Device->Platform->ZeContext, Ptr,
-                                  &ZeMemoryAllocationProperties,
-                                  &ZeDeviceHandle));
+  ZE_CALL(zeDriverGetMemAllocProperties(Context->Device->Platform->ZeDriver,
+                                        Ptr, &ZeMemoryAllocationProperties,
+                                        &ZeDeviceHandle));
 
   ReturnHelper ReturnValue(ParamValueSize, ParamValue, ParamValueSizeRet);
   switch (ParamName) {
@@ -3796,20 +3746,20 @@ pi_result piextUSMGetMemAllocInfo(pi_context Context, const void *Ptr,
   }
   case PI_MEM_ALLOC_DEVICE: {
     // TODO: this wants pi_device, but we didn't remember it, and cannot
-    // deduct from the Level Zero device.
+    // deduct from the L0 device.
     die("piextUSMGetMemAllocInfo: PI_MEM_ALLOC_DEVICE not implemented");
     break;
   }
   case PI_MEM_ALLOC_BASE_PTR: {
     void *Base;
-    ZE_CALL(zeMemGetAddressRange(Context->Device->Platform->ZeContext, Ptr,
-                                 &Base, nullptr));
+    ZE_CALL(zeDriverGetMemAddressRange(Context->Device->Platform->ZeDriver, Ptr,
+                                       &Base, nullptr));
     return ReturnValue(Base);
   }
   case PI_MEM_ALLOC_SIZE: {
     size_t Size;
-    ZE_CALL(zeMemGetAddressRange(Context->Device->Platform->ZeContext, Ptr,
-                                 nullptr, &Size));
+    ZE_CALL(zeDriverGetMemAddressRange(Context->Device->Platform->ZeDriver, Ptr,
+                                       nullptr, &Size));
     return ReturnValue(Size);
   }
   default:
@@ -3828,11 +3778,16 @@ pi_result piKernelSetExecInfo(pi_kernel Kernel, pi_kernel_exec_info ParamName,
     // The whole point for users really was to not need to know anything
     // about the types of allocations kernel uses. So in DPC++ we always
     // just set all 3 modes for each kernel.
-    ze_kernel_indirect_access_flags_t IndirectFlags =
-        ZE_KERNEL_INDIRECT_ACCESS_FLAG_HOST |
-        ZE_KERNEL_INDIRECT_ACCESS_FLAG_DEVICE |
-        ZE_KERNEL_INDIRECT_ACCESS_FLAG_SHARED;
-    ZE_CALL(zeKernelSetIndirectAccess(Kernel->ZeKernel, IndirectFlags));
+    bool ZeIndirectValue = true;
+    ZE_CALL(zeKernelSetAttribute(Kernel->ZeKernel,
+                                 ZE_KERNEL_ATTR_INDIRECT_SHARED_ACCESS,
+                                 sizeof(bool), &ZeIndirectValue));
+    ZE_CALL(zeKernelSetAttribute(Kernel->ZeKernel,
+                                 ZE_KERNEL_ATTR_INDIRECT_DEVICE_ACCESS,
+                                 sizeof(bool), &ZeIndirectValue));
+    ZE_CALL(zeKernelSetAttribute(Kernel->ZeKernel,
+                                 ZE_KERNEL_ATTR_INDIRECT_HOST_ACCESS,
+                                 sizeof(bool), &ZeIndirectValue));
   } else {
     zePrint("piKernelSetExecInfo: unsupported ParamName\n");
     return PI_INVALID_VALUE;
@@ -3852,8 +3807,7 @@ pi_result piextProgramSetSpecializationConstant(pi_program Prog,
   // Pass SpecValue pointer. Spec constant value is retrieved
   // by Level-Zero when creating the modul
   //
-  // NOTE: SpecSize is unused in Level Zero, the size is known from SPIR-V by
-  // SpecID.
+  // NOTE: SpecSize is unused in L0, the size is known from SPIR-V by SpecID.
   Prog->ZeSpecConstants[SpecID] = reinterpret_cast<uint64_t>(SpecValue);
 
   return PI_SUCCESS;
