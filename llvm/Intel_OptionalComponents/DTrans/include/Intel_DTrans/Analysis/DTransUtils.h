@@ -38,6 +38,8 @@ extern cl::opt<bool> DTransPrintAnalyzedTypes;
 
 extern cl::opt<bool> DTransOutOfBoundsOK;
 
+extern cl::opt<bool> DTransUseCRuleCompat;
+
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 // This template function is to support dumping a collection of items in
 // lexically sorted order so that debug traces do not change due to pointer

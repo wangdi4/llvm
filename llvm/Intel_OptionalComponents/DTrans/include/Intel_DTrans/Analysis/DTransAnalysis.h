@@ -268,8 +268,19 @@ public:
   // Return the value used during analysis for the command line option
   // "dtrans-outofboundsok" which controls the assumptions regarding whether
   // taking the address of a structure field is allowed to access other fields
-  // of the structure.
+  // of the structure. NOTE: If a Fortran function is seen, we will conserva-
+  // tively return 'true' for getDTransOutOfBoundsOK() even if the command
+  // line option is 'false', as the appropriate rules for Fortran have not
+  // yet been implemented.
   bool getDTransOutOfBoundsOK();
+
+  // Return the value used during analysis for the command line option
+  // "dtrans-usecrulecompat" which controls the assumptions regarding whether
+  // C language rules may be applied to disambiguate types.  NOTE: If a
+  // Fortran function is seen, we will conservatively return 'false' for
+  // getDTransUseCRuleCompat() even if the command line option is 'true', as
+  // the appropriate rules for Fortran have not yet been implemented.
+  bool getDTransUseCRuleCompat();
 
   // Returns true if the module requires runtime validation of possible bad cast
   // issues. Returns functions where runtime checks are required.
@@ -293,7 +304,7 @@ private:
   void setCallGraphStats(Module &M);
 
   // Check language specific info that may affect whether certain rules
-  // like DTransOutOfBoundsOK can be applied.
+  // like DTransOutOfBoundsOK or DTransUseCRuleCompat can be applied.
   void checkLanguages(Module &M);
 
   // Return true if we should run DTransAnalysis.
@@ -356,8 +367,8 @@ private:
   // runtime.
   std::set<Function *> FunctionsRequireBadCastValidation;
 
-  // Indicates that a Fortran function was seen. This will disable
-  // DTransOutOfBoundsOK.
+  // Indicates that a Fortran function was seen. This will enable
+  // DTransOutOfBoundsOK and disable DTransUseCRuleCompat.
   bool SawFortran = false;
 };
 
