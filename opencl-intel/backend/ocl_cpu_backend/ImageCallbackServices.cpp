@@ -279,11 +279,13 @@ cl_dev_err_code ImageCallbackService::CreateImageObject(cl_mem_obj_descriptor* p
         pImageAuxData->dim[2]     = pImageObject->dimensions.dim[2];
         pImageAuxData->dimSub1[2] = pImageAuxData->dim[2] - 1;
         pImageAuxData->dimf[2]    = pImageAuxData->dim[2];
+        LLVM_FALLTHROUGH;
       case 2:
         pImageAuxData->dim[1]     = pImageObject->dimensions.dim[1];
         pImageAuxData->pitch[1]   = pImageObject->pitch[1];
         pImageAuxData->dimSub1[1] = pImageAuxData->dim[1] - 1;
         pImageAuxData->dimf[1]    = pImageAuxData->dim[1];
+        LLVM_FALLTHROUGH;
       case 1:
         pImageAuxData->dim[0]     = pImageObject->dimensions.dim[0];
         pImageAuxData->pitch[0]   = pImageObject->pitch[0];

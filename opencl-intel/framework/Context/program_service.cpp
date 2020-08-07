@@ -28,6 +28,7 @@
 #include <cl_local_array.h>
 #include "program_with_il.h"
 #include <cl_synch_objects.h>
+#include "llvm/Support/Compiler.h" // LLVM_FALLTHROUGH
 
 #include <string>
 
@@ -925,6 +926,7 @@ cl_err_code ProgramService::CompileProgram(const SharedPtr<Program>&    program,
                 //Else: some changes to compile options. Need to compile.
                 //Intentional fall through.
             }
+            LLVM_FALLTHROUGH;
         case DEVICE_PROGRAM_BUILD_DONE:
         case DEVICE_PROGRAM_BUILD_FAILED:
             {
@@ -1201,6 +1203,7 @@ cl_err_code ProgramService::LinkProgram(const SharedPtr<Program>&   program,
                     }
                 }
             } //Intentional fall through.
+            LLVM_FALLTHROUGH;
         case DEVICE_PROGRAM_LINKED:
         case DEVICE_PROGRAM_CUSTOM_BINARY:
             {
@@ -1500,6 +1503,7 @@ cl_err_code ProgramService::BuildProgram(const SharedPtr<Program>& program, cl_u
                 //Else: some changes to build options. Need to build.
                 //Intentional fall through.
             }
+            LLVM_FALLTHROUGH;
         case DEVICE_PROGRAM_BUILD_FAILED:
             {
                 // Possibly retrying a failed build - legal
@@ -1512,6 +1516,7 @@ cl_err_code ProgramService::BuildProgram(const SharedPtr<Program>& program, cl_u
                 }
                 //Intentional fall through.
             }
+            LLVM_FALLTHROUGH;
         case DEVICE_PROGRAM_LOADED_IR:
         case DEVICE_PROGRAM_SOURCE:
         case DEVICE_PROGRAM_SPIRV:
@@ -1528,6 +1533,7 @@ cl_err_code ProgramService::BuildProgram(const SharedPtr<Program>& program, cl_u
                 }
                 //Intentional fall through.
             }
+            LLVM_FALLTHROUGH;
         case DEVICE_PROGRAM_COMPILED:
             {
                 // Building from compiled object
@@ -1545,6 +1551,7 @@ cl_err_code ProgramService::BuildProgram(const SharedPtr<Program>& program, cl_u
                 }
                 //Intentional fall through.
             }
+            LLVM_FALLTHROUGH;
         case DEVICE_PROGRAM_LINKED:
         case DEVICE_PROGRAM_CUSTOM_BINARY:
             {

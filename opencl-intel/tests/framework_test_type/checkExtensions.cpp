@@ -90,11 +90,7 @@ TEST_F(CheckExtensions, CpuDevice) {
                                      "cl_intel_subgroups",
                                      "cl_intel_subgroups_char",
                                      "cl_intel_subgroups_long",
-                                     "cl_intel_subgroups_short",
-                                     "cl_khr_subgroup_extended_types",
-                                     "cl_khr_subgroup_non_uniform_arithmetic",
-                                     "cl_khr_subgroup_shuffle",
-                                     "cl_khr_subgroup_shuffle_relative"};
+                                     "cl_intel_subgroups_short"};
   // Remove trailing '\0'
   extensions.erase(std::find(extensions.begin(), extensions.end(), '\0'),
                    extensions.end());

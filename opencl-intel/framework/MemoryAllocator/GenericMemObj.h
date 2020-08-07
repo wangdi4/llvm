@@ -97,10 +97,21 @@ namespace Intel { namespace OpenCL { namespace Framework {
         // assume that all devices do support all sub-buffer alignments.
         bool IsSupportedByDevice(const SharedPtr<FissionableDevice>& pDevice) { return true; }
 
+        /// Create sub buffer.
+        ///
+        /// \param clFlags bit-field specifies allocation and usage information.
+        /// \param buffer_create_type describes the type of buffer object.
+        /// \param buffer_create_info describes information of buffer object.
+        /// \param [out] ppBuffer Output sub buffer.
+        /// \param RequireAlign If RequireAlign is true and buffer_create_type
+        ///        is CL_BUFFER_CREATE_TYPE_REGION, region origin must be
+        ///        aligned to CL_DEVICE_MEM_BASE_ADDR_ALIGN.
+        /// \returns error code.
         cl_err_code CreateSubBuffer(cl_mem_flags clFlags,
                                     cl_buffer_create_type buffer_create_type,
                                     const void * buffer_create_info,
-                                    SharedPtr<MemoryObject>* ppBuffer);
+                                    SharedPtr<MemoryObject>* ppBuffer,
+                                    bool RequireAlign) override;
 
         // Memory object interface
         // Assumed Read/Write is used only for data mirroring for the cases when BackingStore differ from
@@ -163,7 +174,8 @@ namespace Intel { namespace OpenCL { namespace Framework {
         cl_err_code InitializeSubObject(  cl_mem_flags        clMemFlags,
                                           GenericMemObject& parent,
                                           const size_t     origin[MAX_WORK_DIM],
-                                          const size_t     region[MAX_WORK_DIM] );
+                                          const size_t     region[MAX_WORK_DIM],
+                                          bool RequireAlign);
 
         virtual cl_err_code create_device_object( cl_mem_flags clMemFlags,
                                                   const SharedPtr<FissionableDevice>& dev,
@@ -696,8 +708,12 @@ namespace Intel { namespace OpenCL { namespace Framework {
             );
 
 
-        cl_err_code CreateSubBuffer(cl_mem_flags clFlags, cl_buffer_create_type buffer_create_type,
-            const void * buffer_create_info, SharedPtr<MemoryObject>* ppBuffer) {return CL_INVALID_MEM_OBJECT;}
+        cl_err_code CreateSubBuffer(
+            cl_mem_flags clFlags, cl_buffer_create_type buffer_create_type,
+            const void *buffer_create_info, SharedPtr<MemoryObject> *ppBuffer,
+            bool RequireAlign) override {
+          return CL_INVALID_MEM_OBJECT;
+        }
 
         bool IsSupportedByDevice(const SharedPtr<FissionableDevice>& pDevice);
 

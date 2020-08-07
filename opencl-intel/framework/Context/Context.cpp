@@ -962,7 +962,8 @@ cl_err_code Context::CreateBuffer(cl_mem_flags clFlags, size_t szSize, void * pH
 // Context::CreateSubBuffer
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 cl_err_code Context::CreateSubBuffer(SharedPtr<MemoryObject> pBuffer, cl_mem_flags clFlags, cl_buffer_create_type buffer_create_type,
-                                     const void * buffer_create_info, SharedPtr<MemoryObject>* ppBuffer)
+                                     const void * buffer_create_info, SharedPtr<MemoryObject>* ppBuffer,
+                                     bool RequireAlign)
 {
     LOG_DEBUG(TEXT("Enter CreateSubBuffer (cl_mem_flags=%d, buffer_create_type=%d, ppBuffer=%d)"),
         (unsigned long long) clFlags, buffer_create_type, ppBuffer);
@@ -1013,7 +1014,9 @@ cl_err_code Context::CreateSubBuffer(SharedPtr<MemoryObject> pBuffer, cl_mem_fla
 
 
     cl_err_code clErr;
-    clErr = pBuffer->CreateSubBuffer(clFlags, buffer_create_type, buffer_create_info, ppBuffer);
+    clErr =
+        pBuffer->CreateSubBuffer(clFlags, buffer_create_type,
+                                 buffer_create_info, ppBuffer, RequireAlign);
     if (CL_FAILED(clErr))
     {
         LOG_ERROR(TEXT("Error initializing sub buffer, returned: %s"), ClErrTxt(clErr));

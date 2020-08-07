@@ -470,6 +470,34 @@ static void TestMigrate(cl_context context, cl_device_id device,
   clReleaseCommandQueue(queue2);
 }
 
+/// Call clCreateBuffer with a pointer returned by clSVMAlloc as its host_ptr
+/// argument, and CL_MEM_USE_HOST_PTR is set in its flags argument.
+/// clCreateBuffer should succeed if its size not out of bound.
+static void TestCreateBufferWithOffset(cl_context context) {
+  size_t size = 256;
+  cl_uint alignment = 16;
+  char *svmBuffer =
+      (char *)clSVMAlloc(context, CL_MEM_READ_WRITE, size, alignment);
+  if (!svmBuffer)
+    throw exception();
+
+  cl_int err;
+  size_t offset1 = size / 2 - 1;
+  size_t size1 = size / 2;
+  cl_mem memBuffer1 = clCreateBuffer(context, CL_MEM_USE_HOST_PTR, size1,
+                                     svmBuffer + offset1, &err);
+  CheckException("clCreateBuffer", CL_SUCCESS, err);
+  if (!memBuffer1)
+    throw exception();
+
+  size_t offset2 = size / 2 + 1;
+  size_t size2 = size / 2;
+  cl_mem memBuffer2 = clCreateBuffer(context, CL_MEM_USE_HOST_PTR, size2,
+                                     svmBuffer + offset2, &err);
+  if (CL_SUCCESS == err || memBuffer2)
+    throw exception();
+}
+
 bool clSvmTest() {
   cl_int iRet = CL_SUCCESS;
   cl_platform_id platform = 0;
@@ -510,6 +538,8 @@ bool clSvmTest() {
     queue =
         clCreateCommandQueueWithProperties(context, device, properties, &iRet);
     CheckException("clCreateCommandQueueWithProperties", CL_SUCCESS, iRet);
+
+    TestCreateBufferWithOffset(context);
 
     TestEnqueueSVMCommands(context, queue, MEMCPY);
     TestEnqueueSVMCommands(context, queue, MEM_FILL);

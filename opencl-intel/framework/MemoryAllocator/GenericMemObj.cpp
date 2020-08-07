@@ -320,7 +320,8 @@ cl_err_code GenericMemObject::InitializeSubObject(
                                             cl_mem_flags      clMemFlags,
                                             GenericMemObject& parent,
                                             const size_t     origin[MAX_WORK_DIM],
-                                            const size_t     region[MAX_WORK_DIM])
+                                            const size_t     region[MAX_WORK_DIM],
+                                            bool RequireAlign)
 {
     // sub-buffer related - used by internal functions call later in this function
     SharedPtr<GenericMemObject> pParent = &parent;
@@ -376,7 +377,8 @@ cl_err_code GenericMemObject::InitializeSubObject(
             // filter out devices that do not support this memory object
             if (CL_MEM_OBJECT_BUFFER == m_clMemObjectType)
             {
-                if (! IS_ALIGNED_ON( start_offset, p_dev_desc->m_alignment))
+                if (RequireAlign &&
+                    !IS_ALIGNED_ON( start_offset, p_dev_desc->m_alignment))
                 {
                     continue;
                 }
@@ -954,7 +956,10 @@ void * GenericMemObject::GetBackingStoreData( const size_t * pszOrigin ) const
             (pszOrigin ? m_BS->GetRawDataOffset( pszOrigin ) : 0);
 }
 
-cl_err_code GenericMemObject::CreateSubBuffer(cl_mem_flags clFlags, cl_buffer_create_type buffer_create_type, const void * buffer_create_info, SharedPtr<MemoryObject>* ppBuffer)
+cl_err_code GenericMemObject::CreateSubBuffer(
+    cl_mem_flags clFlags, cl_buffer_create_type buffer_create_type,
+    const void *buffer_create_info, SharedPtr<MemoryObject> *ppBuffer,
+    bool RequireAlign)
 {
     const cl_buffer_region* region = static_cast<const cl_buffer_region*>(buffer_create_info);
 
@@ -963,11 +968,12 @@ cl_err_code GenericMemObject::CreateSubBuffer(cl_mem_flags clFlags, cl_buffer_cr
 
     if (m_clMemObjectType != CL_MEM_OBJECT_BUFFER)
     {
-        return CL_INVALID_OPERATION;
+        return CL_INVALID_VALUE;
     }
 
     // alignment must be power of 2
-    if ( 0 != (region->origin & (m_BS->GetRequiredAlignment() - 1)) )
+    if (0 != (region->origin & (m_BS->GetRequiredAlignment() - 1)) &&
+        RequireAlign)
     {
         return CL_MISALIGNED_SUB_BUFFER_OFFSET;
     }
@@ -983,7 +989,8 @@ cl_err_code GenericMemObject::CreateSubBuffer(cl_mem_flags clFlags, cl_buffer_cr
         return CL_OUT_OF_HOST_MEMORY;
     }
 
-    cl_err_code err = pSubBuffer->InitializeSubObject(clFlags, *this, pSzOrigin,  pSzSize);
+    cl_err_code err = pSubBuffer->InitializeSubObject(clFlags, *this, pSzOrigin,
+                                                      pSzSize, RequireAlign);
     if ( CL_FAILED(err) )
     {
         pSubBuffer->Release();

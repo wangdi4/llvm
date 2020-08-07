@@ -310,7 +310,10 @@ namespace Intel { namespace OpenCL { namespace Framework {
         cl_err_code CreateBuffer(cl_mem_flags clFlags, size_t szSize, void * pHostPtr, SharedPtr<MemoryObject>* ppBuffer);
 
         // create new sub buffer object
-        cl_err_code CreateSubBuffer(SharedPtr<MemoryObject> buffer, cl_mem_flags clFlags, cl_buffer_create_type szSize, const void * buffer_create_info, SharedPtr<MemoryObject>* ppBuffer);
+        cl_err_code CreateSubBuffer(
+            SharedPtr<MemoryObject> buffer, cl_mem_flags clFlags,
+            cl_buffer_create_type szSize, const void *buffer_create_info,
+            SharedPtr<MemoryObject> *ppBuffer, bool RequireAlign);
 
         // create new image object
         template<size_t DIM, cl_mem_object_type OBJ_TYPE>

@@ -223,8 +223,8 @@ bool clBuildProgramMaxArgsTest(){
   bResult &= Check("clCreateContext", CL_SUCCESS, iRet);
   if (!bResult)
     return false;
-  cl_command_queue queue = clCreateCommandQueue (context, pDevices[0], 0 /*no properties*/, &iRet);
-  bResult &= Check("clCreateCommandQueue - queue", CL_SUCCESS, iRet);
+  cl_command_queue queue = clCreateCommandQueueWithProperties (context, pDevices[0], 0 /*no properties*/, &iRet);
+  bResult &= Check("clCreateCommandQueueWithProperties - queue", CL_SUCCESS, iRet);
   if (!bResult){
     clReleaseContext(context);
     return false;
@@ -470,8 +470,8 @@ bool clBuildRunLocalMemTest(){
   bResult &= Check("clCreateContext", CL_SUCCESS, iRet);
   if (!bResult)
     return false;
-  cl_command_queue queue = clCreateCommandQueue (context, pDevices[0], 0 /*no properties*/, &iRet);
-  bResult &= Check("clCreateCommandQueue - queue", CL_SUCCESS, iRet);
+  cl_command_queue queue = clCreateCommandQueueWithProperties (context, pDevices[0], 0 /*no properties*/, &iRet);
+  bResult &= Check("clCreateCommandQueueWithProperties - queue", CL_SUCCESS, iRet);
   if (!bResult){
     clReleaseContext(context);
     return false;
@@ -534,8 +534,8 @@ TEST(OclRecorder, recording_local_memory2)
     cl_context context = clCreateContext(prop, 1, &computeDevices, NULL, NULL, &returnResult);
     ASSERT_EQ(CL_SUCCESS, returnResult) << "Function: clCreateContext";
 
-    cl_command_queue queue = clCreateCommandQueue(context, computeDevices, 0, &returnResult);
-    ASSERT_EQ(CL_SUCCESS, returnResult) << "Function: clCreateCommandQueue";
+    cl_command_queue queue = clCreateCommandQueueWithProperties(context, computeDevices, 0, &returnResult);
+    ASSERT_EQ(CL_SUCCESS, returnResult) << "Function: clCreateCommandQueueWithProperties";
 
     const char *kernelSrc = "__kernel void sample_test(const int a, __local long *b, __global long *c) { }";
 
@@ -707,8 +707,8 @@ TEST(OclRecorder, equal_arguments)
     cl_context context = clCreateContext(prop, 1, &computeDevices, NULL, NULL, &returnResult);
     ASSERT_EQ(CL_SUCCESS, returnResult) << "Function: clCreateContext";
 
-    cl_command_queue queue = clCreateCommandQueue(context, computeDevices, 0, &returnResult);
-    ASSERT_EQ(CL_SUCCESS, returnResult) << "Function: clCreateCommandQueue";
+    cl_command_queue queue = clCreateCommandQueueWithProperties(context, computeDevices, 0, &returnResult);
+    ASSERT_EQ(CL_SUCCESS, returnResult) << "Function: clCreateCommandQueueWithProperties";
 
     const char *kernelSrc = "__kernel void sample(const int a, __local long *b, __global long *c, __read_only image2d_t img) { }";
     const char *kernel_name = "sample";
@@ -815,8 +815,8 @@ TEST(OclRecorder, recording_half_ptr)
     cl_context context = clCreateContext(prop, num_devices_available, &computeDevices, NULL, NULL, &returnResult);
     ASSERT_EQ(CL_SUCCESS, returnResult) << "Function: clCreateContext";
 
-    cl_command_queue queue = clCreateCommandQueue(context, computeDevices, 0, &returnResult);
-    ASSERT_EQ(CL_SUCCESS, returnResult) << "Function: clCreateCommandQueue";
+    cl_command_queue queue = clCreateCommandQueueWithProperties(context, computeDevices, 0, &returnResult);
+    ASSERT_EQ(CL_SUCCESS, returnResult) << "Function: clCreateCommandQueueWithProperties";
 
     const char *kernelSrc = "__kernel void test_half( __global float *p, __global half *f ) { size_t i = get_global_id(0); vstore_half_rtn( p[i], i, f ); }";
     const char *kernel_name = "test_half";
