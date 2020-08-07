@@ -7,11 +7,11 @@
 ; CHECK-LABEL: @test1
 ; CHECK:       vector.body:
 ; CHECK:         [[MASK:%.*]] = icmp eq <2 x i64> [[VEC_IND:%.*]], [[BROADCAST_SPLAT:%.*]]
-; CHECK-NEXT:    br label [[VPLANNEDBB40:%.*]]
-; CHECK:       VPlannedBB4:
-; CHECK:         br label [[VPLANNEDBB50:%.*]]
-; CHECK:       VPlannedBB5:
-; CHECK-NEXT:    [[INNER_UNI_PHI:%.*]] = phi i64 [ [[INNER_IV_ADD:%.*]], %[[PRED_LOAD_CONTINUE:.*]] ], [ 0, [[VPLANNEDBB40]] ]
+; CHECK-NEXT:    br label %[[VPLANNEDBB40:.*]]
+; CHECK:       [[VPLANNEDBB40]]:
+; CHECK:         br label %[[VPLANNEDBB50:.*]]
+; CHECK:       [[VPLANNEDBB50]]:
+; CHECK-NEXT:    [[INNER_UNI_PHI:%.*]] = phi i64 [ [[INNER_IV_ADD:%.*]], %[[PRED_LOAD_CONTINUE:.*]] ], [ 0, %[[VPLANNEDBB40]] ]
 ; CHECK:         [[GEP:%.*]] = getelementptr inbounds i64, i64* [[ARR1:%.*]], i64 42
 ; CHECK-NEXT:    [[BC_MASK:%.*]] = bitcast <2 x i1> [[MASK]] to i2
 ; CHECK-NEXT:    [[NOT_AZ:%.*]] = icmp ne i2 [[BC_MASK]], 0
@@ -21,7 +21,7 @@
 ; CHECK-NEXT:    [[BROADCAST_SPLATINSERT1:%.*]] = insertelement <2 x i64> poison, i64 [[LOAD]], i32 0
 ; CHECK-NEXT:    br label %[[MERGE]]
 ; CHECK:       [[MERGE]]:
-; CHECK-NEXT:    [[MERGE_PHI:%.*]] = phi <2 x i64> [ poison, [[VPLANNEDBB50]] ], [ [[BROADCAST_SPLATINSERT1]], %[[PRED_LOAD_IF]] ]
+; CHECK-NEXT:    [[MERGE_PHI:%.*]] = phi <2 x i64> [ poison, %[[VPLANNEDBB50]] ], [ [[BROADCAST_SPLATINSERT1]], %[[PRED_LOAD_IF]] ]
 ; CHECK-NEXT:    br label %[[PRED_LOAD_CONTINUE:.*]]
 ; CHECK:       pred.load.continue:
 ; CHECK-NEXT:    [[BROADCAST_SPLAT2:%.*]] = shufflevector <2 x i64> [[MERGE_PHI]], <2 x i64> poison, <2 x i32> zeroinitializer
@@ -80,7 +80,7 @@ exit:                                             ; preds = %for.end, %entry
 ; Check for inner loop with live out uniform GEP. CHECK for GEP instruction is explicitly omitted
 ; because of bcast pattern differences between IR-based CG and VPValue-based CG.
 ; CHECK-LABEL: @test1_liveout
-; CHECK:       VPlannedBB5:
+; CHECK:       VPlannedBB4:
 ; CHECK-NEXT:    [[INNER_UNI_PHI:%.*]] = phi i64 [ [[INNER_IV_ADD:%.*]], [[VPLANNEDBB:%.*]] ], [ 0, [[VECTOR_BODY:%.*]] ]
 ; CHECK:         [[EXTRACT_GEP:%.*]] = extractelement <2 x i64*> [[GEP:%.*]], i32 0
 ; CHECK-NEXT:    [[BC_MASK:%.*]] = bitcast <2 x i1> [[MASK:%.*]] to i2
@@ -91,7 +91,7 @@ exit:                                             ; preds = %for.end, %entry
 ; CHECK-NEXT:    [[BCAST_INSERT:%.*]] = insertelement <2 x i64> poison, i64 [[LOAD]], i32 0
 ; CHECK-NEXT:    br label %[[MERGE]]
 ; CHECK:       [[MERGE]]:
-; CHECK-NEXT:    [[MERGE_PHI:%.*]] = phi <2 x i64> [ poison, %VPlannedBB5 ], [ [[BCAST_INSERT]], %[[PRED_LOAD_IF]] ]
+; CHECK-NEXT:    [[MERGE_PHI:%.*]] = phi <2 x i64> [ poison, %VPlannedBB4 ], [ [[BCAST_INSERT]], %[[PRED_LOAD_IF]] ]
 ; CHECK-NEXT:    br label %[[PRED_LOAD_CONTINUE:.*]]
 ; CHECK:       [[PRED_LOAD_CONTINUE]]:
 ; CHECK-NEXT:    [[BCAST_SHUF:%.*]] = shufflevector <2 x i64> [[MERGE_PHI]], <2 x i64> poison, <2 x i32> zeroinitializer

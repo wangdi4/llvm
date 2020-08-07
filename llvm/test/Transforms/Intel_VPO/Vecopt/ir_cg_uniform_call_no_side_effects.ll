@@ -16,13 +16,12 @@ declare i64 @uniform_call(i32) local_unnamed_addr #1
 define void @_ZGVeN2u_testKernel(i64 addrspace(1)* noalias %results) local_unnamed_addr {
 ; CHECK-LABEL: @_ZGVeN2u_testKernel(
 ; CHECK:       vector.body:
-; CHECK-NEXT:    [[UNI_PHI:%.*]] = phi i64 [ 0, [[VECTOR_PH:%.*]] ], [ [[TMP14:%.*]], [[VPLANNEDBB12:%.*]] ]
-; CHECK-NEXT:    [[UNI_PHI3:%.*]] = phi i64 [ 0, [[VECTOR_PH]] ], [ [[TMP13:%.*]], [[VPLANNEDBB12]] ]
+; CHECK-NEXT:    [[UNI_PHI3:%.*]] = phi i64 [ 0, [[VECTOR_PH:%.*]] ], [ [[TMP13:%.*]], [[VPLANNEDBB12:%.*]] ]
 ; CHECK-NEXT:    [[VEC_PHI:%.*]] = phi <2 x i64> [ <i64 0, i64 1>, [[VECTOR_PH]] ], [ [[TMP12:%.*]], [[VPLANNEDBB12]] ]
 ; CHECK-NEXT:    [[TMP0:%.*]] = add nuw <2 x i64> [[VEC_PHI]], [[BROADCAST_SPLAT:%.*]]
 ; CHECK-NEXT:    [[TMP1:%.*]] = icmp eq <2 x i64> [[TMP0]], [[BROADCAST_SPLAT5:%.*]]
 ; CHECK-NEXT:    br label [[VPLANNEDBB6:%.*]]
-; CHECK:       VPlannedBB6:
+; CHECK:       VPlannedBB5:
 ; CHECK-NEXT:    [[TMP2:%.*]] = bitcast <2 x i1> [[TMP1]] to i2
 ; CHECK-NEXT:    [[TMP3:%.*]] = icmp ne i2 [[TMP2]], 0
 ; CHECK-NEXT:    br i1 [[TMP3]], label [[PRED_CALL_IF:%.*]], label [[TMP5:%.*]]
@@ -48,19 +47,18 @@ define void @_ZGVeN2u_testKernel(i64 addrspace(1)* noalias %results) local_unnam
 ; CHECK-NEXT:    [[PREDICATE7:%.*]] = extractelement <2 x i1> [[TMP1]], i64 1
 ; CHECK-NEXT:    [[TMP10:%.*]] = icmp eq i1 [[PREDICATE7]], true
 ; CHECK-NEXT:    br i1 [[TMP10]], label [[PRED_STORE_IF19:%.*]], label [[TMP11:%.*]]
-; CHECK:       pred.store.if19:
+; CHECK:       pred.store.if18:
 ; CHECK-NEXT:    store volatile i64 [[TMP6]], i64 addrspace(1)* [[RESULTS]], align 8
 ; CHECK-NEXT:    br label [[TMP11]]
 ; CHECK:       11:
 ; CHECK-NEXT:    br label [[PRED_STORE_CONTINUE20:%.*]]
-; CHECK:       pred.store.continue20:
+; CHECK:       pred.store.continue19:
 ; CHECK-NEXT:    call void @llvm.masked.scatter.v2i64.v2p1i64(<2 x i64> [[BROADCAST_SPLAT9]], <2 x i64 addrspace(1)*> [[BROADCAST_SPLAT11:%.*]], i32 8, <2 x i1> [[TMP1]])
 ; CHECK-NEXT:    br label [[VPLANNEDBB12]]
-; CHECK:       VPlannedBB12:
+; CHECK:       VPlannedBB11:
 ; CHECK-NEXT:    [[TMP12]] = add nuw <2 x i64> [[VEC_PHI]], <i64 2, i64 2>
 ; CHECK-NEXT:    [[TMP13]] = add nuw i64 [[UNI_PHI3]], 2
-; CHECK-NEXT:    [[TMP14]] = add i64 [[UNI_PHI]], 2
-; CHECK-NEXT:    [[TMP15:%.*]] = icmp ult i64 [[TMP14]], 2
+; CHECK-NEXT:    [[TMP14:%.*]] = icmp ult i64 [[TMP13]], 2
 ; CHECK-NEXT:    br i1 false, label [[VECTOR_BODY:%.*]], label [[VPLANNEDBB13:%.*]], [[LOOP0:!llvm.loop !.*]]
 ;
 entry:

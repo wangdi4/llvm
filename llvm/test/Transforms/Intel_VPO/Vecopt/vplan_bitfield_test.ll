@@ -30,8 +30,7 @@ define void @foo(i1* %arri1, i7* %arri7 ) {
 ; LLVM-CHECK-NEXT:    br label [[VECTOR_BODY0:%.*]]
 ; LLVM-CHECK-EMPTY:
 ; LLVM-CHECK-NEXT:  vector.body:
-; LLVM-CHECK-NEXT:    [[UNI_PHI0:%.*]] = phi i64 [ 0, [[VECTOR_PH0:%.*]] ], [ [[TMP3:%.*]], [[VECTOR_BODY0:%.*]] ]
-; LLVM-CHECK-NEXT:    [[UNI_PHI10:%.*]] = phi i64 [ 0, [[VECTOR_PH0]] ], [ [[TMP2:%.*]], [[VECTOR_BODY0]] ]
+; LLVM-CHECK-NEXT:    [[UNI_PHI10:%.*]] = phi i64 [ 0, [[VECTOR_PH0:%.*]] ], [ [[TMP2:%.*]], [[VECTOR_BODY0:%.*]] ]
 ; LLVM-CHECK-NEXT:    [[VEC_PHI0:%.*]] = phi <4 x i64> [ <i64 0, i64 1, i64 2, i64 3>, [[VECTOR_PH0]] ], [ [[TMP1:%.*]], [[VECTOR_BODY0]] ]
 ; LLVM-CHECK-NEXT:    [[MM_VECTORGEP0:%.*]] = getelementptr inbounds i1, <4 x i1*> [[BROADCAST_SPLAT0]], <4 x i64> [[VEC_PHI0]]
 ; LLVM-CHECK-NEXT:    [[WIDE_MASKED_GATHER0:%.*]] = call <4 x i1> @llvm.masked.gather.v4i1.v4p0i1(<4 x i1*> [[MM_VECTORGEP0]], i32 1, <4 x i1> <i1 true, i1 true, i1 true, i1 true>, <4 x i1> undef)
@@ -40,9 +39,8 @@ define void @foo(i1* %arri1, i7* %arri7 ) {
 ; LLVM-CHECK-NEXT:    call void @llvm.masked.scatter.v4i7.v4p0i7(<4 x i7> [[TMP0]], <4 x i7*> [[MM_VECTORGEP40]], i32 1, <4 x i1> <i1 true, i1 true, i1 true, i1 true>)
 ; LLVM-CHECK-NEXT:    [[TMP1]] = add nuw nsw <4 x i64> [[VEC_PHI0]], <i64 4, i64 4, i64 4, i64 4>
 ; LLVM-CHECK-NEXT:    [[TMP2]] = add nuw nsw i64 [[UNI_PHI10]], 4
-; LLVM-CHECK-NEXT:    [[TMP3]] = add i64 [[UNI_PHI0]], 4
-; LLVM-CHECK-NEXT:    [[TMP4:%.*]] = icmp uge i64 [[TMP3]], 100
-; LLVM-CHECK-NEXT:    br i1 [[TMP4]], label [[VPLANNEDBB0:%.*]], label [[VECTOR_BODY0]], !llvm.loop !0
+; LLVM-CHECK-NEXT:    [[TMP3:%.*]] = icmp eq i64 [[TMP2]], 100
+; LLVM-CHECK-NEXT:    br i1 [[TMP3]], label [[VPLANNEDBB0:%.*]], label [[VECTOR_BODY0]], !llvm.loop !0
 ;
 entry:
   %tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.SIMDLEN"(i32 4) ]

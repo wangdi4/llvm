@@ -40,8 +40,7 @@ target triple = "x86_64-pc-linux"
 ; CHECK-NEXT:    br label [[VECTOR_BODY0:%.*]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  vector.body:
-; CHECK-NEXT:    [[UNI_PHI0:%.*]] = phi i32 [ 0, [[VECTOR_PH0]] ], [ [[TMP13:%.*]], [[VPLANNEDBB90:%.*]] ]
-; CHECK-NEXT:    [[UNI_PHI30:%.*]] = phi i32 [ 0, [[VECTOR_PH0]] ], [ [[TMP12:%.*]], [[VPLANNEDBB90]] ]
+; CHECK-NEXT:    [[UNI_PHI30:%.*]] = phi i32 [ 0, [[VECTOR_PH0]] ], [ [[TMP12:%.*]], [[VPLANNEDBB90:%.*]] ]
 ; CHECK-NEXT:    [[VEC_PHI0:%.*]] = phi <2 x i32> [ <i32 0, i32 1>, [[VECTOR_PH0]] ], [ [[TMP11:%.*]], [[VPLANNEDBB90]] ]
 ; CHECK-NEXT:    [[TMP1:%.*]] = sext <2 x i32> [[VEC_PHI0]] to <2 x i64>
 ; CHECK-NEXT:    [[TMP2:%.*]] = add nuw <2 x i64> [[TMP1]], [[BROADCAST_SPLAT0]]
@@ -66,7 +65,7 @@ target triple = "x86_64-pc-linux"
 ; CHECK-NEXT:    [[TMP10:%.*]] = icmp slt i32 [[TMP6]], 1
 ; CHECK-NEXT:    br i1 [[TMP10]], label [[VPLANNEDBB80:%.*]], label [[VPLANNEDBB90]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:  VPlannedBB8:
+; CHECK-NEXT:  VPlannedBB7:
 ; CHECK-NEXT:    call void @llvm.lifetime.end.p0i8(i64 160, i8* nonnull [[TMP9]])
 ; CHECK-NEXT:    call void @llvm.lifetime.end.p0i8(i64 56, i8* nonnull [[TMP7]])
 ; CHECK-NEXT:    call void @llvm.lifetime.end.p0i8(i64 160, i8* nonnull [[TMP8]])

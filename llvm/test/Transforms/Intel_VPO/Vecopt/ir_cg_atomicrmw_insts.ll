@@ -15,31 +15,35 @@ define void @test1(i64 %n, i64 addrspace(4)* %arr) {
 ; LLVM-CG-NEXT:    [[BROADCAST_SPLAT:%.*]] = shufflevector <2 x i64 addrspace(4)*> [[BROADCAST_SPLATINSERT]], <2 x i64 addrspace(4)*> poison, <2 x i32> zeroinitializer
 ; LLVM-CG-NEXT:    br label [[VECTOR_BODY:%.*]]
 ; LLVM-CG:       vector.body:
-; LLVM-CG:         [[MM_VECTORGEP:%.*]] = getelementptr inbounds i64, <2 x i64 addrspace(4)*> [[BROADCAST_SPLAT]], <2 x i64> [[VEC_PHI:%.*]]
+  ; LLVM-CG-NEXT:    [[UNI_PHI:%.*]] = phi i64 [ 0, [[VECTOR_PH:%.*]] ], [ [[TMP29:%.*]], [[VPLANNEDBB6:%.*]] ]
+; LLVM-CG-NEXT:    [[VEC_PHI:%.*]] = phi <2 x i64> [ <i64 0, i64 1>, [[VECTOR_PH]] ], [ [[TMP28:%.*]], [[VPLANNEDBB6]] ]
+; LLVM-CG-NEXT:    [[VEC_PHI_EXTRACT_1_:%.*]] = extractelement <2 x i64> [[VEC_PHI]], i32 1
+; LLVM-CG-NEXT:    [[TMP1:%.*]] = icmp eq <2 x i64> [[VEC_PHI]], <i64 42, i64 42>
+; LLVM-CG-NEXT:    [[MM_VECTORGEP:%.*]] = getelementptr inbounds i64, <2 x i64 addrspace(4)*> [[BROADCAST_SPLAT]], <2 x i64> [[VEC_PHI]]
 ; LLVM-CG-NEXT:    [[MM_VECTORGEP_EXTRACT_1_:%.*]] = extractelement <2 x i64 addrspace(4)*> [[MM_VECTORGEP]], i32 1
 ; LLVM-CG-NEXT:    [[MM_VECTORGEP_EXTRACT_0_:%.*]] = extractelement <2 x i64 addrspace(4)*> [[MM_VECTORGEP]], i32 0
-; LLVM-CG-NEXT:    [[MM_VECTORGEP4:%.*]] = getelementptr inbounds i64, i64 addrspace(4)* [[ARR]], i64 42
-; LLVM-CG-NEXT:    [[DOTSPLATINSERT:%.*]] = insertelement <2 x i64 addrspace(4)*> poison, i64 addrspace(4)* [[MM_VECTORGEP4]], i32 0
+; LLVM-CG-NEXT:    [[MM_VECTORGEP3:%.*]] = getelementptr inbounds i64, i64 addrspace(4)* [[ARR]], i64 42
+; LLVM-CG-NEXT:    [[DOTSPLATINSERT:%.*]] = insertelement <2 x i64 addrspace(4)*> poison, i64 addrspace(4)* [[MM_VECTORGEP3]], i32 0
 ; LLVM-CG-NEXT:    [[DOTSPLAT:%.*]] = shufflevector <2 x i64 addrspace(4)*> [[DOTSPLATINSERT]], <2 x i64 addrspace(4)*> poison, <2 x i32> zeroinitializer
 ; LLVM-CG-NEXT:    [[DOTSPLAT_EXTRACT_0_:%.*]] = extractelement <2 x i64 addrspace(4)*> [[DOTSPLAT]], i32 0
 ; LLVM-CG-NEXT:    [[TMP2:%.*]] = atomicrmw volatile add i64 addrspace(4)* [[DOTSPLAT_EXTRACT_0_]], i64 1 acquire
 ; LLVM-CG-NEXT:    [[TMP3:%.*]] = insertelement <2 x i64> undef, i64 [[TMP2]], i32 0
 ; LLVM-CG-NEXT:    [[TMP4:%.*]] = atomicrmw volatile add i64 addrspace(4)* [[DOTSPLAT_EXTRACT_0_]], i64 1 acquire
 ; LLVM-CG-NEXT:    [[TMP5:%.*]] = insertelement <2 x i64> [[TMP3]], i64 [[TMP4]], i32 1
-; LLVM-CG-NEXT:    [[TMP6:%.*]] = atomicrmw add i64 addrspace(4)* [[DOTSPLAT_EXTRACT_0_]], i64 [[UNI_PHI3:%.*]] acquire
+; LLVM-CG-NEXT:    [[TMP6:%.*]] = atomicrmw add i64 addrspace(4)* [[DOTSPLAT_EXTRACT_0_]], i64 [[UNI_PHI]] acquire
 ; LLVM-CG-NEXT:    [[TMP7:%.*]] = insertelement <2 x i64> undef, i64 [[TMP6]], i32 0
-; LLVM-CG-NEXT:    [[TMP8:%.*]] = atomicrmw add i64 addrspace(4)* [[DOTSPLAT_EXTRACT_0_]], i64 [[VEC_PHI_EXTRACT_1_:%.*]] acquire
+; LLVM-CG-NEXT:    [[TMP8:%.*]] = atomicrmw add i64 addrspace(4)* [[DOTSPLAT_EXTRACT_0_]], i64 [[VEC_PHI_EXTRACT_1_]] acquire
 ; LLVM-CG-NEXT:    [[TMP9:%.*]] = insertelement <2 x i64> [[TMP7]], i64 [[TMP8]], i32 1
-; LLVM-CG-NEXT:    [[TMP10:%.*]] = atomicrmw add i64 addrspace(4)* [[MM_VECTORGEP_EXTRACT_0_]], i64 [[UNI_PHI3]] acquire
+; LLVM-CG-NEXT:    [[TMP10:%.*]] = atomicrmw add i64 addrspace(4)* [[MM_VECTORGEP_EXTRACT_0_]], i64 [[UNI_PHI]] acquire
 ; LLVM-CG-NEXT:    [[TMP11:%.*]] = insertelement <2 x i64> undef, i64 [[TMP10]], i32 0
 ; LLVM-CG-NEXT:    [[TMP12:%.*]] = atomicrmw add i64 addrspace(4)* [[MM_VECTORGEP_EXTRACT_1_]], i64 [[VEC_PHI_EXTRACT_1_]] acquire
 ; LLVM-CG-NEXT:    [[TMP13:%.*]] = insertelement <2 x i64> [[TMP11]], i64 [[TMP12]], i32 1
 ; LLVM-CG-NEXT:    [[TMP14:%.*]] = add <2 x i64> [[TMP5]], [[VEC_PHI]]
 ; LLVM-CG-NEXT:    [[TMP15:%.*]] = add <2 x i64> [[TMP9]], [[VEC_PHI]]
 ; LLVM-CG-NEXT:    [[TMP16:%.*]] = add <2 x i64> [[TMP13]], [[VEC_PHI]]
-; LLVM-CG-NEXT:    br label [[VPLANNEDBB5:%.*]]
-; LLVM-CG:       VPlannedBB5:
-; LLVM-CG-NEXT:    [[PREDICATE:%.*]] = extractelement <2 x i1> [[TMP1:%.*]], i64 0
+; LLVM-CG-NEXT:    br label [[VPLANNEDBB4:%.*]]
+; LLVM-CG:       VPlannedBB4:
+; LLVM-CG-NEXT:    [[PREDICATE:%.*]] = extractelement <2 x i1> [[TMP1]], i64 0
 ; LLVM-CG-NEXT:    [[TMP17:%.*]] = icmp eq i1 [[PREDICATE]], true
 ; LLVM-CG-NEXT:    br i1 [[TMP17]], label [[PRED_ATOMICRMW_IF:%.*]], label [[TMP20:%.*]]
 ; LLVM-CG:       pred.atomicrmw.if:
@@ -47,13 +51,13 @@ define void @test1(i64 %n, i64 addrspace(4)* %arr) {
 ; LLVM-CG-NEXT:    [[TMP19:%.*]] = insertelement <2 x i64> undef, i64 [[TMP18]], i32 0
 ; LLVM-CG-NEXT:    br label [[TMP20]]
 ; LLVM-CG:       20:
-; LLVM-CG-NEXT:    [[TMP21:%.*]] = phi <2 x i64> [ undef, [[VPLANNEDBB5]] ], [ [[TMP19]], [[PRED_ATOMICRMW_IF]] ]
+; LLVM-CG-NEXT:    [[TMP21:%.*]] = phi <2 x i64> [ undef, [[VPLANNEDBB4]] ], [ [[TMP19]], [[PRED_ATOMICRMW_IF]] ]
 ; LLVM-CG-NEXT:    br label [[PRED_ATOMICRMW_CONTINUE:%.*]]
 ; LLVM-CG:       pred.atomicrmw.continue:
-; LLVM-CG-NEXT:    [[PREDICATE6:%.*]] = extractelement <2 x i1> [[TMP1]], i64 1
-; LLVM-CG-NEXT:    [[TMP22:%.*]] = icmp eq i1 [[PREDICATE6]], true
-; LLVM-CG-NEXT:    br i1 [[TMP22]], label [[PRED_ATOMICRMW_IF14:%.*]], label [[TMP25:%.*]]
-; LLVM-CG:       pred.atomicrmw.if14:
+; LLVM-CG-NEXT:    [[PREDICATE5:%.*]] = extractelement <2 x i1> [[TMP1]], i64 1
+; LLVM-CG-NEXT:    [[TMP22:%.*]] = icmp eq i1 [[PREDICATE5]], true
+; LLVM-CG-NEXT:    br i1 [[TMP22]], label [[PRED_ATOMICRMW_IF13:%.*]], label [[TMP25:%.*]]
+; LLVM-CG:       pred.atomicrmw.if13:
 ; LLVM-CG-NEXT:    [[TMP23:%.*]] = atomicrmw volatile add i64 addrspace(4)* [[DOTSPLAT_EXTRACT_0_]], i64 1 acquire
 ; LLVM-CG-NEXT:    [[TMP24:%.*]] = insertelement <2 x i64> [[TMP21]], i64 [[TMP23]], i32 1
 ; LLVM-CG-NEXT:    br label [[TMP25]]

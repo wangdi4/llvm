@@ -11,9 +11,8 @@ target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 define i32 @foo() local_unnamed_addr {
 ; CHECK-LABEL: @foo(
 ; CHECK:       vector.body:
-; CHECK-NEXT:    [[UNI_PHI:%.*]] = phi i64 [ 0, [[VECTOR_PH:%.*]] ], [ [[TMP23:%.*]], [[VPLANNEDBB7:%.*]] ]
-; CHECK-NEXT:    [[UNI_PHI3:%.*]] = phi i64 [ 0, [[VECTOR_PH]] ], [ [[TMP22:%.*]], [[VPLANNEDBB7]] ]
-; CHECK-NEXT:    [[VEC_PHI:%.*]] = phi <16 x i64> [ <i64 0, i64 1, i64 2, i64 3, i64 4, i64 5, i64 6, i64 7, i64 8, i64 9, i64 10, i64 11, i64 12, i64 13, i64 14, i64 15>, [[VECTOR_PH]] ], [ [[TMP21:%.*]], [[VPLANNEDBB7]] ]
+; CHECK-NEXT:    [[UNI_PHI3:%.*]] = phi i64 [ 0, [[VECTOR_PH:%.*]] ], [ [[TMP22:%.*]], %[[VPLANNEDBB7:.*]] ]
+; CHECK-NEXT:    [[VEC_PHI:%.*]] = phi <16 x i64> [ <i64 0, i64 1, i64 2, i64 3, i64 4, i64 5, i64 6, i64 7, i64 8, i64 9, i64 10, i64 11, i64 12, i64 13, i64 14, i64 15>, [[VECTOR_PH]] ], [ [[TMP21:%.*]], %[[VPLANNEDBB7]] ]
 ; CHECK-NEXT:    [[SCALAR_GEP:%.*]] = getelementptr inbounds [1024 x i32], [1024 x i32]* @a, i64 0, i64 [[UNI_PHI3]]
 ; CHECK-NEXT:    [[TMP5:%.*]] = bitcast i32* [[SCALAR_GEP]] to <16 x i32>*
 ; CHECK-NEXT:    [[WIDE_LOAD:%.*]] = load <16 x i32>, <16 x i32>* [[TMP5]], align 4
@@ -21,8 +20,8 @@ define i32 @foo() local_unnamed_addr {
 ; CHECK-NEXT:    [[TMP6:%.*]] = bitcast i32* [[SCALAR_GEP4]] to <16 x i32>*
 ; CHECK-NEXT:    [[WIDE_LOAD5:%.*]] = load <16 x i32>, <16 x i32>* [[TMP6]], align 4
 ; CHECK-NEXT:    [[TMP7:%.*]] = icmp sgt <16 x i32> [[WIDE_LOAD]], [[WIDE_LOAD5]]
-; CHECK-NEXT:    br label [[VPLANNEDBB6:%.*]]
-; CHECK:       VPlannedBB6:
+; CHECK-NEXT:    br label %[[VPLANNEDBB6:.*]]
+; CHECK:       [[VPLANNEDBB6]]:
 ; CHECK-NEXT:    [[TMP8:%.*]] = icmp eq <16 x i32> [[WIDE_LOAD]], <i32 16, i32 16, i32 16, i32 16, i32 16, i32 16, i32 16, i32 16, i32 16, i32 16, i32 16, i32 16, i32 16, i32 16, i32 16, i32 16>
 ; CHECK-NEXT:    [[TMP9:%.*]] = mul nsw <16 x i32> [[WIDE_LOAD5]], [[WIDE_LOAD]]
 ; CHECK-NEXT:    [[TMP10:%.*]] = add nsw <16 x i32> [[WIDE_LOAD5]], [[WIDE_LOAD]]
@@ -30,8 +29,8 @@ define i32 @foo() local_unnamed_addr {
 ; CHECK-NEXT:    [[TMP12:%.*]] = select <16 x i1> [[TMP8]], <16 x i32> [[TMP10]], <16 x i32> <i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1>
 ; CHECK-NEXT:    [[TMP13:%.*]] = mul nsw <16 x i32> [[WIDE_LOAD5]], [[WIDE_LOAD5]]
 ; CHECK-NEXT:    [[TMP14:%.*]] = mul nsw <16 x i32> [[WIDE_LOAD]], [[WIDE_LOAD]]
-; CHECK-NEXT:    br label [[VPLANNEDBB7]]
-; CHECK:       VPlannedBB7:
+; CHECK-NEXT:    br label %[[VPLANNEDBB7]]
+; CHECK:       [[VPLANNEDBB7]]:
 ; CHECK-NEXT:    [[PREDBLEND:%.*]] = select <16 x i1> [[TMP7]], <16 x i32> [[TMP13]], <16 x i32> zeroinitializer
 ; CHECK-NEXT:    [[PREDBLEND8:%.*]] = select <16 x i1> [[TMP7]], <16 x i32> [[TMP14]], <16 x i32> zeroinitializer
 ; CHECK-NEXT:    [[PREDBLEND9:%.*]] = select <16 x i1> [[TMP7]], <16 x i32> [[TMP11]], <16 x i32> <i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1>
@@ -46,9 +45,8 @@ define i32 @foo() local_unnamed_addr {
 ; CHECK-NEXT:    store <16 x i32> [[TMP19]], <16 x i32>* [[TMP20]], align 16
 ; CHECK-NEXT:    [[TMP21]] = add nuw nsw <16 x i64> [[VEC_PHI]], <i64 16, i64 16, i64 16, i64 16, i64 16, i64 16, i64 16, i64 16, i64 16, i64 16, i64 16, i64 16, i64 16, i64 16, i64 16, i64 16>
 ; CHECK-NEXT:    [[TMP22]] = add nuw nsw i64 [[UNI_PHI3]], 16
-; CHECK-NEXT:    [[TMP23]] = add i64 [[UNI_PHI]], 16
-; CHECK-NEXT:    [[TMP24:%.*]] = icmp ult i64 [[TMP23]], [[N_VEC:%.*]]
-; CHECK-NEXT:    br i1 [[TMP24]], label [[VECTOR_BODY:%.*]], label [[VPLANNEDBB11:%.*]], [[LOOP0:!llvm.loop !.*]]
+; CHECK-NEXT:    [[TMP23:%.*]] = icmp slt i64 [[TMP22]], [[N_VEC:%.*]]
+; CHECK-NEXT:    br i1 [[TMP23]], label [[VECTOR_BODY:%.*]], label [[VPLANNEDBB11:%.*]], [[LOOP0:!llvm.loop !.*]]
 ;
 entry:
   %tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"() ]

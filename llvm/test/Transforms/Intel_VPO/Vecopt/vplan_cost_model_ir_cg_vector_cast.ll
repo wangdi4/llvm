@@ -6,18 +6,15 @@ target triple = "x86_64-unknown-linux-gnu"
 
 define void @foo(<2 x i32>* nocapture readonly %p) {
 ; CHECK-LABEL:  Cost Model for VPlan foo.header with VF = 4:
-; CHECK-NEXT:  Total Cost: 15001
+; CHECK-NEXT:  Total Cost: 14001
 ; CHECK-NEXT:  Analyzing VPBasicBlock [[BB0:BB[0-9]+]], total cost: 0
 ; CHECK-NEXT:    Cost 0 for br [[BB1:BB[0-9]+]]
 ; CHECK-NEXT:  Analyzing VPBasicBlock [[BB1]], total cost: 0
 ; CHECK-NEXT:    Cost Unknown for i64 [[VP_IV_IND_INIT:%.*]] = induction-init{add} i64 live-in0 i64 1
 ; CHECK-NEXT:    Cost Unknown for i64 [[VP_IV_IND_INIT_STEP:%.*]] = induction-init-step{add} i64 1
-; CHECK-NEXT:    Cost Unknown for i64 [[VP_VF:%.*]] = induction-init-step{add} i64 1
-; CHECK-NEXT:    Cost Unknown for i64 [[VP_ORIG_TRIP_COUNT:%.*]] = orig-trip-count for original loop header
-; CHECK-NEXT:    Cost Unknown for i64 [[VP_VECTOR_TRIP_COUNT:%.*]] = vector-trip-count i64 [[VP_ORIG_TRIP_COUNT]], UF = 1
+; CHECK-NEXT:    Cost Unknown for i64 [[VP_VECTOR_TRIP_COUNT:%.*]] = vector-trip-count i64 1024, UF = 1
 ; CHECK-NEXT:    Cost 0 for br [[BB2:BB[0-9]+]]
-; CHECK-NEXT:  Analyzing VPBasicBlock [[BB2]], total cost: 15001
-; CHECK-NEXT:    Cost Unknown for i64 [[VP_VECTOR_LOOP_IV:%.*]] = phi  [ i64 0, [[BB1]] ],  [ i64 [[VP_VECTOR_LOOP_IV_NEXT:%.*]], [[BB2]] ]
+; CHECK-NEXT:  Analyzing VPBasicBlock [[BB2]], total cost: 14001
 ; CHECK-NEXT:    Cost Unknown for i64 [[VP_IV:%.*]] = phi  [ i64 [[VP_IV_IND_INIT]], [[BB1]] ],  [ i64 [[VP_IV_NEXT:%.*]], [[BB2]] ]
 ; CHECK-NEXT:    Cost 0 for <2 x i32>* [[VP_GEP:%.*]] = getelementptr inbounds <2 x i32>* [[P0:%.*]] i64 [[VP_IV]]
 ; CHECK-NEXT:    Cost 1001 for <2 x i32> [[VP_LD:%.*]] = load <2 x i32>* [[VP_GEP]]
@@ -35,9 +32,8 @@ define void @foo(<2 x i32>* nocapture readonly %p) {
 ; CHECK-NEXT:    Cost 1000 for <2 x float> [[VP_SIFPTR:%.*]] = fptrunc <2 x double> [[VP_SIFPEX]] to <2 x float>
 ; CHECK-NEXT:    Cost 1000 for <2 x float> [[VP_UIFPTR:%.*]] = fptrunc <2 x double> [[VP_UIFPEX]] to <2 x float>
 ; CHECK-NEXT:    Cost 1000 for i64 [[VP_IV_NEXT]] = add i64 [[VP_IV]] i64 [[VP_IV_IND_INIT_STEP]]
-; CHECK-NEXT:    Cost 1000 for i64 [[VP_VECTOR_LOOP_IV_NEXT]] = add i64 [[VP_VECTOR_LOOP_IV]] i64 [[VP_VF]]
-; CHECK-NEXT:    Cost 1000 for i1 [[VP_VECTOR_LOOP_EXITCOND:%.*]] = icmp uge i64 [[VP_VECTOR_LOOP_IV_NEXT]] i64 [[VP_VECTOR_TRIP_COUNT]]
-; CHECK-NEXT:    Cost 0 for br i1 [[VP_VECTOR_LOOP_EXITCOND]], [[BB3:BB[0-9]+]], [[BB2]]
+; CHECK-NEXT:    Cost 1000 for i1 [[VP_EXITCOND:%.*]] = icmp eq i64 [[VP_IV_NEXT]] i64 [[VP_VECTOR_TRIP_COUNT]]
+; CHECK-NEXT:    Cost 0 for br i1 [[VP_EXITCOND]], [[BB3:BB[0-9]+]], [[BB2]]
 ; CHECK-NEXT:  Analyzing VPBasicBlock [[BB3]], total cost: 0
 ; CHECK-NEXT:    Cost Unknown for i64 [[VP_IV_IND_FINAL:%.*]] = induction-final{add} i64 live-in0 i64 1
 ; CHECK-NEXT:    Cost 0 for br [[BB4:BB[0-9]+]]

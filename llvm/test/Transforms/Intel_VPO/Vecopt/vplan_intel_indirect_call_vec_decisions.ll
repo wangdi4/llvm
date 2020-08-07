@@ -21,19 +21,16 @@ define void @_ZGVbN4_direct() #1 {
 ; CHECK-NEXT:     [DA: Uni] br [[BB1:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB1]]: # preds: [[BB0]]
-; CHECK-NEXT:     [DA: Uni] i32 [[VP_ORIG_TRIP_COUNT:%.*]] = orig-trip-count for original loop simd.loop
-; CHECK-NEXT:     [DA: Uni] i32 [[VP_VECTOR_TRIP_COUNT:%.*]] = vector-trip-count i32 [[VP_ORIG_TRIP_COUNT]], UF = 1
+; CHECK-NEXT:     [DA: Uni] i32 [[VP_VECTOR_TRIP_COUNT:%.*]] = vector-trip-count i32 4, UF = 1
 ; CHECK-NEXT:     [DA: Uni] i1 [[VP_VEC_TC_CHECK:%.*]] = icmp eq i32 0 i32 [[VP_VECTOR_TRIP_COUNT]]
 ; CHECK-NEXT:     [DA: Uni] br i1 [[VP_VEC_TC_CHECK]], scalar.ph, vector.ph
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      vector.ph: # preds: [[BB1]]
 ; CHECK-NEXT:       [DA: Div] i32 [[VP_INDEX_IND_INIT:%.*]] = induction-init{add} i32 0 i32 1
 ; CHECK-NEXT:       [DA: Uni] i32 [[VP_INDEX_IND_INIT_STEP:%.*]] = induction-init-step{add} i32 1
-; CHECK-NEXT:       [DA: Uni] i32 [[VP_VF:%.*]] = induction-init-step{add} i32 1
 ; CHECK-NEXT:       [DA: Uni] br [[BB2:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB2]]: # preds: [[BB3:BB[0-9]+]], vector.ph
-; CHECK-NEXT:       [DA: Uni] i32 [[VP_VECTOR_LOOP_IV:%.*]] = phi  [ i32 0, vector.ph ],  [ i32 [[VP_VECTOR_LOOP_IV_NEXT:%.*]], [[BB3]] ]
 ; CHECK-NEXT:       [DA: Div] i32 [[VP_INDEX:%.*]] = phi  [ i32 [[VP_INDEX_IND_INIT]], vector.ph ],  [ i32 [[VP_INDVAR:%.*]], [[BB3]] ]
 ; CHECK-NEXT:       [DA: Div] i32 (i32, float)** [[VP_CALL_I:%.*]] = call _ZGVbN4_ZNKSt5arrayIPFiifELm2EE4dataEv [x 1]
 ; CHECK-NEXT:       [DA: Div] i32 [[VP0:%.*]] = call i32 (i32, float)** [[VP_CALL_I]] i32 5 float 2.000000e+00 _ZGVbM4vv___intel_indirect_call_i32_p0p0f_i32i32f32f [x 1]
@@ -41,8 +38,7 @@ define void @_ZGVbN4_direct() #1 {
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB3]]: # preds: [[BB2]]
 ; CHECK-NEXT:       [DA: Div] i32 [[VP_INDVAR]] = add i32 [[VP_INDEX]] i32 [[VP_INDEX_IND_INIT_STEP]]
-; CHECK-NEXT:       [DA: Uni] i32 [[VP_VECTOR_LOOP_IV_NEXT]] = add i32 [[VP_VECTOR_LOOP_IV]] i32 [[VP_VF]]
-; CHECK-NEXT:       [DA: Uni] i1 [[VP_VECTOR_LOOP_EXITCOND:%.*]] = icmp ult i32 [[VP_VECTOR_LOOP_IV_NEXT]] i32 [[VP_VECTOR_TRIP_COUNT]]
+; CHECK-NEXT:       [DA: Uni] i1 [[VP_VL_COND:%.*]] = icmp ult i32 [[VP_INDVAR]] i32 [[VP_VECTOR_TRIP_COUNT]]
 ; CHECK-NEXT:       [DA: Uni] br i1 false, [[BB2]], [[BB4:BB[0-9]+]]
 ; CHECK-NEXT:       Condition(external): i1 false
 ; CHECK-EMPTY:
@@ -51,7 +47,7 @@ define void @_ZGVbN4_direct() #1 {
 ; CHECK-NEXT:       [DA: Uni] br middle.block
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      middle.block: # preds: [[BB4]]
-; CHECK-NEXT:       [DA: Uni] i1 [[VP_REMTC_CHECK:%.*]] = icmp ne i32 [[VP_ORIG_TRIP_COUNT]] i32 [[VP_VECTOR_TRIP_COUNT]]
+; CHECK-NEXT:       [DA: Uni] i1 [[VP_REMTC_CHECK:%.*]] = icmp ne i32 4 i32 [[VP_VECTOR_TRIP_COUNT]]
 ; CHECK-NEXT:       [DA: Uni] br i1 [[VP_REMTC_CHECK]], scalar.ph, [[BB5:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      scalar.ph: # preds: [[BB1]], middle.block
@@ -92,9 +88,8 @@ define void @_ZGVbN4_direct() #1 {
 ; CHECK-NEXT:    br label [[VECTOR_BODY0:%.*]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  vector.body:
-; CHECK-NEXT:    [[UNI_PHI0:%.*]] = phi i32 [ 0, [[VECTOR_PH0]] ], [ [[TMP7:%.*]], [[VPLANNEDBB40:%.*]] ]
-; CHECK-NEXT:    [[UNI_PHI30:%.*]] = phi i32 [ 0, [[VECTOR_PH0]] ], [ [[TMP6:%.*]], [[VPLANNEDBB40]] ]
-; CHECK-NEXT:    [[VEC_PHI0:%.*]] = phi <4 x i32> [ <i32 0, i32 1, i32 2, i32 3>, [[VECTOR_PH0]] ], [ [[TMP5:%.*]], [[VPLANNEDBB40]] ]
+; CHECK-NEXT:    [[UNI_PHI0:%.*]] = phi i32 [ 0, [[VECTOR_PH0]] ], [ [[TMP6:%.*]], [[VPLANNEDBB30:%.*]] ]
+; CHECK-NEXT:    [[VEC_PHI0:%.*]] = phi <4 x i32> [ <i32 0, i32 1, i32 2, i32 3>, [[VECTOR_PH0]] ], [ [[TMP5:%.*]], [[VPLANNEDBB30]] ]
 ; CHECK-NEXT:    [[TMP0:%.*]] = call <4 x i32 (i32, float)**> @_ZGVbN4_ZNKSt5arrayIPFiifELm2EE4dataEv()
 ; CHECK-NEXT:    br label [[INDIRECT_CALL_LOOP_ENTRY0:%.*]]
 ; CHECK-EMPTY:
@@ -128,16 +123,15 @@ define void @_ZGVbN4_direct() #1 {
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  indirect.call.loop.exit:
 ; CHECK-NEXT:    [[INDIRECT_CALL_RETURN_LCSSA_PHI0:%.*]] = phi <4 x i32> [ [[FINAL_INDIRECT_CALL_RETURN0]], [[INDIRECT_CALL_LOOP_LATCH0]] ]
-; CHECK-NEXT:    br label [[VPLANNEDBB40]]
+; CHECK-NEXT:    br label [[VPLANNEDBB30]]
+; CHECK-EMPTY:
+; CHECK-NEXT:  VPlannedBB3:
+; CHECK-NEXT:    [[TMP5]] = add nuw <4 x i32> [[VEC_PHI0]], <i32 4, i32 4, i32 4, i32 4>
+; CHECK-NEXT:    [[TMP6]] = add nuw i32 [[UNI_PHI0]], 4
+; CHECK-NEXT:    [[TMP7:%.*]] = icmp ult i32 [[TMP6]], 4
+; CHECK-NEXT:    br i1 false, label [[VECTOR_BODY0]], label [[VPLANNEDBB40:%.*]], !llvm.loop !0
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  VPlannedBB4:
-; CHECK-NEXT:    [[TMP5]] = add nuw <4 x i32> [[VEC_PHI0]], <i32 4, i32 4, i32 4, i32 4>
-; CHECK-NEXT:    [[TMP6]] = add nuw i32 [[UNI_PHI30]], 4
-; CHECK-NEXT:    [[TMP7]] = add i32 [[UNI_PHI0]], 4
-; CHECK-NEXT:    [[TMP8:%.*]] = icmp ult i32 [[TMP7]], 4
-; CHECK-NEXT:    br i1 false, label [[VECTOR_BODY0]], label [[VPLANNEDBB50:%.*]], !llvm.loop !0
-; CHECK-EMPTY:
-; CHECK-NEXT:  VPlannedBB5:
 ; CHECK-NEXT:    br label [[MIDDLE_BLOCK0:%.*]]
 ;
 entry:

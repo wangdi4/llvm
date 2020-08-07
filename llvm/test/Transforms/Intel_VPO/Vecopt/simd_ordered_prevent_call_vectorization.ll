@@ -38,33 +38,75 @@ define dso_local i32 @_Z3fooi(i32 %a) local_unnamed_addr #0 {
 ; CHECK-NEXT:    br label [[VECTOR_BODY0:%.*]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  vector.body:
-; CHECK-NEXT:    [[UNI_PHI0:%.*]] = phi i32 [ 0, [[VECTOR_PH0]] ], [ [[TMP3:%.*]], [[VPLANNEDBB60:%.*]] ]
-; CHECK-NEXT:    [[UNI_PHI30:%.*]] = phi i32 [ 0, [[VECTOR_PH0]] ], [ [[TMP2:%.*]], [[VPLANNEDBB60]] ]
-; CHECK-NEXT:    [[VEC_PHI0:%.*]] = phi <4 x i32> [ <i32 0, i32 1, i32 2, i32 3>, [[VECTOR_PH0]] ], [ [[TMP1:%.*]], [[VPLANNEDBB60]] ]
-; CHECK-NEXT:    [[SCALAR_GEP0:%.*]] = getelementptr i32, i32* [[RET_CAST0]], i32 [[UNI_PHI30]]
+; CHECK-NEXT:    [[UNI_PHI0:%.*]] = phi i32 [ 0, [[VECTOR_PH0]] ], [ [[TMP2:%.*]], [[VPLANNEDBB50:%.*]] ]
+; CHECK-NEXT:    [[VEC_PHI0:%.*]] = phi <4 x i32> [ <i32 0, i32 1, i32 2, i32 3>, [[VECTOR_PH0]] ], [ [[TMP1:%.*]], [[VPLANNEDBB50]] ]
+; CHECK-NEXT:    [[SCALAR_GEP0:%.*]] = getelementptr i32, i32* [[RET_CAST0]], i32 [[UNI_PHI0]]
 ; CHECK-NEXT:    [[TMP0:%.*]] = bitcast i32* [[SCALAR_GEP0]] to <4 x i32>*
 ; CHECK-NEXT:    store <4 x i32> zeroinitializer, <4 x i32>* [[TMP0]], align 16
+; CHECK-NEXT:    br label [[VPLANNEDBB30:%.*]]
+; CHECK-EMPTY:
+; CHECK-NEXT:  VPlannedBB3:
+; CHECK-NEXT:    call void @_Z3fooi.ordered.simd.region_1()
+; CHECK-NEXT:    call void @_Z3fooi.ordered.simd.region_1()
+; CHECK-NEXT:    call void @_Z3fooi.ordered.simd.region_1()
+; CHECK-NEXT:    call void @_Z3fooi.ordered.simd.region_1()
 ; CHECK-NEXT:    br label [[VPLANNEDBB40:%.*]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  VPlannedBB4:
-; CHECK-NEXT:    call void @_Z3fooi.ordered.simd.region_1()
-; CHECK-NEXT:    call void @_Z3fooi.ordered.simd.region_1()
-; CHECK-NEXT:    call void @_Z3fooi.ordered.simd.region_1()
-; CHECK-NEXT:    call void @_Z3fooi.ordered.simd.region_1()
-; CHECK-NEXT:    br label [[VPLANNEDBB50:%.*]]
+; CHECK-NEXT:    br label [[VPLANNEDBB50]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  VPlannedBB5:
-; CHECK-NEXT:    br label [[VPLANNEDBB60]]
+; CHECK-NEXT:    [[TMP1]] = add nuw <4 x i32> [[VEC_PHI0]], <i32 4, i32 4, i32 4, i32 4>
+; CHECK-NEXT:    [[TMP2]] = add nuw i32 [[UNI_PHI0]], 4
+; CHECK-NEXT:    [[TMP3:%.*]] = icmp ult i32 [[TMP2]], 4
+; CHECK-NEXT:    br i1 false, label [[VECTOR_BODY0]], label [[VPLANNEDBB60:%.*]], !llvm.loop !0
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  VPlannedBB6:
-; CHECK-NEXT:    [[TMP1]] = add nuw <4 x i32> [[VEC_PHI0]], <i32 4, i32 4, i32 4, i32 4>
-; CHECK-NEXT:    [[TMP2]] = add nuw i32 [[UNI_PHI30]], 4
-; CHECK-NEXT:    [[TMP3]] = add i32 [[UNI_PHI0]], 4
-; CHECK-NEXT:    [[TMP4:%.*]] = icmp ult i32 [[TMP3]], 4
-; CHECK-NEXT:    br i1 false, label [[VECTOR_BODY0]], label [[VPLANNEDBB70:%.*]], !llvm.loop !0
+; CHECK-NEXT:    br label [[MIDDLE_BLOCK0:%.*]]
+; CHECK-EMPTY:
+; CHECK-NEXT:  middle.block:
+; CHECK-NEXT:    br i1 false, label [[SCALAR_PH0]], label [[VPLANNEDBB70:%.*]]
+; CHECK-EMPTY:
+; CHECK-NEXT:  scalar.ph:
+; CHECK-NEXT:    [[UNI_PHI80:%.*]] = phi i32 [ 4, [[MIDDLE_BLOCK0]] ], [ 0, [[VPLANNEDBB10]] ]
+; CHECK-NEXT:    br label [[VPLANNEDBB90:%.*]]
+; CHECK-EMPTY:
+; CHECK-NEXT:  VPlannedBB9:
+; CHECK-NEXT:    br label [[SIMD_LOOP0:%.*]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  VPlannedBB7:
-; CHECK-NEXT:    br label [[MIDDLE_BLOCK0:%.*]]
+; CHECK-NEXT:    [[UNI_PHI100:%.*]] = phi i32 [ [[INDVAR0:%.*]], [[SIMD_LOOP_EXIT0:%.*]] ], [ 4, [[MIDDLE_BLOCK0]] ]
+; CHECK-NEXT:    br label [[VPLANNEDBB110:%.*]]
+; CHECK-EMPTY:
+; CHECK-NEXT:  VPlannedBB11:
+; CHECK-NEXT:    br label [[SIMD_END_REGION0:%.*]]
+; CHECK-EMPTY:
+; CHECK-NEXT:  simd.loop:
+; CHECK-NEXT:    [[INDEX0:%.*]] = phi i32 [ [[UNI_PHI80]], [[VPLANNEDBB90]] ], [ [[INDVAR0]], [[SIMD_LOOP_EXIT0]] ]
+; CHECK-NEXT:    [[RET_CAST_GEP0:%.*]] = getelementptr i32, i32* [[RET_CAST0]], i32 [[INDEX0]]
+; CHECK-NEXT:    store i32 0, i32* [[RET_CAST_GEP0]], align 4
+; CHECK-NEXT:    br label [[CODEREPL0]]
+; CHECK-EMPTY:
+; CHECK-NEXT:  codeRepl:
+; CHECK-NEXT:    call void @_Z3fooi.ordered.simd.region_1()
+; CHECK-NEXT:    br label [[DIR_OMP_END_ORDERED_30]]
+; CHECK-EMPTY:
+; CHECK-NEXT:  DIR.OMP.END.ORDERED.3:
+; CHECK-NEXT:    br label [[SIMD_LOOP_EXIT0]]
+; CHECK-EMPTY:
+; CHECK-NEXT:  simd.loop.exit:
+; CHECK-NEXT:    [[INDVAR0]] = add nuw i32 [[INDEX0]], 1
+; CHECK-NEXT:    [[VL_COND0:%.*]] = icmp ult i32 [[INDVAR0]], 4
+; CHECK-NEXT:    br i1 [[VL_COND0]], label [[SIMD_LOOP0]], label [[VPLANNEDBB70]], !llvm.loop !2
+; CHECK-EMPTY:
+; CHECK-NEXT:  simd.end.region:
+; CHECK-NEXT:    br label [[RETURN0:%.*]]
+; CHECK-EMPTY:
+; CHECK-NEXT:  return:
+; CHECK-NEXT:    [[VEC_RET_CAST0:%.*]] = bitcast i32* [[RET_CAST0]] to <4 x i32>*
+; CHECK-NEXT:    [[VEC_RET0:%.*]] = load <4 x i32>, <4 x i32>* [[VEC_RET_CAST0]], align 16
+; CHECK-NEXT:    ret <4 x i32> [[VEC_RET0]]
+; CHECK-NEXT:  }
 ;
 ; CHECK:  define dso_local <8 x i32> @_ZGVcN8v__Z3fooi(<8 x i32> [[A0]]) local_unnamed_addr #0 {
 ; CHECK-NEXT:  DIR.OMP.END.ORDERED.4:
@@ -85,33 +127,75 @@ define dso_local i32 @_Z3fooi(i32 %a) local_unnamed_addr #0 {
 ; CHECK-NEXT:    br label [[VECTOR_BODY0]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  vector.body:
-; CHECK-NEXT:    [[UNI_PHI0]] = phi i32 [ 0, [[VECTOR_PH0]] ], [ [[TMP3]], [[VPLANNEDBB60]] ]
-; CHECK-NEXT:    [[UNI_PHI30]] = phi i32 [ 0, [[VECTOR_PH0]] ], [ [[TMP2]], [[VPLANNEDBB60]] ]
-; CHECK-NEXT:    [[VEC_PHI0]] = phi <4 x i32> [ <i32 0, i32 1, i32 2, i32 3>, [[VECTOR_PH0]] ], [ [[TMP1]], [[VPLANNEDBB60]] ]
-; CHECK-NEXT:    [[SCALAR_GEP0]] = getelementptr i32, i32* [[RET_CAST0]], i32 [[UNI_PHI30]]
+; CHECK-NEXT:    [[UNI_PHI0]] = phi i32 [ 0, [[VECTOR_PH0]] ], [ [[TMP2]], [[VPLANNEDBB50]] ]
+; CHECK-NEXT:    [[VEC_PHI0]] = phi <4 x i32> [ <i32 0, i32 1, i32 2, i32 3>, [[VECTOR_PH0]] ], [ [[TMP1]], [[VPLANNEDBB50]] ]
+; CHECK-NEXT:    [[SCALAR_GEP0]] = getelementptr i32, i32* [[RET_CAST0]], i32 [[UNI_PHI0]]
 ; CHECK-NEXT:    [[TMP0]] = bitcast i32* [[SCALAR_GEP0]] to <4 x i32>*
 ; CHECK-NEXT:    store <4 x i32> zeroinitializer, <4 x i32>* [[TMP0]], align 16
+; CHECK-NEXT:    br label [[VPLANNEDBB30]]
+; CHECK-EMPTY:
+; CHECK-NEXT:  VPlannedBB3:
+; CHECK-NEXT:    call void @_Z3fooi.ordered.simd.region_2()
+; CHECK-NEXT:    call void @_Z3fooi.ordered.simd.region_2()
+; CHECK-NEXT:    call void @_Z3fooi.ordered.simd.region_2()
+; CHECK-NEXT:    call void @_Z3fooi.ordered.simd.region_2()
 ; CHECK-NEXT:    br label [[VPLANNEDBB40]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  VPlannedBB4:
-; CHECK-NEXT:    call void @_Z3fooi.ordered.simd.region_2()
-; CHECK-NEXT:    call void @_Z3fooi.ordered.simd.region_2()
-; CHECK-NEXT:    call void @_Z3fooi.ordered.simd.region_2()
-; CHECK-NEXT:    call void @_Z3fooi.ordered.simd.region_2()
 ; CHECK-NEXT:    br label [[VPLANNEDBB50]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  VPlannedBB5:
-; CHECK-NEXT:    br label [[VPLANNEDBB60]]
+; CHECK-NEXT:    [[TMP1]] = add nuw <4 x i32> [[VEC_PHI0]], <i32 4, i32 4, i32 4, i32 4>
+; CHECK-NEXT:    [[TMP2]] = add nuw i32 [[UNI_PHI0]], 4
+; CHECK-NEXT:    [[TMP3]] = icmp ult i32 [[TMP2]], 8
+; CHECK-NEXT:    br i1 [[TMP3]], label [[VECTOR_BODY0]], label [[VPLANNEDBB60]], !llvm.loop !5
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  VPlannedBB6:
-; CHECK-NEXT:    [[TMP1]] = add nuw <4 x i32> [[VEC_PHI0]], <i32 4, i32 4, i32 4, i32 4>
-; CHECK-NEXT:    [[TMP2]] = add nuw i32 [[UNI_PHI30]], 4
-; CHECK-NEXT:    [[TMP3]] = add i32 [[UNI_PHI0]], 4
-; CHECK-NEXT:    [[TMP4]] = icmp ult i32 [[TMP3]], 8
-; CHECK-NEXT:    br i1 [[TMP4]], label [[VECTOR_BODY0]], label [[VPLANNEDBB70]], !llvm.loop !5
+; CHECK-NEXT:    br label [[MIDDLE_BLOCK0]]
+; CHECK-EMPTY:
+; CHECK-NEXT:  middle.block:
+; CHECK-NEXT:    br i1 false, label [[SCALAR_PH0]], label [[VPLANNEDBB70]]
+; CHECK-EMPTY:
+; CHECK-NEXT:  scalar.ph:
+; CHECK-NEXT:    [[UNI_PHI80]] = phi i32 [ 8, [[MIDDLE_BLOCK0]] ], [ 0, [[VPLANNEDBB10]] ]
+; CHECK-NEXT:    br label [[VPLANNEDBB90]]
+; CHECK-EMPTY:
+; CHECK-NEXT:  VPlannedBB9:
+; CHECK-NEXT:    br label [[SIMD_LOOP0]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  VPlannedBB7:
-; CHECK-NEXT:    br label [[MIDDLE_BLOCK0]]
+; CHECK-NEXT:    [[UNI_PHI100]] = phi i32 [ [[INDVAR0]], [[SIMD_LOOP_EXIT0]] ], [ 8, [[MIDDLE_BLOCK0]] ]
+; CHECK-NEXT:    br label [[VPLANNEDBB110]]
+; CHECK-EMPTY:
+; CHECK-NEXT:  VPlannedBB11:
+; CHECK-NEXT:    br label [[SIMD_END_REGION0]]
+; CHECK-EMPTY:
+; CHECK-NEXT:  simd.loop:
+; CHECK-NEXT:    [[INDEX0]] = phi i32 [ [[UNI_PHI80]], [[VPLANNEDBB90]] ], [ [[INDVAR0]], [[SIMD_LOOP_EXIT0]] ]
+; CHECK-NEXT:    [[RET_CAST_GEP0]] = getelementptr i32, i32* [[RET_CAST0]], i32 [[INDEX0]]
+; CHECK-NEXT:    store i32 0, i32* [[RET_CAST_GEP0]], align 4
+; CHECK-NEXT:    br label [[CODEREPL0]]
+; CHECK-EMPTY:
+; CHECK-NEXT:  codeRepl:
+; CHECK-NEXT:    call void @_Z3fooi.ordered.simd.region_2()
+; CHECK-NEXT:    br label [[DIR_OMP_END_ORDERED_30]]
+; CHECK-EMPTY:
+; CHECK-NEXT:  DIR.OMP.END.ORDERED.3:
+; CHECK-NEXT:    br label [[SIMD_LOOP_EXIT0]]
+; CHECK-EMPTY:
+; CHECK-NEXT:  simd.loop.exit:
+; CHECK-NEXT:    [[INDVAR0]] = add nuw i32 [[INDEX0]], 1
+; CHECK-NEXT:    [[VL_COND0]] = icmp ult i32 [[INDVAR0]], 8
+; CHECK-NEXT:    br i1 [[VL_COND0]], label [[SIMD_LOOP0]], label [[VPLANNEDBB70]], !llvm.loop !6
+; CHECK-EMPTY:
+; CHECK-NEXT:  simd.end.region:
+; CHECK-NEXT:    br label [[RETURN0]]
+; CHECK-EMPTY:
+; CHECK-NEXT:  return:
+; CHECK-NEXT:    [[VEC_RET_CAST0]] = bitcast i32* [[RET_CAST0]] to <8 x i32>*
+; CHECK-NEXT:    [[VEC_RET0]] = load <8 x i32>, <8 x i32>* [[VEC_RET_CAST0]], align 32
+; CHECK-NEXT:    ret <8 x i32> [[VEC_RET0]]
+; CHECK-NEXT:  }
 ;
 ; CHECK:  define dso_local <8 x i32> @_ZGVdN8v__Z3fooi(<8 x i32> [[A0]]) local_unnamed_addr #0 {
 ; CHECK-NEXT:  DIR.OMP.END.ORDERED.4:
@@ -132,33 +216,75 @@ define dso_local i32 @_Z3fooi(i32 %a) local_unnamed_addr #0 {
 ; CHECK-NEXT:    br label [[VECTOR_BODY0]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  vector.body:
-; CHECK-NEXT:    [[UNI_PHI0]] = phi i32 [ 0, [[VECTOR_PH0]] ], [ [[TMP3]], [[VPLANNEDBB60]] ]
-; CHECK-NEXT:    [[UNI_PHI30]] = phi i32 [ 0, [[VECTOR_PH0]] ], [ [[TMP2]], [[VPLANNEDBB60]] ]
-; CHECK-NEXT:    [[VEC_PHI0]] = phi <4 x i32> [ <i32 0, i32 1, i32 2, i32 3>, [[VECTOR_PH0]] ], [ [[TMP1]], [[VPLANNEDBB60]] ]
-; CHECK-NEXT:    [[SCALAR_GEP0]] = getelementptr i32, i32* [[RET_CAST0]], i32 [[UNI_PHI30]]
+; CHECK-NEXT:    [[UNI_PHI0]] = phi i32 [ 0, [[VECTOR_PH0]] ], [ [[TMP2]], [[VPLANNEDBB50]] ]
+; CHECK-NEXT:    [[VEC_PHI0]] = phi <4 x i32> [ <i32 0, i32 1, i32 2, i32 3>, [[VECTOR_PH0]] ], [ [[TMP1]], [[VPLANNEDBB50]] ]
+; CHECK-NEXT:    [[SCALAR_GEP0]] = getelementptr i32, i32* [[RET_CAST0]], i32 [[UNI_PHI0]]
 ; CHECK-NEXT:    [[TMP0]] = bitcast i32* [[SCALAR_GEP0]] to <4 x i32>*
 ; CHECK-NEXT:    store <4 x i32> zeroinitializer, <4 x i32>* [[TMP0]], align 16
+; CHECK-NEXT:    br label [[VPLANNEDBB30]]
+; CHECK-EMPTY:
+; CHECK-NEXT:  VPlannedBB3:
+; CHECK-NEXT:    call void @_Z3fooi.ordered.simd.region_3()
+; CHECK-NEXT:    call void @_Z3fooi.ordered.simd.region_3()
+; CHECK-NEXT:    call void @_Z3fooi.ordered.simd.region_3()
+; CHECK-NEXT:    call void @_Z3fooi.ordered.simd.region_3()
 ; CHECK-NEXT:    br label [[VPLANNEDBB40]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  VPlannedBB4:
-; CHECK-NEXT:    call void @_Z3fooi.ordered.simd.region_3()
-; CHECK-NEXT:    call void @_Z3fooi.ordered.simd.region_3()
-; CHECK-NEXT:    call void @_Z3fooi.ordered.simd.region_3()
-; CHECK-NEXT:    call void @_Z3fooi.ordered.simd.region_3()
 ; CHECK-NEXT:    br label [[VPLANNEDBB50]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  VPlannedBB5:
-; CHECK-NEXT:    br label [[VPLANNEDBB60]]
+; CHECK-NEXT:    [[TMP1]] = add nuw <4 x i32> [[VEC_PHI0]], <i32 4, i32 4, i32 4, i32 4>
+; CHECK-NEXT:    [[TMP2]] = add nuw i32 [[UNI_PHI0]], 4
+; CHECK-NEXT:    [[TMP3]] = icmp ult i32 [[TMP2]], 8
+; CHECK-NEXT:    br i1 [[TMP3]], label [[VECTOR_BODY0]], label [[VPLANNEDBB60]], !llvm.loop !7
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  VPlannedBB6:
-; CHECK-NEXT:    [[TMP1]] = add nuw <4 x i32> [[VEC_PHI0]], <i32 4, i32 4, i32 4, i32 4>
-; CHECK-NEXT:    [[TMP2]] = add nuw i32 [[UNI_PHI30]], 4
-; CHECK-NEXT:    [[TMP3]] = add i32 [[UNI_PHI0]], 4
-; CHECK-NEXT:    [[TMP4]] = icmp ult i32 [[TMP3]], 8
-; CHECK-NEXT:    br i1 [[TMP4]], label [[VECTOR_BODY0]], label [[VPLANNEDBB70]], !llvm.loop !7
+; CHECK-NEXT:    br label [[MIDDLE_BLOCK0]]
+; CHECK-EMPTY:
+; CHECK-NEXT:  middle.block:
+; CHECK-NEXT:    br i1 false, label [[SCALAR_PH0]], label [[VPLANNEDBB70]]
+; CHECK-EMPTY:
+; CHECK-NEXT:  scalar.ph:
+; CHECK-NEXT:    [[UNI_PHI80]] = phi i32 [ 8, [[MIDDLE_BLOCK0]] ], [ 0, [[VPLANNEDBB10]] ]
+; CHECK-NEXT:    br label [[VPLANNEDBB90]]
+; CHECK-EMPTY:
+; CHECK-NEXT:  VPlannedBB9:
+; CHECK-NEXT:    br label [[SIMD_LOOP0]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  VPlannedBB7:
-; CHECK-NEXT:    br label [[MIDDLE_BLOCK0]]
+; CHECK-NEXT:    [[UNI_PHI100]] = phi i32 [ [[INDVAR0]], [[SIMD_LOOP_EXIT0]] ], [ 8, [[MIDDLE_BLOCK0]] ]
+; CHECK-NEXT:    br label [[VPLANNEDBB110]]
+; CHECK-EMPTY:
+; CHECK-NEXT:  VPlannedBB11:
+; CHECK-NEXT:    br label [[SIMD_END_REGION0]]
+; CHECK-EMPTY:
+; CHECK-NEXT:  simd.loop:
+; CHECK-NEXT:    [[INDEX0]] = phi i32 [ [[UNI_PHI80]], [[VPLANNEDBB90]] ], [ [[INDVAR0]], [[SIMD_LOOP_EXIT0]] ]
+; CHECK-NEXT:    [[RET_CAST_GEP0]] = getelementptr i32, i32* [[RET_CAST0]], i32 [[INDEX0]]
+; CHECK-NEXT:    store i32 0, i32* [[RET_CAST_GEP0]], align 4
+; CHECK-NEXT:    br label [[CODEREPL0]]
+; CHECK-EMPTY:
+; CHECK-NEXT:  codeRepl:
+; CHECK-NEXT:    call void @_Z3fooi.ordered.simd.region_3()
+; CHECK-NEXT:    br label [[DIR_OMP_END_ORDERED_30]]
+; CHECK-EMPTY:
+; CHECK-NEXT:  DIR.OMP.END.ORDERED.3:
+; CHECK-NEXT:    br label [[SIMD_LOOP_EXIT0]]
+; CHECK-EMPTY:
+; CHECK-NEXT:  simd.loop.exit:
+; CHECK-NEXT:    [[INDVAR0]] = add nuw i32 [[INDEX0]], 1
+; CHECK-NEXT:    [[VL_COND0]] = icmp ult i32 [[INDVAR0]], 8
+; CHECK-NEXT:    br i1 [[VL_COND0]], label [[SIMD_LOOP0]], label [[VPLANNEDBB70]], !llvm.loop !8
+; CHECK-EMPTY:
+; CHECK-NEXT:  simd.end.region:
+; CHECK-NEXT:    br label [[RETURN0]]
+; CHECK-EMPTY:
+; CHECK-NEXT:  return:
+; CHECK-NEXT:    [[VEC_RET_CAST0]] = bitcast i32* [[RET_CAST0]] to <8 x i32>*
+; CHECK-NEXT:    [[VEC_RET0]] = load <8 x i32>, <8 x i32>* [[VEC_RET_CAST0]], align 32
+; CHECK-NEXT:    ret <8 x i32> [[VEC_RET0]]
+; CHECK-NEXT:  }
 ;
 ; CHECK:  define dso_local <16 x i32> @_ZGVeN16v__Z3fooi(<16 x i32> [[A0]]) local_unnamed_addr #0 {
 ; CHECK-NEXT:  DIR.OMP.END.ORDERED.4:
@@ -179,33 +305,75 @@ define dso_local i32 @_Z3fooi(i32 %a) local_unnamed_addr #0 {
 ; CHECK-NEXT:    br label [[VECTOR_BODY0]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  vector.body:
-; CHECK-NEXT:    [[UNI_PHI0]] = phi i32 [ 0, [[VECTOR_PH0]] ], [ [[TMP3]], [[VPLANNEDBB60]] ]
-; CHECK-NEXT:    [[UNI_PHI30]] = phi i32 [ 0, [[VECTOR_PH0]] ], [ [[TMP2]], [[VPLANNEDBB60]] ]
-; CHECK-NEXT:    [[VEC_PHI0]] = phi <4 x i32> [ <i32 0, i32 1, i32 2, i32 3>, [[VECTOR_PH0]] ], [ [[TMP1]], [[VPLANNEDBB60]] ]
-; CHECK-NEXT:    [[SCALAR_GEP0]] = getelementptr i32, i32* [[RET_CAST0]], i32 [[UNI_PHI30]]
+; CHECK-NEXT:    [[UNI_PHI0]] = phi i32 [ 0, [[VECTOR_PH0]] ], [ [[TMP2]], [[VPLANNEDBB50]] ]
+; CHECK-NEXT:    [[VEC_PHI0]] = phi <4 x i32> [ <i32 0, i32 1, i32 2, i32 3>, [[VECTOR_PH0]] ], [ [[TMP1]], [[VPLANNEDBB50]] ]
+; CHECK-NEXT:    [[SCALAR_GEP0]] = getelementptr i32, i32* [[RET_CAST0]], i32 [[UNI_PHI0]]
 ; CHECK-NEXT:    [[TMP0]] = bitcast i32* [[SCALAR_GEP0]] to <4 x i32>*
 ; CHECK-NEXT:    store <4 x i32> zeroinitializer, <4 x i32>* [[TMP0]], align 16
+; CHECK-NEXT:    br label [[VPLANNEDBB30]]
+; CHECK-EMPTY:
+; CHECK-NEXT:  VPlannedBB3:
+; CHECK-NEXT:    call void @_Z3fooi.ordered.simd.region_4()
+; CHECK-NEXT:    call void @_Z3fooi.ordered.simd.region_4()
+; CHECK-NEXT:    call void @_Z3fooi.ordered.simd.region_4()
+; CHECK-NEXT:    call void @_Z3fooi.ordered.simd.region_4()
 ; CHECK-NEXT:    br label [[VPLANNEDBB40]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  VPlannedBB4:
-; CHECK-NEXT:    call void @_Z3fooi.ordered.simd.region_4()
-; CHECK-NEXT:    call void @_Z3fooi.ordered.simd.region_4()
-; CHECK-NEXT:    call void @_Z3fooi.ordered.simd.region_4()
-; CHECK-NEXT:    call void @_Z3fooi.ordered.simd.region_4()
 ; CHECK-NEXT:    br label [[VPLANNEDBB50]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  VPlannedBB5:
-; CHECK-NEXT:    br label [[VPLANNEDBB60]]
+; CHECK-NEXT:    [[TMP1]] = add nuw <4 x i32> [[VEC_PHI0]], <i32 4, i32 4, i32 4, i32 4>
+; CHECK-NEXT:    [[TMP2]] = add nuw i32 [[UNI_PHI0]], 4
+; CHECK-NEXT:    [[TMP3]] = icmp ult i32 [[TMP2]], 16
+; CHECK-NEXT:    br i1 [[TMP3]], label [[VECTOR_BODY0]], label [[VPLANNEDBB60]], !llvm.loop !9
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  VPlannedBB6:
-; CHECK-NEXT:    [[TMP1]] = add nuw <4 x i32> [[VEC_PHI0]], <i32 4, i32 4, i32 4, i32 4>
-; CHECK-NEXT:    [[TMP2]] = add nuw i32 [[UNI_PHI30]], 4
-; CHECK-NEXT:    [[TMP3]] = add i32 [[UNI_PHI0]], 4
-; CHECK-NEXT:    [[TMP4]] = icmp ult i32 [[TMP3]], 16
-; CHECK-NEXT:    br i1 [[TMP4]], label [[VECTOR_BODY0]], label [[VPLANNEDBB70]], !llvm.loop !9
+; CHECK-NEXT:    br label [[MIDDLE_BLOCK0]]
+; CHECK-EMPTY:
+; CHECK-NEXT:  middle.block:
+; CHECK-NEXT:    br i1 false, label [[SCALAR_PH0]], label [[VPLANNEDBB70]]
+; CHECK-EMPTY:
+; CHECK-NEXT:  scalar.ph:
+; CHECK-NEXT:    [[UNI_PHI80]] = phi i32 [ 16, [[MIDDLE_BLOCK0]] ], [ 0, [[VPLANNEDBB10]] ]
+; CHECK-NEXT:    br label [[VPLANNEDBB90]]
+; CHECK-EMPTY:
+; CHECK-NEXT:  VPlannedBB9:
+; CHECK-NEXT:    br label [[SIMD_LOOP0]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  VPlannedBB7:
-; CHECK-NEXT:    br label [[MIDDLE_BLOCK0]]
+; CHECK-NEXT:    [[UNI_PHI100]] = phi i32 [ [[INDVAR0]], [[SIMD_LOOP_EXIT0]] ], [ 16, [[MIDDLE_BLOCK0]] ]
+; CHECK-NEXT:    br label [[VPLANNEDBB110]]
+; CHECK-EMPTY:
+; CHECK-NEXT:  VPlannedBB11:
+; CHECK-NEXT:    br label [[SIMD_END_REGION0]]
+; CHECK-EMPTY:
+; CHECK-NEXT:  simd.loop:
+; CHECK-NEXT:    [[INDEX0]] = phi i32 [ [[UNI_PHI80]], [[VPLANNEDBB90]] ], [ [[INDVAR0]], [[SIMD_LOOP_EXIT0]] ]
+; CHECK-NEXT:    [[RET_CAST_GEP0]] = getelementptr i32, i32* [[RET_CAST0]], i32 [[INDEX0]]
+; CHECK-NEXT:    store i32 0, i32* [[RET_CAST_GEP0]], align 4
+; CHECK-NEXT:    br label [[CODEREPL0]]
+; CHECK-EMPTY:
+; CHECK-NEXT:  codeRepl:
+; CHECK-NEXT:    call void @_Z3fooi.ordered.simd.region_4()
+; CHECK-NEXT:    br label [[DIR_OMP_END_ORDERED_30]]
+; CHECK-EMPTY:
+; CHECK-NEXT:  DIR.OMP.END.ORDERED.3:
+; CHECK-NEXT:    br label [[SIMD_LOOP_EXIT0]]
+; CHECK-EMPTY:
+; CHECK-NEXT:  simd.loop.exit:
+; CHECK-NEXT:    [[INDVAR0]] = add nuw i32 [[INDEX0]], 1
+; CHECK-NEXT:    [[VL_COND0]] = icmp ult i32 [[INDVAR0]], 16
+; CHECK-NEXT:    br i1 [[VL_COND0]], label [[SIMD_LOOP0]], label [[VPLANNEDBB70]], !llvm.loop !10
+; CHECK-EMPTY:
+; CHECK-NEXT:  simd.end.region:
+; CHECK-NEXT:    br label [[RETURN0]]
+; CHECK-EMPTY:
+; CHECK-NEXT:  return:
+; CHECK-NEXT:    [[VEC_RET_CAST0]] = bitcast i32* [[RET_CAST0]] to <16 x i32>*
+; CHECK-NEXT:    [[VEC_RET0]] = load <16 x i32>, <16 x i32>* [[VEC_RET_CAST0]], align 64
+; CHECK-NEXT:    ret <16 x i32> [[VEC_RET0]]
+; CHECK-NEXT:  }
 ;
 ; CHECK:  define dso_local <4 x i32> @_ZGVbM4v__Z3fooi(<4 x i32> [[A0]], <4 x i32> [[MASK0:%.*]]) local_unnamed_addr #0 {
 ; CHECK-NEXT:  DIR.OMP.END.ORDERED.4:
@@ -229,28 +397,27 @@ define dso_local i32 @_Z3fooi(i32 %a) local_unnamed_addr #0 {
 ; CHECK-NEXT:    br label [[VECTOR_BODY0]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  vector.body:
-; CHECK-NEXT:    [[UNI_PHI0]] = phi i32 [ 0, [[VECTOR_PH0]] ], [ [[TMP14:%.*]], [[VPLANNEDBB120:%.*]] ]
-; CHECK-NEXT:    [[UNI_PHI30]] = phi i32 [ 0, [[VECTOR_PH0]] ], [ [[TMP13:%.*]], [[VPLANNEDBB120]] ]
-; CHECK-NEXT:    [[VEC_PHI0]] = phi <4 x i32> [ <i32 0, i32 1, i32 2, i32 3>, [[VECTOR_PH0]] ], [ [[TMP12:%.*]], [[VPLANNEDBB120]] ]
-; CHECK-NEXT:    [[SCALAR_GEP0]] = getelementptr i32, i32* [[MASK_CAST0]], i32 [[UNI_PHI30]]
+; CHECK-NEXT:    [[UNI_PHI0]] = phi i32 [ 0, [[VECTOR_PH0]] ], [ [[TMP13:%.*]], [[VPLANNEDBB110]] ]
+; CHECK-NEXT:    [[VEC_PHI0]] = phi <4 x i32> [ <i32 0, i32 1, i32 2, i32 3>, [[VECTOR_PH0]] ], [ [[TMP12:%.*]], [[VPLANNEDBB110]] ]
+; CHECK-NEXT:    [[SCALAR_GEP0]] = getelementptr i32, i32* [[MASK_CAST0]], i32 [[UNI_PHI0]]
 ; CHECK-NEXT:    [[TMP0]] = bitcast i32* [[SCALAR_GEP0]] to <4 x i32>*
 ; CHECK-NEXT:    [[WIDE_LOAD0:%.*]] = load <4 x i32>, <4 x i32>* [[TMP0]], align 4
 ; CHECK-NEXT:    [[TMP1]] = icmp ne <4 x i32> [[WIDE_LOAD0]], zeroinitializer
 ; CHECK-NEXT:    [[TMP2]] = xor <4 x i1> [[TMP1]], <i1 true, i1 true, i1 true, i1 true>
+; CHECK-NEXT:    br label [[VPLANNEDBB30]]
+; CHECK-EMPTY:
+; CHECK-NEXT:  VPlannedBB3:
 ; CHECK-NEXT:    br label [[VPLANNEDBB40]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  VPlannedBB4:
-; CHECK-NEXT:    br label [[VPLANNEDBB50]]
-; CHECK-EMPTY:
-; CHECK-NEXT:  VPlannedBB5:
-; CHECK-NEXT:    [[SCALAR_GEP60:%.*]] = getelementptr i32, i32* [[RET_CAST0]], i32 [[UNI_PHI30]]
-; CHECK-NEXT:    [[TMP3]] = bitcast i32* [[SCALAR_GEP60]] to <4 x i32>*
+; CHECK-NEXT:    [[SCALAR_GEP50:%.*]] = getelementptr i32, i32* [[RET_CAST0]], i32 [[UNI_PHI0]]
+; CHECK-NEXT:    [[TMP3]] = bitcast i32* [[SCALAR_GEP50]] to <4 x i32>*
 ; CHECK-NEXT:    call void @llvm.masked.store.v4i32.p0v4i32(<4 x i32> zeroinitializer, <4 x i32>* [[TMP3]], i32 16, <4 x i1> [[TMP1]])
-; CHECK-NEXT:    br label [[VPLANNEDBB70]]
+; CHECK-NEXT:    br label [[VPLANNEDBB60]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:  VPlannedBB7:
+; CHECK-NEXT:  VPlannedBB6:
 ; CHECK-NEXT:    [[PREDICATE0:%.*]] = extractelement <4 x i1> [[TMP1]], i64 0
-; CHECK-NEXT:    [[TMP4]] = icmp eq i1 [[PREDICATE0]], true
+; CHECK-NEXT:    [[TMP4:%.*]] = icmp eq i1 [[PREDICATE0]], true
 ; CHECK-NEXT:    br i1 [[TMP4]], label [[PRED_CALL_IF0:%.*]], label [[TMP5:%.*]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  pred.call.if:
@@ -261,56 +428,108 @@ define dso_local i32 @_Z3fooi(i32 %a) local_unnamed_addr #0 {
 ; CHECK-NEXT:    br label [[PRED_CALL_CONTINUE0:%.*]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  pred.call.continue:
-; CHECK-NEXT:    [[PREDICATE80:%.*]] = extractelement <4 x i1> [[TMP1]], i64 1
-; CHECK-NEXT:    [[TMP6:%.*]] = icmp eq i1 [[PREDICATE80]], true
-; CHECK-NEXT:    br i1 [[TMP6]], label [[PRED_CALL_IF190:%.*]], label [[TMP7:%.*]]
+; CHECK-NEXT:    [[PREDICATE70:%.*]] = extractelement <4 x i1> [[TMP1]], i64 1
+; CHECK-NEXT:    [[TMP6:%.*]] = icmp eq i1 [[PREDICATE70]], true
+; CHECK-NEXT:    br i1 [[TMP6]], label [[PRED_CALL_IF180:%.*]], label [[TMP7:%.*]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:  pred.call.if19:
+; CHECK-NEXT:  pred.call.if18:
 ; CHECK-NEXT:    call void @_Z3fooi.ordered.simd.region_5()
 ; CHECK-NEXT:    br label [[TMP7]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  7:
-; CHECK-NEXT:    br label [[PRED_CALL_CONTINUE200:%.*]]
+; CHECK-NEXT:    br label [[PRED_CALL_CONTINUE190:%.*]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:  pred.call.continue20:
-; CHECK-NEXT:    [[PREDICATE90:%.*]] = extractelement <4 x i1> [[TMP1]], i64 2
-; CHECK-NEXT:    [[TMP8:%.*]] = icmp eq i1 [[PREDICATE90]], true
-; CHECK-NEXT:    br i1 [[TMP8]], label [[PRED_CALL_IF210:%.*]], label [[TMP9:%.*]]
+; CHECK-NEXT:  pred.call.continue19:
+; CHECK-NEXT:    [[PREDICATE80:%.*]] = extractelement <4 x i1> [[TMP1]], i64 2
+; CHECK-NEXT:    [[TMP8:%.*]] = icmp eq i1 [[PREDICATE80]], true
+; CHECK-NEXT:    br i1 [[TMP8]], label [[PRED_CALL_IF200:%.*]], label [[TMP9:%.*]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:  pred.call.if21:
+; CHECK-NEXT:  pred.call.if20:
 ; CHECK-NEXT:    call void @_Z3fooi.ordered.simd.region_5()
 ; CHECK-NEXT:    br label [[TMP9]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  9:
-; CHECK-NEXT:    br label [[PRED_CALL_CONTINUE220:%.*]]
+; CHECK-NEXT:    br label [[PRED_CALL_CONTINUE210:%.*]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:  pred.call.continue22:
-; CHECK-NEXT:    [[PREDICATE100:%.*]] = extractelement <4 x i1> [[TMP1]], i64 3
-; CHECK-NEXT:    [[TMP10:%.*]] = icmp eq i1 [[PREDICATE100]], true
-; CHECK-NEXT:    br i1 [[TMP10]], label [[PRED_CALL_IF230:%.*]], label [[TMP11:%.*]]
+; CHECK-NEXT:  pred.call.continue21:
+; CHECK-NEXT:    [[PREDICATE90:%.*]] = extractelement <4 x i1> [[TMP1]], i64 3
+; CHECK-NEXT:    [[TMP10:%.*]] = icmp eq i1 [[PREDICATE90]], true
+; CHECK-NEXT:    br i1 [[TMP10]], label [[PRED_CALL_IF220:%.*]], label [[TMP11:%.*]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:  pred.call.if23:
+; CHECK-NEXT:  pred.call.if22:
 ; CHECK-NEXT:    call void @_Z3fooi.ordered.simd.region_5()
 ; CHECK-NEXT:    br label [[TMP11]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  11:
-; CHECK-NEXT:    br label [[PRED_CALL_CONTINUE240:%.*]]
+; CHECK-NEXT:    br label [[PRED_CALL_CONTINUE230:%.*]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:  pred.call.continue24:
-; CHECK-NEXT:    br label [[VPLANNEDBB110:%.*]]
+; CHECK-NEXT:  pred.call.continue23:
+; CHECK-NEXT:    br label [[VPLANNEDBB100:%.*]]
+; CHECK-EMPTY:
+; CHECK-NEXT:  VPlannedBB10:
+; CHECK-NEXT:    br label [[VPLANNEDBB110]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  VPlannedBB11:
-; CHECK-NEXT:    br label [[VPLANNEDBB120]]
+; CHECK-NEXT:    [[TMP12]] = add nuw <4 x i32> [[VEC_PHI0]], <i32 4, i32 4, i32 4, i32 4>
+; CHECK-NEXT:    [[TMP13]] = add nuw i32 [[UNI_PHI0]], 4
+; CHECK-NEXT:    [[TMP14:%.*]] = icmp ult i32 [[TMP13]], 4
+; CHECK-NEXT:    br i1 false, label [[VECTOR_BODY0]], label [[VPLANNEDBB120:%.*]], !llvm.loop !11
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  VPlannedBB12:
-; CHECK-NEXT:    [[TMP12]] = add nuw <4 x i32> [[VEC_PHI0]], <i32 4, i32 4, i32 4, i32 4>
-; CHECK-NEXT:    [[TMP13]] = add nuw i32 [[UNI_PHI30]], 4
-; CHECK-NEXT:    [[TMP14]] = add i32 [[UNI_PHI0]], 4
-; CHECK-NEXT:    [[TMP15:%.*]] = icmp ult i32 [[TMP14]], 4
-; CHECK-NEXT:    br i1 false, label [[VECTOR_BODY0]], label [[VPLANNEDBB130:%.*]], !llvm.loop !11
+; CHECK-NEXT:    br label [[MIDDLE_BLOCK0]]
+; CHECK-EMPTY:
+; CHECK-NEXT:  middle.block:
+; CHECK-NEXT:    br i1 false, label [[SCALAR_PH0]], label [[VPLANNEDBB130:%.*]]
+; CHECK-EMPTY:
+; CHECK-NEXT:  scalar.ph:
+; CHECK-NEXT:    [[UNI_PHI140:%.*]] = phi i32 [ 4, [[MIDDLE_BLOCK0]] ], [ 0, [[VPLANNEDBB10]] ]
+; CHECK-NEXT:    br label [[VPLANNEDBB150:%.*]]
+; CHECK-EMPTY:
+; CHECK-NEXT:  VPlannedBB15:
+; CHECK-NEXT:    br label [[SIMD_LOOP0]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  VPlannedBB13:
-; CHECK-NEXT:    br label [[MIDDLE_BLOCK0]]
+; CHECK-NEXT:    [[UNI_PHI160:%.*]] = phi i32 [ [[INDVAR0]], [[SIMD_LOOP_EXIT0]] ], [ 4, [[MIDDLE_BLOCK0]] ]
+; CHECK-NEXT:    br label [[VPLANNEDBB170:%.*]]
+; CHECK-EMPTY:
+; CHECK-NEXT:  VPlannedBB17:
+; CHECK-NEXT:    br label [[SIMD_END_REGION0]]
+; CHECK-EMPTY:
+; CHECK-NEXT:  simd.loop:
+; CHECK-NEXT:    [[INDEX0]] = phi i32 [ [[UNI_PHI140]], [[VPLANNEDBB150]] ], [ [[INDVAR0]], [[SIMD_LOOP_EXIT0]] ]
+; CHECK-NEXT:    [[MASK_GEP0:%.*]] = getelementptr i32, i32* [[MASK_CAST0]], i32 [[INDEX0]]
+; CHECK-NEXT:    [[MASK_PARM0:%.*]] = load i32, i32* [[MASK_GEP0]], align 4
+; CHECK-NEXT:    [[MASK_COND0:%.*]] = icmp ne i32 [[MASK_PARM0]], 0
+; CHECK-NEXT:    br i1 [[MASK_COND0]], label [[SIMD_LOOP_THEN0:%.*]], label [[SIMD_LOOP_ELSE0:%.*]]
+; CHECK-EMPTY:
+; CHECK-NEXT:  simd.loop.then:
+; CHECK-NEXT:    [[RET_CAST_GEP0]] = getelementptr i32, i32* [[RET_CAST0]], i32 [[INDEX0]]
+; CHECK-NEXT:    store i32 0, i32* [[RET_CAST_GEP0]], align 4
+; CHECK-NEXT:    br label [[CODEREPL0]]
+; CHECK-EMPTY:
+; CHECK-NEXT:  codeRepl:
+; CHECK-NEXT:    call void @_Z3fooi.ordered.simd.region_5()
+; CHECK-NEXT:    br label [[DIR_OMP_END_ORDERED_30]]
+; CHECK-EMPTY:
+; CHECK-NEXT:  DIR.OMP.END.ORDERED.3:
+; CHECK-NEXT:    br label [[SIMD_LOOP_EXIT0]]
+; CHECK-EMPTY:
+; CHECK-NEXT:  simd.loop.else:
+; CHECK-NEXT:    br label [[SIMD_LOOP_EXIT0]]
+; CHECK-EMPTY:
+; CHECK-NEXT:  simd.loop.exit:
+; CHECK-NEXT:    [[INDVAR0]] = add nuw i32 [[INDEX0]], 1
+; CHECK-NEXT:    [[VL_COND0]] = icmp ult i32 [[INDVAR0]], 4
+; CHECK-NEXT:    br i1 [[VL_COND0]], label [[SIMD_LOOP0]], label [[VPLANNEDBB130]], !llvm.loop !12
+; CHECK-EMPTY:
+; CHECK-NEXT:  simd.end.region:
+; CHECK-NEXT:    br label [[RETURN0]]
+; CHECK-EMPTY:
+; CHECK-NEXT:  return:
+; CHECK-NEXT:    [[VEC_RET_CAST0]] = bitcast i32* [[RET_CAST0]] to <4 x i32>*
+; CHECK-NEXT:    [[VEC_RET0]] = load <4 x i32>, <4 x i32>* [[VEC_RET_CAST0]], align 16
+; CHECK-NEXT:    ret <4 x i32> [[VEC_RET0]]
+; CHECK-NEXT:  }
 ;
 ; CHECK:  define dso_local <8 x i32> @_ZGVcM8v__Z3fooi(<8 x i32> [[A0]], <8 x i32> [[MASK0]]) local_unnamed_addr #0 {
 ; CHECK-NEXT:  DIR.OMP.END.ORDERED.4:
@@ -334,26 +553,25 @@ define dso_local i32 @_Z3fooi(i32 %a) local_unnamed_addr #0 {
 ; CHECK-NEXT:    br label [[VECTOR_BODY0]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  vector.body:
-; CHECK-NEXT:    [[UNI_PHI0]] = phi i32 [ 0, [[VECTOR_PH0]] ], [ [[TMP14]], [[VPLANNEDBB120]] ]
-; CHECK-NEXT:    [[UNI_PHI30]] = phi i32 [ 0, [[VECTOR_PH0]] ], [ [[TMP13]], [[VPLANNEDBB120]] ]
-; CHECK-NEXT:    [[VEC_PHI0]] = phi <4 x i32> [ <i32 0, i32 1, i32 2, i32 3>, [[VECTOR_PH0]] ], [ [[TMP12]], [[VPLANNEDBB120]] ]
-; CHECK-NEXT:    [[SCALAR_GEP0]] = getelementptr i32, i32* [[MASK_CAST0]], i32 [[UNI_PHI30]]
+; CHECK-NEXT:    [[UNI_PHI0]] = phi i32 [ 0, [[VECTOR_PH0]] ], [ [[TMP13]], [[VPLANNEDBB110]] ]
+; CHECK-NEXT:    [[VEC_PHI0]] = phi <4 x i32> [ <i32 0, i32 1, i32 2, i32 3>, [[VECTOR_PH0]] ], [ [[TMP12]], [[VPLANNEDBB110]] ]
+; CHECK-NEXT:    [[SCALAR_GEP0]] = getelementptr i32, i32* [[MASK_CAST0]], i32 [[UNI_PHI0]]
 ; CHECK-NEXT:    [[TMP0]] = bitcast i32* [[SCALAR_GEP0]] to <4 x i32>*
 ; CHECK-NEXT:    [[WIDE_LOAD0]] = load <4 x i32>, <4 x i32>* [[TMP0]], align 4
 ; CHECK-NEXT:    [[TMP1]] = icmp ne <4 x i32> [[WIDE_LOAD0]], zeroinitializer
 ; CHECK-NEXT:    [[TMP2]] = xor <4 x i1> [[TMP1]], <i1 true, i1 true, i1 true, i1 true>
+; CHECK-NEXT:    br label [[VPLANNEDBB30]]
+; CHECK-EMPTY:
+; CHECK-NEXT:  VPlannedBB3:
 ; CHECK-NEXT:    br label [[VPLANNEDBB40]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  VPlannedBB4:
-; CHECK-NEXT:    br label [[VPLANNEDBB50]]
-; CHECK-EMPTY:
-; CHECK-NEXT:  VPlannedBB5:
-; CHECK-NEXT:    [[SCALAR_GEP60]] = getelementptr i32, i32* [[RET_CAST0]], i32 [[UNI_PHI30]]
-; CHECK-NEXT:    [[TMP3]] = bitcast i32* [[SCALAR_GEP60]] to <4 x i32>*
+; CHECK-NEXT:    [[SCALAR_GEP50]] = getelementptr i32, i32* [[RET_CAST0]], i32 [[UNI_PHI0]]
+; CHECK-NEXT:    [[TMP3]] = bitcast i32* [[SCALAR_GEP50]] to <4 x i32>*
 ; CHECK-NEXT:    call void @llvm.masked.store.v4i32.p0v4i32(<4 x i32> zeroinitializer, <4 x i32>* [[TMP3]], i32 16, <4 x i1> [[TMP1]])
-; CHECK-NEXT:    br label [[VPLANNEDBB70]]
+; CHECK-NEXT:    br label [[VPLANNEDBB60]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:  VPlannedBB7:
+; CHECK-NEXT:  VPlannedBB6:
 ; CHECK-NEXT:    [[PREDICATE0]] = extractelement <4 x i1> [[TMP1]], i64 0
 ; CHECK-NEXT:    [[TMP4]] = icmp eq i1 [[PREDICATE0]], true
 ; CHECK-NEXT:    br i1 [[TMP4]], label [[PRED_CALL_IF0]], label [[TMP5]]
@@ -366,56 +584,108 @@ define dso_local i32 @_Z3fooi(i32 %a) local_unnamed_addr #0 {
 ; CHECK-NEXT:    br label [[PRED_CALL_CONTINUE0]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  pred.call.continue:
-; CHECK-NEXT:    [[PREDICATE80]] = extractelement <4 x i1> [[TMP1]], i64 1
-; CHECK-NEXT:    [[TMP6]] = icmp eq i1 [[PREDICATE80]], true
-; CHECK-NEXT:    br i1 [[TMP6]], label [[PRED_CALL_IF190]], label [[TMP7]]
+; CHECK-NEXT:    [[PREDICATE70]] = extractelement <4 x i1> [[TMP1]], i64 1
+; CHECK-NEXT:    [[TMP6]] = icmp eq i1 [[PREDICATE70]], true
+; CHECK-NEXT:    br i1 [[TMP6]], label [[PRED_CALL_IF180]], label [[TMP7]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:  pred.call.if19:
+; CHECK-NEXT:  pred.call.if18:
 ; CHECK-NEXT:    call void @_Z3fooi.ordered.simd.region_6()
 ; CHECK-NEXT:    br label [[TMP7]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  7:
-; CHECK-NEXT:    br label [[PRED_CALL_CONTINUE200]]
+; CHECK-NEXT:    br label [[PRED_CALL_CONTINUE190]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:  pred.call.continue20:
-; CHECK-NEXT:    [[PREDICATE90]] = extractelement <4 x i1> [[TMP1]], i64 2
-; CHECK-NEXT:    [[TMP8]] = icmp eq i1 [[PREDICATE90]], true
-; CHECK-NEXT:    br i1 [[TMP8]], label [[PRED_CALL_IF210]], label [[TMP9]]
+; CHECK-NEXT:  pred.call.continue19:
+; CHECK-NEXT:    [[PREDICATE80]] = extractelement <4 x i1> [[TMP1]], i64 2
+; CHECK-NEXT:    [[TMP8]] = icmp eq i1 [[PREDICATE80]], true
+; CHECK-NEXT:    br i1 [[TMP8]], label [[PRED_CALL_IF200]], label [[TMP9]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:  pred.call.if21:
+; CHECK-NEXT:  pred.call.if20:
 ; CHECK-NEXT:    call void @_Z3fooi.ordered.simd.region_6()
 ; CHECK-NEXT:    br label [[TMP9]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  9:
-; CHECK-NEXT:    br label [[PRED_CALL_CONTINUE220]]
+; CHECK-NEXT:    br label [[PRED_CALL_CONTINUE210]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:  pred.call.continue22:
-; CHECK-NEXT:    [[PREDICATE100]] = extractelement <4 x i1> [[TMP1]], i64 3
-; CHECK-NEXT:    [[TMP10]] = icmp eq i1 [[PREDICATE100]], true
-; CHECK-NEXT:    br i1 [[TMP10]], label [[PRED_CALL_IF230]], label [[TMP11]]
+; CHECK-NEXT:  pred.call.continue21:
+; CHECK-NEXT:    [[PREDICATE90]] = extractelement <4 x i1> [[TMP1]], i64 3
+; CHECK-NEXT:    [[TMP10]] = icmp eq i1 [[PREDICATE90]], true
+; CHECK-NEXT:    br i1 [[TMP10]], label [[PRED_CALL_IF220]], label [[TMP11]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:  pred.call.if23:
+; CHECK-NEXT:  pred.call.if22:
 ; CHECK-NEXT:    call void @_Z3fooi.ordered.simd.region_6()
 ; CHECK-NEXT:    br label [[TMP11]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  11:
-; CHECK-NEXT:    br label [[PRED_CALL_CONTINUE240]]
+; CHECK-NEXT:    br label [[PRED_CALL_CONTINUE230]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:  pred.call.continue24:
+; CHECK-NEXT:  pred.call.continue23:
+; CHECK-NEXT:    br label [[VPLANNEDBB100]]
+; CHECK-EMPTY:
+; CHECK-NEXT:  VPlannedBB10:
 ; CHECK-NEXT:    br label [[VPLANNEDBB110]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  VPlannedBB11:
-; CHECK-NEXT:    br label [[VPLANNEDBB120]]
+; CHECK-NEXT:    [[TMP12]] = add nuw <4 x i32> [[VEC_PHI0]], <i32 4, i32 4, i32 4, i32 4>
+; CHECK-NEXT:    [[TMP13]] = add nuw i32 [[UNI_PHI0]], 4
+; CHECK-NEXT:    [[TMP14]] = icmp ult i32 [[TMP13]], 8
+; CHECK-NEXT:    br i1 [[TMP14]], label [[VECTOR_BODY0]], label [[VPLANNEDBB120]], !llvm.loop !13
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  VPlannedBB12:
-; CHECK-NEXT:    [[TMP12]] = add nuw <4 x i32> [[VEC_PHI0]], <i32 4, i32 4, i32 4, i32 4>
-; CHECK-NEXT:    [[TMP13]] = add nuw i32 [[UNI_PHI30]], 4
-; CHECK-NEXT:    [[TMP14]] = add i32 [[UNI_PHI0]], 4
-; CHECK-NEXT:    [[TMP15]] = icmp ult i32 [[TMP14]], 8
-; CHECK-NEXT:    br i1 [[TMP15]], label [[VECTOR_BODY0]], label [[VPLANNEDBB130]], !llvm.loop !13
+; CHECK-NEXT:    br label [[MIDDLE_BLOCK0]]
+; CHECK-EMPTY:
+; CHECK-NEXT:  middle.block:
+; CHECK-NEXT:    br i1 false, label [[SCALAR_PH0]], label [[VPLANNEDBB130]]
+; CHECK-EMPTY:
+; CHECK-NEXT:  scalar.ph:
+; CHECK-NEXT:    [[UNI_PHI140]] = phi i32 [ 8, [[MIDDLE_BLOCK0]] ], [ 0, [[VPLANNEDBB10]] ]
+; CHECK-NEXT:    br label [[VPLANNEDBB150]]
+; CHECK-EMPTY:
+; CHECK-NEXT:  VPlannedBB15:
+; CHECK-NEXT:    br label [[SIMD_LOOP0]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  VPlannedBB13:
-; CHECK-NEXT:    br label [[MIDDLE_BLOCK0]]
+; CHECK-NEXT:    [[UNI_PHI160]] = phi i32 [ [[INDVAR0]], [[SIMD_LOOP_EXIT0]] ], [ 8, [[MIDDLE_BLOCK0]] ]
+; CHECK-NEXT:    br label [[VPLANNEDBB170]]
+; CHECK-EMPTY:
+; CHECK-NEXT:  VPlannedBB17:
+; CHECK-NEXT:    br label [[SIMD_END_REGION0]]
+; CHECK-EMPTY:
+; CHECK-NEXT:  simd.loop:
+; CHECK-NEXT:    [[INDEX0]] = phi i32 [ [[UNI_PHI140]], [[VPLANNEDBB150]] ], [ [[INDVAR0]], [[SIMD_LOOP_EXIT0]] ]
+; CHECK-NEXT:    [[MASK_GEP0]] = getelementptr i32, i32* [[MASK_CAST0]], i32 [[INDEX0]]
+; CHECK-NEXT:    [[MASK_PARM0]] = load i32, i32* [[MASK_GEP0]], align 4
+; CHECK-NEXT:    [[MASK_COND0]] = icmp ne i32 [[MASK_PARM0]], 0
+; CHECK-NEXT:    br i1 [[MASK_COND0]], label [[SIMD_LOOP_THEN0]], label [[SIMD_LOOP_ELSE0]]
+; CHECK-EMPTY:
+; CHECK-NEXT:  simd.loop.then:
+; CHECK-NEXT:    [[RET_CAST_GEP0]] = getelementptr i32, i32* [[RET_CAST0]], i32 [[INDEX0]]
+; CHECK-NEXT:    store i32 0, i32* [[RET_CAST_GEP0]], align 4
+; CHECK-NEXT:    br label [[CODEREPL0]]
+; CHECK-EMPTY:
+; CHECK-NEXT:  codeRepl:
+; CHECK-NEXT:    call void @_Z3fooi.ordered.simd.region_6()
+; CHECK-NEXT:    br label [[DIR_OMP_END_ORDERED_30]]
+; CHECK-EMPTY:
+; CHECK-NEXT:  DIR.OMP.END.ORDERED.3:
+; CHECK-NEXT:    br label [[SIMD_LOOP_EXIT0]]
+; CHECK-EMPTY:
+; CHECK-NEXT:  simd.loop.else:
+; CHECK-NEXT:    br label [[SIMD_LOOP_EXIT0]]
+; CHECK-EMPTY:
+; CHECK-NEXT:  simd.loop.exit:
+; CHECK-NEXT:    [[INDVAR0]] = add nuw i32 [[INDEX0]], 1
+; CHECK-NEXT:    [[VL_COND0]] = icmp ult i32 [[INDVAR0]], 8
+; CHECK-NEXT:    br i1 [[VL_COND0]], label [[SIMD_LOOP0]], label [[VPLANNEDBB130]], !llvm.loop !14
+; CHECK-EMPTY:
+; CHECK-NEXT:  simd.end.region:
+; CHECK-NEXT:    br label [[RETURN0]]
+; CHECK-EMPTY:
+; CHECK-NEXT:  return:
+; CHECK-NEXT:    [[VEC_RET_CAST0]] = bitcast i32* [[RET_CAST0]] to <8 x i32>*
+; CHECK-NEXT:    [[VEC_RET0]] = load <8 x i32>, <8 x i32>* [[VEC_RET_CAST0]], align 32
+; CHECK-NEXT:    ret <8 x i32> [[VEC_RET0]]
+; CHECK-NEXT:  }
 ;
 ; CHECK:  define dso_local <8 x i32> @_ZGVdM8v__Z3fooi(<8 x i32> [[A0]], <8 x i32> [[MASK0]]) local_unnamed_addr #0 {
 ; CHECK-NEXT:  DIR.OMP.END.ORDERED.4:
@@ -439,26 +709,25 @@ define dso_local i32 @_Z3fooi(i32 %a) local_unnamed_addr #0 {
 ; CHECK-NEXT:    br label [[VECTOR_BODY0]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  vector.body:
-; CHECK-NEXT:    [[UNI_PHI0]] = phi i32 [ 0, [[VECTOR_PH0]] ], [ [[TMP14]], [[VPLANNEDBB120]] ]
-; CHECK-NEXT:    [[UNI_PHI30]] = phi i32 [ 0, [[VECTOR_PH0]] ], [ [[TMP13]], [[VPLANNEDBB120]] ]
-; CHECK-NEXT:    [[VEC_PHI0]] = phi <4 x i32> [ <i32 0, i32 1, i32 2, i32 3>, [[VECTOR_PH0]] ], [ [[TMP12]], [[VPLANNEDBB120]] ]
-; CHECK-NEXT:    [[SCALAR_GEP0]] = getelementptr i32, i32* [[MASK_CAST0]], i32 [[UNI_PHI30]]
+; CHECK-NEXT:    [[UNI_PHI0]] = phi i32 [ 0, [[VECTOR_PH0]] ], [ [[TMP13]], [[VPLANNEDBB110]] ]
+; CHECK-NEXT:    [[VEC_PHI0]] = phi <4 x i32> [ <i32 0, i32 1, i32 2, i32 3>, [[VECTOR_PH0]] ], [ [[TMP12]], [[VPLANNEDBB110]] ]
+; CHECK-NEXT:    [[SCALAR_GEP0]] = getelementptr i32, i32* [[MASK_CAST0]], i32 [[UNI_PHI0]]
 ; CHECK-NEXT:    [[TMP0]] = bitcast i32* [[SCALAR_GEP0]] to <4 x i32>*
 ; CHECK-NEXT:    [[WIDE_LOAD0]] = load <4 x i32>, <4 x i32>* [[TMP0]], align 4
 ; CHECK-NEXT:    [[TMP1]] = icmp ne <4 x i32> [[WIDE_LOAD0]], zeroinitializer
 ; CHECK-NEXT:    [[TMP2]] = xor <4 x i1> [[TMP1]], <i1 true, i1 true, i1 true, i1 true>
+; CHECK-NEXT:    br label [[VPLANNEDBB30]]
+; CHECK-EMPTY:
+; CHECK-NEXT:  VPlannedBB3:
 ; CHECK-NEXT:    br label [[VPLANNEDBB40]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  VPlannedBB4:
-; CHECK-NEXT:    br label [[VPLANNEDBB50]]
-; CHECK-EMPTY:
-; CHECK-NEXT:  VPlannedBB5:
-; CHECK-NEXT:    [[SCALAR_GEP60]] = getelementptr i32, i32* [[RET_CAST0]], i32 [[UNI_PHI30]]
-; CHECK-NEXT:    [[TMP3]] = bitcast i32* [[SCALAR_GEP60]] to <4 x i32>*
+; CHECK-NEXT:    [[SCALAR_GEP50]] = getelementptr i32, i32* [[RET_CAST0]], i32 [[UNI_PHI0]]
+; CHECK-NEXT:    [[TMP3]] = bitcast i32* [[SCALAR_GEP50]] to <4 x i32>*
 ; CHECK-NEXT:    call void @llvm.masked.store.v4i32.p0v4i32(<4 x i32> zeroinitializer, <4 x i32>* [[TMP3]], i32 16, <4 x i1> [[TMP1]])
-; CHECK-NEXT:    br label [[VPLANNEDBB70]]
+; CHECK-NEXT:    br label [[VPLANNEDBB60]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:  VPlannedBB7:
+; CHECK-NEXT:  VPlannedBB6:
 ; CHECK-NEXT:    [[PREDICATE0]] = extractelement <4 x i1> [[TMP1]], i64 0
 ; CHECK-NEXT:    [[TMP4]] = icmp eq i1 [[PREDICATE0]], true
 ; CHECK-NEXT:    br i1 [[TMP4]], label [[PRED_CALL_IF0]], label [[TMP5]]
@@ -471,56 +740,108 @@ define dso_local i32 @_Z3fooi(i32 %a) local_unnamed_addr #0 {
 ; CHECK-NEXT:    br label [[PRED_CALL_CONTINUE0]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  pred.call.continue:
-; CHECK-NEXT:    [[PREDICATE80]] = extractelement <4 x i1> [[TMP1]], i64 1
-; CHECK-NEXT:    [[TMP6]] = icmp eq i1 [[PREDICATE80]], true
-; CHECK-NEXT:    br i1 [[TMP6]], label [[PRED_CALL_IF190]], label [[TMP7]]
+; CHECK-NEXT:    [[PREDICATE70]] = extractelement <4 x i1> [[TMP1]], i64 1
+; CHECK-NEXT:    [[TMP6]] = icmp eq i1 [[PREDICATE70]], true
+; CHECK-NEXT:    br i1 [[TMP6]], label [[PRED_CALL_IF180]], label [[TMP7]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:  pred.call.if19:
+; CHECK-NEXT:  pred.call.if18:
 ; CHECK-NEXT:    call void @_Z3fooi.ordered.simd.region_7()
 ; CHECK-NEXT:    br label [[TMP7]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  7:
-; CHECK-NEXT:    br label [[PRED_CALL_CONTINUE200]]
+; CHECK-NEXT:    br label [[PRED_CALL_CONTINUE190]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:  pred.call.continue20:
-; CHECK-NEXT:    [[PREDICATE90]] = extractelement <4 x i1> [[TMP1]], i64 2
-; CHECK-NEXT:    [[TMP8]] = icmp eq i1 [[PREDICATE90]], true
-; CHECK-NEXT:    br i1 [[TMP8]], label [[PRED_CALL_IF210]], label [[TMP9]]
+; CHECK-NEXT:  pred.call.continue19:
+; CHECK-NEXT:    [[PREDICATE80]] = extractelement <4 x i1> [[TMP1]], i64 2
+; CHECK-NEXT:    [[TMP8]] = icmp eq i1 [[PREDICATE80]], true
+; CHECK-NEXT:    br i1 [[TMP8]], label [[PRED_CALL_IF200]], label [[TMP9]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:  pred.call.if21:
+; CHECK-NEXT:  pred.call.if20:
 ; CHECK-NEXT:    call void @_Z3fooi.ordered.simd.region_7()
 ; CHECK-NEXT:    br label [[TMP9]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  9:
-; CHECK-NEXT:    br label [[PRED_CALL_CONTINUE220]]
+; CHECK-NEXT:    br label [[PRED_CALL_CONTINUE210]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:  pred.call.continue22:
-; CHECK-NEXT:    [[PREDICATE100]] = extractelement <4 x i1> [[TMP1]], i64 3
-; CHECK-NEXT:    [[TMP10]] = icmp eq i1 [[PREDICATE100]], true
-; CHECK-NEXT:    br i1 [[TMP10]], label [[PRED_CALL_IF230]], label [[TMP11]]
+; CHECK-NEXT:  pred.call.continue21:
+; CHECK-NEXT:    [[PREDICATE90]] = extractelement <4 x i1> [[TMP1]], i64 3
+; CHECK-NEXT:    [[TMP10]] = icmp eq i1 [[PREDICATE90]], true
+; CHECK-NEXT:    br i1 [[TMP10]], label [[PRED_CALL_IF220]], label [[TMP11]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:  pred.call.if23:
+; CHECK-NEXT:  pred.call.if22:
 ; CHECK-NEXT:    call void @_Z3fooi.ordered.simd.region_7()
 ; CHECK-NEXT:    br label [[TMP11]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  11:
-; CHECK-NEXT:    br label [[PRED_CALL_CONTINUE240]]
+; CHECK-NEXT:    br label [[PRED_CALL_CONTINUE230]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:  pred.call.continue24:
+; CHECK-NEXT:  pred.call.continue23:
+; CHECK-NEXT:    br label [[VPLANNEDBB100]]
+; CHECK-EMPTY:
+; CHECK-NEXT:  VPlannedBB10:
 ; CHECK-NEXT:    br label [[VPLANNEDBB110]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  VPlannedBB11:
-; CHECK-NEXT:    br label [[VPLANNEDBB120]]
+; CHECK-NEXT:    [[TMP12]] = add nuw <4 x i32> [[VEC_PHI0]], <i32 4, i32 4, i32 4, i32 4>
+; CHECK-NEXT:    [[TMP13]] = add nuw i32 [[UNI_PHI0]], 4
+; CHECK-NEXT:    [[TMP14]] = icmp ult i32 [[TMP13]], 8
+; CHECK-NEXT:    br i1 [[TMP14]], label [[VECTOR_BODY0]], label [[VPLANNEDBB120]], !llvm.loop !15
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  VPlannedBB12:
-; CHECK-NEXT:    [[TMP12]] = add nuw <4 x i32> [[VEC_PHI0]], <i32 4, i32 4, i32 4, i32 4>
-; CHECK-NEXT:    [[TMP13]] = add nuw i32 [[UNI_PHI30]], 4
-; CHECK-NEXT:    [[TMP14]] = add i32 [[UNI_PHI0]], 4
-; CHECK-NEXT:    [[TMP15]] = icmp ult i32 [[TMP14]], 8
-; CHECK-NEXT:    br i1 [[TMP15]], label [[VECTOR_BODY0]], label [[VPLANNEDBB130]], !llvm.loop !15
+; CHECK-NEXT:    br label [[MIDDLE_BLOCK0]]
+; CHECK-EMPTY:
+; CHECK-NEXT:  middle.block:
+; CHECK-NEXT:    br i1 false, label [[SCALAR_PH0]], label [[VPLANNEDBB130]]
+; CHECK-EMPTY:
+; CHECK-NEXT:  scalar.ph:
+; CHECK-NEXT:    [[UNI_PHI140]] = phi i32 [ 8, [[MIDDLE_BLOCK0]] ], [ 0, [[VPLANNEDBB10]] ]
+; CHECK-NEXT:    br label [[VPLANNEDBB150]]
+; CHECK-EMPTY:
+; CHECK-NEXT:  VPlannedBB15:
+; CHECK-NEXT:    br label [[SIMD_LOOP0]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  VPlannedBB13:
-; CHECK-NEXT:    br label [[MIDDLE_BLOCK0]]
+; CHECK-NEXT:    [[UNI_PHI160]] = phi i32 [ [[INDVAR0]], [[SIMD_LOOP_EXIT0]] ], [ 8, [[MIDDLE_BLOCK0]] ]
+; CHECK-NEXT:    br label [[VPLANNEDBB170]]
+; CHECK-EMPTY:
+; CHECK-NEXT:  VPlannedBB17:
+; CHECK-NEXT:    br label [[SIMD_END_REGION0]]
+; CHECK-EMPTY:
+; CHECK-NEXT:  simd.loop:
+; CHECK-NEXT:    [[INDEX0]] = phi i32 [ [[UNI_PHI140]], [[VPLANNEDBB150]] ], [ [[INDVAR0]], [[SIMD_LOOP_EXIT0]] ]
+; CHECK-NEXT:    [[MASK_GEP0]] = getelementptr i32, i32* [[MASK_CAST0]], i32 [[INDEX0]]
+; CHECK-NEXT:    [[MASK_PARM0]] = load i32, i32* [[MASK_GEP0]], align 4
+; CHECK-NEXT:    [[MASK_COND0]] = icmp ne i32 [[MASK_PARM0]], 0
+; CHECK-NEXT:    br i1 [[MASK_COND0]], label [[SIMD_LOOP_THEN0]], label [[SIMD_LOOP_ELSE0]]
+; CHECK-EMPTY:
+; CHECK-NEXT:  simd.loop.then:
+; CHECK-NEXT:    [[RET_CAST_GEP0]] = getelementptr i32, i32* [[RET_CAST0]], i32 [[INDEX0]]
+; CHECK-NEXT:    store i32 0, i32* [[RET_CAST_GEP0]], align 4
+; CHECK-NEXT:    br label [[CODEREPL0]]
+; CHECK-EMPTY:
+; CHECK-NEXT:  codeRepl:
+; CHECK-NEXT:    call void @_Z3fooi.ordered.simd.region_7()
+; CHECK-NEXT:    br label [[DIR_OMP_END_ORDERED_30]]
+; CHECK-EMPTY:
+; CHECK-NEXT:  DIR.OMP.END.ORDERED.3:
+; CHECK-NEXT:    br label [[SIMD_LOOP_EXIT0]]
+; CHECK-EMPTY:
+; CHECK-NEXT:  simd.loop.else:
+; CHECK-NEXT:    br label [[SIMD_LOOP_EXIT0]]
+; CHECK-EMPTY:
+; CHECK-NEXT:  simd.loop.exit:
+; CHECK-NEXT:    [[INDVAR0]] = add nuw i32 [[INDEX0]], 1
+; CHECK-NEXT:    [[VL_COND0]] = icmp ult i32 [[INDVAR0]], 8
+; CHECK-NEXT:    br i1 [[VL_COND0]], label [[SIMD_LOOP0]], label [[VPLANNEDBB130]], !llvm.loop !16
+; CHECK-EMPTY:
+; CHECK-NEXT:  simd.end.region:
+; CHECK-NEXT:    br label [[RETURN0]]
+; CHECK-EMPTY:
+; CHECK-NEXT:  return:
+; CHECK-NEXT:    [[VEC_RET_CAST0]] = bitcast i32* [[RET_CAST0]] to <8 x i32>*
+; CHECK-NEXT:    [[VEC_RET0]] = load <8 x i32>, <8 x i32>* [[VEC_RET_CAST0]], align 32
+; CHECK-NEXT:    ret <8 x i32> [[VEC_RET0]]
+; CHECK-NEXT:  }
 ;
 ; CHECK:  define dso_local <16 x i32> @_ZGVeM16v__Z3fooi(<16 x i32> [[A0]], <16 x i32> [[MASK0]]) local_unnamed_addr #0 {
 ; CHECK-NEXT:  DIR.OMP.END.ORDERED.4:
@@ -544,26 +865,25 @@ define dso_local i32 @_Z3fooi(i32 %a) local_unnamed_addr #0 {
 ; CHECK-NEXT:    br label [[VECTOR_BODY0]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  vector.body:
-; CHECK-NEXT:    [[UNI_PHI0]] = phi i32 [ 0, [[VECTOR_PH0]] ], [ [[TMP14]], [[VPLANNEDBB120]] ]
-; CHECK-NEXT:    [[UNI_PHI30]] = phi i32 [ 0, [[VECTOR_PH0]] ], [ [[TMP13]], [[VPLANNEDBB120]] ]
-; CHECK-NEXT:    [[VEC_PHI0]] = phi <4 x i32> [ <i32 0, i32 1, i32 2, i32 3>, [[VECTOR_PH0]] ], [ [[TMP12]], [[VPLANNEDBB120]] ]
-; CHECK-NEXT:    [[SCALAR_GEP0]] = getelementptr i32, i32* [[MASK_CAST0]], i32 [[UNI_PHI30]]
+; CHECK-NEXT:    [[UNI_PHI0]] = phi i32 [ 0, [[VECTOR_PH0]] ], [ [[TMP13]], [[VPLANNEDBB110]] ]
+; CHECK-NEXT:    [[VEC_PHI0]] = phi <4 x i32> [ <i32 0, i32 1, i32 2, i32 3>, [[VECTOR_PH0]] ], [ [[TMP12]], [[VPLANNEDBB110]] ]
+; CHECK-NEXT:    [[SCALAR_GEP0]] = getelementptr i32, i32* [[MASK_CAST0]], i32 [[UNI_PHI0]]
 ; CHECK-NEXT:    [[TMP0]] = bitcast i32* [[SCALAR_GEP0]] to <4 x i32>*
 ; CHECK-NEXT:    [[WIDE_LOAD0]] = load <4 x i32>, <4 x i32>* [[TMP0]], align 4
 ; CHECK-NEXT:    [[TMP1]] = icmp ne <4 x i32> [[WIDE_LOAD0]], zeroinitializer
 ; CHECK-NEXT:    [[TMP2]] = xor <4 x i1> [[TMP1]], <i1 true, i1 true, i1 true, i1 true>
+; CHECK-NEXT:    br label [[VPLANNEDBB30]]
+; CHECK-EMPTY:
+; CHECK-NEXT:  VPlannedBB3:
 ; CHECK-NEXT:    br label [[VPLANNEDBB40]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  VPlannedBB4:
-; CHECK-NEXT:    br label [[VPLANNEDBB50]]
-; CHECK-EMPTY:
-; CHECK-NEXT:  VPlannedBB5:
-; CHECK-NEXT:    [[SCALAR_GEP60]] = getelementptr i32, i32* [[RET_CAST0]], i32 [[UNI_PHI30]]
-; CHECK-NEXT:    [[TMP3]] = bitcast i32* [[SCALAR_GEP60]] to <4 x i32>*
+; CHECK-NEXT:    [[SCALAR_GEP50]] = getelementptr i32, i32* [[RET_CAST0]], i32 [[UNI_PHI0]]
+; CHECK-NEXT:    [[TMP3]] = bitcast i32* [[SCALAR_GEP50]] to <4 x i32>*
 ; CHECK-NEXT:    call void @llvm.masked.store.v4i32.p0v4i32(<4 x i32> zeroinitializer, <4 x i32>* [[TMP3]], i32 16, <4 x i1> [[TMP1]])
-; CHECK-NEXT:    br label [[VPLANNEDBB70]]
+; CHECK-NEXT:    br label [[VPLANNEDBB60]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:  VPlannedBB7:
+; CHECK-NEXT:  VPlannedBB6:
 ; CHECK-NEXT:    [[PREDICATE0]] = extractelement <4 x i1> [[TMP1]], i64 0
 ; CHECK-NEXT:    [[TMP4]] = icmp eq i1 [[PREDICATE0]], true
 ; CHECK-NEXT:    br i1 [[TMP4]], label [[PRED_CALL_IF0]], label [[TMP5]]
@@ -576,56 +896,108 @@ define dso_local i32 @_Z3fooi(i32 %a) local_unnamed_addr #0 {
 ; CHECK-NEXT:    br label [[PRED_CALL_CONTINUE0]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  pred.call.continue:
-; CHECK-NEXT:    [[PREDICATE80]] = extractelement <4 x i1> [[TMP1]], i64 1
-; CHECK-NEXT:    [[TMP6]] = icmp eq i1 [[PREDICATE80]], true
-; CHECK-NEXT:    br i1 [[TMP6]], label [[PRED_CALL_IF190]], label [[TMP7]]
+; CHECK-NEXT:    [[PREDICATE70]] = extractelement <4 x i1> [[TMP1]], i64 1
+; CHECK-NEXT:    [[TMP6]] = icmp eq i1 [[PREDICATE70]], true
+; CHECK-NEXT:    br i1 [[TMP6]], label [[PRED_CALL_IF180]], label [[TMP7]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:  pred.call.if19:
+; CHECK-NEXT:  pred.call.if18:
 ; CHECK-NEXT:    call void @_Z3fooi.ordered.simd.region_8()
 ; CHECK-NEXT:    br label [[TMP7]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  7:
-; CHECK-NEXT:    br label [[PRED_CALL_CONTINUE200]]
+; CHECK-NEXT:    br label [[PRED_CALL_CONTINUE190]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:  pred.call.continue20:
-; CHECK-NEXT:    [[PREDICATE90]] = extractelement <4 x i1> [[TMP1]], i64 2
-; CHECK-NEXT:    [[TMP8]] = icmp eq i1 [[PREDICATE90]], true
-; CHECK-NEXT:    br i1 [[TMP8]], label [[PRED_CALL_IF210]], label [[TMP9]]
+; CHECK-NEXT:  pred.call.continue19:
+; CHECK-NEXT:    [[PREDICATE80]] = extractelement <4 x i1> [[TMP1]], i64 2
+; CHECK-NEXT:    [[TMP8]] = icmp eq i1 [[PREDICATE80]], true
+; CHECK-NEXT:    br i1 [[TMP8]], label [[PRED_CALL_IF200]], label [[TMP9]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:  pred.call.if21:
+; CHECK-NEXT:  pred.call.if20:
 ; CHECK-NEXT:    call void @_Z3fooi.ordered.simd.region_8()
 ; CHECK-NEXT:    br label [[TMP9]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  9:
-; CHECK-NEXT:    br label [[PRED_CALL_CONTINUE220]]
+; CHECK-NEXT:    br label [[PRED_CALL_CONTINUE210]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:  pred.call.continue22:
-; CHECK-NEXT:    [[PREDICATE100]] = extractelement <4 x i1> [[TMP1]], i64 3
-; CHECK-NEXT:    [[TMP10]] = icmp eq i1 [[PREDICATE100]], true
-; CHECK-NEXT:    br i1 [[TMP10]], label [[PRED_CALL_IF230]], label [[TMP11]]
+; CHECK-NEXT:  pred.call.continue21:
+; CHECK-NEXT:    [[PREDICATE90]] = extractelement <4 x i1> [[TMP1]], i64 3
+; CHECK-NEXT:    [[TMP10]] = icmp eq i1 [[PREDICATE90]], true
+; CHECK-NEXT:    br i1 [[TMP10]], label [[PRED_CALL_IF220]], label [[TMP11]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:  pred.call.if23:
+; CHECK-NEXT:  pred.call.if22:
 ; CHECK-NEXT:    call void @_Z3fooi.ordered.simd.region_8()
 ; CHECK-NEXT:    br label [[TMP11]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  11:
-; CHECK-NEXT:    br label [[PRED_CALL_CONTINUE240]]
+; CHECK-NEXT:    br label [[PRED_CALL_CONTINUE230]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:  pred.call.continue24:
+; CHECK-NEXT:  pred.call.continue23:
+; CHECK-NEXT:    br label [[VPLANNEDBB100]]
+; CHECK-EMPTY:
+; CHECK-NEXT:  VPlannedBB10:
 ; CHECK-NEXT:    br label [[VPLANNEDBB110]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  VPlannedBB11:
-; CHECK-NEXT:    br label [[VPLANNEDBB120]]
+; CHECK-NEXT:    [[TMP12]] = add nuw <4 x i32> [[VEC_PHI0]], <i32 4, i32 4, i32 4, i32 4>
+; CHECK-NEXT:    [[TMP13]] = add nuw i32 [[UNI_PHI0]], 4
+; CHECK-NEXT:    [[TMP14]] = icmp ult i32 [[TMP13]], 16
+; CHECK-NEXT:    br i1 [[TMP14]], label [[VECTOR_BODY0]], label [[VPLANNEDBB120]], !llvm.loop !17
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  VPlannedBB12:
-; CHECK-NEXT:    [[TMP12]] = add nuw <4 x i32> [[VEC_PHI0]], <i32 4, i32 4, i32 4, i32 4>
-; CHECK-NEXT:    [[TMP13]] = add nuw i32 [[UNI_PHI30]], 4
-; CHECK-NEXT:    [[TMP14]] = add i32 [[UNI_PHI0]], 4
-; CHECK-NEXT:    [[TMP15]] = icmp ult i32 [[TMP14]], 16
-; CHECK-NEXT:    br i1 [[TMP15]], label [[VECTOR_BODY0]], label [[VPLANNEDBB130]], !llvm.loop !17
+; CHECK-NEXT:    br label [[MIDDLE_BLOCK0]]
+; CHECK-EMPTY:
+; CHECK-NEXT:  middle.block:
+; CHECK-NEXT:    br i1 false, label [[SCALAR_PH0]], label [[VPLANNEDBB130]]
+; CHECK-EMPTY:
+; CHECK-NEXT:  scalar.ph:
+; CHECK-NEXT:    [[UNI_PHI140]] = phi i32 [ 16, [[MIDDLE_BLOCK0]] ], [ 0, [[VPLANNEDBB10]] ]
+; CHECK-NEXT:    br label [[VPLANNEDBB150]]
+; CHECK-EMPTY:
+; CHECK-NEXT:  VPlannedBB15:
+; CHECK-NEXT:    br label [[SIMD_LOOP0]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  VPlannedBB13:
-; CHECK-NEXT:    br label [[MIDDLE_BLOCK0]]
+; CHECK-NEXT:    [[UNI_PHI160]] = phi i32 [ [[INDVAR0]], [[SIMD_LOOP_EXIT0]] ], [ 16, [[MIDDLE_BLOCK0]] ]
+; CHECK-NEXT:    br label [[VPLANNEDBB170]]
+; CHECK-EMPTY:
+; CHECK-NEXT:  VPlannedBB17:
+; CHECK-NEXT:    br label [[SIMD_END_REGION0]]
+; CHECK-EMPTY:
+; CHECK-NEXT:  simd.loop:
+; CHECK-NEXT:    [[INDEX0]] = phi i32 [ [[UNI_PHI140]], [[VPLANNEDBB150]] ], [ [[INDVAR0]], [[SIMD_LOOP_EXIT0]] ]
+; CHECK-NEXT:    [[MASK_GEP0]] = getelementptr i32, i32* [[MASK_CAST0]], i32 [[INDEX0]]
+; CHECK-NEXT:    [[MASK_PARM0]] = load i32, i32* [[MASK_GEP0]], align 4
+; CHECK-NEXT:    [[MASK_COND0]] = icmp ne i32 [[MASK_PARM0]], 0
+; CHECK-NEXT:    br i1 [[MASK_COND0]], label [[SIMD_LOOP_THEN0]], label [[SIMD_LOOP_ELSE0]]
+; CHECK-EMPTY:
+; CHECK-NEXT:  simd.loop.then:
+; CHECK-NEXT:    [[RET_CAST_GEP0]] = getelementptr i32, i32* [[RET_CAST0]], i32 [[INDEX0]]
+; CHECK-NEXT:    store i32 0, i32* [[RET_CAST_GEP0]], align 4
+; CHECK-NEXT:    br label [[CODEREPL0]]
+; CHECK-EMPTY:
+; CHECK-NEXT:  codeRepl:
+; CHECK-NEXT:    call void @_Z3fooi.ordered.simd.region_8()
+; CHECK-NEXT:    br label [[DIR_OMP_END_ORDERED_30]]
+; CHECK-EMPTY:
+; CHECK-NEXT:  DIR.OMP.END.ORDERED.3:
+; CHECK-NEXT:    br label [[SIMD_LOOP_EXIT0]]
+; CHECK-EMPTY:
+; CHECK-NEXT:  simd.loop.else:
+; CHECK-NEXT:    br label [[SIMD_LOOP_EXIT0]]
+; CHECK-EMPTY:
+; CHECK-NEXT:  simd.loop.exit:
+; CHECK-NEXT:    [[INDVAR0]] = add nuw i32 [[INDEX0]], 1
+; CHECK-NEXT:    [[VL_COND0]] = icmp ult i32 [[INDVAR0]], 16
+; CHECK-NEXT:    br i1 [[VL_COND0]], label [[SIMD_LOOP0]], label [[VPLANNEDBB130]], !llvm.loop !18
+; CHECK-EMPTY:
+; CHECK-NEXT:  simd.end.region:
+; CHECK-NEXT:    br label [[RETURN0]]
+; CHECK-EMPTY:
+; CHECK-NEXT:  return:
+; CHECK-NEXT:    [[VEC_RET_CAST0]] = bitcast i32* [[RET_CAST0]] to <16 x i32>*
+; CHECK-NEXT:    [[VEC_RET0]] = load <16 x i32>, <16 x i32>* [[VEC_RET_CAST0]], align 64
+; CHECK-NEXT:    ret <16 x i32> [[VEC_RET0]]
+; CHECK-NEXT:  }
 ;
 ; CHECK:  define internal void @_Z3fooi.ordered.simd.region() #2 {
 ; CHECK-NEXT:  newFuncRoot:

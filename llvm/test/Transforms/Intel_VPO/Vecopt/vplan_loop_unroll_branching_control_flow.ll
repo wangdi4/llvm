@@ -21,93 +21,87 @@ define dso_local void @divergent_control_flow(i32* nocapture %a, i32* nocapture 
 ; VPLAN-NEXT:    [[BB1]]: # preds: [[BB0]]
 ; VPLAN-NEXT:     [DA: Div] i64 [[VP_INDVARS_IV_IND_INIT:%.*]] = induction-init{add} i64 live-in0 i64 1
 ; VPLAN-NEXT:     [DA: Uni] i64 [[VP_INDVARS_IV_IND_INIT_STEP:%.*]] = induction-init-step{add} i64 1
-; VPLAN-NEXT:     [DA: Uni] i64 [[VP_VF:%.*]] = induction-init-step{add} i64 1
-; VPLAN-NEXT:     [DA: Uni] i64 [[VP_ORIG_TRIP_COUNT:%.*]] = orig-trip-count for original loop omp.inner.for.body
-; VPLAN-NEXT:     [DA: Uni] i64 [[VP_VECTOR_TRIP_COUNT:%.*]] = vector-trip-count i64 [[VP_ORIG_TRIP_COUNT]], UF = 3
+; VPLAN-NEXT:     [DA: Uni] i64 [[VP_VECTOR_TRIP_COUNT:%.*]] = vector-trip-count i64 [[WIDE_TRIP_COUNT0:%.*]], UF = 3
 ; VPLAN-NEXT:     [DA: Uni] br [[BB2:BB[0-9]+]]
 ; VPLAN-EMPTY:
 ; VPLAN-NEXT:    [[BB2]]: # preds: [[BB1]], cloned.[[BB3:BB[0-9]+]]
-; VPLAN-NEXT:     [DA: Uni] i64 [[VP_VECTOR_LOOP_IV:%.*]] = phi  [ i64 0, [[BB1]] ],  [ i64 [[VP0:%.*]], cloned.[[BB3]] ]
 ; VPLAN-NEXT:     [DA: Div] i64 [[VP_INDVARS_IV:%.*]] = phi  [ i64 [[VP_INDVARS_IV_IND_INIT]], [[BB1]] ],  [ i64 [[VP_INDVARS_IV_NEXT:%.*]], cloned.[[BB3]] ]
 ; VPLAN-NEXT:     [DA: Div] i32* [[VP_ARRAYIDX:%.*]] = getelementptr inbounds i32* [[A0:%.*]] i64 [[VP_INDVARS_IV]]
-; VPLAN-NEXT:     [DA: Div] i32 [[VP1:%.*]] = load i32* [[VP_ARRAYIDX]]
-; VPLAN-NEXT:     [DA: Div] i32 [[VP2:%.*]] = and i32 [[VP1]] i32 1
-; VPLAN-NEXT:     [DA: Div] i1 [[VP_TOBOOL:%.*]] = icmp eq i32 [[VP2]] i32 0
+; VPLAN-NEXT:     [DA: Div] i32 [[VP0:%.*]] = load i32* [[VP_ARRAYIDX]]
+; VPLAN-NEXT:     [DA: Div] i32 [[VP1:%.*]] = and i32 [[VP0]] i32 1
+; VPLAN-NEXT:     [DA: Div] i1 [[VP_TOBOOL:%.*]] = icmp eq i32 [[VP1]] i32 0
 ; VPLAN-NEXT:     [DA: Div] i1 [[VP_TOBOOL_NOT:%.*]] = not i1 [[VP_TOBOOL]]
 ; VPLAN-NEXT:     [DA: Div] i32* [[VP_ARRAYIDX13:%.*]] = getelementptr inbounds i32* [[B0:%.*]] i64 [[VP_INDVARS_IV]]
 ; VPLAN-NEXT:     [DA: Uni] br [[BB4:BB[0-9]+]]
 ; VPLAN-EMPTY:
 ; VPLAN-NEXT:    [[BB4]]: # preds: [[BB2]]
-; VPLAN-NEXT:     [DA: Div] i1 [[VP3:%.*]] = block-predicate i1 [[VP_TOBOOL_NOT]]
-; VPLAN-NEXT:     [DA: Div] i32 [[VP4:%.*]] = load i32* [[VP_ARRAYIDX13]]
-; VPLAN-NEXT:     [DA: Div] store i32 [[VP4]] i32* [[VP_ARRAYIDX]]
+; VPLAN-NEXT:     [DA: Div] i1 [[VP2:%.*]] = block-predicate i1 [[VP_TOBOOL_NOT]]
+; VPLAN-NEXT:     [DA: Div] i32 [[VP3:%.*]] = load i32* [[VP_ARRAYIDX13]]
+; VPLAN-NEXT:     [DA: Div] store i32 [[VP3]] i32* [[VP_ARRAYIDX]]
 ; VPLAN-NEXT:     [DA: Uni] br [[BB5:BB[0-9]+]]
 ; VPLAN-EMPTY:
 ; VPLAN-NEXT:    [[BB5]]: # preds: [[BB4]]
-; VPLAN-NEXT:     [DA: Div] i1 [[VP5:%.*]] = block-predicate i1 [[VP_TOBOOL]]
-; VPLAN-NEXT:     [DA: Div] store i32 [[VP1]] i32* [[VP_ARRAYIDX13]]
+; VPLAN-NEXT:     [DA: Div] i1 [[VP4:%.*]] = block-predicate i1 [[VP_TOBOOL]]
+; VPLAN-NEXT:     [DA: Div] store i32 [[VP0]] i32* [[VP_ARRAYIDX13]]
 ; VPLAN-NEXT:     [DA: Uni] br [[BB6:BB[0-9]+]]
 ; VPLAN-EMPTY:
 ; VPLAN-NEXT:    [[BB6]]: # preds: [[BB5]]
 ; VPLAN-NEXT:     [DA: Div] i32 [[VP_PHI_BLEND_BB3:%.*]] = blend [ i32 42, i1 [[VP_TOBOOL_NOT]] ], [ i32 0, i1 [[VP_TOBOOL]] ]
 ; VPLAN-NEXT:     [DA: Div] i64 [[VP_INDVARS_IV_NEXT_1:%.*]] = add i64 [[VP_INDVARS_IV]] i64 [[VP_INDVARS_IV_IND_INIT_STEP]]
-; VPLAN-NEXT:     [DA: Uni] i64 [[VP_VECTOR_LOOP_IV_NEXT:%.*]] = add i64 [[VP_VECTOR_LOOP_IV]] i64 [[VP_VF]]
-; VPLAN-NEXT:     [DA: Uni] i1 [[VP_VECTOR_LOOP_EXITCOND:%.*]] = icmp uge i64 [[VP_VECTOR_LOOP_IV_NEXT]] i64 [[VP_VECTOR_TRIP_COUNT]]
+; VPLAN-NEXT:     [DA: Uni] i1 [[VP_EXITCOND:%.*]] = icmp eq i64 [[VP_INDVARS_IV_NEXT_1]] i64 [[VP_VECTOR_TRIP_COUNT]]
 ; VPLAN-NEXT:     [DA: Uni] br cloned.[[BB7:BB[0-9]+]]
 ; VPLAN-EMPTY:
 ; VPLAN-NEXT:    cloned.[[BB7]]: # preds: [[BB6]]
 ; VPLAN-NEXT:     [DA: Div] i32* [[VP_ARRAYIDX_1:%.*]] = getelementptr inbounds i32* [[A0]] i64 [[VP_INDVARS_IV_NEXT_1]]
-; VPLAN-NEXT:     [DA: Div] i32 [[VP6:%.*]] = load i32* [[VP_ARRAYIDX_1]]
-; VPLAN-NEXT:     [DA: Div] i32 [[VP7:%.*]] = and i32 [[VP6]] i32 1
-; VPLAN-NEXT:     [DA: Div] i1 [[VP_TOBOOL_1:%.*]] = icmp eq i32 [[VP7]] i32 0
-; VPLAN-NEXT:     [DA: Div] i1 [[VP8:%.*]] = not i1 [[VP_TOBOOL_1]]
+; VPLAN-NEXT:     [DA: Div] i32 [[VP5:%.*]] = load i32* [[VP_ARRAYIDX_1]]
+; VPLAN-NEXT:     [DA: Div] i32 [[VP6:%.*]] = and i32 [[VP5]] i32 1
+; VPLAN-NEXT:     [DA: Div] i1 [[VP_TOBOOL_1:%.*]] = icmp eq i32 [[VP6]] i32 0
+; VPLAN-NEXT:     [DA: Div] i1 [[VP7:%.*]] = not i1 [[VP_TOBOOL_1]]
 ; VPLAN-NEXT:     [DA: Div] i32* [[VP_ARRAYIDX13_1:%.*]] = getelementptr inbounds i32* [[B0]] i64 [[VP_INDVARS_IV_NEXT_1]]
 ; VPLAN-NEXT:     [DA: Uni] br cloned.[[BB8:BB[0-9]+]]
 ; VPLAN-EMPTY:
 ; VPLAN-NEXT:    cloned.[[BB8]]: # preds: cloned.[[BB7]]
-; VPLAN-NEXT:     [DA: Div] i1 [[VP9:%.*]] = block-predicate i1 [[VP8]]
-; VPLAN-NEXT:     [DA: Div] i32 [[VP10:%.*]] = load i32* [[VP_ARRAYIDX13_1]]
-; VPLAN-NEXT:     [DA: Div] store i32 [[VP10]] i32* [[VP_ARRAYIDX_1]]
+; VPLAN-NEXT:     [DA: Div] i1 [[VP8:%.*]] = block-predicate i1 [[VP7]]
+; VPLAN-NEXT:     [DA: Div] i32 [[VP9:%.*]] = load i32* [[VP_ARRAYIDX13_1]]
+; VPLAN-NEXT:     [DA: Div] store i32 [[VP9]] i32* [[VP_ARRAYIDX_1]]
 ; VPLAN-NEXT:     [DA: Uni] br cloned.[[BB9:BB[0-9]+]]
 ; VPLAN-EMPTY:
 ; VPLAN-NEXT:    cloned.[[BB9]]: # preds: cloned.[[BB8]]
-; VPLAN-NEXT:     [DA: Div] i1 [[VP11:%.*]] = block-predicate i1 [[VP_TOBOOL_1]]
-; VPLAN-NEXT:     [DA: Div] store i32 [[VP6]] i32* [[VP_ARRAYIDX13_1]]
+; VPLAN-NEXT:     [DA: Div] i1 [[VP10:%.*]] = block-predicate i1 [[VP_TOBOOL_1]]
+; VPLAN-NEXT:     [DA: Div] store i32 [[VP5]] i32* [[VP_ARRAYIDX13_1]]
 ; VPLAN-NEXT:     [DA: Uni] br cloned.[[BB10:BB[0-9]+]]
 ; VPLAN-EMPTY:
 ; VPLAN-NEXT:    cloned.[[BB10]]: # preds: cloned.[[BB9]]
-; VPLAN-NEXT:     [DA: Div] i32 [[VP12:%.*]] = blend [ i32 42, i1 [[VP8]] ], [ i32 0, i1 [[VP_TOBOOL_1]] ]
+; VPLAN-NEXT:     [DA: Div] i32 [[VP11:%.*]] = blend [ i32 42, i1 [[VP7]] ], [ i32 0, i1 [[VP_TOBOOL_1]] ]
 ; VPLAN-NEXT:     [DA: Div] i64 [[VP_INDVARS_IV_NEXT_2:%.*]] = add i64 [[VP_INDVARS_IV_NEXT_1]] i64 [[VP_INDVARS_IV_IND_INIT_STEP]]
-; VPLAN-NEXT:     [DA: Uni] i64 [[VP13:%.*]] = add i64 [[VP_VECTOR_LOOP_IV_NEXT]] i64 [[VP_VF]]
-; VPLAN-NEXT:     [DA: Uni] i1 [[VP14:%.*]] = icmp uge i64 [[VP13]] i64 [[VP_VECTOR_TRIP_COUNT]]
+; VPLAN-NEXT:     [DA: Uni] i1 [[VP_EXITCOND_1:%.*]] = icmp eq i64 [[VP_INDVARS_IV_NEXT_2]] i64 [[VP_VECTOR_TRIP_COUNT]]
 ; VPLAN-NEXT:     [DA: Uni] br cloned.[[BB11:BB[0-9]+]]
 ; VPLAN-EMPTY:
 ; VPLAN-NEXT:    cloned.[[BB11]]: # preds: cloned.[[BB10]]
 ; VPLAN-NEXT:     [DA: Div] i32* [[VP_ARRAYIDX_2:%.*]] = getelementptr inbounds i32* [[A0]] i64 [[VP_INDVARS_IV_NEXT_2]]
-; VPLAN-NEXT:     [DA: Div] i32 [[VP15:%.*]] = load i32* [[VP_ARRAYIDX_2]]
-; VPLAN-NEXT:     [DA: Div] i32 [[VP16:%.*]] = and i32 [[VP15]] i32 1
-; VPLAN-NEXT:     [DA: Div] i1 [[VP_TOBOOL_2:%.*]] = icmp eq i32 [[VP16]] i32 0
-; VPLAN-NEXT:     [DA: Div] i1 [[VP17:%.*]] = not i1 [[VP_TOBOOL_2]]
+; VPLAN-NEXT:     [DA: Div] i32 [[VP12:%.*]] = load i32* [[VP_ARRAYIDX_2]]
+; VPLAN-NEXT:     [DA: Div] i32 [[VP13:%.*]] = and i32 [[VP12]] i32 1
+; VPLAN-NEXT:     [DA: Div] i1 [[VP_TOBOOL_2:%.*]] = icmp eq i32 [[VP13]] i32 0
+; VPLAN-NEXT:     [DA: Div] i1 [[VP14:%.*]] = not i1 [[VP_TOBOOL_2]]
 ; VPLAN-NEXT:     [DA: Div] i32* [[VP_ARRAYIDX13_2:%.*]] = getelementptr inbounds i32* [[B0]] i64 [[VP_INDVARS_IV_NEXT_2]]
 ; VPLAN-NEXT:     [DA: Uni] br cloned.[[BB12:BB[0-9]+]]
 ; VPLAN-EMPTY:
 ; VPLAN-NEXT:    cloned.[[BB12]]: # preds: cloned.[[BB11]]
-; VPLAN-NEXT:     [DA: Div] i1 [[VP18:%.*]] = block-predicate i1 [[VP17]]
-; VPLAN-NEXT:     [DA: Div] i32 [[VP19:%.*]] = load i32* [[VP_ARRAYIDX13_2]]
-; VPLAN-NEXT:     [DA: Div] store i32 [[VP19]] i32* [[VP_ARRAYIDX_2]]
+; VPLAN-NEXT:     [DA: Div] i1 [[VP15:%.*]] = block-predicate i1 [[VP14]]
+; VPLAN-NEXT:     [DA: Div] i32 [[VP16:%.*]] = load i32* [[VP_ARRAYIDX13_2]]
+; VPLAN-NEXT:     [DA: Div] store i32 [[VP16]] i32* [[VP_ARRAYIDX_2]]
 ; VPLAN-NEXT:     [DA: Uni] br cloned.[[BB13:BB[0-9]+]]
 ; VPLAN-EMPTY:
 ; VPLAN-NEXT:    cloned.[[BB13]]: # preds: cloned.[[BB12]]
-; VPLAN-NEXT:     [DA: Div] i1 [[VP20:%.*]] = block-predicate i1 [[VP_TOBOOL_2]]
-; VPLAN-NEXT:     [DA: Div] store i32 [[VP15]] i32* [[VP_ARRAYIDX13_2]]
+; VPLAN-NEXT:     [DA: Div] i1 [[VP17:%.*]] = block-predicate i1 [[VP_TOBOOL_2]]
+; VPLAN-NEXT:     [DA: Div] store i32 [[VP12]] i32* [[VP_ARRAYIDX13_2]]
 ; VPLAN-NEXT:     [DA: Uni] br cloned.[[BB3]]
 ; VPLAN-EMPTY:
 ; VPLAN-NEXT:    cloned.[[BB3]]: # preds: cloned.[[BB13]]
-; VPLAN-NEXT:     [DA: Div] i32 [[VP21:%.*]] = blend [ i32 42, i1 [[VP17]] ], [ i32 0, i1 [[VP_TOBOOL_2]] ]
+; VPLAN-NEXT:     [DA: Div] i32 [[VP18:%.*]] = blend [ i32 42, i1 [[VP14]] ], [ i32 0, i1 [[VP_TOBOOL_2]] ]
 ; VPLAN-NEXT:     [DA: Div] i64 [[VP_INDVARS_IV_NEXT]] = add i64 [[VP_INDVARS_IV_NEXT_2]] i64 [[VP_INDVARS_IV_IND_INIT_STEP]]
-; VPLAN-NEXT:     [DA: Uni] i64 [[VP0]] = add i64 [[VP13]] i64 [[VP_VF]]
-; VPLAN-NEXT:     [DA: Uni] i1 [[VP22:%.*]] = icmp uge i64 [[VP0]] i64 [[VP_VECTOR_TRIP_COUNT]]
-; VPLAN-NEXT:     [DA: Uni] br i1 [[VP22]], [[BB14:BB[0-9]+]], [[BB2]]
+; VPLAN-NEXT:     [DA: Uni] i1 [[VP_EXITCOND_2:%.*]] = icmp eq i64 [[VP_INDVARS_IV_NEXT]] i64 [[VP_VECTOR_TRIP_COUNT]]
+; VPLAN-NEXT:     [DA: Uni] br i1 [[VP_EXITCOND_2]], [[BB14:BB[0-9]+]], [[BB2]]
 ; VPLAN-EMPTY:
 ; VPLAN-NEXT:    [[BB14]]: # preds: cloned.[[BB3]]
 ; VPLAN-NEXT:     [DA: Uni] i64 [[VP_INDVARS_IV_IND_FINAL:%.*]] = induction-final{add} i64 live-in0 i64 1
@@ -137,7 +131,7 @@ define dso_local void @divergent_control_flow(i32* nocapture %a, i32* nocapture 
 ; CG-EMPTY:
 ; CG-NEXT:  VPlannedBB1:
 ; CG-NEXT:    [[N_MOD_VF0:%.*]] = urem i64 [[WIDE_TRIP_COUNT0]], 12
-; CG-NEXT:    [[N_VEC0:%.*]] = sub i64 [[WIDE_TRIP_COUNT0]], [[N_MOD_VF0]]
+; CG-NEXT:    [[N_VEC0:%.*]] = sub nuw nsw i64 [[WIDE_TRIP_COUNT0]], [[N_MOD_VF0]]
 ; CG-NEXT:    [[TMP0:%.*]] = icmp eq i64 0, [[N_VEC0]]
 ; CG-NEXT:    br i1 [[TMP0]], label [[SCALAR_PH0:%.*]], label [[VECTOR_PH0:%.*]]
 ; CG-EMPTY:
@@ -145,147 +139,143 @@ define dso_local void @divergent_control_flow(i32* nocapture %a, i32* nocapture 
 ; CG-NEXT:    br label [[VECTOR_BODY0:%.*]]
 ; CG-EMPTY:
 ; CG-NEXT:  vector.body:
-; CG-NEXT:    [[UNI_PHI0:%.*]] = phi i64 [ 0, [[VECTOR_PH0]] ], [ [[TMP32:%.*]], [[VPLANNEDBB240:%.*]] ]
-; CG-NEXT:    [[UNI_PHI30:%.*]] = phi i64 [ 0, [[VECTOR_PH0]] ], [ [[TMP31:%.*]], [[VPLANNEDBB240]] ]
-; CG-NEXT:    [[VEC_PHI0:%.*]] = phi <4 x i64> [ <i64 0, i64 1, i64 2, i64 3>, [[VECTOR_PH0]] ], [ [[TMP30:%.*]], [[VPLANNEDBB240]] ]
-; CG-NEXT:    [[SCALAR_GEP0:%.*]] = getelementptr inbounds i32, i32* [[A0]], i64 [[UNI_PHI30]]
+; CG-NEXT:    [[UNI_PHI0:%.*]] = phi i64 [ 0, [[VECTOR_PH0]] ], [ [[TMP29:%.*]], [[VPLANNEDBB230:%.*]] ]
+; CG-NEXT:    [[VEC_PHI0:%.*]] = phi <4 x i64> [ <i64 0, i64 1, i64 2, i64 3>, [[VECTOR_PH0]] ], [ [[TMP28:%.*]], [[VPLANNEDBB230]] ]
+; CG-NEXT:    [[SCALAR_GEP0:%.*]] = getelementptr inbounds i32, i32* [[A0]], i64 [[UNI_PHI0]]
 ; CG-NEXT:    [[TMP1:%.*]] = bitcast i32* [[SCALAR_GEP0]] to <4 x i32>*
 ; CG-NEXT:    [[WIDE_LOAD0:%.*]] = load <4 x i32>, <4 x i32>* [[TMP1]], align 4
 ; CG-NEXT:    [[TMP2:%.*]] = and <4 x i32> [[WIDE_LOAD0]], <i32 1, i32 1, i32 1, i32 1>
 ; CG-NEXT:    [[TMP3:%.*]] = icmp eq <4 x i32> [[TMP2]], zeroinitializer
 ; CG-NEXT:    [[TMP4:%.*]] = xor <4 x i1> [[TMP3]], <i1 true, i1 true, i1 true, i1 true>
-; CG-NEXT:    [[SCALAR_GEP40:%.*]] = getelementptr inbounds i32, i32* [[B0]], i64 [[UNI_PHI30]]
-; CG-NEXT:    br label [[VPLANNEDBB50:%.*]]
+; CG-NEXT:    [[SCALAR_GEP30:%.*]] = getelementptr inbounds i32, i32* [[B0]], i64 [[UNI_PHI0]]
+; CG-NEXT:    br label [[VPLANNEDBB40:%.*]]
 ; CG-EMPTY:
-; CG-NEXT:  VPlannedBB5:
-; CG-NEXT:    [[TMP5:%.*]] = bitcast i32* [[SCALAR_GEP40]] to <4 x i32>*
+; CG-NEXT:  VPlannedBB4:
+; CG-NEXT:    [[TMP5:%.*]] = bitcast i32* [[SCALAR_GEP30]] to <4 x i32>*
 ; CG-NEXT:    [[WIDE_MASKED_LOAD0:%.*]] = call <4 x i32> @llvm.masked.load.v4i32.p0v4i32(<4 x i32>* [[TMP5]], i32 4, <4 x i1> [[TMP4]], <4 x i32> undef)
 ; CG-NEXT:    [[TMP6:%.*]] = bitcast i32* [[SCALAR_GEP0]] to <4 x i32>*
 ; CG-NEXT:    call void @llvm.masked.store.v4i32.p0v4i32(<4 x i32> [[WIDE_MASKED_LOAD0]], <4 x i32>* [[TMP6]], i32 4, <4 x i1> [[TMP4]])
+; CG-NEXT:    br label [[VPLANNEDBB50:%.*]]
+; CG-EMPTY:
+; CG-NEXT:  VPlannedBB5:
+; CG-NEXT:    [[TMP7:%.*]] = bitcast i32* [[SCALAR_GEP30]] to <4 x i32>*
+; CG-NEXT:    call void @llvm.masked.store.v4i32.p0v4i32(<4 x i32> [[WIDE_LOAD0]], <4 x i32>* [[TMP7]], i32 4, <4 x i1> [[TMP3]])
 ; CG-NEXT:    br label [[VPLANNEDBB60:%.*]]
 ; CG-EMPTY:
 ; CG-NEXT:  VPlannedBB6:
-; CG-NEXT:    [[TMP7:%.*]] = bitcast i32* [[SCALAR_GEP40]] to <4 x i32>*
-; CG-NEXT:    call void @llvm.masked.store.v4i32.p0v4i32(<4 x i32> [[WIDE_LOAD0]], <4 x i32>* [[TMP7]], i32 4, <4 x i1> [[TMP3]])
+; CG-NEXT:    [[PREDBLEND0:%.*]] = select <4 x i1> [[TMP3]], <4 x i32> zeroinitializer, <4 x i32> <i32 42, i32 42, i32 42, i32 42>
+; CG-NEXT:    [[TMP8:%.*]] = add nuw nsw <4 x i64> [[VEC_PHI0]], <i64 4, i64 4, i64 4, i64 4>
+; CG-NEXT:    [[TMP9:%.*]] = add nuw nsw i64 [[UNI_PHI0]], 4
+; CG-NEXT:    [[TMP10:%.*]] = icmp eq i64 [[TMP9]], [[N_VEC0]]
 ; CG-NEXT:    br label [[VPLANNEDBB70:%.*]]
 ; CG-EMPTY:
 ; CG-NEXT:  VPlannedBB7:
-; CG-NEXT:    [[PREDBLEND0:%.*]] = select <4 x i1> [[TMP3]], <4 x i32> zeroinitializer, <4 x i32> <i32 42, i32 42, i32 42, i32 42>
-; CG-NEXT:    [[TMP8:%.*]] = add nuw nsw <4 x i64> [[VEC_PHI0]], <i64 4, i64 4, i64 4, i64 4>
-; CG-NEXT:    [[TMP9:%.*]] = add nuw nsw i64 [[UNI_PHI30]], 4
-; CG-NEXT:    [[TMP10:%.*]] = add i64 [[UNI_PHI0]], 4
-; CG-NEXT:    [[TMP11:%.*]] = icmp uge i64 [[TMP10]], [[N_VEC0]]
-; CG-NEXT:    br label [[VPLANNEDBB80:%.*]]
+; CG-NEXT:    [[SCALAR_GEP80:%.*]] = getelementptr inbounds i32, i32* [[A0]], i64 [[TMP9]]
+; CG-NEXT:    [[TMP11:%.*]] = bitcast i32* [[SCALAR_GEP80]] to <4 x i32>*
+; CG-NEXT:    [[WIDE_LOAD90:%.*]] = load <4 x i32>, <4 x i32>* [[TMP11]], align 4
+; CG-NEXT:    [[TMP12:%.*]] = and <4 x i32> [[WIDE_LOAD90]], <i32 1, i32 1, i32 1, i32 1>
+; CG-NEXT:    [[TMP13:%.*]] = icmp eq <4 x i32> [[TMP12]], zeroinitializer
+; CG-NEXT:    [[TMP14:%.*]] = xor <4 x i1> [[TMP13]], <i1 true, i1 true, i1 true, i1 true>
+; CG-NEXT:    [[SCALAR_GEP100:%.*]] = getelementptr inbounds i32, i32* [[B0]], i64 [[TMP9]]
+; CG-NEXT:    br label [[VPLANNEDBB110:%.*]]
 ; CG-EMPTY:
-; CG-NEXT:  VPlannedBB8:
-; CG-NEXT:    [[SCALAR_GEP90:%.*]] = getelementptr inbounds i32, i32* [[A0]], i64 [[TMP9]]
-; CG-NEXT:    [[TMP12:%.*]] = bitcast i32* [[SCALAR_GEP90]] to <4 x i32>*
-; CG-NEXT:    [[WIDE_LOAD100:%.*]] = load <4 x i32>, <4 x i32>* [[TMP12]], align 4
-; CG-NEXT:    [[TMP13:%.*]] = and <4 x i32> [[WIDE_LOAD100]], <i32 1, i32 1, i32 1, i32 1>
-; CG-NEXT:    [[TMP14:%.*]] = icmp eq <4 x i32> [[TMP13]], zeroinitializer
-; CG-NEXT:    [[TMP15:%.*]] = xor <4 x i1> [[TMP14]], <i1 true, i1 true, i1 true, i1 true>
-; CG-NEXT:    [[SCALAR_GEP110:%.*]] = getelementptr inbounds i32, i32* [[B0]], i64 [[TMP9]]
-; CG-NEXT:    br label [[VPLANNEDBB120:%.*]]
+; CG-NEXT:  VPlannedBB11:
+; CG-NEXT:    [[TMP15:%.*]] = bitcast i32* [[SCALAR_GEP100]] to <4 x i32>*
+; CG-NEXT:    [[WIDE_MASKED_LOAD120:%.*]] = call <4 x i32> @llvm.masked.load.v4i32.p0v4i32(<4 x i32>* [[TMP15]], i32 4, <4 x i1> [[TMP14]], <4 x i32> undef)
+; CG-NEXT:    [[TMP16:%.*]] = bitcast i32* [[SCALAR_GEP80]] to <4 x i32>*
+; CG-NEXT:    call void @llvm.masked.store.v4i32.p0v4i32(<4 x i32> [[WIDE_MASKED_LOAD120]], <4 x i32>* [[TMP16]], i32 4, <4 x i1> [[TMP14]])
+; CG-NEXT:    br label [[VPLANNEDBB130:%.*]]
 ; CG-EMPTY:
-; CG-NEXT:  VPlannedBB12:
-; CG-NEXT:    [[TMP16:%.*]] = bitcast i32* [[SCALAR_GEP110]] to <4 x i32>*
-; CG-NEXT:    [[WIDE_MASKED_LOAD130:%.*]] = call <4 x i32> @llvm.masked.load.v4i32.p0v4i32(<4 x i32>* [[TMP16]], i32 4, <4 x i1> [[TMP15]], <4 x i32> undef)
-; CG-NEXT:    [[TMP17:%.*]] = bitcast i32* [[SCALAR_GEP90]] to <4 x i32>*
-; CG-NEXT:    call void @llvm.masked.store.v4i32.p0v4i32(<4 x i32> [[WIDE_MASKED_LOAD130]], <4 x i32>* [[TMP17]], i32 4, <4 x i1> [[TMP15]])
+; CG-NEXT:  VPlannedBB13:
+; CG-NEXT:    [[TMP17:%.*]] = bitcast i32* [[SCALAR_GEP100]] to <4 x i32>*
+; CG-NEXT:    call void @llvm.masked.store.v4i32.p0v4i32(<4 x i32> [[WIDE_LOAD90]], <4 x i32>* [[TMP17]], i32 4, <4 x i1> [[TMP13]])
 ; CG-NEXT:    br label [[VPLANNEDBB140:%.*]]
 ; CG-EMPTY:
 ; CG-NEXT:  VPlannedBB14:
-; CG-NEXT:    [[TMP18:%.*]] = bitcast i32* [[SCALAR_GEP110]] to <4 x i32>*
-; CG-NEXT:    call void @llvm.masked.store.v4i32.p0v4i32(<4 x i32> [[WIDE_LOAD100]], <4 x i32>* [[TMP18]], i32 4, <4 x i1> [[TMP14]])
-; CG-NEXT:    br label [[VPLANNEDBB150:%.*]]
+; CG-NEXT:    [[PREDBLEND150:%.*]] = select <4 x i1> [[TMP13]], <4 x i32> zeroinitializer, <4 x i32> <i32 42, i32 42, i32 42, i32 42>
+; CG-NEXT:    [[TMP18:%.*]] = add nuw nsw <4 x i64> [[TMP8]], <i64 4, i64 4, i64 4, i64 4>
+; CG-NEXT:    [[TMP19:%.*]] = add nuw nsw i64 [[TMP9]], 4
+; CG-NEXT:    [[TMP20:%.*]] = icmp eq i64 [[TMP19]], [[N_VEC0]]
+; CG-NEXT:    br label [[VPLANNEDBB160:%.*]]
 ; CG-EMPTY:
-; CG-NEXT:  VPlannedBB15:
-; CG-NEXT:    [[PREDBLEND160:%.*]] = select <4 x i1> [[TMP14]], <4 x i32> zeroinitializer, <4 x i32> <i32 42, i32 42, i32 42, i32 42>
-; CG-NEXT:    [[TMP19:%.*]] = add nuw nsw <4 x i64> [[TMP8]], <i64 4, i64 4, i64 4, i64 4>
-; CG-NEXT:    [[TMP20:%.*]] = add nuw nsw i64 [[TMP9]], 4
-; CG-NEXT:    [[TMP21:%.*]] = add i64 [[TMP10]], 4
-; CG-NEXT:    [[TMP22:%.*]] = icmp uge i64 [[TMP21]], [[N_VEC0]]
-; CG-NEXT:    br label [[VPLANNEDBB170:%.*]]
+; CG-NEXT:  VPlannedBB16:
+; CG-NEXT:    [[SCALAR_GEP170:%.*]] = getelementptr inbounds i32, i32* [[A0]], i64 [[TMP19]]
+; CG-NEXT:    [[TMP21:%.*]] = bitcast i32* [[SCALAR_GEP170]] to <4 x i32>*
+; CG-NEXT:    [[WIDE_LOAD180:%.*]] = load <4 x i32>, <4 x i32>* [[TMP21]], align 4
+; CG-NEXT:    [[TMP22:%.*]] = and <4 x i32> [[WIDE_LOAD180]], <i32 1, i32 1, i32 1, i32 1>
+; CG-NEXT:    [[TMP23:%.*]] = icmp eq <4 x i32> [[TMP22]], zeroinitializer
+; CG-NEXT:    [[TMP24:%.*]] = xor <4 x i1> [[TMP23]], <i1 true, i1 true, i1 true, i1 true>
+; CG-NEXT:    [[SCALAR_GEP190:%.*]] = getelementptr inbounds i32, i32* [[B0]], i64 [[TMP19]]
+; CG-NEXT:    br label [[VPLANNEDBB200:%.*]]
 ; CG-EMPTY:
-; CG-NEXT:  VPlannedBB17:
-; CG-NEXT:    [[SCALAR_GEP180:%.*]] = getelementptr inbounds i32, i32* [[A0]], i64 [[TMP20]]
-; CG-NEXT:    [[TMP23:%.*]] = bitcast i32* [[SCALAR_GEP180]] to <4 x i32>*
-; CG-NEXT:    [[WIDE_LOAD190:%.*]] = load <4 x i32>, <4 x i32>* [[TMP23]], align 4
-; CG-NEXT:    [[TMP24:%.*]] = and <4 x i32> [[WIDE_LOAD190]], <i32 1, i32 1, i32 1, i32 1>
-; CG-NEXT:    [[TMP25:%.*]] = icmp eq <4 x i32> [[TMP24]], zeroinitializer
-; CG-NEXT:    [[TMP26:%.*]] = xor <4 x i1> [[TMP25]], <i1 true, i1 true, i1 true, i1 true>
-; CG-NEXT:    [[SCALAR_GEP200:%.*]] = getelementptr inbounds i32, i32* [[B0]], i64 [[TMP20]]
-; CG-NEXT:    br label [[VPLANNEDBB210:%.*]]
+; CG-NEXT:  VPlannedBB20:
+; CG-NEXT:    [[TMP25:%.*]] = bitcast i32* [[SCALAR_GEP190]] to <4 x i32>*
+; CG-NEXT:    [[WIDE_MASKED_LOAD210:%.*]] = call <4 x i32> @llvm.masked.load.v4i32.p0v4i32(<4 x i32>* [[TMP25]], i32 4, <4 x i1> [[TMP24]], <4 x i32> undef)
+; CG-NEXT:    [[TMP26:%.*]] = bitcast i32* [[SCALAR_GEP170]] to <4 x i32>*
+; CG-NEXT:    call void @llvm.masked.store.v4i32.p0v4i32(<4 x i32> [[WIDE_MASKED_LOAD210]], <4 x i32>* [[TMP26]], i32 4, <4 x i1> [[TMP24]])
+; CG-NEXT:    br label [[VPLANNEDBB220:%.*]]
 ; CG-EMPTY:
-; CG-NEXT:  VPlannedBB21:
-; CG-NEXT:    [[TMP27:%.*]] = bitcast i32* [[SCALAR_GEP200]] to <4 x i32>*
-; CG-NEXT:    [[WIDE_MASKED_LOAD220:%.*]] = call <4 x i32> @llvm.masked.load.v4i32.p0v4i32(<4 x i32>* [[TMP27]], i32 4, <4 x i1> [[TMP26]], <4 x i32> undef)
-; CG-NEXT:    [[TMP28:%.*]] = bitcast i32* [[SCALAR_GEP180]] to <4 x i32>*
-; CG-NEXT:    call void @llvm.masked.store.v4i32.p0v4i32(<4 x i32> [[WIDE_MASKED_LOAD220]], <4 x i32>* [[TMP28]], i32 4, <4 x i1> [[TMP26]])
-; CG-NEXT:    br label [[VPLANNEDBB230:%.*]]
+; CG-NEXT:  VPlannedBB22:
+; CG-NEXT:    [[TMP27:%.*]] = bitcast i32* [[SCALAR_GEP190]] to <4 x i32>*
+; CG-NEXT:    call void @llvm.masked.store.v4i32.p0v4i32(<4 x i32> [[WIDE_LOAD180]], <4 x i32>* [[TMP27]], i32 4, <4 x i1> [[TMP23]])
+; CG-NEXT:    br label [[VPLANNEDBB230]]
 ; CG-EMPTY:
 ; CG-NEXT:  VPlannedBB23:
-; CG-NEXT:    [[TMP29:%.*]] = bitcast i32* [[SCALAR_GEP200]] to <4 x i32>*
-; CG-NEXT:    call void @llvm.masked.store.v4i32.p0v4i32(<4 x i32> [[WIDE_LOAD190]], <4 x i32>* [[TMP29]], i32 4, <4 x i1> [[TMP25]])
-; CG-NEXT:    br label [[VPLANNEDBB240]]
+; CG-NEXT:    [[PREDBLEND240:%.*]] = select <4 x i1> [[TMP23]], <4 x i32> zeroinitializer, <4 x i32> <i32 42, i32 42, i32 42, i32 42>
+; CG-NEXT:    [[TMP28]] = add nuw nsw <4 x i64> [[TMP18]], <i64 4, i64 4, i64 4, i64 4>
+; CG-NEXT:    [[TMP29]] = add nuw nsw i64 [[TMP19]], 4
+; CG-NEXT:    [[TMP30:%.*]] = icmp eq i64 [[TMP29]], [[N_VEC0]]
+; CG-NEXT:    br i1 [[TMP30]], label [[VPLANNEDBB250:%.*]], label [[VECTOR_BODY0]]
 ; CG-EMPTY:
-; CG-NEXT:  VPlannedBB24:
-; CG-NEXT:    [[PREDBLEND250:%.*]] = select <4 x i1> [[TMP25]], <4 x i32> zeroinitializer, <4 x i32> <i32 42, i32 42, i32 42, i32 42>
-; CG-NEXT:    [[TMP30]] = add nuw nsw <4 x i64> [[TMP19]], <i64 4, i64 4, i64 4, i64 4>
-; CG-NEXT:    [[TMP31]] = add nuw nsw i64 [[TMP20]], 4
-; CG-NEXT:    [[TMP32]] = add i64 [[TMP21]], 4
-; CG-NEXT:    [[TMP33:%.*]] = icmp uge i64 [[TMP32]], [[N_VEC0]]
-; CG-NEXT:    br i1 [[TMP33]], label [[VPLANNEDBB260:%.*]], label [[VECTOR_BODY0]]
-; CG-EMPTY:
-; CG-NEXT:  VPlannedBB26:
-; CG-NEXT:    [[TMP34:%.*]] = mul i64 1, [[N_VEC0]]
-; CG-NEXT:    [[TMP35:%.*]] = add i64 0, [[TMP34]]
+; CG-NEXT:  VPlannedBB25:
+; CG-NEXT:    [[TMP31:%.*]] = mul i64 1, [[N_VEC0]]
+; CG-NEXT:    [[TMP32:%.*]] = add i64 0, [[TMP31]]
 ; CG-NEXT:    br label [[MIDDLE_BLOCK0:%.*]]
 ; CG-EMPTY:
 ; CG-NEXT:  middle.block:
-; CG-NEXT:    [[TMP36:%.*]] = icmp ne i64 [[WIDE_TRIP_COUNT0]], [[N_VEC0]]
-; CG-NEXT:    br i1 [[TMP36]], label [[SCALAR_PH0]], label [[VPLANNEDBB270:%.*]]
+; CG-NEXT:    [[TMP33:%.*]] = icmp ne i64 [[WIDE_TRIP_COUNT0]], [[N_VEC0]]
+; CG-NEXT:    br i1 [[TMP33]], label [[SCALAR_PH0]], label [[VPLANNEDBB260:%.*]]
 ; CG-EMPTY:
 ; CG-NEXT:  scalar.ph:
-; CG-NEXT:    [[UNI_PHI280:%.*]] = phi i64 [ [[TMP35]], [[MIDDLE_BLOCK0]] ], [ 0, [[VPLANNEDBB10]] ]
-; CG-NEXT:    br label [[VPLANNEDBB290:%.*]]
+; CG-NEXT:    [[UNI_PHI270:%.*]] = phi i64 [ [[TMP32]], [[MIDDLE_BLOCK0]] ], [ 0, [[VPLANNEDBB10]] ]
+; CG-NEXT:    br label [[VPLANNEDBB280:%.*]]
 ; CG-EMPTY:
-; CG-NEXT:  VPlannedBB29:
+; CG-NEXT:  VPlannedBB28:
 ; CG-NEXT:    br label [[OMP_INNER_FOR_BODY0:%.*]]
 ; CG-EMPTY:
-; CG-NEXT:  VPlannedBB27.loopexit:
-; CG-NEXT:    br label [[VPLANNEDBB270]]
+; CG-NEXT:  VPlannedBB26.loopexit:
+; CG-NEXT:    br label [[VPLANNEDBB260]]
 ; CG-EMPTY:
-; CG-NEXT:  VPlannedBB27:
-; CG-NEXT:    [[UNI_PHI300:%.*]] = phi i64 [ [[TMP35]], [[MIDDLE_BLOCK0]] ], [ [[INDVARS_IV_NEXT0:%.*]], [[VPLANNEDBB27_LOOPEXIT0:%.*]] ]
-; CG-NEXT:    br label [[VPLANNEDBB310:%.*]]
+; CG-NEXT:  VPlannedBB26:
+; CG-NEXT:    [[UNI_PHI290:%.*]] = phi i64 [ [[TMP32]], [[MIDDLE_BLOCK0]] ], [ [[INDVARS_IV_NEXT0:%.*]], [[VPLANNEDBB26_LOOPEXIT0:%.*]] ]
+; CG-NEXT:    br label [[VPLANNEDBB300:%.*]]
 ; CG-EMPTY:
-; CG-NEXT:  VPlannedBB31:
+; CG-NEXT:  VPlannedBB30:
 ; CG-NEXT:    br label [[DIR_OMP_END_SIMD_30:%.*]]
 ; CG-EMPTY:
 ; CG-NEXT:  omp.inner.for.body:
-; CG-NEXT:    [[INDVARS_IV0:%.*]] = phi i64 [ [[UNI_PHI280]], [[VPLANNEDBB290]] ], [ [[INDVARS_IV_NEXT0]], [[OMP_BODY_CONTINUE0:%.*]] ]
+; CG-NEXT:    [[INDVARS_IV0:%.*]] = phi i64 [ [[UNI_PHI270]], [[VPLANNEDBB280]] ], [ [[INDVARS_IV_NEXT0]], [[OMP_BODY_CONTINUE0:%.*]] ]
 ; CG-NEXT:    [[ARRAYIDX0:%.*]] = getelementptr inbounds i32, i32* [[A0]], i64 [[INDVARS_IV0]]
-; CG-NEXT:    [[TMP37:%.*]] = load i32, i32* [[ARRAYIDX0]], align 4
-; CG-NEXT:    [[TMP38:%.*]] = and i32 [[TMP37]], 1
-; CG-NEXT:    [[TOBOOL0:%.*]] = icmp eq i32 [[TMP38]], 0
+; CG-NEXT:    [[TMP34:%.*]] = load i32, i32* [[ARRAYIDX0]], align 4
+; CG-NEXT:    [[TMP35:%.*]] = and i32 [[TMP34]], 1
+; CG-NEXT:    [[TOBOOL0:%.*]] = icmp eq i32 [[TMP35]], 0
 ; CG-NEXT:    [[ARRAYIDX130:%.*]] = getelementptr inbounds i32, i32* [[B0]], i64 [[INDVARS_IV0]]
 ; CG-NEXT:    br i1 [[TOBOOL0]], label [[IF_ELSE0:%.*]], label [[IF_THEN0:%.*]]
 ; CG-EMPTY:
 ; CG-NEXT:  if.then:
-; CG-NEXT:    [[TMP39:%.*]] = load i32, i32* [[ARRAYIDX130]], align 4
-; CG-NEXT:    store i32 [[TMP39]], i32* [[ARRAYIDX0]], align 4
+; CG-NEXT:    [[TMP36:%.*]] = load i32, i32* [[ARRAYIDX130]], align 4
+; CG-NEXT:    store i32 [[TMP36]], i32* [[ARRAYIDX0]], align 4
 ; CG-NEXT:    br label [[OMP_BODY_CONTINUE0]]
 ; CG-EMPTY:
 ; CG-NEXT:  if.else:
-; CG-NEXT:    store i32 [[TMP37]], i32* [[ARRAYIDX130]], align 4
+; CG-NEXT:    store i32 [[TMP34]], i32* [[ARRAYIDX130]], align 4
 ; CG-NEXT:    br label [[OMP_BODY_CONTINUE0]]
 ; CG-EMPTY:
 ; CG-NEXT:  omp.body.continue:
 ; CG-NEXT:    [[PHI0:%.*]] = phi i32 [ 42, [[IF_THEN0]] ], [ 0, [[IF_ELSE0]] ]
 ; CG-NEXT:    [[INDVARS_IV_NEXT0]] = add nuw nsw i64 [[INDVARS_IV0]], 1
 ; CG-NEXT:    [[EXITCOND0:%.*]] = icmp eq i64 [[INDVARS_IV_NEXT0]], [[WIDE_TRIP_COUNT0]]
-; CG-NEXT:    br i1 [[EXITCOND0]], label [[VPLANNEDBB27_LOOPEXIT0]], label [[OMP_INNER_FOR_BODY0]]
+; CG-NEXT:    br i1 [[EXITCOND0]], label [[VPLANNEDBB26_LOOPEXIT0]], label [[OMP_INNER_FOR_BODY0]]
 ; CG-EMPTY:
 ; CG-NEXT:  DIR.OMP.END.SIMD.3:
 ; CG-NEXT:    br label [[OMP_PRECOND_END0]]
@@ -347,84 +337,78 @@ define dso_local void @uniform_control_flow(i32* nocapture %a, i32* nocapture %b
 ; VPLAN-NEXT:    [[BB1]]: # preds: [[BB0]]
 ; VPLAN-NEXT:     [DA: Div] i64 [[VP_INDVARS_IV_IND_INIT:%.*]] = induction-init{add} i64 live-in0 i64 1
 ; VPLAN-NEXT:     [DA: Uni] i64 [[VP_INDVARS_IV_IND_INIT_STEP:%.*]] = induction-init-step{add} i64 1
-; VPLAN-NEXT:     [DA: Uni] i64 [[VP_VF:%.*]] = induction-init-step{add} i64 1
-; VPLAN-NEXT:     [DA: Uni] i64 [[VP_ORIG_TRIP_COUNT:%.*]] = orig-trip-count for original loop omp.inner.for.body
-; VPLAN-NEXT:     [DA: Uni] i64 [[VP_VECTOR_TRIP_COUNT:%.*]] = vector-trip-count i64 [[VP_ORIG_TRIP_COUNT]], UF = 3
+; VPLAN-NEXT:     [DA: Uni] i64 [[VP_VECTOR_TRIP_COUNT:%.*]] = vector-trip-count i64 [[WIDE_TRIP_COUNT0:%.*]], UF = 3
 ; VPLAN-NEXT:     [DA: Uni] br [[BB2:BB[0-9]+]]
 ; VPLAN-EMPTY:
 ; VPLAN-NEXT:    [[BB2]]: # preds: [[BB1]], cloned.[[BB3:BB[0-9]+]]
-; VPLAN-NEXT:     [DA: Uni] i64 [[VP_VECTOR_LOOP_IV:%.*]] = phi  [ i64 0, [[BB1]] ],  [ i64 [[VP0:%.*]], cloned.[[BB3]] ]
 ; VPLAN-NEXT:     [DA: Div] i64 [[VP_INDVARS_IV:%.*]] = phi  [ i64 [[VP_INDVARS_IV_IND_INIT]], [[BB1]] ],  [ i64 [[VP_INDVARS_IV_NEXT:%.*]], cloned.[[BB3]] ]
 ; VPLAN-NEXT:     [DA: Div] i32* [[VP_ARRAYIDX:%.*]] = getelementptr inbounds i32* [[A0:%.*]] i64 [[VP_INDVARS_IV]]
-; VPLAN-NEXT:     [DA: Div] i32 [[VP1:%.*]] = load i32* [[VP_ARRAYIDX]]
-; VPLAN-NEXT:     [DA: Div] i32 [[VP2:%.*]] = and i32 [[VP1]] i32 1
+; VPLAN-NEXT:     [DA: Div] i32 [[VP0:%.*]] = load i32* [[VP_ARRAYIDX]]
+; VPLAN-NEXT:     [DA: Div] i32 [[VP1:%.*]] = and i32 [[VP0]] i32 1
 ; VPLAN-NEXT:     [DA: Uni] i1 [[VP_TOBOOL:%.*]] = icmp eq i32 [[N0:%.*]] i32 42
 ; VPLAN-NEXT:     [DA: Div] i32* [[VP_ARRAYIDX13:%.*]] = getelementptr inbounds i32* [[B0:%.*]] i64 [[VP_INDVARS_IV]]
 ; VPLAN-NEXT:     [DA: Uni] br i1 [[VP_TOBOOL]], [[BB4:BB[0-9]+]], [[BB5:BB[0-9]+]]
 ; VPLAN-EMPTY:
 ; VPLAN-NEXT:      [[BB5]]: # preds: [[BB2]]
-; VPLAN-NEXT:       [DA: Div] i32 [[VP3:%.*]] = load i32* [[VP_ARRAYIDX13]]
-; VPLAN-NEXT:       [DA: Div] store i32 [[VP3]] i32* [[VP_ARRAYIDX]]
+; VPLAN-NEXT:       [DA: Div] i32 [[VP2:%.*]] = load i32* [[VP_ARRAYIDX13]]
+; VPLAN-NEXT:       [DA: Div] store i32 [[VP2]] i32* [[VP_ARRAYIDX]]
 ; VPLAN-NEXT:       [DA: Uni] br [[BB6:BB[0-9]+]]
 ; VPLAN-EMPTY:
 ; VPLAN-NEXT:      [[BB4]]: # preds: [[BB2]]
-; VPLAN-NEXT:       [DA: Div] store i32 [[VP1]] i32* [[VP_ARRAYIDX13]]
+; VPLAN-NEXT:       [DA: Div] store i32 [[VP0]] i32* [[VP_ARRAYIDX13]]
 ; VPLAN-NEXT:       [DA: Uni] br [[BB6]]
 ; VPLAN-EMPTY:
 ; VPLAN-NEXT:    [[BB6]]: # preds: [[BB5]], [[BB4]]
 ; VPLAN-NEXT:     [DA: Uni] i32 [[VP_PHI:%.*]] = phi  [ i32 42, [[BB5]] ],  [ i32 0, [[BB4]] ]
 ; VPLAN-NEXT:     [DA: Div] i64 [[VP_INDVARS_IV_NEXT_1:%.*]] = add i64 [[VP_INDVARS_IV]] i64 [[VP_INDVARS_IV_IND_INIT_STEP]]
-; VPLAN-NEXT:     [DA: Uni] i64 [[VP_VECTOR_LOOP_IV_NEXT:%.*]] = add i64 [[VP_VECTOR_LOOP_IV]] i64 [[VP_VF]]
-; VPLAN-NEXT:     [DA: Uni] i1 [[VP_VECTOR_LOOP_EXITCOND:%.*]] = icmp uge i64 [[VP_VECTOR_LOOP_IV_NEXT]] i64 [[VP_VECTOR_TRIP_COUNT]]
+; VPLAN-NEXT:     [DA: Uni] i1 [[VP_EXITCOND:%.*]] = icmp eq i64 [[VP_INDVARS_IV_NEXT_1]] i64 [[VP_VECTOR_TRIP_COUNT]]
 ; VPLAN-NEXT:     [DA: Uni] br cloned.[[BB7:BB[0-9]+]]
 ; VPLAN-EMPTY:
 ; VPLAN-NEXT:    cloned.[[BB7]]: # preds: [[BB6]]
 ; VPLAN-NEXT:     [DA: Div] i32* [[VP_ARRAYIDX_1:%.*]] = getelementptr inbounds i32* [[A0]] i64 [[VP_INDVARS_IV_NEXT_1]]
-; VPLAN-NEXT:     [DA: Div] i32 [[VP4:%.*]] = load i32* [[VP_ARRAYIDX_1]]
-; VPLAN-NEXT:     [DA: Div] i32 [[VP5:%.*]] = and i32 [[VP4]] i32 1
+; VPLAN-NEXT:     [DA: Div] i32 [[VP3:%.*]] = load i32* [[VP_ARRAYIDX_1]]
+; VPLAN-NEXT:     [DA: Div] i32 [[VP4:%.*]] = and i32 [[VP3]] i32 1
 ; VPLAN-NEXT:     [DA: Uni] i1 [[VP_TOBOOL_1:%.*]] = icmp eq i32 [[N0]] i32 42
 ; VPLAN-NEXT:     [DA: Div] i32* [[VP_ARRAYIDX13_1:%.*]] = getelementptr inbounds i32* [[B0]] i64 [[VP_INDVARS_IV_NEXT_1]]
 ; VPLAN-NEXT:     [DA: Uni] br i1 [[VP_TOBOOL_1]], cloned.[[BB8:BB[0-9]+]], cloned.[[BB9:BB[0-9]+]]
 ; VPLAN-EMPTY:
 ; VPLAN-NEXT:      cloned.[[BB9]]: # preds: cloned.[[BB7]]
-; VPLAN-NEXT:       [DA: Div] i32 [[VP6:%.*]] = load i32* [[VP_ARRAYIDX13_1]]
-; VPLAN-NEXT:       [DA: Div] store i32 [[VP6]] i32* [[VP_ARRAYIDX_1]]
+; VPLAN-NEXT:       [DA: Div] i32 [[VP5:%.*]] = load i32* [[VP_ARRAYIDX13_1]]
+; VPLAN-NEXT:       [DA: Div] store i32 [[VP5]] i32* [[VP_ARRAYIDX_1]]
 ; VPLAN-NEXT:       [DA: Uni] br cloned.[[BB10:BB[0-9]+]]
 ; VPLAN-EMPTY:
 ; VPLAN-NEXT:      cloned.[[BB8]]: # preds: cloned.[[BB7]]
-; VPLAN-NEXT:       [DA: Div] store i32 [[VP4]] i32* [[VP_ARRAYIDX13_1]]
+; VPLAN-NEXT:       [DA: Div] store i32 [[VP3]] i32* [[VP_ARRAYIDX13_1]]
 ; VPLAN-NEXT:       [DA: Uni] br cloned.[[BB10]]
 ; VPLAN-EMPTY:
 ; VPLAN-NEXT:    cloned.[[BB10]]: # preds: cloned.[[BB9]], cloned.[[BB8]]
 ; VPLAN-NEXT:     [DA: Uni] i32 [[VP_PHI_1:%.*]] = phi  [ i32 42, cloned.[[BB9]] ],  [ i32 0, cloned.[[BB8]] ]
 ; VPLAN-NEXT:     [DA: Div] i64 [[VP_INDVARS_IV_NEXT_2:%.*]] = add i64 [[VP_INDVARS_IV_NEXT_1]] i64 [[VP_INDVARS_IV_IND_INIT_STEP]]
-; VPLAN-NEXT:     [DA: Uni] i64 [[VP7:%.*]] = add i64 [[VP_VECTOR_LOOP_IV_NEXT]] i64 [[VP_VF]]
-; VPLAN-NEXT:     [DA: Uni] i1 [[VP8:%.*]] = icmp uge i64 [[VP7]] i64 [[VP_VECTOR_TRIP_COUNT]]
+; VPLAN-NEXT:     [DA: Uni] i1 [[VP_EXITCOND_1:%.*]] = icmp eq i64 [[VP_INDVARS_IV_NEXT_2]] i64 [[VP_VECTOR_TRIP_COUNT]]
 ; VPLAN-NEXT:     [DA: Uni] br cloned.[[BB11:BB[0-9]+]]
 ; VPLAN-EMPTY:
 ; VPLAN-NEXT:    cloned.[[BB11]]: # preds: cloned.[[BB10]]
 ; VPLAN-NEXT:     [DA: Div] i32* [[VP_ARRAYIDX_2:%.*]] = getelementptr inbounds i32* [[A0]] i64 [[VP_INDVARS_IV_NEXT_2]]
-; VPLAN-NEXT:     [DA: Div] i32 [[VP9:%.*]] = load i32* [[VP_ARRAYIDX_2]]
-; VPLAN-NEXT:     [DA: Div] i32 [[VP10:%.*]] = and i32 [[VP9]] i32 1
+; VPLAN-NEXT:     [DA: Div] i32 [[VP6:%.*]] = load i32* [[VP_ARRAYIDX_2]]
+; VPLAN-NEXT:     [DA: Div] i32 [[VP7:%.*]] = and i32 [[VP6]] i32 1
 ; VPLAN-NEXT:     [DA: Uni] i1 [[VP_TOBOOL_2:%.*]] = icmp eq i32 [[N0]] i32 42
 ; VPLAN-NEXT:     [DA: Div] i32* [[VP_ARRAYIDX13_2:%.*]] = getelementptr inbounds i32* [[B0]] i64 [[VP_INDVARS_IV_NEXT_2]]
 ; VPLAN-NEXT:     [DA: Uni] br i1 [[VP_TOBOOL_2]], cloned.[[BB12:BB[0-9]+]], cloned.[[BB13:BB[0-9]+]]
 ; VPLAN-EMPTY:
 ; VPLAN-NEXT:      cloned.[[BB13]]: # preds: cloned.[[BB11]]
-; VPLAN-NEXT:       [DA: Div] i32 [[VP11:%.*]] = load i32* [[VP_ARRAYIDX13_2]]
-; VPLAN-NEXT:       [DA: Div] store i32 [[VP11]] i32* [[VP_ARRAYIDX_2]]
+; VPLAN-NEXT:       [DA: Div] i32 [[VP8:%.*]] = load i32* [[VP_ARRAYIDX13_2]]
+; VPLAN-NEXT:       [DA: Div] store i32 [[VP8]] i32* [[VP_ARRAYIDX_2]]
 ; VPLAN-NEXT:       [DA: Uni] br cloned.[[BB3]]
 ; VPLAN-EMPTY:
 ; VPLAN-NEXT:      cloned.[[BB12]]: # preds: cloned.[[BB11]]
-; VPLAN-NEXT:       [DA: Div] store i32 [[VP9]] i32* [[VP_ARRAYIDX13_2]]
+; VPLAN-NEXT:       [DA: Div] store i32 [[VP6]] i32* [[VP_ARRAYIDX13_2]]
 ; VPLAN-NEXT:       [DA: Uni] br cloned.[[BB3]]
 ; VPLAN-EMPTY:
 ; VPLAN-NEXT:    cloned.[[BB3]]: # preds: cloned.[[BB13]], cloned.[[BB12]]
 ; VPLAN-NEXT:     [DA: Uni] i32 [[VP_PHI_2:%.*]] = phi  [ i32 42, cloned.[[BB13]] ],  [ i32 0, cloned.[[BB12]] ]
 ; VPLAN-NEXT:     [DA: Div] i64 [[VP_INDVARS_IV_NEXT]] = add i64 [[VP_INDVARS_IV_NEXT_2]] i64 [[VP_INDVARS_IV_IND_INIT_STEP]]
-; VPLAN-NEXT:     [DA: Uni] i64 [[VP0]] = add i64 [[VP7]] i64 [[VP_VF]]
-; VPLAN-NEXT:     [DA: Uni] i1 [[VP12:%.*]] = icmp uge i64 [[VP0]] i64 [[VP_VECTOR_TRIP_COUNT]]
-; VPLAN-NEXT:     [DA: Uni] br i1 [[VP12]], [[BB14:BB[0-9]+]], [[BB2]]
+; VPLAN-NEXT:     [DA: Uni] i1 [[VP_EXITCOND_2:%.*]] = icmp eq i64 [[VP_INDVARS_IV_NEXT]] i64 [[VP_VECTOR_TRIP_COUNT]]
+; VPLAN-NEXT:     [DA: Uni] br i1 [[VP_EXITCOND_2]], [[BB14:BB[0-9]+]], [[BB2]]
 ; VPLAN-EMPTY:
 ; VPLAN-NEXT:    [[BB14]]: # preds: cloned.[[BB3]]
 ; VPLAN-NEXT:     [DA: Uni] i64 [[VP_INDVARS_IV_IND_FINAL:%.*]] = induction-final{add} i64 live-in0 i64 1
@@ -454,7 +438,7 @@ define dso_local void @uniform_control_flow(i32* nocapture %a, i32* nocapture %b
 ; CG-EMPTY:
 ; CG-NEXT:  VPlannedBB1:
 ; CG-NEXT:    [[N_MOD_VF0:%.*]] = urem i64 [[WIDE_TRIP_COUNT0]], 12
-; CG-NEXT:    [[N_VEC0:%.*]] = sub i64 [[WIDE_TRIP_COUNT0]], [[N_MOD_VF0]]
+; CG-NEXT:    [[N_VEC0:%.*]] = sub nuw nsw i64 [[WIDE_TRIP_COUNT0]], [[N_MOD_VF0]]
 ; CG-NEXT:    [[TMP0:%.*]] = icmp eq i64 0, [[N_VEC0]]
 ; CG-NEXT:    br i1 [[TMP0]], label [[SCALAR_PH0:%.*]], label [[VECTOR_PH0:%.*]]
 ; CG-EMPTY:
@@ -462,144 +446,140 @@ define dso_local void @uniform_control_flow(i32* nocapture %a, i32* nocapture %b
 ; CG-NEXT:    br label [[VECTOR_BODY0:%.*]]
 ; CG-EMPTY:
 ; CG-NEXT:  vector.body:
-; CG-NEXT:    [[UNI_PHI0:%.*]] = phi i64 [ 0, [[VECTOR_PH0]] ], [ [[TMP29:%.*]], [[VPLANNEDBB260:%.*]] ]
-; CG-NEXT:    [[UNI_PHI30:%.*]] = phi i64 [ 0, [[VECTOR_PH0]] ], [ [[TMP28:%.*]], [[VPLANNEDBB260]] ]
-; CG-NEXT:    [[VEC_PHI0:%.*]] = phi <4 x i64> [ <i64 0, i64 1, i64 2, i64 3>, [[VECTOR_PH0]] ], [ [[TMP27:%.*]], [[VPLANNEDBB260]] ]
-; CG-NEXT:    [[SCALAR_GEP0:%.*]] = getelementptr inbounds i32, i32* [[A0]], i64 [[UNI_PHI30]]
+; CG-NEXT:    [[UNI_PHI0:%.*]] = phi i64 [ 0, [[VECTOR_PH0]] ], [ [[TMP26:%.*]], [[VPLANNEDBB250:%.*]] ]
+; CG-NEXT:    [[VEC_PHI0:%.*]] = phi <4 x i64> [ <i64 0, i64 1, i64 2, i64 3>, [[VECTOR_PH0]] ], [ [[TMP25:%.*]], [[VPLANNEDBB250]] ]
+; CG-NEXT:    [[SCALAR_GEP0:%.*]] = getelementptr inbounds i32, i32* [[A0]], i64 [[UNI_PHI0]]
 ; CG-NEXT:    [[TMP1:%.*]] = bitcast i32* [[SCALAR_GEP0]] to <4 x i32>*
 ; CG-NEXT:    [[WIDE_LOAD0:%.*]] = load <4 x i32>, <4 x i32>* [[TMP1]], align 4
 ; CG-NEXT:    [[TMP2:%.*]] = and <4 x i32> [[WIDE_LOAD0]], <i32 1, i32 1, i32 1, i32 1>
 ; CG-NEXT:    [[TMP3:%.*]] = icmp eq i32 [[N0]], 42
-; CG-NEXT:    [[SCALAR_GEP40:%.*]] = getelementptr inbounds i32, i32* [[B0]], i64 [[UNI_PHI30]]
-; CG-NEXT:    br i1 [[TMP3]], label [[VPLANNEDBB50:%.*]], label [[VPLANNEDBB60:%.*]]
-; CG-EMPTY:
-; CG-NEXT:  VPlannedBB6:
-; CG-NEXT:    [[TMP4:%.*]] = bitcast i32* [[SCALAR_GEP40]] to <4 x i32>*
-; CG-NEXT:    [[WIDE_LOAD70:%.*]] = load <4 x i32>, <4 x i32>* [[TMP4]], align 4
-; CG-NEXT:    [[TMP5:%.*]] = bitcast i32* [[SCALAR_GEP0]] to <4 x i32>*
-; CG-NEXT:    store <4 x i32> [[WIDE_LOAD70]], <4 x i32>* [[TMP5]], align 4
-; CG-NEXT:    br label [[VPLANNEDBB80:%.*]]
+; CG-NEXT:    [[SCALAR_GEP30:%.*]] = getelementptr inbounds i32, i32* [[B0]], i64 [[UNI_PHI0]]
+; CG-NEXT:    br i1 [[TMP3]], label [[VPLANNEDBB40:%.*]], label [[VPLANNEDBB50:%.*]]
 ; CG-EMPTY:
 ; CG-NEXT:  VPlannedBB5:
-; CG-NEXT:    [[TMP6:%.*]] = bitcast i32* [[SCALAR_GEP40]] to <4 x i32>*
+; CG-NEXT:    [[TMP4:%.*]] = bitcast i32* [[SCALAR_GEP30]] to <4 x i32>*
+; CG-NEXT:    [[WIDE_LOAD60:%.*]] = load <4 x i32>, <4 x i32>* [[TMP4]], align 4
+; CG-NEXT:    [[TMP5:%.*]] = bitcast i32* [[SCALAR_GEP0]] to <4 x i32>*
+; CG-NEXT:    store <4 x i32> [[WIDE_LOAD60]], <4 x i32>* [[TMP5]], align 4
+; CG-NEXT:    br label [[VPLANNEDBB70:%.*]]
+; CG-EMPTY:
+; CG-NEXT:  VPlannedBB4:
+; CG-NEXT:    [[TMP6:%.*]] = bitcast i32* [[SCALAR_GEP30]] to <4 x i32>*
 ; CG-NEXT:    store <4 x i32> [[WIDE_LOAD0]], <4 x i32>* [[TMP6]], align 4
-; CG-NEXT:    br label [[VPLANNEDBB80]]
+; CG-NEXT:    br label [[VPLANNEDBB70]]
 ; CG-EMPTY:
-; CG-NEXT:  VPlannedBB8:
-; CG-NEXT:    [[UNI_PHI90:%.*]] = phi i32 [ 42, [[VPLANNEDBB60]] ], [ 0, [[VPLANNEDBB50]] ]
+; CG-NEXT:  VPlannedBB7:
+; CG-NEXT:    [[UNI_PHI80:%.*]] = phi i32 [ 42, [[VPLANNEDBB50]] ], [ 0, [[VPLANNEDBB40]] ]
 ; CG-NEXT:    [[TMP7:%.*]] = add nuw nsw <4 x i64> [[VEC_PHI0]], <i64 4, i64 4, i64 4, i64 4>
-; CG-NEXT:    [[TMP8:%.*]] = add nuw nsw i64 [[UNI_PHI30]], 4
-; CG-NEXT:    [[TMP9:%.*]] = add i64 [[UNI_PHI0]], 4
-; CG-NEXT:    [[TMP10:%.*]] = icmp uge i64 [[TMP9]], [[N_VEC0]]
-; CG-NEXT:    br label [[VPLANNEDBB100:%.*]]
+; CG-NEXT:    [[TMP8:%.*]] = add nuw nsw i64 [[UNI_PHI0]], 4
+; CG-NEXT:    [[TMP9:%.*]] = icmp eq i64 [[TMP8]], [[N_VEC0]]
+; CG-NEXT:    br label [[VPLANNEDBB90:%.*]]
 ; CG-EMPTY:
-; CG-NEXT:  VPlannedBB10:
-; CG-NEXT:    [[SCALAR_GEP110:%.*]] = getelementptr inbounds i32, i32* [[A0]], i64 [[TMP8]]
-; CG-NEXT:    [[TMP11:%.*]] = bitcast i32* [[SCALAR_GEP110]] to <4 x i32>*
-; CG-NEXT:    [[WIDE_LOAD120:%.*]] = load <4 x i32>, <4 x i32>* [[TMP11]], align 4
-; CG-NEXT:    [[TMP12:%.*]] = and <4 x i32> [[WIDE_LOAD120]], <i32 1, i32 1, i32 1, i32 1>
-; CG-NEXT:    [[TMP13:%.*]] = icmp eq i32 [[N0]], 42
-; CG-NEXT:    [[SCALAR_GEP130:%.*]] = getelementptr inbounds i32, i32* [[B0]], i64 [[TMP8]]
-; CG-NEXT:    br i1 [[TMP13]], label [[VPLANNEDBB140:%.*]], label [[VPLANNEDBB150:%.*]]
-; CG-EMPTY:
-; CG-NEXT:  VPlannedBB15:
-; CG-NEXT:    [[TMP14:%.*]] = bitcast i32* [[SCALAR_GEP130]] to <4 x i32>*
-; CG-NEXT:    [[WIDE_LOAD160:%.*]] = load <4 x i32>, <4 x i32>* [[TMP14]], align 4
-; CG-NEXT:    [[TMP15:%.*]] = bitcast i32* [[SCALAR_GEP110]] to <4 x i32>*
-; CG-NEXT:    store <4 x i32> [[WIDE_LOAD160]], <4 x i32>* [[TMP15]], align 4
-; CG-NEXT:    br label [[VPLANNEDBB170:%.*]]
+; CG-NEXT:  VPlannedBB9:
+; CG-NEXT:    [[SCALAR_GEP100:%.*]] = getelementptr inbounds i32, i32* [[A0]], i64 [[TMP8]]
+; CG-NEXT:    [[TMP10:%.*]] = bitcast i32* [[SCALAR_GEP100]] to <4 x i32>*
+; CG-NEXT:    [[WIDE_LOAD110:%.*]] = load <4 x i32>, <4 x i32>* [[TMP10]], align 4
+; CG-NEXT:    [[TMP11:%.*]] = and <4 x i32> [[WIDE_LOAD110]], <i32 1, i32 1, i32 1, i32 1>
+; CG-NEXT:    [[TMP12:%.*]] = icmp eq i32 [[N0]], 42
+; CG-NEXT:    [[SCALAR_GEP120:%.*]] = getelementptr inbounds i32, i32* [[B0]], i64 [[TMP8]]
+; CG-NEXT:    br i1 [[TMP12]], label [[VPLANNEDBB130:%.*]], label [[VPLANNEDBB140:%.*]]
 ; CG-EMPTY:
 ; CG-NEXT:  VPlannedBB14:
-; CG-NEXT:    [[TMP16:%.*]] = bitcast i32* [[SCALAR_GEP130]] to <4 x i32>*
-; CG-NEXT:    store <4 x i32> [[WIDE_LOAD120]], <4 x i32>* [[TMP16]], align 4
-; CG-NEXT:    br label [[VPLANNEDBB170]]
+; CG-NEXT:    [[TMP13:%.*]] = bitcast i32* [[SCALAR_GEP120]] to <4 x i32>*
+; CG-NEXT:    [[WIDE_LOAD150:%.*]] = load <4 x i32>, <4 x i32>* [[TMP13]], align 4
+; CG-NEXT:    [[TMP14:%.*]] = bitcast i32* [[SCALAR_GEP100]] to <4 x i32>*
+; CG-NEXT:    store <4 x i32> [[WIDE_LOAD150]], <4 x i32>* [[TMP14]], align 4
+; CG-NEXT:    br label [[VPLANNEDBB160:%.*]]
 ; CG-EMPTY:
-; CG-NEXT:  VPlannedBB17:
-; CG-NEXT:    [[UNI_PHI180:%.*]] = phi i32 [ 42, [[VPLANNEDBB150]] ], [ 0, [[VPLANNEDBB140]] ]
-; CG-NEXT:    [[TMP17:%.*]] = add nuw nsw <4 x i64> [[TMP7]], <i64 4, i64 4, i64 4, i64 4>
-; CG-NEXT:    [[TMP18:%.*]] = add nuw nsw i64 [[TMP8]], 4
-; CG-NEXT:    [[TMP19:%.*]] = add i64 [[TMP9]], 4
-; CG-NEXT:    [[TMP20:%.*]] = icmp uge i64 [[TMP19]], [[N_VEC0]]
-; CG-NEXT:    br label [[VPLANNEDBB190:%.*]]
+; CG-NEXT:  VPlannedBB13:
+; CG-NEXT:    [[TMP15:%.*]] = bitcast i32* [[SCALAR_GEP120]] to <4 x i32>*
+; CG-NEXT:    store <4 x i32> [[WIDE_LOAD110]], <4 x i32>* [[TMP15]], align 4
+; CG-NEXT:    br label [[VPLANNEDBB160]]
 ; CG-EMPTY:
-; CG-NEXT:  VPlannedBB19:
-; CG-NEXT:    [[SCALAR_GEP200:%.*]] = getelementptr inbounds i32, i32* [[A0]], i64 [[TMP18]]
-; CG-NEXT:    [[TMP21:%.*]] = bitcast i32* [[SCALAR_GEP200]] to <4 x i32>*
-; CG-NEXT:    [[WIDE_LOAD210:%.*]] = load <4 x i32>, <4 x i32>* [[TMP21]], align 4
-; CG-NEXT:    [[TMP22:%.*]] = and <4 x i32> [[WIDE_LOAD210]], <i32 1, i32 1, i32 1, i32 1>
-; CG-NEXT:    [[TMP23:%.*]] = icmp eq i32 [[N0]], 42
-; CG-NEXT:    [[SCALAR_GEP220:%.*]] = getelementptr inbounds i32, i32* [[B0]], i64 [[TMP18]]
-; CG-NEXT:    br i1 [[TMP23]], label [[VPLANNEDBB230:%.*]], label [[VPLANNEDBB240:%.*]]
+; CG-NEXT:  VPlannedBB16:
+; CG-NEXT:    [[UNI_PHI170:%.*]] = phi i32 [ 42, [[VPLANNEDBB140]] ], [ 0, [[VPLANNEDBB130]] ]
+; CG-NEXT:    [[TMP16:%.*]] = add nuw nsw <4 x i64> [[TMP7]], <i64 4, i64 4, i64 4, i64 4>
+; CG-NEXT:    [[TMP17:%.*]] = add nuw nsw i64 [[TMP8]], 4
+; CG-NEXT:    [[TMP18:%.*]] = icmp eq i64 [[TMP17]], [[N_VEC0]]
+; CG-NEXT:    br label [[VPLANNEDBB180:%.*]]
 ; CG-EMPTY:
-; CG-NEXT:  VPlannedBB24:
-; CG-NEXT:    [[TMP24:%.*]] = bitcast i32* [[SCALAR_GEP220]] to <4 x i32>*
-; CG-NEXT:    [[WIDE_LOAD250:%.*]] = load <4 x i32>, <4 x i32>* [[TMP24]], align 4
-; CG-NEXT:    [[TMP25:%.*]] = bitcast i32* [[SCALAR_GEP200]] to <4 x i32>*
-; CG-NEXT:    store <4 x i32> [[WIDE_LOAD250]], <4 x i32>* [[TMP25]], align 4
-; CG-NEXT:    br label [[VPLANNEDBB260]]
+; CG-NEXT:  VPlannedBB18:
+; CG-NEXT:    [[SCALAR_GEP190:%.*]] = getelementptr inbounds i32, i32* [[A0]], i64 [[TMP17]]
+; CG-NEXT:    [[TMP19:%.*]] = bitcast i32* [[SCALAR_GEP190]] to <4 x i32>*
+; CG-NEXT:    [[WIDE_LOAD200:%.*]] = load <4 x i32>, <4 x i32>* [[TMP19]], align 4
+; CG-NEXT:    [[TMP20:%.*]] = and <4 x i32> [[WIDE_LOAD200]], <i32 1, i32 1, i32 1, i32 1>
+; CG-NEXT:    [[TMP21:%.*]] = icmp eq i32 [[N0]], 42
+; CG-NEXT:    [[SCALAR_GEP210:%.*]] = getelementptr inbounds i32, i32* [[B0]], i64 [[TMP17]]
+; CG-NEXT:    br i1 [[TMP21]], label [[VPLANNEDBB220:%.*]], label [[VPLANNEDBB230:%.*]]
 ; CG-EMPTY:
 ; CG-NEXT:  VPlannedBB23:
-; CG-NEXT:    [[TMP26:%.*]] = bitcast i32* [[SCALAR_GEP220]] to <4 x i32>*
-; CG-NEXT:    store <4 x i32> [[WIDE_LOAD210]], <4 x i32>* [[TMP26]], align 4
-; CG-NEXT:    br label [[VPLANNEDBB260]]
+; CG-NEXT:    [[TMP22:%.*]] = bitcast i32* [[SCALAR_GEP210]] to <4 x i32>*
+; CG-NEXT:    [[WIDE_LOAD240:%.*]] = load <4 x i32>, <4 x i32>* [[TMP22]], align 4
+; CG-NEXT:    [[TMP23:%.*]] = bitcast i32* [[SCALAR_GEP190]] to <4 x i32>*
+; CG-NEXT:    store <4 x i32> [[WIDE_LOAD240]], <4 x i32>* [[TMP23]], align 4
+; CG-NEXT:    br label [[VPLANNEDBB250]]
 ; CG-EMPTY:
-; CG-NEXT:  VPlannedBB26:
-; CG-NEXT:    [[UNI_PHI270:%.*]] = phi i32 [ 42, [[VPLANNEDBB240]] ], [ 0, [[VPLANNEDBB230]] ]
-; CG-NEXT:    [[TMP27]] = add nuw nsw <4 x i64> [[TMP17]], <i64 4, i64 4, i64 4, i64 4>
-; CG-NEXT:    [[TMP28]] = add nuw nsw i64 [[TMP18]], 4
-; CG-NEXT:    [[TMP29]] = add i64 [[TMP19]], 4
-; CG-NEXT:    [[TMP30:%.*]] = icmp uge i64 [[TMP29]], [[N_VEC0]]
-; CG-NEXT:    br i1 [[TMP30]], label [[VPLANNEDBB280:%.*]], label [[VECTOR_BODY0]]
+; CG-NEXT:  VPlannedBB22:
+; CG-NEXT:    [[TMP24:%.*]] = bitcast i32* [[SCALAR_GEP210]] to <4 x i32>*
+; CG-NEXT:    store <4 x i32> [[WIDE_LOAD200]], <4 x i32>* [[TMP24]], align 4
+; CG-NEXT:    br label [[VPLANNEDBB250]]
 ; CG-EMPTY:
-; CG-NEXT:  VPlannedBB28:
-; CG-NEXT:    [[TMP31:%.*]] = mul i64 1, [[N_VEC0]]
-; CG-NEXT:    [[TMP32:%.*]] = add i64 0, [[TMP31]]
+; CG-NEXT:  VPlannedBB25:
+; CG-NEXT:    [[UNI_PHI260:%.*]] = phi i32 [ 42, [[VPLANNEDBB230]] ], [ 0, [[VPLANNEDBB220]] ]
+; CG-NEXT:    [[TMP25]] = add nuw nsw <4 x i64> [[TMP16]], <i64 4, i64 4, i64 4, i64 4>
+; CG-NEXT:    [[TMP26]] = add nuw nsw i64 [[TMP17]], 4
+; CG-NEXT:    [[TMP27:%.*]] = icmp eq i64 [[TMP26]], [[N_VEC0]]
+; CG-NEXT:    br i1 [[TMP27]], label [[VPLANNEDBB270:%.*]], label [[VECTOR_BODY0]]
+; CG-EMPTY:
+; CG-NEXT:  VPlannedBB27:
+; CG-NEXT:    [[TMP28:%.*]] = mul i64 1, [[N_VEC0]]
+; CG-NEXT:    [[TMP29:%.*]] = add i64 0, [[TMP28]]
 ; CG-NEXT:    br label [[MIDDLE_BLOCK0:%.*]]
 ; CG-EMPTY:
 ; CG-NEXT:  middle.block:
-; CG-NEXT:    [[TMP33:%.*]] = icmp ne i64 [[WIDE_TRIP_COUNT0]], [[N_VEC0]]
-; CG-NEXT:    br i1 [[TMP33]], label [[SCALAR_PH0]], label [[VPLANNEDBB290:%.*]]
+; CG-NEXT:    [[TMP30:%.*]] = icmp ne i64 [[WIDE_TRIP_COUNT0]], [[N_VEC0]]
+; CG-NEXT:    br i1 [[TMP30]], label [[SCALAR_PH0]], label [[VPLANNEDBB280:%.*]]
 ; CG-EMPTY:
 ; CG-NEXT:  scalar.ph:
-; CG-NEXT:    [[UNI_PHI300:%.*]] = phi i64 [ [[TMP32]], [[MIDDLE_BLOCK0]] ], [ 0, [[VPLANNEDBB10]] ]
-; CG-NEXT:    br label [[VPLANNEDBB310:%.*]]
+; CG-NEXT:    [[UNI_PHI290:%.*]] = phi i64 [ [[TMP29]], [[MIDDLE_BLOCK0]] ], [ 0, [[VPLANNEDBB10]] ]
+; CG-NEXT:    br label [[VPLANNEDBB300:%.*]]
 ; CG-EMPTY:
-; CG-NEXT:  VPlannedBB31:
+; CG-NEXT:  VPlannedBB30:
 ; CG-NEXT:    br label [[OMP_INNER_FOR_BODY0:%.*]]
 ; CG-EMPTY:
-; CG-NEXT:  VPlannedBB29.loopexit:
-; CG-NEXT:    br label [[VPLANNEDBB290]]
+; CG-NEXT:  VPlannedBB28.loopexit:
+; CG-NEXT:    br label [[VPLANNEDBB280]]
 ; CG-EMPTY:
-; CG-NEXT:  VPlannedBB29:
-; CG-NEXT:    [[UNI_PHI320:%.*]] = phi i64 [ [[TMP32]], [[MIDDLE_BLOCK0]] ], [ [[INDVARS_IV_NEXT0:%.*]], [[VPLANNEDBB29_LOOPEXIT0:%.*]] ]
-; CG-NEXT:    br label [[VPLANNEDBB330:%.*]]
+; CG-NEXT:  VPlannedBB28:
+; CG-NEXT:    [[UNI_PHI310:%.*]] = phi i64 [ [[TMP29]], [[MIDDLE_BLOCK0]] ], [ [[INDVARS_IV_NEXT0:%.*]], [[VPLANNEDBB28_LOOPEXIT0:%.*]] ]
+; CG-NEXT:    br label [[VPLANNEDBB320:%.*]]
 ; CG-EMPTY:
-; CG-NEXT:  VPlannedBB33:
+; CG-NEXT:  VPlannedBB32:
 ; CG-NEXT:    br label [[DIR_OMP_END_SIMD_30:%.*]]
 ; CG-EMPTY:
 ; CG-NEXT:  omp.inner.for.body:
-; CG-NEXT:    [[INDVARS_IV0:%.*]] = phi i64 [ [[UNI_PHI300]], [[VPLANNEDBB310]] ], [ [[INDVARS_IV_NEXT0]], [[OMP_BODY_CONTINUE0:%.*]] ]
+; CG-NEXT:    [[INDVARS_IV0:%.*]] = phi i64 [ [[UNI_PHI290]], [[VPLANNEDBB300]] ], [ [[INDVARS_IV_NEXT0]], [[OMP_BODY_CONTINUE0:%.*]] ]
 ; CG-NEXT:    [[ARRAYIDX0:%.*]] = getelementptr inbounds i32, i32* [[A0]], i64 [[INDVARS_IV0]]
-; CG-NEXT:    [[TMP34:%.*]] = load i32, i32* [[ARRAYIDX0]], align 4
-; CG-NEXT:    [[TMP35:%.*]] = and i32 [[TMP34]], 1
+; CG-NEXT:    [[TMP31:%.*]] = load i32, i32* [[ARRAYIDX0]], align 4
+; CG-NEXT:    [[TMP32:%.*]] = and i32 [[TMP31]], 1
 ; CG-NEXT:    [[TOBOOL0:%.*]] = icmp eq i32 [[N0]], 42
 ; CG-NEXT:    [[ARRAYIDX130:%.*]] = getelementptr inbounds i32, i32* [[B0]], i64 [[INDVARS_IV0]]
 ; CG-NEXT:    br i1 [[TOBOOL0]], label [[IF_ELSE0:%.*]], label [[IF_THEN0:%.*]]
 ; CG-EMPTY:
 ; CG-NEXT:  if.then:
-; CG-NEXT:    [[TMP36:%.*]] = load i32, i32* [[ARRAYIDX130]], align 4
-; CG-NEXT:    store i32 [[TMP36]], i32* [[ARRAYIDX0]], align 4
+; CG-NEXT:    [[TMP33:%.*]] = load i32, i32* [[ARRAYIDX130]], align 4
+; CG-NEXT:    store i32 [[TMP33]], i32* [[ARRAYIDX0]], align 4
 ; CG-NEXT:    br label [[OMP_BODY_CONTINUE0]]
 ; CG-EMPTY:
 ; CG-NEXT:  if.else:
-; CG-NEXT:    store i32 [[TMP34]], i32* [[ARRAYIDX130]], align 4
+; CG-NEXT:    store i32 [[TMP31]], i32* [[ARRAYIDX130]], align 4
 ; CG-NEXT:    br label [[OMP_BODY_CONTINUE0]]
 ; CG-EMPTY:
 ; CG-NEXT:  omp.body.continue:
 ; CG-NEXT:    [[PHI0:%.*]] = phi i32 [ 42, [[IF_THEN0]] ], [ 0, [[IF_ELSE0]] ]
 ; CG-NEXT:    [[INDVARS_IV_NEXT0]] = add nuw nsw i64 [[INDVARS_IV0]], 1
 ; CG-NEXT:    [[EXITCOND0:%.*]] = icmp eq i64 [[INDVARS_IV_NEXT0]], [[WIDE_TRIP_COUNT0]]
-; CG-NEXT:    br i1 [[EXITCOND0]], label [[VPLANNEDBB29_LOOPEXIT0]], label [[OMP_INNER_FOR_BODY0]]
+; CG-NEXT:    br i1 [[EXITCOND0]], label [[VPLANNEDBB28_LOOPEXIT0]], label [[OMP_INNER_FOR_BODY0]]
 ; CG-EMPTY:
 ; CG-NEXT:  DIR.OMP.END.SIMD.3:
 ; CG-NEXT:    br label [[OMP_PRECOND_END0]]

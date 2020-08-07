@@ -9,8 +9,7 @@ define void @foo1()  {
 ; CHECK-NEXT:  entry:
 ; CHECK-NEXT:    [[TMP0:%.*]] = load <2 x i32>*, <2 x i32>** @arr2p, align 8
 ; CHECK:       vector.body:
-; CHECK-NEXT:    [[UNI_PHI:%.*]] = phi i64 [ 0, [[VECTOR_PH:%.*]] ], [ [[TMP16:%.*]], [[VPLANNEDBB7:%.*]] ]
-; CHECK-NEXT:    [[UNI_PHI3:%.*]] = phi i64 [ 0, [[VECTOR_PH]] ], [ [[TMP15:%.*]], [[VPLANNEDBB7]] ]
+; CHECK-NEXT:    [[UNI_PHI3:%.*]] = phi i64 [ 0, [[VECTOR_PH:%.*]] ], [ [[TMP15:%.*]], %[[VPLANNEDBB7:.*]] ]
 ; CHECK:         [[SCALAR_GEP5:%.*]] = getelementptr inbounds <2 x i32>, <2 x i32>* [[TMP0]], i64 [[UNI_PHI3]]
 ; CHECK-NEXT:    [[TMP5:%.*]] = bitcast <2 x i32>* [[SCALAR_GEP5]] to <8 x i32>*
 ; CHECK-NEXT:    [[REPLICATEDMASKELTS_:%.*]] = shufflevector <4 x i1> [[TMP4:%.*]], <4 x i1> undef, <8 x i32> <i32 0, i32 0, i32 1, i32 1, i32 2, i32 2, i32 3, i32 3>
@@ -22,8 +21,8 @@ define void @foo1()  {
 ; CHECK-NEXT:    [[TMP10:%.*]] = bitcast <2 x i32>* [[SCALAR_GEP5]] to <8 x i32>*
 ; CHECK-NEXT:    [[REPLICATEDMASKELTS_6:%.*]] = shufflevector <4 x i1> [[TMP4]], <4 x i1> undef, <8 x i32> <i32 0, i32 0, i32 1, i32 1, i32 2, i32 2, i32 3, i32 3>
 ; CHECK-NEXT:    call void @llvm.masked.store.v8i32.p0v8i32(<8 x i32> [[TMP9]], <8 x i32>* [[TMP10]], i32 4, <8 x i1> [[REPLICATEDMASKELTS_6]])
-; CHECK-NEXT:    br label [[VPLANNEDBB7]]
-; CHECK:       VPlannedBB7:
+; CHECK-NEXT:    br label %[[VPLANNEDBB7]]
+; CHECK:       [[VPLANNEDBB7]]:
 ; CHECK-NEXT:    [[SCALAR_GEP8:%.*]] = getelementptr inbounds <2 x i32>, <2 x i32>* [[TMP0]], i64 [[UNI_PHI3]]
 ; CHECK-NEXT:    [[TMP11:%.*]] = bitcast <2 x i32>* [[SCALAR_GEP8]] to <8 x i32>*
 ; CHECK-NEXT:    [[WIDE_LOAD9:%.*]] = load <8 x i32>, <8 x i32>* [[TMP11]], align 4
@@ -31,9 +30,8 @@ define void @foo1()  {
 ; CHECK-NEXT:    [[TMP13:%.*]] = bitcast <2 x i32>* [[SCALAR_GEP8]] to <8 x i32>*
 ; CHECK-NEXT:    store <8 x i32> [[TMP12]], <8 x i32>* [[TMP13]], align 4
 ; CHECK:         [[TMP15]] = add nuw nsw i64 [[UNI_PHI3]], 4
-; CHECK-NEXT:    [[TMP16]] = add i64 [[UNI_PHI]], 4
-; CHECK-NEXT:    [[TMP17:%.*]] = icmp uge i64 [[TMP16]], 48
-; CHECK-NEXT:    br i1 [[TMP17]], label [[VPLANNEDBB10:%.*]], label [[VECTOR_BODY:%.*]], [[LOOP0:!llvm.loop !.*]]
+; CHECK-NEXT:    [[TMP16:%.*]] = icmp eq i64 [[TMP15]], 48
+; CHECK-NEXT:    br i1 [[TMP16]], label [[VPLANNEDBB10:%.*]], label [[VECTOR_BODY:%.*]], [[LOOP0:!llvm.loop !.*]]
 ;
 entry:
   %0 = load <2 x i32>*, <2 x i32>** @arr2p, align 8

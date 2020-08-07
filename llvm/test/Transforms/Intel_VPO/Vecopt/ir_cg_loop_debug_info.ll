@@ -13,8 +13,7 @@ target triple = "x86_64-unknown-linux-gnu"
 define float @foo(float* nocapture %a) #0 {
 ; CHECK-LABEL: @foo(
 ; CHECK:       vector.body:
-; CHECK-NEXT:    [[UNI_PHI:%.*]] = phi i64 [ 0, [[VECTOR_PH:%.*]] ], [ [[TMP8:%.*]], [[VECTOR_BODY:%.*]] ]
-; CHECK-NEXT:    [[UNI_PHI1:%.*]] = phi i64 [ 0, [[VECTOR_PH]] ], [ [[TMP7:%.*]], [[VECTOR_BODY]] ], !dbg !24
+; CHECK-NEXT:    [[UNI_PHI1:%.*]] = phi i64 [ 0, [[VECTOR_PH:%.*]] ], [ [[TMP7:%.*]], [[VECTOR_BODY:%.*]] ], !dbg !24
 ; CHECK-NEXT:    [[VEC_PHI:%.*]] = phi <4 x i64> [ <i64 0, i64 1, i64 2, i64 3>, [[VECTOR_PH]] ], [ [[TMP6:%.*]], [[VECTOR_BODY]] ], !dbg !24
 ; CHECK-NEXT:    [[VEC_PHI2:%.*]] = phi <4 x float> [ zeroinitializer, [[VECTOR_PH]] ], [ [[TMP5:%.*]], [[VECTOR_BODY]] ]
 ; CHECK-NEXT:    [[TMP0:%.*]] = trunc <4 x i64> [[VEC_PHI]] to <4 x i32>, !dbg !27
@@ -27,9 +26,8 @@ define float @foo(float* nocapture %a) #0 {
 ; CHECK-NEXT:    [[TMP5]] = fadd <4 x float> [[TMP3]], [[VEC_PHI2]], !dbg !31
 ; CHECK-NEXT:    [[TMP6]] = add nuw nsw <4 x i64> [[VEC_PHI]], <i64 4, i64 4, i64 4, i64 4>, !dbg !23
 ; CHECK-NEXT:    [[TMP7]] = add nuw nsw i64 [[UNI_PHI1]], 4, !dbg !23
-; CHECK-NEXT:    [[TMP8]] = add i64 [[UNI_PHI]], 4
-; CHECK-NEXT:    [[TMP9:%.*]] = icmp uge i64 [[TMP8]], 1000
-; CHECK-NEXT:    br i1 [[TMP9]], label [[VPLANNEDBB:%.*]], label [[VECTOR_BODY]], [[LOOP32:!llvm.loop !.*]]
+; CHECK-NEXT:    [[TMP8:%.*]] = icmp eq i64 [[TMP7]], 1000
+; CHECK-NEXT:    br i1 [[TMP8]], label [[VPLANNEDBB:%.*]], label [[VECTOR_BODY]], [[LOOP32:!llvm.loop !.*]]
 ;
 entry:
   %x = alloca float, align 4

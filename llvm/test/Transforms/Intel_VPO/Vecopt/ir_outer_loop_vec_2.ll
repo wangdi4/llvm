@@ -9,7 +9,7 @@
 ; CHECK: [[VPlannedBB10]]: ; preds = %[[VPlannedBB6]]
 ; CHECK:  icmp eq {{.*}} 200
 ; CHECK: [[VPlannedBB11]]: ; preds = %[[VPlannedBB10]]
-; CHECK:  icmp uge {{.*}} 300
+; CHECK:  icmp eq {{.*}} 300
 ; CHECK: middle.block:
 
 ; ModuleID = 'krtest2.c'

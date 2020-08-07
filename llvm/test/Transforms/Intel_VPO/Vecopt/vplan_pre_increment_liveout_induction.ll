@@ -11,8 +11,7 @@ define dso_local i32 @foo(i64 %n) local_unnamed_addr {
 ;
 ; CHECK-LABEL: @foo(
 ; CHECK:       vector.body:
-; CHECK-NEXT:    [[UNI_PHI0:%.*]] = phi i64 [ 0, [[VECTOR_PH0:%.*]] ], [ [[TMP5:%.*]], [[VECTOR_BODY0:%.*]] ]
-; CHECK-NEXT:    [[UNI_PHI30:%.*]] = phi i64 [ 0, [[VECTOR_PH0]] ], [ [[TMP2:%.*]], [[VECTOR_BODY0]] ]
+; CHECK-NEXT:    [[UNI_PHI30:%.*]] = phi i64 [ 0, [[VECTOR_PH0:%.*]] ], [ [[TMP2:%.*]], [[VECTOR_BODY0:%.*]] ]
 ; CHECK-NEXT:    [[VEC_PHI0:%.*]] = phi <2 x i64> [ <i64 0, i64 1>, [[VECTOR_PH0]] ], [ [[TMP1:%.*]], [[VECTOR_BODY0]] ]
 ; CHECK-NEXT:    [[UNI_PHI40:%.*]] = phi i32 [ 42, [[VECTOR_PH0]] ], [ [[TMP4:%.*]], [[VECTOR_BODY0]] ]
 ; CHECK-NEXT:    [[VEC_PHI50:%.*]] = phi <2 x i32> [ <i32 42, i32 45>, [[VECTOR_PH0]] ], [ [[TMP3:%.*]], [[VECTOR_BODY0]] ]
@@ -20,11 +19,10 @@ define dso_local i32 @foo(i64 %n) local_unnamed_addr {
 ; CHECK-NEXT:    [[TMP2]] = add nuw nsw i64 [[UNI_PHI30]], 2
 ; CHECK-NEXT:    [[TMP3]] = add <2 x i32> [[VEC_PHI50]], <i32 6, i32 6>
 ; CHECK-NEXT:    [[TMP4]] = add i32 [[UNI_PHI40]], 6
-; CHECK-NEXT:    [[TMP5]] = add i64 [[UNI_PHI0]], 2
-; CHECK-NEXT:    [[TMP6:%.*]] = icmp uge i64 [[TMP5]], [[N_VEC0:%.*]]
-; CHECK-NEXT:    br i1 [[TMP6]], label [[VPLANNEDBB60:%.*]], label [[VECTOR_BODY0]], !llvm.loop !0
+; CHECK-NEXT:    [[TMP5:%.*]] = icmp eq i64 [[TMP2]], [[N_VEC0:%.*]]
+; CHECK-NEXT:    br i1 [[TMP5]], label [[VPLANNEDBB60:%.*]], label [[VECTOR_BODY0]], !llvm.loop !0
 ; CHECK-EMPTY:
-; CHECK-NEXT:  VPlannedBB6:
+; CHECK-NEXT:  VPlannedBB5:
 ; CHECK-NEXT:    [[TMP7:%.*]] = mul i64 1, [[N_VEC0]]
 ; CHECK-NEXT:    [[TMP8:%.*]] = add i64 0, [[TMP7]]
 ; CHECK-NEXT:    [[TMP9:%.*]] = sub i64 [[N_VEC0]], 1

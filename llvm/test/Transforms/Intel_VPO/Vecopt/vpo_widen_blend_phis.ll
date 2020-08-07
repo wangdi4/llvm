@@ -131,11 +131,11 @@ for.end:
 ; CHECK-NEXT:    [[TMP3:%.*]] = icmp ult <2 x i64> [[VEC_PHI0]], [[BROADCAST_SPLAT0:%.*]]
 ; CHECK-NEXT:    br label [[VPLANNEDBB40:%.*]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:  VPlannedBB4:
+; CHECK-NEXT:  VPlannedBB3:
 ; CHECK-NEXT:    [[TMP4:%.*]] = trunc <2 x i64> [[VEC_PHI0]] to <2 x i32>
 ; CHECK-NEXT:    br label [[VPLANNEDBB50:%.*]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:  VPlannedBB5:
+; CHECK-NEXT:  VPlannedBB4:
 ; CHECK-NEXT:    [[VEC_PHI60:%.*]] = phi <8 x float> [ <float 2.000000e+00, float 2.000000e+00, float 2.000000e+00, float 0.000000e+00, float 2.000000e+00, float 2.000000e+00, float 2.000000e+00, float 0.000000e+00>, [[VPLANNEDBB40]] ], [ [[TMP15:%.*]], [[VPLANNEDBB160:%.*]] ]
 ; CHECK-NEXT:    [[VEC_PHI70:%.*]] = phi <2 x i64> [ [[VEC_PHI0]], [[VPLANNEDBB40]] ], [ [[TMP16:%.*]], [[VPLANNEDBB160]] ]
 ; CHECK-NEXT:    [[VEC_PHI80:%.*]] = phi <2 x i1> [ [[TMP3]], [[VPLANNEDBB40]] ], [ [[TMP19:%.*]], [[VPLANNEDBB160]] ]
@@ -144,11 +144,11 @@ for.end:
 ; CHECK-NEXT:    [[EXTRACTSUBVEC_0:%.*]] = shufflevector <8 x float> [[VEC_PHI60]], <8 x float> undef, <4 x i32> <i32 0, i32 1, i32 2, i32 3>
 ; CHECK-NEXT:    br label [[VPLANNEDBB100:%.*]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:  VPlannedBB10:
+; CHECK-NEXT:  VPlannedBB9:
 ; CHECK-NEXT:    [[TMP5:%.*]] = and <2 x i1> [[TMP3]], [[VEC_PHI80]]
 ; CHECK-NEXT:    br label [[VPLANNEDBB110:%.*]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:  VPlannedBB11:
+; CHECK-NEXT:  VPlannedBB10:
 ; CHECK-NEXT:    [[TMP6:%.*]] = fadd <8 x float> [[VEC_PHI60]], [[VEC_PHI60]]
 ; CHECK-NEXT:    [[EXTRACTSUBVEC_150:%.*]] = shufflevector <8 x float> [[TMP6]], <8 x float> undef, <4 x i32> <i32 4, i32 5, i32 6, i32 7>
 ; CHECK-NEXT:    [[EXTRACTSUBVEC_120:%.*]] = shufflevector <8 x float> [[TMP6]], <8 x float> undef, <4 x i32> <i32 0, i32 1, i32 2, i32 3>
@@ -169,7 +169,7 @@ for.end:
 ; CHECK-NEXT:    [[TMP11:%.*]] = icmp eq i1 [[PREDICATE130]], true
 ; CHECK-NEXT:    br i1 [[TMP11]], label [[PRED_CALL_IF300:%.*]], label [[TMP13:%.*]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:  pred.call.if30:
+; CHECK-NEXT:  pred.call.if29:
 ; CHECK-NEXT:    [[TMP12:%.*]] = call <4 x float> @_Z11fmax_commonDv4_fS_(<4 x float> [[EXTRACTSUBVEC_140]], <4 x float> [[EXTRACTSUBVEC_150]])
 ; CHECK-NEXT:    br label [[TMP13]]
 ; CHECK-EMPTY:
@@ -177,22 +177,22 @@ for.end:
 ; CHECK-NEXT:    [[TMP14:%.*]] = phi <4 x float> [ undef, [[PRED_CALL_CONTINUE0]] ], [ [[TMP12]], [[PRED_CALL_IF300]] ]
 ; CHECK-NEXT:    br label [[PRED_CALL_CONTINUE310:%.*]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:  pred.call.continue31:
+; CHECK-NEXT:  pred.call.continue30:
 ; CHECK-NEXT:    [[TMP15]] = shufflevector <4 x float> [[TMP10]], <4 x float> [[TMP14]], <8 x i32> <i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7>
 ; CHECK-NEXT:    [[TMP16]] = add <2 x i64> [[VEC_PHI70]], [[VEC_PHI0]]
 ; CHECK-NEXT:    [[TMP17:%.*]] = icmp ult <2 x i64> [[TMP16]], [[BROADCAST_SPLAT0]]
 ; CHECK-NEXT:    br label [[VPLANNEDBB160]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:  VPlannedBB16:
+; CHECK-NEXT:  VPlannedBB15:
 ; CHECK-NEXT:    [[VEC_PHI8170:%.*]] = shufflevector <2 x i1> [[VEC_PHI80]], <2 x i1> undef, <8 x i32> <i32 0, i32 0, i32 0, i32 0, i32 1, i32 1, i32 1, i32 1>
 ; CHECK-NEXT:    [[TMP18]] = select <8 x i1> [[VEC_PHI8170]], <8 x float> [[TMP15]], <8 x float> [[VEC_PHI90]]
 ; CHECK:         br i1 [[BROADCAST_SPLAT19_EXTRACT_0_0:%.*]], label [[VPLANNEDBB200:%.*]], label [[VPLANNEDBB50]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:  VPlannedBB20:
+; CHECK-NEXT:  VPlannedBB19:
 ; CHECK-NEXT:    [[VEC_PHI210:%.*]] = phi <8 x float> [ [[TMP18]], [[VPLANNEDBB160]] ]
 ; CHECK-NEXT:    br label [[VPLANNEDBB220:%.*]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:  VPlannedBB22:
+; CHECK-NEXT:  VPlannedBB21:
 ; CHECK-NEXT:    [[TMP23:%.*]] = shufflevector <2 x i1> [[TMP3]], <2 x i1> undef, <8 x i32> <i32 0, i32 0, i32 0, i32 0, i32 1, i32 1, i32 1, i32 1>
 ; CHECK-NEXT:    [[PREDBLEND0:%.*]] = select <8 x i1> [[TMP23]], <8 x float> [[VEC_PHI210]], <8 x float> <float 2.000000e+00, float 2.000000e+00, float 2.000000e+00, float 0.000000e+00, float 2.000000e+00, float 2.000000e+00, float 2.000000e+00, float 0.000000e+00>
 ; CHECK-NEXT:    br label [[VPLANNEDBB230]]

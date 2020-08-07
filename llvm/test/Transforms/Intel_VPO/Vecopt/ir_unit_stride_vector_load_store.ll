@@ -14,8 +14,7 @@ target triple = "x86_64-unknown-linux-gnu"
 define void @foo(<4 x i32>* nocapture %ary) {
 ; CHECK-LABEL: @foo(
 ; CHECK:       vector.body:
-; CHECK:         [[UNI_PHI:%.*]] = phi i64 [ 0, [[VECTOR_PH:%.*]] ], [ [[TMP6:%.*]], [[VECTOR_BODY:%.*]] ]
-; CHECK-NEXT:    [[UNI_PHI1:%.*]] = phi i64 [ 0, [[VECTOR_PH]] ], [ [[TMP4:%.*]], [[VECTOR_BODY]] ]
+; CHECK-NEXT:    [[UNI_PHI1:%.*]] = phi i64 [ 0, [[VECTOR_PH:%.*]] ], [ [[TMP4:%.*]], [[VECTOR_BODY:%.*]] ]
 ; CHECK-NEXT:    [[VEC_PHI:%.*]] = phi <4 x i64> [ <i64 0, i64 1, i64 2, i64 3>, [[VECTOR_PH]] ], [ [[TMP3:%.*]], [[VECTOR_BODY]] ]
 ; CHECK-NEXT:    [[SCALAR_GEP:%.*]] = getelementptr inbounds <4 x i32>, <4 x i32>* [[ARY:%.*]], i64 [[UNI_PHI1]]
 ; CHECK-NEXT:    [[TMP0:%.*]] = bitcast <4 x i32>* [[SCALAR_GEP]] to <16 x i32>*
@@ -25,9 +24,8 @@ define void @foo(<4 x i32>* nocapture %ary) {
 ; CHECK-NEXT:    store <16 x i32> [[TMP1]], <16 x i32>* [[TMP2]], align 4
 ; CHECK-NEXT:    [[TMP3]] = add nuw nsw <4 x i64> [[VEC_PHI]], <i64 4, i64 4, i64 4, i64 4>
 ; CHECK-NEXT:    [[TMP4]] = add nuw nsw i64 [[UNI_PHI1]], 4
-; CHECK:         [[TMP6]] = add i64 [[UNI_PHI]], 4
-; CHECK-NEXT:    [[TMP7:%.*]] = icmp ult i64 [[TMP6]], 1024
-; CHECK-NEXT:    br i1 [[TMP7]], label [[VECTOR_BODY]], label [[VPLANNEDBB:%.*]]
+; CHECK-NEXT:    [[TMP5:%.*]] = icmp ult i64 [[TMP4]], 1024
+; CHECK-NEXT:    br i1 [[TMP5]], label [[VECTOR_BODY]], label [[VPLANNEDBB:%.*]]
 ;
 entry:
   %entry.region = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.SIMDLEN"(i32 4) ]

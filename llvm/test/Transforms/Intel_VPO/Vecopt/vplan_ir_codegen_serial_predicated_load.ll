@@ -5,9 +5,9 @@
 
 ; CHECK:       vector.body:
 ; CHECK:         [[MASK:%.*]] = icmp eq <2 x i64> [[VEC_IV:%.*]], <i64 42, i64 42>
-; CHECK-NEXT:    br label [[VPLANNEDBB40:%.*]]
+; CHECK-NEXT:    br label %[[VPLANNEDBB40:.*]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:  VPlannedBB4:
+; CHECK-NEXT:  [[VPLANNEDBB40]]:
 ; CHECK-NEXT:    [[GEP:%.*]] = getelementptr inbounds i64, i64* [[ARR:%.*]], i64 42
 ; CHECK-NEXT:    [[BC_MASK:%.*]] = bitcast <2 x i1> [[MASK]] to i2
 ; CHECK-NEXT:    [[NOT_AZ:%.*]] = icmp ne i2 [[BC_MASK]], 0

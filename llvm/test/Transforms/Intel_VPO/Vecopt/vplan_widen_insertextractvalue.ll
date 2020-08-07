@@ -33,7 +33,7 @@ define void @test_pointer_induction_escape() {
 ; CHECK-NEXT:    [[TMP5:%.*]] = icmp eq <2 x i64> [[VEC_PHI0]], <i64 64, i64 64>
 ; CHECK-NEXT:    br label [[VPLANNEDBB140:%.*]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:  VPlannedBB14:
+; CHECK-NEXT:  VPlannedBB13:
 ; CHECK-NEXT:    [[TMP6:%.*]] = add <2 x i64> [[VEC_PHI0]], <i64 2, i64 2>
 ; CHECK-NEXT:    [[DOTEXTRACT_1_0:%.*]] = extractelement <2 x i64> [[TMP6]], i32 1
 ; CHECK-NEXT:    [[DOTEXTRACT_0_0:%.*]] = extractelement <2 x i64> [[TMP6]], i32 0
@@ -54,7 +54,7 @@ define void @test_pointer_induction_escape() {
 ; CHECK-NEXT:    [[TMP11:%.*]] = icmp eq i1 [[PREDICATE150]], true
 ; CHECK-NEXT:    br i1 [[TMP11]], label [[PRED_CALL_IF280:%.*]], label [[TMP13:%.*]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:  pred.call.if28:
+; CHECK-NEXT:  pred.call.if27:
 ; CHECK-NEXT:    [[TMP12:%.*]] = tail call { double, double } @bar1(i64 [[DOTEXTRACT_1_0]])
 ; CHECK-NEXT:    br label [[TMP13]]
 ; CHECK-EMPTY:
@@ -62,7 +62,7 @@ define void @test_pointer_induction_escape() {
 ; CHECK-NEXT:    [[TMP14:%.*]] = phi { double, double } [ undef, [[PRED_CALL_CONTINUE0]] ], [ [[TMP12]], [[PRED_CALL_IF280]] ]
 ; CHECK-NEXT:    br label [[PRED_CALL_CONTINUE290:%.*]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:  pred.call.continue29:
+; CHECK-NEXT:  pred.call.continue28:
 ; CHECK-NEXT:    [[SERIAL_EXTRACTVALUE160:%.*]] = extractvalue { double, double } [[TMP10]], 1
 ; CHECK-NEXT:    [[SERIAL_EXTRACTVALUE170:%.*]] = extractvalue { double, double } [[TMP14]], 1
 ; CHECK-NEXT:    [[SERIAL_INSERTVALUE180:%.*]] = insertvalue { i64, double, <4 x i32>, [10 x i32] } [[SERIAL_INSERTVALUE0]], double [[SERIAL_EXTRACTVALUE160]], 1

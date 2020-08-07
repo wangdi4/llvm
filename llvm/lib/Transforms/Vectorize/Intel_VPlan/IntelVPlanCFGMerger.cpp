@@ -126,8 +126,6 @@ VPlanCFGMerger::createVPlanLoopTopTest(VPBasicBlock *FallThroughMergeBlock) {
   assert(Preheader && "Loop preheader is expected to exist.");
 
   VPVectorTripCountCalculation *VectorTC = findVectorTCInst(Preheader);
-  VPOrigTripCountCalculation *OrigTC =
-      cast<VPOrigTripCountCalculation>(VectorTC->getOperand(0));
 
   VPBuilder Builder;
   Builder.setInsertPoint(VectorTopTestBB);
@@ -137,7 +135,9 @@ VPlanCFGMerger::createVPlanLoopTopTest(VPBasicBlock *FallThroughMergeBlock) {
     Plan.getVPlanDA()->markUniform(*PushVF);
   }
 
-  OrigTC->moveBefore(*VectorTopTestBB, VectorTopTestBB->terminator());
+  VPValue *OrigTC = VectorTC->getOperand(0);
+  if (auto *OrigTCInst = dyn_cast<VPInstruction>(OrigTC))
+    OrigTCInst->moveBefore(*VectorTopTestBB, VectorTopTestBB->terminator());
   VectorTC->moveBefore(*VectorTopTestBB, VectorTopTestBB->terminator());
 
   // Generate the check for vector TC is 0 and branch according to the check.
@@ -168,9 +168,7 @@ VPBasicBlock *VPlanCFGMerger::createRemainderTopTest(VPBasicBlock *InsertAfter,
 
   // Find vector tc and original tc instructions
   VPVectorTripCountCalculation *VectorTC = findVectorTCInst(Preheader);
-  VPOrigTripCountCalculation *OrigTC =
-      cast<VPOrigTripCountCalculation>(VectorTC->getOperand(0));
-
+  VPValue *OrigTC = VectorTC->getOperand(0);
   // Create a new block after insertion point.
   VPBasicBlock *RemIterTestBB = VPBlockUtils::splitBlockEnd(
       InsertAfter, Plan.getVPLoopInfo(), Plan.getDT(), Plan.getPDT());

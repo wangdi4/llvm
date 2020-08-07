@@ -13,27 +13,30 @@ define void @test1(i64 %n, i64 addrspace(4)* %arr) {
 ; CHECK-NEXT:    [[BROADCAST_SPLAT:%.*]] = shufflevector <2 x i64 addrspace(4)*> [[BROADCAST_SPLATINSERT]], <2 x i64 addrspace(4)*> poison, <2 x i32> zeroinitializer
 ; CHECK-NEXT:    br label [[VECTOR_BODY:%.*]]
 ; CHECK:       vector.body:
-; CHECK:         [[MM_VECTORGEP:%.*]] = getelementptr inbounds i64, <2 x i64 addrspace(4)*> [[BROADCAST_SPLAT]], <2 x i64> [[VEC_PHI:%.*]]
+; CHECK-NEXT:    [[UNI_PHI:%.*]] = phi i64 [ 0, [[VECTOR_PH:%.*]] ], [ [[TMP26:%.*]], [[VPLANNEDBB8:%.*]] ]
+; CHECK-NEXT:    [[VEC_PHI:%.*]] = phi <2 x i64> [ <i64 0, i64 1>, [[VECTOR_PH]] ], [ [[TMP25:%.*]], [[VPLANNEDBB8]] ]
+; CHECK-NEXT:    [[TMP1:%.*]] = icmp eq <2 x i64> [[VEC_PHI]], <i64 42, i64 42>
+; CHECK-NEXT:    [[MM_VECTORGEP:%.*]] = getelementptr inbounds i64, <2 x i64 addrspace(4)*> [[BROADCAST_SPLAT]], <2 x i64> [[VEC_PHI]]
 ; CHECK-NEXT:    [[MM_VECTORGEP_EXTRACT_1_:%.*]] = extractelement <2 x i64 addrspace(4)*> [[MM_VECTORGEP]], i32 1
 ; CHECK-NEXT:    [[MM_VECTORGEP_EXTRACT_0_:%.*]] = extractelement <2 x i64 addrspace(4)*> [[MM_VECTORGEP]], i32 0
-; CHECK-NEXT:    [[MM_VECTORGEP4:%.*]] = getelementptr inbounds i64, i64 addrspace(4)* [[ARR]], i64 42
+; CHECK-NEXT:    [[MM_VECTORGEP3:%.*]] = getelementptr inbounds i64, i64 addrspace(4)* [[ARR]], i64 42
 
 ; TODO: SVA should make the computation scalar for the uniform GEP
 
-; CHECK-NEXT:    [[DOTSPLATINSERT:%.*]] = insertelement <2 x i64 addrspace(4)*> poison, i64 addrspace(4)* [[MM_VECTORGEP4]], i32 0
+; CHECK-NEXT:    [[DOTSPLATINSERT:%.*]] = insertelement <2 x i64 addrspace(4)*> poison, i64 addrspace(4)* [[MM_VECTORGEP3]], i32 0
 ; CHECK-NEXT:    [[DOTSPLAT:%.*]] = shufflevector <2 x i64 addrspace(4)*> [[DOTSPLATINSERT]], <2 x i64 addrspace(4)*> poison, <2 x i32> zeroinitializer
 ; CHECK-NEXT:    [[DOTSPLAT_EXTRACT_0_:%.*]] = extractelement <2 x i64 addrspace(4)*> [[DOTSPLAT]], i32 0
 
 ; Volatile loads - serialized for all the lanes
-; CHECK-NEXT:    [[TMP2:%.*]] = load volatile i64, i64 addrspace(4)* [[DOTSPLAT_EXTRACT_0_]]
+; CHECK-NEXT:    [[TMP2:%.*]] = load volatile i64, i64 addrspace(4)* [[DOTSPLAT_EXTRACT_0_]], align 4
 ; CHECK-NEXT:    [[TMP3:%.*]] = insertelement <2 x i64> undef, i64 [[TMP2]], i32 0
-; CHECK-NEXT:    [[TMP4:%.*]] = load volatile i64, i64 addrspace(4)* [[DOTSPLAT_EXTRACT_0_]]
+; CHECK-NEXT:    [[TMP4:%.*]] = load volatile i64, i64 addrspace(4)* [[DOTSPLAT_EXTRACT_0_]], align 4
 ; CHECK-NEXT:    [[TMP5:%.*]] = insertelement <2 x i64> [[TMP3]], i64 [[TMP4]], i32 1
 
 ; Atomic load from uniform ptr - ok to perform single atomic load
 ; CHECK-NEXT:    [[TMP6:%.*]] = load atomic i64, i64 addrspace(4)* [[DOTSPLAT_EXTRACT_0_]] unordered, align 4
-; CHECK-NEXT:    [[BROADCAST_SPLATINSERT5:%.*]] = insertelement <2 x i64> poison, i64 [[TMP6]], i32 0
-; CHECK-NEXT:    [[BROADCAST_SPLAT6:%.*]] = shufflevector <2 x i64> [[BROADCAST_SPLATINSERT5]], <2 x i64> poison, <2 x i32> zeroinitializer
+; CHECK-NEXT:    [[BROADCAST_SPLATINSERT4:%.*]] = insertelement <2 x i64> poison, i64 [[TMP6]], i32 0
+; CHECK-NEXT:    [[BROADCAST_SPLAT5:%.*]] = shufflevector <2 x i64> [[BROADCAST_SPLATINSERT4]], <2 x i64> poison, <2 x i32> zeroinitializer
 
 ; Atomic load from consecutive memory - serialize all, target might not have
 ; wide enough atomic load for the whole vector iteration.
@@ -42,26 +45,26 @@ define void @test1(i64 %n, i64 addrspace(4)* %arr) {
 ; CHECK-NEXT:    [[TMP9:%.*]] = load atomic i64, i64 addrspace(4)* [[MM_VECTORGEP_EXTRACT_1_]] unordered, align 4
 ; CHECK-NEXT:    [[TMP10:%.*]] = insertelement <2 x i64> [[TMP8]], i64 [[TMP9]], i32 1
 ; CHECK-NEXT:    [[TMP11:%.*]] = add <2 x i64> [[TMP5]], [[VEC_PHI]]
-; CHECK-NEXT:    [[TMP12:%.*]] = add <2 x i64> [[BROADCAST_SPLAT6]], [[VEC_PHI]]
+; CHECK-NEXT:    [[TMP12:%.*]] = add <2 x i64> [[BROADCAST_SPLAT5]], [[VEC_PHI]]
 ; CHECK-NEXT:    [[TMP13:%.*]] = add <2 x i64> [[TMP10]], [[VEC_PHI]]
-; CHECK-NEXT:    br label [[VPLANNEDBB7:%.*]]
-; CHECK:       VPlannedBB7:
-; CHECK-NEXT:    [[PREDICATE:%.*]] = extractelement <2 x i1> [[TMP1:%.*]], i64 0
+; CHECK-NEXT:    br label [[VPLANNEDBB6:%.*]]
+; CHECK:       VPlannedBB6:
+; CHECK-NEXT:    [[PREDICATE:%.*]] = extractelement <2 x i1> [[TMP1]], i64 0
 ; CHECK-NEXT:    [[TMP14:%.*]] = icmp eq i1 [[PREDICATE]], true
 ; CHECK-NEXT:    br i1 [[TMP14]], label [[PRED_LOAD_IF:%.*]], label [[TMP17:%.*]]
 ; CHECK:       pred.load.if:
-; CHECK-NEXT:    [[TMP15:%.*]] = load volatile i64, i64 addrspace(4)* [[DOTSPLAT_EXTRACT_0_]]
+; CHECK-NEXT:    [[TMP15:%.*]] = load volatile i64, i64 addrspace(4)* [[DOTSPLAT_EXTRACT_0_]], align 4
 ; CHECK-NEXT:    [[TMP16:%.*]] = insertelement <2 x i64> undef, i64 [[TMP15]], i32 0
 ; CHECK-NEXT:    br label [[TMP17]]
 ; CHECK:       17:
-; CHECK-NEXT:    [[TMP18:%.*]] = phi <2 x i64> [ undef, [[VPLANNEDBB7]] ], [ [[TMP16]], [[PRED_LOAD_IF]] ]
+; CHECK-NEXT:    [[TMP18:%.*]] = phi <2 x i64> [ undef, [[VPLANNEDBB6]] ], [ [[TMP16]], [[PRED_LOAD_IF]] ]
 ; CHECK-NEXT:    br label [[PRED_LOAD_CONTINUE:%.*]]
 ; CHECK:       pred.load.continue:
-; CHECK-NEXT:    [[PREDICATE8:%.*]] = extractelement <2 x i1> [[TMP1]], i64 1
-; CHECK-NEXT:    [[TMP19:%.*]] = icmp eq i1 [[PREDICATE8]], true
-; CHECK-NEXT:    br i1 [[TMP19]], label [[PRED_LOAD_IF16:%.*]], label [[TMP22:%.*]]
-; CHECK:       pred.load.if16:
-; CHECK-NEXT:    [[TMP20:%.*]] = load volatile i64, i64 addrspace(4)* [[DOTSPLAT_EXTRACT_0_]]
+; CHECK-NEXT:    [[PREDICATE7:%.*]] = extractelement <2 x i1> [[TMP1]], i64 1
+; CHECK-NEXT:    [[TMP19:%.*]] = icmp eq i1 [[PREDICATE7]], true
+; CHECK-NEXT:    br i1 [[TMP19]], label [[PRED_LOAD_IF15:%.*]], label [[TMP22:%.*]]
+; CHECK:       pred.load.if15:
+; CHECK-NEXT:    [[TMP20:%.*]] = load volatile i64, i64 addrspace(4)* [[DOTSPLAT_EXTRACT_0_]], align 4
 ; CHECK-NEXT:    [[TMP21:%.*]] = insertelement <2 x i64> [[TMP18]], i64 [[TMP20]], i32 1
 ; CHECK-NEXT:    br label [[TMP22]]
 ;

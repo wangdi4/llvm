@@ -36,18 +36,17 @@ inner.exit:
   br label %outer.cont
 ; CHECK-LABEL: @foo(
 ; CHECK:       vector.body:
-; CHECK-NEXT:    [[UNI_PHI:%.*]] = phi i64 [ 0, [[VECTOR_PH:%.*]] ], [ [[TMP10:%.*]], [[VPLANNEDBB10:%.*]] ]
-; CHECK-NEXT:    [[UNI_PHI3:%.*]] = phi i64 [ [[TMP9:%.*]], [[VPLANNEDBB10]] ], [ 0, [[VECTOR_PH]] ]
-; CHECK-NEXT:    [[VEC_PHI:%.*]] = phi <2 x i64> [ [[TMP8:%.*]], [[VPLANNEDBB10]] ], [ <i64 0, i64 1>, [[VECTOR_PH]] ]
+; CHECK-NEXT:    [[UNI_PHI3:%.*]] = phi i64 [ [[TMP9:%.*]], %[[VPLANNEDBB10:.*]] ], [ 0, [[VECTOR_PH:%.*]] ]
+; CHECK-NEXT:    [[VEC_PHI:%.*]] = phi <2 x i64> [ [[TMP8:%.*]], %[[VPLANNEDBB10]] ], [ <i64 0, i64 1>, [[VECTOR_PH]] ]
 ; CHECK-NEXT:    [[SCALAR_GEP:%.*]] = getelementptr inbounds i64, i64* [[A:%.*]], i64 [[UNI_PHI3]]
 ; CHECK-NEXT:    [[TMP0:%.*]] = bitcast i64* [[SCALAR_GEP]] to <2 x i64>*
 ; CHECK-NEXT:    [[WIDE_LOAD:%.*]] = load <2 x i64>, <2 x i64>* [[TMP0]], align 8
 ; CHECK-NEXT:    [[TMP1:%.*]] = icmp eq <2 x i64> [[WIDE_LOAD]], <i64 42, i64 42>
-; CHECK-NEXT:    br label [[VPLANNEDBB4:%.*]]
-; CHECK:       VPlannedBB4:
-; CHECK-NEXT:    br label [[VPLANNEDBB5:%.*]]
-; CHECK:       VPlannedBB5:
-; CHECK-NEXT:    [[UNI_PHI6:%.*]] = phi i64 [ [[TMP2:%.*]], [[VPLANNEDBB5]] ], [ 0, [[VPLANNEDBB4]] ]
+; CHECK-NEXT:    br label %[[VPLANNEDBB4:.*]]
+; CHECK:       [[VPLANNEDBB4]]:
+; CHECK-NEXT:    br label %[[VPLANNEDBB5:.*]]
+; CHECK:       [[VPLANNEDBB5]]:
+; CHECK-NEXT:    [[UNI_PHI6:%.*]] = phi i64 [ [[TMP2:%.*]], %[[VPLANNEDBB5]] ], [ 0, %[[VPLANNEDBB4]] ]
 ; CHECK-NEXT:    [[TMP2]] = add i64 [[UNI_PHI6]], 1
 ; CHECK-NEXT:    [[BROADCAST_SPLATINSERT:%.*]] = insertelement <2 x i64> poison, i64 [[TMP2]], i32 0
 ; CHECK-NEXT:    [[BROADCAST_SPLAT:%.*]] = shufflevector <2 x i64> [[BROADCAST_SPLATINSERT]], <2 x i64> poison, <2 x i32> zeroinitializer
@@ -60,10 +59,10 @@ inner.exit:
 ; CHECK-NEXT:    [[BROADCAST_SPLAT8:%.*]] = shufflevector <2 x i1> [[BROADCAST_SPLATINSERT7]], <2 x i1> poison, <2 x i32> zeroinitializer
 ; CHECK-NEXT:    [[BROADCAST_SPLAT8_EXTRACT_0_:%.*]] = extractelement <2 x i1> [[BROADCAST_SPLAT8]], i32 0
 ; CHECK-NEXT:    [[TMP7:%.*]] = or i1 [[BROADCAST_SPLAT8_EXTRACT_0_]], [[DOTEXTRACT_0_]]
-; CHECK-NEXT:    br i1 [[TMP7]], label [[VPLANNEDBB9:%.*]], label [[VPLANNEDBB5]]
-; CHECK:       VPlannedBB9:
-; CHECK-NEXT:    br label [[VPLANNEDBB10]]
-; CHECK:       VPlannedBB10:
+; CHECK-NEXT:    br i1 [[TMP7]], label %[[VPLANNEDBB9:.*]], label %[[VPLANNEDBB5]]
+; CHECK:       [[VPLANNEDBB9]]:
+; CHECK-NEXT:    br label %[[VPLANNEDBB10]]
+; CHECK:       [[VPLANNEDBB10]]:
 ; CHECK-NEXT:    [[PREDBLEND:%.*]] = select <2 x i1> [[TMP1]], <2 x i64> <i64 2, i64 2>, <2 x i64> <i64 1, i64 1>
 ; CHECK-NEXT:    [[PREDBLEND11:%.*]] = select <2 x i1> [[TMP1]], <2 x i64> <i64 2, i64 2>, <2 x i64> <i64 1, i64 1>
 outer.cont:

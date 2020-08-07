@@ -17,8 +17,7 @@ define void @foo(i32* nocapture %arr) {
 ; CHECK-NEXT:    [[PRIV_VEC_BASE_ADDR_EXTRACT_1_:%.*]] = extractelement <4 x i32*> [[PRIV_VEC_BASE_ADDR]], i32 1
 ; CHECK-NEXT:    [[PRIV_VEC_BASE_ADDR_EXTRACT_0_:%.*]] = extractelement <4 x i32*> [[PRIV_VEC_BASE_ADDR]], i32 0
 ; CHECK:       vector.body:
-; CHECK-NEXT:    [[UNI_PHI:%.*]] = phi i32 [ 0, [[VECTOR_PH:%.*]] ], [ [[TMP5:%.*]], [[VECTOR_BODY:%.*]] ]
-; CHECK-NEXT:    [[UNI_PHI1:%.*]] = phi i32 [ 0, [[VECTOR_PH]] ], [ [[TMP3:%.*]], [[VECTOR_BODY]] ]
+; CHECK-NEXT:    [[UNI_PHI1:%.*]] = phi i32 [ 0, [[VECTOR_PH:%.*]] ], [ [[TMP3:%.*]], [[VECTOR_BODY:%.*]] ]
 ; CHECK-NEXT:    [[VEC_PHI:%.*]] = phi <4 x i32> [ <i32 0, i32 1, i32 2, i32 3>, [[VECTOR_PH]] ], [ [[TMP2:%.*]], [[VECTOR_BODY]] ]
 ; CHECK-NEXT:    call void @baz(i32* nonnull [[PRIV_VEC_BASE_ADDR_EXTRACT_0_]])
 ; CHECK-NEXT:    call void @baz(i32* nonnull [[PRIV_VEC_BASE_ADDR_EXTRACT_1_]])
