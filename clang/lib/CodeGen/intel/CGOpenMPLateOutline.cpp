@@ -1222,7 +1222,7 @@ void OpenMPLateOutliner::emitOMPCopyinClause(const OMPCopyinClause *Cl) {
 void OpenMPLateOutliner::emitOMPIfClause(const OMPIfClause *Cl) {
   ClauseEmissionHelper CEH(*this, OMPC_if);
   addArg("QUAL.OMP.IF");
-  addArg(CGF.EmitScalarExpr(Cl->getCondition()));
+  addArg(CGF.EvaluateExprAsBool(Cl->getCondition()));
 }
 
 void OpenMPLateOutliner::emitOMPNumThreadsClause(
@@ -1346,7 +1346,7 @@ void OpenMPLateOutliner::emitOMPPriorityClause(const OMPPriorityClause *Cl) {
 void OpenMPLateOutliner::emitOMPFinalClause(const OMPFinalClause *Cl) {
   ClauseEmissionHelper CEH(*this, OMPC_final);
   addArg("QUAL.OMP.FINAL");
-  addArg(CGF.EmitScalarExpr(Cl->getCondition()));
+  addArg(CGF.EvaluateExprAsBool(Cl->getCondition()));
 }
 
 void OpenMPLateOutliner::emitOMPNogroupClause(const OMPNogroupClause *) {
