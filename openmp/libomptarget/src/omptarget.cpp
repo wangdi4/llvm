@@ -253,9 +253,24 @@ int targetDataMapper(DeviceTy &Device, void *arg_base, void *arg,
 }
 
 /// Internal function to do the mapping and transfer the data to the device
+<<<<<<< HEAD
 int targetDataBegin(DeviceTy &Device, int32_t arg_num, void **args_base,
                     void **args, int64_t *arg_sizes, int64_t *arg_types,
                     void **arg_mappers, __tgt_async_info *async_info_ptr) {
+=======
+int target_data_begin(DeviceTy &Device, int32_t arg_num, void **args_base,
+                      void **args, int64_t *arg_sizes, int64_t *arg_types,
+                      void **arg_mappers, __tgt_async_info *async_info_ptr) {
+#if INTEL_COLLAB
+  int32_t gtid = __kmpc_global_thread_num(nullptr);
+  Device.UsedPtrsMtx.lock();
+  if (Device.UsedPtrs.count(gtid) == 0)
+    Device.UsedPtrs.emplace(gtid, UsedPtrsTy());
+  auto &usedPtrs = Device.UsedPtrs[gtid];
+  Device.UsedPtrsMtx.unlock();
+  usedPtrs.emplace_back(std::set<void *>());
+#endif // INTEL_COLLAB
+>>>>>>> 01d4feecacee0516711f97acb5007346c6839aa3
   // process each input.
   for (int32_t i = 0; i < arg_num; ++i) {
     // Ignore private variables and arrays - there is no mapping for them.
@@ -370,6 +385,9 @@ int targetDataBegin(DeviceTy &Device, int32_t arg_num, void **args_base,
       void *TgtPtrBase = (void *)((uintptr_t)TgtPtrBegin - Delta);
       DP("Returning device pointer " DPxMOD "\n", DPxPTR(TgtPtrBase));
       args_base[i] = TgtPtrBase;
+#if INTEL_COLLAB
+      usedPtrs.back().insert(TgtPtrBase);
+#endif // INTEL_COLLAB
     }
 
     if (arg_types[i] & OMP_TGT_MAPTYPE_TO) {
@@ -658,6 +676,12 @@ int targetDataEnd(DeviceTy &Device, int32_t ArgNum, void **ArgBases,
       return OFFLOAD_FAIL;
     }
   }
+#if INTEL_COLLAB
+  int32_t gtid = __kmpc_global_thread_num(nullptr);
+  Device.UsedPtrsMtx.lock();
+  Device.UsedPtrs[gtid].pop_back();
+  Device.UsedPtrsMtx.unlock();
+#endif // INTEL_COLLAB
 
   return OFFLOAD_SUCCESS;
 }
