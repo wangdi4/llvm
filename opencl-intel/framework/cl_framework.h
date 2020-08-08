@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2006-2018 Intel Corporation.
+// Copyright 2006-2020 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -14,13 +14,29 @@
 
 #pragma once
 
-#include "cl_sys_defines.h"
 #include "cl_linux_utils.h"
+#include "cl_sys_defines.h"
 #include "cl_types.h"
+
 #include <CL/cl_ext_intel.h>
+
+// Disable warning 'deprecated-declarations' emitted from opencl-headers/CL/cl_icd.h
+#if defined(__clang__)
+    #pragma clang diagnostic push
+    #pragma clang diagnostic ignored "-Wdeprecated-declarations"
+#elif defined(__GNUC__)
+    #pragma GCC diagnostic push
+    #pragma GCC diagnostic ignored "-Wdeprecated-declarations"
+#endif
 #include <icd_dispatch.h>
-#include <string>
+#if defined(__clang__)
+    #pragma clang diagnostic pop
+#elif defined(__GNUC__)
+    #pragma GCC diagnostic pop
+#endif
+
 #include <map>
+#include <string>
 
 #define PLATFORM_MODULE		FrameworkProxy::Instance()->GetPlatformModule()
 #define CONTEXT_MODULE		FrameworkProxy::Instance()->GetContextModule()
