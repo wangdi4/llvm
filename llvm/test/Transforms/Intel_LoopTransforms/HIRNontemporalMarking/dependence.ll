@@ -41,7 +41,7 @@ define i64 @read_after_write(i64* %dest) {
 ; CHECK-NEXT:       + Ztt: No
 ; CHECK-NEXT:       + NumExits: 1
 ; CHECK-NEXT:       + Innermost: Yes
-; CHECK-NEXT:       + NSW: Yes
+; CHECK-NEXT:       + HasSignedIV: Yes
 ; CHECK-NEXT:       + LiveIn symbases: 3, 8
 ; CHECK-NEXT:       + LiveOut symbases: 3
 ; CHECK-NEXT:       + Loop metadata: No
@@ -90,7 +90,7 @@ define void @write_after_write(i64* %dest) {
 ; CHECK-NEXT:       + Ztt: No
 ; CHECK-NEXT:       + NumExits: 1
 ; CHECK-NEXT:       + Innermost: Yes
-; CHECK-NEXT:       + NSW: Yes
+; CHECK-NEXT:       + HasSignedIV: Yes
 ; CHECK-NEXT:       + LiveIn symbases: 7
 ; CHECK-NEXT:       + LiveOut symbases:
 ; CHECK-NEXT:       + Loop metadata: No
@@ -132,7 +132,7 @@ define void @write_after_read(i64* %dest) {
 ; CHECK-NEXT:       + Ztt: No
 ; CHECK-NEXT:       + NumExits: 1
 ; CHECK-NEXT:       + Innermost: Yes
-; CHECK-NEXT:       + NSW: Yes
+; CHECK-NEXT:       + HasSignedIV: Yes
 ; CHECK-NEXT:       + LiveIn symbases: 7
 ; CHECK-NEXT:       + LiveOut symbases:
 ; CHECK-NEXT:       + Loop metadata: No

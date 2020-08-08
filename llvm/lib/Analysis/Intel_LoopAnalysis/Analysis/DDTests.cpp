@@ -2598,7 +2598,8 @@ bool DDTest::symbolicRDIVtest(const CanonExpr *A1, const CanonExpr *A2,
 bool DDTest::testSIV(const CanonExpr *Src, const CanonExpr *Dst,
                      unsigned &Level, Dependences &Result,
                      Constraint &NewConstraint, const CanonExpr *&SplitIter,
-                     const HLLoop *SrcParentLoop, const HLLoop *DstParentLoop) {
+                     const HLLoop *SrcParentLoop, const HLLoop *DstParentLoop,
+                     bool ForFusion) {
 
   LLVM_DEBUG(dbgs() << "\n Test SIV \n");
   LLVM_DEBUG(dbgs() << "\n   src = "; Src->dump());
@@ -2615,7 +2616,7 @@ bool DDTest::testSIV(const CanonExpr *Src, const CanonExpr *Dst,
     const CanonExpr *SrcCoeff = getCoeff(Src);
     const CanonExpr *DstCoeff = getCoeff(Dst);
     const HLLoop *CurLoop = SrcLoop;
-    assert(SrcLoop == DstLoop && "both loops in SIV should be same");
+    assert((SrcLoop == DstLoop || ForFusion) && "both loops in SIV should be same");
     Level = mapSrcLoop(CurLoop);
     bool Disproven;
 
@@ -4716,7 +4717,7 @@ std::unique_ptr<Dependences> DDTest::depends(const DDRef *SrcDDRef,
         unsigned Level;
         const CanonExpr *SplitIter = nullptr;
         if (testSIV(Pair[SI].Src, Pair[SI].Dst, Level, Result, NewConstraint,
-                    SplitIter, SrcLoop, DstLoop)) {
+                    SplitIter, SrcLoop, DstLoop, ForFusion)) {
           return nullptr;
         }
         break;
@@ -4819,7 +4820,7 @@ std::unique_ptr<Dependences> DDTest::depends(const DDRef *SrcDDRef,
           const CanonExpr *SplitIter = nullptr;
           LLVM_DEBUG(dbgs() << "SIV\n");
           if (testSIV(Pair[SJ].Src, Pair[SJ].Dst, Level, Result, NewConstraint,
-                      SplitIter, SrcLoop, DstLoop))
+                      SplitIter, SrcLoop, DstLoop, ForFusion))
             return nullptr;
           ConstrainedLevels.set(Level);
           if (intersectConstraints(&Constraints[Level], &NewConstraint)) {
@@ -5913,7 +5914,7 @@ const  SCEV *DependenceAnalysis::getSplitIteration(const Dependence &Dep,
       unsigned Level;
       const SCEV *SplitIter = nullptr;
       (void) testSIV(Pair[SI].Src, Pair[SI].Dst, Level,
-                     Result, NewConstraint, SplitIter);
+                     Result, NewConstraint, SplitIter, false);
       if (Level == SplitLevel) {
         assert(SplitIter != nullptr);
         return SplitIter;
@@ -5952,7 +5953,7 @@ const  SCEV *DependenceAnalysis::getSplitIteration(const Dependence &Dep,
           unsigned Level;
           const SCEV *SplitIter = nullptr;
           (void) testSIV(Pair[SJ].Src, Pair[SJ].Dst, Level,
-                         Result, NewConstraint, SplitIter);
+                         Result, NewConstraint, SplitIter, false);
           if (Level == SplitLevel && SplitIter)
             return SplitIter;
           ConstrainedLevels.set(Level);

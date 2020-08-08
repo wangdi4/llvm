@@ -1,8 +1,8 @@
 ; RUN: opt < %s -hir-ssa-deconstruction | opt -analyze -hir-framework -hir-framework-debug=parser -hir-details | FileCheck %s
 
-; Verify that we are able to deduce NSW flag for the constant trip count loop even though the original loop IV start from a negative value of -5.
+; Verify that we are able to deduce HasSignedIV flag for the constant trip count loop even though the original loop IV start from a negative value of -5.
 
-; CHECK: NSW: Yes
+; CHECK: HasSignedIV: Yes
 ; CHECK: DO i64 i1 = 0, 34, 1
 ; CHECK:    (%A)[i1 + -5] = i1 + -5;
 ; CHECK: END LOOP

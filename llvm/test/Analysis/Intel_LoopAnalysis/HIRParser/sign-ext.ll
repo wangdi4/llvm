@@ -1,6 +1,6 @@
 ; RUN: opt < %s -hir-ssa-deconstruction | opt -analyze -hir-framework -hir-framework-debug=parser -hir-details | FileCheck %s
 
-; CHECK: NSW: Yes
+; CHECK: HasSignedIV: Yes
 
 ; Check parsing output for the loop verifying that the subscript is parsed as a sign extended version.
 ; CHECK: DO i32 i1 = 0, 24

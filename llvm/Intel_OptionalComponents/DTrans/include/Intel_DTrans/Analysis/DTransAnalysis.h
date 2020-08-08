@@ -269,7 +269,7 @@ public:
   // "dtrans-outofboundsok" which controls the assumptions regarding whether
   // taking the address of a structure field is allowed to access other fields
   // of the structure.
-  static bool getDTransOutOfBoundsOK();
+  bool getDTransOutOfBoundsOK();
 
   // Returns true if the module requires runtime validation of possible bad cast
   // issues. Returns functions where runtime checks are required.
@@ -291,6 +291,10 @@ private:
   // determine if we will turn off DTransAnalysis because the call
   // graph is too big.
   void setCallGraphStats(Module &M);
+
+  // Check language specific info that may affect whether certain rules
+  // like DTransOutOfBoundsOK can be applied.
+  void checkLanguages(Module &M);
 
   // Return true if we should run DTransAnalysis.
   bool shouldComputeDTransAnalysis(void) const;
@@ -351,6 +355,10 @@ private:
   // A set of functions where bad cast safety issue validation required in
   // runtime.
   std::set<Function *> FunctionsRequireBadCastValidation;
+
+  // Indicates that a Fortran function was seen. This will disable
+  // DTransOutOfBoundsOK.
+  bool SawFortran = false;
 };
 
 // Analysis pass providing a data transformation analysis result.

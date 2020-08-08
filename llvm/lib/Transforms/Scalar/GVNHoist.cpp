@@ -650,8 +650,25 @@ private:
           // The Basic Block where CHI is must dominate the value we want to
           // track in a CHI. In the PDom walk, there can be values in the
           // stack which are not control dependent e.g., nested loop.
+#if INTEL_CUSTOMIZATION
+// Localized fix for https://bugs.llvm.org/show_bug.cgi?id=46874 and
+// CMPLRLLVM-21338.
+// We are trying to insert a CHI edge for (Pred,BB). This means that
+// the Instruction at the top of the RenameStack (si->second) post-dominates
+// the edge Pred -> BB, and is safe to hoist along that edge.
+// It is similar to PHI, where a phi operand means that a value x
+// dominates along an edge y.
+// But the CHI algorithm seems to assume that a post-dominator tree traversal
+// E->A->B means that A post-dominates B. This is obviously not true if A and B
+// are siblings. If we insert an explicit post-dominator check, the problem is
+// solved. We can get more hoisting cases if we push the CHIs on the stack
+// (similar to a PHI operand of another PHI), but GVNHoist structures do
+// not allow this.
+#endif // INTEL_CUSTOMIZATION
           if (si != RenameStack.end() && si->second.size() &&
-              DT->properlyDominates(Pred, si->second.back()->getParent())) {
+              DT->properlyDominates(Pred,                              // INTEL
+                                    si->second.back()->getParent()) && // INTEL
+              PDT->dominates(si->second.back()->getParent(), BB)) {    // INTEL
             C.Dest = BB;                     // Assign the edge
             C.I = si->second.pop_back_val(); // Assign the argument
             LLVM_DEBUG(dbgs()

@@ -2588,8 +2588,7 @@ void HIRParser::parse(HLLoop *HLoop) {
   // Upper should be parsed after incrementing level.
   ++CurLevel;
 
-  ScopedSE.setBackedgeTakenCountLoop(Lp);
-  auto BETC = ScopedSE.getBackedgeTakenCount(Lp);
+  auto BETC = ScopedSE.getScopedBackedgeTakenCount(Lp);
 
   bool IsUnknown = isa<SCEVCouldNotCompute>(BETC);
 
@@ -2633,14 +2632,12 @@ void HIRParser::parse(HLLoop *HLoop) {
 
       // Set small max trip count if available from scalar evolution.
       if (!UpperRef->isIntConstant() &&
-          (MaxTC =
-               ScopedSE.getSmallConstantMaxTripCount(const_cast<Loop *>(Lp)))) {
+          (MaxTC = ScopedSE.getScopedSmallConstantMaxTripCount(
+               const_cast<Loop *>(Lp)))) {
         HLoop->setMaxTripCountEstimate(MaxTC);
       }
     }
   }
-
-  ScopedSE.resetBackedgeTakenCountLoop();
 
   if (IsUnknown) {
     // Initialize Stride to 0 for unknown loops.

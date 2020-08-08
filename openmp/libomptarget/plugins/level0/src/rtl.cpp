@@ -17,6 +17,7 @@
 #include <fstream>
 #include <limits>
 #include <mutex>
+#include <set>
 #include <string>
 #include <sstream>
 #include <thread>
@@ -637,6 +638,7 @@ public:
   std::vector<std::map<ze_kernel_handle_t, KernelPropertiesTy>>
       KernelProperties;
   std::vector<std::vector<void *>> OwnedMemory; // Memory owned by the plugin
+  std::vector<std::set<void *>> ImplicitArgs;
   std::vector<bool> Initialized;
   std::mutex *Mutexes;
   std::mutex *DataMutexes; // For internal data
@@ -1355,6 +1357,7 @@ int32_t __tgt_rtl_number_of_devices() {
   DeviceInfo->FuncGblEntries.resize(DeviceInfo->NumDevices);
   DeviceInfo->KernelProperties.resize(DeviceInfo->NumDevices);
   DeviceInfo->OwnedMemory.resize(DeviceInfo->NumDevices);
+  DeviceInfo->ImplicitArgs.resize(DeviceInfo->NumDevices);
   DeviceInfo->Initialized.resize(DeviceInfo->NumDevices);
   DeviceInfo->Mutexes = new std::mutex[DeviceInfo->NumDevices];
   DeviceInfo->DataMutexes = new std::mutex[DeviceInfo->NumDevices];
@@ -1667,6 +1670,8 @@ static void *allocData(int32_t DeviceId, int64_t Size, void *HstPtr,
     DP("Allocated target memory " DPxMOD " (Base: " DPxMOD ", Size: %zu) "
        "from memory pool for host ptr " DPxMOD "\n",
        DPxPTR(mem), DPxPTR(base), size, DPxPTR(HstPtr));
+    if (IsImplicitArg)
+      DeviceInfo->ImplicitArgs[DeviceId].insert(mem);
     return mem;
   }
 
@@ -1691,6 +1696,8 @@ static void *allocData(int32_t DeviceId, int64_t Size, void *HstPtr,
        ", Size: %zu) for host ptr " DPxMOD "\n", DPxPTR(mem), DPxPTR(actualBase),
        actualSize, DPxPTR(HstPtr));
   }
+  if (IsImplicitArg)
+    DeviceInfo->ImplicitArgs[DeviceId].insert(mem);
 
   return mem;
 }
@@ -1698,6 +1705,11 @@ static void *allocData(int32_t DeviceId, int64_t Size, void *HstPtr,
 EXTERN
 void *__tgt_rtl_data_alloc(int32_t DeviceId, int64_t Size, void *HstPtr) {
   return allocData(DeviceId, Size, HstPtr, HstPtr, 0);
+}
+
+EXTERN void *__tgt_rtl_data_alloc_user(
+    int32_t DeviceId, int64_t Size, void *HstPtr) {
+  return allocData(DeviceId, Size, HstPtr, HstPtr, 1);
 }
 
 EXTERN
@@ -2032,10 +2044,17 @@ EXTERN int32_t __tgt_rtl_data_delete(int32_t DeviceId, void *TgtPtr) {
 #if USE_NEW_API
   auto context = DeviceInfo->Context;
 #endif // USE_NEW_API
+
+  mutex.lock();
+  DeviceInfo->ImplicitArgs[DeviceId].erase(TgtPtr);
+  mutex.unlock();
+
   if (DeviceInfo->Flags.UseMemoryPool) {
     auto &pool = DeviceInfo->PagePools[DeviceId];
-    std::unique_lock<std::mutex> deallocLock(mutex);
-    if (pool.deallocate(TgtPtr)) {
+    mutex.lock();
+    bool deallocated = pool.deallocate(TgtPtr);
+    mutex.unlock();
+    if (deallocated) {
       DP("Returned device memory " DPxMOD " to memory pool\n", DPxPTR(TgtPtr));
       return OFFLOAD_SUCCESS;
     }
@@ -2329,7 +2348,8 @@ static int32_t runTargetTeamRegion(
 
   // Set attributes
   bool indirectAccess =
-      DeviceInfo->KernelProperties[DeviceId][kernel].RequiresIndirectAccess;
+      DeviceInfo->KernelProperties[DeviceId][kernel].RequiresIndirectAccess ||
+      !DeviceInfo->ImplicitArgs[DeviceId].empty();
   if (indirectAccess) {
 #if USE_NEW_API
     ze_kernel_indirect_access_flags_t flags =
