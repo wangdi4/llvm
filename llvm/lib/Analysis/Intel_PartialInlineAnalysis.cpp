@@ -1,6 +1,6 @@
 //===------ Intel_PartialInlineAnalysis.cpp ------------------------------===//
 //
-// Copyright (C) 2019-2019 Intel Corporation. All rights reserved.
+// Copyright (C) 2019-2020 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -30,54 +30,27 @@ using namespace llvm;
 static cl::opt<unsigned> IntelPILimitBB("intel-pi-limit-bb", cl::init(10),
                                         cl::ReallyHidden);
 
-// Limit of incoming values in a PHINode
-static cl::opt<unsigned> IntelPILimitIncomingValues("intel-pi-limit-values",
-                                                    cl::init(3),
-                                                    cl::ReallyHidden);
 namespace llvm {
 
 // Check if at least one of the successors of the input branch
-// instruction leads to an exit block. An exit block looks like this:
-//
-//  %7 = phi i1 [ true, %2 ], [ %5, %4 ]
-//  ret i1 %7
-//
-// It has a return from a PHINode.
+// instruction leads to an exit block. An exit block ends in a ReturnInst.
 static bool goToExit(BranchInst *BrInst) {
 
   if (!BrInst)
     return false;
 
-  // Check if this is a valid PHINode
-  auto IsValidPHI = [](Instruction *Inst) {
-    if (!Inst)
-      return false;
-
-    PHINode *PHI = dyn_cast<PHINode>(Inst);
-    if (!PHI || PHI->getNumIncomingValues() > IntelPILimitIncomingValues)
-      return false;
-
-    return true;
-  };
-
   // Check if at least one of the successors of the basic block is
   // an exit block
-  for (BasicBlock *CurrBB : successors(BrInst->getParent())) {
-    Instruction *FirstInst = &(CurrBB->front());
-    if (!IsValidPHI(FirstInst))
-      continue;
-    if (FirstInst->getNumUses() != 1)
-      continue;
-    Instruction *UserInst = cast<Instruction>(FirstInst->user_back());
-    if (isa<ReturnInst>(UserInst))
+  for (BasicBlock *CurrBB : successors(BrInst->getParent()))
+    if (isa<ReturnInst>(CurrBB->getTerminator()))
       return true;
-  }
-
   return false;
 }
 
 // Traverse through the users of the input instruction and check
-// if it leads to the exit basic block.
+// if it leads to the exit basic block. (CMPLRLLVM-21777: Need to loosen
+// the restrictions to retain the partial inlining candidate after
+// upstream optimizations eliminate the PHINode in the exit block.
 static bool isUsedForExit(Instruction *Inst,
                           SetVector<Instruction *> &VisitedInst) {
 
@@ -122,7 +95,7 @@ static bool isUsedForExit(Instruction *Inst,
 //  br i1 %11, label %4, label %12
 //
 // ; <label>:12:
-//  %13 = phi i1 [ true, %2 ], [ %6, %4 ]
+//  ...
 //  ret i1 %14
 // }
 //
@@ -198,7 +171,7 @@ static bool identifyLoopRegion(Function &F, Value *ArgVal,
 //  br i1 %11, label %4, label %12
 //
 // ; <label>:12:
-//  %13 = phi i1 [ true, %2 ], [ %6, %4 ]
+//  ...
 //  ret i1 %14
 // }
 //
@@ -249,7 +222,7 @@ static Value *identifyEntryRegion(Function &F,
 //  br i1 %8, label %4, label %10
 //
 // ; <label>:10:
-//  %11 = phi i1 [ true, %2 ], [ false, %4 ]
+//  ...
 //  ret i1 %11
 // }
 //
