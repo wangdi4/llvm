@@ -152,8 +152,8 @@ protected:
   /// \Returns True iff \p VPInst is Unit Strided load or store.
   /// When load/store is strided NegativeStride is set to true if the stride is
   /// negative (-1 in number of elements) or to false otherwise.
-  virtual bool isUnitStrideLoadStore(
-    const VPInstruction *VPInst, bool &NegativeStride) const;
+  bool isUnitStrideLoadStore(const VPInstruction *VPInst,
+                             bool &NegativeStride) const;
 
   // The utility checks whether the Cost Model can assume that 32-bit indexes
   // will be used instead of 64-bit indexes for gather/scatter HW instructions.
