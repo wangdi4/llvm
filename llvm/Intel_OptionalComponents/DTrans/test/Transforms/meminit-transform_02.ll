@@ -1,3 +1,8 @@
+; REQUIRES: system-windows
+
+; This is similar to meminit-transform_01.ll except IR has windows
+; specific things like EH, return types for ctor, cctor etc.
+
 ; This testcase verifies that MemInitTrimDown transformation is able
 ; to trim down capacity values that are passed to constructors of
 ; Arr and Arr1.
@@ -116,37 +121,40 @@
 ; Store instruction that saves capacity value, memory allocation and
 ; memset instructions are also fixed since they use capacity values.
 ;
-;CHECK: define void @_ZN3ArrIPiEC2EiP3Mem(%struct.Arr* %this, i32 %c, %struct.Mem* %mem)
+;CHECK: define %struct.Arr* @_ZN3ArrIPiEC2EiP3Mem(%struct.Arr* %this, i32 %c, %struct.Mem* %mem)
 ;CHECK: store i32 1, i32* %capacity
 ;CHECK-NOT: store i32 4, i32* %capacity
 ;CHECK: %call = tail call noalias i8* @malloc(i64 8)
 ;CHECK-NOT: %call = tail call noalias i8* @malloc(i64 %mul)
 ;CHECK: tail call void @llvm.memset.p0i8.i64(i8* align 8 %call, i8 0, i64 8, i1 false)
 ;CHECK-NOT: tail call void @llvm.memset.p0i8.i64(i8* align 8 %call, i8 0, i64 %mul, i1 false)
-;CHECK: ret void
+;CHECK: ret %struct.Arr* %this
 
-;CHECK: define void @_ZN1FC2Ev(%class.F* %this)
+;CHECK: define %class.F* @_ZN1FC2Ev(%class.F* %this)
 ; Non-constant capacity value that is passed to constructor of Arr1 vector
 ; in "F" function is not changed.
-; CHECK: tail call void @_ZN4Arr1IPfEC2EiP3Mem(%struct.Arr1* %2, i32 %cap1, %struct.Mem* null)
+; CHECK: tail call %struct.Arr1* @_ZN4Arr1IPfEC2EiP3Mem(%struct.Arr1* %2, i32 %cap1, %struct.Mem* null)
 ;
 ; capacity value that is passed to constructor of Arr1 vector in "F" function
 ; is trimmed down from 4 to 1.
 ;
-; CHECK: tail call void @_ZN4Arr1IPfEC2EiP3Mem(%struct.Arr1* nonnull %17, i32 1, %struct.Mem* null)
-; CHECK-NOT: tail call void @_ZN4Arr1IPfEC2EiP3Mem(%struct.Arr1* nonnull %17, i32 4, %struct.Mem* null)
+; CHECK: tail call %struct.Arr1* @_ZN4Arr1IPfEC2EiP3Mem(%struct.Arr1* nonnull %17, i32 1, %struct.Mem* null)
+; CHECK-NOT: tail %struct.Arr1* void @_ZN4Arr1IPfEC2EiP3Mem(%struct.Arr1* nonnull %17, i32 4, %struct.Mem* null)
 
-target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
-target triple = "x86_64-unknown-linux-gnu"
+target datalayout = "e-m:w-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
+target triple = "x86_64-pc-windows-msvc"
+;target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
+;target triple = "x86_64-unknown-linux-gnu"
 
 %class.F = type { %struct.Mem*, %struct.Arr*, %struct.Arr1* }
 %struct.Mem = type { i32 (...)** }
 %struct.Arr = type { i8, i32, i32, i32***, %struct.Mem* }
 %struct.Arr1 = type { %struct.Arr.0 }
 %struct.Arr.0 = type { i8, i32, i32, float***, %struct.Mem* }
+%eh.ThrowInfo = type { i32, i32, i32, i32 }
 
 ; All fields of Arr class are initialized as expected.
-define void @_ZN3ArrIPiEC2EiP3Mem(%struct.Arr* %this, i32 %c, %struct.Mem* %mem) {
+define %struct.Arr* @_ZN3ArrIPiEC2EiP3Mem(%struct.Arr* %this, i32 %c, %struct.Mem* %mem) {
 entry:
   %flag = getelementptr inbounds %struct.Arr, %struct.Arr* %this, i64 0, i32 0
   store i8 0, i8* %flag
@@ -164,21 +172,21 @@ entry:
   call void @llvm.dbg.value(metadata i32*** %0, metadata !13, metadata !DIExpression()), !dbg !14
   store i32*** %0, i32**** %base
   tail call void @llvm.memset.p0i8.i64(i8* align 8 %call, i8 0, i64 %mul, i1 false)
-  ret void
+  ret %struct.Arr* %this
 }
 
 ; This is the constructor for Derived class. It just calls constructor of
 ; base class to initialize fields.
-define void @_ZN4Arr1IPfEC2EiP3Mem(%struct.Arr1* %this, i32 %c, %struct.Mem* %mem) {
+define %struct.Arr1* @_ZN4Arr1IPfEC2EiP3Mem(%struct.Arr1* %this, i32 %c, %struct.Mem* %mem) {
 entry:
   %0 = getelementptr inbounds %struct.Arr1, %struct.Arr1* %this, i64 0, i32 0
-  tail call void @_ZN3ArrIPfEC2EiP3Mem(%struct.Arr.0* %0, i32 %c, %struct.Mem* %mem)
-  ret void
+  %c7 = tail call %struct.Arr.0* @_ZN3ArrIPfEC2EiP3Mem(%struct.Arr.0* %0, i32 %c, %struct.Mem* %mem)
+  ret %struct.Arr1* %this
 }
 
 ; This is constructor of base class of Arr1. It initializes all fields
 ; as expected.
-define void @_ZN3ArrIPfEC2EiP3Mem(%struct.Arr.0* %this, i32 %c, %struct.Mem* %mem) {
+define %struct.Arr.0* @_ZN3ArrIPfEC2EiP3Mem(%struct.Arr.0* %this, i32 %c, %struct.Mem* %mem) {
 entry:
   %flag = getelementptr inbounds %struct.Arr.0, %struct.Arr.0* %this, i64 0, i32 0
   store i8 0, i8* %flag
@@ -195,10 +203,10 @@ entry:
   %0 = bitcast i8* %call to float***
   store float*** %0, float**** %base
   tail call void @llvm.memset.p0i8.i64(i8* align 8 %call, i8 0, i64 %mul, i1 false)
-  ret void
+  ret %struct.Arr.0* %this
 }
 
-define void @_ZN3ArrIPiEC2ERKS1_(%struct.Arr* %this, %struct.Arr* %A) {
+define %struct.Arr* @_ZN3ArrIPiEC2ERKS1_(%struct.Arr* %this, %struct.Arr* %A) {
 entry:
   %flag = getelementptr inbounds %struct.Arr, %struct.Arr* %this, i64 0, i32 0
   %flag2 = getelementptr inbounds %struct.Arr, %struct.Arr* %A, i64 0, i32 0
@@ -236,7 +244,7 @@ for.body.lr.ph:                                   ; preds = %entry
   br label %for.body
 
 for.cond.cleanup:                                 ; preds = %for.body, %entry
-  ret void
+  ret %struct.Arr* %this
 
 for.body:                                         ; preds = %for.body, %for.body.lr.ph
   %indvars.iv = phi i64 [ 0, %for.body.lr.ph ], [ %indvars.iv.next, %for.body ]
@@ -253,13 +261,15 @@ for.body:                                         ; preds = %for.body, %for.body
 
 define void @_ZN3ArrIPiE3setEiPS0_(%struct.Arr* %this, i32 %i, i32** %val) {
 entry:
+  %ai = alloca i64, align 8
   %size = getelementptr inbounds %struct.Arr, %struct.Arr* %this, i64 0, i32 2
   %0 = load i32, i32* %size
   %cmp = icmp ugt i32 %0, %i
   br i1 %cmp, label %if.end, label %if.then
 
 if.then:                                          ; preds = %entry
-  tail call void @__cxa_rethrow()
+  %bc1 = bitcast i64* %ai to i8*
+  call void @_CxxThrowException(i8* nonnull %bc1, %eh.ThrowInfo* null)
   unreachable
 
 if.end:                                           ; preds = %entry
@@ -273,13 +283,15 @@ if.end:                                           ; preds = %entry
 
 define void @_ZN3ArrIPfE3setEiPS0_(%struct.Arr.0* %this, i32 %i, float** %val) {
 entry:
+  %ai = alloca i64, align 8
   %size = getelementptr inbounds %struct.Arr.0, %struct.Arr.0* %this, i64 0, i32 2
   %0 = load i32, i32* %size
   %cmp = icmp ugt i32 %0, %i
   br i1 %cmp, label %if.end, label %if.then
 
 if.then:                                          ; preds = %entry
-  tail call void @__cxa_rethrow()
+  %bc1 = bitcast i64* %ai to i8*
+  call void @_CxxThrowException(i8* nonnull %bc1, %eh.ThrowInfo* null)
   unreachable
 
 if.end:                                           ; preds = %entry
@@ -431,13 +443,15 @@ cleanup:                                          ; preds = %entry, %for.cond.cl
 
 define i32** @_ZN3ArrIPiE3getEi(%struct.Arr* %this, i32 %i) {
 entry:
+  %ai = alloca i64, align 8
   %size = getelementptr inbounds %struct.Arr, %struct.Arr* %this, i64 0, i32 2
   %0 = load i32, i32* %size
   %cmp = icmp ugt i32 %0, %i
   br i1 %cmp, label %if.end, label %if.then
 
 if.then:                                          ; preds = %entry
-  tail call void @__cxa_rethrow()
+  %bc1 = bitcast i64* %ai to i8*
+  call void @_CxxThrowException(i8* nonnull %bc1, %eh.ThrowInfo* null)
   unreachable
 
 if.end:                                           ; preds = %entry
@@ -451,13 +465,15 @@ if.end:                                           ; preds = %entry
 
 define float** @_ZN3ArrIPfE3getEi(%struct.Arr.0* %this, i32 %i) {
 entry:
+  %ai = alloca i64, align 8
   %size = getelementptr inbounds %struct.Arr.0, %struct.Arr.0* %this, i64 0, i32 2
   %0 = load i32, i32* %size, align 8
   %cmp = icmp ugt i32 %0, %i
   br i1 %cmp, label %if.end, label %if.then
 
 if.then:                                          ; preds = %entry
-  tail call void @__cxa_rethrow()
+  %bc1 = bitcast i64* %ai to i8*
+  call void @_CxxThrowException(i8* nonnull %bc1, %eh.ThrowInfo* null)
   unreachable
 
 if.end:                                           ; preds = %entry
@@ -505,22 +521,22 @@ define i32 @main() {
 entry:
   %call = tail call i8* @_Znwm(i64 24)
   %0 = bitcast i8* %call to %class.F*
-  tail call void @_ZN1FC2Ev(%class.F* %0)
+  %cc1 = tail call %class.F* @_ZN1FC2Ev(%class.F* %0)
   ret i32 0
 }
 
-define void @_ZN1FC2Ev(%class.F* %this) {
+define %class.F* @_ZN1FC2Ev(%class.F* %this) {
 entry:
   %call = tail call i8* @_Znwm(i64 32)
   %0 = bitcast i8* %call to %struct.Arr*
-  tail call void @_ZN3ArrIPiEC2EiP3Mem(%struct.Arr* %0, i32 4, %struct.Mem* null)
+  %c1 = tail call %struct.Arr* @_ZN3ArrIPiEC2EiP3Mem(%struct.Arr* %0, i32 4, %struct.Mem* null)
   %f1 = getelementptr inbounds %class.F, %class.F* %this, i64 0, i32 1
   %1 = bitcast %struct.Arr** %f1 to i8**
   store %struct.Arr* %0, %struct.Arr** %f1
   %call2 = tail call i8* @_Znwm(i64 32)
   %2 = bitcast i8* %call2 to %struct.Arr1*
   %cap1 = tail call i32 @_ZN3ArrIPiE11getCapacityEv(%struct.Arr* nonnull %0)
-  tail call void @_ZN4Arr1IPfEC2EiP3Mem(%struct.Arr1* %2, i32 %cap1, %struct.Mem* null)
+  %c2 = tail call %struct.Arr1* @_ZN4Arr1IPfEC2EiP3Mem(%struct.Arr1* %2, i32 %cap1, %struct.Mem* null)
   %f2 = getelementptr inbounds %class.F, %class.F* %this, i64 0, i32 2
   %3 = bitcast %struct.Arr1** %f2 to i8**
   store %struct.Arr1* %2, %struct.Arr1** %f2
@@ -540,7 +556,7 @@ entry:
   %call13 = tail call i8* @_Znwm(i64 32)
   %11 = bitcast i8* %call13 to %struct.Arr*
   %12 = load %struct.Arr*, %struct.Arr** %f1
-  tail call void @_ZN3ArrIPiEC2ERKS1_(%struct.Arr* %11, %struct.Arr* %12)
+  %c3 = tail call %struct.Arr* @_ZN3ArrIPiEC2ERKS1_(%struct.Arr* %11, %struct.Arr* %12)
   %s = load %struct.Arr*, %struct.Arr** %f1, align 8
   %call18 = tail call i32 @_ZN3ArrIPiE7getSizeEv(%struct.Arr* %s)
   %d = load %struct.Arr*, %struct.Arr** %f1, align 8
@@ -552,15 +568,15 @@ entry:
   tail call void @_ZN3ArrIPfED2Ev(%struct.Arr.0* %15)
   %16 = tail call i8* @_Znwm(i64 32) #8
   %17 = bitcast i8* %16 to %struct.Arr1*
-  tail call void @_ZN4Arr1IPfEC2EiP3Mem(%struct.Arr1* nonnull %17, i32 4, %struct.Mem* null)
+  %d5 = tail call %struct.Arr1* @_ZN4Arr1IPfEC2EiP3Mem(%struct.Arr1* nonnull %17, i32 4, %struct.Mem* null)
 
-  ret void
+  ret %class.F* %this
 }
 
 declare noalias i8* @_Znwm(i64)
 declare noalias i8* @malloc(i64)
 declare void @llvm.memset.p0i8.i64(i8* nocapture writeonly, i8, i64, i1 immarg)
-declare void @__cxa_rethrow()
+declare void @_CxxThrowException(i8*, %eh.ThrowInfo*)
 declare void @free(i8* nocapture)
 declare void @llvm.dbg.value(metadata, metadata, metadata)
 

@@ -1,6 +1,6 @@
 //===------------- SOAToAOSClassInfo.cpp - SOAToAOS Class Info Analysis ---===//
 //
-// Copyright (C) 2019 Intel Corporation. All rights reserved.
+// Copyright (C) 2019-2020 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -64,13 +64,15 @@ bool ClassInfo::checkDominatorInfo(Instruction *D, Instruction *U) {
 
 // Categorize given function F using return type and signature of the
 // function. ClassTy is the type of first argument of F.
+// Ctor/Dtor/CCtor have return types on windows.
 //
-// CopyConstructor: No return type. Two arguments of same class type.
+// CopyConstructor: No return type or ClassTy type. Two arguments
+//                  of same class type.
 //
-// Constructor: No return type. Only one argument is class type.
-//              Pointer of MemInterface should be passed to initialize.
+// Constructor: No return type  or ClassTy type. Only one argument is class
+//              type. Pointer of MemInterface should be passed to initialize.
 //
-// Destructor: No return type. Only one class type argument.
+// Destructor: No return type or pointer type. Only one class type argument.
 //
 // GetElem: Element type or pointer to element type is returned. One class type
 // argument and one integer argument to indicate position.
@@ -91,6 +93,8 @@ bool ClassInfo::checkDominatorInfo(Instruction *D, Instruction *U) {
 FunctionKind ClassInfo::categorizeFunctionUsingSignature(Function *F,
                                                          StructType *ClassTy) {
   bool NoReturn = false;
+  bool ThisReturn = false;
+  bool PtrReturn = false;
   bool ElemReturn = false;
   bool IntReturn = false;
   int32_t MemInterfaceArgs = 0;
@@ -112,8 +116,10 @@ FunctionKind ClassInfo::categorizeFunctionUsingSignature(Function *F,
   case Type::PointerTyID:
     if (ElemDataTypes.count(RTy) || ElemDataAddrTypes.count(RTy))
       ElemReturn = true;
+    else if (cast<PointerType>(RTy)->getElementType() == ClassTy)
+      ThisReturn = true;
     else
-      return UnKnown;
+      PtrReturn = true;
     break;
 
   case Type::IntegerTyID:
@@ -149,11 +155,12 @@ FunctionKind ClassInfo::categorizeFunctionUsingSignature(Function *F,
 
   // Categorize function based on return and argument types.
   auto ArgsSize = F->arg_size();
-  if (NoReturn && ArgsSize == 2 && ClassArgs == 2)
+  if ((ThisReturn || NoReturn) && ArgsSize == 2 && ClassArgs == 2)
     return CopyConstructor;
-  else if (NoReturn && MemInterfaceArgs == 1 && ClassArgs == 1)
+  else if ((ThisReturn || NoReturn) && MemInterfaceArgs == 1 && ClassArgs == 1)
     return Constructor;
-  else if (NoReturn && ClassArgs == 1 && ArgsSize == 1)
+  else if ((NoReturn && ClassArgs == 1 && ArgsSize == 1) ||
+           (PtrReturn && ClassArgs == 1 && ArgsSize == 2 && IntArgs == 1))
     return Destructor;
   else if (ElemReturn && ClassArgs == 1 && IntArgs == 1 && ArgsSize == 2)
     return GetElem;
@@ -779,6 +786,13 @@ Value *ClassInfo::isArrayElementAt(const Value *Val, Value *ThisObj,
     AtLoc = isIntegerArgument(GEP->getOperand(1));
   else
     AtLoc = GEP->getOperand(1);
+  if (!AtLoc)
+    return nullptr;
+  // Skip ZExt instruction.
+  if (auto *Zext = dyn_cast<ZExtInst>(AtLoc)) {
+    Visited.insert(Zext);
+    AtLoc = Zext->getOperand(0);
+  }
   Visited.insert(GEP);
   if (BC)
     Visited.insert(BC);
@@ -990,17 +1004,19 @@ bool ClassInfo::checkEHBlock(BasicBlock *BB, Argument *ThisObj) {
 
   // Returns true if Call is any of the below:
   //  1. "free(ThisObj)"
-  //  2. "__clang_call_terminate"
-  //  3. Other calls: Arguments should be cosntants or MemIntField or return
+  //  2. "__clang_call_terminate" or "__std_terminate"
+  //  3. Other calls: Arguments should be constants or MemIntField or return
   //     value of __cxa_allocate_exception.
   //
   auto IsCallOkayInEH = [this, &CheckFreeCall,
                          &IsLibFunction](CallBase *Call, Argument *ThisObj) {
     if (IsLibFunction(Call, LibFunc_clang_call_terminate) ||
+        IsLibFunction(Call, LibFunc_dunder_std_terminate) ||
         CheckFreeCall(Call, ThisObj)) {
       Visited.insert(Call);
       return true;
     }
+    Visited.insert(Call);
     for (Value *Arg : Call->args()) {
       if (isa<Constant>(Arg))
         continue;
@@ -1008,15 +1024,19 @@ bool ClassInfo::checkEHBlock(BasicBlock *BB, Argument *ThisObj) {
         continue;
       Value *Val = Arg;
       BitCastInst *BC = dyn_cast<BitCastInst>(Val);
-      if (BC)
+      if (BC) {
         Val = BC->getOperand(0);
-      auto *Call = dyn_cast<CallBase>(Val);
-      if (!Call)
+        Visited.insert(BC);
+      }
+      if (auto AI = dyn_cast<AllocaInst>(Val)) {
+        Visited.insert(AI);
+      } else if (auto CB = dyn_cast<CallBase>(Val)) {
+        if (!IsLibFunction(CB, LibFunc_cxa_allocate_exception))
+          return false;
+        Visited.insert(CB);
+      } else {
         return false;
-      if (!IsLibFunction(Call, LibFunc_cxa_allocate_exception))
-        return false;
-      Visited.insert(BC);
-      Visited.insert(Call);
+      }
     }
     return true;
   };
@@ -1040,6 +1060,8 @@ bool ClassInfo::checkEHBlock(BasicBlock *BB, Argument *ThisObj) {
     case Instruction::ExtractValue:
     case Instruction::InsertValue:
     case Instruction::LandingPad:
+    case Instruction::CleanupPad:
+    case Instruction::CleanupRet:
       Visited.insert(&I);
       continue;
 
@@ -1224,9 +1246,8 @@ const Value *ClassInfo::checkFree(FreeCallInfo *FInfo, Argument *ThisObj,
   const CallBase *DummyFreeCall = nullptr;
   BasicBlock *FreeCallBlock = CallI->getParent();
   for (auto *U : PtrArg->users()) {
-    if (U == CallI) {
+    if (U == CallI || isa<ReturnInst>(U))
       continue;
-    }
     DummyFreeCall = dyn_cast<CallBase>(U);
     if (!DummyFreeCall || !isDummyFuncWithThisAndPtrArgs(
                               DummyFreeCall, GetTLI(*CallI->getFunction())))
@@ -1531,6 +1552,8 @@ FunctionKind ClassInfo::recognizeDerivedConstructor(Function *F, Type *DTy,
   for (auto *U : ThisObj->users())
     if (auto *GEPI = dyn_cast<GetElementPtrInst>(U))
       GEPList.push_back(GEPI);
+    else if (auto *RI = dyn_cast<ReturnInst>(U))
+      ProcessedInsts.insert(RI);
     else
       return UnKnown;
 
@@ -1788,6 +1811,8 @@ FunctionKind ClassInfo::recognizeConstructor(Function *F) {
   for (auto *U : ThisObj->users())
     if (auto *GEPI = dyn_cast<GetElementPtrInst>(U))
       GEPList.push_back(GEPI);
+    else if (auto RI = dyn_cast<ReturnInst>(U))
+      Visited.insert(RI);
     else
       return UnKnown;
 
@@ -2068,6 +2093,59 @@ FunctionKind ClassInfo::recognizeDestructor(Function *Fn) {
     return true;
   };
 
+  std::function<bool(Function * F, Function * Callee, int32_t ArgNo,
+                     SmallPtrSetImpl<Function *> & ProcessedFuncs)>
+      CheckAllCallSitesInStructMethods;
+
+  // Look at all callsites of "Callee" in "F" recursively and return true if 1
+  // is passed as "ArgNo"-th argument at all the callsites.
+  CheckAllCallSitesInStructMethods =
+      [this, &CheckAllCallSitesInStructMethods](
+          Function *F, Function *Callee, int32_t ArgNo,
+          SmallPtrSetImpl<Function *> &ProcessedFunctions) {
+        if (!F || F->isDeclaration())
+          return true;
+        if (!ProcessedFunctions.insert(F).second)
+          return true;
+        for (auto &I : instructions(F))
+          if (auto *CB = dyn_cast<CallBase>(&I)) {
+            auto *CalledF = dtrans::getCalledFunction(*CB);
+            if (!CalledF)
+              return false;
+            if (CalledF == Callee) {
+              auto *CI = dyn_cast<ConstantInt>(CB->getArgOperand(ArgNo));
+              if (!CI || !CI->isOne())
+                return false;
+            } else if (!CheckAllCallSitesInStructMethods(CalledF, Callee, ArgNo,
+                                                         ProcessedFunctions))
+              return false;
+          }
+        return true;
+      };
+
+  // Returns true if "Val" is always 1 in "Callee" when "Callee" is called
+  // from member functions of struct and array fields.
+  // Ex:
+  //  foo(..., %Val, ...) {
+  //    ..
+  //  }
+  //
+  //  call foo(..., 1, ...);
+  //
+  auto IsAlwaysOne =
+      [this, &CheckAllCallSitesInStructMethods](Value *Val, Function *Callee) {
+        Argument *A = dyn_cast<Argument>(Val);
+        if (!A)
+          return false;
+        int32_t ArgNo = A->getArgNo();
+        SmallPtrSet<Function *, 32> ProcessedFunctions;
+        for (auto *StructF : SOACInfo->struct_functions())
+          if (!CheckAllCallSitesInStructMethods(StructF, Callee, ArgNo,
+                                                ProcessedFunctions))
+            return false;
+        return true;
+      };
+
   // Wrapper for destructor to handle "delete" operator for objects of user
   // defined classes with virtual destructors.
   // Returns DestructorWrapper if it is just calling actual destructor and
@@ -2080,9 +2158,18 @@ FunctionKind ClassInfo::recognizeDestructor(Function *Fn) {
   //     May_Have_some_EH_code
   //   }
   //
+  //   or
+  //
+  //   DtorWrapper(Obj) {
+  //     ActualDtor(Obj);
+  //     if (always_true_cond)
+  //       free(Obj);
+  //     May_Have_some_EH_code
+  //   }
+  //
   auto CheckDestructorWrapper =
-      [this, &CheckEHBlocks](Function *Fn,
-                             SmallPtrSet<BasicBlock *, 16> &EHBBSet) {
+      [this, &CheckEHBlocks,
+       &IsAlwaysOne](Function *Fn, SmallPtrSet<BasicBlock *, 16> &EHBBSet) {
         // Clear all processed instructions first.
         Visited.clear();
         Argument *ThisObj = &*Fn->arg_begin();
@@ -2094,6 +2181,14 @@ FunctionKind ClassInfo::recognizeDestructor(Function *Fn) {
           for (auto &I : BB) {
             if (isa<DbgInfoIntrinsic>(&I))
               continue;
+            if (auto RI = dyn_cast<ReturnInst>(&I)) {
+              if (!RI->getNumOperands())
+                continue;
+              // Makes sure it is returning "This" pointer.
+              if (!checkCompleteObjPtr(RI->getReturnValue(), ThisObj))
+                return UnKnown;
+              Visited.insert(RI);
+            }
             // We are interested in only Calls.
             auto *Call = dyn_cast<CallBase>(&I);
             if (!Call)
@@ -2121,6 +2216,18 @@ FunctionKind ClassInfo::recognizeDestructor(Function *Fn) {
               // is set only once.
               if (!PtrArg || !checkCompleteObjPtr(PtrArg, ThisObj) || FreeCall)
                 return UnKnown;
+              if (FreeBB->hasNPredecessorsOrMore(2))
+                return UnKnown;
+              BasicBlock *Pred = FreeBB->getSinglePredecessor();
+              if (Pred) {
+                // If  FreeBB has single predecessor, makes sure it is executed
+                // always.
+                Value *LVal = checkCondition(Pred, FreeBB);
+                if (!LVal)
+                  return UnKnown;
+                if (!IsAlwaysOne(LVal, Fn))
+                  return UnKnown;
+              }
               FreeCall = Call;
             } else {
               return UnKnown;
@@ -2350,12 +2457,18 @@ FunctionKind ClassInfo::recognizeCopyConstructor(Function *Fn) {
     return CopyConstructor;
 
   SmallPtrSet<StoreInst *, 8> SIList;
+  ReturnInst *RetI = nullptr;
   Argument *ThisObj = Fn->arg_begin();
   Argument *SrcObj = Fn->arg_begin() + 1;
   // Collect all store instructions.
   for (auto &I : instructions(Fn))
-    if (auto *SI = dyn_cast<StoreInst>(&I))
+    if (auto *SI = dyn_cast<StoreInst>(&I)) {
       SIList.insert(SI);
+    } else if (auto RI = dyn_cast<ReturnInst>(&I)) {
+      if (RetI)
+        return UnKnown;
+      RetI = RI;
+    }
 
   int32_t MemIntAssign = 0;
   int32_t FlagFieldAssign = 0;
@@ -2365,6 +2478,15 @@ FunctionKind ClassInfo::recognizeCopyConstructor(Function *Fn) {
   StoreInst *AllocArrayStore = nullptr;
   SmallPtrSet<Value *, 4> ArrayPtrAliases;
   Visited.clear();
+
+  if (!RetI)
+    return UnKnown;
+  // Makes sure it is returning "This" pointer.
+  if (RetI->getNumOperands())
+    if (!checkCompleteObjPtr(RetI->getReturnValue(), ThisObj))
+      return UnKnown;
+  Visited.insert(RetI);
+
   // Process all stores except array element stores.
   for (auto *SI : SIList) {
     const Value *PtrOp = skipCasts(SI->getPointerOperand());

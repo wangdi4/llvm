@@ -623,6 +623,7 @@ bool SOAToAOSCFGInfo::populateCFGInformation(Module &M,
           case Attribute::Dereferenceable:
           case Attribute::DereferenceableOrNull:
           case Attribute::Alignment:
+          case Attribute::Returned:
             continue;
           default:
             if (Arg.hasAttribute(Kind))
@@ -632,8 +633,12 @@ bool SOAToAOSCFGInfo::populateCFGInformation(Module &M,
 
         // Only MemoryInterface and by-value argument of element type can be
         // captured.
-        if (RespectAttrs && !Arg.hasNoCaptureAttr())
+        // Ctor/Dtor/CCtor have return types on windows and “this”
+        // parameter is marked with “Returned”.
+        if (RespectAttrs && !(Arg.hasNoCaptureAttr() ||
+            Arg.hasReturnedAttr())) {
           return FALSE("array method captures unexpected parameter.");
+        }
 
         // See list of methods supported.
         if (Pointee != std::get<1>(Triple) && Pointee != std::get<2>(Triple))
