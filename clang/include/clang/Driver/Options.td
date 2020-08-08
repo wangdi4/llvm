@@ -5036,6 +5036,23 @@ def fsycl_std_layout_kernel_params: Flag<["-"], "fsycl-std-layout-kernel-params"
 def fsycl_allow_func_ptr : Flag<["-"], "fsycl-allow-func-ptr">,
   HelpText<"Allow function pointers in SYCL device.">;
 def fno_sycl_allow_func_ptr : Flag<["-"], "fno-sycl-allow-func-ptr">;
+<<<<<<< HEAD
+=======
+#if INTEL_CUSTOMIZATION
+def fenable_variant_function_pointers
+    : Flag<["-"], "fenable-variant-function-pointers">,
+      HelpText<"Enable variant function pointers.">;
+def fno_enable_variant_function_pointers
+    : Flag<["-"], "fno-enable-variant-function-pointers">;
+def fenable_variant_virtual_calls
+    : Flag<["-"], "fenable-variant-virtual-calls">,
+      HelpText<"Enable variant virtual function calls">;
+def fno_enable_variant_virtual_calls
+    : Flag<["-"], "fno-enable-variant-virtual-calls">;
+#endif // INTEL_CUSTOMIZATION
+def fsycl_enable_optimizations: Flag<["-"], "fsycl-enable-optimizations">,
+  HelpText<"Experimental flag enabling standard optimization in the front-end.">;
+>>>>>>> 9dd9fbddf5587bfb0162cd963f8dad00e7a96c62
 
 } // let Flags = [CC1Option]
 

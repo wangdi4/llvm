@@ -2599,6 +2599,17 @@ static LValue EmitFunctionDeclLValue(CodeGenFunction &CGF, const Expr *E,
                                      GlobalDecl GD) {
   const FunctionDecl *FD = cast<FunctionDecl>(GD.getDecl());
   llvm::Value *V = EmitFunctionDeclPointer(CGF.CGM, GD);
+#if INTEL_CUSTOMIZATION
+  if (CGF.getContext().getLangOpts().SYCLIsDevice &&
+      CGF.getContext().getLangOpts().EnableVariantFunctionPointers)
+    if (auto *CV = dyn_cast<llvm::Constant>(V)) {
+      llvm::Constant *Fn = CV->stripPointerCasts();
+      if (isa<llvm::Function>(Fn) || isa<llvm::GlobalIFunc>(Fn)) {
+        llvm::Constant *GV = CGF.CGM.CreateSIMDFnTableVar(Fn);
+        V = llvm::ConstantExpr::getBitCast(GV, V->getType());
+      }
+    }
+#endif  // INTEL_CUSTOMIZATION
   CharUnits Alignment = CGF.getContext().getDeclAlign(FD);
   return CGF.MakeAddrLValue(V, E->getType(), Alignment,
                             AlignmentSource::Decl);
