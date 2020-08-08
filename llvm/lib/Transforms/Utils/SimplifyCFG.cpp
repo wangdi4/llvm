@@ -238,6 +238,10 @@ class SimplifyCFGOpt {
   bool SimplifySwitchOnSelect(SwitchInst *SI, SelectInst *Select);
   bool SimplifyIndirectBrOnSelect(IndirectBrInst *IBI, SelectInst *SI);
   bool TurnSwitchRangeIntoICmp(SwitchInst *SI, IRBuilder<> &Builder);
+#if INTEL_CUSTOMIZATION
+  bool removeEmptyCleanup(CleanupReturnInst *RI);
+  bool isDedicatedLoopExit(BasicBlock *BB);
+#endif // INTEL_CUSTOMIZATION
 
 public:
   SimplifyCFGOpt(const TargetTransformInfo &TTI, const DataLayout &DL,
@@ -4680,7 +4684,98 @@ bool SimplifyCFGOpt::simplifySingleResume(ResumeInst *RI) {
   return true;
 }
 
-static bool removeEmptyCleanup(CleanupReturnInst *RI) {
+#if INTEL_CUSTOMIZATION
+// If cleanuppad is an exit BasicBlock of a loop, the loop may not have
+// dedicated exit block after removing the cleanuppad BasicBlock since
+// the new exit block may have predecessors that are not in loop.
+// When “NeedCanonicalLoop” option is true, an empty cleanuppad BasicBlock
+// will not be removed if the BasicBlock is an exit BB of a loop. This
+// helps to trigger loop transformations later for the loop. BackEdge is
+// used to determine if a BasicBlock is in a loop or not.
+//
+// Note: We don’t do extensive analysis to prove that “CleanupBB” is
+// dedicated loop exit. Just use simple analysis/heuristic to determine
+// if “CleanupBB” is dedicated loop exit or not.
+//
+// Ex:
+// This function returns true for the below example if "CleanupBB"
+// is "%ehcleanup", which is a dedicated exit block of loop that
+// contains %for.body and %for.inc BasicBlocks.
+//
+// for.body:                          ; preds = %for.inc, %entry
+//   %i.04 = phi i32 [ 0, %entry ], [ %inc, %for.inc ]
+//   invoke void @"?bar@@YAXXZ"()
+//   to label %for.inc unwind label %ehcleanup
+//
+// for.inc:                           ; preds = %for.body
+//   %inc = add nuw nsw i32 %i.04, 1
+//   %exitcond = icmp eq i32 %inc, 100
+//   br i1 %exitcond, label %for.cond.cleanup, label %for.body
+//
+// ehcleanup:                         ; preds = %for.body
+//   %0 = cleanuppad within none []
+//   cleanupret from %0 unwind label %catch.dispatch
+//
+bool SimplifyCFGOpt::isDedicatedLoopExit(BasicBlock *CleanupBB) {
+
+  // For the given "BB", this function finds normal successor by skipping
+  // BasicBlock that terminate with Invoke instruction. It makes sure
+  // Unwind destination of Invoke instructions is always "CleanupBB".
+  //
+  // Ex:
+  // This lambda function helps to detect normal successor (BasicBlock
+  // without Invoke instruction as terminator) of “%invoke.cont” and
+  // “%invoke.cont1” BasicBlocks. This function returns %for.inc
+  // BasicBlock if “BB” is either %invoke.cont or %invoke.cont1. Returns
+  // nullptr if “CleanupBB” doesn’t match with UnWindDest BasicBlock
+  // (%ehcleanup) of invoke instructions.
+  //
+  // invoke.cont:                              ; preds = %for.body
+  //   invoke void @"?box@@YAXXZ"()
+  //         to label %invoke.cont1 unwind label %ehcleanup
+  //
+  // invoke.cont1:                             ; preds = %invoke.cont
+  //   invoke void @"?baz@@YAXXZ"()
+  //        to label %for.inc unwind label %ehcleanup
+  //
+  // for.inc:                                  ; preds = %invoke.cont1
+  //   %inc = add nuw nsw i32 %i.06, 1
+  //   %exitcond = icmp eq i32 %inc, 100
+  //   br i1 %exitcond, label %for.cond.cleanup, label %for.body
+  //
+  auto GetNormalSucc = [](BasicBlock *BB,
+                          BasicBlock *CleanupBB) -> BasicBlock* {
+    SmallPtrSet<BasicBlock *, 8> ProcessedBBs;
+    while (auto II = dyn_cast<InvokeInst>(BB->getTerminator())) {
+      if (!ProcessedBBs.insert(BB).second)
+        return nullptr;
+      if (II->getUnwindDest() != CleanupBB)
+        return nullptr;
+      BB = II->getNormalDest();
+    }
+    return BB;
+  };
+
+  if (!Options.NeedCanonicalLoop || !LoopHeaders)
+    return false;
+  for (BasicBlock *Pred : predecessors(CleanupBB)) {
+    BasicBlock *NormalSucc = GetNormalSucc(Pred, CleanupBB);
+    if (!NormalSucc)
+      return false;
+    bool BackEdgeFound = false;
+    for (BasicBlock *B : successors(NormalSucc))
+      if (LoopHeaders->count(B)) {
+        BackEdgeFound = true;
+        break;
+      }
+    if (!BackEdgeFound)
+      return false;
+  }
+  return true;
+}
+#endif // INTEL_CUSTOMIZATION
+
+bool SimplifyCFGOpt::removeEmptyCleanup(CleanupReturnInst *RI) {      // INTEL
   // If this is a trivial cleanup pad that executes no instructions, it can be
   // eliminated.  If the cleanup pad continues to the caller, any predecessor
   // that is an EH pad will be updated to continue to the caller and any
@@ -4703,6 +4798,11 @@ static bool removeEmptyCleanup(CleanupReturnInst *RI) {
   // Check that there are no other instructions except for benign intrinsics.
   if (!isCleanupBlockEmpty(CPInst, RI))
     return false;
+
+#if INTEL_CUSTOMIZATION
+  if (isDedicatedLoopExit(BB))
+    return false;
+#endif // INTEL_CUSTOMIZATION
 
   // If the cleanup return we are simplifying unwinds to the caller, this will
   // set UnwindDest to nullptr.
