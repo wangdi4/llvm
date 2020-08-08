@@ -3803,8 +3803,10 @@ class OffloadingActionBuilder final {
         auto *DeviceLinkAction =
             C.MakeAction<LinkJobAction>(LI, types::TY_Image);
         if ((*TC)->getTriple().isSPIR()) {
+          auto *PostLinkAction = C.MakeAction<SYCLPostLinkJobAction>(
+              DeviceLinkAction, types::TY_LLVM_BC);
           auto *SPIRVTranslateAction = C.MakeAction<SPIRVTranslatorJobAction>(
-              DeviceLinkAction, types::TY_Image);
+              PostLinkAction, types::TY_Image);
           DeviceLinkDeps.add(*SPIRVTranslateAction, **TC, /*BoundArch=*/nullptr,
                              Action::OFK_OpenMP);
         } else
