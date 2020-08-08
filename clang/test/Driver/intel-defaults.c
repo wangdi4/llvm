@@ -61,6 +61,21 @@
 // CHECK-INTEL-LIBS: "-ldl"
 // CHECK-INTEL-LIBS: "-Bstatic" "-lirc_s" "-Bdynamic"
 
+// RUN: touch %t.o
+// RUN: %clang -### -shared --intel -target x86_64-unknown-linux %t.o 2>&1 | FileCheck -check-prefix CHECK-INTEL-LIBS-SHARED %s
+// CHECK-INTEL-LIBS-SHARED: "-lsvml"
+// CHECK-INTEL-LIBS-SHARED: "-lirng"
+// CHECK-INTEL-LIBS-SHARED: "-lintlc"
+// CHECK-INTEL-LIBS-SHARED: "-ldl"
+// CHECK-INTEL-LIBS-SHARED: "-lirc_s"
+
+// RUN: %clang -### -shared --intel -target i386-unknown-linux %t.o 2>&1 | FileCheck -check-prefix CHECK-INTEL-LIBS-SHARED32 %s
+// CHECK-INTEL-LIBS-SHARED32: "-lsvml"
+// CHECK-INTEL-LIBS-SHARED32: "-lirng"
+// CHECK-INTEL-LIBS-SHARED32: "-lirc_pic"
+// CHECK-INTEL-LIBS-SHARED32: "-ldl"
+// CHECK-INTEL-LIBS-SHARED32: "-lirc_s"
+
 // default libs with --intel (Windows)
 // RUN: %clang_cl -### --intel -c %s 2>&1 | FileCheck -check-prefix CHECK-INTEL-LIBS-WIN %s
 // CHECK-INTEL-LIBS-WIN: "--dependent-lib=libircmt"

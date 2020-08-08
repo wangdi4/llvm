@@ -147,10 +147,12 @@
 // CHECK-SHARED-STATIC-INTEL: "-Bstatic" "-lirc" "-Bdynamic"
 
 // Behavior with -shared-intel options
-// RUN: %clang -### --intel -target x86_64-unknown-linux -static -shared-intel %s 2>&1 | FileCheck -check-prefix CHECK-INTEL-SHARED %s
-// RUN: %clang -### --intel -target x86_64-unknown-linux -shared -static -shared-intel %s 2>&1 | FileCheck -check-prefix CHECK-INTEL-SHARED %s
-// CHECK-INTEL-SHARED: "-Bdynamic" "-lsvml" "-Bstatic"
-// CHECK-INTEL-SHARED: "-Bdynamic" "-lintlc" "-Bstatic"
+// RUN: %clang -### --intel -target x86_64-unknown-linux -static -shared-intel %s 2>&1 | FileCheck -check-prefix CHECK-STATIC-INTEL-SHARED %s
+// RUN: %clang -### --intel -target x86_64-unknown-linux -shared-intel %s 2>&1 | FileCheck -check-prefix CHECK-INTEL-SHARED %s
+// CHECK-STATIC-INTEL-SHARED: "-Bdynamic" "-lsvml" "-Bstatic"
+// CHECK-STATIC-INTEL-SHARED: "-Bdynamic" "-lintlc" "-Bstatic"
+// CHECK-INTEL-SHARED: "-lsvml"
+// CHECK-INTEL-SHARED: "-lintlc"
 
 // Behavior with combination of -shared-intel and -static-intel options
 // RUN: %clang -### --intel -target x86_64-unknown-linux -static %s 2>&1 | FileCheck -check-prefix CHECK-INTEL-LIBS %s
