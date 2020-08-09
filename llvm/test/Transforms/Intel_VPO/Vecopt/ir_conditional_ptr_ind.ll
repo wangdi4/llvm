@@ -56,7 +56,7 @@ define void @foo2(i64 %N) local_unnamed_addr #0 {
 ; CHECK-NEXT:     br <External Block>
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  External Uses:
-; CHECK-NEXT:    [[LCSSA_K0:%.*]] = phi i64* [ [[K_IV_NEXT0:%.*]], [[LATCH0:%.*]] ]i64* [[VP_K_IV_IND_FINAL]] -> i64* [[K_IV_NEXT0]]
+; CHECK-NEXT:  Id: 0     [[LCSSA_K0:%.*]] = phi i64* [ [[K_IV_NEXT0:%.*]], [[LATCH0:%.*]] ] i64* [[VP_K_IV_IND_FINAL]] -> i64* [[K_IV_NEXT0]]
 ;
 entry:
   %k = alloca i64*, align 4

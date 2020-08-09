@@ -793,7 +793,6 @@ void VPOCodeGen::vectorizeInstruction(VPInstruction *VPInst) {
     }
     return;
   }
-
   case Instruction::ICmp: {
     // FIXME: Proper SVA-driven scalar ICMP codegen.
     if (!MaskValue &&
@@ -3513,9 +3512,20 @@ void VPOCodeGen::fixLiveOutValues(VPInstruction *FinalVPInst, Value *LastVal) {
   assert(isa<VPReductionFinal>(FinalVPInst) ||
          isa<VPInductionFinal>(FinalVPInst) &&
              "Only loop entity finalization instructions can be live-out.");
-  for (auto *User : FinalVPInst->users())
+  for (VPUser *User : FinalVPInst->users()) {
+    if (auto LI = dyn_cast<VPLiveOutValue>(User)) {
+      // Get VPExternalUse and restore its operand.
+      // TODO: make VPExternalUse purely descriptional, w/o operands and
+      // use VPLiveOutValue to keep them.
+      const VPExternalUse *EUse =
+          Plan->getExternals().getVPExternalUse(LI->getMergeId());
+      User = cast<VPUser>(const_cast<VPExternalUse*>(EUse));
+      User->addOperand(FinalVPInst);
+    }
     if (isa<VPExternalUse>(User)) {
       Value *ExtVal = User->getUnderlyingValue();
+      if (!ExtVal)
+        continue;
       if (auto Phi = dyn_cast<PHINode>(ExtVal)) {
         int Ndx = Phi->getBasicBlockIndex(LoopMiddleBlock);
         if (Ndx == -1)
@@ -3530,6 +3540,7 @@ void VPOCodeGen::fixLiveOutValues(VPInstruction *FinalVPInst, Value *LastVal) {
         cast<Instruction>(ExtVal)->replaceUsesOfWith(Operand, LastVal);
       }
     }
+  }
 }
 
 void VPOCodeGen::createLastValPhiAndUpdateOldStart(Value *OrigStartValue,

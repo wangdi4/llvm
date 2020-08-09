@@ -25,7 +25,7 @@ define void @test_uniform_edge_to_divergent_block() {
 ; CHECK-NEXT:  Uniform: [Shape: Uniform] i1 [[VP_VECTOR_LOOP_EXITCOND:%.*]] = icmp i64 [[VP_VECTOR_LOOP_IV_NEXT]] i64 [[VP_VECTOR_TRIP_COUNT:%.*]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Basic Block: [[BB3:BB[0-9]+]]
-; CHECK-NEXT:  Uniform: [Shape: Uniform] double [[VP_IV_IND_FINAL:%.*]] = induction-final{fadd} double -2.000000e+00 double 1.000000e+00
+; CHECK-NEXT:  Uniform: [Shape: Uniform] double [[VP_IV_IND_FINAL:%.*]] = induction-final{fadd} double live-in0 double 1.000000e+00
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Basic Block: [[BB4:BB[0-9]+]]
 ;

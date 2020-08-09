@@ -15,6 +15,8 @@ declare void @llvm.directive.region.exit(token) #2
 ; Function Attrs: nounwind uwtable
 define dso_local void @foo(i32* nocapture readonly %a, i32* nocapture %b, i32* nocapture %c, i32 %x, i32 %y) local_unnamed_addr #0 {
 ; CHECK-LABEL:  VPlan after all zero bypass insertion:
+; CHECK-NEXT:  Live-in values:
+; CHECK-NEXT:  ID: 0 Value: i64 0
 ; CHECK-NEXT:    [[BB0:BB[0-9]+]]:
 ; CHECK-NEXT:     <Empty Block>
 ; CHECK-NEXT:    SUCCESSORS(1):[[BB1:BB[0-9]+]]
@@ -22,7 +24,7 @@ define dso_local void @foo(i32* nocapture readonly %a, i32* nocapture %b, i32* n
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB1]]:
 ; CHECK-NEXT:     [DA: Div] i32* [[VP_I_LPRIV:%.*]] = allocate-priv i32*
-; CHECK-NEXT:     [DA: Div] i64 [[VP_INDVARS_IV_IND_INIT:%.*]] = induction-init{add} i64 0 i64 1
+; CHECK-NEXT:     [DA: Div] i64 [[VP_INDVARS_IV_IND_INIT:%.*]] = induction-init{add} i64 live-in0 i64 1
 ; CHECK-NEXT:     [DA: Uni] i64 [[VP_INDVARS_IV_IND_INIT_STEP:%.*]] = induction-init-step{add} i64 1
 ; CHECK-NEXT:     [DA: Uni] i64 [[VP_VF:%.*]] = induction-init-step{add} i64 1
 ; CHECK-NEXT:     [DA: Uni] i64 [[VP_ORIG_TRIP_COUNT:%.*]] = orig-trip-count for original loop omp.inner.for.body
@@ -53,7 +55,7 @@ define dso_local void @foo(i32* nocapture readonly %a, i32* nocapture %b, i32* n
 ; CHECK-NEXT:      PREDECESSORS(1): all.zero.bypass.begin27
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB5]]:
-; CHECK-NEXT:       [DA: Div] i32 [[VP2:%.*]] = phi  [ i32 [[VP0]], [[BB4]] ],  [ i32 [[VP__PRE_SSA_PHI_BLEND_BB7:%.*]], [[BB6:BB[0-9]+]] ]
+; CHECK-NEXT:       [DA: Div] i32 [[VP2:%.*]] = phi  [ i32 [[VP0]], [[BB4]] ],  [ i32 [[VP__PRE_SSA_PHI_BLEND_BB13:%.*]], [[BB6:BB[0-9]+]] ]
 ; CHECK-NEXT:       [DA: Div] i32 [[VP_STOREMERGE28:%.*]] = phi  [ i32 [[VP0]], [[BB4]] ],  [ i32 [[VP_INC:%.*]], [[BB6]] ]
 ; CHECK-NEXT:       [DA: Div] i1 [[VP_LOOP_MASK:%.*]] = phi  [ i1 [[VP_CMP127]], [[BB4]] ],  [ i1 [[VP_LOOP_MASK_NEXT:%.*]], [[BB6]] ]
 ; CHECK-NEXT:       [DA: Div] i1 [[VP3:%.*]] = block-predicate i1 [[VP_CMP127]]
@@ -91,8 +93,8 @@ define dso_local void @foo(i32* nocapture readonly %a, i32* nocapture %b, i32* n
 ; CHECK-NEXT:      PREDECESSORS(1): [[BB10]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB12]]:
-; CHECK-NEXT:       [DA: Div] i1 [[VP_BB9_BR_VP_SWITCHLEAF31_NOT:%.*]] = and i1 [[VP_BB6_BR_VP_PIVOT_NOT]] i1 [[VP_SWITCHLEAF31_NOT]]
-; CHECK-NEXT:       [DA: Div] i1 [[VP_BB9_BR_VP_SWITCHLEAF31:%.*]] = and i1 [[VP_BB6_BR_VP_PIVOT_NOT]] i1 [[VP_SWITCHLEAF31]]
+; CHECK-NEXT:       [DA: Div] i1 [[VP_BB8_BR_VP_SWITCHLEAF31_NOT:%.*]] = and i1 [[VP_BB6_BR_VP_PIVOT_NOT]] i1 [[VP_SWITCHLEAF31_NOT]]
+; CHECK-NEXT:       [DA: Div] i1 [[VP_BB8_BR_VP_SWITCHLEAF31:%.*]] = and i1 [[VP_BB6_BR_VP_PIVOT_NOT]] i1 [[VP_SWITCHLEAF31]]
 ; CHECK-NEXT:      SUCCESSORS(1):[[BB13:BB[0-9]+]]
 ; CHECK-NEXT:      PREDECESSORS(1): [[BB11]]
 ; CHECK-EMPTY:
@@ -104,19 +106,19 @@ define dso_local void @foo(i32* nocapture readonly %a, i32* nocapture %b, i32* n
 ; CHECK-NEXT:      PREDECESSORS(1): [[BB12]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB14]]:
-; CHECK-NEXT:       [DA: Div] i1 [[VP_BB8_BR_VP_SWITCHLEAF_NOT:%.*]] = and i1 [[VP_BB6_BR_VP_PIVOT]] i1 [[VP_SWITCHLEAF_NOT]]
-; CHECK-NEXT:       [DA: Div] i1 [[VP_BB8_BR_VP_SWITCHLEAF:%.*]] = and i1 [[VP_BB6_BR_VP_PIVOT]] i1 [[VP_SWITCHLEAF]]
+; CHECK-NEXT:       [DA: Div] i1 [[VP_BB7_BR_VP_SWITCHLEAF_NOT:%.*]] = and i1 [[VP_BB6_BR_VP_PIVOT]] i1 [[VP_SWITCHLEAF_NOT]]
+; CHECK-NEXT:       [DA: Div] i1 [[VP_BB7_BR_VP_SWITCHLEAF:%.*]] = and i1 [[VP_BB6_BR_VP_PIVOT]] i1 [[VP_SWITCHLEAF]]
 ; CHECK-NEXT:      SUCCESSORS(1):[[BB15:BB[0-9]+]]
 ; CHECK-NEXT:      PREDECESSORS(1): [[BB13]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB15]]:
-; CHECK-NEXT:       [DA: Div] i1 [[VP8:%.*]] = or i1 [[VP_BB9_BR_VP_SWITCHLEAF31_NOT]] i1 [[VP_BB8_BR_VP_SWITCHLEAF_NOT]]
+; CHECK-NEXT:       [DA: Div] i1 [[VP8:%.*]] = or i1 [[VP_BB8_BR_VP_SWITCHLEAF31_NOT]] i1 [[VP_BB7_BR_VP_SWITCHLEAF_NOT]]
 ; CHECK-NEXT:       [DA: Div] i1 [[VP9:%.*]] = block-predicate i1 [[VP8]]
 ; CHECK-NEXT:      SUCCESSORS(1):[[BB16:BB[0-9]+]]
 ; CHECK-NEXT:      PREDECESSORS(1): [[BB14]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB16]]:
-; CHECK-NEXT:       [DA: Div] i1 [[VP10:%.*]] = or i1 [[VP_BB9_BR_VP_SWITCHLEAF31]] i1 [[VP_BB8_BR_VP_SWITCHLEAF]]
+; CHECK-NEXT:       [DA: Div] i1 [[VP10:%.*]] = or i1 [[VP_BB8_BR_VP_SWITCHLEAF31]] i1 [[VP_BB7_BR_VP_SWITCHLEAF]]
 ; CHECK-NEXT:       [DA: Div] i1 [[VP11:%.*]] = block-predicate i1 [[VP10]]
 ; CHECK-NEXT:       [DA: Div] store i32 [[SUB0:%.*]] i32* [[VP_ARRAYIDX9]]
 ; CHECK-NEXT:      SUCCESSORS(1):[[BB17:BB[0-9]+]]
@@ -132,26 +134,26 @@ define dso_local void @foo(i32* nocapture readonly %a, i32* nocapture %b, i32* n
 ; CHECK-NEXT:      PREDECESSORS(1): [[BB16]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB18]]:
-; CHECK-NEXT:       [DA: Div] i1 [[VP_BB12_BR_VP_EXITCOND_NOT:%.*]] = and i1 [[VP_BB5_BR_VP_LOOP_MASK]] i1 [[VP_EXITCOND_NOT]]
+; CHECK-NEXT:       [DA: Div] i1 [[VP_BB11_BR_VP_EXITCOND_NOT:%.*]] = and i1 [[VP_BB5_BR_VP_LOOP_MASK]] i1 [[VP_EXITCOND_NOT]]
 ; CHECK-NEXT:      SUCCESSORS(1):[[BB19:BB[0-9]+]]
 ; CHECK-NEXT:      PREDECESSORS(1): [[BB17]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB19]]:
-; CHECK-NEXT:       [DA: Div] i1 [[VP13:%.*]] = block-predicate i1 [[VP_BB12_BR_VP_EXITCOND_NOT]]
+; CHECK-NEXT:       [DA: Div] i1 [[VP13:%.*]] = block-predicate i1 [[VP_BB11_BR_VP_EXITCOND_NOT]]
 ; CHECK-NEXT:       [DA: Div] i32 [[VP__PRE:%.*]] = load i32* [[VP_ARRAYIDX]]
 ; CHECK-NEXT:      SUCCESSORS(1):[[NEW_LOOP_LATCH0:new.loop.latch[0-9]+]]
 ; CHECK-NEXT:      PREDECESSORS(1): [[BB18]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[NEW_LOOP_LATCH0]]:
-; CHECK-NEXT:       [DA: Div] i32 [[VP__PRE_SSA_PHI_BLEND_BB7]] = blend [ i32 undef, i1 [[VP_BB5_BR_VP_LOOP_MASK]] ], [ i32 [[VP__PRE]], i1 [[VP_BB12_BR_VP_EXITCOND_NOT]] ]
-; CHECK-NEXT:       [DA: Div] i1 [[VP_TAKEBACKEDGECOND_BLEND_BB7:%.*]] = blend [ i1 false, i1 [[VP_BB5_BR_VP_LOOP_MASK]] ], [ i1 true, i1 [[VP_BB12_BR_VP_EXITCOND_NOT]] ]
+; CHECK-NEXT:       [DA: Div] i32 [[VP__PRE_SSA_PHI_BLEND_BB13]] = blend [ i32 undef, i1 [[VP_BB5_BR_VP_LOOP_MASK]] ], [ i32 [[VP__PRE]], i1 [[VP_BB11_BR_VP_EXITCOND_NOT]] ]
+; CHECK-NEXT:       [DA: Div] i1 [[VP_TAKEBACKEDGECOND_BLEND_BB13:%.*]] = blend [ i1 false, i1 [[VP_BB5_BR_VP_LOOP_MASK]] ], [ i1 true, i1 [[VP_BB11_BR_VP_EXITCOND_NOT]] ]
 ; CHECK-NEXT:       [DA: Div] i1 [[VP14:%.*]] = block-predicate i1 [[VP_BB5_BR_VP_LOOP_MASK]]
 ; CHECK-NEXT:      SUCCESSORS(1):[[BB6]]
 ; CHECK-NEXT:      PREDECESSORS(1): [[BB19]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB6]]:
 ; CHECK-NEXT:       [DA: Div] i1 [[VP15:%.*]] = block-predicate i1 [[VP_CMP127]]
-; CHECK-NEXT:       [DA: Div] i1 [[VP_LOOP_MASK_NEXT]] = and i1 [[VP_TAKEBACKEDGECOND_BLEND_BB7]] i1 [[VP_LOOP_MASK]]
+; CHECK-NEXT:       [DA: Div] i1 [[VP_LOOP_MASK_NEXT]] = and i1 [[VP_TAKEBACKEDGECOND_BLEND_BB13]] i1 [[VP_LOOP_MASK]]
 ; CHECK-NEXT:       [DA: Uni] i1 [[VP16:%.*]] = all-zero-check i1 [[VP_LOOP_MASK_NEXT]]
 ; CHECK-NEXT:      SUCCESSORS(2):[[BB20:BB[0-9]+]](i1 [[VP16]]), [[BB5]](!i1 [[VP16]])
 ; CHECK-NEXT:      PREDECESSORS(1): [[NEW_LOOP_LATCH0]]
@@ -174,7 +176,7 @@ define dso_local void @foo(i32* nocapture readonly %a, i32* nocapture %b, i32* n
 ; CHECK-NEXT:    PREDECESSORS(1): all.zero.bypass.end29
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB21]]:
-; CHECK-NEXT:     [DA: Uni] i64 [[VP_INDVARS_IV_IND_FINAL:%.*]] = induction-final{add} i64 0 i64 1
+; CHECK-NEXT:     [DA: Uni] i64 [[VP_INDVARS_IV_IND_FINAL:%.*]] = induction-final{add} i64 live-in0 i64 1
 ; CHECK-NEXT:    SUCCESSORS(1):[[BB22:BB[0-9]+]]
 ; CHECK-NEXT:    PREDECESSORS(1): [[BB3]]
 ; CHECK-EMPTY:
@@ -182,6 +184,9 @@ define dso_local void @foo(i32* nocapture readonly %a, i32* nocapture %b, i32* n
 ; CHECK-NEXT:     <Empty Block>
 ; CHECK-NEXT:    no SUCCESSORS
 ; CHECK-NEXT:    PREDECESSORS(1): [[BB21]]
+; CHECK-EMPTY:
+; CHECK-NEXT:  External Uses:
+; CHECK-NEXT:  Id: 0   no underlying for i64 [[VP_INDVARS_IV_IND_FINAL]]
 ;
 omp.inner.for.body.lr.ph:
   %i.lpriv = alloca i32, align 4

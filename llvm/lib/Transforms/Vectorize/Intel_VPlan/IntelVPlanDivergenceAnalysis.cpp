@@ -589,7 +589,8 @@ void VPlanDivergenceAnalysis::computeImpl() {
 }
 
 bool VPlanDivergenceAnalysis::isAlwaysUniform(const VPValue &V) const {
-  if (isa<VPMetadataAsValue>(V) || isa<VPConstant>(V) || isa<VPExternalDef>(V))
+  if (isa<VPMetadataAsValue>(V) || isa<VPConstant>(V) ||
+      isa<VPExternalDef>(V) || isa<VPLiveInValue>(V))
     return true;
 
   // TODO: We have a choice on how to handle functions such as get_global_id().
@@ -1292,8 +1293,8 @@ VPVectorShape VPlanDivergenceAnalysis::computeVectorShapeForInductionInit(
     // This could be a VPExternalDef (a non-constant value), i.e., a
     // variable step IV. We should set the shape to be random if we
     // cannot infer the step-size.
-    assert(isa<VPExternalDef>(Step) &&
-           "Expect the non-constant to be VPExternalDef.");
+    assert((isa<VPExternalDef>(Step) || isa<VPLiveInValue>(Step)) &&
+           "Expect the non-constant to be VPExternalDef or VPLiveInValue.");
     return getRandomVectorShape();
   }
 
