@@ -543,3 +543,9 @@
 // CHECK-QOPENMP-STUBS: "-liompstubs5"
 // CHECK-QOPENMP-STUBS-NOT: "-lpthread"
 // CHECK-QOPENMP-STUBS-WIN: "-defaultlib:libiompstubs5md.lib"
+
+// -Zp support (Linux)
+// RUN: %clang -Zp -### -c %s 2>&1 | FileCheck -check-prefix=ZP %s
+// ZP: "-fpack-struct=1"
+// RUN: %clang -Zp2 -c -### -c %s 2>&1 | FileCheck -check-prefix=ZP2 %s
+// ZP2: "-fpack-struct=2"

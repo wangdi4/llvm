@@ -3271,6 +3271,8 @@ def unroll_EQ : Joined<["-"], "unroll=">, Alias<unroll>;
 def vec : Flag<["-"], "vec">, Alias<fvectorize>,
   HelpText<"Enable the loop vectorization passes">;
 def no_vec : Flag<["-"], "no-vec">, Alias<fno_vectorize>;
+def Zp : Flag<["-"], "Zp">, Alias<fpack_struct_EQ>, AliasArgs<["1"]>;
+def Zp_EQ : Joined<["-"], "Zp">, Alias<fpack_struct_EQ>;
 #endif // INTEL_CUSTOMIZATION
 def verify_debug_info : Flag<["--"], "verify-debug-info">, Flags<[DriverOption]>,
   HelpText<"Verify the binary representation of debug output">;
