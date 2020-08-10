@@ -1,6 +1,6 @@
 //===------- Intel_PartialInline.cpp - Intel Partial Inlining      -*------===//
 //
-// Copyright (C) 2019 Intel Corporation. All rights reserved.
+// Copyright (C) 2019-2020 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -27,7 +27,7 @@
 //  br i1 %11, label %4, label %12
 //
 // ; <label>:12:
-//  %13 = phi i1 [ true, %2 ], [ %6, %4 ]
+//  ...
 //  ret i1 %14
 // }
 //
@@ -143,7 +143,7 @@ using namespace InlineReportTypes;
 #define DEBUG_TYPE "intel_partialinline"
 
 // Limit the number of functions that will be partially inlined by this pass
-static cl::opt<unsigned> IntelPIMaxFuncs("intel-pi-max-funcs", cl::init(4),
+static cl::opt<unsigned> IntelPIMaxFuncs("intel-pi-max-funcs", cl::init(5),
                                          cl::ReallyHidden);
 
 // Enable the optimization for testing purposes
@@ -301,7 +301,7 @@ FunctionCloner::FunctionCloner(Module &Mod, LoopInfoFuncType &LoopInfoFunc,
 //  br i1 %11, label %4, label %12
 //
 // ; <label>:12:
-//  %13 = phi i1 [ true, %2 ], [ %6, %4 ]
+//  ...
 //  ret i1 %14
 // }
 //
@@ -542,7 +542,7 @@ Function *FunctionCloner::createClone(
 //  br i1 %11, label %4, label %12
 //
 // ; <label>:12:
-//  %13 = phi i1 [ true, %2 ], [ $6, %4 ]
+//  ...
 //  ret i1 %14
 // }
 //
