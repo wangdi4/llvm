@@ -1943,8 +1943,9 @@ public:
     // Record VF for which new vectorization scenario and properties will be
     // recorded.
     VecProperties.VF = NewVF;
-    // DoNotWiden is used only for kernel uniform calls today i.e. the property
-    // is not VF-dependent. Hence it need not be reset here.
+    // DoNotWiden is used for kernel uniform calls and for uniform calls without
+    // side-effects today i.e. the property is not VF-dependent. Hence it need
+    // not be reset here.
     if (VecScenario == CallVecScenarios::DoNotWiden)
       return;
 
@@ -1998,6 +1999,12 @@ public:
            "Inconsistent scenario update.");
     VecScenario = CallVecScenarios::TrivialVectorIntrinsic;
     VecProperties.VectorIntrinsic = VectorInrinID;
+  }
+  // Scenario 5 : Call should not be widened in outgoing IR.
+  void setShouldNotBeWidened() {
+    assert(VecScenario == CallVecScenarios::Undefined &&
+           "Inconsistent scenario update.");
+    VecScenario = CallVecScenarios::DoNotWiden;
   }
 
   /// Get decision about how call will be handled by vectorizer.

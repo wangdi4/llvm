@@ -125,9 +125,24 @@ void VPlanCallVecDecisions::analyzeCall(VPCallInstruction *VPCall, unsigned VF,
     return;
   }
 
-  // 9. All other cases implies default properties i.e. call serialization.
-  // TODO: Deterministic function calls with no side effects that operate on
+  // 9.  Deterministic function calls with no side effects that operate on
   // uniform operands need to be marked as DoNotWiden.
+  if (!Plan.getVPlanDA()->isDivergent(*VPCall) &&
+      !VPCall->mayHaveSideEffects()) {
+    // NOTE: If assert is triggered, it implies that DA has been updated to
+    // allow non-uniform operands for uniform call. This would require some
+    // additional updates to handling of different cases in this analysis
+    // (potentially having to introduce a new VecScenario).
+    assert(llvm::all_of(VPCall->arg_operands(),
+                        [this](VPValue *V) {
+                          return !Plan.getVPlanDA()->isDivergent(*V);
+                        }) &&
+           "Operands of call are not uniform.");
+    VPCall->setShouldNotBeWidened();
+    return;
+  }
+
+  // 10. All other cases implies default properties i.e. call serialization.
   VPCall->setShouldBeSerialized();
   // TODO:
   // 1. OpenCLReadChannel/OpenCLWriteChannel calls?

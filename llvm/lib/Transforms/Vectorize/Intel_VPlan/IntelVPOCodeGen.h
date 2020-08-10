@@ -233,10 +233,11 @@ private:
   //
   void serializePredicatedUniformInstruction(VPInstruction *VPInst);
 
-  /// Specialized method for kernel-convergent and kernel-uniform call
-  /// Generates single call instruction predicated by a not all-zero check
-  /// of the current mask value.
-  void processPredicatedKernelConvergentUniformCall(VPInstruction *VPInst);
+  /// Specialized method to handle uniform calls that are not widened during CG,
+  /// for example kernel-convergent and kernel-uniform call and uniform call
+  /// with no side-effects. Generates single call instruction predicated by a
+  /// not all-zero check of the current mask value.
+  void processPredicatedNonWidenedUniformCall(VPInstruction *VPInst);
 
   /// Predicate conditional instructions that require predication on their
   /// respective conditions.

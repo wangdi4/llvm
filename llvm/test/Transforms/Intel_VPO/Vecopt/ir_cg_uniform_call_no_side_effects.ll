@@ -5,8 +5,7 @@
 ; RUN: opt -VPlanDriver -vplan-print-scalvec-results -S -vplan-force-vf=2 %s | FileCheck %s
 
 ; Check results from VPCallVecDecisions.
-; FIXME: Call should be marked as DoNotWiden instead.
-; CHECK: [DA: Uni, SVA: ( V )] i64 [[VPCALL:%vp.*]] = call i32 0 i64 (i32)* @uniform_call [Serial] (SVAOpBits 0->V 1->F )
+; CHECK: [DA: Uni, SVA: (F  )] i64 [[VPCALL:%vp.*]] = call i32 0 i64 (i32)* @uniform_call (SVAOpBits 0->F 1->F )
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-pc-linux"
@@ -17,58 +16,47 @@ declare i64 @uniform_call(i32) local_unnamed_addr #1
 define void @_ZGVeN2u_testKernel(i64 addrspace(1)* noalias %results) local_unnamed_addr {
 ; CHECK-LABEL: @_ZGVeN2u_testKernel(
 ; CHECK:       vector.body:
-; CHECK-NEXT:    [[UNI_PHI:%.*]] = phi i64 [ 0, [[VECTOR_PH:%.*]] ], [ [[TMP17:%.*]], [[PRED_STORE_CONTINUE14:%.*]] ]
-; CHECK-NEXT:    [[UNI_PHI1:%.*]] = phi i64 [ 0, [[VECTOR_PH]] ], [ [[TMP16:%.*]], [[PRED_STORE_CONTINUE14]] ]
-; CHECK-NEXT:    [[VEC_PHI:%.*]] = phi <2 x i64> [ <i64 0, i64 1>, [[VECTOR_PH]] ], [ [[TMP15:%.*]], [[PRED_STORE_CONTINUE14]] ]
+; CHECK-NEXT:    [[UNI_PHI:%.*]] = phi i64 [ 0, [[VECTOR_PH:%.*]] ], [ [[TMP14:%.*]], [[PRED_STORE_CONTINUE10:%.*]] ]
+; CHECK-NEXT:    [[UNI_PHI1:%.*]] = phi i64 [ 0, [[VECTOR_PH]] ], [ [[TMP13:%.*]], [[PRED_STORE_CONTINUE10]] ]
+; CHECK-NEXT:    [[VEC_PHI:%.*]] = phi <2 x i64> [ <i64 0, i64 1>, [[VECTOR_PH]] ], [ [[TMP12:%.*]], [[PRED_STORE_CONTINUE10]] ]
 ; CHECK-NEXT:    [[TMP0:%.*]] = add nuw <2 x i64> [[VEC_PHI]], [[BROADCAST_SPLAT:%.*]]
 ; CHECK-NEXT:    [[TMP1:%.*]] = icmp eq <2 x i64> [[TMP0]], [[BROADCAST_SPLAT3:%.*]]
-; CHECK-NEXT:    [[PREDICATE:%.*]] = extractelement <2 x i1> [[TMP1]], i64 0
-; CHECK-NEXT:    [[TMP2:%.*]] = icmp eq i1 [[PREDICATE]], true
-; CHECK-NEXT:    br i1 [[TMP2]], label [[PRED_CALL_IF:%.*]], label [[TMP4:%.*]]
-; FIXME: Call should be kept as single scalar copy instead of serialization for all lanes.
+; CHECK-NEXT:    [[TMP2:%.*]] = bitcast <2 x i1> [[TMP1]] to i2
+; CHECK-NEXT:    [[TMP3:%.*]] = icmp ne i2 [[TMP2]], 0
+; CHECK-NEXT:    br i1 [[TMP3]], label [[PRED_CALL_IF:%.*]], label [[TMP5:%.*]]
 ; CHECK:       pred.call.if:
-; CHECK-NEXT:    [[TMP3:%.*]] = call i64 @uniform_call(i32 0)
-; CHECK-NEXT:    br label [[TMP4]]
-; CHECK:       4:
-; CHECK-NEXT:    [[TMP5:%.*]] = phi i64 [ undef, [[VECTOR_BODY:%.*]] ], [ [[TMP3]], [[PRED_CALL_IF]] ]
+; CHECK-NEXT:    [[TMP4:%.*]] = call i64 @uniform_call(i32 0)
+; CHECK-NEXT:    br label [[TMP5]]
+; CHECK:       5:
+; CHECK-NEXT:    [[TMP6:%.*]] = phi i64 [ undef, [[VECTOR_BODY:%.*]] ], [ [[TMP4]], [[PRED_CALL_IF]] ]
 ; CHECK-NEXT:    br label [[PRED_CALL_CONTINUE:%.*]]
 ; CHECK:       pred.call.continue:
-; CHECK-NEXT:    [[BROADCAST_SPLATINSERT7:%.*]] = insertelement <2 x i64> undef, i64 [[TMP5]], i32 0
-; CHECK-NEXT:    [[BROADCAST_SPLAT8:%.*]] = shufflevector <2 x i64> [[BROADCAST_SPLATINSERT7]], <2 x i64> undef, <2 x i32> zeroinitializer
-; CHECK-NEXT:    [[PREDICATE4:%.*]] = extractelement <2 x i1> [[TMP1]], i64 1
-; CHECK-NEXT:    [[TMP6:%.*]] = icmp eq i1 [[PREDICATE4]], true
-; CHECK-NEXT:    br i1 [[TMP6]], label [[PRED_CALL_IF11:%.*]], label [[TMP8:%.*]]
-; CHECK:       pred.call.if11:
-; CHECK-NEXT:    [[TMP7:%.*]] = call i64 @uniform_call(i32 0)
-; CHECK-NEXT:    br label [[TMP8]]
-; CHECK:       8:
-; CHECK-NEXT:    [[TMP9:%.*]] = phi i64 [ undef, [[PRED_CALL_CONTINUE]] ], [ [[TMP7]], [[PRED_CALL_IF11]] ]
-; CHECK-NEXT:    br label [[PRED_CALL_CONTINUE12:%.*]]
-; CHECK:       pred.call.continue12:
-; CHECK-NEXT:    [[TMP10:%.*]] = add i64 [[TMP5]], [[GID:%.*]]
-; CHECK-NEXT:    [[PREDICATE5:%.*]] = extractelement <2 x i1> [[TMP1]], i64 0
-; CHECK-NEXT:    [[TMP11:%.*]] = icmp eq i1 [[PREDICATE5]], true
-; CHECK-NEXT:    br i1 [[TMP11]], label [[PRED_STORE_IF:%.*]], label [[TMP12:%.*]]
+; CHECK-NEXT:    [[BROADCAST_SPLATINSERT5:%.*]] = insertelement <2 x i64> undef, i64 [[TMP6]], i32 0
+; CHECK-NEXT:    [[BROADCAST_SPLAT6:%.*]] = shufflevector <2 x i64> [[BROADCAST_SPLATINSERT5]], <2 x i64> undef, <2 x i32> zeroinitializer
+; CHECK-NEXT:    [[TMP7:%.*]] = add i64 [[TMP6]], [[GID:%.*]]
+; CHECK-NEXT:    [[PREDICATE:%.*]] = extractelement <2 x i1> [[TMP1]], i64 0
+; CHECK-NEXT:    [[TMP8:%.*]] = icmp eq i1 [[PREDICATE]], true
+; CHECK-NEXT:    br i1 [[TMP8]], label [[PRED_STORE_IF:%.*]], label [[TMP9:%.*]]
 ; CHECK:       pred.store.if:
-; CHECK-NEXT:    store volatile i64 [[TMP5]], i64 addrspace(1)* [[RESULTS:%.*]], align 8
-; CHECK-NEXT:    br label [[TMP12]]
-; CHECK:       12:
+; CHECK-NEXT:    store volatile i64 [[TMP6]], i64 addrspace(1)* [[RESULTS:%.*]], align 8
+; CHECK-NEXT:    br label [[TMP9]]
+; CHECK:       9:
 ; CHECK-NEXT:    br label [[PRED_STORE_CONTINUE:%.*]]
 ; CHECK:       pred.store.continue:
-; CHECK-NEXT:    [[PREDICATE6:%.*]] = extractelement <2 x i1> [[TMP1]], i64 1
-; CHECK-NEXT:    [[TMP13:%.*]] = icmp eq i1 [[PREDICATE6]], true
-; CHECK-NEXT:    br i1 [[TMP13]], label [[PRED_STORE_IF13:%.*]], label [[TMP14:%.*]]
-; CHECK:       pred.store.if13:
-; CHECK-NEXT:    store volatile i64 [[TMP5]], i64 addrspace(1)* [[RESULTS]], align 8
-; CHECK-NEXT:    br label [[TMP14]]
-; CHECK:       14:
-; CHECK-NEXT:    br label [[PRED_STORE_CONTINUE14]]
-; CHECK:       pred.store.continue14:
-; CHECK-NEXT:    call void @llvm.masked.scatter.v2i64.v2p1i64(<2 x i64> [[BROADCAST_SPLAT8]], <2 x i64 addrspace(1)*> [[BROADCAST_SPLAT10:%.*]], i32 8, <2 x i1> [[TMP1]])
-; CHECK-NEXT:    [[TMP15]] = add nuw <2 x i64> [[VEC_PHI]], <i64 2, i64 2>
-; CHECK-NEXT:    [[TMP16]] = add nuw i64 [[UNI_PHI1]], 2
-; CHECK-NEXT:    [[TMP17]] = add i64 [[UNI_PHI]], 2
-; CHECK-NEXT:    [[TMP18:%.*]] = icmp ne i64 [[TMP17]], 2
+; CHECK-NEXT:    [[PREDICATE4:%.*]] = extractelement <2 x i1> [[TMP1]], i64 1
+; CHECK-NEXT:    [[TMP10:%.*]] = icmp eq i1 [[PREDICATE4]], true
+; CHECK-NEXT:    br i1 [[TMP10]], label [[PRED_STORE_IF9:%.*]], label [[TMP11:%.*]]
+; CHECK:       pred.store.if9:
+; CHECK-NEXT:    store volatile i64 [[TMP6]], i64 addrspace(1)* [[RESULTS]], align 8
+; CHECK-NEXT:    br label [[TMP11]]
+; CHECK:       11:
+; CHECK-NEXT:    br label [[PRED_STORE_CONTINUE10]]
+; CHECK:       pred.store.continue10:
+; CHECK-NEXT:    call void @llvm.masked.scatter.v2i64.v2p1i64(<2 x i64> [[BROADCAST_SPLAT6]], <2 x i64 addrspace(1)*> [[BROADCAST_SPLAT8:%.*]], i32 8, <2 x i1> [[TMP1]])
+; CHECK-NEXT:    [[TMP12]] = add nuw <2 x i64> [[VEC_PHI]], <i64 2, i64 2>
+; CHECK-NEXT:    [[TMP13]] = add nuw i64 [[UNI_PHI1]], 2
+; CHECK-NEXT:    [[TMP14]] = add i64 [[UNI_PHI]], 2
+; CHECK-NEXT:    [[TMP15:%.*]] = icmp ne i64 [[TMP14]], 2
 ; CHECK-NEXT:    br i1 false, label [[VECTOR_BODY]], label [[VPLANNEDBB:%.*]], !llvm.loop !0
 ;
 entry:

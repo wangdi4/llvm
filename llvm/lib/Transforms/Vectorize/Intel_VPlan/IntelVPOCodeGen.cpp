@@ -902,11 +902,11 @@ void VPOCodeGen::vectorizeInstruction(VPInstruction *VPInst) {
 
     switch (VPCall->getVectorizationScenario()) {
     case VPCallInstruction::CallVecScenariosTy::DoNotWiden: {
-      // Currently only kernel convergent uniform calls are strictly marked to
-      // be not widened.
+      // Currently only kernel convergent uniform calls and uniform calls
+      // without side-effects are strictly marked to be not widened.
       // TODO: this case must be handled via VPlan to VPlan bypass
       // infrastructure.
-      processPredicatedKernelConvergentUniformCall(VPCall);
+      processPredicatedNonWidenedUniformCall(VPCall);
       return;
     }
     case VPCallInstruction::CallVecScenariosTy::LibraryFunc: {
@@ -3056,8 +3056,7 @@ void VPOCodeGen::vectorizeShuffle(VPInstruction *VPInst) {
   llvm_unreachable("Unsupported shuffle");
 }
 
-void VPOCodeGen::processPredicatedKernelConvergentUniformCall(
-                     VPInstruction *VPInst) {
+void VPOCodeGen::processPredicatedNonWidenedUniformCall(VPInstruction *VPInst) {
   if (MaskValue)
     return serializePredicatedUniformInstruction(VPInst);
 
