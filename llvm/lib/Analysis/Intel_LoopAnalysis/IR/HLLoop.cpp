@@ -254,7 +254,7 @@ void HLLoop::printDetails(formatted_raw_ostream &OS, unsigned Depth,
   OS << "+ Innermost: " << (isInnermost() ? "Yes\n" : "No\n");
 
   indent(OS, Depth);
-  OS << "+ NSW: " << (hasSignedIV() ? "Yes\n" : "No\n");
+  OS << "+ HasSignedIV: " << (hasSignedIV() ? "Yes\n" : "No\n");
 
   bool First = true;
 

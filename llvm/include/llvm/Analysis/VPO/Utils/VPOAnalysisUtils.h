@@ -229,7 +229,7 @@ public:
   bool getIsMapAggr() const { return IsMapAggr; }
   bool getIsMapChainLink() const { return IsMapChainLink; }
 #if INTEL_CUSTOMIZATION
-  void setIsF90DopeVector() {IsF90DopeVector = true; }
+  void setIsF90DopeVector(bool Flag = true) {IsF90DopeVector = Flag; }
   bool getIsF90DopeVector() const { return IsF90DopeVector; }
   void setIsWILocal() { IsWILocal = true; }
   bool getIsWILocal() const { return IsWILocal; }

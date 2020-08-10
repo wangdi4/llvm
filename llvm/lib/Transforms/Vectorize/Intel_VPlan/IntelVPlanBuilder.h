@@ -348,9 +348,9 @@ public:
 
   // Reduction init/final
   VPInstruction *createReductionInit(VPValue *Identity, VPValue *Start,
-                                     const Twine &Name = "") {
+                                     bool UseStart, const Twine &Name = "") {
     VPInstruction *NewVPInst = Start ? new VPReductionInit(Identity, Start)
-                                     : new VPReductionInit(Identity);
+                                     : new VPReductionInit(Identity, UseStart);
     NewVPInst->setName(Name);
     insert(NewVPInst);
     return NewVPInst;

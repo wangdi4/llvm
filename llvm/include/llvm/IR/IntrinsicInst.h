@@ -945,6 +945,39 @@ public:
     /// @}
   };
 
+  class ForCpyStrInst : public IntrinsicInst {
+  private:
+    enum { ARG_DEST = 0, ARG_DESTLEN, ARG_SRC, ARG_SRCLEN, ARG_PADDING };
+
+  public:
+    Value *getDest() const {
+      return const_cast<Value *>(getArgOperand(ARG_DEST));
+    }
+    Value *getDestLength() const {
+      return const_cast<Value *>(getArgOperand(ARG_DESTLEN));
+    }
+    MaybeAlign getDestAlign() const { return getParamAlign(ARG_DEST); }
+
+    Value *getSource() const {
+      return const_cast<Value *>(getArgOperand(ARG_SRC));
+    }
+    Value *getSourceLength() const {
+      return const_cast<Value *>(getArgOperand(ARG_SRCLEN));
+    }
+    MaybeAlign getSourceAlign() const { return getParamAlign(ARG_SRC); }
+
+    Value *getPadding() const {
+      return const_cast<Value *>(getArgOperand(ARG_PADDING));
+    }
+
+    static bool classof(const IntrinsicInst *I) {
+      return I->getIntrinsicID() == Intrinsic::for_cpystr;
+    }
+    static bool classof(const Value *V) {
+      return isa<IntrinsicInst>(V) && classof(cast<IntrinsicInst>(V));
+    }
+  };
+
 #endif // INTEL_CUSTOMIZATION
 
 /// This represents the llvm.va_start intrinsic.

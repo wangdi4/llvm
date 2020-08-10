@@ -84,8 +84,153 @@ void VPExternalValues::verifyVPMetadataAsValues() const {
   }
 }
 
+template <class InitTy, class FinalTy, class EntityTy>
+static std::tuple<InitTy *, FinalTy *, VPExternalUse *>
+getInitFinal(EntityTy *E) {
+  InitTy *Init = nullptr;
+  FinalTy *Final = nullptr;
+  VPExternalUse *FinalExternalUse = nullptr;
+
+  auto findExtUser = [](VPInstruction *I) -> VPExternalUse * {
+    auto Iter = llvm::find_if(I->users(),
+                              [](VPUser *U) { return isa<VPExternalUse>(U); });
+    if (Iter == I->user_end())
+      return nullptr;
+    else
+      return cast<VPExternalUse>(*Iter);
+  };
+
+  for (VPValue *Val : E->getLinkedVPValues()) {
+    if (!Init)
+      Init = dyn_cast<InitTy>(Val);
+    if (!Final)
+      if (Final = dyn_cast<FinalTy>(Val))
+        FinalExternalUse = findExtUser(Final);
+  }
+  return std::make_tuple(Init, Final, FinalExternalUse);
+}
+
+void VPLiveInOutCreator::createInOutsInductions(
+    const VPLoopEntityList *VPLEntityList) {
+
+  VPExternalValues &ExtVals = Plan.getExternals();
+
+  for (auto *Ind : VPLEntityList->vpinductions()) {
+    if (Ind->getIsMemOnly())
+      continue;
+    VPInductionInit *IndInit;
+    VPInductionFinal *IndFinal;
+    VPExternalUse *IndFinalExternalUse;
+    std::tie(IndInit, IndFinal, IndFinalExternalUse) =
+        getInitFinal<VPInductionInit, VPInductionFinal, VPInduction>(Ind);
+    assert((IndInit && IndFinal) && "Expected non-null init, final");
+    bool NeedAddExtUse = IndFinalExternalUse == nullptr;
+    // Inductions should always have outgoing value
+    if (NeedAddExtUse) {
+      IndFinalExternalUse = ExtVals.createVPExternalUseNoIR(IndInit->getType());
+      IndFinalExternalUse->addOperand(IndFinal);
+    }
+
+    // Create live-in/out descriptors
+    unsigned MergeId = IndFinalExternalUse->getMergeId();
+    VPValue *StartV = IndInit->getStartValueOperand();
+    VPLiveInValue *LIV = createLiveInValue(MergeId, StartV->getType());
+    VPLiveOutValue *LOV = createLiveOutValue(MergeId, IndFinal);
+    // Unlink External use
+    IndFinalExternalUse->removeOperand(
+        IndFinalExternalUse->getOperandIndex(IndFinal));
+    // Put live-in/out to their lists
+    if (NeedAddExtUse) {
+      Plan.addLiveInValue(LIV);
+      Plan.addLiveOutValue(LOV);
+      ExtVals.addOriginalIncomingValue(StartV);
+    } else {
+      Plan.setLiveInValue(LIV, MergeId);
+      Plan.setLiveOutValue(LOV, MergeId);
+      ExtVals.setOriginalIncomingValue(StartV, MergeId);
+    }
+    // Replace start value with live-in
+    IndInit->replaceStartValue(LIV);
+    if (IndFinal->usesStartValue())
+      IndFinal->replaceStartValue(LIV);
+  }
+}
+
+void VPLiveInOutCreator::createInOutsReductions(
+  const  VPLoopEntityList *VPLEntityList) {
+
+  VPExternalValues &ExtVals = Plan.getExternals();
+
+  for (auto *Red : VPLEntityList->vpreductions()) {
+    if (Red->getIsMemOnly())
+      continue;
+    VPReductionInit *RedInit;
+    VPReductionFinal *RedFinal;
+    VPExternalUse *RedFinalExternalUse;
+    std::tie(RedInit, RedFinal, RedFinalExternalUse) =
+        getInitFinal<VPReductionInit, VPReductionFinal, VPReduction>(Red);
+    if (!RedFinalExternalUse)
+      // Can be possible for some auto-generated reductions, e.g. fake linear
+      // index for min/max+index idiom.
+      continue;
+    assert((RedInit && RedFinal) && "Expected non-null init and final");
+    // Create live-in/out descriptors
+    int MergeId = RedFinalExternalUse->getMergeId();
+    VPValue *StartV = nullptr;
+    if (RedInit->usesStartValue())
+      StartV = RedInit->getStartValueOperand();
+    else
+      StartV = RedFinal->getStartValueOperand();
+    VPLiveInValue *LIV = createLiveInValue(MergeId, StartV->getType());
+    VPLiveOutValue *LOV = createLiveOutValue(MergeId, RedFinal);
+    // Unlink External use
+    RedFinalExternalUse->removeOperand(
+        RedFinalExternalUse->getOperandIndex(RedFinal));
+    // Put live-in/out to their lists
+    Plan.setLiveInValue(LIV, MergeId);
+    Plan.setLiveOutValue(LOV, MergeId);
+    ExtVals.setOriginalIncomingValue(StartV, MergeId);
+    // Replace start value with live-in
+    if (RedInit->usesStartValue())
+      RedInit->replaceStartValue(LIV);
+    if (RedFinal->usesStartValue())
+      RedFinal->replaceStartValue(LIV);
+  }
+}
+
+void VPLiveInOutCreator::createInOutValues() {
+  const VPLoop *Loop = *Plan.getVPLoopInfo()->begin();
+  if (!Loop->getUniqueExitBlock())
+    return;
+
+  VPExternalValues &ExtVals = Plan.getExternals();
+  unsigned ExtUseCount = ExtVals.getLastMergeId();
+
+  const VPLoopEntityList *VPLEntityList =
+      Plan.getLoopEntities(Loop);
+
+  // We need to allocate LiveIn/LiveOut lists here, along with
+  // OriginalIncomingValues, due to we look through entities and the lookup is
+  // not in the order of VPExternalUses creation but we need to place the items
+  // in the needed order.
+  ExtVals.allocateOriginalIncomingValues(ExtUseCount);
+  Plan.allocateLiveInValues(ExtUseCount);
+  Plan.allocateLiveOutValues(ExtUseCount);
+
+  createInOutsInductions(VPLEntityList);
+  createInOutsReductions(VPLEntityList);
+}
+
+void VPLiveInOutCreator::restoreLiveIns() {
+  VPExternalValues &ExtVals = Plan.getExternals();
+  for (VPLiveInValue *LIV : Plan.liveInValues())
+    if (LIV) // Might be not created for some MergeId-s.
+      LIV->replaceAllUsesWith(
+          ExtVals.getOriginalIncomingValue(LIV->getMergeId()));
+}
+
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-void VPExternalValues::dumpExternalDefs(raw_ostream &FOS) {
+void VPExternalValues::dumpExternalDefs(raw_ostream &FOS) const {
   if (VPExternalDefsHIR.size() == 0)
     return;
   FOS << "External Defs Start:\n";
@@ -94,12 +239,16 @@ void VPExternalValues::dumpExternalDefs(raw_ostream &FOS) {
   FOS << "External Defs End:\n";
 }
 
-void VPExternalValues::dumpExternalUses(raw_ostream &FOS) {
+void VPExternalValues::dumpExternalUses(raw_ostream &FOS,
+                                        const VPlan *Plan) const {
   if (VPExternalUses.empty())
     return;
   FOS << "External Uses:\n";
-  for (auto *ExtUse : externalUses()) {
-    ExtUse->print(FOS);
+  for (auto &ExtUse : VPExternalUses) {
+    const VPLiveOutValue *LO =
+        Plan ? Plan->getLiveOutValue(ExtUse->getMergeId()) : nullptr;
+    VPValue *Operand = LO ? LO->getOperand(0) : nullptr;
+    ExtUse->print(FOS, Operand);
     FOS << "\n";
   }
 }

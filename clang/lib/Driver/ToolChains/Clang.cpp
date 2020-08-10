@@ -8181,6 +8181,11 @@ void SPIRVTranslator::ConstructJob(Compilation &C, const JobAction &JA,
       ExtArg += ",-SPV_INTEL_usm_storage_classes";
     TranslatorArgs.push_back(TCArgs.MakeArgString(ExtArg));
   }
+#if INTEL_CUSTOMIZATION
+  if (JA.isDeviceOffloading(Action::OFK_OpenMP) &&
+      getToolChain().getTriple().isSPIR())
+    TranslatorArgs.push_back("-spirv-ext=+all");
+#endif // INTEL_CUSTOMIZATION
   for (auto I : Inputs) {
     std::string Filename(I.getFilename());
     if (I.getType() == types::TY_Tempfilelist) {
@@ -8297,6 +8302,14 @@ void SYCLPostLink::ConstructJob(Compilation &C, const JobAction &JA,
   // OPT_fsycl_device_code_split is not checked as it is an alias to
   // -fsycl-device-code-split=per_source
 
+#if INTEL_CUSTOMIZATION
+  if (JA.isDeviceOffloading(Action::OFK_OpenMP) &&
+      getToolChain().getTriple().isSPIR()) {
+    addArgs(CmdArgs, TCArgs, {"--ompoffload-link-entries"});
+    addArgs(CmdArgs, TCArgs, {"--ompoffload-sort-entries"});
+    addArgs(CmdArgs, TCArgs, {"--ompoffload-make-globals-static"});
+  }
+#endif // INTEL_CUSTOMIZATION
   if (JA.getType() == types::TY_LLVM_BC) {
     // single file output requested - this means only perform necessary IR
     // transformations (like specialization constant intrinsic lowering) and

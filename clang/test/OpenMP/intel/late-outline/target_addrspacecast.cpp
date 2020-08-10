@@ -37,4 +37,14 @@ void map_with_overlap_elems() {
    s.val++; s.ptr1[0]++; s.ptrBase1[0] = 10001;
   }
 }
+
+int N = 10;
+int *x;
+void test_delete() {
+  int i;
+//CHECK-NOT: %x.map.ptr.tmp
+#pragma omp target map(to: x[:N])
+  x[i]=1;
+}
+
 // end INTEL_COLLAB

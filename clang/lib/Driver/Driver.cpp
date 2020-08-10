@@ -478,6 +478,11 @@ void Driver::addIntelArgs(DerivedArgList &DAL, const InputArgList &Args,
       if (Value == "full" || Value == "all" || Value == "extended" ||
           Value == "parallel")
         ; // Do nothing, we already enabled debug above
+      else if (Value == "expr-source-pos" || Value == "inline-debug-info" ||
+               Value == "semantic-stepping" || Value == "variable-locations" ||
+               Value == "noexpr-source-pos")
+        ; // Just enable debug, these are icc compatible options that are
+          // not hooked to anything
       else if (Value == "minimal")
         addClaim(options::OPT_gline_tables_only);
       else if (Value == "emit-column")
@@ -3798,8 +3803,10 @@ class OffloadingActionBuilder final {
         auto *DeviceLinkAction =
             C.MakeAction<LinkJobAction>(LI, types::TY_Image);
         if ((*TC)->getTriple().isSPIR()) {
+          auto *PostLinkAction = C.MakeAction<SYCLPostLinkJobAction>(
+              DeviceLinkAction, types::TY_LLVM_BC);
           auto *SPIRVTranslateAction = C.MakeAction<SPIRVTranslatorJobAction>(
-              DeviceLinkAction, types::TY_Image);
+              PostLinkAction, types::TY_Image);
           DeviceLinkDeps.add(*SPIRVTranslateAction, **TC, /*BoundArch=*/nullptr,
                              Action::OFK_OpenMP);
         } else

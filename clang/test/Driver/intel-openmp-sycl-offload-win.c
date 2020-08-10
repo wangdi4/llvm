@@ -188,4 +188,3 @@
 // CHK-UBJOBS-CL: clang-offload-wrapper{{.*}} "-host" "x86_64-pc-windows-msvc{{.*}}" "-o" "[[OMPWRAPPERBC:.+\.bc]]" "-kind=openmp" "-target=spir64" "[[OMPSPIRVCL]]"
 // CHK-UBJOBS-CL: clang{{.*}} "-cc1" "-triple" "x86_64-pc-windows-msvc{{.*}}" {{.*}} "-o" "[[OMPWRAPPEROBJCL:.+\.obj]]" {{.*}} "[[OMPWRAPPERBC]]"
 // CHK-UBJOBS-CL: link{{.*}} "-out:{{.*}}" "-defaultlib:sycl.lib" {{.*}} "-defaultlib:libiomp5md.lib" "-defaultlib:omptarget.lib" "[[HOSTOBJCL]]" "[[OMPWRAPPEROBJCL]]" "[[SYCLWRAPPEROBJCL]]"
-

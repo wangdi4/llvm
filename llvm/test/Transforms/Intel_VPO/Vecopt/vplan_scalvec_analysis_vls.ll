@@ -15,6 +15,8 @@ define void @foo(i32* nocapture %ary) {
 ;    ary[i + 1] = t1;
 ;  }
 ; SVA-IR-LABEL:  VPlan after ScalVec analysis:
+; SVA-IR-NEXT:  Live-in values:
+; SVA-IR-NEXT:  ID: 0 Value: i64 0
 ; SVA-IR-NEXT:    [[BB0:BB[0-9]+]]:
 ; SVA-IR-NEXT:     <Empty Block>
 ; SVA-IR-NEXT:    SUCCESSORS(1):[[BB1:BB[0-9]+]]
@@ -56,12 +58,17 @@ define void @foo(i32* nocapture %ary) {
 ; SVA-IR-NEXT:     <Empty Block>
 ; SVA-IR-NEXT:    no SUCCESSORS
 ; SVA-IR-NEXT:    PREDECESSORS(1): [[BB3]]
+; SVA-IR-EMPTY:
+; SVA-IR-NEXT:  External Uses:
+; SVA-IR-NEXT:  Id: 0   no underlying for i64 [[VP_INDVARS_IV_IND_FINAL]]
 ;
-; SVA-HIR-LABEL:  VPlan after ScalVec analysis
+; SVA-HIR-LABEL:  VPlan after ScalVec analysis:
 ; SVA-HIR-NEXT:  VPlan IR for: Initial VPlan for VF=4
 ; SVA-HIR-NEXT:  External Defs Start:
 ; SVA-HIR-DAG:     [[VP0:%.*]] = {%ary}
 ; SVA-HIR-NEXT:  External Defs End:
+; SVA-HIR-NEXT:  Live-in values:
+; SVA-HIR-NEXT:  ID: 0 Value: i64 0
 ; SVA-HIR-NEXT:    [[BB0:BB[0-9]+]]:
 ; SVA-HIR-NEXT:     <Empty Block>
 ; SVA-HIR-NEXT:    SUCCESSORS(1):[[BB1:BB[0-9]+]]
@@ -105,6 +112,9 @@ define void @foo(i32* nocapture %ary) {
 ; SVA-HIR-NEXT:     <Empty Block>
 ; SVA-HIR-NEXT:    no SUCCESSORS
 ; SVA-HIR-NEXT:    PREDECESSORS(1): [[BB3]]
+; SVA-HIR-EMPTY:
+; SVA-HIR-NEXT:  External Uses:
+; SVA-HIR-NEXT:  Id: 0   no underlying for i64 [[VP__IND_FINAL]]
 ;
 entry:
   %entry.region = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.SIMDLEN"(i32 4) ]

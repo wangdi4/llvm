@@ -389,6 +389,95 @@ bool VPlanScalVecAnalysis::computeSpecialInstruction(
   }
 }
 
+void VPlanScalVecAnalysis::compute(const VPInstruction *VPInst, unsigned VF,
+                                   const TargetLibraryInfo *TLI) {
+  auto *DA = Plan->getVPlanDA();
+
+  // Allocate expected number of elements for OperandBits. Default state is
+  // all-zero for the bits so it would be invalid (assertion) to access them
+  // anyways.
+  if (VPlanSVAResults[VPInst].OperandBits.empty())
+    VPlanSVAResults[VPInst].OperandBits.resize(VPInst->getNumOperands());
+
+  // Case 1: Specially processed instruction in SVA.
+  if (computeSpecialInstruction(VPInst, VF, TLI)) {
+    LLVM_DEBUG(dbgs() << "[SVA] Specially processed instruction ";
+               VPInst->dump());
+    return;
+  }
+
+  assert(!isSVASpecialProcessedInst(VPInst) &&
+         "Specially processed instruction cannot reach here.");
+
+  // Check if instruction's nature was already analyzed.
+  Optional<SVABits> InstBits = findSVABitsForInst(VPInst);
+  // Combined nature from all use sites of instruction.
+  SVABits CombinedUseBits = getAllSetBitsFromUsers(VPInst);
+
+  // Case 2: This is a new VPInst not found in table yet since it has no
+  // use-site bits. Determine its ScalVec nature using DA.
+  if (CombinedUseBits.none()) {
+    assert(InstBits == None && "Instruction is not expected to have SVABits.");
+    SVAKind NewSVAKind =
+        DA->isDivergent(*VPInst) ? SVAKind::Vector : SVAKind::FirstScalar;
+
+    if (VPInst->mayHaveSideEffects() && NewSVAKind == SVAKind::FirstScalar) {
+      assert(false &&
+             "Instruction with side effects is not safe to scalarize.");
+      // For prod/release build vectorize the instruction conservatively.
+      NewSVAKind = SVAKind::Vector;
+    }
+
+    setSVAKindForInst(VPInst, NewSVAKind);
+    setSVAKindForAllOperands(VPInst, NewSVAKind);
+    return;
+  }
+
+  // Case 3: Decide instruction nature by combining SVABits from all its use
+  // sites. We refine the results further if instruction's nature was already
+  // known, for example during back propagation.
+  if (!DA->isDivergent(*VPInst)) {
+    // If the instruction has several uses but DA informs us that it is uniform,
+    // then propagate scalar nature for operands and for the instruction.
+    // Consider the example below -
+    //
+    // %a = add %uniform.op1, %uniform.op2
+    // %b = mul %a, %divergent.op2
+    //
+    // The mul instruction will mark %a to be vector in nature in its operand
+    // bits, but %uniform.op1 and %uniform.op2 need not be vector in nature for
+    // this instruction pattern. They can be scalar nature (for first lane), and
+    // %a can be updated to be scalar in nature only (drop other existing bits).
+    // Its need of broadcast (for vector context) can be obtained by inspecting
+    // the operand level bits at use site in %b.
+
+    SVAKind NewSVAKind = SVAKind::FirstScalar;
+    if (VPInst->mayHaveSideEffects()) {
+      assert(false &&
+             "Instruction with side effects is not safe to scalarize.");
+      // For prod/release build vectorize the instruction conservatively.
+      NewSVAKind = SVAKind::Vector;
+    }
+
+    setSVAKindForInst(VPInst, NewSVAKind);
+    setSVAKindForAllOperands(VPInst, NewSVAKind);
+    return;
+  } else {
+    // Propagate all set bits from users for instruction and its operands. If
+    // the instruction already has some analyzed bits, then we refine it further
+    // by or-ing its current bits with user bits.
+    if (InstBits == None) {
+      // Instruction has not been analyzed yet, initialize with empty bits.
+      SVABits NullBits = 0;
+      setSVABitsForInst(VPInst, NullBits);
+      setSVABitsForAllOperands(VPInst, NullBits);
+    }
+
+    orSVABitsForInst(VPInst, CombinedUseBits);
+    orSVABitsForAllOperands(VPInst, CombinedUseBits);
+  }
+}
+
 void VPlanScalVecAnalysis::compute(VPlan *P, unsigned VF,
                                    const TargetLibraryInfo *TLI) {
   Plan = P;
@@ -396,79 +485,11 @@ void VPlanScalVecAnalysis::compute(VPlan *P, unsigned VF,
   // TODO: Is it okay to clear the table before a fresh compute cycle?
   clear();
   VPBasicBlock *CFGEntry = Plan->getEntryBlock();
-  auto *DA = Plan->getVPlanDA();
   for (auto *VPBB : post_order(CFGEntry)) {
     LLVM_DEBUG(dbgs() << "[SVA] Visiting BB " << VPBB->getName() << "\n");
     for (VPInstruction &Inst : reverse(*VPBB)) {
-      auto *VPInst = &Inst;
-
-      // Allocate expected number of elements for OperandBits. Default state is
-      // all-zero for the bits so it would be invalid (assertion) to access them
-      // anyways.
-      VPlanSVAResults[VPInst].OperandBits.resize(VPInst->getNumOperands());
-
-      // Case 1: Specially processed instruction in SVA.
-      if (computeSpecialInstruction(VPInst, VF, TLI)) {
-        LLVM_DEBUG(dbgs() << "[SVA] Specially processed instruction ";
-                   VPInst->dump());
-        continue;
-      }
-
-      assert(!isSVASpecialProcessedInst(VPInst) &&
-             "Specially processed instruction cannot reach here.");
-
-      // Case 2: Decide instruction nature by combining SVABits from all its use
-      // sites.
-      SVABits CombinedUseBits = getAllSetBitsFromUsers(VPInst);
-      if (CombinedUseBits.any()) {
-        if (!DA->isDivergent(*VPInst)) {
-          // If the instruction has several uses but DA informs us that it is
-          // uniform, then propagate scalar nature for operands and for the
-          // instruction. Consider the example below -
-          //
-          // %a = add %uniform.op1, %uniform.op2
-          // %b = mul %a, %divergent.op2
-          //
-          // The mul instruction will mark %a to be vector in nature in its
-          // operand bits, but %uniform.op1 and %uniform.op2 need not be vector
-          // in nature for this instruction pattern. They can be scalar nature
-          // (for first lane), and %a can be updated to be scalar in nature only
-          // (drop other existing bits). Its need of broadcast (for vector
-          // context) can be obtained by inspecting the operand level bits at
-          // use site in %b.
-
-          SVAKind NewSVAKind = SVAKind::FirstScalar;
-          if (VPInst->mayHaveSideEffects()) {
-            assert(false &&
-                   "Instruction with side effects is not safe to scalarize.");
-            // For prod/release build vectorize the instruction conservatively.
-            NewSVAKind = SVAKind::Vector;
-          }
-
-          setSVAKindForInst(VPInst, NewSVAKind);
-          setSVAKindForAllOperands(VPInst, NewSVAKind);
-        } else {
-          // Propagate all set bits from users for instruction and its operands.
-          setSVABitsForInst(VPInst, CombinedUseBits);
-          setSVABitsForAllOperands(VPInst, CombinedUseBits);
-        }
-        continue;
-      }
-
-      // Case 3: This is a new VPInst not found in table yet. Determine its
-      // ScalVec nature using DA.
-      SVAKind NewSVAKind =
-          DA->isDivergent(*VPInst) ? SVAKind::Vector : SVAKind::FirstScalar;
-
-      if (VPInst->mayHaveSideEffects() && NewSVAKind == SVAKind::FirstScalar) {
-        assert(false &&
-               "Instruction with side effects is not safe to scalarize.");
-        // For prod/release build vectorize the instruction conservatively.
-        NewSVAKind = SVAKind::Vector;
-      }
-
-      setSVAKindForInst(VPInst, NewSVAKind);
-      setSVAKindForAllOperands(VPInst, NewSVAKind);
+      // Compute SVA results for instruction during forward propagation.
+      compute(&Inst, VF, TLI);
     }
   }
 }
@@ -591,36 +612,19 @@ void VPlanScalVecAnalysis::backPropagateSVABitsForRecurrentPHI(
 
   AddInstOperandsToWorklist(Phi);
 
-  // Instructions in the worklist need a chain of propagation, This is triggered
+  // Instructions in the worklist need a chain of propagation, this is triggered
   // because of a PHI node that introduces back-edge or recurrence property
   // (like reduction/induction).
   while (!Worklist.empty()) {
     const VPInstruction *Inst = Worklist.pop_back_val();
-
-    if (isSVASpecialProcessedInst(Inst)) {
-      // Special processed instructions should be handled differently, their
-      // nature may depend on operand-site bits which were updated during this
-      // chain of back propagation.
-      // TODO: Operands of special instruction may need to be added back to
-      // worklist here. Update based on use-case in future.
-      computeSpecialInstruction(Inst, VF, TLI);
-      continue;
-    }
-
-    assert(!isSVASpecialProcessedInst(Inst) &&
-           "Specially processed SVA instruction cannot reach here.");
-    SVABits InstBits = getSVABitsForInst(Inst);
-    // Get the set of bits that are not set in instruction's SVABits. InstBits
-    // should be a subset of SetBits, so we use XOR here to find difference.
-    SVABits CommonBits = InstBits & SetBits;
-    (void)CommonBits;
-    assert(CommonBits == InstBits && "InstBits is not a subset of SetBits.");
-    SVABits DiffBits = InstBits ^ SetBits;
-    if (DiffBits.any()) {
-      orSVABitsForInst(Inst, DiffBits);
-      orSVABitsForAllOperands(Inst, DiffBits);
-    }
-    AddInstOperandsToWorklist(Inst);
+    SVABits OrigBits = getSVABitsForInst(Inst);
+    // Compute SVA results for instruction during back propagation.
+    compute(Inst, VF, TLI);
+    SVABits NewBits = getSVABitsForInst(Inst);
+    // Continue back propagation into operands only if nature of instruction has
+    // changed.
+    if (OrigBits != NewBits)
+      AddInstOperandsToWorklist(Inst);
   }
 }
 

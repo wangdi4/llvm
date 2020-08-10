@@ -2274,6 +2274,33 @@ public:
 
   void resetBackedgeTakenCountLoop() { BTCLoop = nullptr; }
 
+  const SCEV *getScopedBackedgeTakenCount(const Loop *Lp) {
+
+    setBackedgeTakenCountLoop(Lp);
+    auto *BTC = getBackedgeTakenCount(Lp);
+    resetBackedgeTakenCountLoop();
+
+    return BTC;
+  }
+
+  const SCEV *getScopedConstantMaxBackedgeTakenCount(const Loop *Lp) {
+
+    setBackedgeTakenCountLoop(Lp);
+    auto *MaxBTC = getConstantMaxBackedgeTakenCount(Lp);
+    resetBackedgeTakenCountLoop();
+
+    return MaxBTC;
+  }
+
+  unsigned getScopedSmallConstantMaxTripCount(const Loop *Lp) {
+
+    setBackedgeTakenCountLoop(Lp);
+    unsigned MaxBTC = getSmallConstantMaxTripCount(Lp);
+    resetBackedgeTakenCountLoop();
+
+    return MaxBTC;
+  }
+
   ArrayRef<const Loop *> getOutermostLoops() const { return OutermostLps; }
 
   // Sets the scope based on specified \p OutermostLoops. The cache is cleared

@@ -6390,6 +6390,18 @@ bool VPOParoptTransform::renameOperandsUsingStoreThenLoad(WRegionNode *W) {
     }
   }
 
+  if (W->canHaveUseDevicePtr()) {
+    UseDevicePtrClause &UdpClause = W->getUseDevicePtr();
+    for (UseDevicePtrItem *UdpI : UdpClause.items())
+      Changed |= rename(UdpI->getOrig(), true);
+  }
+
+  if (W->canHaveIsDevicePtr()) {
+    IsDevicePtrClause &IdpClause = W->getIsDevicePtr();
+    for (IsDevicePtrItem *IdpI : IdpClause.items())
+      Changed |= rename(IdpI->getOrig(), true);
+  }
+
   W->resetBBSetIfChanged(Changed); // Clear BBSet if transformed
 
   if (!Changed)

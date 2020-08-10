@@ -3,7 +3,7 @@
 
 ; Verify that the range of %iv and %iv.dec is refined to start from 0 and 1 respectively.
 
-; CHECK: + NSW: Yes
+; CHECK: + HasSignedIV: Yes
 ; CHECK: + DO i32 i1 = 0, zext.i8.i32(%arg) + -1 * smin(1, zext.i8.i32(%arg)), 1   <DO_LOOP>  <MAX_TC_EST = 255>
 ; CHECK: |   %ld = (%tmp221)[i1];
 ; CHECK: |   %add.iv = %add.iv  +  %ld;

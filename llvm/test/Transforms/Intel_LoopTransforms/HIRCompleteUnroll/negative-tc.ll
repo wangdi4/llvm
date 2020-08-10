@@ -6,10 +6,10 @@
 
 ; CHECK: + DO i64 i1 = 0, 2, 1   <DO_LOOP>
 
-; CHECK:     + NSW: No
+; CHECK:     + HasSignedIV: No
 ; CHECK: |   + DO i64 i2 = 0, i1 + -8, 1   <DO_LOOP>  <MAX_TC_EST = 4>
 
-; CHECK:         + NSW: No
+; CHECK:         + HasSignedIV: No
 ; CHECK: |   |   + DO i64 i3 = 0, i2 + 9, 1   <DO_LOOP>  <MAX_TC_EST = 20>
 ; CHECK: |   |   |   if ((@t)[0][i3] == 0)
 ; CHECK: |   |   |   {

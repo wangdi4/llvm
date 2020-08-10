@@ -488,8 +488,11 @@ static void addIntelLib(const char* IntelLibName, ArgStringList &CmdArgs,
 
   // FIXME: add support to -dy, -dn, -dynamiclib as required
   if (const Arg *A = Args.getLastArg(options::OPT_static, options::OPT_shared,
-                                     options::OPT_dynamic))
+                                     options::OPT_dynamic)) {
     isCurrentStateStatic = A->getOption().matches(options::OPT_static);
+    // Link in Intel libs dynamically with -shared
+    isSharedIntel = A->getOption().matches(options::OPT_shared);
+  }
 
   // -debug parallel implies -shared-intel, but allow it to be overridden by
   // -static-intel below.
@@ -513,7 +516,31 @@ static void addIntelLib(const char* IntelLibName, ArgStringList &CmdArgs,
   if (isCurrentStateStatic && isSharedIntel)
     CmdArgs.push_back("-Bstatic");
 }
+
+static void addIntelLibirc(const ToolChain &TC, ArgStringList &CmdArgs,
+                           const ArgList &Args) {
+  if (TC.getEffectiveTriple().getArch() == llvm::Triple::x86_64) {
+    if (Args.hasArg(options::OPT_shared_intel, options::OPT_shared)) {
+      if (const Arg *A = Args.getLastArg(options::OPT_shared_intel,
+                                         options::OPT_static_intel)) {
+        if (A->getOption().matches(options::OPT_static_intel)) {
+          addIntelLib("-lirc", CmdArgs, Args);
+          return;
+        }
+      }
+      addIntelLib("-lintlc", CmdArgs, Args);
+      return;
+    }
+  } else {
+    if (Args.hasArg(options::OPT_shared_intel, options::OPT_shared)) {
+      addIntelLib("-lirc_pic", CmdArgs, Args);
+      return;
+    }
+  }
+  addIntelLib("-lirc", CmdArgs, Args);
+}
 #endif // INTEL_CUSTOMIZATION
+
 static bool getStaticPIE(const ArgList &Args, const ToolChain &TC) {
   bool HasStaticPIE = Args.hasArg(options::OPT_static_pie);
   // -no-pie is an alias for -nopie. So, handling -nopie takes care of
@@ -882,13 +909,9 @@ void tools::gnutools::Linker::ConstructJob(Compilation &C, const JobAction &JA,
   }
   if (!Args.hasArg(options::OPT_nostdlib, options::OPT_nodefaultlibs)) {
     // Add libirc to resolve any Intel and libimf references
-    if (Args.hasArg(options::OPT_shared_intel))
-      addIntelLib("-lintlc", CmdArgs, Args);
-    else
-      addIntelLib("-lirc", CmdArgs, Args);
-
-    // Add -ldl for -mkl
-    if (Args.hasArg(options::OPT_mkl_EQ))
+    addIntelLibirc(ToolChain, CmdArgs, Args);
+    // Add -ldl
+    if (Args.hasArg(options::OPT_mkl_EQ) || D.IsIntelMode())
       CmdArgs.push_back("-ldl");
   }
 #endif // INTEL_CUSTOMIZATION

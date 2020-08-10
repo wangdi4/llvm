@@ -20,6 +20,9 @@
 namespace llvm {
 namespace vpo {
 
+class VPlan;
+class VPLoopEntityList;
+
 /// Class to hold external data used in VPlan. We can have several VPlans that
 /// model different vectozation scenarios for one loop. Those VPlans are in most
 /// cases clones of one created at the beginning of vectorization. All the
@@ -29,6 +32,7 @@ class VPExternalValues {
   // initial plain CFG. Friendship is needed to get non-const iterator range to
   // VPExternalUsesHIR container.
   friend class VPDecomposerHIR;
+  friend class VPLiveInOutCreator;
 
   const DataLayout *DL = nullptr;
 
@@ -74,7 +78,6 @@ class VPExternalValues {
         [](ExternalUsesListTy::value_type &It) { return It.get(); });
   }
 
-  /// Return non-const iterator range for external uses in VPExternalUsesHIR.
   decltype(auto) getVPExternalUsesHIR() {
     return map_range(
         make_filter_range(
@@ -88,6 +91,9 @@ class VPExternalValues {
   /// Holds all the VPMetadataAsValues created for this VPlan.
   DenseMap<MetadataAsValue *, std::unique_ptr<VPMetadataAsValue>>
       VPMetadataAsValues;
+
+  // Holds the original incoming values.
+  SmallVector<VPValue*, 16> OriginalIncomingValues;
 
 public:
   VPExternalValues(LLVMContext *Ctx, const DataLayout *L) : DL(L), Context(Ctx) {}
@@ -149,7 +155,7 @@ public:
   }
 
   /// Return VPExternalUse by its MergeId.
-  const VPExternalUse *getVPExternalUse(unsigned MergeId) {
+  const VPExternalUse *getVPExternalUse(unsigned MergeId) const {
     return VPExternalUses[MergeId].get();
   }
 
@@ -210,6 +216,15 @@ public:
     return insertExternalUse(ExtUse, Id);
   }
 
+  /// Create a VPExternalUse w/o underlying IR. This fake VPExternalUse
+  /// is created for non-live-out inductions to have a common scheme for
+  /// identification of live-in/out values in such cases.
+  VPExternalUse *createVPExternalUseNoIR(Type *BaseTy) {
+    unsigned Id = getLastMergeId();
+    VPExternalUse *ExtUse = new VPExternalUse(Id, BaseTy);
+    return insertExternalUse(ExtUse, Id);
+  }
+
   /// Create a new VPMetadataAsValue for \p MDAsValue if it doesn't exist or
   /// retrieve the existing one.
   VPMetadataAsValue *getVPMetadataAsValue(MetadataAsValue *MDAsValue) {
@@ -226,6 +241,25 @@ public:
   VPMetadataAsValue *getVPMetadataAsValue(Metadata *MD) {
     // TODO: implement this method when needed.
     llvm_unreachable("Not implemented yet!");
+  }
+
+  VPValue *getOriginalIncomingValue(int MergeId) const {
+    return OriginalIncomingValues[MergeId];
+  }
+
+  void addOriginalIncomingValue(VPValue *V) {
+    OriginalIncomingValues.push_back(V);
+  }
+
+  void setOriginalIncomingValue(VPValue *V, int MergeId) {
+    assert(OriginalIncomingValues[MergeId] == nullptr &&
+           "Inconsistent OriginalIncomingValue");
+    OriginalIncomingValues[MergeId] = V;
+  }
+
+  void allocateOriginalIncomingValues(int Count) {
+    assert(OriginalIncomingValues.size() == 0 && "The list is not empty");
+    OriginalIncomingValues.resize(Count, nullptr);
   }
 
   // Verify that VPConstants are unique in the pool and that the map keys are
@@ -246,8 +280,8 @@ public:
   void verifyVPMetadataAsValues() const;
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-  void dumpExternalDefs(raw_ostream &FOS);
-  void dumpExternalUses(raw_ostream &FOS);
+  void dumpExternalDefs(raw_ostream &FOS) const;
+  void dumpExternalUses(raw_ostream &FOS, const VPlan *P) const;
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 
 private:
@@ -368,6 +402,47 @@ private:
     return ExtDef;
   }
 };
+
+class VPLiveInOutCreator {
+  VPlan &Plan;
+
+public:
+  VPLiveInOutCreator(VPlan &P) : Plan(P) {}
+
+  /// Create VPLiveInValue and VPLiveOutValue lists for VPlan.
+  /// Looking through VPEntities of VPlan create live-in counterparts and
+  /// wrappers for all live-out, also adding fake VPExternalUse when needed.
+  /// The original incoming vaules are replaced by the newly created
+  /// VPLiveInValues and VExternalUse-users are replaced by VPLiveOutValues.
+  void createInOutValues();
+
+  /// Replace all occurenses of VPLiveInValues with original incoming values.
+  /// Temporary, until CFG merge process is not implemented. Then all such
+  /// occurences are expected to be replaced during CFG merge process.
+  void restoreLiveIns();
+
+private:
+
+  // Create list of VPLiveInValues/VPLiveOutValues for VPlan's inductions.
+  void createInOutsInductions(const VPLoopEntityList *VPLEntityList);
+
+  // Create list of VPLiveInValues/VPLiveOutValues for VPlan's reductions.
+  void createInOutsReductions(const VPLoopEntityList *VPLEntityList);
+
+  VPLiveInValue *createLiveInValue(unsigned Id, Type *Ty) {
+    VPLiveInValue *LiveIn = new VPLiveInValue(Id, Ty);
+    Twine Name = "livein.";
+    LiveIn->setName(Name + Twine(Id));
+    return LiveIn;
+  }
+  VPLiveOutValue *createLiveOutValue(unsigned Id, VPValue *Operand) {
+    VPLiveOutValue *LiveOut = new VPLiveOutValue(Id, Operand);
+    Twine Name = "liveout.";
+    LiveOut->setName(Name + Twine(Id));
+    return LiveOut;
+  }
+};
+
 } // namespace vpo
 } // namespace llvm
 #endif // LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_EXTERNALS_H

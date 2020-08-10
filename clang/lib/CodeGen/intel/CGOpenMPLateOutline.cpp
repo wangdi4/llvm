@@ -1627,7 +1627,7 @@ void OpenMPLateOutliner::emitOMPAllMapClauses() {
         addExplicit(I.Var, OMPC_map);
       if (CurrentDirectiveKind == OMPD_target)
         if ((Ty->isReferenceType() || Ty->isAnyPointerType()) &&
-            !I.Base->hasName())
+            !I.Base->stripPointerCastsAndAliases()->hasName())
           MapTemps.emplace_back(I.Base, I.Var);
     }
     addArg(CSB.getString());

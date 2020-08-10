@@ -2053,6 +2053,16 @@ public:
   unsigned getBinOpcode() const { return BinOpcode; }
 
   VPValue *getStep() const { return getOperand(1); }
+  VPValue *getStartValueOperand() const { return getOperand(0); }
+
+  // Replaces start value with the \p newVal
+  void replaceStartValue(VPValue *NewVal) {
+    assert(NewVal && "Unexpected null start value");
+    assert(NewVal->getType() == getStartValueOperand()->getType() &&
+           "Inconsistent operand type");
+    setOperand(0, NewVal);
+  }
+
 
 protected:
   // Clones VPinductionInit.
@@ -2128,7 +2138,7 @@ public:
 
   /// Return operand that corresponds to the start value.
   VPValue *getStartValueOperand() const {
-    assert(getNumOperands() == 2 && "Incorrect operand request");
+    assert(usesStartValue() && "Incorrect operand request");
     return getOperand(0);
   }
 
@@ -2152,6 +2162,17 @@ public:
   }
 
   Instruction::BinaryOps getBinOpcode() const { return BinOpcode; }
+
+  /// Return true if start value is used in induction last value calculation.
+  bool usesStartValue() const { return getNumOperands() == 2;}
+
+  // Replaces start value with the \p newVal
+  void replaceStartValue(VPValue *NewVal) {
+    assert(NewVal && "Unexpected null start value");
+    assert(NewVal->getType() == getStartValueOperand()->getType() &&
+           "Inconsistent operand type");
+    setOperand(0, NewVal);
+  }
 
 protected:
   // Clones VPInductionFinal.
@@ -2179,16 +2200,15 @@ private:
 // operation during last value calculation. Though, that is ineffective for
 // multiplication, while for summation the movd/movq x86 instructions
 // perfectly fit this way.
-//
 class VPReductionInit : public VPInstruction {
 public:
-  VPReductionInit(VPValue *Identity)
+  VPReductionInit(VPValue *Identity, bool UseStart)
       : VPInstruction(VPInstruction::ReductionInit, Identity->getType(),
-                      {Identity}) {}
+                      {Identity}), UsesStartValue(UseStart) {}
 
   VPReductionInit(VPValue *Identity, VPValue *StartValue)
       : VPInstruction(VPInstruction::ReductionInit, Identity->getType(),
-                      {Identity, StartValue}) {}
+                      {Identity, StartValue}), UsesStartValue(true) {}
 
   /// Return operand that corresponds to the indentity value.
   VPValue *getIdentityOperand() const { return getOperand(0);}
@@ -2196,7 +2216,22 @@ public:
   /// Return operand that corresponds to the start value. Can be nullptr for
   /// optimized reduce.
   VPValue *getStartValueOperand() const {
-    return getNumOperands() > 1 ? getOperand(1) : nullptr;
+    return getNumOperands() > 1 ? getOperand(1)
+                                : (UsesStartValue ? getOperand(0) : nullptr);
+  }
+
+  /// Return true if start value is used in reduction initialization. E.g.
+  /// min/max reductions use the start value as identity.
+  bool usesStartValue() const { return UsesStartValue; }
+
+  /// Replaces start value with the \p newV
+  void replaceStartValue(VPValue *NewVal) {
+    assert(usesStartValue() && NewVal && "Can't replace start value");
+    assert(NewVal->getType() == getStartValueOperand()->getType() &&
+           "Inconsistent operand type");
+    unsigned Ind = getNumOperands() - 1;
+    // Can't use replaceUsesOfWith() due to two operands can have same value.
+    setOperand(Ind, NewVal);
   }
 
   // Method to support type inquiry through isa, cast, and dyn_cast.
@@ -2213,12 +2248,15 @@ protected:
   // Clones VPReductionInit.
   virtual VPReductionInit *cloneImpl() const final {
     if (getNumOperands() == 1)
-      return new VPReductionInit(getIdentityOperand());
+      return new VPReductionInit(getIdentityOperand(), UsesStartValue);
     else if (getNumOperands() == 2)
       return new VPReductionInit(getIdentityOperand(), getStartValueOperand());
     else
       llvm_unreachable("Too many operands.");
   }
+
+private:
+  bool UsesStartValue;
 };
 
 // VPInstruction for reduction last value calculation.
@@ -2299,6 +2337,17 @@ public:
   /// part of min/max+index idiom.
   bool isMinMaxIndex() const {
     return getParentExitValOperand() != nullptr;
+  }
+
+  /// Return true if the instruction uses start value to calculate last value.
+  bool usesStartValue() const { return getStartValueOperand() != nullptr; }
+
+  /// Replaces start value with the \p newV
+  void replaceStartValue(VPValue *NewVal) {
+    assert(usesStartValue() && NewVal && "Can't replace start value");
+    assert(NewVal->getType() == getStartValueOperand()->getType() &&
+           "Inconsistent operand type");
+    replaceUsesOfWith(getStartValueOperand(), NewVal, false);
   }
 
   /// Return ID of the corresponding reduce intrinsic.
@@ -2483,6 +2532,7 @@ private:
 /// output IR instructions to generate, and their cost.
 class VPlan {
   friend class VPlanPrinter;
+  friend class VPLiveInOutCreator;
 
 public:
   using VPBasicBlockListTy = ilist<VPBasicBlock, ilist_sentinel_tracking<true>>;
@@ -2533,6 +2583,12 @@ private:
 
   // Holds the instructions that need to be deleted by VPlan's destructor.
   SmallVector<std::unique_ptr<VPInstruction>, 2> UnlinkedVPInsns;
+
+  /// Holds the VPLiveInValues.
+  SmallVector<std::unique_ptr<VPLiveInValue>, 16> LiveInValues;
+
+  /// Holds the VPLiveOutValues.
+  SmallVector<std::unique_ptr<VPLiveOutValue>, 16> LiveOutValues;
 
 public:
   VPlan(VPExternalValues &E);
@@ -2594,6 +2650,35 @@ public:
   }
 
   const DataLayout *getDataLayout() const { return Externals.getDataLayout(); }
+
+  const VPLiveInValue *getLiveInValue(unsigned MergeId) const {
+    return LiveInValues[MergeId].get();
+  }
+
+  auto liveInValues() {
+    return map_range(LiveInValues, [](std::unique_ptr<VPLiveInValue> &V) {
+      return V.get();});
+  }
+  auto liveInValues() const {
+    return map_range(LiveInValues, [](const std::unique_ptr<VPLiveInValue> &V) {
+      return V.get();});
+  }
+
+
+  const VPLiveOutValue *getLiveOutValue(unsigned MergeId) const {
+    return LiveOutValues[MergeId].get();
+  }
+
+  auto liveOutValues() {
+    return map_range(LiveOutValues, [](std::unique_ptr<VPLiveOutValue> &V) {
+      return V.get();});
+  }
+
+  auto liveOutValues() const {
+    return map_range(LiveOutValues, [](const std::unique_ptr<VPLiveOutValue> &V) {
+      return V.get();});
+  }
+
 
   /// Return an existing or newly created LoopEntities for the loop \p L.
   VPLoopEntityList *getOrCreateLoopEntities(const VPLoop *L) {
@@ -2779,11 +2864,48 @@ public:
   std::unique_ptr<VPlan> clone(VPAnalysesFactory &VPAF, bool RecalculateDA);
 
 private:
+  void addLiveInValue(VPLiveInValue *V) {
+    assert(V->getMergeId() == LiveInValues.size() &&
+           "Inconsistent livein index");
+    LiveInValues.emplace_back(V);
+  }
+
+  void setLiveInValue(VPLiveInValue *V, unsigned MergeId) {
+    assert((V->getMergeId() == MergeId && !LiveInValues[MergeId]) &&
+           "Inconsistent livein index");
+    LiveInValues[MergeId].reset(V);
+  }
+
+  void allocateLiveInValues(int Count) {
+    assert(LiveInValues.size() == 0 && "The list is not empty");
+    LiveInValues.resize(Count);
+  }
+
+  void addLiveOutValue(VPLiveOutValue *V) {
+    assert(V->getMergeId() == LiveOutValues.size() &&
+           "Inconsistent liveout index");
+    LiveOutValues.emplace_back(V);
+  }
+
+  void setLiveOutValue(VPLiveOutValue *V, unsigned MergeId) {
+    assert((V->getMergeId() == MergeId && !LiveOutValues[MergeId]) &&
+           "Inconsistent liveout index");
+    LiveOutValues[MergeId].reset(V);
+  }
+
+  void allocateLiveOutValues(int Count) {
+    assert(LiveOutValues.size() == 0 && "The list is not empty");
+    LiveOutValues.resize(Count);
+  }
+
   /// Add to the given dominator tree the header block and every new basic block
   /// that was created between it and the latch block, inclusive.
   static void updateDominatorTree(class DominatorTree *DT,
                                   BasicBlock *LoopPreHeaderBB,
                                   BasicBlock *LoopLatchBB);
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+  void printLiveIns(raw_ostream &OS) const;
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
 };
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)

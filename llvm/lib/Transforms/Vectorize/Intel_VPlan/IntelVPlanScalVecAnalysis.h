@@ -267,6 +267,14 @@ private:
                            SVABits &OrBits);
   void orSVABitsForAllOperands(const VPInstruction *Inst, SVABits &OrBits);
 
+  /// Analyze and compute SVA properties for given VPInstruction. Following 3
+  /// cases are possible for an instruction -
+  /// 1. Specially processed
+  /// 2. Determine SVA nature using DA
+  /// 3. Compute and refine SVA nature based on user-site bits
+  void compute(const VPInstruction *VPInst, unsigned VF,
+               const TargetLibraryInfo *TLI);
+
   /// Specialized method to back propagate SVA bits for a recurrent PHI node.
   /// Since these PHIs can represent back-edge or recurrence property, a chain
   /// of propagation might be needed. Consider the example below -

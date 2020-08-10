@@ -163,6 +163,9 @@ protected:
   /// Doesn't take into account i1 type.
   virtual std::pair<unsigned, unsigned> getTypesWidthRangeInBits() const;
 
+  /// Create VPLiveIn/VPLiveOut lists for VPEntities.
+  virtual void createLiveInOutLists(VPlan &Plan);
+
   /// WRegion info of the loop we evaluate. It can be null.
   WRNVecLoopNode *WRLp;
 

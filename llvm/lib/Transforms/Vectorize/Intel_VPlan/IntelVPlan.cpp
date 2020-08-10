@@ -792,6 +792,8 @@ void VPlan::dump(raw_ostream &OS) const {
   if (DumpExternalDefsHIR)
     Externals.dumpExternalDefs(FOS);
 
+  printLiveIns(FOS);
+
   for (auto EIter = LoopEntities.begin(), End = LoopEntities.end();
        EIter != End; ++EIter) {
     VPLoopEntityList *E = EIter->second.get();
@@ -800,8 +802,22 @@ void VPlan::dump(raw_ostream &OS) const {
 
   print(FOS, 1);
 
-  Externals.dumpExternalUses(FOS);
+  Externals.dumpExternalUses(FOS, LiveOutValues.size() ? this : nullptr);
 }
+
+void VPlan::printLiveIns(raw_ostream &OS) const {
+  if (!LiveInValues.size())
+    return;
+  OS << "Live-in values:\n";
+  for (auto LI : liveInValues()) {
+    if (!LI)
+      continue;
+    OS << "ID: " << LI->getMergeId() << " Value: ";
+    Externals.getOriginalIncomingValue(LI->getMergeId())->printAsOperand(OS);
+    OS << "\n";
+  }
+}
+
 
 void VPlan::dump() const { dump(dbgs()); }
 
@@ -985,28 +1001,42 @@ void VPCallInstruction::printImpl(raw_ostream &O) const {
 }
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 
-void VPValue::replaceAllUsesWithImpl(VPValue *NewVal, VPLoop *Loop,
-                                     VPBasicBlock *VPBB, bool InvalidateIR) {
-  assert(NewVal && "Can't replace uses with null value");
-  assert(getType() == NewVal->getType() && "Incompatible data types");
-  assert(!(Loop && VPBB) && "Cannot have both Loop and VPBB to be non-null.");
-  unsigned Cnt = 0;
-  while (getNumUsers() > Cnt) {
-    if (Loop) {
-      if (auto Instr = dyn_cast<VPInstruction>(Users[Cnt]))
-        if (!Loop->contains(Instr->getParent())) {
-          ++Cnt;
-          continue;
-        }
-    } else if (VPBB) {
-      if (auto Instr = dyn_cast<VPInstruction>(Users[Cnt]))
-        if (Instr->getParent() != VPBB) {
-          ++Cnt;
-          continue;
-        }
-    }
-    Users[Cnt]->replaceUsesOfWith(this, NewVal, InvalidateIR);
-  }
+void VPValue::replaceUsesWithIf(
+    VPValue *NewVal, llvm::function_ref<bool(VPUser *U)> ShouldReplace,
+    bool InvalidateIR) {
+  assert(NewVal && "Value::replaceUsesWithIf(<null>) is invalid!");
+  assert(NewVal->getType() == getType() &&
+         "replaceUses of value with new value of different type!");
+
+  SmallVector<VPUser *, 2> UsersToUpdate(
+      make_filter_range(users(), ShouldReplace));
+
+  for (VPUser *U : UsersToUpdate)
+    U->replaceUsesOfWith(this, NewVal, InvalidateIR);
+}
+
+void VPValue::replaceAllUsesWithInBlock(VPValue *NewVal, VPBasicBlock &VPBB,
+                                        bool InvalidateIR) {
+  auto ShouldReplace = [&VPBB](VPUser *U) {
+    if (VPInstruction *I = dyn_cast<VPInstruction>(U))
+      return I->getParent() == &VPBB;
+    return false;
+  };
+  replaceUsesWithIf(NewVal, ShouldReplace, InvalidateIR);
+}
+
+void VPValue::replaceAllUsesWithInLoop(VPValue *NewVal, VPLoop &Loop,
+                                       bool InvalidateIR) {
+  auto ShouldReplace = [&Loop](VPUser *U) {
+    if (VPInstruction *I = dyn_cast<VPInstruction>(U))
+      return Loop.contains(I);
+    return false;
+  };
+  replaceUsesWithIf(NewVal, ShouldReplace, InvalidateIR);
+}
+
+void VPValue::replaceAllUsesWith(VPValue *NewVal, bool InvalidateIR) {
+  replaceUsesWithIf(NewVal, [](VPUser *U) { return true; }, InvalidateIR);
 }
 
 bool VPValue::isUnderlyingIRValid() const {

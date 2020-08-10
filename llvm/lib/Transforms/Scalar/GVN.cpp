@@ -40,6 +40,7 @@
 #include "llvm/Analysis/OptimizationRemarkEmitter.h"
 #include "llvm/Analysis/PHITransAddr.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
+#include "llvm/Analysis/VPO/Utils/VPOAnalysisUtils.h" // INTEL
 #include "llvm/Analysis/ValueTracking.h"
 #include "llvm/Config/llvm-config.h"
 #include "llvm/IR/Attributes.h"
@@ -1151,10 +1152,25 @@ PHINode *PREProfitableWithPaddedMalloc(LoadInst *LI) {
   return nullptr;
 }
 
-static bool isLoadPREProfitable(LoadInst *LI, DominatorTree *DT) {
+bool isInSimdRegion(LoadInst *LoadI, const LoopInfo &LoopI) {
+  if (Loop *L = LoopI.getLoopFor(LoadI->getParent()))
+    if (auto *PH = L->getLoopPredecessor())
+      if (auto *II = dyn_cast<IntrinsicInst>(&(PH->front())))
+        if (vpo::VPOAnalysisUtils::getDirectiveID(II) == DIR_OMP_SIMD)
+          return true;
+  return false;
+}
+
+static bool isLoadPREProfitable(LoadInst *LI, DominatorTree *DT,
+                                LoopInfo *LoopI) {
 
   auto LoadBB = LI->getParent();
   auto Func = LoadBB->getParent();
+
+  // CMPLRLLVM-11228: Suppress PRE for loads in SIMD regions
+  // as it can make loops non-vectorizable.
+  if (LoopI && isInSimdRegion(LI, *LoopI))
+    return false;
 
   // If this PRE looks like scalar replacement, we want to suppress it
   // pre-loopopt as it can make loops non-vectorizable.
@@ -1251,7 +1267,7 @@ static bool isLoadPREProfitable(LoadInst *LI, DominatorTree *DT) {
 bool GVN::PerformLoadPRE(LoadInst *LI, AvailValInBlkVect &ValuesPerBlock,
                          UnavailBlkVect &UnavailableBlocks) {
 #if INTEL_CUSTOMIZATION
-  if (!isLoadPREProfitable(LI, DT)) {
+  if (!isLoadPREProfitable(LI, DT, this->LI)) {
     return false;
   }
 #endif // INTEL_CUSTOMIZATION

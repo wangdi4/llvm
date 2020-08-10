@@ -6,7 +6,7 @@
 ; CHECK-DAG: p.addr.013.out
 ; CHECK-DAG: incdec.ptr
 
-; CHECK: NSW: Yes
+; CHECK: HasSignedIV: Yes
 
 ; CHECK: DO i32 i1 = 0, %n + -1
 ; CHECK: %p.addr.013.out = &((%p)[i1])
