@@ -5036,7 +5036,6 @@ def fsycl_std_layout_kernel_params: Flag<["-"], "fsycl-std-layout-kernel-params"
 def fsycl_allow_func_ptr : Flag<["-"], "fsycl-allow-func-ptr">,
   HelpText<"Allow function pointers in SYCL device.">;
 def fno_sycl_allow_func_ptr : Flag<["-"], "fno-sycl-allow-func-ptr">;
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 def fenable_variant_function_pointers
     : Flag<["-"], "fenable-variant-function-pointers">,
@@ -5049,12 +5048,8 @@ def fenable_variant_virtual_calls
 def fno_enable_variant_virtual_calls
     : Flag<["-"], "fno-enable-variant-virtual-calls">;
 #endif // INTEL_CUSTOMIZATION
-def fsycl_enable_optimizations: Flag<["-"], "fsycl-enable-optimizations">,
-  HelpText<"Experimental flag enabling standard optimization in the front-end.">;
-=======
 def fenable_sycl_dae : Flag<["-"], "fenable-sycl-dae">,
   HelpText<"Enable Dead Argument Elimination in SPIR kernels">;
->>>>>>> cf1035141c51fd3bc86ee57bf4d32ffe51a60318
 
 } // let Flags = [CC1Option]
 
