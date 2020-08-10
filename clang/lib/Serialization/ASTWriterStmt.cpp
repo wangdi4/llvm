@@ -2159,21 +2159,18 @@ void ASTStmtWriter::VisitSEHLeaveStmt(SEHLeaveStmt *S) {
 //===----------------------------------------------------------------------===//
 // OpenMP Directives.
 //===----------------------------------------------------------------------===//
+
 void ASTStmtWriter::VisitOMPExecutableDirective(OMPExecutableDirective *E) {
+  Record.writeOMPChildren(E->Data);
   Record.AddSourceLocation(E->getBeginLoc());
   Record.AddSourceLocation(E->getEndLoc());
-  for (unsigned i = 0; i < E->getNumClauses(); ++i) {
-    Record.writeOMPClause(E->getClause(i));
-  }
-  if (E->hasAssociatedStmt())
-    Record.AddStmt(E->getAssociatedStmt());
 }
 
 void ASTStmtWriter::VisitOMPLoopDirective(OMPLoopDirective *D) {
   VisitStmt(D);
-  Record.push_back(D->getNumClauses());
-  Record.push_back(D->getCollapsedNumber());
+  Record.writeUInt32(D->getCollapsedNumber());
   VisitOMPExecutableDirective(D);
+<<<<<<< HEAD
   Record.AddStmt(D->getIterationVariable());
   Record.AddStmt(D->getLastIteration());
   Record.AddStmt(D->getCalcLastIteration());
@@ -2254,14 +2251,14 @@ void ASTStmtWriter::VisitOMPLoopDirective(OMPLoopDirective *D) {
   ADD_UNCOLLAPSED(Updates)
 #undef ADD_UNCOLLAPSED
 #endif // INTEL_CUSTOMIZATION
+=======
+>>>>>>> 0af7835eae698330f6362220ff1fcbfe92516de8
 }
 
 void ASTStmtWriter::VisitOMPParallelDirective(OMPParallelDirective *D) {
   VisitStmt(D);
-  Record.push_back(D->getNumClauses());
   VisitOMPExecutableDirective(D);
-  Record.AddStmt(D->getTaskReductionRefExpr());
-  Record.push_back(D->hasCancel() ? 1 : 0);
+  Record.writeBool(D->hasCancel());
   Code = serialization::STMT_OMP_PARALLEL_DIRECTIVE;
 }
 
@@ -2272,8 +2269,7 @@ void ASTStmtWriter::VisitOMPSimdDirective(OMPSimdDirective *D) {
 
 void ASTStmtWriter::VisitOMPForDirective(OMPForDirective *D) {
   VisitOMPLoopDirective(D);
-  Record.AddStmt(D->getTaskReductionRefExpr());
-  Record.push_back(D->hasCancel() ? 1 : 0);
+  Record.writeBool(D->hasCancel());
   Code = serialization::STMT_OMP_FOR_DIRECTIVE;
 }
 
@@ -2284,17 +2280,15 @@ void ASTStmtWriter::VisitOMPForSimdDirective(OMPForSimdDirective *D) {
 
 void ASTStmtWriter::VisitOMPSectionsDirective(OMPSectionsDirective *D) {
   VisitStmt(D);
-  Record.push_back(D->getNumClauses());
   VisitOMPExecutableDirective(D);
-  Record.AddStmt(D->getTaskReductionRefExpr());
-  Record.push_back(D->hasCancel() ? 1 : 0);
+  Record.writeBool(D->hasCancel());
   Code = serialization::STMT_OMP_SECTIONS_DIRECTIVE;
 }
 
 void ASTStmtWriter::VisitOMPSectionDirective(OMPSectionDirective *D) {
   VisitStmt(D);
   VisitOMPExecutableDirective(D);
-  Record.push_back(D->hasCancel() ? 1 : 0);
+  Record.writeBool(D->hasCancel());
   Code = serialization::STMT_OMP_SECTION_DIRECTIVE;
 }
 
@@ -2339,7 +2333,6 @@ void ASTStmtWriter::VisitOMPTargetParallelGenericLoopDirective(
 
 void ASTStmtWriter::VisitOMPSingleDirective(OMPSingleDirective *D) {
   VisitStmt(D);
-  Record.push_back(D->getNumClauses());
   VisitOMPExecutableDirective(D);
   Code = serialization::STMT_OMP_SINGLE_DIRECTIVE;
 }
@@ -2352,7 +2345,6 @@ void ASTStmtWriter::VisitOMPMasterDirective(OMPMasterDirective *D) {
 
 void ASTStmtWriter::VisitOMPCriticalDirective(OMPCriticalDirective *D) {
   VisitStmt(D);
-  Record.push_back(D->getNumClauses());
   VisitOMPExecutableDirective(D);
   Record.AddDeclarationNameInfo(D->getDirectiveName());
   Code = serialization::STMT_OMP_CRITICAL_DIRECTIVE;
@@ -2360,8 +2352,7 @@ void ASTStmtWriter::VisitOMPCriticalDirective(OMPCriticalDirective *D) {
 
 void ASTStmtWriter::VisitOMPParallelForDirective(OMPParallelForDirective *D) {
   VisitOMPLoopDirective(D);
-  Record.AddStmt(D->getTaskReductionRefExpr());
-  Record.push_back(D->hasCancel() ? 1 : 0);
+  Record.writeBool(D->hasCancel());
   Code = serialization::STMT_OMP_PARALLEL_FOR_DIRECTIVE;
 }
 
@@ -2374,53 +2365,41 @@ void ASTStmtWriter::VisitOMPParallelForSimdDirective(
 void ASTStmtWriter::VisitOMPParallelMasterDirective(
     OMPParallelMasterDirective *D) {
   VisitStmt(D);
-  Record.push_back(D->getNumClauses());
   VisitOMPExecutableDirective(D);
-  Record.AddStmt(D->getTaskReductionRefExpr());
   Code = serialization::STMT_OMP_PARALLEL_MASTER_DIRECTIVE;
 }
 
 void ASTStmtWriter::VisitOMPParallelSectionsDirective(
     OMPParallelSectionsDirective *D) {
   VisitStmt(D);
-  Record.push_back(D->getNumClauses());
   VisitOMPExecutableDirective(D);
-  Record.AddStmt(D->getTaskReductionRefExpr());
-  Record.push_back(D->hasCancel() ? 1 : 0);
+  Record.writeBool(D->hasCancel());
   Code = serialization::STMT_OMP_PARALLEL_SECTIONS_DIRECTIVE;
 }
 
 void ASTStmtWriter::VisitOMPTaskDirective(OMPTaskDirective *D) {
   VisitStmt(D);
-  Record.push_back(D->getNumClauses());
   VisitOMPExecutableDirective(D);
-  Record.push_back(D->hasCancel() ? 1 : 0);
+  Record.writeBool(D->hasCancel());
   Code = serialization::STMT_OMP_TASK_DIRECTIVE;
 }
 
 void ASTStmtWriter::VisitOMPAtomicDirective(OMPAtomicDirective *D) {
   VisitStmt(D);
-  Record.push_back(D->getNumClauses());
   VisitOMPExecutableDirective(D);
-  Record.AddStmt(D->getX());
-  Record.AddStmt(D->getV());
-  Record.AddStmt(D->getExpr());
-  Record.AddStmt(D->getUpdateExpr());
-  Record.push_back(D->isXLHSInRHSPart() ? 1 : 0);
-  Record.push_back(D->isPostfixUpdate() ? 1 : 0);
+  Record.writeBool(D->isXLHSInRHSPart());
+  Record.writeBool(D->isPostfixUpdate());
   Code = serialization::STMT_OMP_ATOMIC_DIRECTIVE;
 }
 
 void ASTStmtWriter::VisitOMPTargetDirective(OMPTargetDirective *D) {
   VisitStmt(D);
-  Record.push_back(D->getNumClauses());
   VisitOMPExecutableDirective(D);
   Code = serialization::STMT_OMP_TARGET_DIRECTIVE;
 }
 
 void ASTStmtWriter::VisitOMPTargetDataDirective(OMPTargetDataDirective *D) {
   VisitStmt(D);
-  Record.push_back(D->getNumClauses());
   VisitOMPExecutableDirective(D);
   Code = serialization::STMT_OMP_TARGET_DATA_DIRECTIVE;
 }
@@ -2428,7 +2407,6 @@ void ASTStmtWriter::VisitOMPTargetDataDirective(OMPTargetDataDirective *D) {
 void ASTStmtWriter::VisitOMPTargetEnterDataDirective(
     OMPTargetEnterDataDirective *D) {
   VisitStmt(D);
-  Record.push_back(D->getNumClauses());
   VisitOMPExecutableDirective(D);
   Code = serialization::STMT_OMP_TARGET_ENTER_DATA_DIRECTIVE;
 }
@@ -2436,7 +2414,6 @@ void ASTStmtWriter::VisitOMPTargetEnterDataDirective(
 void ASTStmtWriter::VisitOMPTargetExitDataDirective(
     OMPTargetExitDataDirective *D) {
   VisitStmt(D);
-  Record.push_back(D->getNumClauses());
   VisitOMPExecutableDirective(D);
   Code = serialization::STMT_OMP_TARGET_EXIT_DATA_DIRECTIVE;
 }
@@ -2444,9 +2421,7 @@ void ASTStmtWriter::VisitOMPTargetExitDataDirective(
 void ASTStmtWriter::VisitOMPTargetParallelDirective(
     OMPTargetParallelDirective *D) {
   VisitStmt(D);
-  Record.push_back(D->getNumClauses());
   VisitOMPExecutableDirective(D);
-  Record.AddStmt(D->getTaskReductionRefExpr());
   Record.writeBool(D->hasCancel());
   Code = serialization::STMT_OMP_TARGET_PARALLEL_DIRECTIVE;
 }
@@ -2454,8 +2429,7 @@ void ASTStmtWriter::VisitOMPTargetParallelDirective(
 void ASTStmtWriter::VisitOMPTargetParallelForDirective(
     OMPTargetParallelForDirective *D) {
   VisitOMPLoopDirective(D);
-  Record.AddStmt(D->getTaskReductionRefExpr());
-  Record.push_back(D->hasCancel() ? 1 : 0);
+  Record.writeBool(D->hasCancel());
   Code = serialization::STMT_OMP_TARGET_PARALLEL_FOR_DIRECTIVE;
 }
 
@@ -2479,43 +2453,36 @@ void ASTStmtWriter::VisitOMPTaskwaitDirective(OMPTaskwaitDirective *D) {
 
 void ASTStmtWriter::VisitOMPTaskgroupDirective(OMPTaskgroupDirective *D) {
   VisitStmt(D);
-  Record.push_back(D->getNumClauses());
   VisitOMPExecutableDirective(D);
-  Record.AddStmt(D->getReductionRef());
   Code = serialization::STMT_OMP_TASKGROUP_DIRECTIVE;
 }
 
 void ASTStmtWriter::VisitOMPFlushDirective(OMPFlushDirective *D) {
   VisitStmt(D);
-  Record.push_back(D->getNumClauses());
   VisitOMPExecutableDirective(D);
   Code = serialization::STMT_OMP_FLUSH_DIRECTIVE;
 }
 
 void ASTStmtWriter::VisitOMPDepobjDirective(OMPDepobjDirective *D) {
   VisitStmt(D);
-  Record.push_back(D->getNumClauses());
   VisitOMPExecutableDirective(D);
   Code = serialization::STMT_OMP_DEPOBJ_DIRECTIVE;
 }
 
 void ASTStmtWriter::VisitOMPScanDirective(OMPScanDirective *D) {
   VisitStmt(D);
-  Record.push_back(D->getNumClauses());
   VisitOMPExecutableDirective(D);
   Code = serialization::STMT_OMP_SCAN_DIRECTIVE;
 }
 
 void ASTStmtWriter::VisitOMPOrderedDirective(OMPOrderedDirective *D) {
   VisitStmt(D);
-  Record.push_back(D->getNumClauses());
   VisitOMPExecutableDirective(D);
   Code = serialization::STMT_OMP_ORDERED_DIRECTIVE;
 }
 
 void ASTStmtWriter::VisitOMPTeamsDirective(OMPTeamsDirective *D) {
   VisitStmt(D);
-  Record.push_back(D->getNumClauses());
   VisitOMPExecutableDirective(D);
   Code = serialization::STMT_OMP_TEAMS_DIRECTIVE;
 }
@@ -2524,21 +2491,20 @@ void ASTStmtWriter::VisitOMPCancellationPointDirective(
     OMPCancellationPointDirective *D) {
   VisitStmt(D);
   VisitOMPExecutableDirective(D);
-  Record.push_back(uint64_t(D->getCancelRegion()));
+  Record.writeEnum(D->getCancelRegion());
   Code = serialization::STMT_OMP_CANCELLATION_POINT_DIRECTIVE;
 }
 
 void ASTStmtWriter::VisitOMPCancelDirective(OMPCancelDirective *D) {
   VisitStmt(D);
-  Record.push_back(D->getNumClauses());
   VisitOMPExecutableDirective(D);
-  Record.push_back(uint64_t(D->getCancelRegion()));
+  Record.writeEnum(D->getCancelRegion());
   Code = serialization::STMT_OMP_CANCEL_DIRECTIVE;
 }
 
 void ASTStmtWriter::VisitOMPTaskLoopDirective(OMPTaskLoopDirective *D) {
   VisitOMPLoopDirective(D);
-  Record.push_back(D->hasCancel() ? 1 : 0);
+  Record.writeBool(D->hasCancel());
   Code = serialization::STMT_OMP_TASKLOOP_DIRECTIVE;
 }
 
@@ -2550,7 +2516,7 @@ void ASTStmtWriter::VisitOMPTaskLoopSimdDirective(OMPTaskLoopSimdDirective *D) {
 void ASTStmtWriter::VisitOMPMasterTaskLoopDirective(
     OMPMasterTaskLoopDirective *D) {
   VisitOMPLoopDirective(D);
-  Record.push_back(D->hasCancel() ? 1 : 0);
+  Record.writeBool(D->hasCancel());
   Code = serialization::STMT_OMP_MASTER_TASKLOOP_DIRECTIVE;
 }
 
@@ -2563,7 +2529,7 @@ void ASTStmtWriter::VisitOMPMasterTaskLoopSimdDirective(
 void ASTStmtWriter::VisitOMPParallelMasterTaskLoopDirective(
     OMPParallelMasterTaskLoopDirective *D) {
   VisitOMPLoopDirective(D);
-  Record.push_back(D->hasCancel() ? 1 : 0);
+  Record.writeBool(D->hasCancel());
   Code = serialization::STMT_OMP_PARALLEL_MASTER_TASKLOOP_DIRECTIVE;
 }
 
@@ -2580,7 +2546,6 @@ void ASTStmtWriter::VisitOMPDistributeDirective(OMPDistributeDirective *D) {
 
 void ASTStmtWriter::VisitOMPTargetUpdateDirective(OMPTargetUpdateDirective *D) {
   VisitStmt(D);
-  Record.push_back(D->getNumClauses());
   VisitOMPExecutableDirective(D);
   Code = serialization::STMT_OMP_TARGET_UPDATE_DIRECTIVE;
 }
@@ -2588,8 +2553,7 @@ void ASTStmtWriter::VisitOMPTargetUpdateDirective(OMPTargetUpdateDirective *D) {
 void ASTStmtWriter::VisitOMPDistributeParallelForDirective(
     OMPDistributeParallelForDirective *D) {
   VisitOMPLoopDirective(D);
-  Record.AddStmt(D->getTaskReductionRefExpr());
-  Record.push_back(D->hasCancel() ? 1 : 0);
+  Record.writeBool(D->hasCancel());
   Code = serialization::STMT_OMP_DISTRIBUTE_PARALLEL_FOR_DIRECTIVE;
 }
 
@@ -2637,14 +2601,12 @@ void ASTStmtWriter::VisitOMPTeamsDistributeParallelForSimdDirective(
 void ASTStmtWriter::VisitOMPTeamsDistributeParallelForDirective(
     OMPTeamsDistributeParallelForDirective *D) {
   VisitOMPLoopDirective(D);
-  Record.AddStmt(D->getTaskReductionRefExpr());
-  Record.push_back(D->hasCancel() ? 1 : 0);
+  Record.writeBool(D->hasCancel());
   Code = serialization::STMT_OMP_TEAMS_DISTRIBUTE_PARALLEL_FOR_DIRECTIVE;
 }
 
 void ASTStmtWriter::VisitOMPTargetTeamsDirective(OMPTargetTeamsDirective *D) {
   VisitStmt(D);
-  Record.push_back(D->getNumClauses());
   VisitOMPExecutableDirective(D);
   Code = serialization::STMT_OMP_TARGET_TEAMS_DIRECTIVE;
 }
@@ -2658,8 +2620,7 @@ void ASTStmtWriter::VisitOMPTargetTeamsDistributeDirective(
 void ASTStmtWriter::VisitOMPTargetTeamsDistributeParallelForDirective(
     OMPTargetTeamsDistributeParallelForDirective *D) {
   VisitOMPLoopDirective(D);
-  Record.AddStmt(D->getTaskReductionRefExpr());
-  Record.push_back(D->hasCancel() ? 1 : 0);
+  Record.writeBool(D->hasCancel());
   Code = serialization::STMT_OMP_TARGET_TEAMS_DISTRIBUTE_PARALLEL_FOR_DIRECTIVE;
 }
 
