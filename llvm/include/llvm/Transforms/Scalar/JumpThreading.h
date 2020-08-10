@@ -113,18 +113,21 @@ class JumpThreadingPass : public PassInfoMixin<JumpThreadingPass> {
   LazyValueInfo *LVI;
   AliasAnalysis *AA;
   DomTreeUpdater *DTU;
+  PostDominatorTree *PDT; // INTEL
   std::unique_ptr<BlockFrequencyInfo> BFI;
   std::unique_ptr<BranchProbabilityInfo> BPI;
   bool HasProfileData = false;
   bool HasGuards = false;
 #ifdef NDEBUG
   SmallPtrSet<const BasicBlock *, 16> LoopHeaders;
-  SmallPtrSet<const BasicBlock *, 16> CountableLoopHeaders; // INTEL
-  SmallPtrSet<const BasicBlock *, 16> CountableLoopLatches; // INTEL
+  SmallPtrSet<const BasicBlock *, 16> CountableSingleExitLoopHeaders; // INTEL
+  SmallPtrSet<const BasicBlock *, 16> CountableSingleExitLoopLatches; // INTEL
 #else
   SmallSet<AssertingVH<const BasicBlock>, 16> LoopHeaders;
-  SmallSet<AssertingVH<const BasicBlock>, 16> CountableLoopHeaders; // INTEL
-  SmallSet<AssertingVH<const BasicBlock>, 16> CountableLoopLatches; // INTEL
+  SmallSet<AssertingVH<const BasicBlock>, 16>       // INTEL
+                    CountableSingleExitLoopHeaders; // INTEL
+  SmallSet<AssertingVH<const BasicBlock>, 16>       // INTEL
+                    CountableSingleExitLoopLatches;  // INTEL
 #endif
 
   unsigned BBDupThreshold;
@@ -154,7 +157,8 @@ public:
   bool runImpl(Function &F, TargetLibraryInfo *TLI_, LazyValueInfo *LVI_,
                AliasAnalysis *AA_, DomTreeUpdater *DTU_, bool HasProfileData_,
                std::unique_ptr<BlockFrequencyInfo> BFI_,
-               std::unique_ptr<BranchProbabilityInfo> BPI_);
+               std::unique_ptr<BranchProbabilityInfo> BPI_,  // INTEL
+               PostDominatorTree *PDT_);                     // INTEL
 
   PreservedAnalyses run(Function &F, FunctionAnalysisManager &AM);
 
