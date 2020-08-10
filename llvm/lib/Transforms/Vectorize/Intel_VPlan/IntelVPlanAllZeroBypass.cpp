@@ -270,6 +270,64 @@ bool VPlanAllZeroBypass::regionFoundForBlock(
   return false;
 }
 
+bool VPlanAllZeroBypass::endRegionAtBlock(
+    VPBasicBlock *Block,
+    VPValue *CandidateBlockPred,
+    SmallPtrSetImpl<VPBasicBlock *> &RegionBlocks) {
+
+  SmallVector<VPInstruction *, 4> UnpredicatedInsts;
+  getUnpredicatedInstructions(Block, UnpredicatedInsts);
+  if (any_of(UnpredicatedInsts,
+             [CandidateBlockPred, this] (const VPInstruction *VPInst) {
+               if (const VPBlendInst *Blend = dyn_cast<VPBlendInst>(VPInst))
+                 return blendTerminatesRegion(Blend, CandidateBlockPred);
+               // Skip phi nodes here because even though they are
+               // unpredicated we will use a separate check to ensure that
+               // all predecessors of the block containing the phi belong
+               // to the region.
+               return (!isa<VPPHINode>(VPInst) &&
+                       !isa<VPBranchInst>(VPInst) &&
+                       !isStricterOrEqualPred(VPInst, CandidateBlockPred));
+           }))
+    return true;
+
+  // All predecessors of the current block should already be included
+  // in the region. Loop latches are pre-recorded above to allow this
+  // check to be done here.
+  if (any_of(Block->getPredecessors(),
+             [&RegionBlocks] (VPBasicBlock *Pred) {
+              return !RegionBlocks.count(Pred);
+            }))
+    return true;
+
+  // Stop region collection for any blocks that don't have a block-
+  // predicate and have reference to a CondBit. For now, it is
+  // conservatively assumed that these blocks should not appear in
+  // the region. TODO: check post-dominator of this block to see
+  // if there is a block-predicate that is under the influence of
+  // the block-predicate of the region. Reference CMPLRLLVM-20647.
+  //
+  // BB3:
+  //  [DA: Div] i1 %vp27040 = block-predicate i1 %vp64112
+  //  [DA: Div] i32 %vp25424 = add i32 %vp57152 i32 42
+  // SUCCESSORS(1):BB4
+  // PREDECESSORS(1): BB2
+  //
+  // BB4:
+  //  <VPTerminator>
+  //  Condition(BB1): [DA: Uni] i1 %vp57584 = icmp i32 %n i32 7
+  // SUCCESSORS(2):BB5(i1 %vp57584), BB6(!i1 %vp57584)
+  // PREDECESSORS(1): BB3
+  if (!Block->getPredicate() && Block->getNumSuccessors() == 2)
+    return true;
+
+  if (auto *BlockPred = Block->getPredicate())
+    if (!isStricterOrEqualPred(BlockPred, CandidateBlockPred))
+      return true;
+
+  return false;
+}
+
 void VPlanAllZeroBypass::collectAllZeroBypassLoopRegions(
     AllZeroBypassRegionsTy &AllZeroBypassRegions,
     RegionsCollectedTy &RegionsCollected) {
@@ -311,30 +369,24 @@ void VPlanAllZeroBypass::collectAllZeroBypassLoopRegions(
     while (!RegionBegin->getPredicate())
       RegionBegin = RegionBegin->getSingleSuccessor();
 
+    // Record blocks in the region up to and including the loop exit block
+    // before trying to extend the region.
+    VPBasicBlock *Exit = VPLp->getExitBlock();
+    getRegionBlocks(RegionBegin, Exit, RegionBlocks);
+
     // Try to extend loop region by going down single successor chain and
     // checking for predicate instructions that are anded with the preheader
     // block-predicate.
-    VPBasicBlock *Exit = VPLp->getExitBlock();
     VPBasicBlock *RegionEnd = Exit;
     VPBasicBlock *SingleSucc = Exit->getSingleSuccessor();
     while (SingleSucc) {
-      VPValue *SingleSuccPred = SingleSucc->getPredicate();
-      if (SingleSuccPred &&
-          !isStricterOrEqualPred(SingleSuccPred, PreheaderPred))
+      if (endRegionAtBlock(SingleSucc, PreheaderPred, RegionBlocks))
         break;
-      SmallVector<VPInstruction *, 4> UnpredicatedInsts;
-      getUnpredicatedInstructions(SingleSucc, UnpredicatedInsts);
-      if (any_of(UnpredicatedInsts,
-                 [PreheaderPred, this] (const VPInstruction *VPInst) {
-             return (!isa<VPBranchInst>(VPInst) &&
-                     !isStricterOrEqualPred(VPInst, PreheaderPred));
-         }))
-        break;
+      RegionBlocks.insert(SingleSucc);
       RegionEnd = SingleSucc;
       SingleSucc = SingleSucc->getSingleSuccessor();
     }
 
-    getRegionBlocks(RegionBegin, RegionEnd, RegionBlocks);
     BypassPairTy BypassRegion = std::make_pair(RegionBegin, RegionEnd);
     verifyBypassRegion(RegionBegin, RegionBlocks);
     AllZeroBypassRegions.push_back(BypassRegion);
@@ -486,55 +538,8 @@ void VPlanAllZeroBypass::collectAllZeroBypassNonLoopRegions(
       //
       // BB2:
       //  ...
-      SmallVector<VPInstruction *, 4> UnpredicatedInsts;
-      getUnpredicatedInstructions(*BlockIt, UnpredicatedInsts);
-      if (any_of(UnpredicatedInsts,
-                 [CandidateBlockPred, this] (const VPInstruction *VPInst) {
-                   if (const VPBlendInst *Blend = dyn_cast<VPBlendInst>(VPInst))
-                     return blendTerminatesRegion(Blend, CandidateBlockPred);
-                   // Skip phi nodes here because even though they are
-                   // unpredicated we will use a separate check to ensure that
-                   // all predecessors of the block containing the phi belong
-                   // to the region.
-                   return (!isa<VPPHINode>(VPInst) &&
-                           !isa<VPBranchInst>(VPInst) &&
-                           !isStricterOrEqualPred(VPInst, CandidateBlockPred));
-               }))
+      if (endRegionAtBlock(*BlockIt, CandidateBlockPred, RegionBlocks))
         break;
-
-      // All predecessors of the current block should already be included
-      // in the region. Loop latches are pre-recorded above to allow this
-      // check to be done here.
-      if (any_of((*BlockIt)->getPredecessors(),
-                 [&RegionBlocks] (VPBasicBlock *Pred) {
-                  return !RegionBlocks.count(Pred);
-                }))
-        break;
-
-      // Stop region collection for any blocks that don't have a block-
-      // predicate and have reference to a CondBit. For now, it is
-      // conservatively assumed that these blocks should not appear in
-      // the region. TODO: check post-dominator of this block to see
-      // if there is a block-predicate that is under the influence of
-      // the block-predicate of the region. Reference CMPLRLLVM-20647.
-      //
-      // BB3:
-      //  [DA: Div] i1 %vp27040 = block-predicate i1 %vp64112
-      //  [DA: Div] i32 %vp25424 = add i32 %vp57152 i32 42
-      // SUCCESSORS(1):BB4
-      // PREDECESSORS(1): BB2
-      //
-      // BB4:
-      //  <VPTerminator>
-      //  Condition(BB1): [DA: Uni] i1 %vp57584 = icmp i32 %n i32 7
-      // SUCCESSORS(2):BB5(i1 %vp57584), BB6(!i1 %vp57584)
-      // PREDECESSORS(1): BB3
-      if (!(*BlockIt)->getPredicate() && (*BlockIt)->getNumSuccessors() == 2)
-        break;
-
-      if (auto *BlockPred = (*BlockIt)->getPredicate())
-        if (!isStricterOrEqualPred(BlockPred, CandidateBlockPred))
-          break;
 
       LastBB = *BlockIt;
       RegionBlocks.insert(LastBB);

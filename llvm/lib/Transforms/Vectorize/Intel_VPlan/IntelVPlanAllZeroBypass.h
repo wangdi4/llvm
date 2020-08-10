@@ -113,6 +113,11 @@ private:
   /// influence of the same block-predicate as the region.
   bool blendTerminatesRegion(const VPBlendInst *Blend, VPValue *RegionPred);
 
+  /// Returns true if the loop or non-loop region should end at \p Block.
+  /// The region will not include \p Block.
+  bool endRegionAtBlock(VPBasicBlock *Block, VPValue *CandidateBlockPred,
+                        SmallPtrSetImpl<VPBasicBlock *> &RegionBlocks);
+
 public:
   VPlanAllZeroBypass(VPlan &Plan) : Plan(Plan) {};
 
