@@ -886,9 +886,8 @@ void tools::gnutools::Linker::ConstructJob(Compilation &C, const JobAction &JA,
       addIntelLib("-lintlc", CmdArgs, Args);
     else
       addIntelLib("-lirc", CmdArgs, Args);
-
-    // Add -ldl for -mkl
-    if (Args.hasArg(options::OPT_mkl_EQ))
+    // Add -ldl
+    if (Args.hasArg(options::OPT_mkl_EQ) || D.IsIntelMode())
       CmdArgs.push_back("-ldl");
   }
 #endif // INTEL_CUSTOMIZATION

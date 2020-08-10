@@ -58,6 +58,7 @@
 // CHECK-INTEL-LIBS: "-Bstatic" "-lsvml" "-Bdynamic"
 // CHECK-INTEL-LIBS: "-Bstatic" "-lirng" "-Bdynamic"
 // CHECK-INTEL-LIBS: "-Bstatic" "-lirc" "-Bdynamic"
+// CHECK-INTEL-LIBS: "-ldl"
 // CHECK-INTEL-LIBS: "-Bstatic" "-lirc_s" "-Bdynamic"
 
 // default libs with --intel (Windows)
