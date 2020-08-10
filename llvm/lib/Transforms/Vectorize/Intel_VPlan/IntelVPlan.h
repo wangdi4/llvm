@@ -2057,7 +2057,7 @@ public:
   }
 
   /// Call argument list size.
-  unsigned arg_size() const {
+  unsigned getNumArgOperands() const {
     assert(getNumOperands() != 0 && "Invalid VPCallInstruction.");
     return getNumOperands() - 1;
   }
@@ -2108,6 +2108,18 @@ public:
 
   static bool classof(const VPValue *V) {
     return isa<VPInstruction>(V) && classof(cast<VPInstruction>(V));
+  }
+
+  VPValue *getArgOperand(unsigned i) const {
+    assert(i < getNumArgOperands() && "Out of bounds!");
+    return getOperand(i);
+  }
+
+  bool isIntelIndirectCall() const {
+    Function *F = getCalledFunction();
+    if (F)
+      return F->getName().startswith("__intel_indirect_call");
+    return false;
   }
 
 protected:

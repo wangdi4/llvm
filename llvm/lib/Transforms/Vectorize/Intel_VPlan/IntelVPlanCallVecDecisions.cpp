@@ -41,8 +41,10 @@ bool VPlanCallVecDecisions::matchAndScoreVariantParameters(
   auto *DA = Plan.getVPlanDA();
   std::vector<VectorKind> Parms;
   Parms = Variant.getParameters();
-  SmallVector<int, 4> ArgScores;
-  for (unsigned I = 0; I < VPCall->arg_size(); ++I) {
+
+  std::vector<int> ArgScores;
+  for (unsigned I = VPCall->isIntelIndirectCall() ? 1 : 0, J = 0;
+       I < VPCall->getNumArgOperands(); ++I, ++J) {
     int ArgScore;
     auto *CallArg = VPCall->getOperand(I);
     auto CallArgShape = DA->getVectorShape(CallArg);
@@ -52,7 +54,7 @@ bool VPlanCallVecDecisions::matchAndScoreVariantParameters(
 
     // Linear and uniform arguments can always safely be put into vectors, but
     // reduce score in those cases because scalar is optimal.
-    if (Parms[I].isVector()) {
+    if (Parms[J].isVector()) {
       if (CallArgShape.isRandom())
         ArgScore = Vector2VectorScore;
       else
@@ -62,16 +64,16 @@ bool VPlanCallVecDecisions::matchAndScoreVariantParameters(
       continue;
     }
 
-    if (Parms[I].isLinear() && CallArgShape.isAnyStrided() &&
-         CallArgShape.hasKnownStride() &&
-         Parms[I].getStride() == CallArgShape.getStrideVal()) {
+    if (Parms[J].isLinear() && CallArgShape.isAnyStrided() &&
+        CallArgShape.hasKnownStride() &&
+        Parms[J].getStride() == CallArgShape.getStrideVal()) {
       ArgScore = Linear2LinearScore;
       ArgScores.push_back(ArgScore);
       Score += ArgScore;
       continue;
     }
 
-    if (Parms[I].isUniform() && CallArgShape.isUniform()) {
+    if (Parms[J].isUniform() && CallArgShape.isUniform()) {
       // Uniform ptr arguments are more beneficial for performance, so weight
       // them accordingly.
       if (isa<PointerType>(CallArg->getType()))
@@ -206,6 +208,50 @@ VPlanCallVecDecisions::matchVectorVariant(const VPCallInstruction *VPCall,
   }
 
   return nullptr;
+}
+
+Type *
+VPlanCallVecDecisions::calcCharacteristicType(VPCallInstruction *VPCallInst,
+                                              VectorVariant &Variant) {
+  assert(VPCallInst && "VPCallInst should not be nullptr");
+  Type *CharacteristicDataType =
+      !VPCallInst->getType()->isVoidTy() ? VPCallInst->getType() : nullptr;
+
+  if (!CharacteristicDataType) {
+    std::vector<VectorKind> &ParmKinds = Variant.getParameters();
+    std::vector<VectorKind>::iterator VKIt = ParmKinds.begin();
+    size_t Idx = VPCallInst->isIntelIndirectCall() ? 1 : 0;
+    size_t End = VPCallInst->getNumArgOperands();
+    for (; Idx != End; ++Idx, ++VKIt) {
+      if (VKIt->isVector()) {
+        VPValue *Arg = VPCallInst->getArgOperand(Idx);
+        CharacteristicDataType = Arg->getType();
+        break;
+      }
+    }
+  }
+
+  // TODO except Clang's ComplexType
+  if (!CharacteristicDataType || CharacteristicDataType->isStructTy() ||
+      CharacteristicDataType->isVectorTy())
+    CharacteristicDataType =
+        Type::getInt32Ty(VPCallInst->getType()->getContext());
+
+  // Promote char/short types to int for Xeon Phi.
+  CharacteristicDataType =
+      VectorVariant::promoteToSupportedType(CharacteristicDataType, Variant);
+
+  if (CharacteristicDataType->isPointerTy()) {
+    // For such cases as 'int* foo(int x)', where x is a non-vector type, the
+    // characteristic type at this point will be i32*. If we use the DataLayout
+    // to query the supported pointer size, then a promotion to i64* is
+    // incorrect because the mask element type will mismatch the element type
+    // of the characteristic type.
+    PointerType *PointerTy = cast<PointerType>(CharacteristicDataType);
+    CharacteristicDataType = PointerTy->getElementType();
+  }
+
+  return CharacteristicDataType;
 }
 
 void VPlanCallVecDecisions::analyzeCall(VPCallInstruction *VPCall, unsigned VF,
