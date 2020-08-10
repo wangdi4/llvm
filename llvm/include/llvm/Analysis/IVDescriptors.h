@@ -312,6 +312,11 @@ public:
   bool isSigned() { return IsSigned; }
 #endif
 
+  /// Attempts to find a chain of operations from Phi to LoopExitInst that can
+  /// be treated as a set of reductions instructions for in-loop reductions.
+  SmallVector<Instruction *, 4> getReductionOpChain(PHINode *Phi,
+                                                    Loop *L) const;
+
 private:
 #if !INTEL_CUSTOMIZATION
   // The starting value of the recurrence.
