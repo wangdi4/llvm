@@ -253,14 +253,9 @@ int targetDataMapper(DeviceTy &Device, void *arg_base, void *arg,
 }
 
 /// Internal function to do the mapping and transfer the data to the device
-<<<<<<< HEAD
 int targetDataBegin(DeviceTy &Device, int32_t arg_num, void **args_base,
                     void **args, int64_t *arg_sizes, int64_t *arg_types,
                     void **arg_mappers, __tgt_async_info *async_info_ptr) {
-=======
-int target_data_begin(DeviceTy &Device, int32_t arg_num, void **args_base,
-                      void **args, int64_t *arg_sizes, int64_t *arg_types,
-                      void **arg_mappers, __tgt_async_info *async_info_ptr) {
 #if INTEL_COLLAB
   int32_t gtid = __kmpc_global_thread_num(nullptr);
   Device.UsedPtrsMtx.lock();
@@ -270,7 +265,6 @@ int target_data_begin(DeviceTy &Device, int32_t arg_num, void **args_base,
   Device.UsedPtrsMtx.unlock();
   usedPtrs.emplace_back(std::set<void *>());
 #endif // INTEL_COLLAB
->>>>>>> 01d4feecacee0516711f97acb5007346c6839aa3
   // process each input.
   for (int32_t i = 0; i < arg_num; ++i) {
     // Ignore private variables and arrays - there is no mapping for them.
