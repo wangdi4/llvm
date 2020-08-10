@@ -560,7 +560,11 @@ public:
 };
 
 /// Concrete class for an external use.
-class VPExternalUse : public VPUser, public FoldingSetNode {
+/// The object of this class registers the fact that a VPValue is live out and
+/// keeps a link to underlying use outside the loop. The link can be undefined
+/// in case when VPValue is live-out "partially", e.g. induction that is not
+/// live-out in the main loop is live-out in the peel loop.
+class VPExternalUse : public VPUser {
 private:
   friend class VPExternalValues;
   friend class VPOCodeGen;
@@ -570,18 +574,24 @@ private:
   std::unique_ptr<VPOperandHIR> HIROperand;
 
   // Construct a VPExternalUse given a Value \p ExtVal.
-  VPExternalUse(PHINode *ExtVal)
-      : VPUser(VPValue::VPExternalUseSC, ExtVal->getType()) {
+  VPExternalUse(PHINode *ExtVal, unsigned Id)
+      : VPUser(VPValue::VPExternalUseSC, ExtVal->getType()), MergeId(Id) {
     setUnderlyingValue(*ExtVal);
   }
   // Construct a VPExternalUse given an underlying DDRef \p DDR.
-  VPExternalUse(const loopopt::DDRef *DDR)
+  VPExternalUse(const loopopt::DDRef *DDR, unsigned Id)
       : VPUser(VPValue::VPExternalUseSC, DDR->getDestType()),
-        HIROperand(new VPBlob(DDR)) {}
+        HIROperand(new VPBlob(DDR)), MergeId(Id) {}
   // Construct a VPExternalUse given an underlying IV level \p IVLevel.
-  VPExternalUse(unsigned IVLevel, Type *BaseTy)
+  VPExternalUse(unsigned IVLevel, Type *BaseTy, unsigned Id)
       : VPUser(VPValue::VPExternalUseSC, BaseTy),
-        HIROperand(new VPIndVar(IVLevel)) {}
+        HIROperand(new VPIndVar(IVLevel)), MergeId(Id) {}
+
+  // Construct a VPExternalUse w/o underlying info. This is needed for
+  // entities that are non-liveout, to link values between different parts of
+  // vectorized loop, peel/main loop/remainder.
+  VPExternalUse(unsigned Id, Type *BaseTy)
+      : VPUser(VPValue::VPExternalUseSC, BaseTy), MergeId(Id) {}
 
   // DESIGN PRINCIPLE: Access to the underlying IR must be strictly limited to
   // the front-end and back-end of VPlan so that the middle-end is as
@@ -601,8 +611,7 @@ public:
     return V->getVPValueID() == VPExternalUseSC;
   }
 
-  /// Method to support FoldingSet's hashing.
-  void Profile(FoldingSetNodeID &ID) const { HIROperand->Profile(ID); }
+  unsigned getMergeId() const { return MergeId; }
 
   /// Adds operand with an underlying value. The underlying value points to the
   /// value which should be replaced by the new one generated from vector code.
@@ -624,23 +633,33 @@ public:
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   void print(raw_ostream &OS) const override {
-    if (auto *HIROp = getOperandHIR()) {
-      for (auto *Op : operands()) {
-        Op->printAsOperand(OS);
-        OS << " ->";
-        HIROp->printDetail(OS);
-      }
-      return;
-    }
-
-    if (getUnderlyingValue())
+    OS << "Id: " << getMergeId() << "   ";
+    if (getUnderlyingValue()) {
       cast<Instruction>(getUnderlyingValue())->print(OS);
-    for (unsigned I = 0, E = getNumOperands(); I < E; ++I) {
-      getOperand(I)->printAsOperand(OS);
-      OS << " -> ";
-      getUnderlyingOperand(I)->printAsOperand(OS);
-      OS << ";\n";
+      for (unsigned I = 0, E = getNumOperands(); I < E; ++I) {
+        getOperand(I)->printAsOperand(OS);
+        OS << " -> ";
+        getUnderlyingOperand(I)->printAsOperand(OS);
+        OS << ";\n";
+      }
+    } else if (HIROperand) {
+      for (unsigned I = 0, E = getNumOperands(); I < E; ++I) {
+        getOperand(I)->printAsOperand(OS);
+        OS << " ->";
+        HIROperand->printDetail(OS);
+      }
+    } else {
+      OS << "no underlying for ";
+      getOperand(0)->printAsOperand(OS);
+      OS << "\n";
     }
+  }
+
+  void printAsOperand(raw_ostream &OS) const {
+    getType()->print(OS);
+    OS << " ext-use" << getMergeId() << "(";
+    getOperand(0)->printAsOperand(OS);
+    OS << ")";
   }
 #endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 
@@ -651,6 +670,10 @@ private:
   }
 
   SmallVector<Value *, 2> UnderlyingOperands;
+
+  // Identifier of the live out value in VPlan. Is provided by VPlan and used
+  // to keep track of live-outs during VPlan cloning.
+  unsigned MergeId = 0;
 };
 
 /// This class augments VPValue with Metadata that is used as operand of another

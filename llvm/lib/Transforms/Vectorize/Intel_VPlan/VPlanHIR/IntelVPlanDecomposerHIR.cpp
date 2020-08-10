@@ -930,7 +930,8 @@ VPDecomposerHIR::createVPInstruction(HLNode *Node,
       }
 
       if (OutermostHLp->isLiveOut(LvalDDR->getSymbase())) {
-        VPExternalUse *User = Plan->getVPExternalUseForDDRef(LvalDDR);
+        VPExternalUse *User =
+            Plan->getExternals().getOrCreateVPExternalUseForDDRef(LvalDDR);
         User->addOperand(NewVPInst);
       }
     } else if (RegDDRef *RvalDDR = HInst->getRvalDDRef())
@@ -1541,7 +1542,8 @@ void VPDecomposerHIR::fixPhiNodes() {
       if (DDR == nullptr)
         DDR = getDDRefForTrackedSymbase(Sym);
       assert(DDR && "Sink DDRef for tracked symbase not found.");
-      VPExternalUse *ExtUser = Plan->getVPExternalUseForDDRef(DDR);
+      VPExternalUse *ExtUser =
+          Plan->getExternals().getOrCreateVPExternalUseForDDRef(DDR);
       ExtUser->addOperand(Phi);
     }
   }

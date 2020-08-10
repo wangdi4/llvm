@@ -83,6 +83,17 @@ private:
   // Compute the values of IsAdvancedOptEnabled[].
   void computeIsAdvancedOptEnabled();
 
+  // Given a GlobalAlias GA, return true if the alias was resolved, else return
+  // false. An alias is identified as resolved if:
+  //
+  //   * All functions in the alias must be internal functions or libfuncs
+  //   * All aliases in the alias must be resolved too
+  //   * There is no recursion in the alias
+  //
+  // The GlobalAlias OriginalGA is used for checking any recursion (Alias A
+  // points to Alias B which points to Alias A).
+  bool isValidAlias(const GlobalAlias *GA, const GlobalAlias *OriginalGA);
+
   // Return true if the input Function has one of the following properties:
   //   * is main (or one of its form)
   //   * is not external (internalized symbol and is not main)
@@ -90,8 +101,7 @@ private:
   //   * is a linker added symbol (will be treated as libfunc)
   //   * is an intrinsic
   //   * is a branch funnel
-  bool
-  isValidFunction(const Function *F);
+  bool isValidFunction(const Function *F);
 
   // Store the following global variables if they are available in the Module
   //   llvm.used
@@ -102,6 +112,9 @@ private:
 
   // Store the Functions that must be traversed
   SetVector<const Function *> FuncsCollected;
+
+  // Store the aliases that were resolved
+  SetVector<const GlobalAlias*> AliasesFound;
 
   // Current Module
   Module *M;

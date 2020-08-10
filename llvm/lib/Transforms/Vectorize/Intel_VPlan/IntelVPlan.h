@@ -2757,23 +2757,6 @@ public:
     return Externals.getVPExternalDefForIV(IVLevel, BaseTy);
   }
 
-  /// Create or retrieve a VPExternalUse for a given Value \p ExtVal.
-  VPExternalUse *getVPExternalUse(PHINode *ExtDef) {
-    return Externals.getVPExternalUse(ExtDef);
-  }
-
-  /// Create or retrieve a VPExternalUse for a given non-decomposable DDRef \p
-  /// DDR.
-  VPExternalUse *getVPExternalUseForDDRef(const loopopt::DDRef *DDR) {
-    return Externals.getVPExternalUseForDDRef(DDR);
-  }
-
-  /// Create or retrieve a VPExternalUse for an HIR IV identified by its \p
-  /// IVLevel.
-  VPExternalUse *getVPExternalUseForIV(unsigned IVLevel, Type *BaseTy) {
-    return Externals.getVPExternalUseForIV(IVLevel, BaseTy);
-  }
-
   /// Create a new VPMetadataAsValue for \p MDAsValue if it doesn't exist or
   /// retrieve the existing one.
   VPMetadataAsValue *getVPMetadataAsValue(MetadataAsValue *MDAsValue) {

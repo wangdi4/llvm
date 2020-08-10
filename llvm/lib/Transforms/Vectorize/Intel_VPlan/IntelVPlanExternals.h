@@ -53,21 +53,36 @@ class VPExternalValues {
         [](const VPExternalDef &Def) { return &Def; });
   }
 
-  /// Holds all the external uses in this VPlan representing an underlying
-  /// Value. The key is the underlying Value that uniquely identifies each
-  /// external use.
-  DenseMap<Value *, std::unique_ptr<VPExternalUse>> VPExternalUses;
+  /// Holds all the external uses in this VPlan.
+  using ExternalUsesListTy = SmallVector<std::unique_ptr<VPExternalUse>, 16>;
+  ExternalUsesListTy VPExternalUses;
 
-  /// Holds all the external uses representing an HIR underlying entity
-  /// in this VPlan. The key is the underlying HIR information that uniquely
-  /// identifies each external use.
-  FoldingSet<VPExternalUse> VPExternalUsesHIR;
+  /// The MergeId counter. Provides unique identifiers of loop entities which
+  /// have live out values. The uniqueness is provided by incrementing on
+  /// each VPExternalUse creation.
+  /// The MergeId is kept in VPExternalUse, VPLiveInValue, and in VPLiveOutValue
+  /// so they can be easily identfied as a pair of live-out/live-in values in VPlan.
+  /// The MergeId is not changed during cloning and used during CFG merging, to
+  /// identify linked in/out values in different VPlan loops (different kinds of
+  /// main/peel/remainder loops).
+  unsigned getLastMergeId() const { return VPExternalUses.size(); }
+
+  // Return the non-const iterator-range to the list of ExternalUses.
+  decltype(auto) externalUses() {
+    return map_range(
+        make_range(VPExternalUses.begin(), VPExternalUses.end()),
+        [](ExternalUsesListTy::value_type &It) { return It.get(); });
+  }
 
   /// Return non-const iterator range for external uses in VPExternalUsesHIR.
   decltype(auto) getVPExternalUsesHIR() {
     return map_range(
-        make_range(VPExternalUsesHIR.begin(), VPExternalUsesHIR.end()),
-        [](VPExternalUse &Use) { return &Use; });
+        make_filter_range(
+            make_range(VPExternalUses.begin(), VPExternalUses.end()),
+            [](ExternalUsesListTy::value_type &It) {
+              return It->getOperandHIR() != nullptr;
+            }),
+        [](ExternalUsesListTy::value_type &It) { return It.get(); });
   }
 
   /// Holds all the VPMetadataAsValues created for this VPlan.
@@ -133,21 +148,66 @@ public:
     return getExternalItemForIV(VPExternalDefsHIR, IVLevel, BaseTy);
   }
 
-  /// Create or retrieve a VPExternalUse for a given Value \p ExtVal.
-  VPExternalUse *getVPExternalUse(PHINode *ExtDef) {
-    return getExternalItem(VPExternalUses, ExtDef);
+  /// Return VPExternalUse by its MergeId.
+  const VPExternalUse *getVPExternalUse(unsigned MergeId) {
+    return VPExternalUses[MergeId].get();
   }
 
-  /// Create or retrieve a VPExternalUse for a given non-decomposable DDRef \p
+  // Return the iterator-range to the list of ExternalUses.
+  inline decltype(auto) externalUses() const {
+    return map_range(make_range(VPExternalUses.begin(), VPExternalUses.end()),
+                     [](const ExternalUsesListTy::value_type &It) {
+                       return It.get();
+                     });
+  }
+
+  /// Create a or retrieve VPExternalUse for a given Value \p ExtVal.
+  VPExternalUse *getOrCreateVPExternalUse(PHINode *ExtDef) {
+    auto It = llvm::find_if(VPExternalUses,
+                         [ExtDef](const ExternalUsesListTy::value_type &It) {
+                           return It->getUnderlyingValue() == ExtDef;
+                         });
+    if (It != VPExternalUses.end())
+      return It->get();
+    unsigned Id = getLastMergeId();
+    VPExternalUse *ExtUse = new VPExternalUse(ExtDef, Id);
+    return insertExternalUse(ExtUse, Id);
+  }
+
+  /// Create a or retrieve VPExternalUse for a given non-decomposable DDRef \p
   /// DDR.
-  VPExternalUse *getVPExternalUseForDDRef(const loopopt::DDRef *DDR) {
-    return getExternalItemForDDRef(VPExternalUsesHIR, DDR);
+  VPExternalUse *getOrCreateVPExternalUseForDDRef(const loopopt::DDRef *DDR) {
+    VPBlob Blob(DDR);
+    auto It = llvm::find_if(VPExternalUses,
+                         [&Blob](const ExternalUsesListTy::value_type &It) {
+                           const VPOperandHIR *Op = It->getOperandHIR();
+                           if (!Op)
+                             return false;
+                           return Blob.isStructurallyEqual(Op);
+                         });
+    if (It != VPExternalUses.end())
+      return It->get();
+    unsigned Id = getLastMergeId();
+    VPExternalUse *ExtUse = new VPExternalUse(DDR, Id);
+    return insertExternalUse(ExtUse, Id);
   }
 
   /// Create or retrieve a VPExternalUse for an HIR IV identified by its \p
   /// IVLevel.
-  VPExternalUse *getVPExternalUseForIV(unsigned IVLevel, Type *BaseTy) {
-    return getExternalItemForIV(VPExternalUsesHIR, IVLevel, BaseTy);
+  VPExternalUse *getOrCreateVPExternalUseForIV(unsigned IVLevel, Type *BaseTy) {
+    VPIndVar IndVar(IVLevel);
+    auto It = llvm::find_if(VPExternalUses,
+                         [&IndVar](const ExternalUsesListTy::value_type &It) {
+                           const VPOperandHIR *Op = It->getOperandHIR();
+                           if (!Op)
+                             return false;
+                           return IndVar.isStructurallyEqual(Op);
+                         });
+    if (It != VPExternalUses.end())
+      return It->get();
+    unsigned Id = getLastMergeId();
+    VPExternalUse *ExtUse = new VPExternalUse(IVLevel, BaseTy, Id);
+    return insertExternalUse(ExtUse, Id);
   }
 
   /// Create a new VPMetadataAsValue for \p MDAsValue if it doesn't exist or
@@ -191,6 +251,14 @@ public:
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 
 private:
+  // Insert new ExternalUse into table.
+  VPExternalUse *insertExternalUse(VPExternalUse *EUse, unsigned Id) {
+    assert((Id == VPExternalUses.size() && EUse->getMergeId() == Id) &&
+           "Inconsistent ExternalUse");
+    VPExternalUses.emplace_back(EUse);
+    return VPExternalUses.back().get();
+  }
+
   // Create or retrieve an external item from \p Table for a given Value \p
   // ExtVal.
   template <typename T>
