@@ -16,6 +16,7 @@
 #include "LoopUtils.h"
 #include "OpenclRuntime.h"
 
+#include "llvm/IR/DebugInfoMetadata.h"
 #include "llvm/IR/Dominators.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/Module.h"
@@ -363,6 +364,10 @@ void inlineMaskToScalar(Function* scalarKernel, Function* maskedKernel) {
                                    &scalarKernel->getEntryBlock());
   // Call the masked kernel.
   auto *call = CallInst::Create(maskedKernel, args, "", entry);
+  // Set debug scope which should be in scalarKernel's DISubprogram.
+  if (DISubprogram *sp = scalarKernel->getSubprogram()) {
+    call->setDebugLoc(DILocation::get(context, 0, 0, sp));
+  }
 
   // Let DCE delete the scalar kernel body.
   ReturnInst::Create(context, entry);
