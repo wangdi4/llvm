@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2006-2018 Intel Corporation.
+// Copyright 2006-2020 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -14,18 +14,24 @@
 
 #pragma once
 
-#include "cl_types.h"
-#include <platform_module.h>
-#include <context_module.h>
-#include <execution_module.h>
-#include <task_executor.h>
-#include "Logger.h"
+// framework
+#include "context_module.h"
+#include "execution_module.h"
 #include "ocl_config.h"
-#include "cl_synch_objects.h"
-#include "ocl_itt.h"
-#include "cl_thread.h"
+#include "platform_module.h"
+
+// cl_api
+#include "cl_types.h"
+#include "task_executor.h"
+
+// utils
 #include "cl_shutdown.h"
-#include <icd_dispatch.h>
+#include "cl_synch_objects.h"
+#include "cl_thread.h"
+#include "Logger.h"
+#include "ocl_itt.h"
+
+// system
 #include <set>
 
 namespace Intel { namespace OpenCL { namespace Framework {

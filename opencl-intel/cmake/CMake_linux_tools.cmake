@@ -26,9 +26,8 @@ endmacro()
 
 # Warning level
 ocl_add_flags_if_supported(
-  -pedantic -Wall -Wextra -Wno-strict-aliasing
-  -Wno-deprecated-declarations -Werror
-  -Wno-int-to-pointer-cast)
+  -pedantic -Wall -Wextra -Werror
+)
 
 # Compiler switches that CANNOT be modified during makefile generation
 set(FSTACK_PROTECTOR_STRONG_FLAG -fstack-protector-strong)
