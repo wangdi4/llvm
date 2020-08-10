@@ -302,6 +302,14 @@
 // CHECK-MERGE-DEBUG: "-mllvm" "-dwarf-inlined-strings=Disable"
 // CHECK-NO-MERGE-DEBUG: "-mllvm" "-dwarf-inlined-strings=Enable"
 
+// RUN: %clang -### -c -fma -target x86_64-unknown-linux %s 2>&1 | FileCheck --check-prefix=CHECK-FMA %s
+// RUN: %clang_cl -### -c /Qfma %s 2>&1 | FileCheck --check-prefix=CHECK-FMA %s
+// CHECK-FMA: "-ffp-contract=fast"
+
+// RUN: %clang -### -c -no-fma -target x86_64-unknown-linux %s 2>&1 | FileCheck --check-prefix=CHECK-NO-FMA %s
+// RUN: %clang_cl -### -c /Qfma- %s 2>&1 | FileCheck --check-prefix=CHECK-NO-FMA %s
+// CHECK-NO-FMA: "-ffp-contract=off"
+
 // Behavior with qopenmp-simd/Qopenmp-simd option
 // RUN: %clang -### -c -qopenmp-simd %s 2>&1 | FileCheck -check-prefix CHECK-QOPENMP-SIMD %s
 // RUN: %clang_cl -### -c /Qopenmp-simd %s 2>&1 | FileCheck -check-prefix CHECK-QOPENMP-SIMD %s
