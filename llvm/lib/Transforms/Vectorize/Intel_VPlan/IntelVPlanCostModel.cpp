@@ -83,9 +83,6 @@ uint64_t
 VPlanVLSCostModel::getGatherScatterOpCost(const OVLSMemref &Memref) const {
   const auto *VPMemref = dyn_cast<VPVLSClientMemref>(&Memref);
   assert(VPMemref && "Wrong type of OVLSMemref is used.");
-#if 0
-  return VPCM.getLoadStoreCost(VPMemref->getInstruction());
-#else
   Type *VecTy = getWidenedType(VPMemref->getInstruction()->getType(), VPCM.VF);
   // FIXME: Without proper decomposition it's impossible to call
   // getLoadStoreCost(), because opcode may not be valid in the VPInstruction.
@@ -96,7 +93,6 @@ VPlanVLSCostModel::getGatherScatterOpCost(const OVLSMemref &Memref) const {
           ? Instruction::Load
           : Instruction::Store;
   return TTI.getMemoryOpCost(Opcode, VecTy, Align(), 0);
-#endif
 }
 #endif // INTEL_CUSTOMIZATION
 

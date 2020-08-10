@@ -86,12 +86,6 @@ private:
   // 2. IR flags and call attributes
   bool IsUnderlyingValueValid;
 
-  /// Replace all uses of *this with \p NewVal. If the \p Loop/BasicBlock is not
-  /// null then replacement is restricted by VPInstructions from the \p given
-  /// Loop/BasicBlock.
-  void replaceAllUsesWithImpl(VPValue *NewVal, VPLoop *L, VPBasicBlock *VPBB,
-                              bool InvalidateIR);
-
 protected:
 
   VPValue(const unsigned char SC, Type *BaseTy, Value *UV = nullptr)
@@ -223,28 +217,25 @@ public:
            });
   }
 
-  /// Replace all uses of *this with \p NewVal. Additionally invalidate the
-  /// underlying IR if \p InvalidateIR is set. Note that this is a divergence
-  /// from LLVM's RAUW where users are not "modified" after the operation,
-  /// however in VPlan we invalidate the underlying value of the VPUser if
-  /// applicable.
-  void replaceAllUsesWith(VPValue *NewVal, bool InvalidateIR = true) {
-    replaceAllUsesWithImpl(NewVal, nullptr, nullptr, InvalidateIR);
-  }
-
-  /// Replace all uses of *this with \p NewVal in the \p Loop. Additionally
-  /// invalidate the underlying IR if \p InvalidateIR is set.
-  void replaceAllUsesWithInLoop(VPValue *NewVal, VPLoop &Loop,
-                                bool InvalidateIR = true) {
-    replaceAllUsesWithImpl(NewVal, &Loop, nullptr, InvalidateIR);
-  }
+  /// Replace all uses of this with \p NewVal if a ShouldReplace condition is
+  /// true. Additionally invalidate the underlying IR if \p InvalidateIR is set.
+  void replaceUsesWithIf(VPValue *NewVal,
+                         llvm::function_ref<bool(VPUser *U)> ShouldReplace,
+                         bool InvalidateIR = true);
 
   /// Replace all uses of *this with \p NewVal in the \p VPBB. Additionally
   /// invalidate the underlying IR if \p InvalidateIR is set.
   void replaceAllUsesWithInBlock(VPValue *NewVal, VPBasicBlock &VPBB,
-                                 bool InvalidateIR = true) {
-    replaceAllUsesWithImpl(NewVal, nullptr, &VPBB, InvalidateIR);
-  }
+                                 bool InvalidateIR = true);
+
+  /// Replace all uses of *this with \p NewVal in the \p Loop. Additionally
+  /// invalidate the underlying IR if \p InvalidateIR is set.
+  void replaceAllUsesWithInLoop(VPValue *NewVal, VPLoop &Loop,
+                                bool InvalidateIR = true);
+
+  /// Replace all uses of *this with \p NewVal. Additionally invalidate the
+  /// underlying IR if \p InvalidateIR is set.
+  void replaceAllUsesWith(VPValue *NewVal, bool InvalidateIR = true);
 
   /// Return validity of underlying Value or HIR node.
   bool isUnderlyingIRValid() const;
