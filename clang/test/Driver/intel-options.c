@@ -302,6 +302,14 @@
 // CHECK-MERGE-DEBUG: "-mllvm" "-dwarf-inlined-strings=Disable"
 // CHECK-NO-MERGE-DEBUG: "-mllvm" "-dwarf-inlined-strings=Enable"
 
+// RUN: %clang -### -c -fma -target x86_64-unknown-linux %s 2>&1 | FileCheck --check-prefix=CHECK-FMA %s
+// RUN: %clang_cl -### -c /Qfma %s 2>&1 | FileCheck --check-prefix=CHECK-FMA %s
+// CHECK-FMA: "-ffp-contract=fast"
+
+// RUN: %clang -### -c -no-fma -target x86_64-unknown-linux %s 2>&1 | FileCheck --check-prefix=CHECK-NO-FMA %s
+// RUN: %clang_cl -### -c /Qfma- %s 2>&1 | FileCheck --check-prefix=CHECK-NO-FMA %s
+// CHECK-NO-FMA: "-ffp-contract=off"
+
 // Behavior with qopenmp-simd/Qopenmp-simd option
 // RUN: %clang -### -c -qopenmp-simd %s 2>&1 | FileCheck -check-prefix CHECK-QOPENMP-SIMD %s
 // RUN: %clang_cl -### -c /Qopenmp-simd %s 2>&1 | FileCheck -check-prefix CHECK-QOPENMP-SIMD %s
@@ -535,3 +543,9 @@
 // CHECK-QOPENMP-STUBS: "-liompstubs5"
 // CHECK-QOPENMP-STUBS-NOT: "-lpthread"
 // CHECK-QOPENMP-STUBS-WIN: "-defaultlib:libiompstubs5md.lib"
+
+// -Zp support (Linux)
+// RUN: %clang -Zp -### -c %s 2>&1 | FileCheck -check-prefix=ZP %s
+// ZP: "-fpack-struct=1"
+// RUN: %clang -Zp2 -c -### -c %s 2>&1 | FileCheck -check-prefix=ZP2 %s
+// ZP2: "-fpack-struct=2"
