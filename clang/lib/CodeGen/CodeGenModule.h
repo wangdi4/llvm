@@ -343,6 +343,10 @@ private:
   /// Non-zero if emitting code from a target region, including functions
   /// called from other functions in the region.
   unsigned int InTargetRegion = 0;
+
+  /// Mangle context used for OpenMP offloading to produce consistent names
+  /// between (Windows) host and target.
+  std::unique_ptr<ItaniumMangleContext> ItaniumMC;
 #endif // INTEL_COLLAB
 
   // A set of references that have only been seen via a weakref so far. This is

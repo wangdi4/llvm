@@ -2192,11 +2192,13 @@ std::string CodeGenModule::getUniqueItaniumABIMangledName(GlobalDecl GD) {
     return std::string(NameStr);
   };
 
-  std::unique_ptr<MangleContext> MC{
-      ItaniumMangleContext::create(Context, Context.getDiagnostics())};
+  if (!ItaniumMC)
+    ItaniumMC.reset(
+        ItaniumMangleContext::create(Context, Context.getDiagnostics()));
+
   SmallString<256> Buffer;
   llvm::raw_svector_ostream Out(Buffer);
-  MC->mangleName(GD, Out);
+  ItaniumMC->mangleName(GD, Out);
   assert(!Buffer.empty() && "Itanium name mangling failed.");
 
   SourceManager &SM = getContext().getSourceManager();

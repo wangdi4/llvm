@@ -2180,6 +2180,7 @@ void ASTStmtWriter::VisitOMPLoopDirective(OMPLoopDirective *D) {
   Record.AddStmt(D->getPreCond());
   Record.AddStmt(D->getCond());
 #if INTEL_COLLAB
+  Record.AddStmt(D->getUpperBoundVariable());
   Record.AddStmt(D->getLateOutlineCond());
   Record.AddStmt(D->getLateOutlineLinearCounterStep());
   Record.AddStmt(D->getLateOutlineLinearCounterIncrement());
@@ -2192,7 +2193,11 @@ void ASTStmtWriter::VisitOMPLoopDirective(OMPLoopDirective *D) {
       isOpenMPDistributeDirective(D->getDirectiveKind())) {
     Record.AddStmt(D->getIsLastIterVariable());
     Record.AddStmt(D->getLowerBoundVariable());
+#if INTEL_COLLAB
+    // UpperBound used in all loops, processed above.
+#else // INTEL_COLLAB
     Record.AddStmt(D->getUpperBoundVariable());
+#endif // INTEL_COLLAB
     Record.AddStmt(D->getStrideVariable());
     Record.AddStmt(D->getEnsureUpperBound());
     Record.AddStmt(D->getNextLowerBound());
