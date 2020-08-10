@@ -127,17 +127,6 @@ static cl::opt<bool> DTransIdentifyUnusedValues("dtrans-identify-unused-values",
                                                 cl::ReallyHidden);
 #endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 
-// Use the C language compatibility rule to determine if two aggregate types
-// are compatible. This is used by the analysis of AddressTaken safety checks.
-// If the actual argument of a call is a pointer to an aggregate with type T,
-// and there is no type U distinct from T which is compatible with T, then
-// we know that the types of the formal and actual arguments must be identical.
-// So, in this case, we will not need to report an AddressTaken safety check
-// for a potential mismatch between formal and actual arguments.
-//
-static cl::opt<bool> DTransUseCRuleCompat("dtrans-usecrulecompat",
-                                          cl::init(false), cl::ReallyHidden);
-
 // Enable merging padded structures with base structures even if the
 // safety checks didn't pass. This option is for testing purposes and
 // must remain turned off.
@@ -4054,7 +4043,7 @@ public:
 
     // No point in doing this if the C language compatibility rule is not
     // enforced.
-    if (!DTransUseCRuleCompat)
+    if (!DTInfo.getDTransUseCRuleCompat())
       return true;
     // Check if this is an indirect call site.
     if (isa<Function>(Call->getCalledOperand()))
@@ -4320,7 +4309,7 @@ public:
         // reject cases for which the Type of the formal and actual argument
         // must match.  In such cases, there will be no "Address taken"
         //  safety violation.
-        if (!F && DTransUseCRuleCompat && !HasICMatch &&
+        if (!F && DTInfo.getDTransUseCRuleCompat() && !HasICMatch &&
             !mayHaveDistinctCompatibleCType(AliasTy))
           continue;
         // If the first element of the dominant type of the pointer is an
@@ -10986,6 +10975,10 @@ bool DTransAnalysisInfo::useDTransAnalysis(void) const {
 
 bool DTransAnalysisInfo::getDTransOutOfBoundsOK() {
   return SawFortran || dtrans::DTransOutOfBoundsOK;
+}
+
+bool DTransAnalysisInfo::getDTransUseCRuleCompat() {
+  return !SawFortran && dtrans::DTransUseCRuleCompat;
 }
 
 bool DTransAnalysisInfo::requiresBadCastValidation(

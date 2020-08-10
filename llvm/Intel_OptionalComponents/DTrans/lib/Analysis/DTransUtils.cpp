@@ -70,6 +70,17 @@ cl::opt<bool> dtrans::DTransPrintAnalyzedTypes("dtrans-print-types",
 cl::opt<bool> dtrans::DTransOutOfBoundsOK("dtrans-outofboundsok",
                                           cl::init(true), cl::ReallyHidden);
 
+// Use the C language compatibility rule to determine if two aggregate types
+// are compatible. This is used by the analysis of AddressTaken safety checks.
+// If the actual argument of a call is a pointer to an aggregate with type T,
+// and there is no type U distinct from T which is compatible with T, then
+// we know that the types of the formal and actual arguments must be identical.
+// So, in this case, we will not need to report an AddressTaken safety check
+// for a potential mismatch between formal and actual arguments.
+//
+cl::opt<bool> dtrans::DTransUseCRuleCompat("dtrans-usecrulecompat",
+                                           cl::init(false), cl::ReallyHidden);
+
 // Enable merging padded structures with base structures. For example,
 // consider that there is a class A which will be a base class for other
 // derived classes and there is an instantiation of A. Then we might see
