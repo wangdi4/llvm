@@ -925,6 +925,8 @@ void tools::gnutools::Linker::ConstructJob(Compilation &C, const JobAction &JA,
     CmdArgs.push_back("-lm");
   }
   if (!Args.hasArg(options::OPT_nostdlib, options::OPT_nodefaultlibs)) {
+    // Add -lgcc before libirc.
+    AddRunTimeLibs(ToolChain, D, CmdArgs, Args);
     // Add libirc to resolve any Intel and libimf references
     addIntelLibirc(ToolChain, CmdArgs, Args);
     // Add -ldl
