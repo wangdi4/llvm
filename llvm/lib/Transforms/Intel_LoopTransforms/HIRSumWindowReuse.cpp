@@ -131,26 +131,83 @@ struct LoopSlidingWindowSums {
   /// The sums' outer loop.
   HLLoop *OuterLoop;
 
+  /// The outermost loop that the sums are initially calculated across. This
+  /// will be the inner loop or a parent of the inner loop that is an immediate
+  /// child of the outer loop.
+  HLLoop *OutermostSumLoop;
+
   /// The sums found in this loop pair.
   SmallVector<SlidingWindowSum, 3> Sums;
 
   /// Constructs a LoopSlidingWindowSums record given the current loops.
-  LoopSlidingWindowSums(HLLoop *InnerLoop, HLLoop *OuterLoop)
-      : InnerLoop{InnerLoop}, OuterLoop{OuterLoop} {
+  LoopSlidingWindowSums(HLLoop *InnerLoop, HLLoop *OuterLoop,
+                        HLLoop *OutermostSumLoop)
+      : InnerLoop{InnerLoop}, OuterLoop{OuterLoop}, OutermostSumLoop{
+                                                      OutermostSumLoop} {
     assert(InnerLoop);
     assert(OuterLoop);
+    assert(OutermostSumLoop);
     assert(InnerLoop->isInnermost());
-    assert(HLNodeUtils::contains(OuterLoop, InnerLoop));
+    assert(OutermostSumLoop == InnerLoop ||
+           HLNodeUtils::contains(OutermostSumLoop, InnerLoop));
+    assert(OuterLoop == OutermostSumLoop->getParentLoop());
   }
 };
 
 } // namespace
 
+/// Determines whether \p InnerLoop, \p OuterLoop, and all intervening loops
+/// have the required structure for this transform. This check only needs to be
+/// done once per inner/outer loop pair.
+static bool isEligibleLoopNest(const HLLoop *InnerLoop,
+                               const HLLoop *OuterLoop) {
+
+  // For now, the outer loop should be normalized but does not have to be a DO
+  // loop.
+  if (!OuterLoop->isNormalized()) {
+    LLVM_DEBUG(dbgs() << "  Outer loop is not normalized\n\n");
+    return false;
+  }
+
+  // The bounds and ZTTs of the inner and intervening loops need to be loop
+  // invariant in the context of the outer loop.
+  const unsigned OuterLevel = OuterLoop->getNestingLevel();
+  for (const HLLoop *Loop = InnerLoop; Loop != OuterLoop;
+       Loop               = Loop->getParentLoop()) {
+    for (const RegDDRef *const Ref :
+         make_range(Loop->ddref_begin(), Loop->ddref_end())) {
+      if (!Ref->isStructurallyInvariantAtLevel(OuterLevel)) {
+        LLVM_DEBUG({
+          dbgs() << "Inner/intervening loop bound/ZTT ref ";
+          Ref->print(fdbgs());
+          dbgs() << " is not structurally invariant within the outer loop\n";
+        });
+        return false;
+      }
+    }
+  }
+
+  // All checks passed: these loops are eligible for optimization.
+  return true;
+}
+
+/// Determines whether \p Expr has an IV coefficient of exactly one at \p Level.
+static bool isIVCoeffOne(const CanonExpr *Expr, unsigned Level) {
+  return Expr->getIVConstCoeff(Level) == 1 &&
+         Expr->getIVBlobCoeff(Level) == InvalidBlobIndex;
+}
+
 /// Determines whether \p TermLoad has an access pattern that is eligible for
-/// optimization by this pass at loop levels \p InnerLevel and \p OuterLevel
-/// according to \p DDG.
-static bool isEligibleTermLoad(const RegDDRef *TermLoad, unsigned InnerLevel,
-                               unsigned OuterLevel, const DDGraph &DDG) {
+/// optimization by this pass for inner/outer loops \p InnerLoop and \p
+/// CallerOuterLoop according to \p HDDA. \p CallerOuterLoop may be nullptr, in
+/// which case this function will set it to the appropriate outer loop for
+/// optimizing this term load if the load is found to be eligible for
+/// optimization.
+static bool isEligibleTermLoad(const RegDDRef *TermLoad,
+                               const HLLoop *InnerLoop, HIRDDAnalysis &HDDA,
+                               HLLoop *&CallerOuterLoop) {
+  const unsigned InnerLevel = InnerLoop->getNestingLevel();
+  HLLoop *OuterLoop         = CallerOuterLoop;
 
   // The sum terms must be loaded directly from memory with an invariant base
   // pointer.
@@ -158,41 +215,54 @@ static bool isEligibleTermLoad(const RegDDRef *TermLoad, unsigned InnerLevel,
     LLVM_DEBUG(dbgs() << "  Sum terms are not loaded from memory\n\n");
     return false;
   }
-  if (!TermLoad->getBaseCE()->isInvariantAtLevel(OuterLevel)) {
-    LLVM_DEBUG(dbgs() << "  Base pointer is not invariant\n\n");
-    return false;
-  }
 
-  // For now, restrict the term accesses to one-dimensional ones containing only
-  // two IV terms for the inner and outer loops both with coefficient 1.
+  // For now, restrict term accesses to one-dimensional ones with an inner IV
+  // coefficient of 1.
   if (TermLoad->getNumDimensions() != 1) {
     LLVM_DEBUG(dbgs() << "  Term load is not one-dimensional\n\n");
     return false;
   }
   const CanonExpr *const TermExpr = TermLoad->getSingleCanonExpr();
-  assert(TermExpr);
-  if (TermExpr->hasIVBlobCoeffs()) {
-    LLVM_DEBUG(dbgs() << "  Term load has blob IV coefficients\n\n");
-    return false;
-  }
   if (TermExpr->getDenominator() != 1) {
     LLVM_DEBUG(dbgs() << "  Term load has non-1 denominator\n\n");
     return false;
   }
-  if (TermExpr->numIVs() != 2) {
-    LLVM_DEBUG(dbgs() << "  Term load has the wrong number of IVs\n\n");
-    return false;
-  }
-  if (TermExpr->getIVConstCoeff(InnerLevel) != 1) {
+  if (!isIVCoeffOne(TermExpr, InnerLevel)) {
     LLVM_DEBUG(dbgs() << "  Term load has non-1 inner IV coefficient\n\n");
     return false;
   }
-  if (TermExpr->getIVConstCoeff(OuterLevel) != 1) {
-    LLVM_DEBUG(dbgs() << "  Term load has non-1 outer IV coefficient\n\n");
+
+  // If there is no outer loop yet, find the first eligible outer IV in this
+  // term load.
+  if (!OuterLoop) {
+    for (OuterLoop = InnerLoop->getParentLoop(); OuterLoop;
+         OuterLoop = OuterLoop->getParentLoop())
+      if (isIVCoeffOne(TermExpr, OuterLoop->getNestingLevel()))
+        break;
+    if (!OuterLoop) {
+      LLVM_DEBUG(dbgs() << "  No eligible outer-level IVs found\n");
+      return false;
+    }
+    if (!isEligibleLoopNest(InnerLoop, OuterLoop))
+      return false;
+  }
+
+  // Otherwise, ensure that the corresponding outer IV is 1.
+  else {
+    if (!isIVCoeffOne(TermExpr, OuterLoop->getNestingLevel())) {
+      LLVM_DEBUG(dbgs() << "  Term load has non-1 outer IV coefficient\n\n");
+      return false;
+    }
+  }
+
+  const unsigned OuterLevel = OuterLoop->getNestingLevel();
+  if (!TermLoad->getBaseCE()->isInvariantAtLevel(OuterLevel)) {
+    LLVM_DEBUG(dbgs() << "  Base pointer is not invariant\n\n");
     return false;
   }
 
   // Check that the accesses are independent within the outer loop.
+  const DDGraph DDG = HDDA.getGraph(OuterLoop);
   if (DDG.getTotalNumIncomingFlowEdges(TermLoad)) {
     LLVM_DEBUG({
       dbgs() << "  Term load has incoming flow edges:\n";
@@ -217,6 +287,7 @@ static bool isEligibleTermLoad(const RegDDRef *TermLoad, unsigned InnerLevel,
   }
 
   // All checks passed: this load is eligible for optimization.
+  CallerOuterLoop = OuterLoop;
   return true;
 }
 
@@ -235,34 +306,11 @@ findSlidingWindowSums(HLLoop *InnerLoop, HIRDDAnalysis &HDDA,
   if (!InnerLoop->isDo() || !InnerLoop->isNormalized())
     return;
 
-  // Find the outer loop, which for now must be the immediate parent loop.
-  HLLoop *const OuterLoop = InnerLoop->getParentLoop();
-  assert(OuterLoop);
-
-  // For now, the outer loop should also be normalized but does not have to be a
-  // DO loop.
-  if (!OuterLoop->isNormalized())
-    return;
-
-  // The bounds and ZTTs of the inner loop need to be loop invariant in the
-  // context of the outer loop.
-  const unsigned InnerLevel = InnerLoop->getNestingLevel();
-  const unsigned OuterLevel = OuterLoop->getNestingLevel();
-  const DDGraph &DDG        = HDDA.getGraph(OuterLoop);
-  for (const RegDDRef *const Ref :
-       make_range(InnerLoop->ddref_begin(), InnerLoop->ddref_end())) {
-    if (!Ref->isStructurallyInvariantAtLevel(OuterLevel)) {
-      LLVM_DEBUG({
-        dbgs() << "Inner loop bound/ZTT ref ";
-        Ref->print(fdbgs());
-        dbgs() << " is not structurally invariant\n";
-      });
-      return;
-    }
-  }
-
-  // Start a LoopSlidingWindowSums record for these loops.
-  LoopSlidingWindowSums NewSums{InnerLoop, OuterLoop};
+  // A LoopSlidingWindowSums record for this loop will be stored here once an
+  // outer loop is identified. This transform could support multiple sums within
+  // and inner loop with differing outer loops, but for simplicity that is not
+  // yet implemented.
+  Optional<LoopSlidingWindowSums> NewSums;
 
   // Iterate reductions found in the loop.
   HSR.computeSafeReductionChains(InnerLoop);
@@ -303,19 +351,51 @@ findSlidingWindowSums(HLLoop *InnerLoop, HIRDDAnalysis &HDDA,
     const unsigned TermLoadIdx =
       SumInst->getOperandDDRef(1)->isTerminalRef() ? 2 : 1;
     const RegDDRef *const TermLoad = SumInst->getOperandDDRef(TermLoadIdx);
-    if (!isEligibleTermLoad(TermLoad, InnerLevel, OuterLevel, DDG))
+    HLLoop *OuterLoop              = NewSums ? NewSums->OuterLoop : nullptr;
+    if (!isEligibleTermLoad(TermLoad, InnerLoop, HDDA, OuterLoop))
       continue;
+
+    // The sum must not have any other uses within the intervening sum loops
+    // because this optimization does not calculate the partial window sum
+    // values that would appear there.
+    //
+    // Note that the way that HIR currently handles nested reductions with inner
+    // ZTTs runs afoul of this check, though this is not an immediate problem
+    // because our current application of interest has these ZTTs hoisted out.
+    HLLoop *const OutermostSumLoop =
+      NewSums
+        ? NewSums->OutermostSumLoop
+        : InnerLoop->getParentLoopAtLevel(OuterLoop->getNestingLevel() + 1);
+    if (OutermostSumLoop != InnerLoop) {
+      const DDGraph DDG = HDDA.getGraph(OutermostSumLoop);
+      bool HasBadEdge   = false;
+      for (const DDEdge *const Edge : DDG.outgoing(SumInst->getLvalDDRef())) {
+        if (Edge->getSink()->getHLDDNode() != SumInst) {
+          LLVM_DEBUG({
+            dbgs() << "  Sum has use within intervening loops:\n";
+            Edge->getSink()->getHLDDNode()->print(fdbgs(), 0);
+            dbgs() << "\n";
+          });
+          HasBadEdge = true;
+          break;
+        }
+      }
+      if (HasBadEdge)
+        continue;
+    }
 
     LLVM_DEBUG(dbgs() << "  Sum is eligible for optimization\n\n");
 
     // Collect the sum.
-    NewSums.Sums.emplace_back(const_cast<HLInst *>(SumInst), SumOpcode,
-                              TermLoad, TermLoadIdx);
+    if (!NewSums)
+      NewSums.emplace(InnerLoop, OuterLoop, OutermostSumLoop);
+    NewSums->Sums.emplace_back(const_cast<HLInst *>(SumInst), SumOpcode,
+                               TermLoad, TermLoadIdx);
   }
 
   // Add these new sums to the list if there are any.
-  if (!NewSums.Sums.empty())
-    LoopSums.push_back(std::move(NewSums));
+  if (NewSums)
+    LoopSums.push_back(std::move(NewSums.getValue()));
 }
 
 /// Transforms sliding window sums in \p Sums to re-use terms across outer loop
@@ -327,16 +407,18 @@ static void transformLoopWindowSums(const LoopSlidingWindowSums &LoopSums) {
   //
   // + DO i1 = 0, %N + -1, 1   <DO_LOOP>
   // |   %sum.final = 0.000000e+00;
-  // |   if (%M != 0)
-  // |   {
+  // |
   // |      %sum = 0.000000e+00;
-  // |
-  // |      + DO i2 = 0, %M + -1, 1   <DO_LOOP>
-  // |      |   %sum = %sum  +  (%A)[i1 + i2];
-  // |      + END LOOP
-  // |
+  // |   + DO i2 = 0, %M + -1, 1   <DO_LOOP>
+  // |   |   if (%M != 0)
+  // |   |   {
+  // |   |      + DO i3 = 0, %K + -1, 1   <DO_LOOP>
+  // |   |      |   %sum = %sum  +  (%A)[i1 + %stride * i2 + i3];
+  // |   |      + END LOOP
+  // |   |   }
+  // |   + END LOOP
   // |      %sum.final = %sum;
-  // |   }
+  // |
   // |   (%B)[i1] = %sum.final;
   // + END LOOP
   LoopSums.InnerLoop->extractZtt();
@@ -347,19 +429,22 @@ static void transformLoopWindowSums(const LoopSlidingWindowSums &LoopSums) {
   //
   // + DO i1 = 0, %N + -1, 1   <DO_LOOP>
   // |   %sum.final = 0.000000e+00;
-  // |   if (%M != 0)
-  // |   {
+  // |
   // |      %sum = 0.000000e+00;
-  // |
-  // |      + DO i2 = 0, %M + -1, 1   <DO_LOOP>
-  // |      |   %sum = %sum  +  (%A)[i1 + i2];
-  // |      + END LOOP
-  // |
-  // |      if (i1 == 0)
-  // |      {
-  // |      }
+  // |   + DO i2 = 0, %M + -1, 1   <DO_LOOP>
+  // |   |   if (%M != 0)
+  // |   |   {
+  // |   |      + DO i3 = 0, %K + -1, 1   <DO_LOOP>
+  // |   |      |   %sum = %sum  +  (%A)[i1 + %stride * i2 + i3];
+  // |   |      + END LOOP
+  // |   |
+  // |   |      if (i1 == 0)
+  // |   |      {
+  // |   |      }
+  // |   |   }
+  // |   + END LOOP
   // |      %sum.final = %sum;
-  // |   }
+  // |
   // |   (%B)[i1] = %sum.final;
   // + END LOOP
   HLNodeUtils &HNU           = LoopSums.OuterLoop->getHLNodeUtils();
@@ -380,21 +465,24 @@ static void transformLoopWindowSums(const LoopSlidingWindowSums &LoopSums) {
   //
   // + DO i1 = 0, %N + -1, 1   <DO_LOOP>
   // |   %sum.final = 0.000000e+00;
-  // |   if (%M != 0)
-  // |   {
+  // |
   // |      %sum = 0.000000e+00;
-  // |
-  // |      + DO i2 = 0, %M + -1, 1   <DO_LOOP>
-  // |      |   %sum = %sum  +  (%A)[i1 + i2];
-  // |      + END LOOP
-  // |
-  // |      if (i1 == 0)
-  // |      {
-  // |         + DO i2 = 0, %M + -1, 1   <DO_LOOP>
-  // |         + END LOOP
-  // |      }
+  // |   + DO i2 = 0, %M + -1, 1   <DO_LOOP>
+  // |   |   if (%M != 0)
+  // |   |   {
+  // |   |      + DO i3 = 0, %K + -1, 1   <DO_LOOP>
+  // |   |      |   %sum = %sum  +  (%A)[i1 + %stride * i2 + i3];
+  // |   |      + END LOOP
+  // |   |
+  // |   |      if (i1 == 0)
+  // |   |      {
+  // |   |         + DO i3 = 0, %K + -1, 1   <DO_LOOP>
+  // |   |         + END LOOP
+  // |   |      }
+  // |   |   }
+  // |   + END LOOP
   // |      %sum.final = %sum;
-  // |   }
+  // |
   // |   (%B)[i1] = %sum.final;
   // + END LOOP
   HLLoop *const FirstIterLoop = LoopSums.InnerLoop->cloneEmpty();
@@ -408,21 +496,24 @@ static void transformLoopWindowSums(const LoopSlidingWindowSums &LoopSums) {
     //    %swr.wsum = 0.000000e+00;
     // + DO i1 = 0, %N + -1, 1   <DO_LOOP>
     // |   %sum.final = 0.000000e+00;
-    // |   if (%M != 0)
-    // |   {
+    // |
     // |      %sum = 0.000000e+00;
-    // |
-    // |      + DO i2 = 0, %M + -1, 1   <DO_LOOP>
-    // |      |   %sum = %sum  +  (%A)[i1 + i2];
-    // |      + END LOOP
-    // |
-    // |      if (i1 == 0)
-    // |      {
-    // |         + DO i2 = 0, %M + -1, 1   <DO_LOOP>
-    // |         + END LOOP
-    // |      }
+    // |   + DO i2 = 0, %M + -1, 1   <DO_LOOP>
+    // |   |   if (%M != 0)
+    // |   |   {
+    // |   |      + DO i3 = 0, %K + -1, 1   <DO_LOOP>
+    // |   |      |   %sum = %sum  +  (%A)[i1 + %stride * i2 + i3];
+    // |   |      + END LOOP
+    // |   |
+    // |   |      if (i1 == 0)
+    // |   |      {
+    // |   |         + DO i3 = 0, %K + -1, 1   <DO_LOOP>
+    // |   |         + END LOOP
+    // |   |      }
+    // |   |   }
+    // |   + END LOOP
     // |      %sum.final = %sum;
-    // |   }
+    // |
     // |   (%B)[i1] = %sum.final;
     // + END LOOP
     HLInst *const WSumInit = HNU.createCopyInst(
@@ -436,22 +527,25 @@ static void transformLoopWindowSums(const LoopSlidingWindowSums &LoopSums) {
     //    %swr.wsum = 0.000000e+00;
     // + DO i1 = 0, %N + -1, 1   <DO_LOOP>
     // |   %sum.final = 0.000000e+00;
-    // |   if (%M != 0)
-    // |   {
+    // |
     // |      %sum = 0.000000e+00;
-    // |
-    // |      + DO i2 = 0, %M + -1, 1   <DO_LOOP>
-    // |      |   %sum = %sum  +  (%A)[i1 + i2];
-    // |      + END LOOP
-    // |
-    // |      if (i1 == 0)
-    // |      {
-    // |         + DO i2 = 0, %M + -1, 1   <DO_LOOP>
-    // |         |   %swr.wsum = %swr.wsum  +  (%A)[i2];
-    // |         + END LOOP
-    // |      }
+    // |   + DO i2 = 0, %M + -1, 1   <DO_LOOP>
+    // |   |   if (%M != 0)
+    // |   |   {
+    // |   |      + DO i3 = 0, %K + -1, 1   <DO_LOOP>
+    // |   |      |   %sum = %sum  +  (%A)[i1 + %stride * i2 + i3];
+    // |   |      + END LOOP
+    // |   |
+    // |   |      if (i1 == 0)
+    // |   |      {
+    // |   |         + DO i3 = 0, %K + -1, 1   <DO_LOOP>
+    // |   |         |   %swr.wsum = %swr.wsum  +  (%A)[%stride * i2 + i3];
+    // |   |         + END LOOP
+    // |   |      }
+    // |   |   }
+    // |   + END LOOP
     // |      %sum.final = %sum;
-    // |   }
+    // |
     // |   (%B)[i1] = %sum.final;
     // + END LOOP
     const unsigned PrevSumIdx  = (Sum.TermLoadIdx == 1) ? 2 : 1;
@@ -461,8 +555,11 @@ static void transformLoopWindowSums(const LoopSlidingWindowSums &LoopSums) {
     FirstIterSum->getOperandDDRef(Sum.TermLoadIdx)
       ->replaceIVByConstant(OuterLevel, 0);
     HLNodeUtils::insertAsLastChild(FirstIterLoop, FirstIterSum);
-    FirstIterLoop->addLiveInTemp(WSum->getSymbase());
-    FirstIterLoop->addLiveOutTemp(WSum->getSymbase());
+    for (HLLoop *Loop = FirstIterLoop; Loop != LoopSums.OuterLoop;
+         Loop         = Loop->getParentLoop()) {
+      Loop->addLiveInTemp(WSum->getSymbase());
+      Loop->addLiveOutTemp(WSum->getSymbase());
+    }
 
     // Add the first update operation, which removes the start of the previous
     // window:
@@ -470,26 +567,29 @@ static void transformLoopWindowSums(const LoopSlidingWindowSums &LoopSums) {
     //    %swr.wsum = 0.000000e+00;
     // + DO i1 = 0, %N + -1, 1   <DO_LOOP>
     // |   %sum.final = 0.000000e+00;
-    // |   if (%M != 0)
-    // |   {
+    // |
     // |      %sum = 0.000000e+00;
-    // |
-    // |      + DO i2 = 0, %M + -1, 1   <DO_LOOP>
-    // |      |   %sum = %sum  +  (%A)[i1 + i2];
-    // |      + END LOOP
-    // |
-    // |      if (i1 == 0)
-    // |      {
-    // |         + DO i2 = 0, %M + -1, 1   <DO_LOOP>
-    // |         |   %swr.wsum = %swr.wsum  +  (%A)[i2];
-    // |         + END LOOP
-    // |      }
-    // |      else
-    // |      {
-    // |         %swr.wsum = %swr.wsum - (%A)[i1 - 1];
-    // |      }
+    // |   + DO i2 = 0, %M + -1, 1   <DO_LOOP>
+    // |   |   if (%M != 0)
+    // |   |   {
+    // |   |      + DO i3 = 0, %K + -1, 1   <DO_LOOP>
+    // |   |      |   %sum = %sum  +  (%A)[i1 + %stride * i2 + i3];
+    // |   |      + END LOOP
+    // |   |
+    // |   |      if (i1 == 0)
+    // |   |      {
+    // |   |         + DO i3 = 0, %K + -1, 1   <DO_LOOP>
+    // |   |         |   %swr.wsum = %swr.wsum  +  (%A)[%stride * i2 + i3];
+    // |   |         + END LOOP
+    // |   |      }
+    // |   |      else
+    // |   |      {
+    // |   |         %swr.wsum = %swr.wsum - (%A)[i1 + %stride * i2 - 1];
+    // |   |      }
+    // |   |   }
+    // |   + END LOOP
     // |      %sum.final = %sum;
-    // |   }
+    // |
     // |   (%B)[i1] = %sum.final;
     // + END LOOP
     const unsigned InverseOpcode =
@@ -510,27 +610,30 @@ static void transformLoopWindowSums(const LoopSlidingWindowSums &LoopSums) {
     //    %swr.wsum = 0.000000e+00;
     // + DO i1 = 0, %N + -1, 1   <DO_LOOP>
     // |   %sum.final = 0.000000e+00;
-    // |   if (%M != 0)
-    // |   {
+    // |
     // |      %sum = 0.000000e+00;
-    // |
-    // |      + DO i2 = 0, %M + -1, 1   <DO_LOOP>
-    // |      |   %sum = %sum  +  (%A)[i1 + i2];
-    // |      + END LOOP
-    // |
-    // |      if (i1 == 0)
-    // |      {
-    // |         + DO i2 = 0, %M + -1, 1   <DO_LOOP>
-    // |         |   %swr.wsum = %swr.wsum  +  (%A)[i2];
-    // |         + END LOOP
-    // |      }
-    // |      else
-    // |      {
-    // |         %swr.wsum = %swr.wsum - (%A)[i1 - 1];
-    // |         %swr.wsum = %swr.wsum + (%A)[i1 + %M + -1];
-    // |      }
+    // |   + DO i2 = 0, %M + -1, 1   <DO_LOOP>
+    // |   |   if (%M != 0)
+    // |   |   {
+    // |   |      + DO i3 = 0, %K + -1, 1   <DO_LOOP>
+    // |   |      |   %sum = %sum  +  (%A)[i1 + %stride * i2 + i3];
+    // |   |      + END LOOP
+    // |   |
+    // |   |      if (i1 == 0)
+    // |   |      {
+    // |   |         + DO i3 = 0, %K + -1, 1   <DO_LOOP>
+    // |   |         |   %swr.wsum = %swr.wsum  +  (%A)[%stride * i2 + i3];
+    // |   |         + END LOOP
+    // |   |      }
+    // |   |      else
+    // |   |      {
+    // |   |         %swr.wsum = %swr.wsum - (%A)[i1 + %stride * i2 - 1];
+    // |   |         %swr.wsum = %swr.wsum - (%A)[i1 + %stride * i2 + %K - 1];
+    // |   |      }
+    // |   |   }
+    // |   + END LOOP
     // |      %sum.final = %sum;
-    // |   }
+    // |
     // |   (%B)[i1] = %sum.final;
     // + END LOOP
     RegDDRef *const CurEnd = Sum.TermLoad->clone();
@@ -548,66 +651,80 @@ static void transformLoopWindowSums(const LoopSlidingWindowSums &LoopSums) {
     //    %swr.wsum = 0.000000e+00;
     // + DO i1 = 0, %N + -1, 1   <DO_LOOP>
     // |   %sum.final = 0.000000e+00;
-    // |   if (%M != 0)
-    // |   {
+    // |
     // |      %sum = 0.000000e+00;
-    // |
-    // |      + DO i2 = 0, %M + -1, 1   <DO_LOOP>
-    // |      |   %sum = %sum  +  (%A)[i1 + i2];
-    // |      + END LOOP
-    // |
-    // |      if (i1 == 0)
-    // |      {
-    // |         + DO i2 = 0, %M + -1, 1   <DO_LOOP>
-    // |         |   %swr.wsum = %swr.wsum  +  (%A)[i2];
-    // |         + END LOOP
-    // |      }
-    // |      else
-    // |      {
-    // |         %swr.wsum = %swr.wsum - (%A)[i1 - 1];
-    // |         %swr.wsum = %swr.wsum + (%A)[i1 + %M + -1];
-    // |      }
+    // |   + DO i2 = 0, %M + -1, 1   <DO_LOOP>
+    // |   |   if (%M != 0)
+    // |   |   {
+    // |   |      + DO i3 = 0, %K + -1, 1   <DO_LOOP>
+    // |   |      |   %sum = %sum  +  (%A)[i1 + %stride * i2 + i3];
+    // |   |      + END LOOP
+    // |   |
+    // |   |      if (i1 == 0)
+    // |   |      {
+    // |   |         + DO i3 = 0, %K + -1, 1   <DO_LOOP>
+    // |   |         |   %swr.wsum = %swr.wsum  +  (%A)[%stride * i2 + i3];
+    // |   |         + END LOOP
+    // |   |      }
+    // |   |      else
+    // |   |      {
+    // |   |         %swr.wsum = %swr.wsum - (%A)[i1 + %stride * i2 - 1];
+    // |   |         %swr.wsum = %swr.wsum - (%A)[i1 + %stride * i2 + %K - 1];
+    // |   |      }
+    // |   |   }
+    // |   + END LOOP
     // |      %sum = %sum + %swr.wsum;
     // |      %sum.final = %sum;
-    // |   }
+    // |
     // |   (%B)[i1] = %sum.final;
     // + END LOOP
     const RegDDRef *const OrigSum = Sum.Inst->getLvalDDRef();
     HLInst *const OrigSumUpdateInst =
       HNU.createBinaryHLInst(Instruction::FAdd, OrigSum->clone(), WSum->clone(),
                              "", OrigSum->clone(), SumInstBinOp);
-    HLNodeUtils::insertAfter(FirstIterIf, OrigSumUpdateInst);
+    if (LoopSums.OutermostSumLoop == LoopSums.InnerLoop) {
+      HLNodeUtils::insertAfter(FirstIterIf, OrigSumUpdateInst);
+    } else {
+      HLNodeUtils::insertAsFirstPostexitNode(LoopSums.OutermostSumLoop,
+                                             OrigSumUpdateInst);
+    }
 
     // Remove the original sum instruction:
     //
     //    %swr.wsum = 0.000000e+00;
     // + DO i1 = 0, %N + -1, 1   <DO_LOOP>
     // |   %sum.final = 0.000000e+00;
-    // |   if (%M != 0)
-    // |   {
+    // |
     // |      %sum = 0.000000e+00;
-    // |
-    // |      + DO i2 = 0, %M + -1, 1   <DO_LOOP>
-    // |      + END LOOP
-    // |
-    // |      if (i1 == 0)
-    // |      {
-    // |         + DO i2 = 0, %M + -1, 1   <DO_LOOP>
-    // |         |   %swr.wsum = %swr.wsum  +  (%A)[i2];
-    // |         + END LOOP
-    // |      }
-    // |      else
-    // |      {
-    // |         %swr.wsum = %swr.wsum - (%A)[i1 - 1];
-    // |         %swr.wsum = %swr.wsum + (%A)[i1 + %M + -1];
-    // |      }
+    // |   + DO i2 = 0, %M + -1, 1   <DO_LOOP>
+    // |   |   if (%M != 0)
+    // |   |   {
+    // |   |      + DO i3 = 0, %K + -1, 1   <DO_LOOP>
+    // |   |      + END LOOP
+    // |   |
+    // |   |      if (i1 == 0)
+    // |   |      {
+    // |   |         + DO i3 = 0, %K + -1, 1   <DO_LOOP>
+    // |   |         |   %swr.wsum = %swr.wsum  +  (%A)[%stride * i2 + i3];
+    // |   |         + END LOOP
+    // |   |      }
+    // |   |      else
+    // |   |      {
+    // |   |         %swr.wsum = %swr.wsum - (%A)[i1 + %stride * i2 - 1];
+    // |   |         %swr.wsum = %swr.wsum - (%A)[i1 + %stride * i2 + %K - 1];
+    // |   |      }
+    // |   |   }
+    // |   + END LOOP
     // |      %sum = %sum + %swr.wsum;
     // |      %sum.final = %sum;
-    // |   }
+    // |
     // |   (%B)[i1] = %sum.final;
     // + END LOOP
-    LoopSums.InnerLoop->removeLiveInTemp(OrigSum->getSymbase());
-    LoopSums.InnerLoop->removeLiveOutTemp(OrigSum->getSymbase());
+    for (HLLoop *Loop = LoopSums.InnerLoop; Loop != LoopSums.OuterLoop;
+         Loop         = Loop->getParentLoop()) {
+      Loop->removeLiveInTemp(OrigSum->getSymbase());
+      Loop->removeLiveOutTemp(OrigSum->getSymbase());
+    }
     HLNodeUtils::remove(Sum.Inst);
   }
 
@@ -620,23 +737,27 @@ static void transformLoopWindowSums(const LoopSlidingWindowSums &LoopSums) {
   //    %swr.wsum = 0.000000e+00;
   // + DO i1 = 0, %N + -1, 1   <DO_LOOP>
   // |   %sum.final = 0.000000e+00;
-  // |   if (%M != 0)
-  // |   {
+  // |
   // |      %sum = 0.000000e+00;
-  // |      if (i1 == 0)
-  // |      {
-  // |         + DO i2 = 0, %M + -1, 1   <DO_LOOP>
-  // |         |   %swr.wsum = %swr.wsum  +  (%A)[i2];
-  // |         + END LOOP
-  // |      }
-  // |      else
-  // |      {
-  // |         %swr.wsum = %swr.wsum - (%A)[i1 - 1];
-  // |         %swr.wsum = %swr.wsum + (%A)[i1 + %M + -1];
-  // |      }
+  // |   + DO i2 = 0, %M + -1, 1   <DO_LOOP>
+  // |   |   if (%M != 0)
+  // |   |   {
+  // |   |      if (i1 == 0)
+  // |   |      {
+  // |   |         + DO i3 = 0, %K + -1, 1   <DO_LOOP>
+  // |   |         |   %swr.wsum = %swr.wsum  +  (%A)[%stride * i2 + i3];
+  // |   |         + END LOOP
+  // |   |      }
+  // |   |      else
+  // |   |      {
+  // |   |         %swr.wsum = %swr.wsum - (%A)[i1 + %stride * i2 - 1];
+  // |   |         %swr.wsum = %swr.wsum - (%A)[i1 + %stride * i2 + %K - 1];
+  // |   |      }
+  // |   |   }
+  // |   + END LOOP
   // |      %sum = %sum + %swr.wsum;
   // |      %sum.final = %sum;
-  // |   }
+  // |
   // |   (%B)[i1] = %sum.final;
   // + END LOOP
   assert(!LoopSums.InnerLoop->hasPreheader());
@@ -652,9 +773,10 @@ static void transformLoopWindowSums(const LoopSlidingWindowSums &LoopSums) {
     HIRInvalidationUtils::invalidateBody(LoopSums.InnerLoop);
   }
 
-  // The transform was successful; mark the outer parent as invalidated and the
-  // parent region for code generation.
+  // The transform was successful; mark the relevant loops as invalidated and
+  // the parent region for code generation.
   HIRInvalidationUtils::invalidateParentLoopBodyOrRegion(LoopSums.OuterLoop);
+  HIRInvalidationUtils::invalidateParentLoopBodyOrRegion(FirstIterLoop);
   HIRInvalidationUtils::invalidateBody(LoopSums.OuterLoop);
   LoopSums.OuterLoop->getParentRegion()->setGenCode();
 

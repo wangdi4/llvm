@@ -1419,6 +1419,12 @@ def finstrument_functions : Flag<["-"], "finstrument-functions">,
   "to instrument function entry and exit">;
 def fno_instrument_functions : Flag<["-"], "fno-instrument-functions">,
   Group<f_Group>, Flags<[DriverOption]>;
+def fma : Flag<["-"], "fma">, Alias<ffp_contract>, AliasArgs<["fast"]>,
+  HelpText<"Enable the combining of floating point multiples and add/subtract "
+  "operations.">;
+def no_fma : Flag<["-"], "no-fma">, Alias<ffp_contract>, AliasArgs<["off"]>,
+  HelpText<"Disable the combining of floating point multiples and add/subtract "
+  "operations.">;
 #endif // INTEL_CUSTOMIZATION
 def finstrument_functions_after_inlining : Flag<["-"], "finstrument-functions-after-inlining">, Group<f_Group>, Flags<[CC1Option]>,
   HelpText<"Like -finstrument-functions, but insert the calls after inlining">;
@@ -3281,6 +3287,8 @@ def unroll_EQ : Joined<["-"], "unroll=">, Alias<unroll>;
 def vec : Flag<["-"], "vec">, Alias<fvectorize>,
   HelpText<"Enable the loop vectorization passes">;
 def no_vec : Flag<["-"], "no-vec">, Alias<fno_vectorize>;
+def Zp : Flag<["-"], "Zp">, Alias<fpack_struct_EQ>, AliasArgs<["1"]>;
+def Zp_EQ : Joined<["-"], "Zp">, Alias<fpack_struct_EQ>;
 #endif // INTEL_CUSTOMIZATION
 def verify_debug_info : Flag<["--"], "verify-debug-info">, Flags<[DriverOption]>,
   HelpText<"Verify the binary representation of debug output">;
@@ -5462,6 +5470,12 @@ def _SLASH_Qdaal_EQ : CLJoined<"Qdaal=">, Alias<daal_EQ>,
   "libraries and bring in the associated headers">;
 def _SLASH_Qdaal_COL : CLJoined<"Qdaal:">, Alias<daal_EQ>;
 def _SLASH_Qdaal : CLFlag<"Qdaal">, Alias<daal_EQ>, AliasArgs<["parallel"]>;
+def _SLASH_Qfma : CLFlag<"Qfma">, Alias<ffp_contract>, AliasArgs<["fast"]>,
+  HelpText<"Enable the combining of floating point multiples and add/subtract "
+  "operations.">;
+def _SLASH_Qfma_ : CLFlag<"Qfma-">, Alias<ffp_contract>, AliasArgs<["off"]>,
+  HelpText<"Disable the combining of floating point multiples and add/subtract "
+  "operations.">;
 def _SLASH_Qm32 : CLFlag<"Qm32">, Alias<m32>;
 def _SLASH_Qm64 : CLFlag<"Qm64">, Alias<m64>;
 def _SLASH_Qx : CLJoined<"Qx">,
