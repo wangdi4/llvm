@@ -19,6 +19,13 @@
 // CHECK-INTEL-ZP-WIN: "-fpack-struct=16"
 // CHECK-INTEL-ZP-LIN-NOT: "-fpack-struct=16"
 
+// RUN: %clang -### -c --intel -g %s 2>&1 | FileCheck -check-prefix CHECK-INTEL-G %s
+// RUN: %clang_cl -### -c --intel -Zi %s 2>&1 | FileCheck -check-prefixes=CHECK-INTEL-G %s
+// RUN: %clang -### -c --intel -g -O2 %s 2>&1 | FileCheck -check-prefix CHECK-INTEL-G-O2 %s
+// RUN: %clang_cl -### -c --intel -Zi -O2 %s 2>&1 | FileCheck -check-prefixes=CHECK-INTEL-G-O2 %s
+// CHECK-INTEL-G-NOT: "-O2"
+// CHECK-INTEL-G-O2: "-O2"
+
 // /GS is not default
 // RUN: %clang_cl -### -c --intel %s 2>&1 | FileCheck -check-prefixes=CHECK-INTEL-GS %s
 // CHECK-INTEL-GS-NOT: "-stack-protector"

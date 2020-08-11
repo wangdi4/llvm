@@ -439,7 +439,9 @@ void Driver::addIntelArgs(DerivedArgList &DAL, const InputArgList &Args,
   };
   if (IsIntelMode()) {
     // The Intel compiler defaults to -O2
-    if (!Args.hasArg(options::OPT_O_Group, options::OPT__SLASH_O))
+    if (!Args.hasArg(options::OPT_O_Group, options::OPT__SLASH_O,
+                     options::OPT_g_Group, options::OPT_intel_debug_Group,
+                     options::OPT__SLASH_Z7, options::OPT__SLASH_Zd))
       addClaim(IsCLMode() ? options::OPT__SLASH_O : options::OPT_O, "2");
     // For LTO on Windows, use -fuse-ld=lld when Qipo is used.
     if (Args.hasArg(options::OPT_flto) &&
