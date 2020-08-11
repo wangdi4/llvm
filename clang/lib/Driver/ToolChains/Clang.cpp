@@ -6444,6 +6444,13 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
       isa<CompileJobAction>(JA))
     CmdArgs.push_back("-disable-llvm-passes");
 
+#if INTEL_CUSTOMIZATION
+  // Disable Intel proprietary optimizations for the .bc generation during
+  // and offload compilation.
+  if (JA.isHostOffloading(Action::OFK_OpenMP) && isa<CompileJobAction>(JA))
+    CmdArgs.push_back("-disable-intel-proprietary-opts");
+#endif // INTEL_CUSTOMIZATION
+
   Args.AddAllArgs(CmdArgs, options::OPT_undef);
 
   const char *Exec = D.getClangProgramPath();

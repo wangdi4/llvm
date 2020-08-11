@@ -470,9 +470,18 @@ static void addPerfLibPaths(ArgStringList &CmdArgs,
     TC.AddDAALLibPath(Args, CmdArgs, "-L");
 }
 
+static bool mcmodelSet(const llvm::opt::ArgList &Args) {
+  if (Arg *A = Args.getLastArg(options::OPT_mcmodel_EQ)) {
+    StringRef CM = A->getValue();
+    if (CM == "medium" || CM == "large")
+      return true;
+  }
+  return false;
+}
+
 // Intel libraries are added in statically by default
-static void addIntelLib(const char* IntelLibName, ArgStringList &CmdArgs,
-    const llvm::opt::ArgList &Args) {
+static void addIntelLib(const char* IntelLibName, const ToolChain &TC,
+    ArgStringList &CmdArgs, const llvm::opt::ArgList &Args) {
   // without --intel or --dpcpp, do not pull in Intel libs
   if (!Args.hasArg(options::OPT__intel, options::OPT__dpcpp))
     return;
@@ -502,6 +511,12 @@ static void addIntelLib(const char* IntelLibName, ArgStringList &CmdArgs,
                                      options::OPT_static_intel))
     isSharedIntel = A->getOption().matches(options::OPT_shared_intel);
 
+  // mcmodel links in Intel libs dynamically unless forced static.
+  if (!Args.hasArg(options::OPT_static_intel, options::OPT_static) &&
+      TC.getEffectiveTriple().getArch() == llvm::Triple::x86_64 &&
+      mcmodelSet(Args))
+    isSharedIntel = true;
+
   if (!isCurrentStateStatic && !isSharedIntel)
     CmdArgs.push_back("-Bstatic");
 
@@ -524,20 +539,25 @@ static void addIntelLibirc(const ToolChain &TC, ArgStringList &CmdArgs,
       if (const Arg *A = Args.getLastArg(options::OPT_shared_intel,
                                          options::OPT_static_intel)) {
         if (A->getOption().matches(options::OPT_static_intel)) {
-          addIntelLib("-lirc", CmdArgs, Args);
+          addIntelLib("-lirc", TC, CmdArgs, Args);
           return;
         }
       }
-      addIntelLib("-lintlc", CmdArgs, Args);
+      addIntelLib("-lintlc", TC, CmdArgs, Args);
+      return;
+    }
+    if (!Args.hasArg(options::OPT_static_intel, options::OPT_static) &&
+        mcmodelSet(Args)) {
+      addIntelLib("-lintlc", TC, CmdArgs, Args);
       return;
     }
   } else {
     if (Args.hasArg(options::OPT_shared_intel, options::OPT_shared)) {
-      addIntelLib("-lirc_pic", CmdArgs, Args);
+      addIntelLib("-lirc_pic", TC, CmdArgs, Args);
       return;
     }
   }
-  addIntelLib("-lirc", CmdArgs, Args);
+  addIntelLib("-lirc", TC, CmdArgs, Args);
 }
 #endif // INTEL_CUSTOMIZATION
 
@@ -867,16 +887,16 @@ void tools::gnutools::Linker::ConstructJob(Compilation &C, const JobAction &JA,
       (Args.hasArg(options::OPT_mkl_EQ) && Args.hasArg(options::OPT__dpcpp)))
     addTBBLibs(CmdArgs, Args, ToolChain);
   if (!Args.hasArg(options::OPT_nostdlib, options::OPT_nodefaultlibs)) {
-    addIntelLib("-lsvml", CmdArgs, Args);
-    addIntelLib("-lirng", CmdArgs, Args);
+    addIntelLib("-lsvml", ToolChain, CmdArgs, Args);
+    addIntelLib("-lirng", ToolChain, CmdArgs, Args);
     if (const Arg *A = Args.getLastArg(options::OPT_intel_debug_Group))
       if (StringRef(A->getValue()) == "parallel") {
-        addIntelLib("-lpdbx", CmdArgs, Args);
-        addIntelLib("-lpdbxinst", CmdArgs, Args);
+        addIntelLib("-lpdbx", ToolChain, CmdArgs, Args);
+        addIntelLib("-lpdbxinst", ToolChain, CmdArgs, Args);
       }
     if (Args.hasFlag(options::OPT_qopt_matmul, options::OPT_qno_opt_matmul,
                      false))
-      addIntelLib("-lmatmul", CmdArgs, Args);
+      addIntelLib("-lmatmul", ToolChain, CmdArgs, Args);
   }
 #endif // INTEL_CUSTOMIZATION
 
@@ -908,6 +928,8 @@ void tools::gnutools::Linker::ConstructJob(Compilation &C, const JobAction &JA,
     CmdArgs.push_back("-lm");
   }
   if (!Args.hasArg(options::OPT_nostdlib, options::OPT_nodefaultlibs)) {
+    // Add -lgcc before libirc.
+    AddRunTimeLibs(ToolChain, D, CmdArgs, Args);
     // Add libirc to resolve any Intel and libimf references
     addIntelLibirc(ToolChain, CmdArgs, Args);
     // Add -ldl
@@ -1013,7 +1035,7 @@ void tools::gnutools::Linker::ConstructJob(Compilation &C, const JobAction &JA,
       }
 #if INTEL_CUSTOMIZATION
       if (D.IsIntelMode())
-        addIntelLib("-lirc_s", CmdArgs, Args);
+        addIntelLib("-lirc_s", ToolChain, CmdArgs, Args);
 #endif // INTEL_CUSTOMIZATION
     }
 
