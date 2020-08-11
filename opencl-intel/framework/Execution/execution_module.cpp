@@ -3649,6 +3649,29 @@ cl_int ExecutionModule::EnqueueSVMUnmap(cl_command_queue clCommandQueue, void* p
     return CL_SUCCESS;
 }
 
+bool ExecutionModule::CanAccessUSM(SharedPtr<IOclCommandQueueBase> &queue,
+                                   SharedPtr<USMBuffer> &buf) {
+    cl_device_id queueDeviceId = queue->GetQueueDeviceHandle();
+    const SharedPtr<Context> context = queue->GetContext();
+    assert(context && "Invalid queue context");
+    SharedPtr<FissionableDevice> queueDevice =
+        context->GetDevice(queueDeviceId);
+    assert(queueDevice && "Invalid queue device");
+    if (nullptr != buf.GetPtr()) {
+        auto caps = queueDevice->GetUSMCapabilities(
+            CL_DEVICE_CROSS_DEVICE_SHARED_MEM_CAPABILITIES_INTEL);
+        cl_device_id bufDeviceId = buf->GetDevice();
+        if (!caps && queueDeviceId != bufDeviceId)
+            return false;
+    } else {
+        auto caps = queueDevice->GetUSMCapabilities(
+            CL_DEVICE_SHARED_SYSTEM_MEM_CAPABILITIES_INTEL);
+        if (!caps)
+            return false;
+    }
+    return true;
+}
+
 cl_err_code ExecutionModule::EnqueueUSMMemset(cl_command_queue command_queue,
     void* dst_ptr, cl_int value, size_t size, cl_uint num_events_in_wait_list,
     const cl_event* event_wait_list, cl_event* event, ApiLogger* api_logger)
@@ -3673,6 +3696,9 @@ cl_err_code ExecutionModule::EnqueueUSMMemset(cl_command_queue command_queue,
     if (nullptr != usmBuf.GetPtr() &&
         (usmBuf->GetContext() != context ||
          !usmBuf->IsContainedInBuffer(dst_ptr, size)))
+        return CL_INVALID_VALUE;
+
+    if (!CanAccessUSM(queue, usmBuf))
         return CL_INVALID_VALUE;
 
     // do the work:
@@ -3732,6 +3758,9 @@ cl_err_code ExecutionModule::EnqueueUSMMemFill(cl_command_queue command_queue,
     if (nullptr != usmBuf.GetPtr() &&
         (usmBuf->GetContext() != context ||
          !usmBuf->IsContainedInBuffer(dst_ptr, size)))
+        return CL_INVALID_VALUE;
+
+    if (!CanAccessUSM(queue, usmBuf))
         return CL_INVALID_VALUE;
 
     // do the work:
@@ -3800,6 +3829,9 @@ cl_err_code ExecutionModule::EnqueueUSMMemcpy(cl_command_queue command_queue,
          dstBuffer->GetContext() != context))
         return CL_INVALID_VALUE;
 
+   if (!CanAccessUSM(queue, srcBuffer) || !CanAccessUSM(queue, dstBuffer))
+        return CL_INVALID_VALUE;
+
     cl_err_code err = CheckEventList(queue, num_events_in_wait_list,
                                      event_wait_list);
     if (CL_FAILED(err))
@@ -3865,6 +3897,12 @@ cl_err_code ExecutionModule::EnqueueUSMMigrateMem(
     if (nullptr == queue.GetPtr())
         return CL_INVALID_COMMAND_QUEUE;
 
+    SharedPtr<Context> context = queue->GetContext();
+    SharedPtr<USMBuffer> usmBuf = context->GetUSMBufferContainingAddr(
+        const_cast<void*>(ptr));
+    if (!CanAccessUSM(queue, usmBuf))
+        return CL_INVALID_VALUE;
+
     cl_err_code err = CheckEventList(queue, num_events_in_wait_list,
                                      event_wait_list);
     if (CL_FAILED(err))
@@ -3906,6 +3944,12 @@ cl_err_code ExecutionModule::EnqueueUSMMemAdvise(
         GetCommandQueue(command_queue).DynamicCast<IOclCommandQueueBase>();
     if (nullptr == queue.GetPtr())
         return CL_INVALID_COMMAND_QUEUE;
+
+    SharedPtr<Context> context = queue->GetContext();
+    SharedPtr<USMBuffer> usmBuf = context->GetUSMBufferContainingAddr(
+        const_cast<void*>(ptr));
+    if (!CanAccessUSM(queue, usmBuf))
+        return CL_INVALID_VALUE;
 
     cl_err_code err = CheckEventList(queue, num_events_in_wait_list,
                                      event_wait_list);

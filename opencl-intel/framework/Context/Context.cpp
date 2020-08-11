@@ -1984,6 +1984,9 @@ void* Context::USMAlloc(cl_unified_shared_memory_type_intel type,
 
     if (errcode)
         *errcode = CL_SUCCESS;
+    LOG_INFO(TEXT("USMAlloc m_usmBuffers[usmPtr %p] = usmBuf %p, type %d, size "
+                  "%zu\n"),
+             usmPtr, (void *)usmBuf.GetPtr(), type, size);
     return usmPtr;
 }
 
@@ -2113,9 +2116,14 @@ SharedPtr<USMBuffer> Context::GetUSMBufferContainingAddr(void* ptr)
     const SharedPtr<USMBuffer>& usmBuffer = (--iter)->second;
 
     if (((char*)ptr >= (char*)usmBuffer->GetAddr()) &&
-        ((char*)ptr < (char*)usmBuffer->GetAddr() + usmBuffer->GetSize()))
+        ((char*)ptr < (char*)usmBuffer->GetAddr() + usmBuffer->GetSize())) {
+        LOG_INFO(
+            TEXT("GetUSMBufferContainingAddr ptr %p, usmBuffer %p, type %d"),
+            ptr, (void *)usmBuffer.GetPtr(), usmBuffer->GetType());
         return usmBuffer;
+    }
 
+    LOG_INFO(TEXT("GetUSMBufferContainingAddr ptr %p, usmBuffer nullptr"), ptr);
     return nullptr;
 }
 
