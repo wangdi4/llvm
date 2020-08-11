@@ -632,9 +632,10 @@ void ScalarExpansion::analyze(ArrayRef<HLDDNodeList> Chunks) {
             continue;
           }
 
-          // If the temp is defined in the J chuck we don't need to materialize
-          // it from a temp.
-          if (DstRef->isLval()) {
+          // If the temp is unconditionally defined in the J chunk we don't need
+          // to materialize it from a temp.
+          if (DstRef->isLval() &&
+              isa<HLLoop>(DstRef->getHLDDNode()->getParent())) {
             break;
           }
 
