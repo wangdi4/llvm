@@ -190,7 +190,7 @@ else (WIN32)
 endif (WIN32)
 
 # llvm-opt
-set (LLVM_OPT_PARAMS -verify -sroa -functionattrs)
+set (LLVM_OPT_PARAMS -verify -sroa -function-attrs)
 
 # images optimization options
 set (LLVM_IMAGES_OPT_PARAMS -verify -builtin-import -builtin-call-to-inst -verify -O3 -disable-intel-proprietary-opts)
