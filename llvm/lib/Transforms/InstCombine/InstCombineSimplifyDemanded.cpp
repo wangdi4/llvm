@@ -422,14 +422,57 @@ Value *InstCombinerImpl::SimplifyDemandedUseBits(Value *V, APInt DemandedMask,
     // demanded then replace SExt with Select instruction.
     if (SrcBitWidth == 1 &&
         DemandedMask.getActiveBits() < I->getType()->getScalarSizeInBits()) {
-      Constant *Zero = ConstantInt::getNullValue(I->getType());
-      const APInt MaxDemandedValue = APInt::getLowBitsSet(
-          I->getType()->getScalarSizeInBits(), DemandedMask.getActiveBits());
-      Constant *DemandedConstant =
-          ConstantInt::get(I->getType(), MaxDemandedValue);
-      SelectInst *NewSelect =
-          SelectInst::Create(I->getOperand(0), DemandedConstant, Zero);
-      return InsertNewInstWith(NewSelect, *I);
+
+      // CMPLRLLVM-20823: If the SExt is extending the result of an ICmp
+      // instruction then we need to check this ICmp. The process that
+      // applies a Min/Max folding when visiting a Select instruction checks
+      // if the first operand in the Select instruction is an ICmp between a
+      // value and constant C, where C is positive. The problem comes in the
+      // following case:
+      //
+      //    %tmp2 = icmp eq i32 %tmp1, -1
+      //    %tmp3 = sext i1 %tmp2 to i32
+      //
+      // In the example above, %tmp3 will be converted as follows:
+      //
+      //    %tmp3 = select i1 %tmp2 i32 65535, i32 0
+      //
+      // The Min/Max process will fail due to %tmp2, but the canonicalization
+      // process in InstCombine::visitSelectInst will transform %tmp3 into:
+      //
+      //    %tmp3 = select i1 %tmp2 i32 -1, i32 0
+      //
+      // Then, a second iteration in InstCombine::visitSelectInst will
+      // convert %tmp3 again into:
+      //
+      //    %tmp3 = sext i1 %tmp2 to i32
+      //
+      // Since %tmp3 is now a SExt instruction, it will converted again
+      // to a Select instruction, producing an infinite loop.
+      bool ReplaceEnabled = true;
+      if (auto *ICmp = dyn_cast<ICmpInst>(I->getOperand(0))) {
+        ICmpInst::Predicate OuterPred;
+        Value *X;
+        const APInt *C1;
+
+        // If the ICmp instruction is comparing a value with a negative
+        // number then don't convert the SExt into a Select. At the
+        // end it will be reverted back as a SExt.
+        if (match(ICmp, m_ICmp(OuterPred, m_Value(X), m_APInt(C1))) &&
+            C1->isNegative())
+          ReplaceEnabled = false;
+      }
+
+      if (ReplaceEnabled) {
+        Constant *Zero = ConstantInt::getNullValue(I->getType());
+        const APInt MaxDemandedValue = APInt::getLowBitsSet(
+            I->getType()->getScalarSizeInBits(), DemandedMask.getActiveBits());
+        Constant *DemandedConstant =
+            ConstantInt::get(I->getType(), MaxDemandedValue);
+        SelectInst *NewSelect =
+            SelectInst::Create(I->getOperand(0), DemandedConstant, Zero);
+        return InsertNewInstWith(NewSelect, *I);
+      }
     }
 #endif // INTEL_CUSTOMIZATION
 
