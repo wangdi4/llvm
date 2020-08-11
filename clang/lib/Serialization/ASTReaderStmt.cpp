@@ -2270,103 +2270,6 @@ void ASTStmtReader::VisitOMPLoopDirective(OMPLoopDirective *D) {
   // Field CollapsedNum was read in ReadStmtFromStream.
   Record.skipInts(1);
   VisitOMPExecutableDirective(D);
-<<<<<<< HEAD
-  D->setIterationVariable(Record.readSubExpr());
-  D->setLastIteration(Record.readSubExpr());
-  D->setCalcLastIteration(Record.readSubExpr());
-  D->setPreCond(Record.readSubExpr());
-  D->setCond(Record.readSubExpr());
-#if INTEL_COLLAB
-  D->setUpperBoundVariable(Record.readSubExpr());
-  D->setLateOutlineCond(Record.readSubExpr());
-  D->setLateOutlineLinearCounterStep(Record.readSubExpr());
-  D->setLateOutlineLinearCounterIncrement(Record.readSubExpr());
-#endif // INTEL_COLLAB
-  D->setInit(Record.readSubExpr());
-  D->setInc(Record.readSubExpr());
-  D->setPreInits(Record.readSubStmt());
-  if (isOpenMPWorksharingDirective(D->getDirectiveKind()) ||
-      isOpenMPTaskLoopDirective(D->getDirectiveKind()) ||
-      isOpenMPDistributeDirective(D->getDirectiveKind())) {
-    D->setIsLastIterVariable(Record.readSubExpr());
-    D->setLowerBoundVariable(Record.readSubExpr());
-#if INTEL_COLLAB
-    // UpperBound used in all loops, processed above.
-#else // INTEL_COLLAB
-    D->setUpperBoundVariable(Record.readSubExpr());
-#endif // INTEL_COLLAB
-    D->setStrideVariable(Record.readSubExpr());
-    D->setEnsureUpperBound(Record.readSubExpr());
-    D->setNextLowerBound(Record.readSubExpr());
-    D->setNextUpperBound(Record.readSubExpr());
-    D->setNumIterations(Record.readSubExpr());
-  }
-  if (isOpenMPLoopBoundSharingDirective(D->getDirectiveKind())) {
-    D->setPrevLowerBoundVariable(Record.readSubExpr());
-    D->setPrevUpperBoundVariable(Record.readSubExpr());
-    D->setDistInc(Record.readSubExpr());
-    D->setPrevEnsureUpperBound(Record.readSubExpr());
-    D->setCombinedLowerBoundVariable(Record.readSubExpr());
-    D->setCombinedUpperBoundVariable(Record.readSubExpr());
-    D->setCombinedEnsureUpperBound(Record.readSubExpr());
-    D->setCombinedInit(Record.readSubExpr());
-    D->setCombinedCond(Record.readSubExpr());
-    D->setCombinedNextLowerBound(Record.readSubExpr());
-    D->setCombinedNextUpperBound(Record.readSubExpr());
-    D->setCombinedDistCond(Record.readSubExpr());
-    D->setCombinedParForInDistCond(Record.readSubExpr());
-  }
-  SmallVector<Expr *, 4> Sub;
-  unsigned CollapsedNum = D->getCollapsedNumber();
-  Sub.reserve(CollapsedNum);
-  for (unsigned i = 0; i < CollapsedNum; ++i)
-    Sub.push_back(Record.readSubExpr());
-  D->setCounters(Sub);
-  Sub.clear();
-  for (unsigned i = 0; i < CollapsedNum; ++i)
-    Sub.push_back(Record.readSubExpr());
-  D->setPrivateCounters(Sub);
-  Sub.clear();
-  for (unsigned i = 0; i < CollapsedNum; ++i)
-    Sub.push_back(Record.readSubExpr());
-  D->setInits(Sub);
-  Sub.clear();
-  for (unsigned i = 0; i < CollapsedNum; ++i)
-    Sub.push_back(Record.readSubExpr());
-  D->setUpdates(Sub);
-  Sub.clear();
-  for (unsigned i = 0; i < CollapsedNum; ++i)
-    Sub.push_back(Record.readSubExpr());
-  D->setFinals(Sub);
-  Sub.clear();
-  for (unsigned i = 0; i < CollapsedNum; ++i)
-    Sub.push_back(Record.readSubExpr());
-  D->setDependentCounters(Sub);
-  Sub.clear();
-  for (unsigned i = 0; i < CollapsedNum; ++i)
-    Sub.push_back(Record.readSubExpr());
-  D->setDependentInits(Sub);
-  Sub.clear();
-  for (unsigned i = 0; i < CollapsedNum; ++i)
-    Sub.push_back(Record.readSubExpr());
-  D->setFinalsConditions(Sub);
-#if INTEL_CUSTOMIZATION
-#define READ_UNCOLLAPSED(Name)                                                 \
-  Sub.clear();                                                                 \
-  for (unsigned i = 0; i < CollapsedNum; ++i)                                  \
-    Sub.push_back(Record.readSubExpr());                                       \
-  D->setUncollapsed##Name(Sub);
-  READ_UNCOLLAPSED(IVs)
-  READ_UNCOLLAPSED(LowerBounds)
-  READ_UNCOLLAPSED(UpperBounds)
-  READ_UNCOLLAPSED(Inits)
-  READ_UNCOLLAPSED(LoopConds)
-  READ_UNCOLLAPSED(Incs)
-  READ_UNCOLLAPSED(Updates)
-#undef READ_UNCOLLAPSED
-#endif // INTEL_CUSTOMIZATION
-=======
->>>>>>> 0af7835eae698330f6362220ff1fcbfe92516de8
 }
 
 void ASTStmtReader::VisitOMPParallelDirective(OMPParallelDirective *D) {
@@ -3284,40 +3187,40 @@ Stmt *ASTReader::ReadStmtFromStream(ModuleFile &F) {
 
 #if INTEL_COLLAB
     case STMT_OMP_GENERIC_LOOP_DIRECTIVE: {
-      unsigned NumClauses = Record[ASTStmtReader::NumStmtFields];
-      unsigned CollapsedNum = Record[ASTStmtReader::NumStmtFields + 1];
+      unsigned CollapsedNum = Record[ASTStmtReader::NumStmtFields];
+      unsigned NumClauses = Record[ASTStmtReader::NumStmtFields + 1];
       S = OMPGenericLoopDirective::CreateEmpty(Context, NumClauses,
                                                CollapsedNum, Empty);
       break;
     }
 
     case STMT_OMP_TEAMS_GENERIC_LOOP_DIRECTIVE: {
-      unsigned NumClauses = Record[ASTStmtReader::NumStmtFields];
-      unsigned CollapsedNum = Record[ASTStmtReader::NumStmtFields + 1];
+      unsigned CollapsedNum = Record[ASTStmtReader::NumStmtFields];
+      unsigned NumClauses = Record[ASTStmtReader::NumStmtFields + 1];
       S = OMPTeamsGenericLoopDirective::CreateEmpty(Context, NumClauses,
                                                     CollapsedNum, Empty);
       break;
     }
 
     case STMT_OMP_TARGET_TEAMS_GENERIC_LOOP_DIRECTIVE: {
-      unsigned NumClauses = Record[ASTStmtReader::NumStmtFields];
-      unsigned CollapsedNum = Record[ASTStmtReader::NumStmtFields + 1];
+      unsigned CollapsedNum = Record[ASTStmtReader::NumStmtFields];
+      unsigned NumClauses = Record[ASTStmtReader::NumStmtFields + 1];
       S = OMPTargetTeamsGenericLoopDirective::CreateEmpty(Context, NumClauses,
                                                           CollapsedNum, Empty);
       break;
     }
 
     case STMT_OMP_PARALLEL_GENERIC_LOOP_DIRECTIVE: {
-      unsigned NumClauses = Record[ASTStmtReader::NumStmtFields];
-      unsigned CollapsedNum = Record[ASTStmtReader::NumStmtFields + 1];
+      unsigned CollapsedNum = Record[ASTStmtReader::NumStmtFields];
+      unsigned NumClauses = Record[ASTStmtReader::NumStmtFields + 1];
       S = OMPParallelGenericLoopDirective::CreateEmpty(Context, NumClauses,
                                                        CollapsedNum, Empty);
       break;
     }
 
     case STMT_OMP_TARGET_PARALLEL_GENERIC_LOOP_DIRECTIVE: {
-      unsigned NumClauses = Record[ASTStmtReader::NumStmtFields];
-      unsigned CollapsedNum = Record[ASTStmtReader::NumStmtFields + 1];
+      unsigned CollapsedNum = Record[ASTStmtReader::NumStmtFields];
+      unsigned NumClauses = Record[ASTStmtReader::NumStmtFields + 1];
       S = OMPTargetParallelGenericLoopDirective::CreateEmpty(
           Context, NumClauses, CollapsedNum, Empty);
       break;
