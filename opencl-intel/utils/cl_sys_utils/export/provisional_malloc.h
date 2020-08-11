@@ -13,8 +13,7 @@
 // License.
 
 #ifndef __PROVISIONAL_MALLOC_H_
-#define  __PROVISIONAL_MALLOC_H_
-
+#define __PROVISIONAL_MALLOC_H_
 
 /**
  * This is a utility to register all dynamically allocated objects,

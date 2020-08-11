@@ -12,8 +12,9 @@
 // or implied warranties, other than those that are expressly stated in the
 // License.
 
-#include "arena_handler.h"
 #include "base_command_list.hpp"
+
+#include "arena_handler.h"
 #include "cl_shared_ptr.hpp"
 #include "task_group.hpp"
 #include "tbb_executor.h"

@@ -12,14 +12,14 @@
 // or implied warranties, other than those that are expressly stated in the
 // License.
 
-#include <stddef.h>
-#include <stdlib.h>
-#include <assert.h>
-
 #include "cl_heap.h"
 #include "cl_synch_objects.h"
 #include "cl_sys_defines.h"
+
+#include <assert.h>
 #include <map>
+#include <stddef.h>
+#include <stdlib.h>
 
 using namespace std;
 

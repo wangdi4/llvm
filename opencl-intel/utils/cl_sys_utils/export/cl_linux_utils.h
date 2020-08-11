@@ -16,14 +16,18 @@
 
 #ifdef _WIN32
 
-    #define DECLARE_ALIAS(FUNC_NAME)
-    #define SET_ALIAS(FUNC_NAME) 
-    #define GET_ALIAS(FUNC_NAME) FUNC_NAME
+#define DECLARE_ALIAS(FUNC_NAME)
+#define SET_ALIAS(FUNC_NAME)
+#define GET_ALIAS(FUNC_NAME) FUNC_NAME
 
 #else
 
-    #define DECLARE_ALIAS(FUNC_NAME) extern void local_intel_private_1234_##FUNC_NAME()
-    #define SET_ALIAS(FUNC_NAME) void Intel::OpenCL::Framework::local_intel_private_1234_##FUNC_NAME() __attribute__ ((alias (#FUNC_NAME)))
-    #define GET_ALIAS(FUNC_NAME) Intel::OpenCL::Framework::local_intel_private_1234_##FUNC_NAME
+#define DECLARE_ALIAS(FUNC_NAME)                                               \
+  extern void local_intel_private_1234_##FUNC_NAME()
+#define SET_ALIAS(FUNC_NAME)                                                   \
+  void Intel::OpenCL::Framework::local_intel_private_1234_##FUNC_NAME()        \
+      __attribute__((alias(#FUNC_NAME)))
+#define GET_ALIAS(FUNC_NAME)                                                   \
+  Intel::OpenCL::Framework::local_intel_private_1234_##FUNC_NAME
 
 #endif

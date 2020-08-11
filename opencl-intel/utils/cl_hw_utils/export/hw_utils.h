@@ -17,7 +17,7 @@
 #include "hw_defs.h"
 
 #ifdef WIN32
-    #include "intrin.h"
+#include "intrin.h"
 #endif
 
 namespace Intel { namespace OpenCL { namespace Utils {

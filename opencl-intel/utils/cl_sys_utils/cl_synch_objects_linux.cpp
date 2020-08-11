@@ -12,16 +12,16 @@
 // or implied warranties, other than those that are expressly stated in the
 // License.
 
-#include <tbb/concurrent_queue.h>
-#include <pthread.h>
-#include <malloc.h>
-#include <stdio.h>  // Todo: replace printf with log mechanisem
-#include <assert.h>
-#include <algorithm>
-#include <semaphore.h>
-
 #include "cl_synch_objects.h"
 #include "hw_utils.h"
+
+#include <algorithm>
+#include <assert.h>
+#include <malloc.h>
+#include <pthread.h>
+#include <semaphore.h>
+#include <stdio.h> // Todo: replace printf with log mechanisem
+#include <tbb/concurrent_queue.h>
 /************************************************************************
  * This file is the Linux implementation of the cl_synch_objects interface
  ************************************************************************/

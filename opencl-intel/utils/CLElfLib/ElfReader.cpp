@@ -13,8 +13,9 @@
 // License.
 
 #include "ElfReader.h"
-#include <string.h>
+
 #include <stdio.h>
+#include <string.h>
 
 namespace CLElfLib
 {

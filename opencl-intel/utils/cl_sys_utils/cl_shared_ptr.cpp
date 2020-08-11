@@ -13,6 +13,7 @@
 // License.
 
 #include "cl_shared_ptr.hpp"
+
 #include <stdio.h>
 
 using namespace std;

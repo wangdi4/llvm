@@ -12,9 +12,10 @@
 // or implied warranties, other than those that are expressly stated in the
 // License.
 
-#include <sstream>
 #include "cl_sys_info.h"
 #include "cl_utils.h"
+
+#include <sstream>
 
 using namespace Intel::OpenCL::Utils;
 #include <fstream>

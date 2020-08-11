@@ -20,8 +20,9 @@
 #include <Windows.h>
 #endif
 
-#include "task_executor.h"
 #include "cl_synch_objects.h"
+#include "task_executor.h"
+
 #include <list>
 #include <queue>
 using namespace Intel::OpenCL::Utils;

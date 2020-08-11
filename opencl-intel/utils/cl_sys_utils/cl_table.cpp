@@ -13,6 +13,7 @@
 // License.
 
 #include "cl_table.h"
+
 #include <malloc.h>
 
 using namespace Intel::OpenCL::Utils;

@@ -12,8 +12,8 @@
 // or implied warranties, other than those that are expressly stated in the
 // License.
 
-#include "cl_sys_info.h"
 #include "cl_sys_defines.h"
+#include "cl_sys_info.h"
 #include "cl_utils.h"
 
 #if _MSC_VER == 1600

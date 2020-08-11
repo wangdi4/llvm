@@ -13,16 +13,18 @@
 // License.
 
 #include "cl_cpu_detect.h"
+
 #include "cl_env.h"
 #include "hw_utils.h"
 
-#if defined( _WIN32 )
-#include <windows.h>
+#if defined(_WIN32)
 #include <intrin.h>
+#include <windows.h>
 #else
+#include "hw_utils.h"
+
 #include <cstdlib>
 #include <cstring>
-#include "hw_utils.h"
 #endif
 
 #include <assert.h>
@@ -31,10 +33,10 @@
 #if defined(_M_X64) || defined(__LP64__)
 
 #if defined(_M_X64)
-  #pragma pack (1)
-  #define PACKED_STRUCT
+#pragma pack(1)
+#define PACKED_STRUCT
 #else
-  #define PACKED_STRUCT __attribute__ ((packed))
+#define PACKED_STRUCT __attribute__((packed))
 #endif
 
 struct XGETBV_PARAMS {

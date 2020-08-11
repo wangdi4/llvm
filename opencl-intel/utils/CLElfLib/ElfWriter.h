@@ -14,13 +14,14 @@
 
 #pragma once
 #include "CLElfTypes.h"
+
 #include <queue>
 #include <string>
 
 #if defined(_WIN32) && (__KLOCWORK__ == 0)
-  #define ELF_CALL __stdcall
+#define ELF_CALL __stdcall
 #else
-  #define ELF_CALL
+#define ELF_CALL
 #endif
 
 using namespace std;

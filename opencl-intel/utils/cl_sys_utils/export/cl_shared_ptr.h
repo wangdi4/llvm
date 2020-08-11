@@ -15,20 +15,28 @@
 #pragma once
 
 #include "cl_synch_objects.h"
-#include <set>
+
 #include <list>
+#include <set>
 
-// macro that each class T that wish to user SharedPtrBase<T> must call in its public section
-#define PREPARE_SHARED_PTR(T)    \
-    friend class Intel::OpenCL::Utils::SharedPtr<T >;  \
-    friend class Intel::OpenCL::Utils::SharedPtrBase<const T >; \
-    private:   /* this is to prevent taking SharedPtrs of non-heap objects */ \
-    Intel::OpenCL::Utils::SharedPtr<T > operator&() { return Intel::OpenCL::Utils::SharedPtr<T >(this); } \
-    Intel::OpenCL::Utils::ConstSharedPtr<T > operator&() const { return Intel::OpenCL::Utils::ConstSharedPtr<T >(this); } \
-    public:  \
-    const char* GetTypeName() const { return #T ; } \
-    public:
-
+// macro that each class T that wish to user SharedPtrBase<T> must call in its
+// public section
+#define PREPARE_SHARED_PTR(T)                                                  \
+  friend class Intel::OpenCL::Utils::SharedPtr<T>;                             \
+  friend class Intel::OpenCL::Utils::SharedPtrBase<const T>;                   \
+                                                                               \
+private: /* this is to prevent taking SharedPtrs of non-heap objects */        \
+  Intel::OpenCL::Utils::SharedPtr<T> operator&() {                             \
+    return Intel::OpenCL::Utils::SharedPtr<T>(this);                           \
+  }                                                                            \
+  Intel::OpenCL::Utils::ConstSharedPtr<T> operator&() const {                  \
+    return Intel::OpenCL::Utils::ConstSharedPtr<T>(this);                      \
+  }                                                                            \
+                                                                               \
+public:                                                                        \
+  const char *GetTypeName() const { return #T; }                               \
+                                                                               \
+public:
 
 namespace Intel { namespace OpenCL { namespace Utils {
 

@@ -13,6 +13,7 @@
 // License.
 
 #include "cl_stopwatch.h"
+
 #include "hw_utils.h"
 
 using namespace Intel::OpenCL::Utils;

@@ -12,8 +12,8 @@
 // or implied warranties, other than those that are expressly stated in the
 // License.
 
-#include <cstdio>
 #include <cassert>
+#include <cstdio>
 #ifdef _WIN32
 #include <windows.h>
 #else

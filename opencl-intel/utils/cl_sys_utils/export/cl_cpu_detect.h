@@ -15,8 +15,8 @@
 #ifndef __CL_CPU_DETECT_H__
 #define __CL_CPU_DETECT_H__
 
-#include "cl_types.h"
 #include "cl_env.h"
+#include "cl_types.h"
 
 namespace Intel { namespace OpenCL { namespace Utils {
 

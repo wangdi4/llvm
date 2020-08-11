@@ -13,10 +13,11 @@
 // License.
 
 #include "ElfWriter.h"
-#include <cstring>
-#include <string.h>
+
 #include "cl_sys_defines.h"
 
+#include <cstring>
+#include <string.h>
 
 namespace CLElfLib
 {

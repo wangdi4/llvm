@@ -14,11 +14,11 @@
 
 #pragma once
 
-#include <stdio.h>
-
 #include "cl_logger.h"
-#include "log_message.h"
 #include "cl_synch_objects.h"
+#include "log_message.h"
+
+#include <stdio.h>
 
 namespace Intel { namespace OpenCL { namespace Utils {
 

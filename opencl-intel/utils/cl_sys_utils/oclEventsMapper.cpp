@@ -12,8 +12,9 @@
 // or implied warranties, other than those that are expressly stated in the
 // License.
 
-#include <cassert>
 #include "oclEventsMapper.h"
+
+#include <cassert>
 
 using namespace Intel::OpenCL::Utils;
 

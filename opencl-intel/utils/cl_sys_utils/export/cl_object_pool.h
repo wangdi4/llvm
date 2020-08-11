@@ -14,8 +14,9 @@
 
 #pragma once
 
-#include <stack>
 #include "cl_synch_objects.h"
+
+#include <stack>
 
 using Intel::OpenCL::Utils::OclAutoMutex;
 

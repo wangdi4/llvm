@@ -13,10 +13,11 @@
 // License.
 
 #include "cl_thread.h"
-#include <Windows.h>
-#include <stdio.h>
-#include <process.h>
 #include "cl_utils.h"
+
+#include <Windows.h>
+#include <process.h>
+#include <stdio.h>
 
 using namespace Intel::OpenCL::Utils;
 

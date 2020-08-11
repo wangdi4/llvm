@@ -13,6 +13,7 @@
 // License.
 
 #include "task_group.hpp"
+
 #include "arena_handler.h"
 #include "cl_shared_ptr.hpp"
 #include "tbb_executor.h"

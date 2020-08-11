@@ -12,21 +12,21 @@
 // or implied warranties, other than those that are expressly stated in the
 // License.
 
-#include <iostream>
 #include <cassert>
-#include <iomanip>
 #include <ctime>
+#include <iomanip>
+#include <iostream>
 #ifdef _WIN32
 #include <Windows.h>
 #else
-#include <sys/types.h>
-#include <unistd.h>
 #include <pthread.h>
+#include <sys/types.h>
 #include <syscall.h>
+#include <unistd.h>
 #endif
-#include "cl_user_logger.h"
-#include "cl_sys_defines.h"
 #include "cl_config.h"
+#include "cl_sys_defines.h"
+#include "cl_user_logger.h"
 
 using std::ostringstream;
 using std::ends;

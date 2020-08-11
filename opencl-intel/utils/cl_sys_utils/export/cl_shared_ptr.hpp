@@ -14,10 +14,11 @@
 
 #pragma once
 
+#include "cl_shared_ptr.h"
+#include "cl_synch_objects.h"
+
 #include <cassert>
 #include <map>
-#include "cl_synch_objects.h"
-#include "cl_shared_ptr.h"
 
 namespace Intel { namespace OpenCL { namespace Utils {
 

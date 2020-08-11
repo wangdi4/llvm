@@ -15,6 +15,7 @@
 #pragma once
 
 #include "cl_utils.h"
+
 #include <string>
 
 namespace Intel { namespace OpenCL { namespace Utils {
