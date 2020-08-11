@@ -347,11 +347,18 @@ if(NOT LIBOMPTARGET_DEP_OPENCL_INCLUDE_DIRS)
   set(LIBOMPTARGET_DEP_LEVEL0_FOUND FALSE)
   message(STATUS "Could NOT find OpenCL for Level0. Missing includes.")
 else()
+  if(L0_INCLUDE_DIR)
+    if(NOT EXISTS ${L0_INCLUDE_DIR})
+      message(FATAL_ERROR
+        "Level0 include path specified with L0_INCLUDE_DIR variable \
+         (${L0_INCLUDE_DIR}) does not exist.")
+    endif()
+    set(LIBOMPTARGET_DEP_LEVEL0_INCLUDE_DIRS "${L0_INCLUDE_DIR}/level_zero")
+  endif()
   find_path(LIBOMPTARGET_DEP_LEVEL0_INCLUDE_DIRS
     NAMES
       ze_api.h
     PATHS
-      ${L0_INCLUDE_DIR}
       ENV LIBOMPTARGET_LEVEL0_ROOT
       ENV CPATH
     PATH_SUFFIXES

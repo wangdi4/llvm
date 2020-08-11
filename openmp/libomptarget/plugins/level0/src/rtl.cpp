@@ -529,6 +529,9 @@ static ze_module_handle_t createModule(
 
   // Now read from the full path
   std::ifstream ifs(fullPath.c_str(), std::ios::binary);
+  // Ignore files that are not supported.
+  if (!ifs.good())
+    return nullptr;
   ifs.seekg(0, ifs.end);
   size_t size = static_cast<size_t>(ifs.tellg());
   ifs.seekg(0);
@@ -1454,11 +1457,10 @@ __tgt_target_table *__tgt_rtl_load_binary(int32_t DeviceId,
   for (auto name : deviceLibNames) {
     auto deviceLibModule = createModule(context, device, name,
                                         compilationOptions.c_str());
-    if (!deviceLibModule) {
-      DP("Error: failed to create module for %s\n", name);
-      return nullptr;
+    if (deviceLibModule) {
+      DP("Created a module for %s\n", name);
+      modules.push_back(deviceLibModule);
     }
-    modules.push_back(deviceLibModule);
   }
 
   if (DeviceInfo->Flags.LinkLibDevice) {
