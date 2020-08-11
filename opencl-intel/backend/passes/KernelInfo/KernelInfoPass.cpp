@@ -73,8 +73,17 @@ namespace intel {
             return true;
         }
         PointerType* ptr = cast<PointerType>(Arg0->getType());
-        assert(!IS_ADDR_SPACE_GENERIC(ptr->getAddressSpace()) &&
-              "Generic address space must be resolved before KernelInfoPass.");
+
+        // After switching GenericAddressStaticResolutionPass to
+        // InferAddressSpacesPass, it's legal for a pointer to remain as
+        // unresolved and live in generic address space until CodeGen. So if a
+        // pointer is in generic address space, we just ignore it and assume
+        // that it won't access global address space. This assumption won't
+        // affect the correctness of the program, as the global synchronization
+        // information is only used to calculate the workgroup size (see
+        // Kernel.cpp and search 'HasGlobalSyncOperation' keyword) for
+        // performance tunning.
+
         // [OpenCL 2.0] The following condition covers pipe built-ins as well
         // because the first arguments is a pipe which is a __global opaque pointer.
         if (IS_ADDR_SPACE_GLOBAL(ptr->getAddressSpace()))
