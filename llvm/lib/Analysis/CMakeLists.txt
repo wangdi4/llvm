@@ -67,6 +67,7 @@ add_llvm_component_library(LLVMAnalysis
   Intel_ArrayUseAnalysis.cpp
   Intel_DopeVectorAnalysis.cpp
   Intel_IPCloningAnalysis.cpp
+  Intel_InlineCost.cpp
   Intel_PartialInlineAnalysis.cpp
   Intel_SNode.cpp
   Intel_StdContainerAA.cpp
