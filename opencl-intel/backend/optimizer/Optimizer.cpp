@@ -587,12 +587,19 @@ static void populatePassesPostFailCheck(
         // Do all vectorization factor checks here.
         PM.add(createOCLVPOCheckVFPass(*pConfig, kernelVFStates));
 
+        PM.add(createSGSizeCollectorPass(pConfig->GetCpuId()));
+        PM.add(createSGSizeCollectorIndirectPass(pConfig->GetCpuId()));
+        PM.add(createVectorVariantLoweringPass(pConfig->GetCpuId()));
+
         // Prepare Function for VecClone and call VecClone
         // We won't automatically switch vectorization dimension for SYCL.
         if (!IsSYCL)
           PM.add(createChooseVectorizationDimensionModulePass());
         PM.add(createOCLVecClonePass(pConfig));
         PM.add(createScalarizerPass(pConfig->GetCpuId(), true));
+
+        PM.add(createVectorVariantFillInPass());
+        PM.add(createUpdateCallAttrsPass());
 
         // Call VPlan
         PM.add(llvm::createPromoteMemoryToRegisterPass());
