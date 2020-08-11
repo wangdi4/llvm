@@ -8188,8 +8188,12 @@ void SPIRVTranslator::ConstructJob(Compilation &C, const JobAction &JA,
   }
 #if INTEL_CUSTOMIZATION
   if (JA.isDeviceOffloading(Action::OFK_OpenMP) &&
-      getToolChain().getTriple().isSPIR())
-    TranslatorArgs.push_back("-spirv-ext=+all");
+      getToolChain().getTriple().isSPIR()) {
+    // TODO: -SPV_INTEL_fpga_buffer_location option is added as workaround
+    // to CMPLRLLVM-21950. This option should removed when the Jira is
+    // resolved, and replaced with just "-spirv-ext=+all"
+    TranslatorArgs.push_back("-spirv-ext=+all,-SPV_INTEL_fpga_buffer_location");
+  }
 #endif // INTEL_CUSTOMIZATION
   for (auto I : Inputs) {
     std::string Filename(I.getFilename());
