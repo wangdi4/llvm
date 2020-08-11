@@ -310,8 +310,8 @@ public:
 #if !INTEL_CUSTOMIZATION
   /// Returns true if all source operands of the recurrence are SExtInsts.
   bool isSigned() { return IsSigned; }
-
 #endif
+
 private:
 #if !INTEL_CUSTOMIZATION
   // The starting value of the recurrence.

@@ -1504,7 +1504,8 @@ ASTNodeImporter::VisitPackExpansionType(const PackExpansionType *T) {
     return ToPatternOrErr.takeError();
 
   return Importer.getToContext().getPackExpansionType(*ToPatternOrErr,
-                                                      T->getNumExpansions());
+                                                      T->getNumExpansions(),
+                                                      /*ExpactPack=*/false);
 }
 
 ExpectedType ASTNodeImporter::VisitDependentTemplateSpecializationType(
@@ -1906,7 +1907,8 @@ Error ASTNodeImporter::ImportDefinition(
           else
             return ToCaptureOrErr.takeError();
         }
-        cast<CXXRecordDecl>(To)->setCaptures(ToCaptures);
+        cast<CXXRecordDecl>(To)->setCaptures(Importer.getToContext(),
+                                             ToCaptures);
       }
 
       Error Result = ImportDeclContext(From, /*ForceImport=*/true);

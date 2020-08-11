@@ -14,13 +14,13 @@
 #define LLVM_ANALYSIS_VECTORUTILS_H
 
 #include "llvm/ADT/MapVector.h"
-#include "llvm/ADT/SmallSet.h"
+#include "llvm/ADT/SmallVector.h"
 #include "llvm/Analysis/LoopAccessAnalysis.h"
 #include "llvm/Analysis/Intel_VectorVariant.h" // INTEL
-#include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/Support/CheckedArithmetic.h"
 
 namespace llvm {
+class TargetLibraryInfo;
 
 /// Describes the type of Parameters
 enum class VFParamKind {

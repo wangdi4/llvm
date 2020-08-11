@@ -1,5 +1,5 @@
 ; RUN: opt < %s -tbaa -hir-ssa-deconstruction -hir-dd-analysis -hir-dd-analysis-verify=Region -analyze | FileCheck %s
-; RUN: opt < %s -passes="require<type-based-aa>,hir-ssa-deconstruction,print<hir-dd-analysis>" -hir-dd-analysis-verify=Region -disable-output 2>&1 | FileCheck %s
+; RUN: opt < %s -passes="require<tbaa>,hir-ssa-deconstruction,print<hir-dd-analysis>" -hir-dd-analysis-verify=Region -disable-output 2>&1 | FileCheck %s
 ;
 ; // C source:
 ; #define SWAP(x,y) do{ typeof(x) t = x; x = y; y = t; }while(0)

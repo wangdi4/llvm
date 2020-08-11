@@ -105,7 +105,8 @@
 // CHECK-QOPTION-ASSEMBLER: "-Ifoo_dir"
 // RUN: %clang -### %s -c -Qoption,asm,--compress-debug-sections,-fdebug-compilation-dir=.,--noexecstack 2>&1 | FileCheck %s --check-prefix=CHECK-QOPTION-ASM-ARGS
 // RUN: %clang_cl -### %s -c /Qoption,asm,--compress-debug-sections,-fdebug-compilation-dir=.,--noexecstack 2>&1 | FileCheck %s --check-prefix=CHECK-QOPTION-ASM-ARGS
-// CHECK-QOPTION-ASM-ARGS: "--compress-debug-sections" "-fdebug-compilation-dir" "." "-mnoexecstack"
+// CHECK-QOPTION-ASM-ARGS: "--compress-debug-sections" "-fdebug-compilation-dir" "."
+// CHECK-QOPTION-ASM-ARGS: "-mnoexecstack"
 
 // RUN: %clang -### %s -c -Qoption,preprocessor,-MMD 2>&1 | FileCheck %s --check-prefix=CHECK-QOPTION-PREPROCESSOR
 // RUN: %clang_cl -### %s -c /Qoption,preprocessor,-MMD 2>&1 | FileCheck %s --check-prefix=CHECK-QOPTION-PREPROCESSOR

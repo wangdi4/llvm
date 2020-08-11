@@ -336,7 +336,7 @@ codegen::RegisterCodeGenFlags::RegisterCodeGenFlags() {
   CGBINDOPT(FunctionSections);
 
   static cl::opt<std::string> BBSections(
-      "basicblock-sections",
+      "basic-block-sections",
       cl::desc("Emit basic blocks into separate sections"),
       cl::value_desc("all | <function list (file)> | labels | none"),
       cl::init("none"));
@@ -356,7 +356,7 @@ codegen::RegisterCodeGenFlags::RegisterCodeGenFlags() {
   CGBINDOPT(UniqueSectionNames);
 
   static cl::opt<bool> UniqueBasicBlockSectionNames(
-      "unique-bb-section-names",
+      "unique-basic-block-section-names",
       cl::desc("Give unique names to every basic block section"),
       cl::init(false));
   CGBINDOPT(UniqueBasicBlockSectionNames);

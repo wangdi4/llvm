@@ -140,6 +140,10 @@ static cl::opt<bool>
 RunLoopRerolling("reroll-loops", cl::Hidden,
                  cl::desc("Run the loop rerolling pass"));
 
+static cl::opt<bool>
+    SYCLOptimizationMode("sycl-opt", cl::init(false), cl::Hidden,
+                         cl::desc("Enable SYCL optimization mode."));
+
 static cl::opt<bool> RunNewGVN("enable-newgvn", cl::init(false), cl::Hidden,
                                cl::desc("Run the NewGVN pass"));
 
@@ -753,7 +757,12 @@ void PassManagerBuilder::addFunctionSimplificationPasses(
   MPM.add(createCFGSimplificationPass());
   addInstructionCombiningPass(MPM);  // INTEL
   // We resume loop passes creating a second loop pipeline here.
-  MPM.add(createIndVarSimplifyPass());        // Canonicalize indvars
+  // TODO: this pass hurts performance due to promotions of induction variables
+  // from 32-bit value to 64-bit values. I assume it's because SPIR is a virtual
+  // target with unlimited # of registers and pass doesn't take into account
+  // that on real HW this promotion is not beneficial.
+  if (!SYCLOptimizationMode)
+    MPM.add(createIndVarSimplifyPass());      // Canonicalize indvars
   MPM.add(createLoopIdiomPass());             // Recognize idioms like memset.
   addExtensionsToPM(EP_LateLoopOptimizations, MPM);
   MPM.add(createLoopDeletionPass());          // Delete dead loops
@@ -1104,6 +1113,7 @@ void PassManagerBuilder::populateModulePassManager(
   if (RunInliner) {
     MPM.add(createGlobalOptimizerPass());
     MPM.add(createGlobalDCEPass());
+    MPM.add(createDeadArgEliminationSYCLPass());
   }
 
   // If we are planning to perform ThinLTO later, let's not bloat the code with
@@ -1257,10 +1267,13 @@ void PassManagerBuilder::populateModulePassManager(
   // convert to more optimized IR using more aggressive simplify CFG options.
   // The extra sinking transform can create larger basic blocks, so do this
   // before SLP vectorization.
+  // FIXME: study whether hoisting and/or sinking of common instructions should
+  //        be delayed until after SLP vectorizer.
   MPM.add(createCFGSimplificationPass(SimplifyCFGOptions()
                                           .forwardSwitchCondToPhi(true)
                                           .convertSwitchToLookupTable(true)
                                           .needCanonicalLoops(false)
+                                          .hoistCommonInsts(true)
                                           .sinkCommonInsts(true)));
 
   if (SLPVectorize) {

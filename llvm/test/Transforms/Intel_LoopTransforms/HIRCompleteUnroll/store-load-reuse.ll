@@ -1,10 +1,10 @@
 ; REQUIRES: asserts
 
 ; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -tbaa -hir-pre-vec-complete-unroll -debug-only=hir-complete-unroll 2>&1 < %s | FileCheck %s
-; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-pre-vec-complete-unroll" -aa-pipeline="type-based-aa" -debug-only=hir-complete-unroll 2>&1 < %s | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-pre-vec-complete-unroll" -aa-pipeline="tbaa" -debug-only=hir-complete-unroll 2>&1 < %s | FileCheck %s
 
 ; RUN: opt -convert-to-subscript < %s | opt -hir-ssa-deconstruction -hir-temp-cleanup -tbaa -hir-pre-vec-complete-unroll -debug-only=hir-complete-unroll 2>&1 | FileCheck %s
-; RUN: opt -convert-to-subscript < %s | opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-pre-vec-complete-unroll" -aa-pipeline="type-based-aa" -debug-only=hir-complete-unroll 2>&1 | FileCheck %s
+; RUN: opt -convert-to-subscript < %s | opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-pre-vec-complete-unroll" -aa-pipeline="tbaa" -debug-only=hir-complete-unroll 2>&1 | FileCheck %s
 
 ; Verify that we have GEP savings of 18 (9 * 2) due to reuse between (%A)[i1] and (%A)[i1 + -1].
 

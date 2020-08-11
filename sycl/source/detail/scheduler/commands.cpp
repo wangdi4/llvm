@@ -1676,7 +1676,7 @@ pi_result ExecCGCommand::SetKernelParamsAndLaunch(
       RT::PiSampler Sampler = detail::getSyclObjImpl(*SamplerPtr)
                                   ->getOrCreateSampler(MQueue->get_context());
 #if INTEL_CUSTOMIZATION
-      if (Plugin.getBackend() == (backend::level0)) {
+      if (Plugin.getBackend() == (backend::level_zero)) {
         // TODO: This is a workaround and should be reworked when
         // piextDeviceGetNativeHandle will be implemented.
         Plugin.call<PiApiKind::piKernelSetArg>(Kernel, Arg.MIndex,
@@ -1698,11 +1698,6 @@ pi_result ExecCGCommand::SetKernelParamsAndLaunch(
 
   adjustNDRangePerKernel(NDRDesc, Kernel,
                          *(detail::getSyclObjImpl(MQueue->get_device())));
-
-  // Some PI Plugins (like OpenCL) require this call to enable USM
-  // For others, PI will turn this into a NOP.
-  Plugin.call<PiApiKind::piKernelSetExecInfo>(Kernel, PI_USM_INDIRECT_ACCESS,
-                                              sizeof(pi_bool), &PI_TRUE);
 
   // Remember this information before the range dimensions are reversed
   const bool HasLocalSize = (NDRDesc.LocalSize[0] != 0);

@@ -215,7 +215,8 @@ bool findPlugins(vector_class<std::pair<std::string, backend>> &PluginNames) {
   // env only.
   //
   PluginNames.emplace_back(OPENCL_PLUGIN_NAME, backend::opencl);
-  PluginNames.emplace_back(LEVEL0_PLUGIN_NAME, backend::level0);
+
+  PluginNames.emplace_back(LEVEL_ZERO_PLUGIN_NAME, backend::level_zero);
 #if INTEL_CUSTOMIZATION
   // Deliberatly disable CUDA plugin per CMPLRLLVM-16249.
   // PluginNames.emplace_back(CUDA_PLUGIN_NAME, backend::cuda);
@@ -325,11 +326,11 @@ static void initializePlugins(vector_class<plugin> *Plugins) {
       GlobalPlugin = std::make_shared<plugin>(PluginInformation, backend::cuda);
 #endif
 #endif // INTEL_CUSTOMIZATION
-    } else if (InteropBE == backend::level0 &&
-               PluginNames[I].first.find("level0") != std::string::npos) {
-      // Use the LEVEL0 plugin as the GlobalPlugin
+    } else if (InteropBE == backend::level_zero &&
+               PluginNames[I].first.find("level_zero") != std::string::npos) {
+      // Use the LEVEL_ZERO plugin as the GlobalPlugin
       GlobalPlugin =
-          std::make_shared<plugin>(PluginInformation, backend::level0);
+          std::make_shared<plugin>(PluginInformation, backend::level_zero);
     }
     Plugins->emplace_back(plugin(PluginInformation, PluginNames[I].second));
     if (trace(TraceLevel::PI_TRACE_BASIC))
@@ -403,7 +404,7 @@ template <backend BE> const plugin &getPlugin() {
 }
 
 template const plugin &getPlugin<backend::opencl>();
-template const plugin &getPlugin<backend::level0>();
+template const plugin &getPlugin<backend::level_zero>();
 
 // Report error and no return (keeps compiler from printing warnings).
 // TODO: Probably change that to throw a catchable exception,

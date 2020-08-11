@@ -147,6 +147,9 @@ ModulePass *createDeadArgEliminationPass();
 /// bugpoint.
 ModulePass *createDeadArgHackingPass();
 
+/// DeadArgumentElimination pass for SYCL kernel functions
+ModulePass *createDeadArgEliminationSYCLPass();
+
 //===----------------------------------------------------------------------===//
 /// createArgumentPromotionPass - This pass promotes "by reference" arguments to
 /// be passed by value if the number of elements passed is smaller or
@@ -157,12 +160,6 @@ Pass *createArgumentPromotionPass(unsigned maxElements = 3);
 //===----------------------------------------------------------------------===//
 /// createOpenMPOptLegacyPass - OpenMP specific optimizations.
 Pass *createOpenMPOptLegacyPass();
-
-//===----------------------------------------------------------------------===//
-/// createIPConstantPropagationPass - This pass propagates constants from call
-/// sites into the bodies of functions.
-///
-ModulePass *createIPConstantPropagationPass();
 
 //===----------------------------------------------------------------------===//
 /// createIPSCCPPass - This pass propagates constants from call sites into the

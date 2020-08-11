@@ -15,13 +15,13 @@
 // RUN:  | FileCheck -check-prefix=DEBUG_FULL %s
 // RUN: %clang_cl /debug:all -### -c %s 2>&1 \
 // RUN:  | FileCheck -check-prefix=DEBUG_FULL %s
-// DEBUG_FULL: "-debug-info-kind=constructor"
+// DEBUG_FULL: "-debug-info-kind=limited"
 
 // RUN: %clang -debug emit-column -### -c %s 2>&1 \
 // RUN:  | FileCheck -check-prefix=DEBUG_EMIT_COLUMN %s
 // RUN: %clang_cl /debug:emit-column -### -c %s 2>&1 \
 // RUN:  | FileCheck -check-prefix=DEBUG_EMIT_COLUMN %s
-// DEBUG_EMIT_COLUMN: "-debug-info-kind=constructor"
+// DEBUG_EMIT_COLUMN: "-debug-info-kind=limited"
 
 // RUN: %clang -debug minimal -### -c %s 2>&1 \
 // RUN:  | FileCheck -check-prefix=DEBUG_MINIMAL %s

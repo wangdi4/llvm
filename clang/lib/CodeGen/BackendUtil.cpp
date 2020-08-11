@@ -41,6 +41,7 @@
 #include "llvm/Passes/PassBuilder.h"
 #include "llvm/Passes/PassPlugin.h"
 #include "llvm/Passes/StandardInstrumentations.h"
+#include "llvm/SYCLLowerIR/LowerESIMD.h"
 #include "llvm/Support/BuryPointer.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/MemoryBuffer.h"
@@ -352,7 +353,8 @@ static void addDataFlowSanitizerPass(const PassManagerBuilder &Builder,
   const PassManagerBuilderWrapper &BuilderWrapper =
       static_cast<const PassManagerBuilderWrapper&>(Builder);
   const LangOptions &LangOpts = BuilderWrapper.getLangOpts();
-  PM.add(createDataFlowSanitizerPass(LangOpts.SanitizerBlacklistFiles));
+  PM.add(
+      createDataFlowSanitizerLegacyPassPass(LangOpts.SanitizerBlacklistFiles));
 }
 
 static TargetLibraryInfoImpl *createTLII(llvm::Triple &TargetTriple,
@@ -795,6 +797,25 @@ void EmitAssemblyHelper::CreatePasses(legacy::PassManager &MPM,
 
   PMBuilder.populateFunctionPassManager(FPM);
   PMBuilder.populateModulePassManager(MPM);
+
+  // Customize the tail of the module passes list for the ESIMD extension.
+  if (LangOpts.SYCLIsDevice && LangOpts.SYCLExplicitSIMD &&
+      CodeGenOpts.OptimizationLevel != 0) {
+    MPM.add(createESIMDLowerVecArgPass());
+    MPM.add(createESIMDLowerLoadStorePass());
+    MPM.add(createSROAPass());
+    MPM.add(createEarlyCSEPass(true));
+    MPM.add(createInstructionCombiningPass());
+    MPM.add(createDeadCodeEliminationPass());
+    MPM.add(createFunctionInliningPass(
+        CodeGenOpts.OptimizationLevel, CodeGenOpts.OptimizeSize,
+        (!CodeGenOpts.SampleProfileFile.empty() &&
+         CodeGenOpts.PrepareForThinLTO)));
+    MPM.add(createSROAPass());
+    MPM.add(createEarlyCSEPass(true));
+    MPM.add(createInstructionCombiningPass());
+    MPM.add(createDeadCodeEliminationPass());
+  }
 }
 
 static void setCommandLineOpts(const CodeGenOptions &CodeGenOpts) {
@@ -888,6 +909,11 @@ void EmitAssemblyHelper::EmitAssembly(BackendAction Action,
   legacy::FunctionPassManager PerFunctionPasses(TheModule);
   PerFunctionPasses.add(
       createTargetTransformInfoWrapperPass(getTargetIRAnalysis()));
+
+  // ESIMD extension always requires lowering of certain IR constructs, such as
+  // ESIMD C++ intrinsics, as the last FE step.
+  if (LangOpts.SYCLIsDevice && LangOpts.SYCLExplicitSIMD)
+    PerModulePasses.add(createSYCLLowerESIMDPass());
 
   CreatePasses(PerModulePasses, PerFunctionPasses);
 

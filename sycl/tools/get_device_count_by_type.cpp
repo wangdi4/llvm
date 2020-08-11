@@ -33,7 +33,7 @@ static const std::string help =
     "   Help\n"
     "   Example: ./get_device_count_by_type cpu opencl\n"
     "   Supported device types: cpu/gpu/accelerator/default/all\n"
-    "   Supported backends: PI_CUDA/PI_OPENCL/PI_LEVEL0 \n"
+    "   Supported backends: PI_CUDA/PI_OPENCL/PI_LEVEL_ZERO \n"
     "   Output format: <number_of_devices>:<additional_Information>";
 
 // Return the string with all characters translated to lower case.
@@ -239,10 +239,11 @@ int main(int argc, char *argv[]) {
 #if INTEL_CUSTOMIZATION
   // TODO: rewrite this utility in SYCL so all SYCL PI plugins are queried.
   // TODO: Remove PI_OTHER, if it does not may to Level0.
-  // TODO: Use a Level0 low level API.
-  if (backend == "pi_level0" || backend == "pi_other") {
+  // TODO: Use a Level_zero low level API.
+  if (backend == "pi_level_zero" || backend == "pi_other") {
     if (type == "gpu") {
-      std::cout << "1:L0 GPU assumed under SYCL_BE=PI_LEVEL0" << std::endl;
+      std::cout << "1:Level Zero GPU assumed under SYCL_BE=PI_LEVEL_ZERO"
+                << std::endl;
       return EXIT_SUCCESS;
     }
   }
@@ -272,7 +273,7 @@ int main(int argc, char *argv[]) {
 
   if (backend == "opencl" || backend == "pi_opencl") {
     querySuccess = queryOpenCL(deviceType, deviceCount, msg);
-  } else if (backend == "level0" || backend == "pi_level0") {
+  } else if (backend == "level_zero" || backend == "pi_level_zero") {
     querySuccess = queryLevelZero(deviceType, deviceCount, msg);
   } else if (backend == "cuda" || backend == "pi_cuda") {
     querySuccess = queryCUDA(deviceType, deviceCount, msg);

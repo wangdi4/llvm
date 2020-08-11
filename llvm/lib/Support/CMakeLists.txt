@@ -207,8 +207,6 @@ set (SUPPORT_SOURCES
 
 # INTEL_CUSTOMIZATION
 add_llvm_component_library(LLVMSupport ${SUPPORT_SOURCES})
-set_property(TARGET LLVMSupport PROPERTY LLVM_SYSTEM_LIBS "${system_libs}")
-
 if (LLVM_LIBCXX_USED AND NOT SYCL_USE_LIBCXX)
   add_llvm_component_library(LLVMSupport_stdcpp ${SUPPORT_SOURCES}
                              STDLIB stdc++)
@@ -220,8 +218,11 @@ endif()
 set(llvm_system_libs ${system_libs})
 
 if(LLVM_ENABLE_ZLIB)
-  string(TOUPPER ${CMAKE_BUILD_TYPE} build_type)
-  get_property(zlib_library TARGET ZLIB::ZLIB PROPERTY LOCATION_${build_type})
+  # CMAKE_BUILD_TYPE is only meaningful to single-configuration generators.
+  if(CMAKE_BUILD_TYPE)
+    string(TOUPPER ${CMAKE_BUILD_TYPE} build_type)
+    get_property(zlib_library TARGET ZLIB::ZLIB PROPERTY LOCATION_${build_type})
+  endif()
   if(NOT zlib_library)
     get_property(zlib_library TARGET ZLIB::ZLIB PROPERTY LOCATION)
   endif()

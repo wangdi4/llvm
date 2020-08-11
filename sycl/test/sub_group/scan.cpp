@@ -1,8 +1,10 @@
 // UNSUPPORTED: debug
 // CMPLRLLVM-20714: disable test which causes timeout
 //
-// UNSUPPORTED: cuda
+// UNSUPPORTED: cuda || cpu
 // CUDA compilation and runtime do not yet support sub-groups.
+// #2252 Disable until all variants of built-ins are available in OpenCL CPU
+// runtime for every supported ISA
 //
 // RUN: %clangxx -fsycl -fsycl-targets=%sycl_triple %s -o %t.out
 // RUN: env SYCL_DEVICE_TYPE=HOST %t.out

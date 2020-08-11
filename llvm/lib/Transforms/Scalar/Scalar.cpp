@@ -143,7 +143,7 @@ void llvm::initializeScalarOpts(PassRegistry &Registry) {
 #endif // INTEL_CUSTOMIZATION
   initializeLoopLoadEliminationPass(Registry);
   initializeLoopSimplifyCFGLegacyPassPass(Registry);
-  initializeLoopVersioningPassPass(Registry);
+  initializeLoopVersioningLegacyPassPass(Registry);
   initializeEntryExitInstrumenterPass(Registry);
   initializePostInlineEntryExitInstrumenterPass(Registry);
   initializeIVSplitLegacyPassPass(Registry); // INTEL

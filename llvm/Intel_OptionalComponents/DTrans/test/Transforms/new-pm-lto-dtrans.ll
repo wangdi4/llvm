@@ -14,9 +14,7 @@
 ; RUN:     | FileCheck %s
 
 ; Basic orientation checks.
-; CHECK: Running analysis: PassInstrumentationAnalysis
-; CHECK-NEXT: Starting llvm::Module pass manager run.
-; CHECK-NEXT: Running pass: PassManager<{{.*}}Module
+; CHECK:      Starting llvm::Module pass manager run.
 ; CHECK-NEXT: Starting llvm::Module pass manager run.
 ; CHECK-NEXT: Running pass: InlineReportSetupPass
 ; CHECK-NEXT: Running pass: XmainOptLevelAnalysisInit
@@ -26,11 +24,8 @@
 ; CHECK: Running analysis: WholeProgramAnalysis
 ; CHECK-NEXT: Running analysis: InnerAnalysisManagerProxy<{{.*}}Module{{.*}}>
 ; CHECK-NEXT: Running analysis: TargetLibraryAnalysis on bar
-; CHECK-NEXT: Running analysis: PassInstrumentationAnalysis on bar
 ; CHECK-NEXT: Running analysis: TargetIRAnalysis on foo
-; CHECK-NEXT: Running analysis: PassInstrumentationAnalysis on foo
 ; CHECK-NEXT: Running analysis: TargetIRAnalysis on main
-; CHECK-NEXT: Running analysis: PassInstrumentationAnalysis on main
 ; CHECK: Running pass: IPSCCPPass
 ; CHECK-NEXT: Running analysis: DominatorTreeAnalysis on foo
 ; CHECK-NEXT: Running analysis: AssumptionAnalysis on foo
@@ -39,8 +34,8 @@
 ; CHECK-NEXT: Running pass: IPCloningPass
 ; CHECK-NEXT: Running pass: ForceFunctionAttrsPass
 ; CHECK-NEXT: Running pass: InferFunctionAttrsPass
-; CHECK: Running pass: ModuleToFunctionPassAdaptor<{{.*}}InstSimplifyPass{{.*}}>
-; CHECK-NEXT: Running pass: ModuleToFunctionPassAdaptor<{{.*}}SimplifyCFGPass{{.*}}>
+; CHECK: Running pass: {{.*}}SimplifyCFGPass{{.*}}
+; CHECK-NEXT: Running pass: {{.*}}SimplifyCFGPass{{.*}}
 
 ; Verify that resolve types does not invoke DTransAnalysis
 ; CHECK-NEXT: Running pass: dtrans::ResolveTypes
@@ -57,7 +52,6 @@
 ; CHECK: Running pass:
 ; CHECK-SAME: dtrans::WeakAlignPass
 ; CHECK-NEXT: Running analysis: TargetLibraryAnalysis
-; CHECK-NEXT: Running analysis: PassInstrumentationAnalysis
 ; CHECK-NEXT: Running pass: dtrans::DeleteFieldPass
 ; CHECK-NEXT: Running pass: dtrans::ReorderFieldsPass
 ; CHECK-NEXT: Running pass: dtrans::AOSToSOAPass

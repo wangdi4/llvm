@@ -115,8 +115,8 @@ LookupResult DeviceTy::lookupMapping(void *HstPtrBegin, int64_t Size) {
   uintptr_t hp = (uintptr_t)HstPtrBegin;
   LookupResult lr;
 
-  DP("Looking up mapping(HstPtrBegin=" DPxMOD ", Size=%" PRId64 ")...\n", DPxPTR(hp),
-      Size);
+  DP("Looking up mapping(HstPtrBegin=" DPxMOD ", Size=%" PRId64 ")...\n",
+      DPxPTR(hp), Size);
 
   if (HostDataToTargetMap.empty())
     return lr;
@@ -156,7 +156,7 @@ LookupResult DeviceTy::lookupMapping(void *HstPtrBegin, int64_t Size) {
   return lr;
 }
 
-// Used by target_data_begin
+// Used by targetDataBegin
 // Return the target pointer begin (where the data will be moved).
 // Allocate memory if this is the first occurrence of this mapping.
 // Increment the reference counter.
@@ -194,7 +194,15 @@ void *DeviceTy::getOrAllocTgtPtr(void *HstPtrBegin, void *HstPtrBase,
     rc = (void *)tp;
   } else if ((lr.Flags.ExtendsBefore || lr.Flags.ExtendsAfter) && !IsImplicit) {
     // Explicit extension of mapped data - not allowed.
-    DP("Explicit extension of mapping is not allowed.\n");
+    MESSAGE("explicit extension not allowed: host address specified is " DPxMOD
+            " (%" PRId64 " bytes), but device allocation maps to host at "
+            DPxMOD " (%" PRId64 " bytes)",
+            DPxPTR(HstPtrBegin), Size, DPxPTR(lr.Entry->HstPtrBegin),
+            lr.Entry->HstPtrEnd - lr.Entry->HstPtrBegin);
+    if (HasPresentModifier)
+      MESSAGE("device mapping required by 'present' map type modifier does not "
+              "exist for host address " DPxMOD " (%" PRId64 " bytes)",
+              DPxPTR(HstPtrBegin), Size);
   } else if (RTLs->RequiresFlags & OMP_REQ_UNIFIED_SHARED_MEMORY &&
 #if INTEL_COLLAB
              // If the device does not support the concept of managed memory,
@@ -209,15 +217,9 @@ void *DeviceTy::getOrAllocTgtPtr(void *HstPtrBegin, void *HstPtrBase,
     // In addition to the mapping rules above, the close map modifier forces the
     // mapping of the variable to the device.
     if (Size) {
-#if INTEL_COLLAB
       DP("Return HstPtrBegin " DPxMOD " Size=%" PRId64 " RefCount=%s\n",
          DPxPTR((uintptr_t)HstPtrBegin), Size,
          (UpdateRefCount ? " updated" : ""));
-#else // INTEL_COLLAB
-      DP("Return HstPtrBegin " DPxMOD " Size=%ld RefCount=%s\n",
-         DPxPTR((uintptr_t)HstPtrBegin), Size,
-         (UpdateRefCount ? " updated" : ""));
-#endif // INTEL_COLLAB
       IsHostPtr = true;
       rc = HstPtrBegin;
     }
@@ -228,7 +230,7 @@ void *DeviceTy::getOrAllocTgtPtr(void *HstPtrBegin, void *HstPtrBase,
        DPxPTR(HstPtrBegin), Size);
 #else // INTEL_COLLAB
     DP("Mapping required by 'present' map type modifier does not exist for "
-       "HstPtrBegin=" DPxMOD ", Size=%ld\n",
+       "HstPtrBegin=" DPxMOD ", Size=%" PRId64 "\n",
        DPxPTR(HstPtrBegin), Size);
 #endif // INTEL_COLLAB
 #if INTEL_COLLAB
@@ -237,7 +239,7 @@ void *DeviceTy::getOrAllocTgtPtr(void *HstPtrBegin, void *HstPtrBase,
             DPxPTR(HstPtrBegin), Size);
 #else // INTEL_COLLAB
     MESSAGE("device mapping required by 'present' map type modifier does not "
-            "exist for host address " DPxMOD " (%ld bytes)",
+            "exist for host address " DPxMOD " (%" PRId64 " bytes)",
             DPxPTR(HstPtrBegin), Size);
 #endif // INTEL_COLLAB
   } else if (Size) {
@@ -246,7 +248,7 @@ void *DeviceTy::getOrAllocTgtPtr(void *HstPtrBegin, void *HstPtrBase,
 #if INTEL_COLLAB
     uintptr_t tp = (uintptr_t)data_alloc_base(Size, HstPtrBegin, HstPtrBase);
 #else // INTEL_COLLAB
-    uintptr_t tp = (uintptr_t)RTL->data_alloc(RTLDeviceID, Size, HstPtrBegin);
+    uintptr_t tp = (uintptr_t)allocData(Size, HstPtrBegin);
 #endif // INTEL_COLLAB
     DP("Creating new map entry: HstBase=" DPxMOD ", HstBegin=" DPxMOD ", "
        "HstEnd=" DPxMOD ", TgtBegin=" DPxMOD "\n",
@@ -262,18 +264,20 @@ void *DeviceTy::getOrAllocTgtPtr(void *HstPtrBegin, void *HstPtrBase,
   return rc;
 }
 
-// Used by target_data_begin, target_data_end, target_data_update and target.
+// Used by targetDataBegin, targetDataEnd, target_data_update and target.
 // Return the target pointer begin (where the data will be moved).
-// Decrement the reference counter if called from target_data_end.
+// Decrement the reference counter if called from targetDataEnd.
 void *DeviceTy::getTgtPtrBegin(void *HstPtrBegin, int64_t Size, bool &IsLast,
-    bool UpdateRefCount, bool &IsHostPtr) {
+                               bool UpdateRefCount, bool &IsHostPtr,
+                               bool MustContain) {
   void *rc = NULL;
   IsHostPtr = false;
   IsLast = false;
   DataMapMtx.lock();
   LookupResult lr = lookupMapping(HstPtrBegin, Size);
 
-  if (lr.Flags.IsContained || lr.Flags.ExtendsBefore || lr.Flags.ExtendsAfter) {
+  if (lr.Flags.IsContained ||
+      (!MustContain && (lr.Flags.ExtendsBefore || lr.Flags.ExtendsAfter))) {
     auto &HT = *lr.Entry;
     IsLast = HT.getRefCount() == 1;
 
@@ -282,8 +286,8 @@ void *DeviceTy::getTgtPtrBegin(void *HstPtrBegin, int64_t Size, bool &IsLast,
 
     uintptr_t tp = HT.TgtPtrBegin + ((uintptr_t)HstPtrBegin - HT.HstPtrBegin);
     DP("Mapping exists with HstPtrBegin=" DPxMOD ", TgtPtrBegin=" DPxMOD ", "
-        "Size=%" PRId64 ",%s RefCount=%s\n", DPxPTR(HstPtrBegin), DPxPTR(tp), Size,
-        (UpdateRefCount ? " updated" : ""),
+        "Size=%" PRId64 ",%s RefCount=%s\n", DPxPTR(HstPtrBegin), DPxPTR(tp),
+        Size, (UpdateRefCount ? " updated" : ""),
         HT.isRefCountInf() ? "INF" : std::to_string(HT.getRefCount()).c_str());
     rc = (void *)tp;
 #if INTEL_COLLAB
@@ -347,7 +351,7 @@ int DeviceTy::deallocTgtPtr(void *HstPtrBegin, int64_t Size, bool ForceDelete,
 #if INTEL_COLLAB
       OMPT_TRACE(targetDataDeleteBegin(RTLDeviceID, (void *)HT.TgtPtrBegin));
 #endif // INTEL_COLLAB
-      RTL->data_delete(RTLDeviceID, (void *)HT.TgtPtrBegin);
+      deleteData((void *)HT.TgtPtrBegin);
 #if INTEL_COLLAB
       OMPT_TRACE(targetDataDeleteEnd(RTLDeviceID, (void *)HT.TgtPtrBegin));
 #endif // INTEL_COLLAB
@@ -402,9 +406,17 @@ __tgt_target_table *DeviceTy::load_binary(void *Img) {
   return rc;
 }
 
+void *DeviceTy::allocData(int64_t Size, void *HstPtr) {
+  return RTL->data_alloc(RTLDeviceID, Size, HstPtr);
+}
+
+int32_t DeviceTy::deleteData(void *TgtPtrBegin) {
+  return RTL->data_delete(RTLDeviceID, TgtPtrBegin);
+}
+
 // Submit data to device
-int32_t DeviceTy::data_submit(void *TgtPtrBegin, void *HstPtrBegin,
-                              int64_t Size, __tgt_async_info *AsyncInfoPtr) {
+int32_t DeviceTy::submitData(void *TgtPtrBegin, void *HstPtrBegin, int64_t Size,
+                             __tgt_async_info *AsyncInfoPtr) {
 #if INTEL_COLLAB
   OMPT_TRACE(
       targetDataSubmitBegin(RTLDeviceID, TgtPtrBegin, HstPtrBegin, Size));
@@ -426,8 +438,8 @@ int32_t DeviceTy::data_submit(void *TgtPtrBegin, void *HstPtrBegin,
 }
 
 // Retrieve data from device
-int32_t DeviceTy::data_retrieve(void *HstPtrBegin, void *TgtPtrBegin,
-                                int64_t Size, __tgt_async_info *AsyncInfoPtr) {
+int32_t DeviceTy::retrieveData(void *HstPtrBegin, void *TgtPtrBegin,
+                               int64_t Size, __tgt_async_info *AsyncInfoPtr) {
 #if INTEL_COLLAB
   OMPT_TRACE(
       targetDataRetrieveBegin(RTLDeviceID, HstPtrBegin, TgtPtrBegin, Size));
@@ -462,9 +474,9 @@ int32_t DeviceTy::data_exchange(void *SrcPtr, DeviceTy DstDev, void *DstPtr,
 }
 
 // Run region on device
-int32_t DeviceTy::run_region(void *TgtEntryPtr, void **TgtVarsPtr,
-                             ptrdiff_t *TgtOffsets, int32_t TgtVarsSize,
-                             __tgt_async_info *AsyncInfoPtr) {
+int32_t DeviceTy::runRegion(void *TgtEntryPtr, void **TgtVarsPtr,
+                            ptrdiff_t *TgtOffsets, int32_t TgtVarsSize,
+                            __tgt_async_info *AsyncInfoPtr) {
 #if INTEL_COLLAB
   OMPT_TRACE(targetSubmitBegin(RTLDeviceID, 1));
   int32_t ret;
@@ -487,11 +499,11 @@ int32_t DeviceTy::run_region(void *TgtEntryPtr, void **TgtVarsPtr,
 }
 
 // Run team region on device.
-int32_t DeviceTy::run_team_region(void *TgtEntryPtr, void **TgtVarsPtr,
-                                  ptrdiff_t *TgtOffsets, int32_t TgtVarsSize,
-                                  int32_t NumTeams, int32_t ThreadLimit,
-                                  uint64_t LoopTripCount,
-                                  __tgt_async_info *AsyncInfoPtr) {
+int32_t DeviceTy::runTeamRegion(void *TgtEntryPtr, void **TgtVarsPtr,
+                                ptrdiff_t *TgtOffsets, int32_t TgtVarsSize,
+                                int32_t NumTeams, int32_t ThreadLimit,
+                                uint64_t LoopTripCount,
+                                __tgt_async_info *AsyncInfoPtr) {
 #if INTEL_COLLAB
   OMPT_TRACE(targetSubmitBegin(RTLDeviceID, NumTeams));
   int32_t ret;
@@ -787,6 +799,12 @@ bool DeviceTy::isDataExchangable(const DeviceTy &DstDevice) {
            (RTL->data_exchange_async != nullptr);
 
   return false;
+}
+
+int32_t DeviceTy::synchronize(__tgt_async_info *AsyncInfoPtr) {
+  if (RTL->synchronize)
+    return RTL->synchronize(RTLDeviceID, AsyncInfoPtr);
+  return OFFLOAD_SUCCESS;
 }
 
 /// Check whether a device has an associated RTL and initialize it if it's not

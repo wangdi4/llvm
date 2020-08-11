@@ -1,8 +1,5 @@
-; RUN: opt -vpo-cfg-restructuring -vpo-paropt-prepare -simplifycfg -S < %s | FileCheck %s -check-prefix=SIMPL
-; RUN: opt < %s -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,simplify-cfg,loop(simplify-cfg))'  -S | FileCheck %s -check-prefix=SIMPL
-
-; RUN: opt -vpo-cfg-restructuring -vpo-paropt-prepare -simplifycfg -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -S < %s | FileCheck %s -check-prefix=TFORM
-; RUN: opt < %s -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,simplify-cfg,loop(simplify-cfg),vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt' -S | FileCheck %s -check-prefix=TFORM
+; RUN: opt -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -S < %s | FileCheck %s
+; RUN: opt < %s -passes='function(vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt' -S | FileCheck %s
 ;
 ; Test src:
 ;
@@ -17,43 +14,58 @@
 ;   }
 ; }
 
-; ModuleID = 'jump_to_end.c'
-source_filename = "jump_to_end.c"
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
+
+; The IR for this test is the output of:
+; opt -vpo-cfg-restructuring -vpo-paropt-ptrpare -simplifycfg.
+; Note that after simplifycfg, both inner parallel directives use the same
+; var "%end.dir.temp1" for the jump.to.end branch.
+
+; Check that after paropt transform, three fork_calls are present.
+; CHECK: call {{.*}} @__kmpc_fork_call{{.*}}
+; CHECK: call {{.*}} @__kmpc_fork_call{{.*}}
+; CHECK: call {{.*}} @__kmpc_fork_call{{.*}}
 
 ; Function Attrs: noinline nounwind optnone uwtable
 define dso_local void @bar(i32 %x) #0 {
 entry:
   %x.addr = alloca i32, align 4
   store i32 %x, i32* %x.addr, align 4
-  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.PARALLEL"(), "QUAL.OMP.SHARED"(i32* %x.addr) ]
-  %1 = load i32, i32* %x.addr, align 4
+  %x.addr.addr = alloca i32*, align 8
+  store i32* %x.addr, i32** %x.addr.addr, align 8
+  %end.dir.temp5 = alloca i1, align 1
+  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.PARALLEL"(), "QUAL.OMP.SHARED"(i32* %x.addr), "QUAL.OMP.OPERAND.ADDR"(i32* %x.addr, i32** %x.addr.addr), "QUAL.OMP.JUMP.TO.END.IF"(i1* %end.dir.temp5) ]
+  %temp.load6 = load volatile i1, i1* %end.dir.temp5, align 1
+  %cmp7 = icmp ne i1 %temp.load6, false
+  br i1 %cmp7, label %DIR.OMP.END.PARALLEL.8.split, label %DIR.OMP.PARALLEL.3
+
+DIR.OMP.PARALLEL.3:                               ; preds = %entry
+  %x.addr4 = load volatile i32*, i32** %x.addr.addr, align 8
+  %1 = load i32, i32* %x.addr4, align 4
   %tobool = icmp ne i32 %1, 0
-  br i1 %tobool, label %if.then, label %if.else
+  %end.dir.temp1 = alloca i1, align 1
+  br i1 %tobool, label %DIR.OMP.PARALLEL.4.split, label %DIR.OMP.PARALLEL.6.split
 
-if.then:                                          ; preds = %entry
-  %2 = call token @llvm.directive.region.entry() [ "DIR.OMP.PARALLEL"() ]
+DIR.OMP.PARALLEL.4.split:                         ; preds = %DIR.OMP.PARALLEL.3
+  %2 = call token @llvm.directive.region.entry() [ "DIR.OMP.PARALLEL"(), "QUAL.OMP.JUMP.TO.END.IF"(i1* %end.dir.temp1) ]
+  %temp.load2 = load volatile i1, i1* %end.dir.temp1, align 1
+  br label %DIR.OMP.PARALLEL.5.split
+
+DIR.OMP.PARALLEL.5.split:                         ; preds = %DIR.OMP.PARALLEL.4.split
   call void @llvm.directive.region.exit(token %2) [ "DIR.OMP.END.PARALLEL"() ]
-  br label %if.end
+  br label %DIR.OMP.END.PARALLEL.8.split
 
+DIR.OMP.PARALLEL.6.split:                         ; preds = %DIR.OMP.PARALLEL.3
+  %3 = call token @llvm.directive.region.entry() [ "DIR.OMP.PARALLEL"(), "QUAL.OMP.JUMP.TO.END.IF"(i1* %end.dir.temp1) ]
+  %temp.load = load volatile i1, i1* %end.dir.temp1, align 1
+  br label %DIR.OMP.PARALLEL.7.split
 
-; Check that after simplifycfg, both inner parallel directives use the same vars
-; for the auxiliary "jump.to.end.if" clause inserted in paropt-prepare.
-; SIMPL: call token @llvm.directive.region.entry() [ "DIR.OMP.PARALLEL"(), "QUAL.OMP.JUMP.TO.END.IF"(i1* [[VAR1:%[^ ]+]]) ]
-; SIMPL: call token @llvm.directive.region.entry() [ "DIR.OMP.PARALLEL"(), "QUAL.OMP.JUMP.TO.END.IF"(i1* [[VAR1]]) ]
-
-; Check that after paropt transform, three fork_calls are present.
-; TFORM: call {{.*}} @__kmpc_fork_call{{.*}}
-; TFORM: call {{.*}} @__kmpc_fork_call{{.*}}
-; TFORM: call {{.*}} @__kmpc_fork_call{{.*}}
-
-if.else:                                          ; preds = %entry
-  %3 = call token @llvm.directive.region.entry() [ "DIR.OMP.PARALLEL"() ]
+DIR.OMP.PARALLEL.7.split:                         ; preds = %DIR.OMP.PARALLEL.6.split
   call void @llvm.directive.region.exit(token %3) [ "DIR.OMP.END.PARALLEL"() ]
-  br label %if.end
+  br label %DIR.OMP.END.PARALLEL.8.split
 
-if.end:                                           ; preds = %if.else, %if.then
+DIR.OMP.END.PARALLEL.8.split:                     ; preds = %DIR.OMP.PARALLEL.7.split, %DIR.OMP.PARALLEL.5.split, %entry
   call void @llvm.directive.region.exit(token %0) [ "DIR.OMP.END.PARALLEL"() ]
   ret void
 }

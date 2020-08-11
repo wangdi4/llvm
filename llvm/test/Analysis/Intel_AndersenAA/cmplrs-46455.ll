@@ -1,4 +1,4 @@
-; RUN: opt < %s -anders-aa -inline -globalopt -functionattrs -S | FileCheck %s
+; RUN: opt < %s -anders-aa -inline -globalopt -function-attrs -S | FileCheck %s
 
 ;
 ; This is a regression test for the scenario in cmplrs-46455. The scenario

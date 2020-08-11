@@ -291,7 +291,7 @@ private:
   public:
     HIRSCEVExpander(ScalarEvolution &SE, const DataLayout &DL, const char *Name,
                     CGVisitor &CurCG)
-        : SCEVExpander(SE, DL, Name), CG(CurCG) {}
+        : SCEVExpander(SE, DL, Name, false), CG(CurCG) {}
 
     ~HIRSCEVExpander() {}
 
