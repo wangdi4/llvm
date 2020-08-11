@@ -321,9 +321,7 @@ void mergeLoopExits(VPLoop *VPL) {
   VPPHINode *NewCondBit =
       VPBldr.createPhiInstruction(Ty1, "take.backedge.cond");
   if (LatchExitBlock) {
-    VPInstruction *OldCondBit =
-        dyn_cast<VPInstruction>(NewLoopLatch->getCondBit());
-    NewCondBit->addIncoming(OldCondBit, OrigLoopLatch);
+    NewCondBit->addIncoming(NewLoopLatch->getCondBit(), OrigLoopLatch);
   } else {
     assert(BackedgeCond == true &&
            "In while loops, BackedgeCond should be true");
