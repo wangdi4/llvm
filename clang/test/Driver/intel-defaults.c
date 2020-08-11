@@ -64,6 +64,7 @@
 
 // RUN: touch %t.o
 // RUN: %clang -### -shared --intel -target x86_64-unknown-linux %t.o 2>&1 | FileCheck -check-prefix CHECK-INTEL-LIBS-SHARED %s
+// RUN: %clang -### -mcmodel=medium --intel -target x86_64-unknown-linux %t.o 2>&1 | FileCheck -check-prefix CHECK-INTEL-LIBS-SHARED %s
 // CHECK-INTEL-LIBS-SHARED: "-lsvml"
 // CHECK-INTEL-LIBS-SHARED: "-lirng"
 // CHECK-INTEL-LIBS-SHARED: "-lgcc"
