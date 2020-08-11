@@ -49680,6 +49680,12 @@ static SDValue combineVectorSizedSetCCEquality(SDNode *SetCC, SelectionDAG &DAG,
   return SDValue();
 }
 
+#if INTEL_CUSTOMIZATION
+static bool isCondValidForSubCmpOpt(const ISD::CondCode &CC) {
+  return (CC == ISD::SETOLT || CC == ISD::SETUGE || CC == ISD::SETUEQ ||
+          CC == ISD::SETONE || CC == ISD::SETULE || CC == ISD::SETOGT);
+}
+#endif // INTEL_CUSTOMIZATION
 static SDValue combineSetCC(SDNode *N, SelectionDAG &DAG,
                             const X86Subtarget &Subtarget) {
   const ISD::CondCode CC = cast<CondCodeSDNode>(N->getOperand(2))->get();
@@ -49688,6 +49694,125 @@ static SDValue combineSetCC(SDNode *N, SelectionDAG &DAG,
   EVT VT = N->getValueType(0);
   EVT OpVT = LHS.getValueType();
   SDLoc DL(N);
+
+#if INTEL_CUSTOMIZATION
+  // In fp-model==precise, The following nodes
+  //  t3 = fsub t1, t2
+  //  t4 = setcc t3, 0, cond
+  // can be transformed into:
+  //  t5 = setcc t1, t2, cond
+  // only if cond is olt, uge, ueq, one, ule or ogt
+  //
+  // If cond is, for example ult, the transformation is wrong:
+  // define i1 @src(half %x, half %y) {
+  // %entry:
+  //   %0 = fsub half %x, %y
+  //   %1 = fcmp ult half %0, 0
+  //   ret i1 %1
+  // }
+  // =>
+  // define i1 @tgt(half %x, half %y) {
+  // %entry:
+  //   %0 = fcmp ult half %x, %y
+  //   ret i1 %0
+  // }
+  // Transformation doesn't verify!
+  // ERROR: Value mismatch
+
+  // Example:
+  // half %x = undef
+  // half %y = #x7c00 (+oo)
+
+  // Source:
+  // half %0 = NaN   [based on undef value]
+  // i1 %1 = #x1 (1)
+
+  // Target:
+  // i1 %0 = #x0 (0)
+  // Source value: #x1 (1)
+  // Target value: #x0 (0)
+  //
+  // Notes:
+  // The following tables shows which flags(nnan or ninf) will make this
+  // transformation always valid:
+  // for example:
+  // t3 = fsub ninf t1, t2
+  // t4 = setcc t3, 0, cond
+  // can always be transformed into:
+  // t5 = setcc t1, t2, cond
+  // +----------+---------+----------+----------+----------+
+  // |     fsub | neither |  nnan    |   ninf   |  both    |
+  // |fcmp      |         |          |          |          |
+  // +-----------------------------------------------------+
+  // |  neither |  false  |  true    |   true   |  true    |
+  // |          |         |          |          |          |
+  // +-----------------------------------------------------+
+  // |  nnan    |  true   |  true    |   true   |  true    |
+  // |          |         |          |          |          |
+  // +-----------------------------------------------------+
+  // |  ninf    |  false  |  true    |   true   |  true    |
+  // |          |         |          |          |          |
+  // +-----------------------------------------------------+
+  // |  both    |  true   |  true    |   true   |  true    |
+  // |          |         |          |          |          |
+  // +----------+---------+----------+----------+----------+
+  bool FcmpHasNnan = N->getFlags().hasNoNaNs();
+  bool FcmpHasNinf = N->getFlags().hasNoInfs();
+  SDNodeFlags OutFcmpFlags = N->getFlags();
+  auto isValidSubCmpOpt = [&](const SDValue &Op1, const SDValue &Op2) {
+    if (Op1.hasOneUse() && Op1.getOpcode() == ISD::FSUB &&
+        (isCondValidForSubCmpOpt(CC) || Op1->getFlags().hasNoInfs() ||
+         Op1->getFlags().hasNoNaNs() || FcmpHasNnan)) {
+      auto *ConstV = isConstOrConstSplatFP(Op2, false);
+      if (ConstV && ConstV->isZero())
+        return true;
+      return false;
+    }
+    return false;
+  };
+  // Currently, we copy the flags from the original setcc to the new
+  // setcc and set ninf/nnan according to flags of old setcc and fsub
+  auto calculateFlagsForSetcc = [&](const SDValue &FsubOp) {
+    // The following tables show which flag the outfcmp should carry.
+    // We can observe that:
+    // 1.Either fsub or fcmp has nnan will always let outfcmp has nnan;
+    // 2.Either fsub or fcmp has ninf will always let outfcmp has ninf,
+    // except for the situation where fcmp only has ninf and fsub has neither
+    // flags
+    // +----------+---------+----------+----------+----------+
+    // |     fsub | neither |  nnan    |   ninf   |  both    |
+    // |fcmp      |         |          |          |          |
+    // +-----------------------------------------------------+
+    // |  neither | neither |  nnan    |   ninf   |  both    |
+    // |          |         |          |          |          |
+    // +-----------------------------------------------------+
+    // |  nnan    |  nnan   |  nnan    |   both   |  both    |
+    // |          |         |          |          |          |
+    // +-----------------------------------------------------+
+    // |  ninf    | neither |  both    |   ninf   |  both    |
+    // |          |         |          |          |          |
+    // +-----------------------------------------------------+
+    // |  both    |  both   |  both    |   both   |  both    |
+    // |          |         |          |          |          |
+    // +----------+---------+----------+----------+----------+
+    OutFcmpFlags.setNoInfs(FsubOp->getFlags().hasNoInfs() ||
+                           (FcmpHasNinf && FsubOp->getFlags().hasNoNaNs()) ||
+                           (FcmpHasNinf && FcmpHasNnan));
+    OutFcmpFlags.setNoNaNs(FsubOp->getFlags().hasNoNaNs() || FcmpHasNnan);
+  };
+  if (isValidSubCmpOpt(LHS, RHS)) {
+    calculateFlagsForSetcc(LHS);
+    return DAG.getNode(N->getOpcode(), DL, VT, LHS.getOperand(0),
+                       LHS.getOperand(1), N->getOperand(2), OutFcmpFlags);
+  }
+
+  // Handle cases where 2nd Operand of setcc is a fsub.
+  if (isValidSubCmpOpt(RHS, LHS)) {
+    calculateFlagsForSetcc(RHS);
+    return DAG.getNode(N->getOpcode(), DL, VT, RHS.getOperand(1),
+                       RHS.getOperand(0), N->getOperand(2), OutFcmpFlags);
+  }
+#endif // INTEL_CUSTOMIZATION
 
   if (CC == ISD::SETNE || CC == ISD::SETEQ) {
     if (SDValue V = combineVectorSizedSetCCEquality(N, DAG, Subtarget))
