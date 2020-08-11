@@ -15,11 +15,11 @@
 #include "hw_utils.h"
 
 #ifdef __LP64__
-#define SAVE_EBX     "mov  %%rbx, %%rdi\n\r"
-#define RESTORE_EBX  "xchg %%rdi, %%rbx\n\r"
+#define SAVE_EBX "mov  %%rbx, %%rdi\n\r"
+#define RESTORE_EBX "xchg %%rdi, %%rbx\n\r"
 #else
-#define SAVE_EBX     "mov  %%ebx, %%edi\n\r"
-#define RESTORE_EBX  "xchg %%edi, %%ebx\n\r"
+#define SAVE_EBX "mov  %%ebx, %%edi\n\r"
+#define RESTORE_EBX "xchg %%edi, %%ebx\n\r"
 #endif
 
 extern "C" void ASM_FUNCTION  Intel::OpenCL::Utils::cl_hw_cpuid(CPUID_PARAMS *params)

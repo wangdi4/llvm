@@ -14,8 +14,8 @@
 
 #pragma once
 
-#include "cl_thread.h"
 #include "cl_synch_objects.h"
+#include "cl_thread.h"
 
 namespace Intel { namespace OpenCL { namespace TaskExecutor {
 

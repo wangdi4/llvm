@@ -13,15 +13,14 @@
 // License.
 
 #include "Logger.h"
-
-#include <stdio.h>
-#include <stdarg.h>
-#include <sstream>              // required by: owstringstream
-#include <assert.h>
-#include <malloc.h>
-
 #include "cl_secure_string_linux.h"
 #include "cl_shutdown.h"
+
+#include <assert.h>
+#include <malloc.h>
+#include <sstream> // required by: owstringstream
+#include <stdarg.h>
+#include <stdio.h>
 
 using namespace Intel::OpenCL::Utils;
 

@@ -14,13 +14,14 @@
 
 #pragma once
 
-#include <string>
-#include <fstream>
-#include <sstream>
-#include <vector>
-#include <utility>
 #include "cl_synch_objects.h"
 #include "cl_timer.h"
+
+#include <fstream>
+#include <sstream>
+#include <string>
+#include <utility>
+#include <vector>
 
 namespace Intel { namespace OpenCL { namespace Utils {
 

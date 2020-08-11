@@ -18,7 +18,7 @@
 #ifdef _WIN32
 
 #include <string>
-#include <windows.h> 
+#include <windows.h>
 
 class DebuggerPipeWrapper {
 public:

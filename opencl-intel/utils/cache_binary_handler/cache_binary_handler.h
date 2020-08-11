@@ -14,8 +14,9 @@
 
 #pragma once
 
-#include <string>
 #include "CLElfTypes.h"
+
+#include <string>
 
 namespace CLElfLib
 {

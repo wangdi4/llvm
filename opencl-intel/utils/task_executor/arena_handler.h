@@ -15,27 +15,26 @@
 #pragma once
 
 #include "cl_device_api.h"
-#include "cl_synch_objects.h"
 #include "cl_shutdown.h"
+#include "cl_synch_objects.h"
 #include "harness_trapper.h"
 #include "task_executor.h"
 
 #include <tbb/task_arena.h>
 #include <tbb/task_group.h>
 #include <tbb/task_scheduler_observer.h>
-
 #include <vector>
 
 #ifdef DEVICE_NATIVE
-    // no logger on discrete device
-    #define LOG_ERROR(...)
-    #define LOG_INFO(...)
+// no logger on discrete device
+#define LOG_ERROR(...)
+#define LOG_INFO(...)
 
-    #define DECLARE_LOGGER_CLIENT
-    #define INIT_LOGGER_CLIENT(...)
-    #define RELEASE_LOGGER_CLIENT
+#define DECLARE_LOGGER_CLIENT
+#define INIT_LOGGER_CLIENT(...)
+#define RELEASE_LOGGER_CLIENT
 #else
-    #include "Logger.h"
+#include "Logger.h"
 #endif // DEVICE_NATIVE
 
 namespace Intel { namespace OpenCL { namespace TaskExecutor {

@@ -12,12 +12,13 @@
 // or implied warranties, other than those that are expressly stated in the
 // License.
 
-
 #include "CommonOCLBuilder.h"
+
 #include "common_clang.h"
-#include <string>
-#include <clang_device_info.h>
 #include "ocl_string_exception.h"
+
+#include <clang_device_info.h>
+#include <string>
 
 using namespace Intel::OpenCL::FECompilerAPI;
 using namespace Intel::OpenCL::ClangFE;

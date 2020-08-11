@@ -36,11 +36,12 @@
 
  ****************************************************/
 
-#include "cl_config.h"
 #include "cl_shutdown.h"
-#include "cl_types.h"
+
+#include "cl_config.h"
 #include "cl_dynamic_lib.h"
 #include "cl_sys_info.h"
+#include "cl_types.h"
 
 #ifdef _WIN32
 #include <windows.h>

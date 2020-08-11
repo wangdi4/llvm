@@ -15,20 +15,21 @@
 #ifndef __CL_THREAD_H__
 #define __CL_THREAD_H__
 
-#include <string>
 #include "cl_synch_objects.h"
 #include "cl_sys_defines.h"
 
+#include <string>
+
 #ifdef _WIN32
-    #include <windows.h>
-    #define STDCALL_ENTRY_POINT    __stdcall
-    #define RETURN_TYPE_ENTRY_POINT unsigned int
-    #define THREAD_HANDLE           HANDLE
+#include <windows.h>
+#define STDCALL_ENTRY_POINT __stdcall
+#define RETURN_TYPE_ENTRY_POINT unsigned int
+#define THREAD_HANDLE HANDLE
 #else
-    #include <pthread.h>
-    #define STDCALL_ENTRY_POINT
-    #define RETURN_TYPE_ENTRY_POINT void *
-    #define THREAD_HANDLE           pthread_t
+#include <pthread.h>
+#define STDCALL_ENTRY_POINT
+#define RETURN_TYPE_ENTRY_POINT void *
+#define THREAD_HANDLE pthread_t
 #endif
 
 namespace Intel { namespace OpenCL { namespace Utils {

@@ -14,10 +14,9 @@
 
 #pragma once
 
-#include <tbb/tbb.h>
-#include <tbb/task.h>
-
 #include <common_dev_limits.h>
+#include <tbb/task.h>
+#include <tbb/tbb.h>
 
 namespace Intel { namespace OpenCL { namespace TaskExecutor {
 

@@ -14,15 +14,15 @@
 
 #define _CRT_SECURE_NO_WARNINGS 1
 
+#include "log_handler.h"
+
+#include "cl_synch_objects.h"
+#include "cl_sys_defines.h"
+#include "cl_user_logger.h"
+
 #include <assert.h>
 #include <malloc.h>
 #include <string.h>
-
-#include "cl_sys_defines.h"
-
-#include "log_handler.h"
-#include "cl_synch_objects.h"
-#include "cl_user_logger.h"
 
 using namespace Intel::OpenCL::Utils;
 

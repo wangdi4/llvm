@@ -15,8 +15,8 @@
 #ifndef AUTO_PTR_EX_H
 #define AUTO_PTR_EX_H
 
-#include <memory>
 #include <assert.h>
+#include <memory>
 
 namespace Intel { namespace OpenCL { namespace Utils {
 

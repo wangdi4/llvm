@@ -12,13 +12,13 @@
 // or implied warranties, other than those that are expressly stated in the
 // License.
 
-#include <tbb/concurrent_queue.h>
-#include <windows.h>
-#include <stdio.h>  // Todo: replace printf with log mechanisem
-#include <assert.h>
-
 #include "cl_synch_objects.h"
 #include "hw_utils.h"
+
+#include <assert.h>
+#include <stdio.h> // Todo: replace printf with log mechanisem
+#include <tbb/concurrent_queue.h>
+#include <windows.h>
 
 /************************************************************************
  * This file is the Windows implementation of the cl_synch_objects interface

@@ -15,6 +15,7 @@
 #pragma once
 
 #include "cl_types.h"
+
 #include <string>
 
 using namespace::std;

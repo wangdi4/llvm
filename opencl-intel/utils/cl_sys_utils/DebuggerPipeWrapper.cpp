@@ -15,6 +15,7 @@
 #ifdef _WIN32
 
 #include "DebuggerPipeWrapper.h"
+
 #include <sstream>
 
 #define CONTENT_SIZE 7

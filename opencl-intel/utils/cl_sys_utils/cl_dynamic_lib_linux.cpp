@@ -10,9 +10,9 @@
 #include "cl_shutdown.h"
 #include "cl_sys_info.h"
 
-#include <sys/stat.h>
-#include <dlfcn.h>
 #include <assert.h>
+#include <dlfcn.h>
+#include <sys/stat.h>
 
 using namespace Intel::OpenCL::Utils;
 

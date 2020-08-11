@@ -15,10 +15,9 @@
 #ifndef OCLSOCKET_H
 #define OCLSOCKET_H
 
-
+#include <memory>
 #include <stdexcept>
 #include <vector>
-#include <memory>
 
 // Various methods of OclSocket throw OclSocketError in case of errors with the
 // socket APIs (where the low-level OS APIs return error codes).
