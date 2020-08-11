@@ -188,6 +188,20 @@ bool VPlanDivergenceAnalysis::isUnitStridePtr(const VPValue *Ptr) const {
 
 bool VPlanDivergenceAnalysis::isUnitStridePtr(const VPValue *Ptr,
                                               bool &IsNegOneStride) const {
+  // Current DA doesn't have any way to propagate linearity into the vector
+  // types, e.g. by forming
+  //
+  //   %insert = insetelement <2 x type> undef, type %linear1, i32 0
+  //   %insert2 = insertelement  <2 x type> %insert, type %linear2, i32 1
+  //
+  //  and marks both of them as having random shape. Subsequently none of the
+  //  isUnitStridePtr clients (CG/HIR CG/CM) wouldn't be able to handle
+  //  "unit-strideness" of a vector type if DA could deduce it and there is no
+  //  sense at the moment to try to implement such supports. As such, just
+  //  bail-out for vector type here.
+  if (isa<VectorType>(Ptr->getType()))
+    return false;
+
   assert(isa<PointerType>(Ptr->getType()) &&
          "Expect argument of isUnitStridePtr to be of PointerType.");
   // Compute the pointee-size in bytes.
