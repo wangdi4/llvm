@@ -20,6 +20,7 @@ using namespace clang::driver::tools;
 using namespace clang;
 using namespace llvm::opt;
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 const char *getCPUForIntel(StringRef Arch, const llvm::Triple &Triple,
                            bool IsArchOpt = false) {
@@ -87,6 +88,9 @@ bool x86::isValidIntelCPU(StringRef CPU, const llvm::Triple &Triple) {
 #endif // INTEL_CUSTOMIZATION
 
 const char *x86::getX86TargetCPU(const ArgList &Args,
+=======
+std::string x86::getX86TargetCPU(const ArgList &Args,
+>>>>>>> e1cad4234cf3a3d0747c140e135e413ece22cf63
                                  const llvm::Triple &Triple) {
 #if INTEL_CUSTOMIZATION
   if (const Arg *A = Args.getLastArg(options::OPT_march_EQ, options::OPT_x)) {
@@ -111,7 +115,7 @@ const char *x86::getX86TargetCPU(const ArgList &Args,
     // with -native.
     std::string CPU = std::string(llvm::sys::getHostCPUName());
     if (!CPU.empty() && CPU != "generic")
-      return Args.MakeArgString(CPU);
+      return CPU;
   }
 
 #if INTEL_CUSTOMIZATION
@@ -162,7 +166,7 @@ const char *x86::getX86TargetCPU(const ArgList &Args,
   // Select the default CPU if none was given (or detection failed).
 
   if (!Triple.isX86())
-    return nullptr; // This routine is only handling x86 targets.
+    return ""; // This routine is only handling x86 targets.
 
   bool Is64Bit = Triple.getArch() == llvm::Triple::x86_64;
 
