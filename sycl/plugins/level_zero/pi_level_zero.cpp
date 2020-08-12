@@ -470,26 +470,21 @@ decltype(piEventCreate) piEventCreate;
 static pi_result compileOrBuild(pi_program Program, pi_uint32 NumDevices,
                                 const pi_device *DeviceList,
                                 const char *Options);
-static pi_result copyModule(ze_device_handle_t ZeDevice,
+static pi_result copyModule(ze_context_handle_t ZeContext,
+                            ze_device_handle_t ZeDevice,
                             ze_module_handle_t SrcMod,
                             ze_module_handle_t *DestMod);
 
 // Forward declarations for mock implementations of Level Zero APIs that
-// are not yet available in the driver.
-// TODO: Remove these mock definitions when they are supported in the driver.
-enum ze_module_property_flag_t { ZE_MODULE_PROPERTY_FLAG_IMPORTS = ZE_BIT(0) };
-
-struct ze_module_properties_t {
-  ze_module_property_flag_t flags;
-};
-
-static ze_result_t zeModuleDynamicLink(uint32_t numModules,
-                                       ze_module_handle_t *phModules,
-                                       ze_module_build_log_handle_t *phLinkLog);
+// do not yet work in the driver.
+// TODO: Remove these mock definitions when they work in the driver.
+static ze_result_t
+zeModuleDynamicLinkMock(uint32_t numModules, ze_module_handle_t *phModules,
+                        ze_module_build_log_handle_t *phLinkLog);
 
 static ze_result_t
-zeModuleGetProperties(ze_module_handle_t hModule,
-                      ze_module_properties_t *pModuleProperties);
+zeModuleGetPropertiesMock(ze_module_handle_t hModule,
+                          ze_module_properties_t *pModuleProperties);
 // End forward declarations for mock Level Zero APIs
 
 std::once_flag OnceFlag;
@@ -1772,15 +1767,6 @@ pi_result piProgramCreate(pi_context Context, const void *ILBytes,
   // NOTE: the Level Zero module creation is also building the program, so we
   // are deferring it until the program is ready to be built in piProgramBuild
   // and piProgramCompile. Also it is only then we know the build options.
-<<<<<<< HEAD
-  //
-  ze_module_desc_t ZeModuleDesc = {};
-  ZeModuleDesc.format = ZE_MODULE_FORMAT_IL_SPIRV;
-  ZeModuleDesc.inputSize = Length;
-  ZeModuleDesc.pInputModule = new uint8_t[Length];
-  memcpy(const_cast<uint8_t *>(ZeModuleDesc.pInputModule), IL, Length);
-=======
->>>>>>> ba47915a0f42255ae0714f0febdd5758060b301d
 
   try {
     *Program = new _pi_program(Context, ILBytes, Length, _pi_program::IL);
@@ -1814,15 +1800,6 @@ pi_result piProgramCreateWithBinary(pi_context Context, pi_uint32 NumDevices,
     return PI_INVALID_DEVICE;
 
   size_t Length = Lengths[0];
-<<<<<<< HEAD
-  auto Binary = pi_cast<const uint8_t *>(Binaries[0]);
-
-  ze_module_desc_t ZeModuleDesc = {};
-  ZeModuleDesc.format = ZE_MODULE_FORMAT_NATIVE;
-  ZeModuleDesc.inputSize = Length;
-  ZeModuleDesc.pInputModule = new uint8_t[Length];
-  memcpy(const_cast<uint8_t *>(ZeModuleDesc.pInputModule), Binary, Length);
-=======
   auto Binary = Binaries[0];
 
   // In OpenCL, clCreateProgramWithBinary() can be used to load any of the
@@ -1836,7 +1813,6 @@ pi_result piProgramCreateWithBinary(pi_context Context, pi_uint32 NumDevices,
   // somehow examine the binary image to distinguish the cases.  Alternatively,
   // we could change the PI interface and have the caller pass additional
   // information to distinguish the cases.
->>>>>>> ba47915a0f42255ae0714f0febdd5758060b301d
 
   try {
     *Program = new _pi_program(Context, Binary, Length, _pi_program::Native);
@@ -1951,17 +1927,6 @@ pi_result piProgramGetInfo(pi_program Program, pi_program_info ParamName,
   }
   case PI_PROGRAM_INFO_KERNEL_NAMES:
     try {
-<<<<<<< HEAD
-      // There are extra allocations/copying here dictated by the difference
-      // in Level Zero and PI interfaces.
-      // https://gitlab.devtools.intel.com/one-api/level_zero/issues/305. // INTEL
-      uint32_t Count = 0;
-      ZE_CALL(zeModuleGetKernelNames(Program->ZeModule, &Count, nullptr));
-      char **PNames = new char *[Count];
-      ZE_CALL(zeModuleGetKernelNames(Program->ZeModule, &Count,
-                                     const_cast<const char **>(PNames)));
-=======
->>>>>>> ba47915a0f42255ae0714f0febdd5758060b301d
       std::string PINames{""};
       if (Program->State == _pi_program::IL ||
           Program->State == _pi_program::Native ||
@@ -2074,7 +2039,8 @@ pi_result piProgramLink(pi_context Context, pi_uint32 NumDevices,
           Guard.unlock();
           ze_module_handle_t ZeModule;
           pi_result res =
-              copyModule(Context->Device->ZeDevice, Input->ZeModule, &ZeModule);
+              copyModule(Context->Device->Platform->ZeContext,
+                         Context->Device->ZeDevice, Input->ZeModule, &ZeModule);
           if (res != PI_SUCCESS) {
             return res;
           }
@@ -2093,8 +2059,8 @@ pi_result piProgramLink(pi_context Context, pi_uint32 NumDevices,
     // exception below), we need to release the reference counts on the input
     // modules, delete any copies, etc.
     ze_module_build_log_handle_t ZeBuildLog;
-    ZE_CALL(
-        zeModuleDynamicLink(ZeHandles.size(), ZeHandles.data(), &ZeBuildLog));
+    ZE_CALL(zeModuleDynamicLinkMock(ZeHandles.size(), ZeHandles.data(),
+                                    &ZeBuildLog));
 
     // Construct a new program object to represent the linked executable.  This
     // new object holds a reference to all the input programs.
@@ -2200,20 +2166,8 @@ static pi_result compileOrBuild(pi_program Program, pi_uint32 NumDevices,
         reinterpret_cast<void **>(ZeSpecContantsValues.data()));
   }
 
-<<<<<<< HEAD
-  // Complete the module's descriptor
-  Program->ZeModuleDesc.pBuildFlags = Options;
-  Program->ZeModuleDesc.pConstants = &ZeSpecConstants;
-
-  ze_device_handle_t ZeDevice = Program->Context->Device->ZeDevice;
-  ZE_CALL(zeModuleCreate(Program->Context->Device->Platform->ZeContext,
-                         ZeDevice, &Program->ZeModuleDesc, &Program->ZeModule,
-                         &Program->ZeBuildLog));
-
-=======
   // Ask Level Zero to build and load the native code onto the device.
   ze_module_desc_t ZeModuleDesc = {};
-  ZeModuleDesc.version = ZE_MODULE_DESC_VERSION_CURRENT;
   ZeModuleDesc.format = (Program->State == _pi_program::IL)
                             ? ZE_MODULE_FORMAT_IL_SPIRV
                             : ZE_MODULE_FORMAT_NATIVE;
@@ -2222,16 +2176,18 @@ static pi_result compileOrBuild(pi_program Program, pi_uint32 NumDevices,
   ZeModuleDesc.pBuildFlags = Options;
   ZeModuleDesc.pConstants = &ZeSpecConstants;
 
-  ze_device_handle_t ZeDevice = DeviceList[0]->ZeDevice;
+  ze_device_handle_t ZeDevice = Program->Context->Device->ZeDevice;
+  ze_context_handle_t ZeContext = Program->Context->Device->Platform->ZeContext;
   ze_module_handle_t ZeModule;
   ze_module_build_log_handle_t ZeBuildLog;
-  ZE_CALL(zeModuleCreate(ZeDevice, &ZeModuleDesc, &ZeModule, &ZeBuildLog));
+  ZE_CALL(zeModuleCreate(ZeContext, ZeDevice, &ZeModuleDesc, &ZeModule,
+                         &ZeBuildLog));
 
   // Check if this module imports any symbols, which we need to know if we
   // end up linking this module later.  See comments in piProgramLink() for
   // details.
   ze_module_properties_t ZeModuleProps;
-  ZE_CALL(zeModuleGetProperties(ZeModule, &ZeModuleProps));
+  ZE_CALL(zeModuleGetPropertiesMock(ZeModule, &ZeModuleProps));
   Program->HasImports = (ZeModuleProps.flags & ZE_MODULE_PROPERTY_FLAG_IMPORTS);
 
   // We no longer need the IL / native code.
@@ -2239,7 +2195,6 @@ static pi_result compileOrBuild(pi_program Program, pi_uint32 NumDevices,
   Program->Code.reset();
   Program->ZeModule = ZeModule;
   Program->ZeBuildLog = ZeBuildLog;
->>>>>>> ba47915a0f42255ae0714f0febdd5758060b301d
   return PI_SUCCESS;
 }
 
@@ -2339,22 +2294,9 @@ pi_result piextProgramCreateWithNativeHandle(pi_native_handle NativeHandle,
 
   auto ZeModule = pi_cast<ze_module_handle_t>(NativeHandle);
 
-<<<<<<< HEAD
-  // Create PI program from the given Level Zero module handle.
-  //
-  // TODO: We don't have the real Level Zero module descriptor with
-  // which it was created, but that's only needed for zeModuleCreate,
-  // which we don't expect to be called on the interop program.
-  //
-  ze_module_desc_t ZeModuleDesc = {};
-  ZeModuleDesc.format = ZE_MODULE_FORMAT_NATIVE;
-  ZeModuleDesc.inputSize = 0;
-  ZeModuleDesc.pInputModule = nullptr;
-=======
   // We assume here that programs created from a native handle always
   // represent a fully linked executable (state Exe) and not an unlinked
   // executable (state Object).
->>>>>>> ba47915a0f42255ae0714f0febdd5758060b301d
 
   try {
     *Program = new _pi_program(Context, ZeModule, _pi_program::Exe);
@@ -2386,7 +2328,8 @@ _pi_program::LinkedReleaser::~LinkedReleaser() {
 
 // Create a copy of a Level Zero module by extracting the native code and
 // creating a new module from that native code.
-static pi_result copyModule(ze_device_handle_t ZeDevice,
+static pi_result copyModule(ze_context_handle_t ZeContext,
+                            ze_device_handle_t ZeDevice,
                             ze_module_handle_t SrcMod,
                             ze_module_handle_t *DestMod) {
   size_t Length;
@@ -2396,7 +2339,6 @@ static pi_result copyModule(ze_device_handle_t ZeDevice,
   ZE_CALL(zeModuleGetNativeBinary(SrcMod, &Length, Code.get()));
 
   ze_module_desc_t ZeModuleDesc = {};
-  ZeModuleDesc.version = ZE_MODULE_DESC_VERSION_CURRENT;
   ZeModuleDesc.format = ZE_MODULE_FORMAT_NATIVE;
   ZeModuleDesc.inputSize = Length;
   ZeModuleDesc.pInputModule = Code.get();
@@ -2404,16 +2346,17 @@ static pi_result copyModule(ze_device_handle_t ZeDevice,
   ZeModuleDesc.pConstants = nullptr;
 
   ze_module_handle_t ZeModule;
-  ZE_CALL(zeModuleCreate(ZeDevice, &ZeModuleDesc, &ZeModule, nullptr));
+  ZE_CALL(
+      zeModuleCreate(ZeContext, ZeDevice, &ZeModuleDesc, &ZeModule, nullptr));
   *DestMod = ZeModule;
   return PI_SUCCESS;
 }
 
-// TODO: Remove this mock implementation once the Level Zero driver provides
-// the real implementation.
+// TODO: Remove this mock implementation once the Level Zero driver
+// implementation works.
 static ze_result_t
-zeModuleDynamicLink(uint32_t numModules, ze_module_handle_t *phModules,
-                    ze_module_build_log_handle_t *phLinkLog) {
+zeModuleDynamicLinkMock(uint32_t numModules, ze_module_handle_t *phModules,
+                        ze_module_build_log_handle_t *phLinkLog) {
 
   // The mock implementation can only handle the degenerate case where there
   // is only a single module that is "linked" to itself.  There is nothing to
@@ -2428,11 +2371,11 @@ zeModuleDynamicLink(uint32_t numModules, ze_module_handle_t *phModules,
   return ZE_RESULT_SUCCESS;
 }
 
-// TODO: Remove this mock implementation once the Level Zero driver provides
-// the real implementation.
+// TODO: Remove this mock implementation once the Level Zero driver
+// implementation works.
 static ze_result_t
-zeModuleGetProperties(ze_module_handle_t hModule,
-                      ze_module_properties_t *pModuleProperties) {
+zeModuleGetPropertiesMock(ze_module_handle_t hModule,
+                          ze_module_properties_t *pModuleProperties) {
 
   // The mock implementation assumes that the module has imported symbols.
   // This is a conservative guess which may result in unnecessary calls to
