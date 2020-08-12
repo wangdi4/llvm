@@ -4803,6 +4803,9 @@ bool Sema::CheckX86BuiltinFunctionCall(const TargetInfo &TI, unsigned BuiltinID,
   case X86::BI__builtin_ia32_avxcompress_vpshrdw128:
   case X86::BI__builtin_ia32_avxcompress_vpshrdw256:
 #endif // INTEL_FEATURE_ISA_AVX_COMPRESS
+#if INTEL_FEATURE_ISA_AVX_MPSADBW
+  case X86::BI__builtin_ia32_mpsadbw512:
+#endif // INTEL_FEATURE_ISA_AVX_MPSADBW
 #endif // INTEL_CUSTOMIZATION
     i = 2; l = 0; u = 255;
     break;

@@ -11501,6 +11501,23 @@ multiclass avx512_common_3Op_rm_imm8<bits<8> opc, SDNode OpNode, string OpStr,
   }
 }
 
+#if INTEL_CUSTOMIZATION
+multiclass avx512_common_3Op_rm_imm8_as<bits<8> opc, SDNode OpNode, string OpStr,
+                   X86SchedWriteWidths sched, AVX512VLVectorVTInfo DestInfo,
+                   AVX512VLVectorVTInfo SrcInfo, Predicate Pred> {
+  let Predicates = [Pred] in {
+    defm Z    : avx512_3Op_rm_imm8<opc, OpStr, OpNode, sched.ZMM, DestInfo.info512,
+                           SrcInfo.info512>, EVEX_V512, AVX512XSIi8Base, TA, EVEX_4V;
+  }
+  let Predicates = [Pred, HasVLX] in {
+    defm Z128 : avx512_3Op_rm_imm8<opc, OpStr, OpNode, sched.XMM, DestInfo.info128,
+                           SrcInfo.info128>, EVEX_V128, AVX512XSIi8Base, TA, EVEX_4V;
+    defm Z256 : avx512_3Op_rm_imm8<opc, OpStr, OpNode, sched.YMM, DestInfo.info256,
+                           SrcInfo.info256>, EVEX_V256, AVX512XSIi8Base, TA,EVEX_4V;
+  }
+}
+#endif // INTEL_CUSTOMIZATION
+
 multiclass avx512_common_3Op_imm8<string OpcodeStr, AVX512VLVectorVTInfo _,
                                   bits<8> opc, SDNode OpNode, X86SchedWriteWidths sched,
                                   Predicate Pred = HasAVX512> {
@@ -14858,4 +14875,11 @@ multiclass avx512_vmovadvisew_packed_all<string OpcodeStr>{
 
 defm VMOVADVISEW : avx512_vmovadvisew_packed_all<"vmovadvisew">;
 #endif // INTEL_FEATURE_ISA_AVX_MEMADVISE
+
+#if INTEL_FEATURE_ISA_AVX_MPSADBW
+defm VMPSADBW: avx512_common_3Op_rm_imm8_as<0x42, X86Vmpsadbw, "vmpsadbw",
+                                         SchedWritePSADBW, avx512vl_i16_info,
+                                         avx512vl_i8_info, HasAVX512MPSADBW>,
+                                         EVEX_CD8<8, CD8VF>;
+#endif // INTEL_FEATURE_ISA_AVX_MPSADBW
 #endif // INTEL_CUSTOMIZATION

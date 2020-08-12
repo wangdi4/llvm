@@ -2330,6 +2330,13 @@ static const X86MemoryFoldTableEntry MemoryFoldTable2[] = {
   { X86::VMOVUPSZ256rrkz,          X86::VMOVUPSZ256rmkz,          TB_NO_REVERSE },
   { X86::VMOVUPSZrrkz,             X86::VMOVUPSZrmkz,             TB_NO_REVERSE },
   { X86::VMPSADBWYrri,             X86::VMPSADBWYrmi,             0 },
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX_MPSADBW
+  { X86::VMPSADBWZ128rri,          X86::VMPSADBWZ128rmi,          0 },
+  { X86::VMPSADBWZ256rri,          X86::VMPSADBWZ256rmi,          0 },
+  { X86::VMPSADBWZrri,             X86::VMPSADBWZrmi,             0 },
+#endif // INTEL_FEATURE_ISA_AVX_MPSADBW
+#endif // INTEL_CUSTOMIZATION
   { X86::VMPSADBWrri,              X86::VMPSADBWrmi,              0 },
   { X86::VMULPDYrr,                X86::VMULPDYrm,                0 },
   { X86::VMULPDZ128rr,             X86::VMULPDZ128rm,             0 },
@@ -4409,6 +4416,13 @@ static const X86MemoryFoldTableEntry MemoryFoldTable3[] = {
   { X86::VMOVUPSZ128rrk,             X86::VMOVUPSZ128rmk,             TB_NO_REVERSE },
   { X86::VMOVUPSZ256rrk,             X86::VMOVUPSZ256rmk,             TB_NO_REVERSE },
   { X86::VMOVUPSZrrk,                X86::VMOVUPSZrmk,                TB_NO_REVERSE },
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX_MPSADBW
+  { X86::VMPSADBWZ128rrikz,          X86::VMPSADBWZ128rmikz,          0 },
+  { X86::VMPSADBWZ256rrikz,          X86::VMPSADBWZ256rmikz,          0 },
+  { X86::VMPSADBWZrrikz,             X86::VMPSADBWZrmikz,             0 },
+#endif // INTEL_FEATURE_ISA_AVX_MPSADBW
+#endif // INTEL_CUSTOMIZATION
   { X86::VMULPDZ128rrkz,             X86::VMULPDZ128rmkz,             0 },
   { X86::VMULPDZ256rrkz,             X86::VMULPDZ256rmkz,             0 },
   { X86::VMULPDZrrkz,                X86::VMULPDZrmkz,                0 },
@@ -6161,6 +6175,13 @@ static const X86MemoryFoldTableEntry MemoryFoldTable4[] = {
 #endif // INTEL_FEATURE_ISA_FP16
 #endif // INTEL_CUSTOMIZATION
   { X86::VMINSSZrr_Intk,            X86::VMINSSZrm_Intk,            TB_NO_REVERSE },
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX_MPSADBW
+  { X86::VMPSADBWZ128rrik,          X86::VMPSADBWZ128rmik,          0 },
+  { X86::VMPSADBWZ256rrik,          X86::VMPSADBWZ256rmik,          0 },
+  { X86::VMPSADBWZrrik,             X86::VMPSADBWZrmik,             0 },
+#endif // INTEL_FEATURE_ISA_AVX_MPSADBW
+#endif // INTEL_CUSTOMIZATION
   { X86::VMULPDZ128rrk,             X86::VMULPDZ128rmk,             0 },
   { X86::VMULPDZ256rrk,             X86::VMULPDZ256rmk,             0 },
   { X86::VMULPDZrrk,                X86::VMULPDZrmk,                0 },

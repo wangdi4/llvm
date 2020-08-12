@@ -652,6 +652,10 @@ static constexpr FeatureBitset ImpliedFeaturesAVXCOMPRESS = FeatureAVX2;
 static constexpr FeatureBitset ImpliedFeaturesAVXMEMADVISE = FeatureAVX2;
 static constexpr FeatureBitset ImpliedFeaturesAVX512MEMADVISE = FeatureAVX512F;
 #endif // INTEL_FEATURE_ISA_AVX_MEMADVISE
+#if INTEL_FEATURE_ISA_AVX_MPSADBW
+static constexpr FeatureBitset ImpliedFeaturesAVX512MPSADBW = FeatureAVX512F |
+    FeatureAVX512BW;
+#endif // INTEL_FEATURE_ISA_AVX_MPSADBW
 #if INTEL_FEATURE_ISA_FP16
 static constexpr FeatureBitset ImpliedFeaturesAVX512FP16 = FeatureAVX512F |
     FeatureAVX512BW | FeatureAVX512DQ | FeatureAVX512VL;

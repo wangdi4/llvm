@@ -3693,6 +3693,10 @@ def mno_avxmemadvise : Flag<["-"], "mno-avxmemadvise">, Group<m_x86_Features_Gro
 def mavx512memadvise : Flag<["-"], "mavx512memadvise">, Group<m_x86_Features_Group>;
 def mno_avx512memadvise : Flag<["-"], "mno-avx512memadvise">, Group<m_x86_Features_Group>;
 #endif // INTEL_FEATURE_ISA_AVX_MEMADVISE
+#if INTEL_FEATURE_ISA_AVX_MPSADBW
+def mavx512mpsadbw : Flag<["-"], "mavx512mpsadbw">, Group<m_x86_Features_Group>;
+def mno_avx512mpsadbw : Flag<["-"], "mno-avx512mpsadbw">, Group<m_x86_Features_Group>;
+#endif // INTEL_FEATURE_ISA_AVX_MPSADBW
 #if INTEL_FEATURE_ISA_AVX_CONVERT
 def mavxconvert : Flag<["-"], "mavxconvert">, Group<m_x86_Features_Group>;
 def mno_avxconvert : Flag<["-"], "mno-avxconvert">, Group<m_x86_Features_Group>;

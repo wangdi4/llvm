@@ -221,6 +221,9 @@ class LLVM_LIBRARY_VISIBILITY X86TargetInfo : public TargetInfo {
   bool HasAVXMEMADVISE = false;
   bool HasAVX512MEMADVISE = false;
 #endif // INTEL_FEATURE_ISA_AVX_MEMADVISE
+#if INTEL_FEATURE_ISA_AVX_MPSADBW
+  bool HasAVX512MPSADBW = false;
+#endif // INTEL_FEATURE_ISA_AVX_MPSADBW
 #endif // INTEL_CUSTOMIZATION
   bool HasAMXTILE = false;
   bool HasAMXINT8 = false;

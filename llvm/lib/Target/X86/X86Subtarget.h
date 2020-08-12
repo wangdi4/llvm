@@ -497,6 +497,10 @@ class X86Subtarget final : public X86GenSubtargetInfo {
   bool HasAVX512MEMADVISE = false;
 #endif // INTEL_FEATURE_ISA_AVX_MEMADVISE
 
+#if INTEL_FEATURE_ISA_AVX_MPSADBW
+  bool HasAVX512MPSADBW = false;
+#endif // INTEL_FEATURE_ISA_AVX_MPSADBW
+
 #if INTEL_FEATURE_ISA_AVX512_DOTPROD_INT8
   bool HasAVX512DOTPRODINT8 = false;
 #endif // INTEL_FEATURE_ISA_AVX512_DOTPROD_INT8
@@ -972,6 +976,9 @@ public:
   bool hasAVXMEMADVISE() const { return HasAVXMEMADVISE; }
   bool hasAVX512MEMADVISE() const { return HasAVX512MEMADVISE; }
 #endif // INTEL_FEATURE_ISA_AVX_MEMADVISE
+#if INTEL_FEATURE_ISA_AVX_MPSADBW
+  bool hasAVX512MPSADBW() const { return HasAVX512MPSADBW; }
+#endif // INTEL_FEATURE_ISA_AVX_MPSADBW
 #endif // INTEL_CUSTOMIZATION
   bool hasAMXTILE() const { return HasAMXTILE; }
   bool hasAMXBF16() const { return HasAMXBF16; }

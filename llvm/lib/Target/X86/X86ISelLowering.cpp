@@ -31733,6 +31733,7 @@ const char *X86TargetLowering::getTargetNodeName(unsigned Opcode) const {
   NODE_NAME_CASE(VPCOMPRESS)
   NODE_NAME_CASE(VPCOMPRESS_STORE)
 #endif // INTEL_FEATURE_ISA_AVX_COMPRESS
+  NODE_NAME_CASE(MPSADBW)
 #endif // INTEL_CUSTOMIZATION
   }
   return nullptr;
