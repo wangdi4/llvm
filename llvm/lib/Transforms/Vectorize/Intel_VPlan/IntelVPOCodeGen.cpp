@@ -3341,6 +3341,12 @@ void VPOCodeGen::vectorizeAllocatePrivate(VPAllocatePrivate *V) {
     VecTyForAlloca = FixedVectorType::get(EltTy, NumEls);
   }
 
+  // Compute preferred alignment for vector alloca.
+  const DataLayout &DL = OrigLoop->getHeader()->getModule()->getDataLayout();
+  Align VecAllocaPrefAlignment = DL.getPrefTypeAlign(VecTyForAlloca);
+  // Get original memory's alignment.
+  Align OrigAlignment = V->getOrigAlignment();
+
   // Create an alloca in the appropriate block
   IRBuilder<>::InsertPointGuard Guard(Builder);
   Function *F = OrigLoop->getHeader()->getParent();
@@ -3349,16 +3355,42 @@ void VPOCodeGen::vectorizeAllocatePrivate(VPAllocatePrivate *V) {
          "Expect the 'entry' basic-block to be well-formed.");
   Builder.SetInsertPoint(FirstBB.getTerminator());
 
-  AllocaInst *WidenedPrivArr =
-      Builder.CreateAlloca(VecTyForAlloca, nullptr, V->getOrigName() + ".vec");
-  const DataLayout &DL = OrigLoop->getHeader()->getModule()->getDataLayout();
-  WidenedPrivArr->setAlignment(DL.getPrefTypeAlign(VecTyForAlloca));
+  // TODO: We potentially need additional divisibility-based checks here to
+  // ensure that correct alignment is set for each vector lane. Check JIRA :
+  // CMPLRLLVM-11372.
+  // TODO: Currently we are allowing all scalar privates to always have
+  // vectorized private alloca because DA has been taught to allow unit-stride
+  // accesses for scalar privates. However this assumption is not safe and DA
+  // should be updated to use results from SOAAnalysis (which should internally
+  // account for alignment for all types, before marking a private as SOASafe).
+  // Again coverred by JIRA : CMPLRLLVM-11372.
+  if (VecAllocaPrefAlignment >= OrigAlignment || !OrigTy->isAggregateType()) {
+    // Use widened alloca if preferred alignment can accommodate original
+    // alloca's alignment or if we're using SOALayout.
+    AllocaInst *WidenedPrivArr = Builder.CreateAlloca(
+        VecTyForAlloca, nullptr, V->getOrigName() + ".vec");
+    WidenedPrivArr->setAlignment(VecAllocaPrefAlignment);
 
-  LoopPrivateVPWidenMap[V] = WidenedPrivArr;
-  // TODO: For SOA, vector of pointers via GEPs should not be created.
-  // Load/store in SOA format need to be handled in a special way (just casting
-  // of original GEP to vector data type).
-  VPWidenMap[V] = createVectorPrivatePtrs(V);
+    LoopPrivateVPWidenMap[V] = WidenedPrivArr;
+    // TODO: For SOA, vector of pointers via GEPs should not be created.
+    // Load/store in SOA format need to be handled in a special way (just
+    // casting of original GEP to vector data type).
+    VPWidenMap[V] = createVectorPrivatePtrs(V);
+  } else {
+    // If preferred alignment is less than original alignment, generate VF
+    // copies of original alloca (one for each lane) and construct the
+    // corresponding vector of pointers.
+    Value *PtrsVector = UndefValue::get(getWidenedType(V->getType(), VF));
+    for (unsigned I = 0; I < VF; ++I) {
+      AllocaInst *SerialPrivArr = Builder.CreateAlloca(
+          OrigTy, nullptr, V->getOrigName() + ".lane." + Twine(I));
+      SerialPrivArr->setAlignment(OrigAlignment);
+      PtrsVector =
+          Builder.CreateInsertElement(PtrsVector, SerialPrivArr, I,
+                                      V->getOrigName() + ".insert." + Twine(I));
+    }
+    VPWidenMap[V] = PtrsVector;
+  }
 }
 
 // InductionInit has two arguments {Start, Step} and keeps the operation

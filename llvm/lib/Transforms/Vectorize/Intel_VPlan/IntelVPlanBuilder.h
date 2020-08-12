@@ -448,8 +448,9 @@ public:
     return NewVPInst;
   }
 
-  VPInstruction *createAllocaPrivate(const VPValue *AI) {
-    VPInstruction *NewVPInst = new VPAllocatePrivate(AI->getType());
+  VPInstruction *createAllocaPrivate(const VPValue *AI, Align OrigAlignment) {
+    VPInstruction *NewVPInst =
+        new VPAllocatePrivate(AI->getType(), OrigAlignment);
     insert(NewVPInst);
     NewVPInst->setName(AI->getName());
     return NewVPInst;
