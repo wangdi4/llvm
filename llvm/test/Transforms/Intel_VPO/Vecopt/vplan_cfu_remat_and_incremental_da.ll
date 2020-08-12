@@ -45,25 +45,22 @@ define void @da_incremental_phi_update(i1 %toptest) {
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB6]]:
 ; CHECK-NEXT:       [DA: Div] i32 [[VP_LCSSA:%.*]] = phi  [ i32 [[VP_IV_NEXT_LIVE_OUT_BLEND]], [[BB4]] ]
-; This re-materialized cmp has "Undef" shape that should be treated as divergent...
 ; CHECK-NEXT:       [DA: Div] i1 [[VP_CMP_NOT_I_1:%.*]] = icmp i32 [[VP_LCSSA]] i32 42
 ; CHECK-NEXT:      SUCCESSORS(1):[[BB1]]
 ; CHECK-NEXT:      PREDECESSORS(1): [[BB4]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB1]]:
 ; CHECK-NEXT:     [DA: Div] i32 [[VP_PHI_PHI_BB2:%.*]] = phi  [ i32 undef, [[BB0]] ],  [ i32 [[VP_LCSSA]], [[BB6]] ]
-; FIXME: ...but incremental DA update for this phi doesn't do it, so joinShapes(Uniform /* for true */, Undef)
-;        results in incorrect Uniform shape.
-; CHECK-NEXT:     [DA: Uni] i1 [[VP_CMP_NOT_I_PHI_BB2:%.*]] = phi  [ i1 false, [[BB0]] ],  [ i1 [[VP_CMP_NOT_I_1]], [[BB6]] ]
-; CHECK-NEXT:     [DA: Uni] i1 [[VP2:%.*]] = or i1 [[TOPTEST0]] i1 [[VP_CMP_NOT_I_PHI_BB2]]
+; CHECK-NEXT:     [DA: Div] i1 [[VP_CMP_NOT_I_PHI_BB2:%.*]] = phi  [ i1 false, [[BB0]] ],  [ i1 [[VP_CMP_NOT_I_1]], [[BB6]] ]
+; CHECK-NEXT:     [DA: Div] i1 [[VP2:%.*]] = or i1 [[TOPTEST0]] i1 [[VP_CMP_NOT_I_PHI_BB2]]
+; CHECK-NEXT:     [DA: Div] i1 [[VP3:%.*]] = block-predicate i1 [[VP2]]
 ; CHECK-NEXT:     [DA: Div] i32 [[VP_ADD:%.*]] = add i32 [[VP_LANE]] i32 [[VP_LANE]]
 ; CHECK-NEXT:    SUCCESSORS(1):[[BB7:BB[0-9]+]]
 ; CHECK-NEXT:    PREDECESSORS(2): [[BB0]] [[BB6]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB7]]:
-; FIXME: If not the issue above, this blend wouldn't have "true" in the second predicate.
-; CHECK-NEXT:     [DA: Div] i32 [[VP_PHI_BLEND_BB2:%.*]] = blend [ i32 [[VP_PHI_PHI_BB2]], i1 true ], [ i32 [[VP_ADD]], i1 true ]
-; CHECK-NEXT:     [DA: Div] void [[VP3:%.*]] = ret
+; CHECK-NEXT:     [DA: Div] i32 [[VP_PHI_BLEND_BB2:%.*]] = blend [ i32 [[VP_PHI_PHI_BB2]], i1 true ], [ i32 [[VP_ADD]], i1 [[VP2]] ]
+; CHECK-NEXT:     [DA: Div] void [[VP4:%.*]] = ret
 ; CHECK-NEXT:    no SUCCESSORS
 ; CHECK-NEXT:    PREDECESSORS(1): [[BB1]]
 ;
