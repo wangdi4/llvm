@@ -187,6 +187,11 @@ namespace Intel { namespace OpenCL { namespace Framework {
 														   cl_command_queue_properties& queueProps, cl_uint& uiQueueSize);
         cl_err_code         CheckImageFormats( SharedPtr<MemoryObject> pSrcImage, SharedPtr<MemoryObject> pDstImage);
         bool                CheckMemoryObjectOverlapping(SharedPtr<MemoryObject> pMemObj, const size_t* szSrcOrigin, const size_t* szDstOrigin, const size_t* szRegion);
+
+        /// Returns whether USM buffer can be accessed in current command queue.
+        bool CanAccessUSM(SharedPtr<IOclCommandQueueBase> &queue,
+                          SharedPtr<USMBuffer> &buf);
+
         size_t              CalcRegionSizeInBytes(SharedPtr<MemoryObject> pImage, const size_t* szRegion);
         cl_err_code         FlushAllQueuesForContext(cl_context ctx);
         cl_err_code         EnqueueMarkerWithWaitList(const SharedPtr<IOclCommandQueueBase>& clCommandQueue, cl_uint uiNumEvents, const cl_event* pEventList, cl_event* pEvent, ApiLogger* pApiLogger);

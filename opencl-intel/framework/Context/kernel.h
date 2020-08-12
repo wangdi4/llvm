@@ -476,6 +476,8 @@ namespace Intel { namespace OpenCL { namespace Framework {
         void GetNonArgUsmBuffers(std::vector<SharedPtr<USMBuffer> >& usmBufs)
             const;
 
+        const std::vector<USMBuffer*> & GetUsmArgs() const { return m_usmArgs; }
+
         // needed so that DeviceKernel can access the raw program's binary (no const)
         friend class DeviceKernel;
 
@@ -521,6 +523,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
         bool                                    m_usmIndirectShared;
         mutable Intel::OpenCL::Utils::OclReaderWriterLock   m_rwlockUsm;
         std::vector<SharedPtr<USMBuffer> >      m_nonArgUsmBufs;
+        std::vector<USMBuffer*>                 m_usmArgs;
 
     private:
 

@@ -1624,6 +1624,13 @@ cl_err_code NDRangeKernelCommand::Init()
         }
     }
 
+    // USM capacities
+    auto crossSharedCaps = GetDevice()->GetUSMCapabilities(
+        CL_DEVICE_CROSS_DEVICE_SHARED_MEM_CAPABILITIES_INTEL);
+    auto systemCaps = GetDevice()->GetUSMCapabilities(
+        CL_DEVICE_SHARED_SYSTEM_MEM_CAPABILITIES_INTEL);
+    cl_device_id queueDeviceId = m_pCommandQueue->GetQueueDeviceHandle();
+
     // Indirect USM allocations that are not passed as kernel arguments
     std::vector<SharedPtr<USMBuffer> > nonArgUsmBufs;
     m_pKernel->GetNonArgUsmBuffers(nonArgUsmBufs);
@@ -1635,18 +1642,27 @@ cl_err_code NDRangeKernelCommand::Init()
         cl_device_unified_shared_memory_capabilities_intel deviceCaps =
             GetDevice()->GetUSMCapabilities(
             CL_DEVICE_DEVICE_MEM_CAPABILITIES_INTEL);
-        cl_device_unified_shared_memory_capabilities_intel sharedSingleCaps =
+        cl_device_unified_shared_memory_capabilities_intel singleSharedCaps =
             GetDevice()->GetUSMCapabilities(
             CL_DEVICE_SINGLE_DEVICE_SHARED_MEM_CAPABILITIES_INTEL);
         bool hostSupported = hostCaps & CL_UNIFIED_SHARED_MEMORY_ACCESS_INTEL;
         bool deviceSupported = deviceCaps &
                                CL_UNIFIED_SHARED_MEMORY_ACCESS_INTEL;
         bool sharedSupported =
-            sharedSingleCaps & CL_UNIFIED_SHARED_MEMORY_ACCESS_INTEL;
+            singleSharedCaps & CL_UNIFIED_SHARED_MEMORY_ACCESS_INTEL;
         m_nonArgUsmBuffersVec.resize(nonArgUsmBufs.size());
         for (size_t i = 0; i < nonArgUsmBufs.size(); i++)
         {
             SharedPtr<USMBuffer> &buf = nonArgUsmBufs[i];
+
+            // Check USM access
+            if (nullptr != buf.GetPtr()) {
+                cl_device_id bufDeviceId = buf->GetDevice();
+                if (!crossSharedCaps && queueDeviceId != bufDeviceId)
+                    return CL_INVALID_OPERATION;
+            } else if (!systemCaps)
+                return CL_INVALID_OPERATION;
+
             cl_unified_shared_memory_type_intel type = buf->GetType();
             // filter out invalid combinations
             switch (type)
@@ -1672,6 +1688,16 @@ cl_err_code NDRangeKernelCommand::Init()
             if (CL_FAILED(res))
                 return res;
         }
+    }
+
+    // Check USM access.
+    for (USMBuffer *buf : m_pKernel->GetUsmArgs()) {
+        if (nullptr != buf) {
+            cl_device_id bufDeviceId = buf->GetDevice();
+            if (!crossSharedCaps && queueDeviceId != bufDeviceId)
+                return CL_INVALID_OPERATION;
+        } else if (!systemCaps)
+            return CL_INVALID_OPERATION;
     }
 
     //

@@ -16,6 +16,7 @@ set(OCL_BE_PASSES
     ChannelsUsageAnalysis
     CleanupWrappedKernels
     CoerceTypes
+    CoerceWin64Types
     RemoveAtExit
     DebugInfoPass
     DetectRecursion
