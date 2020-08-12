@@ -437,21 +437,50 @@ void Driver::addIntelArgs(DerivedArgList &DAL, const InputArgList &Args,
     if (Arg *A = DAL.getLastArg(Opt))
       A->claim();
   };
+  bool isIntelLTO = false;
+  // When dealing with -fast, the behavior is the same as -Ofast, except
+  // that -xHOST is implied.
+  if (Arg *A = Args.getLastArg(options::OPT_Ofast)) {
+    StringRef Opt(Args.MakeArgString(A->getAsString(Args)));
+    bool hasXOpt = false;
+    if (Arg *A = Args.getLastArg(options::OPT_x)) {
+      StringRef Arch = A->getValue();
+      hasXOpt = !types::lookupTypeForTypeSpecifier(Arch.data());
+    }
+    if (!Opt.contains("O")) {
+      if (!hasXOpt)
+        addClaim(options::OPT_x, "HOST");
+      if (!Args.hasFlag(options::OPT_flto, options::OPT_flto_EQ,
+                        options::OPT_fno_lto, false)) {
+        // check to make sure that if LTO is disabled, it is done after fast.
+        if (Arg *A = Args.getLastArg(options::OPT_Ofast, options::OPT_fno_lto))
+          if (A->getOption().matches(options::OPT_Ofast)) {
+            addClaim(options::OPT_flto);
+            isIntelLTO = true;
+          }
+      }
+    }
+  }
+
   if (IsIntelMode()) {
     // The Intel compiler defaults to -O2
     if (!Args.hasArg(options::OPT_O_Group, options::OPT__SLASH_O,
                      options::OPT_g_Group, options::OPT_intel_debug_Group,
                      options::OPT__SLASH_Z7, options::OPT__SLASH_Zd))
       addClaim(IsCLMode() ? options::OPT__SLASH_O : options::OPT_O, "2");
-    // For LTO on Windows, use -fuse-ld=lld when Qipo is used.
-    if (Args.hasArg(options::OPT_flto) &&
-        !Args.hasArg(options::OPT_fuse_ld_EQ)) {
-      Arg *A = Args.getLastArg(options::OPT_flto);
-      StringRef Opt(Args.MakeArgString(A->getAsString(Args)));
-      // TODO - improve determination of last phase
-      if (Opt.contains("Qipo") && !Args.hasArg(options::OPT_c, options::OPT_S))
-        addClaim(options::OPT_fuse_ld_EQ, "lld");
+    // For LTO on Windows, use -fuse-ld=lld when /Qipo or /fast is used.
+    if (Args.hasFlag(options::OPT_flto, options::OPT_flto_EQ,
+                     options::OPT_fno_lto, false)) {
+      if (Arg *A = Args.getLastArg(options::OPT_flto)) {
+        StringRef Opt(Args.MakeArgString(A->getAsString(Args)));
+        if (Opt.contains("Qipo"))
+          isIntelLTO = true;
+      }
     }
+    // TODO - improve determination of last phase
+    if (IsCLMode() && isIntelLTO && !Args.hasArg(options::OPT_fuse_ld_EQ) &&
+        !Args.hasArg(options::OPT_c, options::OPT_S))
+      addClaim(options::OPT_fuse_ld_EQ, "lld");
     // -Wno-c++11-narrowing is default for Windows
     if (IsCLMode() && !Args.hasArg(options::OPT_Wcxx11_narrowing,
                                    options::OPT_Wno_cxx11_narrowing))
@@ -492,24 +521,6 @@ void Driver::addIntelArgs(DerivedArgList &DAL, const InputArgList &Args,
       else if (Value != "none")
         Diag(diag::err_drv_unsupported_option_argument)
             << A->getOption().getName() << A->getValue();
-    }
-  }
-
-  // When dealing with -fast, the behavior is the same as -Ofast, except
-  // that -xHOST is implied.
-  if (Arg *A = Args.getLastArg(options::OPT_Ofast)) {
-    StringRef Opt(Args.MakeArgString(A->getAsString(Args)));
-    bool hasXOpt = false;
-    if (Arg *A = Args.getLastArg(options::OPT_x)) {
-      StringRef Arch = A->getValue();
-      hasXOpt = !types::lookupTypeForTypeSpecifier(Arch.data());
-    }
-    if (!Opt.contains("O")) {
-      if (!hasXOpt)
-        addClaim(options::OPT_x, "HOST");
-      if (!Args.hasFlag(options::OPT_flto, options::OPT_flto_EQ,
-                    options::OPT_fno_lto, false))
-        addClaim(options::OPT_flto);
     }
   }
 
@@ -844,11 +855,12 @@ void Driver::setLTOMode(const llvm::opt::ArgList &Args) {
                     options::OPT_fno_lto, false)) {
     // When dealing with -fast, the behavior is the same as -Ofast, except
     // that -flto is implied
-    if (Arg *A = Args.getLastArg(options::OPT_Ofast)) {
-      StringRef Opt(Args.MakeArgString(A->getAsString(Args)));
-      if (!Opt.contains("O"))
-        LTOMode = LTOK_Full;
-    }
+    if (Arg *A = Args.getLastArg(options::OPT_Ofast, options::OPT_fno_lto))
+      if (A->getOption().matches(options::OPT_Ofast)) {
+        StringRef Opt(Args.MakeArgString(A->getAsString(Args)));
+        if (!Opt.contains("O"))
+          LTOMode = LTOK_Full;
+      }
     return;
   }
 #endif // INTEL_CUSTOMIZATION
