@@ -10,7 +10,10 @@
 
 ; CHECK-LABEL: define {{[^@]+}}@foo
 ; CHECK-SAME:  (i32* [[PTR:%.+]], i32 %{{.+}})
-; CHECK:       call void @llvm.assume(i1 true) [ "align"(i32* [[PTR]], i32 32) ]
+; CHECK:       [[PTRINT:%.*]] = ptrtoint i32* [[PTR]] to i64
+; CHECK-NEXT:  [[MASKEDPTR:%.*]] = and i64 [[PTRINT]], 31
+; CHECK-NEXT:  [[MASKCOND:%.*]] = icmp eq i64 [[MASKEDPTR]], 0
+; CHECK-NEXT:  call void @llvm.assume(i1 [[MASKCOND]])
 ; CHECK:         [[TOK:%.+]] = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.ALIGNED"(i32* null, i32 32),
 ; CHECK-NEXT:    br label %[[LOOPBODY:[^,]+]]
 ; CHECK:       [[LOOPBODY]]:

@@ -4182,14 +4182,9 @@ bool VPOParoptTransform::genAlignedCode(WRegionNode *W) {
         continue;
 
       // Generate llvm.assume call for the specified value.
-      // TODO: Can change IRBuilder::CreateAlignmentAssumption() to generate
-      // such call and then use this method here.
       IRBuilder<> Builder(GetAlignedBlock()->getTerminator());
-      CallInst *Call = Builder.CreateCall(
-          Intrinsic::getDeclaration(F->getParent(), Intrinsic::assume),
-          Builder.getTrue(),
-          OperandBundleDef(
-              "align", std::vector<Value *>({Ptr, Builder.getInt32(Align)})));
+      auto &DL = F->getParent()->getDataLayout();
+      CallInst *Call = Builder.CreateAlignmentAssumption(DL, Ptr, Align);
 
       // And then add it to the assumption cache.
       AC->registerAssumption(Call);
