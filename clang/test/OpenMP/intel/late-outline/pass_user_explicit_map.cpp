@@ -1,6 +1,10 @@
 // INTEL_COLLAB
 // RUN: %clang_cc1 -emit-llvm -o - -fopenmp -fopenmp-late-outline \
 // RUN:  -triple x86_64-unknown-linux-gnu %s | FileCheck %s
+//
+// RUN: %clang_cc1 -emit-llvm -o - -fopenmp -fopenmp-late-outline \
+// RUN: -discard-value-names  -triple x86_64-unknown-linux-gnu %s |\
+// RUN:  FileCheck %s -check-prefix CHECK-DISNAME
 #pragma omp declare target
 int * arr;
 struct st {
@@ -40,4 +44,19 @@ int bar(void)
 //CHECK: region.exit{{.*}}DIR.OMP.END.TARGET
   return 0;
 }
+
+void specified_alignment()
+{
+  __attribute__((aligned(64))) int (*ptr)[10];
+//CHECK-DISNAME: [[L1: %[0-9]+]] = alloca [10 x i32]*, align 64
+// Do not generate temp map
+//CHECK-DISNAME-NOT: alloca [10 x i32]*, align 64
+//CHECK-DISNAME-NEXT: [[T1:%[0-9]+]] = {{.*}}region.entry{{.*}}DIR.OMP.TARGET
+//CHECK-DISNAME-SAME: "QUAL.OMP.MAP.TO"({{.*}}[[L1]], {{.*}}[[L1]]
+  #pragma omp target is_device_ptr(ptr)
+  {
+    ptr[0][0] = 41;
+  }
+}
+
 // end INTEL_COLLAB
