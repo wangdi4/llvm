@@ -53,8 +53,10 @@ public:
              VPOVectorizationLegality *LVL, VPlanVLSAnalysis *VLSA,
              const VPlan *Plan)
       : OrigLoop(OrigLoop), PSE(PSE), LI(LI), DT(DT), TLI(TLI), TTI(TTI),
-        Legal(LVL), VLSA(VLSA), Plan(Plan), VF(VecWidth), UF(UnrollFactor),
-        Builder(Context), PreferredPeeling(Plan->getPreferredPeeling(VF)) {}
+        Legal(LVL), VLSA(VLSA),
+        VPAA(*Plan->getVPSE(), *Plan->getVPVT(), VecWidth), Plan(Plan),
+        VF(VecWidth), UF(UnrollFactor), Builder(Context),
+        PreferredPeeling(Plan->getPreferredPeeling(VF)) {}
 
   ~VPOCodeGen() {}
 
@@ -369,6 +371,9 @@ private:
 
   /// Variable-length stridedness analysis.
   VPlanVLSAnalysis *VLSA;
+
+  /// Alignment Analysis.
+  VPlanAlignmentAnalysis VPAA;
 
   /// VPlan for which vector code is generated, need to finalize external uses.
   const VPlan *Plan;

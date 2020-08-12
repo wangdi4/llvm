@@ -53,13 +53,13 @@ define dso_local void @func(i32 %n) local_unnamed_addr {
 ; LLVM-CG-EMPTY:
 ; LLVM-CG-NEXT:  pred.alloca.continue4:
 ; LLVM-CG-NEXT:    [[TMP11:%.*]] = bitcast [256 x i8]** [[SCALAR_GEP0]] to <2 x [256 x i8]*>*
-; LLVM-CG-NEXT:    call void @llvm.masked.store.v2p0a256i8.p0v2p0a256i8(<2 x [256 x i8]*> [[TMP10]], <2 x [256 x i8]*>* [[TMP11]], i32 8, <2 x i1> [[TMP0]])
+; LLVM-CG-NEXT:    call void @llvm.masked.store.v2p0a256i8.p0v2p0a256i8(<2 x [256 x i8]*> [[TMP10]], <2 x [256 x i8]*>* [[TMP11]], i32 16, <2 x i1> [[TMP0]])
 ; LLVM-CG-NEXT:    [[TMP12:%.*]] = alloca [256 x i8], align 16
 ; LLVM-CG-NEXT:    [[TMP13:%.*]] = insertelement <2 x [256 x i8]*> undef, [256 x i8]* [[TMP12]], i32 0
 ; LLVM-CG-NEXT:    [[TMP14:%.*]] = alloca [256 x i8], align 16
 ; LLVM-CG-NEXT:    [[TMP15:%.*]] = insertelement <2 x [256 x i8]*> [[TMP13]], [256 x i8]* [[TMP14]], i32 1
 ; LLVM-CG-NEXT:    [[TMP16:%.*]] = bitcast [256 x i8]** [[SCALAR_GEP0]] to <2 x [256 x i8]*>*
-; LLVM-CG-NEXT:    store <2 x [256 x i8]*> [[TMP15]], <2 x [256 x i8]*>* [[TMP16]], align 8
+; LLVM-CG-NEXT:    store <2 x [256 x i8]*> [[TMP15]], <2 x [256 x i8]*>* [[TMP16]], align 16
 ;
 ; HIR-LABEL:  VPlan after predication and linearization
 ; HIR:     [DA: Div] i64 [[VP2:%.*]] = phi  [ i64 [[VP__IND_INIT:%.*]], [[BB1:BB[0-9]+]] ],  [ i64 [[VP3:%.*]], [[BB3:BB[0-9]+]] ]

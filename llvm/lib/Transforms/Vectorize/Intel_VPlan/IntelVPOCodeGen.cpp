@@ -2142,8 +2142,17 @@ void VPOCodeGen::vectorizeUnitStrideStore(VPInstruction *VPInst,
   Type *StoreType = getLoadStoreType(VPInst);
   auto *StoreVecType = dyn_cast<VectorType>(StoreType);
   unsigned OriginalVL = StoreVecType ? StoreVecType->getNumElements() : 1;
-  Align Alignment = getOriginalLoadStoreAlignment(VPInst);
   Value *VecPtr = createWidenedBasePtrConsecutiveLoadStore(Ptr, IsNegOneStride);
+
+  Align Alignment;
+  if (!PreferredPeeling) {
+    // No peeling means static peeling with peel count = 0.
+    VPlanStaticPeeling Peeling(0);
+    Alignment =
+        VPAA.getAlignmentUnitStride(*cast<VPLoadStoreInst>(VPInst), Peeling);
+  } else {
+    Alignment = getOriginalLoadStoreAlignment(VPInst);
+  }
 
   if (IsNegOneStride) // Reverse
     // If we store to reverse consecutive memory locations, then we need

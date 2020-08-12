@@ -19,7 +19,7 @@ for.body:
   %indvars.iv = phi i64 [ 0, %region ], [ %indvars.iv.next, %for.body ]
   %ptr = getelementptr inbounds i64, i64* %ary, i64 %indvars.iv
   ; Alignment of widened instruction is inferred from the @llvm.assume above.
-  ; CHECK: store <4 x i64> %{{.*}}, <4 x i64>* %{{.*}}, align 8
+  ; CHECK: store <4 x i64> %{{.*}}, <4 x i64>* %{{.*}}, align 16
   store i64 %indvars.iv, i64* %ptr, align 8
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %cmp = icmp ult i64 %indvars.iv.next, 1024
@@ -47,7 +47,7 @@ for.body:
   %indvars.iv = phi i64 [ 0, %region ], [ %indvars.iv.next, %for.body ]
   %ptr = getelementptr inbounds i64, i64* %ary, i64 %indvars.iv
   ; Alignment of widened instruction is limited by VF.
-  ; CHECK: store <4 x i64> %{{.*}}, <4 x i64>* %{{.*}}, align 8
+  ; CHECK: store <4 x i64> %{{.*}}, <4 x i64>* %{{.*}}, align 32
   store i64 %indvars.iv, i64* %ptr, align 8
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %cmp = icmp ult i64 %indvars.iv.next, 1024

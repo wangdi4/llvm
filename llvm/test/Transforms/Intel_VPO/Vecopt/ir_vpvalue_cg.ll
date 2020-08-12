@@ -35,11 +35,11 @@ define i32 @foo() local_unnamed_addr {
 ; CHECK-NEXT:    [[TMP14:%.*]] = mul nsw <16 x i32> [[PREDBLEND5]], [[PREDBLEND]]
 ; CHECK-NEXT:    [[TMP15:%.*]] = add nsw <16 x i32> [[TMP14]], [[WIDE_LOAD3]]
 ; CHECK-NEXT:    [[TMP16:%.*]] = bitcast i32* [[SCALAR_GEP2]] to <16 x i32>*
-; CHECK-NEXT:    store <16 x i32> [[TMP15]], <16 x i32>* [[TMP16]], align 4
+; CHECK-NEXT:    store <16 x i32> [[TMP15]], <16 x i32>* [[TMP16]], align 16
 ; CHECK-NEXT:    [[TMP17:%.*]] = mul nsw <16 x i32> [[PREDBLEND6]], [[PREDBLEND4]]
 ; CHECK-NEXT:    [[TMP18:%.*]] = add nsw <16 x i32> [[TMP17]], [[WIDE_LOAD]]
 ; CHECK-NEXT:    [[TMP19:%.*]] = bitcast i32* [[SCALAR_GEP]] to <16 x i32>*
-; CHECK-NEXT:    store <16 x i32> [[TMP18]], <16 x i32>* [[TMP19]], align 4
+; CHECK-NEXT:    store <16 x i32> [[TMP18]], <16 x i32>* [[TMP19]], align 16
 ; CHECK-NEXT:    [[TMP20]] = add nuw nsw <16 x i64> [[VEC_PHI]], <i64 16, i64 16, i64 16, i64 16, i64 16, i64 16, i64 16, i64 16, i64 16, i64 16, i64 16, i64 16, i64 16, i64 16, i64 16, i64 16>
 ; CHECK-NEXT:    [[TMP21]] = add nuw nsw i64 [[UNI_PHI1]], 16
 ; CHECK-NEXT:    [[TMP23]] = add i64 [[UNI_PHI]], 16
