@@ -242,7 +242,7 @@ int main(int argc, char *argv[]) {
   // TODO: Use a Level_zero low level API.
   if (backend == "pi_level_zero" || backend == "pi_other") {
     if (type == "gpu") {
-      std::cout << "1:Level Zero GPU assumed under SYCL_BE=PI_LEVEL_ZERO"
+      std::cout << "1:level zero GPU assumed under SYCL_BE=PI_LEVEL_ZERO"
                 << std::endl;
       return EXIT_SUCCESS;
     }
