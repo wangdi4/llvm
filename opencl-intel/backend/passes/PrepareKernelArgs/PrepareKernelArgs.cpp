@@ -314,13 +314,32 @@ namespace intel{
           // We obtain the number of bytes needed per item from the Metadata
           // which is set by the Barrier pass
           uint64_t SizeInBytes = kimd.BarrierBufferSize.get();
-          // BarrierBufferSize := BytesNeededPerWI*GroupSize(0)*GroupSize(1)*GroupSize(2)
+          // LocalSizeProd = LocalSize(0) * LocalSize(1) * LocalSize(2)
+          // If kernel is vectorized
+          //   non-uniform remainder may store (value x VF) to special buffer.
+          //   BarrierBufferSize := BytesNeededPerWI
+          //                        * ((LocalSizeProd + VF - 1) / VF) * VF
+          // else
+          //   BarrierBufferSize := BytesNeededPerWI * LocalSizeProd
           Value *BarrierBufferSize = ConstantInt::get(m_SizetTy, SizeInBytes);
           assert(WGInfo && "Work Group Info was not initialized");
           assert(!LocalSize.empty() && "Local group sizes are assumed to be computed already");
-          for (unsigned Dim = 0; Dim < MAX_WORK_DIM; ++Dim)
-            BarrierBufferSize = builder.CreateMul(BarrierBufferSize, LocalSize[Dim]);
-          BarrierBufferSize->setName("BarrierBufferSize");
+          Value *LocalSizeProd = LocalSize[0];
+          for (unsigned Dim = 1; Dim < MAX_WORK_DIM; ++Dim)
+            LocalSizeProd = builder.CreateMul(LocalSizeProd, LocalSize[Dim]);
+          LocalSizeProd->setName("LocalSizeProd");
+          Value *Multiple = LocalSizeProd;
+          if (kimd.VectorizedWidth.hasValue()) {
+            unsigned VF = kimd.VectorizedWidth.get();
+            assert(VF && (VF & (VF - 1)) == 0 && "VF is not power of 2");
+            Value *VFValue = ConstantInt::get(m_SizetTy, VF);
+            Value *VFMinus1 = ConstantInt::get(m_SizetTy, VF - 1);
+            Value *Sum = builder.CreateAdd(LocalSizeProd, VFMinus1);
+            Multiple = builder.CreateAnd(Sum, builder.CreateNeg(VFValue),
+                                         "RoundUpToMultipleVF");
+          }
+          BarrierBufferSize = builder.CreateMul(BarrierBufferSize, Multiple,
+                                                "BarrierBufferSize");
           // alloca i8, %BarrierBufferSize
           const auto AllocaAddrSpace = m_DL->getAllocaAddrSpace();
           //TODO: we should choose the min required alignment size
