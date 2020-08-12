@@ -704,7 +704,7 @@ void tools::addIntelOptimizationArgs(const ToolChain &TC,
 
   // Handle --intel defaults
   if (TC.getDriver().IsIntelMode()) {
-    if (!Args.hasArg(options::OPT_ffreestanding))
+    if (!Args.hasArg(options::OPT_ffreestanding, options::OPT_i_no_use_libirc))
       addllvmOption("-intel-libirc-allowed");
     bool AddLoopOpt = true;
     for (const StringRef &AV : Args.getAllArgValues(options::OPT_mllvm))

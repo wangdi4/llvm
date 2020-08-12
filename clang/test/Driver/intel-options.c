@@ -163,6 +163,14 @@
 // CHECK-INTEL-LIBS-NOT: "-Bstatic" "-lirc" "-Bdynamic"
 // CHECK-INTEL-LIBS: "-lsvml" "-lirng" "-limf" "-lm" {{.*}} "-lirc"
 
+// -i_no-use-libirc
+// RUN: %clang -### --intel -i_no-use-libirc -target x86_64-unknown-linux %s 2>&1 | FileCheck -check-prefix CHECK-INTEL-NOIRC %s
+// RUN: %clang_cl -### --intel /Q_no-use-libirc %s 2>&1 | FileCheck -check-prefix CHECK-INTEL-NOIRC %s
+// CHECK-INTEL-NOIRC-NOT: "-intel-libirc-allowed"
+// CHECK-INTEL-NOIRC-NOT: "-lirc"
+// CHECK-INTEL-NOIRC-NOT: "--dependent-lib=libircmt"
+// CHECK-INTEL-NOIRC-NOT: "-defaultlib:libircmt"
+
 // RUN: %clang -### --intel -target x86_64-unknown-linux -shared-intel %s 2>&1 | FileCheck -check-prefix CHECK-INTEL-LIBS-SHARED-INTEL %s
 // RUN: %clang -### --intel -target x86_64-unknown-linux -dynamic -shared-intel %s 2>&1 | FileCheck -check-prefix CHECK-INTEL-LIBS-SHARED-INTEL %s
 // RUN: %clang -### --intel -target x86_64-unknown-linux -shared -shared-intel %s 2>&1 | FileCheck -check-prefix CHECK-INTEL-LIBS-SHARED-INTEL %s
