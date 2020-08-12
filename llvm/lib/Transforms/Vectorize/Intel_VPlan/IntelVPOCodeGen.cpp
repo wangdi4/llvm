@@ -226,6 +226,27 @@ Value *VPOCodeGen::generateSerialInstruction(VPInstruction *VPInst,
     if (SerialAtomicRMW->isFloatingPointOperation())
       SerialAtomicRMW->setFastMathFlags(OrigAtomicRMW->getFastMathFlags());
     SerialInst = SerialAtomicRMW;
+  } else if (VPInst->getOpcode() == Instruction::AtomicCmpXchg) {
+    assert(ScalarOperands.size() == 3 &&
+           "AtomicCmpXchg instruction should have just three operands.");
+
+    // Get the underlying instruction. We assume that it always exists.
+    auto *OrigAtomicCmpXchg =
+        cast<AtomicCmpXchgInst>(VPInst->getUnderlyingValue());
+
+    // Create a Scalar variant copying over the attributes from the original
+    // instruction.
+    AtomicCmpXchgInst *SerialAtomicCmpXchg = Builder.CreateAtomicCmpXchg(
+        Ops[0], Ops[1], Ops[2], OrigAtomicCmpXchg->getSuccessOrdering(),
+        OrigAtomicCmpXchg->getFailureOrdering(),
+        OrigAtomicCmpXchg->getSyncScopeID());
+
+    // Copy other properties from the original instruction.
+    SerialAtomicCmpXchg->setVolatile(OrigAtomicCmpXchg->isVolatile());
+    SerialAtomicCmpXchg->setWeak(OrigAtomicCmpXchg->isWeak());
+    SerialAtomicCmpXchg->setAlignment(OrigAtomicCmpXchg->getAlign());
+    SerialInst = SerialAtomicCmpXchg;
+    SerialInst->setName("serial.cmpxchg");
   } else if (VPInst->getOpcode() == Instruction::ExtractValue) {
     // TODO: Currently, 'extractvalue' VPInstruction drops the last argument.
     // This is an issue similar to the dropped mask-value for shufflevector
@@ -589,6 +610,7 @@ void VPOCodeGen::vectorizeInstruction(VPInstruction *VPInst) {
     return;
   }
 
+  case Instruction::AtomicCmpXchg:
   case Instruction::AtomicRMW: {
     serializeWithPredication(VPInst);
     return;
