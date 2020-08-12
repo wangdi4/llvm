@@ -3853,6 +3853,7 @@ def qno_opt_multiple_gather_scatter_by_shuffles : Flag<["-"], "qno-opt-multiple-
   HelpText<"Disables the optimization for multiple adjacent gather/scatter type vector memory references">;
 def qopt_report_EQ : Joined<["-"], "qopt-report=">, Values<"min,med,max">,
   HelpText<"Generate an optimization report, min, med or max.">;
+def : Joined<["-"], "qopt-report">, Alias<qopt_report_EQ>;
 def qopt_report : Flag<["-"], "qopt-report">, Alias<qopt_report_EQ>,
   AliasArgs<["2"]>;
 def qopt_zmm_usage_EQ : Joined<["-"], "qopt-zmm-usage=">, Values<"low,high">,
@@ -5429,6 +5430,7 @@ def _SLASH_Qopt_multiple_gather_scatter_by_shuffles_ : CLFlag<"Qopt-multiple-gat
   Alias<qno_opt_multiple_gather_scatter_by_shuffles>,
   HelpText<"Disables the optimization for multiple adjacent gather/scatter type vector memory references">;
 def _SLASH_Qopt_report_EQ : CLJoined<"Qopt-report=">, Alias<qopt_report_EQ>;
+def : CLJoined<"Qopt-report">, Alias<qopt_report_EQ>;
 def _SLASH_Qopt_report : CLFlag<"Qopt-report">, Alias<qopt_report_EQ>,
   AliasArgs<["2"]>;
 def _SLASH_Qopt_report_COL : CLJoined<"Qopt-report:">, Alias<qopt_report_EQ>,
