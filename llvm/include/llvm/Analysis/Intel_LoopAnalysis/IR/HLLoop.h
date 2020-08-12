@@ -772,7 +772,7 @@ public:
     }
   }
 
-  void addLiveInTemp(const ArrayRef<unsigned> &Symbases) {
+  void addLiveInTemp(ArrayRef<unsigned> Symbases) {
     for (auto Symbase : Symbases)
       addLiveInTemp(Symbase);
   }
@@ -789,7 +789,7 @@ public:
   }
 
   // TODO: const
-  void addLiveInTemp(const ArrayRef<RegDDRef *> &Refs) {
+  void addLiveInTemp(ArrayRef<RegDDRef *> Refs) {
     for (auto Ref : Refs)
       addLiveInTemp(Ref);
   }

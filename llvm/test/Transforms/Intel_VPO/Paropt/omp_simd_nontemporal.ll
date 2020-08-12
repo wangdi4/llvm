@@ -1,6 +1,5 @@
-; REQUIRES: asserts
-; RUN: opt -vpo-cfg-restructuring -vpo-paropt-prepare -debug -S < %s 2>&1  | FileCheck %s
-; RUN: opt -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare)' -debug -S < %s 2>&1  | FileCheck %s
+; RUN: opt < %s -loop-rotate -vpo-cfg-restructuring -vpo-paropt-prepare -simplifycfg  -sroa -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -S | FileCheck %s
+; RUN: opt < %s -passes='function(loop(rotate),vpo-cfg-restructuring,vpo-paropt-prepare,simplify-cfg,loop(simplify-cfg),sroa,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt'  -S | FileCheck %s
 ;
 ; Test src:
 ; void test_01(float *a, float *b, int size) {
@@ -11,90 +10,120 @@
 ;   }
 ; }
 ;
-; Check that we can parse the NONTEMPORAL clause.
+; Check that we can parse the NONTEMPORAL clause and translate it into
+; !nontemporal metadata.
 ;
-; CHECK: NONTEMPORAL clause (size=2): (float** %a.addr) (float** %b.addr)
-
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
-; Function Attrs: nounwind uwtable
-define dso_local void @_Z7test_01PfS_i(float* %a, float* %b, i32 %size) local_unnamed_addr #0 {
+define dso_local void @_Z7test_01PfS_i(float* %a, float* %b, i32 %size) #0 {
 entry:
   %a.addr = alloca float*, align 8
   %b.addr = alloca float*, align 8
+  %size.addr = alloca i32, align 4
+  %tmp = alloca i32, align 4
+  %.capture_expr.0 = alloca i32, align 4
+  %.capture_expr.1 = alloca i32, align 4
   %.omp.iv = alloca i32, align 4
   %.omp.ub = alloca i32, align 4
   %i = alloca i32, align 4
+  %tmp3 = alloca float, align 4
   store float* %a, float** %a.addr, align 8, !tbaa !2
   store float* %b, float** %b.addr, align 8, !tbaa !2
-  %cmp = icmp sgt i32 %size, 0
-  br i1 %cmp, label %omp.precond.then, label %entry.omp.precond.end_crit_edge
-
-entry.omp.precond.end_crit_edge:                  ; preds = %entry
-  %.pre = bitcast i32* %.omp.ub to i8*
-  %.pre9 = bitcast i32* %.omp.iv to i8*
-  br label %omp.precond.end
+  store i32 %size, i32* %size.addr, align 4, !tbaa !6
+  %0 = bitcast i32* %.capture_expr.0 to i8*
+  call void @llvm.lifetime.start.p0i8(i64 4, i8* %0) #2
+  %1 = load i32, i32* %size.addr, align 4, !tbaa !6
+  store i32 %1, i32* %.capture_expr.0, align 4, !tbaa !6
+  %2 = bitcast i32* %.capture_expr.1 to i8*
+  call void @llvm.lifetime.start.p0i8(i64 4, i8* %2) #2
+  %3 = load i32, i32* %.capture_expr.0, align 4, !tbaa !6
+  %sub = sub nsw i32 %3, 0
+  %div = sdiv i32 %sub, 1
+  %sub1 = sub nsw i32 %div, 1
+  store i32 %sub1, i32* %.capture_expr.1, align 4, !tbaa !6
+  %4 = load i32, i32* %.capture_expr.0, align 4, !tbaa !6
+  %cmp = icmp slt i32 0, %4
+  br i1 %cmp, label %omp.precond.then, label %omp.precond.end
 
 omp.precond.then:                                 ; preds = %entry
-  %sub2 = add nsw i32 %size, -1
-  %0 = bitcast i32* %.omp.iv to i8*
-  call void @llvm.lifetime.start.p0i8(i64 4, i8* nonnull %0) #2
-  %1 = bitcast i32* %.omp.ub to i8*
-  call void @llvm.lifetime.start.p0i8(i64 4, i8* nonnull %1) #2
-  store i32 %sub2, i32* %.omp.ub, align 4, !tbaa !6
-  br label %DIR.OMP.SIMD.1
-
-DIR.OMP.SIMD.1:                                   ; preds = %omp.precond.then
-  %2 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.NONTEMPORAL"(float** %a.addr, float** %b.addr), "QUAL.OMP.NORMALIZED.IV"(i32* %.omp.iv), "QUAL.OMP.NORMALIZED.UB"(i32* %.omp.ub), "QUAL.OMP.LINEAR:IV"(i32* %i, i32 1) ]
-  br label %DIR.OMP.SIMD.2
-
-DIR.OMP.SIMD.2:                                   ; preds = %DIR.OMP.SIMD.1
+  %5 = bitcast i32* %.omp.iv to i8*
+  call void @llvm.lifetime.start.p0i8(i64 4, i8* %5) #2
+  %6 = bitcast i32* %.omp.ub to i8*
+  call void @llvm.lifetime.start.p0i8(i64 4, i8* %6) #2
+  %7 = load i32, i32* %.capture_expr.1, align 4, !tbaa !6
+  store i32 %7, i32* %.omp.ub, align 4, !tbaa !6
+  %8 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.NONTEMPORAL"(float** %a.addr, float** %b.addr), "QUAL.OMP.NORMALIZED.IV"(i32* %.omp.iv), "QUAL.OMP.NORMALIZED.UB"(i32* %.omp.ub), "QUAL.OMP.LINEAR:IV"(i32* %i, i32 1), "QUAL.OMP.PRIVATE"(float* %tmp3) ]
   store i32 0, i32* %.omp.iv, align 4, !tbaa !6
-  %3 = load i32, i32* %.omp.ub, align 4, !tbaa !6
-  %cmp37 = icmp slt i32 %3, 0
-  br i1 %cmp37, label %omp.loop.exit, label %omp.inner.for.body.lr.ph
+  br label %omp.inner.for.cond
 
-omp.inner.for.body.lr.ph:                         ; preds = %DIR.OMP.SIMD.2
-  %4 = bitcast i32* %i to i8*
-  %5 = load float*, float** %b.addr, align 8, !tbaa !2
-  %6 = load float*, float** %a.addr, align 8, !tbaa !2
-  %7 = add nuw i32 %3, 1
-  %wide.trip.count = zext i32 %7 to i64
-  br label %omp.inner.for.body
+omp.inner.for.cond:                               ; preds = %omp.inner.for.inc, %omp.precond.then
+  %9 = load i32, i32* %.omp.iv, align 4, !tbaa !6
+  %10 = load i32, i32* %.omp.ub, align 4, !tbaa !6
+  %cmp2 = icmp sle i32 %9, %10
+  br i1 %cmp2, label %omp.inner.for.body, label %omp.inner.for.end
 
-omp.inner.for.body:                               ; preds = %omp.inner.for.body, %omp.inner.for.body.lr.ph
-  %indvars.iv = phi i64 [ %indvars.iv.next, %omp.inner.for.body ], [ 0, %omp.inner.for.body.lr.ph ]
-  call void @llvm.lifetime.start.p0i8(i64 4, i8* nonnull %4) #2
-  %ptridx = getelementptr inbounds float, float* %5, i64 %indvars.iv
-  %8 = load float, float* %ptridx, align 4, !tbaa !8
-  %mul5 = fmul float %8, %8
-  %add6 = fadd float %8, %mul5
-  %conv8 = fadd float %add6, 1.000000e+00
-  %ptridx10 = getelementptr inbounds float, float* %6, i64 %indvars.iv
-  store float %conv8, float* %ptridx10, align 4, !tbaa !8
-  call void @llvm.lifetime.end.p0i8(i64 4, i8* nonnull %4) #2
-  %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
-  %exitcond = icmp eq i64 %indvars.iv.next, %wide.trip.count
-  br i1 %exitcond, label %omp.inner.for.cond.omp.loop.exit_crit_edge, label %omp.inner.for.body
+omp.inner.for.body:                               ; preds = %omp.inner.for.cond
+  %11 = bitcast i32* %i to i8*
+  call void @llvm.lifetime.start.p0i8(i64 4, i8* %11) #2
+  %12 = load i32, i32* %.omp.iv, align 4, !tbaa !6
+  %mul = mul nsw i32 %12, 1
+  %add = add nsw i32 0, %mul
+  store i32 %add, i32* %i, align 4, !tbaa !6
+  %13 = bitcast float* %tmp3 to i8*
+  call void @llvm.lifetime.start.p0i8(i64 4, i8* %13) #2
+  %14 = load float*, float** %b.addr, align 8, !tbaa !2
+  %15 = load i32, i32* %i, align 4, !tbaa !6
+  %idxprom = sext i32 %15 to i64
+  %ptridx = getelementptr inbounds float, float* %14, i64 %idxprom
+  ; CHECK: load float, float* %ptridx, align 4, !tbaa !8, !nontemporal
+  %16 = load float, float* %ptridx, align 4, !tbaa !8
+  store float %16, float* %tmp3, align 4, !tbaa !8
+  %17 = load float, float* %tmp3, align 4, !tbaa !8
+  %18 = load float, float* %tmp3, align 4, !tbaa !8
+  %mul4 = fmul float %17, %18
+  %19 = load float, float* %tmp3, align 4, !tbaa !8
+  %add5 = fadd float %mul4, %19
+  %conv = fpext float %add5 to double
+  %add6 = fadd double %conv, 1.000000e+00
+  %conv7 = fptrunc double %add6 to float
+  %20 = load float*, float** %a.addr, align 8, !tbaa !2
+  %21 = load i32, i32* %i, align 4, !tbaa !6
+  %idxprom8 = sext i32 %21 to i64
+  %ptridx9 = getelementptr inbounds float, float* %20, i64 %idxprom8
+  ;; CHECK: store float %conv7, float* %ptridx9, align 4, !tbaa !8, !nontemporal
+  store float %conv7, float* %ptridx9, align 4, !tbaa !8
+  %22 = bitcast float* %tmp3 to i8*
+  call void @llvm.lifetime.end.p0i8(i64 4, i8* %22) #2
+  br label %omp.body.continue
 
-omp.inner.for.cond.omp.loop.exit_crit_edge:       ; preds = %omp.inner.for.body
-  %9 = add i32 %3, 1
-  store i32 %9, i32* %.omp.iv, align 4, !tbaa !6
+omp.body.continue:                                ; preds = %omp.inner.for.body
+  %23 = bitcast i32* %i to i8*
+  call void @llvm.lifetime.end.p0i8(i64 4, i8* %23) #2
+  br label %omp.inner.for.inc
+
+omp.inner.for.inc:                                ; preds = %omp.body.continue
+  %24 = load i32, i32* %.omp.iv, align 4, !tbaa !6
+  %add10 = add nsw i32 %24, 1
+  store i32 %add10, i32* %.omp.iv, align 4, !tbaa !6
+  br label %omp.inner.for.cond
+
+omp.inner.for.end:                                ; preds = %omp.inner.for.cond
   br label %omp.loop.exit
 
-omp.loop.exit:                                    ; preds = %omp.inner.for.cond.omp.loop.exit_crit_edge, %DIR.OMP.SIMD.2
-  br label %DIR.OMP.END.SIMD.3
-
-DIR.OMP.END.SIMD.3:                               ; preds = %omp.loop.exit
-  call void @llvm.directive.region.exit(token %2) [ "DIR.OMP.END.SIMD"() ]
+omp.loop.exit:                                    ; preds = %omp.inner.for.end
+  call void @llvm.directive.region.exit(token %8) [ "DIR.OMP.END.SIMD"() ]
   br label %omp.precond.end
 
-omp.precond.end:                                  ; preds = %entry.omp.precond.end_crit_edge, %DIR.OMP.END.SIMD.3
-  %.pre-phi10 = phi i8* [ %.pre9, %entry.omp.precond.end_crit_edge ], [ %0, %DIR.OMP.END.SIMD.3 ]
-  %.pre-phi = phi i8* [ %.pre, %entry.omp.precond.end_crit_edge ], [ %1, %DIR.OMP.END.SIMD.3 ]
-  call void @llvm.lifetime.end.p0i8(i64 4, i8* nonnull %.pre-phi) #2
-  call void @llvm.lifetime.end.p0i8(i64 4, i8* nonnull %.pre-phi10) #2
+omp.precond.end:                                  ; preds = %omp.loop.exit, %entry
+  %25 = bitcast i32* %.omp.ub to i8*
+  call void @llvm.lifetime.end.p0i8(i64 4, i8* %25) #2
+  %26 = bitcast i32* %.omp.iv to i8*
+  call void @llvm.lifetime.end.p0i8(i64 4, i8* %26) #2
+  %27 = bitcast i32* %.capture_expr.1 to i8*
+  call void @llvm.lifetime.end.p0i8(i64 4, i8* %27) #2
+  %28 = bitcast i32* %.capture_expr.0 to i8*
+  call void @llvm.lifetime.end.p0i8(i64 4, i8* %28) #2
   ret void
 }
 

@@ -193,6 +193,24 @@ exit:
   ret void
 }
 
+declare i1 @foo(i32)
+define void @test_const_latch_cond() {
+entry:
+  %lane = call i32 @llvm.vplan.laneid()
+  %mul = mul nsw nuw i32 %lane, %lane
+  br label %header
+
+header:
+  %cond = call i1 @foo(i32 %lane)
+  br i1 %cond, label %latch, label %exit
+
+latch:
+  ; This non-instruction cond bit used to cause a crash.
+  br i1 false, label %exit, label %header
+
+exit:
+  ret void
+}
 declare i32 @llvm.vplan.laneid()
 
 declare i1 @allzero(i1) #0

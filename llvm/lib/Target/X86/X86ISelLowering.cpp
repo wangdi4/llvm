@@ -5249,8 +5249,41 @@ bool X86TargetLowering::getTgtMemIntrinsic(IntrinsicInfo &Info,
                                            unsigned Intrinsic) const {
 
   const IntrinsicData* IntrData = getIntrinsicWithChain(Intrinsic);
-  if (!IntrData)
+  if (!IntrData) {
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX_MEMADVISE
+    switch (Intrinsic) {
+    case Intrinsic::x86_avx2_vmovadvisew_load_128:
+    case Intrinsic::x86_avx2_vmovadvisew_load_256:
+    case Intrinsic::x86_avx512_vmovadvisew_load_128:
+    case Intrinsic::x86_avx512_vmovadvisew_load_256:
+    case Intrinsic::x86_avx512_vmovadvisew_load_512: {
+      Info.opc = ISD::INTRINSIC_W_CHAIN;
+      Info.ptrVal = I.getArgOperand(0);
+      Info.memVT = MVT::getVT(I.getType());
+      Info.align = Align(1);
+      Info.flags |= MachineMemOperand::MOLoad;
+      return true;
+    }
+    case Intrinsic::x86_avx2_vmovadvisew_store_128:
+    case Intrinsic::x86_avx2_vmovadvisew_store_256:
+    case Intrinsic::x86_avx512_vmovadvisew_store_128:
+    case Intrinsic::x86_avx512_vmovadvisew_store_256:
+    case Intrinsic::x86_avx512_vmovadvisew_store_512: {
+      Info.opc = ISD::INTRINSIC_VOID;
+      Info.ptrVal = I.getArgOperand(0);
+      Info.memVT = MVT::getVT(I.getArgOperand(1)->getType());
+      Info.align = Align(1);
+      Info.flags |= MachineMemOperand::MOStore;
+      return true;
+    }
+    default:
+      break;
+    }
+#endif // INTEL_FEATURE_ISA_AVX_MEMADVISE
+#endif // INTEL_CUSTOMIZATION
     return false;
+  }
 
   Info.flags = MachineMemOperand::MONone;
   Info.offset = 0;

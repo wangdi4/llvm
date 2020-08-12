@@ -97,10 +97,6 @@ static cl::opt<unsigned> VPlanVectCand(
 static cl::opt<unsigned> VPlanForceUF("vplan-force-uf", cl::init(0),
                                       cl::desc("Force VPlan to use given UF"));
 
-static cl::opt<bool> EnableAllZeroBypass(
-    "vplan-enable-all-zero-bypass", cl::init(false), cl::Hidden,
-    cl::desc("Enable all-zero bypass insertion for VPlan."));
-
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 static cl::opt<bool>
     VPlanPrintInit("vplan-print-after-init", cl::init(false),
@@ -325,8 +321,7 @@ bool VPlanDriverImpl::processLoop(Loop *Lp, Function &Fn,
 
   // All-zero bypass is added after best plan selection because cost model
   // tuning is not yet implemented and we don't want to prevent vectorization.
-  if (EnableAllZeroBypass)
-    LVP.insertAllZeroBypasses(Plan);
+  LVP.insertAllZeroBypasses(Plan);
 
   unsigned UF = VPlanForceUF;
   if (UF == 0)
@@ -1124,8 +1119,7 @@ bool VPlanDriverHIRImpl::processLoop(HLLoop *Lp, Function &Fn,
 
   // All-zero bypass is added after best plan selection because cost model
   // tuning is not yet implemented and we don't want to prevent vectorization.
-  if (EnableAllZeroBypass)
-    LVP.insertAllZeroBypasses(Plan);
+  LVP.insertAllZeroBypasses(Plan);
 
   unsigned UF = HLoop->getUnrollPragmaCount();
   if (VPlanForceUF)

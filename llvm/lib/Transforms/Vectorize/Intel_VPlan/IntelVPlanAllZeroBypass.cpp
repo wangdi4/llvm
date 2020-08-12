@@ -170,8 +170,8 @@ void VPlanAllZeroBypass::insertBypassForRegion(
 }
 
 // Returns true if predicate MaybePred is an anded part of BaseCond.
-static bool isStricterOrEqualPred(const VPValue *MaybePred,
-                                  const VPValue *BaseCond) {
+bool VPlanAllZeroBypass::isStricterOrEqualPred(const VPValue *MaybePred,
+                                               const VPValue *BaseCond) {
   if (MaybePred == nullptr)
     return false;
 
@@ -179,6 +179,35 @@ static bool isStricterOrEqualPred(const VPValue *MaybePred,
     return true;
 
   const VPInstruction *MaybePredInst = dyn_cast<VPInstruction>(MaybePred);
+  const VPInstruction *BaseCondInst = dyn_cast<VPInstruction>(BaseCond);
+  // Handle potential case where the block-predicate of a loop header is a
+  // phi and one of the incoming values to it is the block-predicate of the
+  // preheader. For example:
+  //
+  // preheader:
+  //  %pred = block-predicate %0
+  //  br %header
+  //
+  // header:
+  //  %iv = phi
+  //  %mask = phi [ %0 ],[ %mask.next ]
+  //  %pred.header = block-predicate %mask
+  //
+  if (BaseCondInst && MaybePredInst &&
+      MaybePredInst->getOpcode() == Instruction::PHI) {
+    const VPBasicBlock *MaybePredParent = MaybePredInst->getParent();
+    const VPBasicBlock *BaseCondParent = BaseCondInst->getParent();
+    VPLoopInfo *VPLI = Plan.getVPLoopInfo();
+    VPLoop *VPLp = VPLI->getLoopFor(MaybePredParent);
+    VPBasicBlock *Preheader = VPLp->getLoopPreheader();
+    VPBasicBlock *Header = VPLp->getHeader();
+    if (BaseCondParent == Preheader && MaybePredParent == Header) {
+      const VPPHINode *HeaderPhi = cast<VPPHINode>(MaybePredInst);
+      VPValue *PreheaderPred = Preheader->getBlockPredicate();
+      if (PreheaderPred == BaseCond)
+        return HeaderPhi->getIncomingValue(Preheader) == BaseCond;
+    }
+  }
   if (MaybePredInst && MaybePredInst->getOpcode() == Instruction::And) {
     return (isStricterOrEqualPred(MaybePredInst->getOperand(0), BaseCond) ||
             isStricterOrEqualPred(MaybePredInst->getOperand(1), BaseCond));
@@ -203,9 +232,9 @@ static void getUnpredicatedInstructions(
   }
 }
 
-void VPlanAllZeroBypass::verifyBypassRegion(BypassPairTy &Region) {
-  SmallPtrSet<VPBasicBlock *, 4> RegionBlocks;
-  getRegionBlocks(Region.first, Region.second, RegionBlocks);
+void VPlanAllZeroBypass::verifyBypassRegion(
+    VPBasicBlock *FirstBlockInRegion,
+    SmallPtrSetImpl<VPBasicBlock *> &RegionBlocks) {
   for (auto *RegionBlock : RegionBlocks) {
     // For any phis in the region we want to assert that any incoming blocks
     // to those phis are part of the region. This will catch if all-zero
@@ -214,7 +243,7 @@ void VPlanAllZeroBypass::verifyBypassRegion(BypassPairTy &Region) {
     // in the region. In this case, the instructions appearing before
     // before the block predicate, including phis, will not be included in
     // the region because they will be hoisted above the all-zero check.
-    if (RegionBlock == Region.first)
+    if (RegionBlock == FirstBlockInRegion)
       continue;
     for (auto &VPInst : *RegionBlock) {
       if (auto *VPPhi = dyn_cast<VPPHINode>(&VPInst)) {
@@ -227,40 +256,135 @@ void VPlanAllZeroBypass::verifyBypassRegion(BypassPairTy &Region) {
   }
 }
 
-void VPlanAllZeroBypass::collectAllZeroBypassRegions(
-    AllZeroBypassRegionsTy &AllZeroBypassRegions) {
-  // Keep a map of the regions collected under a specific block-predicate
-  // to avoid collecting/inserting unnecessary regions.
-  RegionsInsertedTy RegionsCollected;
+bool VPlanAllZeroBypass::regionFoundForBlock(
+    VPBasicBlock *Block,
+    VPValue *Pred,
+    RegionsCollectedTy &RegionsCollected) {
+  for (auto &Region :
+       make_range(RegionsCollected.lower_bound(Pred),
+                  RegionsCollected.upper_bound(Pred))) {
+    auto &CollectedRegionBlocks = Region.second;
+    if (CollectedRegionBlocks.count(Block))
+      return true;
+  }
+  return false;
+}
+
+void VPlanAllZeroBypass::collectAllZeroBypassLoopRegions(
+    AllZeroBypassRegionsTy &AllZeroBypassRegions,
+    RegionsCollectedTy &RegionsCollected) {
+  VPLoopInfo *VPLI = Plan.getVPLoopInfo();
+  SmallPtrSet<VPBasicBlock *, 4> RegionBlocks;
+  for (auto *VPLp : VPLI->getLoopsInPreorder()) {
+    VPBasicBlock *Preheader = VPLp->getLoopPreheader();
+    VPValue *PreheaderPred = Preheader ? Preheader->getPredicate() : nullptr;
+    // Loop is not predicated, so skip to the next one. E.g., outermost loop.
+    if (!PreheaderPred)
+      continue;
+    // Try to extend loop region by going up the single predecessor chain
+    // and checking for predicate instructions that are anded with the
+    // preheader block-predicate.
+    VPBasicBlock *RegionBegin = Preheader;
+    VPBasicBlock *SinglePred = Preheader->getSinglePredecessor();
+    while (SinglePred) {
+      VPValue *SinglePredPred = SinglePred->getPredicate();
+      if (SinglePredPred &&
+          !isStricterOrEqualPred(SinglePredPred, PreheaderPred))
+        break;
+      SmallVector<VPInstruction *, 4> UnpredicatedInsts;
+      getUnpredicatedInstructions(SinglePred, UnpredicatedInsts);
+      if (any_of(UnpredicatedInsts,
+                 [PreheaderPred, this] (const VPInstruction *VPInst) {
+             return (!isa<VPBranchInst>(VPInst) &&
+                     !isStricterOrEqualPred(VPInst, PreheaderPred));
+         }))
+        break;
+      RegionBegin = SinglePred;
+      SinglePred = SinglePred->getSinglePredecessor();
+    }
+
+    // Going back up the single predecessor chain may have left us at a
+    // block without a block-predicate. E.g., a block containing the def
+    // of the preheader block-predicate as an 'and' instruction. In case
+    // something like that happens, roll forward to the nearest successor
+    // that has a block-predicate defined.
+    while (!RegionBegin->getPredicate())
+      RegionBegin = RegionBegin->getSingleSuccessor();
+
+    // Try to extend loop region by going down single successor chain and
+    // checking for predicate instructions that are anded with the preheader
+    // block-predicate.
+    VPBasicBlock *Exit = VPLp->getExitBlock();
+    VPBasicBlock *RegionEnd = Exit;
+    VPBasicBlock *SingleSucc = Exit->getSingleSuccessor();
+    while (SingleSucc) {
+      VPValue *SingleSuccPred = SingleSucc->getPredicate();
+      if (SingleSuccPred &&
+          !isStricterOrEqualPred(SingleSuccPred, PreheaderPred))
+        break;
+      SmallVector<VPInstruction *, 4> UnpredicatedInsts;
+      getUnpredicatedInstructions(SingleSucc, UnpredicatedInsts);
+      if (any_of(UnpredicatedInsts,
+                 [PreheaderPred, this] (const VPInstruction *VPInst) {
+             return (!isa<VPBranchInst>(VPInst) &&
+                     !isStricterOrEqualPred(VPInst, PreheaderPred));
+         }))
+        break;
+      RegionEnd = SingleSucc;
+      SingleSucc = SingleSucc->getSingleSuccessor();
+    }
+
+    getRegionBlocks(RegionBegin, RegionEnd, RegionBlocks);
+    BypassPairTy BypassRegion = std::make_pair(RegionBegin, RegionEnd);
+    verifyBypassRegion(RegionBegin, RegionBlocks);
+    AllZeroBypassRegions.push_back(BypassRegion);
+    RegionsCollected.insert(std::make_pair(PreheaderPred, RegionBlocks));
+  }
+}
+
+void VPlanAllZeroBypass::collectAllZeroBypassNonLoopRegions(
+    AllZeroBypassRegionsTy &AllZeroBypassRegions,
+    RegionsCollectedTy &RegionsCollected) {
+
+  VPLoopInfo *VPLI = Plan.getVPLoopInfo();
 
   // Detect blocks that are candidates to begin a bypass region. Candidate
-  // blocks are simply those that contain block-predicates with single
-  // successor since regions will be formed on blocks under linearized
-  // control flow. This will skip divergent loop backedges appropriately,
-  // and region formation for loops will still happen from the loop preheader
-  // and include this block.
+  // blocks are those that contain block-predicates, have a single successor,
+  // and have not already been included within a loop bypass region. Candidates
+  // must have a single successor because the RPO iterator below assumes this
+  // during region formation. We may later choose to relax this assumption if it
+  // is possible to begin a region with a block containing multiple successors,
+  // but this seems unlikely.
   SmallVector<VPBasicBlock *, 16> CandidateBlocks;
   ReversePostOrderTraversal<VPBasicBlock *> RPOT(Plan.getEntryBlock());
   for (auto *Block : RPOT) {
-    VPValue *BlockPredicate = Block->getPredicate();
-    if (BlockPredicate && Block->getSingleSuccessor())
-      CandidateBlocks.push_back(Block);
+    VPValue *BlockPred = Block->getPredicate();
+    if (!BlockPred || !Block->getSingleSuccessor() ||
+        regionFoundForBlock(Block, BlockPred, RegionsCollected))
+      continue;
+    CandidateBlocks.push_back(Block);
   }
 
-  // Build bypass regions from outermost to innermost. This makes it easier to
-  // prevent insertion of redundant regions.
+  // Build non-loop bypass regions from outermost to innermost. This makes it
+  // easier to prevent insertion of redundant regions.
   for (auto *CandidateBlock : CandidateBlocks) {
     assert(CandidateBlock->getSingleSuccessor() &&
            "Bypass region should start from linearized control flow");
-    // Candidate Block is included in the region as the first and last in the
-    // region.
-    VPBasicBlock *LastBB = CandidateBlock;
+
     // CandidateBlockPred will never be null here due to previous nullptr
     // check for CandidateBlocks insertion above, but assert just in case.
     VPValue *CandidateBlockPred = CandidateBlock->getPredicate();
     assert(CandidateBlockPred &&
            "Candidate block for bypass should have a predicate");
-    unsigned NumBlocks = 1;
+
+    // Collect blocks for the region on-the-fly so we can check to make sure
+    // incoming blocks for phis are in the region.
+    SmallPtrSet<VPBasicBlock *, 4> RegionBlocks;
+
+    // Candidate Block is included in the region as the first and last in the
+    // region.
+    VPBasicBlock *LastBB = CandidateBlock;
+    RegionBlocks.insert(CandidateBlock);
     // Re-use existing RPOT beginning at VPlan entry. Advance RPOT iterator
     // to the single successor of CandidateBlock to begin candidate region
     // collection.
@@ -268,6 +392,39 @@ void VPlanAllZeroBypass::collectAllZeroBypassRegions(
     while (*BlockIt != CandidateBlock->getSingleSuccessor())
       ++BlockIt;
     while (BlockIt != RPOT.end()) {
+      // Process loops here. Record all loop blocks in RegionBlocks and advance
+      // the RPO iterator to the next block after the exit and continue trying
+      // to expand the region. Since this function collects non-loop regions,
+      // the loop detection here is used to expand the region around the loop
+      // only and is not necessarily used for stability. Although, if a larger
+      // region is formed around this loop using the same block-predicate, then
+      // inserting another region around the loop is redundant and can be
+      // eliminated. We collect the set of LoopBlocks all at once, rather than
+      // trying to follow block-predicates, for several reasons:
+      // 1) Latch for divergent inner loops will not have a block-predicate
+      //    because LoopCFU will make the loop exit condition uniform. However,
+      //    there can still be a divergent top test entering such loops, so they
+      //    can have a bypass.
+      // 2) There's also really no need to traverse all blocks in the region
+      //    and match the block-predicate when we can simply just add all blocks
+      //    of a divergent loop at once.
+      // 3) Loop bypasses are needed for stability and no cost modeling is done
+      //    for them (see collectAllZeroBypassLoopRegions()).
+      // 4) This allows the rest of the region collection algorithm to not have
+      //    to deal with backedges. All predecessors of a block can easily be
+      //    checked that they reside in the region.
+      if (VPLI->isLoopHeader(*BlockIt) &&
+          isStricterOrEqualPred((*BlockIt)->getPredicate(),
+                                CandidateBlockPred)) {
+        VPLoop *VPLp = VPLI->getLoopFor(*BlockIt);
+        VPBasicBlock *LoopExit = VPLp->getExitBlock();
+        SmallPtrSet<VPBasicBlock *, 4> LoopBlocks;
+        RegionBlocks.insert(LoopBlocks.begin(), LoopBlocks.end());
+        while (*BlockIt != LoopExit)
+          LastBB = *(++BlockIt);
+        ++BlockIt;
+      }
+
       // Bypass region will include blocks that only compute predicates and
       // blocks where the block-predicate is anded with the one from the block
       // that will start the bypass (CandidateBlock). For example, after
@@ -320,21 +477,57 @@ void VPlanAllZeroBypass::collectAllZeroBypassRegions(
       SmallVector<VPInstruction *, 4> UnpredicatedInsts;
       getUnpredicatedInstructions(*BlockIt, UnpredicatedInsts);
       if (any_of(UnpredicatedInsts,
-                 [CandidateBlockPred](const VPInstruction *VPInst) {
-                   // Skip phi nodes because even though they are considered
-                   // unpredicated they will not necessarily be anded with
-                   // CandidateBlockPred. If phis are not skipped, we will
-                   // introduce an additional region for loop preheader blocks.
-                   // Besides, we assert that any incoming blocks for phis are
-                   // contained within the same region as the block containing
-                   // the phi. The only requirement for blend is that all
-                   // incoming values/predicates are defined before the use
-                   // (i.e., regions are formed while maintaining proper SSA).
+                 [CandidateBlockPred, this] (const VPInstruction *VPInst) {
+                   // Skip phi nodes here because even though they are
+                   // unpredicated we will use a separate check to ensure that
+                   // all predecessors of the block containing the phi belong
+                   // to the region.
+                   // FIXME: Blend handling is wrong. Blend instruction mask
+                   // operands must also be anded (isStricterOrEqualPred
+                   // returns true) with the block-predicate used in the all-
+                   // zero bypass check. Otherwise, we will have a blend under
+                   // the influence of one block-predicate that could be
+                   // bypassed (blend never executed), and we won't get the
+                   // correct result from the blend since the other values will
+                   // never be selected. See vplan_predicator.ll.
+                   // (test_separate_blend_bb_for_2_div_plus_uniform)
+                   // E.g., prevent a region formed around blocks BB5 and
+                   // BLEND_BB0 because VP_BB1_VARYING_NOT may have all lanes
+                   // active, which means VP_BB1_VARYING is all-zero, and the
+                   // live-out value for the blend along the all-zero edge
+                   // will be incorrect. Will create a separate patch for
+                   // this.
+                   //
+                   // [[BB4]]:
+                   //  [[VP0:%.*]] = block-predicate i1 [[VP_BB1_VARYING_NOT]]
+                   //  SUCCESSORS(1):[[BB5:BB[0-9]+]]
+                   //  PREDECESSORS(1): [[BB2]]
+                   //
+                   // [[BB5]]:
+                   //  [[VP1:%.*]] = block-predicate i1 [[VP_BB1_VARYING]]
+                   //  SUCCESSORS(1):[[BLEND_BB0:blend.bb[0-9]+]]
+                   //  PREDECESSORS(1): [[BB4]]
+                   //
+                   // [[BLEND_BB0]]:
+                   //  [[VP_PHI_BLEND_BB5:%.*]] =
+                   //    blend [ i32 2, i1 [[VP_BB1_VARYING_NOT]] ],
+                   //          [ i32 3, i1 [[VP_BB1_VARYING]] ]
+                   //  SUCCESSORS(1):[[BB3]]
+                   //  PREDECESSORS(1): [[BB5]]
                    return (!isa<VPPHINode>(VPInst) &&
                            !isa<VPBlendInst>(VPInst) &&
                            !isa<VPBranchInst>(VPInst) &&
                            !isStricterOrEqualPred(VPInst, CandidateBlockPred));
-                 }))
+               }))
+        break;
+
+      // All predecessors of the current block should already be included
+      // in the region. Loop latches are pre-recorded above to allow this
+      // check to be done here.
+      if (any_of((*BlockIt)->getPredecessors(),
+                 [&RegionBlocks] (VPBasicBlock *Pred) {
+                  return !RegionBlocks.count(Pred);
+                }))
         break;
 
       if (auto *BlockPred = (*BlockIt)->getPredicate())
@@ -342,33 +535,24 @@ void VPlanAllZeroBypass::collectAllZeroBypassRegions(
           break;
 
       LastBB = *BlockIt;
-      NumBlocks++;
+      RegionBlocks.insert(LastBB);
       ++BlockIt;
     }
 
     // Check to see if this region is inside another region that already
     // uses the same block-predicate to form the all-zero bypass. If so,
     // then the region is unnecessary.
-    bool InsertRegion = true;
-    if (RegionsCollected.count(CandidateBlockPred)) {
-      for (auto CollectedRegion : RegionsCollected[CandidateBlockPred]) {
-        SmallPtrSet<VPBasicBlock *, 4> CollectedRegionBlocks;
-        getRegionBlocks(CollectedRegion.first, CollectedRegion.second,
-                        CollectedRegionBlocks);
-        if (CollectedRegionBlocks.count(CandidateBlock)) {
-          InsertRegion = false;
-          break;
-        }
-      }
-    }
+    if (regionFoundForBlock(CandidateBlock, CandidateBlockPred,
+                            RegionsCollected))
+      continue;
 
     // Basic tuning for all-zero bypass candidate regions at the moment.
     // Later, we can switch to a cost-model based approach if necessary.
-    if (InsertRegion && NumBlocks >= RegionThreshold) {
+    if (RegionBlocks.size() >= RegionThreshold) {
       BypassPairTy BypassRegion = std::make_pair(CandidateBlock, LastBB);
-      verifyBypassRegion(BypassRegion);
+      verifyBypassRegion(CandidateBlock, RegionBlocks);
       AllZeroBypassRegions.push_back(BypassRegion);
-      RegionsCollected[CandidateBlockPred].push_back(BypassRegion);
+      RegionsCollected.insert(std::make_pair(CandidateBlockPred, RegionBlocks));
     }
   }
 }

@@ -1,0 +1,66 @@
+// REQUIRES: intel_feature_isa_avx_memadvise
+// RUN: llvm-mc -triple x86_64-unknown-unknown --show-encoding < %s  | FileCheck %s
+
+// CHECK:      vmovadvisew  $123, 268435456(%rbp,%r14,8), %xmm12
+// CHECK: encoding: [0xc4,0x23,0x7a,0x10,0xa4,0xf5,0x00,0x00,0x00,0x10,0x7b]
+               vmovadvisew  $123, 268435456(%rbp,%r14,8), %xmm12
+
+// CHECK:      vmovadvisew  $123, (%r9), %xmm12
+// CHECK: encoding: [0xc4,0x43,0x7a,0x10,0x21,0x7b]
+               vmovadvisew  $123, (%r9), %xmm12
+
+// CHECK:      vmovadvisew  $123, 2032(%rcx), %xmm12
+// CHECK: encoding: [0xc4,0x63,0x7a,0x10,0xa1,0xf0,0x07,0x00,0x00,0x7b]
+               vmovadvisew  $123, 2032(%rcx), %xmm12
+
+// CHECK:      vmovadvisew  $123, -2048(%rdx), %xmm12
+// CHECK: encoding: [0xc4,0x63,0x7a,0x10,0xa2,0x00,0xf8,0xff,0xff,0x7b]
+               vmovadvisew  $123, -2048(%rdx), %xmm12
+
+// CHECK:      vmovadvisew  $123, 268435456(%rbp,%r14,8), %ymm12
+// CHECK: encoding: [0xc4,0x23,0x7e,0x10,0xa4,0xf5,0x00,0x00,0x00,0x10,0x7b]
+               vmovadvisew  $123, 268435456(%rbp,%r14,8), %ymm12
+
+// CHECK:      vmovadvisew  $123, (%r9), %ymm12
+// CHECK: encoding: [0xc4,0x43,0x7e,0x10,0x21,0x7b]
+               vmovadvisew  $123, (%r9), %ymm12
+
+// CHECK:      vmovadvisew  $123, 4064(%rcx), %ymm12
+// CHECK: encoding: [0xc4,0x63,0x7e,0x10,0xa1,0xe0,0x0f,0x00,0x00,0x7b]
+               vmovadvisew  $123, 4064(%rcx), %ymm12
+
+// CHECK:      vmovadvisew  $123, -4096(%rdx), %ymm12
+// CHECK: encoding: [0xc4,0x63,0x7e,0x10,0xa2,0x00,0xf0,0xff,0xff,0x7b]
+               vmovadvisew  $123, -4096(%rdx), %ymm12
+
+// CHECK:      vmovadvisew  $123, %xmm12, 268435456(%rbp,%r14,8)
+// CHECK: encoding: [0xc4,0x23,0x7a,0x11,0xa4,0xf5,0x00,0x00,0x00,0x10,0x7b]
+               vmovadvisew  $123, %xmm12, 268435456(%rbp,%r14,8)
+
+// CHECK:      vmovadvisew  $123, %xmm12, (%r9)
+// CHECK: encoding: [0xc4,0x43,0x7a,0x11,0x21,0x7b]
+               vmovadvisew  $123, %xmm12, (%r9)
+
+// CHECK:      vmovadvisew  $123, %xmm12, 2032(%rcx)
+// CHECK: encoding: [0xc4,0x63,0x7a,0x11,0xa1,0xf0,0x07,0x00,0x00,0x7b]
+               vmovadvisew  $123, %xmm12, 2032(%rcx)
+
+// CHECK:      vmovadvisew  $123, %xmm12, -2048(%rdx)
+// CHECK: encoding: [0xc4,0x63,0x7a,0x11,0xa2,0x00,0xf8,0xff,0xff,0x7b]
+               vmovadvisew  $123, %xmm12, -2048(%rdx)
+
+// CHECK:      vmovadvisew  $123, %ymm12, 268435456(%rbp,%r14,8)
+// CHECK: encoding: [0xc4,0x23,0x7e,0x11,0xa4,0xf5,0x00,0x00,0x00,0x10,0x7b]
+               vmovadvisew  $123, %ymm12, 268435456(%rbp,%r14,8)
+
+// CHECK:      vmovadvisew  $123, %ymm12, (%r9)
+// CHECK: encoding: [0xc4,0x43,0x7e,0x11,0x21,0x7b]
+               vmovadvisew  $123, %ymm12, (%r9)
+
+// CHECK:      vmovadvisew  $123, %ymm12, 4064(%rcx)
+// CHECK: encoding: [0xc4,0x63,0x7e,0x11,0xa1,0xe0,0x0f,0x00,0x00,0x7b]
+               vmovadvisew  $123, %ymm12, 4064(%rcx)
+
+// CHECK:      vmovadvisew  $123, %ymm12, -4096(%rdx)
+// CHECK: encoding: [0xc4,0x63,0x7e,0x11,0xa2,0x00,0xf0,0xff,0xff,0x7b]
+               vmovadvisew  $123, %ymm12, -4096(%rdx)

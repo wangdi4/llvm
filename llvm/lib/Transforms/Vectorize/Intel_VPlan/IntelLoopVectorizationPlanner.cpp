@@ -60,6 +60,14 @@ static cl::opt<bool>
     DisableVPlanPredicator("disable-vplan-predicator", cl::init(false),
                            cl::Hidden, cl::desc("Disable VPlan predicator."));
 
+static cl::opt<bool> EnableAllZeroBypassNonLoops(
+    "vplan-enable-all-zero-bypass-non-loops", cl::init(false), cl::Hidden,
+    cl::desc("Enable all-zero bypass insertion for non-loops."));
+
+static cl::opt<bool> EnableAllZeroBypassLoops(
+    "vplan-enable-all-zero-bypass-loops", cl::init(false), cl::Hidden,
+    cl::desc("Enable all-zero bypass insertion for loops."));
+
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 static cl::list<unsigned> VPlanCostModelPrintAnalysisForVF(
     "vplan-cost-model-print-analysis-for-vf", cl::Hidden, cl::CommaSeparated,
@@ -542,10 +550,20 @@ void LoopVectorizationPlanner::insertAllZeroBypasses(VPlan *Plan) {
 
   // Holds the pair of blocks representing the begin/end of an all-zero
   // bypass region. The block-predicate at the begin block is used to
-  // generate the bypass.
+  // generate the bypass. This is the final record of all-zero bypass
+  // regions that will be inserted.
   VPlanAllZeroBypass::AllZeroBypassRegionsTy AllZeroBypassRegions;
+  // Keep a map of the regions collected under a specific block-predicate
+  // to avoid collecting/inserting unnecessary regions. This data structure
+  // records the same regions as AllZeroBypassRegions, but is keyed by
+  // block-predicate for quick look-up.
+  VPlanAllZeroBypass::RegionsCollectedTy RegionsCollected;
   VPlanAllZeroBypass AZB(*Plan);
-  AZB.collectAllZeroBypassRegions(AllZeroBypassRegions);
+  if (EnableAllZeroBypassLoops)
+    AZB.collectAllZeroBypassLoopRegions(AllZeroBypassRegions, RegionsCollected);
+  if (EnableAllZeroBypassNonLoops)
+    AZB.collectAllZeroBypassNonLoopRegions(AllZeroBypassRegions,
+                                           RegionsCollected);
   AZB.insertAllZeroBypasses(AllZeroBypassRegions);
 
   VPLAN_DUMP(PrintAfterAllZeroBypass, "all zero bypass insertion", Plan);

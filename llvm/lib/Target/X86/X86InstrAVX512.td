@@ -14821,4 +14821,41 @@ defm VCVTNEPH2BF16 : avx512_cvtbf16ph<0x67, "vcvtneph2bf16", avx512vl_f16_info, 
                                       EVEX_CD8<16, CD8VF>, T8XD;
 
 #endif // INTEL_FEATURE_ISA_AVX512_CONVERT
+
+#if INTEL_FEATURE_ISA_AVX_MEMADVISE
+multiclass avx512_vmovadvisew_packed<string OpcodeStr, X86VectorVTInfo _,
+                                     Intrinsic IntrLoad, Intrinsic IntrStore,
+                                     X86SchedWriteMoveLS sched>{
+  def rmi : AVX512<0x10, MRMSrcMem,
+                   (outs _.RC:$dst), (ins _.MemOp:$src1, u8imm:$src2),
+                   !strconcat(OpcodeStr, "\t{$src2, $src1, $dst|$dst, $src1, $src2}"),
+                   [(set _.RC:$dst, (IntrLoad addr:$src1, timm:$src2))]>,
+                   AVX512XSIi8Base, TA, EVEX, Sched<[sched.RM]>, NotEVEX2VEXConvertible;
+  def mri : AVX512<0x11, MRMDestMem,
+                   (outs), (ins _.MemOp:$dst, _.RC:$src1, u8imm:$src2),
+                   !strconcat(OpcodeStr, "\t{$src2, $src1, $dst|$dst, $src1, $src2}"),
+                   [(IntrStore addr:$dst, _.RC:$src1, timm:$src2)]>,
+                   AVX512XSIi8Base, TA, EVEX, Sched<[sched.MR]>, NotEVEX2VEXConvertible, NotMemoryFoldable;
+}
+
+multiclass avx512_vmovadvisew_packed_all<string OpcodeStr>{
+  let Predicates = [HasAVX512MEMADVISE, In64BitMode] in
+    defm Z512 : avx512_vmovadvisew_packed<OpcodeStr, v16i32_info,
+                                          int_x86_avx512_vmovadvisew_load_512,
+                                          int_x86_avx512_vmovadvisew_store_512,
+                                          SchedWriteFMoveLS.ZMM>, EVEX_V512;
+  let Predicates = [HasAVX512MEMADVISE, HasVLX, In64BitMode] in {
+    defm Z256 : avx512_vmovadvisew_packed<OpcodeStr, v8i32x_info,
+                                          int_x86_avx512_vmovadvisew_load_256,
+                                          int_x86_avx512_vmovadvisew_store_256,
+                                          SchedWriteFMoveLS.YMM>, EVEX_V256, ExplicitEVEXPrefix;
+    defm Z128 : avx512_vmovadvisew_packed<OpcodeStr, v4i32x_info,
+                                          int_x86_avx512_vmovadvisew_load_128,
+                                          int_x86_avx512_vmovadvisew_store_128,
+                                          SchedWriteFMoveLS.XMM>, EVEX_V128, ExplicitEVEXPrefix;
+  }
+}
+
+defm VMOVADVISEW : avx512_vmovadvisew_packed_all<"vmovadvisew">;
+#endif // INTEL_FEATURE_ISA_AVX_MEMADVISE
 #endif // INTEL_CUSTOMIZATION
