@@ -407,6 +407,7 @@ set( SYCL_TOOLCHAIN_DEPLOY_COMPONENTS
      clang-offload-wrapper
      clang-offload-bundler
      file-table-tform
+     level-zero-loader
      llc
      llvm-ar
      llvm-foreach

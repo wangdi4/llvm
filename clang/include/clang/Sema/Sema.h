@@ -12532,6 +12532,9 @@ private:
                  bool IsMemberFunction, SourceLocation Loc, SourceRange Range,
                  VariadicCallType CallType);
 
+  void CheckSYCLKernelCall(FunctionDecl *CallerFunc, SourceRange CallLoc,
+                           ArrayRef<const Expr *> Args);
+
   bool CheckObjCString(Expr *Arg);
   ExprResult CheckOSLogFormatStringArg(Expr *Arg);
 
@@ -13004,7 +13007,7 @@ private:
   // Used to suppress diagnostics during kernel construction, since these were
   // already emitted earlier. Diagnosing during Kernel emissions also skips the
   // useful notes that shows where the kernel was called.
-  bool ConstructingOpenCLKernel = false;
+  bool DiagnosingSYCLKernel = false;
 
 public:
   void addSyclDeviceDecl(Decl *d) { SyclDeviceDecls.insert(d); }
