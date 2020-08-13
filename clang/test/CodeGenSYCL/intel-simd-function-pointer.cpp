@@ -1,6 +1,8 @@
 // RUN: %clang_cc1 -emit-llvm -o - -std=c++17 -fsycl -fsycl-is-device\
 // RUN: -fenable-variant-function-pointers  -fsycl-explicit-simd \
 // RUN:  -triple spir64-unknown-linux-sycldevice %s | FileCheck %s
+// INTEL: enable with CMPLRLLVM-21860 fix.
+// XFAIL: *
 
 template <typename name, typename Func>
 __attribute__((sycl_kernel)) void kernel_single_task(Func kernelFunc) {

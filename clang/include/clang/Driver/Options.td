@@ -5067,8 +5067,13 @@ def fenable_variant_virtual_calls
 def fno_enable_variant_virtual_calls
     : Flag<["-"], "fno-enable-variant-virtual-calls">;
 #endif // INTEL_CUSTOMIZATION
+<<<<<<< HEAD
 def fenable_sycl_dae : Flag<["-"], "fenable-sycl-dae">,
   HelpText<"Enable Dead Argument Elimination in SPIR kernels">;
+=======
+def fsycl_enable_optimizations: Flag<["-"], "fsycl-enable-optimizations">,
+  HelpText<"Experimental flag enabling standard optimization in the front-end.">;
+>>>>>>> 1dcfa25add7bd3536e09142a0eb87c9c91d8bd90
 
 } // let Flags = [CC1Option]
 

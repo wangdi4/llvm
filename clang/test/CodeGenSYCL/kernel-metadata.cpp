@@ -5,7 +5,6 @@
 // CHECK-NOT: !kernel_arg_host_accessible
 // CHECK-NOT: !kernel_arg_pipe_depth
 // CHECK-NOT: !kernel_arg_pipe_io
-// CHECK-NOT: !kernel_arg_buffer_location
 // INTEL_CUSTOMIZATION
 // CHECK: ![[MDAS]] = !{i32 1, i32 0, i32 0, i32 0}
 // CHECK: ![[MDAC]] = !{!"none", !"none", !"none", !"none"}
