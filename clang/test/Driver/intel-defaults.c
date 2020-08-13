@@ -19,6 +19,13 @@
 // CHECK-INTEL-ZP-WIN: "-fpack-struct=16"
 // CHECK-INTEL-ZP-LIN-NOT: "-fpack-struct=16"
 
+// RUN: %clang -### -c --intel -g %s 2>&1 | FileCheck -check-prefix CHECK-INTEL-G %s
+// RUN: %clang_cl -### -c --intel -Zi %s 2>&1 | FileCheck -check-prefixes=CHECK-INTEL-G %s
+// RUN: %clang -### -c --intel -g -O2 %s 2>&1 | FileCheck -check-prefix CHECK-INTEL-G-O2 %s
+// RUN: %clang_cl -### -c --intel -Zi -O2 %s 2>&1 | FileCheck -check-prefixes=CHECK-INTEL-G-O2 %s
+// CHECK-INTEL-G-NOT: "-O2"
+// CHECK-INTEL-G-O2: "-O2"
+
 // /GS is not default
 // RUN: %clang_cl -### -c --intel %s 2>&1 | FileCheck -check-prefixes=CHECK-INTEL-GS %s
 // CHECK-INTEL-GS-NOT: "-stack-protector"
@@ -57,14 +64,17 @@
 // CHECK-INTEL-LIBS: "-L[[SYSROOT]]/usr/lib/gcc/x86_64-unknown-linux/4.6.0"
 // CHECK-INTEL-LIBS: "-Bstatic" "-lsvml" "-Bdynamic"
 // CHECK-INTEL-LIBS: "-Bstatic" "-lirng" "-Bdynamic"
+// CHECK-INTEL-LIBS: "-lgcc"
 // CHECK-INTEL-LIBS: "-Bstatic" "-lirc" "-Bdynamic"
 // CHECK-INTEL-LIBS: "-ldl"
 // CHECK-INTEL-LIBS: "-Bstatic" "-lirc_s" "-Bdynamic"
 
 // RUN: touch %t.o
 // RUN: %clang -### -shared --intel -target x86_64-unknown-linux %t.o 2>&1 | FileCheck -check-prefix CHECK-INTEL-LIBS-SHARED %s
+// RUN: %clang -### -mcmodel=medium --intel -target x86_64-unknown-linux %t.o 2>&1 | FileCheck -check-prefix CHECK-INTEL-LIBS-SHARED %s
 // CHECK-INTEL-LIBS-SHARED: "-lsvml"
 // CHECK-INTEL-LIBS-SHARED: "-lirng"
+// CHECK-INTEL-LIBS-SHARED: "-lgcc"
 // CHECK-INTEL-LIBS-SHARED: "-lintlc"
 // CHECK-INTEL-LIBS-SHARED: "-ldl"
 // CHECK-INTEL-LIBS-SHARED: "-lirc_s"
@@ -72,6 +82,7 @@
 // RUN: %clang -### -shared --intel -target i386-unknown-linux %t.o 2>&1 | FileCheck -check-prefix CHECK-INTEL-LIBS-SHARED32 %s
 // CHECK-INTEL-LIBS-SHARED32: "-lsvml"
 // CHECK-INTEL-LIBS-SHARED32: "-lirng"
+// CHECK-INTEL-LIBS-SHARED32: "-lgcc"
 // CHECK-INTEL-LIBS-SHARED32: "-lirc_pic"
 // CHECK-INTEL-LIBS-SHARED32: "-ldl"
 // CHECK-INTEL-LIBS-SHARED32: "-lirc_s"

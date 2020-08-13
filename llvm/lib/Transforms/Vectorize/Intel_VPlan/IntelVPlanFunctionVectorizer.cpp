@@ -67,9 +67,16 @@ static cl::opt<bool> DumpAfterPredicator(
 // due to failing vplan_preserveSSA_after_while_loop_canonicalization.ll.
 // https://git-amr-2.devtools.intel.com/gerrit/#/c/248816/ will address
 // this because it is the same issue.
-static cl::opt<bool> EnableFuncVecAllZeroBypass(
-    "enable-vplan-func-vec-all-zero-bypass",
-    cl::desc("Enable all-zero bypass for VPlan Function vectorization "),
+static cl::opt<bool> EnableFuncVecAllZeroBypassNonLoops(
+    "enable-vplan-func-vec-all-zero-bypass-non-loops",
+    cl::desc("Enable all-zero bypass for VPlan Function vectorization for "
+             "non-loops "),
+    cl::init(false), cl::Hidden);
+
+static cl::opt<bool> EnableFuncVecAllZeroBypassLoops(
+    "enable-vplan-func-vec-all-zero-bypass-loops",
+    cl::desc("Enable all-zero bypass for VPlan Function vectorization for "
+             "loops "),
     cl::init(false), cl::Hidden);
 
 static cl::opt<bool> DumpAfterAllZeroBypass(
@@ -137,14 +144,26 @@ public:
 
     VPLAN_DUMP(DumpAfterPredicator, *Plan);
 
-    if (EnableFuncVecAllZeroBypass) {
-      VPlanAllZeroBypass::AllZeroBypassRegionsTy AllZeroBypassRegions;
-      VPlanAllZeroBypass AZB(*Plan);
-      AZB.collectAllZeroBypassRegions(AllZeroBypassRegions);
-      AZB.insertAllZeroBypasses(AllZeroBypassRegions);
-      VPLAN_DUMP(DumpAfterAllZeroBypass, "all zero bypass", *Plan);
-      VPLAN_DOT(DotAfterAllZeroBypass, *Plan);
-    }
+    // Holds the pair of blocks representing the begin/end of an all-zero
+    // bypass region. The block-predicate at the begin block is used to
+    // generate the bypass. This is the final record of all-zero bypass
+    // regions that will be inserted.
+    VPlanAllZeroBypass::AllZeroBypassRegionsTy AllZeroBypassRegions;
+    // Keep a map of the regions collected under a specific block-predicate
+    // to avoid collecting/inserting unnecessary regions. This data structure
+    // records the same regions as AllZeroBypassRegions, but is keyed by
+    // block-predicate for quick look-up.
+    VPlanAllZeroBypass::RegionsCollectedTy RegionsCollected;
+    VPlanAllZeroBypass AZB(*Plan);
+    if (EnableFuncVecAllZeroBypassLoops)
+      AZB.collectAllZeroBypassLoopRegions(AllZeroBypassRegions,
+                                          RegionsCollected);
+    if (EnableFuncVecAllZeroBypassNonLoops)
+      AZB.collectAllZeroBypassNonLoopRegions(AllZeroBypassRegions,
+                                             RegionsCollected);
+    AZB.insertAllZeroBypasses(AllZeroBypassRegions);
+    VPLAN_DUMP(DumpAfterAllZeroBypass, "all zero bypass", *Plan);
+    VPLAN_DOT(DotAfterAllZeroBypass, *Plan);
 
     return false;
   }

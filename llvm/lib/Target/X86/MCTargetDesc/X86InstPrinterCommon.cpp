@@ -369,6 +369,8 @@ void X86InstPrinterCommon::printInstFlags(const MCInst *MI, raw_ostream &O) {
   if (TSFlags & X86II::ExplicitVEXPrefix)
     // These all require a pseudo prefix
     O << "\t{vex}";
+  else if (TSFlags & X86II::ExplicitEVEXPrefix)
+    O << "\t{evex}";
 #endif // INTEL_CUSTOMIZATION
 }
 

@@ -184,6 +184,22 @@ VPlanCFGBuilderBase<CFGBuilder>::createVPInstruction(Instruction *Inst) {
                                         VPOperands.end() - 1);
       VPValue *CalledValue = getOrCreateVPOperand(Call->getCalledOperand());
       NewVPInst = VPIRBuilder.createCall(CalledValue, ArgList, Call);
+    } else if (auto *Load = dyn_cast<LoadInst>(Inst)) {
+      NewVPInst = VPIRBuilder.createLoad(Load->getType(), VPOperands[0], Load,
+                                         Load->getName());
+      // Set attributes for load.
+      cast<VPLoadStoreInst>(NewVPInst)->setAlignment(Load->getAlign());
+      cast<VPLoadStoreInst>(NewVPInst)->setOrdering(Load->getOrdering());
+      cast<VPLoadStoreInst>(NewVPInst)->setVolatile(Load->isVolatile());
+      cast<VPLoadStoreInst>(NewVPInst)->setSyncScopeID(Load->getSyncScopeID());
+    } else if (auto *Store = dyn_cast<StoreInst>(Inst)) {
+      NewVPInst = VPIRBuilder.createStore(VPOperands[0], VPOperands[1], Store,
+                                          Store->getName());
+      // Set attributes for store.
+      cast<VPLoadStoreInst>(NewVPInst)->setAlignment(Store->getAlign());
+      cast<VPLoadStoreInst>(NewVPInst)->setOrdering(Store->getOrdering());
+      cast<VPLoadStoreInst>(NewVPInst)->setVolatile(Store->isVolatile());
+      cast<VPLoadStoreInst>(NewVPInst)->setSyncScopeID(Store->getSyncScopeID());
     } else
       // Build VPInstruction for any arbitraty Instruction without specific
       // representation in VPlan.

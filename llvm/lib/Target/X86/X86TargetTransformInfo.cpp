@@ -3302,6 +3302,12 @@ int X86TTIImpl::getMaskedMemoryOpCost(unsigned Opcode, Type *SrcTy,
   if ((IsLoad && !isLegalMaskedLoad(SrcVTy, Alignment)) ||
       (IsStore && !isLegalMaskedStore(SrcVTy, Alignment)) ||
       !isPowerOf2_32(NumElem)) {
+#if INTEL_CUSTOMIZATION
+    // CMPLRLLVM-20504 Increase store cost to the value I'm told icc uses.
+    if (IsStore)
+      return 14 * NumElem;
+#endif
+
     // Scalarization
     APInt DemandedElts = APInt::getAllOnesValue(NumElem);
     int MaskSplitCost =

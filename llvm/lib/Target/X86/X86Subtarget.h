@@ -492,6 +492,11 @@ class X86Subtarget final : public X86GenSubtargetInfo {
   bool HasAVXCOMPRESS = false;
 #endif // INTEL_FEATURE_ISA_AVX_COMPRESS
 
+#if INTEL_FEATURE_ISA_AVX_MEMADVISE
+  bool HasAVXMEMADVISE = false;
+  bool HasAVX512MEMADVISE = false;
+#endif // INTEL_FEATURE_ISA_AVX_MEMADVISE
+
 #if INTEL_FEATURE_ISA_AVX512_DOTPROD_INT8
   bool HasAVX512DOTPRODINT8 = false;
 #endif // INTEL_FEATURE_ISA_AVX512_DOTPROD_INT8
@@ -963,6 +968,10 @@ public:
 #if INTEL_FEATURE_ISA_AVX_COMPRESS
   bool hasAVXCOMPRESS() const { return HasAVXCOMPRESS; }
 #endif // INTEL_FEATURE_ISA_AVX_COMPRESS
+#if INTEL_FEATURE_ISA_AVX_MEMADVISE
+  bool hasAVXMEMADVISE() const { return HasAVXMEMADVISE; }
+  bool hasAVX512MEMADVISE() const { return HasAVX512MEMADVISE; }
+#endif // INTEL_FEATURE_ISA_AVX_MEMADVISE
 #endif // INTEL_CUSTOMIZATION
   bool hasAMXTILE() const { return HasAMXTILE; }
   bool hasAMXBF16() const { return HasAMXBF16; }

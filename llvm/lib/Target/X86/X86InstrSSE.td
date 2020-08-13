@@ -8237,6 +8237,37 @@ defm VPMADD52LUQ : avx_ifma_rm<0xb4, "vpmadd52luq", x86vpmadd52l>, VEX_W, Explic
 #endif // INTEL_CUSTOMIZATION
 
 #if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX_MEMADVISE
+multiclass VMOVADVISEW_mr<string OpcodeStr, RegisterClass RC,
+                          X86MemOperand X86MemOp,
+                          Intrinsic IntrLoad, Intrinsic IntrStore,
+                          X86SchedWriteMoveLS sched> {
+  let Predicates  = [HasAVXMEMADVISE, In64BitMode] in {
+      def rmi : Ii8<0x10, MRMSrcMem, (outs RC:$dst),
+                    (ins X86MemOp:$src1, u8imm:$src2),
+                    OpcodeStr#"\t{$src2, $src1, $dst|$dst, $src1, $src2}",
+                    [(set RC:$dst,
+                     (IntrLoad addr:$src1, timm:$src2))]>,
+                    VEX, TAXS, Sched<[sched.RM]>;
+      def mri : Ii8<0x11, MRMDestMem, (outs),
+                    (ins X86MemOp:$dst, RC:$src1, u8imm:$src2),
+                    OpcodeStr#"\t{$src2, $src1, $dst|$dst, $src1, $src2}",
+                    [(IntrStore addr:$dst,
+                     RC:$src1, timm:$src2)]>,
+                    VEX, TAXS, Sched<[sched.MR]>;
+  }
+}
+
+defm VMOVADVISEW128 : VMOVADVISEW_mr<"vmovadvisew", VR128, i128mem,
+                                     int_x86_avx2_vmovadvisew_load_128,
+                                     int_x86_avx2_vmovadvisew_store_128,
+                                     SchedWriteFMoveLS.XMM>;
+defm VMOVADVISEW256 : VMOVADVISEW_mr<"vmovadvisew", VR256, i256mem,
+                                     int_x86_avx2_vmovadvisew_load_256,
+                                     int_x86_avx2_vmovadvisew_store_256,
+                                     SchedWriteFMoveLS.YMM>, VEX_L;
+#endif // INTEL_FEATURE_ISA_AVX_MEMADVISE
+
 #if INTEL_FEATURE_ISA_AVX_COMPRESS
 multiclass VPCOMPRESS_mr<bits<8> opc, string OpcodeStr, ValueType OpVT,
                         RegisterClass RC, X86MemOperand X86MemOp,

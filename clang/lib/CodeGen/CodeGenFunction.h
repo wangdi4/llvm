@@ -1698,7 +1698,7 @@ public:
   class CGVLASizeMapHandler {
     CodeGenFunction &CGF;
     llvm::DenseMap<const Expr*, llvm::Value*> SavedVLASizeMap;
-    llvm::DenseMap<const Expr*, std::pair<llvm::Value*, CharUnits>> AddressMap;
+    llvm::MapVector<const Expr*, std::pair<llvm::Value*, CharUnits>> AddressMap;
     CGVLASizeMapHandler *PrevHandler = nullptr;
     bool Initialized = false;
   public:

@@ -4089,7 +4089,9 @@ void VPOCodeGenHIR::widenNodeImpl(const VPInstruction *VPInst, RegDDRef *Mask,
   // code for a compare instruction if its only use is a select instruction.
   if (isa<VPCmpInst>(VPInst) && VPInst->getNumUsers() == 1) {
     auto *UserInst = cast<VPInstruction>(*(VPInst->users().begin()));
-    if (UserInst->getOpcode() == Instruction::Select)
+    if (UserInst->getOpcode() == Instruction::Select &&
+        UserInst->getOperand(0) == VPInst &&
+        llvm::count(UserInst->operands(), VPInst) == 1)
       return;
   }
 

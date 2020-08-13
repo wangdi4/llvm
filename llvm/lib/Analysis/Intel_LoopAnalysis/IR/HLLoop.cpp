@@ -1446,6 +1446,9 @@ bool HLLoop::normalize() {
 
   unsigned Level = getNestingLevel();
 
+  SmallVector<unsigned, 2> LowerRefSymbases;
+  LowerRef->populateTempBlobSymbases(LowerRefSymbases);
+
   // NewIV = S * IV + L
   std::unique_ptr<CanonExpr> NewIV(LowerCE->clone());
   NewIV->addIV(Level, InvalidBlobIndex, Stride, false);
@@ -1453,7 +1456,7 @@ bool HLLoop::normalize() {
   bool HasSignedIV = hasSignedIV();
   auto UpdateCE = [&NewIV, Level, HasSignedIV](CanonExpr *CE) {
     if (!CE->hasIV(Level)) {
-      return;
+      return false;
     }
 
     // The CEs are either properly mergeable or LowerCE is a mergeable constant.
@@ -1470,19 +1473,31 @@ bool HLLoop::normalize() {
                                               HasSignedIV, true)) {
       llvm_unreachable("[HIR-NORMALIZE] Can not replace IV by Lower");
     }
+
+    return true;
   };
 
   ForEach<HLDDNode>::visitRange(
       child_begin(), child_end(),
-      [this, &UpdateCE, &Aux, Level](HLDDNode *Node) {
+      [this, &UpdateCE, &Aux, Level, &LowerRefSymbases](HLDDNode *Node) {
+        bool NodeModified = false;
+
         for (RegDDRef *Ref :
              llvm::make_range(Node->ddref_begin(), Node->ddref_end())) {
           for (CanonExpr *CE :
                llvm::make_range(Ref->canon_begin(), Ref->canon_end())) {
-            UpdateCE(CE);
+            NodeModified |= UpdateCE(CE);
           }
 
           Ref->makeConsistent(Aux, IsInnermost ? Level : NonLinearLevel);
+        }
+
+        // Add livein symbases to parent loops used in current loop lower bound.
+        if (NodeModified && !LowerRefSymbases.empty()) {
+          for (auto *ParentLoop = Node->getParentLoop(); ParentLoop != this;
+               ParentLoop = ParentLoop->getParentLoop()) {
+            ParentLoop->addLiveInTemp(LowerRefSymbases);
+          }
         }
       });
 

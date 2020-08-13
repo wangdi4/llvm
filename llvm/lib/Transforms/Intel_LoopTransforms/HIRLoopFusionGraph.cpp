@@ -41,8 +41,7 @@ typedef DDRefGatherer<DDRef, AllRefs ^ (ConstantRefs | GenericRValRefs |
     Gatherer;
 
 bool fusion::isGoodLoop(const HLLoop *Loop) {
-  return Loop->isDo() && Loop->isNormalized() &&
-         !(Loop->isDistributedForMemRec() || Loop->hasUnrollEnablingPragma() ||
+  return !(Loop->isDistributedForMemRec() || Loop->hasUnrollEnablingPragma() ||
            Loop->hasVectorizeEnablingPragma() ||
            Loop->hasFusionDisablingPragma());
 }
@@ -231,6 +230,11 @@ public:
 
 static unsigned areLoopsFusibleWithCommonTC(const HLLoop *Loop1,
                                             const HLLoop *Loop2) {
+  if (!Loop1->isDo() || !Loop1->isNormalized() || !Loop2->isDo() ||
+      !Loop2->isNormalized()) {
+    return 0;
+  }
+
   const CanonExpr *UB1 = Loop1->getUpperCanonExpr();
   const CanonExpr *UB2 = Loop2->getUpperCanonExpr();
 

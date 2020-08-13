@@ -1696,6 +1696,92 @@ protected:
   }
 };
 
+/// Concrete class to represent load/store instruction in VPlan.
+class VPLoadStoreInst : public VPInstruction {
+public:
+  using MDNodesTy = SmallVector<std::pair<unsigned, MDNode *>, 6>;
+
+  VPLoadStoreInst(unsigned Opcode, Type *BaseTy, ArrayRef<VPValue *> Operands)
+      : VPInstruction(Opcode, BaseTy, Operands) {
+    assert((Opcode == Instruction::Load || Opcode == Instruction::Store) &&
+           "Invalid opcode for load/store instruction.");
+  }
+
+  void setAlignment(Align Align) { Alignment = Align; }
+  Align getAlignment() const { return Alignment; }
+
+  void setOrdering(AtomicOrdering AO) { Ordering = AO; }
+  AtomicOrdering getOrdering() const { return Ordering; }
+  bool isAtomic() const { return Ordering != AtomicOrdering::NotAtomic; }
+
+  void setVolatile(bool V) { IsVolatile = V; }
+  bool isVolatile() const { return IsVolatile; }
+
+  void setSyncScopeID(SyncScope::ID S) { SSID = S; }
+  SyncScope::ID getSyncScopeID() const { return SSID; }
+
+  bool isSimple() const { return !isAtomic() && !isVolatile(); }
+
+  // Use underlying IR knowledge to access metadata attached to the incoming
+  // instruction.
+  void getUnderlyingNonDbgMetadata(MDNodesTy &MDs) const {
+    MDs.clear();
+    if (auto *IRLoadStore = dyn_cast_or_null<Instruction>(getInstruction()))
+      IRLoadStore->getAllMetadataOtherThanDebugLoc(MDs);
+    else if (HIR.getUnderlyingNode())
+      llvm_unreachable("Add support for HIR vectorizer.");
+  }
+
+  /// Methods for supporting type inquiry through isa, cast and dyn_cast:
+  static bool classof(const VPInstruction *VPI) {
+    return VPI->getOpcode() == Instruction::Load ||
+           VPI->getOpcode() == Instruction::Store;
+  }
+
+  static bool classof(const VPValue *V) {
+    return isa<VPInstruction>(V) && classof(cast<VPInstruction>(V));
+  }
+
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+  void printDetails(raw_ostream &O) const {
+    unsigned Alignment = getAlignment().value();
+    O << "    Align: " << Alignment << "\n";
+    O << "    Ordering: " << static_cast<unsigned>(getOrdering())
+      << ", Volatile: " << isVolatile()
+      << ", SSID: " << static_cast<unsigned>(getSyncScopeID()) << "\n";
+    VPLoadStoreInst::MDNodesTy MDs;
+    getUnderlyingNonDbgMetadata(MDs);
+    if (!MDs.empty()) {
+      O << "    NonDbgMDs -\n";
+      for (auto MDPair : MDs) {
+        O << "      ";
+        MDPair.second->print(O);
+        O << "\n";
+      }
+    }
+  }
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
+
+  virtual VPLoadStoreInst *cloneImpl() const {
+    SmallVector<VPValue *, 2> Ops;
+    for (auto &O : operands())
+      Ops.push_back(O);
+    VPLoadStoreInst *Cloned = new VPLoadStoreInst(getOpcode(), getType(), Ops);
+    Cloned->setAlignment(getAlignment());
+    Cloned->setOrdering(getOrdering());
+    Cloned->setVolatile(isVolatile());
+    Cloned->setSyncScopeID(getSyncScopeID());
+    return Cloned;
+  }
+
+private:
+  // Captures alignment of underlying access.
+  Align Alignment;
+  AtomicOrdering Ordering = AtomicOrdering::NotAtomic;
+  bool IsVolatile = false;
+  SyncScope::ID SSID = SyncScope::SingleThread;
+};
+
 /// Concrete class to represent copy instruction semantics in VPlan constructed
 /// for HIR input.
 class VPHIRCopyInst : public VPInstruction {
