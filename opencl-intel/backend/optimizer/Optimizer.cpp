@@ -190,6 +190,7 @@ llvm::ModulePass *createCoerceTypesPass();
 llvm::ModulePass *createRemoveAtExitPass();
 llvm::FunctionPass *createAddNTAttrPass();
 llvm::ModulePass *createChooseVectorizationDimensionModulePass();
+llvm::ModulePass *createCoerceWin64TypesPass();
 }
 
 using namespace intel;
@@ -904,9 +905,11 @@ void Optimizer::Optimize() {
   materializerPM.add(createBuiltinLibInfoPass(m_pRtlModuleList, ""));
   materializerPM.add(createLLVMEqualizerPass());
   Triple TargetTriple(m_pModule->getTargetTriple());
-  if (!m_IsEyeQEmulator && TargetTriple.isOSLinux() &&
-      TargetTriple.isArch64Bit())
-    materializerPM.add(createCoerceTypesPass());
+  if (!m_IsEyeQEmulator && TargetTriple.isArch64Bit())
+    if (TargetTriple.isOSLinux())
+      materializerPM.add(createCoerceTypesPass());
+    else if (TargetTriple.isOSWindows())
+      materializerPM.add(createCoerceWin64TypesPass());
   if (m_IsFpgaEmulator) {
     materializerPM.add(createRemoveAtExitPass());
   }

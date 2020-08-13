@@ -1,10 +1,9 @@
-; RUN: %oclopt -coerce-types -S %s -o - | FileCheck %s
+; RUN: %oclopt -coerce-types -mtriple x86_64-pc-linux -S %s -o - | FileCheck %s --check-prefix=X64-LINUX
+; RUN: %oclopt -coerce-win64-types -mtriple x86_64-w64-mingw32 -S %s -o - | FileCheck %s --check-prefix=X64-WIN
 ; This test checks function argument type coercion
 
 ; ModuleID = 'main'
 source_filename = "1"
-target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
-target triple = "x86_64-pc-linux"
 
 %struct.SingleInt = type { i32 }
 %struct.SingleFloat = type { float }
@@ -97,55 +96,68 @@ declare void @llvm.lifetime.start.p0i8(i64 immarg, i8* nocapture) #1
 
 ; Function Attrs: convergent
 declare void @singleInt(%struct.SingleInt* byval(%struct.SingleInt) align 4) #2
-; CHECK: declare void @singleInt(i32) #2
+; X64-LINUX: declare void @singleInt(i32) #2
+; X64-WIN:   declare void @singleInt(i32) #2
 
 ; Function Attrs: convergent
 declare void @singleFloat(%struct.SingleFloat* byval(%struct.SingleFloat) align 4) #2
-; CHECK: declare void @singleFloat(float) #2
+; X64-LINUX: declare void @singleFloat(float) #2
+; X64-WIN:   declare void @singleFloat(i32) #2
 
 ; Function Attrs: convergent
 declare void @intAndSSE(%struct.IntAndSSE* byval(%struct.IntAndSSE) align 4) #2
-; CHECK: declare void @intAndSSE(i64) #2
+; X64-LINUX: declare void @intAndSSE(i64) #2
+; X64-WIN:   declare void @intAndSSE(i64) #2
 
 ; Function Attrs: convergent
 declare void @twoFloats(%struct.TwoFloats* byval(%struct.TwoFloats) align 4) #2
-; CHECK: declare void @twoFloats(<2 x float>) #2
+; X64-LINUX: declare void @twoFloats(<2 x float>) #2
+; X64-WIN:   declare void @twoFloats(i64) #2
 
 ; Function Attrs: convergent
 declare void @twoDoubles(%struct.TwoDoubles* byval(%struct.TwoDoubles) align 8) #2
-; CHECK: declare void @twoDoubles(double, double) #2
+; X64-LINUX: declare void @twoDoubles(double, double) #2
+; X64-WIN:   declare void @twoDoubles(%struct.TwoDoubles*) #2
 
 ; Function Attrs: convergent
 declare void @twoInts(%struct.TwoInts* byval(%struct.TwoInts) align 4) #2
-; CHECK: declare void @twoInts(i64) #2
+; X64-LINUX: declare void @twoInts(i64) #2
+; X64-WIN:   declare void @twoInts(i64) #2
 
 ; Function Attrs: convergent
 declare void @twoLongs(%struct.TwoLongs* byval(%struct.TwoLongs) align 8) #2
-; CHECK: declare void @twoLongs(i64, i64) #2
+; X64-LINUX: declare void @twoLongs(i64, i64) #2
+; X64-WIN:   declare void @twoLongs(%struct.TwoLongs*) #2
 
 ; Function Attrs: convergent
 declare void @twoDifferentWords(%struct.TwoDifferentWords* byval(%struct.TwoDifferentWords) align 8) #2
-; CHECK: declare void @twoDifferentWords(double, i64) #2
+; X64-LINUX: declare void @twoDifferentWords(double, i64) #2
+; X64-WIN:   declare void @twoDifferentWords(%struct.TwoDifferentWords*) #2
 
 ; Function Attrs: convergent
 declare void @twoWordWithArray(%struct.TwoWordWithArray* byval(%struct.TwoWordWithArray) align 4) #2
-; CHECK: declare void @twoWordWithArray(i64, i64) #2
+; X64-LINUX: declare void @twoWordWithArray(i64, i64) #2
+; X64-WIN:   declare void @twoWordWithArray(%struct.TwoWordWithArray*) #2
 
 ; Function Attrs: convergent
 declare void @nestedStruct(%struct.NestedStruct* byval(%struct.NestedStruct) align 4) #2
-; CHECK: declare void @nestedStruct(i64, i64) #2
+; X64-LINUX: declare void @nestedStruct(i64, i64) #2
+; X64-WIN:   declare void @nestedStruct(%struct.NestedStruct*) #2
 
 ; Function Attrs: convergent
 declare void @oneElementFLoatArray(%struct.OneElementFloatArray* byval(%struct.OneElementFloatArray) align 4) #2
-; CHECK: declare void @oneElementFLoatArray(float) #2
+; X64-LINUX: declare void @oneElementFLoatArray(float) #2
+; X64-WIN:   declare void @oneElementFLoatArray(i32) #2
 
 ; Function Attrs: convergent
 declare void @outOfIntRegisters(%struct.TwoLongs* byval(%struct.TwoLongs) align 8, %struct.TwoLongs* byval(%struct.TwoLongs) align 8, %struct.SingleInt* byval(%struct.SingleInt) align 4, %struct.TwoLongs* byval(%struct.TwoLongs) align 8, %struct.SingleInt* byval(%struct.SingleInt) align 4, %struct.SingleInt* byval(%struct.SingleInt) align 4) #2
-; CHECK: declare void @outOfIntRegisters(i64, i64, i64, i64, i32, %struct.TwoLongs* byval(%struct.TwoLongs) align 8, i32, %struct.SingleInt* byval(%struct.SingleInt) align 4) #2
+; X64-LINUX: declare void @outOfIntRegisters(i64, i64, i64, i64, i32, %struct.TwoLongs* byval(%struct.TwoLongs) align 8, i32, %struct.SingleInt* byval(%struct.SingleInt) align 4) #2
+; X64-WIN:   declare void @outOfIntRegisters(%struct.TwoLongs*, %struct.TwoLongs*, i32, %struct.TwoLongs*, i32, i32) #2
 
 ; Function Attrs: convergent
 declare void @outOfSSERegisters(%struct.TwoDoubles* byval(%struct.TwoDoubles) align 8, %struct.TwoDoubles* byval(%struct.TwoDoubles) align 8, %struct.TwoDoubles* byval(%struct.TwoDoubles) align 8, %struct.SingleFloat* byval(%struct.SingleFloat) align 4, %struct.TwoDoubles* byval(%struct.TwoDoubles) align 8, %struct.SingleFloat* byval(%struct.SingleFloat) align 4, %struct.SingleFloat* byval(%struct.SingleFloat) align 4) #2
-; CHECK: declare void @outOfSSERegisters(double, double, double, double, double, double, float, %struct.TwoDoubles* byval(%struct.TwoDoubles) align 8, float, %struct.SingleFloat* byval(%struct.SingleFloat) align 4) #2
+; X64-LINUX: declare void @outOfSSERegisters(double, double, double, double, double, double, float, %struct.TwoDoubles* byval(%struct.TwoDoubles) align 8, float, %struct.SingleFloat* byval(%struct.SingleFloat) align 4) #2
+; X64-WIN:   declare void @outOfSSERegisters(%struct.TwoDoubles*, %struct.TwoDoubles*, %struct.TwoDoubles*, i32, %struct.TwoDoubles*, i32, i32) #2
 
 ; Function Attrs: argmemonly nounwind
 declare void @llvm.lifetime.end.p0i8(i64 immarg, i8* nocapture) #1

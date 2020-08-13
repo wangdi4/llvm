@@ -13,11 +13,12 @@
 // License.
 
 #include "cl_thread.h"
+#include "cl_utils.h"
+
+#include <assert.h>
 #include <pthread.h>
 #include <signal.h>
-#include <assert.h>
 #include <stdio.h>
-#include "cl_utils.h"
 
 using namespace Intel::OpenCL::Utils;
 

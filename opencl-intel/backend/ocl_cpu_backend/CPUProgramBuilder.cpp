@@ -168,13 +168,14 @@ bool CPUProgramBuilder::ReloadProgramFromCachedExecutable(Program* pProgram)
 
     ObjectCodeCache* pCache = new ObjectCodeCache(pProgram->GetModule(),
                                                   objectBuffer, objectSize);
-    static_cast<CPUProgram*>(pProgram)->SetObjectCache(pCache);
 
     // add object buffer to LLJIT
     if (llvm::Error err = LLJIT->addObjectFile(pCache->getObject(nullptr))) {
         llvm::logAllUnhandledErrors(std::move(err), llvm::errs());
         throw Exceptions::CompilerException("Failed to add object to LLJIT");
     }
+
+    static_cast<CPUProgram*>(pProgram)->SetObjectCache(pCache);
     pProgram->SetLLJIT(std::move(LLJIT));
 
     // deserialize the management objects

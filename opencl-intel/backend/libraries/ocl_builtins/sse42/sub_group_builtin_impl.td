@@ -941,29 +941,29 @@ OclBuiltinImpl sub_group_scan_exclusive_min_avx128i8 = OclBuiltinImpl<sub_group_
   [{
     __m128i temp = _mm_cvtepi8_epi32(__builtin_astype((char16)($Arg0VarName, $Arg0VarName, $Arg0VarName, $Arg0VarName), __m128i));
     int4 temp1 = sub_group_scan_exclusive_min(__builtin_astype(temp, int4), $Arg1VarName);
-    return convert_$Arg0Type(temp1);
-  }]>;
+    return convert_$Arg0Type_sat_rtp(temp1);
+  }]>;  // round to positive infinity during conversion
 
 OclBuiltinImpl sub_group_scan_exclusive_min_avx128u8 = OclBuiltinImpl<sub_group_scan_exclusive_min_vec_cs, [v4u8], 0,
   [{
     __m128i temp = _mm_cvtepu8_epi32(__builtin_astype((uchar16)($Arg0VarName, $Arg0VarName, $Arg0VarName, $Arg0VarName), __m128i));
     int4 temp1 = sub_group_scan_exclusive_min(__builtin_astype(temp, int4), $Arg1VarName);
-    return convert_$Arg0Type(temp1);
-  }]>;
+    return convert_$Arg0Type_sat_rtp(temp1);
+  }]>;  // round to positive infinity during conversion
 
 OclBuiltinImpl sub_group_scan_exclusive_min_avx128i16 = OclBuiltinImpl<sub_group_scan_exclusive_min_vec_cs, [v4i16], 0,
   [{
     __m128i temp = _mm_cvtepi16_epi32(__builtin_astype((short8)($Arg0VarName, $Arg0VarName), __m128i));
     int4 temp1 = sub_group_scan_exclusive_min(__builtin_astype(temp, int4), $Arg1VarName);
-    return convert_$Arg0Type(temp1);
-  }]>;
+    return convert_$Arg0Type_sat_rtp(temp1);
+  }]>;  // round to positive infinity during conversion
 
 OclBuiltinImpl sub_group_scan_exclusive_min_avx128u16 = OclBuiltinImpl<sub_group_scan_exclusive_min_vec_cs, [v4u16], 0,
   [{
     __m128i temp = _mm_cvtepu16_epi32(__builtin_astype((ushort8)($Arg0VarName, $Arg0VarName), __m128i));
     int4 temp1 = sub_group_scan_exclusive_min(__builtin_astype(temp, int4), $Arg1VarName);
-    return convert_$Arg0Type(temp1);
-  }]>;
+    return convert_$Arg0Type_sat_rtp(temp1);
+  }]>;  // round to positive infinity during conversion
 
 //max
 OclBuiltinImpl sub_group_scan_exclusive_max_avx128i32 = OclBuiltinImpl<sub_group_scan_exclusive_max_vec, [v4i32], 0,
@@ -1101,29 +1101,29 @@ OclBuiltinImpl sub_group_scan_exclusive_max_avx128i8 = OclBuiltinImpl<sub_group_
   [{
     __m128i temp = _mm_cvtepi8_epi32(__builtin_astype((char16)($Arg0VarName, $Arg0VarName, $Arg0VarName, $Arg0VarName), __m128i));
     int4 temp1 = sub_group_scan_exclusive_max(__builtin_astype(temp, int4), $Arg1VarName);
-    return convert_$Arg0Type(temp1);
-  }]>;
+    return convert_$Arg0Type_sat_rtn(temp1);
+  }]>;  // round to negative infinity during conversion
 
 OclBuiltinImpl sub_group_scan_exclusive_max_avx128u8 = OclBuiltinImpl<sub_group_scan_exclusive_max_vec_cs, [v4u8], 0,
   [{
     __m128i temp = _mm_cvtepu8_epi32(__builtin_astype((uchar16)($Arg0VarName, $Arg0VarName, $Arg0VarName, $Arg0VarName), __m128i));
     int4 temp1 = sub_group_scan_exclusive_max(__builtin_astype(temp, int4), $Arg1VarName);
-    return convert_$Arg0Type(temp1);
-  }]>;
+    return convert_$Arg0Type_sat_rtz(temp1);
+  }]>;  // round to zero during conversion
 
 OclBuiltinImpl sub_group_scan_exclusive_max_avx128i16 = OclBuiltinImpl<sub_group_scan_exclusive_max_vec_cs, [v4i16], 0,
   [{
     __m128i temp = _mm_cvtepi16_epi32(__builtin_astype((short8)($Arg0VarName, $Arg0VarName), __m128i));
     int4 temp1 = sub_group_scan_exclusive_max(__builtin_astype(temp, int4), $Arg1VarName);
-    return convert_$Arg0Type(temp1);
-  }]>;
+    return convert_$Arg0Type_sat_rtn(temp1);
+  }]>;  // round to negative infinity during conversion
 
 OclBuiltinImpl sub_group_scan_exclusive_max_avx128u16 = OclBuiltinImpl<sub_group_scan_exclusive_max_vec_cs, [v4u16], 0,
   [{
     __m128i temp = _mm_cvtepu16_epi32(__builtin_astype((ushort8)($Arg0VarName, $Arg0VarName), __m128i));
     int4 temp1 = sub_group_scan_exclusive_max(__builtin_astype(temp, int4), $Arg1VarName);
-    return convert_$Arg0Type(temp1);
-  }]>;
+    return convert_$Arg0Type_sat_rtz(temp1);
+  }]>;  // round to zero during conversion
 
 //
 // Shuffle

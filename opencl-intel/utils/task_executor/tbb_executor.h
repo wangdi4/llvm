@@ -14,28 +14,26 @@
 
 #pragma once
 
-#include "task_executor.h"
-
-#include "cl_synch_objects.h"
+#include "arena_handler.h"
+#include "base_command_list.h"
 #include "cl_dynamic_lib.h"
 #include "cl_shared_ptr.h"
 #include "cl_synch_objects.h"
-#include "base_command_list.h"
+#include "task_executor.h"
 #include "tbb_thread_manager.h"
-#include "arena_handler.h"
 
 #include <tbb/global_control.h>
 
 #ifdef DEVICE_NATIVE
-    // no logger on discrete device
-    #define LOG_ERROR(...)
-    #define LOG_INFO(...)
+// no logger on discrete device
+#define LOG_ERROR(...)
+#define LOG_INFO(...)
 
-    #define DECLARE_LOGGER_CLIENT
-    #define INIT_LOGGER_CLIENT(...)
-    #define RELEASE_LOGGER_CLIENT
+#define DECLARE_LOGGER_CLIENT
+#define INIT_LOGGER_CLIENT(...)
+#define RELEASE_LOGGER_CLIENT
 #else
-    #include "Logger.h"
+#include "Logger.h"
 #endif // DEVICE_NATIVE
 
 using Intel::OpenCL::Utils::SharedPtr;

@@ -22,8 +22,9 @@ Abstract:  Defines the types used for ELF headers/sections.  This uses
 
 #pragma once
 
-#if !defined(_MSC_VER) // || (_MSC_VER >= 1700) // NOTE: This header will most likely be supported in MSVC 2012
-    #include <inttypes.h>
+#if !defined(_MSC_VER) // || (_MSC_VER >= 1700) // NOTE: This header will most
+                       // likely be supported in MSVC 2012
+#include <inttypes.h>
 #endif
 
 namespace CLElfLib

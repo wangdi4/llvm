@@ -14,9 +14,10 @@
 
 #pragma once
 
-#include <stdio.h>
-#include <cstdarg>
 #include "cl_logger.h"
+
+#include <cstdarg>
+#include <stdio.h>
 
 namespace Intel { namespace OpenCL { namespace Utils {
 

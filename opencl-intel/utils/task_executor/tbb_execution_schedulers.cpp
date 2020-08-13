@@ -12,10 +12,11 @@
 // or implied warranties, other than those that are expressly stated in the
 // License.
 
+#include "tbb_execution_schedulers.h"
+
 #include "arena_handler.h"
 #include "cl_shared_ptr.hpp"
 #include "tbb_blocked_ranges.h"
-#include "tbb_execution_schedulers.h"
 #include "tbb_executor.h"
 
 using namespace Intel::OpenCL::TaskExecutor;

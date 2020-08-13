@@ -12,8 +12,9 @@
 // or implied warranties, other than those that are expressly stated in the
 // License.
 
-#include "CLElfTypes.h"
 #include "elf_binary.h"
+
+#include "CLElfTypes.h"
 
 namespace Intel{ namespace OpenCL{ namespace ELFUtils{
     bool OCLElfBinaryReader::IsValidOpenCLBinary(const char* pBinary, size_t uiBinarySize)

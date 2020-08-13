@@ -1,10 +1,10 @@
-; RUN: %oclopt -coerce-types -S %s -o - | FileCheck %s
+; RUN: %oclopt -coerce-types -mtriple x86_64-pc-linux -S %s -o - | FileCheck %s --check-prefix=X64-LINUX
+; RUN: %oclopt -coerce-win64-types -mtriple x86_64-w64-mingw32 -S %s -o - | FileCheck %s --check-prefix=X64-WIN
+
 ; This test checks function comdat change
 
 ; ModuleID = './comdat.ll'
 source_filename = "./kernel.cl"
-target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
-target triple = "x86_64-pc-linux"
 
 %"class.ihc::hls_float" = type { %class.ac_int }
 %class.ac_int = type { %"class.ac_private::iv_conv" }
@@ -27,8 +27,9 @@ declare float @llvm.pow.f32(float, float) #0
 declare float @llvm.exp.f32(float) #0
 ; Function Attrs: nounwind
 
-; CHECK: declare void @___ZN3ihc9hls_floatILi8ELi23ELNS_9fp_config8FP_RoundE0EE12set_exponentE6ac_intILi8ELb0EE_before.CoerceTypes(%"class.ihc::hls_float"*, %class.ac_int.13* byval(%class.ac_int.13) align 1) align 2
-; CHECK: define linkonce_odr void @_ZN3ihc9hls_floatILi8ELi23ELNS_9fp_config8FP_RoundE0EE12set_exponentE6ac_intILi8ELb0EE(%"class.ihc::hls_float"* %this, i8 %bits.coerce.high) comdat {
+; X64-LINUX: declare void @___ZN3ihc9hls_floatILi8ELi23ELNS_9fp_config8FP_RoundE0EE12set_exponentE6ac_intILi8ELb0EE_before.CoerceTypes(%"class.ihc::hls_float"*, %class.ac_int.13* byval(%class.ac_int.13) align 1) align 2
+; X64-LINUX: define linkonce_odr void @_ZN3ihc9hls_floatILi8ELi23ELNS_9fp_config8FP_RoundE0EE12set_exponentE6ac_intILi8ELb0EE(%"class.ihc::hls_float"* %this, i8 %bits.coerce.high) comdat {
+; X64-WIN: define linkonce_odr void @_ZN3ihc9hls_floatILi8ELi23ELNS_9fp_config8FP_RoundE0EE12set_exponentE6ac_intILi8ELb0EE(%"class.ihc::hls_float"* %this, i8 %bits) comdat align 2 {
 
 define linkonce_odr void @_ZN3ihc9hls_floatILi8ELi23ELNS_9fp_config8FP_RoundE0EE12set_exponentE6ac_intILi8ELb0EE(%"class.ihc::hls_float"* %this, %class.ac_int.13* byval(%class.ac_int.13) align 1 %bits) #2 comdat align 2 {
 entry:

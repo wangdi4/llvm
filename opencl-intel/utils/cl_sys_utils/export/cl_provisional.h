@@ -16,7 +16,6 @@
 #define __CL_PROVISIONAL_H__
 
 #include "CL/cl.h"
-
 #include "provisional_malloc.h"
 
 template <>

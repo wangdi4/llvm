@@ -17,12 +17,11 @@
 // -----------------------------------------------------------
 //             Windows
 // -----------------------------------------------------------
-#if defined (_WIN32)
+#if defined(_WIN32)
+#include <Windows.h>
 #include <basetsd.h>
 #include <intrin.h>
 #include <io.h>
-
-#include <Windows.h>
 #include <string.h>
 
 // Those macros are interfer with other definitions
@@ -30,28 +29,34 @@
 #undef max
 
 #if defined(_M_AMD64)
-#define CAS(ptr,old_val,new_val)    _InterlockedCompareExchange64((__int64 volatile*)ptr,(__int64)new_val,(__int64)old_val)
-#define TAS(ptr,new_val)            _InterlockedExchange64((__int64 volatile*)ptr,(__int64)new_val)
+#define CAS(ptr, old_val, new_val)                                             \
+  _InterlockedCompareExchange64((__int64 volatile *)ptr, (__int64)new_val,     \
+                                (__int64)old_val)
+#define TAS(ptr, new_val)                                                      \
+  _InterlockedExchange64((__int64 volatile *)ptr, (__int64)new_val)
 #else
-#define CAS(ptr,old_val,new_val)    _InterlockedCompareExchange((long volatile*)ptr,(LONG_PTR)new_val,(LONG_PTR)old_val)
-#define TAS(ptr,new_val)            _InterlockedExchange((long volatile*)ptr,(LONG_PTR)new_val)
+#define CAS(ptr, old_val, new_val)                                             \
+  _InterlockedCompareExchange((long volatile *)ptr, (LONG_PTR)new_val,         \
+                              (LONG_PTR)old_val)
+#define TAS(ptr, new_val)                                                      \
+  _InterlockedExchange((long volatile *)ptr, (LONG_PTR)new_val)
 #endif
 
-#define INVALID_MUTEX_OWNER            (0)
+#define INVALID_MUTEX_OWNER (0)
 
 #define CL_MAX_INT32 MAXINT32
-#define CL_MAX_UINT32    MAXUINT32
+#define CL_MAX_UINT32 MAXUINT32
 
-#define API_FUNCTION    __stdcall
-#define ASM_FUNCTION    __stdcall
-#define STDCALL         __stdcall
+#define API_FUNCTION __stdcall
+#define ASM_FUNCTION __stdcall
+#define STDCALL __stdcall
 
 #ifndef CDECL
-#define CDECL           __cdecl
+#define CDECL __cdecl
 #endif
 
 #define PACKED
-#define PACK_ON  pack(1)
+#define PACK_ON pack(1)
 #define PACK_OFF pack()
 #define UNUSED(var) var
 
@@ -63,12 +68,12 @@
 #undef MIN
 #endif // #ifdef MIN
 
-#define MAX(a, b)  (((a) > (b)) ? (a) : (b))
-#define MIN(a, b)  (((a) > (b)) ? (b) : (a))
+#define MAX(a, b) (((a) > (b)) ? (a) : (b))
+#define MIN(a, b) (((a) > (b)) ? (b) : (a))
 
 #define STRDUP(X) (_strdup(X))
 #define STRCASECMP _stricmp
-#define CPUID(cpu_info, type) __cpuid((int*)(cpu_info), type)
+#define CPUID(cpu_info, type) __cpuid((int *)(cpu_info), type)
 
 #define VA_COPY(dst, src) ((dst) = (src))
 #define VA_END(va)
@@ -80,15 +85,15 @@
 #define GET_CURRENT_PROCESS_ID() GetCurrentProcessId()
 #define GET_CURRENT_THREAD_ID() GetCurrentThreadId()
 
-#define MEMCPY_S                          memcpy_s
-#define STRCPY_S                          strcpy_s
-#define STRNCPY_S                         strncpy_s
-#define STRCAT_S                          strcat_s
-#define STRTOK_S                          strtok_s
-#define SPRINTF_S                         sprintf_s
-#define VSPRINTF_S                        vsprintf_s
-#define STRCMPI_S                         _strnicmp
-#define SSCANF_S                          sscanf_s
+#define MEMCPY_S memcpy_s
+#define STRCPY_S strcpy_s
+#define STRNCPY_S strncpy_s
+#define STRCAT_S strcat_s
+#define STRTOK_S strtok_s
+#define SPRINTF_S sprintf_s
+#define VSPRINTF_S vsprintf_s
+#define STRCMPI_S _strnicmp
+#define SSCANF_S sscanf_s
 
 typedef unsigned long long               affinityMask_t;
 

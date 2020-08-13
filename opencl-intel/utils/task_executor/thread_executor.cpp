@@ -15,11 +15,13 @@
 #ifdef __THREAD_EXECUTOR__
 
 #include "thread_executor.h"
-#include "cl_shared_ptr.hpp"
-#include <process.h>
-#include <cassert>
 
-#if defined (_WIN32)
+#include "cl_shared_ptr.hpp"
+
+#include <cassert>
+#include <process.h>
+
+#if defined(_WIN32)
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 #endif

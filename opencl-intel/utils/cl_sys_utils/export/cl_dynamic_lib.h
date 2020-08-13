@@ -12,7 +12,6 @@
 // or implied warranties, other than those that are expressly stated in the
 // License.
 
-
 #pragma once
 
 #include "cl_utils.h"

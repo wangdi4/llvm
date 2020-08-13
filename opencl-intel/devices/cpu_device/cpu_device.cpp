@@ -803,6 +803,8 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN dev_id, cl_device_
 
     static bool isCPUDeviceMode =
       CPU_DEVICE == m_CPUDeviceConfig.GetDeviceMode();
+    static bool isFPGAEmuDeviceMode =
+      FPGA_EMU_DEVICE == m_CPUDeviceConfig.GetDeviceMode();
 
     switch (param)
     {
@@ -2080,14 +2082,18 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN dev_id, cl_device_
 
             if (nullptr != paramVal)
             {
-                cl_device_unified_shared_memory_capabilities_intel cap =
-                  CL_UNIFIED_SHARED_MEMORY_ACCESS_INTEL |
-                  CL_UNIFIED_SHARED_MEMORY_ATOMIC_ACCESS_INTEL |
-                  CL_UNIFIED_SHARED_MEMORY_CONCURRENT_ACCESS_INTEL |
-                  CL_UNIFIED_SHARED_MEMORY_CONCURRENT_ATOMIC_ACCESS_INTEL;
-
-                *(cl_device_unified_shared_memory_capabilities_intel*)paramVal =
-                    cap;
+                cl_device_unified_shared_memory_capabilities_intel cap = 0;
+                if (!isFPGAEmuDeviceMode ||
+                    (CL_DEVICE_CROSS_DEVICE_SHARED_MEM_CAPABILITIES_INTEL !=
+                         param &&
+                     CL_DEVICE_SHARED_SYSTEM_MEM_CAPABILITIES_INTEL != param))
+                    cap =
+                        CL_UNIFIED_SHARED_MEMORY_ACCESS_INTEL |
+                        CL_UNIFIED_SHARED_MEMORY_ATOMIC_ACCESS_INTEL |
+                        CL_UNIFIED_SHARED_MEMORY_CONCURRENT_ACCESS_INTEL |
+                        CL_UNIFIED_SHARED_MEMORY_CONCURRENT_ATOMIC_ACCESS_INTEL;
+                *(cl_device_unified_shared_memory_capabilities_intel *)
+                    paramVal = cap;
             }
 
             break;

@@ -12,12 +12,12 @@
 // or implied warranties, other than those that are expressly stated in the
 // License.
 
-#include <stdio.h>
-#include <stdarg.h>
-#include <sstream>              // required by: owstringstream
-#include <assert.h>
-
 #include "Logger.h"
+
+#include <assert.h>
+#include <sstream> // required by: owstringstream
+#include <stdarg.h>
+#include <stdio.h>
 
 using namespace Intel::OpenCL::Utils;
 

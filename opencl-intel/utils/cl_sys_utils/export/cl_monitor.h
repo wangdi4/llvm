@@ -12,17 +12,17 @@
 // or implied warranties, other than those that are expressly stated in the
 // License.
 
-#include <cl_types.h>
 #include <cl_stopwatch.h>
+#include <cl_types.h>
 
-#ifndef	_CL_MONITOR_H
+#ifndef _CL_MONITOR_H
 #define _CL_MONITOR_H
 
 #include "cl_sys_defines.h"
 
 //#define __PERF_MONITOR__
-#define MAX_SAMPLE_NAME		64
-#define MAX_SAMPLES_COUNT	100
+#define MAX_SAMPLE_NAME 64
+#define MAX_SAMPLES_COUNT 100
 
 namespace Intel { namespace OpenCL { namespace Utils {
 

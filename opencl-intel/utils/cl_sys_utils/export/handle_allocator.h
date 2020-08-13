@@ -16,8 +16,8 @@
 
 #include "cl_synch_objects.h"
 
-#include<assert.h>
-#include<list>
+#include <assert.h>
+#include <list>
 
 // Defines  class that manages allocation and reuse of handles
 namespace Intel { namespace OpenCL { namespace Utils {

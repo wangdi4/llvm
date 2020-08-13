@@ -14,12 +14,12 @@
 
 #pragma once
 
-#include <string.h>
-#include <stdio.h>
-#include <stdarg.h>
-#include <errno.h>
-
 #include "cl_sys_defines.h"
+
+#include <errno.h>
+#include <stdarg.h>
+#include <stdio.h>
+#include <string.h>
 
 namespace Intel { namespace OpenCL { namespace Utils {
 

@@ -12,19 +12,19 @@
 // or implied warranties, other than those that are expressly stated in the
 // License.
 
-#include <stdarg.h>
-#include <sstream>              // required by: owstringstream
 #include <assert.h>
+#include <sstream> // required by: owstringstream
+#include <stdarg.h>
 #include <time.h>
 
-#if defined (_WIN32)
-    #include <windows.h>
+#if defined(_WIN32)
+#include <windows.h>
 #else
-    #include "cl_secure_string_linux.h"
+#include "cl_secure_string_linux.h"
 #endif
 
-#include "log_message.h"
 #include "cl_sys_defines.h"
+#include "log_message.h"
 
 using namespace Intel::OpenCL::Utils;
 

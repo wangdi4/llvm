@@ -14,29 +14,29 @@
 
 #pragma once
 
-#include <cl_types.h>
+#include <cassert>
 #include <cl_device_api.h>
 #include <cl_monitor.h>
-#include <map>
-#include <vector>
-#include <string>
-#include <locale>
-#include <iostream>
-#include <sstream>
-#include <limits>
-#include <math.h>
-#include <cassert>
+#include <cl_types.h>
 #include <fstream>
+#include <iostream>
+#include <limits>
+#include <locale>
+#include <map>
+#include <math.h>
+#include <sstream>
+#include <string>
+#include <vector>
 
-#define MAKE_HEX_FLOAT(x,y,z)  ((float)ldexp( (float)(y), z))
-#define IS_64_BIT (sizeof(void*) == 8)
+#define MAKE_HEX_FLOAT(x, y, z) ((float)ldexp((float)(y), z))
+#define IS_64_BIT (sizeof(void *) == 8)
 
 // assert macroes:
 
-#define ASSERT_RET(exp, msg) \
-	assert((exp) && msg); \
-	if (!(exp)) \
-		return;
+#define ASSERT_RET(exp, msg)                                                   \
+  assert((exp) && msg);                                                        \
+  if (!(exp))                                                                  \
+    return;
 
 #define ASSERT_RET_VAL(exp, msg, retVal) \
 	assert((exp) && msg); \

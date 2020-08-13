@@ -15,8 +15,9 @@
 #ifndef __COMMON_OCL_BUILDER_H__
 #define __COMMON_OCL_BUILDER_H__
 
-#include <frontend_api.h>
 #include "cl_dynamic_lib.h"
+
+#include <frontend_api.h>
 
 namespace Intel { namespace OpenCL { namespace Utils {
 

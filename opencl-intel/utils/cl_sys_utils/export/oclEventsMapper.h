@@ -14,8 +14,9 @@
 
 #pragma once
 
-#include <CL/cl.h>
 #include "cl_synch_objects.h"
+
+#include <CL/cl.h>
 
 namespace Intel { namespace OpenCL { namespace Utils {
 

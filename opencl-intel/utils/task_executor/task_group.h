@@ -17,6 +17,7 @@
 #include "cl_shared_ptr.h"
 #include "task_executor.h"
 #include "task_group_with_reference.h"
+
 #include <tbb/task_group.h>
 
 namespace Intel {

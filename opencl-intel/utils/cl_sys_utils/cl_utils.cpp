@@ -17,7 +17,9 @@
 #endif /*WIN32*/
 
 #include "cl_utils.h"
+
 #include "cl_sys_info.h"
+
 #include <CL/cl.h>
 #include <CL/cl_ext.h>
 #include <CL/cl_gl_ext.h>

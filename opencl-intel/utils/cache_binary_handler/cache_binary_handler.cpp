@@ -13,11 +13,12 @@
 // License.
 
 #include "cache_binary_handler.h"
+
+#include "CLElfTypes.h"
 #include "ElfReader.h"
 #include "ElfWriter.h"
-#include "CLElfTypes.h"
-#include "elf_binary.h"
 #include "assert.h"
+#include "elf_binary.h"
 
 namespace Intel{ namespace OpenCL{ namespace ELFUtils {
 const char* g_metaSectionName = ".ocl.meta";

@@ -18,8 +18,9 @@
 #include "ElfWriter.h"
 #include "cl_autoptr_ex.h"
 #include "cl_device_api.h"
-#include <string>
+
 #include <assert.h>
+#include <string>
 
 namespace Intel{ namespace OpenCL{ namespace ELFUtils {
 //

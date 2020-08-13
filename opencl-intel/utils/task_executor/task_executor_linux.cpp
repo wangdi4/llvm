@@ -14,22 +14,23 @@
 
 #include "task_executor.h"
 
-#if ! defined( __THREAD_EXECUTOR__) && ! defined( __TBB_EXECUTOR__ )
+#if !defined(__THREAD_EXECUTOR__) && !defined(__TBB_EXECUTOR__)
 #define __THREAD_EXECUTOR__
 #endif
 
 #ifdef __TBB_EXECUTOR__
 #include "tbb_executor.h"
-#define PTR_CAST	TBBTaskExecutor
+#define PTR_CAST TBBTaskExecutor
 #endif
 #ifdef __THREAD_EXECUTOR__
 #include "thread_executor.h"
-#define PTR_CAST	ThreadTaskExecutor
+#define PTR_CAST ThreadTaskExecutor
 #endif
 
 #include "cl_shared_ptr.hpp"
-#include <stdio.h>
+
 #include <pthread.h>
+#include <stdio.h>
 
 using namespace Intel::OpenCL::TaskExecutor;
 using namespace Intel::OpenCL::Utils;

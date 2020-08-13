@@ -12,15 +12,17 @@
 // or implied warranties, other than those that are expressly stated in the
 // License.
 
-#include <algorithm>
 #include "arena_handler.h"
-#include "tbb_executor.h"
+
 #include "base_command_list.h"
-#include "cl_sys_info.h"
-#include "cl_shutdown.h"
 #include "cl_shared_ptr.hpp"
+#include "cl_shutdown.h"
 #include "cl_sys_defines.h"
+#include "cl_sys_info.h"
 #include "hw_utils.h"
+#include "tbb_executor.h"
+
+#include <algorithm>
 
 using namespace Intel::OpenCL::TaskExecutor;
 using namespace Intel::OpenCL::Utils;

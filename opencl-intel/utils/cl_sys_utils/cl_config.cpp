@@ -13,9 +13,10 @@
 // License.
 
 #include "cl_config.h"
+
+#include "cl_cpu_detect.h"
 #include "cl_sys_defines.h"
 #include "cl_sys_info.h"
-#include "cl_cpu_detect.h"
 #include "task_executor.h"
 
 #include <cassert>
