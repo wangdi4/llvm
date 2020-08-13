@@ -553,7 +553,7 @@ void VPLoopEntityList::processInitValue(VPLoopEntity &E, VPValue *AI,
                                         VPValue &Start) {
   if (PrivateMem) {
     assert(AI && "Expected non-null original pointer");
-    Builder.createNaryOp(Instruction::Store, Ty, {&Init, PrivateMem});
+    Builder.createStore(&Init, PrivateMem);
     AI->replaceAllUsesWithInLoop(PrivateMem, Loop);
   }
   // Now replace Start by Init inside the loop. It may be a
@@ -584,7 +584,7 @@ void VPLoopEntityList::processFinalValue(VPLoopEntity &E, VPValue *AI,
                                          VPBuilder &Builder, VPValue &Final,
                                          Type *Ty, VPValue *Exit) {
   if (AI) {
-    VPValue *V = Builder.createNaryOp(Instruction::Store, Ty, {&Final, AI});
+    VPValue *V = Builder.createStore(&Final, AI);
     linkValue(&E, V);
   }
   if (Exit && !E.getIsMemOnly())
@@ -616,7 +616,7 @@ void VPLoopEntityList::insertReductionVPInstructions(VPBuilder &Builder,
     if (Reduction->getIsMemOnly())
       if (!isa<VPConstant>(Identity))
         // min/max in-memory reductions. Need to generate a load.
-        Identity = Builder.createNaryOp(Instruction::Load, Ty, {AI});
+        Identity = Builder.createLoad(Ty, AI);
 
     // We can initialize reduction either with broadcasted identity only or
     // inserting additionally the initial value into 0th element. In the
@@ -649,7 +649,7 @@ void VPLoopEntityList::insertReductionVPInstructions(VPBuilder &Builder,
     Builder.setInsertPoint(PostExit);
     VPInstruction *Exit = cast<VPInstruction>(
         Reduction->getIsMemOnly() || !Reduction->getLoopExitInstr()
-            ? Builder.createNaryOp(Instruction::Load, Ty, {PrivateMem})
+            ? Builder.createLoad(Ty, PrivateMem)
             : Reduction->getLoopExitInstr());
 
     VPReductionFinal *Final = nullptr;
@@ -671,8 +671,7 @@ void VPLoopEntityList::insertReductionVPInstructions(VPBuilder &Builder,
         if (FinalStartValue->getType() != Ty) { // Ty is recurrence type
           assert(isa<PointerType>(FinalStartValue->getType()) &&
                  "Expected pointer type here.");
-          FinalStartValue =
-              Builder.createNaryOp(Instruction::Load, Ty, {FinalStartValue});
+          FinalStartValue = Builder.createLoad(Ty, FinalStartValue);
         }
         Final = Builder.createReductionFinal(
             Reduction->getReductionOpcode(), Exit, FinalStartValue,
@@ -724,7 +723,7 @@ void VPLoopEntityList::insertInductionVPInstructions(VPBuilder &Builder,
     VPValue *Start = Induction->getStartValue();
     Type *Ty = Start->getType();
     if (Induction->getIsMemOnly())
-      Start = Builder.createNaryOp(Instruction::Load, Ty, {AI});
+      Start = Builder.createLoad(Ty, AI);
 
     Instruction::BinaryOps Opc =
         static_cast<Instruction::BinaryOps>(Induction->getInductionOpcode());
@@ -762,10 +761,9 @@ void VPLoopEntityList::insertInductionVPInstructions(VPBuilder &Builder,
     unsigned OpT = static_cast<unsigned>(Opc);
     bool IsExtract = OpT != Instruction::Add && OpT != Instruction::FAdd &&
                      OpT != Instruction::GetElementPtr;
-    VPValue *Exit =
-        Induction->getIsMemOnly()
-            ? Builder.createNaryOp(Instruction::Load, Ty, {PrivateMem})
-            : ExitInstr;
+    VPValue *Exit = Induction->getIsMemOnly()
+                        ? Builder.createLoad(Ty, PrivateMem)
+                        : ExitInstr;
     VPInstruction *Final =
         IsExtract && Exit
             ? Builder.createInductionFinal(Exit, Name + ".ind.final")
@@ -945,7 +943,7 @@ void VPLoopEntityList::createInductionCloseForm(VPInduction *Induction,
     VPBasicBlock *Block = Loop.getHeader();
     Builder.setInsertPointFirstNonPhi(Block);
     VPPHINode *IndPhi = Builder.createPhiInstruction(Ty);
-    Builder.createNaryOp(Instruction::Store, Ty, {IndPhi, &PrivateMem});
+    Builder.createStore(IndPhi, &PrivateMem);
     // Then insert increment of induction and update phi.
     Block = Loop.getLoopLatch();
     Builder.setInsertPoint(Block);

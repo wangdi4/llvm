@@ -332,6 +332,32 @@ public:
     return NewSubscript;
   }
 
+  // Build a new load VPInstruction from given pointer operand.
+  VPLoadStoreInst *createLoad(Type *Ty, VPValue *Ptr,
+                              Instruction *Inst = nullptr,
+                              const Twine &Name = "load") {
+    VPLoadStoreInst *NewLoad =
+        new VPLoadStoreInst(Instruction::Load, Ty, {Ptr});
+    NewLoad->setName(Name);
+    insert(NewLoad);
+    if (Inst)
+      NewLoad->setUnderlyingValue(*Inst);
+    return NewLoad;
+  }
+
+  // Build a new store VPInstruction using given value and pointer operand.
+  VPLoadStoreInst *createStore(VPValue *Val, VPValue *Ptr,
+                               Instruction *Inst = nullptr,
+                               const Twine &Name = "store") {
+    VPLoadStoreInst *NewStore =
+        new VPLoadStoreInst(Instruction::Store, Val->getType(), {Val, Ptr});
+    NewStore->setName(Name);
+    insert(NewStore);
+    if (Inst)
+      NewStore->setUnderlyingValue(*Inst);
+    return NewStore;
+  }
+
   // Build a VPCallInstruction for the LLVM-IR instruction \p Inst using callee
   // \p CalledValue and list of argument operands \p ArgList.
   VPInstruction *createCall(VPValue *CalledValue, ArrayRef<VPValue *> ArgList,
