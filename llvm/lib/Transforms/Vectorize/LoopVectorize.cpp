@@ -3384,6 +3384,12 @@ unsigned LoopVectorizationCostModel::getVectorCallCost(CallInst *CI,
   if (!TLI || CI->isNoBuiltin() || !VecFunc)
     return Cost;
 
+#if INTEL_CUSTOMIZATION
+  // Use vector library call if scalar call is known to read memory only.
+  if (!CI->onlyReadsMemory())
+    return Cost;
+#endif
+
   // If the corresponding vector cost is cheaper, return its cost.
   unsigned VectorCallCost = TTI.getCallInstrCost(nullptr, RetTy, Tys,
                                                  TTI::TCK_RecipThroughput);
