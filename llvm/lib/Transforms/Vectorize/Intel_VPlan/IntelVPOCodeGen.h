@@ -132,6 +132,16 @@ public:
   /// Set transform state
   void setTransformState(struct VPTransformState *SP) { State = SP; }
 
+  /// Add to WidenMap
+  void addToWidenMap(VPValue *Key, Value *Data) { VPWidenMap[Key] = Data; }
+
+  /// \Returns the widened value that corresponds to key or nullptr if not
+  /// found.
+  Value *getWidenedValue(VPValue *Key) {
+    auto It = VPWidenMap.find(Key);
+    return It != VPWidenMap.end() ? It->second : nullptr;
+  }
+
   VPlanVLSAnalysis *getVLS() { return VLSA; }
 
   void setVPlan(const VPlan *P, const VPLoopEntityList *Entities) {

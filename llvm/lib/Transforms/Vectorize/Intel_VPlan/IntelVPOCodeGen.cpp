@@ -20,6 +20,7 @@
 #include "IntelVPlanCallVecDecisions.h"
 #include "IntelVPlanUtils.h"
 #include "IntelVPlanVLSAnalysis.h"
+#include "IntelVPlanVectorizeIndirectCalls.h"
 #include "llvm/Analysis/LoopAccessAnalysis.h"
 #include "llvm/Analysis/ScalarEvolutionExpressions.h"
 #include "llvm/Analysis/VectorUtils.h"
@@ -2698,6 +2699,12 @@ void VPOCodeGen::vectorizeVecVariant(VPCallInstruction *VPCall) {
   assert(VPCall->getVectorizationScenario() ==
              VPCallInstruction::CallVecScenariosTy::VectorVariant &&
          "vectorizeVecVariant called for mismatched scenario.");
+  if (VPCall->isIntelIndirectCall()) {
+    IndirectCallCodeGenerator IndirectCall(this, LI, VF, State, MaskValue, Plan,
+                                           NewLoop);
+    IndirectCall.vectorize(VPCall);
+    return;
+  }
   unsigned PumpFactor = VPCall->getPumpFactor();
   assert(PumpFactor == 1 && "Pumping feature is not supported for SIMD "
                             "functions with vector variants.");
@@ -3699,7 +3706,7 @@ void VPOCodeGen::fixNonInductionVPPhis() {
         auto *VPBB = VPPhi->getIncomingBlock(I);
         Value *IncValue =
             IsScalar ? getScalarValue(VPVal, 0) : getVectorValue(VPVal);
-        Phi->addIncoming(IncValue, State->CFG.VPBB2IRBB[VPBB]);
+        Phi->addIncoming(IncValue, State->CFG.VPBB2IREndBB[VPBB]);
       }
     }
     return;

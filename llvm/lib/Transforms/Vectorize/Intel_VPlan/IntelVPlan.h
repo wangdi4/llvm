@@ -239,6 +239,9 @@ struct VPTransformState {
     /// A mapping of each VPBasicBlock to the corresponding BasicBlock. In case
     /// of replication, maps the BasicBlock of the last replica created.
     SmallDenseMap<VPBasicBlock *, BasicBlock *> VPBB2IRBB;
+    /// A mapping of each VPBasicBlock and the last BasicBlock created for the
+    /// same.
+    SmallDenseMap<VPBasicBlock *, BasicBlock *> VPBB2IREndBB;
     /// Vector of VPBasicBlocks whose terminator instruction needs to be fixed
     /// up at the end of vector code generation.
     SmallVector<VPBasicBlock *, 8> VPBBsToFix;
@@ -1875,12 +1878,15 @@ private:
   /// VF.
   CallVecScenarios VecScenario = CallVecScenarios::Undefined;
 
+  const CallInst *OrigCall;
+
 public:
   using CallVecScenariosTy = CallVecScenarios;
 
   VPCallInstruction(VPValue *CalledValue, ArrayRef<VPValue *> ArgList,
                     const CallInst *OrigCall)
-      : VPInstruction(Instruction::Call, OrigCall->getType(), ArgList) {
+      : VPInstruction(Instruction::Call, OrigCall->getType(), ArgList),
+        OrigCall(OrigCall) {
     assert(OrigCall &&
            "VPlan trying to create a new VPCall without underlying Call.");
     assert(CalledValue && "Call instruction does not have CalledValue");
@@ -2129,6 +2135,8 @@ public:
       return F->getName().startswith("__intel_indirect_call");
     return false;
   }
+
+  const CallInst *getOriginalCall() const { return OrigCall; }
 
 protected:
   virtual VPCallInstruction *cloneImpl() const final {
