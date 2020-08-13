@@ -388,18 +388,21 @@ static void addIntelDeviceLibs(const ToolChain &TC, Driver::InputList &Inputs,
     { "libsycl-cmath", false },
     { "libsycl-cmath-fp64", true } };
 
-  StringRef LibLoc(Args.MakeArgString(TC.getDriver().Dir + "/../lib"));
+  StringRef DPCPPLibLoc;
+  if (TC.getTriple().isWindowsMSVCEnvironment())
+    DPCPPLibLoc = Args.MakeArgString(TC.getDriver().Dir + "/../bin");
+  else
+    DPCPPLibLoc = Args.MakeArgString(TC.getDriver().Dir + "/../lib");
   // Go through the lib vectors and add them accordingly.
   auto addInput = [&](const char * LibName) {
     Arg *InputArg = MakeInputArg(Args, Opts, LibName);
     Inputs.push_back(std::make_pair(types::TY_Object, InputArg));
   };
-  StringRef Ext(TC.getTriple().isWindowsMSVCEnvironment() ? ".obj" : ".o");
   if (Args.hasFlag(options::OPT_fsycl, options::OPT_fno_sycl, false)) {
     for (const std::pair<const StringRef, bool> &Lib : sycl_device_libs) {
-      SmallString<128> LibName(LibLoc);
+      SmallString<128> LibName(DPCPPLibLoc);
       llvm::sys::path::append(LibName, Lib.first);
-      llvm::sys::path::replace_extension(LibName, Ext);
+      llvm::sys::path::replace_extension(LibName, ".o");
       if (addFP64 && Lib.second && llvm::sys::fs::exists(LibName))
         addInput(Args.MakeArgString(LibName));
       if (addFP32 && !Lib.second && llvm::sys::fs::exists(LibName))
@@ -412,9 +415,11 @@ static void addIntelDeviceLibs(const ToolChain &TC, Driver::InputList &Inputs,
       if (Val == "spir64")
         addOmpLibs = true;
   }
+  StringRef OMPLibLoc(Args.MakeArgString(TC.getDriver().Dir + "/../lib"));
+  StringRef Ext(TC.getTriple().isWindowsMSVCEnvironment() ? ".obj" : ".o");
   if (addOmpLibs) {
     for (const std::pair<const StringRef, bool> &Lib : omp_device_libs) {
-      SmallString<128> LibName(LibLoc);
+      SmallString<128> LibName(OMPLibLoc);
       llvm::sys::path::append(LibName, Lib.first);
       llvm::sys::path::replace_extension(LibName, Ext);
       if (addFP64 && Lib.second && llvm::sys::fs::exists(LibName))
