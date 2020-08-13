@@ -253,6 +253,10 @@ void Scheduler::lockSharedTimedMutex(
 #endif // _WIN32
 }
 
+void Scheduler::setLeafLimit(size_t Limit) {  // INTEL
+  MGraphBuilder.setLeafLimit(Limit);          // INTEL
+}                                             // INTEL
+
 } // namespace detail
 } // namespace sycl
 } // __SYCL_INLINE_NAMESPACE(cl)
