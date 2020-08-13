@@ -3358,7 +3358,11 @@ class DSAAttrChecker final : public StmtVisitor<DSAAttrChecker, void> {
 
   void VisitSubCaptures(OMPExecutableDirective *S) {
     // Check implicitly captured variables.
-    if (!S->hasAssociatedStmt() || !S->getAssociatedStmt())
+    if (!S->hasAssociatedStmt() || !S->getAssociatedStmt() ||
+        S->getDirectiveKind() == OMPD_atomic ||
+        S->getDirectiveKind() == OMPD_critical ||
+        S->getDirectiveKind() == OMPD_section ||
+        S->getDirectiveKind() == OMPD_master)
       return;
     visitSubCaptures(S->getInnermostCapturedStmt());
     // Try to capture inner this->member references to generate correct mappings
@@ -3863,22 +3867,27 @@ void Sema::ActOnOpenMPRegionStart(OpenMPDirectiveKind DKind, Scope *CurScope) {
                              /*OpenMPCaptureLevel=*/1);
     break;
   }
+  case OMPD_atomic:
+  case OMPD_critical:
+  case OMPD_section:
+  case OMPD_master:
+    break;
   case OMPD_simd:
   case OMPD_for:
   case OMPD_for_simd:
   case OMPD_sections:
-  case OMPD_section:
   case OMPD_single:
-  case OMPD_master:
-  case OMPD_critical:
   case OMPD_taskgroup:
   case OMPD_distribute:
   case OMPD_distribute_simd:
   case OMPD_ordered:
+<<<<<<< HEAD
   case OMPD_atomic:
 #if INTEL_COLLAB
   case OMPD_target_variant_dispatch:
 #endif // INTEL_COLLAB
+=======
+>>>>>>> 4a7aedb843a591900b419e86dcf46d9bec4c5526
   case OMPD_target_data: {
     Sema::CapturedParamNameType Params[] = {
         std::make_pair(StringRef(), QualType()) // __context with shared vars
@@ -4436,6 +4445,12 @@ static bool checkOrderedOrderSpecified(Sema &S,
 
 StmtResult Sema::ActOnOpenMPRegionEnd(StmtResult S,
                                       ArrayRef<OMPClause *> Clauses) {
+  if (DSAStack->getCurrentDirective() == OMPD_atomic ||
+      DSAStack->getCurrentDirective() == OMPD_critical ||
+      DSAStack->getCurrentDirective() == OMPD_section ||
+      DSAStack->getCurrentDirective() == OMPD_master)
+    return S;
+
   bool ErrorFound = false;
   CaptureRegionUnwinderRAII CaptureRegionUnwinder(
       *this, ErrorFound, DSAStack->getCurrentDirective());
@@ -5205,6 +5220,7 @@ StmtResult Sema::ActOnOpenMPExecutableDirective(
   llvm::SmallVector<OMPClause *, 8> ClausesWithImplicit;
   VarsWithInheritedDSAType VarsWithInheritedDSA;
   bool ErrorFound = false;
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   // When using late outlining, do special handling for 'collapse' clauses.
   // Remove any user 'collapse', and instead add an implicit one that matches
@@ -5239,6 +5255,11 @@ StmtResult Sema::ActOnOpenMPExecutableDirective(
     ClausesWithImplicit.append(Clauses.begin(), Clauses.end());
 #endif // INTEL_CUSTOMIZATION
   if (AStmt && !CurContext->isDependentContext()) {
+=======
+  ClausesWithImplicit.append(Clauses.begin(), Clauses.end());
+  if (AStmt && !CurContext->isDependentContext() && Kind != OMPD_atomic &&
+      Kind != OMPD_critical && Kind != OMPD_section && Kind != OMPD_master) {
+>>>>>>> 4a7aedb843a591900b419e86dcf46d9bec4c5526
     assert(isa<CapturedStmt>(AStmt) && "Captured statement expected");
 
     // Check default data sharing attributes for referenced variables.
@@ -9822,8 +9843,6 @@ StmtResult Sema::ActOnOpenMPTargetVariantDispatchDirective(
   if (!AStmt)
     return StmtError();
 
-  assert(isa<CapturedStmt>(AStmt) && "Captured statement expected");
-
   setFunctionHasBranchProtectedScope();
 
   return OMPTargetVariantDispatchDirective::Create(Context, StartLoc, EndLoc,
@@ -9868,8 +9887,6 @@ StmtResult Sema::ActOnOpenMPMasterDirective(Stmt *AStmt,
   if (!AStmt)
     return StmtError();
 
-  assert(isa<CapturedStmt>(AStmt) && "Captured statement expected");
-
   setFunctionHasBranchProtectedScope();
 
   return OMPMasterDirective::Create(Context, StartLoc, EndLoc, AStmt);
@@ -9880,8 +9897,6 @@ StmtResult Sema::ActOnOpenMPCriticalDirective(
     Stmt *AStmt, SourceLocation StartLoc, SourceLocation EndLoc) {
   if (!AStmt)
     return StmtError();
-
-  assert(isa<CapturedStmt>(AStmt) && "Captured statement expected");
 
   bool ErrorFound = false;
   llvm::APSInt Hint;
@@ -10600,7 +10615,6 @@ StmtResult Sema::ActOnOpenMPAtomicDirective(ArrayRef<OMPClause *> Clauses,
   if (!AStmt)
     return StmtError();
 
-  auto *CS = cast<CapturedStmt>(AStmt);
   // 1.2.2 OpenMP Language Terminology
   // Structured block - An executable statement with a single entry at the
   // top and a single exit at the bottom.
@@ -10664,7 +10678,7 @@ StmtResult Sema::ActOnOpenMPAtomicDirective(ArrayRef<OMPClause *> Clauses,
         << getOpenMPClauseName(MemOrderKind);
   }
 
-  Stmt *Body = CS->getCapturedStmt();
+  Stmt *Body = AStmt;
   if (auto *EWC = dyn_cast<ExprWithCleanups>(Body))
     Body = EWC->getSubExpr();
 
