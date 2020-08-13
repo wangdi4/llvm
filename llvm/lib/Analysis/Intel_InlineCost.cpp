@@ -524,14 +524,21 @@ extern bool isDynamicAllocaException(AllocaInst &I, CallBase &CandidateCall,
   // to enable inlining for OpenMP calls.
   //
   // Returns true if "I", which allocates either integer or pointer type,
-  // is used by only StoreInst and CallBase instructions.
+  // is used by only StoreInst/CallBase/LoadInst/BitCastInst instructions.
+  // BitCastInst: Allow only when bitcast is used by lifetime intrinsics.
+  // LoadInst: Allow only when DTransInlineHeuristics is true.
   //
   // Ex:
   //  %31 = alloca i32, align 4
   //  store i32 %30, i32* %31, align 4
   //  %32 = alloca double*, align 8
+  //  %33 = bitcast double** %33 to i8*
+  //  call void @llvm.lifetime.start.p0i8(i64 8, i8* %33)
   //  store double* %29, double** %32, align 8, !tbaa !6
   //  call void @foo(i32* nonnull %31, i32* undef, double** nonnull %32, i64 0)
+  //  %34 = alloca i32, align 4
+  //  store i32 4, i32* %34, align 4
+  //  %35 = load i32, i32* %34, align 4
   //
   auto IsSimpleAlloca = [](AllocaInst &I) {
     Type *Ty = I.getAllocatedType();
@@ -540,7 +547,7 @@ extern bool isDynamicAllocaException(AllocaInst &I, CallBase &CandidateCall,
     if (I.isArrayAllocation())
       return false;
     StoreInst *SingleStore = nullptr;
-    bool CallSeen = false;
+    bool CallOrLoadSeen = false;
     for (User *U : I.users()) {
       if (auto *SI = dyn_cast<StoreInst>(U)) {
         if (SingleStore)
@@ -548,13 +555,24 @@ extern bool isDynamicAllocaException(AllocaInst &I, CallBase &CandidateCall,
         if (SI->getPointerOperand() != &I)
           return false;
         SingleStore = SI;
-      } else if (isa<CallBase>(U)) {
-        CallSeen = true;
+      } else if (auto BC = dyn_cast<BitCastInst>(U)) {
+        // Ignore if bitcast instruction is used by lifetime_start or
+        // lifetime_end.
+        for (auto UU : BC->users()) {
+          auto ICB = dyn_cast<CallBase>(UU);
+          if (!ICB)
+            return false;
+          if (!ICB->isLifetimeStartOrEnd())
+            return false;
+        }
+      } else if (isa<CallBase>(U) ||
+                 (DTransInlineHeuristics && isa<LoadInst>(U))) {
+        CallOrLoadSeen = true;
       } else {
         return false;
       }
     }
-    return CallSeen && SingleStore;
+    return CallOrLoadSeen && SingleStore;
   };
 
   // In Fortran, dynamic allocas can be used to represent local arrays

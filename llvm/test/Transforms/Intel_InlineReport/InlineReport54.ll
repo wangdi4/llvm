@@ -8,61 +8,61 @@
 ; CHECK-OLD: COMPILE FUNC: GetVirtualPixelsFromNexus.split.0
 ; CHECK-OLD: COMPILE FUNC: GetVirtualPixelsFromNexus.split.1
 ; CHECK-OLD: GetVirtualPixelsFromNexus.split.0 {{.*}}Inlining is not profitable
-; CHECK-OLD: GetVirtualPixelsFromNexus.split.1 {{.*}}Callee has dynamic alloca
+; CHECK-OLD: GetVirtualPixelsFromNexus.split.1 {{.*}}Inlining is not profitable
 ; CHECK-OLD: GetVirtualPixelsFromNexus.split.0 {{.*}}Inlining is not profitable
-; CHECK-OLD: GetVirtualPixelsFromNexus.split.1 {{.*}}Callee has dynamic alloca
+; CHECK-OLD: GetVirtualPixelsFromNexus.split.1 {{.*}}Callee has recursion
 ; CHECK-OLD: GetVirtualPixelsFromNexus.split.0 {{.*}}Inlining is not profitable
-; CHECK-OLD: GetVirtualPixelsFromNexus.split.1 {{.*}}Callee has dynamic alloca
+; CHECK-OLD: GetVirtualPixelsFromNexus.split.1 {{.*}}Callee has recursion
 ; CHECK-OLD: GetVirtualPixelsFromNexus.split.0 {{.*}}Inlining is not profitable
-; CHECK-OLD: GetVirtualPixelsFromNexus.split.1 {{.*}}Callee has dynamic alloca
+; CHECK-OLD: GetVirtualPixelsFromNexus.split.1 {{.*}}Callee has recursion
 ; CHECK-OLD: GetVirtualPixelsFromNexus.split.0 {{.*}}Inlining is not profitable
-; CHECK-OLD: GetVirtualPixelsFromNexus.split.1 {{.*}}Callee has dynamic alloca
+; CHECK-OLD: GetVirtualPixelsFromNexus.split.1 {{.*}}Callee has recursion
 ; CHECK-OLD: GetVirtualPixelsFromNexus.split.0 {{.*}}Inlining is not profitable
-; CHECK-OLD: GetVirtualPixelsFromNexus.split.1 {{.*}}Callee has dynamic alloca
+; CHECK-OLD: GetVirtualPixelsFromNexus.split.1 {{.*}}Callee has recursion
 ; CHECK-OLD: GetVirtualPixelsFromNexus.split.0 {{.*}}Inlining is not profitable
-; CHECK-OLD: GetVirtualPixelsFromNexus.split.1 {{.*}}Callee has dynamic alloca
+; CHECK-OLD: GetVirtualPixelsFromNexus.split.1 {{.*}}Callee has recursion
 ; CHECK-OLD: GetVirtualPixelsFromNexus.split.0 {{.*}}Inlining is not profitable
-; CHECK-OLD: GetVirtualPixelsFromNexus.split.1 {{.*}}Callee has dynamic alloca
+; CHECK-OLD: GetVirtualPixelsFromNexus.split.1 {{.*}}Callee has recursion
 ; CHECK-OLD: GetVirtualPixelsFromNexus.split.0 {{.*}}Inlining is not profitable
-; CHECK-OLD: GetVirtualPixelsFromNexus.split.1 {{.*}}Callee has dynamic alloca
+; CHECK-OLD: GetVirtualPixelsFromNexus.split.1 {{.*}}Callee has recursion
 ; CHECK-OLD: GetVirtualPixelsFromNexus.split.0 {{.*}}Inlining is not profitable
-; CHECK-OLD: GetVirtualPixelsFromNexus.split.1 {{.*}}Callee has dynamic alloca
+; CHECK-OLD: GetVirtualPixelsFromNexus.split.1 {{.*}}Inlining is not profitable
 ; CHECK-OLD: COMPILE FUNC: GetOneCacheViewVirtualPixel
 ; CHECK-OLD: INLINE: GetVirtualPixelsFromNexus.split.0 {{.*}}Callsite inlined for many recursive calls splitting
-; CHECK-OLD: GetVirtualPixelsFromNexus.split.1 {{.*}}Callee has dynamic alloca
+; CHECK-OLD: GetVirtualPixelsFromNexus.split.1 {{.*}}Inlining is not profitable
 ; CHECK-OLD: COMPILE FUNC: MeanShiftImage
 ; CHECK-OLD: INLINE: GetOneCacheViewVirtualPixel {{.*}}Callsite inlined for many recursive calls splitting
 ; CHECK-OLD: INLINE: GetVirtualPixelsFromNexus.split.0 {{.*}}Callsite inlined for many recursive calls splitting
-; CHECK-OLD: GetVirtualPixelsFromNexus.split.1 {{.*}}Callee has dynamic alloca
+; CHECK-OLD: GetVirtualPixelsFromNexus.split.1 {{.*}}Inlining is not profitable
 
 ; CHECK-META: COMPILE FUNC: MeanShiftImage
 ; CHECK-META: INLINE: GetOneCacheViewVirtualPixel {{.*}}Callsite inlined for many recursive calls splitting
 ; CHECK-META: INLINE: GetVirtualPixelsFromNexus.split.0 {{.*}}Callsite inlined for many recursive calls splitting
 ; CHECK-META: COMPILE FUNC: GetOneCacheViewVirtualPixel
 ; CHECK-META: INLINE: GetVirtualPixelsFromNexus.split.0 {{.*}}Callsite inlined for many recursive calls splitting
-; CHECK-META: GetVirtualPixelsFromNexus.split.1 {{.*}}Callee has dynamic alloca
+; CHECK-META: GetVirtualPixelsFromNexus.split.1 {{.*}}Inlining is not profitable
 ; CHECK-META: COMPILE FUNC: GetVirtualPixelsFromNexus.split.0
 ; CHECK-META: COMPILE FUNC: GetVirtualPixelsFromNexus.split.1
 ; CHECK-META: GetVirtualPixelsFromNexus.split.0 {{.*}}Inlining is not profitable
-; CHECK-META: GetVirtualPixelsFromNexus.split.1 {{.*}}Callee has dynamic alloca
+; CHECK-META: GetVirtualPixelsFromNexus.split.1 {{.*}}Inlining is not profitable
 ; CHECK-META: GetVirtualPixelsFromNexus.split.0 {{.*}}Inlining is not profitable
-; CHECK-META: GetVirtualPixelsFromNexus.split.1 {{.*}}Callee has dynamic alloca
+; CHECK-META: GetVirtualPixelsFromNexus.split.1 {{.*}}Callee has recursion
 ; CHECK-META: GetVirtualPixelsFromNexus.split.0 {{.*}}Inlining is not profitable
-; CHECK-META: GetVirtualPixelsFromNexus.split.1 {{.*}}Callee has dynamic alloca
+; CHECK-META: GetVirtualPixelsFromNexus.split.1 {{.*}}Callee has recursion
 ; CHECK-META: GetVirtualPixelsFromNexus.split.0 {{.*}}Inlining is not profitable
-; CHECK-META: GetVirtualPixelsFromNexus.split.1 {{.*}}Callee has dynamic alloca
+; CHECK-META: GetVirtualPixelsFromNexus.split.1 {{.*}}Callee has recursion
 ; CHECK-META: GetVirtualPixelsFromNexus.split.0 {{.*}}Inlining is not profitable
-; CHECK-META: GetVirtualPixelsFromNexus.split.1 {{.*}}Callee has dynamic alloca
+; CHECK-META: GetVirtualPixelsFromNexus.split.1 {{.*}}Callee has recursion
 ; CHECK-META: GetVirtualPixelsFromNexus.split.0 {{.*}}Inlining is not profitable
-; CHECK-META: GetVirtualPixelsFromNexus.split.1 {{.*}}Callee has dynamic alloca
+; CHECK-META: GetVirtualPixelsFromNexus.split.1 {{.*}}Callee has recursion
 ; CHECK-META: GetVirtualPixelsFromNexus.split.0 {{.*}}Inlining is not profitable
-; CHECK-META: GetVirtualPixelsFromNexus.split.1 {{.*}}Callee has dynamic alloca
+; CHECK-META: GetVirtualPixelsFromNexus.split.1 {{.*}}Callee has recursion
 ; CHECK-META: GetVirtualPixelsFromNexus.split.0 {{.*}}Inlining is not profitable
-; CHECK-META: GetVirtualPixelsFromNexus.split.1 {{.*}}Callee has dynamic alloca
+; CHECK-META: GetVirtualPixelsFromNexus.split.1 {{.*}}Callee has recursion
 ; CHECK-META: GetVirtualPixelsFromNexus.split.0 {{.*}}Inlining is not profitable
-; CHECK-META: GetVirtualPixelsFromNexus.split.1 {{.*}}Callee has dynamic alloca
+; CHECK-META: GetVirtualPixelsFromNexus.split.1 {{.*}}Callee has recursion
 ; CHECK-META: GetVirtualPixelsFromNexus.split.0 {{.*}}Inlining is not profitable
-; CHECK-META: GetVirtualPixelsFromNexus.split.1 {{.*}}Callee has dynamic alloca
+; CHECK-META: GetVirtualPixelsFromNexus.split.1 {{.*}}Inlining is not profitable
 
 ; CHECK: define {{.*}} @MeanShiftImage
 ; CHECK-NOT: call {{.*}} @GetOneCacheViewVirtualPixel
@@ -96,32 +96,32 @@
 ; CHECK-NEW: COMPILE FUNC: GetVirtualPixelsFromNexus.split.0
 ; CHECK-NEW: COMPILE FUNC: GetVirtualPixelsFromNexus.split.1
 ; CHECK-NEW: GetVirtualPixelsFromNexus.split.0 {{.*}}Inlining is not profitable
-; CHECK-NEW: GetVirtualPixelsFromNexus.split.1 {{.*}}Callee has dynamic alloca
+; CHECK-NEW: GetVirtualPixelsFromNexus.split.1 {{.*}}Inlining is not profitable
 ; CHECK-NEW: GetVirtualPixelsFromNexus.split.0 {{.*}}Inlining is not profitable
-; CHECK-NEW: GetVirtualPixelsFromNexus.split.1 {{.*}}Callee has dynamic alloca
+; CHECK-NEW: GetVirtualPixelsFromNexus.split.1 {{.*}}Callee has recursion
 ; CHECK-NEW: GetVirtualPixelsFromNexus.split.0 {{.*}}Inlining is not profitable
-; CHECK-NEW: GetVirtualPixelsFromNexus.split.1 {{.*}}Callee has dynamic alloca
+; CHECK-NEW: GetVirtualPixelsFromNexus.split.1 {{.*}}Callee has recursion
 ; CHECK-NEW: GetVirtualPixelsFromNexus.split.0 {{.*}}Inlining is not profitable
-; CHECK-NEW: GetVirtualPixelsFromNexus.split.1 {{.*}}Callee has dynamic alloca
+; CHECK-NEW: GetVirtualPixelsFromNexus.split.1 {{.*}}Callee has recursion
 ; CHECK-NEW: GetVirtualPixelsFromNexus.split.0 {{.*}}Inlining is not profitable
-; CHECK-NEW: GetVirtualPixelsFromNexus.split.1 {{.*}}Callee has dynamic alloca
+; CHECK-NEW: GetVirtualPixelsFromNexus.split.1 {{.*}}Callee has recursion
 ; CHECK-NEW: GetVirtualPixelsFromNexus.split.0 {{.*}}Inlining is not profitable
-; CHECK-NEW: GetVirtualPixelsFromNexus.split.1 {{.*}}Callee has dynamic alloca
+; CHECK-NEW: GetVirtualPixelsFromNexus.split.1 {{.*}}Callee has recursion
 ; CHECK-NEW: GetVirtualPixelsFromNexus.split.0 {{.*}}Inlining is not profitable
-; CHECK-NEW: GetVirtualPixelsFromNexus.split.1 {{.*}}Callee has dynamic alloca
+; CHECK-NEW: GetVirtualPixelsFromNexus.split.1 {{.*}}Callee has recursion
 ; CHECK-NEW: GetVirtualPixelsFromNexus.split.0 {{.*}}Inlining is not profitable
-; CHECK-NEW: GetVirtualPixelsFromNexus.split.1 {{.*}}Callee has dynamic alloca
+; CHECK-NEW: GetVirtualPixelsFromNexus.split.1 {{.*}}Callee has recursion
 ; CHECK-NEW: GetVirtualPixelsFromNexus.split.0 {{.*}}Inlining is not profitable
-; CHECK-NEW: GetVirtualPixelsFromNexus.split.1 {{.*}}Callee has dynamic alloca
+; CHECK-NEW: GetVirtualPixelsFromNexus.split.1 {{.*}}Callee has recursion
 ; CHECK-NEW: GetVirtualPixelsFromNexus.split.0 {{.*}}Inlining is not profitable
-; CHECK-NEW: GetVirtualPixelsFromNexus.split.1 {{.*}}Callee has dynamic alloca
+; CHECK-NEW: GetVirtualPixelsFromNexus.split.1 {{.*}}Inlining is not profitable
 ; CHECK-NEW: COMPILE FUNC: GetOneCacheViewVirtualPixel
 ; CHECK-NEW: INLINE: GetVirtualPixelsFromNexus.split.0 {{.*}}Callsite inlined for many recursive calls splitting
-; CHECK-NEW: GetVirtualPixelsFromNexus.split.1 {{.*}}Callee has dynamic alloca
+; CHECK-NEW: GetVirtualPixelsFromNexus.split.1 {{.*}}Inlining is not profitable
 ; CHECK-NEW: COMPILE FUNC: MeanShiftImage
 ; CHECK-NEW: INLINE: GetOneCacheViewVirtualPixel {{.*}}Callsite inlined for many recursive calls splitting
 ; CHECK-NEW: INLINE: GetVirtualPixelsFromNexus.split.0 {{.*}}Callsite inlined for many recursive calls splitting
-; CHECK-NEW: GetVirtualPixelsFromNexus.split.1 {{.*}}Callee has dynamic alloca
+; CHECK-NEW: GetVirtualPixelsFromNexus.split.1 {{.*}}Inlining is not profitable
 
 %struct._ExceptionInfo = type { i32, i32, i8*, i8*, i8*, i32, %struct.SemaphoreInfo*, i64 }
 %struct.SemaphoreInfo = type { i64, i32, i64, i64 }
