@@ -2,28 +2,20 @@ add_subdirectory(sycl-ls)
 
 # TODO: move each tool in its own sub-directory
 add_executable(get_device_count_by_type get_device_count_by_type.cpp)
-# INTEL_CUSTOMIZATON
-if(MSVC)
-  add_dependencies(get_device_count_by_type ocl-headers ocl-icd l0-loader)
-else()
-  add_dependencies(get_device_count_by_type ocl-headers ocl-icd level-zero-loader)
-endif()
-# end INTEL_CUSTOMIZATON
+add_dependencies(get_device_count_by_type ocl-headers ocl-icd level-zero-loader)
 
 
 if(MSVC)
   set(LEVEL_ZERO_LIBRARY
     "${LLVM_LIBRARY_OUTPUT_INTDIR}/${CMAKE_STATIC_LIBRARY_PREFIX}ze_loader${CMAKE_STATIC_LIBRARY_SUFFIX}")
-# INTEL_CUSTOMIZATON
-   set(LEVEL_ZERO_HEADERS L0Loader::Headers)
-# end INTEL_CUSTOMIZATON
 else()
    set(LEVEL_ZERO_LIBRARY
      "${LLVM_LIBRARY_OUTPUT_INTDIR}/${CMAKE_SHARED_LIBRARY_PREFIX}ze_loader${CMAKE_SHARED_LIBRARY_SUFFIX}")
-# INTEL_CUSTOMIZATON
-  set(LEVEL_ZERO_HEADERS LevelZeroLoader::Headers)
-# end INTEL_CUSTOMIZATON
 endif()
+
+# INTEL_CUSTOMIZATON
+set(LEVEL_ZERO_HEADERS LevelZeroLoader::Headers)
+# end INTEL_CUSTOMIZATON
 
 target_link_libraries(get_device_count_by_type
   PRIVATE
