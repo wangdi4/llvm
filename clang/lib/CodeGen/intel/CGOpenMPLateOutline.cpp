@@ -1222,7 +1222,7 @@ void OpenMPLateOutliner::emitOMPCopyinClause(const OMPCopyinClause *Cl) {
 void OpenMPLateOutliner::emitOMPIfClause(const OMPIfClause *Cl) {
   ClauseEmissionHelper CEH(*this, OMPC_if);
   addArg("QUAL.OMP.IF");
-  addArg(CGF.EmitScalarExpr(Cl->getCondition()));
+  addArg(CGF.EvaluateExprAsBool(Cl->getCondition()));
 }
 
 void OpenMPLateOutliner::emitOMPNumThreadsClause(
@@ -1346,7 +1346,7 @@ void OpenMPLateOutliner::emitOMPPriorityClause(const OMPPriorityClause *Cl) {
 void OpenMPLateOutliner::emitOMPFinalClause(const OMPFinalClause *Cl) {
   ClauseEmissionHelper CEH(*this, OMPC_final);
   addArg("QUAL.OMP.FINAL");
-  addArg(CGF.EmitScalarExpr(Cl->getCondition()));
+  addArg(CGF.EvaluateExprAsBool(Cl->getCondition()));
 }
 
 void OpenMPLateOutliner::emitOMPNogroupClause(const OMPNogroupClause *) {
@@ -1627,7 +1627,7 @@ void OpenMPLateOutliner::emitOMPAllMapClauses() {
         addExplicit(I.Var, OMPC_map);
       if (CurrentDirectiveKind == OMPD_target)
         if ((Ty->isReferenceType() || Ty->isAnyPointerType()) &&
-            !I.Base->stripPointerCastsAndAliases()->hasName())
+            isa<llvm::LoadInst>(I.Base))
           MapTemps.emplace_back(I.Base, I.Var);
     }
     addArg(CSB.getString());

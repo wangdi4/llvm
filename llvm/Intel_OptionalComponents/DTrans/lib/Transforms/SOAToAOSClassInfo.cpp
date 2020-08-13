@@ -2216,6 +2216,7 @@ FunctionKind ClassInfo::recognizeDestructor(Function *Fn) {
               // is set only once.
               if (!PtrArg || !checkCompleteObjPtr(PtrArg, ThisObj) || FreeCall)
                 return UnKnown;
+              assert(FreeBB && "Expected valid FreeBB");
               if (FreeBB->hasNPredecessorsOrMore(2))
                 return UnKnown;
               BasicBlock *Pred = FreeBB->getSinglePredecessor();

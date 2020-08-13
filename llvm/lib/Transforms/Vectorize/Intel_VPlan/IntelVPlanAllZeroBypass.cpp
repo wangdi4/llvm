@@ -15,6 +15,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "IntelVPlanAllZeroBypass.h"
+#include "IntelVPlanCostModelProprietary.h"
 #include "IntelVPlanUtils.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Debug.h"
@@ -24,12 +25,11 @@
 
 using namespace llvm;
 
-// A basic tuning knob to control the size of all-zero byass regions.
-// RegionThreshold is specified in the minimum number of blocks that need to be
-// in the region in order to insert the bypass.
+// RegionThreshold is specified as the minimum cost of the region in order to
+// insert the bypass.
 static cl::opt<unsigned> RegionThreshold(
-    "vplan-all-zero-bypass-region-threshold", cl::init(1), cl::Hidden,
-    cl::desc("Tune the size of all-zero bypass regions in number of blocks"));
+    "vplan-all-zero-bypass-region-threshold", cl::init(125), cl::Hidden,
+    cl::desc("Tune bypass insertion based on cost of instructions in region"));
 
 namespace llvm {
 namespace vpo {
@@ -342,9 +342,21 @@ void VPlanAllZeroBypass::collectAllZeroBypassLoopRegions(
   }
 }
 
+bool VPlanAllZeroBypass::blendTerminatesRegion(const VPBlendInst *Blend,
+                                               VPValue *RegionPred) {
+  for (unsigned I = 0, E = Blend->getNumIncomingValues(); I != E; ++I) {
+    VPValue *IncomingPred = Blend->getIncomingPredicate(I);
+    if (!isStricterOrEqualPred(IncomingPred, RegionPred))
+      return true;
+  }
+
+  return false;
+}
+
 void VPlanAllZeroBypass::collectAllZeroBypassNonLoopRegions(
     AllZeroBypassRegionsTy &AllZeroBypassRegions,
-    RegionsCollectedTy &RegionsCollected) {
+    RegionsCollectedTy &RegionsCollected,
+    VPlanCostModelProprietary *CM) {
 
   VPLoopInfo *VPLI = Plan.getVPLoopInfo();
 
@@ -478,44 +490,13 @@ void VPlanAllZeroBypass::collectAllZeroBypassNonLoopRegions(
       getUnpredicatedInstructions(*BlockIt, UnpredicatedInsts);
       if (any_of(UnpredicatedInsts,
                  [CandidateBlockPred, this] (const VPInstruction *VPInst) {
+                   if (const VPBlendInst *Blend = dyn_cast<VPBlendInst>(VPInst))
+                     return blendTerminatesRegion(Blend, CandidateBlockPred);
                    // Skip phi nodes here because even though they are
                    // unpredicated we will use a separate check to ensure that
                    // all predecessors of the block containing the phi belong
                    // to the region.
-                   // FIXME: Blend handling is wrong. Blend instruction mask
-                   // operands must also be anded (isStricterOrEqualPred
-                   // returns true) with the block-predicate used in the all-
-                   // zero bypass check. Otherwise, we will have a blend under
-                   // the influence of one block-predicate that could be
-                   // bypassed (blend never executed), and we won't get the
-                   // correct result from the blend since the other values will
-                   // never be selected. See vplan_predicator.ll.
-                   // (test_separate_blend_bb_for_2_div_plus_uniform)
-                   // E.g., prevent a region formed around blocks BB5 and
-                   // BLEND_BB0 because VP_BB1_VARYING_NOT may have all lanes
-                   // active, which means VP_BB1_VARYING is all-zero, and the
-                   // live-out value for the blend along the all-zero edge
-                   // will be incorrect. Will create a separate patch for
-                   // this.
-                   //
-                   // [[BB4]]:
-                   //  [[VP0:%.*]] = block-predicate i1 [[VP_BB1_VARYING_NOT]]
-                   //  SUCCESSORS(1):[[BB5:BB[0-9]+]]
-                   //  PREDECESSORS(1): [[BB2]]
-                   //
-                   // [[BB5]]:
-                   //  [[VP1:%.*]] = block-predicate i1 [[VP_BB1_VARYING]]
-                   //  SUCCESSORS(1):[[BLEND_BB0:blend.bb[0-9]+]]
-                   //  PREDECESSORS(1): [[BB4]]
-                   //
-                   // [[BLEND_BB0]]:
-                   //  [[VP_PHI_BLEND_BB5:%.*]] =
-                   //    blend [ i32 2, i1 [[VP_BB1_VARYING_NOT]] ],
-                   //          [ i32 3, i1 [[VP_BB1_VARYING]] ]
-                   //  SUCCESSORS(1):[[BB3]]
-                   //  PREDECESSORS(1): [[BB5]]
                    return (!isa<VPPHINode>(VPInst) &&
-                           !isa<VPBlendInst>(VPInst) &&
                            !isa<VPBranchInst>(VPInst) &&
                            !isStricterOrEqualPred(VPInst, CandidateBlockPred));
                }))
@@ -528,6 +509,27 @@ void VPlanAllZeroBypass::collectAllZeroBypassNonLoopRegions(
                  [&RegionBlocks] (VPBasicBlock *Pred) {
                   return !RegionBlocks.count(Pred);
                 }))
+        break;
+
+      // Stop region collection for any blocks that don't have a block-
+      // predicate and have reference to a CondBit. For now, it is
+      // conservatively assumed that these blocks should not appear in
+      // the region. TODO: check post-dominator of this block to see
+      // if there is a block-predicate that is under the influence of
+      // the block-predicate of the region. Reference CMPLRLLVM-20647.
+      //
+      // BB3:
+      //  [DA: Div] i1 %vp27040 = block-predicate i1 %vp64112
+      //  [DA: Div] i32 %vp25424 = add i32 %vp57152 i32 42
+      // SUCCESSORS(1):BB4
+      // PREDECESSORS(1): BB2
+      //
+      // BB4:
+      //  <VPTerminator>
+      //  Condition(BB1): [DA: Uni] i1 %vp57584 = icmp i32 %n i32 7
+      // SUCCESSORS(2):BB5(i1 %vp57584), BB6(!i1 %vp57584)
+      // PREDECESSORS(1): BB3
+      if (!(*BlockIt)->getPredicate() && (*BlockIt)->getNumSuccessors() == 2)
         break;
 
       if (auto *BlockPred = (*BlockIt)->getPredicate())
@@ -546,9 +548,16 @@ void VPlanAllZeroBypass::collectAllZeroBypassNonLoopRegions(
                             RegionsCollected))
       continue;
 
-    // Basic tuning for all-zero bypass candidate regions at the moment.
-    // Later, we can switch to a cost-model based approach if necessary.
-    if (RegionBlocks.size() >= RegionThreshold) {
+    // Cost model not yet available for function vectorization pipeline. It's
+    // ok because there's really no reason for it there yet anyway since this
+    // pipeline is only used for testing at the moment.
+    unsigned RegionCost = RegionThreshold;
+    if (CM)
+      RegionCost = CM->getBlockRangeCost(CandidateBlock, LastBB);
+
+    // If the region meets minimum cost requirements, record it for later
+    // insertion.
+    if (RegionCost >= RegionThreshold) {
       BypassPairTy BypassRegion = std::make_pair(CandidateBlock, LastBB);
       verifyBypassRegion(CandidateBlock, RegionBlocks);
       AllZeroBypassRegions.push_back(BypassRegion);

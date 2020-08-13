@@ -1696,6 +1696,12 @@ bool VPOParoptTransform::genTaskGenericCode(WRegionNode *W,
   // TidArgNo parameter is unused, if IsTidArg is false.
   Function *MTFn = finalizeExtractedMTFunction(W, NewF, false, -1U, false);
 
+#if INTEL_CUSTOMIZATION
+  // Uncomment after the JIRA CMPLRLLVM-21925 is fixed.
+  // assert(MTFn->arg_size() <= 2 &&
+  //       "Outlined function for TaskLoop cannot have more than 2 arguments.");
+#endif // INTEL_CUSTOMIZATION
+
   std::vector<Value *> MTFnArgs;
 
   LLVMContext &C = NewF->getContext();

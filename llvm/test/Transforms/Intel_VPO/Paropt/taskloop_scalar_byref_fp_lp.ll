@@ -24,11 +24,12 @@
 source_filename = "taskloop_scalar_byref_fp_lp.cpp"
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
-; Check for the space allocated for the private copy. { i32, i64, i32 }
+; Check for the space allocated for the private copy. { i32, i64, i64, i32 }
 ; i32 - %a.addr
 ; i64 - %.omp.lb
+; i64 - %.omp.ub
 ; i32 - %i
-; CHECK: %__struct.kmp_privates.t = type { i32, i64, i32 }
+; CHECK: %__struct.kmp_privates.t = type { i32, i64, i64, i32 }
 
 ; Check shared thunk for space allocated for pointer to the original %a.addr for lastprivate copyout.
 ; i32** - %a.addr

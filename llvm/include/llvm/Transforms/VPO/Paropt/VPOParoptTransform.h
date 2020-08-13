@@ -341,6 +341,10 @@ private:
   /// both "linear" and "linear:iv" operands.
   bool genLinearCodeForVecLoop(WRegionNode *W, BasicBlock *LinearFiniBB);
 
+  /// Add Firstprivate clause for every normalized UB clause variable in a
+  /// WRNTaskLoopNode WRegion
+  bool addFirstprivateForNormalizedUB(WRegionNode *W);
+
   /// Generate code for firstprivate variables
   bool genFirstPrivatizationCode(WRegionNode *W);
 

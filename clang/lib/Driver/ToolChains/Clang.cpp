@@ -7231,7 +7231,8 @@ void Clang::AddClangCLArgs(const ArgList &Args, types::ID InputType,
 #if INTEL_CUSTOMIZATION
     if (getToolChain().getDriver().IsIntelMode() ||
         Args.hasArg(options::OPT__dpcpp)) {
-      CmdArgs.push_back("--dependent-lib=libircmt");
+      if (!Args.hasArg(options::OPT_i_no_use_libirc))
+        CmdArgs.push_back("--dependent-lib=libircmt");
       CmdArgs.push_back(FlagForIntelSVMLLib.data());
       CmdArgs.push_back("--dependent-lib=libdecimal");
       if (Args.hasFlag(options::OPT_qopt_matmul, options::OPT_qno_opt_matmul,

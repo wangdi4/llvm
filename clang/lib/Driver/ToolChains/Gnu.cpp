@@ -534,6 +534,8 @@ static void addIntelLib(const char* IntelLibName, const ToolChain &TC,
 
 static void addIntelLibirc(const ToolChain &TC, ArgStringList &CmdArgs,
                            const ArgList &Args) {
+  if (Args.hasArg(options::OPT_i_no_use_libirc))
+    return;
   if (TC.getEffectiveTriple().getArch() == llvm::Triple::x86_64) {
     if (Args.hasArg(options::OPT_shared_intel, options::OPT_shared)) {
       if (const Arg *A = Args.getLastArg(options::OPT_shared_intel,
@@ -1039,7 +1041,7 @@ void tools::gnutools::Linker::ConstructJob(Compilation &C, const JobAction &JA,
         CmdArgs.push_back("--no-as-needed");
       }
 #if INTEL_CUSTOMIZATION
-      if (D.IsIntelMode())
+      if (D.IsIntelMode() && !Args.hasArg(options::OPT_i_no_use_libirc))
         addIntelLib("-lirc_s", ToolChain, CmdArgs, Args);
 #endif // INTEL_CUSTOMIZATION
     }

@@ -41,16 +41,6 @@ public:
   /// Returns true if it is legal to vectorize this loop.
   bool canVectorize(DominatorTree &DT, const CallInst *RegionEntry);
 
-  void collectLoopUniformsForAnyVF();
-
-  bool isUniformForTheLoop(Value *V) {
-    // Each vector lane gets a different private value
-    if (isLoopPrivate(V))
-      return false;
-
-    return !isa<Instruction>(V) || UniformForAnyVF.count(cast<Instruction>(V));
-  }
-
   /// Container-class for storing the different types of Privates
   using PrivatesListTy = SetVector<Value *>;
 
@@ -112,9 +102,6 @@ public:
 
   /// Returns true if the value \p V is loop invariant.
   bool isLoopInvariant(Value *V);
-
-  /// Returns true if the access through \p Ptr is consecutive.
-  int isConsecutivePtr(Value *Ptr);
 
   /// Returns True if PN is a reduction variable in this loop.
   bool isReductionVariable(PHINode *PN) const {
@@ -203,9 +190,6 @@ public:
   /// Erase pointer \p Ptr from the stride information map.
   // Used for a temporary solution of teaching legality based on DA.
   void erasePtrStride(Value *Ptr) { PtrStrides.erase(Ptr); }
-
-  /// Holds the instructions known to be uniform after vectorization for any VF.
-  SmallPtrSet<Instruction *, 4> UniformForAnyVF;
 
   /// Add an in memory private to the vector of private values.
   void addLoopPrivate(Value *PrivVal, bool IsLast = false,

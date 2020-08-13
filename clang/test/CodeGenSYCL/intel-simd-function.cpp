@@ -1,8 +1,6 @@
-// RUN: %clang_cc1 -emit-llvm -o - -std=c++17 -Wno-c++20-extensions \
+// RUN: %clang_cc1 -O0 -emit-llvm -o - -std=c++17 -Wno-c++20-extensions \
 // RUN:  -fsycl -fsycl-is-device -triple spir64-unknown-unknown-sycldevice \
 // RUN:  %s | FileCheck %s
-// INTEL: enable with CMPLRLLVM-21860 fix.
-// XFAIL: *
 
 namespace std {
 

@@ -104,5 +104,5 @@ attributes #3 = { inaccessiblememonly nounwind speculatable }
 
 ; Check that private thunk has space for firstprivate %omp.lb,
 ; private @_Z5sivar and private %i.
-; CHECK: %__struct.kmp_privates.t = type { i64, [10 x i32], i32 }
+; CHECK: %__struct.kmp_privates.t = type { i64, i64, [10 x i32], i32 }
 

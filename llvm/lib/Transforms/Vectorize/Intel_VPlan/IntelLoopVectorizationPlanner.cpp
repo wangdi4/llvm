@@ -539,7 +539,7 @@ void LoopVectorizationPlanner::predicate() {
   }
 }
 
-void LoopVectorizationPlanner::insertAllZeroBypasses(VPlan *Plan) {
+void LoopVectorizationPlanner::insertAllZeroBypasses(VPlan *Plan, unsigned VF) {
   // Skip multi-exit loops at outer VPlan level. Inner loops will be
   // canonicalized to single exit in VPlan. TODO: this check is only
   // needed due to hacky search loop support. Change to assert in the
@@ -561,9 +561,12 @@ void LoopVectorizationPlanner::insertAllZeroBypasses(VPlan *Plan) {
   VPlanAllZeroBypass AZB(*Plan);
   if (EnableAllZeroBypassLoops)
     AZB.collectAllZeroBypassLoopRegions(AllZeroBypassRegions, RegionsCollected);
-  if (EnableAllZeroBypassNonLoops)
+  if (EnableAllZeroBypassNonLoops) {
+    VPlanCostModelProprietary VectorCM(Plan, VF, TTI, TLI, DL, VLSA);
     AZB.collectAllZeroBypassNonLoopRegions(AllZeroBypassRegions,
-                                           RegionsCollected);
+                                           RegionsCollected,
+                                           &VectorCM);
+  }
   AZB.insertAllZeroBypasses(AllZeroBypassRegions);
 
   VPLAN_DUMP(PrintAfterAllZeroBypass, "all zero bypass insertion", Plan);

@@ -36,6 +36,8 @@ public:
     return getLoadStoreCost(VPInst, Alignment,
                             false /* Don't use VLS cost by default */);
   }
+  unsigned getBlockRangeCost(const VPBasicBlock *Begin,
+                             const VPBasicBlock *End);
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   void print(raw_ostream &OS, const std::string &Header);
 #endif // !NDEBUG || LLVM_ENABLE_DUMP

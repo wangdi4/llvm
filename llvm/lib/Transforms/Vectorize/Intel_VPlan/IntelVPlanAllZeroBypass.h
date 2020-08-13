@@ -26,6 +26,8 @@ using namespace llvm::vpo;
 namespace llvm {
 namespace vpo {
 
+class VPlanCostModelProprietary;
+
 class VPlanAllZeroBypass {
 
 public:
@@ -107,6 +109,10 @@ private:
   /// Returns true if \p MaybePred is an anded condition of \p BaseCond.
   bool isStricterOrEqualPred(const VPValue *MaybePred, const VPValue *BaseCond);
 
+  /// Returns true if the incoming predicates of \p Blend are not under the
+  /// influence of the same block-predicate as the region.
+  bool blendTerminatesRegion(const VPBlendInst *Blend, VPValue *RegionPred);
+
 public:
   VPlanAllZeroBypass(VPlan &Plan) : Plan(Plan) {};
 
@@ -114,7 +120,8 @@ public:
   /// insertion for non-loops.
   void collectAllZeroBypassNonLoopRegions(
       AllZeroBypassRegionsTy &AllZeroBypassRegions,
-      RegionsCollectedTy &RegionsCollected);
+      RegionsCollectedTy &RegionsCollected,
+      VPlanCostModelProprietary *CM = nullptr);
 
   /// Collect regions of blocks that are safe/profitable for all-zero bypass
   /// insertion for loops.

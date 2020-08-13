@@ -389,6 +389,10 @@ def ccc_ : Joined<["-"], "ccc-">, Group<internal_Group>, Flags<[Unsupported]>;
 
 // Intel-specific options
 #if INTEL_CUSTOMIZATION
+// Internal Intel options
+def i_no_use_libirc : Flag<["-"], "i_no-use-libirc">,
+  Group<internal_driver_Group>, Flags<[DriverOption, HelpHidden]>,
+  HelpText<"Disable usage of libirc.">;
 // Add -ax so it does not error out.
 // TODO - there is some usage of this option even though it isn't supported.
 // we are accepting it so we can get around these usages for now.
@@ -3854,6 +3858,7 @@ def qno_opt_multiple_gather_scatter_by_shuffles : Flag<["-"], "qno-opt-multiple-
   HelpText<"Disables the optimization for multiple adjacent gather/scatter type vector memory references">;
 def qopt_report_EQ : Joined<["-"], "qopt-report=">, Values<"min,med,max">,
   HelpText<"Generate an optimization report, min, med or max.">;
+def : Joined<["-"], "qopt-report">, Alias<qopt_report_EQ>;
 def qopt_report : Flag<["-"], "qopt-report">, Alias<qopt_report_EQ>,
   AliasArgs<["2"]>;
 def qopt_zmm_usage_EQ : Joined<["-"], "qopt-zmm-usage=">, Values<"low,high">,
@@ -5287,6 +5292,10 @@ def : CLFlag<"Oy-">, Alias<_SLASH_O>, AliasArgs<["y-"]>,
   HelpText<"Disable frame pointer omission (x86 only, default)">;
 
 #if INTEL_CUSTOMIZATION
+// Internal Intel options
+def _SLASH_Q_no_use_libirc : CLFlag<"Q_no-use-libirc">, Alias<i_no_use_libirc>,
+  HelpText<"Disable usage of libirc.">;
+// Intel specific options (Intel only)
 def : CLCommaJoined<"device-math-lib:">, Alias<device_math_lib_EQ>,
   HelpText<"Control the addition of device math libraries when compiling for "
   "other devices.  Valid arguments are fp64, fp32">;
@@ -5428,6 +5437,7 @@ def _SLASH_Qopt_multiple_gather_scatter_by_shuffles_ : CLFlag<"Qopt-multiple-gat
   Alias<qno_opt_multiple_gather_scatter_by_shuffles>,
   HelpText<"Disables the optimization for multiple adjacent gather/scatter type vector memory references">;
 def _SLASH_Qopt_report_EQ : CLJoined<"Qopt-report=">, Alias<qopt_report_EQ>;
+def : CLJoined<"Qopt-report">, Alias<qopt_report_EQ>;
 def _SLASH_Qopt_report : CLFlag<"Qopt-report">, Alias<qopt_report_EQ>,
   AliasArgs<["2"]>;
 def _SLASH_Qopt_report_COL : CLJoined<"Qopt-report:">, Alias<qopt_report_EQ>,

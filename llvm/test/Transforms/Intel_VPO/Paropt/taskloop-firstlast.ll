@@ -4,7 +4,7 @@
 ; Checks for:
 ; barrier is not emitted (this should only be in parallel-for)
 ;
-; CHECK: %__struct.kmp_privates.t = type { i32, i64, i32 }
+; CHECK: %__struct.kmp_privates.t = type { i32, i64, i64, i32 }
 ; CHECK: %__struct.shared.t = type { i32* }
 ; CHECK: define{{.*}}OMP.TASKLOOP
 ; CHECK: {{[^ ]+}} = getelementptr{{.*}}struct.kmp_privates{{.*}}i32 0, i32 0

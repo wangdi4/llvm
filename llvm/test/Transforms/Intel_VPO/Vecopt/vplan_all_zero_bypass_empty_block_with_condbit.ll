@@ -31,37 +31,34 @@ define dso_local void @foo(i32* nocapture readonly %a, i32 %n) local_unnamed_add
 ; CHECK-NEXT:      [[BB2]]:
 ; CHECK-NEXT:       [DA: Div] i1 [[VP1:%.*]] = block-predicate i1 [[VP_CMP1]]
 ; CHECK-NEXT:       [DA: Div] i32 [[VP_X:%.*]] = add i32 [[VP_LANE]] i32 42
-; CHECK-NEXT:      SUCCESSORS(1):[[BB3:BB[0-9]+]]
-; CHECK-NEXT:      PREDECESSORS(1): all.zero.bypass.begin9
-; CHECK-EMPTY:
-;
-; FIXME: Test shows incorrect formation of an all-zero bypass region around BB3.
-;
-; CHECK-NEXT:      [[BB3]]:
-; CHECK-NEXT:       <Empty Block>
-; CHECK-NEXT:       Condition([[BB0]]): [DA: Uni] i1 [[VP_CMP4]] = icmp i32 [[N0]] i32 7
-; CHECK-NEXT:      SUCCESSORS(2):[[BB4:BB[0-9]+]](i1 [[VP_CMP4]]), [[BB5:BB[0-9]+]](!i1 [[VP_CMP4]])
-; CHECK-NEXT:      PREDECESSORS(1): [[BB2]]
-; CHECK-EMPTY:
-; CHECK-NEXT:        [[BB4]]:
-; CHECK-NEXT:         <Empty Block>
-; CHECK-NEXT:        SUCCESSORS(1):[[BB5]]
-; CHECK-NEXT:        PREDECESSORS(1): [[BB3]]
-; CHECK-EMPTY:
-; CHECK-NEXT:      [[BB5]]:
-; CHECK-NEXT:       <Empty Block>
 ; CHECK-NEXT:      SUCCESSORS(1):all.zero.bypass.end11
-; CHECK-NEXT:      PREDECESSORS(2): [[BB3]] [[BB4]]
+; CHECK-NEXT:      PREDECESSORS(1): all.zero.bypass.begin9
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    all.zero.bypass.end11:
 ; CHECK-NEXT:     <Empty Block>
+; CHECK-NEXT:    SUCCESSORS(1):[[BB3:BB[0-9]+]]
+; CHECK-NEXT:    PREDECESSORS(2): [[BB2]] all.zero.bypass.begin9
+; CHECK-EMPTY:
+; CHECK-NEXT:    [[BB3]]:
+; CHECK-NEXT:     <Empty Block>
+; CHECK-NEXT:     Condition([[BB0]]): [DA: Uni] i1 [[VP_CMP4]] = icmp i32 [[N0]] i32 7
+; CHECK-NEXT:    SUCCESSORS(2):[[BB4:BB[0-9]+]](i1 [[VP_CMP4]]), [[BB5:BB[0-9]+]](!i1 [[VP_CMP4]])
+; CHECK-NEXT:    PREDECESSORS(1): all.zero.bypass.end11
+; CHECK-EMPTY:
+; CHECK-NEXT:      [[BB4]]:
+; CHECK-NEXT:       <Empty Block>
+; CHECK-NEXT:      SUCCESSORS(1):[[BB5]]
+; CHECK-NEXT:      PREDECESSORS(1): [[BB3]]
+; CHECK-EMPTY:
+; CHECK-NEXT:    [[BB5]]:
+; CHECK-NEXT:     <Empty Block>
 ; CHECK-NEXT:    SUCCESSORS(1):[[BB6:BB[0-9]+]]
-; CHECK-NEXT:    PREDECESSORS(2): [[BB5]] all.zero.bypass.begin9
+; CHECK-NEXT:    PREDECESSORS(2): [[BB3]] [[BB4]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB6]]:
 ; CHECK-NEXT:     [DA: Div] void [[VP2:%.*]] = ret
 ; CHECK-NEXT:    no SUCCESSORS
-; CHECK-NEXT:    PREDECESSORS(1): all.zero.bypass.end11
+; CHECK-NEXT:    PREDECESSORS(1): [[BB5]]
 ;
 ;        entry
 ;          |

@@ -1,8 +1,6 @@
-// RUN: %clang_cc1 -emit-llvm -o - -std=c++17 -fsycl -fsycl-is-device\
+// RUN: %clang_cc1 -O0 -emit-llvm -o - -std=c++17 -fsycl -fsycl-is-device\
 // RUN: -fenable-variant-function-pointers  -fsycl-explicit-simd \
 // RUN:  -triple spir64-unknown-linux-sycldevice %s | FileCheck %s
-// INTEL: enable with CMPLRLLVM-21860 fix.
-// XFAIL: *
 
 template <typename name, typename Func>
 __attribute__((sycl_kernel)) void kernel_single_task(Func kernelFunc) {
@@ -47,18 +45,18 @@ void test(int i) {
 //CHECK: store i32 (i32, i32)* bitcast ([1 x i32 (i32, i32)*]* @"_Z3barii$SIMDTable" to i32 (i32, i32)*), i32 (i32, i32)** [[P]],
 //CHECK: store i32 (i32)* bitcast ([1 x i32 (i32)*]* @"_Z3zooi$SIMDTable" to i32 (i32)*), i32 (i32)** [[FP]],
 //CHECK: store i32 (i32, i32)* bitcast ([1 x i32 (i32, i32)*]* @"_Z3barii$SIMDTable" to i32 (i32, i32)*), i32 (i32, i32)** [[P]],
-//CHECK: [[L2:%2]] = load i32 (i32, i32)*, i32 (i32, i32)** [[P]],
-//CHECK: [[L3:%3]] = bitcast i32 (i32, i32)* [[L2]] to i32 (i32, i32)**
-//CHECK: [[L4:%4]] = call i32  @__intel_indirect_call_1(i32 (i32, i32)** [[L3]], i32 1, i32 1)
+//CHECK: [[L2:%[0-9]+]] = load i32 (i32, i32)*, i32 (i32, i32)** [[P]],
+//CHECK: [[L3:%[0-9]+]] = bitcast i32 (i32, i32)* [[L2]] to i32 (i32, i32)**
+//CHECK: [[L4:%[0-9]+]] = call i32  @__intel_indirect_call_1(i32 (i32, i32)** [[L3]], i32 1, i32 1)
   p(1, 1);
-//CHECK: [[L5:%5]] = load i32 (i32)*, i32 (i32)** [[FP]], align 8
-//CHECK: [[L6:%6]] = bitcast i32 (i32)* [[L5]] to i32 (i32)**
-//CHECK: [[L7:%7]] = call i32  @__intel_indirect_call_0(i32 (i32)** [[L6]], i32 10
+//CHECK: [[L5:%[0-9]+]] = load i32 (i32)*, i32 (i32)** [[FP]], align 8
+//CHECK: [[L6:%[0-9]+]] = bitcast i32 (i32)* [[L5]] to i32 (i32)**
+//CHECK: [[L7:%[0-9]+]] = call i32  @__intel_indirect_call_0(i32 (i32)** [[L6]], i32 10
   fp(10);
 //CHECK: store i32 (i32, i32)* null, i32 (i32, i32)** [[P]],
-//CHECK: [[L8:%8]] = load i32 (i32, i32)*, i32 (i32, i32)** [[P]],
-//CHECK: [[L9:%9]] = bitcast i32 (i32, i32)* [[L8]] to i32 (i32, i32)**
-//CHECK: [[L10:%10]] = call i32 @__intel_indirect_call_1(i32 (i32, i32)** [[L9]], i32 1, i32 1)
+//CHECK: [[L8:%[0-9]+]] = load i32 (i32, i32)*, i32 (i32, i32)** [[P]],
+//CHECK: [[L9:%[0-9]+]] = bitcast i32 (i32, i32)* [[L8]] to i32 (i32, i32)**
+//CHECK: [[L10:%[0-9]+]] = call i32 @__intel_indirect_call_1(i32 (i32, i32)** [[L9]], i32 1, i32 1)
   p = nullptr;
   p(1,1);
 //CHECK:call spir_func i32 @_Z3barii(i32 1, i32 2)

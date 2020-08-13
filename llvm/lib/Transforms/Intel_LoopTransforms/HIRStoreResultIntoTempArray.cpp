@@ -815,15 +815,25 @@ static bool NeedUpdateUpperBound(DDGraph DDG, RegDDRef *MaxRef,
 static void updateUpperBound(DDGraph DDG, RegDDRef *MaxRef, unsigned LoopLevel,
                              HLLoop *Lp) {
   int64_t Constant = 0;
+  unsigned NumDim = MaxRef->getNumDimensions();
 
   // We need to update the upperbound by adding the constant in the
   // operand2 of the blob's src instruction, such as %mod = i2 + 3  %
   // %"jacobian_$NY_fetch" + 1;
+  // This is also related to the dim lower bound of memref.
+  // The basic idea is to compute the maximum possible index for the dimension
+  // and update the upper bound accordingly
   for (auto BI = MaxRef->blob_begin(), E = MaxRef->blob_end(); BI != E; ++BI) {
     BlobDDRef *BlobRef = *BI;
 
     if (checkIV(BlobRef, DDG, LoopLevel, Constant) && Constant > 0) {
-      Lp->getUpperCanonExpr()->addConstant(Constant, true);
+      CanonExpr *DimLowerCE = MaxRef->getDimensionLower(NumDim - LoopLevel + 1);
+
+      int64_t Diff = Constant - DimLowerCE->getConstant();
+
+      if (Diff > 0) {
+        Lp->getUpperCanonExpr()->addConstant(Diff, true);
+      }
     }
   }
 
