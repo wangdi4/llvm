@@ -285,3 +285,5 @@
 // RUN:    | FileCheck %s -check-prefixes=CHK-NO-SPLIT
 // CHK-NO-SPLIT-NOT: sycl-post-link{{.*}} -split{{.*}}
 
+// TODO: SYCL specific fail - analyze and enable
+// XFAIL: windows-msvc

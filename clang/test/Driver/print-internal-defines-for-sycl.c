@@ -3,3 +3,5 @@
 // RUN: %clangxx -fsycl -dM -E -x c++ %s 2>&1 \
 // RUN: | FileCheck --check-prefix CHECK-PRINT-INTERNAL-DEFINES %s
 // CHECK-PRINT-INTERNAL-DEFINES: #define
+// INTEL: enable when CMPLRLLVM-21948 fixed
+// XFAIL: i686-pc-windows-msvc

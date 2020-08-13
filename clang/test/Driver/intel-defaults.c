@@ -155,6 +155,13 @@
 // CHECK-INTEL-LOOPOPT-FAST-NOT: "-target-cpu" "x86_64"
 // CHECK-INTEL-LOOPOPT-FAST-NOT: "-mllvm" "-enable-lv"
 
+// disable LTO in fast
+// RUN: %clang -### --intel -c -fast -fno-lto %s 2>&1 | FileCheck -check-prefix CHECK-INTEL-FAST-NOLTO %s
+// RUN: %clang_cl -### --intel -c -fast -Qipo- %s 2>&1 | FileCheck -check-prefix CHECK-INTEL-FAST-NOLTO %s
+// CHECK-INTEL-FAST-NOLTO-NOT: "-flto"
+// CHECK-INTEL-FAST-NOLTO: "-O3"
+// CHECK-INTEL-FAST-NOLTO: "-mllvm" "-loopopt"
+
 // Profiling lib not linked in with -nodefaultlibs
 // RUN: %clang -target i686-pc-linux-gnu -### %s --intel -fprofile-generate -nodefaultlibs 2>&1 \
 // RUN:   | FileCheck -check-prefix CHECK-PROFLIB %s
