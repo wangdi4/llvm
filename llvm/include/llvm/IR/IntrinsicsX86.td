@@ -5386,14 +5386,14 @@ let TargetPrefix = "x86" in {
       Intrinsic<[llvm_i32_ty, llvm_v2i64_ty, llvm_v2i64_ty, llvm_v2i64_ty,
                  llvm_v2i64_ty, llvm_v2i64_ty, llvm_v2i64_ty, llvm_v2i64_ty],
                 [llvm_i32_ty, llvm_v2i64_ty, llvm_v2i64_ty], []>;
-  def int_x86_aesenc128kl : GCCBuiltin<"__builtin_ia32_aesenc128kl">,
-      Intrinsic<[llvm_v2i64_ty], [llvm_v2i64_ty, llvm_ptr_ty], []>;
-  def int_x86_aesdec128kl : GCCBuiltin<"__builtin_ia32_aesdec128kl">,
-      Intrinsic<[llvm_v2i64_ty], [llvm_v2i64_ty, llvm_ptr_ty], []>;
-  def int_x86_aesenc256kl : GCCBuiltin<"__builtin_ia32_aesenc256kl">,
-      Intrinsic<[llvm_v2i64_ty], [llvm_v2i64_ty, llvm_ptr_ty], []>;
-  def int_x86_aesdec256kl : GCCBuiltin<"__builtin_ia32_aesdec256kl">,
-      Intrinsic<[llvm_v2i64_ty], [llvm_v2i64_ty, llvm_ptr_ty], []>;
+  def int_x86_aesenc128kl :
+      Intrinsic<[llvm_i8_ty, llvm_v2i64_ty], [llvm_v2i64_ty, llvm_ptr_ty], []>;
+  def int_x86_aesdec128kl :
+      Intrinsic<[llvm_i8_ty, llvm_v2i64_ty], [llvm_v2i64_ty, llvm_ptr_ty], []>;
+  def int_x86_aesenc256kl :
+      Intrinsic<[llvm_i8_ty, llvm_v2i64_ty], [llvm_v2i64_ty, llvm_ptr_ty], []>;
+  def int_x86_aesdec256kl :
+      Intrinsic<[llvm_i8_ty, llvm_v2i64_ty], [llvm_v2i64_ty, llvm_ptr_ty], []>;
   def int_x86_aesencwide128kl :
       Intrinsic<[llvm_i8_ty, llvm_v2i64_ty, llvm_v2i64_ty,
                  llvm_v2i64_ty, llvm_v2i64_ty, llvm_v2i64_ty,

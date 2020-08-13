@@ -36,19 +36,19 @@ void f0() {
                                       results + 5,
                                       results + 6);
 
-  //_mm_aesenc128kl_si128(__m128i __data, const void *__h)
-  __builtin_ia32_aesenc128kl(tmp_V4i, (const void*)results);
+  //_mm_aesenc128kl_u8(__m128i *__odata, __m128i __idata, const void *__h)
+  __builtin_ia32_aesenc128kl(&tmp_V4i, tmp_V4i, (const void*)results);
 
-  //_mm_aesenc256kl_si128(__m128i __data, const void *__h)
-  __builtin_ia32_aesenc256kl(tmp_V4i, (const void*)results);
+  //_mm_aesenc256kl_u8(__m128i *__odata, __m128i __idata, const void *__h)
+  __builtin_ia32_aesenc256kl(&tmp_V4i, tmp_V4i, (const void*)results);
 
-  //_mm_aesdec128kl_si128(__m128i __data, const void *__h)
-  __builtin_ia32_aesdec128kl(tmp_V4i, (const void*)results);
+  //_mm_aesdec128kl_u8(__m128i *__odata, __m128i __idata, const void *__h)
+  __builtin_ia32_aesdec128kl(&tmp_V4i, tmp_V4i, (const void*)results);
 
-  //_mm_aesdec256kl_si128(__m128i __data, const void *__h)
-  __builtin_ia32_aesdec256kl(tmp_V4i, (const void*)results);
+  //_mm_aesdec256kl_u8(__m128i *__odata, __m128i __idata, const void *__h)
+  __builtin_ia32_aesdec256kl(&tmp_V4i, tmp_V4i, (const void*)results);
 
-  //_mm_aesencwide128kl(__m128i __odata[8], const __m128i __idata[8],
+  //_mm_aesencwide128kl_u8(__m128i __odata[8], const __m128i __idata[8],
   //                    const void* __h)
   V4i odata[8], idata[8];
   __builtin_ia32_aesencwide128kl((const void*)results,
@@ -69,7 +69,7 @@ void f0() {
                                 idata[6],
                                 idata[7]);
 
-  //_mm_aesencwide256kl(__m128i __odata[8], const __m128i __idata[8],
+  //_mm_aesencwide256kl_u8(__m128i __odata[8], const __m128i __idata[8],
   //                    const void* __h)
   __builtin_ia32_aesencwide256kl((const void*)results,
                                  odata,
@@ -89,7 +89,7 @@ void f0() {
                                  idata[6],
                                  idata[7]);
 
-  //_mm_aesdecwide128kl(__m128i __odata[8], const __m128i __idata[8],
+  //_mm_aesdecwide128kl_u8(__m128i __odata[8], const __m128i __idata[8],
   //                    const void* __h)
   __builtin_ia32_aesdecwide128kl((const void*)results,
                                  odata,
@@ -109,7 +109,7 @@ void f0() {
                                  idata[6],
                                  idata[7]);
 
-  //_mm_aesdecwide256kl(__m128i __odata[8], const __m128i __idata[8],i
+  //_mm_aesdecwide256kl_u8(__m128i __odata[8], const __m128i __idata[8],i
   //                    const void* __h)
   __builtin_ia32_aesdecwide256kl((const void*)results,
                                  odata,

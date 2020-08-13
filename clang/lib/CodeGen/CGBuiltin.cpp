@@ -15835,6 +15835,10 @@ Value *CodeGenFunction::EmitX86BuiltinExpr(unsigned BuiltinID,
 #if INTEL_FEATURE_ISA_KEYLOCKER
   case X86::BI__builtin_ia32_encodekey128:
   case X86::BI__builtin_ia32_encodekey256:
+  case X86::BI__builtin_ia32_aesenc128kl:
+  case X86::BI__builtin_ia32_aesdec128kl:
+  case X86::BI__builtin_ia32_aesenc256kl:
+  case X86::BI__builtin_ia32_aesdec256kl:
   case X86::BI__builtin_ia32_aesencwide128kl:
   case X86::BI__builtin_ia32_aesdecwide128kl:
   case X86::BI__builtin_ia32_aesencwide256kl:
@@ -15858,6 +15862,29 @@ Value *CodeGenFunction::EmitX86BuiltinExpr(unsigned BuiltinID,
       FirstReturnOp = 3;
       ResultCount = 7;
       break;
+    case X86::BI__builtin_ia32_aesenc128kl:
+    case X86::BI__builtin_ia32_aesdec128kl:
+    case X86::BI__builtin_ia32_aesenc256kl:
+    case X86::BI__builtin_ia32_aesdec256kl: {
+      InOps = {Ops[1], Ops[2]};
+      FirstReturnOp = 0;
+      ResultCount = 1;
+      switch (BuiltinID) {
+      case X86::BI__builtin_ia32_aesenc128kl:
+        ID = Intrinsic::x86_aesenc128kl;
+        break;
+      case X86::BI__builtin_ia32_aesdec128kl:
+        ID = Intrinsic::x86_aesdec128kl;
+        break;
+      case X86::BI__builtin_ia32_aesenc256kl:
+        ID = Intrinsic::x86_aesenc256kl;
+        break;
+      case X86::BI__builtin_ia32_aesdec256kl:
+        ID = Intrinsic::x86_aesdec256kl;
+        break;
+      }
+      break;
+    }
     case X86::BI__builtin_ia32_aesencwide128kl:
     case X86::BI__builtin_ia32_aesdecwide128kl:
     case X86::BI__builtin_ia32_aesencwide256kl:
