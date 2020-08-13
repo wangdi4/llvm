@@ -62,7 +62,7 @@ static cl::opt<bool>
                cl::desc("Use the interop_obj for target variant dispatch."));
 static cl::opt<bool>
     UseRawDevicePtr("vpo-paropt-use-raw-dev-ptr", cl::Hidden,
-               cl::init(false),
+               cl::init(true),
                cl::desc("Pass raw device ptr to variant dispatch."));
 
 static cl::opt<uint32_t> FixedSIMDWidth(

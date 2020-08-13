@@ -1,7 +1,7 @@
-; RUN: opt -vpo-cfg-restructuring -vpo-paropt-prepare -S -vpo-paropt-use-interop=false < %s | FileCheck %s -check-prefix=BUFFPTR
-; RUN: opt < %s -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare)' -S -vpo-paropt-use-interop=false | FileCheck %s -check-prefix=BUFFPTR
-; RUN: opt -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-paropt-use-raw-dev-ptr=true -vpo-paropt-use-interop=false -S < %s | FileCheck %s -check-prefix=RAWPTR
-; RUN: opt < %s -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare)' -vpo-paropt-use-raw-dev-ptr=true -vpo-paropt-use-interop=false -S | FileCheck %s -check-prefix=RAWPTR
+; RUN: opt -vpo-cfg-restructuring -vpo-paropt-prepare -S -vpo-paropt-use-raw-dev-ptr=false -vpo-paropt-use-interop=false < %s | FileCheck %s -check-prefix=BUFFPTR
+; RUN: opt < %s -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare)' -S -vpo-paropt-use-raw-dev-ptr=false -vpo-paropt-use-interop=false | FileCheck %s -check-prefix=BUFFPTR
+; RUN: opt -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-paropt-use-interop=false -S < %s | FileCheck %s -check-prefix=RAWPTR
+; RUN: opt < %s -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare)' -vpo-paropt-use-interop=false -S | FileCheck %s -check-prefix=RAWPTR
 
 ; Original code:
 ; void __attribute__((nothrow)) foo_gpu(void *ptr);
