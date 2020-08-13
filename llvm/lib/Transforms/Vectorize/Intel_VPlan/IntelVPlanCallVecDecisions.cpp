@@ -97,7 +97,7 @@ bool VPlanCallVecDecisions::matchAndScoreVariantParameters(
   return true;
 }
 
-std::unique_ptr<VectorVariant>
+llvm::Optional<std::pair<std::unique_ptr<VectorVariant>, unsigned>>
 VPlanCallVecDecisions::matchVectorVariant(const VPCallInstruction *VPCall,
                                           bool Masked, unsigned VF,
                                           const TargetTransformInfo *TTI) {
@@ -146,7 +146,7 @@ VPlanCallVecDecisions::matchVectorVariant(const VPCallInstruction *VPCall,
 
   SmallVector<StringRef, 4> Variants;
   VecVariantStringValue.split(Variants, ",");
-  SmallVector<VectorVariant, 4> CandidateFunctions;
+  SmallVector<std::pair<VectorVariant, unsigned>, 4> CandidateFunctions;
   for (unsigned I = 0; I < Variants.size(); ++I) {
     VectorVariant Variant(Variants[I]);
     VectorVariant::ISAClass VariantIsaClass = Variant.getISA();
@@ -168,7 +168,7 @@ VPlanCallVecDecisions::matchVectorVariant(const VPCallInstruction *VPCall,
     // this.
     if (FuncVF == VF && VariantIsaClass <= TargetIsaClass &&
         Variant.isMasked() == Masked)
-      CandidateFunctions.push_back(Variant);
+      CandidateFunctions.push_back(std::make_pair(Variant, I));
   }
 
   int VariantIdx = -1;
@@ -177,37 +177,40 @@ VPlanCallVecDecisions::matchVectorVariant(const VPCallInstruction *VPCall,
   // used as a tiebreaker when selecting the best variant.
   int BestArg = -1;
   VectorVariant::ISAClass BestIsa = VectorVariant::ISAClass::XMM;
-  for (unsigned i = 0; i < CandidateFunctions.size(); i++) {
+  for (unsigned I = 0; I < CandidateFunctions.size(); ++I) {
+    VectorVariant CandidateVariant = CandidateFunctions[I].first;
     int Score = 0;
     int MaxArg = 0;
-    bool Match = matchAndScoreVariantParameters(VPCall, CandidateFunctions[i],
-                                                Score, MaxArg);
+    bool Match =
+        matchAndScoreVariantParameters(VPCall, CandidateVariant, Score, MaxArg);
     if (Match) {
-      LLVM_DEBUG(dbgs() << "Matched function: " <<
-                 CandidateFunctions[i].encode() << "\n");
+      LLVM_DEBUG(dbgs() << "Matched function: " << CandidateVariant.encode()
+                        << "\n");
       LLVM_DEBUG(dbgs() << "Score: " << Score << "\n");
     }
     // Matched function will be the one with the best score. For tiebreaker
     // when scores match, pick highest ISA.
-    VectorVariant::ISAClass VariantIsa = CandidateFunctions[i].getISA();
+    VectorVariant::ISAClass VariantIsa = CandidateVariant.getISA();
     if (Match &&
-        ((Score > BestScore) ||
-         (Score == BestScore && VariantIsa > BestIsa) ||
+        ((Score > BestScore) || (Score == BestScore && VariantIsa > BestIsa) ||
          (Score == BestScore && VariantIsa == BestIsa && MaxArg > BestArg))) {
       BestScore = Score;
       BestArg = MaxArg;
       BestIsa = VariantIsa;
-      VariantIdx = i;
+      VariantIdx = I;
     }
   }
 
   if (VariantIdx >= 0) {
-    LLVM_DEBUG(dbgs() << "\nMatched call to: " <<
-               CandidateFunctions[VariantIdx].encode() << "\n\n");
-    return std::make_unique<VectorVariant>(CandidateFunctions[VariantIdx]);
+    LLVM_DEBUG(dbgs() << "\nMatched call to: "
+                      << CandidateFunctions[VariantIdx].first.encode()
+                      << "\n\n");
+    return std::make_pair(
+        std::make_unique<VectorVariant>(CandidateFunctions[VariantIdx].first),
+        CandidateFunctions[VariantIdx].second);
   }
 
-  return nullptr;
+  return {};
 }
 
 Type *
@@ -292,7 +295,8 @@ void VPlanCallVecDecisions::analyzeCall(VPCallInstruction *VPCall, unsigned VF,
 
   // 5. Function calls with available vector variants.
   if (auto VecVariant = matchVectorVariant(VPCall, IsMasked, VF, TTI)) {
-    VPCall->setVectorizeWithVectorVariant(VecVariant);
+    VPCall->setVectorizeWithVectorVariant(VecVariant.getValue().first,
+                                          VecVariant.getValue().second);
     return;
   }
 
@@ -303,7 +307,8 @@ void VPlanCallVecDecisions::analyzeCall(VPCallInstruction *VPCall, unsigned VF,
   if (!IsMasked) {
     auto MaskedVecVariant = matchVectorVariant(VPCall, true, VF, TTI);
     if (MaskedVecVariant) {
-      VPCall->setVectorizeWithVectorVariant(MaskedVecVariant,
+      VPCall->setVectorizeWithVectorVariant(MaskedVecVariant.getValue().first,
+                                            MaskedVecVariant.getValue().second,
                                             true /*UseMaskedForUnmasked*/);
       return;
     }

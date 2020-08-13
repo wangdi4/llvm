@@ -1825,6 +1825,7 @@ private:
   struct CallVecProperties {
     unsigned VF = 0;
     VectorVariant *MatchedVecVariant = nullptr;
+    unsigned MatchedVecVariantIndex = 0;
     Optional<StringRef> VectorLibraryFn = None;
     Intrinsic::ID VectorIntrinsic = Intrinsic::not_intrinsic;
     unsigned PumpFactor = 1;
@@ -1837,6 +1838,7 @@ private:
       std::string VecVariantName =
           MatchedVecVariant != nullptr ? MatchedVecVariant->toString() : "None";
       OS << "  VecVariant: " << VecVariantName << "\n";
+      OS << "  VecVariantIndex: " << MatchedVecVariantIndex << "\n";
       OS << "  VecIntrinsic: " << Intrinsic::getName(VectorIntrinsic, {})
          << "\n";
       OS << "  UseMaskForUnmasked: " << UseMaskedForUnmasked << "\n";
@@ -1951,6 +1953,7 @@ public:
 
     VecScenario = CallVecScenarios::Undefined;
     VecProperties.MatchedVecVariant = nullptr;
+    VecProperties.MatchedVecVariantIndex = 0;
     VecProperties.VectorLibraryFn = None;
     VecProperties.VectorIntrinsic = Intrinsic::not_intrinsic;
     VecProperties.PumpFactor = 1;
@@ -1980,6 +1983,7 @@ public:
   }
   // Scenario 3 : Vectorization using SIMD vector variant.
   void setVectorizeWithVectorVariant(std::unique_ptr<VectorVariant> &VecVariant,
+                                     unsigned VecVariantIndex,
                                      bool UseMaskedForUnmasked = false,
                                      unsigned PumpFactor = 1) {
     assert(VecVariant && "Can't set null vector variant.");
@@ -1990,6 +1994,7 @@ public:
                                   "called-once function is not allowed.");
     VecScenario = CallVecScenarios::VectorVariant;
     VecProperties.MatchedVecVariant = VecVariant.release();
+    VecProperties.MatchedVecVariantIndex = VecVariantIndex;
     VecProperties.UseMaskedForUnmasked = UseMaskedForUnmasked;
     VecProperties.PumpFactor = PumpFactor;
   }
@@ -2022,6 +2027,9 @@ public:
     assert(VecScenario == CallVecScenarios::VectorVariant &&
            "Can't get VectorVariant for mismatched scenario.");
     return VecProperties.MatchedVecVariant;
+  }
+  unsigned getVectorVariantIndex() const {
+    return VecProperties.MatchedVecVariantIndex;
   }
   bool shouldUseMaskedVariantForUnmasked() const {
     assert(VecScenario == CallVecScenarios::VectorVariant &&
