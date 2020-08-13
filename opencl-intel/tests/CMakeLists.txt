@@ -130,6 +130,7 @@ endif(INCLUDE_CMRT)
 
 list(APPEND RUNTIME_UNITTESTS
   framework_test_type
+  tbb_native_test_type
   task_executor_test_type
   FrontendDriver_test_type
   cpu_device_test_type

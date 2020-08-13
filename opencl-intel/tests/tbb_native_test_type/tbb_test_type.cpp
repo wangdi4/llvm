@@ -12,53 +12,70 @@
 // or implied warranties, other than those that are expressly stated in the
 // License.
 
+#include <atomic>
+#include <memory>
+
+#include "task_group_with_reference.h"
+#include "tbb/task_arena.h"
+#include "tbb_test_type.h"
+
 #ifndef WIN32
-#include <unistd.h>
-#endif
-
-#include <tbb/tbb.h>
-
-struct parallel_functor {
-  parallel_functor(std::atomic<long> &counter) : my_counter(counter) {}
-
-  void operator()(const tbb::blocked_range<long> &r) const {
-    my_counter--;
-    while (my_counter > 0) {
-#ifdef WIN32
-      _mm_pause();
+#define SLEEP(x) sleep(x)
 #else
-      usleep(0);
+#define SLEEP(x) Sleep(x)
 #endif
-    }
-  }
 
-  std::atomic<long> &my_counter;
-};
+void taskArenaTest() {
+  int nthreads = tbb::global_control::active_value(
+      tbb::global_control::max_allowed_parallelism);
+  std::atomic<long> counter(nthreads);
+  tbb::task_arena taskArena(nthreads, 1);
 
-struct arena_functor {
-  arena_functor(parallel_functor &parallel, long n)
-      : my_parallel(parallel), my_n(n) {}
-  void operator()() {
-    tbb::auto_partitioner part;
+  parallel_functor fparallel(counter);
+  arena_functor farena(fparallel, nthreads);
+  taskArena.execute(farena);
+}
 
-    tbb::parallel_for(tbb::blocked_range<long>(0, my_n, 1), my_parallel, part);
-  }
+void taskGroupDestructionTest() {
+  auto taskArena = std::make_unique<tbb::task_arena>();
+  auto taskGroup = std::make_unique<task_group_with_reference>();
 
-  parallel_functor &my_parallel;
-  long my_n;
-};
+  // Run a task and sleep 3 seconds
+  taskArena->execute([&] { taskGroup->run([&] { SLEEP(3); }); });
+  // Call destructor before task finished
+  taskGroup.reset();
+}
+
+void taskGroupReferenceCountTest() {
+  const unsigned int COUNT = 1000;
+  task_group_with_reference taskGroup;
+
+  // Increase reference count
+  for (unsigned i = 0; i < COUNT; ++i)
+    taskGroup.reserve_wait();
+
+  EXPECT_EQ(taskGroup.ref_count(), COUNT);
+
+  // Decrease reference count
+  for (unsigned i = 0; i < COUNT; ++i)
+    taskGroup.release_wait();
+
+  EXPECT_EQ(taskGroup.ref_count(), 0);
+}
+
+TEST(TBBNativeTest, Test_taskArena) {
+  taskArenaTest();
+}
+
+TEST(TBBNativeTest, Test_taskGroupDestruction) {
+  taskGroupDestructionTest();
+}
+
+TEST(TBBNativeTest, Test_taskGroupReferenceCount) {
+  taskGroupReferenceCountTest();
+}
 
 int main(int argc, char *argv[]) {
-  int nThreads = tbb::global_control::active_value(
-      tbb::global_control::max_allowed_parallelism);
-  std::atomic<long> counter;
-  counter = nThreads;
-  tbb::task_arena arena(nThreads, 1);
-
-  parallel_functor Fparallel(counter);
-  arena_functor Farena(Fparallel, nThreads);
-
-  arena.execute(Farena);
-
-  return 0;
+  ::testing::InitGoogleTest(&argc, argv);
+  return RUN_ALL_TESTS();
 }
