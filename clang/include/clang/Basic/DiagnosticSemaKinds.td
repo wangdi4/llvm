@@ -10454,7 +10454,6 @@ def err_omp_allocator_used_in_clauses : Error<
   "data-sharing or data-mapping attribute clauses">;
 def err_omp_allocator_not_in_uses_allocators : Error<
   "allocator must be specified in the 'uses_allocators' clause">;
-<<<<<<< HEAD
 // INTEL_COLLAB
 def err_omp_lastprivate_loop_var_non_loop_iteration : Error<
   "only loop iteration variables are allowed in 'lastprivate' clause in "
@@ -10462,12 +10461,10 @@ def err_omp_lastprivate_loop_var_non_loop_iteration : Error<
 def err_omp_loop_directive_without_bind : Error<
   "'loop' directive without 'bind' clause must be nested in another construct">;
 // end INTEL_COLLAB
-=======
 def note_omp_protected_structured_block
     : Note<"jump bypasses OpenMP structured block">;
 def note_omp_exits_structured_block
     : Note<"jump exits scope of OpenMP structured block">;
->>>>>>> 4a7aedb843a591900b419e86dcf46d9bec4c5526
 } // end of OpenMP category
 
 let CategoryName = "Related Result Type Issue" in {

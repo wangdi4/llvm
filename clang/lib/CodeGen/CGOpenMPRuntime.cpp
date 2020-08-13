@@ -10214,11 +10214,10 @@ void CGOpenMPRuntime::scanForTargetRegionsFunctions(const Stmt *S,
 #if INTEL_COLLAB
       return false;
     return scanForTargetRegionsFunctions(
-        E->getInnermostCapturedStmt()->getCapturedStmt(), ParentName);
+        E->getRawStmt(), ParentName);
 #else
       return;
-    scanForTargetRegionsFunctions(
-        E->getInnermostCapturedStmt()->getCapturedStmt(), ParentName);
+    scanForTargetRegionsFunctions(E->getRawStmt(), ParentName);
     return;
 #endif // INTEL_COLLAB
   }

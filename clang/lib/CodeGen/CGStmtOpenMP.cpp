@@ -5438,32 +5438,11 @@ void CodeGenFunction::EmitOMPAtomicDirective(const OMPAtomicDirective &S) {
     }
   }
 
-<<<<<<< HEAD
-  const Stmt *CS = S.getInnermostCapturedStmt()->IgnoreContainers();
-
-  auto &&CodeGen = [&S, Kind, AO, CS](CodeGenFunction &CGF,
-                                            PrePostActionTy &) {
-    CGF.EmitStopPoint(CS);
-    emitOMPAtomicExpr(CGF, Kind, AO, S.isPostfixUpdate(), S.getX(), S.getV(),
-                      S.getExpr(), S.getUpdateExpr(), S.isXLHSInRHSPart(),
-                      S.getBeginLoc());
-  };
-  OMPLexicalScope Scope(*this, S, OMPD_unknown);
-#if INTEL_CUSTOMIZATION
-  if (getLangOpts().OpenMPLateOutline) {
-    // Use the clang outlining logic, but don't create a new CapturedStmtInfo.
-    PrePostActionTy Action;
-    CodeGen(*this, Action);
-  } else
-#endif // INTEL_CUSTOMIZATION
-  CGM.getOpenMPRuntime().emitInlinedDirective(*this, OMPD_atomic, CodeGen);
-=======
   LexicalScope Scope(*this, S.getSourceRange());
   EmitStopPoint(S.getAssociatedStmt());
   emitOMPAtomicExpr(*this, Kind, AO, S.isPostfixUpdate(), S.getX(), S.getV(),
                     S.getExpr(), S.getUpdateExpr(), S.isXLHSInRHSPart(),
                     S.getBeginLoc());
->>>>>>> 4a7aedb843a591900b419e86dcf46d9bec4c5526
 }
 
 static void emitCommonOMPTargetDirective(CodeGenFunction &CGF,

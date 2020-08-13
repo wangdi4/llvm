@@ -3881,13 +3881,9 @@ void Sema::ActOnOpenMPRegionStart(OpenMPDirectiveKind DKind, Scope *CurScope) {
   case OMPD_distribute:
   case OMPD_distribute_simd:
   case OMPD_ordered:
-<<<<<<< HEAD
-  case OMPD_atomic:
 #if INTEL_COLLAB
   case OMPD_target_variant_dispatch:
 #endif // INTEL_COLLAB
-=======
->>>>>>> 4a7aedb843a591900b419e86dcf46d9bec4c5526
   case OMPD_target_data: {
     Sema::CapturedParamNameType Params[] = {
         std::make_pair(StringRef(), QualType()) // __context with shared vars
@@ -5220,7 +5216,6 @@ StmtResult Sema::ActOnOpenMPExecutableDirective(
   llvm::SmallVector<OMPClause *, 8> ClausesWithImplicit;
   VarsWithInheritedDSAType VarsWithInheritedDSA;
   bool ErrorFound = false;
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   // When using late outlining, do special handling for 'collapse' clauses.
   // Remove any user 'collapse', and instead add an implicit one that matches
@@ -5254,12 +5249,8 @@ StmtResult Sema::ActOnOpenMPExecutableDirective(
   } else
     ClausesWithImplicit.append(Clauses.begin(), Clauses.end());
 #endif // INTEL_CUSTOMIZATION
-  if (AStmt && !CurContext->isDependentContext()) {
-=======
-  ClausesWithImplicit.append(Clauses.begin(), Clauses.end());
   if (AStmt && !CurContext->isDependentContext() && Kind != OMPD_atomic &&
       Kind != OMPD_critical && Kind != OMPD_section && Kind != OMPD_master) {
->>>>>>> 4a7aedb843a591900b419e86dcf46d9bec4c5526
     assert(isa<CapturedStmt>(AStmt) && "Captured statement expected");
 
     // Check default data sharing attributes for referenced variables.
@@ -9527,8 +9518,6 @@ StmtResult Sema::ActOnOpenMPSectionDirective(Stmt *AStmt,
                                              SourceLocation EndLoc) {
   if (!AStmt)
     return StmtError();
-
-  assert(isa<CapturedStmt>(AStmt) && "Captured statement expected");
 
   setFunctionHasBranchProtectedScope();
   DSAStack->setParentCancelRegion(DSAStack->isCancelRegion());

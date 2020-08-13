@@ -456,6 +456,14 @@ public:
   static bool isFirstDirectiveInSet(const OMPExecutableDirective &S,
                                     OpenMPDirectiveKind Kind);
   bool checkIfModifier(OpenMPDirectiveKind DKind, const OMPIfClause *IC);
+
+  static bool hasCapturedStmt(const OMPExecutableDirective &S) {
+    auto Kind = S.getDirectiveKind();
+    if (Kind == llvm::omp::OMPD_atomic || Kind == llvm::omp::OMPD_critical ||
+        Kind == llvm::omp::OMPD_section || Kind == llvm::omp::OMPD_master)
+      return false;
+    return true;
+  }
 };
 
 class OMPLateOutlineLexicalScope : public CodeGenFunction::LexicalScope {
@@ -509,9 +517,6 @@ public:
       : CGCapturedStmtInfo(*cast<CapturedStmt>(D.getAssociatedStmt()),
                            CR_OpenMP),
         OldCSI(CSI), Outliner(O), D(D) {}
-
-  /// Emit the captured statement body.
-  void EmitBody(CodeGenFunction &CGF, const Stmt *S) override;
 
   /// Retrieve the value of the context parameter.
   llvm::Value *getContextValue() const override;
@@ -575,11 +580,18 @@ public:
   LateOutlineOpenMPRegionRAII(CodeGenFunction &CGF, OpenMPLateOutliner &O,
                               const OMPExecutableDirective &D)
       : CGF(CGF), Outliner(O), Dir(D) {
+
+    if (!OpenMPLateOutliner::hasCapturedStmt(Dir))
+      return;
+
     // Start emission for the construct.
     CGF.CapturedStmtInfo =
         new CGLateOutlineOpenMPRegionInfo(CGF.CapturedStmtInfo, Outliner, D);
   }
   ~LateOutlineOpenMPRegionRAII() {
+    if (!OpenMPLateOutliner::hasCapturedStmt(Dir))
+      return;
+
     // Restore original CapturedStmtInfo only if we're done with code emission.
     auto *OldCSI =
         static_cast<CGLateOutlineOpenMPRegionInfo *>(CGF.CapturedStmtInfo)
