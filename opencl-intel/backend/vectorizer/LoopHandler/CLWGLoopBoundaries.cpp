@@ -746,6 +746,8 @@ bool CLWGLoopBoundaries::traceBackBound(Value *v1, Value *v2, bool isCmpSigned,
           // slack inequality i.e. id <= (b - a), we need to set bounds so,
           // there are no local id that will comply with both of them.
           // We use the following bounds: (b - a + 1) <= id <= (b - a).
+          assert(dyn_cast<CmpInst>(loc) &&
+                 "Expect CMP instruction for tid user.");
           CmpInst::Predicate condCmpInst =
               dyn_cast<CmpInst>(loc)->isFalseWhenEqual() ? CmpInst::ICMP_SLT
                                                          : CmpInst::ICMP_SLE;
@@ -803,6 +805,8 @@ bool CLWGLoopBoundaries::traceBackBound(Value *v1, Value *v2, bool isCmpSigned,
                                         zero, "left_lt_zero");
           *(bound+1) = SelectInst::Create(cmp, zero, *(bound+1),
                                         "non_negative_left_bound", loc);
+          assert(dyn_cast<CmpInst>(loc) &&
+                 "Expect CMP instruction for tid user.");
           CmpInst::Predicate condCmpInst =
               dyn_cast<CmpInst>(loc)->isFalseWhenEqual() ? CmpInst::ICMP_SLT
                                                          : CmpInst::ICMP_SLE;
