@@ -1110,9 +1110,13 @@ public:
   /// Generate the reduction in the loop
   void execute(VPTransformState &State) override;
 
+#if INTEL_CUSTOMIZATION
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   /// Print the recipe.
   void print(raw_ostream &O, const Twine &Indent,
              VPSlotTracker &SlotTracker) const override;
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
+#endif // INTEL_CUSTOMIZATION
 };
 
 /// VPReplicateRecipe replicates a given instruction producing multiple scalar
