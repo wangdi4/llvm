@@ -102,12 +102,8 @@ struct SimplifyQuery {
   /// Controls whether simplifications are allowed to constrain the range of
   /// possible values for uses of undef. If it is false, simplifications are not
   /// allowed to assume a particular value for a use of undef for example.
-<<<<<<< HEAD
-  bool CanUseUndef;
-  const TargetTransformInfo *TTI = nullptr; // INTEL
-=======
   bool CanUseUndef = true;
->>>>>>> 5a0d6cdbd16c80d39e3a237582f6bb47aadacb67
+  const TargetTransformInfo *TTI = nullptr; // INTEL
 
   SimplifyQuery(const DataLayout &DL, const Instruction *CXTI = nullptr)
       : DL(DL), CxtI(CXTI) {}
