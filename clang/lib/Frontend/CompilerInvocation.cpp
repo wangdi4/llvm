@@ -2678,13 +2678,10 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
       }
     }
     Opts.SYCLExplicitSIMD = Args.hasArg(options::OPT_fsycl_esimd);
-<<<<<<< HEAD
     Opts.EnableDAEInSpirKernels = Args.hasArg(options::OPT_fenable_sycl_dae);
-=======
     Opts.SYCLValueFitInMaxInt =
         Args.hasFlag(options::OPT_fsycl_id_queries_fit_in_int,
                      options::OPT_fno_sycl_id_queries_fit_in_int, false);
->>>>>>> a8ff8235c8ec6b85887d85f7166d757e063fc4c7
   }
 
 #if INTEL_CUSTOMIZATION
