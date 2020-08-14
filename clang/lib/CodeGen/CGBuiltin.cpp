@@ -18968,7 +18968,7 @@ RValue CodeGenFunction::EmitBuiltinGenerateSIMDVariant(const CallExpr *E) {
   std::string MangledVariantName = createMangledSIMDName(
       VariantFuncT->getAs<FunctionProtoType>(), VLen, FuncName);
 
-  Value *Arg = EmitScalarExpr(FuncArg);
+  Value *Arg = CGM.GetAddrOfFunction(FD);
 
   llvm::FunctionType *FTy = llvm::FunctionType::get(
       ConvertType(FuncArg->getType()), {Arg->getType()}, /*isVarArg=*/false);
