@@ -220,13 +220,6 @@ namespace intel {
         continue;
       }
 
-      if ( isa<ReturnInst>(pInstUsage) ) {
-        //Return value is saved on special buffer by
-        //BarrierPass::fixNonInlinedInternalFunction
-        //should not consider it special value at this point!
-        continue;
-      }
-
       //Run over all sync instructions
       TInstructionSet::iterator ii = m_pSyncInstructions->begin();
       TInstructionSet::iterator ie = m_pSyncInstructions->end();
@@ -242,6 +235,14 @@ namespace intel {
           m_pDataPerBarrier->getSuccessors(pSyncBB).count(pValUsageBB) ) {
             //Found value usage "u" and barrier "i" such that
             //BB(v) in BB(i)->predecessors and BB(u) in B(i)->successors
+
+            if (isa<ReturnInst>(pInstUsage)) {
+              // Return value is saved on special buffer by
+              // BarrierPass::fixNonInlineFunction.
+              // Should not consider it special value at this point!
+              m_crossBarrierReturnedValues.insert(pVal);
+              break;
+            }
 
             if ( isWIRelated && !m_pDataPerBarrier->getPredecessors(pSyncBB).count(pSyncBB) ) {
               //pVal depends on work item id and crosses a barrier that is not in a loop
@@ -460,7 +461,10 @@ namespace intel {
         for ( unsigned int i = 0; i < numOfArgsWithReturnValue; ++i ) {
           Value *pVal = (i == numOfArgs) ?
             pCallInst : pCallInst->getArgOperand(i);
-          if ( hasOffset(pVal) ) {
+          // Cross-barrier returned value don't have offset yet and it'll have
+          // offset in Barrier::fixReturnValue, so we need to set marker.
+          if (hasOffset(pVal) ||
+              (i == numOfArgs && m_crossBarrierReturnedValues.count(pVal))) {
             //If reach here, means that this function has at least
             //one caller with argument value in special buffer
             //Set this argument marker for handling
