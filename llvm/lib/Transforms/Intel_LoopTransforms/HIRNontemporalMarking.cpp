@@ -70,6 +70,7 @@ public:
     AU.addRequired<HIRFrameworkWrapperPass>();
     AU.addRequired<HIRDDAnalysisWrapperPass>();
     AU.addRequired<HIRLoopLocalityWrapperPass>();
+    AU.addRequired<TargetTransformInfoWrapperPass>();
     AU.setPreservesAll();
   }
 };
@@ -78,19 +79,21 @@ class HIRNontemporalMarking {
   HIRFramework &HIRF;
   HIRDDAnalysis &HDDA;
   HIRLoopLocality &HLL;
+  TargetTransformInfo &TTI;
 
   bool markInnermostLoop(HLLoop *Loop);
 public:
   HIRNontemporalMarking(HIRFramework &HIRF, HIRDDAnalysis &HDDA,
-                        HIRLoopLocality &HLL)
-    : HIRF(HIRF), HDDA(HDDA), HLL(HLL) {}
+                        HIRLoopLocality &HLL, TargetTransformInfo &TTI)
+    : HIRF(HIRF), HDDA(HDDA), HLL(HLL), TTI(TTI) {}
   bool run();
 };
 
 } // namespace
 
 bool HIRNontemporalMarking::run() {
-  if (DisablePass) {
+  if (DisablePass ||
+      !TTI.isAdvancedOptEnabled(TargetTransformInfo::AO_TargetHasAVX512)) {
     return false;
   }
 
@@ -207,6 +210,7 @@ INITIALIZE_PASS_BEGIN(HIRNontemporalMarkingLegacyPass, DEBUG_TYPE,
 INITIALIZE_PASS_DEPENDENCY(HIRFrameworkWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(HIRDDAnalysisWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(HIRLoopLocalityWrapperPass)
+INITIALIZE_PASS_DEPENDENCY(TargetTransformInfoWrapperPass)
 INITIALIZE_PASS_END(HIRNontemporalMarkingLegacyPass, DEBUG_TYPE,
                     "HIR unaligned nontemporal marking pass", false, false)
 
@@ -221,7 +225,8 @@ bool HIRNontemporalMarkingLegacyPass::runOnFunction(Function &F) {
 
   HIRNontemporalMarking NTM(getAnalysis<HIRFrameworkWrapperPass>().getHIR(),
                             getAnalysis<HIRDDAnalysisWrapperPass>().getDDA(),
-                            getAnalysis<HIRLoopLocalityWrapperPass>().getHLL());
+                            getAnalysis<HIRLoopLocalityWrapperPass>().getHLL(),
+                            getAnalysis<TargetTransformInfoWrapperPass>().getTTI(F));
   return NTM.run();
 }
 
@@ -229,7 +234,8 @@ PreservedAnalyses HIRNontemporalMarkingPass::run(Function &F,
     llvm::FunctionAnalysisManager &AM) {
   HIRNontemporalMarking NTM(AM.getResult<HIRFrameworkAnalysis>(F),
                             AM.getResult<HIRDDAnalysisPass>(F),
-                            AM.getResult<HIRLoopLocalityAnalysis>(F));
+                            AM.getResult<HIRLoopLocalityAnalysis>(F),
+                            AM.getResult<TargetIRAnalysis>(F));
   NTM.run();
   return PreservedAnalyses::all();
 }
