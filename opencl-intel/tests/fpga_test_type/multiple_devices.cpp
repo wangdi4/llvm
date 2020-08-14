@@ -32,7 +32,7 @@ protected:
   }
 
   void TearDown() override {
-    parent_t::SetUp();
+    parent_t::TearDown();
     UNSETENV("CL_CONFIG_CPU_EMULATE_DEVICES");
   }
 };
