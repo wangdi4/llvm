@@ -188,6 +188,9 @@ public:
 #if INTEL_CUSTOMIZATION
   /// Whether the driver should follow Intel compiler behavior.
   bool IsIntelMode() const { return IntelMode; }
+
+  /// Whether the driver has Intel Compiler Pro behavior.
+  bool IsIntelPro() const { return IntelPro; }
 #endif // INTEL_CUSTOMIZATION
 
   /// Only print tool bindings, don't build any jobs.
@@ -486,6 +489,8 @@ public:
   /// Intel mode selected via --intel option.
   unsigned IntelMode : 1;
 
+  /// Intel Compiler Pro selected via compiler-auth-pro file
+  unsigned IntelPro : 1;
 #endif // INTEL_CUSTOMIZATION
 
   /// PrintSYCLToolHelp - Print help text from offline compiler tools.
