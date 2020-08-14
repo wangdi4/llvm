@@ -263,6 +263,10 @@ static bool checkIV(const BlobDDRef *Ref, DDGraph &DDG, unsigned LoopLevel,
 
 static bool compareMemRefs(RegDDRef *Ref1, RegDDRef *Ref2, DDGraph &DDG,
                            HLLoop *Lp) {
+  if (!CanonExprUtils::areEqual(Ref1->getBaseCE(), Ref2->getBaseCE(), false)) {
+    return false;
+  }
+
   // We check:
   // 1) Ref1 does not have any blobs
   // 2) All its indices are either constant or linear
@@ -307,6 +311,11 @@ static bool compareMemRefs(RegDDRef *Ref1, RegDDRef *Ref2, DDGraph &DDG,
     if (Dim > 1) {
       CanonExpr *MemRefLowerDimCE = Ref1->getDimensionLower(Dim);
 
+      // Check the dim lower bound for Ref1
+      if (!MemRefLowerDimCE->isConstant()) {
+        return false;
+      }
+
       if (!MemRefLowerDimCE->isZero() &&
           !CanonExprUtils::canAdd(Lp->getUpperCanonExpr(), MemRefLowerDimCE,
                                   true)) {
@@ -316,8 +325,13 @@ static bool compareMemRefs(RegDDRef *Ref1, RegDDRef *Ref2, DDGraph &DDG,
     }
   }
 
-  if (!CanonExprUtils::areEqual(Ref1->getBaseCE(), Ref2->getBaseCE(), false)) {
-    return false;
+  // Check the dim lower bound for Ref2
+  for (unsigned Dim = Ref2->getNumDimensions(); Dim > 1; --Dim) {
+    CanonExpr *MemRefLowerDimCE = Ref2->getDimensionLower(Dim);
+
+    if (!MemRefLowerDimCE->isConstant()) {
+      return false;
+    }
   }
 
   Level = 1;
