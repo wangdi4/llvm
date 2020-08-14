@@ -1175,8 +1175,8 @@ static QualType handleFloatConversion(Sema &S, ExprResult &LHS,
   }
   assert(RHSFloat);
   return handleIntToFloatConversion(S, RHS, LHS, RHSType, LHSType,
-                                    /*convertInt=*/ true,
-                                    /*convertFloat=*/!IsCompAssign);
+                                    /*ConvertFloat=*/ true,
+                                    /*ConvertInt=*/!IsCompAssign);
 }
 
 /// Diagnose attempts to convert between __float128 and long double if
@@ -7131,13 +7131,14 @@ Sema::ActOnInitList(SourceLocation LBraceLoc, MultiExprArg InitArgList,
         << InitArgList[I]->getSourceRange();
     } else if (const auto *SL = dyn_cast<StringLiteral>(InitArgList[I])) {
       unsigned NumConcat = SL->getNumConcatenated();
-      const auto *SLNext =
-          dyn_cast<StringLiteral>(InitArgList[I + 1 < E ? I + 1 : 0]);
+      const auto *SLPrev =
+          dyn_cast<StringLiteral>(InitArgList[I == 0 ? E - 1 : I - 1]);
       // Diagnose missing comma in string array initialization.
       // Do not warn when all the elements in the initializer are concatenated
       // together. Do not warn for macros too.
-      if (NumConcat > 1 && E > 2 && !SL->getBeginLoc().isMacroID() && SLNext &&
-          NumConcat != SLNext->getNumConcatenated()) {
+      if (NumConcat > 1 && E > 2 && !SL->getBeginLoc().isMacroID() &&
+          isa<StringLiteral>(InitArgList[0]) && SLPrev &&
+          NumConcat != SLPrev->getNumConcatenated()) {
         SmallVector<FixItHint, 1> Hints;
         for (unsigned i = 0; i < NumConcat - 1; ++i)
           Hints.push_back(FixItHint::CreateInsertion(
@@ -18388,8 +18389,6 @@ static void DoMarkVarDeclReferenced(Sema &SemaRef, SourceLocation Loc,
   bool NeedDefinition =
       OdrUse == OdrUseContext::Used || NeededForConstantEvaluation;
 
-  VarTemplateSpecializationDecl *VarSpec =
-      dyn_cast<VarTemplateSpecializationDecl>(Var);
   assert(!isa<VarTemplatePartialSpecializationDecl>(Var) &&
          "Can't instantiate a partial template specialization.");
 
@@ -18424,30 +18423,21 @@ static void DoMarkVarDeclReferenced(Sema &SemaRef, SourceLocation Loc,
           Var->setTemplateSpecializationKind(TSK, PointOfInstantiation);
       }
 
-      bool InstantiationDependent = false;
-      bool IsNonDependent =
-          VarSpec ? !TemplateSpecializationType::anyDependentTemplateArguments(
-                        VarSpec->getTemplateArgsInfo(), InstantiationDependent)
-                  : true;
-
-      // Do not instantiate specializations that are still type-dependent.
-      if (IsNonDependent) {
-        if (UsableInConstantExpr) {
-          // Do not defer instantiations of variables that could be used in a
-          // constant expression.
-          SemaRef.runWithSufficientStackSpace(PointOfInstantiation, [&] {
-            SemaRef.InstantiateVariableDefinition(PointOfInstantiation, Var);
-          });
-        } else if (FirstInstantiation ||
-                   isa<VarTemplateSpecializationDecl>(Var)) {
-          // FIXME: For a specialization of a variable template, we don't
-          // distinguish between "declaration and type implicitly instantiated"
-          // and "implicit instantiation of definition requested", so we have
-          // no direct way to avoid enqueueing the pending instantiation
-          // multiple times.
-          SemaRef.PendingInstantiations
-              .push_back(std::make_pair(Var, PointOfInstantiation));
-        }
+      if (UsableInConstantExpr) {
+        // Do not defer instantiations of variables that could be used in a
+        // constant expression.
+        SemaRef.runWithSufficientStackSpace(PointOfInstantiation, [&] {
+          SemaRef.InstantiateVariableDefinition(PointOfInstantiation, Var);
+        });
+      } else if (FirstInstantiation ||
+                 isa<VarTemplateSpecializationDecl>(Var)) {
+        // FIXME: For a specialization of a variable template, we don't
+        // distinguish between "declaration and type implicitly instantiated"
+        // and "implicit instantiation of definition requested", so we have
+        // no direct way to avoid enqueueing the pending instantiation
+        // multiple times.
+        SemaRef.PendingInstantiations
+            .push_back(std::make_pair(Var, PointOfInstantiation));
       }
     }
   }
