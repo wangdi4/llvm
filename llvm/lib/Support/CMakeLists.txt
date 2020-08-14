@@ -65,6 +65,7 @@ set (SUPPORT_SOURCES
   ARMAttributeParser.cpp
   ARMWinEH.cpp
   Allocator.cpp
+  Base64.cpp
   BinaryStreamError.cpp
   BinaryStreamReader.cpp
   BinaryStreamRef.cpp
