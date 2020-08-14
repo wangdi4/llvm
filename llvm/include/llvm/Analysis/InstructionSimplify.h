@@ -100,18 +100,30 @@ struct SimplifyQuery {
   const InstrInfoQuery IIQ;
   const TargetTransformInfo *TTI = nullptr; // INTEL
 
+  /// Controls whether simplifications are allowed to constrain the range of
+  /// possible values for uses of undef. If it is false, simplifications are not
+  /// allowed to assume a particular value for a use of undef for example.
+  bool CanUseUndef;
+
   SimplifyQuery(const DataLayout &DL, const Instruction *CXTI = nullptr)
       : DL(DL), CxtI(CXTI) {}
 
   SimplifyQuery(const DataLayout &DL, const TargetLibraryInfo *TLI,
                 const DominatorTree *DT = nullptr,
                 AssumptionCache *AC = nullptr,
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
                 const Instruction *CXTI = nullptr, bool UseInstrInfo = true,
                 const TargetTransformInfo *TTI = nullptr)
       : DL(DL), TLI(TLI), DT(DT), AC(AC), CxtI(CXTI), IIQ(UseInstrInfo),
         TTI(TTI) {}
 #endif // INTEL_CUSTOMIZATION
+=======
+                const Instruction *CXTI = nullptr, bool UseInstrInfo = true,
+                bool CanUseUndef = true)
+      : DL(DL), TLI(TLI), DT(DT), AC(AC), CxtI(CXTI), IIQ(UseInstrInfo),
+        CanUseUndef(CanUseUndef) {}
+>>>>>>> d236e1c7b606c461b5cb8a8a87d50ead5d1bcbb9
   SimplifyQuery getWithInstruction(Instruction *I) const {
     SimplifyQuery Copy(*this);
     Copy.CxtI = I;
