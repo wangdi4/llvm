@@ -1919,6 +1919,11 @@ def fnoopenmp_use_tls : Flag<["-"], "fnoopenmp-use-tls">, Group<f_Group>,
 // INTEL_COLLAB
 def fopenmp_late_outline : Flag<["-"], "fopenmp-late-outline">, Group<f_Group>,
   Flags<[CC1Option, NoArgumentUnused]>;
+def fopenmp_use_single_elem_array_funcs : Flag<["-"],
+  "fopenmp-use-single-elem-array-funcs">, Group<f_Group>,
+  Flags<[CC1Option, NoArgumentUnused]>;
+def fno_openmp_use_single_elem_array_funcs : Flag<["-"],
+  "fno-openmp-use-single-elem-array-funcs">;
 // end INTEL_COLLAB
 def fopenmp_targets_EQ : CommaJoined<["-"], "fopenmp-targets=">, Flags<[DriverOption, CC1Option, DpcppUnsupported, ProEnabled]>,
   HelpText<"Specify comma-separated list of triples OpenMP offloading targets to be supported">;

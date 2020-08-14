@@ -248,6 +248,8 @@ LANGOPT(UseAutoOpenCLAddrSpaceForOpenMP, 1, 0,
     " - use LangAS::opencl_global for constant and global variables;"
     " - use LangAS::Default for all other pointer types;"
     " - map LangAS::Default to target AS 4.")
+LANGOPT(OpenMPUseSingleElemArrayFuncs , 1, 0,
+    "Use single element function for private arrays")
 #endif // INTEL_COLLAB
 #if INTEL_CUSTOMIZATION
 LANGOPT(OpenMPLateOutlineTarget, 1, 1, "Outline OpenMP target construct in the back end")
