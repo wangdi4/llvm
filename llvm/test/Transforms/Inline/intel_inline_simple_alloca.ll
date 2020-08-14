@@ -29,8 +29,15 @@ bb:
   %p1 = alloca i32
   store i32 20, i32* %p1
   %p2 = alloca double*
+  %b1 = bitcast double** %p2 to i8*
+  call void @llvm.lifetime.start.p0i8(i64 8, i8* %b1)
   store double* %dp, double** %p2
   call void @baz(i32* %p1, double** %p2)
+  %b2 = bitcast double** %p2 to i8*
+  call void @llvm.lifetime.end.p0i8(i64 8, i8* %b2)
+  %p3 = alloca i32
+  store i32 2, i32* %p3
+  %l3 = load i32, i32* %p3
   br label %return
 
 return:
@@ -47,3 +54,5 @@ return:
 }
 
 declare void @baz(i32*, double**)
+declare void @llvm.lifetime.start.p0i8(i64 immarg, i8* nocapture)
+declare void @llvm.lifetime.end.p0i8(i64 immarg, i8* nocapture)
