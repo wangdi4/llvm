@@ -3829,7 +3829,9 @@ cl_err_code ExecutionModule::EnqueueUSMMemcpy(cl_command_queue command_queue,
          dstBuffer->GetContext() != context))
         return CL_INVALID_VALUE;
 
-   if (!CanAccessUSM(queue, srcBuffer) || !CanAccessUSM(queue, dstBuffer))
+   // Always allow src or dst to be non-USM pointer.
+   if ((nullptr != srcBuffer.GetPtr() && !CanAccessUSM(queue, srcBuffer)) ||
+       (nullptr != dstBuffer.GetPtr() && !CanAccessUSM(queue, dstBuffer)))
         return CL_INVALID_VALUE;
 
     cl_err_code err = CheckEventList(queue, num_events_in_wait_list,

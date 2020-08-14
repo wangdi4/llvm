@@ -125,20 +125,6 @@ protected:
     else
       ASSERT_NE(err, CL_SUCCESS) << "clEnqueueMemFillINTEL should fail";
 
-    // memcpy
-    cl_uint alignment = 0;
-    void *buffer2 = m_clSharedMemAllocINTEL(context, device, nullptr, size,
-                                            alignment, &err);
-    ASSERT_EQ(err, CL_SUCCESS) << "clSharedMemAllocINTEL failed";
-    ASSERT_NE(buffer2, nullptr) << "invalid buffer2";
-
-    err = m_clEnqueueMemcpyINTEL(queue, CL_TRUE, buffer2, buffer, size, 0,
-                                 nullptr, nullptr);
-    if (shouldSucceed)
-      ASSERT_EQ(err, CL_SUCCESS) << "clEnqueueMemcpyINTEL should succeed";
-    else
-      ASSERT_NE(err, CL_SUCCESS) << "clEnqueueMemcpyINTEL should fail";
-
     // kernel arg
     const char *source[] = {"kernel void test(global char *buffer){}"};
     cl_program program;
@@ -163,6 +149,34 @@ protected:
     ASSERT_EQ(err, CL_SUCCESS) << "clReleaseProgram failed";
     err = clReleaseKernel(kernel);
     ASSERT_EQ(err, CL_SUCCESS) << "clReleaseKernel failed";
+  }
+
+  /// Test memcpy
+  void TestMemcpy(cl_device_id device, cl_context context,
+                  cl_command_queue queue, void *buffer, size_t size,
+                  bool shouldSucceed) {
+    cl_int err;
+    cl_uint alignment = 0;
+    void *buffer2 = m_clSharedMemAllocINTEL(context, device, nullptr, size,
+                                            alignment, &err);
+    ASSERT_EQ(err, CL_SUCCESS) << "clSharedMemAllocINTEL failed";
+    ASSERT_NE(buffer2, nullptr) << "invalid buffer2";
+
+    // buffer -> buffer2
+    err = m_clEnqueueMemcpyINTEL(queue, CL_TRUE, buffer2, buffer, size, 0,
+                                 nullptr, nullptr);
+    if (shouldSucceed)
+      ASSERT_EQ(err, CL_SUCCESS) << "clEnqueueMemcpyINTEL should succeed";
+    else
+      ASSERT_NE(err, CL_SUCCESS) << "clEnqueueMemcpyINTEL should fail";
+
+    // buffer2 -> buffer
+    err = m_clEnqueueMemcpyINTEL(queue, CL_TRUE, buffer, buffer2, size, 0,
+                                 nullptr, nullptr);
+    if (shouldSucceed)
+      ASSERT_EQ(err, CL_SUCCESS) << "clEnqueueMemcpyINTEL should succeed";
+    else
+      ASSERT_NE(err, CL_SUCCESS) << "clEnqueueMemcpyINTEL should fail";
 
     m_clMemFreeINTEL(context, buffer2);
   }
@@ -276,6 +290,7 @@ TEST_P(UsmTest, sameDevice) {
     ASSERT_NE(buffer, nullptr) << "invalid buffer";
 
     TestCommands(device, context, queue, buffer, size, /*shouldSucceed*/ true);
+    TestMemcpy(device, context, queue, buffer, size, /*shouldSucceed*/ true);
     TestNonArg(device, context, queue, buffer, size, /*shouldSucceed*/ true);
 
     // Test migrate at last, since CL_MIGRATE_MEM_OBJECT_CONTENT_UNDEFINED will
@@ -317,13 +332,15 @@ TEST_P(UsmTest, crossDevice) {
     ASSERT_NE(queue, nullptr) << "createCommandQueue failed";
 
     TestCommands(device, context, queue, buffer, size, /*shouldSucceed*/ false);
+    TestMemcpy(device, context, queue, buffer, size, /*shouldSucceed*/ false);
     TestNonArg(device, context, queue, buffer, size, /*shouldSucceed*/ false);
 
     // migrate
     cl_mem_migration_flags flags = CL_MIGRATE_MEM_OBJECT_CONTENT_UNDEFINED;
     err = m_clEnqueueMigrateMemINTEL(queue, buffer, size, flags, 0, nullptr,
                                      nullptr);
-    ASSERT_EQ(err, CL_INVALID_VALUE) << "clEnqueueMigrateMemINTEL failed";
+    ASSERT_EQ(err, CL_INVALID_VALUE)
+        << "clEnqueueMigrateMemINTEL should return CL_INVALID_VALUE";
   }
 
   m_clMemFreeINTEL(context, buffer);
@@ -341,12 +358,14 @@ TEST_P(UsmTest, system) {
     ASSERT_NE(nullptr, queue) << "createCommandQueue failed";
 
     TestCommands(device, context, queue, buffer, size, /*shouldSucceed*/ false);
+    TestMemcpy(device, context, queue, buffer, size, /*shouldSucceed*/ true);
 
     // migrate
     cl_mem_migration_flags flags = 0;
     cl_int err = m_clEnqueueMigrateMemINTEL(queue, buffer, size, flags, 0,
                                             nullptr, nullptr);
-    ASSERT_EQ(err, CL_INVALID_VALUE) << "clEnqueueMigrateMemINTEL failed";
+    ASSERT_EQ(err, CL_INVALID_VALUE)
+        << "clEnqueueMigrateMemINTEL should return CL_INVALID_VALUE";
   }
   delete[] buffer;
 }
