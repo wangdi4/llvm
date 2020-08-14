@@ -189,7 +189,9 @@ bool assert_pointer_valid(T* p, const char* comment = nullptr) {
     suppress_unused_warning(p, comment);
     __TBB_ASSERT(p != nullptr, comment);
     __TBB_ASSERT(!is_poisoned(p), comment);
+#if !(_MSC_VER && _MSC_VER <= 1900 && !__INTEL_COMPILER)
     __TBB_ASSERT(is_aligned(p, alignment == 0 ? alignof(T) : alignment), comment);
+#endif
     // Returns something to simplify assert_pointers_valid implementation.
     return true;
 }

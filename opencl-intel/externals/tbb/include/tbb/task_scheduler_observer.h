@@ -56,7 +56,7 @@ class task_scheduler_observer {
     task_arena* my_task_arena{ nullptr };
 public:
     //! Returns true if observation is enabled, false otherwise.
-    bool is_observing() const { return my_proxy != nullptr; }
+    bool is_observing() const { return my_proxy.load(std::memory_order_relaxed) != nullptr; }
 
     //! Entry notification
     /** Invoked from inside observe(true) call and whenever a worker enters the arena
@@ -87,7 +87,7 @@ public:
        It is recommended to disable observation before destructor of a derived class starts,
        otherwise it can lead to concurrent notification callback on partly destroyed object **/
     virtual ~task_scheduler_observer() {
-        if (my_proxy) {
+        if (my_proxy.load(std::memory_order_relaxed)) {
             observe(false);
         }
     }
@@ -96,7 +96,7 @@ public:
     /** Warning: concurrent invocations of this method are not safe.
         Repeated calls with the same state are no-ops. **/
     void observe(bool state = true) {
-        if( state && !my_proxy ) {
+        if( state && !my_proxy.load(std::memory_order_relaxed) ) {
             __TBB_ASSERT( my_busy_count.load(std::memory_order_relaxed) == 0, "Inconsistent state of task_scheduler_observer instance");
         }
         r1::observe(*this, state);

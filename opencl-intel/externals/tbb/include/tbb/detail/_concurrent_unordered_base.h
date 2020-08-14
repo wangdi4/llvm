@@ -737,13 +737,15 @@ public:
                 sokey_type begin_key = my_begin_node != nullptr ? my_begin_node->order_key() : invalid_key;
                 sokey_type end_key = my_end_node != nullptr ? my_end_node->order_key() : invalid_key;
 
-                size_type mid_bucket = reverse_bits(begin_key + (end_key - begin_key) / 2) % my_instance.my_bucket_count; // TODO: fence for my_bucket_count?
-                while( my_instance.my_segments[mid_bucket] == nullptr) { // TODO fence
+                size_type mid_bucket = reverse_bits(begin_key + (end_key - begin_key) / 2) %
+                    my_instance.my_bucket_count.load(std::memory_order_relaxed);
+                while( my_instance.my_segments[mid_bucket].load(std::memory_order_relaxed) == nullptr) {
                     mid_bucket = my_instance.get_parent(mid_bucket);
                 }
                 if (reverse_bits(mid_bucket) > begin_key) {
                     // Found a dummy node between begin and end
-                    my_midpoint_node = my_instance.first_value_node(my_instance.my_segments[mid_bucket]); // TODO fence
+                    my_midpoint_node = my_instance.first_value_node(
+                        my_instance.my_segments[mid_bucket].load(std::memory_order_relaxed));
                 } else {
                     // Didn't find a dummy node between begin and end
                     my_midpoint_node = my_end_node;
