@@ -5905,13 +5905,14 @@ const SimplifyQuery getBestSimplifyQuery(Pass &P, Function &F) {
 #if INTEL_CUSTOMIZATION
   auto *TTIWP = P.getAnalysisIfAvailable<TargetTransformInfoWrapperPass>();
   auto *TTI = TTIWP ? &TTIWP->getTTI(F) : nullptr;
-  return {F.getParent()->getDataLayout(), TLI, DT, AC, nullptr, true, TTI};
+  return {
+      F.getParent()->getDataLayout(), TLI, DT, AC, nullptr, true, true, TTI};
 #endif // INTEL_CUSTOMIZATION
 }
 
 const SimplifyQuery getBestSimplifyQuery(LoopStandardAnalysisResults &AR,
                                          const DataLayout &DL) {
-  return {DL, &AR.TLI, &AR.DT, &AR.AC, nullptr, true, &AR.TTI}; // INTEL
+  return {DL, &AR.TLI, &AR.DT, &AR.AC, nullptr, true, true, &AR.TTI}; // INTEL
 }
 
 template <class T, class... TArgs>
@@ -5922,7 +5923,8 @@ const SimplifyQuery getBestSimplifyQuery(AnalysisManager<T, TArgs...> &AM,
   auto *AC = AM.template getCachedResult<AssumptionAnalysis>(F);
 #if INTEL_CUSTOMIZATION
   auto *TTI = AM.template getCachedResult<TargetIRAnalysis>(F);
-  return {F.getParent()->getDataLayout(), TLI, DT, AC, nullptr, true, TTI};
+  return {
+      F.getParent()->getDataLayout(), TLI, DT, AC, nullptr, true, true, TTI};
 #endif // INTEL_CUSTOMIZATION
 }
 template const SimplifyQuery getBestSimplifyQuery(AnalysisManager<Function> &,
