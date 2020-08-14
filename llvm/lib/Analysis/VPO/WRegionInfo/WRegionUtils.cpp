@@ -1031,4 +1031,15 @@ AllocateItem *WRegionUtils::getAllocateItem(Item *I) {
     return RedI->getInAllocate();
   return nullptr;
 }
+
+bool WRegionUtils::isDistributeNode(const WRegionNode *W) {
+  return isa<WRNDistributeNode>(W) ||
+         (isa<WRNDistributeParLoopNode>(W) &&
+          W->getTreatDistributeParLoopAsDistribute());
+}
+
+bool WRegionUtils::isDistributeParLoopNode(const WRegionNode *W) {
+  return isa<WRNDistributeParLoopNode>(W) &&
+         !W->getTreatDistributeParLoopAsDistribute();
+}
 #endif // INTEL_COLLAB

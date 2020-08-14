@@ -30,6 +30,7 @@
 #include "llvm/Transforms/VPO/Utils/VPOUtils.h"
 
 #include "llvm/IR/Function.h"
+#include "llvm/IR/DiagnosticInfo.h"
 #include "llvm/IR/Dominators.h"
 #include "llvm/Support/Debug.h"
 
@@ -1070,7 +1071,7 @@ bool VPOParoptTransform::genOCLParallelLoop(
        // Each iteration of the original distribute parallel loop is executed
        // by a single WI, and we rely on OpenCL paritioning of WIs across WGs.
        // Thus, there is no need to compute the team bounds.
-       (isa<WRNDistributeNode>(W) || !VPOParoptUtils::useSPMDMode(W)));
+       (WRegionUtils::isDistributeNode(W) || !VPOParoptUtils::useSPMDMode(W)));
 
   bool GenTeamDistDispatchLoop =
       // Team distribute dispatch loop is only needed for chunked
@@ -1099,7 +1100,8 @@ bool VPOParoptTransform::genOCLParallelLoop(
                                        TeamLowerBnd, TeamUpperBnd, TeamStride,
                                        DistSchedKind, TeamLB, TeamUB, TeamST);
 
-    if (isa<WRNParallelSectionsNode>(W) || isa<WRNDistributeParLoopNode>(W) ||
+    if (isa<WRNParallelSectionsNode>(W) ||
+        WRegionUtils::isDistributeParLoopNode(W) ||
         isa<WRNParallelLoopNode>(W) || isa<WRNWksLoopNode>(W) ||
         isa<WRNSectionsNode>(W))
       genOCLLoopBoundUpdateCode(W, I - 1, LowerBnd, UpperBnd,
@@ -1373,6 +1375,15 @@ bool VPOParoptTransform::paroptTransforms() {
   if (NeedBID && (Mode & OmpPar) && (Mode & ParTrans))
     BidPtrHolder = F->getParent()->getOrInsertGlobal("@bid.addr", Int32Ty);
 
+  auto emitWarning = [](WRegionNode *W, const Twine &Message) {
+    Function *F = W->getEntryDirective()->getFunction();
+    DiagnosticInfoOptimizationFailure DI("openmp", "implementation-warning",
+                                         W->getEntryDirective()->getDebugLoc(),
+                                         W->getEntryBBlock());
+    DI << Message.str();
+    F->getContext().diagnose(DI);
+  };
+
   //
   // Walk through W-Region list, the outlining / lowering is performed from
   // inner to outer
@@ -1450,6 +1461,14 @@ bool VPOParoptTransform::paroptTransforms() {
           }
 #endif  // INTEL_FEATURE_CSA
 #endif  // INTEL_CUSTOMIZATION
+          bool SkipTargetCodeGenForParallelRegion =
+              isTargetSPIRV() && isFunctionOpenMPTargetDeclare() &&
+              !isa<WRNParallelLoopNode>(W);
+          if (SkipTargetCodeGenForParallelRegion)
+            emitWarning(W,
+                        "'" + W->getName() +
+                            +"' construct, in a declare target function, was "
+                             "ignored for calls from target regions.");
           if (!isTargetSPIRV()) {
             // Privatization is enabled for Transform pass
             Changed |= genPrivatizationCode(W);
@@ -1467,13 +1486,17 @@ bool VPOParoptTransform::paroptTransforms() {
             // TODO: enabling firstprivatization requires more optimizations
             //       to avoid performance tanking.
             // Changed |= genFirstPrivatizationCode(W);
-            Changed |= genReductionCode(W);
+            if (SkipTargetCodeGenForParallelRegion)
+              RemoveDirectives = true;
+            else {
+              Changed |= genReductionCode(W);
 
-            // The directive gets removed, when processing the target region,
-            // do not remove it here, since guardSideEffects needs the
-            // parallel directive to insert barriers.
-            RemoveDirectives = false;
-            HandledWithoutRemovingDirectives = true;
+              // The directive gets removed, when processing the target region,
+              // do not remove it here, since guardSideEffects needs the
+              // parallel directive to insert barriers.
+              RemoveDirectives = false;
+              HandledWithoutRemovingDirectives = true;
+            }
           }
 
           LLVM_DEBUG(dbgs()<<"\n Parallel W-Region::"<<*W->getEntryBBlock());
@@ -1527,17 +1550,41 @@ bool VPOParoptTransform::paroptTransforms() {
           }
 #endif  // INTEL_FEATURE_CSA
 #endif  // INTEL_CUSTOMIZATION
+
+          // Ignore parallel-for/sections constructs in declare-target functions
+          bool SkipTargetCodeGenForParallelRegion =
+              isTargetSPIRV() && isFunctionOpenMPTargetDeclare() &&
+              !W->getIsDistribute();
+          bool TreatDistributeParLoopAsDistribute =
+              isTargetSPIRV() && isFunctionOpenMPTargetDeclare() &&
+              W->getIsDistribute();
+
+          if (SkipTargetCodeGenForParallelRegion)
+            emitWarning(W,
+                        "'" + W->getName() +
+                            +"' construct, in a declare target function, was "
+                             "ignored for calls from target regions.");
+          else if (TreatDistributeParLoopAsDistribute) {
+            W->setTreatDistributeParLoopAsDistribute(true);
+            emitWarning(W, "'" + W->getName() +
+                               "' construct, in a declare target function, was "
+                               "interpreted as 'distribute', for calls from "
+                               "target regions.");
+          }
+
           // The compiler does not need to generate the outlined function
           // for omp parallel for loop.
           if (isTargetSPIRV()) {
-            SmallVector<Value *, 3> IsLastLocs;
-            BasicBlock *IfLastIterBB = nullptr;
-            Changed |= genOCLParallelLoop(W, IsLastLocs);
-            Changed |= genPrivatizationCode(W);
-            Changed |= genLastIterationCheck(W, IsLastLocs, IfLastIterBB);
-            Changed |= genLastPrivatizationCode(W, IfLastIterBB);
-            Changed |= genFirstPrivatizationCode(W);
-            Changed |= genReductionCode(W);
+            if (!SkipTargetCodeGenForParallelRegion) {
+              SmallVector<Value *, 3> IsLastLocs;
+              BasicBlock *IfLastIterBB = nullptr;
+              Changed |= genOCLParallelLoop(W, IsLastLocs);
+              Changed |= genPrivatizationCode(W);
+              Changed |= genLastIterationCheck(W, IsLastLocs, IfLastIterBB);
+              Changed |= genLastPrivatizationCode(W, IfLastIterBB);
+              Changed |= genFirstPrivatizationCode(W);
+              Changed |= genReductionCode(W);
+            }
           } else {
 #if INTEL_CUSTOMIZATION
             // Generate remarks using Loop Opt Report framework (under -qopt-report).
@@ -1553,8 +1600,8 @@ bool VPOParoptTransform::paroptTransforms() {
                       // An enclosing loop is present.
                       LORBuilder(*(ORLoop->getParentLoop()), *ORLinfo).addRemark(OptReportVerbosity::Low,
                                  "OpenMP: Parallel loop was outlined");
-                   }
                }
+            }
 #endif  // INTEL_CUSTOMIZATION
 
             Instruction *InsertLastIterCheckBefore = nullptr;
@@ -1586,7 +1633,8 @@ bool VPOParoptTransform::paroptTransforms() {
 
           LLVM_DEBUG(dbgs()<<"\n Parallel W-Region::"<<*W->getEntryBBlock());
 
-          if (isTargetSPIRV()) {
+          if (isTargetSPIRV() && !SkipTargetCodeGenForParallelRegion &&
+              !TreatDistributeParLoopAsDistribute) {
             // The directive gets removed, when processing the target region,
             // do not remove it here, since guardSideEffects needs the
             // parallel directive to insert barriers.
@@ -1879,16 +1927,27 @@ bool VPOParoptTransform::paroptTransforms() {
 #endif  // INTEL_FEATURE_CSA
 #endif  // INTEL_CUSTOMIZATION
 
+          // Ignore Parallel-for/sections constructs in declare-target functions
+          bool SkipTargetCodeGenForRegion =
+              isTargetSPIRV() && isFunctionOpenMPTargetDeclare() &&
+              !W->getIsDistribute() &&
+              (W->getParent() && W->getParent()->getIsPar());
+          if (SkipTargetCodeGenForRegion)
+            emitWarning(W, "'" + W->getName() +
+                               "' construct, in a declare target function, "
+                               "was ignored for calls from target regions.");
           if (isTargetSPIRV()) {
-            SmallVector<Value *, 3> IsLastLocs;
-            BasicBlock *IfLastIterBB = nullptr;
-            Changed |= genOCLParallelLoop(W, IsLastLocs);
-            Changed |= genPrivatizationCode(W);
-            Changed |= genLastIterationCheck(W, IsLastLocs, IfLastIterBB);
-            Changed |= genLastPrivatizationCode(W, IfLastIterBB);
-            Changed |= genFirstPrivatizationCode(W);
-            if (!W->getIsDistribute())
-              Changed |= genReductionCode(W);
+            if (!SkipTargetCodeGenForRegion) {
+              SmallVector<Value *, 3> IsLastLocs;
+              BasicBlock *IfLastIterBB = nullptr;
+              Changed |= genOCLParallelLoop(W, IsLastLocs);
+              Changed |= genPrivatizationCode(W);
+              Changed |= genLastIterationCheck(W, IsLastLocs, IfLastIterBB);
+              Changed |= genLastPrivatizationCode(W, IfLastIterBB);
+              Changed |= genFirstPrivatizationCode(W);
+              if (!W->getIsDistribute())
+                Changed |= genReductionCode(W);
+            }
           } else {
 #if INTEL_CUSTOMIZATION
             // Generate remarks using Loop Opt Report framework (under -qopt-report).
@@ -6464,7 +6523,7 @@ llvm::Optional<unsigned> VPOParoptTransform::getPrivatizationAllocaAddrSpace(
     return vpo::ADDRESS_SPACE_PRIVATE;
 #endif  // INTEL_CUSTOMIZATION
 
-  if (isa<WRNDistributeNode>(W) ||
+  if (WRegionUtils::isDistributeNode(W) ||
       isa<WRNTeamsNode>(W))
     return vpo::ADDRESS_SPACE_LOCAL;
 
@@ -6950,8 +7009,8 @@ bool VPOParoptTransform::genLoopSchedulingCode(
   bool IsDoacrossLoop =
       ((isa<WRNParallelLoopNode>(W) || isa<WRNWksLoopNode>(W)) &&
        W->getOrdered() > 0);
-  bool IsDistForLoop = isa<WRNDistributeNode>(W);
-  bool IsDistParLoop = isa<WRNDistributeParLoopNode>(W);
+  bool IsDistForLoop = WRegionUtils::isDistributeNode(W);
+  bool IsDistParLoop = WRegionUtils::isDistributeParLoopNode(W);
   bool IsDistChunkedParLoop = false;
 
   LLVMContext &C = F->getContext();
@@ -7200,7 +7259,7 @@ bool VPOParoptTransform::genLoopSchedulingCode(
             IsDistForLoop ? DistChunkVal : ChunkVal,
             IsUnsigned, PHTerm);
 
-    if (isa<WRNDistributeParLoopNode>(W) &&
+    if (WRegionUtils::isDistributeParLoopNode(W) &&
         VPOParoptUtils::getDistLoopScheduleKind(W) ==
         WRNScheduleDistributeStaticEven) {
       // For "distribute parallel for schedule(static, N)" we need to take
@@ -9950,7 +10009,7 @@ bool VPOParoptTransform::collapseOmpLoops(WRegionNode *W) {
         // is only known in runtime. We need to communicate to runtime
         // that it has to choose some N and use it both for global
         // and local sizes for 0 dimension.
-        isa<WRNDistributeNode>(W)) {
+        WRegionUtils::isDistributeNode(W)) {
       // FIXME: this is a temporary limitation. We need to decide
       //        which loops to collapse for SPIR target and leave
       //        3 of them for 3D-range parallelization.
@@ -10629,7 +10688,7 @@ void VPOParoptTransform::assignParallelDimensions() const {
     if (!W->getWRNLoopInfo().isKnownNDRange())
       continue;
 
-    if (!isa<WRNDistributeNode>(W))
+    if (!WRegionUtils::isDistributeNode(W))
       continue;
 
     // "omp distribute" will start with dimension 1.
