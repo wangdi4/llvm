@@ -34,7 +34,6 @@
 #include "llvm/ADT/SetOperations.h"
 #include "llvm/ADT/StringExtras.h"
 #include "llvm/Bitcode/BitcodeReader.h"
-#include "llvm/Frontend/OpenMP/OMPIRBuilder.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/DerivedTypes.h"
 #include "llvm/IR/GlobalValue.h"
@@ -1070,23 +1069,6 @@ CGOpenMPRuntime::CGOpenMPRuntime(CodeGenModule &CGM, StringRef FirstSeparator,
                                  StringRef Separator)
     : CGM(CGM), FirstSeparator(FirstSeparator), Separator(Separator),
       OMPBuilder(CGM.getModule()), OffloadEntriesInfoManager(CGM) {
-  ASTContext &C = CGM.getContext();
-  RecordDecl *RD = C.buildImplicitRecord("ident_t");
-  QualType KmpInt32Ty = C.getIntTypeForBitwidth(/*DestWidth=*/32, /*Signed=*/1);
-  RD->startDefinition();
-  // reserved_1
-  addFieldToRecordDecl(C, RD, KmpInt32Ty);
-  // flags
-  addFieldToRecordDecl(C, RD, KmpInt32Ty);
-  // reserved_2
-  addFieldToRecordDecl(C, RD, KmpInt32Ty);
-  // reserved_3
-  addFieldToRecordDecl(C, RD, KmpInt32Ty);
-  // psource
-  addFieldToRecordDecl(C, RD, C.VoidPtrTy);
-  RD->completeDefinition();
-  IdentQTy = C.getRecordType(RD);
-  IdentTy = CGM.getTypes().ConvertRecordDeclType(RD);
   KmpCriticalNameTy = llvm::ArrayType::get(CGM.Int32Ty, /*NumElements*/ 8);
 
   // Initialize Types used in OpenMPIRBuilder from OMPKinds.def
@@ -1403,6 +1385,7 @@ createConstantGlobalStructAndAddToParent(CodeGenModule &CGM, QualType Ty,
   Fields.finishAndAddTo(Parent);
 }
 
+<<<<<<< HEAD
 Address CGOpenMPRuntime::getOrCreateDefaultLocation(unsigned Flags) {
   CharUnits Align = CGM.getContext().getTypeAlignInChars(IdentQTy);
   unsigned Reserved2Flags = getDefaultLocationReserved2Flags();
@@ -1444,6 +1427,8 @@ Address CGOpenMPRuntime::getOrCreateDefaultLocation(unsigned Flags) {
   return Address(Entry, Align);
 }
 
+=======
+>>>>>>> fa5d22a045de543b4df9eb5edfb8d70ce43bd13a
 void CGOpenMPRuntime::setLocThreadIdInsertPt(CodeGenFunction &CGF,
                                              bool AtCurrentPoint) {
   auto &Elem = OpenMPLocThreadIDMap.FindAndConstruct(CGF.CurFn);
@@ -1485,66 +1470,24 @@ static StringRef getIdentStringFromSourceLocation(CodeGenFunction &CGF,
 llvm::Value *CGOpenMPRuntime::emitUpdateLocation(CodeGenFunction &CGF,
                                                  SourceLocation Loc,
                                                  unsigned Flags) {
-  Flags |= OMP_IDENT_KMPC;
-  // If no debug info is generated - return global default location.
+  llvm::Constant *SrcLocStr;
   if (CGM.getCodeGenOpts().getDebugInfo() == codegenoptions::NoDebugInfo ||
-      Loc.isInvalid())
-    return getOrCreateDefaultLocation(Flags).getPointer();
-
-  // If the OpenMPIRBuilder is used we need to use it for all location handling
-  // as the clang invariants used below might be broken.
-  if (CGM.getLangOpts().OpenMPIRBuilder) {
-    SmallString<128> Buffer;
-    OMPBuilder.updateToLocation(CGF.Builder.saveIP());
-    auto *SrcLocStr = OMPBuilder.getOrCreateSrcLocStr(
-        getIdentStringFromSourceLocation(CGF, Loc, Buffer));
-    return OMPBuilder.getOrCreateIdent(SrcLocStr, IdentFlag(Flags));
+      Loc.isInvalid()) {
+    SrcLocStr = OMPBuilder.getOrCreateDefaultSrcLocStr();
+  } else {
+    std::string FunctionName = "";
+    if (const auto *FD = dyn_cast_or_null<FunctionDecl>(CGF.CurFuncDecl))
+      FunctionName = FD->getQualifiedNameAsString();
+    PresumedLoc PLoc = CGF.getContext().getSourceManager().getPresumedLoc(Loc);
+    const char *FileName = PLoc.getFilename();
+    unsigned Line = PLoc.getLine();
+    unsigned Column = PLoc.getColumn();
+    SrcLocStr = OMPBuilder.getOrCreateSrcLocStr(FunctionName.c_str(), FileName,
+                                                Line, Column);
   }
-
-  assert(CGF.CurFn && "No function in current CodeGenFunction.");
-
-  CharUnits Align = CGM.getContext().getTypeAlignInChars(IdentQTy);
-  Address LocValue = Address::invalid();
-  auto I = OpenMPLocThreadIDMap.find(CGF.CurFn);
-  if (I != OpenMPLocThreadIDMap.end())
-    LocValue = Address(I->second.DebugLoc, Align);
-
-  // OpenMPLocThreadIDMap may have null DebugLoc and non-null ThreadID, if
-  // GetOpenMPThreadID was called before this routine.
-  if (!LocValue.isValid()) {
-    // Generate "ident_t .kmpc_loc.addr;"
-    Address AI = CGF.CreateMemTemp(IdentQTy, ".kmpc_loc.addr");
-    auto &Elem = OpenMPLocThreadIDMap.FindAndConstruct(CGF.CurFn);
-    Elem.second.DebugLoc = AI.getPointer();
-    LocValue = AI;
-
-    if (!Elem.second.ServiceInsertPt)
-      setLocThreadIdInsertPt(CGF);
-    CGBuilderTy::InsertPointGuard IPG(CGF.Builder);
-    CGF.Builder.SetInsertPoint(Elem.second.ServiceInsertPt);
-    CGF.Builder.CreateMemCpy(LocValue, getOrCreateDefaultLocation(Flags),
-                             CGF.getTypeSize(IdentQTy));
-  }
-
-  // char **psource = &.kmpc_loc_<flags>.addr.psource;
-  LValue Base = CGF.MakeAddrLValue(LocValue, IdentQTy);
-  auto Fields = cast<RecordDecl>(IdentQTy->getAsTagDecl())->field_begin();
-  LValue PSource =
-      CGF.EmitLValueForField(Base, *std::next(Fields, IdentField_PSource));
-
-  llvm::Value *OMPDebugLoc = OpenMPDebugLocMap.lookup(Loc.getRawEncoding());
-  if (OMPDebugLoc == nullptr) {
-    SmallString<128> Buffer;
-    OMPDebugLoc = CGF.Builder.CreateGlobalStringPtr(
-        getIdentStringFromSourceLocation(CGF, Loc, Buffer));
-    OpenMPDebugLocMap[Loc.getRawEncoding()] = OMPDebugLoc;
-  }
-  // *psource = ";<File>;<Function>;<Line>;<Column>;;";
-  CGF.EmitStoreOfScalar(OMPDebugLoc, PSource);
-
-  // Our callers always pass this to a runtime function, so for
-  // convenience, go ahead and return a naked pointer.
-  return LocValue.getPointer();
+  unsigned Reserved2Flags = getDefaultLocationReserved2Flags();
+  return OMPBuilder.getOrCreateIdent(SrcLocStr, llvm::omp::IdentFlag(Flags),
+                                     Reserved2Flags);
 }
 
 llvm::Value *CGOpenMPRuntime::getThreadID(CodeGenFunction &CGF,
@@ -1636,7 +1579,7 @@ void CGOpenMPRuntime::functionFinished(CodeGenFunction &CGF) {
 }
 
 llvm::Type *CGOpenMPRuntime::getIdentTyPointerTy() {
-  return IdentTy->getPointerTo();
+  return OMPBuilder.IdentPtr;
 }
 
 llvm::Type *CGOpenMPRuntime::getKmpc_MicroPointerTy() {
