@@ -1,5 +1,5 @@
-; RUN: opt -S -hir-ssa-deconstruction -hir-temp-cleanup -hir-nontemporal-marking -print-after=hir-nontemporal-marking -hir-details < %s 2>&1 | FileCheck %s
-; RUN: opt -S -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-nontemporal-marking,print<hir>" -aa-pipeline="basic-aa" -hir-details < %s 2>&1 | FileCheck %s
+; RUN: opt -enable-intel-advanced-opts -S -hir-ssa-deconstruction -hir-temp-cleanup -hir-nontemporal-marking -print-after=hir-nontemporal-marking -hir-details < %s 2>&1 | FileCheck %s
+; RUN: opt -enable-intel-advanced-opts -S -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-nontemporal-marking,print<hir>" -aa-pipeline="basic-aa" -hir-details < %s 2>&1 | FileCheck %s
 target triple = "x86_64-unknown-linux-gnu"
 
 ; Do not add an extra SFENCE if the stores were already nontemporal.
@@ -12,7 +12,7 @@ target triple = "x86_64-unknown-linux-gnu"
 ; <10>               + END LOOP
 ; <0>          END REGION
 
-define void @example(i64* %dest) {
+define void @example(i64* %dest) "target-features"="+avx512f" {
 ; CHECK-LABEL: example
 ;      CHECK: BEGIN REGION { }
 ; CHECK-NEXT:       + Ztt: No
