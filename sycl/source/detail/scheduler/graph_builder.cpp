@@ -162,7 +162,7 @@ Scheduler::GraphBuilder::getOrInsertMemObjRecord(const QueueImplPtr &Queue,
   if (nullptr != Record)
     return Record;
 
-  const size_t LeafLimit = 8;
+  const size_t LeafLimit = getLeafLimit(); // INTEL
   MemObject->MRecord.reset(
       new MemObjRecord{Queue->getContextImplPtr(), LeafLimit});
 
@@ -1063,6 +1063,15 @@ void Scheduler::GraphBuilder::connectDepEvent(Command *const Cmd,
     throw runtime_error("Failed to enqueue a sync event between two contexts",
                         PI_INVALID_OPERATION);
 }
+
+void Scheduler::GraphBuilder::setLeafLimit(size_t Limit) {  // INTEL
+  if (LeafLimit == DefaultLeafLimit && Limit)               // INTEL
+    LeafLimit = Limit;                                      // INTEL
+}                                                           // INTEL
+
+size_t Scheduler::GraphBuilder::getLeafLimit() {            // INTEL
+  return LeafLimit;                                         // INTEL
+}                                                           // INTEL
 
 } // namespace detail
 } // namespace sycl
