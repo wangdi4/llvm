@@ -388,6 +388,16 @@ public:
   /// then return the AllocateItem associated with \p Item.
   /// Otherwise, return null.
   static AllocateItem *getAllocateItem(Item *I);
+
+  /// \returns true if W is a WRNDistributeNode, or if it's a
+  /// WRNDistributeParLoopNode with its TreatDistributeParLoopAsDistribute flag
+  /// set to true; \b false otherwise.
+  static bool isDistributeNode(const WRegionNode *W);
+
+  /// \returns true if W is a WRNDistributeParLoopNode with
+  /// its TreatDistributeParLoopAsDistribute flag set to false; \b false
+  /// otherwise.
+  static bool isDistributeParLoopNode(const WRegionNode *W);
 };
 
 } // End VPO Namespace

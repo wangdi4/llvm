@@ -297,6 +297,7 @@ WRNDistributeParLoopNode::WRNDistributeParLoopNode(BasicBlock *BB, LoopInfo *Li)
   setCollapse(0);
   setOrdered(-1);
   setLoopOrder(WRNLoopOrderAbsent);
+  setTreatDistributeParLoopAsDistribute(false);
 
   LLVM_DEBUG(dbgs() << "\nCreated WRNDistributeParLoopNode<" << getNumber()
                     << ">\n");

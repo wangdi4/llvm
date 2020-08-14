@@ -447,6 +447,13 @@ public:
   virtual uint8_t getNDRangeDistributeDim() const {
     WRNERROR("NDRANGE_DISTRIBUTE_DIM");
   }
+  virtual void setTreatDistributeParLoopAsDistribute(bool Flag) {
+    WRNERROR("TREAT_DISTRIBUTE_PAR_LOOP_AS_DISTRIBUTE");
+  }
+  virtual bool getTreatDistributeParLoopAsDistribute() const {
+    WRNERROR("TREAT_DISTRIBUTE_PAR_LOOP_AS_DISTRIBUTE");
+  }
+
   virtual WRNProcBindKind getProcBind()   const {WRNERROR("PROC_BIND");       }
   virtual WRNLoopBindKind getLoopBind()   const {WRNERROR("LOOP_BIND");       }
   virtual WRNLoopOrderKind getLoopOrder() const {WRNERROR("LOOP_ORDER");      }
