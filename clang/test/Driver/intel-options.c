@@ -74,6 +74,7 @@
 
 // Behavior with -fno-alias option
 // RUN: %clang -### -c -fno-alias %s 2>&1 | FileCheck -check-prefix CHECK-FNO_ALIAS %s
+// RUN: %clang -### -c -fargument-noalias %s 2>&1 | FileCheck -check-prefix CHECK-FNO_ALIAS %s
 // RUN: %clang_cl -### -c /Oa %s 2>&1 | FileCheck -check-prefix CHECK-FNO_ALIAS %s
 // CHECK-FNO_ALIAS: "-fargument-noalias"
 

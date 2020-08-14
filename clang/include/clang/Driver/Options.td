@@ -856,7 +856,10 @@ def falign_functions_EQ : Joined<["-"], "falign-functions=">, Group<f_Group>,
   "where <n> is a power of 2.">;
 def fno_align_functions: Flag<["-"], "fno-align-functions">, Group<f_Group>,
   HelpText<"Aligns on a 2-byte boundary">;
-def fno_alias : Flag<["-"], "fno-alias">,
+def fargument_noalias : Flag<["-"], "fargument-noalias">,
+  Flags<[CC1Option, CC1AsOption]>, HelpText<"Enables 'noalias' attribute for "
+  "all pointer-type arguments">;
+def fno_alias : Flag<["-"], "fno-alias">, Alias<fargument_noalias>,
   HelpText<"Enables 'noalias' attribute for all pointer-type arguments">;
 #endif // INTEL_CUSTOMIZATION
 defm allow_editor_placeholders : OptInFFlag<"allow-editor-placeholders", "Treat editor placeholders as valid source code">;
@@ -4912,10 +4915,6 @@ def fintel_advanced_optim : Flag<["-"], "fintel-advanced-optim">,
 // CQ#366796 - support '--no_expr_source_pos' option.
 def no_expr_source_pos : Flag<["--"], "no_expr_source_pos">,
   HelpText<"Disable emitting debug source positions for expressions">;
-// Support for Intel customization LangOptions::FArgumentNoalias
-// support for '-fargument-noalias' option.
-def fargument_noalias : Flag<["-"], "fargument-noalias">,
-  HelpText<"Enables 'noalias' attribute for all pointer-type arguments">;
 // CQ380574: Ability to set various predefines based on gcc version needed.
 def gnu_version_EQ : Joined<["--"], "gnu_version=">,
   HelpText<"Emulate GNU C++ version">;
@@ -5274,7 +5273,7 @@ def : CLFlag<"O2">, Alias<_SLASH_O>, AliasArgs<["2"]>,
 def : CLFlag<"O3">, Alias<_SLASH_O>, AliasArgs<["3"]>,
   HelpText<"Optimize for maximum speed and enable more aggressive optimizations"
   " that may not improve performance on some programs">;
-def _SLASH_Oa :CLFlag<"Oa">, Alias<fno_alias>,
+def _SLASH_Oa :CLFlag<"Oa">, Alias<fargument_noalias>,
   HelpText<"Enables 'noalias' attribute for all pointer-type arguments">;
 def _SLASH_Ofast : CLFlag<"Ofast">, Alias<Ofast>;
 def _SLASH_fast : CLFlag<"fast">, Alias<Ofast>;

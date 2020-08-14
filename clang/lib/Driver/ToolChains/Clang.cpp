@@ -6838,7 +6838,7 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
   if (Arg *A = Args.getLastArg(options::OPT_fstack_limit_register_EQ)) {
     A->render(Args, CmdArgs);
   }
-  if (Args.hasArg(options::OPT_fno_alias)) {
+  if (Args.hasArg(options::OPT_fargument_noalias)) {
     CmdArgs.push_back("-fargument-noalias");
   }
   // This setting is for Non-windows targets.
