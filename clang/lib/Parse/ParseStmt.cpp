@@ -1400,14 +1400,9 @@ StmtResult Parser::ParseIfStatement(SourceLocation *TrailingElseLoc) {
   SourceLocation RParen;
   if (ParseParenExprOrCondition(&InitStmt, Cond, IfLoc,
                                 IsConstexpr ? Sema::ConditionKind::ConstexprIf
-<<<<<<< HEAD
-                                            : Sema::ConditionKind::Boolean)) {
-=======
                                             : Sema::ConditionKind::Boolean,
                                 &LParen, &RParen))
->>>>>>> 94c6ceab539efe26a1707124e803f444139c1b12
     return StmtError();
-  }
 
   llvm::Optional<bool> ConstexprCondition;
   if (IsConstexpr)
