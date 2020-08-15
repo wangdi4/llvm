@@ -120,7 +120,7 @@
 // CHECK-MKL-WIN-TBB: clang{{.*}} "--dependent-lib=mkl_intel_ilp64" "--dependent-lib=mkl_tbb_thread" "--dependent-lib=mkl_core" {{.*}} "-internal-isystem" "{{.*}}mkl{{/|\\\\}}include{{/|\\\\}}intel64{{/|\\\\}}lp64"
 // CHECK-MKL-WIN-CLUSTER: clang{{.*}} "--dependent-lib=mkl_intel_ilp64" "--dependent-lib=mkl_cdft_core" "--dependent-lib=mkl_scalapack_ilp64" "--dependent-lib=mkl_blacs_intelmpi_ilp64" "--dependent-lib=mkl_sequential" "--dependent-lib=mkl_core" {{.*}} "-internal-isystem" "{{.*}}mkl{{/|\\\\}}include{{/|\\\\}}intel64{{/|\\\\}}lp64"
 // CHECK-MKL-LIN-SYCL-DEFAULT: "--start-group" "-lmkl_sycl" "-lmkl_intel_ilp64" "-lmkl_intel_thread" "-lmkl_core" "--end-group"
-// CHECK-MKL-LIN-PARALLEL: "--start-group" "-lmkl_intel_ilp64" "-lmkl_core" "--end-group"
+// CHECK-MKL-LIN-PARALLEL: "--start-group" "-lmkl_intel_ilp64" "-lmkl_core" "--end-group" {{.*}} "-liomp5"
 // CHECK-MKL-LIN-PARALLEL-OMP: "--start-group" "-lmkl_intel_ilp64" "-lmkl_intel_thread" "-lmkl_core" "--end-group"
 // CHECK-MKL-LIN-TBB: "--start-group" "-lmkl_intel_ilp64" "-lmkl_tbb_thread" "-lmkl_core" "--end-group"
 // CHECK-MKL-LIN-SEQUENTIAL: "--start-group" "-lmkl_intel_ilp64" "-lmkl_sequential" "-lmkl_core" "--end-group"
