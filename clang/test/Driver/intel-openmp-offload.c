@@ -198,3 +198,8 @@
 // RUN: %clangxx -target x86_64-unknown-linux-gnu -fopenmp -fopenmp-targets=spir64 %s -### 2>&1 \
 // RUN:  | FileCheck %s -check-prefix=FOPENMP_ERROR
 // FOPENMP_ERROR: The use of '-fopenmp-targets=spir64' requires '-fiopenmp'
+
+/// check particular options aren't passed to gcc
+// RUN: %clangxx -target x86_64-unknown-linux-gnu -fopenmp -fopenmp-targets=x86_64 %s -### 2>&1 \
+// RUN:  | FileCheck %s -check-prefix=FOPENMP_NOGCC_OPT
+// FOPENMP_NOGCC_OPT-NOT: gcc{{.*}} "-fiopenmp" {{.*}} "-fheinous-gnu-extensions" "-fveclib=SVML"
