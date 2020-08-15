@@ -231,6 +231,16 @@ Value *OpenMPIRBuilder::getOrCreateIdent(Constant *SrcLocStr,
   return Ident;
 }
 
+#if INTEL_COLLAB
+static unsigned getPointerAddressSpace(Module &M) {
+  Triple TargetTriple(M.getTargetTriple());
+  if (TargetTriple.getArch() == Triple::ArchType::spir ||
+      TargetTriple.getArch() == Triple::ArchType::spir64)
+    return /*GENERIC_AS=*/4;
+  return 0;
+}
+#endif // INTEL_COLLAB
+
 Constant *OpenMPIRBuilder::getOrCreateSrcLocStr(StringRef LocStr) {
   Constant *&SrcLocStr = SrcLocStrMap[LocStr];
   if (!SrcLocStr) {
@@ -244,8 +254,13 @@ Constant *OpenMPIRBuilder::getOrCreateSrcLocStr(StringRef LocStr) {
           GV.getInitializer() == Initializer)
         return SrcLocStr = ConstantExpr::getPointerCast(&GV, Int8Ptr);
 
+#if INTEL_COLLAB
+    SrcLocStr = Builder.CreateGlobalStringPtr(LocStr, /* Name */ "",
+                                              getPointerAddressSpace(M), &M);
+#else // INTEL_COLLAB
     SrcLocStr = Builder.CreateGlobalStringPtr(LocStr, /* Name */ "",
                                               /* AddressSpace */ 0, &M);
+#endif // INTEL_COLLAB
   }
   return SrcLocStr;
 }
@@ -1140,12 +1155,27 @@ void OpenMPIRBuilder::initializeTypes(Module &M) {
 #define OMP_FUNCTION_TYPE(VarName, IsVarArg, ReturnType, ...)                  \
   VarName = FunctionType::get(ReturnType, {__VA_ARGS__}, IsVarArg);            \
   VarName##Ptr = PointerType::getUnqual(VarName);
+#if INTEL_COLLAB
+#define OMP_STRUCT_TYPE(VarName, StructName, ...)                              \
+  SmallVector<llvm::Type *, 5> Types = {__VA_ARGS__};                          \
+  T = M.getTypeByName(StructName);                                             \
+  if (!T) {                                                                    \
+    if (unsigned PointerAS = getPointerAddressSpace(M))                        \
+      for (unsigned I = 0, E = Types.size(); I < E; ++I)                       \
+        if (auto *PT = dyn_cast<PointerType>(Types[I]))                        \
+          Types[I] = llvm::PointerType::get(PT->getElementType(), PointerAS);  \
+    T = StructType::create(Ctx, Types, StructName);                            \
+  }                                                                            \
+  VarName = T;                                                                 \
+  VarName##Ptr = PointerType::getUnqual(T);
+#else // INTEL_COLLAB
 #define OMP_STRUCT_TYPE(VarName, StructName, ...)                              \
   T = M.getTypeByName(StructName);                                             \
   if (!T)                                                                      \
     T = StructType::create(Ctx, {__VA_ARGS__}, StructName);                    \
   VarName = T;                                                                 \
   VarName##Ptr = PointerType::getUnqual(T);
+#endif // INTEL_COLLAB
 #include "llvm/Frontend/OpenMP/OMPKinds.def"
 }
 
