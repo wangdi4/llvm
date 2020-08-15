@@ -1507,9 +1507,21 @@ llvm::opt::DerivedArgList *ToolChain::TranslateOffloadTargetArgs(
           llvm::BumpPtrAllocator BPA;
           llvm::StringSaver S(BPA);
           llvm::cl::TokenizeGNUCommandLine(T.second, S, TargetArgs);
+          // Setup masks so Windows options aren't picked up for parsing
+          // Linux options
+          unsigned IncludedFlagsBitmask = 0;
+          unsigned ExcludedFlagsBitmask = options::NoDriverOption;
+          if (getDriver().IsCLMode()) {
+            // Include CL and Core options.
+            IncludedFlagsBitmask |= options::CLOption;
+            IncludedFlagsBitmask |= options::CoreOption;
+          } else {
+            ExcludedFlagsBitmask |= options::CLOption;
+          }
           unsigned MissingArgIndex, MissingArgCount;
           InputArgList NewArgs =
-              Opts.ParseArgs(TargetArgs, MissingArgIndex, MissingArgCount);
+              Opts.ParseArgs(TargetArgs, MissingArgIndex, MissingArgCount,
+                             IncludedFlagsBitmask, ExcludedFlagsBitmask);
           for (Arg *NA : NewArgs) {
             // Add the new arguments.
             Arg *OffloadArg;
