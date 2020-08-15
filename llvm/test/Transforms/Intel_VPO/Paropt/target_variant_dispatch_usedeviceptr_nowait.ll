@@ -1,7 +1,7 @@
-; RUN: opt -vpo-paropt-prepare -S < %s | FileCheck %s -check-prefix=BUFFCHECK
-; RUN: opt < %s -passes='function(vpo-paropt-prepare)' -S | FileCheck %s -check-prefix=BUFFCHECK
-; RUN: opt -vpo-paropt-prepare -vpo-paropt-use-raw-dev-ptr=true -S < %s | FileCheck %s -check-prefix=NOBUFFCHECK
-; RUN: opt < %s -passes='function(vpo-paropt-prepare)' -vpo-paropt-use-raw-dev-ptr=true -S | FileCheck %s -check-prefix=NOBUFFCHECK
+; RUN: opt -vpo-paropt-prepare -vpo-paropt-use-raw-dev-ptr=false -S < %s | FileCheck %s -check-prefix=BUFFCHECK
+; RUN: opt < %s -passes='function(vpo-paropt-prepare)' -vpo-paropt-use-raw-dev-ptr=false -S | FileCheck %s -check-prefix=BUFFCHECK
+; RUN: opt -vpo-paropt-prepare -S < %s | FileCheck %s -check-prefix=NOBUFFCHECK
+; RUN: opt < %s -passes='function(vpo-paropt-prepare)' -S | FileCheck %s -check-prefix=NOBUFFCHECK
 ; Test for TARGET VARIANT DISPATCH NOWAIT with USE_DEVICE_PTR clause
 ; Presence of a NOWAIT clause implies asynchronous execution
 
@@ -36,7 +36,7 @@
 
 ; 1b. Initialize AsyncObj.NumPtr field (3rd field) with "2"
 ;     (because there are 2 use_device_ptr pointers)
-;     With -vpo-paropt-use-raw-dev-ptr make sure no buffers are created.
+;     With -vpo-paropt-use-raw-dev-ptr=true make sure no buffers are created.
 ;
 ; BUFFCHECK: [[NUMPTRGEP:%[a-zA-Z._0-9]+]] = getelementptr inbounds %__struct.AsyncObj, %__struct.AsyncObj* [[ASYNCPTR]], i32 0, i32 3
 ; BUFFCHECK: store i32 2, i32* [[NUMPTRGEP]]
@@ -50,7 +50,7 @@
 ; BUFFCHECK: [[PTRCAST:%[a-zA-Z._0-9]+]] = bitcast i8* [[PTRLOAD]] to %__struct.UDPtrs*
 
 ; 1d. Store a buffer pointer into field#0 of the %__struct.UDPtrs object
-;     With -vpo-paropt-use-raw-dev-ptr make sure no buffers are created.
+;     With -vpo-paropt-use-raw-dev-ptr=true make sure no buffers are created.
 ;
 ; BUFFCHECK: [[GEP0:%[a-zA-Z._0-9]+]] = getelementptr inbounds %__struct.UDPtrs, %__struct.UDPtrs* [[PTRCAST]], i32 0, i32 0
 ; BUFFCHECK: [[BUFFER0:%[a-zA-Z._0-9]+]] = load i8*, i8** %{{.*}}

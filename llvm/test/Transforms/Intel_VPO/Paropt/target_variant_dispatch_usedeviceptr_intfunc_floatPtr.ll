@@ -1,7 +1,7 @@
-; RUN: opt -vpo-paropt-prepare -vpo-paropt-use-interop=false -S < %s | FileCheck %s -check-prefix=BUFFPTR
-; RUN: opt < %s -passes='function(vpo-paropt-prepare)' -vpo-paropt-use-interop=false -S | FileCheck %s -check-prefix=BUFFPTR
-; RUN: opt -vpo-paropt-prepare -vpo-paropt-use-raw-dev-ptr=true -vpo-paropt-use-interop=false -S < %s | FileCheck %s -check-prefix=RAWPTR
-; RUN: opt < %s -passes='function(vpo-paropt-prepare)' -vpo-paropt-use-raw-dev-ptr=true -vpo-paropt-use-interop=false -S | FileCheck %s -check-prefix=RAWPTR
+; RUN: opt -vpo-paropt-prepare -vpo-paropt-use-raw-dev-ptr=false -vpo-paropt-use-interop=false -S < %s | FileCheck %s -check-prefix=BUFFPTR
+; RUN: opt < %s -passes='function(vpo-paropt-prepare)' -vpo-paropt-use-raw-dev-ptr=false -vpo-paropt-use-interop=false -S | FileCheck %s -check-prefix=BUFFPTR
+; RUN: opt -vpo-paropt-prepare -vpo-paropt-use-interop=false -S < %s | FileCheck %s -check-prefix=RAWPTR
+; RUN: opt < %s -passes='function(vpo-paropt-prepare)' -vpo-paropt-use-interop=false -S | FileCheck %s -check-prefix=RAWPTR
 ; Test for TARGET VARIANT DISPATCH construct with a USE_DEVICE_PTR clause
 ;
 ; This test has hand-modified version of the test
