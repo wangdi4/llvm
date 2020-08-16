@@ -15396,11 +15396,6 @@ Value *CodeGenFunction::EmitX86BuiltinExpr(unsigned BuiltinID,
   case X86::BI__builtin_ia32_cmpordps:
   case X86::BI__builtin_ia32_cmpordpd:
     return getVectorFCmpIR(CmpInst::FCMP_ORD, /*IsSignaling*/false);
-<<<<<<< HEAD
-  case X86::BI__builtin_ia32_cmpps:
-  case X86::BI__builtin_ia32_cmpps256:
-  case X86::BI__builtin_ia32_cmppd:
-  case X86::BI__builtin_ia32_cmppd256:
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_FP16
   case X86::BI__builtin_ia32_cmpph128_mask:
@@ -15408,8 +15403,6 @@ Value *CodeGenFunction::EmitX86BuiltinExpr(unsigned BuiltinID,
   case X86::BI__builtin_ia32_cmpph512_mask:
 #endif // INTEL_FEATURE_ISA_FP16
 #endif // INTEL_CUSTOMIZATION
-=======
->>>>>>> 9512525947028df71ed5c5312629a1a0ce25d661
   case X86::BI__builtin_ia32_cmpps128_mask:
   case X86::BI__builtin_ia32_cmpps256_mask:
   case X86::BI__builtin_ia32_cmpps512_mask:
@@ -15521,27 +15514,9 @@ Value *CodeGenFunction::EmitX86BuiltinExpr(unsigned BuiltinID,
 
     // Builtins without the _mask suffix return a vector of integers
     // of the same width as the input vectors
-<<<<<<< HEAD
-    switch (BuiltinID) {
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_FP16
-    case X86::BI__builtin_ia32_cmpph512_mask:
-    case X86::BI__builtin_ia32_cmpph256_mask:
-    case X86::BI__builtin_ia32_cmpph128_mask:
-#endif // INTEL_FEATURE_ISA_FP16
-#endif // INTEL_CUSTOMIZATION
-    case X86::BI__builtin_ia32_cmpps512_mask:
-    case X86::BI__builtin_ia32_cmppd512_mask:
-    case X86::BI__builtin_ia32_cmpps128_mask:
-    case X86::BI__builtin_ia32_cmpps256_mask:
-    case X86::BI__builtin_ia32_cmppd128_mask:
-    case X86::BI__builtin_ia32_cmppd256_mask: {
-      // FIXME: Support SAE.
-=======
     if (IsMaskFCmp) {
       // We ignore SAE if strict FP is disabled. We only keep precise
       // exception behavior under strict FP.
->>>>>>> 9512525947028df71ed5c5312629a1a0ce25d661
       unsigned NumElts =
           cast<llvm::VectorType>(Ops[0]->getType())->getNumElements();
       Value *Cmp;
