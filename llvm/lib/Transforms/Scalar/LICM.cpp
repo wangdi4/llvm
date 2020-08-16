@@ -1662,19 +1662,15 @@ static void hoist(Instruction &I, const DominatorTree *DT, const Loop *CurLoop,
     // Move the new node to the destination block, before its terminator.
     moveInstructionBefore(I, *Dest->getTerminator(), *SafetyInfo, MSSAU, SE);
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   // INTEL - Maintain the original (correct) source correlation. Hoisting
   //         the instruction does not invalidate the source correlation.
 
-  // I.updateLocationAfterHoist();
-#endif // INTEL_CUSTOMIZATION
-=======
   // Apply line 0 debug locations when we are moving instructions to different
   // basic blocks because we want to avoid jumpy line tables.
-  if (const DebugLoc &DL = I.getDebugLoc())
-    I.setDebugLoc(DebugLoc::get(0, 0, DL.getScope(), DL.getInlinedAt()));
->>>>>>> 30c1633386e7cfb01c0a54b31ccf4c3a3873e71b
+  // if (const DebugLoc &DL = I.getDebugLoc())
+  //   I.setDebugLoc(DebugLoc::get(0, 0, DL.getScope(), DL.getInlinedAt()));
+#endif // INTEL_CUSTOMIZATION
 
   if (isa<LoadInst>(I))
     ++NumMovedLoads;
