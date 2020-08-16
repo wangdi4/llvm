@@ -192,6 +192,7 @@ public:
     OpenBSD,
     Solaris,
     Win32,
+    ZOS,
     Haiku,
     Minix,
     RTEMS,
@@ -248,6 +249,7 @@ public:
 
     COFF,
     ELF,
+    GOFF,
     MachO,
     Wasm,
     XCOFF,
@@ -492,6 +494,8 @@ public:
     return getSubArch() == Triple::ARMSubArch_v7k;
   }
 
+  bool isOSzOS() const { return getOS() == Triple::ZOS; }
+
   /// isOSDarwin - Is this a "Darwin" OS (macOS, iOS, tvOS or watchOS).
   bool isOSDarwin() const {
     return isMacOSX() || isiOS() || isWatchOS();
@@ -660,6 +664,9 @@ public:
   bool isOSBinFormatCOFF() const {
     return getObjectFormat() == Triple::COFF;
   }
+
+  /// Tests whether the OS uses the GOFF binary format.
+  bool isOSBinFormatGOFF() const { return getObjectFormat() == Triple::GOFF; }
 
   /// Tests whether the environment is MachO.
   bool isOSBinFormatMachO() const {
