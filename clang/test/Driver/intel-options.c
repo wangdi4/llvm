@@ -172,6 +172,9 @@
 // CHECK-INTEL-NOIRC-NOT: "--dependent-lib=libircmt"
 // CHECK-INTEL-NOIRC-NOT: "-defaultlib:libircmt"
 
+// RUN: %clang -### --intel -i_no-use-libirc -target x86_64-unknown-linux -nodefaultlibs %s 2>&1 | FileCheck -check-prefix CHECK-INTEL-NOIRC-UNUSED %s
+// CHECK-INTEL-NOIRC-UNUSED-NOT: argument unused
+
 // RUN: %clang -### --intel -target x86_64-unknown-linux -shared-intel %s 2>&1 | FileCheck -check-prefix CHECK-INTEL-LIBS-SHARED-INTEL %s
 // RUN: %clang -### --intel -target x86_64-unknown-linux -dynamic -shared-intel %s 2>&1 | FileCheck -check-prefix CHECK-INTEL-LIBS-SHARED-INTEL %s
 // RUN: %clang -### --intel -target x86_64-unknown-linux -shared -shared-intel %s 2>&1 | FileCheck -check-prefix CHECK-INTEL-LIBS-SHARED-INTEL %s

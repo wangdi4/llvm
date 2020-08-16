@@ -5093,6 +5093,9 @@ void Driver::BuildActions(Compilation &C, DerivedArgList &Args,
 #if INTEL_CUSTOMIZATION
   // Go ahead and claim usage of --dpcpp
   Args.ClaimAllArgs(options::OPT__dpcpp);
+  // Claim usage of -i_no-use-libirc
+  // TODO: Consider a more generic claiming for internal Intel options
+  Args.ClaimAllArgs(options::OPT_i_no_use_libirc);
 #endif // INTEL_CUSTOMIZATION
 
   handleArguments(C, Args, Inputs, Actions);
