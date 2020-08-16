@@ -68,6 +68,7 @@ enum class DefaultKind {
   constexpr auto Enum = omp::DefaultKind::Enum;
 #include "llvm/Frontend/OpenMP/OMPKinds.def"
 
+<<<<<<< HEAD
 #if INTEL_COLLAB
 /// IDs for the different bind kinds.
 enum class BindKind {
@@ -90,6 +91,8 @@ enum class ProcBindKind {
   constexpr auto Enum = omp::ProcBindKind::Enum;
 #include "llvm/Frontend/OpenMP/OMPKinds.def"
 
+=======
+>>>>>>> e6c5e6efd080ab80f133a6591a7e4f0b617c291f
 /// IDs for all omp runtime library ident_t flag encodings (see
 /// their defintion in openmp/runtime/src/kmp.h).
 enum class IdentFlag {
