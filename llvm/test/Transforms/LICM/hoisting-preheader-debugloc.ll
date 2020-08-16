@@ -1,6 +1,10 @@
 ; RUN: opt -S -licm < %s | FileCheck %s
 
+<<<<<<< HEAD
 ; CHECK: %arrayidx4.promoted = load i32, i32* %arrayidx4, align 1, !tbaa !58 ;INTEL
+=======
+; CHECK: %arrayidx4.promoted = load i32, i32* %arrayidx4, align 1, !tbaa !{{[0-9]+$}}
+>>>>>>> 4a646ca9e2caf70d6312714770f516fb83b7e3cb
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
