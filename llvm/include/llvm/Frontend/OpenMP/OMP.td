@@ -246,7 +246,6 @@ def OMPC_Affinity : Clause<"affinity"> {
 def OMPC_UseDeviceAddr : Clause<"use_device_addr"> {
   let clangClass = "OMPUseDeviceAddrClause";
 }
-<<<<<<< HEAD
 #if INTEL_COLLAB
 def OMPC_bind : Clause<"bind"> {
   let clangClass = "OMPBindClause";
@@ -264,12 +263,9 @@ def OMPC_dataflow : Clause<"dataflow"> {
 #endif // INTEL_FEATURE_CSA
 #endif // INTEL_CUSTOMIZATION
 
-def OMPC_Uniform : Clause<"uniform"> {}
-=======
 def OMPC_Uniform : Clause<"uniform"> {
   let flangClassValue = "std::list<Name>";
 }
->>>>>>> 16c1d251c4ce59f97802ff0c27ed6441f3153ab1
 def OMPC_DeviceType : Clause<"device_type"> {}
 def OMPC_Match : Clause<"match"> {}
 def OMPC_Depobj : Clause<"depobj"> {
