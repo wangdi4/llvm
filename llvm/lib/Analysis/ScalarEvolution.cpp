@@ -240,6 +240,11 @@ static cl::opt<bool>
     PrintScopedMode("scalar-evolution-print-scoped-mode", cl::Hidden,
                     cl::init(false),
                     cl::desc("Print SCEV results in scoped mode"));
+
+static cl::opt<unsigned> NoWrapUserTrackingThreshold(
+    "scalar-evolution-nowrap-user-tracking-threshold", cl::Hidden,
+    cl::desc("Maximum number of users to track for nowrap propagation"),
+    cl::init(40));
 #endif //INTEL_CUSTOMIZATION
 
 //===----------------------------------------------------------------------===//
@@ -6434,7 +6439,7 @@ bool ScalarEvolution::hasWrapSafeUses(
 
   WorkList.push_back(Val);
 
-  unsigned TrackLimit = 32;
+  unsigned TrackLimit = NoWrapUserTrackingThreshold;
 
   auto ContainOrigSCEV = [OrigSCEV](const SCEV *S) { return S == OrigSCEV; };
 
