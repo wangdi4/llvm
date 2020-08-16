@@ -19,9 +19,15 @@
 ; We make sure that the instruction that is hoisted into the preheader
 ; does not have a debug location.
 ; CHECK: for.body.lr.ph:
+<<<<<<< HEAD
 ; CHECK: getelementptr{{.*}}%p.addr, i64 4{{.*}} !dbg [[LINE_5:![0-9]+]] ;INTEL
 ; CHECK: for.body:
 ; CHECK: [[LINE_5]] = !DILocation(line: 5,{{.*}})                        ;INTEL
+=======
+; CHECK: getelementptr{{.*}}%p.addr, i64 4{{.*}} !dbg [[zero:![0-9]+]]
+; CHECK: for.body:
+; CHECK: [[zero]] = !DILocation(line: 0
+>>>>>>> 30c1633386e7cfb01c0a54b31ccf4c3a3873e71b
 ;
 ; ModuleID = 't.ll'
 source_filename = "test.c"
