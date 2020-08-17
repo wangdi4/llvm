@@ -8142,15 +8142,11 @@ public:
   /// pair of the relevant declaration and index where it occurs is appended to
   /// the device pointers info array.
   void generateAllInfo(
-<<<<<<< HEAD
-      MapCombinedInfoTy &CombinedInfo,
+      MapCombinedInfoTy &CombinedInfo, bool NotTargetParams = false,
 #if INTEL_COLLAB
       llvm::SmallVectorImpl<std::pair<const VarDecl *, bool>> *VarChain =
       nullptr,
 #endif // INTEL_COLLAB
-=======
-      MapCombinedInfoTy &CombinedInfo, bool NotTargetParams = false,
->>>>>>> ddbd21d288f6ff7d175f18ddee0ee6407626445a
       const llvm::DenseSet<CanonicalDeclPtr<const Decl>> &SkipVarSet =
           llvm::DenseSet<CanonicalDeclPtr<const Decl>>()) const {
 
@@ -9093,7 +9089,8 @@ void CGOpenMPRuntime::getLOMapInfo(const OMPExecutableDirective &Dir,
   llvm::SmallVector<std::pair<const  VarDecl *, bool>, 4> VarChain;
 
   if (!isOpenMPTargetExecutionDirective(Dir.getDirectiveKind())) {
-    MEHandler.generateAllInfo(CombinedInfo, &VarChain);
+    MEHandler.generateAllInfo(CombinedInfo, /*NotTargetParams=*/false,
+                              &VarChain);
   } else {
     llvm::DenseMap<llvm::Value *, llvm::Value *> LambdaPointers;
     llvm::DenseSet<CanonicalDeclPtr<const Decl>> MappedVarSet;
@@ -9156,7 +9153,8 @@ void CGOpenMPRuntime::getLOMapInfo(const OMPExecutableDirective &Dir,
       CombinedInfo.Types.append(CurInfo.Types.begin(),
                                 CurInfo.Types.end());
     }
-    MEHandler.generateAllInfo(CombinedInfo, &VarChain, MappedVarSet);
+    MEHandler.generateAllInfo(CombinedInfo, /*NotTargetParams=*/false,
+                              &VarChain, MappedVarSet);
   }
   for (int I = 0, E = CombinedInfo.BasePointers.size(); I < E; ++I) {
     Info->push_back(
@@ -9909,15 +9907,10 @@ void CGOpenMPRuntime::emitTargetCall(
         CombinedInfo.Types);
     // Map any list items in a map clause that were not captures because they
     // weren't referenced within the construct.
-<<<<<<< HEAD
 #if INTEL_COLLAB
-    MEHandler.generateAllInfo(CombinedInfo, nullptr, MappedVarSet);
-#endif // INTEL_COLLAB
-=======
     MEHandler.generateAllInfo(CombinedInfo, /*NotTargetParams=*/true,
-                              MappedVarSet);
->>>>>>> ddbd21d288f6ff7d175f18ddee0ee6407626445a
-
+                              nullptr, MappedVarSet);
+#endif // INTEL_COLLAB
     TargetDataInfo Info;
     // Fill up the arrays and create the arguments.
     emitOffloadingArrays(CGF, CombinedInfo, Info);
