@@ -29,6 +29,7 @@
 #include "llvm/Transforms/Utils/IntrinsicUtils.h"
 #include "llvm/Transforms/Utils/LoopUtils.h"
 #include "llvm/Transforms/Utils/ScalarEvolutionExpander.h"
+#include <numeric>
 #include <tuple>
 
 using namespace llvm;
@@ -666,9 +667,31 @@ void VPOCodeGen::vectorizeInstruction(VPInstruction *VPInst) {
 
     SmallVector<Value *, 4> OpsV;
 
-    for (VPValue *Op : GEP->operands())
-      OpsV.push_back(AllGEPOpsUniform ? getScalarValue(Op, 0)
-                                      : getVectorValue(Op));
+    auto GetOrigVL = [](Type *Type) -> unsigned {
+      auto *VecType = dyn_cast<VectorType>(Type);
+      if (!VecType)
+        return 1;
+      assert(!VecType->getElementCount().Scalable &&
+             "Re-vectorizing scalable vector type isn't supported!");
+      return VecType->getElementCount().Min;
+    };
+
+    unsigned MaxVL =
+        std::accumulate(GEP->op_begin(), GEP->op_end(), 1,
+                        [GetOrigVL](unsigned Max, VPValue *Op) {
+                          return std::max(Max, GetOrigVL(Op->getType()));
+                        });
+
+    if (AllGEPOpsUniform)
+      llvm::transform(GEP->operands(), std::back_inserter(OpsV),
+                      [this](VPValue *Op) { return getScalarValue(Op, 0); });
+    else
+      llvm::transform(GEP->operands(), std::back_inserter(OpsV),
+                      [this, MaxVL, GetOrigVL](VPValue *Op) {
+                        return replicateVectorElts(
+                            getVectorValue(Op),
+                            MaxVL / GetOrigVL(Op->getType()), Builder);
+                      });
 
     Value *GepBasePtr = OpsV[0];
     OpsV.erase(OpsV.begin());
