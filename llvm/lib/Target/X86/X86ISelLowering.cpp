@@ -44265,8 +44265,8 @@ static SDValue combineHorizOpWithShuffle(SDNode *N, SelectionDAG &DAG,
           !scaleShuffleElements(SVN->getMask(), 2, ScaledMask) ||
           !N->isOnlyUserOf(V.getNode()))
         return SDValue();
-      PostShuffle[Offset + 0] = ScaledMask[0];
-      PostShuffle[Offset + 1] = ScaledMask[1];
+      PostShuffle[Offset + 0] = ScaledMask[0] < 0 ? -1 : Offset + ScaledMask[0];
+      PostShuffle[Offset + 1] = ScaledMask[1] < 0 ? -1 : Offset + ScaledMask[1];
       return SVN->getOperand(0);
     };
 

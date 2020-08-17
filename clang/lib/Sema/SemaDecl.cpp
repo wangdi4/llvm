@@ -13132,7 +13132,8 @@ void Sema::CheckCompleteVariableDeclaration(VarDecl *var) {
                                                AttributeCommonInfo::AS_Pragma));
   }
 
-  if (var->hasInit() && isa<InitListExpr>(var->getInit())) {
+  if (!var->getType()->isStructureType() && var->hasInit() &&
+      isa<InitListExpr>(var->getInit())) {
     const auto *ILE = cast<InitListExpr>(var->getInit());
     unsigned NumInits = ILE->getNumInits();
     if (NumInits > 2)
@@ -13173,7 +13174,7 @@ void Sema::CheckCompleteVariableDeclaration(VarDecl *var) {
             Diag(SL->getBeginLoc(),
                  diag::note_concatenated_string_literal_silence);
           }
-          // Warn just once.
+          // In any case, stop now.
           break;
         }
       }

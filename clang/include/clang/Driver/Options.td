@@ -4278,6 +4278,8 @@ def mrelocation_model : Separate<["-"], "mrelocation-model">,
   AutoNormalizeEnum;
 def fno_math_builtin : Flag<["-"], "fno-math-builtin">,
   HelpText<"Disable implicit builtin knowledge of math functions">;
+def fuse_ctor_homing: Flag<["-"], "fuse-ctor-homing">,
+    HelpText<"Use constructor homing if we are using limited debug info already">;
 }
 
 // if INTEL_CUSTOMIZATION
