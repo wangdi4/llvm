@@ -61,11 +61,11 @@ static cl::opt<bool>
                            cl::Hidden, cl::desc("Disable VPlan predicator."));
 
 static cl::opt<bool> EnableAllZeroBypassNonLoops(
-    "vplan-enable-all-zero-bypass-non-loops", cl::init(false), cl::Hidden,
+    "vplan-enable-all-zero-bypass-non-loops", cl::init(true), cl::Hidden,
     cl::desc("Enable all-zero bypass insertion for non-loops."));
 
 static cl::opt<bool> EnableAllZeroBypassLoops(
-    "vplan-enable-all-zero-bypass-loops", cl::init(false), cl::Hidden,
+    "vplan-enable-all-zero-bypass-loops", cl::init(true), cl::Hidden,
     cl::desc("Enable all-zero bypass insertion for loops."));
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)

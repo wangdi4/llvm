@@ -2582,9 +2582,9 @@ private:
 // for arrays of a variable size.
 class VPAllocatePrivate : public VPInstruction {
 public:
-  VPAllocatePrivate(Type *Ty)
+  VPAllocatePrivate(Type *Ty, Align OrigAlignment)
       : VPInstruction(VPInstruction::AllocatePrivate, Ty, {}), IsSOASafe(false),
-        IsSOAProfitable(false) {}
+        IsSOAProfitable(false), OrigAlignment(OrigAlignment) {}
 
   // Method to support type inquiry through isa, cast, and dyn_cast.
   static inline bool classof(const VPInstruction *V) {
@@ -2615,9 +2615,14 @@ public:
   /// Set the memory to be profitable for SOA-layout.
   void setSOAProfitable() { IsSOAProfitable = true; }
 
+  /// Return alignment of original alloca/global that this private memory
+  /// corresponds to.
+  Align getOrigAlignment() const { return OrigAlignment; }
+
 private:
   bool IsSOASafe;
   bool IsSOAProfitable;
+  Align OrigAlignment;
 };
 
 /// VPlan models a candidate for vectorization, encoding various decisions take

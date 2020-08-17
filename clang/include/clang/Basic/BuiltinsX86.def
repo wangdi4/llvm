@@ -2249,10 +2249,10 @@ TARGET_BUILTIN(__builtin_ia32_encodekey128,
                "UiUiV2OiV2Oi*V2Oi*V2Oi*V2Oi*V2Oi*V2Oi*", "nV:128:", "keylocker")
 TARGET_BUILTIN(__builtin_ia32_encodekey256,
                "UiUiV2OiV2OiV2Oi*V2Oi*V2Oi*V2Oi*V2Oi*V2Oi*V2Oi*", "nV:128:", "keylocker")
-TARGET_BUILTIN(__builtin_ia32_aesenc128kl, "V2OiV2OivC*", "nV:128:", "keylocker")
-TARGET_BUILTIN(__builtin_ia32_aesenc256kl, "V2OiV2OivC*", "nV:128:", "keylocker")
-TARGET_BUILTIN(__builtin_ia32_aesdec128kl, "V2OiV2OivC*", "nV:128:", "keylocker")
-TARGET_BUILTIN(__builtin_ia32_aesdec256kl, "V2OiV2OivC*", "nV:128:", "keylocker")
+TARGET_BUILTIN(__builtin_ia32_aesenc128kl, "UcV2Oi*V2OivC*", "nV:128:", "keylocker")
+TARGET_BUILTIN(__builtin_ia32_aesenc256kl, "UcV2Oi*V2OivC*", "nV:128:", "keylocker")
+TARGET_BUILTIN(__builtin_ia32_aesdec128kl, "UcV2Oi*V2OivC*", "nV:128:", "keylocker")
+TARGET_BUILTIN(__builtin_ia32_aesdec256kl, "UcV2Oi*V2OivC*", "nV:128:", "keylocker")
 TARGET_BUILTIN(__builtin_ia32_aesencwide128kl,
                "UcvC*V2Oi*V2Oi*V2Oi*V2Oi*V2Oi*V2Oi*V2Oi*V2Oi*V2OiV2OiV2OiV2OiV2OiV2OiV2OiV2Oi", "nV:128:", "keylocker")
 TARGET_BUILTIN(__builtin_ia32_aesencwide256kl,

@@ -560,6 +560,8 @@ void VPInstruction::printWithoutAnalyses(raw_ostream &O) const {
     if (getOpcode() == VPInstruction::AllocatePrivate) {
       O << " ";
       getType()->print(O);
+      O << ", OrigAlign = "
+        << cast<VPAllocatePrivate>(this)->getOrigAlignment().value();
     }
     for (const VPValue *Operand : operands()) {
       O << " ";

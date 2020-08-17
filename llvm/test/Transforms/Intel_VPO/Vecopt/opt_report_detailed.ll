@@ -1,11 +1,11 @@
 ; Test to check the functionality of vectorization opt-report for LLVM-IR based vectorizer.
 
-; RUN: opt -VPlanDriver -vector-library=SVML -vplan-force-vf=4 -intel-loop-optreport=high -intel-ir-optreport-emitter -enable-intel-advanced-opts -vplan-vls-level=always < %s -disable-output 2>&1 | FileCheck %s --strict-whitespace -check-prefixes=LLVM
+; RUN: opt -VPlanDriver -vector-library=SVML -vplan-force-vf=4 -vplan-enable-all-zero-bypass-non-loops=false -intel-loop-optreport=high -intel-ir-optreport-emitter -enable-intel-advanced-opts -vplan-vls-level=always < %s -disable-output 2>&1 | FileCheck %s --strict-whitespace -check-prefixes=LLVM
 
-; RUN: opt -hir-ssa-deconstruction -hir-framework -VPlanDriverHIR -vector-library=SVML -vplan-force-vf=4 -intel-loop-optreport=high -hir-optreport-emitter -enable-intel-advanced-opts -vplan-vls-level=always < %s -disable-output -print-after=VPlanDriverHIR 2>&1 | FileCheck %s --strict-whitespace -check-prefixes=HIR
+; RUN: opt -hir-ssa-deconstruction -hir-framework -VPlanDriverHIR -vector-library=SVML -vplan-force-vf=4 -vplan-enable-all-zero-bypass-non-loops=false -intel-loop-optreport=high -hir-optreport-emitter -enable-intel-advanced-opts -vplan-vls-level=always < %s -disable-output -print-after=VPlanDriverHIR 2>&1 | FileCheck %s --strict-whitespace -check-prefixes=HIR
 
 ; This only has checks for the VLS test below.
-; RUN: opt -hir-ssa-deconstruction -hir-framework -VPlanDriverHIR -vector-library=SVML -vplan-force-vf=4 -intel-loop-optreport=high -hir-optreport-emitter -enable-intel-advanced-opts -vplan-vls-level=always -enable-vplan-vls-cg -enable-vp-value-codegen-hir=0 < %s -disable-output -print-after=VPlanDriverHIR 2>&1 | FileCheck %s --strict-whitespace -check-prefixes=HIR-MIXED
+; RUN: opt -hir-ssa-deconstruction -hir-framework -VPlanDriverHIR -vector-library=SVML -vplan-force-vf=4 -vplan-enable-all-zero-bypass-non-loops=false -intel-loop-optreport=high -hir-optreport-emitter -enable-intel-advanced-opts -vplan-vls-level=always -enable-vplan-vls-cg -enable-vp-value-codegen-hir=0 < %s -disable-output -print-after=VPlanDriverHIR 2>&1 | FileCheck %s --strict-whitespace -check-prefixes=HIR-MIXED
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"

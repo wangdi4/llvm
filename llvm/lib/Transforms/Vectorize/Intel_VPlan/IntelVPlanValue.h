@@ -57,6 +57,7 @@ class VPValue {
   friend class VPInstruction;
   friend class VPVLSClientMemref;
   friend class VPlanScalarEvolutionLLVM;
+  friend class VPLoopEntityList;
 
 private:
   const unsigned char SubclassID; ///< Subclass identifier (for isa/dyn_cast).

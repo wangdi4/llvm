@@ -910,12 +910,14 @@ bool llvm::inferLibFuncAttributes(Function &F, const TargetLibraryInfo &TLI) {
   // case LibFunc_memset_pattern8:
 #if INTEL_CUSTOMIZATION
   case LibFunc_msvc_std_CxxThrowException:
+  case LibFunc_msvc_std_Execute_once:
   case LibFunc_msvc_std_facet_register:
   case LibFunc_msvc_std_locimp_Getgloballocale:
   case LibFunc_msvc_std_locinfo_ctor:
   case LibFunc_msvc_std_locinfo_dtor:
   case LibFunc_msvc_std_lockit:
   case LibFunc_msvc_std_lockit_dtor:
+  case LibFunc_msvc_std_uncaught_exception:
   case LibFunc_msvc_std_Xbad_alloc:
   case LibFunc_msvc_std_yarn_dtor:
     return Changed;
@@ -1113,6 +1115,9 @@ bool llvm::inferLibFuncAttributes(Function &F, const TargetLibraryInfo &TLI) {
   case LibFunc_std_exception_copy:
     return Changed;
   case LibFunc_std_exception_destroy:
+    return Changed;
+  case LibFunc_std_reverse_trivially_swappable_8:
+    Changed |= setDoesNotThrow(F);
     return Changed;
   case LibFunc_strncpy_s:
     Changed |= setDoesNotCapture(F, 2);
@@ -1714,6 +1719,7 @@ bool llvm::inferLibFuncAttributes(Function &F, const TargetLibraryInfo &TLI) {
     Changed |= setDoesNotThrow(F);
     return Changed;
   case LibFunc_GetFullPathNameA:
+  case LibFunc_GetFullPathNameW:
     Changed |= setDoesNotThrow(F);
     return Changed;
   case LibFunc_GetModuleFileNameA:
@@ -1763,6 +1769,7 @@ bool llvm::inferLibFuncAttributes(Function &F, const TargetLibraryInfo &TLI) {
     Changed |= setDoesNotAccessMemory(F);
     Changed |= setDoesNotThrow(F);
     return Changed;
+  case LibFunc_InitializeCriticalSection:
   case LibFunc_InitializeCriticalSectionAndSpinCount:
     Changed |= setDoesNotThrow(F);
     return Changed;
@@ -2140,6 +2147,9 @@ bool llvm::inferLibFuncAttributes(Function &F, const TargetLibraryInfo &TLI) {
     return Changed;
   case LibFunc_SystemTimeToFileTime:
     Changed |= setDoesNotThrow(F);
+    return Changed;
+  case LibFunc_terminate:
+    Changed |= setDoesNotReturn(F);
     return Changed;
   case LibFunc_time:
     Changed |= setDoesNotThrow(F);

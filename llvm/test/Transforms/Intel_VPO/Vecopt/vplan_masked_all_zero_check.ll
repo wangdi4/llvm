@@ -1,4 +1,5 @@
-; RUN: opt -S -VPlanDriver -vplan-force-vf=8 < %s | FileCheck %s
+; RUN: opt -S -VPlanDriver -vplan-enable-all-zero-bypass-loops=false -vplan-force-vf=8 < %s | FileCheck %s
+; Temporarily disable all-zero bypass until CMPLRLLVM-21686 is resolved.
 
 ; Function Attrs: nounwind
 declare token @llvm.directive.region.entry()

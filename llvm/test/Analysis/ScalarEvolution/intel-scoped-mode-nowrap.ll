@@ -1,5 +1,6 @@
 ; RUN: opt < %s -analyze -scalar-evolution | FileCheck %s
 ; RUN: opt < %s -analyze -scalar-evolution -scalar-evolution-print-scoped-mode | FileCheck %s --check-prefix=SCOPED-MODE
+; RUN: opt < %s -analyze -scalar-evolution -scalar-evolution-print-scoped-mode -scalar-evolution-nowrap-user-tracking-threshold=1 | FileCheck %s --check-prefix=SCOPED-MODE-THRESHOLD
 
 ; Verify that in scoped mode we can propagate nsw flag to SCEV of %add by
 ; assuming that IR will not change during analysis. The nuw flag is removed 
@@ -18,6 +19,12 @@
 ; SCOPED-MODE:   -->  %div U: full-set S: [-268435456,268435456)
 ; SCOPED-MODE: %add1 = add nsw i32 %n, 1
 ; SCOPED-MODE:   -->  (1 + %n)<nsw> U: [-2147483647,-2147483648) S: [-2147483647,-2147483648)
+
+
+; Verify that the nowrap analysis gives up if the threshold is too low.
+
+; SCOPED-MODE-THRESHOLD: %add = add nuw nsw i32 %n, 1
+; SCOPED-MODE-THRESHOLD-NEXT: -->  (1 + %n) U: full-set S: full-set
 
 define i32 @foo(i32 %n) "intel-lang"="fortran" {
 entry:

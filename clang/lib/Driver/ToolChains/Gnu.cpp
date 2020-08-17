@@ -69,6 +69,20 @@ void tools::gcc::Common::ConstructJob(Compilation &C, const JobAction &JA,
   ArgStringList CmdArgs;
 
   for (const auto &A : Args) {
+#if INTEL_CUSTOMIZATION
+    switch ((options::ID)A->getOption().getID()) {
+      // Certain options we set for Intel compilations are not acceptable
+      // for GCC consumption, filter those here.
+      case options::OPT_fiopenmp:
+      case options::OPT_fveclib:
+      case options::OPT_fheinous_gnu_extensions:
+        A->claim();
+        continue;
+        break;
+      default:
+        break;
+    }
+#endif // INTEL_CUSTOMIZATION
     if (forwardToGCC(A->getOption())) {
       // It is unfortunate that we have to claim here, as this means
       // we will basically never report anything interesting for

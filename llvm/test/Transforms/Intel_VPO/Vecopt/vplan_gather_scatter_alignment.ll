@@ -30,8 +30,8 @@ define void @_ZGVdN2u_test_vector(i8 %uni) {
 ; CHECK:    [[ELEMBASEPTR_DST:%.*]] = getelementptr i8, <8 x i8*> [[VECBASEPTR_DST]], <8 x i64> <i64 0, i64 1, i64 2, i64 3, i64 0, i64 1, i64 2, i64 3>
 ; CHECK:    call void @llvm.masked.scatter.v8i8.v8p0i8(<8 x i8> [[GATHER]], <8 x i8*> [[ELEMBASEPTR_DST]], i32 1, <8 x i1> <i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true>)
 entry:
-  %sPrivateStorage.src = alloca [2 x <4 x i8>], align 16
-  %sPrivateStorage.dst = alloca [2 x <4 x i8>], align 16
+  %sPrivateStorage.src = alloca [2 x <4 x i8>], align 4
+  %sPrivateStorage.dst = alloca [2 x <4 x i8>], align 4
   br label %simd.begin.region
 
 simd.begin.region:
@@ -43,8 +43,8 @@ simd.loop:
   %0 = sext i32 %index to i64
   %arrayidx.src = getelementptr inbounds [2 x <4 x i8>], [2 x <4 x i8>]* %sPrivateStorage.src, i64 0, i64 0
   %arrayidx.dst = getelementptr inbounds [2 x <4 x i8>], [2 x <4 x i8>]* %sPrivateStorage.dst, i64 0, i64 0
-  %load = load <4 x i8>, <4 x i8>* %arrayidx.src, align 16
-  store <4 x i8> %load, <4 x i8>* %arrayidx.dst, align 16
+  %load = load <4 x i8>, <4 x i8>* %arrayidx.src, align 4
+  store <4 x i8> %load, <4 x i8>* %arrayidx.dst, align 4
   br label %simd.loop.exit
 
 simd.loop.exit:

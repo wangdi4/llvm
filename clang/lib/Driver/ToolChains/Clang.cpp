@@ -4230,8 +4230,10 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
                      false))
       CmdArgs.push_back("-fsycl-explicit-simd");
 
+    // Default value for FPGA is false, for all other targets is true.
     if (!Args.hasFlag(options::OPT_fsycl_early_optimizations,
-                      options::OPT_fno_sycl_early_optimizations, true))
+                      options::OPT_fno_sycl_early_optimizations,
+                      Triple.getSubArch() != llvm::Triple::SPIRSubArch_fpga))
       CmdArgs.push_back("-fno-sycl-early-optimizations");
     else if (RawTriple.isSPIR()) {
       // Set `sycl-opt` option to configure LLVM passes for SPIR target
@@ -6316,6 +6318,12 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
   // selected. For optimization levels that want vectorization we use the alias
   // option to simplify the hasFlag logic.
   bool EnableVec = shouldEnableVectorizerAtOLevel(Args, false);
+#if INTEL_CUSTOMIZATION
+  // Do not enable vectorization for SPIR-V
+  if (JA.isDeviceOffloading(Action::OFK_OpenMP) &&
+      getToolChain().getTriple().isSPIR())
+    EnableVec = false;
+#endif // INTEL_CUSTOMIZATION
   OptSpecifier VectorizeAliasOption =
       EnableVec ? options::OPT_O_Group : options::OPT_fvectorize;
   if (Args.hasFlag(options::OPT_fvectorize, VectorizeAliasOption,
@@ -6324,6 +6332,12 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
 
   // -fslp-vectorize is enabled based on the optimization level selected.
   bool EnableSLPVec = shouldEnableVectorizerAtOLevel(Args, true);
+#if INTEL_CUSTOMIZATION
+  // Do not enable vectorization for SPIR-V
+  if (JA.isDeviceOffloading(Action::OFK_OpenMP) &&
+      getToolChain().getTriple().isSPIR())
+    EnableSLPVec = false;
+#endif // INTEL_CUSTOMIZATION
   OptSpecifier SLPVectAliasOption =
       EnableSLPVec ? options::OPT_O_Group : options::OPT_fslp_vectorize;
   if (Args.hasFlag(options::OPT_fslp_vectorize, SLPVectAliasOption,
@@ -6848,7 +6862,7 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
   if (Arg *A = Args.getLastArg(options::OPT_fstack_limit_register_EQ)) {
     A->render(Args, CmdArgs);
   }
-  if (Args.hasArg(options::OPT_fno_alias)) {
+  if (Args.hasArg(options::OPT_fargument_noalias)) {
     CmdArgs.push_back("-fargument-noalias");
   }
   // This setting is for Non-windows targets.

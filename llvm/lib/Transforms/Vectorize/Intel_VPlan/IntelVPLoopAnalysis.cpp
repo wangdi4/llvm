@@ -542,7 +542,23 @@ VPValue *VPLoopEntityList::createPrivateMemory(VPLoopEntity &E,
   if (MemDescr->canRegisterize())
     return nullptr;
   AI = MemDescr->getMemoryPtr();
-  VPValue *Ret = Builder.createAllocaPrivate(AI);
+  // Capture alignment of original alloca/global from incoming LLVM-IR.
+  assert((isa<VPExternalDef>(AI) || isa<VPConstant>(AI)) &&
+         "Original AI for private is not external.");
+  Align OrigAlignment(1);
+  if (auto *OrigAI = dyn_cast_or_null<AllocaInst>(AI->getUnderlyingValue()))
+    OrigAlignment = OrigAI->getAlign();
+  if (auto *OrigGlobal =
+          dyn_cast_or_null<GlobalVariable>(AI->getUnderlyingValue()))
+    if (OrigGlobal->getAlign().hasValue())
+      OrigAlignment = OrigGlobal->getAlign().getValue();
+  if (OrigAlignment == 1) {
+    // Set default alignment.
+    Type *ElemTy = AI->getType()->getPointerElementType();
+    OrigAlignment = Plan.getDataLayout()->getPrefTypeAlign(ElemTy);
+  }
+
+  VPValue *Ret = Builder.createAllocaPrivate(AI, OrigAlignment);
   linkValue(&E, Ret);
   return Ret;
 }

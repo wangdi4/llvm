@@ -74,6 +74,7 @@
 
 // Behavior with -fno-alias option
 // RUN: %clang -### -c -fno-alias %s 2>&1 | FileCheck -check-prefix CHECK-FNO_ALIAS %s
+// RUN: %clang -### -c -fargument-noalias %s 2>&1 | FileCheck -check-prefix CHECK-FNO_ALIAS %s
 // RUN: %clang_cl -### -c /Oa %s 2>&1 | FileCheck -check-prefix CHECK-FNO_ALIAS %s
 // CHECK-FNO_ALIAS: "-fargument-noalias"
 
@@ -171,6 +172,9 @@
 // CHECK-INTEL-NOIRC-NOT: "--dependent-lib=libircmt"
 // CHECK-INTEL-NOIRC-NOT: "-defaultlib:libircmt"
 
+// RUN: %clang -### --intel -i_no-use-libirc -target x86_64-unknown-linux -nodefaultlibs %s 2>&1 | FileCheck -check-prefix CHECK-INTEL-NOIRC-UNUSED %s
+// CHECK-INTEL-NOIRC-UNUSED-NOT: argument unused
+
 // RUN: %clang -### --intel -target x86_64-unknown-linux -shared-intel %s 2>&1 | FileCheck -check-prefix CHECK-INTEL-LIBS-SHARED-INTEL %s
 // RUN: %clang -### --intel -target x86_64-unknown-linux -dynamic -shared-intel %s 2>&1 | FileCheck -check-prefix CHECK-INTEL-LIBS-SHARED-INTEL %s
 // RUN: %clang -### --intel -target x86_64-unknown-linux -shared -shared-intel %s 2>&1 | FileCheck -check-prefix CHECK-INTEL-LIBS-SHARED-INTEL %s
@@ -193,6 +197,7 @@
 
 // RUN: %clang -### -fp-speculation=strict -c %s 2>&1 | FileCheck --check-prefix=CHECK-STRICT %s
 // RUN: %clang_cl -### /Qfp-speculation:strict -c %s 2>&1 | FileCheck --check-prefix=CHECK-STRICT %s
+// RUN: %clang_cl -### /fp:strict -c %s 2>&1 | FileCheck --check-prefix=CHECK-STRICT %s
 // RUN: %clang_cl -### /Qfp-speculation:fast -c %s 2>&1 | FileCheck --check-prefix=CHECK-IGNORE %s
 // RUN: %clang -### -fp-speculation=fast -c %s 2>&1 | FileCheck --check-prefix=CHECK-IGNORE %s
 // RUN: %clang_cl -### /Qfp-speculation:safe -c %s 2>&1 | FileCheck --check-prefix=CHECK-SAFE %s

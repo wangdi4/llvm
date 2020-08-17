@@ -63,28 +63,28 @@ _mm_encodekey256_u32(unsigned int __htype, __m128i __key_lo, __m128i __key_hi,
                                      __results + 6);
 }
 
-static __inline__ __m128i __DEFAULT_FN_ATTRS
-_mm_aesenc128kl_si128(__m128i __data, const void *__h) {
-  return __builtin_ia32_aesenc128kl(__data, __h);
-}
-
-static __inline__ __m128i __DEFAULT_FN_ATTRS
-_mm_aesenc256kl_si128(__m128i __data, const void *__h) {
-  return __builtin_ia32_aesenc256kl(__data, __h);
-}
-
-static __inline__ __m128i __DEFAULT_FN_ATTRS
-_mm_aesdec128kl_si128(__m128i __data, const void *__h) {
-  return __builtin_ia32_aesdec128kl(__data, __h);
-}
-
-static __inline__ __m128i __DEFAULT_FN_ATTRS
-_mm_aesdec256kl_si128(__m128i __data, const void *__h) {
-  return __builtin_ia32_aesdec256kl(__data, __h);
+static __inline__ unsigned char __DEFAULT_FN_ATTRS
+_mm_aesenc128kl_u8(__m128i* __odata, __m128i __idata, const void *__h) {
+  return __builtin_ia32_aesenc128kl(__odata, __idata, __h);
 }
 
 static __inline__ unsigned char __DEFAULT_FN_ATTRS
-_mm_aesencwide128kl(__m128i __odata[8], const __m128i __idata[8], const void* __h) {
+_mm_aesenc256kl_u8(__m128i* __odata, __m128i __idata, const void *__h) {
+  return __builtin_ia32_aesenc256kl(__odata, __idata, __h);
+}
+
+static __inline__ unsigned char __DEFAULT_FN_ATTRS
+_mm_aesdec128kl_u8(__m128i* __odata, __m128i __idata, const void *__h) {
+  return __builtin_ia32_aesdec128kl(__odata, __idata, __h);
+}
+
+static __inline__ unsigned char __DEFAULT_FN_ATTRS
+_mm_aesdec256kl_u8(__m128i* __odata, __m128i __idata, const void *__h) {
+  return __builtin_ia32_aesdec256kl(__odata, __idata, __h);
+}
+
+static __inline__ unsigned char __DEFAULT_FN_ATTRS
+_mm_aesencwide128kl_u8(__m128i __odata[8], const __m128i __idata[8], const void* __h) {
   return __builtin_ia32_aesencwide128kl(__h,
                                         __odata,
                                         __odata + 1,
@@ -105,7 +105,7 @@ _mm_aesencwide128kl(__m128i __odata[8], const __m128i __idata[8], const void* __
 }
 
 static __inline__ unsigned char __DEFAULT_FN_ATTRS
-_mm_aesencwide256kl(__m128i __odata[8], const __m128i __idata[8], const void* __h) {
+_mm_aesencwide256kl_u8(__m128i __odata[8], const __m128i __idata[8], const void* __h) {
   return __builtin_ia32_aesencwide256kl(__h,
                                         __odata,
                                         __odata + 1,
@@ -126,7 +126,7 @@ _mm_aesencwide256kl(__m128i __odata[8], const __m128i __idata[8], const void* __
 }
 
 static __inline__ unsigned char __DEFAULT_FN_ATTRS
-_mm_aesdecwide128kl(__m128i __odata[8], const __m128i __idata[8], const void* __h) {
+_mm_aesdecwide128kl_u8(__m128i __odata[8], const __m128i __idata[8], const void* __h) {
   return __builtin_ia32_aesdecwide128kl(__h,
                                         __odata,
                                         __odata + 1,
@@ -147,7 +147,7 @@ _mm_aesdecwide128kl(__m128i __odata[8], const __m128i __idata[8], const void* __
 }
 
 static __inline__ unsigned char __DEFAULT_FN_ATTRS
-_mm_aesdecwide256kl(__m128i __odata[8], const __m128i __idata[8], const void* __h) {
+_mm_aesdecwide256kl_u8(__m128i __odata[8], const __m128i __idata[8], const void* __h) {
   return __builtin_ia32_aesdecwide256kl(__h,
                                         __odata,
                                         __odata + 1,

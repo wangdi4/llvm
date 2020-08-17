@@ -856,7 +856,10 @@ def falign_functions_EQ : Joined<["-"], "falign-functions=">, Group<f_Group>,
   "where <n> is a power of 2.">;
 def fno_align_functions: Flag<["-"], "fno-align-functions">, Group<f_Group>,
   HelpText<"Aligns on a 2-byte boundary">;
-def fno_alias : Flag<["-"], "fno-alias">,
+def fargument_noalias : Flag<["-"], "fargument-noalias">,
+  Flags<[CC1Option, CC1AsOption]>, HelpText<"Enables 'noalias' attribute for "
+  "all pointer-type arguments">;
+def fno_alias : Flag<["-"], "fno-alias">, Alias<fargument_noalias>,
   HelpText<"Enables 'noalias' attribute for all pointer-type arguments">;
 #endif // INTEL_CUSTOMIZATION
 defm allow_editor_placeholders : OptInFFlag<"allow-editor-placeholders", "Treat editor placeholders as valid source code">;
@@ -2564,6 +2567,9 @@ def mwatchsimulator_version_min_EQ : Joined<["-"], "mwatchsimulator-version-min=
 def march_EQ : Joined<["-"], "march=">, Group<m_Group>, Flags<[CoreOption]>;
 def masm_EQ : Joined<["-"], "masm=">, Group<m_Group>, Flags<[DriverOption]>;
 def mcmodel_EQ : Joined<["-"], "mcmodel=">, Group<m_Group>, Flags<[CC1Option]>;
+#if INTEL_CUSTOMIZATION
+def mcmodel_Separate : Separate<["-"], "mcmodel">, Alias<mcmodel_EQ>;
+#endif // INTEL_CUSTOMIZATION
 def mtls_size_EQ : Joined<["-"], "mtls-size=">, Group<m_Group>, Flags<[DriverOption, CC1Option]>,
   HelpText<"Specify bit size of immediate TLS offsets (AArch64 ELF only): "
            "12 (for 4KB) | 24 (for 16MB, default) | 32 (for 4GB) | 48 (for 256TB, needs -mcmodel=large)">;
@@ -4917,10 +4923,6 @@ def fintel_advanced_optim : Flag<["-"], "fintel-advanced-optim">,
 // CQ#366796 - support '--no_expr_source_pos' option.
 def no_expr_source_pos : Flag<["--"], "no_expr_source_pos">,
   HelpText<"Disable emitting debug source positions for expressions">;
-// Support for Intel customization LangOptions::FArgumentNoalias
-// support for '-fargument-noalias' option.
-def fargument_noalias : Flag<["-"], "fargument-noalias">,
-  HelpText<"Enables 'noalias' attribute for all pointer-type arguments">;
 // CQ380574: Ability to set various predefines based on gcc version needed.
 def gnu_version_EQ : Joined<["--"], "gnu_version=">,
   HelpText<"Emulate GNU C++ version">;
@@ -5220,10 +5222,14 @@ def _SLASH_E : CLFlag<"E">, HelpText<"Preprocess to stdout">, Alias<E>;
 def _SLASH_fp_except : CLFlag<"fp:except">, HelpText<"">, Alias<ftrapping_math>;
 def _SLASH_fp_except_ : CLFlag<"fp:except-">,
   HelpText<"">, Alias<fno_trapping_math>;
+#ifndef INTEL_CUSTOMIZATION
+// Do not use these fp model variants for Intel, we use a common implementation
+// with -ffp-model
 def _SLASH_fp_fast : CLFlag<"fp:fast">, HelpText<"">, Alias<ffast_math>;
 def _SLASH_fp_precise : CLFlag<"fp:precise">,
   HelpText<"">, Alias<fno_fast_math>;
 def _SLASH_fp_strict : CLFlag<"fp:strict">, HelpText<"">, Alias<fno_fast_math>;
+#endif // INTEL_CUSTOMIZATION
 def _SLASH_GA : CLFlag<"GA">, Alias<ftlsmodel_EQ>, AliasArgs<["local-exec"]>,
   HelpText<"Assume thread-local variables are defined in the executable">;
 def _SLASH_GR : CLFlag<"GR">, HelpText<"Emit RTTI data (default)">;
@@ -5277,7 +5283,7 @@ def : CLFlag<"O2">, Alias<_SLASH_O>, AliasArgs<["2"]>,
 def : CLFlag<"O3">, Alias<_SLASH_O>, AliasArgs<["3"]>,
   HelpText<"Optimize for maximum speed and enable more aggressive optimizations"
   " that may not improve performance on some programs">;
-def _SLASH_Oa :CLFlag<"Oa">, Alias<fno_alias>,
+def _SLASH_Oa :CLFlag<"Oa">, Alias<fargument_noalias>,
   HelpText<"Enables 'noalias' attribute for all pointer-type arguments">;
 def _SLASH_Ofast : CLFlag<"Ofast">, Alias<Ofast>;
 def _SLASH_fast : CLFlag<"fast">, Alias<Ofast>;

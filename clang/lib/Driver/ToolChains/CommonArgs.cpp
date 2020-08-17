@@ -778,6 +778,11 @@ bool tools::addOpenMPRuntime(ArgStringList &CmdArgs, const ToolChain &TC,
       return false;
     }
   }
+  bool addOpenMPLib = false;
+  if (Arg *A = Args.getLastArg(options::OPT_mkl_EQ)) {
+    if (A->getValue() == StringRef("parallel"))
+      addOpenMPLib = true;
+  }
 #endif // INTEL_CUSTOMIZATION
   if (!Args.hasFlag(options::OPT_fopenmp, options::OPT_fopenmp_EQ,
 #if INTEL_COLLAB
@@ -786,7 +791,10 @@ bool tools::addOpenMPRuntime(ArgStringList &CmdArgs, const ToolChain &TC,
 #else
                     options::OPT_fno_openmp, false))
 #endif // INTEL_COLLAB
-    return false;
+#if INTEL_CUSTOMIZATION
+    if (!addOpenMPLib)
+      return false;
+#endif // INTEL_CUSTOMIZATION
 
   Driver::OpenMPRuntimeKind RTKind = TC.getDriver().getOpenMPRuntime(Args);
 

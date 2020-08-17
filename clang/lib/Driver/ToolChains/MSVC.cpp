@@ -556,7 +556,7 @@ void visualstudio::Linker::ConstructJob(Compilation &C, const JobAction &JA,
   if (!StubsAdded && (Args.hasFlag(options::OPT_fopenmp,
                                    options::OPT_fopenmp_EQ,
                                    options::OPT_fno_openmp, false)) ||
-      Args.hasArg(options::OPT_fiopenmp)) {
+      Args.hasArg(options::OPT_fiopenmp, options::OPT_mkl_EQ)) {
 #endif // INTEL_CUSTOMIZATION
     CmdArgs.push_back("-nodefaultlib:vcomp.lib");
     CmdArgs.push_back("-nodefaultlib:vcompd.lib");

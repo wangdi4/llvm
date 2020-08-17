@@ -1,6 +1,7 @@
 ; Test for codegen of uniform loads inside divergent inner loops.
 
-; RUN: opt < %s -VPlanDriver -vplan-force-vf=2 -S | FileCheck %s
+; RUN: opt < %s -VPlanDriver -vplan-enable-all-zero-bypass-loops=false -vplan-force-vf=2 -S | FileCheck %s
+; Loop bypasses are turned off because they do not affect what the test is designed to do.
 
 ; CHECK-LABEL: @test1
 ; CHECK:       vector.body:
