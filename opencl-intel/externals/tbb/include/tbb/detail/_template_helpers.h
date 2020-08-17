@@ -237,8 +237,18 @@ using std::swap;
 template <typename T>
 using has_swap = decltype(swap(std::declval<T&>(), std::declval<T&>()));
 
+#if _MSC_VER && _MSC_VER <= 1900 && !__INTEL_COMPILER
+// Workaround for VS2015: it fails to instantiate noexcept(...) inside std::integral_constant.
+template <typename T>
+struct noexcept_wrapper {
+    static const bool value = noexcept(swap(std::declval<T&>(), std::declval<T&>()));
+};
+template <typename T>
+struct is_nothrow_swappable_impl : std::integral_constant<bool, noexcept_wrapper<T>::value> {};
+#else
 template <typename T>
 struct is_nothrow_swappable_impl : std::integral_constant<bool, noexcept(swap(std::declval<T&>(), std::declval<T&>()))> {};
+#endif
 }
 
 template <typename T>
@@ -247,7 +257,6 @@ struct is_swappable : supports<T, is_swappable_detail::has_swap> {};
 template <typename T>
 struct is_nothrow_swappable
     : conjunction<is_swappable<T>, is_swappable_detail::is_nothrow_swappable_impl<T>> {};
-
 #endif // __TBB_CPP17_IS_SWAPPABLE_PRESENT
 
 //! Allows to store a function parameter pack as a variable and later pass it to another function

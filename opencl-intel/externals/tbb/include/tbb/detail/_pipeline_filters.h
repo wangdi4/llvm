@@ -428,7 +428,7 @@ inline filter_node& filter_node_ptr::operator*() const{
 }
 
 inline filter_node_ptr::operator bool() const {
-    return my_node;
+    return my_node != nullptr;
 }
 
 //! Node in parse tree representing result of make_filter.

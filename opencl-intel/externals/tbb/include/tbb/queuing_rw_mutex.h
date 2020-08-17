@@ -46,7 +46,7 @@ public:
 
     //! Destructor asserts if the mutex is acquired, i.e. q_tail is non-NULL
     ~queuing_rw_mutex() {
-        __TBB_ASSERT( !q_tail, "destruction of an acquired mutex");
+        __TBB_ASSERT(q_tail.load(std::memory_order_relaxed) == nullptr, "destruction of an acquired mutex");
     }
 
     //! No Copy

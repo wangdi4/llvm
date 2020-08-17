@@ -154,6 +154,9 @@ private:
                     p_next = (element_type *)p->second;
                     // TODO revamp: make sure type casting is correct.
                     void* ptr = (void*)(p->first);
+#if _MSC_VER && _MSC_VER <= 1900 && !__INTEL_COMPILER
+                    suppress_unused_warning(ptr);
+#endif
                     ((value_type*)ptr)->~value_type();
                 }
             }

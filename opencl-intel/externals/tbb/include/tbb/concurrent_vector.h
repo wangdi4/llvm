@@ -27,6 +27,7 @@
 
 #include <algorithm>
 #include <utility> // std::move_if_noexcept
+#include <algorithm>
 
 namespace tbb {
 namespace detail {
@@ -541,6 +542,11 @@ private:
             spin_wait_while_eq(embedded_table[i], segment_type(nullptr));
         }
 
+        // It is possible that the table was extend by a thread allocating first_block, need to check this.
+        if (this->get_table() != embedded_table) {
+            return nullptr;
+        }
+
         // Allocate long segment table and fill with null pointers
         segment_table_type new_segment_table = segment_table_allocator_traits::allocate(base_type::get_allocator(), this->pointers_per_long_table);
         // Copy segment pointers from the embedded table
@@ -552,7 +558,6 @@ private:
             segment_table_allocator_traits::construct(base_type::get_allocator(), &new_segment_table[segment_index], nullptr);
         }
 
-
         return new_segment_table;
     }
 
@@ -562,7 +567,7 @@ private:
         // First block allocation
         if (seg_index < first_block) {
             // If 0 segment is already allocated, then it remains to wait until the segments are filled to requested
-            if (table[0] != nullptr) {
+            if (table[0].load(std::memory_order_acquire) != nullptr) {
                 spin_wait_while_eq(table[seg_index], segment_type(nullptr));
                 return nullptr;
             }
@@ -587,6 +592,11 @@ private:
                 this->extend_table_if_necessary(table, 0, first_block_size);
                 for (size_type i = 1; i < first_block; ++i) {
                     table[i].store(new_segment, std::memory_order_release);
+                }
+
+                // Other threads can wait on a snapshot of an embedded table, need to fill it.
+                for (size_type i = 1; i < first_block && i < this->pointers_per_embedded_table; ++i) {
+                    this->my_embedded_table[i].store(new_segment, std::memory_order_release);
                 }
             } else if (new_segment != this->segment_allocation_failure_tag) {
                 // Deallocate the memory
@@ -805,7 +815,7 @@ private:
         if (seg_index > this->my_first_block.load(std::memory_order_relaxed)) {
             // So that other threads be able to work with the last segment of grow_by, allocate it immediately.
             // If the last segment is not less than the first block
-            if (table[seg_index] == nullptr) {
+            if (table[seg_index].load(std::memory_order_relaxed) == nullptr) {
                 size_type first_element = this->segment_base(seg_index);
                 if (first_element >= start_idx && first_element < end_idx) {
                     segment_type segment = table[seg_index].load(std::memory_order_relaxed);
@@ -909,7 +919,7 @@ private:
         this->my_size.store(0, std::memory_order_relaxed);
     }
 
-    inline static bool incompact_predicate( size_type size ) {
+    static bool incompact_predicate( size_type size ) {
         // memory page size
         const size_type page_size = 4096;
         return size < page_size || ((size - 1) % page_size < page_size / 2 && size < page_size * 128);
@@ -998,7 +1008,7 @@ private:
         // free unnecessary segments allocated by reserve() call
         if (k_stop < k_end) {
             for (size_type seg_idx = k_end; seg_idx != k_stop; --seg_idx) {
-                if (table[seg_idx - 1] != nullptr) {
+                if (table[seg_idx - 1].load(std::memory_order_relaxed) != nullptr) {
                     this->delete_segment(seg_idx - 1);
                 }
             }

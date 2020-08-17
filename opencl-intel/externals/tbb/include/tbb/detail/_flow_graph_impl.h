@@ -255,51 +255,37 @@ public:
     ~graph();
 
     //! Used to register that an external entity may still interact with the graph.
-    /** The graph will not return from wait_for_all until a matching number of decrement_wait_count calls
-    is made. */
+    /** The graph will not return from wait_for_all until a matching number of release_wait calls is
+    made. */
     void reserve_wait() override;
 
     //! Deregisters an external entity that may have interacted with the graph.
-    /** The graph will not return from wait_for_all until all the number of decrement_wait_count calls
-    matches the number of increment_wait_count calls. */
+    /** The graph will not return from wait_for_all until all the number of reserve_wait calls
+    matches the number of release_wait calls. */
     void release_wait() override;
 
-    //! Wait until graph is idle and decrement_wait_count calls equals increment_wait_count calls.
-    /** The waiting thread will go off and steal work while it is block in the wait_for_all. */
+    //! Wait until graph is idle and the number of release_wait calls equals to the number of
+    //! reserve_wait calls.
+    /** The waiting thread will go off and steal work while it is blocked in the wait_for_all. */
     void wait_for_all() {
         cancelled = false;
         caught_exception = false;
-#if TBB_USE_EXCEPTIONS
-            // TODO revamp: reuse try_call instead
-            try {
-#endif
-                my_task_arena->execute(
-                    [this]() {
-                        wait(my_wait_context, *my_context);
-                    }
-                );
-#if __TBB_TASK_GROUP_CONTEXT
-                cancelled = my_context->is_group_execution_cancelled();
-#endif
-#if TBB_USE_EXCEPTIONS
-            }
-            catch (...) {
-                my_context->reset();
-                caught_exception = true;
-                cancelled = true;
-                throw;
-            }
-#endif
-#if __TBB_TASK_GROUP_CONTEXT
-            // TODO: the "if" condition below is just a work-around to support the concurrent wait
-            // mode. The cancellation and exception mechanisms are still broken in this mode.
-            // Consider using task group not to re-implement the same functionality.
-            if (!(my_context->traits() & task_group_context::concurrent_wait)) {
-                my_context->reset();  // consistent with behavior in catch()
-#endif
-#if __TBB_TASK_GROUP_CONTEXT
-            }
-#endif
+        try_call([this] {
+            my_task_arena->execute([this] {
+                wait(my_wait_context, *my_context);
+            });
+            cancelled = my_context->is_group_execution_cancelled();
+        }).on_exception([this] {
+            my_context->reset();
+            caught_exception = true;
+            cancelled = true;
+        });
+        // TODO: the "if" condition below is just a work-around to support the concurrent wait
+        // mode. The cancellation and exception mechanisms are still broken in this mode.
+        // Consider using task group not to re-implement the same functionality.
+        if (!(my_context->traits() & task_group_context::concurrent_wait)) {
+            my_context->reset();  // consistent with behavior in catch()
+        }
     }
 
 #if TODO_REVAMP
@@ -345,9 +331,7 @@ public:
 
 private:
     wait_context my_wait_context;
-#if __TBB_TASK_GROUP_CONTEXT
     task_group_context *my_context;
-#endif
     bool own_context;
     bool cancelled;
     bool caught_exception;

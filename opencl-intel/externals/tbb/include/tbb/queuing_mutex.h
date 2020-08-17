@@ -83,7 +83,7 @@ public:
             scoped_lock* pred = m.q_tail.exchange(this);
             if (pred) {
                 call_itt_notify(prepare, &m);
-                __TBB_ASSERT(!pred->m_next, "the predecessor has another successor!");
+                __TBB_ASSERT(pred->m_next.load(std::memory_order_relaxed) == nullptr, "the predecessor has another successor!");
 
                 pred->m_next.store(this, std::memory_order_relaxed);
                 spin_wait_while_eq(m_going, 0U);
@@ -92,7 +92,7 @@ public:
 
             // Force acquire so that user's critical section receives correct values
             // from processor that was previously in the user's critical section.
-            std::atomic_thread_fence(std::memory_order_acquire);
+            atomic_fence(std::memory_order_acquire);
         }
 
         //! Acquire lock on given mutex if free (i.e. non-blocking)
@@ -115,7 +115,7 @@ public:
 
             // Force acquire so that user's critical section receives correct values
             // from processor that was previously in the user's critical section.
-            std::atomic_thread_fence(std::memory_order_acquire);
+            atomic_fence(std::memory_order_acquire);
             call_itt_notify(acquired, &m);
             return true;
         }
