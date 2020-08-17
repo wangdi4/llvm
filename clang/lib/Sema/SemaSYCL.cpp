@@ -1368,6 +1368,7 @@ public:
     KernelDecl->setParams(Params);
 
     SemaRef.addSyclDeviceDecl(KernelDecl);
+<<<<<<< HEAD
   }
 
   bool enterStruct(const CXXRecordDecl *, FieldDecl *) final {
@@ -1378,6 +1379,8 @@ public:
   bool leaveStruct(const CXXRecordDecl *, FieldDecl *) final {
     --StructDepth;
     return true;
+=======
+>>>>>>> 26897813eda4978e4c4243eeb222b5ec79ac40a2
   }
 
   bool handleSyclAccessorType(const CXXBaseSpecifier &BS,
