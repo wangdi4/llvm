@@ -39,11 +39,8 @@
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/StringExtras.h"
 #include "llvm/Support/MathExtras.h"
-<<<<<<< HEAD
 #include "intel/SemaIntelImpl.h" // INTEL
-=======
 #include "llvm/Support/raw_ostream.h"
->>>>>>> a5b8757506b07e3091fe243b6c1e004220d3cba3
 
 using namespace clang;
 using namespace sema;
