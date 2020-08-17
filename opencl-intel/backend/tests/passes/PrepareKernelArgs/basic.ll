@@ -62,9 +62,9 @@ define void @A(i32 addrspace(1)* nocapture %out, i32 addrspace(1)* nocapture %a,
 ; CHECK-ARG: %BaseGlbId = insertvalue [4 x i64] [[IV1]], i64 [[ADD2]], 2
 ; CHECK-TLS: [[IV2:%[a-zA-Z0-9]+]] = insertvalue [4 x i64] [[IV1]], i64 [[ADD2]], 2
 ; CHECK-TLS: store [4 x i64] [[IV2]], [4 x i64]* @BaseGlbId
-; CHECK-NEXT: [[MUL01:%[0-9]+]] = mul i64 %LocalSize_0, %LocalSize_1
-; CHECK-NEXT: %LocalSizeProd = mul i64 [[MUL01]], %LocalSize_2
-; CHECK-NEXT: %BarrierBufferSize = mul i64 0, %LocalSizeProd
+; CHECK:     [[MUL0:%[a-zA-Z0-9]+]] = mul i64 0, %LocalSize_0
+; CHECK:     [[MUL1:%[a-zA-Z0-9]+]] = mul i64 [[MUL0]], %LocalSize_1
+; CHECK:     %BarrierBufferSize = mul i64 [[MUL1]], %LocalSize_2
 ; CHECK-ARG: %pSpecialBuf = alloca i8, i64 %BarrierBufferSize, align 128
 ; CHECK-ARG:     call void @__A_separated_args(i32 addrspace(1)* %explicit_0, i32 addrspace(1)* %explicit_1, i32 %explicit_2, i8 addrspace(3)* null, { i64, [3 x i64], [3 x i64], [2 x [3 x i64]], [3 x i64], {}*, {}* }* %pWorkDim, i64* %pWGId, [4 x i64] %BaseGlbId, i8* %pSpecialBuf, {}* %RuntimeHandle)
 ; CHECK-TLS:     call void @__A_separated_args(i32 addrspace(1)* %explicit_0, i32 addrspace(1)* %explicit_1, i32 %explicit_2)

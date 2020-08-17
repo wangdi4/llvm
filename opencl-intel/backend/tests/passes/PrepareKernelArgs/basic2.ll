@@ -45,9 +45,9 @@ define void @A(i32 addrspace(1)* nocapture %out, i32 %b, i32 addrspace(1)* nocap
 ; CHECK: %22 = insertvalue [4 x i64] undef, i64 %17, 0
 ; CHECK: %23 = insertvalue [4 x i64] %22, i64 %19, 1
 ; CHECK: %BaseGlbId = insertvalue [4 x i64] %23, i64 %21, 2
-; CHECK-NEXT: [[MUL01:%[0-9]+]] = mul i64 %LocalSize_0, %LocalSize_1
-; CHECK-NEXT: %LocalSizeProd = mul i64 [[MUL01]], %LocalSize_2
-; CHECK-NEXT: %BarrierBufferSize = mul i64 0, %LocalSizeProd
+; CHECK: %24 = mul i64 0, %LocalSize_0
+; CHECK: %25 = mul i64 %24, %LocalSize_1
+; CHECK: %BarrierBufferSize = mul i64 %25, %LocalSize_2
 ; CHECK: %pSpecialBuf = alloca i8, i64 %BarrierBufferSize, align 128
 ; CHECK: call void @__A_separated_args(i32 addrspace(1)* %explicit_0, i32 %explicit_1, i32 addrspace(1)* %explicit_2, i8 addrspace(3)* null, { i64, [3 x i64], [3 x i64], [2 x [3 x i64]], [3 x i64], {}*, {}* }* %pWorkDim, i64* %pWGId, [4 x i64] %BaseGlbId, i8* %pSpecialBuf, {}* %RuntimeHandle)
 ; CHECK: ret void

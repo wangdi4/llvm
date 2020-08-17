@@ -39,9 +39,9 @@ entry:
 ; CHECK-NEXT: [[IV0:%[a-zA-Z0-9]+]] = insertvalue [4 x i32] undef, i32 [[ADD0]], 0
 ; CHECK-NEXT: [[IV1:%[a-zA-Z0-9]+]] = insertvalue [4 x i32] [[IV0]], i32 [[ADD1]], 1
 ; CHECK-NEXT: %BaseGlbId = insertvalue [4 x i32] [[IV1]], i32 [[ADD2]], 2
-; CHECK-NEXT: [[MUL01:%[0-9]+]] = mul i32 %LocalSize_0, %LocalSize_1
-; CHECK-NEXT: %LocalSizeProd = mul i32 [[MUL01]], %LocalSize_2
-; CHECK-NEXT: %BarrierBufferSize = mul i32 0, %LocalSizeProd
+; CHECK-NEXT: [[BBS0:%[a-zA-Z0-9]+]] = mul i32 0, %LocalSize_0
+; CHECK-NEXT: [[BBS1:%[a-zA-Z0-9]+]] = mul i32 [[BBS0]], %LocalSize_1
+; CHECK-NEXT: %BarrierBufferSize = mul i32 [[BBS1]], %LocalSize_2
 ; CHECK-NEXT: %pSpecialBuf = alloca i8, i32 %BarrierBufferSize, align 128
 ; CHECK-NEXT: call void @__t1_separated_args(i8 addrspace(3)* null, { i32, [3 x i32], [3 x i32], [2 x [3 x i32]], [3 x i32], {}*, {}* }* %pWorkDim, i32* %pWGId, [4 x i32] %BaseGlbId, i8* %pSpecialBuf, {}* %RuntimeHandle)
 ; CHECK-NEXT: ret void
