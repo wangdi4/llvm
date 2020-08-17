@@ -333,6 +333,15 @@ namespace intel {
       //  "assumes alignment of vector of i1 type equals to vector length");
     }
 
+    if (AllocaInst *AI = dyn_cast_or_null<AllocaInst>(pVal)) {
+      if (AI->isArrayAllocation()) {
+        const ConstantInt *C = dyn_cast<ConstantInt>(AI->getArraySize());
+        assert( C && "We cannot handle non static allocas in barrier!" );
+        assert((C->getValue().getActiveBits() <= 64) && "The array size cannot be bigger than a uint64_t!" );
+        sizeInBits = sizeInBits * (C->getZExtValue());
+      }
+    }
+
     assert( alignment && "alignment is 0" );
 
     unsigned int sizeInBytes = sizeInBits / 8;
