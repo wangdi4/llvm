@@ -23,12 +23,9 @@
 #include <cassert>
 #include <cstring>
 #include <iostream>
-<<<<<<< HEAD
-#include <memory>
-=======
 #include <list>
 #include <map>
->>>>>>> d9f51ca444e988e345848bf095593e0d0273a3d8
+#include <memory>
 #include <mutex>
 #include <unordered_map>
 #include <vector>
@@ -83,11 +80,9 @@ struct _pi_platform {
   std::string ZeDriverVersion;
   std::string ZeDriverApiVersion;
 
-<<<<<<< HEAD
   // Cache pi_devices for reuse
   std::vector<pi_device> PiDevicesCache;
   std::mutex PiDevicesCacheMutex;
-=======
   // Maximum Number of Command Lists that can be created.
   // This Value is initialized to 20000, but can be changed by the user
   // thru the environment variable SYCL_PI_LEVEL0_MAX_COMMAND_LIST_CACHE
@@ -97,7 +92,6 @@ struct _pi_platform {
   // Current number of L0 Command Lists created on this platform.
   // this number must not exceed ZeMaxCommandListCache.
   std::atomic<int> ZeGlobalCommandListCount{0};
->>>>>>> d9f51ca444e988e345848bf095593e0d0273a3d8
 };
 
 struct _pi_device : _pi_object {

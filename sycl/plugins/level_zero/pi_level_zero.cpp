@@ -685,13 +685,9 @@ pi_result piPlatformsGet(pi_uint32 NumEntries, pi_platform *Platforms,
       Platforms[0]->ZeDriverApiVersion =
           std::to_string(ZE_MAJOR_VERSION(ZeApiVersion)) + std::string(".") +
           std::to_string(ZE_MINOR_VERSION(ZeApiVersion));
-<<<<<<< HEAD
-
+      Platforms[0]->ZeMaxCommandListCache = CommandListCacheSizeValue;
       // save a copy in the cache for future uses
       PiPlatformsCache.push_back(Platforms[0]);
-=======
-      Platforms[0]->ZeMaxCommandListCache = CommandListCacheSizeValue;
->>>>>>> d9f51ca444e988e345848bf095593e0d0273a3d8
     } catch (const std::bad_alloc &) {
       return PI_OUT_OF_HOST_MEMORY;
     } catch (...) {
@@ -855,15 +851,6 @@ pi_result piDeviceRelease(pi_device Device) {
   assert(Device->RefCount > 0 && "Device is already released.");
   // TODO: OpenCL says root-device ref-count remains unchanged (1),
   // but when would we free the device's data?
-<<<<<<< HEAD
-  if (Device->IsSubDevice)
-    --(Device->RefCount);
-  // TODO: All cached pi_devices live until the program ends.
-  // If L0 RT does not do its own cleanup for Ze_Device_Handle upon tear-down,
-  // we need to figure out a way to call here
-  // ZE_CALL(zeCommandListDestroy(Device->ZeCommandListInit)); and,
-  // in piDevicesGet(), we need to call initialize for each cached pi_device.
-=======
   if (--(Device->RefCount) == 0) {
     // Destroy the command list used for initializations
     ZE_CALL(zeCommandListDestroy(Device->ZeCommandListInit));
@@ -875,7 +862,6 @@ pi_result piDeviceRelease(pi_device Device) {
     Device->ZeCommandListCacheMutex.unlock();
     delete Device;
   }
->>>>>>> d9f51ca444e988e345848bf095593e0d0273a3d8
 
   return PI_SUCCESS;
 }
