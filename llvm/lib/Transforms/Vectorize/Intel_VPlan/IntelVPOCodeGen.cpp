@@ -42,6 +42,11 @@ static cl::opt<bool> VPlanUseDAForUnitStride(
     "vplan-use-da-unit-stride-accesses", cl::init(true), cl::Hidden,
     cl::desc("Use DA knowledge in VPlan for unit-stride accesses."));
 
+static cl::opt<bool> PredicateSafeValueDivision(
+    "vplan-predicate-safe-value-div", cl::init(false), cl::Hidden,
+    cl::desc("Always serialize masked integer division, even if divisor is "
+             "known to be safe for speculation."));
+
 static void addBlockToParentLoop(Loop *L, BasicBlock *BB, LoopInfo &LI) {
   if (auto *ParentLoop = L->getParentLoop())
     ParentLoop->addBasicBlockToLoop(BB, LI);
@@ -781,7 +786,14 @@ void VPOCodeGen::vectorizeInstruction(VPInstruction *VPInst) {
   case Instruction::SDiv:
   case Instruction::URem:
   case Instruction::SRem: {
-    if (MaskValue) {
+    bool DivisorIsSafe = false;
+    auto *Const = dyn_cast<VPConstant>(VPInst->getOperand(1));
+    if (!PredicateSafeValueDivision && Const && Const->isConstantInt()) {
+      int64_t Val = Const->getSExtValue();
+      if (Val != 0 && Val != -1)
+        DivisorIsSafe = true;
+    }
+    if (MaskValue && !DivisorIsSafe) {
       if (isVPValueUniform(VPInst, Plan))
         serializePredicatedUniformInstruction(VPInst);
       else
