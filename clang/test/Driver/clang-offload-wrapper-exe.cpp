@@ -167,8 +167,6 @@ static int dumpBinary0() {
     std::cout << Entry->name << "\n";
   return 0;
 }
-<<<<<<< HEAD
-=======
 
 // Clang offload wrapper does Base64 decoding on byte array property values, so
 // they can't be dumped as is and compared to the original. Instead, this
@@ -213,4 +211,3 @@ int main(int argc, char **argv) {
     return 1;
   return 0;
 }
->>>>>>> b0d98dc037a74034cf4fa454983f093b72d0ef42

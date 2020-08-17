@@ -127,7 +127,6 @@ static cl::opt<SpecConstMode> SpecConstLower{
                    "set spec constants to C++ defaults")),
     cl::cat(PostLinkCat)};
 
-<<<<<<< HEAD
 #if INTEL_COLLAB
 static cl::opt<std::string> OmpOffloadEntriesSymbol(
     "ompoffload-link-entries", cl::ValueOptional,
@@ -147,11 +146,9 @@ static cl::opt<bool>
                                   "in the offload table static."),
                          cl::cat(PostLinkCat));
 #endif // INTEL_COLLAB
-=======
 static cl::opt<bool> EmitKernelParamInfo{
     "emit-param-info", cl::desc("emit kernel parameter optimization info"),
     cl::cat(PostLinkCat)};
->>>>>>> b0d98dc037a74034cf4fa454983f093b72d0ef42
 
 struct ImagePropSaveInfo {
   bool NeedDeviceLibReqMask;
@@ -796,7 +793,7 @@ int main(int argc, char **argv) {
 
   bool DoSplit = SplitMode.getNumOccurrences() > 0;
   bool DoSpecConst = SpecConstLower.getNumOccurrences() > 0;
-<<<<<<< HEAD
+  bool DoParamInfo = EmitKernelParamInfo.getNumOccurrences() > 0;
 #if INTEL_COLLAB
   bool DoLinkOmpOffloadEntries =
       OmpOffloadEntriesSymbol.getNumOccurrences() > 0;
@@ -814,13 +811,8 @@ int main(int argc, char **argv) {
   if (!DoSplit && !DoSpecConst && !DoSymGen && !DoLinkOmpOffloadEntries &&
       !DoMakeOmpGlobalsStatic) {
 #else  // INTEL_COLLAB
-  if (!DoSplit && !DoSpecConst && !DoSymGen) {
-#endif // INTEL_COLLAB
-=======
-  bool DoParamInfo = EmitKernelParamInfo.getNumOccurrences() > 0;
-
   if (!DoSplit && !DoSpecConst && !DoSymGen && !DoParamInfo) {
->>>>>>> b0d98dc037a74034cf4fa454983f093b72d0ef42
+#endif // INTEL_COLLAB
     errs() << "no actions specified; try --help for usage info\n";
     return 1;
   }
