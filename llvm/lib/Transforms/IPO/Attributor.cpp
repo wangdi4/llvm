@@ -24,11 +24,8 @@
 #include "llvm/Analysis/MemorySSAUpdater.h"
 #include "llvm/Analysis/MustExecute.h"
 #include "llvm/Analysis/ValueTracking.h"
-<<<<<<< HEAD
 #include "llvm/Analysis/Intel_WP.h"            // INTEL
-=======
 #include "llvm/IR/GlobalValue.h"
->>>>>>> 87a85f3d57f55f5652ec44f77816c7c9457545fa
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/NoFolder.h"
 #include "llvm/IR/Verifier.h"
