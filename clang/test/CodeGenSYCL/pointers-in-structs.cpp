@@ -32,7 +32,6 @@ int main() {
   return 0;
 }
 
-<<<<<<< HEAD
 // CHECK: %[[WRAPPER_F1:[a-zA-Z0-9_.]+]] = type { i32 addrspace(1)* }
 // CHECK: %[[WRAPPER_F2:[a-zA-Z0-9_.]+]] = type { float addrspace(1)* }
 // CHECK: %[[WRAPPER_F:[a-zA-Z0-9_.]+]] = type { float addrspace(1)* }
@@ -41,8 +40,5 @@ int main() {
 // CHECK-SAME: %[[WRAPPER_F1]]* byval(%[[WRAPPER_F1]]) align 8 %_arg_F1,
 // CHECK-SAME: %[[WRAPPER_F2]]* byval(%[[WRAPPER_F2]]) align 8 %_arg_F2,
 // CHECK-SAME: %[[WRAPPER_F]]* byval(%[[WRAPPER_F]]) align 8 %_arg_F
-// CHECK: define spir_kernel void @{{.*}}lambdas{{.*}}(%[[WRAPPER_LAMBDA_PTR]]* byval(%[[WRAPPER_LAMBDA_PTR]]) align 8 %_arg_)
-=======
 // CHECK: define spir_kernel void @{{.*}}structs{{.*}}(i32 addrspace(1)* %_arg_F1, float addrspace(1)* %_arg_F2, float addrspace(1)* %_arg_F)
-// CHECK: define spir_kernel void @{{.*}}lambdas{{.*}}(float addrspace(1)* %_arg_)
->>>>>>> c571a00e9dd509ad898d05b10e3d9601be7219e5
+// CHECK: define spir_kernel void @{{.*}}lambdas{{.*}}(%[[WRAPPER_LAMBDA_PTR]]* byval(%[[WRAPPER_LAMBDA_PTR]]) align 8 %_arg_)
