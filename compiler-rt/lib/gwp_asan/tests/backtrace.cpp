@@ -30,10 +30,7 @@ __attribute__((optnone)) void TouchMemory(void *Ptr) {
   *(reinterpret_cast<volatile char *>(Ptr)) = 7;
 }
 
-#if INTEL_CUSTOMIZATION
-// Disabled temporarily as it needs newer GLIBCXX, which is in RHEL8.
-TEST_F(BacktraceGuardedPoolAllocator, DISABLED_DoubleFree) {
-#endif // INTEL_CUSTOMIZATION
+TEST_F(BacktraceGuardedPoolAllocator, DoubleFree) {
   void *Ptr = AllocateMemory(GPA);
   DeallocateMemory(GPA, Ptr);
 
@@ -48,10 +45,7 @@ TEST_F(BacktraceGuardedPoolAllocator, DISABLED_DoubleFree) {
   ASSERT_DEATH(DeallocateMemory2(GPA, Ptr), DeathRegex);
 }
 
-#if INTEL_CUSTOMIZATION
-// Disabled temporarily as it needs newer GLIBCXX, which is in RHEL8.
-TEST_F(BacktraceGuardedPoolAllocator, DISABLED_UseAfterFree) {
-#endif // INTEL_CUSTOMIZATION
+TEST_F(BacktraceGuardedPoolAllocator, UseAfterFree) {
   void *Ptr = AllocateMemory(GPA);
   DeallocateMemory(GPA, Ptr);
 
