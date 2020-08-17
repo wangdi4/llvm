@@ -10757,6 +10757,7 @@ DTransAnalysisInfo::DTransAnalysisInfo(DTransAnalysisInfo &&Other)
   CallsiteCount = Other.CallsiteCount;
   InstructionCount = Other.InstructionCount;
   DTransAnalysisRan = Other.DTransAnalysisRan;
+  SawFortran = Other.SawFortran;
 }
 
 DTransAnalysisInfo::~DTransAnalysisInfo() { reset(); }
@@ -10782,6 +10783,7 @@ DTransAnalysisInfo &DTransAnalysisInfo::operator=(DTransAnalysisInfo &&Other) {
   InstructionCount = Other.InstructionCount;
   DTransAnalysisRan = Other.DTransAnalysisRan;
   IgnoreTypeMap = std::move(Other.IgnoreTypeMap);
+  SawFortran = Other.SawFortran;
   return *this;
 }
 
