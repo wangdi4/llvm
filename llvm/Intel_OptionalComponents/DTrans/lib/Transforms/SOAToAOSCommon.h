@@ -22,6 +22,7 @@
 #error SOAToAOSCommon.h include in an non-INTEL_INCLUDE_DTRANS build.
 #endif
 
+#include "Intel_DTrans/Analysis/DTransUtils.h"
 #include "Intel_DTrans/Transforms/SOAToAOS.h"
 #include "Intel_DTrans/Transforms/SOAToAOSExternal.h"
 
@@ -355,7 +356,8 @@ inline bool isSafeCallForAppend(Function *F, const DTransAnalysisInfo &DTInfo,
   };
 
   for (Instruction &I : instructions(F)) {
-    if (isa<DbgInfoIntrinsic>(&I))
+    // Treat llvm.type_test and llvm.assume as safe calls.
+    if (isa<DbgInfoIntrinsic>(&I) || isTypeTestRelatedIntrinsic(&I))
       continue;
     if (IsAllocCall(&I, DTInfo, TLI))
       continue;

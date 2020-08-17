@@ -303,6 +303,10 @@ bool ClassInfo::checkFieldOfArgClassLoad(const Value *V, Value *Obj,
 // 2. Loading value from the MemInterface field.
 //
 bool ClassInfo::checkMemInterfacePointer(Value *V, Argument *Obj) {
+  if (auto *BC = dyn_cast<BitCastInst>(V)) {
+    Visited.insert(BC);
+    V = BC->getOperand(0);
+  }
   if (auto *Arg = dyn_cast<Argument>(V))
     if (auto *PTy = dyn_cast<PointerType>(Arg->getType()))
       if (PTy->getElementType() == SOACInfo->getMemInterfaceType())
@@ -527,6 +531,28 @@ bool ClassInfo::checkAllocCall(Value *Val, Argument *ThisObj, Value *NumOfElems,
   return true;
 }
 
+// Returns true if Value is Vtable pointer of MemInterface pointer.
+//
+// Ex:
+//        store %"MemInt"* %3, %"MemInt"** %10 // Store to MemInt field.
+//        %13 = bitcast %"MemInt"* %3 to i8* (%"MemInt"*, i64)***
+//        %14 = load i8* (%"MemInt"*, i64)**, i8* (%"MemInt"*, i64)*** %13
+// V:     %15 = bitcast i8* (%"MemInt"*, i64)** to i8*
+bool ClassInfo::checkVtablePtrOfMemInt(Value *V, Argument *ThisObj) {
+  if (auto *BC = dyn_cast<BitCastInst>(V)) {
+    Visited.insert(BC);
+    V = BC->getOperand(0);
+  }
+  auto *VTLoad = dyn_cast<LoadInst>(V);
+  if (!VTLoad)
+    return false;
+  auto *MemI = VTLoad->getPointerOperand();
+  if (!checkMemInterfacePointer(MemI, ThisObj))
+    return false;
+  Visited.insert(VTLoad);
+  return true;
+}
+
 // Returns true if Value is Vtable load from MemInterface pointer.
 //
 // Ex:
@@ -549,20 +575,10 @@ bool ClassInfo::checkVtableLoadOfMemInt(Value *Value, Argument *ThisObj) {
   // Just fixing offset.
   if (GEP->getNumIndices() != 1)
     return false;
-  auto *PO = GEP->getPointerOperand();
-  auto *VTLoad = dyn_cast<LoadInst>(PO);
-  if (!VTLoad)
-    return false;
-  auto *MemI = VTLoad->getPointerOperand();
-  if (auto *BC = dyn_cast<BitCastInst>(MemI)) {
-    Visited.insert(BC);
-    MemI = BC->getOperand(0);
-  }
-  if (!checkMemInterfacePointer(MemI, ThisObj))
+  if (!checkVtablePtrOfMemInt(GEP->getPointerOperand(), ThisObj))
     return false;
   Visited.insert(LI);
   Visited.insert(GEP);
-  Visited.insert(VTLoad);
   return true;
 }
 
@@ -850,6 +866,7 @@ Value *ClassInfo::isStructElementIndexAddress(const Value *Val, Type *ElemTy,
     *ElemIdx = cast<ConstantInt>(GEP->getOperand(2))->getLimitedValue();
   return isElementIndexAddress(GEP->getPointerOperand(), Addr);
 }
+
 // Returns location of the array element that is loading.
 // It returns %AtLoc in the example. If CheckLocAsArgument is
 // true, it makes sure AtLoc is integer argument.
@@ -1529,6 +1546,36 @@ bool ClassInfo::checkAllInstsProcessed(
   return true;
 }
 
+// Process llvm.assume and llvm.type.test calls in function "F".
+// Only Vtable pointer inMemInterfaceMemInit struct field of "ThisObj"
+// is allowed to pass as first argument of llvm.type.test call.
+//
+//  Ex:
+//     %mgep = getelementptr inbounds %Arr, %* %ThisObj, i64 0, i32 4
+//     %mem = load %MemType*, %MemType** %mgep
+//     %tmp = bitcast %MemType* %mem to i8* (%MemType*, i32)***
+//     %vtable = load i8* (%MemType*, i32)**, i8* (%MemType*, i32)*** %tmp
+//     %bc1 = bitcast i8* (%MemType*, i32)** %vtable to i8*
+//     %tt = tail call i1 @llvm.type.test(i8* %bc1, metadata !"typeId")
+//
+bool ClassInfo::processAssumeCalls(Function *F, Argument *ThisObj) {
+  for (auto &I : instructions(F)) {
+    auto II = dyn_cast<IntrinsicInst>(&I);
+    if (!II || II->getIntrinsicID() != Intrinsic::assume)
+      continue;
+    auto TTCall = dyn_cast<IntrinsicInst>(II->getArgOperand(0));
+    if (!TTCall || TTCall->getIntrinsicID() != Intrinsic::type_test ||
+        !checkVtablePtrOfMemInt(TTCall->getArgOperand(0), ThisObj)) {
+      DEBUG_WITH_TYPE(DTRANS_SOATOAOSCLASSINFO,
+                      { dbgs() << "  Failed: Assume intrinsic analysis.\n"; });
+      return false;
+    }
+    Visited.insert(II);
+    Visited.insert(TTCall);
+  }
+  return true;
+}
+
 // Recognize construction of derived class, which has only base class
 // object as one field. This constructor calls constructor of base class
 // to initialize fields of the base class object.
@@ -1617,6 +1664,9 @@ FunctionKind ClassInfo::recognizeDerivedConstructor(Function *F, Type *DTy,
       return UnKnown;
     }
   }
+  if (!processAssumeCalls(F, ThisObj))
+    return UnKnown;
+
   // Check all instructions are processed. Make Vtable store
   // as optional.
   if (ConstructorCall != 1 || !checkAllInstsProcessed(F, ProcessedInsts))
@@ -1830,6 +1880,9 @@ FunctionKind ClassInfo::recognizeConstructor(Function *F) {
     return UnKnown;
   }
 
+  if (!processAssumeCalls(F, ThisObj))
+    return UnKnown;
+
   // Makes sure all instructions are processed.
   if (!checkAllInstsProcessed(F, Visited)) {
     DEBUG_WITH_TYPE(DTRANS_SOATOAOSCLASSINFO, {
@@ -2022,6 +2075,9 @@ FunctionKind ClassInfo::recognizeSetElem(Function *Fn) {
   if (!CheckBB || !isControlledUnderSizeCheck(CheckBB, ThisObj, SetAtLoc))
     return UnKnown;
   Visited.insert(SI);
+
+  if (!processAssumeCalls(Fn, ThisObj))
+    return UnKnown;
 
   // Makes sure all instructions are processed.
   if (!checkAllInstsProcessed(Fn, Visited)) {
@@ -2350,6 +2406,9 @@ FunctionKind ClassInfo::recognizeDestructor(Function *Fn) {
   if (!CheckEHBlocks(EHBasicBlocks, ThisObj))
     return UnKnown;
 
+  if (!processAssumeCalls(Fn, ThisObj))
+    return UnKnown;
+
   if (!checkAllInstsProcessed(Fn, Visited)) {
     DEBUG_WITH_TYPE(DTRANS_SOATOAOSCLASSINFO, {
       dbgs() << " Failed: Missing to process some instructions.\n";
@@ -2573,6 +2632,11 @@ FunctionKind ClassInfo::recognizeCopyConstructor(Function *Fn) {
     if (ElemStoreCount != 1)
       return UnKnown;
   }
+
+  // In case of CopyConstructor, make sure Vtable is accessed from
+  // "SrcObj".
+  if (!processAssumeCalls(Fn, SrcObj))
+    return UnKnown;
 
   if (!checkAllInstsProcessed(Fn, Visited)) {
     DEBUG_WITH_TYPE(DTRANS_SOATOAOSCLASSINFO, {
@@ -3327,6 +3391,9 @@ FunctionKind ClassInfo::recognizeResize(Function *Fn) {
     return UnKnown;
   // Free Call should be dominated by Array element assignment.
   if (!checkDominatorInfo(CopyRelatedInst, FreeRelatedInst))
+    return UnKnown;
+
+  if (!processAssumeCalls(Fn, ThisObj))
     return UnKnown;
 
   if (!checkAllInstsProcessed(Fn, Visited)) {

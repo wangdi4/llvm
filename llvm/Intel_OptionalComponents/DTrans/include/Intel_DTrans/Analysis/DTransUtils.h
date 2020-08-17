@@ -29,6 +29,7 @@ class CallBase;
 class Function;
 class Type;
 class Value;
+class Instruction;
 
 namespace dtrans {
 
@@ -94,6 +95,8 @@ bool valueOnlyUsedForMemset(llvm::Value *V);
 // the memory location it was loaded from.
 bool isLoadedValueUnused(Value *V, Value *LoadAddr);
 
+// Return 'true' if "I" is either llvm.type_test or llvm.assume intrinsic.
+bool isTypeTestRelatedIntrinsic(const Instruction *I);
 
 } // namespace dtrans
 } // namespace llvm

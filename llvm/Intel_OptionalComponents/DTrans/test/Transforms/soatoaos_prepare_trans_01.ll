@@ -257,6 +257,10 @@
 ; CHECK-NEXT: entry:
 ; CHECK-NEXT: %capacity = getelementptr inbounds %_DPRE__REP_struct.RefArr, %_DPRE__REP_struct.RefArr* %this, i64 0, i32 1
 
+; Make sure llvm.assume and llvm.type.test calls are removed.
+; CHECK-NOT: %tt2 = tail call i1 @llvm.type.test(i8* %bc2, metadata !"typeId1")
+; CHECK-NOT: tail call void @llvm.assume(i1 %tt2)
+
 ; Make sure Dtor wrapper is deleted.
 ; CHECK-NOT: define void @_ZN6RefArrIPsED0Ev{{.*}}{{.*}}(%_DPRE__REP_struct.RefArr*
 
@@ -343,6 +347,9 @@ invoke.cont7:                                     ; preds = %entry
   %12 = load %struct.BaseArr*, %struct.BaseArr** %8
   %13 = bitcast %struct.BaseArr* %12 to void (%struct.BaseArr*, i32, i16**)***
   %vtable = load void (%struct.BaseArr*, i32, i16**)**, void (%struct.BaseArr*, i32, i16**)*** %13
+  %bc1 = bitcast void (%struct.BaseArr*, i32, i16**)** %vtable to i8*
+  %tt = tail call i1 @llvm.type.test(i8* %bc1, metadata !"typeId")
+  tail call void @llvm.assume(i1 %tt)
   %vfn = getelementptr inbounds void (%struct.BaseArr*, i32, i16**)*, void (%struct.BaseArr*, i32, i16**)** %vtable, i64 2
   %14 = load void (%struct.BaseArr*, i32, i16**)*, void (%struct.BaseArr*, i32, i16**)** %vfn
   tail call void @_ZN7BaseArrIPsE3setEjPS0_(%struct.BaseArr* %12, i32 0, i16** %call13)
@@ -427,6 +434,9 @@ delete.end51:                                     ; preds = %delete.notnull50, %
 delete.notnull54:                                 ; preds = %delete.end51
   %37 = bitcast %struct.RefArr* %36 to void (%struct.RefArr*)***
   %vtable55 = load void (%struct.RefArr*)**, void (%struct.RefArr*)*** %37
+  %bc2 = bitcast void (%struct.RefArr*)** %vtable55 to i8*
+  %tt2 = tail call i1 @llvm.type.test(i8* %bc2, metadata !"typeId1")
+  tail call void @llvm.assume(i1 %tt2)
   %vfn56 = getelementptr inbounds void (%struct.RefArr*)*, void (%struct.RefArr*)** %vtable55, i64 1
   %38 = load void (%struct.RefArr*)*, void (%struct.RefArr*)** %vfn56
   tail call void @_ZN6RefArrIPsED0Ev(%struct.RefArr* nonnull %36)
@@ -783,3 +793,5 @@ declare dso_local void @__cxa_rethrow()
 declare dso_local void @free(i8* nocapture)
 declare void @llvm.memset.p0i8.i64(i8* nocapture writeonly, i8, i64, i1 immarg)
 declare dso_local noalias i8* @malloc(i64)
+declare i1 @llvm.type.test(i8* , metadata)
+declare void @llvm.assume(i1)
