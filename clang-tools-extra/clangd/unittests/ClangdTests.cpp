@@ -15,6 +15,7 @@
 #include "Matchers.h"
 #include "SyncAPI.h"
 #include "TestFS.h"
+#include "TestTU.h"
 #include "URI.h"
 #include "support/Path.h"
 #include "support/Threading.h"
@@ -28,6 +29,7 @@
 #include "llvm/Support/Errc.h"
 #include "llvm/Support/Path.h"
 #include "llvm/Support/Regex.h"
+#include "llvm/Testing/Support/Error.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 #include <algorithm>
@@ -137,9 +139,25 @@ std::string replacePtrsInDump(std::string const &Dump) {
   return Result;
 }
 
+std::string dumpAST(ClangdServer &Server, PathRef File) {
+  std::string Result;
+  Notification Done;
+  Server.customAction(File, "DumpAST", [&](llvm::Expected<InputsAndAST> AST) {
+    if (AST) {
+      llvm::raw_string_ostream ResultOS(Result);
+      AST->AST.getASTContext().getTranslationUnitDecl()->dump(ResultOS, true);
+    } else {
+      llvm::consumeError(AST.takeError());
+      Result = "<no-ast>";
+    }
+    Done.notify();
+  });
+  Done.wait();
+  return Result;
+}
+
 std::string dumpASTWithoutMemoryLocs(ClangdServer &Server, PathRef File) {
-  auto DumpWithMemLocs = runDumpAST(Server, File);
-  return replacePtrsInDump(DumpWithMemLocs);
+  return replacePtrsInDump(dumpAST(Server, File));
 }
 
 class ClangdVFSTest : public ::testing::Test {
@@ -605,7 +623,7 @@ TEST_F(ClangdVFSTest, InvalidCompileCommand) {
   // Clang can't parse command args in that case, but we shouldn't crash.
   runAddDocument(Server, FooCpp, "int main() {}");
 
-  EXPECT_EQ(runDumpAST(Server, FooCpp), "<no-ast>");
+  EXPECT_EQ(dumpAST(Server, FooCpp), "<no-ast>");
   EXPECT_ERROR(runLocateSymbolAt(Server, FooCpp, Position()));
   EXPECT_ERROR(runFindDocumentHighlights(Server, FooCpp, Position()));
   EXPECT_ERROR(runRename(Server, FooCpp, Position(), "new_name",
@@ -1139,6 +1157,21 @@ TEST_F(ClangdVFSTest, FallbackWhenWaitingForCompileCommand) {
                   .Completions,
               ElementsAre(AllOf(Field(&CodeCompletion::Name, "xyz"),
                                 Field(&CodeCompletion::Scope, "ns::"))));
+}
+
+TEST(ClangdServerTest, CustomAction) {
+  OverlayCDB CDB(/*Base=*/nullptr);
+  MockFS FS;
+  ClangdServer Server(CDB, FS, ClangdServer::optsForTest());
+
+  Server.addDocument(testPath("foo.cc"), "void x();");
+  Decl::Kind XKind = Decl::TranslationUnit;
+  EXPECT_THAT_ERROR(runCustomAction(Server, testPath("foo.cc"),
+                                    [&](InputsAndAST AST) {
+                                      XKind = findDecl(AST.AST, "x").getKind();
+                                    }),
+                    llvm::Succeeded());
+  EXPECT_EQ(XKind, Decl::Function);
 }
 
 // Tests fails when built with asan due to stack overflow. So skip running the
