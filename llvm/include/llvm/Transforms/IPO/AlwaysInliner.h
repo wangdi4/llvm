@@ -39,13 +39,10 @@ public:
   AlwaysInlinerPass(bool InsertLifetime = true);
 
   PreservedAnalyses run(Module &M, ModuleAnalysisManager &);
-<<<<<<< HEAD
 
   InlineReport& getReport() { return Report; } // INTEL
   InlineReportBuilder& getMDReport() { return MDReport; } // INTEL
-=======
   static bool isRequired() { return true; }
->>>>>>> e6ea8779c2e0c60007d1015cc98fe3d2642a1652
 };
 
 /// Create a legacy pass manager instance of a pass to inline and remove
