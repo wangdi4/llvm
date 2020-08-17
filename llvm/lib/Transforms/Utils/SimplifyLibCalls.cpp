@@ -610,12 +610,16 @@ Value *LibCallSimplifier::optimizeStrNCpy(CallInst *CI, IRBuilderBase &B) {
 
   // strncpy(a, "a", 4) - > memcpy(a, "a\0\0\0", 4)
   if (Len > SrcLen + 1) {
-    StringRef Str;
-    if (!getConstantStringInfo(Src, Str))
+    if (Len <= 128) {
+      StringRef Str;
+      if (!getConstantStringInfo(Src, Str))
+        return nullptr;
+      std::string SrcStr = Str.str();
+      SrcStr.resize(Len, '\0');
+      Src = B.CreateGlobalString(SrcStr, "str");
+    } else {
       return nullptr;
-    std::string SrcStr = Str.str();
-    SrcStr.resize(Len, '\0');
-    Src = B.CreateGlobalString(SrcStr, "str");
+    }
   }
 
   Type *PT = Callee->getFunctionType()->getParamType(0);
@@ -2502,7 +2506,7 @@ Value *LibCallSimplifier::optimizeSPrintFString(CallInst *CI,
           CI->getArgOperand(0), Align(1), CI->getArgOperand(2), Align(1),
           ConstantInt::get(DL.getIntPtrType(CI->getContext()), SrcLen));
       // Returns total number of characters written without null-character.
-      return ConstantInt::get(DL.getIntPtrType(CI->getContext()), SrcLen - 1);
+      return ConstantInt::get(CI->getType(), SrcLen - 1);
     } else if (Value *V = emitStpCpy(CI->getArgOperand(0), CI->getArgOperand(2),
                                      B, TLI)) {
       // sprintf(dest, "%s", str) -> stpcpy(dest, str) - dest
