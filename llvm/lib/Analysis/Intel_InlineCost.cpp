@@ -28,6 +28,7 @@
 #include "llvm/Analysis/ProfileSummaryInfo.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/Analysis/TargetTransformInfo.h"
+#include "llvm/Analysis/VPO/Utils/VPOAnalysisUtils.h"
 #include "llvm/Analysis/ValueTracking.h"
 #include "llvm/Config/llvm-config.h"
 #include "llvm/IR/AssemblyAnnotationWriter.h"
@@ -574,6 +575,22 @@ extern bool isDynamicAllocaException(AllocaInst &I, CallBase &CandidateCall,
     }
     return CallOrLoadSeen && SingleStore;
   };
+
+  // Return 'true' if 'I' appears in a OMP_SIMD directive
+  auto IsInOmpSimd = [](AllocaInst &I) -> bool {
+    if (!vpo::VPOAnalysisUtils::mayHaveOpenmpDirective(*I.getFunction()))
+      return false;
+    for (User *U : I.users()) {
+      auto II = dyn_cast<IntrinsicInst>(U);
+      if (II && vpo::VPOAnalysisUtils::getDirectiveID(II) == DIR_OMP_SIMD)
+        return true;
+    }
+    return false;
+  };
+
+  // CMPLRLLVM-21826: Ignore AllocaInsts that appear in an OMP_SIMD directive
+  if (IsInOmpSimd(I))
+    return true;
 
   // In Fortran, dynamic allocas can be used to represent local arrays
   // allocated on the stack. We don't want to inhibiting inlining under
