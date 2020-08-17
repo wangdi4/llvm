@@ -2206,7 +2206,9 @@ static bool runAttributorOnFunctions(InformationCache &InfoCache,
   //       cost, we need a cost interface to determine whether internalizing
   //       a function is "benefitial"
   if (AllowDeepWrapper) {
-    for (Function *F : Functions)
+    unsigned FunSize = Functions.size();
+    for (unsigned u = 0; u < FunSize; u++) {
+      Function *F = Functions[u];
       if (!F->isDeclaration() && !F->isDefinitionExact() && F->getNumUses() &&
           !GlobalValue::isInterposableLinkage(F->getLinkage())) {
         Function *NewF = internalizeFunction(*F);
@@ -2220,6 +2222,7 @@ static bool runAttributorOnFunctions(InformationCache &InfoCache,
             CGUpdater.reanalyzeFunction(*CallerF);
           }
       }
+    }
   }
 
   for (Function *F : Functions) {
