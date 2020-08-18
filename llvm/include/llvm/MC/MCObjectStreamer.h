@@ -200,6 +200,11 @@ public:
   void emitAbsoluteSymbolDiff(const MCSymbol *Hi, const MCSymbol *Lo,
                               unsigned Size) override;
 
+#if INTEL_CUSTOMIZATION
+  /// Emit the line record in .trace section.
+  void emitTraceLine(const MCTraceLine &Line) override;
+#endif // INTEL_CUSTOMIZATION
+
   void emitAbsoluteSymbolDiffAsULEB128(const MCSymbol *Hi,
                                        const MCSymbol *Lo) override;
 

@@ -41,6 +41,9 @@ public:
     FT_Relaxable,
     FT_Org,
     FT_Dwarf,
+#if INTEL_CUSTOMIZATION
+    FT_Trace,
+#endif // INTEL_CUSTOMIZATION
     FT_DwarfFrame,
     FT_LEB,
     FT_BoundaryAlign,
@@ -139,6 +142,9 @@ public:
     case MCFragment::FT_CompactEncodedInst:
     case MCFragment::FT_Data:
     case MCFragment::FT_Dwarf:
+#if INTEL_CUSTOMIZATION
+    case MCFragment::FT_Trace:
+#endif // INTEL_CUSTOMIZATION
     case MCFragment::FT_DwarfFrame:
       return true;
     }
@@ -431,6 +437,30 @@ public:
     return F->getKind() == MCFragment::FT_LEB;
   }
 };
+
+#if INTEL_CUSTOMIZATION
+/// Fragment for line record in .trace section. (Note that
+/// requiresDiffExpressionRelocations() for X86 backend is always false, so we
+/// do not need a fixup.)
+class MCTraceLineFragment : public MCEncodedFragmentWithContents<2> {
+private:
+  int32_t DeltaLine;
+  const MCExpr *DeltaPC;
+
+public:
+  MCTraceLineFragment(int32_t DeltaLine, const MCExpr *DeltaPC,
+                      MCSection *Sec = nullptr)
+      : MCEncodedFragmentWithContents<2>(FT_Trace, false, Sec),
+        DeltaLine(DeltaLine), DeltaPC(DeltaPC) {}
+
+  int32_t getDeltaLine() const { return DeltaLine; }
+
+  const MCExpr *getDeltaPC() const { return DeltaPC; }
+  static bool classof(const MCFragment *F) {
+    return F->getKind() == MCFragment::FT_Trace;
+  }
+};
+#endif // INTEL_CUSTOMIZATION
 
 class MCDwarfLineAddrFragment : public MCEncodedFragmentWithFixups<8, 1> {
   /// The value of the difference between the two line numbers

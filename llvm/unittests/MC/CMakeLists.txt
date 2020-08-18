@@ -6,6 +6,9 @@ endforeach()
 
 set(LLVM_LINK_COMPONENTS
   ${LLVM_TARGETS_TO_BUILD}
+# INTEL_CUSTOMIZATION
+  BinaryFormat
+# end INTEL_CUSTOMIZATION
   MC
   MCDisassembler
   Support
@@ -14,6 +17,9 @@ set(LLVM_LINK_COMPONENTS
 add_llvm_unittest(MCTests
   Disassembler.cpp
   DwarfLineTables.cpp
+# INTEL_CUSTOMIZATION
+  Intel_MCTraceTest.cpp
+# end INTEL_CUSTOMIZATION
   MCInstPrinter.cpp
   StringTableBuilderTest.cpp
   TargetRegistry.cpp

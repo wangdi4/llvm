@@ -15,6 +15,9 @@ add_llvm_component_library(LLVMMC
   MCCodeView.cpp
   MCContext.cpp
   MCDwarf.cpp
+# INTEL_CUSTOMIZATION
+  Intel_MCTrace.cpp
+# end INTEL_CUSTOMIZATION
   MCELFObjectTargetWriter.cpp
   MCELFStreamer.cpp
   MCExpr.cpp

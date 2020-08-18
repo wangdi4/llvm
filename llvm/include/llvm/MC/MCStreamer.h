@@ -19,6 +19,7 @@
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/StringRef.h"
 #include "llvm/DebugInfo/CodeView/SymbolRecord.h"
+#include "llvm/MC/Intel_MCTrace.h" //INTEL
 #include "llvm/MC/MCDirectives.h"
 #include "llvm/MC/MCLinkerOptimizationHint.h"
 #include "llvm/MC/MCSymbol.h"
@@ -960,6 +961,11 @@ public:
   /// \pre Offset of \c Hi is greater than the offset \c Lo.
   virtual void emitAbsoluteSymbolDiff(const MCSymbol *Hi, const MCSymbol *Lo,
                                       unsigned Size);
+
+#if INTEL_CUSTOMIZATION
+  /// Emit the line record in .trace section.
+  virtual void emitTraceLine(const MCTraceLine &Line) {}
+#endif // INTEL_CUSTOMIZATION
 
   /// Emit the absolute difference between two symbols encoded with ULEB128.
   virtual void emitAbsoluteSymbolDiffAsULEB128(const MCSymbol *Hi,

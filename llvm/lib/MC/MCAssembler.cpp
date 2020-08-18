@@ -29,6 +29,9 @@
 #include "llvm/MC/MCSection.h"
 #include "llvm/MC/MCSectionELF.h"
 #include "llvm/MC/MCSymbol.h"
+#if INTEL_CUSTOMIZATION
+#include "llvm/MC/Intel_MCTrace.h"
+#endif // INTEL_CUSTOMIZATION
 #include "llvm/MC/MCValue.h"
 #include "llvm/Support/Alignment.h"
 #include "llvm/Support/Casting.h"
@@ -374,7 +377,10 @@ uint64_t MCAssembler::computeFragmentSize(const MCAsmLayout &Layout,
     }
     return Size;
   }
-
+#if INTEL_CUSTOMIZATION
+  case MCFragment::FT_Trace:
+    return cast<MCTraceLineFragment>(F).getContents().size();
+#endif // INTEL_CUSTOMIZATION
   case MCFragment::FT_Dwarf:
     return cast<MCDwarfLineAddrFragment>(F).getContents().size();
   case MCFragment::FT_DwarfFrame:
@@ -683,6 +689,14 @@ static void writeFragment(raw_ostream &OS, const MCAssembler &Asm,
 
     break;
   }
+
+#if INTEL_CUSTOMIZATION
+  case MCFragment::FT_Trace: {
+    const MCTraceLineFragment &TF = cast<MCTraceLineFragment>(F);
+    OS << TF.getContents();
+    break;
+  }
+#endif // INTEL_CUSTOMIZATION
 
   case MCFragment::FT_Dwarf: {
     const MCDwarfLineAddrFragment &OF = cast<MCDwarfLineAddrFragment>(F);
@@ -1082,6 +1096,21 @@ bool MCAssembler::relaxBoundaryAlign(MCAsmLayout &Layout,
   return true;
 }
 
+#if INTEL_CUSTOMIZATION
+bool MCAssembler::relaxTraceLine(MCAsmLayout &Layout, MCTraceLineFragment &TF) {
+  uint64_t OldSize = TF.getContents().size();
+  assert(OldSize <= 8 && "The longest line record is LN4 + PC4");
+  int64_t DeltaPC;
+  TF.getDeltaPC()->evaluateKnownAbsolute(DeltaPC, Layout);
+  assert(isUInt<32>(DeltaPC) && "Unsupported delta PC");
+  SmallVectorImpl<char> &Data = TF.getContents();
+  Data.clear();
+  raw_svector_ostream OSE(Data);
+  MCTraceLine::encode(OSE, TF.getDeltaLine(), static_cast<uint32_t>(DeltaPC));
+  return OldSize != Data.size();
+}
+#endif // INTEL_CUSTOMIZATION
+
 bool MCAssembler::relaxDwarfLineAddr(MCAsmLayout &Layout,
                                      MCDwarfLineAddrFragment &DF) {
   MCContext &Context = Layout.getAssembler().getContext();
@@ -1175,6 +1204,10 @@ bool MCAssembler::relaxFragment(MCAsmLayout &Layout, MCFragment &F) {
     assert(!getRelaxAll() &&
            "Did not expect a MCRelaxableFragment in RelaxAll mode");
     return relaxInstruction(Layout, cast<MCRelaxableFragment>(F));
+#if INTEL_CUSTOMIZATION
+  case MCFragment::FT_Trace:
+    return relaxTraceLine(Layout, cast<MCTraceLineFragment>(F));
+#endif // INTEL_CUSTOMIZATION
   case MCFragment::FT_Dwarf:
     return relaxDwarfLineAddr(Layout, cast<MCDwarfLineAddrFragment>(F));
   case MCFragment::FT_DwarfFrame:

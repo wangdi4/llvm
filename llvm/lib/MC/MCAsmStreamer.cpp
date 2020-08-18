@@ -295,6 +295,10 @@ public:
   void emitCVFileChecksumsDirective() override;
   void emitCVFileChecksumOffsetDirective(unsigned FileNo) override;
   void EmitCVFPOData(const MCSymbol *ProcSym, SMLoc L) override;
+#if INTEL_CUSTOMIZATION
+  /// Emit the line record in .trace section.
+  void emitTraceLine(const MCTraceLine &Line) override;
+#endif // INTEL_CUSTOMIZATION
 
   void emitIdent(StringRef IdentString) override;
   void emitCFIBKeyFrame() override;
@@ -1595,6 +1599,12 @@ void MCAsmStreamer::EmitCVFPOData(const MCSymbol *ProcSym, SMLoc L) {
   ProcSym->print(OS, MAI);
   EmitEOL();
 }
+
+#if INTEL_CUSTOMIZATION
+void MCAsmStreamer::emitTraceLine(const MCTraceLine &Line) {
+  Line.emitNonOptimalValue(*this);
+}
+#endif // INTEL_CUSTOMIZATION
 
 void MCAsmStreamer::emitIdent(StringRef IdentString) {
   assert(MAI->hasIdentDirective() && ".ident directive not supported");
