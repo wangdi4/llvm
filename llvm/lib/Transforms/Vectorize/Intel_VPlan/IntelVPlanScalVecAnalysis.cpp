@@ -171,7 +171,7 @@ bool VPlanScalVecAnalysis::computeSpecialInstruction(
     // operands as Vector.
     auto SetSVAKindForArgOperands = [this](const VPCallInstruction *VPCall,
                                            const SVAKind Kind) {
-      for (unsigned ArgIdx = 0; ArgIdx < VPCall->arg_size(); ++ArgIdx)
+      for (unsigned ArgIdx = 0; ArgIdx < VPCall->getNumArgOperands(); ++ArgIdx)
         setSVAKindForOperand(VPCall, ArgIdx, Kind);
     };
 
@@ -211,7 +211,8 @@ bool VPlanScalVecAnalysis::computeSpecialInstruction(
           const_cast<VectorVariant *>(VPCall->getVectorVariant());
       std::vector<VectorKind> Parms = VecVariant->getParameters();
 
-      for (unsigned ArgIdx = 0; ArgIdx < VPCall->arg_size(); ++ArgIdx) {
+      for (unsigned ArgIdx = 0; ArgIdx < VPCall->getNumArgOperands();
+           ++ArgIdx) {
         if (Parms[ArgIdx].isVector())
           setSVAKindForOperand(VPCall, ArgIdx, SVAKind::Vector);
         else
@@ -226,7 +227,8 @@ bool VPlanScalVecAnalysis::computeSpecialInstruction(
       // Call that is vectorized trivially using vector intrinsics. Argument
       // nature is decided based on intrinsic.
       Intrinsic::ID ID = VPCall->getVectorIntrinsic();
-      for (unsigned ArgIdx = 0; ArgIdx < VPCall->arg_size(); ++ArgIdx) {
+      for (unsigned ArgIdx = 0; ArgIdx < VPCall->getNumArgOperands();
+           ++ArgIdx) {
         if (hasVectorInstrinsicScalarOpd(ID, ArgIdx))
           setSVAKindForOperand(VPCall, ArgIdx, SVAKind::FirstScalar);
         else

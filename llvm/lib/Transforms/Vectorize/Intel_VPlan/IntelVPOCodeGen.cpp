@@ -15,10 +15,11 @@
 
 #include "IntelVPOCodeGen.h"
 #include "IntelLoopVectorizationLegality.h"
+#include "IntelVPSOAAnalysis.h"
 #include "IntelVPlan.h"
+#include "IntelVPlanCallVecDecisions.h"
 #include "IntelVPlanUtils.h"
 #include "IntelVPlanVLSAnalysis.h"
-#include "IntelVPSOAAnalysis.h"
 #include "llvm/Analysis/LoopAccessAnalysis.h"
 #include "llvm/Analysis/ScalarEvolutionExpressions.h"
 #include "llvm/Analysis/VectorUtils.h"
@@ -1578,13 +1579,14 @@ void VPOCodeGen::vectorizeCallArgs(VPCallInstruction *VPCall,
   assert(F && "Function not found for call instruction");
   StringRef FnName = F->getName();
 
-  auto ProcessCallArg = [&](unsigned OrigArgIdx) -> Value * {
+  auto ProcessCallArg = [&](unsigned OrigArgIdx,
+                            unsigned ParamsIdx) -> Value * {
     if (isOpenCLWriteChannelSrc(FnName, OrigArgIdx)) {
       llvm_unreachable(
           "VPVALCG: OpenCL write channel vectorization not uplifted.");
     }
 
-    if ((!VecVariant || Parms[OrigArgIdx].isVector()) &&
+    if ((!VecVariant || Parms[ParamsIdx].isVector()) &&
         !isScalarArgument(FnName, OrigArgIdx) &&
         !hasVectorInstrinsicScalarOpd(VectorIntrinID, OrigArgIdx)) {
       // This is a vector call arg, so vectorize it.
@@ -1627,7 +1629,7 @@ void VPOCodeGen::vectorizeCallArgs(VPCallInstruction *VPCall,
 
   AttributeList Attrs = VPCall->getOrigCallAttrs();
 
-  unsigned NumArgOperands = VPCall->arg_size();
+  unsigned NumArgOperands = VPCall->getNumArgOperands();
 
   // glibc scalar sincos function has 2 pointer out parameters, but SVML sincos
   // functions return the results directly in a struct. The pointers should be
@@ -1635,14 +1637,16 @@ void VPOCodeGen::vectorizeCallArgs(VPCallInstruction *VPCall,
   if (FnName == "sincos" || FnName == "sincosf")
     NumArgOperands -= 2;
 
-  for (unsigned OrigArgIdx = 0; OrigArgIdx < NumArgOperands; OrigArgIdx++) {
+  for (unsigned OrigArgIdx = VPCall->isIntelIndirectCall() ? 1 : 0,
+                ParamsIdx = 0;
+       OrigArgIdx < NumArgOperands; OrigArgIdx++, ParamsIdx++) {
     if (isOpenCLReadChannelDest(FnName, OrigArgIdx))
       continue;
 
-    Value *VecArg = ProcessCallArg(OrigArgIdx);
+    Value *VecArg = ProcessCallArg(OrigArgIdx, ParamsIdx);
     VecArgs.push_back(VecArg);
     VecArgTys.push_back(VecArg->getType());
-    VecArgAttrs.push_back(Attrs.getParamAttributes(OrigArgIdx));
+    VecArgAttrs.push_back(Attrs.getParamAttributes(ParamsIdx));
   }
 
   // Process mask parameters for current part being pumped. Masked intrinsics
@@ -1691,7 +1695,8 @@ void VPOCodeGen::vectorizeCallArgs(VPCallInstruction *VPCall,
   }
 
   // Promote to characteristic type.
-  Type *CharacteristicType = calcCharacteristicType(*F, *VecVariant);
+  Type *CharacteristicType =
+      VPlanCallVecDecisions::calcCharacteristicType(VPCall, *VecVariant);
   unsigned CharacteristicTypeSize =
       CharacteristicType->getPrimitiveSizeInBits();
 

@@ -42,6 +42,11 @@ public:
   void run(unsigned VF, const TargetLibraryInfo *TLI,
            const TargetTransformInfo *TTI);
 
+  /// Determine the characteristic type of the vector function as
+  /// specified according to the vector function ABI.
+  static Type *calcCharacteristicType(VPCallInstruction *VPCallInst,
+                                      VectorVariant &Variant);
+
 private:
   /// Determine call vectorization properties for a given \p VPCall. This
   /// decision is taken based on given \p VF and various external components
