@@ -16,3 +16,14 @@
 // RUN:   %clang -### -fsycl -fintelfpga %s 2>&1 \
 // RUN:   | FileCheck -check-prefix=CHECK-NO-SYCL-EARLY-OPTS %s
 // CHECK-NO-SYCL-EARLY-OPTS: "-fno-sycl-early-optimizations"
+
+// if INTEL_COLLAB
+/// Check that optimizations for sycl device are disabled in presence of -g:
+// RUN:   %clang -### -g -fsycl %s 2>&1 \
+// RUN:   | FileCheck -check-prefix=CHECK-DEBUG %s
+// RUN:   %clang -### -g -fsycl -fsycl-device-only %s 2>&1 \
+// RUN:   | FileCheck -check-prefix=CHECK-DEBUG %s
+// RUN:   %clang_cl -### /Z7 -fsycl %s 2>&1 \
+// RUN:   | FileCheck -check-prefix=CHECK-DEBUG %s
+// CHECK-DEBUG: "-fno-sycl-early-optimizations"
+// end INTEL_COLLAB
