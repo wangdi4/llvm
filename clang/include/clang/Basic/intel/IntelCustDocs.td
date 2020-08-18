@@ -267,6 +267,47 @@ alias each other.
 
 // Intel Compatibility
 
+def InstantiateDefaultArgsDocs : Documentation {
+  let Category = DocCatIntelCompat;
+  let Option = "IntelCompat";
+  let BugTracker = "CMPLRLLVM-18148";
+  let RegressionTest = "test/CodeGenCXX/intel/default-arg-closures.cpp";
+  let Owner = "zahiraam";
+  let Default = 1;
+  let Content = [{
+The MS ABI requires that the default argument of a default constructor be
+instantiated.
+
+Syntax:
+
+.. code-block:: c++
+
+   template <typename>
+   class __declspec(dllexport) foo {
+     foo(int x = 0);
+   };
+   template <> foo<int>::foo(int);
+
+IR:
+
+.. code-block:: console
+
+   $ clang -cc1 -fintel-compatibility
+     -fintel-compatibility-enable=InstantiateDefaultArgs -emit-obj t1.cpp
+
+.. code-block:: text
+
+   $ dumpbin /symbols t1.o | grep foo
+   008 00000000 SECT4  notype ()    External     | ??4?$foo@H@@QEAAAEAV0@AEBV0@@Z (public: class foo<int> & __cdecl foo<int>::operator=(class foo<int> const &))
+   00B 00000000 SECT5  notype ()    External     | ??_F?$foo@H@@QEAAXXZ (public: void __cdecl foo<int>::`default constructor closure'(void))
+   013 00000000 UNDEF  notype       External     | ??0?$foo@H@@QEAA@H@Z (public: __cdecl foo<int>::foo<int>(int))
+
+  }];
+  let UserContent = [{
+Instantiate default arguments for exported default constructors.
+  }];
+}
+
 def AllowMissingTypenameDocs : Documentation {
   let Category = DocCatIntelCompat;
   let Option = "IntelCompat";
