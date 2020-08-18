@@ -22,27 +22,27 @@ define void @widget([240 x i32]* %arg, i64 %arg1, i32* %arg2) {
 ; CHECK-NEXT:    movl -28(%rdi), %ecx
 ; CHECK-NEXT:    movl -24(%rdi), %r8d
 ; CHECK-NEXT:    cmpl %eax, %ecx
-; CHECK-NEXT:    cmovgel %ecx, %eax
+; CHECK-NEXT:    cmovgl %ecx, %eax
 ; CHECK-NEXT:    cmpl %eax, %r8d
-; CHECK-NEXT:    cmovgel %r8d, %eax
+; CHECK-NEXT:    cmovgl %r8d, %eax
 ; CHECK-NEXT:    movl -20(%rdi), %ecx
 ; CHECK-NEXT:    cmpl %eax, %ecx
-; CHECK-NEXT:    cmovgel %ecx, %eax
+; CHECK-NEXT:    cmovgl %ecx, %eax
 ; CHECK-NEXT:    movl -16(%rdi), %ecx
 ; CHECK-NEXT:    cmpl %eax, %ecx
-; CHECK-NEXT:    cmovgel %ecx, %eax
+; CHECK-NEXT:    cmovgl %ecx, %eax
 ; CHECK-NEXT:    movl -12(%rdi), %ecx
 ; CHECK-NEXT:    cmpl %eax, %ecx
-; CHECK-NEXT:    cmovgel %ecx, %eax
+; CHECK-NEXT:    cmovgl %ecx, %eax
 ; CHECK-NEXT:    movl -8(%rdi), %ecx
 ; CHECK-NEXT:    cmpl %eax, %ecx
-; CHECK-NEXT:    cmovgel %ecx, %eax
+; CHECK-NEXT:    cmovgl %ecx, %eax
 ; CHECK-NEXT:    movl -4(%rdi), %ecx
 ; CHECK-NEXT:    cmpl %eax, %ecx
-; CHECK-NEXT:    cmovgel %ecx, %eax
+; CHECK-NEXT:    cmovgl %ecx, %eax
 ; CHECK-NEXT:    movl (%rdi), %ecx
 ; CHECK-NEXT:    cmpl %eax, %ecx
-; CHECK-NEXT:    cmovgel %ecx, %eax
+; CHECK-NEXT:    cmovgl %ecx, %eax
 ; CHECK-NEXT:    addq $32, %rdi
 ; CHECK-NEXT:    decq %rsi
 ; CHECK-NEXT:    jne .LBB0_1
