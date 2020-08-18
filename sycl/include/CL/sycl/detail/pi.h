@@ -581,8 +581,9 @@ using _pi_offload_entry = _pi_offload_entry_struct *;
 // A type of a binary image property.
 typedef enum {
   PI_PROPERTY_TYPE_UNKNOWN,
-  PI_PROPERTY_TYPE_UINT32, // 32-bit integer
-  PI_PROPERTY_TYPE_STRING  // null-terminated string
+  PI_PROPERTY_TYPE_UINT32,     // 32-bit integer
+  PI_PROPERTY_TYPE_BYTE_ARRAY, // byte array
+  PI_PROPERTY_TYPE_STRING      // null-terminated string
 } pi_property_type;
 
 // Device binary image property.
@@ -652,6 +653,8 @@ static const uint8_t PI_DEVICE_BINARY_OFFLOAD_KIND_SYCL = 4;
 #define PI_PROPERTY_SET_SPEC_CONST_MAP "SYCL/specialization constants"
 /// PropertySetRegistry::SYCL_DEVICELIB_REQ_MASK defined in PropertySetIO.h
 #define PI_PROPERTY_SET_DEVICELIB_REQ_MASK "SYCL/devicelib req mask"
+/// PropertySetRegistry::SYCL_KERNEL_PARAM_OPT_INFO defined in PropertySetIO.h
+#define PI_PROPERTY_SET_KERNEL_PARAM_OPT_INFO "SYCL/kernel param opt"
 
 /// This struct is a record of the device binary information. If the Kind field
 /// denotes a portable binary type (SPIR-V or LLVM IR), the DeviceTargetSpec
@@ -956,9 +959,9 @@ __SYCL_EXPORT pi_result piextQueueCreateWithNativeHandle(
 //
 // Memory
 //
-__SYCL_EXPORT pi_result piMemBufferCreate(pi_context context,
-                                          pi_mem_flags flags, size_t size,
-                                          void *host_ptr, pi_mem *ret_mem);
+__SYCL_EXPORT pi_result piMemBufferCreate(
+    pi_context context, pi_mem_flags flags, size_t size, void *host_ptr,
+    pi_mem *ret_mem, const cl_mem_properties_intel *properties = nullptr);
 
 __SYCL_EXPORT pi_result piMemImageCreate(pi_context context, pi_mem_flags flags,
                                          const pi_image_format *image_format,
