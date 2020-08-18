@@ -7,7 +7,7 @@
 ; RUN: opt < %s -agginliner -debug-only=agginliner -whole-program-assume -disable-output  2>&1 | FileCheck %s
 ; RUN: opt < %s -passes='module(agginliner)' -debug-only=agginliner -whole-program-assume -disable-output  2>&1 | FileCheck %s
 
-; CHECK: Started AggInl SingleAccessFunctionGlobalVar Analysis
+; CHECK: AggInl: SingleAccessFunctionGlobalVarHeuristic
 ; CHECK:  GV selected as candidate: grad
 ; CHECK:  Ignored GV ... calls are not okay to inline
 
