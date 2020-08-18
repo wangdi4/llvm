@@ -36,6 +36,7 @@
 
 // List of all plugins that can support offloading.
 static const char *RTLNames[] = {
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_CSA
     /* CSA target     */ "libomptarget.rtl.csa.so",
@@ -68,6 +69,14 @@ static const char *RTLNames[] = {
     /* CUDA target    */ "libomptarget.rtl.cuda.so",
     /* AArch64 target */ "libomptarget.rtl.aarch64.so",
     /* AMDGPU target  */ "libomptarget.rtl.amdgpu.so",
+=======
+    /* PowerPC target       */ "libomptarget.rtl.ppc64.so",
+    /* x86_64 target        */ "libomptarget.rtl.x86_64.so",
+    /* CUDA target          */ "libomptarget.rtl.cuda.so",
+    /* AArch64 target       */ "libomptarget.rtl.aarch64.so",
+    /* SX-Aurora VE target  */ "libomptarget.rtl.ve.so",
+    /* AMDGPU target        */ "libomptarget.rtl.amdgpu.so",
+>>>>>>> 32ebdc70f3af478f4f6a9c75b4bc47a453b1b933
 };
 
 RTLsTy *RTLs;
