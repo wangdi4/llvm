@@ -36,8 +36,10 @@ define void @test_multi_uses(i32* %in1, i32* %in2, i64 %in) {
 ; Support walking through a neg for scale
 define void @test_scale_neg(i32* %src, i64 %in) {
 ; CHECK-LABEL: @test_scale_neg
-; CHECK-NEXT: %shift.neg = sub i64 0, %in
-; CHECK-NEXT: getelementptr i32, i32* %src, i64 %shift.neg
+; INTEL_CUSTOMIZATION
+; CHECK-NEXT: %index = sub i64 0, %in
+; CHECK-NEXT: getelementptr i32, i32* %src, i64 %index
+; end INTEL_CUSTOMIZATION
 ; CHECK-NOT: bitcast
   %shift = shl nuw nsw i64 %in, 2
   %index = sub i64 0, %shift
