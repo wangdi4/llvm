@@ -1066,7 +1066,7 @@ void X86FMABasicBlock::print(raw_ostream &OS) const {
 /// Loop over all of the basic blocks, performing the FMA optimization for
 /// each block separately.
 bool X86GlobalFMA::runOnMachineFunction(MachineFunction &MFunc) {
-  if (!DoFMAOpt)
+  if (!DoFMAOpt || skipFunction(MFunc.getFunction()))
     return false;
 
   MF = &MFunc;

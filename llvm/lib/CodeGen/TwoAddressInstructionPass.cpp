@@ -108,6 +108,8 @@ class TwoAddressInstructionPass : public MachineFunctionPass {
   // Set of already processed instructions in the current block.
   SmallPtrSet<MachineInstr*, 8> Processed;
 
+  bool EnableSink3AddrInstr = false; // INTEL
+
   // A map from virtual registers to physical registers which are likely targets
   // to be coalesced to due to copies from physical registers to virtual
   // registers. e.g. v1024 = move r0.
@@ -138,7 +140,7 @@ class TwoAddressInstructionPass : public MachineFunctionPass {
 
   bool rescheduleMIBelowKill(MachineBasicBlock::iterator &mi,
                              MachineBasicBlock::iterator &nmi,
-                             unsigned Reg);
+                             unsigned Reg, bool Sink3AddrInstr = false); // INTEL
   bool rescheduleKillAboveMI(MachineBasicBlock::iterator &mi,
                              MachineBasicBlock::iterator &nmi,
                              unsigned Reg);
@@ -612,6 +614,17 @@ TwoAddressInstructionPass::convertInstTo3Addr(MachineBasicBlock::iterator &mi,
   mi = NewMI;
   nmi = std::next(mi);
 
+#if INTEL_CUSTOMIZATION
+  if (EnableSink3AddrInstr &&
+      NewMI->findRegisterUseOperand(RegB, false, TRI)) {
+    // FIXME: Temporary workaround. If the new instruction doesn't
+    // uses RegB, convertToThreeAddress must have created more
+    // then one instruction.
+    if (rescheduleMIBelowKill(mi, nmi, RegB, true))
+      ++NumReSchedDowns;
+  }
+#endif // INTEL_CUSTOMIZATION
+
   // Update source and destination register maps.
   SrcRegMap.erase(RegA);
   DstRegMap.erase(RegB);
@@ -706,7 +719,7 @@ void TwoAddressInstructionPass::processCopy(MachineInstr *MI) {
 bool TwoAddressInstructionPass::
 rescheduleMIBelowKill(MachineBasicBlock::iterator &mi,
                       MachineBasicBlock::iterator &nmi,
-                      unsigned Reg) {
+                      unsigned Reg, bool Sink3AddrInstr) { // INTEL
   // Bail immediately if we don't have LV or LIS available. We use them to find
   // kills efficiently.
   if (!LV && !LIS)
@@ -734,9 +747,25 @@ rescheduleMIBelowKill(MachineBasicBlock::iterator &mi,
   } else {
     KillMI = LV->getVarInfo(Reg).findKill(MBB);
   }
-  if (!KillMI || MI == KillMI || KillMI->isCopy() || KillMI->isCopyLike())
-    // Don't mess with copies, they may be coalesced later.
+
+#if INTEL_CUSTOMIZATION
+  if (!KillMI && Sink3AddrInstr) {
+    for (MachineOperand &UseMO : MRI->use_nodbg_operands(Reg)) {
+      if (!UseMO.isKill())
+        continue;
+      MachineInstr *MI = UseMO.getParent();
+      if (MI->getParent() == MBB)
+        KillMI = MI;
+      break;
+    }
+  }
+
+  if (!KillMI || MI == KillMI)
     return false;
+
+  if (!Sink3AddrInstr && (KillMI->isCopy() || KillMI->isCopyLike()))
+    return false;
+#endif // INTEL_CUSTOMIZATION
 
   if (KillMI->hasUnmodeledSideEffects() || KillMI->isCall() ||
       KillMI->isBranch() || KillMI->isTerminator())
@@ -744,8 +773,37 @@ rescheduleMIBelowKill(MachineBasicBlock::iterator &mi,
     return false;
 
   unsigned DstReg;
-  if (isTwoAddrUse(*KillMI, Reg, DstReg))
+  if (!Sink3AddrInstr && isTwoAddrUse(*KillMI, Reg, DstReg)) // INTEL
     return false;
+
+#if INTEL_CUSTOMIZATION
+  if (Sink3AddrInstr && KillMI->isCompare()) {
+    // KillNext can't be the last MI of current MBB
+    MachineBasicBlock::iterator KillNext = std::next(KillMI->getIterator());
+    if (KillNext->isConditionalBranch()) {
+      bool UseOtherReg = false;
+      for (const MachineOperand &MO : KillMI->operands()) {
+        if (!MO.isReg())
+          continue;
+        Register MOReg = MO.getReg();
+        if (!MOReg)
+          continue;
+        if (MO.isDef())
+          continue;
+        if (MOReg != Reg) {
+          UseOtherReg = true;
+          break;
+        }
+      }
+      if (!UseOtherReg) {
+        // Avoid sink disable macro-fusion such as:
+        //   KillMI:   comp $0x13, %rax
+        //   KillNext: jnl xxx
+        return false;
+      }
+    }
+  }
+#endif // INTEL_CUSTOMIZATION
 
   bool SeenStore = true;
   if (!MI->isSafeToMove(AA, SeenStore))
@@ -789,13 +847,14 @@ rescheduleMIBelowKill(MachineBasicBlock::iterator &mi,
 
   // Check if the reschedule will not break dependencies.
   unsigned NumVisited = 0;
+  unsigned NumVisitedLimit = Sink3AddrInstr ? 30 : 10; // INTEL
   MachineBasicBlock::iterator KillPos = KillMI;
   ++KillPos;
   for (MachineInstr &OtherMI : make_range(End, KillPos)) {
     // Debug instructions cannot be counted against the limit.
     if (OtherMI.isDebugInstr())
       continue;
-    if (NumVisited > 10)  // FIXME: Arbitrary limit to reduce compile time cost.
+    if (NumVisited > NumVisitedLimit)  // INTEL
       return false;
     ++NumVisited;
     if (OtherMI.hasUnmodeledSideEffects() || OtherMI.isCall() ||
@@ -826,12 +885,17 @@ rescheduleMIBelowKill(MachineBasicBlock::iterator &mi,
                              regOverlapsSet(Kills, MOReg, TRI)))
           // Don't want to extend other live ranges and update kills.
           return false;
-        if (MOReg == Reg && !isKill)
-          // We can't schedule across a use of the register in question.
-          return false;
-        // Ensure that if this is register in question, its the kill we expect.
-        assert((MOReg != Reg || &OtherMI == KillMI) &&
-               "Found multiple kills of a register in a basic block");
+#if INTEL_CUSTOMIZATION
+        // Just schedule across a use of the register for sink 3address Instr.
+        if (!Sink3AddrInstr) {
+          if (MOReg == Reg && !isKill)
+            // We can't schedule across a use of the register in question.
+            return false;
+          // Ensure that if this is register in question, its the kill we expect.
+          assert((MOReg != Reg || &OtherMI == KillMI) &&
+                 "Found multiple kills of a register in a basic block");
+        }
+#endif // INTEL_CUSTOMIZATION
       }
     }
   }
@@ -1529,6 +1593,9 @@ bool TwoAddressInstructionPass::runOnMachineFunction(MachineFunction &Func) {
   // fixups are necessary for correctness.
   if (skipFunction(Func.getFunction()))
     OptLevel = CodeGenOpt::None;
+
+  EnableSink3AddrInstr = MF->getTarget().Options.IntelAdvancedOptim && // INTEL
+      OptLevel >= CodeGenOpt::Aggressive;                              // INTEL
 
   bool MadeChange = false;
 
