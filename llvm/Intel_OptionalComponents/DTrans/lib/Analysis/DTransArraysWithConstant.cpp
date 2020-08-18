@@ -1188,8 +1188,10 @@ cascadeBadResult(llvm::StructType *StructTy,
     auto FieldStructData = StructsWithConstArrays[FieldStruct];
     if (!FieldStructData->isStructureDisabled()) {
       DEBUG_WITH_TYPE(DTRANS_ARRCONST_VERBOSE, {
-        dbgs() << "  Removing: " << FieldStruct->getName() << "\n"
-               << "  Reason: Cascading bad results from " << StructTy->getName()
+        StringRef FieldStructName = dtrans::getStructName(FieldStruct);
+        StringRef StructTyName = dtrans::getStructName(StructTy);
+        dbgs() << "  Removing: " << FieldStructName << "\n"
+               << "  Reason: Cascading bad results from " << StructTyName
                << "\n\n";
       });
       FieldStructData->disableStructure();
@@ -1269,10 +1271,12 @@ analyzeRelatedType(dtrans::StructInfo *RelatedInfo,
       DEBUG_WITH_TYPE(DTRANS_ARRCONST_VERBOSE, {
         llvm::StructType *CurrStruct =
             cast<llvm::StructType>(CurrStructData->getStructure());
+        StringRef RelatedTypeName = dtrans::getStructName(RelatedType);
+        StringRef CurrStructName = dtrans::getStructName(CurrStruct);
         dbgs() << "  Removing Field: " << FieldNum->getZExtValue() << " from "
-               << RelatedType->getName() << "\n"
+               << RelatedTypeName << "\n"
                << "  Reason: Mismatch with related type "
-               << CurrStruct->getName() << "\n\n";
+               << CurrStructName << "\n\n";
       });
       RelatedField->disableField();
       Field->disableField();
@@ -1325,7 +1329,8 @@ static void analyzeData(DTransAnalysisInfo *DTInfo,
     // disable it.
     if (!checkStructure(STInfo)) {
       DEBUG_WITH_TYPE(DTRANS_ARRCONST_VERBOSE, {
-        dbgs() << "  Removing: " << StructureData.first->getName() << "\n"
+        StringRef StructName = dtrans::getStructName(StructureData.first);
+        dbgs() << "  Removing: " << StructName << "\n"
                << "  Reason: Structure didn't pass check\n\n";
       });
       StructureData.second->disableStructure();
@@ -1341,7 +1346,8 @@ static void analyzeData(DTransAnalysisInfo *DTInfo,
     if (RelatedInfo && !analyzeRelatedType(RelatedInfo, StructureData.second,
                                            StructsWithConstArrays)) {
       DEBUG_WITH_TYPE(DTRANS_ARRCONST_VERBOSE, {
-        dbgs() << "  Removing: " << StructureData.first->getName() << "\n"
+        StringRef StructName = dtrans::getStructName(StructureData.first);
+        dbgs() << "  Removing: " << StructName << "\n"
                << "  Reason: Structure didn't pass the related types check\n\n";
       });
       StructureData.second->disableStructure();
@@ -1375,8 +1381,9 @@ static void analyzeData(DTransAnalysisInfo *DTInfo,
 
       if (StructInfoDisabled || !analyzeField(Field)) {
         DEBUG_WITH_TYPE(DTRANS_ARRCONST_VERBOSE, {
+          StringRef CurrStructName = dtrans::getStructName(CurrStruct);
           dbgs() << "  Removing Field: " << FieldNum << " from "
-                 << CurrStruct->getName() << "\n"
+                 << CurrStructName << "\n"
                  << "  Reason: Field didn't pass checks\n\n";
         });
         Field->disableField();
@@ -1398,7 +1405,8 @@ static void analyzeData(DTransAnalysisInfo *DTInfo,
   // where all the fields don't qualify as array with constant entries.
   for (auto *Struct : StructsNotNeeded) {
     DEBUG_WITH_TYPE(DTRANS_ARRCONST_VERBOSE, {
-      dbgs() << "  Removing: " << Struct->getStructure()->getName() << "\n"
+      StringRef StructName = dtrans::getStructName(Struct->getStructure());
+      dbgs() << "  Removing: " << StructName << "\n"
              << "  Reason: None of the fields qualify as array with "
              << "constant entries\n\n";
     });
@@ -1408,8 +1416,10 @@ static void analyzeData(DTransAnalysisInfo *DTInfo,
   DEBUG_WITH_TYPE(DTRANS_ARRCONST_VERBOSE, {
     dbgs() << "\n";
     for (auto &Struct : StructsWithConstArrays) {
-      if (!Struct.second->isStructureDisabled())
-        dbgs() << "  Structure: " << Struct.first->getName() << " Pass\n";
+      if (!Struct.second->isStructureDisabled()) {
+        StringRef StructName = dtrans::getStructName(Struct.first);
+        dbgs() << "  Structure: " << StructName << " Pass\n";
+      }
     }
     dbgs() << "\n";
   });

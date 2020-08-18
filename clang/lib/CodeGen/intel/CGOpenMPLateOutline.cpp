@@ -39,7 +39,8 @@ llvm::Value *OpenMPLateOutliner::emitOpenMPDefaultConstructor(const Expr *IPriv,
   SmallString<256> OutName;
   llvm::raw_svector_ostream Out(OutName);
   auto &Ctx = CGM.getContext();
-  if (IsUDR && Ty->isArrayType())
+  bool UseSingleArrayFuncs = CGF.getLangOpts().OpenMPUseSingleElemArrayFuncs;
+  if (Ty->isArrayType() && (UseSingleArrayFuncs || IsUDR))
     Ty = Ctx.getBaseElementType(Ty).getNonReferenceType();
   CGM.getCXXABI().getMangleContext().mangleTypeName(Ty, Out);
   Out << ".omp.def_constr";
@@ -63,6 +64,22 @@ llvm::Value *OpenMPLateOutliner::emitOpenMPDefaultConstructor(const Expr *IPriv,
   auto *Init = Private->getInit();
   if (Init && !NewCGF.isTrivialInitializer(Init)) {
     CodeGenFunction::RunCleanupsScope Scope(NewCGF);
+    if (Init->getType()->isArrayType() != Ty->isArrayType()) {
+      // Rebuild the constructor for the element type.
+      if (auto Cleanups = dyn_cast<ExprWithCleanups>(Init))
+        Init = Cleanups->getSubExpr();
+      auto *CCE = cast<CXXConstructExpr>(Init);
+      SmallVector<Expr *, 8> ConstructorArgs;
+      for (auto I = CCE->arg_begin(), End = CCE->arg_end(); I != End; ++I)
+        ConstructorArgs.push_back(const_cast<Expr *>(*I));
+
+      Init = CXXConstructExpr::Create(
+        Ctx, Ty, CCE->getLocation(), CCE->getConstructor(), CCE->isElidable(),
+        ConstructorArgs, CCE->hadMultipleCandidates(),
+        CCE->isListInitialization(), CCE->isStdInitListInitialization(),
+        CCE->requiresZeroInitialization(), CCE->getConstructionKind(),
+        CCE->getParenOrBraceRange());
+    }
     LValue ArgLVal = NewCGF.EmitLoadOfPointerLValue(
         NewCGF.GetAddrOfLocalVar(&Dst), PtrTy->getAs<PointerType>());
     NewCGF.EmitAnyExprToMem(Init, ArgLVal.getAddress(NewCGF),
@@ -85,7 +102,8 @@ OpenMPLateOutliner::emitOpenMPDestructor(QualType Ty, bool IsUDR) {
   SmallString<256> OutName;
   llvm::raw_svector_ostream Out(OutName);
   auto &Ctx = CGM.getContext();
-  if (IsUDR && Ty->isArrayType())
+  bool UseSingleArrayFuncs = CGF.getLangOpts().OpenMPUseSingleElemArrayFuncs;
+  if (Ty->isArrayType() && (UseSingleArrayFuncs || IsUDR))
     Ty = Ctx.getBaseElementType(Ty).getNonReferenceType();
   CGM.getCXXABI().getMangleContext().mangleTypeName(Ty, Out);
   Out << ".omp.destr";
@@ -135,10 +153,14 @@ llvm::Value *OpenMPLateOutliner::emitOpenMPCopyConstructor(const Expr *IPriv) {
   auto *Private = cast<VarDecl>(cast<DeclRefExpr>(IPriv)->getDecl());
 
   auto &C = CGM.getContext();
+  bool UseSingleArrayFuncs = CGF.getLangOpts().OpenMPUseSingleElemArrayFuncs;
   QualType Ty = Private->getType();
   QualType ElemType = Ty;
-  if (Ty->isArrayType())
+  if (Ty->isArrayType()) {
     ElemType = C.getBaseElementType(Ty).getNonReferenceType();
+    if (UseSingleArrayFuncs)
+      Ty = ElemType;
+  }
 
   SmallString<256> OutName;
   llvm::raw_svector_ostream Out(OutName);
@@ -243,9 +265,13 @@ llvm::Value *OpenMPLateOutliner::emitOpenMPCopyAssign(QualType Ty,
     return llvm::ConstantPointerNull::get(CGF.VoidPtrTy);
 
   auto &C = CGM.getContext();
+  bool UseSingleArrayFuncs = CGF.getLangOpts().OpenMPUseSingleElemArrayFuncs;
   QualType ElemType = Ty;
-  if (Ty->isArrayType())
+  if (Ty->isArrayType()) {
     ElemType = C.getBaseElementType(Ty).getNonReferenceType();
+    if (UseSingleArrayFuncs)
+      Ty = ElemType;
+  }
 
   SmallString<256> OutName;
   llvm::raw_svector_ostream Out(OutName);
@@ -849,6 +875,14 @@ void OpenMPLateOutliner::emitOMPSharedClause(const OMPSharedClause *Cl) {
 }
 
 void OpenMPLateOutliner::emitOMPPrivateClause(const OMPPrivateClause *Cl) {
+  // Private clauses may generate routines used in target region so
+  // setup the TargetRegion context if needed.
+  bool IsDeviceTarget =
+      CGF.getLangOpts().OpenMPIsDevice &&
+      (CGF.CGM.inTargetRegion() ||
+       isOpenMPTargetExecutionDirective(Directive.getDirectiveKind()));
+  CodeGenModule::InTargetRegionRAII ITR(CGF.CGM, IsDeviceTarget);
+
   auto IPriv = Cl->private_copies().begin();
   for (auto *E : Cl->varlists()) {
     const VarDecl *PVD = getExplicitVarDecl(E);
@@ -1182,6 +1216,14 @@ void OpenMPLateOutliner::emitOMPFirstprivateClause(
     }
     return;
   }
+  // Firstprivate clauses may generate routines used in target region so
+  // setup the TargetRegion context if needed.
+  bool IsDeviceTarget =
+      CGF.getLangOpts().OpenMPIsDevice &&
+      (CGF.CGM.inTargetRegion() ||
+       isOpenMPTargetExecutionDirective(Directive.getDirectiveKind()));
+  CodeGenModule::InTargetRegionRAII ITR(CGF.CGM, IsDeviceTarget);
+
   auto *IPriv = Cl->private_copies().begin();
   for (auto *E : Cl->varlists()) {
     ClauseEmissionHelper CEH(*this, OMPC_firstprivate, "QUAL.OMP.FIRSTPRIVATE");
