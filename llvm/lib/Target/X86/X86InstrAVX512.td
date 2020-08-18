@@ -3235,6 +3235,17 @@ let Predicates = [HasBWI] in {
                VEX, XD, VEX_W;
 }
 
+#if INTEL_CUSTOMIZATION
+let isCodeGenOnly = 1, isPseudo = 1 in {
+  let Predicates = [HasDQI, IntelAdvOpt] in
+    def KMOVBki : I<0, Pseudo, (outs VK8:$dst), (ins i8imm :$src), "",
+                    [(set VK8:$dst, (bitconvert (i8 imm:$src)))]>;
+  let Predicates = [HasAVX512, IntelAdvOpt] in
+    def KMOVWki : I<0, Pseudo, (outs VK16:$dst), (ins i16imm :$src), "",
+                    [(set VK16:$dst, (bitconvert (i16 imm:$src)))]>;
+}
+#endif // INTEL_CUSTOMIZATION
+
 // GR from/to mask register
 def : Pat<(v16i1 (bitconvert (i16 GR16:$src))),
           (COPY_TO_REGCLASS (i32 (INSERT_SUBREG (IMPLICIT_DEF), GR16:$src, sub_16bit)), VK16)>;

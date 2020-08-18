@@ -523,6 +523,9 @@ void X86PassConfig::addPreRegAlloc() {
   addPass(createX86SpeculativeLoadHardeningPass());
   addPass(createX86FlagsCopyLoweringPass());
   addPass(createX86WinAllocaExpander());
+#if INTEL_CUSTOMIZATION
+  addPass(createX86PRAExpandPseudoPass());
+#endif // INTEL_CUSTOMIZATION
 }
 void X86PassConfig::addMachineSSAOptimization() {
   addPass(createX86DomainReassignmentPass());
