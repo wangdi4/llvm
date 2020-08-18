@@ -22,10 +22,12 @@
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/HLNodeIterator.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/HLNodeUtils.h"
 
+#include "HIRArrayScalarization.h"
 #include "HIRDeadStoreElimination.h"
 #include "HIRLMM.h"
 #include "HIRLoopReversal.h"
 #include "HIRUnroll.h"
+
 #include "llvm/ADT/SmallSet.h"
 #include "llvm/IR/LegacyPassManager.h"
 #include "llvm/Support/Debug.h"
@@ -37,6 +39,7 @@ using namespace llvm::loopopt;
 using namespace llvm::loopopt::reversal;
 using namespace llvm::loopopt::lmm;
 using namespace llvm::loopopt::dse;
+using namespace llvm::loopopt::arrayscalarization;
 
 namespace {
 
@@ -1271,4 +1274,10 @@ bool HIRTransformUtils::substituteConstGlobals(HLNode *Node) {
   ConstArraySubstituter CAS;
   HLNodeUtils::visit(CAS, Node);
   return CAS.isChanged();
+}
+
+bool HIRTransformUtils::doScalarization(HIRFramework &HIRF, HIRDDAnalysis &HDDA,
+                                        HLLoop *InnermostLp,
+                                        SmallSet<unsigned, 8> &SBS) {
+  return HIRArrayScalarization(HIRF, HDDA).doScalarization(InnermostLp, SBS);
 }

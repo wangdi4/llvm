@@ -208,6 +208,9 @@ FunctionPass *createHIRIdentityMatrixSubstitutionPass();
 
 /// Create pass that marks stores as nontemporal where appropriate.
 FunctionPass *createHIRNontemporalMarkingPass();
+
+/// Create pass that performs HIR array-scalarization test launch.
+FunctionPass *createHIRArrayScalarizationTestLauncherPass();
 } // namespace llvm
 
 #endif

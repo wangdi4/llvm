@@ -61,6 +61,8 @@ add_llvm_component_library(LLVMIntel_LoopTransforms
         HIRSumWindowReuse.cpp
         HIRNonZeroSinkingForPerfectLoopnest.cpp
         HIRIdentityMatrixSubstitution.cpp
+        HIRArrayScalarizationTestLauncher.cpp
+        HIRArrayScalarization.cpp
 
   ADDITIONAL_HEADER_DIRS
   ${LLVM_MAIN_INCLUDE_DIR}/llvm/Transforms

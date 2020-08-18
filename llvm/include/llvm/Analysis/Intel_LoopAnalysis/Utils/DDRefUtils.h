@@ -334,6 +334,15 @@ public:
                               SmallVectorImpl<loopopt::RegDDRef *> &OutRefs,
                               SmallVectorImpl<BlobTy> *SizesPtr = nullptr,
                               bool AllowSExt = false);
+
+  /// Returns true if the DDRef is a memory reference and all dimensions have
+  /// integer constant only.
+  /// E.g.
+  ///   A[0][1]:  true
+  ///   A[0][i1]: false
+  ///   A[%t][1]: false
+  ///
+  static bool isMemRefAllDimsConstOnly(const RegDDRef *Ref);
 };
 
 } // End namespace loopopt
