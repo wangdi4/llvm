@@ -22,9 +22,13 @@
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRLoopStatistics.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRSafeReductionAnalysis.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRSparseArrayReductionAnalysis.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRLocalityAnalysis.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRFramework.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/DDRefGrouping.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRTransformPass.h"
+
+#include "llvm/ADT/SmallSet.h"
+#include "llvm/ADT/SparseBitVector.h"
 
 #include "HIRLoopDistributionGraph.h"
 
@@ -57,29 +61,68 @@ typedef DDRefGatherer<DDRef, AllRefs ^ (ConstantRefs | GenericRValRefs |
 class ScalarExpansion {
 public:
   struct Candidate {
-    bool StripminingRequired = true;
+    struct DstNode {
+      DDRef *Ref;
+      HLNode *FirstNode;
+      bool IsTempRedefined;
+
+      // Instruction that should be cloned to be recomputable.
+      const HLInst *DepInstForRecompute;
+    };
+
+    bool SafeToRecompute = true;
 
     SmallVector<RegDDRef *, 8> SrcRefs;
+    SmallVector<DstNode, 8> DstRefs;
 
-    // DstRef and IsTempRedefined
-    SmallVector<std::pair<DDRef *, bool>, 8> DstRefs;
+    unsigned getSymbase() const { return SrcRefs.front()->getSymbase(); }
 
-    bool getSymbase() const { return SrcRefs.front()->getSymbase(); }
+    bool isTempRequired() const {
+      return SrcRefs.size() != 1 || !SafeToRecompute;
+    }
+
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+    LLVM_DUMP_METHOD void dump() {
+      SrcRefs.front()->dump();
+
+      dbgs() << " (sb:" << getSymbase();
+      dbgs() << ") (";
+      for (auto SrcRef : enumerate(SrcRefs)) {
+        dbgs() << SrcRef.value()->getHLDDNode()->getNumber();
+        if (SrcRef.index() != SrcRefs.size() - 1) {
+          dbgs() << ",";
+        }
+      }
+      dbgs() << ") -> (";
+      for (auto DstRef : enumerate(DstRefs)) {
+        dbgs() << DstRef.value().Ref->getHLDDNode()->getNumber();
+        if (DstRef.index() != DstRefs.size() - 1) {
+          dbgs() << ",";
+        }
+      }
+      dbgs() << ") SafeToRecompute: " << SafeToRecompute;
+    }
+#endif
   };
 
 private:
+  unsigned Level;
   bool HasDistributePoint;
 
   SmallVector<Candidate, 8> Candidates;
 
+  // <Symbase, Loop number>
+  using SymbaseLoopSetTy = SmallSet<std::pair<unsigned, unsigned>, 8>;
+
 public:
-  ScalarExpansion(bool HasDistributePoint, ArrayRef<HLDDNodeList> Chunks);
+  ScalarExpansion(unsigned Level, bool HasDistributePoint,
+                  ArrayRef<HLDDNodeList> Chunks);
 
   ArrayRef<Candidate> getCandidates() const { return Candidates; }
 
-  bool isStripmineRequired() const {
+  bool isTempRequired() const {
     return std::any_of(Candidates.begin(), Candidates.end(),
-                       isStripmineRequiredPredicate);
+                       isTempRequiredPredicate);
   }
 
   bool isScalarExpansionRequired() const {
@@ -88,16 +131,35 @@ public:
 
   unsigned getNumTempsRequired() const {
     return std::count_if(Candidates.begin(), Candidates.end(),
-                         isStripmineRequiredPredicate);
+                         isTempRequiredPredicate);
   }
 
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+  LLVM_DUMP_METHOD void dump() {
+    for (auto &Cand : Candidates) {
+      Cand.dump();
+      dbgs() << "\n";
+    }
+  }
+#endif
+
 private:
+  // Find the instruction that defines \p RVal.
+  bool findDepInst(const RegDDRef *RVal, const HLInst *&DepInst);
+
+  // Check if \p SrcRef is safe to recompute in loop with \p ChunkIdx rather
+  // than use a temp.
+  bool isSafeToRecompute(const RegDDRef *SrcRef, unsigned ChunkIdx,
+                         const SymbaseLoopSetTy &SymbaseLoopSet,
+                         const SparseBitVector<> &ModifiedSymbases,
+                         const HLInst *&DepInst);
+
   void analyze(ArrayRef<HLDDNodeList> Chunks);
 
   bool isScalarExpansionCandidate(const DDRef *Ref) const;
 
-  static bool isStripmineRequiredPredicate(const Candidate &C) {
-    return C.StripminingRequired;
+  static bool isTempRequiredPredicate(const Candidate &C) {
+    return C.isTempRequired();
   }
 };
 
@@ -109,9 +171,10 @@ public:
   HIRLoopDistribution(HIRFramework &HIRF, HIRDDAnalysis &DDA,
                       HIRSafeReductionAnalysis &SRA,
                       HIRSparseArrayReductionAnalysis &SARA,
-                      HIRLoopResource &HLR, DistHeuristics DistCostModel)
+                      HIRLoopResource &HLR, HIRLoopLocality &HLL,
+                      DistHeuristics DistCostModel)
       : HIRF(HIRF), DDA(DDA), SRA(SRA), SARA(SARA), HNU(HIRF.getHLNodeUtils()),
-        HLR(HLR), DistCostModel(DistCostModel) {}
+        HLR(HLR), HLL(HLL), DistCostModel(DistCostModel) {}
 
   bool run();
 
@@ -122,6 +185,7 @@ private:
   HIRSparseArrayReductionAnalysis &SARA;
   HLNodeUtils &HNU;
   HIRLoopResource &HLR;
+  HIRLoopLocality &HLL;
 
   DistHeuristics DistCostModel;
   unsigned AllocaBlobIdx;
@@ -146,7 +210,7 @@ private:
   // Loop may be discarded prior to any analysis by some heuristics.
   // For example, the costmodel may consider only innermost loops, no need
   // to do potentially expensive analysis on others
-  bool loopIsCandidate(const HLLoop *L) const;
+  bool loopIsCandidate(HLLoop *L) const;
 
   // Breaks up pi graph into loops(loop is formed by a list of piblocks)
   // according to appropriate "cost model".  Very primitive and missing
@@ -159,6 +223,11 @@ private:
   // of skipping creation of potentially vectorizable loops
   void formPerfectLoopNests(std::unique_ptr<PiGraph> const &PGraph,
                             SmallVectorImpl<PiBlockList> &DistPoints) const;
+
+  void
+  splitSpatialLocalityGroups(const HLLoop *L,
+                             std::unique_ptr<PiGraph> const &PiGraph,
+                             SmallVectorImpl<PiBlockList> &DistPoints) const;
 
   // Uses ordered list of PiBlockLists to form distributed version of Loop.
   // Each PiBlockList will form a new loop(with same bounds as Loop) containing
@@ -180,7 +249,7 @@ private:
   // TempRefined if true means temp is refined in the sink loop
   // Insertion of assignment needs special handling
   void createTempArrayLoad(RegDDRef *TempRef, RegDDRef *TempArrayRef,
-                           HLDDNode *Node, bool TempRefined);
+                           HLNode *Node, bool TempRefined);
 
   // After scalar expansion, scalar temps is need to be replaced with Array Temp
   void replaceWithArrayTemp(unsigned LoopCount,

@@ -1021,22 +1021,6 @@ public:
                                               Value *Load,
                                               Instruction *InsertPt);
 
-  /// Creates a clone of \p CI, and adds \p OpBundlesToAdd the new
-  /// CallInst. \returns the created CallInst, if it created one, \p CI
-  /// otherwise (when \p OpBundlesToAdd is empty).
-  static CallInst *addOperandBundlesInCall(
-      CallInst *CI,
-      ArrayRef<std::pair<StringRef, ArrayRef<Value *>>> OpBundlesToAdd);
-
-  /// Creates a clone of \p CI without any operand bundles whose tags match an
-  /// entry in \p OpBundlesToRemove. Replaces all uses of the original \p CI
-  /// with the new Instruction created.
-  /// \returns the created CallInst, if it created one, \p CI otherwise (when \p
-  /// OpBundlesToRemove is empty, or has no matching bundle on \p CI).
-  static CallInst *
-  removeOperandBundlesFromCall(CallInst *CI,
-                               ArrayRef<StringRef> OpBundlesToRemove);
-
   /// Returns true, if the given \p V value may be rematerialized
   /// before the given \p W region (i.e. right before the \p W region's
   /// entry block).
@@ -1053,6 +1037,11 @@ public:
   static Value *genAddrSpaceCast(Value *Ptr, Instruction *InsertPt,
                                  unsigned AddrSpace);
 
+  /// build the CFG for if clause.
+  static void buildCFGForIfClause(Value *Cmp, Instruction *&ThenTerm,
+                                  Instruction *&ElseTerm, Instruction *InsertPt,
+                                  DominatorTree *DT);
+
   /// Generate a call to `__kmpc_omp_task_alloc`. Example:
   /// \code
   ///   i8* @__kmpc_omp_task_alloc({ i32, i32, i32, i32, i8* }*, i32, i32,
@@ -1060,9 +1049,9 @@ public:
   /// \endcode
   static CallInst *
   genKmpcTaskAlloc(WRegionNode *W, StructType *IdentTy, Value *TidPtr,
-                   Value *KmpTaskTTWithPrivatesTySz, int KmpSharedTySz,
-                   PointerType *KmpRoutineEntryPtrTy, Function *MicroTaskFn,
-                   Instruction *InsertPt, bool UseTbb);
+                   DominatorTree *DT, Value *KmpTaskTTWithPrivatesTySz,
+                   int KmpSharedTySz, PointerType *KmpRoutineEntryPtrTy,
+                   Function *MicroTaskFn, Instruction *InsertPt, bool UseTbb);
 
   /// Generate a call to `__kmpc_omp_task_alloc` to be used as an AsyncObj
   /// for the TARGET VARIANT DISPATCH NOWAIT construct corresponding to \p W
@@ -1458,9 +1447,9 @@ public:
                                bool Insert = false,
                                bool EnableAtomicReduce = false);
 
-  /// Generate a CallInst for the given Function* \p Fn and its argument list.
-  /// \p Fn must be already declared.
-  static CallInst *genCall(Function *Fn, ArrayRef<Value *> FnArgs,
+  /// Generate a CallInst for the given FunctionCallee \p FnC and its argument
+  /// list. \p FnC must have a non-null Callee.
+  static CallInst *genCall(FunctionCallee FnC, ArrayRef<Value *> FnArgs,
                            ArrayRef<Type *> FnArgTypes, Instruction *InsertPt,
                            bool IsTail = false, bool IsVarArg = false);
 
@@ -1475,13 +1464,20 @@ public:
   /// \param InsertPt Insertion point for the call. Default is nullptr.
   /// \param IsTail This call attribute is defaulted to false.
   /// \param IsVarArg  This call attribute is defaulted to false.
-  ///
+  /// \param AllowMismatchingPointerArgs If there is an existing function \p
+  /// FnName in \p M, but with arguments that are either the same as \p
+  /// FnTyArgs, or different pointer type, then allow using a cast and emit a
+  /// call to that function.
+  /// \param EmitErrorOnFnTypeMismatch Emit an error if there is an
+  /// existing function \p FnName in \p M, but with a different function type.
   /// \returns the generated CallInst.
   static CallInst *genCall(Module *M, StringRef FnName, Type *ReturnTy,
                            ArrayRef<Value *> FnArgs,
                            ArrayRef<Type *> FnArgTypes,
                            Instruction *InsertPt = nullptr, bool IsTail = false,
-                           bool IsVarArg = false);
+                           bool IsVarArg = false,
+                           bool AllowMismatchingPointerArgs = false,
+                           bool EmitErrorOnFnTypeMismatch = false);
 
   // A genCall() interface where FnArgTypes is omitted; it will be computed
   // from FnArgs. **WARNING**: do not use this interface for VarArg functions,
@@ -1563,14 +1559,6 @@ public:
                                                Function *F,
                                                bool OutsideRegion = true);
 
-  /// Find the first directive that supports the private clause, that dominates
-  /// \p PosInst. Add a private clause for \p I into that directive.
-  /// Return false if no directive was found. Intended to be called outside
-  /// VPO, where no region information is available. It is an error if "I"
-  /// is already used in a llvm.directive.region.entry (checked by assertion).
-  static bool addPrivateToEnclosingRegion(Instruction *I, Instruction *PosInst,
-                                          DominatorTree &DT);
-
 #ifndef NDEBUG
   /// Run some Paropt related verifications to make sure IR after FE
   /// will not cause problems deep in Paropt.
@@ -1586,6 +1574,10 @@ public:
 
   /// Replace users of \p Old with \p New value in the function \p F.
   static void replaceUsesInFunction(Function *F, Value *Old, Value *New);
+
+  /// Returns true, if this is a target compilation invocation
+  /// forced by dedicated compiler option.
+  static bool isForcedTargetCompilation();
 
 private:
   /// \name Private constructor and destructor to disable instantiation.

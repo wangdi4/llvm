@@ -43,11 +43,10 @@
 ;  Note: just verify for key HIRs
 ; CHECK: BEGIN REGION
 ; CHECK:       DO i1 = 0, 44, 1
-; CHECK:        (%.TempArray)[0][i1] = %conv9;
-; CHECK:        (@C1)[0][i1] = 1.000000e+00;
+; CHECK:         %conv9 = sitofp.i32.double(i1);
 ; CHECK:       END LOOP
 ; CHECK:       DO i1 = 0, 44, 1
-; CHECK:       %conv9 = (%.TempArray)[0][i1];
+; CHECK:         %conv9 = sitofp.i32.double(i1);
 ;
 
 ;Module Before HIR; ModuleID = 'scexpansion2.c'

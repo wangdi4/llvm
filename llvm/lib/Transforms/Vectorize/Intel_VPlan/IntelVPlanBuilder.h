@@ -226,13 +226,6 @@ public:
     return Instr;
   }
 
-  // Create dummy VPBranchInst instruction.
-  VPBranchInst *createBr(Type *BaseTy) {
-    VPBranchInst *Instr = new VPBranchInst(BaseTy);
-    insert(Instr);
-    return Instr;
-  }
-
   VPPHINode *createPhiInstruction(Instruction *Inst, const Twine &Name = "") {
     assert(Inst != nullptr && "Instruction cannot be a nullptr");
     VPPHINode *NewVPPHINode = createPhiInstruction(Inst->getType(), Name);
@@ -339,6 +332,32 @@ public:
     return NewSubscript;
   }
 
+  // Build a new load VPInstruction from given pointer operand.
+  VPLoadStoreInst *createLoad(Type *Ty, VPValue *Ptr,
+                              Instruction *Inst = nullptr,
+                              const Twine &Name = "load") {
+    VPLoadStoreInst *NewLoad =
+        new VPLoadStoreInst(Instruction::Load, Ty, {Ptr});
+    NewLoad->setName(Name);
+    insert(NewLoad);
+    if (Inst)
+      NewLoad->setUnderlyingValue(*Inst);
+    return NewLoad;
+  }
+
+  // Build a new store VPInstruction using given value and pointer operand.
+  VPLoadStoreInst *createStore(VPValue *Val, VPValue *Ptr,
+                               Instruction *Inst = nullptr,
+                               const Twine &Name = "store") {
+    VPLoadStoreInst *NewStore =
+        new VPLoadStoreInst(Instruction::Store, Val->getType(), {Val, Ptr});
+    NewStore->setName(Name);
+    insert(NewStore);
+    if (Inst)
+      NewStore->setUnderlyingValue(*Inst);
+    return NewStore;
+  }
+
   // Build a VPCallInstruction for the LLVM-IR instruction \p Inst using callee
   // \p CalledValue and list of argument operands \p ArgList.
   VPInstruction *createCall(VPValue *CalledValue, ArrayRef<VPValue *> ArgList,
@@ -355,9 +374,9 @@ public:
 
   // Reduction init/final
   VPInstruction *createReductionInit(VPValue *Identity, VPValue *Start,
-                                     const Twine &Name = "") {
+                                     bool UseStart, const Twine &Name = "") {
     VPInstruction *NewVPInst = Start ? new VPReductionInit(Identity, Start)
-                                     : new VPReductionInit(Identity);
+                                     : new VPReductionInit(Identity, UseStart);
     NewVPInst->setName(Name);
     insert(NewVPInst);
     return NewVPInst;
@@ -429,8 +448,9 @@ public:
     return NewVPInst;
   }
 
-  VPInstruction *createAllocaPrivate(const VPValue *AI) {
-    VPInstruction *NewVPInst = new VPAllocatePrivate(AI->getType());
+  VPInstruction *createAllocaPrivate(const VPValue *AI, Align OrigAlignment) {
+    VPInstruction *NewVPInst =
+        new VPAllocatePrivate(AI->getType(), OrigAlignment);
     insert(NewVPInst);
     NewVPInst->setName(AI->getName());
     return NewVPInst;

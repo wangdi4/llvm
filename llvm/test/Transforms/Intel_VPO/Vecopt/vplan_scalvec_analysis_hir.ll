@@ -9,6 +9,8 @@ target triple = "x86_64-unknown-linux-gnu"
 define dso_local void @uniformDivergent(i32* nocapture %a, i32* nocapture %b, i64* nocapture %c) local_unnamed_addr {
 ; CHECK-LABEL:  VPlan after ScalVec analysis:
 ; CHECK-NEXT:  VPlan IR for: Initial VPlan for VF=4
+; CHECK-NEXT:  Live-in values:
+; CHECK-NEXT:  ID: 0 Value: i64 0
 ; CHECK-NEXT:    [[BB0:BB[0-9]+]]:
 ; CHECK-NEXT:     <Empty Block>
 ; CHECK-NEXT:    SUCCESSORS(1):[[BB1:BB[0-9]+]]
@@ -45,6 +47,9 @@ define dso_local void @uniformDivergent(i32* nocapture %a, i32* nocapture %b, i6
 ; CHECK-NEXT:     <Empty Block>
 ; CHECK-NEXT:    no SUCCESSORS
 ; CHECK-NEXT:    PREDECESSORS(1): [[BB3]]
+; CHECK-EMPTY:
+; CHECK-NEXT:  External Uses:
+; CHECK-NEXT:  Id: 0   no underlying for i64 [[VP__IND_FINAL]]
 ;
 entry:
   br label %DIR.OMP.SIMD.1
@@ -78,6 +83,8 @@ DIR.OMP.END.SIMD.3:                               ; preds = %omp.inner.for.body
 define dso_local void @gatherScatter(i32* nocapture %a, i32* nocapture %b) local_unnamed_addr {
 ; CHECK-LABEL:  VPlan after ScalVec analysis:
 ; CHECK-NEXT:  VPlan IR for: Initial VPlan for VF=2
+; CHECK-NEXT:  Live-in values:
+; CHECK-NEXT:  ID: 0 Value: i64 0
 ; CHECK-NEXT:    [[BB0:BB[0-9]+]]:
 ; CHECK-NEXT:     <Empty Block>
 ; CHECK-NEXT:    SUCCESSORS(1):[[BB1:BB[0-9]+]]
@@ -112,6 +119,9 @@ define dso_local void @gatherScatter(i32* nocapture %a, i32* nocapture %b) local
 ; CHECK-NEXT:     <Empty Block>
 ; CHECK-NEXT:    no SUCCESSORS
 ; CHECK-NEXT:    PREDECESSORS(1): [[BB3]]
+; CHECK-EMPTY:
+; CHECK-NEXT:  External Uses:
+; CHECK-NEXT:  Id: 0   no underlying for i64 [[VP__IND_FINAL]]
 ;
 entry:
   br label %DIR.OMP.SIMD.1
@@ -140,13 +150,16 @@ DIR.OMP.END.SIMD.3:                               ; preds = %omp.inner.for.body
 define dso_local i32 @simpleReduction(i32* nocapture %a, i32 %b) local_unnamed_addr {
 ; CHECK-LABEL:  VPlan after ScalVec analysis:
 ; CHECK-NEXT:  VPlan IR for: Initial VPlan for VF=4
+; CHECK-NEXT:  Live-in values:
+; CHECK-NEXT:  ID: 0 Value: i32 [[REDUCTION_PHI0:%.*]]
+; CHECK-NEXT:  ID: 1 Value: i64 0
 ; CHECK-NEXT:    [[BB0:BB[0-9]+]]:
 ; CHECK-NEXT:     <Empty Block>
 ; CHECK-NEXT:    SUCCESSORS(1):[[BB1:BB[0-9]+]]
 ; CHECK-NEXT:    no PREDECESSORS
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB1]]:
-; CHECK-NEXT:     [DA: Div, SVA: ( V )] i32 [[VP__RED_INIT:%.*]] = reduction-init i32 0 i32 [[REDUCTION_PHI0:%.*]] (SVAOpBits 0->F 1->F )
+; CHECK-NEXT:     [DA: Div, SVA: ( V )] i32 [[VP__RED_INIT:%.*]] = reduction-init i32 0 i32 [[REDUCTION_PHI0]] (SVAOpBits 0->F 1->F )
 ; CHECK-NEXT:     [DA: Div, SVA: (F  )] i64 [[VP__IND_INIT:%.*]] = induction-init{add} i64 0 i64 1 (SVAOpBits 0->F 1->F )
 ; CHECK-NEXT:     [DA: Uni, SVA: (F  )] i64 [[VP__IND_INIT_STEP:%.*]] = induction-init-step{add} i64 1 (SVAOpBits 0->F )
 ; CHECK-NEXT:    SUCCESSORS(1):[[BB2:BB[0-9]+]]
@@ -172,6 +185,11 @@ define dso_local i32 @simpleReduction(i32* nocapture %a, i32 %b) local_unnamed_a
 ; CHECK-NEXT:     <Empty Block>
 ; CHECK-NEXT:    no SUCCESSORS
 ; CHECK-NEXT:    PREDECESSORS(1): [[BB3]]
+; CHECK-EMPTY:
+; CHECK-NEXT:  External Uses:
+; CHECK-NEXT:  Id: 0   i32 [[VP__RED_FINAL]] -> [[VP6:%.*]] = {%reduction.phi}
+; CHECK-EMPTY:
+; CHECK-NEXT:  Id: 1   no underlying for i64 [[VP__IND_FINAL]]
 ;
 entry:
   br label %DIR.OMP.SIMD.1
@@ -198,6 +216,8 @@ DIR.OMP.END.SIMD.3:                               ; preds = %omp.inner.for.body
 define dso_local void @phiUsedByPhi(i64* nocapture %a, i64* nocapture %b) local_unnamed_addr {
 ; CHECK-LABEL:  VPlan after ScalVec analysis:
 ; CHECK-NEXT:  VPlan IR for: Initial VPlan for VF=2
+; CHECK-NEXT:  Live-in values:
+; CHECK-NEXT:  ID: 0 Value: i64 0
 ; CHECK-NEXT:    [[BB0:BB[0-9]+]]:
 ; CHECK-NEXT:     <Empty Block>
 ; CHECK-NEXT:    SUCCESSORS(1):[[BB1:BB[0-9]+]]
@@ -242,6 +262,9 @@ define dso_local void @phiUsedByPhi(i64* nocapture %a, i64* nocapture %b) local_
 ; CHECK-NEXT:     <Empty Block>
 ; CHECK-NEXT:    no SUCCESSORS
 ; CHECK-NEXT:    PREDECESSORS(1): [[BB5]]
+; CHECK-EMPTY:
+; CHECK-NEXT:  External Uses:
+; CHECK-NEXT:  Id: 0   no underlying for i64 [[VP__IND_FINAL]]
 ;
 entry:
   br label %DIR.OMP.SIMD.1

@@ -20,7 +20,7 @@ void test_tile_tilestored64e(const void * base, size_t stride) {
 }
 
 void test_tile_tilemove() {
-  _tile_tilemove(1, 1); // expected-error {{tmul arguments must refer to different tiles}}
+  _tile_tilemove(1, 1); // expected-error {{tile arguments must refer to different tiles}}
   _tile_tilemove(32, 2); // expected-error {{argument value 32 is outside the valid range [0, 31]}}
   _tile_tilemove(1, 32); // expected-error {{argument value 32 is outside the valid range [0, 31]}}
 }

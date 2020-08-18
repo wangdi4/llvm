@@ -101,7 +101,7 @@ void WRegionInfoWrapperPass::releaseMemory() { WRI.reset(); }
 WRegionInfo::WRegionInfo(Function *F, DominatorTree *DT, LoopInfo *LI,
                          ScalarEvolution *SE, const TargetTransformInfo *TTI,
                          AssumptionCache *AC, const TargetLibraryInfo *TLI,
-                         AliasAnalysis *AA, WRegionCollection *WRC,
+                         AAResults *AA, WRegionCollection *WRC,
                          OptimizationRemarkEmitter &ORE)
     : Func(F), DT(DT), LI(LI), SE(SE), TTI(TTI), AC(AC), TLI(TLI), AA(AA),
       WRC(WRC), ORE(ORE) {}
@@ -141,6 +141,16 @@ void WRegionInfo::print(raw_ostream &OS) const {
     (*I)->print(FOS, 0);
 #endif // INTEL_CUSTOMIZATION
   }
+}
+
+bool WRegionInfo::invalidate(Function &F, const PreservedAnalyses &PA,
+                             FunctionAnalysisManager::Invalidator &Inv) {
+  // We do not care if the analysis is not preserved or CFG was modified,
+  // because buildWRGraph() will recompute the graph anyway.
+  // We only care about the analysis references that we keep in
+  // WRegionCollection.
+  return Inv.invalidate<WRegionCollectionAnalysis>(F, PA) ||
+      Inv.invalidate<OptimizationRemarkEmitterAnalysis>(F, PA);
 }
 
 #endif // INTEL_COLLAB

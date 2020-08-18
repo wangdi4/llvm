@@ -116,6 +116,19 @@ RegDDRef *DDRefUtils::createNullDDRef(Type *Ty) {
   return createConstDDRef(Constant::getNullValue(Ty));
 }
 
+RegDDRef *DDRefUtils::createConstOneDDRef(Type *Ty) {
+  if (Ty->isIntegerTy()) {
+    return createConstDDRef(Ty, 1);
+  }
+
+  if (Ty->isFloatingPointTy()) {
+    return createConstDDRef(ConstantFP::get(Ty, 1.0));
+  }
+
+  llvm_unreachable("Unknown One DDRef type!");
+  return nullptr;
+}
+
 RegDDRef *DDRefUtils::createUndefDDRef(Type *Ty) {
   Value *UndefVal = UndefValue::get(Ty);
 
@@ -377,7 +390,6 @@ bool DDRefUtils::areEqual(const DDRef *Ref1, const DDRef *Ref2,
     }
 
     return areEqualImpl(RRef1, RRef2, RelaxedMode);
-
   }
 
   llvm_unreachable("Unknown DDRef kind!");
@@ -494,9 +506,8 @@ void DDRefUtils::printMDNodes(formatted_raw_ostream &OS,
                               const RegDDRef::MDNodesTy &MDNodes) const {
 
   SmallVector<StringRef, 8> MDNames;
-  auto &HIRP = getHIRParser();
 
-  HIRP.getContext().getMDKindNames(MDNames);
+  getContext().getMDKindNames(MDNames);
 
   for (auto const &I : MDNodes) {
     OS << " ";
@@ -505,7 +516,7 @@ void DDRefUtils::printMDNodes(formatted_raw_ostream &OS,
       OS << MDNames[I.first] << " ";
     }
 
-    I.second->printAsOperand(OS, &HIRP.getModule());
+    I.second->printAsOperand(OS, &getModule());
   }
 }
 
@@ -629,12 +640,12 @@ bool DDRefUtils::canReplaceIVByCanonExpr(const RegDDRef *Ref,
 }
 
 void DDRefUtils::replaceIVByCanonExpr(RegDDRef *Ref, unsigned LoopLevel,
-                                      const CanonExpr *CE, bool IsNSW,
+                                      const CanonExpr *CE, bool IsSigned,
                                       bool RelaxedMode) {
 
   for (auto I = Ref->canon_begin(), E = Ref->canon_end(); I != E; ++I) {
-    auto Res = CanonExprUtils::replaceIVByCanonExpr((*I), LoopLevel, CE, IsNSW,
-                                                    RelaxedMode);
+    auto Res = CanonExprUtils::replaceIVByCanonExpr((*I), LoopLevel, CE,
+                                                    IsSigned, RelaxedMode);
     (void)Res;
     assert(Res && "Replacement failed, caller should call "
                   "DDRefUtils::canReplaceIVByCanonExpr() first!");

@@ -480,6 +480,11 @@ public:
   AliasResult alias(const MemoryLocation &LocA, const MemoryLocation &LocB,
                     AAQueryInfo &AAQI);
 
+  AliasResult loopCarriedAlias(const MemoryLocation &LocA,
+                               const MemoryLocation &LocB, AAQueryInfo &AAQI) {
+    return alias(LocA, LocB, AAQI);
+  }
+
   ModRefInfo getModRefInfo(const CallBase *Call, const MemoryLocation &Loc,
                            AAQueryInfo &AAQI);
   ModRefInfo getModRefInfo(const CallBase *Call1, const CallBase *Call2,

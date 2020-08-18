@@ -46,6 +46,8 @@ llvm_config.use_clang()
 config.substitutions.append(
     ('%src_include_dir', config.clang_src_dir + '/include'))
 
+config.substitutions.append(
+    ('%target_triple', config.target_triple))
 
 # Propagate path to symbolizer for ASan/MSan.
 llvm_config.with_system_environment(
@@ -88,6 +90,11 @@ llvm_config.add_tool_substitutions(tools, tool_dirs)
 config.substitutions.append(
     ('%hmaptool', "'%s' %s" % (config.python_executable,
                              os.path.join(config.clang_tools_dir, 'hmaptool'))))
+
+# Strip C++ comments "//"" from tests
+config.substitutions.append(
+    ('%strip_comments', "sed 's/[ \t]*\/\/.*//' %s")
+)
 
 # Plugins (loadable modules)
 if config.has_plugins and config.llvm_plugin_ext:
@@ -154,6 +161,10 @@ if not re.match(r'^x86_64.*-(windows-msvc|windows-gnu)$', config.target_triple):
 # [PR12920] "clang-driver" -- set if gcc driver is not used.
 if not re.match(r'.*-(cygwin)$', config.target_triple):
     config.available_features.add('clang-driver')
+
+# Tests that are specific to the Apple Silicon macOS.
+if re.match(r'^arm64(e)?-apple-(macos|darwin)', config.target_triple):
+    config.available_features.add('apple-silicon-mac')
 
 # [PR18856] Depends to remove opened file. On win32, a file could be removed
 # only if all handles were closed.

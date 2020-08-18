@@ -1,5 +1,4 @@
-//===- HIRLastValueComputation.cpp - Implements LastValueComputation class
-//------------===//
+//===- HIRLastValueComputation.cpp - Implements LastValueComputation class ------------===//
 //
 // Copyright (C) 2015-2020 Intel Corporation. All rights reserved.
 //
@@ -52,11 +51,9 @@ static cl::opt<unsigned>
                        cl::desc("Minimum trip count of the multi exit loop "
                                 "which triggers code generation"));
 
-bool HIRLastValueComputation::isLegalAndProfitable(HLLoop *Lp, HLInst *HInst,
-                                                   unsigned LoopLevel,
-                                                   CanonExpr *UBCE,
-                                                   bool IsUpperBoundComplicated,
-                                                   bool IsNSW) {
+bool HIRLastValueComputation::isLegalAndProfitable(
+    HLLoop *Lp, HLInst *HInst, unsigned LoopLevel, CanonExpr *UBCE,
+    bool IsUpperBoundComplicated, bool HasSignedIV, bool &HasIV) {
   if (!HInst || HInst->isCallInst()) {
     return false;
   }
@@ -85,6 +82,7 @@ bool HIRLastValueComputation::isLegalAndProfitable(HLLoop *Lp, HLInst *HInst,
     }
 
     if (OpRef->hasIV(LoopLevel)) {
+      HasIV = true;
 
       if (IsUpperBoundComplicated) {
 
@@ -100,7 +98,8 @@ bool HIRLastValueComputation::isLegalAndProfitable(HLLoop *Lp, HLInst *HInst,
 
       // TODO: creating an instruction of the form t1 = UB in the postexit and
       // replacing IV by t1.
-      if (!DDRefUtils::canReplaceIVByCanonExpr(OpRef, LoopLevel, UBCE, IsNSW)) {
+      if (!DDRefUtils::canReplaceIVByCanonExpr(OpRef, LoopLevel, UBCE,
+                                               HasSignedIV)) {
         return false;
       }
     }
@@ -138,7 +137,14 @@ static bool isLiveOutOfEdge(unsigned Symbase, BasicBlock *SrcBB,
 }
 
 static bool isLiveOutOfNormalExit(unsigned Symbase, HLLoop *Lp) {
+
   auto *ParRegion = Lp->getParentRegion();
+
+  if (!ParRegion->isLiveOut(Symbase)) {
+    // Conservatively return true if temp is not live out of region. The current
+    // checks do not work for temps internal to the region.
+    return true;
+  }
 
   if (Lp != ParRegion->getLastChild()) {
     // This information cannot be computed easily for other cases so we give
@@ -224,19 +230,23 @@ bool HIRLastValueComputation::doLastValueComputation(HLLoop *Lp) {
   CanonExpr *UBCE = Lp->getUpperCanonExpr();
 
   unsigned LoopLevel = Lp->getNestingLevel();
-  bool IsNSW = Lp->isNSW();
+  bool HasSignedIV = Lp->hasSignedIV();
   SmallVector<HLInst *, 64> CandidateInsts;
 
   bool IsUpperBoundComplicated =
       UBCE->getNumOperations() > NumOperationsThreshold;
+  bool ContainIV = false;
 
   for (auto It = Lp->child_rbegin(), End = Lp->child_rend(); It != End; ++It) {
     auto HInst = dyn_cast<HLInst>(&*It);
+    bool HasIV = false;
 
     if (!isLegalAndProfitable(Lp, HInst, LoopLevel, UBCE,
-                              IsUpperBoundComplicated, IsNSW)) {
+                              IsUpperBoundComplicated, HasSignedIV, HasIV)) {
       continue;
     }
+
+    ContainIV |= HasIV;
 
     CandidateInsts.push_back(HInst);
   }
@@ -248,7 +258,10 @@ bool HIRLastValueComputation::doLastValueComputation(HLLoop *Lp) {
   SmallVector<HLGoto *, 16> Gotos;
 
   bool IsMultiExit = Lp->getNumExits() > 1;
-  bool ShouldGenCode = !IsUpperBoundComplicated ||
+
+  // If the loop is not an empty node after the transformation and all the
+  // candidate insts are without iv, the code generation will be suppressed
+  bool ShouldGenCode = (!IsUpperBoundComplicated && ContainIV) ||
                        (CandidateInsts.size() == Lp->getNumChildren());
 
   if (IsMultiExit) {
@@ -289,7 +302,7 @@ bool HIRLastValueComputation::doLastValueComputation(HLLoop *Lp) {
          I++) {
       RegDDRef *OpRef = *I;
 
-      DDRefUtils::replaceIVByCanonExpr(OpRef, LoopLevel, UBCE, IsNSW);
+      DDRefUtils::replaceIVByCanonExpr(OpRef, LoopLevel, UBCE, HasSignedIV);
       OpRef->makeConsistent(Aux, LoopLevel - 1);
     }
 

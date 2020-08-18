@@ -12,6 +12,7 @@
 #include "Arch/Mips.h"
 #include "Arch/PPC.h"
 #include "Arch/SystemZ.h"
+#include "Arch/VE.h"
 #include "Arch/X86.h"
 #include "HIP.h"
 #include "Hexagon.h"
@@ -81,6 +82,31 @@ void tools::handleTargetFeaturesGroup(const ArgList &Args,
       Name = Name.substr(3);
     Features.push_back(Args.MakeArgString((IsNegative ? "-" : "+") + Name));
   }
+}
+
+std::vector<StringRef>
+tools::unifyTargetFeatures(const std::vector<StringRef> &Features) {
+  std::vector<StringRef> UnifiedFeatures;
+  // Find the last of each feature.
+  llvm::StringMap<unsigned> LastOpt;
+  for (unsigned I = 0, N = Features.size(); I < N; ++I) {
+    StringRef Name = Features[I];
+    assert(Name[0] == '-' || Name[0] == '+');
+    LastOpt[Name.drop_front(1)] = I;
+  }
+
+  for (unsigned I = 0, N = Features.size(); I < N; ++I) {
+    // If this feature was overridden, ignore it.
+    StringRef Name = Features[I];
+    llvm::StringMap<unsigned>::iterator LastI = LastOpt.find(Name.drop_front(1));
+    assert(LastI != LastOpt.end());
+    unsigned Last = LastI->second;
+    if (Last != I)
+      continue;
+
+    UnifiedFeatures.push_back(Name);
+  }
+  return UnifiedFeatures;
 }
 
 void tools::addDirectoryList(const ArgList &Args, ArgStringList &CmdArgs,
@@ -315,6 +341,11 @@ std::string tools::getCPUName(const ArgList &Args, const llvm::Triple &T,
 
     return TargetCPUName;
   }
+  case llvm::Triple::riscv32:
+  case llvm::Triple::riscv64:
+    if (const Arg *A = Args.getLastArg(options::OPT_mcpu_EQ))
+      return A->getValue();
+    return "";
 
   case llvm::Triple::bpfel:
   case llvm::Triple::bpfeb:
@@ -372,10 +403,10 @@ llvm::StringRef tools::getLTOParallelism(const ArgList &Args, const Driver &D) {
 
 // CloudABI uses -ffunction-sections and -fdata-sections by default.
 #if INTEL_CUSTOMIZATION
-bool tools::isUseSeparateSections(const ArgList &Args,
+bool tools::isUseSeparateSections(const Driver &D,
                                   const llvm::Triple &Triple) {
   // -ffunction-sections not enabled by default for Intel.
-  if (Args.hasArg(options::OPT__intel))
+  if (D.IsIntelMode())
     return false;
 #endif // INTEL_CUSTOMIZATION
   return Triple.getOS() == llvm::Triple::CloudABI;
@@ -403,7 +434,7 @@ void tools::addLTOOptions(const ToolChain &ToolChain, const ArgList &Args,
 
 #if INTEL_CUSTOMIZATION
     const char * PluginName = "LLVMgold";
-    if (Args.hasArg(options::OPT__intel))
+    if (D.IsIntelMode())
       PluginName = "icx-lto";
     SmallString<1024> Plugin;
     llvm::sys::path::native(Twine(ToolChain.getDriver().Dir) +
@@ -465,7 +496,7 @@ void tools::addLTOOptions(const ToolChain &ToolChain, const ArgList &Args,
   }
 
   bool UseSeparateSections =
-      isUseSeparateSections(Args, ToolChain.getEffectiveTriple()); // INTEL
+      isUseSeparateSections(D, ToolChain.getEffectiveTriple()); // INTEL
 
   if (Args.hasFlag(options::OPT_ffunction_sections,
                    options::OPT_fno_function_sections, UseSeparateSections)) {
@@ -531,11 +562,23 @@ void tools::addLTOOptions(const ToolChain &ToolChain, const ArgList &Args,
   addX86AlignBranchArgs(D, Args, CmdArgs, /*IsLTO=*/true);
 
 #if INTEL_CUSTOMIZATION
-  if (Args.hasArg(options::OPT__intel)) {
+  if (D.IsIntelMode()) {
     if (Arg * A = Args.getLastArg(options::OPT_fveclib))
       CmdArgs.push_back(Args.MakeArgString(
           Twine("-plugin-opt=-vector-library=") + A->getValue()));
   }
+  auto addAdvancedOptimFlag = [&](const Arg &OptArg, OptSpecifier Opt) {
+    if (OptArg.getOption().matches(Opt) &&
+        x86::isValidIntelCPU(OptArg.getValue(), ToolChain.getTriple()))
+      CmdArgs.push_back("-plugin-opt=fintel-advanced-optim");
+  };
+  // Given -x, turn on advanced optimizations
+  if (Arg *A = Args.getLastArgNoClaim(options::OPT_march_EQ, options::OPT_x))
+    addAdvancedOptimFlag(*A, options::OPT_x);
+  // Additional handling for /arch and /Qx
+  if (Arg *A = Args.getLastArgNoClaim(options::OPT__SLASH_arch,
+                                      options::OPT__SLASH_Qx))
+    addAdvancedOptimFlag(*A, options::OPT__SLASH_Qx);
   addIntelOptimizationArgs(ToolChain, Args, CmdArgs, true);
   // All -mllvm flags as provided by the user will be passed through.
   for (const StringRef &AV : Args.getAllArgValues(options::OPT_mllvm))
@@ -544,20 +587,56 @@ void tools::addLTOOptions(const ToolChain &ToolChain, const ArgList &Args,
 }
 
 #if INTEL_CUSTOMIZATION
+static void AddllvmOption(const ToolChain &TC, const char *Opt, bool IsLink,
+                          const llvm::opt::ArgList &Args,
+                          llvm::opt::ArgStringList &CmdArgs) {
+  bool IsMSVC = TC.getTriple().isKnownWindowsMSVCEnvironment();
+  if (IsLink) {
+    StringRef LinkOpt = (IsMSVC ? "-mllvm:" : "-plugin-opt=");
+    CmdArgs.push_back(Args.MakeArgString(LinkOpt + Twine(Opt)));
+  } else {
+    CmdArgs.push_back("-mllvm");
+    CmdArgs.push_back(Opt);
+  }
+}
+
+static void RenderOptReportOptions(const ToolChain &TC, bool IsLink,
+                                   const llvm::opt::ArgList &Args,
+                                   llvm::opt::ArgStringList &CmdArgs) {
+  const Arg *A = Args.getLastArg(options::OPT_qopt_report_EQ);
+  if (!A)
+    return;
+  auto addllvmOption = [&](const char *Opt) {
+    AddllvmOption(TC, Opt, IsLink, Args, CmdArgs);
+  };
+  StringRef ReportLevel;
+  ReportLevel = llvm::StringSwitch<StringRef>(A->getValue())
+                    .Case("0", "disable")
+                    .Cases("1", "min", "low")
+                    .Cases("2", "med", "medium")
+                    .Cases("3", "max", "high")
+                    .Default("");
+  if (ReportLevel.empty()) {
+    TC.getDriver().Diag(clang::diag::warn_drv_unused_argument)
+        << A->getAsString(Args);
+    return;
+  }
+  if (ReportLevel == "disable")
+    return;
+  addllvmOption("-intel-loop-optreport-emitter=ir");
+  addllvmOption("-enable-ra-report");
+  addllvmOption(
+      Args.MakeArgString(Twine("-intel-loop-optreport=") + ReportLevel));
+  addllvmOption(
+      Args.MakeArgString(Twine("-intel-ra-spillreport=") + ReportLevel));
+}
+
 void tools::addIntelOptimizationArgs(const ToolChain &TC,
                                      const llvm::opt::ArgList &Args,
                                      llvm::opt::ArgStringList &CmdArgs,
                                      bool IsLink) {
-  bool IsMSVC = TC.getTriple().isKnownWindowsMSVCEnvironment();
-
   auto addllvmOption = [&](const char *Opt) {
-    if (IsLink) {
-      StringRef LinkOpt = (IsMSVC ? "-mllvm:" : "-plugin-opt=");
-      CmdArgs.push_back(Args.MakeArgString(LinkOpt + Twine(Opt)));
-    } else {
-      CmdArgs.push_back("-mllvm");
-      CmdArgs.push_back(Opt);
-    }
+    AddllvmOption(TC, Opt, IsLink, Args, CmdArgs);
   };
   StringRef MLTVal;
   if (const Arg *A = Args.getLastArg(options::OPT_qopt_mem_layout_trans_EQ)) {
@@ -592,8 +671,8 @@ void tools::addIntelOptimizationArgs(const ToolChain &TC,
       }
     }
   }
-  if (Args.hasFlag(options::OPT_qno_opt_matmul, options::OPT__intel,
-                   options::OPT_qopt_matmul, false))
+  if (Args.hasFlag(options::OPT_qno_opt_matmul, options::OPT_qopt_matmul,
+                   TC.getDriver().IsIntelMode()))
     addllvmOption("-disable-hir-generate-mkl-call");
 
   if (Arg *A = Args.getLastArg(
@@ -607,9 +686,25 @@ void tools::addIntelOptimizationArgs(const ToolChain &TC,
       addllvmOption("-vplan-vls-level=never");
   }
 
- // Handle --intel defaults
-  if (Args.hasArg(options::OPT__intel)) {
-    if (!Args.hasArg(options::OPT_ffreestanding))
+  RenderOptReportOptions(TC, IsLink, Args, CmdArgs);
+  auto addMultiVersionFlag = [&](const Arg &OptArg, OptSpecifier Opt) {
+    if (IsLink && OptArg.getOption().matches(Opt) &&
+        x86::isValidIntelCPU(OptArg.getValue(), TC.getTriple()))
+      addllvmOption("-enable-multiversioning");
+  };
+  // Given -x, turn on multi-versioning
+  // FIXME: These checks for Intel -x and -Qx are used in many places, we
+  // should improve this by adding some kind of common check.
+  if (Arg *A = Args.getLastArgNoClaim(options::OPT_march_EQ, options::OPT_x))
+    addMultiVersionFlag(*A, options::OPT_x);
+  // Additional handling for /arch and /Qx
+  if (Arg *A = Args.getLastArgNoClaim(options::OPT__SLASH_arch,
+                                      options::OPT__SLASH_Qx))
+    addMultiVersionFlag(*A, options::OPT__SLASH_Qx);
+
+  // Handle --intel defaults
+  if (TC.getDriver().IsIntelMode()) {
+    if (!Args.hasArg(options::OPT_ffreestanding, options::OPT_i_no_use_libirc))
       addllvmOption("-intel-libirc-allowed");
     bool AddLoopOpt = true;
     for (const StringRef &AV : Args.getAllArgValues(options::OPT_mllvm))
@@ -657,8 +752,11 @@ void tools::addIntelOptimizationArgs(const ToolChain &TC,
 
 void tools::addArchSpecificRPath(const ToolChain &TC, const ArgList &Args,
                                  ArgStringList &CmdArgs) {
+  // Enable -frtlib-add-rpath by default for the case of VE.
+  const bool IsVE = TC.getTriple().isVE();
+  bool DefaultValue = IsVE;
   if (!Args.hasFlag(options::OPT_frtlib_add_rpath,
-                    options::OPT_fno_rtlib_add_rpath, false))
+                    options::OPT_fno_rtlib_add_rpath, DefaultValue))
     return;
 
   std::string CandidateRPath = TC.getArchSpecificLibPath();
@@ -671,6 +769,21 @@ void tools::addArchSpecificRPath(const ToolChain &TC, const ArgList &Args,
 bool tools::addOpenMPRuntime(ArgStringList &CmdArgs, const ToolChain &TC,
                              const ArgList &Args, bool ForceStaticHostRuntime,
                              bool IsOffloadingHost, bool GompNeedsRT) {
+#if INTEL_CUSTOMIZATION
+  if (Arg *A = Args.getLastArg(options::OPT_qopenmp_stubs,
+      options::OPT_fopenmp, options::OPT_fopenmp_EQ, options::OPT_fiopenmp)) {
+    if (A->getOption().matches(options::OPT_qopenmp_stubs)) {
+      CmdArgs.push_back("-liompstubs5");
+      // With the stubs lib, we don't want lpthread linked.
+      return false;
+    }
+  }
+  bool addOpenMPLib = false;
+  if (Arg *A = Args.getLastArg(options::OPT_mkl_EQ)) {
+    if (A->getValue() == StringRef("parallel"))
+      addOpenMPLib = true;
+  }
+#endif // INTEL_CUSTOMIZATION
   if (!Args.hasFlag(options::OPT_fopenmp, options::OPT_fopenmp_EQ,
 #if INTEL_COLLAB
                     options::OPT_fno_openmp, false) &&
@@ -678,7 +791,10 @@ bool tools::addOpenMPRuntime(ArgStringList &CmdArgs, const ToolChain &TC,
 #else
                     options::OPT_fno_openmp, false))
 #endif // INTEL_COLLAB
-    return false;
+#if INTEL_CUSTOMIZATION
+    if (!addOpenMPLib)
+      return false;
+#endif // INTEL_CUSTOMIZATION
 
   Driver::OpenMPRuntimeKind RTKind = TC.getDriver().getOpenMPRuntime(Args);
 
@@ -908,6 +1024,9 @@ bool tools::addSanitizerRuntimes(const ToolChain &TC, const ArgList &Args,
       !Args.hasArg(options::OPT_shared)) {
 
     addSanitizerRuntime(TC, Args, CmdArgs, "fuzzer", false, true);
+    if (SanArgs.needsFuzzerInterceptors())
+      addSanitizerRuntime(TC, Args, CmdArgs, "fuzzer_interceptors", false,
+                          true);
     if (!Args.hasArg(clang::driver::options::OPT_nostdlibxx))
       TC.AddCXXStdlibLibArgs(Args, CmdArgs);
   }
@@ -1018,10 +1137,12 @@ void tools::SplitDebugInfo(const ToolChain &TC, Compilation &C, const Tool &T,
   InputInfo II(types::TY_Object, Output.getFilename(), Output.getFilename());
 
   // First extract the dwo sections.
-  C.addCommand(std::make_unique<Command>(JA, T, Exec, ExtractArgs, II));
+  C.addCommand(std::make_unique<Command>(
+      JA, T, ResponseFileSupport::AtFileCurCP(), Exec, ExtractArgs, II));
 
   // Then remove them from the original .o file.
-  C.addCommand(std::make_unique<Command>(JA, T, Exec, StripArgs, II));
+  C.addCommand(std::make_unique<Command>(
+      JA, T, ResponseFileSupport::AtFileCurCP(), Exec, StripArgs, II));
 }
 
 // Claim options we don't want to warn if they are unused. We do this for

@@ -1,5 +1,5 @@
-; RUN: opt -enable-intel-advanced-opts -mcpu=skylake-avx512 -tti -basicaa --slp-vectorizer -disable-output -debug-only=SLP -slp-look-ahead-users-budget=100 < %s 2>&1 | FileCheck %s -check-prefix=CHECK_HI
-; RUN: opt -enable-intel-advanced-opts -mcpu=skylake-avx512 -tti -basicaa --slp-vectorizer -disable-output -debug-only=SLP < %s 2>&1 | FileCheck %s -check-prefix=CHECK_DEFAULT
+; RUN: opt -enable-intel-advanced-opts -mcpu=skylake-avx512 -tti -basic-aa --slp-vectorizer -disable-output -debug-only=SLP -slp-look-ahead-users-budget=100 < %s 2>&1 | FileCheck %s -check-prefix=CHECK_HI
+; RUN: opt -enable-intel-advanced-opts -mcpu=skylake-avx512 -tti -basic-aa --slp-vectorizer -disable-output -debug-only=SLP < %s 2>&1 | FileCheck %s -check-prefix=CHECK_DEFAULT
 
 ; REQUIRES: asserts
 

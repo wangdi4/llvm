@@ -14,6 +14,7 @@
 #include <vector>
 
 #include "llvm/Analysis/InlineCost.h"
+#include "llvm/Config/llvm-config.h"
 #include "llvm/IR/PassManager.h"
 
 namespace llvm {
@@ -75,14 +76,9 @@ public:
   void recordInliningWithCalleeDeleted();
 
   /// Call after the decision for a call site was to not inline.
-#if INTEL_CUSTOMIZATION
-  void recordUnsuccessfulInlining(const InlineResult &Result,
-                                  InlineReason *Reason = nullptr,
-                                  InlineReport *Report = nullptr,
-                                  InlineReportBuilder *MDReport = nullptr) {
-#endif // INTEL_CUSTOMIZATION
+  void recordUnsuccessfulInlining(const InlineResult &Result) {
     markRecorded();
-    recordUnsuccessfulInliningImpl(Result, Reason, Report, MDReport); // INTEL
+    recordUnsuccessfulInliningImpl(Result);
   }
 
   /// Call to indicate inlining was not attempted.
@@ -99,12 +95,7 @@ public:
 protected:
   virtual void recordInliningImpl() {}
   virtual void recordInliningWithCalleeDeletedImpl() {}
-#if INTEL_CUSTOMIZATION
-  virtual void recordUnsuccessfulInliningImpl(
-      const InlineResult &Result, InlineReason *Reason = nullptr,
-      InlineReport *Report = nullptr, InlineReportBuilder *MDReport = nullptr) {
-  }
-#endif // INTEL_CUSTOMIZATION
+  virtual void recordUnsuccessfulInliningImpl(const InlineResult &Result) {}
   virtual void recordUnattemptedInliningImpl() {}
 
   InlineAdvisor *const Advisor;
@@ -142,7 +133,8 @@ public:
 #if INTEL_CUSTOMIZATION
   virtual std::unique_ptr<InlineAdvice> getAdvice(CallBase &CB,
                                                   InliningLoopInfoCache *ILIC,
-                                                  InlineReport *Report) = 0;
+                                                  WholeProgramInfo *WPI,
+                                                  InlineCost **IC) = 0;
 #endif // INTEL_CUSTOMIZATION
 
   /// This must be called when the Inliner pass is entered, to allow the
@@ -191,7 +183,8 @@ private:
 #if INTEL_CUSTOMIZATION
   std::unique_ptr<InlineAdvice>
   getAdvice(CallBase &CB, InliningLoopInfoCache *ILIC = nullptr,
-            InlineReport *Report = nullptr) override;
+            WholeProgramInfo *WPI = nullptr,
+            InlineCost **IC = nullptr) override;
 #endif // INTEL_CUSTOMIZATION
 
   void onPassExit() override { freeDeletedFunctions(); }
@@ -225,17 +218,36 @@ public:
   Result run(Module &M, ModuleAnalysisManager &MAM) { return Result(M, MAM); }
 };
 
+#ifdef LLVM_HAVE_TF_AOT
+std::unique_ptr<InlineAdvisor>
+getReleaseModeAdvisor(Module &M, ModuleAnalysisManager &MAM);
+#endif
+
+#ifdef LLVM_HAVE_TF_API
+std::unique_ptr<InlineAdvisor>
+getDevelopmentModeAdvisor(Module &M, ModuleAnalysisManager &MAM,
+                          std::function<bool(CallBase &)> GetDefaultAdvice);
+#endif
+
 // Default (manual policy) decision making helper APIs. Shared with the legacy
 // pass manager inliner.
 
+/// INTEL: This is the original comment from llorg:
 /// Return the cost only if the inliner should attempt to inline at the given
 /// CallSite. If we return the cost, we will emit an optimisation remark later
 /// using that cost, so we won't do so from this function. Return None if
 /// inlining should not be attempted.
-Optional<InlineCost>
+#if INTEL_CUSTOMIZATION
+/// INTEL: This function has been modified to always return an InlineCost,
+/// so that the inline analysis can pass back results for the inlining report
+/// in the transformation pass, whether or not the function is to be inlined.
+/// To check whether the function is recommended to be inlined, query
+/// IC.getIsRecommended(), where IC is the function return value.
+///
+InlineCost
+#endif // INTEL_CUSTOMIZATION
 shouldInline(CallBase &CB, function_ref<InlineCost(CallBase &CB)> GetInlineCost,
-             OptimizationRemarkEmitter &ORE, InlineReport *IR, // INTEL
-             bool EnableDeferral = true);                      // INTEL
+             OptimizationRemarkEmitter &ORE, bool EnableDeferral = true);
 
 /// Emit ORE message.
 void emitInlinedInto(OptimizationRemarkEmitter &ORE, DebugLoc DLoc,

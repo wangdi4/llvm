@@ -30,6 +30,38 @@
 
 namespace llvm {
 
+/// This class describes the operations of some expression tree.
+class FMAOpsDesc {
+protected:
+  /// The number of ADD and SUB operations.
+  unsigned NumAddSub;
+
+  /// The number of MUL operations.
+  unsigned NumMul;
+
+  /// The number of FMA operations.
+  unsigned NumFMA;
+
+public:
+  /// Default constructor.
+  FMAOpsDesc() : NumAddSub(0), NumMul(0), NumFMA(0) {}
+
+  /// Constructor that fully initializes the object.
+  FMAOpsDesc(unsigned NumAddSub, unsigned NumMul, unsigned NumFMA)
+      : NumAddSub(NumAddSub), NumMul(NumMul), NumFMA(NumFMA) {}
+
+  /// Returns the number of ADD and SUB operations in the expression tree.
+  unsigned getNumAddSub() const { return NumAddSub; }
+
+  /// Returns the number of MUL operations in the expression tree.
+  unsigned getNumMul() const { return NumMul; }
+
+  /// Returns the number of FMA operations in the expression tree.
+  unsigned getNumFMA() const { return NumFMA; }
+
+  /// Returns the number of all operations in the expression tree.
+  unsigned getNumOperations() const { return NumAddSub + NumMul + NumFMA; }
+};
 
 // This class defines structures and methods for holding and maintaining
 // expression trees (DAGs). Each node of the DAG describes one FMA-like
@@ -413,6 +445,50 @@ class FMADagCommon {
     // information about regular terms, i.e. all regular terms are anonymous.
     uint64_t getEncodedDag() { return EncodedDag; }
 
+    // Returns descriptor describing various operations.
+    FMAOpsDesc getOpsDesc() const {
+      unsigned NumAddSub = 0;
+      unsigned NumMul = 0;
+      unsigned NumFMA = 0;
+
+      unsigned NumNodes = getNumNodes();
+      for (unsigned NodeInd = 0; NodeInd < NumNodes; NodeInd++) {
+        bool AIsTerm, BIsTerm, CIsTerm;
+        unsigned A = getOperand(NodeInd, 0, &AIsTerm);
+        unsigned B = getOperand(NodeInd, 1, &BIsTerm);
+        unsigned C = getOperand(NodeInd, 2, &CIsTerm);
+
+        bool AIsZero = AIsTerm && A == TermZERO;
+        bool BIsZero = BIsTerm && B == TermZERO;
+        bool CIsZero = CIsTerm && C == TermZERO;
+
+        (void)AIsZero; (void)BIsZero;
+        assert((!AIsZero && !BIsZero) && "DAG has obvious inefficiencies.");
+
+        bool AIsOne = AIsTerm && A == TermONE;
+        bool BIsOne = BIsTerm && B == TermONE;
+
+        if (AIsOne || BIsOne) {
+          assert(!CIsZero && "DAG has obvious inefficiencies.");
+          NumAddSub++;
+          // -A - C node requires 2 operations at the code-generation phase:
+          //   T0 = A + C; T1 = 0 - T0;
+          // Count the additional subtract operation here.
+          if (getMulSign(NodeInd) && getAddSign(NodeInd))
+            NumAddSub++;
+        } else if (CIsZero) {
+          // A*B requires 1 MUL operation at the code-generation phase.
+          // -A*B requires 1 FMA operation: -A*B+0.
+          if (getMulSign(NodeInd))
+            NumFMA++;
+          else
+            NumMul++;
+        } else
+          NumFMA++;
+      }
+      return FMAOpsDesc(NumAddSub, NumMul, NumFMA);
+    }
+
     // Prints the DAG to the given output stream \p OS.
     void print(raw_ostream &OS) const {
       unsigned NumNodes = getNumNodes();
@@ -486,9 +562,9 @@ class FMAExprSPCommon {
     // Represent one product of terms. For example, (-t0*t1*t2*...*tN).
     // This is used as a building block for Sum Of Products representation.
     struct FMAExprProduct {
-      bool     Sign;
-      uint8_t  NumTerms;
-      uint8_t  Terms[MaxNumOfTermsInProduct];
+      bool     Sign = false;
+      uint8_t  NumTerms = 0;
+      uint8_t  Terms[MaxNumOfTermsInProduct] = {0};
 
       // Returns true iff the product consists of only one term TermZERO.
       bool isZero() const { return NumTerms == 1 && Terms[0] == TermZERO; }

@@ -367,24 +367,12 @@ typedef uint16_t InstrUID;
 //                  corresponds to instructions that use reg field as opcode
 // MODRM_FULL     - Potentially, each value of the ModR/M byte could correspond
 //                  to a different instruction.
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_AMX
 #define MODRMTYPES            \
   ENUM_ENTRY(MODRM_ONEENTRY)  \
   ENUM_ENTRY(MODRM_SPLITRM)   \
   ENUM_ENTRY(MODRM_SPLITMISC)  \
   ENUM_ENTRY(MODRM_SPLITREG)  \
-  ENUM_ENTRY(MODRM_SPLITREGM) \
   ENUM_ENTRY(MODRM_FULL)
-#else // INTEL_FEATURE_ISA_AMX
-#define MODRMTYPES            \
-  ENUM_ENTRY(MODRM_ONEENTRY)  \
-  ENUM_ENTRY(MODRM_SPLITRM)   \
-  ENUM_ENTRY(MODRM_SPLITMISC) \
-  ENUM_ENTRY(MODRM_SPLITREG)  \
-  ENUM_ENTRY(MODRM_FULL)
-#endif // INTEL_FEATURE_ISA_AMX
-#endif // INTEL_CUSTOMIZATION
 
 #define ENUM_ENTRY(n) n,
 enum ModRMDecisionType {
@@ -411,6 +399,18 @@ enum ModRMDecisionType {
     case ENCODING_VSIB_CD32: \
     case ENCODING_VSIB_CD64
 
+#if INTEL_CUSTOMIZATION
+#define CASE_ENCODING_SIB   \
+    case ENCODING_SIB:      \
+    case ENCODING_SIB_CD2:  \
+    case ENCODING_SIB_CD4:  \
+    case ENCODING_SIB_CD8:  \
+    case ENCODING_SIB_CD16: \
+    case ENCODING_SIB_CD32: \
+    case ENCODING_SIB_CD64
+#endif // INTEL_CUSTOMIZATION
+
+#if INTEL_CUSTOMIZATION
 // Physical encodings of instruction operands.
 #define ENCODINGS                                                              \
   ENUM_ENTRY(ENCODING_NONE,   "")                                              \
@@ -422,6 +422,13 @@ enum ModRMDecisionType {
   ENUM_ENTRY(ENCODING_RM_CD16,"R/M operand with CDisp scaling of 16")          \
   ENUM_ENTRY(ENCODING_RM_CD32,"R/M operand with CDisp scaling of 32")          \
   ENUM_ENTRY(ENCODING_RM_CD64,"R/M operand with CDisp scaling of 64")          \
+  ENUM_ENTRY(ENCODING_SIB,      "Force SIB operand in ModR/M byte.")           \
+  ENUM_ENTRY(ENCODING_SIB_CD2,  "Force SIB operand with CDisp scaling of 2")   \
+  ENUM_ENTRY(ENCODING_SIB_CD4,  "Force SIB operand with CDisp scaling of 4")   \
+  ENUM_ENTRY(ENCODING_SIB_CD8,  "Force SIB operand with CDisp scaling of 8")   \
+  ENUM_ENTRY(ENCODING_SIB_CD16, "Force SIB operand with CDisp scaling of 16")  \
+  ENUM_ENTRY(ENCODING_SIB_CD32, "Force SIB operand with CDisp scaling of 32")  \
+  ENUM_ENTRY(ENCODING_SIB_CD64, "Force SIB operand with CDisp scaling of 64")  \
   ENUM_ENTRY(ENCODING_VSIB,     "VSIB operand in ModR/M byte.")                \
   ENUM_ENTRY(ENCODING_VSIB_CD2, "VSIB operand with CDisp scaling of 2")        \
   ENUM_ENTRY(ENCODING_VSIB_CD4, "VSIB operand with CDisp scaling of 4")        \
@@ -453,6 +460,7 @@ enum ModRMDecisionType {
                               "in type")                                       \
   ENUM_ENTRY(ENCODING_SI,     "Source index; encoded in OpSize/Adsize prefix") \
   ENUM_ENTRY(ENCODING_DI,     "Destination index; encoded in prefixes")
+#endif // INTEL_CUSTOMIZATION
 
 #define ENUM_ENTRY(n, d) n,
 enum OperandEncoding {
@@ -463,10 +471,8 @@ enum OperandEncoding {
 
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_AMX
-#define XTM_ENUM_ENTRY ENUM_ENTRY(TYPE_TMM,        "tile")
 #define XTP_ENUM_ENTRY ENUM_ENTRY(TYPE_TMM_PAIR,   "tile pair")
 #else // INTEL_FEATURE_ISA_AMX
-#define XTM_ENUM_ENTRY
 #define XTP_ENUM_ENTRY
 #endif // INTEL_FEATURE_ISA_AMX
 
@@ -498,6 +504,7 @@ enum OperandEncoding {
   ENUM_ENTRY(TYPE_AVX512ICC,  "1-byte immediate operand for AVX512 icmp")      \
   ENUM_ENTRY(TYPE_UIMM8,      "1-byte unsigned immediate operand")             \
   ENUM_ENTRY(TYPE_M,          "Memory operand")                                \
+  ENUM_ENTRY(TYPE_MSIB,       "Memory operand force sib encoding")             \
   ENUM_ENTRY(TYPE_MVSIBX,     "Memory operand using XMM index")                \
   ENUM_ENTRY(TYPE_MVSIBY,     "Memory operand using YMM index")                \
   ENUM_ENTRY(TYPE_MVSIBZ,     "Memory operand using ZMM index")                \
@@ -510,11 +517,11 @@ enum OperandEncoding {
   ENUM_ENTRY(TYPE_YMM,        "32-byte")                                       \
   ENUM_ENTRY(TYPE_ZMM,        "64-byte")                                       \
   ENUM_ENTRY(TYPE_VK,         "mask register")                                 \
-  XTM_ENUM_ENTRY                                                               \
   ENUM_ENTRY(TYPE_VK_PAIR,    "mask register pair")                            \
   XTP_ENUM_ENTRY                                                               \
   Z16T_ENUM_ENTRY                                                              \
   XTQ_ENUM_ENTRY                                                               \
+  ENUM_ENTRY(TYPE_TMM,        "tile")                                          \
   ENUM_ENTRY(TYPE_SEGMENTREG, "Segment register operand")                      \
   ENUM_ENTRY(TYPE_DEBUGREG,   "Debug register operand")                        \
   ENUM_ENTRY(TYPE_CONTROLREG, "Control register operand")                      \

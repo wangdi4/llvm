@@ -17,12 +17,12 @@ target triple = "x86_64-unknown-linux-gnu"
 
 define dso_local void @foo() {
 ; CHECK-LABEL:  HIR Cost Model for VPlan foo.42 with VF = 8:
-; CHECK-NEXT:  Total VPlan Cost: 148
+; CHECK-NEXT:  Total VPlan Cost: 140
 ; CHECK-NEXT:  VPlan Base Cost before adjustments: 84
-; CHECK-NEXT:  Total VPlan spill/fill cost: +64
+; CHECK-NEXT:  Total VPlan spill/fill cost: +56
 ; CHECK-NEXT:  Analyzing VPBasicBlock [[BB0:BB[0-9]+]], total cost: 0
 ; CHECK-NEXT:  Analyzing VPBasicBlock [[BB1:BB[0-9]+]], total cost: 0
-; CHECK-NEXT:    Cost Unknown for i64 [[VP__IND_INIT:%.*]] = induction-init{add} i64 0 i64 1
+; CHECK-NEXT:    Cost Unknown for i64 [[VP__IND_INIT:%.*]] = induction-init{add} i64 live-in0 i64 1
 ; CHECK-NEXT:    Cost Unknown for i64 [[VP__IND_INIT_STEP:%.*]] = induction-init-step{add} i64 1
 ; CHECK-NEXT:  Analyzing VPBasicBlock [[BB2:BB[0-9]+]], total cost: 26
 ; CHECK-NEXT:    Cost Unknown for i64 [[VP0:%.*]] = phi  [ i64 [[VP__IND_INIT]], [[BB1]] ],  [ i64 [[VP1:%.*]], [[BB3:BB[0-9]+]] ]
@@ -52,7 +52,7 @@ define dso_local void @foo() {
 ; CHECK-NEXT:    Cost 2 for i32 [[VP14:%.*]] = add i32 [[VP2]] i32 1
 ; CHECK-NEXT:    Cost 2 for i1 [[VP15:%.*]] = icmp i32 [[VP14]] i32 0
 ; CHECK-NEXT:  Analyzing VPBasicBlock [[BB4:BB[0-9]+]], total cost: 20
-; CHECK-NEXT:  Block spill/fill approximate cost (not included into total cost): 28
+; CHECK-NEXT:  Block Vector spill/fill approximate cost (not included into total cost): 24
 ; CHECK-NEXT:    Cost 0 for i1 [[VP16:%.*]] = block-predicate i1 [[VP15]]
 ; CHECK-NEXT:    Cost 2 for i32 [[VP17:%.*]] = add i32 [[VP2]] i32 [[VP3]]
 ; CHECK-NEXT:    Cost 2 for i32 [[VP18:%.*]] = add i32 [[VP17]] i32 [[VP4]]
@@ -72,7 +72,7 @@ define dso_local void @foo() {
 ; CHECK-NEXT:    Cost 4 for i64 [[VP1]] = add i64 [[VP0]] i64 [[VP__IND_INIT_STEP]]
 ; CHECK-NEXT:    Cost 32 for i1 [[VP28:%.*]] = icmp i64 [[VP1]] i64 1023
 ; CHECK-NEXT:  Analyzing VPBasicBlock [[BB5:BB[0-9]+]], total cost: 0
-; CHECK-NEXT:    Cost Unknown for i64 [[VP__IND_FINAL:%.*]] = induction-final{add} i64 0 i64 1
+; CHECK-NEXT:    Cost Unknown for i64 [[VP__IND_FINAL:%.*]] = induction-final{add} i64 live-in0 i64 1
 ; CHECK-NEXT:  Analyzing VPBasicBlock [[BB6:BB[0-9]+]], total cost: 0
 ;
 entry:

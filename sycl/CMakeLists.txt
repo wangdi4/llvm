@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.2)
+cmake_minimum_required(VERSION 3.14)
 
 project(sycl-solution)
 # Requirements
@@ -8,7 +8,10 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 option(SYCL_ENABLE_WERROR "Treat all warnings as errors in SYCL project" OFF)
 option(SYCL_ADD_DEV_VERSION_POSTFIX "Adds -V postfix to version string" OFF)
 
-set(SYCL_MAJOR_VERSION 2)
+list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake/modules")
+include(AddSYCLExecutable)
+
+set(SYCL_MAJOR_VERSION 3)
 set(SYCL_MINOR_VERSION 0)
 set(SYCL_PATCH_VERSION 0)
 set(SYCL_DEV_ABI_VERSION 0)
@@ -121,6 +124,9 @@ if( NOT OpenCL_INCLUDE_DIRS )
     INSTALL_COMMAND   ""
     STEP_TARGETS      build
     COMMENT           "Downloading OpenCL headers."
+    LOG_DOWNLOAD 1
+    LOG_UPDATE 1
+    LOG_BUILD 1
   )
   add_definitions(-DCL_TARGET_OPENCL_VERSION=220)
 else()
@@ -229,6 +235,11 @@ elseif( NOT OpenCL_LIBRARIES )
     STEP_TARGETS      configure,build,install
     DEPENDS           ocl-headers
     BUILD_BYPRODUCTS ${OpenCL_LIBRARIES}
+    LOG_DOWNLOAD 1
+    LOG_UPDATE 1
+    LOG_CONFIGURE 1
+    LOG_BUILD 1
+    LOG_INSTALL 1
   )
   ExternalProject_Add_Step(ocl-icd llvminstall
     COMMAND ${CMAKE_COMMAND} -E copy_directory <INSTALL_DIR>/ ${LLVM_BINARY_DIR}
@@ -323,7 +334,7 @@ add_subdirectory( source )
 # Auxilliary extras for SYCL headers/library
 if (NOT WIN32)
   install(FILES
-      "${CMAKE_CURRENT_SOURCE_DIR}/xmethods/libsycl.so-gdb.py"
+      "${CMAKE_CURRENT_SOURCE_DIR}/gdb/libsycl.so-gdb.py"
       RENAME "libsycl.so.${SYCL_VERSION_STRING}-gdb.py"
       DESTINATION "lib${LLVM_LIBDIR_SUFFIX}/"
       COMPONENT sycl-headers-extras)
@@ -411,7 +422,7 @@ set( SYCL_TOOLCHAIN_DEPLOY_COMPONENTS
      sycl-headers-extras
      sycl
      pi_opencl
-     pi_level0
+     pi_level_zero
      libsycldevice
 # INTEL_CUSTOMIZATION
      # Please add xmain specific deploy components
@@ -427,7 +438,7 @@ if(INTEL_CUSTOMIZATION)
   # Add xmain specific deploy components here.
   list(APPEND SYCL_TOOLCHAIN_DEPLOY_COMPONENTS sycl-config-file)
   if (CMAKE_SYCL_USE_LEVEL0)
-    list(APPEND SYCL_TOOLCHAIN_DEPLOY_COMPONENTS pi_level0)
+    list(APPEND SYCL_TOOLCHAIN_DEPLOY_COMPONENTS pi_level_zero)
   endif()
 endif(INTEL_CUSTOMIZATION)
 
@@ -479,3 +490,5 @@ add_custom_target(deploy-sycl-toolchain
 
 # SYCL Runtime documentation
 add_subdirectory(doc)
+
+add_subdirectory(examples)

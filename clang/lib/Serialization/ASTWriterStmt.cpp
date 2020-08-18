@@ -194,6 +194,8 @@ void ASTStmtWriter::VisitWhileStmt(WhileStmt *S) {
     Record.AddDeclRef(S->getConditionVariable());
 
   Record.AddSourceLocation(S->getWhileLoc());
+  Record.AddSourceLocation(S->getLParenLoc());
+  Record.AddSourceLocation(S->getRParenLoc());
   Code = serialization::STMT_WHILE;
 }
 
@@ -797,7 +799,9 @@ void ASTStmtWriter::VisitOMPArraySectionExpr(OMPArraySectionExpr *E) {
   Record.AddStmt(E->getBase());
   Record.AddStmt(E->getLowerBound());
   Record.AddStmt(E->getLength());
-  Record.AddSourceLocation(E->getColonLoc());
+  Record.AddStmt(E->getStride());
+  Record.AddSourceLocation(E->getColonLocFirst());
+  Record.AddSourceLocation(E->getColonLocSecond());
   Record.AddSourceLocation(E->getRBracketLoc());
   Code = serialization::EXPR_OMP_ARRAY_SECTION;
 }
@@ -844,12 +848,15 @@ void ASTStmtWriter::VisitOMPIteratorExpr(OMPIteratorExpr *E) {
 void ASTStmtWriter::VisitCallExpr(CallExpr *E) {
   VisitExpr(E);
   Record.push_back(E->getNumArgs());
+  Record.push_back(E->hasStoredFPFeatures());
   Record.AddSourceLocation(E->getRParenLoc());
   Record.AddStmt(E->getCallee());
   for (CallExpr::arg_iterator Arg = E->arg_begin(), ArgEnd = E->arg_end();
        Arg != ArgEnd; ++Arg)
     Record.AddStmt(*Arg);
   Record.push_back(static_cast<unsigned>(E->getADLCallKind()));
+  if (E->hasStoredFPFeatures())
+    Record.push_back(E->getFPFeatures().getAsOpaqueInt());
   Code = serialization::EXPR_CALL;
 }
 
@@ -1545,7 +1552,6 @@ void ASTStmtWriter::VisitMSDependentExistsStmt(MSDependentExistsStmt *S) {
 void ASTStmtWriter::VisitCXXOperatorCallExpr(CXXOperatorCallExpr *E) {
   VisitCallExpr(E);
   Record.push_back(E->getOperator());
-  Record.push_back(E->getFPFeatures().getAsOpaqueInt());
   Record.AddSourceRange(E->Range);
   Code = serialization::EXPR_CXX_OPERATOR_CALL;
 }
@@ -1615,7 +1621,8 @@ void ASTStmtWriter::VisitLambdaExpr(LambdaExpr *E) {
     Record.AddStmt(*C);
   }
 
-  Record.AddStmt(E->getBody());
+  // Don't serialize the body. It belongs to the call operator declaration.
+  // LambdaExpr only stores a copy of the Stmt *.
 
   Code = serialization::EXPR_LAMBDA;
 }
@@ -2173,6 +2180,7 @@ void ASTStmtWriter::VisitOMPLoopDirective(OMPLoopDirective *D) {
   Record.AddStmt(D->getPreCond());
   Record.AddStmt(D->getCond());
 #if INTEL_COLLAB
+  Record.AddStmt(D->getUpperBoundVariable());
   Record.AddStmt(D->getLateOutlineCond());
   Record.AddStmt(D->getLateOutlineLinearCounterStep());
   Record.AddStmt(D->getLateOutlineLinearCounterIncrement());
@@ -2185,7 +2193,11 @@ void ASTStmtWriter::VisitOMPLoopDirective(OMPLoopDirective *D) {
       isOpenMPDistributeDirective(D->getDirectiveKind())) {
     Record.AddStmt(D->getIsLastIterVariable());
     Record.AddStmt(D->getLowerBoundVariable());
+#if INTEL_COLLAB
+    // UpperBound used in all loops, processed above.
+#else // INTEL_COLLAB
     Record.AddStmt(D->getUpperBoundVariable());
+#endif // INTEL_COLLAB
     Record.AddStmt(D->getStrideVariable());
     Record.AddStmt(D->getEnsureUpperBound());
     Record.AddStmt(D->getNextLowerBound());

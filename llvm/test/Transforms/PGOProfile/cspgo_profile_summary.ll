@@ -1,8 +1,8 @@
 ; Test the profile summary for context sensitive PGO (CSPGO)
 
 ; RUN: llvm-profdata merge %S/Inputs/cspgo.proftext -o %t.profdata
-; RUN: opt < %s -O2 -disable-preinline -pgo-kind=pgo-instr-use-pipeline -profile-file=%t.profdata -S | FileCheck %s --check-prefix=PGOSUMMARY
-; RUN: opt < %s -O2 -disable-preinline -pgo-kind=pgo-instr-use-pipeline -profile-file=%t.profdata -S -cspgo-kind=cspgo-instr-use-pipeline| FileCheck %s --check-prefix=CSPGOSUMMARY
+; RUN: opt < %s -O2 -disable-preinline -pgo-instrument-entry=false -pgo-kind=pgo-instr-use-pipeline -profile-file=%t.profdata -S | FileCheck %s --check-prefix=PGOSUMMARY
+; RUN: opt < %s -O2 -disable-preinline -pgo-instrument-entry=false -pgo-kind=pgo-instr-use-pipeline -profile-file=%t.profdata -S -cspgo-kind=cspgo-instr-use-pipeline| FileCheck %s --check-prefix=CSPGOSUMMARY
 
 ; INTEL CUSTOMIZATION: This test fails in xmain.  JR CMPLRLLVM-8686
 ; There are two issues that prevent this test from working in xmain:

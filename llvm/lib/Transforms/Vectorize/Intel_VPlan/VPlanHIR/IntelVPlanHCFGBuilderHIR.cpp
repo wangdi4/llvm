@@ -353,6 +353,7 @@ VPBasicBlock *PlainCFGBuilderHIR::getOrCreateVPBB(HLNode *HNode) {
   auto createVPBB = [&]() -> VPBasicBlock * {
     VPBasicBlock *NewVPBB =
         new VPBasicBlock(VPlanUtils::createUniqueName("BB"), Plan);
+    NewVPBB->setTerminator();
     Plan->insertAtBack(NewVPBB);
     return NewVPBB;
   };
@@ -385,8 +386,16 @@ VPBasicBlock *PlainCFGBuilderHIR::getOrCreateVPBB(HLNode *HNode) {
 /// Predecessors.
 void PlainCFGBuilderHIR::connectVPBBtoPreds(VPBasicBlock *VPBB) {
 
-  for (VPBasicBlock *Pred : Predecessors)
-    Pred->appendSuccessor(VPBB);
+  for (VPBasicBlock *Pred : Predecessors) {
+    VPBasicBlock *Succ = Pred->getSingleSuccessor();
+    VPValue *CondBit = Pred->getCondBit();
+    if (Succ)
+      Pred->setTerminator(Succ, VPBB, CondBit);
+    else {
+      Pred->setTerminator(VPBB);
+      Pred->setCondBit(CondBit);
+    }
+  }
 
   Predecessors.clear();
 }
@@ -476,7 +485,7 @@ void PlainCFGBuilderHIR::visit(HLLoop *HLp) {
   // Header and set Latch condition bit.
   VPValue *LatchCondBit =
       Decomposer.createLoopIVNextAndBottomTest(HLp, Preheader, Latch);
-  Latch->appendSuccessor(Header);
+  Latch->setTerminator(Header);
   Latch->setCondBit(LatchCondBit);
 
   // - Loop Exits -
@@ -614,7 +623,7 @@ void PlainCFGBuilderHIR::visit(HLGoto *HGoto) {
   }
 
   // Connect to HLGoto's VPBB to HLLabel's VPBB.
-  ActiveVPBB->appendSuccessor(LabelVPBB);
+  Decomposer.createVPBranchInstruction(ActiveVPBB, LabelVPBB, HGoto);
 
   // Force the creation of a new VPBasicBlock for the next HLNode.
   ActiveVPBB = nullptr;
@@ -682,6 +691,11 @@ void PlainCFGBuilderHIR::buildPlainCFG() {
   // VPInstructions have been created for the loop nest. It's time to fix
   // VPInstructions representing a PHI operation.
   Decomposer.fixPhiNodes();
+
+  // Initial plain CFG is ready at this point. Do post-processing to fix
+  // VPExternalUses that have multiple operands i.e. multiple live-out
+  // VPInstructions for single temp/symbase.
+  Decomposer.fixExternalUses();
   return;
 }
 
@@ -1053,9 +1067,9 @@ public:
   void operator()(InductionDescr &Descriptor,
                   const InductionList::value_type &CurValue) {
     VPDecomposerHIR::VPInductionHIR *ID = CurValue.get();
-    Descriptor.setInductionBinOp(ID->getUpdateInstr());
-    Descriptor.setBinOpcode(Instruction::BinaryOpsEnd);
-    Type *IndTy = Descriptor.getInductionBinOp()->getType();
+    Descriptor.setInductionOp(ID->getUpdateInstr());
+    Descriptor.setIndOpcode(Instruction::BinaryOpsEnd);
+    Type *IndTy = Descriptor.getInductionOp()->getType();
     VPInduction::InductionKind Kind;
     std::tie(std::ignore, Kind) = Descriptor.getKindAndOpcodeFromTy(IndTy);
     Descriptor.setKind(Kind);
@@ -1096,7 +1110,7 @@ public:
     } else
       Cstep = ConstantInt::get(IndTy, Stride);
     Descriptor.setStep(Decomposer.getVPValueForConst(Cstep));
-    Descriptor.setInductionBinOp(nullptr);
+    Descriptor.setInductionOp(nullptr);
     Descriptor.setAllocaInst(Descriptor.getStart());
   }
 };

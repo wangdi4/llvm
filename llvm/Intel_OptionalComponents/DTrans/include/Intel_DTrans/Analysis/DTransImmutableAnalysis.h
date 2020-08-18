@@ -34,6 +34,10 @@ class DTransImmutableInfo {
     SmallVector<Constant *, 2> LikelyValues;
     SmallVector<Constant *, 2> LikelyIndirectArrayValues;
 
+    // If the current field is an array with constant integers, then store the
+    // entries (pair.first) and its constant values (pair.second).
+    SmallVector<std::pair<Constant *, Constant*>, 2> ConstantEntriesInArray;
+
     FieldInfo() {}
   };
 
@@ -60,8 +64,9 @@ public:
   /// Adds likely constant values for field \p FieldNum of struct \p StructTy.
   void
   addStructFieldInfo(StructType *StructTy, unsigned FieldNum,
-                     const SetVector<Constant *> &LikelyValues,
-                     const SetVector<Constant *> &LikelyIndirectArrayValues);
+      const SetVector<Constant *> &LikelyValues,
+      const SetVector<Constant *> &LikelyIndirectArrayValues,
+      const SetVector< std::pair<Constant*, Constant*> > &ConsEntriesInArray);
 
   /// Returns likely set of constant values for \p FieldNum of struct \p
   /// StructTy. Returns null if no info exists.
@@ -72,6 +77,13 @@ public:
   /// struct \p StructTy. Returns null if no info exists.
   const SmallVectorImpl<llvm::Constant *> *
   getLikelyIndirectArrayConstantValues(StructType *StructTy, unsigned FieldNum);
+
+  /// Given the \p FieldNum, which is an array in structure \p StructTy, return
+  /// a vector of std::pair that represents the constant entries in this array.
+  /// Each pair represents an entry in the array (first) and its constant value
+  /// (second).
+  const SmallVectorImpl< std::pair<Constant *, Constant*> > *
+  getConstantEntriesFromArray(StructType *StructTy, unsigned FieldNum);
 
   /// Results cannot be invalidated.
   bool invalidate(Module &, const PreservedAnalyses &,

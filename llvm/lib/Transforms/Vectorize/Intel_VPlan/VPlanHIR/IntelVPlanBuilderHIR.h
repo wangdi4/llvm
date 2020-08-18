@@ -81,15 +81,6 @@ public:
     return VPBuilder::createPhiInstruction(BaseTy);
   }
 
-  // Construct VPBranchInst instruction from a \p Goto.
-  VPBranchInst *createBr(Type *BaseTy, loopopt::HLGoto *Goto) {
-    assert(Goto && "HLGoto must be passed to construct VPBranchInst.");
-    VPBranchInst *BranchInst = VPBuilder::createBr(BaseTy);
-    BranchInst->HIR.setUnderlyingNode(Goto);
-    BranchInst->HIR.setValid();
-    return BranchInst;
-  }
-
   // Construct VPHIRCopyInst instruction with given VPValue \p CopyFrom.
   VPHIRCopyInst *createHIRCopy(VPValue *CopyFrom,
                                loopopt::HLDDNode *DDNode = nullptr) {

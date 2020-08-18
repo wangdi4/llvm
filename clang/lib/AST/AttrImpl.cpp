@@ -84,26 +84,14 @@ LoopHintAttr::getDiagnosticName(const PrintingPolicy &Policy) const {
     return "#pragma unroll_and_jam" +
            (option == UnrollAndJamCount ? getValueString(Policy) : "");
 #if INTEL_CUSTOMIZATION
-  else if (SpellingIndex == Pragma_ii)
-    return "#pragma ii";
   else if (SpellingIndex == Pragma_ivdep)
     return "#pragma ivdep";
-  else if (SpellingIndex == Pragma_loop_coalesce)
-    return "#pragma loop_coalesce";
-  else if (SpellingIndex == Pragma_max_concurrency)
-    return "#pragma max_concurrency";
-  else if (SpellingIndex == Pragma_max_interleaving)
-    return "#pragma max_interleaving";
   else if (SpellingIndex == Pragma_ii_at_most)
     return "#pragma ii_at_most";
   else if (SpellingIndex == Pragma_ii_at_least)
     return "#pragma ii_at_least";
   else if (SpellingIndex == Pragma_min_ii_at_target_fmax)
     return "#pragma min_ii_at_target_fmax";
-  else if (SpellingIndex == Pragma_speculated_iterations)
-    return "#pragma speculated_iterations";
-  else if (SpellingIndex == Pragma_disable_loop_pipelining)
-    return "#pragma disable_loop_pipelining";
   else if (SpellingIndex == Pragma_force_hyperopt)
     return "#pragma force_hyperopt";
   else if (SpellingIndex == Pragma_force_no_hyperopt)

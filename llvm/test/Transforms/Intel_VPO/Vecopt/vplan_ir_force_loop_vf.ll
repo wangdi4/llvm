@@ -55,8 +55,8 @@ loop1.body:
   %loop1.iv = phi i64 [ 0, %loop1.preheader ], [ %loop1.iv.next, %loop1.body ]
   %gep1 = getelementptr float, float * %ptr, i64 %loop1.iv
   %ld1 = load float, float *%gep1
-; LLVM: %wide.load{{.*}} = load <8 x float>
-; LLVM: load float
+; LLVM-DAG: %wide.load{{.*}} = load <8 x float>
+; LLVM-DAG: load float
   %loop1.iv.next = add nsw i64 %loop1.iv, 1
   %loop1.exitcond = icmp eq i64 %loop1.iv.next, 80
   br i1 %loop1.exitcond, label %loop1.exit, label %loop1.body
@@ -73,8 +73,8 @@ loop2.body:
   %loop2.iv = phi i64 [ 0, %loop2.preheader ], [ %loop2.iv.next, %loop2.body ]
   %gep2 = getelementptr float, float * %ptr, i64 %loop2.iv
   %ld2 = load float, float *%gep2
-; LLVM: %wide.load{{.*}} = load <2 x float>
-; LLVM: load float
+; LLVM-DAG: %wide.load{{.*}} = load <2 x float>
+; LLVM-DAG: load float
   %loop2.iv.next = add nsw i64 %loop2.iv, 1
   %loop2.exitcond = icmp eq i64 %loop2.iv.next, 80
   br i1 %loop2.exitcond, label %loop2.exit, label %loop2.body
@@ -91,8 +91,8 @@ loop3.body:
   %loop3.iv = phi i64 [ 0, %loop3.preheader ], [ %loop3.iv.next, %loop3.body ]
   %gep3 = getelementptr float, float * %ptr, i64 %loop3.iv
   %ld3 = load float, float *%gep3
-; LLVM: %wide.load{{.*}} = load <4 x float>
-; LLVM: load float
+; LLVM-DAG: %wide.load{{.*}} = load <4 x float>
+; LLVM-DAG: load float
   %loop3.iv.next = add nuw nsw i64 %loop3.iv, 1
   %loop3.exitcond = icmp eq i64 %loop3.iv.next, 80
   br i1 %loop3.exitcond, label %loop3.exit, label %loop3.body

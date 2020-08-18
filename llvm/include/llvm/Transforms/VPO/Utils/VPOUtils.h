@@ -18,15 +18,16 @@
 
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/StringMap.h"
-#include "llvm/Analysis/LoopInfo.h"
-#include "llvm/Support/raw_ostream.h"
-#include "llvm/Support/Debug.h"
-#include "llvm/IR/IRBuilder.h"
-#include "llvm/Transforms/Utils/ValueMapper.h"
-#include "llvm/Transforms/Utils/Cloning.h"
 #include "llvm/Analysis/Directives.h"
+#include "llvm/Analysis/LoopInfo.h"
 #include "llvm/Analysis/VPO/Utils/VPOAnalysisUtils.h"
 #include "llvm/Analysis/VPO/WRegionInfo/WRegionNode.h"
+#include "llvm/IR/Dominators.h"
+#include "llvm/IR/IRBuilder.h"
+#include "llvm/Support/Debug.h"
+#include "llvm/Support/raw_ostream.h"
+#include "llvm/Transforms/Utils/Cloning.h"
+#include "llvm/Transforms/Utils/ValueMapper.h"
 #include <unordered_map>
 
 // Used for Parallel Section Transformations
@@ -35,6 +36,7 @@
 
 namespace llvm {
 
+class AAResults;
 class Value;
 class Module;
 class Function;
@@ -48,6 +50,7 @@ class CallInst;
 class IntrinsicInst;
 class Constant;
 class LLVMContext;
+class TargetLibraryInfo;
 
 namespace vpo {
 
@@ -94,7 +97,8 @@ public:
 
   // Remove the branch from entry directive to end directive generated to
   // prevent deletion of end directive in case it's dead code.
-  static bool removeBranchesFromBeginToEndDirective(Function &F);
+  static bool removeBranchesFromBeginToEndDirective(
+      Function &F, const TargetLibraryInfo *TLI, DominatorTree *DT);
 
   /// If \p ValWithCasts is a CastInst, or a chain of CastInsts, the function
   /// recursively gets its operand until it encounters a non-CastInst. All
@@ -144,7 +148,7 @@ public:
 #if INTEL_CUSTOMIZATION
 
   /// Generate the alias_scope and no_alias metadata for the incoming BBs.
-  static void genAliasSet(ArrayRef<BasicBlock *> BBs, AliasAnalysis *AA,
+  static void genAliasSet(ArrayRef<BasicBlock *> BBs, AAResults *AA,
                           const DataLayout *DL);
 #endif  // INTEL_CUSTOMIZATION
 
@@ -246,14 +250,14 @@ public:
   // parallel sections and work-sharing sections.
   static ParSectNode *buildParSectTree(Function *F,
                                        DominatorTree *DT = nullptr);
-  static void buildParSectTreeRecursive(BasicBlock *BB,
+  static void buildParSectTreeIterative(BasicBlock *BB,
                                         std::stack<ParSectNode *> &SectionStack,
                                         DominatorTree *DT = nullptr);
 
   static void printParSectTree(ParSectNode *Node);
 
   static void
-  gatherImplicitSectionRecursive(BasicBlock *BB,
+  gatherImplicitSectionIterative(BasicBlock *BB,
                                  std::stack<ParSectNode *> &ImpSectStack,
                                  DominatorTree *DT = nullptr);
 
@@ -293,6 +297,33 @@ public:
                                          IRBuilder<> &Builder,
                                          unsigned Alignment, Value *Mask);
 
+  /// Creates a clone of \p CI, and adds \p OpBundlesToAdd the new
+  /// CallInst. \returns the created CallInst, if it created one, \p CI
+  /// otherwise (when \p OpBundlesToAdd is empty).
+  static CallInst *addOperandBundlesInCall(
+      CallInst *CI,
+      ArrayRef<std::pair<StringRef, ArrayRef<Value *>>> OpBundlesToAdd);
+
+  /// Creates a clone of \p CI without any operand bundles whose tags match an
+  /// entry in \p OpBundlesToRemove. Replaces all uses of the original \p CI
+  /// with the new Instruction created.
+  /// \returns the created CallInst, if it created one, \p CI otherwise (when \p
+  /// OpBundlesToRemove is empty, or has no matching bundle on \p CI).
+  static CallInst *
+  removeOperandBundlesFromCall(CallInst *CI,
+                               ArrayRef<StringRef> OpBundlesToRemove);
+
+  /// "Privatizes" an Instruction \p I by adding it to a supported entry
+  /// directive clause.
+  /// If the Instruction is already used in a directive, nothing is done.
+  /// \p BlockPos: The first dominating entry directive over this block is
+  /// chosen.
+  /// \p SimdOnly: Only search for SIMD directives.
+  /// Return false if no directive was found.
+  /// Intended to be used outside of paropt when creating new values inside
+  /// a region.
+  static bool addPrivateToEnclosingRegion(Instruction *I, BasicBlock *BlockPos,
+                                          DominatorTree &DT, bool SimdOnly);
   /// @}
 };
 

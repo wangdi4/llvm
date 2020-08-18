@@ -2,8 +2,8 @@
 ; Test case to make sure that whole program won't be achieved when creating
 ; a DLL because lld isn't linking an executable.
 
-; RUN: llvm-as -o %T/wp_dll_1.bc %s
-; RUN: lld-link /out:%T/wp_dll_1.dll /dll %T/wp_dll_1.bc /mllvm:-debug-only=whole-program-analysis \
+; RUN: llvm-as -o %t_wp_dll_1.bc %s
+; RUN: lld-link /out:%t_wp_dll_1.dll /dll %t_wp_dll_1.bc /mllvm:-debug-only=whole-program-analysis \
 ; RUN:     2>&1 | FileCheck %s
 
 target datalayout = "e-m:w-i64:64-f80:128-n8:16:32:64-S128"

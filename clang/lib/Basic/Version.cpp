@@ -14,7 +14,10 @@
 #include "clang/Basic/LLVM.h"
 #include "clang/Config/config.h"
 #include "llvm/Support/raw_ostream.h"
+#include "llvm/Support/Path.h"          // INTEL
+#include "llvm/Support/FileSystem.h"    // INTEL
 #include "clang/Basic/intel/versparm.h" // INTEL
+#include "llvm/Config/dpcpp.version.info.h" // INTEL
 #include <cstdlib>
 #include <cstring>
 
@@ -82,8 +85,16 @@ std::string getClangToolFullVersion(StringRef ToolName) {
   std::string buf;
   llvm::raw_string_ostream OS(buf);
 #if INTEL_CUSTOMIZATION
-  OS << getDPCPPProductName() << " " << getDPCPPVersionString() << " (" <<
-      getICXVersionString() << ")";
+  static int ExecAddr;
+  SmallString<128> ClangBinPath = llvm::sys::path::parent_path(
+      llvm::sys::fs::getMainExecutable("clang", (void *)&ExecAddr));
+  OS << ClangBinPath << "/" << "compiler-pro-auth";
+  std::string suffix;
+  if (llvm::sys::fs::exists(OS.str().data()))
+    suffix = " Pro";
+  OS.str().erase();
+  OS << getDPCPPProductName() << suffix << " " << getDPCPPVersionString()
+     << " (" << getICXVersionString() << ")";
 #endif // INTEL_CUSTOMIZATION
   return OS.str();
 }
@@ -96,7 +107,12 @@ std::string getClangFullCPPVersion() {
 #ifdef CLANG_VENDOR
   OS << CLANG_VENDOR;
 #endif
-  OS << "Clang " CLANG_VERSION_STRING " " << getClangFullRepositoryVersion();
+  OS << "Clang " CLANG_VERSION_STRING;
+
+  std::string repo = getClangFullRepositoryVersion();
+  if (!repo.empty()) {
+    OS << " " << repo;
+  }
   return OS.str();
 }
 
@@ -115,16 +131,6 @@ std::string getICXVersionString() {
     return OS.str();
   }
   return XMAIN_VERSION_STRING;
-}
-
-std::string getDPCPPVersionString() {
-  std::string buf;
-  llvm::raw_string_ostream OS(buf);
-  OS << DPCPP_VERSION_MAJOR_STR << "." << DPCPP_VERSION_MINOR_STR;
-  StringRef Q(DPCPP_VERSION_QUALITY);
-  if (!Q.empty())
-    OS << "-" << Q;
-  return OS.str();
 }
 
 std::string getDPCPPProductName() {

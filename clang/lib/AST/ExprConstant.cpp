@@ -3032,7 +3032,7 @@ static bool evaluateVarDeclInit(EvalInfo &Info, const Expr *E,
     if (Info.checkingPotentialConstantExpression())
       return false;
     if (!Frame || !Frame->Arguments) {
-      Info.FFDiag(E, diag::note_invalid_subexpr_in_const_expr);
+      Info.FFDiag(E, diag::note_constexpr_function_param_value_unknown) << VD;
       return false;
     }
     Result = &Frame->Arguments[PVD->getFunctionScopeIndex()];
@@ -3063,12 +3063,34 @@ static bool evaluateVarDeclInit(EvalInfo &Info, const Expr *E,
   }
 
   // Dig out the initializer, and use the declaration which it's attached to.
+  // FIXME: We should eventually check whether the variable has a reachable
+  // initializing declaration.
   const Expr *Init = VD->getAnyInitializer(VD);
-  if (!Init || Init->isValueDependent()) {
-    // If we're checking a potential constant expression, the variable could be
-    // initialized later.
-    if (!Info.checkingPotentialConstantExpression())
-      Info.FFDiag(E, diag::note_invalid_subexpr_in_const_expr);
+  if (!Init) {
+    // Don't diagnose during potential constant expression checking; an
+    // initializer might be added later.
+    if (!Info.checkingPotentialConstantExpression()) {
+      Info.FFDiag(E, diag::note_constexpr_var_init_unknown, 1)
+        << VD;
+      Info.Note(VD->getLocation(), diag::note_declared_at);
+    }
+    return false;
+  }
+
+  if (Init->isValueDependent()) {
+    // The DeclRefExpr is not value-dependent, but the variable it refers to
+    // has a value-dependent initializer. This should only happen in
+    // constant-folding cases, where the variable is not actually of a suitable
+    // type for use in a constant expression (otherwise the DeclRefExpr would
+    // have been value-dependent too), so diagnose that.
+    assert(!VD->mightBeUsableInConstantExpressions(Info.Ctx));
+    if (!Info.checkingPotentialConstantExpression()) {
+      Info.FFDiag(E, Info.getLangOpts().CPlusPlus11
+                         ? diag::note_constexpr_ltor_non_constexpr
+                         : diag::note_constexpr_ltor_non_integral, 1)
+          << VD << VD->getType();
+      Info.Note(VD->getLocation(), diag::note_declared_at);
+    }
     return false;
   }
 
@@ -3077,13 +3099,6 @@ static bool evaluateVarDeclInit(EvalInfo &Info, const Expr *E,
   if (Info.EvaluatingDecl.dyn_cast<const ValueDecl*>() == VD) {
     Result = Info.EvaluatingDeclValue;
     return true;
-  }
-
-  // Never evaluate the initializer of a weak variable. We can't be sure that
-  // this is the definition which will be used.
-  if (VD->isWeak()) {
-    Info.FFDiag(E, diag::note_invalid_subexpr_in_const_expr);
-    return false;
   }
 
   // Check that we can fold the initializer. In C++, we will have already done
@@ -3095,11 +3110,22 @@ static bool evaluateVarDeclInit(EvalInfo &Info, const Expr *E,
     Info.Note(VD->getLocation(), diag::note_declared_at);
     Info.addNotes(Notes);
     return false;
-  } else if (!VD->checkInitIsICE()) {
+  }
+
+  // Check that the variable is actually usable in constant expressions.
+  if (!VD->checkInitIsICE()) {
     Info.CCEDiag(E, diag::note_constexpr_var_init_non_constant,
                  Notes.size() + 1) << VD;
     Info.Note(VD->getLocation(), diag::note_declared_at);
     Info.addNotes(Notes);
+  }
+
+  // Never use the initializer of a weak variable, not even for constant
+  // folding. We can't be sure that this is the definition that will be used.
+  if (VD->isWeak()) {
+    Info.FFDiag(E, diag::note_constexpr_var_init_weak) << VD;
+    Info.Note(VD->getLocation(), diag::note_declared_at);
+    return false;
   }
 
   Result = VD->getEvaluatedValue();
@@ -3804,6 +3830,11 @@ static CompleteObject findCompleteObject(EvalInfo &Info, const Expr *E,
       return CompleteObject();
     }
 
+    // In OpenCL if a variable is in constant address space it is a const value.
+    bool IsConstant = BaseType.isConstQualified() ||
+                      (Info.getLangOpts().OpenCL &&
+                       BaseType.getAddressSpace() == LangAS::opencl_constant);
+
     // Unless we're looking at a local variable or argument in a constexpr call,
     // the variable we're reading must be const.
     if (!Frame) {
@@ -3821,9 +3852,7 @@ static CompleteObject findCompleteObject(EvalInfo &Info, const Expr *E,
       } else if (BaseType->isIntegralOrEnumerationType()) {
         // In OpenCL if a variable is in constant address space it is a const
         // value.
-        if (!(BaseType.isConstQualified() ||
-              (Info.getLangOpts().OpenCL &&
-               BaseType.getAddressSpace() == LangAS::opencl_constant))) {
+        if (!IsConstant) {
           if (!IsAccess)
             return CompleteObject(LVal.getLValueBase(), nullptr, BaseType);
           if (Info.getLangOpts().CPlusPlus) {
@@ -3836,27 +3865,29 @@ static CompleteObject findCompleteObject(EvalInfo &Info, const Expr *E,
         }
       } else if (!IsAccess) {
         return CompleteObject(LVal.getLValueBase(), nullptr, BaseType);
-      } else if (BaseType->isFloatingType() && BaseType.isConstQualified()) {
-        // We support folding of const floating-point types, in order to make
-        // static const data members of such types (supported as an extension)
-        // more useful.
-        if (Info.getLangOpts().CPlusPlus11) {
-          Info.CCEDiag(E, diag::note_constexpr_ltor_non_constexpr, 1) << VD;
+      } else if (IsConstant && Info.checkingPotentialConstantExpression() &&
+                 BaseType->isLiteralType(Info.Ctx) && !VD->hasDefinition()) {
+        // This variable might end up being constexpr. Don't diagnose it yet.
+      } else if (IsConstant) {
+        // Keep evaluating to see what we can do. In particular, we support
+        // folding of const floating-point types, in order to make static const
+        // data members of such types (supported as an extension) more useful.
+        if (Info.getLangOpts().CPlusPlus) {
+          Info.CCEDiag(E, Info.getLangOpts().CPlusPlus11
+                              ? diag::note_constexpr_ltor_non_constexpr
+                              : diag::note_constexpr_ltor_non_integral, 1)
+              << VD << BaseType;
           Info.Note(VD->getLocation(), diag::note_declared_at);
         } else {
           Info.CCEDiag(E);
         }
-      } else if (BaseType.isConstQualified() && VD->hasDefinition(Info.Ctx)) {
-        Info.CCEDiag(E, diag::note_constexpr_ltor_non_constexpr) << VD;
-        // Keep evaluating to see what we can do.
       } else {
-        // FIXME: Allow folding of values of any literal type in all languages.
-        if (Info.checkingPotentialConstantExpression() &&
-            VD->getType().isConstQualified() && !VD->hasDefinition(Info.Ctx)) {
-          // The definition of this variable could be constexpr. We can't
-          // access it right now, but may be able to in future.
-        } else if (Info.getLangOpts().CPlusPlus11) {
-          Info.FFDiag(E, diag::note_constexpr_ltor_non_constexpr, 1) << VD;
+        // Never allow reading a non-const value.
+        if (Info.getLangOpts().CPlusPlus) {
+          Info.FFDiag(E, Info.getLangOpts().CPlusPlus11
+                             ? diag::note_constexpr_ltor_non_constexpr
+                             : diag::note_constexpr_ltor_non_integral, 1)
+              << VD << BaseType;
           Info.Note(VD->getLocation(), diag::note_declared_at);
         } else {
           Info.FFDiag(E);
@@ -4482,37 +4513,48 @@ static bool HandleBaseToDerivedCast(EvalInfo &Info, const CastExpr *E,
 }
 
 /// Get the value to use for a default-initialized object of type T.
-static APValue getDefaultInitValue(QualType T) {
+/// Return false if it encounters something invalid.
+static bool getDefaultInitValue(QualType T, APValue &Result) {
+  bool Success = true;
   if (auto *RD = T->getAsCXXRecordDecl()) {
-    if (RD->isUnion())
-      return APValue((const FieldDecl*)nullptr);
-
-    APValue Struct(APValue::UninitStruct(), RD->getNumBases(),
-                   std::distance(RD->field_begin(), RD->field_end()));
+    if (RD->isInvalidDecl()) {
+      Result = APValue();
+      return false;
+    }
+    if (RD->isUnion()) {
+      Result = APValue((const FieldDecl *)nullptr);
+      return true;
+    }
+    Result = APValue(APValue::UninitStruct(), RD->getNumBases(),
+                     std::distance(RD->field_begin(), RD->field_end()));
 
     unsigned Index = 0;
     for (CXXRecordDecl::base_class_const_iterator I = RD->bases_begin(),
-           End = RD->bases_end(); I != End; ++I, ++Index)
-      Struct.getStructBase(Index) = getDefaultInitValue(I->getType());
+                                                  End = RD->bases_end();
+         I != End; ++I, ++Index)
+      Success &= getDefaultInitValue(I->getType(), Result.getStructBase(Index));
 
     for (const auto *I : RD->fields()) {
       if (I->isUnnamedBitfield())
         continue;
-      Struct.getStructField(I->getFieldIndex()) =
-          getDefaultInitValue(I->getType());
+      Success &= getDefaultInitValue(I->getType(),
+                                     Result.getStructField(I->getFieldIndex()));
     }
-    return Struct;
+    return Success;
   }
 
   if (auto *AT =
           dyn_cast_or_null<ConstantArrayType>(T->getAsArrayTypeUnsafe())) {
-    APValue Array(APValue::UninitArray(), 0, AT->getSize().getZExtValue());
-    if (Array.hasArrayFiller())
-      Array.getArrayFiller() = getDefaultInitValue(AT->getElementType());
-    return Array;
+    Result = APValue(APValue::UninitArray(), 0, AT->getSize().getZExtValue());
+    if (Result.hasArrayFiller())
+      Success &=
+          getDefaultInitValue(AT->getElementType(), Result.getArrayFiller());
+
+    return Success;
   }
 
-  return APValue::IndeterminateValue();
+  Result = APValue::IndeterminateValue();
+  return true;
 }
 
 namespace {
@@ -4542,10 +4584,8 @@ static bool EvaluateVarDecl(EvalInfo &Info, const VarDecl *VD) {
       Info.CurrentCall->createTemporary(VD, VD->getType(), true, Result);
 
   const Expr *InitE = VD->getInit();
-  if (!InitE) {
-    Val = getDefaultInitValue(VD->getType());
-    return true;
-  }
+  if (!InitE)
+    return getDefaultInitValue(VD->getType(), Val);
 
   if (InitE->isValueDependent())
     return false;
@@ -5542,11 +5582,11 @@ struct StartLifetimeOfUnionMemberHandler {
   const Expr *LHSExpr;
   const FieldDecl *Field;
   bool DuringInit;
-
+  bool Failed = false;
   static const AccessKinds AccessKind = AK_Assign;
 
   typedef bool result_type;
-  bool failed() { return false; }
+  bool failed() { return Failed; }
   bool found(APValue &Subobj, QualType SubobjType) {
     // We are supposed to perform no initialization but begin the lifetime of
     // the object. We interpret that as meaning to do what default
@@ -5570,8 +5610,9 @@ struct StartLifetimeOfUnionMemberHandler {
                   diag::note_constexpr_union_member_change_during_init);
       return false;
     }
-
-    Subobj.setUnion(Field, getDefaultInitValue(Field->getType()));
+    APValue Result;
+    Failed = !getDefaultInitValue(Field->getType(), Result);
+    Subobj.setUnion(Field, Result);
     return true;
   }
   bool found(APSInt &Value, QualType SubobjType) {
@@ -5887,8 +5928,9 @@ static bool HandleConstructorCall(const Expr *E, const LValue &This,
     for (; !declaresSameEntity(*FieldIt, FD); ++FieldIt) {
       assert(FieldIt != RD->field_end() && "missing field?");
       if (!FieldIt->isUnnamedBitfield())
-        Result.getStructField(FieldIt->getFieldIndex()) =
-            getDefaultInitValue(FieldIt->getType());
+        Success &= getDefaultInitValue(
+            FieldIt->getType(),
+            Result.getStructField(FieldIt->getFieldIndex()));
     }
     ++FieldIt;
   };
@@ -5940,10 +5982,10 @@ static bool HandleConstructorCall(const Expr *E, const LValue &This,
           if (CD->isUnion())
             *Value = APValue(FD);
           else
-            // FIXME: This immediately starts the lifetime of all members of an
-            // anonymous struct. It would be preferable to strictly start member
-            // lifetime in initialization order.
-            *Value = getDefaultInitValue(Info.Ctx.getRecordType(CD));
+            // FIXME: This immediately starts the lifetime of all members of
+            // an anonymous struct. It would be preferable to strictly start
+            // member lifetime in initialization order.
+            Success &= getDefaultInitValue(Info.Ctx.getRecordType(CD), *Value);
         }
         // Store Subobject as its parent before updating it for the last element
         // in the chain.
@@ -5990,8 +6032,9 @@ static bool HandleConstructorCall(const Expr *E, const LValue &This,
   if (!RD->isUnion()) {
     for (; FieldIt != RD->field_end(); ++FieldIt) {
       if (!FieldIt->isUnnamedBitfield())
-        Result.getStructField(FieldIt->getFieldIndex()) =
-            getDefaultInitValue(FieldIt->getType());
+        Success &= getDefaultInitValue(
+            FieldIt->getType(),
+            Result.getStructField(FieldIt->getFieldIndex()));
     }
   }
 
@@ -9077,8 +9120,8 @@ bool PointerExprEvaluator::VisitCXXNewExpr(const CXXNewExpr *E) {
   } else if (Init) {
     if (!EvaluateInPlace(*Val, Info, Result, Init))
       return false;
-  } else {
-    *Val = getDefaultInitValue(AllocType);
+  } else if (!getDefaultInitValue(AllocType, *Val)) {
+    return false;
   }
 
   // Array new returns a pointer to the first element, not a pointer to the
@@ -9449,8 +9492,7 @@ bool RecordExprEvaluator::VisitCXXConstructExpr(const CXXConstructExpr *E,
     if (ZeroInit)
       return ZeroInitialization(E, T);
 
-    Result = getDefaultInitValue(T);
-    return true;
+    return getDefaultInitValue(T, Result);
   }
 
   const FunctionDecl *Definition = nullptr;
@@ -9894,8 +9936,17 @@ namespace {
     bool ZeroInitialization(const Expr *E) {
       const ConstantArrayType *CAT =
           Info.Ctx.getAsConstantArrayType(E->getType());
-      if (!CAT)
+      if (!CAT) {
+        if (E->getType()->isIncompleteArrayType()) {
+          // We can be asked to zero-initialize a flexible array member; this
+          // is represented as an ImplicitValueInitExpr of incomplete array
+          // type. In this case, the array has zero elements.
+          Result = APValue(APValue::UninitArray(), 0, 0);
+          return true;
+        }
+        // FIXME: We could handle VLAs here.
         return Error(E);
+      }
 
       Result = APValue(APValue::UninitArray(), 0,
                        CAT->getSize().getZExtValue());
@@ -10511,6 +10562,11 @@ EvaluateBuiltinClassifyType(QualType T, const LangOptions &LangOpts) {
     case BuiltinType::ObjCSel:
 #define IMAGE_TYPE(ImgType, Id, SingletonId, Access, Suffix) \
     case BuiltinType::Id:
+#include "clang/Basic/OpenCLImageTypes.def"
+#define IMAGE_TYPE(ImgType, Id, SingletonId, Access, Suffix)                   \
+  case BuiltinType::Sampled##Id:
+#define IMAGE_WRITE_TYPE(Type, Id, Ext)
+#define IMAGE_READ_WRITE_TYPE(Type, Id, Ext)
 #include "clang/Basic/OpenCLImageTypes.def"
 #define EXT_OPAQUE_TYPE(ExtType, Id, Ext) \
     case BuiltinType::Id:
@@ -11209,6 +11265,7 @@ bool IntExprEvaluator::VisitBuiltinCallExpr(const CallExpr *E,
   }
 
   case Builtin::BI__builtin_expect:
+  case Builtin::BI__builtin_expect_with_probability:
     return Visit(E->getArg(0));
 
   case Builtin::BI__builtin_ffs:
@@ -12904,8 +12961,14 @@ bool FixedPointExprEvaluator::VisitCastExpr(const CastExpr *E) {
       return false;
     bool Overflowed;
     APFixedPoint Result = Src.convert(DestFXSema, &Overflowed);
-    if (Overflowed && !HandleOverflow(Info, E, Result, DestType))
-      return false;
+    if (Overflowed) {
+      if (Info.checkingForUndefinedBehavior())
+        Info.Ctx.getDiagnostics().Report(E->getExprLoc(),
+                                         diag::warn_fixedpoint_constant_overflow)
+          << Result.toString() << E->getType();
+      else if (!HandleOverflow(Info, E, Result, E->getType()))
+        return false;
+    }
     return Success(Result, E);
   }
   case CK_IntegralToFixedPoint: {
@@ -12917,8 +12980,14 @@ bool FixedPointExprEvaluator::VisitCastExpr(const CastExpr *E) {
     APFixedPoint IntResult = APFixedPoint::getFromIntValue(
         Src, Info.Ctx.getFixedPointSemantics(DestType), &Overflowed);
 
-    if (Overflowed && !HandleOverflow(Info, E, IntResult, DestType))
-      return false;
+    if (Overflowed) {
+      if (Info.checkingForUndefinedBehavior())
+        Info.Ctx.getDiagnostics().Report(E->getExprLoc(),
+                                         diag::warn_fixedpoint_constant_overflow)
+          << IntResult.toString() << E->getType();
+      else if (!HandleOverflow(Info, E, IntResult, E->getType()))
+        return false;
+    }
 
     return Success(IntResult, E);
   }
@@ -12931,6 +13000,9 @@ bool FixedPointExprEvaluator::VisitCastExpr(const CastExpr *E) {
 }
 
 bool FixedPointExprEvaluator::VisitBinaryOperator(const BinaryOperator *E) {
+  if (E->isPtrMemOp() || E->isAssignmentOp() || E->getOpcode() == BO_Comma)
+    return ExprEvaluatorBaseTy::VisitBinaryOperator(E);
+
   const Expr *LHS = E->getLHS();
   const Expr *RHS = E->getRHS();
   FixedPointSemantics ResultFXSema =
@@ -12943,20 +13015,45 @@ bool FixedPointExprEvaluator::VisitBinaryOperator(const BinaryOperator *E) {
   if (!EvaluateFixedPointOrInteger(RHS, RHSFX, Info))
     return false;
 
+  bool OpOverflow = false, ConversionOverflow = false;
+  APFixedPoint Result(LHSFX.getSemantics());
   switch (E->getOpcode()) {
   case BO_Add: {
-    bool AddOverflow, ConversionOverflow;
-    APFixedPoint Result = LHSFX.add(RHSFX, &AddOverflow)
-                              .convert(ResultFXSema, &ConversionOverflow);
-    if ((AddOverflow || ConversionOverflow) &&
-        !HandleOverflow(Info, E, Result, E->getType()))
+    Result = LHSFX.add(RHSFX, &OpOverflow)
+                  .convert(ResultFXSema, &ConversionOverflow);
+    break;
+  }
+  case BO_Sub: {
+    Result = LHSFX.sub(RHSFX, &OpOverflow)
+                  .convert(ResultFXSema, &ConversionOverflow);
+    break;
+  }
+  case BO_Mul: {
+    Result = LHSFX.mul(RHSFX, &OpOverflow)
+                  .convert(ResultFXSema, &ConversionOverflow);
+    break;
+  }
+  case BO_Div: {
+    if (RHSFX.getValue() == 0) {
+      Info.FFDiag(E, diag::note_expr_divide_by_zero);
       return false;
-    return Success(Result, E);
+    }
+    Result = LHSFX.div(RHSFX, &OpOverflow)
+                  .convert(ResultFXSema, &ConversionOverflow);
+    break;
   }
   default:
     return false;
   }
-  llvm_unreachable("Should've exited before this");
+  if (OpOverflow || ConversionOverflow) {
+    if (Info.checkingForUndefinedBehavior())
+      Info.Ctx.getDiagnostics().Report(E->getExprLoc(),
+                                       diag::warn_fixedpoint_constant_overflow)
+        << Result.toString() << E->getType();
+    else if (!HandleOverflow(Info, E, Result, E->getType()))
+      return false;
+  }
+  return Success(Result, E);
 }
 
 //===----------------------------------------------------------------------===//
@@ -13223,6 +13320,7 @@ public:
   bool VisitBinaryOperator(const BinaryOperator *E);
   bool VisitUnaryOperator(const UnaryOperator *E);
   bool VisitInitListExpr(const InitListExpr *E);
+  bool VisitCallExpr(const CallExpr *E);
 };
 } // end anonymous namespace
 
@@ -13689,6 +13787,23 @@ bool ComplexExprEvaluator::VisitInitListExpr(const InitListExpr *E) {
     return true;
   }
   return ExprEvaluatorBaseTy::VisitInitListExpr(E);
+}
+
+bool ComplexExprEvaluator::VisitCallExpr(const CallExpr *E) {
+  switch (E->getBuiltinCallee()) {
+  case Builtin::BI__builtin_complex:
+    Result.makeComplexFloat();
+    if (!EvaluateFloat(E->getArg(0), Result.FloatReal, Info))
+      return false;
+    if (!EvaluateFloat(E->getArg(1), Result.FloatImag, Info))
+      return false;
+    return true;
+
+  default:
+    break;
+  }
+
+  return ExprEvaluatorBaseTy::VisitCallExpr(E);
 }
 
 //===----------------------------------------------------------------------===//
@@ -14245,10 +14360,11 @@ bool VarDecl::evaluateDestruction(
   // Make a copy of the value for the destructor to mutate, if we know it.
   // Otherwise, treat the value as default-initialized; if the destructor works
   // anyway, then the destruction is constant (and must be essentially empty).
-  APValue DestroyedValue =
-      (getEvaluatedValue() && !getEvaluatedValue()->isAbsent())
-          ? *getEvaluatedValue()
-          : getDefaultInitValue(getType());
+  APValue DestroyedValue;
+  if (getEvaluatedValue() && !getEvaluatedValue()->isAbsent())
+    DestroyedValue = *getEvaluatedValue();
+  else if (!getDefaultInitValue(getType(), DestroyedValue))
+    return false;
 
   EvalInfo Info(getASTContext(), EStatus, EvalInfo::EM_ConstantExpression);
   Info.setEvaluatingDecl(this, DestroyedValue,
@@ -14835,16 +14951,22 @@ bool Expr::isIntegerConstantExpr(const ASTContext &Ctx,
   return true;
 }
 
-bool Expr::isIntegerConstantExpr(llvm::APSInt &Value, const ASTContext &Ctx,
-                                 SourceLocation *Loc, bool isEvaluated) const {
+Optional<llvm::APSInt> Expr::getIntegerConstantExpr(const ASTContext &Ctx,
+                                                    SourceLocation *Loc,
+                                                    bool isEvaluated) const {
   assert(!isValueDependent() &&
          "Expression evaluator can't be called on a dependent expression.");
 
-  if (Ctx.getLangOpts().CPlusPlus11)
-    return EvaluateCPlusPlus11IntegralConstantExpr(Ctx, this, &Value, Loc);
+  APSInt Value;
+
+  if (Ctx.getLangOpts().CPlusPlus11) {
+    if (EvaluateCPlusPlus11IntegralConstantExpr(Ctx, this, &Value, Loc))
+      return Value;
+    return None;
+  }
 
   if (!isIntegerConstantExpr(Ctx, Loc))
-    return false;
+    return None;
 
   // The only possible side-effects here are due to UB discovered in the
   // evaluation (for instance, INT_MAX + 1). In such a case, we are still
@@ -14858,8 +14980,7 @@ bool Expr::isIntegerConstantExpr(llvm::APSInt &Value, const ASTContext &Ctx,
   if (!::EvaluateAsInt(this, ExprResult, Ctx, SE_AllowSideEffects, Info))
     llvm_unreachable("ICE cannot be evaluated!");
 
-  Value = ExprResult.Val.getInt();
-  return true;
+  return ExprResult.Val.getInt();
 }
 
 bool Expr::isCXX98IntegralConstantExpr(const ASTContext &Ctx) const {

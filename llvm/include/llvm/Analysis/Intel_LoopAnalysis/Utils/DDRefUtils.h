@@ -146,8 +146,11 @@ public:
   /// metadata and attach it to the new RegDDRef.
   RegDDRef *createConstDDRef(Value *Val);
 
-  /// Creates a ref representing '0' for \p Ty wich may be int, ptr, fp etc.
+  /// Creates a ref representing '0' for \p Ty which may be int, ptr, fp etc.
   RegDDRef *createNullDDRef(Type *Ty);
+
+  /// Creates a ref representing '1' for \p Ty which may be int, intptr, or fp.
+  RegDDRef *createConstOneDDRef(Type *Ty);
 
   /// Returns a RegDDRef representing an undef value with type \p Type.
   RegDDRef *createUndefDDRef(Type *Type);
@@ -308,7 +311,7 @@ public:
   ///
   /// See Also: CanonExprUtils::replaceIVByCanonExpr().
   static void replaceIVByCanonExpr(RegDDRef *Ref, unsigned LoopLevel,
-                                   const CanonExpr *CE, bool IsNSW,
+                                   const CanonExpr *CE, bool IsSigned,
                                    bool RelaxedMode = true);
 
   /// Transform input single-dimension gep \p Refs to the multi-dimensional \p

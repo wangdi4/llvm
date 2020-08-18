@@ -35,11 +35,11 @@ define dso_local void @foo_non_lcssa(i64 %N, i64 *%a, i64 %mask_out_loop) local_
 ; CHECK-NEXT:      PREDECESSORS(1): [[BB2]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB4]]:
-; CHECK-NEXT:       [DA: Div] i64 [[VP_PHI_USE_LIVE_OUT_PREV:%.*]] = phi  [ i64 undef, [[BB3]] ],  [ i64 [[VP_PHI_USE_LIVE_OUT_BLEND:%.*]], [[BB5:BB[0-9]+]] ]
-; CHECK-NEXT:       [DA: Div] i64 [[VP_PHI_UPDATE_USE_LIVE_OUT_PREV:%.*]] = phi  [ i64 undef, [[BB3]] ],  [ i64 [[VP_PHI_UPDATE_USE_LIVE_OUT_BLEND:%.*]], [[BB5]] ]
-; CHECK-NEXT:       [DA: Div] i1 [[VP_NO_PHI_INST_USE_LIVE_OUT_PREV:%.*]] = phi  [ i1 undef, [[BB3]] ],  [ i1 [[VP_NO_PHI_INST_USE_LIVE_OUT_BLEND:%.*]], [[BB5]] ]
-; CHECK-NEXT:       [DA: Uni] i64 [[VP_IV:%.*]] = phi  [ i64 [[VP_IV_NEXT:%.*]], [[BB5]] ],  [ i64 0, [[BB3]] ]
+; CHECK-NEXT:       [DA: Uni] i64 [[VP_IV:%.*]] = phi  [ i64 [[VP_IV_NEXT:%.*]], [[BB5:BB[0-9]+]] ],  [ i64 0, [[BB3]] ]
 ; CHECK-NEXT:       [DA: Div] i1 [[VP_LOOP_MASK:%.*]] = phi  [ i1 [[VP_CMP216_NOT]], [[BB3]] ],  [ i1 [[VP_LOOP_MASK_NEXT:%.*]], [[BB5]] ]
+; CHECK-NEXT:       [DA: Div] i1 [[VP_NO_PHI_INST_USE_LIVE_OUT_PREV:%.*]] = phi  [ i1 undef, [[BB3]] ],  [ i1 [[VP_NO_PHI_INST_USE_LIVE_OUT_BLEND:%.*]], [[BB5]] ]
+; CHECK-NEXT:       [DA: Div] i64 [[VP_PHI_UPDATE_USE_LIVE_OUT_PREV:%.*]] = phi  [ i64 undef, [[BB3]] ],  [ i64 [[VP_PHI_UPDATE_USE_LIVE_OUT_BLEND:%.*]], [[BB5]] ]
+; CHECK-NEXT:       [DA: Div] i64 [[VP_PHI_USE_LIVE_OUT_PREV:%.*]] = phi  [ i64 undef, [[BB3]] ],  [ i64 [[VP_PHI_USE_LIVE_OUT_BLEND:%.*]], [[BB5]] ]
 ; CHECK-NEXT:      SUCCESSORS(2):[[BB6:BB[0-9]+]](i1 [[VP_LOOP_MASK]]), [[BB5]](!i1 [[VP_LOOP_MASK]])
 ; CHECK-NEXT:      PREDECESSORS(2): [[BB3]] [[BB5]]
 ; CHECK-EMPTY:
@@ -71,22 +71,22 @@ define dso_local void @foo_non_lcssa(i64 %N, i64 *%a, i64 %mask_out_loop) local_
 ; CHECK-NEXT:        PREDECESSORS(2): [[BB7]] [[INTERMEDIATE_BB0]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB5]]:
-; CHECK-NEXT:       [DA: Div] i1 [[VP_TAKE_BACKEDGE_COND_NOT:%.*]] = not i1 [[VP_TAKE_BACKEDGE_COND]]
-; CHECK-NEXT:       [DA: Div] i1 [[VP_LOOP_MASK_NEXT]] = and i1 [[VP_TAKE_BACKEDGE_COND_NOT]] i1 [[VP_LOOP_MASK]]
-; CHECK-NEXT:       [DA: Uni] i1 [[VP0:%.*]] = all-zero-check i1 [[VP_LOOP_MASK_NEXT]]
 ; CHECK-NEXT:       [DA: Div] i1 [[VP_NO_PHI_INST_USE_LIVE_OUT_BLEND]] = select i1 [[VP_LOOP_MASK]] i1 [[VP_NO_PHI_INST_USE]] i1 [[VP_NO_PHI_INST_USE_LIVE_OUT_PREV]]
 ; CHECK-NEXT:       [DA: Div] i64 [[VP_PHI_UPDATE_USE_LIVE_OUT_BLEND]] = select i1 [[VP_LOOP_MASK]] i64 [[VP_PHI_UPDATE_USE]] i64 [[VP_PHI_UPDATE_USE_LIVE_OUT_PREV]]
 ; CHECK-NEXT:       [DA: Div] i64 [[VP_PHI_USE_LIVE_OUT_BLEND]] = select i1 [[VP_LOOP_MASK]] i64 [[VP_PHI_USE]] i64 [[VP_PHI_USE_LIVE_OUT_PREV]]
+; CHECK-NEXT:       [DA: Div] i1 [[VP_TAKE_BACKEDGE_COND_NOT:%.*]] = not i1 [[VP_TAKE_BACKEDGE_COND]]
+; CHECK-NEXT:       [DA: Div] i1 [[VP_LOOP_MASK_NEXT]] = and i1 [[VP_TAKE_BACKEDGE_COND_NOT]] i1 [[VP_LOOP_MASK]]
+; CHECK-NEXT:       [DA: Uni] i1 [[VP0:%.*]] = all-zero-check i1 [[VP_LOOP_MASK_NEXT]]
 ; CHECK-NEXT:      SUCCESSORS(2):[[BB8:BB[0-9]+]](i1 [[VP0]]), [[BB4]](!i1 [[VP0]])
 ; CHECK-NEXT:      PREDECESSORS(2): [[NEW_LOOP_LATCH0]] [[BB4]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB8]]:
-; CHECK-NEXT:       [DA: Div] i64 [[VP_PHI_USE_LIVE_OUT_LCSSA:%.*]] = phi  [ i64 [[VP_PHI_USE_LIVE_OUT_BLEND]], [[BB5]] ]
-; CHECK-NEXT:       [DA: Div] i64 [[VP_PHI_UPDATE_USE_LIVE_OUT_LCSSA:%.*]] = phi  [ i64 [[VP_PHI_UPDATE_USE_LIVE_OUT_BLEND]], [[BB5]] ]
-; CHECK-NEXT:       [DA: Div] i1 [[VP_NO_PHI_INST_USE_LIVE_OUT_LCSSA:%.*]] = phi  [ i1 [[VP_NO_PHI_INST_USE_LIVE_OUT_BLEND]], [[BB5]] ]
-; CHECK-NEXT:       [DA: Div] i64 [[VP_USE_A:%.*]] = add i64 [[VP_PHI_USE_LIVE_OUT_LCSSA]] i64 1
-; CHECK-NEXT:       [DA: Div] i64 [[VP_USE_B:%.*]] = add i64 [[VP_PHI_UPDATE_USE_LIVE_OUT_LCSSA]] i64 1
-; CHECK-NEXT:       [DA: Div] i1 [[VP_USE_C:%.*]] = xor i1 [[VP_NO_PHI_INST_USE_LIVE_OUT_LCSSA]] i1 true
+; CHECK-NEXT:       [DA: Div] i1 [[VP_NO_PHI_INST_USE_LCSSA:%.*]] = phi  [ i1 [[VP_NO_PHI_INST_USE_LIVE_OUT_BLEND]], [[BB5]] ]
+; CHECK-NEXT:       [DA: Div] i64 [[VP_PHI_UPDATE_USE_LCSSA:%.*]] = phi  [ i64 [[VP_PHI_UPDATE_USE_LIVE_OUT_BLEND]], [[BB5]] ]
+; CHECK-NEXT:       [DA: Div] i64 [[VP_PHI_USE_LCSSA:%.*]] = phi  [ i64 [[VP_PHI_USE_LIVE_OUT_BLEND]], [[BB5]] ]
+; CHECK-NEXT:       [DA: Div] i64 [[VP_USE_A:%.*]] = add i64 [[VP_PHI_USE_LCSSA]] i64 1
+; CHECK-NEXT:       [DA: Div] i64 [[VP_USE_B:%.*]] = add i64 [[VP_PHI_UPDATE_USE_LCSSA]] i64 1
+; CHECK-NEXT:       [DA: Div] i1 [[VP_USE_C:%.*]] = xor i1 [[VP_NO_PHI_INST_USE_LCSSA]] i1 true
 ; CHECK-NEXT:      SUCCESSORS(1):[[BB1]]
 ; CHECK-NEXT:      PREDECESSORS(1): [[BB5]]
 ; CHECK-EMPTY:
@@ -140,9 +140,9 @@ define dso_local void @foo_non_lcssa_from_uniform_sub_loop(i64 %N, i64 *%a, i64 
 ; CHECK-NEXT:    no PREDECESSORS
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB1]]:
-; CHECK-NEXT:     [DA: Div] i64 [[VP_INNER_DEF_LIVE_OUT_PREV:%.*]] = phi  [ i64 undef, [[BB0]] ],  [ i64 [[VP_INNER_DEF_LIVE_OUT_BLEND:%.*]], [[BB2:BB[0-9]+]] ]
-; CHECK-NEXT:     [DA: Div] i64 [[VP_IV:%.*]] = phi  [ i32 [[VP_LANE]], [[BB0]] ],  [ i64 [[VP_IV_NEXT:%.*]], [[BB2]] ]
+; CHECK-NEXT:     [DA: Div] i64 [[VP_IV:%.*]] = phi  [ i32 [[VP_LANE]], [[BB0]] ],  [ i64 [[VP_IV_NEXT:%.*]], [[BB2:BB[0-9]+]] ]
 ; CHECK-NEXT:     [DA: Div] i1 [[VP_LOOP_MASK:%.*]] = phi  [ i1 true, [[BB0]] ],  [ i1 [[VP_LOOP_MASK_NEXT:%.*]], [[BB2]] ]
+; CHECK-NEXT:     [DA: Div] i64 [[VP_INNER_DEF_LCSSA_LIVE_OUT_PREV:%.*]] = phi  [ i64 undef, [[BB0]] ],  [ i64 [[VP_INNER_DEF_LCSSA_LIVE_OUT_BLEND:%.*]], [[BB2]] ]
 ; CHECK-NEXT:    SUCCESSORS(2):[[BB3:BB[0-9]+]](i1 [[VP_LOOP_MASK]]), [[BB2]](!i1 [[VP_LOOP_MASK]])
 ; CHECK-NEXT:    PREDECESSORS(2): [[BB0]] [[BB2]]
 ; CHECK-EMPTY:
@@ -166,20 +166,20 @@ define dso_local void @foo_non_lcssa_from_uniform_sub_loop(i64 %N, i64 *%a, i64 
 ; CHECK-NEXT:      PREDECESSORS(2): [[BB4]] [[BB3]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB5]]:
-; CHECK-NEXT:       <Empty Block>
+; CHECK-NEXT:       [DA: Div] i64 [[VP_INNER_DEF_LCSSA:%.*]] = phi  [ i64 [[VP_INNER_DEF]], [[BB4]] ]
 ; CHECK-NEXT:      SUCCESSORS(1):[[BB2]]
 ; CHECK-NEXT:      PREDECESSORS(1): [[BB4]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB2]]:
+; CHECK-NEXT:     [DA: Div] i64 [[VP_INNER_DEF_LCSSA_LIVE_OUT_BLEND]] = select i1 [[VP_LOOP_MASK]] i64 [[VP_INNER_DEF_LCSSA]] i64 [[VP_INNER_DEF_LCSSA_LIVE_OUT_PREV]]
 ; CHECK-NEXT:     [DA: Div] i1 [[VP_SOME_CMP_NOT:%.*]] = not i1 [[VP_SOME_CMP]]
 ; CHECK-NEXT:     [DA: Div] i1 [[VP_LOOP_MASK_NEXT]] = and i1 [[VP_SOME_CMP_NOT]] i1 [[VP_LOOP_MASK]]
 ; CHECK-NEXT:     [DA: Uni] i1 [[VP0:%.*]] = all-zero-check i1 [[VP_LOOP_MASK_NEXT]]
-; CHECK-NEXT:     [DA: Div] i64 [[VP_INNER_DEF_LIVE_OUT_BLEND]] = select i1 [[VP_LOOP_MASK]] i64 [[VP_INNER_DEF]] i64 [[VP_INNER_DEF_LIVE_OUT_PREV]]
 ; CHECK-NEXT:    SUCCESSORS(2):[[BB6:BB[0-9]+]](i1 [[VP0]]), [[BB1]](!i1 [[VP0]])
 ; CHECK-NEXT:    PREDECESSORS(2): [[BB5]] [[BB1]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB6]]:
-; CHECK-NEXT:     [DA: Div] i64 [[VP_PHI_USE:%.*]] = phi  [ i64 [[VP_INNER_DEF_LIVE_OUT_BLEND]], [[BB2]] ]
+; CHECK-NEXT:     [DA: Div] i64 [[VP_PHI_USE:%.*]] = phi  [ i64 [[VP_INNER_DEF_LCSSA_LIVE_OUT_BLEND]], [[BB2]] ]
 ; CHECK-NEXT:     [DA: Div] void [[VP1:%.*]] = ret
 ; CHECK-NEXT:    no SUCCESSORS
 ; CHECK-NEXT:    PREDECESSORS(1): [[BB2]]
@@ -203,7 +203,9 @@ inner.header:
   %idx = add nsw nuw i64 %mul, %inner.iv
   %gep = getelementptr i64, i64* %a, i64 %idx
   ; Might be speculatable and executed without mask. As such, CFU transformation
-  ; must blend it as well.
+  ; must blend it as well. This stopped being a special case once we've started
+  ; doing LCSSA transformation for the whole VPlan, so the benefit of the test
+  ; is mostly for historical purposes.
   %inner.def = load i64, i64 *%gep
   %inner.exitcond = icmp eq i64 %inner.iv.next, 100
   br i1 %inner.exitcond, label %outer.latch, label %inner.header

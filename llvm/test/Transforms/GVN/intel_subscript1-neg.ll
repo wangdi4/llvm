@@ -1,4 +1,4 @@
-; RUN: opt -basicaa -gvn -S < %s 2>&1 | FileCheck %s
+; RUN: opt -basic-aa -gvn -S < %s 2>&1 | FileCheck %s
 ; Negative test for subscript AA bug CMPLRLLVM-8231.
 ; add43 should not be propagated to the mul, as it is not from the same
 ; subscript address as %6.

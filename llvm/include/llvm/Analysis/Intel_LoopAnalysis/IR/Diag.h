@@ -37,7 +37,12 @@ class OptReportDiag {
   /// \brief Vec-report ID ends at 15553. "Not vectorized message" has to be
   /// below 15555 (15555 - 15300 = 255) in order to fit within 8 bits for
   /// VectorAdvisor communication.
-  static const int VecEnd = 15553; // 15552 and below from ICC
+  ///
+  /// The issue with VectorAdvisor communication has to be addressed after
+  /// optimization reports high level design for xmain is approved.
+  ///
+  /// 15552 and below from ICC, the rest is xmain-specific.
+  static const int VecEnd = 15557;
   /// \brief Loop-report ID used in ASM/OBJ starts at 25481.
   static const int LoopBegin = 25481;
   /// \brief Loop-report ID used in ASM/OBJ ends at 25531.

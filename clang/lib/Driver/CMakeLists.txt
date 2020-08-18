@@ -47,6 +47,7 @@ add_clang_library(clangDriver
   ToolChains/Arch/RISCV.cpp
   ToolChains/Arch/Sparc.cpp
   ToolChains/Arch/SystemZ.cpp
+  ToolChains/Arch/VE.cpp
   ToolChains/Arch/X86.cpp
   ToolChains/AIX.cpp
   ToolChains/Ananas.cpp
@@ -86,6 +87,7 @@ add_clang_library(clangDriver
   ToolChains/RISCVToolchain.cpp
   ToolChains/Solaris.cpp
   ToolChains/TCE.cpp
+  ToolChains/VEToolchain.cpp
   ToolChains/WebAssembly.cpp
   ToolChains/XCore.cpp
   ToolChains/SYCL.cpp

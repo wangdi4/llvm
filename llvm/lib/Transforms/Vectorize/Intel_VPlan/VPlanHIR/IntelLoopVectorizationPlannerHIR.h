@@ -44,8 +44,7 @@ private:
 
   std::shared_ptr<VPlan> buildInitialVPlan(unsigned StartRangeVF,
                                            unsigned &EndRangeVF,
-                                           LLVMContext *Context,
-                                           const DataLayout *DL) override;
+                                           VPExternalValues &Ext) override;
 
 public:
   LoopVectorizationPlannerHIR(WRNVecLoopNode *WRL, HLLoop *Lp,

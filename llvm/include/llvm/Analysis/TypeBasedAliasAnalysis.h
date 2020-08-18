@@ -50,10 +50,15 @@ public:
                            AAQueryInfo &AAQI);
   ModRefInfo getModRefInfo(const CallBase *Call1, const CallBase *Call2,
                            AAQueryInfo &AAQI);
+#if INTEL_CUSTOMIZATION
+  AliasResult loopCarriedAlias(const MemoryLocation &LocA,
+                               const MemoryLocation &LocB, AAQueryInfo &AAQI) {
+    return alias(LocA, LocB, AAQI);
+  }
+#endif // INTEL_CUSTOMIZATION
 
 private:
   bool Aliases(const MDNode *A, const MDNode *B) const;
-  bool PathAliases(const MDNode *A, const MDNode *B) const;
 };
 
 /// Analysis pass providing a never-invalidated alias analysis result.

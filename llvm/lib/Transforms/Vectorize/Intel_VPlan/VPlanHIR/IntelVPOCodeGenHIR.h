@@ -173,8 +173,10 @@ public:
                  const HLInst *GrpStartInst = nullptr);
 
   /// Adjust arguments passed to SVML functions to handle masks
-  void addMaskToSVMLCall(Function *OrigF, SmallVectorImpl<RegDDRef *> &VecArgs,
+  void addMaskToSVMLCall(Function *OrigF, AttributeList OrigAttrs,
+                         SmallVectorImpl<RegDDRef *> &VecArgs,
                          SmallVectorImpl<Type *> &VecArgTys,
+                         SmallVectorImpl<AttributeSet> &VecArgAttrs,
                          RegDDRef *MaskValue);
 
   /// Generate instructions to extract two results of a widened sincos call

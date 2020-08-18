@@ -24,27 +24,27 @@ namespace llvm {
 namespace InlineReportTypes {
 
 typedef enum {
-  Basic = 1,     // Print basic information like what was inlined
-  Reasons = 2,   // Add reasons for inlining or not inlining
-  SameLine = 4,  // Put the reasons and the call site on the same lime
-  LineCol = 8,   // Print the line and column of the call sites
-                 //   if we had appropriate source position information
-  File = 16,     // Print the file of the call sites
-  Linkage = 32,  // Print linkage info for routines and call sites:
-                 //   L: local (F.hasLocalLinkage())
-                 //   O: link once ODR (one definition rule)
-                 //     (F.hasLinkOnceODRLinkage())
-                 //   X: available externally (and generally not emitted)
-                 //     (F.hasAvailableExternallyLinkage())
-                 //   A: alternate (something other than L, O, or X)
-  RealCost = 64, // Compute both real and early exit inlining costs
-  BasedOnMetadata = 128,
-                 // Create metadata-based inline report
-  CompositeReport = 256,
-                 // Create composite inline report for an -flto compilation
-  DontSkipIntrin = 512
-                 // Do create the inlining report info for the special
-                 // intrinsic call sites
+  Basic = 0x1,     // Print basic information like what was inlined
+  Reasons = 0x2,   // Add reasons for inlining or not inlining
+  SameLine = 0x4,  // Put the reasons and the call site on the same lime
+  LineCol = 0x8,   // Print the line and column of the call sites
+                   //   if we had appropriate source position information
+  File = 0x10,     // Print the file of the call sites
+  Linkage = 0x20,  // Print linkage info for routines and call sites:
+                   //   L: local (F.hasLocalLinkage())
+                   //   O: link once ODR (one definition rule)
+                   //     (F.hasLinkOnceODRLinkage())
+                   //   X: available externally (and generally not emitted)
+                   //     (F.hasAvailableExternallyLinkage())
+                   //   A: alternate (something other than L, O, or X)
+  RealCost = 0x40, // Compute both real and early exit inlining costs
+  BasedOnMetadata = 0x80,  // Create metadata-based inline report
+  CompositeReport = 0x100, // Create composite inline report for an -flto
+                           //   compilation
+  DontSkipIntrin = 0x200,  // Do create the inlining report info for the
+                           //   special intrinsic call sites
+  Language = 0x400,     // Print the source language C for C/C++ F for Fortran
+  AlwaysInline = 0x800  // Print a report for AlwaysInline inlining passes
 } InlineReportOptions;
 }
 
@@ -143,6 +143,8 @@ const static InlPrtRecord InlineReasonText[] = {
     {InlPrtCost, "Callsite inlined to enable tiling"},
     // InlrManyRecursiveCallsSplitting
     {InlPrtCost, "Callsite inlined for many recursive calls splitting"},
+    // InlrHasSmallAppBudget
+    {InlPrtCost, "Has inline budget for small application"},
     // InlrProfitable,
     {InlPrtCost, "Inlining is profitable"},
     // InlrLast,
@@ -237,6 +239,8 @@ const static InlPrtRecord InlineReasonText[] = {
     {InlPrtSimple, "Outlined function from partial inlining"},
     // NinlrCalleeHasExceptionHandling
     {InlPrtSimple, "Callee has exception handling"},
+    // NinlrIsCrossLanguage
+    {InlPrtSimple, "Caller and Callee have different source languages"},
     // NinlrLast
     {InlPrtNone, nullptr}};
 

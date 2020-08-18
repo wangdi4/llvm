@@ -14,13 +14,13 @@
 #define LLVM_ANALYSIS_VECTORUTILS_H
 
 #include "llvm/ADT/MapVector.h"
-#include "llvm/ADT/SmallSet.h"
+#include "llvm/ADT/SmallVector.h"
 #include "llvm/Analysis/LoopAccessAnalysis.h"
 #include "llvm/Analysis/Intel_VectorVariant.h" // INTEL
-#include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/Support/CheckedArithmetic.h"
 
 namespace llvm {
+class TargetLibraryInfo;
 
 /// Describes the type of Parameters
 enum class VFParamKind {
@@ -225,6 +225,9 @@ class VFDatabase {
   /// a vector Function ABI.
   static void getVFABIMappings(const CallInst &CI,
                                SmallVectorImpl<VFInfo> &Mappings) {
+    if (!CI.getCalledFunction())
+      return;
+
     const StringRef ScalarName = CI.getCalledFunction()->getName();
 
     SmallVector<std::string, 8> ListOfStrings;
@@ -476,18 +479,6 @@ inline VectorType *getWidenedType(Type *Ty, unsigned VF) {
 void getFunctionsToVectorize(
   Module &M, std::map<Function*, std::vector<StringRef> > &FuncVars);
 
-/// Find the best simd function variant.
-std::unique_ptr<VectorVariant>
-matchVectorVariantImpl(StringRef VecVariantStringValue, bool Masked,
-                       unsigned VF, const TargetTransformInfo *TTI);
-
-/// Helper wrapper to find the best simd function variant for a given \p Call.
-/// \p Masked parameter tells whether we need a masked version or not.
-/// TODO: Wrapper still needed?
-std::unique_ptr<VectorVariant>
-matchVectorVariant(const CallInst *Call, bool Masked, unsigned VF,
-                   const TargetTransformInfo *TTI);
-
 /// \brief Widens the call to function \p OrigF  using a vector length of \p VL
 /// and inserts the appropriate function declaration if not already created.
 /// This function will insert functions for library calls, intrinsics, and simd
@@ -539,8 +530,16 @@ template <typename CastInstTy> Value *getPtrThruCast(Value *Ptr);
 
 /// We need to preserve call-site attributes, except the ones "consumed" by the
 /// vectorizer itself (like vector-variants). Copy ones that should be preserved
-/// from \p OrigCall to \p VecCall.
+/// from \p OrigCall to \p VecCall. All attributes in the parameters of the
+/// \p OrigCall is copied one by one to \p VecCall.
 void copyRequiredAttributes(const CallInst *OrigCall, CallInst *VecCall);
+
+/// Copy attributes of function and return value from \p OrigCall to \p VecCall
+/// (except the ones "consumed" by the vectorizer itself (like
+/// vector-variants)). Set attributes of parameters in \p VecCall to
+/// \p AttrArgs.
+void copyRequiredAttributes(const CallInst *OrigCall, CallInst *VecCall,
+                            ArrayRef<AttributeSet> AttrArgs);
 
 // Common utilities to manipulate vectors
 

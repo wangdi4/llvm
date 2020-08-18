@@ -15,6 +15,7 @@
 
 #include "llvm/Analysis/AssumptionCache.h"
 #include "llvm/Analysis/CallGraphSCCPass.h"
+#include "llvm/Analysis/Intel_WP.h"           // INTEL
 #include "llvm/Analysis/LoopInfo.h"           // INTEL
 #include "llvm/Analysis/OptimizationRemarkEmitter.h"
 #include "llvm/ADT/SmallSet.h"                // INTEL
@@ -55,6 +56,9 @@ const int ColdccPenalty = 2000;
 /// when the caller is recursive.
 const unsigned TotalAllocaSizeRecursiveCaller = 1024;
 const unsigned BasicBlockSuccRatio = 210; // INTEL
+/// Do not inline dynamic allocas that have been constant propagated to be
+/// static allocas above this amount in bytes.
+const uint64_t MaxSimplifiedDynamicAllocaToInline = 65536;
 } // namespace InlineConstants
 
 #if INTEL_CUSTOMIZATION
@@ -129,6 +133,7 @@ typedef enum {
    InlrArrayStructArgs,
    InlrPreferTileChoice,
    InlrManyRecursiveCallsSplitting,
+   InlrHasSmallAppBudget,
    InlrProfitable,
    InlrLast, // Just a marker placed after the last inlining reason
    NinlrFirst, // Just a marker placed before the first non-inlining reason
@@ -176,6 +181,7 @@ typedef enum {
    NinlrDelayInlineDecision,
    NinlrPreferPartialInline,
    NinlrCalleeHasExceptionHandling,
+   NinlrIsCrossLanguage,
    NinlrLast // Just a marker placed after the last non-inlining reason
 } InlineReason;
 
@@ -209,15 +215,20 @@ class InlineCost {
   /// Must be set for Always and Never instances.
   const char *Reason = nullptr;
 
-  InlineReportTypes::InlineReason IntelReason; // INTEL
-
 #if INTEL_CUSTOMIZATION
+  InlineReportTypes::InlineReason IntelReason;
+  bool IsRecommended = false;
+
   /// \brief The cost and the threshold used for early exit from usual inlining
   /// process. A value of INT_MAX for either of these indicates that no value
   /// has been seen yet. They are expected to be set at the same time, so we
-  /// need test only EarlyExitCost to see if the value of either is set yet.
-  const int EarlyExitCost;
-  const int EarlyExitThreshold;
+  /// need test only EarlyExitCost to see whether the value of either is set
+  /// yet.
+  const int EarlyExitCost = INT_MAX;
+  const int EarlyExitThreshold = INT_MAX;
+  /// \brief Total secondary cost computed to determine whether inlining
+  /// should be inhibited because inlining an enclosing function is preferred.
+  int TotalSecondaryCost = 0;
 #endif // INTEL_CUSTOMIZATION
 
   // Trivial constructor, interesting logic in the factory functions below.
@@ -226,9 +237,10 @@ class InlineCost {
   InlineCost(int Cost, int Threshold, const char* Reason = nullptr,
     InlineReportTypes::InlineReason IntelReason
     = InlineReportTypes::NinlrNoReason, int EarlyExitCost = INT_MAX,
-    int EarlyExitThreshold = INT_MAX) :
+    int EarlyExitThreshold = INT_MAX, int TotalSecondaryCost = INT_MAX) :
     Cost(Cost), Threshold(Threshold), Reason(Reason), IntelReason(IntelReason),
-    EarlyExitCost(EarlyExitCost), EarlyExitThreshold(EarlyExitThreshold) {
+    EarlyExitCost(EarlyExitCost), EarlyExitThreshold(EarlyExitThreshold),
+    TotalSecondaryCost(TotalSecondaryCost) {
     assert((isVariable() || Reason) &&
             "Reason must be provided for Never or Always");
   }
@@ -304,10 +316,16 @@ public:
     { return IntelReason; }
   void setInlineReason(InlineReportTypes::InlineReason MyReason)
     { IntelReason = MyReason; }
+  void setTotalSecondaryCost(int TheTotalSecondaryCost)
+    { TotalSecondaryCost = TheTotalSecondaryCost; }
+  void setIsRecommended(bool Recommended) { IsRecommended = Recommended; }
   int getEarlyExitCost() const
     { return EarlyExitCost; }
   int getEarlyExitThreshold() const
     { return EarlyExitThreshold; }
+  int getTotalSecondaryCost() const
+    { return TotalSecondaryCost; }
+  bool getIsRecommended() { return IsRecommended; }
 #endif // INTEL_CUSTOMIZATION
 
 };
@@ -377,6 +395,15 @@ struct InlineParams {
   /// This flag indicates that it is LTO compile phase. This flag is
   /// set when PrepareForLTO flag in PassManagerBuilder is true. .
   Optional<bool> PrepareForLTO;
+
+  /// This flag indicates that it is LTO link phase. This flag is
+  /// set by the LTO backend.  No more than one of PrepareForLTO and
+  //  LinkForLTO should be true.
+  Optional<bool> LinkForLTO;
+
+  // Opt Level used for selection of inlining heuristics, not for setting
+  // inlining thresholds.
+  Optional<unsigned> InlineOptLevel;
 #endif // INTEL_CUSTOMIZATION
 
   /// Threshold to use when the callsite is considered hot relative to function
@@ -414,9 +441,10 @@ InlineParams getInlineParams(unsigned OptLevel, unsigned SizeOptLevel);
 /// Generate the parameters to tune the inline cost analysis based on command
 /// line options. It does exactly same as what "getInlineParams(unsigned
 /// OptLevel, unsigned SizeOptLevel)" routine does except it also sets
-/// PrepareForLTO flag in InlineParams based on \p PrepareForLTO.
+/// PrepareForLTO and InlineOptLevel flags in InlineParams based on
+/// \p PrepareForLTO and \p InlineOptLevel.
 InlineParams getInlineParams(unsigned OptLevel, unsigned SizeOptLevel,
-                             bool PrepareForLTO);
+                             bool PrepareForLTO, bool InlineOptLevel);
 #endif // INTEL_CUSTOMIZATION
 
 /// Return the cost associated with a callsite, including parameter passing
@@ -442,7 +470,8 @@ getInlineCost(CallBase &Call, const InlineParams &Params,
               function_ref<BlockFrequencyInfo &(Function &)> GetBFI = nullptr,
               ProfileSummaryInfo *PSI = nullptr,
               OptimizationRemarkEmitter *ORE = nullptr,               // INTEL
-              InliningLoopInfoCache *ILIC = nullptr);                 // INTEL
+              InliningLoopInfoCache *ILIC = nullptr,                  // INTEL
+              WholeProgramInfo *WPI = nullptr);                       // INTEL
 
 /// Get an InlineCost with the callee explicitly specified.
 /// This allows you to calculate the cost of inlining a function via a
@@ -457,7 +486,8 @@ getInlineCost(CallBase &Call, Function *Callee, const InlineParams &Params,
               function_ref<BlockFrequencyInfo &(Function &)> GetBFI = nullptr,
               ProfileSummaryInfo *PSI = nullptr,
               OptimizationRemarkEmitter *ORE = nullptr,               // INTEL
-              InliningLoopInfoCache *ILIC = nullptr);                 // INTEL
+              InliningLoopInfoCache *ILIC = nullptr,                  // INTEL
+              WholeProgramInfo *WPI = nullptr);                       // INTEL
 
 /// Returns InlineResult::success() if the call site should be always inlined
 /// because of user directives, and the inlining is viable. Returns
@@ -484,10 +514,23 @@ Optional<int> getInliningCostEstimate(
     ProfileSummaryInfo *PSI = nullptr,
     OptimizationRemarkEmitter *ORE = nullptr,               // INTEL
     TargetLibraryInfo *TLI = nullptr,                       // INTEL
-    InliningLoopInfoCache *ILIC = nullptr);                 // INTEL
+    InliningLoopInfoCache *ILIC = nullptr,                  // INTEL
+    WholeProgramInfo *WPI = nullptr);                       // INTEL
 
 /// Minimal filter to detect invalid constructs for inlining.
 InlineResult isInlineViable(Function &Callee);
+
+// This pass is used to annotate instructions during the inline process for
+// debugging and analysis. The main purpose of the pass is to see and test
+// inliner's decisions when creating new optimizations to InlineCost.
+struct InlineCostAnnotationPrinterPass
+    : PassInfoMixin<InlineCostAnnotationPrinterPass> {
+  raw_ostream &OS;
+
+public:
+  explicit InlineCostAnnotationPrinterPass(raw_ostream &OS) : OS(OS) {}
+  PreservedAnalyses run(Function &F, FunctionAnalysisManager &FAM);
+};
 } // namespace llvm
 
 #endif

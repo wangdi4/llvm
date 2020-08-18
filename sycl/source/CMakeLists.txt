@@ -114,6 +114,7 @@ set(SYCL_SOURCES
     "backend/level_zero.cpp"
 # end INTEL_CUSTOMIZATION
     "backend/opencl.cpp"
+    "backend/level_zero.cpp"
     "detail/accessor_impl.cpp"
     "detail/buffer_impl.cpp"
     "detail/builtins_common.cpp"
@@ -134,6 +135,9 @@ set(SYCL_SOURCES
     "detail/handler_proxy.cpp"
     "detail/image_accessor_util.cpp"
     "detail/image_impl.cpp"
+# INTEL_CUSTOMIZATION
+    "detail/intel_set_leaf_limit.cpp"
+# end INTEL_CUSTOMIZATION
     "detail/kernel_impl.cpp"
     "detail/kernel_program_cache.cpp"
     "detail/memory_manager.cpp"
@@ -143,6 +147,7 @@ set(SYCL_SOURCES
     "detail/queue_impl.cpp"
     "detail/os_util.cpp"
     "detail/platform_util.cpp"
+    "detail/reduction.cpp"
     "detail/sampler_impl.cpp"
     "detail/stream_impl.cpp"
     "detail/scheduler/commands.cpp"

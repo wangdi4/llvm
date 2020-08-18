@@ -2,7 +2,7 @@
 
 ; RUN: opt < %s -hir-ssa-deconstruction | opt -analyze -hir-framework -hir-framework-debug=parser -hir-details -hir-details-constants | FileCheck %s
 
-; CHECK: NSW: Yes
+; CHECK: HasSignedIV: Yes
 
 ; CHECK: DO i32 i1 = 0, 4
 ; CHECK: (%A)[0][i1] = 1;

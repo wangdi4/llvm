@@ -39,6 +39,13 @@ inline bool isMemoryInst(const Instruction *I) {
 template <typename InstTy = Instruction>
 inline bool isTrivialPointerAliasingInst(const InstTy *Inst) {
   assert(Inst && "Expect a non-null input for isTrivialPointerAliasingInst");
+
+  // In case of VPInstructions, we can have aliasing on account of InductionInit
+  // instruction as well.
+  if (std::is_same<InstTy, VPInstruction>::value)
+    if (Inst->getOpcode() == VPInstruction::InductionInit)
+      return true;
+
   return (Inst->getOpcode() == Instruction::BitCast ||
           Inst->getOpcode() == Instruction::AddrSpaceCast ||
           Inst->getOpcode() == Instruction::GetElementPtr ||

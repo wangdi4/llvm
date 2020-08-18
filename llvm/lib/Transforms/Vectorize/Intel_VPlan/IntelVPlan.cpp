@@ -20,6 +20,8 @@
 #include "IntelVPlan.h"
 #include "IntelVPOCodeGen.h"
 #include "IntelVPSOAAnalysis.h"
+#include "IntelVPlanClone.h"
+#include "IntelVPlanDivergenceAnalysis.h"
 #include "IntelVPlanDominatorTree.h"
 #include "IntelVPlanVLSAnalysis.h"
 #include "VPlanHIR/IntelVPOCodeGenHIR.h"
@@ -82,10 +84,7 @@ static cl::opt<bool>
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 raw_ostream &llvm::vpo::operator<<(raw_ostream &OS, const VPValue &V) {
-  if (const VPInstruction *I = dyn_cast<VPInstruction>(&V))
-    I->dump(OS);
-  else
-    V.dump(OS);
+  V.print(OS);
   return OS;
 }
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
@@ -380,34 +379,10 @@ const char *VPInstruction::getOpcodeName(unsigned Opcode) {
   }
 }
 
-void VPInstruction::print(raw_ostream &O, const Twine &Indent) const {
-  O << " +\n" << Indent << "\"EMIT ";
-  print(O);
-  O << "\\l\"";
-}
-
-#if INTEL_CUSTOMIZATION
-void VPInstruction::dump(raw_ostream &O, const VPlanDivergenceAnalysis *DA,
-                         const VPlanScalVecAnalysis *SVA) const {
-  print(O, DA, SVA);
-  O << "\n";
-  if (VPlanDumpDetails) {
-    // TODO: How to get Indent here?
-    O << "    DbgLoc: ";
-    getDebugLocation().print(O);
-    O << "\n";
-    O << "    OperatorFlags -\n";
-    O << "      FMF: " << hasFastMathFlags() << ", NSW: " << hasNoSignedWrap()
-      << ", NUW: " << hasNoUnsignedWrap() << ", Exact: " << isExact() << "\n";
-    // Print other attributes here when imported.
-    O << "    end of details\n\n";
-  }
-}
-#endif /* INTEL_CUSTOMIZATION */
-
-void VPInstruction::print(raw_ostream &O, const VPlanDivergenceAnalysis *DA,
-                          const VPlanScalVecAnalysis *SVA) const {
-#if INTEL_CUSTOMIZATION
+void VPInstruction::print(raw_ostream &O) const {
+  const VPlan *Plan = getParent()->getParent();
+  const VPlanDivergenceAnalysis *DA = Plan->getVPlanDA();
+  const VPlanScalVecAnalysis *SVA = Plan->getVPlanSVA();
   if (DA || SVA)
     O << "[";
   // Print DA information.
@@ -430,6 +405,41 @@ void VPInstruction::print(raw_ostream &O, const VPlanDivergenceAnalysis *DA,
   if (DA || SVA)
     O << "] ";
 
+  printWithoutAnalyses(O);
+
+  // Print list of operand SVA bits.
+  if (SVA) {
+    O << " (SVAOpBits ";
+    for (unsigned OpIdx = 0; OpIdx < getNumOperands(); ++OpIdx) {
+      O << OpIdx << "->";
+      SVA->printSVAKindForOperand(O, this, OpIdx);
+      O << " ";
+    }
+    O << ")";
+  }
+
+  if (VPlanDumpDetails) {
+    O << "\n";
+    // TODO: How to get Indent here?
+    O << "    DbgLoc: ";
+    getDebugLocation().print(O);
+    O << "\n";
+    O << "    OperatorFlags -\n";
+    O << "      FMF: " << hasFastMathFlags() << ", NSW: " << hasNoSignedWrap()
+      << ", NUW: " << hasNoUnsignedWrap() << ", Exact: " << isExact() << "\n";
+    if (HIR.getUnderlyingNode()) {
+      // Print other attributes for HIR here when decomposer is updated.
+      O << "    end of details\n";
+      return;
+    }
+    if (auto *LSI = dyn_cast<VPLoadStoreInst>(this))
+      LSI->printDetails(O);
+    // Print other attributes here when imported.
+    O << "    end of details\n";
+  }
+}
+
+void VPInstruction::printWithoutAnalyses(raw_ostream &O) const {
   if (getOpcode() != Instruction::Store && !isa<VPBranchInst>(this)) {
     printAsOperand(O);
     O << " = ";
@@ -440,22 +450,17 @@ void VPInstruction::print(raw_ostream &O, const VPlanDivergenceAnalysis *DA,
     if (MemAddrInst->isInBounds())
       O << " inbounds";
   };
-#else
-  printAsOperand(O);
-  O << " = ";
-#endif /* INTEL_CUSTOMIZATION */
 
   switch (getOpcode()) {
-#if INTEL_CUSTOMIZATION
   case Instruction::Br:
-    cast<VPBranchInst>(this)->print(O);
+    cast<VPBranchInst>(this)->printImpl(O);
     break;
   case VPInstruction::Blend: {
-    cast<VPBlendInst>(this)->print(O);
+    cast<VPBlendInst>(this)->printImpl(O);
     break;
   }
   case Instruction::Call: {
-    cast<VPCallInstruction>(this)->print(O);
+    cast<VPCallInstruction>(this)->printImpl(O);
     break;
   }
   case Instruction::GetElementPtr:
@@ -491,7 +496,6 @@ void VPInstruction::print(raw_ostream &O, const VPlanDivergenceAnalysis *DA,
       << "}";
     break;
   }
-#endif
   default:
     O << getOpcodeName(getOpcode());
   }
@@ -500,7 +504,6 @@ void VPInstruction::print(raw_ostream &O, const VPlanDivergenceAnalysis *DA,
     O << " for original loop " << Self->getOrigLoop()->getName();
   }
 
-#if INTEL_CUSTOMIZATION
   // TODO: print type when this information will be available.
   // So far don't print anything, because PHI may not have Instruction
   if (auto *Phi = dyn_cast<const VPPHINode>(this)) {
@@ -557,13 +560,13 @@ void VPInstruction::print(raw_ostream &O, const VPlanDivergenceAnalysis *DA,
     if (getOpcode() == VPInstruction::AllocatePrivate) {
       O << " ";
       getType()->print(O);
+      O << ", OrigAlign = "
+        << cast<VPAllocatePrivate>(this)->getOrigAlignment().value();
     }
-#endif // INTEL_CUSTOMIZATION
     for (const VPValue *Operand : operands()) {
       O << " ";
       Operand->printAsOperand(O);
     }
-#if INTEL_CUSTOMIZATION
     switch (getOpcode()) {
     case Instruction::ZExt:
     case Instruction::SExt:
@@ -583,30 +586,24 @@ void VPInstruction::print(raw_ostream &O, const VPlanDivergenceAnalysis *DA,
     case VPInstruction::HIRCopy:
       O << " , OriginPhiId: " << cast<VPHIRCopyInst>(this)->getOriginPhiId();
       break;
-    case VPInstruction::VectorTripCountCalculation:
+    case VPInstruction::VectorTripCountCalculation: {
       auto *Self = cast<VPVectorTripCountCalculation>(this);
       O << ", UF = " << Self->getUF();
       break;
     }
-  }
-
-  // Print list of operand SVA bits.
-  if (SVA) {
-    O << " (SVAOpBits ";
-    for (unsigned OpIdx = 0; OpIdx < getNumOperands(); ++OpIdx) {
-      O << OpIdx << "->";
-      SVA->printSVAKindForOperand(O, this, OpIdx);
-      O << " ";
+    case VPInstruction::InductionFinal: {
+      auto *Self = cast<VPInductionFinal>(this);
+      if (Self->isLastValPreIncrement())
+        O << ", LastValPreInc = 1";
+      break;
     }
-    O << ")";
+    }
   }
-#endif // INTEL_CUSTOMIZATION
 }
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 
 #if INTEL_CUSTOMIZATION
-VPlan::VPlan(LLVMContext *Context, const DataLayout *DL)
-    : Context(Context), DL(DL) {}
+VPlan::VPlan(VPExternalValues &E) : Externals(E) {}
 
 void VPlan::computeDT(void) {
   if (!PlanDT)
@@ -670,7 +667,7 @@ void VPlan::execute(VPTransformState *State) {
 
   // Fix the edges for blocks in VPBBsToFix list.
   for (auto VPBB : State->CFG.VPBBsToFix) {
-    BasicBlock *BB = State->CFG.VPBB2IRBB[VPBB];
+    BasicBlock *BB = State->CFG.VPBB2IREndBB[VPBB];
     assert(BB && "Unexpected null basic block for VPBB");
 
     unsigned Idx = 0;
@@ -730,72 +727,6 @@ void VPlan::executeHIR(VPOCodeGenHIR *CG) {
 }
 #endif
 
-void VPlan::verifyVPConstants() const {
-  SmallPtrSet<const Constant *, 16> ConstantSet;
-  for (const auto &Pair : VPConstants) {
-    const Constant *KeyConst = Pair.first;
-    assert(KeyConst == Pair.second->getConstant() &&
-           "Value key and VPConstant's underlying Constant must be the same!");
-    // Checking that an element is repeated in a map is unnecessary but it
-    // will catch bugs if the data structure is changed in the future.
-    assert(!ConstantSet.count(KeyConst) && "Repeated VPConstant!");
-    ConstantSet.insert(KeyConst);
-  }
-}
-
-void VPlan::verifyVPExternalDefs() const {
-  SmallPtrSet<const Value *, 16> ValueSet;
-  for (const auto &Def : VPExternalDefs) {
-    const Value *KeyVal = Def->getUnderlyingValue();
-    assert(!ValueSet.count(KeyVal) && "Repeated VPExternalDef!");
-    ValueSet.insert(KeyVal);
-  }
-}
-
-void VPlan::verifyVPExternalDefsHIR() const {
-  SmallSet<unsigned, 16> SymbaseSet;
-  SmallSet<unsigned, 16> IVLevelSet;
-  for (const auto &ExtDef : VPExternalDefsHIR) {
-    const VPOperandHIR *HIROperand = ExtDef.getOperandHIR();
-
-    // Deeper verification depending on the kind of the underlying HIR operand.
-    if (const auto *Blob = dyn_cast<VPBlob>(HIROperand)) {
-      // For blobs we check that the symbases are unique.
-      unsigned Symbase = Blob->getBlob()->getSymbase();
-      assert(!SymbaseSet.count(Symbase) && "Repeated blob VPExternalDef!");
-      SymbaseSet.insert(Symbase);
-    } else if (isa<VPCanonExpr>(HIROperand)) {
-      assert(
-          llvm::count_if(VPExternalDefsHIR,
-                         [HIROperand](const VPExternalDef &ExtDef) {
-                           return ExtDef.getOperandHIR()->isStructurallyEqual(
-                               HIROperand);
-                         }) == 1 &&
-          "Repeated CanonExpr VPExternalDef!");
-    } else {
-      // For IVs we check that the IV levels are unique.
-      const auto *IV = cast<VPIndVar>(HIROperand);
-      unsigned IVLevel = IV->getIVLevel();
-      assert(!IVLevelSet.count(IVLevel) && "Repeated IV VPExternalDef!");
-      IVLevelSet.insert(IVLevel);
-    }
-  }
-}
-
-void VPlan::verifyVPMetadataAsValues() const {
-  SmallPtrSet<const MetadataAsValue *, 16> MDAsValueSet;
-  for (const auto &Pair : VPMetadataAsValues) {
-    const MetadataAsValue *KeyMD = Pair.first;
-    assert(KeyMD == Pair.second->getMetadataAsValue() &&
-           "Value key and VPMetadataAsValue's underlying MetadataAsValue must "
-           "be the same!");
-    // Checking that an element is repeated in a map is unnecessary but it
-    // will catch bugs if the data structure is changed in the future.
-    assert(!MDAsValueSet.count(KeyMD) && "Repeated MetadataAsValue!");
-    MDAsValueSet.insert(KeyMD);
-  }
-}
-
 void VPlan::updateDominatorTree(DominatorTree *DT, BasicBlock *LoopPreHeaderBB,
                                 BasicBlock *LoopLatchBB) {
   BasicBlock *LoopHeaderBB = LoopPreHeaderBB->getSingleSuccessor();
@@ -853,7 +784,7 @@ void VPlan::print(raw_ostream &OS, unsigned Indent) const {
   SuccList.insert(getEntryBlock());
   std::string StrIndent = std::string(2, ' ');
   for (const VPBasicBlock *VPBB : RPOT) {
-    VPBB->print(OS, Indent + SuccList.size() - 1, getVPlanDA(), getVPlanSVA());
+    VPBB->print(OS, Indent + SuccList.size() - 1);
     Printed.insert(VPBB);
     SuccList.remove(VPBB);
     for (auto *Succ : VPBB->getSuccessors())
@@ -867,12 +798,10 @@ void VPlan::dump(raw_ostream &OS) const {
   formatted_raw_ostream FOS(OS);
   if (!getName().empty())
     FOS << "VPlan IR for: " << getName() << "\n";
-  if (DumpExternalDefsHIR && VPExternalDefsHIR.size() > 0) {
-    FOS << "External Defs Start:\n";
-    for (auto &Def : VPExternalDefsHIR)
-      Def.printDetail(FOS);
-    FOS << "External Defs End:\n";
-  }
+  if (DumpExternalDefsHIR)
+    Externals.dumpExternalDefs(FOS);
+
+  printLiveIns(FOS);
 
   for (auto EIter = LoopEntities.begin(), End = LoopEntities.end();
        EIter != End; ++EIter) {
@@ -882,14 +811,22 @@ void VPlan::dump(raw_ostream &OS) const {
 
   print(FOS, 1);
 
-  if (!VPExternalUses.empty()) {
-    FOS << "External Uses:\n";
-    for (auto &ExtUse : VPExternalUses) {
-      ExtUse.second->dump(FOS);
-      FOS << "\n";
-    }
+  Externals.dumpExternalUses(FOS, LiveOutValues.size() ? this : nullptr);
+}
+
+void VPlan::printLiveIns(raw_ostream &OS) const {
+  if (!LiveInValues.size())
+    return;
+  OS << "Live-in values:\n";
+  for (auto LI : liveInValues()) {
+    if (!LI)
+      continue;
+    OS << "ID: " << LI->getMergeId() << " Value: ";
+    Externals.getOriginalIncomingValue(LI->getMergeId())->printAsOperand(OS);
+    OS << "\n";
   }
 }
+
 
 void VPlan::dump() const { dump(dbgs()); }
 
@@ -945,8 +882,11 @@ void VPlanPrinter::dumpBasicBlock(const VPBasicBlock *BB) {
   bumpIndent(1);
   OS << Indent << "\"" << DOT::EscapeString(BB->getName().str()) << ":\\n\"";
   bumpIndent(1);
-  for (const VPInstruction &Inst : *BB)
-    Inst.print(OS, Indent);
+  for (const VPInstruction &Inst : *BB) {
+    OS << " +\n" << Indent << "\"EMIT ";
+    Inst.print(OS);
+    OS << "\\l\"";
+  }
 #if INTEL_CUSTOMIZATION
   const VPValue *CBV = BB->getCondBit();
   // Dump the CondBit
@@ -977,7 +917,7 @@ void VPBlendInst::addIncoming(VPValue *IncomingVal, VPValue *BlockPred, VPlan *P
 }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-void VPBlendInst::print(raw_ostream &O) const {
+void VPBlendInst::printImpl(raw_ostream &O) const {
   O << getOpcodeName(getOpcode());
   auto PrintValueWithBP = [&](const unsigned i) {
     O << " [ ";
@@ -994,17 +934,17 @@ void VPBlendInst::print(raw_ostream &O) const {
   }
 }
 
-void VPBranchInst::print(raw_ostream &O) const {
+void VPBranchInst::printImpl(raw_ostream &O) const {
   if (getNumSuccessors() == 0)
     O << "br <External Block>";
   else
     O << "br ";
-  if (VPValue *CondBit = getCondBit()) {
+  if (VPValue *CondBit = getCondition()) {
     CondBit->printAsOperand(O);
     O << ", ";
   }
-  if (getHLGoto()) {
-    if (const BasicBlock *BB = getTargetBlock())
+  if (const loopopt::HLGoto *Node = getHLGoto()) {
+    if (const BasicBlock *BB = Node->getTargetBBlock())
       O << BB->getName();
     else
       // FIXME: Call HGoto print.
@@ -1018,7 +958,7 @@ void VPBranchInst::print(raw_ostream &O) const {
     }
 }
 
-void VPCallInstruction::print(raw_ostream &O) const {
+void VPCallInstruction::printImpl(raw_ostream &O) const {
   O << getOpcodeName(getOpcode());
   for (const VPValue *Arg : arg_operands()) {
     O << " ";
@@ -1070,67 +1010,42 @@ void VPCallInstruction::print(raw_ostream &O) const {
 }
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 
-void VPBranchInst::appendSuccessor(VPBasicBlock *Successor) {
-  assert(Successor && "Cannot add nullptr successor!");
-  VPValue *CondBit = getCondBit();
-  // Temporarily remove condition operand (if any) to insert the successor
-  // before it.
-  setCondBit(nullptr);
-  addOperand(Successor);
-  // Restore condition operand.
-  setCondBit(CondBit);
+void VPValue::replaceUsesWithIf(
+    VPValue *NewVal, llvm::function_ref<bool(VPUser *U)> ShouldReplace,
+    bool InvalidateIR) {
+  assert(NewVal && "Value::replaceUsesWithIf(<null>) is invalid!");
+  assert(NewVal->getType() == getType() &&
+         "replaceUses of value with new value of different type!");
+
+  SmallVector<VPUser *, 2> UsersToUpdate(
+      make_filter_range(users(), ShouldReplace));
+
+  for (VPUser *U : UsersToUpdate)
+    U->replaceUsesOfWith(this, NewVal, InvalidateIR);
 }
 
-void VPBranchInst::removeSuccessor(VPBasicBlock *Successor) {
-  int Idx = getOperandIndex(Successor);
-  assert(Idx >= 0 && "Successor does not exist");
-  removeOperand(Idx);
+void VPValue::replaceAllUsesWithInBlock(VPValue *NewVal, VPBasicBlock &VPBB,
+                                        bool InvalidateIR) {
+  auto ShouldReplace = [&VPBB](VPUser *U) {
+    if (VPInstruction *I = dyn_cast<VPInstruction>(U))
+      return I->getParent() == &VPBB;
+    return false;
+  };
+  replaceUsesWithIf(NewVal, ShouldReplace, InvalidateIR);
 }
 
-void VPBranchInst::replaceSuccessor(VPBasicBlock *OldSuccessor,
-                                    VPBasicBlock *NewSuccessor) {
-
-  int Idx = getOperandIndex(OldSuccessor);
-  assert(Idx >= 0 && "Successor not found");
-  setOperand(Idx, NewSuccessor);
+void VPValue::replaceAllUsesWithInLoop(VPValue *NewVal, VPLoop &Loop,
+                                       bool InvalidateIR) {
+  auto ShouldReplace = [&Loop](VPUser *U) {
+    if (VPInstruction *I = dyn_cast<VPInstruction>(U))
+      return Loop.contains(I);
+    return false;
+  };
+  replaceUsesWithIf(NewVal, ShouldReplace, InvalidateIR);
 }
 
-void VPBranchInst::setOneSuccessor(VPBasicBlock *Successor) {
-  assert(getNumSuccessors() == 0 && "Setting one successor when others exist.");
-  appendSuccessor(Successor);
-}
-
-void VPBranchInst::setTwoSuccessors(VPValue *ConditionV, VPBasicBlock *IfTrue,
-                                    VPBasicBlock *IfFalse) {
-  assert(getNumSuccessors() == 0 &&
-         "Setting two successors when others exist.");
-  appendSuccessor(IfTrue);
-  appendSuccessor(IfFalse);
-  setCondBit(ConditionV);
-}
-
-void VPValue::replaceAllUsesWithImpl(VPValue *NewVal, VPLoop *Loop,
-                                     VPBasicBlock *VPBB, bool InvalidateIR) {
-  assert(NewVal && "Can't replace uses with null value");
-  assert(getType() == NewVal->getType() && "Incompatible data types");
-  assert(!(Loop && VPBB) && "Cannot have both Loop and VPBB to be non-null.");
-  unsigned Cnt = 0;
-  while (getNumUsers() > Cnt) {
-    if (Loop) {
-      if (auto Instr = dyn_cast<VPInstruction>(Users[Cnt]))
-        if (!Loop->contains(Instr->getParent())) {
-          ++Cnt;
-          continue;
-        }
-    } else if (VPBB) {
-      if (auto Instr = dyn_cast<VPInstruction>(Users[Cnt]))
-        if (Instr->getParent() != VPBB) {
-          ++Cnt;
-          continue;
-        }
-    }
-    Users[Cnt]->replaceUsesOfWith(this, NewVal, InvalidateIR);
-  }
+void VPValue::replaceAllUsesWith(VPValue *NewVal, bool InvalidateIR) {
+  replaceUsesWithIf(NewVal, [](VPUser *U) { return true; }, InvalidateIR);
 }
 
 bool VPValue::isUnderlyingIRValid() const {
@@ -1185,3 +1100,69 @@ template void DomTreeBuilder::Calculate<VPDomTree>(VPDomTree &DT);
 using VPPostDomTree = PostDomTreeBase<VPBasicBlock>;
 template void DomTreeBuilder::Calculate<VPPostDomTree>(VPPostDomTree &PDT);
 #endif
+
+std::unique_ptr<VPlan> VPlan::clone(VPAnalysesFactory &VPAF,
+                                    bool RecalculateDA) {
+  // Create new VPlan
+  std::unique_ptr<VPlan> ClonedVPlan = std::make_unique<VPlan>(getExternals());
+
+  // Clone the basic blocks from the current VPlan to the new one
+  VPCloneUtils::Value2ValueMapTy OrigClonedValuesMap;
+  VPCloneUtils::cloneBlocksRange(&front(), &back(), OrigClonedValuesMap,
+                                 nullptr, "Cloned.", ClonedVPlan.get());
+
+  // Update cloned instructions' operands
+  VPValueMapper Mapper(OrigClonedValuesMap);
+  for (VPBasicBlock &OrigVPBB : *this)
+    Mapper.remapOperands(&OrigVPBB);
+
+  // Update FullLinearizationForced
+  if (isFullLinearizationForced())
+    ClonedVPlan->markFullLinearizationForced();
+
+  // Update ForceOuterLoopBackedgeUniformity
+  if (isBackedgeUniformityForced())
+    ClonedVPlan->markBackedgeUniformityForced();
+
+  // Set SCEV to Cloned Plan
+  ClonedVPlan->setVPSE(VPAF.createVPSE());
+
+  // Set Value Tracking to Cloned Plan
+  ClonedVPlan->setVPVT(VPAF.createVPVT(ClonedVPlan->getVPSE()));
+
+  // Update dominator tree and post-dominator tree of new VPlan
+  ClonedVPlan->computeDT();
+  ClonedVPlan->computePDT();
+
+  // Calclulate VPLoopInfo for the ClonedVPlan
+  ClonedVPlan->setVPLoopInfo(std::make_unique<VPLoopInfo>());
+  VPLoopInfo *ClonedVPLInfo = ClonedVPlan->getVPLoopInfo();
+  ClonedVPLInfo->analyze(*ClonedVPlan->getDT());
+  LLVM_DEBUG(ClonedVPLInfo->verify(*ClonedVPlan->getDT()));
+
+  // Clone DA from the original VPlan to the new one. If RecalculateDA is true,
+  // then we compute DA from scratch. If we clone VPlan after the predicator
+  // (RecalculateDA=false), then we just have to clone instructions' vector
+  // shapes.
+  if (RecalculateDA) {
+    auto VPDA = std::make_unique<VPlanDivergenceAnalysis>();
+    ClonedVPlan->setVPlanDA(std::move(VPDA));
+    auto *VPLInfo = ClonedVPlan->getVPLoopInfo();
+    VPLoop *CandidateLoop = *VPLInfo->begin();
+    ClonedVPlan->getVPlanDA()->compute(
+        ClonedVPlan.get(), CandidateLoop, VPLInfo, *ClonedVPlan->getDT(),
+        *ClonedVPlan->getPDT(), false /*Not in LCSSA form*/);
+    VPSOAAnalysis VPSOAA(*this, *CandidateLoop);
+    SmallPtrSet<VPInstruction *, 32> SOAVars;
+    VPSOAA.doSOAAnalysis(SOAVars);
+
+    if (EnableSOAAnalysis)
+      ClonedVPlan->getVPlanDA()->recomputeShapes(SOAVars);
+  } else {
+    auto ClonedVPlanDA = std::make_unique<VPlanDivergenceAnalysis>();
+    ClonedVPlan->setVPlanDA(std::move(ClonedVPlanDA));
+    getVPlanDA()->cloneVectorShapes(ClonedVPlan.get(), OrigClonedValuesMap);
+    ClonedVPlan->getVPlanDA()->disableDARecomputation();
+  }
+  return ClonedVPlan;
+}

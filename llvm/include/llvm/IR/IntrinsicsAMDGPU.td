@@ -267,6 +267,10 @@ def int_amdgcn_rcp_legacy : GCCBuiltin<"__builtin_amdgcn_rcp_legacy">,
   [IntrNoMem, IntrSpeculatable, IntrWillReturn]
 >;
 
+def int_amdgcn_sqrt :  Intrinsic<
+  [llvm_anyfloat_ty], [LLVMMatchType<0>], [IntrNoMem, IntrSpeculatable, IntrWillReturn]
+>;
+
 def int_amdgcn_rsq :  Intrinsic<
   [llvm_anyfloat_ty], [LLVMMatchType<0>], [IntrNoMem, IntrSpeculatable, IntrWillReturn]
 >;
@@ -1663,7 +1667,8 @@ class AMDGPUGlobalAtomicRtn<LLVMType vt> : Intrinsic <
   [vt],
   [llvm_anyptr_ty,    // vaddr
    vt],               // vdata(VGPR)
-  [IntrArgMemOnly, NoCapture<ArgIndex<0>>], "", [SDNPMemOperand]>;
+  [IntrArgMemOnly, IntrWillReturn, NoCapture<ArgIndex<0>>], "",
+  [SDNPMemOperand]>;
 
 def int_amdgcn_global_atomic_csub : AMDGPUGlobalAtomicRtn<llvm_i32_ty>;
 

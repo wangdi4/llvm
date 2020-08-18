@@ -4,7 +4,6 @@
 ; RUN: opt -iml-trans -S < %s | FileCheck %s
 ; RUN: opt -O0 -iml-trans -S < %s | FileCheck %s
 ; RUN: opt -passes="map-intrin-to-iml" -S < %s | FileCheck %s
-; RUN: opt -O0 -passes="map-intrin-to-iml" -S < %s | FileCheck %s
 
 ; CHECK: %call = call double @__bwr_acosd
 

@@ -237,7 +237,13 @@ static void optimizeModule(Module &TheModule, TargetMachine &TM,
   PMB.LibraryInfo = new TargetLibraryInfoImpl(TM.getTargetTriple());
   if (Freestanding)
     PMB.LibraryInfo->disableAllFunctions();
-  PMB.Inliner = createFunctionInliningPass();
+#if INTEL_CUSTOMIZATION
+  PMB.Inliner = createFunctionInliningPass(OptLevel,
+                                           0     /*SizeOptLevel */,
+                                           false /*DisableInlineHotCallSite*/,
+                                           false /*PrepareForLTO*/,
+                                           true  /*LinkForLTO*/);
+#endif // INTEL_CUSTOMIZATION
   // FIXME: should get it from the bitcode?
   PMB.OptLevel = OptLevel;
   PMB.LoopVectorize = true;

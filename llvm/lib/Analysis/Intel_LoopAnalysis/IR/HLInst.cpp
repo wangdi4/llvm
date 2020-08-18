@@ -36,6 +36,11 @@ static cl::opt<bool>
                          cl::init(false), cl::Hidden,
                          cl::desc("print reduction operation"));
 
+static cl::opt<bool>
+    PrintUnsafeAlgebra("hir-safe-reduction-analysis-print-unsafe-algebra",
+                       cl::init(false), cl::Hidden,
+                       cl::desc("print safe reduction unsafe algebra"));
+
 void HLInst::initialize() {
   /// This call is to get around calling virtual functions in the constructor.
   unsigned NumOp = getNumOperandsInternal();
@@ -340,6 +345,11 @@ void HLInst::printReductionInfo(formatted_raw_ostream &OS) const {
     if (PrintSafeReductionOp) {
       OS << " Red Op: " << (SRA->getSafeRedInfo(this))->OpCode;
     }
+
+    if (PrintUnsafeAlgebra) {
+      StringRef Msg = HasUnsafeAlgebra ? " Yes" : " No";
+      OS << " <Has Unsafe Algebra-" << Msg << ">";
+    }
   }
 
   HIRSparseArrayReductionAnalysis *SARA =
@@ -350,10 +360,6 @@ void HLInst::printReductionInfo(formatted_raw_ostream &OS) const {
   if (SARA && SARA->isSparseArrayReduction(this)) {
     OS << " <Sparse Array Reduction>";
   }
-
-  // Unsafe Algebra:
-  StringRef Msg = HasUnsafeAlgebra ? " Yes" : " No";
-  OS << " <Has Unsafe Algebra-" << Msg << ">";
 }
 
 RegDDRef *HLInst::getLvalDDRef() {
@@ -438,7 +444,8 @@ HLDDNode::ddref_iterator HLInst::bundle_op_ddref_begin(unsigned BundleNum) {
   return op_ddref_begin() + getNumNonBundleOperands() + BundleOperandCount;
 }
 
-bool HLInst::isInPreheaderPostexitImpl(bool Preheader, HLLoop *ParLoop) const {
+bool HLInst::isInPreheaderPostexitImpl(bool Preheader,
+                                       const HLLoop *ParLoop) const {
 
   if (!ParLoop) {
     // Parent of preheader/postexit instructions has to be a loop.

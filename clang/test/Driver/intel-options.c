@@ -22,6 +22,11 @@
 // CHECK-TUNE-NOT: no such file or directory
 // CHECK-TUNE-NOT: unknown argument ignored
 
+// /masm support
+// RUN: %clang_cl -### -S /masm:intel %s 2>&1 | \
+// RUN:  FileCheck -check-prefix=CHECK-MASM-INTEL %s
+// CHECK-MASM-INTEL: "-mllvm" "-x86-asm-syntax=intel"
+
 // -ZI support (same as /Zi and /Z7)
 // RUN: %clang_cl -### /c /ZI %s 2>&1 | FileCheck -check-prefix=CHECK-ZI %s
 // CHECK-ZI: "-gcodeview"
@@ -69,6 +74,7 @@
 
 // Behavior with -fno-alias option
 // RUN: %clang -### -c -fno-alias %s 2>&1 | FileCheck -check-prefix CHECK-FNO_ALIAS %s
+// RUN: %clang -### -c -fargument-noalias %s 2>&1 | FileCheck -check-prefix CHECK-FNO_ALIAS %s
 // RUN: %clang_cl -### -c /Oa %s 2>&1 | FileCheck -check-prefix CHECK-FNO_ALIAS %s
 // CHECK-FNO_ALIAS: "-fargument-noalias"
 
@@ -83,7 +89,11 @@
 // RUN: %clang -### -target x86_64-linux-gnu --intel -qopenmp %s -o %t 2>&1 | FileCheck %s -check-prefix CHECK-LD-IOMP5
 // Default behavior with -fopenmp should be liomp5
 // RUN: %clang -### -target x86_64-linux-gnu -fopenmp %s -o %t 2>&1 | FileCheck %s -check-prefix CHECK-LD-IOMP5
+// CHECK-QOPENMP: "-fopenmp-late-outline"
+// CHECK-QOPENMP: "-fintel-openmp-region"
+// CHECK-QOPENMP: "-fopenmp-threadprivate-legacy"
 // CHECK-QOPENMP: "-fopenmp"
+// CHECK-QOPENMP: "-mllvm" "-paropt=31"
 // CHECK-LD-IOMP5: "-liomp5"
 
 // Behavior with Qopt-jump-tables-,qno-opt-jump-tables option
@@ -138,10 +148,12 @@
 // CHECK-SHARED-STATIC-INTEL: "-Bstatic" "-lirc" "-Bdynamic"
 
 // Behavior with -shared-intel options
-// RUN: %clang -### --intel -target x86_64-unknown-linux -static -shared-intel %s 2>&1 | FileCheck -check-prefix CHECK-INTEL-SHARED %s
-// RUN: %clang -### --intel -target x86_64-unknown-linux -shared -static -shared-intel %s 2>&1 | FileCheck -check-prefix CHECK-INTEL-SHARED %s
-// CHECK-INTEL-SHARED: "-Bdynamic" "-lsvml" "-Bstatic"
-// CHECK-INTEL-SHARED: "-Bdynamic" "-lintlc" "-Bstatic"
+// RUN: %clang -### --intel -target x86_64-unknown-linux -static -shared-intel %s 2>&1 | FileCheck -check-prefix CHECK-STATIC-INTEL-SHARED %s
+// RUN: %clang -### --intel -target x86_64-unknown-linux -shared-intel %s 2>&1 | FileCheck -check-prefix CHECK-INTEL-SHARED %s
+// CHECK-STATIC-INTEL-SHARED: "-Bdynamic" "-lsvml" "-Bstatic"
+// CHECK-STATIC-INTEL-SHARED: "-Bdynamic" "-lintlc" "-Bstatic"
+// CHECK-INTEL-SHARED: "-lsvml"
+// CHECK-INTEL-SHARED: "-lintlc"
 
 // Behavior with combination of -shared-intel and -static-intel options
 // RUN: %clang -### --intel -target x86_64-unknown-linux -static %s 2>&1 | FileCheck -check-prefix CHECK-INTEL-LIBS %s
@@ -150,16 +162,27 @@
 // CHECK-INTEL-LIBS-NOT: "-Bdynamic" "-lirc" "-Bstatic"
 // CHECK-INTEL-LIBS-NOT: "-Bstatic" "-lsvml" "-Bdynamic"
 // CHECK-INTEL-LIBS-NOT: "-Bstatic" "-lirc" "-Bdynamic"
-// CHECK-INTEL-LIBS: "-lsvml" "-lirng" "-limf" "-lm" "-lirc"
+// CHECK-INTEL-LIBS: "-lsvml" "-lirng" "-limf" "-lm" {{.*}} "-lirc"
+
+// -i_no-use-libirc
+// RUN: %clang -### --intel -i_no-use-libirc -target x86_64-unknown-linux %s 2>&1 | FileCheck -check-prefix CHECK-INTEL-NOIRC %s
+// RUN: %clang_cl -### --intel /Q_no-use-libirc %s 2>&1 | FileCheck -check-prefix CHECK-INTEL-NOIRC %s
+// CHECK-INTEL-NOIRC-NOT: "-intel-libirc-allowed"
+// CHECK-INTEL-NOIRC-NOT: "-lirc"
+// CHECK-INTEL-NOIRC-NOT: "--dependent-lib=libircmt"
+// CHECK-INTEL-NOIRC-NOT: "-defaultlib:libircmt"
+
+// RUN: %clang -### --intel -i_no-use-libirc -target x86_64-unknown-linux -nodefaultlibs %s 2>&1 | FileCheck -check-prefix CHECK-INTEL-NOIRC-UNUSED %s
+// CHECK-INTEL-NOIRC-UNUSED-NOT: argument unused
 
 // RUN: %clang -### --intel -target x86_64-unknown-linux -shared-intel %s 2>&1 | FileCheck -check-prefix CHECK-INTEL-LIBS-SHARED-INTEL %s
 // RUN: %clang -### --intel -target x86_64-unknown-linux -dynamic -shared-intel %s 2>&1 | FileCheck -check-prefix CHECK-INTEL-LIBS-SHARED-INTEL %s
 // RUN: %clang -### --intel -target x86_64-unknown-linux -shared -shared-intel %s 2>&1 | FileCheck -check-prefix CHECK-INTEL-LIBS-SHARED-INTEL %s
 // RUN: %clang -### --intel -target x86_64-unknown-linux -static -shared -shared-intel %s 2>&1 | FileCheck -check-prefix CHECK-INTEL-LIBS-SHARED-INTEL %s
-// CHECK-INTEL-LIBS-SHARED-INTEL: "-lsvml" "-lirng" "-limf" "-lm" "-lintlc"
+// CHECK-INTEL-LIBS-SHARED-INTEL: "-lsvml" "-lirng" "-limf" "-lm" {{.*}} "-lintlc"
 
 // RUN: %clang -### --intel -target x86_64-unknown-linux -shared -static -static-intel %s 2>&1 | FileCheck -check-prefix CHECK-INTEL-LIBS-SHARED-STATIC %s
-// CHECK-INTEL-LIBS-SHARED-STATIC: "-lsvml" "-lirng" "-limf" "-lm" "-lirc"
+// CHECK-INTEL-LIBS-SHARED-STATIC: "-lsvml" "-lirng" "-limf" "-lm" {{.*}} "-lirc"
 
 // Behavior with Qvla and Qvla- option
 // RUN: %clang_cl -### -c /Qvla- %s 2>&1 | FileCheck -check-prefix CHECK-QNO-VLA %s
@@ -174,6 +197,7 @@
 
 // RUN: %clang -### -fp-speculation=strict -c %s 2>&1 | FileCheck --check-prefix=CHECK-STRICT %s
 // RUN: %clang_cl -### /Qfp-speculation:strict -c %s 2>&1 | FileCheck --check-prefix=CHECK-STRICT %s
+// RUN: %clang_cl -### /fp:strict -c %s 2>&1 | FileCheck --check-prefix=CHECK-STRICT %s
 // RUN: %clang_cl -### /Qfp-speculation:fast -c %s 2>&1 | FileCheck --check-prefix=CHECK-IGNORE %s
 // RUN: %clang -### -fp-speculation=fast -c %s 2>&1 | FileCheck --check-prefix=CHECK-IGNORE %s
 // RUN: %clang_cl -### /Qfp-speculation:safe -c %s 2>&1 | FileCheck --check-prefix=CHECK-SAFE %s
@@ -271,9 +295,16 @@
 // RUN: %clang_cl -### /Qopenmp-threadprivate:legacy -c %s 2>&1 | FileCheck --check-prefix=CHECK-QOPENMP-THREADPRIVATE %s
 // RUN: %clang -### -qopenmp-threadprivate=compat -fiopenmp -c %s 2>&1 | FileCheck --check-prefix=CHECK-QOPENMP-COMPAT %s
 // RUN: %clang -### -fiopenmp -c %s 2>&1 | FileCheck --check-prefix=CHECK-FIOPENMP %s
+// RUN: %clang -### -qopenmp -c %s 2>&1 | FileCheck --check-prefix=CHECK-FIOPENMP %s
+// RUN: %clang_cl -### /Qopenmp -c %s 2>&1 | FileCheck --check-prefix=CHECK-FIOPENMP %s
+// RUN: %clang_cl -### /Qiopenmp -c %s 2>&1 | FileCheck --check-prefix=CHECK-FIOPENMP %s
 // CHECK-QOPENMP-THREADPRIVATE: "-fopenmp-threadprivate-legacy"
 // CHECK-QOPENMP-COMPAT: "-fopenmp-late-outline"
-// CHECK-FIOPENMP: "-fopenmp-late-outline" "-fopenmp-threadprivate-legacy"
+// CHECK-FIOPENMP: "-fopenmp-late-outline" "-fintel-openmp-region" "-fopenmp-threadprivate-legacy"
+
+// RUN: %clang -### -qopt-mem-layout-trans=4 -flto -c %s 2>&1 | FileCheck --check-prefix=CHECK-LAYOUT-LTO %s
+// RUN: %clang_cl -### /Qopt-mem-layout-trans:4 -Qipo -c %s 2>&1 | FileCheck --check-prefix=CHECK-LAYOUT-LTO %s
+// CHECK-LAYOUT-LTO: "-fwhole-program-vtables"
 
 // Behavior with QH option
 // RUN: %clang_cl -### -c /QH %s 2>&1 | FileCheck -check-prefix CHECK-QH %s
@@ -284,13 +315,21 @@
 // CHECK-MERGE-DEBUG: "-mllvm" "-dwarf-inlined-strings=Disable"
 // CHECK-NO-MERGE-DEBUG: "-mllvm" "-dwarf-inlined-strings=Enable"
 
+// RUN: %clang -### -c -fma -target x86_64-unknown-linux %s 2>&1 | FileCheck --check-prefix=CHECK-FMA %s
+// RUN: %clang_cl -### -c /Qfma %s 2>&1 | FileCheck --check-prefix=CHECK-FMA %s
+// CHECK-FMA: "-ffp-contract=fast"
+
+// RUN: %clang -### -c -no-fma -target x86_64-unknown-linux %s 2>&1 | FileCheck --check-prefix=CHECK-NO-FMA %s
+// RUN: %clang_cl -### -c /Qfma- %s 2>&1 | FileCheck --check-prefix=CHECK-NO-FMA %s
+// CHECK-NO-FMA: "-ffp-contract=off"
+
 // Behavior with qopenmp-simd/Qopenmp-simd option
 // RUN: %clang -### -c -qopenmp-simd %s 2>&1 | FileCheck -check-prefix CHECK-QOPENMP-SIMD %s
 // RUN: %clang_cl -### -c /Qopenmp-simd %s 2>&1 | FileCheck -check-prefix CHECK-QOPENMP-SIMD %s
 // RUN: %clang -### -c -qno-openmp-simd %s 2>&1 | FileCheck -check-prefix CHECK-NO-QOPENMP-SIMD %s
 // RUN: %clang_cl -### -c /Qopenmp-simd- %s 2>&1 | FileCheck -check-prefix CHECK-NO-QOPENMP-SIMD %s
 // CHECK-QOPENMP-SIMD: "-fopenmp-simd"
-// CHECK-NO-QOPENMP-SIMD: "-fno-openmp-simd"
+// CHECK-NO-QOPENMP-SIMD-NOT: "-fopenmp-simd"
 
 // Behavior with Qtemplate-depth option
 // RUN: %clang_cl -### -c /Qtemplate-depth:5 %s 2>&1 | FileCheck -check-prefix CHECK-TEMPLATE-DEPTH %s
@@ -300,9 +339,9 @@
 // Behavior with Qzero-initialized-in-bss and Qzero-initialized-in-bss- option
 // RUN: %clang_cl -### -c /Qzero-initialized-in-bss %s 2>&1 | FileCheck -check-prefix CHECK-ZERO %s
 // RUN: %clang_cl -### -c /Qzero-initialized-in-bss- %s 2>&1 | FileCheck -check-prefix CHECK-FNO-ZERO %s
-// CHECK-ZERO-NOT: "-mno-zero-initialized-in-bss"
+// CHECK-ZERO-NOT: "-fno-zero-initialized-in-bss"
 // CHECK-FNO-ZERO-NOT: "-fzero-initialized-in-bss"
-// CHECK-FNO-ZERO: "-mno-zero-initialized-in-bss"
+// CHECK-FNO-ZERO: "-fno-zero-initialized-in-bss"
 
 // -use-msasm alias to -fasm-blocks
 // RUN: %clang -### -c -use-msasm %s 2>&1 | FileCheck -check-prefix=CHECK-USE-MSASM %s
@@ -316,7 +355,9 @@
 
 // Behavior with fiopenmp-simd/Qiopenmp-simd option
 // RUN: %clang -### -c -fiopenmp-simd %s 2>&1 | FileCheck -check-prefix CHECK-QIOPENMP-SIMD %s
+// RUN: %clang -### -c -qopenmp-simd %s 2>&1 | FileCheck -check-prefix CHECK-QIOPENMP-SIMD %s
 // RUN: %clang_cl -### -c /Qiopenmp-simd %s 2>&1 | FileCheck -check-prefix CHECK-QIOPENMP-SIMD %s
+// RUN: %clang_cl -### -c /Qopenmp-simd %s 2>&1 | FileCheck -check-prefix CHECK-QIOPENMP-SIMD %s
 // CHECK-QIOPENMP-SIMD: "-fopenmp-simd" "-fopenmp-late-outline"{{.*}} "-mllvm" "-paropt=11"
 
 // Behavior with fkeep-static-consts/Qkeep-static-consts option
@@ -461,3 +502,65 @@
 // RUN: touch %t.h
 // RUN: %clang -### -pch-use %t.h %s 2>&1 | FileCheck -check-prefix CHECK-PCH-USE %s
 // CHECK-PCH-USE: "-include-pch"
+
+// Behavior with -qopt-report
+// RUN: %clang -### -qopt-report -c %s 2>&1 | FileCheck -check-prefix=CHECK-OPT-REPORT %s
+// RUN: %clang_cl -### -Qopt-report -c %s 2>&1 | FileCheck -check-prefix=CHECK-OPT-REPORT %s
+// RUN: %clang -### -qopt-report=2 -c %s 2>&1 | FileCheck -check-prefix=CHECK-OPT-REPORT %s
+// RUN: %clang_cl -### -Qopt-report:2 -c %s 2>&1 | FileCheck -check-prefix=CHECK-OPT-REPORT %s
+// RUN: %clang -### -qopt-report2 -c %s 2>&1 | FileCheck -check-prefix=CHECK-OPT-REPORT %s
+// RUN: %clang_cl -### -Qopt-report2 -c %s 2>&1 | FileCheck -check-prefix=CHECK-OPT-REPORT %s
+// RUN: %clang -### -qopt-report=med -c %s 2>&1 | FileCheck -check-prefix=CHECK-OPT-REPORT %s
+// RUN: %clang_cl -### -Qopt-report:med -c %s 2>&1 | FileCheck -check-prefix=CHECK-OPT-REPORT %s
+// CHECK-OPT-REPORT: "-debug-info-kind=line-tables-only"
+// CHECK-OPT-REPORT: "-opt-record-file" "{{.*}}.yaml"
+// CHECK-OPT-REPORT: "-opt-record-format" "yaml"
+// CHECK-OPT-REPORT: "-mllvm" "-intel-loop-optreport-emitter=ir"
+// CHECK-OPT-REPORT: "-mllvm" "-enable-ra-report"
+// CHECK-OPT-REPORT: "-mllvm" "-intel-loop-optreport=medium"
+// CHECK-OPT-REPORT: "-mllvm" "-intel-ra-spillreport=medium"
+
+// RUN: %clang -### -qopt-report=min -c %s 2>&1 | FileCheck -check-prefix=CHECK-OPT-REPORT-MIN %s
+// RUN: %clang_cl -### -Qopt-report:min -c %s 2>&1 | FileCheck -check-prefix=CHECK-OPT-REPORT-MIN %s
+// CHECK-OPT-REPORT-MIN: "-mllvm" "-intel-loop-optreport=low"
+// CHECK-OPT-REPORT-MIN: "-mllvm" "-intel-ra-spillreport=low"
+
+// RUN: %clang -### -qopt-report=max -c %s 2>&1 | FileCheck -check-prefix=CHECK-OPT-REPORT-MAX %s
+// RUN: %clang_cl -### -Qopt-report:max -c %s 2>&1 | FileCheck -check-prefix=CHECK-OPT-REPORT-MAX %s
+// CHECK-OPT-REPORT-MAX: "-mllvm" "-intel-loop-optreport=high"
+// CHECK-OPT-REPORT-MAX: "-mllvm" "-intel-ra-spillreport=high"
+
+// RUN: %clang -### -O3 -c %s 2>&1 | FileCheck -check-prefix=CHECK-GVN %s
+// RUN: %clang -### -Ofast -c %s 2>&1 | FileCheck -check-prefix=CHECK-GVN %s
+// CHECK-GVN: "-mllvm" "-enable-gvn-hoist"
+// CHECK-GVN: "-mllvm" "-enable-npm-gvn-hoist"
+
+// RUN: %clang --intel -Ofast -### %s 2>&1 | FileCheck -check-prefix=CHECK-OFAST %s
+// RUN: %clang --intel -O2 -Ofast -### %s 2>&1 | FileCheck -check-prefix=CHECK-OFAST %s
+// RUN: %clang --intel -Ofast -O2 -### %s 2>&1 | FileCheck -check-prefix=CHECK-OFAST-O2 %s
+// CHECK-OFAST: -cc1
+// CHECK-OFAST: -ffast-math
+// CHECK-OFAST: -O3
+// CHECK-OFAST-O2: -cc1
+// CHECK-OFAST-O2: -ffast-math
+// CHECK-OFAST-O2: -O2
+
+// RUN: %clang_cl -### /Zc:wchar_t- -c %s 2>&1 | FileCheck -check-prefix=CHECK-NO-WCHAR_T %s
+// RUN: %clang_cl -### /Zc:wchar_t -c %s 2>&1 | FileCheck -check-prefix=CHECK-WCHAR_T %s
+// CHECK-NO-WCHAR_T: "-fno-wchar"
+// CHECK-WCHAR_T-NOT: "-fno-wchar"
+
+// Tests for -qopenmp-link and -qopenmp-stubs
+// RUN: %clang -### -target x86_64-linux-gnu -qopenmp -qopenmp-link=static %s 2>&1 | FileCheck -check-prefix CHECK-QOPENMP-STATIC %s
+// RUN: %clang -### -target x86_64-linux-gnu -qopenmp-stubs %s 2>&1 | FileCheck -check-prefix CHECK-QOPENMP-STUBS %s
+// RUN: %clang_cl -### --target=x86_64-pc-windows-msvc /QopenmpS %s 2>&1 | FileCheck -check-prefix CHECK-QOPENMP-STUBS-WIN %s
+// CHECK-QOPENMP-STATIC: "-Bstatic" "-liomp5" "-Bdynamic"
+// CHECK-QOPENMP-STUBS: "-liompstubs5"
+// CHECK-QOPENMP-STUBS-NOT: "-lpthread"
+// CHECK-QOPENMP-STUBS-WIN: "-defaultlib:libiompstubs5md.lib"
+
+// -Zp support (Linux)
+// RUN: %clang -Zp -### -c %s 2>&1 | FileCheck -check-prefix=ZP %s
+// ZP: "-fpack-struct=1"
+// RUN: %clang -Zp2 -c -### -c %s 2>&1 | FileCheck -check-prefix=ZP2 %s
+// ZP2: "-fpack-struct=2"

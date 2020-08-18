@@ -1,4 +1,4 @@
-; RUN: opt -vpo-cfg-restructuring -vpo-paropt -basicaa -scoped-noalias -aa-eval -evaluate-aa-metadata -print-all-alias-modref-info -disable-output %s 2>&1 | FileCheck %s
+; RUN: opt -vpo-cfg-restructuring -vpo-paropt -basic-aa -scoped-noalias-aa -aa-eval -evaluate-aa-metadata -print-all-alias-modref-info -disable-output %s 2>&1 | FileCheck %s
 ;
 ; Check that aliasing information is preserved in case when function has more
 ; than one region that needs outlining.
@@ -168,7 +168,7 @@ attributes #2 = { nounwind }
 !llvm.ident = !{!1}
 
 !0 = !{i32 1, !"wchar_size", i32 4}
-!1 = !{!"Intel(R) oneAPI DPC++ Compiler 2021.1 (YYYY.x.0.MMDD)"}
+!1 = !{!"clang version 10.0.0"}
 !2 = !{!3, !3, i64 0}
 !3 = !{!"pointer@_ZTSPd", !4, i64 0}
 !4 = !{!"omnipotent char", !5, i64 0}
@@ -180,10 +180,10 @@ attributes #2 = { nounwind }
 !10 = !{!"int", !4, i64 0}
 !11 = !{!8, !8, i64 0}
 
-; CHECK: NoAlias:   %tmp29 = load double*, double** %tmp1, align 8,{{.+}} <->   store double %add21, double* %arrayidx23, align 8
-; CHECK: NoAlias:   %tmp31 = load double*, double** %tmp2, align 8,{{.+}} <->   store double %add21, double* %arrayidx23, align 8
-; CHECK: NoAlias:   %tmp33 = load double*, double** %glob.addr, align 8,{{.+}} <->   store double %add21, double* %arrayidx23, align 8
+; CHECK-DAG: NoAlias:   %tmp29 = load double*, double** %tmp1, align 8,{{.+}} <->   store double %add21, double* %arrayidx23, align 8
+; CHECK-DAG: NoAlias:   %tmp31 = load double*, double** %tmp2, align 8,{{.+}} <->   store double %add21, double* %arrayidx23, align 8
+; CHECK-DAG: NoAlias:   %tmp33 = load double*, double** %glob.addr, align 8,{{.+}} <->   store double %add21, double* %arrayidx23, align 8
 
-; CHECK: NoAlias:   %tmp17 = load double*, double** %tmp1, align 8,{{.+}} <->   store double %add6, double* %arrayidx7, align 8
-; CHECK: NoAlias:   %tmp19 = load double*, double** %tmp2, align 8,{{.+}} <->   store double %add6, double* %arrayidx7, align 8
-; CHECK: NoAlias:   %tmp21 = load double*, double** %glob.addr, align 8,{{.+}} <->   store double %add6, double* %arrayidx7, align 8
+; CHECK-DAG: NoAlias:   %tmp17 = load double*, double** %tmp1, align 8,{{.+}} <->   store double %add6, double* %arrayidx7, align 8
+; CHECK-DAG: NoAlias:   %tmp19 = load double*, double** %tmp2, align 8,{{.+}} <->   store double %add6, double* %arrayidx7, align 8
+; CHECK-DAG: NoAlias:   %tmp21 = load double*, double** %glob.addr, align 8,{{.+}} <->   store double %add6, double* %arrayidx7, align 8

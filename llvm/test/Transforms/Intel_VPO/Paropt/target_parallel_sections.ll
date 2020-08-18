@@ -1,5 +1,5 @@
 ; RUN: opt < %s -loop-rotate -vpo-cfg-restructuring -simplifycfg  -sroa -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -S | FileCheck %s
-; RUN: opt < %s -passes='function(loop(rotate),vpo-cfg-restructuring,simplify-cfg,loop(simplify-cfg),sroa,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt' -S | FileCheck %s
+; RUN: opt < %s -passes='function(loop(loop-rotate),vpo-cfg-restructuring,simplify-cfg,loop(simplify-cfg),sroa,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt' -S | FileCheck %s
 ;
 ; It does a verification whether the "omp target parallel sections" construct is supported in the Paropt codegen for offloading.
 ;

@@ -1,4 +1,4 @@
-add_llvm_component_library(LLVMIntel_LoopTransforms 
+add_llvm_component_library(LLVMIntel_LoopTransforms
         Intel_LoopTransforms.cpp
         HIRSSADeconstruction.cpp
         HIRTempCleanup.cpp
@@ -55,9 +55,12 @@ add_llvm_component_library(LLVMIntel_LoopTransforms
         HIRRowWiseMV.cpp
         HIRPrintDiag.cpp
         HIRConditionalLoadStoreMotion.cpp
+        HIRNontemporalMarking.cpp
         HIRStencilPattern.cpp
         HIRStoreResultIntoTempArray.cpp
         HIRSumWindowReuse.cpp
+        HIRNonZeroSinkingForPerfectLoopnest.cpp
+        HIRIdentityMatrixSubstitution.cpp
 
   ADDITIONAL_HEADER_DIRS
   ${LLVM_MAIN_INCLUDE_DIR}/llvm/Transforms

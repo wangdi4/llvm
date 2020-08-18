@@ -88,7 +88,6 @@ simd.loop:
   %index = phi i32 [ 0, %simd.loop.preheader ], [ %indvar, %simd.loop]
   %ld = load float*, float** %y
   store float 7.0, float* %cast_src
-;  %ld_dst = load i32*, i32** %cast_dst
   %indvar = add nuw i32 %index, 1
   %vl.cond = icmp ult i32 %indvar, 4
   br i1 %vl.cond, label %simd.loop, label %simd.end.region
@@ -97,6 +96,29 @@ simd.end.region:
   call void @llvm.directive.region.exit(token %entry.region) [ "DIR.OMP.END.SIMD"() ]
   br label %return
 
+return:
+  ret void
+}
+
+; Test to make sure that the legality is not tripped and a store within the loop does not prevent vectorization.
+define dso_local void @test_legality_safe_store(i32** %y) {
+; CHECK: @test_legality_safe_store
+; CHECK: {{.*}} = alloca <4 x i32>
+entry:
+  %x = alloca i32
+  br label %simd.begin.region
+simd.begin.region:
+  %entry.region = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.PRIVATE"(i32* %x)]
+  br label %simd.loop
+simd.loop:
+  %index = phi i32 [ 0, %simd.begin.region], [ %indvar, %simd.loop]
+  store i32* %x, i32** %y
+  %indvar = add nuw i32 %index, 1
+  %vl.cond = icmp ult i32 %indvar, 4
+  br i1 %vl.cond, label %simd.loop, label %simd.end.region
+simd.end.region:
+  call void @llvm.directive.region.exit(token %entry.region) [ "DIR.OMP.END.SIMD"() ]
+  br label %return
 return:
   ret void
 }

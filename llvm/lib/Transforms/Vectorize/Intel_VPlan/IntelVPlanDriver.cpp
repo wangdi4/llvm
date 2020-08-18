@@ -13,22 +13,23 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "llvm/Analysis/GlobalsModRef.h" // INTEL_CUSTOMIZATION
-#include "llvm/Analysis/MemorySSA.h" // INTEL_CUSTOMIZATION
 #include "llvm/Transforms/Vectorize/IntelVPlanDriver.h"
-#include "IntelVPlanAllZeroBypass.h"
 #include "IntelLoopVectorizationLegality.h"
 #include "IntelLoopVectorizationPlanner.h"
 #include "IntelVPOCodeGen.h"
 #include "IntelVPOLoopAdapters.h"
+#include "IntelVPlan.h"
+#include "IntelVPlanAllZeroBypass.h"
 #include "IntelVPlanCostModel.h"
 #include "IntelVPlanIdioms.h"
 #include "IntelVPlanScalarEvolution.h"
 #include "IntelVolcanoOpenCL.h"
 #include "llvm/ADT/Statistic.h"
-#include "llvm/Analysis/DemandedBits.h" // INTEL
+#include "llvm/Analysis/DemandedBits.h"  // INTEL
+#include "llvm/Analysis/GlobalsModRef.h" // INTEL_CUSTOMIZATION
 #include "llvm/Analysis/LoopAccessAnalysis.h"
 #include "llvm/Analysis/LoopIterator.h"
+#include "llvm/Analysis/MemorySSA.h" // INTEL_CUSTOMIZATION
 #include "llvm/Analysis/ScalarEvolution.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/Analysis/TargetTransformInfo.h"
@@ -95,10 +96,6 @@ static cl::opt<unsigned> VPlanVectCand(
 
 static cl::opt<unsigned> VPlanForceUF("vplan-force-uf", cl::init(0),
                                       cl::desc("Force VPlan to use given UF"));
-
-static cl::opt<bool> EnableAllZeroBypass(
-    "vplan-enable-all-zero-bypass", cl::init(false), cl::Hidden,
-    cl::desc("Enable all-zero bypass insertion for VPlan."));
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 static cl::opt<bool>
@@ -279,14 +276,15 @@ bool VPlanDriverImpl::processLoop(Loop *Lp, Function &Fn,
     LLVM_DEBUG(dbgs() << "VD: Not vectorizing: No VPlans constructed.\n");
     return false;
   }
+
+  VPAnalysesFactory VPAF(SE, Lp, DT, AC, DL, true);
+
   for (auto &Pair : LVP.getAllVPlans()) {
-    auto &Plan = *Pair.second;
+    auto &Plan = *Pair.second.MainPlan;
     if (!Plan.getVPSE())
-      Plan.setVPSE(std::make_unique<VPlanScalarEvolutionLLVM>(SE, Lp));
-    if (!Plan.getVPVT()) {
-      auto &VPSE = *static_cast<VPlanScalarEvolutionLLVM *>(Plan.getVPSE());
-      Plan.setVPVT(std::make_unique<VPlanValueTrackingLLVM>(VPSE, *DL, AC, DT));
-    }
+      Plan.setVPSE(VPAF.createVPSE());
+    if (!Plan.getVPVT())
+      Plan.setVPVT(VPAF.createVPVT(Plan.getVPSE()));
   }
 #else
   LVP.buildInitialVPlans();
@@ -323,8 +321,7 @@ bool VPlanDriverImpl::processLoop(Loop *Lp, Function &Fn,
 
   // All-zero bypass is added after best plan selection because cost model
   // tuning is not yet implemented and we don't want to prevent vectorization.
-  if (EnableAllZeroBypass)
-    LVP.insertAllZeroBypasses(Plan);
+  LVP.insertAllZeroBypasses(Plan, VF);
 
   unsigned UF = VPlanForceUF;
   if (UF == 0)
@@ -829,7 +826,7 @@ bool VPlanDriver::runOnFunction(Function &Fn) {
   auto WR = &getAnalysis<WRegionInfoWrapperPass>().getWRegionInfo();
 
   return Impl.runImpl(Fn, LI, SE, DT, AC, AA, DB, GetLAA, ORE, Verbosity, WR,
-                      TTI, TLI);
+                      TTI, TLI, nullptr, nullptr);
 }
 
 PreservedAnalyses VPlanDriverPass::run(Function &F,
@@ -860,7 +857,7 @@ PreservedAnalyses VPlanDriverPass::run(Function &F,
   };
 
   if (!Impl.runImpl(F, LI, SE, DT, AC, AA, DB, GetLAA, ORE, Verbosity, WR, TTI,
-                    TLI))
+                    TLI, nullptr, nullptr))
     return PreservedAnalyses::all();
 
   auto PA = PreservedAnalyses::none();
@@ -874,7 +871,8 @@ bool VPlanDriverImpl::runImpl(
     AssumptionCache *AC, AliasAnalysis *AA, DemandedBits *DB,
     std::function<const LoopAccessInfo &(Loop &)> GetLAA,
     OptimizationRemarkEmitter *ORE, OptReportVerbosity::Level Verbosity,
-    WRegionInfo *WR, TargetTransformInfo *TTI, TargetLibraryInfo *TLI) {
+    WRegionInfo *WR, TargetTransformInfo *TTI, TargetLibraryInfo *TLI,
+    BlockFrequencyInfo *BFI, ProfileSummaryInfo *PSI) {
 
 #if INTEL_CUSTOMIZATION
   LLVM_DEBUG(dbgs() << "VPlan LLVM-IR Driver for Function: " << Fn.getName()
@@ -1121,8 +1119,7 @@ bool VPlanDriverHIRImpl::processLoop(HLLoop *Lp, Function &Fn,
 
   // All-zero bypass is added after best plan selection because cost model
   // tuning is not yet implemented and we don't want to prevent vectorization.
-  if (EnableAllZeroBypass)
-    LVP.insertAllZeroBypasses(Plan);
+  LVP.insertAllZeroBypasses(Plan, VF);
 
   unsigned UF = HLoop->getUnrollPragmaCount();
   if (VPlanForceUF)
@@ -1286,7 +1283,7 @@ bool VPlanDriverImpl::isVPlanCandidate(Function &Fn, Loop *Lp) {
   LoopVectorizationRequirements Requirements(*ORE);
   LoopVectorizeHints Hints(Lp, true, *ORE);
   LoopVectorizationLegality LVL(Lp, PSE, DT, TTI, TLI, AA, &Fn, GetLAA, LI, ORE,
-                                &Requirements, &Hints, DB, AC);
+                                &Requirements, &Hints, DB, AC, BFI, PSI);
 
   if (!LVL.canVectorize(false /* EnableVPlanNativePath */))
     return false;

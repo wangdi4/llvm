@@ -53,6 +53,8 @@
 define void @foo(float* noalias nocapture %arr, i32 %n1) {
 ; CHECK-LABEL:  VPlan after SSA deconstruction
 ; CHECK-NEXT:  VPlan IR for: Initial VPlan for VF=4
+; CHECK-NEXT:  Live-in values:
+; CHECK-NEXT:   ID: 0 Value: i64 0
 ; CHECK-NEXT:    [[BB0:BB[0-9]+]]:
 ; CHECK-NEXT:     <Empty Block>
 ; CHECK-NEXT:    SUCCESSORS(1):[[BB1:BB[0-9]+]]
@@ -60,7 +62,7 @@ define void @foo(float* noalias nocapture %arr, i32 %n1) {
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB1]]:
 ; CHECK-NEXT:     [DA: Div] float [[VP__RED_INIT:%.*]] = reduction-init float 0.000000e+00
-; CHECK-NEXT:     [DA: Div] i64 [[VP__IND_INIT:%.*]] = induction-init{add} i64 0 i64 1
+; CHECK-NEXT:     [DA: Div] i64 [[VP__IND_INIT:%.*]] = induction-init{add} i64 live-in0 i64 1
 ; CHECK-NEXT:     [DA: Uni] i64 [[VP__IND_INIT_STEP:%.*]] = induction-init-step{add} i64 1
 ; CHECK-NEXT:    SUCCESSORS(1):[[BB2:BB[0-9]+]]
 ; CHECK-NEXT:    PREDECESSORS(1): [[BB0]]
@@ -123,7 +125,7 @@ define void @foo(float* noalias nocapture %arr, i32 %n1) {
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB7]]:
 ; CHECK-NEXT:     [DA: Uni] float [[VP__RED_FINAL:%.*]] = reduction-final{fadd} float [[VP1]] float [[RED_PHI0:%.*]]
-; CHECK-NEXT:     [DA: Uni] i64 [[VP__IND_FINAL:%.*]] = induction-final{add} i64 0 i64 1
+; CHECK-NEXT:     [DA: Uni] i64 [[VP__IND_FINAL:%.*]] = induction-final{add} i64 live-in0 i64 1
 ; CHECK-NEXT:    SUCCESSORS(1):[[BB8:BB[0-9]+]]
 ; CHECK-NEXT:    PREDECESSORS(1): [[BB3]]
 ; CHECK-EMPTY:
@@ -132,7 +134,7 @@ define void @foo(float* noalias nocapture %arr, i32 %n1) {
 ; CHECK-NEXT:    no SUCCESSORS
 ; CHECK-NEXT:    PREDECESSORS(1): [[BB7]]
 ; CHECK-EMPTY:
-; MIXED-NEXT:  *** IR Dump After VPlan Vectorization Driver HIR ***
+; MIXED-LABEL:  *** IR Dump After VPlan Vectorization Driver HIR ***
 ; MIXED-NEXT:  Function: foo
 ; MIXED-EMPTY:
 ; MIXED-NEXT:  <0>          BEGIN REGION { modified }
@@ -179,7 +181,7 @@ define void @foo(float* noalias nocapture %arr, i32 %n1) {
 ; MIXED-NEXT:  <71>               |   [[BB3]].{{[0-9]+}}:
 ; MIXED-NEXT:  <72>               |   [[RED_VAR0]] = [[PHI_TEMP30]]  +  [[PHI_TEMP0]]
 ; MIXED-NEXT:  <36>               + END LOOP
-; MIXED-NEXT:  <73>                 [[RED_PHI0]] = @llvm.experimental.vector.reduce.v2.fadd.f32.v4f32([[RED_PHI0]],  [[RED_VAR0]])
+; MIXED-NEXT:  <73>                 [[VEC_REDUCE:%.*]] = @llvm.experimental.vector.reduce.v2.fadd.f32.v4f32([[RED_PHI0]],  [[RED_VAR0]])
 ; MIXED-NEXT:  <0>          END REGION
 ;
 ; VPVAL-LABEL:  *** IR Dump After VPlan Vectorization Driver HIR ***
@@ -227,7 +229,7 @@ define void @foo(float* noalias nocapture %arr, i32 %n1) {
 ; VPVAL-NEXT:          |   BB7.69:
 ; VPVAL-NEXT:          |   %red.var = %phi.temp5  +  %phi.temp;
 ; VPVAL-NEXT:          + END LOOP
-; VPVAL-NEXT:              %red.phi = @llvm.experimental.vector.reduce.v2.fadd.f32.v4f32(%red.phi,  %red.var);
+; VPVAL-NEXT:              %vec.reduce = @llvm.experimental.vector.reduce.v2.fadd.f32.v4f32(%red.phi,  %red.var);
 ; VPVAL-NEXT:  END REGION
 ;
 

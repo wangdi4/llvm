@@ -43,11 +43,6 @@
 #include "omptarget-tools.h"
 #include "rtl-trace.h"
 
-extern thread_local OmptTraceTy *omptTracePtr;
-extern void omptInitPlugin();
-extern const char *omptDocument;
-extern ompt_interface_fn_t omptLookupEntries(const char *);
-
 int DebugLevel = 0;
 
 #if INTEL_CUSTOMIZATION
@@ -424,6 +419,10 @@ public:
   // This is a factor applied to the number of WGs computed
   // for the execution, based on the HW characteristics.
   size_t SubscriptionRate = 1;
+#if INTEL_INTERNAL_BUILD
+  size_t ForcedLocalSizes[3] = {0, 0, 0};
+  size_t ForcedGlobalSizes[3] = {0, 0, 0};
+#endif // INTEL_INTERNAL_BUILD
 
   RTLDeviceInfoTy() : numDevices(0), DataTransferLatency(0),
       DataTransferMethod(DATA_TRANSFER_METHOD_CLMEM) {
@@ -573,6 +572,16 @@ public:
       if (env[0] == 'T' || env[0] == 't' || env[0] == '1')
         Flags.UseHostMemForUSM = 1;
     }
+
+#if INTEL_INTERNAL_BUILD
+    // Force work group sizes -- for internal experiments
+    if (env = readEnvVar("LIBOMPTARGET_LOCAL_WG_SIZE")) {
+      parseGroupSizes("LIBOMPTARGET_LOCAL_WG_SIZE", env, ForcedLocalSizes);
+    }
+    if (env = readEnvVar("LIBOMPTARGET_GLOBAL_WG_SIZE")) {
+      parseGroupSizes("LIBOMPTARGET_GLOBAL_WG_SIZE", env, ForcedGlobalSizes);
+    }
+#endif // INTEL_INTERNAL_BUILD
   }
 
   /// Read environment variable value with optional deprecated name
@@ -592,6 +601,21 @@ public:
     }
     return value;
   }
+
+#if INTEL_INTERNAL_BUILD
+  void parseGroupSizes(const char *Name, const char *Value, size_t *Sizes) {
+    std::string str(Value);
+    if (str.front() != '{' || str.back() != '}') {
+      WARNING("Ignoring invalid %s=%s\n", Name, Value);
+      return;
+    }
+    std::istringstream strm(str.substr(1, str.size() - 2));
+    uint32_t i = 0;
+    for (std::string token; std::getline(strm, token, ','); i++)
+      if (i < 3)
+        Sizes[i] = std::stoi(token);
+  }
+#endif // INTEL_INTERNAL_BUILD
 
   /// Loads the device version of the offload table for device \p DeviceId.
   /// The table is expected to have \p NumEntries entries.
@@ -796,15 +820,15 @@ static void closeRTL() {
   for (uint32_t i = 0; i < DeviceInfo->numDevices; i++) {
     if (!DeviceInfo->Initialized[i])
       continue;
-    // Invoke OMPT callbacks
-    if (omptEnabled.enabled) {
-      OMPT_CALLBACK(ompt_callback_device_unload, i, 0 /* module ID */);
-      OMPT_CALLBACK(ompt_callback_device_finalize, i);
-    }
     if (DeviceInfo->Flags.EnableProfile)
       DeviceInfo->Profiles[i].printData(i, DeviceInfo->Names[i].data(),
                                        DeviceInfo->ProfileResolution);
 #ifndef _WIN32
+    if (OMPT_ENABLED) {
+      // Disabled for Windows to alleviate dll finalization issue.
+      OMPT_CALLBACK(ompt_callback_device_unload, i, 0 /* module ID */);
+      OMPT_CALLBACK(ompt_callback_device_finalize, i);
+    }
     // Making OpenCL calls during process exit on Windows is unsafe.
     for (auto kernel : DeviceInfo->FuncGblEntries[i].Kernels) {
       if (kernel)
@@ -1248,9 +1272,7 @@ int32_t __tgt_rtl_number_of_devices() {
     DP("Device local mem size: %zu\n", (size_t)DeviceInfo->SLMSize[i]);
     DeviceInfo->Initialized[i] = false;
   }
-  if (DeviceInfo->numDevices > 0) {
-    omptInitPlugin();
-  } else {
+  if (DeviceInfo->numDevices == 0) {
     DP("WARNING: No OpenCL devices found.\n");
   }
 
@@ -1337,7 +1359,7 @@ int32_t __tgt_rtl_init_device(int32_t device_id) {
   OMPT_CALLBACK(ompt_callback_device_initialize, device_id,
                 DeviceInfo->Names[device_id].data(),
                 DeviceInfo->deviceIDs[device_id],
-                omptLookupEntries, omptDocument);
+                omptLookupEntries, OmptDocument);
 
   DeviceInfo->Initialized[device_id] = true;
 
@@ -2025,10 +2047,6 @@ void *__tgt_rtl_data_alloc_base(int32_t device_id, int64_t size, void *hst_ptr,
 // Create a buffer from the given SVM pointer.
 EXTERN
 void *__tgt_rtl_create_buffer(int32_t device_id, void *tgt_ptr) {
-  if (DeviceInfo->DeviceType != CL_DEVICE_TYPE_GPU) {
-    DP("Attemping to create buffer for cpu offloading.\n");
-    return nullptr;
-  }
   if (DeviceInfo->Buffers[device_id].count(tgt_ptr) == 0) {
     DP("Error: Cannot create buffer from unknown device pointer " DPxMOD "\n",
        DPxPTR(tgt_ptr));
@@ -2328,10 +2346,14 @@ static void decideLoopKernelGroupArguments(
   size_t tripCounts[3] = {1, 1, 1};
 
   for (int32_t i = 0; i < numLoopLevels; i++) {
-    assert((level[i].Ub >= level[i].Lb && level[i].Stride > 0) &&
-           "Invalid loop nest description for ND partitioning");
+    assert(level[i].Stride > 0 && "Invalid loop stride for ND partitioning");
     DP("Level %" PRIu32 ": Lb = %" PRId64 ", Ub = %" PRId64 ", Stride = %"
        PRId64 "\n", i, level[i].Lb, level[i].Ub, level[i].Stride);
+    if (level[i].Ub < level[i].Lb) {
+      std::fill(GroupCounts, GroupCounts + 3, 1);
+      std::fill(GroupSizes, GroupSizes + 3, 1);
+      return;
+    }
     tripCounts[i] =
         (level[i].Ub - level[i].Lb + level[i].Stride) / level[i].Stride;
   }
@@ -2563,6 +2585,21 @@ static inline int32_t run_target_team_nd_region(
   for (int32_t i = 0; i < 3; ++i)
     global_work_size[i] = local_work_size[i] * num_work_groups[i];
 
+#if INTEL_INTERNAL_BUILD
+  // Use forced group sizes. This is only for internal experiments, and we
+  // don't want to plug these numbers into the decision logic.
+  auto userLWS = DeviceInfo->ForcedLocalSizes;
+  auto userGWS = DeviceInfo->ForcedGlobalSizes;
+  if (userLWS[0] > 0) {
+    std::copy(userLWS, userLWS + 3, local_work_size);
+    DP("Forced LWS = {%zu, %zu, %zu}\n", userLWS[0], userLWS[1], userLWS[2]);
+  }
+  if (userGWS[0] > 0) {
+    std::copy(userGWS, userGWS + 3, global_work_size);
+    DP("Forced GWS = {%zu, %zu, %zu}\n", userGWS[0], userGWS[1], userGWS[2]);
+  }
+#endif // INTEL_INTERNAL_BUILD
+
   DP("Global work size = (%zu, %zu, %zu)\n", global_work_size[0],
      global_work_size[1], global_work_size[2]);
   DP("Local work size = (%zu, %zu, %zu)\n", local_work_size[0],
@@ -2678,14 +2715,14 @@ static inline int32_t run_target_team_nd_region(
   }
 #endif  // INTEL_CUSTOMIZATION
 
-  if (omptEnabled.enabled) {
+  if (OMPT_ENABLED) {
     // Push current work size
     size_t finalNumTeams =
         global_work_size[0] * global_work_size[1] * global_work_size[2];
     size_t finalThreadLimit =
         local_work_size[0] * local_work_size[1] * local_work_size[2];
     finalNumTeams /= finalThreadLimit;
-    omptTracePtr->pushWorkSize(finalNumTeams, finalThreadLimit);
+    OmptGlobal->getTrace().pushWorkSize(finalNumTeams, finalThreadLimit);
   }
 
   cl_event event;

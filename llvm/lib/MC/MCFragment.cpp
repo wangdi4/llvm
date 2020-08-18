@@ -48,6 +48,25 @@ bool MCAsmLayout::isFragmentValid(const MCFragment *F) const {
   return F->getLayoutOrder() <= LastValid->getLayoutOrder();
 }
 
+bool MCAsmLayout::canGetFragmentOffset(const MCFragment *F) const {
+  MCSection *Sec = F->getParent();
+  MCSection::iterator I;
+  if (MCFragment *LastValid = LastValidFragment[Sec]) {
+    // Fragment already valid, offset is available.
+    if (F->getLayoutOrder() <= LastValid->getLayoutOrder())
+      return true;
+    I = ++MCSection::iterator(LastValid);
+  } else
+    I = Sec->begin();
+
+  // A fragment ordered before F is currently being laid out.
+  const MCFragment *FirstInvalidFragment = &*I;
+  if (FirstInvalidFragment->IsBeingLaidOut)
+    return false;
+
+  return true;
+}
+
 void MCAsmLayout::invalidateFragmentsFrom(MCFragment *F) {
   // If this fragment wasn't already valid, we don't need to do anything.
   if (!isFragmentValid(F))
@@ -235,7 +254,7 @@ void ilist_alloc_traits<MCFragment>::deleteNode(MCFragment *V) { V->destroy(); }
 MCFragment::MCFragment(FragmentType Kind, bool HasInstructions,
                        MCSection *Parent)
     : Parent(Parent), Atom(nullptr), Offset(~UINT64_C(0)), LayoutOrder(0),
-      Kind(Kind), HasInstructions(HasInstructions) {
+      Kind(Kind), IsBeingLaidOut(false), HasInstructions(HasInstructions) {
   if (Parent && !isa<MCDummyFragment>(*this))
     Parent->getFragmentList().push_back(this);
 }
@@ -260,6 +279,9 @@ void MCFragment::destroy() {
     case FT_Fill:
       delete cast<MCFillFragment>(this);
       return;
+    case FT_Nops:
+      delete cast<MCNopsFragment>(this);
+      return;
     case FT_Relaxable:
       delete cast<MCRelaxableFragment>(this);
       return;
@@ -269,6 +291,11 @@ void MCFragment::destroy() {
     case FT_Dwarf:
       delete cast<MCDwarfLineAddrFragment>(this);
       return;
+#if INTEL_CUSTOMIZATION
+    case FT_Trace:
+      delete cast<MCTraceLineFragment>(this);
+      return;
+#endif // INTEL_CUSTOMIZATION
     case FT_DwarfFrame:
       delete cast<MCDwarfCallFrameFragment>(this);
       return;
@@ -317,9 +344,17 @@ LLVM_DUMP_METHOD void MCFragment::dump() const {
   case MCFragment::FT_CompactEncodedInst:
     OS << "MCCompactEncodedInstFragment"; break;
   case MCFragment::FT_Fill:  OS << "MCFillFragment"; break;
+  case MCFragment::FT_Nops:
+    OS << "MCFNopsFragment";
+    break;
   case MCFragment::FT_Relaxable:  OS << "MCRelaxableFragment"; break;
   case MCFragment::FT_Org:   OS << "MCOrgFragment"; break;
   case MCFragment::FT_Dwarf: OS << "MCDwarfFragment"; break;
+#if INTEL_CUSTOMIZATION
+  case MCFragment::FT_Trace:
+    OS << "MCTraceLineFragment";
+    break;
+#endif // INTEL_CUSTOMIZATION
   case MCFragment::FT_DwarfFrame: OS << "MCDwarfCallFrameFragment"; break;
   case MCFragment::FT_LEB:   OS << "MCLEBFragment"; break;
   case MCFragment::FT_BoundaryAlign: OS<<"MCBoundaryAlignFragment"; break;
@@ -389,6 +424,12 @@ LLVM_DUMP_METHOD void MCFragment::dump() const {
        << " NumValues:" << FF->getNumValues();
     break;
   }
+  case MCFragment::FT_Nops: {
+    const auto *NF = cast<MCNopsFragment>(this);
+    OS << " NumBytes:" << NF->getNumBytes()
+       << " ControlledNopLength:" << NF->getControlledNopLength();
+    break;
+  }
   case MCFragment::FT_Relaxable:  {
     const auto *F = cast<MCRelaxableFragment>(this);
     OS << "\n       ";
@@ -411,6 +452,15 @@ LLVM_DUMP_METHOD void MCFragment::dump() const {
        << " LineDelta:" << OF->getLineDelta();
     break;
   }
+#if INTEL_CUSTOMIZATION
+  case MCFragment::FT_Trace: {
+    const auto *TF = cast<MCTraceLineFragment>(this);
+    OS << "\n       ";
+    OS << " DeltaLine:" << TF->getDeltaLine()
+       << " DeltaPC:" << TF->getDeltaPC();
+    break;
+  }
+#endif // INTEL_CUSTOMIZATION
   case MCFragment::FT_DwarfFrame:  {
     const auto *CF = cast<MCDwarfCallFrameFragment>(this);
     OS << "\n       ";

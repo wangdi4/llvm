@@ -1180,6 +1180,9 @@ static void multiversionLoop(HLLoop *Lp, const MVCandidate &MVCand,
   LORBuilder(*Lp).addRemark(OptReportVerbosity::Low,
                             "Loop has been row-wise multiversioned");
 #endif
+  HIRInvalidationUtils::invalidateParentLoopBodyOrRegion(SafeCheckLevelParent);
+  if (SafeCheckIf)
+    HIRInvalidationUtils::invalidateParentLoopBodyOrRegion(OutermostParent);
   HIRInvalidationUtils::invalidateBody(Lp->getParentLoop());
 }
 

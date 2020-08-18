@@ -11,6 +11,7 @@
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/DPCPPKernelBarrierUtils.h"
 #include "llvm/IR/CFG.h"
 #include "llvm/IR/Instructions.h"
+#include "llvm/ADT/StringExtras.h"
 
 namespace llvm {
 

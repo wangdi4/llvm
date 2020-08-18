@@ -41,7 +41,7 @@
 ; CHECK-NEXT:     Remark: Invariant Condition at line 25 hoisted out of this loop
 ; CHECK-NEXT:     Remark: LOOP WAS VECTORIZED
 ; CHECK-NEXT:     Remark: vectorization support: vector length 4
-; CHECK-COUNT-5:  Remark:
+; CHECK-COUNT-19: Remark:
 ; CHECK-NEXT: LOOP END
 ; CHECK-EMPTY:
 ; CHECK-NEXT: LOOP BEGIN at opt_report_crash_reproducer.c (18, 5)
@@ -57,7 +57,7 @@
 ; CHECK-NEXT: <Predicate Optimized v7>
 ; CHECK-NEXT:     Remark: LOOP WAS VECTORIZED
 ; CHECK-NEXT:     Remark: vectorization support: vector length 4
-; CHECK-COUNT-5:  Remark:
+; CHECK-COUNT-19: Remark:
 ; CHECK-NEXT: LOOP END
 ; CHECK-EMPTY:
 ; CHECK-NEXT: LOOP BEGIN at opt_report_crash_reproducer.c (18, 5)
@@ -71,7 +71,7 @@
 ; CHECK-NEXT:     Remark: Invariant Condition at line 25 hoisted out of this loop
 ; CHECK-NEXT:     Remark: LOOP WAS VECTORIZED
 ; CHECK-NEXT:     Remark: vectorization support: vector length 4
-; CHECK-COUNT-5:  Remark:
+; CHECK-COUNT-19: Remark:
 ; CHECK-NEXT: LOOP END
 ; CHECK-EMPTY:
 ; CHECK-NEXT: LOOP BEGIN at opt_report_crash_reproducer.c (18, 5)
@@ -83,7 +83,7 @@
 ; CHECK-NEXT: <Predicate Optimized v5>
 ; CHECK-NEXT:     Remark: LOOP WAS VECTORIZED
 ; CHECK-NEXT:     Remark: vectorization support: vector length 4
-; CHECK-COUNT-5:  Remark:
+; CHECK-COUNT-19: Remark:
 ; CHECK-NEXT: LOOP END
 ; CHECK-EMPTY:
 ; CHECK-NEXT: LOOP BEGIN at opt_report_crash_reproducer.c (18, 5)
@@ -96,7 +96,7 @@
 ; CHECK-NEXT:     Remark: Invariant Condition at line 25 hoisted out of this loop
 ; CHECK-NEXT:     Remark: LOOP WAS VECTORIZED
 ; CHECK-NEXT:     Remark: vectorization support: vector length 4
-; CHECK-COUNT-5:  Remark:
+; CHECK-COUNT-19: Remark:
 ; CHECK-NEXT: LOOP END
 ; CHECK-EMPTY:
 ; CHECK-NEXT: LOOP BEGIN at opt_report_crash_reproducer.c (18, 5)
@@ -108,7 +108,7 @@
 ; CHECK-NEXT: <Predicate Optimized v4>
 ; CHECK-NEXT:     Remark: LOOP WAS VECTORIZED
 ; CHECK-NEXT:     Remark: vectorization support: vector length 4
-; CHECK-COUNT-5:  Remark:
+; CHECK-COUNT-19: Remark:
 ; CHECK-NEXT: LOOP END
 ; CHECK-EMPTY:
 ; CHECK-NEXT: LOOP BEGIN at opt_report_crash_reproducer.c (18, 5)
@@ -123,7 +123,7 @@
 ; CHECK-NEXT:     Remark: Invariant Condition at line 25 hoisted out of this loop
 ; CHECK-NEXT:     Remark: LOOP WAS VECTORIZED
 ; CHECK-NEXT:     Remark: vectorization support: vector length 4
-; CHECK-COUNT-5:  Remark:
+; CHECK-COUNT-19: Remark:
 ; CHECK-NEXT: LOOP END
 ; CHECK-EMPTY:
 ; CHECK-NEXT: LOOP BEGIN at opt_report_crash_reproducer.c (18, 5)

@@ -164,6 +164,11 @@ entry:
   call void @llvm.dbg.value(metadata i32*** %0, metadata !13, metadata !DIExpression()), !dbg !14
   store i32*** %0, i32**** %base
   tail call void @llvm.memset.p0i8.i64(i8* align 8 %call, i8 0, i64 %mul, i1 false)
+  %tmp6 = bitcast %struct.Mem* %mem to i8* (%struct.Mem*, i32)***
+  %vtable = load i8* (%struct.Mem*, i32)**, i8* (%struct.Mem*, i32)*** %tmp6
+  %bc1 = bitcast i8* (%struct.Mem*, i32)** %vtable to i8*
+  %tt = tail call i1 @llvm.type.test(i8* %bc1, metadata !"typeId")
+  tail call void @llvm.assume(i1 %tt)
   ret void
 }
 
@@ -176,7 +181,7 @@ entry:
   ret void
 }
 
-; This is constructor of base class of Arr1. It initialize all fields
+; This is constructor of base class of Arr1. It initializes all fields
 ; as expected.
 define void @_ZN3ArrIPfEC2EiP3Mem(%struct.Arr.0* %this, i32 %c, %struct.Mem* %mem) {
 entry:
@@ -563,6 +568,9 @@ declare void @llvm.memset.p0i8.i64(i8* nocapture writeonly, i8, i64, i1 immarg)
 declare void @__cxa_rethrow()
 declare void @free(i8* nocapture)
 declare void @llvm.dbg.value(metadata, metadata, metadata)
+declare i1 @llvm.type.test(i8* , metadata)
+declare void @llvm.assume(i1)
+
 
 !llvm.dbg.cu = !{!0}
 !llvm.module.flags = !{!3, !4, !5}

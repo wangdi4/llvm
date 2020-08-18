@@ -38,7 +38,7 @@ entry:
   store i32 0, i32* %indexK, align 4
   store i32 1, i32* %.omp.ub, align 4
 ; Check that the private copy of %indexK is used on the SIMD directive.
-; CHECK: %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), {{.*}} "QUAL.OMP.LINEAR:IV"(i32* %indexK.linear.iv, i32 1) ]
+; CHECK: %{{.+}} = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), {{.*}} "QUAL.OMP.LINEAR:IV"(i32* %indexK.linear.iv, i32 1) ]
   %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.NORMALIZED.IV"(i32* %.omp.iv), "QUAL.OMP.NORMALIZED.UB"(i32* %.omp.ub), "QUAL.OMP.LINEAR:IV"(i32* %indexK, i32 1) ]
   store i32 0, i32* %.omp.iv, align 4
   br label %omp.inner.for.cond

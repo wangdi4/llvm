@@ -82,7 +82,7 @@ static bool collapseLoops(
 #if INTEL_CUSTOMIZATION
                         OptReportVerbosity::None,
 #endif  // INTEL_CUSTOMIZATION
-                        ORE, 2, false, false);
+                        ORE, 2, false);
 
   Changed |= VP.paroptTransforms();
 

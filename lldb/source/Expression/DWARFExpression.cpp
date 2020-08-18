@@ -158,7 +158,7 @@ static bool ReadRegisterValueAsScalar(RegisterContext *reg_ctx,
                                       Value &value) {
   if (reg_ctx == nullptr) {
     if (error_ptr)
-      error_ptr->SetErrorStringWithFormat("No register context in frame.\n");
+      error_ptr->SetErrorString("No register context in frame.\n");
   } else {
     uint32_t native_reg =
         reg_ctx->ConvertRegisterKindToRegisterNumber(reg_kind, reg_num);
@@ -1036,22 +1036,21 @@ bool DWARFExpression::Evaluate(
             LLDB_INVALID_ADDRESS);
         if (!module_sp) {
           if (error_ptr)
-            error_ptr->SetErrorStringWithFormat(
+            error_ptr->SetErrorString(
                 "need module to resolve file address for DW_OP_deref");
           return false;
         }
         Address so_addr;
         if (!module_sp->ResolveFileAddress(file_addr, so_addr)) {
           if (error_ptr)
-            error_ptr->SetErrorStringWithFormat(
+            error_ptr->SetErrorString(
                 "failed to resolve file address in module");
           return false;
         }
         addr_t load_Addr = so_addr.GetLoadAddress(exe_ctx->GetTargetPtr());
         if (load_Addr == LLDB_INVALID_ADDRESS) {
           if (error_ptr)
-            error_ptr->SetErrorStringWithFormat(
-                "failed to resolve load address");
+            error_ptr->SetErrorString("failed to resolve load address");
           return false;
         }
         stack.back().GetScalar() = load_Addr;
@@ -1079,13 +1078,12 @@ bool DWARFExpression::Evaluate(
             }
           } else {
             if (error_ptr)
-              error_ptr->SetErrorStringWithFormat(
-                  "NULL process for DW_OP_deref.\n");
+              error_ptr->SetErrorString("NULL process for DW_OP_deref.\n");
             return false;
           }
         } else {
           if (error_ptr)
-            error_ptr->SetErrorStringWithFormat(
+            error_ptr->SetErrorString(
                 "NULL execution context for DW_OP_deref.\n");
           return false;
         }
@@ -1199,13 +1197,12 @@ bool DWARFExpression::Evaluate(
             }
           } else {
             if (error_ptr)
-              error_ptr->SetErrorStringWithFormat(
-                  "NULL process for DW_OP_deref.\n");
+              error_ptr->SetErrorString("NULL process for DW_OP_deref.\n");
             return false;
           }
         } else {
           if (error_ptr)
-            error_ptr->SetErrorStringWithFormat(
+            error_ptr->SetErrorString(
                 "NULL execution context for DW_OP_deref.\n");
           return false;
         }
@@ -2036,7 +2033,7 @@ bool DWARFExpression::Evaluate(
         }
       } else {
         if (error_ptr)
-          error_ptr->SetErrorStringWithFormat(
+          error_ptr->SetErrorString(
               "NULL execution context for DW_OP_fbreg.\n");
         return false;
       }
@@ -2346,8 +2343,8 @@ bool DWARFExpression::Evaluate(
         return false;
       }
       const uint64_t die_offset = opcodes.GetULEB128(&offset);
-      Scalar::Type type = Scalar::e_void;
       uint64_t bit_size;
+      bool sign;
       if (die_offset == 0) {
         // The generic type has the size of an address on the target
         // machine and an unspecified signedness. Scalar has no
@@ -2357,13 +2354,13 @@ bool DWARFExpression::Evaluate(
             error_ptr->SetErrorString("No module");
           return false;
         }
+        sign = false;
         bit_size = module_sp->GetArchitecture().GetAddressByteSize() * 8;
         if (!bit_size) {
           if (error_ptr)
             error_ptr->SetErrorString("unspecified architecture");
           return false;
         }
-        type = Scalar::GetBestTypeForBitSize(bit_size, false);
       } else {
         // Retrieve the type DIE that the value is being converted to.
         // FIXME: the constness has annoying ripple effects.
@@ -2386,11 +2383,11 @@ bool DWARFExpression::Evaluate(
         switch (encoding) {
         case DW_ATE_signed:
         case DW_ATE_signed_char:
-          type = Scalar::GetBestTypeForBitSize(bit_size, true);
+          sign = true;
           break;
         case DW_ATE_unsigned:
         case DW_ATE_unsigned_char:
-          type = Scalar::GetBestTypeForBitSize(bit_size, false);
+          sign = false;
           break;
         default:
           if (error_ptr)
@@ -2398,13 +2395,8 @@ bool DWARFExpression::Evaluate(
           return false;
         }
       }
-      if (type == Scalar::e_void) {
-        if (error_ptr)
-          error_ptr->SetErrorString("Unsupported pointer size");
-        return false;
-      }
       Scalar &top = stack.back().ResolveValue(exe_ctx);
-      top.TruncOrExtendTo(type, bit_size);
+      top.TruncOrExtendTo(bit_size, sign);
       break;
     }
 

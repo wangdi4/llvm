@@ -47,7 +47,8 @@ DTransImmutableInfo DTransImmutableAnalysis::run(Function &F,
 void DTransImmutableInfo::addStructFieldInfo(
     StructType *StructTy, unsigned FieldNum,
     const SetVector<Constant *> &LikelyValues,
-    const SetVector<Constant *> &LikelyIndirectArrayValues) {
+    const SetVector<Constant *> &LikelyIndirectArrayValues,
+    const SetVector< std::pair<Constant*, Constant*> > &ConsEntriesInArray) {
 
   StructInfo *SInfo = nullptr;
 
@@ -68,6 +69,9 @@ void DTransImmutableInfo::addStructFieldInfo(
 
   SInfo->Fields[FieldNum].LikelyIndirectArrayValues.assign(
       LikelyIndirectArrayValues.begin(), LikelyIndirectArrayValues.end());
+
+  SInfo->Fields[FieldNum].ConstantEntriesInArray.assign(
+      ConsEntriesInArray.begin(), ConsEntriesInArray.end());
 }
 
 const SmallVectorImpl<llvm::Constant *> *
@@ -92,6 +96,17 @@ DTransImmutableInfo::getLikelyIndirectArrayConstantValues(StructType *StructTy,
   }
 
   return &Iter->second->Fields[FieldNum].LikelyIndirectArrayValues;
+}
+
+const SmallVectorImpl< std::pair<Constant *, Constant*> > *
+DTransImmutableInfo::getConstantEntriesFromArray(StructType *StructTy,
+                                                 unsigned FieldNum) {
+
+  auto Iter = StructInfoMap.find(StructTy);
+  if (Iter == StructInfoMap.end())
+    return nullptr;
+
+  return &Iter->second->Fields[FieldNum].ConstantEntriesInArray;
 }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
@@ -126,6 +141,29 @@ void DTransImmutableInfo::print(raw_ostream &OS) const {
       }
 
       OS << "\n";
+
+      if (!FieldInfo.ConstantEntriesInArray.empty()) {
+
+        OS.indent(4);
+        OS << "Constant entries in the array: ";
+
+        dtrans::printCollectionSorted(OS,
+            FieldInfo.ConstantEntriesInArray.begin(),
+            FieldInfo.ConstantEntriesInArray.end(), " | ",
+            [](std::pair<Constant *, Constant*> Pair) {
+              std::string OutputVal;
+              raw_string_ostream OutputStream(OutputVal);
+              OutputStream << "Index: ";
+              Pair.first->printAsOperand(OutputStream, false);
+              OutputStream << "  Constant: ";
+              Pair.second->printAsOperand(OutputStream, false);
+              OutputStream.flush();
+              return OutputVal;
+            });
+
+        OS << "\n";
+      }
+
       FieldNum++;
     }
   }

@@ -62,7 +62,7 @@ static cl::opt<bool>
                cl::desc("Use the interop_obj for target variant dispatch."));
 static cl::opt<bool>
     UseRawDevicePtr("vpo-paropt-use-raw-dev-ptr", cl::Hidden,
-               cl::init(false),
+               cl::init(true),
                cl::desc("Pass raw device ptr to variant dispatch."));
 
 static cl::opt<uint32_t> FixedSIMDWidth(
@@ -960,7 +960,7 @@ bool VPOParoptTransform::genTargetOffloadingCode(WRegionNode *W) {
     Builder.SetInsertPoint(NewCall);
     Value *Cmp = Builder.CreateICmpNE(VIf, ConstantInt::get(VIf->getType(), 0));
     Instruction *ThenTerm, *ElseTerm;
-    buildCFGForIfClause(Cmp, ThenTerm, ElseTerm, InsertPt);
+    VPOParoptUtils::buildCFGForIfClause(Cmp, ThenTerm, ElseTerm, InsertPt, DT);
     InsertPt = ThenTerm;
     Call = genTargetInitCode(W, NewCall, RegionId, InsertPt);
     Builder.SetInsertPoint(ElseTerm);
@@ -1057,9 +1057,6 @@ uint64_t VPOParoptTransform::getMapTypeFlag(MapItem *MapI,
                                             bool AddrIsTargetParamFlag,
                                             bool IsFirstComponentFlag) {
 
-  if (MapI->getInUseDevicePtr())
-    return (TGT_MAP_TARGET_PARAM | TGT_MAP_RETURN_PARAM);
-
   uint64_t Res = 0u;
   if (!AddrIsTargetParamFlag && IsFirstComponentFlag)
     return TGT_MAP_TARGET_PARAM;
@@ -1084,6 +1081,9 @@ uint64_t VPOParoptTransform::getMapTypeFlag(MapItem *MapI,
 
   if (MapI->getIsMapClose())
     Res |= TGT_MAP_CLOSE;
+
+  if (MapI->getInUseDevicePtr())
+    Res |= TGT_MAP_RETURN_PARAM;
 
   // Memberof is given by the 16 MSB of the flag, so rotate by 48 bits.
   // It is workaroud. Need more work.
@@ -1554,12 +1554,23 @@ bool VPOParoptTransform::addMapForUseDevicePtr(WRegionNode *W,
       continue;
 
     Value *UDP = UDPI->getOrig();
-    Value *MappedVal =
-        UDPI->getIsPointerToPointer()
-            ? LoadBuilder.CreateLoad(
-                  cast<PointerType>(UDP->getType())->getPointerElementType(),
-                  UDP, UDP->getName() + ".load")
-            : UDP;
+    Value *MappedVal = UDP;
+    if (UDPI->getIsPointerToPointer())
+      MappedVal = LoadBuilder.CreateLoad(
+          cast<PointerType>(UDP->getType())->getPointerElementType(), UDP,
+          UDP->getName() + ".load");
+#if INTEL_CUSTOMIZATION
+    else if (UDPI->getIsF90DopeVector()) {
+      // For F90_DVs, the map needs to be added for the data pointer, i.e.
+      // load i32*, i32** (getelementptr (%dv, 0, 0)).
+      auto *Zero = LoadBuilder.getInt32(0);
+      auto *Addr0GEP = LoadBuilder.CreateInBoundsGEP(UDP, {Zero, Zero},
+                                                     UDP->getName() + ".addr0");
+      MappedVal = LoadBuilder.CreateLoad(
+          cast<PointerType>(Addr0GEP->getType())->getPointerElementType(),
+          Addr0GEP, Addr0GEP->getName() + ".load");
+    }
+#endif // INTEL_CUSTOMIZATION
     MapAggrTy *MapAggr = new MapAggrTy(MappedVal, MappedVal, MapSize, MapType);
     MapItem *MapI = new MapItem(MapAggr);
     MapI->setOrig(MappedVal);
@@ -1620,6 +1631,30 @@ bool VPOParoptTransform::addMapForUseDevicePtr(WRegionNode *W,
 //     call @outlined.funtion(...i32* %udp.updated.val)              ; (6)
 //   call void @__tgt_target_data_end()
 //
+#if INTEL_CUSTOMIZATION
+// Case 3: Type of %udp is DV* (dope vector), and it's marked as F90_DV:
+// Before:
+//   %udp.gep = getelementptr(%offload.baseptrs...)                  ; (1)
+//   ...
+//   call void @__tgt_target_data_begin(...%offload.baseptrs...)
+//     call @outlined.funtion(...DV* %udp)  ; TgtDataOutlinedFunctionCall
+//   call void @__tgt_target_data_end()
+//
+// After:
+//   $udp.new = alloca DV                                            ; (2)
+//   ...
+//   %udp.gep = getelementptr(%offload.baseptrs...)                  ; (1)
+//   ...
+//   call void @__tgt_target_data_begin(...%offload.baseptrs...)
+//     memcpy(%udp.new, %udp, sizeof(DV));                           ; (7)
+//     %udp.gep.cast = cast i8* %udp.gep to i32**                    ; (3)
+//     %udp.updated.val = load i32*, i32** %udp.gep.cast             ; (4)
+//     %udp.new.addr0.gep = getelementptr(%udp.new, 0, 0)            ; (8)
+//     store i32* %udp.updated.val, i32** %udp.new.addr0.gep         ; (5)
+//     call @outlined.funtion(...DV* %udp.new)                       ; (6)
+//   call void @__tgt_target_data_end()
+//
+#endif // INTEL_CUSTOMIZATION
 void VPOParoptTransform::useUpdatedUseDevicePtrsInTgtDataRegion(
     WRegionNode *W, Instruction *TgtDataOutlinedFunctionCall) {
   assert(W && "Null WRegionNode.");
@@ -1652,13 +1687,24 @@ void VPOParoptTransform::useUpdatedUseDevicePtrsInTgtDataRegion(
 
     LoadInst *UpdatedUDPVal =
         Builder.CreateLoad(GepCast, OrigV->getName() + ".updated.val"); //  (4)
-    Value *NewV = nullptr;
+    Value *NewV = UpdatedUDPVal;
     if (UDPI->getIsPointerToPointer()) {
       NewV = genPrivatizationAlloca(OrigV, OrigElemTy, AllocaInsertPt,
                                     ".new");                        //      (2)
       Builder.CreateStore(UpdatedUDPVal, NewV);                     //      (5)
-    } else
-      NewV = UpdatedUDPVal;
+    }
+# if INTEL_CUSTOMIZATION
+    else if (UDPI->getIsF90DopeVector()) {
+      NewV = genPrivatizationAlloca(OrigV, OrigElemTy, AllocaInsertPt,
+                                    ".new"); //                             (2)
+      VPOParoptUtils::genCopyByAddr(NewV, OrigV,
+                                    &*Builder.GetInsertPoint()); //         (7)
+      auto *Zero = Builder.getInt32(0);
+      auto *Addr0GEP = Builder.CreateInBoundsGEP(NewV, {Zero, Zero}, //     (8)
+                                                 NewV->getName() + ".addr0");
+      Builder.CreateStore(UpdatedUDPVal, Addr0GEP); //                      (5)
+    }
+#endif // INTEL_CUSTOMIZATION
 
     TgtDataOutlinedFunctionCall->replaceUsesOfWith(OrigV, NewV); //         (6)
 
@@ -3124,7 +3170,8 @@ bool VPOParoptTransform::genTargetVariantDispatchCode(WRegionNode *W) {
   //   %callphi = phi i32 [%variant, %variant.call], [%call, %base.call]    (6)
 
   Instruction *ThenTerm, *ElseTerm;
-  buildCFGForIfClause(DispatchTmp, ThenTerm, ElseTerm, InsertPt);        // (3)
+  VPOParoptUtils::buildCFGForIfClause(DispatchTmp, ThenTerm, ElseTerm, InsertPt,
+                                      DT); // (3)
 
   // Create the interop object for
   // (1) Asynchronous case (i.e., NOWAIT is present), or

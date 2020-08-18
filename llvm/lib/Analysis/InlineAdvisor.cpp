@@ -20,9 +20,8 @@
 #include "llvm/Analysis/TargetTransformInfo.h"
 #include "llvm/IR/DebugInfoMetadata.h"
 #include "llvm/IR/Instructions.h"
+#include "llvm/Support/CommandLine.h"
 #include "llvm/Support/raw_ostream.h"
-#include "llvm/Transforms/IPO/Intel_InlineReport.h"   // INTEL
-#include "llvm/Transforms/IPO/Intel_MDInlineReport.h" // INTEL
 
 #include <sstream>
 
@@ -35,8 +34,6 @@ using namespace InlineReportTypes; // INTEL
 // to inline a function A into B, we analyze the callers of B in order to see
 // if those would be more profitable and blocked inline steps.
 STATISTIC(NumCallerCallersAnalyzed, "Number of caller-callers analyzed");
-
-extern cl::opt<unsigned> IntelInlineReportLevel; // INTEL
 
 /// Flag to add inline messages as callsite attributes 'inline-remark'.
 static cl::opt<bool>
@@ -57,55 +54,46 @@ namespace {
 class DefaultInlineAdvice : public InlineAdvice {
 public:
   DefaultInlineAdvice(DefaultInlineAdvisor *Advisor, CallBase &CB,
-                      Optional<InlineCost> OIC, OptimizationRemarkEmitter &ORE)
-      : InlineAdvice(Advisor, CB, ORE, OIC.hasValue()), OriginalCB(&CB),
-        OIC(OIC) {}
+#if INTEL_CUSTOMIZATION
+                      InlineCost IC, OptimizationRemarkEmitter &ORE)
+      : InlineAdvice(Advisor, CB, ORE, IC.getIsRecommended()), OriginalCB(&CB),
+        IC(IC) {}
+
+  InlineCost *getInlineCost() { return &IC; } // INTEL
+#endif // INTEL_CUSTOMIZATION
 
 private:
-  void recordUnsuccessfulInliningImpl(                  // INTEL
-      const InlineResult &Result, InlineReason *Reason, // INTEL
-      InlineReport *Report,                             // INTEL
-      InlineReportBuilder *MDReport) override {         // INTEL
+  void recordUnsuccessfulInliningImpl(const InlineResult &Result) override {
     using namespace ore;
     llvm::setInlineRemark(*OriginalCB, std::string(Result.getFailureReason()) +
-                                           "; " + inlineCostStr(*OIC));
+                                           "; " + inlineCostStr(IC)); // INTEL
     ORE.emit([&]() {
       return OptimizationRemarkMissed(DEBUG_TYPE, "NotInlined", DLoc, Block)
              << NV("Callee", Callee) << " will not be inlined into "
              << NV("Caller", Caller) << ": "
              << NV("Reason", Result.getFailureReason());
     });
-#if INTEL_CUSTOMIZATION
-    if (Report) {
-      Report->endUpdate();
-      Report->setReasonNotInlined(OriginalCB, Reason ? *Reason : NinlrNoReason);
-    }
-    if (MDReport) {
-      MDReport->endUpdate();
-      llvm::setMDReasonNotInlined(OriginalCB, Reason ? *Reason : NinlrNoReason);
-    }
-#endif // INTEL_CUSTOMIZATION
   }
 
   void recordInliningWithCalleeDeletedImpl() override {
-    emitInlinedInto(ORE, DLoc, Block, *Callee, *Caller, *OIC);
+    emitInlinedInto(ORE, DLoc, Block, *Callee, *Caller, IC); // INTEL
   }
 
   void recordInliningImpl() override {
-    emitInlinedInto(ORE, DLoc, Block, *Callee, *Caller, *OIC);
+    emitInlinedInto(ORE, DLoc, Block, *Callee, *Caller, IC); // INTEL
   }
 
 private:
   CallBase *const OriginalCB;
-  Optional<InlineCost> OIC;
+  InlineCost IC; // INTEL
 };
 
 } // namespace
 
-std::unique_ptr<InlineAdvice>
 #if INTEL_CUSTOMIZATION
-DefaultInlineAdvisor::getAdvice(CallBase &CB, InliningLoopInfoCache *ILIC,
-                                InlineReport *Report) {
+llvm::InlineCost static getDefaultInlineAdvice(
+    CallBase &CB, FunctionAnalysisManager &FAM, InlineParams &Params,
+    InliningLoopInfoCache *ILIC, WholeProgramInfo *WPI) {
 #endif // INTEL_CUSTOMIZATION
   Function &Caller = *CB.getCaller();
   ProfileSummaryInfo *PSI =
@@ -130,19 +118,27 @@ DefaultInlineAdvisor::getAdvice(CallBase &CB, InliningLoopInfoCache *ILIC,
     bool RemarksEnabled =
         Callee.getContext().getDiagHandlerPtr()->isMissedOptRemarkEnabled(
             DEBUG_TYPE);
-#if INTEL_CUSTOMIZATION
-    if (IntelInlineReportLevel & InlineReportOptions::RealCost)
-      Params.ComputeFullInlineCost = true;
-#endif // INTEL_CUSTOMIZATION
     return getInlineCost(CB, Params, CalleeTTI, GetAssumptionCache, GetTLI,
                          GetBFI, PSI, RemarksEnabled ? &ORE : nullptr, // INTEL
-                         ILIC);                                        // INTEL
+                         ILIC, WPI);                                   // INTEL
   };
-  auto OIC = llvm::shouldInline(CB, GetInlineCost, ORE, Report, // INTEL
-                                Params.EnableDeferral.hasValue() &&
-                                    Params.EnableDeferral.getValue());
-  return std::make_unique<DefaultInlineAdvice>(this, CB, OIC, ORE);
+  return llvm::shouldInline(CB, GetInlineCost, ORE,
+                            Params.EnableDeferral.hasValue() &&
+                                Params.EnableDeferral.getValue());
 }
+
+#if INTEL_CUSTOMIZATION
+std::unique_ptr<InlineAdvice>
+DefaultInlineAdvisor::getAdvice(CallBase &CB, InliningLoopInfoCache *ILIC,
+                                WholeProgramInfo *WPI, InlineCost **IC) {
+  InlineCost MIC = getDefaultInlineAdvice(CB, FAM, Params, ILIC, WPI);
+  auto UP = std::make_unique<DefaultInlineAdvice>(
+      this, CB, MIC, // INTEL
+      FAM.getResult<OptimizationRemarkEmitterAnalysis>(*CB.getCaller()));
+  *IC = UP->getInlineCost();
+  return UP;
+}
+#endif // INTEL_CUSTOMIZATION
 
 InlineAdvice::InlineAdvice(InlineAdvisor *Advisor, CallBase &CB,
                            OptimizationRemarkEmitter &ORE,
@@ -179,10 +175,20 @@ bool InlineAdvisorAnalysis::Result::tryCreate(InlineParams Params,
     Advisor.reset(new DefaultInlineAdvisor(FAM, Params));
     break;
   case InliningAdvisorMode::Development:
-    // To be added subsequently under conditional compilation.
+#ifdef LLVM_HAVE_TF_API
+    Advisor =
+        llvm::getDevelopmentModeAdvisor(M, MAM, [&FAM, Params](CallBase &CB) {
+#if INTEL_CUSTOMIZATION
+          InlineCost IC = getDefaultInlineAdvice(CB, FAM, Params);
+          return IC.getIsRecommended();
+#endif // INTEL_CUSTOMIZATION
+        });
+#endif
     break;
   case InliningAdvisorMode::Release:
-    // To be added subsequently under conditional compilation.
+#ifdef LLVM_HAVE_TF_AOT
+    Advisor = llvm::getReleaseModeAdvisor(M, MAM);
+#endif
     break;
   }
   return !!Advisor;
@@ -328,9 +334,9 @@ void llvm::setInlineRemark(CallBase &CB, StringRef Message) {
 /// using that cost, so we won't do so from this function. Return None if
 /// inlining should not be attempted.
 #if INTEL_CUSTOMIZATION
-Optional<InlineCost> llvm::shouldInline(
+InlineCost llvm::shouldInline(
     CallBase &CB, function_ref<InlineCost(CallBase &CB)> GetInlineCost,
-    OptimizationRemarkEmitter &ORE, InlineReport *IR, bool EnableDeferral) {
+    OptimizationRemarkEmitter &ORE, bool EnableDeferral) {
 #endif // INTEL_CUSTOMIZATION
   using namespace ore;
 
@@ -343,12 +349,9 @@ Optional<InlineCost> llvm::shouldInline(
     LLVM_DEBUG(dbgs() << "    Inlining " << inlineCostStr(IC)
                       << ", Call: " << CB << "\n");
 #if INTEL_CUSTOMIZATION
-    InlineReason Reason = IC.getInlineReason();
     if (CB.hasFnAttr("inline-list"))
-      Reason = InlrInlineList;
-    if (IR != nullptr)
-      IR->setReasonIsInlined(&CB, Reason);
-    llvm::setMDReasonIsInlined(&CB, Reason);
+      IC.setInlineReason(InlrInlineList);
+    IC.setIsRecommended(true);
 #endif // INTEL_CUSTOMIZATION
     return IC;
   }
@@ -364,12 +367,8 @@ Optional<InlineCost> llvm::shouldInline(
                << IC;
       });
 #if INTEL_CUSTOMIZATION
-      InlineReason Reason = IC.getInlineReason();
       if (CB.hasFnAttr("noinline-list"))
-        Reason = NinlrNoinlineList;
-      if (IR != nullptr)
-        IR->setReasonNotInlined(&CB, Reason);
-      llvm::setMDReasonNotInlined(&CB, Reason);
+        IC.setInlineReason(NinlrNoinlineList);
 #endif // INTEL_CUSTOMIZATION
     } else {
       ORE.emit([&]() {
@@ -378,14 +377,12 @@ Optional<InlineCost> llvm::shouldInline(
                << NV("Caller", Caller) << " because too costly to inline "
                << IC;
       });
-#if INTEL_CUSTOMIZATION
-      if (IR != nullptr)
-        IR->setReasonNotInlined(&CB, IC);
-      llvm::setMDReasonNotInlined(&CB, IC);
-#endif // INTEL_CUSTOMIZATION
     }
     setInlineRemark(CB, inlineCostStr(IC));
-    return None;
+#if INTEL_CUSTOMIZATION
+    IC.setIsRecommended(false);
+    return IC;
+#endif // INTEL_CUSTOMIZATION
   }
 
   int TotalSecondaryCost = 0;
@@ -406,20 +403,14 @@ Optional<InlineCost> llvm::shouldInline(
     // This will not be inspected to make an error message.
 #if INTEL_CUSTOMIZATION
     IC.setInlineReason(NinlrOuterInlining);
-    if (IR != nullptr)
-      IR->setReasonNotInlined(&CB, IC, TotalSecondaryCost);
-    llvm::setMDReasonNotInlined(&CB, IC, TotalSecondaryCost);
+    IC.setIsRecommended(false);
+    return IC;
 #endif // INTEL_CUSTOMIZATION
-    return None;
   }
 
   LLVM_DEBUG(dbgs() << "    Inlining " << inlineCostStr(IC) << ", Call: " << CB
                     << '\n');
-#if INTEL_CUSTOMIZATION
-  if (IR != nullptr)
-    IR->setReasonIsInlined(&CB, IC);
-  llvm::setMDReasonIsInlined(&CB, IC);
-#endif // INTEL_CUSTOMIZATION
+  IC.setIsRecommended(true); // INTEL
   return IC;
 }
 

@@ -1,5 +1,4 @@
 ; RUN: opt -pre-isel-intrinsic-lowering -S -o - %s | FileCheck %s
-; RUN: opt -passes='pre-isel-intrinsic-lowering' -S -o - %s | FileCheck %s
 
 ; CHECK-LABEL: @foo
 define void @foo(i32* %p) {

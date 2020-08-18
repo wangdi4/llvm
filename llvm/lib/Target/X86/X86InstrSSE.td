@@ -5998,12 +5998,23 @@ def BlendScaleCommuteImm2to4 : SDNodeXForm<timm, [{
   return getI8Imm(NewImm ^ 0xf, SDLoc(N));
 }]>;
 
-let Predicates = [HasAVX] in {
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX_MPSADBW
+let Predicates = [HasAVX, NoVLX_Or_NoMPSADBW] in {
   let isCommutable = 0 in {
-    defm VMPSADBW : SS41I_binop_rmi_int<0x42, "vmpsadbw", int_x86_sse41_mpsadbw,
-                                        VR128, load, i128mem, 0,
+    defm VMPSADBW : SS41I_binop_rmi<0x42, "vmpsadbw", X86Vmpsadbw,
+                                        v8i16, VR128, load, i128mem, 0,
                                         SchedWriteMPSAD.XMM>, VEX_4V, VEX_WIG;
   }
+#else // INTEL_FEATURE_ISA_AVX_MPSADBW
+let Predicates = [HasAVX] in {
+  let isCommutable = 0 in {
+    defm VMPSADBW : SS41I_binop_rmi<0x42, "vmpsadbw", X86Vmpsadbw,
+                                        v8i16, VR128, load, i128mem, 0,
+                                        SchedWriteMPSAD.XMM>, VEX_4V, VEX_WIG;
+  }
+#endif // INTEL_FEATURE_ISA_AVX_MPSADBW
+#endif // INTEL_CUSTOMIZATION
 
 let Uses = [MXCSR], mayRaiseFPException = 1 in {
   let ExeDomain = SSEPackedSingle in
@@ -6021,20 +6032,34 @@ let Uses = [MXCSR], mayRaiseFPException = 1 in {
 }
 }
 
-let Predicates = [HasAVX2] in {
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX_MPSADBW
+let Predicates = [HasAVX2, NoVLX_Or_NoMPSADBW] in {
   let isCommutable = 0 in {
-  defm VMPSADBWY : SS41I_binop_rmi_int<0x42, "vmpsadbw", int_x86_avx2_mpsadbw,
-                                  VR256, load, i256mem, 0,
+  defm VMPSADBWY : SS41I_binop_rmi<0x42, "vmpsadbw", X86Vmpsadbw,
+                                  v16i16, VR256, load, i256mem, 0,
                                   SchedWriteMPSAD.YMM>, VEX_4V, VEX_L, VEX_WIG;
   }
 }
+#else // INTEL_FEATURE_ISA_AVX_MPSADBW
+let Predicates = [HasAVX2] in {
+  let isCommutable = 0 in {
+  defm VMPSADBWY : SS41I_binop_rmi<0x42, "vmpsadbw", X86Vmpsadbw,
+                                  v16i16, VR256, load, i256mem, 0,
+                                  SchedWriteMPSAD.YMM>, VEX_4V, VEX_L, VEX_WIG;
+  }
+}
+#endif // INTEL_FEATURE_ISA_AVX_MPSADBW
+#endif // INTEL_CUSTOMIZATION
 
 let Constraints = "$src1 = $dst" in {
+#if INTEL_CUSTOMIZATION
   let isCommutable = 0 in {
-  defm MPSADBW : SS41I_binop_rmi_int<0x42, "mpsadbw", int_x86_sse41_mpsadbw,
-                                     VR128, memop, i128mem, 1,
-                                     SchedWriteMPSAD.XMM>;
+defm MPSADBW : SS41I_binop_rmi<0x42, "mpsadbw", X86Vmpsadbw,
+                               v8i16, VR128, memop, i128mem, 1,
+                               SchedWriteMPSAD.XMM>;
   }
+#endif // INTEL_CUSTOMIZATION
 
   let ExeDomain = SSEPackedSingle in
   defm DPPS : SS41I_binop_rmi_int<0x40, "dpps", int_x86_sse41_dpps,
@@ -8237,6 +8262,37 @@ defm VPMADD52LUQ : avx_ifma_rm<0xb4, "vpmadd52luq", x86vpmadd52l>, VEX_W, Explic
 #endif // INTEL_CUSTOMIZATION
 
 #if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX_MEMADVISE
+multiclass VMOVADVISEW_mr<string OpcodeStr, RegisterClass RC,
+                          X86MemOperand X86MemOp,
+                          Intrinsic IntrLoad, Intrinsic IntrStore,
+                          X86SchedWriteMoveLS sched> {
+  let Predicates  = [HasAVXMEMADVISE, In64BitMode] in {
+      def rmi : Ii8<0x10, MRMSrcMem, (outs RC:$dst),
+                    (ins X86MemOp:$src1, u8imm:$src2),
+                    OpcodeStr#"\t{$src2, $src1, $dst|$dst, $src1, $src2}",
+                    [(set RC:$dst,
+                     (IntrLoad addr:$src1, timm:$src2))]>,
+                    VEX, TAXS, Sched<[sched.RM]>;
+      def mri : Ii8<0x11, MRMDestMem, (outs),
+                    (ins X86MemOp:$dst, RC:$src1, u8imm:$src2),
+                    OpcodeStr#"\t{$src2, $src1, $dst|$dst, $src1, $src2}",
+                    [(IntrStore addr:$dst,
+                     RC:$src1, timm:$src2)]>,
+                    VEX, TAXS, Sched<[sched.MR]>;
+  }
+}
+
+defm VMOVADVISEW128 : VMOVADVISEW_mr<"vmovadvisew", VR128, i128mem,
+                                     int_x86_avx2_vmovadvisew_load_128,
+                                     int_x86_avx2_vmovadvisew_store_128,
+                                     SchedWriteFMoveLS.XMM>;
+defm VMOVADVISEW256 : VMOVADVISEW_mr<"vmovadvisew", VR256, i256mem,
+                                     int_x86_avx2_vmovadvisew_load_256,
+                                     int_x86_avx2_vmovadvisew_store_256,
+                                     SchedWriteFMoveLS.YMM>, VEX_L;
+#endif // INTEL_FEATURE_ISA_AVX_MEMADVISE
+
 #if INTEL_FEATURE_ISA_AVX_COMPRESS
 multiclass VPCOMPRESS_mr<bits<8> opc, string OpcodeStr, ValueType OpVT,
                         RegisterClass RC, X86MemOperand X86MemOp,

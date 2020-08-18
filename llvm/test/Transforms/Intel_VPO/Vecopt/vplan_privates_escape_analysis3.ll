@@ -5,8 +5,16 @@
 ; which is loop-invariant.
 
 ; RUN: opt -S -VPlanDriver -vplan-enable-soa -vplan-dump-soa-info -disable-vplan-codegen %s 2>&1 | FileCheck %s
-; TODO: Enbale the test for HIR codegen path CMPLRLLVM-10967.
-
+; TODO: Enable the test for HIR codegen path CMPLRLLVM-10967.
+;
+; Marking as fail due to the test in test_pointer_induction_escape function is incorrect.
+; The test contains inducitons of pointers to private arrays. This is an incorrect
+; situation and we should bail out. The test should be corrected to move the inducitons
+; into inner loops. Also the test should be copied and added to test that we bail out
+; in such situations (along with implementing that baliout). CMPLRLLVM-21499.
+;
+; XFAIL: *
+;
 ; REQUIRES:asserts
 
 ;Source Code: test2.c
@@ -246,7 +254,7 @@ return:
 define void @test_pointer_induction_escape() {
 ;CHECK-LABEL: SOA profitability
 ;CHECK-NEXT: SOAUnsafe = arr_e.priv
-;CHECK-NEXT: SOAUnsafe = arr_ne.priv
+;CHECK-NEXT: SOASafe = arr_ne.priv
   %arr_e.priv = alloca [1024 x i32], align 4
   %arr_ne.priv = alloca [1024 x i32], align 4
   %arrayidx = getelementptr inbounds [1024 x i32], [1024 x i32]* %arr_e.priv, i64 0, i64 0

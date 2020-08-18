@@ -1015,30 +1015,6 @@ public:
     V.visitRange(getHIRRange().begin(), getHIRRange().end());
   }
 
-  /// Visits HLNodes in the HIR in InnerToOuter loop hierarchy order. The
-  /// direction is specified using Forward flag.
-  template <typename HV, bool Forward = true>
-  void visitInnerToOuter(HV &Visitor, HLNode *Node) {
-    HLInnerToOuterLoopVisitor<HV, Forward> V(Visitor);
-    V.visitRecurseInsideLoops(Node);
-  }
-
-  /// Visits all HLNodes in the HIR in InnerToOuter loop hierarchy order. The
-  /// direction is specified using Forward flag.
-  template <typename HV, bool Forward = true>
-  void visitAllInnerToOuter(HV &Visitor) {
-    HLInnerToOuterLoopVisitor<HV, Forward> V(Visitor);
-    V.visitRangeRecurseInsideLoops(getHIRRange().begin(), getHIRRange().end());
-  }
-
-  /// Visits all HLNodes in the HIR in OuterToInner loop hierarchy order. The
-  /// direction is specified using Forward flag.
-  template <typename HV, bool Forward = true>
-  void visitAllOuterToInner(HV &Visitor) {
-    HLNodeVisitor<HV, true, true, Forward> V(Visitor);
-    V.visit(getHIRRange().begin(), getHIRRange().end());
-  }
-
   /// Inserts an unlinked Node before Pos in HIR.
   static void insertBefore(HLNode *Pos, HLNode *Node);
   /// Inserts unlinked Nodes in NodeContainer before Pos in HIR.

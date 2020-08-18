@@ -335,7 +335,7 @@ void bar7(float *A, int N, int S)
   //CHECK-SAME: "QUAL.OMP.LINEAR:IV"(i32* [[I]], i32 4)
   //CHECK: call void {{.*}}call_bar7
   //CHECK: load i32, i32* %.omp.iv
-  //CHECK-NEXT: add nuw i32 {{.*}}1{{$}}
+  //CHECK-NEXT: add {{.*}} i32 {{.*}}1{{$}}
   //CHECK-NEXT: store i32 {{.*}}%.omp.iv
   //CHECK-NEXT: [[L1:%[0-9]+]] = load i32, i32* [[I]]
   //CHECK-NEXT: [[ADD1:%add[0-9]*]] = add nsw i32 [[L1]], 4

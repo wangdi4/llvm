@@ -281,8 +281,9 @@ static bool isMinIndexWithinBounds(const RegDDRef *MemRef, const HLLoop *Lp) {
 
     std::unique_ptr<CanonExpr> CEClone(CE->clone());
 
-    if (!CanonExprUtils::replaceIVByCanonExpr(
-            CEClone.get(), LoopLevel, Lp->getLowerCanonExpr(), Lp->isNSW())) {
+    if (!CanonExprUtils::replaceIVByCanonExpr(CEClone.get(), LoopLevel,
+                                              Lp->getLowerCanonExpr(),
+                                              Lp->hasSignedIV())) {
       return false;
     }
 
@@ -762,7 +763,7 @@ void MemRefGroup::generateLoadInPrehdr(HLLoop *Lp, RegDDRef *MemRef,
   // Create a load from MemRef into Tmp
   RegDDRef *MemRef2 = IndepMemRef ? MemRef : MemRef->clone();
   RegDDRef *TmpRefClone = TmpRef->clone();
-  DDRefUtils::replaceIVByCanonExpr(MemRef2, LoopLevel, LBCE, Lp->isNSW());
+  DDRefUtils::replaceIVByCanonExpr(MemRef2, LoopLevel, LBCE, Lp->hasSignedIV());
 
   // Insert the load into the Lp's preheader
   HLNodeUtils &HNU = HSRA.HNU;
@@ -833,7 +834,7 @@ HLInst *MemRefGroup::generateStoreInPostexit(HLLoop *Lp, RegDDRef *MemRef,
 
   // Simplify: Replace IV with UBCE
   HLNodeUtils &HNU = HSRA.HNU;
-  DDRefUtils::replaceIVByCanonExpr(MemRef, LoopLevel, UBCE, Lp->isNSW());
+  DDRefUtils::replaceIVByCanonExpr(MemRef, LoopLevel, UBCE, Lp->hasSignedIV());
 
   // Create a StoreInst
   HLInst *StoreInst = HNU.createStore(TmpRef, ScalarReplStoreName, MemRef);

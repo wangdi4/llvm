@@ -79,7 +79,7 @@ entry:
   %8 = call token @llvm.directive.region.entry() [ "DIR.OMP.LOOP"(), "QUAL.OMP.SCHEDULE.STATIC"(i32 0), "QUAL.OMP.REDUCTION.ADD"(i32* @y), "QUAL.OMP.FIRSTPRIVATE"(i32* %.omp.lb), "QUAL.OMP.NORMALIZED.IV"(i32* %.omp.iv), "QUAL.OMP.NORMALIZED.UB"(i32* %.omp.ub), "QUAL.OMP.PRIVATE"(i32* @j) ]
 ; Updated region entry intrinsic after vpo-paropt-prepare
 ; PREPR: %{{[a-zA-Z._0-9]+}} = call token @llvm.directive.region.entry() [ "DIR.OMP.LOOP"()
-; PREPR-SAME: "QUAL.OMP.CANCELLATION.POINTS"(i32* [[CP3ALLOCA:%[a-zA-Z._0-9]+]], i32* [[CP2ALLOCA:%[a-zA-Z._0-9]+]], i32* [[CP1ALLOCA:%[a-zA-Z._0-9]+]])
+; PREPR-SAME: "QUAL.OMP.CANCELLATION.POINTS"(i32* [[CP1ALLOCA:%[a-zA-Z._0-9]+]], i32* [[CP3ALLOCA:%[a-zA-Z._0-9]+]], i32* [[CP2ALLOCA:%[a-zA-Z._0-9]+]])
 
   %9 = load i32, i32* %.omp.lb, align 4, !tbaa !2
   store i32 %9, i32* %.omp.iv, align 4, !tbaa !2

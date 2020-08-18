@@ -20,7 +20,7 @@
 # RUN: g++ -c -flto baz_test_7.cpp
 
 # Create archive, call gcc-ar since it passes the LTO plugin to AR
-# RUN: gcc-ar rusT arch_test_7.a bar_test_7.o baz_test_7.o
+# RUN: gcc-ar rsT arch_test_7.a bar_test_7.o baz_test_7.o
 
 # Link
 # RUN: clang++ -fuse-ld=lld driver_test_7.o foo_test_7.o arch_test_7.a -o gnu_lto_test_7 > %t_out.txt 2>&1

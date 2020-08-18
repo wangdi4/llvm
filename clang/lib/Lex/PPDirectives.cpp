@@ -443,6 +443,7 @@ void Preprocessor::SkipExcludedConditionalBlock(SourceLocation HashTokenLoc,
     // Skip to the next '#endif' / '#else' / '#elif'.
     CurLexer->skipOver(*SkipLength);
   }
+  SourceLocation endLoc;
   while (true) {
     CurLexer->Lex(Tok);
 
@@ -549,7 +550,7 @@ void Preprocessor::SkipExcludedConditionalBlock(SourceLocation HashTokenLoc,
           // Restore the value of LexingRawMode so that trailing comments
           // are handled correctly, if we've reached the outermost block.
           CurPPLexer->LexingRawMode = false;
-          CheckEndOfDirective("endif");
+          endLoc = CheckEndOfDirective("endif");
           CurPPLexer->LexingRawMode = true;
           if (Callbacks)
             Callbacks->Endif(Tok.getLocation(), CondInfo.IfLoc);
@@ -576,7 +577,7 @@ void Preprocessor::SkipExcludedConditionalBlock(SourceLocation HashTokenLoc,
           // Restore the value of LexingRawMode so that trailing comments
           // are handled correctly.
           CurPPLexer->LexingRawMode = false;
-          CheckEndOfDirective("else");
+          endLoc = CheckEndOfDirective("else");
           CurPPLexer->LexingRawMode = true;
           if (Callbacks)
             Callbacks->Else(Tok.getLocation(), CondInfo.IfLoc);
@@ -632,7 +633,9 @@ void Preprocessor::SkipExcludedConditionalBlock(SourceLocation HashTokenLoc,
   // by the end of the preamble; we'll resume parsing after the preamble.
   if (Callbacks && (Tok.isNot(tok::eof) || !isRecordingPreamble()))
     Callbacks->SourceRangeSkipped(
-        SourceRange(HashTokenLoc, CurPPLexer->getSourceLocation()),
+        SourceRange(HashTokenLoc, endLoc.isValid()
+                                      ? endLoc
+                                      : CurPPLexer->getSourceLocation()),
         Tok.getLocation());
 }
 

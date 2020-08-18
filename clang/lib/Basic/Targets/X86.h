@@ -150,11 +150,12 @@ class LLVM_LIBRARY_VISIBILITY X86TargetInfo : public TargetInfo {
 #if INTEL_FEATURE_ISA_HRESET
   bool HasHRESET = false;
 #endif // INTEL_FEATURE_ISA_HRESET
-#if INTEL_FEATURE_ISA_AMX
-  bool HasAMXTILE = false;
-  bool HasAMXINT8 = false;
-  bool HasAMXBF16 = false;
-#endif // INTEL_FEATURE_ISA_AMX
+#if INTEL_FEATURE_ISA_AMX_BF8
+  bool HasAMXBF8 = false;
+#endif // INTEL_FEATURE_ISA_AMX_BF8
+#if INTEL_FEATURE_ISA_AMX_MEMADVISE
+  bool HasAMXMEMADVISE = false;
+#endif // INTEL_FEATURE_ISA_AMX_MEMADVISE
 #if INTEL_FEATURE_ISA_AMX_FUTURE
   bool HasAMXREDUCE = false;
   bool HasAMXMEMORY = false;
@@ -216,7 +217,17 @@ class LLVM_LIBRARY_VISIBILITY X86TargetInfo : public TargetInfo {
 #if INTEL_FEATURE_ISA_AVX_COMPRESS
   bool HasAVXCOMPRESS = false;
 #endif // INTEL_FEATURE_ISA_AVX_COMPRESS
+#if INTEL_FEATURE_ISA_AVX_MEMADVISE
+  bool HasAVXMEMADVISE = false;
+  bool HasAVX512MEMADVISE = false;
+#endif // INTEL_FEATURE_ISA_AVX_MEMADVISE
+#if INTEL_FEATURE_ISA_AVX_MPSADBW
+  bool HasAVX512MPSADBW = false;
+#endif // INTEL_FEATURE_ISA_AVX_MPSADBW
 #endif // INTEL_CUSTOMIZATION
+  bool HasAMXTILE = false;
+  bool HasAMXINT8 = false;
+  bool HasAMXBF16 = false;
   bool HasSERIALIZE = false;
   bool HasTSXLDTRK = false;
 
@@ -230,6 +241,7 @@ public:
       : TargetInfo(Triple) {
     LongDoubleFormat = &llvm::APFloat::x87DoubleExtended();
     AddrSpaceMap = &X86AddrSpaceMap;
+    HasStrictFP = true;
   }
 
   const char *getLongDoubleMangling() const override {
@@ -351,24 +363,8 @@ public:
   void getTargetDefines(const LangOptions &Opts,
                         MacroBuilder &Builder) const override;
 
-  static void setSSELevel(llvm::StringMap<bool> &Features, X86SSEEnum Level,
-                          bool Enabled);
-
-  static void setMMXLevel(llvm::StringMap<bool> &Features, MMX3DNowEnum Level,
-                          bool Enabled);
-
-  static void setXOPLevel(llvm::StringMap<bool> &Features, XOPEnum Level,
-                          bool Enabled);
-
   void setFeatureEnabled(llvm::StringMap<bool> &Features, StringRef Name,
-                         bool Enabled) const override {
-    setFeatureEnabledImpl(Features, Name, Enabled);
-  }
-
-  // This exists purely to cut down on the number of virtual calls in
-  // initFeatureMap which calls this repeatedly.
-  static void setFeatureEnabledImpl(llvm::StringMap<bool> &Features,
-                                    StringRef Name, bool Enabled);
+                         bool Enabled) const final;
 
   bool
   initFeatureMap(llvm::StringMap<bool> &Features, DiagnosticsEngine &Diags,
@@ -377,7 +373,7 @@ public:
 
   bool isValidFeatureName(StringRef Name) const override;
 
-  bool hasFeature(StringRef Feature) const override;
+  bool hasFeature(StringRef Feature) const final;
 
   bool handleTargetFeatures(std::vector<std::string> &Features,
                             DiagnosticsEngine &Diags) override;
@@ -466,7 +462,10 @@ public:
     LongDoubleWidth = 96;
     LongDoubleAlign = 32;
     SuitableAlign = 128;
-    resetDataLayout("e-m:e-p:32:32-p270:32:32-p271:32:32-p272:64:64-f64:32:64-"
+    resetDataLayout(Triple.isOSBinFormatMachO() ?
+                    "e-m:o-p:32:32-p270:32:32-p271:32:32-p272:64:64-f64:32:64-"
+                    "f80:32-n8:16:32-S128" :
+                    "e-m:e-p:32:32-p270:32:32-p271:32:32-p272:64:64-f64:32:64-"
                     "f80:32-n8:16:32-S128");
     SizeType = UnsignedInt;
     PtrDiffType = SignedInt;

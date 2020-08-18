@@ -1679,7 +1679,7 @@ struct MDFieldPrinter {
                      bool ShouldSkipNull = true);
   template <class IntTy>
   void printInt(StringRef Name, IntTy Int, bool ShouldSkipZero = true);
-  void printAPInt(StringRef Name, APInt Int, bool IsUnsigned,
+  void printAPInt(StringRef Name, const APInt &Int, bool IsUnsigned,
                   bool ShouldSkipZero);
   void printBool(StringRef Name, bool Value, Optional<bool> Default = None);
   void printDIFlags(StringRef Name, DINode::DIFlags Flags);
@@ -1756,8 +1756,8 @@ void MDFieldPrinter::printInt(StringRef Name, IntTy Int, bool ShouldSkipZero) {
   Out << FS << Name << ": " << Int;
 }
 
-void MDFieldPrinter::printAPInt(StringRef Name, APInt Int, bool IsUnsigned,
-                                bool ShouldSkipZero) {
+void MDFieldPrinter::printAPInt(StringRef Name, const APInt &Int,
+                                bool IsUnsigned, bool ShouldSkipZero) {
   if (ShouldSkipZero && Int.isNullValue())
     return;
 
@@ -1987,6 +1987,8 @@ static void writeDICompositeType(raw_ostream &Out, const DICompositeType *N,
   Printer.printString("identifier", N->getIdentifier());
   Printer.printMetadata("discriminator", N->getRawDiscriminator());
   Printer.printMetadata("dataLocation", N->getRawDataLocation());
+  Printer.printMetadata("associated", N->getRawAssociated());
+  Printer.printMetadata("allocated", N->getRawAllocated());
   Out << ")";
 }
 
@@ -2535,10 +2537,10 @@ public:
   void printTypeIdInfo(const FunctionSummary::TypeIdInfo &TIDInfo);
   void printVFuncId(const FunctionSummary::VFuncId VFId);
   void
-  printNonConstVCalls(const std::vector<FunctionSummary::VFuncId> VCallList,
+  printNonConstVCalls(const std::vector<FunctionSummary::VFuncId> &VCallList,
                       const char *Tag);
   void
-  printConstVCalls(const std::vector<FunctionSummary::ConstVCall> VCallList,
+  printConstVCalls(const std::vector<FunctionSummary::ConstVCall> &VCallList,
                    const char *Tag);
 
 private:
@@ -2891,6 +2893,8 @@ static const char *getWholeProgDevirtResByArgKindName(
 
 static const char *getTTResKindName(TypeTestResolution::Kind K) {
   switch (K) {
+  case TypeTestResolution::Unknown:
+    return "unknown";
   case TypeTestResolution::Unsat:
     return "unsat";
   case TypeTestResolution::ByteArray:
@@ -3214,7 +3218,7 @@ void AssemblyWriter::printVFuncId(const FunctionSummary::VFuncId VFId) {
 }
 
 void AssemblyWriter::printNonConstVCalls(
-    const std::vector<FunctionSummary::VFuncId> VCallList, const char *Tag) {
+    const std::vector<FunctionSummary::VFuncId> &VCallList, const char *Tag) {
   Out << Tag << ": (";
   FieldSeparator FS;
   for (auto &VFuncId : VCallList) {
@@ -3225,7 +3229,8 @@ void AssemblyWriter::printNonConstVCalls(
 }
 
 void AssemblyWriter::printConstVCalls(
-    const std::vector<FunctionSummary::ConstVCall> VCallList, const char *Tag) {
+    const std::vector<FunctionSummary::ConstVCall> &VCallList,
+    const char *Tag) {
   Out << Tag << ": (";
   FieldSeparator FS;
   for (auto &ConstVCall : VCallList) {
@@ -4317,11 +4322,14 @@ void AssemblyWriter::writeAttribute(const Attribute &Attr, bool InAttrGroup) {
   }
 
   assert((Attr.hasAttribute(Attribute::ByVal) ||
+          Attr.hasAttribute(Attribute::ByRef) ||
           Attr.hasAttribute(Attribute::Preallocated)) &&
          "unexpected type attr");
 
   if (Attr.hasAttribute(Attribute::ByVal)) {
     Out << "byval";
+  } else if (Attr.hasAttribute(Attribute::ByRef)) {
+    Out << "byref";
   } else {
     Out << "preallocated";
   }

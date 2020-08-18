@@ -43,6 +43,7 @@
 #include "llvm/ADT/APSInt.h"
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/DenseMap.h"
+#include "llvm/ADT/DenseSet.h"
 #include "llvm/ADT/FoldingSet.h"
 #include "llvm/ADT/IntrusiveRefCntPtr.h"
 #include "llvm/ADT/MapVector.h"
@@ -994,6 +995,11 @@ public:
 #define IMAGE_TYPE(ImgType, Id, SingletonId, Access, Suffix) \
   CanQualType SingletonId;
 #include "clang/Basic/OpenCLImageTypes.def"
+#define IMAGE_TYPE(ImgType, Id, SingletonId, Access, Suffix)                   \
+  CanQualType Sampled##SingletonId;
+#define IMAGE_WRITE_TYPE(Type, Id, Ext)
+#define IMAGE_READ_WRITE_TYPE(Type, Id, Ext)
+#include "clang/Basic/OpenCLImageTypes.def"
   CanQualType OCLSamplerTy, OCLEventTy, OCLClkEventTy;
   CanQualType OCLQueueTy, OCLReserveIDTy;
   CanQualType IncompleteMatrixIdxTy;
@@ -1016,6 +1022,9 @@ public:
 
   // Implicitly-declared type 'struct _GUID'.
   mutable TagDecl *MSGuidTagDecl = nullptr;
+
+  /// Keep track of CUDA/HIP static device variables referenced by host code.
+  llvm::DenseSet<const VarDecl *> CUDAStaticDeviceVarReferencedByHost;
 
   ASTContext(LangOptions &LOpts, SourceManager &SM, IdentifierTable &idents,
              SelectorTable &sels, Builtin::Context &builtins);
@@ -1485,8 +1494,16 @@ public:
   void getInjectedTemplateArgs(const TemplateParameterList *Params,
                                SmallVectorImpl<TemplateArgument> &Args);
 
+  /// Form a pack expansion type with the given pattern.
+  /// \param NumExpansions The number of expansions for the pack, if known.
+  /// \param ExpectPackInType If \c false, we should not expect \p Pattern to
+  ///        contain an unexpanded pack. This only makes sense if the pack
+  ///        expansion is used in a context where the arity is inferred from
+  ///        elsewhere, such as if the pattern contains a placeholder type or
+  ///        if this is the canonical type of another pack expansion type.
   QualType getPackExpansionType(QualType Pattern,
-                                Optional<unsigned> NumExpansions);
+                                Optional<unsigned> NumExpansions,
+                                bool ExpectPackInType = true);
 
   QualType getObjCInterfaceType(const ObjCInterfaceDecl *Decl,
                                 ObjCInterfaceDecl *PrevDecl = nullptr) const;
@@ -2111,6 +2128,10 @@ public:
   Optional<CharUnits> getTypeSizeInCharsIfKnown(const Type *Ty) const {
     return getTypeSizeInCharsIfKnown(QualType(Ty, 0));
   }
+
+  /// Returns the bitwidth of \p T, an SVE type attributed with
+  /// 'arm_sve_vector_bits'. Should only be called if T->isVLST().
+  unsigned getBitwidthForAttributedSveType(const Type *T) const;
 
   /// Return the ABI-specified alignment of a (complete) type \p T, in
   /// bits.
@@ -3043,6 +3064,9 @@ public:
 
   /// Return a new OMPTraitInfo object owned by this context.
   OMPTraitInfo &getNewOMPTraitInfo();
+
+  /// Whether a C++ static variable should be externalized.
+  bool shouldExternalizeStaticVar(const Decl *D) const;
 
 private:
   /// All OMPTraitInfo objects live in this collection, one per

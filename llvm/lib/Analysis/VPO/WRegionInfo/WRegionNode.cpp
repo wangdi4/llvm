@@ -152,6 +152,14 @@ void WRegionNode::finalize(Instruction *ExitDir, DominatorTree *DT) {
       if (UDPI->getIsPointerToPointer())
         continue;
 
+#if INTEL_CUSTOMIZATION
+      // For use_device_ptr:f90_dv(QNCA* %dv), the mapped value needs to be
+      // a load from getelementpointer (%dv, 0, 0). That map will be created in
+      // VPOParoptTransform::addMapForUseDevicePtr().
+      if (UDPI->getIsF90DopeVector())
+        continue;
+
+#endif // INTEL_CUSTOMIZATION
       Value *Orig = UDPI->getOrig();
       MapItem *MapI = WRegionUtils::wrnSeenAsMap(this, Orig);
       if (!MapI)
@@ -468,6 +476,9 @@ void WRegionNode::printClauses(formatted_raw_ostream &OS,
   if (canHaveMap())
     PrintedSomething |= getMap().print(OS, Depth, Verbosity);
 
+  if (canHaveSubdevice())
+    PrintedSomething |= getSubdevice().print(OS, Depth, Verbosity);
+
   if (canHaveIsDevicePtr())
     PrintedSomething |= getIsDevicePtr().print(OS, Depth, Verbosity);
 
@@ -485,6 +496,9 @@ void WRegionNode::printClauses(formatted_raw_ostream &OS,
 
   if (canHaveAligned())
     PrintedSomething |= getAligned().print(OS, Depth, Verbosity);
+
+  if (canHaveNontemporal())
+    PrintedSomething |= getNontemporal().print(OS, Depth, Verbosity);
 
   if (canHaveFlush())
     PrintedSomething |= getFlush().print(OS, Depth, Verbosity);
@@ -1323,12 +1337,6 @@ void WRegionNode::handleQualOpndList(const Use *Args, unsigned NumArgs,
                                                getLpriv());
     break;
   }
-  case QUAL_OMP_SUBDEVICE: {
-    assert(NumArgs == 2 && "SubDevice clause expects two arguments.");
-    setSubDeviceBase (Args[0]);
-    setSubDeviceLength (Args[1]);
-    break;
-  }
   case QUAL_OMP_COPYIN: {
     extractQualOpndList<CopyinClause>(Args, NumArgs, ClauseInfo, getCopyin());
     break;
@@ -1429,11 +1437,20 @@ void WRegionNode::handleQualOpndList(const Use *Args, unsigned NumArgs,
     AlignedClause &C = getAligned();
     for (unsigned I = 0; I < NumArgs - 1; ++I) {
       Value *V = Args[I];
+      if (!V || isa<ConstantPointerNull>(V)) {
+        LLVM_DEBUG(dbgs() << __FUNCTION__
+                          << " Ignoring null clause operand.\n");
+        continue;
+      }
       C.add(V);
       C.back()->setAlign(Alignment);
     }
     break;
   }
+  case QUAL_OMP_NONTEMPORAL:
+    extractQualOpndList<NontemporalClause>(Args, NumArgs, ClauseID,
+                                           getNontemporal());
+    break;
   case QUAL_OMP_FLUSH: {
     extractQualOpndList<FlushSet>(Args, NumArgs, ClauseID, getFlush());
     break;
@@ -1459,6 +1476,13 @@ void WRegionNode::handleQualOpndList(const Use *Args, unsigned NumArgs,
   case QUAL_OMP_SCHEDULE_DYNAMIC: {
     extractScheduleOpndList(getSchedule(), Args, ClauseInfo,
                             WRNScheduleDynamic);
+    break;
+  }
+  case QUAL_OMP_SUBDEVICE: {
+    assert(NumArgs == 4 && "Subdevice clause expects four arguments.");
+    SubdeviceItem *Item = new SubdeviceItem(Args);
+    SubdeviceClause &C = getSubdevice();
+    C.add(Item);
     break;
   }
   case QUAL_OMP_SCHEDULE_GUIDED: {
@@ -1619,6 +1643,15 @@ void WRegionNode::getClausesFromOperandBundles(IntrinsicInst *Call) {
     // Extract clause properties
     ClauseSpecifier ClauseInfo(ClauseString);
 
+#if INTEL_CUSTOMIZATION
+    if (ClauseInfo.getId() == QUAL_OMP_IS_DEVICE_PTR &&
+        ClauseInfo.getIsF90DopeVector()) {
+      // IS.DEVICE.PTR:F90_DV("DV"* %x) is treated as FIRSTPRIVATE("DV"* %x).
+      ClauseInfo.setId(QUAL_OMP_FIRSTPRIVATE);
+      ClauseInfo.setIsF90DopeVector(false);
+    }
+
+#endif // INTEL_CUSTOMIZATION
     // Get the argument list from the current OperandBundle
     ArrayRef<llvm::Use> Args = BU.Inputs;
     unsigned NumArgs = Args.size(); // BU.Inputs.size()
@@ -1824,9 +1857,28 @@ bool WRegionNode::canHaveAligned() const {
   return canHaveUniform();
 }
 
+bool WRegionNode::canHaveNontemporal() const {
+  // only SIMD can have an Nontemporal clause
+  return canHaveUniform();
+}
+
 bool WRegionNode::canHaveMap() const {
   // Only target-type constructs take map clauses
   return getIsTarget();
+}
+
+bool WRegionNode::canHaveSubdevice() const {
+  unsigned SubClassID = getWRegionKindID();
+  switch (SubClassID) {
+  case WRNTarget:
+  case WRNTargetData:
+  case WRNTargetEnterData:
+  case WRNTargetExitData:
+  case WRNTargetUpdate:
+  case WRNTargetVariant:
+    return true;
+  }
+  return false;
 }
 
 bool WRegionNode::canHaveIsDevicePtr() const {

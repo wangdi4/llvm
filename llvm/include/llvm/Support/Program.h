@@ -57,7 +57,7 @@ namespace sys {
   struct ProcessStatistics {
     std::chrono::microseconds TotalTime;
     std::chrono::microseconds UserTime;
-    uint64_t PeakMemory = 0;
+    uint64_t PeakMemory = 0; ///< Maximum resident set size in KiB.
   };
 
   /// Find the first executable file \p Name in \p Paths.
@@ -218,7 +218,7 @@ namespace sys {
   /// to build a single flat command line appropriate for calling CreateProcess
   /// on
   /// Windows.
-  std::string flattenWindowsCommandLine(ArrayRef<StringRef> Args);
+  ErrorOr<std::wstring> flattenWindowsCommandLine(ArrayRef<StringRef> Args);
 #endif
   }
 }

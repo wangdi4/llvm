@@ -251,7 +251,7 @@ const TemplateParameterList *Decl::getDescribedTemplateParams() const {
 }
 
 bool Decl::isTemplated() const {
-  // A declaration is dependent if it is a template or a template pattern, or
+  // A declaration is templated if it is a template or a template pattern, or
   // is within (lexcially for a friend, semantically otherwise) a dependent
   // context.
   // FIXME: Should local extern declarations be treated like friends?
@@ -364,8 +364,10 @@ void Decl::setDeclContextsImpl(DeclContext *SemaDC, DeclContext *LexicalDC,
   }
 }
 
-bool Decl::isInLocalScope() const {
+bool Decl::isInLocalScopeForInstantiation() const {
   const DeclContext *LDC = getLexicalDeclContext();
+  if (!LDC->isDependentContext())
+    return false;
   while (true) {
     if (LDC->isFunctionOrMethod())
       return true;

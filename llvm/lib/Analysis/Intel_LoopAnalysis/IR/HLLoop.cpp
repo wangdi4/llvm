@@ -54,11 +54,11 @@ void HLLoop::initialize() {
 // IsInnermost flag is initialized to true, please refer to the header file.
 HLLoop::HLLoop(HLNodeUtils &HNU, const Loop *LLVMLoop)
     : HLDDNode(HNU, HLNode::HLLoopVal), OrigLoop(LLVMLoop), Ztt(nullptr),
-      NestingLevel(0), IsInnermost(true), IVType(nullptr), IsNSW(false),
+      NestingLevel(0), IsInnermost(true), IVType(nullptr), HasSignedIV(false),
       DistributedForMemRec(false), LoopMetadata(LLVMLoop->getLoopID()),
       MaxTripCountEstimate(0), MaxTCIsUsefulForDD(false),
       HasDistributePoint(false), IsUndoSinkingCandidate(false),
-      ForcedVectorWidth(0), ForcedVectorUnrollFactor(0) {
+      IsBlocked(false), ForcedVectorWidth(0), ForcedVectorUnrollFactor(0) {
   assert(LLVMLoop && "LLVM loop cannot be null!");
 
   initialize();
@@ -78,11 +78,11 @@ HLLoop::HLLoop(HLNodeUtils &HNU, const Loop *LLVMLoop)
 HLLoop::HLLoop(HLNodeUtils &HNU, HLIf *ZttIf, RegDDRef *LowerDDRef,
                RegDDRef *UpperDDRef, RegDDRef *StrideDDRef, unsigned NumEx)
     : HLDDNode(HNU, HLNode::HLLoopVal), OrigLoop(nullptr), Ztt(nullptr),
-      NestingLevel(0), IsInnermost(true), IsNSW(false),
+      NestingLevel(0), IsInnermost(true), HasSignedIV(false),
       DistributedForMemRec(false), LoopMetadata(nullptr),
       MaxTripCountEstimate(0), MaxTCIsUsefulForDD(false),
       HasDistributePoint(false), IsUndoSinkingCandidate(false),
-      ForcedVectorWidth(0), ForcedVectorUnrollFactor(0) {
+      IsBlocked(false), ForcedVectorWidth(0), ForcedVectorUnrollFactor(0) {
   initialize();
   setNumExits(NumEx);
 
@@ -102,7 +102,7 @@ HLLoop::HLLoop(HLNodeUtils &HNU, HLIf *ZttIf, RegDDRef *LowerDDRef,
 HLLoop::HLLoop(const HLLoop &HLLoopObj)
     : HLDDNode(HLLoopObj), OrigLoop(HLLoopObj.OrigLoop), Ztt(nullptr),
       NumExits(HLLoopObj.NumExits), NestingLevel(0), IsInnermost(true),
-      IVType(HLLoopObj.IVType), IsNSW(HLLoopObj.IsNSW),
+      IVType(HLLoopObj.IVType), HasSignedIV(HLLoopObj.HasSignedIV),
       LiveInSet(HLLoopObj.LiveInSet), LiveOutSet(HLLoopObj.LiveOutSet),
       DistributedForMemRec(HLLoopObj.DistributedForMemRec),
       LoopMetadata(HLLoopObj.LoopMetadata),
@@ -111,6 +111,7 @@ HLLoop::HLLoop(const HLLoop &HLLoopObj)
       CmpDbgLoc(HLLoopObj.CmpDbgLoc), BranchDbgLoc(HLLoopObj.BranchDbgLoc),
       HasDistributePoint(HLLoopObj.HasDistributePoint),
       IsUndoSinkingCandidate(HLLoopObj.IsUndoSinkingCandidate),
+      IsBlocked(HLLoopObj.IsBlocked),
       ForcedVectorWidth(HLLoopObj.ForcedVectorWidth),
       ForcedVectorUnrollFactor(HLLoopObj.ForcedVectorUnrollFactor) {
 
@@ -140,13 +141,14 @@ HLLoop::HLLoop(const HLLoop &HLLoopObj)
 HLLoop &HLLoop::operator=(HLLoop &&Lp) {
   OrigLoop = Lp.OrigLoop;
   IVType = Lp.IVType;
-  IsNSW = Lp.IsNSW;
+  HasSignedIV = Lp.HasSignedIV;
   DistributedForMemRec = Lp.DistributedForMemRec;
   LoopMetadata = Lp.LoopMetadata;
   MaxTripCountEstimate = Lp.MaxTripCountEstimate;
   MaxTCIsUsefulForDD = Lp.MaxTCIsUsefulForDD;
   HasDistributePoint = Lp.HasDistributePoint;
   IsUndoSinkingCandidate = Lp.IsUndoSinkingCandidate;
+  IsBlocked = Lp.IsBlocked;
   ForcedVectorWidth = Lp.ForcedVectorWidth;
   ForcedVectorUnrollFactor = Lp.ForcedVectorUnrollFactor;
 
@@ -252,7 +254,7 @@ void HLLoop::printDetails(formatted_raw_ostream &OS, unsigned Depth,
   OS << "+ Innermost: " << (isInnermost() ? "Yes\n" : "No\n");
 
   indent(OS, Depth);
-  OS << "+ NSW: " << (isNSW() ? "Yes\n" : "No\n");
+  OS << "+ HasSignedIV: " << (hasSignedIV() ? "Yes\n" : "No\n");
 
   bool First = true;
 
@@ -1107,8 +1109,8 @@ void HLLoop::replaceByFirstIteration(bool ExtractPostexit) {
           }
 
           // Expected to be always successful.
-          DDRefUtils::replaceIVByCanonExpr(Ref, Level, IVReplacement, IsNSW,
-                                           false);
+          DDRefUtils::replaceIVByCanonExpr(Ref, Level, IVReplacement,
+                                           HasSignedIV, false);
         }
 
         unsigned RefLevel = demoteRef(Ref, this, LB, InnerLoops);
@@ -1299,15 +1301,18 @@ void HLLoop::addRemoveLoopMetadataImpl(ArrayRef<MDNode *> MDs,
     return;
   }
 
+  MDNode *NewLoopMD = nullptr;
   NewMDs.append(MDs.begin(), MDs.end());
 
-  MDNode *NewLoopMD = MDNode::get(Context, NewMDs);
-  NewLoopMD->replaceOperandWith(0, NewLoopMD);
+  if (NewMDs.size() > 1) {
+    NewLoopMD = MDNode::get(Context, NewMDs);
+    NewLoopMD->replaceOperandWith(0, NewLoopMD);
+  }
 
   if (ExternalLoopMetadata) {
     *ExternalLoopMetadata = NewLoopMD;
   } else {
-    setLoopMetadata(NewLoopMD);
+    NewLoopMD ? setLoopMetadata(NewLoopMD) : clearLoopMetadata();
   }
 }
 
@@ -1441,14 +1446,17 @@ bool HLLoop::normalize() {
 
   unsigned Level = getNestingLevel();
 
+  SmallVector<unsigned, 2> LowerRefSymbases;
+  LowerRef->populateTempBlobSymbases(LowerRefSymbases);
+
   // NewIV = S * IV + L
   std::unique_ptr<CanonExpr> NewIV(LowerCE->clone());
   NewIV->addIV(Level, InvalidBlobIndex, Stride, false);
 
-  bool IsNSW = isNSW();
-  auto UpdateCE = [&NewIV, Level, IsNSW](CanonExpr *CE) {
+  bool HasSignedIV = hasSignedIV();
+  auto UpdateCE = [&NewIV, Level, HasSignedIV](CanonExpr *CE) {
     if (!CE->hasIV(Level)) {
-      return;
+      return false;
     }
 
     // The CEs are either properly mergeable or LowerCE is a mergeable constant.
@@ -1461,23 +1469,35 @@ bool HLLoop::normalize() {
     // correct src type to the NewIV.
     NewIV->setSrcType(CE->getSrcType());
 
-    if (!CanonExprUtils::replaceIVByCanonExpr(CE, Level, NewIV.get(), IsNSW,
-                                              true)) {
+    if (!CanonExprUtils::replaceIVByCanonExpr(CE, Level, NewIV.get(),
+                                              HasSignedIV, true)) {
       llvm_unreachable("[HIR-NORMALIZE] Can not replace IV by Lower");
     }
+
+    return true;
   };
 
   ForEach<HLDDNode>::visitRange(
       child_begin(), child_end(),
-      [this, &UpdateCE, &Aux, Level](HLDDNode *Node) {
+      [this, &UpdateCE, &Aux, Level, &LowerRefSymbases](HLDDNode *Node) {
+        bool NodeModified = false;
+
         for (RegDDRef *Ref :
              llvm::make_range(Node->ddref_begin(), Node->ddref_end())) {
           for (CanonExpr *CE :
                llvm::make_range(Ref->canon_begin(), Ref->canon_end())) {
-            UpdateCE(CE);
+            NodeModified |= UpdateCE(CE);
           }
 
           Ref->makeConsistent(Aux, IsInnermost ? Level : NonLinearLevel);
+        }
+
+        // Add livein symbases to parent loops used in current loop lower bound.
+        if (NodeModified && !LowerRefSymbases.empty()) {
+          for (auto *ParentLoop = Node->getParentLoop(); ParentLoop != this;
+               ParentLoop = ParentLoop->getParentLoop()) {
+            ParentLoop->addLiveInTemp(LowerRefSymbases);
+          }
         }
       });
 
@@ -1826,7 +1846,7 @@ HLLoop *HLLoop::peelFirstIteration(bool UpdateMainLoop) {
 
       // Original loop requires a new ztt because it may only have a single
       // iteration, now executed by the peel loop.
-      createZtt(false /*IsOverWrite*/, isNSW());
+      createZtt(false /*IsOverWrite*/, hasSignedIV());
 
     } else {
       // Clone of the bottom test can act as the ztt for rest of the iterations
@@ -1965,7 +1985,7 @@ HLLoop *HLLoop::generatePeelLoop(const RegDDRef *PeelArrayRef, unsigned VF) {
   // %peel_fctr = (TC <= %peel_fctr) ? TC : %peel_fctr
   HLInst *PeelFactorMin = HNU.createMin(
       getTripCountDDRef()->clone(), PeelFactorShr->getLvalDDRef()->clone(),
-      PeelFactorShr->getLvalDDRef()->clone(), isNSW());
+      PeelFactorShr->getLvalDDRef()->clone(), hasSignedIV());
   PeelLoopInsts.push_back(*PeelFactorMin);
   auto PeelFactorSym = PeelFactorMin->getLvalDDRef()->getSymbase();
 
@@ -2114,29 +2134,27 @@ void LoopOptReportTraits<HLLoop>::traverseChildLoopsBackward(
   }
 }
 
-static void addTripCountMetadata(HLLoop *Loop, StringRef MetadataTy,
-                                 unsigned TripCount) {
-  LLVMContext &Context = Loop->getHLNodeUtils().getHIRFramework().getContext();
+void HLLoop::addInt32LoopMetadata(StringRef ID, unsigned Value) {
+  LLVMContext &Context = getHLNodeUtils().getHIRFramework().getContext();
 
   auto *TCNode = ConstantAsMetadata::get(
-      ConstantInt::get(Type::getInt32Ty(Context), TripCount));
+      ConstantInt::get(Type::getInt32Ty(Context), Value));
 
-  auto MNode =
-      MDNode::get(Context, {MDString::get(Context, MetadataTy), TCNode});
+  auto MNode = MDNode::get(Context, {MDString::get(Context, ID), TCNode});
 
-  Loop->addLoopMetadata(MNode);
+  addLoopMetadata(MNode);
 }
 
 void HLLoop::setPragmaBasedMinimumTripCount(unsigned MinTripCount) {
-  addTripCountMetadata(this, "llvm.loop.intel.loopcount_minimum", MinTripCount);
+  addInt32LoopMetadata("llvm.loop.intel.loopcount_minimum", MinTripCount);
 }
 
 void HLLoop::setPragmaBasedMaximumTripCount(unsigned MaxTripCount) {
-  addTripCountMetadata(this, "llvm.loop.intel.loopcount_maximum", MaxTripCount);
+  addInt32LoopMetadata("llvm.loop.intel.loopcount_maximum", MaxTripCount);
 }
 
 void HLLoop::setPragmaBasedAverageTripCount(unsigned AvgTripCount) {
-  addTripCountMetadata(this, "llvm.loop.intel.loopcount_average", AvgTripCount);
+  addInt32LoopMetadata("llvm.loop.intel.loopcount_average", AvgTripCount);
 }
 
 void HLLoop::dividePragmaBasedTripCount(unsigned Factor) {

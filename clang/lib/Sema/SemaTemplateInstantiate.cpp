@@ -1550,8 +1550,6 @@ TemplateInstantiator::TransformLoopHintAttr(const LoopHintAttr *LH) {
     // Generate error if there is a problem with the value.
 #if INTEL_CUSTOMIZATION
   bool AllowZero = false;
-  if (LH->getSemanticSpelling() == LoopHintAttr::Pragma_speculated_iterations)
-    AllowZero = true;
   if ((LH->getSemanticSpelling() == LoopHintAttr::Pragma_unroll ||
        LH->getSemanticSpelling() == LoopHintAttr::Pragma_unroll_and_jam) &&
       getSema().getLangOpts().isIntelCompat(LangOptions::UnrollZero))
@@ -2591,7 +2589,7 @@ ParmVarDecl *Sema::SubstParmVarDecl(ParmVarDecl *OldParm,
     UnparsedDefaultArgInstantiations[OldParm].push_back(NewParm);
   } else if (Expr *Arg = OldParm->getDefaultArg()) {
     FunctionDecl *OwningFunc = cast<FunctionDecl>(OldParm->getDeclContext());
-    if (OwningFunc->isInLocalScope()) {
+    if (OwningFunc->isInLocalScopeForInstantiation()) {
       // Instantiate default arguments for methods of local classes (DR1484)
       // and non-defining declarations.
       Sema::ContextRAII SavedContext(*this, OwningFunc);

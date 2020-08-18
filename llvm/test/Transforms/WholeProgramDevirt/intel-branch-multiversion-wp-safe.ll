@@ -192,8 +192,8 @@ attributes #6 = { uwtable "correctly-rounded-divide-sqrt-fp-math"="false" "disab
 ; Check that the transformation was applied correctly in function main.
 ; CHECK:       define hidden i32 @main(i32 %argc, i8** nocapture readnone %argv) local_unnamed_addr #3 {
 
-; Check that the unused bitcast instruction was removed
-; CHECK-NOT: %tmp = bitcast i1 (%class.Base*, i32)** %vtable to i8*
+; CHECK:       [[T:%.*]] = bitcast i1 (%class.Base*, i32)** %vtable to i8*
+; CHECK-NEXT:  [[T1:%.*]] = tail call i1 @llvm.type.test(i8* [[T]], metadata !"_ZTS4Base")
 
 ; This part checks if the address of the virtual function is the same as Derived::foo
 ; CHECK:       %0 = bitcast i1 (%class.Base*, i32)* %tmp2 to i8*

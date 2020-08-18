@@ -846,6 +846,25 @@ WRegionNode *WRegionUtils::getParentRegion(WRegionNode *W,
   return nullptr;
 }
 
+WRegionNode *WRegionUtils::getParentRegion(
+    WRegionNode *W,
+    std::function<bool(WRegionNode *)> IsMatch,
+    std::function<bool(WRegionNode *)> ProcessNext) {
+  while (W) {
+    WRegionNode *ParentRegion = W->getParent();
+    if (!ParentRegion)
+      break;
+    // Check if the ancestor satisfies the condition.
+    if (IsMatch(ParentRegion))
+      return ParentRegion;
+    // Check if next ancestor needs to be processed.
+    if (!ProcessNext(ParentRegion))
+      break;
+    W = ParentRegion;
+  }
+  return nullptr;
+}
+
 // Search the WRNs in the container for a Target construct.
 // The container can be the top-level WRGraph or the Children of a WRN.
 bool WRegionUtils::hasTargetDirective(WRContainerImpl &WrnContainer) {
@@ -926,6 +945,10 @@ void WRegionUtils::collectNonPointerValuesToBeUsedInOutlinedRegion(
   };
 
   auto collectSizeIfVLA = [&](Value *V) {
+    // Skip AddrSpaceCastInsts in hope to reach the underlying value.
+    while (auto *ASCI = dyn_cast<AddrSpaceCastInst>(V))
+      V = ASCI->getPointerOperand();
+
     if (AllocaInst *AI = dyn_cast<AllocaInst>(V))
       if (AI->isArrayAllocation())
         collectIfNonPointerNonConstant(AI->getArraySize());
@@ -973,6 +996,12 @@ void WRegionUtils::collectNonPointerValuesToBeUsedInOutlinedRegion(
       collectIfNonPointerNonConstant(LrI->getStep());
   }
 
+  if (W->canHaveMap()) {
+    MapClause &MapClause = W->getMap();
+    for (MapItem *MapI : MapClause.items())
+      collectSizeIfVLA(MapI->getOrig());
+  }
+
   LLVM_DEBUG(
       const auto &CollectedVals = W->getDirectlyUsedNonPointerValues();
       if (CollectedVals.empty()) {
@@ -1002,5 +1031,4 @@ AllocateItem *WRegionUtils::getAllocateItem(Item *I) {
     return RedI->getInAllocate();
   return nullptr;
 }
-
 #endif // INTEL_COLLAB

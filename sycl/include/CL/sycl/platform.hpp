@@ -112,9 +112,19 @@ public:
   /// \return a native handle, the type of which defined by the backend.
   template <backend BackendName>
   auto get_native() const -> typename interop<BackendName, platform>::type {
-    return detail::pi::cast<typename interop<BackendName, platform>::type>(
+    return reinterpret_cast<typename interop<BackendName, platform>::type>(
         getNative());
   }
+
+  /// Indicates if all of the SYCL devices on this platform have the
+  /// given feature.
+  ///
+  /// \param Aspect is one of the values in Table 4.20 of the SYCL 2020
+  /// Provisional Spec.
+  ///
+  /// \return true if all of the SYCL devices on this platform have the
+  /// given feature.
+  bool has(aspect Aspect) const;
 
 private:
   pi_native_handle getNative() const;

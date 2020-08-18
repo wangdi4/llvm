@@ -1,4 +1,4 @@
-; RUN: opt -hir-ssa-deconstruction -disable-output -hir-runtime-dd -hir-loop-interchange -debug-only=hir-loop-interchange -scoped-noalias < %s 2>&1 | FileCheck %s
+; RUN: opt -hir-ssa-deconstruction -disable-output -hir-runtime-dd -hir-loop-interchange -debug-only=hir-loop-interchange -scoped-noalias-aa < %s 2>&1 | FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-runtime-dd,hir-loop-interchange" -aa-pipeline="basic-aa,scoped-noalias-aa" -disable-output -debug-only=hir-loop-interchange < %s 2>&1 | FileCheck %s
 
 ; REQUIRES: asserts

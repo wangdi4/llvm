@@ -546,6 +546,8 @@ std::string Linux::getDynamicLinker(const ArgList &Args) const {
     Loader = X32 ? "ld-linux-x32.so.2" : "ld-linux-x86-64.so.2";
     break;
   }
+  case llvm::Triple::ve:
+    return "/opt/nec/ve/lib/ld-linux-ve.so.1";
   }
 
   if (Distro == Distro::Exherbo &&
@@ -565,7 +567,7 @@ void Linux::AddClangSystemIncludeArgs(const ArgList &DriverArgs,
 
 #if INTEL_CUSTOMIZATION
   // Add Intel specific headers
-  if (DriverArgs.hasArg(clang::driver::options::OPT__intel)) {
+  if (D.IsIntelMode()) {
     // deploy
     addSystemInclude(DriverArgs, CC1Args, getDriver().Dir +
                                           "/../compiler/include");

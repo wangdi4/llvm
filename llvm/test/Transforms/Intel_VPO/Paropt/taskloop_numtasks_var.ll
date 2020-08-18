@@ -22,7 +22,7 @@
 ; //}
 
 ; Check that the task's outlined function doesn't contain any extra argument for the num_tasks operand '%4'.
-; CHECK: define internal void @{{[^ ]+}}DIR.OMP.TASK{{[^ ]+}}(i32 {{[^ ]+}}, %__struct.kmp_task_t_with_privates* {{[^ ]+}}, i64* {{[^ ]+}})
+; CHECK: define internal void @{{[^ ]+}}DIR.OMP.TASK{{[^ ]+}}(i32 {{[^ ]+}}, %__struct.kmp_task_t_with_privates* {{[^ ]+}})
 
 ; ModuleID = 'taskloop_numtasks_var.c'
 source_filename = "taskloop_numtasks_var.c"

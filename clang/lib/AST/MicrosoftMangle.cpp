@@ -1400,9 +1400,9 @@ void MicrosoftCXXNameMangler::mangleIntegerLiteral(const llvm::APSInt &Value,
 
 void MicrosoftCXXNameMangler::mangleExpression(const Expr *E) {
   // See if this is a constant expression.
-  llvm::APSInt Value;
-  if (E->isIntegerConstantExpr(Value, Context.getASTContext())) {
-    mangleIntegerLiteral(Value, E->getType()->isBooleanType());
+  if (Optional<llvm::APSInt> Value =
+          E->getIntegerConstantExpr(Context.getASTContext())) {
+    mangleIntegerLiteral(*Value, E->getType()->isBooleanType());
     return;
   }
 
@@ -1826,7 +1826,7 @@ void MicrosoftCXXNameMangler::mangleAddressSpaceType(QualType T,
   // where:
   //  <language_addr_space> ::= <OpenCL-addrspace> | <CUDA-addrspace>
   //    <OpenCL-addrspace> ::= "CL" [ "global" | "local" | "constant" |
-  //                                "private"| "generic" ]
+  //                                "private"| "generic" | "device" | "host" ]
   //    <CUDA-addrspace> ::= "CU" [ "device" | "constant" | "shared" ]
   //    Note that the above were chosen to match the Itanium mangling for this.
   //
@@ -1852,10 +1852,10 @@ void MicrosoftCXXNameMangler::mangleAddressSpaceType(QualType T,
       Extra.mangleSourceName("_ASCLglobal");
       break;
     case LangAS::opencl_global_device:
-      Extra.mangleSourceName("_ASCLDevice");
+      Extra.mangleSourceName("_ASCLdevice");
       break;
     case LangAS::opencl_global_host:
-      Extra.mangleSourceName("_ASCLHost");
+      Extra.mangleSourceName("_ASCLhost");
       break;
     case LangAS::opencl_local:
       Extra.mangleSourceName("_ASCLlocal");
@@ -2087,6 +2087,13 @@ void MicrosoftCXXNameMangler::mangleType(const BuiltinType *T, Qualifiers,
   case BuiltinType::Id: \
     Out << "PAUocl_" #ImgType "_" #Suffix "@@"; \
     break;
+#include "clang/Basic/OpenCLImageTypes.def"
+#define IMAGE_TYPE(ImgType, Id, SingletonId, Access, Suffix)                   \
+  case BuiltinType::Sampled##Id:                                               \
+    Out << "PAU__spirv_SampledImage__" #ImgType "_" #Suffix "@@";              \
+    break;
+#define IMAGE_WRITE_TYPE(Type, Id, Ext)
+#define IMAGE_READ_WRITE_TYPE(Type, Id, Ext)
 #include "clang/Basic/OpenCLImageTypes.def"
   case BuiltinType::OCLSampler:
     Out << "PA";

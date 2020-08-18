@@ -36,7 +36,7 @@ program::program(const context &context, cl_program clProgram)
   clRetainProgram(clProgram);
 }
 
-pi_native_handle program::getNative() const { return impl->getNative(); } // INTEL
+pi_native_handle program::getNative() const { return impl->getNative(); }
 
 program::program(std::shared_ptr<detail::program_impl> impl) : impl(impl) {}
 

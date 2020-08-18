@@ -1223,8 +1223,16 @@ bool HIRParser::BlobProcessor::isReplacable(const SCEV *OrigSCEV,
 const SCEVConstant *
 HIRParser::BlobProcessor::getSDiv(const SCEVConstant *LHS,
                                   const SCEVConstant *RHS) const {
-  return cast<SCEVConstant>(HIRP->ScopedSE.getConstant(cast<ConstantInt>(
-      ConstantExpr::getSDiv(LHS->getValue(), RHS->getValue()))));
+  auto *Const = dyn_cast<ConstantInt>(
+      ConstantExpr::getSDiv(LHS->getValue(), RHS->getValue()));
+
+  // sdiv overflows in the following scenario and returns undef-
+  // min_int /s -1
+  if (!Const) {
+    return nullptr;
+  }
+
+  return cast<SCEVConstant>(HIRP->ScopedSE.getConstant(Const));
 }
 
 const SCEVConstant *HIRParser::BlobProcessor::getPossibleMultiplier(
@@ -1255,7 +1263,7 @@ const SCEVConstant *HIRParser::BlobProcessor::getPossibleMultiplier(
 
     Mul = getSDiv(MulConstStride, ConstStride);
 
-    if (Mul->isZero()) {
+    if (!Mul || Mul->isZero()) {
       return nullptr;
     }
 
@@ -1285,7 +1293,7 @@ const SCEVConstant *HIRParser::BlobProcessor::getPossibleMultiplier(
     ConstStride = cast<SCEVConstant>(StrideOp->getOperand(0));
     Mul = getSDiv(MulConstStride, ConstStride);
 
-    if (Mul->isZero()) {
+    if (!Mul || Mul->isZero()) {
       return nullptr;
     }
   }
@@ -1603,7 +1611,7 @@ unsigned HIRParser::processInstBlob(const Instruction *Inst,
   // livein/liveout analysis or setting the def level.
   //
   //          livein/liveout       def level
-  // 1)          BaseInst            Inst
+  // 1)          BaseInst            getDeepestSCCLoop()
   // 2)          BaseInst            Inst
   // 3)          BaseInst            BaseInst
   //
@@ -1626,7 +1634,20 @@ unsigned HIRParser::processInstBlob(const Instruction *Inst,
       (BaseInst->getParent() == DefLLVMLoop->getHeader());
   bool BaseIsDeconstructedPhi =
       ScopedSE.getHIRMetadata(BaseInst, ScalarEvolution::HIRLiveKind::LiveIn);
-  unsigned DefLevel = 0;
+
+  // Set the reaching definition loop based on cases 1), 2) or 3) described in
+  // the comment section above.
+  const Loop *SCCDefLoop = nullptr;
+  HLLoop *ReachingDefLoop = nullptr;
+  if (BaseIsLoopHeaderPhi && UseLoop &&
+      (SCCDefLoop = ScalarSA.getDeepestSCCLoop(BaseInst, UseLoop->getLLVMLoop(),
+                                               CurRegion->getIRRegion()))) {
+    ReachingDefLoop = LF.findHLLoop(SCCDefLoop);
+  } else if (BaseIsDeconstructedPhi) {
+    ReachingDefLoop = OrigDefLoop;
+  } else {
+    ReachingDefLoop = DefLoop;
+  }
 
   // Given a blob definition and a use in some HLLoop, the defined at level for
   // that use should be the lowest common ancestor loop level. For example-
@@ -1641,10 +1662,9 @@ unsigned HIRParser::processInstBlob(const Instruction *Inst,
   //   END DO
   // END DO
   //
-  if (auto *DefLevelLoop = HLNodeUtils::getLowestCommonAncestorLoop(
-          (BaseIsLoopHeaderPhi || BaseIsDeconstructedPhi) ? OrigDefLoop
-                                                          : DefLoop,
-          UseLoop)) {
+  unsigned DefLevel = 0;
+  if (auto *DefLevelLoop =
+          HLNodeUtils::getLowestCommonAncestorLoop(ReachingDefLoop, UseLoop)) {
     DefLevel = DefLevelLoop->getNestingLevel();
   }
 
@@ -2510,7 +2530,10 @@ RegDDRef *HIRParser::createUpperDDRef(const SCEV *BETC, unsigned Level,
 
   // We pass underCast as 'true' as we don't want to hide the topmost cast for
   // upper.
-  if (!parseRecursive(BETC, CE, Level, true, true, true)) {
+  // Sometimes the upper may be parsed as non-linear if some of the invariant
+  // computation was not hoisted out of the loop and parsed as a blob instead.
+  // We should make the loop unknown in that case.
+  if (!parseRecursive(BETC, CE, Level, true, true, true) || CE->isNonLinear()) {
     getCanonExprUtils().destroy(CE);
     return nullptr;
   }
@@ -2565,8 +2588,7 @@ void HIRParser::parse(HLLoop *HLoop) {
   // Upper should be parsed after incrementing level.
   ++CurLevel;
 
-  ScopedSE.setBackedgeTakenCountLoop(Lp);
-  auto BETC = ScopedSE.getBackedgeTakenCount(Lp);
+  auto BETC = ScopedSE.getScopedBackedgeTakenCount(Lp);
 
   bool IsUnknown = isa<SCEVCouldNotCompute>(BETC);
 
@@ -2581,6 +2603,21 @@ void HIRParser::parse(HLLoop *HLoop) {
       LF.reattachLoopLabelAndBottomTest(HLoop);
 
     } else {
+      // In some cases, loop is recognized as unknown in loop formation phase
+      // but recognized as countable by parsing phase due to better information
+      // (nowrap flags) in SCEV cache in the process of parsing other
+      // instructions. In such cases, we remove the loop label and bottom test
+      // here. Refer to this lit test case for an example-
+      // unknown-to-countable-loop-conversion.ll
+      if (auto *LoopLabel = dyn_cast_or_null<HLLabel>(HLoop->getFirstChild())) {
+        auto *Bottomtest = HLoop->getBottomTest();
+
+        assert(Bottomtest && "Bottom test not found!");
+
+        HLNodeUtils::erase(LoopLabel);
+        HLNodeUtils::erase(Bottomtest);
+      }
+
       // Initialize Lower to 0.
       auto LowerRef = createLowerDDRef(IVType);
       HLoop->setLowerDDRef(LowerRef);
@@ -2595,14 +2632,12 @@ void HIRParser::parse(HLLoop *HLoop) {
 
       // Set small max trip count if available from scalar evolution.
       if (!UpperRef->isIntConstant() &&
-          (MaxTC =
-               ScopedSE.getSmallConstantMaxTripCount(const_cast<Loop *>(Lp)))) {
+          (MaxTC = ScopedSE.getScopedSmallConstantMaxTripCount(
+               const_cast<Loop *>(Lp)))) {
         HLoop->setMaxTripCountEstimate(MaxTC);
       }
     }
   }
-
-  ScopedSE.resetBackedgeTakenCountLoop();
 
   if (IsUnknown) {
     // Initialize Stride to 0 for unknown loops.
@@ -3149,7 +3184,7 @@ public:
   LLVM_DUMP_METHOD
   void print(raw_ostream &OS) const {
     OS << "(";
-    Ty->print(OS);
+    Ty ? Ty->print(OS) : (void)(OS << Ty);
     OS << ")";
     OS << "[";
     for (auto *IdxLB : IndicesLB) {
@@ -3162,7 +3197,7 @@ public:
       OS << ",";
     }
     OS << ":";
-    Stride->printAsOperand(OS, false);
+    Stride ? Stride->printAsOperand(OS, false) : (void)(OS << Stride);
     OS << "]";
   }
 
@@ -3533,6 +3568,15 @@ bool HIRParser::GEPChain::isCompatible(const ArrayInfo &NextArr) const {
     return CurArr.getHighestDim().isZero();
   }
 
+  // If arrays share only a highest dimension and the current highest dimension
+  // index is zero then it's okay to merge GEPs-
+  // NextArr: (double*)[0:%i:%s2*%s1] | (double*)[0:%j:%s1] |
+  //  CurArr:                           (double*)[0: 0:  8] | ...
+  if (CurArr.getMaxRank() == NextArr.getMinRank() &&
+      CurArr.getHighestDim().isZero()) {
+    return true;
+  }
+
   // Check that strides match for existing ranks.
   // Note: it's possible that NextArr will not share any ranks with CurArr.
   // For example it happens in the chain of subscripts-
@@ -3542,11 +3586,11 @@ bool HIRParser::GEPChain::isCompatible(const ArrayInfo &NextArr) const {
   unsigned MaxCommonRank = std::min(NextArr.getMaxRank(), CurArr.getMaxRank());
   unsigned MinCommonRank = std::max(NextArr.getMinRank(), CurArr.getMinRank());
   for (auto Rank = MinCommonRank; Rank <= MaxCommonRank; ++Rank) {
-    auto &R1 = CurArr.getDim(Rank);
-    auto &R2 = NextArr.getDim(Rank);
+    auto *CurDimStride = CurArr.getDim(Rank).getStride();
+    auto *NextDimStride = NextArr.getDim(Rank).getStride();
 
     // Skip gaps in current array info.
-    if (!R1.getStride()) {
+    if (!CurDimStride) {
       // Example chain for (%p)[a+x][b][c+y]:
       //   %0 = gep [10 x [10 x i8]]* %p, a, b, c
       //   %1 = subs %0, r:2, 100, x
@@ -3557,19 +3601,17 @@ bool HIRParser::GEPChain::isCompatible(const ArrayInfo &NextArr) const {
       continue;
     }
 
-    assert(R2.getStride() && "Unexpected stride gaps in NextArr");
+    assert(NextDimStride && "Unexpected stride gaps in NextArr");
 
-    // May always merge new index if current is zero.
-    if (R1.isZero()) {
-      continue;
-    }
-
-    if (R1.getStride() != R2.getStride()) {
+    if (CurDimStride != NextDimStride) {
       return false;
     }
   }
 
-  return true;
+  // For multi-dim NextArr allow merging only into existing dimensions or create
+  // new outer dimensions.
+  return NextArr.getMinRank() == NextArr.getMaxRank() ||
+         NextArr.getMinRank() >= CurArr.getMinRank();
 }
 
 // Parses the \p GEPOp and updates chain state if GEPOp is compatible.
@@ -3728,6 +3770,10 @@ void HIRParser::populateRefDimensions(RegDDRef *Ref,
         std::unique_ptr<CanonExpr> LCE(
             parse(std::get<1>(PairV), Level, IsTop, OffsetTy));
 
+        if (LCE->hasIV()) {
+          LCE.reset(parseAsBlob(std::get<1>(PairV), Level, OffsetTy));
+        }
+
         if (IndexCE) {
           mergeIndexCE(IndexCE, ICE.get());
           mergeIndexCE(LowerCE, LCE.get());
@@ -3749,6 +3795,10 @@ void HIRParser::populateRefDimensions(RegDDRef *Ref,
       }
 
       CanonExpr *StrideCE = parse(Dim.getStride(), Level, true, OffsetTy);
+      if (StrideCE->hasIV()) {
+        getCanonExprUtils().destroy(StrideCE);
+        StrideCE = parseAsBlob(Dim.getStride(), Level, OffsetTy);
+      }
 
       ArrayRef<unsigned> StructOffsets;
       if (&Dim == &Arr.getLowestDim()) {

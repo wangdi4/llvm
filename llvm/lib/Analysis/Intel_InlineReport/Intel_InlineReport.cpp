@@ -155,12 +155,25 @@ static void printFunctionLinkage(unsigned Level, InlineReportFunction *IRF) {
 }
 
 ///
-/// \brief Print the callee name, and if non-zero, the line and column
-/// number of the call site
+/// \brief Print the source language for a function 'F' as a single letter,
+/// if the 'Level' specifies InlineReportOptions::Language.
+/// For an explanation of the meaning of these letters,
+/// see Intel_InlineReport.h.
+///
+static void printFunctionLanguage(unsigned Level, InlineReportFunction *IRF) {
+  if (!(Level & InlineReportOptions::Language))
+    return;
+  llvm::errs() << IRF->getLanguageChar() << " ";
+}
+
+///
+/// \brief Print optionally the callee linkage and language, and then the
+/// callee name, and if non-zero, the line and column number of the call site
 ///
 void InlineReportCallSite::printCalleeNameModuleLineCol(unsigned Level) {
   if (getIRCallee() != nullptr) {
     printFunctionLinkage(Level, getIRCallee());
+    printFunctionLanguage(Level, getIRCallee());
     llvm::errs() << getIRCallee()->getName();
   }
   if (Level & InlineReportOptions::File)
@@ -268,6 +281,7 @@ InlineReportFunction *InlineReport::addFunction(Function *F, Module *M) {
   IRF->setName(std::string(F->getName()));
   IRF->setIsDeclaration(F->isDeclaration());
   IRF->setLinkageChar(F);
+  IRF->setLanguageChar(F);
   addCallback(F);
   return IRF;
 }
@@ -473,6 +487,8 @@ void InlineReport::setReasonIsInlined(CallBase *Call,
     return;
   InlineReportCallSite *IRCS = MapIt->second;
   IRCS->setReason(IC.getInlineReason());
+  if (IC.isAlways())
+    return;
   IRCS->setInlineCost(IC.getCost());
   IRCS->setInlineThreshold(IC.getCost() + IC.getCostDelta());
 }
@@ -504,6 +520,8 @@ void InlineReport::setReasonNotInlined(CallBase *Call,
     return;
   InlineReportCallSite *IRCS = MapIt->second;
   IRCS->setReason(Reason);
+  if (IC.isNever())
+    return;
   IRCS->setInlineCost(IC.getCost());
   IRCS->setInlineThreshold(IC.getCost() + IC.getCostDelta());
   IRCS->setEarlyExitInlineCost(IC.getEarlyExitCost());
@@ -550,8 +568,10 @@ void InlineReportFunction::print(unsigned Level) const {
   printInlineReportCallSiteVector(CallSites, 1, Level);
 }
 
-void InlineReport::print(void) const {
+void InlineReport::print(bool IsAlwaysInline) const {
   if (!isClassicIREnabled())
+    return;
+  if (IsAlwaysInline && !(Level & InlineReportTypes::AlwaysInline))
     return;
   llvm::errs() << "---- Begin Inlining Report ----\n";
   printOptionValues();
@@ -562,6 +582,7 @@ void InlineReport::print(void) const {
       continue;
     llvm::errs() << "DEAD STATIC FUNC: ";
     printFunctionLinkage(Level, IRF);
+    printFunctionLanguage(Level, IRF);
     llvm::errs() << IRF->getName() << "\n\n";
   }
 
@@ -572,11 +593,13 @@ void InlineReport::print(void) const {
     // as it may have changed.
     InlineReportFunction *IRF = Mit->second;
     IRF->setLinkageChar(F);
+    IRF->setLanguageChar(F);
     if (IRF->getSuppressPrint())
       continue;
     if (!IRF->getIsDeclaration()) {
       llvm::errs() << "COMPILE FUNC: ";
       printFunctionLinkage(Level, IRF);
+      printFunctionLanguage(Level, IRF);
       llvm::errs() << IRF->getName() << "\n";
       InlineReportFunction *IRF = Mit->second;
       IRF->print(Level);
@@ -703,6 +726,7 @@ void InlineReport::replaceFunctionWithFunction(Function *OldFunction,
   assert(count == 1);
   IRFunctionMap.insert(std::make_pair(NewFunction, IRF));
   IRF->setLinkageChar(NewFunction);
+  IRF->setLanguageChar(NewFunction);
   IRF->setName(std::string(NewFunction->getName()));
   addCallback(NewFunction);
 }

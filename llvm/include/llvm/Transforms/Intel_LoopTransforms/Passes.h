@@ -71,6 +71,10 @@ FunctionPass *createHIRGenerateMKLCallPass();
 /// Blocking.
 FunctionPass *createHIRLoopBlockingPass();
 
+/// createHIRPragmaLoopBlockingPass - This creates a pass that performs Loop
+/// Blocking for pragma directives.
+FunctionPass *createHIRPragmaLoopBlockingPass();
+
 /// createHIRLoopRematerializePass - This creates a pass that performs Loop
 /// Rematerialize.
 FunctionPass *createHIRLoopRematerializePass();
@@ -195,6 +199,15 @@ FunctionPass *createHIRStoreResultIntoTempArrayPass();
 
 /// Create pass that performs sum window reuse.
 FunctionPass *createHIRSumWindowReusePass();
+
+/// Create pass that implements non-zero sinking for perfect loopnest.
+FunctionPass *createHIRNonZeroSinkingForPerfectLoopnestPass();
+
+/// Create pass that substitutes identity matrix.
+FunctionPass *createHIRIdentityMatrixSubstitutionPass();
+
+/// Create pass that marks stores as nontemporal where appropriate.
+FunctionPass *createHIRNontemporalMarkingPass();
 } // namespace llvm
 
 #endif

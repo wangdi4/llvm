@@ -14,6 +14,7 @@
 #ifndef LLVM_TRANSFORMS_SCALAR_H
 #define LLVM_TRANSFORMS_SCALAR_H
 
+#include "llvm/Transforms/Utils/SimplifyCFGOptions.h"
 #include <functional>
 
 namespace llvm {
@@ -319,6 +320,10 @@ FunctionPass *createLoopOptMarkerLegacyPass();
 // new Phi Node if their latch values have the same binary operation.
 FunctionPass *createLoopCarriedCSEPass();
 
+// NontemporalStore - Convert unaligned nontemporal stores to aligned stores by
+// use of a buffer.
+FunctionPass *createNontemporalStoreWrapperPass();
+
 #endif // INTEL_CUSTOMIZATION
 
 #if INTEL_COLLAB
@@ -333,8 +338,7 @@ ModulePass *createVPOParoptTpvPass();
 // simplify terminator instructions, convert switches to lookup tables, etc.
 //
 FunctionPass *createCFGSimplificationPass(
-    unsigned Threshold = 1, bool ForwardSwitchCond = false,
-    bool ConvertSwitch = false, bool KeepLoops = true, bool SinkCommon = false,
+    SimplifyCFGOptions Options = SimplifyCFGOptions(),
     std::function<bool(const Function &)> Ftor = nullptr);
 
 //===----------------------------------------------------------------------===//
@@ -447,6 +451,13 @@ Pass *createLowerGuardIntrinsicPass();
 // LowerMatrixIntrinsics - Lower matrix intrinsics to vector operations.
 //
 Pass *createLowerMatrixIntrinsicsPass();
+
+//===----------------------------------------------------------------------===//
+//
+// LowerMatrixIntrinsicsMinimal - Lower matrix intrinsics to vector operations
+//                               (lightweight, does not require extra analysis)
+//
+Pass *createLowerMatrixIntrinsicsMinimalPass();
 
 //===----------------------------------------------------------------------===//
 //
@@ -624,6 +635,13 @@ Pass *createWarnMissedTransformationsPass();
 //
 FunctionPass *createIVSplitLegacyPass();
 #endif // INTEL_CUSTOMIZATION
+
+//===----------------------------------------------------------------------===//
+//
+// This pass does instruction simplification on each
+// instruction in a function.
+//
+FunctionPass *createInstSimplifyLegacyPass();
 } // End llvm namespace
 
 #endif

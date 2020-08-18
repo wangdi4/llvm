@@ -54,11 +54,6 @@ static cl::opt<bool> VPlanPrintAfterLoopMassaging(
     cl::desc("Print plain dump after loop massaging"));
 
 static cl::opt<bool>
-    VPlanPrintSimplifyCFG("vplan-print-after-simplify-cfg", cl::init(false),
-                          cl::desc("Print plain dump after VPlan simplify "
-                                   "plain CFG"));
-
-static cl::opt<bool>
     VPlanPrintHCFG("vplan-print-after-hcfg", cl::init(false),
                    cl::desc("Print plain dump after build VPlan H-CFG."));
 
@@ -78,7 +73,6 @@ static cl::opt<bool> DumpAfterVPEntityInstructions(
     "vplan-print-after-vpentity-instrs", cl::init(false), cl::Hidden,
     cl::desc("Print VPlan after insertion of VPEntity instructions."));
 #else
-static constexpr bool VPlanPrintSimplifyCFG = false;
 static constexpr bool VPlanPrintHCFG = false;
 static constexpr bool VPlanPrintPlainCFG = false;
 static constexpr bool VPlanDotPlainCFG = false;
@@ -105,87 +99,6 @@ VPlanHCFGBuilder::VPlanHCFGBuilder(Loop *Lp, LoopInfo *LI, const DataLayout &DL,
 
 VPlanHCFGBuilder::~VPlanHCFGBuilder() = default;
 
-// Split loops' preheader block that are not in canonical form
-void VPlanHCFGBuilder::splitLoopsPreheader(VPLoop *VPL) {
-
-  // TODO: So far, I haven't found a test case that hits one of these asserts.
-  // The code commented out below should cover the second one.
-
-  VPLoopInfo *VPLInfo = Plan->getVPLoopInfo();
-
-  // Temporal assert to detect loop header with more than one loop external
-  // predecessor
-  unsigned NumExternalPreds = 0;
-  for (const VPBasicBlock *Pred : VPL->getHeader()->getPredecessors()) {
-    if (!VPL->contains(Pred))
-      ++NumExternalPreds;
-  }
-  assert((NumExternalPreds == 1) &&
-         "Loop header's external predecessor is not 1");
-
-  // Temporal assert to detect loop preheader with multiple successors
-  assert((VPL->getLoopPreheader()->getNumSuccessors() == 1) &&
-         "Loop preheader with multiple successors are not supported");
-
-  // If PH has multiple successors, create new PH such that PH->NewPH->H
-  // if (VPL->getLoopPreheader()->getNumSuccessors() > 1) {
-
-  //  VPBasicBlock *OldPreheader = VPL->getLoopPreheader();
-  //  VPBasicBlock *Header = VPL->getHeader();
-  //  assert((DomTree.getNode(Header)->getIDom()->getBlock() == OldPreheader) &&
-  //         "Header IDom is not Preheader");
-
-  //  // Create new preheader
-  //  VPBasicBlock *NewPreheader = PlanUtils.createBasicBlock();
-  //  PlanUtils.insertBlockAfter(NewPreheader, OldPreheader);
-
-  //  // Add new preheader to VPLoopInfo
-  //  if (VPLoop *PHLoop = VPLInfo->getLoopFor(OldPreheader)) {
-  //    PHLoop->addBasicBlockToLoop(NewPreheader, *VPLInfo);
-  //  }
-
-  //  // Update dom/postdom information
-
-  //  // Old preheader is idom of new preheader
-  //  VPDomTreeNode *NewPHDomNode =
-  //      DomTree.addNewBlock(NewPreheader, OldPreheader /*IDom*/);
-
-  //  // New preheader is idom of header
-  //  VPDomTreeNode *DTHeader = DomTree.getNode(Header);
-  //  assert(DTHeader && "Expected DomTreeNode for loop header");
-  //  DomTree.changeImmediateDominator(DTHeader, NewPHDomNode);
-
-  //  // Header is ipostdom of new preheader
-  //  //VPDomTreeNode *NewPHPostDomNode =
-  //  PostDomTree.addNewBlock(NewPreheader, Header /*IDom*/);
-
-  //  // New preheader is not ipostdom of any block
-  //
-  //  // This is not true: New preheader is ipostdom of old preheader
-  //  //VPDomTreeNode *PDTPreheader = PostDomTree.getNode(OldPreheader);
-  //  //assert(PDTPreheader && "Expected DomTreeNode for loop preheader");
-  //  //PostDomTree.changeImmediateDominator(PDTPreheader, NewPHPostDomNode);
-  //}
-
-  VPBasicBlock *PH = VPL->getLoopPreheader();
-  assert(PH && "Expected loop preheader");
-  assert((PH->getNumSuccessors() == 1) &&
-         "Expected preheader with single successor");
-
-  // Split loop PH if:
-  //    - there is no WRLp (auto-vectorization). We need an empty loop PH.
-  //    - has multiple predecessors (it's a potential exit of another region).
-  //    - is loop H of another loop.
-  if (!WRLp || !PH->getSinglePredecessor() || VPLInfo->isLoopHeader(PH)) {
-    VPBlockUtils::splitBlockEnd(PH, VPLInfo, Plan->getDT(), Plan->getPDT());
-  }
-
-  // Apply simplification to subloops
-  for (auto VPSL : VPL->getSubLoops()) {
-    splitLoopsPreheader(VPSL);
-  }
-}
-
 #if INTEL_CUSTOMIZATION
 // Return the nearest common post dominator of all the VPBasicBlocks in \p
 // InputVPBlocks.
@@ -207,51 +120,15 @@ static VPBasicBlock *getNearestCommonPostDom(
 }
 #endif // INTEL_CUSTOMIZATION
 
-// Split loops' exit block that are not in canonical form
-void VPlanHCFGBuilder::splitLoopsExit(VPLoop *VPL) {
-
-  VPLoopInfo *VPLInfo = Plan->getVPLoopInfo();
-
-#if INTEL_CUSTOMIZATION
-  SmallVector<VPBasicBlock *, 4> LoopExits;
-  VPL->getUniqueExitBlocks(LoopExits);
-  // If loop has single exit, the actual block to be potentially split is the
-  // single exit. If loop has multiple exits, the actual block to be potentially
-  // split is the common landing pad (nearest post dom) of all the exits.
-  // TODO: If the CFG after the loop exits gets more complicated, we can get
-  // the common post-dom block of all the exits.
-  VPBasicBlock *Exit = getNearestCommonPostDom(*Plan->getPDT(), LoopExits);
-#else
-  VPBasicBlock *Exit = VPL->getUniqueExitBlock();
-  assert(Exit && "Only single-exit loops expected");
-#endif // INTEL_CUSTOMIZATION
-
-  // Split loop exit with multiple successors or that is preheader of another
-  // loop
-  VPBasicBlock *PotentialH = Exit->getSingleSuccessor();
-  if (!PotentialH ||
-      (VPLInfo->isLoopHeader(PotentialH) &&
-       VPLInfo->getLoopFor(PotentialH)->getLoopPreheader() == Exit))
-    VPBlockUtils::splitBlockEnd(Exit, VPLInfo, Plan->getDT(), Plan->getPDT());
-
-  // Apply simplification to subloops
-  for (auto VPSL : VPL->getSubLoops()) {
-    splitLoopsExit(VPSL);
-  }
-}
-
-// Main function that canonicalizes the plain CFG and applyies transformations
-// that enable the detection of more regions during the hierarchical CFG
-// construction.
-void VPlanHCFGBuilder::simplifyPlainCFG() {
+// Main function that canonicalizes the plain CFG and applyies loop massaging
+// transformations like mergeLoopExits transform.
+void VPlanHCFGBuilder::doLoopMassaging() {
   VPLoopInfo *VPLInfo = Plan->getVPLoopInfo();
 
   assert((VPLInfo->size() == 1) && "Expected only 1 top-level loop");
   VPLoop *TopLoop = *VPLInfo->begin();
   auto &VPDomTree = *Plan->getDT();
   (void)VPDomTree;
-
-  splitLoopsPreheader(TopLoop);
 
   LLVM_DEBUG(dbgs() << "Dominator Tree Before mergeLoopExits\n";
              VPDomTree.print(dbgs()));
@@ -274,8 +151,6 @@ void VPlanHCFGBuilder::simplifyPlainCFG() {
     LLVM_DEBUG(dbgs() << "Dominator Tree After mergeLoopExits\n";
                VPDomTree.print(dbgs()));
   }
-
-  splitLoopsExit(TopLoop);
 }
 
 static TripCountInfo readIRLoopMetadata(Loop *Lp) {
@@ -384,19 +259,15 @@ void VPlanHCFGBuilder::buildHierarchicalCFG() {
 
   emitVecSpecifics();
 
-  // Prepare/simplify CFG for hierarchical CFG construction
-  simplifyPlainCFG();
+  doLoopMassaging();
 
-  VPLAN_DUMP(VPlanPrintSimplifyCFG, "simplify plain CFG", Plan);
-  VPLAN_DOT(VPlanDotPlainCFG, Plan);
-
-  LLVM_DEBUG(Plan->setName("HCFGBuilder: After simplifyPlainCFG\n");
+  LLVM_DEBUG(Plan->setName("HCFGBuilder: After loop massaging\n");
              dbgs() << *Plan);
-  LLVM_DEBUG(dbgs() << "Dominator Tree After simplifyPlainCFG\n";
+  LLVM_DEBUG(dbgs() << "Dominator Tree After loop massaging\n";
              VPDomTree.print(dbgs()));
-  LLVM_DEBUG(dbgs() << "PostDominator Tree After simplifyPlainCFG:\n";
+  LLVM_DEBUG(dbgs() << "PostDominator Tree After loop massaging:\n";
              Plan->getPDT()->print(dbgs()));
-  LLVM_DEBUG(dbgs() << "VPLoop Info After simplifyPlainCFG:\n";
+  LLVM_DEBUG(dbgs() << "VPLoop Info After loop massaging:\n";
              VPLInfo->print(dbgs()));
 
 #if INTEL_CUSTOMIZATION
@@ -556,16 +427,16 @@ public:
       Descriptor.setStep(nullptr);
     }
     if (ID.getInductionBinOp()) {
-      Descriptor.setInductionBinOp(dyn_cast<VPInstruction>(
+      Descriptor.setInductionOp(dyn_cast<VPInstruction>(
           Builder.getOrCreateVPOperand(ID.getInductionBinOp())));
-      Descriptor.setBinOpcode(Instruction::BinaryOpsEnd);
+      Descriptor.setIndOpcode(Instruction::BinaryOpsEnd);
     } else {
       assert(Descriptor.getStartPhi() &&
              "Induction descriptor does not have starting PHI.");
       Type *IndTy = Descriptor.getStartPhi()->getType();
       assert((IndTy->isIntegerTy() || IndTy->isPointerTy()) &&
              "unexpected induction type");
-      Descriptor.setInductionBinOp(nullptr);
+      Descriptor.setInductionOp(nullptr);
       Descriptor.setKindAndOpcodeFromTy(IndTy);
     }
     Descriptor.setAllocaInst(nullptr);
@@ -599,7 +470,7 @@ public:
     Value *Cstep = ConstantInt::get(StepTy, CurValue.second);
     Descriptor.setStep(Builder.getOrCreateVPOperand(Cstep));
 
-    Descriptor.setInductionBinOp(nullptr);
+    Descriptor.setInductionOp(nullptr);
     assertIsSingleElementAlloca(CurValue.first);
     // Initialize the AllocaInst of the descriptor with the induction start
     // value. Explicit inductions always have a valid memory allocation.

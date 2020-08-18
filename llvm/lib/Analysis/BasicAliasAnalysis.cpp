@@ -64,16 +64,16 @@
 using namespace llvm;
 
 /// Enable analysis of recursive PHI nodes.
-static cl::opt<bool> EnableRecPhiAnalysis("basicaa-recphi", cl::Hidden,
-                                          cl::init(false));
+static cl::opt<bool> EnableRecPhiAnalysis("basic-aa-recphi", cl::Hidden,
+                                          cl::init(true));
 
 /// By default, even on 32-bit architectures we use 64-bit integers for
 /// calculations. This will allow us to more-aggressively decompose indexing
 /// expressions calculated using i64 values (e.g., long long in C) which is
 /// common enough to worry about.
-static cl::opt<bool> ForceAtLeast64Bits("basicaa-force-at-least-64b",
+static cl::opt<bool> ForceAtLeast64Bits("basic-aa-force-at-least-64b",
                                         cl::Hidden, cl::init(true));
-static cl::opt<bool> DoubleCalcBits("basicaa-double-calc-bits",
+static cl::opt<bool> DoubleCalcBits("basic-aa-double-calc-bits",
                                     cl::Hidden, cl::init(false));
 
 #if INTEL_CUSTOMIZATION
@@ -97,7 +97,7 @@ STATISTIC(SearchTimes, "Number of times a GEP is decomposed");
 const unsigned MaxNumPhiBBsValueReachabilityCheck = 20;
 
 // The max limit of the search depth in DecomposeGEPExpression() and
-// GetUnderlyingObject(), both functions need to use the same search
+// getUnderlyingObject(), both functions need to use the same search
 // depth otherwise the algorithm in aliasGEP will assert.
 static const unsigned MaxLookupSearchDepth = 6;
 
@@ -243,7 +243,7 @@ static bool isNonEscapingPtrNoAliasLoad(const Value *V, const DataLayout &DL,
   }
 
   auto *V1 = LI->getPointerOperand()->stripPointerCastsAndInvariantGroups();
-  V1 = GetUnderlyingObject(V1, DL, MaxLookupSearchDepth);
+  V1 = getUnderlyingObject(V1, MaxLookupSearchDepth);
 
   auto *A = dyn_cast<Argument>(V1);
   if (!A) {
@@ -532,7 +532,7 @@ static bool isObjectSize(const Value *V, uint64_t Size, const DataLayout &DL,
 /// an issue, for example, in particular for 32b pointers with negative indices
 /// that rely on two's complement wrap-arounds for precise alias information
 /// where the maximum pointer size is 64b.
-static APInt adjustToPointerSize(APInt Offset, unsigned PointerSize) {
+static APInt adjustToPointerSize(const APInt &Offset, unsigned PointerSize) {
   assert(PointerSize <= Offset.getBitWidth() && "Invalid PointerSize!");
   unsigned ShiftBits = Offset.getBitWidth() - PointerSize;
   return (Offset << ShiftBits).ashr(ShiftBits);
@@ -548,7 +548,7 @@ static unsigned getMaxPointerSize(const DataLayout &DL) {
 
 #if INTEL_CUSTOMIZATION
 /// Matches DecomposedGEP for SubscriptInst, internals are exposed.
-/// Only single llvm.intel.subscript processed to match GetUnderlyingObject
+/// Only single llvm.intel.subscript processed to match getUnderlyingObject
 /// MaxLookupSearchDepth in DecomposeGEPExpression.
 void BasicAAResult::DecomposeSubscript(const SubscriptInst *Subs,
                                        DecomposedGEP &Decomposed,
@@ -630,8 +630,8 @@ void BasicAAResult::DecomposeSubscript(const SubscriptInst *Subs,
 /// such, the gep cannot necessarily be reconstructed from its decomposed form.
 ///
 /// When DataLayout is around, this function is capable of analyzing everything
-/// that GetUnderlyingObject can look through. To be able to do that
-/// GetUnderlyingObject and DecomposeGEPExpression must use the same search
+/// that getUnderlyingObject can look through. To be able to do that
+/// getUnderlyingObject and DecomposeGEPExpression must use the same search
 /// depth (MaxLookupSearchDepth). When DataLayout not is around, it just looks
 /// through pointer casts.
 bool BasicAAResult::DecomposeGEPExpression(const Value *V,
@@ -689,7 +689,7 @@ bool BasicAAResult::DecomposeGEPExpression(const Value *V,
       }
 
 #if INTEL_CUSTOMIZATION
-      // Matches GetUnderlyingObject
+      // Matches getUnderlyingObject
       if (auto *Subs = dyn_cast<SubscriptInst>(V)) {
         const Value *Stride = Subs->getStride();
         const ConstantInt *CStride = dyn_cast<ConstantInt>(Stride);
@@ -857,7 +857,7 @@ bool BasicAAResult::pointsToConstantMemory(const MemoryLocation &Loc,
   SmallVector<const Value *, 16> Worklist;
   Worklist.push_back(Loc.Ptr);
   do {
-    const Value *V = GetUnderlyingObject(Worklist.pop_back_val(), DL);
+    const Value *V = getUnderlyingObject(Worklist.pop_back_val());
     if (!Visited.insert(V).second) {
       Visited.clear();
       return AAResultBase::pointsToConstantMemory(Loc, AAQI, OrLocal);
@@ -1071,7 +1071,7 @@ ModRefInfo BasicAAResult::getModRefInfo(const CallBase *Call,
   assert(notDifferentParent(Call, Loc.Ptr) &&
          "AliasAnalysis query involving multiple functions!");
 
-  const Value *Object = GetUnderlyingObject(Loc.Ptr, DL);
+  const Value *Object = getUnderlyingObject(Loc.Ptr);
 
   // Calls marked 'tail' cannot read or write allocas from the current frame
   // because the current frame might be destroyed by the time they run. However,
@@ -1513,7 +1513,7 @@ bool BasicAAResult::isGEPBaseAtNegativeOffset(const AddressOperator *GEPOp, // I
 /// another pointer.
 ///
 /// We know that V1 is a GEP, but we don't know anything about V2.
-/// UnderlyingV1 is GetUnderlyingObject(GEP1, DL), UnderlyingV2 is the same for
+/// UnderlyingV1 is getUnderlyingObject(GEP1), UnderlyingV2 is the same for
 /// V2.
 AliasResult BasicAAResult::aliasGEP(const AddressOperator *GEP1, // INTEL
                                     LocationSize V1Size,         // INTEL
@@ -1546,7 +1546,7 @@ AliasResult BasicAAResult::aliasGEP(const AddressOperator *GEP1, // INTEL
          (DecompGEP2.Base == UnderlyingV2 ||       // INTEL
           isa<SubscriptInst>(DecompGEP2.Base)) &&  // INTEL
          "DecomposeGEPExpression returned a result different from "
-         "GetUnderlyingObject");
+         "getUnderlyingObject");
 
   // If the GEP's offset relative to its base is such that the base would
   // fall below the start of the object underlying V2, then the GEP and V2
@@ -1861,6 +1861,11 @@ AliasResult BasicAAResult::aliasPHI(const PHINode *PN, LocationSize PNSize,
   // If the values are PHIs in the same block, we can do a more precise
   // as well as efficient check: just check for aliases between the values
   // on corresponding edges.
+  // INTEL: This logic is disabled for loopCarriedAlias. In particular, it can
+  // INTEL: reason that loop header PHIs with NoAlias header inputs and NoAlias
+  // INTEL: latch inputs NoAlias; this is unsafe because it only holds for any
+  // INTEL: single execution point; between iterations there may be aliasing.
+  if (!AAQI.NeedLoopCarried) // INTEL
   if (const PHINode *PN2 = dyn_cast<PHINode>(V2))
     if (PN2->getParent() == PN->getParent()) {
       AAQueryInfo::LocPair Locs(MemoryLocation(PN, PNSize, PNAAInfo),
@@ -1906,8 +1911,32 @@ AliasResult BasicAAResult::aliasPHI(const PHINode *PN, LocationSize PNSize,
     }
 
   SmallVector<Value *, 4> V1Srcs;
+  // For a recursive phi, that recurses through a contant gep, we can perform
+  // aliasing calculations using the other phi operands with an unknown size to
+  // specify that an unknown number of elements after the initial value are
+  // potentially accessed.
   bool isRecursive = false;
-  if (PV)  {
+  auto CheckForRecPhi = [&](Value *PV) {
+    if (!EnableRecPhiAnalysis)
+      return false;
+    if (GEPOperator *PVGEP = dyn_cast<GEPOperator>(PV)) {
+      // Check whether the incoming value is a GEP that advances the pointer
+      // result of this PHI node (e.g. in a loop). If this is the case, we
+      // would recurse and always get a MayAlias. Handle this case specially
+      // below. We need to ensure that the phi is inbounds and has a constant
+      // positive operand so that we can check for alias with the initial value
+      // and an unknown but positive size.
+      if (PVGEP->getPointerOperand() == PN && PVGEP->isInBounds() &&
+          PVGEP->getNumIndices() == 1 && isa<ConstantInt>(PVGEP->idx_begin()) &&
+          !cast<ConstantInt>(PVGEP->idx_begin())->isNegative()) {
+        isRecursive = true;
+        return true;
+      }
+    }
+    return false;
+  };
+
+  if (PV) {
     // If we have PhiValues then use it to get the underlying phi values.
     const PhiValues::ValueSet &PhiValueSet = PV->getValuesForPhi(PN);
     // If we have more phi values than the search depth then return MayAlias
@@ -1918,18 +1947,8 @@ AliasResult BasicAAResult::aliasPHI(const PHINode *PN, LocationSize PNSize,
       return MayAlias;
     // Add the values to V1Srcs
     for (Value *PV1 : PhiValueSet) {
-      if (EnableRecPhiAnalysis) {
-        if (GEPOperator *PV1GEP = dyn_cast<GEPOperator>(PV1)) {
-          // Check whether the incoming value is a GEP that advances the pointer
-          // result of this PHI node (e.g. in a loop). If this is the case, we
-          // would recurse and always get a MayAlias. Handle this case specially
-          // below.
-          if (PV1GEP->getPointerOperand() == PN && PV1GEP->getNumIndices() == 1 &&
-              isa<ConstantInt>(PV1GEP->idx_begin())) {
-            isRecursive = true;
-            continue;
-          }
-        }
+      if (CheckForRecPhi(PV1))
+        continue;
 #if INTEL_CUSTOMIZATION
         // FIXME: limited support of recursive updates. phi-loop.ll
         if (auto *PV1Subs = dyn_cast<SubscriptInst>(PV1)) {
@@ -1946,7 +1965,6 @@ AliasResult BasicAAResult::aliasPHI(const PHINode *PN, LocationSize PNSize,
           }
         }
 #endif // INTEL_CUSTOMIZATION
-      }
       V1Srcs.push_back(PV1);
     }
   } else {
@@ -1961,18 +1979,8 @@ AliasResult BasicAAResult::aliasPHI(const PHINode *PN, LocationSize PNSize,
         // and 'n' are the number of PHI sources.
         return MayAlias;
 
-      if (EnableRecPhiAnalysis)
-        if (GEPOperator *PV1GEP = dyn_cast<GEPOperator>(PV1)) {
-          // Check whether the incoming value is a GEP that advances the pointer
-          // result of this PHI node (e.g. in a loop). If this is the case, we
-          // would recurse and always get a MayAlias. Handle this case specially
-          // below.
-          if (PV1GEP->getPointerOperand() == PN && PV1GEP->getNumIndices() == 1 &&
-              isa<ConstantInt>(PV1GEP->idx_begin())) {
-            isRecursive = true;
-            continue;
-          }
-        }
+      if (CheckForRecPhi(PV1))
+        continue;
 #if INTEL_CUSTOMIZATION
       if (EnableRecPhiAnalysis) {
         // FIXME: limited support of recursive updates. phi-loop.ll
@@ -2015,6 +2023,10 @@ AliasResult BasicAAResult::aliasPHI(const PHINode *PN, LocationSize PNSize,
   // Early exit if the check of the first PHI source against V2 is MayAlias.
   // Other results are not possible.
   if (Alias == MayAlias)
+    return MayAlias;
+  // With recursive phis we cannot guarantee that MustAlias/PartialAlias will
+  // remain valid to all elements and needs to conservatively return MayAlias.
+  if (isRecursive && Alias != NoAlias)
     return MayAlias;
 
   // If all sources of the PHI node NoAlias or MustAlias V2, then returns
@@ -2109,7 +2121,7 @@ static const Value* getArgumentBasePtr(const Value* U, const DataLayout &DL) {
 
   Worklist.push_back(U);
   do {
-    const Value *V = GetUnderlyingObject(Worklist.pop_back_val(), DL);
+    const Value *V = getUnderlyingObject(Worklist.pop_back_val());
     if (!Visited.insert(V).second)
       continue;
 
@@ -2180,10 +2192,10 @@ AliasResult BasicAAResult::aliasCheck(const Value *V1, LocationSize V1Size,
 
   // Figure out what objects these things are pointing to if we can.
   if (O1 == nullptr)
-    O1 = GetUnderlyingObject(V1, DL, MaxLookupSearchDepth);
+    O1 = getUnderlyingObject(V1, MaxLookupSearchDepth);
 
   if (O2 == nullptr)
-    O2 = GetUnderlyingObject(V2, DL, MaxLookupSearchDepth);
+    O2 = getUnderlyingObject(V2, MaxLookupSearchDepth);
 
   // Null values in the default address space don't point to any object, so they
   // don't alias any other pointer.
@@ -2362,6 +2374,21 @@ AliasResult BasicAAResult::aliasCheck(const Value *V1, LocationSize V1Size,
     }
   }
 
+#if INTEL_CUSTOMIZATION
+  if (AAQI.NeedLoopCarried) {
+    // For loopCarriedAlias we'll stop analysis here. Rather than return
+    // MayAlias, check if any other AA has a better response. Recurse back into
+    // the best AA results we have, potentially with refined memory locations.
+    // We have already ensured that BasicAA has a MayAlias cache result for
+    // these, so any recursion back into BasicAA won't loop.
+    AliasResult Result =
+        getBestAAResults().loopCarriedAlias(Locs.first, Locs.second, AAQI);
+    Pair = AAQI.AliasCache.try_emplace(Locs, Result);
+    assert(!Pair.second && "Entry must have existed");
+    return Pair.first->second = Result;
+  }
+#endif // INTEL_CUSTOMIZATION
+
   if (isa<SelectInst>(V2) && !isa<SelectInst>(V1)) {
     std::swap(V1, V2);
     std::swap(O1, O2);
@@ -2397,6 +2424,19 @@ AliasResult BasicAAResult::aliasCheck(const Value *V1, LocationSize V1Size,
   assert(!Pair.second && "Entry must have existed");
   return Pair.first->second = Result;
 }
+
+#if INTEL_CUSTOMIZATION
+AliasResult BasicAAResult::loopCarriedAlias(const MemoryLocation &LocA,
+                                            const MemoryLocation &LocB,
+                                            AAQueryInfo &AAQI) {
+  assert(AAQI.NeedLoopCarried && "Unexpectedly missing dynamic query flag");
+  AliasResult Alias = aliasCheck(LocA.Ptr, LocA.Size, LocA.AATags, LocB.Ptr,
+                                 LocB.Size, LocB.AATags, AAQI);
+
+  VisitedPhiBBs.clear();
+  return Alias;
+}
+#endif // INTEL_CUSTOMIZATION
 
 /// Check whether two Values can be considered equivalent.
 ///
@@ -2472,7 +2512,7 @@ void BasicAAResult::GetIndexDifference(
 
 bool BasicAAResult::constantOffsetHeuristic(
     const SmallVectorImpl<VariableGEPIndex> &VarIndices,
-    LocationSize MaybeV1Size, LocationSize MaybeV2Size, APInt BaseOffset,
+    LocationSize MaybeV1Size, LocationSize MaybeV2Size, const APInt &BaseOffset,
     AssumptionCache *AC, DominatorTree *DT) {
   if (VarIndices.size() != 2 || MaybeV1Size == LocationSize::unknown() ||
       MaybeV2Size == LocationSize::unknown())
@@ -2554,14 +2594,14 @@ char BasicAAWrapperPass::ID = 0;
 
 void BasicAAWrapperPass::anchor() {}
 
-INITIALIZE_PASS_BEGIN(BasicAAWrapperPass, "basicaa",
+INITIALIZE_PASS_BEGIN(BasicAAWrapperPass, "basic-aa",
                       "Basic Alias Analysis (stateless AA impl)", true, true)
 INITIALIZE_PASS_DEPENDENCY(AssumptionCacheTracker)
 INITIALIZE_PASS_DEPENDENCY(DominatorTreeWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(TargetLibraryInfoWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(PhiValuesWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(XmainOptLevelWrapperPass) // INTEL
-INITIALIZE_PASS_END(BasicAAWrapperPass, "basicaa",
+INITIALIZE_PASS_END(BasicAAWrapperPass, "basic-aa",
                     "Basic Alias Analysis (stateless AA impl)", true, true)
 
 FunctionPass *llvm::createBasicAAWrapperPass() {

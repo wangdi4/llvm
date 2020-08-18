@@ -53,8 +53,10 @@ public:
              VPOVectorizationLegality *LVL, VPlanVLSAnalysis *VLSA,
              const VPlan *Plan)
       : OrigLoop(OrigLoop), PSE(PSE), LI(LI), DT(DT), TLI(TLI), TTI(TTI),
-        Legal(LVL), VLSA(VLSA), Plan(Plan), VF(VecWidth), UF(UnrollFactor),
-        Builder(Context), PreferredPeeling(Plan->getPreferredPeeling(VF)) {}
+        Legal(LVL), VLSA(VLSA),
+        VPAA(*Plan->getVPSE(), *Plan->getVPVT(), VecWidth), Plan(Plan),
+        VF(VecWidth), UF(UnrollFactor), Builder(Context),
+        PreferredPeeling(Plan->getPreferredPeeling(VF)) {}
 
   ~VPOCodeGen() {}
 
@@ -122,7 +124,8 @@ public:
   void vectorizeCallArgs(VPCallInstruction *VPCall, VectorVariant *VecVariant,
                          Intrinsic::ID VectorIntrinID, unsigned PumpPart,
                          unsigned PumpFactor, SmallVectorImpl<Value *> &VecArgs,
-                         SmallVectorImpl<Type *> &VecArgTys);
+                         SmallVectorImpl<Type *> &VecArgTys,
+                         SmallVectorImpl<AttributeSet> &VecArgAttrs);
 
   // Return true if the argument at position /p Idx for function /p FnName is
   // scalar.
@@ -130,6 +133,16 @@ public:
 
   /// Set transform state
   void setTransformState(struct VPTransformState *SP) { State = SP; }
+
+  /// Add to WidenMap
+  void addToWidenMap(VPValue *Key, Value *Data) { VPWidenMap[Key] = Data; }
+
+  /// \Returns the widened value that corresponds to key or nullptr if not
+  /// found.
+  Value *getWidenedValue(VPValue *Key) {
+    auto It = VPWidenMap.find(Key);
+    return It != VPWidenMap.end() ? It->second : nullptr;
+  }
 
   VPlanVLSAnalysis *getVLS() { return VLSA; }
 
@@ -232,10 +245,11 @@ private:
   //
   void serializePredicatedUniformInstruction(VPInstruction *VPInst);
 
-  /// Specialized method for kernel-convergent and kernel-uniform call
-  /// Generates single call instruction predicated by a not all-zero check
-  /// of the current mask value.
-  void processPredicatedKernelConvergentUniformCall(VPInstruction *VPInst);
+  /// Specialized method to handle uniform calls that are not widened during CG,
+  /// for example kernel-convergent and kernel-uniform call and uniform call
+  /// with no side-effects. Generates single call instruction predicated by a
+  /// not all-zero check of the current mask value.
+  void processPredicatedNonWidenedUniformCall(VPInstruction *VPInst);
 
   /// Predicate conditional instructions that require predication on their
   /// respective conditions.
@@ -357,6 +371,9 @@ private:
 
   /// Variable-length stridedness analysis.
   VPlanVLSAnalysis *VLSA;
+
+  /// Alignment Analysis.
+  VPlanAlignmentAnalysis VPAA;
 
   /// VPlan for which vector code is generated, need to finalize external uses.
   const VPlan *Plan;
@@ -509,8 +526,10 @@ private:
   /// CallMaskValue defines the mask being applied to the current SVML call
   /// instruction that is processed.
   void addMaskToSVMLCall(Function *OrigF, Value *CallMaskValue,
+                         AttributeList OrigAttrs,
                          SmallVectorImpl<Value *> &VecArgs,
-                         SmallVectorImpl<Type *> &VecArgTys);
+                         SmallVectorImpl<Type *> &VecArgTys,
+                         SmallVectorImpl<AttributeSet> &VecArgAttrs);
 
   /// Generate instructions to extract two results of a sincos call, and store
   /// them to locations designated in the original call.

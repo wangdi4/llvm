@@ -1,4 +1,4 @@
-//===---- HIRLoopBlocking.h - Implements Loop Blocking class ----===//
+//===---- HIRLoopBlocking.h - Implements Loop Blocking Pass class ----===//
 //
 // Copyright (C) 2018-2020 Intel Corporation. All rights reserved.
 //
@@ -22,6 +22,12 @@ class HIRLoopBlockingPass : public PassInfoMixin<HIRLoopBlockingPass> {
 public:
   PreservedAnalyses run(Function &F, FunctionAnalysisManager &AM);
 };
+
+class HIRPragmaLoopBlockingPass : public PassInfoMixin<HIRPragmaLoopBlockingPass> {
+public:
+  PreservedAnalyses run(Function &F, FunctionAnalysisManager &AM);
+};
+
 
 } // namespace loopopt
 

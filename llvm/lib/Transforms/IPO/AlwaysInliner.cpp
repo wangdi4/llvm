@@ -100,7 +100,7 @@ PreservedAnalyses AlwaysInlinerPass::run(Module &M,
       M.getFunctionList().erase(F);
   }
 #if INTEL_CUSTOMIZATION
-  getReport().print();
+  getReport().print(/*IsAlwaysInline=*/true);
 #endif // INTEL_CUSTOMIZATION
 
   return Changed ? PreservedAnalyses::none() : PreservedAnalyses::all();
@@ -135,7 +135,7 @@ public:
   bool doFinalization(CallGraph &CG) override {
 #if INTEL_CUSTOMIZATION
     bool ReturnValue = removeDeadFunctions(CG, /*AlwaysInlineOnly=*/true);
-    getReport().print();
+    getReport().print(/*IsAlwaysInline=*/true);
     return ReturnValue;
 #endif // INTEL_CUSTOMIZATION
   }

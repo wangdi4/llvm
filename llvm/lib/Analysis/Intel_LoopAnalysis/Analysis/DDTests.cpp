@@ -97,6 +97,21 @@ static cl::opt<LoopCarriedDepMode> AssumeNoLoopCarriedDep(
             LoopCarriedDepMode::All, "2",
             "Assumes no loop carried dependencies exist for all loops")));
 
+enum class VaryingBaseMode { QueryAlias, AssumeAlias, QueryLoopCarriedAlias };
+
+static cl::opt<VaryingBaseMode> VaryingBaseHandling(
+    "hir-dd-test-varying-base-mode",
+    cl::init(VaryingBaseMode::QueryLoopCarriedAlias), cl::ReallyHidden,
+    cl::desc("Influence how we use AA when encountering pointers with varying "
+             "bases"),
+    cl::values(clEnumValN(VaryingBaseMode::QueryAlias, "query-alias",
+                          "Query the alias() interface, possibly incorrectly"),
+               clEnumValN(VaryingBaseMode::AssumeAlias, "assume-alias",
+                          "Conservatively assume MayAlias"),
+               clEnumValN(VaryingBaseMode::QueryLoopCarriedAlias,
+                          "query-loopcarried",
+                          "Query the loopCarriedAlias() interface")));
+
 #define DEBUG_TYPE "hir-dd-test"
 #define DEBUG_AA(X) DEBUG_WITH_TYPE("hir-dd-test-aa", X)
 
@@ -109,20 +124,16 @@ STATISTIC(ExactRDIVapplications, "Exact RDIV applications");
 STATISTIC(ExactRDIVindependence, "Exact RDIV independence");
 STATISTIC(SymbolicRDIVapplications, "Symbolic RDIV applications");
 STATISTIC(SymbolicRDIVindependence, "Symbolic RDIV independence");
-#if 0
 STATISTIC(DeltaApplications, "Delta applications");
 STATISTIC(DeltaSuccesses, "Delta successes");
-#endif
 STATISTIC(GCDapplications, "GCD applications");
 STATISTIC(GCDsuccesses, "GCD successes");
 STATISTIC(GCDindependence, "GCD independence");
 STATISTIC(BanerjeeApplications, "Banerjee applications");
 STATISTIC(BanerjeeIndependence, "Banerjee independence");
 STATISTIC(BanerjeeSuccesses, "Banerjee successes");
-#if 0
 STATISTIC(DeltaPropagations, "Delta propagations");
 STATISTIC(DeltaIndependence, "Delta independence");
-#endif
 STATISTIC(TotalArrayPairs, "Array pairs tested");
 STATISTIC(SeparableSubscriptPairs, "Separable subscript pairs");
 STATISTIC(CoupledSubscriptPairs, "Coupled subscript pairs");
@@ -426,28 +437,66 @@ const CanonExpr *DDTest::getNegativeDist(const CanonExpr *CE) {
   return getNegative(CE);
 }
 
-// Current support in Util: one of them must be a constant
-const CanonExpr *DDTest::getMulExpr(const CanonExpr *CE1,
-                                    const CanonExpr *CE2) {
+// Current support in Util: one of them must be a constant or invariant
+const CanonExpr *DDTest::getMulExpr(const CanonExpr *CE1, const CanonExpr *CE2,
+                                    bool HasBlob) {
   int64_t CVal = 0;
 
   if (!CE1 || !CE2) {
     return nullptr;
   }
 
+  // 1. One of canon exprs is a constant
   if (CE2->isIntConstant(&CVal)) {
     std::swap(CE1, CE2);
-  } else if (!CE1->isIntConstant(&CVal)) {
+  }
+  if (CE1->isIntConstant(&CVal)) {
+    CanonExpr *CE = CE2->clone();
+    push(CE);
+    if (!CE->multiplyByConstant(CVal)) {
+      return nullptr;
+    }
+    return CE;
+  }
+
+  if (!HasBlob)
+    return nullptr;
+
+  // 2. One of canon exprs is invariant
+  if (CE1->hasIV()) {
+    std::swap(CE1, CE2);
+  }
+  if (CE1->hasIV()) {
     return nullptr;
   }
 
-  CanonExpr *CE = CE2->clone();
-  push(CE);
-  if (!CE->multiplyByConstant(CVal)) {
+  // Allow only single blob in CE1
+  if (CE2->numBlobs() == 1)
+    std::swap(CE1, CE2);
+  if (CE1->numBlobs() != 1)
     return nullptr;
+
+  if (CE1->getSrcType() != CE2->getSrcType())
+    return nullptr;
+
+  CanonExpr *CEb = CE2->clone();
+  push(CEb);
+  unsigned Index = CE1->getSingleBlobIndex();
+  int64_t Coeff = CE1->getSingleBlobCoeff();
+  if (!CEb->multiplyByBlob(Index))
+    return nullptr;
+  if (!CEb->multiplyByConstant(Coeff))
+    return nullptr;
+  CanonExpr *CEc = CE2->clone();
+  push(CEc);
+  int64_t C = CE1->getConstant();
+  if (C) {
+    if (!CEc->multiplyByConstant(C))
+      return nullptr;
+    return getAdd(CEb, CEc);
   }
 
-  return CE;
+  return CEb;
 }
 
 const CanonExpr *DDTest::getConstantfromAPInt(Type *Ty, APInt Value) {
@@ -654,7 +703,6 @@ void DDTest::Constraint::dump(raw_ostream &OS) const {
 }
 #endif
 
-#if 0
 
 // Updates X with the intersection
 // of the Constraints X and Y. Returns true if X has changed.
@@ -663,10 +711,9 @@ void DDTest::Constraint::dump(raw_ostream &OS) const {
 //            Practical Dependence Testing
 //            Goff, Kennedy, Tseng
 //            PLDI 1991
-bool DependenceAnalysis::intersectConstraints(Constraint *X,
-                                              const Constraint *Y) {
+bool DDTest::intersectConstraints(Constraint *X, const Constraint *Y) {
   ++DeltaApplications;
-  LLVM_DEBUG(dbgs() << "\\nintersect constraints\n");
+  LLVM_DEBUG(dbgs() << "\nintersect constraints\n");
   LLVM_DEBUG(dbgs() << "\n    X ="; X->dump(dbgs()));
   LLVM_DEBUG(dbgs() << "\n    Y ="; Y->dump(dbgs()));
   assert(!Y->isPoint() && "Y must not be a Point");
@@ -694,7 +741,7 @@ bool DependenceAnalysis::intersectConstraints(Constraint *X,
     }
     // Hmmm, interesting situation.
     // I guess if either is constant, keep it and ignore the other.
-    if (isa<SCEVConstant>(Y->getD())) {
+    if (Y->getD()->isConstant()) {
       *X = *Y;
       return true;
     }
@@ -712,13 +759,13 @@ bool DependenceAnalysis::intersectConstraints(Constraint *X,
 
   if (X->isLine() && Y->isLine()) {
     LLVM_DEBUG(dbgs() << "\n    intersect 2 lines\n");
-    const SCEV *Prod1 = SE->getMulExpr(X->getA(), Y->getB());
-    const SCEV *Prod2 = SE->getMulExpr(X->getB(), Y->getA());
+    const CanonExpr *Prod1 = getMulExpr(X->getA(), Y->getB(), true);
+    const CanonExpr *Prod2 = getMulExpr(X->getB(), Y->getA(), true);
     if (isKnownPredicate(CmpInst::ICMP_EQ, Prod1, Prod2)) {
       // slopes are equal, so lines are parallel
       LLVM_DEBUG(dbgs() << "\t\tsame slope\n");
-      Prod1 = SE->getMulExpr(X->getC(), Y->getB());
-      Prod2 = SE->getMulExpr(X->getB(), Y->getC());
+      Prod1 = getMulExpr(X->getC(), Y->getB(), true);
+      Prod2 = getMulExpr(X->getB(), Y->getC(), true);
       if (isKnownPredicate(CmpInst::ICMP_EQ, Prod1, Prod2))
         return false;
       if (isKnownPredicate(CmpInst::ICMP_NE, Prod1, Prod2)) {
@@ -731,60 +778,56 @@ bool DependenceAnalysis::intersectConstraints(Constraint *X,
     if (isKnownPredicate(CmpInst::ICMP_NE, Prod1, Prod2)) {
       // slopes differ, so lines intersect
       LLVM_DEBUG(dbgs() << "\t\tdifferent slopes\n");
-      const SCEV *C1B2 = SE->getMulExpr(X->getC(), Y->getB());
-      const SCEV *C1A2 = SE->getMulExpr(X->getC(), Y->getA());
-      const SCEV *C2B1 = SE->getMulExpr(Y->getC(), X->getB());
-      const SCEV *C2A1 = SE->getMulExpr(Y->getC(), X->getA());
-      const SCEV *A1B2 = SE->getMulExpr(X->getA(), Y->getB());
-      const SCEV *A2B1 = SE->getMulExpr(Y->getA(), X->getB());
-      const SCEVConstant *C1A2_C2A1 =
-        dyn_cast<SCEVConstant>(SE->getMinusSCEV(C1A2, C2A1));
-      const SCEVConstant *C1B2_C2B1 =
-        dyn_cast<SCEVConstant>(SE->getMinusSCEV(C1B2, C2B1));
-      const SCEVConstant *A1B2_A2B1 =
-        dyn_cast<SCEVConstant>(SE->getMinusSCEV(A1B2, A2B1));
-      const SCEVConstant *A2B1_A1B2 =
-        dyn_cast<SCEVConstant>(SE->getMinusSCEV(A2B1, A1B2));
-      if (!C1B2_C2B1 || !C1A2_C2A1 ||
-          !A1B2_A2B1 || !A2B1_A1B2)
+      const CanonExpr *C1B2 = getMulExpr(X->getC(), Y->getB(), true);
+      const CanonExpr *C1A2 = getMulExpr(X->getC(), Y->getA(), true);
+      const CanonExpr *C2B1 = getMulExpr(Y->getC(), X->getB(), true);
+      const CanonExpr *C2A1 = getMulExpr(Y->getC(), X->getA(), true);
+      const CanonExpr *A1B2 = getMulExpr(X->getA(), Y->getB(), true);
+      const CanonExpr *A2B1 = getMulExpr(Y->getA(), X->getB(), true);
+      int64_t Xtop, Xbot, Ytop, Ybot;
+      const CanonExpr *C1A2_C2A1 = getMinus(C1A2, C2A1);
+      const CanonExpr *C1B2_C2B1 = getMinus(C1B2, C2B1);
+      const CanonExpr *A1B2_A2B1 = getMinus(A1B2, A2B1);
+      const CanonExpr *A2B1_A1B2 = getMinus(A2B1, A1B2);
+      if (!C1B2_C2B1->isIntConstant(&Xtop) ||
+          !A1B2_A2B1->isIntConstant(&Xbot) ||
+          !C1A2_C2A1->isIntConstant(&Ytop) ||
+          !A2B1_A1B2->isIntConstant(&Ybot))
         return false;
-      APInt Xtop = C1B2_C2B1->getValue()->getValue();
-      APInt Xbot = A1B2_A2B1->getValue()->getValue();
-      APInt Ytop = C1A2_C2A1->getValue()->getValue();
-      APInt Ybot = A2B1_A1B2->getValue()->getValue();
+      if (!Xbot || !Ybot)
+        return false;
       LLVM_DEBUG(dbgs() << "\t\tXtop = " << Xtop << "\n");
       LLVM_DEBUG(dbgs() << "\t\tXbot = " << Xbot << "\n");
       LLVM_DEBUG(dbgs() << "\t\tYtop = " << Ytop << "\n");
       LLVM_DEBUG(dbgs() << "\t\tYbot = " << Ybot << "\n");
-      APInt Xq = Xtop; // these need to be initialized, even
-      APInt Xr = Xtop; // though they're just going to be overwritten
-      APInt::sdivrem(Xtop, Xbot, Xq, Xr);
-      APInt Yq = Ytop;
-      APInt Yr = Ytop;
-      APInt::sdivrem(Ytop, Ybot, Yq, Yr);
+      int64_t Xq = Xtop / Xbot;
+      int64_t Xr = Xtop % Xbot;
+      int64_t Yq = Ytop / Ybot;
+      int64_t Yr = Ytop % Ybot;
       if (Xr != 0 || Yr != 0) {
         X->setEmpty();
         ++DeltaSuccesses;
         return true;
       }
       LLVM_DEBUG(dbgs() << "\t\tX = " << Xq << ", Y = " << Yq << "\n");
-      if (Xq.slt(0) || Yq.slt(0)) {
+      if (Xq < 0 || Yq < 0) {
         X->setEmpty();
         ++DeltaSuccesses;
         return true;
       }
-      if (const SCEVConstant *CUB =
-          collectConstantUpperBound(X->getAssociatedLoop(), Prod1->getType())) {
-        APInt UpperBound = CUB->getValue()->getValue();
+      const CanonExpr *CUB =
+          collectUpperBound(X->getAssociatedLoop(), Prod1->getSrcType());
+      int64_t UpperBound;
+      if (CUB && CUB->isIntConstant(&UpperBound)) {
         LLVM_DEBUG(dbgs() << "\t\tupper bound = " << UpperBound << "\n");
-        if (Xq.sgt(UpperBound) || Yq.sgt(UpperBound)) {
+        if (Xq > UpperBound || Yq > UpperBound) {
           X->setEmpty();
           ++DeltaSuccesses;
           return true;
         }
       }
-      X->setPoint(SE->getConstant(Xq),
-                  SE->getConstant(Yq),
+      X->setPoint(getConstantWithType(Prod1->getSrcType(), Xq),
+                  getConstantWithType(Prod1->getSrcType(), Yq),
                   X->getAssociatedLoop());
       ++DeltaSuccesses;
       return true;
@@ -797,9 +840,9 @@ bool DependenceAnalysis::intersectConstraints(Constraint *X,
 
   if (X->isPoint() && Y->isLine()) {
     LLVM_DEBUG(dbgs() << "\t    intersect Point and Line\n");
-    const SCEV *A1X1 = SE->getMulExpr(Y->getA(), X->getX());
-    const SCEV *B1Y1 = SE->getMulExpr(Y->getB(), X->getY());
-    const SCEV *Sum = SE->getAddExpr(A1X1, B1Y1);
+    const CanonExpr *A1X1 = getMulExpr(Y->getA(), X->getX(), true);
+    const CanonExpr *B1Y1 = getMulExpr(Y->getB(), X->getY(), true);
+    const CanonExpr *Sum = getAdd(A1X1, B1Y1);
     if (isKnownPredicate(CmpInst::ICMP_EQ, Sum, Y->getC()))
       return false;
     if (isKnownPredicate(CmpInst::ICMP_NE, Sum, Y->getC())) {
@@ -813,7 +856,7 @@ bool DependenceAnalysis::intersectConstraints(Constraint *X,
   llvm_unreachable("shouldn't reach the end of Constraint intersection");
   return false;
 }
-#endif
+
 
 // DependenceAnalysis methods
 // For debugging purposes. Dumps a dependence to OS.
@@ -2555,7 +2598,8 @@ bool DDTest::symbolicRDIVtest(const CanonExpr *A1, const CanonExpr *A2,
 bool DDTest::testSIV(const CanonExpr *Src, const CanonExpr *Dst,
                      unsigned &Level, Dependences &Result,
                      Constraint &NewConstraint, const CanonExpr *&SplitIter,
-                     const HLLoop *SrcParentLoop, const HLLoop *DstParentLoop) {
+                     const HLLoop *SrcParentLoop, const HLLoop *DstParentLoop,
+                     bool ForFusion) {
 
   LLVM_DEBUG(dbgs() << "\n Test SIV \n");
   LLVM_DEBUG(dbgs() << "\n   src = "; Src->dump());
@@ -2572,7 +2616,7 @@ bool DDTest::testSIV(const CanonExpr *Src, const CanonExpr *Dst,
     const CanonExpr *SrcCoeff = getCoeff(Src);
     const CanonExpr *DstCoeff = getCoeff(Dst);
     const HLLoop *CurLoop = SrcLoop;
-    assert(SrcLoop == DstLoop && "both loops in SIV should be same");
+    assert((SrcLoop == DstLoop || ForFusion) && "both loops in SIV should be same");
     Level = mapSrcLoop(CurLoop);
     bool Disproven;
 
@@ -3785,11 +3829,10 @@ bool DDTest::tryDelinearize(const RegDDRef *SrcDDRef, const RegDDRef *DstDDRef,
   return true;
 }
 
-#if 0
 
 //===----------------------------------------------------------------------===//
 // Constraint manipulation for Delta test.
-
+#if 0
 // Given a linear SCEV,
 // return the coefficient (the step)
 // corresponding to the specified loop.
@@ -3857,7 +3900,7 @@ const SCEV *DependenceAnalysis::addToCoefficient(const SCEV *Expr,
 		AddRec->getNoWrapFlags());
 }
 
-
+#endif
 // Review the constraints, looking for opportunities
 // to simplify a subscript pair (Src and Dst).
 // Return true if some simplification occurs.
@@ -3868,11 +3911,10 @@ const SCEV *DependenceAnalysis::addToCoefficient(const SCEV *Expr,
 //            Practical Dependence Testing
 //            Goff, Kennedy, Tseng
 //            PLDI 1991
-bool DependenceAnalysis::propagate(const SCEV *&Src,
-                                   const SCEV *&Dst,
-                                   SmallBitVector &Loops,
-                                   SmallVectorImpl<Constraint> &Constraints,
-                                   bool &Consistent) {
+bool DDTest::propagate(const CanonExpr *&Src, const CanonExpr *&Dst,
+                       SmallBitVector &Loops,
+                       SmallVectorImpl<Constraint> &Constraints,
+                       bool &Consistent) {
   bool Result = false;
   for (int LI = Loops.find_first(); LI >= 0; LI = Loops.find_next(LI)) {
     LLVM_DEBUG(dbgs() << "\t    Constraint[" << LI << "] is");
@@ -3887,138 +3929,261 @@ bool DependenceAnalysis::propagate(const SCEV *&Src,
   return Result;
 }
 
-
 // Attempt to propagate a distance
 // constraint into a subscript pair (Src and Dst).
 // Return true if some simplification occurs.
 // If the simplification isn't exact (that is, if it is conservative
 // in terms of dependence), set consistent to false.
-bool DependenceAnalysis::propagateDistance(const SCEV *&Src,
-                                           const SCEV *&Dst,
-                                           Constraint &CurConstraint,
-                                           bool &Consistent) {
-  const Loop *CurLoop = CurConstraint.getAssociatedLoop();
-  LLVM_DEBUG(dbgs() << "\t\tSrc is " << *Src << "\n");
-  const SCEV *A_K = findCoefficient(Src, CurLoop);
-  if (A_K->isZero())
+bool DDTest::propagateDistance(const CanonExpr *&Src, const CanonExpr *&Dst,
+                               Constraint &CurConstraint, bool &Consistent) {
+  const HLLoop *CurLoop = CurConstraint.getAssociatedLoop();
+  if (!CurLoop)
     return false;
-  const SCEV *DA_K = SE->getMulExpr(A_K, CurConstraint.getD());
-  Src = SE->getMinusSCEV(Src, DA_K);
-  Src = zeroCoefficient(Src, CurLoop);
-  LLVM_DEBUG(dbgs() << "\t\tnew Src is " << *Src << "\n");
-  LLVM_DEBUG(dbgs() << "\t\tDst is " << *Dst << "\n");
-  Dst = addToCoefficient(Dst, CurLoop, SE->getNegativeSCEV(A_K));
-  LLVM_DEBUG(dbgs() << "\t\tnew Dst is " << *Dst << "\n");
-  if (!findCoefficient(Dst, CurLoop)->isZero())
+  unsigned CurLoopLevel = CurLoop->getNestingLevel();
+  CanonExpr *D = CurConstraint.getD()->clone();
+  LLVM_DEBUG(dbgs() << "\n\tSrc is "; Src->dump());
+  CanonExpr *NewSrc = Src->clone();
+  CanonExpr *NewDst = Dst->clone();
+  push(NewSrc);
+  push(NewDst);
+  push(D);
+
+  // e = e - a_k * D
+  unsigned Index;
+  int64_t Coeff;
+  NewSrc->getIVCoeff(CurLoopLevel, &Index, &Coeff);
+  if (Coeff == 0)
+    return false;
+  if (!D->multiplyByConstant(0 - Coeff))
+    return false;
+  if (Index != InvalidBlobIndex && !D->multiplyByBlob(Index))
+      return false;
+  if (D->numBlobs() > 1)
+    return false;
+  if (D->hasBlob()) {
+    int64_t MulCoeff = D->getSingleBlobCoeff();
+    unsigned MulIndex = D->getSingleBlobIndex();
+    NewSrc->addBlob(MulIndex, MulCoeff);
+  } else {
+    NewSrc->addConstant(D->getConstant(), false);
+  }
+
+  // a_k = 0
+  NewSrc->removeIV(CurLoopLevel);
+  LLVM_DEBUG(dbgs() << "\t\tnew Src is "; Src->dump());
+  LLVM_DEBUG(dbgs() << "\n\tDst is "; Dst->dump());
+
+  // a_k' = a_k' - a_k
+  NewDst->addIV(CurLoopLevel, Index, 0 - Coeff);
+  LLVM_DEBUG(dbgs() << "\t\tnew Dst is "; Dst->dump());
+
+  NewDst->getIVCoeff(CurLoopLevel, &Index, &Coeff);
+  if (Coeff == 0)
     Consistent = false;
+  Src = NewSrc;
+  Dst = NewDst;
   return true;
 }
-
 
 // Attempt to propagate a line
 // constraint into a subscript pair (Src and Dst).
 // Return true if some simplification occurs.
 // If the simplification isn't exact (that is, if it is conservative
-// in terms of dependence), set consistent to false.
-bool DependenceAnalysis::propagateLine(const SCEV *&Src,
-                                       const SCEV *&Dst,
-                                       Constraint &CurConstraint,
-                                       bool &Consistent) {
-  const Loop *CurLoop = CurConstraint.getAssociatedLoop();
-  const SCEV *A = CurConstraint.getA();
-  const SCEV *B = CurConstraint.getB();
-  const SCEV *C = CurConstraint.getC();
-  LLVM_DEBUG(dbgs() << "\t\tA = " << *A << ", B = " << *B << ", C = " << *C << "\n");
-  LLVM_DEBUG(dbgs() << "\t\tSrc = " << *Src << "\n");
-  LLVM_DEBUG(dbgs() << "\t\tDst = " << *Dst << "\n");
+// in terms f dependence), set consistent to false.
+bool DDTest::propagateLine(const CanonExpr *&Src, const CanonExpr *&Dst,
+                           Constraint &CurConstraint, bool &Consistent) {
+  const HLLoop *CurLoop = CurConstraint.getAssociatedLoop();
+  if (!CurLoop)
+    return false;
+  unsigned CurLoopLevel = CurLoop->getNestingLevel();
+  const CanonExpr *A = CurConstraint.getA();
+  const CanonExpr *B = CurConstraint.getB();
+  const CanonExpr *C = CurConstraint.getC();
+  CanonExpr *NewSrc = Src->clone();
+  CanonExpr *NewDst = Dst->clone();
+  push(NewSrc);
+  push(NewDst);
+  LLVM_DEBUG(dbgs() << "\n\tA = "; A->dump(); dbgs() << "\t\tB = "; B->dump();
+             dbgs() << "\t\tC = "; C->dump(); dbgs() << "\n\tSrc = ";
+             Src->dump(); dbgs() << "\n\tDst = "; Dst->dump());
   if (A->isZero()) {
-    const SCEVConstant *Bconst = dyn_cast<SCEVConstant>(B);
-    const SCEVConstant *Cconst = dyn_cast<SCEVConstant>(C);
-    if (!Bconst || !Cconst) return false;
-    APInt Beta = Bconst->getValue()->getValue();
-    APInt Charlie = Cconst->getValue()->getValue();
-    APInt CdivB = Charlie.sdiv(Beta);
-    assert(Charlie.srem(Beta) == 0 && "C should be evenly divisible by B");
-    const SCEV *AP_K = findCoefficient(Dst, CurLoop);
-    //    Src = SE->getAddExpr(Src, SE->getMulExpr(AP_K, SE->getConstant(CdivB)));
-    Src = SE->getMinusSCEV(Src, SE->getMulExpr(AP_K, SE->getConstant(CdivB)));
-    Dst = zeroCoefficient(Dst, CurLoop);
-    if (!findCoefficient(Src, CurLoop)->isZero())
+    int64_t Bconst, Cconst;
+    if (!B->isIntConstant(&Bconst) || !C->isIntConstant(&Cconst))
+      return false;
+    // e = e - a_k' * C / B
+    int64_t CdivB = Cconst / Bconst;
+    assert(Cconst % Bconst == 0 && "C should be evenly divisible by B");
+    int64_t Coeff;
+    unsigned Index;
+    NewDst->getIVCoeff(CurLoopLevel, &Index, &Coeff);
+    if (Index != InvalidBlobIndex)
+      NewSrc->addBlob(Index, (0 - Coeff) * CdivB);
+    else
+      NewSrc->addConstant((0 - Coeff) * CdivB, false);
+
+    // a_k' = 0
+    NewDst->removeIV(CurLoopLevel);
+
+    NewSrc->getIVCoeff(CurLoopLevel, &Index, &Coeff);
+    if (Coeff != 0)
       Consistent = false;
-  }
-  else if (B->isZero()) {
-    const SCEVConstant *Aconst = dyn_cast<SCEVConstant>(A);
-    const SCEVConstant *Cconst = dyn_cast<SCEVConstant>(C);
-    if (!Aconst || !Cconst) return false;
-    APInt Alpha = Aconst->getValue()->getValue();
-    APInt Charlie = Cconst->getValue()->getValue();
-    APInt CdivA = Charlie.sdiv(Alpha);
-    assert(Charlie.srem(Alpha) == 0 && "C should be evenly divisible by A");
-    const SCEV *A_K = findCoefficient(Src, CurLoop);
-    Src = SE->getAddExpr(Src, SE->getMulExpr(A_K, SE->getConstant(CdivA)));
-    Src = zeroCoefficient(Src, CurLoop);
-    if (!findCoefficient(Dst, CurLoop)->isZero())
+
+  } else if (B->isZero()) {
+    // e = e + a_k * C / A
+    int64_t Aconst, Cconst;
+    if (!A->isIntConstant(&Aconst) || !C->isIntConstant(&Cconst))
+      return false;
+    int64_t CdivA = Cconst / Aconst;
+    assert(Cconst % Aconst == 0 && "C should be evenly divisible by A");
+    int64_t Coeff;
+    unsigned Index;
+    NewSrc->getIVCoeff(CurLoopLevel, &Index, &Coeff);
+    if (Index != InvalidBlobIndex)
+      NewSrc->addBlob(Index, Coeff * CdivA);
+    else
+      NewSrc->addConstant(Coeff * CdivA, false);
+
+    // a_k = 0
+    NewSrc->removeIV(CurLoopLevel);
+
+    NewDst->getIVCoeff(CurLoopLevel, &Index, &Coeff);
+    if (Coeff != 0)
       Consistent = false;
-  }
-  else if (isKnownPredicate(CmpInst::ICMP_EQ, A, B)) {
-    const SCEVConstant *Aconst = dyn_cast<SCEVConstant>(A);
-    const SCEVConstant *Cconst = dyn_cast<SCEVConstant>(C);
-    if (!Aconst || !Cconst) return false;
-    APInt Alpha = Aconst->getValue()->getValue();
-    APInt Charlie = Cconst->getValue()->getValue();
-    APInt CdivA = Charlie.sdiv(Alpha);
-    assert(Charlie.srem(Alpha) == 0 && "C should be evenly divisible by A");
-    const SCEV *A_K = findCoefficient(Src, CurLoop);
-    Src = SE->getAddExpr(Src, SE->getMulExpr(A_K, SE->getConstant(CdivA)));
-    Src = zeroCoefficient(Src, CurLoop);
-    Dst = addToCoefficient(Dst, CurLoop, A_K);
-    if (!findCoefficient(Dst, CurLoop)->isZero())
+
+  } else if (isKnownPredicate(CmpInst::ICMP_EQ, A, B)) {
+    int64_t Aconst, Cconst;
+    if (!A->isIntConstant(&Aconst) || !C->isIntConstant(&Cconst))
+      return false;
+
+    // e = e + a_k * C / A
+    int64_t CdivA = Cconst / Aconst;
+    assert((Cconst % Aconst) == 0 && "C should be evenly divisible by A");
+    int64_t Coeff;
+    unsigned Index;
+    NewSrc->getIVCoeff(CurLoopLevel, &Index, &Coeff);
+    if (Index != InvalidBlobIndex)
+      NewSrc->addBlob(Index, Coeff * CdivA);
+    else
+      NewSrc->addConstant(Coeff * CdivA, false);
+
+    // a_k = 0
+    NewSrc->removeIV(CurLoopLevel);
+
+    // a_k' = a_k' + a_k
+    NewDst->addIV(CurLoopLevel, Index, Coeff);
+
+    NewDst->getIVCoeff(CurLoopLevel, &Index, &Coeff);
+    if (Coeff != 0)
       Consistent = false;
-  }
-  else {
+
+  } else {
     // paper is incorrect here, or perhaps just misleading
-    const SCEV *A_K = findCoefficient(Src, CurLoop);
-    Src = SE->getMulExpr(Src, A);
-    Dst = SE->getMulExpr(Dst, A);
-    Src = SE->getAddExpr(Src, SE->getMulExpr(A_K, C));
-    Src = zeroCoefficient(Src, CurLoop);
-    Dst = addToCoefficient(Dst, CurLoop, SE->getMulExpr(A_K, B));
-    if (!findCoefficient(Dst, CurLoop)->isZero())
+
+    // scr = src * A; dst = dst * A;
+    unsigned Index;
+    int64_t Coeff;
+    Src->getIVCoeff(CurLoopLevel, &Index, &Coeff);
+    Src = getMulExpr(Src, A, true);
+    Dst = getMulExpr(Dst, A, true);
+    if (!Src || !Dst)
+      return false;
+
+    // e = e + a_k * C
+    CanonExpr *TempC = C->clone();
+    push(TempC);
+    if (Index != InvalidBlobIndex && !TempC->multiplyByBlob(Index))
+      return false;
+    if (!TempC->multiplyByConstant(Coeff))
+      return false;
+    Src = getAdd(Src, TempC);
+    if (!Src)
+      return false;
+
+    // a_k = 0
+    NewSrc = Src->clone();
+    push(NewSrc);
+    NewSrc->removeIV(CurLoopLevel);
+
+    // a_k' = a_k' + a_k * B
+    CanonExpr *TempB = B->clone();
+    push(TempB);
+    if (Index != InvalidBlobIndex && !TempB->multiplyByBlob(Index))
+      return false;
+    if (!TempB->multiplyByConstant(Coeff))
+      return false;
+    if (TempB->numBlobs() != 1)
+      return false;
+    Index = TempB->getSingleBlobIndex();
+    Coeff = TempB->getSingleBlobCoeff();
+    NewDst = Dst->clone();
+    push(NewDst);
+    NewDst->addIV(CurLoopLevel, Index, Coeff);
+
+    NewDst->getIVCoeff(CurLoopLevel, &Index, &Coeff);
+    if (Coeff != 0)
       Consistent = false;
   }
-  LLVM_DEBUG(dbgs() << "\t\tnew Src = " << *Src << "\n");
-  LLVM_DEBUG(dbgs() << "\t\tnew Dst = " << *Dst << "\n");
+  Src = NewSrc;
+  Dst = NewDst;
+  LLVM_DEBUG(dbgs() << "\n\tnew Src = "; Src->dump();
+             dbgs() << "\n\tnew Dst = "; Dst->dump(););
   return true;
 }
-
 
 // Attempt to propagate a point
 // constraint into a subscript pair (Src and Dst).
 // Return true if some simplification occurs.
-bool DependenceAnalysis::propagatePoint(const SCEV *&Src,
-                                        const SCEV *&Dst,
-                                        Constraint &CurConstraint) {
-  const Loop *CurLoop = CurConstraint.getAssociatedLoop();
-  const SCEV *A_K = findCoefficient(Src, CurLoop);
-  const SCEV *AP_K = findCoefficient(Dst, CurLoop);
-  const SCEV *XA_K = SE->getMulExpr(A_K, CurConstraint.getX());
-  const SCEV *YAP_K = SE->getMulExpr(AP_K, CurConstraint.getY());
-  LLVM_DEBUG(dbgs() << "\t\tSrc is " << *Src << "\n");
-  Src = SE->getAddExpr(Src, SE->getMinusSCEV(XA_K, YAP_K));
-  Src = zeroCoefficient(Src, CurLoop);
-  LLVM_DEBUG(dbgs() << "\t\tnew Src is " << *Src << "\n");
-  LLVM_DEBUG(dbgs() << "\t\tDst is " << *Dst << "\n");
-  Dst = zeroCoefficient(Dst, CurLoop);
-  LLVM_DEBUG(dbgs() << "\t\tnew Dst is " << *Dst << "\n");
+bool DDTest::propagatePoint(const CanonExpr *&Src, const CanonExpr *&Dst,
+                            Constraint &CurConstraint) {
+  const HLLoop *CurLoop = CurConstraint.getAssociatedLoop();
+  if (!CurLoop)
+    return false;
+  unsigned CurLoopLevel = CurLoop->getNestingLevel();
+  CanonExpr *NewDst = Dst->clone();
+  push(NewDst);
+
+  // e = e + a_k * X - a_k' * Y
+  unsigned Index;
+  int64_t Coeff;
+  LLVM_DEBUG(dbgs() << "\n\tSrc is "; Src->dump(););
+  Src->getIVCoeff(CurLoopLevel, &Index, &Coeff);
+  CanonExpr *Inv = CurConstraint.getX()->clone();
+  push(Inv);
+  if (Index != InvalidBlobIndex)
+    if (!Inv->multiplyByBlob(Index))
+      return false;
+  if (!Inv->multiplyByConstant(Coeff))
+    return false;
+  Src = getAdd(Src, Inv);
+  if (!Src)
+    return false;
+  Dst->getIVCoeff(CurLoopLevel, &Index, &Coeff);
+  Inv = CurConstraint.getY()->clone();
+  push(Inv);
+  if (Index != InvalidBlobIndex && !Inv->multiplyByBlob(Index))
+    return false;
+  if (!Inv->multiplyByConstant(Coeff))
+    return false;
+  Src = getAdd(Src, Inv);
+  if (!Src)
+    return false;
+
+  // a_k = 0
+  CanonExpr *NewSrc = Src->clone();
+  push(NewSrc);
+  NewSrc->removeIV(CurLoopLevel);
+  LLVM_DEBUG(dbgs() << "\t\tnew Src is "; NewSrc->dump();
+             dbgs() << "\n\tDst is "; Dst->dump(););
+  // a_k' = 0
+  NewDst->removeIV(CurLoopLevel);
+  LLVM_DEBUG(dbgs() << "\t\tnew Dst is "; NewDst->dump(););
   return true;
 }
 
-
 // Update direction vector entry based on the current constraint.
-void DependenceAnalysis::updateDirection(Dependence::DVEntry &Level,
-                                         const Constraint &CurConstraint
-                                         ) const {
-  LLVM_DEBUG(dbgs() << "\tUpdate direction, constraint =");
+void DDTest::updateDirection(Dependences::DVEntry &Level,
+                             const Constraint &CurConstraint) {
+  LLVM_DEBUG(dbgs() << "\n\tUpdate direction, constraint =");
   LLVM_DEBUG(CurConstraint.dump(dbgs()));
   if (CurConstraint.isAny())
     ; // use defaults
@@ -4026,45 +4191,40 @@ void DependenceAnalysis::updateDirection(Dependence::DVEntry &Level,
     // this one is consistent, the others aren't
     Level.Scalar = false;
     Level.Distance = CurConstraint.getD();
-    unsigned NewDirection = DVKind::NONE;
-    if (!SE->isKnownNonZero(Level.Distance)) // if may be zero
+    auto NewDirection = DVKind::NONE;
+    if (!HLNodeUtils::isKnownNonZero(Level.Distance)) // if may be zero
       NewDirection = DVKind::EQ;
-    if (!SE->isKnownNonPositive(Level.Distance)) // if may be positive
+    if (!HLNodeUtils::isKnownNonPositive(Level.Distance)) // if may be positive
       NewDirection |= DVKind::LT;
-    if (!SE->isKnownNonNegative(Level.Distance)) // if may be negative
+    if (!HLNodeUtils::isKnownNonNegative(Level.Distance)) // if may be negative
       NewDirection |= DVKind::GT;
     Level.Direction &= NewDirection;
-  }
-  else if (CurConstraint.isLine()) {
+  } else if (CurConstraint.isLine()) {
     Level.Scalar = false;
     Level.Distance = nullptr;
     // direction should be accurate
-  }
-  else if (CurConstraint.isPoint()) {
+  } else if (CurConstraint.isPoint()) {
     Level.Scalar = false;
     Level.Distance = nullptr;
-    unsigned NewDirection = DVKind::NONE;
-    if (!isKnownPredicate(CmpInst::ICMP_NE,
-                          CurConstraint.getY(),
+    auto NewDirection = DVKind::NONE;
+    if (!isKnownPredicate(CmpInst::ICMP_NE, CurConstraint.getY(),
                           CurConstraint.getX()))
       // if X may be = Y
       NewDirection |= DVKind::EQ;
-    if (!isKnownPredicate(CmpInst::ICMP_SLE,
-                          CurConstraint.getY(),
+    if (!isKnownPredicate(CmpInst::ICMP_SLE, CurConstraint.getY(),
                           CurConstraint.getX()))
       // if Y may be > X
       NewDirection |= DVKind::LT;
-    if (!isKnownPredicate(CmpInst::ICMP_SGE,
-                          CurConstraint.getY(),
+    if (!isKnownPredicate(CmpInst::ICMP_SGE, CurConstraint.getY(),
                           CurConstraint.getX()))
       // if Y may be < X
       NewDirection |= DVKind::GT;
     Level.Direction &= NewDirection;
-  }
-  else
+  } else
     llvm_unreachable("constraint has unexpected kind");
 }
 
+#if 0
 /// Check if we can delinearize the subscripts. If the SCEVs representing the
 /// source and destination array references are recurrences on a nested loop,
 /// this function flattens the nested recurrences into separate recurrences
@@ -4139,10 +4299,9 @@ bool DependenceAnalysis::tryDelinearize(const SCEV *SrcSCEV,
 
   return true;
 }
+#endif
 
 //===----------------------------------------------------------------------===//
-
-#endif
 
 #ifndef NDEBUG
 // For debugging purposes, dump a small bit vector to dbgs().
@@ -4182,15 +4341,36 @@ bool DDTest::queryAAIndep(const RegDDRef *SrcDDRef, const RegDDRef *DstDDRef) {
     return false;
   }
 
+  // Alias analysis only reasons about a pair of contemporary SSA values. In
+  // order to use its results to break dependencies across a loop, we must
+  // prove that the values are invariant for that loop.
+  bool InvariantBase = SrcDDRef->getBaseCE()->isProperLinear() &&
+                       DstDDRef->getBaseCE()->isProperLinear();
+
+  // Note that we do not check that the indexing is also invariant because
+  // RegDDRef::getMemoryLocation guarantees that a precise (i.e., known size)
+  // footprint is returned only when the pointer is completely region
+  // invariant. This ensures that the MemoryLocations are loop invariant if the
+  // base is invariant.
+  MemoryLocation SrcLoc = SrcDDRef->getMemoryLocation();
+  MemoryLocation DstLoc = DstDDRef->getMemoryLocation();
+
   DEBUG_AA(dbgs() << "call queryAAIndep():\n");
   DEBUG_AA(SrcDDRef->dump());
   DEBUG_AA(dbgs() << "\n");
   DEBUG_AA(DstDDRef->dump());
   DEBUG_AA(dbgs() << "\nR: ");
 
-  if (AAR.isNoAlias(SrcDDRef->getMemoryLocation(),
-                    DstDDRef->getMemoryLocation())) {
-    DEBUG_AA(dbgs() << "No Alias\n\n");
+  if (VaryingBaseHandling == VaryingBaseMode::QueryAlias || InvariantBase) {
+    if (AAR.isNoAlias(SrcLoc, DstLoc)) {
+      DEBUG_AA(dbgs() << "No Alias\n\n");
+      return true;
+    }
+  } else if (VaryingBaseHandling == VaryingBaseMode::QueryLoopCarriedAlias &&
+             AAR.isLoopCarriedNoAlias(SrcLoc, DstLoc)) {
+    // If the base pointer is not invariant to the loop, then we need to query
+    // a stronger AA interface.
+    DEBUG_AA(dbgs() << "Loop-carried No Alias\n\n");
     return true;
   }
 
@@ -4537,7 +4717,7 @@ std::unique_ptr<Dependences> DDTest::depends(const DDRef *SrcDDRef,
         unsigned Level;
         const CanonExpr *SplitIter = nullptr;
         if (testSIV(Pair[SI].Src, Pair[SI].Dst, Level, Result, NewConstraint,
-                    SplitIter, SrcLoop, DstLoop)) {
+                    SplitIter, SrcLoop, DstLoop, ForFusion)) {
           return nullptr;
         }
         break;
@@ -4607,11 +4787,10 @@ std::unique_ptr<Dependences> DDTest::depends(const DDRef *SrcDDRef,
     }
   }
 
-// TODO
-#if 0
+// Delta test
   if (Coupled.count()) {
     // test coupled subscript groups
-    LLVM_DEBUG(dbgs() << "starting on coupled subscripts\n");
+    LLVM_DEBUG(dbgs() << "\nstarting on coupled subscripts\n");
     LLVM_DEBUG(dbgs() << "MaxLevels + 1 = " << MaxLevels + 1 << "\n");
     SmallVector<Constraint, 4> Constraints(MaxLevels + 1);
 
@@ -4641,7 +4820,7 @@ std::unique_ptr<Dependences> DDTest::depends(const DDRef *SrcDDRef,
           const CanonExpr *SplitIter = nullptr;
           LLVM_DEBUG(dbgs() << "SIV\n");
           if (testSIV(Pair[SJ].Src, Pair[SJ].Dst, Level, Result, NewConstraint,
-                      SplitIter, SrcLoop, DstLoop))
+                      SplitIter, SrcLoop, DstLoop, ForFusion))
             return nullptr;
           ConstrainedLevels.set(Level);
           if (intersectConstraints(&Constraints[Level], &NewConstraint)) {
@@ -4706,7 +4885,8 @@ std::unique_ptr<Dependences> DDTest::depends(const DDRef *SrcDDRef,
       for (int SJ = Mivs.find_first(); SJ >= 0; SJ = Mivs.find_next(SJ)) {
         if (Pair[SJ].Classification == Subscript::MIV) {
           LLVM_DEBUG(dbgs() << "MIV test\n");
-          if (testMIV(Pair[SJ].Src, Pair[SJ].Dst, InputDV, Pair[SJ].Loops, Result))
+          if (testMIV(Pair[SJ].Src, Pair[SJ].Dst, InputDV, Pair[SJ].Loops, Result,
+                      SrcLoop, DstLoop))
             return nullptr;
         } else
           llvm_unreachable("expected only MIV subscripts at this point");
@@ -4723,7 +4903,6 @@ std::unique_ptr<Dependences> DDTest::depends(const DDRef *SrcDDRef,
     }
   }
 
-#endif
 
   // Make sure the Scalar flags are set correctly.
   // Note: getDirection(level):  [level-1] is used inside the function
@@ -4836,7 +5015,6 @@ std::unique_ptr<Dependences> DDTest::depends(const DDRef *SrcDDRef,
 ///    Called when both forward and backward edges are needed
 ///           ( *  >  =)  returns  (*  <  =)
 ///           ( =  *  =)  returns  (=  *  =)
-///           (<   *  <)  Not supposed to call here
 ///           (<=  *  >)  returns  (<= *  <)
 ///           Explanation:
 ///           (<=  * >)  is equivalent to
@@ -4871,9 +5049,6 @@ void DDTest::splitDVForForwardBackwardEdge(DirectionVector &ForwardDV,
     }
 
     BackwardDV[II - 1] = ForwardDV[II - 1];
-
-    assert(ForwardDV[II - 1] != DVKind::LT &&
-           "Unexpected Input DV for reversal");
 
     if (ForwardDV[II - 1] == DVKind::ALL) {
       SplitLevel = II;
@@ -5739,7 +5914,7 @@ const  SCEV *DependenceAnalysis::getSplitIteration(const Dependence &Dep,
       unsigned Level;
       const SCEV *SplitIter = nullptr;
       (void) testSIV(Pair[SI].Src, Pair[SI].Dst, Level,
-                     Result, NewConstraint, SplitIter);
+                     Result, NewConstraint, SplitIter, false);
       if (Level == SplitLevel) {
         assert(SplitIter != nullptr);
         return SplitIter;
@@ -5754,7 +5929,7 @@ const  SCEV *DependenceAnalysis::getSplitIteration(const Dependence &Dep,
       llvm_unreachable("subscript has unexpected classification");
     }
   }
-	
+
   if (Coupled.count()) {
     // test coupled subscript groups
     SmallVector<Constraint, 4> Constraints(MaxLevels + 1);
@@ -5778,7 +5953,7 @@ const  SCEV *DependenceAnalysis::getSplitIteration(const Dependence &Dep,
           unsigned Level;
           const SCEV *SplitIter = nullptr;
           (void) testSIV(Pair[SJ].Src, Pair[SJ].Dst, Level,
-                         Result, NewConstraint, SplitIter);
+                         Result, NewConstraint, SplitIter, false);
           if (Level == SplitLevel && SplitIter)
             return SplitIter;
           ConstrainedLevels.set(Level);

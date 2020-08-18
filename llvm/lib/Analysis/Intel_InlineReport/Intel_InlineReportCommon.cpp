@@ -1,6 +1,6 @@
 //===--------- Intel_InlineReportCommon.cpp - Inlining Reporti utils  ----===//
 //
-// Copyright (C) 2019-2019 Intel Corporation. All rights reserved.
+// Copyright (C) 2019-2020 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -82,6 +82,7 @@ bool llvm::shouldSkipIntrinsic(IntrinsicInst *II) {
   case Intrinsic::dbg_addr:
   case Intrinsic::dbg_declare:
   case Intrinsic::dbg_value:
+  case Intrinsic::intel_subscript:
   case Intrinsic::lifetime_end:
   case Intrinsic::lifetime_start:
   case Intrinsic::ptr_annotation:

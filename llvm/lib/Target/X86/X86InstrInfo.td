@@ -368,6 +368,8 @@ let RenderMethod = "addMemOperands", SuperClasses = [X86MemAsmOperand] in {
   def X86Mem512_RC256XOperand : AsmOperandClass { let Name = "Mem512_RC256X"; }
   def X86Mem256_RC512Operand  : AsmOperandClass { let Name = "Mem256_RC512"; }
   def X86Mem512_RC512Operand  : AsmOperandClass { let Name = "Mem512_RC512"; }
+
+  def X86SibMemOperand : AsmOperandClass { let Name = "SibMem"; }
 }
 
 def X86AbsMemAsmOperand : AsmOperandClass {
@@ -398,6 +400,8 @@ def X86any_fcmp : PatFrags<(ops node:$lhs, node:$rhs),
 // FIXME: Right now we allow any size during parsing, but we might want to
 // restrict to only unsized memory.
 def opaquemem : X86MemOperand<"printMemReference">;
+
+def sibmem: X86MemOperand<"printMemReference", X86SibMemOperand>;
 
 def i8mem   : X86MemOperand<"printbytemem",   X86Mem8AsmOperand>;
 def i16mem  : X86MemOperand<"printwordmem",  X86Mem16AsmOperand>;
@@ -648,10 +652,17 @@ class ImmSExtAsmOperandClass : AsmOperandClass {
 def X86GR32orGR64AsmOperand : AsmOperandClass {
   let Name = "GR32orGR64";
 }
-
 def GR32orGR64 : RegisterOperand<GR32> {
   let ParserMatchClass = X86GR32orGR64AsmOperand;
 }
+
+def X86GR16orGR32orGR64AsmOperand : AsmOperandClass {
+  let Name = "GR16orGR32orGR64";
+}
+def GR16orGR32orGR64 : RegisterOperand<GR16> {
+  let ParserMatchClass = X86GR16orGR32orGR64AsmOperand;
+}
+
 def AVX512RCOperand : AsmOperandClass {
   let Name = "AVX512RC";
 }
@@ -845,11 +856,11 @@ def VK16Pair : RegisterOperand<VK16PAIR, "printVKPair"> {
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_AMX
 let RenderMethod = "addTILEPairOperands" in {
-  def VTILEPairAsmOperand : AsmOperandClass { let Name = "VTILEPair"; }
+  def TILEPairAsmOperand : AsmOperandClass { let Name = "TILEPair"; }
 }
 
-def VTILEPair : RegisterOperand<VTILEPAIR, "printVTILEPair"> {
-  let ParserMatchClass = VTILEPairAsmOperand;
+def TILEPair : RegisterOperand<TILEPAIR, "printTILEPair"> {
+  let ParserMatchClass = TILEPairAsmOperand;
 }
 
 #endif // INTEL_FEATURE_ISA_AMX
@@ -865,11 +876,11 @@ def ZMM16Tuples : RegisterOperand<VR512> {
 
 #if INTEL_FEATURE_ISA_AMX_TRANSPOSE2
 let RenderMethod = "addTILEQuadOperands" in {
-  def VTILEQuadAsmOperand : AsmOperandClass { let Name = "VTILEQuad"; }
+  def TILEQuadAsmOperand : AsmOperandClass { let Name = "TILEQuad"; }
 }
 
-def VTILEQuad : RegisterOperand<VTILEQUAD, "printVTILEQuad"> {
-  let ParserMatchClass = VTILEQuadAsmOperand;
+def TILEQuad : RegisterOperand<TILEQUAD, "printTILEQuad"> {
+  let ParserMatchClass = TILEQuadAsmOperand;
 }
 #endif // INTEL_FEATURE_ISA_AMX_TRANSPOSE2
 #endif // INTEL_CUSTOMIZATION
@@ -1011,6 +1022,14 @@ def NoVLX_Or_NoCONVERT : Predicate<"!Subtarget->hasVLX() || !Subtarget->hasCONVE
 #if INTEL_FEATURE_ISA_AVX_COMPRESS
 def HasAVXCOMPRESS   : Predicate<"Subtarget->hasAVXCOMPRESS()">;
 #endif // INTEL_FEATURE_ISA_AVX_COMPRESS
+#if INTEL_FEATURE_ISA_AVX_MEMADVISE
+def HasAVXMEMADVISE   : Predicate<"Subtarget->hasAVXMEMADVISE()">;
+def HasAVX512MEMADVISE   : Predicate<"Subtarget->hasAVX512MEMADVISE()">;
+#endif // INTEL_FEATURE_ISA_AVX_MEMADVISE
+#if INTEL_FEATURE_ISA_AVX_MPSADBW
+def HasAVX512MPSADBW   : Predicate<"Subtarget->hasAVX512MPSADBW()">;
+def NoVLX_Or_NoMPSADBW : Predicate<"!Subtarget->hasVLX() || !Subtarget->hasAVX512MPSADBW()">;
+#endif // INTEL_FEATURE_ISA_AVX_MPSADBW
 #endif // INTEL_CUSTOMIZATION
 
 def HasBITALG    : Predicate<"Subtarget->hasBITALG()">;
@@ -1056,11 +1075,10 @@ def HasRTM       : Predicate<"Subtarget->hasRTM()">;
 def HasADX       : Predicate<"Subtarget->hasADX()">;
 def HasSHA       : Predicate<"Subtarget->hasSHA()">;
 def HasSGX       : Predicate<"Subtarget->hasSGX()">;
-def HasPRFCHW    : Predicate<"Subtarget->hasPRFCHW()">;
 def HasRDSEED    : Predicate<"Subtarget->hasRDSEED()">;
 def HasSSEPrefetch : Predicate<"Subtarget->hasSSEPrefetch()">;
 def NoSSEPrefetch : Predicate<"!Subtarget->hasSSEPrefetch()">;
-def HasPrefetchW : Predicate<"Subtarget->hasPRFCHW()">;
+def HasPrefetchW : Predicate<"Subtarget->hasPrefetchW()">;
 def HasPREFETCHWT1 : Predicate<"Subtarget->hasPREFETCHWT1()">;
 def HasLAHFSAHF  : Predicate<"Subtarget->hasLAHFSAHF()">;
 def HasMWAITX    : Predicate<"Subtarget->hasMWAITX()">;
@@ -1092,11 +1110,6 @@ def HasULI : Predicate<"Subtarget->hasULI()">;
 #if INTEL_FEATURE_ISA_HRESET
 def HasHRESET : Predicate<"Subtarget->hasHRESET()">;
 #endif // INTEL_FEATURE_ISA_HRESET
-#if INTEL_FEATURE_ISA_AMX
-def HasAMXTILE   : Predicate<"Subtarget->hasAMXTILE()">;
-def HasAMXBF16   : Predicate<"Subtarget->hasAMXBF16()">;
-def HasAMXINT8   : Predicate<"Subtarget->hasAMXINT8()">;
-#endif // INTEL_FEATURE_ISA_AMX
 #if INTEL_FEATURE_ISA_AMX_FUTURE
 def HasAMXELEMENT   : Predicate<"Subtarget->hasAMXELEMENT()">;
 def HasAMXREDUCE    : Predicate<"Subtarget->hasAMXREDUCE()">;
@@ -1142,9 +1155,19 @@ def HasAMXTRANSPOSE2 : Predicate<"Subtarget->hasAMXTRANSPOSE2()">;
 #if INTEL_FEATURE_ISA_AMX_TILE2
 def HasAMXTILE2    : Predicate<"Subtarget->hasAMXTILE2()">;
 #endif // INTEL_FEATURE_ISA_AMX_TILE2
+
+#if INTEL_FEATURE_ISA_AMX_BF8
+def HasAMXBF8    : Predicate<"Subtarget->hasAMXBF8()">;
+#endif // INTEL_FEATURE_ISA_AMX_BF8
+#if INTEL_FEATURE_ISA_AMX_MEMADVISE
+def HasAMXMEMADVISE    : Predicate<"Subtarget->hasAMXMEMADVISE()">;
+#endif // INTEL_FEATURE_ISA_AMX_MEMADVISE
 #endif // INTEL_CUSTOMIZATION
 def HasSERIALIZE : Predicate<"Subtarget->hasSERIALIZE()">;
 def HasTSXLDTRK  : Predicate<"Subtarget->hasTSXLDTRK()">;
+def HasAMXTILE   : Predicate<"Subtarget->hasAMXTILE()">;
+def HasAMXBF16   : Predicate<"Subtarget->hasAMXBF16()">;
+def HasAMXINT8   : Predicate<"Subtarget->hasAMXINT8()">;
 def Not64BitMode : Predicate<"!Subtarget->is64Bit()">,
                              AssemblerPredicate<(all_of (not Mode64Bit)), "Not 64-bit mode">;
 def In64BitMode  : Predicate<"Subtarget->is64Bit()">,
@@ -3315,15 +3338,22 @@ include "Intel_X86InstrTDX.td"
 #if INTEL_FEATURE_ISA_KEYLOCKER
 include "Intel_X86InstrKL.td"
 #endif // INTEL_FEATURE_ISA_KEYLOCKER
-#if INTEL_FEATURE_ISA_AMX
-include "Intel_X86InstrAMX.td"
-#endif // INTEL_FEATURE_ISA_AMX
 #endif // INTEL_CUSTOMIZATION
 
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ICECODE
 include "Intel_X86InstrIceCode.td"
 #endif // INTEL_FEATURE_ICECODE
+#endif // INTEL_CUSTOMIZATION
+
+// AMX instructions
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AMX
+// FIXME merge with X86InstrAMX.td
+include "Intel_X86InstrAMX.td"
+#else // INTEL_FEATURE_ISA_AMX
+include "X86InstrAMX.td"
+#endif // INTEL_FEATURE_ISA_AMX
 #endif // INTEL_CUSTOMIZATION
 
 // System instructions.

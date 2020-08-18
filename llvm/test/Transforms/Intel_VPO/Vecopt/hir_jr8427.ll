@@ -1,5 +1,5 @@
 ; Test from CMPLRLLVM-8427. Check that we can generate vector code.
-; RUN: opt -scoped-noalias -hir-ssa-deconstruction -hir-temp-cleanup -hir-runtime-dd -hir-lmm -hir-vec-dir-insert -VPlanDriverHIR -vplan-force-vf=4 -hir-cg -print-after=VPlanDriverHIR -S < %s 2>&1 | FileCheck %s
+; RUN: opt -scoped-noalias-aa -hir-ssa-deconstruction -hir-temp-cleanup -hir-runtime-dd -hir-lmm -hir-vec-dir-insert -VPlanDriverHIR -vplan-force-vf=4 -hir-cg -print-after=VPlanDriverHIR -S < %s 2>&1 | FileCheck %s
 ; HIR Loop before vectorization:
 ;
 ; DO i2 = 0, 10, 1   <DO_LOOP>  <MVTag: 25>

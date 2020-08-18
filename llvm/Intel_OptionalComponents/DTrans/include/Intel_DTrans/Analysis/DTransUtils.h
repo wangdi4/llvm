@@ -29,6 +29,7 @@ class CallBase;
 class Function;
 class Type;
 class Value;
+class Instruction;
 
 namespace dtrans {
 
@@ -37,6 +38,8 @@ extern cl::opt<bool> DTransPrintAnalyzedTypes;
 #endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 
 extern cl::opt<bool> DTransOutOfBoundsOK;
+
+extern cl::opt<bool> DTransUseCRuleCompat;
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 // This template function is to support dumping a collection of items in
@@ -83,6 +86,17 @@ bool hasPointerType(llvm::Type *Ty);
 // Return 'true' if the value is only used as the destination pointer of memset
 // calls.
 bool valueOnlyUsedForMemset(llvm::Value *V);
+
+// Return 'true' if the value loaded, 'V',  is only stored to the same address
+// from which it was loaded, 'LoadAddr' and does not escape through a function
+// call. For example:
+//   struct.x = struct.x + 1;
+// In this case, the load of 'struct.x' is only used to store a new value into
+// the memory location it was loaded from.
+bool isLoadedValueUnused(Value *V, Value *LoadAddr);
+
+// Return 'true' if "I" is either llvm.type_test or llvm.assume intrinsic.
+bool isTypeTestRelatedIntrinsic(const Instruction *I);
 
 } // namespace dtrans
 } // namespace llvm

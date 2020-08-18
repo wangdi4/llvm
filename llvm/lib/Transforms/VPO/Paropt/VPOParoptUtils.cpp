@@ -24,6 +24,7 @@
 #include "llvm/ADT/StringRef.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/IR/Module.h"
+#include "llvm/IR/DiagnosticInfo.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/Intrinsics.h"
@@ -88,6 +89,12 @@ static cl::opt<uint32_t> ParallelSourceInfoMode(
     "parallel-source-info", cl::Hidden, cl::init(1),
     cl::desc("Control source location info in OpenMP code.  0 = none; "
              "1 (default) = function + line; 2 = path + function + line."));
+
+// Enable target compilation mode expliclty, e.g. for LIT tests.
+// This option is currently not used by any driver.
+static cl::opt<bool> SwitchToOffload(
+    "switch-to-offload", cl::Hidden, cl::init(false),
+    cl::desc("switch to offload mode (default = false)"));
 
 static const unsigned StackAdjustedAlignment = 16;
 
@@ -1541,11 +1548,34 @@ CallInst *genKmpcTaskAllocImpl(WRegionNode *W, StructType *IdentTy, Value *Tid,
   return TaskAllocCall;
 }
 
+// build the CFG for if clause.
+void VPOParoptUtils::buildCFGForIfClause(Value *Cmp, Instruction *&ThenTerm,
+                                         Instruction *&ElseTerm,
+                                         Instruction *InsertPt,
+                                         DominatorTree *DT) {
+  BasicBlock *SplitBeforeBB = InsertPt->getParent();
+  SplitBlockAndInsertIfThenElse(Cmp, InsertPt, &ThenTerm, &ElseTerm);
+  ThenTerm->getParent()->setName("if.then");
+  ElseTerm->getParent()->setName("if.else");
+  InsertPt->getParent()->setName("if.end");
+
+  DT->addNewBlock(ThenTerm->getParent(), SplitBeforeBB);
+  DT->addNewBlock(ElseTerm->getParent(), SplitBeforeBB);
+  DT->addNewBlock(InsertPt->getParent(), SplitBeforeBB);
+
+  DT->changeImmediateDominator(ThenTerm->getParent(), SplitBeforeBB);
+  DT->changeImmediateDominator(ElseTerm->getParent(), SplitBeforeBB);
+  BasicBlock *NextBB = InsertPt->getParent()->getSingleSuccessor();
+  assert(NextBB && "Null Next BB.");
+  if (NextBB->getUniquePredecessor())
+    DT->changeImmediateDominator(NextBB, InsertPt->getParent());
+}
+
 // This function generates a call as follows.
 //    i8* @__kmpc_omp_task_alloc({ i32, i32, i32, i32, i8* }*, i32, i32,
 //    size_t, size_t, i32 (i32, i8*)*)
 CallInst *VPOParoptUtils::genKmpcTaskAlloc(WRegionNode *W, StructType *IdentTy,
-                                           Value *TidPtr,
+                                           Value *TidPtr, DominatorTree *DT,
                                            Value *KmpTaskTTWithPrivatesTySz,
                                            int KmpSharedTySz,
                                            PointerType *KmpRoutineEntryPtrTy,
@@ -1556,6 +1586,73 @@ CallInst *VPOParoptUtils::genKmpcTaskAlloc(WRegionNode *W, StructType *IdentTy,
 
   Value *Tid = Builder.CreateLoad(TidPtr);
   Value *TaskFlags = ConstantInt::get(Int32Ty, W->getTaskFlag());
+
+  Value *VFinal = W->getFinal();
+  if (VFinal) {
+    // If task construct has final clause, the compiler will set related flag
+    // bit in 3rd argument of __kmpc_omp_task_alloc (for final clause with
+    // non-zero constant), or generate a if-then-else statement (for final
+    // clause with conditional expression), to set the flag bit if the
+    // expression is evaluated to true.
+    //
+    // Example:
+    //   #pragma omp task final(n <= 10)
+    // IR:
+    //   ...
+    //   %n.addr = alloca i32, align 4
+    //   store i32 %n, i32* %n.addr, align 4
+    //   %1 = load i32, i32* %n.addr, align 4
+    //   %cmp = icmp sle i32 %1, 10
+    //   %conv = zext i1 %cmp to i32
+    //   br lablel %codeRepl
+    //
+    // codeRepl:
+    //   %3 = alloca i32, align 4                                     ; (1)
+    //   store i32 1, i32* %3, align 4                                ; (2)
+    //   %4 = icmp ne i32 %conv, 0                                    ; (3)
+    //   br i1 %4, label %if.then, label %if.else                     ; (4)
+    //
+    // if.then:                                          ; preds = %codeRepl
+    //   store i32 3, i32* %3, align 4                                ; (5)
+    //   br label %if.end
+    //
+    // if.else:                                          ; preds = %codeRepl
+    //   br label %if.end
+    //
+    // if.end:                                           ; preds = %if.else,
+    // %if.then
+    //   %5 = load i32, i32* %3, align 4                              ; (6)
+    //   %.task.alloc = call i8* @__kmpc_omp_task_alloc(%struct.ident_t*
+    //     @.kmpc_loc.0.0.7, i32 %2, i32 %5, i64 80, i64 0, i32 (i32, i8*)*
+    //     bitcast (void (i32, i32, %__struct.kmp_task_t_with_privates*)*
+    //     @foo.DIR.OMP.TASK.2.split to i32 (i32, i8*)*))
+    //   ...
+    //
+    const int FinalFlagBit = 0x2;
+
+    if (Constant *CFinal = dyn_cast<Constant>(VFinal)) {
+      if (!CFinal->isZeroValue()) {
+        W->setTaskFlag(W->getTaskFlag() | FinalFlagBit);
+        TaskFlags = ConstantInt::get(Int32Ty, W->getTaskFlag());
+      }
+    } else {
+      auto TaskFlagsAlloca = Builder.CreateAlloca(Int32Ty); // (1)
+      Builder.CreateStore(TaskFlags, TaskFlagsAlloca);      // (2)
+      Value *Cmp = Builder.CreateICmpNE(
+          VFinal, ConstantInt::get(VFinal->getType(), 0)); // (3)
+
+      Instruction *ThenTerm, *ElseTerm;
+      buildCFGForIfClause(Cmp, ThenTerm, ElseTerm, InsertPt, DT); // (4)
+      Builder.SetInsertPoint(ThenTerm);
+      W->setTaskFlag(W->getTaskFlag() | FinalFlagBit);
+      Builder.CreateStore(Builder.getInt32(W->getTaskFlag()),
+                          TaskFlagsAlloca); // (5)
+
+      Builder.SetInsertPoint(InsertPt);
+      TaskFlags = Builder.CreateLoad(TaskFlagsAlloca); // (6)
+    }
+  }
+
   Value *TaskEntry = Builder.CreateBitCast(MicroTaskFn, KmpRoutineEntryPtrTy);
 
   CallInst *TaskAllocCall = genKmpcTaskAllocImpl(
@@ -3519,16 +3616,15 @@ CallInst *VPOParoptUtils::genKmpcCall(WRegionNode *W, StructType *IdentTy,
   return genCall(M, IntrinsicName, ReturnTy, FnArgs, InsertPt);
 }
 
-// Genetates a CallInst for the given Function* Fn and its argument list.
-// Fn is assumed to be already declared.
+// Genetates a CallInst for the given FunctionCallee FnC and its argument list.
+// FnC is assumed to have a non-null callee.
 // If InsertPt!=null, the Call is emitted before InsertPt.
-CallInst *VPOParoptUtils::genCall(Function *Fn, ArrayRef<Value *> FnArgs,
-                                  ArrayRef<Type*> FnArgTypes,
-                                  Instruction *InsertPt,
-                                  bool IsTail, bool IsVarArg) {
-  assert(Fn != nullptr && "Function Declaration is null.");
-  FunctionType *FnTy = Fn->getFunctionType();
-  CallInst *Call = CallInst::Create(FnTy, Fn, FnArgs, "", InsertPt);
+CallInst *VPOParoptUtils::genCall(FunctionCallee FnC, ArrayRef<Value *> FnArgs,
+                                  ArrayRef<Type *> FnArgTypes,
+                                  Instruction *InsertPt, bool IsTail,
+                                  bool IsVarArg) {
+  assert(FnC.getCallee() && "Function callee is null.");
+  CallInst *Call = CallInst::Create(FnC, FnArgs, "", InsertPt);
   // Note: if InsertPt!=nullptr, Call is emitted into the IR as well.
   assert(Call != nullptr && "Failed to generate Function Call");
 
@@ -3545,22 +3641,61 @@ CallInst *VPOParoptUtils::genCall(Function *Fn, ArrayRef<Value *> FnArgs,
 // If InsertPt!=null, the Call is emitted before InsertPt.
 CallInst *VPOParoptUtils::genCall(Module *M, StringRef FnName, Type *ReturnTy,
                                   ArrayRef<Value *> FnArgs,
-                                  ArrayRef<Type*> FnArgTypes,
-                                  Instruction *InsertPt,
-                                  bool IsTail, bool IsVarArg) {
+                                  ArrayRef<Type *> FnArgTypes,
+                                  Instruction *InsertPt, bool IsTail,
+                                  bool IsVarArg,
+                                  bool AllowMismatchingPointerArgs,
+                                  bool EmitErrorOnFnTypeMismatch) {
   assert(M != nullptr && "Module is null.");
   assert(!FnName.empty() && "Function name is empty.");
   assert(FunctionType::isValidReturnType(ReturnTy) && "Invalid Return Type");
 
   // Create the function type from the return type and argument types.
-  FunctionType *FnTy = FunctionType::get(ReturnTy, FnArgTypes, IsVarArg);
+  FunctionType *NewFnTy = FunctionType::get(ReturnTy, FnArgTypes, IsVarArg);
 
   // Get the function prototype from the module symbol table. If absent,
   // create and insert it into the symbol table first.
-  FunctionCallee FnC = M->getOrInsertFunction(FnName, FnTy);
-  Function *Fn = cast<Function>(FnC.getCallee());
-  CallInst *Call = genCall(Fn, FnArgs, FnArgTypes, InsertPt, IsTail, IsVarArg);
-  return Call;
+  FunctionCallee FnC = M->getOrInsertFunction(FnName, NewFnTy);
+  Value *FnCallee = FnC.getCallee();
+
+  auto NewAndExistingFunctionsDifferOnlyByPointerTypeOfArgs = [&NewFnTy,
+                                                               &FnCallee]() {
+    Function *ExistingFn =
+        dyn_cast_or_null<Function>(FnCallee->stripPointerCasts());
+    if (!ExistingFn)
+      return false;
+
+    FunctionType *ExistingFnTy = ExistingFn->getFunctionType();
+    if (!ExistingFnTy || ExistingFnTy->isVarArg() || NewFnTy->isVarArg())
+      return false;
+
+    if (NewFnTy->getNumParams() != ExistingFnTy->getNumParams())
+      return false;
+
+    return std::equal(NewFnTy->param_begin(), NewFnTy->param_end(),
+                      ExistingFnTy->param_begin(), [](Type *T1, Type *T2) {
+                        return (T1 == T2) ||
+                               (isa<PointerType>(T1) && isa<PointerType>(T2));
+                      });
+  };
+
+  if (isa<Function>(FnCallee) ||
+      (AllowMismatchingPointerArgs &&
+       NewAndExistingFunctionsDifferOnlyByPointerTypeOfArgs()))
+    return genCall(FnC, FnArgs, FnArgTypes, InsertPt, IsTail, IsVarArg);
+
+  std::string Msg =
+      ("Function '" + FnName + "' exists, but has an unexpected type.").str();
+
+  if (EmitErrorOnFnTypeMismatch) {
+    if (InsertPt) {
+      Function *F = InsertPt->getFunction();
+      F->getContext().diagnose(DiagnosticInfoUnsupported(*F, Msg));
+    } else
+      report_fatal_error(Msg);
+  }
+
+  llvm_unreachable(Msg.c_str());
 }
 
 // A genCall() interface where FunArgTypes is omitted; it will be computed from
@@ -3700,8 +3835,10 @@ CallInst *VPOParoptUtils::genVariantCall(CallInst *BaseCall,
       // we need to update FnArgTypes accordingly.
       FnArgTypes.push_back(Int8PtrTy);
   }
-  CallInst *VariantCall = genCall(M, VariantName, ReturnTy, FnArgs, FnArgTypes,
-                                  InsertPt, IsTail, IsVarArg); // (2), (4)
+  CallInst *VariantCall =
+      genCall(M, VariantName, ReturnTy, FnArgs, FnArgTypes, InsertPt, IsTail,
+              IsVarArg, /*AllowMismatchingPointerArgs=*/true,
+              /*EmitErrorOnFnTypeMismatch=*/true); //                   (2), (4)
 
   // Replace each VariantCall argument that is a load from a HostPtr listed
   // on the use_device_ptr clause with a load from the corresponding
@@ -4353,6 +4490,7 @@ CallInst *VPOParoptUtils::genConstructorCall(Function *Ctor, Value *V,
   CallInst *Call = genCall(Ctor, {V}, {ValType}, nullptr);
   Instruction *InsertAfterPt = cast<Instruction>(PrivAlloca);
   Call->insertAfter(InsertAfterPt);
+  Call->setDebugLoc(InsertAfterPt->getDebugLoc());
   LLVM_DEBUG(dbgs() << "CONSTRUCTOR: " << *Call << "\n");
   return Call;
 }
@@ -4372,6 +4510,7 @@ CallInst *VPOParoptUtils::genDestructorCall(Function *Dtor, Value *V,
   }
   CallInst *Call = genCall(Dtor, {V}, {ValType}, nullptr);
   Call->insertBefore(InsertBeforePt);
+  Call->setDebugLoc(InsertBeforePt->getDebugLoc());
   LLVM_DEBUG(dbgs() << "DESTRUCTOR: " << *Call << "\n");
   return Call;
 }
@@ -4387,6 +4526,7 @@ CallInst *VPOParoptUtils::genCopyConstructorCall(Function *Cctor, Value *D,
 
   CallInst *Call = genCall(Cctor, {D,S}, {DTy, STy}, nullptr);
   Call->insertBefore(InsertBeforePt);
+  Call->setDebugLoc(InsertBeforePt->getDebugLoc());
   LLVM_DEBUG(dbgs() << "COPY CONSTRUCTOR: " << *Call << "\n");
   return Call;
 }
@@ -4728,55 +4868,6 @@ static Value *findChainToLoad(Value *V,
   llvm_unreachable("findChainToLoad: unhandled instruction");
 }
 
-// Creates a clone of CI, adds OpBundlesToAdd to it, and returns it.
-CallInst *VPOParoptUtils::addOperandBundlesInCall(
-    CallInst *CI,
-    ArrayRef<std::pair<StringRef, ArrayRef<Value *>>> OpBundlesToAdd) {
-
-  assert(CI && "addOperandBundlesInCall: Null CallInst");
-
-  if (OpBundlesToAdd.empty())
-    return CI;
-
-  SmallVector<Value *, 8> Args;
-  for (auto AI = CI->arg_begin(), AE = CI->arg_end(); AI != AE; AI++)
-    Args.push_back(*AI);
-
-  SmallVector<OperandBundleDef, 1> OpBundles;
-  CI->getOperandBundlesAsDefs(OpBundles);
-
-  for (auto &StrValVec : OpBundlesToAdd) {
-    OperandBundleDef B(std::string(StrValVec.first), StrValVec.second);
-    OpBundles.push_back(B);
-  }
-
-  FunctionType *FnTy = CI->getFunctionType();
-  Value *Fn = CI->getCalledOperand();
-  auto NewI = CallInst::Create(FnTy, Fn, Args, OpBundles, "", CI);
-
-  NewI->takeName(CI);
-  NewI->setCallingConv(CI->getCallingConv());
-  NewI->setAttributes(CI->getAttributes());
-  NewI->setDebugLoc(CI->getDebugLoc());
-
-  CI->replaceAllUsesWith(NewI);
-  CI->eraseFromParent();
-
-  return NewI;
-}
-
-// Creates a clone of CI without the operand bundles in OpBundlesToRemove from
-// it, and returns it.
-CallInst *VPOParoptUtils::removeOperandBundlesFromCall(
-    CallInst *CI, ArrayRef<StringRef> OpBundlesToRemove) {
-  return IntrinsicUtils::removeOperandBundlesFromCall(
-      CI, [&OpBundlesToRemove](const OperandBundleDef &Bundle) {
-        return std::any_of(
-            OpBundlesToRemove.begin(), OpBundlesToRemove.end(),
-            [&Bundle](StringRef S) { return Bundle.getTag() == S; });
-      });
-}
-
 // Check if the given value may be cloned before the given region.
 // This method does not do all the necessary checks to guarantee
 // cloneability in general. It works correctly only for a special
@@ -4859,38 +4950,6 @@ Instruction *VPOParoptUtils::getInsertionPtForAllocas(
   assert(BB && "Couldn't find single successor of the region entry block.");
 
   return BB->getFirstNonPHI();
-}
-
-// Find the first directive that dominates "PosInst" and which supports
-// the private clause, and add a private clause for "I" into that directive.
-// Return false if no directive was found. Intended to be called outside paropt,
-// where region information is unavailable.
-// "I" should not be previously used in a llvm.directive.region.entry
-// (this is checked by assertion)
-bool VPOParoptUtils::addPrivateToEnclosingRegion(Instruction *I,
-                                                 Instruction *PosInst,
-                                                 DominatorTree &DT) {
-#if !defined(NDEBUG)
-  for (User *UseI : I->users()) {
-    if (auto *IntrInst = dyn_cast<IntrinsicInst>(UseI))
-      if (IntrInst->getIntrinsicID() == Intrinsic::directive_region_entry)
-        llvm_unreachable("Value to privatize is already in a region clause.");
-  }
-#endif // NDEBUG
-
-  // Search upwards through the dominator tree until we find a block
-  // that supports the private clause.
-  auto *IDom = DT[PosInst->getParent()]->getIDom();
-  while (IDom) {
-    auto *IDomBlock = IDom->getBlock();
-    if (VPOAnalysisUtils::supportsPrivateClause(IDomBlock)) {
-      CallInst *CI = cast<CallInst>(&(IDomBlock->front()));
-      VPOParoptUtils::addOperandBundlesInCall(CI, {{"QUAL.OMP.PRIVATE", {I}}});
-      return true;
-    }
-    IDom = DT[IDomBlock]->getIDom();
-  }
-  return false;
 }
 
 // Clones the load instruction and inserts before the InsertPt.
@@ -5083,8 +5142,14 @@ Function *VPOParoptUtils::genOutlineFunction(const WRegionNode &W,
     }
   }
 
-  CodeExtractor CE(makeArrayRef(W.bbset_begin(), W.bbset_end()), DT, false,
-                   nullptr, nullptr, AC, false, true, true,
+  CodeExtractor CE(makeArrayRef(W.bbset_begin(), W.bbset_end()), DT,
+                   /* AggregateArgs */ false,
+                   /* BlockFrequencyInfo */ nullptr,
+                   /* BranchProbabilityInfo */ nullptr,
+                   /* AssumptionCache */ AC,
+                   /* AllowVarArgs */ false,
+                   /* AllowAlloca */ true,
+                   /* AllowEHTypeID */ true,
                    IsTarget ? &TgtClauseArgs : nullptr);
   CE.setDeclLoc(W.getEntryDirective()->getDebugLoc());
   assert(CE.isEligible() && "Region is not eligible for extraction.");
@@ -5096,7 +5161,7 @@ Function *VPOParoptUtils::genOutlineFunction(const WRegionNode &W,
       W.getEntryDirective()->getModule()->getContext()));
 
   CodeExtractorAnalysisCache CEAC(*W.getEntryBBlock()->getParent());
-  auto *NewFunction = CE.extractCodeRegion(CEAC);
+  auto *NewFunction = CE.extractCodeRegion(CEAC, /* hoistAlloca */ true);
   assert(NewFunction && "Code extraction failed for the region.");
   assert(NewFunction->hasOneUse() && "New function should have one use.");
 
@@ -5414,4 +5479,9 @@ void VPOParoptUtils::replaceUsesInFunction(Function *F, Value *Old,
   }
 }
 
+// Returns true, if this is a target compilation invocation
+// forced by dedicated compiler option.
+bool VPOParoptUtils::isForcedTargetCompilation() {
+  return SwitchToOffload;
+}
 #endif // INTEL_COLLAB

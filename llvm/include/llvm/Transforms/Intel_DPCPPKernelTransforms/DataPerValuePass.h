@@ -121,8 +121,8 @@ private:
     SpecialBufferData()
         : CurrentOffset(0), MaxAlignment(0), BufferTotalSize(0) {}
   };
-  using FunctionToEntryMap = std::map<Function *, unsigned int>;
-  using EntryToBufferDataMap = std::map<unsigned int, SpecialBufferData>;
+  using FunctionToEntryMap = MapVector<Function *, unsigned int>;
+  using EntryToBufferDataMap = MapVector<unsigned int, SpecialBufferData>;
 
   /// Execute pass on given function.
   /// F function to analyze,

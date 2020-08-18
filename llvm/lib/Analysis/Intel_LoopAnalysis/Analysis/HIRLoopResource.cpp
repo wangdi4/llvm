@@ -178,27 +178,27 @@ struct LoopResourceInfo::LoopResourceVisitor::BlobCostEvaluator
   void visitConstant(const SCEVConstant *Constant) {}
 
   void visitTruncateExpr(const SCEVTruncateExpr *TruncBlob) {
-    unsigned Cost = LRV.getNormalizedCost(
-        LRV.TTI.getCastInstrCost(Instruction::Trunc, TruncBlob->getType(),
-                                 TruncBlob->getOperand()->getType()));
+    unsigned Cost = LRV.getNormalizedCost(LRV.TTI.getCastInstrCost(
+        Instruction::Trunc, TruncBlob->getType(),
+        TruncBlob->getOperand()->getType(), TTI::CastContextHint::None));
     LRV.SelfLRI->addIntOps(Cost);
 
     visit(TruncBlob->getOperand());
   }
 
   void visitZeroExtendExpr(const SCEVZeroExtendExpr *ZExtBlob) {
-    unsigned Cost = LRV.getNormalizedCost(
-        LRV.TTI.getCastInstrCost(Instruction::ZExt, ZExtBlob->getType(),
-                                 ZExtBlob->getOperand()->getType()));
+    unsigned Cost = LRV.getNormalizedCost(LRV.TTI.getCastInstrCost(
+        Instruction::ZExt, ZExtBlob->getType(),
+        ZExtBlob->getOperand()->getType(), TTI::CastContextHint::None));
     LRV.SelfLRI->addIntOps(Cost);
 
     visit(ZExtBlob->getOperand());
   }
 
   void visitSignExtendExpr(const SCEVSignExtendExpr *SExtBlob) {
-    unsigned Cost = LRV.getNormalizedCost(
-        LRV.TTI.getCastInstrCost(Instruction::SExt, SExtBlob->getType(),
-                                 SExtBlob->getOperand()->getType()));
+    unsigned Cost = LRV.getNormalizedCost(LRV.TTI.getCastInstrCost(
+        Instruction::SExt, SExtBlob->getType(),
+        SExtBlob->getOperand()->getType(), TTI::CastContextHint::None));
     LRV.SelfLRI->addIntOps(Cost);
 
     visit(SExtBlob->getOperand());
@@ -354,8 +354,8 @@ void LoopResourceInfo::LoopResourceVisitor::addCastCost(const CanonExpr *CE) {
   unsigned OpCode = IsTrunc
                         ? Instruction::Trunc
                         : CE->isSExt() ? Instruction::SExt : Instruction::ZExt;
-  unsigned Cost =
-      getNormalizedCost(TTI.getCastInstrCost(OpCode, DestTy, SrcTy));
+  unsigned Cost = getNormalizedCost(
+      TTI.getCastInstrCost(OpCode, DestTy, SrcTy, TTI::CastContextHint::None));
 
   SelfLRI->addIntOps(Cost);
 }
@@ -616,7 +616,8 @@ unsigned LoopResourceInfo::LoopResourceVisitor::getOperationCost(
 
   } else if (auto CInst = dyn_cast<CastInst>(Inst)) {
     Type *OpTy = CInst->getSrcTy();
-    Cost = TTI.getCastInstrCost(CInst->getOpcode(), InstTy, OpTy);
+    Cost = TTI.getCastInstrCost(CInst->getOpcode(), InstTy, OpTy,
+                                TTI::CastContextHint::None);
 
   } else if (isa<CmpInst>(Inst) || isa<SelectInst>(Inst)) {
     // Use operand type here as the CmpInst's type is 'i1'.

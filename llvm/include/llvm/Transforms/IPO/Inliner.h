@@ -90,6 +90,7 @@ protected:
   AssumptionCacheTracker *ACT;
   InliningLoopInfoCache *ILIC; // INTEL
   ProfileSummaryInfo *PSI;
+  WholeProgramInfo *WPI;       // INTEL
   std::function<const TargetLibraryInfo &(Function &)> GetTLI;
   ImportedFunctionsInliningStatistics ImportedFunctionsStats;
 };

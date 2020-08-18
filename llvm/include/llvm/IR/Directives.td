@@ -240,6 +240,7 @@ def "QUAL.OMP.FROM" : Clause;
 def "QUAL.OMP.LINEAR" : Clause;
 def "QUAL.OMP.UNIFORM" : Clause;
 def "QUAL.OMP.ALIGNED" : Clause;
+def "QUAL.OMP.NONTEMPORAL" : Clause;
 def "QUAL.OMP.FLUSH" : Clause;
 def "QUAL.OMP.THREADPRIVATE" : Clause;
 def "QUAL.OMP.DEVICE" : Clause;

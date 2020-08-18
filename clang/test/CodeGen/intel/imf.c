@@ -9,6 +9,11 @@
 // RUN:   "-mGLOB_imf_attr=precision:medium precision:high" \
 // RUN:    -o - %s | FileCheck -check-prefix CHECK-TWO %s
 
+// RUN: %clang_cc1 -ffreestanding -triple x86_64-unknown-linux-gnu \
+// RUN:   -target-cpu skylake-avx512 -emit-llvm -fintel-compatibility \
+// RUN:   "-mGLOB_imf_attr=absolute-error:0.123:sin accuracy-bits:14:sqrt" \
+// RUN:    -o - %s | FileCheck -check-prefix CHECK-THREE %s
+
 #include <immintrin.h>
 extern float sinf (float __x) __attribute__ ((__nothrow__ ));
 extern double sin (double __x) __attribute__ ((__nothrow__ ));
@@ -22,9 +27,11 @@ __m512 foo(__m512 a, float f0, double d0)
 
   //CHECK: = call float @sinf(float %{{.*}}) [[ATTR4:#[0-9]+]]
   //CHECK-TWO: = call float @sinf(float %{{.*}}) [[ATTR4A:#[0-9]+]]
+  //CHECK-THREE: = call float @sinf(float %{{.*}}) [[ATTR4B:#[0-9]+]]
   f1 = sinf(f0);
   //CHECK: = call double @sin(double %{{.*}}) [[ATTR5:#[0-9]+]]
   //CHECK-TWO: = call double @sin(double %{{.*}}) [[ATTR5A:#[0-9]+]]
+  //CHECK-THREE: = call double @sin(double %{{.*}}) [[ATTR5B:#[0-9]+]]
   d1 = sin(d0);
   //CHECK: call void @otherfunc() [[ATTR6:#[0-9]+]]
   otherfunc();
@@ -35,6 +42,9 @@ __m512 foo(__m512 a, float f0, double d0)
   //CHECK: call svml_cc <16 x float> @__svml_exp2f16(<16 x float> {{.*}}) [[ATTR8:#[0-9]+]]
   return _mm512_exp2_ps(a);
 }
+
+//CHECK-THREE: attributes [[ATTR4B]] = {{{.*}}"imf-accuracy-bits-sqrt"="14"
+//CHECK-THREE: attributes [[ATTR5B]] = {{{.*}}"imf-accuracy-bits-sqrt"="14"
 
 //CHECK-TWO: attributes [[ATTR4A]] = {{{.*}}"imf-precision"="high"
 //CHECK-TWO: attributes [[ATTR5A]] = {{{.*}}"imf-absolute-error"="0.123"

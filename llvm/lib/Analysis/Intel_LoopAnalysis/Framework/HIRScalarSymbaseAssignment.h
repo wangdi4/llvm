@@ -165,6 +165,12 @@ public:
   /// Handles specific loop liveout case when the Phi is located in loop's exit
   /// block. This is a public interface because it is also used by HIRParser.
   void handleLoopExitLiveoutPhi(const PHINode *Phi, unsigned Symbase) const;
+
+  /// Returns the deepest loop taking part in the SCC with base/root \p BaseInst
+  /// w.r.t \p UseLoop. Returns nullptr if BaseInst is not part of SCC.
+  const Loop *getDeepestSCCLoop(const Instruction *BaseInst,
+                                const Loop *UseLoop,
+                                const IRRegion &IRReg) const;
 };
 
 } // End namespace loopopt

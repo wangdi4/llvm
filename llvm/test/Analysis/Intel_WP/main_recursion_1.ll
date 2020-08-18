@@ -4,10 +4,10 @@
 ; is set to main only when whole-program-safe is detected and no uses of
 ; main are noticed.
 
-; RUN: opt < %s -wholeprogramanalysis -whole-program-assume-read -whole-program-assume-executable -whole-program-assume-hidden -functionattrs -rpo-functionattrs -disable-output -stats 2>&1 | FileCheck %s
+; RUN: opt < %s -wholeprogramanalysis -whole-program-assume-read -whole-program-assume-executable -whole-program-assume-hidden -function-attrs -rpo-function-attrs -disable-output -stats 2>&1 | FileCheck %s
 ; REQUIRES: asserts
 
-; CHECK:   5 functionattrs - Number of functions marked as norecurse
+; CHECK:   5 function-attrs - Number of functions marked as norecurse
 
 
 %struct._IO_FILE = type { i32, i8*, i8*, i8*, i8*, i8*, i8*, i8*, i8*, i8*, i8*, i8*, %struct._IO_marker*, %struct._IO_FILE*, i32, i32, i64, i16, i8, [1 x i8], i8*, i64, i8*, i8*, i8*, i8*, i64, i32, [20 x i8] }

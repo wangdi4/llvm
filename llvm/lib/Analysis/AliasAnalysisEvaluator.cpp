@@ -41,6 +41,11 @@ static cl::opt<bool> PrintMustModRef("print-mustmodref", cl::ReallyHidden);
 
 static cl::opt<bool> EvalAAMD("evaluate-aa-metadata", cl::ReallyHidden);
 
+#if INTEL_CUSTOMIZATION
+static cl::opt<bool> EvalLoopCarriedAlias("evaluate-loopcarried-alias",
+                                          cl::ReallyHidden);
+#endif // INTEL_CUSTOMIZATION
+
 static void PrintResults(AliasResult AR, bool P, const Value *V1,
                          const Value *V2, const Module *M) {
   if (PrintAll || P) {
@@ -101,6 +106,16 @@ void AAEvaluator::runInternal(Function &F, AAResults &AA) {
   SetVector<Value *> Loads;
   SetVector<Value *> Stores;
 
+#if INTEL_CUSTOMIZATION
+  // Use EvalLoopCarriedAlias to route to either alias or loopCarriedAlias.
+  auto AAQueryWrapper = [=, &AA](auto... args) {
+    if (EvalLoopCarriedAlias)
+      return AA.loopCarriedAlias(args...);
+    else
+      return AA.alias(args...);
+  };
+#endif // INTEL_CUSTOMIZATION
+
   for (auto &I : F.args())
     if (I.getType()->isPointerTy())    // Add all pointer arguments.
       Pointers.insert(&I);
@@ -151,7 +166,7 @@ void AAEvaluator::runInternal(Function &F, AAResults &AA) {
       if (I2ElTy->isSized())
         I2Size = LocationSize::precise(DL.getTypeStoreSize(I2ElTy));
 
-      AliasResult AR = AA.alias(*I1, I1Size, *I2, I2Size);
+      AliasResult AR = AAQueryWrapper(*I1, I1Size, *I2, I2Size); // INTEL
       switch (AR) {
       case NoAlias:
         PrintResults(AR, PrintNoAlias, *I1, *I2, F.getParent());
@@ -177,8 +192,11 @@ void AAEvaluator::runInternal(Function &F, AAResults &AA) {
     // iterate over all pairs of load, store
     for (Value *Load : Loads) {
       for (Value *Store : Stores) {
-        AliasResult AR = AA.alias(MemoryLocation::get(cast<LoadInst>(Load)),
-                                  MemoryLocation::get(cast<StoreInst>(Store)));
+#if INTEL_CUSTOMIZATION
+        AliasResult AR =
+            AAQueryWrapper(MemoryLocation::get(cast<LoadInst>(Load)),
+                           MemoryLocation::get(cast<StoreInst>(Store)));
+#endif // INTEL_CUSTOMIZATION
         switch (AR) {
         case NoAlias:
           PrintLoadStoreResults(AR, PrintNoAlias, Load, Store, F.getParent());
@@ -204,8 +222,11 @@ void AAEvaluator::runInternal(Function &F, AAResults &AA) {
     for (SetVector<Value *>::iterator I1 = Stores.begin(), E = Stores.end();
          I1 != E; ++I1) {
       for (SetVector<Value *>::iterator I2 = Stores.begin(); I2 != I1; ++I2) {
-        AliasResult AR = AA.alias(MemoryLocation::get(cast<StoreInst>(*I1)),
-                                  MemoryLocation::get(cast<StoreInst>(*I2)));
+#if INTEL_CUSTOMIZATION
+        AliasResult AR =
+            AAQueryWrapper(MemoryLocation::get(cast<StoreInst>(*I1)),
+                           MemoryLocation::get(cast<StoreInst>(*I2)));
+#endif // INTEL_CUSTOMIZATION
         switch (AR) {
         case NoAlias:
           PrintLoadStoreResults(AR, PrintNoAlias, *I1, *I2, F.getParent());

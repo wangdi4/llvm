@@ -1,53 +1,41 @@
 // REQUIRES: intel_feature_isa_amx_tile_evex
 // RUN: llvm-mc -triple x86_64-unknown-unknown -x86-asm-syntax=intel -output-asm-variant=1 --show-encoding %s | FileCheck %s
 
-// CHECK:      tileloadde tmm6, byte ptr [rbp + 8*r14 + 268435456]
+// CHECK:      tileloadde tmm6, [rbp + 8*r14 + 268435456]
 // CHECK: encoding: [0x62,0xb2,0x7f,0x08,0x4b,0xb4,0xf5,0x00,0x00,0x00,0x10]
-               tileloadde tmm6, byte ptr [rbp + 8*r14 + 268435456]
+               tileloadde tmm6, [rbp + 8*r14 + 268435456]
 
-// CHECK:      tileloadde tmm3, byte ptr [r8 + 4*rax + 291]
+// CHECK:      tileloadde tmm3, [r8 + 4*rax + 291]
 // CHECK: encoding: [0x62,0xd2,0x7f,0x08,0x4b,0x9c,0x80,0x23,0x01,0x00,0x00]
-               tileloadde tmm3, byte ptr [r8 + 4*rax + 291]
+               tileloadde tmm3, [r8 + 4*rax + 291]
 
-// CHECK:      tileloadde tmm6, byte ptr [rip]
-// CHECK: encoding: [0x62,0xf2,0x7f,0x08,0x4b,0x35,0x00,0x00,0x00,0x00]
-               tileloadde tmm6, byte ptr [rip]
-
-// CHECK:      tileloadde tmm3, byte ptr [2*rbp - 32]
+// CHECK:      tileloadde tmm3, [2*rbp - 32]
 // CHECK: encoding: [0x62,0xf2,0x7f,0x08,0x4b,0x1c,0x6d,0xe0,0xff,0xff,0xff]
-               tileloadde tmm3, byte ptr [2*rbp - 32]
+               tileloadde tmm3, [2*rbp - 32]
 
-// CHECK:      tileloaddt1e tmm6, byte ptr [rbp + 8*r14 + 268435456]
+// CHECK:      tileloaddt1e tmm6, [rbp + 8*r14 + 268435456]
 // CHECK: encoding: [0x62,0xb2,0x7d,0x08,0x4b,0xb4,0xf5,0x00,0x00,0x00,0x10]
-               tileloaddt1e tmm6, byte ptr [rbp + 8*r14 + 268435456]
+               tileloaddt1e tmm6, [rbp + 8*r14 + 268435456]
 
-// CHECK:      tileloaddt1e tmm3, byte ptr [r8 + 4*rax + 291]
+// CHECK:      tileloaddt1e tmm3, [r8 + 4*rax + 291]
 // CHECK: encoding: [0x62,0xd2,0x7d,0x08,0x4b,0x9c,0x80,0x23,0x01,0x00,0x00]
-               tileloaddt1e tmm3, byte ptr [r8 + 4*rax + 291]
+               tileloaddt1e tmm3, [r8 + 4*rax + 291]
 
-// CHECK:      tileloaddt1e tmm6, byte ptr [rip]
-// CHECK: encoding: [0x62,0xf2,0x7d,0x08,0x4b,0x35,0x00,0x00,0x00,0x00]
-               tileloaddt1e tmm6, byte ptr [rip]
-
-// CHECK:      tileloaddt1e tmm3, byte ptr [2*rbp - 32]
+// CHECK:      tileloaddt1e tmm3, [2*rbp - 32]
 // CHECK: encoding: [0x62,0xf2,0x7d,0x08,0x4b,0x1c,0x6d,0xe0,0xff,0xff,0xff]
-               tileloaddt1e tmm3, byte ptr [2*rbp - 32]
+               tileloaddt1e tmm3, [2*rbp - 32]
 
-// CHECK:      tilestorede byte ptr [rbp + 8*r14 + 268435456], tmm6
+// CHECK:      tilestorede [rbp + 8*r14 + 268435456], tmm6
 // CHECK: encoding: [0x62,0xb2,0x7e,0x08,0x4b,0xb4,0xf5,0x00,0x00,0x00,0x10]
-               tilestorede byte ptr [rbp + 8*r14 + 268435456], tmm6
+               tilestorede [rbp + 8*r14 + 268435456], tmm6
 
-// CHECK:      tilestorede byte ptr [r8 + 4*rax + 291], tmm3
+// CHECK:      tilestorede [r8 + 4*rax + 291], tmm3
 // CHECK: encoding: [0x62,0xd2,0x7e,0x08,0x4b,0x9c,0x80,0x23,0x01,0x00,0x00]
-               tilestorede byte ptr [r8 + 4*rax + 291], tmm3
+               tilestorede [r8 + 4*rax + 291], tmm3
 
-// CHECK:      tilestorede byte ptr [rip], tmm6
-// CHECK: encoding: [0x62,0xf2,0x7e,0x08,0x4b,0x35,0x00,0x00,0x00,0x00]
-               tilestorede byte ptr [rip], tmm6
-
-// CHECK:      tilestorede byte ptr [2*rbp - 32], tmm3
+// CHECK:      tilestorede [2*rbp - 32], tmm3
 // CHECK: encoding: [0x62,0xf2,0x7e,0x08,0x4b,0x1c,0x6d,0xe0,0xff,0xff,0xff]
-               tilestorede byte ptr [2*rbp - 32], tmm3
+               tilestorede [2*rbp - 32], tmm3
 
 // CHECK:      tilezeroe tmm6
 // CHECK: encoding: [0x62,0xf2,0x7f,0x08,0x49,0xf0]
@@ -57,53 +45,41 @@
 // CHECK: encoding: [0x62,0xf2,0x7f,0x08,0x49,0xd8]
                tilezeroe tmm3
 
-// CHECK:      tileloadde tmm22, byte ptr [rbp + 8*r14 + 268435456]
+// CHECK:      tileloadde tmm22, [rbp + 8*r14 + 268435456]
 // CHECK: encoding: [0x62,0xa2,0x7f,0x08,0x4b,0xb4,0xf5,0x00,0x00,0x00,0x10]
-               tileloadde tmm22, byte ptr [rbp + 8*r14 + 268435456]
+               tileloadde tmm22, [rbp + 8*r14 + 268435456]
 
-// CHECK:      tileloadde tmm19, byte ptr [r8 + 4*rax + 291]
+// CHECK:      tileloadde tmm19, [r8 + 4*rax + 291]
 // CHECK: encoding: [0x62,0xc2,0x7f,0x08,0x4b,0x9c,0x80,0x23,0x01,0x00,0x00]
-               tileloadde tmm19, byte ptr [r8 + 4*rax + 291]
+               tileloadde tmm19, [r8 + 4*rax + 291]
 
-// CHECK:      tileloadde tmm22, byte ptr [rip]
-// CHECK: encoding: [0x62,0xe2,0x7f,0x08,0x4b,0x35,0x00,0x00,0x00,0x00]
-               tileloadde tmm22, byte ptr [rip]
-
-// CHECK:      tileloadde tmm19, byte ptr [2*rbp - 32]
+// CHECK:      tileloadde tmm19, [2*rbp - 32]
 // CHECK: encoding: [0x62,0xe2,0x7f,0x08,0x4b,0x1c,0x6d,0xe0,0xff,0xff,0xff]
-               tileloadde tmm19, byte ptr [2*rbp - 32]
+               tileloadde tmm19, [2*rbp - 32]
 
-// CHECK:      tileloaddt1e tmm22, byte ptr [rbp + 8*r14 + 268435456]
+// CHECK:      tileloaddt1e tmm22, [rbp + 8*r14 + 268435456]
 // CHECK: encoding: [0x62,0xa2,0x7d,0x08,0x4b,0xb4,0xf5,0x00,0x00,0x00,0x10]
-               tileloaddt1e tmm22, byte ptr [rbp + 8*r14 + 268435456]
+               tileloaddt1e tmm22, [rbp + 8*r14 + 268435456]
 
-// CHECK:      tileloaddt1e tmm19, byte ptr [r8 + 4*rax + 291]
+// CHECK:      tileloaddt1e tmm19, [r8 + 4*rax + 291]
 // CHECK: encoding: [0x62,0xc2,0x7d,0x08,0x4b,0x9c,0x80,0x23,0x01,0x00,0x00]
-               tileloaddt1e tmm19, byte ptr [r8 + 4*rax + 291]
+               tileloaddt1e tmm19, [r8 + 4*rax + 291]
 
-// CHECK:      tileloaddt1e tmm22, byte ptr [rip]
-// CHECK: encoding: [0x62,0xe2,0x7d,0x08,0x4b,0x35,0x00,0x00,0x00,0x00]
-               tileloaddt1e tmm22, byte ptr [rip]
-
-// CHECK:      tileloaddt1e tmm19, byte ptr [2*rbp - 32]
+// CHECK:      tileloaddt1e tmm19, [2*rbp - 32]
 // CHECK: encoding: [0x62,0xe2,0x7d,0x08,0x4b,0x1c,0x6d,0xe0,0xff,0xff,0xff]
-               tileloaddt1e tmm19, byte ptr [2*rbp - 32]
+               tileloaddt1e tmm19, [2*rbp - 32]
 
-// CHECK:      tilestorede byte ptr [rbp + 8*r14 + 268435456], tmm22
+// CHECK:      tilestorede [rbp + 8*r14 + 268435456], tmm22
 // CHECK: encoding: [0x62,0xa2,0x7e,0x08,0x4b,0xb4,0xf5,0x00,0x00,0x00,0x10]
-               tilestorede byte ptr [rbp + 8*r14 + 268435456], tmm22
+               tilestorede [rbp + 8*r14 + 268435456], tmm22
 
-// CHECK:      tilestorede byte ptr [r8 + 4*rax + 291], tmm19
+// CHECK:      tilestorede [r8 + 4*rax + 291], tmm19
 // CHECK: encoding: [0x62,0xc2,0x7e,0x08,0x4b,0x9c,0x80,0x23,0x01,0x00,0x00]
-               tilestorede byte ptr [r8 + 4*rax + 291], tmm19
+               tilestorede [r8 + 4*rax + 291], tmm19
 
-// CHECK:      tilestorede byte ptr [rip], tmm22
-// CHECK: encoding: [0x62,0xe2,0x7e,0x08,0x4b,0x35,0x00,0x00,0x00,0x00]
-               tilestorede byte ptr [rip], tmm22
-
-// CHECK:      tilestorede byte ptr [2*rbp - 32], tmm19
+// CHECK:      tilestorede [2*rbp - 32], tmm19
 // CHECK: encoding: [0x62,0xe2,0x7e,0x08,0x4b,0x1c,0x6d,0xe0,0xff,0xff,0xff]
-               tilestorede byte ptr [2*rbp - 32], tmm19
+               tilestorede [2*rbp - 32], tmm19
 
 // CHECK:      tilezeroe tmm22
 // CHECK: encoding: [0x62,0xe2,0x7f,0x08,0x49,0xf0]

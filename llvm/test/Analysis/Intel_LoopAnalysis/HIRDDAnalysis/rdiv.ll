@@ -1,5 +1,5 @@
 
-; RUN: opt -basicaa -analyze -hir-dd-analysis -hir-dd-analysis-verify=Region %s | FileCheck %s
+; RUN: opt -basic-aa -analyze -hir-dd-analysis -hir-dd-analysis-verify=Region %s | FileCheck %s
 ; RUN: opt -passes="print<hir-dd-analysis>" -hir-create-function-level-region -hir-dd-analysis-verify=Region -disable-output 2>&1 < %s | FileCheck %s
 
 ; For DDtest from 12 to 37 we should use RDIV/MIV not SIV test

@@ -9,6 +9,7 @@
 #include <CL/sycl/device.hpp>
 #include <detail/config.hpp>
 #include <detail/device_impl.hpp>
+#include <detail/force_device.hpp>
 #include <detail/platform_impl.hpp>
 #include <detail/platform_info.hpp>
 #include <detail/force_device.hpp>    // INTEL
@@ -308,6 +309,16 @@ platform_impl::get_info() const {
   return get_platform_info<
       typename info::param_traits<info::platform, param>::return_type,
       param>::get(this->getHandleRef(), getPlugin());
+}
+
+// All devices on the platform must have the given aspect.
+bool platform_impl::has(aspect Aspect) const {
+  for (const auto &dev : get_devices()) {
+    if (dev.has(Aspect) == false) {
+      return false;
+    }
+  }
+  return true;
 }
 
 #define PARAM_TRAITS_SPEC(param_type, param, ret_type)                         \

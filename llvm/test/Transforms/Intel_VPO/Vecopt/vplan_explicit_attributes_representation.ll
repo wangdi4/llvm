@@ -39,6 +39,10 @@ omp.inner.for.body:                               ; predggs = %omp.inner.for.bod
 ; CHECK-NEXT:      DbgLoc: lit_test.c:10:12
 ; CHECK-NEXT:      OperatorFlags -
 ; CHECK-NEXT:        FMF: 0, NSW: 0, NUW: 0, Exact: 0
+; CHECK-NEXT:      Align: 4
+; CHECK-NEXT:      Ordering: 0, Volatile: 0, SSID: 1
+; CHECK-NEXT:      NonDbgMDs -
+; CHECK-NEXT:        <0x{{.*}}> = !{<0x{{.*}}>, <0x{{.*}}>, i64 0}
 ; CHECK-NEXT:      end of details
 
   %arrayidx2 = getelementptr inbounds [1024 x float], [1024 x float]* @C, i64 0, i64 %indvars.iv, !dbg !37, !intel-tbaa !32
@@ -48,11 +52,15 @@ omp.inner.for.body:                               ; predggs = %omp.inner.for.bod
 ; CHECK-NEXT:        FMF: 0, NSW: 0, NUW: 0, Exact: 0
 ; CHECK-NEXT:      end of details
 
-  %2 = load float, float* %arrayidx2, align 4, !dbg !37, !tbaa !32
+  %2 = load atomic float, float* %arrayidx2 unordered, align 4, !dbg !37, !tbaa !32
 ; CHECK:          float [[VP1:%.*]] = load float* [[VP_ARRAYIDX2]]
 ; CHECK-NEXT:      DbgLoc: lit_test.c:10:19
 ; CHECK-NEXT:      OperatorFlags -
 ; CHECK-NEXT:        FMF: 0, NSW: 0, NUW: 0, Exact: 0
+; CHECK-NEXT:      Align: 4
+; CHECK-NEXT:      Ordering: 1, Volatile: 0, SSID: 1
+; CHECK-NEXT:      NonDbgMDs -
+; CHECK-NEXT:        <0x{{.*}}> = !{<0x{{.*}}>, <0x{{.*}}>, i64 0}
 ; CHECK-NEXT:      end of details
 
   %mul3 = fmul fast float %2, %1, !dbg !38
@@ -69,11 +77,16 @@ omp.inner.for.body:                               ; predggs = %omp.inner.for.bod
 ; CHECK-NEXT:        FMF: 0, NSW: 0, NUW: 0, Exact: 0
 ; CHECK-NEXT:      end of details
 
-  store float %mul3, float* %arrayidx5, align 4, !dbg !40, !tbaa !32
+  store float %mul3, float* %arrayidx5, align 4, !dbg !40, !tbaa !32, !nontemporal !47
 ; CHECK:          store float [[VP_MUL3]] float* [[VP_ARRAYIDX5]]
 ; CHECK-NEXT:      DbgLoc: lit_test.c:10:10
 ; CHECK-NEXT:      OperatorFlags -
 ; CHECK-NEXT:        FMF: 0, NSW: 0, NUW: 0, Exact: 0
+; CHECK-NEXT:      Align: 4
+; CHECK-NEXT:      Ordering: 0, Volatile: 0, SSID: 1
+; CHECK-NEXT:      NonDbgMDs -
+; CHECK-NEXT:        <0x{{.*}}> = !{<0x{{.*}}>, <0x{{.*}}>, i64 0}
+; CHECK-NEXT:        <0x{{.*}}> = !{i32 1}
 ; CHECK-NEXT:      end of details
 
   call void @bar(float %mul3) #1, !dbg !41
@@ -177,5 +190,5 @@ attributes #3 = { nounwind readnone speculatable willreturn }
 !44 = !DILocation(line: 8, column: 1, scope: !25)
 !45 = !DILocation(line: 8, column: 28, scope: !25)
 !46 = !DILocation(line: 13, column: 1, scope: !18)
-
+!47 = !{i32 1}
 

@@ -15,12 +15,12 @@ include "mlir/Pass/PassBase.td"
 // AffineToStandard
 //===----------------------------------------------------------------------===//
 
-def ConvertAffineToStandard : FunctionPass<"lower-affine"> {
+def ConvertAffineToStandard : Pass<"lower-affine"> {
   let summary = "Lower Affine operations to a combination of Standard and SCF "
                 "operations";
   let description = [{
 
-    Convert operations from the affine dialect into operations from the loop and
+    Convert operations from the affine dialect into operations from the SCF and
     standard dialects.
 
     `affine.for` operations are converted to `scf.for` operations that are free
@@ -318,6 +318,11 @@ def ConvertVectorToLLVM : Pass<"convert-vector-to-llvm", "ModuleOp"> {
   let summary = "Lower the operations from the vector dialect into the LLVM "
                 "dialect";
   let constructor = "mlir::createConvertVectorToLLVMPass()";
+  let options = [
+    Option<"reassociateFPReductions", "reassociate-fp-reductions",
+           "bool", /*default=*/"false",
+           "Allows llvm to reassociate floating-point reductions for speed">
+  ];
 }
 
 //===----------------------------------------------------------------------===//

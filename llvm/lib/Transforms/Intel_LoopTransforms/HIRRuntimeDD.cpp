@@ -337,7 +337,7 @@ static Optional<bool> replaceIVByBound(CanonExpr *CE, const HLLoop *Loop,
   }
 
   bool Ret = CanonExprUtils::replaceIVByCanonExpr(CE, Level, BoundCE,
-                                                  Loop->isNSW(), true);
+                                                  Loop->hasSignedIV(), true);
   if (!Ret) {
     return false;
   }

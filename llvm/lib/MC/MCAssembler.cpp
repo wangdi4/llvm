@@ -29,6 +29,9 @@
 #include "llvm/MC/MCSection.h"
 #include "llvm/MC/MCSectionELF.h"
 #include "llvm/MC/MCSymbol.h"
+#if INTEL_CUSTOMIZATION
+#include "llvm/MC/Intel_MCTrace.h"
+#endif // INTEL_CUSTOMIZATION
 #include "llvm/MC/MCValue.h"
 #include "llvm/Support/Alignment.h"
 #include "llvm/Support/Casting.h"
@@ -62,8 +65,8 @@ STATISTIC(EmittedAlignFragments,
           "Number of emitted assembler fragments - align");
 STATISTIC(EmittedFillFragments,
           "Number of emitted assembler fragments - fill");
-STATISTIC(EmittedOrgFragments,
-          "Number of emitted assembler fragments - org");
+STATISTIC(EmittedNopsFragments, "Number of emitted assembler fragments - nops");
+STATISTIC(EmittedOrgFragments, "Number of emitted assembler fragments - org");
 STATISTIC(evaluateFixup, "Number of evaluated fixups");
 STATISTIC(FragmentLayouts, "Number of fragment layouts");
 STATISTIC(ObjectBytes, "Number of emitted object file bytes");
@@ -312,6 +315,9 @@ uint64_t MCAssembler::computeFragmentSize(const MCAsmLayout &Layout,
     return Size;
   }
 
+  case MCFragment::FT_Nops:
+    return cast<MCNopsFragment>(F).getNumBytes();
+
   case MCFragment::FT_LEB:
     return cast<MCLEBFragment>(F).getContents().size();
 
@@ -371,7 +377,10 @@ uint64_t MCAssembler::computeFragmentSize(const MCAsmLayout &Layout,
     }
     return Size;
   }
-
+#if INTEL_CUSTOMIZATION
+  case MCFragment::FT_Trace:
+    return cast<MCTraceLineFragment>(F).getContents().size();
+#endif // INTEL_CUSTOMIZATION
   case MCFragment::FT_Dwarf:
     return cast<MCDwarfLineAddrFragment>(F).getContents().size();
   case MCFragment::FT_DwarfFrame:
@@ -397,6 +406,9 @@ void MCAsmLayout::layoutFragment(MCFragment *F) {
   assert((!Prev || isFragmentValid(Prev)) &&
          "Attempt to compute fragment before its predecessor!");
 
+  assert(!F->IsBeingLaidOut && "Already being laid out!");
+  F->IsBeingLaidOut = true;
+
   ++stats::FragmentLayouts;
 
   // Compute fragment offset and size.
@@ -404,6 +416,7 @@ void MCAsmLayout::layoutFragment(MCFragment *F) {
     F->Offset = Prev->Offset + getAssembler().computeFragmentSize(*this, *Prev);
   else
     F->Offset = 0;
+  F->IsBeingLaidOut = false;
   LastValidFragment[F->getParent()] = F;
 
   // If bundling is enabled and this fragment has instructions in it, it has to
@@ -609,6 +622,45 @@ static void writeFragment(raw_ostream &OS, const MCAssembler &Asm,
     break;
   }
 
+  case MCFragment::FT_Nops: {
+    ++stats::EmittedNopsFragments;
+    const MCNopsFragment &NF = cast<MCNopsFragment>(F);
+    int64_t NumBytes = NF.getNumBytes();
+    int64_t ControlledNopLength = NF.getControlledNopLength();
+    int64_t MaximumNopLength = Asm.getBackend().getMaximumNopSize();
+
+    assert(NumBytes > 0 && "Expected positive NOPs fragment size");
+    assert(ControlledNopLength >= 0 && "Expected non-negative NOP size");
+
+    if (ControlledNopLength > MaximumNopLength) {
+      Asm.getContext().reportError(NF.getLoc(),
+                                   "illegal NOP size " +
+                                       std::to_string(ControlledNopLength) +
+                                       ". (expected within [0, " +
+                                       std::to_string(MaximumNopLength) + "])");
+      // Clamp the NOP length as reportError does not stop the execution
+      // immediately.
+      ControlledNopLength = MaximumNopLength;
+    }
+
+    // Use maximum value if the size of each NOP is not specified
+    if (!ControlledNopLength)
+      ControlledNopLength = MaximumNopLength;
+
+    while (NumBytes) {
+      uint64_t NumBytesToEmit =
+          (uint64_t)std::min(NumBytes, ControlledNopLength);
+      assert(NumBytesToEmit && "try to emit empty NOP instruction");
+      if (!Asm.getBackend().writeNopData(OS, NumBytesToEmit)) {
+        report_fatal_error("unable to write nop sequence of the remaining " +
+                           Twine(NumBytesToEmit) + " bytes");
+        break;
+      }
+      NumBytes -= NumBytesToEmit;
+    }
+    break;
+  }
+
   case MCFragment::FT_LEB: {
     const MCLEBFragment &LF = cast<MCLEBFragment>(F);
     OS << LF.getContents();
@@ -637,6 +689,14 @@ static void writeFragment(raw_ostream &OS, const MCAssembler &Asm,
 
     break;
   }
+
+#if INTEL_CUSTOMIZATION
+  case MCFragment::FT_Trace: {
+    const MCTraceLineFragment &TF = cast<MCTraceLineFragment>(F);
+    OS << TF.getContents();
+    break;
+  }
+#endif // INTEL_CUSTOMIZATION
 
   case MCFragment::FT_Dwarf: {
     const MCDwarfLineAddrFragment &OF = cast<MCDwarfLineAddrFragment>(F);
@@ -816,48 +876,57 @@ void MCAssembler::layout(MCAsmLayout &Layout) {
   // Evaluate and apply the fixups, generating relocation entries as necessary.
   for (MCSection &Sec : *this) {
     for (MCFragment &Frag : Sec) {
-      // Data and relaxable fragments both have fixups.  So only process
-      // those here.
-      // FIXME: Is there a better way to do this?  MCEncodedFragmentWithFixups
-      // being templated makes this tricky.
-      if (isa<MCEncodedFragment>(&Frag) &&
-          isa<MCCompactEncodedInstFragment>(&Frag))
-        continue;
-      if (!isa<MCEncodedFragment>(&Frag) && !isa<MCCVDefRangeFragment>(&Frag) &&
-          !isa<MCAlignFragment>(&Frag))
-        continue;
       ArrayRef<MCFixup> Fixups;
       MutableArrayRef<char> Contents;
       const MCSubtargetInfo *STI = nullptr;
-      if (auto *FragWithFixups = dyn_cast<MCDataFragment>(&Frag)) {
-        Fixups = FragWithFixups->getFixups();
-        Contents = FragWithFixups->getContents();
-        STI = FragWithFixups->getSubtargetInfo();
-        assert(!FragWithFixups->hasInstructions() || STI != nullptr);
-      } else if (auto *FragWithFixups = dyn_cast<MCRelaxableFragment>(&Frag)) {
-        Fixups = FragWithFixups->getFixups();
-        Contents = FragWithFixups->getContents();
-        STI = FragWithFixups->getSubtargetInfo();
-        assert(!FragWithFixups->hasInstructions() || STI != nullptr);
-      } else if (auto *FragWithFixups = dyn_cast<MCCVDefRangeFragment>(&Frag)) {
-        Fixups = FragWithFixups->getFixups();
-        Contents = FragWithFixups->getContents();
-      } else if (auto *FragWithFixups = dyn_cast<MCDwarfLineAddrFragment>(&Frag)) {
-        Fixups = FragWithFixups->getFixups();
-        Contents = FragWithFixups->getContents();
-      } else if (auto *AF = dyn_cast<MCAlignFragment>(&Frag)) {
+
+      // Process MCAlignFragment and MCEncodedFragmentWithFixups here.
+      switch (Frag.getKind()) {
+      default:
+        continue;
+      case MCFragment::FT_Align: {
+        MCAlignFragment &AF = cast<MCAlignFragment>(Frag);
         // Insert fixup type for code alignment if the target define
         // shouldInsertFixupForCodeAlign target hook.
-        if (Sec.UseCodeAlign() && AF->hasEmitNops()) {
-          getBackend().shouldInsertFixupForCodeAlign(*this, Layout, *AF);
-        }
+        if (Sec.UseCodeAlign() && AF.hasEmitNops())
+          getBackend().shouldInsertFixupForCodeAlign(*this, Layout, AF);
         continue;
-      } else if (auto *FragWithFixups =
-                     dyn_cast<MCDwarfCallFrameFragment>(&Frag)) {
-        Fixups = FragWithFixups->getFixups();
-        Contents = FragWithFixups->getContents();
-      } else
-        llvm_unreachable("Unknown fragment with fixups!");
+      }
+      case MCFragment::FT_Data: {
+        MCDataFragment &DF = cast<MCDataFragment>(Frag);
+        Fixups = DF.getFixups();
+        Contents = DF.getContents();
+        STI = DF.getSubtargetInfo();
+        assert(!DF.hasInstructions() || STI != nullptr);
+        break;
+      }
+      case MCFragment::FT_Relaxable: {
+        MCRelaxableFragment &RF = cast<MCRelaxableFragment>(Frag);
+        Fixups = RF.getFixups();
+        Contents = RF.getContents();
+        STI = RF.getSubtargetInfo();
+        assert(!RF.hasInstructions() || STI != nullptr);
+        break;
+      }
+      case MCFragment::FT_CVDefRange: {
+        MCCVDefRangeFragment &CF = cast<MCCVDefRangeFragment>(Frag);
+        Fixups = CF.getFixups();
+        Contents = CF.getContents();
+        break;
+      }
+      case MCFragment::FT_Dwarf: {
+        MCDwarfLineAddrFragment &DF = cast<MCDwarfLineAddrFragment>(Frag);
+        Fixups = DF.getFixups();
+        Contents = DF.getContents();
+        break;
+      }
+      case MCFragment::FT_DwarfFrame: {
+        MCDwarfCallFrameFragment &DF = cast<MCDwarfCallFrameFragment>(Frag);
+        Fixups = DF.getFixups();
+        Contents = DF.getContents();
+        break;
+      }
+      }
       for (const MCFixup &Fixup : Fixups) {
         uint64_t FixedValue;
         bool IsResolved;
@@ -1027,6 +1096,21 @@ bool MCAssembler::relaxBoundaryAlign(MCAsmLayout &Layout,
   return true;
 }
 
+#if INTEL_CUSTOMIZATION
+bool MCAssembler::relaxTraceLine(MCAsmLayout &Layout, MCTraceLineFragment &TF) {
+  uint64_t OldSize = TF.getContents().size();
+  assert(OldSize <= 8 && "The longest line record is LN4 + PC4");
+  int64_t DeltaPC;
+  TF.getDeltaPC()->evaluateKnownAbsolute(DeltaPC, Layout);
+  assert(isUInt<32>(DeltaPC) && "Unsupported delta PC");
+  SmallVectorImpl<char> &Data = TF.getContents();
+  Data.clear();
+  raw_svector_ostream OSE(Data);
+  MCTraceLine::encode(OSE, TF.getDeltaLine(), static_cast<uint32_t>(DeltaPC));
+  return OldSize != Data.size();
+}
+#endif // INTEL_CUSTOMIZATION
+
 bool MCAssembler::relaxDwarfLineAddr(MCAsmLayout &Layout,
                                      MCDwarfLineAddrFragment &DF) {
   MCContext &Context = Layout.getAssembler().getContext();
@@ -1120,6 +1204,10 @@ bool MCAssembler::relaxFragment(MCAsmLayout &Layout, MCFragment &F) {
     assert(!getRelaxAll() &&
            "Did not expect a MCRelaxableFragment in RelaxAll mode");
     return relaxInstruction(Layout, cast<MCRelaxableFragment>(F));
+#if INTEL_CUSTOMIZATION
+  case MCFragment::FT_Trace:
+    return relaxTraceLine(Layout, cast<MCTraceLineFragment>(F));
+#endif // INTEL_CUSTOMIZATION
   case MCFragment::FT_Dwarf:
     return relaxDwarfLineAddr(Layout, cast<MCDwarfLineAddrFragment>(F));
   case MCFragment::FT_DwarfFrame:

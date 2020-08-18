@@ -1,7 +1,7 @@
 ; INTEL_CUSTOMIZATION
-; RUN: opt -functionattrs -S < %s | FileCheck %s --check-prefixes=FNATTR,FNATTR-NO-SUBSCRIPT
+; RUN: opt -function-attrs -S < %s | FileCheck %s --check-prefixes=FNATTR,FNATTR-NO-SUBSCRIPT
 ; RUN: opt -passes=function-attrs -S < %s | FileCheck %s --check-prefixes=FNATTR,FNATTR-NO-SUBSCRIPT
-; RUN: opt -S -convert-to-subscript < %s | opt -functionattrs -S | FileCheck %s --check-prefixes=FNATTR,FNATTR-SUBSCRIPT
+; RUN: opt -S -convert-to-subscript < %s | opt -function-attrs -S | FileCheck %s --check-prefixes=FNATTR,FNATTR-SUBSCRIPT
 ; RUN: opt -S -passes=convert-to-subscript < %s | opt -passes=function-attrs -S | FileCheck %s --check-prefixes=FNATTR,FNATTR-SUBSCRIPT
 ; end INTEL_CUSTOMIZATION
 

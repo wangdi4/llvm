@@ -52,7 +52,7 @@ define internal void @test_legality_non_alloca(i8** %arr) #3 {
 ; CHECK-NEXT:    PREDECESSORS(1): [[BB3]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  External Uses:
-; CHECK-NEXT:    [[ADD4_LCSSA0:%.*]] = phi i32 [ [[ADD40:%.*]], [[OMP_INNER_FOR_BODY0:%.*]] ]i32 [[VP_ZII_RED_CAST_RED_FINAL]] -> i32 [[ADD40]]
+; CHECK-NEXT:  Id: 0     [[ADD4_LCSSA0:%.*]] = phi i32 [ [[ADD40:%.*]], [[OMP_INNER_FOR_BODY0:%.*]] ] i32 [[VP_ZII_RED_CAST_RED_FINAL]] -> i32 [[ADD40]]
 ;
 DIR.OMP.SIMD.4:
   %zii.shr3 = load i8*, i8** %arr, align 8

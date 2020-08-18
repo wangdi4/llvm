@@ -10,6 +10,8 @@
 // Details of the algorithm:
 //  https://github.com/google/sanitizers/wiki/AddressSanitizerAlgorithm
 //
+// FIXME: This sanitizer does not yet handle scalable vectors
+//
 //===----------------------------------------------------------------------===//
 
 #include "llvm/Transforms/Instrumentation/AddressSanitizer.h"
@@ -432,6 +434,7 @@ static ShadowMapping getShadowMapping(Triple &TargetTriple, int LongSize,
                                       bool IsKasan) {
   bool IsAndroid = TargetTriple.isAndroid();
   bool IsIOS = TargetTriple.isiOS() || TargetTriple.isWatchOS();
+  bool IsMacOS = TargetTriple.isMacOSX();
   bool IsFreeBSD = TargetTriple.isOSFreeBSD();
   bool IsNetBSD = TargetTriple.isOSNetBSD();
   bool IsPS4CPU = TargetTriple.isPS4CPU();
@@ -507,6 +510,8 @@ static ShadowMapping getShadowMapping(Triple &TargetTriple, int LongSize,
     } else if (IsMIPS64)
       Mapping.Offset = kMIPS64_ShadowOffset64;
     else if (IsIOS)
+      Mapping.Offset = kDynamicShadowSentinel;
+    else if (IsMacOS && IsAArch64)
       Mapping.Offset = kDynamicShadowSentinel;
     else if (IsAArch64)
       Mapping.Offset = kAArch64_ShadowOffset64;
@@ -693,7 +698,6 @@ private:
   FunctionCallee AsanMemoryAccessCallbackSized[2][2];
 
   FunctionCallee AsanMemmove, AsanMemcpy, AsanMemset;
-  InlineAsm *EmptyAsm;
   Value *LocalDynamicShadow = nullptr;
   const GlobalsMetadata &GlobalsMD;
   DenseMap<const AllocaInst *, bool> ProcessedAllocas;
@@ -907,20 +911,14 @@ struct FunctionStackPoisoner : public InstVisitor<FunctionStackPoisoner> {
   AllocaInst *DynamicAllocaLayout = nullptr;
   IntrinsicInst *LocalEscapeCall = nullptr;
 
-  // Maps Value to an AllocaInst from which the Value is originated.
-  using AllocaForValueMapTy = DenseMap<Value *, AllocaInst *>;
-  AllocaForValueMapTy AllocaForValue;
-
-  bool HasNonEmptyInlineAsm = false;
+  bool HasInlineAsm = false;
   bool HasReturnsTwiceCall = false;
-  std::unique_ptr<CallInst> EmptyInlineAsm;
 
   FunctionStackPoisoner(Function &F, AddressSanitizer &ASan)
       : F(F), ASan(ASan), DIB(*F.getParent(), /*AllowUnresolved*/ false),
         C(ASan.C), IntptrTy(ASan.IntptrTy),
         IntptrPtrTy(PointerType::get(IntptrTy, 0)), Mapping(ASan.Mapping),
-        StackAlignment(1 << Mapping.Scale),
-        EmptyInlineAsm(CallInst::Create(ASan.EmptyAsm)) {}
+        StackAlignment(1 << Mapping.Scale) {}
 
   bool runOnFunction() {
     if (!ClStack) return false;
@@ -1063,8 +1061,7 @@ struct FunctionStackPoisoner : public InstVisitor<FunctionStackPoisoner> {
         !ConstantInt::isValueValidForType(IntptrTy, SizeValue))
       return;
     // Find alloca instruction that corresponds to llvm.lifetime argument.
-    AllocaInst *AI =
-        llvm::findAllocaForValue(II.getArgOperand(1), AllocaForValue);
+    AllocaInst *AI = findAllocaForValue(II.getArgOperand(1));
     if (!AI) {
       HasUntracedLifetimeIntrinsic = true;
       return;
@@ -1082,9 +1079,7 @@ struct FunctionStackPoisoner : public InstVisitor<FunctionStackPoisoner> {
 
   void visitCallBase(CallBase &CB) {
     if (CallInst *CI = dyn_cast<CallInst>(&CB)) {
-      HasNonEmptyInlineAsm |= CI->isInlineAsm() &&
-                              !CI->isIdenticalTo(EmptyInlineAsm.get()) &&
-                              &CB != ASan.LocalDynamicShadow;
+      HasInlineAsm |= CI->isInlineAsm() && &CB != ASan.LocalDynamicShadow;
       HasReturnsTwiceCall |= CI->canReturnTwice();
     }
   }
@@ -1381,23 +1376,22 @@ void AddressSanitizer::getInterestingMemoryOperands(
     if (!ClInstrumentReads || ignoreAccess(LI->getPointerOperand()))
       return;
     Interesting.emplace_back(I, LI->getPointerOperandIndex(), false,
-                             LI->getType(), LI->getAlignment());
+                             LI->getType(), LI->getAlign());
   } else if (StoreInst *SI = dyn_cast<StoreInst>(I)) {
     if (!ClInstrumentWrites || ignoreAccess(SI->getPointerOperand()))
       return;
     Interesting.emplace_back(I, SI->getPointerOperandIndex(), true,
-                             SI->getValueOperand()->getType(),
-                             SI->getAlignment());
+                             SI->getValueOperand()->getType(), SI->getAlign());
   } else if (AtomicRMWInst *RMW = dyn_cast<AtomicRMWInst>(I)) {
     if (!ClInstrumentAtomics || ignoreAccess(RMW->getPointerOperand()))
       return;
     Interesting.emplace_back(I, RMW->getPointerOperandIndex(), true,
-                             RMW->getValOperand()->getType(), 0);
+                             RMW->getValOperand()->getType(), None);
   } else if (AtomicCmpXchgInst *XCHG = dyn_cast<AtomicCmpXchgInst>(I)) {
     if (!ClInstrumentAtomics || ignoreAccess(XCHG->getPointerOperand()))
       return;
     Interesting.emplace_back(I, XCHG->getPointerOperandIndex(), true,
-                             XCHG->getCompareOperand()->getType(), 0);
+                             XCHG->getCompareOperand()->getType(), None);
   } else if (auto CI = dyn_cast<CallInst>(I)) {
     auto *F = CI->getCalledFunction();
     if (F && (F->getName().startswith("llvm.masked.load.") ||
@@ -1412,11 +1406,10 @@ void AddressSanitizer::getInterestingMemoryOperands(
       if (ignoreAccess(BasePtr))
         return;
       auto Ty = cast<PointerType>(BasePtr->getType())->getElementType();
-      unsigned Alignment = 1;
+      MaybeAlign Alignment = Align(1);
       // Otherwise no alignment guarantees. We probably got Undef.
-      if (auto AlignmentConstant =
-              dyn_cast<ConstantInt>(CI->getOperand(1 + OpOffset)))
-        Alignment = (unsigned)AlignmentConstant->getZExtValue();
+      if (auto *Op = dyn_cast<ConstantInt>(CI->getOperand(1 + OpOffset)))
+        Alignment = Op->getMaybeAlignValue();
       Value *Mask = CI->getOperand(2 + OpOffset);
       Interesting.emplace_back(I, OpOffset, IsWrite, Ty, Alignment, Mask);
     } else {
@@ -1425,7 +1418,7 @@ void AddressSanitizer::getInterestingMemoryOperands(
             ignoreAccess(CI->getArgOperand(ArgNo)))
           continue;
         Type *Ty = CI->getParamByValType(ArgNo);
-        Interesting.emplace_back(I, ArgNo, false, Ty, 1);
+        Interesting.emplace_back(I, ArgNo, false, Ty, Align(1));
       }
     }
   }
@@ -1487,7 +1480,7 @@ void AddressSanitizer::instrumentPointerComparisonOrSubtraction(
 
 static void doInstrumentAddress(AddressSanitizer *Pass, Instruction *I,
                                 Instruction *InsertBefore, Value *Addr,
-                                unsigned Alignment, unsigned Granularity,
+                                MaybeAlign Alignment, unsigned Granularity,
                                 uint32_t TypeSize, bool IsWrite,
                                 Value *SizeArgument, bool UseCalls,
                                 uint32_t Exp) {
@@ -1495,7 +1488,7 @@ static void doInstrumentAddress(AddressSanitizer *Pass, Instruction *I,
   // if the data is properly aligned.
   if ((TypeSize == 8 || TypeSize == 16 || TypeSize == 32 || TypeSize == 64 ||
        TypeSize == 128) &&
-      (Alignment >= Granularity || Alignment == 0 || Alignment >= TypeSize / 8))
+      (!Alignment || *Alignment >= Granularity || *Alignment >= TypeSize / 8))
     return Pass->instrumentAddress(I, InsertBefore, Addr, TypeSize, IsWrite,
                                    nullptr, UseCalls, Exp);
   Pass->instrumentUnusualSizeOrAlignment(I, InsertBefore, Addr, TypeSize,
@@ -1505,12 +1498,12 @@ static void doInstrumentAddress(AddressSanitizer *Pass, Instruction *I,
 static void instrumentMaskedLoadOrStore(AddressSanitizer *Pass,
                                         const DataLayout &DL, Type *IntptrTy,
                                         Value *Mask, Instruction *I,
-                                        Value *Addr, unsigned Alignment,
+                                        Value *Addr, MaybeAlign Alignment,
                                         unsigned Granularity, uint32_t TypeSize,
                                         bool IsWrite, Value *SizeArgument,
                                         bool UseCalls, uint32_t Exp) {
-  auto *VTy =
-      cast<VectorType>(cast<PointerType>(Addr->getType())->getElementType());
+  auto *VTy = cast<FixedVectorType>(
+      cast<PointerType>(Addr->getType())->getElementType());
   uint64_t ElemTypeSize = DL.getTypeStoreSizeInBits(VTy->getScalarType());
   unsigned Num = VTy->getNumElements();
   auto Zero = ConstantInt::get(IntptrTy, 0);
@@ -1563,7 +1556,7 @@ void AddressSanitizer::instrumentMop(ObjectSizeOffsetVisitor &ObjSizeVis,
   if (ClOpt && ClOptGlobals) {
     // If initialization order checking is disabled, a simple access to a
     // dynamically initialized global is always valid.
-    GlobalVariable *G = dyn_cast<GlobalVariable>(GetUnderlyingObject(Addr, DL));
+    GlobalVariable *G = dyn_cast<GlobalVariable>(getUnderlyingObject(Addr));
     if (G && (!ClInitializers || GlobalIsLinkerInitialized(G)) &&
         isSafeAccess(ObjSizeVis, Addr, O.TypeSize)) {
       NumOptimizedAccessesToGlobalVar++;
@@ -1573,7 +1566,7 @@ void AddressSanitizer::instrumentMop(ObjectSizeOffsetVisitor &ObjSizeVis,
 
   if (ClOpt && ClOptStack) {
     // A direct inbounds access to a stack variable is always valid.
-    if (isa<AllocaInst>(GetUnderlyingObject(Addr, DL)) &&
+    if (isa<AllocaInst>(getUnderlyingObject(Addr)) &&
         isSafeAccess(ObjSizeVis, Addr, O.TypeSize)) {
       NumOptimizedAccessesToStackVar++;
       return;
@@ -1621,10 +1614,7 @@ Instruction *AddressSanitizer::generateCrashCode(Instruction *InsertBefore,
                             {Addr, ExpVal});
   }
 
-  // We don't do Call->setDoesNotReturn() because the BB already has
-  // UnreachableInst at the end.
-  // This EmptyAsm is required to avoid callback merge.
-  IRB.CreateCall(EmptyAsm, {});
+  Call->setCannotMerge();
   return Call;
 }
 
@@ -2111,23 +2101,10 @@ void ModuleAddressSanitizer::InstrumentGlobalsELF(
     SetComdatForGlobalMetadata(G, Metadata, UniqueModuleId);
   }
 
-  // This should never be called when there are no globals, by the logic that
-  // computes the UniqueModuleId string, which is "" when there are no globals.
-  // It's important that this path is only used when there are actually some
-  // globals, because that means that there will certainly be a live
-  // `asan_globals` input section at link time and thus `__start_asan_globals`
-  // and `__stop_asan_globals` symbols will definitely be defined at link time.
-  // This means there's no need for the references to them to be weak, which
-  // enables better code generation because ExternalWeakLinkage implies
-  // isInterposable() and thus requires GOT indirection for PIC.  Since these
-  // are known-defined hidden/dso_local symbols, direct PIC accesses without
-  // dynamic relocation are always sufficient.
-  assert(!MetadataGlobals.empty());
-  assert(!UniqueModuleId.empty());
-
   // Update llvm.compiler.used, adding the new metadata globals. This is
   // needed so that during LTO these variables stay alive.
-  appendToCompilerUsed(M, MetadataGlobals);
+  if (!MetadataGlobals.empty())
+    appendToCompilerUsed(M, MetadataGlobals);
 
   // RegisteredFlag serves two purposes. First, we can pass it to dladdr()
   // to look up the loaded image that contains it. Second, we can store in it
@@ -2140,18 +2117,15 @@ void ModuleAddressSanitizer::InstrumentGlobalsELF(
       ConstantInt::get(IntptrTy, 0), kAsanGlobalsRegisteredFlagName);
   RegisteredFlag->setVisibility(GlobalVariable::HiddenVisibility);
 
-  // Create start and stop symbols.  These are known to be defined by
-  // the linker, see comment above.
-  auto MakeStartStopGV = [&](const char *Prefix) {
-    GlobalVariable *StartStop =
-        new GlobalVariable(M, IntptrTy, false, GlobalVariable::ExternalLinkage,
-                           nullptr, Prefix + getGlobalMetadataSection());
-    StartStop->setVisibility(GlobalVariable::HiddenVisibility);
-    assert(StartStop->isImplicitDSOLocal());
-    return StartStop;
-  };
-  GlobalVariable *StartELFMetadata = MakeStartStopGV("__start_");
-  GlobalVariable *StopELFMetadata = MakeStartStopGV("__stop_");
+  // Create start and stop symbols.
+  GlobalVariable *StartELFMetadata = new GlobalVariable(
+      M, IntptrTy, false, GlobalVariable::ExternalWeakLinkage, nullptr,
+      "__start_" + getGlobalMetadataSection());
+  StartELFMetadata->setVisibility(GlobalVariable::HiddenVisibility);
+  GlobalVariable *StopELFMetadata = new GlobalVariable(
+      M, IntptrTy, false, GlobalVariable::ExternalWeakLinkage, nullptr,
+      "__stop_" + getGlobalMetadataSection());
+  StopELFMetadata->setVisibility(GlobalVariable::HiddenVisibility);
 
   // Create a call to register the globals with the runtime.
   IRB.CreateCall(AsanRegisterElfGlobals,
@@ -2598,10 +2572,6 @@ void AddressSanitizer::initializeCallbacks(Module &M) {
       M.getOrInsertFunction(kAsanPtrCmp, IRB.getVoidTy(), IntptrTy, IntptrTy);
   AsanPtrSubFunction =
       M.getOrInsertFunction(kAsanPtrSub, IRB.getVoidTy(), IntptrTy, IntptrTy);
-  // We insert an empty inline asm after __asan_report* to avoid callback merge.
-  EmptyAsm = InlineAsm::get(FunctionType::get(IRB.getVoidTy(), false),
-                            StringRef(""), StringRef(""),
-                            /*hasSideEffects=*/true);
   if (Mapping.InGlobal)
     AsanShadowGlobal = M.getOrInsertGlobal("__asan_shadow",
                                            ArrayType::get(IRB.getInt8Ty(), 0));
@@ -3205,8 +3175,8 @@ void FunctionStackPoisoner::processStaticAllocas() {
   // 2) There is a returns_twice call (typically setjmp), which is
   //    optimization-hostile, and doesn't play well with introduced indirect
   //    register-relative calculation of local variable addresses.
-  DoDynamicAlloca &= !HasNonEmptyInlineAsm && !HasReturnsTwiceCall;
-  DoStackMalloc &= !HasNonEmptyInlineAsm && !HasReturnsTwiceCall;
+  DoDynamicAlloca &= !HasInlineAsm && !HasReturnsTwiceCall;
+  DoStackMalloc &= !HasInlineAsm && !HasReturnsTwiceCall;
 
   Value *StaticAlloca =
       DoDynamicAlloca ? nullptr : createAllocaForLayout(IRB, L, false);

@@ -24,17 +24,22 @@ class VPCloneUtils {
 public:
   using Value2ValueMapTy = DenseMap<VPValue *, VPValue *>;
 
-  /// Clone given VPBasicBlock \p Block.
+  /// Clone given VPBasicBlock \p Block inside the current VPlan or in a
+  /// NewVPlan (if NewVPlan!=nullptr).
   static VPBasicBlock *cloneBasicBlock(VPBasicBlock *Block, const Twine &Prefix,
                                        Value2ValueMapTy &ValueMap,
                                        VPlan::iterator InsertBefore,
-                                       VPlanDivergenceAnalysis *DA = nullptr);
+                                       VPlanDivergenceAnalysis *DA = nullptr,
+                                       VPlan *NewVPlan = nullptr);
 
-  /// Clone given blocks from Begin to End
+  /// Clone given blocks from Begin to End inside the current Plan if
+  /// NewVPlan=nullptr. Otherwise, it clones the basic blocks from Begin to End
+  /// and adds them to a new VPlan.
   static VPBasicBlock *cloneBlocksRange(VPBasicBlock *Begin, VPBasicBlock *End,
                                         Value2ValueMapTy &ValueMap,
                                         VPlanDivergenceAnalysis *DA = nullptr,
-                                        const Twine &Prefix = "cloned.");
+                                        const Twine &Prefix = "cloned.",
+                                        VPlan *NewVPlan = nullptr);
 };
 
 /// VPValueMapper is responsible to remap instructions within
@@ -56,7 +61,10 @@ private:
     assert(!AssertForNonCloned &&
            "Either VPBB or VPInstruction was not cloned. Remapping is not "
            "possible.");
-    Map[Value] = Value;
+
+    if (dyn_cast<VPInstruction>(Value))
+      Map[Value] = Value;
+
     return Value;
   }
 
@@ -66,6 +74,12 @@ public:
       : Value2ValueMap(ValueMap), AssertForNonCloned(AssertForNonCloned) {}
 
   void remapInstruction(VPInstruction *Inst);
+
+  // Updates the operands of cloned instructions and basic blocks by replacing
+  // the original values with the cloned ones.
+  void remapOperands(VPBasicBlock *OrigVPBB,
+                     std::function<void(VPInstruction &)> UpdateFunc =
+                         [](VPInstruction &VPInst) {});
 };
 
 } // namespace vpo

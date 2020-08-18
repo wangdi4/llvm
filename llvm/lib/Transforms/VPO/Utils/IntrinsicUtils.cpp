@@ -14,9 +14,11 @@
 ///
 // ===--------------------------------------------------------------------=== //
 
+#include "llvm/Transforms/Utils/IntrinsicUtils.h"
 #include "llvm/ADT/BitVector.h"
 #include "llvm/ADT/SetVector.h"
 #include "llvm/ADT/StringRef.h"
+#include "llvm/Analysis/AliasAnalysis.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/InstIterator.h"
 #include "llvm/IR/Instructions.h"
@@ -250,12 +252,107 @@ CallInst *VPOUtils::genMemset(Value *P, Value *V, const DataLayout &DL,
   return MemsetBuilder.CreateMemSet(Ptr, V, Size, MaybeAlign(Align));
 }
 
+// Creates a clone of CI, adds OpBundlesToAdd to it, and returns it.
+CallInst *VPOUtils::addOperandBundlesInCall(
+    CallInst *CI,
+    ArrayRef<std::pair<StringRef, ArrayRef<Value *>>> OpBundlesToAdd) {
+
+  assert(CI && "addOperandBundlesInCall: Null CallInst");
+
+  if (OpBundlesToAdd.empty())
+    return CI;
+
+  SmallVector<Value *, 8> Args;
+  for (auto AI = CI->arg_begin(), AE = CI->arg_end(); AI != AE; AI++)
+    Args.push_back(*AI);
+
+  SmallVector<OperandBundleDef, 1> OpBundles;
+  CI->getOperandBundlesAsDefs(OpBundles);
+
+  for (auto &StrValVec : OpBundlesToAdd) {
+    OperandBundleDef B(std::string(StrValVec.first), StrValVec.second);
+    OpBundles.push_back(B);
+  }
+
+  FunctionType *FnTy = CI->getFunctionType();
+  Value *Fn = CI->getCalledOperand();
+  auto NewI = CallInst::Create(FnTy, Fn, Args, OpBundles, "", CI);
+
+  NewI->takeName(CI);
+  NewI->setCallingConv(CI->getCallingConv());
+  NewI->setAttributes(CI->getAttributes());
+  NewI->setDebugLoc(CI->getDebugLoc());
+
+  CI->replaceAllUsesWith(NewI);
+  CI->eraseFromParent();
+
+  return NewI;
+}
+
+// Creates a clone of CI without the operand bundles in OpBundlesToRemove from
+// it, and returns it.
+CallInst *
+VPOUtils::removeOperandBundlesFromCall(CallInst *CI,
+                                       ArrayRef<StringRef> OpBundlesToRemove) {
+  return IntrinsicUtils::removeOperandBundlesFromCall(
+      CI, [&OpBundlesToRemove](const OperandBundleDef &Bundle) {
+        return std::any_of(
+            OpBundlesToRemove.begin(), OpBundlesToRemove.end(),
+            [&Bundle](StringRef S) { return Bundle.getTag() == S; });
+      });
+}
+
+// "Privatizes" an Instruction by adding it to a supported entry
+// directive clause.
+// If the Instruction is already used in a directive, nothing is done.
+// BlockPos: The first dominating entry directive over this block is
+// chosen.
+// SimdOnly: Process SIMD directives only. This must be true inside VPO, as
+// non-SIMD directives cannot be modified during VPO.
+// Return false if no directive was found.
+bool VPOUtils::addPrivateToEnclosingRegion(Instruction *I, BasicBlock *BlockPos,
+                                           DominatorTree &DT, bool SimdOnly) {
+  // Check if I is already used in a directive, don't introduce a possible
+  // conflict.
+  for (User *UseI : I->users())
+    if (auto *IntrInst = dyn_cast<IntrinsicInst>(UseI))
+      if (VPOAnalysisUtils::isRegionDirective(IntrInst))
+        // Ignore non-simd if we are only intending to modify simd.
+        if (!SimdOnly ||
+            VPOAnalysisUtils::getDirectiveID(IntrInst) == DIR_OMP_SIMD)
+          return false;
+
+  // Search upwards through the dominator tree until we find a block
+  // that supports the private clause.
+  auto *DomNode = DT[BlockPos];
+  assert(DomNode && "Dominator tree not built for this function.");
+  auto *IDom = DomNode->getIDom();
+  while (IDom) {
+    auto *IDomBlock = IDom->getBlock();
+    if (VPOAnalysisUtils::supportsPrivateClause(IDomBlock)) {
+      auto *II = cast<IntrinsicInst>(&(IDomBlock->front()));
+      if (II &&
+          (!SimdOnly || VPOAnalysisUtils::getDirectiveID(II) == DIR_OMP_SIMD)) {
+        auto *Repl =
+            VPOUtils::addOperandBundlesInCall(II, {{"QUAL.OMP.PRIVATE", {I}}});
+        if (Repl) {
+          LLVM_DEBUG(dbgs() << "Added private for " << I->getName()
+                            << " to: " << *Repl << "\n");
+        }
+        return true;
+      }
+    }
+    IDom = DT[IDomBlock]->getIDom();
+  }
+  return false;
+}
+
 #if INTEL_CUSTOMIZATION
 
 // Alias scope is an optimization
 using ScopeSetType = SmallSetVector<Metadata *, 8>;
 
-void VPOUtils::genAliasSet(ArrayRef<BasicBlock *> BBs, AliasAnalysis *AA,
+void VPOUtils::genAliasSet(ArrayRef<BasicBlock *> BBs, AAResults *AA,
                            const DataLayout *DL) {
 
   SmallVector<Instruction *, 8> MemoryInsns;
@@ -319,7 +416,7 @@ void VPOUtils::genAliasSet(ArrayRef<BasicBlock *> BBs, AliasAnalysis *AA,
 
   // Build an alias matrix based on the AA for the incoming loads/stores.
   auto initAliasMatrix = [&](SmallVectorImpl<Instruction *> &Insns,
-                             AliasAnalysis *AA, const DataLayout *DL,
+                             AAResults *AA, const DataLayout *DL,
                              BitMatrix &BM) {
     int N = Insns.size();
     BM.clear();

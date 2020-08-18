@@ -25,6 +25,13 @@
 #define TARGET_NAME CUDA
 #endif
 
+#if INTEL_CUSTOMIZATION
+// This source below is clang-compatible and does not build with xmain's
+// very strict GCC options.
+// Turn this off to avoid excessive source modifications.
+#pragma GCC diagnostic ignored "-Wsign-compare"
+#endif // INTEL_CUSTOMIZATION
+
 #ifdef OMPTARGET_DEBUG
 static int DebugLevel = 0;
 
@@ -95,7 +102,7 @@ bool checkResult(CUresult Err, const char *ErrMsg) {
   if (Err == CUDA_SUCCESS)
     return true;
 
-  DP(ErrMsg);
+  DP("%s", ErrMsg);
   CUDA_ERR_STRING(Err);
   return false;
 }
@@ -385,9 +392,15 @@ public:
 
     for (DeviceDataTy &D : DeviceData) {
       // Destroy context
-      if (D.Context)
-        checkResult(cuCtxDestroy(D.Context),
-                    "Error returned from cuCtxDestroy\n");
+      if (D.Context) {
+        checkResult(cuCtxSetCurrent(D.Context),
+                    "Error returned from cuCtxSetCurrent\n");
+        CUdevice Device;
+        checkResult(cuCtxGetDevice(&Device),
+                    "Error returned from cuCtxGetDevice\n");
+        checkResult(cuDevicePrimaryCtxRelease(Device),
+                    "Error returned from cuDevicePrimaryCtxRelease\n");
+      }
     }
   }
 
@@ -408,10 +421,32 @@ public:
     if (!checkResult(Err, "Error returned from cuDeviceGet\n"))
       return OFFLOAD_FAIL;
 
-    // Create the context and save it to use whenever this device is selected.
-    Err = cuCtxCreate(&DeviceData[DeviceId].Context, CU_CTX_SCHED_BLOCKING_SYNC,
-                      Device);
-    if (!checkResult(Err, "Error returned from cuCtxCreate\n"))
+    // Query the current flags of the primary context and set its flags if
+    // it is inactive
+    unsigned int FormerPrimaryCtxFlags = 0;
+    int FormerPrimaryCtxIsActive = 0;
+    Err = cuDevicePrimaryCtxGetState(Device, &FormerPrimaryCtxFlags,
+                                     &FormerPrimaryCtxIsActive);
+    if (!checkResult(Err, "Error returned from cuDevicePrimaryCtxGetState\n"))
+      return OFFLOAD_FAIL;
+
+    if (FormerPrimaryCtxIsActive) {
+      DP("The primary context is active, no change to its flags\n");
+      if ((FormerPrimaryCtxFlags & CU_CTX_SCHED_MASK) !=
+          CU_CTX_SCHED_BLOCKING_SYNC)
+        DP("Warning the current flags are not CU_CTX_SCHED_BLOCKING_SYNC\n");
+    } else {
+      DP("The primary context is inactive, set its flags to "
+         "CU_CTX_SCHED_BLOCKING_SYNC\n");
+      Err = cuDevicePrimaryCtxSetFlags(Device, CU_CTX_SCHED_BLOCKING_SYNC);
+      if (!checkResult(Err, "Error returned from cuDevicePrimaryCtxSetFlags\n"))
+        return OFFLOAD_FAIL;
+    }
+
+    // Retain the per device primary context and save it to use whenever this
+    // device is selected.
+    Err = cuDevicePrimaryCtxRetain(&DeviceData[DeviceId].Context, Device);
+    if (!checkResult(Err, "Error returned from cuDevicePrimaryCtxRetain\n"))
       return OFFLOAD_FAIL;
 
     Err = cuCtxSetCurrent(DeviceData[DeviceId].Context);
@@ -558,10 +593,6 @@ public:
           return nullptr;
         }
 
-#if INTEL_COLLAB
-EXTERN
-#endif  // INTEL_COLLAB
-int32_t __tgt_rtl_init_device(int32_t device_id) {
         if (CUSize != E->size) {
           DP("Loading global '%s' - size mismatch (%zd != %zd)\n", E->name,
              CUSize, E->size);
@@ -799,8 +830,8 @@ int32_t __tgt_rtl_init_device(int32_t device_id) {
         return OFFLOAD_SUCCESS;
 
       DP("Error returned from cuMemcpyPeerAsync. src_ptr = " DPxMOD
-         ", src_id =%" PRId32 ", dst_ptr = %" DPxMOD ", dst_id =%" PRId32 "\n",
-         SrcPtr, SrcDevId, DstPtr, DstDevId);
+         ", src_id =%" PRId32 ", dst_ptr = " DPxMOD ", dst_id =%" PRId32 "\n",
+         DPxPTR(SrcPtr), SrcDevId, DPxPTR(DstPtr), DstDevId);
       CUDA_ERR_STRING(Err);
     }
 
@@ -895,7 +926,7 @@ int32_t __tgt_rtl_init_device(int32_t device_id) {
           // loop.
           CudaBlocksPerGrid = LoopTripCount;
         }
-        DP("Using %d teams due to loop trip count %" PRIu64
+        DP("Using %d teams due to loop trip count %" PRIu32
            " and number of threads per block %d\n",
            CudaBlocksPerGrid, LoopTripCount, CudaThreadsPerBlock);
       } else {
@@ -975,7 +1006,7 @@ int32_t __tgt_rtl_number_of_devices() { return DeviceRTL.getNumOfDevices(); }
 EXTERN
 #endif  // INTEL_COLLAB
 int64_t __tgt_rtl_init_requires(int64_t RequiresFlags) {
-  DP("Init requires flags to %ld\n", RequiresFlags);
+  DP("Init requires flags to %" PRId64 "\n", RequiresFlags);
   DeviceRTL.setRequiresFlag(RequiresFlags);
   return RequiresFlags;
 }
@@ -1074,6 +1105,9 @@ int32_t __tgt_rtl_data_retrieve_async(int32_t device_id, void *hst_ptr,
                                 async_info_ptr);
 }
 
+#if INTEL_COLLAB
+EXTERN
+#endif  // INTEL_COLLAB
 int32_t __tgt_rtl_data_exchange_async(int32_t src_dev_id, void *src_ptr,
                                       int dst_dev_id, void *dst_ptr,
                                       int64_t size,
@@ -1086,6 +1120,9 @@ int32_t __tgt_rtl_data_exchange_async(int32_t src_dev_id, void *src_ptr,
                                 async_info_ptr);
 }
 
+#if INTEL_COLLAB
+EXTERN
+#endif  // INTEL_COLLAB
 int32_t __tgt_rtl_data_exchange(int32_t src_dev_id, void *src_ptr,
                                 int32_t dst_dev_id, void *dst_ptr,
                                 int64_t size) {
@@ -1190,6 +1227,11 @@ int32_t __tgt_rtl_synchronize(int32_t device_id,
 
   return DeviceRTL.synchronize(device_id, async_info_ptr);
 }
+
+#if INTEL_CUSTOMIZATION
+// -Wsign-compare
+#pragma GCC diagnostic pop
+#endif // INTEL_CUSTOMIZATION
 
 #ifdef __cplusplus
 }

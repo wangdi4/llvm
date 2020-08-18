@@ -31,14 +31,11 @@
 ;  Note: just verify for key HIRs
 ; CHECK: BEGIN REGION
 ; CHECK-NEXT:  DO i1 = 0, sext.i32.i64(%n) + -1, 1
-; CHECK-NEXT:     DO i2 = 0, (-1 * i1 + sext.i32.i64(%n) + -1)/u64, 1
-; CHECK:           %min = (-1 * i1 + -64 * i2 + sext.i32.i64(%n) + -1 <= 63) ? -1 * i1 + -64 * i2 + sext.i32.i64(%n) + -1 : 63;
-; CHECK:           DO i3 = 0, %min, 1   <DO_LOOP>  <MAX_TC_EST = 64>
-; CHECK:              (%.TempArray)[0][i3] = %conv13;
-; CHECK:              (@C1)[0][i1 + 64 * i2 + i3] = 1.000000e+00;
+; CHECK:           DO i2 = 0, -1 * i1 + sext.i32.i64(%n) + -1
+; CHECK:             %conv13 = sitofp.i32.double(i1 + i2);
 ; CHECK:           END LOOP
-; CHECK:           DO i3 = 0, %min, 1
-; CHECK:              %conv13 = (%.TempArray)[0][i3];
+; CHECK:           DO i2 = 0, -1 * i1 + sext.i32.i64(%n) + -1
+; CHECK:             %conv13 = sitofp.i32.double(i1 + i2);
 ; CHECK:           END LOOP
 ;
 ;Module Before HIR; ModuleID = 'scexpansion3.c'

@@ -58,8 +58,7 @@ static cl::opt<bool> DisableNonLinearMMIndexes(
 namespace {
 
 /// \brief Visitor class to determine parallelizabilty/vectorizability of loops
-/// in the nest. In order to make structural analysis work before DD edge walk,
-/// be sure to run this visitor class in InnerToOuter walker.
+/// in the nest.
 class ParVecVisitor final : public HLNodeVisitorBase {
 private:
   /// Mode - curent analysis mode running, auto-par or auto-vec.
@@ -80,9 +79,6 @@ public:
       : Mode(Mode), InfoMap(InfoMap), TLI(TLI), DDA(DDA), SRA(SRA) {}
   /// \brief Determine parallelizability/vectorizability of the loop
   void postVisit(HLLoop *Loop);
-  /// \brief Report instructions that are not suitable for auto-parallelization
-  /// and/or auto-vectorization.
-  void visit(HLInst *Node);
 
   // TODO: Add structural analysis for non-rectangular loop nest.
   // TODO: Add structural analysis for HLSwitch.
@@ -175,33 +171,6 @@ void ParVecVisitor::postVisit(HLLoop *Loop) {
   ParVecInfo::get(Mode, InfoMap, TLI, DDA, SRA, Loop);
 }
 
-void ParVecVisitor::visit(HLInst *Node) {
-  // Identify HLInst that is not suitable for auto-parallelization
-  // and/or auto-vectorization.
-  auto LIRInst = Node->getLLVMInstruction();
-  ParVecInfo::LoopType Type = ParVecInfo::Analyzing;
-
-  if (isa<InvokeInst>(LIRInst) || isa<LandingPadInst>(LIRInst)) {
-    Type = ParVecInfo::EH;
-
-  } else if (auto *Call = Node->getCallInst()) {
-    auto Func = Call->getCalledFunction();
-
-    if (!Func || !TLI->isFunctionVectorizable(Func->getName())) {
-      Type = ParVecInfo::UNKNOWN_CALL;
-    }
-  }
-
-  if (Type != ParVecInfo::Analyzing) {
-    auto Loop = Node->getParentLoop();
-    DebugLoc Loc = LIRInst->getDebugLoc();
-    while (Loop) {
-      ParVecInfo::set(Mode, InfoMap, Loop, Mode, Type, Loc);
-      Loop = Loop->getParentLoop();
-    }
-  }
-}
-
 FunctionPass *llvm::createHIRParVecAnalysisPass() {
   return new HIRParVecAnalysisWrapperPass();
 }
@@ -284,7 +253,7 @@ void HIRParVecAnalysis::analyze(ParVecInfo::AnalysisMode Mode) {
     return;
   }
   ParVecVisitor Vis(Mode, TLI, DDA, SRA, InfoMap);
-  HIRF.getHLNodeUtils().visitAllInnerToOuter(Vis);
+  HIRF.getHLNodeUtils().visitAll(Vis);
 }
 
 void HIRParVecAnalysis::analyze(ParVecInfo::AnalysisMode Mode,
@@ -293,7 +262,7 @@ void HIRParVecAnalysis::analyze(ParVecInfo::AnalysisMode Mode,
     return;
   }
   ParVecVisitor Vis(Mode, TLI, DDA, SRA, InfoMap);
-  HIRF.getHLNodeUtils().visitInnerToOuter(Vis, Region);
+  HLNodeUtils::visit(Vis, Region);
 }
 
 void HIRParVecAnalysis::analyze(ParVecInfo::AnalysisMode Mode, HLLoop *Loop) {
@@ -301,7 +270,7 @@ void HIRParVecAnalysis::analyze(ParVecInfo::AnalysisMode Mode, HLLoop *Loop) {
     return;
   }
   ParVecVisitor Vis(Mode, TLI, DDA, SRA, InfoMap);
-  HIRF.getHLNodeUtils().visitInnerToOuter(Vis, Loop);
+  HLNodeUtils::visit(Vis, Loop);
 }
 
 void HIRParVecAnalysis::markLoopBodyModified(const HLLoop *Lp) {
@@ -411,8 +380,19 @@ void DDWalk::analyze(const RegDDRef *SrcRef, const DDEdge *Edge) {
 
 void DDWalk::visit(HLDDNode *Node) {
 
+  // Identify HLInst that is not suitable for auto-parallelization
+  // and/or auto-vectorization.
   if (auto Inst = dyn_cast<HLInst>(Node)) {
-    if (auto *Call = Inst->getCallInst()) {
+
+    auto LIRInst = Inst->getLLVMInstruction();
+    DebugLoc Loc = LIRInst->getDebugLoc();
+
+    if (isa<InvokeInst>(LIRInst) || isa<LandingPadInst>(LIRInst)) {
+      Info->setVecType(ParVecInfo::EH);
+      Info->setParType(ParVecInfo::EH);
+      Info->setLoc(Loc);
+      return;
+    } else if (auto *Call = Inst->getCallInst()) {
       auto Func = Call->getCalledFunction();
 
       bool IsVectorizable;
@@ -438,9 +418,11 @@ void DDWalk::visit(HLDDNode *Node) {
       if (!IsVectorizable) {
         Info->setVecType(ParVecInfo::UNKNOWN_CALL);
         Info->setParType(ParVecInfo::UNKNOWN_CALL);
+        Info->setLoc(Loc);
         return;
       }
     }
+
     // If the node is marked as idiom then we don't need to check dd edges.
     if (IdiomList.isIdiom(Inst) != HIRVectorIdioms::NoIdiom)
       return;
@@ -543,6 +525,7 @@ void ParVecInfo::analyze(HLLoop *Loop, TargetLibraryInfo *TLI,
       IdAnalysis.gatherIdioms(IList, DDA->getGraph(Loop), *SRA, Loop);
     }
     DDWalk DDW(*TLI, *DDA, *SRA, Loop, this, IList); // Legality checker.
+    // This ignores preheader/postexit blocks in legality check.
     // This can change isDone() status.
     HLNodeUtils::visitRange(DDW, Loop->child_begin(), Loop->child_end());
   }
@@ -586,8 +569,13 @@ void ParVecInfo::print(raw_ostream &OS, bool WithLoop) const {
     if (ParLoc) {
       ParLoc.print(OS);
     }
+    OS << " ";
     // TODO: Par reason strings.
-    OS << " Par:[" << LoopTypeString[ParType] << "]\n";
+    if (ParType <= SIMD) {
+      OS << " Par:[" << LoopTypeString[ParType] << "]\n";
+    } else {
+      OS << "#" << ParType << ": " << OptReportDiag::getMsg(ParType);
+    }
   }
   if (isVectorMode()) {
     if (WithLoop) {

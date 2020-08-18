@@ -21,7 +21,6 @@
 // RUN:  | FileCheck -check-prefix=DEBUG_EMIT_COLUMN %s
 // RUN: %clang_cl /debug:emit-column -### -c %s 2>&1 \
 // RUN:  | FileCheck -check-prefix=DEBUG_EMIT_COLUMN %s
-// DEBUG_EMIT_COLUMN: "-dwarf-column-info"
 // DEBUG_EMIT_COLUMN: "-debug-info-kind=limited"
 
 // RUN: %clang -debug minimal -### -c %s 2>&1 \
@@ -39,3 +38,21 @@
 // RUN: %clang -target x86_64-unknown-linux -debug parallel -### --intel %s 2>&1 \
 // RUN:  | FileCheck -check-prefix=DEBUG_PARALLEL %s
 // DEBUG_PARALLEL: "-lpdbx" "-lpdbxinst"
+
+// RUN: %clang -debug expr-source-pos -### -c %s 2>&1 \
+// RUN:  | FileCheck -check-prefix=DEBUG_ENABLE %s
+// RUN: %clang_cl /debug:expr-source-pos -### -c %s 2>&1 \
+// RUN:  | FileCheck -check-prefix=DEBUG_ENABLE %s
+// RUN: %clang -debug variable-locations -### -c %s 2>&1 \
+// RUN:  | FileCheck -check-prefix=DEBUG_ENABLE %s
+// RUN: %clang_cl /debug:variable-locations -### -c %s 2>&1 \
+// RUN:  | FileCheck -check-prefix=DEBUG_ENABLE %s
+// RUN: %clang -debug semantic-stepping -### -c %s 2>&1 \
+// RUN:  | FileCheck -check-prefix=DEBUG_ENABLE %s
+// RUN: %clang_cl /debug:semantic-stepping -### -c %s 2>&1 \
+// RUN:  | FileCheck -check-prefix=DEBUG_ENABLE %s
+// RUN: %clang -debug inline-debug-info -### -c %s 2>&1 \
+// RUN:  | FileCheck -check-prefix=DEBUG_ENABLE %s
+// RUN: %clang_cl /debug:inline-debug-info -### -c %s 2>&1 \
+// RUN:  | FileCheck -check-prefix=DEBUG_ENABLE %s
+// DEBUG_ENABLE: "-debug-info-kind={{.*}}"

@@ -108,7 +108,7 @@ private:
   Type *IVType;
 
   // Indicates whether loop's IV is in signed range.
-  bool IsNSW;
+  bool HasSignedIV;
 
   // Tag to mark loop as multiversioned.
   unsigned MVTag = 0;
@@ -147,6 +147,8 @@ private:
   bool HasDistributePoint;
 
   bool IsUndoSinkingCandidate;
+
+  bool IsBlocked;
 
   // Special field to force VF for a loop inside LoopOpt.
   unsigned ForcedVectorWidth;
@@ -276,9 +278,9 @@ public:
   void setIVType(Type *Ty) { IVType = Ty; }
 
   /// Returns true if loop's IV is in signed range.
-  bool isNSW() const { return IsNSW; }
-  /// Sets/resets IsNSW flag.
-  void setNSW(bool IsNSW) { this->IsNSW = IsNSW; }
+  bool hasSignedIV() const { return HasSignedIV; }
+  /// Sets/resets HasSignedIV flag.
+  void setHasSignedIV(bool IsSigned) { HasSignedIV = IsSigned; }
 
   /// Returns true if ztt is present.
   bool hasZtt() const { return Ztt != nullptr; }
@@ -770,7 +772,7 @@ public:
     }
   }
 
-  void addLiveInTemp(const ArrayRef<unsigned> &Symbases) {
+  void addLiveInTemp(ArrayRef<unsigned> Symbases) {
     for (auto Symbase : Symbases)
       addLiveInTemp(Symbase);
   }
@@ -787,7 +789,7 @@ public:
   }
 
   // TODO: const
-  void addLiveInTemp(const ArrayRef<RegDDRef *> &Refs) {
+  void addLiveInTemp(ArrayRef<RegDDRef *> Refs) {
     for (auto Ref : Refs)
       addLiveInTemp(Ref);
   }
@@ -855,6 +857,9 @@ public:
                        MDNode **ExternalLoopMetadata = nullptr) {
     addRemoveLoopMetadataImpl(MDs, "", ExternalLoopMetadata);
   }
+
+  /// Function adds !{!ID, Value} metadata to the !llvm.loop MDNode.
+  void addInt32LoopMetadata(StringRef ID, unsigned Value);
 
   /// Remove !llvm.loop metadata that starts with \p ID.
   /// Function operates on \p ExternalLoopMetadata, if provided.
@@ -1181,6 +1186,9 @@ public:
 
   bool isUndoSinkingCandidate() const { return IsUndoSinkingCandidate; }
   void setIsUndoSinkingCandidate(bool Flag) { IsUndoSinkingCandidate = Flag; }
+
+  bool isBlocked() const { return IsBlocked; }
+  void setIsBlocked(bool Flag) { IsBlocked = Flag; }
 
   /// Shifts by \p Amount all the RegDDRefs in the body of this loop.
   void shiftLoopBodyRegDDRefs(int64_t Amount);

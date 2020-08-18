@@ -1,12 +1,12 @@
 // RUN: %clang_cc1 -triple x86_64-unknown-linux-gnu -fopenmp \
 // RUN:  -fopenmp-version=50 -fintel-compatibility -fopenmp-late-outline \
-// RUN:  -fopenmp-targets=spir64 -dwarf-column-info \
+// RUN:  -fopenmp-targets=spir64 \
 // RUN:  -emit-llvm-bc %s -o %t-host.bc -opt-record-file %t-host.yaml
 // RUN: FileCheck -check-prefix=HOST --input-file %t-host.yaml %s
 //
 // RUN: %clang_cc1 -triple spir64 -fopenmp -fopenmp-version=50 \
 // RUN:  -fintel-compatibility -fopenmp-late-outline \
-// RUN:  -fopenmp-targets=spir64 -fopenmp-is-device -dwarf-column-info\
+// RUN:  -fopenmp-targets=spir64 -fopenmp-is-device \
 // RUN:  -fopenmp-host-ir-file-path %t-host.bc %s -emit-llvm -o %t-ir.txt \
 // RUN:  -opt-record-file %t-target.yaml
 // RUN: FileCheck -check-prefix=TARG --input-file %t-target.yaml %s

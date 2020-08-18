@@ -1,6 +1,13 @@
 // INTEL_COLLAB
 // RUN: %clang_cc1 -emit-llvm -o - -fopenmp -fopenmp-late-outline \
-// RUN:   -triple x86_64-unknown-linux-gnu %s | FileCheck %s
+// RUN:   -triple x86_64-unknown-linux-gnu -emit-pch -o %t %s
+
+// RUN: %clang_cc1 -emit-llvm -o - -fopenmp -fopenmp-late-outline \
+// RUN:   -triple x86_64-unknown-linux-gnu -include-pch %t %s     \
+// RUN:   | FileCheck %s
+
+#ifndef HEADER
+#define HEADER
 
 struct S1 {
   ~S1() {}
@@ -327,9 +334,9 @@ int main(int argc, char **argv) {
 // CHECK: [[TARGD_TOKENVAL:%[0-9]+]] = call token{{.*}}region.entry()
 // CHECK-SAME: "DIR.OMP.TARGET.DATA"()
 // CHECK-SAME: "QUAL.OMP.USE_DEVICE_PTR:PTR_TO_PTR"(i32** %a, i32** %b)
+// CHECK-SAME: "QUAL.OMP.MAP.TOFROM"(i32* %z{{.*}}, i32* %z{{.*}}, i64 4, i64 35)
 // CHECK-SAME: "QUAL.OMP.MAP.TOFROM"(i32* [[L0]], i32* [[L0]], i64 0, i64 96)
 // CHECK-SAME: "QUAL.OMP.MAP.TOFROM"(i32* [[L1]], i32* [[L1]], i64 0, i64 96)
-// CHECK-SAME: "QUAL.OMP.MAP.TOFROM"(i32* %z{{.*}}, i32* %z{{.*}}, i64 4, i64 35)
 // CHECK: region.exit(token [[TARGD_TOKENVAL]]) [ "DIR.OMP.END.TARGET.DATA"() ]
     #pragma omp target data map(tofrom:z) use_device_ptr(a,b)
     {
@@ -562,4 +569,5 @@ void enter_exit_data() {
   #pragma omp target exit data map(always,from: a[9:13])
 }
 
+#endif // HEADER
 // end INTEL_COLLAB

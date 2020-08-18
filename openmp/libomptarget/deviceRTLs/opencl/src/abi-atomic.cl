@@ -24,32 +24,31 @@
 #define KMPC_ATOMIC_IMPL_FALLBACK(DATANAME, DATATYPE, OPNAME, OP)              \
   /* __kmpc_atomic_DATANAME_OPNAME(*lhs, rhs) */                               \
   KMPC_ATOMIC_FN(DATANAME, OPNAME, DATATYPE) {                                 \
+    printf("Device does not support this atomic data type: %s\n", #DATATYPE);  \
   }
-// Work around printf Issue.  TODO: restore them when fixed.
-//  printf("Device does not support this atomic data type: %s\n", #DATATYPE);  \
 
 /// Fallback for binary and/or
 #define KMPC_ATOMIC_IMPL_FALLBACK_B(DATANAME, DATATYPE, OPNAME, OP)            \
   /* __kmpc_atomic_DATANAME_OPNAMEb(*lhs, rhs) */                              \
   KMPC_ATOMIC_FN(DATANAME, OPNAME##b, DATATYPE) {                              \
+    printf("Device does not support this atomic data type: %s\n", #DATATYPE);  \
   }
-//  printf("Device does not support this atomic data type: %s\n", #DATATYPE);  \
 
 /// Fallback for capture atomics
 #define KMPC_ATOMIC_IMPL_FALLBACK_CPT(DATANAME, DATATYPE, OPNAME, OP)          \
   /* __kmpc_atomic_DATANAME_OPNAME_cpt(*lhs, rhs, flag) */                     \
   KMPC_ATOMIC_FN_CPT(DATANAME, OPNAME, DATATYPE) {                             \
+    printf("Device does not support this atomic data type: %s\n", #DATATYPE);  \
     return *lhs;                                                               \
   }
-//  printf("Device does not support this atomic data type: %s\n", #DATATYPE);  \
 
 /// Fallback for binary and/or capture atomics
 #define KMPC_ATOMIC_IMPL_FALLBACK_B_CPT(DATANAME, DATATYPE, OPNAME, OP)        \
   /* __kmpc_atomic_DATANAME_OPNAMEb_cpt(*lhs, rhs, flag) */                    \
   KMPC_ATOMIC_FN_CPT(DATANAME, OPNAME##b, DATATYPE) {                          \
+    printf("Device does not support this atomic data type: %s\n", #DATATYPE);  \
     return *lhs;                                                               \
   }
-//  printf("Device does not support this atomic data type: %s\n", #DATATYPE);  \
 
 /// Use intrinsics
 #define KMPC_ATOMIC_IMPL_INTRINSIC(DATANAME, DATATYPE, OPNAME)                 \
@@ -466,8 +465,7 @@ EXTERN void __kmpc_atomic_load(size_t size, void *ptr, void *ret, int order) {
     KMP_ATOMIC_LOAD_EXPLICIT(ulong, ptr, ret, order);
 #endif
   } else {
-// Work around printf Issue.  TODO: restore them when fixed.
-//    printf("WARNING: Device does not support %zu-bit atomics\n", 8 * size);
+    printf("WARNING: Device does not support %zu-bit atomics\n", 8 * size);
   }
 }
 
@@ -504,8 +502,7 @@ EXTERN void __kmpc_atomic_store(size_t size, void *ptr, void *val, int order) {
     KMP_ATOMIC_STORE_EXPLICIT(ulong, ptr, val, order);
 #endif
   } else {
-// Work around printf Issue.  TODO: restore them when fixed.
-//    printf("WARNING: Device does not support %zu-bit atomics\n", 8 * size);
+    printf("WARNING: Device does not support %zu-bit atomics\n", 8 * size);
   }
 }
 
@@ -555,8 +552,7 @@ EXTERN bool __kmpc_atomic_compare_exchange(size_t size, void *ptr,
                                  success_order, failure_order);
 #endif
   } else {
-// Work around printf Issue.  TODO: restore them when fixed.
-//    printf("WARNING: Device does not support %zu-bit atomics\n", 8 * size);
+    printf("WARNING: Device does not support %zu-bit atomics\n", 8 * size);
   }
   return ret;
 }

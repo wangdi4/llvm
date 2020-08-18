@@ -1,7 +1,7 @@
 ; RUN: opt < %s -hir-ssa-deconstruction | opt -analyze -hir-framework -hir-framework-debug=parser -hir-details | FileCheck %s
 
-; CHECK: NSW: Yes
-; CHECK: NSW: Yes
+; CHECK: HasSignedIV: Yes
+; CHECK: HasSignedIV: Yes
 
 ; Check that the upper for i2 loop is parsed as linear defined at level 1.
 ; CHECK: DO i64 i2 = 0, sext.i32.i64((-1 + %0))

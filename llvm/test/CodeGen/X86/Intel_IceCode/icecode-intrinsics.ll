@@ -2,66 +2,66 @@
 ; REQUIRES: intel_feature_icecode
 ; RUN: llc < %s -mtriple=x86_icecode-unknown-unknown | FileCheck %s
 
-declare i16 @llvm.x86.icecode.loadpphys.16(i8*)
-declare i32 @llvm.x86.icecode.loadpphys.32(i8*)
-declare i64 @llvm.x86.icecode.loadpphys.64(i8*)
-declare void @llvm.x86.icecode.storepphys.16(i16, i8*)
-declare void @llvm.x86.icecode.storepphys.32(i32, i8*)
-declare void @llvm.x86.icecode.storepphys.64(i64, i8*)
+declare i16 @llvm.x86.icecode.loadpphys.16(i64)
+declare i32 @llvm.x86.icecode.loadpphys.32(i64)
+declare i64 @llvm.x86.icecode.loadpphys.64(i64)
+declare void @llvm.x86.icecode.storepphys.16(i16, i64)
+declare void @llvm.x86.icecode.storepphys.32(i32, i64)
+declare void @llvm.x86.icecode.storepphys.64(i64, i64)
 declare void @llvm.x86.icecode.loadseg(i8*, i32)
 declare void @llvm.x86.icecode.storeseg(i8*, i32)
 
-define i16 @loadpphys16(i8* %addr) {
+define i16 @loadpphys16(i64 %addr) {
 ; CHECK-LABEL: loadpphys16:
 ; CHECK:       # %bb.0:
 ; CHECK-NEXT:    gmovpphysw (%rdi), %ax
 ; CHECK-NEXT:    retq
-  %res = call i16 @llvm.x86.icecode.loadpphys.16(i8* %addr)
+  %res = call i16 @llvm.x86.icecode.loadpphys.16(i64 %addr)
   ret i16 %res
 }
 
-define i32 @loadpphys32(i8* %addr) {
+define i32 @loadpphys32(i64 %addr) {
 ; CHECK-LABEL: loadpphys32:
 ; CHECK:       # %bb.0:
 ; CHECK-NEXT:    gmovpphysl (%rdi), %eax
 ; CHECK-NEXT:    retq
-  %res = call i32 @llvm.x86.icecode.loadpphys.32(i8* %addr)
+  %res = call i32 @llvm.x86.icecode.loadpphys.32(i64 %addr)
   ret i32 %res
 }
 
-define i64 @loadpphys64(i8* %addr) {
+define i64 @loadpphys64(i64 %addr) {
 ; CHECK-LABEL: loadpphys64:
 ; CHECK:       # %bb.0:
 ; CHECK-NEXT:    gmovpphysq (%rdi), %rax
 ; CHECK-NEXT:    retq
-  %res = call i64 @llvm.x86.icecode.loadpphys.64(i8* %addr)
+  %res = call i64 @llvm.x86.icecode.loadpphys.64(i64 %addr)
   ret i64 %res
 }
 
-define void @storepphys16(i16 %val, i8* %addr) {
+define void @storepphys16(i16 %val, i64 %addr) {
 ; CHECK-LABEL: storepphys16:
 ; CHECK:       # %bb.0:
 ; CHECK-NEXT:    gmovpphysw %di, (%rsi)
 ; CHECK-NEXT:    retq
-  call void @llvm.x86.icecode.storepphys.16(i16 %val, i8* %addr)
+  call void @llvm.x86.icecode.storepphys.16(i16 %val, i64 %addr)
   ret void
 }
 
-define void @storepphys32(i32 %val, i8* %addr) {
+define void @storepphys32(i32 %val, i64 %addr) {
 ; CHECK-LABEL: storepphys32:
 ; CHECK:       # %bb.0:
 ; CHECK-NEXT:    gmovpphysl %edi, (%rsi)
 ; CHECK-NEXT:    retq
-  call void @llvm.x86.icecode.storepphys.32(i32 %val, i8* %addr)
+  call void @llvm.x86.icecode.storepphys.32(i32 %val, i64 %addr)
   ret void
 }
 
-define void @storepphys64(i64 %val, i8* %addr) {
+define void @storepphys64(i64 %val, i64 %addr) {
 ; CHECK-LABEL: storepphys64:
 ; CHECK:       # %bb.0:
 ; CHECK-NEXT:    gmovpphysq %rdi, (%rsi)
 ; CHECK-NEXT:    retq
-  call void @llvm.x86.icecode.storepphys.64(i64 %val, i8* %addr)
+  call void @llvm.x86.icecode.storepphys.64(i64 %val, i64 %addr)
   ret void
 }
 
@@ -311,99 +311,99 @@ define i64 @fscp_read64(i32 %reg) {
   ret i64 %res
 }
 
-declare i8 @llvm.x86.icecode.portin.8(i8*)
-declare i16 @llvm.x86.icecode.portin.16(i8*)
-declare i32 @llvm.x86.icecode.portin.32(i8*)
-declare i64 @llvm.x86.icecode.portin.64(i8*)
+declare i8 @llvm.x86.icecode.portin.8(i64)
+declare i16 @llvm.x86.icecode.portin.16(i64)
+declare i32 @llvm.x86.icecode.portin.32(i64)
+declare i64 @llvm.x86.icecode.portin.64(i64)
 
-define i8 @portin8(i8* %port) {
+define i8 @portin8(i64 %port) {
 ; CHECK-LABEL: portin8:
 ; CHECK:       # %bb.0:
 ; CHECK-NEXT:    portinb (%rdi), %al
 ; CHECK-NEXT:    retq
-  %res = call i8 @llvm.x86.icecode.portin.8(i8* %port)
+  %res = call i8 @llvm.x86.icecode.portin.8(i64 %port)
   ret i8 %res
 }
 
-define i16 @portin16(i8* %port) {
+define i16 @portin16(i64 %port) {
 ; CHECK-LABEL: portin16:
 ; CHECK:       # %bb.0:
 ; CHECK-NEXT:    portinw (%rdi), %ax
 ; CHECK-NEXT:    retq
-  %res = call i16 @llvm.x86.icecode.portin.16(i8* %port)
+  %res = call i16 @llvm.x86.icecode.portin.16(i64 %port)
   ret i16 %res
 }
 
-define i32 @portin32(i8* %port) {
+define i32 @portin32(i64 %port) {
 ; CHECK-LABEL: portin32:
 ; CHECK:       # %bb.0:
 ; CHECK-NEXT:    portinl (%rdi), %eax
 ; CHECK-NEXT:    retq
-  %res = call i32 @llvm.x86.icecode.portin.32(i8* %port)
+  %res = call i32 @llvm.x86.icecode.portin.32(i64 %port)
   ret i32 %res
 }
 
-define i64 @portin64(i8* %port) {
+define i64 @portin64(i64 %port) {
 ; CHECK-LABEL: portin64:
 ; CHECK:       # %bb.0:
 ; CHECK-NEXT:    portinq (%rdi), %rax
 ; CHECK-NEXT:    retq
-  %res = call i64 @llvm.x86.icecode.portin.64(i8* %port)
+  %res = call i64 @llvm.x86.icecode.portin.64(i64 %port)
   ret i64 %res
 }
 
-declare void @llvm.x86.icecode.portout.8(i8, i8*)
-declare void @llvm.x86.icecode.portout.16(i16, i8*)
-declare void @llvm.x86.icecode.portout.32(i32, i8*)
-declare void @llvm.x86.icecode.portout.64(i64, i8*)
+declare void @llvm.x86.icecode.portout.8(i8, i64)
+declare void @llvm.x86.icecode.portout.16(i16, i64)
+declare void @llvm.x86.icecode.portout.32(i32, i64)
+declare void @llvm.x86.icecode.portout.64(i64, i64)
 
-define void @portout8(i8 %v, i8* %port) {
+define void @portout8(i8 %v, i64 %port) {
 ; CHECK-LABEL: portout8:
 ; CHECK:       # %bb.0:
 ; CHECK-NEXT:    portoutb %dil, (%rsi)
 ; CHECK-NEXT:    retq
-  call void @llvm.x86.icecode.portout.8(i8 %v, i8* %port)
+  call void @llvm.x86.icecode.portout.8(i8 %v, i64 %port)
   ret void
 }
 
-define void @portout16(i16 %v, i8* %port) {
+define void @portout16(i16 %v, i64 %port) {
 ; CHECK-LABEL: portout16:
 ; CHECK:       # %bb.0:
 ; CHECK-NEXT:    portoutw %di, (%rsi)
 ; CHECK-NEXT:    retq
-  call void @llvm.x86.icecode.portout.16(i16 %v, i8* %port)
+  call void @llvm.x86.icecode.portout.16(i16 %v, i64 %port)
   ret void
 }
 
-define void @portout32(i32 %v, i8* %port) {
+define void @portout32(i32 %v, i64 %port) {
 ; CHECK-LABEL: portout32:
 ; CHECK:       # %bb.0:
 ; CHECK-NEXT:    portoutl %edi, (%rsi)
 ; CHECK-NEXT:    retq
-  call void @llvm.x86.icecode.portout.32(i32 %v, i8* %port)
+  call void @llvm.x86.icecode.portout.32(i32 %v, i64 %port)
   ret void
 }
 
-define void @portout64(i64 %v, i8* %port) {
+define void @portout64(i64 %v, i64 %port) {
 ; CHECK-LABEL: portout64:
 ; CHECK:       # %bb.0:
 ; CHECK-NEXT:    portoutq %rdi, (%rsi)
 ; CHECK-NEXT:    retq
-  call void @llvm.x86.icecode.portout.64(i64 %v, i8* %port)
+  call void @llvm.x86.icecode.portout.64(i64 %v, i64 %port)
   ret void
 }
 
-declare void @llvm.x86.icecode.sta.special(i8*)
+declare void @llvm.x86.icecode.sta.special(i64)
 declare i32  @llvm.x86.icecode.nr.read(i32)
 declare void @llvm.x86.icecode.ucodecall(i32)
 declare i64  @llvm.x86.icecode.cmodemov(i64, i64, i32)
 
-define void @sta_special(i8* %addr) {
+define void @sta_special(i64 %addr) {
 ; CHECK-LABEL: sta_special:
 ; CHECK:       # %bb.0:
 ; CHECK-NEXT:    sta_special (%rdi)
 ; CHECK-NEXT:    retq
-  call void @llvm.x86.icecode.sta.special(i8* %addr)
+  call void @llvm.x86.icecode.sta.special(i64 %addr)
   ret void
 }
 

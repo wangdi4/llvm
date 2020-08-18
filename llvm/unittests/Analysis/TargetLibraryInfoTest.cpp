@@ -473,6 +473,7 @@ TEST_F(TargetLibraryInfoTest, ValidProto) {
       "declare void @\"??_V@YAXPEAXAEBUnothrow_t@std@@@Z\"(i8*, %struct*)\n"
       "declare void @\"??_V@YAXPEAX_K@Z\"(i8*, i64)\n"
 #if INTEL_CUSTOMIZATION
+      "declare i32 @\"?_Execute_once@std@@YAHAEAUonce_flag@1@P6AHPEAX1PEAPEAX@Z1@Z\"(%struct*, i8*, i8*)\n"
       "declare void @\"?_Facet_Register@std@@YAXPEAV_Facet_base@1@@Z\"(i8*)\n"
       "declare i8* @\"?_Getgloballocale@locale@std@@CAPEAV_Locimp@12@XZ\"()\n"
       "declare i8* @\"??0_Lockit@std@@QEAA@H@Z\"(i8*, i32)\n"
@@ -483,6 +484,7 @@ TEST_F(TargetLibraryInfoTest, ValidProto) {
       "declare void @\"?_Xout_of_range@std@@YAXPEBD@Z\"(i8*)\n"
       "declare void @\"?_Locinfo_ctor@_Locinfo@std@@SAXPEAV12@PEBD@Z\"(i8*, i8*)\n"
       "declare void @\"?_Locinfo_dtor@_Locinfo@std@@SAXPEAV12@@Z\"(i8*)\n"
+      "declare i1 @\"?uncaught_exception@std@@YA_NXZ\"()\n"
 #endif // INTEL_CUSTOMIZATION
       "declare i8* @\"??2@YAPAXI@Z\"(i32)\n"
       "declare i8* @\"??2@YAPAXIABUnothrow_t@std@@@Z\"(i32, %struct*)\n"
@@ -533,6 +535,9 @@ TEST_F(TargetLibraryInfoTest, ValidProto) {
       "declare i8* @memalign(i64, i64)\n"
       "declare i8* @mempcpy(i8*, i8*, i64)\n"
       "declare i8* @memrchr(i8*, i32, i64)\n"
+
+      "declare void @__atomic_load(i64, i8*, i8*, i32)\n"
+      "declare void @__atomic_store(i64, i8*, i8*, i32)\n"
 
       // These are similar to the FILE* fgetc/fputc.
       "declare i32 @_IO_getc(%struct*)\n"
@@ -703,6 +708,7 @@ TEST_F(TargetLibraryInfoTest, ValidProto) {
       "declare i32 @__sigsetjmp(i8*, i32)\n"
       "declare void @__std_exception_copy(i8*, i8*)\n"
       "declare void @__std_exception_destroy(i8*)\n"
+      "declare void @__std_reverse_trivially_swappable_8(i8*, i8*)\n"
       "declare void @__std_terminate()\n"
       "declare i32 @__stdio_common_vfprintf(i64, %struct*, i8*, %struct*, i8*)\n"
       "declare i32 @__stdio_common_vfscanf(i64, %struct*, i8*, %struct*, i8*)\n"
@@ -977,6 +983,7 @@ TEST_F(TargetLibraryInfoTest, ValidProto) {
       "declare i8* @GetCurrentProcess()\n"
       "declare i32 @GetCurrentThreadId()\n"
       "declare i32 @GetFullPathNameA(i8*, i32, i8*, i8**)\n"
+      "declare i32 @GetFullPathNameW(i8*, i32, i8*, i8**)\n"
       "declare i32 @GetModuleFileNameA(%struct*, i8*, i32)\n"
       "declare %struct* @GetModuleHandleA(i8*)\n"
       "declare i64* @GetProcAddress(%struct*, i8*)\n"
@@ -985,6 +992,7 @@ TEST_F(TargetLibraryInfoTest, ValidProto) {
       "declare i32 @GetShortPathNameW(i16*, i16*, i32)\n"
       "declare i32 @GetVersionExA(%struct*)\n"
       "declare void @GlobalMemoryStatus(%struct*)\n"
+      "declare void @InitializeCriticalSection(%struct*)"
       "declare i32 @InitializeCriticalSectionAndSpinCount(%struct*, i32)\n"
       "declare void @LeaveCriticalSection(%struct*)\n"
       "declare i8* @LoadResource(%struct*, %struct*)\n"
@@ -1103,6 +1111,7 @@ TEST_F(TargetLibraryInfoTest, ValidProto) {
       "declare i8* @strsignal(i32)\n"
       "declare i32 @symlink(i8*, i8*)\n"
       "declare i64 @sysconf(i32)\n"
+      "declare void @terminate()\n"
       "declare i32 @time(i8*)\n"
       "declare i32 @tolower(i32)\n"
       "declare i32 @toupper(i32)\n"

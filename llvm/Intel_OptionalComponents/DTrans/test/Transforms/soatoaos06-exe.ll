@@ -26,7 +26,7 @@
 ;    // icx -std=c++11 m5.cc -O0 -g -S -emit-llvm
 ;    // Attributess cleanup.
 ;    // Simplified:
-;    //     opt -S -instnamer -mem2reg -functionattrs
+;    //     opt -S -instnamer -mem2reg -function-attrs
 ; extern "C" {
 ; extern void *malloc(int) noexcept;
 ; extern void free(void *) noexcept;

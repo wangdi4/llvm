@@ -215,7 +215,8 @@ bool findPlugins(vector_class<std::pair<std::string, backend>> &PluginNames) {
   // env only.
   //
   PluginNames.emplace_back(OPENCL_PLUGIN_NAME, backend::opencl);
-  PluginNames.emplace_back(LEVEL0_PLUGIN_NAME, backend::level0);
+
+  PluginNames.emplace_back(LEVEL_ZERO_PLUGIN_NAME, backend::level_zero);
 #if INTEL_CUSTOMIZATION
   // Deliberatly disable CUDA plugin per CMPLRLLVM-16249.
   // PluginNames.emplace_back(CUDA_PLUGIN_NAME, backend::cuda);
@@ -324,14 +325,13 @@ static void initializePlugins(vector_class<plugin> *Plugins) {
       // Use the CUDA plugin as the GlobalPlugin
       GlobalPlugin = std::make_shared<plugin>(PluginInformation, backend::cuda);
 #endif
-    } else if (InteropBE == backend::level0 &&
-               PluginNames[I].first.find(LEVEL0_PLUGIN_NAME) !=
-                   std::string::npos) {
-      // Use the LEVEL0 plugin as the GlobalPlugin
-      GlobalPlugin =
-          std::make_shared<plugin>(PluginInformation, backend::level0);
-    }
 #endif // INTEL_CUSTOMIZATION
+    } else if (InteropBE == backend::level_zero &&
+               PluginNames[I].first.find("level_zero") != std::string::npos) {
+      // Use the LEVEL_ZERO plugin as the GlobalPlugin
+      GlobalPlugin =
+          std::make_shared<plugin>(PluginInformation, backend::level_zero);
+    }
     Plugins->emplace_back(plugin(PluginInformation, PluginNames[I].second));
     if (trace(TraceLevel::PI_TRACE_BASIC))
       std::cerr << "SYCL_PI_TRACE[basic]: "
@@ -404,6 +404,7 @@ template <backend BE> const plugin &getPlugin() {
 }
 
 template const plugin &getPlugin<backend::opencl>();
+template const plugin &getPlugin<backend::level_zero>();
 
 // Report error and no return (keeps compiler from printing warnings).
 // TODO: Probably change that to throw a catchable exception,
@@ -424,6 +425,9 @@ std::ostream &operator<<(std::ostream &Out, const DeviceBinaryProperty &P) {
   case PI_PROPERTY_TYPE_UINT32:
     Out << "[UINT32] ";
     break;
+  case PI_PROPERTY_TYPE_BYTE_ARRAY:
+    Out << "[Byte array] ";
+    break;
   case PI_PROPERTY_TYPE_STRING:
     Out << "[String] ";
     break;
@@ -437,11 +441,21 @@ std::ostream &operator<<(std::ostream &Out, const DeviceBinaryProperty &P) {
   case PI_PROPERTY_TYPE_UINT32:
     Out << P.asUint32();
     break;
+  case PI_PROPERTY_TYPE_BYTE_ARRAY: {
+    ByteArray BA = P.asByteArray();
+    std::ios_base::fmtflags FlagsBackup = Out.flags();
+    Out << std::hex;
+    for (const auto &Byte : BA) {
+      Out << "0x" << Byte << " ";
+    }
+    Out.flags(FlagsBackup);
+    break;
+  }
   case PI_PROPERTY_TYPE_STRING:
     Out << P.asCString();
     break;
   default:
-    assert("unsupported property");
+    assert(false && "Unsupported property");
     return Out;
   }
   return Out;
@@ -497,6 +511,13 @@ pi_uint32 DeviceBinaryProperty::asUint32() const {
   // if type fits into the ValSize - it is used to store the property value
   assert(Prop->ValAddr == nullptr && "primitive types must be stored inline");
   return sycl::detail::pi::asUint32(&Prop->ValSize);
+}
+
+ByteArray DeviceBinaryProperty::asByteArray() const {
+  assert(Prop->Type == PI_PROPERTY_TYPE_BYTE_ARRAY && "property type mismatch");
+  assert(Prop->ValSize > 0 && "property size mismatch");
+  const auto *Data = pi::cast<const std::uint8_t *>(Prop->ValAddr);
+  return {Data, Prop->ValSize};
 }
 
 const char *DeviceBinaryProperty::asCString() const {
@@ -557,6 +578,8 @@ void DeviceBinaryImage::init(pi_device_binary Bin) {
     Format = getBinaryImageFormat(Bin->BinaryStart, getSize());
 
   SpecConstIDMap.init(Bin, PI_PROPERTY_SET_SPEC_CONST_MAP);
+  DeviceLibReqMask.init(Bin, PI_PROPERTY_SET_DEVICELIB_REQ_MASK);
+  KernelParamOptInfo.init(Bin, PI_PROPERTY_SET_KERNEL_PARAM_OPT_INFO);
 }
 
 } // namespace pi

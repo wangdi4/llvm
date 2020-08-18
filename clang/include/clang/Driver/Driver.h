@@ -185,6 +185,14 @@ public:
   /// Other modes fall back to calling gcc which in turn calls gfortran.
   bool IsFlangMode() const { return Mode == FlangMode; }
 
+#if INTEL_CUSTOMIZATION
+  /// Whether the driver should follow Intel compiler behavior.
+  bool IsIntelMode() const { return IntelMode; }
+
+  /// Whether the driver has Intel Compiler Pro behavior.
+  bool IsIntelPro() const { return IntelPro; }
+#endif // INTEL_CUSTOMIZATION
+
   /// Only print tool bindings, don't build any jobs.
   unsigned CCCPrintBindings : 1;
 
@@ -478,6 +486,11 @@ public:
   /// Intel Print formating.
   unsigned IntelPrintOptions : 1;
 
+  /// Intel mode selected via --intel option.
+  unsigned IntelMode : 1;
+
+  /// Intel Compiler Pro selected via compiler-auth-pro file
+  unsigned IntelPro : 1;
 #endif // INTEL_CUSTOMIZATION
 
   /// PrintSYCLToolHelp - Print help text from offline compiler tools.
@@ -679,7 +692,8 @@ public:
   static bool GetReleaseVersion(StringRef Str,
                                 MutableArrayRef<unsigned> Digits);
   /// Compute the default -fmodule-cache-path.
-  static void getDefaultModuleCachePath(SmallVectorImpl<char> &Result);
+  /// \return True if the system provides a default cache directory.
+  static bool getDefaultModuleCachePath(SmallVectorImpl<char> &Result);
 
   bool getOffloadStaticLibSeen() const { return OffloadStaticLibSeen; };
 
@@ -698,7 +712,10 @@ public:
 
 /// \return True if the last defined optimization level is -Ofast.
 /// And False otherwise.
-bool isOptimizationLevelFast(const llvm::opt::ArgList &Args);
+#if INTEL_CUSTOMIZATION
+bool isOptimizationLevelFast(const Driver &D,
+                             const llvm::opt::ArgList &Args);
+#endif // INTEL_CUSTOMIZATION
 
 /// \return True if the filename has a valid object file extension.
 bool isObjectFile(std::string FileName);

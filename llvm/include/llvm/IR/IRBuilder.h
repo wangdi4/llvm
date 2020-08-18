@@ -294,8 +294,7 @@ public:
   }
 
   void setConstrainedFPCallAttr(CallInst *I) {
-    if (!I->hasFnAttr(Attribute::StrictFP))
-      I->addAttribute(AttributeList::FunctionIndex, Attribute::StrictFP);
+    I->addAttribute(AttributeList::FunctionIndex, Attribute::StrictFP);
   }
 
   void setDefaultOperandBundles(ArrayRef<OperandBundleDef> OpBundles) {
@@ -1757,19 +1756,21 @@ public:
     return Insert(new FenceInst(Context, Ordering, SSID), Name);
   }
 
-  AtomicCmpXchgInst *
-  CreateAtomicCmpXchg(Value *Ptr, Value *Cmp, Value *New,
-                      AtomicOrdering SuccessOrdering,
-                      AtomicOrdering FailureOrdering,
-                      SyncScope::ID SSID = SyncScope::System) {
-    return Insert(new AtomicCmpXchgInst(Ptr, Cmp, New, SuccessOrdering,
-                                        FailureOrdering, SSID));
+  AtomicCmpXchgInst *CreateAtomicCmpXchg(
+      Value *Ptr, Value *Cmp, Value *New, AtomicOrdering SuccessOrdering,
+      AtomicOrdering FailureOrdering, SyncScope::ID SSID = SyncScope::System) {
+    const DataLayout &DL = BB->getModule()->getDataLayout();
+    Align Alignment(DL.getTypeStoreSize(New->getType()));
+    return Insert(new AtomicCmpXchgInst(
+        Ptr, Cmp, New, Alignment, SuccessOrdering, FailureOrdering, SSID));
   }
 
   AtomicRMWInst *CreateAtomicRMW(AtomicRMWInst::BinOp Op, Value *Ptr, Value *Val,
                                  AtomicOrdering Ordering,
                                  SyncScope::ID SSID = SyncScope::System) {
-    return Insert(new AtomicRMWInst(Op, Ptr, Val, Ordering, SSID));
+    const DataLayout &DL = BB->getModule()->getDataLayout();
+    Align Alignment(DL.getTypeStoreSize(Val->getType()));
+    return Insert(new AtomicRMWInst(Op, Ptr, Val, Alignment, Ordering, SSID));
   }
 
   Value *CreateGEP(Value *Ptr, ArrayRef<Value *> IdxList,
@@ -2505,6 +2506,10 @@ public:
   /// Return a vector value that contains \arg V broadcasted to \p
   /// NumElts elements.
   Value *CreateVectorSplat(unsigned NumElts, Value *V, const Twine &Name = "");
+
+  /// Return a vector value that contains \arg V broadcasted to \p
+  /// EC elements.
+  Value *CreateVectorSplat(ElementCount EC, Value *V, const Twine &Name = "");
 
   /// Return a value that has been extracted from a larger integer type.
   Value *CreateExtractInteger(const DataLayout &DL, Value *From,

@@ -22,6 +22,8 @@
 
 namespace llvm {
 
+class InstCombiner;
+
 class X86TTIImpl : public BasicTTIImplBase<X86TTIImpl> {
   typedef BasicTTIImplBase<X86TTIImpl> BaseT;
   typedef TargetTransformInfo TTI;
@@ -60,7 +62,6 @@ class X86TTIImpl : public BasicTTIImplBase<X86TTIImpl> {
       X86::FeatureLZCNTFalseDeps,
       X86::FeatureBranchFusion,
       X86::FeatureMacroFusion,
-      X86::FeatureMergeToThreeWayBranch,
 #if INTEL_CUSTOMIZATION
       X86::FeatureHasDSB,
 #endif // INTEL_CUSTOMIZATION
@@ -109,9 +110,9 @@ public:
   /// \name Cache TTI Implementation
   /// @{
   llvm::Optional<unsigned> getCacheSize(
-    TargetTransformInfo::CacheLevel Level) const;
+    TargetTransformInfo::CacheLevel Level) const override;
   llvm::Optional<unsigned> getCacheAssociativity(
-    TargetTransformInfo::CacheLevel Level) const;
+    TargetTransformInfo::CacheLevel Level) const override;
   /// @}
 
   /// \name Vector TTI Implementations
@@ -133,7 +134,7 @@ public:
   int getShuffleCost(TTI::ShuffleKind Kind, VectorType *Tp, int Index,
                      VectorType *SubTp);
   int getCastInstrCost(unsigned Opcode, Type *Dst, Type *Src,
-                       TTI::TargetCostKind CostKind,
+                       TTI::CastContextHint CCH, TTI::TargetCostKind CostKind,
                        const Instruction *I = nullptr);
   int getCmpSelInstrCost(unsigned Opcode, Type *ValTy, Type *CondTy,
                          TTI::TargetCostKind CostKind,
@@ -145,11 +146,11 @@ public:
                       unsigned AddressSpace,
                       TTI::TargetCostKind CostKind,
                       const Instruction *I = nullptr);
-  int getMaskedMemoryOpCost(unsigned Opcode, Type *Src, unsigned Alignment,
-                            unsigned AddressSpace,
-                            TTI::TargetCostKind CostKind = TTI::TCK_SizeAndLatency);
-  int getGatherScatterOpCost(unsigned Opcode, Type *DataTy, Value *Ptr,
-                             bool VariableMask, unsigned Alignment,
+  int getMaskedMemoryOpCost(
+      unsigned Opcode, Type *Src, Align Alignment, unsigned AddressSpace,
+      TTI::TargetCostKind CostKind = TTI::TCK_SizeAndLatency);
+  int getGatherScatterOpCost(unsigned Opcode, Type *DataTy, const Value *Ptr,
+                             bool VariableMask, Align Alignment,
                              TTI::TargetCostKind CostKind,
                              const Instruction *I);
 #if INTEL_CUSTOMIZATION
@@ -161,6 +162,18 @@ public:
 #endif // INTEL_CUSTOMIZATION
   int getAddressComputationCost(Type *PtrTy, ScalarEvolution *SE,
                                 const SCEV *Ptr);
+
+  Optional<Instruction *> instCombineIntrinsic(InstCombiner &IC,
+                                               IntrinsicInst &II) const;
+  Optional<Value *>
+  simplifyDemandedUseBitsIntrinsic(InstCombiner &IC, IntrinsicInst &II,
+                                   APInt DemandedMask, KnownBits &Known,
+                                   bool &KnownBitsComputed) const;
+  Optional<Value *> simplifyDemandedVectorEltsIntrinsic(
+      InstCombiner &IC, IntrinsicInst &II, APInt DemandedElts, APInt &UndefElts,
+      APInt &UndefElts2, APInt &UndefElts3,
+      std::function<void(Instruction *, unsigned, APInt, APInt &)>
+          SimplifyAndSetOp) const;
 
   unsigned getAtomicMemIntrinsicMaxElementSize() const;
 
@@ -179,24 +192,21 @@ public:
                              bool IsPairwiseForm, bool IsUnsigned,
                              TTI::TargetCostKind CostKind);
 
-  int getInterleavedMemoryOpCost(unsigned Opcode, Type *VecTy,
-                                 unsigned Factor, ArrayRef<unsigned> Indices,
-                                 unsigned Alignment, unsigned AddressSpace,
-                                 TTI::TargetCostKind CostKind = TTI::TCK_SizeAndLatency,
-                                 bool UseMaskForCond = false,
-                                 bool UseMaskForGaps = false);
-  int getInterleavedMemoryOpCostAVX512(unsigned Opcode, Type *VecTy,
-                                 unsigned Factor, ArrayRef<unsigned> Indices,
-                                 unsigned Alignment, unsigned AddressSpace,
-                                 TTI::TargetCostKind CostKind = TTI::TCK_SizeAndLatency,
-                                 bool UseMaskForCond = false,
-                                 bool UseMaskForGaps = false);
-  int getInterleavedMemoryOpCostAVX2(unsigned Opcode, Type *VecTy,
-                                 unsigned Factor, ArrayRef<unsigned> Indices,
-                                 unsigned Alignment, unsigned AddressSpace,
-                                 TTI::TargetCostKind CostKind = TTI::TCK_SizeAndLatency,
-                                 bool UseMaskForCond = false,
-                                 bool UseMaskForGaps = false);
+  int getInterleavedMemoryOpCost(
+      unsigned Opcode, Type *VecTy, unsigned Factor, ArrayRef<unsigned> Indices,
+      Align Alignment, unsigned AddressSpace,
+      TTI::TargetCostKind CostKind = TTI::TCK_SizeAndLatency,
+      bool UseMaskForCond = false, bool UseMaskForGaps = false);
+  int getInterleavedMemoryOpCostAVX512(
+      unsigned Opcode, FixedVectorType *VecTy, unsigned Factor,
+      ArrayRef<unsigned> Indices, Align Alignment, unsigned AddressSpace,
+      TTI::TargetCostKind CostKind = TTI::TCK_SizeAndLatency,
+      bool UseMaskForCond = false, bool UseMaskForGaps = false);
+  int getInterleavedMemoryOpCostAVX2(
+      unsigned Opcode, FixedVectorType *VecTy, unsigned Factor,
+      ArrayRef<unsigned> Indices, Align Alignment, unsigned AddressSpace,
+      TTI::TargetCostKind CostKind = TTI::TCK_SizeAndLatency,
+      bool UseMaskForCond = false, bool UseMaskForGaps = false);
 
   int getIntImmCost(int64_t);
 
@@ -211,12 +221,12 @@ public:
   bool isLSRCostLess(TargetTransformInfo::LSRCost &C1,
                      TargetTransformInfo::LSRCost &C2);
   bool canMacroFuseCmp();
-  bool isLegalMaskedLoad(Type *DataType, MaybeAlign Alignment);
-  bool isLegalMaskedStore(Type *DataType, MaybeAlign Alignment);
+  bool isLegalMaskedLoad(Type *DataType, Align Alignment);
+  bool isLegalMaskedStore(Type *DataType, Align Alignment);
   bool isLegalNTLoad(Type *DataType, Align Alignment);
   bool isLegalNTStore(Type *DataType, Align Alignment);
-  bool isLegalMaskedGather(Type *DataType, MaybeAlign Alignment);
-  bool isLegalMaskedScatter(Type *DataType, MaybeAlign Alignment);
+  bool isLegalMaskedGather(Type *DataType, Align Alignment);
+  bool isLegalMaskedScatter(Type *DataType, Align Alignment);
   bool isLegalMaskedExpandLoad(Type *DataType);
   bool isLegalMaskedCompressStore(Type *DataType);
 #if INTEL_CUSTOMIZATION
@@ -248,13 +258,17 @@ public:
 private:
 #if INTEL_CUSTOMIZATION
   int getGSScalarCost(unsigned Opcode, Type *PtrTy, Type *DataTy,
-                      bool VariableMask, unsigned Alignment,
+                      bool VariableMask, Align Alignment,
                       unsigned AddressSpace);
   int getGSVectorCost(unsigned Opcode, Type *DataTy, unsigned IndexSize,
-                      unsigned Alignment, unsigned AddressSpace);
+                      Align Alignment, unsigned AddressSpace);
 #endif // INTEL_CUSTOMIZATION
-  int getGSVectorCost(unsigned Opcode, Type *DataTy, Value *Ptr,
-                      unsigned Alignment, unsigned AddressSpace);
+  int getGSVectorCost(unsigned Opcode, Type *DataTy, const Value *Ptr,
+                      Align Alignment, unsigned AddressSpace);
+
+  int getGatherOverhead() const;
+  int getScatterOverhead() const;
+
   /// @}
 };
 

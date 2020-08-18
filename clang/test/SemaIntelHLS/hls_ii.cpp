@@ -4,6 +4,7 @@ __attribute__((hls_ii(123))) void foo1() {}
 // CHECK: FunctionDecl{{.*}}foo1
 // CHECK: HLSIIAttr
 // CHECK-NEXT: ConstantExpr
+// CHECK-NEXT: value: Int 123
 // CHECK-NEXT: IntegerLiteral{{.*}}123{{$}}
 
 __attribute__((hls_ii(123)))
@@ -12,6 +13,7 @@ foo2() {}
 // CHECK: FunctionDecl{{.*}}foo2
 // CHECK: HLSIIAttr
 // CHECK-NEXT: ConstantExpr
+// CHECK-NEXT: value: Int 123
 // CHECK-NEXT: IntegerLiteral{{.*}}123{{$}}
 // CHECK: ComponentAttr
 
@@ -22,6 +24,7 @@ foo3() {}
 // CHECK: ComponentAttr
 // CHECK: HLSIIAttr
 // CHECK-NEXT: ConstantExpr
+// CHECK-NEXT: value: Int 123
 // CHECK-NEXT: IntegerLiteral{{.*}}123{{$}}
 
 template <int tvalue>
@@ -36,7 +39,9 @@ void call() {
   // CHECK-NEXT: TemplateArgument integral 8
   // CHECK: HLSIIAttr
   // CHECK-NEXT: ConstantExpr
+  // CHECK-NEXT: value: Int 8
   // CHECK-NEXT: SubstNonTypeTemplateParmExpr
+  // CHECK-NEXT: NonTypeTemplateParmDecl
   // CHECK-NEXT: IntegerLiteral{{.*}}8{{$}}
 }
 

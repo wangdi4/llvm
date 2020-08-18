@@ -1,6 +1,6 @@
 //===---------------- SOAToAOSEffects.cpp - Part of SOAToAOSPass ----------===//
 //
-// Copyright (C) 2018-2019 Intel Corporation. All rights reserved.
+// Copyright (C) 2018-2020 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -33,10 +33,9 @@
 namespace llvm {
 namespace dtrans {
 namespace soatoaos {
-cl::opt<bool>
-    DTransSOAToAOSComputeAllDep("enable-dtrans-soatoaos-alldeps",
-                                cl::init(false), cl::Hidden,
-                                cl::desc("Enable DTrans SOAToAOS"));
+cl::opt<bool> DTransSOAToAOSComputeAllDep("enable-dtrans-soatoaos-alldeps",
+                                          cl::init(false), cl::Hidden,
+                                          cl::desc("Enable DTrans SOAToAOS"));
 
 // Empty.Id == 0;
 Dep Dep::Empty(DK_Empty);
@@ -93,7 +92,7 @@ const Dep *DepCompute::computeValueDep(const Value *Val) const {
           ClassTy)
         if (GEP->hasAllConstantIndices() && GEP->getNumIndices() == 2 &&
             cast<Constant>(GEP->getOperand(1))->isZeroValue()) // 1st index
-          return cast<Constant>(GEP->getOperand(2)) // 2nd index
+          return cast<Constant>(GEP->getOperand(2))            // 2nd index
               ->getUniqueInteger()
               .getLimitedValue();
     return -1U;
@@ -163,7 +162,7 @@ const Dep *DepCompute::computeValueDep(const Value *Val) const {
 
 // Compute approximation of arithmetic computations
 // in post-order of SCCs according to AllDepGraph.
-const Dep* DepCompute::computeInstDep(const Instruction *I) const {
+const Dep *DepCompute::computeInstDep(const Instruction *I) const {
 
   // Check if called function F is a library function LB.
   auto IsLibFunction = [this](Function *F, LibFunc LB) {
@@ -204,6 +203,50 @@ const Dep* DepCompute::computeInstDep(const Instruction *I) const {
       // Did not introduce Ret special kind.
       Rep = computeValueDep(I->getOperand(0));
     break;
+  case Instruction::CleanupRet:
+    Rep = computeValueDep(I->getOperand(0));
+    break;
+  case Instruction::CleanupPad: {
+    auto *ParentPad = cast<CleanupPadInst>(I)->getParentPad();
+    if (!isa<ConstantTokenNone>(ParentPad)) {
+      Rep = Dep::mkBottom(DM);
+      break;
+    }
+    // Explicitly embedded CFG.
+    Dep::Container Preds;
+    for (auto *BB : predecessors(I->getParent()))
+      Preds.insert(computeValueDep(BB->getTerminator()));
+
+    Rep = Dep::mkNonEmptyArgList(DM, Preds);
+    break;
+  }
+  // CatchSwitch and CatchPad are not allowed in member functions
+  // of Arrays but they are allowed in member functions of Struct.
+  // Handlers of CatchSwitch need to be considered if we decide
+  // to allow CatchSwitch in member functions of Arrays.
+  case Instruction::CatchSwitch: {
+    auto *ParentPad = cast<CatchSwitchInst>(I)->getParentPad();
+    if (!isa<ConstantTokenNone>(ParentPad)) {
+      Rep = Dep::mkBottom(DM);
+      break;
+    }
+    // Explicitly embedded CFG.
+    Dep::Container Preds;
+    for (auto *BB : predecessors(I->getParent()))
+      Preds.insert(computeValueDep(BB->getTerminator()));
+
+    Rep = Dep::mkNonEmptyArgList(DM, Preds);
+    break;
+  }
+  case Instruction::CatchPad: {
+    // Explicitly embedded CFG.
+    Dep::Container Preds;
+    for (auto *BB : predecessors(I->getParent()))
+      Preds.insert(computeValueDep(BB->getTerminator()));
+
+    Rep = Dep::mkNonEmptyArgList(DM, Preds);
+    break;
+  }
   case Instruction::Resume:
     Rep = computeValueDep(I->getOperand(0));
     break;
@@ -299,11 +342,15 @@ const Dep* DepCompute::computeInstDep(const Instruction *I) const {
     else if (isDummyFuncWithPtr)
       Rep = Dep::mkFree(DM, Dep::mkNonEmptyArgList(DM, Special),
                         Dep::mkArgList(DM, Remaining));
-    else if (F && IsLibFunction(F, LibFunc_clang_call_terminate))
+    else if (F && (IsLibFunction(F, LibFunc_clang_call_terminate) ||
+                   IsLibFunction(F, LibFunc_dunder_std_terminate)))
       Rep = Dep::mkCall(DM, Dep::mkArgList(DM, Remaining), true);
-    else
+    else if (isTypeTestRelatedIntrinsic(I))
+      Rep = Dep::mkCall(DM, Dep::mkArgList(DM, Remaining), true);
+    else {
       Rep = Dep::mkCall(DM, Dep::mkArgList(DM, Remaining),
                         F && getStructTypeOfMethod(*F) == ClassType);
+    }
     break;
   }
   case Instruction::Alloca:
@@ -338,6 +385,13 @@ bool DepCompute::computeDepApproximation() const {
       DM.ValDependencies[&I] = Dep::mkConst(DM);
     else if (I.hasNUses(0))
       Sinks.push_back(&I);
+
+    // No metadata is allowed as dependencies except second argument, which is
+    // MetadataAsValue, of llvm.type_test call.
+    if (auto II = dyn_cast<IntrinsicInst>(&I))
+      if (II->getIntrinsicID() == Intrinsic::type_test)
+        if (isa<MetadataAsValue>(II->getArgOperand(1)))
+          DM.ValDependencies[II->getArgOperand(1)] = Dep::mkConst(DM);
   }
 
   for (auto *S : Sinks)
@@ -367,7 +421,7 @@ bool DepCompute::computeDepApproximation() const {
       }
 
       for (auto *PtrI : *SCCIt) {
-        if (isa<Argument>(PtrI))
+        if (isa<Argument>(PtrI) || isa<MetadataAsValue>(PtrI))
           continue;
 
         const Dep *Rep = nullptr;

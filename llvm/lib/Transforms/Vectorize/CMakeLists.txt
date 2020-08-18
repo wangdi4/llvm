@@ -29,9 +29,11 @@ add_llvm_component_library(LLVMVectorize
   Intel_VPlan/IntelVPlanCostModelProprietary.cpp
   Intel_VPlan/IntelVPlanDivergenceAnalysis.cpp
   Intel_VPlan/IntelVPlanDriver.cpp
+  Intel_VPlan/IntelVPlanExternals.cpp
   Intel_VPlan/IntelVPlanFunctionVectorizer.cpp
   Intel_VPlan/IntelVPlanHCFGBuilder.cpp
   Intel_VPlan/IntelVPlanIdioms.cpp
+  Intel_VPlan/IntelVPlanLCSSA.cpp
   Intel_VPlan/IntelVPlanLoopCFU.cpp
   Intel_VPlan/IntelVPlanLoopExitCanonicalization.cpp
   Intel_VPlan/IntelVPlanLoopInfo.cpp
@@ -46,6 +48,7 @@ add_llvm_component_library(LLVMVectorize
   Intel_VPlan/IntelVPlanVLSAnalysis.cpp
   Intel_VPlan/IntelVPlanVLSClient.cpp
   Intel_VPlan/IntelVPlanVectorShape.cpp
+  Intel_VPlan/IntelVPlanVectorizeIndirectCalls.cpp
   Intel_VPlan/IntelVPlanVerifier.cpp
   Intel_VPlan/IntelVPSOAAnalysis.cpp
   Intel_VPlan/VPlanHIR/IntelLoopVectorizationPlannerHIR.cpp

@@ -1551,8 +1551,10 @@ bool SelfSRRerollAnalyzer::analyze(
 const RegDDRef *getNonReductionRval(const HLInst *Inst,
                                     const SafeRedChain *Chain, unsigned Index) {
 
-  assert(std::distance(Inst->rval_op_ddref_begin(),
-                       Inst->rval_op_ddref_end()) == 2);
+  if (std::distance(Inst->rval_op_ddref_begin(),
+                     Inst->rval_op_ddref_end()) != 2) {
+    return nullptr;
+  }
 
   unsigned NumRedTemps = Chain->size();
   unsigned RedTempSymbaseAtRval =

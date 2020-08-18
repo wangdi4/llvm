@@ -114,7 +114,8 @@ llvm::Type *CodeGenTypes::ConvertTypeForMem(QualType T, bool ForBitField) {
 
   // If this is a bool type, or an ExtIntType in a bitfield representation,
   // map this integer to the target-specified size.
-  if ((ForBitField && T->isExtIntType()) || R->isIntegerTy(1))
+  if ((ForBitField && T->isExtIntType()) ||
+      (!T->isExtIntType() && R->isIntegerTy(1)))
     return llvm::IntegerType::get(getLLVMContext(),
                                   (unsigned)Context.getTypeSize(T));
 
@@ -544,6 +545,11 @@ llvm::Type *CodeGenTypes::ConvertType(QualType T) {
 #define IMAGE_TYPE(ImgType, Id, SingletonId, Access, Suffix) \
     case BuiltinType::Id:
 #include "clang/Basic/OpenCLImageTypes.def"
+#define IMAGE_TYPE(ImgType, Id, SingletonId, Access, Suffix)                   \
+  case BuiltinType::Sampled##Id:
+#define IMAGE_WRITE_TYPE(Type, Id, Ext)
+#define IMAGE_READ_WRITE_TYPE(Type, Id, Ext)
+#include "clang/Basic/OpenCLImageTypes.def"
 #define EXT_OPAQUE_TYPE(ExtType, Id, Ext) \
     case BuiltinType::Id:
 #include "clang/Basic/OpenCLExtensionTypes.def"
@@ -640,6 +646,12 @@ llvm::Type *CodeGenTypes::ConvertType(QualType T) {
       return GET_SVE_FP_VEC(DoubleTy, false, 8);
     case BuiltinType::SveBFloat16:
       return GET_SVE_FP_VEC(BFloat16Ty, false, 8);
+    case BuiltinType::SveBFloat16x2:
+      return GET_SVE_FP_VEC(BFloat16Ty, false, 16);
+    case BuiltinType::SveBFloat16x3:
+      return GET_SVE_FP_VEC(BFloat16Ty, false, 24);
+    case BuiltinType::SveBFloat16x4:
+      return GET_SVE_FP_VEC(BFloat16Ty, false, 32);
 #undef GET_SVE_FP_VEC
     case BuiltinType::Dependent:
 #define BUILTIN_TYPE(Id, SingletonId)

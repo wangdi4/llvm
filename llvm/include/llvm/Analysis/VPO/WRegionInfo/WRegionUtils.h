@@ -233,6 +233,19 @@ public:
   /// Return nullptr if W has no parent of the specified kind.
   static WRegionNode *getParentRegion(WRegionNode *W, unsigned WRegionKind);
 
+  /// Traverse ancestors of \p W and return the one, for which
+  /// \p IsMatch predicate is true. If \p ProcessNext returns
+  /// true for an ancestor, then the traversal stops, but
+  /// \p IsMatch is still evaluated for this last ancestor.
+  /// \p IsMatch is evaluated at least for the parent of \p W,
+  /// if it has one.
+  /// If there is no processed ancestor, for which \p IsMatch
+  /// is true, then return nullptr.
+  static WRegionNode *getParentRegion(
+      WRegionNode *W,
+      std::function<bool(WRegionNode *)> IsMatch,
+      std::function<bool(WRegionNode *)> ProcessNext);
+
   /// Get the Clause Id for the WRNAtomicKind \p kind.
   static int getClauseIdFromAtomicKind(WRNAtomicKind Kind);
 

@@ -228,6 +228,12 @@ public:
                                                bool ForVirtualBase,
                                                bool Delegating) override;
 
+  llvm::Value *getCXXDestructorImplicitParam(CodeGenFunction &CGF,
+                                             const CXXDestructorDecl *DD,
+                                             CXXDtorType Type,
+                                             bool ForVirtualBase,
+                                             bool Delegating) override;
+
   void EmitDestructorCall(CodeGenFunction &CGF, const CXXDestructorDecl *DD,
                           CXXDtorType Type, bool ForVirtualBase,
                           bool Delegating, Address This,
@@ -640,9 +646,15 @@ CGCallee ItaniumCXXABI::EmitLoadOfMemberFunctionPointer(
   // Apply the adjustment and cast back to the original struct type
   // for consistency.
   llvm::Value *This = ThisAddr.getPointer();
-  llvm::Value *Ptr = Builder.CreateBitCast(This, Builder.getInt8PtrTy());
+#if INTEL_CUSTOMIZATION
+  llvm::Value *Ptr =
+      Builder.CreatePointerBitCastOrAddrSpaceCast(This, Builder.getInt8PtrTy());
+#endif // INTEL_CUSTOMIZATION
   Ptr = Builder.CreateInBoundsGEP(Ptr, Adj);
-  This = Builder.CreateBitCast(Ptr, This->getType(), "this.adjusted");
+#if INTEL_CUSTOMIZATION
+  This = Builder.CreatePointerBitCastOrAddrSpaceCast(Ptr, This->getType(),
+                                                     "this.adjusted");
+#endif // INTEL_CUSTOMIZATION
   ThisPtrForCall = This;
 
   // Load the function pointer.
@@ -1693,13 +1705,21 @@ CGCXXABI::AddedStructorArgs ItaniumCXXABI::getImplicitConstructorArgs(
   return AddedStructorArgs::prefix({{VTT, VTTTy}});
 }
 
+llvm::Value *ItaniumCXXABI::getCXXDestructorImplicitParam(
+    CodeGenFunction &CGF, const CXXDestructorDecl *DD, CXXDtorType Type,
+    bool ForVirtualBase, bool Delegating) {
+  GlobalDecl GD(DD, Type);
+  return CGF.GetVTTParameter(GD, ForVirtualBase, Delegating);
+}
+
 void ItaniumCXXABI::EmitDestructorCall(CodeGenFunction &CGF,
                                        const CXXDestructorDecl *DD,
                                        CXXDtorType Type, bool ForVirtualBase,
                                        bool Delegating, Address This,
                                        QualType ThisTy) {
   GlobalDecl GD(DD, Type);
-  llvm::Value *VTT = CGF.GetVTTParameter(GD, ForVirtualBase, Delegating);
+  llvm::Value *VTT =
+      getCXXDestructorImplicitParam(CGF, DD, Type, ForVirtualBase, Delegating);
   QualType VTTTy = getContext().getPointerType(getContext().VoidPtrTy);
 
   CGCallee Callee;
@@ -3066,6 +3086,11 @@ static bool TypeInfoIsInStandardLibrary(const BuiltinType *Ty) {
 
 #define IMAGE_TYPE(ImgType, Id, SingletonId, Access, Suffix) \
     case BuiltinType::Id:
+#include "clang/Basic/OpenCLImageTypes.def"
+#define IMAGE_TYPE(ImgType, Id, SingletonId, Access, Suffix)                   \
+  case BuiltinType::Sampled##Id:
+#define IMAGE_WRITE_TYPE(Type, Id, Ext)
+#define IMAGE_READ_WRITE_TYPE(Type, Id, Ext)
 #include "clang/Basic/OpenCLImageTypes.def"
 #define EXT_OPAQUE_TYPE(ExtType, Id, Ext) \
     case BuiltinType::Id:
@@ -4573,7 +4598,8 @@ void XLCXXABI::emitCXXStermFinalizer(const VarDecl &D, llvm::Function *dtorStub,
   CodeGenFunction CGF(CGM);
 
   CGF.StartFunction(GlobalDecl(), CGM.getContext().VoidTy, StermFinalizer, FI,
-                    FunctionArgList());
+                    FunctionArgList(), D.getLocation(),
+                    D.getInit()->getExprLoc());
 
   // The unatexit subroutine unregisters __dtor functions that were previously
   // registered by the atexit subroutine. If the referenced function is found,

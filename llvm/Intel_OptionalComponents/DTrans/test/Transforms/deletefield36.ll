@@ -4,9 +4,11 @@
 ; REQUIRES: asserts
 
 ; Check that no fields will be deleted from %struct.B because of a
-; safety violation (FieldAddressTaken) in the dependent type %struct.A.
+; safety violation (FieldAddressTaken) in the dependent type %struct.A
+; gets propagated to %struct.B when dtrans-outofboundsok is enabled by
+; default.
 
-; CHECK: Rejecting %struct.B based on safety data of enclosing type %struct.A
+; CHECK: Rejecting %struct.B based on safety data
 
 ; CHECK-DAG: %struct.A = type { i32, %struct.B, i32 }
 ; CHECK-DAG: %struct.B = type { i8, i16, i32 }

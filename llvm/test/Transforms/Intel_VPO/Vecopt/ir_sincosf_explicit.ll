@@ -1,7 +1,7 @@
 ; Test to check sincos functions are vectorized to SVML function in LLVM-IR vector CG.
 
-; RUN: opt -vector-library=SVML -VPlanDriver -S -vplan-force-vf=4 %s | FileCheck -DVL=4 --check-prefixes=CHECK %s
-; RUN: opt -vector-library=SVML -VPlanDriver -S -vplan-force-vf=16 %s | FileCheck -DVL=16 --check-prefixes=CHECK %s
+; RUN: opt -vector-library=SVML -VPlanDriver -verify -S -vplan-force-vf=4 %s | FileCheck -DVL=4 --check-prefixes=CHECK %s
+; RUN: opt -vector-library=SVML -VPlanDriver -verify -S -vplan-force-vf=16 %s | FileCheck -DVL=16 --check-prefixes=CHECK %s
 
 ; CHECK: [[RESULT:%.*]] = call svml_cc { <[[VL]] x float>, <[[VL]] x float> } @__svml_sincosf[[VL]](<[[VL]] x float> {{.*}})
 ; CHECK: [[RESULT_SIN:%.*]] = extractvalue { <[[VL]] x float>, <[[VL]] x float> } [[RESULT]], 0
@@ -31,7 +31,7 @@ simd.loop:                                        ; preds = %simd.loop.exit, %si
   %0 = load float, float* %arrayidx, align 4, !tbaa !1
   %arrayidx2 = getelementptr inbounds float, float* %vsin, i64 %stride.add
   %arrayidx4 = getelementptr inbounds float, float* %vcos, i64 %stride.add
-  tail call void @sincosf(float %0, float* %arrayidx2, float* %arrayidx4) #3
+  tail call void @sincosf(float %0, float* nonnull %arrayidx2, float* nonnull %arrayidx4) #3
   br label %simd.loop.exit
 
 simd.loop.exit:                                   ; preds = %simd.loop

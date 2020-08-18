@@ -40,7 +40,12 @@ void foo_ii()
 void foo_max_concurrency()
 {
   //CHECK: br{{.*}}!llvm.loop [[MAXC1:![0-9]+]]
+  #pragma max_concurrency 0
+  for (int i=0;i<32;++i) { bar(i); }
+  //CHECK: br{{.*}}!llvm.loop [[MAXC2:![0-9]+]]
   #pragma max_concurrency 4
+  for (int i=0;i<32;++i) { bar(i); }
+  //CHECK-NOT:br{{.*}}!llvm.loop
   for (int i=0;i<32;++i) { bar(i); }
 }
 
@@ -48,10 +53,13 @@ void foo_max_concurrency()
 void foo_max_interleaving()
 {
   //CHECK: br{{.*}}!llvm.loop [[MAXI1:![0-9]+]]
-  for (int j=0;j<32;++j) {
-    #pragma max_interleaving 1
-    for (int i=0;i<32;++i) { bar(i); }
-  }
+  #pragma max_interleaving 0
+  for (int j=0;j<32;++j) { bar(j); }
+  //CHECK: br{{.*}}!llvm.loop [[MAXI2:![0-9]+]]
+  #pragma max_interleaving 1
+  for (int j=0;j<32;++j) { bar(j); }
+  //CHECK-NOT:br{{.*}}!llvm.loop
+  for (int j=0;j<32;++j) { bar(j); }
 }
 
 //CHECK-LABEL: foo_ii_at_most
@@ -237,9 +245,13 @@ void foo_ivdep(int select)
 //CHECK: [[II1]] = distinct !{[[II1]], [[II1A:![0-9]+]]}
 //CHECK: [[II1A]] = !{!"llvm.loop.ii.count", i32 4}
 //CHECK: [[MAXC1]] = distinct !{[[MAXC1]], [[MAXC1A:![0-9]+]]}
-//CHECK: [[MAXC1A]] = !{!"llvm.loop.max_concurrency.count", i32 4}
+//CHECK: [[MAXC1A]] = !{!"llvm.loop.max_concurrency.count", i32 0}
+//CHECK: [[MAXC2]] = distinct !{[[MAXC2]], [[MAXC2A:![0-9]+]]}
+//CHECK: [[MAXC2A]] = !{!"llvm.loop.max_concurrency.count", i32 4}
 //CHECK: [[MAXI1]] = distinct !{[[MAXI1]], [[MAXI1A:![0-9]+]]}
-//CHECK: [[MAXI1A]] = !{!"llvm.loop.max_interleaving.count", i32 1}
+//CHECK: [[MAXI1A]] = !{!"llvm.loop.max_interleaving.count", i32 0}
+//CHECK: [[MAXI2]] = distinct !{[[MAXI2]], [[MAXI2A:![0-9]+]]}
+//CHECK: [[MAXI2A]] = !{!"llvm.loop.max_interleaving.count", i32 1}
 //CHECK: [[IIMOST1]] = distinct !{[[IIMOST1]], [[IIMOST1A:![0-9]+]]}
 //CHECK: [[IIMOST1A]] = !{!"llvm.loop.intel.ii.at.most.count", i32 4}
 //CHECK: [[IILEAST1]] = distinct !{[[IILEAST1]], [[IILEAST1A:![0-9]+]]}
@@ -251,7 +263,7 @@ void foo_ivdep(int select)
 //CHECK: [[IIMAX1]] = distinct !{[[IIMAX1]], [[IIMAX2:![0-9]+]]}
 //CHECK: [[IIMAX2]] = !{!"llvm.loop.intel.min.ii.at.target.fmax"}
 //CHECK: [[DISPIP1]] = distinct !{[[DISPIP1]], [[DISPIP2:![0-9]+]]}
-//CHECK: [[DISPIP2]] = !{!"llvm.loop.intel.pipelining.disable"}
+//CHECK: [[DISPIP2]] = !{!"llvm.loop.intel.pipelining.enable", i32 0}
 //CHECK: [[FH1]] = distinct !{[[FH1]], [[FH2:![0-9]+]]}
 //CHECK: [[FH2]] = !{!"llvm.loop.intel.hyperopt"}
 //CHECK: [[FNH1]] = distinct !{[[FNH1]], [[FNH2:![0-9]+]]}

@@ -66,6 +66,7 @@
 #endif  // INTEL_CUSTOMIZATION
 
 #include <queue>
+#include <unordered_map>
 
 namespace llvm {
 
@@ -81,6 +82,7 @@ enum AddressSpace {
 };
 
 typedef SmallVector<WRegionNode *, 32> WRegionListTy;
+typedef std::unordered_map<const BasicBlock *, WRegionNode *> BBToWRNMapTy;
 
 class VPOParoptModuleTransform;
 
@@ -95,12 +97,12 @@ public:
                      Function *F, WRegionInfo *WI, DominatorTree *DT,
                      LoopInfo *LI, ScalarEvolution *SE,
                      const TargetTransformInfo *TTI, AssumptionCache *AC,
-                     const TargetLibraryInfo *TLI, AliasAnalysis *AA, int Mode,
+                     const TargetLibraryInfo *TLI, AAResults *AA, int Mode,
 #if INTEL_CUSTOMIZATION
                      OptReportVerbosity::Level ORVerbosity,
 #endif  // INTEL_CUSTOMIZATION
                      OptimizationRemarkEmitter &ORE,
-                     unsigned OptLevel = 2, bool SwitchToOffload = false,
+                     unsigned OptLevel = 2,
                      bool DisableOffload = false)
       : MT(MT), F(F), WI(WI), DT(DT), LI(LI), SE(SE), TTI(TTI), AC(AC),
         TLI(TLI), AA(AA), Mode(Mode),
@@ -108,7 +110,7 @@ public:
 #if INTEL_CUSTOMIZATION
         ORVerbosity(ORVerbosity),
 #endif  // INTEL_CUSTOMIZATION
-        ORE(ORE), OptLevel(OptLevel), SwitchToOffload(SwitchToOffload),
+        ORE(ORE), OptLevel(OptLevel),
         DisableOffload(DisableOffload),
         IdentTy(nullptr), TidPtrHolder(nullptr), BidPtrHolder(nullptr),
         KmpcMicroTaskTy(nullptr), KmpRoutineEntryPtrTy(nullptr),
@@ -156,8 +158,14 @@ public:
   bool isModeOmpSimt() { return Mode & vpo::OmpSimt; }
 
 #if INTEL_CUSTOMIZATION
-  /// Top level interface for data sharing optimization.
-  bool optimizeDataSharing();
+  /// Interfaces for data sharing optimization.
+  bool optimizeDataSharingForPrivateItems(
+      BBToWRNMapTy &BBToWRNMap, int &NumOptimizedItems);
+  bool optimizeDataSharingForReductionItems(
+      BBToWRNMapTy &BBToWRNMap, int &NumOptimizedItems);
+  /// Create a map between the BasicBlocks and the corresponding
+  /// innermost WRegionNodes owning the blocks.
+  void initializeBlocksToRegionsMap(BBToWRNMapTy &BBToWRNMap);
 #endif  // INTEL_CUSTOMIZATION
 
 private:
@@ -189,7 +197,7 @@ private:
   /// Get the target library information for the loop candidates.
   const TargetLibraryInfo *TLI;
 
-  AliasAnalysis *AA;
+  AAResults *AA;
 
   /// Paropt compilation mode
   int Mode;
@@ -210,9 +218,6 @@ private:
 
   /// Optimization level.
   unsigned OptLevel;
-
-  /// Offload compilation mode.
-  bool SwitchToOffload;
 
   /// Ignore TARGET construct
   bool DisableOffload;
@@ -298,9 +303,7 @@ private:
 
   /// Returns true if we are compiling for SPIRV target.
   bool isTargetSPIRV() const {
-    return
-        VPOAnalysisUtils::isTargetSPIRV(F->getParent()) &&
-        hasOffloadCompilation();
+    return VPOAnalysisUtils::isTargetSPIRV(F->getParent());
   }
 
   /// Use the WRNVisitor class (in WRegionUtils.h) to walk the
@@ -337,6 +340,10 @@ private:
   /// operands but not for "linear:iv" operands. The final copyout is done for
   /// both "linear" and "linear:iv" operands.
   bool genLinearCodeForVecLoop(WRegionNode *W, BasicBlock *LinearFiniBB);
+
+  /// Add Firstprivate clause for every normalized UB clause variable in a
+  /// WRNTaskLoopNode WRegion
+  bool addFirstprivateForNormalizedUB(WRegionNode *W);
 
   /// Generate code for firstprivate variables
   bool genFirstPrivatizationCode(WRegionNode *W);
@@ -601,6 +608,12 @@ private:
                        StructType *FastRedStructTy, Value *FastRedVar,
                        BasicBlock *EntryBB, BasicBlock *EndBB);
 
+  /// Generate code for the aligned clause.
+  bool genAlignedCode(WRegionNode *W);
+
+  /// Generate code for the nontemporal clause.
+  bool genNontemporalCode(WRegionNode *W);
+
   /// For the given region \p W returns a BasicBlock, where
   /// new alloca instructions may be inserted.
   /// If the region itself or one of its ancestors will be outlined,
@@ -653,10 +666,8 @@ private:
                                  bool NoNeedToOffsetOrDerefOldV = false);
 
   /// Generate the reduction fini code for bool and/or.
-  Value *genReductionFiniForBoolOps(ReductionItem *RedI, Value *Rhs1,
-                                    Value *Rhs2, Type *ScalarTy,
-                                    IRBuilder<> &Builder, DominatorTree *DT,
-                                    bool IsAnd);
+  Value *genReductionFiniForBoolOps(Value *Rhs1, Value *Rhs2, Type *ScalarTy,
+                                    IRBuilder<> &Builder, bool IsAnd);
   /// @}
 
   /// Generate the firstprivate initialization code.
@@ -1054,10 +1065,6 @@ private:
   // and replace the global variable with the stack variable.
   bool genGlobalPrivatizationLaunderIntrin(WRegionNode *W);
 
-  /// build the CFG for if clause.
-  void buildCFGForIfClause(Value *Cmp, Instruction *&ThenTerm,
-                           Instruction *&ElseTerm, Instruction *InsertPt);
-
   /// Generate the sizes and map type flags for the given map type, map
   /// modifier and the expression V.
   /// \param [in]     W               incoming WRegionNode.
@@ -1096,7 +1103,7 @@ private:
 
   /// Return true if the program is compiled at the offload mode.
   bool hasOffloadCompilation() const {
-    return ((Mode & OmpOffload) || SwitchToOffload);
+    return ((Mode & OmpOffload) || VPOParoptUtils::isForcedTargetCompilation());
   }
 
   /// Finds the alloc stack variables where the tid stores.
@@ -1489,11 +1496,20 @@ private:
   /// use of `%v` in `%0` is also replaced with `%v1`. Otherwise, by default,
   /// `v1` is inserted at the end of EntryBB.
   ///
+  /// If \p SelectAllocaInsertPtBasedOnParentWRegion is \b true, then the
+  /// insertion point for `%v.addr` is determined based on whether a parent
+  /// WRegion would eventually be outlined, otherwise, the end of the Function's
+  /// entry block is used.
+  ///
+  /// If \p CastToAddrSpaceGeneric is \b true, then `%v.addr` is casted to
+  /// address space generic (4) before doing the store/load.
+  ///
   /// \returns the pointer where \p V is stored (`%v.addr` above).
-  static Value *
-  replaceWithStoreThenLoad(WRegionNode *W, Value *V,
-                           Instruction *InsertPtForStore,
-                           bool InsertLoadInBeginningOfEntryBB = false);
+  Value *replaceWithStoreThenLoad(
+      WRegionNode *W, Value *V, Instruction *InsertPtForStore,
+      bool InsertLoadInBeginningOfEntryBB = false,
+      bool SelectAllocaInsertPtBasedOnParentWRegion = false,
+      bool CastToAddrSpaceGeneric = false);
 
   /// If \p I is a call to @llvm.launder.invariant.group, then return
   /// the CallInst*. Otherwise, return nullptr.

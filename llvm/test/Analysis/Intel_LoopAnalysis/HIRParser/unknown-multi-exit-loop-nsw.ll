@@ -1,7 +1,7 @@
 ; RUN: opt < %s -hir-ssa-deconstruction -hir-cost-model-throttling=0 | opt -analyze -hir-framework -hir-framework-debug=parser -hir-cost-model-throttling=0 -hir-details | FileCheck %s
 
-; Verify that we are able to apply NSW flag to this unknown multi-exit loop due to the presence of non-negative NSW IV %t15.
-; CHECK: NSW: Yes
+; Verify that we are able to apply HasSignedIV flag to this unknown multi-exit loop due to the presence of non-negative HasSignedIV IV %t15.
+; CHECK: HasSignedIV: Yes
 ; CHECK: UNKNOWN LOOP i1
 
 ; ModuleID = 'red1.ll'

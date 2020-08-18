@@ -222,6 +222,17 @@ static cl::opt<bool> EnablePathSteering(
     "enable-path-steering", cl::init(true), cl::Hidden,
     cl::desc("Enable path-steering by the Multi-Node exploration ."));
 
+// When set to true limit the number of phis grabbed by vectorizeChainsInBlock
+// by a maximum number of vector elements (MaxNumElts) of given type supported
+// by current target. This practically decreases surface searched by SLP for
+// vectorizable chains. Otherwise we increase chain length by (MaxNumElts -1)
+// which still results in same maximum vector length as outcome but in corner
+// cases (when we have perfectly vectorizable long power-of-two length chains)
+// we end up with worse vectorized code.
+static cl::opt<bool> LimitPhiChainLengthByMaxVecElemenets(
+    "limit-phi-chain-by-max-vec-elems", cl::init(false), cl::Hidden,
+    cl::desc("When collecting phis to vectorize limit chain length by a "
+             "maximum number elements in a vector of given type as per TTI"));
 #endif // INTEL_CUSTOMIZATION
 
 static cl::opt<bool>
@@ -5671,19 +5682,24 @@ void BoUpSLP::buildTree_rec(ArrayRef<Value *> VL_, unsigned Depth,
       return;
     }
     case Instruction::Call: {
-      // Check if the calls are all to the same vectorizable intrinsic.
+      // Check if the calls are all to the same vectorizable intrinsic or
+      // library function.
       CallInst *CI = cast<CallInst>(VL0);
-      // Check if this is an Intrinsic call or something that can be
-      // represented by an intrinsic call
       Intrinsic::ID ID = getVectorIntrinsicIDForCall(CI, TLI);
-      if (!isTriviallyVectorizable(ID)) {
+
+      VFShape Shape = VFShape::get(
+          *CI, {static_cast<unsigned int>(VL.size()), false /*Scalable*/},
+          false /*HasGlobalPred*/);
+      Function *VecFunc = VFDatabase(*CI).getVectorizedFunction(Shape);
+
+      if (!VecFunc && !isTriviallyVectorizable(ID)) {
         BS.cancelScheduling(VL, VL0);
         newTreeEntry(VL, None /*not vectorized*/, S, UserTreeIdx,
                      ReuseShuffleIndicies);
         LLVM_DEBUG(dbgs() << "SLP: Non-vectorizable call.\n");
         return;
       }
-      Function *Int = CI->getCalledFunction();
+      Function *F = CI->getCalledFunction();
       unsigned NumArgs = CI->getNumArgOperands();
       SmallVector<Value*, 4> ScalarArgs(NumArgs, nullptr);
       for (unsigned j = 0; j != NumArgs; ++j)
@@ -5691,8 +5707,10 @@ void BoUpSLP::buildTree_rec(ArrayRef<Value *> VL_, unsigned Depth,
           ScalarArgs[j] = CI->getArgOperand(j);
       for (Value *V : VL) {
         CallInst *CI2 = dyn_cast<CallInst>(V);
-        if (!CI2 || CI2->getCalledFunction() != Int ||
+        if (!CI2 || CI2->getCalledFunction() != F ||
             getVectorIntrinsicIDForCall(CI2, TLI) != ID ||
+            (VecFunc &&
+             VecFunc != VFDatabase(*CI2).getVectorizedFunction(Shape)) ||
             !CI->hasIdenticalOperandBundleSchema(*CI2)) {
           BS.cancelScheduling(VL, VL0);
           newTreeEntry(VL, None /*not vectorized*/, S, UserTreeIdx,
@@ -6047,8 +6065,8 @@ int BoUpSLP::getEntryCost(TreeEntry *E) {
                   Ext->getOpcode(), Ext->getType(), VecTy, i);
               // Add back the cost of s|zext which is subtracted separately.
               DeadCost += TTI->getCastInstrCost(
-                  Ext->getOpcode(), Ext->getType(), E->getType(), CostKind,
-                  Ext);
+                  Ext->getOpcode(), Ext->getType(), E->getType(),
+                  TTI::getCastContextHint(Ext), CostKind, Ext);
               continue;
             }
           }
@@ -6072,8 +6090,8 @@ int BoUpSLP::getEntryCost(TreeEntry *E) {
     case Instruction::BitCast: {
       Type *SrcTy = VL0->getOperand(0)->getType();
       int ScalarEltCost =
-          TTI->getCastInstrCost(E->getOpcode(), ScalarTy, SrcTy, CostKind,
-                                VL0);
+          TTI->getCastInstrCost(E->getOpcode(), ScalarTy, SrcTy,
+                                TTI::getCastContextHint(VL0), CostKind, VL0);
       if (NeedToShuffleReuses) {
         ReuseShuffleCost -= (ReuseShuffleNumbers - VL.size()) * ScalarEltCost;
       }
@@ -6085,9 +6103,10 @@ int BoUpSLP::getEntryCost(TreeEntry *E) {
       int VecCost = 0;
       // Check if the values are candidates to demote.
       if (!MinBWs.count(VL0) || VecTy != SrcVecTy) {
-        VecCost = ReuseShuffleCost +
-                  TTI->getCastInstrCost(E->getOpcode(), VecTy, SrcVecTy,
-                                        CostKind, VL0);
+        VecCost =
+            ReuseShuffleCost +
+            TTI->getCastInstrCost(E->getOpcode(), VecTy, SrcVecTy,
+                                  TTI::getCastContextHint(VL0), CostKind, VL0);
       }
       return VecCost - ScalarCost;
     }
@@ -6327,9 +6346,9 @@ int BoUpSLP::getEntryCost(TreeEntry *E) {
         auto *Src0Ty = FixedVectorType::get(Src0SclTy, VL.size());
         auto *Src1Ty = FixedVectorType::get(Src1SclTy, VL.size());
         VecCost = TTI->getCastInstrCost(E->getOpcode(), VecTy, Src0Ty,
-                                        CostKind);
+                                        TTI::CastContextHint::None, CostKind);
         VecCost += TTI->getCastInstrCost(E->getAltOpcode(), VecTy, Src1Ty,
-                                         CostKind);
+                                         TTI::CastContextHint::None, CostKind);
       }
       VecCost += TTI->getShuffleCost(TargetTransformInfo::SK_Select, VecTy, 0);
       return ReuseShuffleCost + VecCost - ScalarCost;
@@ -7303,7 +7322,8 @@ Value *BoUpSLP::vectorizeTree(TreeEntry *E) {
       Intrinsic::ID ID = getVectorIntrinsicIDForCall(CI, TLI);
 
       auto VecCallCosts = getVectorCallCosts(CI, VecTy, TTI, TLI);
-      bool UseIntrinsic = VecCallCosts.first <= VecCallCosts.second;
+      bool UseIntrinsic = ID != Intrinsic::not_intrinsic &&
+                          VecCallCosts.first <= VecCallCosts.second;
 
       Value *ScalarArg = nullptr;
       std::vector<Value *> OpVecs;
@@ -7323,15 +7343,15 @@ Value *BoUpSLP::vectorizeTree(TreeEntry *E) {
         OpVecs.push_back(OpVec);
       }
 
-      Module *M = F->getParent();
-      Type *Tys[] = {FixedVectorType::get(CI->getType(), E->Scalars.size())};
-      Function *CF = Intrinsic::getDeclaration(M, ID, Tys);
-
+      Function *CF;
       if (!UseIntrinsic) {
         VFShape Shape = VFShape::get(
             *CI, {static_cast<unsigned>(VecTy->getNumElements()), false},
             false /*HasGlobalPred*/);
         CF = VFDatabase(*CI).getVectorizedFunction(Shape);
+      } else {
+        Type *Tys[] = {FixedVectorType::get(CI->getType(), E->Scalars.size())};
+        CF = Intrinsic::getDeclaration(F->getParent(), ID, Tys);
       }
 
       SmallVector<OperandBundleDef, 1> OpBundles;
@@ -8957,7 +8977,7 @@ void SLPVectorizerPass::collectSeedInstructions(BasicBlock *BB) {
         continue;
       if (!isValidElementType(SI->getValueOperand()->getType()))
         continue;
-      Stores[GetUnderlyingObject(SI->getPointerOperand(), *DL)].push_back(SI);
+      Stores[getUnderlyingObject(SI->getPointerOperand())].push_back(SI);
     }
 
     // Ignore getelementptr instructions that have more than one index, a
@@ -10515,6 +10535,7 @@ bool SLPVectorizerPass::vectorizeChainsInBlock(BasicBlock *BB, BoUpSLP &R) {
   bool Changed = false;
   SmallVector<Value *, 4> Incoming;
   SmallPtrSet<Value *, 16> VisitedInstrs;
+  unsigned MaxVecRegSize = R.getMaxVecRegSize();
 
   bool HaveVectorizedPhiNodes = true;
   while (HaveVectorizedPhiNodes) {
@@ -10541,8 +10562,30 @@ bool SLPVectorizerPass::vectorizeChainsInBlock(BasicBlock *BB, BoUpSLP &R) {
 
       // Look for the next elements with the same type.
       SmallVector<Value *, 4>::iterator SameTypeIt = IncIt;
+      Type *EltTy = (*IncIt)->getType();
+
+      assert(EltTy->isSized() &&
+             "Instructions should all be sized at this point");
+      TypeSize EltTS = DL->getTypeSizeInBits(EltTy);
+      if (EltTS.isScalable()) {
+        // For now, just ignore vectorizing scalable types.
+        ++IncIt;
+        continue;
+      }
+
+      unsigned EltSize = EltTS.getFixedSize();
+      unsigned MaxNumElts = MaxVecRegSize / EltSize;
+      if (MaxNumElts < 2) {
+        ++IncIt;
+        continue;
+      }
+
+      if (!LimitPhiChainLengthByMaxVecElemenets) // INTEL
+        MaxNumElts = MaxNumElts * 2 - 1;         // INTEL
+
       while (SameTypeIt != E &&
-             (*SameTypeIt)->getType() == (*IncIt)->getType()) {
+             (*SameTypeIt)->getType() == EltTy &&
+             static_cast<unsigned>(SameTypeIt - IncIt) < MaxNumElts) {
         VisitedInstrs.insert(*SameTypeIt);
         ++SameTypeIt;
       }
@@ -10657,9 +10700,12 @@ bool SLPVectorizerPass::vectorizeGEPIndices(BasicBlock *BB, BoUpSLP &R) {
                       << Entry.second.size() << ".\n");
 
     // Process the GEP list in chunks suitable for the target's supported
-    // vector size. If a vector register can't hold 1 element, we are done.
+    // vector size. If a vector register can't hold 1 element, we are done. We
+    // are trying to vectorize the index computations, so the maximum number of
+    // elements is based on the size of the index expression, rather than the
+    // size of the GEP itself (the target's pointer size).
     unsigned MaxVecRegSize = R.getMaxVecRegSize();
-    unsigned EltSize = R.getVectorElementSize(Entry.second[0]);
+    unsigned EltSize = R.getVectorElementSize(*Entry.second[0]->idx_begin());
     if (MaxVecRegSize < EltSize)
       continue;
 

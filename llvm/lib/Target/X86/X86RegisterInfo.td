@@ -291,9 +291,7 @@ let SubRegIndices = [sub_ymm] in {
   }
 }
 
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_AMX
-// Tile "registers". These aren't really registers. Or are they?
+// Tile "registers".
 def TMM0:  X86Reg<"tmm0",   0>;
 def TMM1:  X86Reg<"tmm1",   1>;
 def TMM2:  X86Reg<"tmm2",   2>;
@@ -302,6 +300,8 @@ def TMM4:  X86Reg<"tmm4",   4>;
 def TMM5:  X86Reg<"tmm5",   5>;
 def TMM6:  X86Reg<"tmm6",   6>;
 def TMM7:  X86Reg<"tmm7",   7>;
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AMX
 // FIXME Just align with ICC, tmm8-15 is not supported by HW.
 def TMM8:  X86Reg<"tmm8",   8>;
 def TMM9:  X86Reg<"tmm9",   9>;
@@ -728,11 +728,12 @@ def BNDR : RegisterClass<"X86", [v2i64], 128, (sequence "BND%u", 0, 3)>;
 #if INTEL_FEATURE_ISA_AMX
 // Tiles
 let isAllocatable = 0 in
-def VTILE : RegisterClass<"X86", [untyped], 0,
-                          (sequence "TMM%u", 0, 15)> {let Size = 8192;}
+def TILE : RegisterClass<"X86", [untyped], 0,
+                         (sequence "TMM%u", 0, 15)> {let Size = 8192;}
+
 // Tiles
 let isAllocatable = 0 in
-def VTILEX : RegisterClass<"X86", [untyped], 0,
+def TILEX : RegisterClass<"X86", [untyped], 0,
                           (sequence "TMM%u", 0, 31)> {let Size = 8192;}
 
 // TMM register pairs
@@ -742,7 +743,7 @@ def TPAIRS : RegisterTuples<[sub_t0, sub_t1],
 
 // Need check alignment 3rd operand size=1024*2*8
 let isAllocatable = 0 in
-def VTILEPAIR : RegisterClass<"X86", [untyped], 0, (add TPAIRS)> {let Size = 16384;}
+def TILEPAIR : RegisterClass<"X86", [untyped], 0, (add TPAIRS)> {let Size = 16384;}
 
 // TMM register quad
 def TQUADS : RegisterTuples<[sub_t0, sub_t1, sub_t2, sub_t3],
@@ -753,9 +754,14 @@ def TQUADS : RegisterTuples<[sub_t0, sub_t1, sub_t2, sub_t3],
 
 // Need check alignment 3rd operand size=1024*4*8
 let isAllocatable = 0 in
-def VTILEQUAD : RegisterClass<"X86", [untyped], 0, (add TQUADS)> {let Size = 32768;}
-
+def TILEQUAD : RegisterClass<"X86", [untyped], 0, (add TQUADS)> {let Size = 32768;}
+#else // INTEL_FEATURE_ISA_AMX
+// Tiles
+let isAllocatable = 0 in
+def TILE : RegisterClass<"X86", [untyped], 0,
+                         (sequence "TMM%u", 0, 7)> {let Size = 8192;}
 #endif // INTEL_FEATURE_ISA_AMX
+
 #if INTEL_FEATURE_ISA_AMX_LNC
 // FIXME: Now we only support ZMM16-ZMM31 for ZMM16TUPLES, but the tile16move
 // can also choose ZMM0-ZMM15, so we should support ZMM0-ZMM15 too.

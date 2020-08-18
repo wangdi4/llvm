@@ -19,6 +19,7 @@
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/StringRef.h"
 #include "llvm/DebugInfo/CodeView/SymbolRecord.h"
+#include "llvm/MC/Intel_MCTrace.h" //INTEL
 #include "llvm/MC/MCDirectives.h"
 #include "llvm/MC/MCLinkerOptimizationHint.h"
 #include "llvm/MC/MCSymbol.h"
@@ -575,6 +576,16 @@ public:
   virtual void emitXCOFFSymbolLinkageWithVisibility(MCSymbol *Symbol,
                                                     MCSymbolAttr Linkage,
                                                     MCSymbolAttr Visibility);
+
+  /// Emit a XCOFF .rename directive which creates a synonym for an illegal or
+  /// undesirable name.
+  ///
+  /// \param Name - The name used internally in the assembly for references to
+  /// the symbol.
+  /// \param Rename - The value to which the Name parameter is
+  /// changed at the end of assembly.
+  virtual void emitXCOFFRenameDirective(const MCSymbol *Name, StringRef Rename);
+
   /// Emit an ELF .size directive.
   ///
   /// This corresponds to an assembler statement such as:
@@ -776,6 +787,9 @@ public:
   virtual void emitFill(const MCExpr &NumValues, int64_t Size, int64_t Expr,
                         SMLoc Loc = SMLoc());
 
+  virtual void emitNops(int64_t NumBytes, int64_t ControlledNopLength,
+                        SMLoc Loc);
+
   /// Emit NumBytes worth of zeros.
   /// This function properly handles data in virtual sections.
   void emitZeros(uint64_t NumBytes);
@@ -948,6 +962,11 @@ public:
   virtual void emitAbsoluteSymbolDiff(const MCSymbol *Hi, const MCSymbol *Lo,
                                       unsigned Size);
 
+#if INTEL_CUSTOMIZATION
+  /// Emit the line record in .trace section.
+  virtual void emitTraceLine(const MCTraceLine &Line) {}
+#endif // INTEL_CUSTOMIZATION
+
   /// Emit the absolute difference between two symbols encoded with ULEB128.
   virtual void emitAbsoluteSymbolDiffAsULEB128(const MCSymbol *Hi,
                                                const MCSymbol *Lo);
@@ -1013,13 +1032,12 @@ public:
 
   virtual void emitSyntaxDirective();
 
-  /// Emit a .reloc directive.
-  /// Returns true if the relocation could not be emitted because Name is not
-  /// known.
-  virtual bool emitRelocDirective(const MCExpr &Offset, StringRef Name,
-                                  const MCExpr *Expr, SMLoc Loc,
-                                  const MCSubtargetInfo &STI) {
-    return true;
+  /// Record a relocation described by the .reloc directive. Return None if
+  /// succeeded. Otherwise, return a pair (Name is invalid, error message).
+  virtual Optional<std::pair<bool, std::string>>
+  emitRelocDirective(const MCExpr &Offset, StringRef Name, const MCExpr *Expr,
+                     SMLoc Loc, const MCSubtargetInfo &STI) {
+    return None;
   }
 
   virtual void emitAddrsig() {}

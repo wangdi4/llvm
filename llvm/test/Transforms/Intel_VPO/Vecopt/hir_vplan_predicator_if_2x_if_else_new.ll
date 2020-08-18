@@ -32,105 +32,107 @@ target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: noinline norecurse nounwind uwtable
 define dso_local void @foo(i32* noalias nocapture %a, i32* noalias nocapture %b, i32* noalias nocapture %c, i32 %N) local_unnamed_addr #0 {
-; CHECK-LABEL:  VPlan after predication and linearization
+; CHECK-LABEL:  VPlan after predication and linearization:
+; CHECK-NEXT:  Live-in values:
+; CHECK-NEXT:  ID: 0 Value: i64 0
 ; CHECK-NEXT:    [[BB0:BB[0-9]+]]:
 ; CHECK-NEXT:     <Empty Block>
 ; CHECK-NEXT:    SUCCESSORS(1):[[BB1:BB[0-9]+]]
 ; CHECK-NEXT:    no PREDECESSORS
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB1]]:
-; CHECK-NEXT:     [DA: Div] i64 [[VP__IND_INIT:%.*]] = induction-init{add} i64 0 i64 1
+; CHECK-NEXT:     [DA: Div] i64 [[VP__IND_INIT:%.*]] = induction-init{add} i64 live-in0 i64 1
 ; CHECK-NEXT:     [DA: Uni] i64 [[VP__IND_INIT_STEP:%.*]] = induction-init-step{add} i64 1
 ; CHECK-NEXT:    SUCCESSORS(1):[[BB2:BB[0-9]+]]
 ; CHECK-NEXT:    PREDECESSORS(1): [[BB0]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB2]]:
 ; CHECK-NEXT:     [DA: Div] i64 [[VP0:%.*]] = phi  [ i64 [[VP__IND_INIT]], [[BB1]] ],  [ i64 [[VP1:%.*]], [[BB3:BB[0-9]+]] ]
-; CHECK-NEXT:     [DA: Div] i32* [[VP2:%.*]] = subscript inbounds i32* [[B0:%.*]] i64 [[VP0]]
-; CHECK-NEXT:     [DA: Div] i32 [[VP3:%.*]] = load i32* [[VP2]]
-; CHECK-NEXT:     [DA: Div] i1 [[VP4:%.*]] = icmp i32 [[VP3]] i32 0
+; CHECK-NEXT:     [DA: Div] i32* [[VP_SUBSCRIPT:%.*]] = subscript inbounds i32* [[B0:%.*]] i64 [[VP0]]
+; CHECK-NEXT:     [DA: Div] i32 [[VP2:%.*]] = load i32* [[VP_SUBSCRIPT]]
+; CHECK-NEXT:     [DA: Div] i1 [[VP3:%.*]] = icmp i32 [[VP2]] i32 0
 ; CHECK-NEXT:    SUCCESSORS(1):[[BB4:BB[0-9]+]]
 ; CHECK-NEXT:    PREDECESSORS(2): [[BB1]] [[BB3]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB4]]:
-; CHECK-NEXT:     [DA: Div] i1 [[VP5:%.*]] = block-predicate i1 [[VP4]]
-; CHECK-NEXT:     [DA: Div] i32* [[VP6:%.*]] = subscript inbounds i32* [[A0:%.*]] i64 [[VP0]]
-; CHECK-NEXT:     [DA: Div] i32 [[VP7:%.*]] = load i32* [[VP6]]
-; CHECK-NEXT:     [DA: Div] i1 [[VP8:%.*]] = icmp i32 [[VP7]] i32 0
-; CHECK-NEXT:     [DA: Div] i1 [[VP__NOT:%.*]] = not i1 [[VP8]]
+; CHECK-NEXT:     [DA: Div] i1 [[VP4:%.*]] = block-predicate i1 [[VP3]]
+; CHECK-NEXT:     [DA: Div] i32* [[VP_SUBSCRIPT_1:%.*]] = subscript inbounds i32* [[A0:%.*]] i64 [[VP0]]
+; CHECK-NEXT:     [DA: Div] i32 [[VP5:%.*]] = load i32* [[VP_SUBSCRIPT_1]]
+; CHECK-NEXT:     [DA: Div] i1 [[VP6:%.*]] = icmp i32 [[VP5]] i32 0
+; CHECK-NEXT:     [DA: Div] i1 [[VP__NOT:%.*]] = not i1 [[VP6]]
 ; CHECK-NEXT:    SUCCESSORS(1):[[BB5:BB[0-9]+]]
 ; CHECK-NEXT:    PREDECESSORS(1): [[BB2]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB5]]:
-; CHECK-NEXT:     [DA: Div] i1 [[VP_BB4_BR_VP__NOT:%.*]] = and i1 [[VP4]] i1 [[VP__NOT]]
-; CHECK-NEXT:     [DA: Div] i1 [[VP_BB4_BR_:%.*]] = and i1 [[VP4]] i1 [[VP8]]
+; CHECK-NEXT:     [DA: Div] i1 [[VP_BB4_BR_VP__NOT:%.*]] = and i1 [[VP3]] i1 [[VP__NOT]]
+; CHECK-NEXT:     [DA: Div] i1 [[VP_BB4_BR_:%.*]] = and i1 [[VP3]] i1 [[VP6]]
 ; CHECK-NEXT:    SUCCESSORS(1):[[BB6:BB[0-9]+]]
 ; CHECK-NEXT:    PREDECESSORS(1): [[BB4]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB6]]:
-; CHECK-NEXT:     [DA: Div] i1 [[VP9:%.*]] = block-predicate i1 [[VP_BB4_BR_VP__NOT]]
-; CHECK-NEXT:     [DA: Div] i32 [[VP10:%.*]] = add i32 [[VP7]] i32 5
-; CHECK-NEXT:     [DA: Div] i32* [[VP11:%.*]] = subscript inbounds i32* [[A0]] i64 [[VP0]]
-; CHECK-NEXT:     [DA: Div] store i32 [[VP10]] i32* [[VP11]]
+; CHECK-NEXT:     [DA: Div] i1 [[VP7:%.*]] = block-predicate i1 [[VP_BB4_BR_VP__NOT]]
+; CHECK-NEXT:     [DA: Div] i32 [[VP8:%.*]] = add i32 [[VP5]] i32 5
+; CHECK-NEXT:     [DA: Div] i32* [[VP_SUBSCRIPT_2:%.*]] = subscript inbounds i32* [[A0]] i64 [[VP0]]
+; CHECK-NEXT:     [DA: Div] store i32 [[VP8]] i32* [[VP_SUBSCRIPT_2]]
 ; CHECK-NEXT:    SUCCESSORS(1):[[BB7:BB[0-9]+]]
 ; CHECK-NEXT:    PREDECESSORS(1): [[BB5]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB7]]:
-; CHECK-NEXT:     [DA: Div] i1 [[VP12:%.*]] = block-predicate i1 [[VP_BB4_BR_]]
-; CHECK-NEXT:     [DA: Div] i32 [[VP13:%.*]] = mul i32 [[VP3]] i32 5
-; CHECK-NEXT:     [DA: Div] i32* [[VP14:%.*]] = subscript inbounds i32* [[B0]] i64 [[VP0]]
-; CHECK-NEXT:     [DA: Div] store i32 [[VP13]] i32* [[VP14]]
+; CHECK-NEXT:     [DA: Div] i1 [[VP9:%.*]] = block-predicate i1 [[VP_BB4_BR_]]
+; CHECK-NEXT:     [DA: Div] i32 [[VP10:%.*]] = mul i32 [[VP2]] i32 5
+; CHECK-NEXT:     [DA: Div] i32* [[VP_SUBSCRIPT_3:%.*]] = subscript inbounds i32* [[B0]] i64 [[VP0]]
+; CHECK-NEXT:     [DA: Div] store i32 [[VP10]] i32* [[VP_SUBSCRIPT_3]]
 ; CHECK-NEXT:    SUCCESSORS(1):[[BB8:BB[0-9]+]]
 ; CHECK-NEXT:    PREDECESSORS(1): [[BB6]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB8]]:
-; CHECK-NEXT:     [DA: Div] i1 [[VP15:%.*]] = block-predicate i1 [[VP4]]
-; CHECK-NEXT:     [DA: Div] i32* [[VP16:%.*]] = subscript inbounds i32* [[C0:%.*]] i64 [[VP0]]
-; CHECK-NEXT:     [DA: Div] i32 [[VP17:%.*]] = load i32* [[VP16]]
-; CHECK-NEXT:     [DA: Div] i32 [[VP18:%.*]] = mul i32 [[VP17]] i32 [[N0:%.*]]
-; CHECK-NEXT:     [DA: Div] i32* [[VP19:%.*]] = subscript inbounds i32* [[C0]] i64 [[VP0]]
-; CHECK-NEXT:     [DA: Div] store i32 [[VP18]] i32* [[VP19]]
-; CHECK-NEXT:     [DA: Div] i32* [[VP20:%.*]] = subscript inbounds i32* [[A0]] i64 [[VP0]]
-; CHECK-NEXT:     [DA: Div] i32 [[VP21:%.*]] = load i32* [[VP20]]
-; CHECK-NEXT:     [DA: Div] i32 [[VP22:%.*]] = mul i32 [[VP17]] i32 [[N0]]
-; CHECK-NEXT:     [DA: Div] i1 [[VP23:%.*]] = icmp i32 [[VP22]] i32 0
-; CHECK-NEXT:     [DA: Div] i1 [[VP__NOT_1:%.*]] = not i1 [[VP23]]
+; CHECK-NEXT:     [DA: Div] i1 [[VP11:%.*]] = block-predicate i1 [[VP3]]
+; CHECK-NEXT:     [DA: Div] i32* [[VP_SUBSCRIPT_4:%.*]] = subscript inbounds i32* [[C0:%.*]] i64 [[VP0]]
+; CHECK-NEXT:     [DA: Div] i32 [[VP12:%.*]] = load i32* [[VP_SUBSCRIPT_4]]
+; CHECK-NEXT:     [DA: Div] i32 [[VP13:%.*]] = mul i32 [[VP12]] i32 [[N0:%.*]]
+; CHECK-NEXT:     [DA: Div] i32* [[VP_SUBSCRIPT_5:%.*]] = subscript inbounds i32* [[C0]] i64 [[VP0]]
+; CHECK-NEXT:     [DA: Div] store i32 [[VP13]] i32* [[VP_SUBSCRIPT_5]]
+; CHECK-NEXT:     [DA: Div] i32* [[VP_SUBSCRIPT_6:%.*]] = subscript inbounds i32* [[A0]] i64 [[VP0]]
+; CHECK-NEXT:     [DA: Div] i32 [[VP14:%.*]] = load i32* [[VP_SUBSCRIPT_6]]
+; CHECK-NEXT:     [DA: Div] i32 [[VP15:%.*]] = mul i32 [[VP12]] i32 [[N0]]
+; CHECK-NEXT:     [DA: Div] i1 [[VP16:%.*]] = icmp i32 [[VP15]] i32 0
+; CHECK-NEXT:     [DA: Div] i1 [[VP__NOT_1:%.*]] = not i1 [[VP16]]
 ; CHECK-NEXT:    SUCCESSORS(1):[[BB9:BB[0-9]+]]
 ; CHECK-NEXT:    PREDECESSORS(1): [[BB7]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB9]]:
-; CHECK-NEXT:     [DA: Div] i1 [[VP_BB7_BR_VP__NOT:%.*]] = and i1 [[VP4]] i1 [[VP__NOT_1]]
-; CHECK-NEXT:     [DA: Div] i1 [[VP_BB7_BR_:%.*]] = and i1 [[VP4]] i1 [[VP23]]
+; CHECK-NEXT:     [DA: Div] i1 [[VP_BB7_BR_VP__NOT:%.*]] = and i1 [[VP3]] i1 [[VP__NOT_1]]
+; CHECK-NEXT:     [DA: Div] i1 [[VP_BB7_BR_:%.*]] = and i1 [[VP3]] i1 [[VP16]]
 ; CHECK-NEXT:    SUCCESSORS(1):[[BB10:BB[0-9]+]]
 ; CHECK-NEXT:    PREDECESSORS(1): [[BB8]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB10]]:
-; CHECK-NEXT:     [DA: Div] i1 [[VP24:%.*]] = block-predicate i1 [[VP_BB7_BR_VP__NOT]]
-; CHECK-NEXT:     [DA: Div] i32 [[VP25:%.*]] = mul i32 [[VP21]] i32 [[N0]]
-; CHECK-NEXT:     [DA: Div] i32 [[VP26:%.*]] = mul i32 [[VP17]] i32 [[VP25]]
-; CHECK-NEXT:     [DA: Div] i32* [[VP27:%.*]] = subscript inbounds i32* [[B0]] i64 [[VP0]]
-; CHECK-NEXT:     [DA: Div] store i32 [[VP26]] i32* [[VP27]]
+; CHECK-NEXT:     [DA: Div] i1 [[VP17:%.*]] = block-predicate i1 [[VP_BB7_BR_VP__NOT]]
+; CHECK-NEXT:     [DA: Div] i32 [[VP18:%.*]] = mul i32 [[VP14]] i32 [[N0]]
+; CHECK-NEXT:     [DA: Div] i32 [[VP19:%.*]] = mul i32 [[VP12]] i32 [[VP18]]
+; CHECK-NEXT:     [DA: Div] i32* [[VP_SUBSCRIPT_7:%.*]] = subscript inbounds i32* [[B0]] i64 [[VP0]]
+; CHECK-NEXT:     [DA: Div] store i32 [[VP19]] i32* [[VP_SUBSCRIPT_7]]
 ; CHECK-NEXT:    SUCCESSORS(1):[[BB11:BB[0-9]+]]
 ; CHECK-NEXT:    PREDECESSORS(1): [[BB9]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB11]]:
-; CHECK-NEXT:     [DA: Div] i1 [[VP28:%.*]] = block-predicate i1 [[VP_BB7_BR_]]
-; CHECK-NEXT:     [DA: Div] i32 [[VP29:%.*]] = mul i32 [[VP17]] i32 [[N0]]
-; CHECK-NEXT:     [DA: Div] i32 [[VP30:%.*]] = mul i32 [[VP21]] i32 -1
-; CHECK-NEXT:     [DA: Div] i32 [[VP31:%.*]] = add i32 [[VP29]] i32 [[VP30]]
-; CHECK-NEXT:     [DA: Div] i32* [[VP32:%.*]] = subscript inbounds i32* [[A0]] i64 [[VP0]]
-; CHECK-NEXT:     [DA: Div] store i32 [[VP31]] i32* [[VP32]]
+; CHECK-NEXT:     [DA: Div] i1 [[VP20:%.*]] = block-predicate i1 [[VP_BB7_BR_]]
+; CHECK-NEXT:     [DA: Div] i32 [[VP21:%.*]] = mul i32 [[VP12]] i32 [[N0]]
+; CHECK-NEXT:     [DA: Div] i32 [[VP22:%.*]] = mul i32 [[VP14]] i32 -1
+; CHECK-NEXT:     [DA: Div] i32 [[VP23:%.*]] = add i32 [[VP21]] i32 [[VP22]]
+; CHECK-NEXT:     [DA: Div] i32* [[VP_SUBSCRIPT_8:%.*]] = subscript inbounds i32* [[A0]] i64 [[VP0]]
+; CHECK-NEXT:     [DA: Div] store i32 [[VP23]] i32* [[VP_SUBSCRIPT_8]]
 ; CHECK-NEXT:    SUCCESSORS(1):[[BB3]]
 ; CHECK-NEXT:    PREDECESSORS(1): [[BB10]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB3]]:
 ; CHECK-NEXT:     [DA: Div] i64 [[VP1]] = add i64 [[VP0]] i64 [[VP__IND_INIT_STEP]]
-; CHECK-NEXT:     [DA: Uni] i1 [[VP33:%.*]] = icmp i64 [[VP1]] i64 299
-; CHECK-NEXT:    SUCCESSORS(2):[[BB2]](i1 [[VP33]]), [[BB12:BB[0-9]+]](!i1 [[VP33]])
+; CHECK-NEXT:     [DA: Uni] i1 [[VP24:%.*]] = icmp i64 [[VP1]] i64 299
+; CHECK-NEXT:    SUCCESSORS(2):[[BB2]](i1 [[VP24]]), [[BB12:BB[0-9]+]](!i1 [[VP24]])
 ; CHECK-NEXT:    PREDECESSORS(1): [[BB11]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB12]]:
-; CHECK-NEXT:     [DA: Uni] i64 [[VP__IND_FINAL:%.*]] = induction-final{add} i64 0 i64 1
+; CHECK-NEXT:     [DA: Uni] i64 [[VP__IND_FINAL:%.*]] = induction-final{add} i64 live-in0 i64 1
 ; CHECK-NEXT:    SUCCESSORS(1):[[BB13:BB[0-9]+]]
 ; CHECK-NEXT:    PREDECESSORS(1): [[BB3]]
 ; CHECK-EMPTY:
@@ -138,6 +140,9 @@ define dso_local void @foo(i32* noalias nocapture %a, i32* noalias nocapture %b,
 ; CHECK-NEXT:     <Empty Block>
 ; CHECK-NEXT:    no SUCCESSORS
 ; CHECK-NEXT:    PREDECESSORS(1): [[BB12]]
+; CHECK-EMPTY:
+; CHECK-NEXT:  External Uses:
+; CHECK-NEXT:  Id: 0   no underlying for i64 [[VP__IND_FINAL]]
 ;
 entry:
   br label %for.body

@@ -206,7 +206,7 @@ bool CanonExprUtils::mergeable(const CanonExpr *CE1, const CanonExpr *CE2,
 }
 
 bool CanonExprUtils::areEqual(const CanonExpr *CE1, const CanonExpr *CE2,
-                              bool RelaxedMode) {
+                              bool RelaxedMode, bool IgnoreDefAtLevel) {
 
   assert((CE1 && CE2) && " Canon Expr parameters are null");
 
@@ -216,10 +216,12 @@ bool CanonExprUtils::areEqual(const CanonExpr *CE1, const CanonExpr *CE2,
   }
 
   // Match defined at level.
-  if ((CE1->isNonLinear() != CE2->isNonLinear()) ||
-      (!CE1->isNonLinear() &&
-       CE1->getDefinedAtLevel() != CE2->getDefinedAtLevel())) {
-    return false;
+  if (!IgnoreDefAtLevel) {
+    if ((CE1->isNonLinear() != CE2->isNonLinear()) ||
+        (!CE1->isNonLinear() &&
+         CE1->getDefinedAtLevel() != CE2->getDefinedAtLevel())) {
+      return false;
+    }
   }
 
   if ((CE1->Const != CE2->Const) ||
@@ -577,13 +579,13 @@ bool CanonExprUtils::canReplaceIVByCanonExpr(const CanonExpr *CE1,
 
   std::unique_ptr<CanonExpr> CE1Clone(CE1->clone());
 
-  // IsNSW flag has no bearing on whether the replacement can be performed so we
-  // can always pass it as false.
+  // IsSigned flag has no bearing on whether the replacement can be performed so
+  // we can always pass it as false.
   return replaceIVByCanonExpr(CE1Clone.get(), Level, CE2, false, RelaxedMode);
 }
 
 bool CanonExprUtils::replaceIVByCanonExpr(CanonExpr *CE1, unsigned Level,
-                                          const CanonExpr *CE2, bool IsNSW,
+                                          const CanonExpr *CE2, bool IsSigned,
                                           bool RelaxedMode) {
   // CE1 = C1*B1*i1 + C3*i2 + ..., Level 1
   // CE2 = C2*B2
@@ -614,7 +616,7 @@ bool CanonExprUtils::replaceIVByCanonExpr(CanonExpr *CE1, unsigned Level,
   if (!Mergeable) {
     // Not meargeable but could be casted to a blob with a correspondent type.
     // This allows merging into vector type CE.
-    Term->castStandAloneBlob(CE1->getSrcType()->getScalarType(), IsNSW);
+    Term->castStandAloneBlob(CE1->getSrcType()->getScalarType(), IsSigned);
   }
 
   // It's safe to change the Term type as CE1 and CE2 are mergeable.

@@ -1,8 +1,8 @@
-; RUN: opt -prepare-switch-to-offload -switch-to-offload -vpo-cfg-restructuring -vpo-paropt-prepare -S < %s | FileCheck %s -check-prefix=DEFAULT
-; RUN: opt < %s -prepare-switch-to-offload -switch-to-offload -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare)' -S | FileCheck %s -check-prefix=DEFAULT
+; RUN: opt  -switch-to-offload -vpo-cfg-restructuring -vpo-paropt-prepare -S < %s | FileCheck %s -check-prefix=DEFAULT
+; RUN: opt < %s  -switch-to-offload -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare)' -S | FileCheck %s -check-prefix=DEFAULT
 
-; RUN: opt -prepare-switch-to-offload -switch-to-offload -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-paropt-simulate-get-num-threads-in-target=false -S < %s | FileCheck %s -check-prefix=DISABLED
-; RUN: opt < %s -prepare-switch-to-offload -switch-to-offload -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare)' -vpo-paropt-simulate-get-num-threads-in-target=false -S | FileCheck %s -check-prefix=DISABLED
+; RUN: opt  -switch-to-offload -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-paropt-simulate-get-num-threads-in-target=false -S < %s | FileCheck %s -check-prefix=DISABLED
+; RUN: opt < %s  -switch-to-offload -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare)' -vpo-paropt-simulate-get-num-threads-in-target=false -S | FileCheck %s -check-prefix=DISABLED
 
 ; Test src:
 ;

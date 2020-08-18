@@ -23,6 +23,7 @@ namespace vpo {
 class VPlan;
 class VPInstruction;
 class VPlanValueTracking;
+class VPLoadStoreInst;
 
 /// Supported peeling kinds.
 enum VPlanPeelingKind { VPPK_StaticPeeling, VPPK_DynamicPeeling };
@@ -194,6 +195,7 @@ public:
 private:
   void collectCandidateMemrefs(VPlan &Plan);
   void computeCongruentMemrefs();
+  LLVM_DUMP_METHOD void dump();
 
 private:
   VPlanPeelingCostModel *CM;
@@ -212,6 +214,53 @@ private:
   /// map doesn't contain non-interesting cases with AlignX ≤ RequiredAlignment.
   DenseMap<VPInstruction *, std::vector<std::pair<VPInstruction *, Align>>>
       CongruentMemrefs;
+};
+
+/// Alignment Analysis computes alignment of a memory access, either with or
+/// without peeling.
+///
+/// With an appropriate peeling, alignment of unit-strided accesses in a
+/// vectorized loop may become significantly better than in scalar code, since
+/// it is only the alignment of the first or last lane (depending on whether
+/// the stride is positive or negative) that matters.
+///
+/// On the contrary, alignment of gathers/scatters is the minimum alignment
+/// across all vector lanes, so it cannot be improved with peeling.
+///
+/// This class provides interfaces to query both alignment of unit-stride
+/// accesses with a known peeling and alignment in general case. The latter is
+/// useful when either the access is not unit-strided or when the peeling is
+/// unknown.
+///
+/// As an example, in order to estimate peeling profit, Cost Model may query
+/// alignments of memory accesses in the vectorized loop twice: with the
+/// selected peeling variant and without peeling (which is the static peeling
+/// with PeelCount = 0). On the other hand, since in most cases the peel loop is
+/// not guaranteed to be executed at run time, CodeGen must be on the safe side
+/// and use conservative alignment that is valid with any peeling.
+class VPlanAlignmentAnalysis {
+public:
+  VPlanAlignmentAnalysis(VPlanScalarEvolution &VPSE, VPlanValueTracking &VPVT,
+                         int VF)
+      : VPSE(&VPSE), VPVT(&VPVT), VF(VF) {}
+
+  /// Compute alignment of a unit-stride \p Memref in the vectorized loop with
+  /// the given \p Peeling. The returned alignment is computed using the memory
+  /// address either in the first vector lane (if the stride is positive) or in
+  /// the last lane (if the stride is negative).
+  Align getAlignmentUnitStride(VPLoadStoreInst &Memref,
+                               VPlanPeelingVariant &Peeling);
+
+  /// Compute conservative alignment of \p Memref. The returned alignment is
+  /// valid for any vector lane and any peeling variant. This method should be
+  /// used when either \p Memref is not unit-strided or when exact run-time
+  /// peeling is unknown.
+  Align getAlignment(VPLoadStoreInst &Memref);
+
+private:
+  VPlanScalarEvolution *VPSE;
+  VPlanValueTracking *VPVT;
+  int VF;
 };
 
 } // namespace vpo

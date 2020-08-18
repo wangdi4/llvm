@@ -21,8 +21,8 @@
 
 # Create archive, call gcc-ar since it passes the LTO plugin to AR
 # Note: Only thin archives can have nested archives, not full archives
-# RUN: gcc-ar rus sub_arch_test_6.a bar_test_6.o
-# RUN: gcc-ar rusT arch_test_6.a baz_test_6.o sub_arch_test_6.a
+# RUN: gcc-ar rs sub_arch_test_6.a bar_test_6.o
+# RUN: gcc-ar rsT arch_test_6.a baz_test_6.o sub_arch_test_6.a
 
 # Link
 # RUN: clang++ -flto -fuse-ld=lld driver_test_6.o foo_test_6.o arch_test_6.a -o gnu_lto_test_6 > %t_out.txt 2>&1

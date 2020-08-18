@@ -25,11 +25,12 @@ source_filename = "taskloop_scalar_byref_lp.cpp"
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
-; Check for the space allocated for the private copy. { i64, i32, i32 }
+; Check for the space allocated for the private copy. { i64, i64, i32, i32 }
 ; i64 - %.omp.lb,
+; i64 - %.omp.ub,
 ; i32 - %a.addr,
 ; i32 - %i
-; CHECK: %__struct.kmp_privates.t = type { i64, i32, i32 }
+; CHECK: %__struct.kmp_privates.t = type { i64, i64, i32, i32 }
 
 ; Check shared thunk for space allocated for pointer to the original %a.addr for lastprivate copyout.
 ; i32** - %a.addr
@@ -54,7 +55,7 @@ entry:
 ; copy for '%a.addr' is stored to an i32**, and then that is used instead of
 ; '%a.addr' in the region.
 ; CHECK: define internal void @{{.*}}DIR.OMP.TASK{{.*}}
-; CHECK: [[A_PRIVATE:%[^ ]+]] = getelementptr inbounds %__struct.kmp_privates.t, %__struct.kmp_privates.t* {{[^ ]+}}, i32 0, i32 1
+; CHECK: [[A_PRIVATE:%[^ ]+]] = getelementptr inbounds %__struct.kmp_privates.t, %__struct.kmp_privates.t* {{[^ ]+}}, i32 0, i32 2
 ; CHECK: [[A_SHR_ADDR:%[^ ]+]] = getelementptr inbounds %__struct.shared.t, %__struct.shared.t* {{[^ ]+}}, i32 0, i32 0
 ; CHECK: [[A_SHR:%[^ ]+]] = load i32**, i32*** [[A_SHR_ADDR]]
 ; CHECK: store i32* [[A_PRIVATE]], i32** {{[^ ]+}}

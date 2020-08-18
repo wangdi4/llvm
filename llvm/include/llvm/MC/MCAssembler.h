@@ -196,6 +196,9 @@ private:
   bool relaxInstruction(MCAsmLayout &Layout, MCRelaxableFragment &IF);
   bool relaxLEB(MCAsmLayout &Layout, MCLEBFragment &IF);
   bool relaxBoundaryAlign(MCAsmLayout &Layout, MCBoundaryAlignFragment &BF);
+#if INTEL_CUSTOMIZATION
+  bool relaxTraceLine(MCAsmLayout &Layout, MCTraceLineFragment &TF);
+#endif // INTEL_CUSTOMIZATION
   bool relaxDwarfLineAddr(MCAsmLayout &Layout, MCDwarfLineAddrFragment &DF);
   bool relaxDwarfCallFrameFragment(MCAsmLayout &Layout,
                                    MCDwarfCallFrameFragment &DF);

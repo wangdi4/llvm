@@ -38,14 +38,6 @@ TARGET_HEADER_BUILTIN(__faststorefence, "v", "nh", "intrin.h", ALL_MS_LANGUAGES,
 TARGET_HEADER_BUILTIN(__shiftleft128, "ULLiULLiULLiUc", "nch", "intrin.h", ALL_MS_LANGUAGES, "")
 TARGET_HEADER_BUILTIN(__shiftright128, "ULLiULLiULLiUc", "nch", "intrin.h", ALL_MS_LANGUAGES, "")
 
-TARGET_HEADER_BUILTIN(_InterlockedAnd64,         "LLiLLiD*LLi", "nh", "intrin.h", ALL_MS_LANGUAGES, "")
-TARGET_HEADER_BUILTIN(_InterlockedDecrement64,   "LLiLLiD*",    "nh", "intrin.h", ALL_MS_LANGUAGES, "")
-TARGET_HEADER_BUILTIN(_InterlockedExchange64,    "LLiLLiD*LLi", "nh", "intrin.h", ALL_MS_LANGUAGES, "")
-TARGET_HEADER_BUILTIN(_InterlockedExchangeAdd64, "LLiLLiD*LLi", "nh", "intrin.h", ALL_MS_LANGUAGES, "")
-TARGET_HEADER_BUILTIN(_InterlockedExchangeSub64, "LLiLLiD*LLi", "nh", "intrin.h", ALL_MS_LANGUAGES, "")
-TARGET_HEADER_BUILTIN(_InterlockedIncrement64,   "LLiLLiD*",    "nh", "intrin.h", ALL_MS_LANGUAGES, "")
-TARGET_HEADER_BUILTIN(_InterlockedOr64,          "LLiLLiD*LLi", "nh", "intrin.h", ALL_MS_LANGUAGES, "")
-TARGET_HEADER_BUILTIN(_InterlockedXor64,         "LLiLLiD*LLi", "nh", "intrin.h", ALL_MS_LANGUAGES, "")
 TARGET_HEADER_BUILTIN(_InterlockedCompareExchange128, "UcLLiD*LLiLLiLLi*", "nh", "intrin.h", ALL_MS_LANGUAGES, "cx16")
 
 TARGET_BUILTIN(__builtin_ia32_readeflags_u64, "UOi", "n", "")
@@ -114,6 +106,21 @@ TARGET_BUILTIN(__builtin_ia32_vcvtsi642sh, "V8gV8gOiIi", "ncV:128:", "avx512fp16
 TARGET_BUILTIN(__builtin_ia32_vcvttsh2si64, "OiV8gIi", "ncV:128:", "avx512fp16")
 TARGET_BUILTIN(__builtin_ia32_vcvttsh2usi64, "UOiV8gIi", "ncV:128:", "avx512fp16")
 #endif // INTEL_FEATURE_ISA_FP16
+
+#if INTEL_FEATURE_ISA_AVX_MEMADVISE
+TARGET_BUILTIN(__builtin_ia32_vmovadvisew_load_128, "V4iV4iC*Ic", "nV:128:", "avxmemadvise")
+TARGET_BUILTIN(__builtin_ia32_vmovadvisew_store_128, "vV4i*V4iIc", "nV:128:", "avxmemadvise")
+TARGET_BUILTIN(__builtin_ia32_vmovadvisew_load_256, "V8iV8iC*Ic", "nV:256:", "avxmemadvise")
+TARGET_BUILTIN(__builtin_ia32_vmovadvisew_store_256, "vV8i*V8iIc", "nV:256:", "avxmemadvise")
+
+TARGET_BUILTIN(__builtin_ia32_vmovadvisew_loade_128, "V4iV4iC*Ic", "nV:128:", "avx512memadvise,avx512vl")
+TARGET_BUILTIN(__builtin_ia32_vmovadvisew_storee_128, "vV4i*V4iIc", "nV:128:", "avx512memadvise,avx512vl")
+TARGET_BUILTIN(__builtin_ia32_vmovadvisew_loade_256, "V8iV8iC*Ic", "nV:256:", "avx512memadvise,avx512vl")
+TARGET_BUILTIN(__builtin_ia32_vmovadvisew_storee_256, "vV8i*V8iIc", "nV:256:", "avx512memadvise,avx512vl")
+TARGET_BUILTIN(__builtin_ia32_vmovadvisew_loade_512, "V16iV16iC*Ic", "nV:512:", "avx512memadvise")
+TARGET_BUILTIN(__builtin_ia32_vmovadvisew_storee_512, "vV16i*V16iIc", "nV:512:", "avx512memadvise")
+#endif // INTEL_FEATURE_ISA_AVX_MEMADVISE
+
 #endif // INTEL_CUSTOMIZATION
 TARGET_BUILTIN(__builtin_ia32_directstore_u64, "vULi*ULi", "n", "movdiri")
 
@@ -126,7 +133,6 @@ TARGET_BUILTIN(__builtin_ia32_testui, "Uc", "n", "uli")
 TARGET_BUILTIN(__builtin_ia32_senduipi, "vUWi", "n", "uli")
 #endif // INTEL_FEATURE_ISA_ULI
 
-#if INTEL_FEATURE_ISA_AMX
 // AMX
 TARGET_BUILTIN(__builtin_ia32_tile_loadconfig, "vvC*", "n", "amx-tile")
 TARGET_BUILTIN(__builtin_ia32_tile_storeconfig, "vvC*", "n", "amx-tile")
@@ -142,7 +148,15 @@ TARGET_BUILTIN(__builtin_ia32_tdpbsud, "vIUcIUcIUc", "n", "amx-int8")
 TARGET_BUILTIN(__builtin_ia32_tdpbusd, "vIUcIUcIUc", "n", "amx-int8")
 TARGET_BUILTIN(__builtin_ia32_tdpbuud, "vIUcIUcIUc", "n", "amx-int8")
 TARGET_BUILTIN(__builtin_ia32_tdpbf16ps, "vIUcIUcIUc", "n", "amx-bf16")
-#endif // INTEL_FEATURE_ISA_AMX
+
+#if INTEL_FEATURE_ISA_AMX_BF8
+TARGET_BUILTIN(__builtin_ia32_tdpbf8ps, "vIUcIUcIUc", "n", "amx-bf8")
+#endif // INTEL_FEATURE_ISA_AMX_BF8
+
+#if INTEL_FEATURE_ISA_AMX_MEMADVISE
+TARGET_BUILTIN(__builtin_ia32_tmovadvise_load, "vIUcvC*zIc", "n", "amx-memadvise")
+TARGET_BUILTIN(__builtin_ia32_tmovadvise_store, "vv*zIUcIc", "n", "amx-memadvise")
+#endif // INTEL_FEATURE_ISA_AMX_MEMADVISE
 
 #if INTEL_FEATURE_ISA_AMX_FUTURE
 // AMX_FUTURE Reduce
@@ -336,12 +350,12 @@ TARGET_BUILTIN(__builtin_ia32_tilemov, "vIUcIUc", "n", "amx-tile2")
 #if INTEL_FEATURE_ICECODE
 TARGET_BUILTIN(__builtin_ia32_icecode_loadseg, "vvC*Ii", "n", "icecode-mode")
 TARGET_BUILTIN(__builtin_ia32_icecode_storeseg, "vvC*Ii", "n", "icecode-mode")
-TARGET_BUILTIN(__builtin_ia32_icecode_loadpphys_16, "UsvC*", "n", "icecode-mode")
-TARGET_BUILTIN(__builtin_ia32_icecode_loadpphys_32, "UivC*", "n", "icecode-mode")
-TARGET_BUILTIN(__builtin_ia32_icecode_loadpphys_64, "ULLivC*", "n", "icecode-mode")
-TARGET_BUILTIN(__builtin_ia32_icecode_storepphys_16, "vUsvC*", "n", "icecode-mode")
-TARGET_BUILTIN(__builtin_ia32_icecode_storepphys_32, "vUivC*", "n", "icecode-mode")
-TARGET_BUILTIN(__builtin_ia32_icecode_storepphys_64, "vULLivC*", "n", "icecode-mode")
+TARGET_BUILTIN(__builtin_ia32_icecode_loadpphys_16, "UsULLi", "n", "icecode-mode")
+TARGET_BUILTIN(__builtin_ia32_icecode_loadpphys_32, "UiULLi", "n", "icecode-mode")
+TARGET_BUILTIN(__builtin_ia32_icecode_loadpphys_64, "ULLiULLi", "n", "icecode-mode")
+TARGET_BUILTIN(__builtin_ia32_icecode_storepphys_16, "vUsULLi", "n", "icecode-mode")
+TARGET_BUILTIN(__builtin_ia32_icecode_storepphys_32, "vUiULLi", "n", "icecode-mode")
+TARGET_BUILTIN(__builtin_ia32_icecode_storepphys_64, "vULLiULLi", "n", "icecode-mode")
 
 TARGET_BUILTIN(__builtin_ia32_icecode_creg_xchg_32, "UiUiUi", "n", "icecode-mode")
 TARGET_BUILTIN(__builtin_ia32_icecode_creg_xchg_64, "ULLiUiULLi", "n", "icecode-mode")
@@ -353,17 +367,17 @@ TARGET_BUILTIN(__builtin_ia32_icecode_creg_read_64, "ULLiUi", "n", "icecode-mode
 TARGET_BUILTIN(__builtin_ia32_icecode_fscp_read_32, "UiUi", "n", "icecode-mode")
 TARGET_BUILTIN(__builtin_ia32_icecode_fscp_read_64, "ULLiUi", "n", "icecode-mode")
 
-TARGET_BUILTIN(__builtin_ia32_icecode_portin_8, "UcvC*", "n", "icecode-mode")
-TARGET_BUILTIN(__builtin_ia32_icecode_portin_16, "UsvC*", "n", "icecode-mode")
-TARGET_BUILTIN(__builtin_ia32_icecode_portin_32, "UivC*", "n", "icecode-mode")
-TARGET_BUILTIN(__builtin_ia32_icecode_portin_64, "ULLivC*", "n", "icecode-mode")
+TARGET_BUILTIN(__builtin_ia32_icecode_portin_8, "UcULLi", "n", "icecode-mode")
+TARGET_BUILTIN(__builtin_ia32_icecode_portin_16, "UsULLi", "n", "icecode-mode")
+TARGET_BUILTIN(__builtin_ia32_icecode_portin_32, "UiULLi", "n", "icecode-mode")
+TARGET_BUILTIN(__builtin_ia32_icecode_portin_64, "ULLiULLi", "n", "icecode-mode")
 
-TARGET_BUILTIN(__builtin_ia32_icecode_portout_8, "vUcvC*", "n", "icecode-mode")
-TARGET_BUILTIN(__builtin_ia32_icecode_portout_16, "vUsvC*", "n", "icecode-mode")
-TARGET_BUILTIN(__builtin_ia32_icecode_portout_32, "vUivC*", "n", "icecode-mode")
-TARGET_BUILTIN(__builtin_ia32_icecode_portout_64, "vULLivC*", "n", "icecode-mode")
+TARGET_BUILTIN(__builtin_ia32_icecode_portout_8, "vUcULLi", "n", "icecode-mode")
+TARGET_BUILTIN(__builtin_ia32_icecode_portout_16, "vUsULLi", "n", "icecode-mode")
+TARGET_BUILTIN(__builtin_ia32_icecode_portout_32, "vUiULLi", "n", "icecode-mode")
+TARGET_BUILTIN(__builtin_ia32_icecode_portout_64, "vULLiULLi", "n", "icecode-mode")
 
-TARGET_BUILTIN(__builtin_ia32_icecode_sta_special, "vvC*", "n", "icecode-mode")
+TARGET_BUILTIN(__builtin_ia32_icecode_sta_special, "vULLi", "n", "icecode-mode")
 TARGET_BUILTIN(__builtin_ia32_icecode_nr_read, "UiIUi", "n", "icecode-mode")
 TARGET_BUILTIN(__builtin_ia32_icecode_ucodecall, "vUi", "n", "icecode-mode")
 TARGET_BUILTIN(__builtin_ia32_icecode_cmodemov, "ULLiULLiULLiIUi", "n", "icecode-mode")

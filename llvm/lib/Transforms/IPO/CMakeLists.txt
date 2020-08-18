@@ -18,7 +18,6 @@ add_llvm_component_library(LLVMipo
   GlobalOpt.cpp
   GlobalSplit.cpp
   HotColdSplitting.cpp
-  IPConstantPropagation.cpp
   IPO.cpp
   InferFunctionAttrs.cpp
   Intel_AdvancedFastCall.cpp   # INTEL
@@ -65,6 +64,7 @@ add_llvm_component_library(LLVMipo
 # INTEL_COLLAB
   directives_gen
 # end INTEL_COLLAB
+  omp_gen
   )
 
 # INTEL_CUSTOMIZATION

@@ -22,7 +22,6 @@
 #include "llvm/CodeGen/MachineInstrBuilder.h"
 #include "llvm/CodeGen/MachineJumpTableInfo.h"
 #include "llvm/CodeGen/MachineRegisterInfo.h"
-#include "llvm/CodeGen/SelectionDAGISel.h"
 #include "llvm/CodeGen/ValueTypes.h"
 #include "llvm/IR/CallingConv.h"
 #include "llvm/IR/Constants.h"
@@ -435,7 +434,7 @@ SDValue XCoreTargetLowering::LowerLOAD(SDValue Op, SelectionDAG &DAG) const {
                                                     Offset, DAG);
     }
     if (TLI.isGAPlusOffset(BasePtr.getNode(), GV, Offset) &&
-        MinAlign(GV->getAlignment(), 4) == 4) {
+        GV->getPointerAlignment(DAG.getDataLayout()) >= 4) {
       SDValue NewBasePtr = DAG.getGlobalAddress(GV, DL,
                                                 BasePtr->getValueType(0));
       return lowerLoadWordFromAlignedBasePlusOffset(DL, Chain, NewBasePtr,

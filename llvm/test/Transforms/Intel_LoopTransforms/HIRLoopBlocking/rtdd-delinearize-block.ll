@@ -1,4 +1,4 @@
-; RUN: opt -disable-output -xmain-opt-level=3 -hir-cost-model-throttling=0 -enable-intel-advanced-opts -hir-ssa-deconstruction -hir-temp-cleanup -hir-runtime-dd -hir-loop-blocking -print-after=hir-loop-blocking -scoped-noalias < %s 2>&1 | FileCheck %s
+; RUN: opt -disable-output -xmain-opt-level=3 -hir-cost-model-throttling=0 -enable-intel-advanced-opts -hir-ssa-deconstruction -hir-temp-cleanup -hir-runtime-dd -hir-loop-blocking -print-after=hir-loop-blocking -scoped-noalias-aa < %s 2>&1 | FileCheck %s
 ; RUN: opt -disable-output -xmain-opt-level=3 -hir-cost-model-throttling=0 -enable-intel-advanced-opts -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-runtime-dd,hir-loop-blocking,print<hir>" -aa-pipeline="basic-aa,scoped-noalias-aa" 2>&1 < %s | FileCheck %s
 
 ; Check that the one of the hot loopnests in _ZL19ML_BSSN_Advect_BodyPK4_cGHiiPKdS3_S3_PKiS5_iPKPd is multiversioned and blocked.

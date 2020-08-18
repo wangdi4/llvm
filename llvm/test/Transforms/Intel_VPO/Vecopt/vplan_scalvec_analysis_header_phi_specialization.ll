@@ -8,6 +8,8 @@ target triple = "x86_64-unknown-linux-gnu"
 ; Function Attrs: nounwind uwtable
 define dso_local void @divergentInnerLoopIV(i32* nocapture %a, i64* nocapture %b, i64* nocapture %c) local_unnamed_addr #0 {
 ; CHECK-LABEL:  VPlan after ScalVec analysis:
+; CHECK-NEXT:  Live-in values:
+; CHECK-NEXT:  ID: 0 Value: i64 0
 ; CHECK-NEXT:    [[BB0:BB[0-9]+]]:
 ; CHECK-NEXT:     <Empty Block>
 ; CHECK-NEXT:    SUCCESSORS(1):[[BB1:BB[0-9]+]]
@@ -30,17 +32,12 @@ define dso_local void @divergentInnerLoopIV(i32* nocapture %a, i64* nocapture %b
 ; CHECK-NEXT:    PREDECESSORS(2): [[BB1]] [[BB3]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB4]]:
-; CHECK-NEXT:     <Empty Block>
-; CHECK-NEXT:    SUCCESSORS(1):[[BB5:BB[0-9]+]]
-; CHECK-NEXT:    PREDECESSORS(1): [[BB2]]
+; CHECK-NEXT:     [DA: Div, SVA: (FV )] i64 [[VP_INNER_IV:%.*]] = phi  [ i64 [[VP_ADD1]], [[BB2]] ],  [ i64 [[VP_INNER_IV_ADD:%.*]], [[BB5:BB[0-9]+]] ] (SVAOpBits 0->FV 1->FV )
+; CHECK-NEXT:     [DA: Div, SVA: ( V )] i1 [[VP_LOOP_MASK:%.*]] = phi  [ i1 true, [[BB2]] ],  [ i1 [[VP_LOOP_MASK_NEXT:%.*]], [[BB5]] ] (SVAOpBits 0->V 1->V )
+; CHECK-NEXT:    SUCCESSORS(1):[[BB6:BB[0-9]+]]
+; CHECK-NEXT:    PREDECESSORS(2): [[BB2]] [[BB5]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB5]]:
-; CHECK-NEXT:     [DA: Div, SVA: (FV )] i64 [[VP_INNER_IV:%.*]] = phi  [ i64 [[VP_ADD1]], [[BB4]] ],  [ i64 [[VP_INNER_IV_ADD:%.*]], [[BB6:BB[0-9]+]] ] (SVAOpBits 0->FV 1->FV )
-; CHECK-NEXT:     [DA: Div, SVA: ( V )] i1 [[VP_LOOP_MASK:%.*]] = phi  [ i1 true, [[BB4]] ],  [ i1 [[VP_LOOP_MASK_NEXT:%.*]], [[BB6]] ] (SVAOpBits 0->V 1->V )
-; CHECK-NEXT:    SUCCESSORS(1):[[BB7:BB[0-9]+]]
-; CHECK-NEXT:    PREDECESSORS(2): [[BB4]] [[BB6]]
-; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB7]]:
+; CHECK-NEXT:    [[BB6]]:
 ; CHECK-NEXT:     [DA: Div, SVA: ( V )] i1 [[VP0:%.*]] = block-predicate i1 [[VP_LOOP_MASK]] (SVAOpBits 0->V )
 ; CHECK-NEXT:     [DA: Div, SVA: (F  )] i32* [[VP_A_GEP:%.*]] = getelementptr inbounds i32* [[A0:%.*]] i64 [[VP_INNER_IV]] (SVAOpBits 0->F 1->F )
 ; CHECK-NEXT:     [DA: Div, SVA: ( V )] i32 [[VP_A_LOAD:%.*]] = load i32* [[VP_A_GEP]] (SVAOpBits 0->F )
@@ -48,38 +45,35 @@ define dso_local void @divergentInnerLoopIV(i32* nocapture %a, i64* nocapture %b
 ; CHECK-NEXT:     [DA: Div, SVA: ( V )] store i64 [[VP_INNER_IV]] i64* [[VP_B_GEP]] (SVAOpBits 0->V 1->F )
 ; CHECK-NEXT:     [DA: Div, SVA: (FV )] i64 [[VP_INNER_IV_ADD]] = add i64 [[VP_INNER_IV]] i64 1 (SVAOpBits 0->FV 1->FV )
 ; CHECK-NEXT:     [DA: Div, SVA: ( V )] i1 [[VP_INNER_EXIT:%.*]] = icmp i64 [[VP_INNER_IV_ADD]] i64 512 (SVAOpBits 0->V 1->V )
-; CHECK-NEXT:    SUCCESSORS(1):[[BB6]]
-; CHECK-NEXT:    PREDECESSORS(1): [[BB5]]
+; CHECK-NEXT:    SUCCESSORS(1):[[BB5]]
+; CHECK-NEXT:    PREDECESSORS(1): [[BB4]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB6]]:
+; CHECK-NEXT:    [[BB5]]:
 ; CHECK-NEXT:     [DA: Div, SVA: ( V )] i1 [[VP_INNER_EXIT_NOT:%.*]] = not i1 [[VP_INNER_EXIT]] (SVAOpBits 0->V )
 ; CHECK-NEXT:     [DA: Div, SVA: ( V )] i1 [[VP_LOOP_MASK_NEXT]] = and i1 [[VP_INNER_EXIT_NOT]] i1 [[VP_LOOP_MASK]] (SVAOpBits 0->V 1->V )
 ; CHECK-NEXT:     [DA: Uni, SVA: RetVal:(F  ), Inst:( V )] i1 [[VP1:%.*]] = all-zero-check i1 [[VP_LOOP_MASK_NEXT]] (SVAOpBits 0->V )
-; CHECK-NEXT:    SUCCESSORS(2):[[BB8:BB[0-9]+]](i1 [[VP1]]), [[BB5]](!i1 [[VP1]])
-; CHECK-NEXT:    PREDECESSORS(1): [[BB7]]
-; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB8]]:
-; CHECK-NEXT:     [DA: Div, SVA: (FV )] i64 [[VP_INDVARS_IV_NEXT]] = add i64 [[VP_INDVARS_IV]] i64 [[VP_INDVARS_IV_IND_INIT_STEP]] (SVAOpBits 0->FV 1->FV )
-; CHECK-NEXT:     [DA: Uni, SVA: (F  )] i64 [[VP_VECTOR_LOOP_IV_NEXT]] = add i64 [[VP_VECTOR_LOOP_IV]] i64 [[VP_VF]] (SVAOpBits 0->F 1->F )
-; CHECK-NEXT:     [DA: Uni, SVA: (F  )] i1 [[VP_VECTOR_LOOP_EXITCOND:%.*]] = icmp i64 [[VP_VECTOR_LOOP_IV_NEXT]] i64 [[VP_VECTOR_TRIP_COUNT]] (SVAOpBits 0->F 1->F )
-; CHECK-NEXT:    SUCCESSORS(1):[[BB3]]
+; CHECK-NEXT:    SUCCESSORS(2):[[BB3]](i1 [[VP1]]), [[BB4]](!i1 [[VP1]])
 ; CHECK-NEXT:    PREDECESSORS(1): [[BB6]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB3]]:
-; CHECK-NEXT:     <Empty Block>
-; CHECK-NEXT:     Condition([[BB8]]): [DA: Uni, SVA: (F  )] i1 [[VP_VECTOR_LOOP_EXITCOND]] = icmp i64 [[VP_VECTOR_LOOP_IV_NEXT]] i64 [[VP_VECTOR_TRIP_COUNT]] (SVAOpBits 0->F 1->F )
-; CHECK-NEXT:    SUCCESSORS(2):[[BB9:BB[0-9]+]](i1 [[VP_VECTOR_LOOP_EXITCOND]]), [[BB2]](!i1 [[VP_VECTOR_LOOP_EXITCOND]])
-; CHECK-NEXT:    PREDECESSORS(1): [[BB8]]
+; CHECK-NEXT:     [DA: Div, SVA: (FV )] i64 [[VP_INDVARS_IV_NEXT]] = add i64 [[VP_INDVARS_IV]] i64 [[VP_INDVARS_IV_IND_INIT_STEP]] (SVAOpBits 0->FV 1->FV )
+; CHECK-NEXT:     [DA: Uni, SVA: (F  )] i64 [[VP_VECTOR_LOOP_IV_NEXT]] = add i64 [[VP_VECTOR_LOOP_IV]] i64 [[VP_VF]] (SVAOpBits 0->F 1->F )
+; CHECK-NEXT:     [DA: Uni, SVA: (F  )] i1 [[VP_VECTOR_LOOP_EXITCOND:%.*]] = icmp i64 [[VP_VECTOR_LOOP_IV_NEXT]] i64 [[VP_VECTOR_TRIP_COUNT]] (SVAOpBits 0->F 1->F )
+; CHECK-NEXT:    SUCCESSORS(2):[[BB7:BB[0-9]+]](i1 [[VP_VECTOR_LOOP_EXITCOND]]), [[BB2]](!i1 [[VP_VECTOR_LOOP_EXITCOND]])
+; CHECK-NEXT:    PREDECESSORS(1): [[BB5]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB9]]:
+; CHECK-NEXT:    [[BB7]]:
 ; CHECK-NEXT:     [DA: Uni, SVA: (F  )] i64 [[VP_INDVARS_IV_IND_FINAL:%.*]] = induction-final{add} i64 0 i64 1 (SVAOpBits 0->F 1->F )
-; CHECK-NEXT:    SUCCESSORS(1):[[BB10:BB[0-9]+]]
+; CHECK-NEXT:    SUCCESSORS(1):[[BB8:BB[0-9]+]]
 ; CHECK-NEXT:    PREDECESSORS(1): [[BB3]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB10]]:
+; CHECK-NEXT:    [[BB8]]:
 ; CHECK-NEXT:     <Empty Block>
 ; CHECK-NEXT:    no SUCCESSORS
-; CHECK-NEXT:    PREDECESSORS(1): [[BB9]]
+; CHECK-NEXT:    PREDECESSORS(1): [[BB7]]
+; CHECK-EMPTY:
+; CHECK-NEXT:  External Uses:
+; CHECK-NEXT:  Id: 0   no underlying for i64 [[VP_INDVARS_IV_IND_FINAL]]
 ;
 entry:
   br label %DIR.OMP.SIMD.1
@@ -103,6 +97,102 @@ inner.loop:
   store i64 %inner.iv, i64* %b.gep
   %inner.iv.add = add i64 %inner.iv, 1
   %inner.exit = icmp eq i64 %inner.iv.add, 512
+  br i1 %inner.exit, label %outer.loop.exit, label %inner.loop
+
+outer.loop.exit:
+  %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
+  %exitcond = icmp eq i64 %indvars.iv.next, 1024
+  br i1 %exitcond, label %DIR.OMP.END.SIMD.3, label %outer.loop.body
+
+DIR.OMP.END.SIMD.3:
+  call void @llvm.directive.region.exit(token %0) [ "DIR.OMP.END.SIMD"() ]
+  ret void
+}
+
+; Below test was crashing without the fix to synchronize back propagation with
+; forward propagation.
+define dso_local void @backPropUniformInst(i64* nocapture %a, i64 %b) local_unnamed_addr #0 {
+; CHECK-LABEL:  VPlan after ScalVec analysis:
+; CHECK-NEXT:   Live-in values:
+; CHECK-NEXT:   ID: 0 Value: i64 0
+; CHECK-NEXT:   [[BB0:BB[0-9]+]]:
+; CHECK-NEXT:     <Empty Block>
+; CHECK-NEXT:    SUCCESSORS(1):[[BB1:BB[0-9]+]]
+; CHECK-NEXT:    no PREDECESSORS
+; CHECK-EMPTY:
+; CHECK-NEXT:    [[BB1]]:
+; CHECK-NEXT:     [DA: Div, SVA: ( VL)] i64 [[VP_INDVARS_IV_IND_INIT:%.*]] = induction-init{add} i64 0 i64 1 (SVAOpBits 0->F 1->F )
+; CHECK-NEXT:     [DA: Uni, SVA: (F  )] i64 [[VP_INDVARS_IV_IND_INIT_STEP:%.*]] = induction-init-step{add} i64 1 (SVAOpBits 0->F )
+; CHECK-NEXT:     [DA: Uni, SVA: (F  )] i64 [[VP_VF:%.*]] = induction-init-step{add} i64 1 (SVAOpBits 0->F )
+; CHECK-NEXT:     [DA: Uni, SVA: (F  )] i64 [[VP_ORIG_TRIP_COUNT:%.*]] = orig-trip-count for original loop outer.loop.body (SVAOpBits )
+; CHECK-NEXT:     [DA: Uni, SVA: (F  )] i64 [[VP_VECTOR_TRIP_COUNT:%.*]] = vector-trip-count i64 [[VP_ORIG_TRIP_COUNT]], UF = 1 (SVAOpBits 0->F )
+; CHECK-NEXT:    SUCCESSORS(1):[[BB2:BB[0-9]+]]
+; CHECK-NEXT:    PREDECESSORS(1): [[BB0]]
+; CHECK-EMPTY:
+; CHECK-NEXT:    [[BB2]]:
+; CHECK-NEXT:     [DA: Uni, SVA: (F  )] i64 [[VP_VECTOR_LOOP_IV:%.*]] = phi  [ i64 0, [[BB1]] ],  [ i64 [[VP_VECTOR_LOOP_IV_NEXT:%.*]], [[BB3:BB[0-9]+]] ] (SVAOpBits 0->F 1->F )
+; CHECK-NEXT:     [DA: Div, SVA: ( VL)] i64 [[VP_INDVARS_IV:%.*]] = phi  [ i64 [[VP_INDVARS_IV_IND_INIT]], [[BB1]] ],  [ i64 [[VP_INDVARS_IV_NEXT:%.*]], [[BB3]] ] (SVAOpBits 0->LV 1->LV )
+; CHECK-NEXT:     [DA: Div, SVA: ( VL)] i64 [[VP_IV_ADD:%.*]] = add i64 [[VP_INDVARS_IV]] i64 42 (SVAOpBits 0->LV 1->LV )
+; CHECK-NEXT:    SUCCESSORS(1):[[BB4:BB[0-9]+]]
+; CHECK-NEXT:    PREDECESSORS(2): [[BB1]] [[BB3]]
+; CHECK-EMPTY:
+; CHECK-NEXT:    [[BB4]]:
+; CHECK-NEXT:     [DA: Div, SVA: ( VL)] i64 [[VP_INNER_IV:%.*]] = phi  [ i64 [[VP_IV_ADD]], [[BB2]] ],  [ i64 [[VP_INNER_IV_NEXT:%.*]], [[BB5:BB[0-9]+]] ] (SVAOpBits 0->LV 1->LV )
+; CHECK-NEXT:     [DA: Div, SVA: ( V )] i1 [[VP_LOOP_MASK:%.*]] = phi  [ i1 true, [[BB2]] ],  [ i1 [[VP_LOOP_MASK_NEXT:%.*]], [[BB5]] ] (SVAOpBits 0->V 1->V )
+; CHECK-NEXT:    SUCCESSORS(1):[[BB6:BB[0-9]+]]
+; CHECK-NEXT:    PREDECESSORS(2): [[BB2]] [[BB5]]
+; CHECK-EMPTY:
+; CHECK-NEXT:    [[BB6]]:
+; CHECK-NEXT:     [DA: Div, SVA: ( V )] i1 [[VP0:%.*]] = block-predicate i1 [[VP_LOOP_MASK]] (SVAOpBits 0->V )
+; CHECK-NEXT:     [DA: Div, SVA: (  L)] store i64 [[VP_INNER_IV]] i64* [[A0:%.*]] (SVAOpBits 0->L 1->F )
+; CHECK-NEXT:     [DA: Uni, SVA: (F  )] i64 [[VP_UNI_OP:%.*]] = mul i64 [[B0:%.*]] i64 42 (SVAOpBits 0->F 1->F )
+; CHECK-NEXT:     [DA: Div, SVA: ( VL)] i64 [[VP_INNER_IV_NEXT]] = add i64 [[VP_INNER_IV]] i64 [[VP_UNI_OP]] (SVAOpBits 0->LV 1->LV )
+; CHECK-NEXT:     [DA: Div, SVA: ( V )] i1 [[VP_INNER_EXIT:%.*]] = icmp i64 [[VP_INNER_IV_NEXT]] i64 1024 (SVAOpBits 0->V 1->V )
+; CHECK-NEXT:    SUCCESSORS(1):[[BB5]]
+; CHECK-NEXT:    PREDECESSORS(1): [[BB4]]
+; CHECK-EMPTY:
+; CHECK-NEXT:    [[BB5]]:
+; CHECK-NEXT:     [DA: Div, SVA: ( V )] i1 [[VP_INNER_EXIT_NOT:%.*]] = not i1 [[VP_INNER_EXIT]] (SVAOpBits 0->V )
+; CHECK-NEXT:     [DA: Div, SVA: ( V )] i1 [[VP_LOOP_MASK_NEXT]] = and i1 [[VP_INNER_EXIT_NOT]] i1 [[VP_LOOP_MASK]] (SVAOpBits 0->V 1->V )
+; CHECK-NEXT:     [DA: Uni, SVA: RetVal:(F  ), Inst:( V )] i1 [[VP1:%.*]] = all-zero-check i1 [[VP_LOOP_MASK_NEXT]] (SVAOpBits 0->V )
+; CHECK-NEXT:    SUCCESSORS(2):[[BB3]](i1 [[VP1]]), [[BB4]](!i1 [[VP1]])
+; CHECK-NEXT:    PREDECESSORS(1): [[BB6]]
+; CHECK-EMPTY:
+; CHECK-NEXT:    [[BB3]]:
+; CHECK-NEXT:     [DA: Div, SVA: ( VL)] i64 [[VP_INDVARS_IV_NEXT]] = add i64 [[VP_INDVARS_IV]] i64 [[VP_INDVARS_IV_IND_INIT_STEP]] (SVAOpBits 0->LV 1->LV )
+; CHECK-NEXT:     [DA: Uni, SVA: (F  )] i64 [[VP_VECTOR_LOOP_IV_NEXT]] = add i64 [[VP_VECTOR_LOOP_IV]] i64 [[VP_VF]] (SVAOpBits 0->F 1->F )
+; CHECK-NEXT:     [DA: Uni, SVA: (F  )] i1 [[VP_VECTOR_LOOP_EXITCOND:%.*]] = icmp i64 [[VP_VECTOR_LOOP_IV_NEXT]] i64 [[VP_VECTOR_TRIP_COUNT]] (SVAOpBits 0->F 1->F )
+; CHECK-NEXT:    SUCCESSORS(2):[[BB7:BB[0-9]+]](i1 [[VP_VECTOR_LOOP_EXITCOND]]), [[BB2]](!i1 [[VP_VECTOR_LOOP_EXITCOND]])
+; CHECK-NEXT:    PREDECESSORS(1): [[BB5]]
+; CHECK-EMPTY:
+; CHECK-NEXT:    [[BB7]]:
+; CHECK-NEXT:     [DA: Uni, SVA: (F  )] i64 [[VP_INDVARS_IV_IND_FINAL:%.*]] = induction-final{add} i64 0 i64 1 (SVAOpBits 0->F 1->F )
+; CHECK-NEXT:    SUCCESSORS(1):[[BB8:BB[0-9]+]]
+; CHECK-NEXT:    PREDECESSORS(1): [[BB3]]
+; CHECK-EMPTY:
+; CHECK-NEXT:    [[BB8]]:
+; CHECK-NEXT:     <Empty Block>
+; CHECK-NEXT:    no SUCCESSORS
+; CHECK-NEXT:    PREDECESSORS(1): [[BB7]]
+;
+entry:
+  br label %DIR.OMP.SIMD.1
+
+DIR.OMP.SIMD.1:
+  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"() ]
+  br label %outer.loop.body
+
+outer.loop.body:
+  %indvars.iv = phi i64 [ 0, %DIR.OMP.SIMD.1 ], [ %indvars.iv.next, %outer.loop.exit ]
+  %iv.add = add i64 %indvars.iv, 42
+  br label %inner.loop
+
+inner.loop:
+  %inner.iv = phi i64 [ %iv.add, %outer.loop.body ], [ %inner.iv.next, %inner.loop ]
+  store i64 %inner.iv, i64* %a
+  %uni.op = mul i64 %b, 42
+  %inner.iv.next = add nuw nsw i64 %inner.iv, %uni.op
+  %inner.exit = icmp eq i64 %inner.iv.next, 1024
   br i1 %inner.exit, label %outer.loop.exit, label %inner.loop
 
 outer.loop.exit:

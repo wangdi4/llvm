@@ -43,6 +43,7 @@
 #include "llvm/CodeGen/Passes.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/IRPrintingPasses.h"
+#include "llvm/SYCLLowerIR/LowerESIMD.h"
 #include "llvm/SYCLLowerIR/LowerWGScope.h"
 #include "llvm/Support/Valgrind.h"
 #include "llvm/Transforms/AggressiveInstCombine/AggressiveInstCombine.h"
@@ -151,6 +152,7 @@ namespace {
       (void) llvm::createControlHeightReductionLegacyPass();
       (void) llvm::createCostModelAnalysisPass();
       (void) llvm::createDeadArgEliminationPass();
+      (void) llvm::createDeadArgEliminationSYCLPass();
       (void) llvm::createDeadCodeEliminationPass();
       (void) llvm::createDeadInstEliminationPass();
       (void) llvm::createDeadStoreEliminationPass();
@@ -175,7 +177,6 @@ namespace {
       (void) llvm::createGlobalsAAWrapperPass();
       (void) llvm::createGuardWideningPass();
       (void) llvm::createLoopGuardWideningPass();
-      (void) llvm::createIPConstantPropagationPass();
       (void) llvm::createIPSCCPPass();
       (void) llvm::createIndirectCallConvLegacyPass(); // INTEL
       (void) llvm::createInductiveRangeCheckEliminationPass();
@@ -261,6 +262,9 @@ namespace {
       (void) llvm::createMergeICmpsLegacyPass();
       (void) llvm::createExpandMemCmpPass();
       (void)llvm::createSYCLLowerWGScopePass();
+      (void)llvm::createSYCLLowerESIMDPass();
+      (void)llvm::createESIMDLowerLoadStorePass();
+      (void)llvm::createESIMDLowerVecArgPass();
       std::string buf;
       llvm::raw_string_ostream os(buf);
       (void) llvm::createPrintModulePass(os);
@@ -320,6 +324,7 @@ namespace {
       (void) llvm::createSNodeAnalysisPass();
       (void) llvm::createLoopOptMarkerLegacyPass();
       (void) llvm::createArrayUseWrapperPass();
+      (void) llvm::createNontemporalStoreWrapperPass();
       // HIR passes
       (void) llvm::createHIRRegionIdentificationWrapperPass();
       (void) llvm::createHIRSCCFormationWrapperPass();
@@ -336,6 +341,7 @@ namespace {
       (void) llvm::createHIRTempCleanupPass();
       (void) llvm::createHIRLoopInterchangePass();
       (void) llvm::createHIRLoopBlockingPass();
+      (void) llvm::createHIRPragmaLoopBlockingPass();
       (void) llvm::createHIRGenerateMKLCallPass();
       (void) llvm::createHIROptPredicatePass();
       (void) llvm::createHIROptVarPredicatePass();
@@ -373,10 +379,13 @@ namespace {
       (void) llvm::createHIRUndoSinkingForPerfectLoopnestPass();
       (void) llvm::createHIRConditionalTempSinkingPass();
       (void) llvm::createHIRMemoryReductionSinkingPass();
-      (void)llvm::createHIRRowWiseMVPass();
-      (void)llvm::createHIRConditionalLoadStoreMotionPass();
+      (void) llvm::createHIRRowWiseMVPass();
+      (void) llvm::createHIRConditionalLoadStoreMotionPass();
+      (void) llvm::createHIRNontemporalMarkingPass();
       (void) llvm::createHIRStoreResultIntoTempArrayPass();
       (void)llvm::createHIRSumWindowReusePass();
+      (void) llvm::createHIRNonZeroSinkingForPerfectLoopnestPass();
+      (void) llvm::createHIRIdentityMatrixSubstitutionPass();
 
       // DPCPP Kernel Transformations
       (void) llvm::createDPCPPKernelVecClonePass();
@@ -391,6 +400,7 @@ namespace {
       (void) llvm::createDataPerValuePass();
       (void) llvm::createKernelBarrierPass(false, false);
       (void) llvm::createBarrierInFunctionPass();
+      (void) llvm::createPostBarrierPass();
 
       // Optimize math calls
       (void) llvm::createMapIntrinToImlPass();

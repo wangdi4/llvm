@@ -11,15 +11,18 @@
 ; }
 
 define dso_local i32 @_Z3fooPii(i32* nocapture readonly %a, i32 %n) local_unnamed_addr #0 {
-; CHECK-LABEL:  VPlan after loop unrolling
+; CHECK-LABEL:  VPlan after loop unrolling:
+; CHECK-NEXT:  Live-in values:
+; CHECK-NEXT:  ID: 0 Value: i32 0
+; CHECK-NEXT:  ID: 1 Value: i64 0
 ; CHECK-NEXT:    [[BB0:BB[0-9]+]]:
 ; CHECK-NEXT:     <Empty Block>
 ; CHECK-NEXT:    SUCCESSORS(1):[[BB1:BB[0-9]+]]
 ; CHECK-NEXT:    no PREDECESSORS
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB1]]:
-; CHECK-NEXT:     [DA: Div] i32 [[VP_ACC_019_RED_INIT:%.*]] = reduction-init i32 0 i32 0
-; CHECK-NEXT:     [DA: Div] i64 [[VP_INDVARS_IV_IND_INIT:%.*]] = induction-init{add} i64 0 i64 1
+; CHECK-NEXT:     [DA: Div] i32 [[VP_ACC_019_RED_INIT:%.*]] = reduction-init i32 0 i32 live-in0
+; CHECK-NEXT:     [DA: Div] i64 [[VP_INDVARS_IV_IND_INIT:%.*]] = induction-init{add} i64 live-in1 i64 1
 ; CHECK-NEXT:     [DA: Uni] i64 [[VP_INDVARS_IV_IND_INIT_STEP:%.*]] = induction-init-step{add} i64 1
 ; CHECK-NEXT:     [DA: Uni] i64 [[VP_VF:%.*]] = induction-init-step{add} i64 1
 ; CHECK-NEXT:     [DA: Uni] i64 [[VP_ORIG_TRIP_COUNT:%.*]] = orig-trip-count for original loop omp.inner.for.body
@@ -52,7 +55,7 @@ define dso_local i32 @_Z3fooPii(i32* nocapture readonly %a, i32 %n) local_unname
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB4]]:
 ; CHECK-NEXT:     [DA: Uni] i32 [[VP_ACC_019_RED_FINAL:%.*]] = reduction-final{u_add} i32 [[VP_ADD6]]
-; CHECK-NEXT:     [DA: Uni] i64 [[VP_INDVARS_IV_IND_FINAL:%.*]] = induction-final{add} i64 0 i64 1
+; CHECK-NEXT:     [DA: Uni] i64 [[VP_INDVARS_IV_IND_FINAL:%.*]] = induction-final{add} i64 live-in1 i64 1
 ; CHECK-NEXT:    SUCCESSORS(1):[[BB5:BB[0-9]+]]
 ; CHECK-NEXT:    PREDECESSORS(1): cloned.[[BB3]]
 ; CHECK-EMPTY:
@@ -62,7 +65,9 @@ define dso_local i32 @_Z3fooPii(i32* nocapture readonly %a, i32 %n) local_unname
 ; CHECK-NEXT:    PREDECESSORS(1): [[BB4]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  External Uses:
-; CHECK-NEXT:    [[ADD6_LCSSA0:%.*]] = phi i32 [ [[ADD60:%.*]], [[OMP_INNER_FOR_BODY0:%.*]] ]i32 [[VP_ACC_019_RED_FINAL]] -> i32 [[ADD60]]
+; CHECK-NEXT:  Id: 0     [[ADD6_LCSSA0:%.*]] = phi i32 [ [[ADD60:%.*]], [[OMP_INNER_FOR_BODY0:%.*]] ] i32 [[VP_ACC_019_RED_FINAL]] -> i32 [[ADD60]]
+; CHECK-EMPTY:
+; CHECK-NEXT:  Id: 1   no underlying for i64 [[VP_INDVARS_IV_IND_FINAL]]
 ;
 ; CHECK:  define dso_local i32 @_Z3fooPii(i32* nocapture readonly [[A0]], i32 [[N0:%.*]]) local_unnamed_addr {
 ; CHECK-NEXT:  entry:
@@ -103,7 +108,7 @@ define dso_local i32 @_Z3fooPii(i32* nocapture readonly %a, i32 %n) local_unname
 ; CHECK-NEXT:    [[TMP9]] = add nuw nsw i64 [[TMP3]], 2
 ; CHECK-NEXT:    [[TMP10]] = add i64 [[TMP4]], 2
 ; CHECK-NEXT:    [[TMP11:%.*]] = icmp eq i64 [[TMP10]], [[N_VEC0]]
-; CHECK-NEXT:    br i1 [[TMP11]], label [[VPLANNEDBB0:%.*]], label [[VECTOR_BODY0]]
+; CHECK-NEXT:    br i1 [[TMP11]], label [[VPLANNEDBB0:%.*]], label [[VECTOR_BODY0]], !llvm.loop !0
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  VPlannedBB:
 ; CHECK-NEXT:    [[TMP12:%.*]] = call i32 @llvm.experimental.vector.reduce.add.v2i32(<2 x i32> [[TMP7]])
@@ -128,7 +133,7 @@ define dso_local i32 @_Z3fooPii(i32* nocapture readonly %a, i32 %n) local_unname
 ; CHECK-NEXT:    [[ADD60]] = add nsw i32 [[TMP15]], [[ACC_0190]]
 ; CHECK-NEXT:    [[INDVARS_IV_NEXT0]] = add nuw nsw i64 [[INDVARS_IV0]], 1
 ; CHECK-NEXT:    [[EXITCOND0:%.*]] = icmp eq i64 [[INDVARS_IV_NEXT0]], [[WIDE_TRIP_COUNT0]]
-; CHECK-NEXT:    br i1 [[EXITCOND0]], label [[DIR_OMP_END_SIMD_3_LOOPEXIT0:%.*]], label [[OMP_INNER_FOR_BODY0]]
+; CHECK-NEXT:    br i1 [[EXITCOND0]], label [[DIR_OMP_END_SIMD_3_LOOPEXIT0:%.*]], label [[OMP_INNER_FOR_BODY0]], !llvm.loop !2
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  DIR.OMP.END.SIMD.3.loopexit:
 ; CHECK-NEXT:    br label [[DIR_OMP_END_SIMD_30]]

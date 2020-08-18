@@ -1,9 +1,9 @@
 ; Inline report
 ; RUN: opt -sroa -inline -inline-report=7 -inline-threshold=15 < %s -S 2>&1 | FileCheck %s
-; RUN: opt -passes='function(sroa),cgscc(inline)' -Os -inline-report=7 < %s -S 2>&1 | FileCheck %s
+; RUN: opt -passes='function(sroa),cgscc(inline)' -inline-report=7 < %s -S 2>&1 | FileCheck %s
 ; Inline report via metadata
 ; RUN: opt -inlinereportsetup -inline-report=0x86 < %s -S | opt -sroa -inline -inline-report=0x86 -inline-threshold=15 -S | opt -inlinereportemitter -inline-report=0x86 -inline-threshold=15 -S 2>&1 | FileCheck %s
-; RUN: opt -passes='inlinereportsetup' -inline-report=0x86 < %s -S | opt -passes='function(sroa),cgscc(inline)' -Os -inline-report=0x86 -S | opt -passes='inlinereportemitter' -inline-report=0x86 -S 2>&1 | FileCheck %s
+; RUN: opt -passes='inlinereportsetup' -inline-report=0x86 < %s -S | opt -passes='function(sroa),cgscc(inline)' -inline-report=0x86 -S | opt -passes='inlinereportemitter' -inline-report=0x86 -S 2>&1 | FileCheck %s
 
 ; CHECK: Begin
 ; CHECK: double callsite

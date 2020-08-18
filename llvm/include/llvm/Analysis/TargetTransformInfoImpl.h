@@ -147,10 +147,32 @@ public:
     return false;
   }
 
+  Optional<Instruction *> instCombineIntrinsic(InstCombiner &IC,
+                                               IntrinsicInst &II) const {
+    return None;
+  }
+
+  Optional<Value *>
+  simplifyDemandedUseBitsIntrinsic(InstCombiner &IC, IntrinsicInst &II,
+                                   APInt DemandedMask, KnownBits &Known,
+                                   bool &KnownBitsComputed) const {
+    return None;
+  }
+
+  Optional<Value *> simplifyDemandedVectorEltsIntrinsic(
+      InstCombiner &IC, IntrinsicInst &II, APInt DemandedElts, APInt &UndefElts,
+      APInt &UndefElts2, APInt &UndefElts3,
+      std::function<void(Instruction *, unsigned, APInt, APInt &)>
+          SimplifyAndSetOp) const {
+    return None;
+  }
+
   void getUnrollingPreferences(Loop *, ScalarEvolution &,
                                TTI::UnrollingPreferences &) {}
 
   unsigned getLoopRotationDefaultThreshold(bool OptForSize) const { return 16; }
+  void getPeelingPreferences(Loop *, ScalarEvolution &,
+                             TTI::PeelingPreferences &) {}
 
   bool isLegalAddImmediate(int64_t Imm) { return false; }
 
@@ -402,6 +424,7 @@ public:
   }
 
   unsigned getCastInstrCost(unsigned Opcode, Type *Dst, Type *Src,
+                            TTI::CastContextHint CCH,
                             TTI::TargetCostKind CostKind,
                             const Instruction *I) {
     switch (Opcode) {
@@ -466,18 +489,19 @@ public:
     return 1;
   }
 
-  unsigned getMaskedMemoryOpCost(unsigned Opcode, Type *Src, unsigned Alignment,
+  unsigned getMaskedMemoryOpCost(unsigned Opcode, Type *Src, Align Alignment,
                                  unsigned AddressSpace,
                                  TTI::TargetCostKind CostKind) {
     return 1;
   }
 
-  unsigned getGatherScatterOpCost(
-      unsigned Opcode, Type *DataTy, Value *Ptr, bool VariableMask,
-      unsigned Alignment, TTI::TargetCostKind CostKind,
-      const Instruction *I = nullptr) {
+  unsigned getGatherScatterOpCost(unsigned Opcode, Type *DataTy,
+                                  const Value *Ptr, bool VariableMask,
+                                  Align Alignment, TTI::TargetCostKind CostKind,
+                                  const Instruction *I = nullptr) {
     return 1;
   }
+
 #if INTEL_CUSTOMIZATION
   unsigned getGatherScatterOpCost(unsigned Opcode, Type *DataTy,
                                   unsigned IndexSize, bool VariableMask,
@@ -487,13 +511,11 @@ public:
     return 1;
   }
 #endif // INTEL_CUSTOMIZATION
-  unsigned getInterleavedMemoryOpCost(unsigned Opcode, Type *VecTy,
-                                      unsigned Factor,
-                                      ArrayRef<unsigned> Indices,
-                                      unsigned Alignment, unsigned AddressSpace,
-                                      TTI::TargetCostKind CostKind,
-                                      bool UseMaskForCond,
-                                      bool UseMaskForGaps) {
+
+  unsigned getInterleavedMemoryOpCost(
+      unsigned Opcode, Type *VecTy, unsigned Factor, ArrayRef<unsigned> Indices,
+      Align Alignment, unsigned AddressSpace, TTI::TargetCostKind CostKind,
+      bool UseMaskForCond, bool UseMaskForGaps) {
     return 1;
   }
 
@@ -639,14 +661,12 @@ public:
 
   bool isLegalToVectorizeStore(StoreInst *SI) const { return true; }
 
-  bool isLegalToVectorizeLoadChain(unsigned ChainSizeInBytes,
-                                   unsigned Alignment,
+  bool isLegalToVectorizeLoadChain(unsigned ChainSizeInBytes, Align Alignment,
                                    unsigned AddrSpace) const {
     return true;
   }
 
-  bool isLegalToVectorizeStoreChain(unsigned ChainSizeInBytes,
-                                    unsigned Alignment,
+  bool isLegalToVectorizeStoreChain(unsigned ChainSizeInBytes, Align Alignment,
                                     unsigned AddrSpace) const {
     return true;
   }
@@ -683,7 +703,7 @@ protected:
 
       // In case of a vector need to pick the max between the min
       // required size for each element
-      auto *VT = cast<VectorType>(Val->getType());
+      auto *VT = cast<FixedVectorType>(Val->getType());
 
       // Assume unsigned elements
       isSigned = false;
@@ -926,7 +946,8 @@ public:
     case Instruction::SExt:
     case Instruction::ZExt:
     case Instruction::AddrSpaceCast:
-      return TargetTTI->getCastInstrCost(Opcode, Ty, OpTy, CostKind, I);
+      return TargetTTI->getCastInstrCost(
+          Opcode, Ty, OpTy, TTI::getCastContextHint(I), CostKind, I);
     case Instruction::Store: {
       auto *SI = cast<StoreInst>(U);
       Type *ValTy = U->getOperand(0)->getType();
@@ -952,13 +973,17 @@ public:
                                            CostKind, I);
     }
     case Instruction::InsertElement: {
-      auto *IE = cast<InsertElementInst>(U);
+      auto *IE = dyn_cast<InsertElementInst>(U);
+      if (!IE)
+        return TTI::TCC_Basic; // FIXME
       auto *CI = dyn_cast<ConstantInt>(IE->getOperand(2));
       unsigned Idx = CI ? CI->getZExtValue() : -1;
       return TargetTTI->getVectorInstrCost(Opcode, Ty, Idx);
     }
     case Instruction::ShuffleVector: {
-      auto *Shuffle = cast<ShuffleVectorInst>(U);
+      auto *Shuffle = dyn_cast<ShuffleVectorInst>(U);
+      if (!Shuffle)
+        return TTI::TCC_Basic; // FIXME
       auto *VecTy = cast<VectorType>(U->getType());
       auto *VecSrcTy = cast<VectorType>(U->getOperand(0)->getType());
 
@@ -988,7 +1013,10 @@ public:
     }
     case Instruction::ExtractElement: {
       unsigned Idx = -1;
-      auto *EEI = cast<ExtractElementInst>(U);
+      auto *EEI = dyn_cast<ExtractElementInst>(U);
+      if (!EEI)
+        return TTI::TCC_Basic; // FIXME
+
       auto *CI = dyn_cast<ConstantInt>(EEI->getOperand(1));
       if (CI)
         Idx = CI->getZExtValue();

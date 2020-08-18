@@ -1,5 +1,5 @@
 // UNSUPPORTED: intel_opencl && i686-pc-windows
-// RUN: %clang_cc1 -I %S/Inputs -fsycl -fsycl-is-device -triple spir64-unknown-unknown-sycldevice -fsycl-int-header=%t.h %s -fsyntax-only
+// RUN: %clang_cc1 -I %S/Inputs -fsycl -fsycl-is-device -triple spir64-unknown-unknown-sycldevice -fsycl-int-header=%t.h %s -emit-llvm -o %t.ll
 // RUN: FileCheck -input-file=%t.h %s
 //
 // CHECK: #include <CL/sycl/detail/kernel_desc.hpp>
@@ -29,30 +29,35 @@
 // CHECK-NEXT: const kernel_param_desc_t kernel_signatures[] = {
 // CHECK-NEXT:   //--- _ZTSZ4mainE12first_kernel
 // CHECK-NEXT:   { kernel_param_kind_t::kind_std_layout, 4, 0 },
-// CHECK-NEXT:   { kernel_param_kind_t::kind_accessor, 4062, 4 },
-// CHECK-NEXT:   { kernel_param_kind_t::kind_accessor, 6112, 16 },
-// CHECK-NEXT:   { kernel_param_kind_t::kind_sampler, 8, 32 },
+// CHECK-NEXT:   { kernel_param_kind_t::kind_std_layout, 1, 4 },
+// CHECK-NEXT:   { kernel_param_kind_t::kind_std_layout, 4, 8 },
+// CHECK-NEXT:   { kernel_param_kind_t::kind_accessor, 4062, 12 },
+// CHECK-NEXT:   { kernel_param_kind_t::kind_accessor, 6112, 28 },
+// CHECK-NEXT:   { kernel_param_kind_t::kind_sampler, 8, 48 },
 // CHECK-EMPTY:
 // CHECK-NEXT:   //--- _ZTSN16second_namespace13second_kernelIcEE
 // CHECK-NEXT:   { kernel_param_kind_t::kind_std_layout, 4, 0 },
 // CHECK-NEXT:   { kernel_param_kind_t::kind_accessor, 6112, 4 },
-// CHECK-NEXT:   { kernel_param_kind_t::kind_sampler, 8, 16 },
+// CHECK-NEXT:   { kernel_param_kind_t::kind_sampler, 8, 24 },
 // CHECK-EMPTY:
 // CHECK-NEXT:   //--- _ZTS12third_kernelILi1Ei5pointIZ4mainE1XEE
 // CHECK-NEXT:   { kernel_param_kind_t::kind_std_layout, 4, 0 },
 // CHECK-NEXT:   { kernel_param_kind_t::kind_accessor, 6112, 4 },
-// CHECK-NEXT:   { kernel_param_kind_t::kind_sampler, 8, 16 },
+// CHECK-NEXT:   { kernel_param_kind_t::kind_sampler, 8, 24 },
 // CHECK-EMPTY:
 // CHECK-NEXT:   //--- _ZTS13fourth_kernelIJN15template_arg_ns14namespaced_argILi1EEEEE
 // CHECK-NEXT:   { kernel_param_kind_t::kind_std_layout, 4, 0 },
 // CHECK-NEXT:   { kernel_param_kind_t::kind_accessor, 6112, 4 },
 // CHECK-EMPTY:
-// CHECK-NEXT:   //--- _ZTSZ4mainE16accessor_in_base
-// CHECK-NEXT:   { kernel_param_kind_t::kind_std_layout, 64, 0 },
-// CHECK-NEXT:   { kernel_param_kind_t::kind_accessor, 4062, 8 },
-// CHECK-NEXT:   { kernel_param_kind_t::kind_accessor, 4062, 24 },
-// CHECK-NEXT:   { kernel_param_kind_t::kind_accessor, 4062, 40 },
-// CHECK-NEXT:   { kernel_param_kind_t::kind_accessor, 4062, 52 },
+// CHECK-NEXT:  //--- _ZTSZ4mainE16accessor_in_base
+// CHECK-NEXT:  { kernel_param_kind_t::kind_std_layout, 4, 0 },
+// CHECK-NEXT:  { kernel_param_kind_t::kind_std_layout, 4, 4 },
+// CHECK-NEXT:  { kernel_param_kind_t::kind_accessor, 4062, 8 },
+// CHECK-NEXT:  { kernel_param_kind_t::kind_std_layout, 4, 24 },
+// CHECK-NEXT:  { kernel_param_kind_t::kind_accessor, 4062, 28 },
+// CHECK-NEXT:  { kernel_param_kind_t::kind_std_layout, 4, 44 },
+// CHECK-NEXT:  { kernel_param_kind_t::kind_accessor, 4062, 48 },
+// CHECK-NEXT:  { kernel_param_kind_t::kind_accessor, 4062, 64 },
 // CHECK-EMPTY:
 // CHECK-NEXT: };
 //
@@ -117,15 +122,13 @@ int main() {
       acc2;
   int i = 13;
   cl::sycl::sampler smplr;
-  // TODO: Uncomemnt when structures in kernel arguments are correctly processed
-  //       by SYCL compiler
-  /*  struct {
+  struct {
     char c;
     int i;
   } test_s;
-  test_s.c = 14;*/
+  test_s.c = 14;
   kernel_single_task<class first_kernel>([=]() {
-    if (i == 13 /*&& test_s.c == 14*/) {
+    if (i == 13 && test_s.c == 14) {
 
       acc1.use();
       acc2.use();
@@ -152,10 +155,9 @@ int main() {
       }
   });
 
-  // FIXME: We cannot use the member-capture because all the handlers except the
-  // integration header handler in SemaSYCL don't handle base types right.
   accessor_in_base::captured c;
-  kernel_single_task<class accessor_in_base>([c]() {
+  kernel_single_task<class accessor_in_base>([=]() {
+    c.use();
   });
 
   return 0;

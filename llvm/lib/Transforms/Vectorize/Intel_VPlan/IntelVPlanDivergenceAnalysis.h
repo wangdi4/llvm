@@ -91,7 +91,7 @@ public:
   bool updateVectorShape(const VPValue *V, VPVectorShape Shape);
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-  void print(raw_ostream &OS, const VPLoop *VPLp);
+  void print(raw_ostream &OS, const VPLoop *VPLp = nullptr);
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 #endif // INTEL_CUSTOMIZATION
 
@@ -108,6 +108,18 @@ public:
     auto NewShape = computeVectorShape(cast<VPInstruction>(&Val));
     updateVectorShape(&Val, NewShape);
   }
+
+  // Clone instructions' vector shapes when we clone VPlan. This function is
+  // used when DA recomputation is not allowed.
+  void cloneVectorShapes(VPlan *ClonedVPlan,
+                         DenseMap<VPValue *, VPValue *> &OrigClonedValuesMap);
+
+  // Disable DA recomputation. It is used when we clone DA during VPlan cloning.
+  // When we clone DA after the predicator, we cannot compute/recompute DA.
+  void disableDARecomputation() { DARecomputationDisabled = true; }
+
+  /// Returns true if OldShape is not equal to NewShape.
+  bool shapesAreDifferent(VPVectorShape OldShape, VPVectorShape NewShape);
 
 private:
   /// Propagate divergence to all instructions in the region.
@@ -229,9 +241,6 @@ private:
   unsigned getTypeSizeInBytes(Type *Ty) const;
 
 #if INTEL_CUSTOMIZATION
-  /// Returns true if OldShape is not equal to NewShape.
-  bool shapesAreDifferent(VPVectorShape OldShape, VPVectorShape NewShape);
-
   /// Compute vector shape of \p I.
   VPVectorShape computeVectorShape(const VPInstruction *I);
 
@@ -356,6 +365,9 @@ private:
   // containing the CondBit.
   using BlockVectorTy = SmallVector<const VPBasicBlock *, 4>;
   DenseMap<const VPValue *, BlockVectorTy> CondBit2BlockMap;
+
+  // Disable DA recalculation.
+  bool DARecomputationDisabled = false;
 };
 
 } // namespace vpo

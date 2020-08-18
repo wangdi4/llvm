@@ -227,9 +227,11 @@ public:
   bool canHaveMap() const;
   bool canHaveIsDevicePtr() const;
   bool canHaveUseDevicePtr() const;
+  bool canHaveSubdevice() const;
   bool canHaveDepend() const;
   bool canHaveDepSrcSink() const;
   bool canHaveAligned() const;
+  bool canHaveNontemporal() const;
   bool canHaveFlush() const;
   bool canHaveCancellationPoints() const; ///< Constructs that can be cancelled
   bool canHaveCollapse() const;
@@ -257,6 +259,7 @@ public:
   // list-type clauses (getters only; no setters)
 
   virtual AlignedClause &getAligned()        {WRNERROR(QUAL_OMP_ALIGNED);     }
+  virtual NontemporalClause &getNontemporal() {WRNERROR(QUAL_OMP_NONTEMPORAL); }
   virtual AllocateClause &getAllocate()      {WRNERROR(QUAL_OMP_ALLOCATE);    }
   virtual CopyinClause &getCopyin()          {WRNERROR(QUAL_OMP_COPYIN);      }
   virtual CopyprivateClause &getCpriv()      {WRNERROR(QUAL_OMP_COPYPRIVATE); }
@@ -286,11 +289,14 @@ public:
   virtual UniformClause &getUniform()        {WRNERROR(QUAL_OMP_UNIFORM);     }
   virtual UseDevicePtrClause &getUseDevicePtr()
                                            {WRNERROR(QUAL_OMP_USE_DEVICE_PTR);}
+  virtual SubdeviceClause &getSubdevice()       {WRNERROR(QUAL_OMP_SUBDEVICE);}
 
   // list-type clauses (const getters)
 
   virtual const AlignedClause &getAligned() const
                                            {WRNERROR(QUAL_OMP_ALIGNED);     }
+  virtual const NontemporalClause &getNontemporal() const
+                                           {WRNERROR(QUAL_OMP_NONTEMPORAL); }
   virtual const AllocateClause &getAllocate() const
                                            {WRNERROR(QUAL_OMP_ALLOCATE);    }
   virtual const CopyinClause &getCopyin() const
@@ -334,7 +340,9 @@ public:
   virtual const UniformClause &getUniform() const
                                            {WRNERROR(QUAL_OMP_UNIFORM);     }
   virtual const UseDevicePtrClause &getUseDevicePtr() const
-                                           {WRNERROR(QUAL_OMP_USE_DEVICE_PTR);}
+                                         {WRNERROR(QUAL_OMP_USE_DEVICE_PTR);}
+  virtual const SubdeviceClause &getSubdevice() const
+                                              {WRNERROR(QUAL_OMP_SUBDEVICE);}
 
   // other clauses (both getters and setters)
 
@@ -352,10 +360,6 @@ public:
                                                 {WRNERROR("DEFAULTMAP");      }
   virtual void setDevice(EXPR E)                {WRNERROR(QUAL_OMP_DEVICE);   }
   virtual EXPR getDevice()                const {WRNERROR(QUAL_OMP_DEVICE);   }
-  virtual void setSubDeviceBase(EXPR E)      {WRNERROR(QUAL_OMP_SUBDEVICE);   }
-  virtual void setSubDeviceLength(EXPR E)    {WRNERROR(QUAL_OMP_SUBDEVICE);   }
-  virtual EXPR getSubDeviceBase()      const {WRNERROR(QUAL_OMP_SUBDEVICE);   }
-  virtual EXPR getSubDeviceLength()    const {WRNERROR(QUAL_OMP_SUBDEVICE);   }
   virtual void setFinal(EXPR E)                 {WRNERROR(QUAL_OMP_FINAL);    }
   virtual EXPR getFinal()                 const {WRNERROR(QUAL_OMP_FINAL);    }
   virtual void setGrainsize(EXPR E)             {WRNERROR(QUAL_OMP_GRAINSIZE);}

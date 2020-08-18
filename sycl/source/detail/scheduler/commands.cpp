@@ -8,12 +8,12 @@
 
 #include <detail/error_handling/error_handling.hpp>
 
-#include "CL/sycl/access/access.hpp"
+#include <CL/sycl/access/access.hpp>
 #include <CL/sycl/backend_types.hpp>
+#include <CL/sycl/detail/cg_types.hpp>
 #include <CL/sycl/detail/cl.h>
 #include <CL/sycl/detail/kernel_desc.hpp>
 #include <CL/sycl/detail/memory_manager.hpp>
-#include <CL/sycl/detail/stream_impl.hpp>
 #include <CL/sycl/sampler.hpp>
 #include <detail/context_impl.hpp>
 #include <detail/event_impl.hpp>
@@ -21,8 +21,10 @@
 #include <detail/kernel_info.hpp>
 #include <detail/program_manager/program_manager.hpp>
 #include <detail/queue_impl.hpp>
+#include <detail/sampler_impl.hpp>
 #include <detail/scheduler/commands.hpp>
 #include <detail/scheduler/scheduler.hpp>
+#include <detail/stream_impl.hpp>
 
 #include <cassert>
 #include <string>
@@ -159,6 +161,7 @@ getPiEvents(const std::vector<EventImplPtr> &EventImpls) {
 
 class DispatchHostTask {
   ExecCGCommand *MThisCmd;
+  std::vector<interop_handle::ReqToMem> MReqToMem;
 
   void waitForEvents() const {
     std::map<const detail::plugin *, std::vector<EventImplPtr>>
@@ -187,7 +190,9 @@ class DispatchHostTask {
   }
 
 public:
-  DispatchHostTask(ExecCGCommand *ThisCmd) : MThisCmd{ThisCmd} {}
+  DispatchHostTask(ExecCGCommand *ThisCmd,
+                   std::vector<interop_handle::ReqToMem> ReqToMem)
+      : MThisCmd{ThisCmd}, MReqToMem(std::move(ReqToMem)) {}
 
   void operator()() const {
     waitForEvents();
@@ -196,8 +201,20 @@ public:
 
     CGHostTask &HostTask = static_cast<CGHostTask &>(MThisCmd->getCG());
 
-    // we're ready to call the user-defined lambda now
-    HostTask.MHostTask->call();
+    try {
+      // we're ready to call the user-defined lambda now
+      if (HostTask.MHostTask->isInteropTask()) {
+        interop_handle IH{MReqToMem, HostTask.MQueue,
+                          getSyclObjImpl(HostTask.MQueue->get_device()),
+                          HostTask.MQueue->getContextImplPtr()};
+
+        HostTask.MHostTask->call(IH);
+      } else
+        HostTask.MHostTask->call();
+    } catch (...) {
+      HostTask.MQueue->reportAsyncException(std::current_exception());
+    }
+
     HostTask.MHostTask.reset();
 
     // unblock user empty command here
@@ -739,6 +756,14 @@ cl_int AllocaCommand::enqueueImp() {
       detail::getSyclObjImpl(MQueue->get_context()), getSYCLMemObj(),
       MInitFromUserData, HostPtr, std::move(EventImpls), Event);
 
+  // if this is ESIMD accessor, wrap the allocated device memory buffer into
+  // an image buffer object.
+  // TODO Address copying SYCL/ESIMD memory between contexts.
+  if (getRequirement()->MIsESIMDAcc)
+    ESIMDExt.MWrapperImage = MemoryManager::wrapIntoImageBuffer(
+        detail::getSyclObjImpl(MQueue->get_context()), MMemAllocation,
+        getSYCLMemObj());
+
   return CL_SUCCESS;
 }
 
@@ -924,12 +949,16 @@ cl_int ReleaseCommand::enqueueImp() {
   RT::PiEvent &Event = MEvent->getHandleRef();
   if (SkipRelease)
     Command::waitForEvents(MQueue, EventImpls, Event);
-  else
+  else {
     MemoryManager::release(detail::getSyclObjImpl(MQueue->get_context()),
                            MAllocaCmd->getSYCLMemObj(),
                            MAllocaCmd->getMemAllocation(),
                            std::move(EventImpls), Event);
-
+    // Release the wrapper object if present.
+    if (void *WrapperImage = MAllocaCmd->ESIMDExt.MWrapperImage)
+      MemoryManager::releaseImageBuffer(
+          detail::getSyclObjImpl(MQueue->get_context()), WrapperImage);
+  }
   return CL_SUCCESS;
 }
 
@@ -1616,6 +1645,91 @@ static void ReverseRangeDimensionsForKernel(NDRDescT &NDR) {
   }
 }
 
+pi_result ExecCGCommand::SetKernelParamsAndLaunch(
+    CGExecKernel *ExecKernel, RT::PiKernel Kernel, NDRDescT &NDRDesc,
+    std::vector<RT::PiEvent> &RawEvents, RT::PiEvent &Event,
+    ProgramManager::KernelArgMask EliminatedArgMask) {
+  vector_class<ArgDesc> &Args = ExecKernel->MArgs;
+  // TODO this is not necessary as long as we can guarantee that the arguments
+  // are already sorted (e. g. handle the sorting in handler if necessary due
+  // to set_arg(...) usage).
+  std::sort(Args.begin(), Args.end(), [](const ArgDesc &A, const ArgDesc &B) {
+    return A.MIndex < B.MIndex;
+  });
+  int LastIndex = -1;
+  int NextTrueIndex = 0;
+  const detail::plugin &Plugin = MQueue->getPlugin();
+  for (ArgDesc &Arg : ExecKernel->MArgs) {
+    // Handle potential gaps in set arguments (e. g. if some of them are set
+    // on the user side).
+    for (int Idx = LastIndex + 1; Idx < Arg.MIndex; ++Idx)
+      if (EliminatedArgMask.empty() || !EliminatedArgMask[Idx])
+        ++NextTrueIndex;
+    LastIndex = Arg.MIndex;
+
+    if (!EliminatedArgMask.empty() && EliminatedArgMask[Arg.MIndex])
+      continue;
+    switch (Arg.MType) {
+    case kernel_param_kind_t::kind_accessor: {
+      Requirement *Req = (Requirement *)(Arg.MPtr);
+      AllocaCommandBase *AllocaCmd = getAllocaForReq(Req);
+      RT::PiMem MemArg = Req->MIsESIMDAcc
+                             ? (RT::PiMem)AllocaCmd->ESIMDExt.MWrapperImage
+                             : (RT::PiMem)AllocaCmd->getMemAllocation();
+      if (Plugin.getBackend() == backend::opencl) {
+        Plugin.call<PiApiKind::piKernelSetArg>(Kernel, NextTrueIndex,
+                                               sizeof(RT::PiMem), &MemArg);
+      } else {
+        Plugin.call<PiApiKind::piextKernelSetArgMemObj>(Kernel, NextTrueIndex,
+                                                        &MemArg);
+      }
+      break;
+    }
+    case kernel_param_kind_t::kind_std_layout: {
+      Plugin.call<PiApiKind::piKernelSetArg>(Kernel, NextTrueIndex, Arg.MSize,
+                                             Arg.MPtr);
+      break;
+    }
+    case kernel_param_kind_t::kind_sampler: {
+      sampler *SamplerPtr = (sampler *)Arg.MPtr;
+      RT::PiSampler Sampler = detail::getSyclObjImpl(*SamplerPtr)
+                                  ->getOrCreateSampler(MQueue->get_context());
+#if INTEL_CUSTOMIZATION
+      if (Plugin.getBackend() == (backend::level_zero)) {
+        // TODO: This is a workaround and should be reworked when
+        // piextDeviceGetNativeHandle will be implemented.
+        Plugin.call<PiApiKind::piKernelSetArg>(Kernel, NextTrueIndex,
+                                               sizeof(void *), Sampler);
+        break;
+      }
+#endif // INTEL_CUSTOMIZATION
+      Plugin.call<PiApiKind::piextKernelSetArgSampler>(Kernel, NextTrueIndex,
+                                                       &Sampler);
+      break;
+    }
+    case kernel_param_kind_t::kind_pointer: {
+      Plugin.call<PiApiKind::piextKernelSetArgPointer>(Kernel, NextTrueIndex,
+                                                       Arg.MSize, Arg.MPtr);
+      break;
+    }
+    }
+    ++NextTrueIndex;
+  }
+
+  adjustNDRangePerKernel(NDRDesc, Kernel,
+                         *(detail::getSyclObjImpl(MQueue->get_device())));
+
+  // Remember this information before the range dimensions are reversed
+  const bool HasLocalSize = (NDRDesc.LocalSize[0] != 0);
+
+  ReverseRangeDimensionsForKernel(NDRDesc);
+  pi_result Error = Plugin.call_nocheck<PiApiKind::piEnqueueKernelLaunch>(
+      MQueue->getHandleRef(), Kernel, NDRDesc.Dims, &NDRDesc.GlobalOffset[0],
+      &NDRDesc.GlobalSize[0], HasLocalSize ? &NDRDesc.LocalSize[0] : nullptr,
+      RawEvents.size(), RawEvents.empty() ? nullptr : &RawEvents[0], &Event);
+  return Error;
+}
+
 // The function initialize accessors and calls lambda.
 // The function is used as argument to piEnqueueNativeKernel which requires
 // that the passed function takes one void* argument.
@@ -1796,80 +1910,57 @@ cl_int ExecCGCommand::enqueueImp() {
 
     // Run OpenCL kernel
     sycl::context Context = MQueue->get_context();
-    const detail::plugin &Plugin = MQueue->getPlugin();
     RT::PiKernel Kernel = nullptr;
+    std::mutex *KernelMutex = nullptr;
+    RT::PiProgram Program = nullptr;
+    bool KnownProgram = true;
 
     if (nullptr != ExecKernel->MSyclKernel) {
       assert(ExecKernel->MSyclKernel->get_info<info::kernel::context>() ==
              Context);
       Kernel = ExecKernel->MSyclKernel->getHandleRef();
-    } else
-      Kernel = detail::ProgramManager::getInstance().getOrCreateKernel(
-          ExecKernel->MOSModuleHandle, Context, ExecKernel->MKernelName,
-          nullptr);
 
-    for (ArgDesc &Arg : ExecKernel->MArgs) {
-      switch (Arg.MType) {
-      case kernel_param_kind_t::kind_accessor: {
-        Requirement *Req = (Requirement *)(Arg.MPtr);
-        AllocaCommandBase *AllocaCmd = getAllocaForReq(Req);
-        RT::PiMem MemArg = (RT::PiMem)AllocaCmd->getMemAllocation();
-        if (Plugin.getBackend() == backend::opencl) {
-          Plugin.call<PiApiKind::piKernelSetArg>(Kernel, Arg.MIndex,
-                                                 sizeof(RT::PiMem), &MemArg);
-        } else {
-          Plugin.call<PiApiKind::piextKernelSetArgMemObj>(Kernel, Arg.MIndex,
-                                                          &MemArg);
-        }
-        break;
-      }
-      case kernel_param_kind_t::kind_std_layout: {
-        Plugin.call<PiApiKind::piKernelSetArg>(Kernel, Arg.MIndex, Arg.MSize,
-                                               Arg.MPtr);
-        break;
-      }
-      case kernel_param_kind_t::kind_sampler: {
-        sampler *SamplerPtr = (sampler *)Arg.MPtr;
-        RT::PiSampler Sampler =
-            detail::getSyclObjImpl(*SamplerPtr)->getOrCreateSampler(Context);
-#if INTEL_CUSTOMIZATION
-        if (Plugin.getBackend() == (backend::level0)) {
-          // TODO: This is a workaround and should be reworked when
-          // piextDeviceGetNativeHandle will be implemented.
-          Plugin.call<PiApiKind::piKernelSetArg>(Kernel, Arg.MIndex,
-                                                 sizeof(void *), Sampler);
-          break;
-        }
-#endif // INTEL_CUSTOMIZATION
-        Plugin.call<PiApiKind::piKernelSetArg>(Kernel, Arg.MIndex,
-                                               sizeof(cl_sampler), &Sampler);
-        break;
-      }
-      case kernel_param_kind_t::kind_pointer: {
-        Plugin.call<PiApiKind::piextKernelSetArgPointer>(Kernel, Arg.MIndex,
-                                                         Arg.MSize, Arg.MPtr);
-        break;
-      }
-      }
+      auto SyclProg = detail::getSyclObjImpl(
+          ExecKernel->MSyclKernel->get_info<info::kernel::program>());
+      Program = SyclProg->getHandleRef();
+      if (SyclProg->is_cacheable()) {
+        RT::PiKernel FoundKernel = nullptr;
+        std::tie(FoundKernel, KernelMutex) =
+            detail::ProgramManager::getInstance().getOrCreateKernel(
+                ExecKernel->MOSModuleHandle,
+                ExecKernel->MSyclKernel->get_info<info::kernel::context>(),
+                ExecKernel->MKernelName, SyclProg.get());
+        assert(FoundKernel == Kernel);
+      } else
+        KnownProgram = false;
+    } else {
+      std::tie(Kernel, KernelMutex) =
+          detail::ProgramManager::getInstance().getOrCreateKernel(
+              ExecKernel->MOSModuleHandle, Context, ExecKernel->MKernelName,
+              nullptr);
+      MQueue->getPlugin().call<PiApiKind::piKernelGetInfo>(
+          Kernel, PI_KERNEL_INFO_PROGRAM, sizeof(RT::PiProgram), &Program,
+          nullptr);
     }
 
-    adjustNDRangePerKernel(NDRDesc, Kernel,
-                           *(detail::getSyclObjImpl(MQueue->get_device())));
-
-    // Some PI Plugins (like OpenCL) require this call to enable USM
-    // For others, PI will turn this into a NOP.
-    Plugin.call<PiApiKind::piKernelSetExecInfo>(Kernel, PI_USM_INDIRECT_ACCESS,
-                                                sizeof(pi_bool), &PI_TRUE);
-
-    // Remember this information before the range dimensions are reversed
-    const bool HasLocalSize = (NDRDesc.LocalSize[0] != 0);
-
-    ReverseRangeDimensionsForKernel(NDRDesc);
-
-    pi_result Error = Plugin.call_nocheck<PiApiKind::piEnqueueKernelLaunch>(
-        MQueue->getHandleRef(), Kernel, NDRDesc.Dims, &NDRDesc.GlobalOffset[0],
-        &NDRDesc.GlobalSize[0], HasLocalSize ? &NDRDesc.LocalSize[0] : nullptr,
-        RawEvents.size(), RawEvents.empty() ? nullptr : &RawEvents[0], &Event);
+    pi_result Error = PI_SUCCESS;
+    ProgramManager::KernelArgMask EliminatedArgMask;
+    if (nullptr == ExecKernel->MSyclKernel ||
+        !ExecKernel->MSyclKernel->isCreatedFromSource()) {
+      EliminatedArgMask =
+          detail::ProgramManager::getInstance().getEliminatedKernelArgMask(
+              ExecKernel->MOSModuleHandle, Context, Program,
+              ExecKernel->MKernelName, KnownProgram);
+    }
+    if (KernelMutex != nullptr) {
+      // For cacheable kernels, we use per-kernel mutex
+      std::lock_guard<std::mutex> Lock(*KernelMutex);
+      Error = SetKernelParamsAndLaunch(ExecKernel, Kernel, NDRDesc, RawEvents,
+                                       Event, EliminatedArgMask);
+    } else {
+      Error = SetKernelParamsAndLaunch(ExecKernel, Kernel, NDRDesc, RawEvents,
+                                       Event, EliminatedArgMask);
+    }
 
     if (PI_SUCCESS != Error) {
       // If we have got non-success error code, let's analyze it to emit nice
@@ -1951,7 +2042,38 @@ cl_int ExecCGCommand::enqueueImp() {
       }
     }
 
-    MQueue->getThreadPool().submit<DispatchHostTask>(DispatchHostTask(this));
+    std::vector<interop_handle::ReqToMem> ReqToMem;
+
+    if (HostTask->MHostTask->isInteropTask()) {
+      // Extract the Mem Objects for all Requirements, to ensure they are
+      // available if a user asks for them inside the interop task scope
+      const std::vector<Requirement *> &HandlerReq = HostTask->MRequirements;
+      auto ReqToMemConv = [&ReqToMem, HostTask](Requirement *Req) {
+        const std::vector<AllocaCommandBase *> &AllocaCmds =
+            Req->MSYCLMemObj->MRecord->MAllocaCommands;
+
+        for (AllocaCommandBase *AllocaCmd : AllocaCmds)
+          if (HostTask->MQueue == AllocaCmd->getQueue()) {
+            auto MemArg =
+                reinterpret_cast<pi_mem>(AllocaCmd->getMemAllocation());
+            ReqToMem.emplace_back(std::make_pair(Req, MemArg));
+
+            return;
+          }
+
+        assert(false &&
+               "Can't get memory object due to no allocation available");
+
+        throw runtime_error(
+            "Can't get memory object due to no allocation available",
+            PI_INVALID_MEM_OBJECT);
+      };
+      std::for_each(std::begin(HandlerReq), std::end(HandlerReq), ReqToMemConv);
+      std::sort(std::begin(ReqToMem), std::end(ReqToMem));
+    }
+
+    MQueue->getThreadPool().submit<DispatchHostTask>(
+        DispatchHostTask(this, std::move(ReqToMem)));
 
     MShouldCompleteEventIfPossible = false;
 

@@ -1417,6 +1417,14 @@ VPOParoptTransform::genDependInitForTask(WRegionNode *W,
     Value *BasePtr = Orig;
     Type *IntPtrTy = Builder.getIntPtrTy(DL);
 
+    // If the dep value is output-only with no uses, outlining may have
+    // wrapped it. Make a replacement alloca.
+    if (auto *AI = dyn_cast<AllocaInst>(Orig))
+      if (AI->getFunction() != InsertBefore->getFunction()) {
+        Orig = Builder.CreateAlloca(Orig->getType(), nullptr, AI->getName());
+        BasePtr = Orig;
+      }
+
     // TODO: Paropt doesn't support code generation for non-contiguous sections,
     // the plan is for the frontend to send us an array section in this form:
     // "(0, i64 %number_of_elements_from_start_to_end, 1)
@@ -1688,6 +1696,12 @@ bool VPOParoptTransform::genTaskGenericCode(WRegionNode *W,
   // TidArgNo parameter is unused, if IsTidArg is false.
   Function *MTFn = finalizeExtractedMTFunction(W, NewF, false, -1U, false);
 
+#if INTEL_CUSTOMIZATION
+  // Uncomment after the JIRA CMPLRLLVM-21925 is fixed.
+  // assert(MTFn->arg_size() <= 2 &&
+  //       "Outlined function for TaskLoop cannot have more than 2 arguments.");
+#endif // INTEL_CUSTOMIZATION
+
   std::vector<Value *> MTFnArgs;
 
   LLVMContext &C = NewF->getContext();
@@ -1735,7 +1749,7 @@ bool VPOParoptTransform::genTaskGenericCode(WRegionNode *W,
     W->setTaskFlag(W->getTaskFlag() | 0x8);
 
   CallInst *TaskAllocCI = VPOParoptUtils::genKmpcTaskAlloc(
-      W, IdentTy, TidPtrHolder, TotalTaskTTWithPrivatesSize, KmpSharedTySz,
+      W, IdentTy, TidPtrHolder, DT, TotalTaskTTWithPrivatesSize, KmpSharedTySz,
       KmpRoutineEntryPtrTy, MTFnCI->getCalledFunction(), NewCall,
       Mode & OmpTbb);
   TaskAllocCI->setName(".task.alloc");
@@ -1778,7 +1792,7 @@ bool VPOParoptTransform::genTaskGenericCode(WRegionNode *W,
 
       Instruction *ThenTerm, *ElseTerm;
 
-      buildCFGForIfClause(Cmp, ThenTerm, ElseTerm, NewCall);
+      VPOParoptUtils::buildCFGForIfClause(Cmp, ThenTerm, ElseTerm, NewCall, DT);
       IRBuilder<> ElseBuilder(ElseTerm);
       if (!DummyTaskTDependRec)
         VPOParoptUtils::genKmpcTask(W, IdentTy, TidPtrHolder, TaskAllocCI,
@@ -1824,29 +1838,6 @@ bool VPOParoptTransform::genTaskWaitCode(WRegionNode *W) {
   VPOParoptUtils::genKmpcTaskWait(W, IdentTy, TidPtrHolder,
                                   W->getEntryBBlock()->getTerminator());
   return true;
-}
-
-// build the CFG for if clause.
-void VPOParoptTransform::buildCFGForIfClause(Value *Cmp,
-                                             Instruction *&ThenTerm,
-                                             Instruction *&ElseTerm,
-                                             Instruction *InsertPt) {
-  BasicBlock *SplitBeforeBB = InsertPt->getParent();
-  SplitBlockAndInsertIfThenElse(Cmp, InsertPt, &ThenTerm, &ElseTerm);
-  ThenTerm->getParent()->setName("if.then");
-  ElseTerm->getParent()->setName("if.else");
-  InsertPt->getParent()->setName("if.end");
-
-  DT->addNewBlock(ThenTerm->getParent(), SplitBeforeBB);
-  DT->addNewBlock(ElseTerm->getParent(), SplitBeforeBB);
-  DT->addNewBlock(InsertPt->getParent(), SplitBeforeBB);
-
-  DT->changeImmediateDominator(ThenTerm->getParent(), SplitBeforeBB);
-  DT->changeImmediateDominator(ElseTerm->getParent(), SplitBeforeBB);
-  BasicBlock *NextBB = InsertPt->getParent()->getSingleSuccessor();
-  assert(NextBB && "Null Next BB.");
-  if (NextBB->getUniquePredecessor())
-    DT->changeImmediateDominator(NextBB, InsertPt->getParent());
 }
 
 // Generate code for OMP taskgroup construct.

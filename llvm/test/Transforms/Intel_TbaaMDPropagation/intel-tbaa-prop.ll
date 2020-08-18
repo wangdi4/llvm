@@ -1,4 +1,4 @@
-; RUN: opt -tbaa -inline -tbaa-prop -sroa -basicaa -aa -instcombine -gvn -S < %s | FileCheck %s
+; RUN: opt -tbaa -inline -tbaa-prop -sroa -basic-aa -aa -instcombine -gvn -S < %s | FileCheck %s
 ;
 ; The compiler should recover the tbaa information for the expression
 ; s.geta(i) and s.getb(j) so that these two expressions can be determined

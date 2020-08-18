@@ -54,7 +54,6 @@ void foo()
 // CHECK: define {{.*}}zoo{{.*}}#[[CONTAINS]]
 // CHECK: define internal void @.omp_combiner..1{{.*}}#[[DECLARE_TARGET1]]
 // CHECK: define internal void @.omp_initializer.{{.*}}#[[DECLARE_TARGET1]]
-// CHECK: define internal{{.*}}_ZTSi.omp.destr{{.*}} #[[DECLARE_TARGET1]]
 
 // CHECK: attributes #[[DECLARE_TARGET]] = {{.*}}"openmp-target-declare"="true"
 // CHECK: attributes #[[CONTAINS]] = {{.*}}"contains-openmp-target"="true"

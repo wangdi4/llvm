@@ -1732,20 +1732,30 @@ void CodeGenModule::getDefaultFunctionAttributes(StringRef Name,
 #if INTEL_CUSTOMIZATION
   if (getLangOpts().isIntelCompat(LangOptions::IMFAttributes)) {
     llvm::StringSet<> FuncOwnAttrs;
-    auto FuncMapIt = getLangOpts().ImfAttrFuncMap.find(Name);
+    auto FuncMapIt = getLangOpts().ImfAttrFuncMap.find(Name.str());
     if (FuncMapIt != getLangOpts().ImfAttrFuncMap.end()) {
       // The function has its own set of attributes.
-      for (const auto &AttrPair : FuncMapIt->second) {
-        FuncAttrs.addAttribute("imf-" + AttrPair.first().str(),
+      for (const std::pair<std::string, std::string> &AttrPair :
+           FuncMapIt->second) {
+        FuncAttrs.addAttribute("imf-" + AttrPair.first,
                                AttrPair.second);
-        FuncOwnAttrs.insert(AttrPair.first());
+        FuncOwnAttrs.insert(AttrPair.first);
       }
     }
     // Add attributes not specific to any function, if that kind not explicitly
     // specified for this function.
-    for (const auto &AttrPair : getLangOpts().ImfAttrMap) {
-      if (FuncOwnAttrs.find(AttrPair.first()) == FuncOwnAttrs.end()) {
-        FuncAttrs.addAttribute("imf-" + AttrPair.first().str(),
+    for (const std::pair<std::string, std::string> &AttrPair :
+         getLangOpts().ImfAttrMap) {
+      if (FuncOwnAttrs.find(AttrPair.first) == FuncOwnAttrs.end()) {
+        FuncAttrs.addAttribute("imf-" + AttrPair.first,
+                               AttrPair.second);
+      }
+    }
+    FuncMapIt = getLangOpts().ImfAttrFuncMap.find("sqrt");
+    if (FuncMapIt != getLangOpts().ImfAttrFuncMap.end()) {
+      for (const std::pair<std::string, std::string> &AttrPair :
+           FuncMapIt->second) {
+        FuncAttrs.addAttribute("imf-" + AttrPair.first + "-sqrt",
                                AttrPair.second);
       }
     }
@@ -2568,9 +2578,11 @@ void CodeGenFunction::EmitFunctionProlog(const CGFunctionInfo &FI,
                   ArrSize) {
                 llvm::AttrBuilder Attrs;
                 Attrs.addDereferenceableAttr(
-                  getContext().getTypeSizeInChars(ETy).getQuantity()*ArrSize);
+                    getContext().getTypeSizeInChars(ETy).getQuantity() *
+                    ArrSize);
                 AI->addAttrs(Attrs);
-              } else if (getContext().getTargetAddressSpace(ETy) == 0 &&
+              } else if (getContext().getTargetInfo().getNullPointerValue(
+                             ETy.getAddressSpace()) == 0 &&
                          !CGM.getCodeGenOpts().NullPointerIsValid) {
                 AI->addAttr(llvm::Attribute::NonNull);
               }
@@ -4330,7 +4342,7 @@ RValue CodeGenFunction::EmitCall(const CGFunctionInfo &CallInfo,
   llvm::FunctionType *IRFuncTy = getTypes().GetFunctionType(CallInfo);
 
   const Decl *TargetDecl = Callee.getAbstractInfo().getCalleeDecl().getDecl();
-  if (const FunctionDecl *FD = dyn_cast_or_null<FunctionDecl>(TargetDecl))
+  if (const FunctionDecl *FD = dyn_cast_or_null<FunctionDecl>(TargetDecl)) {
     // We can only guarantee that a function is called from the correct
     // context/function based on the appropriate target attributes,
     // so only check in the case where we have both always_inline and target
@@ -4340,6 +4352,12 @@ RValue CodeGenFunction::EmitCall(const CGFunctionInfo &CallInfo,
     if (TargetDecl->hasAttr<AlwaysInlineAttr>() &&
         TargetDecl->hasAttr<TargetAttr>())
       checkTargetFeatures(Loc, FD);
+
+    // Some architectures (such as x86-64) have the ABI changed based on
+    // attribute-target/features. Give them a chance to diagnose.
+    CGM.getTargetCodeGenInfo().checkFunctionCallABI(
+        CGM, Loc, dyn_cast_or_null<FunctionDecl>(CurCodeDecl), FD, CallArgs);
+  }
 
 #ifndef NDEBUG
   if (!(CallInfo.isVariadic() && CallInfo.getArgStruct())) {
@@ -4953,6 +4971,10 @@ RValue CodeGenFunction::EmitCall(const CGFunctionInfo &CallInfo,
   } else {
     // Otherwise, nounwind call sites will never throw.
     CannotThrow = Attrs.hasFnAttribute(llvm::Attribute::NoUnwind);
+
+    if (auto *FPtr = dyn_cast<llvm::Function>(CalleePtr))
+      if (FPtr->hasFnAttribute(llvm::Attribute::NoUnwind))
+        CannotThrow = true;
   }
 
   // If we made a temporary, be sure to clean up after ourselves. Note that we
@@ -4984,6 +5006,14 @@ RValue CodeGenFunction::EmitCall(const CGFunctionInfo &CallInfo,
   // Emit the actual call/invoke instruction.
   llvm::CallBase *CI;
   if (!InvokeDest) {
+#if INTEL_CUSTOMIZATION
+    if (getContext().getLangOpts().SYCLIsDevice &&
+        getContext().getLangOpts().EnableVariantFunctionPointers)
+      if (IRFuncTy && Callee.isOrdinary() && Callee.getFunctionPointer() &&
+          isa<llvm::LoadInst>(Callee.getFunctionPointer()))
+        return EmitBuiltinIndirectCall(IRFuncTy, IRCallArgs,
+                                       Callee.getFunctionPointer());
+#endif  // INTEL_CUSTOMIZATION
     CI = Builder.CreateCall(IRFuncTy, CalleePtr, IRCallArgs, BundleList);
   } else {
     llvm::BasicBlock *Cont = createBasicBlock("invoke.cont");
@@ -5090,10 +5120,21 @@ RValue CodeGenFunction::EmitCall(const CGFunctionInfo &CallInfo,
 
   // 4. Finish the call.
 
+  // SYCL does not support C++ exceptions or termination in device code, so all
+  // functions have to return.
+  bool SyclSkipNoReturn = false;
+  if (getLangOpts().SYCLIsDevice && CI->doesNotReturn()) {
+    if (auto *F = CI->getCalledFunction())
+      F->removeFnAttr(llvm::Attribute::NoReturn);
+    CI->removeAttribute(llvm::AttributeList::FunctionIndex,
+                        llvm::Attribute::NoReturn);
+    SyclSkipNoReturn = true;
+  }
+
   // If the call doesn't return for non-sycl devices, finish the basic block and
   // clear the insertion point; this allows the rest of IRGen to discard
   // unreachable code.
-  if (CI->doesNotReturn() && !getLangOpts().SYCLIsDevice) {
+  if (!SyclSkipNoReturn && CI->doesNotReturn()) {
     if (UnusedReturnSizePtr)
       PopCleanupBlock();
 

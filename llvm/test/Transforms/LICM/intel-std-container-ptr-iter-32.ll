@@ -1,4 +1,4 @@
-; RUN: opt < %s -tbaa   -std-container-alias  -basiccg -domtree -basicaa -aa -std-container-opt -domtree -loops  -loop-rotate -licm  -S | FileCheck %s
+; RUN: opt < %s -tbaa   -std-container-alias  -basiccg -domtree -basic-aa -aa -std-container-opt -domtree -loops  -loop-rotate -licm  -S | FileCheck %s
 ;
 ; The compiler is expected to hoist out the load *ita when the SROA
 ; generates ptrtoint and inttoptr for the container_ptr_iter.

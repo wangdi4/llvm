@@ -127,6 +127,9 @@ TLI_DEFINE_ENUM_INTERNAL(msvc_delete_array_ptr64_longlong)
 TLI_DEFINE_STRING_INTERNAL("??_V@YAXPEAX_K@Z")
 
 #if INTEL_CUSTOMIZATION
+/// int __cdecl std::_Execute_once(struct std::once_flag & __ptr64,int (__cdecl*)(void * __ptr64,void * __ptr64,void * __ptr64 * __ptr64),void * __ptr64)
+TLI_DEFINE_ENUM_INTERNAL(msvc_std_Execute_once)
+TLI_DEFINE_STRING_INTERNAL("?_Execute_once@std@@YAHAEAUonce_flag@1@P6AHPEAX1PEAPEAX@Z1@Z")
 /// void __cdecl std::_Facet_Register(class std::_Facet_base * __ptr64)
 TLI_DEFINE_ENUM_INTERNAL(msvc_std_facet_register)
 TLI_DEFINE_STRING_INTERNAL("?_Facet_Register@std@@YAXPEAV_Facet_base@1@@Z")
@@ -148,6 +151,9 @@ TLI_DEFINE_STRING_INTERNAL("?_Xlength_error@std@@YAXPEBD@Z")
 /// void __cdecl std::_Xout_of_range(char const * __ptr64)
 TLI_DEFINE_ENUM_INTERNAL(msvc_std_Xout_of_range)
 TLI_DEFINE_STRING_INTERNAL("?_Xout_of_range@std@@YAXPEBD@Z")
+/// bool __cdecl std::uncaught_exception(void)
+TLI_DEFINE_ENUM_INTERNAL(msvc_std_uncaught_exception)
+TLI_DEFINE_STRING_INTERNAL("?uncaught_exception@std@@YA_NXZ")
 /// void DeleteCriticalSection(LPCRITICAL_SECTION lpCriticalSection);
 TLI_DEFINE_ENUM_INTERNAL(DeleteCriticalSection)
 TLI_DEFINE_STRING_INTERNAL("DeleteCriticalSection")
@@ -184,6 +190,9 @@ TLI_DEFINE_STRING_INTERNAL("GetCurrentThreadId")
 /// DWORD GetFullPathNameA(LPCSTR lpFileName, DWORD  nBufferLength, LPSTR  lpBuffer, LPSTR  *lpFilePart);
 TLI_DEFINE_ENUM_INTERNAL(GetFullPathNameA)
 TLI_DEFINE_STRING_INTERNAL("GetFullPathNameA")
+/// DWORD GetFullPathNameW(LPCWSTR lpFileName, DWORD nBufferLength, LPWSTR lpBuffer, LPWSTR *lpFilePart);
+TLI_DEFINE_ENUM_INTERNAL(GetFullPathNameW)
+TLI_DEFINE_STRING_INTERNAL("GetFullPathNameW")
 /// DWORD GetModuleFileNameA(HMODULE hModule, LPSTR lpFilename, DWORD nSize);
 TLI_DEFINE_ENUM_INTERNAL(GetModuleFileNameA)
 TLI_DEFINE_STRING_INTERNAL("GetModuleFileNameA")
@@ -208,6 +217,9 @@ TLI_DEFINE_STRING_INTERNAL("GetVersionExA")
 /// void GlobalMemoryStatus(LPMEMORYSTATUS lpBuffer);
 TLI_DEFINE_ENUM_INTERNAL(GlobalMemoryStatus)
 TLI_DEFINE_STRING_INTERNAL("GlobalMemoryStatus")
+/// void InitializeCriticalSection(LPCRITICAL_SECTION lpCriticalSection);
+TLI_DEFINE_ENUM_INTERNAL(InitializeCriticalSection)
+TLI_DEFINE_STRING_INTERNAL("InitializeCriticalSection")
 /// BOOL InitializeCriticalSectionAndSpinCount(LPCRITICAL_SECTION lpCriticalSection, DWORD dwSpinCount);
 TLI_DEFINE_ENUM_INTERNAL(InitializeCriticalSectionAndSpinCount)
 TLI_DEFINE_STRING_INTERNAL("InitializeCriticalSectionAndSpinCount")
@@ -850,13 +862,17 @@ TLI_DEFINE_STRING_INTERNAL("__atanhf_finite")
 /// long double __atanhl_finite(long double x);
 TLI_DEFINE_ENUM_INTERNAL(atanhl_finite)
 TLI_DEFINE_STRING_INTERNAL("__atanhl_finite")
-
+/// void __atomic_load(size_t size, void *mptr, void *vptr, int smodel);
+TLI_DEFINE_ENUM_INTERNAL(atomic_load)
+TLI_DEFINE_STRING_INTERNAL("__atomic_load")
+/// void __atomic_store(size_t size, void *mptr, void *vptr, int smodel);
+TLI_DEFINE_ENUM_INTERNAL(atomic_store)
+TLI_DEFINE_STRING_INTERNAL("__atomic_store")
 #if INTEL_CUSTOMIZATION
 /// declare void __clang_call_terminate(i8*)
 TLI_DEFINE_ENUM_INTERNAL(clang_call_terminate)
 TLI_DEFINE_STRING_INTERNAL("__clang_call_terminate")
 #endif // INTEL_CUSTOMIZATION
-
 /// double __cosh_finite(double x);
 TLI_DEFINE_ENUM_INTERNAL(cosh_finite)
 TLI_DEFINE_STRING_INTERNAL("__cosh_finite")
@@ -1261,6 +1277,9 @@ TLI_DEFINE_STRING_INTERNAL("__std_exception_copy")
 /// void __std_exception_destroy(__std_exception_data *data);
 TLI_DEFINE_ENUM_INTERNAL(std_exception_destroy)
 TLI_DEFINE_STRING_INTERNAL("__std_exception_destroy")
+/// void __std_reverse_trivially_swappable_8(BidirectionalIterator first, BidirectionalIterator last)
+TLI_DEFINE_ENUM_INTERNAL(std_reverse_trivially_swappable_8)
+TLI_DEFINE_STRING_INTERNAL("__std_reverse_trivially_swappable_8")
 /// void __std_terminate()
 TLI_DEFINE_ENUM_INTERNAL(dunder_std_terminate)
 TLI_DEFINE_STRING_INTERNAL("__std_terminate")
@@ -3138,6 +3157,9 @@ TLI_DEFINE_ENUM_INTERNAL(tanl)
 TLI_DEFINE_STRING_INTERNAL("tanl")
 
 #if INTEL_CUSTOMIZATION
+/// void terminate (void);
+TLI_DEFINE_ENUM_INTERNAL(terminate)
+TLI_DEFINE_STRING_INTERNAL("terminate")
 /// time_t time (time_t* timer);
 TLI_DEFINE_ENUM_INTERNAL(time)
 TLI_DEFINE_STRING_INTERNAL("time")

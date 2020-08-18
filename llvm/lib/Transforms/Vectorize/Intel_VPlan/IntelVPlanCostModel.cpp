@@ -83,9 +83,6 @@ uint64_t
 VPlanVLSCostModel::getGatherScatterOpCost(const OVLSMemref &Memref) const {
   const auto *VPMemref = dyn_cast<VPVLSClientMemref>(&Memref);
   assert(VPMemref && "Wrong type of OVLSMemref is used.");
-#if 0
-  return VPCM.getLoadStoreCost(VPMemref->getInstruction());
-#else
   Type *VecTy = getWidenedType(VPMemref->getInstruction()->getType(), VPCM.VF);
   // FIXME: Without proper decomposition it's impossible to call
   // getLoadStoreCost(), because opcode may not be valid in the VPInstruction.
@@ -96,7 +93,6 @@ VPlanVLSCostModel::getGatherScatterOpCost(const OVLSMemref &Memref) const {
           ? Instruction::Load
           : Instruction::Store;
   return TTI.getMemoryOpCost(Opcode, VecTy, Align(), 0);
-#endif
 }
 #endif // INTEL_CUSTOMIZATION
 
@@ -193,7 +189,8 @@ unsigned VPlanCostModel::getLoadStoreIndexSize(
          (VPInst->getOpcode() == Instruction::BitCast ||
           VPInst->getOpcode() == Instruction::AddrSpaceCast) &&
          TTI->getCastInstrCost(VPInst->getOpcode(), VPInst->getType(),
-                               VPInst->getOperand(0)->getType()) == 0)
+                               VPInst->getOperand(0)->getType(),
+                               TTI::CastContextHint::None) == 0)
     Ptr = VPInst->getOperand(0);
 
   const VPInstruction *VPAddrInst = dyn_cast<VPGEPInstruction>(Ptr);
@@ -264,13 +261,21 @@ unsigned VPlanCostModel::getArithmeticInstructionCost(const unsigned Opcode,
     return UnknownCost;
   Type *VecTy = getWidenedType(const_cast<Type *>(ScalarTy), VF);
 
-  auto IsPowerOf2 = [](const VPValue *Val) -> bool {
-    if (const VPConstant *VPConst = dyn_cast<VPConstant>(Val))
+  auto SetOperandValueFeatures = [](
+    const VPValue *Val,
+    TargetTransformInfo::OperandValueKind& OpVK,
+    TargetTransformInfo::OperandValueProperties& OpVP) -> void {
+    if (const VPConstant *VPConst = dyn_cast<VPConstant>(Val)) {
+      OpVK = TargetTransformInfo::OK_UniformConstantValue;
       if (const ConstantInt *IntConst =
-            dyn_cast<ConstantInt>(VPConst->getConstant()))
+          dyn_cast<ConstantInt>(VPConst->getConstant())) {
         if (IntConst->getValue().isPowerOf2())
-          return true;
-    return false;
+          OpVP = TargetTransformInfo::OP_PowerOf2;
+        else if ((IntConst->getValue() + 1).isPowerOf2() ||
+                 (IntConst->getValue() - 1).isPowerOf2())
+          OpVP = TargetTransformInfo::OP_PowerOf2_PlusMinus1;
+      }
+    }
   };
 
   TargetTransformInfo::OperandValueKind Op1VK =
@@ -282,26 +287,30 @@ unsigned VPlanCostModel::getArithmeticInstructionCost(const unsigned Opcode,
   TargetTransformInfo::OperandValueProperties Op2VP =
     TargetTransformInfo::OP_None;
 
-  if (IsPowerOf2(Op1)) {
-    Op1VP = TargetTransformInfo::OP_PowerOf2;
-    Op1VK = TargetTransformInfo::OK_UniformConstantValue;
-  }
+  SetOperandValueFeatures(Op1, Op1VK, Op1VP);
+  if (Op2)
+    SetOperandValueFeatures(Op2, Op2VK, Op2VP);
 
-  if (Op2 && IsPowerOf2(Op2)) {
-    Op2VP = TargetTransformInfo::OP_PowerOf2;
-    Op2VK = TargetTransformInfo::OK_UniformConstantValue;
-  }
-
-  return TTI->getArithmeticInstrCost(Opcode, VecTy, TTI::TCK_RecipThroughput,
-                                     Op1VK, Op2VK, Op1VP, Op2VP);
+  return TTI->getArithmeticInstrCost(Opcode, VecTy,
+    TTI::TCK_RecipThroughput, Op1VK, Op2VK, Op1VP, Op2VP);
 }
 
-unsigned VPlanCostModel::getLoadStoreCost(const VPInstruction *VPInst) {
+unsigned VPlanCostModel::getLoadStoreCost(const VPInstruction *VPInst,
+                                          unsigned VF) {
+  unsigned Alignment = getMemInstAlignment(VPInst);
+  return getLoadStoreCost(VPInst, Align(Alignment), VF);
+}
+
+unsigned VPlanCostModel::getLoadStoreCost(
+  const VPInstruction *VPInst, Align Alignment, unsigned VF) {
+  assert(VPInst &&
+         ((VPInst->getOpcode() == Instruction::Load) ||
+         (VPInst->getOpcode() == Instruction::Store)) &&
+         "Expect Load or Store operation!");
   Type *OpTy = getMemInstValueType(VPInst);
   assert(OpTy && "Can't get type of the load/store instruction!");
 
   unsigned Opcode = VPInst->getOpcode();
-  unsigned Alignment = getMemInstAlignment(VPInst);
   unsigned AddrSpace = getMemInstAddressSpace(VPInst);
   Type *VecTy;
   unsigned Scale;
@@ -352,9 +361,7 @@ unsigned VPlanCostModel::getLoadStoreCost(const VPInstruction *VPInst) {
 
     Cost += IsMasked ?
       Scale * TTI->getMaskedMemoryOpCost(Opcode, VecTy, Alignment, AddrSpace) :
-      Scale * TTI->getMemoryOpCost(Opcode, VecTy,
-                                   Alignment ? Align(Alignment): Align(),
-                                   AddrSpace);
+      Scale * TTI->getMemoryOpCost(Opcode, VecTy, Alignment, AddrSpace);
     return Cost;
   }
 
@@ -363,7 +370,7 @@ unsigned VPlanCostModel::getLoadStoreCost(const VPInstruction *VPInst) {
   // gather/scatter operation is implemented with two HW gathers/scatters.
   return TTI->getGatherScatterOpCost(
     Opcode, VecTy, getLoadStoreIndexSize(VPInst),
-    IsMasked, Alignment, AddrSpace);
+    IsMasked, Alignment.value(), AddrSpace);
 }
 
 unsigned VPlanCostModel::getInsertExtractElementsCost(
@@ -449,6 +456,11 @@ unsigned VPlanCostModel::getIntrinsicInstrCost(
 }
 
 unsigned VPlanCostModel::getCost(const VPInstruction *VPInst) {
+  return getCostForVF(VPInst, VF);
+}
+
+unsigned VPlanCostModel::getCostForVF(
+  const VPInstruction *VPInst, unsigned VF) {
   // TODO: For instruction that are not contained inside the loop we're
   // vectorizing, VF should not be considered. That includes the instructions
   // that are outside of any of the loops in the loopnest. However, before
@@ -520,7 +532,7 @@ unsigned VPlanCostModel::getCost(const VPInstruction *VPInst) {
 #endif // INTEL_CUSTOMIZATION
   case Instruction::Load:
   case Instruction::Store:
-    return getLoadStoreCost(VPInst);
+    return getLoadStoreCost(VPInst, VF);
   case Instruction::Add:
   case Instruction::FAdd:
   case Instruction::Sub:
@@ -615,7 +627,8 @@ unsigned VPlanCostModel::getCost(const VPInstruction *VPInst) {
     // such a cast can be folded into the defining load for free. We should
     // consider adding an overload accepting VPInstruction for TTI to be able to
     // analyze that.
-    return TTI->getCastInstrCost(Opcode, VecDstTy, VecSrcTy);
+    return TTI->getCastInstrCost(Opcode, VecDstTy, VecSrcTy,
+                                 TTI::CastContextHint::None);
   }
   case Instruction::Call: {
     auto *VPCall = cast<VPCallInstruction>(VPInst);
@@ -665,7 +678,7 @@ unsigned VPlanCostModel::getCost() {
 void VPlanCostModel::printForVPInstruction(
   raw_ostream &OS, const VPInstruction *VPInst) {
   OS << "  Cost " << getCostNumberString(getCost(VPInst)) << " for ";
-  VPInst->print(OS);
+  VPInst->printWithoutAnalyses(OS);
   OS << '\n';
 }
 

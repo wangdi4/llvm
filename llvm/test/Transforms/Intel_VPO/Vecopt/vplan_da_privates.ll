@@ -59,10 +59,9 @@ define dso_local i32 @getElement(i32 %RetIdx) local_unnamed_addr {
 ; CHECK-NEXT:  [DA: Div] i64* [[BC3:%.*]] = bitcast i82* [[BC2]]
 ; CHECK-NEXT:  [DA: Div] i64* [[GEP2:%.*]] = getelementptr inbounds i64* [[BC3]] i64 6
 ; CHECK-NEXT:  [DA: Div] i32* [[PRIV2:%.*]] = allocate-priv i32*
-; CHECK-NEXT:  [DA: Div] i32 [[IND1:%.*]] = induction-init{add} i32 0 i32 1
+; CHECK-NEXT:  [DA: Div] i32 [[IND1:%.*]] = induction-init{add} i32 live-in0 i32 1
 ; CHECK-NEXT:  [DA: Uni] i32 [[IND2:%.*]] = induction-init-step{add} i32 1
-
-; CHECK: [DA: Uni] i64 [[IDX1:%.*]] = sext i32 {{.*}} to i64
+; CHECK:       [DA: Uni] i64 [[IDX1:%.*]] = sext i32 {{.*}} to i64
 ; CHECK-NEXT:  [DA: Div] i32* [[GEP3:%.*]] = getelementptr inbounds [1024 x i32]* [[PRIV1]] i64 0 i64 [[IDX1]]
 ; CHECK-NEXT:  [DA: Div] i32* [[BC4:%.*]] = bitcast [1024 x i32]* [[PRIV1]]
 ; CHECK-NEXT:  [DA: Div] i8*  [[BC5:%.*]] = bitcast i32* [[GEP1]]

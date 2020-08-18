@@ -1,5 +1,5 @@
-; RUN: opt < %s -prepare-switch-to-offload=true -switch-to-offload=true -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -S | FileCheck %s
-; RUN: opt < %s -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt' -prepare-switch-to-offload=true -switch-to-offload=true -S  | FileCheck %s
+; RUN: opt < %s  -switch-to-offload -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -S | FileCheck %s
+; RUN: opt < %s -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt'  -switch-to-offload -S  | FileCheck %s
 
 ; Original code:
 ; void test() {
@@ -108,4 +108,4 @@ attributes #1 = { nounwind }
 !0 = !{i32 0, i32 2052, i32 55999408, !"test", i32 2, i32 0, i32 0}
 !1 = !{i32 1, !"wchar_size", i32 4}
 !2 = !{}
-!3 = !{!"Intel(R) oneAPI DPC++ Compiler 2021.1 (YYYY.x.0.MMDD)"}
+!3 = !{!"clang version 10.0.0"}

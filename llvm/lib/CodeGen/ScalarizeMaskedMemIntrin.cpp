@@ -85,7 +85,7 @@ static bool isConstantIntVector(Value *Mask) {
   if (!C)
     return false;
 
-  unsigned NumElts = cast<VectorType>(Mask->getType())->getNumElements();
+  unsigned NumElts = cast<FixedVectorType>(Mask->getType())->getNumElements();
   for (unsigned i = 0; i != NumElts; ++i) {
     Constant *CElt = C->getAggregateElement(i);
     if (!CElt || !isa<ConstantInt>(CElt))
@@ -134,7 +134,7 @@ static void scalarizeMaskedLoad(CallInst *CI, bool &ModifiedDT) {
   Value *Src0 = CI->getArgOperand(3);
 
   const Align AlignVal = cast<ConstantInt>(Alignment)->getAlignValue();
-  VectorType *VecType = cast<VectorType>(CI->getType());
+  VectorType *VecType = cast<FixedVectorType>(CI->getType());
 
   Type *EltTy = VecType->getElementType();
 
@@ -160,7 +160,7 @@ static void scalarizeMaskedLoad(CallInst *CI, bool &ModifiedDT) {
   Type *NewPtrType =
       EltTy->getPointerTo(Ptr->getType()->getPointerAddressSpace());
   Value *FirstEltPtr = Builder.CreateBitCast(Ptr, NewPtrType);
-  unsigned VectorWidth = VecType->getNumElements();
+  unsigned VectorWidth = cast<FixedVectorType>(VecType)->getNumElements();
 
   // The result vector
   Value *VResult = Src0;
@@ -273,7 +273,7 @@ static void scalarizeMaskedStore(CallInst *CI, bool &ModifiedDT) {
   Value *Mask = CI->getArgOperand(3);
 
   const Align AlignVal = cast<ConstantInt>(Alignment)->getAlignValue();
-  VectorType *VecType = cast<VectorType>(Src->getType());
+  auto *VecType = cast<VectorType>(Src->getType());
 
   Type *EltTy = VecType->getElementType();
 
@@ -297,7 +297,7 @@ static void scalarizeMaskedStore(CallInst *CI, bool &ModifiedDT) {
   Type *NewPtrType =
       EltTy->getPointerTo(Ptr->getType()->getPointerAddressSpace());
   Value *FirstEltPtr = Builder.CreateBitCast(Ptr, NewPtrType);
-  unsigned VectorWidth = VecType->getNumElements();
+  unsigned VectorWidth = cast<FixedVectorType>(VecType)->getNumElements();
 
   if (isConstantIntVector(Mask)) {
     for (unsigned Idx = 0; Idx < VectorWidth; ++Idx) {
@@ -460,14 +460,14 @@ static void scalarizeMaskedGather(CallInst *CI, bool &ModifiedDT) {
   Value *Mask = CI->getArgOperand(2);
   Value *Src0 = CI->getArgOperand(3);
 
-  VectorType *VecType = cast<VectorType>(CI->getType());
+  auto *VecType = cast<FixedVectorType>(CI->getType());
   Type *EltTy = VecType->getElementType();
 
   IRBuilder<> Builder(CI->getContext());
   Instruction *InsertPt = CI;
   BasicBlock *IfBlock = CI->getParent();
   Builder.SetInsertPoint(InsertPt);
-  unsigned AlignVal = cast<ConstantInt>(Alignment)->getZExtValue();
+  MaybeAlign AlignVal = cast<ConstantInt>(Alignment)->getMaybeAlignValue();
 
   Builder.SetCurrentDebugLocation(CI->getDebugLoc());
 
@@ -481,8 +481,8 @@ static void scalarizeMaskedGather(CallInst *CI, bool &ModifiedDT) {
       if (cast<Constant>(Mask)->getAggregateElement(Idx)->isNullValue())
         continue;
       Value *Ptr = getScalarAddress(Ptrs, Idx, Builder); // INTEL
-      LoadInst *Load = Builder.CreateAlignedLoad(
-          EltTy, Ptr, MaybeAlign(AlignVal), "Load" + Twine(Idx));
+      LoadInst *Load =
+          Builder.CreateAlignedLoad(EltTy, Ptr, AlignVal, "Load" + Twine(Idx));
       VResult =
           Builder.CreateInsertElement(VResult, Load, Idx, "Res" + Twine(Idx));
     }
@@ -530,9 +530,9 @@ static void scalarizeMaskedGather(CallInst *CI, bool &ModifiedDT) {
     BasicBlock *CondBlock = IfBlock->splitBasicBlock(InsertPt, "cond.load");
     Builder.SetInsertPoint(InsertPt);
 
-    Value *Ptr = Builder.CreateExtractElement(Ptrs, Idx, "Ptr" + Twine(Idx));
-    LoadInst *Load = Builder.CreateAlignedLoad(EltTy, Ptr, MaybeAlign(AlignVal),
-                                               "Load" + Twine(Idx));
+    Value *Ptr = getScalarAddress(Ptrs, Idx, Builder); // INTEL
+    LoadInst *Load =
+        Builder.CreateAlignedLoad(EltTy, Ptr, AlignVal, "Load" + Twine(Idx));
     Value *NewVResult =
         Builder.CreateInsertElement(VResult, Load, Idx, "Res" + Twine(Idx));
 
@@ -589,8 +589,8 @@ static void scalarizeMaskedScatter(CallInst *CI, bool &ModifiedDT) {
   Value *Alignment = CI->getArgOperand(2);
   Value *Mask = CI->getArgOperand(3);
 
-  assert(isa<VectorType>(Src->getType()) &&
-         "Unexpected data type in masked scatter intrinsic");
+  auto *SrcFVTy = cast<FixedVectorType>(Src->getType());
+
   assert(
       isa<VectorType>(Ptrs->getType()) &&
       isa<PointerType>(cast<VectorType>(Ptrs->getType())->getElementType()) &&
@@ -602,8 +602,8 @@ static void scalarizeMaskedScatter(CallInst *CI, bool &ModifiedDT) {
   Builder.SetInsertPoint(InsertPt);
   Builder.SetCurrentDebugLocation(CI->getDebugLoc());
 
-  MaybeAlign AlignVal(cast<ConstantInt>(Alignment)->getZExtValue());
-  unsigned VectorWidth = cast<VectorType>(Src->getType())->getNumElements();
+  MaybeAlign AlignVal = cast<ConstantInt>(Alignment)->getMaybeAlignValue();
+  unsigned VectorWidth = SrcFVTy->getNumElements();
 
   // Shorten the way if the mask is a vector of constants.
   if (isConstantIntVector(Mask)) {
@@ -658,7 +658,7 @@ static void scalarizeMaskedScatter(CallInst *CI, bool &ModifiedDT) {
     Builder.SetInsertPoint(InsertPt);
 
     Value *OneElt = Builder.CreateExtractElement(Src, Idx, "Elt" + Twine(Idx));
-    Value *Ptr = Builder.CreateExtractElement(Ptrs, Idx, "Ptr" + Twine(Idx));
+    Value *Ptr = getScalarAddress(Ptrs, Idx, Builder); // INTEL
     Builder.CreateAlignedStore(OneElt, Ptr, AlignVal);
 
     // Create "else" block, fill it in the next iteration
@@ -679,7 +679,7 @@ static void scalarizeMaskedExpandLoad(CallInst *CI, bool &ModifiedDT) {
   Value *Mask = CI->getArgOperand(1);
   Value *PassThru = CI->getArgOperand(2);
 
-  VectorType *VecType = cast<VectorType>(CI->getType());
+  auto *VecType = cast<FixedVectorType>(CI->getType());
 
   Type *EltTy = VecType->getElementType();
 
@@ -792,7 +792,7 @@ static void scalarizeMaskedCompressStore(CallInst *CI, bool &ModifiedDT) {
   Value *Ptr = CI->getArgOperand(1);
   Value *Mask = CI->getArgOperand(2);
 
-  VectorType *VecType = cast<VectorType>(Src->getType());
+  auto *VecType = cast<FixedVectorType>(Src->getType());
 
   IRBuilder<> Builder(CI->getContext());
   Instruction *InsertPt = CI;

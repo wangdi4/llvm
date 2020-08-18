@@ -13,13 +13,15 @@ define i8 @nosignedwrap(i8 %v) {
 }
 
 ; This demonstrates a case where it is provable that these additions form a
-; particular sum tree which can't sign wrap, but ScalarEvolution doesn't mark
-; the sum as no-wrap because another sum tree with the same operands could
-; wrap. E.g, ((%v0 + -4) + 127) doesn't wrap, but ((%v0 + 127) + -4) could.
-; CHECK-LABEL: @falsewrap
+; particular sum tree which can be shown to not wrap only if the flag ;
+; strengthening happens after constants in the sum are folded.
+; E.g, %a1 = ((%v0 + -4) + 127) doesn't wrap, but ((%v0 + 127) + -4) could, so
+; the 3-way sum cannot have NSW. However, with constant folding we have a
+; binary sum, (123 + %v0), and this can be shown to NSW.
+; CHECK-LABEL: @foldednsw
 ; CHECK: %a1 =
-; CHECK: --> (123 + %v0) U: full-set S: [119,127)
-define i8 @falsewrap(i8 %v) {
+; CHECK: --> (123 + %v0)<nsw> U: [-5,-128) S: [119,127)
+define i8 @foldednsw(i8 %v) {
         %v0 = srem i8 %v, 4
         %a0 = add i8 %v0, -4
         %a1 = add i8 %a0, 127

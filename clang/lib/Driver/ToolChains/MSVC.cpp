@@ -9,6 +9,7 @@
 #include "MSVC.h"
 #include "CommonArgs.h"
 #include "Darwin.h"
+#include "Arch/X86.h" // INTEL
 #include "clang/Basic/CharInfo.h"
 #include "clang/Basic/Version.h"
 #include "clang/Driver/Compilation.h"
@@ -322,12 +323,16 @@ void visualstudio::Linker::constructMSVCLibCommand(Compilation &C,
     }
     CmdArgs.push_back(II.getFilename());
   }
+  if (Args.hasArg(options::OPT_fsycl_link_EQ) &&
+      Args.hasArg(options::OPT_fintelfpga))
+    CmdArgs.push_back("/IGNORE:4221");
   CmdArgs.push_back(
       C.getArgs().MakeArgString(Twine("-OUT:") + Output.getFilename()));
 
   SmallString<128> ExecPath(getToolChain().GetProgramPath("lib.exe"));
   const char *Exec = C.getArgs().MakeArgString(ExecPath);
-  C.addCommand(std::make_unique<Command>(JA, *this, Exec, CmdArgs, None));
+  C.addCommand(std::make_unique<Command>(
+      JA, *this, ResponseFileSupport::AtFileUTF16(), Exec, CmdArgs, None));
 }
 
 void visualstudio::Linker::ConstructJob(Compilation &C, const JobAction &JA,
@@ -359,7 +364,8 @@ void visualstudio::Linker::ConstructJob(Compilation &C, const JobAction &JA,
 #endif // INTEL_CUSTOMIZATION
   }
 
-  if (!Args.hasArg(options::OPT_nostdlib) && Args.hasArg(options::OPT_fsycl)) {
+  if (!Args.hasArg(options::OPT_nostdlib) && Args.hasArg(options::OPT_fsycl) &&
+      !Args.hasArg(options::OPT_nolibsycl)) {
     if (Args.hasArg(options::OPT__SLASH_MDd) ||
         Args.hasArg(options::OPT__SLASH_MTd))
       CmdArgs.push_back("-defaultlib:sycld.lib");
@@ -377,8 +383,9 @@ void visualstudio::Linker::ConstructJob(Compilation &C, const JobAction &JA,
 #if INTEL_CUSTOMIZATION
   // Add other Intel specific libraries (libirc, svml, libdecimal)
   if (!Args.hasArg(options::OPT_nostdlib) && !C.getDriver().IsCLMode() &&
-      Args.hasArg(options::OPT__intel, options::OPT__dpcpp)) {
-    CmdArgs.push_back("-defaultlib:libircmt");
+      (C.getDriver().IsIntelMode() || Args.hasArg(options::OPT__dpcpp))) {
+    if (!Args.hasArg(options::OPT_i_no_use_libirc))
+      CmdArgs.push_back("-defaultlib:libircmt");
     CmdArgs.push_back("-defaultlib:svml_dispmt");
     CmdArgs.push_back("-defaultlib:libdecimal");
   }
@@ -537,9 +544,20 @@ void visualstudio::Linker::ConstructJob(Compilation &C, const JobAction &JA,
     }
   }
 
-  if (Args.hasFlag(options::OPT_fopenmp, options::OPT_fopenmp_EQ,
-                   options::OPT_fno_openmp, false) || // INTEL
-      Args.hasArg(options::OPT_fiopenmp)) {           // INTEL
+#if INTEL_CUSTOMIZATION
+  bool StubsAdded = false;
+  if (Arg *A = Args.getLastArg(options::OPT_qopenmp_stubs,
+      options::OPT_fopenmp, options::OPT_fopenmp_EQ, options::OPT_fiopenmp)) {
+    if (A->getOption().matches(options::OPT_qopenmp_stubs)) {
+      CmdArgs.push_back("-defaultlib:libiompstubs5md.lib");
+      StubsAdded = true;
+    }
+  }
+  if (!StubsAdded && (Args.hasFlag(options::OPT_fopenmp,
+                                   options::OPT_fopenmp_EQ,
+                                   options::OPT_fno_openmp, false)) ||
+      Args.hasArg(options::OPT_fiopenmp, options::OPT_mkl_EQ)) {
+#endif // INTEL_CUSTOMIZATION
     CmdArgs.push_back("-nodefaultlib:vcomp.lib");
     CmdArgs.push_back("-nodefaultlib:vcompd.lib");
     CmdArgs.push_back(Args.MakeArgString(std::string("-libpath:") +
@@ -635,10 +653,23 @@ void visualstudio::Linker::ConstructJob(Compilation &C, const JobAction &JA,
         CmdArgs.push_back(Args.MakeArgString(Twine("-opt:lldlto=") + OOpt));
     }
     // Add any Intel defaults.
-    if (Args.hasArg(options::OPT__intel))
+    if (C.getDriver().IsIntelMode())
       if (Arg * A = Args.getLastArg(options::OPT_fveclib))
         CmdArgs.push_back(Args.MakeArgString(Twine("-mllvm:-vector-library=") +
                                              A->getValue()));
+    auto addAdvancedOptimFlag = [&](const Arg &OptArg, OptSpecifier Opt) {
+      if (OptArg.getOption().matches(Opt) &&
+          x86::isValidIntelCPU(OptArg.getValue(), TC.getTriple()))
+        CmdArgs.push_back("-mllvm:-enable-intel-advanced-opts");
+    };
+    // Given -x, turn on advanced optimizations
+    if (Arg *A = Args.getLastArgNoClaim(options::OPT_march_EQ, options::OPT_x))
+      addAdvancedOptimFlag(*A, options::OPT_x);
+    // Additional handling for /arch and /Qx
+    if (Arg *A = Args.getLastArgNoClaim(options::OPT__SLASH_arch,
+                                        options::OPT__SLASH_Qx))
+      addAdvancedOptimFlag(*A, options::OPT__SLASH_Qx);
+
     addIntelOptimizationArgs(TC, Args, CmdArgs, true);
     // Using lld-link and -flto, we need to add any additional -mllvm options
     // and implied options.
@@ -730,8 +761,9 @@ void visualstudio::Linker::ConstructJob(Compilation &C, const JobAction &JA,
     linkPath = TC.GetProgramPath(Linker.str().c_str());
   }
 
-  auto LinkCmd = std::make_unique<Command>(
-      JA, *this, Args.MakeArgString(linkPath), CmdArgs, Inputs);
+  auto LinkCmd =
+      std::make_unique<Command>(JA, *this, ResponseFileSupport::AtFileUTF16(),
+                                Args.MakeArgString(linkPath), CmdArgs, Inputs);
   if (!Environment.empty())
     LinkCmd->setEnvironment(Environment);
   C.addCommand(std::move(LinkCmd));
@@ -871,8 +903,9 @@ std::unique_ptr<Command> visualstudio::Compiler::GetCommand(
   CmdArgs.push_back(Fo);
 
   std::string Exec = FindVisualStudioExecutable(getToolChain(), "cl.exe");
-  return std::make_unique<Command>(JA, *this, Args.MakeArgString(Exec),
-                                    CmdArgs, Inputs);
+  return std::make_unique<Command>(JA, *this,
+                                   ResponseFileSupport::AtFileUTF16(),
+                                   Args.MakeArgString(Exec), CmdArgs, Inputs);
 }
 
 MSVCToolChain::MSVCToolChain(const Driver &D, const llvm::Triple &Triple,
@@ -943,6 +976,7 @@ void MSVCToolChain::AddHIPIncludeArgs(const ArgList &DriverArgs,
 
 void MSVCToolChain::printVerboseInfo(raw_ostream &OS) const {
   CudaInstallation.print(OS);
+  RocmInstallation.print(OS);
 }
 
 // Windows SDKs and VC Toolchains group their contents into subdirectories based
@@ -1399,7 +1433,7 @@ void MSVCToolChain::AddClangSystemIncludeArgs(const ArgList &DriverArgs,
 
 #if INTEL_CUSTOMIZATION
   // Add Intel specific headers
-  if (DriverArgs.hasArg(clang::driver::options::OPT__intel))
+  if (getDriver().IsIntelMode())
     addSystemInclude(DriverArgs, CC1Args,
                      getDriver().Dir + "/../compiler/include");
 
@@ -1561,6 +1595,7 @@ static void TranslateOptArg(Arg *A, llvm::opt::DerivedArgList &DAL,
       break;
     case '1':
     case '2':
+    case '3': // INTEL
     case 'x':
     case 'd':
       // Ignore /O[12xd] flags that aren't the last one on the command line.
@@ -1577,11 +1612,18 @@ static void TranslateOptArg(Arg *A, llvm::opt::DerivedArgList &DAL,
         } else if (OptChar == '2' || OptChar == 'x') {
           DAL.AddFlagArg(A, Opts.getOption(options::OPT_fbuiltin));
           DAL.AddJoinedArg(A, Opts.getOption(options::OPT_O), "2");
+#if INTEL_CUSTOMIZATION
+        } else if (OptChar == '3') {
+          DAL.AddFlagArg(A, Opts.getOption(options::OPT_fbuiltin));
+          DAL.AddJoinedArg(A, Opts.getOption(options::OPT_O), "3");
+#endif // INTEL_CUSTOMIZATION
         }
         if (SupportsForcingFramePointer &&
             !DAL.hasArgNoClaim(options::OPT_fno_omit_frame_pointer))
           DAL.AddFlagArg(A, Opts.getOption(options::OPT_fomit_frame_pointer));
-        if (OptChar == '1' || OptChar == '2')
+#if INTEL_CUSTOMIZATION
+        if (OptChar == '1' || OptChar == '2' || OptChar == '3')
+#endif // INTEL_CUSTOMIZATION
           DAL.AddFlagArg(A, Opts.getOption(options::OPT_ffunction_sections));
       }
       break;
@@ -1689,7 +1731,10 @@ MSVCToolChain::TranslateArgs(const llvm::opt::DerivedArgList &Args,
         // OptChar does not expand; it's an argument to the previous char.
         continue;
       }
-      if (OptChar == '1' || OptChar == '2' || OptChar == 'x' || OptChar == 'd')
+#if INTEL_CUSTOMIZATION
+      if (OptChar == '1' || OptChar == '2' || OptChar == 'x' ||
+          OptChar == 'd' || OptChar == '3')
+#endif // INTEL_CUSTOMIZATION
         ExpandChar = OptStr.data() + I;
     }
   }

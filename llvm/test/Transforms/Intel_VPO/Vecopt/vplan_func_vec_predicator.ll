@@ -237,6 +237,92 @@ exit:
   ret void
 }
 
+; Checks that two top-level loops don't cause any asserts.
+define void @test_two_loops(i32 %vf) {
+; CHECK-LABEL:  VPlan IR for: test_two_loops
+; CHECK-NEXT:    [[BB0:BB[0-9]+]]:
+; CHECK-NEXT:     [DA: Div] i32 [[VP_LANE:%.*]] = induction-init{add} i32 0 i32 1
+; CHECK-NEXT:     [DA: Div] i1 [[VP_TOPTEST:%.*]] = icmp i32 [[VP_LANE]] i32 3
+; CHECK-NEXT:     [DA: Div] i1 [[VP_TOPTEST_NOT:%.*]] = not i1 [[VP_TOPTEST]]
+; CHECK-NEXT:    SUCCESSORS(1):[[BB1:BB[0-9]+]]
+; CHECK-NEXT:    no PREDECESSORS
+; CHECK-EMPTY:
+; CHECK-NEXT:    [[BB1]]:
+; CHECK-NEXT:     [DA: Div] i1 [[VP0:%.*]] = block-predicate i1 [[VP_TOPTEST_NOT]]
+; CHECK-NEXT:    SUCCESSORS(1):[[BB2:BB[0-9]+]]
+; CHECK-NEXT:    PREDECESSORS(1): [[BB0]]
+; CHECK-EMPTY:
+; CHECK-NEXT:    [[BB2]]:
+; CHECK-NEXT:     [DA: Uni] i32 [[VP_LOOP_IV:%.*]] = phi  [ i32 0, [[BB1]] ],  [ i32 [[VP_LOOP_IV_NEXT:%.*]], [[BB2]] ]
+; CHECK-NEXT:     [DA: Div] i32 [[VP_VEC:%.*]] = phi  [ i32 [[VP_LANE]], [[BB1]] ],  [ i32 [[VP_VEC_NEXT:%.*]], [[BB2]] ]
+; CHECK-NEXT:     [DA: Div] i1 [[VP1:%.*]] = block-predicate i1 [[VP_TOPTEST_NOT]]
+; CHECK-NEXT:     [DA: Div] i1 [[VP_COND:%.*]] = icmp i32 [[VP_LANE]] i32 3
+; CHECK-NEXT:     [DA: Uni] i32 [[VP_LOOP_IV_NEXT]] = add i32 [[VP_LOOP_IV]] i32 1
+; CHECK-NEXT:     [DA: Div] i32 [[VP_VEC_NEXT]] = add i32 [[VP_VEC]] i32 [[VF0:%.*]]
+; CHECK-NEXT:     [DA: Uni] i1 [[VP_EXIT_COND:%.*]] = icmp i32 [[VP_LOOP_IV]] i32 42
+; CHECK-NEXT:     [DA: Uni] i1 [[VP2:%.*]] = all-zero-check i1 [[VP_TOPTEST_NOT]]
+; CHECK-NEXT:     [DA: Uni] i1 [[VP3:%.*]] = or i1 [[VP2]] i1 [[VP_EXIT_COND]]
+; CHECK-NEXT:    SUCCESSORS(2):[[BB3:BB[0-9]+]](i1 [[VP3]]), [[BB2]](!i1 [[VP3]])
+; CHECK-NEXT:    PREDECESSORS(2): [[BB1]] [[BB2]]
+; CHECK-EMPTY:
+; CHECK-NEXT:    [[BB3]]:
+; CHECK-NEXT:     [DA: Div] i1 [[VP4:%.*]] = block-predicate i1 [[VP_TOPTEST_NOT]]
+; CHECK-NEXT:    SUCCESSORS(1):[[BB4:BB[0-9]+]]
+; CHECK-NEXT:    PREDECESSORS(1): [[BB2]]
+; CHECK-EMPTY:
+; CHECK-NEXT:    [[BB4]]:
+; CHECK-NEXT:     [DA: Uni] i32 [[VP_LOOP_IV2:%.*]] = phi  [ i32 0, [[BB3]] ],  [ i32 [[VP_LOOP_IV2_NEXT:%.*]], [[BB4]] ]
+; CHECK-NEXT:     [DA: Div] i1 [[VP5:%.*]] = block-predicate i1 [[VP_TOPTEST_NOT]]
+; CHECK-NEXT:     [DA: Uni] i32 [[VP_LOOP_IV2_NEXT]] = add i32 [[VP_LOOP_IV2]] i32 1
+; CHECK-NEXT:     [DA: Uni] i1 [[VP_EXIT_COND2:%.*]] = icmp i32 [[VP_LOOP_IV2]] i32 42
+; CHECK-NEXT:     [DA: Uni] i1 [[VP6:%.*]] = all-zero-check i1 [[VP_TOPTEST_NOT]]
+; CHECK-NEXT:     [DA: Uni] i1 [[VP7:%.*]] = or i1 [[VP6]] i1 [[VP_EXIT_COND2]]
+; CHECK-NEXT:    SUCCESSORS(2):[[BB5:BB[0-9]+]](i1 [[VP7]]), [[BB4]](!i1 [[VP7]])
+; CHECK-NEXT:    PREDECESSORS(2): [[BB3]] [[BB4]]
+; CHECK-EMPTY:
+; CHECK-NEXT:    [[BB5]]:
+; CHECK-NEXT:     [DA: Div] i1 [[VP8:%.*]] = block-predicate i1 [[VP_TOPTEST_NOT]]
+; CHECK-NEXT:    SUCCESSORS(1):[[BB6:BB[0-9]+]]
+; CHECK-NEXT:    PREDECESSORS(1): [[BB4]]
+; CHECK-EMPTY:
+; CHECK-NEXT:    [[BB6]]:
+; CHECK-NEXT:     [DA: Div] void [[VP9:%.*]] = ret
+; CHECK-NEXT:    no SUCCESSORS
+; CHECK-NEXT:    PREDECESSORS(1): [[BB5]]
+;
+entry:
+  %lane = call i32 @llvm.vplan.laneid()
+  %toptest = icmp eq i32 %lane, 3
+  br i1 %toptest, label %exit, label %preheader
+
+preheader:
+  br label %header
+
+header:
+  %loop_iv = phi i32 [ 0, %preheader ], [ %loop_iv.next, %header ]
+  %vec = phi i32 [ %lane, %preheader ], [ %vec.next, %header ]
+  %cond = icmp eq i32 %lane, 3
+  %loop_iv.next = add nsw nuw i32 %loop_iv, 1
+  %vec.next = add nsw nuw i32 %vec, %vf
+  %exit_cond = icmp eq i32 %loop_iv, 42
+  br i1 %exit_cond, label %loop.exit, label %header
+
+loop.exit:
+  br label %header2
+
+header2:
+  %loop_iv2 = phi i32 [ 0, %loop.exit ], [ %loop_iv2.next, %header2 ]
+  %loop_iv2.next = add nsw nuw i32 %loop_iv2, 1
+  %exit_cond2 = icmp eq i32 %loop_iv2, 42
+  br i1 %exit_cond2, label %loop.exit2, label %header2
+
+loop.exit2:
+  br label %exit
+
+exit:
+  ret void
+}
+
 declare i32 @llvm.vplan.laneid()
 declare i1 @allzero(i1) #0
 

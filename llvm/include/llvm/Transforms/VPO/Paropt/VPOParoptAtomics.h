@@ -127,6 +127,11 @@ private:
   static const std::map<AtomicOperationTy, const std::string>
       OpToUpdateIntrinsicMap;
 
+  /// \brief Map from operation and operand types to intrinsic name for atomic
+  /// update (for spir64 target).
+  static const std::map<AtomicOperationTy, const std::string>
+      OpToUpdateIntrinsicForTgtMap;
+
   /// \brief Map from operation type to intrinsic name for atomic update, when
   /// the atomic operand and the value operand are reversed.
   /// For example: atomic_opnd = value_opnd - atomic_opnd
@@ -137,6 +142,11 @@ private:
   /// capture.
   static const std::map<AtomicOperationTy, const std::string>
       OpToCaptureIntrinsicMap;
+
+  /// \brief Map from operation and operand types to intrinsic name for atomic
+  /// capture (for spir64 target).
+  static const std::map<AtomicOperationTy, const std::string>
+      OpToCaptureIntrinsicForTgtMap;
 
   /// \brief Map from operation type to intrinsic name for atomic capture,
   /// when the atomic operand and the value operand are reversed.

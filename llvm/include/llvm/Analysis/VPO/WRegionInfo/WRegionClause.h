@@ -20,7 +20,7 @@
 #include "llvm/Analysis/VPO/Utils/VPOAnalysisUtils.h"
 #include "llvm/IR/Metadata.h"
 #include "llvm/Support/Debug.h"
-#include "llvm/Support/raw_ostream.h"
+#include "llvm/Support/CommandLine.h" // INTEL
 #include <tuple>
 #include <vector>
 #if INTEL_CUSTOMIZATION
@@ -180,7 +180,13 @@ class Item
     void setIsByRef(bool Flag)    { IsByRef = Flag;     }
     void setIsNonPod(bool Flag)   { IsNonPod = Flag;    }
     void setIsVla(bool Flag)      { IsVla = Flag;       }
-    void setIsPointerToPointer(bool Flag) { IsPointerToPointer = Flag; }
+    void setIsPointerToPointer(bool Flag) {
+#if INTEL_CUSTOMIZATION
+      assert((!Flag || !IsF90DopeVector) &&
+             "Unexpected: item has both F90_DV and PTR_TO_PTR modifiers.");
+#endif // INTEL_CUSTOMIZATION
+      IsPointerToPointer = Flag;
+    }
     void setThunkBufferSize(EXPR Size) { ThunkBufferSize = Size; }
     void setNewThunkBufferSize(EXPR Size) { NewThunkBufferSize = Size; }
     void setPrivateThunkIdx(int I) { PrivateThunkIdx = I; }
@@ -208,7 +214,11 @@ class Item
 #if INTEL_CUSTOMIZATION
     void setHOrig(HVAR V)         { HOrigItem = V;         }
     template <IRKind IR = LLVMIR> VarType<IR> getOrig() const;
-    void setIsF90DopeVector(bool Flag) { IsF90DopeVector = Flag;  }
+    void setIsF90DopeVector(bool Flag) {
+      assert((!Flag || !IsPointerToPointer) &&
+             "Unexpected: item has both F90_DV and PTR_TO_PTR modifiers.");
+      IsF90DopeVector = Flag;
+    }
     bool getIsF90DopeVector()  const   { return IsF90DopeVector;  }
     void setF90DVNumElements(EXPR Size){ F90DVNumElements = Size; }
     EXPR getF90DVNumElements() const   { return F90DVNumElements; }
@@ -940,7 +950,7 @@ public:
     if (MapChain.empty())
       return;
 
-    llvm::for_each(MapChain, deleter<MapAggrTy>);
+    llvm::for_each(MapChain, [](MapAggrTy *V) { delete V; });
   }
 
   const MapChainTy &getMapChain() const { return MapChain; }
@@ -1101,17 +1111,50 @@ public:
 // These item classes for list-type clauses are not derived from the
 // base "Item" class above.
 //
+//   SubdeviceItem (for the Subdevice clause)
 //   DependItem    (for the depend  clause in task and target constructs)
 //   DepSinkItem   (for the depend(sink:<vec>) clause in ordered constructs)
 //   DepSourceItem (for the depend(source) clause in ordered constructs)
 //   AlignedItem   (for the aligned clause in simd constructs)
 //   FlushItem     (for the flush clause)
 //   AllocateItem  (for the allocate clause)
+//   NontemporalItem (for the nontemporal clause in simd constructs)
 //
 // Clang collapses the 'n' loops for 'ordered(n)'. So VPO always
 // receives a single EXPR for depend(sink:sink_expr), which is already in
 // the form ' IV +/- offset'.
 //
+class SubdeviceItem
+{
+  private:
+    EXPR  Level;          // null if unspecified
+    EXPR  Start;          // null if unspecified
+    EXPR  Length;         // null if unspecified
+    EXPR  Stride;         // null if unspecified
+
+  public:
+    SubdeviceItem(const Use *Args) {
+      Level = cast<Value>(Args[0]);
+      Start = cast<Value>(Args[1]);
+      Length = cast<Value>(Args[2]);
+      Stride = cast<Value>(Args[3]);
+    }
+
+    void setLevel(EXPR Lev)     { Level = Lev;   }
+    void setStart(EXPR Sta)     { Start = Sta;   }
+    void setLength(EXPR Len)    { Length = Len;  }
+    void setStride(EXPR Str)    { Stride = Str;  }
+
+    EXPR setLevel()     const   { return Level;  }
+    EXPR getStart()     const   { return Start;  }
+    EXPR getLevel()     const   { return Length; }
+    EXPR getStride()    const   { return Stride; }
+    void print(formatted_raw_ostream &OS, bool PrintType=true) const {
+        OS << "SUBDEVICE(" << Level << ", " << Start << ", " << Length << ", "
+           << Stride << ")";
+    }
+};
+
 class DependItem
 {
   private:
@@ -1207,6 +1250,22 @@ class AlignedItem
       OS << "(";
       getOrig()->printAsOperand(OS, PrintType);
       OS << ", " << getAlign() << ") ";
+    }
+};
+
+class NontemporalItem
+{
+  private:
+    VAR Base; // pointer or base of array
+
+  public:
+    NontemporalItem(VAR V=nullptr) : Base(V) {}
+    VAR getOrig() const { return Base; }
+
+    void print(formatted_raw_ostream &OS, bool PrintType=true) const {
+      OS << "(";
+      getOrig()->printAsOperand(OS, PrintType);
+      OS << ") ";
     }
 };
 
@@ -1369,10 +1428,12 @@ typedef Clause<UniformItem>       UniformClause;
 typedef Clause<MapItem>           MapClause;
 typedef Clause<IsDevicePtrItem>   IsDevicePtrClause;
 typedef Clause<UseDevicePtrItem>  UseDevicePtrClause;
+typedef Clause<SubdeviceItem>     SubdeviceClause;
 typedef Clause<DependItem>        DependClause;
 typedef Clause<DepSinkItem>       DepSinkClause;
 typedef Clause<DepSourceItem>     DepSourceClause;
 typedef Clause<AlignedItem>       AlignedClause;
+typedef Clause<NontemporalItem>   NontemporalClause;
 typedef Clause<FlushItem>         FlushSet;
 typedef Clause<AllocateItem>      AllocateClause;
 
@@ -1388,10 +1449,12 @@ typedef std::vector<UniformItem>::iterator       UniformIter;
 typedef std::vector<MapItem>::iterator           MapIter;
 typedef std::vector<IsDevicePtrItem>::iterator   IsDevicePtrIter;
 typedef std::vector<UseDevicePtrItem>::iterator  UseDevicePtrIter;
+typedef std::vector<SubdeviceItem>::iterator     SubdeviceIter;
 typedef std::vector<DependItem>::iterator        DependIter;
 typedef std::vector<DepSinkItem>::iterator       DepSinkIter;
 typedef std::vector<DepSourceItem>::iterator     DepSourceIter;
 typedef std::vector<AlignedItem>::iterator       AlignedIter;
+typedef std::vector<NontemporalItem>::iterator   NontemporalIter;
 typedef std::vector<FlushItem>::iterator         FlushIter;
 typedef std::vector<AllocateItem>::iterator      AllocateIter;
 

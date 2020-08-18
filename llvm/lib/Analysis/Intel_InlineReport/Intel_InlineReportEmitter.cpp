@@ -30,14 +30,78 @@ extern cl::opt<unsigned> IntelInlineReportLevel;
 
 #define DEBUG_TYPE "inlinereportemitter"
 
-///
-/// \brief Print function linkage char
-///
-/// CalleeName: function name
-/// Level: The level N from '-inline-report=N'
-///
-static void printFunctionLinkageChar(StringRef CalleeName, Module &M,
-                                     unsigned Level) {
+//
+// This is a common helper class to emit the metadata based inlining
+// report from either the legacy or new pass manager.
+//
+
+class IREmitterInfo {
+
+public:
+  // Main constructor
+  IREmitterInfo(Module &M, unsigned Level, unsigned OptLevel,
+                unsigned SizeLevel, bool PrepareForLTO)
+      : M(M), Level(Level), OptLevel(OptLevel), SizeLevel(SizeLevel),
+        PrepareForLTO(PrepareForLTO) {}
+
+  // Run the inline report emitter
+  bool runImpl();
+
+private:
+  Module &M;              // Module of Inline Report being emitted
+  unsigned Level;         // Level of Inline Report being emitted
+  unsigned OptLevel;      // Opt Level at which Module was compiled
+  unsigned SizeLevel;     // Opt For Size Level at which Module was compiled
+  bool PrepareForLTO;     // True in the LTO "Compile Step"
+  std::set<StringRef>            // Names of dead Fortran Functions, used
+     DeadFortranFunctionNames;   // to provide language char.
+
+  // Print the linkage character for the Function with name 'CalleeName'.
+  void printFunctionLinkageChar(StringRef CalleeName);
+
+  // Print the language character for the Function with name 'CalleeName'.
+  void printFunctionLanguageChar(StringRef CalleeName);
+
+  // Print the name of the callee, module name, line, and column for the
+  // callee. 'MD' is the metadata tuple with callee name, module name, line,
+  // and column info.
+  void printCalleeNameModuleLineCol(MDTuple *MD);
+
+  // Print a simple message for a callsite. 'Message' is the message,
+  // 'IsInlined' is 'true' if the callsite was inlined. 'IndentCount' is
+  // the number of spaces the message should be indented.
+  void printSimpleMessage(const char *Message, bool IsInlined,
+                          unsigned IndentCount);
+
+  // Print the cost and threshold info. 'MD' is a metadata tuple including
+  // the info. 'IsInlined' is 'true' if the callsite was inlined.
+  void printCostAndThreshold(MDTuple *MD, bool IsInlined);
+
+  // Print the outer cost and threshold info. 'MD' is a metadata tuple
+  // including the info.
+  void printOuterCostAndThreshold(MDTuple *MD);
+
+  // Print the inline report info for a callsite. 'MD' is a metadata tuple
+  // including the info. 'IndentCount' is the number of spaces to
+  // indent the info before printing.
+  void printCallSiteInlineReport(Metadata *MD, unsigned IndentCount);
+
+  // Print the inline report info for the callsites of a Function. 'MD' is
+  // a metadata tuple including the info. 'IndentCount' is the number of
+  // spaces to indent the info before printing.
+  void printCallSiteInlineReports(Metadata *MD, unsigned IndentCount);
+
+  // Using the metadata inline report 'MIR', find the names of the dead
+  // Fortran Functions, in case we need to print the language char for all
+  // Functions.
+  void findDeadFortranFunctionNames(NamedMDNode *MIR);
+
+  // Print the inline report info for a Function. 'Node' is a metadata tuple
+  // including the info.
+  void printFunctionInlineReportFromMetadata(MDNode *Node);
+};
+
+void IREmitterInfo::printFunctionLinkageChar(StringRef CalleeName) {
   if (!(Level & InlineReportOptions::Linkage))
     return;
   if (Function *F = M.getFunction(CalleeName)) {
@@ -49,18 +113,24 @@ static void printFunctionLinkageChar(StringRef CalleeName, Module &M,
   llvm::errs() << "L ";
 }
 
-///
-/// \brief Print a simple message
-///
-/// MD: Metadata tuple with module and location information
-/// M: Current module
-/// Level: The level N from '-inline-report=N'
-///
-static void printCalleeNameModuleLineCol(MDTuple *MD, Module &M,
-                                         unsigned Level) {
+void IREmitterInfo::printFunctionLanguageChar(StringRef CalleeName) {
+  if (!(Level & InlineReportOptions::Language))
+    return;
+  if (Function *F = M.getFunction(CalleeName)) {
+    llvm::errs() << llvm::getLanguageStr(F) << ' ';
+    return;
+  }
+  // If we can't find a function in the module, then it is dead.
+  // Use the DeadFortranFunctionNames set to find its language.
+  bool IsFortran = DeadFortranFunctionNames.count(CalleeName);
+  llvm::errs() << (IsFortran ? "F" : "C") << ' ';
+}
+
+void IREmitterInfo::printCalleeNameModuleLineCol(MDTuple *MD) {
   CallSiteInliningReport CSIR(MD);
   StringRef CalleeName = CSIR.getName();
-  printFunctionLinkageChar(CalleeName, M, Level);
+  printFunctionLinkageChar(CalleeName);
+  printFunctionLanguageChar(CalleeName);
   llvm::errs() << CalleeName;
   unsigned LineNum = 0, ColNum = 0;
   CSIR.getLineAndCol(&LineNum, &ColNum);
@@ -71,16 +141,8 @@ static void printCalleeNameModuleLineCol(MDTuple *MD, Module &M,
     llvm::errs() << " (" << LineNum << "," << ColNum << ")";
 }
 
-///
-/// \brief Print a simple message
-///
-/// Message: The message being printed
-/// IsInline: The flag saying if the call site was inlined
-/// IndentCount: The number of indentations before printing the message
-/// Level: The level N from '-inline-report=N'
-///
-static void printSimpleMessage(const char *Message, bool IsInline,
-                               unsigned IndentCount, unsigned Level) {
+void IREmitterInfo::printSimpleMessage(const char *Message, bool IsInlined,
+                                       unsigned IndentCount) {
 #if !INTEL_PRODUCT_RELEASE
   if (Level & InlineReportOptions::Reasons) {
     if (Level & InlineReportOptions::SameLine) {
@@ -89,9 +151,9 @@ static void printSimpleMessage(const char *Message, bool IsInline,
       llvm::errs() << "\n";
       printIndentCount(IndentCount + 1);
     }
-    llvm::errs() << (IsInline ? "<<" : "[[");
+    llvm::errs() << (IsInlined ? "<<" : "[[");
     llvm::errs() << Message;
-    llvm::errs() << (IsInline ? ">>" : "]]");
+    llvm::errs() << (IsInlined ? ">>" : "]]");
     llvm::errs() << "\n";
     return;
   }
@@ -99,10 +161,7 @@ static void printSimpleMessage(const char *Message, bool IsInline,
   llvm::errs() << "\n";
 }
 
-///
-/// \brief Print the inlining cost and threshold values
-///
-static void printCostAndThreshold(MDTuple *MD, bool IsInlined, unsigned Level) {
+void IREmitterInfo::printCostAndThreshold(MDTuple *MD, bool IsInlined) {
   int64_t InlineCost = -1;
   getOpVal(MD->getOperand(CSMDIR_InlineCost), "inlineCost: ", &InlineCost);
   int64_t InlineThreshold = -1;
@@ -132,10 +191,7 @@ static void printCostAndThreshold(MDTuple *MD, bool IsInlined, unsigned Level) {
   llvm::errs() << ")";
 }
 
-///
-/// \brief Print the outer inlining cost and threshold values
-///
-static void printOuterCostAndThreshold(MDTuple *MD, unsigned Level) {
+void IREmitterInfo::printOuterCostAndThreshold(MDTuple *MD) {
   int64_t OuterCost = -1;
   getOpVal(MD->getOperand(CSMDIR_OuterInlineCost),
            "outerInlineCost: ", &OuterCost);
@@ -148,17 +204,8 @@ static void printOuterCostAndThreshold(MDTuple *MD, unsigned Level) {
                << InlineThreshold << ")";
 }
 
-///
-/// \brief Print the inline report for dependent call sites
-///
-static void printCallSiteInlineReports(Metadata *MD, unsigned IndentCount,
-                                       Module &M, unsigned Level);
-
-///
-/// \brief Print the inline report for call site
-///
-void printCallSiteInlineReport(Metadata *MD, unsigned IndentCount, Module &M,
-                               unsigned Level) {
+void IREmitterInfo::printCallSiteInlineReport(Metadata *MD,
+                                              unsigned IndentCount) {
   MDTuple *CSIR = cast<MDTuple>(MD);
   assert((CSIR->getNumOperands() == CallSiteMDSize) &&
       "Bad call site inlining report format");
@@ -179,71 +226,53 @@ void printCallSiteInlineReport(Metadata *MD, unsigned IndentCount, Module &M,
   getOpVal(CSIR->getOperand(CSMDIR_IsInlined), "isInlined: ", &IsInlined);
   if (IsInlined) {
     llvm::errs() << "-> INLINE: ";
-    printCalleeNameModuleLineCol(CSIR, M, Level);
+    printCalleeNameModuleLineCol(CSIR);
     if (InlineReasonText[Reason].Type == InlPrtCost) {
-      printCostAndThreshold(CSIR, true, Level);
+      printCostAndThreshold(CSIR, true);
     }
-    printSimpleMessage(InlineReasonText[Reason].Message, true, IndentCount,
-                       Level);
+    printSimpleMessage(InlineReasonText[Reason].Message, true, IndentCount);
   } else {
     if (InlineReasonText[Reason].Type == InlPrtSpecial) {
       switch (Reason) {
       case NinlrDeleted:
         llvm::errs() << "-> DELETE: ";
-        printCalleeNameModuleLineCol(CSIR, M, Level);
+        printCalleeNameModuleLineCol(CSIR);
         llvm::errs() << "\n";
         break;
       case NinlrExtern:
         llvm::errs() << "-> EXTERN: ";
-        printCalleeNameModuleLineCol(CSIR, M, Level);
+        printCalleeNameModuleLineCol(CSIR);
         llvm::errs() << "\n";
         break;
       case NinlrIndirect:
         llvm::errs() << "-> INDIRECT: ";
-        printCalleeNameModuleLineCol(CSIR, M, Level);
-        printSimpleMessage(InlineReasonText[Reason].Message, false, IndentCount,
-                           Level);
+        printCalleeNameModuleLineCol(CSIR);
+        printSimpleMessage(InlineReasonText[Reason].Message, false,
+                           IndentCount);
         break;
       case NinlrOuterInlining:
         llvm::errs() << "-> ";
-        printCalleeNameModuleLineCol(CSIR, M, Level);
-        printOuterCostAndThreshold(CSIR, Level);
-        printSimpleMessage(InlineReasonText[Reason].Message, false, IndentCount,
-                           Level);
+        printCalleeNameModuleLineCol(CSIR);
+        printOuterCostAndThreshold(CSIR);
+        printSimpleMessage(InlineReasonText[Reason].Message, false,
+                           IndentCount);
         break;
       default:
         assert(0);
       }
     } else {
       llvm::errs() << "-> ";
-      printCalleeNameModuleLineCol(CSIR, M, Level);
+      printCalleeNameModuleLineCol(CSIR);
       if (InlineReasonText[Reason].Type == InlPrtCost)
-        printCostAndThreshold(CSIR, false, Level);
-      printSimpleMessage(InlineReasonText[Reason].Message, false, IndentCount,
-                         Level);
+        printCostAndThreshold(CSIR, false);
+      printSimpleMessage(InlineReasonText[Reason].Message, false, IndentCount);
     }
   }
-  printCallSiteInlineReports(CSIR->getOperand(CSMDIR_CSs), IndentCount + 1, M,
-                             Level);
+  printCallSiteInlineReports(CSIR->getOperand(CSMDIR_CSs), IndentCount + 1);
 }
 
-///
-/// \brief Print call site inline report (for external use)
-///
-void printCallSiteInlineReport(Instruction *I, unsigned Level) {
-  if (!I)
-    return;
-  if (!isa<CallBase>(I))
-    return;
-  if (MDNode *Node = I->getMetadata(CallSiteTag))
-    printCallSiteInlineReport(Node, /*IndentCount*/ 0,
-                              *(I->getParent()->getParent()->getParent()),
-                              Level);
-  return;
-}
-
-static void printCallSiteInlineReports(Metadata *MD, unsigned IndentCount,
-                                       Module &M, unsigned Level) {
+void IREmitterInfo::printCallSiteInlineReports(Metadata *MD,
+                                               unsigned IndentCount) {
   if (!MD)
     return;
   MDTuple *MDCSs = cast<MDTuple>(MD);
@@ -254,15 +283,33 @@ static void printCallSiteInlineReports(Metadata *MD, unsigned IndentCount,
     return;
 
   for (unsigned I = 1, E = MDCSs->getNumOperands(); I < E; ++I) {
-    printCallSiteInlineReport(MDCSs->getOperand(I), IndentCount, M, Level);
+    printCallSiteInlineReport(MDCSs->getOperand(I), IndentCount);
   }
 }
 
-///
-/// \brief Print function inline report from metadata
-///
-static void printFunctionInlineReportFromMetadata(MDNode *Node, Module &M,
-                                                  unsigned Level) {
+void IREmitterInfo::findDeadFortranFunctionNames(NamedMDNode *MIR) {
+  if (!(Level & InlineReportOptions::Language))
+    return;
+  for (unsigned I = 0, E = MIR->getNumOperands(); I < E; ++I) {
+    MDNode *Node = MIR->getOperand(I);
+    MDTuple *FuncReport = cast<MDTuple>(Node);
+    if (!FuncReport)
+      continue;
+    int64_t IsDead = 0;
+    getOpVal(FuncReport->getOperand(FMDIR_IsDead), "isDead: ", &IsDead);
+    if (!IsDead)
+      continue;
+    StringRef LangStr = getOpStr(FuncReport->getOperand(FMDIR_LanguageStr),
+                                 "language: ");
+    bool IsFortran = LangStr == "F";
+    if (!IsFortran)
+      continue;
+    StringRef SR = getOpStr(FuncReport->getOperand(FMDIR_FuncName), "name: ");
+    DeadFortranFunctionNames.insert(SR);
+  }
+}
+
+void IREmitterInfo::printFunctionInlineReportFromMetadata(MDNode *Node) {
   assert(isa<MDTuple>(Node) && "Bad format of function inlining report");
   MDTuple *FuncReport = cast<MDTuple>(Node);
   if (!FuncReport) {
@@ -291,6 +338,11 @@ static void printFunctionInlineReportFromMetadata(MDNode *Node, Module &M,
                                "linkage: ")
                    << ' ';
     }
+    if (Level & InlineReportOptions::Language)
+      // Language letter
+      llvm::errs() << getOpStr(FuncReport->getOperand(FMDIR_LanguageStr),
+                               "language: ")
+                   << ' ';
     // Function name
     llvm::errs() << getOpStr(FuncReport->getOperand(FMDIR_FuncName), "name: ");
     // Module name
@@ -326,30 +378,30 @@ static void printFunctionInlineReportFromMetadata(MDNode *Node, Module &M,
                                "linkage: ")
                    << ' ';
   }
+  // Update language last time before printing.
+  if (Function *F = M.getFunction(Name)) {
+    std::string Language = llvm::getLanguageStr(F);
+    std::string LanguageStr = "language: " + Language;
+    auto LanguageMD = MDNode::get(
+        M.getContext(), llvm::MDString::get(M.getContext(), LanguageStr));
+    FuncReport->replaceOperandWith(FMDIR_LanguageStr, LanguageMD);
+    if (Level & InlineReportOptions::Language)
+      llvm::errs() << Language << ' ';
+  } else {
+    if (Level & InlineReportOptions::Language)
+      llvm::errs() << getOpStr(FuncReport->getOperand(FMDIR_LanguageStr),
+                               "language: ")
+                   << ' ';
+  }
 
   llvm::errs() << Name << '\n';
-  printCallSiteInlineReports(FuncReport->getOperand(FMDIR_CSs), 1, M, Level);
+  printCallSiteInlineReports(FuncReport->getOperand(FMDIR_CSs), 1);
   llvm::errs() << '\n';
 
   return;
 }
 
-///
-/// \brief Print function inline report (for external use)
-///
-void printFunctionInlineReport(Function *F, unsigned Level) {
-  if (!F)
-    return;
-  if (MDNode *Node = F->getMetadata(FunctionTag))
-    printFunctionInlineReportFromMetadata(Node, *(F->getParent()), Level);
-  return;
-}
-
-///
-/// \brief Print module inline report
-///
-static bool emitInlineReport(Module &M, unsigned Level, unsigned OptLevel,
-                             unsigned SizeLevel, bool PrepareForLTO) {
+bool IREmitterInfo::runImpl() {
   if (!(Level & InlineReportOptions::BasedOnMetadata))
     return false;
   if (PrepareForLTO && (Level & InlineReportOptions::CompositeReport))
@@ -364,9 +416,10 @@ static bool emitInlineReport(Module &M, unsigned Level, unsigned OptLevel,
     return false;
   }
 
+  findDeadFortranFunctionNames(ModuleInlineReport);
   for (unsigned I = 0, E = ModuleInlineReport->getNumOperands(); I < E; ++I) {
     MDNode *Node = ModuleInlineReport->getOperand(I);
-    printFunctionInlineReportFromMetadata(Node, M, Level);
+    printFunctionInlineReportFromMetadata(Node);
   }
 
   llvm::errs() << "---- End Inlining Report ------ (via metadata)\n";
@@ -391,8 +444,9 @@ struct InlineReportEmitter : public ModulePass {
   bool runOnModule(Module &M) override {
     if (skipModule(M))
       return false;
-    return emitInlineReport(M, IntelInlineReportLevel, OptLevel, SizeLevel,
-                            PrepareForLTO);
+    unsigned Level = IntelInlineReportLevel;
+    return IREmitterInfo(M, Level, OptLevel, SizeLevel,
+        PrepareForLTO).runImpl();
   }
 };
 } // namespace
@@ -409,8 +463,8 @@ ModulePass *llvm::createInlineReportEmitterPass(unsigned OptLevel,
 
 PreservedAnalyses InlineReportEmitterPass::run(Module &M,
                                                ModuleAnalysisManager &AM) {
-  emitInlineReport(M, IntelInlineReportLevel, OptLevel, SizeLevel,
-                   PrepareForLTO);
+  unsigned Level = IntelInlineReportLevel;
+  IREmitterInfo(M, Level, OptLevel, SizeLevel, PrepareForLTO).runImpl();
   return PreservedAnalyses::all();
 }
 

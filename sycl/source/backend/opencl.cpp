@@ -38,8 +38,7 @@ __SYCL_EXPORT device make_device(pi_native_handle NativeHandle) {
   // Create PI device first.
   pi::PiDevice PiDevice;
   Plugin.call<PiApiKind::piextDeviceCreateWithNativeHandle>(NativeHandle,
-                                                            nullptr, // INTEL
-                                                            &PiDevice);
+                                                            nullptr, &PiDevice);
   // Construct the SYCL device from PI device.
   return detail::createSyclObjFromImpl<device>(
       std::make_shared<device_impl>(PiDevice, Plugin));
@@ -77,10 +76,8 @@ __SYCL_EXPORT queue make_queue(const context &Context,
   const auto &ContextImpl = getSyclObjImpl(Context);
   // Create PI queue first.
   pi::PiQueue PiQueue;
-#if INTEL_CUSTOMIZATION
   Plugin.call<PiApiKind::piextQueueCreateWithNativeHandle>(
       NativeHandle, ContextImpl->getHandleRef(), &PiQueue);
-#endif // INTEL_CUSTOMIZATION
   // Construct the SYCL queue from PI queue.
   return detail::createSyclObjFromImpl<queue>(std::make_shared<queue_impl>(
       PiQueue, ContextImpl, ContextImpl->get_async_handler()));

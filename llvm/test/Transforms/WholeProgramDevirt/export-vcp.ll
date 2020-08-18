@@ -13,7 +13,7 @@ target datalayout = "e-p:64:64"
 ; SUMMARY:      TypeIdMap:
 ; SUMMARY-NEXT:   typeid3:
 ; SUMMARY-NEXT:     TTRes:
-; SUMMARY-NEXT:       Kind:            Unsat
+; SUMMARY-NEXT:       Kind:            Unknown
 ; SUMMARY-NEXT:       SizeM1BitWidth:  0
 ; SUMMARY-NEXT:       AlignLog2:       0
 ; SUMMARY-NEXT:       SizeM1:          0
@@ -33,7 +33,7 @@ target datalayout = "e-p:64:64"
 ; SUMMARY-ARM-NEXT:         Bit:             1
 ; SUMMARY-NEXT:   typeid4:
 ; SUMMARY-NEXT:     TTRes:
-; SUMMARY-NEXT:       Kind:            Unsat
+; SUMMARY-NEXT:       Kind:            Unknown
 ; SUMMARY-NEXT:       SizeM1BitWidth:  0
 ; SUMMARY-NEXT:       AlignLog2:       0
 ; SUMMARY-NEXT:       SizeM1:          0

@@ -250,7 +250,6 @@ private:
   FunctionCallee SanCovTraceGepFunction;
   FunctionCallee SanCovTraceSwitchFunction;
   GlobalVariable *SanCovLowestStack;
-  InlineAsm *EmptyAsm;
   Type *IntptrTy, *IntptrPtrTy, *Int64Ty, *Int64PtrTy, *Int32Ty, *Int32PtrTy,
       *Int16Ty, *Int8Ty, *Int8PtrTy, *Int1Ty, *Int1PtrTy;
   Module *CurModule;
@@ -339,25 +338,24 @@ PreservedAnalyses ModuleSanitizerCoveragePass::run(Module &M,
 std::pair<Value *, Value *>
 ModuleSanitizerCoverage::CreateSecStartEnd(Module &M, const char *Section,
                                            Type *Ty) {
-  GlobalVariable *SecStart =
-      new GlobalVariable(M, Ty, false, GlobalVariable::ExternalLinkage, nullptr,
-                         getSectionStart(Section));
+  GlobalVariable *SecStart = new GlobalVariable(
+      M, Ty->getPointerElementType(), false, GlobalVariable::ExternalLinkage,
+      nullptr, getSectionStart(Section));
   SecStart->setVisibility(GlobalValue::HiddenVisibility);
-  GlobalVariable *SecEnd =
-      new GlobalVariable(M, Ty, false, GlobalVariable::ExternalLinkage,
-                         nullptr, getSectionEnd(Section));
+  GlobalVariable *SecEnd = new GlobalVariable(
+      M, Ty->getPointerElementType(), false, GlobalVariable::ExternalLinkage,
+      nullptr, getSectionEnd(Section));
   SecEnd->setVisibility(GlobalValue::HiddenVisibility);
   IRBuilder<> IRB(M.getContext());
-  Value *SecEndPtr = IRB.CreatePointerCast(SecEnd, Ty);
   if (!TargetTriple.isOSBinFormatCOFF())
-    return std::make_pair(IRB.CreatePointerCast(SecStart, Ty), SecEndPtr);
+    return std::make_pair(SecStart, SecEnd);
 
   // Account for the fact that on windows-msvc __start_* symbols actually
   // point to a uint64_t before the start of the array.
   auto SecStartI8Ptr = IRB.CreatePointerCast(SecStart, Int8PtrTy);
   auto GEP = IRB.CreateGEP(Int8Ty, SecStartI8Ptr,
                            ConstantInt::get(IntptrTy, sizeof(uint64_t)));
-  return std::make_pair(IRB.CreatePointerCast(GEP, Ty), SecEndPtr);
+  return std::make_pair(IRB.CreatePointerCast(GEP, Ty), SecEnd);
 }
 
 Function *ModuleSanitizerCoverage::CreateInitCallsForSections(
@@ -484,11 +482,6 @@ bool ModuleSanitizerCoverage::instrumentModule(
       GlobalValue::ThreadLocalMode::InitialExecTLSModel);
   if (Options.StackDepth && !SanCovLowestStack->isDeclaration())
     SanCovLowestStack->setInitializer(Constant::getAllOnesValue(IntptrTy));
-
-  // We insert an empty inline asm after cov callbacks to avoid callback merge.
-  EmptyAsm = InlineAsm::get(FunctionType::get(IRB.getVoidTy(), false),
-                            StringRef(""), StringRef(""),
-                            /*hasSideEffects=*/true);
 
   SanCovTracePC = M.getOrInsertFunction(SanCovTracePCName, VoidTy);
   SanCovTracePCGuard =
@@ -921,16 +914,15 @@ void ModuleSanitizerCoverage::InjectCoverageAtBlock(Function &F, BasicBlock &BB,
   IRBuilder<> IRB(&*IP);
   IRB.SetCurrentDebugLocation(EntryLoc);
   if (Options.TracePC) {
-    IRB.CreateCall(SanCovTracePC); // gets the PC using GET_CALLER_PC.
-    IRB.CreateCall(EmptyAsm, {}); // Avoids callback merge.
+    IRB.CreateCall(SanCovTracePC)
+        ->setCannotMerge(); // gets the PC using GET_CALLER_PC.
   }
   if (Options.TracePCGuard) {
     auto GuardPtr = IRB.CreateIntToPtr(
         IRB.CreateAdd(IRB.CreatePointerCast(FunctionGuardArray, IntptrTy),
                       ConstantInt::get(IntptrTy, Idx * 4)),
         Int32PtrTy);
-    IRB.CreateCall(SanCovTracePCGuard, GuardPtr);
-    IRB.CreateCall(EmptyAsm, {}); // Avoids callback merge.
+    IRB.CreateCall(SanCovTracePCGuard, GuardPtr)->setCannotMerge();
   }
   if (Options.Inline8bitCounters) {
     auto CounterPtr = IRB.CreateGEP(

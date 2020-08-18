@@ -234,6 +234,8 @@ void HIRFramework::processDeferredZtts() {
          make_range(Lp->ztt_ddref_begin(), Lp->ztt_ddref_end())) {
 
       if (ZttRef->isSelfBlob()) {
+        Lp->addLiveInTemp(ZttRef->getSymbase());
+
         if (ZttRef->isNonLinear()) {
           ZttRef->getSingleCanonExpr()->setDefinedAtLevel(LoopLevel - 1);
         }
@@ -241,6 +243,8 @@ void HIRFramework::processDeferredZtts() {
         bool UpdateDefLevel = false;
         for (auto *BlobRef :
              make_range(ZttRef->blob_begin(), ZttRef->blob_end())) {
+          Lp->addLiveInTemp(BlobRef->getSymbase());
+
           if (BlobRef->isNonLinear()) {
             UpdateDefLevel = true;
             BlobRef->setDefinedAtLevel(LoopLevel - 1);

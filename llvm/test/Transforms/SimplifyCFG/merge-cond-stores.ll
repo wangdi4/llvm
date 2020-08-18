@@ -42,9 +42,11 @@ end:
 define void @test_simple_commuted(i32* %p, i32 %a, i32 %b) {
 ; CHECK-LABEL: @test_simple_commuted(
 ; CHECK-NEXT:  entry:
+; INTEL_CUSTOMIZATION
 ; CHECK-NEXT:    [[X1:%.*]] = icmp eq i32 [[A:%.*]], 0
 ; CHECK-NEXT:    [[X2:%.*]] = icmp eq i32 [[B:%.*]], 0
 ; CHECK-NEXT:    [[TMP0:%.*]] = or i1 [[X1]], [[X2]]
+; end INTEL_CUSTOMIZATION
 ; CHECK-NEXT:    br i1 [[TMP0]], label [[TMP1:%.*]], label [[TMP2:%.*]]
 ; CHECK:       1:
 ; CHECK-NEXT:    [[SPEC_SELECT:%.*]] = zext i1 [[X2]] to i32
@@ -274,8 +276,8 @@ define i32 @test_diamond_simple(i32* %p, i32* %q, i32 %a, i32 %b) {
 ; CHECK-NEXT:    [[Z2:%.*]] = select i1 [[X1]], i32 [[B:%.*]], i32 0
 ; CHECK-NEXT:    [[X2:%.*]] = icmp eq i32 [[B]], 0
 ; CHECK-NEXT:    [[TMP0:%.*]] = or i32 [[A]], [[B]]
-; CHECK-NEXT:    [[TMP1:%.*]] = icmp eq i32 [[TMP0]], 0
 ; INTEL_CUSTOMIZATION
+; CHECK-NEXT:    [[TMP1:%.*]] = icmp eq i32 [[TMP0]], 0
 ; CHECK-NEXT:    br i1 [[TMP1]], label %[[TMP3:.*]], label %[[TMP2:.*]]
 ; CHECK:       [[TMP2]]:
 ; CHECK-NEXT:    [[SIMPLIFYCFG_MERGE:%.*]] = select i1 [[X2]], i32 [[Z2]], i32 1

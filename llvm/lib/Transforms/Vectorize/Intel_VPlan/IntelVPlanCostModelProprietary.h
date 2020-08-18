@@ -31,6 +31,13 @@ public:
   }
 
   virtual unsigned getCost() final;
+  virtual unsigned getLoadStoreCost(
+    const VPInstruction *VPInst, Align Alignment, unsigned VF) final {
+    return getLoadStoreCost(VPInst, Alignment, VF,
+                            false /* Don't use VLS cost by default */);
+  }
+  unsigned getBlockRangeCost(const VPBasicBlock *Begin,
+                             const VPBasicBlock *End);
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   void print(raw_ostream &OS, const std::string &Header);
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
@@ -40,11 +47,14 @@ public:
 private:
   virtual unsigned getCost(const VPInstruction *VPInst) final;
   virtual unsigned getCost(const VPBasicBlock *VPBB) final;
-  virtual unsigned getLoadStoreCost(const VPInstruction *VPInst) {
-    return getLoadStoreCost(VPInst, false /* Don't use VLS cost by default */);
-  }
   unsigned getLoadStoreCost(const VPInstruction *VPInst,
+                            Align Alignment, unsigned VF,
                             const bool UseVLSCost);
+  unsigned getLoadStoreCost(const VPInstruction *VPInst, unsigned VF,
+                            const bool UseVLSCost) {
+    unsigned Alignment = VPlanCostModel::getMemInstAlignment(VPInst);
+    return getLoadStoreCost(VPInst, Align(Alignment), VF, UseVLSCost);
+  }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   void printForVPInstruction(
@@ -54,14 +64,16 @@ private:
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 
   // Implements basic register pressure calculation pass.
-  // Bothers vector registers only currently.
+  // Calculates the pressure of Vector Instructions only if VectorInsts is
+  // true. Calculates scalar instructions pressure otherwise.
   // LiveValues map contains the liveness of the given instruction multiplied
   // by its legalization factor.  The map contains LiveOut values for the block
   // on input of getSpillFillCost(Block, LiveValues) and the map is updated
   // by getSpillFillCost() and contains LiveIn values after the call.
   unsigned getSpillFillCost(
     const VPBasicBlock *VPBlock,
-    DenseMap<const VPInstruction*, int /* legalization factor */> &LiveValues);
+    DenseMap<const VPInstruction*, int /* legalization factor */> &LiveValues,
+    bool VectorInsts);
   unsigned getSpillFillCost(void);
 
   // Consolidates proprietary code that gets the cost of one operand or two
@@ -200,12 +212,6 @@ private:
   // Frequency info to correctly calculate the cost. Until it's done, just
   // report high vector cost for loops with too many i1 instructions.
   unsigned NumberOfBoolComputations = 0;
-
-  /// \Returns True iff \p VPInst is Unit Strided load or store.
-  /// When load/store is strided NegativeStride is set to true if the stride is
-  /// negative (-1 in number of elements) or to false otherwise.
-  virtual bool isUnitStrideLoadStore(
-    const VPInstruction *VPInst, bool &NegativeStride) const final;
 };
 
 } // namespace vpo

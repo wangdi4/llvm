@@ -222,8 +222,13 @@ function(add_link_opts target_name)
     # Pass -O3 to the linker. This enabled different optimizations on different
     # linkers.
     if(NOT (${CMAKE_SYSTEM_NAME} MATCHES "Darwin|SunOS|AIX" OR WIN32))
-      set_property(TARGET ${target_name} APPEND_STRING PROPERTY
-                   LINK_FLAGS " -Wl,-O3")
+      # Before binutils 2.34, gold -O2 and above did not correctly handle R_386_GOTOFF to
+      # SHF_MERGE|SHF_STRINGS sections: https://sourceware.org/bugzilla/show_bug.cgi?id=16794
+      if(LLVM_LINKER_IS_GOLD)
+        set_property(TARGET ${target_name} APPEND_STRING PROPERTY LINK_FLAGS " -Wl,-O1")
+      else()
+        set_property(TARGET ${target_name} APPEND_STRING PROPERTY LINK_FLAGS " -Wl,-O3")
+      endif()
     endif()
 
     if(LLVM_LINKER_IS_GOLD)
@@ -369,7 +374,7 @@ function(set_windows_version_resource_properties name resource_file)
   endif()
 
   if (NOT DEFINED ARG_PRODUCT_NAME)
-    set(ARG_PRODUCT_NAME "LLVM")
+    set(ARG_PRODUCT_NAME "Intel(R) oneAPI DPC++ Compiler")
   endif()
 
   set_property(SOURCE ${resource_file}
@@ -917,7 +922,7 @@ endmacro(add_llvm_executable name)
 #   only an object library is built, and no module is built. This is specific to the Polly use case.
 #
 #   The SUBPROJECT argument contains the LLVM project the plugin belongs
-#   to. If set, the plugin will link statically by default it if the 
+#   to. If set, the plugin will link statically by default it if the
 #   project was enabled.
 function(add_llvm_pass_plugin name)
   cmake_parse_arguments(ARG
@@ -950,6 +955,12 @@ function(add_llvm_pass_plugin name)
     set_property(TARGET ${name} APPEND PROPERTY COMPILE_DEFINITIONS LLVM_LINK_INTO_TOOLS)
     if (TARGET intrinsics_gen)
       add_dependencies(obj.${name} intrinsics_gen)
+    endif()
+    if (TARGET omp_gen)
+      add_dependencies(obj.${name} omp_gen)
+    endif()
+    if (TARGET acc_gen)
+      add_dependencies(obj.${name} acc_gen)
     endif()
     set_property(GLOBAL APPEND PROPERTY LLVM_STATIC_EXTENSIONS ${name})
   elseif(NOT ARG_NO_MODULE)
@@ -1420,11 +1431,8 @@ function(add_unittest test_suite test_name)
     set(EXCLUDE_FROM_ALL ON)
   endif()
 
-  # Our current version of gtest does not properly recognize C++11 support
-  # with MSVC, so it falls back to tr1 / experimental classes.  Since LLVM
-  # itself requires C++11, we can safely force it on unconditionally so that
-  # we don't have to fight with the buggy gtest check.
-  add_definitions(-DGTEST_LANG_CXX11=1)
+  # Our current version of gtest uses tr1/tuple which is deprecated on MSVC.
+  # Since LLVM itself requires C++14, we can safely force it off.
   add_definitions(-DGTEST_HAS_TR1_TUPLE=0)
 
   include_directories(${LLVM_MAIN_SRC_DIR}/utils/unittest/googletest/include)
@@ -1467,7 +1475,7 @@ function(add_unittest test_suite test_name)
 
   add_dependencies(${test_suite} ${test_name})
   get_target_property(test_suite_folder ${test_suite} FOLDER)
-  if (NOT ${test_suite_folder} STREQUAL "NOTFOUND")
+  if (test_suite_folder)
     set_property(TARGET ${test_name} PROPERTY FOLDER "${test_suite_folder}")
   endif ()
 endfunction()
@@ -2254,6 +2262,7 @@ macro(dpcpptarget_add_resource_file target binary_name product_name file_descrip
     set(dpcpp_rc ${LLVM_SOURCE_DIR}/resources/dpcpp.rc)
     set(rc_flags
         /I${LLVM_SOURCE_DIR}/../clang/include
+        /I${LLVM_INCLUDE_DIR}
         /DINTEL_CUSTOMIZATION=1
         /DBINARY_NAME="${binary_name}"
         /DPRODUCT_NAME="${product_name}"

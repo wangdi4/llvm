@@ -8,6 +8,8 @@ target triple = "x86_64-unknown-linux-gnu"
 ; Function Attrs: nounwind uwtable
 define dso_local void @uniformDivergent(i32* nocapture %a, i32* nocapture %b) local_unnamed_addr {
 ; CHECK-LABEL:  VPlan after ScalVec analysis:
+; CHECK-NEXT:  Live-in values:
+; CHECK-NEXT:  ID: 0 Value: i64 0
 ; CHECK-NEXT:    [[BB0:BB[0-9]+]]:
 ; CHECK-NEXT:     <Empty Block>
 ; CHECK-NEXT:    SUCCESSORS(1):[[BB1:BB[0-9]+]]
@@ -45,6 +47,9 @@ define dso_local void @uniformDivergent(i32* nocapture %a, i32* nocapture %b) lo
 ; CHECK-NEXT:     <Empty Block>
 ; CHECK-NEXT:    no SUCCESSORS
 ; CHECK-NEXT:    PREDECESSORS(1): [[BB3]]
+; CHECK-EMPTY:
+; CHECK-NEXT:  External Uses:
+; CHECK-NEXT:  Id: 0   no underlying for i64 [[VP_INDVARS_IV_IND_FINAL]]
 ;
 entry:
   br label %DIR.OMP.SIMD.1
@@ -74,6 +79,8 @@ DIR.OMP.END.SIMD.3:                               ; preds = %omp.inner.for.body
 
 define void @storesToUniformAddrs(i32* %src1, i32 %src2, i32* %dest1, i32* %dest2) {
 ; CHECK-LABEL:  VPlan after ScalVec analysis:
+; CHECK-NEXT:  Live-in values:
+; CHECK-NEXT:  ID: 0 Value: i64 0
 ; CHECK-NEXT:    [[BB0:BB[0-9]+]]:
 ; CHECK-NEXT:     <Empty Block>
 ; CHECK-NEXT:    SUCCESSORS(1):[[BB1:BB[0-9]+]]
@@ -110,6 +117,9 @@ define void @storesToUniformAddrs(i32* %src1, i32 %src2, i32* %dest1, i32* %dest
 ; CHECK-NEXT:     <Empty Block>
 ; CHECK-NEXT:    no SUCCESSORS
 ; CHECK-NEXT:    PREDECESSORS(1): [[BB3]]
+; CHECK-EMPTY:
+; CHECK-NEXT:  External Uses:
+; CHECK-NEXT:  Id: 0   no underlying for i64 [[VP_INDVARS_IV_IND_FINAL]]
 ;
 entry:
   %entry.region = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"() ]
@@ -137,6 +147,8 @@ DIR.QUAL.LIST.END.1:                              ; preds = %omp.loop.exit
 
 define dso_local void @gatherScatter(i32* nocapture %a, i32* nocapture %b) local_unnamed_addr {
 ; CHECK-LABEL:  VPlan after ScalVec analysis:
+; CHECK-NEXT:  Live-in values:
+; CHECK-NEXT:  ID: 0 Value: i64 0
 ; CHECK-NEXT:    [[BB0:BB[0-9]+]]:
 ; CHECK-NEXT:     <Empty Block>
 ; CHECK-NEXT:    SUCCESSORS(1):[[BB1:BB[0-9]+]]
@@ -175,6 +187,9 @@ define dso_local void @gatherScatter(i32* nocapture %a, i32* nocapture %b) local
 ; CHECK-NEXT:     <Empty Block>
 ; CHECK-NEXT:    no SUCCESSORS
 ; CHECK-NEXT:    PREDECESSORS(1): [[BB3]]
+; CHECK-EMPTY:
+; CHECK-NEXT:  External Uses:
+; CHECK-NEXT:  Id: 0   no underlying for i64 [[VP_INDVARS_IV_IND_FINAL]]
 ;
 entry:
   br label %DIR.OMP.SIMD.1
@@ -202,13 +217,16 @@ DIR.OMP.END.SIMD.3:                               ; preds = %omp.inner.for.body
 
 define dso_local i32 @simpleReduction(i32* nocapture %a, i32 %b) local_unnamed_addr {
 ; CHECK-LABEL:  VPlan after ScalVec analysis:
+; CHECK-NEXT:  Live-in values:
+; CHECK-NEXT:  ID: 0 Value: i32 [[B0:%.*]]
+; CHECK-NEXT:  ID: 1 Value: i64 0
 ; CHECK-NEXT:    [[BB0:BB[0-9]+]]:
 ; CHECK-NEXT:     <Empty Block>
 ; CHECK-NEXT:    SUCCESSORS(1):[[BB1:BB[0-9]+]]
 ; CHECK-NEXT:    no PREDECESSORS
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB1]]:
-; CHECK-NEXT:     [DA: Div, SVA: ( V )] i32 [[VP_REDUCTION_PHI_RED_INIT:%.*]] = reduction-init i32 0 i32 [[B0:%.*]] (SVAOpBits 0->F 1->F )
+; CHECK-NEXT:     [DA: Div, SVA: ( V )] i32 [[VP_REDUCTION_PHI_RED_INIT:%.*]] = reduction-init i32 0 i32 [[B0]] (SVAOpBits 0->F 1->F )
 ; CHECK-NEXT:     [DA: Div, SVA: ( V )] i64 [[VP_INDVARS_IV_IND_INIT:%.*]] = induction-init{add} i64 0 i64 1 (SVAOpBits 0->F 1->F )
 ; CHECK-NEXT:     [DA: Uni, SVA: (F  )] i64 [[VP_INDVARS_IV_IND_INIT_STEP:%.*]] = induction-init-step{add} i64 1 (SVAOpBits 0->F )
 ; CHECK-NEXT:     [DA: Uni, SVA: (F  )] i64 [[VP_VF:%.*]] = induction-init-step{add} i64 1 (SVAOpBits 0->F )
@@ -241,7 +259,9 @@ define dso_local i32 @simpleReduction(i32* nocapture %a, i32 %b) local_unnamed_a
 ; CHECK-NEXT:    PREDECESSORS(1): [[BB3]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  External Uses:
-; CHECK-NEXT:    [[LCSSA_RED_PHI0:%.*]] = phi i32 [ [[REDUCTION_ADD0:%.*]], [[OMP_INNER_FOR_BODY0:%.*]] ]i32 [[VP_REDUCTION_PHI_RED_FINAL]] -> i32 [[REDUCTION_ADD0]]
+; CHECK-NEXT:  Id: 0     [[LCSSA_RED_PHI0:%.*]] = phi i32 [ [[REDUCTION_ADD0:%.*]], [[OMP_INNER_FOR_BODY0:%.*]] ] i32 [[VP_REDUCTION_PHI_RED_FINAL]] -> i32 [[REDUCTION_ADD0]]
+; CHECK-EMPTY:
+; CHECK-NEXT:  Id: 1   no underlying for i64 [[VP_INDVARS_IV_IND_FINAL]]
 ;
 entry:
   br label %DIR.OMP.SIMD.1
@@ -267,6 +287,8 @@ DIR.OMP.END.SIMD.3:                               ; preds = %omp.inner.for.body
 
 define dso_local void @phiUsedByPhi(i64* nocapture %a, i64* nocapture %b) local_unnamed_addr {
 ; CHECK-LABEL:  VPlan after ScalVec analysis:
+; CHECK-NEXT:  Live-in values:
+; CHECK-NEXT:  ID: 0 Value: i64 0
 ; CHECK-NEXT:    [[BB0:BB[0-9]+]]:
 ; CHECK-NEXT:     <Empty Block>
 ; CHECK-NEXT:    SUCCESSORS(1):[[BB1:BB[0-9]+]]
@@ -314,6 +336,9 @@ define dso_local void @phiUsedByPhi(i64* nocapture %a, i64* nocapture %b) local_
 ; CHECK-NEXT:     <Empty Block>
 ; CHECK-NEXT:    no SUCCESSORS
 ; CHECK-NEXT:    PREDECESSORS(1): [[BB5]]
+; CHECK-EMPTY:
+; CHECK-NEXT:  External Uses:
+; CHECK-NEXT:  Id: 0   no underlying for i64 [[VP_INDVARS_IV_IND_FINAL]]
 ;
 entry:
   br label %DIR.OMP.SIMD.1
@@ -347,6 +372,8 @@ DIR.OMP.END.SIMD.3:                               ; preds = %if.end
 
 define dso_local void @svmlFnCall(float* nocapture %a, float* nocapture %b) local_unnamed_addr {
 ; CHECK-LABEL:  VPlan after ScalVec analysis:
+; CHECK-NEXT:  Live-in values:
+; CHECK-NEXT:  ID: 0 Value: i64 0
 ; CHECK-NEXT:    [[BB0:BB[0-9]+]]:
 ; CHECK-NEXT:     <Empty Block>
 ; CHECK-NEXT:    SUCCESSORS(1):[[BB1:BB[0-9]+]]
@@ -384,6 +411,9 @@ define dso_local void @svmlFnCall(float* nocapture %a, float* nocapture %b) loca
 ; CHECK-NEXT:     <Empty Block>
 ; CHECK-NEXT:    no SUCCESSORS
 ; CHECK-NEXT:    PREDECESSORS(1): [[BB3]]
+; CHECK-EMPTY:
+; CHECK-NEXT:  External Uses:
+; CHECK-NEXT:  Id: 0   no underlying for i64 [[VP_INDVARS_IV_IND_FINAL]]
 ;
 entry:
   br label %DIR.OMP.SIMD.1
@@ -408,8 +438,76 @@ DIR.OMP.END.SIMD.3:                               ; preds = %omp.inner.for.body
   ret void
 }
 
+define dso_local void @serialCallRepeatArgs(float* nocapture %a) local_unnamed_addr {
+; CHECK-LABEL:  VPlan after ScalVec analysis:
+; CHECK-NEXT:  Live-in values:
+; CHECK-NEXT:  ID: 0 Value: i64 0
+; CHECK-NEXT:    [[BB0:BB[0-9]+]]:
+; CHECK-NEXT:     <Empty Block>
+; CHECK-NEXT:    SUCCESSORS(1):[[BB1:BB[0-9]+]]
+; CHECK-NEXT:    no PREDECESSORS
+; CHECK-EMPTY:
+; CHECK-NEXT:    [[BB1]]:
+; CHECK-NEXT:     [DA: Div, SVA: (FV )] i64 [[VP_INDVARS_IV_IND_INIT:%.*]] = induction-init{add} i64 0 i64 1 (SVAOpBits 0->F 1->F )
+; CHECK-NEXT:     [DA: Uni, SVA: (F  )] i64 [[VP_INDVARS_IV_IND_INIT_STEP:%.*]] = induction-init-step{add} i64 1 (SVAOpBits 0->F )
+; CHECK-NEXT:     [DA: Uni, SVA: (F  )] i64 [[VP_VF:%.*]] = induction-init-step{add} i64 1 (SVAOpBits 0->F )
+; CHECK-NEXT:     [DA: Uni, SVA: (F  )] i64 [[VP_ORIG_TRIP_COUNT:%.*]] = orig-trip-count for original loop omp.inner.for.body (SVAOpBits )
+; CHECK-NEXT:     [DA: Uni, SVA: (F  )] i64 [[VP_VECTOR_TRIP_COUNT:%.*]] = vector-trip-count i64 [[VP_ORIG_TRIP_COUNT]], UF = 1 (SVAOpBits 0->F )
+; CHECK-NEXT:    SUCCESSORS(1):[[BB2:BB[0-9]+]]
+; CHECK-NEXT:    PREDECESSORS(1): [[BB0]]
+; CHECK-EMPTY:
+; CHECK-NEXT:    [[BB2]]:
+; CHECK-NEXT:     [DA: Uni, SVA: (F  )] i64 [[VP_VECTOR_LOOP_IV:%.*]] = phi  [ i64 0, [[BB1]] ],  [ i64 [[VP_VECTOR_LOOP_IV_NEXT:%.*]], [[BB2]] ] (SVAOpBits 0->F 1->F )
+; CHECK-NEXT:     [DA: Div, SVA: (FV )] i64 [[VP_INDVARS_IV:%.*]] = phi  [ i64 [[VP_INDVARS_IV_IND_INIT]], [[BB1]] ],  [ i64 [[VP_INDVARS_IV_NEXT:%.*]], [[BB2]] ] (SVAOpBits 0->FV 1->FV )
+; CHECK-NEXT:     [DA: Div, SVA: (F  )] float* [[VP_A_GEP:%.*]] = getelementptr inbounds float* [[A0:%.*]] i64 [[VP_INDVARS_IV]] (SVAOpBits 0->F 1->F )
+; CHECK-NEXT:     [DA: Div, SVA: ( V )] float [[VP_A_LOAD:%.*]] = load float* [[VP_A_GEP]] (SVAOpBits 0->F )
+; CHECK-NEXT:     [DA: Div, SVA: ( V )] float [[VP_ARG:%.*]] = fadd float [[VP_A_LOAD]] float 4.200000e+01 (SVAOpBits 0->V 1->V )
+; CHECK-NEXT:     [DA: Div, SVA: ( V )] float [[VP_CALL:%.*]] = call float [[VP_ARG]] float [[VP_ARG]] i32 42 float (float, float, i32)* @bar [Serial] (SVAOpBits 0->V 1->V 2->V 3->F )
+; CHECK-NEXT:     [DA: Div, SVA: (FV )] i64 [[VP_INDVARS_IV_NEXT]] = add i64 [[VP_INDVARS_IV]] i64 [[VP_INDVARS_IV_IND_INIT_STEP]] (SVAOpBits 0->FV 1->FV )
+; CHECK-NEXT:     [DA: Uni, SVA: (F  )] i64 [[VP_VECTOR_LOOP_IV_NEXT]] = add i64 [[VP_VECTOR_LOOP_IV]] i64 [[VP_VF]] (SVAOpBits 0->F 1->F )
+; CHECK-NEXT:     [DA: Uni, SVA: (F  )] i1 [[VP_VECTOR_LOOP_EXITCOND:%.*]] = icmp i64 [[VP_VECTOR_LOOP_IV_NEXT]] i64 [[VP_VECTOR_TRIP_COUNT]] (SVAOpBits 0->F 1->F )
+; CHECK-NEXT:    SUCCESSORS(2):[[BB3:BB[0-9]+]](i1 [[VP_VECTOR_LOOP_EXITCOND]]), [[BB2]](!i1 [[VP_VECTOR_LOOP_EXITCOND]])
+; CHECK-NEXT:    PREDECESSORS(2): [[BB1]] [[BB2]]
+; CHECK-EMPTY:
+; CHECK-NEXT:    [[BB3]]:
+; CHECK-NEXT:     [DA: Uni, SVA: (F  )] i64 [[VP_INDVARS_IV_IND_FINAL:%.*]] = induction-final{add} i64 0 i64 1 (SVAOpBits 0->F 1->F )
+; CHECK-NEXT:    SUCCESSORS(1):[[BB4:BB[0-9]+]]
+; CHECK-NEXT:    PREDECESSORS(1): [[BB2]]
+; CHECK-EMPTY:
+; CHECK-NEXT:    [[BB4]]:
+; CHECK-NEXT:     <Empty Block>
+; CHECK-NEXT:    no SUCCESSORS
+; CHECK-NEXT:    PREDECESSORS(1): [[BB3]]
+; CHECK-EMPTY:
+; CHECK-NEXT:  External Uses:
+; CHECK-NEXT:  Id: 0   no underlying for i64 [[VP_INDVARS_IV_IND_FINAL]]
+;
+entry:
+  br label %DIR.OMP.SIMD.1
+
+DIR.OMP.SIMD.1:                                   ; preds = %entry
+  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"() ]
+  br label %omp.inner.for.body
+
+omp.inner.for.body:                               ; preds = %omp.inner.for.body, %DIR.OMP.SIMD.1
+  %indvars.iv = phi i64 [ 0, %DIR.OMP.SIMD.1 ], [ %indvars.iv.next, %omp.inner.for.body ]
+  %a.gep = getelementptr inbounds float, float* %a, i64 %indvars.iv
+  %a.load = load float, float* %a.gep, align 4
+  %arg = fadd float %a.load, 42.0
+  %call = call float @bar(float %arg, float %arg, i32 42)
+  %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
+  %exitcond = icmp eq i64 %indvars.iv.next, 1024
+  br i1 %exitcond, label %DIR.OMP.END.SIMD.3, label %omp.inner.for.body
+
+DIR.OMP.END.SIMD.3:                               ; preds = %omp.inner.for.body
+  call void @llvm.directive.region.exit(token %0) [ "DIR.OMP.END.SIMD"() ]
+  ret void
+}
+
 ; Function Attrs: nounwind readnone
 declare float @sinf(float) local_unnamed_addr
+
+declare dso_local float @bar(float, float, i32) local_unnamed_addr
 
 ; Function Attrs: nounwind
 declare token @llvm.directive.region.entry()

@@ -481,6 +481,29 @@
 #endif
 #endif
 /* end INTEL_FEATURE_ISA_AVX_COMPRESS */
+/* INTEL_FEATURE_ISA_AVX_MEMADVISE */
+#if defined(__AVXMEMADVISE_SUPPORTED__)
+#if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
+    defined(__AVXMEMADVISE__) || defined(__M_INTRINSIC_PROMOTE__)
+#include <avxmemadvise/avxmemadviseintrin.h>
+#endif
+#endif
+#if defined(__AVX512MEMADVISE_SUPPORTED__)
+#if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
+    defined(__AVX512MEMADVISE__) || defined(__M_INTRINSIC_PROMOTE__)
+#include <avxmemadvise/avx512memadviseintrin.h>
+#endif
+#endif
+/* end INTEL_FEATURE_ISA_AVX_MEMADVISE */
+/* INTEL_FEATURE_ISA_AVX_MPSADBW */
+#if defined(__AVX512MPSADBW_SUPPORTED__)
+#if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
+    defined(__AVX512MPSADBW__) || defined(__M_INTRINSIC_PROMOTE__)
+#include <avx512mpsadbw/avx512mpsadbwintrin.h>
+#endif
+#endif
+/* end INTEL_FEATURE_ISA_AVX_MPSADBW */
+
 /* end INTEL_CUSTOMIZATION */
 
 /* INTEL_CUSTOMIZATION */
@@ -790,15 +813,23 @@ _storebe_i64(void * __P, long long __D) {
 #endif
 /* end INTEL_FEATURE_ISA_HRESET */
 
-/* INTEL_FEATURE_ISA_AMX */
-#if defined(__AMX_SUPPORTED__)
+/* INTEL_FEATURE_ISA_AMX_BF8 */
+#if defined(__AMX_BF8_SUPPORTED__)
 #if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
-    defined(__AMXTILE__) || defined(__AMXINT8__) || defined(__AMXBF16__) ||    \
-    defined(__M_INTRINSIC_PROMOTE__)
-#include <Intel_amxintrin.h>
+    defined(__AMX_BF8__) || defined(__M_INTRINSIC_PROMOTE__)
+#include <Intel_amxbf8intrin.h>
 #endif
 #endif
-/* end INTEL_FEATURE_ISA_AMX */
+/* end INTEL_FEATURE_ISA_AMX_BF8 */
+
+/* INTEL_FEATURE_ISA_AMX_MEMADVISE */
+#if defined(__AMX_MEMADVISE_SUPPORTED__)
+#if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
+    defined(__AMX_MEMADVISE__) || defined(__M_INTRINSIC_PROMOTE__)
+#include <Intel_amxmemadviseintrin.h>
+#endif
+#endif
+/* end INTEL_FEATURE_ISA_AMX_MEMADVISE */
 
 /* INTEL_FEATURE_ISA_AMX_FUTURE */
 #if defined(__AMX_FUTURE_SUPPORTED__)
@@ -912,10 +943,13 @@ _storebe_i64(void * __P, long long __D) {
 /* end INTEL_FEATURE_ISA_KEYLOCKER */
 /* end INTEL_CUSTOMIZATION */
 
-/* INTEL_CUSTOMIZATION */
 #if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
-    defined(__AVX512VP2INTERSECT__) || defined(__M_INTRINSIC_PROMOTE__)
-/* end INTEL_CUSTOMIZATION */
+    defined(__AMXTILE__) || defined(__AMXINT8__) || defined(__AMXBF16__)
+#include <amxintrin.h>
+#endif
+
+#if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
+    defined(__AVX512VP2INTERSECT__)
 #include <avx512vp2intersectintrin.h>
 #endif
 

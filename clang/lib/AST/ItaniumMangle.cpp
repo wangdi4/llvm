@@ -2399,16 +2399,16 @@ void CXXNameMangler::mangleQualifiers(Qualifiers Quals, const DependentAddressSp
       switch (AS) {
       default: llvm_unreachable("Not a language specific address space");
       //  <OpenCL-addrspace> ::= "CL" [ "global" | "local" | "constant" |
-      //                                "private"| "generic" | "global_device" |
-      //                                "global_host" ]
+      //                                "private"| "generic" | "device" |
+      //                                "host" ]
       case LangAS::opencl_global:
         ASString = "CLglobal";
         break;
       case LangAS::opencl_global_device:
-        ASString = "CLDevice";
+        ASString = "CLdevice";
         break;
       case LangAS::opencl_global_host:
-        ASString = "CLHost";
+        ASString = "CLhost";
         break;
       case LangAS::opencl_local:
         ASString = "CLlocal";
@@ -2830,6 +2830,14 @@ void CXXNameMangler::mangleType(const BuiltinType *T) {
     type_name = "ocl_" #ImgType "_" #Suffix; \
     Out << type_name.size() << type_name; \
     break;
+#include "clang/Basic/OpenCLImageTypes.def"
+#define IMAGE_TYPE(ImgType, Id, SingletonId, Access, Suffix)                   \
+  case BuiltinType::Sampled##Id:                                               \
+    type_name = "__spirv_SampledImage__" #ImgType "_" #Suffix;                 \
+    Out << type_name.size() << type_name;                                      \
+    break;
+#define IMAGE_WRITE_TYPE(Type, Id, Ext)
+#define IMAGE_READ_WRITE_TYPE(Type, Id, Ext)
 #include "clang/Basic/OpenCLImageTypes.def"
   case BuiltinType::OCLSampler:
     Out << "11ocl_sampler";

@@ -34,6 +34,7 @@
 #include "llvm/Transforms/Utils/IntrinsicUtils.h"   // INTEL
 #include "llvm/Analysis/Loads.h"
 #include "llvm/Analysis/LoopInfo.h"
+#include "llvm/Analysis/PostDominators.h"           // INTEL
 #include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/Analysis/TargetTransformInfo.h"      // INTEL
 #include "llvm/Analysis/ValueTracking.h"
@@ -172,6 +173,7 @@ namespace {
       AU.addPreserved<WholeProgramWrapperPass>();                       // INTEL
       AU.addRequired<TargetLibraryInfoWrapperPass>();
       AU.addRequired<TargetTransformInfoWrapperPass>();                 // INTEL
+      AU.addRequired<PostDominatorTreeWrapperPass>();                   // INTEL
     }
 
     void releaseMemory() override { Impl.releaseMemory(); }
@@ -187,6 +189,7 @@ INITIALIZE_PASS_DEPENDENCY(DominatorTreeWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(LazyValueInfoWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(TargetLibraryInfoWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(AAResultsWrapperPass)
+INITIALIZE_PASS_DEPENDENCY(PostDominatorTreeWrapperPass) // INTEL
 INITIALIZE_PASS_END(JumpThreading, "jump-threading",
                 "Jump Threading", false, false)
 
@@ -338,6 +341,7 @@ bool JumpThreading::runOnFunction(Function &F) {
   auto TTI = &getAnalysis<TargetTransformInfoWrapperPass>().getTTI(F);
   if (TTI->needsStructuredCFG())
     return false;
+  auto *PDT = &getAnalysis<PostDominatorTreeWrapperPass>().getPostDomTree();
 #endif
   auto DT = &getAnalysis<DominatorTreeWrapperPass>().getDomTree();
   auto LVI = &getAnalysis<LazyValueInfoWrapperPass>().getLVI();
@@ -352,7 +356,7 @@ bool JumpThreading::runOnFunction(Function &F) {
   }
 
   bool Changed = Impl.runImpl(F, TLI, LVI, AA, &DTU, F.hasProfileData(),
-                              std::move(BFI), std::move(BPI));
+                              std::move(BFI), std::move(BPI), PDT); // INTEL
   if (PrintLVIAfterJumpThreading) {
     dbgs() << "LVI for function '" << F.getName() << "':\n";
     LVI->printLVI(F, DTU.getDomTree(), dbgs());
@@ -366,6 +370,7 @@ PreservedAnalyses JumpThreadingPass::run(Function &F,
   auto &DT = AM.getResult<DominatorTreeAnalysis>(F);
   auto &LVI = AM.getResult<LazyValueAnalysis>(F);
   auto &AA = AM.getResult<AAManager>(F);
+  auto &PDT = AM.getResult<PostDominatorTreeAnalysis>(F); // INTEL
   DomTreeUpdater DTU(DT, DomTreeUpdater::UpdateStrategy::Lazy);
 
   std::unique_ptr<BlockFrequencyInfo> BFI;
@@ -377,7 +382,7 @@ PreservedAnalyses JumpThreadingPass::run(Function &F,
   }
 
   bool Changed = runImpl(F, &TLI, &LVI, &AA, &DTU, F.hasProfileData(),
-                         std::move(BFI), std::move(BPI));
+                         std::move(BFI), std::move(BPI), &PDT); // INTEL
 
   if (!Changed)
     return PreservedAnalyses::all();
@@ -389,12 +394,14 @@ PreservedAnalyses JumpThreadingPass::run(Function &F,
   PA.preserve<WholeProgramAnalysis>();// INTEL
   return PA;
 }
-
 bool JumpThreadingPass::runImpl(Function &F, TargetLibraryInfo *TLI_,
                                 LazyValueInfo *LVI_, AliasAnalysis *AA_,
                                 DomTreeUpdater *DTU_, bool HasProfileData_,
                                 std::unique_ptr<BlockFrequencyInfo> BFI_,
-                                std::unique_ptr<BranchProbabilityInfo> BPI_) {
+#if INTEL_CUSTOMIZATION
+                                std::unique_ptr<BranchProbabilityInfo> BPI_,
+                                PostDominatorTree *PDT_) {
+#endif // INTEL_CUSTOMIZATION
   LLVM_DEBUG(dbgs() << "Jump threading on function '" << F.getName() << "'\n");
   TLI = TLI_;
   LVI = LVI_;
@@ -402,6 +409,7 @@ bool JumpThreadingPass::runImpl(Function &F, TargetLibraryInfo *TLI_,
   DTU = DTU_;
   BFI.reset();
   BPI.reset();
+  PDT = PDT_;               // INTEL
   BlockThreadCount.clear(); // INTEL
   // When profile data is available, we need to update edge weights after
   // successful jump threading, which requires both BPI and BFI being available.
@@ -436,6 +444,10 @@ bool JumpThreadingPass::runImpl(Function &F, TargetLibraryInfo *TLI_,
   if (!ThreadAcrossLoopHeaders)
     FindLoopHeaders(F);
 
+#if INTEL_CUSTOMIZATION
+  unsigned FnSize = F.size(); // linear time
+#endif // INTEL_CUSTOMIZATION
+
   bool EverChanged = false;
   bool Changed;
   do {
@@ -443,6 +455,20 @@ bool JumpThreadingPass::runImpl(Function &F, TargetLibraryInfo *TLI_,
     for (auto &BB : F) {
       if (Unreachable.count(&BB))
         continue;
+#if INTEL_CUSTOMIZATION
+      // If the function is over a certain size, and the number of CFG
+      // transforms exceeds the number of blocks in the function by 10X,
+      // we may be stuck in a degenerate N^2 case. This will rapidly consume
+      // memory with DT updates. Stop jump threading completely.
+      if ((FnSize > 100) && (DTU->numPendingUpdates() > (FnSize * 10))) {
+        LLVM_DEBUG(dbgs() << "  JT: Too many DT updates. "
+                          << DTU->numPendingUpdates() << ", Fsize: " << F.size()
+                          << "\n");
+        EverChanged |= Changed;
+        Changed = false;
+        break;
+      }
+#endif // INTEL_CUSTOMIZATION
       while (ProcessBlock(&BB)) // Thread all of the branches we can over BB.
         Changed = true;
 
@@ -464,8 +490,8 @@ bool JumpThreadingPass::runImpl(Function &F, TargetLibraryInfo *TLI_,
                           << "' with terminator: " << *BB.getTerminator()
                           << '\n');
         LoopHeaders.erase(&BB);
-        CountableLoopLatches.erase(&BB);   // INTEL
-        CountableLoopHeaders.erase(&BB);   // INTEL
+        CountableSingleExitLoopLatches.erase(&BB);   // INTEL
+        CountableSingleExitLoopHeaders.erase(&BB);   // INTEL
         LVI->eraseBlock(&BB);
         DeleteDeadBlock(&BB, DTU);
         Changed = true;
@@ -488,8 +514,8 @@ bool JumpThreadingPass::runImpl(Function &F, TargetLibraryInfo *TLI_,
           // BB is valid for cleanup here because we passed in DTU. F remains
           // BB's parent until a DTU->getDomTree() event.
           LVI->eraseBlock(&BB);
-          CountableLoopLatches.erase(&BB); // INTEL
-          CountableLoopHeaders.erase(&BB); // INTEL
+          CountableSingleExitLoopLatches.erase(&BB);   // INTEL
+          CountableSingleExitLoopHeaders.erase(&BB);   // INTEL
           Changed = true;
         }
       }
@@ -498,8 +524,8 @@ bool JumpThreadingPass::runImpl(Function &F, TargetLibraryInfo *TLI_,
   } while (Changed);
 
   LoopHeaders.clear();
-  CountableLoopLatches.clear(); // INTEL
-  CountableLoopHeaders.clear(); // INTEL
+  CountableSingleExitLoopLatches.clear();   // INTEL
+  CountableSingleExitLoopHeaders.clear();   // INTEL
   // Flush only the Dominator Tree.
   return EverChanged;
 }
@@ -588,6 +614,10 @@ static unsigned getJumpThreadDuplicationCost(
       if (isa<BitCastInst>(I) && I->getType()->isPointerTy())
         continue;
 
+      // Freeze instruction is free, too.
+      if (isa<FreezeInst>(I))
+        continue;
+
       // Bail out if this instruction gives back a token type, it is not
       // possible to duplicate it if it is used outside this BB.
       if (I->getType()->isTokenTy() && I->isUsedOutsideOfBlock(BB))
@@ -667,6 +697,39 @@ static bool isCountableLoop(const BasicBlock *HeaderBB,
   return false;
 }
 
+static bool isCountableSingleExitLoop(const BasicBlock *HeaderBB,
+                                      const BasicBlock *LatchBB,
+                                      PostDominatorTree *PDT) {
+  if (!isCountableLoop(HeaderBB, LatchBB))
+    return false;
+
+  // Check whether the loop is single exit by checking whether latch
+  // post-dominates all loop bblocks.
+  SmallVector<const BasicBlock *, 8> WorkListBBs;
+  SmallPtrSet<const BasicBlock *, 16> VisitedLoopBBs;
+
+  WorkListBBs.push_back(HeaderBB);
+
+  do {
+    auto *CurBB = WorkListBBs.pop_back_val();
+
+    if (CurBB == LatchBB)
+      continue;
+
+    if (!VisitedLoopBBs.insert(CurBB).second)
+      continue;
+
+    if (!PDT->dominates(LatchBB, CurBB))
+      return false;
+
+    for (auto *SuccBB : make_range(succ_begin(CurBB), succ_end(CurBB))) {
+      WorkListBBs.push_back(SuccBB);
+    }
+
+  } while (!WorkListBBs.empty());
+
+  return true;
+}
 #endif // INTEL_CUSTOMIZATION
 
 /// FindLoopHeaders - We do not want jump threading to turn proper loop
@@ -692,9 +755,9 @@ void JumpThreadingPass::FindLoopHeaders(Function &F) {
 #if INTEL_CUSTOMIZATION
   if (F.isPreLoopOpt())
     for (const auto &Edge : Edges)
-      if (isCountableLoop(Edge.second, Edge.first)) {
-        CountableLoopLatches.insert(Edge.first);
-        CountableLoopHeaders.insert(Edge.second);
+      if (isCountableSingleExitLoop(Edge.second, Edge.first, PDT)) {
+        CountableSingleExitLoopLatches.insert(Edge.first);
+        CountableSingleExitLoopHeaders.insert(Edge.second);
       }
 #endif // INTEL_CUSTOMIZATION
 }
@@ -853,12 +916,9 @@ bool JumpThreadingPass::ComputeValueKnownInPredecessorsImpl(
 #endif // INTEL_CUSTOMIZATION
   }
 
-  // Handle Cast instructions.  Only see through Cast when the source operand is
-  // PHI or Cmp to save the compilation time.
+  // Handle Cast instructions.
   if (CastInst *CI = dyn_cast<CastInst>(I)) {
     Value *Source = CI->getOperand(0);
-    if (!isa<PHINode>(Source) && !isa<CmpInst>(Source))
-      return false;
     ComputeValueKnownInPredecessorsImpl(Source, BB, Result, RegionInfo, // INTEL
                                         Preference, RecursionSet, CxtI);// INTEL
     if (Result.empty())
@@ -869,6 +929,18 @@ bool JumpThreadingPass::ComputeValueKnownInPredecessorsImpl(
       R.first = ConstantExpr::getCast(CI->getOpcode(), R.first, CI->getType());
 
     return true;
+  }
+
+  if (FreezeInst *FI = dyn_cast<FreezeInst>(I)) {
+    Value *Source = FI->getOperand(0);
+    ComputeValueKnownInPredecessorsImpl(Source, BB, Result, RegionInfo, // INTEL
+                                        Preference, RecursionSet, CxtI);// INTEL
+
+    erase_if(Result, [](auto &Pair) {
+      return !isGuaranteedNotToBeUndefOrPoison(Pair.first);
+    });
+
+    return !Result.empty();
   }
 
   // Handle some boolean conditions.
@@ -1296,9 +1368,11 @@ bool JumpThreadingPass::ProcessBlock(BasicBlock *BB) {
     }
   }
 
-  // If the terminator is branching on an undef, we can pick any of the
-  // successors to branch to.  Let GetBestDestForJumpOnUndef decide.
-  if (isa<UndefValue>(Condition)) {
+  // If the terminator is branching on an undef or freeze undef, we can pick any
+  // of the successors to branch to.  Let GetBestDestForJumpOnUndef decide.
+  auto *FI = dyn_cast<FreezeInst>(Condition);
+  if (isa<UndefValue>(Condition) ||
+      (FI && isa<UndefValue>(FI->getOperand(0)) && FI->hasOneUse())) {
     unsigned BestSucc = GetBestDestForJumpOnUndef(BB);
     std::vector<DominatorTree::UpdateType> Updates;
 
@@ -1317,6 +1391,8 @@ bool JumpThreadingPass::ProcessBlock(BasicBlock *BB) {
     BranchInst::Create(BBTerm->getSuccessor(BestSucc), BBTerm);
     BBTerm->eraseFromParent();
     DTU->applyUpdatesPermissive(Updates);
+    if (FI)
+      FI->eraseFromParent();
     return true;
   }
 
@@ -1403,6 +1479,11 @@ bool JumpThreadingPass::ProcessBlock(BasicBlock *BB) {
   // we see one, check to see if it's partially redundant.  If so, insert a PHI
   // which can then be used to thread the values.
   Value *SimplifyValue = CondInst;
+
+  if (auto *FI = dyn_cast<FreezeInst>(SimplifyValue))
+    // Look into freeze's operand
+    SimplifyValue = FI->getOperand(0);
+
   if (CmpInst *CondCmp = dyn_cast<CmpInst>(SimplifyValue))
     if (isa<Constant>(CondCmp->getOperand(1)))
       SimplifyValue = CondCmp->getOperand(0);
@@ -1424,16 +1505,25 @@ bool JumpThreadingPass::ProcessBlock(BasicBlock *BB) {
   if (ProcessThreadableEdges(CondInst, BB, Preference, Terminator))
     return true;
 
-  // If this is an otherwise-unfoldable branch on a phi node in the current
-  // block, see if we can simplify.
-  if (PHINode *PN = dyn_cast<PHINode>(CondInst))
-    if (PN->getParent() == BB && isa<BranchInst>(BB->getTerminator()))
-      return ProcessBranchOnPHI(PN);
+  // If this is an otherwise-unfoldable branch on a phi node or freeze(phi) in
+  // the current block, see if we can simplify.
+  PHINode *PN = dyn_cast<PHINode>(
+      isa<FreezeInst>(CondInst) ? cast<FreezeInst>(CondInst)->getOperand(0)
+                                : CondInst);
+
+  if (PN && PN->getParent() == BB && isa<BranchInst>(BB->getTerminator()))
+    return ProcessBranchOnPHI(PN);
 
   // If this is an otherwise-unfoldable branch on a XOR, see if we can simplify.
   if (CondInst->getOpcode() == Instruction::Xor &&
       CondInst->getParent() == BB && isa<BranchInst>(BB->getTerminator()))
     return ProcessBranchOnXOR(cast<BinaryOperator>(CondInst));
+
+#if INTEL_CUSTOMIZATION
+  // If this is an otherwise-unfoldable branch on a OR, see if we can simplify.
+  if (ProcessBranchOnOr(BB))
+    return true;
+#endif // INTEL_CUSTOMIZATION
 
   // Search for a stronger dominating condition that can be used to simplify a
   // conditional branch leaving BB.
@@ -1442,6 +1532,120 @@ bool JumpThreadingPass::ProcessBlock(BasicBlock *BB) {
 
   return false;
 }
+
+#if INTEL_CUSTOMIZATION
+/// ProcessBranchOnOr - Check if We have an otherwise unthreadable conditional
+/// branch on a OR instruction in the current block. See if there are any
+/// simplifications we can do based on inputs to the phi node.
+///
+//  Currently, it handles cases like the below example. This will not make
+//  any changes to BB but propagates first operand values of %p1 and %p2
+//  PHINodes to their uses in BB_FALSE.
+/// BB:
+///  %p1 = phi i8* [bitcast (void (i8*)* @"Func" to i8*), %b1 ], [ null, %b0 ]
+///  %p2 = phi i8* [ %0, %b1 ], [ null, %b0 ]
+///  %1 = cleanuppad within none []
+///  %cond1 = icmp eq i8* %p2, null
+///  %cond2 = icmp eq i8* %p1, null
+///  %or.cond = or i1 %cond1, %cond2
+///  br i1 %or.cond, label %BB_TRUE, label %BB_FALSE
+///
+/// BB_FALSE:
+///  %fptr = bitcast i8* %p1 to void (i8*)*
+///  call void %fptr(i8* %p2)
+///
+/// Into:
+//
+/// BB:
+//    (No changes to BB)
+//
+/// BB_FALSE:
+///  %fptr = bitcast i8* bitcast (void (i8*)* @"Func" to i8*) to void (i8*)*
+///  call void %fptr(i8* %0)
+//
+bool JumpThreadingPass::ProcessBranchOnOr(BasicBlock *BB) {
+
+  // Returns true if "IC" is a comparison between PHINode and a constant,
+  // which is equal to one of input operands of the PHINode. Also checks
+  // other input operand of PHINode dominates "FalseBB". If it returns true,
+  // *RepPN is updated with PHINode and *RepFVal is updated with the other
+  // input operand of the PHINode.
+  //
+  // Ex:
+  //  %p2 = phi i8* [ %0, %b1 ], [ Constant1, %b0 ]
+  //  %cond1 = icmp eq i8* %p2, Constant1
+  //
+  //
+  auto FindImpliedPHIValue = [this](ICmpInst *IC, BasicBlock *FalseBB,
+                                    PHINode **RepPN, Value **RepFVal) {
+    Value *CmpOp0 = IC->getOperand(0);
+    Value *CmpOp1 = IC->getOperand(1);
+    CmpInst::Predicate Pred = IC->getPredicate();
+    if (Pred != CmpInst::ICMP_EQ)
+      return false;
+    PHINode *PN = dyn_cast<PHINode>(CmpOp0);
+    if (!PN)
+      return false;
+    if (!isa<Constant>(CmpOp1))
+      return false;
+    if (PN->getNumIncomingValues() != 2)
+      return false;
+    Value *PNOp0 = PN->getIncomingValue(0);
+    Value *PNOp1 = PN->getIncomingValue(1);
+    Value *FVal = nullptr;
+    if (isa<Constant>(PNOp0) && PNOp0 == CmpOp1)
+      FVal = PNOp1;
+    else if (isa<Constant>(PNOp1) && PNOp1 == CmpOp1)
+      FVal = PNOp0;
+    if (!FVal)
+      return false;
+    // No need to check Dominator information for constants and arguments.
+    if (auto FI = dyn_cast<Instruction>(FVal)) {
+      DominatorTree &DT = DTU->getDomTree();
+      BasicBlock *BB1 = FI->getParent();
+      if (!DT.dominates(BB1, FalseBB))
+        return false;
+    }
+    *RepPN = PN;
+    *RepFVal = FVal;
+    return true;
+  };
+
+  auto *BI = dyn_cast<BranchInst>(BB->getTerminator());
+  if (!BI || !BI->isConditional())
+    return false;
+  BasicBlock *FalseBB = BI->getSuccessor(1);
+  // FalseBB must have exactly one predecessor.
+  if (!FalseBB->getSinglePredecessor())
+    return false;
+
+  Value *CondI = BI->getCondition();
+  BinaryOperator *BinOp = dyn_cast<BinaryOperator>(CondI);
+  if (!BinOp || BinOp->getOpcode() != Instruction::Or)
+    return false;
+  auto LCmp = dyn_cast<ICmpInst>(BinOp->getOperand(0));
+  auto RCmp = dyn_cast<ICmpInst>(BinOp->getOperand(1));
+  if (!LCmp || !RCmp)
+    return false;
+  PHINode *LPN;
+  PHINode *RPN;
+  Value *LVal;
+  Value *RVal;
+  if (!FindImpliedPHIValue(LCmp, FalseBB, &LPN, &LVal) ||
+      !FindImpliedPHIValue(RCmp, FalseBB, &RPN, &RVal))
+    return false;
+
+  DominatorTree &DT = DTU->getDomTree();
+  unsigned Count;
+  // Replace uses of LPN with LVal in BasicBlocks that are dominated by FalseBB.
+  Count = replaceDominatedUsesWith(LPN, LVal, DT, BasicBlockEdge(BB, FalseBB));
+  // Replace uses of RPN with RVal in BasicBlocks that are dominated by FalseBB.
+  Count += replaceDominatedUsesWith(RPN, RVal, DT, BasicBlockEdge(BB, FalseBB));
+
+  // Return false if there is no change.
+  return Count != 0;
+}
+#endif // INTEL_CUSTOMIZATION
 
 bool JumpThreadingPass::ProcessImpliedCondition(BasicBlock *BB) {
   auto *BI = dyn_cast<BranchInst>(BB->getTerminator());
@@ -1905,7 +2109,8 @@ bool JumpThreadingPass::ProcessThreadableEdges(Value *Cond, BasicBlock *BB,
       continue;
 
 #if INTEL_CUSTOMIZATION
-    if (CountableLoopLatches.count(BB) && CountableLoopHeaders.count(DestBB))
+    if (CountableSingleExitLoopLatches.count(BB) &&
+        CountableSingleExitLoopHeaders.count(DestBB))
       ThreadingBackedge = true;
 #endif // INTEL_CUSTOMIZATION
     PredToDestList.emplace_back(Pred, DestBB);
@@ -2019,8 +2224,8 @@ bool JumpThreadingPass::ProcessThreadableEdges(Value *Cond, BasicBlock *BB,
 }
 
 /// ProcessBranchOnPHI - We have an otherwise unthreadable conditional branch on
-/// a PHI node in the current block.  See if there are any simplifications we
-/// can do based on inputs to the phi node.
+/// a PHI node (or freeze PHI) in the current block.  See if there are any
+/// simplifications we can do based on inputs to the phi node.
 bool JumpThreadingPass::ProcessBranchOnPHI(PHINode *PN) {
   BasicBlock *BB = PN->getParent();
 
@@ -2033,6 +2238,9 @@ bool JumpThreadingPass::ProcessBranchOnPHI(PHINode *PN) {
   // *duplicate* the conditional branch into that block in order to further
   // encourage jump threading and to eliminate cases where we have branch on a
   // phi of an icmp (branch on icmp is much better).
+  // This is still beneficial when a frozen phi is used as the branch condition
+  // because it allows CodeGenPrepare to further canonicalize br(freeze(icmp))
+  // to br(icmp(freeze ...)).
   for (unsigned i = 0, e = PN->getNumIncomingValues(); i != e; ++i) {
     BasicBlock *PredBB = PN->getIncomingBlock(i);
     if (BranchInst *PredBr = dyn_cast<BranchInst>(PredBB->getTerminator()))
@@ -2160,6 +2368,14 @@ bool JumpThreadingPass::ProcessBranchOnXOR(BinaryOperator *BO) {
     return true;
   }
 
+  // If any of predecessors end with an indirect goto, we can't change its
+  // destination. Same for CallBr.
+  if (any_of(BlocksToFoldInto, [](BasicBlock *Pred) {
+        return isa<IndirectBrInst>(Pred->getTerminator()) ||
+               isa<CallBrInst>(Pred->getTerminator());
+      }))
+    return false;
+
   // Try to duplicate BB into PredBB.
   return DuplicateCondBranchOnPHIIntoPred(BB, BlocksToFoldInto);
 }
@@ -2206,8 +2422,8 @@ bool JumpThreadingPass::MaybeMergeBasicBlockIntoOnlyPred(BasicBlock *BB) {
   if (LoopHeaders.erase(SinglePred))
     LoopHeaders.insert(BB);
 
-  CountableLoopLatches.erase(SinglePred);   // INTEL
-  CountableLoopHeaders.erase(SinglePred);   // INTEL
+  CountableSingleExitLoopLatches.erase(SinglePred);   // INTEL
+  CountableSingleExitLoopHeaders.erase(SinglePred);   // INTEL
   LVI->eraseBlock(SinglePred);
   MergeBasicBlockIntoOnlyPred(BB, DTU);
 
@@ -2497,6 +2713,12 @@ bool JumpThreadingPass::MaybeThreadThroughTwoBasicBlocks(BasicBlock *BB,
   // Don't thread across a loop header.
   if (LoopHeaders.count(PredBB))
     return false;
+#if INTEL_CUSTOMIZATION
+  // Suppress threading for countable single exit loop headers/latches.
+  if (CountableSingleExitLoopHeaders.count(PredBB) ||
+      CountableSingleExitLoopLatches.count(PredBB))
+    return false;
+#endif // INTEL_CUSTOMIZATION
 
   // Avoid complication with duplicating EH pads.
   if (PredBB->isEHPad())
@@ -2725,12 +2947,12 @@ bool JumpThreadingPass::TryThreadEdge(
       }
     }
 
-    // We are using CountableLoopHeaders here instead because-
+    // We are using CountableSingleExitLoopHeaders here instead because-
     // 1) They are only populated when function has pre_loopopt attribute.
     // 2) This function seems to be conservatively adding some bblocks which
     //    are not true loop headers in LoopHeaders.
-    if (CountableLoopHeaders.count(BB)
-        && isa<SwitchInst>(BB->getTerminator())) {
+    if (CountableSingleExitLoopHeaders.count(BB) &&
+        isa<SwitchInst>(BB->getTerminator())) {
       LLVM_DEBUG(
           dbgs()
           << "  Not threading across loop header BB '" << BB->getName()

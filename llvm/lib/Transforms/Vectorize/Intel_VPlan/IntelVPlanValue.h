@@ -21,24 +21,18 @@
 #ifndef LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_INTELVPLANVALUE_H
 #define LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_INTELVPLANVALUE_H
 
+#include "VPlanHIR/IntelVPlanInstructionDataHIR.h"
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/SmallString.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
 
-#if INTEL_CUSTOMIZATION
-#include "VPlanHIR/IntelVPlanInstructionDataHIR.h"
-#endif
-
 namespace llvm {
-#if INTEL_CUSTOMIZATION
 namespace vpo {
-#endif
 
 // Forward declarations.
 class VPUser;
 
-#if INTEL_CUSTOMIZATION
 // Forward declaration (need them to friend them within VPInstruction)
 // TODO: This needs to be refactored
 class VPBasicBlock;
@@ -46,14 +40,12 @@ class VPlanPredicator;
 class VPlan;
 class VPLoop;
 class VPExternalUse;
-#endif
 
 // This is the base class of the VPlan Def/Use graph, used for modeling the data
 // flow into, within and out of the VPlan. VPValues can stand for live-ins
 // coming from the input IR, instructions which VPlan will generate if executed
 // and live-outs which the VPlan will need to fix accordingly.
 class VPValue {
-#if INTEL_CUSTOMIZATION
   // The following need access to the underlying IR Value
   friend class VPlan;
   friend class VPBasicBlock;
@@ -65,12 +57,12 @@ class VPValue {
   friend class VPInstruction;
   friend class VPVLSClientMemref;
   friend class VPlanScalarEvolutionLLVM;
-#endif
+  friend class VPLoopEntityList;
+  friend class IndirectCallCodeGenerator;
 
 private:
   const unsigned char SubclassID; ///< Subclass identifier (for isa/dyn_cast).
 
-#if INTEL_CUSTOMIZATION
   // TODO: This will probably be replaced by a VPType that would additionally
   // keep the number of vector elements in the resulting type as a symbolic
   // expression with VF/UF as parameters to it.
@@ -82,7 +74,6 @@ private:
   // llvm::Context (probably the separate HCFG class once we refactor it out of
   // the VPlan).
   std::string Name;
-#endif // INTEL_CUSTOMIZATION
 
   SmallVector<VPUser *, 1> Users;
 
@@ -97,15 +88,8 @@ private:
   // 2. IR flags and call attributes
   bool IsUnderlyingValueValid;
 
-  /// Replace all uses of *this with \p NewVal. If the \p Loop/BasicBlock is not
-  /// null then replacement is restricted by VPInstructions from the \p given
-  /// Loop/BasicBlock.
-  void replaceAllUsesWithImpl(VPValue *NewVal, VPLoop *L, VPBasicBlock *VPBB,
-                              bool InvalidateIR);
-
 protected:
 
-#if INTEL_CUSTOMIZATION
   VPValue(const unsigned char SC, Type *BaseTy, Value *UV = nullptr)
       : SubclassID(SC), BaseTy(BaseTy), UnderlyingVal(UV),
         IsUnderlyingValueValid(UV ? true : false) {
@@ -113,10 +97,6 @@ protected:
     if (UV && !UV->getName().empty())
       Name = (getVPNamePrefix() + UV->getName()).str();
   }
-#else
-  VPValue(const unsigned char SC, Value *UV = nullptr)
-      : SubclassID(SC), UnderlyingVal(UV) {}
-#endif // INTEL_CUSTOMIZATION
 
   // DESIGN PRINCIPLE: Access to the underlying IR must be strictly limited to
   // the front-end and back-end of VPlan so that the middle-end is as
@@ -143,7 +123,6 @@ public:
   /// that are actually instantiated. Values of this enumeration are kept in
   /// the SubclassID field of the VPValue objects. They are used for concrete
   /// type identification.
-#if INTEL_CUSTOMIZATION
   enum {
     VPValueSC,
     VPUserSC,
@@ -154,21 +133,17 @@ public:
     VPExternalUseSC,
     VPPrivateMemorySC,
     VPBasicBlockSC,
+    VPLiveInValueSC,
+    VPLiveOutValueSC,
   };
-#else
-  enum { VPValueSC, VPUserSC, VPInstructionSC };
-#endif // INTEL_CUSTOMIZATION
 
-#if INTEL_CUSTOMIZATION
   VPValue(Type *BaseTy, Value *UV = nullptr)
       : SubclassID(VPValueSC), BaseTy(BaseTy), UnderlyingVal(UV) {
     assert(BaseTy && "BaseTy can't be null!");
   }
-#endif // INTEL_CUSTOMIZATION
   VPValue(const VPValue &) = delete;
   VPValue &operator=(const VPValue &) = delete;
 
-#if INTEL_CUSTOMIZATION
   virtual ~VPValue() {}
   // FIXME: To be replaced by a proper VPType.
   Type *getType() const { return BaseTy; }
@@ -214,23 +189,19 @@ public:
     else
       return NameRef;
   }
-#endif
 
   /// \return an ID for the concrete type of this object.
   /// This is used to implement the classof checks. This should not be used
   /// for any other purpose, as the values may change as LLVM evolves.
   unsigned getVPValueID() const { return SubclassID; }
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-#if INTEL_CUSTOMIZATION
-  virtual void dump(raw_ostream &OS) const { printAsOperand(OS); }
-  virtual void dump() const { dump(errs()); }
+  virtual void print(raw_ostream &OS) const { printAsOperand(OS); }
+  void dump() const { print(errs()); errs()<< '\n'; }
   virtual void printAsOperand(raw_ostream &OS) const;
-#endif
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 
   unsigned getNumUsers() const { return Users.size(); }
   void addUser(VPUser &User) { Users.push_back(&User); }
-#if INTEL_CUSTOMIZATION
   void removeUser(const VPUser &User) {
     auto It = std::find(user_begin(), user_end(), &User);
     assert(It != user_end() && "User not found!");
@@ -248,35 +219,31 @@ public:
            });
   }
 
-  /// Replace all uses of *this with \p NewVal. Additionally invalidate the
-  /// underlying IR if \p InvalidateIR is set. Note that this is a divergence
-  /// from LLVM's RAUW where users are not "modified" after the operation,
-  /// however in VPlan we invalidate the underlying value of the VPUser if
-  /// applicable.
-  void replaceAllUsesWith(VPValue *NewVal, bool InvalidateIR = true) {
-    replaceAllUsesWithImpl(NewVal, nullptr, nullptr, InvalidateIR);
-  }
-
-  /// Replace all uses of *this with \p NewVal in the \p Loop. Additionally
-  /// invalidate the underlying IR if \p InvalidateIR is set.
-  void replaceAllUsesWithInLoop(VPValue *NewVal, VPLoop &Loop,
-                                bool InvalidateIR = true) {
-    replaceAllUsesWithImpl(NewVal, &Loop, nullptr, InvalidateIR);
-  }
+  /// Replace all uses of this with \p NewVal if a ShouldReplace condition is
+  /// true. Additionally invalidate the underlying IR if \p InvalidateIR is set.
+  void replaceUsesWithIf(VPValue *NewVal,
+                         llvm::function_ref<bool(VPUser *U)> ShouldReplace,
+                         bool InvalidateIR = true);
 
   /// Replace all uses of *this with \p NewVal in the \p VPBB. Additionally
   /// invalidate the underlying IR if \p InvalidateIR is set.
   void replaceAllUsesWithInBlock(VPValue *NewVal, VPBasicBlock &VPBB,
-                                 bool InvalidateIR = true) {
-    replaceAllUsesWithImpl(NewVal, nullptr, &VPBB, InvalidateIR);
-  }
+                                 bool InvalidateIR = true);
+
+  /// Replace all uses of *this with \p NewVal in the \p Loop. Additionally
+  /// invalidate the underlying IR if \p InvalidateIR is set.
+  void replaceAllUsesWithInLoop(VPValue *NewVal, VPLoop &Loop,
+                                bool InvalidateIR = true);
+
+  /// Replace all uses of *this with \p NewVal. Additionally invalidate the
+  /// underlying IR if \p InvalidateIR is set.
+  void replaceAllUsesWith(VPValue *NewVal, bool InvalidateIR = true);
 
   /// Return validity of underlying Value or HIR node.
   bool isUnderlyingIRValid() const;
 
   /// Invalidate the underlying Value or HIR node.
   void invalidateUnderlyingIR();
-#endif // INTEL_CUSTOMIZATION
 
   typedef SmallVectorImpl<VPUser *>::iterator user_iterator;
   typedef SmallVectorImpl<VPUser *>::const_iterator const_user_iterator;
@@ -305,7 +272,6 @@ private:
   SmallVector<VPValue *, 2> Operands;
 
 protected:
-#if INTEL_CUSTOMIZATION
   VPUser(const unsigned char SC, Type *BaseTy) : VPValue(SC, BaseTy) {}
   VPUser(const unsigned char SC, ArrayRef<VPValue *> Operands, Type *BaseTy)
       : VPValue(SC, BaseTy) {
@@ -326,26 +292,8 @@ protected:
     // (vtable not ready at that time). However, this shouldn't be a problem
     // because the HIR is invalid by default at construction.
   }
-#endif
 
 public:
-#ifndef INTEL_CUSTOMIZATION
-  VPUser(const unsigned char SC) : VPValue(SC) {}
-  VPUser(const unsigned char SC, std::initializer_list<VPValue *> Operands)
-      : VPValue(SC) {
-    for (VPValue *Operand : Operands)
-      addOperand(Operand);
-  }
-
-  VPUser() : VPValue(VPValue::VPUserSC) {}
-  VPUser(ArrayRef<VPValue *> Operands) : VPValue(VPValue::VPUserSC) {
-    for (VPValue *Operand : Operands)
-      addOperand(Operand);
-  }
-  VPUser(std::initializer_list<VPValue *> Operands)
-      : VPUser(ArrayRef<VPValue *>(Operands)) {}
-#endif // INTEL_CUSTOMIZATION
-
   VPUser(const VPUser &) = delete;
   VPUser &operator=(const VPUser &) = delete;
 
@@ -366,7 +314,6 @@ public:
     assert(N < Operands.size() && "Operand index out of bounds");
     return Operands[N];
   }
-#if INTEL_CUSTOMIZATION
   void setOperand(const unsigned Idx, VPValue *Operand) {
     assert(Idx < getNumOperands() && "Out of range");
     Operands[Idx]->removeUser(*this);
@@ -380,6 +327,11 @@ public:
     auto It = op_begin();
     std::advance(It, Idx);
     Operands.erase(It);
+  }
+  void removeAllOperands() {
+    int NumOps = getNumOperands();
+    for (int Idx = 0; Idx < NumOps; ++Idx)
+      removeOperand(NumOps - 1 - Idx);
   }
   /// Return the number of operands that match \p Op.
   int getNumOperandsFrom(const VPValue *Op) const {
@@ -403,7 +355,6 @@ public:
       return std::distance(op_begin(), It);
     return -1;
   }
-#endif // INTEL_CUSTOMIZATION
 
   typedef SmallVectorImpl<VPValue *>::iterator operand_iterator;
   typedef SmallVectorImpl<VPValue *>::const_iterator const_operand_iterator;
@@ -420,7 +371,6 @@ public:
   }
 };
 
-#if INTEL_CUSTOMIZATION
 /// This class augments VPValue with constant operands that encapsulates LLVM
 /// Constant information. In the same way as LLVM Constant, VPConstant is
 /// immutable (once created they never change) and are fully shared by
@@ -438,7 +388,7 @@ public:
 // constants will be represented with two different VPConstants.
 class VPConstant : public VPValue {
   // VPlan is currently the context where we hold the pool of VPConstants.
-  friend class VPlan;
+  friend class VPExternalValues;
 
 protected:
   VPConstant(Constant *Const)
@@ -462,18 +412,23 @@ public:
 
   /// Return the zero-extended value of underlying Constant. ZExt value exists
   /// only for constant integers.
-  unsigned getZExtValue() const {
+  uint64_t getZExtValue() const {
     assert(isConstantInt() &&
            "ZExt value cannot be obtained for non-constant integers.");
     return cast<ConstantInt>(getUnderlyingValue())->getZExtValue();
+  }
+
+  int64_t getSExtValue() const {
+    assert(isConstantInt() &&
+           "SExt value cannot be obtained for non-constant integers.");
+    return cast<ConstantInt>(getUnderlyingValue())->getSExtValue();
   }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   void printAsOperand(raw_ostream &OS) const override {
     getUnderlyingValue()->printAsOperand(OS);
   }
-  void dump(raw_ostream &OS) const override { printAsOperand(OS); }
-  void dump() const override { dump(errs()); }
+  void print(raw_ostream &OS) const override { printAsOperand(OS); }
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 
   /// Method to support type inquiry through isa, cast, and dyn_cast.
@@ -485,7 +440,7 @@ public:
 /// VPConstantInt is subset of VPConstant representing Integer constants only.
 class VPConstantInt : public VPConstant {
   // VPlan is currently the context where we hold the pool of VPConstants.
-  friend class VPlan;
+  friend class VPExternalValues;
 
 protected:
   VPConstantInt(ConstantInt *ConstInt) : VPConstant(ConstInt) {}
@@ -512,8 +467,7 @@ public:
   void printAsOperand(raw_ostream &OS) const override {
     getUnderlyingValue()->printAsOperand(OS);
   }
-  void dump(raw_ostream &OS) const override { printAsOperand(OS); }
-  void dump() const override { dump(errs()); }
+  void print(raw_ostream &OS) const override { printAsOperand(OS); }
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 
   /// Method to support type inquiry through isa, cast, and dyn_cast.
@@ -531,7 +485,7 @@ public:
 /// that only once instance of each external definition is created.
 class VPExternalDef : public VPValue, public FoldingSetNode {
   // VPlan is currently the context where the pool of VPExternalDefs is held.
-  friend class VPlan;
+  friend class VPExternalValues;
   friend class VPOCodeGenHIR;
   friend class VPOCodeGen;
 
@@ -607,27 +561,38 @@ public:
 };
 
 /// Concrete class for an external use.
-class VPExternalUse : public VPUser, public FoldingSetNode {
+/// The object of this class registers the fact that a VPValue is live out and
+/// keeps a link to underlying use outside the loop. The link can be undefined
+/// in case when VPValue is live-out "partially", e.g. induction that is not
+/// live-out in the main loop is live-out in the peel loop.
+class VPExternalUse : public VPUser {
 private:
-  friend class VPlan;
+  friend class VPExternalValues;
   friend class VPOCodeGen;
+  friend class VPOCodeGenHIR;
 
   // Hold the DDRef or IV information related to this external use.
   std::unique_ptr<VPOperandHIR> HIROperand;
 
   // Construct a VPExternalUse given a Value \p ExtVal.
-  VPExternalUse(PHINode *ExtVal)
-      : VPUser(VPValue::VPExternalUseSC, ExtVal->getType()) {
+  VPExternalUse(PHINode *ExtVal, unsigned Id)
+      : VPUser(VPValue::VPExternalUseSC, ExtVal->getType()), MergeId(Id) {
     setUnderlyingValue(*ExtVal);
   }
   // Construct a VPExternalUse given an underlying DDRef \p DDR.
-  VPExternalUse(const loopopt::DDRef *DDR)
+  VPExternalUse(const loopopt::DDRef *DDR, unsigned Id)
       : VPUser(VPValue::VPExternalUseSC, DDR->getDestType()),
-        HIROperand(new VPBlob(DDR)) {}
+        HIROperand(new VPBlob(DDR)), MergeId(Id) {}
   // Construct a VPExternalUse given an underlying IV level \p IVLevel.
-  VPExternalUse(unsigned IVLevel, Type *BaseTy)
+  VPExternalUse(unsigned IVLevel, Type *BaseTy, unsigned Id)
       : VPUser(VPValue::VPExternalUseSC, BaseTy),
-        HIROperand(new VPIndVar(IVLevel)) {}
+        HIROperand(new VPIndVar(IVLevel)), MergeId(Id) {}
+
+  // Construct a VPExternalUse w/o underlying info. This is needed for
+  // entities that are non-liveout, to link values between different parts of
+  // vectorized loop, peel/main loop/remainder.
+  VPExternalUse(unsigned Id, Type *BaseTy)
+      : VPUser(VPValue::VPExternalUseSC, BaseTy), MergeId(Id) {}
 
   // DESIGN PRINCIPLE: Access to the underlying IR must be strictly limited to
   // the front-end and back-end of VPlan so that the middle-end is as
@@ -647,8 +612,7 @@ public:
     return V->getVPValueID() == VPExternalUseSC;
   }
 
-  /// Method to support FoldingSet's hashing.
-  void Profile(FoldingSetNodeID &ID) const { HIROperand->Profile(ID); }
+  unsigned getMergeId() const { return MergeId; }
 
   /// Adds operand with an underlying value. The underlying value points to the
   /// value which should be replaced by the new one generated from vector code.
@@ -669,15 +633,60 @@ public:
   }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-  void dump(raw_ostream &OS) const override {
-    if (getUnderlyingValue())
+  void print(raw_ostream &OS) const override {
+    print(OS, nullptr);
+  }
+  void print(raw_ostream &OS, VPValue* Operand) const {
+    OS << "Id: " << getMergeId() << "   ";
+    if (getUnderlyingValue()) {
       cast<Instruction>(getUnderlyingValue())->print(OS);
-    for (unsigned I = 0, E = getNumOperands(); I < E; ++I) {
-      getOperand(I)->printAsOperand(OS);
-      OS << " -> ";
-      getUnderlyingOperand(I)->printAsOperand(OS);
-      OS << ";\n";
+      if (getNumOperands())
+        for (unsigned I = 0, E = getNumOperands(); I < E; ++I) {
+          OS << " ";
+          getOperand(I)->printAsOperand(OS);
+          OS << " -> ";
+          getUnderlyingOperand(I)->printAsOperand(OS);
+          OS << ";\n";
+        }
+      else {
+        assert(Operand && "Expected non-null operand");
+        OS << " ";
+        Operand->printAsOperand(OS);
+        OS << " -> ";
+        getUnderlyingOperand(0)->printAsOperand(OS);
+        OS << ";\n";
+      }
+    } else if (HIROperand) {
+      if (getNumOperands())
+        for (unsigned I = 0, E = getNumOperands(); I < E; ++I) {
+          if (I)
+            OS << ", ";
+          getOperand(I)->printAsOperand(OS);
+        }
+      else {
+        assert(Operand && "Expected non-null operand");
+        Operand->printAsOperand(OS);
+      }
+      OS << " ->";
+      HIROperand->printDetail(OS);
+    } else {
+      OS << "no underlying for ";
+      if (getNumOperands())
+        getOperand(0)->printAsOperand(OS);
+      else {
+        assert(Operand && "Expected non-null operand");
+        Operand->printAsOperand(OS);
+      }
+      OS << "\n";
     }
+  }
+
+  void printAsOperand(raw_ostream &OS) const {
+    getType()->print(OS);
+    OS << " ext-use" << getMergeId() << "(";
+    if (getNumOperands() > 0)
+      getOperand(0)->printAsOperand(OS);
+    OS << ")";
   }
 #endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 
@@ -688,6 +697,10 @@ private:
   }
 
   SmallVector<Value *, 2> UnderlyingOperands;
+
+  // Identifier of the live out value in VPlan. Is provided by VPlan and used
+  // to keep track of live-outs during VPlan cloning.
+  unsigned MergeId = 0;
 };
 
 /// This class augments VPValue with Metadata that is used as operand of another
@@ -695,7 +708,7 @@ private:
 class VPMetadataAsValue : public VPValue {
   // VPlan is currently the context where we hold the pool of
   // VPMetadataAsValues.
-  friend class VPlan;
+  friend class VPExternalValues;
 
 protected:
   VPMetadataAsValue(MetadataAsValue *MDAsValue)
@@ -728,8 +741,7 @@ public:
   void printAsOperand(raw_ostream &OS) const override {
     getUnderlyingValue()->printAsOperand(OS);
   }
-  void dump(raw_ostream &OS) const override { printAsOperand(OS); }
-  void dump() const override { dump(errs()); }
+  void print(raw_ostream &OS) const override { printAsOperand(OS); }
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 
   /// Method to support type inquiry through isa, cast, and dyn_cast.
@@ -738,7 +750,95 @@ public:
   }
 };
 
+/// VPLiveInValue is a wrapper for the loop entities incoming values in VPlan.
+/// VPLiveInValue replaces the original incoming value in init/final
+/// instructions of the loop entities after CFG building. The main purpose of
+/// VPLiveInValue is to protect the original incoming value from unintended
+/// access.
+/// The VPLiveInValue has a MergeId which is its unique index and is used to
+/// link it to the original incoming value. The MergeId is not changed during
+/// cloning so it can be used identically in different VPlans.
+/// The VPLiveInValue-s are created during VPlan construction, after CFG
+/// is updated with VPEntity instructions.
+/// For example:
+/// Before VPLiveInValue creation:
+///  %red_init = reduction-init{+} %extdef
+///
+/// After VPLiveInValue creation:
+///  %red_init = reduction-init{+} %live-in1
+///
+class VPLiveInValue : public VPValue {
+public:
+  VPLiveInValue(unsigned Id, Type* Ty)
+      : VPValue(VPValue::VPLiveInValueSC, Ty), MergeId(Id) {}
+
+  VPLiveInValue(const VPLiveInValue& LI)
+      : VPLiveInValue(LI.getMergeId(), LI.getType()) {}
+
+  unsigned getMergeId() const { return MergeId; }
+
+  // Method to support type inquiry through isa, cast, and dyn_cast.
+  static inline bool classof(const VPValue *V) {
+    return V->getVPValueID() == VPValue::VPLiveInValueSC;
+  }
+
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+  void print(raw_ostream &OS) const override {
+    OS << "live-in" << getMergeId() << "\n";
+  }
+
+  void printAsOperand(raw_ostream &OS) const {
+    getType()->print(OS);
+    OS << " live-in" << getMergeId();
+  }
+#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+
+private:
+  unsigned MergeId;
+};
+
+/// VPLiveOutValue is a wrapper for the uses of loop entities outgoing values
+/// in VPlan. Those uses are encoded by VPExternalUse.
+/// The main purpose of VPLiveOutValue is to provide ability to clone VPlan w/o
+/// adding additional operands in VPExternalUse. The VPLiveOutValue becomes a
+/// use of liveout instead of VPExternalUse.
+/// The VPLiveOutValue contains a link to the VPExternalUse. The linking is done
+/// through MergeId which is assigned at creation.
+/// The MergeId is not changed during cloning so the live outs of different
+/// VPlans can be easily linked with the same external use.
+/// The VPLiveOutValue-s are created during VPlan construction, after CFG is
+/// updated with VPEntity instructions, and are kept in VPlan.
+///
+class VPLiveOutValue : public VPUser {
+public:
+  VPLiveOutValue(unsigned Id, VPValue *Operand)
+      : VPUser(VPValue::VPLiveOutValueSC, {Operand}, Operand->getType()), MergeId(Id) {}
+
+  VPLiveOutValue(const VPLiveOutValue& LI)
+      : VPLiveOutValue(LI.getMergeId(), LI.getOperand(0)) {}
+
+  unsigned getMergeId() const { return MergeId; }
+
+  // Method to support type inquiry through isa, cast, and dyn_cast.
+  static inline bool classof(const VPValue *V) {
+    return V->getVPValueID() == VPValue::VPLiveOutValueSC;
+  }
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+  void print(raw_ostream &OS) const override {
+    OS << "live-out" << getMergeId() << "\n";
+  }
+
+  void printAsOperand(raw_ostream &OS) const {
+    getType()->print(OS);
+    OS << " live-out" << getMergeId();
+  }
+#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+
+
+private:
+  unsigned MergeId;
+};
+
 } // namespace vpo
-#endif // INTEL_CUSTOMIZATION
 } // namespace llvm
 #endif // LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_INTELVPLANVALUE_H

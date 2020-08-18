@@ -334,10 +334,8 @@ ConstantMatrixType::ConstantMatrixType(QualType matrixType, unsigned nRows,
 ConstantMatrixType::ConstantMatrixType(TypeClass tc, QualType matrixType,
                                        unsigned nRows, unsigned nColumns,
                                        QualType canonType)
-    : MatrixType(tc, matrixType, canonType) {
-  ConstantMatrixTypeBits.NumRows = nRows;
-  ConstantMatrixTypeBits.NumColumns = nColumns;
-}
+    : MatrixType(tc, matrixType, canonType), NumRows(nRows),
+      NumColumns(nColumns) {}
 
 DependentSizedMatrixType::DependentSizedMatrixType(
     const ASTContext &CTX, QualType ElementType, QualType CanonicalType,
@@ -373,15 +371,7 @@ ExtIntType::ExtIntType(bool IsUnsigned, unsigned NumBits)
 DependentExtIntType::DependentExtIntType(const ASTContext &Context,
                                          bool IsUnsigned, Expr *NumBitsExpr)
     : Type(DependentExtInt, QualType{},
-           ((NumBitsExpr->isValueDependent() || NumBitsExpr->isTypeDependent())
-                ? TypeDependence::Dependent
-                : TypeDependence::None) |
-               (NumBitsExpr->isInstantiationDependent()
-                    ? TypeDependence::Instantiation
-                    : TypeDependence::None) |
-               (NumBitsExpr->containsUnexpandedParameterPack()
-                    ? TypeDependence::VariablyModified
-                    : TypeDependence::None)),
+           toTypeDependence(NumBitsExpr->getDependence())),
       Context(Context), ExprAndUnsigned(NumBitsExpr, IsUnsigned) {}
 
 bool DependentExtIntType::isUnsigned() const {
@@ -1220,9 +1210,6 @@ public:
                            T->getTypeConstraintConcept(),
                            T->getTypeConstraintArguments());
   }
-
-  // FIXME: Non-trivial to implement, but important for C++
-  SUGARED_TYPE_CLASS(PackExpansion)
 
   QualType VisitObjCObjectType(const ObjCObjectType *T) {
     QualType baseType = recurse(T->getBaseType());
@@ -2378,6 +2365,37 @@ bool Type::isSizelessBuiltinType() const {
 
 bool Type::isSizelessType() const { return isSizelessBuiltinType(); }
 
+bool Type::isVLSTBuiltinType() const {
+  if (const BuiltinType *BT = getAs<BuiltinType>()) {
+    switch (BT->getKind()) {
+    case BuiltinType::SveInt8:
+    case BuiltinType::SveInt16:
+    case BuiltinType::SveInt32:
+    case BuiltinType::SveInt64:
+    case BuiltinType::SveUint8:
+    case BuiltinType::SveUint16:
+    case BuiltinType::SveUint32:
+    case BuiltinType::SveUint64:
+    case BuiltinType::SveFloat16:
+    case BuiltinType::SveFloat32:
+    case BuiltinType::SveFloat64:
+    case BuiltinType::SveBFloat16:
+    case BuiltinType::SveBool:
+      return true;
+    default:
+      return false;
+    }
+  }
+  return false;
+}
+
+bool Type::isVLST() const {
+  if (!isVLSTBuiltinType())
+    return false;
+
+  return hasAttr(attr::ArmSveVectorBits);
+}
+
 bool QualType::isPODType(const ASTContext &Context) const {
   // C++11 has a more relaxed definition of POD.
   if (Context.getLangOpts().CPlusPlus11)
@@ -3098,6 +3116,12 @@ StringRef BuiltinType::getName(const PrintingPolicy &Policy) const {
   case Id: \
     return "__" #Access " " #ImgType "_t";
 #include "clang/Basic/OpenCLImageTypes.def"
+#define IMAGE_TYPE(ImgType, Id, SingletonId, Access, Suffix)                   \
+  case Sampled##Id:                                                            \
+    return "__ocl_sampled_" #ImgType "_" #Suffix "_t";
+#define IMAGE_WRITE_TYPE(Type, Id, Ext)
+#define IMAGE_READ_WRITE_TYPE(Type, Id, Ext)
+#include "clang/Basic/OpenCLImageTypes.def"
   case OCLSampler:
     return "sampler_t";
   case OCLEvent:
@@ -3413,6 +3437,12 @@ void FunctionProtoType::Profile(llvm::FoldingSetNodeID &ID,
           getExtProtoInfo(), Ctx, isCanonicalUnqualified());
 }
 
+TypedefType::TypedefType(TypeClass tc, const TypedefNameDecl *D, QualType can)
+    : Type(tc, can, D->getUnderlyingType()->getDependence()),
+      Decl(const_cast<TypedefNameDecl *>(D)) {
+  assert(!isa<TypedefType>(can) && "Invalid canonical type");
+}
+
 QualType TypedefType::desugar() const {
   return getDecl()->getUnderlyingType();
 }
@@ -3683,7 +3713,7 @@ TemplateSpecializationType::TemplateSpecializationType(
 
   auto *TemplateArgs = reinterpret_cast<TemplateArgument *>(this + 1);
   for (const TemplateArgument &Arg : Args) {
-    // Update instantiation-dependent and variably-modified bits.
+    // Update instantiation-dependent, variably-modified, and error bits.
     // If the canonical type exists and is non-dependent, the template
     // specialization type can be non-dependent even if one of the type
     // arguments is. Given:
@@ -4147,6 +4177,11 @@ bool Type::canHaveNullability(bool ResultIfUnknown) const {
     case BuiltinType::ObjCSel:
 #define IMAGE_TYPE(ImgType, Id, SingletonId, Access, Suffix) \
     case BuiltinType::Id:
+#include "clang/Basic/OpenCLImageTypes.def"
+#define IMAGE_TYPE(ImgType, Id, SingletonId, Access, Suffix)                   \
+  case BuiltinType::Sampled##Id:
+#define IMAGE_WRITE_TYPE(Type, Id, Ext)
+#define IMAGE_READ_WRITE_TYPE(Type, Id, Ext)
 #include "clang/Basic/OpenCLImageTypes.def"
 #define EXT_OPAQUE_TYPE(ExtType, Id, Ext) \
     case BuiltinType::Id:

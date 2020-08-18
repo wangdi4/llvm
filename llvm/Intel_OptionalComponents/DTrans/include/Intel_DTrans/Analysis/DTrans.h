@@ -33,6 +33,7 @@
 #include "llvm/IR/DerivedTypes.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/Instruction.h"
+#include "llvm/Support/Debug.h"
 #include "llvm/Support/Casting.h"
 #include "llvm/Support/raw_ostream.h"
 
@@ -259,6 +260,33 @@ public:
   bool isPaddedField() const { return PaddedField != PFK_NoPadding; }
   bool isCleanPaddedField() const { return PaddedField == PFK_Clean; }
 
+  // Return true if the current field is an array with constant entries
+  bool isArrayWithConstantEntries() const {
+    if (ArrayConstEntries.empty())
+      return false;
+
+    // If there is a nullptr in ArrayConstEntries, then we will treat
+    // the information as invalid
+    for (auto &Entry : ArrayConstEntries) {
+      (void)Entry;
+      assert((Entry.first && isa<ConstantInt>(Entry.first) &&
+              Entry.second && isa<ConstantInt>(Entry.second)) &&
+             "Non-constant integer information found in a field "
+             "reserved for constant data");
+    }
+
+    return true;
+  }
+
+  // Return the information if the current field is an array with
+  // constant entries
+  const SetVector< std::pair<Constant*, Constant*> >
+      &getArrayWithConstantEntries() const { return ArrayConstEntries; }
+
+  // Insert a new entry in ArrayConstEntries assuming that the current field
+  // is an array with constant entries.
+  void addConstantEntryIntoTheArray(Constant *Index, Constant* ConstVal);
+
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   void dump() const { print(dbgs()); }
 
@@ -313,6 +341,12 @@ private:
   // is used for the application binary interface (ABI) and it will
   // be identified as the PaddedField.
   PF_Kind PaddedField = PFK_NoPadding;
+
+  // Set vector that stores the index and the value that are constant if
+  // the current field is an array with constant entries. The first
+  // entry in the pair is the index in the array, the second entry is
+  // the constant value.
+  SetVector< std::pair<Constant*, Constant*> > ArrayConstEntries;
 };
 
 /// DTrans optimization safety conditions for a structure type.
@@ -673,6 +707,18 @@ const SafetyData SDPaddedStructures =
         BadMemFuncManipulation | AmbiguousPointerTarget | AddressTaken |
         MismatchedArgUse | UnhandledUse;
 
+// Safety conditions for arrays with constant entries
+const SafetyData SDArraysWithConstantEntries =
+    BadCasting | BadAllocSizeArg | BadPtrManipulation |
+        AmbiguousGEP | VolatileData | MismatchedElementAccess |
+        WholeStructureReference | UnsafePointerStore | FieldAddressTaken |
+        HasInitializerList | GlobalArray | GlobalInstance | UnsafePtrMerge |
+        BadMemFuncSize | MemFuncPartialWrite | BadMemFuncManipulation |
+        AmbiguousPointerTarget | AddressTaken | NoFieldsInStruct |
+        SystemObject | MismatchedArgUse | BadCastingPending |
+        BadCastingConditional | UnsafePointerStorePending |
+        UnsafePointerStoreConditional | UnhandledUse;
+
 //
 // TODO: Update the list each time we add a new safety conditions check for a
 // new transformation pass.
@@ -690,8 +736,9 @@ const Transform DT_ElimROFieldAccess = 0x0100;
 const Transform DT_DynClone = 0x0200;
 const Transform DT_SOAToAOS = 0x0400;
 const Transform DT_MemInitTrimDown = 0x0800;
-const Transform DT_Last = 0x1000;
-const Transform DT_Legal = 0x0fff;
+const Transform DT_ArraysWithConstantEntries = 0x1000;
+const Transform DT_Last = 0x2000;
+const Transform DT_Legal = 0x1fff;
 
 /// A three value enum that indicates whether for a particular Type of
 /// interest if a there is another distinct Type with which it is compatible
@@ -863,10 +910,6 @@ public:
   // Remove the related type and restore the safety conditions.
   void unsetRelatedType();
 
-  // Return true if the input offset accesses the padded field.
-  bool offsetAccessesPaddingField(int64_t Offset, const llvm::DataLayout &DL,
-                                  bool FullBase = true);
-
   // Return true if the last field in the structure is used for padding.
   bool hasPaddedField();
 
@@ -917,6 +960,9 @@ public:
 
   TypeInfo *getElementDTransInfo() const { return DTransElemTy; }
   llvm::Type *getElementLLVMType() const { return DTransElemTy->getLLVMType(); }
+  dtrans::DTransType *getElementDTransType() const {
+    return DTransElemTy->getDTransType();
+  }
   size_t getNumElements() const { return NumElements; }
 
   /// Method to support type inquiry through isa, cast, and dyn_cast:

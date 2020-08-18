@@ -68,6 +68,18 @@ intel_add_file(INTEL_HEADERS
   Intel_amxintrin.h
   )
 # end INTEL_FEATURE_ISA_AMX
+# INTEL_FEATURE_ISA_AMX_BF8
+intel_add_file(INTEL_HEADERS
+  FEATURE ${LLVM_INTELFEATURE_PREFIX}_ISA_AMX_BF8
+  Intel_amxbf8intrin.h
+  )
+# end INTEL_FEATURE_ISA_AMX_BF8
+# INTEL_FEATURE_ISA_AMX_MEMADVISE
+intel_add_file(INTEL_HEADERS
+  FEATURE ${LLVM_INTELFEATURE_PREFIX}_ISA_AMX_MEMADVISE
+  Intel_amxmemadviseintrin.h
+  )
+# end INTEL_FEATURE_ISA_AMX_MEMADVISE
 # INTEL_FEATURE_ISA_AMX_FUTURE
 intel_add_file(INTEL_HEADERS
   FEATURE ${LLVM_INTELFEATURE_PREFIX}_ISA_AMX_FUTURE
@@ -214,12 +226,29 @@ intel_add_file(INTEL_HEADERS
   Intel_Headers/avxcompress/avxcompressintrin.h
   )
 # end INTEL_FEATURE_ISA_AVX_COMPRESS
+# INTEL_FEATURE_ISA_AVX_MEMADVISE
+intel_add_file(INTEL_HEADERS
+  FEATURE ${LLVM_INTELFEATURE_PREFIX}_ISA_AVX_MEMADVISE
+  Intel_Headers/avxmemadvise/avxmemadviseintrin.h
+  )
+intel_add_file(INTEL_HEADERS
+  FEATURE ${LLVM_INTELFEATURE_PREFIX}_ISA_AVX_MEMADVISE
+  Intel_Headers/avxmemadvise/avx512memadviseintrin.h
+  )
+# end INTEL_FEATURE_ISA_AVX_MEMADVISE
+#if INTEL_FEATURE_ISA_AVX_MPSADBW
+intel_add_file(INTEL_HEADERS
+  FEATURE ${LLVM_INTELFEATURE_PREFIX}_ISA_AVX_MPSADBW
+  Intel_Headers/avx512mpsadbw/avx512mpsadbwintrin.h
+  )
+#endif // INTEL_FEATURE_ISA_AVX_MPSADBW
 # end INTEL_CUSTOMIZATION
 
 set(files
   adxintrin.h
   altivec.h
   ammintrin.h
+  amxintrin.h
   arm_acle.h
   arm_cmse.h
   armintr.h
@@ -374,6 +403,8 @@ set(ppc_wrapper_files
 set(openmp_wrapper_files
   openmp_wrappers/math.h
   openmp_wrappers/cmath
+  openmp_wrappers/complex.h
+  openmp_wrappers/complex
   openmp_wrappers/__clang_openmp_device_functions.h
   openmp_wrappers/new
 )

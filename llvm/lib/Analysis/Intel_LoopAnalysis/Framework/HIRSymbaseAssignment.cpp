@@ -17,6 +17,7 @@
 
 #include <map>
 
+#include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Debug.h"
 
 #include "llvm/Analysis/AliasAnalysis.h"
@@ -31,6 +32,19 @@
 using namespace llvm;
 using namespace llvm::loopopt;
 
+enum class VaryingBaseMode { QueryAlias, QueryLoopCarriedAlias };
+
+static cl::opt<VaryingBaseMode> VaryingBaseHandling(
+    "hir-symbase-assignment-varying-base-mode",
+    cl::desc("Influence how we use AA when encountering pointers with varying "
+             "bases"),
+    cl::init(VaryingBaseMode::QueryLoopCarriedAlias), cl::ReallyHidden,
+    cl::values(clEnumValN(VaryingBaseMode::QueryAlias, "query-alias",
+                          "Query the alias() interface, possibly incorrectly"),
+               clEnumValN(VaryingBaseMode::QueryLoopCarriedAlias,
+                          "query-loopcarried",
+                          "Query the loopCarriedAlias() interface")));
+
 #define DEBUG_TYPE "hir-symbase-assignment"
 
 namespace {
@@ -44,7 +58,7 @@ class HIRSymbaseAssignment::HIRSymbaseAssignmentVisitor
   typedef std::map<Value *, RefsTy> PtrToRefsTy;
 
   HIRSymbaseAssignment &SA;
-  AliasSetTracker AST;
+  HybridAliasSetTracker AST;
   PtrToRefsTy PtrToRefs;
 
   void addToAST(RegDDRef *Ref);
@@ -53,7 +67,7 @@ public:
   HIRSymbaseAssignmentVisitor(HIRSymbaseAssignment &CurSA, AliasAnalysis &AA)
       : SA(CurSA), AST(AA) {}
 
-  const AliasSetTracker &getAST() const { return AST; }
+  HybridAliasSetTracker &getAST() { return AST; }
 
   const RefsTy &getRefs(Value *Ptr) const {
     auto RefsIt = PtrToRefs.find(Ptr);
@@ -81,20 +95,36 @@ void HIRSymbaseAssignment::HIRSymbaseAssignmentVisitor::addToAST(
   AAMDNodes AANodes;
   Ref->getAAMetadata(AANodes);
 
-  LocationSize LocSize = MemoryLocation::UnknownSize;
-
-  if (!Ref->isFake() && (!Ref->isAddressOf() || Ref->isAddressOfSizedType()) &&
-      Ref->isStructurallyRegionInvariant()) {
-
-    uint64_t RefSize = Ref->isAddressOf() ? Ref->getElementTypeSizeInBytes()
-                                          : Ref->getDestTypeSizeInBytes();
-    LocSize = LocationSize::precise(RefSize);
+  if (Ref->isStructurallyRegionInvariant()) {
+    // The entire pointer (base and indexing) is region invariant. A normal AST
+    // will correctly disambiguate, even with precise size.
+    LocationSize LocSize = MemoryLocation::UnknownSize;
+    if (!Ref->isFake() &&
+        (!Ref->isAddressOf() || Ref->isAddressOfSizedType())) {
+      uint64_t RefSize = Ref->isAddressOf() ? Ref->getElementTypeSizeInBytes()
+                                            : Ref->getDestTypeSizeInBytes();
+      LocSize = LocationSize::precise(RefSize);
+    }
+    LLVM_DEBUG(
+        dbgs() << "\tRegion invariant; adding to AST with precise size.\n");
+    AST.add(Ptr, LocSize, AANodes);
+  } else if (VaryingBaseHandling == VaryingBaseMode::QueryAlias ||
+             Ref->getBaseCE()->isProperLinear()) {
+    // The base pointer is invariant. We can add it to the normal AST but with
+    // UnknownSize.
+    LLVM_DEBUG(dbgs() << "\tInvariant base, but varying indexing; adding to "
+                         "AST with UnknownSize.\n");
+    AST.add(Ptr, MemoryLocation::UnknownSize, AANodes);
+  } else {
+    // We're trying to track a pointer which is not region invariant.  Add to
+    // the AST with the "LoopCarried" requirement flag. The underlying pairwise
+    // "loopCarriedAlias" interface requires that both pointers have
+    // "UnknownSize" to guarantee strong enough semantics to break a
+    // dependence, so we must not use precise sizes here.
+    LLVM_DEBUG(
+        dbgs() << "\tVarying base pointer; will use loop-carried AST.\n");
+    AST.add(Ptr, MemoryLocation::UnknownSize, AANodes, true);
   }
-
-  // We want loop carried disam, so use a store of unknown size
-  // to simulate read/write of all mem accessed by loop unless the ref is
-  // invariant in the region.
-  AST.add(Ptr, LocSize, AANodes);
 }
 
 void HIRSymbaseAssignment::HIRSymbaseAssignmentVisitor::visit(HLDDNode *Node) {

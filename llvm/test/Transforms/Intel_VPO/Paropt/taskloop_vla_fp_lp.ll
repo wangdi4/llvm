@@ -30,7 +30,7 @@ target triple = "x86_64-unknown-linux-gnu"
 @.str = private unnamed_addr constant [8 x i8] c"%lf %p\0A\00", align 1
 ; Check for the space allocated for the vla in the thunk.
 ; In privates struct, there should be one double*, followed by two i64s.
-; CHECK: %__struct.kmp_privates.t = type { double*, i64, i64, i64, i32 }
+; CHECK: %__struct.kmp_privates.t = type { double*, i64, i64, i64, i64, i32 }
 ; There should be one double* in the shared struct for lastprivate copyout.
 ; CHECK: %__struct.shared.t = type { double*, i64* }
 
@@ -87,17 +87,17 @@ omp.precond.then:                                 ; preds = %entry
 ; CHECK: store double* %vla, double** [[VLA_SHR_GEP]]
 
 ; Check that we call _task_alloc with total size of task_t_with_privates + vla_size
-; CHECK: [[TOTAL_SIZE:%[^ ]+]] = add i64 112, [[VLA_SIZE_IN_BYTES]]
+; CHECK: [[TOTAL_SIZE:%[^ ]+]] = add i64 120, [[VLA_SIZE_IN_BYTES]]
 ; CHECK: [[TASK_ALLOC:[^ ]+]] = call i8* @__kmpc_omp_task_alloc({{.*}}i64 [[TOTAL_SIZE]]{{.*}})
 
 ; Check that VLA size and offset are stored in the thunk
 ; CHECK: [[VLA_SIZE_GEP:%[^ ]+]] = getelementptr inbounds %__struct.kmp_privates.t, %__struct.kmp_privates.t* %{{[^ ]+}}, i32 0, i32 1
 ; CHECK: store i64 [[VLA_SIZE_IN_BYTES]], i64* [[VLA_SIZE_GEP]]
 ; CHECK: [[VLA_OFFSET_GEP:%[^ ]+]] = getelementptr inbounds %__struct.kmp_privates.t, %__struct.kmp_privates.t* %{{[^ ]+}}, i32 0, i32 2
-; CHECK: store i64 112, i64* [[VLA_OFFSET_GEP]]
+; CHECK: store i64 120, i64* [[VLA_OFFSET_GEP]]
 
 ; Check that the local buffer space for %vla, allocated with __kmpc_alloc, is initialized (as it is firstprivate).
-; CHECK: [[VLA_BUFFER:%[^ ]+]] = getelementptr i8, i8* [[TASK_ALLOC]], i64 112
+; CHECK: [[VLA_BUFFER:%[^ ]+]] = getelementptr i8, i8* [[TASK_ALLOC]], i64 120
 ; CHECK: [[VLA_CAST:%[^ ]+]] = bitcast double* %vla to i8*
 ; CHECK: call void @llvm.memcpy.p0i8.p0i8.i64(i8* align 8 [[VLA_BUFFER]], i8* align 8 [[VLA_CAST]], i64 [[VLA_SIZE_IN_BYTES]], i1 false)
 

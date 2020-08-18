@@ -7,7 +7,7 @@
 
 ; RUN: opt < %s -hir-ssa-deconstruction | opt -analyze -hir-framework -hir-framework-debug=parser -hir-details | FileCheck %s
 
-; CHECK: NSW: Yes
+; CHECK: HasSignedIV: Yes
 
 ; CHECK: ={{.*}}undef * %0{{.*}};
 ; CHECK: <RVAL-REG>{{.*}}undef * %0{{.*}}

@@ -1,6 +1,9 @@
 add_llvm_component_library(LLVMBinaryFormat
   AMDGPUMetadataVerifier.cpp
   Dwarf.cpp
+# INTEL_CUSTOMIZATION
+  Intel_Trace.cpp
+# end INTEL_CUSTOMIZATION
   MachO.cpp
   Magic.cpp
   Minidump.cpp

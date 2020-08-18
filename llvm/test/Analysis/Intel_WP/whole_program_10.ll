@@ -1,6 +1,8 @@
 ; REQUIRES: asserts
 ; Test that checks if whole program not seen was identified correctly and the output
-; is printed correctly when whole-program-trace-symbols is used.
+; is printed correctly when whole-program-trace-symbols is used. This is the same test
+; case as whole_program_9.ll but it checks only the visibility trace. The goal of this
+; test is to catch an indirect call that has some use in the program.
 
 ; RUN: llvm-as < %s >%t1
 ; RUN: llvm-lto -exported-symbol=main -debug-only=whole-program-analysis -whole-program-trace-visibility -o %t2 %t1 2>&1 | FileCheck %s
@@ -66,8 +68,12 @@ entry:
 }
 
 ; Declare Derived2::foo();
+define weak_odr zeroext i1 @_ZN8Derived23fooEv(%class.Derived2* %this) #0 {
+entry:
+  ret i1 true
+}
 
-declare dso_local zeroext i1 @_ZN8Derived23fooEv(%class.Derived2*) #0
+@llvm.used = appending global [1 x i8*] [i8* bitcast (i1 (%class.Derived2*)* @_ZN8Derived23fooEv to i8*)]
 
 attributes #0 = { noinline }
 

@@ -82,6 +82,8 @@ public:
     : Plan(Plan), VF(VF), TTI(TTI), TLI(TLI), DL(DL) {}
 #endif // INTEL_CUSTOMIZATION
   virtual unsigned getCost();
+  virtual unsigned getLoadStoreCost(
+    const VPInstruction *LoadOrStore, Align Alignment, unsigned VF);
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   void print(raw_ostream &OS, const std::string &Header);
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
@@ -121,8 +123,9 @@ protected:
                                                 const Type *ScalarTy,
                                                 const unsigned VF);
   virtual unsigned getCost(const VPInstruction *VPInst);
+  virtual unsigned getCostForVF(const VPInstruction *VPInst, unsigned VF);
   virtual unsigned getCost(const VPBasicBlock *VPBB);
-  virtual unsigned getLoadStoreCost(const VPInstruction *VPInst);
+  virtual unsigned getLoadStoreCost(const VPInstruction *VPInst, unsigned VF);
   // Calculates the sum of the cost of extracting VF elements of Ty type
   // or the cost of inserting VF elements of Ty type into a vector.
   unsigned getInsertExtractElementsCost(unsigned Opcode,
@@ -151,8 +154,8 @@ protected:
   /// \Returns True iff \p VPInst is Unit Strided load or store.
   /// When load/store is strided NegativeStride is set to true if the stride is
   /// negative (-1 in number of elements) or to false otherwise.
-  virtual bool isUnitStrideLoadStore(
-    const VPInstruction *VPInst, bool &NegativeStride) const;
+  bool isUnitStrideLoadStore(const VPInstruction *VPInst,
+                             bool &NegativeStride) const;
 
   // The utility checks whether the Cost Model can assume that 32-bit indexes
   // will be used instead of 64-bit indexes for gather/scatter HW instructions.

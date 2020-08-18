@@ -44,13 +44,18 @@ static cl::opt<unsigned> MaxInterleaveGroupFactor(
 /// hasVectorInstrinsicScalarOpd).
 bool llvm::isTriviallyVectorizable(Intrinsic::ID ID) {
   switch (ID) {
-  case Intrinsic::bswap: // Begin integer bit-manipulation.
+  case Intrinsic::abs:   // Begin integer bit-manipulation.
+  case Intrinsic::bswap:
   case Intrinsic::bitreverse:
   case Intrinsic::ctpop:
   case Intrinsic::ctlz:
   case Intrinsic::cttz:
   case Intrinsic::fshl:
   case Intrinsic::fshr:
+  case Intrinsic::smax:
+  case Intrinsic::smin:
+  case Intrinsic::umax:
+  case Intrinsic::umin:
   case Intrinsic::sadd_sat:
   case Intrinsic::ssub_sat:
   case Intrinsic::uadd_sat:
@@ -95,6 +100,7 @@ bool llvm::isTriviallyVectorizable(Intrinsic::ID ID) {
 bool llvm::hasVectorInstrinsicScalarOpd(Intrinsic::ID ID,
                                         unsigned ScalarOpdIdx) {
   switch (ID) {
+  case Intrinsic::abs:
   case Intrinsic::ctlz:
   case Intrinsic::cttz:
   case Intrinsic::powi:
@@ -890,88 +896,17 @@ template Value *llvm::getPtrThruCast<AddrSpaceCastInst>(Value *Ptr);
 void llvm::copyRequiredAttributes(const CallInst *OrigCall, CallInst *VecCall) {
   AttributeList Attrs = OrigCall->getAttributes();
   VecCall->setAttributes(Attrs.removeAttribute(
-      OrigCall->getContext(), AttributeList::FunctionIndex, "vector-variants"));
+    OrigCall->getContext(), AttributeList::FunctionIndex, "vector-variants"));
 }
 
-std::unique_ptr<VectorVariant>
-llvm::matchVectorVariantImpl(StringRef VecVariantStringValue, bool Masked,
-                             unsigned VF, const TargetTransformInfo *TTI) {
-  assert(!VecVariantStringValue.empty() &&
-         "VectorVariant string value shouldn't be empty!");
+void llvm::copyRequiredAttributes(const CallInst *OrigCall, CallInst *VecCall,
+                                  ArrayRef<AttributeSet> ArgAttrs) {
+  AttributeList Attrs = OrigCall->getAttributes();
+  AttributeSet FnAttrs = Attrs.getFnAttributes().removeAttribute(
+      OrigCall->getContext(), "vector-variants");
 
-  LLVM_DEBUG(dbgs() << "Trying to find match for: " << VecVariantStringValue
-                    << "\n");
-  LLVM_DEBUG(dbgs() << "\nCall VF: " << VF << "\n");
-  unsigned TargetMaxRegWidth = TTI->getRegisterBitWidth(true);
-  LLVM_DEBUG(dbgs() << "Target Max Register Width: " << TargetMaxRegWidth
-                    << "\n");
-
-  VectorVariant::ISAClass TargetIsaClass;
-  switch (TargetMaxRegWidth) {
-  case 128:
-    TargetIsaClass = VectorVariant::ISAClass::XMM;
-    break;
-  case 256:
-    // Important Note: there is no way to inspect CPU or FeatureBitset from
-    // the LLVM compiler middle end (i.e., lib/Analysis, lib/Transforms). This
-    // can only be done from the front-end or from lib/Target. Thus, we select
-    // avx2 by default for 256-bit vector register targets. Plus, I don't
-    // think we currently have anything baked in to TTI to differentiate avx
-    // vs. avx2. Namely, whether or not for 256-bit register targets there is
-    // 256-bit integer support.
-    TargetIsaClass = VectorVariant::ISAClass::YMM2;
-    break;
-  case 512:
-    TargetIsaClass = VectorVariant::ISAClass::ZMM;
-    break;
-  default:
-    llvm_unreachable("Invalid target vector register width");
-  }
-  LLVM_DEBUG(dbgs() << "Target ISA Class: "
-                    << VectorVariant::ISAClassToString(TargetIsaClass)
-                    << "\n\n");
-
-  SmallVector<StringRef, 4> Variants;
-  VecVariantStringValue.split(Variants, ",");
-  VectorVariant::ISAClass SelectedIsaClass = VectorVariant::ISAClass::XMM;
-  int VariantIdx = -1;
-  for (unsigned i = 0; i < Variants.size(); i++) {
-    VectorVariant Variant(Variants[i]);
-    VectorVariant::ISAClass VariantIsaClass = Variant.getISA();
-    LLVM_DEBUG(dbgs() << "Variant ISA Class: "
-                      << VectorVariant::ISAClassToString(VariantIsaClass)
-                      << "\n");
-    unsigned IsaClassMaxRegWidth =
-        VectorVariant::ISAClassMaxRegisterWidth(VariantIsaClass);
-    LLVM_DEBUG(dbgs() << "Isa Class Max Vector Register Width: "
-                      << IsaClassMaxRegWidth << "\n");
-    (void)IsaClassMaxRegWidth;
-    unsigned FuncVF = Variant.getVlen();
-    LLVM_DEBUG(dbgs() << "Func VF: " << FuncVF << "\n\n");
-
-    // Select the largest supported ISA Class for this target.
-    if (FuncVF == VF && VariantIsaClass <= TargetIsaClass &&
-        Variant.isMasked() == Masked && VariantIsaClass >= SelectedIsaClass) {
-      LLVM_DEBUG(dbgs() << "Candidate Function: " << Variant.encode() << "\n");
-      SelectedIsaClass = VariantIsaClass;
-      VariantIdx = i;
-    }
-  }
-
-  if (VariantIdx >= 0)
-    return std::make_unique<VectorVariant>(Variants[VariantIdx]);
-
-  return nullptr;
-}
-
-std::unique_ptr<VectorVariant>
-llvm::matchVectorVariant(const CallInst *Call, bool Masked, unsigned VF,
-                         const TargetTransformInfo *TTI) {
-  if (!Call->hasFnAttr("vector-variants"))
-    return {};
-
-  return matchVectorVariantImpl(
-      Call->getFnAttr("vector-variants").getValueAsString(), Masked, VF, TTI);
+  VecCall->setAttributes(AttributeList::get(
+      OrigCall->getContext(), FnAttrs, Attrs.getRetAttributes(), ArgAttrs));
 }
 
 Function *llvm::getOrInsertVectorFunction(Function *OrigF, unsigned VL,
@@ -1424,8 +1359,8 @@ static Value *concatenateTwoVectors(IRBuilderBase &Builder, Value *V1,
          VecTy1->getScalarType() == VecTy2->getScalarType() &&
          "Expect two vectors with the same element type");
 
-  unsigned NumElts1 = VecTy1->getNumElements();
-  unsigned NumElts2 = VecTy2->getNumElements();
+  unsigned NumElts1 = cast<FixedVectorType>(VecTy1)->getNumElements();
+  unsigned NumElts2 = cast<FixedVectorType>(VecTy2)->getNumElements();
   assert(NumElts1 >= NumElts2 && "Unexpect the first vector has less elements");
 
   if (NumElts1 > NumElts2) {
@@ -1473,8 +1408,9 @@ bool llvm::maskIsAllZeroOrUndef(Value *Mask) {
     return false;
   if (ConstMask->isNullValue() || isa<UndefValue>(ConstMask))
     return true;
-  for (unsigned I = 0,
-                E = cast<VectorType>(ConstMask->getType())->getNumElements();
+  for (unsigned
+           I = 0,
+           E = cast<FixedVectorType>(ConstMask->getType())->getNumElements();
        I != E; ++I) {
     if (auto *MaskElt = ConstMask->getAggregateElement(I))
       if (MaskElt->isNullValue() || isa<UndefValue>(MaskElt))
@@ -1491,8 +1427,9 @@ bool llvm::maskIsAllOneOrUndef(Value *Mask) {
     return false;
   if (ConstMask->isAllOnesValue() || isa<UndefValue>(ConstMask))
     return true;
-  for (unsigned I = 0,
-                E = cast<VectorType>(ConstMask->getType())->getNumElements();
+  for (unsigned
+           I = 0,
+           E = cast<FixedVectorType>(ConstMask->getType())->getNumElements();
        I != E; ++I) {
     if (auto *MaskElt = ConstMask->getAggregateElement(I))
       if (MaskElt->isAllOnesValue() || isa<UndefValue>(MaskElt))
@@ -1506,7 +1443,8 @@ bool llvm::maskIsAllOneOrUndef(Value *Mask) {
 /// vectors.  Is there something we can common this with?
 APInt llvm::possiblyDemandedEltsInMask(Value *Mask) {
 
-  const unsigned VWidth = cast<VectorType>(Mask->getType())->getNumElements();
+  const unsigned VWidth =
+      cast<FixedVectorType>(Mask->getType())->getNumElements();
   APInt DemandedElts = APInt::getAllOnesValue(VWidth);
   if (auto *CV = dyn_cast<ConstantVector>(Mask))
     for (unsigned i = 0; i < VWidth; i++)

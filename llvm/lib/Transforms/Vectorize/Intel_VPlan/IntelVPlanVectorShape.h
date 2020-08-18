@@ -161,7 +161,7 @@ public:
       if (hasKnownStride()) {
         if (isSOAStrided())
           OS << "VF x ";
-        Stride->dump(OS);
+        Stride->print(OS);
       } else
         OS << "?";
     }

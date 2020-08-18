@@ -2747,7 +2747,7 @@ ASTReader::ReadControlBlock(ModuleFile &F,
         return VersionMismatch;
       }
 
-      bool hasErrors = Record[7];
+      bool hasErrors = Record[6];
       if (hasErrors && !DisableValidation && !AllowASTWithCompilerErrors) {
         Diag(diag::err_pch_with_compiler_errors);
         return HadErrors;
@@ -2764,8 +2764,6 @@ ASTReader::ReadControlBlock(ModuleFile &F,
         F.BaseDirectory = isysroot.empty() ? "/" : isysroot;
 
       F.HasTimestamps = Record[5];
-
-      F.PCHHasObjectFile = Record[6];
 
       const std::string &CurBranch = getClangFullRepositoryVersion();
       StringRef ASTBranch = Blob;
@@ -3234,7 +3232,8 @@ ASTReader::ReadASTBlock(ModuleFile &F, unsigned ClientLoadCapabilities) {
     case MODULAR_CODEGEN_DECLS:
       // FIXME: Skip reading this record if our ASTConsumer doesn't care about
       // them (ie: if we're not codegenerating this module).
-      if (F.Kind == MK_MainFile)
+      if (F.Kind == MK_MainFile ||
+          getContext().getLangOpts().BuildingPCHWithObjectFile)
         for (unsigned I = 0, N = Record.size(); I != N; ++I)
           EagerlyDeserializedDecls.push_back(getGlobalDeclID(F, Record[I]));
       break;
@@ -7011,6 +7010,13 @@ QualType ASTReader::GetType(TypeID ID) {
       T = Context.SingletonId; \
       break;
 #include "clang/Basic/OpenCLImageTypes.def"
+#define IMAGE_TYPE(ImgType, Id, SingletonId, Access, Suffix)                   \
+  case PREDEF_TYPE_SAMPLED_##Id##_ID:                                          \
+    T = Context.Sampled##SingletonId;                                          \
+    break;
+#define IMAGE_WRITE_TYPE(Type, Id, Ext)
+#define IMAGE_READ_WRITE_TYPE(Type, Id, Ext)
+#include "clang/Basic/OpenCLImageTypes.def"
 #define EXT_OPAQUE_TYPE(ExtType, Id, Ext) \
     case PREDEF_TYPE_##Id##_ID: \
       T = Context.Id##Ty; \
@@ -7860,7 +7866,9 @@ void ASTReader::InitializeSema(Sema &S) {
   // FIXME: What happens if these are changed by a module import?
   if (!FPPragmaOptions.empty()) {
     assert(FPPragmaOptions.size() == 1 && "Wrong number of FP_PRAGMA_OPTIONS");
-    SemaObj->CurFPFeatures = FPOptions(FPPragmaOptions[0]);
+    FPOptionsOverride NewOverrides(FPPragmaOptions[0]);
+    SemaObj->CurFPFeatures =
+        NewOverrides.applyOverrides(SemaObj->getLangOpts());
   }
 
   SemaObj->OpenCLFeatures.copy(OpenCLExtensions);
@@ -8617,11 +8625,6 @@ Module *ASTReader::getSubmodule(SubmoduleID GlobalID) {
 
 Module *ASTReader::getModule(unsigned ID) {
   return getSubmodule(ID);
-}
-
-bool ASTReader::DeclIsFromPCHWithObjectFile(const Decl *D) {
-  ModuleFile *MF = getOwningModuleFile(D);
-  return MF && MF->PCHHasObjectFile;
 }
 
 ModuleFile *ASTReader::getLocalModuleFile(ModuleFile &F, unsigned ID) {
@@ -12039,6 +12042,8 @@ OMPClause *OMPClauseReader::readClause() {
   case llvm::omp::Enum:                                                        \
     break;
 #include "llvm/Frontend/OpenMP/OMPKinds.def"
+  default:
+    break;
   }
   assert(C && "Unknown OMPClause type");
 
@@ -12674,8 +12679,14 @@ void OMPClauseReader::VisitOMPDefaultmapClause(OMPDefaultmapClause *C) {
 
 void OMPClauseReader::VisitOMPToClause(OMPToClause *C) {
   C->setLParenLoc(Record.readSourceLocation());
+  for (unsigned I = 0; I < NumberOfOMPMotionModifiers; ++I) {
+    C->setMotionModifier(
+        I, static_cast<OpenMPMotionModifierKind>(Record.readInt()));
+    C->setMotionModifierLoc(I, Record.readSourceLocation());
+  }
   C->setMapperQualifierLoc(Record.readNestedNameSpecifierLoc());
   C->setMapperIdInfo(Record.readDeclarationNameInfo());
+  C->setColonLoc(Record.readSourceLocation());
   auto NumVars = C->varlist_size();
   auto UniqueDecls = C->getUniqueDeclarationsNum();
   auto TotalLists = C->getTotalComponentListNum();
@@ -12724,8 +12735,14 @@ void OMPClauseReader::VisitOMPToClause(OMPToClause *C) {
 
 void OMPClauseReader::VisitOMPFromClause(OMPFromClause *C) {
   C->setLParenLoc(Record.readSourceLocation());
+  for (unsigned I = 0; I < NumberOfOMPMotionModifiers; ++I) {
+    C->setMotionModifier(
+        I, static_cast<OpenMPMotionModifierKind>(Record.readInt()));
+    C->setMotionModifierLoc(I, Record.readSourceLocation());
+  }
   C->setMapperQualifierLoc(Record.readNestedNameSpecifierLoc());
   C->setMapperIdInfo(Record.readDeclarationNameInfo());
+  C->setColonLoc(Record.readSourceLocation());
   auto NumVars = C->varlist_size();
   auto UniqueDecls = C->getUniqueDeclarationsNum();
   auto TotalLists = C->getTotalComponentListNum();

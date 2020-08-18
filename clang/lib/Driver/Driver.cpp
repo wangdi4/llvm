@@ -49,6 +49,7 @@
 #include "ToolChains/SYCL.h"
 #include "ToolChains/Solaris.h"
 #include "ToolChains/TCE.h"
+#include "ToolChains/VEToolchain.h"
 #include "ToolChains/WebAssembly.h"
 #include "ToolChains/XCore.h"
 #if INTEL_CUSTOMIZATION
@@ -142,7 +143,8 @@ Driver::Driver(StringRef ClangExecutable, StringRef TargetTriple,
       TargetTriple(TargetTriple), CCCGenericGCCName(""), Saver(Alloc),
       CheckInputsExist(true), GenReproducer(false),
 #if INTEL_CUSTOMIZATION
-      SuppressMissingInputWarning(false), IntelPrintOptions(false) {
+      SuppressMissingInputWarning(false), IntelPrintOptions(false),
+      IntelMode(false), IntelPro(false) {
 #endif // INTEL_CUSTOMIZATION
   // Provide a sane fallback if no VFS is specified.
   if (!this->VFS)
@@ -183,9 +185,20 @@ void Driver::ParseDriverMode(StringRef ProgramName,
     const StringRef Arg = ArgPtr;
     setDriverModeFromOption(Arg);
   }
+#if INTEL_CUSTOMIZATION
+  // Setup Compiler Pro mode.  We do a file exists check to enable Pro mode
+  if (llvm::sys::fs::exists(InstalledDir + "/compiler-pro-auth"))
+    IntelPro = true;
+#endif // INTEL_CUSTOMIZATION
 }
 
 void Driver::setDriverModeFromOption(StringRef Opt) {
+#if INTEL_CUSTOMIZATION
+  if (Opt == getOpts().getOption(options::OPT__intel).getPrefixedName()) {
+    IntelMode = true;
+    return;
+  }
+#endif // INTEL_CUSTOMIZATION
   const std::string OptName =
       getOpts().getOption(options::OPT_driver_mode).getPrefixedName();
   if (!Opt.startswith(OptName))
@@ -231,15 +244,19 @@ InputArgList Driver::ParseArgStrings(ArrayRef<const char *> ArgStrings,
 
   // Check for unsupported options.
   for (const Arg *A : Args) {
+#if INTEL_CUSTOMIZATION
     if (A->getOption().hasFlag(options::Unsupported) ||
         (A->getOption().hasFlag(options::DpcppUnsupported) &&
-         Args.hasArg(options::OPT__dpcpp))) {
+         Args.hasArg(options::OPT__dpcpp)) || (!IsIntelPro() &&
+         IsIntelMode() && A->getOption().hasFlag(options::ProEnabled))) {
+#endif // INTEL_CUSTOMIZATION
       unsigned DiagID;
       auto ArgString = A->getAsString(Args);
       std::string Nearest;
 #if INTEL_CUSTOMIZATION
       // Do not suggest an alternative with DPC++ unsupported options
       if (A->getOption().hasFlag(options::DpcppUnsupported) ||
+          A->getOption().hasFlag(options::ProEnabled) ||
           getOpts().findNearest(
 #endif // INTEL_CUSTOMIZATION
             ArgString, Nearest, IncludedFlagsBitmask,
@@ -380,18 +397,21 @@ static void addIntelDeviceLibs(const ToolChain &TC, Driver::InputList &Inputs,
     { "libsycl-cmath", false },
     { "libsycl-cmath-fp64", true } };
 
-  StringRef LibLoc(Args.MakeArgString(TC.getDriver().Dir + "/../lib"));
+  StringRef DPCPPLibLoc;
+  if (TC.getTriple().isWindowsMSVCEnvironment())
+    DPCPPLibLoc = Args.MakeArgString(TC.getDriver().Dir + "/../bin");
+  else
+    DPCPPLibLoc = Args.MakeArgString(TC.getDriver().Dir + "/../lib");
   // Go through the lib vectors and add them accordingly.
   auto addInput = [&](const char * LibName) {
     Arg *InputArg = MakeInputArg(Args, Opts, LibName);
     Inputs.push_back(std::make_pair(types::TY_Object, InputArg));
   };
-  StringRef Ext(TC.getTriple().isWindowsMSVCEnvironment() ? ".obj" : ".o");
   if (Args.hasFlag(options::OPT_fsycl, options::OPT_fno_sycl, false)) {
     for (const std::pair<const StringRef, bool> &Lib : sycl_device_libs) {
-      SmallString<128> LibName(LibLoc);
+      SmallString<128> LibName(DPCPPLibLoc);
       llvm::sys::path::append(LibName, Lib.first);
-      llvm::sys::path::replace_extension(LibName, Ext);
+      llvm::sys::path::replace_extension(LibName, ".o");
       if (addFP64 && Lib.second && llvm::sys::fs::exists(LibName))
         addInput(Args.MakeArgString(LibName));
       if (addFP32 && !Lib.second && llvm::sys::fs::exists(LibName))
@@ -404,9 +424,11 @@ static void addIntelDeviceLibs(const ToolChain &TC, Driver::InputList &Inputs,
       if (Val == "spir64")
         addOmpLibs = true;
   }
+  StringRef OMPLibLoc(Args.MakeArgString(TC.getDriver().Dir + "/../lib"));
+  StringRef Ext(TC.getTriple().isWindowsMSVCEnvironment() ? ".obj" : ".o");
   if (addOmpLibs) {
     for (const std::pair<const StringRef, bool> &Lib : omp_device_libs) {
-      SmallString<128> LibName(LibLoc);
+      SmallString<128> LibName(OMPLibLoc);
       llvm::sys::path::append(LibName, Lib.first);
       llvm::sys::path::replace_extension(LibName, Ext);
       if (addFP64 && Lib.second && llvm::sys::fs::exists(LibName))
@@ -429,30 +451,63 @@ void Driver::addIntelArgs(DerivedArgList &DAL, const InputArgList &Args,
     if (Arg *A = DAL.getLastArg(Opt))
       A->claim();
   };
-  if (Args.hasArg(options::OPT__intel)) {
-    // The Intel compiler defaults to -O2
-    if (!Args.hasArg(options::OPT_O_Group, options::OPT__SLASH_O))
-      addClaim(IsCLMode() ? options::OPT__SLASH_O : options::OPT_O, "2");
-    // For LTO on Windows, use -fuse-ld=lld when Qipo is used.
-    if (Args.hasArg(options::OPT_flto) &&
-        !Args.hasArg(options::OPT_fuse_ld_EQ)) {
-      Arg *A = Args.getLastArg(options::OPT_flto);
-      StringRef Opt(A->getAsString(Args));
-      // TODO - improve determination of last phase
-      if (Opt.contains("Qipo") && !Args.hasArg(options::OPT_c, options::OPT_S))
-        addClaim(options::OPT_fuse_ld_EQ, "lld");
+  bool isIntelLTO = false;
+  // When dealing with -fast, the behavior is the same as -Ofast, except
+  // that -xHOST is implied.
+  if (Arg *A = Args.getLastArg(options::OPT_Ofast)) {
+    StringRef Opt(Args.MakeArgString(A->getAsString(Args)));
+    bool hasXOpt = false;
+    if (Arg *A = Args.getLastArg(options::OPT_x)) {
+      StringRef Arch = A->getValue();
+      hasXOpt = !types::lookupTypeForTypeSpecifier(Arch.data());
     }
+    if (!Opt.contains("O")) {
+      if (!hasXOpt)
+        addClaim(options::OPT_x, "HOST");
+      if (!Args.hasFlag(options::OPT_flto, options::OPT_flto_EQ,
+                        options::OPT_fno_lto, false)) {
+        // check to make sure that if LTO is disabled, it is done after fast.
+        if (Arg *A = Args.getLastArg(options::OPT_Ofast, options::OPT_fno_lto))
+          if (A->getOption().matches(options::OPT_Ofast)) {
+            addClaim(options::OPT_flto);
+            isIntelLTO = true;
+          }
+      }
+    }
+  }
+
+  if (IsIntelMode()) {
+    // The Intel compiler defaults to -O2
+    if (!Args.hasArg(options::OPT_O_Group, options::OPT__SLASH_O,
+                     options::OPT_g_Group, options::OPT_intel_debug_Group,
+                     options::OPT__SLASH_Z7, options::OPT__SLASH_Zd))
+      addClaim(IsCLMode() ? options::OPT__SLASH_O : options::OPT_O, "2");
+    // For LTO on Windows, use -fuse-ld=lld when /Qipo or /fast is used.
+    if (Args.hasFlag(options::OPT_flto, options::OPT_flto_EQ,
+                     options::OPT_fno_lto, false)) {
+      if (Arg *A = Args.getLastArg(options::OPT_flto)) {
+        StringRef Opt(Args.MakeArgString(A->getAsString(Args)));
+        if (Opt.contains("Qipo"))
+          isIntelLTO = true;
+      }
+    }
+    // TODO - improve determination of last phase
+    if (IsCLMode() && isIntelLTO && !Args.hasArg(options::OPT_fuse_ld_EQ) &&
+        !Args.hasArg(options::OPT_c, options::OPT_S))
+      addClaim(options::OPT_fuse_ld_EQ, "lld");
     // -Wno-c++11-narrowing is default for Windows
     if (IsCLMode() && !Args.hasArg(options::OPT_Wcxx11_narrowing,
                                    options::OPT_Wno_cxx11_narrowing))
       addClaim(options::OPT_Wno_cxx11_narrowing);
+    if (!IsCLMode())
+      addClaim(options::OPT_fheinous_gnu_extensions);
   }
   // Make SVML the default for dpcpp and --intel.
   // FIXME: This is temporary, as moving forward --intel should be the
   // default for dpcpp compilations.  We cannot do this right now due to a
   // problem with testing (use of dpcpp on Windows, causing link problems with
   // Intel specific libs)
-  if (Args.hasArg(options::OPT__intel, options::OPT__dpcpp))
+  if (IsIntelMode() || Args.hasArg(options::OPT__dpcpp))
     // -fveclib=SVML default.
     if (!Args.hasArg(options::OPT_fveclib))
       addClaim(options::OPT_fveclib, "SVML");
@@ -468,6 +523,11 @@ void Driver::addIntelArgs(DerivedArgList &DAL, const InputArgList &Args,
       if (Value == "full" || Value == "all" || Value == "extended" ||
           Value == "parallel")
         ; // Do nothing, we already enabled debug above
+      else if (Value == "expr-source-pos" || Value == "inline-debug-info" ||
+               Value == "semantic-stepping" || Value == "variable-locations" ||
+               Value == "noexpr-source-pos")
+        ; // Just enable debug, these are icc compatible options that are
+          // not hooked to anything
       else if (Value == "minimal")
         addClaim(options::OPT_gline_tables_only);
       else if (Value == "emit-column")
@@ -550,7 +610,7 @@ DerivedArgList *Driver::TranslateInputArgs(const InputArgList &Args) const {
         continue;
       }
 #if INTEL_CUSTOMIZATION
-      if ((Args.hasArg(options::OPT__intel)) && (Value == "m")) {
+      if (IsIntelMode() && (Value == "m")) {
         DAL->AddJoinedArg(0, Opts.getOption(options::OPT_l), "imf");
       }
 #endif //INTEL_CUSTOMIZATION
@@ -592,6 +652,13 @@ DerivedArgList *Driver::TranslateInputArgs(const InputArgList &Args) const {
       for (StringRef Val : A->getValues())
         DAL->append(MakeInputArg(*DAL, Opts, Val, false));
       continue;
+    }
+
+    if (A->getOption().matches(options::OPT_offload_lib_Group)) {
+      if (!A->getNumValues()) {
+        Diag(clang::diag::warn_drv_unused_argument) << A->getSpelling();
+        continue;
+      }
     }
 
     DAL->append(A);
@@ -689,6 +756,26 @@ static llvm::Triple computeTargetTriple(const Driver &D,
       Target.getOS() == llvm::Triple::Minix)
     return Target;
 
+  // On AIX, the env OBJECT_MODE may affect the resulting arch variant.
+  if (Target.isOSAIX()) {
+    if (Optional<std::string> ObjectModeValue =
+            llvm::sys::Process::GetEnv("OBJECT_MODE")) {
+      StringRef ObjectMode = *ObjectModeValue;
+      llvm::Triple::ArchType AT = llvm::Triple::UnknownArch;
+
+      if (ObjectMode.equals("64")) {
+        AT = Target.get64BitArchVariant().getArch();
+      } else if (ObjectMode.equals("32")) {
+        AT = Target.get32BitArchVariant().getArch();
+      } else {
+        D.Diag(diag::err_drv_invalid_object_mode) << ObjectMode;
+      }
+
+      if (AT != llvm::Triple::UnknownArch && AT != Target.getArch())
+        Target.setArch(AT);
+    }
+  }
+
   // Handle pseudo-target flags '-m64', '-mx32', '-m32' and '-m16'.
   Arg *A = Args.getLastArg(options::OPT_m64, options::OPT_mx32,
                            options::OPT_m32, options::OPT_m16);
@@ -777,9 +864,20 @@ static llvm::Triple computeTargetTriple(const Driver &D,
 // based on which -f(no-)?lto(=.*)? option occurs last.
 void Driver::setLTOMode(const llvm::opt::ArgList &Args) {
   LTOMode = LTOK_None;
+#if INTEL_CUSTOMIZATION
   if (!Args.hasFlag(options::OPT_flto, options::OPT_flto_EQ,
-                    options::OPT_fno_lto, false))
+                    options::OPT_fno_lto, false)) {
+    // When dealing with -fast, the behavior is the same as -Ofast, except
+    // that -flto is implied
+    if (Arg *A = Args.getLastArg(options::OPT_Ofast, options::OPT_fno_lto))
+      if (A->getOption().matches(options::OPT_Ofast)) {
+        StringRef Opt(Args.MakeArgString(A->getAsString(Args)));
+        if (!Opt.contains("O"))
+          LTOMode = LTOK_Full;
+      }
     return;
+  }
+#endif // INTEL_CUSTOMIZATION
 
   StringRef LTOName("full");
 
@@ -805,9 +903,11 @@ Driver::OpenMPRuntimeKind Driver::getOpenMPRuntime(const ArgList &Args) const {
 
   const Arg *A = Args.getLastArg(options::OPT_fopenmp_EQ);
   if (A)
-      RuntimeName = A->getValue();
-  else if (Args.hasArg(options::OPT__intel))
-      RuntimeName = "libiomp5";
+    RuntimeName = A->getValue();
+#if INTEL_CUSTOMIZATION
+  else if (IsIntelMode())
+    RuntimeName = "libiomp5";
+#endif // INTEL_CUSTOMIZATION
 
   auto RT = llvm::StringSwitch<OpenMPRuntimeKind>(RuntimeName)
                 .Case("libomp", OMPRT_OMP)
@@ -912,7 +1012,8 @@ void Driver::CreateOffloadingDeviceToolChains(Compilation &C,
           options::OPT_fopenmp, options::OPT_fopenmp_EQ,
 #if INTEL_COLLAB
           options::OPT_fno_openmp, false) ||
-          C.getInputArgs().hasArg(options::OPT_fiopenmp);
+          C.getInputArgs().hasFlag(options::OPT_fiopenmp,
+                                   options::OPT_fno_openmp, false);
 #else
           options::OPT_fno_openmp, false);
 #endif // INTEL_COLLAB
@@ -1346,17 +1447,6 @@ Compilation *Driver::BuildCompilation(ArrayRef<const char *> ArgList) {
   // FIXME: Handle environment options which affect driver behavior, somewhere
   // (client?). GCC_EXEC_PREFIX, LPATH, CC_PRINT_OPTIONS.
 
-  if (Optional<std::string> CompilerPathValue =
-          llvm::sys::Process::GetEnv("COMPILER_PATH")) {
-    StringRef CompilerPath = *CompilerPathValue;
-    while (!CompilerPath.empty()) {
-      std::pair<StringRef, StringRef> Split =
-          CompilerPath.split(llvm::sys::EnvPathSeparator);
-      PrefixDirs.push_back(std::string(Split.first));
-      CompilerPath = Split.second;
-    }
-  }
-
   // We look for the driver mode option early, because the mode can affect
   // how other options are parsed.
   ParseDriverMode(ClangExecutable, ArgList.slice(1));
@@ -1493,6 +1583,16 @@ Compilation *Driver::BuildCompilation(ArrayRef<const char *> ArgList) {
   for (const Arg *A : Args.filtered(options::OPT_B)) {
     A->claim();
     PrefixDirs.push_back(A->getValue(0));
+  }
+  if (Optional<std::string> CompilerPathValue =
+          llvm::sys::Process::GetEnv("COMPILER_PATH")) {
+    StringRef CompilerPath = *CompilerPathValue;
+    while (!CompilerPath.empty()) {
+      std::pair<StringRef, StringRef> Split =
+          CompilerPath.split(llvm::sys::EnvPathSeparator);
+      PrefixDirs.push_back(std::string(Split.first));
+      CompilerPath = Split.second;
+    }
   }
   if (const Arg *A = Args.getLastArg(options::OPT__sysroot_EQ))
     SysRoot = A->getValue();
@@ -1868,7 +1968,8 @@ void Driver::setUpResponseFiles(Compilation &C, Command &Cmd) {
   // capacity if the tool does not support response files, there is a chance/
   // that things will just work without a response file, so we silently just
   // skip it.
-  if (Cmd.getCreator().getResponseFilesSupport() == Tool::RF_None ||
+  if (Cmd.getResponseFileSupport().ResponseKind ==
+          ResponseFileSupport::RF_None ||
       llvm::sys::commandLineFitsWithinSystemLimits(Cmd.getExecutable(),
                                                    Cmd.getArguments()))
     return;
@@ -1968,6 +2069,8 @@ void Driver::PrintHelp(const llvm::opt::ArgList &Args) const {
     ExcludedFlagsBitmask |= options::DpcppUnsupported;
     ExcludedFlagsBitmask |= options::DpcppHidden;
   }
+  if (!IsIntelPro() && IsIntelMode())
+    ExcludedFlagsBitmask |= options::ProEnabled;
 #endif // INTEL_CUSTOMIZATION
 
   std::string Usage = llvm::formatv("{0} [options] file...", Name).str();
@@ -2215,6 +2318,13 @@ bool Driver::HandleImmediateArgs(const Compilation &C) {
   if (C.getArgs().hasArg(options::OPT_print_search_dirs)) {
     llvm::outs() << "programs: =";
     bool separator = false;
+    // Print -B and COMPILER_PATH.
+    for (const std::string &Path : PrefixDirs) {
+      if (separator)
+        llvm::outs() << llvm::sys::EnvPathSeparator;
+      llvm::outs() << Path;
+      separator = true;
+    }
     for (const std::string &Path : TC.getProgramPaths()) {
       if (separator)
         llvm::outs() << llvm::sys::EnvPathSeparator;
@@ -3723,8 +3833,10 @@ class OffloadingActionBuilder final {
         auto *DeviceLinkAction =
             C.MakeAction<LinkJobAction>(LI, types::TY_Image);
         if ((*TC)->getTriple().isSPIR()) {
+          auto *PostLinkAction = C.MakeAction<SYCLPostLinkJobAction>(
+              DeviceLinkAction, types::TY_LLVM_BC);
           auto *SPIRVTranslateAction = C.MakeAction<SPIRVTranslatorJobAction>(
-              DeviceLinkAction, types::TY_Image);
+              PostLinkAction, types::TY_Image);
           DeviceLinkDeps.add(*SPIRVTranslateAction, **TC, /*BoundArch=*/nullptr,
                              Action::OFK_OpenMP);
         } else
@@ -4351,9 +4463,9 @@ class OffloadingActionBuilder final {
         }
       }
 
-      // If there are no CUDA architectures provided then default to SM_30.
+      // If there are no CUDA architectures provided then default to SM_50.
       if (GpuArchList.empty()) {
-        GpuArchList.push_back(CudaArch::SM_30);
+        GpuArchList.push_back(CudaArch::SM_50);
       }
 
       return false;
@@ -4981,6 +5093,9 @@ void Driver::BuildActions(Compilation &C, DerivedArgList &Args,
 #if INTEL_CUSTOMIZATION
   // Go ahead and claim usage of --dpcpp
   Args.ClaimAllArgs(options::OPT__dpcpp);
+  // Claim usage of -i_no-use-libirc
+  // TODO: Consider a more generic claiming for internal Intel options
+  Args.ClaimAllArgs(options::OPT_i_no_use_libirc);
 #endif // INTEL_CUSTOMIZATION
 
   handleArguments(C, Args, Inputs, Actions);
@@ -5139,11 +5254,15 @@ void Driver::BuildActions(Compilation &C, DerivedArgList &Args,
       }
     }
 
-    if (!UnbundlerInputs.empty()) {
+    if (!UnbundlerInputs.empty() && !PL.empty()) {
       Action *PartialLink =
           C.MakeAction<PartialLinkJobAction>(UnbundlerInputs, types::TY_Object);
-#if INTEL_CUSTOMIZATION
       if (!LastArg) {
+        auto *TA = dyn_cast<Action>(UnbundlerInputs.back());
+        assert(TA->getKind() == Action::InputClass ||
+               TA->getKind() == Action::OffloadClass);
+        (void)TA; // INTEL
+
         // If the Action is of OffloadAction type, use the HostAction of the
         // specific Offload Action to set LastArg
         if (auto *OA = dyn_cast<OffloadAction>(UnbundlerInputs.back()))
@@ -5153,9 +5272,8 @@ void Driver::BuildActions(Compilation &C, DerivedArgList &Args,
           // else set the LastArg based on Last InputAction
           LastArg = &(IA->getInputArg());
 
-        assert(LastArg!=nullptr);
+        assert(LastArg != nullptr); // INTEL
       }
-#endif // INTEL_CUSTOMIZATION
       Action *Current = C.MakeAction<InputAction>(*LastArg, types::TY_Object);
       ActionList AL;
       AL.push_back(PartialLink);
@@ -5208,7 +5326,7 @@ void Driver::BuildActions(Compilation &C, DerivedArgList &Args,
         UnbundlerInput = LI;
       }
     }
-    if (UnbundlerInput) {
+    if (UnbundlerInput && !PL.empty()) {
       if (auto *IA = dyn_cast<InputAction>(UnbundlerInput)) {
         std::string FileName = IA->getInputArg().getAsString(Args);
         Arg *InputArg = MakeInputArg(Args, Opts, FileName);
@@ -5531,6 +5649,9 @@ void Driver::BuildJobs(Compilation &C) const {
   // Claim --driver-mode, --rsp-quoting, it was handled earlier.
   (void)C.getArgs().hasArg(options::OPT_driver_mode);
   (void)C.getArgs().hasArg(options::OPT_rsp_quoting);
+#if INTEL_CUSTOMIZATION
+  (void)C.getArgs().hasArg(options::OPT__intel);
+#endif // INTEL_CUSTOMIZATION
 
   for (Arg *A : C.getArgs()) {
     // FIXME: It would be nice to be able to send the argument to the
@@ -6021,6 +6142,7 @@ InputInfo Driver::BuildJobsForActionNoCache(
 
   // Only use pipes when there is exactly one input.
   InputInfoList InputInfos;
+  bool JobForPreprocessToStdout = false;
   for (const Action *Input : Inputs) {
     // Treat dsymutil and verify sub-jobs as being at the top-level too, they
     // shouldn't get temporary output names.
@@ -6031,6 +6153,11 @@ InputInfo Driver::BuildJobsForActionNoCache(
         C, Input, TC, BoundArch, SubJobAtTopLevel, MultipleArchs, LinkingOutput,
         CachedResults, A->getOffloadingDeviceKind()));
   }
+  // Check if we are in sub-work for preprocessing for host side. If so we will
+  // add another job to print information to terminal later.
+  if (!AtTopLevel && A->getKind() == Action::PreprocessJobClass &&
+      C.getJobs().size() == 1)
+    JobForPreprocessToStdout = true;
 
   // Always use the first input as the base input.
   const char *BaseInput = InputInfos[0].getBaseInput();
@@ -6065,6 +6192,7 @@ InputInfo Driver::BuildJobsForActionNoCache(
 
   // Determine the place to write output to, if any.
   InputInfo Result;
+  InputInfo ResultForPreprocessToStdout;
   InputInfoList UnbundlingResults;
   if (auto *UA = dyn_cast<OffloadUnbundlingJobAction>(JA)) {
     // If we have an unbundling job, we need to create results for all the
@@ -6232,6 +6360,8 @@ InputInfo Driver::BuildJobsForActionNoCache(
                                              AtTopLevel, MultipleArchs,
                                              OffloadingPrefix),
                        BaseInput);
+    if (JobForPreprocessToStdout)
+      ResultForPreprocessToStdout = InputInfo(A, "-", BaseInput);
   }
 
   if (CCCPrintBindings && !CCGenDiagnostics) {
@@ -6254,12 +6384,19 @@ InputInfo Driver::BuildJobsForActionNoCache(
       llvm::errs() << "] \n";
     }
   } else {
-    if (UnbundlingResults.empty())
+    if (UnbundlingResults.empty()) {
       T->ConstructJob(
           C, *JA, Result, InputInfos,
           C.getArgsForToolChain(TC, BoundArch, JA->getOffloadingDeviceKind()),
           LinkingOutput);
-    else
+      // Add another job to print information to terminal for host side.
+      if (JobForPreprocessToStdout) {
+        T->ConstructJob(
+            C, *JA, ResultForPreprocessToStdout, InputInfos,
+            C.getArgsForToolChain(TC, BoundArch, JA->getOffloadingDeviceKind()),
+            LinkingOutput);
+      }
+    } else
       T->ConstructJobMultipleOutputs(
           C, *JA, UnbundlingResults, InputInfos,
           C.getArgsForToolChain(TC, BoundArch, JA->getOffloadingDeviceKind()),
@@ -6381,10 +6518,20 @@ const char *Driver::GetNamedOutputPath(Compilation &C, const JobAction &JA,
   }
 
   SmallString<128> BasePath(BaseInput);
+  SmallString<128> ExternalPath("");
   StringRef BaseName;
 
   // Dsymutil actions should use the full path.
-  if (isa<DsymutilJobAction>(JA) || isa<VerifyJobAction>(JA))
+  if (isa<DsymutilJobAction>(JA) && C.getArgs().hasArg(options::OPT_dsym_dir)) {
+    ExternalPath += C.getArgs().getLastArg(options::OPT_dsym_dir)->getValue();
+    // We use posix style here because the tests (specifically
+    // darwin-dsymutil.c) demonstrate that posix style paths are acceptable
+    // even on Windows and if we don't then the similar test covering this
+    // fails.
+    llvm::sys::path::append(ExternalPath, llvm::sys::path::Style::posix,
+                            llvm::sys::path::filename(BasePath));
+    BaseName = ExternalPath;
+  } else if (isa<DsymutilJobAction>(JA) || isa<VerifyJobAction>(JA))
     BaseName = BasePath;
   else
     BaseName = llvm::sys::path::filename(BasePath);
@@ -6590,14 +6737,11 @@ void Driver::generatePrefixedToolNames(
     Names.emplace_back((DefaultTargetTriple + "-" + Tool).str());
 }
 
-static bool ScanDirForExecutable(SmallString<128> &Dir,
-                                 ArrayRef<std::string> Names) {
-  for (const auto &Name : Names) {
-    llvm::sys::path::append(Dir, Name);
-    if (llvm::sys::fs::can_execute(Twine(Dir)))
-      return true;
-    llvm::sys::path::remove_filename(Dir);
-  }
+static bool ScanDirForExecutable(SmallString<128> &Dir, StringRef Name) {
+  llvm::sys::path::append(Dir, Name);
+  if (llvm::sys::fs::can_execute(Twine(Dir)))
+    return true;
+  llvm::sys::path::remove_filename(Dir);
   return false;
 }
 
@@ -6610,7 +6754,7 @@ std::string Driver::GetProgramPath(StringRef Name, const ToolChain &TC) const {
   for (const auto &PrefixDir : PrefixDirs) {
     if (llvm::sys::fs::is_directory(PrefixDir)) {
       SmallString<128> P(PrefixDir);
-      if (ScanDirForExecutable(P, TargetSpecificExecutables))
+      if (ScanDirForExecutable(P, Name))
         return std::string(P.str());
     } else {
       SmallString<128> P((PrefixDir + Name).str());
@@ -6620,17 +6764,25 @@ std::string Driver::GetProgramPath(StringRef Name, const ToolChain &TC) const {
   }
 
   const ToolChain::path_list &List = TC.getProgramPaths();
-  for (const auto &Path : List) {
-    SmallString<128> P(Path);
-    if (ScanDirForExecutable(P, TargetSpecificExecutables))
-      return std::string(P.str());
-  }
+  for (const auto &TargetSpecificExecutable : TargetSpecificExecutables) {
+    // For each possible name of the tool look for it in
+    // program paths first, then the path.
+    // Higher priority names will be first, meaning that
+    // a higher priority name in the path will be found
+    // instead of a lower priority name in the program path.
+    // E.g. <triple>-gcc on the path will be found instead
+    // of gcc in the program path
+    for (const auto &Path : List) {
+      SmallString<128> P(Path);
+      if (ScanDirForExecutable(P, TargetSpecificExecutable))
+        return std::string(P.str());
+    }
 
-  // If all else failed, search the path.
-  for (const auto &TargetSpecificExecutable : TargetSpecificExecutables)
+    // Fall back to the path
     if (llvm::ErrorOr<std::string> P =
             llvm::sys::findProgramByName(TargetSpecificExecutable))
       return *P;
+  }
 
   return std::string(Name);
 }
@@ -6745,6 +6897,9 @@ const ToolChain &Driver::getToolChain(const ArgList &Args,
                Target.getArch() == llvm::Triple::ppc64le)
         TC = std::make_unique<toolchains::PPCLinuxToolChain>(*this, Target,
                                                               Args);
+      else if (Target.getArch() == llvm::Triple::ve)
+        TC = std::make_unique<toolchains::VEToolChain>(*this, Target, Args);
+
       else
         TC = std::make_unique<toolchains::Linux>(*this, Target, Args);
       break;
@@ -6844,6 +6999,9 @@ const ToolChain &Driver::getToolChain(const ArgList &Args,
       case llvm::Triple::riscv32:
       case llvm::Triple::riscv64:
         TC = std::make_unique<toolchains::RISCVToolChain>(*this, Target, Args);
+        break;
+      case llvm::Triple::ve:
+        TC = std::make_unique<toolchains::VEToolChain>(*this, Target, Args);
         break;
       default:
         if (Target.getVendor() == llvm::Triple::Myriad)
@@ -7033,7 +7191,14 @@ Driver::getIncludeExcludeOptionFlagMasks(bool IsClCompatMode) const {
   return std::make_pair(IncludedFlagsBitmask, ExcludedFlagsBitmask);
 }
 
-bool clang::driver::isOptimizationLevelFast(const ArgList &Args) {
+#if INTEL_CUSTOMIZATION
+bool clang::driver::isOptimizationLevelFast(const Driver &D,
+                                            const ArgList &Args) {
+  // For Intel and -Ofast is given, don't override if another -O is
+  // provided on the command line.
+  if (D.IsIntelMode() && Args.hasArgNoClaim(options::OPT_Ofast))
+    return true;
+#endif // INTEL_CUSTOMIZATION
   return Args.hasFlag(options::OPT_Ofast, options::OPT_O_Group, false);
 }
 
@@ -7080,5 +7245,11 @@ bool clang::driver::willEmitRemarks(const ArgList &Args) {
   if (Args.hasFlag(options::OPT_foptimization_record_passes_EQ,
                    options::OPT_fno_save_optimization_record, false))
     return true;
+
+#if INTEL_CUSTOMIZATION
+  if (const Arg *A = Args.getLastArg(options::OPT_qopt_report_EQ))
+    if (A->getValue() != StringRef("0"))
+      return true;
+#endif // INTEL_CUSTOMIZATION
   return false;
 }

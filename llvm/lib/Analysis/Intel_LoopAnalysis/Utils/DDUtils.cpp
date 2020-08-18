@@ -997,12 +997,49 @@ bool ignoreEdgeForPermute(const DDEdge *Edge, const HLLoop *CandidateLoop,
 ///  Scan presence of  < ... >
 ///  If none, return true, which  means DV can be dropped for
 ///  Interchange legality checking
-bool ignoreDVWithNoLTGTForPermute(const DirectionVector &DV,
+bool ignoreDVWithNoLTGTForPermute(DirectionVector &DV,
                                   unsigned OutmostNestingLevel,
                                   unsigned InnermostNestingLevel) {
 
   bool DVhasLT = false;
+  bool ALLHit = false;
   unsigned LTLevel = 0;
+  unsigned ALLLevel = 0;
+
+  // (* <)  is equivalent to
+  //       (= <)
+  //       (< <)
+  //       (> <) needs reversal as (< >)
+  // Scan for (* <) and change it as (< >)
+
+  for (unsigned II = OutmostNestingLevel; II <= InnermostNestingLevel; ++II) {
+    switch (DV[II - 1]) {
+    case DVKind::ALL:
+      ALLLevel = II;
+      ALLHit = true;
+      continue;
+    case DVKind::LT:
+      if (ALLHit) {
+        DV[II - 1] = DVKind::GT;
+        DV[ALLLevel - 1] = DVKind::LT;
+        return false;
+      }
+      break;
+    case DVKind::LE:
+      if (ALLHit) {
+        DV[II - 1] = DVKind::GE;
+        DV[ALLLevel - 1] = DVKind::LT;
+        return false;
+      }
+      break;
+    case DVKind::EQ:
+      continue;
+    case DVKind::GT:
+    case DVKind::GE:
+    default:
+      break;
+    }
+  }
 
   for (unsigned II = OutmostNestingLevel; II <= InnermostNestingLevel; ++II) {
     if (DVhasLT && (DV[II - 1] & DVKind::GT)) {
@@ -1170,15 +1207,15 @@ void CollectDDInfoForPermute<T>::visit(const HLDDNode *DDNode) {
           TempDV = &RefinedDep.getDV();
         }
       }
-      if (ignoreDVWithNoLTGTForPermute(*TempDV, OutermostLevel,
-                                       InnermostLevel)) {
+      DirectionVector DV = *TempDV;
+      if (ignoreDVWithNoLTGTForPermute(DV, OutermostLevel, InnermostLevel)) {
         LLVM_DEBUG(dbgs() << "\n\t<Edge dropped with NoLTGT>");
         LLVM_DEBUG(dbgs() << "\t"; Edge->print(dbgs()));
         continue;
       }
 
       //  Save the DV in an array which will be used later
-      addToDVs(DVs, *TempDV, Edge);
+      addToDVs(DVs, DV, Edge);
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
       LLVM_DEBUG(dbgs() << "\n\t<Edge selected>");

@@ -70,6 +70,17 @@ cl::opt<bool> dtrans::DTransPrintAnalyzedTypes("dtrans-print-types",
 cl::opt<bool> dtrans::DTransOutOfBoundsOK("dtrans-outofboundsok",
                                           cl::init(true), cl::ReallyHidden);
 
+// Use the C language compatibility rule to determine if two aggregate types
+// are compatible. This is used by the analysis of AddressTaken safety checks.
+// If the actual argument of a call is a pointer to an aggregate with type T,
+// and there is no type U distinct from T which is compatible with T, then
+// we know that the types of the formal and actual arguments must be identical.
+// So, in this case, we will not need to report an AddressTaken safety check
+// for a potential mismatch between formal and actual arguments.
+//
+cl::opt<bool> dtrans::DTransUseCRuleCompat("dtrans-usecrulecompat",
+                                           cl::init(false), cl::ReallyHidden);
+
 // Enable merging padded structures with base structures. For example,
 // consider that there is a class A which will be a base class for other
 // derived classes and there is an instantiation of A. Then we might see
@@ -83,7 +94,7 @@ cl::opt<bool> dtrans::DTransOutOfBoundsOK("dtrans-outofboundsok",
 // This option enables treating both types as the same in DTrans. Any
 // safety information we find in one type will be added to the other type.
 static cl::opt<bool> DTransMergePaddedStructs("dtrans-merge-padded-structs",
-                                              cl::init(false),
+                                              cl::init(true),
                                               cl::ReallyHidden);
 
 bool dtrans::dtransIsCompositeType(Type *Ty) {
@@ -755,6 +766,26 @@ void dtrans::FieldInfo::print(raw_ostream &OS,
   }
   OS << "\n";
 
+  if (isArrayWithConstantEntries()) {
+    OS << "    Array with constant entries: [ ";
+    dtrans::printCollectionSorted(OS, getArrayWithConstantEntries().begin(),
+                                  getArrayWithConstantEntries().end(), ", ",
+                                  [](std::pair<Constant *, Constant*>
+                                      Pair) {
+                                    std::string OutputVal;
+                                    raw_string_ostream OutputStream(OutputVal);
+                                    OutputStream << "Index: ";
+                                    Pair.first->printAsOperand(OutputStream,
+                                                               false);
+                                    OutputStream << "  Constant: ";
+                                    Pair.second->printAsOperand(OutputStream,
+                                                                false);
+                                    OutputStream.flush();
+                                    return OutputVal;
+                                  });
+    OS << " ] \n";
+  }
+
   if (isTopAllocFunction())
     OS << "    Top Alloc Function";
   else if (isSingleAllocFunction()) {
@@ -822,6 +853,22 @@ bool dtrans::FieldInfo::processNewSingleAllocFunction(llvm::Function *F) {
     return true;
   }
   return false;
+}
+
+// Insert a new entry in ArrayConstEntries assuming that the current field
+// is an array with constant entries. Index is the entry in the array that
+// is constant and ConstVal is the constant value for that index.
+void dtrans::FieldInfo::addConstantEntryIntoTheArray(Constant *Index,
+                                                     Constant* ConstVal) {
+
+  assert ((Index && ConstVal && isa<ConstantInt>(Index) &&
+           isa<ConstantInt>(ConstVal)) && "Inserting non-constant information "
+                                          "into a space reserved for constants "
+                                          "integers");
+  assert (!(cast<ConstantInt>(Index)->isNegative()) &&
+          "Accessing array with negative index");
+
+  ArrayConstEntries.insert({Index, ConstVal});
 }
 
 // To represent call graph in C++ one stores outermost type,
@@ -929,54 +976,6 @@ void StructInfo::unsetRelatedType() {
     LastField.clearPaddedField();
 
   CurrRelated->unsetRelatedType();
-}
-
-// Return true if the input offset can access incorrectly the padded field.
-// If FullBase is true then it means that the offset can be equal to the base,
-// else it should be smaller.
-bool StructInfo::offsetAccessesPaddingField(int64_t Offset,
-                                            const llvm::DataLayout &DL,
-                                            bool FullBase) {
-  if (Offset == 0)
-    return false;
-
-  if (!getRelatedType() || getNumFields() == 0)
-    return false;
-
-  if (!hasPaddedField())
-    return false;
-
-  int64_t LastField = getNumFields() - 1;
-  dtrans::FieldInfo &Field = getField(LastField);
-
-  int64_t StructSize = DL.getTypeStoreSize(getLLVMType());
-  Type *FieldType = Field.getLLVMType();
-  int64_t FieldSize = DL.getTypeStoreSize(FieldType);
-  int64_t BaseSize = StructSize - FieldSize;
-
-  // If FullBase is true then is OK for the offset to be equal as the base.
-  // For example:
-  //
-  //  %struct.test.a = type <{ i32, i32, [4 x i8] }>
-  //  %struct.test.a.base = type <{ i32, i32 }>
-  //
-  //  %p1 = bitcast %struct.test.a* %a1 to i8*
-  //  %p2 = bitcast %struct.test.a.base* %a2 to i8*
-  //  call void @llvm.memcpy.p0i8.p0i8.i64(i8* %p1, i8* %p2, i64 8, i1 false)
-  //
-  // The call to memcpy only copies the base part, that is OK.
-  //
-  // If FullBase is false then it means that the offset can't reach the base
-  // size. For example:
-  //
-  // %agep = getelementptr %struct.test.a, %struct.test.a* %aptr, i64 8
-  //
-  // The GEP %agep returns the address of the padded field in  %struct.test.a.
-  // This is a wrong access.
-  if (FullBase && Offset == BaseSize)
-    return false;
-
-  return Offset >= BaseSize;
 }
 
 // Return true if the last field in the structure is used for padding.
@@ -1105,6 +1104,8 @@ StringRef dtrans::getStringForTransform(dtrans::Transform Trans) {
     return "soatoaos";
   case dtrans::DT_MemInitTrimDown:
     return "meminittrimdown";
+  case dtrans::DT_ArraysWithConstantEntries:
+    return "arrayswithconstantentries";
   }
   llvm_unreachable("Unexpected continuation past dtrans::Transform switch.");
   return "";
@@ -1148,6 +1149,8 @@ dtrans::SafetyData dtrans::getConditionsForTransform(dtrans::Transform Trans,
     return dtrans::SDSOAToAOS;
   case dtrans::DT_MemInitTrimDown:
     return dtrans::SDMemInitTrimDown;
+  case dtrans::DT_ArraysWithConstantEntries:
+    return dtrans::SDArraysWithConstantEntries;
   }
   llvm_unreachable("Unexpected continuation past dtrans::Transform switch.");
   return dtrans::NoIssues;
@@ -1192,12 +1195,35 @@ bool dtrans::hasZeroSizedArrayAsLastField(llvm::Type *Ty) {
 bool dtrans::isDummyFuncWithUnreachable(const CallBase *Call,
                                         const TargetLibraryInfo &TLI) {
 
+  // Returns true if "PtrOp" is accessing memory allocated by "AllocI".
+  // Ex:
+  // %AllocI = alloca %"bad_alloc", align 8
+  // %4 = getelementptr %"bad_alloc", %"bad_alloc"* %AllocI, i64 0, i32 0
+  // %5 = getelementptr inbounds %"exception", %"exception"* %4, i64 0, i32 1
+  // %6 = bitcast %__std_exception_data* %5 to i8*
+  // %7 = getelementptr inbounds i8, i8* %6, i64 8
+  // %PtrOp = bitcast i8* %7 to i64*
+  // store i64 0, i64* %PtrOp
+  std::function<bool(Value *, AllocaInst *)> IsPtrOpReferencesAllocaMem;
+  IsPtrOpReferencesAllocaMem =
+      [&IsPtrOpReferencesAllocaMem](Value *PtrOp, AllocaInst *AllocI) {
+        if (PtrOp == AllocI)
+          return true;
+        Value *Op = PtrOp;
+        if (auto BC = dyn_cast<BitCastInst>(Op))
+          Op = BC->getOperand(0);
+        if (auto GEPI = dyn_cast<GetElementPtrInst>(Op))
+          return IsPtrOpReferencesAllocaMem(GEPI->getPointerOperand(), AllocI);
+        return false;
+      };
+
   // Returns true if "BB" just calls _CxxThrowException function (Windows EH).
   // It allows store instructions that save data to std::bad_alloc object.
   //
   // entry:
   // %3 = alloca %"bad_alloc", align 8
-  // %4 = getelementptr %"bad_alloc", %"bad_alloc"* %3, i64 0, i32 0, i32 1
+  // %g1 = getelementptr %"bad_alloc", %"bad_alloc"* %3, i64 0, i32 0
+  // %4 = getelementptr %"exception", %"exception"* %g1, i64 0, i32 1
   // %5 = bitcast i8* %4 to i64*
   // store i64 0, i64* %5, align 8
   // %6 = getelementptr %"bad_alloc", %"bad_alloc"* %3, i64 0, i32 0, i32 1
@@ -1236,11 +1262,7 @@ bool dtrans::isDummyFuncWithUnreachable(const CallBase *Call,
       if (auto SI = dyn_cast<StoreInst>(&I)) {
         if (!isa<Constant>(SI->getValueOperand()))
           return false;
-        Value *PtrOp = SI->getPointerOperand();
-        if (auto BC = dyn_cast<BitCastInst>(PtrOp))
-          PtrOp = BC->getOperand(0);
-        auto GEPI = dyn_cast<GetElementPtrInst>(PtrOp);
-        if (!GEPI || GEPI->getPointerOperand() != AI)
+        if (!IsPtrOpReferencesAllocaMem(SI->getPointerOperand(), AI))
           return false;
         continue;
       }
@@ -1801,4 +1823,58 @@ bool dtrans::valueOnlyUsedForMemset(Value *V) {
   }
 
   return true;
+}
+
+bool dtrans::isLoadedValueUnused(Value *V, Value *LoadAddr) {
+  std::function<bool(Value *, Value *, SmallPtrSetImpl<Value *> &)> IsUnused =
+      [&IsUnused](Value *V, Value *LoadAddr,
+                  SmallPtrSetImpl<Value *> &UsedValues) -> bool {
+    for (auto U : V->users()) {
+      // If we've seen this user before, assume its path is OK.
+      if (!UsedValues.insert(U).second)
+        continue;
+
+      // If the user is a call or invoke, the value escapes.
+      // If needed this can be extended for pure functions.
+      if (isa<CallBase>(U))
+        return false;
+
+      // If the value is used by a terminator, it's used.
+      if (cast<Instruction>(U)->isTerminator())
+        return false;
+
+      // If the user is a store, check the target address.
+      if (auto *SI = dyn_cast<StoreInst>(U)) {
+        // If it is volatile or it doesn't match the load address, the value is
+        // used.
+        if (SI->isVolatile() || SI->getPointerOperand() != LoadAddr)
+          return false;
+
+        continue;
+      }
+
+      // If load is volatile, the value is used.
+      if (auto *LI = dyn_cast<LoadInst>(U))
+        if (LI->isVolatile())
+          return false;
+
+      // Follow the users of any other user
+      if (!IsUnused(U, LoadAddr, UsedValues))
+        return false;
+    }
+
+    // If the value has no users, this path is unused.
+    return true;
+  };
+
+  SmallPtrSet<Value *, 4> UsedValues;
+  return IsUnused(V, LoadAddr, UsedValues);
+}
+
+bool dtrans::isTypeTestRelatedIntrinsic(const Instruction *I) {
+  const IntrinsicInst *II = dyn_cast_or_null<IntrinsicInst>(I);
+  if (!II)
+    return false;
+  Intrinsic::ID IID = II->getIntrinsicID();
+  return (IID == Intrinsic::assume || IID == Intrinsic::type_test);
 }

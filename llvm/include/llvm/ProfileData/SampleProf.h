@@ -498,11 +498,25 @@ public:
     return CallsiteSamples;
   }
 
+  /// Return the maximum of sample counts in a function body including functions
+  /// inlined in it.
+  uint64_t getMaxCountInside() const {
+    uint64_t MaxCount = 0;
+    for (const auto &L : getBodySamples())
+      MaxCount = std::max(MaxCount, L.second.getSamples());
+    for (const auto &C : getCallsiteSamples())
+      for (const FunctionSamplesMap::value_type &F : C.second)
+        MaxCount = std::max(MaxCount, F.second.getMaxCountInside());
+    return MaxCount;
+  }
+
   /// Merge the samples in \p Other into this one.
   /// Optionally scale samples by \p Weight.
   sampleprof_error merge(const FunctionSamples &Other, uint64_t Weight = 1) {
     sampleprof_error Result = sampleprof_error::success;
     Name = Other.getName();
+    if (!GUIDToFuncNameMap)
+      GUIDToFuncNameMap = Other.GUIDToFuncNameMap;
     MergeResult(Result, addTotalSamples(Other.getTotalSamples(), Weight));
     MergeResult(Result, addHeadSamples(Other.getHeadSamples(), Weight));
     for (const auto &I : Other.getBodySamples()) {

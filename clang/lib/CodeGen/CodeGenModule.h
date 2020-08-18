@@ -325,7 +325,6 @@ private:
   std::unique_ptr<CGObjCRuntime> ObjCRuntime;
   std::unique_ptr<CGOpenCLRuntime> OpenCLRuntime;
   std::unique_ptr<CGOpenMPRuntime> OpenMPRuntime;
-  std::unique_ptr<llvm::OpenMPIRBuilder> OMPBuilder;
   std::unique_ptr<CGCUDARuntime> CUDARuntime;
   std::unique_ptr<CGSYCLRuntime> SYCLRuntime;
   std::unique_ptr<CGDebugInfo> DebugInfo;
@@ -344,6 +343,10 @@ private:
   /// Non-zero if emitting code from a target region, including functions
   /// called from other functions in the region.
   unsigned int InTargetRegion = 0;
+
+  /// Mangle context used for OpenMP offloading to produce consistent names
+  /// between (Windows) host and target.
+  std::unique_ptr<ItaniumMangleContext> ItaniumMC;
 #endif // INTEL_COLLAB
 
   // A set of references that have only been seen via a weakref so far. This is
@@ -610,9 +613,6 @@ public:
     assert(OpenMPRuntime != nullptr);
     return *OpenMPRuntime;
   }
-
-  /// Return a pointer to the configured OpenMPIRBuilder, if any.
-  llvm::OpenMPIRBuilder *getOpenMPIRBuilder() { return OMPBuilder.get(); }
 
   /// Return a reference to the configured CUDA runtime.
   CGCUDARuntime &getCUDARuntime() {
@@ -1032,6 +1032,17 @@ public:
       ForDefinition_t IsForDefinition = NotForDefinition);
 
 #if INTEL_CUSTOMIZATION
+private:
+  typedef llvm::DenseMap<llvm::FunctionType *, std::string> IntelGenFnMap;
+  IntelGenFnMap IntelIndirectFnMap;
+  IntelGenFnMap IntelSimdVariantFnMap;
+  StringRef GetIntelGeneratedFnName(llvm::FunctionType *, IntelGenFnMap &Map,
+                                    StringRef Prefix);
+public:
+  StringRef GetIntelIndirectFnName(llvm::FunctionType *FTy);
+  StringRef GetIntelSimdVariantFnName(llvm::FunctionType *FTy);
+  llvm::GlobalVariable *CreateSIMDFnTableVar(llvm::Constant *Init);
+
   // StdContainerOptKind describes the type of Intel intrinsic we want to
   // insert into the code to help the back end with memory disambiguation for
   // std containers.
@@ -1638,9 +1649,6 @@ private:
 
   /// Emit the Clang commandline as llvm.commandline metadata.
   void EmitCommandLineMetadata();
-
-  /// Emits target specific Metadata for global declarations.
-  void EmitTargetMetadata();
 
   /// Emit the module flag metadata used to pass options controlling the
   /// the backend to LLVM.

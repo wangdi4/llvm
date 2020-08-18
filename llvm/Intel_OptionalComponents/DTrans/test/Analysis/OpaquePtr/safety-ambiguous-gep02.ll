@@ -1,0 +1,70 @@
+; REQUIRES: asserts
+; RUN: opt -whole-program-assume -dtrans-safetyanalyzer -dtrans-print-types -disable-output %s 2>&1 | FileCheck %s
+; RUN: opt -whole-program-assume -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types -disable-output %s 2>&1 | FileCheck %s
+
+; Test detection of "Ambiguous GEP" safety condition by DTrans safety analyzer.
+
+; Input structure is bitcast, resulting in multiple type aliases for the GEP
+; pointer operand. Because the type aliases do not correspond to an element
+; zero access, this results in the structures being marked with "Ambiguous GEP"
+%struct.test01a = type { %struct.test01b, i64 }
+%struct.test01b = type { i32, i16, i16 }
+%struct.test01c = type { i64 }
+define internal void @test01(%struct.test01a* %pStruct1a) !dtrans_type !5 {
+  %pStruct1a.as.1c = bitcast %struct.test01a* %pStruct1a to %struct.test01c*
+  %pField = getelementptr %struct.test01c, %struct.test01c* %pStruct1a.as.1c, i64 0, i32 0
+  %fieldVal = load i64, i64* %pField
+  ret void
+}
+; CHECK-LABEL: DTRANS_StructInfo:
+; CHECK: Name: struct.test01a
+; CHECK: Safety data: Ambiguous GEP | Contains nested structure{{ *$}}
+
+; CHECK-LABEL: DTRANS_StructInfo:
+; CHECK: Name: struct.test01b
+; CHECK: Safety data: Ambiguous GEP | Nested structure{{ *$}}
+
+; CHECK-LABEL: DTRANS_StructInfo:
+; CHECK: Name: struct.test01c
+; CHECK: Safety data: Ambiguous GEP{{ *$}}
+
+
+; Like test01, the input pointer will have multiple types associated with it.
+; However, in this case the types correspond to an element 0 access pattern, so
+; should not be marked as "Ambiguous GEP"
+%struct.test02a = type { %struct.test02b, i64 }
+%struct.test02b = type { i32, i16 }
+define internal void @test02(%struct.test02a* %pStruct2a) !dtrans_type !10 {
+  %pStruct2a.as.2b = bitcast %struct.test02a* %pStruct2a to %struct.test02b*
+  %pField = getelementptr %struct.test02b, %struct.test02b* %pStruct2a.as.2b, i64 0, i32 0
+  %fieldVal = load i32, i32* %pField
+  ret void
+}
+; CHECK-LABEL: DTRANS_StructInfo:
+; CHECK: Name: struct.test02a
+; CHECK: Safety data: Contains nested structure{{ *$}}
+
+; CHECK-LABEL: DTRANS_StructInfo:
+; CHECK: Name: struct.test02b
+; CHECK: Safety data: Nested structure{{ *$}}
+
+
+!1 = !{!"R", %struct.test01b zeroinitializer, i32 0}  ; %struct.test01b
+!2 = !{i64 0, i32 0}  ; i64
+!3 = !{i32 0, i32 0}  ; i32
+!4 = !{i16 0, i32 0}  ; i16
+!5 = !{!"F", i1 false, i32 1, !6, !7}  ; void (%struct.test01a*)
+!6 = !{!"void", i32 0}  ; void
+!7 = !{!8, i32 1}  ; %struct.test01a*
+!8 = !{!"R", %struct.test01a zeroinitializer, i32 0}  ; %struct.test01a
+!9 = !{!"R", %struct.test02b zeroinitializer, i32 0}  ; %struct.test02b
+!10 = !{!"F", i1 false, i32 1, !6, !11}  ; void (%struct.test02a*)
+!11 = !{!12, i32 1}  ; %struct.test02a*
+!12 = !{!"R", %struct.test02a zeroinitializer, i32 0}  ; %struct.test02a
+!13 = !{!"S", %struct.test01a zeroinitializer, i32 2, !1, !2} ; { %struct.test01b, i64 }
+!14 = !{!"S", %struct.test01b zeroinitializer, i32 3, !3, !4, !4} ; { i32, i16, i16 }
+!15 = !{!"S", %struct.test01c zeroinitializer, i32 1, !2} ; { i64 }
+!16 = !{!"S", %struct.test02a zeroinitializer, i32 2, !9, !2} ; { %struct.test02b, i64 }
+!17 = !{!"S", %struct.test02b zeroinitializer, i32 2, !3, !4} ; { i32, i16 }
+
+!dtrans_types = !{!13, !14, !15, !16, !17}

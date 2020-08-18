@@ -1,5 +1,5 @@
-; RUN: opt -hir-ssa-deconstruction -analyze -hir-safe-reduction-analysis -S 2>&1 < %s | FileCheck %s
-; RUN: opt -passes="hir-ssa-deconstruction,print<hir-safe-reduction-analysis>"  -S 2>&1 < %s | FileCheck %s
+; RUN: opt -hir-ssa-deconstruction -analyze -hir-safe-reduction-analysis -hir-safe-reduction-analysis-print-unsafe-algebra -S 2>&1 < %s | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,print<hir-safe-reduction-analysis>" -hir-safe-reduction-analysis-print-unsafe-algebra -S 2>&1 < %s | FileCheck %s
 
 ; [Note] Safe reduction is on dom path (without unsafe algebra)
 

@@ -86,7 +86,7 @@ bool KernelBarrier::runOnModule(Module &M) {
                                   UndefValue::get(LocalIdArrayTy), "LocalIds",
                                   nullptr, GlobalValue::GeneralDynamicTLSModel);
     LocalIds->setAlignment(
-        MaybeAlign(M.getDataLayout().getPreferredAlignment(LocalIds)));
+        MaybeAlign(M.getDataLayout().getPreferredAlign(LocalIds)));
   }
 
   // Find all functions that call synchronize instructions.

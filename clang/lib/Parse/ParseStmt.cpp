@@ -1202,10 +1202,14 @@ StmtResult Parser::ParseCompoundStatementBody(bool isStmtExpr) {
 /// should try to recover harder.  It returns false if the condition is
 /// successfully parsed.  Note that a successful parse can still have semantic
 /// errors in the condition.
+/// Additionally, if LParenLoc and RParenLoc are non-null, it will assign
+/// the location of the outer-most '(' and ')', respectively, to them.
 bool Parser::ParseParenExprOrCondition(StmtResult *InitStmt,
                                        Sema::ConditionResult &Cond,
                                        SourceLocation Loc,
-                                       Sema::ConditionKind CK) {
+                                       Sema::ConditionKind CK,
+                                       SourceLocation *LParenLoc,
+                                       SourceLocation *RParenLoc) {
   BalancedDelimiterTracker T(*this, tok::l_paren);
   T.consumeOpen();
 
@@ -1234,6 +1238,13 @@ bool Parser::ParseParenExprOrCondition(StmtResult *InitStmt,
 
   // Otherwise the condition is valid or the rparen is present.
   T.consumeClose();
+
+  if (LParenLoc != nullptr) {
+    *LParenLoc = T.getOpenLocation();
+  }
+  if (RParenLoc != nullptr) {
+    *RParenLoc = T.getCloseLocation();
+  }
 
   // Check for extraneous ')'s to catch things like "if (foo())) {".  We know
   // that all callers are looking for a statement after the condition, so ")"
@@ -1394,6 +1405,9 @@ StmtResult Parser::ParseIfStatement(SourceLocation *TrailingElseLoc) {
   llvm::Optional<bool> ConstexprCondition;
   if (IsConstexpr)
     ConstexprCondition = Cond.getKnownValue();
+
+  bool IsBracedThen = Tok.is(tok::l_brace);
+
   // C99 6.8.4p3 - In C99, the body of the if statement is a scope, even if
   // there is no compound stmt.  C90 does not have this clause.  We only do this
   // if the body isn't a compound statement to avoid push/pop in common cases.
@@ -1412,7 +1426,7 @@ StmtResult Parser::ParseIfStatement(SourceLocation *TrailingElseLoc) {
   //    would have to notify ParseStatement not to create a new scope. It's
   //    simpler to let it create a new scope.
   //
-  ParseScope InnerScope(this, Scope::DeclScope, C99orCXX, Tok.is(tok::l_brace));
+  ParseScope InnerScope(this, Scope::DeclScope, C99orCXX, IsBracedThen);
 
   MisleadingIndentationChecker MIChecker(*this, MSK_if, IfLoc);
 
@@ -1473,7 +1487,7 @@ StmtResult Parser::ParseIfStatement(SourceLocation *TrailingElseLoc) {
     // Pop the 'else' scope if needed.
     InnerScope.Exit();
   } else if (Tok.is(tok::code_completion)) {
-    Actions.CodeCompleteAfterIf(getCurScope());
+    Actions.CodeCompleteAfterIf(getCurScope(), IsBracedThen);
     cutOffParsing();
     return StmtError();
   } else if (InnerStatementTrailingElseLoc.isValid()) {
@@ -1626,8 +1640,10 @@ StmtResult Parser::ParseWhileStatement(SourceLocation *TrailingElseLoc) {
 
   // Parse the condition.
   Sema::ConditionResult Cond;
+  SourceLocation LParen;
+  SourceLocation RParen;
   if (ParseParenExprOrCondition(nullptr, Cond, WhileLoc,
-                                Sema::ConditionKind::Boolean))
+                                Sema::ConditionKind::Boolean, &LParen, &RParen))
     return StmtError();
 
   // C99 6.8.5p5 - In C99, the body of the while statement is a scope, even if
@@ -1657,7 +1673,7 @@ StmtResult Parser::ParseWhileStatement(SourceLocation *TrailingElseLoc) {
   if (Cond.isInvalid() || Body.isInvalid())
     return StmtError();
 
-  return Actions.ActOnWhileStmt(WhileLoc, Cond, Body.get());
+  return Actions.ActOnWhileStmt(WhileLoc, LParen, Cond, RParen, Body.get());
 }
 
 /// ParseDoStatement

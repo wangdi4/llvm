@@ -61,8 +61,8 @@ EXTERN void *omp_target_alloc(size_t size, int device_num) {
     return NULL;
   }
 
-  DeviceTy &Device = Devices[device_num];
 #if INTEL_COLLAB
+  DeviceTy &Device = Devices[device_num];
   if (RTLs->RequiresFlags & OMP_REQ_UNIFIED_SHARED_MEMORY) {
     rc = Device.data_alloc_managed(size);
     DP("omp_target_alloc returns managed ptr " DPxMOD "\n", DPxPTR(rc));
@@ -70,7 +70,7 @@ EXTERN void *omp_target_alloc(size_t size, int device_num) {
   }
   rc = Device.data_alloc_user(size, NULL);
 #else // INTEL_COLLAB
-  rc = Device.RTL->data_alloc(Device.RTLDeviceID, size, NULL);
+  rc = Devices[device_num].allocData(size);
 #endif // INTEL_COLLAB
   DP("omp_target_alloc returns device ptr " DPxMOD "\n", DPxPTR(rc));
   return rc;
@@ -96,8 +96,8 @@ EXTERN void omp_target_free(void *device_ptr, int device_num) {
     return;
   }
 
-  DeviceTy &Device = Devices[device_num];
 #if INTEL_COLLAB
+  DeviceTy &Device = Devices[device_num];
   if (Device.is_managed_ptr(device_ptr)) {
     // Either requires usm or explicit allocation
     Device.data_delete_managed(device_ptr);
@@ -105,7 +105,7 @@ EXTERN void omp_target_free(void *device_ptr, int device_num) {
     return;
   }
 #endif // INTEL_COLLAB
-  Device.RTL->data_delete(Device.RTLDeviceID, (void *)device_ptr);
+  Devices[device_num].deleteData(device_ptr);
   DP("omp_target_free deallocated device ptr\n");
 }
 
@@ -182,11 +182,11 @@ EXTERN int omp_target_memcpy(void *dst, void *src, size_t length,
   } else if (src_device == omp_get_initial_device()) {
     DP("copy from host to device\n");
     DeviceTy& DstDev = Devices[dst_device];
-    rc = DstDev.data_submit(dstAddr, srcAddr, length, nullptr);
+    rc = DstDev.submitData(dstAddr, srcAddr, length, nullptr);
   } else if (dst_device == omp_get_initial_device()) {
     DP("copy from device to host\n");
     DeviceTy& SrcDev = Devices[src_device];
-    rc = SrcDev.data_retrieve(dstAddr, srcAddr, length, nullptr);
+    rc = SrcDev.retrieveData(dstAddr, srcAddr, length, nullptr);
   } else {
     DP("copy from device to device\n");
     DeviceTy &SrcDev = Devices[src_device];
@@ -200,9 +200,9 @@ EXTERN int omp_target_memcpy(void *dst, void *src, size_t length,
     }
 
     void *buffer = malloc(length);
-    rc = SrcDev.data_retrieve(buffer, srcAddr, length, nullptr);
+    rc = SrcDev.retrieveData(buffer, srcAddr, length, nullptr);
     if (rc == OFFLOAD_SUCCESS)
-      rc = DstDev.data_submit(dstAddr, buffer, length, nullptr);
+      rc = DstDev.submitData(dstAddr, buffer, length, nullptr);
     free(buffer);
   }
 

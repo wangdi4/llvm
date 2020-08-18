@@ -13,6 +13,16 @@ VERS1.0 {
     __tgt_target_data_update_nowait;
     __tgt_target_nowait;
     __tgt_target_teams_nowait;
+    __tgt_target_data_begin_mapper;
+    __tgt_target_data_end_mapper;
+    __tgt_target_data_update_mapper;
+    __tgt_target_mapper;
+    __tgt_target_teams_mapper;
+    __tgt_target_data_begin_nowait_mapper;
+    __tgt_target_data_end_nowait_mapper;
+    __tgt_target_data_update_nowait_mapper;
+    __tgt_target_nowait_mapper;
+    __tgt_target_teams_nowait_mapper;
     __tgt_mapper_num_components;
     __tgt_push_mapper_component;
 # INTEL_COLLAB
@@ -27,7 +37,6 @@ VERS1.0 {
     __tgt_set_interop_property;
     __tgt_offload_proxy_task_complete_ooo;
     __tgt_push_code_location;
-    __tgt_get_ompt_trace;
     __tgt_get_num_devices;
 # end INTEL_COLLAB
     omp_get_num_devices;

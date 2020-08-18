@@ -1275,7 +1275,7 @@ dependencies in a loop.
 def MaxInterleavingDocs : Documentation {
   let Category = DocCatIntelHLSPragmas;
   let BugTracker="CMPLRLLVM-9099";
-  let Owner = "achikin";
+  let Owner = "achikin,smanna";
   let Content = [{
 The ``max_interleaving`` pragma instructs the compiler to restrict the maximum number
 of interleaved invocations executing the loop to a limit specified on the integral parameter.
@@ -1285,6 +1285,8 @@ Syntax:
 .. code-block:: text
 
   #pragma max_interleaving [<constant-int>]
+
+Note: pragma max_interleaving accepts 0.
 
 Example:
 
@@ -1305,9 +1307,10 @@ AST:
 
 .. code-block:: text
 
-  AttributedStmt 0xf47e1c8 <<invalid sloc>, line:4:31>
-  |-LoopHintAttr 0xf47e1a0 <line:3:17, col:36> Implicit max_interleaving MaxInterleaving Numeric
-  | |-IntegerLiteral 0xf47dfb8 <col:34> 'int' 1
+  AttributedStmt 0x1137ca10 <line:3:17, line:4:31>
+          |-SYCLIntelFPGAMaxInterleavingAttr 0x1137c9e0 <line:3:17, col:36>
+          | `-IntegerLiteral 0x1137c7f0 <col:34> 'int' 1
+          `-ForStmt 0x1137c9a8 <line:4:9, col:31>
 
 IR:
 
@@ -1333,7 +1336,7 @@ def SimplePragmasDocs : Documentation {
   let Category = DocCatIntelHLSPragmas;
   let BugTracker = "CMPLRLLVM-5584";
   let RegressionTest = "SemaIntelHLS/pragma.cpp, CodeGenIntelHLS/pragma.cpp";
-  let Owner = "jyu2";
+  let Owner = "jyu2,smanna";
   let Content = [{
 These are simple HLS/FPGA loop pragmas that either have one constant integral
 argument, or no arguments.  ** Note: Let's add new topics for any additional
@@ -1349,6 +1352,7 @@ Syntax:
   #pragma disable_loop_pipelining
 
 Note: the speculated_iterations accept 0.
+Note: pragma max_concurrency accepts 0.
 
 The implementation uses the existing clang LoopHint attribute framework to
 produce LoopHint metadata.  The table below shows the Options, States, and the
@@ -1364,7 +1368,7 @@ Metadata produced.
   #pragma ii_at_least 4, IIAtLeast, Numeric, llvm.loop.intel.ii.at.least.count(4)
   #pragma speculated_iterations 4, SpeculatedIterations, Numeric, llvm.loop.intel.speculated.iterations.count(4)
   #pragma min_ii_at_target_fmax, MinIIAtFmax, Enable, llvm.loop.intel.min.ii.at.target.fmax
-  #pragma disable_loop_pipelining, DisableLoopPipelining, Enable, llvm.loop.intel.pipelining.disable
+  #pragma disable_loop_pipelining, DisableLoopPipelining, Enable, llvm.loop.intel.pipelining.enable
 
 Example:
 
@@ -1376,6 +1380,12 @@ Example:
     for (int i = 0; i < 10; ++i) var++;
     #pragma disable_loop_pipelining
     for (int i = 0; i < 10; ++i) var++;
+    #pragma max_concurrency 4
+    for (int i = 0; i < 10; ++i) var++;
+    #pragma speculated_iterations 4
+    for (int i = 0; i < 10; ++i) var++;
+    #pragma ii 4
+    for (int i = 0; i < 10; ++i) var++;
   }
 
 AST:
@@ -1386,18 +1396,33 @@ AST:
 
 .. code-block:: text
 
-  AttributedStmt 0xe4efd70 <<invalid sloc>, line:4:42>
-  |-LoopHintAttr 0xe4efd48 <line:3:11, col:24> Implicit ii_at_least IIAtLeast Numeric
-  | | |-IntegerLiteral 0xe4efa98 <col:23> 'int' 4
-  | | `-<<<NULL>>>
-  | `-ForStmt 0xe4efd10 <line:4:3, col:42>
+  AttributedStmt 0x12040aa8 <line:3:13, line:4:37>
+    | |-LoopHintAttr 0x12040a68 <line:3:13, col:26> Implicit ii_at_least IIAtLeast Numeric
+    | | |-IntegerLiteral 0x12040850 <col:25> 'int' 4
+    | | `-<<<NULL>>>
+    | `-ForStmt 0x12040a30 <line:4:5, col:37>
 
-  AttributedStmt 0xe4f0068 <<invalid sloc>, line:6:42>
-  |-LoopHintAttr 0xe4f0040 <line:5:11> Implicit disable_loop_pipelining DisableLoopPipelining Enable
-  | |-<<<NULL>>>
-  | `-<<<NULL>>>
-  `-ForStmt 0xe4f0008 <line:6:3, col:42>
+  AttributedStmt 0x10954c50 <line:5:13, line:6:37>
+      |-SYCLIntelFPGADisableLoopPipeliningAttr 0x10954c28 <line:5:13>
+      `-ForStmt 0x10954bf0 <line:6:5, col:37>
+        |-DeclStmt 0x10954af0 <col:10, col:19>
+        | `-VarDecl 0x10954a68 <col:10, col:18> col:14 used i 'int' cinit
+        |   `-IntegerLiteral 0x10954ad0 <col:18> 'int' 0
+        |-<<<NULL>>>
+  AttributedStmt 0x12040f60 <line:7:13, line:8:37>
+    | |-SYCLIntelFPGAMaxConcurrencyAttr 0x12040f30 <line:7:13, col:30>
+    | | `-IntegerLiteral 0x12040d18 <col:29> 'int' 4
+    | `-ForStmt 0x12040ef8 <line:8:5, col:37>
 
+  AttributedStmt 0x120411e0 <line:9:13, line:10:37>
+    | |-SYCLIntelFPGASpeculatedIterationsAttr 0x120411b0 <line:9:13, col:36>
+    | | `-IntegerLiteral 0x12040f98 <col:35> 'int' 4
+    | `-ForStmt 0x12041178 <line:10:5, col:37>
+
+  AttributedStmt 0x12041460 <line:11:13, line:12:37>
+      |-SYCLIntelFPGAIIAttr 0x12041430 <line:11:13, col:17>
+      | `-IntegerLiteral 0x12041218 <col:16> 'int' 4
+      `-ForStmt 0x120413f8 <line:12:5, col:37>
 IR:
 
 .. code-block:: console
@@ -1412,8 +1437,8 @@ IR:
 
   !2 = distinct !{!2, !3}
   !3 = !{!"llvm.loop.intel.ii.at.least.count", i32 4}
-  !4 = distinct !{!4, !3, !5}
-  !5 = !{!"llvm.loop.intel.pipelining.disable"}
+  !4 = distinct !{!4, !5}
+  !5 = !{!"llvm.loop.intel.pipelining.enable", i32 0}
   }];
   let UserContent = [{
 These are simple HLS/FPGA loop pragmas that either have one constant integral

@@ -55,10 +55,10 @@ void VPlanVerifier::verifyNumLoops(void) const {
 
 #if INTEL_CUSTOMIZATION
 void VPlanVerifier::verifyCFGExternals(const VPlan *Plan) {
-  Plan->verifyVPConstants();
-  Plan->verifyVPExternalDefs();
-  Plan->verifyVPExternalDefsHIR();
-  Plan->verifyVPMetadataAsValues();
+  Plan->getExternals().verifyVPConstants();
+  Plan->getExternals().verifyVPExternalDefs();
+  Plan->getExternals().verifyVPExternalDefsHIR();
+  Plan->getExternals().verifyVPMetadataAsValues();
 }
 #endif
 

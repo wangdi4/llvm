@@ -388,7 +388,7 @@ bool HIRIdiomRecognition::makeStartRef(RegDDRef *Ref, HLLoop *Loop,
 
       // Try to merge upper bound with CE
       if (!CanonExprUtils::replaceIVByCanonExpr(CE, Level, OrigUpperCE,
-                                                Loop->isNSW(), true)) {
+                                                Loop->hasSignedIV(), true)) {
         LLVM_DEBUG(dbgs() << "Unable to replace i" << Level << " with UB.");
         return false;
       }

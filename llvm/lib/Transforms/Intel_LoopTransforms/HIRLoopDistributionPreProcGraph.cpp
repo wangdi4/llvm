@@ -457,7 +457,7 @@ DistPPGraph::DistPPGraph(HLLoop *Loop, HIRDDAnalysis &DDA,
                          HIRSparseArrayReductionAnalysis &SARA,
                          bool AllowScalarExpansion,
                          bool CreateControlNodes) {
-  const unsigned MaxDistPPSize = 128;
+  const unsigned MaxDistPPSize = 512;
   const unsigned MaxDDEdges = 600;
 
   DistributionNodeCreator NodeCreator(this, CreateControlNodes,

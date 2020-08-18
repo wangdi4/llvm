@@ -1,10 +1,10 @@
 ; REQUIRES: asserts
 
-; RUN: opt  < %s -whole-program-assume -dtransanalysis -dtrans-print-types -dtrans-merge-padded-structs=true -disable-output 2>&1 | FileCheck %s -check-prefix=CHECKBC
-; RUN: opt  < %s -whole-program-assume -passes='require<dtransanalysis>' -dtrans-print-types -dtrans-merge-padded-structs=true -disable-output 2>&1 | FileCheck %s -check-prefix=CHECKBC
+; RUN: opt  < %s -whole-program-assume -dtransanalysis -dtrans-print-types -disable-output 2>&1 | FileCheck %s -check-prefix=CHECKBC
+; RUN: opt  < %s -whole-program-assume -passes='require<dtransanalysis>' -dtrans-print-types -disable-output 2>&1 | FileCheck %s -check-prefix=CHECKBC
 
-; RUN: opt  < %s -whole-program-assume -dtransanalysis -dtrans-print-types -dtrans-merge-padded-structs=true -disable-output 2>&1 | FileCheck %s -check-prefix=CHECKAT
-; RUN: opt  < %s -whole-program-assume -passes='require<dtransanalysis>' -dtrans-print-types -dtrans-merge-padded-structs=true -disable-output 2>&1 | FileCheck %s -check-prefix=CHECKAT
+; RUN: opt  < %s -whole-program-assume -dtransanalysis -dtrans-print-types -disable-output 2>&1 | FileCheck %s -check-prefix=CHECKAT
+; RUN: opt  < %s -whole-program-assume -passes='require<dtransanalysis>' -dtrans-print-types -disable-output 2>&1 | FileCheck %s -check-prefix=CHECKAT
 
 
 ; This test verifies that bad casting and address taken doesn't show up in

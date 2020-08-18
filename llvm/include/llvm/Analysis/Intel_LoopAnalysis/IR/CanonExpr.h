@@ -307,26 +307,11 @@ public:
 
   /// Returns true if this is linear at some levels (greater than
   /// DefinedAtLevel) in the current loopnest.
-  bool isLinearAtLevel(unsigned Level) const { return DefinedAtLevel < Level; }
+  bool isLinearAtLevel(unsigned Level) const;
 
   /// Returns true if the canon expr is invariant at \p Level.
   /// If \p IgnoreInnerIVs is set to true, inner loop IVs are ignored.
-  bool isInvariantAtLevel(unsigned Level, bool IgnoreInnerIVs = false) const {
-    if (isNonLinear() || DefinedAtLevel >= Level) {
-      return false;
-    }
-
-    if (IgnoreInnerIVs) {
-      return !hasIV(Level);
-    }
-
-    for (unsigned I = Level; I <= MaxLoopNestLevel; I++) {
-      if (hasIV(I)) {
-        return false;
-      }
-    }
-    return true;
-  }
+  bool isInvariantAtLevel(unsigned Level, bool IgnoreInnerIVs = false) const;
 
   /// IV iterator methods
   iv_iterator iv_begin() { return IVCoeffs.begin(); }
@@ -540,9 +525,12 @@ public:
   bool hasIVBlobCoeffs() const;
   /// Returns the number of blobs IV Coeffs.
   unsigned numIVBlobCoeffs() const;
-  /// Returns true if this contains any blobs.
+  /// Returns true if this contains any blob terms.
+  ///
+  /// This CanonExpr may still involve blobs even if this returns false in the
+  /// form of blob IV coefficients. Use \ref hasIVBlobCoeffs to check for those.
   bool hasBlob() const { return !BlobCoeffs.empty(); }
-  /// Returns the number of blobs in the canon expr.
+  /// Returns the number of blob terms in the canon expr.
   unsigned numBlobs() const { return BlobCoeffs.size(); }
 
   /// Returns the level of IV associated with this iterator.

@@ -34,7 +34,7 @@ define void @_ZGVdN8uuuu_test_fn(<4 x i8> addrspace(1)* %src) {
 ; CHECK:    call void @llvm.masked.scatter.v8i8.v8p0i8(<8 x i8> [[REPLICATEDVAL_]], <8 x i8*> [[ELEMBASEPTR_]], i32 1, <8 x i1> <i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true>)
 ;
 entry:
-  %sPrivateStorage = alloca [2 x <4 x i8>], align 16
+  %sPrivateStorage = alloca [2 x <4 x i8>], align 4
   %call = tail call i64 @_Z13get_global_idj(i32 0)
   br label %simd.begin.region
 
@@ -48,9 +48,9 @@ simd.loop:                                        ; preds = %simd.loop.exit, %si
   %add = add nuw i64 %0, %call
   %1 = getelementptr inbounds [2 x <4 x i8>], [2 x <4 x i8>]* %sPrivateStorage, i64 0, i64 0, i64 0
   call void @llvm.lifetime.start.p0i8(i64 256, i8* nonnull %1)
-  %2 = load <4 x i8>, <4 x i8> addrspace(1)* %src, align 16
+  %2 = load <4 x i8>, <4 x i8> addrspace(1)* %src, align 4
   %arrayidx3 = getelementptr inbounds [2 x <4 x i8>], [2 x <4 x i8>]* %sPrivateStorage, i64 0, i64 0
-  store <4 x i8> %2, <4 x i8>* %arrayidx3, align 16
+  store <4 x i8> %2, <4 x i8>* %arrayidx3, align 4
   call void @llvm.lifetime.end.p0i8(i64 256, i8* nonnull %1)
   br label %simd.loop.exit
 

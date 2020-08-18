@@ -156,7 +156,7 @@ void VPInduction::dump(raw_ostream &OS) const {
 void VPPrivate::dump(raw_ostream &OS) const { printLinkedValues(OS); }
 
 void VPLoopEntityMemoryDescriptor::dump(raw_ostream &OS) const {
-  MemoryPtr->dump(OS);
+  MemoryPtr->print(OS);
 }
 
 void VPLoopEntity::printLinkedValues(raw_ostream &OS) const {
@@ -243,8 +243,8 @@ unsigned VPReduction::getReductionOpcode(RecurrenceKind K,
 
 unsigned int VPInduction::getInductionOpcode() const {
   // If the opode was set explicitly return it.
-  if (BinOpcode != Instruction::BinaryOpsEnd)
-    return BinOpcode;
+  if (IndOpcode != Instruction::BinaryOpsEnd)
+    return IndOpcode;
 
   // Otherwise get opcode from instruction.
   VPInstruction* IndUpdate = getInductionBinOp();
@@ -273,7 +273,7 @@ bool VPLoopEntityList::isInductionLastValPreInc(const VPInduction *Ind) const {
     return false;
   if (Instr == Ind->getInductionBinOp())
     return false;
-  if (isa<VPPHINode>(Instr) && Instr->getParent() == Loop.getLoopPreheader())
+  if (isa<VPPHINode>(Instr) && Instr->getParent() == Loop.getHeader())
     return true;
 
   return false;
@@ -337,16 +337,16 @@ VPIndexReduction *VPLoopEntityList::addIndexReduction(
 VPInduction *VPLoopEntityList::addInduction(VPInstruction *Start,
                                             VPValue *Incoming,
                                             InductionKind Kind, VPValue *Step,
-                                            VPInstruction *InductionBinOp,
+                                            VPInstruction *InductionOp,
                                             unsigned int Opc, VPValue *AI,
                                             bool ValidMemOnly) {
   //  assert(Start && "null starting instruction");
   VPInduction *Ind =
-      new VPInduction(Incoming, Kind, Step, InductionBinOp, ValidMemOnly, Opc);
+      new VPInduction(Incoming, Kind, Step, InductionOp, ValidMemOnly, Opc);
   InductionList.emplace_back(Ind);
   linkValue(InductionMap, Ind, Start);
-  if (InductionBinOp) {
-    linkValue(InductionMap, Ind, InductionBinOp);
+  if (InductionOp) {
+    linkValue(InductionMap, Ind, InductionOp);
   }
   createMemDescFor(Ind, AI);
   return Ind;
@@ -542,7 +542,23 @@ VPValue *VPLoopEntityList::createPrivateMemory(VPLoopEntity &E,
   if (MemDescr->canRegisterize())
     return nullptr;
   AI = MemDescr->getMemoryPtr();
-  VPValue *Ret = Builder.createAllocaPrivate(AI);
+  // Capture alignment of original alloca/global from incoming LLVM-IR.
+  assert((isa<VPExternalDef>(AI) || isa<VPConstant>(AI)) &&
+         "Original AI for private is not external.");
+  Align OrigAlignment(1);
+  if (auto *OrigAI = dyn_cast_or_null<AllocaInst>(AI->getUnderlyingValue()))
+    OrigAlignment = OrigAI->getAlign();
+  if (auto *OrigGlobal =
+          dyn_cast_or_null<GlobalVariable>(AI->getUnderlyingValue()))
+    if (OrigGlobal->getAlign().hasValue())
+      OrigAlignment = OrigGlobal->getAlign().getValue();
+  if (OrigAlignment == 1) {
+    // Set default alignment.
+    Type *ElemTy = AI->getType()->getPointerElementType();
+    OrigAlignment = Plan.getDataLayout()->getPrefTypeAlign(ElemTy);
+  }
+
+  VPValue *Ret = Builder.createAllocaPrivate(AI, OrigAlignment);
   linkValue(&E, Ret);
   return Ret;
 }
@@ -553,7 +569,7 @@ void VPLoopEntityList::processInitValue(VPLoopEntity &E, VPValue *AI,
                                         VPValue &Start) {
   if (PrivateMem) {
     assert(AI && "Expected non-null original pointer");
-    Builder.createNaryOp(Instruction::Store, Ty, {&Init, PrivateMem});
+    Builder.createStore(&Init, PrivateMem);
     AI->replaceAllUsesWithInLoop(PrivateMem, Loop);
   }
   // Now replace Start by Init inside the loop. It may be a
@@ -584,7 +600,7 @@ void VPLoopEntityList::processFinalValue(VPLoopEntity &E, VPValue *AI,
                                          VPBuilder &Builder, VPValue &Final,
                                          Type *Ty, VPValue *Exit) {
   if (AI) {
-    VPValue *V = Builder.createNaryOp(Instruction::Store, Ty, {&Final, AI});
+    VPValue *V = Builder.createStore(&Final, AI);
     linkValue(&E, V);
   }
   if (Exit && !E.getIsMemOnly())
@@ -616,7 +632,7 @@ void VPLoopEntityList::insertReductionVPInstructions(VPBuilder &Builder,
     if (Reduction->getIsMemOnly())
       if (!isa<VPConstant>(Identity))
         // min/max in-memory reductions. Need to generate a load.
-        Identity = Builder.createNaryOp(Instruction::Load, Ty, {AI});
+        Identity = Builder.createLoad(Ty, AI);
 
     // We can initialize reduction either with broadcasted identity only or
     // inserting additionally the initial value into 0th element. In the
@@ -631,14 +647,14 @@ void VPLoopEntityList::insertReductionVPInstructions(VPBuilder &Builder,
       VPPHINode *PhiN = getRecurrentVPHINode(*Reduction);
       Name = PhiN ? PhiN->getName() : "";
     }
-    bool StartIncluded = !Ty->isFloatingPointTy();
-    VPInstruction *Init =
-        StartIncluded && !Reduction->isMinMax()
-            ? Builder.createReductionInit(Identity,
-                                          Reduction->getRecurrenceStartValue(),
-                                          Name + ".red.init")
-            : Builder.createReductionInit(Identity, nullptr /* Start */,
-                                          Name + ".red.init");
+    bool StartIncluded = !Ty->isFloatingPointTy() && !Reduction->isMinMax();
+    VPValue *StartValue =
+        StartIncluded ? Reduction->getRecurrenceStartValue() : nullptr;
+    bool UseStart = StartValue != nullptr || Reduction->isMinMax();
+
+    VPInstruction *Init = Builder.createReductionInit(
+        Identity, StartValue, UseStart, Name + ".red.init");
+
     processInitValue(*Reduction, AI, PrivateMem, Builder, *Init, Ty,
                      *Reduction->getRecurrenceStartValue());
 
@@ -649,7 +665,7 @@ void VPLoopEntityList::insertReductionVPInstructions(VPBuilder &Builder,
     Builder.setInsertPoint(PostExit);
     VPInstruction *Exit = cast<VPInstruction>(
         Reduction->getIsMemOnly() || !Reduction->getLoopExitInstr()
-            ? Builder.createNaryOp(Instruction::Load, Ty, {PrivateMem})
+            ? Builder.createLoad(Ty, PrivateMem)
             : Reduction->getLoopExitInstr());
 
     VPReductionFinal *Final = nullptr;
@@ -671,14 +687,18 @@ void VPLoopEntityList::insertReductionVPInstructions(VPBuilder &Builder,
         if (FinalStartValue->getType() != Ty) { // Ty is recurrence type
           assert(isa<PointerType>(FinalStartValue->getType()) &&
                  "Expected pointer type here.");
-          FinalStartValue =
-              Builder.createNaryOp(Instruction::Load, Ty, {FinalStartValue});
+          FinalStartValue = Builder.createLoad(Ty, FinalStartValue);
         }
         Final = Builder.createReductionFinal(
             Reduction->getReductionOpcode(), Exit, FinalStartValue,
             Reduction->isSigned(), Name + ".red.final");
       }
       RedFinalMap[Reduction] = std::make_pair(Final, Exit);
+
+      // Attach FastMathFlags to reduction-final.
+      FastMathFlags FMF = Reduction->getFastMathFlags();
+      if (FMF.any())
+        Final->setFastMathFlags(FMF);
     }
     processFinalValue(*Reduction, AI, Builder, *Final, Ty, Exit);
   }
@@ -719,7 +739,7 @@ void VPLoopEntityList::insertInductionVPInstructions(VPBuilder &Builder,
     VPValue *Start = Induction->getStartValue();
     Type *Ty = Start->getType();
     if (Induction->getIsMemOnly())
-      Start = Builder.createNaryOp(Instruction::Load, Ty, {AI});
+      Start = Builder.createLoad(Ty, AI);
 
     Instruction::BinaryOps Opc =
         static_cast<Instruction::BinaryOps>(Induction->getInductionOpcode());
@@ -757,15 +777,18 @@ void VPLoopEntityList::insertInductionVPInstructions(VPBuilder &Builder,
     unsigned OpT = static_cast<unsigned>(Opc);
     bool IsExtract = OpT != Instruction::Add && OpT != Instruction::FAdd &&
                      OpT != Instruction::GetElementPtr;
-    VPValue *Exit =
-        Induction->getIsMemOnly()
-            ? Builder.createNaryOp(Instruction::Load, Ty, {PrivateMem})
-            : ExitInstr;
+    VPValue *Exit = Induction->getIsMemOnly()
+                        ? Builder.createLoad(Ty, PrivateMem)
+                        : ExitInstr;
     VPInstruction *Final =
         IsExtract && Exit
             ? Builder.createInductionFinal(Exit, Name + ".ind.final")
             : Builder.createInductionFinal(Start, Induction->getStep(), Opc,
                                            Name + ".ind.final");
+    // Check if induction's last value is live-out of penultimate loop
+    // iteration.
+    cast<VPInductionFinal>(Final)->setLastValPreIncrement(
+        isInductionLastValPreInc(Induction));
     processFinalValue(*Induction, AI, Builder, *Final, Ty, Exit);
   }
 }
@@ -936,7 +959,7 @@ void VPLoopEntityList::createInductionCloseForm(VPInduction *Induction,
     VPBasicBlock *Block = Loop.getHeader();
     Builder.setInsertPointFirstNonPhi(Block);
     VPPHINode *IndPhi = Builder.createPhiInstruction(Ty);
-    Builder.createNaryOp(Instruction::Store, Ty, {IndPhi, &PrivateMem});
+    Builder.createStore(IndPhi, &PrivateMem);
     // Then insert increment of induction and update phi.
     Block = Loop.getLoopLatch();
     Builder.setInsertPoint(Block);
@@ -1042,9 +1065,6 @@ void ReductionDescr::tryToCompleteByVPlan(const VPlan *Plan,
       // CurrPHI doesn't match StartPhi requirements, recurse on its PHI users.
       LinkedVPVals.push_back(Exit);
       Exit = CurrPHI;
-      // TODO: Enable the assert below when Decomposer is updated to set
-      // live-out property of PHI nodes. Check JIRA CMPLRLLVM-10836.
-      // assert(Loop->isLiveOut(Exit) && "Reduction exit should be live-out.");
       AddPHIUsersToWorklist(Exit);
     }
 
@@ -1094,9 +1114,22 @@ void ReductionDescr::passToVPlan(VPlan *Plan, const VPLoop *Loop) {
   VPLoopEntityList *LE = Plan->getOrCreateLoopEntities(Loop);
   VPReduction *VPRed = nullptr;
 
+  // FastMathFlags for this reduction maybe attached to Exit or any of the
+  // LinkedVPValues.
+  FastMathFlags RedFMF;
+  if (Exit && Exit->hasFastMathFlags())
+    RedFMF = Exit->getFastMathFlags();
+  else {
+    for (auto *V : LinkedVPVals) {
+      if (auto *VPI = dyn_cast<VPInstruction>(V))
+        if (VPI->hasFastMathFlags())
+          RedFMF = VPI->getFastMathFlags();
+    }
+  }
+
   if (LinkPhi == nullptr)
-    VPRed = LE->addReduction(StartPhi, Start, Exit, K, FastMathFlags::getFast(),
-                             MK, RT, Signed, AllocaInst, ValidMemOnly);
+    VPRed = LE->addReduction(StartPhi, Start, Exit, K, RedFMF, MK, RT, Signed,
+                             AllocaInst, ValidMemOnly);
   else {
     const VPReduction *Parent = LE->getReduction(LinkPhi);
     assert(Parent && "nullptr is unexpected");
@@ -1329,12 +1362,12 @@ void InductionDescr::checkParentVPLoop(const VPlan *Plan,
                                        const VPLoop *Loop) const {
   assert((checkInstructionInLoop(StartPhi, Plan, Loop) &&
           checkInstructionInLoop(Start, Plan, Loop) &&
-          checkInstructionInLoop(InductionBinOp, Plan, Loop)) &&
+          checkInstructionInLoop(InductionOp, Plan, Loop)) &&
          "Parent loop does not match instruction");
 }
 
 bool InductionDescr::isIncomplete() const {
-  return StartPhi == nullptr || InductionBinOp == nullptr || Step == nullptr;
+  return StartPhi == nullptr || InductionOp == nullptr || Step == nullptr;
 }
 
 bool InductionDescr::isDuplicate(const VPlan *Plan, const VPLoop *Loop) const {
@@ -1366,8 +1399,8 @@ bool InductionDescr::isDuplicate(const VPlan *Plan, const VPLoop *Loop) const {
 
   const VPLoopEntityList *LE = Plan->getLoopEntities(Loop);
 
-  if (LE && InductionBinOp) {
-    if (const VPInduction *OtherInd = LE->getInduction(InductionBinOp)) {
+  if (LE && InductionOp) {
+    if (const VPInduction *OtherInd = LE->getInduction(InductionOp)) {
       if (OtherInd->getStartValue() == Start) {
         // Record that current induction descriptor's PHI node duplicates
         // another induction descriptor (OtherInd)
@@ -1441,10 +1474,10 @@ bool InductionDescr::inductionNeedsCloseForm(const VPLoop *Loop) const {
     // blend them. There might be uses between the updates.
     return true;
 
-  VPInstruction *IndIncrementVPI = InductionBinOp;
+  VPInstruction *IndIncrementVPI = InductionOp;
 
   if (IndIncrementVPI) {
-    if (!isConsistentInductionUpdate(IndIncrementVPI, getBinOpcode(),
+    if (!isConsistentInductionUpdate(IndIncrementVPI, getIndOpcode(),
                                         getStep()))
       // The update instruction is inconsistent.
       return true;
@@ -1495,7 +1528,7 @@ void InductionDescr::passToVPlan(VPlan *Plan, const VPLoop *Loop) {
 
   VPLoopEntityList *LE = Plan->getOrCreateLoopEntities(Loop);
   VPInduction *VPInd =
-      LE->addInduction(StartPhi, Start, K, Step, InductionBinOp, BinOpcode,
+      LE->addInduction(StartPhi, Start, K, Step, InductionOp, IndOpcode,
                        AllocaInst, ValidMemOnly);
   if (inductionNeedsCloseForm(Loop))
     VPInd->setNeedCloseForm(true);
@@ -1504,7 +1537,7 @@ void InductionDescr::passToVPlan(VPlan *Plan, const VPLoop *Loop) {
 void InductionDescr::tryToCompleteByVPlan(const VPlan *Plan,
                                           const VPLoop *Loop) {
   if (StartPhi == nullptr) {
-    VPValue *V = InductionBinOp ? InductionBinOp : Start;
+    VPValue *V = InductionOp ? InductionOp : Start;
     for (auto User : V->users())
       if (auto Instr = dyn_cast<VPInstruction>(User))
         if (isa<VPPHINode>(Instr) && Loop->contains(Instr->getParent()) &&
@@ -1515,7 +1548,7 @@ void InductionDescr::tryToCompleteByVPlan(const VPlan *Plan,
     if (StartPhi == nullptr) {
       // No phi was found. That can happen only for explicit inductions.
       // Start should represent AllocaIns.
-      assert((isa<VPExternalDef>(Start) && InductionBinOp == nullptr) &&
+      assert((isa<VPExternalDef>(Start) && InductionOp == nullptr) &&
              "Induction is not properly defined");
       Start = findMemoryUses(Start, Loop);
     }
@@ -1523,23 +1556,23 @@ void InductionDescr::tryToCompleteByVPlan(const VPlan *Plan,
 
   if (StartPhi != nullptr)
     if (isa<VPPHINode>(StartPhi)) {
-      if (InductionBinOp == nullptr)
-        InductionBinOp = dyn_cast<VPInstruction>(
+      if (InductionOp == nullptr)
+        InductionOp = dyn_cast<VPInstruction>(
             StartPhi->getOperand(0) == Start ? StartPhi->getOperand(1)
                                              : StartPhi->getOperand(0));
       else if (Start == nullptr)
-        Start = (StartPhi->getOperand(0) == InductionBinOp
+        Start = (StartPhi->getOperand(0) == InductionOp
                      ? StartPhi->getOperand(1)
                      : StartPhi->getOperand(0));
     }
 
   if (Step == nullptr) {
     // Induction variable with variable step
-    assert((StartPhi && InductionBinOp) &&
+    assert((StartPhi && InductionOp) &&
            "Variable step occurs only for auto-recognized inductions.");
-    int PhiOpIdx = InductionBinOp->getOperandIndex(StartPhi);
-    assert(PhiOpIdx != -1 && "InductionBinOp does not use starting PHI node.");
+    int PhiOpIdx = InductionOp->getOperandIndex(StartPhi);
+    assert(PhiOpIdx != -1 && "InductionOp does not use starting PHI node.");
     unsigned StepOpIdx = PhiOpIdx == 0 ? 1 : 0;
-    Step = InductionBinOp->getOperand(StepOpIdx);
+    Step = InductionOp->getOperand(StepOpIdx);
   }
 }

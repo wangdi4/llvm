@@ -37,13 +37,11 @@ using namespace llvm::opt;
 using tools::addMultilibFlag;
 using tools::addPathIfExists;
 
-void tools::GnuTool::anchor() {}
-
 static bool forwardToGCC(const Option &O) {
-  // Don't forward inputs from the original command line.  They are added from
-  // InputInfoList.
-  return O.getKind() != Option::InputClass &&
-         !O.hasFlag(options::DriverOption) && !O.hasFlag(options::LinkerInput);
+  // LinkerInput options have been forwarded. Don't duplicate.
+  if (O.hasFlag(options::LinkerInput))
+    return false;
+  return O.matches(options::OPT_Link_Group) || O.hasFlag(options::LinkOption);
 }
 
 // Switch CPU names not recognized by GNU assembler to a close CPU that it does
@@ -71,29 +69,26 @@ void tools::gcc::Common::ConstructJob(Compilation &C, const JobAction &JA,
   ArgStringList CmdArgs;
 
   for (const auto &A : Args) {
+#if INTEL_CUSTOMIZATION
+    switch ((options::ID)A->getOption().getID()) {
+      // Certain options we set for Intel compilations are not acceptable
+      // for GCC consumption, filter those here.
+      case options::OPT_fiopenmp:
+      case options::OPT_fveclib:
+      case options::OPT_fheinous_gnu_extensions:
+        A->claim();
+        continue;
+        break;
+      default:
+        break;
+    }
+#endif // INTEL_CUSTOMIZATION
     if (forwardToGCC(A->getOption())) {
       // It is unfortunate that we have to claim here, as this means
       // we will basically never report anything interesting for
       // platforms using a generic gcc, even if we are just using gcc
       // to get to the assembler.
       A->claim();
-
-      // Don't forward any -g arguments to assembly steps.
-      if (isa<AssembleJobAction>(JA) &&
-          A->getOption().matches(options::OPT_g_Group))
-        continue;
-
-      // Don't forward any -W arguments to assembly and link steps.
-      if ((isa<AssembleJobAction>(JA) || isa<LinkJobAction>(JA)) &&
-          A->getOption().matches(options::OPT_W_Group))
-        continue;
-
-      // Don't forward -mno-unaligned-access since GCC doesn't understand
-      // it and because it doesn't affect the assembly or link steps.
-      if ((isa<AssembleJobAction>(JA) || isa<LinkJobAction>(JA)) &&
-          (A->getOption().matches(options::OPT_munaligned_access) ||
-           A->getOption().matches(options::OPT_mno_unaligned_access)))
-        continue;
 
       A->render(Args, CmdArgs);
     }
@@ -190,7 +185,8 @@ void tools::gcc::Common::ConstructJob(Compilation &C, const JobAction &JA,
     GCCName = "gcc";
 
   const char *Exec = Args.MakeArgString(getToolChain().GetProgramPath(GCCName));
-  C.addCommand(std::make_unique<Command>(JA, *this, Exec, CmdArgs, Inputs));
+  C.addCommand(std::make_unique<Command>(
+      JA, *this, ResponseFileSupport::AtFileCurCP(), Exec, CmdArgs, Inputs));
 }
 
 void tools::gcc::Preprocessor::RenderExtraToolArgs(
@@ -310,6 +306,8 @@ static const char *getLDMOption(const llvm::Triple &T, const ArgList &Args) {
     if (T.getEnvironment() == llvm::Triple::GNUX32)
       return "elf32_x86_64";
     return "elf_x86_64";
+  case llvm::Triple::ve:
+    return "elf64ve";
   default:
     return nullptr;
   }
@@ -486,9 +484,18 @@ static void addPerfLibPaths(ArgStringList &CmdArgs,
     TC.AddDAALLibPath(Args, CmdArgs, "-L");
 }
 
+static bool mcmodelSet(const llvm::opt::ArgList &Args) {
+  if (Arg *A = Args.getLastArg(options::OPT_mcmodel_EQ)) {
+    StringRef CM = A->getValue();
+    if (CM == "medium" || CM == "large")
+      return true;
+  }
+  return false;
+}
+
 // Intel libraries are added in statically by default
-static void addIntelLib(const char* IntelLibName, ArgStringList &CmdArgs,
-    const llvm::opt::ArgList &Args) {
+static void addIntelLib(const char* IntelLibName, const ToolChain &TC,
+    ArgStringList &CmdArgs, const llvm::opt::ArgList &Args) {
   // without --intel or --dpcpp, do not pull in Intel libs
   if (!Args.hasArg(options::OPT__intel, options::OPT__dpcpp))
     return;
@@ -504,8 +511,11 @@ static void addIntelLib(const char* IntelLibName, ArgStringList &CmdArgs,
 
   // FIXME: add support to -dy, -dn, -dynamiclib as required
   if (const Arg *A = Args.getLastArg(options::OPT_static, options::OPT_shared,
-                                     options::OPT_dynamic))
+                                     options::OPT_dynamic)) {
     isCurrentStateStatic = A->getOption().matches(options::OPT_static);
+    // Link in Intel libs dynamically with -shared
+    isSharedIntel = A->getOption().matches(options::OPT_shared);
+  }
 
   // -debug parallel implies -shared-intel, but allow it to be overridden by
   // -static-intel below.
@@ -514,6 +524,12 @@ static void addIntelLib(const char* IntelLibName, ArgStringList &CmdArgs,
   if (const Arg *A = Args.getLastArg(options::OPT_shared_intel,
                                      options::OPT_static_intel))
     isSharedIntel = A->getOption().matches(options::OPT_shared_intel);
+
+  // mcmodel links in Intel libs dynamically unless forced static.
+  if (!Args.hasArg(options::OPT_static_intel, options::OPT_static) &&
+      TC.getEffectiveTriple().getArch() == llvm::Triple::x86_64 &&
+      mcmodelSet(Args))
+    isSharedIntel = true;
 
   if (!isCurrentStateStatic && !isSharedIntel)
     CmdArgs.push_back("-Bstatic");
@@ -529,7 +545,38 @@ static void addIntelLib(const char* IntelLibName, ArgStringList &CmdArgs,
   if (isCurrentStateStatic && isSharedIntel)
     CmdArgs.push_back("-Bstatic");
 }
+
+static void addIntelLibirc(const ToolChain &TC, ArgStringList &CmdArgs,
+                           const ArgList &Args) {
+  if (Args.hasArg(options::OPT_i_no_use_libirc))
+    return;
+  if (TC.getEffectiveTriple().getArch() == llvm::Triple::x86_64) {
+    if (Args.hasArg(options::OPT_shared_intel, options::OPT_shared)) {
+      if (const Arg *A = Args.getLastArg(options::OPT_shared_intel,
+                                         options::OPT_static_intel)) {
+        if (A->getOption().matches(options::OPT_static_intel)) {
+          addIntelLib("-lirc", TC, CmdArgs, Args);
+          return;
+        }
+      }
+      addIntelLib("-lintlc", TC, CmdArgs, Args);
+      return;
+    }
+    if (!Args.hasArg(options::OPT_static_intel, options::OPT_static) &&
+        mcmodelSet(Args)) {
+      addIntelLib("-lintlc", TC, CmdArgs, Args);
+      return;
+    }
+  } else {
+    if (Args.hasArg(options::OPT_shared_intel, options::OPT_shared)) {
+      addIntelLib("-lirc_pic", TC, CmdArgs, Args);
+      return;
+    }
+  }
+  addIntelLib("-lirc", TC, CmdArgs, Args);
+}
 #endif // INTEL_CUSTOMIZATION
+
 static bool getStaticPIE(const ArgList &Args, const ToolChain &TC) {
   bool HasStaticPIE = Args.hasArg(options::OPT_static_pie);
   // -no-pie is an alias for -nopie. So, handling -nopie takes care of
@@ -577,7 +624,8 @@ void tools::gnutools::Linker::constructLLVMARCommand(
   SmallString<128> LLVMARPath(C.getDriver().Dir);
   llvm::sys::path::append(LLVMARPath, "llvm-ar");
   const char *Exec = C.getArgs().MakeArgString(LLVMARPath);
-  C.addCommand(std::make_unique<Command>(JA, *this, Exec, CmdArgs, None));
+  C.addCommand(std::make_unique<Command>(
+      JA, *this, ResponseFileSupport::None(), Exec, CmdArgs, None));
 }
 
 void tools::gnutools::StaticLibTool::ConstructJob(
@@ -614,7 +662,8 @@ void tools::gnutools::StaticLibTool::ConstructJob(
   }
 
   const char *Exec = Args.MakeArgString(getToolChain().GetStaticLibToolPath());
-  C.addCommand(std::make_unique<Command>(JA, *this, Exec, CmdArgs, Inputs));
+  C.addCommand(std::make_unique<Command>(
+      JA, *this, ResponseFileSupport::AtFileCurCP(), Exec, CmdArgs, Inputs));
 }
 
 void tools::gnutools::Linker::ConstructJob(Compilation &C, const JobAction &JA,
@@ -635,6 +684,7 @@ void tools::gnutools::Linker::ConstructJob(Compilation &C, const JobAction &JA,
   const llvm::Triple::ArchType Arch = ToolChain.getArch();
   const bool isAndroid = ToolChain.getTriple().isAndroid();
   const bool IsIAMCU = ToolChain.getTriple().isOSIAMCU();
+  const bool IsVE = ToolChain.getTriple().isVE();
   const bool IsPIE = getPIE(Args, ToolChain);
   const bool IsStaticPIE = getStaticPIE(Args, ToolChain);
   const bool IsStatic = getStatic(Args);
@@ -759,6 +809,11 @@ void tools::gnutools::Linker::ConstructJob(Compilation &C, const JobAction &JA,
       CmdArgs.push_back(Args.MakeArgString(ToolChain.GetFilePath("crti.o")));
     }
 
+    if (IsVE) {
+      CmdArgs.push_back("-z");
+      CmdArgs.push_back("max-page-size=0x4000000");
+    }
+
     if (IsIAMCU)
       CmdArgs.push_back(Args.MakeArgString(ToolChain.GetFilePath("crt0.o")));
     else if (HasCRTBeginEndFiles) {
@@ -793,7 +848,7 @@ void tools::gnutools::Linker::ConstructJob(Compilation &C, const JobAction &JA,
   Args.AddAllArgs(CmdArgs, options::OPT_u);
 
 #if INTEL_CUSTOMIZATION
-  if (Args.hasArg(options::OPT__intel, options::OPT__dpcpp))
+  if (D.IsIntelMode() || Args.hasArg(options::OPT__dpcpp))
     addIntelLibPaths(CmdArgs, Args, ToolChain);
   addPerfLibPaths(CmdArgs, Args, ToolChain);
 #endif // INTEL_CUSTOMIZATION
@@ -834,7 +889,7 @@ void tools::gnutools::Linker::ConstructJob(Compilation &C, const JobAction &JA,
 
 #if INTEL_CUSTOMIZATION
   if (!Args.hasArg(options::OPT_nostdlib, options::OPT_nodefaultlibs) ||
-      !Args.hasArg(options::OPT__intel))
+      !D.IsIntelMode())
     // The profile runtime also needs access to system libraries.
     getToolChain().addProfileRTLibs(Args, CmdArgs);
 
@@ -848,16 +903,16 @@ void tools::gnutools::Linker::ConstructJob(Compilation &C, const JobAction &JA,
       (Args.hasArg(options::OPT_mkl_EQ) && Args.hasArg(options::OPT__dpcpp)))
     addTBBLibs(CmdArgs, Args, ToolChain);
   if (!Args.hasArg(options::OPT_nostdlib, options::OPT_nodefaultlibs)) {
-    addIntelLib("-lsvml", CmdArgs, Args);
-    addIntelLib("-lirng", CmdArgs, Args);
+    addIntelLib("-lsvml", ToolChain, CmdArgs, Args);
+    addIntelLib("-lirng", ToolChain, CmdArgs, Args);
     if (const Arg *A = Args.getLastArg(options::OPT_intel_debug_Group))
       if (StringRef(A->getValue()) == "parallel") {
-        addIntelLib("-lpdbx", CmdArgs, Args);
-        addIntelLib("-lpdbxinst", CmdArgs, Args);
+        addIntelLib("-lpdbx", ToolChain, CmdArgs, Args);
+        addIntelLib("-lpdbxinst", ToolChain, CmdArgs, Args);
       }
     if (Args.hasFlag(options::OPT_qopt_matmul, options::OPT_qno_opt_matmul,
                      false))
-      addIntelLib("-lmatmul", CmdArgs, Args);
+      addIntelLib("-lmatmul", ToolChain, CmdArgs, Args);
   }
 #endif // INTEL_CUSTOMIZATION
 
@@ -875,7 +930,7 @@ void tools::gnutools::Linker::ConstructJob(Compilation &C, const JobAction &JA,
 #if INTEL_CUSTOMIZATION
     // Add -limf before -lm, it will be linked in the same manner as -lm so
     // don't add with addIntelLib
-    if (Args.hasArg(options::OPT__intel))
+    if (D.IsIntelMode())
       CmdArgs.push_back("-limf");
 #endif // INTEL_CUSTOMIZATION
     CmdArgs.push_back("-lm");
@@ -883,21 +938,18 @@ void tools::gnutools::Linker::ConstructJob(Compilation &C, const JobAction &JA,
 #if INTEL_CUSTOMIZATION
   // Add -lm for both C and C++ compilation
   else if (!Args.hasArg(options::OPT_nostdlib, options::OPT_nodefaultlibs) &&
-           (Args.hasArg(options::OPT__intel) ||
-            Args.hasArg(options::OPT_mkl_EQ))) {
-    if (Args.hasArg(options::OPT__intel))
+           (D.IsIntelMode() || Args.hasArg(options::OPT_mkl_EQ))) {
+    if (D.IsIntelMode())
       CmdArgs.push_back("-limf");
     CmdArgs.push_back("-lm");
   }
   if (!Args.hasArg(options::OPT_nostdlib, options::OPT_nodefaultlibs)) {
+    // Add -lgcc before libirc.
+    AddRunTimeLibs(ToolChain, D, CmdArgs, Args);
     // Add libirc to resolve any Intel and libimf references
-    if (Args.hasArg(options::OPT_shared_intel))
-      addIntelLib("-lintlc", CmdArgs, Args);
-    else
-      addIntelLib("-lirc", CmdArgs, Args);
-
-    // Add -ldl for -mkl
-    if (Args.hasArg(options::OPT_mkl_EQ))
+    addIntelLibirc(ToolChain, CmdArgs, Args);
+    // Add -ldl
+    if (Args.hasArg(options::OPT_mkl_EQ) || D.IsIntelMode())
       CmdArgs.push_back("-ldl");
   }
 #endif // INTEL_CUSTOMIZATION
@@ -918,9 +970,16 @@ void tools::gnutools::Linker::ConstructJob(Compilation &C, const JobAction &JA,
 
       bool WantPthread = Args.hasArg(options::OPT_pthread) ||
                          Args.hasArg(options::OPT_pthreads);
-
+#if INTEL_CUSTOMIZATION
+      bool IntelStatic = false;
+      if (Arg *A = Args.getLastArg(options::OPT_qopenmp_link_EQ)) {
+        if (A->getValue() == StringRef("static"))
+          IntelStatic = true;
+      }
       // Use the static OpenMP runtime with -static-openmp
-      bool StaticOpenMP = Args.hasArg(options::OPT_static_openmp) &&
+      bool StaticOpenMP =
+          (IntelStatic || Args.hasArg(options::OPT_static_openmp)) &&
+#endif // INTEL_CUSTOMIZATION
                           !Args.hasArg(options::OPT_static);
 
       // FIXME: Only pass GompNeedsRT = true for platforms with libgomp that
@@ -938,7 +997,7 @@ void tools::gnutools::Linker::ConstructJob(Compilation &C, const JobAction &JA,
         WantPthread = true;
       // -stdlib=libc++ implies pthread
       if (ToolChain.GetCXXStdlibType(Args) == ToolChain::CST_Libcxx &&
-          Args.hasArg(options::OPT__intel))
+          D.IsIntelMode())
         WantPthread = true;
       // -debug parallel implies pthread
       if (const Arg *A = Args.getLastArg(options::OPT_intel_debug_Group))
@@ -948,7 +1007,8 @@ void tools::gnutools::Linker::ConstructJob(Compilation &C, const JobAction &JA,
 
       AddRunTimeLibs(ToolChain, D, CmdArgs, Args);
 
-      if (Args.hasArg(options::OPT_fsycl)) {
+      if (Args.hasArg(options::OPT_fsycl) &&
+          !Args.hasArg(options::OPT_nolibsycl)) {
 #if INTEL_CUSTOMIZATION
         bool curStaticLinkState = isStaticLinkState(CmdArgs);
         if (curStaticLinkState)
@@ -990,8 +1050,8 @@ void tools::gnutools::Linker::ConstructJob(Compilation &C, const JobAction &JA,
         CmdArgs.push_back("--no-as-needed");
       }
 #if INTEL_CUSTOMIZATION
-      if (Args.hasArg(options::OPT__intel))
-        addIntelLib("-lirc_s", CmdArgs, Args);
+      if (D.IsIntelMode() && !Args.hasArg(options::OPT_i_no_use_libirc))
+        addIntelLib("-lirc_s", ToolChain, CmdArgs, Args);
 #endif // INTEL_CUSTOMIZATION
     }
 
@@ -1025,7 +1085,8 @@ void tools::gnutools::Linker::ConstructJob(Compilation &C, const JobAction &JA,
   Args.AddAllArgs(CmdArgs, options::OPT_T);
 
   const char *Exec = Args.MakeArgString(ToolChain.GetLinkerPath());
-  C.addCommand(std::make_unique<Command>(JA, *this, Exec, CmdArgs, Inputs));
+  C.addCommand(std::make_unique<Command>(
+      JA, *this, ResponseFileSupport::AtFileCurCP(), Exec, CmdArgs, Inputs));
 }
 
 void tools::gnutools::Assembler::ConstructJob(Compilation &C,
@@ -1043,6 +1104,7 @@ void tools::gnutools::Assembler::ConstructJob(Compilation &C,
   llvm::Reloc::Model RelocationModel;
   unsigned PICLevel;
   bool IsPIE;
+  const char *DefaultAssembler = "as";
   std::tie(RelocationModel, PICLevel, IsPIE) =
       ParsePICArgs(getToolChain(), Args);
 
@@ -1263,6 +1325,8 @@ void tools::gnutools::Assembler::ConstructJob(Compilation &C,
     CmdArgs.push_back(Args.MakeArgString("-march=" + CPUName));
     break;
   }
+  case llvm::Triple::ve:
+    DefaultAssembler = "nas";
   }
 
   for (const Arg *A : Args.filtered(options::OPT_ffile_prefix_map_EQ,
@@ -1287,8 +1351,10 @@ void tools::gnutools::Assembler::ConstructJob(Compilation &C,
   for (const auto &II : Inputs)
     CmdArgs.push_back(II.getFilename());
 
-  const char *Exec = Args.MakeArgString(getToolChain().GetProgramPath("as"));
-  C.addCommand(std::make_unique<Command>(JA, *this, Exec, CmdArgs, Inputs));
+  const char *Exec =
+      Args.MakeArgString(getToolChain().GetProgramPath(DefaultAssembler));
+  C.addCommand(std::make_unique<Command>(
+      JA, *this, ResponseFileSupport::AtFileCurCP(), Exec, CmdArgs, Inputs));
 
   // Handle the debug info splitting at object creation time if we're
   // creating an object.
@@ -1898,15 +1964,21 @@ static bool findMSP430Multilibs(const Driver &D,
                                 StringRef Path, const ArgList &Args,
                                 DetectedMultilibs &Result) {
   FilterNonExistent NonExistent(Path, "/crtbegin.o", D.getVFS());
-  Multilib MSP430Multilib = makeMultilib("/430");
+  Multilib WithoutExceptions = makeMultilib("/430").flag("-exceptions");
+  Multilib WithExceptions = makeMultilib("/430/exceptions").flag("+exceptions");
+
   // FIXME: when clang starts to support msp430x ISA additional logic
   // to select between multilib must be implemented
   // Multilib MSP430xMultilib = makeMultilib("/large");
 
-  Result.Multilibs.push_back(MSP430Multilib);
+  Result.Multilibs.push_back(WithoutExceptions);
+  Result.Multilibs.push_back(WithExceptions);
   Result.Multilibs.FilterOut(NonExistent);
 
   Multilib::flags_list Flags;
+  addMultilibFlag(Args.hasFlag(options::OPT_fexceptions,
+                               options::OPT_fno_exceptions, false),
+                  "exceptions", Flags);
   if (Result.Multilibs.select(Flags, Result.SelectedMultilib))
     return true;
 
@@ -2242,8 +2314,7 @@ void Generic_GCC::GCCInstallationDetector::init(
 
   StringRef GCCToolchainDir = getGCCToolchainDir(Args, D.SysRoot);
 #if INTEL_CUSTOMIZATION
-  if (Args.hasArg(options::OPT__intel) &&
-      !Args.hasArg(options::OPT_gcc_toolchain)) {
+  if (D.IsIntelMode() && !Args.hasArg(options::OPT_gcc_toolchain)) {
     // Check the location of where gcc is being picked up.  If it is not
     // located in the expected /usr/bin, use '..' as the sysroot.  Only do
     // this for --intel
@@ -3049,6 +3120,7 @@ void Generic_GCC::printVerboseInfo(raw_ostream &OS) const {
   // Print the information about how we detected the GCC installation.
   GCCInstallation.print(OS);
   CudaInstallation.print(OS);
+  RocmInstallation.print(OS);
 }
 
 bool Generic_GCC::IsUnwindTablesDefault(const ArgList &Args) const {

@@ -68,6 +68,13 @@ pi_result redefinedKernelGetInfo(pi_kernel kernel, pi_kernel_info param_name,
   return PI_SUCCESS;
 }
 
+pi_result redefinedKernelSetExecInfo(pi_kernel kernel,
+                                     pi_kernel_exec_info param_name,
+                                     size_t param_value_size,
+                                     const void *param_value) {
+  return PI_SUCCESS;
+}
+
 TEST(KernelReleaseTest, GetKernelRelease) {
 #ifdef INTEL_CUSTOMIZATION
   // Handle the case where no devices are available until the tests can be run
@@ -95,6 +102,8 @@ TEST(KernelReleaseTest, GetKernelRelease) {
   Mock.redefine<detail::PiApiKind::piKernelRetain>(redefinedKernelRetain);
   Mock.redefine<detail::PiApiKind::piKernelRelease>(redefinedKernelRelease);
   Mock.redefine<detail::PiApiKind::piKernelGetInfo>(redefinedKernelGetInfo);
+  Mock.redefine<detail::PiApiKind::piKernelSetExecInfo>(
+      redefinedKernelSetExecInfo);
 
   context Ctx{Plt};
   TestContext.reset(new TestCtx(Ctx));

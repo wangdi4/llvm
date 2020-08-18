@@ -2,8 +2,8 @@
 ; This test checks that whole program wasn't achieved since
 ; there is no main.
 
-; RUN: llvm-as -o %T/wpt5.bc %s
-; RUN: lld-link /out:%T/wpt5.exe /entry:foo %T/wpt5.bc /subsystem:console  \
+; RUN: llvm-as -o %t_wpt5.bc %s
+; RUN: lld-link /out:%t_wpt5.exe /entry:foo %t_wpt5.bc /subsystem:console  \
 ; RUN:     /mllvm:-debug-only=whole-program-analysis \
 ; RUN:     /mllvm:-whole-program-read-trace \
 ; RUN:     2>&1 | FileCheck %s

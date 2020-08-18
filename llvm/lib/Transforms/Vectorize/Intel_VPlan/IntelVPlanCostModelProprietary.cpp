@@ -16,6 +16,7 @@
 #include "IntelVPlanCostModelProprietary.h"
 #include "IntelVPlan.h"
 #include "IntelVPlanIdioms.h"
+#include "IntelVPlanUtils.h"
 #include "IntelVPlanVLSAnalysis.h"
 #include "VPlanHIR/IntelVPlanVLSAnalysisHIR.h"
 #include "VPlanHIR/IntelVPlanVLSClientHIR.h"
@@ -62,36 +63,6 @@ using namespace llvm::PatternMatch;
 namespace llvm {
 
 namespace vpo {
-
-bool VPlanCostModelProprietary::isUnitStrideLoadStore(
-  const VPInstruction *VPInst,
-  bool &NegativeStride) const {
-  unsigned Opcode = VPInst->getOpcode();
-  assert((Opcode == Instruction::Load || Opcode == Instruction::Store) &&
-         "Is not load or store instruction.");
-
-  if (VPlanCostModel::isUnitStrideLoadStore(VPInst, NegativeStride))
-    return true;
-
-  if (!VPInst->HIR.isMaster())
-    return false;
-
-  if (auto Inst = dyn_cast<HLInst>(VPInst->HIR.getUnderlyingNode())) {
-    // FIXME: It's not correct to getParentLoop() for outerloop
-    // vectorization.
-    if (!Inst->getParentLoop()) {
-      return false;
-    }
-    assert(Inst->getParentLoop()->isInnermost() &&
-           "Outerloop vectorization is not supported.");
-    unsigned NestingLevel = Inst->getParentLoop()->getNestingLevel();
-
-    return Opcode == Instruction::Load ?
-      Inst->getOperandDDRef(1)->isUnitStride(NestingLevel, NegativeStride) :
-      Inst->getLvalDDRef()->isUnitStride(NestingLevel, NegativeStride);
-  }
-  return false;
-}
 
 unsigned VPlanCostModelProprietary::getArithmeticInstructionCost(
   const unsigned Opcode,
@@ -215,8 +186,11 @@ const RegDDRef* VPlanCostModelProprietary::getHIRMemref(
 }
 
 unsigned VPlanCostModelProprietary::getLoadStoreCost(
-  const VPInstruction *VPInst, const bool UseVLSCost) {
-  unsigned Cost = VPlanCostModel::getLoadStoreCost(VPInst);
+  const VPInstruction *VPInst, Align Alignment,
+  unsigned VF,
+  const bool UseVLSCost) {
+  unsigned Cost =
+    VPlanCostModel::getLoadStoreCost(VPInst, Alignment, VF);
 
   if (!UseOVLSCM || !VLSCM || !UseVLSCost || VF == 1)
     return Cost;
@@ -227,7 +201,8 @@ unsigned VPlanCostModelProprietary::getLoadStoreCost(
 
   if (ProcessedOVLSGroups.count(Group) != 0) {
     // Group cost has already been assigned.
-    LLVM_DEBUG(dbgs() << "Group cost for "; VPInst->print(dbgs());
+    LLVM_DEBUG(dbgs() << "Group cost for ";
+               VPInst->printWithoutAnalyses(dbgs());
                dbgs() << " has already been taken into account.\n");
     return ProcessedOVLSGroups[Group] ? 0 : Cost;
   }
@@ -236,20 +211,21 @@ unsigned VPlanCostModelProprietary::getLoadStoreCost(
   unsigned TTIGroupCost = 0;
   for (OVLSMemref *OvlsMemref : Group->getMemrefVec())
     TTIGroupCost += VPlanCostModel::getLoadStoreCost(
-      cast<VPVLSClientMemref>(OvlsMemref)->getInstruction());
+      cast<VPVLSClientMemref>(OvlsMemref)->getInstruction(), Alignment, VF);
 
   if (VLSGroupCost >= TTIGroupCost) {
-    LLVM_DEBUG(dbgs() << "Cost for "; VPInst->print(dbgs());
-               dbgs() << " was not reduced from " << Cost <<
-               " (TTI group cost " << TTIGroupCost <<
-               ") to group cost " << VLSGroupCost << '\n');
+    LLVM_DEBUG(dbgs() << "Cost for "; VPInst->printWithoutAnalyses(dbgs());
+               dbgs() << " was not reduced from " << Cost << " (TTI group cost "
+                      << TTIGroupCost << ") to group cost " << VLSGroupCost
+                      << '\n');
     ProcessedOVLSGroups[Group] = false;
     return Cost;
   }
 
-  LLVM_DEBUG(dbgs() << "Reduced cost for "; VPInst->print(dbgs());
-             dbgs() << " from " << Cost << " (TTI group cost " <<
-             TTIGroupCost << " to group cost " << VLSGroupCost << '\n');
+  LLVM_DEBUG(dbgs() << "Reduced cost for ";
+             VPInst->printWithoutAnalyses(dbgs());
+             dbgs() << " from " << Cost << " (TTI group cost " << TTIGroupCost
+                    << " to group cost " << VLSGroupCost << '\n');
   ProcessedOVLSGroups[Group] = true;
   return VLSGroupCost;
 }
@@ -262,7 +238,7 @@ unsigned VPlanCostModelProprietary::getCost(const VPInstruction *VPInst) {
   switch (Opcode) {
   case Instruction::Load:
   case Instruction::Store:
-    return getLoadStoreCost(VPInst, true);
+    return getLoadStoreCost(VPInst, VF, true);
   // TODO: So far there's no explicit representation for reduction
   // initializations and finalizations. Need to account overhead for such
   // instructions, until VPlan is ready to have explicit representation for
@@ -327,18 +303,6 @@ unsigned VPlanCostModelProprietary::getPsadwbPatternCost() {
   for (const VPLoop *VPL : post_order(TopLoop)) {
     assert(VPL->getLoopDepth() == 1 && "Innermost loop only is expected.");
     if (VPL->getLoopDepth() != 1)
-      continue;
-
-    // If loop has known number of iterations and it is 8/16 we skip it here
-    // since vectorizing by VPlan leads to complete unroll and ISel can handle
-    // vectorized by VPlan code (i.e. recognize PSADBW).  Also if the loop has
-    // an outer loop of known trip count it also can be completely unrolled
-    // causing better performance comparing to PSADDBW in a loop.
-    // Otherwise if vectorize in SLP, not in VPlan the unroller doesn't unroll
-    // outer loop (the current pipeline is VPlan -> Unroll -> SLP).
-    TripCountInfo LoopTCI = VPL->getTripCountInfo();
-    if (!LoopTCI.IsEstimated &&
-        (LoopTCI.TripCount == 8 || LoopTCI.TripCount == 16))
       continue;
 
     VPBasicBlock *Block = VPL->getHeader();
@@ -462,6 +426,27 @@ unsigned VPlanCostModelProprietary::getPsadwbPatternCost() {
           CurrPsadbwPatternInsts.insert(&VPInst);
       }
 
+      // If loop has known number of iterations and it is 8/16 and SLP within
+      // the loop iteration is not possible we skip such loop since vectorizing
+      // by VPlan leads to complete unroll and ISel can handle vectorized by
+      // VPlan code (i.e. recognize PSADBW).  Also if the loop has an outer
+      // loop of known trip count it also can be completely unrolled causing
+      // better performance comparing to PSADDBW in a loop. Otherwise if
+      // vectorize in SLP, not in VPlan the unroller doesn't unroll
+      // outer loop (the current pipeline is VPlan -> Unroll -> SLP).
+      //
+      // If there is 4 or more psadbw patterns contributing in the same
+      // accumulator we expect SLP to trigger.
+      TripCountInfo LoopTCI = VPL->getTripCountInfo();
+      unsigned NumberOfPatterns = std::count_if(
+        CurrPsadbwPatternInsts.begin(), CurrPsadbwPatternInsts.end(),
+        [](const VPInstruction *I) {
+          return I->getOpcode() == VPInstruction::Abs; });
+
+      if (!LoopTCI.IsEstimated && NumberOfPatterns < 4 &&
+          (LoopTCI.TripCount == 8 || LoopTCI.TripCount == 16))
+        continue;
+
       // Sum up costs of all instructions in CurrPsadbwPatternInsts.
       // If there an instruction in the pattern has more than one use the whole
       // pattern cost is halved.  This way we model external to pattern uses
@@ -545,7 +530,7 @@ unsigned VPlanCostModelProprietary::getGatherScatterCost(
     // NOTE:
     // VLS groups are ignored here.  We may want to take into consideration
     // that some memrefs are parts of VLS groups eventually.
-    return VPlanCostModel::getLoadStoreCost(VPInst);
+    return VPlanCostModel::getLoadStoreCost(VPInst, VF);
   return 0;
 }
 
@@ -555,21 +540,56 @@ unsigned VPlanCostModelProprietary::getCost(const VPBasicBlock *VPBB) {
   return VPlanCostModel::getCost(VPBB);
 }
 
+unsigned VPlanCostModelProprietary::getBlockRangeCost(const VPBasicBlock *Begin,
+                                                      const VPBasicBlock *End) {
+  unsigned Cost = 0;
+  for (auto *Block : sese_depth_first(Begin, End))
+    Cost += getCost(Block);
+  return Cost;
+}
+
 unsigned VPlanCostModelProprietary::getSpillFillCost(
   const VPBasicBlock *VPBlock,
-  DenseMap<const VPInstruction*, int>& LiveValues) {
+  DenseMap<const VPInstruction*, int>& LiveValues,
+  bool VectorRegsPressure) {
   int NumberLiveValuesMax = 0;
   VPLoop *OuterMostVPLoop = *(Plan->getVPLoopInfo()->begin());
+  auto SkipInst = [&](const VPInstruction* I) -> bool {
+    // Ignore instructions that do not induce vector code if VectorRegsPressure
+    // is true or ignore 'vector only' instructions for VectorRegsPressure
+    // false.
+    //
+    // TODO:
+    // VF checks should be removed eventually. It is a bug in the current
+    // SVA implementation that we need them.
+    //
+    // TODO:
+    // The implementation doesn't cover scalarization cases, when vector
+    // instruction going to be scalarized contributing into scalar registers
+    // pressure, not vector.
+    //
+    // TODO:
+    // SVA marks input vector types that are not re-vectorized as
+    // NeedsFirst/LastScalarCode while they still contribute into vector
+    // register pressure, not scalar.
+    //
+    bool NeedsVecInst =
+      (VF > 1) && Plan->getVPlanSVA()->instNeedsVectorCode(I);
+    bool NeedsScalInst =
+      (VF == 1) || Plan->getVPlanSVA()->instNeedsFirstScalarCode(I);
+    return (VectorRegsPressure && !NeedsVecInst) ||
+           (!VectorRegsPressure && !NeedsScalInst);
+  };
   auto PHIs = (cast<VPBasicBlock>(OuterMostVPLoop->getHeader()))->getVPPhis();
-  int NumberPHIs = std::distance(PHIs.begin(), PHIs.end());
+  int NumberPHIs = llvm::count_if(PHIs, [&](auto& PHI) {
+    return !SkipInst(&PHI);});
   int FreeVecHWRegsNum =
     TTI->getNumberOfRegisters(TTI->getRegisterClassForType(true)) - NumberPHIs;
 
-  // TODO:
-  // SVA should be utilized to calculate GPR pressure separately (i.e. detect
-  // instructions that we don't vectorize and that go to GPR instead of
-  // vector registers).
   for (const VPInstruction &VPInst : reverse(*VPBlock)) {
+    if (SkipInst(&VPInst))
+      continue;
+
     // Zero-cost and unknown-cost instructions are ignored.  That might be
     // pseudo inst that don't induce real code on output.
     //
@@ -670,7 +690,7 @@ unsigned VPlanCostModelProprietary::getSpillFillCost(
                llvm::count_if(LVNs, [](int Elem) -> bool {
                    return Elem != 0;
                  }) << " for ";
-               VPInst.print(dbgs()); dbgs() << '\n';
+               VPInst.printWithoutAnalyses(dbgs()); dbgs() << '\n';
                dbgs() << "Live vals:";
                for (auto LiveValue : LiveValues)
                  if (LiveValue.second) {
@@ -725,7 +745,8 @@ unsigned VPlanCostModelProprietary::getSpillFillCost() {
   // The code below figures out what is maximum of register pressure in given
   // basic block.
   //
-  DenseMap<const VPInstruction*, int> LiveValues;
+  // Keep track of vector and scalar live values in separate maps.
+  DenseMap<const VPInstruction*, int> VecLiveValues, ScalLiveValues;
 
   for (auto *Block : post_order(Plan->getEntryBlock())) {
     // For simplicity we pass LiveOut from previous block as LiveIn to the next
@@ -738,7 +759,10 @@ unsigned VPlanCostModelProprietary::getSpillFillCost() {
     // sequence.  Uniform conditions are moved out of the loop by LoopOpt
     // normally and we don't see non linear CFG in VPlan in the most cases for
     // HIR pipeline.
-    Cost += getSpillFillCost(Block, LiveValues);
+    Cost += getSpillFillCost(Block, ScalLiveValues, false);
+
+    if (VF > 1)
+      Cost += getSpillFillCost(Block, VecLiveValues, true);
   }
 
   return Cost;
@@ -909,7 +933,7 @@ bool VPlanCostModelProprietary::CheckForSLPExtraCost() const {
 void VPlanCostModelProprietary::printForVPInstruction(
   raw_ostream &OS, const VPInstruction *VPInst) {
   OS << "  Cost " << getCostNumberString(getCost(VPInst)) << " for ";
-  VPInst->print(OS);
+  VPInst->printWithoutAnalyses(OS);
 
   std::string Attributes = "";
 
@@ -938,10 +962,18 @@ void VPlanCostModelProprietary::printForVPBasicBlock(
     OS << "total cost includes GS Cost: " << GatherScatterCost << '\n';
 
   DenseMap<const VPInstruction*, int> LiveValues;
-  unsigned SpillFillCost = getSpillFillCost(VPBB, LiveValues);
-  if (SpillFillCost > 0)
-    OS << "Block spill/fill approximate cost (not included into total cost): "
-       << SpillFillCost << '\n';
+  unsigned ScalSpillFillCost = getSpillFillCost(VPBB, LiveValues, false);
+  if (ScalSpillFillCost > 0)
+    OS << "Block Scalar spill/fill approximate cost "
+      "(not included into total cost): " << ScalSpillFillCost << '\n';
+
+  if (VF > 1) {
+    LiveValues.clear();
+    unsigned VecSpillFillCost = getSpillFillCost(VPBB, LiveValues, true);
+    if (VecSpillFillCost > 0)
+      OS << "Block Vector spill/fill approximate cost "
+        "(not included into total cost): " << VecSpillFillCost << '\n';
+  }
 
   // Clearing ProcessedOVLSGroups is valid while VLS works within a basic block.
   // TODO: The code should be revisited once the assumption is changed.
@@ -957,9 +989,9 @@ void VPlanCostModelProprietary::printForVPBasicBlock(
 
 void VPlanCostModelProprietary::print(
   raw_ostream &OS, const std::string &Header) {
+  unsigned TTICost = VPlanCostModel::getCost();
   unsigned GatherScatterCost = getGatherScatterCost();
   unsigned SpillFillCost = getSpillFillCost();
-  unsigned TTICost = VPlanCostModel::getCost();
   OS << "HIR Cost Model for VPlan " << Header << " with VF = " << VF << ":\n";
   OS << "Total VPlan Cost: " << getCost() << '\n';
   OS << "VPlan Base Cost before adjustments: " << TTICost << '\n';

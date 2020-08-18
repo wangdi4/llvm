@@ -4,7 +4,7 @@
 ; CHECK: Ztt: if (i2 < i1)
 ; CHECK-NEXT: NumExits: 1
 ; CHECK-NEXT: Innermost: Yes
-; CHECK-NEXT: NSW: Yes
+; CHECK-NEXT: HasSignedIV: Yes
 ; CHECK: DO i64 i3
 
 ; Check parsing output for the loop verifying that there is no inconsistency in parsing livein copies, i.e. lval and rval have identical canon expr.

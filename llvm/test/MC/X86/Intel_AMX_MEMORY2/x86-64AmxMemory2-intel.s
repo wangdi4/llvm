@@ -16,86 +16,74 @@
 // CHECK: encoding: [0xc4,0xe5,0x7b,0xe9,0x1c,0x6d,0xe0,0xff,0xff,0xff]
                tbroadcastrowd tmm3, byte ptr [2*rbp - 32]
 
-// CHECK:      tstorehd byte ptr [rbp + 8*r14 + 268435456], tmm6
+// CHECK:      tstorehd [rbp + 8*r14 + 268435456], tmm6
 // CHECK: encoding: [0xc4,0xa5,0x7a,0xeb,0xb4,0xf5,0x00,0x00,0x00,0x10]
-               tstorehd byte ptr [rbp + 8*r14 + 268435456], tmm6
+               tstorehd [rbp + 8*r14 + 268435456], tmm6
 
-// CHECK:      tstorehd byte ptr [r8 + 4*rax + 291], tmm3
+// CHECK:      tstorehd [r8 + 4*rax + 291], tmm3
 // CHECK: encoding: [0xc4,0xc5,0x7a,0xeb,0x9c,0x80,0x23,0x01,0x00,0x00]
-               tstorehd byte ptr [r8 + 4*rax + 291], tmm3
+               tstorehd [r8 + 4*rax + 291], tmm3
 
-// CHECK:      tstorehd byte ptr [rip], tmm6
-// CHECK: encoding: [0xc4,0xe5,0x7a,0xeb,0x35,0x00,0x00,0x00,0x00]
-               tstorehd byte ptr [rip], tmm6
-
-// CHECK:      tstorehd byte ptr [2*rbp - 32], tmm3
+// CHECK:      tstorehd [2*rbp - 32], tmm3
 // CHECK: encoding: [0xc4,0xe5,0x7a,0xeb,0x1c,0x6d,0xe0,0xff,0xff,0xff]
-               tstorehd byte ptr [2*rbp - 32], tmm3
+               tstorehd [2*rbp - 32], tmm3
 
-// CHECK:      tstorehdt1 byte ptr [rbp + 8*r14 + 268435456], tmm6
+// CHECK:      tstorehdt1 [rbp + 8*r14 + 268435456], tmm6
 // CHECK: encoding: [0xc4,0xa5,0x78,0xec,0xb4,0xf5,0x00,0x00,0x00,0x10]
-               tstorehdt1 byte ptr [rbp + 8*r14 + 268435456], tmm6
+               tstorehdt1 [rbp + 8*r14 + 268435456], tmm6
 
-// CHECK:      tstorehdt1 byte ptr [r8 + 4*rax + 291], tmm3
+// CHECK:      tstorehdt1 [r8 + 4*rax + 291], tmm3
 // CHECK: encoding: [0xc4,0xc5,0x78,0xec,0x9c,0x80,0x23,0x01,0x00,0x00]
-               tstorehdt1 byte ptr [r8 + 4*rax + 291], tmm3
+               tstorehdt1 [r8 + 4*rax + 291], tmm3
 
-// CHECK:      tstorehdt1 byte ptr [2*rbp - 32], tmm3
+// CHECK:      tstorehdt1 [2*rbp - 32], tmm3
 // CHECK: encoding: [0xc4,0xe5,0x78,0xec,0x1c,0x6d,0xe0,0xff,0xff,0xff]
-               tstorehdt1 byte ptr [2*rbp - 32], tmm3
+               tstorehdt1 [2*rbp - 32], tmm3
 
-// CHECK:      tstorentd byte ptr [rbp + 8*r14 + 268435456], tmm6
+// CHECK:      tstorentd [rbp + 8*r14 + 268435456], tmm6
 // CHECK: encoding: [0xc4,0xa5,0x78,0xed,0xb4,0xf5,0x00,0x00,0x00,0x10]
-               tstorentd byte ptr [rbp + 8*r14 + 268435456], tmm6
+               tstorentd [rbp + 8*r14 + 268435456], tmm6
 
-// CHECK:      tstorentd byte ptr [r8 + 4*rax + 291], tmm3
+// CHECK:      tstorentd [r8 + 4*rax + 291], tmm3
 // CHECK: encoding: [0xc4,0xc5,0x78,0xed,0x9c,0x80,0x23,0x01,0x00,0x00]
-               tstorentd byte ptr [r8 + 4*rax + 291], tmm3
+               tstorentd [r8 + 4*rax + 291], tmm3
 
-// CHECK:      tstorentd byte ptr [rip], tmm6
-// CHECK: encoding: [0xc4,0xe5,0x78,0xed,0x35,0x00,0x00,0x00,0x00]
-               tstorentd byte ptr [rip], tmm6
-
-// CHECK:      tstorentd byte ptr [2*rbp - 32], tmm3
+// CHECK:      tstorentd [2*rbp - 32], tmm3
 // CHECK: encoding: [0xc4,0xe5,0x78,0xed,0x1c,0x6d,0xe0,0xff,0xff,0xff]
-               tstorentd byte ptr [2*rbp - 32], tmm3
+               tstorentd [2*rbp - 32], tmm3
 
-// CHECK:      tstoreqd byte ptr [rbp + 8*r14 + 268435456], tmm6
+// CHECK:      tstoreqd [rbp + 8*r14 + 268435456], tmm6
 // CHECK: encoding: [0xc4,0xa5,0x79,0xec,0xb4,0xf5,0x00,0x00,0x00,0x10]
-               tstoreqd byte ptr [rbp + 8*r14 + 268435456], tmm6
+               tstoreqd [rbp + 8*r14 + 268435456], tmm6
 
-// CHECK:      tstoreqd byte ptr [r8 + 4*rax + 291], tmm3
+// CHECK:      tstoreqd [r8 + 4*rax + 291], tmm3
 // CHECK: encoding: [0xc4,0xc5,0x79,0xec,0x9c,0x80,0x23,0x01,0x00,0x00]
-               tstoreqd byte ptr [r8 + 4*rax + 291], tmm3
+               tstoreqd [r8 + 4*rax + 291], tmm3
 
-// CHECK:      tstoreqd byte ptr [2*rbp - 32], tmm3
+// CHECK:      tstoreqd [2*rbp - 32], tmm3
 // CHECK: encoding: [0xc4,0xe5,0x79,0xec,0x1c,0x6d,0xe0,0xff,0xff,0xff]
-               tstoreqd byte ptr [2*rbp - 32], tmm3
+               tstoreqd [2*rbp - 32], tmm3
 
-// CHECK:      tstoreqdt1 byte ptr [rbp + 8*r14 + 268435456], tmm6
+// CHECK:      tstoreqdt1 [rbp + 8*r14 + 268435456], tmm6
 // CHECK: encoding: [0xc4,0xa5,0x7b,0xec,0xb4,0xf5,0x00,0x00,0x00,0x10]
-               tstoreqdt1 byte ptr [rbp + 8*r14 + 268435456], tmm6
+               tstoreqdt1 [rbp + 8*r14 + 268435456], tmm6
 
-// CHECK:      tstoreqdt1 byte ptr [r8 + 4*rax + 291], tmm3
+// CHECK:      tstoreqdt1 [r8 + 4*rax + 291], tmm3
 // CHECK: encoding: [0xc4,0xc5,0x7b,0xec,0x9c,0x80,0x23,0x01,0x00,0x00]
-               tstoreqdt1 byte ptr [r8 + 4*rax + 291], tmm3
+               tstoreqdt1 [r8 + 4*rax + 291], tmm3
 
-// CHECK:      tstoreqdt1 byte ptr [2*rbp - 32], tmm3
+// CHECK:      tstoreqdt1 [2*rbp - 32], tmm3
 // CHECK: encoding: [0xc4,0xe5,0x7b,0xec,0x1c,0x6d,0xe0,0xff,0xff,0xff]
-               tstoreqdt1 byte ptr [2*rbp - 32], tmm3
+               tstoreqdt1 [2*rbp - 32], tmm3
 
-// CHECK:      tstorerowd byte ptr [rbp + 8*r14 + 268435456], tmm6
+// CHECK:      tstorerowd [rbp + 8*r14 + 268435456], tmm6
 // CHECK: encoding: [0xc4,0xa5,0x7a,0xec,0xb4,0xf5,0x00,0x00,0x00,0x10]
-               tstorerowd byte ptr [rbp + 8*r14 + 268435456], tmm6
+               tstorerowd [rbp + 8*r14 + 268435456], tmm6
 
-// CHECK:      tstorerowd byte ptr [r8 + 4*rax + 291], tmm3
+// CHECK:      tstorerowd [r8 + 4*rax + 291], tmm3
 // CHECK: encoding: [0xc4,0xc5,0x7a,0xec,0x9c,0x80,0x23,0x01,0x00,0x00]
-               tstorerowd byte ptr [r8 + 4*rax + 291], tmm3
+               tstorerowd [r8 + 4*rax + 291], tmm3
 
-// CHECK:      tstorerowd byte ptr [rip], tmm6
-// CHECK: encoding: [0xc4,0xe5,0x7a,0xec,0x35,0x00,0x00,0x00,0x00]
-               tstorerowd byte ptr [rip], tmm6
-
-// CHECK:      tstorerowd byte ptr [2*rbp - 32], tmm3
+// CHECK:      tstorerowd [2*rbp - 32], tmm3
 // CHECK: encoding: [0xc4,0xe5,0x7a,0xec,0x1c,0x6d,0xe0,0xff,0xff,0xff]
-               tstorerowd byte ptr [2*rbp - 32], tmm3
+               tstorerowd [2*rbp - 32], tmm3

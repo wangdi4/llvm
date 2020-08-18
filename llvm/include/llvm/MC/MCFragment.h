@@ -37,9 +37,13 @@ public:
     FT_Data,
     FT_CompactEncodedInst,
     FT_Fill,
+    FT_Nops,
     FT_Relaxable,
     FT_Org,
     FT_Dwarf,
+#if INTEL_CUSTOMIZATION
+    FT_Trace,
+#endif // INTEL_CUSTOMIZATION
     FT_DwarfFrame,
     FT_LEB,
     FT_BoundaryAlign,
@@ -64,6 +68,9 @@ private:
   unsigned LayoutOrder;
 
   FragmentType Kind;
+
+  /// Whether fragment is being laid out.
+  bool IsBeingLaidOut;
 
 protected:
   bool HasInstructions;
@@ -135,6 +142,9 @@ public:
     case MCFragment::FT_CompactEncodedInst:
     case MCFragment::FT_Data:
     case MCFragment::FT_Dwarf:
+#if INTEL_CUSTOMIZATION
+    case MCFragment::FT_Trace:
+#endif // INTEL_CUSTOMIZATION
     case MCFragment::FT_DwarfFrame:
       return true;
     }
@@ -347,6 +357,31 @@ public:
   }
 };
 
+class MCNopsFragment : public MCFragment {
+  /// The number of bytes to insert.
+  int64_t Size;
+  /// Maximum number of bytes allowed in each NOP instruction.
+  int64_t ControlledNopLength;
+
+  /// Source location of the directive that this fragment was created for.
+  SMLoc Loc;
+
+public:
+  MCNopsFragment(int64_t NumBytes, int64_t ControlledNopLength, SMLoc L,
+                 MCSection *Sec = nullptr)
+      : MCFragment(FT_Nops, false, Sec), Size(NumBytes),
+        ControlledNopLength(ControlledNopLength), Loc(L) {}
+
+  int64_t getNumBytes() const { return Size; }
+  int64_t getControlledNopLength() const { return ControlledNopLength; }
+
+  SMLoc getLoc() const { return Loc; }
+
+  static bool classof(const MCFragment *F) {
+    return F->getKind() == MCFragment::FT_Nops;
+  }
+};
+
 class MCOrgFragment : public MCFragment {
   /// Value to use for filling bytes.
   int8_t Value;
@@ -402,6 +437,30 @@ public:
     return F->getKind() == MCFragment::FT_LEB;
   }
 };
+
+#if INTEL_CUSTOMIZATION
+/// Fragment for line record in .trace section. (Note that
+/// requiresDiffExpressionRelocations() for X86 backend is always false, so we
+/// do not need a fixup.)
+class MCTraceLineFragment : public MCEncodedFragmentWithContents<2> {
+private:
+  int32_t DeltaLine;
+  const MCExpr *DeltaPC;
+
+public:
+  MCTraceLineFragment(int32_t DeltaLine, const MCExpr *DeltaPC,
+                      MCSection *Sec = nullptr)
+      : MCEncodedFragmentWithContents<2>(FT_Trace, false, Sec),
+        DeltaLine(DeltaLine), DeltaPC(DeltaPC) {}
+
+  int32_t getDeltaLine() const { return DeltaLine; }
+
+  const MCExpr *getDeltaPC() const { return DeltaPC; }
+  static bool classof(const MCFragment *F) {
+    return F->getKind() == MCFragment::FT_Trace;
+  }
+};
+#endif // INTEL_CUSTOMIZATION
 
 class MCDwarfLineAddrFragment : public MCEncodedFragmentWithFixups<8, 1> {
   /// The value of the difference between the two line numbers

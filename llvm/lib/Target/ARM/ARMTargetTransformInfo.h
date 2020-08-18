@@ -38,6 +38,16 @@ class ScalarEvolution;
 class Type;
 class Value;
 
+namespace TailPredication {
+  enum Mode {
+    Disabled = 0,
+    EnabledNoReductions,
+    Enabled,
+    ForceEnabledNoReductions,
+    ForceEnabled
+  };
+}
+
 class ARMTTIImpl : public BasicTTIImplBase<ARMTTIImpl> {
   using BaseT = BasicTTIImplBase<ARMTTIImpl>;
   using TTI = TargetTransformInfo;
@@ -103,6 +113,9 @@ public:
     return !ST->isTargetDarwin() && !ST->hasMVEFloatOps();
   }
 
+  Optional<Instruction *> instCombineIntrinsic(InstCombiner &IC,
+                                               IntrinsicInst &II) const;
+
   /// \name Scalar TTI Implementations
   /// @{
 
@@ -153,15 +166,15 @@ public:
 
   bool isProfitableLSRChainElement(Instruction *I);
 
-  bool isLegalMaskedLoad(Type *DataTy, MaybeAlign Alignment);
+  bool isLegalMaskedLoad(Type *DataTy, Align Alignment);
 
-  bool isLegalMaskedStore(Type *DataTy, MaybeAlign Alignment) {
+  bool isLegalMaskedStore(Type *DataTy, Align Alignment) {
     return isLegalMaskedLoad(DataTy, Alignment);
   }
 
-  bool isLegalMaskedGather(Type *Ty, MaybeAlign Alignment);
+  bool isLegalMaskedGather(Type *Ty, Align Alignment);
 
-  bool isLegalMaskedScatter(Type *Ty, MaybeAlign Alignment) {
+  bool isLegalMaskedScatter(Type *Ty, Align Alignment) {
     return isLegalMaskedGather(Ty, Alignment);
   }
 
@@ -196,8 +209,11 @@ public:
     }
   }
 
+  int getCFInstrCost(unsigned Opcode,
+                     TTI::TargetCostKind CostKind);
+
   int getCastInstrCost(unsigned Opcode, Type *Dst, Type *Src,
-                       TTI::TargetCostKind CostKind,
+                       TTI::CastContextHint CCH, TTI::TargetCostKind CostKind,
                        const Instruction *I = nullptr);
 
   int getCmpSelInstrCost(unsigned Opcode, Type *ValTy, Type *CondTy,
@@ -224,17 +240,16 @@ public:
                       TTI::TargetCostKind CostKind,
                       const Instruction *I = nullptr);
 
-  int getInterleavedMemoryOpCost(unsigned Opcode, Type *VecTy, unsigned Factor,
-                                 ArrayRef<unsigned> Indices, unsigned Alignment,
-                                 unsigned AddressSpace,
-                                 TTI::TargetCostKind CostKind = TTI::TCK_SizeAndLatency,
-                                 bool UseMaskForCond = false,
-                                 bool UseMaskForGaps = false);
+  int getInterleavedMemoryOpCost(
+      unsigned Opcode, Type *VecTy, unsigned Factor, ArrayRef<unsigned> Indices,
+      Align Alignment, unsigned AddressSpace,
+      TTI::TargetCostKind CostKind = TTI::TCK_SizeAndLatency,
+      bool UseMaskForCond = false, bool UseMaskForGaps = false);
 
-  unsigned getGatherScatterOpCost(
-    unsigned Opcode, Type *DataTy, Value *Ptr, bool VariableMask,
-    unsigned Alignment, TTI::TargetCostKind CostKind,
-    const Instruction *I = nullptr);
+  unsigned getGatherScatterOpCost(unsigned Opcode, Type *DataTy,
+                                  const Value *Ptr, bool VariableMask,
+                                  Align Alignment, TTI::TargetCostKind CostKind,
+                                  const Instruction *I = nullptr);
 
   bool isLoweredToCall(const Function *F);
   bool isHardwareLoopProfitable(Loop *L, ScalarEvolution &SE,
@@ -252,6 +267,8 @@ public:
 
   bool emitGetActiveLaneMask() const;
 
+  void getPeelingPreferences(Loop *L, ScalarEvolution &SE,
+                             TTI::PeelingPreferences &PP);
   bool shouldBuildLookupTablesForConstant(Constant *C) const {
     // In the ROPI and RWPI relocation models we can't have pointers to global
     // variables or functions in constant data, so don't convert switches to

@@ -61,7 +61,7 @@ using namespace llvm;
 
 /// Allow disabling BasicAA from the AA results. This is particularly useful
 /// when testing to isolate a single AA implementation.
-static cl::opt<bool> DisableBasicAA("disable-basicaa", cl::Hidden,
+static cl::opt<bool> DisableBasicAA("disable-basic-aa", cl::Hidden,
                                     cl::init(false));
 #if INTEL_CUSTOMIZATION
 static cl::opt<unsigned> PtrVectorMemLocCheckDepth(
@@ -137,6 +137,24 @@ bool AAResults::escapes(const Value *V) {
       return Result;
   }
   return true;
+}
+
+AliasResult AAResults::loopCarriedAlias(const MemoryLocation &LocA,
+                                        const MemoryLocation &LocB) {
+  AAQueryInfo AAQIP(true);
+  return loopCarriedAlias(LocA, LocB, AAQIP);
+}
+
+AliasResult AAResults::loopCarriedAlias(const MemoryLocation &LocA,
+                                        const MemoryLocation &LocB,
+                                        AAQueryInfo &AAQI) {
+  assert(AAQI.NeedLoopCarried && "Unexpectedly missing loopCarried query flag");
+  for (const auto &AA : AAs) {
+    auto Result = AA->loopCarriedAlias(LocA, LocB, AAQI);
+    if (Result != MayAlias)
+      return Result;
+  }
+  return MayAlias;
 }
 #endif // INTEL_CUSTOMIZATION
 
@@ -471,6 +489,17 @@ raw_ostream &llvm::operator<<(raw_ostream &OS, AliasResult AR) {
 // Helper method implementation
 //===----------------------------------------------------------------------===//
 
+#if INTEL_CUSTOMIZATION
+template <typename T>
+static MemoryLocation getMemoryLocationWithSize(const T *Inst,
+    const Optional<LocationSize> &Size) {
+  MemoryLocation Loc = MemoryLocation::get(Inst);
+  if (Size)
+    Loc = Loc.getWithNewSize(*Size);
+  return Loc;
+}
+#endif // INTEL_CUSTOMIZATION
+
 ModRefInfo AAResults::getModRefInfo(const LoadInst *L,
                                     const MemoryLocation &Loc) {
   AAQueryInfo AAQIP;
@@ -478,7 +507,8 @@ ModRefInfo AAResults::getModRefInfo(const LoadInst *L,
 }
 ModRefInfo AAResults::getModRefInfo(const LoadInst *L,
                                     const MemoryLocation &Loc,
-                                    AAQueryInfo &AAQI) {
+                                    AAQueryInfo &AAQI, // INTEL
+                                    const Optional<LocationSize> &Size) { // INTEL
   // Be conservative in the face of atomic.
   if (isStrongerThan(L->getOrdering(), AtomicOrdering::Unordered))
     return ModRefInfo::ModRef;
@@ -486,7 +516,7 @@ ModRefInfo AAResults::getModRefInfo(const LoadInst *L,
   // If the load address doesn't alias the given address, it doesn't read
   // or write the specified memory.
   if (Loc.Ptr) {
-    AliasResult AR = alias(MemoryLocation::get(L), Loc, AAQI);
+    AliasResult AR = alias(getMemoryLocationWithSize(L, Size), Loc, AAQI); // INTEL
     if (AR == NoAlias)
       return ModRefInfo::NoModRef;
     if (AR == MustAlias)
@@ -503,13 +533,14 @@ ModRefInfo AAResults::getModRefInfo(const StoreInst *S,
 }
 ModRefInfo AAResults::getModRefInfo(const StoreInst *S,
                                     const MemoryLocation &Loc,
-                                    AAQueryInfo &AAQI) {
+                                    AAQueryInfo &AAQI, // INTEL
+                                    const Optional<LocationSize> &Size) { // INTEL
   // Be conservative in the face of atomic.
   if (isStrongerThan(S->getOrdering(), AtomicOrdering::Unordered))
     return ModRefInfo::ModRef;
 
   if (Loc.Ptr) {
-    AliasResult AR = alias(MemoryLocation::get(S), Loc, AAQI);
+    AliasResult AR = alias(getMemoryLocationWithSize(S, Size), Loc, AAQI); // INTEL
     // If the store address cannot alias the pointer in question, then the
     // specified memory cannot be modified by the store.
     if (AR == NoAlias)
@@ -552,9 +583,10 @@ ModRefInfo AAResults::getModRefInfo(const VAArgInst *V,
 
 ModRefInfo AAResults::getModRefInfo(const VAArgInst *V,
                                     const MemoryLocation &Loc,
-                                    AAQueryInfo &AAQI) {
+                                    AAQueryInfo &AAQI, // INTEL
+                                    const Optional<LocationSize> &Size) { // INTEL
   if (Loc.Ptr) {
-    AliasResult AR = alias(MemoryLocation::get(V), Loc, AAQI);
+    AliasResult AR = alias(getMemoryLocationWithSize(V, Size), Loc, AAQI); // INTEL
     // If the va_arg address cannot alias the pointer in question, then the
     // specified memory cannot be accessed by the va_arg.
     if (AR == NoAlias)
@@ -622,13 +654,14 @@ ModRefInfo AAResults::getModRefInfo(const AtomicCmpXchgInst *CX,
 
 ModRefInfo AAResults::getModRefInfo(const AtomicCmpXchgInst *CX,
                                     const MemoryLocation &Loc,
-                                    AAQueryInfo &AAQI) {
+                                    AAQueryInfo &AAQI, // INTEL
+                                    const Optional<LocationSize> &Size) { // INTEL
   // Acquire/Release cmpxchg has properties that matter for arbitrary addresses.
   if (isStrongerThanMonotonic(CX->getSuccessOrdering()))
     return ModRefInfo::ModRef;
 
   if (Loc.Ptr) {
-    AliasResult AR = alias(MemoryLocation::get(CX), Loc, AAQI);
+    AliasResult AR = alias(getMemoryLocationWithSize(CX, Size), Loc, AAQI); // INTEL
     // If the cmpxchg address does not alias the location, it does not access
     // it.
     if (AR == NoAlias)
@@ -650,13 +683,14 @@ ModRefInfo AAResults::getModRefInfo(const AtomicRMWInst *RMW,
 
 ModRefInfo AAResults::getModRefInfo(const AtomicRMWInst *RMW,
                                     const MemoryLocation &Loc,
-                                    AAQueryInfo &AAQI) {
+                                    AAQueryInfo &AAQI, // INTEL
+                                    const Optional<LocationSize> &Size) { // INTEL
   // Acquire/Release atomicrmw has properties that matter for arbitrary addresses.
   if (isStrongerThanMonotonic(RMW->getOrdering()))
     return ModRefInfo::ModRef;
 
   if (Loc.Ptr) {
-    AliasResult AR = alias(MemoryLocation::get(RMW), Loc, AAQI);
+    AliasResult AR = alias(getMemoryLocationWithSize(RMW, Size), Loc, AAQI); // INTEL
     // If the atomicrmw address does not alias the location, it does not access
     // it.
     if (AR == NoAlias)
@@ -728,8 +762,7 @@ ModRefInfo AAResults::callCapturesBefore(const Instruction *I,
   if (!DT)
     return ModRefInfo::ModRef;
 
-  const Value *Object =
-      GetUnderlyingObject(MemLoc.Ptr, I->getModule()->getDataLayout());
+  const Value *Object = getUnderlyingObject(MemLoc.Ptr);
   if (!isIdentifiedObject(Object) || isa<GlobalValue>(Object) ||
       isa<Constant>(Object))
     return ModRefInfo::ModRef;

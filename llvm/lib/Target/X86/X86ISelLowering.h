@@ -620,6 +620,7 @@ namespace llvm {
 #if INTEL_FEATURE_ISA_AVX_COMPRESS
     VPCOMPRESS,
 #endif // INTEL_FEATURE_ISA_AVX_COMPRESS
+    MPSADBW,// INTEL
 #endif // INTEL_CUSTOMIZATION
 
     // Compress and expand.
@@ -1123,7 +1124,8 @@ namespace llvm {
     EVT getSetCCResultType(const DataLayout &DL, LLVMContext &Context,
                            EVT VT) const override;
 
-    bool targetShrinkDemandedConstant(SDValue Op, const APInt &Demanded,
+    bool targetShrinkDemandedConstant(SDValue Op, const APInt &DemandedBits,
+                                      const APInt &DemandedElts,
                                       TargetLoweringOpt &TLO) const override;
 
     /// Determine which of the bits specified in Mask are known to be either
@@ -1202,7 +1204,8 @@ namespace llvm {
     }
 
     /// Handle Lowering flag assembly outputs.
-    SDValue LowerAsmOutputForConstraint(SDValue &Chain, SDValue &Flag, SDLoc DL,
+    SDValue LowerAsmOutputForConstraint(SDValue &Chain, SDValue &Flag,
+                                        const SDLoc &DL,
                                         const AsmOperandInfo &Constraint,
                                         SelectionDAG &DAG) const override;
 
@@ -1442,8 +1445,6 @@ namespace llvm {
                                           Align Alignment,
                                           SelectionDAG &DAG) const;
 
-    bool isNoopAddrSpaceCast(unsigned SrcAS, unsigned DestAS) const override;
-
     /// Customize the preferred legalization strategy for certain types.
     LegalizeTypeAction getPreferredVectorAction(MVT VT) const override;
 
@@ -1536,7 +1537,7 @@ namespace llvm {
     SDValue LowerMemOpCallTo(SDValue Chain, SDValue StackPtr, SDValue Arg,
                              const SDLoc &dl, SelectionDAG &DAG,
                              const CCValAssign &VA,
-                             ISD::ArgFlagsTy Flags) const;
+                             ISD::ArgFlagsTy Flags, bool isByval) const;
 
     // Call lowering helpers.
 

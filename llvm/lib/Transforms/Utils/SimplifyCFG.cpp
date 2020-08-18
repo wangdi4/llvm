@@ -15,6 +15,7 @@
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/Optional.h"
 #include "llvm/ADT/STLExtras.h"
+#include "llvm/ADT/ScopeExit.h"
 #include "llvm/ADT/SetOperations.h"
 #include "llvm/ADT/SetVector.h"
 #include "llvm/ADT/SmallPtrSet.h"
@@ -108,6 +109,10 @@ static cl::opt<bool> DupRet(
     cl::desc("Duplicate return instructions into unconditional branches"));
 
 static cl::opt<bool>
+    HoistCommon("simplifycfg-hoist-common", cl::Hidden, cl::init(true),
+                cl::desc("Hoist common instructions up to the parent block"));
+
+static cl::opt<bool>
     SinkCommon("simplifycfg-sink-common", cl::Hidden, cl::init(true),
                cl::desc("Sink common instructions down to the end block"));
 
@@ -136,6 +141,11 @@ static cl::opt<unsigned> MaxSpeculationDepth(
     cl::desc("Limit maximum recursion depth when calculating costs of "
              "speculatively executed instructions"));
 
+static cl::opt<int>
+MaxSmallBlockSize("simplifycfg-max-small-block-size", cl::Hidden, cl::init(10),
+                  cl::desc("Max size of a block which is still considered "
+                           "small enough to thread through"));
+
 STATISTIC(NumBitMaps, "Number of switch instructions turned into bitmaps");
 STATISTIC(NumLinearMaps,
           "Number of switch instructions turned into linear mapping");
@@ -145,7 +155,14 @@ STATISTIC(
     NumLookupTablesHoles,
     "Number of switch instructions turned into lookup tables (holes checked)");
 STATISTIC(NumTableCmpReuses, "Number of reused switch table lookup compares");
-STATISTIC(NumSinkCommons,
+STATISTIC(
+    NumHoistCommonCode,
+    "Number of common instruction 'blocks' hoisted up to the begin block");
+STATISTIC(NumHoistCommonInstrs,
+          "Number of common instructions hoisted up to the begin block");
+STATISTIC(NumSinkCommonCode,
+          "Number of common instruction 'blocks' sunk down to the end block");
+STATISTIC(NumSinkCommonInstrs,
           "Number of common instructions sunk down to the end block");
 STATISTIC(NumSpeculations, "Number of speculative executed instructions");
 
@@ -221,6 +238,10 @@ class SimplifyCFGOpt {
   bool SimplifySwitchOnSelect(SwitchInst *SI, SelectInst *Select);
   bool SimplifyIndirectBrOnSelect(IndirectBrInst *IBI, SelectInst *SI);
   bool TurnSwitchRangeIntoICmp(SwitchInst *SI, IRBuilder<> &Builder);
+#if INTEL_CUSTOMIZATION
+  bool removeEmptyCleanup(CleanupReturnInst *RI);
+  bool isDedicatedLoopExit(BasicBlock *BB);
+#endif // INTEL_CUSTOMIZATION
 
 public:
   SimplifyCFGOpt(const TargetTransformInfo &TTI, const DataLayout &DL,
@@ -1301,6 +1322,12 @@ bool SimplifyCFGOpt::HoistThenElseCodeToIf(BranchInst *BI,
   BasicBlock *BIParent = BI->getParent();
 
   bool Changed = false;
+
+  auto _ = make_scope_exit([&]() {
+    if (Changed)
+      ++NumHoistCommonCode;
+  });
+
   do {
     // If we are hoisting the terminator instruction, don't move one (making a
     // broken BB), instead clone it, and remove BI.
@@ -1375,6 +1402,7 @@ bool SimplifyCFGOpt::HoistThenElseCodeToIf(BranchInst *BI,
       I2->eraseFromParent();
       Changed = true;
     }
+    ++NumHoistCommonInstrs;
 
     I1 = &*BB1_Itr++;
     I2 = &*BB2_Itr++;
@@ -1429,6 +1457,8 @@ HoistTerminator:
     I2->replaceAllUsesWith(NT);
     NT->takeName(I1);
   }
+  Changed = true;
+  ++NumHoistCommonInstrs;
 
   // Ensure terminator gets a debug location, even an unknown one, in case
   // it involves inlinable calls.
@@ -1475,7 +1505,7 @@ HoistTerminator:
     AddPredecessorToBlock(Succ, BIParent, BB1);
 
   EraseTerminatorAndDCECond(BI);
-  return true;
+  return Changed;
 }
 
 // Check lifetime markers.
@@ -1822,7 +1852,6 @@ static bool SinkCommonCodeFromPredecessors(BasicBlock *BB) {
   if (UnconditionalPreds.size() < 2)
     return false;
 
-  bool Changed = false;
   // We take a two-step approach to tail sinking. First we scan from the end of
   // each block upwards in lockstep. If the n'th instruction from the end of each
   // block can be sunk, those instructions are added to ValuesToSink and we
@@ -1842,6 +1871,12 @@ static bool SinkCommonCodeFromPredecessors(BasicBlock *BB) {
     --LRI;
   }
 
+  // If no instructions can be sunk, early-return.
+  if (ScanIdx == 0)
+    return false;
+
+  bool Changed = false;
+
   auto ProfitableToSinkInstruction = [&](LockstepReverseIterator &LRI) {
     unsigned NumPHIdValues = 0;
     for (auto *I : *LRI)
@@ -1856,7 +1891,7 @@ static bool SinkCommonCodeFromPredecessors(BasicBlock *BB) {
     return NumPHIInsts <= 1;
   };
 
-  if (ScanIdx > 0 && Cond) {
+  if (Cond) {
     // Check if we would actually sink anything first! This mutates the CFG and
     // adds an extra block. The goal in doing this is to allow instructions that
     // couldn't be sunk before to be sunk - obviously, speculatable instructions
@@ -1897,7 +1932,8 @@ static bool SinkCommonCodeFromPredecessors(BasicBlock *BB) {
   // sink presuming a later value will also be sunk, but stop half way through
   // and never actually sink it which means we produce more PHIs than intended.
   // This is unlikely in practice though.
-  for (unsigned SinkIdx = 0; SinkIdx != ScanIdx; ++SinkIdx) {
+  unsigned SinkIdx = 0;
+  for (; SinkIdx != ScanIdx; ++SinkIdx) {
     LLVM_DEBUG(dbgs() << "SINK: Sink: "
                       << *UnconditionalPreds[0]->getTerminator()->getPrevNode()
                       << "\n");
@@ -1912,11 +1948,18 @@ static bool SinkCommonCodeFromPredecessors(BasicBlock *BB) {
       break;
     }
 
-    if (!sinkLastInstruction(UnconditionalPreds))
-      return Changed;
-    NumSinkCommons++;
+    if (!sinkLastInstruction(UnconditionalPreds)) {
+      LLVM_DEBUG(
+          dbgs()
+          << "SINK: stopping here, failed to actually sink instruction!\n");
+      break;
+    }
+
+    NumSinkCommonInstrs++;
     Changed = true;
   }
+  if (SinkIdx != 0)
+    ++NumSinkCommonCode;
   return Changed;
 }
 
@@ -2168,9 +2211,14 @@ bool SimplifyCFGOpt::SpeculativelyExecuteBB(BranchInst *BI, BasicBlock *ThenBB,
   }
 
   // Metadata can be dependent on the condition we are hoisting above.
-  // Conservatively strip all metadata on the instruction.
-  for (auto &I : *ThenBB)
+  // Conservatively strip all metadata on the instruction. Drop the debug loc
+  // to avoid making it appear as if the condition is a constant, which would
+  // be misleading while debugging.
+  for (auto &I : *ThenBB) {
+    if (!SpeculatedStoreValue || &I != SpeculatedStore)
+      I.setDebugLoc(DebugLoc());
     I.dropUnknownNonDebugMetadata();
+  }
 
   // Hoist the instructions.
   BB->getInstList().splice(BI->getIterator(), ThenBB->getInstList(),
@@ -2211,10 +2259,10 @@ bool SimplifyCFGOpt::SpeculativelyExecuteBB(BranchInst *BI, BasicBlock *ThenBB,
 
 /// Return true if we can thread a branch across this block.
 static bool BlockIsSimpleEnoughToThreadThrough(BasicBlock *BB) {
-  unsigned Size = 0;
+  int Size = 0;
 
   for (Instruction &I : BB->instructionsWithoutDebug()) {
-    if (Size > 10)
+    if (Size > MaxSmallBlockSize)
       return false; // Don't clone large BB's.
 
 #if INTEL_COLLAB
@@ -2222,7 +2270,15 @@ static bool BlockIsSimpleEnoughToThreadThrough(BasicBlock *BB) {
       return false;
 #endif // INTEL_COLLAB
 
-    ++Size;
+    // Can't fold blocks that contain noduplicate or convergent calls.
+    if (CallInst *CI = dyn_cast<CallInst>(&I))
+      if (CI->cannotDuplicate() || CI->isConvergent())
+        return false;
+
+    // We will delete Phis while threading, so Phis should not be accounted in
+    // block's size
+    if (!isa<PHINode>(I))
+      ++Size;
 
     // We can only support instructions that do not define values that are
     // live outside of the current basic block.
@@ -2258,13 +2314,6 @@ static bool FoldCondBranchOnPHI(BranchInst *BI, const DataLayout &DL,
 
   // Now we know that this block has multiple preds and two succs.
   if (!BlockIsSimpleEnoughToThreadThrough(BB))
-    return false;
-
-  // Can't fold blocks that contain noduplicate or convergent calls.
-  if (any_of(*BB, [](const Instruction &I) {
-        const CallInst *CI = dyn_cast<CallInst>(&I);
-        return CI && (CI->cannotDuplicate() || CI->isConvergent());
-      }))
     return false;
 
   // Okay, this is a simple enough basic block.  See if any phi values are
@@ -2405,12 +2454,12 @@ static bool FoldPHIEntries(PHINode *PN, const TargetTransformInfo &TTI,
 
     bool CanBeSimplified = true;
     unsigned NumPhis = 0;
-
     for (BasicBlock::iterator II = BB->begin(); isa<PHINode>(II);) {
       PHINode *PN = cast<PHINode>(II++);
       if (Value *V = SimplifyInstruction(PN, {DL, PN})) {
         PN->replaceAllUsesWith(V);
         PN->eraseFromParent();
+        Changed = true;
         continue;
       }
 
@@ -3068,6 +3117,12 @@ static bool foldFcmpLadder(BranchInst *BI) {
     return count > 2;
   };
 
+  // Blender pattern has memory/memory compares before constant compares.
+  if (fcmpHasConst(Compares[0].FCmpI)) {
+    LLVM_DEBUG(dbgs() << "Ladder already sorted.\n");
+    return false;
+  }
+
   // First we must fix the first block in the ladder.
   // Split the unrelated instructions away from the ladder.
   FCmpInst *Compare0 = Compares[0].FCmpI;
@@ -3080,9 +3135,8 @@ static bool foldFcmpLadder(BranchInst *BI) {
     return false;
   }
 
-  didSomething = true;
-
   Load0->getParent()->splitBasicBlock(Load0, "ladder");
+  didSomething = true;
 
   // Then, move the fcmp const blocks to the top of the ladder.
   unsigned IPoint = 0;
@@ -3237,7 +3291,7 @@ bool llvm::FoldBranchToCommonDest(BranchInst *BI, MemorySSAUpdater *MSSAU,
             }
             // Quit if we can't remove this instruction.
             if (!tryCSEWithPredecessor(Curr, PB))
-              return false;
+              return Changed;
             Changed = true;
           }
         }
@@ -3731,29 +3785,11 @@ static bool mergeConditionalStoreToAddress(BasicBlock *PTB, BasicBlock *PFB,
   PStore->getAAMetadata(AAMD, /*Merge=*/false);
   PStore->getAAMetadata(AAMD, /*Merge=*/true);
   SI->setAAMetadata(AAMD);
-  unsigned PAlignment = PStore->getAlignment();
-  unsigned QAlignment = QStore->getAlignment();
-  unsigned TypeAlignment =
-      DL.getABITypeAlignment(SI->getValueOperand()->getType());
-  unsigned MinAlignment;
-  unsigned MaxAlignment;
-  std::tie(MinAlignment, MaxAlignment) = std::minmax(PAlignment, QAlignment);
   // Choose the minimum alignment. If we could prove both stores execute, we
   // could use biggest one.  In this case, though, we only know that one of the
   // stores executes.  And we don't know it's safe to take the alignment from a
   // store that doesn't execute.
-  if (MinAlignment != 0) {
-    // Choose the minimum of all non-zero alignments.
-    SI->setAlignment(Align(MinAlignment));
-  } else if (MaxAlignment != 0) {
-    // Choose the minimal alignment between the non-zero alignment and the ABI
-    // default alignment for the type of the stored value.
-    SI->setAlignment(Align(std::min(MaxAlignment, TypeAlignment)));
-  } else {
-    // If both alignments are zero, use ABI default alignment for the type of
-    // the stored value.
-    SI->setAlignment(Align(TypeAlignment));
-  }
+  SI->setAlignment(std::min(PStore->getAlign(), QStore->getAlign()));
 
   QStore->eraseFromParent();
   PStore->eraseFromParent();
@@ -4648,7 +4684,98 @@ bool SimplifyCFGOpt::simplifySingleResume(ResumeInst *RI) {
   return true;
 }
 
-static bool removeEmptyCleanup(CleanupReturnInst *RI) {
+#if INTEL_CUSTOMIZATION
+// If cleanuppad is an exit BasicBlock of a loop, the loop may not have
+// dedicated exit block after removing the cleanuppad BasicBlock since
+// the new exit block may have predecessors that are not in loop.
+// When “NeedCanonicalLoop” option is true, an empty cleanuppad BasicBlock
+// will not be removed if the BasicBlock is an exit BB of a loop. This
+// helps to trigger loop transformations later for the loop. BackEdge is
+// used to determine if a BasicBlock is in a loop or not.
+//
+// Note: We don’t do extensive analysis to prove that “CleanupBB” is
+// dedicated loop exit. Just use simple analysis/heuristic to determine
+// if “CleanupBB” is dedicated loop exit or not.
+//
+// Ex:
+// This function returns true for the below example if "CleanupBB"
+// is "%ehcleanup", which is a dedicated exit block of loop that
+// contains %for.body and %for.inc BasicBlocks.
+//
+// for.body:                          ; preds = %for.inc, %entry
+//   %i.04 = phi i32 [ 0, %entry ], [ %inc, %for.inc ]
+//   invoke void @"?bar@@YAXXZ"()
+//   to label %for.inc unwind label %ehcleanup
+//
+// for.inc:                           ; preds = %for.body
+//   %inc = add nuw nsw i32 %i.04, 1
+//   %exitcond = icmp eq i32 %inc, 100
+//   br i1 %exitcond, label %for.cond.cleanup, label %for.body
+//
+// ehcleanup:                         ; preds = %for.body
+//   %0 = cleanuppad within none []
+//   cleanupret from %0 unwind label %catch.dispatch
+//
+bool SimplifyCFGOpt::isDedicatedLoopExit(BasicBlock *CleanupBB) {
+
+  // For the given "BB", this function finds normal successor by skipping
+  // BasicBlock that terminate with Invoke instruction. It makes sure
+  // Unwind destination of Invoke instructions is always "CleanupBB".
+  //
+  // Ex:
+  // This lambda function helps to detect normal successor (BasicBlock
+  // without Invoke instruction as terminator) of “%invoke.cont” and
+  // “%invoke.cont1” BasicBlocks. This function returns %for.inc
+  // BasicBlock if “BB” is either %invoke.cont or %invoke.cont1. Returns
+  // nullptr if “CleanupBB” doesn’t match with UnWindDest BasicBlock
+  // (%ehcleanup) of invoke instructions.
+  //
+  // invoke.cont:                              ; preds = %for.body
+  //   invoke void @"?box@@YAXXZ"()
+  //         to label %invoke.cont1 unwind label %ehcleanup
+  //
+  // invoke.cont1:                             ; preds = %invoke.cont
+  //   invoke void @"?baz@@YAXXZ"()
+  //        to label %for.inc unwind label %ehcleanup
+  //
+  // for.inc:                                  ; preds = %invoke.cont1
+  //   %inc = add nuw nsw i32 %i.06, 1
+  //   %exitcond = icmp eq i32 %inc, 100
+  //   br i1 %exitcond, label %for.cond.cleanup, label %for.body
+  //
+  auto GetNormalSucc = [](BasicBlock *BB,
+                          BasicBlock *CleanupBB) -> BasicBlock* {
+    SmallPtrSet<BasicBlock *, 8> ProcessedBBs;
+    while (auto II = dyn_cast<InvokeInst>(BB->getTerminator())) {
+      if (!ProcessedBBs.insert(BB).second)
+        return nullptr;
+      if (II->getUnwindDest() != CleanupBB)
+        return nullptr;
+      BB = II->getNormalDest();
+    }
+    return BB;
+  };
+
+  if (!Options.NeedCanonicalLoop || !LoopHeaders)
+    return false;
+  for (BasicBlock *Pred : predecessors(CleanupBB)) {
+    BasicBlock *NormalSucc = GetNormalSucc(Pred, CleanupBB);
+    if (!NormalSucc)
+      return false;
+    bool BackEdgeFound = false;
+    for (BasicBlock *B : successors(NormalSucc))
+      if (LoopHeaders->count(B)) {
+        BackEdgeFound = true;
+        break;
+      }
+    if (!BackEdgeFound)
+      return false;
+  }
+  return true;
+}
+#endif // INTEL_CUSTOMIZATION
+
+bool SimplifyCFGOpt::removeEmptyCleanup(CleanupReturnInst *RI) {      // INTEL
   // If this is a trivial cleanup pad that executes no instructions, it can be
   // eliminated.  If the cleanup pad continues to the caller, any predecessor
   // that is an EH pad will be updated to continue to the caller and any
@@ -4671,6 +4798,11 @@ static bool removeEmptyCleanup(CleanupReturnInst *RI) {
   // Check that there are no other instructions except for benign intrinsics.
   if (!isCleanupBlockEmpty(CPInst, RI))
     return false;
+
+#if INTEL_CUSTOMIZATION
+  if (isDedicatedLoopExit(BB))
+    return false;
+#endif // INTEL_CUSTOMIZATION
 
   // If the cleanup return we are simplifying unwinds to the caller, this will
   // set UnwindDest to nullptr.
@@ -6823,8 +6955,9 @@ bool SimplifyCFGOpt::simplifyCondBranch(BranchInst *BI, IRBuilder<> &Builder) {
   // can hoist it up to the branching block.
   if (BI->getSuccessor(0)->getSinglePredecessor()) {
     if (BI->getSuccessor(1)->getSinglePredecessor()) {
-      if (HoistThenElseCodeToIf(BI, TTI))
-        return requestResimplify();
+      if (HoistCommon && Options.HoistCommonInsts)
+        if (HoistThenElseCodeToIf(BI, TTI))
+          return requestResimplify();
     } else {
       // If Successor #1 has multiple preds, we may be able to conditionally
       // execute Successor #0 if it branches to Successor #1.

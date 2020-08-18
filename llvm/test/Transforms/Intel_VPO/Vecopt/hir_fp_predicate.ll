@@ -16,7 +16,7 @@
 ;     return arr[0];
 ; }
 
-; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -vplan-print-after-simplify-cfg < %s 2>&1 | FileCheck %s --check-prefix=HCFG
+; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -vplan-print-plain-cfg < %s 2>&1 | FileCheck %s --check-prefix=HCFG
 
 ; Check plain HCFG
 ; HCFG: i1 [[Cmp:%.*]] = fcmp float [[Arr:%.*]] float 0.000000e+00

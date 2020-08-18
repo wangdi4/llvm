@@ -135,6 +135,7 @@ void LegacyInlinerBase::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.addRequired<AssumptionCacheTracker>();
   AU.addRequired<ProfileSummaryInfoWrapperPass>();
   AU.addRequired<TargetLibraryInfoWrapperPass>();
+  AU.addUsedIfAvailable<WholeProgramWrapperPass>();   // INTEL
   getAAResultsAnalysisUsage(AU);
   CallGraphSCCPass::getAnalysisUsage(AU);
 }
@@ -204,8 +205,8 @@ static void mergeInlinedArrayAllocas(Function *Caller, InlineFunctionInfo &IFI,
     // function.  Also, AllocasForType can be empty of course!
     bool MergedAwayAlloca = false;
     for (AllocaInst *AvailableAlloca : AllocasForType) {
-      unsigned Align1 = AI->getAlignment(),
-               Align2 = AvailableAlloca->getAlignment();
+      Align Align1 = AI->getAlign();
+      Align Align2 = AvailableAlloca->getAlign();
 
       // The available alloca has to be in the right function, not in some other
       // function in this SCC.
@@ -232,18 +233,8 @@ static void mergeInlinedArrayAllocas(Function *Caller, InlineFunctionInfo &IFI,
 
       AI->replaceAllUsesWith(AvailableAlloca);
 
-      if (Align1 != Align2) {
-        if (!Align1 || !Align2) {
-          const DataLayout &DL = Caller->getParent()->getDataLayout();
-          unsigned TypeAlign = DL.getABITypeAlignment(AI->getAllocatedType());
-
-          Align1 = Align1 ? Align1 : TypeAlign;
-          Align2 = Align2 ? Align2 : TypeAlign;
-        }
-
-        if (Align1 > Align2)
-          AvailableAlloca->setAlignment(AI->getAlign());
-      }
+      if (Align1 > Align2)
+        AvailableAlloca->setAlignment(AI->getAlign());
 
       AI->eraseFromParent();
       MergedAwayAlloca = true;
@@ -276,7 +267,7 @@ static void mergeInlinedArrayAllocas(Function *Caller, InlineFunctionInfo &IFI,
 /// any new allocas to the set if not possible.
 static InlineResult inlineCallIfPossible(
     CallBase &CB, InlineFunctionInfo &IFI, InlineReport *IRep,    // INTEL
-    InlineReportBuilder *MDIRep,    // INTEL
+    InlineReportBuilder *MDIRep,                                  // INTEL
     InlinedArrayAllocasTy &InlinedArrayAllocas, int InlineHistory,
     bool InsertLifetime, function_ref<AAResults &(Function &)> &AARGetter,
     ImportedFunctionsInliningStatistics &ImportedFunctionsStats) {
@@ -320,7 +311,22 @@ static bool inlineHistoryIncludes(
 
 #if INTEL_CUSTOMIZATION
 static void collectDtransFuncs(Module &M) {
+
 #if INTEL_INCLUDE_DTRANS
+  // Returns true if “Fn” is empty.
+  auto IsEmptyFunction = [] (Function *Fn) {
+    if (Fn->isDeclaration())
+      return false;
+    for (auto &I : Fn->getEntryBlock()) {
+      if (isa<DbgInfoIntrinsic>(I))
+        continue;
+      if (isa<ReturnInst>(I))
+        return true;
+      break;
+    }
+    return false;
+  };
+
   // Set of SOAToAOS candidates.
   SmallPtrSet<StructType*, 4> SOAToAOSCandidates;
   // Suppress inlining for SOAToAOS candidates.
@@ -364,8 +370,11 @@ static void collectDtransFuncs(Module &M) {
     SOAToAOSCandidates.insert(Str);
     Info.collectFuncs(&SOAToAOSCandidateMethods);
   }
+  // Don’t need to track empty functions for DTrans. Analysis will
+  // be simpler if empty functions are inlined.
   for (Function *F: SOAToAOSCandidateMethods)
-    F->addFnAttr("noinline-dtrans");
+    if (!IsEmptyFunction(F))
+      F->addFnAttr("noinline-dtrans");
 
   SmallSet<Function *, 32> MemInitFuncs;
   // Only SOAToAOS candidates are considered for MemInitTrimDown.
@@ -400,7 +409,8 @@ static void collectDtransFuncs(Module &M) {
   //   1. Member functions of candidate struct
   //   2. Member functions of all candidate array field structs.
   for (Function *F: MemInitFuncs)
-    F->addFnAttr("noinline-dtrans");
+    if (!IsEmptyFunction(F))
+      F->addFnAttr("noinline-dtrans");
 #endif // INTEL_INCLUDE_DTRANS
 }
 #endif // INTEL_CUSTOMIZATION
@@ -448,9 +458,10 @@ inlineCallsImpl(CallGraphSCC &SCC, CallGraph &CG,
                 function_ref<InlineCost(CallBase &CB)> GetInlineCost,
                 function_ref<AAResults &(Function &)> AARGetter,
                 ImportedFunctionsInliningStatistics &ImportedFunctionsStats,
-                InliningLoopInfoCache *ILIC, // INTEL
-                InlineReport& IR,            // INTEL
-                InlineReportBuilder& MDIR) { // INTEL
+                InliningLoopInfoCache *ILIC,  // INTEL
+                WholeProgramInfo *WPI,        // INTEL
+                InlineReport& IR,             // INTEL
+                InlineReportBuilder& MDIR) {  // INTEL
   SmallPtrSet<Function *, 8> SCCFunctions;
   LLVM_DEBUG(dbgs() << "Inliner visiting SCC:");
   for (CallGraphNode *Node : SCC) {
@@ -588,11 +599,19 @@ inlineCallsImpl(CallGraphSCC &SCC, CallGraph &CG,
       // in turn BFI on demand.  With the new PM, the ORE dependency should
       // just become a regular analysis dependency.
       OptimizationRemarkEmitter ORE(Caller);
-
-      auto OIC = shouldInline(CB, GetInlineCost, ORE, &IR); // INTEL
+#if INTEL_CUSTOMIZATION
+      InlineCost IC = shouldInline(CB, GetInlineCost, ORE);
+      if (IC.getIsRecommended()) {
+        IR.setReasonIsInlined(&CB, IC);
+        llvm::setMDReasonIsInlined(&CB, IC);
+      } else {
+        IR.setReasonNotInlined(&CB, IC);
+        llvm::setMDReasonNotInlined(&CB, IC);
+      }
+#endif // INTEL_CUSTOMIZATION
       // If the policy determines that we should inline this function,
       // delete the call instead.
-      if (!OIC)
+      if (!IC.getIsRecommended())  // INTEL
         continue;
 
       // If this call site is dead and it is to a readonly function, we should
@@ -630,8 +649,8 @@ inlineCallsImpl(CallGraphSCC &SCC, CallGraph &CG,
         if (Caller == Callee)
           RecursiveCallCountOld = recursiveCallCount(*Caller);
         InlineResult LIR = inlineCallIfPossible(
-            CB, InlineInfo, &IR, &MDIR, InlinedArrayAllocas, InlineHistoryID,
-            InsertLifetime, AARGetter, ImportedFunctionsStats);
+            CB, InlineInfo, &IR, &MDIR, InlinedArrayAllocas,
+            InlineHistoryID, InsertLifetime, AARGetter, ImportedFunctionsStats);
         InlineReason Reason = LIR.getIntelInlReason();
         if (!LIR.isSuccess()) {
           IR.endUpdate();
@@ -639,7 +658,7 @@ inlineCallsImpl(CallGraphSCC &SCC, CallGraph &CG,
           MDIR.endUpdate();
           llvm::setMDReasonNotInlined(&CB, Reason);
           setInlineRemark(CB, std::string(LIR.getFailureReason()) + "; " +
-                                  inlineCostStr(*OIC));
+                                  inlineCostStr(IC));
 #endif // INTEL_CUSTOMIZATION
           ORE.emit([&]() {
             return OptimizationRemarkMissed(DEBUG_TYPE, "NotInlined", DLoc,
@@ -669,15 +688,13 @@ inlineCallsImpl(CallGraphSCC &SCC, CallGraph &CG,
           if (RecursiveCallCountNew > RecursiveCallCountOld)
             Caller->addFnAttr("no-more-recursive-inlining");
         }
+        ILIC->invalidateFunction(Caller);
+        emitInlinedInto(ORE, DLoc, Block, *Callee, *Caller, IC);
+        IR.inlineCallSite();
+        IR.endUpdate();
+        MDIR.updateInliningReport();
+        MDIR.endUpdate();
 #endif // INTEL_CUSTOMIZATION
-        ILIC->invalidateFunction(Caller); // INTEL
-
-        emitInlinedInto(ORE, DLoc, Block, *Callee, *Caller, *OIC);
-
-        IR.inlineCallSite();           // INTEL
-        IR.endUpdate();                // INTEL
-        MDIR.updateInliningReport();   // INTEL
-        MDIR.endUpdate();              // INTEL
         // If inlining this function gave us any new call sites, throw them
         // onto our worklist to process.  They are useful inline candidates.
         if (!InlineInfo.InlinedCalls.empty()) {
@@ -765,6 +782,11 @@ bool LegacyInlinerBase::inlineCalls(CallGraphSCC &SCC) {
   CallGraph &CG = getAnalysis<CallGraphWrapperPass>().getCallGraph();
   ACT = &getAnalysis<AssumptionCacheTracker>();
   PSI = &getAnalysis<ProfileSummaryInfoWrapperPass>().getPSI();
+#if INTEL_CUSTOMIZATION
+  WholeProgramWrapperPass *WPA
+      = getAnalysisIfAvailable<WholeProgramWrapperPass>();
+  WPI = WPA ? &WPA->getResult() : nullptr;
+#endif // INTEL_CUSTOMIZATION
   GetTLI = [&](Function &F) -> const TargetLibraryInfo & {
     return getAnalysis<TargetLibraryInfoWrapperPass>().getTLI(F);
   };
@@ -776,7 +798,7 @@ bool LegacyInlinerBase::inlineCalls(CallGraphSCC &SCC) {
   bool rv = inlineCallsImpl(      // INTEL
       SCC, CG, GetAssumptionCache, PSI, GetTLI, InsertLifetime,
       [&](CallBase &CB) { return getInlineCost(CB); }, LegacyAARGetter(*this),
-      ImportedFunctionsStats, ILIC, getReport(), getMDReport()); // INTEL
+      ImportedFunctionsStats, ILIC, WPI, getReport(), getMDReport()); // INTEL
   delete ILIC;    // INTEL
   ILIC = nullptr; // INTEL
   return rv;      // INTEL
@@ -790,7 +812,7 @@ bool LegacyInlinerBase::doFinalization(CallGraph &CG) {
                                 InlinerFunctionImportStatsOpts::Verbose);
 #if INTEL_CUSTOMIZATION
   bool ReturnValue = removeDeadFunctions(CG);
-  getReport().print();
+  getReport().print(/*IsAlwaysInline=*/false);
   return ReturnValue;
 #endif // INTEL_CUSTOMIZATION
 }
@@ -908,7 +930,7 @@ InlinerPass::~InlinerPass() {
   }
 #if INTEL_CUSTOMIZATION
   if (!Report.isEmpty())
-    Report.print();
+    Report.print(/*IsAlwaysInline=*/false);
 #endif  // INTEL_CUSTOMIZATION
 }
 
@@ -945,6 +967,8 @@ PreservedAnalyses InlinerPass::run(LazyCallGraph::SCC &InitialC,
   assert(InitialC.size() > 0 && "Cannot handle an empty SCC!");
   Module &M = *InitialC.begin()->getFunction().getParent();
   ProfileSummaryInfo *PSI = MAMProxy.getCachedResult<ProfileSummaryAnalysis>(M);
+  WholeProgramInfo *WPI                                         // INTEL
+      = MAMProxy.getCachedResult<WholeProgramAnalysis>(M);      // INTEL
   CG.registerCGReport(&Report); // INTEL
   CG.registerCGReport(MDReport); // INTEL
 
@@ -1083,7 +1107,9 @@ PreservedAnalyses InlinerPass::run(LazyCallGraph::SCC &InitialC,
     LazyCallGraph::Node &N = *CG.lookup(F);
     if (CG.lookupSCC(N) != C)
       continue;
-    if (F.hasOptNone()) {
+    if (!Calls[I].first->getCalledFunction()->hasFnAttribute(
+            Attribute::AlwaysInline) &&
+        F.hasOptNone()) {
       setInlineRemark(*Calls[I].first, "optnone attribute");
       continue;
     }
@@ -1124,16 +1150,22 @@ PreservedAnalyses InlinerPass::run(LazyCallGraph::SCC &InitialC,
         setInlineRemark(*CB, "recursive SCC split");
         continue;
       }
-
-      auto Advice = Advisor.getAdvice(*CB, ILIC, &Report); // INTEL
+      InlineCost *IC = nullptr; // INTEL
+      auto Advice = Advisor.getAdvice(*CB, ILIC, WPI, &IC); // INTEL
       // Check whether we want to inline this callsite.
       if (!Advice->isInliningRecommended()) {
         Advice->recordUnattemptedInlining();
+        Report.setReasonNotInlined(CB, *IC);   // INTEL
+        llvm::setMDReasonNotInlined(CB, *IC);  // INTEL
         continue;
       }
 
-      Report.beginUpdate(CB);              // INTEL
-      MDReport->beginUpdate(CB);           // INTEL
+#if INTEL_CUSTOMIZATION
+      Report.beginUpdate(CB);
+      MDReport->beginUpdate(CB);
+      Report.setReasonIsInlined(CB, *IC);
+      llvm::setMDReasonIsInlined(CB, *IC);
+#endif // INTEL_CUSTOMIZATION
 
       // Setup the data structure used to plumb customization into the
       // `InlineFunction` routine.
@@ -1148,13 +1180,18 @@ PreservedAnalyses InlinerPass::run(LazyCallGraph::SCC &InitialC,
       unsigned RecursiveCallCountOld = 0;
       if (&Caller == &Callee)
         RecursiveCallCountOld = recursiveCallCount(Caller);
+      InlineResult IR = InlineFunction(*CB, IFI, &Report, MDReport);
 #endif // INTEL_CUSTOMIZATION
-      InlineResult IR = InlineFunction(*CB, IFI, &Report, MDReport); // INTEL
-      InlineReason Reason = IR.getIntelInlReason();                  // INTEL
 
       if (!IR.isSuccess()) {
-        Advice->recordUnsuccessfulInlining(IR, &Reason, &Report, // INTEL
-                                           MDReport);            // INTEL
+        Advice->recordUnsuccessfulInlining(IR);
+#if INTEL_CUSTOMIZATION
+        InlineReason Reason = IR.getIntelInlReason();
+        Report.setReasonNotInlined(CB, Reason);
+        Report.endUpdate();
+        llvm::setMDReasonNotInlined(CB, Reason);
+        MDReport->endUpdate();
+#endif // INTEL_CUSTOMIZATION
         continue;
       }
 
@@ -1178,16 +1215,18 @@ PreservedAnalyses InlinerPass::run(LazyCallGraph::SCC &InitialC,
         if (RecursiveCallCountNew > RecursiveCallCountOld)
           Caller.addFnAttr("no-more-recursive-inlining");
       }
+      ILIC->invalidateFunction(&Caller);
 #endif // INTEL_CUSTOMIZATION
 
-      ILIC->invalidateFunction(&Caller); // INTEL
       InlinedCallees.insert(&Callee);
       ++NumInlined;
 
-      Report.inlineCallSite();          // INTEL
-      Report.endUpdate();               // INTEL
-      MDReport->updateInliningReport(); // INTEL
-      MDReport->endUpdate();            // INTEL
+#if INTEL_CUSTOMIZATION
+      Report.inlineCallSite();
+      Report.endUpdate();
+      MDReport->updateInliningReport();
+      MDReport->endUpdate();
+#endif // INTEL_CUSTOMIZATION
 
       // Add any new callsites to defined functions to the worklist.
       if (!IFI.InlinedCallSites.empty()) {

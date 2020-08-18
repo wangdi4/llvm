@@ -50,7 +50,6 @@ enum class Style {
 } // end namespace PICStyles
 
 class X86Subtarget final : public X86GenSubtargetInfo {
-public:
   // NOTE: Do not add anything new to this list. Coarse, CPU name based flags
   // are not a good idea. We should be migrating away from these.
   enum X86ProcFamilyEnum {
@@ -59,7 +58,6 @@ public:
     IntelSLM
   };
 
-protected:
   enum X86SSEEnum {
     NoSSE, SSE1, SSE2, SSE3, SSSE3, SSE41, SSE42, AVX, AVX2, AVX512F
   };
@@ -197,8 +195,8 @@ protected:
   /// Processor has RDSEED instructions.
   bool HasRDSEED = false;
 
-  /// Processor has LAHF/SAHF instructions.
-  bool HasLAHFSAHF = false;
+  /// Processor has LAHF/SAHF instructions in 64-bit mode.
+  bool HasLAHFSAHF64 = false;
 
   /// Processor has MONITORX/MWAITX instructions.
   bool HasMWAITX = false;
@@ -386,9 +384,6 @@ protected:
   /// Processor has AVX-512 vp2intersect instructions
   bool HasVP2INTERSECT = false;
 
-  /// Deprecated flag for MPX instructions.
-  bool DeprecatedHasMPX = false;
-
   /// Processor supports CET SHSTK - Control-Flow Enforcement Technology
   /// using Shadow Stack
   bool HasSHSTK = false;
@@ -430,12 +425,13 @@ protected:
   bool HasHRESET = false;
 #endif // INTEL_FEATURE_ISA_HRESET
 
-#if INTEL_FEATURE_ISA_AMX
-  /// Processor has AMX support
-  bool HasAMXTILE = false;
-  bool HasAMXBF16 = false;
-  bool HasAMXINT8 = false;
-#endif // INTEL_FEATURE_ISA_AMX
+#if INTEL_FEATURE_ISA_AMX_BF8
+  bool HasAMXBF8 = false;
+#endif // INTEL_FEATURE_ISA_AMX_BF8
+#if INTEL_FEATURE_ISA_AMX_MEMADVISE
+  bool HasAMXMEMADVISE = false;
+#endif // INTEL_FEATURE_ISA_AMX_MEMADVISE
+
 #if INTEL_FEATURE_ISA_AMX_FUTURE
   bool HasAMXELEMENT = false;
   bool HasAMXREDUCE = false;
@@ -496,6 +492,15 @@ protected:
   bool HasAVXCOMPRESS = false;
 #endif // INTEL_FEATURE_ISA_AVX_COMPRESS
 
+#if INTEL_FEATURE_ISA_AVX_MEMADVISE
+  bool HasAVXMEMADVISE = false;
+  bool HasAVX512MEMADVISE = false;
+#endif // INTEL_FEATURE_ISA_AVX_MEMADVISE
+
+#if INTEL_FEATURE_ISA_AVX_MPSADBW
+  bool HasAVX512MPSADBW = false;
+#endif // INTEL_FEATURE_ISA_AVX_MPSADBW
+
 #if INTEL_FEATURE_ISA_AVX512_DOTPROD_INT8
   bool HasAVX512DOTPRODINT8 = false;
 #endif // INTEL_FEATURE_ISA_AVX512_DOTPROD_INT8
@@ -514,6 +519,11 @@ protected:
 
   /// Processor supports TSXLDTRK instruction
   bool HasTSXLDTRK = false;
+
+  /// Processor has AMX support
+  bool HasAMXTILE = false;
+  bool HasAMXBF16 = false;
+  bool HasAMXINT8 = false;
 
   /// Processor has a single uop BEXTR implementation.
   bool HasFastBEXTR = false;
@@ -549,6 +559,9 @@ protected:
   /// POP+LFENCE+JMP sequence.
   bool UseLVIControlFlowIntegrity = false;
 
+  /// Enable Speculative Execution Side Effect Suppression
+  bool UseSpeculativeExecutionSideEffectSuppression = false;
+
   /// Insert LFENCE instructions to prevent data speculatively injected into
   /// loads from being used maliciously.
   bool UseLVILoadHardening = false;
@@ -576,9 +589,6 @@ protected:
 
   /// Indicates target prefers AVX512 mask registers.
   bool PreferMaskRegisters = false;
-
-  /// Threeway branch is profitable in this subtarget.
-  bool ThreewayBranchProfitable = false;
 
 #if INTEL_CUSTOMIZATION
   /// Processor supports Decoded Stream Buffer.
@@ -614,24 +624,20 @@ private:
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ICECODE
   /// True if compiling for IceCode, false for 16-bit, 32-bit or 64-bit.
-  bool InIceCodeMode;
+  bool InIceCodeMode = false;
 
   /// True if compiling for 64-bit or IceCode, false for 16-bit or 32-bit.
 #else // INTEL_FEATURE_ICECODE
   /// True if compiling for 64-bit, false for 16-bit or 32-bit.
 #endif // INTEL_FEATURE_ICECODE
 #endif // INTEL_CUSTOMIZATION
-  bool In64BitMode;
+  bool In64BitMode = false;
 
   /// True if compiling for 32-bit, false for 16-bit or 64-bit.
-  bool In32BitMode;
+  bool In32BitMode = false;
 
   /// True if compiling for 16-bit, false for 32-bit or 64-bit.
-  bool In16BitMode;
-
-  /// Contains the Overhead of gather\scatter instructions
-  int GatherOverhead = 1024;
-  int ScatterOverhead = 1024;
+  bool In16BitMode = false;
 
   X86SelectionDAGInfo TSInfo;
   // Ordering here is important. X86InstrInfo initializes X86RegisterInfo which
@@ -786,8 +792,15 @@ public:
   bool hasRTM() const { return HasRTM; }
   bool hasADX() const { return HasADX; }
   bool hasSHA() const { return HasSHA; }
-  bool hasPRFCHW() const { return HasPRFCHW || HasPREFETCHWT1; }
+  bool hasPRFCHW() const { return HasPRFCHW; }
   bool hasPREFETCHWT1() const { return HasPREFETCHWT1; }
+  bool hasPrefetchW() const {
+    // The PREFETCHW instruction was added with 3DNow but later CPUs gave it
+    // its own CPUID bit as part of deprecating 3DNow. Intel eventually added
+    // it and KNL has another that prefetches to L2 cache. We assume the
+    // L1 version exists if the L2 version does.
+    return has3DNow() || hasPRFCHW() || hasPREFETCHWT1();
+  }
   bool hasSSEPrefetch() const {
     // We implicitly enable these when we have a write prefix supporting cache
     // level OR if we have prfchw, but don't already have a read prefetch from
@@ -795,7 +808,7 @@ public:
     return hasSSE1() || (hasPRFCHW() && !has3DNow()) || hasPREFETCHWT1();
   }
   bool hasRDSEED() const { return HasRDSEED; }
-  bool hasLAHFSAHF() const { return HasLAHFSAHF; }
+  bool hasLAHFSAHF() const { return HasLAHFSAHF64 || !is64Bit(); }
   bool hasMWAITX() const { return HasMWAITX; }
   bool hasCLZERO() const { return HasCLZERO; }
   bool hasCLDEMOTE() const { return HasCLDEMOTE; }
@@ -807,8 +820,6 @@ public:
   bool isPMADDWDSlow() const { return IsPMADDWDSlow; }
   bool isUnalignedMem16Slow() const { return IsUAMem16Slow; }
   bool isUnalignedMem32Slow() const { return IsUAMem32Slow; }
-  int getGatherOverhead() const { return GatherOverhead; }
-  int getScatterOverhead() const { return ScatterOverhead; }
   bool hasSSEUnalignedMem() const { return HasSSEUnalignedMem; }
   bool hasCmpxchg16b() const { return HasCmpxchg16b && is64Bit(); }
   bool useLeaForSP() const { return UseLeaForSP; }
@@ -868,7 +879,6 @@ public:
   bool hasWAITPKG() const { return HasWAITPKG; }
   bool hasPCONFIG() const { return HasPCONFIG; }
   bool hasSGX() const { return HasSGX; }
-  bool threewayBranchProfitable() const { return ThreewayBranchProfitable; }
 #if INTEL_CUSTOMIZATION
   bool hasDSB() const { return HasDSB; }
   // In SKL, DSB window size is 64B. It is implemented as 2 DSBs of 32B each
@@ -895,11 +905,12 @@ public:
     return UseRetpolineIndirectBranches;
   }
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_AMX
-  bool hasAMXTILE() const { return HasAMXTILE; }
-  bool hasAMXBF16() const { return HasAMXBF16; }
-  bool hasAMXINT8() const { return HasAMXINT8; }
-#endif // INTEL_FEATURE_ISA_AMX
+#if INTEL_FEATURE_ISA_AMX_BF8
+  bool hasAMXBF8() const { return HasAMXBF8; }
+#endif // INTEL_FEATURE_ISA_AMX_BF8
+#if INTEL_FEATURE_ISA_AMX_MEMADVISE
+  bool hasAMXMEMADVISE() const { return HasAMXMEMADVISE; }
+#endif // INTEL_FEATURE_ISA_AMX_MEMADVISE
 #if INTEL_FEATURE_ISA_AMX_FUTURE
   bool hasAMXELEMENT() const { return HasAMXELEMENT; }
   bool hasAMXREDUCE() const { return HasAMXREDUCE; }
@@ -961,7 +972,17 @@ public:
 #if INTEL_FEATURE_ISA_AVX_COMPRESS
   bool hasAVXCOMPRESS() const { return HasAVXCOMPRESS; }
 #endif // INTEL_FEATURE_ISA_AVX_COMPRESS
+#if INTEL_FEATURE_ISA_AVX_MEMADVISE
+  bool hasAVXMEMADVISE() const { return HasAVXMEMADVISE; }
+  bool hasAVX512MEMADVISE() const { return HasAVX512MEMADVISE; }
+#endif // INTEL_FEATURE_ISA_AVX_MEMADVISE
+#if INTEL_FEATURE_ISA_AVX_MPSADBW
+  bool hasAVX512MPSADBW() const { return HasAVX512MPSADBW; }
+#endif // INTEL_FEATURE_ISA_AVX_MPSADBW
 #endif // INTEL_CUSTOMIZATION
+  bool hasAMXTILE() const { return HasAMXTILE; }
+  bool hasAMXBF16() const { return HasAMXBF16; }
+  bool hasAMXINT8() const { return HasAMXINT8; }
   bool useRetpolineExternalThunk() const { return UseRetpolineExternalThunk; }
 
   // These are generic getters that OR together all of the thunk types
@@ -978,6 +999,9 @@ public:
   bool useGLMDivSqrtCosts() const { return UseGLMDivSqrtCosts; }
   bool useLVIControlFlowIntegrity() const { return UseLVIControlFlowIntegrity; }
   bool useLVILoadHardening() const { return UseLVILoadHardening; }
+  bool useSpeculativeExecutionSideEffectSuppression() const {
+    return UseSpeculativeExecutionSideEffectSuppression;
+  }
 
   unsigned getPreferVectorWidth() const { return PreferVectorWidth; }
   unsigned getRequiredVectorWidth() const { return RequiredVectorWidth; }
@@ -1004,8 +1028,6 @@ public:
   }
 
   bool isXRaySupported() const override { return is64Bit(); }
-
-  X86ProcFamilyEnum getProcFamily() const { return X86ProcFamily; }
 
   /// TODO: to be removed later and replaced with suitable properties
   bool isAtom() const { return X86ProcFamily == IntelAtom; }

@@ -222,7 +222,7 @@ VPValue *VPDecomposerHIR::decomposeIV(RegDDRef *RDDR, CanonExpr *CE,
   if (Ty != IVTy) {
     assert(Ty->isIntegerTy() && "Expected integer type");
     if (Ty->getPrimitiveSizeInBits() > IVTy->getPrimitiveSizeInBits()) {
-      bool IsNSW = OutermostHLp->isNSW();
+      bool IsNSW = OutermostHLp->hasSignedIV();
       VPIndVar = IsNSW ? decomposeConversion(VPIndVar, Instruction::SExt, Ty)
                        : decomposeConversion(VPIndVar, Instruction::ZExt, Ty);
     } else
@@ -349,11 +349,18 @@ VPValue *VPDecomposerHIR::decomposeCanonExpr(RegDDRef *RDDR, CanonExpr *CE) {
   // we support this in future.
   bool InvariantWithoutIV = false;
 
+  // If the loop-level is max loop-nest level, then there are no more inner
+  // loops to check.
+  bool IsInvariantAtInnerLoopLevel =
+      VecLoopLevel == loopopt::MaxLoopNestLevel
+          ? true
+          : CE->isInvariantAtLevel(VecLoopLevel + 1);
+
   // The canon expression is a candidate if we are not forcing regular
   // decomposition for this canon expression, it is linear at vec loop level and
   // invariant at any inner loop level.
   if (!ForceRegularDecomposition && CE->isLinearAtLevel(VecLoopLevel) &&
-      CE->isInvariantAtLevel(VecLoopLevel + 1)) {
+      IsInvariantAtInnerLoopLevel) {
     auto *CEClone = CE->clone();
     processIVRemoval(CEClone, VecLoopLevel);
     assert(CEClone->isInvariantAtLevel(VecLoopLevel) &&
@@ -767,19 +774,6 @@ VPDecomposerHIR::createVPInstruction(HLNode *Node,
   assert(Node && "Expected Node to create a VPInstruction.");
   assert(!isa<HLLoop>(Node) && "HLLoop shouldn't be processed here!");
 
-  if (auto *Goto = dyn_cast<HLGoto>(Node)) {
-    // Create new branch instruction
-    ScopeDbgLoc DbgLoc(Builder, Goto->getDebugLoc());
-    Type *BaseTy = Type::getInt1Ty(*Plan->getLLVMContext());
-    VPBranchInst *T = Builder.createBr(BaseTy, Goto);
-
-    // Remove unnecessary existing terminator
-    VPBasicBlock *BB = Builder.getInsertBlock();
-    BB->removeInstruction(BB->getTerminator());
-
-    return T;
-  }
-
   // Create VPCmpInst for HLInst representing a CmpInst.
   VPInstruction *NewVPInst;
   auto DDNode = cast<HLDDNode>(Node);
@@ -936,7 +930,8 @@ VPDecomposerHIR::createVPInstruction(HLNode *Node,
       }
 
       if (OutermostHLp->isLiveOut(LvalDDR->getSymbase())) {
-        VPExternalUse *User = Plan->getVPExternalUseForDDRef(LvalDDR);
+        VPExternalUse *User =
+            Plan->getExternals().getOrCreateVPExternalUseForDDRef(LvalDDR);
         User->addOperand(NewVPInst);
       }
     } else if (RegDDRef *RvalDDR = HInst->getRvalDDRef())
@@ -1534,6 +1529,25 @@ void VPDecomposerHIR::fixPhiNodes() {
   if (PhisToFix.empty())
     return;
 
+  // If the Symbase corresponding to a PHI is live-out then make the PHI
+  // live-out by creating a VPExternalUse for it. This may not be completely
+  // accurate since there could be post-dominating VPInstructions updating the
+  // same Symbase. This will however be handled by fixExternalUses transform at
+  // end of decomposer.
+  for (auto PhiIt : PhisToFix) {
+    unsigned Sym = PhiIt.first.second;
+    if (OutermostHLp->isLiveOut(Sym)) {
+      VPPHINode *Phi = PhiIt.second.first;
+      DDRef *DDR = PhiIt.second.second;
+      if (DDR == nullptr)
+        DDR = getDDRefForTrackedSymbase(Sym);
+      assert(DDR && "Sink DDRef for tracked symbase not found.");
+      VPExternalUse *ExtUser =
+          Plan->getExternals().getOrCreateVPExternalUseForDDRef(DDR);
+      ExtUser->addOperand(Phi);
+    }
+  }
+
   // Preparations for fixPhiNodePass
 
   // 1. Make sure that all new PHI nodes added by decomposition are moved to the
@@ -1834,6 +1848,52 @@ void VPDecomposerHIR::fixPhiNodePass(
   }
 }
 
+// Post-processing initial VPlan CFG to fix VPExternalUses that were created for
+// live-out VPInstructions during decomposition. In HIR every VPExternalUse is
+// tied to a unique temp/symbase, so it is expected to have only one live-out
+// VPInstruction as operand. We use VPlan's PostDomTree to find out this single
+// post-dominating live-out VPInstruction for given ExternalUse and fix its
+// operands accordingly.
+void VPDecomposerHIR::fixExternalUses() {
+  Plan->computePDT();
+  const VPPostDominatorTree *PDT = Plan->getPDT();
+
+  for (auto *ExtUse : Plan->getExternals().getVPExternalUsesHIR()) {
+    // If VPExternalUse already has just one operand, then nothing to do.
+    if (ExtUse->getNumOperands() == 1)
+      continue;
+
+    // Track index of VPExternalUse's operand that post-dominates all other
+    // operands.
+    int PostDomOpIdx = -1;
+    for (unsigned Idx = 0; Idx < ExtUse->getNumOperands(); ++Idx) {
+      auto *CurrInst = cast<VPInstruction>(ExtUse->getOperand(Idx));
+      bool PostDominates =
+          llvm::all_of(ExtUse->operands(), [PDT, CurrInst](VPValue *Op) {
+            return PDT->dominates(CurrInst, cast<VPInstruction>(Op));
+          });
+
+      if (PostDominates) {
+        assert(PostDomOpIdx == -1 &&
+               "Multiple post-dominating operands for VPExternalUse.");
+        PostDomOpIdx = Idx;
+      }
+    }
+
+    if (PostDomOpIdx == -1) {
+      // Could not find any post-dominating operands for VPExternalUse. This can
+      // happen for search loops and for live-out symbases without any uses
+      // inside the loop. Check JIRA : CMPLRLLVM-21456.
+      return;
+    }
+
+    // Cache the post-dominating operand to be used after clearing operand list.
+    VPValue *PostDomOp = ExtUse->getOperand(PostDomOpIdx);
+    ExtUse->removeAllOperands();
+    ExtUse->addOperand(PostDomOp);
+  }
+}
+
 VPInstruction *
 VPDecomposerHIR::createVPInstructionsForNode(HLNode *Node,
                                              VPBasicBlock *InsPointVPBB) {
@@ -1843,6 +1903,11 @@ VPDecomposerHIR::createVPInstructionsForNode(HLNode *Node,
   // visited Node when we shouldn't, breaking the RPO traversal order.
   assert((isa<HLGoto>(Node) || !HLDef2VPValue.count(cast<HLDDNode>(Node))) &&
          "Node shouldn't have been visited.");
+
+  // Don't need to create any new instructions for Goto nodes -- can use
+  // existing terminator instead.
+  if (isa<HLGoto>(Node))
+    return InsPointVPBB->getTerminator();
 
   // Set the insertion point in the builder for the VPInstructions that we are
   // going to create for this Node.

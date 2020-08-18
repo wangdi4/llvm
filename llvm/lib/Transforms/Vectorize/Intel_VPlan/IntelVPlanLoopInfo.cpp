@@ -57,7 +57,7 @@ void TripCountInfo::calculateEstimatedTripCount() {
 }
 
 bool VPLoop::isDefOutside(const VPValue *VPVal) const {
-  if (isa<VPExternalDef>(VPVal))
+  if (isa<VPExternalDef>(VPVal) || isa<VPLiveInValue>(VPVal))
     return true;
   if (auto *VPInst = dyn_cast<VPInstruction>(VPVal))
     return !contains(VPInst);
@@ -68,7 +68,7 @@ bool VPLoop::isLiveOut(const VPInstruction* VPInst) const {
   if (!contains(VPInst))
     return false;
   for (const VPUser *U : VPInst->users()) {
-    if (isa<VPExternalUse>(U))
+    if (isa<VPExternalUse>(U) || isa<VPLiveOutValue>(U))
       return true;
     if (!contains(cast<VPInstruction>(U)))
       return true;
@@ -76,10 +76,53 @@ bool VPLoop::isLiveOut(const VPInstruction* VPInst) const {
   return false;
 }
 
+// Check that 'BB' doesn't have any uses outside of the 'L'
+//
+// Unlike LLVM's version of this we don't allow unreachable blocks, so DT check
+// isn't used here. Also, we have VPUsers that aren't VPInstruction, that
+// required some modifications as well.
+static bool isBlockInLCSSAForm(const VPLoop &L, const VPBasicBlock &BB) {
+  for (const VPInstruction &I : BB) {
+    // Tokens can't be used in PHI nodes and live-out tokens prevent loop
+    // optimizations, so for the purposes of considered LCSSA form, we
+    // can ignore them.
+    if (I.getType()->isTokenTy())
+      continue;
+
+    for (const VPUser *U : I.users()) {
+      const auto *UI = dyn_cast<VPInstruction>(U);
+      if (!UI)
+        return false;
+
+      const VPBasicBlock *UserBB = UI->getParent();
+      if (const auto *P = dyn_cast<VPPHINode>(UI))
+        UserBB = P->getIncomingBlock(&I);
+
+      // Check the current block, as a fast-path, before checking whether
+      // the use is anywhere in the loop.  Most values are used in the same
+      // block they are defined in.
+      if (UserBB != &BB && !L.contains(UserBB))
+        return false;
+    }
+  }
+  return true;
+}
+
+bool VPLoop::isLCSSAForm() const {
+  return all_of(this->blocks(), [this](const VPBasicBlock *BB) {
+    return isBlockInLCSSAForm(*this, *BB);
+  });
+}
+
+bool VPLoop::isRecursivelyLCSSAForm(const VPLoopInfo &LI) const {
+  return all_of(this->blocks(), [&LI](const VPBasicBlock *BB) {
+    return isBlockInLCSSAForm(*LI.getLoopFor(BB), *BB);
+  });
+}
+
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
-void VPLoop::printRPOT(raw_ostream &OS, const VPLoopInfo *VPLI, unsigned Indent,
-                       const VPlanDivergenceAnalysis *DA,
-                       const VPlanScalVecAnalysis *SVA) const {
+void VPLoop::printRPOT(raw_ostream &OS, const VPLoopInfo *VPLI,
+                       unsigned Indent) const {
   ReversePostOrderTraversal<
       const VPLoop *, VPLoopBodyTraits,
       std::set<std::pair<const VPLoop *, const VPBasicBlock *>>>
@@ -104,7 +147,7 @@ void VPLoop::printRPOT(raw_ostream &OS, const VPLoopInfo *VPLI, unsigned Indent,
       BBIndent +=
           (this->getLoopDepth() - VPLI->getLoopFor(BB)->getLoopDepth()) * 2;
 
-    BB->print(OS, BBIndent, DA, SVA, NamePrefix);
+    BB->print(OS, BBIndent, NamePrefix);
   }
   OS << "\n";
 }

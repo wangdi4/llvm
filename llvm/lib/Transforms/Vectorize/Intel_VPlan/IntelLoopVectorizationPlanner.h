@@ -115,7 +115,7 @@ public:
   void predicate(void);
 
   /// Insert all-zero bypasses for \p Plan.
-  void insertAllZeroBypasses(VPlan *Plan);
+  void insertAllZeroBypasses(VPlan *Plan, unsigned VF);
 
   /// Perform VPlan loop unrolling if needed
   void
@@ -131,7 +131,7 @@ public:
 
   VPlan *getVPlanForVF(unsigned VF) const {
     auto It = VPlans.find(VF);
-    return It != VPlans.end() ? It->second.get() : nullptr;
+    return It != VPlans.end() ? It->second.MainPlan.get() : nullptr;
   }
 
   VPlan *getScalarVPlan(void) const { return getVPlanForVF(1); }
@@ -141,6 +141,11 @@ public:
   auto getAllVPlans() const {
     return make_range(VPlans.begin(), VPlans.end());
   }
+
+  struct VPlanPair {
+    std::shared_ptr<VPlan> MainPlan;
+    std::shared_ptr<VPlan> MaskedModeLoop;
+  };
 
 protected:
   /// Build an initial VPlan according to the information gathered by Legal
@@ -152,12 +157,14 @@ protected:
   // class.
   virtual std::shared_ptr<VPlan> buildInitialVPlan(unsigned StartRangeVF,
                                                    unsigned &EndRangeVF,
-                                                   LLVMContext *Context,
-                                                   const DataLayout *DL);
+                                                   VPExternalValues &Ext);
 
   /// \Returns a pair of the <min, max> types' width used in the underlying loop.
   /// Doesn't take into account i1 type.
   virtual std::pair<unsigned, unsigned> getTypesWidthRangeInBits() const;
+
+  /// Create VPLiveIn/VPLiveOut lists for VPEntities.
+  virtual void createLiveInOutLists(VPlan &Plan);
 
   /// WRegion info of the loop we evaluate. It can be null.
   WRNVecLoopNode *WRLp;
@@ -189,6 +196,9 @@ protected:
   };
   unsigned BestVF = 0;
   unsigned BestUF = 0;
+
+  // Storage for common external data (VPExternalDefs, Uses, Consts etc).
+  std::unique_ptr<VPExternalValues> Externals;
 
 private:
   /// Determine whether \p I will be scalarized in a given range of VFs.
@@ -224,7 +234,7 @@ private:
   // InnerLoopVectorizer *ILV = nullptr;
 
   /// VPlans are shared between VFs, use smart pointers.
-  DenseMap<unsigned, std::shared_ptr<VPlan>> VPlans;
+  DenseMap<unsigned, VPlanPair> VPlans;
 };
 
 } // namespace vpo

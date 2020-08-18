@@ -1,4 +1,4 @@
-; RUN: opt < %s -switch-to-offload=true -vpo-paropt  -S | FileCheck %s
+; RUN: opt < %s -switch-to-offload -vpo-paropt  -S | FileCheck %s
 ; RUN: opt < %s -passes='vpo-paropt' -switch-to-offload  -S | FileCheck %s
 ;
 ; #include <iostream>

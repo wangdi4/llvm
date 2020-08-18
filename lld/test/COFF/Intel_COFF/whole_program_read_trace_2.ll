@@ -2,10 +2,10 @@
 ; This test checks that whole program read was achieved even if the
 ; definition of @sub is in another compilation unit.
 
-; RUN: llvm-as -o %T/wpt2.bc %s
-; RUN: llc %p/Inputs/whole_program_read_2_sub.ll -o %T/wpt2_sub.obj \
+; RUN: llvm-as -o %t_wpt2.bc %s
+; RUN: llc %p/Inputs/whole_program_read_2_sub.ll -o %t_wpt2_sub.obj \
 ; RUN:          -filetype=obj
-; RUN: lld-link /out:%T/wpt2.exe /entry:main %T/wpt2.bc %T/wpt2_sub.obj /subsystem:console  \
+; RUN: lld-link /out:%t_wpt2.exe /entry:main %t_wpt2.bc %t_wpt2_sub.obj /subsystem:console  \
 ; RUN:     /mllvm:-debug-only=whole-program-analysis \
 ; RUN:     /mllvm:-whole-program-read-trace \
 ; RUN:     2>&1 | FileCheck %s

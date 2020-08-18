@@ -452,11 +452,14 @@ void VPOParoptModuleTransform::replaceSincosWithOCLBuiltin(Function *F,
 // do necessary code cleanup (f.e. remove functions/globals which should not be
 // generated for the target).
 bool VPOParoptModuleTransform::doParoptTransforms(
-    std::function<vpo::WRegionInfo &(Function &F)> WRegionInfoGetter,
+    std::function<vpo::WRegionInfo &(Function &F, bool *Changed)>
+        WRegionInfoGetter,
     std::function<TargetLibraryInfo &(Function &F)> TLIGetter) {
 
   bool Changed = false;
-  bool IsTargetSPIRV = VPOAnalysisUtils::isTargetSPIRV(&M) && !DisableOffload;
+  bool IsTargetSPIRV = VPOAnalysisUtils::isTargetSPIRV(&M);
+  assert((!DisableOffload || !IsTargetSPIRV) &&
+         "Compilation for SPIR-V target without -fopenmp-targets?");
 
   processDeviceTriples();
 
@@ -515,8 +518,12 @@ bool VPOParoptModuleTransform::doParoptTransforms(
     LLVM_DEBUG(dbgs() << "\n=== VPOParoptPass Process func: " << F->getName()
                       << " {\n");
 
-    if ((Mode & OmpPar) && (Mode & ParTrans)) {
-      Changed |= VPOUtils::removeBranchesFromBeginToEndDirective(*F);
+    WRegionInfo &WI = WRegionInfoGetter(*F, &Changed);
+
+    if (Mode & ParTrans) {
+      auto *DT = WI.getDomTree();
+      auto *TLI = WI.getTargetLibraryInfo();
+      Changed |= VPOUtils::removeBranchesFromBeginToEndDirective(*F, TLI, DT);
       if (Changed)
         LLVM_DEBUG(
             dbgs()
@@ -525,7 +532,6 @@ bool VPOParoptModuleTransform::doParoptTransforms(
     }
 
     // Walk the W-Region Graph top-down, and create W-Region List
-    WRegionInfo &WI = WRegionInfoGetter(*F);
     WI.buildWRGraph();
 
     if (WI.WRGraphIsEmpty()) {
@@ -553,7 +559,7 @@ bool VPOParoptModuleTransform::doParoptTransforms(
 #if INTEL_CUSTOMIZATION
         ORVerbosity,
 #endif // INTEL_CUSTOMIZATION
-        WI.getORE(), OptLevel, SwitchToOffload, DisableOffload);
+        WI.getORE(), OptLevel, DisableOffload);
     Changed = Changed | VP.paroptTransforms();
 
     LLVM_DEBUG(dbgs() << "\n}=== VPOParoptPass after ParoptTransformer\n");

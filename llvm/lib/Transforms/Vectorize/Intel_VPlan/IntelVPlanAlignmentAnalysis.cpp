@@ -109,6 +109,7 @@ VPlanPeelingCandidate::VPlanPeelingCandidate(VPInstruction *Memref,
 void VPlanPeelingAnalysis::collectMemrefs(VPlan &Plan) {
   collectCandidateMemrefs(Plan);
   computeCongruentMemrefs();
+  LLVM_DEBUG(dump());
 }
 
 std::unique_ptr<VPlanPeelingVariant>
@@ -332,4 +333,70 @@ void VPlanPeelingAnalysis::computeCongruentMemrefs() {
 
     StepBegin = StepEnd;
   }
+}
+
+void VPlanPeelingAnalysis::dump() {
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+  dbgs() << "\nVPlanPeelingAnalysis Candidate Memrefs:\n";
+
+  for (auto &Mrf : CandidateMemrefs) {
+    // Print the memref.
+    dbgs() << '[' << Mrf.memref() << "] ";
+    Mrf.memref()->printWithoutAnalyses(dbgs());
+
+    // Print 8 low (known) bits.
+    dbgs() << " | KB = 0b";
+    const KnownBits &KB = Mrf.invariantBaseKnownBits();
+    for (int i = 7; i >= 0; --i) {
+      if (KB.One[i])
+        dbgs() << '1';
+      else if (KB.Zero[i])
+        dbgs() << '0';
+      else
+        dbgs() << '?';
+    }
+    dbgs() << '\n';
+
+    // Print congruent memrefs.
+    auto &CongruentList = CongruentMemrefs[Mrf.memref()];
+    for (auto &Pair : CongruentList) {
+      dbgs() << "  -> [" << Pair.first << "] ";
+      Pair.first->printWithoutAnalyses(dbgs());
+      dbgs() << " (A" << Pair.second.value() << ")\n";
+    }
+    if (CongruentList.empty())
+      dbgs() << "  (none)\n";
+  }
+#endif
+}
+
+Align VPlanAlignmentAnalysis::getAlignmentUnitStride(
+    VPLoadStoreInst &Memref, VPlanPeelingVariant &Peeling) {
+  assert(isa<VPlanStaticPeeling>(Peeling) &&
+         "Dynamic peeling is not supported yet");
+  assert(cast<VPlanStaticPeeling>(Peeling).peelCount() == 0 &&
+         "Non-zero peel counts are not supported yet");
+
+  Align AlignFromIR = Memref.getAlignment();
+
+  auto Expr = VPSE->getVPlanSCEV(*getLoadStorePointerOperand(&Memref));
+  auto Ind = VPSE->asConstStepInduction(Expr);
+  if (!Ind)
+    return AlignFromIR;
+
+  // FIXME: In case of reverse iteration, we should compute alignment of
+  //        the pointer in the last lane.
+  if (Ind->Step <= 0)
+    return AlignFromIR;
+
+  auto KB = VPVT->getKnownBits(Ind->InvariantBase, &Memref);
+  Align AlignFromVPVT{1ULL << KB.countMinTrailingZeros()};
+
+  // Alignment of access cannot be larger than alignment of the step, which
+  // equals to (VF * Step) for widened memrefs.
+  Align AlignFromStep{MinAlign(0, VF * Ind->Step)};
+
+  // Generally, the resulting alignment is equal to AlignFromVPVT. However, it
+  // cannot be lower than AlignFromIR and higher than AlignFromStep.
+  return std::min(AlignFromStep, std::max(AlignFromIR, AlignFromVPVT));
 }

@@ -25,12 +25,14 @@
 // CHK-PHASES: 8: offload, "host-openmp (x86_64-unknown-linux-gnu)" {2}, "device-openmp (spir64)" {7}, ir
 // CHK-PHASES: 9: backend, {8}, ir, (device-openmp)
 // CHK-PHASES: 10: linker, {9}, image, (device-openmp)
-// CHK-PHASES: 11: llvm-spirv, {10}, image, (device-openmp)
-// CHK-PHASES: 12: offload, "device-openmp (spir64)" {11}, image
-// CHK-PHASES: 13: clang-offload-wrapper, {12}, ir, (host-openmp)
-// CHK-PHASES: 14: backend, {13}, assembler, (host-openmp)
-// CHK-PHASES: 15: assembler, {14}, object, (host-openmp)
-// CHK-PHASES: 16: linker, {4, 15}, image, (host-openmp)
+// CHK-PHASES: 11: sycl-post-link, {10}, ir, (device-openmp)
+// CHK-PHASES: 12: llvm-spirv, {11}, image, (device-openmp)
+// CHK-PHASES: 13: offload, "device-openmp (spir64)" {12}, image
+// CHK-PHASES: 14: clang-offload-wrapper, {13}, ir, (host-openmp)
+// CHK-PHASES: 15: backend, {14}, assembler, (host-openmp)
+// CHK-PHASES: 16: assembler, {15}, object, (host-openmp)
+// CHK-PHASES: 17: linker, {4, 16}, image, (host-openmp)
+
 
 
 /// ###########################################################################
@@ -42,15 +44,21 @@
 // CHK-COMMANDS: clang{{.*}} "-cc1" "-triple" "x86_64-unknown-linux-gnu" "-emit-obj" {{.*}} "-o" "[[HOSTOBJ:.+\.o]]" "-x" "ir" "[[BCFILE]]"     
 // CHK-COMMANDS: clang{{.*}} "-cc1" "-triple" "spir64" "-aux-triple" "x86_64-unknown-linux-gnu" "-emit-llvm-bc" {{.*}} "-fopenmp" {{.*}} "-fopenmp-is-device" "-fopenmp-host-ir-file-path" "[[BCFILE]]" "-internal-isystem" "{{.*}}bin{{[/\\]+}}..{{[/\\]+}}include{{[/\\]+}}sycl" "-mllvm" "-paropt=63" "-fopenmp-targets=spir64" "-o" "[[OFFBCFILE:.+\.bc]]"
 // CHK-COMMANDS: llvm-link{{.*}} "[[OFFBCFILE]]" "-o" "[[LINKEDBCFILE:.+\.out]]"
-// CHK-COMMANDS: llvm-spirv{{.*}}" "-o" {{.*}} "[[LINKEDBCFILE]]"
+// CHK-COMMANDS: sycl-post-link{{.*}} "--ompoffload-link-entries" "--ompoffload-sort-entries" "--ompoffload-make-globals-static" "-ir-output-only" "-spec-const=rt" "-o" "[[POSTLINKFILE:.+\.bc]]" "[[LINKEDBCFILE]]"
+// CHK-COMMANDS: llvm-spirv{{.*}}" "-o" {{.*}} "[[POSTLINKFILE]]"
 // CHK-COMMANDS: clang-offload-wrapper{{.*}} "-host" "x86_64-unknown-linux-gnu" "-o" "[[WRAPPERBC:.+\.bc]]" "-kind=openmp" "-target=spir64"
 // CHK-COMMANDS: clang{{.*}} "-cc1" "-triple" "x86_64-unknown-linux-gnu" "-emit-obj" {{.*}} "-o" "[[TARGOBJ:.+\.o]]" "-x" "ir" "[[WRAPPERBC]]"
 // CHK-COMMANDS: ld{{.*}} "-o" {{.*}} "[[HOSTOBJ]]" "[[TARGOBJ]]" {{.*}} "-lomptarget"
 
 /// Check additional options passed through
-// RUN:   %clang -### -fiopenmp -o %t.out -target x86_64-unknown-linux-gnu -fopenmp-targets=spir64="-DFOO -DBAR -mllvm -dummy-opt -Xclang -cc1dummy" %s 2>&1 \
+// RUN:   %clang -### -fiopenmp -o %t.out -target x86_64-unknown-linux-gnu -fopenmp-targets=spir64="-DFOO -DBAR -mllvm -dummy-opt -Xclang -cc1dummy -O3" %s 2>&1 \
 // RUN:   | FileCheck -check-prefix=CHK-TARGOPTS %s
-// CHK-TARGOPTS: clang{{.*}} "-triple" "spir64" "-aux-triple" "x86_64-unknown-linux-gnu" "-emit-llvm-bc" {{.*}} "-D" "FOO" "-D" "BAR" {{.*}} "-cc1dummy" "-mllvm" "-dummy-opt" {{.*}} "-fopenmp-targets=spir64"
+// CHK-TARGOPTS: clang{{.*}} "-triple" "spir64" "-aux-triple" "x86_64-unknown-linux-gnu" "-emit-llvm-bc" {{.*}} "-D" "FOO" "-D" "BAR" {{.*}} "-O3" {{.*}} "-cc1dummy" "-mllvm" "-dummy-opt" {{.*}} "-fopenmp-targets=spir64"
+
+/// Check vectorizer not enabled
+// RUN:   %clang -### -fiopenmp -o %t.out -target x86_64-unknown-linux-gnu -fopenmp-targets=spir64="-O3" %s 2>&1 \
+// RUN:   | FileCheck -check-prefix=CHK-TARGOPTS-NOVEC %s
+// CHK-TARGOPTS-NOVEC-NOT: clang{{.*}} "-triple" "spir64" "-aux-triple" "x86_64-unknown-linux-gnu" {{.*}} "-O3" {{.*}} "-vectorize-loops" "-vectorize-slp" {{.*}} "-fopenmp-targets=spir64"
 
 /// ###########################################################################
 
@@ -79,19 +87,21 @@
 // CHK-UBACTIONS: 0: input, "[[INPUT]]", object, (host-openmp)
 // CHK-UBACTIONS: 1: clang-offload-unbundler, {0}, object, (host-openmp)
 // CHK-UBACTIONS: 2: linker, {1}, image, (device-openmp)
-// CHK-UBACTIONS: 3: llvm-spirv, {2}, image, (device-openmp)
-// CHK-UBACTIONS: 4: offload, "device-openmp (spir64)" {3}, image
-// CHK-UBACTIONS: 5: clang-offload-wrapper, {4}, ir, (host-openmp)
-// CHK-UBACTIONS: 6: backend, {5}, assembler, (host-openmp)
-// CHK-UBACTIONS: 7: assembler, {6}, object, (host-openmp)
-// CHK-UBACTIONS: 8: linker, {1, 7}, image, (host-openmp)
+// CHK-UBACTIONS: 3: sycl-post-link, {2}, ir, (device-openmp)
+// CHK-UBACTIONS: 4: llvm-spirv, {3}, image, (device-openmp)
+// CHK-UBACTIONS: 5: offload, "device-openmp (spir64)" {4}, image
+// CHK-UBACTIONS: 6: clang-offload-wrapper, {5}, ir, (host-openmp)
+// CHK-UBACTIONS: 7: backend, {6}, assembler, (host-openmp)
+// CHK-UBACTIONS: 8: assembler, {7}, object, (host-openmp)
+// CHK-UBACTIONS: 9: linker, {1, 8}, image, (host-openmp)
+
 
 /// ###########################################################################
 
 /// Check separate compilation with offloading - bundling jobs construct
 // RUN:   %clang -### -fiopenmp -c -o %t.o -target x86_64-unknown-linux-gnu -fopenmp-targets=spir64 %s -no-canonical-prefixes 2>&1 \
 // RUN:   | FileCheck -check-prefix=CHK-BUJOBS %s
-// CHK-BUJOBS: clang{{.*}} "-cc1" "-triple" "x86_64-unknown-linux-gnu" "-emit-llvm-bc" {{.*}} "-fopenmp" {{.*}} "-o" "[[BCFILE:.+\.bc]]"
+// CHK-BUJOBS: clang{{.*}} "-cc1" "-triple" "x86_64-unknown-linux-gnu" "-emit-llvm-bc" {{.*}} "-fopenmp" {{.*}} "-disable-intel-proprietary-opts" {{.*}} "-o" "[[BCFILE:.+\.bc]]"
 // CHK-BUJOBS: clang{{.*}} "-cc1" "-triple" "spir64" "-aux-triple" "x86_64-unknown-linux-gnu" "-emit-llvm-bc" {{.*}} "-fopenmp" {{.*}} "-fopenmp-is-device" "-fopenmp-host-ir-file-path" "[[BCFILE]]" "-internal-isystem" "{{.*}}bin{{[/\\]+}}..{{[/\\]+}}include{{[/\\]+}}sycl" "-mllvm" "-paropt=63" "-fopenmp-targets=spir64" "-o" "[[OFFBCFILE:.+\.bc]]"
 // CHK-BUJOBS: clang{{.*}} "-cc1" "-triple" "x86_64-unknown-linux-gnu" "-emit-obj" {{.*}} "-fopenmp" {{.*}} "-o" "[[HOSTOBJ:.+\.o]]" "-x" "ir" "[[BCFILE]]"
 // CHK-BUJOBS: clang-offload-bundler{{.*}} "-type=o" "-targets=openmp-spir64,host-x86_64-unknown-linux-gnu" "-outputs={{.*}}" "-inputs=[[OFFBCFILE]],[[HOSTOBJ]]"
@@ -102,7 +112,8 @@
 // RUN:   | FileCheck -check-prefix=CHK-UBJOBS %s
 // CHK-UBJOBS: clang-offload-bundler{{.*}} "-type=o" "-targets=host-x86_64-unknown-linux-gnu,openmp-spir64" "-inputs={{.*}}" "-outputs=[[HOSTOBJ:.+\.o]],[[OFFBCFILE:.+\.o]]" "-unbundle"
 // CHK-UBJOBS: llvm-link{{.*}} "[[OFFBCFILE]]" "-o" "[[LINKEDBCFILE:.+\.out]]"
-// CHK-UBJOBS: llvm-spirv{{.*}}" "-o" {{.*}} "[[LINKEDBCFILE]]"
+// CHK-UBJOBS: sycl-post-link{{.*}} "--ompoffload-link-entries" "--ompoffload-sort-entries" "--ompoffload-make-globals-static" "-ir-output-only" "-spec-const=rt" "-o" "[[POSTLINKFILE:.+\.bc]]" "[[LINKEDBCFILE]]"
+// CHK-UBJOBS: llvm-spirv{{.*}}" "-o" {{.*}} "[[POSTLINKFILE]]"
 // CHK-UBJOBS: clang-offload-wrapper{{.*}} "-host" "x86_64-unknown-linux-gnu" "-o" "[[WRAPPERBC:.+\.bc]]" "-kind=openmp" "-target=spir64"
 // CHK-UBJOBS: clang{{.*}} "-cc1" "-triple" "x86_64-unknown-linux-gnu" "-emit-obj" {{.*}} "-o" "[[TARGOBJ:.+\.o]]" "-x" "ir" "[[WRAPPERBC]]"
 // CHK-UBJOBS: ld{{.*}} "-o" {{.*}} "[[HOSTOBJ]]" "[[TARGOBJ]]" {{.*}} "-lomptarget"
@@ -168,14 +179,32 @@
 // FOFFLOAD_STATIC_LIB_SRC: 12: partial-link, {5, 11}, object
 // FOFFLOAD_STATIC_LIB_SRC: 13: clang-offload-unbundler, {12}, object
 // FOFFLOAD_STATIC_LIB_SRC: 14: linker, {10, 13}, image, (device-openmp)
-// FOFFLOAD_STATIC_LIB_SRC: 15: llvm-spirv, {14}, image, (device-openmp)
-// FOFFLOAD_STATIC_LIB_SRC: 16: offload, "device-openmp (spir64)" {15}, image
-// FOFFLOAD_STATIC_LIB_SRC: 17: clang-offload-wrapper, {16}, ir, (host-openmp)
-// FOFFLOAD_STATIC_LIB_SRC: 18: backend, {17}, assembler, (host-openmp)
-// FOFFLOAD_STATIC_LIB_SRC: 19: assembler, {18}, object, (host-openmp)
-// FOFFLOAD_STATIC_LIB_SRC: 20: linker, {0, 5, 19}, image, (host-openmp)
+// FOFFLOAD_STATIC_LIB_SRC: 15: sycl-post-link, {14}, ir, (device-openmp)
+// FOFFLOAD_STATIC_LIB_SRC: 16: llvm-spirv, {15}, image, (device-openmp)
+// FOFFLOAD_STATIC_LIB_SRC: 17: offload, "device-openmp (spir64)" {16}, image
+// FOFFLOAD_STATIC_LIB_SRC: 18: clang-offload-wrapper, {17}, ir, (host-openmp)
+// FOFFLOAD_STATIC_LIB_SRC: 19: backend, {18}, assembler, (host-openmp)
+// FOFFLOAD_STATIC_LIB_SRC: 20: assembler, {19}, object, (host-openmp)
+// FOFFLOAD_STATIC_LIB_SRC: 21: linker, {0, 5, 20}, image, (host-openmp)
+
+
+/// Check to be sure that the object from source fed into partial link
+/// is of the proper target
+// RUN: touch %t.a
+// RUN: %clang -target -x86_64-unknown-linux-gnu -fiopenmp -fopenmp-targets=spir64 -foffload-static-lib=%t.a -### %s 2>&1 \
+// RUN:  | FileCheck %s -check-prefix=FOFFLOAD_STATIC_LIB_SRC_PLINK
+// FOFFLOAD_STATIC_LIB_SRC_PLINK: clang{{.*}} "-cc1" "-triple" "{{(x86_64|i386|i686).*}}" "-emit-llvm-bc"
+// FOFFLOAD_STATIC_LIB_SRC_PLINK: clang{{.*}} "-cc1" "-triple" "{{(x86_64|i386|i686).*}}" "-emit-llvm-bc" {{.*}} "-o" "[[OUTPUT_BC:.+\.bc]]"
+// FOFFLOAD_STATIC_LIB_SRC_PLINK: clang{{.*}} "-cc1" "-triple" "{{(x86_64|i386|i686).*}}" "-S" {{.*}} "-o" "[[OUTPUT_S:.+\.s]]" {{.*}} "[[OUTPUT_BC]]"
+// FOFFLOAD_STATIC_LIB_SRC_PLINK: as{{.*}} "-o" "[[OUTPUT_O:.+\.o]]" "[[OUTPUT_S]]"
+// FOFFLOAD_STATIC_LIB_SRC_PLINK: ld{{.*}} "-r" {{.*}} "[[OUTPUT_O]]" "{{.*}}.a"
 
 /// check diagnostic when -fiopenmp isn't used
 // RUN: %clangxx -target x86_64-unknown-linux-gnu -fopenmp -fopenmp-targets=spir64 %s -### 2>&1 \
 // RUN:  | FileCheck %s -check-prefix=FOPENMP_ERROR
 // FOPENMP_ERROR: The use of '-fopenmp-targets=spir64' requires '-fiopenmp'
+
+/// check particular options aren't passed to gcc
+// RUN: %clangxx -target x86_64-unknown-linux-gnu -fopenmp -fopenmp-targets=x86_64 %s -### 2>&1 \
+// RUN:  | FileCheck %s -check-prefix=FOPENMP_NOGCC_OPT
+// FOPENMP_NOGCC_OPT-NOT: gcc{{.*}} "-fiopenmp" {{.*}} "-fheinous-gnu-extensions" "-fveclib=SVML"

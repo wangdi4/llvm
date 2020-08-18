@@ -340,6 +340,14 @@ createModRefInfo(const FunctionModRefBehavior FMRB) {
 /// where safe (due to the IR not changing), use a `BatchAAResults` wrapper.
 /// The information stored in an `AAQueryInfo` is currently limitted to the
 /// caches used by BasicAA, but can further be extended to fit other AA needs.
+/// INTEL:
+/// We also use this class to note when a query requires "loopCarriedAlias"
+/// semantics as opposed to "alias" semantics. This should always be redundant
+/// with the knowledge that a query is being made via the "loopCarriedAlias"
+/// interface. Storing it here allows an analysis to share some implementation
+/// between the "alias" and "loopCarriedAlias" implementations, checking the
+/// AAQI to determine which interface it's responding to. Currently only
+/// BasicAA uses the `NeedLoopCarried` flag.
 class AAQueryInfo {
 public:
   using LocPair = std::pair<MemoryLocation, MemoryLocation>;
@@ -348,6 +356,13 @@ public:
 
   using IsCapturedCacheT = SmallDenseMap<const Value *, bool, 8>;
   IsCapturedCacheT IsCapturedCache;
+
+#ifdef INTEL_CUSTOMIZATION
+  // Remember if this is a "loopCarriedAlias" query.
+  const bool NeedLoopCarried = false;
+  AAQueryInfo(bool LoopCarried)
+      : AliasCache(), IsCapturedCache(), NeedLoopCarried(LoopCarried) {}
+#endif // INTEL_CUSTOMIZATION
 
   AAQueryInfo() : AliasCache(), IsCapturedCache() {}
 };
@@ -410,6 +425,65 @@ public:
   bool isNoAlias(const MemoryLocation &LocA, const MemoryLocation &LocB) {
     return alias(LocA, LocB) == NoAlias;
   }
+
+#if INTEL_CUSTOMIZATION
+  // The main low level interface for clients concerned with loop-carried
+  // semantics. If both LocA and LocB have UnknownSize, it returns an alias
+  // analysis result which is true not only for any program point, but also for
+  // any two program points. This is a stronger assertion than that provided by
+  // alias(); in particular, it is strong enough to preclude a dependence
+  // through memory. Note that if one or both locations have a precise size,
+  // however, the semantics are only as strong as the normal alias() interface
+  // and precision may be worse.
+  AliasResult loopCarriedAlias(const MemoryLocation &LocA,
+                               const MemoryLocation &LocB);
+
+  /// A convenience wrapper around the \c loopCarriedAlias interface.
+  AliasResult loopCarriedAlias(const Value *V1, LocationSize V1Size,
+                               const Value *V2, LocationSize V2Size) {
+    return loopCarriedAlias(MemoryLocation(V1, V1Size),
+                            MemoryLocation(V2, V2Size));
+  }
+
+  /// A convenience wrapper around the \c loopCarriedAlias interface.
+  AliasResult loopCarriedAlias(const Value *V1, const Value *V2) {
+    return loopCarriedAlias(V1, LocationSize::unknown(), V2,
+                            LocationSize::unknown());
+  }
+
+  /// A trivial helper function to check to see if the specified pointers are
+  /// no-alias in the more dynamic \c loopCarriedAlias sense.
+  bool isLoopCarriedNoAlias(const MemoryLocation &LocA,
+                            const MemoryLocation &LocB) {
+    return loopCarriedAlias(LocA, LocB) == NoAlias;
+  }
+
+  /// A convenience wrapper around the \c isLoopCarriedNoAlias helper interface.
+  bool isLoopCarriedNoAlias(const Value *V1, LocationSize V1Size,
+                            const Value *V2, LocationSize V2Size) {
+    return isLoopCarriedNoAlias(MemoryLocation(V1, V1Size),
+                                MemoryLocation(V2, V2Size));
+  }
+
+  /// A convenience wrapper around the \c isLoopCarriedNoAlias helper interface.
+  bool isLoopCarriedNoAlias(const Value *V1, const Value *V2) {
+    return isLoopCarriedNoAlias(MemoryLocation(V1), MemoryLocation(V2));
+  }
+
+  /// A trivial helper function to check to see if the specified pointers are
+  /// must-alias in the loop-carried sense.
+  bool isLoopCarriedMustAlias(const MemoryLocation &LocA,
+                              const MemoryLocation &LocB) {
+    return loopCarriedAlias(LocA, LocB) == MustAlias;
+  }
+
+  /// A convenience wrapper around the \c isLoopCarriedMustAlias helper
+  /// interface.
+  bool isLoopCarriedMustAlias(const Value *V1, const Value *V2) {
+    return loopCarriedAlias(V1, LocationSize::precise(1), V2,
+                            LocationSize::precise(1)) == MustAlias;
+  }
+#endif // INTEL_CUSTOMIZATION
 
   /// A convenience wrapper around the \c isNoAlias helper interface.
   bool isNoAlias(const Value *V1, LocationSize V1Size, const Value *V2,
@@ -690,6 +764,18 @@ public:
     return getModRefInfo(I, MemoryLocation(P, Size));
   }
 
+#if INTEL_CUSTOMIZATION
+  /// Return information about whether the instruction will alias the same
+  /// memory location. This is identical to getModRefInfo, except that the
+  /// underlying alias analysis query will override the size with parameter
+  /// passed in here.
+  ModRefInfo getSizedModRefInfo(const Instruction *I, LocationSize Size,
+                                const MemoryLocation &Loc) {
+    AAQueryInfo AAQIP;
+    return getModRefInfo(I, Loc, AAQIP, Size);
+  }
+#endif // INTEL_CUSTOMIZATION
+
   /// Return information about whether a call and an instruction may refer to
   /// the same memory locations.
   ModRefInfo getModRefInfo(Instruction *I, const CallBase *Call);
@@ -747,6 +833,10 @@ public:
 private:
   AliasResult alias(const MemoryLocation &LocA, const MemoryLocation &LocB,
                     AAQueryInfo &AAQI);
+#if INTEL_CUSTOMIZATION
+  AliasResult loopCarriedAlias(const MemoryLocation &LocA,
+                               const MemoryLocation &LocB, AAQueryInfo &AAQI);
+#endif // INTEL_CUSTOMIZATION
   bool pointsToConstantMemory(const MemoryLocation &Loc, AAQueryInfo &AAQI,
                               bool OrLocal = false);
   ModRefInfo getModRefInfo(Instruction *I, const CallBase *Call2,
@@ -756,24 +846,31 @@ private:
   ModRefInfo getModRefInfo(const CallBase *Call1, const CallBase *Call2,
                            AAQueryInfo &AAQI);
   ModRefInfo getModRefInfo(const VAArgInst *V, const MemoryLocation &Loc,
-                           AAQueryInfo &AAQI);
+                           AAQueryInfo &AAQI, // INTEL
+                           const Optional<LocationSize> &Size = {}); // INTEL
   ModRefInfo getModRefInfo(const LoadInst *L, const MemoryLocation &Loc,
-                           AAQueryInfo &AAQI);
+                           AAQueryInfo &AAQI, // INTEL
+                           const Optional<LocationSize> &Size = {}); // INTEL
   ModRefInfo getModRefInfo(const StoreInst *S, const MemoryLocation &Loc,
-                           AAQueryInfo &AAQI);
+                           AAQueryInfo &AAQI, // INTEL
+                           const Optional<LocationSize> &Size = {}); // INTEL
   ModRefInfo getModRefInfo(const FenceInst *S, const MemoryLocation &Loc,
                            AAQueryInfo &AAQI);
   ModRefInfo getModRefInfo(const AtomicCmpXchgInst *CX,
-                           const MemoryLocation &Loc, AAQueryInfo &AAQI);
+                           const MemoryLocation &Loc,
+                           AAQueryInfo &AAQI, // INTEL
+                           const Optional<LocationSize> &Size = {}); // INTEL
   ModRefInfo getModRefInfo(const AtomicRMWInst *RMW, const MemoryLocation &Loc,
-                           AAQueryInfo &AAQI);
+                           AAQueryInfo &AAQI, // INTEL
+                           const Optional<LocationSize> &Size = {}); // INTEL
   ModRefInfo getModRefInfo(const CatchPadInst *I, const MemoryLocation &Loc,
                            AAQueryInfo &AAQI);
   ModRefInfo getModRefInfo(const CatchReturnInst *I, const MemoryLocation &Loc,
                            AAQueryInfo &AAQI);
   ModRefInfo getModRefInfo(const Instruction *I,
                            const Optional<MemoryLocation> &OptLoc,
-                           AAQueryInfo &AAQIP) {
+                           AAQueryInfo &AAQIP, // INTEL
+                           const Optional<LocationSize> &Size = {}) { // INTEL
     if (OptLoc == None) {
       if (const auto *Call = dyn_cast<CallBase>(I)) {
         return createModRefInfo(getModRefBehavior(Call));
@@ -784,17 +881,17 @@ private:
 
     switch (I->getOpcode()) {
     case Instruction::VAArg:
-      return getModRefInfo((const VAArgInst *)I, Loc, AAQIP);
+      return getModRefInfo((const VAArgInst *)I, Loc, AAQIP, Size); // INTEL
     case Instruction::Load:
-      return getModRefInfo((const LoadInst *)I, Loc, AAQIP);
+      return getModRefInfo((const LoadInst *)I, Loc, AAQIP, Size); // INTEL
     case Instruction::Store:
-      return getModRefInfo((const StoreInst *)I, Loc, AAQIP);
+      return getModRefInfo((const StoreInst *)I, Loc, AAQIP, Size); // INTEL
     case Instruction::Fence:
       return getModRefInfo((const FenceInst *)I, Loc, AAQIP);
     case Instruction::AtomicCmpXchg:
-      return getModRefInfo((const AtomicCmpXchgInst *)I, Loc, AAQIP);
+      return getModRefInfo((const AtomicCmpXchgInst *)I, Loc, AAQIP, Size); // INTEL
     case Instruction::AtomicRMW:
-      return getModRefInfo((const AtomicRMWInst *)I, Loc, AAQIP);
+      return getModRefInfo((const AtomicRMWInst *)I, Loc, AAQIP, Size); // INTEL
     case Instruction::Call:
       return getModRefInfo((const CallInst *)I, Loc, AAQIP);
     case Instruction::Invoke:
@@ -901,6 +998,18 @@ public:
 #if INTEL_CUSTOMIZATION
   // Returns true if the given value V is escaped.
   virtual bool escapes(const Value *V) = 0;
+
+  // The main low level interface for clients concerned with loop-carried
+  // semantics. If both LocA and LocB have UnknownSize, it returns an alias
+  // analysis result which is true not only for any program point, but also for
+  // any two program points. This is a stronger assertion than that provided by
+  // alias(); in particular, it is strong enough to preclude a dependence
+  // through memory. Note that if one or both locations have a precise size,
+  // however, the semantics are only as strong as the normal alias() interface
+  // and precision may be worse.
+  virtual AliasResult loopCarriedAlias(const MemoryLocation &LocA,
+                                       const MemoryLocation &LocB,
+                                       AAQueryInfo &AAQI) = 0;
 #endif // INTEL_CUSTOMIZATION
 
   /// @}
@@ -963,6 +1072,22 @@ public:
   // Returns true if the given value V is escaped.
   bool escapes(const Value *V) override { 
     return Result.escapes(V); 
+  }
+
+  // The main low level interface for clients concerned with loop-carried
+  // semantics. If both LocA and LocB have UnknownSize, it returns an alias
+  // analysis result which is true not only for any program point, but also for
+  // any two program points. This is a stronger assertion than that provided by
+  // alias(); in particular, it is strong enough to preclude a dependence
+  // through memory. Note that if one or both locations have a precise size,
+  // however, the semantics are only as strong as the normal alias() interface
+  // and precision may be worse.
+  AliasResult loopCarriedAlias(const MemoryLocation &LocA,
+                               const MemoryLocation &LocB,
+                               AAQueryInfo &AAQI) override {
+    assert(AAQI.NeedLoopCarried &&
+           "Unexpectedly missing loopCarried query flag");
+    return Result.loopCarriedAlias(LocA, LocB, AAQI);
   }
 #endif // INTEL_CUSTOMIZATION
 
@@ -1053,6 +1178,23 @@ protected:
     {
       return AAR ? AAR->escapes(V) : CurrentResult.escapes(V);
     }
+
+    // The main low level interface for clients concerned with loop-carried
+    // semantics. If both LocA and LocB have UnknownSize, it returns an alias
+    // analysis result which is true not only for any program point, but also
+    // for any two program points. This is a stronger assertion than that
+    // provided by alias(); in particular, it is strong enough to preclude a
+    // dependence through memory. Note that if one or both locations have a
+    // precise size, however, the semantics are only as strong as the normal
+    // alias() interface and precision may be worse.
+    AliasResult loopCarriedAlias(const MemoryLocation &LocA,
+                                 const MemoryLocation &LocB,
+                                 AAQueryInfo &AAQI) {
+      assert(AAQI.NeedLoopCarried &&
+             "Unexpectedly missing loopCarried query flag");
+      return AAR ? AAR->loopCarriedAlias(LocA, LocB, AAQI)
+                 : CurrentResult.loopCarriedAlias(LocA, LocB, AAQI);
+    }
 #endif // INTEL_CUSTOMIZATION
 
     ModRefInfo getArgModRefInfo(const CallBase *Call, unsigned ArgIdx) {
@@ -1116,6 +1258,21 @@ public:
   // Returns true if the given value V is escaped.
   bool escapes(const Value *V) {
     return true;
+  }
+
+  // The main low level interface for clients concerned with loop-carried
+  // semantics. If both LocA and LocB have UnknownSize, it returns an alias
+  // analysis result which is true not only for any program point, but also for
+  // any two program points. This is a stronger assertion than that provided by
+  // alias(); in particular, it is strong enough to preclude a dependence
+  // through memory. Note that if one or both locations have a precise size,
+  // however, the semantics are only as strong as the normal alias() interface
+  // and precision may be worse.
+  AliasResult loopCarriedAlias(const MemoryLocation &LocA,
+                               const MemoryLocation &LocB, AAQueryInfo &AAQI) {
+    assert(AAQI.NeedLoopCarried &&
+           "Unexpectedly missing loopCarried query flag");
+    return MayAlias;
   }
 #endif // INTEL_CUSTOMIZATION
 

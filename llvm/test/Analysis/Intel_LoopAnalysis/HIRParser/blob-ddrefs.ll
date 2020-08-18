@@ -1,7 +1,7 @@
 ; RUN: opt < %s -hir-ssa-deconstruction | opt -analyze -hir-framework -hir-framework-debug=parser -hir-details | FileCheck %s
 ; RUN: opt < %s -convert-to-subscript -hir-ssa-deconstruction | opt -analyze -hir-framework -hir-framework-debug=parser -hir-details | FileCheck %s
 
-; CHECK: NSW: Yes
+; CHECK: HasSignedIV: Yes
 
 ; Check parsing output for the temp blobs
 ; CHECK: DO i64 i1 = 0, sext.i32.i64((-1 + %n))

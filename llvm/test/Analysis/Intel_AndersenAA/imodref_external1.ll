@@ -1,4 +1,4 @@
-; RUN: opt < %s -basicaa -anders-aa -gvn -S | FileCheck %s
+; RUN: opt < %s -basic-aa -anders-aa -gvn -S | FileCheck %s
 
 ; Test where external global could be modified by call to verify mod/ref set
 ; collection treats the set as BOTTOM. This case should not get transformed.

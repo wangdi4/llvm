@@ -65,6 +65,10 @@ static cl::opt<bool>
 static cl::opt<bool>
     DumpDA("vplan-dump-da", cl::init(false), cl::Hidden,
            cl::desc("Print detailed DA dump after analysis is done."));
+static cl::opt<bool> DumpPlanDA(
+    "vplan-dump-plan-da", cl::init(false), cl::Hidden,
+    cl::desc(
+        "Print detailed DA dump for the entire VPlan after analysis is done."));
 #define DA_FVERIFY_INIT true
 #else
 #define DA_FVERIFY_INIT false
@@ -184,6 +188,20 @@ bool VPlanDivergenceAnalysis::isUnitStridePtr(const VPValue *Ptr) const {
 
 bool VPlanDivergenceAnalysis::isUnitStridePtr(const VPValue *Ptr,
                                               bool &IsNegOneStride) const {
+  // Current DA doesn't have any way to propagate linearity into the vector
+  // types, e.g. by forming
+  //
+  //   %insert = insetelement <2 x type> undef, type %linear1, i32 0
+  //   %insert2 = insertelement  <2 x type> %insert, type %linear2, i32 1
+  //
+  //  and marks both of them as having random shape. Subsequently none of the
+  //  isUnitStridePtr clients (CG/HIR CG/CM) wouldn't be able to handle
+  //  "unit-strideness" of a vector type if DA could deduce it and there is no
+  //  sense at the moment to try to implement such supports. As such, just
+  //  bail-out for vector type here.
+  if (isa<VectorType>(Ptr->getType()))
+    return false;
+
   assert(isa<PointerType>(Ptr->getType()) &&
          "Expect argument of isUnitStridePtr to be of PointerType.");
   // Compute the pointee-size in bytes.
@@ -585,7 +603,8 @@ void VPlanDivergenceAnalysis::computeImpl() {
 }
 
 bool VPlanDivergenceAnalysis::isAlwaysUniform(const VPValue &V) const {
-  if (isa<VPMetadataAsValue>(V) || isa<VPConstant>(V) || isa<VPExternalDef>(V))
+  if (isa<VPMetadataAsValue>(V) || isa<VPConstant>(V) ||
+      isa<VPExternalDef>(V) || isa<VPLiveInValue>(V))
     return true;
 
   // TODO: We have a choice on how to handle functions such as get_global_id().
@@ -630,9 +649,10 @@ VPVectorShape VPlanDivergenceAnalysis::getVectorShape(const VPValue *V) const {
     return NonConstDA->getUniformVectorShape();
 
   // FIXME: This needs an explicit vector IV.
-  if (Plan->isBackedgeUniformityForced() &&
-      RegionLoop->getLoopLatch()->getCondBit() == V)
-    return NonConstDA->getUniformVectorShape();
+  if (Plan->isBackedgeUniformityForced())
+    if (VPBasicBlock *LoopLatch = RegionLoop->getLoopLatch())
+      if (LoopLatch->getCondBit() == V)
+        return NonConstDA->getUniformVectorShape();
 
   auto ShapeIter = VectorShapes.find(V);
   if (ShapeIter != VectorShapes.end())
@@ -748,7 +768,8 @@ void VPlanDivergenceAnalysis::print(raw_ostream &OS, const VPLoop *VPLp) {
         OS << "Uniform: ";
       getVectorShape(&VPInst).print(OS);
       OS << ' ';
-      VPInst.dump(OS);
+      VPInst.printWithoutAnalyses(OS);
+      OS << '\n';
     }
     OS << "\n";
   }
@@ -1286,8 +1307,8 @@ VPVectorShape VPlanDivergenceAnalysis::computeVectorShapeForInductionInit(
     // This could be a VPExternalDef (a non-constant value), i.e., a
     // variable step IV. We should set the shape to be random if we
     // cannot infer the step-size.
-    assert(isa<VPExternalDef>(Step) &&
-           "Expect the non-constant to be VPExternalDef.");
+    assert((isa<VPExternalDef>(Step) || isa<VPLiveInValue>(Step)) &&
+           "Expect the non-constant to be VPExternalDef or VPLiveInValue.");
     return getRandomVectorShape();
   }
 
@@ -1299,8 +1320,29 @@ VPVectorShape VPlanDivergenceAnalysis::computeVectorShapeForInductionInit(
   // If this is a pointer induction, compute the step-size in terms of
   // bytes, using the size of the pointee.
   if (isa<PointerType>(Init->getType())) {
-    unsigned TypeSizeInBytes =
-        getTypeSizeInBytes(Init->getType()->getPointerElementType());
+    unsigned TypeSizeInBytes;
+
+    // Handle strides for pointer-inductions appropriately.
+    // A 'uniform' pointer-shape indicates that we are dealing with non-private
+    // data. Private-data, and its aliases (via casts and GEPs) will have
+    // non-'uniform' shape and the stride would be the same as that of 'alloca'
+    // given that we are dealing with these instructions in the loop-preheader.
+    if (Init->getBinOpcode() == Instruction::GetElementPtr) {
+      auto InitShape = getVectorShape(Init->getOperand(0));
+
+      // We can have strided-shape with unknown-stride. Return random vector
+      // shape in such scenario.
+      if (!InitShape.hasKnownStride())
+        return getRandomVectorShape();
+
+      TypeSizeInBytes =
+          InitShape.isUniform()
+              ? getTypeSizeInBytes(Init->getType()->getPointerElementType())
+              : InitShape.getStrideVal();
+    } else
+      TypeSizeInBytes =
+          getTypeSizeInBytes(Init->getType()->getPointerElementType());
+
     StepInt = TypeSizeInBytes * StepConst->getZExtValue();
   } else
     StepInt = StepConst->getZExtValue();
@@ -1350,9 +1392,9 @@ VPlanDivergenceAnalysis::computeVectorShape(const VPInstruction *I) {
   else if (Opcode == Instruction::Call)
     NewShape = computeVectorShapeForCallInst(I);
   else if (Opcode == Instruction::Br) {
-    VPValue *CondBit = cast<VPBranchInst>(I)->getCondBit();
-    NewShape = !CondBit ? getUniformVectorShape()
-                        : getObservedShape(ParentBB, *CondBit);
+    VPValue *Cond = cast<VPBranchInst>(I)->getCondition();
+    NewShape = !Cond ? getUniformVectorShape()
+                     : getObservedShape(ParentBB, *Cond);
   } else if (Instruction::isUnaryOp(Opcode))
     NewShape = computeVectorShapeForUnaryInst(I);
   else if (Opcode == VPInstruction::Not || Opcode == VPInstruction::Pred)
@@ -1434,6 +1476,9 @@ void VPlanDivergenceAnalysis::compute(VPlan *P, VPLoop *CandidateLoop,
                                       VPPostDominatorTree &VPPostDomTree,
                                       bool IsLCSSA) {
 
+  assert(!DARecomputationDisabled &&
+         "DA should not be computed for this Cloned VPlan!");
+
   Plan = P;
   RegionLoop = CandidateLoop;
   VPLI = VPLInfo;
@@ -1479,6 +1524,8 @@ void VPlanDivergenceAnalysis::compute(VPlan *P, VPLoop *CandidateLoop,
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   if (DumpDA)
     print(dbgs(), RegionLoop);
+  if (DumpPlanDA)
+    print(dbgs());
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 }
 
@@ -1489,6 +1536,9 @@ void VPlanDivergenceAnalysis::compute(VPlan *P, VPLoop *CandidateLoop,
 // invocation of the \p compute method.
 void VPlanDivergenceAnalysis::recomputeShapes(
     SmallPtrSetImpl<VPInstruction *> &Seeds) {
+
+  assert(!DARecomputationDisabled &&
+         "DA should not be computed for this Cloned VPlan!");
 
   if (Seeds.empty())
     return;
@@ -1521,6 +1571,32 @@ void VPlanDivergenceAnalysis::recomputeShapes(
 }
 
 #endif // INTEL_CUSTOMIZATION
+
+void VPlanDivergenceAnalysis::cloneVectorShapes(
+    VPlan *ClonedVPlan, DenseMap<VPValue *, VPValue *> &OrigClonedValuesMap) {
+
+  ClonedVPlan->getVPlanDA()->Plan = ClonedVPlan;
+
+  for (const auto &Pair : OrigClonedValuesMap) {
+    VPValue *OrigVal = Pair.first;
+    VPValue *ClonedVal = Pair.second;
+
+    if (isa<VPBasicBlock>(OrigVal))
+      continue;
+
+    VPVectorShape OrigShape = getVectorShape(OrigVal);
+    VPVectorShape *NewClonedShape = OrigShape.clone();
+    VPValue *OrigStride = OrigShape.getStride();
+    auto It = OrigClonedValuesMap.find(OrigStride);
+    VPValue *ClonedStride = nullptr;
+    if (OrigStride != nullptr)
+      ClonedStride =
+          (It != OrigClonedValuesMap.end()) ? It->second : OrigStride;
+    NewClonedShape->setStride(ClonedStride);
+    ClonedVPlan->getVPlanDA()->updateVectorShape(ClonedVal, *NewClonedShape);
+  }
+}
+
 // Note: community version contains a LoopDivergencePrinter class that creates
 // a SyncDependenceAnalysis object and a LoopDivergenceAnalysis object. The
 // constructor for the LoopDivergenceAnalysis object then calls compute() to

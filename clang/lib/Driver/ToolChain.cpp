@@ -608,18 +608,42 @@ std::string ToolChain::GetProgramPath(const char *Name) const {
 }
 
 std::string ToolChain::GetLinkerPath() const {
+  // Get -fuse-ld= first to prevent -Wunused-command-line-argument. -fuse-ld= is
+  // considered as the linker flavor, e.g. "bfd", "gold", or "lld".
   const Arg* A = Args.getLastArg(options::OPT_fuse_ld_EQ);
   StringRef UseLinker = A ? A->getValue() : CLANG_DEFAULT_LINKER;
+
+  // --ld-path= takes precedence over -fuse-ld= and specifies the executable
+  // name. -B, COMPILER_PATH and PATH and consulted if the value does not
+  // contain a path component separator.
+  if (const Arg *A = Args.getLastArg(options::OPT_ld_path_EQ)) {
+    std::string Path(A->getValue());
+    if (!Path.empty()) {
+      if (llvm::sys::path::parent_path(Path).empty())
+        Path = GetProgramPath(A->getValue());
+      if (llvm::sys::fs::can_execute(Path))
+        return std::string(Path);
+    }
+    getDriver().Diag(diag::err_drv_invalid_linker_name) << A->getAsString(Args);
+    return GetProgramPath(getDefaultLinker());
+  }
+  // If we're passed -fuse-ld= with no argument, or with the argument ld,
+  // then use whatever the default system linker is.
+  if (UseLinker.empty() || UseLinker == "ld")
+    return GetProgramPath(getDefaultLinker());
+
+  // Extending -fuse-ld= to an absolute or relative path is unexpected. Checking
+  // for the linker flavor is brittle. In addition, prepending "ld." or "ld64."
+  // to a relative path is surprising. This is more complex due to priorities
+  // among -B, COMPILER_PATH and PATH. --ld-path= should be used instead.
+  if (UseLinker.find('/') != StringRef::npos)
+    getDriver().Diag(diag::warn_drv_use_ld_non_word);
 
   if (llvm::sys::path::is_absolute(UseLinker)) {
     // If we're passed what looks like an absolute path, don't attempt to
     // second-guess that.
     if (llvm::sys::fs::can_execute(UseLinker))
       return std::string(UseLinker);
-  } else if (UseLinker.empty() || UseLinker == "ld") {
-    // If we're passed -fuse-ld= with no argument, or with the argument ld,
-    // then use whatever the default system linker is.
-    return GetProgramPath(getDefaultLinker());
   } else {
     llvm::SmallString<8> LinkerName;
     if (Triple.isOSDarwin())
@@ -692,9 +716,7 @@ bool ToolChain::isThreadModelSupported(const StringRef Model) const {
     return Triple.getArch() == llvm::Triple::arm ||
            Triple.getArch() == llvm::Triple::armeb ||
            Triple.getArch() == llvm::Triple::thumb ||
-           Triple.getArch() == llvm::Triple::thumbeb ||
-           Triple.getArch() == llvm::Triple::wasm32 ||
-           Triple.getArch() == llvm::Triple::wasm64;
+           Triple.getArch() == llvm::Triple::thumbeb || Triple.isWasm();
   } else if (Model == "posix")
     return true;
 
@@ -1049,8 +1071,11 @@ static std::string getIPPBasePath(const ArgList &Args,
     P.append(getIntelBasePath(DriverDir) + "ipp");
     if (IsCrypto)
       P.append("cp");
-    llvm::sys::path::append(P, "latest");
   }
+  // Lib root could be set to the date based level or one above.  Check for
+  // 'latest' and if it is there, use that.
+  if (llvm::sys::fs::exists(P + "/latest"))
+    llvm::sys::path::append(P, "latest");
   return std::string(P);
 }
 
@@ -1086,10 +1111,12 @@ static std::string getMKLBasePath(const std::string DriverDir) {
   SmallString<128> P;
   if (MKLRoot)
     P.append(MKLRoot);
-  else {
+  else
     P.append(getIntelBasePath(DriverDir) + "mkl");
+  // Lib root could be set to the date based level or one above.  Check for
+  // 'latest' and if it is there, use that.
+  if (llvm::sys::fs::exists(P + "/latest"))
     llvm::sys::path::append(P, "latest");
-  }
   return std::string(P);
 }
 
@@ -1128,10 +1155,12 @@ static std::string getTBBBasePath(const std::string DriverDir) {
   SmallString<128> P;
   if (TBBRoot)
     P.append(TBBRoot);
-  else {
+  else
     P.append(getIntelBasePath(DriverDir) + "tbb");
+  // Lib root could be set to the date based level or one above.  Check for
+  // 'latest' and if it is there, use that.
+  if (llvm::sys::fs::exists(P + "/latest"))
     llvm::sys::path::append(P, "latest");
-  }
   return std::string(P);
 }
 
@@ -1163,10 +1192,12 @@ static std::string getDAALBasePath(const std::string DriverDir) {
   SmallString<128> P;
   if (DAALRoot)
     P.append(DAALRoot);
-  else {
+  else
     P.append(getIntelBasePath(DriverDir) + "daal");
+  // Lib root could be set to the date based level or one above.  Check for
+  // 'latest' and if it is there, use that.
+  if (llvm::sys::fs::exists(P + "/latest"))
     llvm::sys::path::append(P, "latest");
-  }
   return std::string(P);
 }
 
@@ -1297,7 +1328,7 @@ bool ToolChain::isFastMathRuntimeAvailable(const ArgList &Args,
                                            std::string &Path) const {
   // Do not check for -fno-fast-math or -fno-unsafe-math when -Ofast passed
   // (to keep the linker options consistent with gcc and clang itself).
-  if (!isOptimizationLevelFast(Args)) {
+  if (!isOptimizationLevelFast(getDriver(), Args)) {
     // Check if -ffast-math or -funsafe-math.
     Arg *A =
       Args.getLastArg(options::OPT_ffast_math, options::OPT_fno_fast_math,
@@ -1338,9 +1369,8 @@ SanitizerMask ToolChain::getSupportedSanitizers() const {
                       SanitizerKind::Nullability | SanitizerKind::LocalBounds;
   if (getTriple().getArch() == llvm::Triple::x86 ||
       getTriple().getArch() == llvm::Triple::x86_64 ||
-      getTriple().getArch() == llvm::Triple::arm ||
-      getTriple().getArch() == llvm::Triple::wasm32 ||
-      getTriple().getArch() == llvm::Triple::wasm64 || getTriple().isAArch64())
+      getTriple().getArch() == llvm::Triple::arm || getTriple().isWasm() ||
+      getTriple().isAArch64())
     Res |= SanitizerKind::CFIICall;
   if (getTriple().getArch() == llvm::Triple::x86_64 || getTriple().isAArch64())
     Res |= SanitizerKind::ShadowCallStack;
@@ -1486,9 +1516,21 @@ llvm::opt::DerivedArgList *ToolChain::TranslateOffloadTargetArgs(
           llvm::BumpPtrAllocator BPA;
           llvm::StringSaver S(BPA);
           llvm::cl::TokenizeGNUCommandLine(T.second, S, TargetArgs);
+          // Setup masks so Windows options aren't picked up for parsing
+          // Linux options
+          unsigned IncludedFlagsBitmask = 0;
+          unsigned ExcludedFlagsBitmask = options::NoDriverOption;
+          if (getDriver().IsCLMode()) {
+            // Include CL and Core options.
+            IncludedFlagsBitmask |= options::CLOption;
+            IncludedFlagsBitmask |= options::CoreOption;
+          } else {
+            ExcludedFlagsBitmask |= options::CLOption;
+          }
           unsigned MissingArgIndex, MissingArgCount;
           InputArgList NewArgs =
-              Opts.ParseArgs(TargetArgs, MissingArgIndex, MissingArgCount);
+              Opts.ParseArgs(TargetArgs, MissingArgIndex, MissingArgCount,
+                             IncludedFlagsBitmask, ExcludedFlagsBitmask);
           for (Arg *NA : NewArgs) {
             // Add the new arguments.
             Arg *OffloadArg;

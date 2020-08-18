@@ -577,17 +577,32 @@
 // CHECK-LD-SYCL: "{{.*}}ld{{(.exe)?}}"
 // CHECK-LD-SYCL: "-lsycl"
 
+/// Check no SYCL runtime is linked with -nolibsycl
+// RUN: %clang -fsycl -nolibsycl -target x86_64-unknown-linux-gnu %s -o %t -### 2>&1 | FileCheck -check-prefix=CHECK-LD-NOLIBSYCL %s
+// CHECK-LD-NOLIBSYCL: "{{.*}}ld{{(.exe)?}}"
+// CHECK-LD-NOLIBSYCL-NOT: "-lsycl"
+
 /// Check for default linking of sycl.lib with -fsycl usage
 // RUN: %clang -fsycl -target x86_64-unknown-windows-msvc %s -o %t -### 2>&1 | FileCheck -check-prefix=CHECK-LINK-SYCL %s
 // RUN: %clang_cl -fsycl %s -o %t -### 2>&1 | FileCheck -check-prefix=CHECK-LINK-SYCL %s
 // CHECK-LINK-SYCL: "{{.*}}link{{(.exe)?}}"
 // CHECK-LINK-SYCL: "-defaultlib:sycl.lib"
 
+/// Check no SYCL runtime is linked with -nolibsycl
+// RUN: %clang -fsycl -nolibsycl -target x86_64-unknown-windows-msvc %s -o %t -### 2>&1 | FileCheck -check-prefix=CHECK-LINK-NOLIBSYCL %s
+// RUN: %clang_cl -fsycl -nolibsycl %s -o %t -### 2>&1 | FileCheck -check-prefix=CHECK-LINK-NOLIBSYCL %s
+// CHECK-LINK-NOLIBSYCL: "{{.*}}link{{(.exe)?}}"
+// CHECK-LINK-NOLIBSYCL-NOT: "-defaultlib:sycl.lib"
+
 /// Check sycld.lib is chosen with /MDd and /MTd
 // RUN:  %clang_cl -fsycl /MDd %s -o %t -### 2>&1 | FileCheck -check-prefix=CHECK-LINK-SYCL-DEBUG %s
 // RUN:  %clang_cl -fsycl /MTd %s -o %t -### 2>&1 | FileCheck -check-prefix=CHECK-LINK-SYCL-DEBUG %s
 // CHECK-LINK-SYCL-DEBUG: "{{.*}}link{{(.exe)?}}"
 // CHECK-LINK-SYCL-DEBUG: "-defaultlib:sycld.lib"
+
+/// Check "-spirv-allow-unknown-intrinsics" option is emitted for llvm-spirv tool for esimd mode
+// RUN: %clangxx %s -fsycl -fsycl-explicit-simd -### 2>&1 | FileCheck %s --check-prefix=CHK-FSYCL-ESIMD
+// CHK-FSYCL-ESIMD: llvm-spirv{{.*}}-spirv-allow-unknown-intrinsics
 
 /// ###########################################################################
 
@@ -664,7 +679,8 @@
 // CHK-TOOLS-GEN: clang-offload-wrapper{{.*}} "-o=[[OUTPUT5:.+\.bc]]" "-host=x86_64-unknown-linux-gnu" "-target=spir64_gen{{.*}}" "-kind=sycl" "[[OUTPUT4]]"
 // CHK-TOOLS-CPU: clang-offload-wrapper{{.*}} "-o=[[OUTPUT5:.+\.bc]]" "-host=x86_64-unknown-linux-gnu" "-target=spir64_x86_64{{.*}}" "-kind=sycl" "[[OUTPUT4]]"
 // CHK-TOOLS-AOT: llc{{.*}} "-filetype=obj" "-o" "[[OUTPUT6:.+\.o]]" "[[OUTPUT5]]"
-// CHK-TOOLS-FPGA: clang{{.*}} "-triple" "spir64_fpga-unknown-unknown-sycldevice" {{.*}} "-fsycl-int-header=[[INPUT1:.+\.h]]" "-faddrsig"
+// CHK-TOOLS-FPGA-USM-DISABLE: clang{{.*}} "-triple" "spir64_fpga-unknown-unknown-sycldevice" {{.*}} "-fsycl-int-header=[[INPUT1:.+\.h]]" "-faddrsig"
+// CHK-TOOLS-FPGA-USM-ENABLE: clang{{.*}} "-triple" "spir64_fpga-unknown-unknown-sycldevice" {{.*}} "-fsycl-int-header=[[INPUT1:.+\.h]]" "-D__ENABLE_USM_ADDR_SPACE__" "-faddrsig"
 // CHK-TOOLS-GEN: clang{{.*}} "-triple" "spir64_gen-unknown-unknown-sycldevice" {{.*}} "-fsycl-int-header=[[INPUT1:.+\.h]]" "-faddrsig"
 // CHK-TOOLS-CPU: clang{{.*}} "-triple" "spir64_x86_64-unknown-unknown-sycldevice" {{.*}} "-fsycl-int-header=[[INPUT1:.+\.h]]" "-faddrsig"
 // CHK-TOOLS-AOT: clang{{.*}} "-triple" "x86_64-unknown-linux-gnu" {{.*}} "-include" "[[INPUT1]]" {{.*}} "-o" "[[OUTPUT7:.+\.o]]"

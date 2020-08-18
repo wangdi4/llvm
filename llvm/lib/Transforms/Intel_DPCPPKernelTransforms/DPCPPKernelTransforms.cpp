@@ -25,5 +25,6 @@ void llvm::initializeIntel_DPCPPKernelTransforms(PassRegistry &Registry) {
   initializeDataPerValuePass(Registry);
   initializeKernelBarrierPass(Registry);
   initializeBarrierInFunctionPass(Registry);
+  initializePostBarrierPass(Registry);
 }
 

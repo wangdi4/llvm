@@ -1,4 +1,4 @@
-// RUN: %clang_cc1 %s -o - -O0 -emit-llvm -cl-std=CL2.0                       \
+// RUN: %clang_cc1 %s -o - -O0 -emit-llvm -cl-std=CL2.0 -gno-column-info      \
 // RUN:            -debug-info-kind=limited -triple spir-unknown-unknown      \
 // RUN:            -finclude-default-header                                   \
 // RUN:   | FileCheck %s

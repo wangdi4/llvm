@@ -47,6 +47,7 @@ CHECK-NEXT:   warn_double_const_requires_fp64
 CHECK-NEXT:   warn_drv_assuming_mfloat_abi_is
 CHECK-NEXT:   warn_drv_clang_unsupported
 CHECK-NEXT:   warn_drv_pch_not_first_include
+CHECK-NEXT:   warn_drv_use_ld_non_word
 CHECK-NEXT:   warn_dup_category_def
 CHECK-NEXT:   warn_enum_value_overflow
 CHECK-NEXT:   warn_expected_qualified_after_typename
@@ -58,7 +59,6 @@ CHECK-NEXT:   warn_fe_macro_contains_embedded_newline
 CHECK-NEXT:   warn_ignoring_ftabstop_value
 CHECK-NEXT:   warn_implements_nscopying
 CHECK-NEXT:   warn_incompatible_qualified_id
-CHECK-NEXT:   warn_inline_namespace_reopened_noninline
 CHECK-NEXT:   warn_invalid_asm_cast_lvalue
 CHECK-NEXT:   warn_maynot_respond
 CHECK-NEXT:   warn_method_param_redefinition

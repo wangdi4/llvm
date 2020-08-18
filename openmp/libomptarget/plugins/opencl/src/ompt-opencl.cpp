@@ -11,12 +11,8 @@
 #include "omptargetplugin.h"
 #include "omptarget-tools.h"
 
-thread_local OmptTraceTy *omptTracePtr;
-OmptCallbacksInternalTy omptCallbacks;
-OmptCallbacksActiveTy omptEnabled;
-const char *omptDocument;
-ompt_interface_fn_t omptLookupEntries(const char *);
-void omptInitPlugin();
+const char *OmptDocument = nullptr;
+OmptGlobalTy *OmptGlobal = nullptr;
 
 extern int DebugLevel;
 #define DP(...)                                                                \
@@ -172,60 +168,36 @@ static ompt_record_abstract_t *ompt_get_record_abstract_fn(void *record) {
 
 /// Return the number of assigned teams for the given target ID.
 static int ompt_ext_get_num_teams_fn(ompt_id_t targetId) {
-  if (!omptTracePtr || targetId != omptTracePtr->TargetId) {
+  if (targetId != OmptGlobal->getTrace().TargetId) {
     DP("Warning: cannot find num_teams for target %" PRIu64 "\n", targetId);
     return 0;
   }
-  return omptTracePtr->NumTeams;
+  return OmptGlobal->getTrace().NumTeams;
 }
 
 /// Return the number of assigned threads for the given target ID.
 static int ompt_ext_get_thread_limit_fn(ompt_id_t targetId) {
-  if (!omptTracePtr || targetId != omptTracePtr->TargetId) {
+  if (targetId != OmptGlobal->getTrace().TargetId) {
     DP("Warning: cannot find thread_limit for target %" PRIu64 "\n", targetId);
     return 0;
   }
-  return omptTracePtr->ThreadLimit;
+  return OmptGlobal->getTrace().ThreadLimit;
 }
 
 /// Return the code location string associated with the return address.
 static const char *ompt_ext_get_code_location_fn(const void *returnAddress) {
-  if (!omptTracePtr) {
-    DP("Warning: cannot find code location for " DPxMOD "\n",
-       DPxPTR(returnAddress));
-    return nullptr;
-  }
-  return omptTracePtr->getCodeLocation(returnAddress);
+  return OmptGlobal->getTrace().getCodeLocation(returnAddress);
 }
 
-/// Initialize OMPT for plugin
-void omptInitPlugin() {
-  OmptCallbacksInternalTy *callbacks = nullptr;
-  OmptCallbacksActiveTy *enabled = nullptr;
-  std::memset(&omptEnabled, 0, sizeof(omptEnabled));
-  // Search for the required external functions
-  void (*getOmptCallbacksFn)(void **, void **) = nullptr;
-  void *(*getOmptTraceFn)(void) = nullptr;
-  *(void **)(&getOmptCallbacksFn) = DLSYM("__kmpc_get_ompt_callbacks");
-  *(void **)(&getOmptTraceFn) = DLSYM("__tgt_get_ompt_trace");
-  if (!getOmptCallbacksFn || !getOmptTraceFn) {
+/// Let libomptarget initialize OMPT global data, and plugin obtains access to
+/// the global data and initializes document in this routine.
+EXTERN void __tgt_rtl_init_ompt(void *omptGlobal) {
+  OmptGlobal = (OmptGlobalTy *)omptGlobal;
+  if (!OmptGlobal) {
     DP("Warning: cannot initialize OMPT\n");
     return;
   }
-  getOmptCallbacksFn((void **)&callbacks, (void **)&enabled);
-  if (!callbacks || !enabled) {
-    DP("Warning: cannot initialize OMPT\n");
-    return;
-  }
-  omptTracePtr = (OmptTraceTy *)getOmptTraceFn();
-  if (!omptTracePtr) {
-    DP("Warning: cannot initialize OMPT\n");
-    return;
-  }
-  omptCallbacks = *callbacks;
-  omptEnabled = *enabled;
-
-  omptDocument =
+  OmptDocument =
       "\nOMPT entry: \"ompt_get_device_num_procs\""
       "\n  typedef int (*ompt_get_device_num_procs_t)("
       "\n      ompt_device_t *device"

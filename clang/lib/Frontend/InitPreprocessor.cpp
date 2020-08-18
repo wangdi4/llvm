@@ -465,6 +465,8 @@ static void InitializeStandardPredefinedMacros(const TargetInfo &TI,
     // SYCL Version is set to a value when building SYCL applications
     if (LangOpts.SYCLVersion == 2017)
       Builder.defineMacro("CL_SYCL_LANGUAGE_VERSION", "121");
+    if (LangOpts.SYCLValueFitInMaxInt)
+      Builder.defineMacro("__SYCL_ID_QUERIES_FIT_IN_INT__", "1");
   }
 
   if (LangOpts.DeclareSPIRVBuiltins) {
@@ -1116,12 +1118,12 @@ static void InitializePredefinedMacros(const TargetInfo &TI,
     case 40:
       Builder.defineMacro("_OPENMP", "201307");
       break;
-    case 50:
-      Builder.defineMacro("_OPENMP", "201811");
+    case 45:
+      Builder.defineMacro("_OPENMP", "201511");
       break;
     default:
-      // Default version is OpenMP 4.5
-      Builder.defineMacro("_OPENMP", "201511");
+      // Default version is OpenMP 5.0
+      Builder.defineMacro("_OPENMP", "201811");
       break;
     }
   }

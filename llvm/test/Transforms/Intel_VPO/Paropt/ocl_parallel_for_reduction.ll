@@ -1,5 +1,5 @@
 ; RUN: opt < %s -loop-rotate -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -simplifycfg  -sroa -vpo-cfg-restructuring -vpo-paropt -simplifycfg -switch-to-offload -S -pass-remarks=vpo-paropt-transform -pass-remarks-missed=vpo-paropt-transform 2>&1 | FileCheck %s
-; RUN: opt < %s -passes='function(loop(rotate),vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,simplify-cfg,loop(simplify-cfg),sroa,vpo-cfg-restructuring),vpo-paropt,function(simplify-cfg)' -switch-to-offload -S -pass-remarks=vpo-paropt-transform -pass-remarks-missed=vpo-paropt-transform 2>&1 | FileCheck %s
+; RUN: opt < %s -passes='function(loop(loop-rotate),vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,simplify-cfg,loop(simplify-cfg),sroa,vpo-cfg-restructuring),vpo-paropt,function(simplify-cfg)' -switch-to-offload -S -pass-remarks=vpo-paropt-transform -pass-remarks-missed=vpo-paropt-transform 2>&1 | FileCheck %s
 
 ; Original code:
 ; int test()

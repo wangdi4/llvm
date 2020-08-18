@@ -162,45 +162,22 @@ void VPlanLoopUnroller::run(VPInstUnrollPartTy *VPInstUnrollPart) {
 
     // Remap operands.
     VPValueMapper Mapper(ValueMap);
-    for (VPBasicBlock *Block : VPL->blocks()) {
-      auto *ClonedBlock = cast<VPBasicBlock>(ValueMap[Block]);
+    auto UnrollerPart = [VPInstUnrollPart, Part](VPInstruction &Inst) {
+      if (VPInstUnrollPart)
+        VPInstUnrollPart->insert(std::make_pair(&Inst, Part + 1));
+    };
 
-      for (VPInstruction &Inst : *ClonedBlock) {
-        if (!isa<VPBranchInst>(Inst))
-          // Skip remapping operands for terminators because them are already
-          // remapped by VPCloneUtils
-          Mapper.remapInstruction(&Inst);
+    for (VPBasicBlock *Block : VPL->blocks())
+      Mapper.remapOperands(Block, UnrollerPart);
 
-        // Save unrolled part number for the instruction if needed.
-        if (VPInstUnrollPart)
-          VPInstUnrollPart->insert(std::make_pair(&Inst, Part + 1));
-      }
-
-      // Fix cond bit.
-      if (VPValue *CondBit = Block->getCondBit())
-        ClonedBlock->setCondBit(ValueMap[CondBit]);
-
-      // Fix cond predicate.
-      if (VPInstruction *BlockPredicate = Block->getBlockPredicate())
-        ClonedBlock->setBlockPredicate(
-            cast<VPInstruction>(ValueMap[BlockPredicate]));
-    }
-
-    // Insert cloned blocks into the loop.
-    ClonedLatch->clearSuccessors();
-
-    for (auto Pred : ClonedHeader->getPredecessors())
-      Pred->removeSuccessor(ClonedHeader);
-
+    // Move forward latch's condition.
     VPValue *CondBit = CurrentLatch->getCondBit();
     assert(CondBit && "The loop latch is expected to have CondBit");
 
-    VPBlockUtils::moveSuccessors(CurrentLatch, ClonedLatch);
-    CurrentLatch->appendSuccessor(ClonedHeader);
-
-    // Move forward latch's condition.
-    ClonedLatch->setCondBit(CondBit);
-    CurrentLatch->setCondBit(nullptr);
+    // Insert cloned blocks into the loop.
+    ClonedLatch->setTerminator(CurrentLatch->getSuccessor(0),
+                                  CurrentLatch->getSuccessor(1), CondBit);
+    CurrentLatch->setTerminator(ClonedHeader);
 
     CurrentLatch = ClonedLatch;
   }

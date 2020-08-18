@@ -592,7 +592,13 @@ bool LTOCodeGenerator::optimize(bool DisableVerify, bool DisableInline,
   PMB.LoopVectorize = !DisableVectorization;
   PMB.SLPVectorize = !DisableVectorization;
   if (!DisableInline)
-    PMB.Inliner = createFunctionInliningPass();
+#if INTEL_CUSTOMIZATION
+    PMB.Inliner = createFunctionInliningPass(OptLevel,
+                                             0     /*SizeOptLevel*/,
+                                             false /*DisableInlineHotCallSite*/,
+                                             false /*PrepareForLTO*/,
+                                             true   /*LinkForLTO*/);
+#endif // INTEL_CUSTOMIZATION
   PMB.LibraryInfo = new TargetLibraryInfoImpl(TargetTriple);
   if (Freestanding)
     PMB.LibraryInfo->disableAllFunctions();

@@ -33,7 +33,40 @@ using VPDomTreeNode = DomTreeNodeBase<VPBasicBlock>;
 
 /// Template specialization of the standard LLVM post-dominator tree utility for
 /// VPBasicBlocks.
-class VPPostDominatorTree : public PostDomTreeBase<VPBasicBlock> {};
+class VPPostDominatorTree : public PostDomTreeBase<VPBasicBlock> {
+  using Base = PostDomTreeBase<VPBasicBlock>;
+
+public:
+  /// Ensure base class overloads are visible.
+  using Base::dominates;
+
+  /// Return true if \p I1 dominates \p I2. This checks if \p I2 comes before
+  /// \p I1 if they belongs to the same basic block.
+  bool dominates(const VPInstruction *I1, const VPInstruction *I2) const {
+    assert(I1 && I2 && "Expecting valid I1 and I2.");
+
+    const VPBasicBlock *BB1 = I1->getParent();
+    const VPBasicBlock *BB2 = I2->getParent();
+
+    if (BB1 != BB2)
+      return Base::dominates(BB1, BB2);
+
+    // An instruction post dominates itself.
+    if (I1 == I2)
+      return true;
+
+    // PHI nodes in a block are unordered.
+    if (isa<VPPHINode>(I1) && isa<VPPHINode>(I2))
+      return false;
+
+    // Loop through the basic block until we find I1 or I2.
+    VPBasicBlock::const_iterator I = BB1->begin();
+    for (; &*I != I1 && &*I != I2; ++I)
+      /*empty*/;
+
+    return &*I == I2;
+  }
+};
 
 } // namespace vpo
 

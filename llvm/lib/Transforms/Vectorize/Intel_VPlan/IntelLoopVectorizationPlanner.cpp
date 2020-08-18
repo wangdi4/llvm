@@ -27,6 +27,7 @@
 #include "IntelVPlanDominatorTree.h"
 #include "IntelVPlanHCFGBuilder.h"
 #include "IntelVPlanIdioms.h"
+#include "IntelVPlanLCSSA.h"
 #include "IntelVPlanLoopCFU.h"
 #include "IntelVPlanPredicator.h"
 #include "IntelVPlanUtils.h"
@@ -59,12 +60,24 @@ static cl::opt<bool>
     DisableVPlanPredicator("disable-vplan-predicator", cl::init(false),
                            cl::Hidden, cl::desc("Disable VPlan predicator."));
 
+static cl::opt<bool> EnableAllZeroBypassNonLoops(
+    "vplan-enable-all-zero-bypass-non-loops", cl::init(true), cl::Hidden,
+    cl::desc("Enable all-zero bypass insertion for non-loops."));
+
+static cl::opt<bool> EnableAllZeroBypassLoops(
+    "vplan-enable-all-zero-bypass-loops", cl::init(true), cl::Hidden,
+    cl::desc("Enable all-zero bypass insertion for loops."));
+
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 static cl::list<unsigned> VPlanCostModelPrintAnalysisForVF(
     "vplan-cost-model-print-analysis-for-vf", cl::Hidden, cl::CommaSeparated,
     cl::ZeroOrMore,
     cl::desc("Print detailed VPlan Cost Model Analysis report for the given "
              "VF. For testing/debug purposes only."));
+
+static cl::opt<bool>
+    PrintAfterLCSSA("vplan-print-after-lcssa", cl::init(false), cl::Hidden,
+                    cl::desc("Print VPlan after LCSSA transformation."));
 
 static cl::opt<bool>
     PrintAfterLoopCFU("vplan-print-after-loop-cfu", cl::init(false), cl::Hidden,
@@ -94,7 +107,13 @@ static cl::opt<bool, true> PrintAfterCallVecDecisionsOpt(
 static cl::opt<bool, true> PrintSVAResultsOpt(
     "vplan-print-scalvec-results", cl::Hidden, cl::location(PrintSVAResults),
     cl::desc("Print VPlan with results of ScalVec analysis."));
+
+static cl::opt<bool> PrintAfterLiveInOutList(
+    "vplan-print-after-live-inout-list", cl::init(false), cl::Hidden,
+    cl::desc("Print VPlan after live in/out lists creation."));
+
 #else
+static constexpr bool PrintAfterLCSSA = false;
 static constexpr bool PrintAfterLoopCFU = false;
 static constexpr bool PrintAfterLinearization = false;
 static constexpr bool DotAfterLinearization = false;
@@ -102,6 +121,7 @@ static constexpr bool PrintAfterAllZeroBypass = false;
 static constexpr bool DotAfterAllZeroBypass = false;
 static constexpr bool PrintAfterCallVecDecisionsOpt = false;
 static constexpr bool PrintSVAResultsOpt = false;
+static constexpr bool PrintAfterLiveInOutList = false;
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 
 namespace {
@@ -247,11 +267,13 @@ unsigned LoopVectorizationPlanner::buildInitialVPlans(LLVMContext *Context,
   unsigned StartRangeVF = MinVF;
   unsigned EndRangeVF = MaxVF + 1;
 
+  Externals = std::make_unique<VPExternalValues>(Context, DL);
+
   unsigned i = 0;
   for (; StartRangeVF < EndRangeVF; ++i) {
     // TODO: revisit when we build multiple VPlans.
     std::shared_ptr<VPlan> Plan =
-        buildInitialVPlan(StartRangeVF, EndRangeVF, Context, DL);
+        buildInitialVPlan(StartRangeVF, EndRangeVF, *Externals);
 
     // Check legality of VPlan before proceeding with other transforms/analyses.
     if (!canProcessVPlan(*Plan.get())) {
@@ -259,6 +281,7 @@ unsigned LoopVectorizationPlanner::buildInitialVPlans(LLVMContext *Context,
           dbgs() << "LVP: VPlan is not legal to process, bailing out.\n");
       return 0;
     }
+    createLiveInOutLists(*Plan.get());
 
     auto VPDA = std::make_unique<VPlanDivergenceAnalysis>();
     Plan->setVPlanDA(std::move(VPDA));
@@ -281,7 +304,7 @@ unsigned LoopVectorizationPlanner::buildInitialVPlans(LLVMContext *Context,
     // TODO: Insert initial run of SVA here for any new users before CM & CG.
 
     for (unsigned TmpVF = StartRangeVF; TmpVF < EndRangeVF; TmpVF *= 2)
-      VPlans[TmpVF] = Plan;
+      VPlans[TmpVF] = {Plan, nullptr};
 
     StartRangeVF = EndRangeVF;
     EndRangeVF = MaxVF + 1;
@@ -295,13 +318,19 @@ unsigned LoopVectorizationPlanner::buildInitialVPlans(LLVMContext *Context,
   return i;
 }
 
+void LoopVectorizationPlanner::createLiveInOutLists(VPlan &Plan) {
+  VPLiveInOutCreator LICreator(Plan);
+  LICreator.createInOutValues();
+  VPLAN_DUMP(PrintAfterLiveInOutList, "Live-in/out lists creation", Plan);
+}
+
 void LoopVectorizationPlanner::selectBestPeelingVariants() {
   std::map<VPlan *, VPlanPeelingAnalysis> VPPACache;
   VPlanPeelingCostModelSimple CM(*DL);
 
   for (auto &Pair : VPlans) {
     auto VF = Pair.first;
-    VPlan &Plan = *Pair.second;
+    VPlan &Plan = *Pair.second.MainPlan;
 
     if (VF == 1)
       continue;
@@ -472,7 +501,7 @@ void LoopVectorizationPlanner::predicate() {
   for (auto It : VPlans) {
     if (It.first == 1)
       continue; // Ignore Scalar VPlan;
-    VPlan *VPlan = It.second.get();
+    VPlan *VPlan = It.second.MainPlan.get();
     if (PredicatedVPlans.count(VPlan))
       continue; // Already predicated.
 
@@ -480,8 +509,14 @@ void LoopVectorizationPlanner::predicate() {
     assert(std::distance(VPLI->begin(), VPLI->end()) == 1 &&
            "There should be single outer loop!");
     VPLoop *OuterLoop = *VPLI->begin();
-    // Search loops require multiple hacks. Skipping LoopCFU is one of them.
+    // Search loops require multiple hacks. Skipping LCSSA/LoopCFU is one of
+    // them.
     bool SearchLoopHack = !OuterLoop->getExitBlock();
+
+    if (!SearchLoopHack)
+      formLCSSA(*VPlan, true /* SkipTopLoop */);
+    VPLAN_DUMP(PrintAfterLCSSA, "LCSSA transformation", VPlan);
+
     if (!SearchLoopHack) {
       assert(!VPlan->getVPlanDA()->isDivergent(
                  *(OuterLoop)->getLoopLatch()->getCondBit()) &&
@@ -504,7 +539,7 @@ void LoopVectorizationPlanner::predicate() {
   }
 }
 
-void LoopVectorizationPlanner::insertAllZeroBypasses(VPlan *Plan) {
+void LoopVectorizationPlanner::insertAllZeroBypasses(VPlan *Plan, unsigned VF) {
   // Skip multi-exit loops at outer VPlan level. Inner loops will be
   // canonicalized to single exit in VPlan. TODO: this check is only
   // needed due to hacky search loop support. Change to assert in the
@@ -515,10 +550,25 @@ void LoopVectorizationPlanner::insertAllZeroBypasses(VPlan *Plan) {
 
   // Holds the pair of blocks representing the begin/end of an all-zero
   // bypass region. The block-predicate at the begin block is used to
-  // generate the bypass.
+  // generate the bypass. This is the final record of all-zero bypass
+  // regions that will be inserted.
   VPlanAllZeroBypass::AllZeroBypassRegionsTy AllZeroBypassRegions;
+  // Keep a map of the regions collected under a specific block-predicate
+  // to avoid collecting/inserting unnecessary regions. This data structure
+  // records the same regions as AllZeroBypassRegions, but is keyed by
+  // block-predicate for quick look-up.
+  VPlanAllZeroBypass::RegionsCollectedTy RegionsCollected;
   VPlanAllZeroBypass AZB(*Plan);
-  AZB.collectAllZeroBypassRegions(AllZeroBypassRegions);
+  if (EnableAllZeroBypassLoops)
+    AZB.collectAllZeroBypassLoopRegions(AllZeroBypassRegions, RegionsCollected);
+  if (EnableAllZeroBypassNonLoops &&
+      TTI->isAdvancedOptEnabled(
+          TargetTransformInfo::AdvancedOptLevel::AO_TargetHasSSE42)) {
+    VPlanCostModelProprietary VectorCM(Plan, VF, TTI, TLI, DL, VLSA);
+    AZB.collectAllZeroBypassNonLoopRegions(AllZeroBypassRegions,
+                                           RegionsCollected,
+                                           &VectorCM);
+  }
   AZB.insertAllZeroBypasses(AllZeroBypassRegions);
 
   VPLAN_DUMP(PrintAfterAllZeroBypass, "all zero bypass insertion", Plan);
@@ -594,10 +644,9 @@ LoopVectorizationPlanner::getTypesWidthRangeInBits() const {
 }
 
 std::shared_ptr<VPlan> LoopVectorizationPlanner::buildInitialVPlan(
-    unsigned StartRangeVF, unsigned &EndRangeVF, LLVMContext *Context,
-    const DataLayout *DL) {
+    unsigned StartRangeVF, unsigned &EndRangeVF, VPExternalValues &Ext) {
   // Create new empty VPlan
-  std::shared_ptr<VPlan> SharedPlan = std::make_shared<VPlan>(Context, DL);
+  std::shared_ptr<VPlan> SharedPlan = std::make_shared<VPlan>(Ext);
   VPlan *Plan = SharedPlan.get();
 
   // Build hierarchical CFG
@@ -747,6 +796,12 @@ void LoopVectorizationPlanner::executeBestPlan(VPOCodeGen &LB) {
   // Run CallVecDecisions analysis for final VPlan which will be used by CG.
   VPlan *Plan = getVPlanForVF(BestVF);
   assert(Plan && "No VPlan found for BestVF.");
+
+  // Temporary, until CFG merge is implemented. Replace VPLiveInValue-s by
+  // original incoming values.
+  VPLiveInOutCreator LICreator(*Plan);
+  LICreator.restoreLiveIns();
+
   VPlanCallVecDecisions CallVecDecisions(*Plan);
   CallVecDecisions.run(BestVF, TLI, TTI);
   std::string Label("CallVecDecisions analysis for VF=" +

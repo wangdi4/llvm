@@ -12,6 +12,7 @@ __attribute__((sycl_kernel)) void kernel(Func kernelFunc) {
 
 struct test_struct {
   int data;
+  int *ptr; // Unused pointer in struct
 };
 
 void test(const int some_const) {
@@ -65,15 +66,19 @@ int main() {
 // CHECK-NEXT: DeclRefExpr {{.*}} 'int' lvalue ParmVar {{.*}} '_arg_' 'int'
 
 // Check kernel parameters
-// CHECK: {{.*}}kernel_struct{{.*}} 'void (test_struct)'
-// CHECK: ParmVarDecl {{.*}} used _arg_ 'test_struct'
+// CHECK: {{.*}}kernel_struct{{.*}} 'void (int, __wrapper_class)'
+// CHECK: ParmVarDecl {{.*}} used _arg_data 'int'
+// CHECK: ParmVarDecl {{.*}} used _arg_ptr '__wrapper_class'
 
 // Check that lambda field of struct type is initialized
 // CHECK: VarDecl {{.*}}'(lambda at {{.*}}built-in-type-kernel-arg.cpp{{.*}})'
-// CHECK-NEXT: InitListExpr
-// CHECK-NEXT: CXXConstructExpr {{.*}}'test_struct'{{.*}}void (const test_struct &)
-// CHECK-NEXT: ImplicitCastExpr {{.*}}'const test_struct' lvalue <NoOp>
-// CHECK-NEXT: DeclRefExpr {{.*}} 'test_struct' lvalue ParmVar {{.*}} '_arg_' 'test_struct'
+// CHECK-NEXT: InitListExpr {{.*}}'(lambda at {{.*}}built-in-type-kernel-arg.cpp{{.*}})'
+// CHECK-NEXT: InitListExpr {{.*}}'test_struct'{{.*}}
+// CHECK-NEXT: ImplicitCastExpr {{.*}} 'int' <LValueToRValue>
+// CHECK-NEXT: DeclRefExpr {{.*}} 'int' lvalue ParmVar {{.*}} '_arg_data' 'int'
+// CHECK-NEXT: ImplicitCastExpr {{.*}} 'int *' <AddressSpaceConversion>
+// CHECK-NEXT: MemberExpr {{.*}}  '__global int *' lvalue . {{.*}}
+// CHECK-NEXT: DeclRefExpr {{.*}} '__wrapper_class' lvalue ParmVar {{.*}} '_arg_ptr' '__wrapper_class'
 
 // Check kernel parameters
 // CHECK: {{.*}}kernel_pointer{{.*}} 'void (__global int *, __global int *)'

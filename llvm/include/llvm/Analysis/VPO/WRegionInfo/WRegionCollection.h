@@ -47,6 +47,7 @@ public:
   T top();
   size_t size();
   bool empty();
+  T operator[](size_t i);
 
 private:
   std::vector<T> Stack_;
@@ -67,6 +68,11 @@ template <class T> void WRStack<T>::pop() {
 template <class T> T WRStack<T>::top() {
   assert(Stack_.size() > 0);
   return Stack_.at(Stack_.size() - 1);
+}
+
+template <class T> T WRStack<T>::operator[](size_t i) {
+  assert(Stack_.size() > 0 && i < Stack_.size());
+  return Stack_.at(i);
 }
 
 template <class T> size_t WRStack<T>::size() { return Stack_.size(); }
@@ -92,7 +98,7 @@ private:
   const TargetTransformInfo *TTI;
   AssumptionCache *AC;
   const TargetLibraryInfo *TLI;
-  AliasAnalysis *AA;
+  AAResults *AA;
 #if INTEL_CUSTOMIZATION
   loopopt::HIRFramework *HIRF;
 #endif // INTEL_CUSTOMIZATION
@@ -105,7 +111,7 @@ private:
     for (auto *WRN : *WRGraph)
       delete WRN;
 
-    delete WRGraph;
+    delete (WRContainerTy *)WRGraph;
     WRGraph = nullptr;
   }
 
@@ -116,9 +122,7 @@ public:
                     ScalarEvolution *SE, const TargetTransformInfo *TTI,
                     AssumptionCache *AC, const TargetLibraryInfo *TLI,
 #if INTEL_CUSTOMIZATION
-                    AliasAnalysis *AA, loopopt::HIRFramework *HIRF);
-#else
-                    AliasAnalysis *AA);
+                    AAResults *AA, loopopt::HIRFramework *HIRF);
 #endif // INTEL_CUSTOMIZATION
 
   ~WRegionCollection() { releaseMemory(); }
@@ -147,7 +151,7 @@ public:
   const TargetTransformInfo *getTargetTransformInfo() { return TTI; }
   AssumptionCache *getAssumptionCache() { return AC; }
   const TargetLibraryInfo *getTargetLibraryInfo() { return TLI; }
-  AliasAnalysis *getAliasAnalysis() { return AA; }
+  AAResults *getAliasAnalysis() { return AA; }
 
   /// Returns the size of the WRGraph container
   unsigned getWRGraphSize() { return WRGraph->size(); }
@@ -167,6 +171,10 @@ public:
   const_reverse_iterator rbegin() const { return WRGraph->rbegin(); }
   reverse_iterator rend() { return WRGraph->rend(); }
   const_reverse_iterator rend() const { return WRGraph->rend(); }
+
+  /// Return true, if WRegionCollectionAnalysis must be invalidated.
+  bool invalidate(Function &F, const PreservedAnalyses &PA,
+                  FunctionAnalysisManager::Invalidator &Inv);
 };
 
 /// WRegionCollection Pass for the legacy Pass Manager.

@@ -726,7 +726,7 @@ bool HIRLoopReversal::doHIRReversalTransform(HLLoop *Lp) {
     CE->getIVCoeff(LoopLevel, &BlobIndex, &Coeff);
 
     bool ReplaceIVByCE = CanonExprUtils::replaceIVByCanonExpr(
-        CE, LoopLevel, UBCE, Lp->isNSW(), true);
+        CE, LoopLevel, UBCE, Lp->hasSignedIV(), true);
     (void)ReplaceIVByCE;
     assert(ReplaceIVByCE && "replaceIVByCanonExpr(.) failed\n");
 

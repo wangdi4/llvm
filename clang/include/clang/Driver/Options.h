@@ -33,10 +33,12 @@ enum ClangFlags {
   CC1Option = (1 << 10),
   CC1AsOption = (1 << 11),
   NoDriverOption = (1 << 12),
+  LinkOption = (1 << 13),
+  Ignored = (1 << 14),
 #if INTEL_CUSTOMIZATION
-  Ignored = (1 << 13),
-  DpcppUnsupported = (1 << 14),
-  DpcppHidden = (1 << 15)
+  DpcppUnsupported = (1 << 15),
+  DpcppHidden = (1 << 16),
+  ProEnabled = (1 << 17)
 #endif // INTEL_CUSTOMIZATION
 };
 

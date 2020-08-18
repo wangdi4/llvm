@@ -1381,10 +1381,15 @@ void StmtPrinter::VisitOMPArraySectionExpr(OMPArraySectionExpr *Node) {
   OS << "[";
   if (Node->getLowerBound())
     PrintExpr(Node->getLowerBound());
-  if (Node->getColonLoc().isValid()) {
+  if (Node->getColonLocFirst().isValid()) {
     OS << ":";
     if (Node->getLength())
       PrintExpr(Node->getLength());
+  }
+  if (Node->getColonLocSecond().isValid()) {
+    OS << ":";
+    if (Node->getStride())
+      PrintExpr(Node->getStride());
   }
   OS << "]";
 }
@@ -2038,8 +2043,23 @@ void StmtPrinter::VisitLambdaExpr(LambdaExpr *Node) {
     if (C->isPackExpansion())
       OS << "...";
 
-    if (Node->isInitCapture(C))
-      PrintExpr(C->getCapturedVar()->getInit());
+    if (Node->isInitCapture(C)) {
+      VarDecl *D = C->getCapturedVar();
+
+      llvm::StringRef Pre;
+      llvm::StringRef Post;
+      if (D->getInitStyle() == VarDecl::CallInit &&
+          !isa<ParenListExpr>(D->getInit())) {
+        Pre = "(";
+        Post = ")";
+      } else if (D->getInitStyle() == VarDecl::CInit) {
+        Pre = " = ";
+      }
+
+      OS << Pre;
+      PrintExpr(D->getInit());
+      OS << Post;
+    }
   }
   OS << ']';
 

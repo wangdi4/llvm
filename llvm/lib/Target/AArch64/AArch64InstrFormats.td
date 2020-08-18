@@ -495,6 +495,9 @@ def SImmS4XForm : SDNodeXForm<imm, [{
 def SImmS16XForm : SDNodeXForm<imm, [{
   return CurDAG->getTargetConstant(N->getSExtValue() / 16, SDLoc(N), MVT::i64);
 }]>;
+def SImmS32XForm : SDNodeXForm<imm, [{
+  return CurDAG->getTargetConstant(N->getSExtValue() / 32, SDLoc(N), MVT::i64);
+}]>;
 
 // simm6sN predicate - True if the immediate is a multiple of N in the range
 // [-32 * N, 31 * N].
@@ -546,7 +549,7 @@ def simm4s16 : Operand<i64>, ImmLeaf<i64,
   let DecoderMethod = "DecodeSImm<4>";
 }
 def simm4s32 : Operand<i64>, ImmLeaf<i64,
-[{ return Imm >=-256  && Imm <= 224 && (Imm % 32) == 0x0; }]> {
+[{ return Imm >=-256  && Imm <= 224 && (Imm % 32) == 0x0; }], SImmS32XForm> {
   let PrintMethod = "printImmScale<32>";
   let ParserMatchClass = SImm4s32Operand;
   let DecoderMethod = "DecodeSImm<4>";
@@ -1647,6 +1650,8 @@ class BaseAuthLoad<bit M, bit W, dag oops, dag iops, string asm,
   let Inst{10} = 1;
   let Inst{9-5} = Rn;
   let Inst{4-0} = Rt;
+
+  let DecoderMethod = "DecodeAuthLoadInstruction";
 }
 
 multiclass AuthLoad<bit M, string asm, Operand opr> {
@@ -1932,11 +1937,21 @@ class SignAuthTwoOperand<bits<4> opc, string asm,
   let Inst{4-0}   = Rd;
 }
 
+class ClearAuth<bits<1> data, string asm>
+  : I<(outs GPR64:$Rd), (ins GPR64:$Rn), asm, "\t$Rd", "$Rd = $Rn", []>, Sched<[]> {
+  bits<5> Rd;
+  let Inst{31-11} = 0b110110101100000101000;
+  let Inst{10} = data;
+  let Inst{9-5} = 0b11111;
+  let Inst{4-0} = Rd;
+}
+
 // Base class for the Armv8.4-A 8 and 16-bit flag manipulation instructions
 class BaseFlagManipulation<bit sf, bit sz, dag iops, string asm, string ops>
     : I<(outs), iops, asm, ops, "", []>,
       Sched<[WriteI, ReadI, ReadI]> {
   let Uses = [NZCV];
+  let Defs = [NZCV];
   bits<5> Rn;
   let Inst{31}    = sf;
   let Inst{30-15} = 0b0111010000000000;
@@ -7911,15 +7926,18 @@ class SIMDThreeSameVectorBF16MatrixMul<string asm>
 class SIMD_BFCVTN
   : BaseSIMDMixedTwoVector<0, 0, 0b10, 0b10110, V128, V128,
                            "bfcvtn", ".4h", ".4s",
-    []>;
+    [(set (v8bf16 V128:$Rd),
+          (int_aarch64_neon_bfcvtn (v4f32 V128:$Rn)))]>;
 
 class SIMD_BFCVTN2
   : BaseSIMDMixedTwoVectorTied<1, 0, 0b10, 0b10110, V128, V128,
                            "bfcvtn2", ".8h", ".4s",
-    []>;
+    [(set (v8bf16 V128:$dst),
+          (int_aarch64_neon_bfcvtn2 (v8bf16 V128:$Rd), (v4f32 V128:$Rn)))]>;
 
 class BF16ToSinglePrecision<string asm>
-  : I<(outs FPR16:$Rd), (ins FPR32:$Rn), asm, "\t$Rd, $Rn", "", []>,
+  : I<(outs FPR16:$Rd), (ins FPR32:$Rn), asm, "\t$Rd, $Rn", "",
+    [(set (bf16 FPR16:$Rd), (int_aarch64_neon_bfcvt (f32 FPR32:$Rn)))]>,
     Sched<[WriteFCvt]> {
   bits<5> Rd;
   bits<5> Rn;

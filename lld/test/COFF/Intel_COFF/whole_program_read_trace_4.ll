@@ -1,8 +1,8 @@
 ; REQUIRES: asserts
 ; This test checks that whole program read was achieved with wmain.
 
-; RUN: llvm-as -o %T/wpt4.bc %s
-; RUN: lld-link /out:%T/wpt4.exe /entry:wmain %T/wpt4.bc /subsystem:console  \
+; RUN: llvm-as -o %t_wpt4.bc %s
+; RUN: lld-link /out:%t_wpt4.exe /entry:wmain %t_wpt4.bc /subsystem:console  \
 ; RUN:     /mllvm:-debug-only=whole-program-analysis \
 ; RUN:     /mllvm:-whole-program-read-trace \
 ; RUN:     2>&1 | FileCheck %s

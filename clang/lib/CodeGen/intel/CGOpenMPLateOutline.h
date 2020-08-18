@@ -87,6 +87,10 @@ class OpenMPLateOutliner {
     bool Monotonic = false;
     bool NonMonotonic = false;
     bool Simd = false;
+    bool Always = false;
+    bool Close = false;
+    bool Cmplx = false;
+    bool Chain = false;
 
     void addSeparated(StringRef QualString) {
       Str += Separator;
@@ -111,6 +115,14 @@ class OpenMPLateOutliner {
         addSeparated("NONMONOTONIC");
       if (Simd)
         addSeparated("SIMD");
+      if (Always)
+        addSeparated("ALWAYS");
+      if (Close)
+        addSeparated("CLOSE");
+      if (Cmplx)
+        addSeparated("CMPLX");
+      if (Chain)
+        addSeparated("CHAIN");
     }
 
   public:
@@ -124,6 +136,10 @@ class OpenMPLateOutliner {
     void setMonotonic() { Monotonic = true; }
     void setNonMonotonic() { NonMonotonic = true; }
     void setSimd() { Simd = true; }
+    void setAlways() { Always = true; }
+    void setClose() { Close =  true; }
+    void setCmplx() { Cmplx = true; }
+    void setChain() { Chain = true; }
 
     void add(StringRef S) { Str += S; }
     StringRef getString() {

@@ -1,9 +1,9 @@
 // INTEL_COLLAB
 // RUN: %clang_cc1 -emit-pch -o %t -std=c++14 -fopenmp \
-// RUN:  -fopenmp-late-outline -triple x86_64-unknown-linux-gnu %s
+// RUN:  -fopenmp-late-outline -fopenmp-version=45 -triple x86_64-unknown-linux-gnu %s
 
 // RUN: %clang_cc1 -emit-llvm -o - -std=c++14 -fopenmp -fopenmp-late-outline \
-// RUN:  -include-pch %t -verify \
+// RUN:  -include-pch %t -verify -fopenmp-version=45 \
 // RUN:  -triple x86_64-unknown-linux-gnu %s | FileCheck %s
 
 // expected-no-diagnostics

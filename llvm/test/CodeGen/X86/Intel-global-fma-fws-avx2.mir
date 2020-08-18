@@ -1,0 +1,61 @@
+# RUN: llc -o - %s -mtriple=x86_64-- -fp-contract=fast -enable-unsafe-fp-math -run-pass=global-fma | FileCheck %s
+
+# The test checks a scenario in which an expression E has 2 users U1 and U2.
+# E gets fused with U1 in doFWS() assuming it is something good even if it
+# might not get fused into U2 too later, but in fact FWS module decides
+# to fuse E with U2 later. Such scenario happened to crash compilation.
+
+--- |
+  target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
+
+  @a1 = common dso_local local_unnamed_addr global double 0.000000e+00, align 8
+  @b1 = common dso_local local_unnamed_addr global double 0.000000e+00, align 8
+  @c1 = common dso_local local_unnamed_addr global double 0.000000e+00, align 8
+  @d1 = common dso_local local_unnamed_addr global double 0.000000e+00, align 8
+  @e1 = common dso_local local_unnamed_addr global double 0.000000e+00, align 8
+  @f1 = common dso_local local_unnamed_addr global double 0.000000e+00, align 8
+  @g1 = common dso_local local_unnamed_addr global double 0.000000e+00, align 8
+  @h1 = common dso_local local_unnamed_addr global double 0.000000e+00, align 8
+
+  @x1 = common dso_local local_unnamed_addr global double 0.000000e+00, align 8
+  @y1 = common dso_local local_unnamed_addr global double 0.000000e+00, align 8
+  @z1 = common dso_local local_unnamed_addr global double 0.000000e+00, align 8
+
+  define dso_local double @foo3() local_unnamed_addr #0 {
+  entry:
+    %0 = load double, double* @a1, align 8
+    ret double %0
+  }
+
+  attributes #0 = {"target-cpu"="x86-64" "target-features"="+avx,+avx2,+fma" "unsafe-fp-math"="true"}
+...
+---
+name:            foo3
+body:             |
+  bb.0.entry:
+    %a1:fr64 = VMOVSDrm_alt $rip, 1, $noreg, @a1, $noreg
+    %b1:fr64 = VMOVSDrm_alt $rip, 1, $noreg, @b1, $noreg
+    %c1:fr64 = VMOVSDrm_alt $rip, 1, $noreg, @c1, $noreg
+    %d1:fr64 = VMOVSDrm_alt $rip, 1, $noreg, @d1, $noreg
+    %e1:fr64 = VMOVSDrm_alt $rip, 1, $noreg, @e1, $noreg
+    %f1:fr64 = VMOVSDrm_alt $rip, 1, $noreg, @f1, $noreg
+    %expr1:fr64 = nnan ninf nsz arcp contract afn reassoc nofpexcept VFNMADD213SDr %a1:fr64, %b1:fr64, %c1, implicit $mxcsr
+    %expr2:fr64 = nnan ninf nsz arcp contract afn reassoc nofpexcept VADDSDrr %expr1:fr64, %d1, implicit $mxcsr
+    %res0:fr64 = nnan ninf nsz arcp contract afn reassoc nofpexcept VFMADD213SDr %a1:fr64, %b1:fr64, %expr2, implicit $mxcsr
+    %res1:fr64 = nnan ninf nsz arcp contract afn reassoc nofpexcept VFMADD213SDr %e1:fr64, %f1:fr64, %expr2, implicit $mxcsr
+    $xmm0 = COPY %res0
+    $xmm1 = COPY %res1
+    RET 0, $xmm0
+
+    ; CHECK-LABEL: bb.0.entry:
+    ; CHECK: %a1:fr64 = VMOVSDrm_alt $rip, 1, $noreg, @a1, $noreg
+    ; CHECK: %b1:fr64 = VMOVSDrm_alt $rip, 1, $noreg, @b1, $noreg
+    ; CHECK: %c1:fr64 = VMOVSDrm_alt $rip, 1, $noreg, @c1, $noreg
+    ; CHECK: %d1:fr64 = VMOVSDrm_alt $rip, 1, $noreg, @d1, $noreg
+    ; CHECK: %e1:fr64 = VMOVSDrm_alt $rip, 1, $noreg, @e1, $noreg
+    ; CHECK: %f1:fr64 = VMOVSDrm_alt $rip, 1, $noreg, @f1, $noreg
+    ; CHECK: %res0:fr64 = nofpexcept VADDSDrr %d1, %c1, implicit $mxcsr
+    ; CHECK: [[tmp1:%[0-9]+]]:fr64 = nofpexcept VFMSUB213SDr %b1, %a1, %c1, implicit $mxcsr
+    ; CHECK: [[tmp2:%[0-9]+]]:fr64 = nofpexcept VFMADD213SDr %f1, %e1, %d1, implicit $mxcsr
+    ; CHECK: %res1:fr64 = nofpexcept VSUBSDrr killed [[tmp2]], killed [[tmp1]], implicit $mxcsr
+...

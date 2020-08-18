@@ -679,6 +679,8 @@ public:
       case Instruction::Ret:
         if (StructIdioms::isStructuredExpr(D, S))
           break;
+        else if (Idioms::isThisArg(D, S))
+          break;
         Handled = false;
         break;
       case Instruction::Load:
@@ -745,6 +747,10 @@ public:
         break;
       // Depends on invoke, no need to check.
       case Instruction::LandingPad:
+      case Instruction::CleanupPad:
+      case Instruction::CleanupRet:
+      case Instruction::CatchSwitch:
+      case Instruction::CatchPad:
         break;
       case Instruction::Call:
       case Instruction::Invoke:
@@ -1377,6 +1383,8 @@ private:
       case Instruction::GetElementPtr:
       case Instruction::Invoke:
       case Instruction::LandingPad:
+      case Instruction::CleanupPad:
+      case Instruction::CleanupRet:
         break;
       default:
         return false;

@@ -1,5 +1,5 @@
-; RUN: opt < %s -prepare-switch-to-offload=true -switch-to-offload -vpo-cfg-restructuring -vpo-paropt-loop-collapse -S | FileCheck %s
-; RUN: opt < %s -passes='function(vpo-cfg-restructuring,vpo-paropt-loop-collapse)' -prepare-switch-to-offload=true -switch-to-offload  -S | FileCheck %s
+; RUN: opt < %s  -switch-to-offload -vpo-cfg-restructuring -vpo-paropt-loop-collapse -S | FileCheck %s
+; RUN: opt < %s -passes='function(vpo-cfg-restructuring,vpo-paropt-loop-collapse)'  -switch-to-offload  -S | FileCheck %s
 
 ; Original code:
 ; void foo() {

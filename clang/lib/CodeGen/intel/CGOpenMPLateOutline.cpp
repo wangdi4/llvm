@@ -23,6 +23,12 @@ using namespace llvm::omp;
 
 llvm::Value *OpenMPLateOutliner::emitOpenMPDefaultConstructor(const Expr *IPriv,
                                                               bool IsUDR) {
+  CodeGenModule &CGM = CGF.CGM;
+  // If generating device code, don't emit the routine if we are not inside
+  // a target region, since it won't be used and will cause problems if
+  // used from a later target region.
+  if (CGF.getLangOpts().OpenMPIsDevice && !CGM.inTargetRegion())
+    return llvm::ConstantPointerNull::get(CGF.VoidPtrTy);
 
   if (!IPriv)
     return llvm::ConstantPointerNull::get(CGF.VoidPtrTy);
@@ -30,11 +36,11 @@ llvm::Value *OpenMPLateOutliner::emitOpenMPDefaultConstructor(const Expr *IPriv,
   auto *Private = cast<VarDecl>(cast<DeclRefExpr>(IPriv)->getDecl());
   QualType Ty = Private->getType();
 
-  CodeGenModule &CGM = CGF.CGM;
   SmallString<256> OutName;
   llvm::raw_svector_ostream Out(OutName);
   auto &Ctx = CGM.getContext();
-  if (IsUDR && Ty->isArrayType())
+  bool UseSingleArrayFuncs = CGF.getLangOpts().OpenMPUseSingleElemArrayFuncs;
+  if (Ty->isArrayType() && (UseSingleArrayFuncs || IsUDR))
     Ty = Ctx.getBaseElementType(Ty).getNonReferenceType();
   CGM.getCXXABI().getMangleContext().mangleTypeName(Ty, Out);
   Out << ".omp.def_constr";
@@ -58,6 +64,22 @@ llvm::Value *OpenMPLateOutliner::emitOpenMPDefaultConstructor(const Expr *IPriv,
   auto *Init = Private->getInit();
   if (Init && !NewCGF.isTrivialInitializer(Init)) {
     CodeGenFunction::RunCleanupsScope Scope(NewCGF);
+    if (Init->getType()->isArrayType() != Ty->isArrayType()) {
+      // Rebuild the constructor for the element type.
+      if (auto Cleanups = dyn_cast<ExprWithCleanups>(Init))
+        Init = Cleanups->getSubExpr();
+      auto *CCE = cast<CXXConstructExpr>(Init);
+      SmallVector<Expr *, 8> ConstructorArgs;
+      for (auto I = CCE->arg_begin(), End = CCE->arg_end(); I != End; ++I)
+        ConstructorArgs.push_back(const_cast<Expr *>(*I));
+
+      Init = CXXConstructExpr::Create(
+        Ctx, Ty, CCE->getLocation(), CCE->getConstructor(), CCE->isElidable(),
+        ConstructorArgs, CCE->hadMultipleCandidates(),
+        CCE->isListInitialization(), CCE->isStdInitListInitialization(),
+        CCE->requiresZeroInitialization(), CCE->getConstructionKind(),
+        CCE->getParenOrBraceRange());
+    }
     LValue ArgLVal = NewCGF.EmitLoadOfPointerLValue(
         NewCGF.GetAddrOfLocalVar(&Dst), PtrTy->getAs<PointerType>());
     NewCGF.EmitAnyExprToMem(Init, ArgLVal.getAddress(NewCGF),
@@ -71,10 +93,17 @@ llvm::Value *OpenMPLateOutliner::emitOpenMPDefaultConstructor(const Expr *IPriv,
 llvm::Value *
 OpenMPLateOutliner::emitOpenMPDestructor(QualType Ty, bool IsUDR) {
   CodeGenModule &CGM = CGF.CGM;
+  // If generating device code, don't emit the routine if we are not inside
+  // a target region, since it won't be used and will cause problems if
+  // used from a later target region.
+  if (CGF.getLangOpts().OpenMPIsDevice && !CGM.inTargetRegion())
+    return llvm::ConstantPointerNull::get(CGF.VoidPtrTy);
+
   SmallString<256> OutName;
   llvm::raw_svector_ostream Out(OutName);
   auto &Ctx = CGM.getContext();
-  if (IsUDR && Ty->isArrayType())
+  bool UseSingleArrayFuncs = CGF.getLangOpts().OpenMPUseSingleElemArrayFuncs;
+  if (Ty->isArrayType() && (UseSingleArrayFuncs || IsUDR))
     Ty = Ctx.getBaseElementType(Ty).getNonReferenceType();
   CGM.getCXXABI().getMangleContext().mangleTypeName(Ty, Out);
   Out << ".omp.destr";
@@ -111,17 +140,27 @@ OpenMPLateOutliner::emitOpenMPDestructor(QualType Ty, bool IsUDR) {
 }
 
 llvm::Value *OpenMPLateOutliner::emitOpenMPCopyConstructor(const Expr *IPriv) {
+  CodeGenModule &CGM = CGF.CGM;
+  // If generating device code, don't emit the routine if we are not inside
+  // a target region, since it won't be used and will cause problems if
+  // used from a later target region.
+  if (CGF.getLangOpts().OpenMPIsDevice && !CGM.inTargetRegion())
+    return llvm::ConstantPointerNull::get(CGF.VoidPtrTy);
+
   if (!IPriv)
     return llvm::ConstantPointerNull::get(CGF.VoidPtrTy);
 
   auto *Private = cast<VarDecl>(cast<DeclRefExpr>(IPriv)->getDecl());
 
-  CodeGenModule &CGM = CGF.CGM;
   auto &C = CGM.getContext();
+  bool UseSingleArrayFuncs = CGF.getLangOpts().OpenMPUseSingleElemArrayFuncs;
   QualType Ty = Private->getType();
   QualType ElemType = Ty;
-  if (Ty->isArrayType())
+  if (Ty->isArrayType()) {
     ElemType = C.getBaseElementType(Ty).getNonReferenceType();
+    if (UseSingleArrayFuncs)
+      Ty = ElemType;
+  }
 
   SmallString<256> OutName;
   llvm::raw_svector_ostream Out(OutName);
@@ -186,7 +225,7 @@ llvm::Value *OpenMPLateOutliner::emitOpenMPCopyConstructor(const Expr *IPriv) {
                               VK_RValue);
     UnaryOperator *SRC = UnaryOperator::Create(
         C, &CastExpr, UO_Deref, ElemType, VK_LValue, OK_Ordinary,
-        SourceLocation(), /*CanOverflow=*/false, FPOptions(C.getLangOpts()));
+        SourceLocation(), /*CanOverflow=*/false, FPOptionsOverride());
 
     QualType CTy = ElemType;
     CTy.addConst();
@@ -219,10 +258,20 @@ llvm::Value *OpenMPLateOutliner::emitOpenMPCopyConstructor(const Expr *IPriv) {
 llvm::Value *OpenMPLateOutliner::emitOpenMPCopyAssign(QualType Ty,
     const Expr *SrcExpr, const Expr *DstExpr, const Expr *AssignOp) {
   CodeGenModule &CGM = CGF.CGM;
+  // If generating device code, don't emit the routine if we are not inside
+  // a target region, since it won't be used and will cause problems if
+  // used from a later target region.
+  if (CGF.getLangOpts().OpenMPIsDevice && !CGM.inTargetRegion())
+    return llvm::ConstantPointerNull::get(CGF.VoidPtrTy);
+
   auto &C = CGM.getContext();
+  bool UseSingleArrayFuncs = CGF.getLangOpts().OpenMPUseSingleElemArrayFuncs;
   QualType ElemType = Ty;
-  if (Ty->isArrayType())
+  if (Ty->isArrayType()) {
     ElemType = C.getBaseElementType(Ty).getNonReferenceType();
+    if (UseSingleArrayFuncs)
+      Ty = ElemType;
+  }
 
   SmallString<256> OutName;
   llvm::raw_svector_ostream Out(OutName);
@@ -328,14 +377,15 @@ OpenMPLateOutliner::emitArraySectionData(const Expr *E, CodeGenFunction &CGF) {
         CGF.EmitScalarConversion(CGF.EmitScalarExpr(Length), Length->getType(),
                                  C.getSizeType(), Length->getExprLoc());
   } else {
-    llvm::APSInt ConstLength;
+    Optional<llvm::APSInt> ConstLength;
     if (auto *VAT = C.getAsVariableArrayType(BaseTy)) {
       Length = VAT->getSizeExpr();
-      if (Length->isIntegerConstantExpr(ConstLength, C))
+      ConstLength = Length->getIntegerConstantExpr(C);
+      if (ConstLength)
         Length = nullptr;
     } else {
       auto *CAT = C.getAsConstantArrayType(BaseTy);
-      ConstLength = CAT->getSize();
+      ConstLength = llvm::APSInt{CAT->getSize()};
     }
     llvm::Value *LengthVal;
     if (Length) {
@@ -343,7 +393,7 @@ OpenMPLateOutliner::emitArraySectionData(const Expr *E, CodeGenFunction &CGF) {
                                            Length->getType(), C.getSizeType(),
                                            Length->getExprLoc());
     } else {
-      LengthVal = llvm::ConstantInt::get(CGF.SizeTy, ConstLength.getExtValue());
+      LengthVal = llvm::ConstantInt::get(CGF.SizeTy, ConstLength->getExtValue());
     }
     Data.Length = CGF.Builder.CreateSub(LengthVal, Data.LowerBound);
   }
@@ -414,10 +464,11 @@ void OpenMPLateOutliner::addArg(const Expr *E, bool IsRef) {
     }
   } else {
     assert(E->isGLValue());
-    const auto *DRE = dyn_cast<DeclRefExpr>(E);
-    const VarDecl *VD = cast<VarDecl>(DRE->getDecl());
-    if (VD && CGF.isMappedRefTemp(VD))
-      IsRef = true;
+    if (const auto *DRE = dyn_cast<DeclRefExpr>(E)) {
+      const VarDecl *VD = cast<VarDecl>(DRE->getDecl());
+      if (VD && CGF.isMappedRefTemp(VD))
+        IsRef = true;
+    }
     llvm::Value *V = CGF.EmitLValue(E).getPointer(CGF);
     if (IsRef) {
       auto *LI = dyn_cast<llvm::LoadInst>(V);
@@ -824,6 +875,14 @@ void OpenMPLateOutliner::emitOMPSharedClause(const OMPSharedClause *Cl) {
 }
 
 void OpenMPLateOutliner::emitOMPPrivateClause(const OMPPrivateClause *Cl) {
+  // Private clauses may generate routines used in target region so
+  // setup the TargetRegion context if needed.
+  bool IsDeviceTarget =
+      CGF.getLangOpts().OpenMPIsDevice &&
+      (CGF.CGM.inTargetRegion() ||
+       isOpenMPTargetExecutionDirective(Directive.getDirectiveKind()));
+  CodeGenModule::InTargetRegionRAII ITR(CGF.CGM, IsDeviceTarget);
+
   auto IPriv = Cl->private_copies().begin();
   for (auto *E : Cl->varlists()) {
     const VarDecl *PVD = getExplicitVarDecl(E);
@@ -905,6 +964,14 @@ void OpenMPLateOutliner::emitOMPLinearClause(const OMPLinearClause *Cl) {
 template <typename RedClause>
 void OpenMPLateOutliner::emitOMPReductionClauseCommon(const RedClause *Cl,
                                                       StringRef QualName) {
+  // Reduction clauses may generate routines used in target region so
+  // setup the TargetRegion context if needed.
+  bool IsDeviceTarget =
+      CGF.getLangOpts().OpenMPIsDevice &&
+      (CGF.CGM.inTargetRegion() ||
+       isOpenMPTargetExecutionDirective(Directive.getDirectiveKind()));
+  CodeGenModule::InTargetRegionRAII ITR(CGF.CGM, IsDeviceTarget);
+
   auto I = Cl->reduction_ops().begin();
   auto IPriv = Cl->privates().begin();
   auto IRHS = Cl->rhs_exprs().begin();
@@ -917,22 +984,30 @@ void OpenMPLateOutliner::emitOMPReductionClauseCommon(const RedClause *Cl,
     bool IsCapturedExpr = isa<OMPCapturedExprDecl>(PVD);
     bool IsRef = !IsCapturedExpr && PVD->getType()->isReferenceType();
     llvm::Value *InitFn = nullptr, *CombinerFn  = nullptr;
-    if (const OMPDeclareReductionDecl *DRD =
-            CGOpenMPRuntime::getRedInit(*I)) {
-      std::pair<llvm::Function *, llvm::Function *> InitCombiner;
-      InitCombiner =
-          CGF.CGM.getOpenMPRuntime().getUserDefinedReduction(DRD);
-      CombinerFn = InitCombiner.first;
-      InitFn = InitCombiner.second;
+    bool IsUDR = false;
+    if (const OMPDeclareReductionDecl *DRD = CGOpenMPRuntime::getRedInit(*I)) {
+      IsUDR = true;
+      // If device compile only generate routines used in target regions.
+      if (!CGF.getLangOpts().OpenMPIsDevice || IsDeviceTarget) {
+        std::pair<llvm::Function *, llvm::Function *> InitCombiner;
+        InitCombiner = CGF.CGM.getOpenMPRuntime().getUserDefinedReduction(DRD);
+        CombinerFn = InitCombiner.first;
+        InitFn = InitCombiner.second;
+      }
     } else if (!isa<BinaryOperator>((*I)->IgnoreImpCasts())) {
-      const auto *LVD = cast<VarDecl>(cast<DeclRefExpr>(*ILHS)->getDecl());
-      const auto *RVD = cast<VarDecl>(cast<DeclRefExpr>(*IRHS)->getDecl());
-      CombinerFn =
-          CGOpenMPRuntime::emitCombiner(CGF.CGM, PVD->getType(), *I, RVD, LVD);
+      IsUDR = true;
+      // If device compile only generate routines used in target regions.
+      if (!CGF.getLangOpts().OpenMPIsDevice || IsDeviceTarget) {
+        const auto *LVD = cast<VarDecl>(cast<DeclRefExpr>(*ILHS)->getDecl());
+        const auto *RVD = cast<VarDecl>(cast<DeclRefExpr>(*IRHS)->getDecl());
+        CombinerFn = CGOpenMPRuntime::emitCombiner(CGF.CGM, PVD->getType(), *I,
+                                                   RVD, LVD);
+      }
     }
     OverloadedOperatorKind OOK =
-        CombinerFn ? OO_None
-                   : Cl->getNameInfo().getName().getCXXOverloadedOperator();
+        CombinerFn || IsUDR
+            ? OO_None
+            : Cl->getNameInfo().getName().getCXXOverloadedOperator();
     ClauseEmissionHelper CEH(*this, Cl->getClauseKind(), "QUAL.OMP.");
     ClauseStringBuilder &CSB = CEH.getBuilder();
     CSB.add(QualName);
@@ -1002,7 +1077,7 @@ void OpenMPLateOutliner::emitOMPReductionClauseCommon(const RedClause *Cl,
     case NUM_OVERLOADED_OPERATORS:
       llvm_unreachable("Unexpected reduction identifier");
     case OO_None:
-      if (CombinerFn) {
+      if (CombinerFn || IsUDR) {
         CSB.add("UDR");
       } else if (auto II = Cl->getNameInfo().getName().getAsIdentifierInfo()) {
         if (II->isStr("max"))
@@ -1021,6 +1096,8 @@ void OpenMPLateOutliner::emitOMPReductionClauseCommon(const RedClause *Cl,
       }
       break;
     }
+    if (PVD->getType()->isAnyComplexType())
+      CSB.setCmplx();
     if (IsRef)
       CSB.setByRef();
     if (isa<ArraySubscriptExpr>(E->IgnoreParenImpCasts()) ||
@@ -1038,14 +1115,8 @@ void OpenMPLateOutliner::emitOMPReductionClauseCommon(const RedClause *Cl,
           Cons = emitOpenMPDefaultConstructor(*IPriv, /*IsUDR=*/true);
         Des = emitOpenMPDestructor(Private->getType(), /*IsUDR=*/true);
       }
-      for (auto *FV : {Cons, Des, CombinerFn, Init}) {
+      for (auto *FV : {Cons, Des, CombinerFn, Init})
         addArg(FV);
-        if (auto *Fn = dyn_cast_or_null<llvm::Function>(FV))
-          if (CGF.getLangOpts().OpenMPIsDevice &&
-              (CGF.CGM.inTargetRegion() ||
-               isOpenMPTargetExecutionDirective(Directive.getDirectiveKind())))
-            Fn->addFnAttr("openmp-target-declare", "true");
-      }
     }
     ++I;
     ++IPriv;
@@ -1145,6 +1216,14 @@ void OpenMPLateOutliner::emitOMPFirstprivateClause(
     }
     return;
   }
+  // Firstprivate clauses may generate routines used in target region so
+  // setup the TargetRegion context if needed.
+  bool IsDeviceTarget =
+      CGF.getLangOpts().OpenMPIsDevice &&
+      (CGF.CGM.inTargetRegion() ||
+       isOpenMPTargetExecutionDirective(Directive.getDirectiveKind()));
+  CodeGenModule::InTargetRegionRAII ITR(CGF.CGM, IsDeviceTarget);
+
   auto *IPriv = Cl->private_copies().begin();
   for (auto *E : Cl->varlists()) {
     ClauseEmissionHelper CEH(*this, OMPC_firstprivate, "QUAL.OMP.FIRSTPRIVATE");
@@ -1185,7 +1264,7 @@ void OpenMPLateOutliner::emitOMPCopyinClause(const OMPCopyinClause *Cl) {
 void OpenMPLateOutliner::emitOMPIfClause(const OMPIfClause *Cl) {
   ClauseEmissionHelper CEH(*this, OMPC_if);
   addArg("QUAL.OMP.IF");
-  addArg(CGF.EmitScalarExpr(Cl->getCondition()));
+  addArg(CGF.EvaluateExprAsBool(Cl->getCondition()));
 }
 
 void OpenMPLateOutliner::emitOMPNumThreadsClause(
@@ -1227,6 +1306,7 @@ void OpenMPLateOutliner::emitOMPDefaultClause(const OMPDefaultClause *Cl) {
     addArg("QUAL.OMP.DEFAULT.SHARED");
     break;
   case OMP_DEFAULT_unknown:                            // INTEL
+  default:                                             // INTEL
     llvm_unreachable("Unknown default clause");
   }
 }
@@ -1278,7 +1358,10 @@ void OpenMPLateOutliner::emitOMPAlignedClause(const OMPAlignedClause *Cl) {
   addArg("QUAL.OMP.ALIGNED");
   for (auto *E : Cl->varlists()) {
     E = E->IgnoreParenImpCasts();
-    addArg(E);
+    if (E->getType()->isPointerType())
+      addArg(CGF.EmitScalarExpr(E));
+    else
+      addArg(E);
   }
   addArg(Cl->getAlignment() ? CGF.EmitScalarExpr(Cl->getAlignment())
                             : CGF.Builder.getInt32(0));
@@ -1305,7 +1388,7 @@ void OpenMPLateOutliner::emitOMPPriorityClause(const OMPPriorityClause *Cl) {
 void OpenMPLateOutliner::emitOMPFinalClause(const OMPFinalClause *Cl) {
   ClauseEmissionHelper CEH(*this, OMPC_final);
   addArg("QUAL.OMP.FINAL");
-  addArg(CGF.EmitScalarExpr(Cl->getCondition()));
+  addArg(CGF.EvaluateExprAsBool(Cl->getCondition()));
 }
 
 void OpenMPLateOutliner::emitOMPNogroupClause(const OMPNogroupClause *) {
@@ -1532,19 +1615,13 @@ void OpenMPLateOutliner::buildMapQualifier(
     CSB.add("RELEASE");
     break;
   }
-  bool IsFirstModifier = true;
   for (auto MD : Modifiers) {
-    if (IsFirstModifier)
-      CSB.add(":");
-    else
-      CSB.add(".");
-    IsFirstModifier = false;
     switch (MD) {
       case OMPC_MAP_MODIFIER_always:
-        CSB.add("ALWAYS");
+        CSB.setAlways();
         break;
       case OMPC_MAP_MODIFIER_close:
-        CSB.add("CLOSE");
+        CSB.setClose();
         break;
       case OMPC_MAP_MODIFIER_unknown:
         break;
@@ -1585,14 +1662,14 @@ void OpenMPLateOutliner::emitOMPAllMapClauses() {
     ClauseStringBuilder &CSB = CEH.getBuilder();
     buildMapQualifier(CSB, I.MapType, I.Modifiers);
     if (I.IsChain)
-      CSB.add(":CHAIN");
+      CSB.setChain();
     else if (I.Var) {
       QualType Ty = I.Var->getType();
       if (!isImplicitTask(OMPD_task))
         addExplicit(I.Var, OMPC_map);
       if (CurrentDirectiveKind == OMPD_target)
         if ((Ty->isReferenceType() || Ty->isAnyPointerType()) &&
-            !I.Base->hasName())
+            isa<llvm::LoadInst>(I.Base))
           MapTemps.emplace_back(I.Base, I.Var);
     }
     addArg(CSB.getString());
@@ -1641,12 +1718,19 @@ void OpenMPLateOutliner::emitOMPSIMDClause(const OMPSIMDClause *) {
 
 void OpenMPLateOutliner::emitOMPAllocateClause(const OMPAllocateClause *Cl) {
   const Expr *A = Cl->getAllocator();
+  llvm::Value *Allocator = nullptr;
+  // Allocator must always be i64.
+  if (A) {
+    A = A->IgnoreImpCasts();
+    Allocator = CGF.Builder.CreateIntCast(CGF.EmitScalarExpr(A), CGF.Int64Ty,
+                                          /*isSigned=*/false);
+  }
   for (const auto *E : Cl->varlists()) {
     ClauseEmissionHelper CEH(*this, OMPC_allocate);
     addArg("QUAL.OMP.ALLOCATE");
     addArg(E);
-    if (A)
-      addArg(CGF.EmitScalarExpr(A));
+    if (Allocator)
+      addArg(Allocator);
   }
 }
 
@@ -1682,6 +1766,19 @@ void OpenMPLateOutliner::emitOMPUseDeviceAddrClause(
   }
 }
 
+void OpenMPLateOutliner::emitOMPNontemporalClause(
+    const OMPNontemporalClause *Cl) {
+  ClauseEmissionHelper CEH(*this, OMPC_nontemporal);
+  addArg("QUAL.OMP.NONTEMPORAL");
+  for (auto *E : Cl->varlists()) {
+    E = E->IgnoreParenImpCasts();
+    if (E->getType()->isPointerType())
+      addArg(CGF.EmitScalarExpr(E));
+    else
+      addArg(E);
+  }
+}
+
 void OpenMPLateOutliner::emitOMPReadClause(const OMPReadClause *) {}
 void OpenMPLateOutliner::emitOMPWriteClause(const OMPWriteClause *) {}
 void OpenMPLateOutliner::emitOMPFromClause(const OMPFromClause *) {assert(false);}
@@ -1701,7 +1798,6 @@ void OpenMPLateOutliner::emitOMPDynamicAllocatorsClause(
 void OpenMPLateOutliner::emitOMPAtomicDefaultMemOrderClause(
     const OMPAtomicDefaultMemOrderClause *) {}
 void OpenMPLateOutliner::emitOMPAllocatorClause(const OMPAllocatorClause *) {}
-void OpenMPLateOutliner::emitOMPNontemporalClause(const OMPNontemporalClause *) {}
 void OpenMPLateOutliner::emitOMPAcqRelClause(const OMPAcqRelClause *) {}
 void OpenMPLateOutliner::emitOMPAcquireClause(const OMPAcquireClause *) {}
 void OpenMPLateOutliner::emitOMPReleaseClause(const OMPReleaseClause *) {}
@@ -2134,6 +2230,8 @@ operator<<(ArrayRef<OMPClause *> Clauses) {
 #define OMP_CLAUSE_NO_CLASS(Enum, Str)                                         \
   case llvm::omp::Clause::Enum:                                                \
     llvm_unreachable("Clause not allowed");
+  default:
+    break;
 #include "llvm/Frontend/OpenMP/OMPKinds.def"
     }
   }
@@ -2275,7 +2373,8 @@ bool OpenMPLateOutliner::needsVLAExprEmission() {
   case OMPD_scan:
     return false;
   case OMPD_unknown:
-    llvm_unreachable("Unexpected directive.");
+  default:
+  llvm_unreachable("Unexpected directive.");
   }
   return true;
 }
@@ -2718,6 +2817,7 @@ void CodeGenFunction::EmitLateOutlineOMPDirective(
   case OMPD_parallel_master_taskloop:
   case OMPD_parallel_master_taskloop_simd:
   case OMPD_parallel_loop:
+  default:
     llvm_unreachable("Combined directives not handled here");
   }
   Outliner << S.clauses();

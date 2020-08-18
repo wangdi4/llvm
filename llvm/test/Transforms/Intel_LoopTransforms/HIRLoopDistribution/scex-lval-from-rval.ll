@@ -1,3 +1,4 @@
+;  XFAIL: *
 ; RUN: opt -hir-details -hir-loop-distribute-memrec -print-after=hir-loop-distribute-memrec < %s 2>&1 | FileCheck %s
 ; RUN: opt -hir-details -passes="hir-loop-distribute-memrec,print<hir>" -aa-pipeline="basic-aa" < %s 2>&1 | FileCheck %s
 

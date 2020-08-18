@@ -14,7 +14,7 @@
 #include "llvm/Transforms/Utils/InjectTLIMappings.h"
 #include "llvm/ADT/Statistic.h"
 #include "llvm/Analysis/DemandedBits.h"
-#include "llvm/Analysis/GlobalsModRef.h"              // INTEL
+#include "llvm/Analysis/GlobalsModRef.h"
 #include "llvm/Analysis/Intel_Andersens.h"            // INTEL
 #include "llvm/Analysis/OptimizationRemarkEmitter.h"
 #include "llvm/Analysis/VectorUtils.h"
@@ -78,7 +78,8 @@ static void addMappingsFromTLI(const TargetLibraryInfo &TLI, CallInst &CI) {
   if (CI.isNoBuiltin() || !CI.getCalledFunction())
     return;
 
-  const std::string ScalarName = std::string(CI.getCalledFunction()->getName());
+  StringRef ScalarName = CI.getCalledFunction()->getName();
+
 #if INTEL_CUSTOMIZATION
   // Nothing to be done if the TLI thinks the function is not
   // vectorizable or vector library function does not match scalar function's
@@ -153,7 +154,7 @@ void InjectTLIMappingsLegacy::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.addPreserved<LoopAccessLegacyAnalysis>();
   AU.addPreserved<DemandedBitsWrapperPass>();
   AU.addPreserved<OptimizationRemarkEmitterWrapperPass>();
-  AU.addPreserved<GlobalsAAWrapperPass>();                // INTEL
+  AU.addPreserved<GlobalsAAWrapperPass>();
   AU.addPreserved<AndersensAAWrapperPass>();              // INTEL
 }
 

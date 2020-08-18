@@ -286,4 +286,4 @@
 // CHK-NO-SPLIT-NOT: sycl-post-link{{.*}} -split{{.*}}
 
 // TODO: SYCL specific fail - analyze and enable
-// XFAIL: windows-msvc
+// UNSUPPORTED: windows-msvc

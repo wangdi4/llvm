@@ -47,6 +47,9 @@ define dso_local i64 @getmax(i64* noalias nocapture readonly %larr) local_unname
 ; CHECK-NEXT:    no SUCCESSORS
 ; CHECK-NEXT:    PREDECESSORS(1): [[BB3]]
 ; CHECK-EMPTY:
+; CHECK-NEXT:  External Uses:
+; CHECK-NEXT:  Id: 0   i64 [[VP3]] -> [[VP11:%.*]] = {%max.012}
+; CHECK-EMPTY:
 ; CHECK-NEXT:  *** IR Dump After VPlan Vectorization Driver HIR ***
 ; CHECK-NEXT:  Function: getmax
 ; CHECK-EMPTY:
@@ -106,9 +109,10 @@ define dso_local i64 @getmin(i64* noalias nocapture readonly %larr) local_unname
 ; CHECK-NEXT:     i64 [[VP8:%.*]] = add i64 [[VP7]] i64 2
 ; CHECK-NEXT:     i1 [[VP9:%.*]] = icmp i64 [[VP2]] i64 [[VP8]]
 ; CHECK-NEXT:     i64 [[VP3]] = select i1 [[VP9]] i64 [[VP8]] i64 [[VP2]]
+; CHECK-NEXT:     i64 [[VP10:%.*]] = add i64 [[VP4]] i64 1
 ; CHECK-NEXT:     i64 [[VP5]] = add i64 [[VP4]] i64 1
-; CHECK-NEXT:     i1 [[VP10:%.*]] = icmp i64 [[VP5]] i64 99
-; CHECK-NEXT:    SUCCESSORS(2):[[BB2]](i1 [[VP10]]), [[BB3:BB[0-9]+]](!i1 [[VP10]])
+; CHECK-NEXT:     i1 [[VP11:%.*]] = icmp i64 [[VP5]] i64 99
+; CHECK-NEXT:    SUCCESSORS(2):[[BB2]](i1 [[VP11]]), [[BB3:BB[0-9]+]](!i1 [[VP11]])
 ; CHECK-NEXT:    PREDECESSORS(2): [[BB1]] [[BB2]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB3]]:
@@ -121,7 +125,12 @@ define dso_local i64 @getmin(i64* noalias nocapture readonly %larr) local_unname
 ; CHECK-NEXT:    no SUCCESSORS
 ; CHECK-NEXT:    PREDECESSORS(1): [[BB3]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:  *** IR Dump After VPlan Vectorization Driver HIR ***
+; CHECK-NEXT:  External Uses:
+; CHECK-NEXT:  Id: 0 i64 [[VP3]] -> [[VP12:%.*]] = {%min.012}
+; CHECK-EMPTY:
+; CHECK-NEXT:  Id: 1 i64 [[VP10]] -> [[VP13:%.*]] = {%inc}
+; CHECK-EMPTY:
+; CHECK-NEXT: *** IR Dump After VPlan Vectorization Driver HIR ***
 ; CHECK-NEXT:  Function: getmin
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  BEGIN REGION { modified }
@@ -130,8 +139,10 @@ define dso_local i64 @getmin(i64* noalias nocapture readonly %larr) local_unname
 ; CHECK-NEXT:          |   %.vec = (<4 x i64>*)(%larr)[i1];
 ; CHECK-NEXT:          |   %.vec1 = %.vec  *  3;
 ; CHECK-NEXT:          |   %red.var = (%red.var > %.vec1 + 2) ? %.vec1 + 2 : %red.var;
+; CHECK-NEXT:          |   %inc.vec = i1 + <i64 0, i64 1, i64 2, i64 3>  +  1
 ; CHECK-NEXT:          + END LOOP
 ; CHECK-NEXT:             %min.012 = @llvm.experimental.vector.reduce.smin.v4i64(%red.var);
+; CHECK:               %inc = extractelement %inc.vec,  3
 ; CHECK-NEXT:  END REGION
 ;
 entry:
@@ -152,5 +163,7 @@ for.body:                                         ; preds = %for.body, %entry
 
 for.end:                                          ; preds = %for.body
   %.lcssa = phi i64 [ %1, %for.body ]
-  ret i64 %.lcssa
+  %.lcssa.i = phi i64 [ %inc, %for.body ]
+  %r = add nuw nsw i64 %.lcssa, %.lcssa.i
+  ret i64 %r
 }

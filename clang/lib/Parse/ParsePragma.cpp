@@ -851,8 +851,8 @@ void Parser::HandlePragmaFPContract() {
     break;
   }
 
-  Actions.ActOnPragmaFPContract(FPC);
-  ConsumeAnnotationToken();
+  SourceLocation PragmaLoc = ConsumeAnnotationToken();
+  Actions.ActOnPragmaFPContract(PragmaLoc, FPC);
 }
 
 void Parser::HandlePragmaFloatControl() {
@@ -1372,6 +1372,10 @@ bool Parser::HandlePragmaLoopHint(LoopHint &Hint) {
           PragmaNameInfo->getName() == "speculated_iterations";
   bool PragmaUnroll = PragmaNameInfo->getName() == "unroll";
   bool PragmaUnrollAndJam = PragmaNameInfo->getName() == "unroll_and_jam";
+  bool PragmaMaxConcurrency =
+          PragmaNameInfo->getName() == "max_concurrency";
+  bool PragmaMaxInterleaving =
+          PragmaNameInfo->getName() == "max_interleaving";
 #endif // INTEL_CUSTOMIZATION
   auto IsLoopHint = llvm::StringSwitch<bool>(PragmaNameInfo->getName())
 #if INTEL_CUSTOMIZATION
@@ -1502,7 +1506,8 @@ bool Parser::HandlePragmaLoopHint(LoopHint &Hint) {
 
 #if INTEL_CUSTOMIZATION
     bool AllowZero = false;
-    if (PragmaSpeculatedIterations)
+    if (PragmaSpeculatedIterations ||
+        PragmaMaxConcurrency || PragmaMaxInterleaving)
       AllowZero = true;
     if ((PragmaUnroll || PragmaUnrollAndJam) &&
         getLangOpts().isIntelCompat(LangOptions::UnrollZero))
@@ -3261,8 +3266,8 @@ void Parser::HandlePragmaFP() {
       reinterpret_cast<TokFPAnnotValue *>(Tok.getAnnotationValue());
 
   if (AnnotValue->FlagKind == TokFPAnnotValue::Reassociate)
-    Actions.ActOnPragmaFPReassociate(AnnotValue->FlagValue ==
-                                     TokFPAnnotValue::On);
+    Actions.ActOnPragmaFPReassociate(
+        Tok.getLocation(), AnnotValue->FlagValue == TokFPAnnotValue::On);
   else {
     LangOptions::FPModeKind FPC;
     switch (AnnotValue->FlagValue) {
@@ -3276,7 +3281,7 @@ void Parser::HandlePragmaFP() {
       FPC = LangOptions::FPM_Fast;
       break;
     }
-    Actions.ActOnPragmaFPContract(FPC);
+    Actions.ActOnPragmaFPContract(Tok.getLocation(), FPC);
   }
   ConsumeAnnotationToken();
 }

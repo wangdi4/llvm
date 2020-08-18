@@ -525,13 +525,25 @@ def RetCC_X86_64 : CallingConv<[
 // if INTEL_CUSTOMIZATION
 def RetCC_SVML : CallingConv<[
 
+#if INTEL_FEATURE_ISA_FP16
+  CCIfType<[f16, f32, f64, v4i32, v2i64, v8f16, v4f32, v2f64],
+#else // INTEL_FEATURE_ISA_FP16
   CCIfType<[f32, f64, v4i32, v2i64, v4f32, v2f64],
+#endif // INTEL_FEATURE_ISA_FP16
            CCAssignToReg<[XMM0, XMM1]>>,
   
+#if INTEL_FEATURE_ISA_FP16
+  CCIfType<[v16f16, v8f32, v4f64, v8i32, v4i64],
+#else // INTEL_FEATURE_ISA_FP16
   CCIfType<[v8f32, v4f64, v8i32, v4i64],
+#endif // INTEL_FEATURE_ISA_FP16
            CCAssignToReg<[YMM0, YMM1]>>,
 
+#if INTEL_FEATURE_ISA_FP16
+  CCIfType<[v32f16, v16f32, v8f64, v16i32, v8i64],
+#else // INTEL_FEATURE_ISA_FP16
   CCIfType<[v16f32, v8f64, v16i32, v8i64],
+#endif // INTEL_FEATURE_ISA_FP16
            CCAssignToReg<[ZMM0, ZMM1]>>
 ]>;
 
@@ -1220,16 +1232,32 @@ def CC_X86_32_HiPE : CallingConv<[
 // if INTEL_CUSTOMIZATION
 def CC_SVML : CallingConv<[
 
+#if INTEL_FEATURE_ISA_FP16
+  CCIfType<[f16, f32, f64, v16i8, v8i16, v4i32, v2i64, v8f16, v4f32, v2f64],
+#else // INTEL_FEATURE_ISA_FP16
   CCIfType<[f32, f64, v16i8, v8i16, v4i32, v2i64, v4f32, v2f64],
+#endif // INTEL_FEATURE_ISA_FP16
            CCAssignToReg<[XMM0, XMM1, XMM2]>>,
   
+#if INTEL_FEATURE_ISA_FP16
+  CCIfType<[v16f16, v8f32, v4f64, v32i8, v16i16, v8i32, v4i64],
+#else // INTEL_FEATURE_ISA_FP16
   CCIfType<[v8f32, v4f64, v32i8, v16i16, v8i32, v4i64],
+#endif // INTEL_FEATURE_ISA_FP16
            CCAssignToReg<[YMM0, YMM1, YMM2]>>,
 
+#if INTEL_FEATURE_ISA_FP16
+  CCIfType<[v32f16, v16f32, v8f64, v64i8, v32i16, v16i32, v8i64],
+#else // INTEL_FEATURE_ISA_FP16
   CCIfType<[v16f32, v8f64, v64i8, v32i16, v16i32, v8i64],
+#endif // INTEL_FEATURE_ISA_FP16
            CCAssignToReg<[ZMM0, ZMM1, ZMM2]>>,
 
+#if INTEL_FEATURE_ISA_FP16
+  CCIfType<[v2i1, v4i1, v8i1, v16i1, v32i1],
+#else // INTEL_FEATURE_ISA_FP16
   CCIfType<[v2i1, v4i1, v8i1, v16i1],
+#endif // INTEL_FEATURE_ISA_FP16
            CCCustom<"CC_SVML_Mask">>
 ]>;
 // endif INTEL_CUSTOMIZATION

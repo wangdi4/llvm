@@ -368,7 +368,8 @@ void CodeGenFunction::EmitCallAndReturnForThunk(llvm::FunctionCallee Callee,
                                   : FPT->getReturnType();
   ReturnValueSlot Slot;
   if (!ResultType->isVoidType() &&
-      CurFnInfo->getReturnInfo().getKind() == ABIArgInfo::Indirect)
+      (CurFnInfo->getReturnInfo().getKind() == ABIArgInfo::Indirect ||
+       hasAggregateEvaluationKind(ResultType)))
     Slot = ReturnValueSlot(ReturnValue, ResultType.isVolatileQualified(),
                            /*IsUnused=*/false, /*IsExternallyDestructed=*/true);
 
@@ -888,6 +889,14 @@ void CodeGenVTables::addVTableComponent(ConstantArrayBuilder &builder,
       fnPtr = CGM.GetAddrOfFunction(GD, fnTy, /*ForVTable=*/true);
     }
 
+#if INTEL_CUSTOMIZATION
+    if (CGM.getLangOpts().SYCLIsDevice &&
+        CGM.getLangOpts().EnableVariantVirtualCalls &&
+        !isa<llvm::GlobalAlias>(fnPtr)) {
+      llvm::Constant *Fn = fnPtr->stripPointerCasts();
+      fnPtr = CGM.CreateSIMDFnTableVar(Fn);
+    }
+#endif  // INTEL_CUSTOMIZATION
     if (useRelativeLayout()) {
       return addRelativeComponent(
           builder, fnPtr, vtableAddressPoint, vtableHasLocalLinkage,

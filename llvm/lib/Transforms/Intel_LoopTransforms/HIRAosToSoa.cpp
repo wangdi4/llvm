@@ -235,7 +235,7 @@ private:
     /// coeff 1. In the example in the top of this file, CopyOuterLoop's TC will
     /// be M, and CopyInnerLoop's TC will be (N + L) This function calculates
     /// the trip count of the CopyInnerLoop.
-    RegDDRef *calcCopyInnerLoopTripCount();
+    RegDDRef *calcCopyInnerLoopTripCount(RegDDRef *&AuxRef);
 
     /// Clone from the existing loop at IVBlobLevel
     /// The resulting loop will be used as a outer loop of the loop nest
@@ -247,7 +247,7 @@ private:
     ///  CopyInnerLoop
     /// Notice that loop body of the inner loop is not populated.
     HLLoop *insertCopyLoops(HLLoop *CopyOuterLoop, RegDDRef *CopyInnerLoopTC,
-                            RegDDRef *&AuxRef);
+                            RegDDRef *AuxRef);
 
     /// Create ZTTs for copy loops.
     void createZttForCopyOuterLoop(HLLoop *CopyOuterLoop) const;
@@ -641,7 +641,8 @@ HLLoop *HIRAosToSoa::TransformAosToSoa::getCopyOuterLoop() {
       ->cloneEmpty();
 }
 
-RegDDRef *HIRAosToSoa::TransformAosToSoa::calcCopyInnerLoopTripCount() {
+RegDDRef *
+HIRAosToSoa::TransformAosToSoa::calcCopyInnerLoopTripCount(RegDDRef *&AuxRef) {
 
   RegDDRef *CopyInnerLoopTC = nullptr;
   bool FoundFirstCoeffOne = false;
@@ -662,6 +663,7 @@ RegDDRef *HIRAosToSoa::TransformAosToSoa::calcCopyInnerLoopTripCount() {
     HLNodeUtils::insertBefore(Anchor, AddInst);
     CopyInnerLoopTC->makeConsistent();
     CopyInnerLoopTC = AddInst->getLvalDDRef()->clone();
+    AuxRef = AddInst->getLvalDDRef();
   }
 
   return CopyInnerLoopTC;
@@ -729,7 +731,7 @@ void HIRAosToSoa::TransformAosToSoa::createZttForCopyOuterLoop(
 }
 
 HLLoop *HIRAosToSoa::TransformAosToSoa::insertCopyLoops(
-    HLLoop *CopyOuterLoop, RegDDRef *CopyInnerLoopTC, RegDDRef *&AuxRef) {
+    HLLoop *CopyOuterLoop, RegDDRef *CopyInnerLoopTC, RegDDRef *AuxRef) {
 
   // Create Copy InnerLoop
   RegDDRef *CopyInnerLoopUB = CopyInnerLoopTC->clone();
@@ -744,15 +746,6 @@ HLLoop *HIRAosToSoa::TransformAosToSoa::insertCopyLoops(
 
   createZttForCopyOuterLoop(CopyOuterLoop);
 
-  // UpperBounds DDRefs of the existing loops does not work as Auxiliary
-  // RegDDRefs. None of those contain blobs needed for CopyInnerLoop's
-  // UpperDDRef. This is because, CopyInnerLoop's UB is from LVal of
-  // an Add instruction. Perhaps, using createAddBlob without
-  // introducing Add instruction can utilize existing loops' ddref as
-  // Aux DDrefs.
-  AuxRef = CopyInnerLoopTC->clone();
-  assert(AuxRef->isSelfBlob());
-  AuxRef->getSingleCanonExpr()->setDefinedAtLevel(Anchor->getNodeLevel() - 1);
   CopyInnerLoop->getUpperDDRef()->makeConsistent({AuxRef});
 
   // TODO: Not handled by makeConsistent?
@@ -771,7 +764,8 @@ void HIRAosToSoa::TransformAosToSoa::rewrite() {
 
   // Create Add Inst producing trip counts of all unit-strided loops
   // The result is used as the trip count of the innerloop of copy-loop nest
-  RegDDRef *CopyInnerLoopTC = calcCopyInnerLoopTripCount();
+  RegDDRef *AuxRef;
+  RegDDRef *CopyInnerLoopTC = calcCopyInnerLoopTripCount(AuxRef);
 
   HLLoop *CopyOuterLoop = getCopyOuterLoop();
 
@@ -785,7 +779,6 @@ void HIRAosToSoa::TransformAosToSoa::rewrite() {
   insertAllocas(CopyOuterLoop->getTripCountDDRef(AllocaLevel),
                 CopyInnerLoopTC->clone(), TrailingOffsetToAlloca);
 
-  RegDDRef *AuxRef;
   HLLoop *CopyInnerLoop =
       insertCopyLoops(CopyOuterLoop, CopyInnerLoopTC, AuxRef);
 

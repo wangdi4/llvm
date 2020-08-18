@@ -1,14 +1,6 @@
 # See docs/CMake.html for instructions about how to build LLVM with CMake.
 
-cmake_minimum_required(VERSION 3.4.3)
-
-if ("${CMAKE_VERSION}" VERSION_LESS "3.13.4")
-  message(WARNING
-    "Your CMake version is ${CMAKE_VERSION}. Starting with LLVM 12.0.0, the "
-    "minimum version of CMake required to build LLVM will become 3.13.4, and "
-    "using an older CMake will become an error. Please upgrade your CMake to "
-    "at least 3.13.4 now to avoid issues in the future!")
-endif()
+cmake_minimum_required(VERSION 3.14)
 
 if(POLICY CMP0068)
   cmake_policy(SET CMP0068 NEW)
@@ -24,7 +16,7 @@ if(POLICY CMP0077)
 endif()
 
 if(NOT DEFINED LLVM_VERSION_MAJOR)
-  set(LLVM_VERSION_MAJOR 11)
+  set(LLVM_VERSION_MAJOR 12)
 endif()
 if(NOT DEFINED LLVM_VERSION_MINOR)
   set(LLVM_VERSION_MINOR 0)
@@ -59,6 +51,25 @@ endif()
 project(LLVM
   VERSION ${LLVM_VERSION_MAJOR}.${LLVM_VERSION_MINOR}.${LLVM_VERSION_PATCH}
   LANGUAGES C CXX ASM)
+
+
+if (INTEL_CUSTOMIZATION)
+  set(DPCPP_VERSION_QUALITY " ")
+  set(DPCPP_VERSION_MAJOR "2021")
+  set(DPCPP_VERSION_MINOR "1")
+  set(VERSION "${DPCPP_VERSION_MAJOR}.${DPCPP_VERSION_MINOR}")
+  set(DPCPP_PRODUCT_VERSION ${VERSION})
+  set(FULL_VERSION ${DPCPP_PRODUCT_VERSION})
+  if(NOT DPCPP_VERSION_QUALITY STREQUAL " ")
+     set(FULL_VERSION "${FULL_VERSION}-${DPCPP_VERSION_QUALITY}")
+  endif()
+  set(DPCPP_PRODUCT_FULL_VERSION ${FULL_VERSION})
+  set(DPCPP_PRODUCT_NAME "Intel(R) oneAPI DPC++ Compiler")
+  configure_file(
+    ${CMAKE_CURRENT_SOURCE_DIR}/include/llvm/Config/dpcpp.version.info.in
+    ${CMAKE_CURRENT_BINARY_DIR}/include/llvm/Config/dpcpp.version.info.h
+    )
+endif (INTEL_CUSTOMIZATION)
 
 set(CMAKE_CXX_STANDARD 14 CACHE STRING "C++ standard to conform to")
 set(CMAKE_CXX_STANDARD_REQUIRED YES)
@@ -379,28 +390,29 @@ set(LLVM_ENABLE_ZLIB "ON" CACHE STRING "Use zlib for compression/decompression i
 
 set(LLVM_Z3_INSTALL_DIR "" CACHE STRING "Install directory of the Z3 solver.")
 
-find_package(Z3 4.7.1)
-
-if (LLVM_Z3_INSTALL_DIR)
-  if (NOT Z3_FOUND)
-    message(FATAL_ERROR "Z3 >= 4.7.1 has not been found in LLVM_Z3_INSTALL_DIR: ${LLVM_Z3_INSTALL_DIR}.")
-  endif()
-endif()
-
-set(LLVM_ENABLE_Z3_SOLVER_DEFAULT "${Z3_FOUND}")
-
 option(LLVM_ENABLE_Z3_SOLVER
   "Enable Support for the Z3 constraint solver in LLVM."
   ${LLVM_ENABLE_Z3_SOLVER_DEFAULT}
 )
 
 if (LLVM_ENABLE_Z3_SOLVER)
+  find_package(Z3 4.7.1)
+  
+  if (LLVM_Z3_INSTALL_DIR)
+    if (NOT Z3_FOUND)
+      message(FATAL_ERROR "Z3 >= 4.7.1 has not been found in LLVM_Z3_INSTALL_DIR: ${LLVM_Z3_INSTALL_DIR}.")
+    endif()
+  endif()
+  
   if (NOT Z3_FOUND)
     message(FATAL_ERROR "LLVM_ENABLE_Z3_SOLVER cannot be enabled when Z3 is not available.")
   endif()
 
   set(LLVM_WITH_Z3 1)
 endif()
+
+set(LLVM_ENABLE_Z3_SOLVER_DEFAULT "${Z3_FOUND}")
+
 
 if( LLVM_TARGETS_TO_BUILD STREQUAL "all" )
   set( LLVM_TARGETS_TO_BUILD ${LLVM_ALL_TARGETS} )
@@ -930,6 +942,16 @@ if(INTEL_CUSTOMIZATION)
            ${LLVM_INTELFEATURE_PREFIX}_ISA_AMX)
 # end INTEL_FEATURE_ISA_AMX
 
+# INTEL_FEATURE_ISA_AMX_BF8
+      list(APPEND features_enabled_by_default
+           ${LLVM_INTELFEATURE_PREFIX}_ISA_AMX_BF8)
+# end INTEL_FEATURE_ISA_AMX_BF8
+
+# INTEL_FEATURE_ISA_AMX_MEMADVISE
+      list(APPEND features_enabled_by_default
+           ${LLVM_INTELFEATURE_PREFIX}_ISA_AMX_MEMADVISE)
+# end INTEL_FEATURE_ISA_AMX_MEMADVISE
+
 # INTEL_FEATURE_ISA_AMX_FUTURE
       list(APPEND features_enabled_by_default
            ${LLVM_INTELFEATURE_PREFIX}_ISA_AMX_FUTURE)
@@ -1069,6 +1091,16 @@ list(APPEND features_enabled_by_default
       list(APPEND features_enabled_by_default
            ${LLVM_INTELFEATURE_PREFIX}_ISA_AVX_COMPRESS)
 # end INTEL_FEATURE_ISA_AVX_COMPRESS
+
+# INTEL_FEATURE_ISA_AVX_MEMADVISE
+      list(APPEND features_enabled_by_default
+           ${LLVM_INTELFEATURE_PREFIX}_ISA_AVX_MEMADVISE)
+# end INTEL_FEATURE_ISA_AVX_MEMADVISE
+
+# INTEL_FEATURE_ISA_AVX_MPSADBW
+      list(APPEND features_enabled_by_default
+           ${LLVM_INTELFEATURE_PREFIX}_ISA_AVX_MPSADBW)
+# end INTEL_FEATURE_ISA_AVX_MPSADBW
     endif()
 
     set(LLVM_INTEL_FEATURES "${features_enabled_by_default}"
@@ -1223,6 +1255,44 @@ configure_file(
   ${LLVM_INCLUDE_DIR}/llvm/Config/Targets.def
   )
 
+# For up-to-date instructions for installing the Tensorflow dependency, refer to
+# the bot setup script: https://github.com/google/ml-compiler-opt/blob/master/buildbot/buildbot_init.sh
+# In this case, the latest C API library is available for download from
+# https://www.tensorflow.org/install/lang_c.
+# We will expose the conditional compilation variable,
+# LLVM_HAVE_TF_API, through llvm-config.h, so that a user of the LLVM library may
+# also leverage the dependency.
+set(TENSORFLOW_C_LIB_PATH "" CACHE PATH "Path to TensorFlow C library install")
+find_library(tensorflow_c_api tensorflow PATHS ${TENSORFLOW_C_LIB_PATH}/lib)
+
+if (tensorflow_c_api)
+  set(LLVM_HAVE_TF_API "ON" CACHE BOOL "Full Tensorflow API available")
+  include_directories(${TENSORFLOW_C_LIB_PATH}/include)
+endif()
+
+# They are not referenced. See set_output_directory().
+set( CMAKE_RUNTIME_OUTPUT_DIRECTORY ${LLVM_BINARY_DIR}/bin )
+set( CMAKE_LIBRARY_OUTPUT_DIRECTORY ${LLVM_BINARY_DIR}/lib${LLVM_LIBDIR_SUFFIX} )
+set( CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${LLVM_BINARY_DIR}/lib${LLVM_LIBDIR_SUFFIX} )
+
+# For up-to-date instructions for installing the Tensorflow dependency, refer to
+# the bot setup script: https://github.com/google/ml-compiler-opt/blob/master/buildbot/buildbot_init.sh
+# Specifically, assuming python3 is installed:
+# python3 -m pip install --upgrade pip && python3 -m pip install --user tf_nightly==2.3.0.dev20200528
+# Then set TENSORFLOW_AOT_PATH to the package install - usually it's ~/.local/lib/python3.7/site-packages/tensorflow
+#
+set(TENSORFLOW_AOT_PATH "" CACHE PATH "Path to TensorFlow pip install dir")
+
+if (NOT TENSORFLOW_AOT_PATH STREQUAL "")
+  set(LLVM_HAVE_TF_AOT "ON" CACHE BOOL "Tensorflow AOT available")
+  set(TENSORFLOW_AOT_COMPILER
+    "${TENSORFLOW_AOT_PATH}/../../../../bin/saved_model_cli"
+    CACHE PATH "Path to the Tensorflow AOT compiler")
+  include_directories(${TENSORFLOW_AOT_PATH}/include)
+  add_subdirectory(${TENSORFLOW_AOT_PATH}/xla_aot_runtime_src
+    ${CMAKE_ARCHIVE_OUTPUT_DIRECTORY}/tf_runtime)
+endif()
+
 # Configure the three LLVM configuration header files.
 configure_file(
   ${LLVM_MAIN_INCLUDE_DIR}/llvm/Config/config.h.cmake
@@ -1252,12 +1322,6 @@ add_custom_target(srpm
   COMMAND cpack -G TGZ --config CPackSourceConfig.cmake -B ${LLVM_SRPM_DIR}/SOURCES
   COMMAND rpmbuild -bs --define '_topdir ${LLVM_SRPM_DIR}' ${LLVM_SRPM_BINARY_SPECFILE})
 set_target_properties(srpm PROPERTIES FOLDER "Misc")
-
-
-# They are not referenced. See set_output_directory().
-set( CMAKE_RUNTIME_OUTPUT_DIRECTORY ${LLVM_BINARY_DIR}/bin )
-set( CMAKE_LIBRARY_OUTPUT_DIRECTORY ${LLVM_BINARY_DIR}/lib${LLVM_LIBDIR_SUFFIX} )
-set( CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${LLVM_BINARY_DIR}/lib${LLVM_LIBDIR_SUFFIX} )
 
 if(APPLE AND DARWIN_LTO_LIBRARY)
   set(CMAKE_EXE_LINKER_FLAGS
@@ -1509,7 +1573,7 @@ if (NOT LLVM_INSTALL_TOOLCHAIN_ONLY)
 
   # Installing the headers needs to depend on generating any public
   # tablegen'd headers.
-  add_custom_target(llvm-headers DEPENDS intrinsics_gen)
+  add_custom_target(llvm-headers DEPENDS intrinsics_gen omp_gen)
   set_target_properties(llvm-headers PROPERTIES FOLDER "Misc")
 
   if (NOT LLVM_ENABLE_IDE)

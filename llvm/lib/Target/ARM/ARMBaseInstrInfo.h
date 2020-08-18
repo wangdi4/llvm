@@ -679,21 +679,21 @@ static inline bool isSubImmOpcode(int Opc) {
 static inline bool isMovRegOpcode(int Opc) {
   return Opc == ARM::MOVr || Opc == ARM::tMOVr || Opc == ARM::t2MOVr;
 }
-
 /// isValidCoprocessorNumber - decide whether an explicit coprocessor
 /// number is legal in generic instructions like CDP. The answer can
 /// vary with the subtarget.
 static inline bool isValidCoprocessorNumber(unsigned Num,
                                             const FeatureBitset& featureBits) {
+  // In Armv7 and Armv8-M CP10 and CP11 clash with VFP/NEON, however, the
+  // coprocessor is still valid for CDP/MCR/MRC and friends. Allowing it is
+  // useful for code which is shared with older architectures which do not know
+  // the new VFP/NEON mnemonics.
+
   // Armv8-A disallows everything *other* than 111x (CP14 and CP15).
   if (featureBits[ARM::HasV8Ops] && (Num & 0xE) != 0xE)
     return false;
 
-  // Armv7 disallows 101x (CP10 and CP11), which clash with VFP/NEON.
-  if (featureBits[ARM::HasV7Ops] && (Num & 0xE) == 0xA)
-    return false;
-
-  // Armv8.1-M also disallows 100x (CP8,CP9) and 111x (CP14,CP15)
+  // Armv8.1-M disallows 100x (CP8,CP9) and 111x (CP14,CP15)
   // which clash with MVE.
   if (featureBits[ARM::HasV8_1MMainlineOps] &&
       ((Num & 0xE) == 0x8 || (Num & 0xE) == 0xE))
@@ -829,6 +829,10 @@ inline bool isLegalAddressImm(unsigned Opcode, int Imm,
     return std::abs(Imm) < (((1 << 7) * 2) - 1) && Imm % 2 == 0;
   case ARMII::AddrModeT2_i7s4:
     return std::abs(Imm) < (((1 << 7) * 4) - 1) && Imm % 4 == 0;
+  case ARMII::AddrModeT2_i8:
+    return std::abs(Imm) < (((1 << 8) * 1) - 1);
+  case ARMII::AddrModeT2_i12:
+    return Imm >= 0 && Imm < (((1 << 12) * 1) - 1);
   default:
     llvm_unreachable("Unhandled Addressing mode");
   }

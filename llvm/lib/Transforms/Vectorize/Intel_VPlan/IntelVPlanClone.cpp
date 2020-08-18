@@ -29,29 +29,56 @@ void VPValueMapper::remapInstruction(VPInstruction *Inst) {
   }
 }
 
-/// Clone \p Block and its instructions.
-/// Remapping happens later by VPValueMapper which must be called by user.
+void VPValueMapper::remapOperands(
+    VPBasicBlock *OrigVPBB, std::function<void(VPInstruction &)> UpdateFunc) {
+  auto *ClonedVPBB = cast<VPBasicBlock>(Value2ValueMap[OrigVPBB]);
+
+  for (VPInstruction &Inst : *ClonedVPBB) {
+    remapInstruction(&Inst);
+    UpdateFunc(Inst);
+  }
+
+  // Fix cond predicate.
+  if (VPInstruction *BlockPredicate = OrigVPBB->getBlockPredicate())
+    ClonedVPBB->setBlockPredicate(
+        cast<VPInstruction>(remapValue(Value2ValueMap, BlockPredicate)));
+}
+
+/// Clone \p Block and its instructions for the right VPlan (current VPlan or
+/// New VPlan). Remapping happens later by VPValueMapper which must be called by
+/// user.
 VPBasicBlock *VPCloneUtils::cloneBasicBlock(VPBasicBlock *Block,
                                             const Twine &Prefix,
                                             Value2ValueMapTy &ValueMap,
                                             VPlan::iterator InsertBefore,
-                                            VPlanDivergenceAnalysis *DA) {
-  VPBasicBlock *ClonedBlock = new VPBasicBlock(Prefix, Block->getParent());
+                                            VPlanDivergenceAnalysis *DA,
+                                            VPlan *NewVPlan) {
+
+  // The following makes sure that the cloned basic block is assigned to the
+  // correct VPlan. In loop unrolling, the basic block is cloned inside the same
+  // VPlan. Hence, the Parent is the current VPlan. In peel/remainder, the
+  // cloned basic block is assigned to the new VPlan. Thus, the Parent is the
+  // NewVPlan.
+  VPlan *Parent = NewVPlan ? NewVPlan : Block->getParent();
+  // InsertBefore indicates where the cloned basic block should be placed inside
+  // the ilist. In case of loop unrolling, the new basic block is inserted
+  // before the basic block that is indicated by InsertBefore. In case of
+  // peel/remainder, the new basic block is appended at the back of NewVPlan's
+  // ilist.
+  InsertBefore = NewVPlan ? NewVPlan->end() : InsertBefore;
+
+  VPBasicBlock *ClonedBlock = new VPBasicBlock(Prefix, Parent);
   std::string Name = VPlanUtils::createUniqueName((Prefix + Block->getName()));
   ClonedBlock->setName(Name);
-  Block->getParent()->insertBefore(ClonedBlock, InsertBefore);
+  Parent->insertBefore(ClonedBlock, InsertBefore);
 
   for (auto &Inst : *Block) {
     auto ClonedInst = Inst.clone();
-    ClonedBlock->appendInstruction(ClonedInst);
+    ClonedBlock->insert(ClonedInst, ClonedBlock->end());
     ValueMap.insert(std::make_pair(&Inst, ClonedInst));
     if (DA)
       DA->updateVectorShape(ClonedInst, DA->getVectorShape(&Inst));
   }
-
-  // Remove unnecessary terminator added by VPBasicBlock constructor
-  // FIXME: this is a temporary workaround which should be removed
-  ClonedBlock->removeInstruction(ClonedBlock->getTerminator());
 
   ValueMap.insert({Block, ClonedBlock});
 
@@ -60,31 +87,12 @@ VPBasicBlock *VPCloneUtils::cloneBasicBlock(VPBasicBlock *Block,
 
 /// Clone given blocks from Begin to End
 /// Remapping happens later by VPValueMapper which must be called by user.
-VPBasicBlock *VPCloneUtils::cloneBlocksRange(VPBasicBlock *Begin,
-                                             VPBasicBlock *End,
-                                             Value2ValueMapTy &ValueMap,
-                                             VPlanDivergenceAnalysis *DA,
-                                             const Twine &Prefix) {
-
+VPBasicBlock *VPCloneUtils::cloneBlocksRange(
+    VPBasicBlock *Begin, VPBasicBlock *End, Value2ValueMapTy &ValueMap,
+    VPlanDivergenceAnalysis *DA, const Twine &Prefix, VPlan *NewVPlan) {
   for (auto *BB : sese_depth_first(Begin, End))
-    cloneBasicBlock(BB, Prefix.str(), ValueMap, ++End->getIterator(), DA);
-
-  // Remap successors *inside* SESE region. Once CFG is represented through
-  // terminator VPInstruction that won't be needed here and would be done as
-  // part of ordinary remap.
-  //
-  // Can't iterate over BlockMap directly because the order won't be stable
-  // resulting in unstable predecessors order.
-  for (auto *BB : sese_depth_first(Begin, End)) {
-    // Skip last basic block.
-    if (BB == End)
-      continue;
-    auto *Clone = cast<VPBasicBlock>(ValueMap[BB]);
-    for (VPBasicBlock *OrigSucc : BB->getSuccessors()) {
-      auto *CloneSucc = cast<VPBasicBlock>(ValueMap[OrigSucc]);
-      Clone->appendSuccessor(CloneSucc);
-    }
-  }
+    cloneBasicBlock(BB, Prefix.str(), ValueMap, ++End->getIterator(), DA,
+                    NewVPlan);
 
   return cast<VPBasicBlock>(ValueMap[Begin]);
 }

@@ -53,7 +53,7 @@ protected:
     ASSERT_EQ(
         (plugin.call_nocheck<detail::PiApiKind::piMemBufferCreate>(
             _context, PI_MEM_FLAGS_ACCESS_RW,
-            _numElementsX * _numElementsY * sizeof(pi_int32), nullptr, &_mem)),
+            _numElementsX * _numElementsY * sizeof(pi_int32), nullptr, &_mem, nullptr)),
         PI_SUCCESS);
   }
 

@@ -195,6 +195,26 @@ static bool isDeconstructedPhi(const VPPHINode *VPPhi) {
   return true;
 }
 
+// Utility to check if given VPInstruction has no external uses.
+static bool hasNoExternalUsers(const VPInstruction *VPI) {
+  return llvm::none_of(VPI->users(),
+                       [](VPUser *U) { return isa<VPLiveOutValue>(U); });
+}
+
+// Utility to find the single VPExternalUse that uses the given VPInstruction.
+static const VPExternalUse *getSingleExternalUse(const VPInstruction *VPI,
+                                                 const VPlan *Plan) {
+  auto Pred = [](VPUser *U) { return isa<VPLiveOutValue>(U); };
+  auto It = llvm::find_if(VPI->users(), Pred);
+  assert(
+      (It != VPI->user_end() && std::none_of(It + 1, VPI->user_end(), Pred)) &&
+      "VPInst has zero or more than one VPExternalUse");
+  // VPInst has single external user.
+  const VPExternalUse *EUse = Plan->getExternals().getVPExternalUse(
+      cast<const VPLiveOutValue>(*It)->getMergeId());
+  return EUse;
+}
+
 // This class implements code generation for a nested blob.
 class NestedBlobCG : public SCEVVisitor<NestedBlobCG, RegDDRef *> {
 private:
@@ -1129,6 +1149,7 @@ void VPOCodeGenHIR::replaceLibCallsInRemainderLoop(HLInst *HInst) {
 
     SmallVector<RegDDRef *, 1> CallArgs;
     SmallVector<Type *, 1> ArgTys;
+    SmallVector<AttributeSet, 1> ArgAttrs;
 
     // Glibc sincos function uses pointers as out parameters. They need to be
     // discarded since SVML sincos functions don't have them.
@@ -1138,7 +1159,8 @@ void VPOCodeGenHIR::replaceLibCallsInRemainderLoop(HLInst *HInst) {
 
     // For each call argument, insert a scalar load of the element,
     // broadcast it to a vector.
-    for (auto It = HInst->rval_op_ddref_begin(); It != ItEnd; ++It) {
+    unsigned ArgNum = 0;
+    for (auto It = HInst->rval_op_ddref_begin(); It != ItEnd; ++It, ++ArgNum) {
       // TODO: it is assumed that call arguments need to become vector.
       // In the future, some vectorizable calls may contain scalar
       // arguments. Additional checking is needed for these cases.
@@ -1189,6 +1211,7 @@ void VPOCodeGenHIR::replaceLibCallsInRemainderLoop(HLInst *HInst) {
       // and call instruction can be generated.
       CallArgs.push_back(WideRef);
       ArgTys.push_back(VecDestTy);
+      ArgAttrs.push_back(Call->getAttributes().getParamAttributes(ArgNum));
     }
 
     // Using the newly created vector call arguments, generate the vector
@@ -1205,13 +1228,13 @@ void VPOCodeGenHIR::replaceLibCallsInRemainderLoop(HLInst *HInst) {
         {} /*BundleOps*/, FMF);
     HLNodeUtils::insertBefore(HInst, WideCall);
 
-    Instruction *Inst =
-        const_cast<Instruction *>(WideCall->getLLVMInstruction());
-
     // Make sure we don't lose attributes at the call site. E.g., IMF
     // attributes are taken from call sites in MapIntrinToIml to refine
     // SVML calls for precision.
-    cast<CallInst>(Inst)->setAttributes(Call->getAttributes());
+    copyRequiredAttributes(Call,
+                           cast<CallInst>(const_cast<Instruction *>(
+                               WideCall->getLLVMInstruction())),
+                           ArgAttrs);
 
     // Set calling conventions for SVML function calls
     if (isSVMLFunction(TLI, FnName, VectorF->getName())) {
@@ -1585,9 +1608,11 @@ static HLInst *buildReductionTail(HLContainerTy &InstContainer,
 /// 2. FP add reduction for VF=4 will generate -
 ///    declare float @llvm.experimental.vector.reduce.fadd.f32.f32.v4f32(float,
 ///                                                                 <4 x float>)
-static HLInst *createVectorReduce(Intrinsic::ID VecRedIntrin, RegDDRef *VecRef,
-                                  RegDDRef *&Acc, RegDDRef *RednDescriptor,
+static HLInst *createVectorReduce(const VPReductionFinal *RedFinal,
+                                  RegDDRef *VecRef, RegDDRef *&Acc,
+                                  RegDDRef *RednDescriptor,
                                   HLNodeUtils &HLNodeUtilities) {
+  Intrinsic::ID VecRedIntrin = RedFinal->getVectorReduceIntrinsic();
   assert(isa<VectorType>(VecRef->getDestType()) &&
          "Ref to reduce is not a vector.");
 
@@ -1640,8 +1665,13 @@ static HLInst *createVectorReduce(Intrinsic::ID VecRedIntrin, RegDDRef *VecRef,
       &HLNodeUtilities.getModule(), VecRedIntrin, Tys);
   LLVM_DEBUG(dbgs() << "Vector reduce func: "; VecReduceFunc->dump());
 
+  FastMathFlags FMF = RedFinal->hasFastMathFlags()
+                          ? RedFinal->getFastMathFlags()
+                          : FastMathFlags();
+
   return HLNodeUtilities.createCall(VecReduceFunc, Ops, "vec.reduce",
-                                    RednDescriptor);
+                                    RednDescriptor, {} /*Bundle*/,
+                                    {} /*BundleOps*/, FMF);
 }
 
 HLInst *VPOCodeGenHIR::widenPred(const HLIf *HIf,
@@ -2007,6 +2037,10 @@ HLInst *VPOCodeGenHIR::widenInterleavedAccess(
           cast<VPVLSClientMemrefHIR>(Grp->getFirstMemref())->getRegDDRef();
       RegDDRef *WMemRef = widenRef(MemRef, getVF() * InterleaveFactor, true);
       assert(WMemRef && "The memory reference should not be null pointer");
+      if (Mask)
+        OptRptStats.MaskedVLSLoads += Grp->size();
+      else
+        OptRptStats.UnmaskedVLSLoads += Grp->size();
       HLInst *WideLoad =
           HLNodeUtilities.createLoad(WMemRef, CurInst->getName() + ".vls.load");
       propagateMetadata(WMemRef, Grp);
@@ -2060,6 +2094,10 @@ HLInst *VPOCodeGenHIR::widenInterleavedAccess(
     // If we have seen all the instructions in a store group, go ahead and
     // generate the interleaved store.
     if (Index == InterleaveFactor) {
+      if (Mask)
+        OptRptStats.MaskedVLSStores += Grp->size();
+      else
+        OptRptStats.UnmaskedVLSStores += Grp->size();
       WideInst =
           createInterleavedStore(StoreValRefs, GrpStartInst->getOperandDDRef(0),
                                  InterleaveFactor, Mask);
@@ -2312,10 +2350,10 @@ HLInst *VPOCodeGenHIR::widenNonMaskedUniformStore(const HLInst *INode) {
   return WideInst;
 }
 
-void VPOCodeGenHIR::addMaskToSVMLCall(Function *OrigF,
-                                      SmallVectorImpl<RegDDRef *> &VecArgs,
-                                      SmallVectorImpl<Type *> &VecArgTys,
-                                      RegDDRef *MaskValue) {
+void VPOCodeGenHIR::addMaskToSVMLCall(
+    Function *OrigF, AttributeList OrigAttrs,
+    SmallVectorImpl<RegDDRef *> &VecArgs, SmallVectorImpl<Type *> &VecArgTys,
+    SmallVectorImpl<AttributeSet> &VecArgAttrs, RegDDRef *MaskValue) {
   assert(MaskValue && "Expected mask to be present");
   VectorType *VecTy = cast<VectorType>(VecArgTys[0]);
 
@@ -2332,6 +2370,7 @@ void VPOCodeGenHIR::addMaskToSVMLCall(Function *OrigF,
     addInst(MaskValueExt, nullptr);
     VecArgTys.push_back(MaskTyExt);
     VecArgs.push_back(MaskValueExt->getLvalDDRef()->clone());
+    VecArgAttrs.push_back(AttributeSet());
   } else {
     // Compared with 128-bit and 256-bit calls, 512-bit masked calls need extra
     // pass-through source parameters. We don't care about masked-out lanes, so
@@ -2341,6 +2380,7 @@ void VPOCodeGenHIR::addMaskToSVMLCall(Function *OrigF,
     //            <16 x float>, <16 x i1>, <16 x float>)
     SmallVector<Type *, 1> NewArgTys;
     SmallVector<RegDDRef *, 1> NewArgs;
+    SmallVector<AttributeSet, 1> NewArgAttrs;
 
     Type *SourceTy = VecTy;
     StringRef FnName = OrigF->getName();
@@ -2351,17 +2391,21 @@ void VPOCodeGenHIR::addMaskToSVMLCall(Function *OrigF,
 
     NewArgTys.push_back(SourceTy);
     NewArgs.push_back(UndefDDRef);
+    NewArgAttrs.push_back(AttributeSet());
 
     CanonExpr *CE = MaskValue->getSingleCanonExpr();
     NewArgTys.push_back(CE->getDestType());
     NewArgs.push_back(MaskValue->clone());
+    NewArgAttrs.push_back(AttributeSet());
 
     NewArgTys.append(VecArgTys.begin(), VecArgTys.end());
+    NewArgAttrs.append(VecArgAttrs.begin(), VecArgAttrs.end());
     for (RegDDRef *Arg : VecArgs)
       NewArgs.push_back(Arg->clone());
 
     VecArgTys = std::move(NewArgTys);
     VecArgs = std::move(NewArgs);
+    VecArgAttrs = std::move(NewArgAttrs);
   }
 }
 
@@ -2464,10 +2508,14 @@ HLInst *VPOCodeGenHIR::widenCall(const HLInst *INode,
   if (FnName == "sincos" || FnName == "sincosf")
     ArgIgnored = 2;
 
+  AttributeList Attrs = Call->getAttributes();
+
   SmallVector<Type *, 1> ArgTys;
+  SmallVector<AttributeSet, 1> ArgAttrs;
   for (unsigned i = ArgOffset; i < WideOps.size() - ArgIgnored; i++) {
     CallArgs.push_back(WideOps[i]);
     ArgTys.push_back(WideOps[i]->getDestType());
+    ArgAttrs.push_back(Attrs.getParamAttributes(i - ArgOffset));
   }
 
   if (ID != Intrinsic::not_intrinsic) {
@@ -2501,11 +2549,12 @@ HLInst *VPOCodeGenHIR::widenCall(const HLInst *INode,
     // the normal case for AVX512.
     if (!VecFuncName.empty() &&
         isSVMLFunction(TLI, Fn->getName(), VecFuncName)) {
-      addMaskToSVMLCall(Fn, CallArgs, ArgTys, Mask);
+      addMaskToSVMLCall(Fn, Attrs, CallArgs, ArgTys, ArgAttrs, Mask);
     } else {
       auto CE = Mask->getSingleCanonExpr();
       ArgTys.push_back(CE->getDestType());
       CallArgs.push_back(Mask->clone());
+      ArgAttrs.push_back(AttributeSet());
     }
   }
 
@@ -2520,16 +2569,17 @@ HLInst *VPOCodeGenHIR::widenCall(const HLInst *INode,
   auto *WideInst = HLNodeUtilities.createCall(
       VectorF, CallArgs, VectorF->getName(), WideLval, {} /*Bundle*/,
       {} /*BundleOps*/, FMF);
-  Instruction *Inst = const_cast<Instruction *>(WideInst->getLLVMInstruction());
+  CallInst *VecCall =
+      cast<CallInst>(const_cast<Instruction *>(WideInst->getLLVMInstruction()));
 
   // Make sure we don't lose attributes at the call site. E.g., IMF
   // attributes are taken from call sites in MapIntrinToIml to refine
   // SVML calls for precision.
-  cast<CallInst>(Inst)->setAttributes(Call->getAttributes());
+  copyRequiredAttributes(Call, VecCall, ArgAttrs);
 
   // Set calling conventions for SVML function calls
   if (isSVMLFunction(TLI, FnName, VectorF->getName())) {
-    cast<CallInst>(Inst)->setCallingConv(CallingConv::SVML);
+    VecCall->setCallingConv(CallingConv::SVML);
   }
 
   return WideInst;
@@ -2823,15 +2873,17 @@ void VPOCodeGenHIR::addPaddingRuntimeCheck(
 }
 
 RegDDRef *VPOCodeGenHIR::getUniformScalarRef(const VPValue *VPVal) {
-  if (!isa<VPExternalDef>(VPVal) && !isa<VPConstant>(VPVal))
-    llvm_unreachable("Expected a VPExternalDef/VPConstant");
+  assert((isa<VPExternalDef>(VPVal) || isa<VPConstant>(VPVal) ||
+          isa<VPExternalUse>(VPVal)) &&
+         "Expected a VPExternalDef/VPConstant/VPExternalUse");
 
   RegDDRef *ScalarRef = nullptr;
   if ((ScalarRef = getScalRefForVPVal(VPVal, 0)))
     return ScalarRef->clone();
 
-  if (auto *VPExtDef = dyn_cast<VPExternalDef>(VPVal)) {
-    const VPOperandHIR *HIROperand = VPExtDef->getOperandHIR();
+  auto GetScalarRefForExternal = [this](const VPOperandHIR *HIROperand,
+                                        Type *VPValTy) -> RegDDRef * {
+    RegDDRef *ScalarRef = nullptr;
 
     if (const auto *Blob = dyn_cast<VPBlob>(HIROperand)) {
       const auto *BlobRef = Blob->getBlob();
@@ -2843,7 +2895,7 @@ RegDDRef *VPOCodeGenHIR::getUniformScalarRef(const VPValue *VPVal) {
         const RegDDRef *RDDR = cast<RegDDRef>(BlobRef);
 
         // Create a RegDDREF containing blob with index BlobIndex.
-        auto *CE = CanonExprUtilities.createCanonExpr(VPExtDef->getType());
+        auto *CE = CanonExprUtilities.createCanonExpr(VPValTy);
         CE->addBlob(BlobIndex, 1);
         ScalarRef = DDRefUtilities.createScalarRegDDRef(GenericRvalSymbase, CE);
 
@@ -2860,13 +2912,22 @@ RegDDRef *VPOCodeGenHIR::getUniformScalarRef(const VPValue *VPVal) {
     } else {
       const auto *IV = cast<VPIndVar>(HIROperand);
       auto IVLevel = IV->getIVLevel();
-      auto RefDestTy = VPExtDef->getType();
 
-      auto *CE = CanonExprUtilities.createCanonExpr(RefDestTy);
+      auto *CE = CanonExprUtilities.createCanonExpr(VPValTy);
       CE->addIV(IVLevel, loopopt::InvalidBlobIndex, 1);
       ScalarRef = DDRefUtilities.createScalarRegDDRef(
           DDRefUtilities.getNewSymbase(), CE);
     }
+
+    return ScalarRef;
+  };
+
+  if (auto *VPExtDef = dyn_cast<VPExternalDef>(VPVal)) {
+    ScalarRef =
+        GetScalarRefForExternal(VPExtDef->getOperandHIR(), VPExtDef->getType());
+  } else if (auto *VPExtUse = dyn_cast<VPExternalUse>(VPVal)) {
+    ScalarRef =
+        GetScalarRefForExternal(VPExtUse->getOperandHIR(), VPExtUse->getType());
   } else {
     auto *VPConst = cast<VPConstant>(VPVal);
     ScalarRef = DDRefUtilities.createConstDDRef(VPConst->getConstant());
@@ -3121,9 +3182,9 @@ void VPOCodeGenHIR::generateMinMaxIndex(const VPReductionFinal *RedFinal,
   RedTail.push_back(*IndexBlend);
 
   RegDDRef *Acc = nullptr;
-  HLInst *IdxReduceCall = createVectorReduce(
-      RedFinal->getVectorReduceIntrinsic(), IndexBlend->getLvalDDRef()->clone(),
-      Acc, RednVariable, HLNodeUtilities);
+  HLInst *IdxReduceCall =
+      createVectorReduce(RedFinal, IndexBlend->getLvalDDRef()->clone(), Acc,
+                         RednVariable, HLNodeUtilities);
   RedTail.push_back(*IdxReduceCall);
   WInst = IdxReduceCall;
 }
@@ -3182,24 +3243,22 @@ void VPOCodeGenHIR::widenLoopEntityInst(const VPInstruction *VPInst) {
     HLContainerTy RedTail;
 
     RegDDRef *VecRef = widenRef(RedFinal->getReducingOperand(), getVF());
-    auto Intrin = RedFinal->getVectorReduceIntrinsic();
     Type *ElType = RedFinal->getReducingOperand()->getType();
     if (isa<VectorType>(ElType)) {
       // Incoming vector types is not supported for HIR
       llvm_unreachable("Unsupported vector data type for reducing operand.");
     }
-    const VPReduction *RednEntity = VPLoopEntities->getReduction(RedFinal);
-    assert(RednEntity && "Reduction final does not have a corresponding "
-                         "VPReduction descriptor.");
+
     // Scalar result of vector reduce intrinsic should be written back to the
-    // original reduction descriptor variable.
-    // NOTE : We obtain this variable from VPLoopEntity corresponding to the
-    // reduction since reduction-final instruction may not have accumulators
-    // always.
-    // TODO: This is the only user of VPLoopEntities in CG, this should be
-    // removed once VPReductionFinal is updated to have the StartValue always.
-    RegDDRef *RednDescriptor =
-        getUniformScalarRef(RednEntity->getRecurrenceStartValue());
+    // original reduction descriptor variable, obtained from external user.
+    // If a reduction is not live-out then it's essentially dead code, finalized
+    // value can be written to a new temp since the value is not going to be
+    // used anywhere.
+    RegDDRef *RednDescriptor = nullptr;
+    if (!hasNoExternalUsers(RedFinal)) {
+      const VPExternalUse *ExtUse = getSingleExternalUse(RedFinal, Plan);
+      RednDescriptor = getUniformScalarRef(ExtUse);
+    }
 
     if (RedFinal->isMinMaxIndex())
       generateMinMaxIndex(RedFinal, RednDescriptor, RedTail, WInst);
@@ -3215,7 +3274,7 @@ void VPOCodeGenHIR::widenLoopEntityInst(const VPInstruction *VPInst) {
 
       // 1. Generate vector reduce intrinsic call
       HLInst *VecReduceCall = createVectorReduce(
-          Intrin, VecRef, Acc, RednDescriptor, HLNodeUtilities);
+          RedFinal, VecRef, Acc, RednDescriptor, HLNodeUtilities);
       WInst = VecReduceCall;
       RedTail.push_back(*VecReduceCall);
 
@@ -3224,9 +3283,16 @@ void VPOCodeGenHIR::widenLoopEntityInst(const VPInstruction *VPInst) {
       // : Acc will always be null for min/max reductions, createVectorReduce
       // asserts on that.
       if (Acc) {
-        HLInst *ScalarLastVal = HLNodeUtilities.createBinaryHLInst(
-            RedFinal->getBinOpcode(), Acc->clone(),
-            VecReduceCall->getLvalDDRef()->clone(), "red.result", Acc);
+        HLInst *ScalarLastVal;
+        if (RedFinal->hasFastMathFlags())
+          ScalarLastVal = HLNodeUtilities.createFPMathBinOp(
+              RedFinal->getBinOpcode(), Acc->clone(),
+              VecReduceCall->getLvalDDRef()->clone(),
+              RedFinal->getFastMathFlags(), "red.result", Acc);
+        else
+          ScalarLastVal = HLNodeUtilities.createBinaryHLInst(
+              RedFinal->getBinOpcode(), Acc->clone(),
+              VecReduceCall->getLvalDDRef()->clone(), "red.result", Acc);
         WInst = ScalarLastVal;
         RedTail.push_back(*ScalarLastVal);
       }
@@ -3347,13 +3413,19 @@ void VPOCodeGenHIR::widenLoadStoreImpl(const VPInstruction *VPInst,
 
   // Reverse mask for negative -1 stride.
   bool IsNegOneStride;
-  isUnitStridePtr(PtrOp, IsNegOneStride);
+  bool IsUnitStride = isUnitStridePtr(PtrOp, IsNegOneStride);
   if (Mask && IsNegOneStride) {
     auto *RevInst = createReverseVector(Mask->clone());
     Mask = RevInst->getLvalDDRef();
   }
 
   if (Opcode == Instruction::Load) {
+    if (IsUnitStride)
+      ++(Mask ? OptRptStats.MaskedUnalignedUnitStrideLoads
+              : OptRptStats.UnmaskedUnalignedUnitStrideLoads);
+    else
+      ++(Mask ? OptRptStats.MaskedGathers : OptRptStats.UnmaskedGathers);
+
     WInst = HLNodeUtilities.createLoad(MemRef, ".vec");
     addInst(WInst, Mask);
     // Reverse the loaded value for negative -1 stride.
@@ -3361,6 +3433,12 @@ void VPOCodeGenHIR::widenLoadStoreImpl(const VPInstruction *VPInst,
       WInst = createReverseVector(WInst->getLvalDDRef()->clone());
     addVPValueWideRefMapping(VPInst, WInst->getLvalDDRef());
   } else {
+    if (IsUnitStride)
+      ++(Mask ? OptRptStats.MaskedUnalignedUnitStrideStores
+              : OptRptStats.UnmaskedUnalignedUnitStrideStores);
+    else
+      ++(Mask ? OptRptStats.MaskedScatters : OptRptStats.UnmaskedScatters);
+
     RegDDRef *StoreVal = widenRef(VPInst->getOperand(0), getVF());
     // Reverse the value to be stored for negative -1 stride.
     if (IsNegOneStride) {
@@ -4011,7 +4089,9 @@ void VPOCodeGenHIR::widenNodeImpl(const VPInstruction *VPInst, RegDDRef *Mask,
   // code for a compare instruction if its only use is a select instruction.
   if (isa<VPCmpInst>(VPInst) && VPInst->getNumUsers() == 1) {
     auto *UserInst = cast<VPInstruction>(*(VPInst->users().begin()));
-    if (UserInst->getOpcode() == Instruction::Select)
+    if (UserInst->getOpcode() == Instruction::Select &&
+        UserInst->getOperand(0) == VPInst &&
+        llvm::count(UserInst->operands(), VPInst) == 1)
       return;
   }
 

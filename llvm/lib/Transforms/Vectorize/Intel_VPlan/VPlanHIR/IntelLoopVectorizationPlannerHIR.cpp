@@ -56,6 +56,11 @@ bool LoopVectorizationPlannerHIR::executeBestPlan(VPOCodeGenHIR *CG, unsigned UF
   if (!VecLoopsInit)
     return false;
 
+  // Temporary, until CFG merge is implemented. Replace VPLiveInValue-s by
+  // original incoming values.
+  VPLiveInOutCreator LICreator(*Plan);
+  LICreator.restoreLiveIns();
+
   // Run CallVecDecisions analysis for final VPlan which will be used by CG.
   VPlanCallVecDecisions CallVecDecisions(*Plan);
   CallVecDecisions.run(BestVF, TLI, TTI);
@@ -73,10 +78,9 @@ bool LoopVectorizationPlannerHIR::executeBestPlan(VPOCodeGenHIR *CG, unsigned UF
 }
 
 std::shared_ptr<VPlan> LoopVectorizationPlannerHIR::buildInitialVPlan(
-    unsigned StartRangeVF, unsigned &EndRangeVF, LLVMContext *Context,
-    const DataLayout *DL) {
+    unsigned StartRangeVF, unsigned &EndRangeVF, VPExternalValues &Ext) {
   // Create new empty VPlan
-  std::shared_ptr<VPlan> SharedPlan = std::make_shared<VPlan>(Context, DL);
+  std::shared_ptr<VPlan> SharedPlan = std::make_shared<VPlan>(Ext);
   VPlan *Plan = SharedPlan.get();
 
   // Build hierarchical CFG
@@ -97,4 +101,3 @@ std::shared_ptr<VPlan> LoopVectorizationPlannerHIR::buildInitialVPlan(
 
   return SharedPlan;
 }
-
