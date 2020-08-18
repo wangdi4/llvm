@@ -40,5 +40,8 @@ int main() {
 // CHECK-SAME: %[[WRAPPER_F1]]* byval(%[[WRAPPER_F1]]) align 8 %_arg_F1,
 // CHECK-SAME: %[[WRAPPER_F2]]* byval(%[[WRAPPER_F2]]) align 8 %_arg_F2,
 // CHECK-SAME: %[[WRAPPER_F]]* byval(%[[WRAPPER_F]]) align 8 %_arg_F
+<<<<<<< HEAD
 // CHECK: define spir_kernel void @{{.*}}structs{{.*}}(i32 addrspace(1)* %_arg_F1, float addrspace(1)* %_arg_F2, float addrspace(1)* %_arg_F)
+=======
+>>>>>>> c7e2d77d96e2abfd893a37f490451654446f515c
 // CHECK: define spir_kernel void @{{.*}}lambdas{{.*}}(%[[WRAPPER_LAMBDA_PTR]]* byval(%[[WRAPPER_LAMBDA_PTR]]) align 8 %_arg_)
