@@ -47,6 +47,11 @@ public:
   static Type *calcCharacteristicType(VPCallInstruction *VPCallInst,
                                       VectorVariant &Variant);
 
+  /// \Returns the best simd function variant and its index.
+  llvm::Optional<std::pair<std::unique_ptr<VectorVariant>, unsigned>>
+  matchVectorVariant(const VPCallInstruction *VPCall, bool Masked, unsigned VF,
+                     const TargetTransformInfo *TTI);
+
 private:
   /// Determine call vectorization properties for a given \p VPCall. This
   /// decision is taken based on given \p VF and various external components
@@ -72,14 +77,8 @@ private:
   /// Match arguments of VPCall to vector variant parameters. Return score
   /// based on how well the parameters matched.
   bool matchAndScoreVariantParameters(const VPCallInstruction *VPCall,
-                                      VectorVariant &Variant,
-                                      int &Score,
+                                      VectorVariant &Variant, int &Score,
                                       int &MaxArg);
-
-  /// Find the best simd function variant.
-  std::unique_ptr<VectorVariant>
-  matchVectorVariant(const VPCallInstruction *VPCall, bool Masked,
-                     unsigned VF, const TargetTransformInfo *TTI);
 
   VPlan &Plan;
 };

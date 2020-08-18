@@ -463,20 +463,22 @@ void VPBasicBlock::execute(VPTransformState *State) {
   // propagate its value to the next VPBasicBlock.
   State->ILV->setMaskValue(nullptr);
 
+  State->CFG.VPBB2IREndBB[this] = State->CFG.PrevBB;
   if (auto *CBV = getCondBit()) {
     // Condition bit value in a VPBasicBlock is used as the branch selector. All
     // branches that remain are uniform - we generate a branch instruction using
     // the condition value from vector lane 0 and dummy successors. The
     // successors are fixed later when the successor blocks are visited.
     Value *NewCond = State->ILV->getScalarValue(CBV, 0);
+    BasicBlock *EndBB = State->CFG.VPBB2IREndBB[this];
 
     // Replace the temporary unreachable terminator with the new conditional
     // branch.
-    auto *CurrentTerminator = NewBB->getTerminator();
+    auto *CurrentTerminator = EndBB->getTerminator();
     assert(isa<UnreachableInst>(CurrentTerminator) &&
            "Expected to replace unreachable terminator with conditional "
            "branch.");
-    auto *CondBr = BranchInst::Create(NewBB, nullptr, NewCond);
+    auto *CondBr = BranchInst::Create(EndBB, nullptr, NewCond);
     CondBr->setSuccessor(0, nullptr);
     ReplaceInstWithInst(CurrentTerminator, CondBr);
   }
@@ -678,7 +680,7 @@ VPBasicBlock::createEmptyBasicBlock(VPTransformState::CFGState &CFG)
       continue;
     }
 
-    BasicBlock *PredBB = CFG.VPBB2IRBB[PredVPBB];
+    BasicBlock *PredBB = CFG.VPBB2IREndBB[PredVPBB];
     auto *PredBBTerminator = PredBB->getTerminator();
     LLVM_DEBUG(dbgs() << "LV: draw edge from" << PredBB->getName() << '\n');
     if (isa<UnreachableInst>(PredBB->getTerminator())) {

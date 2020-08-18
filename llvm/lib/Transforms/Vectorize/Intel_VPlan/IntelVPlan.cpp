@@ -667,7 +667,7 @@ void VPlan::execute(VPTransformState *State) {
 
   // Fix the edges for blocks in VPBBsToFix list.
   for (auto VPBB : State->CFG.VPBBsToFix) {
-    BasicBlock *BB = State->CFG.VPBB2IRBB[VPBB];
+    BasicBlock *BB = State->CFG.VPBB2IREndBB[VPBB];
     assert(BB && "Unexpected null basic block for VPBB");
 
     unsigned Idx = 0;

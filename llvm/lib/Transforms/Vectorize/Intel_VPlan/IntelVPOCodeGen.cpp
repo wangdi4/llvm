@@ -20,6 +20,7 @@
 #include "IntelVPlanCallVecDecisions.h"
 #include "IntelVPlanUtils.h"
 #include "IntelVPlanVLSAnalysis.h"
+#include "IntelVPlanVectorizeIndirectCalls.h"
 #include "llvm/Analysis/LoopAccessAnalysis.h"
 #include "llvm/Analysis/ScalarEvolutionExpressions.h"
 #include "llvm/Analysis/VectorUtils.h"
@@ -1709,8 +1710,12 @@ void VPOCodeGen::vectorizeCallArgs(VPCallInstruction *VPCall,
   // Promote to characteristic type.
   Type *CharacteristicType =
       VPlanCallVecDecisions::calcCharacteristicType(VPCall, *VecVariant);
-  unsigned CharacteristicTypeSize =
-      CharacteristicType->getPrimitiveSizeInBits();
+  unsigned CharacteristicTypeSize = 0;
+  if (CharacteristicType->isPointerTy())
+    CharacteristicTypeSize =
+        Plan->getDataLayout()->getPointerTypeSizeInBits(CharacteristicType);
+  else
+    CharacteristicTypeSize = CharacteristicType->getPrimitiveSizeInBits();
 
   // Promote the i1 to an integer type that has the same size as the
   // characteristic type.
@@ -1721,7 +1726,8 @@ void VPOCodeGen::vectorizeCallArgs(VPCallInstruction *VPCall,
 
   // Bitcast if the promoted type is not the same as the characteristic
   // type.
-  if (ScalarToType != CharacteristicType) {
+  if (ScalarToType != CharacteristicType &&
+      !CharacteristicType->isPointerTy()) {
     Type *MaskCastTy = FixedVectorType::get(CharacteristicType, PumpedVF);
     Value *MaskCast = Builder.CreateBitCast(MaskExt, MaskCastTy, "maskcast");
     VecArgs.push_back(MaskCast);
@@ -2693,6 +2699,12 @@ void VPOCodeGen::vectorizeVecVariant(VPCallInstruction *VPCall) {
   assert(VPCall->getVectorizationScenario() ==
              VPCallInstruction::CallVecScenariosTy::VectorVariant &&
          "vectorizeVecVariant called for mismatched scenario.");
+  if (VPCall->isIntelIndirectCall()) {
+    IndirectCallCodeGenerator IndirectCall(this, LI, VF, State, MaskValue, Plan,
+                                           NewLoop);
+    IndirectCall.vectorize(VPCall);
+    return;
+  }
   unsigned PumpFactor = VPCall->getPumpFactor();
   assert(PumpFactor == 1 && "Pumping feature is not supported for SIMD "
                             "functions with vector variants.");
@@ -3694,7 +3706,7 @@ void VPOCodeGen::fixNonInductionVPPhis() {
         auto *VPBB = VPPhi->getIncomingBlock(I);
         Value *IncValue =
             IsScalar ? getScalarValue(VPVal, 0) : getVectorValue(VPVal);
-        Phi->addIncoming(IncValue, State->CFG.VPBB2IRBB[VPBB]);
+        Phi->addIncoming(IncValue, State->CFG.VPBB2IREndBB[VPBB]);
       }
     }
     return;
