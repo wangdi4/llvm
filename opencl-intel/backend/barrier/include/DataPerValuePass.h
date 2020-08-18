@@ -140,7 +140,7 @@ namespace intel {
 
       SpecialBufferData() : m_currentOffset(0), m_maxAlignment(0), m_bufferTotalSize(0) {}
     };
-    typedef std::map<Function*, unsigned int> TFunctionToEntryMap;
+    typedef MapVector<Function*, unsigned int> TFunctionToEntryMap;
     typedef std::map<unsigned int, SpecialBufferData> TEntryToBufferDataMap;
 
     /// @brief execute pass on given function
@@ -208,6 +208,9 @@ namespace intel {
     TValuesPerFunctionMap m_specialValuesPerFuncMap;
     /// This holds a map between function and its values of Group-B.2
     TValuesPerFunctionMap m_crossBarrierValuesPerFuncMap;
+    /// This holds a set of returned values that cross barrier. They are not
+    /// classified to Group-B.
+    TValueSet             m_crossBarrierReturnedValues;
     /// This holds a map between value and its offset in Special Buffer structure
     TValueToOffsetMap     m_valueToOffsetMap;
     /// This holds a set of all special buffer values with base element of type i1
