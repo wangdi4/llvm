@@ -2128,11 +2128,14 @@ void VPOCodeGen::vectorizeInterleavedStore(VPInstruction *VPStoreArg,
     GroupStore = Builder.CreateAlignedStore(StoredValue, GroupPtr, Alignment);
   }
 
+  if (auto *NtmpMD = cast<VPLoadStoreInst>(LeaderInst)
+                         ->getMetadata(LLVMContext::MD_nontemporal))
+    GroupStore->setMetadata(LLVMContext::MD_nontemporal, NtmpMD);
+
   DEBUG_WITH_TYPE("ovls", dbgs()
                               << "Emitted a group-wide vector STORE for Group#"
                               << Group->getDebugId() << ":\n  " << *GroupStore
                               << "\n\n");
-  (void) GroupStore;
 }
 
 void VPOCodeGen::vectorizeUnitStrideStore(VPInstruction *VPInst,
@@ -2142,8 +2145,17 @@ void VPOCodeGen::vectorizeUnitStrideStore(VPInstruction *VPInst,
   Type *StoreType = getLoadStoreType(VPInst);
   auto *StoreVecType = dyn_cast<VectorType>(StoreType);
   unsigned OriginalVL = StoreVecType ? StoreVecType->getNumElements() : 1;
-  Align Alignment = getOriginalLoadStoreAlignment(VPInst);
   Value *VecPtr = createWidenedBasePtrConsecutiveLoadStore(Ptr, IsNegOneStride);
+
+  Align Alignment;
+  if (!PreferredPeeling) {
+    // No peeling means static peeling with peel count = 0.
+    VPlanStaticPeeling Peeling(0);
+    Alignment =
+        VPAA.getAlignmentUnitStride(*cast<VPLoadStoreInst>(VPInst), Peeling);
+  } else {
+    Alignment = getOriginalLoadStoreAlignment(VPInst);
+  }
 
   if (IsNegOneStride) // Reverse
     // If we store to reverse consecutive memory locations, then we need
@@ -2166,6 +2178,10 @@ void VPOCodeGen::vectorizeUnitStrideStore(VPInstruction *VPInst,
     ++OptRptStats.UnmaskedUnalignedUnitStrideStores;
     Store = Builder.CreateAlignedStore(VecDataOp, VecPtr, Alignment);
   }
+
+  if (auto *NtmpMD = cast<VPLoadStoreInst>(VPInst)->getMetadata(
+          LLVMContext::MD_nontemporal))
+    Store->setMetadata(LLVMContext::MD_nontemporal, NtmpMD);
 
   if (auto *DynPeeling =
           dyn_cast_or_null<VPlanDynamicPeeling>(PreferredPeeling))

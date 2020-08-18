@@ -369,3 +369,34 @@ void VPlanPeelingAnalysis::dump() {
   }
 #endif
 }
+
+Align VPlanAlignmentAnalysis::getAlignmentUnitStride(
+    VPLoadStoreInst &Memref, VPlanPeelingVariant &Peeling) {
+  assert(isa<VPlanStaticPeeling>(Peeling) &&
+         "Dynamic peeling is not supported yet");
+  assert(cast<VPlanStaticPeeling>(Peeling).peelCount() == 0 &&
+         "Non-zero peel counts are not supported yet");
+
+  Align AlignFromIR = Memref.getAlignment();
+
+  auto Expr = VPSE->getVPlanSCEV(*getLoadStorePointerOperand(&Memref));
+  auto Ind = VPSE->asConstStepInduction(Expr);
+  if (!Ind)
+    return AlignFromIR;
+
+  // FIXME: In case of reverse iteration, we should compute alignment of
+  //        the pointer in the last lane.
+  if (Ind->Step <= 0)
+    return AlignFromIR;
+
+  auto KB = VPVT->getKnownBits(Ind->InvariantBase, &Memref);
+  Align AlignFromVPVT{1ULL << KB.countMinTrailingZeros()};
+
+  // Alignment of access cannot be larger than alignment of the step, which
+  // equals to (VF * Step) for widened memrefs.
+  Align AlignFromStep{MinAlign(0, VF * Ind->Step)};
+
+  // Generally, the resulting alignment is equal to AlignFromVPVT. However, it
+  // cannot be lower than AlignFromIR and higher than AlignFromStep.
+  return std::min(AlignFromStep, std::max(AlignFromIR, AlignFromVPVT));
+}
