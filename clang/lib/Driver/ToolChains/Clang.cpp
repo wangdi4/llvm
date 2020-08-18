@@ -4725,6 +4725,7 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
   // exit, but when we're generating diagnostics we can rely on some of the
   // cleanup.
   if (!C.isForDiagnostics())
+    if (!Args.hasArg(options::OPT_no_disable_free)) // INTEL
     CmdArgs.push_back("-disable-free");
 
 #ifdef NDEBUG
