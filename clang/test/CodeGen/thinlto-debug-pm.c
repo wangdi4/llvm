@@ -5,7 +5,9 @@
 // RUN: llvm-lto -thinlto -o %t %t.o
 
 // RUN: %clang_cc1 -triple x86_64-unknown-linux-gnu -emit-obj -O2 -o %t2.o -x ir %t.o -fthinlto-index=%t.thinlto.bc -fno-experimental-new-pass-manager -mllvm -debug-pass=Structure 2>&1 | FileCheck %s --check-prefix=O2-OLDPM
-// O2-OLDPM: Loop Vectorization
+// INTEL_CUSTOMIZATION
+// O2-OLDPM: VPlan Vectorization
+// end INTEL_CUSTOMIZATION
 
 // RUN: %clang_cc1 -triple x86_64-unknown-linux-gnu -emit-obj -O2 -o %t2.o -x ir %t.o -fthinlto-index=%t.thinlto.bc -fdebug-pass-manager -fexperimental-new-pass-manager 2>&1 | FileCheck %s --check-prefix=O2-NEWPM
 // O2-NEWPM: Running pass: LoopVectorizePass
@@ -17,14 +19,9 @@
 // O0-NEWPM-NOT: Running pass: LoopVectorizePass
 
 // RUN: %clang_cc1 -triple x86_64-unknown-linux-gnu -emit-obj -O0 -o %t2.o -x ir %t.o -fthinlto-index=%t.thinlto.bc -fno-experimental-new-pass-manager -mllvm -debug-pass=Structure 2>&1 | FileCheck %s --check-prefix=O0-OLDPM
-<<<<<<< HEAD
 // INTEL_CUSTOMIZATION
-// O2-OLDPM: VPlan Vectorization
 // O0-OLDPM-NOT: VPlan Vectorization
 // end INTEL_CUSTOMIZATION
-=======
-// O0-OLDPM-NOT: Loop Vectorization
->>>>>>> a3973195095ed918915213341c132b41fb269f4e
 
 void foo() {
 }
