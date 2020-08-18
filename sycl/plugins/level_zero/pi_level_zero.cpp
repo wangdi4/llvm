@@ -1926,25 +1926,6 @@ pi_result piProgramCreateWithBinary(pi_context Context, pi_uint32 NumDevices,
                                     const unsigned char **Binaries,
                                     pi_int32 *BinaryStatus,
                                     pi_program *Program) {
-<<<<<<< HEAD
-
-  if (!Context)
-    return PI_INVALID_CONTEXT;
-  if (!DeviceList || !NumDevices)
-    return PI_INVALID_VALUE;
-  if (!Binaries || !Lengths)
-    return PI_INVALID_VALUE;
-  if (!Program)
-    return PI_INVALID_VALUE;
-
-  // For now we support only one device.
-  assert(NumDevices == 1);
-  if (!Binaries[0] || !Lengths[0]) {
-    if (BinaryStatus)
-      *BinaryStatus = PI_INVALID_VALUE;
-    return PI_INVALID_VALUE;
-  }
-=======
 
   if (!Context)
     return PI_INVALID_CONTEXT;
@@ -1957,7 +1938,6 @@ pi_result piProgramCreateWithBinary(pi_context Context, pi_uint32 NumDevices,
 
   // For now we support only one device.
   assert(NumDevices == 1);
->>>>>>> f14618dbb64da3015e06b2be6d67216255976d45
   if (DeviceList[0] != Context->Device)
     return PI_INVALID_DEVICE;
 
@@ -1983,12 +1963,6 @@ pi_result piProgramCreateWithBinary(pi_context Context, pi_uint32 NumDevices,
   } catch (...) {
     return PI_ERROR_UNKNOWN;
   }
-<<<<<<< HEAD
-
-  if (BinaryStatus)
-    *BinaryStatus = PI_SUCCESS;
-=======
->>>>>>> f14618dbb64da3015e06b2be6d67216255976d45
   return PI_SUCCESS;
 }
 
@@ -2207,13 +2181,8 @@ pi_result piProgramLink(pi_context Context, pi_uint32 NumDevices,
           Guard.unlock();
           ze_module_handle_t ZeModule;
           pi_result res =
-<<<<<<< HEAD
-              copyModule(Input->Context->ZeContext,
-                         Context->Device->ZeDevice, Input->ZeModule, &ZeModule);
-=======
               copyModule(Context->ZeContext, Context->Device->ZeDevice,
                          Input->ZeModule, &ZeModule);
->>>>>>> f14618dbb64da3015e06b2be6d67216255976d45
           if (res != PI_SUCCESS) {
             return res;
           }
@@ -2267,19 +2236,11 @@ pi_result piProgramCompile(
 
   // These aren't supported.
   assert(!PFnNotify && !UserData);
-<<<<<<< HEAD
 
   pi_result res = compileOrBuild(Program, NumDevices, DeviceList, Options);
   if (res != PI_SUCCESS)
     return res;
 
-=======
-
-  pi_result res = compileOrBuild(Program, NumDevices, DeviceList, Options);
-  if (res != PI_SUCCESS)
-    return res;
-
->>>>>>> f14618dbb64da3015e06b2be6d67216255976d45
   Program->State = _pi_program::Object;
   return PI_SUCCESS;
 }
@@ -2302,7 +2263,6 @@ pi_result piProgramBuild(pi_program Program, pi_uint32 NumDevices,
 
   // These aren't supported.
   assert(!PFnNotify && !UserData);
-<<<<<<< HEAD
 
   pi_result res = compileOrBuild(Program, NumDevices, DeviceList, Options);
   if (res != PI_SUCCESS)
@@ -2323,47 +2283,17 @@ static pi_result compileOrBuild(pi_program Program, pi_uint32 NumDevices,
   // We only support one device with Level Zero.
   assert(NumDevices == 1 && DeviceList);
 
-=======
-
-  pi_result res = compileOrBuild(Program, NumDevices, DeviceList, Options);
-  if (res != PI_SUCCESS)
-    return res;
-
-  Program->State = _pi_program::Exe;
-  return PI_SUCCESS;
-}
-
-// Perform common operations for compiling or building a program.
-static pi_result compileOrBuild(pi_program Program, pi_uint32 NumDevices,
-                                const pi_device *DeviceList,
-                                const char *Options) {
-
-  if ((NumDevices && !DeviceList) || (!NumDevices && DeviceList))
-    return PI_INVALID_VALUE;
-
-  // We only support one device with Level Zero.
-  assert(NumDevices == 1 && DeviceList);
-
->>>>>>> f14618dbb64da3015e06b2be6d67216255976d45
   // We should have either IL or native device code.
   assert(Program->Code);
 
   // Specialization constants are used only if the program was created from
   // IL.  Translate them to the Level Zero format.
   ze_module_constants_t ZeSpecConstants = {};
-<<<<<<< HEAD
-  std::vector<uint32_t> ZeSpecContantsIds;
-  std::vector<uint64_t> ZeSpecContantsValues;
-  if (Program->State == _pi_program::IL) {
-    std::lock_guard<std::mutex> Guard(Program->MutexZeSpecConstants);
-
-=======
   if (Program->State == _pi_program::IL) {
     std::lock_guard<std::mutex> Guard(Program->MutexZeSpecConstants);
 
     std::vector<uint32_t> ZeSpecContantsIds(Program->ZeSpecConstants.size());
     std::vector<uint64_t> ZeSpecContantsValues(Program->ZeSpecConstants.size());
->>>>>>> f14618dbb64da3015e06b2be6d67216255976d45
     ZeSpecConstants.numConstants = Program->ZeSpecConstants.size();
     ZeSpecContantsIds.reserve(ZeSpecConstants.numConstants);
     ZeSpecContantsValues.reserve(ZeSpecConstants.numConstants);
@@ -2388,38 +2318,24 @@ static pi_result compileOrBuild(pi_program Program, pi_uint32 NumDevices,
   ZeModuleDesc.pConstants = &ZeSpecConstants;
 
   ze_device_handle_t ZeDevice = Program->Context->Device->ZeDevice;
-<<<<<<< HEAD
-  ZE_CALL(zeModuleCreate(Program->Context->ZeContext, ZeDevice,
-                         &ZeModuleDesc, &Program->ZeModule,
-                         &Program->ZeBuildLog));
-=======
   ze_context_handle_t ZeContext = Program->Context->ZeContext;
   ze_module_handle_t ZeModule;
   ze_module_build_log_handle_t ZeBuildLog;
   ZE_CALL(zeModuleCreate(ZeContext, ZeDevice, &ZeModuleDesc, &ZeModule,
                          &ZeBuildLog));
->>>>>>> f14618dbb64da3015e06b2be6d67216255976d45
 
   // Check if this module imports any symbols, which we need to know if we
   // end up linking this module later.  See comments in piProgramLink() for
   // details.
   ze_module_properties_t ZeModuleProps;
-<<<<<<< HEAD
-  ZE_CALL(zeModuleGetPropertiesMock(Program->ZeModule, &ZeModuleProps));
-=======
   ZE_CALL(zeModuleGetPropertiesMock(ZeModule, &ZeModuleProps));
->>>>>>> f14618dbb64da3015e06b2be6d67216255976d45
   Program->HasImports = (ZeModuleProps.flags & ZE_MODULE_PROPERTY_FLAG_IMPORTS);
 
   // We no longer need the IL / native code.
   // The caller must set the State to Object or Exe as appropriate.
   Program->Code.reset();
-<<<<<<< HEAD
-
-=======
   Program->ZeModule = ZeModule;
   Program->ZeBuildLog = ZeBuildLog;
->>>>>>> f14618dbb64da3015e06b2be6d67216255976d45
   return PI_SUCCESS;
 }
 
