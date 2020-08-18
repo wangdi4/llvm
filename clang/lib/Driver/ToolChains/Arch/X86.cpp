@@ -147,15 +147,18 @@ std::string x86::getX86TargetCPU(const ArgList &Args,
                 .Case("AVX512", "skylake-avx512")
                 .Default("");
     }
-#if INTEL_CUSTOMIZATION
-    // Handle 'other' /arch variations that are allowed for icx/Intel
-    if (CPU.empty())
-      CPU = StringRef(getCPUForIntel(Arch, Triple, true));
-#endif // INTEL_CUSTOMIZATION
     if (!CPU.empty()) {
       A->claim();
       return std::string(CPU);
     }
+#if INTEL_CUSTOMIZATION
+    // Handle 'other' /arch variations that are allowed for icx/Intel
+    std::string IntelCPU = getCPUForIntel(Arch, Triple, true);
+    if (!IntelCPU.empty()) {
+      A->claim();
+      return IntelCPU;
+    }
+#endif // INTEL_CUSTOMIZATION
   }
 
   // Select the default CPU if none was given (or detection failed).
