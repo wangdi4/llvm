@@ -4207,30 +4207,25 @@ bool VPOParoptTransform::genNontemporalCode(WRegionNode *W) {
   // Find all memrefs derived from nontemporal bases in the region and attach
   // !nontemporal metadata to them. The incoming IR is expected to look like:
   //
-  //   @llvm.directive.region.entry() [ "QUAL.OMP.NONTEMPORAL"(float** %a.addr)]
-  //   %6 = load float*, float** %a.addr, align 8, !tbaa !2
-  //   %ptridx10 = getelementptr inbounds float, float* %6, i64 %indvars.iv
+  //   @llvm.directive.region.entry() [ "QUAL.OMP.NONTEMPORAL"(float* %a.addr)]
+  //   %ptridx10 = getelementptr inbounds float, float* %a.addr, i64 %indvars.iv
   //   store float %conv8, float* %ptridx10
   //   call void @llvm.directive.region.exit(token %2) [ "DIR.OMP.END.SIMD"() ]
   //
   for (NontemporalItem *VarAddr : W->getNontemporal()) {
-    for (User *VarRead : VarAddr->getOrig()->users()) {
-      if (!isa<LoadInst>(VarRead))
+    for (User *VarUse : VarAddr->getOrig()->users()) {
+      if (!isa<GetElementPtrInst>(VarUse))
         continue;
-      for (User *VarUse : cast<LoadInst>(VarRead)->users()) {
-        if (!isa<GetElementPtrInst>(VarUse))
+      for (User *GepUse : VarUse->users()) {
+        if (!isa<StoreInst>(GepUse) && !isa<LoadInst>(GepUse))
           continue;
-        for (User *GepUse : VarUse->users()) {
-          if (!isa<StoreInst>(GepUse) && !isa<LoadInst>(GepUse))
-            continue;
-          Instruction *Mrf = cast<Instruction>(GepUse);
-          if (!W->contains(Mrf->getParent()))
-            continue;
-          Constant *One = ConstantInt::get(Type::getInt32Ty(Context), 1);
-          MDNode *Node = MDNode::get(Context, ConstantAsMetadata::get(One));
-          Mrf->setMetadata(LLVMContext::MD_nontemporal, Node);
-          Changed = true;
-        }
+        Instruction *Mrf = cast<Instruction>(GepUse);
+        if (!W->contains(Mrf->getParent()))
+          continue;
+        Constant *One = ConstantInt::get(Type::getInt32Ty(Context), 1);
+        MDNode *Node = MDNode::get(Context, ConstantAsMetadata::get(One));
+        Mrf->setMetadata(LLVMContext::MD_nontemporal, Node);
+        Changed = true;
       }
     }
   }
