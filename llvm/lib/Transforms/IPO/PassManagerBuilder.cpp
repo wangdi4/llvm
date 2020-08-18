@@ -1747,8 +1747,15 @@ void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
 
   PM.add(createCorrelatedValuePropagationPass());
 
-  if (EnableMultiVersioning)
+  if (EnableMultiVersioning) {
     PM.add(createMultiVersioningWrapperPass());
+    // 21914: If we ran cloning+MV+Dtrans, it is likely we have duplicate
+    // code regions that need to be cleaned up. Community disabled hoisting
+    // recently, we therefore need to run it explictly.
+    if (EnableDTrans)
+      PM.add(createCFGSimplificationPass(SimplifyCFGOptions()
+                                             .hoistCommonInsts(true)));
+  }
 #endif // INTEL_CUSTOMIZATION
   // LTO provides additional opportunities for tailcall elimination due to
   // link-time inlining, and visibility of nocapture attribute.
