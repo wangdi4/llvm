@@ -366,6 +366,7 @@ private:
   void updateCallBase(CallBase *, AttributeList, Function *,
                       std::vector<Value *> &);
   void removeDeadInsts(Function *);
+  void removeDeadTypeTestCalls(Function *);
   void replicateTypes();
   void replicateMemberFunctions();
   void removeUsers(Value *);
@@ -474,15 +475,73 @@ void SOAToAOSPrepCandidateInfo::removeDeadInsts(Function *F) {
     RecursivelyDeleteTriviallyDeadInstructions(DeadInsts);
 }
 
+// This routine removes dead llvm.assume/llvm.type.test calls.
+//
+// When virtual call is replaced by a single direct call (without using
+// any runtime check using vtable), load of vtable is used by only
+// llvm.type.test. Since there is no other uses for the load of vtable,
+// the llvm.type.test call can be considered as dead as the downstream
+// transformations can't apply any transformations to the call.
+// After SOATOAOSPrepare transformations, Vtable is removed from field
+// class after proving that there is no real use for the Vtable by
+// checking the functionality of member functions of the class. But, there
+// may be accesses to the Vtable in member functions of candidate struct.
+// Removing dead llvm.type.test calls helps us to get rid of any acceses
+// to the Vtable. This routine removes llvm.assume/llvm.type.test calls
+// after proving that they are dead.
+//
+// TODO: Current analysis doesn't directly prove that there are no real
+// accesses to the vtable in struct member functions. It is better to add
+// a check to prove that the vtable is not really used in member functions
+// of struct also.
+//
+void SOAToAOSPrepCandidateInfo::removeDeadTypeTestCalls(Function *F) {
+  SmallVector<CallBase *, 2> CallsToRemove;
+  for (Instruction &I : instructions(F)) {
+    auto II = dyn_cast<IntrinsicInst>(&I);
+    if (!II || II->getIntrinsicID() != Intrinsic::type_test)
+      continue;
+    Value *Ptr = II->getArgOperand(0);
+    if (auto BC = dyn_cast<BitCastInst>(Ptr)) {
+      if (!BC->hasOneUse())
+        continue;
+      Ptr = BC->getOperand(0);
+    }
+    auto LI = dyn_cast<LoadInst>(Ptr);
+    if (!LI || !LI->hasOneUse())
+      continue;
+    if (!II->hasOneUse())
+      continue;
+    auto AssumeII = dyn_cast<IntrinsicInst>(II->use_begin()->getUser());
+    if (!AssumeII || AssumeII->getIntrinsicID() != Intrinsic::assume)
+      continue;
+    CallsToRemove.push_back(AssumeII);
+    CallsToRemove.push_back(II);
+  }
+
+  for (auto *CB : CallsToRemove) {
+    DEBUG_WITH_TYPE(DTRANS_SOATOAOSPREPARE,
+                    { dbgs() << "    Call deleted: " << *CB << "\n"; });
+    CB->eraseFromParent();
+  }
+
+  // Remove any dead instructions if there are any after deleting
+  // dead llvm.assume/llvm.type.test calls..
+  if (!CallsToRemove.empty())
+    removeDeadInsts(F);
+}
+
 // Remove dead instructions if there are any. There may be load/bitcast/
 // getelementptr dead instructions due to Devirt.
 void SOAToAOSPrepCandidateInfo::removeDevirtTraces() {
   DEBUG_WITH_TYPE(DTRANS_SOATOAOSPREPARE,
                   { dbgs() << "  Transformations 0: \n"; });
 
-  // Collect dead instructions.
-  for (auto *StructF : CandI->struct_functions())
+  // Remove dead instructions.
+  for (auto *StructF : CandI->struct_functions()) {
     removeDeadInsts(StructF);
+    removeDeadTypeTestCalls(StructF);
+  }
 }
 
 // Apply the below peephole transformations for vector member functions.

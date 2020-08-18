@@ -1235,6 +1235,9 @@ public:
         if (isa<DbgInfoIntrinsic>(I))
           break;
         else if (ArrayIdioms::isKnownCall(D, S)) {
+          // No restrictions applied for llvm.type_test and llvm.assume calls.
+          if (isTypeTestRelatedIntrinsic(&I))
+            break;
           auto *Call = cast<CallBase>(&I);
           // Permit only one call to other method.
           if (!MC.CalledMethod && checkMethodCall(Call)) {

@@ -418,6 +418,7 @@ bool WeakAlignImpl::isSupportedIntrinsicInst(IntrinsicInst *II) {
   case Intrinsic::annotation:
   case Intrinsic::ptr_annotation:
   case Intrinsic::var_annotation:
+  case Intrinsic::type_test:
   case Intrinsic::is_constant:
   case Intrinsic::eh_typeid_for:
   case Intrinsic::trap:
@@ -465,6 +466,11 @@ bool WeakAlignImpl::isSupportedIntrinsicInst(IntrinsicInst *II) {
     break;
 
   case Intrinsic::assume: {
+    // Return true if the argument of llvm.assume call is llvm.type.test
+    // call.
+    auto Input = dyn_cast<IntrinsicInst>(II->getArgOperand(0));
+    if (Input && Input->getIntrinsicID() == Intrinsic::type_test)
+      return true;
     bool SafeAssume = willAssumeHold(II);
     if (!SafeAssume)
       LLVM_DEBUG(dbgs() << "DTRANS Weak Align: inhibited -- Unsafe use of "

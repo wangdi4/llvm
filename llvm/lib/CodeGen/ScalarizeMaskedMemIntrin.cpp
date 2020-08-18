@@ -530,7 +530,7 @@ static void scalarizeMaskedGather(CallInst *CI, bool &ModifiedDT) {
     BasicBlock *CondBlock = IfBlock->splitBasicBlock(InsertPt, "cond.load");
     Builder.SetInsertPoint(InsertPt);
 
-    Value *Ptr = Builder.CreateExtractElement(Ptrs, Idx, "Ptr" + Twine(Idx));
+    Value *Ptr = getScalarAddress(Ptrs, Idx, Builder); // INTEL
     LoadInst *Load =
         Builder.CreateAlignedLoad(EltTy, Ptr, AlignVal, "Load" + Twine(Idx));
     Value *NewVResult =
@@ -658,7 +658,7 @@ static void scalarizeMaskedScatter(CallInst *CI, bool &ModifiedDT) {
     Builder.SetInsertPoint(InsertPt);
 
     Value *OneElt = Builder.CreateExtractElement(Src, Idx, "Elt" + Twine(Idx));
-    Value *Ptr = Builder.CreateExtractElement(Ptrs, Idx, "Ptr" + Twine(Idx));
+    Value *Ptr = getScalarAddress(Ptrs, Idx, Builder); // INTEL
     Builder.CreateAlignedStore(OneElt, Ptr, AlignVal);
 
     // Create "else" block, fill it in the next iteration

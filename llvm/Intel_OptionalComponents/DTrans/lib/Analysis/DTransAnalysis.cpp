@@ -3771,6 +3771,8 @@ public:
     case Intrinsic::lifetime_start:
     case Intrinsic::ptr_annotation:
     case Intrinsic::var_annotation:
+    case Intrinsic::assume:
+    case Intrinsic::type_test:
       return;
 
     case Intrinsic::memset:

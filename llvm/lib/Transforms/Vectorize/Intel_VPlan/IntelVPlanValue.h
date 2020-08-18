@@ -411,10 +411,16 @@ public:
 
   /// Return the zero-extended value of underlying Constant. ZExt value exists
   /// only for constant integers.
-  unsigned getZExtValue() const {
+  uint64_t getZExtValue() const {
     assert(isConstantInt() &&
            "ZExt value cannot be obtained for non-constant integers.");
     return cast<ConstantInt>(getUnderlyingValue())->getZExtValue();
+  }
+
+  int64_t getSExtValue() const {
+    assert(isConstantInt() &&
+           "SExt value cannot be obtained for non-constant integers.");
+    return cast<ConstantInt>(getUnderlyingValue())->getSExtValue();
   }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)

@@ -1060,6 +1060,9 @@ bool DTransAllocAnalyzer::isMallocWithStoredMMPtr(const Function *F) {
       // Skip debug intrinsics
       if (isa<DbgInfoIntrinsic>(&I))
         continue;
+      // Skip llvm.type_test / llvm.assume intrinsics.
+      if (isTypeTestRelatedIntrinsic(&I))
+        continue;
       if (++CallCount > MallocCallCount)
         return false;
     } else {

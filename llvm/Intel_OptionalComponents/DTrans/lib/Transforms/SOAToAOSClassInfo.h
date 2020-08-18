@@ -253,6 +253,7 @@ private:
   const Value *computeMultiplier(const Value *, int64_t *);
   bool checkAllocSizeOfArray(const Value *, Value *, Value *);
   bool checkAllocCall(Value *, Argument *, Value *, bool);
+  bool checkVtablePtrOfMemInt(Value *, Argument *);
   bool checkVtableLoadOfMemInt(Value *, Argument *);
   bool isIndirectCallCheck(Value *, Argument *);
   bool checkAllocatedArrayPtr(Value *, Argument *, SmallPtrSetImpl<Value *> &,
@@ -292,6 +293,7 @@ private:
   Value *isLoadOfArg(Value *);
   Value *isValidArgumentSave(Value *);
   const Value *skipCasts(const Value *V);
+  bool processAssumeCalls(Function *F, Argument *);
   FunctionKind recognizeConstructor(Function *);
   FunctionKind recognizeDerivedConstructor(Function *, Type *, Type *);
   FunctionKind recognizeGetSizeOrCapacity(Function *);

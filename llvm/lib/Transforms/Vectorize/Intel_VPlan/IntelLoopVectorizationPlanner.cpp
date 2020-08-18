@@ -561,7 +561,9 @@ void LoopVectorizationPlanner::insertAllZeroBypasses(VPlan *Plan, unsigned VF) {
   VPlanAllZeroBypass AZB(*Plan);
   if (EnableAllZeroBypassLoops)
     AZB.collectAllZeroBypassLoopRegions(AllZeroBypassRegions, RegionsCollected);
-  if (EnableAllZeroBypassNonLoops) {
+  if (EnableAllZeroBypassNonLoops &&
+      TTI->isAdvancedOptEnabled(
+          TargetTransformInfo::AdvancedOptLevel::AO_TargetHasSSE42)) {
     VPlanCostModelProprietary VectorCM(Plan, VF, TTI, TLI, DL, VLSA);
     AZB.collectAllZeroBypassNonLoopRegions(AllZeroBypassRegions,
                                            RegionsCollected,

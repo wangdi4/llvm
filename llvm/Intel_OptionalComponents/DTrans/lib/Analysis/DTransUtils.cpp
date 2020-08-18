@@ -1870,3 +1870,11 @@ bool dtrans::isLoadedValueUnused(Value *V, Value *LoadAddr) {
   SmallPtrSet<Value *, 4> UsedValues;
   return IsUnused(V, LoadAddr, UsedValues);
 }
+
+bool dtrans::isTypeTestRelatedIntrinsic(const Instruction *I) {
+  const IntrinsicInst *II = dyn_cast_or_null<IntrinsicInst>(I);
+  if (!II)
+    return false;
+  Intrinsic::ID IID = II->getIntrinsicID();
+  return (IID == Intrinsic::assume || IID == Intrinsic::type_test);
+}

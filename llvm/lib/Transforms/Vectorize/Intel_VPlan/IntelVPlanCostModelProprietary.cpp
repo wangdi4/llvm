@@ -550,19 +550,46 @@ unsigned VPlanCostModelProprietary::getBlockRangeCost(const VPBasicBlock *Begin,
 
 unsigned VPlanCostModelProprietary::getSpillFillCost(
   const VPBasicBlock *VPBlock,
-  DenseMap<const VPInstruction*, int>& LiveValues) {
+  DenseMap<const VPInstruction*, int>& LiveValues,
+  bool VectorRegsPressure) {
   int NumberLiveValuesMax = 0;
   VPLoop *OuterMostVPLoop = *(Plan->getVPLoopInfo()->begin());
+  auto SkipInst = [&](const VPInstruction* I) -> bool {
+    // Ignore instructions that do not induce vector code if VectorRegsPressure
+    // is true or ignore 'vector only' instructions for VectorRegsPressure
+    // false.
+    //
+    // TODO:
+    // VF checks should be removed eventually. It is a bug in the current
+    // SVA implementation that we need them.
+    //
+    // TODO:
+    // The implementation doesn't cover scalarization cases, when vector
+    // instruction going to be scalarized contributing into scalar registers
+    // pressure, not vector.
+    //
+    // TODO:
+    // SVA marks input vector types that are not re-vectorized as
+    // NeedsFirst/LastScalarCode while they still contribute into vector
+    // register pressure, not scalar.
+    //
+    bool NeedsVecInst =
+      (VF > 1) && Plan->getVPlanSVA()->instNeedsVectorCode(I);
+    bool NeedsScalInst =
+      (VF == 1) || Plan->getVPlanSVA()->instNeedsFirstScalarCode(I);
+    return (VectorRegsPressure && !NeedsVecInst) ||
+           (!VectorRegsPressure && !NeedsScalInst);
+  };
   auto PHIs = (cast<VPBasicBlock>(OuterMostVPLoop->getHeader()))->getVPPhis();
-  int NumberPHIs = std::distance(PHIs.begin(), PHIs.end());
+  int NumberPHIs = llvm::count_if(PHIs, [&](auto& PHI) {
+    return !SkipInst(&PHI);});
   int FreeVecHWRegsNum =
     TTI->getNumberOfRegisters(TTI->getRegisterClassForType(true)) - NumberPHIs;
 
-  // TODO:
-  // SVA should be utilized to calculate GPR pressure separately (i.e. detect
-  // instructions that we don't vectorize and that go to GPR instead of
-  // vector registers).
   for (const VPInstruction &VPInst : reverse(*VPBlock)) {
+    if (SkipInst(&VPInst))
+      continue;
+
     // Zero-cost and unknown-cost instructions are ignored.  That might be
     // pseudo inst that don't induce real code on output.
     //
@@ -718,7 +745,8 @@ unsigned VPlanCostModelProprietary::getSpillFillCost() {
   // The code below figures out what is maximum of register pressure in given
   // basic block.
   //
-  DenseMap<const VPInstruction*, int> LiveValues;
+  // Keep track of vector and scalar live values in separate maps.
+  DenseMap<const VPInstruction*, int> VecLiveValues, ScalLiveValues;
 
   for (auto *Block : post_order(Plan->getEntryBlock())) {
     // For simplicity we pass LiveOut from previous block as LiveIn to the next
@@ -731,7 +759,10 @@ unsigned VPlanCostModelProprietary::getSpillFillCost() {
     // sequence.  Uniform conditions are moved out of the loop by LoopOpt
     // normally and we don't see non linear CFG in VPlan in the most cases for
     // HIR pipeline.
-    Cost += getSpillFillCost(Block, LiveValues);
+    Cost += getSpillFillCost(Block, ScalLiveValues, false);
+
+    if (VF > 1)
+      Cost += getSpillFillCost(Block, VecLiveValues, true);
   }
 
   return Cost;
@@ -931,10 +962,18 @@ void VPlanCostModelProprietary::printForVPBasicBlock(
     OS << "total cost includes GS Cost: " << GatherScatterCost << '\n';
 
   DenseMap<const VPInstruction*, int> LiveValues;
-  unsigned SpillFillCost = getSpillFillCost(VPBB, LiveValues);
-  if (SpillFillCost > 0)
-    OS << "Block spill/fill approximate cost (not included into total cost): "
-       << SpillFillCost << '\n';
+  unsigned ScalSpillFillCost = getSpillFillCost(VPBB, LiveValues, false);
+  if (ScalSpillFillCost > 0)
+    OS << "Block Scalar spill/fill approximate cost "
+      "(not included into total cost): " << ScalSpillFillCost << '\n';
+
+  if (VF > 1) {
+    LiveValues.clear();
+    unsigned VecSpillFillCost = getSpillFillCost(VPBB, LiveValues, true);
+    if (VecSpillFillCost > 0)
+      OS << "Block Vector spill/fill approximate cost "
+        "(not included into total cost): " << VecSpillFillCost << '\n';
+  }
 
   // Clearing ProcessedOVLSGroups is valid while VLS works within a basic block.
   // TODO: The code should be revisited once the assumption is changed.

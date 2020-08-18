@@ -118,9 +118,9 @@ void VPLiveInOutCreator::createInOutsInductions(
   for (auto *Ind : VPLEntityList->vpinductions()) {
     if (Ind->getIsMemOnly())
       continue;
-    VPInductionInit *IndInit;
-    VPInductionFinal *IndFinal;
-    VPExternalUse *IndFinalExternalUse;
+    VPInductionInit *IndInit = nullptr;
+    VPInductionFinal *IndFinal = nullptr;
+    VPExternalUse *IndFinalExternalUse = nullptr;
     std::tie(IndInit, IndFinal, IndFinalExternalUse) =
         getInitFinal<VPInductionInit, VPInductionFinal, VPInduction>(Ind);
     assert((IndInit && IndFinal) && "Expected non-null init, final");
@@ -164,9 +164,9 @@ void VPLiveInOutCreator::createInOutsReductions(
   for (auto *Red : VPLEntityList->vpreductions()) {
     if (Red->getIsMemOnly())
       continue;
-    VPReductionInit *RedInit;
-    VPReductionFinal *RedFinal;
-    VPExternalUse *RedFinalExternalUse;
+    VPReductionInit *RedInit = nullptr;
+    VPReductionFinal *RedFinal = nullptr;
+    VPExternalUse *RedFinalExternalUse = nullptr;
     std::tie(RedInit, RedFinal, RedFinalExternalUse) =
         getInitFinal<VPReductionInit, VPReductionFinal, VPReduction>(Red);
     if (!RedFinalExternalUse)
@@ -181,6 +181,7 @@ void VPLiveInOutCreator::createInOutsReductions(
       StartV = RedInit->getStartValueOperand();
     else
       StartV = RedFinal->getStartValueOperand();
+    assert(StartV && "StartV is expected to be non-null here.");
     VPLiveInValue *LIV = createLiveInValue(MergeId, StartV->getType());
     VPLiveOutValue *LOV = createLiveOutValue(MergeId, RedFinal);
     // Unlink External use
@@ -208,6 +209,7 @@ void VPLiveInOutCreator::createInOutValues() {
 
   const VPLoopEntityList *VPLEntityList =
       Plan.getLoopEntities(Loop);
+  assert(VPLEntityList && "VPLEntityList is expected to be non-null here.");
 
   // We need to allocate LiveIn/LiveOut lists here, along with
   // OriginalIncomingValues, due to we look through entities and the lookup is

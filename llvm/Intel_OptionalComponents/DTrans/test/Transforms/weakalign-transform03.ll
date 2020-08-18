@@ -17,6 +17,8 @@ target triple = "x86_64-unknown-linux-gnu"
 %struct.other = type { i64, i64 }
 
 define internal void @test01() !dtrans-soatoaos !0 {
+  %tt = tail call i1 @llvm.type.test(i8* null, metadata !"typeId")
+  tail call void @llvm.assume(i1 %tt)
   ret void
 }
 
@@ -34,6 +36,7 @@ define i32 @main() {
   ret i32 0
 }
 
+declare i1 @llvm.type.test(i8* , metadata)
 declare void @llvm.assume(i1)
 
 ; CHECK-LABEL: define i32 @main()

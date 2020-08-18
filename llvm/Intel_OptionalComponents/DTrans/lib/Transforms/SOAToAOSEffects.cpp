@@ -345,9 +345,12 @@ const Dep *DepCompute::computeInstDep(const Instruction *I) const {
     else if (F && (IsLibFunction(F, LibFunc_clang_call_terminate) ||
                    IsLibFunction(F, LibFunc_dunder_std_terminate)))
       Rep = Dep::mkCall(DM, Dep::mkArgList(DM, Remaining), true);
-    else
+    else if (isTypeTestRelatedIntrinsic(I))
+      Rep = Dep::mkCall(DM, Dep::mkArgList(DM, Remaining), true);
+    else {
       Rep = Dep::mkCall(DM, Dep::mkArgList(DM, Remaining),
                         F && getStructTypeOfMethod(*F) == ClassType);
+    }
     break;
   }
   case Instruction::Alloca:
@@ -382,6 +385,13 @@ bool DepCompute::computeDepApproximation() const {
       DM.ValDependencies[&I] = Dep::mkConst(DM);
     else if (I.hasNUses(0))
       Sinks.push_back(&I);
+
+    // No metadata is allowed as dependencies except second argument, which is
+    // MetadataAsValue, of llvm.type_test call.
+    if (auto II = dyn_cast<IntrinsicInst>(&I))
+      if (II->getIntrinsicID() == Intrinsic::type_test)
+        if (isa<MetadataAsValue>(II->getArgOperand(1)))
+          DM.ValDependencies[II->getArgOperand(1)] = Dep::mkConst(DM);
   }
 
   for (auto *S : Sinks)
@@ -411,7 +421,7 @@ bool DepCompute::computeDepApproximation() const {
       }
 
       for (auto *PtrI : *SCCIt) {
-        if (isa<Argument>(PtrI))
+        if (isa<Argument>(PtrI) || isa<MetadataAsValue>(PtrI))
           continue;
 
         const Dep *Rep = nullptr;

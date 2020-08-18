@@ -1093,14 +1093,14 @@ static void closeRTL() {
     if (DeviceInfo->Flags.UseMemoryPool)
       DeviceInfo->PagePools[i].clear();
     DeviceInfo->Mutexes[i].unlock();
-#if USE_NEW_API
-    CALL_ZE_EXIT_FAIL(zeContextDestroy, DeviceInfo->Context);
-#endif // USE_NEW_API
 #endif // !defined(_WIN32)
     if (DeviceInfo->Flags.EnableTargetGlobals)
       DeviceInfo->unloadOffloadTable(i);
     MEMSTAT_PRINT(i);
   }
+#if USE_NEW_API
+  CALL_ZE_EXIT_FAIL(zeContextDestroy, DeviceInfo->Context);
+#endif // USE_NEW_API
   delete[] DeviceInfo->Mutexes;
   delete[] DeviceInfo->DataMutexes;
   DP("Closed RTL successfully\n");
@@ -1372,6 +1372,9 @@ int32_t __tgt_rtl_number_of_devices() {
   if (DebugLevel > 0)
     MemStats.resize(DeviceInfo->NumDevices);
 #endif // INTEL_INTERNAL_BUILD
+#if USE_NEW_API
+  DeviceInfo->Context = createContext(DeviceInfo->Driver);
+#endif // USE_NEW_API
 
 #ifndef _WIN32
   if (std::atexit(closeRTL)) {
@@ -1388,10 +1391,6 @@ int32_t __tgt_rtl_init_device(int32_t DeviceId) {
     DP("Bad device ID %" PRId32 "\n", DeviceId);
     return OFFLOAD_FAIL;
   }
-
-#if USE_NEW_API
-  DeviceInfo->Context = createContext(DeviceInfo->Driver);
-#endif // USE_NEW_API
 
   if (DeviceInfo->Flags.UseMemoryPool)
 #if USE_NEW_API
