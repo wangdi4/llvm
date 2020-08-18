@@ -4307,6 +4307,19 @@ LangAS CodeGenModule::GetGlobalVarAddressSpace(const VarDecl *D) {
     LangAS AS;
     if (OpenMPRuntime->hasAllocateAttributeForGlobalVar(D, AS))
       return AS;
+#if INTEL_COLLAB
+    if (getLangOpts().UseAutoOpenCLAddrSpaceForOpenMP &&
+        // FIXME: we should probably add TargetCodeGenInfo for SPIR
+        //        and do this in getGlobalVarAddressSpace().
+        getTarget().getTriple().isSPIR()) {
+      if (D && D->getType().getAddressSpace() != LangAS::Default)
+        // Allow overriding the address space, e.g.
+        // with __attribute__((opencl_constant)).
+        return D->getType().getAddressSpace();
+
+      return LangAS::opencl_global;
+    }
+#endif // INTEL_COLLAB
   }
   return getTargetCodeGenInfo().getGlobalVarAddressSpace(*this, D);
 }

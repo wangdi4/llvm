@@ -12,7 +12,7 @@
 //RUN: -fms-extensions -fintel-ms-compatibility \
 //RUN: -fopenmp -fopenmp-targets=spir64 -target-cpu \
 //RUN: x86-64 -fintel-openmp-region \
-//RUN: -o %t_host.bc -o - %s \
+//RUN: -o - %s \
 //RUN: | FileCheck %s --check-prefix=CHECK-HOST
 
 //RUN: %clang_cc1 -triple spir64 -aux-triple \
@@ -32,7 +32,7 @@
 //RUN: -fopenmp -fopenmp-targets=spir64 -fopenmp-is-device \
 //RUN: -fopenmp-host-ir-file-path %t_host.bc \
 //RUN: -fintel-openmp-region \
-//RUN: -o %t_targ.bc -o - %s \
+//RUN: -o - %s \
 //RUN: | FileCheck %s --check-prefix=CHECK-TARG
 
 //expected-no-diagnostics

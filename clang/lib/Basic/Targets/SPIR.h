@@ -110,15 +110,9 @@ public:
 #if INTEL_COLLAB
   void adjust(LangOptions &Opts) override {
     TargetInfo::adjust(Opts);
-    if (Opts.OpenMPLateOutline &&
-        // FIXME: Temporarily quaery for ENABLE_INFER_AS environment variable.
-        //        In the long term we should probably rely on
-        //        UseAutoOpenCLAddrSpaceForOpenMP language option.
-        //        The check for OpenMPLateOutline is also unnecessary.
-        (Opts.UseAutoOpenCLAddrSpaceForOpenMP || getenv("ENABLE_INFER_AS"))) {
+    if (Opts.OpenMPLateOutline && Opts.UseAutoOpenCLAddrSpaceForOpenMP) {
       // Use generic address space for all pointers except
       // globals and stack locals.
-      Opts.UseAutoOpenCLAddrSpaceForOpenMP = true; // FIXME: remove this
       UseAutoOpenCLAddrSpaceForOpenMP = true;
       AddrSpaceMap = &SPIRAddrSpaceDefIsGenMap;
     }
