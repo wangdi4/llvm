@@ -150,6 +150,10 @@ static cl::opt<bool> EmitKernelParamInfo{
     "emit-param-info", cl::desc("emit kernel parameter optimization info"),
     cl::cat(PostLinkCat)};
 
+static cl::opt<bool> EmitKernelParamInfo{
+    "emit-param-info", cl::desc("emit kernel parameter optimization info"),
+    cl::cat(PostLinkCat)};
+
 struct ImagePropSaveInfo {
   bool NeedDeviceLibReqMask;
   bool DoSpecConst;
@@ -794,6 +798,10 @@ int main(int argc, char **argv) {
   bool DoSplit = SplitMode.getNumOccurrences() > 0;
   bool DoSpecConst = SpecConstLower.getNumOccurrences() > 0;
   bool DoParamInfo = EmitKernelParamInfo.getNumOccurrences() > 0;
+<<<<<<< HEAD
+=======
+
+>>>>>>> ff542b296968899b11b97733b2bb4e78d71f315a
 #if INTEL_COLLAB
   bool DoLinkOmpOffloadEntries =
       OmpOffloadEntriesSymbol.getNumOccurrences() > 0;
@@ -808,8 +816,8 @@ int main(int argc, char **argv) {
     errs() << "warning: -" << SortOmpOffloadEntries.ArgStr
            << " ignored without -" << OmpOffloadEntriesSymbol.ArgStr << "\n";
 
-  if (!DoSplit && !DoSpecConst && !DoSymGen && !DoLinkOmpOffloadEntries &&
-      !DoMakeOmpGlobalsStatic) {
+  if (!DoSplit && !DoSpecConst && !DoSymGen && !DoParamInfo &&
+      !DoLinkOmpOffloadEntries && !DoMakeOmpGlobalsStatic) {
 #else  // INTEL_COLLAB
   if (!DoSplit && !DoSpecConst && !DoSymGen && !DoParamInfo) {
 #endif // INTEL_COLLAB
