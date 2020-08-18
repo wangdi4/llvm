@@ -476,6 +476,10 @@ bool X86TargetInfo::handleTargetFeatures(std::vector<std::string> &Features,
     } else if (Feature == "+avx512memadvise") {
       HasAVX512MEMADVISE = true;
 #endif // INTEL_FEATURE_ISA_AVX_MEMADVISE
+#if INTEL_FEATURE_ISA_AVX_MPSADBW
+    } else if (Feature == "+avx512mpsadbw") {
+      HasAVX512MPSADBW = true;
+#endif // INTEL_FEATURE_ISA_AVX_MPSADBW
 #endif // INTEL_CUSTOMIZATION
     } else if (Feature == "+serialize") {
       HasSERIALIZE = true;
@@ -1070,6 +1074,11 @@ void X86TargetInfo::getTargetDefines(const LangOptions &Opts,
     Builder.defineMacro("__AVX512MEMADVISE__");
   Builder.defineMacro("__AVX512MEMADVISE_SUPPORTED__");
 #endif // INTEL_FEATURE_ISA_AVX_MEMADVISE
+#if INTEL_FEATURE_ISA_AVX_MPSADBW
+  if (HasAVX512MPSADBW)
+    Builder.defineMacro("__AVX512MPSADBW__");
+  Builder.defineMacro("__AVX512MPSADBW_SUPPORTED__");
+#endif // INTEL_FEATURE_ISA_AVX_MPSADBW
 #endif // INTEL_CUSTOMIZATION
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_CSA
@@ -1371,6 +1380,9 @@ bool X86TargetInfo::isValidFeatureName(StringRef Name) const {
       .Case("avxmemadvise", true)
       .Case("avx512memadvise", true)
 #endif // INTEL_FEATURE_ISA_AVX_MEMADVISE
+#if INTEL_FEATURE_ISA_AVX_MPSADBW
+      .Case("avx512mpsadbw", true)
+#endif // INTEL_FEATURE_ISA_AVX_MPSADBW
 #endif // INTEL_CUSTOMIZATION
       .Default(false);
 }
@@ -1484,6 +1496,9 @@ bool X86TargetInfo::hasFeature(StringRef Feature) const {
       .Case("avxmemadvise", HasAVXMEMADVISE)
       .Case("avx512memadvise", HasAVX512MEMADVISE)
 #endif // INTEL_FEATURE_ISA_AVX_MEMADVISE
+#if INTEL_FEATURE_ISA_AVX_MPSADBW
+      .Case("avx512mpsadbw", HasAVX512MPSADBW)
+#endif // INTEL_FEATURE_ISA_AVX_MPSADBW
 #endif // INTEL_CUSTOMIZATION
       .Case("bmi", HasBMI)
       .Case("bmi2", HasBMI2)

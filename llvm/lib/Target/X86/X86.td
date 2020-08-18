@@ -269,6 +269,11 @@ def FeatureAVX512MEMADVISE  : SubtargetFeature<"avx512memadvise", "HasAVX512MEMA
                             "Enable AVX512-MEMADVISE",
                             [FeatureAVX512]>;
 #endif // INTEL_FEATURE_ISA_AVX_MEMADVISE
+#if INTEL_FEATURE_ISA_AVX_MPSADBW
+def FeatureAVX512MPSADBW  : SubtargetFeature<"avx512mpsadbw", "HasAVX512MPSADBW", "true",
+                            "Enable AVX512-MPSADBW",
+                            [FeatureBWI]>;
+#endif // INTEL_FEATURE_ISA_AVX_MPSADBW
 #endif // INTEL_CUSTOMIZATION
 
 def FeaturePCLMUL  : SubtargetFeature<"pclmul", "HasPCLMUL", "true",

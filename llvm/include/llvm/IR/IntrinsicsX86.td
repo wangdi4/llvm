@@ -1602,6 +1602,13 @@ let TargetPrefix = "x86" in {  // All intrinsics start with "llvm.x86.".
         Intrinsic<[llvm_v16i16_ty], [llvm_ptr_ty, llvm_v16i16_ty],
                   [IntrReadMem, IntrArgMemOnly]>;
 #endif // INTEL_FEATURE_ISA_AVX_COMPRESS
+#if INTEL_FEATURE_ISA_AVX_MPSADBW
+  def int_x86_avx512_mpsadbw_512 :
+         GCCBuiltin<"__builtin_ia32_mpsadbw512">,
+          Intrinsic<[llvm_v32i16_ty],
+                    [llvm_v64i8_ty, llvm_v64i8_ty, llvm_i32_ty],
+                    [IntrNoMem, ImmArg<ArgIndex<2>>]>;
+#endif // INTEL_FEATURE_ISA_AVX_MPSADBW
 #endif // INTEL_CUSTOMIZATION
 }
 

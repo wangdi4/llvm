@@ -907,6 +907,11 @@ def X86vpcompress_store : SDNode<"X86ISD::VPCOMPRESS_STORE",
                           SDTIntCompress_store,
                           [SDNPHasChain, SDNPMayStore, SDNPMemOperand]>;
 #endif // INTEL_FEATURE_ISA_AVX_COMPRESS
+def X86Vmpsadbw : SDNode<"X86ISD::MPSADBW",
+                         SDTypeProfile<1, 3, [SDTCVecEltisVT<0, i16>,
+                                              SDTCVecEltisVT<1, i8>,
+                                              SDTCisSameSizeAs<0,1>,
+                                              SDTCisSameAs<1,2>, SDTCisVT<3, i8>]>>;
 #endif // INTEL_CUSTOMIZATION
 //===----------------------------------------------------------------------===//
 // SSE pattern fragments

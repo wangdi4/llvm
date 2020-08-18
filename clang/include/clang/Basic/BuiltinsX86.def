@@ -741,6 +741,9 @@ TARGET_BUILTIN(__builtin_ia32_avxcompress_vprorvd256, "V8iV8iV8i", "ncV:256:", "
 TARGET_BUILTIN(__builtin_ia32_avxcompress_vprorvq128, "V2OiV2OiV2Oi", "ncV:128:", "avxcompress")
 TARGET_BUILTIN(__builtin_ia32_avxcompress_vprorvq256, "V4OiV4OiV4Oi", "ncV:256:", "avxcompress")
 #endif // INTEL_FEATURE_ISA_AVX_COMPRESS
+#if INTEL_FEATURE_ISA_AVX_MPSADBW
+TARGET_BUILTIN(__builtin_ia32_mpsadbw512, "V32sV64cV64cIi", "ncV:512:", "avx512mpsadbw")
+#endif // INTEL_FEATURE_ISA_AVX_MPSADBW
 #endif // INTEL_CUSTOMIZATION
 TARGET_BUILTIN(__builtin_ia32_psllv8si, "V8iV8iV8i", "ncV:256:", "avx2")
 TARGET_BUILTIN(__builtin_ia32_psllv4si, "V4iV4iV4i", "ncV:128:", "avx2")

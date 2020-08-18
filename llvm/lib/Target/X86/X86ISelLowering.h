@@ -622,6 +622,7 @@ namespace llvm {
 #if INTEL_FEATURE_ISA_AVX_COMPRESS
     VPCOMPRESS,
 #endif // INTEL_FEATURE_ISA_AVX_COMPRESS
+    MPSADBW,// INTEL
 #endif // INTEL_CUSTOMIZATION
 
     // Compress and expand.
