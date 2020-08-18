@@ -159,11 +159,7 @@ PropertyValue::PropertyValue(const byte *Data, SizeTy DataBitSize) {
   Val.ByteArrayVal = new byte[SizeFieldSize + DataSize];
 
   // Write the size into first bytes.
-<<<<<<< HEAD
-  for (size_t I = 0; I < SizeFieldSize; ++I) {
-=======
   for (auto I = 0; I < SizeFieldSize; ++I) {
->>>>>>> ff542b296968899b11b97733b2bb4e78d71f315a
     Val.ByteArrayVal[I] = (byte)DataBitSize;
     DataBitSize >>= ByteSizeInBits;
   }
