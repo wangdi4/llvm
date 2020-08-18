@@ -4267,10 +4267,21 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
       }
     }
 
+#if INTEL_CUSTOMIZATION
+    bool enableFuncPointers =
+        Args.hasArg(options::OPT_fsycl_enable_function_pointers);
     if (Args.hasFlag(options::OPT_fsycl_allow_func_ptr,
-                     options::OPT_fno_sycl_allow_func_ptr, false)) {
+                     options::OPT_fno_sycl_allow_func_ptr,
+                     enableFuncPointers)) {
+#endif // INTEL_CUSTOMIZATION
       CmdArgs.push_back("-fsycl-allow-func-ptr");
     }
+#if INTEL_CUSTOMIZATION
+    if (enableFuncPointers) {
+      CmdArgs.push_back("-fenable-variant-function-pointers");
+      CmdArgs.push_back("-fenable-variant-virtual-calls");
+    }
+#endif // INTEL_CUSTOMIZATION
 
     if (!SYCLStdArg) {
       // The user had not pass SYCL version, thus we'll employ no-sycl-strict
