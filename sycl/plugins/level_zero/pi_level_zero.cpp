@@ -2189,7 +2189,7 @@ pi_result piProgramLink(pi_context Context, pi_uint32 NumDevices,
           Guard.unlock();
           ze_module_handle_t ZeModule;
           pi_result res =
-              copyModule(Context->Device->Platform->ZeContext,
+              copyModule(Input->Context->ZeContext,
                          Context->Device->ZeDevice, Input->ZeModule, &ZeModule);
           if (res != PI_SUCCESS) {
             return res;
@@ -2326,31 +2326,21 @@ static pi_result compileOrBuild(pi_program Program, pi_uint32 NumDevices,
   ZeModuleDesc.pConstants = &ZeSpecConstants;
 
   ze_device_handle_t ZeDevice = Program->Context->Device->ZeDevice;
-<<<<<<< HEAD
-  ze_context_handle_t ZeContext = Program->Context->Device->Platform->ZeContext;
-  ze_module_handle_t ZeModule;
-  ze_module_build_log_handle_t ZeBuildLog;
-  ZE_CALL(zeModuleCreate(ZeContext, ZeDevice, &ZeModuleDesc, &ZeModule,
-                         &ZeBuildLog));
+  ZE_CALL(zeModuleCreate(Program->Context->ZeContext, ZeDevice,
+                         &ZeModuleDesc, &Program->ZeModule,
+                         &Program->ZeBuildLog));
 
   // Check if this module imports any symbols, which we need to know if we
   // end up linking this module later.  See comments in piProgramLink() for
   // details.
   ze_module_properties_t ZeModuleProps;
-  ZE_CALL(zeModuleGetPropertiesMock(ZeModule, &ZeModuleProps));
+  ZE_CALL(zeModuleGetPropertiesMock(Program->ZeModule, &ZeModuleProps));
   Program->HasImports = (ZeModuleProps.flags & ZE_MODULE_PROPERTY_FLAG_IMPORTS);
 
   // We no longer need the IL / native code.
   // The caller must set the State to Object or Exe as appropriate.
   Program->Code.reset();
-  Program->ZeModule = ZeModule;
-  Program->ZeBuildLog = ZeBuildLog;
-=======
-  ZE_CALL(zeModuleCreate(Program->Context->ZeContext, ZeDevice,
-                         &Program->ZeModuleDesc, &Program->ZeModule,
-                         &Program->ZeBuildLog));
 
->>>>>>> 7107894c1a535f44ed443429f16bdffc6046239b
   return PI_SUCCESS;
 }
 
