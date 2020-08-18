@@ -244,6 +244,7 @@ void VPlanHCFGBuilder::buildHierarchicalCFG() {
              Plan->getPDT()->print(dbgs()));
 
   VPLAN_DUMP(VPlanPrintPlainCFG, "importing plain CFG", Plan);
+  VPLAN_DOT(VPlanDotPlainCFG, Plan);
 
   // FIXME: Split Move everything after initial CFG construction into separate
   // transformation "passes" and schedule them in the planner/driver instead. We
