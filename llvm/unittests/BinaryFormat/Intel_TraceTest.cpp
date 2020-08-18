@@ -87,27 +87,27 @@ TEST(TraceTest, getTagEncoding) {
   EXPECT_EQ(0x07, getTagEncoding(TB_TAG_PC1));
   EXPECT_EQ(0x08, getTagEncoding(TB_TAG_PC2));
   EXPECT_EQ(0x09, getTagEncoding(TB_TAG_PC4));
-  EXPECT_EQ((char)0x80, getTagEncoding(TB_TAG_CO1));
-  EXPECT_EQ((char)0xC0, getTagEncoding(TB_TAG_CO2));
+  EXPECT_EQ(0x80, getTagEncoding(TB_TAG_CO1));
+  EXPECT_EQ(0xC0, getTagEncoding(TB_TAG_CO2));
 }
 
 TEST(TraceTest, getTagForEncoding) {
   // Invalid encoding.
-  EXPECT_EQ(NUM_TAGS, getTagForEncoding((char)0x00));
-  EXPECT_EQ(NUM_TAGS, getTagForEncoding((char)0xFF));
+  EXPECT_EQ(NUM_TAGS, getTagForEncoding(0x00));
+  EXPECT_EQ(NUM_TAGS, getTagForEncoding(0xFF));
   // A couple of valid encodings for tags.
-  EXPECT_EQ(TB_TAG_Module, getTagForEncoding((char)0x0A));
-  EXPECT_EQ(TB_TAG_RTN32, getTagForEncoding((char)0x02));
-  EXPECT_EQ(TB_TAG_RTN64, getTagForEncoding((char)0x0C));
-  EXPECT_EQ(TB_TAG_File, getTagForEncoding((char)0x03));
-  EXPECT_EQ(TB_TAG_LN1, getTagForEncoding((char)0x04));
-  EXPECT_EQ(TB_TAG_LN2, getTagForEncoding((char)0x05));
-  EXPECT_EQ(TB_TAG_LN4, getTagForEncoding((char)0x06));
-  EXPECT_EQ(TB_TAG_PC1, getTagForEncoding((char)0x07));
-  EXPECT_EQ(TB_TAG_PC2, getTagForEncoding((char)0x08));
-  EXPECT_EQ(TB_TAG_PC4, getTagForEncoding((char)0x09));
-  EXPECT_EQ(TB_TAG_CO1, getTagForEncoding((char)0x80));
-  EXPECT_EQ(TB_TAG_CO2, getTagForEncoding((char)0xC0));
+  EXPECT_EQ(TB_TAG_Module, getTagForEncoding(0x0A));
+  EXPECT_EQ(TB_TAG_RTN32, getTagForEncoding(0x02));
+  EXPECT_EQ(TB_TAG_RTN64, getTagForEncoding(0x0C));
+  EXPECT_EQ(TB_TAG_File, getTagForEncoding(0x03));
+  EXPECT_EQ(TB_TAG_LN1, getTagForEncoding(0x04));
+  EXPECT_EQ(TB_TAG_LN2, getTagForEncoding(0x05));
+  EXPECT_EQ(TB_TAG_LN4, getTagForEncoding(0x06));
+  EXPECT_EQ(TB_TAG_PC1, getTagForEncoding(0x07));
+  EXPECT_EQ(TB_TAG_PC2, getTagForEncoding(0x08));
+  EXPECT_EQ(TB_TAG_PC4, getTagForEncoding(0x09));
+  EXPECT_EQ(TB_TAG_CO1, getTagForEncoding(0x80));
+  EXPECT_EQ(TB_TAG_CO2, getTagForEncoding(0xC0));
 }
 
 TEST(TraceTest, getAttributeSize) {
@@ -151,6 +151,7 @@ TEST(TraceTest, getOptimalPCTag) {
 TEST(TraceTest, getOptimalCorrelationTag) {
   EXPECT_FALSE(getOptimalCorrelationTag(1, 0b11'1111 + 1));
   EXPECT_FALSE(getOptimalCorrelationTag(INT8_MAX + 1, 1));
+  EXPECT_FALSE(getOptimalCorrelationTag(INT8_MIN - 1, 1));
   EXPECT_EQ(TB_TAG_CO1, getOptimalCorrelationTag(1, 0b11'1111));
   EXPECT_EQ(TB_TAG_CO2, getOptimalCorrelationTag(INT8_MAX, 0b11'1111));
 }

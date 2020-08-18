@@ -19,23 +19,22 @@
 #include "llvm/ADT/StringRef.h"
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/MathExtras.h"
-#include <cstdint>
 
 using namespace llvm;
 
-char traceback::getTagEncoding(traceback::Tag T) {
+uint8_t traceback::getTagEncoding(traceback::Tag T) {
   switch (T) {
   default:
     llvm_unreachable("Unknown tag");
 #define HANDLE_TB_TAG(NAME, ENCODING)                                          \
   case TB_TAG_##NAME:                                                          \
-    return static_cast<char>(ENCODING);
+    return static_cast<uint8_t>(ENCODING);
 #include "llvm/BinaryFormat/Intel_Trace.def"
   }
 }
 
-traceback::Tag traceback::getTagForEncoding(char Byte) {
-  switch (static_cast<unsigned char>(Byte)) {
+traceback::Tag traceback::getTagForEncoding(uint8_t Byte) {
+  switch (Byte) {
   default:
     return NUM_TAGS;
 #define HANDLE_TB_TAG(NAME, ENCODING)                                          \
@@ -56,7 +55,7 @@ StringRef traceback::getTagString(traceback::Tag T) {
   }
 }
 
-unsigned traceback::getAttributeSize(traceback::Attribute Att) {
+uint32_t traceback::getAttributeSize(traceback::Attribute Att) {
   switch (Att) {
   default:
     llvm_unreachable("Unknown attribute");
@@ -89,7 +88,7 @@ traceback::Attribute traceback::getAttributeForTag(traceback::Tag T) {
   }
 }
 
-traceback::Tag traceback::getOptimalLineTag(int DeltaLine) {
+traceback::Tag traceback::getOptimalLineTag(int32_t DeltaLine) {
   if (isInt<8>(DeltaLine))
     return traceback::TB_TAG_LN1;
   else if (isInt<16>(DeltaLine))
@@ -97,7 +96,7 @@ traceback::Tag traceback::getOptimalLineTag(int DeltaLine) {
   return traceback::TB_TAG_LN4;
 }
 
-traceback::Tag traceback::getOptimalPCTag(unsigned DeltaPC) {
+traceback::Tag traceback::getOptimalPCTag(uint32_t DeltaPC) {
   if (isUInt<8>(DeltaPC))
     return traceback::TB_TAG_PC1;
   else if (isUInt<16>(DeltaPC))
@@ -105,8 +104,8 @@ traceback::Tag traceback::getOptimalPCTag(unsigned DeltaPC) {
   return traceback::TB_TAG_PC4;
 }
 
-Optional<traceback::Tag> traceback::getOptimalCorrelationTag(int DeltaLine,
-                                                             unsigned DeltaPC) {
+Optional<traceback::Tag> traceback::getOptimalCorrelationTag(int32_t DeltaLine,
+                                                             uint32_t DeltaPC) {
   if (DeltaPC > 0b11'1111)
     return None;
 
@@ -120,7 +119,7 @@ Optional<traceback::Tag> traceback::getOptimalCorrelationTag(int DeltaLine,
   //   - Tag (high 2 bits): always 11 (binary)
   //   - PC delta (low 6 bits): unsigned PC delta value minus 1
   //   - Line delta (1 byte): signed value
-  else if (DeltaLine <= INT8_MAX)
+  else if (isInt<8>(DeltaLine))
     return traceback::TB_TAG_CO2;
   else
     return None;

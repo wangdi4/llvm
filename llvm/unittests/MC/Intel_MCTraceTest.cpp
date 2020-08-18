@@ -68,7 +68,7 @@ TEST(MCTraceLineTest, Getter) {
   EXPECT_EQ(Line.getDeltaPC(), DeltaPC);
 }
 
-void verifyEncoding(int DeltaLine, unsigned DeltaPC,
+void verifyEncoding(int32_t DeltaLine, uint32_t DeltaPC,
                     ArrayRef<uint8_t> ExpectedEncoding) {
   SmallString<8> Buffer;
   raw_svector_ostream EncodingOS(Buffer);
@@ -82,18 +82,12 @@ TEST(MCTraceLineTest, Encoding) {
 
   constexpr uint8_t Bits6Max = 0b11'1111;
   constexpr uint8_t Bits7Min = 0b100'0000;
-  const uint8_t LN1 =
-      static_cast<uint8_t>(traceback::getTagEncoding(traceback::TB_TAG_LN1));
-  const uint8_t LN2 =
-      static_cast<uint8_t>(traceback::getTagEncoding(traceback::TB_TAG_LN2));
-  const uint8_t LN4 =
-      static_cast<uint8_t>(traceback::getTagEncoding(traceback::TB_TAG_LN4));
-  const uint8_t PC1 =
-      static_cast<uint8_t>(traceback::getTagEncoding(traceback::TB_TAG_PC1));
-  const uint8_t PC2 =
-      static_cast<uint8_t>(traceback::getTagEncoding(traceback::TB_TAG_PC2));
-  const uint8_t PC4 =
-      static_cast<uint8_t>(traceback::getTagEncoding(traceback::TB_TAG_PC4));
+  const uint8_t LN1 = traceback::getTagEncoding(traceback::TB_TAG_LN1);
+  const uint8_t LN2 = traceback::getTagEncoding(traceback::TB_TAG_LN2);
+  const uint8_t LN4 = traceback::getTagEncoding(traceback::TB_TAG_LN4);
+  const uint8_t PC1 = traceback::getTagEncoding(traceback::TB_TAG_PC1);
+  const uint8_t PC2 = traceback::getTagEncoding(traceback::TB_TAG_PC2);
+  const uint8_t PC4 = traceback::getTagEncoding(traceback::TB_TAG_PC4);
 
   // Line += 1, PC += 6; Format: CO1
   const uint8_t Encoding0[] = {(uint8_t)0b10'000'110};
