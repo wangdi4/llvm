@@ -5,19 +5,22 @@
 %0 = type { %0* }
 
 define %0* @f1() local_unnamed_addr {
+; INTEL_CUSTOMIZATION
 ; ANY-LABEL: @f1(
 ; ANY-NEXT:  bb:
-; ANY-NEXT:    br label [[BB3:%.*]]
-; ANY:       bb3:
-; ANY-NEXT:    [[I1:%.*]] = phi %0* [ [[I5:%.*]], [[BB3]] ], [ undef, [[BB:%.*]] ]
-; ANY-NEXT:    call void @llvm.assume(i1 true) [ "nonnull"(%0* [[I1]]) ]
-; ANY-NEXT:    [[I4:%.*]] = getelementptr inbounds [[TMP0:%.*]], %0* [[I1]], i64 0, i32 0
-; ANY-NEXT:    [[I5]] = load %0*, %0** [[I4]], align 8
-; ANY-NEXT:    [[I2:%.*]] = icmp eq %0* [[I5]], null
-; ANY-NEXT:    br i1 [[I2]], label [[BB6:%.*]], label [[BB3]]
-; ANY:       bb6:
-; ANY-NEXT:    ret %0* undef
+; OLDPM-NEXT: ret %0* undef
+; NEWPM-NEXT:    br label [[BB3:%.*]]
+; NEWPM:       bb3:
+; NEWPM-NEXT:    [[I1:%.*]] = phi %0* [ [[I5:%.*]], [[BB3]] ], [ undef, [[BB:%.*]] ]
+; NEWPM-NEXT:    call void @llvm.assume(i1 true) [ "nonnull"(%0* [[I1]]) ]
+; NEWPM-NEXT:    [[I4:%.*]] = getelementptr inbounds [[TMP0:%.*]], %0* [[I1]], i64 0, i32 0
+; NEWPM-NEXT:    [[I5]] = load %0*, %0** [[I4]], align 8
+; NEWPM-NEXT:    [[I2:%.*]] = icmp eq %0* [[I5]], null
+; NEWPM-NEXT:    br i1 [[I2]], label [[BB6:%.*]], label [[BB3]]
+; NEWPM:       bb6:
+; NEWPM-NEXT:    ret %0* undef
 ;
+; end INTEL_CUSTOMIZATION
 bb:
   br label %bb1
 
