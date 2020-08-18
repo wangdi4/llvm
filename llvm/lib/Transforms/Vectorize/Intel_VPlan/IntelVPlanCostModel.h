@@ -82,7 +82,8 @@ public:
     : Plan(Plan), VF(VF), TTI(TTI), TLI(TLI), DL(DL) {}
 #endif // INTEL_CUSTOMIZATION
   virtual unsigned getCost();
-  virtual unsigned getLoadStoreCost(const VPInstruction *LoadOrStore, Align Alignment);
+  virtual unsigned getLoadStoreCost(
+    const VPInstruction *LoadOrStore, Align Alignment, unsigned VF);
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   void print(raw_ostream &OS, const std::string &Header);
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
@@ -122,8 +123,9 @@ protected:
                                                 const Type *ScalarTy,
                                                 const unsigned VF);
   virtual unsigned getCost(const VPInstruction *VPInst);
+  virtual unsigned getCostForVF(const VPInstruction *VPInst, unsigned VF);
   virtual unsigned getCost(const VPBasicBlock *VPBB);
-  virtual unsigned getLoadStoreCost(const VPInstruction *VPInst);
+  virtual unsigned getLoadStoreCost(const VPInstruction *VPInst, unsigned VF);
   // Calculates the sum of the cost of extracting VF elements of Ty type
   // or the cost of inserting VF elements of Ty type into a vector.
   unsigned getInsertExtractElementsCost(unsigned Opcode,

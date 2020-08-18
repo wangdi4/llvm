@@ -32,8 +32,8 @@ public:
 
   virtual unsigned getCost() final;
   virtual unsigned getLoadStoreCost(
-    const VPInstruction *VPInst, Align Alignment) final {
-    return getLoadStoreCost(VPInst, Alignment,
+    const VPInstruction *VPInst, Align Alignment, unsigned VF) final {
+    return getLoadStoreCost(VPInst, Alignment, VF,
                             false /* Don't use VLS cost by default */);
   }
   unsigned getBlockRangeCost(const VPBasicBlock *Begin,
@@ -48,12 +48,12 @@ private:
   virtual unsigned getCost(const VPInstruction *VPInst) final;
   virtual unsigned getCost(const VPBasicBlock *VPBB) final;
   unsigned getLoadStoreCost(const VPInstruction *VPInst,
-                            Align Alignment,
+                            Align Alignment, unsigned VF,
                             const bool UseVLSCost);
-  unsigned getLoadStoreCost(const VPInstruction *VPInst,
+  unsigned getLoadStoreCost(const VPInstruction *VPInst, unsigned VF,
                             const bool UseVLSCost) {
     unsigned Alignment = VPlanCostModel::getMemInstAlignment(VPInst);
-    return getLoadStoreCost(VPInst, Align(Alignment), UseVLSCost);
+    return getLoadStoreCost(VPInst, Align(Alignment), VF, UseVLSCost);
   }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
