@@ -239,12 +239,8 @@ void PrintIRInstrumentation::printBeforePass(StringRef PassID, Any IR) {
     return;
 
   SmallString<20> Banner = formatv("*** IR Dump Before {0} ***", PassID);
-<<<<<<< HEAD
-  unwrapAndPrint(IR, Banner, llvm::forcePrintModuleIR());
-#endif //!defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
-=======
   unwrapAndPrint(dbgs(), IR, Banner, llvm::forcePrintModuleIR());
->>>>>>> 645c6856a68af9b9dd7d918f630560cf07462ed7
+#endif //!defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
   return;
 }
 
@@ -260,12 +256,8 @@ void PrintIRInstrumentation::printAfterPass(StringRef PassID, Any IR) {
     popModuleDesc(PassID);
 
   SmallString<20> Banner = formatv("*** IR Dump After {0} ***", PassID);
-<<<<<<< HEAD
-  unwrapAndPrint(IR, Banner, llvm::forcePrintModuleIR());
-#endif //!defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
-=======
   unwrapAndPrint(dbgs(), IR, Banner, llvm::forcePrintModuleIR());
->>>>>>> 645c6856a68af9b9dd7d918f630560cf07462ed7
+#endif //!defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
 }
 
 void PrintIRInstrumentation::printAfterPassInvalidated(StringRef PassID) {
@@ -287,12 +279,8 @@ void PrintIRInstrumentation::printAfterPassInvalidated(StringRef PassID) {
 
   SmallString<20> Banner =
       formatv("*** IR Dump After {0} *** invalidated: ", PassID);
-<<<<<<< HEAD
-  printIR(M, Banner, Extra);
-#endif //!defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
-=======
   printIR(dbgs(), M, Banner, Extra);
->>>>>>> 645c6856a68af9b9dd7d918f630560cf07462ed7
+#endif //!defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
 }
 
 void PrintIRInstrumentation::registerCallbacks(
