@@ -15306,6 +15306,7 @@ static SDValue lowerV8I16Shuffle(const SDLoc &DL, ArrayRef<int> Mask,
                                               Mask, Subtarget, DAG);
 }
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_FP16
 /// Lower 8-lane 16-bit floating point shuffles.
@@ -15337,17 +15338,37 @@ static SDValue lowerV8F16Shuffle(const SDLoc &DL, ArrayRef<int> Mask,
 #endif // INTEL_FEATURE_ISA_FP16
 #endif // INTEL_CUSTOMIZATION
 
+=======
+// Lowers unary/binary shuffle as VPERMV/VPERMV3, for non-VLX targets,
+// sub-512-bit shuffles are padded to 512-bits for the shuffle and then
+// the active subvector is extracted.
+>>>>>>> abd33bf5eff2419e0f49ce494039bceefe8e1085
 static SDValue lowerShuffleWithPERMV(const SDLoc &DL, MVT VT,
-                                     ArrayRef<int> Mask, SDValue V1,
-                                     SDValue V2, SelectionDAG &DAG) {
+                                     ArrayRef<int> Mask, SDValue V1, SDValue V2,
+                                     const X86Subtarget &Subtarget,
+                                     SelectionDAG &DAG) {
   MVT MaskEltVT = MVT::getIntegerVT(VT.getScalarSizeInBits());
   MVT MaskVecVT = MVT::getVectorVT(MaskEltVT, VT.getVectorNumElements());
-
   SDValue MaskNode = getConstVector(Mask, MaskVecVT, DAG, DL, true);
-  if (V2.isUndef())
-    return DAG.getNode(X86ISD::VPERMV, DL, VT, MaskNode, V1);
 
-  return DAG.getNode(X86ISD::VPERMV3, DL, VT, V1, MaskNode, V2);
+  MVT ShuffleVT = VT;
+  if (!VT.is512BitVector() && !Subtarget.hasVLX()) {
+    V1 = widenSubVector(V1, false, Subtarget, DAG, DL, 512);
+    V2 = widenSubVector(V2, false, Subtarget, DAG, DL, 512);
+    MaskNode = widenSubVector(MaskNode, false, Subtarget, DAG, DL, 512);
+    ShuffleVT = V1.getSimpleValueType();
+  }
+
+  SDValue Result;
+  if (V2.isUndef())
+    Result = DAG.getNode(X86ISD::VPERMV, DL, ShuffleVT, MaskNode, V1);
+  else
+    Result = DAG.getNode(X86ISD::VPERMV3, DL, ShuffleVT, V1, MaskNode, V2);
+
+  if (VT != ShuffleVT)
+    Result = extractSubVector(Result, 0, DAG, DL, VT.getSizeInBits());
+
+  return Result;
 }
 
 /// Generic lowering of v16i8 shuffles.
@@ -15576,9 +15597,10 @@ static SDValue lowerV16I8Shuffle(const SDLoc &DL, ArrayRef<int> Mask,
               DL, MVT::v16i8, V1, V2, Mask, Subtarget, DAG))
         return Unpack;
 
-      // If we have VBMI we can use one VPERM instead of multiple PSHUFBs.
-      if (Subtarget.hasVBMI() && Subtarget.hasVLX())
-        return lowerShuffleWithPERMV(DL, MVT::v16i8, Mask, V1, V2, DAG);
+      // AVX512VBMI can lower to VPERMB (non-VLX will pad to v64i8).
+      if (Subtarget.hasVBMI())
+        return lowerShuffleWithPERMV(DL, MVT::v16i8, Mask, V1, V2, Subtarget,
+                                     DAG);
 
       // If we have XOP we can use one VPPERM instead of multiple PSHUFBs.
       if (Subtarget.hasXOP()) {
@@ -17338,9 +17360,9 @@ static SDValue lowerV16I16Shuffle(const SDLoc &DL, ArrayRef<int> Mask,
                                               Zeroable, Subtarget, DAG))
     return PSHUFB;
 
-  // AVX512BWVL can lower to VPERMW.
-  if (Subtarget.hasBWI() && Subtarget.hasVLX())
-    return lowerShuffleWithPERMV(DL, MVT::v16i16, Mask, V1, V2, DAG);
+  // AVX512BW can lower to VPERMW (non-VLX will pad to v32i16).
+  if (Subtarget.hasBWI())
+    return lowerShuffleWithPERMV(DL, MVT::v16i16, Mask, V1, V2, Subtarget, DAG);
 
   // Try to simplify this by merging 128-bit lanes to enable a lane-based
   // shuffle.
@@ -17443,9 +17465,9 @@ static SDValue lowerV32I8Shuffle(const SDLoc &DL, ArrayRef<int> Mask,
                                               Zeroable, Subtarget, DAG))
     return PSHUFB;
 
-  // AVX512VBMIVL can lower to VPERMB.
-  if (Subtarget.hasVBMI() && Subtarget.hasVLX())
-    return lowerShuffleWithPERMV(DL, MVT::v32i8, Mask, V1, V2, DAG);
+  // AVX512VBMI can lower to VPERMB (non-VLX will pad to v64i8).
+  if (Subtarget.hasVBMI())
+    return lowerShuffleWithPERMV(DL, MVT::v32i8, Mask, V1, V2, Subtarget, DAG);
 
   // Try to simplify this by merging 128-bit lanes to enable a lane-based
   // shuffle.
@@ -17710,7 +17732,7 @@ static SDValue lowerV8F64Shuffle(const SDLoc &DL, ArrayRef<int> Mask,
                                           Zeroable, Subtarget, DAG))
     return Blend;
 
-  return lowerShuffleWithPERMV(DL, MVT::v8f64, Mask, V1, V2, DAG);
+  return lowerShuffleWithPERMV(DL, MVT::v8f64, Mask, V1, V2, Subtarget, DAG);
 }
 
 /// Handle lowering of 16-lane 32-bit floating point shuffles.
@@ -17769,7 +17791,7 @@ static SDValue lowerV16F32Shuffle(const SDLoc &DL, ArrayRef<int> Mask,
                                              V1, V2, DAG, Subtarget))
     return V;
 
-  return lowerShuffleWithPERMV(DL, MVT::v16f32, Mask, V1, V2, DAG);
+  return lowerShuffleWithPERMV(DL, MVT::v16f32, Mask, V1, V2, Subtarget, DAG);
 }
 
 /// Handle lowering of 8-lane 64-bit integer shuffles.
@@ -17832,7 +17854,7 @@ static SDValue lowerV8I64Shuffle(const SDLoc &DL, ArrayRef<int> Mask,
                                           Zeroable, Subtarget, DAG))
     return Blend;
 
-  return lowerShuffleWithPERMV(DL, MVT::v8i64, Mask, V1, V2, DAG);
+  return lowerShuffleWithPERMV(DL, MVT::v8i64, Mask, V1, V2, Subtarget, DAG);
 }
 
 /// Handle lowering of 16-lane 32-bit integer shuffles.
@@ -17909,7 +17931,7 @@ static SDValue lowerV16I32Shuffle(const SDLoc &DL, ArrayRef<int> Mask,
                                           Zeroable, Subtarget, DAG))
     return Blend;
 
-  return lowerShuffleWithPERMV(DL, MVT::v16i32, Mask, V1, V2, DAG);
+  return lowerShuffleWithPERMV(DL, MVT::v16i32, Mask, V1, V2, Subtarget, DAG);
 }
 
 /// Handle lowering of 32-lane 16-bit integer shuffles.
@@ -17972,7 +17994,7 @@ static SDValue lowerV32I16Shuffle(const SDLoc &DL, ArrayRef<int> Mask,
                                               Zeroable, Subtarget, DAG))
     return PSHUFB;
 
-  return lowerShuffleWithPERMV(DL, MVT::v32i16, Mask, V1, V2, DAG);
+  return lowerShuffleWithPERMV(DL, MVT::v32i16, Mask, V1, V2, Subtarget, DAG);
 }
 
 /// Handle lowering of 64-lane 8-bit integer shuffles.
@@ -18028,7 +18050,7 @@ static SDValue lowerV64I8Shuffle(const SDLoc &DL, ArrayRef<int> Mask,
 
   // VBMI can use VPERMV/VPERMV3 byte shuffles.
   if (Subtarget.hasVBMI())
-    return lowerShuffleWithPERMV(DL, MVT::v64i8, Mask, V1, V2, DAG);
+    return lowerShuffleWithPERMV(DL, MVT::v64i8, Mask, V1, V2, Subtarget, DAG);
 
   // Try to create an in-lane repeating shuffle mask and then shuffle the
   // results into the target lanes.
