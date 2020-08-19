@@ -2076,13 +2076,11 @@ bool Sema::isOpenMPCapturedByRef(const ValueDecl *D, unsigned Level,
       // By default, all the data that has a scalar type is mapped by copy
       // (except for reduction variables).
       // Defaultmap scalar is mutual exclusive to defaultmap pointer
-<<<<<<< HEAD
-      IsByRef =
-          (DSAStack->isForceCaptureByReferenceInTargetExecutable() &&
-           !Ty->isAnyPointerType()) ||
-          !Ty->isScalarType() ||
-          DSAStack->isDefaultmapCapturedByRef(
-              Level, getVariableCategoryFromDecl(LangOpts, D)) ||
+      IsByRef = (DSAStack->isForceCaptureByReferenceInTargetExecutable() &&
+                 !Ty->isAnyPointerType()) ||
+                !Ty->isScalarType() ||
+                DSAStack->isDefaultmapCapturedByRef(
+                    Level, getVariableCategoryFromDecl(LangOpts, D)) ||
 #if INTEL_COLLAB
           // OpenMP spec 5.0, sec 2.19.7:
           // If a list item appears in a reduction, lastprivate or linear
@@ -2090,25 +2088,17 @@ bool Sema::isOpenMPCapturedByRef(const ValueDecl *D, unsigned Level,
           // it also appears in a map clause with a map-type of tofrom.
           // So these clauses will treated as if mapped and byref captured.
           LangOpts.OpenMPLateOutline && DSAStack->hasExplicitDSA(
-              D, [](OpenMPClauseKind K) { return K == OMPC_reduction ||
-                                                 K == OMPC_lastprivate ||
-                                                 K == OMPC_linear; }, Level) ||
+              D, [](OpenMPClauseKind K, bool AppliedToPointee) {
+                 return K == OMPC_reduction ||
+                        K == OMPC_lastprivate ||
+                        K == OMPC_linear; }, Level) ||
 #endif // INTEL_COLLAB
           DSAStack->hasExplicitDSA(
-              D, [](OpenMPClauseKind K) { return K == OMPC_reduction; }, Level);
-=======
-      IsByRef = (DSAStack->isForceCaptureByReferenceInTargetExecutable() &&
-                 !Ty->isAnyPointerType()) ||
-                !Ty->isScalarType() ||
-                DSAStack->isDefaultmapCapturedByRef(
-                    Level, getVariableCategoryFromDecl(LangOpts, D)) ||
-                DSAStack->hasExplicitDSA(
-                    D,
-                    [](OpenMPClauseKind K, bool AppliedToPointee) {
-                      return K == OMPC_reduction && !AppliedToPointee;
-                    },
-                    Level);
->>>>>>> 1b93ebccaa094c079db7ad729e2f7fea7bac2f34
+              D,
+              [](OpenMPClauseKind K, bool AppliedToPointee) {
+                return K == OMPC_reduction && !AppliedToPointee;
+              },
+              Level);
     }
   }
 
@@ -2200,7 +2190,7 @@ bool Sema::isOpenMPTargetLastPrivate(ValueDecl *D) {
         DSAStack->mustBeFirstprivateAtLevel(Level, OMPC_DEFAULTMAP_scalar) &&
         !DSAStack->hasExplicitDSA(
             D,
-            [](OpenMPClauseKind K) {
+            [](OpenMPClauseKind K, bool AppliedToPointee) {
               return K == OMPC_reduction || K == OMPC_lastprivate ||
                      K == OMPC_linear;
             },
