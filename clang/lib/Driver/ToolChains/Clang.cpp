@@ -6662,9 +6662,13 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
   }
 #if INTEL_COLLAB
   // fixup -paropt value
-  if (Args.hasFlag(options::OPT_fiopenmp, options::OPT_fno_iopenmp, false) ||
-      Args.hasFlag(options::OPT_fiopenmp_simd, options::OPT_fno_iopenmp_simd,
-                   false)) {
+#if INTEL_CUSTOMIZATION
+  // Only add -paropt for OpenMP offloading or Host.
+  if ((Args.hasFlag(options::OPT_fiopenmp, options::OPT_fno_iopenmp, false) ||
+       Args.hasFlag(options::OPT_fiopenmp_simd, options::OPT_fno_iopenmp_simd,
+                    false)) && (JA.isDeviceOffloading(Action::OFK_None) ||
+                                JA.isDeviceOffloading(Action::OFK_OpenMP))) {
+#endif // INTEL_CUSTOMIZATION
     int paroptVal = IsOpenMPDevice ? 0x20 : 0x0;
     bool paroptSeen = false;
     StringRef paropt = Args.hasArg(options::OPT_fiopenmp) ? "31" : "11";
