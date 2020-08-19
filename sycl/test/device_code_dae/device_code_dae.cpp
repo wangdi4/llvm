@@ -11,7 +11,6 @@
 // RUN: clang-offload-wrapper -o wrapper.bc -host=x86_64 -kind=sycl -target=spir64 -batch table.txt
 // RUN: %clangxx -c wrapper.bc -o wrapper.o
 // RUN: %clangxx wrapper.o host_code.o -o app.exe -lsycl
-<<<<<<< HEAD
 //
 // INTEL_CUSTOMIZATION // Run with set device types to avoid failures when no
 //                        devices are available. This workaround is needed
@@ -22,10 +21,8 @@
 // RUN: %ACC_RUN_PLACEHOLDER env SYCL_BE=%sycl_be ./app.exe
 //
 // end INTEL_CUSTOMIZATION
-=======
 // RUN: env SYCL_BE=%sycl_be ./app.exe
 
->>>>>>> 63ac3d363dbdb266d36bf90bac74b35e168fad3b
 //==---------device_code_dae.cpp - dead argument elimination test ----------==//
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.

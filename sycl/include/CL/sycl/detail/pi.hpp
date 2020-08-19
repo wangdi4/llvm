@@ -226,7 +226,6 @@ void printArgs(Arg0 arg0, Args... args) {
   pi::printArgs(std::forward<Args>(args)...);
 }
 
-<<<<<<< HEAD
 /* INTEL_CUSTOMIZATION */
 template <typename T>
 struct printOut { printOut(T val) {(void)val;} }; // Do nothing
@@ -273,8 +272,6 @@ void printOuts(Arg0 arg0, Args... args) {
 }
 /* end INTEL_CUSTOMIZATION */
 
-=======
->>>>>>> 63ac3d363dbdb266d36bf90bac74b35e168fad3b
 // A wrapper for passing around byte array properties
 class ByteArray {
 public:
