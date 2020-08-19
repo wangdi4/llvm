@@ -8676,12 +8676,13 @@ bool VPOParoptTransform::genCancelCode(WRNCancelNode *W) {
     // } else {
     //   %2 = __kmpc_cancellationpoint(...);
     // }
-    Function *F = EntryBB->getParent();
-    LLVMContext &C = F->getContext();
-    ConstantInt *ValueZero = ConstantInt::get(Type::getInt32Ty(C), 0);
-
-    auto *CondInst = new ICmpInst(InsertPt, ICmpInst::ICMP_NE, IfExpr,
-                                  ValueZero, "cancel.if");
+    IRBuilder<> Builder(InsertPt);
+    unsigned IfExprBitWidth = IfExpr->getType()->getIntegerBitWidth();
+    auto *CondInst =
+        IfExprBitWidth == 1
+            ? IfExpr
+            : Builder.CreateICmpNE(IfExpr, Builder.getIntN(IfExprBitWidth, 0),
+                                   "cancel.if");
 
     Instruction *IfCancelThen = nullptr;
     Instruction *IfCancelElse = nullptr;

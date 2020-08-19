@@ -106,7 +106,8 @@ omp.inner.for.body:                               ; preds = %omp.inner.for.cond
 
   %14 = load i32, i32* @j, align 4, !tbaa !2
   %call1 = call i32 (i8*, ...) @printf(i8* getelementptr inbounds ([8 x i8], [8 x i8]* @.str.1, i32 0, i32 0), i32 %14)
-  %15 = call token @llvm.directive.region.entry() [ "DIR.OMP.CANCEL"(), "QUAL.OMP.CANCEL.LOOP"(), "QUAL.OMP.IF"(i32 0) ]
+  %if.val = trunc i32 %14 to i1
+  %15 = call token @llvm.directive.region.entry() [ "DIR.OMP.CANCEL"(), "QUAL.OMP.CANCEL.LOOP"(), "QUAL.OMP.IF"(i1 %if.val) ]
   call void @llvm.directive.region.exit(token %15) [ "DIR.OMP.END.CANCEL"() ]
 ; #pragma omp cancel
 ; ALL: [[CANCEL2:%[0-9]+]] = call i32 @__kmpc_cancel({{[^,]+}}, i32 %{{[a-zA-Z._0-9]*}}, i32 2)
