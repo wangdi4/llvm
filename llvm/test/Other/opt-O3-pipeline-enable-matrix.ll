@@ -1,13 +1,9 @@
-<<<<<<< HEAD
-; RUN: opt -O3 -enable-matrix -debug-pass=Structure < %s -o /dev/null 2>&1 | FileCheck %s
+; RUN: opt -enable-new-pm=0 -O3 -enable-matrix -debug-pass=Structure < %s -o /dev/null 2>&1 | FileCheck %s
 ; INTEL
 ; CMPLRLLVM-21570
 ; XFAIL: *
 ; end INTEL
-=======
-; RUN: opt -enable-new-pm=0 -O3 -enable-matrix -debug-pass=Structure < %s -o /dev/null 2>&1 | FileCheck %s
 
->>>>>>> 2af4c2b2b1be0333a14fbf82d9e31f62d0f3106c
 ; REQUIRES: asserts
 
 ; CHECK-LABEL: Pass Arguments:

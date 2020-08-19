@@ -3,7 +3,6 @@
 ; legacy pass manager doesn't introduce unexpected structural changes in the
 ; pass pipeline.
 ;
-<<<<<<< HEAD
 ; INTEL - Disabled Intel Andersen's Alias Analysis and loopopt so as to not
 ; INTEL - break the pass pipeline this is trying to check for.
 ; INTEL - Disabled svml translation pass to prevent this test from breaking
@@ -15,14 +14,10 @@
 ; end INTEL_FEATURE_CSA
 ; end INTEL_CUSTOMIZATION
 ;
-; RUN: opt -disable-output -disable-verify -debug-pass=Structure \
+; RUN: opt -enable-new-pm=0 -disable-output -disable-verify -debug-pass=Structure \
 ; INTEL CUSTOMIZATION
 ; RUN:     -enable-andersen=false -loopopt=0 -O2 -enable-lv %s 2>&1 \
 ; END INTEL CUSTOMIZATION
-=======
-; RUN: opt -enable-new-pm=0 -disable-output -disable-verify -debug-pass=Structure \
-; RUN:     -O2 %s 2>&1 \
->>>>>>> 2af4c2b2b1be0333a14fbf82d9e31f62d0f3106c
 ; RUN:     | FileCheck %s --check-prefix=CHECK-O2
 ; RUN: llvm-profdata merge %S/Inputs/pass-pipelines.proftext -o %t.profdata
 ; RUN: opt -enable-new-pm=0 -disable-output -disable-verify -debug-pass=Structure \
