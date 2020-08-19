@@ -5307,12 +5307,14 @@ static bool eliminateDeadSwitchCases(SwitchInst *SI, AssumptionCache *AC,
   unsigned ExtraSignBits = ComputeNumSignBits(Cond, DL, 0, AC, SI) - 1;
   unsigned MaxSignificantBitsInCond = Bits - ExtraSignBits;
 
+  auto Range = computeConstantRange(Cond, true, AC); // INTEL
   // Gather dead cases.
   SmallVector<ConstantInt *, 8> DeadCases;
   for (auto &Case : SI->cases()) {
     const APInt &CaseVal = Case.getCaseValue()->getValue();
     if (Known.Zero.intersects(CaseVal) || !Known.One.isSubsetOf(CaseVal) ||
-        (CaseVal.getMinSignedBits() > MaxSignificantBitsInCond)) {
+        (CaseVal.getMinSignedBits() > MaxSignificantBitsInCond) || // INTEL
+        !Range.contains(CaseVal)) { // INTEL
       DeadCases.push_back(Case.getCaseValue());
       LLVM_DEBUG(dbgs() << "SimplifyCFG: switch case " << CaseVal
                         << " is dead.\n");

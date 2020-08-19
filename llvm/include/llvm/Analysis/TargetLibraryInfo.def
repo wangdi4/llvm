@@ -142,6 +142,9 @@ TLI_DEFINE_STRING_INTERNAL("?_Locinfo_ctor@_Locinfo@std@@SAXPEAV12@PEBD@Z")
 /// void __cdecl std::_Locinfo::_Locinfo_dtor(class std::_Locinfo * __ptr64)
 TLI_DEFINE_ENUM_INTERNAL(msvc_std_locinfo_dtor)
 TLI_DEFINE_STRING_INTERNAL("?_Locinfo_dtor@_Locinfo@std@@SAXPEAV12@@Z")
+/// char const * __ptr64 __cdecl std::_Syserror_map(int)
+TLI_DEFINE_ENUM_INTERNAL(msvc_std_Syserror_map)
+TLI_DEFINE_STRING_INTERNAL("?_Syserror_map@std@@YAPEBDH@Z")
 /// void __cdecl std::_Xbad_alloc(void)
 TLI_DEFINE_ENUM_INTERNAL(msvc_std_Xbad_alloc)
 TLI_DEFINE_STRING_INTERNAL("?_Xbad_alloc@std@@YAXXZ")
@@ -154,6 +157,15 @@ TLI_DEFINE_STRING_INTERNAL("?_Xout_of_range@std@@YAXPEBD@Z")
 /// bool __cdecl std::uncaught_exception(void)
 TLI_DEFINE_ENUM_INTERNAL(msvc_std_uncaught_exception)
 TLI_DEFINE_STRING_INTERNAL("?uncaught_exception@std@@YA_NXZ")
+/// BOOL CloseHandle(HANDLE hObject);
+TLI_DEFINE_ENUM_INTERNAL(CloseHandle)
+TLI_DEFINE_STRING_INTERNAL("CloseHandle")
+/// HANDLE CreateFileA(LPCSTR lpFileName, DWORD dwDesiredAccess, DWORD dwShareMode, LPSECURITY_ATTRIBUTES lpSecurityAttributes, DWORD dwCreationDisposition, DWORD dwFlagsAndAttributes, HANDLE hTemplateFile);
+TLI_DEFINE_ENUM_INTERNAL(CreateFileA)
+TLI_DEFINE_STRING_INTERNAL("CreateFileA")
+/// HANDLE CreateFileW(LPCWSTR lpFileName, DWORD dwDesiredAccess, DWORD dwShareMode, LPSECURITY_ATTRIBUTES lpSecurityAttributes, DWORD dwCreationDisposition, DWORD dwFlagsAndAttributes, HANDLE hTemplateFile);
+TLI_DEFINE_ENUM_INTERNAL(CreateFileW)
+TLI_DEFINE_STRING_INTERNAL("CreateFileW")
 /// void DeleteCriticalSection(LPCRITICAL_SECTION lpCriticalSection);
 TLI_DEFINE_ENUM_INTERNAL(DeleteCriticalSection)
 TLI_DEFINE_STRING_INTERNAL("DeleteCriticalSection")
@@ -181,6 +193,12 @@ TLI_DEFINE_STRING_INTERNAL("FindResourceA")
 /// BOOL FreeResource(HGLOBAL hResData)
 TLI_DEFINE_ENUM_INTERNAL(FreeResource)
 TLI_DEFINE_STRING_INTERNAL("FreeResource")
+/// DWORD GetCurrentDirectoryA(DWORD nBufferLength, LPTSTR lpBuffer);
+TLI_DEFINE_ENUM_INTERNAL(GetCurrentDirectoryA)
+TLI_DEFINE_STRING_INTERNAL("GetCurrentDirectoryA")
+/// DWORD GetCurrentDirectoryW(DWORD nBufferLength, LPTSTR lpBuffer);
+TLI_DEFINE_ENUM_INTERNAL(GetCurrentDirectoryW)
+TLI_DEFINE_STRING_INTERNAL("GetCurrentDirectoryW")
 /// HANDLE GetCurrentProcess();
 TLI_DEFINE_ENUM_INTERNAL(GetCurrentProcess)
 TLI_DEFINE_STRING_INTERNAL("GetCurrentProcess")
@@ -193,6 +211,9 @@ TLI_DEFINE_STRING_INTERNAL("GetFullPathNameA")
 /// DWORD GetFullPathNameW(LPCWSTR lpFileName, DWORD nBufferLength, LPWSTR lpBuffer, LPWSTR *lpFilePart);
 TLI_DEFINE_ENUM_INTERNAL(GetFullPathNameW)
 TLI_DEFINE_STRING_INTERNAL("GetFullPathNameW")
+/// _Post_equals_last_error_ DWORD GetLastError();
+TLI_DEFINE_ENUM_INTERNAL(GetLastError)
+TLI_DEFINE_STRING_INTERNAL("GetLastError")
 /// DWORD GetModuleFileNameA(HMODULE hModule, LPSTR lpFilename, DWORD nSize);
 TLI_DEFINE_ENUM_INTERNAL(GetModuleFileNameA)
 TLI_DEFINE_STRING_INTERNAL("GetModuleFileNameA")
@@ -238,6 +259,12 @@ TLI_DEFINE_STRING_INTERNAL("MultiByteToWideChar")
 /// BOOL QueryPerformanceCounter(LARGE_INTEGER *lpPerformanceCount);
 TLI_DEFINE_ENUM_INTERNAL(QueryPerformanceCounter)
 TLI_DEFINE_STRING_INTERNAL("QueryPerformanceCounter")
+/// BOOL ReadFile(HANDLE hFile, LPVOID lpBuffer, DWORD nNumberOfBytesToRead, LPDWORD lpNumberOfBytesRead, LPOVERLAPPED lpOverlapped);
+TLI_DEFINE_ENUM_INTERNAL(ReadFile)
+TLI_DEFINE_STRING_INTERNAL("ReadFile")
+/// DWORD SetFilePointer(HANDLE hFile, LONG lDistanceToMove, PLONG lpDistanceToMoveHigh, DWORD dwMoveMethod);
+TLI_DEFINE_ENUM_INTERNAL(SetFilePointer)
+TLI_DEFINE_STRING_INTERNAL("SetFilePointer")
 /// DWORD SizeofResource(HMODULE hModule, HRSRC hResInfo)
 TLI_DEFINE_ENUM_INTERNAL(SizeofResource)
 TLI_DEFINE_STRING_INTERNAL("SizeofResource")
@@ -250,6 +277,9 @@ TLI_DEFINE_STRING_INTERNAL("SystemTimeToFileTime")
 /// int WideCharToMultiByte(UINT CodePage, DWORD dwFlags, _In_NLS_string_(cchWideChar)LPCWCH lpWideCharStr, int cchWideChar, LPSTR lpMultiByteStr, int cbMultiByte, LPCCH lpDefaultChar, LPBOOL lpUsedDefaultChar);
 TLI_DEFINE_ENUM_INTERNAL(WideCharToMultiByte)
 TLI_DEFINE_STRING_INTERNAL("WideCharToMultiByte")
+/// BOOL WriteFile(HANDLE hFile, LPCVOID lpBuffer, DWORD nNumberOfBytesToWrite, LPDWORD lpNumberOfBytesWritten, LPOVERLAPPED lpOverlapped);
+TLI_DEFINE_ENUM_INTERNAL(WriteFile)
+TLI_DEFINE_STRING_INTERNAL("WriteFile")
 /// extern "C" void __stdcall _CxxThrowException(void* pExceptionObject, _ThrowInfo* pThrowInfo);
 TLI_DEFINE_ENUM_INTERNAL(msvc_std_CxxThrowException)
 TLI_DEFINE_STRING_INTERNAL("_CxxThrowException")
@@ -802,6 +832,9 @@ TLI_DEFINE_STRING_INTERNAL("_ZnwmSt11align_val_tRKSt9nothrow_t")
 /// int __CxxFrameHandler3(...)
 TLI_DEFINE_ENUM_INTERNAL(dunder_CxxFrameHandler3)
 TLI_DEFINE_STRING_INTERNAL("__CxxFrameHandler3")
+/// int ___mb_cur_max_func(void)
+TLI_DEFINE_ENUM_INTERNAL(tunder_mb_cur_max_func)
+TLI_DEFINE_STRING_INTERNAL("___mb_cur_max_func")
 #endif // INTEL_CUSTOMIZATION
 /// double __acos_finite(double x);
 TLI_DEFINE_ENUM_INTERNAL(acos_finite)

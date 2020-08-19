@@ -918,6 +918,7 @@ bool llvm::inferLibFuncAttributes(Function &F, const TargetLibraryInfo &TLI) {
   case LibFunc_msvc_std_lockit:
   case LibFunc_msvc_std_lockit_dtor:
   case LibFunc_msvc_std_uncaught_exception:
+  case LibFunc_msvc_std_Syserror_map:
   case LibFunc_msvc_std_Xbad_alloc:
   case LibFunc_msvc_std_yarn_dtor:
     return Changed;
@@ -1122,6 +1123,9 @@ bool llvm::inferLibFuncAttributes(Function &F, const TargetLibraryInfo &TLI) {
   case LibFunc_strncpy_s:
     Changed |= setDoesNotCapture(F, 2);
     Changed |= setOnlyReadsMemory(F, 2);
+    return Changed;
+  case LibFunc_tunder_mb_cur_max_func:
+    Changed |= setDoesNotThrow(F);
     return Changed;
   case LibFunc_dunder_CxxFrameHandler3:
     return Changed;
@@ -1568,6 +1572,12 @@ bool llvm::inferLibFuncAttributes(Function &F, const TargetLibraryInfo &TLI) {
   case LibFunc_ctime:
     Changed |= setDoesNotThrow(F);
     return Changed;
+  case LibFunc_CloseHandle:
+    return Changed;
+  case LibFunc_CreateFileA:
+  case LibFunc_CreateFileW:
+    Changed |= setDoesNotThrow(F);
+    return Changed;
   case LibFunc_DeleteCriticalSection:
     Changed |= setDoesNotThrow(F);
     return Changed;
@@ -1712,6 +1722,10 @@ bool llvm::inferLibFuncAttributes(Function &F, const TargetLibraryInfo &TLI) {
   case LibFunc_FreeResource:
     Changed |= setDoesNotThrow(F);
     return Changed;
+  case LibFunc_GetCurrentDirectoryA:
+  case LibFunc_GetCurrentDirectoryW:
+    Changed |= setDoesNotThrow(F);
+    return Changed;
   case LibFunc_GetCurrentProcess:
     Changed |= setDoesNotThrow(F);
     return Changed;
@@ -1720,6 +1734,9 @@ bool llvm::inferLibFuncAttributes(Function &F, const TargetLibraryInfo &TLI) {
     return Changed;
   case LibFunc_GetFullPathNameA:
   case LibFunc_GetFullPathNameW:
+    Changed |= setDoesNotThrow(F);
+    return Changed;
+  case LibFunc_GetLastError:
     Changed |= setDoesNotThrow(F);
     return Changed;
   case LibFunc_GetModuleFileNameA:
@@ -2086,6 +2103,12 @@ bool llvm::inferLibFuncAttributes(Function &F, const TargetLibraryInfo &TLI) {
     Changed |= setOnlyReadsMemory(F);
     Changed |= setDoesNotThrow(F);
     return Changed;
+  case LibFunc_ReadFile:
+    Changed |= setDoesNotThrow(F);
+    return Changed;
+  case LibFunc_SetFilePointer:
+    Changed |= setDoesNotThrow(F);
+    return Changed;
   case LibFunc_SizeofResource:
     Changed |= setDoesNotThrow(F);
     return Changed;
@@ -2209,6 +2232,9 @@ bool llvm::inferLibFuncAttributes(Function &F, const TargetLibraryInfo &TLI) {
     Changed |= setDoesNotThrow(F);
     return Changed;
   case LibFunc_wcstombs:
+    Changed |= setDoesNotThrow(F);
+    return Changed;
+  case LibFunc_WriteFile:
     Changed |= setDoesNotThrow(F);
     return Changed;
 #endif //INTEL_CUSTOMIZATION
