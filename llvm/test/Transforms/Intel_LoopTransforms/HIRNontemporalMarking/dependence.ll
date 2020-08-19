@@ -1,5 +1,5 @@
-; RUN: opt -S -hir-ssa-deconstruction -hir-nontemporal-marking -print-after=hir-nontemporal-marking -hir-details < %s 2>&1 | FileCheck %s
-; RUN: opt -S -passes="hir-ssa-deconstruction,hir-nontemporal-marking,print<hir>" -aa-pipeline="basic-aa" -hir-details < %s 2>&1 | FileCheck %s
+; RUN: opt -enable-intel-advanced-opts -S -hir-ssa-deconstruction -hir-nontemporal-marking -print-after=hir-nontemporal-marking -hir-details < %s 2>&1 | FileCheck %s
+; RUN: opt -enable-intel-advanced-opts -S -passes="hir-ssa-deconstruction,hir-nontemporal-marking,print<hir>" -aa-pipeline="basic-aa" -hir-details < %s 2>&1 | FileCheck %s
 target triple = "x86_64-unknown-linux-gnu"
 
 ; Check that we will convert to nontemporal correctly in the case of various
@@ -35,7 +35,7 @@ target triple = "x86_64-unknown-linux-gnu"
 ; <12>               + END LOOP
 ; <0>          END REGION
 
-define i64 @read_after_write(i64* %dest) {
+define i64 @read_after_write(i64* %dest) "target-features"="+avx512f" {
 ; CHECK-LABEL: read_after_write
 ;      CHECK: BEGIN REGION { }
 ; CHECK-NEXT:       + Ztt: No
@@ -84,7 +84,7 @@ exit:
   ret i64 %sum
 }
 
-define void @write_after_write(i64* %dest) {
+define void @write_after_write(i64* %dest) "target-features"="+avx512f" {
 ; CHECK-LABEL: write_after_write
 ;      CHECK: BEGIN REGION { modified }
 ; CHECK-NEXT:       + Ztt: No
@@ -126,7 +126,7 @@ exit:
   ret void
 }
 
-define void @write_after_read(i64* %dest) {
+define void @write_after_read(i64* %dest) "target-features"="+avx512f" {
 ; CHECK-LABEL: write_after_read
 ;      CHECK: BEGIN REGION { modified }
 ; CHECK-NEXT:       + Ztt: No
