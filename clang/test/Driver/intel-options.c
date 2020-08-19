@@ -203,12 +203,14 @@
 // RUN: %clang_cl -### /Qfp-speculation:safe -c %s 2>&1 | FileCheck --check-prefix=CHECK-SAFE %s
 // RUN: %clang -### -fp-speculation=safe -c %s 2>&1 | FileCheck --check-prefix=CHECK-SAFE %s
 // RUN: %clang -### -fp-model=fast -S %s 2>&1 | FileCheck --check-prefix=CHECK-FAST %s
+// RUN: %clang -### -fp-model=fast=2 -S %s 2>&1 | FileCheck --check-prefixes=CHECK-FAST,CHECK-FAST2 %s
 // RUN: %clang -### -fp-model source -S %s 2>&1 | FileCheck --check-prefix=CHECK-SOURCE %s
 // RUN: %clang -### -fp-model=source -S %s 2>&1 | FileCheck --check-prefix=CHECK-SOURCE %s
 // RUN: %clang_cl -### -fp:fast -S %s 2>&1 | FileCheck --check-prefix=CHECK-FAST %s
 // CHECK-SAFE: "-ffp-exception-behavior=maytrap"
 // CHECK-STRICT: "-ffp-exception-behavior=strict"
 // CHECK-IGNORE: "-ffp-exception-behavior=ignore"
+// CHECK-FAST2: overriding
 // CHECK-FAST: "-ffp-contract=fast"
 // CHECK-SOURCE: "-fno-rounding-math"
 
