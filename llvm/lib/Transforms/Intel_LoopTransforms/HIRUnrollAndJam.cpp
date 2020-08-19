@@ -319,7 +319,6 @@ bool LegalityChecker::isLegalToPermute(const DirectionVector &DV,
   // yields a legal DV.
 
   unsigned LastLevel = DV.getLastLevel();
-  assert((LastLevel >= LoopLevel) && "DV has invalid last level!");
 
   DVKind LoopLevelDV = DV[LoopLevel - 1];
   DVKind InnermostDV = DV[LastLevel - 1];
