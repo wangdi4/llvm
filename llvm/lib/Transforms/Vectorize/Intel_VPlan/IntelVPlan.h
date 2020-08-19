@@ -391,11 +391,6 @@ class VPInstruction : public VPUser,
       bool FoldIVConvert;
     };
 
-    // Temporarily used to store alias analysis related metadata for memory
-    // refs. TODO - remove this once metadata representation/propagation fix
-    // is in place (CMPLRLLVM-11656).
-    AAMDNodes AANodes;
-
     /// Pointer to access the underlying HIR data attached to this
     /// VPInstruction, if any, depending on its sub-type:
     ///   1) Master VPInstruction: MasterData points to a VPInstDataHIR holding
@@ -543,7 +538,6 @@ class VPInstruction : public VPUser,
         }
       }
       setSymbase(HIR.getSymbase());
-      AANodes = HIR.AANodes;
       setFoldIVConvert(HIR.getFoldIVConvert());
 
       // Verify correctness of the cloned HIR.
@@ -1734,14 +1728,37 @@ public:
     return (Iter != MDs.end()) ? Iter->second : nullptr;
   }
 
+  // Get all alias analysis related metadata attached to the incoming
+  // instruction.
+  void getAAMetadata(AAMDNodes &AANodes) const {
+    AANodes.TBAA = getMetadata(LLVMContext::MD_tbaa);
+    AANodes.TBAAStruct = getMetadata(LLVMContext::MD_tbaa_struct);
+    AANodes.Scope = getMetadata(LLVMContext::MD_alias_scope);
+    AANodes.NoAlias = getMetadata(LLVMContext::MD_noalias);
+  }
+
   // Use underlying IR knowledge to access metadata attached to the incoming
   // instruction.
   void getUnderlyingNonDbgMetadata(MDNodesTy &MDs) const {
     MDs.clear();
     if (auto *IRLoadStore = dyn_cast_or_null<Instruction>(getInstruction()))
       IRLoadStore->getAllMetadataOtherThanDebugLoc(MDs);
-    else if (HIR.getUnderlyingNode())
-      llvm_unreachable("Add support for HIR vectorizer.");
+    else if (HIR.getUnderlyingNode()) {
+      auto *OpHIR = dyn_cast_or_null<VPBlob>(HIR.getOperandHIR());
+      assert(OpHIR != nullptr &&
+             "Load/store instruction does not have attached HIR operand.");
+      auto *RDDR = cast<loopopt::RegDDRef>(OpHIR->getBlob());
+      if (!RDDR->hasGEPInfo()) {
+        // This corresponds to a standalone load instruction.
+        auto *HInst = cast<loopopt::HLInst>(HIR.getUnderlyingNode());
+        assert(isa<LoadInst>(HInst->getLLVMInstruction()) &&
+               "Expected standalone load HLInst.");
+        RDDR = HInst->getRvalDDRef();
+      }
+      assert(RDDR->hasGEPInfo() &&
+             "Invalid RegDDRef attached to load/store instruction.");
+      RDDR->getAllMetadataOtherThanDebugLoc(MDs);
+    }
   }
 
   /// Methods for supporting type inquiry through isa, cast and dyn_cast:

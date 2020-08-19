@@ -83,6 +83,10 @@ loop.body:                               ; predggs = %omp.inner.for.body, %DIR.O
 ; VPLAN-IR-NEXT:      DbgLoc: lit_test.c:10:12
 ; VPLAN-IR-NEXT:      OperatorFlags -
 ; VPLAN-IR-NEXT:        FMF: 0, NSW: 0, NUW: 0, Exact: 0
+; VPLAN-IR-NEXT:      Align: 4
+; VPLAN-IR-NEXT:      Ordering: 0, Volatile: 0, SSID: 0
+; VPLAN-IR-NEXT:      NonDbgMDs -
+; VPLAN-IR-NEXT:        <0x{{.*}}> = !{<0x{{.*}}>, <0x{{.*}}>, i64 0}
 ; VPLAN-IR-NEXT:      end of details
 
   %arrayidx2 = getelementptr inbounds [1024 x float], [1024 x float]* @C, i64 0, i64 %indvars.iv, !dbg !37, !intel-tbaa !32
@@ -97,6 +101,10 @@ loop.body:                               ; predggs = %omp.inner.for.body, %DIR.O
 ; VPLAN-IR-NEXT:      DbgLoc: lit_test.c:10:19
 ; VPLAN-IR-NEXT:      OperatorFlags -
 ; VPLAN-IR-NEXT:        FMF: 0, NSW: 0, NUW: 0, Exact: 0
+; VPLAN-IR-NEXT:      Align: 4
+; VPLAN-IR-NEXT:      Ordering: 0, Volatile: 0, SSID: 0
+; VPLAN-IR-NEXT:      NonDbgMDs -
+; VPLAN-IR-NEXT:        <0x{{.*}}> = !{<0x{{.*}}>, <0x{{.*}}>, i64 0}
 ; VPLAN-IR-NEXT:      end of details
 
   %mul3 = fmul fast float %1, %0, !dbg !38
@@ -118,6 +126,10 @@ loop.body:                               ; predggs = %omp.inner.for.body, %DIR.O
 ; VPLAN-IR-NEXT:      DbgLoc: lit_test.c:10:10
 ; VPLAN-IR-NEXT:      OperatorFlags -
 ; VPLAN-IR-NEXT:        FMF: 0, NSW: 0, NUW: 0, Exact: 0
+; VPLAN-IR-NEXT:      Align: 4
+; VPLAN-IR-NEXT:      Ordering: 0, Volatile: 0, SSID: 0
+; VPLAN-IR-NEXT:      NonDbgMDs -
+; VPLAN-IR-NEXT:        <0x{{.*}}> = !{<0x{{.*}}>, <0x{{.*}}>, i64 0}
 ; VPLAN-IR-NEXT:      end of details
 
   %2 = ashr exact i32 42, 4, !dbg !41
@@ -179,6 +191,8 @@ loop.body:                               ; predggs = %omp.inner.for.body, %DIR.O
 ; VPLAN-IR-NEXT:      DbgLoc: lit_test.c:11:5
 ; VPLAN-IR-NEXT:      OperatorFlags -
 ; VPLAN-IR-NEXT:        FMF: 0, NSW: 0, NUW: 0, Exact: 0
+; VPLAN-IR-NEXT:      Align: 4
+; VPLAN-IR-NEXT:      Ordering: 0, Volatile: 0, SSID: 0
 ; VPLAN-IR-NEXT:      end of details
 
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1, !dbg !42
