@@ -5500,17 +5500,18 @@ let TargetPrefix = "x86" in {
                   [ llvm_v32f16_ty, llvm_v32f16_ty, llvm_i32_ty ],
                   [ IntrNoMem, ImmArg<ArgIndex<2>> ]>;
 
-  def int_x86_avx512fp16_cmp_ph_512
+  def int_x86_avx512fp16_mask_cmp_ph_512
       : Intrinsic<[ llvm_v32i1_ty ],
-                  [ llvm_v32f16_ty, llvm_v32f16_ty, llvm_i32_ty, llvm_i32_ty ],
-                  [ IntrNoMem, ImmArg<ArgIndex<2>> ]>;
-  def int_x86_avx512fp16_cmp_ph_256
+                  [ llvm_v32f16_ty, llvm_v32f16_ty, llvm_i32_ty, llvm_v32i1_ty,
+                  llvm_i32_ty ],
+                  [ IntrNoMem, ImmArg<ArgIndex<2>>, ImmArg<ArgIndex<4>> ]>;
+  def int_x86_avx512fp16_mask_cmp_ph_256
       : Intrinsic<[ llvm_v16i1_ty ],
-                  [ llvm_v16f16_ty, llvm_v16f16_ty, llvm_i32_ty ],
+                  [ llvm_v16f16_ty, llvm_v16f16_ty, llvm_i32_ty, llvm_v16i1_ty ],
                   [ IntrNoMem, ImmArg<ArgIndex<2>> ]>;
-  def int_x86_avx512fp16_cmp_ph_128
+  def int_x86_avx512fp16_mask_cmp_ph_128
       : Intrinsic<[ llvm_v8i1_ty ],
-                  [ llvm_v8f16_ty, llvm_v8f16_ty, llvm_i32_ty ],
+                  [ llvm_v8f16_ty, llvm_v8f16_ty, llvm_i32_ty, llvm_v8i1_ty ],
                   [ IntrNoMem, ImmArg<ArgIndex<2>> ]>;
 
   def int_x86_avx512fp16_mask_add_sh_round
