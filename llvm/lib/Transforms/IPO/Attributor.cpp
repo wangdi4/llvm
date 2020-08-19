@@ -2332,7 +2332,6 @@ PreservedAnalyses AttributorCGSCCPass::run(LazyCallGraph::SCC &C,
   InformationCache InfoCache(M, AG, Allocator, /* CGSCC */ &Functions);
   if (runAttributorOnFunctions(InfoCache, Functions, AG, CGUpdater)) {
     // FIXME: Think about passes we will preserve and add them here.
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   {
     PreservedAnalyses PA;
@@ -2340,11 +2339,9 @@ PreservedAnalyses AttributorCGSCCPass::run(LazyCallGraph::SCC &C,
     return PA;
   }
 #endif // INTEL_CUSTOMIZATION
-=======
     PreservedAnalyses PA;
     PA.preserve<FunctionAnalysisManagerCGSCCProxy>();
     return PA;
->>>>>>> 1d99c3d7073888517e3557c1b522ed273bbe188c
   }
   return PreservedAnalyses::all();
 }
