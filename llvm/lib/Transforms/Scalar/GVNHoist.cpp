@@ -267,46 +267,7 @@ public:
         HoistingGeps(HoistingGeps) {}
 #endif // INTEL_CUSTOMIZATION
 
-<<<<<<< HEAD
-  bool run(Function &F) {
-    NumFuncArgs = F.arg_size();
-    VN.setDomTree(DT);
-    VN.setAliasAnalysis(AA);
-    VN.setMemDep(MD);
-    bool Res = false;
-    // Perform DFS Numbering of instructions.
-    unsigned BBI = 0;
-    for (const BasicBlock *BB : depth_first(&F.getEntryBlock())) {
-      DFSNumber[BB] = ++BBI;
-      unsigned I = 0;
-      for (auto &Inst : *BB)
-        DFSNumber[&Inst] = ++I;
-    }
-    int ChainLength = 0;
-
-    // FIXME: use lazy evaluation of VN to avoid the fix-point computation.
-    while (true) {
-      if (MaxChainLength != -1 && ++ChainLength >= MaxChainLength)
-        return Res;
-
-      auto HoistStat = hoistExpressions(F);
-      if (HoistStat.first + HoistStat.second == 0)
-        return Res;
-
-      if (HoistStat.second > 0)
-        // To address a limitation of the current GVN, we need to rerun the
-        // hoisting after we hoisted loads or stores in order to be able to
-        // hoist all scalars dependent on the hoisted ld/st.
-        VN.clear();
-
-      Res = true;
-    }
-
-    return Res;
-  }
-=======
   bool run(Function &F);
->>>>>>> 370330f084c05ee54f1c9bb54604dbe48f7e87dd
 
   // Copied from NewGVN.cpp
   // This function provides global ranking of operations so that we can place
@@ -418,61 +379,7 @@ private:
                        RenameStackType &RenameStack);
 
   void fillChiArgs(BasicBlock *BB, OutValuesType &CHIBBs,
-<<<<<<< HEAD
-                   RenameStackType &RenameStack) {
-    // For each *predecessor* (because Post-DOM) of BB check if it has a CHI
-    for (auto Pred : predecessors(BB)) {
-      auto P = CHIBBs.find(Pred);
-      if (P == CHIBBs.end()) {
-        continue;
-      }
-      LLVM_DEBUG(dbgs() << "\nLooking at CHIs in: " << Pred->getName(););
-      // A CHI is found (BB -> Pred is an edge in the CFG)
-      // Pop the stack until Top(V) = Ve.
-      auto &VCHI = P->second;
-      for (auto It = VCHI.begin(), E = VCHI.end(); It != E;) {
-        CHIArg &C = *It;
-        if (!C.Dest) {
-          auto si = RenameStack.find(C.VN);
-          // The Basic Block where CHI is must dominate the value we want to
-          // track in a CHI. In the PDom walk, there can be values in the
-          // stack which are not control dependent e.g., nested loop.
-#if INTEL_CUSTOMIZATION
-// Localized fix for https://bugs.llvm.org/show_bug.cgi?id=46874 and
-// CMPLRLLVM-21338.
-// We are trying to insert a CHI edge for (Pred,BB). This means that
-// the Instruction at the top of the RenameStack (si->second) post-dominates
-// the edge Pred -> BB, and is safe to hoist along that edge.
-// It is similar to PHI, where a phi operand means that a value x
-// dominates along an edge y.
-// But the CHI algorithm seems to assume that a post-dominator tree traversal
-// E->A->B means that A post-dominates B. This is obviously not true if A and B
-// are siblings. If we insert an explicit post-dominator check, the problem is
-// solved. We can get more hoisting cases if we push the CHIs on the stack
-// (similar to a PHI operand of another PHI), but GVNHoist structures do
-// not allow this.
-#endif // INTEL_CUSTOMIZATION
-          if (si != RenameStack.end() && si->second.size() &&
-              DT->properlyDominates(Pred,                              // INTEL
-                                    si->second.back()->getParent()) && // INTEL
-              PDT->dominates(si->second.back()->getParent(), BB)) {    // INTEL
-            C.Dest = BB;                     // Assign the edge
-            C.I = si->second.pop_back_val(); // Assign the argument
-            LLVM_DEBUG(dbgs()
-                       << "\nCHI Inserted in BB: " << C.Dest->getName() << *C.I
-                       << ", VN: " << C.VN.first << ", " << C.VN.second);
-          }
-          // Move to next CHI of a different value
-          It = std::find_if(It, VCHI.end(),
-                            [It](CHIArg &A) { return A != *It; });
-        } else
-          ++It;
-      }
-    }
-  }
-=======
                    RenameStackType &RenameStack);
->>>>>>> 370330f084c05ee54f1c9bb54604dbe48f7e87dd
 
   // Walk the post-dominator tree top-down and use a stack for each value to
   // store the last value you see. When you hit a CHI from a given edge, the
@@ -624,10 +531,12 @@ private:
 };
 
 class GVNHoistLegacyPass : public FunctionPass {
+  const bool HoistingGeps; // INTEL
 public:
   static char ID;
 
-  GVNHoistLegacyPass() : FunctionPass(ID) {
+  GVNHoistLegacyPass(bool HoistingGeps = false)        // INTEL
+      : FunctionPass(ID), HoistingGeps(HoistingGeps) { // INTEL
     initializeGVNHoistLegacyPassPass(*PassRegistry::getPassRegistry());
   }
 
@@ -640,7 +549,7 @@ public:
     auto &MD = getAnalysis<MemoryDependenceWrapperPass>().getMemDep();
     auto &MSSA = getAnalysis<MemorySSAWrapperPass>().getMSSA();
 
-    GVNHoist G(&DT, &PDT, &AA, &MD, &MSSA);
+    GVNHoist G(&DT, &PDT, &AA, &MD, &MSSA, HoistingGeps); // INTEL
     return G.run(F);
   }
 
@@ -964,8 +873,25 @@ void GVNHoist::fillChiArgs(BasicBlock *BB, OutValuesType &CHIBBs,
         // The Basic Block where CHI is must dominate the value we want to
         // track in a CHI. In the PDom walk, there can be values in the
         // stack which are not control dependent e.g., nested loop.
+#if INTEL_CUSTOMIZATION
+// Localized fix for https://bugs.llvm.org/show_bug.cgi?id=46874 and
+// CMPLRLLVM-21338.
+// We are trying to insert a CHI edge for (Pred,BB). This means that
+// the Instruction at the top of the RenameStack (si->second) post-dominates
+// the edge Pred -> BB, and is safe to hoist along that edge.
+// It is similar to PHI, where a phi operand means that a value x
+// dominates along an edge y.
+// But the CHI algorithm seems to assume that a post-dominator tree traversal
+// E->A->B means that A post-dominates B. This is obviously not true if A and B
+// are siblings. If we insert an explicit post-dominator check, the problem is
+// solved. We can get more hoisting cases if we push the CHIs on the stack
+// (similar to a PHI operand of another PHI), but GVNHoist structures do
+// not allow this.
+#endif // INTEL_CUSTOMIZATION
         if (si != RenameStack.end() && si->second.size() &&
-            DT->properlyDominates(Pred, si->second.back()->getParent())) {
+            DT->properlyDominates(Pred,                              // INTEL
+                                  si->second.back()->getParent()) && // INTEL
+            PDT->dominates(si->second.back()->getParent(), BB)) {    // INTEL
           C.Dest = BB;                     // Assign the edge
           C.I = si->second.pop_back_val(); // Assign the argument
           LLVM_DEBUG(dbgs()
@@ -973,7 +899,8 @@ void GVNHoist::fillChiArgs(BasicBlock *BB, OutValuesType &CHIBBs,
                      << ", VN: " << C.VN.first << ", " << C.VN.second);
         }
         // Move to next CHI of a different value
-        It = std::find_if(It, VCHI.end(), [It](CHIArg &A) { return A != *It; });
+        It = std::find_if(It, VCHI.end(),
+                          [It](CHIArg &A) { return A != *It; });
       } else
         ++It;
     }
@@ -1268,17 +1195,6 @@ std::pair<unsigned, unsigned> GVNHoist::hoist(HoistingPointList &HPL) {
       ++NI;
   }
 
-<<<<<<< HEAD
-class GVNHoistLegacyPass : public FunctionPass {
-  const bool HoistingGeps; // INTEL
-public:
-  static char ID;
-
-  GVNHoistLegacyPass(bool HoistingGeps = false)        // INTEL
-      : FunctionPass(ID), HoistingGeps(HoistingGeps) { // INTEL
-    initializeGVNHoistLegacyPassPass(*PassRegistry::getPassRegistry());
-  }
-=======
   if (MSSA && VerifyMemorySSA)
     MSSA->verifyMemorySSA();
 
@@ -1289,7 +1205,6 @@ public:
   NumCallsHoisted += NC;
   return {NI, NL + NC + NS};
 }
->>>>>>> 370330f084c05ee54f1c9bb54604dbe48f7e87dd
 
 std::pair<unsigned, unsigned> GVNHoist::hoistExpressions(Function &F) {
   InsnInfo II;
@@ -1328,14 +1243,8 @@ std::pair<unsigned, unsigned> GVNHoist::hoistExpressions(Function &F) {
         if (Call->mayHaveSideEffects())
           break;
 
-<<<<<<< HEAD
-    GVNHoist G(&DT, &PDT, &AA, &MD, &MSSA, HoistingGeps); // INTEL
-    return G.run(F);
-  }
-=======
         if (Call->isConvergent())
           break;
->>>>>>> 370330f084c05ee54f1c9bb54604dbe48f7e87dd
 
         CI.insert(Call, VN);
       } else if (HoistingGeps || !isa<GetElementPtrInst>(&I1))
