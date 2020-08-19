@@ -935,17 +935,15 @@ bool FuseGraph::isLegalDependency(const DDEdge &Edge,
     return false;
   }
 
-  for (unsigned Level = CommonLevel; Level <= MinMaxLevel.second; ++Level) {
-    auto Dir = RefinedDep.getDV()[Level - 1];
-    assert(Dir != DVKind::NONE);
+  auto Dir = RefinedDep.getDV()[CommonLevel - 1];
+  assert(Dir != DVKind::NONE);
 
-    if ((Dir & DVKind::LT) != DVKind::NONE) {
-      return false;
-    }
+  if ((Dir & DVKind::LT) != DVKind::NONE) {
+    return false;
+  }
 
-    if ((Dir & DVKind::GT) != DVKind::NONE) {
-      return true;
-    }
+  if ((Dir & DVKind::GT) != DVKind::NONE) {
+    return true;
   }
 
   return true;
