@@ -643,6 +643,7 @@ private:
   int Ordered;
   WRNLoopOrderKind LoopOrder;
   WRNLoopInfo WRNLI;
+  bool TreatDistributeParLoopAsDistribute; // Used during transformation.
 
 public:
   WRNDistributeParLoopNode(BasicBlock *BB, LoopInfo *L);
@@ -676,6 +677,13 @@ public:
   int getCollapse() const { return Collapse; }
   int getOrdered() const { return Ordered; }
   WRNLoopOrderKind getLoopOrder() const { return LoopOrder; }
+
+  void setTreatDistributeParLoopAsDistribute(bool Flag) {
+    TreatDistributeParLoopAsDistribute = Flag;
+  }
+  bool getTreatDistributeParLoopAsDistribute() const {
+    return TreatDistributeParLoopAsDistribute;
+  }
 
   void printExtra(formatted_raw_ostream &OS, unsigned Depth,
                                              unsigned Verbosity=1) const;

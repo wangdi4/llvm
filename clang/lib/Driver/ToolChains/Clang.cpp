@@ -4230,10 +4230,23 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
                      false))
       CmdArgs.push_back("-fsycl-explicit-simd");
 
+#if INTEL_COLLAB
+    // Workaround for debug info related issues in SPIR-V: early optimizations
+    // are disabled if debug info is requested
+    bool WantToDisableEarlyOptimizations = false;
+    if (Arg *A = Args.getLastArg(options::OPT_g_Group)) {
+      WantToDisableEarlyOptimizations =
+          !A->getOption().matches(options::OPT_g0) &&
+          !A->getOption().matches(options::OPT_ggdb0);
+    } else if (Args.hasArg(options::OPT__SLASH_Z7))
+      WantToDisableEarlyOptimizations = true;
     // Default value for FPGA is false, for all other targets is true.
+    if (Triple.getSubArch() == llvm::Triple::SPIRSubArch_fpga)
+      WantToDisableEarlyOptimizations = true;
+#endif // INTEL_COLLAB
     if (!Args.hasFlag(options::OPT_fsycl_early_optimizations,
                       options::OPT_fno_sycl_early_optimizations,
-                      Triple.getSubArch() != llvm::Triple::SPIRSubArch_fpga))
+                      !WantToDisableEarlyOptimizations)) // INTEL
       CmdArgs.push_back("-fno-sycl-early-optimizations");
     else if (RawTriple.isSPIR()) {
       // Set `sycl-opt` option to configure LLVM passes for SPIR target
@@ -4264,10 +4277,21 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
       }
     }
 
+#if INTEL_CUSTOMIZATION
+    bool enableFuncPointers =
+        Args.hasArg(options::OPT_fsycl_enable_function_pointers);
     if (Args.hasFlag(options::OPT_fsycl_allow_func_ptr,
-                     options::OPT_fno_sycl_allow_func_ptr, false)) {
+                     options::OPT_fno_sycl_allow_func_ptr,
+                     enableFuncPointers)) {
+#endif // INTEL_CUSTOMIZATION
       CmdArgs.push_back("-fsycl-allow-func-ptr");
     }
+#if INTEL_CUSTOMIZATION
+    if (enableFuncPointers) {
+      CmdArgs.push_back("-fenable-variant-function-pointers");
+      CmdArgs.push_back("-fenable-variant-virtual-calls");
+    }
+#endif // INTEL_CUSTOMIZATION
 
     if (!SYCLStdArg) {
       // The user had not pass SYCL version, thus we'll employ no-sycl-strict
