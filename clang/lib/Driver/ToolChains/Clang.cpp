@@ -4230,7 +4230,6 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
                      false))
       CmdArgs.push_back("-fsycl-explicit-simd");
 
-<<<<<<< HEAD
 #if INTEL_COLLAB
     // Workaround for debug info related issues in SPIR-V: early optimizations
     // are disabled if debug info is requested
@@ -4244,16 +4243,10 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
     // Default value for FPGA is false, for all other targets is true.
     if (Triple.getSubArch() == llvm::Triple::SPIRSubArch_fpga)
       WantToDisableEarlyOptimizations = true;
+    if (!Args.hasFlag(options::OPT_fsycl_early_optimizations,
+                      options::OPT_fno_sycl_early_optimizations,
+                      !WantToDisableEarlyOptimizations))
 #endif // INTEL_COLLAB
-    if (!Args.hasFlag(options::OPT_fsycl_early_optimizations,
-                      options::OPT_fno_sycl_early_optimizations,
-                      !WantToDisableEarlyOptimizations)) // INTEL
-=======
-    // Default value for FPGA is false, for all other targets is true.
-    if (!Args.hasFlag(options::OPT_fsycl_early_optimizations,
-                      options::OPT_fno_sycl_early_optimizations,
-                      Triple.getSubArch() != llvm::Triple::SPIRSubArch_fpga))
->>>>>>> f8902b8448dfa5f70e52e226b3f456e6a734b59b
       CmdArgs.push_back("-fno-sycl-early-optimizations");
     else if (RawTriple.isSPIR()) {
       // Set `sycl-opt` option to configure LLVM passes for SPIR target
