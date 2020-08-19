@@ -52,13 +52,10 @@
 #include "ToolChains/VEToolchain.h"
 #include "ToolChains/WebAssembly.h"
 #include "ToolChains/XCore.h"
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 #include "ToolChains/Arch/X86.h"
 #endif // INTEL_CUSTOMIZATION
-=======
 #include "clang/Basic/TargetID.h"
->>>>>>> 52a38dce8e649c7e4bbec2333b57311feef2b34e
 #include "clang/Basic/Version.h"
 #include "clang/Config/config.h"
 #include "clang/Driver/Action.h"
