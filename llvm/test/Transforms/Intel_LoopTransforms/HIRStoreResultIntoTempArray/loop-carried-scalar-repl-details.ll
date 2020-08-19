@@ -3,8 +3,8 @@
 ;
 ; In this case, the MaxRef (%"jacobian_$Q")[i1+2][%mod][%mod26] has the lower bounds of dimensions {0, 1, 1}. We need to set the dimension lower bounds of corresponding (%TempArray)[i1+1][%mod][%mod26] to {0, 1, 1}
 ;
-; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-create-function-level-region -hir-store-result-into-temp-array -print-after=hir-store-result-into-temp-array -hir-details-dims < %s 2>&1 | FileCheck %s
-; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-store-result-into-temp-array,print<hir>" -hir-create-function-level-region -hir-details-dims 2>&1 < %s | FileCheck %s
+; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-create-function-level-region -disable-hir-store-result-into-temp-array=false -hir-store-result-into-temp-array -print-after=hir-store-result-into-temp-array -hir-details-dims < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-store-result-into-temp-array,print<hir>" -hir-create-function-level-region -disable-hir-store-result-into-temp-array=false -hir-details-dims 2>&1 < %s | FileCheck %s
 ;
 ;*** IR Dump Before HIR Store Result Into Temp Array ***
 ;Function: jacobian_
