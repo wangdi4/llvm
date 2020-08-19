@@ -388,11 +388,11 @@ bool InlineAggressiveInfo::trackUsesofAllocatedGlobalVariables(
         if (!noCallsToUserDefinedRoutinesInCallee(*CB1)) {
           LLVM_DEBUG(dbgs()
                      << " Skipped AggInl ... global may be escaped in callee\n"
-                     << "      " << CB1 << "\n");
+                     << "      " << *CB1 << "\n");
           return false;
         }
         LLVM_DEBUG(dbgs() << "AggInl:  Marking callsite for inline  \n"
-                          << "      " << CB1 << "\n");
+                          << "      " << *CB1 << "\n");
         setAggInlInfoForCallSite(*CB1);
         continue;
       }
@@ -416,11 +416,11 @@ bool InlineAggressiveInfo::trackUsesofAllocatedGlobalVariables(
           if (!noCallsToUserDefinedRoutinesInCallee(*CB1)) {
             LLVM_DEBUG(dbgs()
                        << " Skipped AggInl ...global may be escaped in callee\n"
-                       << "      " << CB1 << "\n");
+                       << "      " << *CB1 << "\n");
             return false;
           }
           LLVM_DEBUG(dbgs() << "AggInl:  Marking callsite for inline  \n"
-                            << "      " << CB1 << "\n");
+                            << "      " << *CB1 << "\n");
           setAggInlInfoForCallSite(*CB1);
         } else if (Operator::getOpcode(U2) == Instruction::Load) {
           for (User *U3 : U2->users()) {
@@ -435,6 +435,30 @@ bool InlineAggressiveInfo::trackUsesofAllocatedGlobalVariables(
                               << F1->getName() << "\n");
             setAggInlineInfoForAllCallSites(F1);
           }
+        } else if (Operator::getOpcode(U2) == Instruction::GetElementPtr) {
+           if (U2->hasOneUse()) {
+             U2 = *U2->user_begin();
+             if (CallInst *CI2 = dyn_cast<CallInst>(U2)) {
+               auto CB1 = cast<CallBase>(CI2);
+               // Mark callsite as aggressive-inlined-call only if callee
+               // doesn't have any calls to user defined routines so that
+               // we can ignore propagating formals to other calls in Callee.
+               //
+               if (!noCallsToUserDefinedRoutinesInCallee(*CB1)) {
+                 LLVM_DEBUG(dbgs() << " Skipped AggInl ... global may be"
+                                   << " escaped in callee\n"
+                                   << "      " << *CB1 << "\n");
+                 return false;
+               }
+               LLVM_DEBUG(dbgs() << "AggInl:  Marking callsite for inline  \n"
+                                 << "      " << *CB1 << "\n");
+               setAggInlInfoForCallSite(*CB1);
+               continue;
+            }
+          }
+          LLVM_DEBUG(dbgs() << " Skipped AggInl ... unexpected use of global\n"
+                            << "      " << *U2 << "\n");
+          return false;
         } else {
           LLVM_DEBUG(dbgs() << " Skipped AggInl ... unexpected use of global\n"
                             << "      " << *U2 << "\n");
@@ -462,6 +486,8 @@ InlineAggressiveInfo InlineAggressiveInfo::runImpl(Module &M,
 bool InlineAggressiveInfo::analyzeHugeMallocGlobalPointersHeuristic(Module &M) {
   Function *AllocRtn = nullptr;
   Function *MainRtn = nullptr;
+
+  LLVM_DEBUG(dbgs() << "AggInl: HugeMallocGlobalPointersHeuristic\n");
 
   uint64_t TotalInstCount = 0;
 
@@ -796,8 +822,7 @@ bool InlineAggressiveInfo::analyzeSingleAccessFunctionGlobalVarHeuristic(
   // This map is used to avoid recomputation of leaf info.
   DenseMap<Function *, bool> AlmostLeafFunctionMap;
 
-  LLVM_DEBUG(
-      dbgs() << " Started AggInl SingleAccessFunctionGlobalVar Analysis\n");
+  LLVM_DEBUG(dbgs() << "AggInl: SingleAccessFunctionGlobalVarHeuristic\n");
 
   for (GlobalVariable &GV : M.globals()) {
     if (!GV.hasLocalLinkage())
