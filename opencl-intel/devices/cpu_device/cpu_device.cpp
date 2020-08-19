@@ -199,9 +199,18 @@ typedef enum
     CPU_DEVICE_DATA_TYPE_HALF
 } CPUDeviceDataTypes;
 
-static const cl_uint CPU_DEVICE_NATIVE_VECTOR_WIDTH_SSE42[] = {16, 8, 4, 2, 4, 2, 0};  //SSE4.2 has 16 byte (XMM) registers
-static const cl_uint CPU_DEVICE_NATIVE_VECTOR_WIDTH_AVX[]   = {16, 8, 4, 2, 8, 4, 0};  //AVX supports 32 byte (YMM) registers only for floats and doubles
-static const cl_uint CPU_DEVICE_NATIVE_VECTOR_WIDTH_AVX2[]  = {32, 16, 8, 4, 8, 4, 0}; //AVX2 has a full set of 32 byte (YMM) registers
+// SSE4.2 has 16 byte (XMM) registers
+static const cl_uint CPU_DEVICE_NATIVE_VECTOR_WIDTH_SSE42[] = {16, 8, 4, 2,
+                                                               4,  2, 0};
+// AVX supports 32 byte (YMM) registers only for floats and doubles
+static const cl_uint CPU_DEVICE_NATIVE_VECTOR_WIDTH_AVX[] = {16, 8, 4, 2,
+                                                             8,  4, 0};
+// AVX2 has a full set of 32 byte (YMM) registers
+static const cl_uint CPU_DEVICE_NATIVE_VECTOR_WIDTH_AVX2[] = {32, 16, 8, 4,
+                                                              8,  4,  0};
+// AVX512 has a full set of 64 byte registers
+static const cl_uint CPU_DEVICE_NATIVE_VECTOR_WIDTH_AVX512[] = {64, 32, 16, 8,
+                                                                16, 8,  0};
 
 extern "C" const char* clDevErr2Txt(cl_dev_err_code errorCode)
 {
@@ -675,6 +684,7 @@ cl_uint GetNativeVectorWidth(CPUDeviceDataTypes dataType)
 {
     const bool     avx1Support   = CPUDetect::GetInstance()->IsFeatureSupported(CFS_AVX10);
     const bool     avx2Support   = CPUDetect::GetInstance()->IsFeatureSupported(CFS_AVX20);
+    const bool     avx512Support = CPUDetect::GetInstance()->IsFeatureSupported(CFS_AVX512F);
     const cl_uint* pVectorWidths = CPU_DEVICE_NATIVE_VECTOR_WIDTH_SSE42;
 
     if (avx1Support)
@@ -684,6 +694,10 @@ cl_uint GetNativeVectorWidth(CPUDeviceDataTypes dataType)
     if (avx2Support)
     {
         pVectorWidths = CPU_DEVICE_NATIVE_VECTOR_WIDTH_AVX2;
+    }
+    if (avx512Support)
+    {
+        pVectorWidths = CPU_DEVICE_NATIVE_VECTOR_WIDTH_AVX512;
     }
 
     return pVectorWidths[(int)dataType];
