@@ -1215,14 +1215,14 @@ void OpenMPIRBuilder::initializeTypes(Module &M) {
   VarName##Ptr = PointerType::getUnqual(VarName);
 #if INTEL_COLLAB
 #define OMP_STRUCT_TYPE(VarName, StructName, ...)                              \
-  SmallVector<llvm::Type *, 5> Types = {__VA_ARGS__};                          \
+  SmallVector<llvm::Type *, 5> VarName##Types = {__VA_ARGS__};                 \
   T = M.getTypeByName(StructName);                                             \
   if (!T) {                                                                    \
     if (unsigned PointerAS = getPointerAddressSpace(M))                        \
-      for (unsigned I = 0, E = Types.size(); I < E; ++I)                       \
-        if (auto *PT = dyn_cast<PointerType>(Types[I]))                        \
-          Types[I] = llvm::PointerType::get(PT->getElementType(), PointerAS);  \
-    T = StructType::create(Ctx, Types, StructName);                            \
+      for (unsigned I = 0, E = VarName##Types.size(); I < E; ++I)              \
+        if (auto *PT = dyn_cast<PointerType>(VarName##Types[I]))               \
+          VarName##Types[I] = llvm::PointerType::get(PT->getElementType(), PointerAS);  \
+    T = StructType::create(Ctx, VarName##Types, StructName);                   \
   }                                                                            \
   VarName = T;                                                                 \
   VarName##Ptr = PointerType::getUnqual(T);
