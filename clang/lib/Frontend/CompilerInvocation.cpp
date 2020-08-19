@@ -3373,12 +3373,10 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
   }
 #endif //INTEL_CUSTOMIZATION
 #if INTEL_COLLAB
-  // Temporary internal option to enable new support. When ready just
-  // switch default to true.
   Opts.OpenMPUseSingleElemArrayFuncs =
       Args.hasFlag(OPT_fopenmp_use_single_elem_array_funcs,
                    OPT_fno_openmp_use_single_elem_array_funcs,
-                   /*default=*/false);
+                   /*default=*/true);
   Opts.OpenMPLateOutline =
       Opts.OpenMP && Args.hasArg(options::OPT_fopenmp_late_outline);
 #endif // INTEL_COLLAB

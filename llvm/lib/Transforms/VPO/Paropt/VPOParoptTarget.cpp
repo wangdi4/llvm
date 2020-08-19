@@ -1708,8 +1708,7 @@ void VPOParoptTransform::useUpdatedUseDevicePtrsInTgtDataRegion(
     else if (UDPI->getIsF90DopeVector()) {
       NewV = genPrivatizationAlloca(OrigV, OrigElemTy, AllocaInsertPt,
                                     ".new"); //                             (2)
-      VPOParoptUtils::genCopyByAddr(NewV, OrigV,
-                                    &*Builder.GetInsertPoint()); //         (7)
+      genCopyByAddr(UDPI, NewV, OrigV, &*Builder.GetInsertPoint()); //      (7)
       auto *Zero = Builder.getInt32(0);
       auto *Addr0GEP = Builder.CreateInBoundsGEP(NewV, {Zero, Zero}, //     (8)
                                                  NewV->getName() + ".addr0");
