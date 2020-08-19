@@ -57,6 +57,11 @@ protected:
   /// Section directive for standard data.
   MCSection *DataSection = nullptr;
 
+#if INTEL_CUSTOMIZATION
+  /// Section directive for traceback.
+  MCSection *TraceSection = nullptr;
+#endif // INTEL_CUSTOMIZATION
+
   /// Section that is default initialized to zero.
   MCSection *BSSSection = nullptr;
 
@@ -251,6 +256,9 @@ public:
 
   MCSection *getTextSection() const { return TextSection; }
   MCSection *getDataSection() const { return DataSection; }
+#if INTEL_CUSTOMIZATION
+  MCSection *getTraceSection() const { return TraceSection; }
+#endif // INTEL_CUSTOMIZATION
   MCSection *getBSSSection() const { return BSSSection; }
   MCSection *getReadOnlySection() const { return ReadOnlySection; }
   MCSection *getLSDASection() const { return LSDASection; }

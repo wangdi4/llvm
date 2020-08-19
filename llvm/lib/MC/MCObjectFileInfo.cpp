@@ -359,6 +359,11 @@ void MCObjectFileInfo::initELFMCObjectFileInfo(const Triple &T, bool Large) {
   DataSection = Ctx->getELFSection(".data", ELF::SHT_PROGBITS,
                                    ELF::SHF_WRITE | ELF::SHF_ALLOC);
 
+#if INTEL_CUSTOMIZATION
+  TraceSection =
+      Ctx->getELFSection(".trace", ELF::SHT_PROGBITS, ELF::SHF_ALLOC);
+#endif // INTEL_CUSTOMIZATION
+
   ReadOnlySection =
       Ctx->getELFSection(".rodata", ELF::SHT_PROGBITS, ELF::SHF_ALLOC);
 
@@ -535,6 +540,11 @@ void MCObjectFileInfo::initCOFFMCObjectFileInfo(const Triple &T) {
       ".data", COFF::IMAGE_SCN_CNT_INITIALIZED_DATA | COFF::IMAGE_SCN_MEM_READ |
                    COFF::IMAGE_SCN_MEM_WRITE,
       SectionKind::getData());
+#if INTEL_CUSTOMIZATION
+  TraceSection = Ctx->getCOFFSection(
+      ".trace", COFF::IMAGE_SCN_CNT_INITIALIZED_DATA | COFF::IMAGE_SCN_MEM_READ,
+      SectionKind::getReadOnly());
+#endif // INTEL_CUSTOMIZATION
   ReadOnlySection = Ctx->getCOFFSection(
       ".rdata", COFF::IMAGE_SCN_CNT_INITIALIZED_DATA | COFF::IMAGE_SCN_MEM_READ,
       SectionKind::getReadOnly());

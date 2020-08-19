@@ -41,7 +41,7 @@ void MCTraceLine::emitNonOptimalValue(MCStreamer &OS) const {
   OS.emitValue(DeltaPC, traceback::getAttributeSize(PCAtt));
 }
 
-void MCTraceLine::encode(raw_ostream &OS, int DeltaLine, unsigned DeltaPC) {
+void MCTraceLine::encode(raw_ostream &OS, int32_t DeltaLine, uint32_t DeltaPC) {
   // First, check if we can use the format CO1/CO2.
   auto CorrelationTag = traceback::getOptimalCorrelationTag(DeltaLine, DeltaPC);
   if (CorrelationTag) {
@@ -54,7 +54,7 @@ void MCTraceLine::encode(raw_ostream &OS, int DeltaLine, unsigned DeltaPC) {
     //   - Tag (high 2 bits): always 11 (binary)
     //   - PC delta (low 6 bits): unsigned PC delta value minus 1
     //   - Line delta (1 byte): signed value
-    char FirstByte = traceback::getTagEncoding(CorrelationTag.getValue());
+    uint8_t FirstByte = traceback::getTagEncoding(CorrelationTag.getValue());
     FirstByte = FirstByte | DeltaPC;
     OS << FirstByte;
     switch (CorrelationTag.getValue()) {
@@ -63,7 +63,7 @@ void MCTraceLine::encode(raw_ostream &OS, int DeltaLine, unsigned DeltaPC) {
     case traceback::TB_TAG_CO1:
       return;
     case traceback::TB_TAG_CO2: {
-      char SecondByte = static_cast<char>(DeltaLine);
+      int8_t SecondByte = static_cast<int8_t>(DeltaLine);
       OS << SecondByte;
       return;
     }
@@ -77,7 +77,7 @@ void MCTraceLine::encode(raw_ostream &OS, int DeltaLine, unsigned DeltaPC) {
   default:
     llvm_unreachable("Unexpected tag");
   case traceback::TB_TAG_LN1:
-    OS << static_cast<char>(DeltaLine);
+    OS << static_cast<int8_t>(DeltaLine);
     break;
   case traceback::TB_TAG_LN2:
     support::endian::write<int16_t>(OS, DeltaLine, support::little);

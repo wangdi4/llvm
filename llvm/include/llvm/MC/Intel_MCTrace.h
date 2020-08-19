@@ -27,7 +27,7 @@ class raw_ostream;
 class MCTraceLine {
 private:
   traceback::Tag Tag;
-  int DeltaLine;
+  int32_t DeltaLine;
   const MCExpr *DeltaPC;
 
 public:
@@ -38,7 +38,7 @@ public:
   MCTraceLine(const MCTraceLine &) = delete;
   MCTraceLine &operator=(const MCTraceLine &) = delete;
 
-  int getDeltaLine() const { return DeltaLine; }
+  int32_t getDeltaLine() const { return DeltaLine; }
   const MCExpr *getDeltaPC() const { return DeltaPC; }
 
   /// Emit the pair of DeltaLine and DeltaPC with non-optimal value(we can not
@@ -46,7 +46,7 @@ public:
   void emitNonOptimalValue(MCStreamer &OS) const;
 
   /// Utility function to encode a TraceBack pair of DeltaLine and DeltaPC.
-  static void encode(raw_ostream &OS, int DeltaLine, unsigned DeltaPC);
+  static void encode(raw_ostream &OS, int32_t DeltaLine, uint32_t DeltaPC);
 };
 } // namespace llvm
 

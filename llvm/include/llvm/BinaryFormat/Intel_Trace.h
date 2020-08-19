@@ -18,6 +18,8 @@
 #ifndef LLVM_BINARYFORMAT_TRACE_H
 #define LLVM_BINARYFORMAT_TRACE_H
 
+#include <cstdint>
+
 namespace llvm {
 class StringRef;
 template <typename> class Optional;
@@ -28,30 +30,30 @@ namespace traceback {
 /// has one tag and one or several attributes. The tag tells what the following
 /// bytes represents while the attribute tells what's the value of specific
 /// field.
-enum Tag : unsigned char {
+enum Tag : uint8_t {
 #define HANDLE_TB_TAG(NAME, ENCODING) TB_TAG_##NAME,
 #include "llvm/BinaryFormat/Intel_Trace.def"
   NUM_TAGS
 };
 
-enum Attribute : unsigned char {
+enum Attribute : uint8_t {
 #define HANDLE_TB_AT(NAME, SIZE) TB_AT_##NAME,
 #include "llvm/BinaryFormat/Intel_Trace.def"
   NUM_ATS
 };
 
 /// \returns the encoding value of tag \p T.
-char getTagEncoding(Tag T);
+uint8_t getTagEncoding(Tag T);
 
 /// \returns the tag if \p Byte is any tag's encoding, otherwise returns
 /// the sentinel tag.
-Tag getTagForEncoding(char Byte);
+Tag getTagForEncoding(uint8_t Byte);
 
 /// \returns the string representation of tag \p T.
 StringRef getTagString(Tag T);
 
 /// \returns the byte size of attribute \p Att.
-unsigned getAttributeSize(Attribute Att);
+uint32_t getAttributeSize(Attribute Att);
 
 /// \returns the string representation of attribute \p Att.
 StringRef getAttributeString(Attribute Att);
@@ -61,14 +63,14 @@ StringRef getAttributeString(Attribute Att);
 Attribute getAttributeForTag(Tag T);
 
 /// \returns the optimal line tag with given delta line \p DeltaLine.
-Tag getOptimalLineTag(int DeltaLine);
+Tag getOptimalLineTag(int32_t DeltaLine);
 
 /// \returns the optimal PC tag with given delta PC \p DeltaPC.
-Tag getOptimalPCTag(unsigned DeltaPC);
+Tag getOptimalPCTag(uint32_t DeltaPC);
 
 /// \returns the optimal correlation tag with given delta line \p DeltaLine
 /// and delta pc \p DeltaPC.
-Optional<Tag> getOptimalCorrelationTag(int DeltaLine, unsigned DeltaPC);
+Optional<Tag> getOptimalCorrelationTag(int32_t DeltaLine, uint32_t DeltaPC);
 
 } // namespace traceback
 } // namespace llvm

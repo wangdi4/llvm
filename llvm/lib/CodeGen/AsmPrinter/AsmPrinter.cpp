@@ -15,10 +15,11 @@
 #include "DwarfDebug.h"
 #include "DwarfException.h"
 #if INTEL_CUSTOMIZATION
+#include "Intel_TraceBackDebug.h"
 #include "intel/Intel_AsmOptReport.h"
 #include "intel/STIDebug.h"
 #include "llvm/Analysis/Intel_OptReport/OptReportOptionsPass.h"
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_CUSTOMIZATION
 #include "WasmException.h"
 #include "WinCFGuard.h"
 #include "WinException.h"
@@ -361,7 +362,18 @@ bool AsmPrinter::doInitialization(Module &M) {
       }
 #endif // INTEL_CUSTOMIZATION
     }
-    if (!EmitCodeView || M.getDwarfVersion()) {
+
+#if INTEL_CUSTOMIZATION
+    // Create the debug handler for traceback if there is a TraceBack
+    // module flag.
+    bool TraceBackFlag = M.hasTraceBackFlag();
+    if (TraceBackFlag && TM.getTargetTriple().isX86()) {
+      Handlers.emplace_back(std::make_unique<TraceBackDebug>(this),
+                            DbgTimerName, DbgTimerDescription, nullptr,
+                            nullptr);
+    }
+
+    if ((!EmitCodeView && !TraceBackFlag) || M.getDwarfVersion()) {
       DD = new DwarfDebug(this, &M);
       DD->beginModule();
       Handlers.emplace_back(std::unique_ptr<DwarfDebug>(DD), DbgTimerName,
@@ -369,6 +381,7 @@ bool AsmPrinter::doInitialization(Module &M) {
                             DWARFGroupDescription);
     }
   }
+#endif // INTEL_CUSTOMIZATION
 
   switch (MAI->getExceptionHandlingType()) {
   case ExceptionHandling::SjLj:
