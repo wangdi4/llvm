@@ -1654,13 +1654,13 @@ cl_err_code NDRangeKernelCommand::Init()
         for (size_t i = 0; i < nonArgUsmBufs.size(); i++)
         {
             SharedPtr<USMBuffer> &buf = nonArgUsmBufs[i];
+            assert(buf.GetPtr() && "Invalid non-arg USM buffer");
 
-            // Check USM access
-            if (nullptr != buf.GetPtr()) {
-                cl_device_id bufDeviceId = buf->GetDevice();
-                if (!crossSharedCaps && queueDeviceId != bufDeviceId)
-                    return CL_INVALID_OPERATION;
-            } else if (!systemCaps)
+            // Check USM access.
+            // Shared system USM has already been checked in SetKernelExecInfo,
+            // so here we only check cross shared access.
+            cl_device_id bufDeviceId = buf->GetDevice();
+            if (!crossSharedCaps && queueDeviceId != bufDeviceId)
                 return CL_INVALID_OPERATION;
 
             cl_unified_shared_memory_type_intel type = buf->GetType();
