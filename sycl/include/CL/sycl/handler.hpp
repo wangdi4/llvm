@@ -757,8 +757,14 @@ public:
   /// \param Acc is a SYCL accessor describing required memory region.
   template <typename DataT, int Dims, access::mode AccMode,
             access::target AccTarget>
+<<<<<<< HEAD
   void require(accessor<DataT, Dims, AccMode, AccTarget,
                         access::placeholder::true_t> Acc) {
+=======
+  void
+  require(accessor<DataT, Dims, AccMode, AccTarget, access::placeholder::true_t>
+              Acc) {
+>>>>>>> 68c275ce7423626625f78a96113c139657f47411
 #ifndef __SYCL_DEVICE_ONLY__
     associateWithHandler(&Acc, AccTarget);
 #else
