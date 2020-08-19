@@ -15306,7 +15306,6 @@ static SDValue lowerV8I16Shuffle(const SDLoc &DL, ArrayRef<int> Mask,
                                               Mask, Subtarget, DAG);
 }
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_FP16
 /// Lower 8-lane 16-bit floating point shuffles.
@@ -15338,11 +15337,9 @@ static SDValue lowerV8F16Shuffle(const SDLoc &DL, ArrayRef<int> Mask,
 #endif // INTEL_FEATURE_ISA_FP16
 #endif // INTEL_CUSTOMIZATION
 
-=======
 // Lowers unary/binary shuffle as VPERMV/VPERMV3, for non-VLX targets,
 // sub-512-bit shuffles are padded to 512-bits for the shuffle and then
 // the active subvector is extracted.
->>>>>>> abd33bf5eff2419e0f49ce494039bceefe8e1085
 static SDValue lowerShuffleWithPERMV(const SDLoc &DL, MVT VT,
                                      ArrayRef<int> Mask, SDValue V1, SDValue V2,
                                      const X86Subtarget &Subtarget,
