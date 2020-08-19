@@ -403,6 +403,36 @@ bool LoopIdiomRecognize::isOmpSIMDLoop(Loop *L) {
   }
   return false;
 }
+
+static bool interferesWithLoopOpt(const Loop *Lp, const SCEV *BECount) {
+  if (!Lp->getHeader()->getParent()->isPreLoopOpt())
+    return false;
+
+  // Only defer innermost single-exit constant trip count loops to loopopt.
+  // These are likely to be completely unrolled yielding better performance.
+  if (!Lp->isInnermost() || !Lp->getUniqueExitBlock())
+    return false;
+
+  auto *ConstBECount = dyn_cast<SCEVConstant>(BECount);
+
+  if (!ConstBECount)
+    return false;
+
+  ConstantInt *Count = ConstBECount->getValue();
+
+  // Only small trip count loops are likely to get unrolled.
+  if (Count->getValue().getActiveBits() > 64 || Count->getZExtValue() > 46)
+    return false;
+
+  auto *ParLp = Lp->getParentLoop();
+
+  // LoopOpt currently does not create outer multi-exit loops. Generating
+  // memcpy/memset early on results in the innermost loop being optimized
+  // away making the outer loop as the innermost loop and letting LoopOpt
+  // handle it. This is just a heuristic to limit the scope of the change
+  // and can be modified later.
+  return (!ParLp || ParLp->getUniqueExitBlock());
+}
 #endif // INTEL_CUSTOMIZATION
 
 bool LoopIdiomRecognize::runOnCountableLoop() {
@@ -417,6 +447,11 @@ bool LoopIdiomRecognize::runOnCountableLoop() {
     if (BECst->getAPInt() == 0)
       return false;
 
+#if INTEL_CUSTOMIZATION
+  // Let loopopt generate memcpy/memset calls when it seems profitable to do so.
+  if (interferesWithLoopOpt(CurLoop, BECount))
+    return false;
+#endif // INTEL_CUSTOMIZATION
   SmallVector<BasicBlock *, 8> ExitBlocks;
   CurLoop->getUniqueExitBlocks(ExitBlocks);
 
