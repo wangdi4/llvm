@@ -1323,6 +1323,18 @@ public:
 
     SmallVector<unsigned, 2> ISDs;
     unsigned SingleCallCost = 10; // Library call cost. Make it expensive.
+#if INTEL_CUSTOMIZATION
+    // According to Numerics team data float data type Low Accuracy math
+    // functions have 20 instructions on average.  Double data type Low
+    // Accuracy functions have 31 instructions on average.
+    // std math library contains High Accuracy function which are normally 30%
+    // more instructions inside, yielding ~26 insts for float functions and
+    // ~41 insts for double data type.
+    if (RetTy->getScalarType()->isFloatTy())
+      SingleCallCost = 26;
+    else if (RetTy->getScalarType()->isDoubleTy())
+      SingleCallCost = 41;
+#endif // #if INTEL_CUSTOMIZATION
     switch (IID) {
     default: {
       // Assume that we need to scalarize this intrinsic.

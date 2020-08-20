@@ -149,25 +149,6 @@ unsigned VPlanCostModelProprietary::getArithmeticInstructionCost(
   return BaseCMCost;
 }
 
-unsigned VPlanCostModelProprietary::getIntrinsicInstrCost(
-  Intrinsic::ID ID, const CallBase &CB, unsigned VF,
-  VPCallInstruction::CallVecScenariosTy VS) {
-  // Catch Library intrinsics with non void return type and special case them.
-  // Return base CM cost otherwise.
-  //
-  // TODO: we need a new TTI interface for SVML calls.  The new interface
-  // should not require intrin ID as not all calls that can be mapped to SVML
-  // calls are intrinsics.  Until that, keep this customization to handle at
-  // least intrinsics that are vectorized using SVML. Other SVML-vectorized
-  // library calls will be handled later.
-  if (VF > 1 && !CB.getType()->isVoidTy() &&
-      VS == VPCallInstruction::CallVecScenariosTy::LibraryFunc)
-    return TTI->getNumberOfParts(getWidenedType(CB.getType(), VF)) *
-      VPlanCostModel::getIntrinsicInstrCost(ID, CB, 1, VS);
-
-  return VPlanCostModel::getIntrinsicInstrCost(ID, CB, VF, VS);
-}
-
 const RegDDRef* VPlanCostModelProprietary::getHIRMemref(
   const VPInstruction *VPInst) {
   unsigned Opcode = VPInst->getOpcode();

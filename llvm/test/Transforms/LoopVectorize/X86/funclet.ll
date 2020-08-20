@@ -19,7 +19,9 @@ for.cond.cleanup:                                 ; preds = %for.body
 
 for.body:                                         ; preds = %for.body, %catch
   %i.07 = phi i32 [ 0, %catch ], [ %inc, %for.body ]
-  %call = call double @floor(double 1.0) #1 [ "funclet"(token %1) ]
+; INTEL_CUSTOMIZATION
+  %call = call double @fabs(double 1.0) #1 [ "funclet"(token %1) ]
+; end INTEL_CUSTOMIZATION
   %inc = add nuw nsw i32 %i.07, 1
   %exitcond = icmp eq i32 %inc, 1024
   br i1 %exitcond, label %for.cond.cleanup, label %for.body
@@ -34,14 +36,14 @@ unreachable:                                      ; preds = %entry
 ; CHECK-LABEL: define void @test1(
 ; CHECK: %[[cpad:.*]] = catchpad within {{.*}} [i8* null, i32 64, i8* null]
 ; INTEL_CUSTOMIZATION
-; CHECK: call <16 x double> @llvm.floor.v16f64(<16 x double> {{.*}}) #1 [ "funclet"(token %[[cpad]]) ]
+; CHECK: call <16 x double> @llvm.fabs.v16f64(<16 x double> {{.*}}) #1 [ "funclet"(token %[[cpad]]) ]
 ; end INTEL_CUSTOMIZATION
 
 declare x86_stdcallcc void @_CxxThrowException(i8*, i8*)
 
 declare i32 @__CxxFrameHandler3(...)
-
-declare double @floor(double) #1
-
+; INTEL_CUSTOMIZATION
+declare double @fabs(double) #1
+; end INTEL_CUSTOMIZATION
 attributes #0 = { "target-features"="+sse2" }
 attributes #1 = { nounwind readnone }

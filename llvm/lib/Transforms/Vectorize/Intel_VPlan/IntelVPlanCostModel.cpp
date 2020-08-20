@@ -396,27 +396,18 @@ unsigned VPlanCostModel::getIntrinsicInstrCost(
                                  TTI::TCK_RecipThroughput) == 0)
     return 0;
 
-  // isTriviallyVectorizable(ID) is special cased in VPlan CG and
-  // do not listen to VS settings.  Special case them here until
-  // is fixed in CG and in VPlanCallVecDecisions::analyzeCall.
-  //
-  // Also special case VF == 1 as vectorization scenario may be not set.
-  //
-  // TODO:
-  // We are introducing 'TrivialVectorIntrinsic' scenario for such intrinsics.
-  // The code below has to be updated once the new scenario is available.
-  if (isTriviallyVectorizable(ID) || VF == 1)
-    VS = VPCallInstruction::CallVecScenariosTy::VectorVariant;
-
   switch (VS) {
     case VPCallInstruction::CallVecScenariosTy::Undefined:
+      // For VF = 1 vectorization scenario is not set by design.
+      if (VF == 1)
+        break;
       // The calls that missed the analysis have Unknown cost.
       return UnknownCost;
     case VPCallInstruction::CallVecScenariosTy::DoNotWiden:
       return
         TTI->getIntrinsicInstrCost(IntrinsicCostAttributes(ID, CB, 1),
                                    TTI::TCK_RecipThroughput);
-    case VPCallInstruction::CallVecScenariosTy::Serialization:
+    case VPCallInstruction::CallVecScenariosTy::Serialization: {
       // For a serialized call, such as: float call @foo(double arg1, int arg2)
       // calculate the cost of vectorized code that way:
       // Cost of extracting VF double elements for arg1 +
@@ -426,7 +417,7 @@ unsigned VPlanCostModel::getIntrinsicInstrCost(
       // TODO:
       // Here we ignore the fact that when serialized code feeds another
       // serialized code insert + extract in between can be optimized out.
-      return
+      unsigned Cost =
         // The sum of costs of 'devectorizing' all args of the call.
         std::accumulate(CB.arg_begin(), CB.arg_end(), 0,
           [=](unsigned Cost, const Use& Arg) {
@@ -448,6 +439,23 @@ unsigned VPlanCostModel::getIntrinsicInstrCost(
         (isVectorizableTy(CB.getType()) && !CB.getType()->isVoidTy() ?
          getInsertExtractElementsCost(
            Instruction::InsertElement, CB.getType(), VF) : 0);
+      return Cost;
+    }
+
+    case VPCallInstruction::CallVecScenariosTy::LibraryFunc:
+      // Catch Library intrinsics with non void return type and special case
+      // them.
+      //
+      // TODO: we need a new TTI interface for SVML calls.  The new interface
+      // should not require intrin ID as not all calls that can be mapped to
+      // SVML calls are intrinsics.  Until that, keep this customization to
+      // handle at least intrinsics that are vectorized using SVML. Other
+      // SVML-vectorized library calls will be handled later.
+      if (TLI->isSVMLEnabled() && VF > 1 && !CB.getType()->isVoidTy())
+        return TTI->getNumberOfParts(getWidenedType(CB.getType(), VF)) *
+          VPlanCostModel::getIntrinsicInstrCost(ID, CB, 1, VS);
+      break;
+
     default:
       break;
   }

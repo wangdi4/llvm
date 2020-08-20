@@ -15,14 +15,16 @@ target triple = "x86_64-apple-macosx10.8.0"
 
 define i32 @ceil(i32 %arg) {
 ; SSE2-LABEL: 'ceil'
-; SSE2-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: %F32 = call float @llvm.ceil.f32(float undef)
-; SSE2-NEXT:  Cost Model: Found an estimated cost of 43 for instruction: %V4F32 = call <4 x float> @llvm.ceil.v4f32(<4 x float> undef)
-; SSE2-NEXT:  Cost Model: Found an estimated cost of 86 for instruction: %V8F32 = call <8 x float> @llvm.ceil.v8f32(<8 x float> undef)
-; SSE2-NEXT:  Cost Model: Found an estimated cost of 172 for instruction: %V16F32 = call <16 x float> @llvm.ceil.v16f32(<16 x float> undef)
-; SSE2-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: %F64 = call double @llvm.ceil.f64(double undef)
-; SSE2-NEXT:  Cost Model: Found an estimated cost of 21 for instruction: %V2F64 = call <2 x double> @llvm.ceil.v2f64(<2 x double> undef)
-; SSE2-NEXT:  Cost Model: Found an estimated cost of 42 for instruction: %V4F64 = call <4 x double> @llvm.ceil.v4f64(<4 x double> undef)
-; SSE2-NEXT:  Cost Model: Found an estimated cost of 84 for instruction: %V8F64 = call <8 x double> @llvm.ceil.v8f64(<8 x double> undef)
+; INTEL_CUSTOMIZATION
+; SSE2-NEXT:  Cost Model: Found an estimated cost of 26 for instruction: %F32 = call float @llvm.ceil.f32(float undef)
+; SSE2-NEXT:  Cost Model: Found an estimated cost of 107 for instruction: %V4F32 = call <4 x float> @llvm.ceil.v4f32(<4 x float> undef)
+; SSE2-NEXT:  Cost Model: Found an estimated cost of 214 for instruction: %V8F32 = call <8 x float> @llvm.ceil.v8f32(<8 x float> undef)
+; SSE2-NEXT:  Cost Model: Found an estimated cost of 428 for instruction: %V16F32 = call <16 x float> @llvm.ceil.v16f32(<16 x float> undef)
+; SSE2-NEXT:  Cost Model: Found an estimated cost of 41 for instruction: %F64 = call double @llvm.ceil.f64(double undef)
+; SSE2-NEXT:  Cost Model: Found an estimated cost of 83 for instruction: %V2F64 = call <2 x double> @llvm.ceil.v2f64(<2 x double> undef)
+; SSE2-NEXT:  Cost Model: Found an estimated cost of 166 for instruction: %V4F64 = call <4 x double> @llvm.ceil.v4f64(<4 x double> undef)
+; SSE2-NEXT:  Cost Model: Found an estimated cost of 332 for instruction: %V8F64 = call <8 x double> @llvm.ceil.v8f64(<8 x double> undef)
+; end INTEL_CUSTOMIZATION
 ; SSE2-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: ret i32 undef
 ;
 ; SSE42-LABEL: 'ceil'
@@ -95,14 +97,16 @@ define i32 @ceil(i32 %arg) {
 
 define i32 @floor(i32 %arg) {
 ; SSE2-LABEL: 'floor'
-; SSE2-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: %F32 = call float @llvm.floor.f32(float undef)
-; SSE2-NEXT:  Cost Model: Found an estimated cost of 43 for instruction: %V4F32 = call <4 x float> @llvm.floor.v4f32(<4 x float> undef)
-; SSE2-NEXT:  Cost Model: Found an estimated cost of 86 for instruction: %V8F32 = call <8 x float> @llvm.floor.v8f32(<8 x float> undef)
-; SSE2-NEXT:  Cost Model: Found an estimated cost of 172 for instruction: %V16F32 = call <16 x float> @llvm.floor.v16f32(<16 x float> undef)
-; SSE2-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: %F64 = call double @llvm.floor.f64(double undef)
-; SSE2-NEXT:  Cost Model: Found an estimated cost of 21 for instruction: %V2F64 = call <2 x double> @llvm.floor.v2f64(<2 x double> undef)
-; SSE2-NEXT:  Cost Model: Found an estimated cost of 42 for instruction: %V4F64 = call <4 x double> @llvm.floor.v4f64(<4 x double> undef)
-; SSE2-NEXT:  Cost Model: Found an estimated cost of 84 for instruction: %V8F64 = call <8 x double> @llvm.floor.v8f64(<8 x double> undef)
+; INTEL_CUSTOMIZATION
+; SSE2-NEXT:  Cost Model: Found an estimated cost of 26 for instruction: %F32 = call float @llvm.floor.f32(float undef)
+; SSE2-NEXT:  Cost Model: Found an estimated cost of 107 for instruction: %V4F32 = call <4 x float> @llvm.floor.v4f32(<4 x float> undef)
+; SSE2-NEXT:  Cost Model: Found an estimated cost of 214 for instruction: %V8F32 = call <8 x float> @llvm.floor.v8f32(<8 x float> undef)
+; SSE2-NEXT:  Cost Model: Found an estimated cost of 428 for instruction: %V16F32 = call <16 x float> @llvm.floor.v16f32(<16 x float> undef)
+; SSE2-NEXT:  Cost Model: Found an estimated cost of 41 for instruction: %F64 = call double @llvm.floor.f64(double undef)
+; SSE2-NEXT:  Cost Model: Found an estimated cost of 83 for instruction: %V2F64 = call <2 x double> @llvm.floor.v2f64(<2 x double> undef)
+; SSE2-NEXT:  Cost Model: Found an estimated cost of 166 for instruction: %V4F64 = call <4 x double> @llvm.floor.v4f64(<4 x double> undef)
+; SSE2-NEXT:  Cost Model: Found an estimated cost of 332 for instruction: %V8F64 = call <8 x double> @llvm.floor.v8f64(<8 x double> undef)
+; end INTEL_CUSTOMIZATION
 ; SSE2-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: ret i32 undef
 ;
 ; SSE42-LABEL: 'floor'
@@ -175,14 +179,16 @@ define i32 @floor(i32 %arg) {
 
 define i32 @nearbyint(i32 %arg) {
 ; SSE2-LABEL: 'nearbyint'
-; SSE2-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: %F32 = call float @llvm.nearbyint.f32(float undef)
-; SSE2-NEXT:  Cost Model: Found an estimated cost of 43 for instruction: %V4F32 = call <4 x float> @llvm.nearbyint.v4f32(<4 x float> undef)
-; SSE2-NEXT:  Cost Model: Found an estimated cost of 86 for instruction: %V8F32 = call <8 x float> @llvm.nearbyint.v8f32(<8 x float> undef)
-; SSE2-NEXT:  Cost Model: Found an estimated cost of 172 for instruction: %V16F32 = call <16 x float> @llvm.nearbyint.v16f32(<16 x float> undef)
-; SSE2-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: %F64 = call double @llvm.nearbyint.f64(double undef)
-; SSE2-NEXT:  Cost Model: Found an estimated cost of 21 for instruction: %V2F64 = call <2 x double> @llvm.nearbyint.v2f64(<2 x double> undef)
-; SSE2-NEXT:  Cost Model: Found an estimated cost of 42 for instruction: %V4F64 = call <4 x double> @llvm.nearbyint.v4f64(<4 x double> undef)
-; SSE2-NEXT:  Cost Model: Found an estimated cost of 84 for instruction: %V8F64 = call <8 x double> @llvm.nearbyint.v8f64(<8 x double> undef)
+; INTEL_CUSTOMIZATION
+; SSE2-NEXT:  Cost Model: Found an estimated cost of 26 for instruction: %F32 = call float @llvm.nearbyint.f32(float undef)
+; SSE2-NEXT:  Cost Model: Found an estimated cost of 107 for instruction: %V4F32 = call <4 x float> @llvm.nearbyint.v4f32(<4 x float> undef)
+; SSE2-NEXT:  Cost Model: Found an estimated cost of 214 for instruction: %V8F32 = call <8 x float> @llvm.nearbyint.v8f32(<8 x float> undef)
+; SSE2-NEXT:  Cost Model: Found an estimated cost of 428 for instruction: %V16F32 = call <16 x float> @llvm.nearbyint.v16f32(<16 x float> undef)
+; SSE2-NEXT:  Cost Model: Found an estimated cost of 41 for instruction: %F64 = call double @llvm.nearbyint.f64(double undef)
+; SSE2-NEXT:  Cost Model: Found an estimated cost of 83 for instruction: %V2F64 = call <2 x double> @llvm.nearbyint.v2f64(<2 x double> undef)
+; SSE2-NEXT:  Cost Model: Found an estimated cost of 166 for instruction: %V4F64 = call <4 x double> @llvm.nearbyint.v4f64(<4 x double> undef)
+; SSE2-NEXT:  Cost Model: Found an estimated cost of 332 for instruction: %V8F64 = call <8 x double> @llvm.nearbyint.v8f64(<8 x double> undef)
+; end INTEL_CUSTOMIZATION
 ; SSE2-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: ret i32 undef
 ;
 ; SSE42-LABEL: 'nearbyint'
@@ -255,14 +261,16 @@ define i32 @nearbyint(i32 %arg) {
 
 define i32 @rint(i32 %arg) {
 ; SSE2-LABEL: 'rint'
-; SSE2-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: %F32 = call float @llvm.rint.f32(float undef)
-; SSE2-NEXT:  Cost Model: Found an estimated cost of 43 for instruction: %V4F32 = call <4 x float> @llvm.rint.v4f32(<4 x float> undef)
-; SSE2-NEXT:  Cost Model: Found an estimated cost of 86 for instruction: %V8F32 = call <8 x float> @llvm.rint.v8f32(<8 x float> undef)
-; SSE2-NEXT:  Cost Model: Found an estimated cost of 172 for instruction: %V16F32 = call <16 x float> @llvm.rint.v16f32(<16 x float> undef)
-; SSE2-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: %F64 = call double @llvm.rint.f64(double undef)
-; SSE2-NEXT:  Cost Model: Found an estimated cost of 21 for instruction: %V2F64 = call <2 x double> @llvm.rint.v2f64(<2 x double> undef)
-; SSE2-NEXT:  Cost Model: Found an estimated cost of 42 for instruction: %V4F64 = call <4 x double> @llvm.rint.v4f64(<4 x double> undef)
-; SSE2-NEXT:  Cost Model: Found an estimated cost of 84 for instruction: %V8F64 = call <8 x double> @llvm.rint.v8f64(<8 x double> undef)
+; INTEL_CUSTOMIZATION
+; SSE2-NEXT:  Cost Model: Found an estimated cost of 26 for instruction: %F32 = call float @llvm.rint.f32(float undef)
+; SSE2-NEXT:  Cost Model: Found an estimated cost of 107 for instruction: %V4F32 = call <4 x float> @llvm.rint.v4f32(<4 x float> undef)
+; SSE2-NEXT:  Cost Model: Found an estimated cost of 214 for instruction: %V8F32 = call <8 x float> @llvm.rint.v8f32(<8 x float> undef)
+; SSE2-NEXT:  Cost Model: Found an estimated cost of 428 for instruction: %V16F32 = call <16 x float> @llvm.rint.v16f32(<16 x float> undef)
+; SSE2-NEXT:  Cost Model: Found an estimated cost of 41 for instruction: %F64 = call double @llvm.rint.f64(double undef)
+; SSE2-NEXT:  Cost Model: Found an estimated cost of 83 for instruction: %V2F64 = call <2 x double> @llvm.rint.v2f64(<2 x double> undef)
+; SSE2-NEXT:  Cost Model: Found an estimated cost of 166 for instruction: %V4F64 = call <4 x double> @llvm.rint.v4f64(<4 x double> undef)
+; SSE2-NEXT:  Cost Model: Found an estimated cost of 332 for instruction: %V8F64 = call <8 x double> @llvm.rint.v8f64(<8 x double> undef)
+; end INTEL_CUSTOMIZATION
 ; SSE2-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: ret i32 undef
 ;
 ; SSE42-LABEL: 'rint'
@@ -335,14 +343,16 @@ define i32 @rint(i32 %arg) {
 
 define i32 @trunc(i32 %arg) {
 ; SSE2-LABEL: 'trunc'
-; SSE2-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: %F32 = call float @llvm.trunc.f32(float undef)
-; SSE2-NEXT:  Cost Model: Found an estimated cost of 43 for instruction: %V4F32 = call <4 x float> @llvm.trunc.v4f32(<4 x float> undef)
-; SSE2-NEXT:  Cost Model: Found an estimated cost of 86 for instruction: %V8F32 = call <8 x float> @llvm.trunc.v8f32(<8 x float> undef)
-; SSE2-NEXT:  Cost Model: Found an estimated cost of 172 for instruction: %V16F32 = call <16 x float> @llvm.trunc.v16f32(<16 x float> undef)
-; SSE2-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: %F64 = call double @llvm.trunc.f64(double undef)
-; SSE2-NEXT:  Cost Model: Found an estimated cost of 21 for instruction: %V2F64 = call <2 x double> @llvm.trunc.v2f64(<2 x double> undef)
-; SSE2-NEXT:  Cost Model: Found an estimated cost of 42 for instruction: %V4F64 = call <4 x double> @llvm.trunc.v4f64(<4 x double> undef)
-; SSE2-NEXT:  Cost Model: Found an estimated cost of 84 for instruction: %V8F64 = call <8 x double> @llvm.trunc.v8f64(<8 x double> undef)
+; INTEL_CUSTOMIZATION
+; SSE2-NEXT:  Cost Model: Found an estimated cost of 26 for instruction: %F32 = call float @llvm.trunc.f32(float undef)
+; SSE2-NEXT:  Cost Model: Found an estimated cost of 107 for instruction: %V4F32 = call <4 x float> @llvm.trunc.v4f32(<4 x float> undef)
+; SSE2-NEXT:  Cost Model: Found an estimated cost of 214 for instruction: %V8F32 = call <8 x float> @llvm.trunc.v8f32(<8 x float> undef)
+; SSE2-NEXT:  Cost Model: Found an estimated cost of 428 for instruction: %V16F32 = call <16 x float> @llvm.trunc.v16f32(<16 x float> undef)
+; SSE2-NEXT:  Cost Model: Found an estimated cost of 41 for instruction: %F64 = call double @llvm.trunc.f64(double undef)
+; SSE2-NEXT:  Cost Model: Found an estimated cost of 83 for instruction: %V2F64 = call <2 x double> @llvm.trunc.v2f64(<2 x double> undef)
+; SSE2-NEXT:  Cost Model: Found an estimated cost of 166 for instruction: %V4F64 = call <4 x double> @llvm.trunc.v4f64(<4 x double> undef)
+; SSE2-NEXT:  Cost Model: Found an estimated cost of 332 for instruction: %V8F64 = call <8 x double> @llvm.trunc.v8f64(<8 x double> undef)
+; end INTEL_CUSTOMIZATION
 ; SSE2-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: ret i32 undef
 ;
 ; SSE42-LABEL: 'trunc'
