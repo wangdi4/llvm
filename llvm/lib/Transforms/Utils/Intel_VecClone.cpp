@@ -786,10 +786,7 @@ Instruction *VecCloneImpl::expandReturn(Function *Clone, BasicBlock *EntryBlock,
   // For both cases, generate a vector alloca so that we can later load from it
   // and return the vector temp from the function. The alloca is used to load
   // and store from so that the scalar loop contains load/store/gep
-  // instructions. This enables AVR construction to remain straightforward.
-  // E.g., we don't need to worry about figuring out how to represent
-  // insert/extract when building AVR nodes. This keeps consistent with how ICC
-  // is operating.
+  // instructions.
   //
   // Additionally, for case 1 we must generate a gep and store after the
   // instruction that defines the original return temp, so that we can store
@@ -1683,11 +1680,6 @@ void VecCloneImpl::insertSplitForMaskedVariant(Function *Clone,
   // Generate the compare instruction to see if the mask bit is on. In ICC, we
   // use the movemask intrinsic which takes both float/int mask registers and
   // converts to an integer scalar value, one bit representing each element.
-  // AVR construction will be complicated if this intrinsic is introduced here,
-  // so the current solution is to just generate either an integer or floating
-  // point compare instruction for now. This may change anyway if we decide to
-  // go to a vector of i1 values for the mask. I suppose this would be one
-  // positive reason to use vector of i1.
   if (CompareTy->isIntegerTy()) {
     Zero = GeneralUtils::getConstantValue(CompareTy, Clone->getContext(),
                                                0);
