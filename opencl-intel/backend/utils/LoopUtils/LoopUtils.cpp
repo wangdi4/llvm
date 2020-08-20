@@ -333,7 +333,7 @@ Value* generateRemainderMask(unsigned packetWidth, Value* loopLen, BasicBlock* B
   Instruction* lenInsertVec = InsertElementInst::Create(loopLenVec, loopLen, constZero, "", BB);
 
   Constant *shuffleMask =
-      ConstantVector::getSplat(ElementCount(packetWidth, false), constZero);
+      ConstantVector::getSplat(ElementCount::getFixed(packetWidth), constZero);
   Instruction* lenSplatVec = new ShuffleVectorInst(lenInsertVec, loopLenVec, shuffleMask, "", BB);
 
   // Generate mask.
