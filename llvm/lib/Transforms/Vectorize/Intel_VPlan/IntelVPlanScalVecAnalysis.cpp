@@ -210,10 +210,22 @@ bool VPlanScalVecAnalysis::computeSpecialInstruction(
       VectorVariant *VecVariant =
           const_cast<VectorVariant *>(VPCall->getVectorVariant());
       std::vector<VectorKind> Parms = VecVariant->getParameters();
+      bool IsIntelIndirectCall = VPCall->isIntelIndirectCall();
+      if (IsIntelIndirectCall) {
+        // For __intel_indirect_calls, first argument represents pointer to call
+        // which is not part of corresponding VectorVariant's parameters list.
+        // Determine it's nature using DA.
+        VPValue *FirstArg = VPCall->getArgOperand(0);
+        SVAKind FirstArgKind = Plan->getVPlanDA()->isDivergent(*FirstArg)
+                                   ? SVAKind::Vector
+                                   : SVAKind::FirstScalar;
+        setSVAKindForOperand(VPCall, 0 /*FirstArg*/, FirstArgKind);
+      }
 
-      for (unsigned ArgIdx = 0; ArgIdx < VPCall->getNumArgOperands();
-           ++ArgIdx) {
-        if (Parms[ArgIdx].isVector())
+      for (unsigned ArgIdx = IsIntelIndirectCall ? 1 : 0, ParmIdx = 0;
+           ArgIdx < VPCall->getNumArgOperands(); ++ArgIdx, ++ParmIdx) {
+        assert(ParmIdx < Parms.size() && "Trying to access invalid parameter.");
+        if (Parms[ParmIdx].isVector())
           setSVAKindForOperand(VPCall, ArgIdx, SVAKind::Vector);
         else
           setSVAKindForOperand(VPCall, ArgIdx, SVAKind::FirstScalar);
