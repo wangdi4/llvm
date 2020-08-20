@@ -463,13 +463,16 @@ void Driver::addIntelArgs(DerivedArgList &DAL, const InputArgList &Args,
   if (Arg *A = Args.getLastArg(options::OPT_Ofast)) {
     StringRef Opt(Args.MakeArgString(A->getAsString(Args)));
     bool hasXOpt = false;
-    if (Arg *A = Args.getLastArg(options::OPT_x)) {
-      StringRef Arch = A->getValue();
-      hasXOpt = !types::lookupTypeForTypeSpecifier(Arch.data());
-    }
+    if (IsCLMode())
+      hasXOpt = Args.hasArg(options::OPT__SLASH_Qx);
+    else
+      if (Arg *A = Args.getLastArg(options::OPT_x)) {
+        StringRef Arch = A->getValue();
+        hasXOpt = !types::lookupTypeForTypeSpecifier(Arch.data());
+      }
     if (!Opt.contains("O")) {
       if (!hasXOpt)
-        addClaim(options::OPT_x, "HOST");
+        addClaim(IsCLMode() ? options::OPT__SLASH_Qx : options::OPT_x, "HOST");
       if (!Args.hasFlag(options::OPT_flto, options::OPT_flto_EQ,
                         options::OPT_fno_lto, false)) {
         // check to make sure that if LTO is disabled, it is done after fast.
