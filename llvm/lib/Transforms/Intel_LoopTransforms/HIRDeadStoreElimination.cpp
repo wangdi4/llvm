@@ -234,16 +234,29 @@ FunctionPass *llvm::createHIRDeadStoreEliminationPass() {
 // A[i]   = .
 static bool
 overlapsWithAnotherGroup(HIRLoopLocality::RefGroupTy &RefGroup,
-                         HIRLoopLocality::RefGroupVecTy &EqualityGroups,
-                         const RegDDRef *FirstRef) {
-  auto *DestTy = FirstRef->getDestType();
+                         HIRLoopLocality::RefGroupVecTy &EqualityGroups) {
+  auto *FirstRef = RefGroup.front();
 
   // Can happen for fake refs with opqaue types.
-  if (!DestTy->isSized()) {
+  if (!FirstRef->getDestType()->isSized()) {
     return true;
   }
 
-  uint64_t SizeofRef = FirstRef->getCanonExprUtils().getTypeSizeInBytes(DestTy);
+  // A[0] and (i32*)A[0] are put in the same group. We need to take the max size
+  // to check overlap correctly.
+  auto GetMaxRefSize = [](HIRLoopLocality::RefGroupTy &Group) {
+    uint64_t Size = 0;
+    for (auto *Ref : Group) {
+      uint64_t RefSize = Ref->getDestTypeSizeInBytes();
+      if (RefSize > Size) {
+        Size = RefSize;
+      }
+    }
+
+    return Size;
+  };
+
+  uint64_t RefSize = GetMaxRefSize(RefGroup);
 
   for (auto &TmpRefGroup : EqualityGroups) {
     auto *CurRef = TmpRefGroup.front();
@@ -262,9 +275,24 @@ overlapsWithAnotherGroup(HIRLoopLocality::RefGroupTy &RefGroup,
       return true;
     }
 
-    uint64_t Dist = std::abs(Distance);
+    if (Distance <= 0) {
+      // Handles this case-
+      //
+      // %A is i8* type
+      // FirstRef - (i16*)(%A)[0]
+      // CurRef - (%A)[1]
+      //
+      if ((uint64_t)(-Distance) < RefSize) {
+        return true;
+      }
 
-    if (Dist < SizeofRef) {
+    } else if ((uint64_t)Distance < GetMaxRefSize(TmpRefGroup)) {
+      // Handles this case-
+      //
+      // %A is i8* type
+      // FirstRef - (%A)[1]
+      // CurRef - (i16*)(%A)[0]
+      //
       return true;
     }
   }
@@ -556,7 +584,7 @@ bool HIRDeadStoreElimination::run(HLRegion &Region, HLLoop *Lp, bool IsRegion) {
     }
 
     if (!UniqueGroupSymbases.count(Ref->getSymbase())) {
-      if (overlapsWithAnotherGroup(RefGroup, EqualityGroups, Ref)) {
+      if (overlapsWithAnotherGroup(RefGroup, EqualityGroups)) {
         continue;
       }
     }
@@ -590,7 +618,11 @@ bool HIRDeadStoreElimination::run(HLRegion &Region, HLLoop *Lp, bool IsRegion) {
         auto *PrevRef = RefGroup[I];
 
         // Skip if we encounter a load or fake ref in between two stores.
-        if (PrevRef->isRval() || PrevRef->isFake()) {
+        // Also skip if the PostDomRef's size is smaller than PrevRef as it does
+        // not make PrevRef completely dead.
+        if (PrevRef->isRval() || PrevRef->isFake() ||
+            PrevRef->getDestTypeSizeInBytes() >
+                PostDomRef->getDestTypeSizeInBytes()) {
           break;
         }
 
