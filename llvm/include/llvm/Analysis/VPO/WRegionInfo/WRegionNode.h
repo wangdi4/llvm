@@ -243,6 +243,39 @@ public:
   /// function which is accepted by the OpenMP runtime.
   bool needsOutlining() const;
 
+  /// \name Utility Functions to get a Clause Pointer if supported by a WRegion.
+  /// If not supported returns a nullptr.
+  /// @{
+  SharedClause *getSharedIfSupported() {
+    return (canHaveShared() ? &getShared()
+                            : static_cast<SharedClause *>(nullptr));
+  }
+  PrivateClause *getPrivIfSupported() {
+    return (canHavePrivate() ? &getPriv()
+                             : static_cast<PrivateClause *>(nullptr));
+  }
+  FirstprivateClause *getFprivIfSupported() {
+    return (canHaveFirstprivate() ? &getFpriv()
+                                  : static_cast<FirstprivateClause *>(nullptr));
+  }
+  LastprivateClause *getLprivIfSupported() {
+    return (canHaveLastprivate() ? &getLpriv()
+                                 : static_cast<LastprivateClause *>(nullptr));
+  }
+  ReductionClause *getRedIfSupported() {
+    return (canHaveReduction() ? &getRed()
+                               : static_cast<ReductionClause *>(nullptr));
+  }
+  LinearClause *getLinearIfSupported() {
+    return (canHaveLinear() ? &getLinear()
+                            : static_cast<LinearClause *>(nullptr));
+  }
+  MapClause *getMapIfSupported() {
+    return (canHaveMap() ? &getMap() : static_cast<MapClause *>(nullptr));
+  }
+
+  /// @}
+
   // Below are virtual functions to get/set clause and other information of
   // the WRN. They should never be called; calling them indicates intention
   // to access clause info for a WRN that does not allow such clause (eg, a

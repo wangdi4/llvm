@@ -26,7 +26,7 @@
 ; CHECK-DAG: define internal void @__omp_offloading_804_52009c5_foo_l5([100 x i32]*{{ *%[^,]*}}, i32*{{ *%[^,]*}})
 ; In addition, check that the outlined function for PARALLEL.LOOP does not
 ; take 'a' by a pointer argument, because it may access it as a global variable.
-; CHECK-DAG: define internal void @foo.DIR.OMP.PARALLEL.LOOP{{.*}}(i32*{{ *%[^,]*}}, i32*{{ *%[^,]*}}, i32*{{ *%[^,]*}}, i32*{{ *%[^,]*}})
+; CHECK-DAG: define internal void @foo.DIR.OMP.PARALLEL.LOOP{{.*}}(i32*{{ *%[^,]*}}, i32*{{ *%[^,]*}}, [100 x i32]*{{ *%[^,]*}}, i32*{{ *%[^,]*}}, i32*{{ *%[^,]*}})
 
 source_filename = "target.c"
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
