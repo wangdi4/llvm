@@ -2850,6 +2850,11 @@ public:
   Address CreateMemTempWithoutCast(QualType T, CharUnits Align,
                                    const Twine &Name = "tmp");
 
+#if INTEL_COLLAB
+  Address CreateMemTempPossiblyCasted(QualType T, CharUnits Align,
+                                      const Twine &Name = "tmp");
+#endif // INTEL_COLLAB
+
   /// CreateAggTemp - Create a temporary memory object for the given
   /// aggregate type.
   AggValueSlot CreateAggTemp(QualType T, const Twine &Name = "tmp",
