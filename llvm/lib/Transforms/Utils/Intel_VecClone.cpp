@@ -793,9 +793,18 @@ Instruction *VecCloneImpl::expandReturn(Function *Clone, BasicBlock *EntryBlock,
   // the result into the proper index of the return vector. For case 2, we must
   // go into the loop and replace the old scalar alloca reference with the one
   // just created as vector.
+  //
+  // Finally, the vector alloca might already exist. This happends when the
+  // return value is also a function argument. In this case, the vector alloca
+  // has already been created in expandVectorParameters().
 
   Instruction *VecReturn = NULL;
   VectorType *ReturnType = cast<VectorType>(Clone->getReturnType());
+
+  if (isa<Argument>(FuncReturn->getReturnValue()))
+    for (auto *Param : VectorParmMap)
+      if (Param->VectorParm == FuncReturn->getReturnValue())
+        return Param->VectorParmCast;
 
   if (!Alloca) {
 
@@ -835,6 +844,7 @@ Instruction *VecCloneImpl::expandReturn(Function *Clone, BasicBlock *EntryBlock,
                           ValToStore->getType()));
     VecStore->insertAfter(VecGep);
 
+    return VecReturn;
   } else {
 
     // Case 2
@@ -852,7 +862,7 @@ Instruction *VecCloneImpl::expandReturn(Function *Clone, BasicBlock *EntryBlock,
       // There's already a vector alloca created for the return, which is the
       // same one used for the parameter. E.g., we're returning the updated
       // parameter.
-      VecReturn = VectorParmMap[ParmIdx]->VectorParmCast;
+      return VectorParmMap[ParmIdx]->VectorParmCast;
     } else {
       // A new return vector is needed because we do not load the return value
       // from an alloca.
@@ -861,10 +871,10 @@ Instruction *VecCloneImpl::expandReturn(Function *Clone, BasicBlock *EntryBlock,
       PRef->VectorParm = Alloca;
       PRef->VectorParmCast = VecReturn;
       VectorParmMap.push_back(PRef);
+      return VecReturn;
     }
   }
-
-  return VecReturn;
+  return nullptr;
 }
 
 Instruction *VecCloneImpl::expandVectorParametersAndReturn(
@@ -878,8 +888,9 @@ Instruction *VecCloneImpl::expandVectorParametersAndReturn(
   // If the function returns void, then don't attempt to expand to vector.
   Instruction *ExpandedReturn = ReturnBlock->getTerminator();
   if (!Clone->getReturnType()->isVoidTy()) {
-    ExpandedReturn = expandReturn(Clone, EntryBlock, LoopBlock, ReturnBlock,
-                                  VectorParmMap);
+    ExpandedReturn =
+        expandReturn(Clone, EntryBlock, LoopBlock, ReturnBlock, VectorParmMap);
+    assert(ExpandedReturn && "The return value has not been widened.");
   }
 
   // So, essentially what has been done to this point is the creation and
