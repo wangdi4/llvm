@@ -1838,11 +1838,12 @@ void ItaniumRecordLayoutBuilder::LayoutField(const FieldDecl *D,
   CharUnits EffectiveFieldSize;
 
   auto setDeclInfo = [&](bool IsIncompleteArrayType) {
-    TypeInfo TI = Context.getTypeInfo(D->getType());
-    FieldAlign = Context.toCharUnitsFromBits(TI.Align);
+    auto TI = Context.getTypeInfoInChars(D->getType());
+    FieldAlign = TI.second;
     // Flexible array members don't have any size, but they have to be
     // aligned appropriately for their element type.
     EffectiveFieldSize = FieldSize =
+<<<<<<< HEAD
         IsIncompleteArrayType ? CharUnits::Zero()
 #if INTEL_CUSTOMIZATION
             // toCharUnitsFromBits always rounds down and is depended on, but
@@ -1852,6 +1853,10 @@ void ItaniumRecordLayoutBuilder::LayoutField(const FieldDecl *D,
                                                        : CharUnits::One()));
 #endif // INTEL_CUSTOMIZATION
     AlignIsRequired = TI.AlignIsRequired;
+=======
+        IsIncompleteArrayType ? CharUnits::Zero() : TI.first;
+    AlignIsRequired = Context.getTypeInfo(D->getType()).AlignIsRequired;
+>>>>>>> 1e7ec4842c1a8b0c686e5674e215012867938a8d
   };
 
   if (D->getType()->isIncompleteArrayType()) {
