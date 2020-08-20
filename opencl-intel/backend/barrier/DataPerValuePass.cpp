@@ -21,6 +21,7 @@
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/InstIterator.h"
 #include "llvm/IR/CFG.h"
+#include "llvm/Support/MathExtras.h"
 #include "llvm/Support/raw_ostream.h"
 
 using namespace Intel::OpenCL::DeviceBackend;
@@ -313,7 +314,7 @@ namespace intel {
     //TODO: check what is better to use for alignment?
     //unsigned int alignment = m_pDL->getABITypeAlignment(pType);
     unsigned int alignment = (allocaAlignment) ? allocaAlignment : m_pDL->getPrefTypeAlignment(pType);
-    unsigned int sizeInBits = m_pDL->getTypeSizeInBits(pType);
+    unsigned int sizeInBits = m_pDL->getTypeStoreSizeInBits(pType);
 
     Type *pElementType = pType;
     VectorType* pVecType = dyn_cast<VectorType>(pType);
@@ -325,7 +326,7 @@ namespace intel {
       //we have a Value with base type i1
       m_oneBitElementValues.insert(pVal);
       //We will extend i1 to i32 before storing to special buffer.
-      alignment = (pVecType ? pVecType->getNumElements() : 1) * 4;
+      alignment = PowerOf2Ceil((pVecType ? pVecType->getNumElements() : 1) * 4);
       sizeInBits = (pVecType ? pVecType->getNumElements() : 1) * 32;
 
       //This assertion seems to not hold for all Data Layouts
