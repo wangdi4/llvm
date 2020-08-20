@@ -807,9 +807,6 @@ class KernelObjVisitor {
         (handlers.leaveUnion(Owner, Parent), 0)...};
   }
 
-public:
-  KernelObjVisitor(Sema &S) : SemaRef(S) {}
-
   // These enable handler execution only when previous handlers succeed.
   template <typename... Tn>
   bool handleField(FieldDecl *FD, QualType FDTy, Tn &&... tn) {
@@ -937,6 +934,9 @@ public:
     (void)std::initializer_list<int>{
         (handlers.leaveStruct(Owner, Parent), 0)...};
   }
+
+public:
+  KernelObjVisitor(Sema &S) : SemaRef(S) {}
 
   template <typename... Handlers>
   void VisitRecordBases(const CXXRecordDecl *KernelFunctor,
