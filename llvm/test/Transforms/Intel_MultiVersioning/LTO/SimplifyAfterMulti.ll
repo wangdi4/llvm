@@ -5,7 +5,10 @@
 ; Multiversioning doesn't turn on for Windows with below options.
 ; XFAIL: win32, windows-gnu, windows-msvc
 ; RUN: clang -qopt-mem-layout-trans=4 -xCORE-AVX2 -flto -mllvm -debug-pass=Arguments %s 2>&1 | FileCheck %s
-; CHECK: -multiversioning -simplifycfg
+
+; If we didn't build the LTO plugin, there will be an error message with the
+; word "plugin" in it, which differs slightly for different platforms.
+; CHECK: {{plugin|-multiversioning -simplifycfg}}
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
