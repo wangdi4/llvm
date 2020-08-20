@@ -2590,6 +2590,16 @@ static void RenderFloatingPointOptions(const ToolChain &TC, const Driver &D,
       DenormalFP32Math = llvm::DenormalMode::getIEEE();
 
       StringRef Val = A->getValue();
+#if INTEL_CUSTOMIZATION
+      if (Val.equals("fast=2")) {
+        // When -fp-model=fast=2 is used, override with fast, as fast=2 is
+        // not supported at this time.
+        D.Diag(clang::diag::warn_drv_overriding_flag_option)
+               << Args.MakeArgString("-ffp-model=" + Val)
+               << Args.MakeArgString("-ffp-model=fast");
+        Val = "fast";
+      }
+#endif // INTEL_CUSTOMIZATION
       if (OFastEnabled && !Val.equals("fast")) {
           // Only -ffp-model=fast is compatible with OFast, ignore.
         D.Diag(clang::diag::warn_drv_overriding_flag_option)
