@@ -1806,10 +1806,10 @@ void InnerLoopVectorizer::createVectorIntOrFpInductionPHI(
   // FIXME: If the step is non-constant, we create the vector splat with
   //        IRBuilder. IRBuilder can constant-fold the multiply, but it doesn't
   //        handle a constant vector splat.
-  Value *SplatVF = isa<Constant>(Mul)
-                       ? ConstantVector::getSplat(ElementCount::getFixed(VF),
-                                                  cast<Constant>(Mul))
-                       : Builder.CreateVectorSplat(VF, Mul);
+  Value *SplatVF =
+      isa<Constant>(Mul)
+          ? ConstantVector::getSplat({VF, false}, cast<Constant>(Mul))
+          : Builder.CreateVectorSplat(VF, Mul);
   Builder.restoreIP(CurrIP);
 
   // We may need to add the step a number of times, depending on the unroll
@@ -3402,6 +3402,7 @@ unsigned LoopVectorizationCostModel::getVectorCallCost(CallInst *CI,
   // cost is the cost we need to return.
   NeedToScalarize = true;
 <<<<<<< HEAD
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   // If the callee is glibc sincos, just scalarize.
   LibFunc LibF;
@@ -3415,6 +3416,9 @@ unsigned LoopVectorizationCostModel::getVectorCallCost(CallInst *CI,
   VFShape Shape =
       VFShape::get(*CI, ElementCount::getFixed(VF), false /*HasGlobalPred*/);
 >>>>>>> 264afb9e6aebc98c353644dd0700bec808501cab
+=======
+  VFShape Shape = VFShape::get(*CI, {VF, false}, false /*HasGlobalPred*/);
+>>>>>>> 4fc56d70aadea9df88e7bf408e2e203dc79ff8e6
   Function *VecFunc = VFDatabase(*CI).getVectorizedFunction(Shape);
 
   if (!TLI || CI->isNoBuiltin() || !VecFunc)
@@ -3875,7 +3879,7 @@ void InnerLoopVectorizer::fixReduction(PHINode *Phi) {
       // incoming scalar reduction.
       VectorStart = ReductionStartValue;
     } else {
-      Identity = ConstantVector::getSplat(ElementCount::getFixed(VF), Iden);
+      Identity = ConstantVector::getSplat({VF, false}, Iden);
 
       // This vector is the Identity vector where the first element is the
       // incoming scalar reduction.
@@ -4556,8 +4560,8 @@ void InnerLoopVectorizer::widenCallInstruction(CallInst &I, VPUser &ArgOperands,
       assert(VectorF && "Can't retrieve vector intrinsic.");
     } else {
       // Use vector version of the function call.
-      const VFShape Shape = VFShape::get(*CI, ElementCount::getFixed(VF),
-                                         false /*HasGlobalPred*/);
+      const VFShape Shape =
+          VFShape::get(*CI, {VF, false} /*EC*/, false /*HasGlobalPred*/);
 #ifndef NDEBUG
       assert(VFDatabase(*CI).getVectorizedFunction(Shape) != nullptr &&
              "Can't create vector function.");
