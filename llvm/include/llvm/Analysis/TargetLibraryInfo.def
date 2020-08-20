@@ -154,6 +154,42 @@ TLI_DEFINE_STRING_INTERNAL("?_Xlength_error@std@@YAXPEBD@Z")
 /// void __cdecl std::_Xout_of_range(char const * __ptr64)
 TLI_DEFINE_ENUM_INTERNAL(msvc_std_Xout_of_range)
 TLI_DEFINE_STRING_INTERNAL("?_Xout_of_range@std@@YAXPEBD@Z")
+/// virtual iter_type do_put(iter_type dest, ios_base& _Iosbase, _Elem _Fill, long val) const;
+TLI_DEFINE_ENUM_INTERNAL(msvc_std_num_put_do_put_long)
+TLI_DEFINE_STRING_INTERNAL("?do_put@?$num_put@DV?$ostreambuf_iterator@DU?$char_traits@D@std@@@std@@@std@@MEBA?AV?$ostreambuf_iterator@DU?$char_traits@D@std@@@2@V32@AEAVios_base@2@DJ@Z")
+/// virtual iter_type do_put(iter_type dest, ios_base& _Iosbase, _Elem _Fill, unsigned long val) const;
+TLI_DEFINE_ENUM_INTERNAL(msvc_std_num_put_do_put_ulong)
+TLI_DEFINE_STRING_INTERNAL("?do_put@?$num_put@DV?$ostreambuf_iterator@DU?$char_traits@D@std@@@std@@@std@@MEBA?AV?$ostreambuf_iterator@DU?$char_traits@D@std@@@2@V32@AEAVios_base@2@DK@Z")
+/// virtual iter_type do_put(iter_type dest, ios_base& _Iosbase, _Elem _Fill, double val) const;
+TLI_DEFINE_ENUM_INTERNAL(msvc_std_num_put_do_put_double)
+TLI_DEFINE_STRING_INTERNAL("?do_put@?$num_put@DV?$ostreambuf_iterator@DU?$char_traits@D@std@@@std@@@std@@MEBA?AV?$ostreambuf_iterator@DU?$char_traits@D@std@@@2@V32@AEAVios_base@2@DN@Z")
+/// virtual iter_type do_put(iter_type dest, ios_base& _Iosbase, _Elem _Fill, long double val) const;
+TLI_DEFINE_ENUM_INTERNAL(msvc_std_num_put_do_put_long_double)
+TLI_DEFINE_STRING_INTERNAL("?do_put@?$num_put@DV?$ostreambuf_iterator@DU?$char_traits@D@std@@@std@@@std@@MEBA?AV?$ostreambuf_iterator@DU?$char_traits@D@std@@@2@V32@AEAVios_base@2@DO@Z")
+/// virtual iter_type do_put(iter_type dest, ios_base& _Iosbase, _Elem _Fill, const void* val) const;
+TLI_DEFINE_ENUM_INTERNAL(msvc_std_num_put_do_put_void_ptr)
+TLI_DEFINE_STRING_INTERNAL("?do_put@?$num_put@DV?$ostreambuf_iterator@DU?$char_traits@D@std@@@std@@@std@@MEBA?AV?$ostreambuf_iterator@DU?$char_traits@D@std@@@2@V32@AEAVios_base@2@DPEBX@Z")
+/// virtual iter_type do_put(iter_type dest, ios_base& _Iosbase, _Elem _Fill, const long long val) const;
+TLI_DEFINE_ENUM_INTERNAL(msvc_std_num_put_do_put_long_long)
+TLI_DEFINE_STRING_INTERNAL("?do_put@?$num_put@DV?$ostreambuf_iterator@DU?$char_traits@D@std@@@std@@@std@@MEBA?AV?$ostreambuf_iterator@DU?$char_traits@D@std@@@2@V32@AEAVios_base@2@D_J@Z")
+/// virtual iter_type do_put(iter_type dest, ios_base& _Iosbase, _Elem _Fill, const unsigned long long val) const;
+TLI_DEFINE_ENUM_INTERNAL(msvc_std_num_put_do_put_ulong_long)
+TLI_DEFINE_STRING_INTERNAL("?do_put@?$num_put@DV?$ostreambuf_iterator@DU?$char_traits@D@std@@@std@@@std@@MEBA?AV?$ostreambuf_iterator@DU?$char_traits@D@std@@@2@V32@AEAVios_base@2@D_K@Z")
+/// virtual iter_type do_put(iter_type dest, ios_base& _Iosbase, _Elem _Fill, bool val) const;
+TLI_DEFINE_ENUM_INTERNAL(msvc_std_num_put_do_put_bool)
+TLI_DEFINE_STRING_INTERNAL("?do_put@?$num_put@DV?$ostreambuf_iterator@DU?$char_traits@D@std@@@std@@@std@@MEBA?AV?$ostreambuf_iterator@DU?$char_traits@D@std@@@2@V32@AEAVios_base@2@D_N@Z")
+/// virtual CharType do_tolower(CharType ch) const;
+TLI_DEFINE_ENUM_INTERNAL(msvc_std_ctype_do_tolower_char)
+TLI_DEFINE_STRING_INTERNAL("?do_tolower@?$ctype@D@std@@MEBADD@Z")
+/// virtual CharType do_tolower(CharType *first, const CharType *last) const;
+TLI_DEFINE_ENUM_INTERNAL(msvc_std_ctype_do_tolower_ptr_ptr)
+TLI_DEFINE_STRING_INTERNAL("?do_tolower@?$ctype@D@std@@MEBAPEBDPEADPEBD@Z")
+/// virtual CharType do_toupper(CharType ch) const;
+TLI_DEFINE_ENUM_INTERNAL(msvc_std_ctype_do_toupper_char)
+TLI_DEFINE_STRING_INTERNAL("?do_toupper@?$ctype@D@std@@MEBADD@Z")
+/// virtual CharType do_toupper(CharType *first, const CharType *last) const;
+TLI_DEFINE_ENUM_INTERNAL(msvc_std_ctype_do_toupper_ptr_ptr)
+TLI_DEFINE_STRING_INTERNAL("?do_toupper@?$ctype@D@std@@MEBAPEBDPEADPEBD@Z")
 /// bool __cdecl std::uncaught_exception(void)
 TLI_DEFINE_ENUM_INTERNAL(msvc_std_uncaught_exception)
 TLI_DEFINE_STRING_INTERNAL("?uncaught_exception@std@@YA_NXZ")
