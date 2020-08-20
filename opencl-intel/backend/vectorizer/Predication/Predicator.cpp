@@ -2298,7 +2298,7 @@ void Predicator::insertAllOnesBypassesUCFRegion(BasicBlock * const ucfEntryBB) {
   // plus the used values itself
   std::set<Instruction *> origUsedValues;
   SmallVector<Instruction *, 16> outsideUsers;
-  std::set<BasicBlock *> originalUCF;
+  SetVector<BasicBlock *> originalUCF;
   originalUCF.insert(postEntryBB);
   originalUCF.insert(ucfExitBB);
 
@@ -2328,7 +2328,7 @@ void Predicator::insertAllOnesBypassesUCFRegion(BasicBlock * const ucfEntryBB) {
     if(ucfOrigBB == ucfExitBB) continue;
     for (succ_iterator succ = succ_begin(ucfOrigBB), end = succ_end(ucfOrigBB);
         succ != end; ++succ) {
-      if(originalUCF.insert(*succ).second) {
+      if(originalUCF.insert(*succ)) {
         workqueue.push_back(*succ);
       }
     }
@@ -2336,8 +2336,8 @@ void Predicator::insertAllOnesBypassesUCFRegion(BasicBlock * const ucfEntryBB) {
 
   // Clone the entire region
   SmallVector<BasicBlock *, 8> clones;
-  for(std::set<BasicBlock *>::iterator ucfIt = originalUCF.begin(), ucfEnd = originalUCF.end();
-        ucfIt != ucfEnd; ++ucfIt) {
+  for (auto ucfIt = originalUCF.begin(), ucfEnd = originalUCF.end();
+       ucfIt != ucfEnd; ++ucfIt) {
     BasicBlock * ucfOrigBB = *ucfIt;
     BasicBlock * cloneBB =
       CloneBasicBlock(ucfOrigBB, clonesMap, ".ucf_allones", ucfOrigBB->getParent());
@@ -2388,8 +2388,8 @@ void Predicator::insertAllOnesBypassesUCFRegion(BasicBlock * const ucfEntryBB) {
     RemapInstruction(*userIt, outsidersMap, RF_IgnoreMissingLocals);
   }
   // Unpredicate the cloned UCF region
-  for(std::set<BasicBlock *>::iterator ucfIt = originalUCF.begin(), ucfEnd = originalUCF.end();
-        ucfIt != ucfEnd; ++ucfIt) {
+  for (auto ucfIt = originalUCF.begin(), ucfEnd = originalUCF.end();
+       ucfIt != ucfEnd; ++ucfIt) {
     BasicBlock * ucfOrigBB = *ucfIt;
     for (BasicBlock::iterator ii = ucfOrigBB->begin(), ei = ucfOrigBB->end(); ii != ei; ++ii) {
       Instruction * const origPred = &*ii;
@@ -2694,8 +2694,8 @@ static bool isSingleBlockLoop(BasicBlock* BB) {
 void Predicator::insertAllOnesBypasses() {
   std::set<BasicBlock *> ucfVisited;
 
-  for (std::set<BasicBlock*>::iterator it = m_valuableAllOnesBlocks.begin(),
-    e = m_valuableAllOnesBlocks.end(); it != e; ++it) {
+  for (auto it = m_valuableAllOnesBlocks.begin(),
+       e = m_valuableAllOnesBlocks.end(); it != e; ++it) {
       // for each block to be bypassed
       BasicBlock* original = *it;
 

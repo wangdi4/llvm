@@ -182,13 +182,19 @@ bool ClangFECompilerParseSPIRVTask::isSPIRVSupported(std::string &error) const {
     case spv::CapabilitySubgroupBufferBlockIOINTEL:
     case spv::CapabilitySubgroupImageBlockIOINTEL:
     case spv::CapabilitySubgroupDispatch:
-    case spv::CapabilityInt64Atomics:
       // Function pointers support
     case spv::CapabilityFunctionPointersINTEL:
     case spv::CapabilityIndirectReferencesINTEL:
     case spv::CapabilityVectorVariantsINTEL:
       // Optimization hints
     case spv::CapabilityOptimizationHintsINTEL:
+      break;
+    case spv::CapabilityInt64Atomics:
+      if (m_sDeviceInfo.bIsFPGAEmu) {
+        error = "64bit atomics are not supported on FPGA emulator.";
+        return false;
+      }
+      break;
       // Intel FPGA capabilities
     case spv::CapabilityFPGAMemoryAttributesINTEL:
     case spv::CapabilityArbitraryPrecisionIntegersINTEL:
@@ -203,6 +209,11 @@ bool ClangFECompilerParseSPIRVTask::isSPIRVSupported(std::string &error) const {
     case spv::CapabilityIOPipeINTEL:
     case spv::CapabilityUSMStorageClassesINTEL:
     case spv::CapabilityFPGABufferLocationINTEL:
+      if (!m_sDeviceInfo.bIsFPGAEmu) {
+        errStr << capability << " is only supported on FPGA emulator";
+        error = errStr.str();
+        return false;
+      }
       break;
     }
   }

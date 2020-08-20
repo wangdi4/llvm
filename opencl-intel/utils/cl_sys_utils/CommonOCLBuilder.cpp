@@ -127,7 +127,8 @@ IOCLFECompiler* CommonOCLBuilder::createCompiler(const char* lib){
     strDeviceOptions,
     m_bSupportImages,
     m_bSupportFP64,
-    0
+    0,
+    m_bFpgaEmulator
     };
 
   //

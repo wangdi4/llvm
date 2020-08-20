@@ -1,10 +1,12 @@
 #include "CL/cl.h"
+#include "cl_cpu_detect.h"
 #include "cl_types.h"
 #include <gtest/gtest.h>
 #include <stdio.h>
 #include "FrameworkTest.h"
 
 extern cl_device_type gDeviceType;
+using namespace Intel::OpenCL::Utils;
 
 bool clGetDeviceInfoTest()
 {
@@ -91,6 +93,27 @@ bool clGetDeviceInfoTest()
 		delete[] pDeviceVersionString;
 	}
 
+
+	cl_uint uiNativeVecWidth = 0;
+	iRes = clGetDeviceInfo(devices[0],CL_DEVICE_NATIVE_VECTOR_WIDTH_FLOAT, sizeof(cl_uint), &uiNativeVecWidth, NULL);
+	bResult &= Check("CL_DEVICE_NATIVE_VECTOR_WIDTH_FLOAT - query size", CL_SUCCESS, iRes);
+	const auto CPUID = CPUDetect::GetInstance();
+	if (CPUID->IsFeatureSupported(CFS_AVX512F))
+	{
+		bResult &= CheckSize("check value", 16, uiNativeVecWidth); // AVX512
+	}
+	else if (CPUID->IsFeatureSupported(CFS_AVX20))
+	{
+		bResult &= CheckSize("check value", 8, uiNativeVecWidth); // AVX2
+	}
+	else if (CPUID->IsFeatureSupported(CFS_AVX10))
+	{
+		bResult &= CheckSize("check value", 8, uiNativeVecWidth); // AVX
+	}
+	else
+	{
+		bResult &= CheckSize("check value", 4, uiNativeVecWidth); // SSE42
+	}
 
 	// CL_DEVICE_PROFILING_TIMER_RESOLUTION
 	// Compare with native code results.

@@ -525,7 +525,7 @@ private:
 
   /// blocks that the heuristic decides it is a good idea
   /// to test their mask for allones.
-  std::set<BasicBlock*> m_valuableAllOnesBlocks;
+  SetVector<BasicBlock*> m_valuableAllOnesBlocks;
   /// when predicating an instruction, if the original instruction
   /// is also going to be used for an allones block, create this mapping.
   std::map<Instruction*,Instruction*> m_predicatedToOriginalInst;
