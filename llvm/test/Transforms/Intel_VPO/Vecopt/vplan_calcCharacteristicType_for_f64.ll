@@ -36,7 +36,7 @@ define void @_ZGVbM4_direct(<4 x i32> %mask) #1 {
 ; CHECK-NEXT:     [DA: Div] i32 [[VP_INDEX:%.*]] = phi  [ i32 [[VP_INDEX_IND_INIT]], [[BB1]] ],  [ i32 [[VP_INDVAR:%.*]], [[BB3]] ]
 ; CHECK-NEXT:     [DA: Div] i32* [[VP_MASK_GEP:%.*]] = getelementptr i32* [[MASK_CAST0:%.*]] i32 [[VP_INDEX]]
 ; CHECK-NEXT:     [DA: Div] i32 [[VP_MASK_PARM:%.*]] = load i32* [[VP_MASK_GEP]]
-; CHECK-NEXT:     [DA: Div] i1 [[VP_MASK_COND:%.*]] = icmp i32 [[VP_MASK_PARM]] i32 0
+; CHECK-NEXT:     [DA: Div] i1 [[VP_MASK_COND:%.*]] = icmp ne i32 [[VP_MASK_PARM]] i32 0
 ; CHECK-NEXT:     [DA: Div] i1 [[VP_MASK_COND_NOT:%.*]] = not i1 [[VP_MASK_COND]]
 ; CHECK-NEXT:    SUCCESSORS(1):[[BB4:BB[0-9]+]]
 ; CHECK-NEXT:    PREDECESSORS(2): [[BB1]] [[BB3]]
@@ -55,7 +55,7 @@ define void @_ZGVbM4_direct(<4 x i32> %mask) #1 {
 ; CHECK-NEXT:    [[BB3]]:
 ; CHECK-NEXT:     [DA: Div] i32 [[VP_INDVAR]] = add i32 [[VP_INDEX]] i32 [[VP_INDEX_IND_INIT_STEP]]
 ; CHECK-NEXT:     [DA: Uni] i32 [[VP_VECTOR_LOOP_IV_NEXT]] = add i32 [[VP_VECTOR_LOOP_IV]] i32 [[VP_VF]]
-; CHECK-NEXT:     [DA: Uni] i1 [[VP_VECTOR_LOOP_EXITCOND:%.*]] = icmp i32 [[VP_VECTOR_LOOP_IV_NEXT]] i32 [[VP_VECTOR_TRIP_COUNT]]
+; CHECK-NEXT:     [DA: Uni] i1 [[VP_VECTOR_LOOP_EXITCOND:%.*]] = icmp ne i32 [[VP_VECTOR_LOOP_IV_NEXT]] i32 [[VP_VECTOR_TRIP_COUNT]]
 ; CHECK-NEXT:     Condition(external): i1 false
 ; CHECK-NEXT:    SUCCESSORS(2):[[BB2]](i1 false), [[BB6:BB[0-9]+]](!i1 false)
 ; CHECK-NEXT:    PREDECESSORS(1): [[BB5]]

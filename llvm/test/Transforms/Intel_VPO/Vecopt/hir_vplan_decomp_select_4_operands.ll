@@ -41,12 +41,12 @@ define dso_local i32 @foo(i32 %N) local_unnamed_addr {
 ; CHECK-NEXT:     i32 [[VP7:%.*]] = mul i32 [[N0:%.*]] i32 2
 ; CHECK-NEXT:     i32 [[VP8:%.*]] = add i32 [[VP6]] i32 [[VP7]]
 ; CHECK-NEXT:     i64 [[VP9:%.*]] = sext i32 [[VP8]] to i64
-; CHECK-NEXT:     i1 [[VP10:%.*]] = icmp i64 [[VP0]] i64 [[VP9]]
+; CHECK-NEXT:     i1 [[VP10:%.*]] = icmp sgt i64 [[VP0]] i64 [[VP9]]
 ; CHECK-NEXT:     i32 [[VP11:%.*]] = select i1 [[VP10]] i32 [[VP3]] i32 [[VP5]]
 ; CHECK-NEXT:     i32* [[VP12:%.*]] = subscript inbounds [1024 x i32]* @d i64 0 i64 [[VP0]]
 ; CHECK-NEXT:     store i32 [[VP11]] i32* [[VP12]]
 ; CHECK-NEXT:     i64 [[VP1]] = add i64 [[VP0]] i64 1
-; CHECK-NEXT:     i1 [[VP13:%.*]] = icmp i64 [[VP1]] i64 1023
+; CHECK-NEXT:     i1 [[VP13:%.*]] = icmp sle i64 [[VP1]] i64 1023
 ; CHECK-NEXT:    SUCCESSORS(2):[[BB2]](i1 [[VP13]]), [[BB3:BB[0-9]+]](!i1 [[VP13]])
 ; CHECK-NEXT:    PREDECESSORS(2): [[BB1]] [[BB2]]
 ; CHECK-EMPTY:

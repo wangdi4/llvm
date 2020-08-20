@@ -45,7 +45,7 @@ define void @foo(i32* nocapture %ary) {
 ; SVA-IR-NEXT:     [DA: Div, SVA: ( V )] store i32 [[VP_ADD11]] i32* [[VP_ARRAYIDX4]] (SVAOpBits 0->V 1->V )
 ; SVA-IR-NEXT:     [DA: Div, SVA: ( V )] i64 [[VP_INDVARS_IV_NEXT]] = add i64 [[VP_INDVARS_IV]] i64 [[VP_INDVARS_IV_IND_INIT_STEP]] (SVAOpBits 0->V 1->V )
 ; SVA-IR-NEXT:     [DA: Uni, SVA: (F  )] i64 [[VP_VECTOR_LOOP_IV_NEXT]] = add i64 [[VP_VECTOR_LOOP_IV]] i64 [[VP_VF]] (SVAOpBits 0->F 1->F )
-; SVA-IR-NEXT:     [DA: Uni, SVA: (F  )] i1 [[VP_VECTOR_LOOP_EXITCOND:%.*]] = icmp i64 [[VP_VECTOR_LOOP_IV_NEXT]] i64 [[VP_VECTOR_TRIP_COUNT]] (SVAOpBits 0->F 1->F )
+; SVA-IR-NEXT:     [DA: Uni, SVA: (F  )] i1 [[VP_VECTOR_LOOP_EXITCOND:%.*]] = icmp ne i64 [[VP_VECTOR_LOOP_IV_NEXT]] i64 [[VP_VECTOR_TRIP_COUNT]] (SVAOpBits 0->F 1->F )
 ; SVA-IR-NEXT:    SUCCESSORS(2):[[BB2]](i1 [[VP_VECTOR_LOOP_EXITCOND]]), [[BB3:BB[0-9]+]](!i1 [[VP_VECTOR_LOOP_EXITCOND]])
 ; SVA-IR-NEXT:    PREDECESSORS(2): [[BB1]] [[BB2]]
 ; SVA-IR-EMPTY:
@@ -99,7 +99,7 @@ define void @foo(i32* nocapture %ary) {
 ; SVA-HIR-NEXT:     [DA: Div, SVA: ( V )] i32* [[VP_SUBSCRIPT_3:%.*]] = subscript inbounds i32* [[ARY0]] i64 [[VP12]] (SVAOpBits 0->V 1->V 2->V 3->V )
 ; SVA-HIR-NEXT:     [DA: Div, SVA: ( V )] store i32 [[VP10]] i32* [[VP_SUBSCRIPT_3]] (SVAOpBits 0->V 1->V )
 ; SVA-HIR-NEXT:     [DA: Div, SVA: (FV )] i64 [[VP2]] = add i64 [[VP1]] i64 [[VP__IND_INIT_STEP]] (SVAOpBits 0->FV 1->FV )
-; SVA-HIR-NEXT:     [DA: Uni, SVA: (F  )] i1 [[VP13:%.*]] = icmp i64 [[VP2]] i64 1023 (SVAOpBits 0->F 1->F )
+; SVA-HIR-NEXT:     [DA: Uni, SVA: (F  )] i1 [[VP13:%.*]] = icmp sle i64 [[VP2]] i64 1023 (SVAOpBits 0->F 1->F )
 ; SVA-HIR-NEXT:    SUCCESSORS(2):[[BB2]](i1 [[VP13]]), [[BB3:BB[0-9]+]](!i1 [[VP13]])
 ; SVA-HIR-NEXT:    PREDECESSORS(2): [[BB1]] [[BB2]]
 ; SVA-HIR-EMPTY:

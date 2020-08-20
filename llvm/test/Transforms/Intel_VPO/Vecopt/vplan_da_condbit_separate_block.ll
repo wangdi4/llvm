@@ -15,7 +15,7 @@ define void @foo() {
 ; CHECK-NEXT:  Uniform: [Shape: Uniform] i64 [[VP_VECTOR_LOOP_IV:%.*]] = phi  [ i64 0, [[BB10:BB[0-9]+]] ],  [ i64 [[VP_VECTOR_LOOP_IV_NEXT:%.*]], [[BB9]] ]
 ; CHECK-NEXT:  Divergent: [Shape: Unit Stride, Stride: i64 1] i64 [[VP_INDEX:%.*]] = phi  [ i64 [[VP_INDEX_IND_INIT:%.*]], [[BB10]] ],  [ i64 [[VP_INDVAR:%.*]], [[BB9]] ]
 ; CHECK-NEXT:  Divergent: [Shape: Unit Stride, Stride: i64 1] i64 [[VP_ADD1:%.*]] = add i64 [[LID00:%.*]] i64 [[VP_INDEX]]
-; CHECK-NEXT:  Divergent: [Shape: Random] i1 [[VP_CMPZ:%.*]] = icmp i64 [[LSZ00:%.*]] i64 [[VP_ADD1]]
+; CHECK-NEXT:  Divergent: [Shape: Random] i1 [[VP_CMPZ:%.*]] = icmp eq i64 [[LSZ00:%.*]] i64 [[VP_ADD1]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Basic Block: [[BB1]]
 ; CHECK-EMPTY:
@@ -40,7 +40,7 @@ define void @foo() {
 ; CHECK-NEXT:  Basic Block: [[BB9]]
 ; CHECK-NEXT:  Divergent: [Shape: Unit Stride, Stride: i64 1] i64 [[VP_INDVAR]] = add i64 [[VP_INDEX]] i64 [[VP_INDEX_IND_INIT_STEP:%.*]]
 ; CHECK-NEXT:  Uniform: [Shape: Uniform] i64 [[VP_VECTOR_LOOP_IV_NEXT]] = add i64 [[VP_VECTOR_LOOP_IV]] i64 [[VP_VF:%.*]]
-; CHECK-NEXT:  Uniform: [Shape: Uniform] i1 [[VP_VECTOR_LOOP_EXITCOND:%.*]] = icmp i64 [[VP_VECTOR_LOOP_IV_NEXT]] i64 [[VP_VECTOR_TRIP_COUNT:%.*]]
+; CHECK-NEXT:  Uniform: [Shape: Uniform] i1 [[VP_VECTOR_LOOP_EXITCOND:%.*]] = icmp ne i64 [[VP_VECTOR_LOOP_IV_NEXT]] i64 [[VP_VECTOR_TRIP_COUNT:%.*]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Basic Block: [[BB11:BB[0-9]+]]
 ; CHECK-NEXT:  Uniform: [Shape: Uniform] i64 [[VP_INDEX_IND_FINAL:%.*]] = induction-final{add} i64 live-in0 i64 1

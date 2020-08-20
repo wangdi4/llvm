@@ -52,7 +52,7 @@ define void @foo(float* noalias nocapture %arr1, float* noalias nocapture %arr2,
 ; CHECK-NEXT:    [[BB2]]:
 ; CHECK-NEXT:     [DA: Div] float [[VP0:%.*]] = phi  [ float [[VP__RED_INIT]], [[BB1]] ],  [ float [[VP1:%.*]], [[BB3:BB[0-9]+]] ]
 ; CHECK-NEXT:     [DA: Div] i64 [[VP2:%.*]] = phi  [ i64 [[VP__IND_INIT]], [[BB1]] ],  [ i64 [[VP3:%.*]], [[BB3]] ]
-; CHECK-NEXT:     [DA: Uni] i1 [[VP4:%.*]] = icmp i32 [[N10:%.*]] i32 0
+; CHECK-NEXT:     [DA: Uni] i1 [[VP4:%.*]] = icmp eq i32 [[N10:%.*]] i32 0
 ; CHECK-NEXT:    SUCCESSORS(2):[[BB4:BB[0-9]+]](i1 [[VP4]]), [[BB5:BB[0-9]+]](!i1 [[VP4]])
 ; CHECK-NEXT:    PREDECESSORS(2): [[BB1]] [[BB3]]
 ; CHECK-EMPTY:
@@ -79,7 +79,7 @@ define void @foo(float* noalias nocapture %arr1, float* noalias nocapture %arr2,
 ; CHECK-NEXT:     [DA: Div] float [[VP16:%.*]] = phi  [ float [[VP14]], [[BB4]] ],  [ float [[VP9]], [[BB5]] ]
 ; CHECK-NEXT:     [DA: Div] float [[VP1]] = fadd float [[VP16]] float [[VP15]]
 ; CHECK-NEXT:     [DA: Div] i64 [[VP3]] = add i64 [[VP2]] i64 [[VP__IND_INIT_STEP]]
-; CHECK-NEXT:     [DA: Uni] i1 [[VP17:%.*]] = icmp i64 [[VP3]] i64 99
+; CHECK-NEXT:     [DA: Uni] i1 [[VP17:%.*]] = icmp sle i64 [[VP3]] i64 99
 ; CHECK-NEXT:    SUCCESSORS(2):[[BB2]](i1 [[VP17]]), [[BB6:BB[0-9]+]](!i1 [[VP17]])
 ; CHECK-NEXT:    PREDECESSORS(2): [[BB4]] [[BB5]]
 ; CHECK-EMPTY:

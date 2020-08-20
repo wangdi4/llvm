@@ -19,12 +19,12 @@ define void @main() {
 ; CHECK-NEXT:    [[BB1]]:
 ; CHECK-NEXT:     i32 [[VP_IV:%.*]] = phi  [ i32 0, [[BB0]] ],  [ i32 [[VP_IV_NEXT:%.*]], [[NEW_LOOP_LATCH0:new.loop.latch[0-9]+]] ]
 ; CHECK-NEXT:     i32 [[VP_IV_NEXT]] = add i32 [[VP_IV]] i32 1
-; CHECK-NEXT:     i1 [[VP_CMP1:%.*]] = icmp i32 [[VP_IV]] i32 [[VP_LANE]]
+; CHECK-NEXT:     i1 [[VP_CMP1:%.*]] = icmp eq i32 [[VP_IV]] i32 [[VP_LANE]]
 ; CHECK-NEXT:    SUCCESSORS(2):[[INTERMEDIATE_BB0:intermediate.bb[0-9]+]](i1 [[VP_CMP1]]), [[BB2:BB[0-9]+]](!i1 [[VP_CMP1]])
 ; CHECK-NEXT:    PREDECESSORS(2): [[BB0]] [[NEW_LOOP_LATCH0]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB2]]:
-; CHECK-NEXT:       i1 [[VP_BOTTOM_TEST:%.*]] = icmp i32 [[VP_IV_NEXT]] i32 128
+; CHECK-NEXT:       i1 [[VP_BOTTOM_TEST:%.*]] = icmp eq i32 [[VP_IV_NEXT]] i32 128
 ; CHECK-NEXT:      SUCCESSORS(1):[[NEW_LOOP_LATCH0]]
 ; CHECK-NEXT:      PREDECESSORS(1): [[BB1]]
 ; CHECK-EMPTY:
@@ -40,7 +40,7 @@ define void @main() {
 ; CHECK-NEXT:    PREDECESSORS(2): [[BB2]] [[INTERMEDIATE_BB0]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[CASCADED_IF_BLOCK0]]:
-; CHECK-NEXT:     i1 [[VP0:%.*]] = icmp i32 [[VP_EXIT_ID_PHI]] i32 1
+; CHECK-NEXT:     i1 [[VP0:%.*]] = icmp eq i32 [[VP_EXIT_ID_PHI]] i32 1
 ; CHECK-NEXT:    SUCCESSORS(2):[[BB3:BB[0-9]+]](i1 [[VP0]]), [[BB4:BB[0-9]+]](!i1 [[VP0]])
 ; CHECK-NEXT:    PREDECESSORS(1): [[NEW_LOOP_LATCH0]]
 ; CHECK-EMPTY:

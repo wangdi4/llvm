@@ -45,7 +45,7 @@ define dso_local float @ifsum1(i32 %N) local_unnamed_addr #0 {
 ; CHECK-NEXT:     i64 [[VP6:%.*]] = phi  [ i64 0, [[BB1]] ],  [ i64 [[VP7:%.*]], [[BB3]] ]
 ; CHECK-NEXT:     float* [[VP_SUBSCRIPT:%.*]] = subscript inbounds [1000 x float]* @B i64 0 i64 [[VP6]]
 ; CHECK-NEXT:     float [[VP8:%.*]] = load float* [[VP_SUBSCRIPT]]
-; CHECK-NEXT:     i1 [[VP9:%.*]] = fcmp float [[VP8]] float 0.000000e+00
+; CHECK-NEXT:     i1 [[VP9:%.*]] = fcmp ogt float [[VP8]] float 0.000000e+00
 ; CHECK-NEXT:    SUCCESSORS(2):[[BB4:BB[0-9]+]](i1 [[VP9]]), [[BB3]](!i1 [[VP9]])
 ; CHECK-NEXT:    PREDECESSORS(2): [[BB1]] [[BB3]]
 ; CHECK-EMPTY:
@@ -61,7 +61,7 @@ define dso_local float @ifsum1(i32 %N) local_unnamed_addr #0 {
 ; CHECK-NEXT:    [[BB3]]:
 ; CHECK-NEXT:     float [[VP5]] = phi  [ float [[VP13]], [[BB4]] ],  [ float [[VP4]], [[BB2]] ]
 ; CHECK-NEXT:     i64 [[VP7]] = add i64 [[VP6]] i64 1
-; CHECK-NEXT:     i1 [[VP14:%.*]] = icmp i64 [[VP7]] i64 [[VP1:%vp.*]]
+; CHECK-NEXT:     i1 [[VP14:%.*]] = icmp sle i64 [[VP7]] i64 [[VP1:%vp.*]]
 ; CHECK-NEXT:    SUCCESSORS(2):[[BB2]](i1 [[VP14]]), [[BB5:BB[0-9]+]](!i1 [[VP14]])
 ; CHECK-NEXT:    PREDECESSORS(2): [[BB4]] [[BB2]]
 ; CHECK-EMPTY:

@@ -29,7 +29,7 @@ define void @foo2(i64 %N) local_unnamed_addr #0 {
 ; CHECK-NEXT:     i64 [[VP_INDVARS_IV]] = phi  [ i64 [[VP_INDVARS_IV_IND_INIT]], [[BB4]] ],  [ i64 [[VP0]], [[BB5]] ]
 ; CHECK-NEXT:     i64 [[VP_K_IV]] = phi  [ i64 [[VP_K_IV_IND_INIT]], [[BB4]] ],  [ i64 [[VP1]], [[BB5]] ]
 ; CHECK-NEXT:     i64 [[VP_INDVARS_IV_NEXT]] = add i64 [[VP_INDVARS_IV]] i64 1
-; CHECK-NEXT:     i1 [[VP_EE:%.*]] = icmp i64 [[VP_INDVARS_IV_NEXT]] i64 [[VP_K_IV]]
+; CHECK-NEXT:     i1 [[VP_EE:%.*]] = icmp eq i64 [[VP_INDVARS_IV_NEXT]] i64 [[VP_K_IV]]
 ; CHECK-NEXT:     i64 [[VP0]] = add i64 [[VP_INDVARS_IV]] i64 [[VP_INDVARS_IV_IND_INIT_STEP]]
 ; CHECK-NEXT:     br i1 [[VP_EE]], [[BB1]], [[BB2]]
 ; CHECK-EMPTY:
@@ -43,7 +43,7 @@ define void @foo2(i64 %N) local_unnamed_addr #0 {
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB5]]: # preds: [[BB2]], [[BB1]]
 ; CHECK-NEXT:     i64 [[VP_K_IV_NEXT]] = phi  [ i64 [[VP_K_IV_N1]], [[BB1]] ],  [ i64 [[VP_K_IV_N2]], [[BB2]] ]
-; CHECK-NEXT:     i1 [[VP_EXITCOND:%.*]] = icmp i64 [[VP_INDVARS_IV_NEXT]] i64 [[N0:%.*]]
+; CHECK-NEXT:     i1 [[VP_EXITCOND:%.*]] = icmp eq i64 [[VP_INDVARS_IV_NEXT]] i64 [[N0:%.*]]
 ; CHECK-NEXT:     i64 [[VP1]] = add i64 [[VP_K_IV]] i64 [[VP_K_IV_IND_INIT_STEP]]
 ; CHECK-NEXT:     br i1 [[VP_EXITCOND]], [[BB6:BB[0-9]+]], [[BB0]]
 ; CHECK-EMPTY:

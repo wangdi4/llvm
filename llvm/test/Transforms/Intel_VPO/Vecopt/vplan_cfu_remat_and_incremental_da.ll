@@ -30,8 +30,8 @@ define void @da_incremental_phi_update(i1 %toptest) {
 ; CHECK-NEXT:      [[BB5]]:
 ; CHECK-NEXT:       [DA: Div] i1 [[VP0:%.*]] = block-predicate i1 [[VP_LOOP_MASK]]
 ; CHECK-NEXT:       [DA: Uni] i32 [[VP_IV_NEXT]] = add i32 [[VP_IV]] i32 1
-; CHECK-NEXT:       [DA: Uni] i1 [[VP_CMP_NOT_I:%.*]] = icmp i32 [[VP_IV_NEXT]] i32 42
-; CHECK-NEXT:       [DA: Div] i1 [[VP_EXITCOND:%.*]] = icmp i32 [[VP_IV_NEXT]] i32 [[VP_LANE]]
+; CHECK-NEXT:       [DA: Uni] i1 [[VP_CMP_NOT_I:%.*]] = icmp eq i32 [[VP_IV_NEXT]] i32 42
+; CHECK-NEXT:       [DA: Div] i1 [[VP_EXITCOND:%.*]] = icmp eq i32 [[VP_IV_NEXT]] i32 [[VP_LANE]]
 ; CHECK-NEXT:      SUCCESSORS(1):[[BB4]]
 ; CHECK-NEXT:      PREDECESSORS(1): [[BB3]]
 ; CHECK-EMPTY:
@@ -45,7 +45,7 @@ define void @da_incremental_phi_update(i1 %toptest) {
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB6]]:
 ; CHECK-NEXT:       [DA: Div] i32 [[VP_LCSSA:%.*]] = phi  [ i32 [[VP_IV_NEXT_LIVE_OUT_BLEND]], [[BB4]] ]
-; CHECK-NEXT:       [DA: Div] i1 [[VP_CMP_NOT_I_1:%.*]] = icmp i32 [[VP_LCSSA]] i32 42
+; CHECK-NEXT:       [DA: Div] i1 [[VP_CMP_NOT_I_1:%.*]] = icmp eq i32 [[VP_LCSSA]] i32 42
 ; CHECK-NEXT:      SUCCESSORS(1):[[BB1]]
 ; CHECK-NEXT:      PREDECESSORS(1): [[BB4]]
 ; CHECK-EMPTY:

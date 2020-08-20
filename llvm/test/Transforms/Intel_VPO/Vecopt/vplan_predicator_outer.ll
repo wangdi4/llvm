@@ -24,7 +24,7 @@ define void @test_2_level_loop_nest(i64 %vf) local_unnamed_addr {
 ; CHECK-NEXT:    [[BB3]]:
 ; CHECK-NEXT:     [DA: Div] i1 [[VP0:%.*]] = block-predicate i1 [[VP_LOOP_MASK]]
 ; CHECK-NEXT:     [DA: Div] i64* [[VP_GEP:%.*]] = getelementptr inbounds [1024 x [1024 x i64]]* @A i64 0 i64 [[VP_OUTER_INDUCTION_PHI]] i64 0
-; CHECK-NEXT:     [DA: Div] i1 [[VP_OUTER_LOOP_VARYING:%.*]] = icmp i64* [[VP_GEP]] i64* null
+; CHECK-NEXT:     [DA: Div] i1 [[VP_OUTER_LOOP_VARYING:%.*]] = icmp eq i64* [[VP_GEP]] i64* null
 ; CHECK-NEXT:    SUCCESSORS(1):[[BB4:BB[0-9]+]]
 ; CHECK-NEXT:    PREDECESSORS(1): [[BB1]]
 ; CHECK-EMPTY:
@@ -42,7 +42,7 @@ define void @test_2_level_loop_nest(i64 %vf) local_unnamed_addr {
 ; CHECK-NEXT:     [DA: Uni] i64 [[VP_INNER_INDUCTION_PHI:%.*]] = phi  [ i64 0, [[BB5]] ],  [ i64 [[VP_INNER_INDUCTION:%.*]], [[BB6]] ]
 ; CHECK-NEXT:     [DA: Div] i1 [[VP2:%.*]] = block-predicate i1 [[VP_BB8_BR_VP_OUTER_LOOP_VARYING]]
 ; CHECK-NEXT:     [DA: Uni] i64 [[VP_INNER_INDUCTION]] = add i64 [[VP_INNER_INDUCTION_PHI]] i64 1
-; CHECK-NEXT:     [DA: Uni] i1 [[VP_EXITCOND:%.*]] = icmp i64 [[VP_INNER_INDUCTION]] i64 1024
+; CHECK-NEXT:     [DA: Uni] i1 [[VP_EXITCOND:%.*]] = icmp eq i64 [[VP_INNER_INDUCTION]] i64 1024
 ; CHECK-NEXT:     [DA: Uni] i1 [[VP3:%.*]] = all-zero-check i1 [[VP_BB8_BR_VP_OUTER_LOOP_VARYING]]
 ; CHECK-NEXT:     [DA: Uni] i1 [[VP4:%.*]] = or i1 [[VP3]] i1 [[VP_EXITCOND]]
 ; CHECK-NEXT:    SUCCESSORS(2):[[BB7:BB[0-9]+]](i1 [[VP4]]), [[BB6]](!i1 [[VP4]])
@@ -56,7 +56,7 @@ define void @test_2_level_loop_nest(i64 %vf) local_unnamed_addr {
 ; CHECK-NEXT:    [[BB8]]:
 ; CHECK-NEXT:     [DA: Div] i1 [[VP6:%.*]] = block-predicate i1 [[VP_LOOP_MASK]]
 ; CHECK-NEXT:     [DA: Div] i64 [[VP_OUTER_INDUCTION]] = add i64 [[VP_OUTER_INDUCTION_PHI]] i64 [[VF0:%.*]]
-; CHECK-NEXT:     [DA: Div] i1 [[VP_EXITCOND26:%.*]] = icmp i64 [[VP_OUTER_INDUCTION]] i64 1024
+; CHECK-NEXT:     [DA: Div] i1 [[VP_EXITCOND26:%.*]] = icmp eq i64 [[VP_OUTER_INDUCTION]] i64 1024
 ; CHECK-NEXT:    SUCCESSORS(1):[[BB2]]
 ; CHECK-NEXT:    PREDECESSORS(1): [[BB7]]
 ; CHECK-EMPTY:
@@ -132,7 +132,7 @@ define void @test_2_level_loop_nest_swap_inner_branch(i64 %vf) local_unnamed_add
 ; CHECK-NEXT:    [[BB3]]:
 ; CHECK-NEXT:     [DA: Div] i1 [[VP0:%.*]] = block-predicate i1 [[VP_LOOP_MASK]]
 ; CHECK-NEXT:     [DA: Div] i64* [[VP_GEP:%.*]] = getelementptr inbounds [1024 x [1024 x i64]]* @A i64 0 i64 [[VP_OUTER_INDUCTION_PHI]] i64 0
-; CHECK-NEXT:     [DA: Div] i1 [[VP_OUTER_LOOP_VARYING:%.*]] = icmp i64* [[VP_GEP]] i64* null
+; CHECK-NEXT:     [DA: Div] i1 [[VP_OUTER_LOOP_VARYING:%.*]] = icmp eq i64* [[VP_GEP]] i64* null
 ; CHECK-NEXT:    SUCCESSORS(1):[[BB4:BB[0-9]+]]
 ; CHECK-NEXT:    PREDECESSORS(1): [[BB1]]
 ; CHECK-EMPTY:
@@ -150,7 +150,7 @@ define void @test_2_level_loop_nest_swap_inner_branch(i64 %vf) local_unnamed_add
 ; CHECK-NEXT:     [DA: Uni] i64 [[VP_INNER_INDUCTION_PHI:%.*]] = phi  [ i64 0, [[BB5]] ],  [ i64 [[VP_INNER_INDUCTION:%.*]], [[BB6]] ]
 ; CHECK-NEXT:     [DA: Div] i1 [[VP2:%.*]] = block-predicate i1 [[VP_BB8_BR_VP_OUTER_LOOP_VARYING]]
 ; CHECK-NEXT:     [DA: Uni] i64 [[VP_INNER_INDUCTION]] = add i64 [[VP_INNER_INDUCTION_PHI]] i64 1
-; CHECK-NEXT:     [DA: Uni] i1 [[VP_CONTINUE_COND:%.*]] = icmp i64 [[VP_INNER_INDUCTION]] i64 1024
+; CHECK-NEXT:     [DA: Uni] i1 [[VP_CONTINUE_COND:%.*]] = icmp ne i64 [[VP_INNER_INDUCTION]] i64 1024
 ; CHECK-NEXT:     [DA: Uni] i1 [[VP3:%.*]] = all-zero-check i1 [[VP_BB8_BR_VP_OUTER_LOOP_VARYING]]
 ; CHECK-NEXT:     [DA: Uni] i1 [[VP4:%.*]] = not i1 [[VP3]]
 ; CHECK-NEXT:     [DA: Uni] i1 [[VP5:%.*]] = and i1 [[VP4]] i1 [[VP_CONTINUE_COND]]
@@ -165,7 +165,7 @@ define void @test_2_level_loop_nest_swap_inner_branch(i64 %vf) local_unnamed_add
 ; CHECK-NEXT:    [[BB8]]:
 ; CHECK-NEXT:     [DA: Div] i1 [[VP7:%.*]] = block-predicate i1 [[VP_LOOP_MASK]]
 ; CHECK-NEXT:     [DA: Div] i64 [[VP_OUTER_INDUCTION]] = add i64 [[VP_OUTER_INDUCTION_PHI]] i64 [[VF0:%.*]]
-; CHECK-NEXT:     [DA: Div] i1 [[VP_EXITCOND26:%.*]] = icmp i64 [[VP_OUTER_INDUCTION]] i64 1024
+; CHECK-NEXT:     [DA: Div] i1 [[VP_EXITCOND26:%.*]] = icmp eq i64 [[VP_OUTER_INDUCTION]] i64 1024
 ; CHECK-NEXT:    SUCCESSORS(1):[[BB2]]
 ; CHECK-NEXT:    PREDECESSORS(1): [[BB7]]
 ; CHECK-EMPTY:

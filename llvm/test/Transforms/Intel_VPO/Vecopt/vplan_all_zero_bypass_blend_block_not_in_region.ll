@@ -13,8 +13,8 @@ define void @test_blend_outside_bypass_region(i32* %a, i32 %b) local_unnamed_add
 ; CHECK-NEXT:     [DA: Div] i32 [[VP_LANE:%.*]] = induction-init{add} i32 0 i32 1
 ; CHECK-NEXT:     [DA: Div] i32* [[VP_GEP:%.*]] = getelementptr i32* [[A0:%.*]] i32 [[VP_LANE]]
 ; CHECK-NEXT:     [DA: Div] i32 [[VP_LD:%.*]] = load i32* [[VP_GEP]]
-; CHECK-NEXT:     [DA: Uni] i1 [[VP_UNIFORM:%.*]] = icmp i32 [[B0:%.*]] i32 42
-; CHECK-NEXT:     [DA: Div] i1 [[VP_VARYING:%.*]] = icmp i32 [[VP_LD]] i32 42
+; CHECK-NEXT:     [DA: Uni] i1 [[VP_UNIFORM:%.*]] = icmp eq i32 [[B0:%.*]] i32 42
+; CHECK-NEXT:     [DA: Div] i1 [[VP_VARYING:%.*]] = icmp eq i32 [[VP_LD]] i32 42
 ; CHECK-NEXT:    SUCCESSORS(1):[[BB1:BB[0-9]+]]
 ; CHECK-NEXT:    no PREDECESSORS
 ; CHECK-EMPTY:

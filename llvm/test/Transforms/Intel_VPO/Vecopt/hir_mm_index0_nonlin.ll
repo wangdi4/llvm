@@ -51,15 +51,15 @@
 ; CHECK-NEXT:     i64 [[VP9:%.*]] = sext i32 [[VP7]] to i64
 ; CHECK-NEXT:     i32* [[VP10:%.*]] = subscript inbounds i32* [[ORDERING0:%.*]] i64 [[VP9]]
 ; CHECK-NEXT:     i32 [[VP11:%.*]] = load i32* [[VP10]]
-; CHECK-NEXT:     i1 [[VP12:%.*]] = icmp i32 [[VP11]] i32 [[VP1]]
+; CHECK-NEXT:     i1 [[VP12:%.*]] = icmp sgt i32 [[VP11]] i32 [[VP1]]
 ; CHECK-NEXT:     i32 [[VP2]] = select i1 [[VP12]] i32 [[VP7]] i32 [[VP3]]
 ; CHECK-NEXT:     i32 [[VP13:%.*]] = add i32 [[VP11]] i32 2
-; CHECK-NEXT:     i1 [[VP14:%.*]] = icmp i32 [[VP11]] i32 [[VP1]]
+; CHECK-NEXT:     i1 [[VP14:%.*]] = icmp sgt i32 [[VP11]] i32 [[VP1]]
 ; CHECK-NEXT:     i32 [[VP4]] = select i1 [[VP14]] i32 [[VP13]] i32 [[VP5]]
-; CHECK-NEXT:     i1 [[VP15:%.*]] = icmp i32 [[VP11]] i32 [[VP1]]
+; CHECK-NEXT:     i1 [[VP15:%.*]] = icmp sgt i32 [[VP11]] i32 [[VP1]]
 ; CHECK-NEXT:     i32 [[VP0]] = select i1 [[VP15]] i32 [[VP11]] i32 [[VP1]]
 ; CHECK-NEXT:     i32 [[VP6]] = add i32 [[VP7]] i32 [[VP__IND_INIT_STEP]]
-; CHECK-NEXT:     i1 [[VP16:%.*]] = icmp i32 [[VP6]] i32 [[VPMPLUS]]
+; CHECK-NEXT:     i1 [[VP16:%.*]] = icmp sle i32 [[VP6]] i32 [[VPMPLUS]]
 ; CHECK:    [[BB3:BB[0-9]+]]:
 ; CHECK-NEXT:     i32 [[VP__RED_FINAL]] = reduction-final{u_smax} i32 [[VP0]]
 ; CHECK-NEXT:     i32 [[VP__RED_FINAL_1]] = reduction-final{s_smin} i32 [[VP2]] i32 [[VP0]] i32 [[VP__RED_FINAL]]

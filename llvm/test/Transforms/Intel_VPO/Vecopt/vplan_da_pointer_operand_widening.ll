@@ -20,7 +20,7 @@ define void @foo_c(%Struct* %a) {
 ; CHECK-NEXT:  Divergent: [Shape: Strided, Stride: i64 32] <3 x i32>* [[VP_PTR:%.*]] = getelementptr inbounds %Struct* [[VP_BASE]] i32 0 i32 0
 ; CHECK-NEXT:  Divergent: [Shape: Random] <3 x i32> [[VP_LD:%.*]] = load <3 x i32>* [[VP_PTR]]
 ; CHECK-NEXT:  Divergent: [Shape: Random] i32 [[VP_LD_0:%.*]] = extractelement <3 x i32> [[VP_LD]] i32 0
-; CHECK-NEXT:  Divergent: [Shape: Random] i1 [[VP_CMP:%.*]] = icmp i32 [[VP_LD_0]] i32 42
+; CHECK-NEXT:  Divergent: [Shape: Random] i1 [[VP_CMP:%.*]] = icmp eq i32 [[VP_LD_0]] i32 42
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Basic Block: [[BB1]]
 ; CHECK-NEXT:  Divergent: [Shape: Strided, Stride: i64 32] <3 x i32>* [[VP_PTR2:%.*]] = getelementptr inbounds %Struct* [[VP_BASE]] i32 1 i32 0
@@ -33,7 +33,7 @@ define void @foo_c(%Struct* %a) {
 ; CHECK-NEXT:  Divergent: [Shape: Random] store <3 x i32> [[VP_LD]] <3 x i32>* [[VP_PHI]]
 ; CHECK-NEXT:  Divergent: [Shape: Unit Stride, Stride: i64 1] i64 [[VP_INDVARS_IV_NEXT]] = add i64 [[VP_INDVARS_IV]] i64 [[VP_INDVARS_IV_IND_INIT_STEP:%.*]]
 ; CHECK-NEXT:  Uniform: [Shape: Uniform] i64 [[VP_VECTOR_LOOP_IV_NEXT]] = add i64 [[VP_VECTOR_LOOP_IV]] i64 [[VP_VF:%.*]]
-; CHECK-NEXT:  Uniform: [Shape: Uniform] i1 [[VP_VECTOR_LOOP_EXITCOND:%.*]] = icmp i64 [[VP_VECTOR_LOOP_IV_NEXT]] i64 [[VP_VECTOR_TRIP_COUNT:%.*]]
+; CHECK-NEXT:  Uniform: [Shape: Uniform] i1 [[VP_VECTOR_LOOP_EXITCOND:%.*]] = icmp eq i64 [[VP_VECTOR_LOOP_IV_NEXT]] i64 [[VP_VECTOR_TRIP_COUNT:%.*]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Basic Block: [[BB5:BB[0-9]+]]
 ; CHECK-NEXT:  Uniform: [Shape: Uniform] i64 [[VP_INDVARS_IV_IND_FINAL:%.*]] = induction-final{add} i64 live-in0 i64 1

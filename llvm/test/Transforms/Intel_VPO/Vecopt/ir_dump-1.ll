@@ -24,11 +24,11 @@ define i32 @foo() local_unnamed_addr {
 ; CHECK-NEXT:     i32 [[VP0:%.*]] = load i32* [[VP_ARRAYIDX]]
 ; CHECK-NEXT:     i32* [[VP_ARRAYIDX2:%.*]] = getelementptr inbounds [1024 x i32]* @b i64 0 i64 [[VP_INDVARS_IV]]
 ; CHECK-NEXT:     i32 [[VP1:%.*]] = load i32* [[VP_ARRAYIDX2]]
-; CHECK-NEXT:     i1 [[VP_CMP3:%.*]] = icmp i32 [[VP0]] i32 [[VP1]]
+; CHECK-NEXT:     i1 [[VP_CMP3:%.*]] = icmp sgt i32 [[VP0]] i32 [[VP1]]
 ; CHECK-NEXT:     br i1 [[VP_CMP3]], [[BB4:BB[0-9]+]], [[BB3]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB4]]: # preds: [[BB2]]
-; CHECK-NEXT:       i1 [[VP_CMP6:%.*]] = icmp i32 [[VP0]] i32 16
+; CHECK-NEXT:       i1 [[VP_CMP6:%.*]] = icmp eq i32 [[VP0]] i32 16
 ; CHECK-NEXT:       i32 [[VP_MUL:%.*]] = mul i32 [[VP1]] i32 [[VP0]]
 ; CHECK-NEXT:       i32 [[VP_ADD:%.*]] = add i32 [[VP1]] i32 [[VP0]]
 ; CHECK-NEXT:       i32 [[VP2:%.*]] = select i1 [[VP_CMP6]] i32 [[VP_MUL]] i32 1
@@ -49,7 +49,7 @@ define i32 @foo() local_unnamed_addr {
 ; CHECK-NEXT:     i32 [[VP_ADD34:%.*]] = add i32 [[VP_MUL31]] i32 [[VP0]]
 ; CHECK-NEXT:     store i32 [[VP_ADD34]] i32* [[VP_ARRAYIDX]]
 ; CHECK-NEXT:     i64 [[VP_INDVARS_IV_NEXT]] = add i64 [[VP_INDVARS_IV]] i64 1
-; CHECK-NEXT:     i1 [[VP_CMP:%.*]] = icmp i64 [[VP_INDVARS_IV_NEXT]] i64 [[TMP2:%.*]]
+; CHECK-NEXT:     i1 [[VP_CMP:%.*]] = icmp slt i64 [[VP_INDVARS_IV_NEXT]] i64 [[TMP2:%.*]]
 ; CHECK-NEXT:     br i1 [[VP_CMP]], [[BB2]], [[BB5:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB5]]: # preds: [[BB3]]

@@ -22,7 +22,7 @@ define void @main(i32 %vf) {
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB3]]:
 ; CHECK-NEXT:     i32 [[VP_INNER_LOOP_1_INDUCTION_VAR:%.*]] = phi  [ i32 0, [[BB1]] ],  [ i32 [[VP_INNER_LOOP_1_INDUCTION_SSA_PHI:%.*]], [[NEW_LOOP_LATCH0:new.loop.latch[0-9]+]] ]
-; CHECK-NEXT:     i1 [[VP_CMP1:%.*]] = icmp i32 [[VP_INNER_LOOP_1_INDUCTION_VAR]] i32 8
+; CHECK-NEXT:     i1 [[VP_CMP1:%.*]] = icmp eq i32 [[VP_INNER_LOOP_1_INDUCTION_VAR]] i32 8
 ; CHECK-NEXT:    SUCCESSORS(2):[[BB4:BB[0-9]+]](i1 [[VP_CMP1]]), [[INTERMEDIATE_BB0:intermediate.bb[0-9]+]](!i1 [[VP_CMP1]])
 ; CHECK-NEXT:    PREDECESSORS(2): [[BB1]] [[NEW_LOOP_LATCH0]]
 ; CHECK-EMPTY:
@@ -33,7 +33,7 @@ define void @main(i32 %vf) {
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB5]]:
 ; CHECK-NEXT:       i32 [[VP_INNER_LOOP_2_INDUCTION_VAR:%.*]] = phi  [ i32 0, [[BB4]] ],  [ i32 [[VP_INNER_LOOP_2_INDUCTION_SSA_PHI:%.*]], [[NEW_LOOP_LATCH1:new.loop.latch[0-9]+]] ]
-; CHECK-NEXT:       i1 [[VP_CMP2:%.*]] = icmp i32 [[VP_INNER_LOOP_2_INDUCTION_VAR]] i32 16
+; CHECK-NEXT:       i1 [[VP_CMP2:%.*]] = icmp eq i32 [[VP_INNER_LOOP_2_INDUCTION_VAR]] i32 16
 ; CHECK-NEXT:      SUCCESSORS(2):[[BB6:BB[0-9]+]](i1 [[VP_CMP2]]), [[INTERMEDIATE_BB1:intermediate.bb[0-9]+]](!i1 [[VP_CMP2]])
 ; CHECK-NEXT:      PREDECESSORS(2): [[BB4]] [[NEW_LOOP_LATCH1]]
 ; CHECK-EMPTY:
@@ -44,7 +44,7 @@ define void @main(i32 %vf) {
 ; CHECK-EMPTY:
 ; CHECK-NEXT:        [[BB6]]:
 ; CHECK-NEXT:         i32 [[VP_VAR_2:%.*]] = add i32 [[VP_INNER_LOOP_2_INDUCTION_VAR]] i32 2
-; CHECK-NEXT:         i1 [[VP_CMP3:%.*]] = icmp i32 [[VP_VAR_2]] i32 32
+; CHECK-NEXT:         i1 [[VP_CMP3:%.*]] = icmp eq i32 [[VP_VAR_2]] i32 32
 ; CHECK-NEXT:        SUCCESSORS(2):[[BB7:BB[0-9]+]](i1 [[VP_CMP3]]), [[INTERMEDIATE_BB2:intermediate.bb[0-9]+]](!i1 [[VP_CMP3]])
 ; CHECK-NEXT:        PREDECESSORS(1): [[BB5]]
 ; CHECK-EMPTY:
@@ -55,7 +55,7 @@ define void @main(i32 %vf) {
 ; CHECK-EMPTY:
 ; CHECK-NEXT:        [[BB7]]:
 ; CHECK-NEXT:         i32 [[VP_INNER_LOOP_2_INDUCTION:%.*]] = add i32 [[VP_INNER_LOOP_2_INDUCTION_VAR]] i32 1
-; CHECK-NEXT:         i1 [[VP_INNER_LOOP_2_BOTTOM_TEST:%.*]] = icmp i32 [[VP_INNER_LOOP_2_INDUCTION]] i32 128
+; CHECK-NEXT:         i1 [[VP_INNER_LOOP_2_BOTTOM_TEST:%.*]] = icmp eq i32 [[VP_INNER_LOOP_2_INDUCTION]] i32 128
 ; CHECK-NEXT:        SUCCESSORS(2):[[BB8:BB[0-9]+]](i1 [[VP_INNER_LOOP_2_BOTTOM_TEST]]), [[INTERMEDIATE_BB3:intermediate.bb[0-9]+]](!i1 [[VP_INNER_LOOP_2_BOTTOM_TEST]])
 ; CHECK-NEXT:        PREDECESSORS(1): [[BB6]]
 ; CHECK-EMPTY:
@@ -77,12 +77,12 @@ define void @main(i32 %vf) {
 ; CHECK-NEXT:      PREDECESSORS(4): [[BB8]] [[INTERMEDIATE_BB1]] [[INTERMEDIATE_BB2]] [[INTERMEDIATE_BB3]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[CASCADED_IF_BLOCK0]]:
-; CHECK-NEXT:       i1 [[VP0:%.*]] = icmp i32 [[VP_EXIT_ID_PHI]] i32 2
+; CHECK-NEXT:       i1 [[VP0:%.*]] = icmp eq i32 [[VP_EXIT_ID_PHI]] i32 2
 ; CHECK-NEXT:      SUCCESSORS(2):[[INTERMEDIATE_BB4:intermediate.bb[0-9]+]](i1 [[VP0]]), [[CASCADED_IF_BLOCK1:cascaded.if.block[0-9]+]](!i1 [[VP0]])
 ; CHECK-NEXT:      PREDECESSORS(1): [[NEW_LOOP_LATCH1]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:        [[CASCADED_IF_BLOCK1]]:
-; CHECK-NEXT:         i1 [[VP1:%.*]] = icmp i32 [[VP_EXIT_ID_PHI]] i32 3
+; CHECK-NEXT:         i1 [[VP1:%.*]] = icmp eq i32 [[VP_EXIT_ID_PHI]] i32 3
 ; CHECK-NEXT:        SUCCESSORS(2):[[BB9:BB[0-9]+]](i1 [[VP1]]), [[INTERMEDIATE_BB0]](!i1 [[VP1]])
 ; CHECK-NEXT:        PREDECESSORS(1): [[CASCADED_IF_BLOCK0]]
 ; CHECK-EMPTY:
@@ -93,7 +93,7 @@ define void @main(i32 %vf) {
 ; CHECK-EMPTY:
 ; CHECK-NEXT:        [[BB9]]:
 ; CHECK-NEXT:         i32 [[VP_INNER_LOOP_1_INDUCTION:%.*]] = add i32 [[VP_INNER_LOOP_1_INDUCTION_VAR]] i32 1
-; CHECK-NEXT:         i1 [[VP_INNER_LOOP_1_BOTTOM_TEST:%.*]] = icmp i32 [[VP_INNER_LOOP_1_INDUCTION]] i32 128
+; CHECK-NEXT:         i1 [[VP_INNER_LOOP_1_BOTTOM_TEST:%.*]] = icmp eq i32 [[VP_INNER_LOOP_1_INDUCTION]] i32 128
 ; CHECK-NEXT:        SUCCESSORS(2):[[BB10:BB[0-9]+]](i1 [[VP_INNER_LOOP_1_BOTTOM_TEST]]), [[INTERMEDIATE_BB4]](!i1 [[VP_INNER_LOOP_1_BOTTOM_TEST]])
 ; CHECK-NEXT:        PREDECESSORS(1): [[CASCADED_IF_BLOCK1]]
 ; CHECK-EMPTY:
@@ -115,7 +115,7 @@ define void @main(i32 %vf) {
 ; CHECK-NEXT:    PREDECESSORS(3): [[BB10]] [[INTERMEDIATE_BB0]] [[INTERMEDIATE_BB4]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[CASCADED_IF_BLOCK2]]:
-; CHECK-NEXT:     i1 [[VP2:%.*]] = icmp i32 [[VP_EXIT_ID_PHI_1]] i32 2
+; CHECK-NEXT:     i1 [[VP2:%.*]] = icmp eq i32 [[VP_EXIT_ID_PHI_1]] i32 2
 ; CHECK-NEXT:    SUCCESSORS(2):[[BB11:BB[0-9]+]](i1 [[VP2]]), [[BB12:BB[0-9]+]](!i1 [[VP2]])
 ; CHECK-NEXT:    PREDECESSORS(1): [[NEW_LOOP_LATCH0]]
 ; CHECK-EMPTY:
@@ -131,7 +131,7 @@ define void @main(i32 %vf) {
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB2]]:
 ; CHECK-NEXT:     i32 [[VP_OUTER_LOOP_INDUCTION]] = add i32 [[VP_OUTER_LOOP_INDUCTION_VAR]] i32 [[VF0:%.*]]
-; CHECK-NEXT:     i1 [[VP_CMP4:%.*]] = icmp i32 [[VP_OUTER_LOOP_INDUCTION]] i32 1024
+; CHECK-NEXT:     i1 [[VP_CMP4:%.*]] = icmp eq i32 [[VP_OUTER_LOOP_INDUCTION]] i32 1024
 ; CHECK-NEXT:    SUCCESSORS(2):[[BB1]](i1 [[VP_CMP4]]), [[BB13:BB[0-9]+]](!i1 [[VP_CMP4]])
 ; CHECK-NEXT:    PREDECESSORS(2): [[BB12]] [[BB11]]
 ; CHECK-EMPTY:

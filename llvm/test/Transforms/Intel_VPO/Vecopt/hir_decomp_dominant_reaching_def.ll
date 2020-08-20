@@ -83,7 +83,7 @@ define dso_local i32 @_Z3foov() local_unnamed_addr {
 ; CHECK-NEXT:     i32 [[VP12:%.*]] = add i32 [[VP7]] i32 64
 ; CHECK-NEXT:     i32 [[VP3]] = add i32 [[VP12]] i32 [[VP11]]
 ; CHECK-NEXT:     i64 [[VP5]] = add i64 [[VP4]] i64 1
-; CHECK-NEXT:     i1 [[VP13:%.*]] = icmp i64 [[VP5]] i64 1023
+; CHECK-NEXT:     i1 [[VP13:%.*]] = icmp sle i64 [[VP5]] i64 1023
 ; CHECK-NEXT:    SUCCESSORS(2):[[BB2]](i1 [[VP13]]), [[BB3:BB[0-9]+]](!i1 [[VP13]])
 ; CHECK-NEXT:    PREDECESSORS(2): [[BB1]] [[BB2]]
 ; CHECK-EMPTY:

@@ -50,7 +50,7 @@ define dso_local void @foo(i32* noalias nocapture %a, i32* noalias nocapture %b,
 ; CHECK-NEXT:     [DA: Div] i64 [[VP0:%.*]] = phi  [ i64 [[VP__IND_INIT]], [[BB1]] ],  [ i64 [[VP1:%.*]], [[BB3:BB[0-9]+]] ]
 ; CHECK-NEXT:     [DA: Div] i32* [[VP_SUBSCRIPT:%.*]] = subscript inbounds i32* [[B0:%.*]] i64 [[VP0]]
 ; CHECK-NEXT:     [DA: Div] i32 [[VP2:%.*]] = load i32* [[VP_SUBSCRIPT]]
-; CHECK-NEXT:     [DA: Div] i1 [[VP3:%.*]] = icmp i32 [[VP2]] i32 0
+; CHECK-NEXT:     [DA: Div] i1 [[VP3:%.*]] = icmp sgt i32 [[VP2]] i32 0
 ; CHECK-NEXT:    SUCCESSORS(1):[[BB4:BB[0-9]+]]
 ; CHECK-NEXT:    PREDECESSORS(2): [[BB1]] [[BB3]]
 ; CHECK-EMPTY:
@@ -58,7 +58,7 @@ define dso_local void @foo(i32* noalias nocapture %a, i32* noalias nocapture %b,
 ; CHECK-NEXT:     [DA: Div] i1 [[VP4:%.*]] = block-predicate i1 [[VP3]]
 ; CHECK-NEXT:     [DA: Div] i32* [[VP_SUBSCRIPT_1:%.*]] = subscript inbounds i32* [[A0:%.*]] i64 [[VP0]]
 ; CHECK-NEXT:     [DA: Div] i32 [[VP5:%.*]] = load i32* [[VP_SUBSCRIPT_1]]
-; CHECK-NEXT:     [DA: Div] i1 [[VP6:%.*]] = icmp i32 [[VP5]] i32 0
+; CHECK-NEXT:     [DA: Div] i1 [[VP6:%.*]] = icmp sgt i32 [[VP5]] i32 0
 ; CHECK-NEXT:     [DA: Div] i1 [[VP__NOT:%.*]] = not i1 [[VP6]]
 ; CHECK-NEXT:    SUCCESSORS(1):[[BB5:BB[0-9]+]]
 ; CHECK-NEXT:    PREDECESSORS(1): [[BB2]]
@@ -95,7 +95,7 @@ define dso_local void @foo(i32* noalias nocapture %a, i32* noalias nocapture %b,
 ; CHECK-NEXT:     [DA: Div] i32* [[VP_SUBSCRIPT_6:%.*]] = subscript inbounds i32* [[A0]] i64 [[VP0]]
 ; CHECK-NEXT:     [DA: Div] i32 [[VP14:%.*]] = load i32* [[VP_SUBSCRIPT_6]]
 ; CHECK-NEXT:     [DA: Div] i32 [[VP15:%.*]] = mul i32 [[VP12]] i32 [[N0]]
-; CHECK-NEXT:     [DA: Div] i1 [[VP16:%.*]] = icmp i32 [[VP15]] i32 0
+; CHECK-NEXT:     [DA: Div] i1 [[VP16:%.*]] = icmp sgt i32 [[VP15]] i32 0
 ; CHECK-NEXT:     [DA: Div] i1 [[VP__NOT_1:%.*]] = not i1 [[VP16]]
 ; CHECK-NEXT:    SUCCESSORS(1):[[BB9:BB[0-9]+]]
 ; CHECK-NEXT:    PREDECESSORS(1): [[BB7]]
@@ -127,7 +127,7 @@ define dso_local void @foo(i32* noalias nocapture %a, i32* noalias nocapture %b,
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB3]]:
 ; CHECK-NEXT:     [DA: Div] i64 [[VP1]] = add i64 [[VP0]] i64 [[VP__IND_INIT_STEP]]
-; CHECK-NEXT:     [DA: Uni] i1 [[VP24:%.*]] = icmp i64 [[VP1]] i64 299
+; CHECK-NEXT:     [DA: Uni] i1 [[VP24:%.*]] = icmp sle i64 [[VP1]] i64 299
 ; CHECK-NEXT:    SUCCESSORS(2):[[BB2]](i1 [[VP24]]), [[BB12:BB[0-9]+]](!i1 [[VP24]])
 ; CHECK-NEXT:    PREDECESSORS(1): [[BB11]]
 ; CHECK-EMPTY:

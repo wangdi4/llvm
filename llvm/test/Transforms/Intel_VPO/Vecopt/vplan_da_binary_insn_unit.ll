@@ -24,7 +24,7 @@ define dso_local void @XNU() local_unnamed_addr #0 {
 ; CHECK-NEXT:  Basic Block: [[BB2]]
 ; CHECK-NEXT:  Divergent: [Shape: Unit Stride, Stride: i64 1] i64 [[VP_OUTER_LOOP_INDUCTION]] = add i64 [[VP_OUTER_LOOP_INDUCTION_PHI]] i64 [[VP_OUTER_LOOP_INDUCTION_PHI_IND_INIT_STEP:%.*]]
 ; CHECK-NEXT:  Uniform: [Shape: Uniform] i64 [[VP_VECTOR_LOOP_IV_NEXT]] = add i64 [[VP_VECTOR_LOOP_IV]] i64 [[VP_VF:%.*]]
-; CHECK-NEXT:  Uniform: [Shape: Uniform] i1 [[VP_VECTOR_LOOP_EXITCOND:%.*]] = icmp i64 [[VP_VECTOR_LOOP_IV_NEXT]] i64 [[VP_VECTOR_TRIP_COUNT:%.*]]
+; CHECK-NEXT:  Uniform: [Shape: Uniform] i1 [[VP_VECTOR_LOOP_EXITCOND:%.*]] = icmp eq i64 [[VP_VECTOR_LOOP_IV_NEXT]] i64 [[VP_VECTOR_TRIP_COUNT:%.*]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Basic Block: [[BB4:BB[0-9]+]]
 ; CHECK-NEXT:  Uniform: [Shape: Uniform] i64 [[VP_ADD_PHI_IND_FINAL:%.*]] = induction-final{add} i64 live-in0 i64 1

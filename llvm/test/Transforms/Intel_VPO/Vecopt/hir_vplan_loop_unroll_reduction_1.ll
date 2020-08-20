@@ -41,7 +41,7 @@ define dso_local i32 @_Z3fooPii(i32* nocapture readonly %a, i32 %n) local_unname
 ; CHECK-NEXT:     [DA: Div] i32 [[VP7:%.*]] = load i32* [[VP_SUBSCRIPT]]
 ; CHECK-NEXT:     [DA: Div] i32 [[VP8:%.*]] = add i32 [[VP7]] i32 [[VP3]]
 ; CHECK-NEXT:     [DA: Div] i64 [[VP9:%.*]] = add i64 [[VP5]] i64 [[VP__IND_INIT_STEP]]
-; CHECK-NEXT:     [DA: Div] i1 [[VP10:%.*]] = icmp i64 [[VP9]] i64 [[VP1]]
+; CHECK-NEXT:     [DA: Div] i1 [[VP10:%.*]] = icmp sle i64 [[VP9]] i64 [[VP1]]
 ; CHECK-NEXT:    SUCCESSORS(1):cloned.[[BB4:BB[0-9]+]]
 ; CHECK-NEXT:    PREDECESSORS(2): [[BB1]] cloned.[[BB3]]
 ; CHECK-EMPTY:
@@ -50,7 +50,7 @@ define dso_local i32 @_Z3fooPii(i32* nocapture readonly %a, i32 %n) local_unname
 ; CHECK-NEXT:     [DA: Div] i32 [[VP12:%.*]] = load i32* [[VP11]]
 ; CHECK-NEXT:     [DA: Div] i32 [[VP13:%.*]] = add i32 [[VP12]] i32 [[VP8]]
 ; CHECK-NEXT:     [DA: Div] i64 [[VP14:%.*]] = add i64 [[VP9]] i64 [[VP__IND_INIT_STEP]]
-; CHECK-NEXT:     [DA: Uni] i1 [[VP15:%.*]] = icmp i64 [[VP14]] i64 [[VP1]]
+; CHECK-NEXT:     [DA: Uni] i1 [[VP15:%.*]] = icmp sle i64 [[VP14]] i64 [[VP1]]
 ; CHECK-NEXT:    SUCCESSORS(1):cloned.[[BB3]]
 ; CHECK-NEXT:    PREDECESSORS(1): [[BB2]]
 ; CHECK-EMPTY:
@@ -59,7 +59,7 @@ define dso_local i32 @_Z3fooPii(i32* nocapture readonly %a, i32 %n) local_unname
 ; CHECK-NEXT:     [DA: Div] i32 [[VP17:%.*]] = load i32* [[VP16]]
 ; CHECK-NEXT:     [DA: Div] i32 [[VP4]] = add i32 [[VP17]] i32 [[VP13]]
 ; CHECK-NEXT:     [DA: Div] i64 [[VP6]] = add i64 [[VP14]] i64 [[VP__IND_INIT_STEP]]
-; CHECK-NEXT:     [DA: Uni] i1 [[VP18:%.*]] = icmp i64 [[VP6]] i64 [[VP1]]
+; CHECK-NEXT:     [DA: Uni] i1 [[VP18:%.*]] = icmp sle i64 [[VP6]] i64 [[VP1]]
 ; CHECK-NEXT:    SUCCESSORS(2):[[BB2]](i1 [[VP18]]), [[BB5:BB[0-9]+]](!i1 [[VP18]])
 ; CHECK-NEXT:    PREDECESSORS(1): cloned.[[BB4]]
 ; CHECK-EMPTY:

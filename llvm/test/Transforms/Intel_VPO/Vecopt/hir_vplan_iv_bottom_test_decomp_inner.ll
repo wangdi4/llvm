@@ -5,7 +5,7 @@
 
 ; CHECK: [[IVPhi:%.*]] = phi  [ i64 0, {{BB.*}} ],  [ i64 [[IVNext:%.*]], {{BB.*}} ]
 ; CHECK: [[IVNext]] = add i64 [[IVPhi]] i64 1
-; CHECK: {{%.*}} = icmp i64 [[IVNext]] i64 1599
+; CHECK: {{%.*}} = icmp sle i64 [[IVNext]] i64 1599
 
 target triple = "x86_64-unknown-linux-gnu"
 

@@ -48,7 +48,7 @@ define dso_local void @make_simple_name(i8* %name) local_unnamed_addr #0 {
 ; CHECK-NEXT:     i8* [[VP6:%.*]] = subscript inbounds i8* %spec.select i64 [[VP5]]
 ; CHECK:         [[BB3]]:
 ; CHECK-NEXT:     i64 [[VP3]] = add i64 [[VP2]] i64 1
-; CHECK-NEXT:     i1 [[VP12:%.*]] = icmp i64 [[VP3]] i64 [[VP1]]
+; CHECK-NEXT:     i1 [[VP12:%.*]] = icmp sle i64 [[VP3]] i64 [[VP1]]
 ; CHECK-NEXT:    SUCCESSORS(2):[[BB2]](i1 [[VP12]]), {{.*}}
 ;
 entry:
