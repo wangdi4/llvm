@@ -5048,7 +5048,7 @@ Constant* VPOParoptUtils::getMinMaxIntVal(LLVMContext &C, Type *Ty,
 
   ConstantInt *MinMaxVal = ConstantInt::get(C, MinMaxAPInt);
   if (VectorType *VTy = dyn_cast<VectorType>(Ty))
-    return ConstantVector::getSplat(ElementCount(VTy->getNumElements(), false),
+    return ConstantVector::getSplat(ElementCount::getFixed(VTy->getNumElements()),
                                     MinMaxVal);
   return MinMaxVal;
 }
