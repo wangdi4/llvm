@@ -270,6 +270,7 @@ CleanupPointerRootUsers(GlobalVariable *GV,
         I = J;
       } while (true);
       I->eraseFromParent();
+      Changed = true;
     }
   }
 

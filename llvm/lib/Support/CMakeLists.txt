@@ -69,6 +69,7 @@ set (SUPPORT_SOURCES
   ABIBreak.cpp
   ARMTargetParser.cpp
   AMDGPUMetadata.cpp
+  APFixedPoint.cpp
   APFloat.cpp
   APInt.cpp
   APSInt.cpp
