@@ -2716,7 +2716,7 @@ static bool isKnownNonEqual(const Value *V1, const Value *V2, const Query &Q) {
 bool isKnownWithinIntRange(Value *V, unsigned BitRange, bool isSigned,
                            unsigned Depth, const Query &Q) {
   assert(V && "No Value?");
-  assert(Depth <= MaxDepth && "Limit Search Depth");
+  assert(Depth <= MaxAnalysisRecursionDepth && "Limit Search Depth");
 
   // The given value should be an integer.
   if (!V->getType()->isIntegerTy())
