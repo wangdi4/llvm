@@ -496,12 +496,6 @@ LangAS TargetCodeGenInfo::getGlobalVarAddressSpace(CodeGenModule &CGM,
   assert(!CGM.getLangOpts().OpenCL &&
          !(CGM.getLangOpts().CUDA && CGM.getLangOpts().CUDAIsDevice) &&
          "Address space agnostic languages only");
-#if INTEL_COLLAB
-  if (CGM.getLangOpts().UseAutoOpenCLAddrSpaceForOpenMP &&
-      CGM.getTarget().getTriple().isSPIR()) {
-    return LangAS::opencl_global;
-  }
-#endif  // INTEL_COLLAB
   return D ? D->getType().getAddressSpace() : LangAS::Default;
 }
 
