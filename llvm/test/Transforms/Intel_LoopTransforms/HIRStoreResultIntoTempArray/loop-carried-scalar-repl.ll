@@ -5,8 +5,8 @@
 ; We enlarge the array size of i1, because the offset i1 + 1 in MinRef
 ; We enlarge the upper bound of i1 in the extracted loop, because the distance between (%"jacobian_$Q")[i1 + 1][i2][i3][0] and (%"jacobian_$Q")[i1 + 2][%mod][%mod26][0] is 1 at this dimension.
 ;
-; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-create-function-level-region -hir-store-result-into-temp-array -print-after=hir-store-result-into-temp-array < %s 2>&1 | FileCheck %s
-;RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-store-result-into-temp-array,print<hir>" -hir-create-function-level-region 2>&1 < %s | FileCheck %s
+; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-create-function-level-region -disable-hir-store-result-into-temp-array=false -hir-store-result-into-temp-array -print-after=hir-store-result-into-temp-array < %s 2>&1 | FileCheck %s
+;RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-store-result-into-temp-array,print<hir>" -hir-create-function-level-region -disable-hir-store-result-into-temp-array=false 2>&1 < %s | FileCheck %s
 ;
 ;*** IR Dump Before HIR Store Result Into Temp Array ***
 ;Function: jacobian_
