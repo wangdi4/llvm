@@ -633,6 +633,7 @@ unsigned VPlanCostModel::getCostForVF(
   case Instruction::Call: {
     auto *VPCall = cast<VPCallInstruction>(VPInst);
     auto *CI = VPCall->getUnderlyingCallInst();
+    assert(CI && "Expected non-null underlying call instruction");
     Intrinsic::ID ID = getIntrinsicForCallSite(*CI, TLI);
 
     if (ID == Intrinsic::not_intrinsic)
