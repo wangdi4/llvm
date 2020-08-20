@@ -147,8 +147,14 @@ MODULE_PASS("rpo-function-attrs", ReversePostOrderFunctionAttrsPass())
 MODULE_PASS("sample-profile", SampleProfileLoaderPass())
 #if INTEL_CUSTOMIZATION
 MODULE_PASS("scc-oz-module-inliner",
+<<<<<<< HEAD
   buildInlinerPipeline(OptimizationLevel::Oz, ThinLTOPhase::None, nullptr, DebugLogging))
 #endif // INTEL_CUSTOMIZATION
+=======
+  buildInlinerPipeline(OptimizationLevel::Oz, ThinLTOPhase::None, DebugLogging))
+MODULE_PASS("oz-module-optimizer",
+  buildModuleOptimizationPipeline(OptimizationLevel::Oz, DebugLogging, /*LTOPreLink*/false))
+>>>>>>> 364cd768a2764211ec0cbcf0c0bdbe4d8f4565b9
 MODULE_PASS("strip-dead-prototypes", StripDeadPrototypesPass())
 MODULE_PASS("synthetic-counts-propagation", SyntheticCountsPropagation())
 MODULE_PASS("tilemvinlmarker", TileMVInlMarkerPass()) // INTEL
