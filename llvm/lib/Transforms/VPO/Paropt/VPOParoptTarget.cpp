@@ -2282,6 +2282,14 @@ bool VPOParoptTransform::clearLaunderIntrinBeforeRegion(WRegionNode *W) {
     }
   }
 
+  if (W->canHaveShared()) {
+    SharedClause &ShaClause = W->getShared();
+    for (SharedItem *ShaI : ShaClause.items()) {
+      NewV = removeLaunderIntrinsic(ShaI->getOrig(), true);
+      ShaI->setOrig(NewV);
+    }
+  }
+
   if (W->canHaveMap()) {
     MapClause const &MpClause = W->getMap();
     for (MapItem *MapI : MpClause.items()) {
@@ -2336,7 +2344,8 @@ Value *VPOParoptTransform::getRootValueFromFenceCall(Value *Orig) {
 /// this global variable within the WRegion (including the directive).
 /// The outline function will have an entry for the renamed variable. We do the
 /// renaming for ConstantExpr operands as well.
-///
+/// The same holds for any other constructs requiring function outlining, that
+/// use global variables privatized in their parent constructs.
 /// Before:
 /// \code
 ///  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(), ... ,
@@ -2365,16 +2374,14 @@ Value *VPOParoptTransform::getRootValueFromFenceCall(Value *Orig) {
 /// With these changes, CodeExtractor will pass in %a and %1 as parameters of
 /// the outlined function. After that, the renaming will be undone using
 /// clearLaunderIntrinBeforeRegion().
-bool VPOParoptTransform::genGlobalPrivatizationLaunderIntrin(WRegionNode *W) {
+bool VPOParoptTransform::genGlobalPrivatizationLaunderIntrin(
+    WRegionNode *W, const std::unordered_set<Value *> *ValuesToChange) {
   BasicBlock *EntryBB = W->getEntryBBlock();
   BasicBlock *NewEntryBB =
       SplitBlock(EntryBB, EntryBB->getFirstNonPHI(), DT, LI);
   W->setEntryBBlock(NewEntryBB);
   bool Changed = false;
   W->populateBBSet(true); // rebuild BBSet unconditionlly as EntryBB changed
-
-  assert(W->canHaveMap() &&
-         "Function called for a WRegion that cannot have a Map clause.");
 
   // For the example in the header comment, this function will create the
   // renamed %1 for the gep on @a, and %a for @a.
@@ -2395,6 +2402,8 @@ bool VPOParoptTransform::genGlobalPrivatizationLaunderIntrin(WRegionNode *W) {
 
   // Create a renamed value for V if it's a Global or ConstantExpr.
   auto createRenamedValueForGlobalsAndConstExprs = [&](Value *V) {
+    // If the set of ValuesToChange is provided, only change the Values in the
+    // Set.
     auto VOrigAndNew = RenameMap.find(V);
     if (VOrigAndNew != RenameMap.end())
       return VOrigAndNew->second;
@@ -2403,6 +2412,10 @@ bool VPOParoptTransform::genGlobalPrivatizationLaunderIntrin(WRegionNode *W) {
       RenameMap.insert({V, V});
       return V;
     }
+
+    if (ValuesToChange != nullptr &&
+        ValuesToChange->find(V) == ValuesToChange->end())
+      return V;
 
     Value *VNew = createRenamedValueForV(V);
     RenameMap.insert({V, VNew});
@@ -2427,29 +2440,32 @@ bool VPOParoptTransform::genGlobalPrivatizationLaunderIntrin(WRegionNode *W) {
     }
   };
 
-  MapClause &MpClause = W->getMap();
   Value *VNew = nullptr;
-  // The capturing also needs to happen for Constant EXPRs in SectionPtrs.
-  for (MapItem *MapI : MpClause.items()) {
-    if (MapI->getIsMapChain()) {
-      MapChainTy &MapChain = MapI->getMapChain();
-      // Iterate through a map chain in reverse order. For example,
-      // for (p1, p2) (p2, p3), handle (p2, p3) before (p1, p2).
-      // We can also have things like (p1, p1) (p1, p2) for cases like:
-      //   int (*p1)[10];
-      //   ...
-      //   ... target map(tofrom:p1[0][1]) ...
-      for (int I = MapChain.size() - 1; I >= 0; --I) {
-        MapAggrTy *Aggr = MapChain[I];
-        VNew = createRenamedValueForGlobalsAndConstExprs(Aggr->getSectionPtr());
-        Aggr->setSectionPtr(VNew);
-        VNew = createRenamedValueForGlobalsAndConstExprs(Aggr->getBasePtr());
-        Aggr->setBasePtr(VNew);
+  if (W->canHaveMap()) {
+    MapClause &MpClause = W->getMap();
+    // The capturing also needs to happen for Constant EXPRs in SectionPtrs.
+    for (MapItem *MapI : MpClause.items()) {
+      if (MapI->getIsMapChain()) {
+        MapChainTy &MapChain = MapI->getMapChain();
+        // Iterate through a map chain in reverse order. For example,
+        // for (p1, p2) (p2, p3), handle (p2, p3) before (p1, p2).
+        // We can also have things like (p1, p1) (p1, p2) for cases like:
+        //   int (*p1)[10];
+        //   ...
+        //   ... target map(tofrom:p1[0][1]) ...
+        for (int I = MapChain.size() - 1; I >= 0; --I) {
+          MapAggrTy *Aggr = MapChain[I];
+          VNew =
+              createRenamedValueForGlobalsAndConstExprs(Aggr->getSectionPtr());
+          Aggr->setSectionPtr(VNew);
+          VNew = createRenamedValueForGlobalsAndConstExprs(Aggr->getBasePtr());
+          Aggr->setBasePtr(VNew);
+        }
       }
-    }
 
-    VNew = createRenamedValueForGlobalsAndConstExprs(MapI->getOrig());
-    MapI->setOrig(VNew);
+      VNew = createRenamedValueForGlobalsAndConstExprs(MapI->getOrig());
+      MapI->setOrig(VNew);
+    }
   }
 
   if (W->canHaveFirstprivate()) {
@@ -2478,6 +2494,22 @@ bool VPOParoptTransform::genGlobalPrivatizationLaunderIntrin(WRegionNode *W) {
     for (IsDevicePtrItem *Item : IsDevPtrClause.items()) {
       VNew = createRenamedValueForGlobalsAndConstExprs(Item->getOrig());
       Item->setOrig(VNew);
+    }
+  }
+
+  if (W->canHaveShared()) {
+    SharedClause &ShaClause = W->getShared();
+    for (SharedItem *ShaI : ShaClause.items()) {
+      VNew = createRenamedValueForGlobalsAndConstExprs(ShaI->getOrig());
+      ShaI->setOrig(VNew);
+    }
+  }
+
+  if (W->canHaveLastprivate()) {
+    LastprivateClause &LprivClause = W->getLpriv();
+    for (LastprivateItem *I : LprivClause.items()) {
+      VNew = createRenamedValueForGlobalsAndConstExprs(I->getOrig());
+      I->setOrig(VNew);
     }
   }
 

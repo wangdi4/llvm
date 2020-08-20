@@ -1672,6 +1672,39 @@ private:
                                                       Instruction *InsertPt,
                                                       bool IsTaskGroupStart);
   /// @}
+
+public:
+  /// Utility to go through all Items in the given clause, if clause is not
+  /// nullptr and execute the passed lambda function with each item as a
+  /// parameter.
+  /// Example Usage: Note: A Lambda can be templated in C++20
+  /// onwards. Therefore, currently we can use Item base class as an argument
+  /// and use the APIs provided in the base class. For using specific Item Type
+  /// APIs, pass a specially created lambda.
+  ///
+  /// auto AddItem = [&](Item* I){
+  ///   ValueSet.insert(I->getOrig());
+  /// };
+  /// executeForEachItemInClause(WRegionNodePtr->getSharedIfSupported(),
+  ///                            AddItem);
+  /// executeForEachItemInClause(WRegionNodePtr->getPrivIfSupported(),
+  ///                            AddItem);
+  ///
+  /// auto GenDestCallLpriv = [&](LastprivateItem *LprivI){
+  ///   VPOParoptUtils::genDestructorCall(
+  //                      LprivI->getDestructor(),
+  ///                     LprivI->getNew(),
+  ///                     WRegionNodePtr->getExitBBlock()->getTerminator());
+  /// };
+  ///
+  /// executeForEachItemInClause(WRegionNodePtr->getLprivIfSupported(),
+  ///                            GenDestCallLpriv);
+
+  template <typename T, class UnaryFunction>
+  static void executeForEachItemInClause(T *Clause, UnaryFunction Code) {
+    if (Clause != nullptr)
+      std::for_each(Clause->items().begin(), Clause->items().end(), Code);
+  }
 };
 
 } // namespace vpo

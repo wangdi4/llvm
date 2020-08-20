@@ -67,6 +67,7 @@
 
 #include <queue>
 #include <unordered_map>
+#include <unordered_set>
 
 namespace llvm {
 
@@ -1115,9 +1116,17 @@ private:
   /// This fixup has to be done as soon as possible after FE.
   bool canonicalizeGlobalVariableReferences(WRegionNode *W);
 
+  // For a global variable in non-target constructs, check if its ancestor
+  // WRegionNode has it in privatizing clause. If it does, call
+  // genGlobalPrivatizationLaunderIntrin for that Value.
+  bool genLaunderIntrinIfPrivatizedInAncestor(WRegionNode *W);
+
   // If the incoming data is global variable, create a stack variable
   // and replace the global variable with the stack variable.
-  bool genGlobalPrivatizationLaunderIntrin(WRegionNode *W);
+  // ValuesToChange if set, gives the list of global variables to be changed.
+  bool genGlobalPrivatizationLaunderIntrin(
+      WRegionNode *W,
+      const std::unordered_set<Value *> *ValuesToChange = nullptr);
 
   /// Generate the sizes and map type flags for the given map type, map
   /// modifier and the expression V.
