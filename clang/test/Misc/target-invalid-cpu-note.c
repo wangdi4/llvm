@@ -50,7 +50,7 @@
 // TUNE_X86-SAME: pentium3m, pentium-m, c3-2, yonah, pentium4, pentium4m, prescott,
 // TUNE_X86-SAME: nocona, core2, penryn, bonnell, atom, silvermont, slm, goldmont, goldmont-plus, tremont,
 // TUNE_X86-SAME: nehalem, corei7, westmere, sandybridge, corei7-avx, ivybridge,
-// TUNE_X86-SAME: core-avx-i, haswell, core-avx2, broadwell, skylake, skylake-avx512,
+// TUNE_X86-SAME: core-avx-i, haswell, core-avx2, broadwell,{{.*}}skylake, skylake-avx512,  ;INTEL
 // TUNE_X86-SAME: skx, cascadelake, cooperlake, cannonlake, icelake-client, icelake-server, tigerlake, knl, knm, lakemont, k6, k6-2, k6-3,
 // TUNE_X86-SAME: athlon, athlon-tbird, athlon-xp, athlon-mp, athlon-4, k8, athlon64,
 // TUNE_X86-SAME: athlon-fx, opteron, k8-sse3, athlon64-sse3, opteron-sse3, amdfam10,
@@ -62,7 +62,7 @@
 // TUNE_X86_64: note: valid target CPU values are: nocona, core2, penryn, bonnell,
 // TUNE_X86_64-SAME: atom, silvermont, slm, goldmont, goldmont-plus, tremont, nehalem, corei7, westmere,
 // TUNE_X86_64-SAME: sandybridge, corei7-avx, ivybridge, core-avx-i, haswell,
-// TUNE_X86_64-SAME: core-avx2, broadwell, skylake, skylake-avx512, skx, cascadelake, cooperlake, cannonlake,
+// TUNE_X86_64-SAME: core-avx2, broadwell,{{.*}}skylake, skylake-avx512, skx, cascadelake, cooperlake, cannonlake, ;INTEL
 // TUNE_X86_64-SAME: icelake-client, icelake-server, tigerlake, knl, knm, k8, athlon64, athlon-fx, opteron, k8-sse3,
 // TUNE_X86_64-SAME: athlon64-sse3, opteron-sse3, amdfam10, barcelona, btver1,
 // TUNE_X86_64-SAME: btver2, bdver1, bdver2, bdver3, bdver4, znver1, znver2, x86-64
