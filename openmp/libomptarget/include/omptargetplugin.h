@@ -274,6 +274,10 @@ EXTERN int32_t __tgt_rtl_is_managed_ptr(int32_t ID, void *Ptr);
 
 // Initialize OMPT interface
 EXTERN void __tgt_rtl_init_ompt(void *OmptGlobal);
+
+// Get target memory allocation information
+EXTERN int32_t __tgt_rtl_get_data_alloc_info(
+    int32_t ID, int32_t NumPtrs, void *Ptrs, void *Info);
 #endif // INTEL_COLLAB
 #ifdef __cplusplus
 }

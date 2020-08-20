@@ -124,6 +124,12 @@ struct __tgt_interop_obj {
                        // Not valid for opencl
   int32_t plugin_interface; // Plugin selector
 };
+
+struct __tgt_memory_info {
+  void *Base;       // Base address
+  uintptr_t Offset; // Offset from base address
+  size_t Size;      // Allocation Size from Base + Offset
+};
 #endif // INTEL_COLLAB
 
 /// This struct is a record of an entry point or global. For a function
@@ -477,6 +483,10 @@ EXTERN void __tgt_push_code_location(const char *location, void *codeptr_ra);
 
 // Return number of devices
 EXTERN int __tgt_get_num_devices(void);
+
+// Return target memory information
+EXTERN int __tgt_get_target_memory_info(
+    void *interop_obj, int32_t num_ptrs, void *ptrs, void *ptr_info);
 #endif // INTEL_COLLAB
 #ifdef __cplusplus
 }
