@@ -3935,58 +3935,53 @@ bool BoUpSLP::isLegalToBuildMultiNode(ArrayRef<Value *> VL) {
 /// back-to-back before we perform any reordering, then the problem goes away,
 /// because all uses will follow the leaves: L1, L2, L3, T1, T0
 void BoUpSLP::scheduleMultiNodeInstrs() {
-  std::list<TreeEntry *> TEWorklist;
-  TreeEntry *RootTE = VectorizableTree[CurrentMultiNode->getRoot()].get();
   if (CurrentMultiNode->numOfTrunks() <= 1)
     return;
-  assert(static_cast<size_t>(CurrentMultiNode->getRoot()) + 1 <
-             VectorizableTree.size() &&
-         "Should have early exited if only 1 TE in tree.");
-  TreeEntry *SecondTE = VectorizableTree[CurrentMultiNode->getRoot() + 1].get();
-  TEWorklist.push_back(SecondTE);
-
+  TreeEntry *RootTE = VectorizableTree[CurrentMultiNode->getRoot()].get();
   int Lanes = RootTE->Scalars.size();
 
   // The 'Destination' holds the destination position where the scheduled
   // instruction should be moved to. We need one destination per lane, which is
   // why we are using a vector.
   SmallVector<Instruction *, 4> Destination(Lanes);
-  for (int Lane = 0; Lane != Lanes; ++Lane) {
-    assert(isa<Instruction>(RootTE->Scalars[Lane]) &&
-           "Instrs expected in CurrentMultiNode");
-    Destination[Lane] = cast<Instruction>(RootTE->Scalars[Lane]);
+  for (int L = 0; L != Lanes; ++L) {
+      auto *I = dyn_cast<Instruction>(RootTE->Scalars[L]);
+      assert(I && "Instrs expected in CurrentMultiNode");
+      Destination[L] = I;
   }
+
+  std::list<TreeEntry *> TEWorklist;
+  ArrayRef<int> Trunks = CurrentMultiNode->getTrunks();
+  // Start with the first multi-node non-root TreeEntry (Trunks[0] is the root).
+  TEWorklist.push_back(VectorizableTree[Trunks[1]].get());
 
   // Iterate until we are done with all TEs of the multi node.
   while (!TEWorklist.empty()) {
     TreeEntry *TE = TEWorklist.front();
-    assert(TE->State != TreeEntry::NeedToGather && "Not vectorizable ?");
-    assert((int)TE->Scalars.size() == Lanes && "Broken TE?");
+    assert(TE->State == TreeEntry::Vectorize && "Not vectorizable ?");
+    assert(int(TE->Scalars.size()) == Lanes && "Broken TE?");
     TEWorklist.pop_front();
 
     // Move all TE instrs before Destination, and update the Destination.
-    for (int Lane = 0; Lane != Lanes; ++Lane) {
-      if (Instruction *I = dyn_cast<Instruction>(TE->Scalars[Lane])) {
+    for (int L = 0; L != Lanes; ++L) {
+      if (auto *I = dyn_cast<Instruction>(TE->Scalars[L])) {
         // We need to restore the original instruction position.
         CurrentMultiNode->saveBeforeSchedInstrPosition(I, I->getNextNode());
 
         // Perform the actual code motion.
-        I->moveBefore(Destination[Lane]);
+        I->moveBefore(Destination[L]);
         // 'I' becomes the new destination for 'Lane'.
-        Destination[Lane] = I;
+        Destination[L] = I;
       }
     }
 
     // Push predecessor TEs into the worklist.
-    if (Instruction *I0 = dyn_cast<Instruction>(TE->Scalars[0])) {
-      for (unsigned i = 0, e = I0->getNumOperands(); i != e; ++i) {
-        Value *OpV = I0->getOperand(i);
+    if (auto *I0 = dyn_cast<Instruction>(TE->Scalars[0])) {
+      for (unsigned N = 0; N != I0->getNumOperands(); ++N) {
+        Value *OpV = I0->getOperand(N);
         TreeEntry *OpTE = getTreeEntry(OpV);
-        if (OpTE) {
-          if (CurrentMultiNode->containsTrunk(OpTE->Idx)) {
-            TEWorklist.push_back(OpTE);
-          }
-        }
+        if (OpTE && CurrentMultiNode->containsTrunk(OpTE->Idx))
+          TEWorklist.push_back(OpTE);
       }
     }
   }
