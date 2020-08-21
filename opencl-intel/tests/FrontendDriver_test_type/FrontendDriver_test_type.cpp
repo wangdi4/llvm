@@ -276,11 +276,10 @@ TEST_F(ClangCompilerTestType, Test_SpirvWithFP64AndImages) {
     auto spirvDesc = GetTestFESPIRVProgramDescriptor(spvBC);
 
     CLANG_DEV_INFO devInfo = {
-        "",    // extensions
-        true,  // images support
-        true,  // fp64 support
-        false, // source level profiling
-        false  // fpga emu
+        "",   // extensions
+        true, // images support
+        true, // fp64 support
+        false // source level profiling
     };
     std::unique_ptr<IOCLFECompiler> spFeCompiler;
     IOCLFECompiler * pFeCompiler = spFeCompiler.get();
@@ -307,11 +306,10 @@ TEST_F(ClangCompilerTestType, Test_SpirvDeviceWOFP64) {
     auto spirvDesc = GetTestFESPIRVProgramDescriptor(spvBC);
 
     CLANG_DEV_INFO devInfo = {
-        "",    // extensions
-        true,  // images support
-        false, // fp64 support
-        false, // source level profiling
-        false  // fpga emu
+        "",   // extensions
+        true, // images support
+        false,// fp64 support
+        false // source level profiling
     };
     std::unique_ptr<IOCLFECompiler> spFeCompiler;
     IOCLFECompiler * pFeCompiler = spFeCompiler.get();
@@ -327,11 +325,10 @@ TEST_F(ClangCompilerTestType, Test_SpirvDeviceWOFP64) {
 // test that a module requiring images is rejected by a device which doesn't support images
 TEST_F(ClangCompilerTestType, Test_SpirvDeviceWOImages) {
     CLANG_DEV_INFO devInfo = {
-        "",    // extensions
+        "",   // extensions
         false, // images support
-        true,  // fp64 support
-        false, // source level profiling
-	false  // fpga emu
+        true, // fp64 support
+        false // source level profiling
     };
     std::unique_ptr<IOCLFECompiler> spFeCompiler;
     IOCLFECompiler * pFeCompiler = spFeCompiler.get();
