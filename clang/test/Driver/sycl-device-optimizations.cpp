@@ -29,6 +29,7 @@
 // RUN:   | FileCheck -check-prefix=CHECK-NO-SYCL-EARLY-OPTS %s
 // CHECK-NO-SYCL-EARLY-OPTS: "-fno-sycl-early-optimizations"
 
+<<<<<<< HEAD
 // if INTEL_COLLAB
 /// Check that optimizations for sycl device are disabled in presence of -g:
 // RUN:   %clang -### -g -fsycl %s 2>&1 \
@@ -40,3 +41,12 @@
 // CHECK-DEBUG: "-fno-sycl-early-optimizations"
 // end INTEL_COLLAB
 
+=======
+/// Check that Dead Parameter Elimination Optimization is enabled
+// RUN:   %clang -### -fsycl -fsycl-dead-args-optimization %s 2>&1 \
+// RUN:   | FileCheck -check-prefix=CHECK-DAE %s
+// RUN:   %clang_cl -### -fsycl -fsycl-dead-args-optimization %s 2>&1 \
+// RUN:   | FileCheck -check-prefix=CHECK-DAE %s
+// CHECK-DAE: clang{{.*}} "-fenable-sycl-dae"
+// CHECK-DAE: sycl-post-link{{.*}} "-emit-param-info"
+>>>>>>> f53ede9903c34fd4cfe45b206e1f753b81ee4252
