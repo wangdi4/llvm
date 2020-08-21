@@ -9,7 +9,8 @@
 ;              |   %conv = sitofp.i32.double(i1 + 2);
 ;              |   (@a)[0][i1] = %conv;
 ;              |   %mul = i1  *  i1;
-;              |   switch(%mul + -3 * (%mul /u 3))
+;              |   %rem = %mul  %u  3;
+;              |   switch(%rem)
 ;              |   {
 ;              |   case 0:
 ;              |      %call = @printf(&((@.str)[0][0]),  i1);
@@ -35,7 +36,8 @@
 ;                |   %conv = sitofp.i32.double(2 * i1 + 2);
 ;                |   (@a)[0][2 * i1] = %conv;
 ;                |   %mul = 2 * i1  *  2 * i1;
-;                |   switch(%mul + -3 * (%mul /u 3))
+;                |   %rem = %mul  %u  3;
+;                |   switch(%rem)
 ;                |   {
 ;                |   case 0:
 ;                |      %call = @printf(&((@.str)[0][0]),  2 * i1);
@@ -50,7 +52,8 @@
 ;                |   %conv = sitofp.i32.double(2 * i1 + 3);
 ;                |   (@a)[0][2 * i1 + 1] = %conv;
 ;                |   %mul = 2 * i1 + 1  *  2 * i1 + 1;
-;                |   switch(%mul + -3 * (%mul /u 3))
+;                |   %rem = %mul  %u  3;
+;                |   switch(%rem)
 ;                |   {
 ;                |   case 0:
 ;                |      %call = @printf(&((@.str)[0][0]),  2 * i1 + 1);
@@ -69,7 +72,8 @@
 ;                |   %conv = sitofp.i32.double(i1 + 2);
 ;                |   (@a)[0][i1] = %conv;
 ;                |   %mul = i1  *  i1;
-;                |   switch(%mul + -3 * (%mul /u 3))
+;                |   %rem = %mul  %u  3;
+;                |   switch(%rem)
 ;                |   {
 ;                |   case 0:
 ;                |      %call = @printf(&((@.str)[0][0]),  i1);
@@ -88,11 +92,11 @@
 ;CHECK: region.0:
 ;CHECK: br i1
 ;CHECK-SAME: !prof ![[PROF_LOOP_UNROLLED:[0-9]+]]
-;CHECK: switch i32 %{{[0-9]+}}, label %[[SWITCH_UNROLLED_1:hir.sw.[0-9]+]].default [
+;CHECK: switch i32 %{{.*}}, label %[[SWITCH_UNROLLED_1:hir.sw.[0-9]+]].default [
 ;CHECK-NEXT: i32 0, label %[[SWITCH_UNROLLED_1]].case.0
 ;CHECK-NEXT: i32 1, label %[[SWITCH_UNROLLED_1]].case.1
 ;CHECK-NEXT: ], !prof ![[PROF_SWITCH_UNROLLED:[0-9]+]]
-;CHECK: switch i32 %{{[0-9]+}}, label %[[SWITCH_UNROLLED_2:hir.sw.[0-9]+]].default [
+;CHECK: switch i32 %{{.*}}, label %[[SWITCH_UNROLLED_2:hir.sw.[0-9]+]].default [
 ;CHECK-NEXT: i32 0, label %[[SWITCH_UNROLLED_2]].case.0
 ;CHECK-NEXT: i32 1, label %[[SWITCH_UNROLLED_2]].case.1
 ;CHECK-NEXT: ], !prof ![[PROF_SWITCH_UNROLLED]]
@@ -102,7 +106,7 @@
 ; Remainder loop
 ;CHECK: br i1
 ;CHECK-SAME: !prof ![[PROF_LOOP_REMAINDER:[0-9]+]]
-;CHECK: switch i32 %{{[0-9]+}}, label %[[SWITCH_REMAINDER_LOOP:hir.sw.[0-9]+]].default [
+;CHECK: switch i32 %{{.*}}, label %[[SWITCH_REMAINDER_LOOP:hir.sw.[0-9]+]].default [
 ;CHECK-NEXT: i32 0, label %[[SWITCH_REMAINDER_LOOP]].case.0
 ;CHECK-NEXT: i32 1, label %[[SWITCH_REMAINDER_LOOP]].case.1
 ;CHECK-NEXT: ], !prof ![[PROF_SWITCH_REMAINDER:[0-9]+]]

@@ -3149,7 +3149,7 @@ const SCEV *ScalarEvolution::getMulExpr(SmallVectorImpl<const SCEV *> &Ops,
 
 /// Represents an unsigned remainder expression based on unsigned division.
 const SCEV *ScalarEvolution::getURemExpr(const SCEV *LHS,
-                                         const SCEV *RHS) {
+                                         const SCEV *RHS, Value *Val) { // INTEL
   assert(getEffectiveSCEVType(LHS->getType()) ==
          getEffectiveSCEVType(RHS->getType()) &&
          "SCEVURemExpr operand types don't match!");
@@ -3169,6 +3169,13 @@ const SCEV *ScalarEvolution::getURemExpr(const SCEV *LHS,
     }
   }
 
+#if INTEL_CUSTOMIZATION // HIR parsing
+  // The fallback form of URem doesn't seem too useful for HIR. It adversely
+  // affects cost modelling so we return a conservative result.
+  if (Val && isa<ScopedScalarEvolution>(this)) {
+    return getUnknown(Val);
+  }
+#endif // INTEL_CUSTOMIZATION
   // Fallback to %a == %x urem %y == %x -<nuw> ((%x udiv %y) *<nuw> %y)
   const SCEV *UDiv = getUDivExpr(LHS, RHS);
   const SCEV *Mult = getMulExpr(UDiv, RHS, SCEV::FlagNUW);
@@ -6868,7 +6875,7 @@ const SCEV *ScalarEvolution::createSCEV(Value *V) {
     case Instruction::UDiv:
       return getUDivExpr(getSCEV(BO->LHS), getSCEV(BO->RHS));
     case Instruction::URem:
-      return getURemExpr(getSCEV(BO->LHS), getSCEV(BO->RHS));
+      return getURemExpr(getSCEV(BO->LHS), getSCEV(BO->RHS), V); // INTEL
     case Instruction::Sub: {
       SCEV::NoWrapFlags Flags = SCEV::FlagAnyWrap;
       if (BO->Op)
@@ -7118,7 +7125,10 @@ const SCEV *ScalarEvolution::createSCEV(Value *V) {
     // If both operands are non-negative, this is just an urem.
     if (isKnownNonNegative(getSCEV(U->getOperand(0))) &&
         isKnownNonNegative(getSCEV(U->getOperand(1))))
-      return getURemExpr(getSCEV(U->getOperand(0)), getSCEV(U->getOperand(1)));
+#if INTEL_CUSTOMIZATION // HIR parsing
+      return getURemExpr(getSCEV(U->getOperand(0)), getSCEV(U->getOperand(1)),
+                         V);
+#endif // INTEL_CUSTOMIZATION
     break;
 
   // It's tempting to handle inttoptr and ptrtoint as no-ops, however this can
