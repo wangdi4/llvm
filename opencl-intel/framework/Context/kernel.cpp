@@ -391,7 +391,8 @@ void KernelArg::SetValue( size_t size, const void * pValue )
 Kernel::Kernel(const SharedPtr<Program>& pProgram, const char * psKernelName, size_t szNumDevices) :
 OCLObject<_cl_kernel_int>(pProgram->GetParentHandle(), "Kernel"),
     m_pProgram(pProgram), m_szAssociatedDevices(szNumDevices), m_pArgsBlob(nullptr), m_numValidArgs(0), 
-    m_totalLocalSize(0), m_bSvmFineGrainSystem(false)
+    m_totalLocalSize(0), m_bSvmFineGrainSystem(false), m_usmIndirectHost(false),
+    m_usmIndirectDevice(false), m_usmIndirectShared(false)
 {
     m_sKernelPrototype.m_szKernelName = psKernelName;
 

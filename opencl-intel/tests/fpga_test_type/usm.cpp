@@ -203,26 +203,41 @@ protected:
     BuildKernel(context, device, source, 1, "test", program, kernel);
     err = m_clSetKernelArgMemPointerINTEL(kernel, 0, foo);
     ASSERT_EQ(err, CL_SUCCESS) << "clSetKernelArgMemPointerINTEL failed";
+
     err = clSetKernelExecInfo(kernel, CL_KERNEL_EXEC_INFO_USM_PTRS_INTEL,
                               sizeof(Foo), foo);
-    ASSERT_EQ(err, CL_SUCCESS) << "clSetKernelExecInfo failed";
-    cl_bool useIndirectShared = CL_TRUE;
-    err = clSetKernelExecInfo(kernel,
-                              CL_KERNEL_EXEC_INFO_INDIRECT_SHARED_ACCESS_INTEL,
-                              sizeof(useIndirectShared), &useIndirectShared);
-    ASSERT_EQ(err, CL_SUCCESS) << "clSetKernelExecInfo failed";
-
-    size_t gdim = 1;
-    size_t ldim = 1;
-    err = clEnqueueNDRangeKernel(queue, kernel, 1, nullptr, &gdim, &ldim, 0,
-                                 nullptr, nullptr);
     if (shouldSucceed)
-      ASSERT_EQ(err, CL_SUCCESS) << "clEnqueueNDRangeKernel should succeed";
+      ASSERT_EQ(err, CL_SUCCESS) << "clSetKernelExecInfo should succeed";
     else
       ASSERT_NE(err, CL_SUCCESS) << "clEnqueueNDRangeKernel should fail";
 
-    err = clFinish(queue);
-    ASSERT_EQ(err, CL_SUCCESS) << "clFinish failed";
+    if (CL_SUCCESS == err) {
+      size_t gdim = 1;
+      size_t ldim = 1;
+
+      // clEnqueueNDRangeKernel should fail because access to buffer requires
+      // CL_KERNEL_EXEC_INFO_INDIRECT_SHARED_ACCESS_INTEL being set.
+      err = clEnqueueNDRangeKernel(queue, kernel, 1, nullptr, &gdim, &ldim, 0,
+                                   nullptr, nullptr);
+      ASSERT_EQ(err, CL_INVALID_OPERATION)
+          << "clEnqueueNDRangeKernel should return CL_INVALID_OPERATION";
+
+      cl_bool useIndirectShared = CL_TRUE;
+      err = clSetKernelExecInfo(
+          kernel, CL_KERNEL_EXEC_INFO_INDIRECT_SHARED_ACCESS_INTEL,
+          sizeof(useIndirectShared), &useIndirectShared);
+      ASSERT_EQ(err, CL_SUCCESS) << "clSetKernelExecInfo failed";
+
+      err = clEnqueueNDRangeKernel(queue, kernel, 1, nullptr, &gdim, &ldim, 0,
+                                   nullptr, nullptr);
+      if (shouldSucceed)
+        ASSERT_EQ(err, CL_SUCCESS) << "clEnqueueNDRangeKernel should succeed";
+      else
+        ASSERT_NE(err, CL_SUCCESS) << "clEnqueueNDRangeKernel should fail";
+
+      err = clFinish(queue);
+      ASSERT_EQ(err, CL_SUCCESS) << "clFinish failed";
+    }
 
     err = clReleaseProgram(program);
     ASSERT_EQ(err, CL_SUCCESS) << "clReleaseProgram failed";
@@ -289,12 +304,13 @@ TEST_P(UsmTest, sameDevice) {
     ASSERT_EQ(err, CL_SUCCESS) << "clSharedMemAllocINTEL failed";
     ASSERT_NE(buffer, nullptr) << "invalid buffer";
 
-    TestCommands(device, context, queue, buffer, size, /*shouldSucceed*/ true);
+    TestCommands(device, context, queue, buffer, size,
+                 /*shouldSucceed*/ true);
     TestMemcpy(device, context, queue, buffer, size, /*shouldSucceed*/ true);
     TestNonArg(device, context, queue, buffer, size, /*shouldSucceed*/ true);
 
-    // Test migrate at last, since CL_MIGRATE_MEM_OBJECT_CONTENT_UNDEFINED will
-    // make content of buffer undefined.
+    // Test migrate at last, since CL_MIGRATE_MEM_OBJECT_CONTENT_UNDEFINED
+    // will make content of buffer undefined.
     cl_mem_migration_flags flags = CL_MIGRATE_MEM_OBJECT_CONTENT_UNDEFINED;
     err = m_clEnqueueMigrateMemINTEL(queue, buffer, size, flags, 0, nullptr,
                                      nullptr);
@@ -331,7 +347,8 @@ TEST_P(UsmTest, crossDevice) {
     cl_command_queue queue = createCommandQueue(context, device);
     ASSERT_NE(queue, nullptr) << "createCommandQueue failed";
 
-    TestCommands(device, context, queue, buffer, size, /*shouldSucceed*/ false);
+    TestCommands(device, context, queue, buffer, size,
+                 /*shouldSucceed*/ false);
     TestMemcpy(device, context, queue, buffer, size, /*shouldSucceed*/ false);
     TestNonArg(device, context, queue, buffer, size, /*shouldSucceed*/ false);
 
@@ -346,7 +363,8 @@ TEST_P(UsmTest, crossDevice) {
   m_clMemFreeINTEL(context, buffer);
 }
 
-/// FPGA doesn't support system USM, so access to system buffer is not allowed.
+/// FPGA doesn't support system USM, so access to system buffer is not
+/// allowed.
 TEST_P(UsmTest, system) {
   // Allocate a system buffer
   size_t size = 256;
@@ -357,8 +375,10 @@ TEST_P(UsmTest, system) {
     cl_command_queue queue = createCommandQueue(context, device);
     ASSERT_NE(nullptr, queue) << "createCommandQueue failed";
 
-    TestCommands(device, context, queue, buffer, size, /*shouldSucceed*/ false);
+    TestCommands(device, context, queue, buffer, size,
+                 /*shouldSucceed*/ false);
     TestMemcpy(device, context, queue, buffer, size, /*shouldSucceed*/ true);
+    TestNonArg(device, context, queue, buffer, size, /*shouldSucceed*/ false);
 
     // migrate
     cl_mem_migration_flags flags = 0;

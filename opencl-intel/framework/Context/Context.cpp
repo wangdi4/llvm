@@ -1627,10 +1627,30 @@ cl_int Context::SetKernelExecInfo(const SharedPtr<Kernel>& pKernel, cl_kernel_ex
             std::vector<SharedPtr<USMBuffer> > usmBufs;
             for (size_t i = 0; i < szParamValueSize / sizeof(void*); i++)
             {
-                SharedPtr<USMBuffer> buf = GetUSMBufferContainingAddr(
-                                           ((void**)pParamValue)[i]);
-                if (nullptr == buf.GetPtr())
-                    return CL_INVALID_VALUE;
+                void *ptr = ((void**)pParamValue)[i];
+                SharedPtr<USMBuffer> buf = GetUSMBufferContainingAddr(ptr);
+                if (nullptr == buf.GetPtr()) {
+                    // Try to allocate USM wrapper for the system pointer.
+                    // There is no way to know size of system buffer, so we
+                    // just set size to query of CL_DEVICE_MAX_MEM_ALLOC_SIZE.
+                    cl_int err;
+                    cl_ulong size = 0;
+                    cl_uint numDevices = m_mapDevices.Count();
+                    for (cl_uint i = 0; i < numDevices; i++) {
+                        cl_ulong allocSize;
+                        err = m_ppAllDevices[i]->GetRootDevice()->GetInfo(
+                            CL_DEVICE_MAX_MEM_ALLOC_SIZE, sizeof(allocSize),
+                            &allocSize, nullptr);
+                        if (CL_SUCCESS != err)
+                            return CL_INVALID_VALUE;
+                        size = (0 == i) ? allocSize : std::min(size, allocSize);
+                    }
+                    void* usmPtr = USMAlloc(CL_MEM_TYPE_SHARED_INTEL, nullptr,
+                                            nullptr, size, ptr, 0, &err);
+                    if (CL_SUCCESS != err)
+                        return CL_INVALID_VALUE;
+                    buf = m_usmBuffers[usmPtr];
+                }
                 usmBufs.push_back(buf);
             }
             pKernel->SetNonArgUsmBuffers(usmBufs);
@@ -1904,6 +1924,7 @@ void* Context::USMAlloc(cl_unified_shared_memory_type_intel type,
         cl_device_unified_shared_memory_capabilities_intel deviceCap;
         cl_device_unified_shared_memory_capabilities_intel singleSharedCap;
         cl_device_unified_shared_memory_capabilities_intel crossSharedCap;
+        cl_device_unified_shared_memory_capabilities_intel systemSharedCap;
         err = rootDevice->GetInfo(CL_DEVICE_HOST_MEM_CAPABILITIES_INTEL,
             sizeof(hostCap), &hostCap, nullptr);
         if (CL_SUCCESS != err)
@@ -1922,12 +1943,23 @@ void* Context::USMAlloc(cl_unified_shared_memory_type_intel type,
             sizeof(crossSharedCap), &crossSharedCap, nullptr);
         if (CL_SUCCESS != err)
             USM_ALLOC_ERR_RET(err);
+        err = rootDevice->GetInfo(
+            CL_DEVICE_SHARED_SYSTEM_MEM_CAPABILITIES_INTEL,
+            sizeof(systemSharedCap), &systemSharedCap, nullptr);
+        if (CL_SUCCESS != err)
+            USM_ALLOC_ERR_RET(err);
         if ((type == CL_MEM_TYPE_HOST_INTEL && 0 != hostCap) ||
             (type == CL_MEM_TYPE_DEVICE_INTEL && 0 != deviceCap) ||
             (type == CL_MEM_TYPE_SHARED_INTEL &&
              (0 != singleSharedCap || 0 != crossSharedCap)))
         {
             capSupported = true;
+        }
+        if (type == CL_MEM_TYPE_SHARED_INTEL && 0 == systemSharedCap &&
+            nullptr != userPtr)
+        {
+            capSupported = false;
+            break;
         }
 
         // Check size

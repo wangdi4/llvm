@@ -13,6 +13,7 @@
 // License.
 
 #include "CleanupWrappedKernels.h"
+#include "CompilationUtils.h"
 #include "MetadataAPI.h"
 #include "OCLPassSupport.h"
 
@@ -50,7 +51,9 @@ namespace intel {
     using namespace Intel::MetadataAPI;
 
     bool Changed = false;
-    auto Kernels = KernelList(&M).getList();
+    using namespace Intel::OpenCL::DeviceBackend;
+    CompilationUtils::FunctionSet Kernels;
+    CompilationUtils::getAllKernels(Kernels, &M);
     for (auto *Kernel : Kernels) {
       // If a kernel is wrapped - remove it
       auto Kimd = KernelInternalMetadataAPI(Kernel);

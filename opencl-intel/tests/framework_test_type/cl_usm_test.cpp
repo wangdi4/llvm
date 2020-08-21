@@ -142,7 +142,7 @@ TEST_F(USMTest, memAlloc) {
   size_t size = 256;
   cl_uint alignment = 0;
 
-  // Test correct flags
+  // Test correct flags.
   const cl_mem_alloc_flags_intel correctFlags[] = {
       CL_MEM_ALLOC_WRITE_COMBINED_INTEL};
   for (cl_mem_flags flag : correctFlags) {
@@ -173,7 +173,7 @@ TEST_F(USMTest, memAlloc) {
     ASSERT_OCL_SUCCESS(err, "clMemFreeINTEL");
   }
 
-  // Test wrong flags
+  // Test wrong flags.
   const cl_mem_alloc_flags_intel wrongFlags[] = {0};
   for (cl_mem_flags flag : wrongFlags) {
     cl_mem_properties_intel properties[] = {CL_MEM_ALLOC_FLAGS_INTEL, flag, 0};
@@ -184,7 +184,7 @@ TEST_F(USMTest, memAlloc) {
     ASSERT_TRUE(nullptr == buf);
   }
 
-  // Test wrong alignments
+  // Test wrong alignments.
   int alignments[] = {7, sizeof(cl_double16) * 8};
   for (int alignment : alignments) {
     void *buf = clDeviceMemAllocINTEL(m_context, m_device, nullptr, size,
@@ -196,7 +196,7 @@ TEST_F(USMTest, memAlloc) {
 
 TEST_F(USMTest, getMemAllocInfo) {
   cl_int err;
-  // Allocate USM buffers
+  // Allocate USM buffers.
   cl_mem_properties_intel properties[] = {CL_MEM_ALLOC_FLAGS_INTEL,
                                           CL_MEM_ALLOC_WRITE_COMBINED_INTEL, 0};
   size_t size = 1024 * sizeof(char);
@@ -236,7 +236,7 @@ TEST_F(USMTest, getMemAllocInfo) {
 
 TEST_F(USMTest, enqueueMemset) {
   cl_int err;
-  // Allocate USM buffers
+  // Allocate USM buffers.
   size_t num = 1024;
   size_t size = num * sizeof(char);
   cl_uint alignment = 0;
@@ -266,7 +266,7 @@ TEST_F(USMTest, enqueueMemset) {
   err = clMemFreeINTEL(m_context, buffer);
   ASSERT_OCL_SUCCESS(err, "clMemFreeINTEL");
 
-  // Memset host ptr
+  // Memset host ptr.
   char *data = new char[size];
   err = clEnqueueMemsetINTEL(m_queue, data, value1, size, 0, NULL, NULL);
   ASSERT_OCL_SUCCESS(err, "clEnqueueMemsetINTEL");
@@ -286,7 +286,7 @@ TEST_F(USMTest, enqueueMemFill) {
   const char pattern2[2] = {'A', 'B'};
   int pattern2_size = sizeof(pattern2) / sizeof(char);
 
-  // Allocate USM buffers
+  // Allocate USM buffers.
   size_t size1 = pattern1_size * 256;
   size_t size2 = pattern2_size * 256;
   size_t size = size1 + size2;
@@ -316,7 +316,7 @@ TEST_F(USMTest, enqueueMemFill) {
   err = clMemFreeINTEL(m_context, buffer);
   ASSERT_OCL_SUCCESS(err, "clMemFreeINTEL");
 
-  // Fill host ptr
+  // Fill host ptr.
   char *data = new char[size1];
   cl_event event;
   err = clEnqueueMemFillINTEL(m_queue, data, pattern1, pattern1_size, size1, 0,
@@ -325,14 +325,14 @@ TEST_F(USMTest, enqueueMemFill) {
   err = clFinish(m_queue);
   ASSERT_OCL_SUCCESS(err, "clFinish");
 
-  // Verify result
+  // Verify result.
   countErrors = 0;
   for (size_t i = 0; i < size1; i += pattern1_size)
     if (0 != strncmp(&data[i], pattern1, pattern1_size))
       countErrors++;
   ASSERT_EQ(countErrors, 0);
 
-  // Check elapsed time
+  // Check elapsed time.
   cl_ulong start, end;
   err = clGetEventProfilingInfo(event, CL_PROFILING_COMMAND_START,
                                 sizeof(cl_ulong), &start, nullptr);
@@ -348,7 +348,7 @@ TEST_F(USMTest, enqueueMemFill) {
 TEST_F(USMTest, enqueueMemcpy) {
   cl_int err;
 
-  // Allocate USM buffers
+  // Allocate USM buffers.
   size_t num = 1024;
   size_t size = num * sizeof(int);
   cl_uint alignment = sizeof(cl_long);
@@ -364,16 +364,16 @@ TEST_F(USMTest, enqueueMemcpy) {
                                               size, alignment, &err);
   ASSERT_OCL_SUCCESS(err, "clSharedMemAllocINTEL");
 
-  // Initialize buffer
+  // Initialize buffer.
   for (size_t i = 0; i < num; i++)
     buffer[i] = i;
 
-  // Copy from host USM to device USM
+  // Copy from host USM to device USM.
   err = clEnqueueMemcpyINTEL(m_queue, CL_TRUE, buffer2, buffer, size, 0, NULL,
                              NULL);
   ASSERT_OCL_SUCCESS(err, "clEnqueueMemcpyINTEL");
 
-  // Copy from device USM to shared USM
+  // Copy from device USM to shared USM.
   err = clEnqueueMemcpyINTEL(m_queue, CL_TRUE, buffer3, buffer2, size, 0, NULL,
                              NULL);
   ASSERT_OCL_SUCCESS(err, "clEnqueueMemcpyINTEL");
@@ -381,7 +381,7 @@ TEST_F(USMTest, enqueueMemcpy) {
   for (size_t i = 0; i < num; i++)
     ASSERT_EQ(buffer3[i], i);
 
-  // Copy from device USM to arbitrary host memory
+  // Copy from device USM to arbitrary host memory.
   int *bufferHost = new int[num];
   err = clEnqueueMemcpyINTEL(m_queue, CL_TRUE, bufferHost, buffer2, size, 0,
                              NULL, NULL);
@@ -392,7 +392,7 @@ TEST_F(USMTest, enqueueMemcpy) {
     bufferHost[i] = i + 1;
   }
 
-  // Copy from arbitrary host memory to arbitrary host memory
+  // Copy from arbitrary host memory to arbitrary host memory.
   int *bufferHost2 = new int[num];
   cl_event event;
   err = clEnqueueMemcpyINTEL(m_queue, CL_TRUE, bufferHost2, bufferHost, size, 0,
@@ -402,7 +402,7 @@ TEST_F(USMTest, enqueueMemcpy) {
   for (size_t i = 0; i < num; i++)
     ASSERT_EQ(bufferHost2[i], i + 1);
 
-  // Check elapsed time
+  // Check elapsed time.
   cl_ulong start, end;
   err = clGetEventProfilingInfo(event, CL_PROFILING_COMMAND_START,
                                 sizeof(cl_ulong), &start, nullptr);
@@ -412,7 +412,7 @@ TEST_F(USMTest, enqueueMemcpy) {
   ASSERT_OCL_SUCCESS(err, "clGetEventProfilingInfo CL_PROFILING_COMMAND_END");
   EXPECT_NE(start, end) << "Command elapsed time should not be zero";
 
-  // Test overlap
+  // Test overlap.
   size_t offset = size / 4;
   err = clEnqueueMemcpyINTEL(m_queue, CL_TRUE, (char *)buffer + offset, buffer,
                              size / 2, 0, NULL, NULL);
@@ -430,7 +430,7 @@ TEST_F(USMTest, enqueueMemcpy) {
 
 TEST_F(USMTest, enqueueMigrateMem) {
   cl_int err;
-  // Allocate USM buffers
+  // Allocate USM buffers.
   size_t size = 1024;
   cl_uint alignment = 0;
   char *buffer = (char *)clSharedMemAllocINTEL(m_context, NULL, NULL, size,
@@ -471,7 +471,7 @@ TEST_F(USMTest, enqueueMigrateMem) {
 
 TEST_F(USMTest, enqueueAdviseMem) {
   cl_int err;
-  // Allocate USM buffers
+  // Allocate USM buffers.
   size_t size = 1024;
   cl_uint alignment = 0;
   char *buffer = (char *)clSharedMemAllocINTEL(m_context, m_device, NULL, size,
@@ -491,7 +491,7 @@ TEST_F(USMTest, enqueueAdviseMem) {
 
 TEST_F(USMTest, setKernelArgMemPointer) {
   cl_int err;
-  // Allocate USM buffers
+  // Allocate USM buffers.
   size_t num = 1024;
   size_t size = num * sizeof(int);
   cl_uint alignment = 0;
@@ -507,7 +507,7 @@ TEST_F(USMTest, setKernelArgMemPointer) {
     buffer[i] = i;
   }
 
-  // Build program and kernel
+  // Build program and kernel.
   const char *source[] = {"__kernel void test(const __global int *data,\n"
                           "  __global int *result, const __global int *val,\n"
                           "  __global void *foo) {\n"
@@ -551,7 +551,7 @@ TEST_F(USMTest, setKernelArgMemPointer) {
 
 TEST_F(USMTest, setKernelExecInfo) {
   cl_int err;
-  // Allocate USM buffers
+  // Allocate USM buffers.
   size_t num = 1024;
   size_t size = num * sizeof(int);
   cl_uint alignment = 0;
@@ -563,9 +563,13 @@ TEST_F(USMTest, setKernelExecInfo) {
                                                  size, alignment, &err);
   ASSERT_OCL_SUCCESS(err, "clSharedMemAllocINTEL");
 
+  // Shared system allocation.
+  cl_int *bufC = (cl_int *)new char[size];
+
   struct Foo {
     cl_int *a;
     cl_int *b;
+    cl_int *c;
   };
   Foo *foo = (Foo *)clSharedMemAllocINTEL(m_context, m_device, NULL,
                                           sizeof(Foo), alignment, &err);
@@ -574,20 +578,23 @@ TEST_F(USMTest, setKernelExecInfo) {
   for (int i = 0; i < num; i++) {
     bufA[i] = i;
     bufB[i] = i;
+    bufC[i] = i;
   }
   foo->a = bufA;
   foo->b = bufB;
+  foo->c = bufC;
   cl_int result = 0;
 
-  // Build program and kernel
+  // Build program and kernel.
   const char *source[] = {
       "typedef struct {\n"
       "  int *a;\n"
       "  int *b;\n"
+      "  int *c;\n"
       "} Foo;\n"
       "__kernel void test(const __global Foo *foo, __global int *result) {\n"
       "  size_t tid = get_global_id(0);\n"
-      "  if (foo->a[tid] == foo->b[tid])\n"
+      "  if (foo->a[tid] == foo->b[tid] && foo->a[tid] == foo->c[tid])\n"
       "    atomic_inc(result);\n"
       "}\n"};
   cl_program program;
@@ -599,32 +606,65 @@ TEST_F(USMTest, setKernelExecInfo) {
   err = clSetKernelArgMemPointerINTEL(kernel, 1, &result);
   ASSERT_OCL_SUCCESS(err, "clSetKernelArgMemPointerINTEL");
 
+  // At this point, clEnqueueNDRangeKernel should fail as well. However, we
+  // don't know if the kernel accesses indirect pointers.
+
   err = clSetKernelExecInfo(kernel, CL_KERNEL_EXEC_INFO_USM_PTRS_INTEL,
                             sizeof(Foo), foo);
   ASSERT_OCL_SUCCESS(err, "clSetKernelExecInfo");
-  // bufA is host USM
+
+  // clEnqueueNDRangeKernel should fail because access to bufA requires
+  // CL_KERNEL_EXEC_INFO_INDIRECT_HOST_ACCESS_INTEL being set.
+  size_t gdim = num;
+  size_t ldim = 16;
+  err = clEnqueueNDRangeKernel(m_queue, kernel, 1, NULL, &gdim, &ldim, 0, NULL,
+                               NULL);
+  ASSERT_OCL_EQ(CL_INVALID_OPERATION, err, "clEnqueueNDRangeKernel");
+
+  // bufA is host USM.
   cl_bool useIndirectHost = CL_TRUE;
   err = clSetKernelExecInfo(kernel,
                             CL_KERNEL_EXEC_INFO_INDIRECT_HOST_ACCESS_INTEL,
                             sizeof(useIndirectHost), &useIndirectHost);
   ASSERT_OCL_SUCCESS(err, "clSetKernelExecInfo");
-  // bufB is shared USM
+
+  // clEnqueueNDRangeKernel should fail because access to bufB/bufC requires
+  // CL_KERNEL_EXEC_INFO_INDIRECT_SHARED_ACCESS_INTEL being true.
+  err = clEnqueueNDRangeKernel(m_queue, kernel, 1, NULL, &gdim, &ldim, 0, NULL,
+                               NULL);
+  ASSERT_OCL_EQ(CL_INVALID_OPERATION, err, "clEnqueueNDRangeKernel");
+
+  // bufB and bufC is shared USM.
   cl_bool useIndirectShared = CL_TRUE;
   err = clSetKernelExecInfo(kernel,
                             CL_KERNEL_EXEC_INFO_INDIRECT_SHARED_ACCESS_INTEL,
                             sizeof(useIndirectShared), &useIndirectShared);
   ASSERT_OCL_SUCCESS(err, "clSetKernelExecInfo");
 
-  size_t gdim = num;
-  size_t ldim = 16;
+  // clEnqueueNDRangeKernel should succeed.
   err = clEnqueueNDRangeKernel(m_queue, kernel, 1, NULL, &gdim, &ldim, 0, NULL,
                                NULL);
   ASSERT_OCL_SUCCESS(err, "clEnqueueNDRangeKernel");
   err = clFinish(m_queue);
   ASSERT_OCL_SUCCESS(err, "clFinish");
 
+  // Check result
   EXPECT_EQ(result, num);
 
+  // Test CL_FALSE for CL_KERNEL_EXEC_INFO_INDIRECT_SHARED_ACCESS_INTEL.
+  useIndirectShared = CL_FALSE;
+  err = clSetKernelExecInfo(kernel,
+                            CL_KERNEL_EXEC_INFO_INDIRECT_SHARED_ACCESS_INTEL,
+                            sizeof(useIndirectShared), &useIndirectShared);
+  ASSERT_OCL_SUCCESS(err, "clSetKernelExecInfo");
+
+  // clEnqueueNDRangeKernel should fail because access to bufB/bufC requires
+  // CL_KERNEL_EXEC_INFO_INDIRECT_SHARED_ACCESS_INTEL being true.
+  err = clEnqueueNDRangeKernel(m_queue, kernel, 1, NULL, &gdim, &ldim, 0, NULL,
+                               NULL);
+  ASSERT_OCL_EQ(CL_INVALID_OPERATION, err, "clEnqueueNDRangeKernel");
+
+  delete[] bufC;
   err = clMemFreeINTEL(m_context, bufA);
   EXPECT_OCL_SUCCESS(err, "clMemFreeINTEL");
   err = clMemFreeINTEL(m_context, bufB);
