@@ -1538,9 +1538,11 @@ bool JumpThreadingPass::ProcessBlock(BasicBlock *BB) {
 /// branch on a OR instruction in the current block. See if there are any
 /// simplifications we can do based on inputs to the phi node.
 ///
-//  Currently, it handles cases like the below example. This will not make
-//  any changes to BB but propagates first operand values of %p1 and %p2
-//  PHINodes to their uses in BB_FALSE.
+/// Currently, it handles cases like the examples below. This will not make
+/// any changes to BB but propagates first operand values of %p1 and %p2
+/// PHINodes to their uses in BB_FALSE.
+///
+/// Case 1:
 /// BB:
 ///  %p1 = phi i8* [bitcast (void (i8*)* @"Func" to i8*), %b1 ], [ null, %b0 ]
 ///  %p2 = phi i8* [ %0, %b1 ], [ null, %b0 ]
@@ -1555,61 +1557,172 @@ bool JumpThreadingPass::ProcessBlock(BasicBlock *BB) {
 ///  call void %fptr(i8* %p2)
 ///
 /// Into:
-//
+///
 /// BB:
-//    (No changes to BB)
-//
+///    (No changes to BB)
+///
 /// BB_FALSE:
 ///  %fptr = bitcast i8* bitcast (void (i8*)* @"Func" to i8*) to void (i8*)*
 ///  call void %fptr(i8* %0)
-//
+///
+/// Case 2:
+/// BB:
+///  %p0 = phi i1 [false, %b1], [true, %b0]
+///  %p1 = phi i8* [bitcast (void (i8*)* @"Func" to i8*), %b1 ], [ null, %b0 ]
+///  %p2 = phi i8* [ %0, %b1 ], [ null, %b0 ]
+///  %1 = cleanuppad within none []
+///  %cond1 = icmp eq i8* %p2, null
+///  %or.cond = or i1 %cond1, %p0
+///  br i1 %or.cond, label %BB_TRUE, label %BB_FALSE
+///
+/// BB_FALSE:
+///  %fptr = bitcast i8* %p1 to void (i8*)*
+///  call void %fptr(i8* %p2)
+///
+/// Into:
+///
+/// BB:
+///    (No changes to BB)
+///
+/// BB_FALSE:
+///  %fptr = bitcast i8* bitcast (void (i8*)* @"Func" to i8*) to void (i8*)*
+///  call void %fptr(i8* %0)
+///
 bool JumpThreadingPass::ProcessBranchOnOr(BasicBlock *BB) {
+
+  // Check that "PN" is a PHINode with bool constants "true" and "false" as
+  // input operands like below and return %FB if it matches. Otherwise, return
+  // nullptr.
+  //   %p = phi i1 [ true, %TB ], [ false, %FB ]
+  //
+  auto GetFalsePredBlockOfPHIWithBoolConstants =
+      [&](PHINode *PN) -> BasicBlock * {
+    if (!PN->getType()->isIntegerTy(1) || PN->getNumIncomingValues() != 2)
+      return nullptr;
+    if (!all_of(PN->operands(), [](Value *V) { return isa<ConstantInt>(V); }))
+      return nullptr;
+   // Makes sure operands are not same.
+    if (PN->getOperand(0) == PN->getOperand(1))
+      return nullptr;
+    for (auto *Pred : predecessors(BB)) {
+      auto *Input = cast<ConstantInt>(PN->getIncomingValueForBlock(Pred));
+      if (!Input->isAllOnesValue())
+        return Pred;
+    }
+    llvm_unreachable("Unexpected PHINode");
+  };
+
+  // If the given "PN" is a boolean PHINode with "true" and "false" constant
+  // operands, this routine collects all possible implied values of PHINodes in
+  // the same BasicBlock of "PN" when value of PN is false. Ex: In the example
+  // below, this routine collects {%a, 2} and {%b, 20} in
+  // "PHIValuesWhenCondIsFalse" as implied values of PHINodes in %BB if
+  // "%p" is input.
+  //      BB:
+  //       %a = phi i32 [ 4, %TB ], [ 2, %FB ]
+  // PN:   %p = phi i1 [ true, %TB ], [ false, %FB ]
+  //       %b = phi i64 [ 50, %TB ], [ 20, %FB ]
+  //       %c = phi i64 [ 0, %TB ], [ %some, %FB ]
+  //       %x = icmp eq i8 %c, 0
+  //       %or = or i1 %x, %p
+  auto FindImpliedPHIValuesWhenPHINodeIsFalse =
+      [&](PHINode *PN,
+          SmallDenseMap<PHINode *, Value *> &PHIValuesWhenCondIsFalse) {
+        bool FoundPHI = false;
+        if (!PN)
+          return false;
+        BasicBlock *FalsePred = GetFalsePredBlockOfPHIWithBoolConstants(PN);
+        if (!FalsePred)
+          return false;
+        BasicBlock *BB = PN->getParent();
+        for (auto II = BB->begin(); II != BB->end(); II++) {
+          PHINode *PHI = dyn_cast<PHINode>(II);
+          if (!PHI)
+            break;
+          if (PHI == PN || PHI->getNumIncomingValues() != 2)
+            continue;
+          // Consider only PHINodes with constant values.
+          if (!all_of(PHI->operands(),
+                      [](Value *V) { return isa<Constant>(V); }))
+            continue;
+          // Skip PHI if we already have collected implied value for the PHI.
+          if (PHIValuesWhenCondIsFalse.find(PHI) !=
+              PHIValuesWhenCondIsFalse.end())
+            continue;
+          PHIValuesWhenCondIsFalse[PHI] =
+              PHI->getIncomingValueForBlock(FalsePred);
+          FoundPHI = true;
+        }
+        return FoundPHI;
+      };
 
   // Returns true if "IC" is a comparison between PHINode and a constant,
   // which is equal to one of input operands of the PHINode. Also checks
   // other input operand of PHINode dominates "FalseBB". If it returns true,
-  // *RepPN is updated with PHINode and *RepFVal is updated with the other
-  // input operand of the PHINode.
+  // the other input operand of the PHINode is saved as implied value of the
+  // PHINode in "PHIValuesWhenCondIsFalse". In the example below, {%p2, %0}
+  // will be saved in PHIValuesWhenCondIsFalse for the given input "cond1".
   //
   // Ex:
   //  %p2 = phi i8* [ %0, %b1 ], [ Constant1, %b0 ]
   //  %cond1 = icmp eq i8* %p2, Constant1
   //
+  auto FindImpliedPHIValueWhenCondIsFalse =
+      [this](ICmpInst *IC, BasicBlock *FalseBB,
+             SmallDenseMap<PHINode *, Value *> &PHIValuesWhenCondIsFalse) {
+        Value *CmpOp0 = IC->getOperand(0);
+        Value *CmpOp1 = IC->getOperand(1);
+        CmpInst::Predicate Pred = IC->getPredicate();
+        if (Pred != CmpInst::ICMP_EQ)
+          return false;
+        PHINode *PN = dyn_cast<PHINode>(CmpOp0);
+        if (!PN)
+          return false;
+        if (!isa<Constant>(CmpOp1))
+          return false;
+        if (PN->getNumIncomingValues() != 2)
+          return false;
+        Value *PNOp0 = PN->getIncomingValue(0);
+        Value *PNOp1 = PN->getIncomingValue(1);
+        Value *FVal = nullptr;
+        if (isa<Constant>(PNOp0) && PNOp0 == CmpOp1)
+          FVal = PNOp1;
+        else if (isa<Constant>(PNOp1) && PNOp1 == CmpOp1)
+          FVal = PNOp0;
+        if (!FVal)
+          return false;
+        // No need to check Dominator information for constants and arguments.
+        if (auto FI = dyn_cast<Instruction>(FVal)) {
+          DominatorTree &DT = DTU->getDomTree();
+          BasicBlock *BB1 = FI->getParent();
+          if (!DT.dominates(BB1, FalseBB))
+            return false;
+        }
+        PHIValuesWhenCondIsFalse[PN] = FVal;
+        return true;
+      };
+
+  // Collect implied values of PHINodes when value of "Cond" is false.
+  // Handles only the patterns below:
   //
-  auto FindImpliedPHIValue = [this](ICmpInst *IC, BasicBlock *FalseBB,
-                                    PHINode **RepPN, Value **RepFVal) {
-    Value *CmpOp0 = IC->getOperand(0);
-    Value *CmpOp1 = IC->getOperand(1);
-    CmpInst::Predicate Pred = IC->getPredicate();
-    if (Pred != CmpInst::ICMP_EQ)
-      return false;
-    PHINode *PN = dyn_cast<PHINode>(CmpOp0);
-    if (!PN)
-      return false;
-    if (!isa<Constant>(CmpOp1))
-      return false;
-    if (PN->getNumIncomingValues() != 2)
-      return false;
-    Value *PNOp0 = PN->getIncomingValue(0);
-    Value *PNOp1 = PN->getIncomingValue(1);
-    Value *FVal = nullptr;
-    if (isa<Constant>(PNOp0) && PNOp0 == CmpOp1)
-      FVal = PNOp1;
-    else if (isa<Constant>(PNOp1) && PNOp1 == CmpOp1)
-      FVal = PNOp0;
-    if (!FVal)
-      return false;
-    // No need to check Dominator information for constants and arguments.
-    if (auto FI = dyn_cast<Instruction>(FVal)) {
-      DominatorTree &DT = DTU->getDomTree();
-      BasicBlock *BB1 = FI->getParent();
-      if (!DT.dominates(BB1, FalseBB))
+  // Pattern 1:
+  //  %p1 = phi i8* [bitcast (void (i8*)* @"Func" to i8*), %b1 ], [ null, %b0 ]
+  //  %cond2 = icmp eq i8* %p1, null
+  //
+  // Pattern 2:
+  //  %p2 = phi i1 [ true, %b1 ], [ false, %b0 ]
+  //
+  auto CollectPHIValueWhenConditionIsFalse =
+      [&](Instruction *Cond, BasicBlock *FalseBB,
+          SmallDenseMap<PHINode *, Value *> &PHIValuesWhenCondIsFalse) {
+        if (auto IC = dyn_cast<ICmpInst>(Cond))
+          return FindImpliedPHIValueWhenCondIsFalse(IC, FalseBB,
+                                                    PHIValuesWhenCondIsFalse);
+        else if (auto PHI = dyn_cast<PHINode>(Cond))
+          return FindImpliedPHIValuesWhenPHINodeIsFalse(
+              PHI, PHIValuesWhenCondIsFalse);
         return false;
-    }
-    *RepPN = PN;
-    *RepFVal = FVal;
-    return true;
-  };
+      };
 
   auto *BI = dyn_cast<BranchInst>(BB->getTerminator());
   if (!BI || !BI->isConditional())
@@ -1623,25 +1736,32 @@ bool JumpThreadingPass::ProcessBranchOnOr(BasicBlock *BB) {
   BinaryOperator *BinOp = dyn_cast<BinaryOperator>(CondI);
   if (!BinOp || BinOp->getOpcode() != Instruction::Or)
     return false;
-  auto LCmp = dyn_cast<ICmpInst>(BinOp->getOperand(0));
-  auto RCmp = dyn_cast<ICmpInst>(BinOp->getOperand(1));
-  if (!LCmp || !RCmp)
+  auto Cond1 = dyn_cast<Instruction>(BinOp->getOperand(0));
+  auto Cond2 = dyn_cast<Instruction>(BinOp->getOperand(1));
+  if (!Cond1 || !Cond2 || Cond1->getParent() != BB || Cond2->getParent() != BB)
     return false;
-  PHINode *LPN;
-  PHINode *RPN;
-  Value *LVal;
-  Value *RVal;
-  if (!FindImpliedPHIValue(LCmp, FalseBB, &LPN, &LVal) ||
-      !FindImpliedPHIValue(RCmp, FalseBB, &RPN, &RVal))
+  // Allow only if at least one of them is ICmpInst.
+  auto LCmp = dyn_cast<ICmpInst>(Cond1);
+  auto RCmp = dyn_cast<ICmpInst>(Cond2);
+  if (!LCmp && !RCmp)
     return false;
-
+  // Map of PHINodes and their implied false values.
+  SmallDenseMap<PHINode *, Value *> PHIValuesWhenCondIsFalse;
+  if (!CollectPHIValueWhenConditionIsFalse(Cond1, FalseBB,
+                                           PHIValuesWhenCondIsFalse) ||
+      !CollectPHIValueWhenConditionIsFalse(Cond2, FalseBB,
+                                           PHIValuesWhenCondIsFalse))
+    return false;
   DominatorTree &DT = DTU->getDomTree();
-  unsigned Count;
-  // Replace uses of LPN with LVal in BasicBlocks that are dominated by FalseBB.
-  Count = replaceDominatedUsesWith(LPN, LVal, DT, BasicBlockEdge(BB, FalseBB));
-  // Replace uses of RPN with RVal in BasicBlocks that are dominated by FalseBB.
-  Count += replaceDominatedUsesWith(RPN, RVal, DT, BasicBlockEdge(BB, FalseBB));
-
+  unsigned Count = 0;
+  for (const auto &I : PHIValuesWhenCondIsFalse) {
+    PHINode *PN = I.first;
+    Value *PHIVal = I.second;
+    // Replace uses of PN with PHIVal in BasicBlocks that are dominated by
+    // FalseBB.
+    Count +=
+        replaceDominatedUsesWith(PN, PHIVal, DT, BasicBlockEdge(BB, FalseBB));
+  }
   // Return false if there is no change.
   return Count != 0;
 }
