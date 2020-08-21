@@ -23,9 +23,15 @@ namespace intel {
 
 char ImplicitGlobalIdPass::ID = 0;
 
-OCL_INITIALIZE_PASS_BEGIN(ImplicitGlobalIdPass, "B-ImplicitGlobalIdPass", "Implicit Global Id Pass - Add parameters for native (gdb) debugging", false, true)
+OCL_INITIALIZE_PASS_BEGIN(
+    ImplicitGlobalIdPass, "B-ImplicitGlobalIdPass",
+    "Implicit Global Id Pass - Add parameters for native (gdb) debugging",
+    false, false)
 OCL_INITIALIZE_PASS_DEPENDENCY(DataPerBarrier)
-OCL_INITIALIZE_PASS_END(ImplicitGlobalIdPass, "B-ImplicitGlobalIdPass", "Implicit Global Id Pass - Add parameters for native (gdb) debugging", false, true)
+OCL_INITIALIZE_PASS_END(
+    ImplicitGlobalIdPass, "B-ImplicitGlobalIdPass",
+    "Implicit Global Id Pass - Add parameters for native (gdb) debugging",
+    false, false)
 
 ImplicitGlobalIdPass::ImplicitGlobalIdPass() :
     ModulePass(ID), m_pDataPerBarrier(nullptr), m_pModule(nullptr),

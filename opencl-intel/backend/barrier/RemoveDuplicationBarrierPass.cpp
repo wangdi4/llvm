@@ -21,7 +21,9 @@ namespace intel {
 
   char RemoveDuplicationBarrier::ID = 0;
 
-  OCL_INITIALIZE_PASS(RemoveDuplicationBarrier, "B-RemoveDuplication", "Barrier Pass - Remove duplication Barrier instructions", false, true)
+  OCL_INITIALIZE_PASS(RemoveDuplicationBarrier, "B-RemoveDuplication",
+                      "Barrier Pass - Remove duplication Barrier instructions",
+                      false, false)
 
   RemoveDuplicationBarrier::RemoveDuplicationBarrier() : ModulePass(ID) {}
 

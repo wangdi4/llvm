@@ -33,9 +33,13 @@ namespace intel {
 
   char GroupBuiltin::ID = 0;
 
-  OCL_INITIALIZE_PASS_BEGIN(GroupBuiltin, "B-GroupBuiltins", "Barrier Pass - Handle WorkGroup BI calls", false, true)
+  OCL_INITIALIZE_PASS_BEGIN(GroupBuiltin, "B-GroupBuiltins",
+                            "Barrier Pass - Handle WorkGroup BI calls",
+                            false, false)
   OCL_INITIALIZE_PASS_DEPENDENCY(BuiltinLibInfo)
-  OCL_INITIALIZE_PASS_END(GroupBuiltin, "B-GroupBuiltins", "Barrier Pass - Handle WorkGroup BI calls", false, true)
+  OCL_INITIALIZE_PASS_END(GroupBuiltin, "B-GroupBuiltins",
+                          "Barrier Pass - Handle WorkGroup BI calls",
+                          false, false)
 
   GroupBuiltin::GroupBuiltin() : ModulePass(ID) {}
 
