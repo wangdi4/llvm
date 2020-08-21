@@ -20,4 +20,4 @@
 type = Library
 name = DebugInfoTraceBack
 parent = DebugInfo
-required_libraries = BinaryFormat MC
+required_libraries = BinaryFormat MC Support
