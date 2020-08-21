@@ -837,6 +837,14 @@ void *DeviceTy::data_alloc_explicit(int64_t Size, int32_t Kind) {
   else
     return nullptr;
 }
+
+int32_t DeviceTy::get_data_alloc_info(
+    int32_t NumPtrs, void *TgtPtrs, void *Infos) {
+  if (RTL->get_data_alloc_info)
+    return RTL->get_data_alloc_info(RTLDeviceID, NumPtrs, TgtPtrs, Infos);
+  else
+    return OFFLOAD_FAIL;
+}
 #endif // INTEL_COLLAB
 
 // Whether data can be copied to DstDevice directly

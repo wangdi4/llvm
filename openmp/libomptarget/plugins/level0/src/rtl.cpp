@@ -1622,6 +1622,13 @@ __tgt_target_table *__tgt_rtl_load_binary(int32_t DeviceId,
       }
       DeviceInfo->KernelProperties[DeviceId][kernels[i]].Width = kernelWidth;
     }
+    if (DebugLevel > 0) {
+      void *entryAddr = Image->EntriesBegin[i].addr;
+      const char *entryName = Image->EntriesBegin[i].name;
+      DP("Kernel %" PRIu32 ": Entry = " DPxMOD ", Name = %s, NumArgs = %"
+         PRIu32 ", Handle = " DPxMOD "\n", i, DPxPTR(entryAddr), entryName,
+         kernelProperties.numKernelArgs, DPxPTR(kernels[i]));
+    }
 #if 0
     // Enable this with 0.95.55 Level Zero.
     DeviceInfo->KernelProperties[DeviceId][kernels[i]].MaxThreadGroupSize =

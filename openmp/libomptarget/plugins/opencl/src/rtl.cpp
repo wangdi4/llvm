@@ -2871,6 +2871,24 @@ EXTERN int32_t __tgt_rtl_synchronize(int32_t device_id,
   return OFFLOAD_SUCCESS;
 }
 
+EXTERN int32_t __tgt_rtl_get_data_alloc_info(
+    int32_t device_id, int32_t num_ptrs, void *tgt_ptrs, void *alloc_info) {
+  auto &buffer = DeviceInfo->Buffers[device_id];
+  void **tgtPtrs = static_cast<void **>(tgt_ptrs);
+  __tgt_memory_info *allocInfo = static_cast<__tgt_memory_info *>(alloc_info);
+  for (int32_t i = 0; i < num_ptrs; i++) {
+    if (buffer.count(tgtPtrs[i]) == 0) {
+      DP("%s cannot find allocation information for " DPxMOD "\n", __func__,
+         DPxPTR(tgtPtrs[i]));
+      return OFFLOAD_FAIL;
+    }
+    allocInfo[i].Base = buffer[tgtPtrs[i]].Base;
+    allocInfo[i].Offset = (uintptr_t)tgtPtrs[i] - (uintptr_t)allocInfo[i].Base;
+    allocInfo[i].Size = buffer[tgtPtrs[i]].Size;
+  }
+  return OFFLOAD_SUCCESS;
+}
+
 #ifdef __cplusplus
 }
 #endif
