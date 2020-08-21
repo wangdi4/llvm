@@ -1,12 +1,9 @@
-<<<<<<< HEAD
-// RUN: %clang_cc1 -ffreestanding %s -triple=x86_64-apple-darwin -emit-llvm -o - | FileCheck %s
-// INTEL_CUSTOMIZATION
-// RUN: %clang_cc1 -ffreestanding %s -triple=i686-apple-darwin -emit-llvm -o - | FileCheck %s
-// end INTEL_CUSTOMIZATION
-=======
 // RUN: %clang_cc1 -x c -ffreestanding %s -triple=x86_64-apple-darwin -emit-llvm -o - | FileCheck %s --check-prefixes=CHECK,CHECKC
 // RUN: %clang_cc1 -x c++ -std=c++11 -ffreestanding %s -triple=x86_64-apple-darwin -emit-llvm -o - | FileCheck %s --check-prefixes=CHECK,CHECKCPP
->>>>>>> c8e6bf0a65fdbda7a611e8047e2a644777f15b24
+// INTEL_CUSTOMIZATION
+// RUN: %clang_cc1 -x c -ffreestanding %s -triple=i686-apple-darwin -emit-llvm -o - | FileCheck %s --check-prefixes=CHECK,CHECKC
+// RUN: %clang_cc1 -x c++ -std=c++11 -ffreestanding %s -triple=i686-apple-darwin -emit-llvm -o - | FileCheck %s --check-prefixes=CHECK,CHECKCPP
+// end INTEL_CUSTOMIZATION
 
 #include <x86intrin.h>
 
