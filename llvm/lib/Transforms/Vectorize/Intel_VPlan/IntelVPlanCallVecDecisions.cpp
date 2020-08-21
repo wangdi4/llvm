@@ -217,35 +217,13 @@ Type *
 VPlanCallVecDecisions::calcCharacteristicType(VPCallInstruction *VPCallInst,
                                               VectorVariant &Variant) {
   assert(VPCallInst && "VPCallInst should not be nullptr");
-  Type *CharacteristicDataType =
-      !VPCallInst->getType()->isVoidTy() ? VPCallInst->getType() : nullptr;
-
-  if (!CharacteristicDataType) {
-    std::vector<VectorKind> &ParmKinds = Variant.getParameters();
-    std::vector<VectorKind>::iterator VKIt = ParmKinds.begin();
-    size_t Idx = VPCallInst->isIntelIndirectCall() ? 1 : 0;
-    size_t End = VPCallInst->getNumArgOperands();
-    for (; Idx != End; ++Idx, ++VKIt) {
-      if (VKIt->isVector()) {
-        VPValue *Arg = VPCallInst->getArgOperand(Idx);
-        CharacteristicDataType = Arg->getType();
-        break;
-      }
-    }
-  }
-
-  // TODO except Clang's ComplexType
-  if (!CharacteristicDataType || !CharacteristicDataType->isSingleValueType() ||
-      CharacteristicDataType->isX86_MMXTy() ||
-      CharacteristicDataType->isVectorTy())
-    CharacteristicDataType =
-        Type::getInt32Ty(VPCallInst->getType()->getContext());
-
-  // Promote char/short types to int for Xeon Phi.
-  CharacteristicDataType =
-      VectorVariant::promoteToSupportedType(CharacteristicDataType, Variant);
-
-  return CharacteristicDataType;
+  auto Args  = VPCallInst->arg_operands();
+  if (VPCallInst->isIntelIndirectCall())
+    Args = llvm::drop_begin(Args, 1);
+  return llvm::calcCharacteristicType(
+      VPCallInst->getType(),
+      map_range(Args, [](VPValue* V)->VPValue& {return *V;}),
+      Variant, *VPCallInst->getParent()->getParent()->getDataLayout());
 }
 
 void VPlanCallVecDecisions::analyzeCall(VPCallInstruction *VPCall, unsigned VF,
