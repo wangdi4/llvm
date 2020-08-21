@@ -10,14 +10,12 @@
 #ifndef __IA32INTRIN_H
 #define __IA32INTRIN_H
 
-<<<<<<< HEAD
 #include <immintrin.h>
-=======
+
 /* Define the default attributes for the functions in this file. */
 #define __DEFAULT_FN_ATTRS __attribute__((__always_inline__, __nodebug__))
 #define __DEFAULT_FN_ATTRS_SSE42 __attribute__((__always_inline__, __nodebug__, __target__("sse4.2")))
 
->>>>>>> 33bb80bc7a6e67be90cf9b5e8d0f679e5e3acbaf
 /** Find the first set bit starting from the lsb. Result is undefined if
  *  input is 0.
  *
