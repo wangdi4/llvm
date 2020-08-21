@@ -879,7 +879,6 @@ class KernelObjVisitor {
     QualType ET = CAT->getElementType();
     int64_t ElemCount = CAT->getSize().getSExtValue();
     std::initializer_list<int>{(handlers.enterArray(), 0)...};
-<<<<<<< HEAD
 
     assert(ElemCount > 0 && "SYCL prohibits 0 sized arrays");
     VisitFirstElement(nullptr, FD, ET, handlers...);
@@ -887,10 +886,6 @@ class KernelObjVisitor {
 
     for (int64_t Count = 1; Count < ElemCount; Count++) {
       VisitNthElement(nullptr, FD, ET, handlers...);
-=======
-    for (int64_t Count = 0; Count < ElemCount; Count++) {
-      VisitElement(nullptr, FD, ET, handlers...);
->>>>>>> b6e817f838e2bc1b7ca05b4b99e66912be22aa48
       (void)std::initializer_list<int>{
           (handlers.nextElement(ET, Count + 1), 0)...};
     }
@@ -2323,26 +2318,12 @@ public:
     return true;
   }
 
-<<<<<<< HEAD
   bool nextElement(QualType ET, uint64_t Index) final {
     int64_t Size = SemaRef.getASTContext().getTypeSizeInChars(ET).getQuantity();
     CurOffset = ArrayBaseOffsets.back() + Size * (Index);
     return true;
   }
 
-=======
-  bool enterArray() final {
-    ArrayBaseOffsets.push_back(CurOffset);
-    return true;
-  }
-
-  bool nextElement(QualType ET, uint64_t Index) final {
-    int64_t Size = SemaRef.getASTContext().getTypeSizeInChars(ET).getQuantity();
-    CurOffset = ArrayBaseOffsets.back() + Size * (Index);
-    return true;
-  }
-
->>>>>>> b6e817f838e2bc1b7ca05b4b99e66912be22aa48
   bool leaveArray(FieldDecl *, QualType ET, int64_t) final {
     CurOffset = ArrayBaseOffsets.back();
     ArrayBaseOffsets.pop_back();
