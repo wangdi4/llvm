@@ -4243,6 +4243,11 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
       CmdArgs.push_back("-mllvm");
       CmdArgs.push_back("-sycl-opt");
     }
+    // Turn on Dead Parameter Elimination Optimization with early optimizations
+    if (!RawTriple.isNVPTX() &&
+        Args.hasFlag(options::OPT_fsycl_dead_args_optimization,
+                     options::OPT_fno_sycl_dead_args_optimization, false))
+      CmdArgs.push_back("-fenable-sycl-dae");
 
     // Pass the triple of host when doing SYCL
     auto AuxT = llvm::Triple(llvm::sys::getProcessTriple());
@@ -8375,6 +8380,11 @@ void SYCLPostLink::ConstructJob(Compilation &C, const JobAction &JA,
     addArgs(CmdArgs, TCArgs, {"--ompoffload-make-globals-static"});
   }
 #endif // INTEL_CUSTOMIZATION
+  // Turn on Dead Parameter Elimination Optimization with early optimizations
+  if (!getToolChain().getTriple().isNVPTX() &&
+      TCArgs.hasFlag(options::OPT_fsycl_dead_args_optimization,
+                     options::OPT_fno_sycl_dead_args_optimization, false))
+    addArgs(CmdArgs, TCArgs, {"-emit-param-info"});
   if (JA.getType() == types::TY_LLVM_BC) {
     // single file output requested - this means only perform necessary IR
     // transformations (like specialization constant intrinsic lowering) and

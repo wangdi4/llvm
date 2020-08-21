@@ -4082,6 +4082,12 @@ def fsycl_enable_function_pointers : Flag<["-"],
   HelpText<"Enables function pointers and support for virtual functions for "
   "DPC++ kernels and device functions.">;
 #endif // INTEL_CUSTOMIZATION
+def fsycl_dead_args_optimization : Flag<["-"], "fsycl-dead-args-optimization">,
+  Group<sycl_Group>, Flags<[NoArgumentUnused, CoreOption]>, HelpText<"Enables "
+  "elimination of DPC++ dead kernel arguments">;
+def fno_sycl_dead_args_optimization : Flag<["-"], "fno-sycl-dead-args-optimization">,
+  Group<sycl_Group>, Flags<[NoArgumentUnused, CoreOption]>, HelpText<"Disables "
+  "elimination of DPC++ dead kernel arguments">;
 
 //===----------------------------------------------------------------------===//
 // CC1 Options
