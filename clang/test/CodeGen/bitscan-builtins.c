@@ -1,13 +1,10 @@
-<<<<<<< HEAD
-// RUN: %clang_cc1 -ffreestanding -triple x86_64-unknown-unknown -emit-llvm -o - %s | FileCheck %s
-// INTEL_CUSTOMIZATION
-// RUN: %clang_cc1 -ffreestanding -triple i686-unknown-unknown -emit-llvm -o - %s | FileCheck %s
-// end INTEL_CUSTOMIZATION
-=======
 // RUN: %clang_cc1 -x c -ffreestanding %s -triple=x86_64-unknown-unknown -emit-llvm -o - | FileCheck %s --check-prefixes=CHECK,CHECKC
 // RUN: %clang_cc1 -x c++ -std=c++11 -ffreestanding %s -triple=x86_64-unknown-unknown -emit-llvm -o - | FileCheck %s --check-prefixes=CHECK,CHECKCPP
+// INTEL_CUSTOMIZATION
+// RUN: %clang_cc1 -x c -ffreestanding -triple i686-unknown-unknown -emit-llvm -o - %s | FileCheck %s --check-prefixes=CHECK,CHECKC
+// RUN: %clang_cc1 -x c++ -std=c++11 -ffreestanding %s -triple=i686-unknown-unknown -emit-llvm -o - | FileCheck %s --check-prefixes=CHECK,CHECKCPP
+// end INTEL_CUSTOMIZATION
 
->>>>>>> 9ffc412e1afba9e4853c94669d26c9ba0707096c
 
 // PR33722
 // RUN: %clang_cc1 -x c -ffreestanding %s -triple x86_64-unknown-unknown -fms-extensions -fms-compatibility-version=19.00 -emit-llvm -o - | FileCheck %s --check-prefixes=CHECK,CHECKC
