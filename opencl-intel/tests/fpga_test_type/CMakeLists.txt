@@ -12,5 +12,4 @@ add_ocl_unittest_artifacts(
   FILES
     data/internal-ctor-kernel.ioc.obj
     data/internal-ctor-lib.cpp.ioc.obj
-    data/atomics64.spv
 )

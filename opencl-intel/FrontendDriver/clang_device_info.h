@@ -26,7 +26,6 @@ namespace Intel { namespace OpenCL { namespace ClangFE {
     bool        bImageSupport;          // Does the device support images?
     bool        bDoubleSupport;         // Does the device support 64 bit FP?
     bool        bEnableSourceLevelProfiling; // Enable source level profiling
-    bool        bIsFPGAEmu;             // Is this FPGA emu device?
   };
 
 }}}
