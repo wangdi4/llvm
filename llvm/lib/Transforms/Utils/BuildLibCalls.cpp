@@ -909,6 +909,12 @@ bool llvm::inferLibFuncAttributes(Function &F, const TargetLibraryInfo &TLI) {
   // case LibFunc_memset_pattern4:
   // case LibFunc_memset_pattern8:
 #if INTEL_CUSTOMIZATION
+  case LibFunc_msvc_std_ctype_do_tolower_char:
+  case LibFunc_msvc_std_ctype_do_tolower_ptr_ptr:
+  case LibFunc_msvc_std_ctype_do_toupper_char:
+  case LibFunc_msvc_std_ctype_do_toupper_ptr_ptr:
+    Changed |= setDoesNotThrow(F);
+    return Changed;
   case LibFunc_msvc_std_CxxThrowException:
   case LibFunc_msvc_std_Execute_once:
   case LibFunc_msvc_std_facet_register:
@@ -925,6 +931,15 @@ bool llvm::inferLibFuncAttributes(Function &F, const TargetLibraryInfo &TLI) {
   case LibFunc_msvc_std_Xlength_error:
   case LibFunc_msvc_std_Xout_of_range:
     Changed |= setDoesNotReturn(F);
+    return Changed;
+  case LibFunc_msvc_std_num_put_do_put_bool:
+  case LibFunc_msvc_std_num_put_do_put_double:
+  case LibFunc_msvc_std_num_put_do_put_long:
+  case LibFunc_msvc_std_num_put_do_put_long_double:
+  case LibFunc_msvc_std_num_put_do_put_long_long:
+  case LibFunc_msvc_std_num_put_do_put_ulong:
+  case LibFunc_msvc_std_num_put_do_put_ulong_long:
+  case LibFunc_msvc_std_num_put_do_put_void_ptr:
     return Changed;
 #endif // INTEL_CUSTOMIZATION
   case LibFunc_memset_pattern16:

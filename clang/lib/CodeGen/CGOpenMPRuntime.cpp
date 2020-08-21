@@ -10310,6 +10310,16 @@ bool CGOpenMPRuntime::emitTargetGlobalVariable(GlobalDecl GD) {
     }
   }
 
+#if INTEL_COLLAB
+  // Allow constant variables with internal linkage to fallback to normal
+  // behavior, i.e. end up on the DeferredDecls list and emit if used.
+  const auto *VD = cast<VarDecl>(GD.getDecl());
+  if (CGM.getLangOpts().OpenMPLateOutline && VD->isConstexpr() &&
+      CGM.getLLVMLinkageVarDefinition(VD, /*IsConstant=*/true) ==
+          llvm::GlobalValue::InternalLinkage)
+    return false;
+#endif // INTEL_COLLAB
+
   // Do not to emit variable if it is not marked as declare target.
   llvm::Optional<OMPDeclareTargetDeclAttr::MapTypeTy> Res =
       OMPDeclareTargetDeclAttr::isDeclareTargetDeclaration(

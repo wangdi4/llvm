@@ -199,7 +199,9 @@ bool VPlanAllZeroBypass::isStricterOrEqualPred(const VPValue *MaybePred,
     const VPBasicBlock *BaseCondParent = BaseCondInst->getParent();
     VPLoopInfo *VPLI = Plan.getVPLoopInfo();
     VPLoop *VPLp = VPLI->getLoopFor(MaybePredParent);
+    assert(VPLp && "VPLoop object is expected to exist for the block");
     VPBasicBlock *Preheader = VPLp->getLoopPreheader();
+    assert(Preheader && "Preheader is expected to exist for the loop");
     VPBasicBlock *Header = VPLp->getHeader();
     if (BaseCondParent == Preheader && MaybePredParent == Header) {
       const VPPHINode *HeaderPhi = cast<VPPHINode>(MaybePredInst);
@@ -366,8 +368,10 @@ void VPlanAllZeroBypass::collectAllZeroBypassLoopRegions(
     // of the preheader block-predicate as an 'and' instruction. In case
     // something like that happens, roll forward to the nearest successor
     // that has a block-predicate defined.
-    while (!RegionBegin->getPredicate())
+    while (!RegionBegin->getPredicate()) {
       RegionBegin = RegionBegin->getSingleSuccessor();
+      assert(RegionBegin && "Expected a single successor for the block");
+    }
 
     // Record blocks in the region up to and including the loop exit block
     // before trying to extend the region.
@@ -481,6 +485,7 @@ void VPlanAllZeroBypass::collectAllZeroBypassNonLoopRegions(
           isStricterOrEqualPred((*BlockIt)->getPredicate(),
                                 CandidateBlockPred)) {
         VPLoop *VPLp = VPLI->getLoopFor(*BlockIt);
+        assert(VPLp && "VPLoop object is expected to exist for the block");
         VPBasicBlock *LoopExit = VPLp->getExitBlock();
         SmallPtrSet<VPBasicBlock *, 4> LoopBlocks;
         RegionBlocks.insert(LoopBlocks.begin(), LoopBlocks.end());

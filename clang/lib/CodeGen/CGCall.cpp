@@ -4542,8 +4542,13 @@ RValue CodeGenFunction::EmitCall(const CGFunctionInfo &CallInfo,
       assert(NumIRArgs == 1);
       if (!I->isAggregate()) {
         // Make a temporary alloca to pass the argument.
+#if INTEL_COLLAB
+        Address Addr = CreateMemTempPossiblyCasted(
+            I->Ty, ArgInfo.getIndirectAlign(), "indirect-arg-temp");
+#else // INTEL_COLLAB
         Address Addr = CreateMemTempWithoutCast(
             I->Ty, ArgInfo.getIndirectAlign(), "indirect-arg-temp");
+#endif // INTEL_COLLAB
         IRCallArgs[FirstIRArg] = Addr.getPointer();
 
         I->copyInto(*this, Addr);

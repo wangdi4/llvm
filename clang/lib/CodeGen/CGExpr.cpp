@@ -183,6 +183,20 @@ Address CodeGenFunction::CreateMemTempWithoutCast(QualType Ty,
                                   Name);
 }
 
+#if INTEL_COLLAB
+Address CodeGenFunction::CreateMemTempPossiblyCasted(QualType Ty,
+                                                     CharUnits Align,
+                                                     const Twine &Name) {
+  llvm::Type *LTy = ConvertTypeForMem(Ty);
+  // Casted address may be needed for OpenMP clauses.
+  if (getLangOpts().OpenMPLateOutline && getLangOpts().OpenMPIsDevice)
+    return CreateTempAlloca(LTy, Align, Name, /*ArraySize=*/nullptr,
+                            /*AllocaAddr=*/nullptr);
+  else
+    return CreateTempAllocaWithoutCast(LTy, Align, Name);
+}
+#endif // INTEL_COLLAB
+
 /// EvaluateExprAsBool - Perform the usual unary conversions on the specified
 /// expression and compare the result against zero, returning an Int1Ty value.
 llvm::Value *CodeGenFunction::EvaluateExprAsBool(const Expr *E) {
