@@ -1384,7 +1384,7 @@ template <typename ClauseItem> class Clause
     bool print(formatted_raw_ostream &OS, unsigned Depth=0,
                                           unsigned Verbosity=1) const;
     // search the clause for
-    ClauseItem *findOrig(const VAR V) {
+    ClauseItem *findOrig(const Value *V) const {
       for (auto I : items())
         if (I->getOrig() == V)
           return I;

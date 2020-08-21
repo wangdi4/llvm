@@ -605,9 +605,9 @@ PrivateItem *WRegionUtils::wrnSeenAsPrivate(WRegionNode *W, Value *V) {
   return PrivClause.findOrig(V);
 }
 
-FirstprivateItem *WRegionUtils::wrnSeenAsFirstprivate(WRegionNode *W,
-                                                      Value *V) {
-  FirstprivateClause &FprivClause = W->getFpriv();
+FirstprivateItem *WRegionUtils::wrnSeenAsFirstprivate(const WRegionNode *W,
+                                                      const Value *V) {
+  const FirstprivateClause &FprivClause = W->getFpriv();
   return FprivClause.findOrig(V);
 }
 

@@ -5160,8 +5160,13 @@ Function *VPOParoptUtils::genOutlineFunction(const WRegionNode &W,
     auto PointerSize =
         DL.getTypeSizeInBits(PointerType::getUnqual(Type::getInt8Ty(C)));
 
+    User::op_iterator ArgIt = CallSite->arg_begin();
+    User::op_iterator ArgEnd = CallSite->arg_end();
     for (auto ArgTyI = FnType->param_begin(), ArgTyE = FnType->param_end();
-         ArgTyI != ArgTyE; ++ArgTyI)
+         ArgTyI != ArgTyE; ++ArgTyI, ++ArgIt) {
+      assert(ArgIt != ArgEnd && "Too few arguments in a function call.");
+      (void)ArgEnd;
+
       // If it is not a pointer type and the strict verification is enabled,
       // then fail. If strict verification is disabled, then check
       // if the argument's size matches the pointer size,
@@ -5171,6 +5176,12 @@ Function *VPOParoptUtils::genOutlineFunction(const WRegionNode &W,
                    dbgs() << "' has a non-pointer argument of type "
                    << **ArgTyI << "\nCall site:\n" << *CallSite << "\n");
 
+        // Non-pointer FIRSTPRIVATE items may appear due to the optimization
+        // that transforms pass-by-pointer to pass-by-value.
+        if (W.canHaveFirstprivate() &&
+            WRegionUtils::wrnSeenAsFirstprivate(&W, ArgIt->get()))
+          continue;
+
         if (StrictOutlineVerification)
           llvm_unreachable("Outlined function has a non-pointer argument.");
 
@@ -5179,6 +5190,7 @@ Function *VPOParoptUtils::genOutlineFunction(const WRegionNode &W,
           llvm_unreachable("Outlined function's argument has size "
                            "different from pointer size.");
       }
+    }
   }
 
   DT->verify(DominatorTree::VerificationLevel::Full);
