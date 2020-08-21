@@ -295,9 +295,13 @@ void PrintIRInstrumentation::registerCallbacks(
 
   if (llvm::shouldPrintAfterPass()) {
     PIC.registerAfterPassCallback(
-        [this](StringRef P, Any IR) { this->printAfterPass(P, IR); });
+        [this](StringRef P, Any IR, const PreservedAnalyses &) {
+          this->printAfterPass(P, IR);
+        });
     PIC.registerAfterPassInvalidatedCallback(
-        [this](StringRef P) { this->printAfterPassInvalidated(P); });
+        [this](StringRef P, const PreservedAnalyses &) {
+          this->printAfterPassInvalidated(P);
+        });
   }
 #endif //!defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
 }

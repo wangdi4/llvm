@@ -241,7 +241,7 @@ void initializeInferFunctionAttrsLegacyPassPass(PassRegistry&);
 void initializeInjectTLIMappingsLegacyPass(PassRegistry &);
 void initializeInlineAggressiveWrapperPassPass(PassRegistry&); // INTEL
 void initializeInlineCostAnalysisPass(PassRegistry&);
-void initializeInstCountPass(PassRegistry&);
+void initializeInstCountLegacyPassPass(PassRegistry &);
 void initializeInstNamerPass(PassRegistry&);
 void initializeInstSimplifyLegacyPassPass(PassRegistry &);
 void initializeInstrProfilingLegacyPassPass(PassRegistry&);
