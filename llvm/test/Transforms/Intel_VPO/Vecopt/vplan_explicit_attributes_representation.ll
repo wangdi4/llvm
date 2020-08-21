@@ -111,7 +111,7 @@ omp.inner.for.body:                               ; predggs = %omp.inner.for.bod
 ; CHECK-NEXT:      end of details
 
   %exitcond = icmp eq i64 %indvars.iv.next, 1024, !dbg !42
-; CHECK:          i1 [[VP_EXITCOND:%.*]] = icmp i64 [[VP_INDVARS_IV_NEXT]] i64 1024
+; CHECK:          i1 [[VP_EXITCOND:%.*]] = icmp eq i64 [[VP_INDVARS_IV_NEXT]] i64 1024
 ; CHECK-NEXT:      DbgLoc: lit_test.c:9:3
 ; CHECK-NEXT:      OperatorFlags -
 ; CHECK-NEXT:        FMF: 0, NSW: 0, NUW: 0, Exact: 0

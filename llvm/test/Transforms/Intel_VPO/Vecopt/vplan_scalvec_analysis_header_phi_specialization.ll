@@ -44,7 +44,7 @@ define dso_local void @divergentInnerLoopIV(i32* nocapture %a, i64* nocapture %b
 ; CHECK-NEXT:     [DA: Div, SVA: (F  )] i64* [[VP_B_GEP:%.*]] = getelementptr inbounds i64* [[B0:%.*]] i64 [[VP_INDVARS_IV]] (SVAOpBits 0->F 1->F )
 ; CHECK-NEXT:     [DA: Div, SVA: ( V )] store i64 [[VP_INNER_IV]] i64* [[VP_B_GEP]] (SVAOpBits 0->V 1->F )
 ; CHECK-NEXT:     [DA: Div, SVA: (FV )] i64 [[VP_INNER_IV_ADD]] = add i64 [[VP_INNER_IV]] i64 1 (SVAOpBits 0->FV 1->FV )
-; CHECK-NEXT:     [DA: Div, SVA: ( V )] i1 [[VP_INNER_EXIT:%.*]] = icmp i64 [[VP_INNER_IV_ADD]] i64 512 (SVAOpBits 0->V 1->V )
+; CHECK-NEXT:     [DA: Div, SVA: ( V )] i1 [[VP_INNER_EXIT:%.*]] = icmp eq i64 [[VP_INNER_IV_ADD]] i64 512 (SVAOpBits 0->V 1->V )
 ; CHECK-NEXT:    SUCCESSORS(1):[[BB5]]
 ; CHECK-NEXT:    PREDECESSORS(1): [[BB4]]
 ; CHECK-EMPTY:
@@ -58,7 +58,7 @@ define dso_local void @divergentInnerLoopIV(i32* nocapture %a, i64* nocapture %b
 ; CHECK-NEXT:    [[BB3]]:
 ; CHECK-NEXT:     [DA: Div, SVA: (FV )] i64 [[VP_INDVARS_IV_NEXT]] = add i64 [[VP_INDVARS_IV]] i64 [[VP_INDVARS_IV_IND_INIT_STEP]] (SVAOpBits 0->FV 1->FV )
 ; CHECK-NEXT:     [DA: Uni, SVA: (F  )] i64 [[VP_VECTOR_LOOP_IV_NEXT]] = add i64 [[VP_VECTOR_LOOP_IV]] i64 [[VP_VF]] (SVAOpBits 0->F 1->F )
-; CHECK-NEXT:     [DA: Uni, SVA: (F  )] i1 [[VP_VECTOR_LOOP_EXITCOND:%.*]] = icmp i64 [[VP_VECTOR_LOOP_IV_NEXT]] i64 [[VP_VECTOR_TRIP_COUNT]] (SVAOpBits 0->F 1->F )
+; CHECK-NEXT:     [DA: Uni, SVA: (F  )] i1 [[VP_VECTOR_LOOP_EXITCOND:%.*]] = icmp eq i64 [[VP_VECTOR_LOOP_IV_NEXT]] i64 [[VP_VECTOR_TRIP_COUNT]] (SVAOpBits 0->F 1->F )
 ; CHECK-NEXT:    SUCCESSORS(2):[[BB7:BB[0-9]+]](i1 [[VP_VECTOR_LOOP_EXITCOND]]), [[BB2]](!i1 [[VP_VECTOR_LOOP_EXITCOND]])
 ; CHECK-NEXT:    PREDECESSORS(1): [[BB5]]
 ; CHECK-EMPTY:
@@ -113,9 +113,9 @@ DIR.OMP.END.SIMD.3:
 ; forward propagation.
 define dso_local void @backPropUniformInst(i64* nocapture %a, i64 %b) local_unnamed_addr #0 {
 ; CHECK-LABEL:  VPlan after ScalVec analysis:
-; CHECK-NEXT:   Live-in values:
-; CHECK-NEXT:   ID: 0 Value: i64 0
-; CHECK-NEXT:   [[BB0:BB[0-9]+]]:
+; CHECK-NEXT:  Live-in values:
+; CHECK-NEXT:  ID: 0 Value: i64 0
+; CHECK-NEXT:    [[BB0:BB[0-9]+]]:
 ; CHECK-NEXT:     <Empty Block>
 ; CHECK-NEXT:    SUCCESSORS(1):[[BB1:BB[0-9]+]]
 ; CHECK-NEXT:    no PREDECESSORS
@@ -147,7 +147,7 @@ define dso_local void @backPropUniformInst(i64* nocapture %a, i64 %b) local_unna
 ; CHECK-NEXT:     [DA: Div, SVA: (  L)] store i64 [[VP_INNER_IV]] i64* [[A0:%.*]] (SVAOpBits 0->L 1->F )
 ; CHECK-NEXT:     [DA: Uni, SVA: (F  )] i64 [[VP_UNI_OP:%.*]] = mul i64 [[B0:%.*]] i64 42 (SVAOpBits 0->F 1->F )
 ; CHECK-NEXT:     [DA: Div, SVA: ( VL)] i64 [[VP_INNER_IV_NEXT]] = add i64 [[VP_INNER_IV]] i64 [[VP_UNI_OP]] (SVAOpBits 0->LV 1->LV )
-; CHECK-NEXT:     [DA: Div, SVA: ( V )] i1 [[VP_INNER_EXIT:%.*]] = icmp i64 [[VP_INNER_IV_NEXT]] i64 1024 (SVAOpBits 0->V 1->V )
+; CHECK-NEXT:     [DA: Div, SVA: ( V )] i1 [[VP_INNER_EXIT:%.*]] = icmp eq i64 [[VP_INNER_IV_NEXT]] i64 1024 (SVAOpBits 0->V 1->V )
 ; CHECK-NEXT:    SUCCESSORS(1):[[BB5]]
 ; CHECK-NEXT:    PREDECESSORS(1): [[BB4]]
 ; CHECK-EMPTY:
@@ -161,7 +161,7 @@ define dso_local void @backPropUniformInst(i64* nocapture %a, i64 %b) local_unna
 ; CHECK-NEXT:    [[BB3]]:
 ; CHECK-NEXT:     [DA: Div, SVA: ( VL)] i64 [[VP_INDVARS_IV_NEXT]] = add i64 [[VP_INDVARS_IV]] i64 [[VP_INDVARS_IV_IND_INIT_STEP]] (SVAOpBits 0->LV 1->LV )
 ; CHECK-NEXT:     [DA: Uni, SVA: (F  )] i64 [[VP_VECTOR_LOOP_IV_NEXT]] = add i64 [[VP_VECTOR_LOOP_IV]] i64 [[VP_VF]] (SVAOpBits 0->F 1->F )
-; CHECK-NEXT:     [DA: Uni, SVA: (F  )] i1 [[VP_VECTOR_LOOP_EXITCOND:%.*]] = icmp i64 [[VP_VECTOR_LOOP_IV_NEXT]] i64 [[VP_VECTOR_TRIP_COUNT]] (SVAOpBits 0->F 1->F )
+; CHECK-NEXT:     [DA: Uni, SVA: (F  )] i1 [[VP_VECTOR_LOOP_EXITCOND:%.*]] = icmp eq i64 [[VP_VECTOR_LOOP_IV_NEXT]] i64 [[VP_VECTOR_TRIP_COUNT]] (SVAOpBits 0->F 1->F )
 ; CHECK-NEXT:    SUCCESSORS(2):[[BB7:BB[0-9]+]](i1 [[VP_VECTOR_LOOP_EXITCOND]]), [[BB2]](!i1 [[VP_VECTOR_LOOP_EXITCOND]])
 ; CHECK-NEXT:    PREDECESSORS(1): [[BB5]]
 ; CHECK-EMPTY:
@@ -174,6 +174,9 @@ define dso_local void @backPropUniformInst(i64* nocapture %a, i64 %b) local_unna
 ; CHECK-NEXT:     <Empty Block>
 ; CHECK-NEXT:    no SUCCESSORS
 ; CHECK-NEXT:    PREDECESSORS(1): [[BB7]]
+; CHECK-EMPTY:
+; CHECK-NEXT:  External Uses:
+; CHECK-NEXT:  Id: 0   no underlying for i64 [[VP_INDVARS_IV_IND_FINAL]]
 ;
 entry:
   br label %DIR.OMP.SIMD.1

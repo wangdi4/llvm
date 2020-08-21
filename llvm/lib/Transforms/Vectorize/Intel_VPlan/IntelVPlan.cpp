@@ -496,6 +496,12 @@ void VPInstruction::printWithoutAnalyses(raw_ostream &O) const {
       << "}";
     break;
   }
+  case Instruction::ICmp:
+  case Instruction::FCmp: {
+    O << getOpcodeName(getOpcode()) << ' '
+      << CmpInst::getPredicateName(cast<VPCmpInst>(this)->getPredicate());
+    break;
+  }
   default:
     O << getOpcodeName(getOpcode());
   }

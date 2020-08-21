@@ -32,7 +32,7 @@ define dso_local void @foo(i64* noalias nocapture %larr) local_unnamed_addr #0 {
 ; CHECK-NEXT:     [DA: Div] i64* [[VP_SUBSCRIPT_1:%.*]] = subscript inbounds i64* [[LARR0]] i64 [[VP1]]
 ; CHECK-NEXT:     [DA: Div] store i64 [[VP4]] i64* [[VP_SUBSCRIPT_1]]
 ; CHECK-NEXT:     [DA: Div] i64 [[VP2]] = add i64 [[VP1]] i64 [[VP__IND_INIT_STEP]]
-; CHECK-NEXT:     [DA: Uni] i1 [[VP5:%.*]] = icmp i64 [[VP2]] i64 99
+; CHECK-NEXT:     [DA: Uni] i1 [[VP5:%.*]] = icmp sle i64 [[VP2]] i64 99
 ; CHECK-NEXT:    SUCCESSORS(2):[[BB2]](i1 [[VP5]]), [[BB3:BB[0-9]+]](!i1 [[VP5]])
 ; CHECK-NEXT:    PREDECESSORS(2): [[BB1]] [[BB2]]
 ; CHECK-EMPTY:

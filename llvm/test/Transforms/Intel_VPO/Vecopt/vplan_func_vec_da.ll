@@ -25,7 +25,7 @@ define void @test_loop_uni(i32 %vf) {
 ; CHECK-NEXT:  Divergent: [Shape: Unit Stride, Stride: i32 1] i32 [[VP_VEC:%.*]] = phi  [ i32 [[VP_LANE]], [[BB0]] ],  [ i32 [[VP_VEC_NEXT:%.*]], [[BB1]] ]
 ; CHECK-NEXT:  Uniform: [Shape: Uniform] i32 [[VP_LOOP_IV_NEXT]] = add i32 [[VP_LOOP_IV]] i32 1
 ; CHECK-NEXT:  Divergent: [Shape: Unit Stride, Stride: i64 1] i32 [[VP_VEC_NEXT]] = add i32 [[VP_VEC]] i32 [[VF0:%.*]]
-; CHECK-NEXT:  Uniform: [Shape: Uniform] i1 [[VP_EXIT_COND:%.*]] = icmp i32 [[VP_LOOP_IV]] i32 42
+; CHECK-NEXT:  Uniform: [Shape: Uniform] i1 [[VP_EXIT_COND:%.*]] = icmp eq i32 [[VP_LOOP_IV]] i32 42
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Basic Block: [[BB2:BB[0-9]+]]
 ; CHECK-NEXT:  Divergent: [Shape: Random] void [[VP0:%.*]] = ret
@@ -54,7 +54,7 @@ define void @test_loop_div_linear(i32 %vf) {
 ; CHECK-NEXT:  Basic Block: [[BB1:BB[0-9]+]]
 ; CHECK-NEXT:  Divergent: [Shape: Unit Stride, Stride: i32 1] i32 [[VP_LOOP_IV:%.*]] = phi  [ i32 [[VP_LANE]], [[BB0]] ],  [ i32 [[VP_LOOP_IV_NEXT:%.*]], [[BB1]] ]
 ; CHECK-NEXT:  Divergent: [Shape: Unit Stride, Stride: i64 1] i32 [[VP_LOOP_IV_NEXT]] = add i32 [[VP_LOOP_IV]] i32 1
-; CHECK-NEXT:  Divergent: [Shape: Random] i1 [[VP_EXIT_COND:%.*]] = icmp i32 [[VP_LOOP_IV]] i32 42
+; CHECK-NEXT:  Divergent: [Shape: Random] i1 [[VP_EXIT_COND:%.*]] = icmp eq i32 [[VP_LOOP_IV]] i32 42
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Basic Block: [[BB2:BB[0-9]+]]
 ; CHECK-NEXT:  Divergent: [Shape: Random] void [[VP0:%.*]] = ret
@@ -82,7 +82,7 @@ define void @test_loop_div_random(i32 %vf) {
 ; CHECK-NEXT:  Basic Block: [[BB1:BB[0-9]+]]
 ; CHECK-NEXT:  Divergent: [Shape: Random] i32 [[VP_LOOP_IV:%.*]] = phi  [ i32 [[VP_MUL]], [[BB0]] ],  [ i32 [[VP_LOOP_IV_NEXT:%.*]], [[BB1]] ]
 ; CHECK-NEXT:  Divergent: [Shape: Random] i32 [[VP_LOOP_IV_NEXT]] = add i32 [[VP_LOOP_IV]] i32 1
-; CHECK-NEXT:  Divergent: [Shape: Random] i1 [[VP_EXIT_COND:%.*]] = icmp i32 [[VP_LOOP_IV]] i32 42
+; CHECK-NEXT:  Divergent: [Shape: Random] i1 [[VP_EXIT_COND:%.*]] = icmp eq i32 [[VP_LOOP_IV]] i32 42
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Basic Block: [[BB2:BB[0-9]+]]
 ; CHECK-NEXT:  Divergent: [Shape: Random] void [[VP0:%.*]] = ret
@@ -114,7 +114,7 @@ define void @test_loop_reduction(i32 %vf) {
 ; CHECK-NEXT:  Uniform: [Shape: Uniform] i32 [[VP_LOOP_IV_NEXT]] = add i32 [[VP_LOOP_IV]] i32 1
 ; CHECK-NEXT:  Divergent: [Shape: Unit Stride, Stride: i64 1] i32 [[VP_VEC_NEXT]] = add i32 [[VP_VEC]] i32 [[VF0:%.*]]
 ; CHECK-NEXT:  Divergent: [Shape: Random] i32 [[VP_RED_NEXT]] = add i32 [[VP_RED]] i32 [[VP_VEC]]
-; CHECK-NEXT:  Uniform: [Shape: Uniform] i1 [[VP_EXIT_COND:%.*]] = icmp i32 [[VP_LOOP_IV]] i32 42
+; CHECK-NEXT:  Uniform: [Shape: Uniform] i1 [[VP_EXIT_COND:%.*]] = icmp eq i32 [[VP_LOOP_IV]] i32 42
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Basic Block: [[BB2:BB[0-9]+]]
 ; CHECK-NEXT:  Divergent: [Shape: Random] void [[VP0:%.*]] = ret

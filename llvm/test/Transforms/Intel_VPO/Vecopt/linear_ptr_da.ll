@@ -19,7 +19,7 @@ define dso_local void @foo(i32* nocapture %p) {
 ; CHECK-NEXT:  Divergent: [Shape: Unit Stride, Stride: i64 1] i32 [[VP_ADD1]] = add i32 [[VP__OMP_IV_0]] i32 [[VP__OMP_IV_0_IND_INIT_STEP:%.*]]
 ; CHECK-NEXT:  Divergent: [Shape: Strided, Stride: i64 4] i32* [[VP0]] = getelementptr inbounds i32* [[VP_P_ADDR_06]] i64 [[VP_P_ADDR_06_IND_INIT_STEP:%.*]]
 ; CHECK-NEXT:  Uniform: [Shape: Uniform] i64 [[VP_VECTOR_LOOP_IV_NEXT]] = add i64 [[VP_VECTOR_LOOP_IV]] i64 [[VP_VF:%.*]]
-; CHECK-NEXT:  Uniform: [Shape: Uniform] i1 [[VP_VECTOR_LOOP_EXITCOND:%.*]] = icmp i64 [[VP_VECTOR_LOOP_IV_NEXT]] i64 [[VP_VECTOR_TRIP_COUNT:%.*]]
+; CHECK-NEXT:  Uniform: [Shape: Uniform] i1 [[VP_VECTOR_LOOP_EXITCOND:%.*]] = icmp eq i64 [[VP_VECTOR_LOOP_IV_NEXT]] i64 [[VP_VECTOR_TRIP_COUNT:%.*]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Basic Block: [[BB2:BB[0-9]+]]
 ; CHECK-NEXT:  Uniform: [Shape: Uniform] i32 [[VP__OMP_IV_0_IND_FINAL:%.*]] = induction-final{add} i32 live-in0 i32 1
@@ -73,7 +73,7 @@ define dso_local void @foo2(i32* %p1, i32* %p2, i32* %p3, i32* %p4) {
 ; CHECK-NEXT:  Divergent: [Shape: Strided, Stride: i64 8] i32* [[VP2]] = getelementptr inbounds i32* [[VP_P2_ADDR]] i64 [[VP_P2_ADDR_IND_INIT_STEP:%.*]]
 ; CHECK-NEXT:  Divergent: [Shape: Strided, Stride: i64 -16] i32* [[VP3]] = getelementptr inbounds i32* [[VP_P4_ADDR]] i64 [[VP_P4_ADDR_IND_INIT_STEP:%.*]]
 ; CHECK-NEXT:  Uniform: [Shape: Uniform] i64 [[VP_VECTOR_LOOP_IV_NEXT]] = add i64 [[VP_VECTOR_LOOP_IV]] i64 [[VP_VF:%.*]]
-; CHECK-NEXT:  Uniform: [Shape: Uniform] i1 [[VP_VECTOR_LOOP_EXITCOND:%.*]] = icmp i64 [[VP_VECTOR_LOOP_IV_NEXT]] i64 [[VP_VECTOR_TRIP_COUNT:%.*]]
+; CHECK-NEXT:  Uniform: [Shape: Uniform] i1 [[VP_VECTOR_LOOP_EXITCOND:%.*]] = icmp eq i64 [[VP_VECTOR_LOOP_IV_NEXT]] i64 [[VP_VECTOR_TRIP_COUNT:%.*]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Basic Block: [[BB2:BB[0-9]+]]
 ; CHECK-NEXT:  Uniform: [Shape: Uniform] i32 [[VP_IV_IND_FINAL:%.*]] = induction-final{add} i32 live-in0 i32 3

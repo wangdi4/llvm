@@ -12,8 +12,8 @@ define void @test_uniform_edge_to_divergent_block(i32* %a, i32 %b) local_unnamed
 ; CHECK-NEXT:     [DA: Div] i32 [[VP_LANE:%.*]] = induction-init{add} i32 0 i32 1
 ; CHECK-NEXT:     [DA: Div] i32* [[VP_GEP:%.*]] = getelementptr i32* [[A0:%.*]] i32 [[VP_LANE]]
 ; CHECK-NEXT:     [DA: Div] i32 [[VP_LD:%.*]] = load i32* [[VP_GEP]]
-; CHECK-NEXT:     [DA: Uni] i1 [[VP_UNIFORM:%.*]] = icmp i32 [[B0:%.*]] i32 42
-; CHECK-NEXT:     [DA: Div] i1 [[VP_VARYING:%.*]] = icmp i32 [[VP_LD]] i32 42
+; CHECK-NEXT:     [DA: Uni] i1 [[VP_UNIFORM:%.*]] = icmp eq i32 [[B0:%.*]] i32 42
+; CHECK-NEXT:     [DA: Div] i1 [[VP_VARYING:%.*]] = icmp eq i32 [[VP_LD]] i32 42
 ; CHECK-NEXT:    SUCCESSORS(1):[[BB1:BB[0-9]+]]
 ; CHECK-NEXT:    no PREDECESSORS
 ; CHECK-EMPTY:
@@ -100,8 +100,8 @@ define void @test_two_linearized_pathes_merge(i32* %a, i32 %b) local_unnamed_add
 ; CHECK-NEXT:     [DA: Div] i32 [[VP_LANE:%.*]] = induction-init{add} i32 0 i32 1
 ; CHECK-NEXT:     [DA: Div] i32* [[VP_GEP:%.*]] = getelementptr i32* [[A0:%.*]] i32 [[VP_LANE]]
 ; CHECK-NEXT:     [DA: Div] i32 [[VP_LD:%.*]] = load i32* [[VP_GEP]]
-; CHECK-NEXT:     [DA: Uni] i1 [[VP_UNIFORM:%.*]] = icmp i32 [[B0:%.*]] i32 42
-; CHECK-NEXT:     [DA: Div] i1 [[VP_VARYING:%.*]] = icmp i32 [[VP_LD]] i32 42
+; CHECK-NEXT:     [DA: Uni] i1 [[VP_UNIFORM:%.*]] = icmp eq i32 [[B0:%.*]] i32 42
+; CHECK-NEXT:     [DA: Div] i1 [[VP_VARYING:%.*]] = icmp eq i32 [[VP_LD]] i32 42
 ; CHECK-NEXT:    SUCCESSORS(1):[[BB1:BB[0-9]+]]
 ; CHECK-NEXT:    no PREDECESSORS
 ; CHECK-EMPTY:
@@ -233,8 +233,8 @@ define void @test_separate_blend_bb_for_2_div_plus_uniform(i32* %a, i32 %b) loca
 ; CHECK-NEXT:     [DA: Div] i32 [[VP_LANE:%.*]] = induction-init{add} i32 0 i32 1
 ; CHECK-NEXT:     [DA: Div] i32* [[VP_GEP:%.*]] = getelementptr i32* [[A0:%.*]] i32 [[VP_LANE]]
 ; CHECK-NEXT:     [DA: Div] i32 [[VP_LD:%.*]] = load i32* [[VP_GEP]]
-; CHECK-NEXT:     [DA: Uni] i1 [[VP_UNIFORM:%.*]] = icmp i32 [[B0:%.*]] i32 42
-; CHECK-NEXT:     [DA: Div] i1 [[VP_VARYING:%.*]] = icmp i32 [[VP_LD]] i32 42
+; CHECK-NEXT:     [DA: Uni] i1 [[VP_UNIFORM:%.*]] = icmp eq i32 [[B0:%.*]] i32 42
+; CHECK-NEXT:     [DA: Div] i1 [[VP_VARYING:%.*]] = icmp eq i32 [[VP_LD]] i32 42
 ; CHECK-NEXT:    SUCCESSORS(1):[[BB1:BB[0-9]+]]
 ; CHECK-NEXT:    no PREDECESSORS
 ; CHECK-EMPTY:
@@ -324,8 +324,8 @@ define void @test_two_blend_bbs(i32* %a, i32 %b)  local_unnamed_addr {
 ; CHECK-NEXT:     [DA: Div] i32 [[VP_LANE:%.*]] = induction-init{add} i32 0 i32 1
 ; CHECK-NEXT:     [DA: Div] i32* [[VP_GEP:%.*]] = getelementptr i32* [[A0:%.*]] i32 [[VP_LANE]]
 ; CHECK-NEXT:     [DA: Div] i32 [[VP_LD:%.*]] = load i32* [[VP_GEP]]
-; CHECK-NEXT:     [DA: Uni] i1 [[VP_UNIFORM:%.*]] = icmp i32 [[B0:%.*]] i32 42
-; CHECK-NEXT:     [DA: Div] i1 [[VP_VARYING:%.*]] = icmp i32 [[VP_LD]] i32 42
+; CHECK-NEXT:     [DA: Uni] i1 [[VP_UNIFORM:%.*]] = icmp eq i32 [[B0:%.*]] i32 42
+; CHECK-NEXT:     [DA: Div] i1 [[VP_VARYING:%.*]] = icmp eq i32 [[VP_LD]] i32 42
 ; CHECK-NEXT:    SUCCESSORS(1):[[BB1:BB[0-9]+]]
 ; CHECK-NEXT:    no PREDECESSORS
 ; CHECK-EMPTY:
@@ -453,13 +453,13 @@ define dso_local void @test_divergent_loop_with_double_top_test(i32 %N, i32 *%a,
 ; CHECK-LABEL:  VPlan IR for: test_divergent_loop_with_double_top_test
 ; CHECK-NEXT:    [[BB0:BB[0-9]+]]:
 ; CHECK-NEXT:     [DA: Div] i32 [[VP_LANE:%.*]] = induction-init{add} i32 0 i32 1
-; CHECK-NEXT:     [DA: Div] i1 [[VP_SKIP_LOOP:%.*]] = icmp i32 [[VP_LANE]] i32 [[MASK_OUT_LOOP0:%.*]]
+; CHECK-NEXT:     [DA: Div] i1 [[VP_SKIP_LOOP:%.*]] = icmp eq i32 [[VP_LANE]] i32 [[MASK_OUT_LOOP0:%.*]]
 ; CHECK-NEXT:    SUCCESSORS(1):[[BB1:BB[0-9]+]]
 ; CHECK-NEXT:    no PREDECESSORS
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB1]]:
 ; CHECK-NEXT:     [DA: Div] i1 [[VP0:%.*]] = block-predicate i1 [[VP_SKIP_LOOP]]
-; CHECK-NEXT:     [DA: Uni] i1 [[VP_SECOND_TEST:%.*]] = icmp i32 [[N0:%.*]] i32 0
+; CHECK-NEXT:     [DA: Uni] i1 [[VP_SECOND_TEST:%.*]] = icmp eq i32 [[N0:%.*]] i32 0
 ; CHECK-NEXT:     [DA: Uni] i1 [[VP_SECOND_TEST_NOT:%.*]] = not i1 [[VP_SECOND_TEST]]
 ; CHECK-NEXT:     [DA: Uni] i1 [[VP_SECOND_TEST_NOT_1:%.*]] = not i1 [[VP_SECOND_TEST]]
 ; CHECK-NEXT:    SUCCESSORS(1):[[BB2:BB[0-9]+]]
@@ -492,9 +492,9 @@ define dso_local void @test_divergent_loop_with_double_top_test(i32 %N, i32 *%a,
 ; CHECK-NEXT:     [DA: Div] i1 [[VP3:%.*]] = block-predicate i1 [[VP_BB5_BR_VP_LOOP_MASK]]
 ; CHECK-NEXT:     [DA: Uni] i32* [[VP_ARRAYIDX:%.*]] = getelementptr inbounds i32* [[A0:%.*]] i32 [[VP_IV]]
 ; CHECK-NEXT:     [DA: Uni] i32 [[VP_LD:%.*]] = load i32* [[VP_ARRAYIDX]]
-; CHECK-NEXT:     [DA: Uni] i1 [[VP_SOME_CMP:%.*]] = icmp i32 [[VP_LD]] i32 42
+; CHECK-NEXT:     [DA: Uni] i1 [[VP_SOME_CMP:%.*]] = icmp eq i32 [[VP_LD]] i32 42
 ; CHECK-NEXT:     [DA: Uni] i32 [[VP_IV_NEXT]] = add i32 [[VP_IV]] i32 1
-; CHECK-NEXT:     [DA: Div] i1 [[VP_EXITCOND:%.*]] = icmp i32 [[VP_IV_NEXT]] i32 [[VP_LANE]]
+; CHECK-NEXT:     [DA: Div] i1 [[VP_EXITCOND:%.*]] = icmp eq i32 [[VP_IV_NEXT]] i32 [[VP_LANE]]
 ; CHECK-NEXT:    SUCCESSORS(1):[[BB5]]
 ; CHECK-NEXT:    PREDECESSORS(1): [[BB6]]
 ; CHECK-EMPTY:
@@ -565,8 +565,8 @@ define void @test_single_succ_single_pred_edge(i32* %a, i32 %b) local_unnamed_ad
 ; CHECK-NEXT:     [DA: Div] i32 [[VP_LANE:%.*]] = induction-init{add} i32 0 i32 1
 ; CHECK-NEXT:     [DA: Div] i32* [[VP_GEP:%.*]] = getelementptr i32* [[A0:%.*]] i32 [[VP_LANE]]
 ; CHECK-NEXT:     [DA: Div] i32 [[VP_LD:%.*]] = load i32* [[VP_GEP]]
-; CHECK-NEXT:     [DA: Uni] i1 [[VP_UNIFORM:%.*]] = icmp i32 [[B0:%.*]] i32 42
-; CHECK-NEXT:     [DA: Div] i1 [[VP_VARYING:%.*]] = icmp i32 [[VP_LD]] i32 42
+; CHECK-NEXT:     [DA: Uni] i1 [[VP_UNIFORM:%.*]] = icmp eq i32 [[B0:%.*]] i32 42
+; CHECK-NEXT:     [DA: Div] i1 [[VP_VARYING:%.*]] = icmp eq i32 [[VP_LD]] i32 42
 ; CHECK-NEXT:    SUCCESSORS(1):[[BB1:BB[0-9]+]]
 ; CHECK-NEXT:    no PREDECESSORS
 ; CHECK-EMPTY:
@@ -650,8 +650,8 @@ define void @test_use_dom_instead_of_direct_succ(i32* %a, i32 %b) local_unnamed_
 ; CHECK-NEXT:     [DA: Div] i32 [[VP_LANE:%.*]] = induction-init{add} i32 0 i32 1
 ; CHECK-NEXT:     [DA: Div] i32* [[VP_GEP:%.*]] = getelementptr i32* [[A0:%.*]] i32 [[VP_LANE]]
 ; CHECK-NEXT:     [DA: Div] i32 [[VP_LD:%.*]] = load i32* [[VP_GEP]]
-; CHECK-NEXT:     [DA: Uni] i1 [[VP_UNIFORM:%.*]] = icmp i32 [[B0:%.*]] i32 42
-; CHECK-NEXT:     [DA: Div] i1 [[VP_VARYING:%.*]] = icmp i32 [[VP_LD]] i32 42
+; CHECK-NEXT:     [DA: Uni] i1 [[VP_UNIFORM:%.*]] = icmp eq i32 [[B0:%.*]] i32 42
+; CHECK-NEXT:     [DA: Div] i1 [[VP_VARYING:%.*]] = icmp eq i32 [[VP_LD]] i32 42
 ; CHECK-NEXT:    SUCCESSORS(1):[[BB1:BB[0-9]+]]
 ; CHECK-NEXT:    no PREDECESSORS
 ; CHECK-EMPTY:
@@ -820,8 +820,8 @@ define void @test_triple_pred_in_single_linearized_flow(i32* %a, i32 %b) local_u
 ; CHECK-NEXT:     [DA: Div] i32 [[VP_LANE:%.*]] = induction-init{add} i32 0 i32 1
 ; CHECK-NEXT:     [DA: Div] i32* [[VP_GEP:%.*]] = getelementptr i32* [[A0:%.*]] i32 [[VP_LANE]]
 ; CHECK-NEXT:     [DA: Div] i32 [[VP_LD:%.*]] = load i32* [[VP_GEP]]
-; CHECK-NEXT:     [DA: Uni] i1 [[VP_UNIFORM:%.*]] = icmp i32 [[B0:%.*]] i32 42
-; CHECK-NEXT:     [DA: Div] i1 [[VP_VARYING:%.*]] = icmp i32 [[VP_LD]] i32 42
+; CHECK-NEXT:     [DA: Uni] i1 [[VP_UNIFORM:%.*]] = icmp eq i32 [[B0:%.*]] i32 42
+; CHECK-NEXT:     [DA: Div] i1 [[VP_VARYING:%.*]] = icmp eq i32 [[VP_LD]] i32 42
 ; CHECK-NEXT:    SUCCESSORS(1):[[BB1:BB[0-9]+]]
 ; CHECK-NEXT:    no PREDECESSORS
 ; CHECK-EMPTY:
@@ -928,8 +928,8 @@ define void @test_linearized_chain(i32* %a, i32 %b) local_unnamed_addr {
 ; CHECK-NEXT:     [DA: Div] i32 [[VP_LANE:%.*]] = induction-init{add} i32 0 i32 1
 ; CHECK-NEXT:     [DA: Div] i32* [[VP_GEP:%.*]] = getelementptr i32* [[A0:%.*]] i32 [[VP_LANE]]
 ; CHECK-NEXT:     [DA: Div] i32 [[VP_LD:%.*]] = load i32* [[VP_GEP]]
-; CHECK-NEXT:     [DA: Uni] i1 [[VP_UNIFORM:%.*]] = icmp i32 [[B0:%.*]] i32 42
-; CHECK-NEXT:     [DA: Div] i1 [[VP_VARYING:%.*]] = icmp i32 [[VP_LD]] i32 42
+; CHECK-NEXT:     [DA: Uni] i1 [[VP_UNIFORM:%.*]] = icmp eq i32 [[B0:%.*]] i32 42
+; CHECK-NEXT:     [DA: Div] i1 [[VP_VARYING:%.*]] = icmp eq i32 [[VP_LD]] i32 42
 ; CHECK-NEXT:    SUCCESSORS(1):[[BB1:BB[0-9]+]]
 ; CHECK-NEXT:    no PREDECESSORS
 ; CHECK-EMPTY:
@@ -1026,8 +1026,8 @@ define void @test_reuse_idom(i32* %a, i32 %b) local_unnamed_addr {
 ; CHECK-NEXT:     [DA: Div] i32 [[VP_LANE:%.*]] = induction-init{add} i32 0 i32 1
 ; CHECK-NEXT:     [DA: Div] i32* [[VP_GEP:%.*]] = getelementptr i32* [[A0:%.*]] i32 [[VP_LANE]]
 ; CHECK-NEXT:     [DA: Div] i32 [[VP_LD:%.*]] = load i32* [[VP_GEP]]
-; CHECK-NEXT:     [DA: Uni] i1 [[VP_UNIFORM:%.*]] = icmp i32 [[B0:%.*]] i32 42
-; CHECK-NEXT:     [DA: Div] i1 [[VP_VARYING:%.*]] = icmp i32 [[VP_LD]] i32 42
+; CHECK-NEXT:     [DA: Uni] i1 [[VP_UNIFORM:%.*]] = icmp eq i32 [[B0:%.*]] i32 42
+; CHECK-NEXT:     [DA: Div] i1 [[VP_VARYING:%.*]] = icmp eq i32 [[VP_LD]] i32 42
 ; CHECK-NEXT:    SUCCESSORS(1):[[BB1:BB[0-9]+]]
 ; CHECK-NEXT:    no PREDECESSORS
 ; CHECK-EMPTY:
@@ -1171,8 +1171,8 @@ define void @test_blend_splitting_for_early_path_join(i32* %a, i32 %b) local_unn
 ; CHECK-NEXT:     [DA: Div] i32 [[VP_LANE:%.*]] = induction-init{add} i32 0 i32 1
 ; CHECK-NEXT:     [DA: Div] i32* [[VP_GEP:%.*]] = getelementptr i32* [[A0:%.*]] i32 [[VP_LANE]]
 ; CHECK-NEXT:     [DA: Div] i32 [[VP_LD:%.*]] = load i32* [[VP_GEP]]
-; CHECK-NEXT:     [DA: Uni] i1 [[VP_UNIFORM:%.*]] = icmp i32 [[B0:%.*]] i32 42
-; CHECK-NEXT:     [DA: Div] i1 [[VP_VARYING:%.*]] = icmp i32 [[VP_LD]] i32 42
+; CHECK-NEXT:     [DA: Uni] i1 [[VP_UNIFORM:%.*]] = icmp eq i32 [[B0:%.*]] i32 42
+; CHECK-NEXT:     [DA: Div] i1 [[VP_VARYING:%.*]] = icmp eq i32 [[VP_LD]] i32 42
 ; CHECK-NEXT:    SUCCESSORS(1):[[BB1:BB[0-9]+]]
 ; CHECK-NEXT:    no PREDECESSORS
 ; CHECK-EMPTY:
@@ -1342,19 +1342,19 @@ define void @test_no_blend_in_uniform_control_flow(i32 %b) {
 ; CHECK-LABEL:  VPlan IR for: test_no_blend_in_uniform_control_flow
 ; CHECK-NEXT:    [[BB0:BB[0-9]+]]:
 ; CHECK-NEXT:     [DA: Div] i32 [[VP_LANE:%.*]] = induction-init{add} i32 0 i32 1
-; CHECK-NEXT:     [DA: Uni] i1 [[VP_UNIFORM:%.*]] = icmp i32 [[B0:%.*]] i32 42
+; CHECK-NEXT:     [DA: Uni] i1 [[VP_UNIFORM:%.*]] = icmp eq i32 [[B0:%.*]] i32 42
 ; CHECK-NEXT:    SUCCESSORS(1):[[BB1:BB[0-9]+]]
 ; CHECK-NEXT:    no PREDECESSORS
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB1]]:
 ; CHECK-NEXT:     [DA: Uni] i32 [[VP_IV:%.*]] = phi  [ i32 0, [[BB0]] ],  [ i32 [[VP_IV_NEXT:%.*]], [[BB2:BB[0-9]+]] ]
-; CHECK-NEXT:     Condition([[BB0]]): [DA: Uni] i1 [[VP_UNIFORM]] = icmp i32 [[B0]] i32 42
+; CHECK-NEXT:     Condition([[BB0]]): [DA: Uni] i1 [[VP_UNIFORM]] = icmp eq i32 [[B0]] i32 42
 ; CHECK-NEXT:    SUCCESSORS(2):[[BB3:BB[0-9]+]](i1 [[VP_UNIFORM]]), [[BB2]](!i1 [[VP_UNIFORM]])
 ; CHECK-NEXT:    PREDECESSORS(2): [[BB0]] [[BB2]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB3]]:
 ; CHECK-NEXT:       <Empty Block>
-; CHECK-NEXT:       Condition([[BB0]]): [DA: Uni] i1 [[VP_UNIFORM]] = icmp i32 [[B0]] i32 42
+; CHECK-NEXT:       Condition([[BB0]]): [DA: Uni] i1 [[VP_UNIFORM]] = icmp eq i32 [[B0]] i32 42
 ; CHECK-NEXT:      SUCCESSORS(2):[[BB4:BB[0-9]+]](i1 [[VP_UNIFORM]]), [[BB2]](!i1 [[VP_UNIFORM]])
 ; CHECK-NEXT:      PREDECESSORS(1): [[BB1]]
 ; CHECK-EMPTY:
@@ -1366,7 +1366,7 @@ define void @test_no_blend_in_uniform_control_flow(i32 %b) {
 ; CHECK-NEXT:    [[BB2]]:
 ; CHECK-NEXT:     [DA: Uni] i32 [[VP_THREE:%.*]] = phi  [ i32 [[VP_IV]], [[BB1]] ],  [ i32 [[VP_IV]], [[BB3]] ],  [ i32 [[VP_IV]], [[BB4]] ]
 ; CHECK-NEXT:     [DA: Uni] i32 [[VP_IV_NEXT]] = add i32 [[VP_IV]] i32 1
-; CHECK-NEXT:     [DA: Uni] i1 [[VP_COND:%.*]] = icmp i32 [[VP_IV_NEXT]] i32 42
+; CHECK-NEXT:     [DA: Uni] i1 [[VP_COND:%.*]] = icmp eq i32 [[VP_IV_NEXT]] i32 42
 ; CHECK-NEXT:    SUCCESSORS(2):[[BB5:BB[0-9]+]](i1 [[VP_COND]]), [[BB1]](!i1 [[VP_COND]])
 ; CHECK-NEXT:    PREDECESSORS(3): [[BB1]] [[BB3]] [[BB4]]
 ; CHECK-EMPTY:
@@ -1405,7 +1405,7 @@ define void @test_not_of_phi() {
 ; CHECK-LABEL:  VPlan IR for: test_not_of_phi
 ; CHECK-NEXT:    [[BB0:BB[0-9]+]]:
 ; CHECK-NEXT:     [DA: Div] i32 [[VP_LANE:%.*]] = induction-init{add} i32 0 i32 1
-; CHECK-NEXT:     [DA: Div] i1 [[VP_VARYING:%.*]] = icmp i32 [[VP_LANE]] i32 3
+; CHECK-NEXT:     [DA: Div] i1 [[VP_VARYING:%.*]] = icmp eq i32 [[VP_LANE]] i32 3
 ; CHECK-NEXT:    SUCCESSORS(1):[[BB1:BB[0-9]+]]
 ; CHECK-NEXT:    no PREDECESSORS
 ; CHECK-EMPTY:
@@ -1455,8 +1455,8 @@ define void @no_blend_on_edge(i32 %b) {
 ; CHECK-LABEL:  VPlan IR for: no_blend_on_edge
 ; CHECK-NEXT:    [[BB0:BB[0-9]+]]:
 ; CHECK-NEXT:     [DA: Div] i32 [[VP_LANE:%.*]] = induction-init{add} i32 0 i32 1
-; CHECK-NEXT:     [DA: Div] i1 [[VP_VARYING:%.*]] = icmp i32 [[VP_LANE]] i32 3
-; CHECK-NEXT:     [DA: Uni] i1 [[VP_UNIFORM:%.*]] = icmp i32 [[B0:%.*]] i32 42
+; CHECK-NEXT:     [DA: Div] i1 [[VP_VARYING:%.*]] = icmp eq i32 [[VP_LANE]] i32 3
+; CHECK-NEXT:     [DA: Uni] i1 [[VP_UNIFORM:%.*]] = icmp eq i32 [[B0:%.*]] i32 42
 ; CHECK-NEXT:    SUCCESSORS(2):[[BB1:BB[0-9]+]](i1 [[VP_UNIFORM]]), [[BB2:BB[0-9]+]](!i1 [[VP_UNIFORM]])
 ; CHECK-NEXT:    no PREDECESSORS
 ; CHECK-EMPTY:

@@ -5,7 +5,7 @@ define void @test_no_loop() {
 ; CHECK-LABEL:  VPlan IR for: test_no_loop
 ; CHECK-NEXT:    [[BB0:BB[0-9]+]]:
 ; CHECK-NEXT:     [DA: Div] i32 [[VP_LANE:%.*]] = induction-init{add} i32 0 i32 1
-; CHECK-NEXT:     [DA: Div] i1 [[VP_COND:%.*]] = icmp i32 [[VP_LANE]] i32 5
+; CHECK-NEXT:     [DA: Div] i1 [[VP_COND:%.*]] = icmp eq i32 [[VP_LANE]] i32 5
 ; CHECK-NEXT:    SUCCESSORS(2):[[BB1:BB[0-9]+]](i1 [[VP_COND]]), [[BB2:BB[0-9]+]](!i1 [[VP_COND]])
 ; CHECK-NEXT:    no PREDECESSORS
 ; CHECK-EMPTY:
@@ -52,7 +52,7 @@ define void @test_uni_loop(i32 %vf) {
 ; CHECK-NEXT:    [[BB1]]:
 ; CHECK-NEXT:     [DA: Uni] i32 [[VP_LOOP_IV:%.*]] = phi  [ i32 0, [[BB0]] ],  [ i32 [[VP_LOOP_IV_NEXT:%.*]], [[BB2:BB[0-9]+]] ]
 ; CHECK-NEXT:     [DA: Div] i32 [[VP_VEC:%.*]] = phi  [ i32 [[VP_LANE]], [[BB0]] ],  [ i32 [[VP_VEC_NEXT:%.*]], [[BB2]] ]
-; CHECK-NEXT:     [DA: Div] i1 [[VP_COND:%.*]] = icmp i32 [[VP_LANE]] i32 3
+; CHECK-NEXT:     [DA: Div] i1 [[VP_COND:%.*]] = icmp eq i32 [[VP_LANE]] i32 3
 ; CHECK-NEXT:    SUCCESSORS(2):[[BB3:BB[0-9]+]](i1 [[VP_COND]]), [[BB2]](!i1 [[VP_COND]])
 ; CHECK-NEXT:    PREDECESSORS(2): [[BB0]] [[BB2]]
 ; CHECK-EMPTY:
@@ -65,7 +65,7 @@ define void @test_uni_loop(i32 %vf) {
 ; CHECK-NEXT:     [DA: Div] i32 [[VP_PHI:%.*]] = phi  [ i32 0, [[BB1]] ],  [ i32 1, [[BB3]] ]
 ; CHECK-NEXT:     [DA: Uni] i32 [[VP_LOOP_IV_NEXT]] = add i32 [[VP_LOOP_IV]] i32 1
 ; CHECK-NEXT:     [DA: Div] i32 [[VP_VEC_NEXT]] = add i32 [[VP_VEC]] i32 [[VF0:%.*]]
-; CHECK-NEXT:     [DA: Uni] i1 [[VP_EXIT_COND:%.*]] = icmp i32 [[VP_LOOP_IV]] i32 42
+; CHECK-NEXT:     [DA: Uni] i1 [[VP_EXIT_COND:%.*]] = icmp eq i32 [[VP_LOOP_IV]] i32 42
 ; CHECK-NEXT:    SUCCESSORS(2):[[BB4:BB[0-9]+]](i1 [[VP_EXIT_COND]]), [[BB1]](!i1 [[VP_EXIT_COND]])
 ; CHECK-NEXT:    PREDECESSORS(2): [[BB1]] [[BB3]]
 ; CHECK-EMPTY:
@@ -114,7 +114,7 @@ define void @test_div_loop(i32 %vf) {
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB3]]:
 ; CHECK-NEXT:       [DA: Div] i32 [[VP_LOOP_IV_NEXT]] = add i32 [[VP_LOOP_IV]] i32 1
-; CHECK-NEXT:       [DA: Div] i1 [[VP_EXIT_COND:%.*]] = icmp i32 [[VP_LOOP_IV]] i32 42
+; CHECK-NEXT:       [DA: Div] i1 [[VP_EXIT_COND:%.*]] = icmp eq i32 [[VP_LOOP_IV]] i32 42
 ; CHECK-NEXT:      SUCCESSORS(1):[[BB2]]
 ; CHECK-NEXT:      PREDECESSORS(1): [[BB1]]
 ; CHECK-EMPTY:
@@ -150,7 +150,7 @@ define void @test_uni_loop_div_top_test(i32 %vf) {
 ; CHECK-LABEL:  VPlan IR for: test_uni_loop_div_top_test
 ; CHECK-NEXT:    [[BB0:BB[0-9]+]]:
 ; CHECK-NEXT:     [DA: Div] i32 [[VP_LANE:%.*]] = induction-init{add} i32 0 i32 1
-; CHECK-NEXT:     [DA: Div] i1 [[VP_TOPTEST:%.*]] = icmp i32 [[VP_LANE]] i32 3
+; CHECK-NEXT:     [DA: Div] i1 [[VP_TOPTEST:%.*]] = icmp eq i32 [[VP_LANE]] i32 3
 ; CHECK-NEXT:    SUCCESSORS(2):[[BB1:BB[0-9]+]](i1 [[VP_TOPTEST]]), [[BB2:BB[0-9]+]](!i1 [[VP_TOPTEST]])
 ; CHECK-NEXT:    no PREDECESSORS
 ; CHECK-EMPTY:
@@ -162,10 +162,10 @@ define void @test_uni_loop_div_top_test(i32 %vf) {
 ; CHECK-NEXT:      [[BB3]]:
 ; CHECK-NEXT:       [DA: Uni] i32 [[VP_LOOP_IV:%.*]] = phi  [ i32 0, [[BB2]] ],  [ i32 [[VP_LOOP_IV_NEXT:%.*]], [[BB3]] ]
 ; CHECK-NEXT:       [DA: Div] i32 [[VP_VEC:%.*]] = phi  [ i32 [[VP_LANE]], [[BB2]] ],  [ i32 [[VP_VEC_NEXT:%.*]], [[BB3]] ]
-; CHECK-NEXT:       [DA: Div] i1 [[VP_COND:%.*]] = icmp i32 [[VP_LANE]] i32 3
+; CHECK-NEXT:       [DA: Div] i1 [[VP_COND:%.*]] = icmp eq i32 [[VP_LANE]] i32 3
 ; CHECK-NEXT:       [DA: Uni] i32 [[VP_LOOP_IV_NEXT]] = add i32 [[VP_LOOP_IV]] i32 1
 ; CHECK-NEXT:       [DA: Div] i32 [[VP_VEC_NEXT]] = add i32 [[VP_VEC]] i32 [[VF0:%.*]]
-; CHECK-NEXT:       [DA: Uni] i1 [[VP_EXIT_COND:%.*]] = icmp i32 [[VP_LOOP_IV]] i32 42
+; CHECK-NEXT:       [DA: Uni] i1 [[VP_EXIT_COND:%.*]] = icmp eq i32 [[VP_LOOP_IV]] i32 42
 ; CHECK-NEXT:      SUCCESSORS(2):[[BB4:BB[0-9]+]](i1 [[VP_EXIT_COND]]), [[BB3]](!i1 [[VP_EXIT_COND]])
 ; CHECK-NEXT:      PREDECESSORS(2): [[BB2]] [[BB3]]
 ; CHECK-EMPTY:
@@ -207,7 +207,7 @@ define void @test_rematerialized_live_out(i32 %vf) {
 ; CHECK-LABEL:  VPlan IR for: test_rematerialized_live_out
 ; CHECK-NEXT:    [[BB0:BB[0-9]+]]:
 ; CHECK-NEXT:     [DA: Div] i32 [[VP_LANE:%.*]] = induction-init{add} i32 0 i32 1
-; CHECK-NEXT:     [DA: Div] i1 [[VP_TOPTEST:%.*]] = icmp i32 [[VP_LANE]] i32 3
+; CHECK-NEXT:     [DA: Div] i1 [[VP_TOPTEST:%.*]] = icmp eq i32 [[VP_LANE]] i32 3
 ; CHECK-NEXT:     [DA: Div] i1 [[VP_TOPTEST_NOT:%.*]] = not i1 [[VP_TOPTEST]]
 ; CHECK-NEXT:    SUCCESSORS(2):[[BB1:BB[0-9]+]](i1 [[VP_TOPTEST]]), [[BB2:BB[0-9]+]](!i1 [[VP_TOPTEST]])
 ; CHECK-NEXT:    no PREDECESSORS
@@ -225,9 +225,9 @@ define void @test_rematerialized_live_out(i32 %vf) {
 ; CHECK-NEXT:      PREDECESSORS(2): [[BB2]] [[BB4]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:        [[BB5]]:
-; CHECK-NEXT:         [DA: Div] i1 [[VP_COND:%.*]] = icmp i32 [[VP_LANE]] i32 3
+; CHECK-NEXT:         [DA: Div] i1 [[VP_COND:%.*]] = icmp eq i32 [[VP_LANE]] i32 3
 ; CHECK-NEXT:         [DA: Div] i32 [[VP_VEC_NEXT]] = add i32 [[VP_VEC]] i32 [[VF0:%.*]]
-; CHECK-NEXT:         [DA: Div] i1 [[VP_EXIT_COND:%.*]] = icmp i32 [[VP_VEC]] i32 42
+; CHECK-NEXT:         [DA: Div] i1 [[VP_EXIT_COND:%.*]] = icmp eq i32 [[VP_VEC]] i32 42
 ; CHECK-NEXT:        SUCCESSORS(1):[[BB4]]
 ; CHECK-NEXT:        PREDECESSORS(1): [[BB3]]
 ; CHECK-EMPTY:
@@ -241,7 +241,7 @@ define void @test_rematerialized_live_out(i32 %vf) {
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB6]]:
 ; CHECK-NEXT:       [DA: Div] i32 [[VP_VEC_USE:%.*]] = phi  [ i32 [[VP_VEC_LIVE_OUT_BLEND]], [[BB4]] ]
-; CHECK-NEXT:       [DA: Div] i1 [[VP_EXIT_COND_1:%.*]] = icmp i32 [[VP_VEC_USE]] i32 42
+; CHECK-NEXT:       [DA: Div] i1 [[VP_EXIT_COND_1:%.*]] = icmp eq i32 [[VP_VEC_USE]] i32 42
 ; CHECK-NEXT:      SUCCESSORS(1):[[BB1]]
 ; CHECK-NEXT:      PREDECESSORS(1): [[BB4]]
 ; CHECK-EMPTY:

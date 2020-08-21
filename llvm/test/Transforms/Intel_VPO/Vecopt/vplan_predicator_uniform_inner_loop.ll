@@ -10,7 +10,7 @@ define void @foo(i32 %n1, i32 %n2, i64 %vf) {
 ; CHECK-LABEL:  VPlan IR for: foo
 ; CHECK-NEXT:    [[BB0:BB[0-9]+]]:
 ; CHECK-NEXT:     [DA: Div] i32 [[VP_LANE:%.*]] = induction-init{add} i32 0 i32 1
-; CHECK-NEXT:     [DA: Uni] i1 [[VP_CMP1:%.*]] = icmp i32 [[N10:%.*]] i32 [[N20:%.*]]
+; CHECK-NEXT:     [DA: Uni] i1 [[VP_CMP1:%.*]] = icmp sgt i32 [[N10:%.*]] i32 [[N20:%.*]]
 ; CHECK-NEXT:    SUCCESSORS(1):[[BB1:BB[0-9]+]]
 ; CHECK-NEXT:    no PREDECESSORS
 ; CHECK-EMPTY:
@@ -39,7 +39,7 @@ define void @foo(i32 %n1, i32 %n2, i64 %vf) {
 ; CHECK-NEXT:     [DA: Uni] i32 [[VP_I1_014:%.*]] = phi  [ i32 [[VP_INC:%.*]], [[BB6]] ],  [ i32 0, [[BB5]] ]
 ; CHECK-NEXT:     [DA: Div] i1 [[VP2:%.*]] = block-predicate i1 [[VP_BB8_BR_VP_CMP1]]
 ; CHECK-NEXT:     [DA: Uni] i32 [[VP_INC]] = add i32 [[VP_I1_014]] i32 1
-; CHECK-NEXT:     [DA: Uni] i1 [[VP_EXITCOND:%.*]] = icmp i32 [[VP_INC]] i32 1024
+; CHECK-NEXT:     [DA: Uni] i1 [[VP_EXITCOND:%.*]] = icmp eq i32 [[VP_INC]] i32 1024
 ; CHECK-NEXT:     [DA: Uni] i1 [[VP3:%.*]] = all-zero-check i1 [[VP_BB8_BR_VP_CMP1]]
 ; CHECK-NEXT:     [DA: Uni] i1 [[VP4:%.*]] = or i1 [[VP3]] i1 [[VP_EXITCOND]]
 ; CHECK-NEXT:    SUCCESSORS(2):[[BB7:BB[0-9]+]](i1 [[VP4]]), [[BB6]](!i1 [[VP4]])
@@ -53,7 +53,7 @@ define void @foo(i32 %n1, i32 %n2, i64 %vf) {
 ; CHECK-NEXT:    [[BB8]]:
 ; CHECK-NEXT:     [DA: Div] i1 [[VP6:%.*]] = block-predicate i1 [[VP_LOOP_MASK]]
 ; CHECK-NEXT:     [DA: Div] i64 [[VP_INDVARS_IV_NEXT]] = add i64 [[VP_INDVARS_IV]] i64 [[VF0:%.*]]
-; CHECK-NEXT:     [DA: Div] i1 [[VP_EXITCOND15:%.*]] = icmp i64 [[VP_INDVARS_IV_NEXT]] i64 1024
+; CHECK-NEXT:     [DA: Div] i1 [[VP_EXITCOND15:%.*]] = icmp eq i64 [[VP_INDVARS_IV_NEXT]] i64 1024
 ; CHECK-NEXT:    SUCCESSORS(1):[[BB2]]
 ; CHECK-NEXT:    PREDECESSORS(1): [[BB7]]
 ; CHECK-EMPTY:

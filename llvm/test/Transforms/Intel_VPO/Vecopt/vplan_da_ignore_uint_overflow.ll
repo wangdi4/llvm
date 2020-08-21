@@ -27,12 +27,12 @@ define void @test1(i64 %n, i64* %arr, float* %arr1) {
 ; CHECK-NEXT:  Divergent: [Shape: Strided, Stride: i64 4] float* [[VP_UNIT_STRIDE_GEP:%.*]] = getelementptr inbounds float* [[VP_OUTER_GEP2]] i64 [[VP_OVERFLOW_CLAMP]]
 ; CHECK-NEXT:  Divergent: [Shape: Random] float [[VP_UNIT_STRIDE_LOAD:%.*]] = load float* [[VP_UNIT_STRIDE_GEP]]
 ; CHECK-NEXT:  Uniform: [Shape: Uniform] i64 [[VP_IV_NEXT2]] = add i64 [[VP_IV2]] i64 1
-; CHECK-NEXT:  Uniform: [Shape: Uniform] i1 [[VP_EXITCOND2:%.*]] = icmp i64 [[VP_IV_NEXT2]] i64 [[N0:%.*]]
+; CHECK-NEXT:  Uniform: [Shape: Uniform] i1 [[VP_EXITCOND2:%.*]] = icmp eq i64 [[VP_IV_NEXT2]] i64 [[N0:%.*]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Basic Block: [[BB2]]
 ; CHECK-NEXT:  Divergent: [Shape: Unit Stride, Stride: i64 1] i32 [[VP_IV_NEXT]] = add i32 [[VP_IV]] i32 [[VP_IV_IND_INIT_STEP:%.*]]
 ; CHECK-NEXT:  Uniform: [Shape: Uniform] i32 [[VP_VECTOR_LOOP_IV_NEXT]] = add i32 [[VP_VECTOR_LOOP_IV]] i32 [[VP_VF:%.*]]
-; CHECK-NEXT:  Uniform: [Shape: Uniform] i1 [[VP_VECTOR_LOOP_EXITCOND:%.*]] = icmp i32 [[VP_VECTOR_LOOP_IV_NEXT]] i32 [[VP_VECTOR_TRIP_COUNT:%.*]]
+; CHECK-NEXT:  Uniform: [Shape: Uniform] i1 [[VP_VECTOR_LOOP_EXITCOND:%.*]] = icmp eq i32 [[VP_VECTOR_LOOP_IV_NEXT]] i32 [[VP_VECTOR_TRIP_COUNT:%.*]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Basic Block: [[BB4:BB[0-9]+]]
 ; CHECK-NEXT:  Uniform: [Shape: Uniform] i32 [[VP_IV_IND_FINAL:%.*]] = induction-final{add} i32 live-in0 i32 1

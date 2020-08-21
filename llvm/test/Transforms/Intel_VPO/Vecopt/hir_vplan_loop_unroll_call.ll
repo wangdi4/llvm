@@ -31,7 +31,7 @@ define dso_local void @_Z3fooPii(float* nocapture %a, i32 %n) local_unnamed_addr
 ; CHECK-NEXT:     [DA: Div] float* [[VP_SUBSCRIPT_1:%.*]] = subscript inbounds float* [[A0]] i64 [[VP1]]
 ; CHECK-NEXT:     [DA: Div] store float [[VP_INC]] float* [[VP_SUBSCRIPT_1]]
 ; CHECK-NEXT:     [DA: Div] i64 [[VP4:%.*]] = add i64 [[VP1]] i64 [[VP__IND_INIT_STEP]]
-; CHECK-NEXT:     [DA: Div] i1 [[VP5:%.*]] = icmp i64 [[VP4]] i64 79
+; CHECK-NEXT:     [DA: Div] i1 [[VP5:%.*]] = icmp sle i64 [[VP4]] i64 79
 ; CHECK-NEXT:    SUCCESSORS(1):cloned.[[BB3]]
 ; CHECK-NEXT:    PREDECESSORS(2): [[BB1]] cloned.[[BB3]]
 ; CHECK-EMPTY:
@@ -42,7 +42,7 @@ define dso_local void @_Z3fooPii(float* nocapture %a, i32 %n) local_unnamed_addr
 ; CHECK-NEXT:     [DA: Div] float* [[VP9:%.*]] = subscript inbounds float* [[A0]] i64 [[VP4]]
 ; CHECK-NEXT:     [DA: Div] store float [[VP8]] float* [[VP9]]
 ; CHECK-NEXT:     [DA: Div] i64 [[VP2]] = add i64 [[VP4]] i64 [[VP__IND_INIT_STEP]]
-; CHECK-NEXT:     [DA: Uni] i1 [[VP10:%.*]] = icmp i64 [[VP2]] i64 79
+; CHECK-NEXT:     [DA: Uni] i1 [[VP10:%.*]] = icmp sle i64 [[VP2]] i64 79
 ; CHECK-NEXT:    SUCCESSORS(2):[[BB2]](i1 [[VP10]]), [[BB4:BB[0-9]+]](!i1 [[VP10]])
 ; CHECK-NEXT:    PREDECESSORS(1): [[BB2]]
 ; CHECK-EMPTY:

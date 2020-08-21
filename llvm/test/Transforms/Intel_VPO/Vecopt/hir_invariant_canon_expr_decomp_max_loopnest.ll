@@ -52,7 +52,7 @@ define dso_local void @foo(i32 %n, i32* nocapture %A, i32 %C) local_unnamed_addr
 ; CHECK-NEXT:     i32* [[VP_SUBSCRIPT:%.*]] = subscript inbounds i32* [[A0:%.*]] i64 [[VP3]]
 ; CHECK-NEXT:     store i32 [[VP6]] i32* [[VP_SUBSCRIPT]]
 ; CHECK-NEXT:     i64 [[VP4]] = add i64 [[VP3]] i64 1
-; CHECK-NEXT:     i1 [[VP7:%.*]] = icmp i64 [[VP4]] i64 [[VP1]]
+; CHECK-NEXT:     i1 [[VP7:%.*]] = icmp sle i64 [[VP4]] i64 [[VP1]]
 ;
 entry:
   %cmp93 = icmp sgt i32 %n, 0

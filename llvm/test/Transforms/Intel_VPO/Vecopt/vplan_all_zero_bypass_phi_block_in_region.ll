@@ -14,11 +14,11 @@ define dso_local void @foo(i32* nocapture readonly %a, i32* nocapture readonly %
 ; CHECK-NEXT:  VPlan IR for: foo
 ; CHECK-NEXT:    [[BB0:BB[0-9]+]]:
 ; CHECK-NEXT:     [DA: Div] i32 [[VP_LANE:%.*]] = induction-init{add} i32 0 i32 1
-; CHECK-NEXT:     [DA: Uni] i1 [[VP_CMP9:%.*]] = icmp i32 [[Y0:%.*]] i32 [[X0:%.*]]
+; CHECK-NEXT:     [DA: Uni] i1 [[VP_CMP9:%.*]] = icmp eq i32 [[Y0:%.*]] i32 [[X0:%.*]]
 ; CHECK-NEXT:     [DA: Uni] i32 [[VP_MUL11:%.*]] = mul i32 [[Y0]] i32 [[X0]]
 ; CHECK-NEXT:     [DA: Div] i32* [[VP_ARRAYIDX:%.*]] = getelementptr inbounds i32* [[A0:%.*]] i32 [[VP_LANE]]
 ; CHECK-NEXT:     [DA: Div] i32 [[VP0:%.*]] = load i32* [[VP_ARRAYIDX]]
-; CHECK-NEXT:     [DA: Div] i1 [[VP_CMP1:%.*]] = icmp i32 [[VP0]] i32 7
+; CHECK-NEXT:     [DA: Div] i1 [[VP_CMP1:%.*]] = icmp sgt i32 [[VP0]] i32 7
 ; CHECK-NEXT:    SUCCESSORS(1):all.zero.bypass.begin13
 ; CHECK-NEXT:    no PREDECESSORS
 ; CHECK-EMPTY:
@@ -31,7 +31,7 @@ define dso_local void @foo(i32* nocapture readonly %a, i32* nocapture readonly %
 ; CHECK-NEXT:       [DA: Div] i1 [[VP1:%.*]] = block-predicate i1 [[VP_CMP1]]
 ; CHECK-NEXT:       [DA: Div] i32* [[VP_ARRAYIDX3:%.*]] = getelementptr inbounds i32* [[B0:%.*]] i32 [[VP_LANE]]
 ; CHECK-NEXT:       [DA: Div] i32 [[VP2:%.*]] = load i32* [[VP_ARRAYIDX3]]
-; CHECK-NEXT:       [DA: Div] i1 [[VP_CMP4:%.*]] = icmp i32 [[VP2]] i32 8
+; CHECK-NEXT:       [DA: Div] i1 [[VP_CMP4:%.*]] = icmp sgt i32 [[VP2]] i32 8
 ; CHECK-NEXT:      SUCCESSORS(1):[[BB2:BB[0-9]+]]
 ; CHECK-NEXT:      PREDECESSORS(1): all.zero.bypass.begin13
 ; CHECK-EMPTY:
@@ -74,7 +74,7 @@ define dso_local void @foo(i32* nocapture readonly %a, i32* nocapture readonly %
 ; CHECK-NEXT:      [[BB6]]:
 ; CHECK-NEXT:       [DA: Div] i1 [[VP7:%.*]] = block-predicate i1 [[VP_CMP1]]
 ; CHECK-NEXT:       [DA: Uni] i32 [[VP_INC]] = add i32 [[VP_J_033]] i32 1
-; CHECK-NEXT:       [DA: Uni] i1 [[VP_EXITCOND:%.*]] = icmp i32 [[VP_INC]] i32 256
+; CHECK-NEXT:       [DA: Uni] i1 [[VP_EXITCOND:%.*]] = icmp eq i32 [[VP_INC]] i32 256
 ; CHECK-NEXT:       [DA: Uni] i1 [[VP8:%.*]] = all-zero-check i1 [[VP_CMP1]]
 ; CHECK-NEXT:       [DA: Uni] i1 [[VP9:%.*]] = or i1 [[VP8]] i1 [[VP_EXITCOND]]
 ; CHECK-NEXT:      SUCCESSORS(2):[[BB9:BB[0-9]+]](i1 [[VP9]]), [[BB5]](!i1 [[VP9]])

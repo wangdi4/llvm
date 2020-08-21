@@ -15,7 +15,7 @@ define dso_local void @foo(i64 %N, i64 *%a) local_unnamed_addr {
 ; CHECK-LABEL:  VPlan IR for: foo
 ; CHECK-NEXT:    [[BB0:BB[0-9]+]]:
 ; CHECK-NEXT:     [DA: Div] i32 [[VP_LANE:%.*]] = induction-init{add} i32 0 i32 1
-; CHECK-NEXT:     [DA: Uni] i1 [[VP_UNIFORM_TOP_TEST:%.*]] = icmp i64 [[N0:%.*]] i64 0
+; CHECK-NEXT:     [DA: Uni] i1 [[VP_UNIFORM_TOP_TEST:%.*]] = icmp eq i64 [[N0:%.*]] i64 0
 ; CHECK-NEXT:     [DA: Uni] i1 [[VP_UNIFORM_TOP_TEST_NOT:%.*]] = not i1 [[VP_UNIFORM_TOP_TEST]]
 ; CHECK-NEXT:    SUCCESSORS(2):[[BB1:BB[0-9]+]](i1 [[VP_UNIFORM_TOP_TEST]]), [[BB2:BB[0-9]+]](!i1 [[VP_UNIFORM_TOP_TEST]])
 ; CHECK-NEXT:    no PREDECESSORS
@@ -34,7 +34,7 @@ define dso_local void @foo(i64 %N, i64 *%a) local_unnamed_addr {
 ; CHECK-NEXT:        [[BB5]]:
 ; CHECK-NEXT:         [DA: Uni] i64* [[VP_ARRAYIDX:%.*]] = getelementptr inbounds i64* [[A0:%.*]] i64 [[VP_IV]]
 ; CHECK-NEXT:         [DA: Uni] i64 [[VP_IV_NEXT]] = add i64 [[VP_IV]] i64 1
-; CHECK-NEXT:         [DA: Div] i1 [[VP_EXITCOND:%.*]] = icmp i64 [[VP_IV_NEXT]] i32 [[VP_LANE]]
+; CHECK-NEXT:         [DA: Div] i1 [[VP_EXITCOND:%.*]] = icmp eq i64 [[VP_IV_NEXT]] i32 [[VP_LANE]]
 ; CHECK-NEXT:        SUCCESSORS(1):[[BB4]]
 ; CHECK-NEXT:        PREDECESSORS(1): [[BB3]]
 ; CHECK-EMPTY:

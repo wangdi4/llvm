@@ -93,7 +93,7 @@ define dso_local i32 @foo(i32 %N) local_unnamed_addr {
 ; CHECK-NEXT:     i32* [[VP5:%.*]] = subscript inbounds [1024 x i32]* @a i64 0 i64 [[VP2]]
 ; CHECK-NEXT:     i32 [[VP6:%.*]] = load i32* [[VP5]]
 ; CHECK-NEXT:     i64 [[VP7:%.*]] = sext i32 [[VP6]] to i64
-; CHECK-NEXT:     i1 [[VP8:%.*]] = icmp i64 [[VP2]] i64 [[VP7]]
+; CHECK-NEXT:     i1 [[VP8:%.*]] = icmp sgt i64 [[VP2]] i64 [[VP7]]
 ; CHECK-NEXT:    SUCCESSORS(2):[[BB4:BB[0-9]+]](i1 [[VP8]]), [[BB5:BB[0-9]+]](!i1 [[VP8]])
 ; CHECK-NEXT:    PREDECESSORS(2): [[BB1]] [[BB3]]
 ; CHECK-EMPTY:
@@ -106,7 +106,7 @@ define dso_local i32 @foo(i32 %N) local_unnamed_addr {
 ; CHECK-NEXT:      PREDECESSORS(1): [[BB2]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB4]]:
-; CHECK-NEXT:       i1 [[VP13:%.*]] = icmp i32 [[VP6]] i32 1023
+; CHECK-NEXT:       i1 [[VP13:%.*]] = icmp sgt i32 [[VP6]] i32 1023
 ; CHECK-NEXT:      SUCCESSORS(2):[[BB6:BB[0-9]+]](i1 [[VP13]]), [[BB7:BB[0-9]+]](!i1 [[VP13]])
 ; CHECK-NEXT:      PREDECESSORS(1): [[BB2]]
 ; CHECK-EMPTY:
@@ -151,12 +151,12 @@ define dso_local i32 @foo(i32 %N) local_unnamed_addr {
 ; CHECK-NEXT:     i32 [[VP36:%.*]] = add i32 [[VP27]] i32 [[VP35]]
 ; CHECK-NEXT:     i32 [[VP37:%.*]] = add i32 [[VP36]] i32 [[VP34]]
 ; CHECK-NEXT:     i64 [[VP38:%.*]] = sext i32 [[VP37]] to i64
-; CHECK-NEXT:     i1 [[VP39:%.*]] = icmp i64 [[VP2]] i64 [[VP38]]
+; CHECK-NEXT:     i1 [[VP39:%.*]] = icmp sgt i64 [[VP2]] i64 [[VP38]]
 ; CHECK-NEXT:     i32 [[VP40:%.*]] = select i1 [[VP39]] i32 [[VP27]] i32 [[VP34]]
 ; CHECK-NEXT:     i32* [[VP41:%.*]] = subscript inbounds [1024 x i32]* @d i64 0 i64 [[VP2]]
 ; CHECK-NEXT:     store i32 [[VP40]] i32* [[VP41]]
 ; CHECK-NEXT:     i64 [[VP3]] = add i64 [[VP2]] i64 1
-; CHECK-NEXT:     i1 [[VP42:%.*]] = icmp i64 [[VP3]] i64 1023
+; CHECK-NEXT:     i1 [[VP42:%.*]] = icmp sle i64 [[VP3]] i64 1023
 ; CHECK-NEXT:    SUCCESSORS(2):[[BB2]](i1 [[VP42]]), [[BB9:BB[0-9]+]](!i1 [[VP42]])
 ; CHECK-NEXT:    PREDECESSORS(2): [[BB8]] [[BB5]]
 ; CHECK-EMPTY:

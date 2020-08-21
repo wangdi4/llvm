@@ -13,16 +13,16 @@ target triple = "x86_64-unknown-linux-gnu"
 define dso_local void @foo_non_lcssa(i32 %N, i32 *%a, i32 %mask_out_loop) local_unnamed_addr {
 ; CHECK-LABEL:  VPlan IR for: foo_non_lcssa
 ; CHECK-NEXT:    [[BB0:BB[0-9]+]]:
-; CHECK-NEXT:     [DA: Uni] i1 [[VP_CMP18:%.*]] = icmp i32 [[N0:%.*]] i32 0
+; CHECK-NEXT:     [DA: Uni] i1 [[VP_CMP18:%.*]] = icmp sgt i32 [[N0:%.*]] i32 0
 ; CHECK-NEXT:     [DA: Div] i32 [[VP_LANE:%.*]] = induction-init{add} i32 0 i32 1
-; CHECK-NEXT:     [DA: Div] i1 [[VP_SKIP_LOOP:%.*]] = icmp i32 [[VP_LANE]] i32 [[MASK_OUT_LOOP0:%.*]]
+; CHECK-NEXT:     [DA: Div] i1 [[VP_SKIP_LOOP:%.*]] = icmp eq i32 [[VP_LANE]] i32 [[MASK_OUT_LOOP0:%.*]]
 ; CHECK-NEXT:     [DA: Div] i1 [[VP_SKIP_LOOP_NOT:%.*]] = not i1 [[VP_SKIP_LOOP]]
 ; CHECK-NEXT:    SUCCESSORS(1):[[BB1:BB[0-9]+]]
 ; CHECK-NEXT:    no PREDECESSORS
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB1]]:
 ; CHECK-NEXT:     [DA: Div] i1 [[VP0:%.*]] = block-predicate i1 [[VP_SKIP_LOOP_NOT]]
-; CHECK-NEXT:     [DA: Div] i1 [[VP_CMP216:%.*]] = icmp i32 [[VP_LANE]] i32 0
+; CHECK-NEXT:     [DA: Div] i1 [[VP_CMP216:%.*]] = icmp eq i32 [[VP_LANE]] i32 0
 ; CHECK-NEXT:     [DA: Div] i1 [[VP_CMP216_NOT:%.*]] = not i1 [[VP_CMP216]]
 ; CHECK-NEXT:     [DA: Div] i1 [[VP_CMP216_NOT_1:%.*]] = not i1 [[VP_CMP216]]
 ; CHECK-NEXT:    SUCCESSORS(1):[[BB2:BB[0-9]+]]
@@ -56,7 +56,7 @@ define dso_local void @foo_non_lcssa(i32 %N, i32 *%a, i32 %mask_out_loop) local_
 ; CHECK-NEXT:     [DA: Div] i32 [[VP_IV_X2:%.*]] = mul i32 [[VP_IV]] i32 [[VP_LANE]]
 ; CHECK-NEXT:     [DA: Div] i32* [[VP_ARRAYIDX:%.*]] = getelementptr inbounds i32* [[A0:%.*]] i32 [[VP_IV_X2]]
 ; CHECK-NEXT:     [DA: Div] i32 [[VP_LD:%.*]] = load i32* [[VP_ARRAYIDX]]
-; CHECK-NEXT:     [DA: Div] i1 [[VP_SOME_CMP:%.*]] = icmp i32 [[VP_LD]] i32 42
+; CHECK-NEXT:     [DA: Div] i1 [[VP_SOME_CMP:%.*]] = icmp eq i32 [[VP_LD]] i32 42
 ; CHECK-NEXT:     [DA: Div] i1 [[VP_SOME_CMP_NOT:%.*]] = not i1 [[VP_SOME_CMP]]
 ; CHECK-NEXT:     [DA: Uni] i32 [[VP_IV_NEXT]] = add i32 [[VP_IV]] i32 1
 ; CHECK-NEXT:    SUCCESSORS(1):[[BB8:BB[0-9]+]]
@@ -70,7 +70,7 @@ define dso_local void @foo_non_lcssa(i32 %N, i32 *%a, i32 %mask_out_loop) local_
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB9]]:
 ; CHECK-NEXT:     [DA: Div] i1 [[VP4:%.*]] = block-predicate i1 [[VP_BB10_BR_VP_SOME_CMP_NOT]]
-; CHECK-NEXT:     [DA: Div] i1 [[VP_EXITCOND:%.*]] = icmp i32 [[VP_IV_NEXT]] i32 [[VP_LANE]]
+; CHECK-NEXT:     [DA: Div] i1 [[VP_EXITCOND:%.*]] = icmp eq i32 [[VP_IV_NEXT]] i32 [[VP_LANE]]
 ; CHECK-NEXT:    SUCCESSORS(1):[[INTERMEDIATE_BB0:intermediate.bb[0-9]+]]
 ; CHECK-NEXT:    PREDECESSORS(1): [[BB8]]
 ; CHECK-EMPTY:

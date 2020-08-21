@@ -17,7 +17,7 @@ define dso_local void @foo(i32** nocapture readonly %a, i32 %m, i32* nocapture r
 ; CHECK-NEXT:     [DA: Div] i32 [[VP_LANE:%.*]] = induction-init{add} i32 0 i32 1
 ; CHECK-NEXT:     [DA: Div] i32* [[VP_ARRAYIDX:%.*]] = getelementptr inbounds i32* [[UB0:%.*]] i32 [[VP_LANE]]
 ; CHECK-NEXT:     [DA: Div] i32 [[VP0:%.*]] = load i32* [[VP_ARRAYIDX]]
-; CHECK-NEXT:     [DA: Div] i1 [[VP_TOPTEST:%.*]] = icmp i32 [[VP0]] i32 0
+; CHECK-NEXT:     [DA: Div] i1 [[VP_TOPTEST:%.*]] = icmp slt i32 [[VP0]] i32 0
 ; CHECK-NEXT:     [DA: Div] i1 [[VP_TOPTEST_NOT:%.*]] = not i1 [[VP_TOPTEST]]
 ; CHECK-NEXT:    SUCCESSORS(2):[[BB1:BB[0-9]+]](i1 [[VP_TOPTEST]]), [[BB2:BB[0-9]+]](!i1 [[VP_TOPTEST]])
 ; CHECK-NEXT:    no PREDECESSORS
@@ -43,7 +43,7 @@ define dso_local void @foo(i32** nocapture readonly %a, i32 %m, i32* nocapture r
 ; CHECK-NEXT:         [DA: Uni] i64 [[VP_IV_NEXT]] = add i64 [[VP_IV]] i64 1
 ; CHECK-NEXT:         [DA: Div] i32 [[VP3]] = load i32* [[VP_ARRAYIDX]]
 ; CHECK-NEXT:         [DA: Div] i64 [[VP5:%.*]] = sext i32 [[VP3]] to i64
-; CHECK-NEXT:         [DA: Div] i1 [[VP_CONTINUE_COND:%.*]] = icmp i64 [[VP_IV]] i64 [[VP5]]
+; CHECK-NEXT:         [DA: Div] i1 [[VP_CONTINUE_COND:%.*]] = icmp slt i64 [[VP_IV]] i64 [[VP5]]
 ; CHECK-NEXT:        SUCCESSORS(1):[[BB4]]
 ; CHECK-NEXT:        PREDECESSORS(1): [[BB3]]
 ; CHECK-EMPTY:

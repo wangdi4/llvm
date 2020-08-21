@@ -46,13 +46,13 @@ define dso_local i32 @peel_example(i32 %delta2, i32 %len_limit, i32* nocapture r
 ; CHECK-NEXT:     i64 [[VP12:%.*]] = zext i32 [[VP11]] to i64
 ; CHECK-NEXT:     i32* [[VP13:%.*]] = subscript inbounds i32* [[CUR0]] i64 [[VP12]]
 ; CHECK-NEXT:     i32 [[VP14:%.*]] = load i32* [[VP13]]
-; CHECK-NEXT:     i1 [[VP15:%.*]] = icmp i32 [[VP10]] i32 [[VP14]]
+; CHECK-NEXT:     i1 [[VP15:%.*]] = icmp ne i32 [[VP10]] i32 [[VP14]]
 ; CHECK-NEXT:    SUCCESSORS(2):[[BB4:BB[0-9]+]](i1 [[VP15]]), [[BB3]](!i1 [[VP15]])
 ; CHECK-NEXT:    PREDECESSORS(2): [[BB1]] [[BB3]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB3]]:
 ; CHECK-NEXT:       i32 [[VP4]] = add i32 [[VP3]] i32 1
-; CHECK-NEXT:       i1 [[VP16:%.*]] = icmp i32 [[VP4]] i32 [[VP0]]
+; CHECK-NEXT:       i1 [[VP16:%.*]] = icmp sle i32 [[VP4]] i32 [[VP0]]
 ; CHECK-NEXT:      SUCCESSORS(2):[[BB2]](i1 [[VP16]]), [[BB5:BB[0-9]+]](!i1 [[VP16]])
 ; CHECK-NEXT:      PREDECESSORS(1): [[BB2]]
 ; CHECK-EMPTY:

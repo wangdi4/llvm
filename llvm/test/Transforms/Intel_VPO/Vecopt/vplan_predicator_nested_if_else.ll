@@ -12,14 +12,14 @@ define void @test_nested_if_else(i32* noalias nocapture %a) local_unnamed_addr {
 ; CHECK-NEXT:     [DA: Div] i32 [[VP_LANE:%.*]] = induction-init{add} i32 0 i32 1
 ; CHECK-NEXT:     [DA: Div] i32* [[VP_GEP:%.*]] = getelementptr inbounds i32* [[A0:%.*]] i32 [[VP_LANE]]
 ; CHECK-NEXT:     [DA: Div] i32 [[VP_LD:%.*]] = load i32* [[VP_GEP]]
-; CHECK-NEXT:     [DA: Div] i1 [[VP_VARYING:%.*]] = icmp i32 [[VP_LD]] i32 0
+; CHECK-NEXT:     [DA: Div] i1 [[VP_VARYING:%.*]] = icmp eq i32 [[VP_LD]] i32 0
 ; CHECK-NEXT:     [DA: Div] i1 [[VP_VARYING_NOT:%.*]] = not i1 [[VP_VARYING]]
 ; CHECK-NEXT:    SUCCESSORS(1):[[BB1:BB[0-9]+]]
 ; CHECK-NEXT:    no PREDECESSORS
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB1]]:
 ; CHECK-NEXT:     [DA: Div] i1 [[VP0:%.*]] = block-predicate i1 [[VP_VARYING_NOT]]
-; CHECK-NEXT:     [DA: Div] i1 [[VP_BB2_VARYING:%.*]] = icmp i32 [[VP_LD]] i32 2
+; CHECK-NEXT:     [DA: Div] i1 [[VP_BB2_VARYING:%.*]] = icmp sgt i32 [[VP_LD]] i32 2
 ; CHECK-NEXT:     [DA: Div] i1 [[VP_BB2_VARYING_NOT:%.*]] = not i1 [[VP_BB2_VARYING]]
 ; CHECK-NEXT:    SUCCESSORS(1):[[BB2:BB[0-9]+]]
 ; CHECK-NEXT:    PREDECESSORS(1): [[BB0]]
@@ -44,7 +44,7 @@ define void @test_nested_if_else(i32* noalias nocapture %a) local_unnamed_addr {
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB5]]:
 ; CHECK-NEXT:     [DA: Div] i1 [[VP3:%.*]] = block-predicate i1 [[VP_VARYING]]
-; CHECK-NEXT:     [DA: Div] i1 [[VP_BB1_VARYING:%.*]] = icmp i32 [[VP_LD]] i32 1
+; CHECK-NEXT:     [DA: Div] i1 [[VP_BB1_VARYING:%.*]] = icmp sgt i32 [[VP_LD]] i32 1
 ; CHECK-NEXT:     [DA: Div] i1 [[VP_BB1_VARYING_NOT:%.*]] = not i1 [[VP_BB1_VARYING]]
 ; CHECK-NEXT:    SUCCESSORS(1):[[BB6:BB[0-9]+]]
 ; CHECK-NEXT:    PREDECESSORS(1): [[BB4]]

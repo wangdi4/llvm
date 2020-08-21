@@ -77,7 +77,7 @@ define dso_local i32 @foo1(i32* %ptr, i32 %step, i32 %n) local_unnamed_addr {
 ; CHECK-NEXT:     i32 [[VP7]] = add i32 [[VP12]] i32 [[VP6]]
 ; CHECK-NEXT:     store i32 [[VP7]] i32* [[VP5]]
 ; CHECK-NEXT:     i32 [[VP9]] = add i32 [[VP8]] i32 [[VP__IND_INIT_STEP]]
-; CHECK-NEXT:     i1 [[VP13:%.*]] = icmp i32 [[VP9]] i32 [[VP1]]
+; CHECK-NEXT:     i1 [[VP13:%.*]] = icmp sle i32 [[VP9]] i32 [[VP1]]
 ; CHECK-NEXT:    SUCCESSORS(2):[[BB2]](i1 [[VP13]]), [[BB3:BB[0-9]+]](!i1 [[VP13]])
 ; CHECK-NEXT:    PREDECESSORS(2): [[BB1]] [[BB2]]
 ; CHECK-EMPTY:
@@ -198,7 +198,7 @@ define dso_local i32 @foo2(i32* %ptr, i32 %step, i32 %n) local_unnamed_addr {
 ; CHECK-NEXT:     i32 [[VP7]] = add i32 [[VP12]] i32 [[VP6]]
 ; CHECK-NEXT:     store i32 [[VP7]] i32* [[VP5]]
 ; CHECK-NEXT:     i32 [[VP9]] = add i32 [[VP8]] i32 [[VP__IND_INIT_STEP]]
-; CHECK-NEXT:     i1 [[VP13:%.*]] = icmp i32 [[VP9]] i32 [[VP3]]
+; CHECK-NEXT:     i1 [[VP13:%.*]] = icmp sle i32 [[VP9]] i32 [[VP3]]
 ; CHECK-NEXT:    SUCCESSORS(2):[[BB2]](i1 [[VP13]]), [[BB3:BB[0-9]+]](!i1 [[VP13]])
 ; CHECK-NEXT:    PREDECESSORS(2): [[BB1]] [[BB2]]
 ; CHECK-EMPTY:

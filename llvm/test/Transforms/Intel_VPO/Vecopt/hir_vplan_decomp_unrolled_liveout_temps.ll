@@ -85,7 +85,7 @@ define dso_local i32 @foo() local_unnamed_addr {
 ; CHECK-NEXT:     i32* [[VP_SUBSCRIPT_11:%.*]] = subscript inbounds [4 x [1024 x i32]]* @C i64 0 i64 3 i64 [[VP3]]
 ; CHECK-NEXT:     store i32 [[VP20]] i32* [[VP_SUBSCRIPT_11]]
 ; CHECK-NEXT:     i64 [[VP4]] = add i64 [[VP3]] i64 1
-; CHECK-NEXT:     i1 [[VP21:%.*]] = icmp i64 [[VP4]] i64 1023
+; CHECK-NEXT:     i1 [[VP21:%.*]] = icmp sle i64 [[VP4]] i64 1023
 ; CHECK-NEXT:    SUCCESSORS(2):[[BB2]](i1 [[VP21]]), [[BB3:BB[0-9]+]](!i1 [[VP21]])
 ; CHECK-NEXT:    PREDECESSORS(2): [[BB1]] [[BB2]]
 ; CHECK-EMPTY:

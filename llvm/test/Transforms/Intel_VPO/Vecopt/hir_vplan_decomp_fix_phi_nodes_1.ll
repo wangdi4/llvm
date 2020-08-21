@@ -39,7 +39,7 @@
 ; CHECK:         [[BB3]]:
 ; CHECK-NEXT:     i32 [[VP10:%.*]] = phi  [ i32 [[VP9]], [[BB4]] ],  [ i32 [[VP4]], [[BB2]] ]
 ; CHECK:          i64 [[VP1]] = add i64 [[VP0]] i64 1
-; CHECK-NEXT:     i1 [[VP24:%.*]] = icmp i64 [[VP1]] i64 1023
+; CHECK-NEXT:     i1 [[VP24:%.*]] = icmp sle i64 [[VP1]] i64 1023
 ; CHECK-NEXT:    SUCCESSORS(2):[[BB2]](i1 [[VP24]]), [[BB5:BB[0-9]+]](!i1 [[VP24]])
 ; CHECK:         [[BB5]]:
 ; CHECK-NEXT:     <Empty Block>

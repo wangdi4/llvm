@@ -23,7 +23,7 @@ define dso_local void @header_use(i64 %N, i64 *%a, i64 %mask_out_loop) local_unn
 ; CHECK-NEXT:     i64 [[VP_HEADER_PHI_USE:%.*]] = phi  [ i64 0, [[BB0]] ],  [ i64 [[VP_DEF_SSA_PHI:%.*]], [[NEW_LOOP_LATCH0]] ]
 ; CHECK-NEXT:     i64* [[VP_ARRAYIDX:%.*]] = getelementptr inbounds i64* [[A0:%.*]] i64 [[VP_IV]]
 ; CHECK-NEXT:     i64 [[VP_LD:%.*]] = load i64* [[VP_ARRAYIDX]]
-; CHECK-NEXT:     i1 [[VP_CMP:%.*]] = icmp i64 [[N0:%.*]] i64 42
+; CHECK-NEXT:     i1 [[VP_CMP:%.*]] = icmp eq i64 [[N0:%.*]] i64 42
 ; CHECK-NEXT:    SUCCESSORS(2):[[BB2:BB[0-9]+]](i1 [[VP_CMP]]), [[BB3:BB[0-9]+]](!i1 [[VP_CMP]])
 ; CHECK-NEXT:    PREDECESSORS(2): [[BB0]] [[NEW_LOOP_LATCH0]]
 ; CHECK-EMPTY:
@@ -33,14 +33,14 @@ define dso_local void @header_use(i64 %N, i64 *%a, i64 %mask_out_loop) local_unn
 ; CHECK-NEXT:      PREDECESSORS(1): [[BB1]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB2]]:
-; CHECK-NEXT:       i1 [[VP_SIDEEXIT_CMP:%.*]] = icmp i64 [[N0]] i64 13
+; CHECK-NEXT:       i1 [[VP_SIDEEXIT_CMP:%.*]] = icmp eq i64 [[N0]] i64 13
 ; CHECK-NEXT:      SUCCESSORS(2):[[INTERMEDIATE_BB0:intermediate.bb[0-9]+]](i1 [[VP_SIDEEXIT_CMP]]), [[BB4]](!i1 [[VP_SIDEEXIT_CMP]])
 ; CHECK-NEXT:      PREDECESSORS(1): [[BB1]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB4]]:
 ; CHECK-NEXT:       i64 [[VP_DEF:%.*]] = add i64 [[N0]] i64 1
 ; CHECK-NEXT:       i64 [[VP_IV_NEXT:%.*]] = add i64 [[VP_IV]] i64 1
-; CHECK-NEXT:       i1 [[VP_EXITCOND:%.*]] = icmp i64 [[VP_IV_NEXT]] i64 42
+; CHECK-NEXT:       i1 [[VP_EXITCOND:%.*]] = icmp eq i64 [[VP_IV_NEXT]] i64 42
 ; CHECK-NEXT:      SUCCESSORS(1):[[NEW_LOOP_LATCH0]]
 ; CHECK-NEXT:      PREDECESSORS(2): [[BB3]] [[BB2]]
 ; CHECK-EMPTY:
@@ -58,7 +58,7 @@ define dso_local void @header_use(i64 %N, i64 *%a, i64 %mask_out_loop) local_unn
 ; CHECK-NEXT:    PREDECESSORS(2): [[BB4]] [[INTERMEDIATE_BB0]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[CASCADED_IF_BLOCK0]]:
-; CHECK-NEXT:     i1 [[VP0:%.*]] = icmp i32 [[VP_EXIT_ID_PHI]] i32 1
+; CHECK-NEXT:     i1 [[VP0:%.*]] = icmp eq i32 [[VP_EXIT_ID_PHI]] i32 1
 ; CHECK-NEXT:    SUCCESSORS(2):[[BB5:BB[0-9]+]](i1 [[VP0]]), [[BB6:BB[0-9]+]](!i1 [[VP0]])
 ; CHECK-NEXT:    PREDECESSORS(1): [[NEW_LOOP_LATCH0]]
 ; CHECK-EMPTY:
@@ -123,7 +123,7 @@ define dso_local void @side_exit_use(i64 %N, i64 *%a, i64 %mask_out_loop) local_
 ; CHECK-NEXT:     i64 [[VP_IV:%.*]] = phi  [ i64 [[VP_IV_NEXT_SSA_PHI:%.*]], [[NEW_LOOP_LATCH0:new.loop.latch[0-9]+]] ],  [ i64 0, [[BB0]] ]
 ; CHECK-NEXT:     i64* [[VP_ARRAYIDX:%.*]] = getelementptr inbounds i64* [[A0:%.*]] i64 [[VP_IV]]
 ; CHECK-NEXT:     i64 [[VP_LD:%.*]] = load i64* [[VP_ARRAYIDX]]
-; CHECK-NEXT:     i1 [[VP_CMP:%.*]] = icmp i64 [[N0:%.*]] i64 42
+; CHECK-NEXT:     i1 [[VP_CMP:%.*]] = icmp eq i64 [[N0:%.*]] i64 42
 ; CHECK-NEXT:    SUCCESSORS(2):[[BB2:BB[0-9]+]](i1 [[VP_CMP]]), [[BB3:BB[0-9]+]](!i1 [[VP_CMP]])
 ; CHECK-NEXT:    PREDECESSORS(2): [[BB0]] [[NEW_LOOP_LATCH0]]
 ; CHECK-EMPTY:
@@ -134,13 +134,13 @@ define dso_local void @side_exit_use(i64 %N, i64 *%a, i64 %mask_out_loop) local_
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB2]]:
 ; CHECK-NEXT:       i64 [[VP_DEF:%.*]] = add i64 [[N0]] i64 1
-; CHECK-NEXT:       i1 [[VP_SIDEEXIT_CMP:%.*]] = icmp i64 [[N0]] i64 13
+; CHECK-NEXT:       i1 [[VP_SIDEEXIT_CMP:%.*]] = icmp eq i64 [[N0]] i64 13
 ; CHECK-NEXT:      SUCCESSORS(2):[[INTERMEDIATE_BB0:intermediate.bb[0-9]+]](i1 [[VP_SIDEEXIT_CMP]]), [[BB4]](!i1 [[VP_SIDEEXIT_CMP]])
 ; CHECK-NEXT:      PREDECESSORS(1): [[BB1]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB4]]:
 ; CHECK-NEXT:       i64 [[VP_IV_NEXT:%.*]] = add i64 [[VP_IV]] i64 1
-; CHECK-NEXT:       i1 [[VP_EXITCOND:%.*]] = icmp i64 [[VP_IV_NEXT]] i64 42
+; CHECK-NEXT:       i1 [[VP_EXITCOND:%.*]] = icmp eq i64 [[VP_IV_NEXT]] i64 42
 ; CHECK-NEXT:      SUCCESSORS(1):[[NEW_LOOP_LATCH0]]
 ; CHECK-NEXT:      PREDECESSORS(2): [[BB3]] [[BB2]]
 ; CHECK-EMPTY:
@@ -157,7 +157,7 @@ define dso_local void @side_exit_use(i64 %N, i64 *%a, i64 %mask_out_loop) local_
 ; CHECK-NEXT:    PREDECESSORS(2): [[BB4]] [[INTERMEDIATE_BB0]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[CASCADED_IF_BLOCK0]]:
-; CHECK-NEXT:     i1 [[VP0:%.*]] = icmp i32 [[VP_EXIT_ID_PHI]] i32 1
+; CHECK-NEXT:     i1 [[VP0:%.*]] = icmp eq i32 [[VP_EXIT_ID_PHI]] i32 1
 ; CHECK-NEXT:    SUCCESSORS(2):[[BB5:BB[0-9]+]](i1 [[VP0]]), [[BB6:BB[0-9]+]](!i1 [[VP0]])
 ; CHECK-NEXT:    PREDECESSORS(1): [[NEW_LOOP_LATCH0]]
 ; CHECK-EMPTY:
@@ -222,7 +222,7 @@ define dso_local void @exit_use(i64 %N, i64 *%a, i64 %mask_out_loop) local_unnam
 ; CHECK-NEXT:     i64 [[VP_IV:%.*]] = phi  [ i64 [[VP_IV_NEXT_SSA_PHI:%.*]], [[NEW_LOOP_LATCH0:new.loop.latch[0-9]+]] ],  [ i64 0, [[BB0]] ]
 ; CHECK-NEXT:     i64* [[VP_ARRAYIDX:%.*]] = getelementptr inbounds i64* [[A0:%.*]] i64 [[VP_IV]]
 ; CHECK-NEXT:     i64 [[VP_LD:%.*]] = load i64* [[VP_ARRAYIDX]]
-; CHECK-NEXT:     i1 [[VP_CMP:%.*]] = icmp i64 [[N0:%.*]] i64 42
+; CHECK-NEXT:     i1 [[VP_CMP:%.*]] = icmp eq i64 [[N0:%.*]] i64 42
 ; CHECK-NEXT:    SUCCESSORS(2):[[BB2:BB[0-9]+]](i1 [[VP_CMP]]), [[BB3:BB[0-9]+]](!i1 [[VP_CMP]])
 ; CHECK-NEXT:    PREDECESSORS(2): [[BB0]] [[NEW_LOOP_LATCH0]]
 ; CHECK-EMPTY:
@@ -232,14 +232,14 @@ define dso_local void @exit_use(i64 %N, i64 *%a, i64 %mask_out_loop) local_unnam
 ; CHECK-NEXT:      PREDECESSORS(1): [[BB1]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB2]]:
-; CHECK-NEXT:       i1 [[VP_SIDEEXIT_CMP:%.*]] = icmp i64 [[N0]] i64 13
+; CHECK-NEXT:       i1 [[VP_SIDEEXIT_CMP:%.*]] = icmp eq i64 [[N0]] i64 13
 ; CHECK-NEXT:      SUCCESSORS(2):[[INTERMEDIATE_BB0:intermediate.bb[0-9]+]](i1 [[VP_SIDEEXIT_CMP]]), [[BB4]](!i1 [[VP_SIDEEXIT_CMP]])
 ; CHECK-NEXT:      PREDECESSORS(1): [[BB1]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB4]]:
 ; CHECK-NEXT:       i64 [[VP_DEF:%.*]] = add i64 [[N0]] i64 1
 ; CHECK-NEXT:       i64 [[VP_IV_NEXT:%.*]] = add i64 [[VP_IV]] i64 1
-; CHECK-NEXT:       i1 [[VP_EXITCOND:%.*]] = icmp i64 [[VP_IV_NEXT]] i64 42
+; CHECK-NEXT:       i1 [[VP_EXITCOND:%.*]] = icmp eq i64 [[VP_IV_NEXT]] i64 42
 ; CHECK-NEXT:      SUCCESSORS(1):[[NEW_LOOP_LATCH0]]
 ; CHECK-NEXT:      PREDECESSORS(2): [[BB3]] [[BB2]]
 ; CHECK-EMPTY:
@@ -257,7 +257,7 @@ define dso_local void @exit_use(i64 %N, i64 *%a, i64 %mask_out_loop) local_unnam
 ; CHECK-NEXT:    PREDECESSORS(2): [[BB4]] [[INTERMEDIATE_BB0]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[CASCADED_IF_BLOCK0]]:
-; CHECK-NEXT:     i1 [[VP0:%.*]] = icmp i32 [[VP_EXIT_ID_PHI]] i32 1
+; CHECK-NEXT:     i1 [[VP0:%.*]] = icmp eq i32 [[VP_EXIT_ID_PHI]] i32 1
 ; CHECK-NEXT:    SUCCESSORS(2):[[BB5:BB[0-9]+]](i1 [[VP0]]), [[BB6:BB[0-9]+]](!i1 [[VP0]])
 ; CHECK-NEXT:    PREDECESSORS(1): [[NEW_LOOP_LATCH0]]
 ; CHECK-EMPTY:
@@ -323,7 +323,7 @@ define dso_local void @no_ssa_breakage(i64 %N, i64 *%a, i64 %mask_out_loop) loca
 ; CHECK-NEXT:     i64 [[VP_IV_NEXT]] = add i64 [[VP_IV]] i64 1
 ; CHECK-NEXT:     i64* [[VP_ARRAYIDX:%.*]] = getelementptr inbounds i64* [[A0:%.*]] i64 [[VP_IV]]
 ; CHECK-NEXT:     i64 [[VP_LD:%.*]] = load i64* [[VP_ARRAYIDX]]
-; CHECK-NEXT:     i1 [[VP_CMP:%.*]] = icmp i64 [[N0:%.*]] i64 42
+; CHECK-NEXT:     i1 [[VP_CMP:%.*]] = icmp eq i64 [[N0:%.*]] i64 42
 ; CHECK-NEXT:    SUCCESSORS(2):[[BB2:BB[0-9]+]](i1 [[VP_CMP]]), [[BB3:BB[0-9]+]](!i1 [[VP_CMP]])
 ; CHECK-NEXT:    PREDECESSORS(2): [[BB0]] [[NEW_LOOP_LATCH0]]
 ; CHECK-EMPTY:
@@ -333,12 +333,12 @@ define dso_local void @no_ssa_breakage(i64 %N, i64 *%a, i64 %mask_out_loop) loca
 ; CHECK-NEXT:      PREDECESSORS(1): [[BB1]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB2]]:
-; CHECK-NEXT:       i1 [[VP_SIDEEXIT_CMP:%.*]] = icmp i64 [[N0]] i64 13
+; CHECK-NEXT:       i1 [[VP_SIDEEXIT_CMP:%.*]] = icmp eq i64 [[N0]] i64 13
 ; CHECK-NEXT:      SUCCESSORS(2):[[INTERMEDIATE_BB0:intermediate.bb[0-9]+]](i1 [[VP_SIDEEXIT_CMP]]), [[BB4]](!i1 [[VP_SIDEEXIT_CMP]])
 ; CHECK-NEXT:      PREDECESSORS(1): [[BB1]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB4]]:
-; CHECK-NEXT:       i1 [[VP_EXITCOND:%.*]] = icmp i64 [[VP_IV_NEXT]] i64 42
+; CHECK-NEXT:       i1 [[VP_EXITCOND:%.*]] = icmp eq i64 [[VP_IV_NEXT]] i64 42
 ; CHECK-NEXT:      SUCCESSORS(1):[[NEW_LOOP_LATCH0]]
 ; CHECK-NEXT:      PREDECESSORS(2): [[BB3]] [[BB2]]
 ; CHECK-EMPTY:
@@ -354,7 +354,7 @@ define dso_local void @no_ssa_breakage(i64 %N, i64 *%a, i64 %mask_out_loop) loca
 ; CHECK-NEXT:    PREDECESSORS(2): [[BB4]] [[INTERMEDIATE_BB0]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[CASCADED_IF_BLOCK0]]:
-; CHECK-NEXT:     i1 [[VP0:%.*]] = icmp i32 [[VP_EXIT_ID_PHI]] i32 1
+; CHECK-NEXT:     i1 [[VP0:%.*]] = icmp eq i32 [[VP_EXIT_ID_PHI]] i32 1
 ; CHECK-NEXT:    SUCCESSORS(2):[[BB5:BB[0-9]+]](i1 [[VP0]]), [[BB6:BB[0-9]+]](!i1 [[VP0]])
 ; CHECK-NEXT:    PREDECESSORS(1): [[NEW_LOOP_LATCH0]]
 ; CHECK-EMPTY:

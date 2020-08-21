@@ -19,12 +19,12 @@ define dso_local void @foo_non_lcssa(i64 %N, i64 *%a, i64 %mask_out_loop) local_
 ; CHECK-LABEL:  VPlan IR for: foo_non_lcssa
 ; CHECK-NEXT:    [[BB0:BB[0-9]+]]:
 ; CHECK-NEXT:     [DA: Div] i32 [[VP_LANE:%.*]] = induction-init{add} i32 0 i32 1
-; CHECK-NEXT:     [DA: Div] i1 [[VP_SKIP_LOOP:%.*]] = icmp i32 [[VP_LANE]] i64 [[MASK_OUT_LOOP0:%.*]]
+; CHECK-NEXT:     [DA: Div] i1 [[VP_SKIP_LOOP:%.*]] = icmp eq i32 [[VP_LANE]] i64 [[MASK_OUT_LOOP0:%.*]]
 ; CHECK-NEXT:    SUCCESSORS(2):[[BB1:BB[0-9]+]](i1 [[VP_SKIP_LOOP]]), [[BB2:BB[0-9]+]](!i1 [[VP_SKIP_LOOP]])
 ; CHECK-NEXT:    no PREDECESSORS
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB2]]:
-; CHECK-NEXT:       [DA: Div] i1 [[VP_CMP216:%.*]] = icmp i32 [[VP_LANE]] i64 0
+; CHECK-NEXT:       [DA: Div] i1 [[VP_CMP216:%.*]] = icmp eq i32 [[VP_LANE]] i64 0
 ; CHECK-NEXT:       [DA: Div] i1 [[VP_CMP216_NOT:%.*]] = not i1 [[VP_CMP216]]
 ; CHECK-NEXT:      SUCCESSORS(2):[[BB1]](i1 [[VP_CMP216]]), [[BB3:BB[0-9]+]](!i1 [[VP_CMP216]])
 ; CHECK-NEXT:      PREDECESSORS(1): [[BB0]]
@@ -46,13 +46,13 @@ define dso_local void @foo_non_lcssa(i64 %N, i64 *%a, i64 %mask_out_loop) local_
 ; CHECK-NEXT:        [[BB6]]:
 ; CHECK-NEXT:         [DA: Uni] i64* [[VP_ARRAYIDX:%.*]] = getelementptr inbounds i64* [[A0:%.*]] i64 [[VP_IV]]
 ; CHECK-NEXT:         [DA: Uni] i64 [[VP_LD:%.*]] = load i64* [[VP_ARRAYIDX]]
-; CHECK-NEXT:         [DA: Uni] i1 [[VP_SOME_CMP:%.*]] = icmp i64 [[VP_LD]] i64 42
+; CHECK-NEXT:         [DA: Uni] i1 [[VP_SOME_CMP:%.*]] = icmp eq i64 [[VP_LD]] i64 42
 ; CHECK-NEXT:         [DA: Uni] i64 [[VP_IV_NEXT]] = add i64 [[VP_IV]] i64 1
 ; CHECK-NEXT:        SUCCESSORS(2):[[INTERMEDIATE_BB0:intermediate.bb[0-9]+]](i1 [[VP_SOME_CMP]]), [[BB7:BB[0-9]+]](!i1 [[VP_SOME_CMP]])
 ; CHECK-NEXT:        PREDECESSORS(1): [[BB4]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:          [[BB7]]:
-; CHECK-NEXT:           [DA: Div] i1 [[VP_EXITCOND:%.*]] = icmp i64 [[VP_IV_NEXT]] i32 [[VP_LANE]]
+; CHECK-NEXT:           [DA: Div] i1 [[VP_EXITCOND:%.*]] = icmp eq i64 [[VP_IV_NEXT]] i32 [[VP_LANE]]
 ; CHECK-NEXT:          SUCCESSORS(1):[[NEW_LOOP_LATCH0:new.loop.latch[0-9]+]]
 ; CHECK-NEXT:          PREDECESSORS(1): [[BB6]]
 ; CHECK-EMPTY:
@@ -149,7 +149,7 @@ define dso_local void @foo_non_lcssa_from_uniform_sub_loop(i64 %N, i64 *%a, i64 
 ; CHECK-NEXT:      [[BB3]]:
 ; CHECK-NEXT:       [DA: Div] i64* [[VP_ARRAYIDX:%.*]] = getelementptr inbounds i64* [[A0:%.*]] i64 [[VP_IV]]
 ; CHECK-NEXT:       [DA: Div] i64 [[VP_LD:%.*]] = load i64* [[VP_ARRAYIDX]]
-; CHECK-NEXT:       [DA: Div] i1 [[VP_SOME_CMP:%.*]] = icmp i64 [[VP_LD]] i64 42
+; CHECK-NEXT:       [DA: Div] i1 [[VP_SOME_CMP:%.*]] = icmp eq i64 [[VP_LD]] i64 42
 ; CHECK-NEXT:       [DA: Div] i64 [[VP_IV_NEXT]] = add i64 [[VP_IV]] i64 1
 ; CHECK-NEXT:      SUCCESSORS(1):[[BB4:BB[0-9]+]]
 ; CHECK-NEXT:      PREDECESSORS(1): [[BB1]]
@@ -161,7 +161,7 @@ define dso_local void @foo_non_lcssa_from_uniform_sub_loop(i64 %N, i64 *%a, i64 
 ; CHECK-NEXT:       [DA: Div] i64 [[VP_IDX:%.*]] = add i64 [[VP_MUL]] i64 [[VP_INNER_IV]]
 ; CHECK-NEXT:       [DA: Div] i64* [[VP_GEP:%.*]] = getelementptr i64* [[A0]] i64 [[VP_IDX]]
 ; CHECK-NEXT:       [DA: Div] i64 [[VP_INNER_DEF:%.*]] = load i64* [[VP_GEP]]
-; CHECK-NEXT:       [DA: Uni] i1 [[VP_INNER_EXITCOND:%.*]] = icmp i64 [[VP_INNER_IV_NEXT]] i64 100
+; CHECK-NEXT:       [DA: Uni] i1 [[VP_INNER_EXITCOND:%.*]] = icmp eq i64 [[VP_INNER_IV_NEXT]] i64 100
 ; CHECK-NEXT:      SUCCESSORS(2):[[BB5:BB[0-9]+]](i1 [[VP_INNER_EXITCOND]]), [[BB4]](!i1 [[VP_INNER_EXITCOND]])
 ; CHECK-NEXT:      PREDECESSORS(2): [[BB4]] [[BB3]]
 ; CHECK-EMPTY:

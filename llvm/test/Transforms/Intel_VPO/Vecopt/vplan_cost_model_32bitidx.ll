@@ -56,7 +56,7 @@ define void @test_fit_32bitindex_gather() local_unnamed_addr #0 {
 ; VPLAN-HIR-CM-VF8-NEXT:    Cost 0 for i32* [[VP_SUBSCRIPT_7:%.*]] = subscript inbounds [1024 x i32]* @arr.i32.3 i64 2147483648 i64 [[VP21]]
 ; VPLAN-HIR-CM-VF8-NEXT:    Cost 8 for store i32 [[VP4]] i32* [[VP_SUBSCRIPT_7]] ( GS )
 ; VPLAN-HIR-CM-VF8-NEXT:    Cost 1 for i32 [[VP1]] = add i32 [[VP0]] i32 [[VP__IND_INIT_STEP]]
-; VPLAN-HIR-CM-VF8-NEXT:    Cost 1 for i1 [[VP22:%.*]] = icmp i32 [[VP1]] i32 340
+; VPLAN-HIR-CM-VF8-NEXT:    Cost 1 for i1 [[VP22:%.*]] = icmp sle i32 [[VP1]] i32 340
 ; VPLAN-HIR-CM-VF8-NEXT:  Analyzing VPBasicBlock [[BB3:BB[0-9]+]], total cost: 0
 ; VPLAN-HIR-CM-VF8-NEXT:    Cost Unknown for i32 [[VP__IND_FINAL:%.*]] = induction-final{add} i32 live-in0 i32 1
 ; VPLAN-HIR-CM-VF8-NEXT:  Analyzing VPBasicBlock [[BB4:BB[0-9]+]], total cost: 0

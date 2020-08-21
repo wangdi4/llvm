@@ -20,21 +20,21 @@ define dso_local i32 @main() #0 {
 ; CHECK-NEXT:  Basic Block: [[BB1]]
 ; CHECK-NEXT:  Uniform: [Shape: Uniform] i32 [[VP_PHI_INNER_LOOP_INDUCTION:%.*]] = phi  [ i32 0, [[BB0]] ],  [ i32 [[VP_INNER_LOOP_INDUCTION_SSA_PHI:%.*]], [[NEW_LOOP_LATCH0]] ]
 ; CHECK-NEXT:  Uniform: [Shape: Uniform] i32 [[VP_INC1:%.*]] = add i32 [[VP_PHI_INNER_LOOP_INDUCTION]] i32 1
-; CHECK-NEXT:  Uniform: [Shape: Uniform] i1 [[VP_CMP1:%.*]] = icmp i32 [[VP_INC1]] i32 16
+; CHECK-NEXT:  Uniform: [Shape: Uniform] i1 [[VP_CMP1:%.*]] = icmp eq i32 [[VP_INC1]] i32 16
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Basic Block: [[INTERMEDIATE_BB0]]
 ; CHECK-NEXT:  Uniform: [Shape: Uniform] i32 [[VP_LIVE_OUT1_PHI:%.*]] = phi  [ i32 [[VP_INC1]], [[BB1]] ]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Basic Block: [[BB3]]
 ; CHECK-NEXT:  Uniform: [Shape: Uniform] i32 [[VP_INC2:%.*]] = add i32 [[VP_PHI_INNER_LOOP_INDUCTION]] i32 2
-; CHECK-NEXT:  Uniform: [Shape: Uniform] i1 [[VP_CMP2:%.*]] = icmp i32 [[VP_INC2]] i32 32
+; CHECK-NEXT:  Uniform: [Shape: Uniform] i1 [[VP_CMP2:%.*]] = icmp eq i32 [[VP_INC2]] i32 32
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Basic Block: [[INTERMEDIATE_BB1]]
 ; CHECK-NEXT:  Uniform: [Shape: Uniform] i32 [[VP_LIVE_OUT2_PHI:%.*]] = phi  [ i32 [[VP_INC2]], [[BB3]] ]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Basic Block: [[BB6]]
 ; CHECK-NEXT:  Uniform: [Shape: Uniform] i32 [[VP_INNER_LOOP_INDUCTION:%.*]] = add i32 [[VP_PHI_INNER_LOOP_INDUCTION]] i32 4
-; CHECK-NEXT:  Uniform: [Shape: Uniform] i1 [[VP_INNER_LOOP_BOTTOM_TEST:%.*]] = icmp i32 [[VP_INNER_LOOP_INDUCTION]] i32 1024
+; CHECK-NEXT:  Uniform: [Shape: Uniform] i1 [[VP_INNER_LOOP_BOTTOM_TEST:%.*]] = icmp eq i32 [[VP_INNER_LOOP_INDUCTION]] i32 1024
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Basic Block: [[NEW_LOOP_LATCH0]]
 ; CHECK-NEXT:  Uniform: [Shape: Uniform] i32 [[VP_LIVE_OUT2_PHI_SSA_PHI:%.*]] = phi  [ i32 undef, [[BB6]] ],  [ i32 undef, [[INTERMEDIATE_BB0]] ],  [ i32 [[VP_LIVE_OUT2_PHI]], [[INTERMEDIATE_BB1]] ]
@@ -44,10 +44,10 @@ define dso_local i32 @main() #0 {
 ; CHECK-NEXT:  Uniform: [Shape: Uniform] i1 [[VP_TAKE_BACKEDGE_COND:%.*]] = phi  [ i1 [[VP_INNER_LOOP_BOTTOM_TEST]], [[BB6]] ],  [ i1 false, [[INTERMEDIATE_BB0]] ],  [ i1 false, [[INTERMEDIATE_BB1]] ]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Basic Block: [[CASCADED_IF_BLOCK1]]
-; CHECK-NEXT:  Uniform: [Shape: Uniform] i1 [[VP0:%.*]] = icmp i32 [[VP_EXIT_ID_PHI]] i32 1
+; CHECK-NEXT:  Uniform: [Shape: Uniform] i1 [[VP0:%.*]] = icmp eq i32 [[VP_EXIT_ID_PHI]] i32 1
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Basic Block: [[CASCADED_IF_BLOCK0]]
-; CHECK-NEXT:  Uniform: [Shape: Uniform] i1 [[VP1:%.*]] = icmp i32 [[VP_EXIT_ID_PHI]] i32 2
+; CHECK-NEXT:  Uniform: [Shape: Uniform] i1 [[VP1:%.*]] = icmp eq i32 [[VP_EXIT_ID_PHI]] i32 2
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Basic Block: [[BB7]]
 ; CHECK-EMPTY:
@@ -62,7 +62,7 @@ define dso_local i32 @main() #0 {
 ; CHECK-NEXT:  Basic Block: [[BB8]]
 ; CHECK-NEXT:  Divergent: [Shape: Unit Stride, Stride: i64 1] i32 [[VP_OUTER_LOOP_INDUCTION]] = add i32 [[VP_PHI_OUTER_LOOP_INDUCTION]] i32 [[VP_PHI_OUTER_LOOP_INDUCTION_IND_INIT_STEP:%.*]]
 ; CHECK-NEXT:  Uniform: [Shape: Uniform] i32 [[VP_VECTOR_LOOP_IV_NEXT]] = add i32 [[VP_VECTOR_LOOP_IV]] i32 [[VP_VF:%.*]]
-; CHECK-NEXT:  Uniform: [Shape: Uniform] i1 [[VP_VECTOR_LOOP_EXITCOND:%.*]] = icmp i32 [[VP_VECTOR_LOOP_IV_NEXT]] i32 [[VP_VECTOR_TRIP_COUNT:%.*]]
+; CHECK-NEXT:  Uniform: [Shape: Uniform] i1 [[VP_VECTOR_LOOP_EXITCOND:%.*]] = icmp ne i32 [[VP_VECTOR_LOOP_IV_NEXT]] i32 [[VP_VECTOR_TRIP_COUNT:%.*]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Basic Block: [[BB10:BB[0-9]+]]
 ; CHECK-NEXT:  Uniform: [Shape: Uniform] i32 [[VP_PHI_OUTER_LOOP_INDUCTION_IND_FINAL:%.*]] = induction-final{add} i32 live-in0 i32 1

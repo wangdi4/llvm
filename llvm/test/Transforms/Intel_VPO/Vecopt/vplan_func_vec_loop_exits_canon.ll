@@ -24,7 +24,7 @@ define void @test_simple_while() {
 ; CHECK-NEXT:    [[BB1]]:
 ; CHECK-NEXT:     i32 [[VP_IV:%.*]] = phi  [ i32 0, [[BB0]] ],  [ i32 [[VP_IV_NEXT:%.*]], [[NEW_LOOP_LATCH0:new.loop.latch[0-9]+]] ]
 ; CHECK-NEXT:     i32 [[VP_IV_NEXT]] = add i32 [[VP_IV]] i32 1
-; CHECK-NEXT:     i1 [[VP_EXITCOND:%.*]] = icmp i32 [[VP_IV]] i32 42
+; CHECK-NEXT:     i1 [[VP_EXITCOND:%.*]] = icmp eq i32 [[VP_IV]] i32 42
 ; CHECK-NEXT:    SUCCESSORS(2):[[NEW_LOOP_LATCH0]](i1 [[VP_EXITCOND]]), [[BB2:BB[0-9]+]](!i1 [[VP_EXITCOND]])
 ; CHECK-NEXT:    PREDECESSORS(2): [[BB0]] [[NEW_LOOP_LATCH0]]
 ; CHECK-EMPTY:
@@ -70,12 +70,12 @@ define void @test_multi_exit() {
 ; CHECK-NEXT:    [[BB1]]:
 ; CHECK-NEXT:     i32 [[VP_IV:%.*]] = phi  [ i32 0, [[BB0]] ],  [ i32 [[VP_IV_NEXT:%.*]], [[NEW_LOOP_LATCH0:new.loop.latch[0-9]+]] ]
 ; CHECK-NEXT:     i32 [[VP_IV_NEXT]] = add i32 [[VP_IV]] i32 1
-; CHECK-NEXT:     i1 [[VP_SIDEEXIT_COND:%.*]] = icmp i32 [[VP_IV]] i32 [[VP_LANE]]
+; CHECK-NEXT:     i1 [[VP_SIDEEXIT_COND:%.*]] = icmp eq i32 [[VP_IV]] i32 [[VP_LANE]]
 ; CHECK-NEXT:    SUCCESSORS(2):[[INTERMEDIATE_BB0:intermediate.bb[0-9]+]](i1 [[VP_SIDEEXIT_COND]]), [[BB2:BB[0-9]+]](!i1 [[VP_SIDEEXIT_COND]])
 ; CHECK-NEXT:    PREDECESSORS(2): [[BB0]] [[NEW_LOOP_LATCH0]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB2]]:
-; CHECK-NEXT:       i1 [[VP_EXIT_COND:%.*]] = icmp i32 [[VP_IV]] i32 42
+; CHECK-NEXT:       i1 [[VP_EXIT_COND:%.*]] = icmp eq i32 [[VP_IV]] i32 42
 ; CHECK-NEXT:      SUCCESSORS(1):[[NEW_LOOP_LATCH0]]
 ; CHECK-NEXT:      PREDECESSORS(1): [[BB1]]
 ; CHECK-EMPTY:
@@ -138,7 +138,7 @@ define void @test_while_loop_with_allzero() {
 ; CHECK-NEXT:    [[BB3]]:
 ; CHECK-NEXT:     i32 [[VP_LIVEOUT]] = phi  [ i32 [[VP_LIVEOUT_PREV]], [[BB1]] ],  [ i32 [[VP_LOOP_IV]], [[BB2]] ]
 ; CHECK-NEXT:     i32 [[VP_LOOP_IV_NEXT]] = add i32 [[VP_LOOP_IV]] i32 1
-; CHECK-NEXT:     i1 [[VP_DIV_EXIT_COND:%.*]] = icmp i32 [[VP_LOOP_IV]] i32 42
+; CHECK-NEXT:     i1 [[VP_DIV_EXIT_COND:%.*]] = icmp eq i32 [[VP_LOOP_IV]] i32 42
 ; CHECK-NEXT:     i1 [[VP_NOT:%.*]] = xor i1 [[VP_DIV_EXIT_COND]] i1 true
 ; CHECK-NEXT:     i1 [[VP_MASK_NEXT]] = and i1 [[VP_MASK]] i1 [[VP_NOT]]
 ; CHECK-NEXT:     i1 [[VP_EXIT_COND:%.*]] = call i1 [[VP_MASK_NEXT]] i1 (i1)* @allzero

@@ -76,7 +76,7 @@
 ; Check decomposed VPInstructions
 ; CHECK: load
 ; CHECK: i64 [[SEXT:%vp.*]] = sext i32 [[OP:%vp.*]]
-; CHECK-NEXT: i1 [[CMP:%vp.*]] = icmp i64 [[OP1:%vp.*]] i64 [[SEXT]]
+; CHECK-NEXT: i1 [[CMP:%vp.*]] = icmp sge i64 [[OP1:%vp.*]] i64 [[SEXT]]
 
 ;Module Before HIR; ModuleID = 't4.c'
 source_filename = "t4.c"

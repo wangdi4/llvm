@@ -15,7 +15,7 @@ define void @test_uniform_lcssa_phi() {
 ; CHECK-NEXT:    [[BB1]]:
 ; CHECK-NEXT:     [DA: Uni] i32 [[VP_IV:%.*]] = phi  [ i32 0, [[BB0]] ],  [ i32 [[VP_IV_NEXT:%.*]], [[BB1]] ]
 ; CHECK-NEXT:     [DA: Uni] i32 [[VP_IV_NEXT]] = add i32 [[VP_IV]] i32 1
-; CHECK-NEXT:     [DA: Uni] i1 [[VP_EXITCOND:%.*]] = icmp i32 [[VP_IV]] i32 42
+; CHECK-NEXT:     [DA: Uni] i1 [[VP_EXITCOND:%.*]] = icmp eq i32 [[VP_IV]] i32 42
 ; CHECK-NEXT:    SUCCESSORS(2):[[BB2:BB[0-9]+]](i1 [[VP_EXITCOND]]), [[BB1]](!i1 [[VP_EXITCOND]])
 ; CHECK-NEXT:    PREDECESSORS(2): [[BB0]] [[BB1]]
 ; CHECK-EMPTY:

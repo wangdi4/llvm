@@ -11,7 +11,7 @@ define dso_local void @foo(i64* nocapture %a, i64* nocapture %b, i64 %x, i64 %y)
 ; CHECK-NEXT:    [[BB0:BB[0-9]+]]:
 ; CHECK-NEXT:     [DA: Div] i32 [[VP_LANE:%.*]] = induction-init{add} i32 0 i32 1
 ; CHECK-NEXT:     [DA: Uni] i64 [[VP_SUB:%.*]] = sub i64 [[X0:%.*]] i64 [[Y0:%.*]]
-; CHECK-NEXT:     [DA: Div] i1 [[VP_CMP:%.*]] = icmp i32 [[VP_LANE]] i64 7
+; CHECK-NEXT:     [DA: Div] i1 [[VP_CMP:%.*]] = icmp eq i32 [[VP_LANE]] i64 7
 ; CHECK-NEXT:    SUCCESSORS(1):all.zero.bypass.begin9
 ; CHECK-NEXT:    no PREDECESSORS
 ; CHECK-EMPTY:
@@ -66,7 +66,7 @@ define dso_local void @foo(i64* nocapture %a, i64* nocapture %b, i64 %x, i64 %y)
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB4]]:
 ; CHECK-NEXT:     [DA: Uni] i64 [[VP_INC]] = add i64 [[VP_J]] i64 1
-; CHECK-NEXT:     [DA: Uni] i1 [[VP_EXITCOND:%.*]] = icmp i64 [[VP_INC]] i64 256
+; CHECK-NEXT:     [DA: Uni] i1 [[VP_EXITCOND:%.*]] = icmp eq i64 [[VP_INC]] i64 256
 ; CHECK-NEXT:    SUCCESSORS(2):[[BB6:BB[0-9]+]](i1 [[VP_EXITCOND]]), [[BB3]](!i1 [[VP_EXITCOND]])
 ; CHECK-NEXT:    PREDECESSORS(1): all.zero.bypass.end15
 ; CHECK-EMPTY:

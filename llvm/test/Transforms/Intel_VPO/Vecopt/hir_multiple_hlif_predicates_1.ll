@@ -19,8 +19,8 @@
 ; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -vplan-print-plain-cfg < %s 2>&1 | FileCheck %s --check-prefix=HCFG
 
 ; Check plain HCFG
-; HCFG: i1 [[Cmp1:%.*]] = icmp i64 {{%.*}} i64 512
-; HCFG-NEXT: i1 [[Cmp2:%.*]] = icmp i32 {{%.*}} i32 0
+; HCFG: i1 [[Cmp1:%.*]] = icmp ult i64 {{%.*}} i64 512
+; HCFG-NEXT: i1 [[Cmp2:%.*]] = icmp sgt i32 {{%.*}} i32 0
 ; HCFG-NEXT: i1 [[And:%.*]] = and i1 [[Cmp1]] i1 [[Cmp2]]
 ; HCFG: SUCCESSORS(2):{{BB[0-9]+}}(i1 [[And]]), {{BB[0-9]+}}(!i1 [[And]])
 

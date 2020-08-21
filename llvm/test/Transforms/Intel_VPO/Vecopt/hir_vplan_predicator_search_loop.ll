@@ -36,7 +36,7 @@ define dso_local i32 @_Z3fooiPKaPaa(i32 %n, i8* nocapture readonly %a, i8* nocap
 ; CHECK-NEXT:     [DA: Uni] i64 [[VP3:%.*]] = phi  [ i64 0, [[BB1]] ],  [ i64 [[VP4:%.*]], [[BB3:BB[0-9]+]] ]
 ; CHECK-NEXT:     [DA: Uni] i8* [[VP5:%.*]] = subscript inbounds i8* [[A0:%.*]] i64 [[VP3]]
 ; CHECK-NEXT:     [DA: Uni] i8 [[VP6:%.*]] = load i8* [[VP5]]
-; CHECK-NEXT:     [DA: Uni] i1 [[VP7:%.*]] = icmp i8 [[VP6]] i8 [[VAL0:%.*]]
+; CHECK-NEXT:     [DA: Uni] i1 [[VP7:%.*]] = icmp ne i8 [[VP6]] i8 [[VAL0:%.*]]
 ; CHECK-NEXT:     [DA: Uni] i1 [[VP__NOT:%.*]] = not i1 [[VP7]]
 ; CHECK-NEXT:    SUCCESSORS(2):[[BB4:BB[0-9]+]](i1 [[VP7]]), [[BB5:BB[0-9]+]](!i1 [[VP7]])
 ; CHECK-NEXT:    PREDECESSORS(2): [[BB1]] [[BB3]]
@@ -44,14 +44,14 @@ define dso_local i32 @_Z3fooiPKaPaa(i32 %n, i8* nocapture readonly %a, i8* nocap
 ; CHECK-NEXT:      [[BB5]]:
 ; CHECK-NEXT:       [DA: Uni] i1 [[VP8:%.*]] = block-predicate i1 [[VP__NOT]]
 ; CHECK-NEXT:       [DA: Uni] i64 [[VP4]] = add i64 [[VP3]] i64 1
-; CHECK-NEXT:       [DA: Uni] i1 [[VP9:%.*]] = icmp i64 [[VP4]] i64 [[VP0]]
+; CHECK-NEXT:       [DA: Uni] i1 [[VP9:%.*]] = icmp sle i64 [[VP4]] i64 [[VP0]]
 ; CHECK-NEXT:       [DA: Uni] i1 [[VP__NOT_1:%.*]] = not i1 [[VP9]]
 ; CHECK-NEXT:      SUCCESSORS(1):[[BB3]]
 ; CHECK-NEXT:      PREDECESSORS(1): [[BB2]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB3]]:
 ; CHECK-NEXT:       [DA: Uni] i1 [[VP_BB6_BR_VP__NOT:%.*]] = and i1 [[VP__NOT]] i1 [[VP__NOT_1]]
-; CHECK-NEXT:       Condition([[BB5]]): [DA: Uni] i1 [[VP9]] = icmp i64 [[VP4]] i64 [[VP0]]
+; CHECK-NEXT:       Condition([[BB5]]): [DA: Uni] i1 [[VP9]] = icmp sle i64 [[VP4]] i64 [[VP0]]
 ; CHECK-NEXT:      SUCCESSORS(2):[[BB2]](i1 [[VP9]]), [[BB6:BB[0-9]+]](!i1 [[VP9]])
 ; CHECK-NEXT:      PREDECESSORS(1): [[BB5]]
 ; CHECK-EMPTY:
