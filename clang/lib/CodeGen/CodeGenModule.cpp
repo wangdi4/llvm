@@ -1686,36 +1686,7 @@ void CodeGenModule::GenOpenCLArgMetadata(llvm::Function *Fn,
               : llvm::ConstantAsMetadata::get(CGF->Builder.getInt32(-1)));
     }
 
-<<<<<<< HEAD
-  Fn->setMetadata("kernel_arg_addr_space",
-                  llvm::MDNode::get(VMContext, addressQuals));
-  Fn->setMetadata("kernel_arg_access_qual",
-                  llvm::MDNode::get(VMContext, accessQuals));
-  Fn->setMetadata("kernel_arg_type",
-                  llvm::MDNode::get(VMContext, argTypeNames));
-  Fn->setMetadata("kernel_arg_base_type",
-                  llvm::MDNode::get(VMContext, argBaseTypeNames));
-  Fn->setMetadata("kernel_arg_type_qual",
-                  llvm::MDNode::get(VMContext, argTypeQuals));
-#if INTEL_CUSTOMIZATION
-  if (!LangOpts.SYCLIsDevice) {
-    Fn->setMetadata("kernel_arg_host_accessible",
-                    llvm::MDNode::get(VMContext, argHostAccessible));
-    Fn->setMetadata("kernel_arg_pipe_depth",
-                    llvm::MDNode::get(VMContext, argPipeDepthAttr));
-    Fn->setMetadata("kernel_arg_pipe_io",
-                    llvm::MDNode::get(VMContext, argPipeIOAttr));
-    Fn->setMetadata("kernel_arg_buffer_location",
-                    llvm::MDNode::get(VMContext, argBufferLocationAttr));
-  }
-#endif // INTEL_CUSTOMIZATION
-  if (getCodeGenOpts().EmitOpenCLArgMetadata)
-    Fn->setMetadata("kernel_arg_name",
-                    llvm::MDNode::get(VMContext, argNames));
-  if (LangOpts.SYCLIsDevice)
-=======
   if (LangOpts.SYCLIsDevice && !LangOpts.SYCLExplicitSIMD)
->>>>>>> f6589188959027372353c32a45ba904bd7a58f83
     Fn->setMetadata("kernel_arg_buffer_location",
                     llvm::MDNode::get(VMContext, argSYCLBufferLocationAttr));
   else {
@@ -1733,6 +1704,18 @@ void CodeGenModule::GenOpenCLArgMetadata(llvm::Function *Fn,
       Fn->setMetadata("kernel_arg_name",
                       llvm::MDNode::get(VMContext, argNames));
   }
+#if INTEL_CUSTOMIZATION
+  if (!LangOpts.SYCLIsDevice) {
+    Fn->setMetadata("kernel_arg_host_accessible",
+                    llvm::MDNode::get(VMContext, argHostAccessible));
+    Fn->setMetadata("kernel_arg_pipe_depth",
+                    llvm::MDNode::get(VMContext, argPipeDepthAttr));
+    Fn->setMetadata("kernel_arg_pipe_io",
+                    llvm::MDNode::get(VMContext, argPipeIOAttr));
+    Fn->setMetadata("kernel_arg_buffer_location",
+                    llvm::MDNode::get(VMContext, argBufferLocationAttr));
+  }
+#endif // INTEL_CUSTOMIZATION
 }
 
 /// Determines whether the language options require us to model
