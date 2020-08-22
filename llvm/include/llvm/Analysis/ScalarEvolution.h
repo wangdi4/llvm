@@ -562,7 +562,11 @@ public:
   }
   const SCEV *getUDivExpr(const SCEV *LHS, const SCEV *RHS);
   const SCEV *getUDivExactExpr(const SCEV *LHS, const SCEV *RHS);
-  const SCEV *getURemExpr(const SCEV *LHS, const SCEV *RHS);
+#if INTEL_CUSTOMIZATION
+  // \p Val is the original value being parsed.
+  const SCEV *getURemExpr(const SCEV *LHS, const SCEV *RHS,
+                          Value *Val = nullptr);
+#endif // INTEL_CUSTOMIZATION
   const SCEV *getAddRecExpr(const SCEV *Start, const SCEV *Step, const Loop *L,
                             SCEV::NoWrapFlags Flags);
   const SCEV *getAddRecExpr(SmallVectorImpl<const SCEV *> &Operands,
