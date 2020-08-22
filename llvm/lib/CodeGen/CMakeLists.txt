@@ -64,7 +64,6 @@ add_llvm_component_library(LLVMCodeGen
   LatencyPriorityQueue.cpp
   LazyMachineBlockFrequencyInfo.cpp
   LexicalScopes.cpp
-  LiveDebugValues.cpp
   LiveDebugVariables.cpp
   LiveIntervals.cpp
   LiveInterval.cpp
@@ -200,6 +199,8 @@ add_llvm_component_library(LLVMCodeGen
 # INTEL_CUSTOMIZATION
   ${INTEL_SOURCE_FILES_TO_BUILD}
 # end INTEL_CUSTOMIZATION
+
+  LiveDebugValues/VarLocBasedImpl.cpp
 
   ADDITIONAL_HEADER_DIRS
   ${LLVM_MAIN_INCLUDE_DIR}/llvm/CodeGen
