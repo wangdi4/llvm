@@ -668,8 +668,6 @@ pi_result piPlatformsGet(pi_uint32 NumEntries, pi_platform *Platforms,
           std::to_string(ZE_MAJOR_VERSION(ZeApiVersion)) + std::string(".") +
           std::to_string(ZE_MINOR_VERSION(ZeApiVersion));
       Platforms[0]->ZeMaxCommandListCache = CommandListCacheSizeValue;
-      // save a copy in the cache for future uses
-      PiPlatformsCache.push_back(Platforms[0]);
     } catch (const std::bad_alloc &) {
       return PI_OUT_OF_HOST_MEMORY;
     } catch (...) {
@@ -833,14 +831,16 @@ pi_result piDeviceRelease(pi_device Device) {
   assert(Device->RefCount > 0 && "Device is already released.");
   // TODO: OpenCL says root-device ref-count remains unchanged (1),
   // but when would we free the device's data?
-  if (--(Device->RefCount) == 0) {
-    // Destroy all the command lists associated with this device.
-    Device->ZeCommandListCacheMutex.lock();
-    for (ze_command_list_handle_t &ZeCommandList : Device->ZeCommandListCache) {
-      zeCommandListDestroy(ZeCommandList);
+  if (Device->IsSubDevice) {
+    if (--(Device->RefCount) == 0) {
+      // Destroy all the command lists associated with this device.
+      Device->ZeCommandListCacheMutex.lock();
+      for (ze_command_list_handle_t &ZeCommandList : Device->ZeCommandListCache) {
+        zeCommandListDestroy(ZeCommandList);
+      }
+      Device->ZeCommandListCacheMutex.unlock();
+      delete Device;
     }
-    Device->ZeCommandListCacheMutex.unlock();
-    delete Device;
   }
 
   return PI_SUCCESS;
