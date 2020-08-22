@@ -618,15 +618,7 @@ public:
         !VPBlockUtils::blockIsLoopLatch(Block->getSinglePredecessor(), VPLI) &&
         "Loop exits in loop-simplified forms don't require blend processing!");
     for (VPPHINode *Phi : Phis) {
-      VPBlendInst *Blend =
-          VPBuilder().setInsertPoint(Phi).createBlendInstruction(
-              Phi->getType(), Phi->getName());
-      Blend->addIncoming(Phi->getOperand(0), nullptr,
-                         Phi->getParent()->getParent());
-      // TODO: HIR Mixed CG has issues propagating invalidate through the
-      // use-chain. Blends/phis are gonna be lowered to using the same temp, so
-      // invalidation might not actually be needed.
-      Phi->replaceAllUsesWith(Blend, false /* InvalidateIR */);
+      Phi->replaceAllUsesWith(Phi->getOperand(0), false /* InvalidateIR */);
       Phi->getParent()->eraseInstruction(Phi);
     }
   }
@@ -668,11 +660,17 @@ public:
   /// when we arrive at the unpredicated block.
   void getBlendArgs(int Idx, VPBasicBlock *AtBB,
                     SmallVectorImpl<VPValue *> &BlendOps) {
+    auto IsUndef = [](const VPValue *V) {
+      return isa<VPConstant>(V) &&
+             isa<UndefValue>(cast<VPConstant>(V)->getConstant());
+    };
     if (OrigValsMaps[Idx].count(AtBB)) {
       VPValue *Val = OrigValsMaps[Idx][AtBB];
-      VPValue *Pred = AtBB->getPredicate();
-      BlendOps.push_back(Pred);
-      BlendOps.push_back(Val);
+      if (!IsUndef(Val)) {
+        VPValue *Pred = AtBB->getPredicate();
+        BlendOps.push_back(Pred);
+        BlendOps.push_back(Val);
+      }
     }
     // The phi corresponds to the values blended earlier in CFG than the def
     // from the block itself.
@@ -683,7 +681,11 @@ public:
       return;
     }
 
-    if (!AtBB->getPredicate())
+    if (!AtBB->getPredicate() &&
+        // FIXME: This is ugly, hopefully we will redesign the whole way uniform
+        // instructions with divergent operands are processed...
+        none_of(*AtBB,
+                [](const VPInstruction &Inst) { return isa<VPActiveLane>(Inst); }))
       return;
 
     VPBasicBlock *IDom = VPDomTree.getNode(AtBB)->getIDom()->getBlock();
@@ -758,6 +760,16 @@ public:
       Phis.push_back(&Phi);
 
     if (Phis[0]->getNumIncomingValues() == 1) {
+      // LLVM IR CG merges (reuses) several VPBasicBlocks so we can't leave a
+      // phi even in case of
+      //
+      // BB0:
+      //   br BB1
+      // BB1: ; preds: BB0
+      //   %val = phi[ %something, BB0 ]
+      //
+      // as that might result in a phi in the middle of the llvm::BasicBlock
+      // after VPlan CG.
       processSingleIncomingValuePhis();
       return;
     }
@@ -819,21 +831,73 @@ public:
       }
     }
 
-    if (!is_contained(IDFPHIBlocks, Block)) {
-      // Final blend.
-      VPBasicBlock *Pred = Block->getSinglePredecessor();
-      assert(Pred && "Expected single predecessor!");
-      VPBuilder Builder;
-      Builder.setInsertPoint(Block, Block->begin());
-      for (int Idx = 0; Idx < Size; ++Idx) {
-        VPValue *BlendedVal = blendOverEdge(Idx, Pred, Block, Builder);
-        // TODO: HIR Mixed CG has issues propagating invalidate through the
-        // use-chain. Blends/phis are gonna be lowered to using the same temp,
-        // so invalidation might not actually be needed.
-        Phis[Idx]->replaceAllUsesWith(BlendedVal, false /* InvalidateIR */);
-      }
-      for (int Idx = 0; Idx < Size; ++Idx)
-        Phis[Idx]->getParent()->eraseInstruction(Phis[Idx]);
+    auto *DA = Block->getParent()->getVPlanDA();
+    if (is_contained(IDFPHIBlocks, Block)) {
+      assert(
+          all_of(
+              Phis,
+              [DA](const VPPHINode *Phi) { return DA->isDivergent(*Phi); }) &&
+          "Unimplemented support for uniform PHI in linearized control flow!");
+      return;
+    }
+
+    SmallVector<VPValue *, 4> UniformBlends;
+    // Final blend.
+    VPBasicBlock *Pred = Block->getSinglePredecessor();
+    assert(Pred && "Expected single predecessor!");
+    VPBuilder Builder;
+    Builder.setInsertPoint(Block, Block->begin());
+    for (int Idx = 0; Idx < Size; ++Idx) {
+      VPValue *BlendedVal = blendOverEdge(Idx, Pred, Block, Builder);
+      // TODO: HIR Mixed CG has issues propagating invalidate through the
+      // use-chain. Blends/phis are gonna be lowered to using the same temp,
+      // so invalidation might not actually be needed.
+      Phis[Idx]->replaceAllUsesWith(BlendedVal, false /* InvalidateIR */);
+
+      // Now see if the original phi was uniform and we'd need to extract active
+      // value from a potentially divergent def (might be uniform only on the
+      // edge leading to the original phi).
+      if (DA->isDivergent(*Phis[Idx]))
+        continue; // Not a uniform phi, no scalar extract.
+
+      if (!isa<VPBlendInst>(BlendedVal) && !DA->isDivergent(*BlendedVal))
+        // Original phi was like [ %uniform, %bb0 ], [ undef, %bb1 ]
+        continue;
+
+      // In all other cases we need to extract the uniform value from some
+      // active lane.
+      UniformBlends.push_back(BlendedVal);
+    }
+    for (int Idx = 0; Idx < Size; ++Idx)
+      Phis[Idx]->getParent()->eraseInstruction(Phis[Idx]);
+
+    if (UniformBlends.empty())
+      return;
+
+    if (Block->getParent()->areActiveLaneInstructionsDisabled())
+      return;
+
+    auto SplitIt = Block->getBlockPredicate()
+                       ? Block->getBlockPredicate()->getIterator()
+                       : Block->begin(); // splitBlockHead will adjust it to
+                                         // point after blends.
+
+    VPBasicBlock *ActiveLaneExtractBB = VPBlockUtils::splitBlockHead(
+        Block, SplitIt, VPLI,
+        Block->getName() + ".active.lane", &VPDomTree, &VPPostDomTree);
+    VPValue *Mask = Block->getPredicate();
+    if (!Mask)
+      Mask = Block->getParent()->getVPConstant(
+          ConstantInt::getTrue(*Block->getParent()->getLLVMContext()));
+    Builder.setInsertPoint(ActiveLaneExtractBB);
+    VPActiveLane *ActiveLane = Builder.createActiveLane(Mask);
+    DA->markUniform(*ActiveLane);
+
+    for (VPValue *Blend : UniformBlends) {
+      VPValue *UniformVal = Builder.createActiveLaneExtract(Blend, ActiveLane);
+      DA->markUniform(*UniformVal);
+      Blend->replaceUsesWithIf(
+          UniformVal, [UniformVal](VPUser *U) { return U != UniformVal; });
     }
   }
 };

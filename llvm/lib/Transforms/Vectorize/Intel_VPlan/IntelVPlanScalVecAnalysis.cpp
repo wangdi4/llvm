@@ -378,6 +378,19 @@ bool VPlanScalVecAnalysis::computeSpecialInstruction(
     return true;
   }
 
+  case VPInstruction::ActiveLane: {
+    setSVAKindForInst(Inst, SVAKind::FirstScalar);
+    setSVAKindForAllOperands(Inst, SVAKind::Vector);
+    return true;
+  }
+
+  case VPInstruction::ActiveLaneExtract: {
+    setSVAKindForInst(Inst, SVAKind::FirstScalar);
+    setSVAKindForOperand(Inst, 0, SVAKind::Vector);
+    setSVAKindForOperand(Inst, 1, SVAKind::FirstScalar);
+    return true;
+  }
+
   case VPInstruction::Not:
   case VPInstruction::SMax:
   case VPInstruction::UMax:
@@ -659,6 +672,8 @@ bool VPlanScalVecAnalysis::isSVASpecialProcessedInst(
   case VPInstruction::AllZeroCheck:
   case VPInstruction::VectorTripCountCalculation:
   case VPInstruction::OrigTripCountCalculation:
+  case VPInstruction::ActiveLane:
+  case VPInstruction::ActiveLaneExtract:
     return true;
   default:
     return false;

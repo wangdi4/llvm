@@ -474,6 +474,20 @@ public:
     return TC;
   }
 
+  VPActiveLane *createActiveLane(VPValue *Mask) {
+    auto *ActiveLane = new VPActiveLane(Mask);
+    ActiveLane->setName(Mask->getName() + ".active");
+    insert(ActiveLane);
+    return ActiveLane;
+  }
+
+  VPActiveLaneExtract *createActiveLaneExtract(VPValue *V, VPActiveLane *Lane) {
+    auto *Active = new VPActiveLaneExtract(V, Lane);
+    Active->setName(V->getName() + ".active");
+    insert(Active);
+    return Active;
+  }
+
   //===--------------------------------------------------------------------===//
   // RAII helpers.
   //===--------------------------------------------------------------------===//

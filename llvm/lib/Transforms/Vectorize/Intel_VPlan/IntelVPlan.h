@@ -725,6 +725,8 @@ public:
       HIRCopy, // INTEL
       OrigTripCountCalculation,
       VectorTripCountCalculation,
+      ActiveLane,
+      ActiveLaneExtract,
   };
 
 private:
@@ -2674,6 +2676,72 @@ private:
   Align OrigAlignment;
 };
 
+/// Return index of some active lane. Currently we use the first one but users
+/// must not rely on that behavior.
+class VPActiveLane : public VPInstruction {
+public:
+  VPActiveLane(VPValue *VectorMask)
+      : VPInstruction(VPInstruction::ActiveLane, VectorMask->getType(),
+                      {VectorMask}) {
+    assert(VectorMask->getType()->isIntegerTy(1) &&
+           "Mask is expected to have i1 'scalar' type");
+    assert((isa<VPConstant>(VectorMask) ||
+            any_of(VectorMask->users(),
+                   [](const VPUser *U) {
+                     return isa<VPInstruction>(U) &&
+                            cast<VPInstruction>(U)->getOpcode() ==
+                                VPInstruction::Pred;
+                   })) &&
+           "Mask operand to VPActiveLane instruction is expected to be a "
+           "predicate!");
+  }
+
+  // Method to support type inquiry through isa, cast, and dyn_cast.
+  static inline bool classof(const VPInstruction *V) {
+    return V->getOpcode() == VPInstruction::ActiveLane;
+  }
+
+  // Method to support type inquiry through isa, cast, and dyn_cast.
+  static inline bool classof(const VPValue *V) {
+    return isa<VPInstruction>(V) && classof(cast<VPInstruction>(V));
+  }
+
+protected:
+  VPActiveLane *cloneImpl() const override {
+    return new VPActiveLane(getOperand(0));
+  }
+};
+
+/// Expected to be used in the context when divergent value \p V happens to be
+/// uniform under some mask. In that case
+///
+///   %active = VPActiveLane %mask
+///   %extract = VPActiveLaneExtract %v, %active
+///
+/// would allow to get the desired scalar value.
+class VPActiveLaneExtract : public VPInstruction {
+public:
+  VPActiveLaneExtract(VPValue *V, VPActiveLane *Lane)
+      : VPInstruction(VPInstruction::ActiveLaneExtract, V->getType(),
+                      {V, Lane}) {}
+
+  // Method to support type inquiry through isa, cast, and dyn_cast.
+  static inline bool classof(const VPInstruction *V) {
+    return V->getOpcode() == VPInstruction::ActiveLaneExtract;
+  }
+
+  // Method to support type inquiry through isa, cast, and dyn_cast.
+  static inline bool classof(const VPValue *V) {
+    return isa<VPInstruction>(V) && classof(cast<VPInstruction>(V));
+  }
+
+protected:
+  VPActiveLaneExtract *cloneImpl() const override {
+    return new VPActiveLaneExtract(getOperand(0),
+                                   cast<VPActiveLane>(getOperand(1)));
+  }
+};
+
 /// VPlan models a candidate for vectorization, encoding various decisions take
 /// to produce efficient output IR, including which branches, basic-blocks and
 /// output IR instructions to generate, and their cost.
@@ -2719,6 +2787,16 @@ private:
   // HIR isn't uplifted for explict vector loop IV - need DA to treat backedge
   // condition as uniform.
   bool ForceOuterLoopBackedgeUniformity = false;
+
+  // HIR CG handles very limited scalar compute and tends to keep most of things
+  // on vectors. As such, the stability issue addressed by
+  // VPActiveLane/VPActiveLaneExtract doesn't seem to exist for HIR case. Also,
+  // implementing the proper CG for them
+  //   1) Doesn't seem to be needed right now - we have some time until we'll
+  //      implement a better approach to the problem.
+  //   2) Might not be easy/possible because the support for the scalar compute
+  //      itself is very weak in HIR CG.
+  bool DisableActiveLaneInstructions = false;
 
   /// Holds the name of the VPlan, for printing.
   std::string Name;
@@ -2794,6 +2872,12 @@ public:
   }
   bool isBackedgeUniformityForced() const {
     return ForceOuterLoopBackedgeUniformity;
+  }
+  void disableActiveLaneInstructions() {
+    DisableActiveLaneInstructions = true;
+  }
+  bool areActiveLaneInstructionsDisabled() {
+    return DisableActiveLaneInstructions;
   }
 
   const DataLayout *getDataLayout() const { return Externals.getDataLayout(); }
