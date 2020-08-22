@@ -682,7 +682,11 @@ public:
       return;
     }
 
-    if (!AtBB->getPredicate())
+    if (!AtBB->getPredicate() &&
+        // FIXME: This is ugly, hopefully we will redesign the whole way uniform
+        // instructions with divergent operands are processed...
+        none_of(*AtBB,
+                [](const VPInstruction &Inst) { return isa<VPActiveLane>(Inst); }))
       return;
 
     VPBasicBlock *IDom = VPDomTree.getNode(AtBB)->getIDom()->getBlock();
@@ -818,21 +822,50 @@ public:
       }
     }
 
-    if (!is_contained(IDFPHIBlocks, Block)) {
-      // Final blend.
-      VPBasicBlock *Pred = Block->getSinglePredecessor();
-      assert(Pred && "Expected single predecessor!");
-      VPBuilder Builder;
-      Builder.setInsertPoint(Block, Block->begin());
-      for (int Idx = 0; Idx < Size; ++Idx) {
-        VPValue *BlendedVal = blendOverEdge(Idx, Pred, Block, Builder);
-        // TODO: HIR Mixed CG has issues propagating invalidate through the
-        // use-chain. Blends/phis are gonna be lowered to using the same temp,
-        // so invalidation might not actually be needed.
-        Phis[Idx]->replaceAllUsesWith(BlendedVal, false /* InvalidateIR */);
-      }
-      for (int Idx = 0; Idx < Size; ++Idx)
-        Phis[Idx]->getParent()->eraseInstruction(Phis[Idx]);
+    auto *DA = Block->getParent()->getVPlanDA();
+    if (is_contained(IDFPHIBlocks, Block)) {
+      assert(
+          all_of(
+              Phis,
+              [DA](const VPPHINode *Phi) { return DA->isDivergent(*Phi); }) &&
+          "Unimplemented support for uniform PHI in linearized control flow!");
+      return;
+    }
+
+    SmallVector<VPValue *, 4> UniformBlends;
+    // Final blend.
+    VPBasicBlock *Pred = Block->getSinglePredecessor();
+    assert(Pred && "Expected single predecessor!");
+    VPBuilder Builder;
+    Builder.setInsertPoint(Block, Block->begin());
+    for (int Idx = 0; Idx < Size; ++Idx) {
+      VPValue *BlendedVal = blendOverEdge(Idx, Pred, Block, Builder);
+      // TODO: HIR Mixed CG has issues propagating invalidate through the
+      // use-chain. Blends/phis are gonna be lowered to using the same temp,
+      // so invalidation might not actually be needed.
+      Phis[Idx]->replaceAllUsesWith(BlendedVal, false /* InvalidateIR */);
+      if (!DA->isDivergent(*Phis[Idx]))
+        UniformBlends.push_back(BlendedVal);
+    }
+    for (int Idx = 0; Idx < Size; ++Idx)
+      Phis[Idx]->getParent()->eraseInstruction(Phis[Idx]);
+
+    if (UniformBlends.empty())
+      return;
+
+    VPBasicBlock *ActiveLaneExtractBB = VPBlockUtils::splitBlockHead(
+        Block, Block->getBlockPredicate()->getIterator(), VPLI,
+        Block->getName() + ".active.lane", &VPDomTree, &VPPostDomTree);
+    VPValue *Mask = Block->getPredicate();
+    Builder.setInsertPoint(ActiveLaneExtractBB);
+    VPActiveLane *ActiveLane = Builder.createActiveLane(Mask);
+    DA->markUniform(*ActiveLane);
+
+    for (VPValue *Blend : UniformBlends) {
+      VPValue *UniformVal = Builder.createActiveLaneExtract(Blend, ActiveLane);
+      DA->markUniform(*UniformVal);
+      Blend->replaceUsesWithIf(
+          UniformVal, [UniformVal](VPUser *U) { return U != UniformVal; });
     }
   }
 };
