@@ -61,6 +61,7 @@ using namespace llvm;
 
 /// Allow disabling BasicAA from the AA results. This is particularly useful
 /// when testing to isolate a single AA implementation.
+<<<<<<< HEAD
 static cl::opt<bool> DisableBasicAA("disable-basic-aa", cl::Hidden,
                                     cl::init(false));
 #if INTEL_CUSTOMIZATION
@@ -69,6 +70,9 @@ static cl::opt<unsigned> PtrVectorMemLocCheckDepth(
     cl::desc("Maximum depth of backtracing when searching the memory location "
              "of each pointer element in a vector (default = 10)"));
 #endif // INTEL_CUSTOMIZATION
+=======
+cl::opt<bool> DisableBasicAA("disable-basic-aa", cl::Hidden, cl::init(false));
+>>>>>>> b79889c2b143890463dca015432da29d3833572d
 
 AAResults::AAResults(AAResults &&Arg)
     : TLI(Arg.TLI), AAs(std::move(Arg.AAs)), AADeps(std::move(Arg.AADeps)) {
