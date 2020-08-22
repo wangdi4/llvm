@@ -178,6 +178,44 @@ VPBasicBlock *VPBlockUtils::splitBlock(VPBasicBlock *BB,
   return NewBB;
 }
 
+VPBasicBlock *VPBlockUtils::splitBlockHead(VPBasicBlock *BB,
+                                           VPBasicBlock::iterator BeforeIt,
+                                           VPLoopInfo *VPLInfo,
+                                           const Twine &Name,
+                                           VPDominatorTree *DomTree,
+                                           VPPostDominatorTree *PostDomTree) {
+  VPBasicBlock *NewBB = new VPBasicBlock(Name, BB->getParent());
+  NewBB->insertBefore(BB);
+
+  SmallVector<VPBasicBlock *, 4> Preds(BB->getPredecessors());
+  for (auto *Pred : Preds)
+    Pred->replaceSuccessor(BB, NewBB);
+
+  NewBB->setTerminator(BB);
+
+  // Add NewBB to VPLoopInfo
+  if (VPLoop *Loop = VPLInfo->getLoopFor(BB)) {
+    Loop->addBasicBlockToLoop(NewBB, *VPLInfo);
+  }
+
+  auto End = BB->end();
+
+  VPBasicBlock::iterator I = BeforeIt;
+  while (I != End && (isa<VPPHINode>(*I) || isa<VPBlendInst>(*I)))
+    ++I;
+
+  NewBB->Instructions.splice(NewBB->terminator(), BB->Instructions, BB->begin(),
+                             I);
+
+  // TODO: Make updates incremental.
+  if (DomTree)
+    DomTree->recalculate(*BB->getParent());
+  if (PostDomTree)
+    PostDomTree->recalculate(*BB->getParent());
+
+  return NewBB;
+}
+
 VPBasicBlock *VPBlockUtils::splitBlockBegin(VPBasicBlock *BB,
                                             VPLoopInfo *VPLInfo,
                                             VPDominatorTree *DomTree,
