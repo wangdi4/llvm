@@ -200,6 +200,7 @@ add_llvm_component_library(LLVMCodeGen
   ${INTEL_SOURCE_FILES_TO_BUILD}
 # end INTEL_CUSTOMIZATION
 
+  LiveDebugValues/LiveDebugValues.cpp
   LiveDebugValues/VarLocBasedImpl.cpp
 
   ADDITIONAL_HEADER_DIRS
