@@ -1539,9 +1539,7 @@ public:
 
   /// Set the list of instructions for this statement. It replaces the current
   /// list.
-  void setInstructions(ArrayRef<Instruction *> Range) {
-    Instructions.assign(Range.begin(), Range.end());
-  }
+  void setInstructions(ArrayRef<Instruction *> Range);
 
   std::vector<Instruction *>::const_iterator insts_begin() const {
     return Instructions.begin();
@@ -1949,19 +1947,7 @@ private:
   void addScopStmt(Region *R, StringRef Name, Loop *SurroundingLoop,
                    std::vector<Instruction *> EntryBlockInstructions);
 
-  /// Remove statements from the list of scop statements.
-  ///
-  /// @param ShouldDelete  A function that returns true if the statement passed
-  ///                      to it should be deleted.
-  /// @param AfterHoisting If true, also remove from data access lists.
-  ///                      These lists are filled during
-  ///                      ScopBuilder::buildAccessRelations. Therefore, if this
-  ///                      method is called before buildAccessRelations, false
-  ///                      must be passed.
-  void removeStmts(std::function<bool(ScopStmt &)> ShouldDelete,
-                   bool AfterHoisting = true);
-
-  /// Removes @p Stmt from the StmtMap.
+  /// Removes @p Stmt from the StmtMap and InstStmtMap.
   void removeFromStmtMap(ScopStmt &Stmt);
 
   /// Removes all statements where the entry block of the statement does not
@@ -2321,6 +2307,19 @@ public:
     MinMaxAliasGroups.back().first = MinMaxAccessesReadWrite;
     MinMaxAliasGroups.back().second = MinMaxAccessesReadOnly;
   }
+
+  /// Remove statements from the list of scop statements.
+  ///
+  /// @param ShouldDelete  A function that returns true if the statement passed
+  ///                      to it should be deleted.
+  /// @param AfterHoisting If true, also remove from data access lists.
+  ///                      These lists are filled during
+  ///                      ScopBuilder::buildAccessRelations. Therefore, if this
+  ///                      method is called before buildAccessRelations, false
+  ///                      must be passed.
+  void removeStmts(std::function<bool(ScopStmt &)> ShouldDelete,
+                   bool AfterHoisting = true);
+
   /// Get an isl string representing the context.
   std::string getContextStr() const;
 
@@ -2360,6 +2359,12 @@ public:
   ScopStmt *getStmtFor(Instruction *Inst) const {
     return InstStmtMap.lookup(Inst);
   }
+
+  /// Update the content of InstStmtMap for @p Stmt. @p OldList contains the
+  /// previous instructions in @p Stmt and is updated to contain the
+  /// instructions in @p NewList.
+  void updateInstStmtMap(ArrayRef<Instruction *> OldList,
+                         ArrayRef<Instruction *> NewList, ScopStmt *Stmt);
 
   /// Return the number of statements in the SCoP.
   size_t getSize() const { return Stmts.size(); }
