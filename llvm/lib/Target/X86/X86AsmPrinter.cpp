@@ -939,10 +939,26 @@ void X86AsmPrinter::emitNotifyTable(Module &M) {
   uint32_t StringOffset = 0;
   uint32_t ExprOffset = 0;
   for (auto Entry : NotifyAnnotations) {
-    if (EmitTabV0102)
-      emitLabelDifference(Entry.IP, NotifyStart, 8);  // Notify Position
-    else
-      OutStreamer->emitSymbolValue(Entry.IP, 8);      // TBD align 4?
+    if (TM.getTargetTriple().isArch32Bit()) {
+      // There are some tricks here in the SPEC, it just use 4-byte info
+      // for 32-bit target, but it ocupy 8-bytes int the table. We write 0
+      // in the high 4-bytes and the IP in the low 4-bytes, we can't directly
+      // write 8-byte symbol here, because now the 8-byte symbol will typed
+      // to 64-bit relocation even compiled in 32-bit target.
+      if (EmitTabV0102) {
+        emitLabelDifference(Entry.IP, NotifyStart, 4);  // Notify Position
+        OutStreamer->emitIntValue(0, 4);
+      } else {
+        OutStreamer->emitSymbolValue(Entry.IP, 4);
+        OutStreamer->emitIntValue(0, 4);
+      }
+    } else {
+      if (EmitTabV0102)
+        emitLabelDifference(Entry.IP, NotifyStart, 8);  // Notify Position
+      else
+        OutStreamer->emitSymbolValue(Entry.IP, 8);
+    }
+
     emitLabelDifference(Entry.ProbeEnd, Entry.IP, 4); // Probespace
     OutStreamer->emitIntValue(StringOffset, 4);       // Offset in strings
 
