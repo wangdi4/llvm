@@ -2065,6 +2065,10 @@ void X86TargetInfo::fillValidCPUList(SmallVectorImpl<StringRef> &Values) const {
   llvm::X86::fillValidCPUArchList(Values, Only64Bit);
 }
 
+void X86TargetInfo::fillValidTuneCPUList(SmallVectorImpl<StringRef> &Values) const {
+  llvm::X86::fillValidCPUArchList(Values);
+}
+
 ArrayRef<const char *> X86TargetInfo::getGCCRegNames() const {
   return llvm::makeArrayRef(GCCRegNames);
 }
