@@ -2567,6 +2567,26 @@ Optional<InlineResult> llvm::getAttributeBasedInliningDecision(
     CallBase &Call, Function *Callee, TargetTransformInfo &CalleeTTI,
     function_ref<const TargetLibraryInfo &(Function &)> GetTLI) {
 
+#if INTEL_CUSTOMIZATION
+  //
+  // We need to check this first, before getAttributeBasedInliningDecision
+  // has had the chance to return.
+  //
+  if (Call.hasFnAttr("prefer-inline-aggressive")) {
+    auto IsViable = isInlineViable(*Callee);
+    if (!IsViable.isSuccess()) {
+      //
+      // This could be generalized to handle main routines with names
+      // other than @main, but right now aggressive inlining only sets
+      // "may_have_huge_local_malloc" on main routines called @main.
+      //
+      Module *M = Callee->getParent();
+      Function *MainRtn = M->getFunction("main");
+      if (MainRtn && MainRtn->hasFnAttribute("may_have_huge_local_malloc"))
+        MainRtn->removeFnAttr("may_have_huge_local_malloc");
+    }
+  }
+#endif // INTEL_CUSTOMIZATION
   // Cannot inline indirect calls.
   if (!Callee)
     return InlineResult::failure("indirect call") // INTEL
@@ -2612,7 +2632,6 @@ Optional<InlineResult> llvm::getAttributeBasedInliningDecision(
   if (CallerIsFort && !CalleeIsFort || !CallerIsFort && CalleeIsFort)
     return InlineResult::failure("is cross language")
         .setIntelInlReason(NinlrIsCrossLanguage);
-
 #endif // INTEL_CUSTOMIZATION
 
   // Never inline functions with conflicting attributes (unless callee has

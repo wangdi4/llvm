@@ -10185,6 +10185,14 @@ bool CGOpenMPRuntime::emitTargetFunctions(GlobalDecl GD) {
     return false;
   }
 
+#if INTEL_COLLAB
+  // Don't emit unsupported functions even if they contain target regions or
+  // are marked 'declare target'.
+  if (const auto *FD = dyn_cast<FunctionDecl>(GD.getDecl()))
+    if (CGM.isUnsupportedTargetFunction(FD))
+      return true;
+#endif // INTEL_COLLAB
+
   const ValueDecl *VD = cast<ValueDecl>(GD.getDecl());
   // Try to detect target regions in the function.
 #if INTEL_COLLAB
@@ -10584,6 +10592,14 @@ bool CGOpenMPRuntime::markAsGlobalTarget(GlobalDecl GD) {
     return true;
 
   const auto *D = cast<FunctionDecl>(GD.getDecl());
+
+#if INTEL_COLLAB
+  // Prevent emission of functions that are not supported on the target,
+  // specifically varargs functions in SPIR-V.
+  if (CGM.isUnsupportedTargetFunction(D))
+    return true;
+#endif // INTEL_COLLAB
+
   // Do not to emit function if it is marked as declare target as it was already
   // emitted.
   if (OMPDeclareTargetDeclAttr::isDeclareTargetDeclaration(D)) {

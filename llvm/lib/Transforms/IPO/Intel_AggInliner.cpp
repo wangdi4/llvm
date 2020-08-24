@@ -83,121 +83,30 @@ InlineAggressiveInfo::InlineAggressiveInfo(InlineAggressiveInfo &&Arg)
 
 InlineAggressiveInfo::~InlineAggressiveInfo() {}
 
-// Mark 'CS' as Inlined-Call by inserting 'CS' into AggInlCalls if
-// it is already not there.
+// Mark 'CB' as Inlined-Call by inserting 'CB' into AggInlCalls if
+// it is already not there. Return 'true' if the process succeeded.
 //
-void InlineAggressiveInfo::setAggInlInfoForCallSite(CallBase &CB) {
-  if (isCallInstInAggInlList(CB))
-    return;
-  AggInlCalls.push_back(&CB);
-}
-
-// Returns true if 'CS' is marked as inlined-call i.e 'CS' is in
-// AggInlCall.
-//
-bool InlineAggressiveInfo::isCallInstInAggInlList(CallBase &CB) {
-  for (unsigned i = 0, e = AggInlCalls.size(); i != e; ++i) {
-    if (AggInlCalls[i] == &CB)
-      return true;
-  }
-  return false;
-}
-
-// Returns true if there are no calls to user defined routines in
-// callee of 'CS'. This function is used to prove that formals of
-// a routine are not escaped to any other user defined routines.
-//
-static bool noCallsToUserDefinedRoutinesInCallee(CallBase &CB) {
+bool InlineAggressiveInfo::setAggInlInfoForCallSite(CallBase &CB) {
   Function *F = CB.getCalledFunction();
-  if (!F)
-    return false;
-  for (inst_iterator II = inst_begin(F), E = inst_end(F); II != E; ++II) {
-    auto CB = dyn_cast<CallBase>(&*II);
-    if (!CB)
-      continue;
-    Function *Callee = CB->getCalledFunction();
-    if (!Callee || !Callee->isDeclaration()) {
+  if (F && !F->isDeclaration() && !F->isIntrinsic())
+    if (AggInlCalls.insert(&CB))
+      LLVM_DEBUG(dbgs() << "AggInl: Inserting: " << CB << "\n");
+    else
+      return true;
+  return setAggInlInfoForCallSites(*CB.getCaller());
+}
+
+// All CallBases to 'F' as Inlined-Call by inserting them into AggInlCalls if
+// if they are not already not there. Return 'true' if the process succeeded.
+//
+bool InlineAggressiveInfo::setAggInlInfoForCallSites(Function &F) {
+  for (User *U : F.users()) {
+    auto CCB = dyn_cast<CallBase>(U);
+    if (!CCB)
       return false;
-    }
-  }
-  return true;
-}
-
-// Mark all callsites of 'F' as aggressive-inlined-calls.
-//
-bool InlineAggressiveInfo::setAggInlineInfoForAllCallSites(Function *F) {
-  for (auto *UR : F->users()) {
-    if (!isa<CallInst>(UR)) {
-      return false;
-    }
-    auto CB1 = cast<CallBase>(UR);
-    setAggInlInfoForCallSite(*CB1);
-  }
-  return true;
-}
-
-// Mark 'CS' as aggressive-inlined-calls and all callsites of callee of
-// 'CS' as aggressive-inlined-calls.
-//
-bool InlineAggressiveInfo::setAggInlineInfo(CallBase &CB) {
-  setAggInlInfoForCallSite(CB);
-  Function *Callee = CB.getCalledFunction();
-  if (!Callee)
-    return false;
-  return setAggInlineInfoForAllCallSites(Callee);
-}
-
-// Propagate AggInfo from callsites to called functions recursively.
-//
-bool InlineAggressiveInfo::propagateAggInlineInfoCall(CallBase &CB) {
-
-  Function *Callee = CB.getCalledFunction();
-
-  if (!Callee || Callee->isDeclaration()) {
-    return false;
-  }
-  bool DoInline = false;
-  for (inst_iterator II = inst_begin(Callee), E = inst_end(Callee); II != E;
-       ++II) {
-
-    auto CB1 = dyn_cast<CallBase>(&*II);
-    if (!CB1)
-      continue;
-    if (propagateAggInlineInfoCall(*CB1)) {
-      setAggInlineInfo(*CB1);
-      DoInline = true;
-    }
-  }
-  if (isCallInstInAggInlList(CB))
-    DoInline = true;
-
-  return DoInline;
-}
-
-// Set AggInfo to any callsite that eventually calls a callsite, which
-// is marked as Inlined-call for Aggressive Analysis.
-//
-bool InlineAggressiveInfo::propagateAggInlineInfo(Function *F) {
-  for (inst_iterator II = inst_begin(F), E = inst_end(F); II != E; ++II) {
-    auto CB = dyn_cast<CallBase>(&*II);
-    if (!CB)
-      continue;
-    if (propagateAggInlineInfoCall(*CB))
-      setAggInlineInfo(*CB);
-  }
-
-  // Check a limit on number of callsites that marked as inlined-calls.
-  if (AggInlCalls.size() > InlineAggressiveCSLimit)
-    return false;
-
-  // Disable Aggressive analysis if any callsite is marked as both NoInline
-  // and aggressive-inlined-call.
-  for (unsigned i = 0, e = AggInlCalls.size(); i != e; ++i) {
-    auto CB = AggInlCalls[i];
-    if (CB->isNoInline())
+    if (!setAggInlInfoForCallSite(*CCB))
       return false;
   }
-
   return true;
 }
 
@@ -331,140 +240,134 @@ static bool collectMemoryAllocatedGlobVarsUsingAllocRtn(
   return true;
 }
 
-// It tracks all uses of global variables in 'Globals' and it basically
-// does two main things:
-//
-//   1. Mark callsites as aggressive-inlined-calls if dereference or
-//      address of global variables in 'Globals' are passed as arguments.
-//        Ex:
-//             LBM_allocateGrid(@srcGrid))
-//
-//             %0 = load @srcGrid,
-//             %arraydecay = getelementptr %0, i64 0,
-//             LBM_initializeGrid(double* %arraydecay)
-//
-//   2. Mark all callsites of a routine if it has any references to the
-//      globals variables in 'Globals'
-//      Ex:
-//             LBM_swapGrids()  {
-//                 ...
-//                 store i64 %1, @srcGrid to i64*
-//                 ...
-//             }
-//
-bool InlineAggressiveInfo::trackUsesofAllocatedGlobalVariables(
-    std::vector<GlobalVariable *> &Globals) {
-  for (unsigned i = 0, e = Globals.size(); i != e; ++i) {
-    GlobalVariable *GV = Globals[i];
-    for (User *U1 : GV->users()) {
+using Item = std::tuple<Value *, Value *, unsigned>;
 
-      while (!isa<CallInst>(U1)) {
-        //   %3 = load [208000000 x double]*, [208000000 x double]** @srcGrid
-        //   %arraydecay2 = getelementptr  %3, i64 0, i64 0
-        //   @LBM_loadObstacleFile(double* %arraydecay2, i8* nonnull %2) #5
-        //
-        if (!U1->hasOneUse()) {
-          break;
-        }
-        if (Operator::getOpcode(U1) == Instruction::BitCast ||
-            Operator::getOpcode(U1) == Instruction::Load ||
-            Operator::getOpcode(U1) == Instruction::GetElementPtr) {
-          U1 = *U1->user_begin();
+// Track the use of the GlobalVariables in 'GVs' and mark any CallBase for
+// aggressive inlining that is reachable from them. Return 'true' if the
+// process is successful.
+//
+bool InlineAggressiveInfo::trackUsesOfAGVs(std::vector<GlobalVariable *> &GVs) {
+  SmallVector<Item, 10> Worklist;
+  SmallSet<Value *, 10> Visited;
+
+  //
+  // For Value 'X' potentially used as an actual argument to 'CB',
+  // return the corresponding Argument of the callee, if it can be
+  // uniquely identified. Otherwise return 'nullptr'.
+  //
+  auto GetFormal = [](Value *X, CallBase *CB) -> Argument * {
+    Function *F = CB->getCalledFunction();
+    if (!F || CB->getNumArgOperands() != F->arg_size())
+      return nullptr;
+    bool FoundIndex = false;
+    unsigned Index = 0;
+    for (unsigned I = 0, E = CB->getNumArgOperands(); I < E; ++I) {
+      if (CB->getArgOperand(I) == X) {
+        if (!FoundIndex) {
+          Index = I;
+          FoundIndex = true;
         } else {
-          LLVM_DEBUG(dbgs() << " Skipped AggInl ... unexpeced use of global\n"
-                            << "      " << *U1 << "\n");
-          return false;
+          return nullptr;
         }
       }
+    }
+    return FoundIndex ? F->getArg(Index) : nullptr;
+  };
 
-      assert(U1 && "Expecting use");
+  //
+  // Add another Worklist element and put out a trace message.
+  //
+  auto TrackAndPrint = [&Worklist](Value *VS, Value *VD, unsigned IL) {
+    Worklist.push_back({VS, VD, IL});
+    LLVM_DEBUG(dbgs() << "TrackAggInl: FROM " << *VS << "\n");
+    LLVM_DEBUG(dbgs() << "TrackAggInl: TO   " << *VD << "\n");
+  };
 
-      if (CallInst *CI2 = dyn_cast<CallInst>(U1)) {
-        auto CB1 = cast<CallBase>(CI2);
-        // Mark callsite as aggressive-inlined-call only if callee
-        // doesn't have any calls to user defined routines so that
-        // we can ignore propagating formals to other calls in Callee.
-        //
-        if (!noCallsToUserDefinedRoutinesInCallee(*CB1)) {
-          LLVM_DEBUG(dbgs()
-                     << " Skipped AggInl ... global may be escaped in callee\n"
-                     << "      " << *CB1 << "\n");
-          return false;
-        }
-        LLVM_DEBUG(dbgs() << "AggInl:  Marking callsite for inline  \n"
-                          << "      " << *CB1 << "\n");
-        setAggInlInfoForCallSite(*CB1);
+  //
+  // Main code for trackUsesOfAGVs()
+  //
+  for (unsigned I = 0, E = GVs.size(); I != E; ++I) {
+    GlobalVariable *GV = GVs[I];
+    //
+    // Start by loading the Users of the GVs. Any Function is which they
+    // appear, except @main, should be marked for aggressive inlining.
+    //
+    for (User *U : GV->users()) {
+      auto V = dyn_cast<Value>(U);
+      if (!V) {
+        LLVM_DEBUG(dbgs() << "TrackAggInl: Use not a Value " << *V << "\n");
+        return false;
+      }
+      TrackAndPrint(GV, V, 0);
+    }
+    //
+    // Propagate through the def/use chains.
+    //
+    while (!Worklist.empty()) {
+      Item IT = Worklist.pop_back_val();
+      Value *X = std::get<0>(IT);
+      Value *V = std::get<1>(IT);
+      unsigned IL = std::get<2>(IT);
+      if (!Visited.insert(V).second)
         continue;
-      }
-
-      // Process all uses if user has multiple uses.
-      for (User *U2 : U1->users()) {
-        if (Operator::getOpcode(U2) == Instruction::Store) {
-          //  LBM_swapGrids()  {
-          //     ...
-          //     store i64 %1, @srcGrid to i64*)
-          Function *F1 = cast<Instruction>(U2)->getParent()->getParent();
-          LLVM_DEBUG(dbgs() << "AggInl:  Marking all callsites of "
-                            << F1->getName() << "\n");
-          setAggInlineInfoForAllCallSites(F1);
-        } else if (CallInst *CI2 = dyn_cast<CallInst>(U2)) {
-          // %7 = load @srcGrid,
-          // %arraydecay8 = getelementptr %7, i64 0
-          // LBM_initializeSpecialCellsForChannel(double* %arraydecay8)
-          // LBM_initializeSpecialCellsForLDC(double* %arraydecay8)
-          auto CB1 = cast<CallBase>(CI2);
-          if (!noCallsToUserDefinedRoutinesInCallee(*CB1)) {
-            LLVM_DEBUG(dbgs()
-                       << " Skipped AggInl ...global may be escaped in callee\n"
-                       << "      " << *CB1 << "\n");
-            return false;
-          }
-          LLVM_DEBUG(dbgs() << "AggInl:  Marking callsite for inline  \n"
-                            << "      " << *CB1 << "\n");
-          setAggInlInfoForCallSite(*CB1);
-        } else if (Operator::getOpcode(U2) == Instruction::Load) {
-          for (User *U3 : U2->users()) {
-            if (Operator::getOpcode(U3) != Instruction::Store) {
-              LLVM_DEBUG(dbgs()
-                         << " Skipped AggInl ... unexpected use of global\n"
-                         << "      " << *U3 << "\n");
-              return false;
-            }
-            Function *F1 = cast<Instruction>(U3)->getParent()->getParent();
-            LLVM_DEBUG(dbgs() << "AggInl:  Marking all callsites of "
-                              << F1->getName() << "\n");
-            setAggInlineInfoForAllCallSites(F1);
-          }
-        } else if (Operator::getOpcode(U2) == Instruction::GetElementPtr) {
-           if (U2->hasOneUse()) {
-             U2 = *U2->user_begin();
-             if (CallInst *CI2 = dyn_cast<CallInst>(U2)) {
-               auto CB1 = cast<CallBase>(CI2);
-               // Mark callsite as aggressive-inlined-call only if callee
-               // doesn't have any calls to user defined routines so that
-               // we can ignore propagating formals to other calls in Callee.
-               //
-               if (!noCallsToUserDefinedRoutinesInCallee(*CB1)) {
-                 LLVM_DEBUG(dbgs() << " Skipped AggInl ... global may be"
-                                   << " escaped in callee\n"
-                                   << "      " << *CB1 << "\n");
-                 return false;
-               }
-               LLVM_DEBUG(dbgs() << "AggInl:  Marking callsite for inline  \n"
-                                 << "      " << *CB1 << "\n");
-               setAggInlInfoForCallSite(*CB1);
-               continue;
-            }
-          }
-          LLVM_DEBUG(dbgs() << " Skipped AggInl ... unexpected use of global\n"
-                            << "      " << *U2 << "\n");
+      //
+      // Do not trace through LoadInsts at more than one level of
+      // dereferencing.
+      //
+      auto LI = dyn_cast<LoadInst>(V);
+      if (LI && LI->getPointerOperand() == X)
+        if (++IL > 1)
+          continue;
+      //
+      // Each CallBase encountered should be aggressively inlined. Mark
+      // it for that, and load the Worklist with new items propagating
+      // down from the formal arguments.
+      //
+      if (auto CB = dyn_cast<CallBase>(V)) {
+        if (AggInlCalls.size() >= InlineAggressiveCSLimit) {
+          LLVM_DEBUG(dbgs() << "TrackAggInl: Too many CallBases\n");
           return false;
-        } else {
-          LLVM_DEBUG(dbgs() << " Skipped AggInl ... unexpected use of global\n"
-                            << "      " << *U2 << "\n");
+        }
+        if (!setAggInlInfoForCallSite(*CB)) {
+          LLVM_DEBUG(dbgs() << "TrackAggInl: Could not set AggInfo for "
+                            << *CB << "\n");
+          return false;
+        }
+        Argument *A = GetFormal(X, CB);
+        if (!A) {
+          LLVM_DEBUG(dbgs() << "TrackAggInl: NO FUNCTION OR UNIQUE FORMAL\n");
+          return false;
+        }
+        LLVM_DEBUG(dbgs() << "TrackAggInl: ARG: " << *A << " "
+                          << CB->getCalledFunction()->getName() << "\n");
+        for (User *U : A->users())
+          TrackAndPrint(A, U, IL);
+      //
+      // Storing back GV kills the analysis. Bail out.
+      //
+      } else if (auto SI = dyn_cast<StoreInst>(V)) {
+        if (SI->getValueOperand() == GV) {
+          LLVM_DEBUG(dbgs() << "TrackAggInl: StoreInst stores GlobalValue "
+                            << *GV << "\n");
+          return false;
+        }
+      //
+      // Ensure that all callsites on any path from @main to this
+      // Instruction get inlined.
+      //
+      } else if (auto II = dyn_cast<Instruction>(V)) {
+        Function *F = II->getFunction();
+        if (!setAggInlInfoForCallSites(*F)) {
+          LLVM_DEBUG(dbgs() << "TrackAggInl: Could not set AggInfo for "
+                            << F->getName() << "\n");
           return false;
         }
       }
+      //
+      // Normal propagation from def to use.
+      //
+      for (User *U : V->users())
+        TrackAndPrint(V, U, IL);
     }
   }
   return true;
@@ -478,6 +381,7 @@ InlineAggressiveInfo InlineAggressiveInfo::runImpl(Module &M,
     LLVM_DEBUG(dbgs() << " Skipped AggInl ... Whole Program NOT safe \n");
     return Result;
   }
+  Result.setNoRecurseOnTinyFunctions(M);
   Result.analyzeModule(M);
   return Result;
 }
@@ -575,18 +479,11 @@ bool InlineAggressiveInfo::analyzeHugeMallocGlobalPointersHeuristic(Module &M) {
       dbgs() << "      " << *AllocatedGlobals[i] << "\n";
   });
 
-  if (!trackUsesofAllocatedGlobalVariables(AllocatedGlobals)) {
+  if (!trackUsesOfAGVs(AllocatedGlobals)) {
     AggInlCalls.clear();
     LLVM_DEBUG(
         dbgs()
         << " Skipped AggInl ... can't track uses of Allocated Globals\n");
-    return false;
-  }
-
-  if (!propagateAggInlineInfo(MainRtn)) {
-    AggInlCalls.clear();
-    LLVM_DEBUG(
-        dbgs() << " Skipped AggInl ... can't propagate Agg Inline info\n");
     return false;
   }
 
@@ -857,12 +754,48 @@ bool InlineAggressiveInfo::analyzeSingleAccessFunctionGlobalVarHeuristic(
     LLVM_DEBUG(dbgs() << "  Inlining calls \n");
     for (auto *CB : TPair.second) {
       LLVM_DEBUG(dbgs() << "     " << *CB << "\n");
-      setAggInlInfoForCallSite(*CB);
+      if (!setAggInlInfoForCallSite(*CB)) {
+        LLVM_DEBUG(dbgs() << "   Could not set AggInfo for " << *CB << "\n");
+        return false;
+      }
     }
   }
   if (AggInlCalls.size())
     return true;
   return false;
+}
+
+//
+// Currently in FunctionAttrs.cpp, weakODR functions will not be
+// marked as NoRecurse, because they might be pre-empted by a
+// strong version. That will not happen if we detect "whole program
+// seen". So we will mark some such tiny Functions as NoRecurse
+// here, because the aggressive inlining analysis may test if
+// Functions in the call graph are recursive. The analysis we are
+// doing here is limited to tiny functions to save compile time. We
+// can do a more general implementation if it is found to be useful.
+//
+void InlineAggressiveInfo::setNoRecurseOnTinyFunctions(Module &M) {
+
+  auto ShouldSetNoRecurse = [](Function &F) -> bool {
+    if (F.isDeclaration())
+      return false;
+    if (F.doesNotRecurse())
+      return false;
+    if (F.size() > MaxNumBBTinyFuncLimit)
+      return false;
+    for (auto &I : instructions(F))
+      if (isa<CallBase>(&I))
+        return false;
+    return true;
+  };
+
+  for (auto &F: M.functions())
+    if (ShouldSetNoRecurse(F)) {
+      F.setDoesNotRecurse();
+      LLVM_DEBUG(dbgs() << "AggInl: Setting NoRecurse on: "
+                        << F.getName() << "\n");
+    }
 }
 
 bool InlineAggressiveInfo::analyzeModule(Module &M) {

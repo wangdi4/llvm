@@ -1109,6 +1109,16 @@ public:
   bool inTargetRegion() { return InTargetRegion > 0; }
   void SetTargetRegionFunctionAttributes(llvm::Function *Fn);
   std::string getUniqueItaniumABIMangledName(GlobalDecl GD);
+
+  bool isUnsupportedTargetFunction(const FunctionDecl *FD) {
+    // Variadic functions are not supported in SPIR-V.
+    if (getLangOpts().OpenMPLateOutline && getLangOpts().OpenMPIsDevice &&
+        getTriple().isSPIR())
+      if (auto *FnTy = FD->getType()->getAs<FunctionProtoType>())
+        if (FnTy->isVariadic())
+          return true;
+    return false;
+  }
 #endif // INTEL_COLLAB
 
   void generateIntelFPGAAnnotation(const Decl *D,
