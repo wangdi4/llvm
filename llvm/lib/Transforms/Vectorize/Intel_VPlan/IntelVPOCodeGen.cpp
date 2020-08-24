@@ -2128,14 +2128,11 @@ void VPOCodeGen::vectorizeInterleavedStore(VPInstruction *VPStoreArg,
     GroupStore = Builder.CreateAlignedStore(StoredValue, GroupPtr, Alignment);
   }
 
-  if (auto *NtmpMD = cast<VPLoadStoreInst>(LeaderInst)
-                         ->getMetadata(LLVMContext::MD_nontemporal))
-    GroupStore->setMetadata(LLVMContext::MD_nontemporal, NtmpMD);
-
   DEBUG_WITH_TYPE("ovls", dbgs()
                               << "Emitted a group-wide vector STORE for Group#"
                               << Group->getDebugId() << ":\n  " << *GroupStore
                               << "\n\n");
+  (void) GroupStore;
 }
 
 void VPOCodeGen::vectorizeUnitStrideStore(VPInstruction *VPInst,
@@ -2179,9 +2176,11 @@ void VPOCodeGen::vectorizeUnitStrideStore(VPInstruction *VPInst,
     Store = Builder.CreateAlignedStore(VecDataOp, VecPtr, Alignment);
   }
 
-  if (auto *NtmpMD = cast<VPLoadStoreInst>(VPInst)->getMetadata(
-          LLVMContext::MD_nontemporal))
-    Store->setMetadata(LLVMContext::MD_nontemporal, NtmpMD);
+  const DataLayout &DL = OrigLoop->getHeader()->getModule()->getDataLayout();
+  if (Alignment == DL.getTypeAllocSize(VecDataOp->getType()))
+    if (auto *NtmpMD = cast<VPLoadStoreInst>(VPInst)->getMetadata(
+            LLVMContext::MD_nontemporal))
+      Store->setMetadata(LLVMContext::MD_nontemporal, NtmpMD);
 
   if (auto *DynPeeling =
           dyn_cast_or_null<VPlanDynamicPeeling>(PreferredPeeling))
