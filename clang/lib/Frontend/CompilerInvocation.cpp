@@ -811,6 +811,7 @@ static bool ParseCodeGenArgs(CodeGenOptions &Opts, ArgList &Args, InputKind IK,
   Opts.EmitCodeView = Args.hasArg(OPT_gcodeview);
   Opts.CodeViewGHash = Args.hasArg(OPT_gcodeview_ghash);
 #if INTEL_CUSTOMIZATION
+  Opts.EmitTraceBack = Args.hasArg(OPT_traceback);
   Opts.EmitIntelSTI = Args.hasArg(OPT_gintel_sti);
   Opts.DebugOpenCLBasicTypes = Args.hasArg(OPT_gintel_opencl_builtin_types);
 #endif // INTEL_CUSTOMIZATION

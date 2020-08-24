@@ -2375,6 +2375,11 @@ def gdwarf_5 : Flag<["-"], "gdwarf-5">, Group<g_Group>,
 def gcodeview : Flag<["-"], "gcodeview">,
   HelpText<"Generate CodeView debug information">,
   Flags<[CC1Option, CC1AsOption, CoreOption]>;
+#if INTEL_CUSTOMIZATION
+def traceback : Flag<["-"], "traceback">,
+  HelpText<"Generate traceback debug information">,
+  Flags<[CC1Option, CoreOption]>;
+#endif // INTEL_CUSTOMIZATION
 def gcodeview_ghash : Flag<["-"], "gcodeview-ghash">,
   HelpText<"Emit type record hashes in a .debug$H section">,
   Flags<[CC1Option, CoreOption]>;
