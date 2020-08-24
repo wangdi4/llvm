@@ -3448,7 +3448,6 @@ unsigned LoopVectorizationCostModel::getVectorCallCost(CallInst *CI,
   // If we can't emit a vector call for this function, then the currently found
   // cost is the cost we need to return.
   NeedToScalarize = true;
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   // If the callee is glibc sincos, just scalarize.
   LibFunc LibF;
@@ -3457,11 +3456,7 @@ unsigned LoopVectorizationCostModel::getVectorCallCost(CallInst *CI,
       return Cost;
   }
 #endif // INTEL_CUSTOMIZATION
-  VFShape Shape =
-      VFShape::get(*CI, ElementCount::getFixed(VF), false /*HasGlobalPred*/);
-=======
   VFShape Shape = VFShape::get(*CI, VF, false /*HasGlobalPred*/);
->>>>>>> c8d2b065b98fa91139cc7bb1fd1407f032ef252e
   Function *VecFunc = VFDatabase(*CI).getVectorizedFunction(Shape);
 
   if (!TLI || CI->isNoBuiltin() || !VecFunc)
