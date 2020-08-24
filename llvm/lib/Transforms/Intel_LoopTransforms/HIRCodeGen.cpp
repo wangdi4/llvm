@@ -1189,14 +1189,6 @@ void CGVisitor::replaceOldRegion(BasicBlock *RegionEntry) {
   // Save entry and succ fields, these get invalidated once block is split
   BasicBlock *EntryFirstHalf = CurRegion->getEntryBBlock();
 
-  // Split the block if the region entry is the same as function entry
-  // TODO - As mentioned in discussions with Pankaj, the framework should
-  // handle this splitting as splitting here can cause problems.
-  if (&(F.getEntryBlock()) == EntryFirstHalf) {
-    EntryFirstHalf = EntryFirstHalf->splitBasicBlock(
-        EntryFirstHalf->getTerminator(), "entry.split");
-  }
-
   BasicBlock *EntrySecondHalf =
       SplitBlock(EntryFirstHalf, &*(EntryFirstHalf->begin()));
 

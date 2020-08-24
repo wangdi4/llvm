@@ -2184,8 +2184,8 @@ void HIRRegionIdentification::createFunctionLevelRegion(Function &Func) {
 
   IRRegion::RegionBBlocksTy BBlocks;
 
-  for (auto BBIt = ++Func.begin(), E = Func.end(); BBIt != E; ++BBIt) {
-    BBlocks.push_back(&*BBIt);
+  for (auto &BB : Func) {
+    BBlocks.push_back(&BB);
   }
 
   IRRegion::RegionBBlocksTy NonLoopBBlocks;
