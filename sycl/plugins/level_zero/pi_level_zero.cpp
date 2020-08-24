@@ -553,6 +553,8 @@ zeModuleDynamicLinkMock(uint32_t numModules, ze_module_handle_t *phModules,
 static ze_result_t
 zeModuleGetPropertiesMock(ze_module_handle_t hModule,
                           ze_module_properties_t *pModuleProperties);
+
+static bool isOnlineLinkEnabled();
 // End forward declarations for mock Level Zero APIs
 
 std::once_flag OnceFlag;
@@ -2505,6 +2507,15 @@ static ze_result_t
 zeModuleDynamicLinkMock(uint32_t numModules, ze_module_handle_t *phModules,
                         ze_module_build_log_handle_t *phLinkLog) {
 
+  // If enabled, try calling the real driver API instead.  At the time this
+  // code was written, the "phLinkLog" parameter to zeModuleDynamicLink()
+  // doesn't work, so hard code it to NULL.
+  if (isOnlineLinkEnabled()) {
+    if (phLinkLog)
+      *phLinkLog = nullptr;
+    return ZE_CALL_NOCHECK(zeModuleDynamicLink(numModules, phModules, nullptr));
+  }
+
   // The mock implementation can only handle the degenerate case where there
   // is only a single module that is "linked" to itself.  There is nothing to
   // do in this degenerate case.
@@ -2524,11 +2535,31 @@ static ze_result_t
 zeModuleGetPropertiesMock(ze_module_handle_t hModule,
                           ze_module_properties_t *pModuleProperties) {
 
+  // If enabled, try calling the real driver API first.  At the time this code
+  // was written it always returns ZE_RESULT_ERROR_UNSUPPORTED_FEATURE, so we
+  // fall back to the mock in this case.
+  if (isOnlineLinkEnabled()) {
+    ze_result_t ZeResult =
+        ZE_CALL_NOCHECK(zeModuleGetProperties(hModule, pModuleProperties));
+    if (ZeResult != ZE_RESULT_ERROR_UNSUPPORTED_FEATURE) {
+      return ZeResult;
+    }
+  }
+
   // The mock implementation assumes that the module has imported symbols.
   // This is a conservative guess which may result in unnecessary calls to
   // copyModule(), but it is always correct.
   pModuleProperties->flags = ZE_MODULE_PROPERTY_FLAG_IMPORTS;
   return ZE_RESULT_SUCCESS;
+}
+
+// Returns true if we should use the Level Zero driver online linking APIs.
+// At the time this code was written, these APIs exist but do not work.  We
+// think that support in the DPC++ runtime is ready once the driver bugs are
+// fixed, so runtime support can be enabled by setting an environment variable.
+static bool isOnlineLinkEnabled() {
+  static bool IsEnabled = std::getenv("SYCL_ENABLE_LEVEL_ZERO_LINK");
+  return IsEnabled;
 }
 
 pi_result piKernelCreate(pi_program Program, const char *KernelName,
