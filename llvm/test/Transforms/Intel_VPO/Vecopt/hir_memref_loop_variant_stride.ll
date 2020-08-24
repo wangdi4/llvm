@@ -22,7 +22,7 @@
 
 ; VPVAL-CG:           + DO i1 = 0, 1023, 2   <DO_LOOP> <novectorize>
 ; VPVAL-CG-NEXT:      |   %.unifload = (%q)[0:0:8(i64*:0)];
-; VPVAL-CG-NEXT:      |   (<2 x float>*)(%p)[0:i1:%.unifload(float*:0)] = 5.000000e+02;
+; VPVAL-CG-NEXT:      |   (<2 x float>*)(%p)[0:i1 + <i64 0, i64 1>:%.unifload(float*:0)] = 5.000000e+02;
 ; VPVAL-CG-NEXT:      + END LOOP
 
 
