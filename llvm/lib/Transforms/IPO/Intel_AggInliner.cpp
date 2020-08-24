@@ -292,14 +292,8 @@ bool InlineAggressiveInfo::trackUsesOfAGVs(std::vector<GlobalVariable *> &GVs) {
     // Start by loading the Users of the GVs. Any Function is which they
     // appear, except @main, should be marked for aggressive inlining.
     //
-    for (User *U : GV->users()) {
-      auto V = dyn_cast<Value>(U);
-      if (!V) {
-        LLVM_DEBUG(dbgs() << "TrackAggInl: Use not a Value " << *V << "\n");
-        return false;
-      }
-      TrackAndPrint(GV, V, 0);
-    }
+    for (User *U : GV->users())
+      TrackAndPrint(GV, U, 0);
     //
     // Propagate through the def/use chains.
     //
@@ -411,19 +405,18 @@ bool InlineAggressiveInfo::analyzeHugeMallocGlobalPointersHeuristic(Module &M) {
     if (F.getName() == "main")
       MainRtn = &F;
 
-    for (inst_iterator II = inst_begin(F), E = inst_end(F); II != E; ++II) {
-
+    for (auto &II : instructions(F)) {
       TotalInstCount++;
-      if (isa<InvokeInst>(&*II)) {
+      if (isa<InvokeInst>(&II)) {
         LLVM_DEBUG(dbgs() << " Skipped AggInl ... InvokeInst is seen");
         return false;
       }
-      const CallInst *CI = dyn_cast<CallInst>(&*II);
-      if (!CI || !isa<CallInst>(CI))
+      auto CI = dyn_cast<CallInst>(&II);
+      if (!CI)
         continue;
       Function *Callee = CI->getCalledFunction();
 
-      if (Callee == nullptr) {
+      if (!Callee) {
         LLVM_DEBUG(dbgs() << " Skipped AggInl ... Indirect call is seen");
         return false;
       }
@@ -431,8 +424,7 @@ bool InlineAggressiveInfo::analyzeHugeMallocGlobalPointersHeuristic(Module &M) {
         continue;
       }
 
-      auto CB = cast<CallBase>(&*II);
-      if (isMallocAddressSavedInArg(F, *CB)) {
+      if (isMallocAddressSavedInArg(F, *CI)) {
         if (AllocRtn != nullptr) {
           LLVM_DEBUG(dbgs()
                      << " Skipped AggInl ... Found more than 1 malloc routine");
