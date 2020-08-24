@@ -10309,7 +10309,7 @@ public:
 private:
   void *VarDataSharingAttributesStack;
   /// Number of nested '#pragma omp declare target' directives.
-  unsigned DeclareTargetNestingLevel = 0;
+  SmallVector<SourceLocation, 4> DeclareTargetNesting;
   /// Initialization of data-sharing attributes stack.
   void InitDataSharingAttributesStack();
   void DestroyDataSharingAttributesStack();
@@ -10573,7 +10573,7 @@ public:
                                      SourceLocation Loc);
   /// Return true inside OpenMP declare target region.
   bool isInOpenMPDeclareTargetContext() const {
-    return DeclareTargetNestingLevel > 0;
+    return !DeclareTargetNesting.empty();
   }
   /// Return true inside OpenMP target region.
   bool isInOpenMPTargetExecutionDirective() const;

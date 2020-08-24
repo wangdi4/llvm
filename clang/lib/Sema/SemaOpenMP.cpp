@@ -2536,7 +2536,7 @@ void Sema::finalizeOpenMPDelayedAnalysis(const FunctionDecl *Caller,
     StringRef HostDevTy =
         getOpenMPSimpleClauseTypeName(OMPC_device_type, OMPC_DEVICE_TYPE_host);
     Diag(Loc, diag::err_omp_wrong_device_function_call) << HostDevTy << 0;
-    Diag(FD->getAttr<OMPDeclareTargetDeclAttr>()->getLocation(),
+    Diag(*OMPDeclareTargetDeclAttr::getLocation(FD),
          diag::note_omp_marked_device_type_here)
         << HostDevTy;
     return;
@@ -2547,7 +2547,7 @@ void Sema::finalizeOpenMPDelayedAnalysis(const FunctionDecl *Caller,
         StringRef NoHostDevTy = getOpenMPSimpleClauseTypeName(
             OMPC_device_type, OMPC_DEVICE_TYPE_nohost);
         Diag(Loc, diag::err_omp_wrong_device_function_call) << NoHostDevTy << 1;
-        Diag(FD->getAttr<OMPDeclareTargetDeclAttr>()->getLocation(),
+        Diag(*OMPDeclareTargetDeclAttr::getLocation(FD),
              diag::note_omp_marked_device_type_here)
             << NoHostDevTy;
       }
@@ -19603,14 +19603,14 @@ bool Sema::ActOnStartOpenMPDeclareTargetDirective(SourceLocation Loc) {
     Diag(Loc, diag::err_omp_region_not_file_context);
     return false;
   }
-  ++DeclareTargetNestingLevel;
+  DeclareTargetNesting.push_back(Loc);
   return true;
 }
 
 void Sema::ActOnFinishOpenMPDeclareTargetDirective() {
-  assert(DeclareTargetNestingLevel > 0 &&
+  assert(!DeclareTargetNesting.empty() &&
          "Unexpected ActOnFinishOpenMPDeclareTargetDirective");
-  --DeclareTargetNestingLevel;
+  DeclareTargetNesting.pop_back();
 }
 
 NamedDecl *
@@ -19663,19 +19663,25 @@ void Sema::ActOnOpenMPDeclareTargetName(
       (ND->isUsed(/*CheckUsedAttr=*/false) || ND->isReferenced()))
     Diag(Loc, diag::warn_omp_declare_target_after_first_use);
 
+  auto *VD = cast<ValueDecl>(ND);
   Optional<OMPDeclareTargetDeclAttr::DevTypeTy> DevTy =
-      OMPDeclareTargetDeclAttr::getDeviceType(cast<ValueDecl>(ND));
-  if (DevTy.hasValue() && *DevTy != DT) {
+      OMPDeclareTargetDeclAttr::getDeviceType(VD);
+  Optional<SourceLocation> AttrLoc = OMPDeclareTargetDeclAttr::getLocation(VD);
+  if (DevTy.hasValue() && *DevTy != DT &&
+      (DeclareTargetNesting.empty() ||
+       *AttrLoc != DeclareTargetNesting.back())) {
     Diag(Loc, diag::err_omp_device_type_mismatch)
         << OMPDeclareTargetDeclAttr::ConvertDevTypeTyToStr(DT)
         << OMPDeclareTargetDeclAttr::ConvertDevTypeTyToStr(*DevTy);
     return;
   }
   Optional<OMPDeclareTargetDeclAttr::MapTypeTy> Res =
-      OMPDeclareTargetDeclAttr::isDeclareTargetDeclaration(cast<ValueDecl>(ND));
-  if (!Res) {
-    auto *A = OMPDeclareTargetDeclAttr::CreateImplicit(Context, MT, DT,
-                                                       SourceRange(Loc, Loc));
+      OMPDeclareTargetDeclAttr::isDeclareTargetDeclaration(VD);
+  if (!Res || (!DeclareTargetNesting.empty() &&
+               *AttrLoc == DeclareTargetNesting.back())) {
+    auto *A = OMPDeclareTargetDeclAttr::CreateImplicit(
+        Context, MT, DT, DeclareTargetNesting.size() + 1,
+        SourceRange(Loc, Loc));
     ND->addAttr(A);
     if (ASTMutationListener *ML = Context.getASTMutationListener())
       ML->DeclarationMarkedOpenMPDeclareTarget(ND, A);
@@ -19767,7 +19773,9 @@ void Sema::checkDeclIsAllowedInOpenMPTarget(Expr *E, Decl *D,
           isa<FunctionTemplateDecl>(D)) {
         auto *A = OMPDeclareTargetDeclAttr::CreateImplicit(
             Context, OMPDeclareTargetDeclAttr::MT_To,
-            OMPDeclareTargetDeclAttr::DT_Any, SourceRange(IdLoc, IdLoc));
+            OMPDeclareTargetDeclAttr::DT_Any, DeclareTargetNesting.size(),
+            SourceRange(DeclareTargetNesting.back(),
+                        DeclareTargetNesting.back()));
         D->addAttr(A);
         if (ASTMutationListener *ML = Context.getASTMutationListener())
           ML->DeclarationMarkedOpenMPDeclareTarget(D, A);
