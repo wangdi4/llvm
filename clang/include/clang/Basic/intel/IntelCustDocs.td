@@ -520,10 +520,9 @@ Syntax:
 
   #pragma vector {always[assert]|aligned|unaligned|temporal|nontemporal|[no]vecremainder|[no]mask_readwrite}
 
-``pragma vector`` with no other keyword will be treated as an additional
-spelling of the community-supported ``pragma vectorize(enable)``.
+``pragma vector`` with no other keyword will do nothing.
 
-Currently we only support ``pragma vector`` with no keywords, or with 'always'.
+Currently we only support ``pragma vector`` with no keywords or with 'always'.
 
 Example:
 
@@ -570,14 +569,11 @@ IR:
 
 .. code-block:: llvm
 
-  br label %for.cond, !llvm.loop !2
+  br label %for.cond, !llvm.loop !3
 
-  br label %for.cond6, !llvm.loop !4
-
-  !2 = distinct !{!2, !3}
-  !3 = !{!"llvm.loop.vectorize.enable", i1 true}
-  !4 = distinct !{!4, !5, !3}
-  !5 = !{!"llvm.loop.vectorize.ignore_profitability"}
+  !3 = distinct !{!3, !4, !5}
+  !4 = !{!"llvm.loop.vectorize.ignore_profitability"}
+  !5 = !{!"llvm.loop.vectorize.enable", i1 true}
   }];
   let UserContent = [{
 Accept #pragma vector - indicates a loop should be vectorized according to the
