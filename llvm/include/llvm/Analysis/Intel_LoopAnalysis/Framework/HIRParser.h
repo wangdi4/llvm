@@ -153,6 +153,10 @@ class HIRParser {
   /// processed/discarded at the end of phase2.
   SmallVector<HLInst *, 4> DistributePoints;
 
+  // Set of loops which were converted from countable to unknown. These are
+  // populated in phase1 and processed/discarded at the end of phase1.
+  SmallPtrSet<HLLoop *, 8> CountableToUnkownLoops;
+
   /// Represents information about dimensions of a single chain of GEP
   /// operators and Subscripts instructions.
   class GEPChain;

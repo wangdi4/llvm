@@ -2602,6 +2602,10 @@ void HIRParser::parse(HLLoop *HLoop) {
       // Add the explicit loop label and bottom test back to the loop.
       LF.reattachLoopLabelAndBottomTest(HLoop);
 
+      // Store this loop for Ztt extraction at the end of the phase. Extracting
+      // Ztt in the visitor is not safe as it changes the structure of HIR.
+      CountableToUnkownLoops.insert(HLoop);
+
     } else {
       // In some cases, loop is recognized as unknown in loop formation phase
       // but recognized as countable by parsing phase due to better information
@@ -4567,6 +4571,12 @@ void HIRParser::parse(HLInst *HInst, bool IsPhase1, unsigned Phase2Level) {
 void HIRParser::phase1Parse(HLNode *Node) {
   Phase1Visitor PV(this);
   HLNodeUtils::visit(PV, Node);
+
+  for (auto *UnknownLp : CountableToUnkownLoops) {
+    UnknownLp->extractZtt();
+  }
+
+  CountableToUnkownLoops.clear();
 }
 
 void HIRParser::phase2Parse() {
