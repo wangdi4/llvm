@@ -13,11 +13,13 @@ set( TARGET_NAME MemoryAllocator )
 # function that is not used in every build target.
 # The warning conversion-null occur when ccomparing SharedPtr with NULL.
 if (NOT WIN32)
-       add_definitions( "-Wno-unused-function -Wno-conversion-null" )
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-unused-function -Wno-conversion-null" )
 endif(NOT WIN32)
 
 FIND_SOURCES( ${IGNORE_FILES} )
 CALCULATE_TARGET_SOURCES()
+
+include(itt)
 
 # add a target named ${TARGET_NAME}
 add_library (${TARGET_NAME} STATIC ${TARGET_SOURCES})

@@ -18,6 +18,7 @@
 #include "cl_shared_ptr.hpp"
 #include "task_group.hpp"
 #include "tbb_executor.h"
+#include "ittnotify.h"
 
 using namespace Intel::OpenCL::TaskExecutor;
 
@@ -113,6 +114,9 @@ te_wait_result base_command_list::WaitForCompletion(const SharedPtr<ITaskBase>& 
       return TE_WAIT_MASTER_THREAD_BLOCKING;
     }
 
+    // Notify Intel Inspector that master thread acquired the lock
+    __itt_sync_acquired(&m_bMasterRunning);
+
     m_pMasterSync->Reset();
     Enqueue(m_pMasterSync);
 
@@ -125,7 +129,10 @@ te_wait_result base_command_list::WaitForCompletion(const SharedPtr<ITaskBase>& 
             WaitForIdle();
         }
     } while ( !(m_pMasterSync->IsCompleted() || ((0 != pTaskToWait) && (pTaskToWait->IsCompleted()))) );
-		
+
+    // Notify Intel Inspector that master thread is releasing the lock
+    __itt_sync_releasing(&m_bMasterRunning);
+
     // Current master is not in charge for the work
     m_bMasterRunning = false;
 

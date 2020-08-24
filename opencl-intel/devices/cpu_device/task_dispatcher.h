@@ -25,8 +25,8 @@
 #include <cl_thread.h>
 #include <builtin_kernels.h>
 
-//should be hash_map but cant compile #include <hash_map>
-#include <map>
+#include <atomic>
+#include <map>     //should be hash_map but cant compile #include <hash_map>
 #include <list>
 
 using namespace Intel::OpenCL::TaskExecutor;
@@ -234,7 +234,7 @@ protected:
     cl_ulong                            m_startTime; // start time in nanoseconds
     cl_ulong                            m_timeOut; // time out in nanoseconds
     Intel::OpenCL::Utils::AtomicCounter	m_barrier;
-    volatile bool                       m_failed;
+    std::atomic<bool>                   m_failed;
 
     Intel::OpenCL::Utils::AtomicCounter	m_endBarrier;
 

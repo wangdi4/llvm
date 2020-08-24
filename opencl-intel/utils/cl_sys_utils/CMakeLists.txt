@@ -10,6 +10,8 @@ set( TARGET_NAME cl_sys_utils )
 FIND_SOURCES()
 CALCULATE_TARGET_SOURCES()
 
+include(itt)
+
 SET_UNICODE_OFF()
 
 set_opencl_version()

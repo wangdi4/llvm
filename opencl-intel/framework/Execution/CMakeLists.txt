@@ -13,7 +13,7 @@ set( TARGET_NAME Execution )
 # function that is not used in every build target.
 # Disable warning about converting null pointer to long int.
 if (NOT WIN32)
-    add_definitions( "-Wno-unused-function -Wno-conversion-null" )
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-unused-function -Wno-conversion-null" )
 endif(NOT WIN32)
 
 if(WIN32)
@@ -26,6 +26,8 @@ endif()
 
 FIND_SOURCES()
 CALCULATE_TARGET_SOURCES()
+
+include(itt)
 
 # add a target named ${TARGET_NAME}
 add_library (${TARGET_NAME} STATIC ${TARGET_SOURCES})
