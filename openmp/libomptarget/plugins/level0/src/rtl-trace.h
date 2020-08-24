@@ -64,6 +64,7 @@ extern int DebugLevel;
 #define TRACE_FN_ARG_PTR(Arg)                                                  \
   DP1("    %s = " DPxMOD "\n", TO_STRING(Arg), DPxPTR(Arg))
 #define TRACE_FN_ARG_UINT(Arg) TRACE_FN_ARG(Arg, "%" PRIu32)
+#define TRACE_FN_ARG_UINT64(Arg) TRACE_FN_ARG(Arg, "%" PRIu64)
 #define TRACE_FN_ARG_SIZE(Arg) TRACE_FN_ARG(Arg, "%zu")
 
 TRACE_FN_DEF(zeCommandListAppendBarrier)(
@@ -258,11 +259,11 @@ TRACE_FN_DEF(zeCommandQueueExecuteCommandLists)(
 
 TRACE_FN_DEF(zeCommandQueueSynchronize)(
     ze_command_queue_handle_t hCommandQueue,
-    uint32_t timeout) {
+    uint64_t timeout) {
   auto rc = zeCommandQueueSynchronize(hCommandQueue, timeout);
   TRACE_FN_ARG_BEGIN();
   TRACE_FN_ARG_PTR(hCommandQueue);
-  TRACE_FN_ARG_UINT(timeout);
+  TRACE_FN_ARG_UINT64(timeout);
   TRACE_FN_ARG_END();
   return rc;
 }
@@ -482,11 +483,11 @@ TRACE_FN_DEF(zeFenceDestroy)(
 
 TRACE_FN_DEF(zeFenceHostSynchronize)(
     ze_fence_handle_t hFence,
-    uint32_t timeout) {
+    uint64_t timeout) {
   auto rc = zeFenceHostSynchronize(hFence, timeout);
   TRACE_FN_ARG_BEGIN();
   TRACE_FN_ARG_PTR(hFence);
-  TRACE_FN_ARG_UINT(timeout);
+  TRACE_FN_ARG_UINT64(timeout);
   TRACE_FN_ARG_END();
   return rc;
 }
