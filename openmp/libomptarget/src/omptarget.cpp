@@ -673,7 +673,8 @@ int targetDataEnd(DeviceTy &Device, int32_t ArgNum, void **ArgBases,
 #if INTEL_COLLAB
   int32_t gtid = __kmpc_global_thread_num(nullptr);
   Device.UsedPtrsMtx.lock();
-  Device.UsedPtrs[gtid].pop_back();
+  if (!Device.UsedPtrs[gtid].empty())
+    Device.UsedPtrs[gtid].pop_back();
   Device.UsedPtrsMtx.unlock();
 #endif // INTEL_COLLAB
 

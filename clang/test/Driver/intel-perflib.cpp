@@ -185,3 +185,18 @@
 // CHECK-DAAL-LIN-SEQUENTIAL: "--start-group" "-ldaal_core" "-ldaal_sequential" "--end-group" "-ltbb"
 // CHECK-DAAL-WIN-SYCL: link{{.*}} "-defaultlib:{{.*}}daal{{/|\\\\}}lib{{/|\\\\}}intel64{{/|\\\\}}daal_sycl.lib"
 // CHECK-DAAL-WIN: "-libpath:{{.*}}tbb{{/|\\\\}}lib{{/|\\\\}}intel64{{/|\\\\}}vc14" "-libpath:{{.*}}daal{{/|\\\\}}lib{{/|\\\\}}intel64"
+
+// Check phases for -mkl and objects
+// RUN: touch %t.o
+// RUN: %clang -target x86_64-unknown-linux-gnu -fsycl -mkl %t.o -### -ccc-print-phases 2>&1 \
+// RUN:  | FileCheck -check-prefix=MKL-SHARED-OBJ-PHASES %s
+// MKL-SHARED-OBJ-PHASES: 0: input, "{{.*}}", object, (host-sycl)
+// MKL-SHARED-OBJ-PHASES: 1: clang-offload-unbundler, {0}, object, (host-sycl)
+// MKL-SHARED-OBJ-PHASES: 2: linker, {1}, image, (host-sycl)
+// MKL-SHARED-OBJ-PHASES: 3: linker, {1}, ir, (device-sycl)
+// MKL-SHARED-OBJ-PHASES: 4: sycl-post-link, {3}, tempfiletable, (device-sycl)
+// MKL-SHARED-OBJ-PHASES: 5: file-table-tform, {4}, tempfilelist, (device-sycl)
+// MKL-SHARED-OBJ-PHASES: 6: llvm-spirv, {5}, tempfilelist, (device-sycl)
+// MKL-SHARED-OBJ-PHASES: 7: file-table-tform, {4, 6}, tempfiletable, (device-sycl)
+// MKL-SHARED-OBJ-PHASES: 8: clang-offload-wrapper, {7}, object, (device-sycl)
+// MKL-SHARED-OBJ-PHASES: 9: offload, "host-sycl (x86_64-unknown-linux-gnu)" {2}, "device-sycl (spir64-unknown-unknown-sycldevice)" {8}, image

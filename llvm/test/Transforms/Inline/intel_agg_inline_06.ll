@@ -1,4 +1,3 @@
-; UNSUPPORTED: windows
 ; RUN: opt < %s -whole-program-assume -agginliner -inline -inline-threshold=-50 -S 2>&1 | FileCheck %s
 ; RUN: opt < %s -whole-program-assume -passes='module(agginliner),cgscc(inline)' -inline-threshold=-50 -S 2>&1 | FileCheck %s
 
@@ -33,7 +32,6 @@
 @dstGrid = internal global [26000000 x double]* null, align 8
 @.str.9 = private unnamed_addr constant [14 x i8] c"timestep: %i\0A\00", align 1
 
-; Function Attrs: nofree norecurse nounwind uwtable
 define internal fastcc void @LBM_allocateGrid(double** nocapture %0) unnamed_addr #0 {
   %2 = tail call noalias dereferenceable_or_null(214400000) i8* @malloc(i64 214400000)
   %3 = bitcast double** %0 to i8**
@@ -59,7 +57,6 @@ declare dso_local i32 @printf(i8* nocapture readonly %0, ...) local_unnamed_addr
 
 declare dso_local void @exit(i32 %0) local_unnamed_addr
 
-; Function Attrs: norecurse nounwind uwtable
 define internal fastcc void @LBM_freeGrid(double** nocapture %0) unnamed_addr #0 {
   %2 = load double*, double** %0, align 8
   %3 = getelementptr inbounds double, double* %2, i64 -400000
@@ -83,55 +80,44 @@ define internal fastcc void @LBM_swapGrids() unnamed_addr #0 {
   ret void
 }
 
-; Function Attrs: nofree norecurse nounwind uwtable
 define internal fastcc void @LBM_loadObstacleFile(double* nocapture %0, i8* nocapture readonly %1) unnamed_addr #0 {
   ret void
 }
 
-; Function Attrs: nofree norecurse nounwind uwtable
 define internal fastcc void @LBM_initializeSpecialCellsForLDC(double* nocapture %0) unnamed_addr #0 {
   ret void
 }
 
-; Function Attrs: nofree norecurse nounwind uwtable
 define internal fastcc void @LBM_initializeSpecialCellsForChannel(double* nocapture %0) unnamed_addr #0 {
   ret void
 }
 
-; Function Attrs: nofree norecurse nounwind uwtable
 define internal fastcc void @LBM_performStreamCollideTRT(double* readonly %0, double* %1) unnamed_addr #0 {
   ret void
 }
 
-; Function Attrs: nofree norecurse nounwind uwtable
 define internal fastcc void @LBM_handleInOutFlow(double* %0) unnamed_addr #0 {
   ret void
 }
 
-; Function Attrs: nofree norecurse nounwind uwtable
 define internal fastcc void @LBM_showGridStatistics(double* nocapture readonly %0) unnamed_addr #0 {
   ret void
 }
 
-; Function Attrs: norecurse nounwind uwtable
 define internal fastcc void @LBM_storeVelocityField(double* nocapture readonly %0, i8* nocapture readonly %1) unnamed_addr #0 {
   ret void
 }
 
-; Function Attrs: argmemonly nounwind willreturn
 declare void @llvm.lifetime.start.p0i8(i64 immarg %0, i8* nocapture %1)
 
-; Function Attrs: argmemonly nounwind willreturn
 declare void @llvm.lifetime.end.p0i8(i64 immarg %0, i8* nocapture %1)
 
-; Function Attrs: norecurse nounwind uwtable
 define internal fastcc void @LBM_compareVelocityField(double* nocapture readonly %0, i8* nocapture readonly %1) unnamed_addr #0 {
   ret void
 }
 
 declare void @llvm.memcpy.p0i8.p0i8.i64(i8* noalias nocapture writeonly %0, i8* noalias nocapture readonly %1, i64 %2, i1 immarg %3)
 
-; Function Attrs: norecurse nounwind uwtable
 define dso_local i32 @main(i32 %0, i8** nocapture readonly %1) local_unnamed_addr #0 {
   %3 = alloca [3 x [32 x i8]], align 16
   %4 = alloca [3 x [32 x i8]], align 16
@@ -251,12 +237,10 @@ define dso_local i32 @main(i32 %0, i8** nocapture readonly %1) local_unnamed_add
   ret i32 0
 }
 
-; Function Attrs: norecurse nounwind uwtable
 define internal fastcc void @MAIN_parseCommandLine(i32 %0, i8** nocapture readonly %1, %struct.MAIN_Param* nocapture %2) unnamed_addr #0 {
   ret void
 }
 
-; Function Attrs: nofree norecurse nounwind uwtable
 define internal fastcc void @MAIN_initialize(%struct.MAIN_Param* nocapture readonly %0) unnamed_addr #0 {
   tail call fastcc void @LBM_allocateGrid(double** bitcast ([26000000 x double]** @srcGrid to double**))
   tail call fastcc void @LBM_allocateGrid(double** bitcast ([26000000 x double]** @dstGrid to double**))
@@ -310,32 +294,5 @@ define internal fastcc void @MAIN_initialize(%struct.MAIN_Param* nocapture reado
   tail call fastcc void @LBM_showGridStatistics(double* %30)
   ret void
 }
-
-; Function Attrs: nofree nounwind
-declare i32 @puts(i8* nocapture readonly %0) local_unnamed_addr
-
-; Function Attrs: nofree nounwind
-declare dso_local i64 @strtol(i8* readonly %0, i8** nocapture %1, i32 %2) local_unnamed_addr
-
-; Function Attrs: nofree nounwind
-declare dso_local i32 @__xstat(i32 %0, i8* %1, %struct.stat* %2) local_unnamed_addr
-
-; Function Attrs: nounwind willreturn
-declare i8* @llvm.ptr.annotation.p0i8(i8* %0, i8* %1, i8* %2, i32 %3)
-
-; Function Attrs: nounwind willreturn
-declare i16* @llvm.ptr.annotation.p0i16(i16* %0, i8* %1, i8* %2, i32 %3)
-
-; Function Attrs: nounwind willreturn
-declare i32* @llvm.ptr.annotation.p0i32(i32* %0, i8* %1, i8* %2, i32 %3)
-
-; Function Attrs: nounwind willreturn
-declare i64* @llvm.ptr.annotation.p0i64(i64* %0, i8* %1, i8* %2, i32 %3)
-
-; Function Attrs: nounwind willreturn
-declare float* @llvm.ptr.annotation.p0f32(float* %0, i8* %1, i8* %2, i32 %3)
-
-; Function Attrs: nounwind willreturn
-declare double* @llvm.ptr.annotation.p0f64(double* %0, i8* %1, i8* %2, i32 %3)
 
 attributes #0 = { norecurse }

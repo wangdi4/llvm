@@ -6288,7 +6288,9 @@ InputInfo Driver::BuildJobsForActionNoCache(
       // We create list files for unbundling when using -foffload-static-lib.
       // This is also true for -mkl and -daal, as they imply additional
       // fat static libraries.
-      if ((C.getInputArgs().hasArg(options::OPT_mkl_EQ, options::OPT_daal_EQ) ||
+      if (((C.getInputArgs().hasArg(options::OPT_mkl_EQ) &&
+            C.getInputArgs().hasArg(options::OPT_static)) ||
+           C.getInputArgs().hasArg(options::OPT_daal_EQ) ||
            C.getDriver().getOffloadStaticLibSeen()) &&
 #endif // INTEL_CUSTOMIZATION
           (JA->getType() == types::TY_Archive ||

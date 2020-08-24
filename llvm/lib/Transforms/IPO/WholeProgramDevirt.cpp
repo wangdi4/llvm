@@ -110,6 +110,11 @@ using namespace wholeprogramdevirt;
 
 #define DEBUG_TYPE "wholeprogramdevirt"
 
+#if INTEL_CUSTOMIZATION
+// Intel specialized print for debugging
+#define INTEL_DEVIRT_DEBUG "intel-wholeprogramdevirt"
+#endif // INTEL_CUSTOMIZATION
+
 static cl::opt<PassSummaryAction> ClSummaryAction(
     "wholeprogramdevirt-summary-action",
     cl::desc("What to do with the summary when running this pass"),
@@ -648,7 +653,15 @@ struct DevirtModule {
   // rather than a branch funnel
   bool tryMultiVersionDevirt(MutableArrayRef<VirtualCallTarget> TargetsForSlot,
                         VTableSlotInfo &SlotInfo, unsigned int CallSlotI);
-#endif
+
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+  // Simplified print of the data collected by the devirtualization process,
+  // useful for debugging
+  void PrintVTableInfoAndTargets(VTableSlotInfo &SlotInfo,
+      MutableArrayRef<VirtualCallTarget> TargetsForSlot);
+#endif // NDEBUG || LLVM_ENABLE_DUMP
+
+#endif //INTEL_CUSTOMIZATION
 
   bool tryEvaluateFunctionsWithArgs(
       MutableArrayRef<VirtualCallTarget> TargetsForSlot,
@@ -1468,10 +1481,21 @@ void DevirtModule::createCallSiteBasicBlocks(Module &M,
   StringRef BaseName = StringRef("BBDevirt_");
   Instruction *CSInst = &VCallSite.CB;
   Function *Func = CSInst->getFunction();
+  SmallPtrSet<Function *, 10> FuncsProcessed;
 
   // Add all the function addresses and create the BasicBlocks
   // with the direct calls
   for (auto &&Target : TargetsForSlot) {
+
+    // CMPLRLLVM-22269: The TargetsForSlot array can have repeated
+    // entries. This is caused by the process in tryFindVirtualCallTargets,
+    // which collects the target functions from multiple vtables, and
+    // one target function can be in two or more vtables. If we processed a
+    // function already, then prevent generating another branch for the same
+    // function.
+    if (!FuncsProcessed.insert(Target.Fn).second)
+      continue;
+
     Builder.SetInsertPoint(CSInst);
 
     TargetData *NewTarget = new TargetData();
@@ -2001,8 +2025,10 @@ bool DevirtModule::tryMultiVersionDevirt(
                            MutableArrayRef<VirtualCallTarget> TargetsForSlot) {
 
     for (auto &&VCallSite : CSInfo.CallSites) {
-
-      if (VCallSite.CB.getCalledFunction() != nullptr)
+      // Skip those calls that has been devirtualized already
+      const Value *CalledOperand =
+          VCallSite.CB.getCalledOperand()->stripPointerCasts();
+      if (isa<Function>(CalledOperand))
         continue;
 
       BasicBlock *MainBB = VCallSite.CB.getParent();
@@ -2222,6 +2248,42 @@ void DevirtModule::filterDowncasting(Function *AssumeFunc) {
       VTableBCInst->eraseFromParent();
   }
 }
+
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+// Given a VTableSlotInfo and an array of Targets, print the indirect
+// call and the possible targets. This function is used for debugging.
+void DevirtModule::PrintVTableInfoAndTargets(VTableSlotInfo &SlotInfo,
+    MutableArrayRef<VirtualCallTarget> TargetsForSlot) {
+
+  auto PrintDevirtInfo = [&TargetsForSlot](CallSiteInfo &CSInfo) {
+    for (auto &&VCallSite : CSInfo.CallSites) {
+      Function *Caller = VCallSite.CB.getCaller();
+      dbgs() << "Function: " << Caller->getName() << "\n";
+      dbgs() << "  Indirect Call: " << VCallSite.CB << "\n";
+      dbgs() << "  Targets:";
+
+      if (TargetsForSlot.empty()) {
+        dbgs() << " No targets\n";
+      }
+      else {
+        dbgs() << "\n";
+        for (auto &&Target : TargetsForSlot)
+          dbgs() << "    " << Target.Fn->getName() << "\n";
+      }
+      dbgs() << "\n";
+    }
+  };
+
+  // CSInfo:      A structure that contains all the call sites in which the
+  //                arguments aren't constant integers.
+  // ConstCSInfo: A map that handles all the call sites which have constant
+  //                integers as arguments. It maps a vector that represents
+  //                the arguments to a CSInfo.
+  PrintDevirtInfo(SlotInfo.CSInfo);
+  for (auto &P : SlotInfo.ConstCSInfo)
+    PrintDevirtInfo(P.second);
+}
+#endif // NDEBUG || LLVM_ENABLE_DUMP
 #endif // INTEL_CUSTOMIZATION
 
 bool DevirtModule::tryEvaluateFunctionsWithArgs(
@@ -3002,6 +3064,11 @@ bool DevirtModule::run() {
     if (tryFindVirtualCallTargets(TargetsForSlot, TypeMemberInfos,
                                   S.first.ByteOffset)) {
 
+#if INTEL_CUSTOMIZATION
+      DEBUG_WITH_TYPE(INTEL_DEVIRT_DEBUG, {
+        PrintVTableInfoAndTargets(S.second, TargetsForSlot);
+      });
+#endif // INTEL_CUSTOMIZATION
       if (!trySingleImplDevirt(ExportSummary, TargetsForSlot, S.second, Res)) {
 
 #if INTEL_CUSTOMIZATION

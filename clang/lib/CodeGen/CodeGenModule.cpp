@@ -1713,7 +1713,7 @@ void CodeGenModule::GenOpenCLArgMetadata(llvm::Function *Fn,
                       llvm::MDNode::get(VMContext, argNames));
   }
 #if INTEL_CUSTOMIZATION
-  if (!LangOpts.SYCLIsDevice) {
+  if (LangOpts.OpenCL) {
     Fn->setMetadata("kernel_arg_host_accessible",
                     llvm::MDNode::get(VMContext, argHostAccessible));
     Fn->setMetadata("kernel_arg_pipe_depth",

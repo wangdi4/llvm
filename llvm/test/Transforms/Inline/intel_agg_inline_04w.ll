@@ -1,43 +1,46 @@
-; REQUIRES: asserts
-; RUN: opt < %s -whole-program-assume -agginliner -inline -debug-only=agginliner -inline-threshold=-50 -disable-output 2>&1 | FileCheck %s
-; RUN: opt < %s -whole-program-assume -passes='module(agginliner),cgscc(inline)' -debug-only=agginliner -inline-threshold=-50 -disable-output 2>&1 | FileCheck %s
+; RUN: opt < %s -whole-program-assume -agginliner -inline -inline-report=7 -inline-threshold=-50 -disable-output 2>&1 | FileCheck %s
+; RUN: opt < %s -whole-program-assume -passes='module(agginliner),cgscc(inline)' -inline-report=7 -inline-threshold=-50 -disable-output 2>&1 | FileCheck %s
+; RUN: opt -inlinereportsetup -inline-report=0x86 < %s -S | opt -whole-program-assume -agginliner -inline -inline-report=0x86 -inline-threshold=-50 -S | opt -inlinereportemitter -inline-report=0x86 -S 2>&1 | FileCheck %s
+; RUN: opt -inlinereportsetup -inline-report=0x86 < %s -S | opt -whole-program-assume -passes='module(agginliner),cgscc(inline)' -inline-report=0x86 -inline-threshold=-50 -S | opt -inlinereportemitter -inline-report=0x86 -S 2>&1 | FileCheck %s
 
-; Check the trace results for the HugeMallocGlobalPointersHeuristic aggressive
-; inlining heuristic
+; Check the inlining report to ensure that aggressive inlining has inlined
+; all functions into main, except printf variants, and that aggressive
+; inlining is identified as the reason for at least one INLINE case.
+; This test case is similar to intel_agg_inline04.ll, but is derived from
+; the IR generated on Windows rather than Linux.
 
-; CHECK: AggInl: HugeMallocGlobalPointersHeuristic
-; CHECK: AggInl: LBM_allocateGrid malloc routine found
-; CHECK: AggInl:  collected globals
-; CHECK: @dstGrid = internal global [26000000 x double]* null, align 8
-; CHECK: @srcGrid = internal global [26000000 x double]* null, align 8
-; CHECK-LABEL: AggInl:  All CallSites marked for inline after propagation
-; CHECK-DAG: call fastcc void @LBM_swapGrids
-; CHECK-DAG: call fastcc void @LBM_swapGrids
-; CHECK-DAG: call fastcc void @LBM_performStreamCollideTRT
-; CHECK-DAG: call fastcc void @LBM_performStreamCollideTRT
-; CHECK-DAG: call fastcc void @LBM_freeGrid
-; CHECK-DAG: call fastcc void @LBM_freeGrid
-; CHECK-DAG: tail call fastcc void @LBM_allocateGrid
-; CHECK-DAG: call fastcc void @MAIN_initialize
-; CHECK-DAG: tail call fastcc void @LBM_allocateGrid
-; CHECK-DAG: tail call fastcc void @LBM_initializeGrid
-; CHECK-DAG: tail call fastcc void @LBM_loadObstacleFile
-; CHECK-DAG: tail call fastcc void @LBM_initializeSpecialCellsForChannel
-; CHECK-DAG: tail call fastcc void @LBM_initializeSpecialCellsForLDC
-; CHECK-DAG: call fastcc void @LBM_handleInOutFlow
-; CHECK-DAG: call fastcc void @LBM_showGridStatistics
-; CHECK-DAG: call fastcc void @LBM_showGridStatistics
-; CHECK-DAG: call fastcc void @LBM_showGridStatistics
-; CHECK-DAG: call fastcc void @LBM_compareVelocityField
-; CHECK-DAG: call fastcc void @LBM_storeVelocityField
-; CHECK-DAG: tail call fastcc void @LBM_initializeGrid
-; CHECK-DAG: tail call fastcc void @LBM_loadObstacleFile
-; CHECK-DAG: tail call fastcc void @LBM_initializeSpecialCellsForChannel
-; CHECK-DAG: tail call fastcc void @LBM_initializeSpecialCellsForLDC
-; CHECK-DAG: tail call fastcc void @LBM_showGridStatistics
+; CHECK-DAG: DEAD STATIC FUNC: LBM_allocateGrid
+; CHECK-DAG: DEAD STATIC FUNC: LBM_initializeGrid
+; CHECK-DAG: DEAD STATIC FUNC: LBM_initializeSpecialCellsForChannel
+; CHECK-DAG: DEAD STATIC FUNC: LBM_initializeSpecialCellsForLDC
+; CHECK-DAG: DEAD STATIC FUNC: LBM_loadObstacleFile
+; CHECK-DAG: DEAD STATIC FUNC: LBM_compareVelocityField
+; CHECK-DAG: DEAD STATIC FUNC: LBM_freeGrid
+; CHECK-DAG: DEAD STATIC FUNC: LBM_handleInOutFlow
+; CHECK-DAG: DEAD STATIC FUNC: LBM_performStreamCollideTRT
+; CHECK-DAG: DEAD STATIC FUNC: LBM_showGridStatistics
+; CHECK-DAG: DEAD STATIC FUNC: LBM_storeVelocityField
+; CHECK-DAG: DEAD STATIC FUNC: LBM_swapGrids
+; CHECK-DAG: DEAD STATIC FUNC: MAIN_initialize
+; CHECK-DAG: DEAD STATIC FUNC: MAIN_parseCommandLine
+; CHECK-DAG: COMPILE FUNC: __local_stdio_printf_options
+; CHECK-DAG: COMPILE FUNC: __local_stdio_scanf_options
+; CHECK-DAG: COMPILE FUNC: printf
+; CHECK-DAG: COMPILE FUNC: main
+; CHECK-DAG: INLINE{{.*}}Aggressive inline to expose uses of global ptrs
 
 %struct.MAIN_Param = type { i32, i8*, i32, i32, i8* }
 %struct.stat = type { i64, i64, i64, i32, i32, i32, i32, i64, i64, i64, i64, i64, i64, i64, i64, i64, i64, [3 x i64] }
+
+%struct._iobuf = type { i8* }
+%struct.__crt_locale_pointers = type { %struct.__crt_locale_data*, %struct.__crt_multibyte_data* }
+%struct.__crt_locale_data = type opaque
+%struct.__crt_multibyte_data = type opaque
+$__local_stdio_printf_options = comdat any
+$__local_stdio_scanf_options = comdat any
+$printf = comdat any
+@__local_stdio_scanf_options._OptionsStorage = internal global i64 0, align 8
+@__local_stdio_printf_options._OptionsStorage = internal global i64 0, align 8
 
 @.str = private unnamed_addr constant [49 x i8] c"LBM_allocateGrid: could not allocate %.1f MByte\0A\00", align 1
 @__const.MAIN_printInfo.actionString = private unnamed_addr constant [3 x [32 x i8]] [[32 x i8] c"nothing\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00", [32 x i8] c"compare\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00", [32 x i8] c"store\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00"], align 16
@@ -48,30 +51,59 @@
 @dstGrid = internal global [26000000 x double]* null, align 8
 @.str.9 = private unnamed_addr constant [14 x i8] c"timestep: %i\0A\00", align 1
 
+declare dso_local %struct._iobuf* @__acrt_iob_func(i32 %0) local_unnamed_addr
+
+declare dso_local i32 @__stdio_common_vfprintf(i64 %0, %struct._iobuf* nocapture %1, i8* readonly %2, %struct.__crt_locale_pointers* nocapture %3, i8* %4) local_unnamed_addr
+
+declare void @llvm.va_start(i8* %0)
+
+declare void @llvm.va_end(i8* %0)
+
 define internal fastcc void @LBM_allocateGrid(double** nocapture %0) unnamed_addr #0 {
   %2 = tail call noalias dereferenceable_or_null(214400000) i8* @malloc(i64 214400000)
   %3 = bitcast double** %0 to i8**
   store i8* %2, i8** %3, align 8
   %4 = icmp eq i8* %2, null
-  br i1 %4, label %5, label %7
+  br i1 %4, label %5, label %6
 
 5:                                                ; preds = %1
-  %6 = tail call i32 (i8*, ...) @printf(i8* nonnull dereferenceable(1) getelementptr inbounds ([49 x i8], [49 x i8]* @.str, i64 0, i64 0), double 0x40698EF800000000)
+  tail call void (i8*, ...) @printf(i8* nonnull dereferenceable(1) getelementptr inbounds ([49 x i8], [49 x i8]* @.str, i64 0, i64 0), double 0x40698EF800000000)
   tail call void @exit(i32 1)
   unreachable
 
-7:                                                ; preds = %1
-  %8 = getelementptr inbounds i8, i8* %2, i64 3200000
-  %9 = bitcast double** %0 to i8**
-  store i8* %8, i8** %9, align 8
+6:                                                ; preds = %1
+  %7 = getelementptr inbounds i8, i8* %2, i64 3200000
+  %8 = bitcast double** %0 to i8**
+  store i8* %7, i8** %8, align 8
   ret void
 }
 
 declare dso_local noalias i8* @malloc(i64 %0) local_unnamed_addr
 
-declare dso_local i32 @printf(i8* nocapture readonly %0, ...) local_unnamed_addr
-
 declare dso_local void @exit(i32 %0) local_unnamed_addr
+
+define weak_odr dso_local i64* @__local_stdio_printf_options() local_unnamed_addr comdat {
+  ret i64* @__local_stdio_printf_options._OptionsStorage
+}
+
+define weak_odr dso_local i64* @__local_stdio_scanf_options() local_unnamed_addr comdat {
+  ret i64* @__local_stdio_scanf_options._OptionsStorage
+}
+
+define internal void @printf(i8* readonly %0, ...) unnamed_addr #0 {
+  %2 = alloca i8*, align 8
+  %3 = bitcast i8** %2 to i8*
+  call void @llvm.lifetime.start.p0i8(i64 8, i8* nonnull %3) #5
+  call void @llvm.va_start(i8* nonnull %3)
+  %4 = load i8*, i8** %2, align 8
+  %5 = call %struct._iobuf* @__acrt_iob_func(i32 1)
+  %6 = call i64* @__local_stdio_printf_options() #5
+  %7 = load i64, i64* %6, align 8
+  %8 = call i32 @__stdio_common_vfprintf(i64 %7, %struct._iobuf* %5, i8* %0, %struct.__crt_locale_pointers* null, i8* %4) #5
+  call void @llvm.va_end(i8* nonnull %3)
+  call void @llvm.lifetime.end.p0i8(i64 8, i8* nonnull %3) #5
+  ret void
+}
 
 define internal fastcc void @LBM_freeGrid(double** nocapture %0) unnamed_addr #0 {
   %2 = load double*, double** %0, align 8
@@ -163,10 +195,11 @@ define dso_local i32 @main(i32 %0, i8** nocapture readonly %1) local_unnamed_add
   %22 = getelementptr inbounds [3 x [32 x i8]], [3 x [32 x i8]]* %4, i64 0, i64 %21, i64 0
   %23 = zext i32 %14 to i64
   %24 = getelementptr inbounds [3 x [32 x i8]], [3 x [32 x i8]]* %3, i64 0, i64 %23, i64 0
-  %25 = call i32 (i8*, ...) @printf(i8* nonnull dereferenceable(1) getelementptr inbounds ([174 x i8], [174 x i8]* @.str.5.2, i64 0, i64 0), i32 100, i32 100, i32 130, double 0x3FF4CCCCCCCCCCCC, i32 %10, i8* %12, i8* nonnull %24, i8* nonnull %22, i8* %20)
+  call void (i8*, ...) @printf(i8* nonnull dereferenceable(1) getelementptr inbounds ([174 x i8], [174 x i8]* @.str.5.2, i64 0, i64 0), i32 100, i32 100, i32 130, double 0x3FF4CCCCCCCCCCCC, i32 %10, i8* %12, i8* nonnull %24, i8* nonnull %22, i8* %20)
   call void @llvm.lifetime.end.p0i8(i64 96, i8* nonnull %8)
   call void @llvm.lifetime.end.p0i8(i64 96, i8* nonnull %7)
   call fastcc void @MAIN_initialize(%struct.MAIN_Param* nonnull %5)
+  %25 = icmp slt i32 %10, 1
   %26 = icmp slt i32 %10, 1
   br i1 %26, label %61, label %27
 
@@ -190,7 +223,8 @@ define dso_local i32 @main(i32 %0, i8** nocapture readonly %1) local_unnamed_add
   br i1 %38, label %39, label %43
 
 39:                                               ; preds = %29
-  %40 = call i32 (i8*, ...) @printf(i8* nonnull dereferenceable(1) getelementptr inbounds ([14 x i8], [14 x i8]* @.str.9, i64 0, i64 0), i32 %30)
+  call void (i8*, ...) @printf(i8* nonnull dereferenceable(1) getelementptr inbounds ([14 x i8], [14 x i8]* @.str.9, i64 0, i64 0), i32 %30)
+  %40 = load [26000000 x double]*, [26000000 x double]** @srcGrid, align 8
   %41 = load [26000000 x double]*, [26000000 x double]** @srcGrid, align 8
   %42 = getelementptr inbounds [26000000 x double], [26000000 x double]* %41, i64 0, i64 0
   call fastcc void @LBM_showGridStatistics(double* %42)
@@ -214,7 +248,8 @@ define dso_local i32 @main(i32 %0, i8** nocapture readonly %1) local_unnamed_add
   br i1 %53, label %54, label %58
 
 54:                                               ; preds = %46
-  %55 = call i32 (i8*, ...) @printf(i8* nonnull dereferenceable(1) getelementptr inbounds ([14 x i8], [14 x i8]* @.str.9, i64 0, i64 0), i32 %47)
+  call void (i8*, ...) @printf(i8* nonnull dereferenceable(1) getelementptr inbounds ([14 x i8], [14 x i8]* @.str.9, i64 0, i64 0), i32 %47)
+  %55 = load [26000000 x double]*, [26000000 x double]** @srcGrid, align 8
   %56 = load [26000000 x double]*, [26000000 x double]** @srcGrid, align 8
   %57 = getelementptr inbounds [26000000 x double], [26000000 x double]* %56, i64 0, i64 0
   call fastcc void @LBM_showGridStatistics(double* %57)
