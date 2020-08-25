@@ -947,7 +947,12 @@ TargetLibraryInfoImpl::TargetLibraryInfoImpl(const Triple &T) {
 TargetLibraryInfoImpl::TargetLibraryInfoImpl(const TargetLibraryInfoImpl &TLI)
     : CustomNames(TLI.CustomNames), ShouldExtI32Param(TLI.ShouldExtI32Param),
       ShouldExtI32Return(TLI.ShouldExtI32Return),
+#if INTEL_CUSTOMIZATION
+      ShouldSignExtI32Param(TLI.ShouldSignExtI32Param),
+      CurVectorLibrary(TLI.CurVectorLibrary) {
+#else // INTEL_CUSTOMIZATION
       ShouldSignExtI32Param(TLI.ShouldSignExtI32Param) {
+#endif // INTEL_CUSTOMIZATION
   memcpy(AvailableArray, TLI.AvailableArray, sizeof(AvailableArray));
   VectorDescs = TLI.VectorDescs;
   ScalarDescs = TLI.ScalarDescs;
@@ -957,7 +962,12 @@ TargetLibraryInfoImpl::TargetLibraryInfoImpl(TargetLibraryInfoImpl &&TLI)
     : CustomNames(std::move(TLI.CustomNames)),
       ShouldExtI32Param(TLI.ShouldExtI32Param),
       ShouldExtI32Return(TLI.ShouldExtI32Return),
+#if INTEL_CUSTOMIZATION
+      ShouldSignExtI32Param(TLI.ShouldSignExtI32Param),
+      CurVectorLibrary(TLI.CurVectorLibrary) {
+#else // INTEL_CUSTOMIZATION
       ShouldSignExtI32Param(TLI.ShouldSignExtI32Param) {
+#endif // INTEL_CUSTOMIZATION
   std::move(std::begin(TLI.AvailableArray), std::end(TLI.AvailableArray),
             AvailableArray);
   VectorDescs = TLI.VectorDescs;
@@ -969,6 +979,11 @@ TargetLibraryInfoImpl &TargetLibraryInfoImpl::operator=(const TargetLibraryInfoI
   ShouldExtI32Param = TLI.ShouldExtI32Param;
   ShouldExtI32Return = TLI.ShouldExtI32Return;
   ShouldSignExtI32Param = TLI.ShouldSignExtI32Param;
+#if INTEL_CUSTOMIZATION
+  CurVectorLibrary = TLI.CurVectorLibrary;
+  VectorDescs = TLI.VectorDescs;
+  ScalarDescs = TLI.ScalarDescs;
+#endif // INTEL_CUSTOMIZATION
   memcpy(AvailableArray, TLI.AvailableArray, sizeof(AvailableArray));
   return *this;
 }
@@ -978,6 +993,11 @@ TargetLibraryInfoImpl &TargetLibraryInfoImpl::operator=(TargetLibraryInfoImpl &&
   ShouldExtI32Param = TLI.ShouldExtI32Param;
   ShouldExtI32Return = TLI.ShouldExtI32Return;
   ShouldSignExtI32Param = TLI.ShouldSignExtI32Param;
+#if INTEL_CUSTOMIZATION
+  CurVectorLibrary = TLI.CurVectorLibrary;
+  VectorDescs = std::move(TLI.VectorDescs);
+  ScalarDescs = std::move(TLI.ScalarDescs);
+#endif // INTEL_CUSTOMIZATION
   std::move(std::begin(TLI.AvailableArray), std::end(TLI.AvailableArray),
             AvailableArray);
   return *this;
@@ -4589,6 +4609,12 @@ void TargetLibraryInfoImpl::addVectorizableFunctions(ArrayRef<VecDesc> Fns) {
 
 void TargetLibraryInfoImpl::addVectorizableFunctionsFromVecLib(
     enum VectorLibrary VecLib) {
+#if INTEL_CUSTOMIZATION
+  assert(
+      CurVectorLibrary == NoLibrary &&
+      "Using multiple vector math libraries simultaneously is not supported");
+  CurVectorLibrary = VecLib;
+#endif // INTEL_CUSTOMIZATION
   switch (VecLib) {
   case Accelerate: {
     const VecDesc VecFuncs[] = {
@@ -4638,7 +4664,7 @@ void TargetLibraryInfoImpl::addVectorizableFunctionsFromVecLib(
 
 #if INTEL_CUSTOMIZATION
 bool TargetLibraryInfoImpl::isSVMLEnabled() const {
-  return ClVectorLibrary == SVML;
+  return CurVectorLibrary == SVML;
 }
 #endif // INTEL_CUSTOMIZATION
 
