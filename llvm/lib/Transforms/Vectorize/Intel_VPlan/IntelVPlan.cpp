@@ -427,11 +427,6 @@ void VPInstruction::print(raw_ostream &O) const {
     O << "    OperatorFlags -\n";
     O << "      FMF: " << hasFastMathFlags() << ", NSW: " << hasNoSignedWrap()
       << ", NUW: " << hasNoUnsignedWrap() << ", Exact: " << isExact() << "\n";
-    if (HIR.getUnderlyingNode()) {
-      // Print other attributes for HIR here when decomposer is updated.
-      O << "    end of details\n";
-      return;
-    }
     if (auto *LSI = dyn_cast<VPLoadStoreInst>(this))
       LSI->printDetails(O);
     // Print other attributes here when imported.

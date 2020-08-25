@@ -2961,7 +2961,7 @@ RegDDRef *VPOCodeGenHIR::widenRef(const VPValue *VPVal, unsigned VF) {
 
 RegDDRef *VPOCodeGenHIR::getMemoryRef(const VPValue *VPPtr,
                                       unsigned ScalSymbase,
-                                      const AAMDNodes &AANodes,
+                                      const AAMDNodes &AANodes, Align Alignment,
                                       bool Lane0Value) {
   bool IsNegOneStride;
   bool IsUnitStride = isUnitStridePtr(VPPtr, IsNegOneStride);
@@ -3010,6 +3010,8 @@ RegDDRef *VPOCodeGenHIR::getMemoryRef(const VPValue *VPPtr,
         PointerType::get(VecValTy, PtrTy->getAddressSpace()));
   }
   MemRef->setSymbase(ScalSymbase);
+  // TODO: We need to import other relevant MDs to vector memref i.e. uplift
+  // VPOCodeGenHIR::propagateMetadata. Check JIRA : CMPLRLLVM-22253.
   MemRef->setAAMetadata(AANodes);
 
   // Adjust the memory reference for the negative one stride case so that
@@ -3017,9 +3019,8 @@ RegDDRef *VPOCodeGenHIR::getMemoryRef(const VPValue *VPPtr,
   if (IsNegOneStride)
     MemRef->shift(MainLoop->getNestingLevel(), (int64_t)VF - 1);
 
-  // TODO - Alignment information needs to be obtained from VPInstruction.
-  // For now we are forcing alignment based on value type.
-  setRefAlignment(ValTy, MemRef);
+  // Set ref alignment using original alignment.
+  MemRef->setAlignment(Alignment.value());
   return MemRef;
 }
 
@@ -3356,7 +3357,7 @@ RegDDRef *VPOCodeGenHIR::generateCompareToZero(RegDDRef *Value,
   return CmpInst->getLvalDDRef();
 }
 
-void VPOCodeGenHIR::widenUniformLoadImpl(const VPInstruction *VPInst,
+void VPOCodeGenHIR::widenUniformLoadImpl(const VPLoadStoreInst *VPLoad,
                                          RegDDRef *Mask) {
   // For a uniform load, do a scalar load followed by a broadcast. We need to
   // mask the scalar load appropriately. The mask to use is !AllZeroCheck(Mask)
@@ -3371,9 +3372,12 @@ void VPOCodeGenHIR::widenUniformLoadImpl(const VPInstruction *VPInst,
         generateCompareToZero(Mask, nullptr /* InstMask */, false /* Equal */);
   }
 
-  const VPValue *PtrOp = getLoadStorePointerOperand(VPInst);
-  RegDDRef *MemRef = getMemoryRef(PtrOp, VPInst->getSymbase(),
-                                  VPInst->HIR.AANodes, true /* Lane0Value */);
+  const VPValue *PtrOp = getLoadStorePointerOperand(VPLoad);
+  AAMDNodes AANodes;
+  VPLoad->getAAMetadata(AANodes);
+  RegDDRef *MemRef =
+      getMemoryRef(PtrOp, VPLoad->getSymbase(), AANodes, VPLoad->getAlignment(),
+                   true /* Lane0Value */);
   auto *ScalarInst = HLNodeUtilities.createLoad(MemRef, ".unifload");
   if (Mask) {
     HLIf *If = HLNodeUtilities.createHLIf(
@@ -3385,30 +3389,30 @@ void VPOCodeGenHIR::widenUniformLoadImpl(const VPInstruction *VPInst,
     addInstUnmasked(ScalarInst);
   }
 
-  addVPValueScalRefMapping(VPInst, ScalarInst->getLvalDDRef(), 0);
+  addVPValueScalRefMapping(VPLoad, ScalarInst->getLvalDDRef(), 0);
   addVPValueWideRefMapping(
-      VPInst, widenRef(ScalarInst->getLvalDDRef()->clone(), getVF()));
+      VPLoad, widenRef(ScalarInst->getLvalDDRef()->clone(), getVF()));
 }
 
-void VPOCodeGenHIR::widenLoadStoreImpl(const VPInstruction *VPInst,
+void VPOCodeGenHIR::widenLoadStoreImpl(const VPLoadStoreInst *VPLoadStore,
                                        RegDDRef *Mask) {
   // Loads/stores need to be masked with current mask value if Mask is null.
   if (!Mask)
     Mask = CurMaskValue;
 
-  auto Opcode = VPInst->getOpcode();
-  assert((Opcode == Instruction::Load || Opcode == Instruction::Store) &&
-         "Expected load/store instruction");
+  auto Opcode = VPLoadStore->getOpcode();
 
   // Handle uniform load
-  const VPValue *PtrOp = getLoadStorePointerOperand(VPInst);
+  const VPValue *PtrOp = getLoadStorePointerOperand(VPLoadStore);
   if (Opcode == Instruction::Load && !Plan->getVPlanDA()->isDivergent(*PtrOp)) {
-    widenUniformLoadImpl(VPInst, Mask);
+    widenUniformLoadImpl(VPLoadStore, Mask);
     return;
   }
 
-  RegDDRef *MemRef =
-      getMemoryRef(PtrOp, VPInst->getSymbase(), VPInst->HIR.AANodes);
+  AAMDNodes AANodes;
+  VPLoadStore->getAAMetadata(AANodes);
+  RegDDRef *MemRef = getMemoryRef(PtrOp, VPLoadStore->getSymbase(), AANodes,
+                                  VPLoadStore->getAlignment());
   HLInst *WInst;
 
   // Reverse mask for negative -1 stride.
@@ -3431,7 +3435,7 @@ void VPOCodeGenHIR::widenLoadStoreImpl(const VPInstruction *VPInst,
     // Reverse the loaded value for negative -1 stride.
     if (IsNegOneStride)
       WInst = createReverseVector(WInst->getLvalDDRef()->clone());
-    addVPValueWideRefMapping(VPInst, WInst->getLvalDDRef());
+    addVPValueWideRefMapping(VPLoadStore, WInst->getLvalDDRef());
   } else {
     if (IsUnitStride)
       ++(Mask ? OptRptStats.MaskedUnalignedUnitStrideStores
@@ -3439,7 +3443,7 @@ void VPOCodeGenHIR::widenLoadStoreImpl(const VPInstruction *VPInst,
     else
       ++(Mask ? OptRptStats.MaskedScatters : OptRptStats.UnmaskedScatters);
 
-    RegDDRef *StoreVal = widenRef(VPInst->getOperand(0), getVF());
+    RegDDRef *StoreVal = widenRef(VPLoadStore->getOperand(0), getVF());
     // Reverse the value to be stored for negative -1 stride.
     if (IsNegOneStride) {
       WInst = createReverseVector(StoreVal);
@@ -3449,7 +3453,7 @@ void VPOCodeGenHIR::widenLoadStoreImpl(const VPInstruction *VPInst,
     addInst(WInst, Mask);
     // Stores are not added to widen/scalar maps. Explicitly set debug location
     // on lval memref.
-    WInst->getLvalDDRef()->setMemDebugLoc(VPInst->getDebugLocation());
+    WInst->getLvalDDRef()->setMemDebugLoc(VPLoadStore->getDebugLocation());
   }
 }
 
@@ -3537,7 +3541,7 @@ void VPOCodeGenHIR::generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
   switch (Opcode) {
   case Instruction::Load:
   case Instruction::Store:
-    widenLoadStoreImpl(VPInst, Mask);
+    widenLoadStoreImpl(cast<VPLoadStoreInst>(VPInst), Mask);
     return;
   case VPInstruction::Subscript:
     generateHIRForSubscript(cast<VPSubscriptInst>(VPInst), Mask, Widen);
