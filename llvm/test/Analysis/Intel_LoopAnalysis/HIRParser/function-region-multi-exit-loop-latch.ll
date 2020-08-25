@@ -1,8 +1,13 @@
-; RUN: opt < %s -hir-ssa-deconstruction -hir-create-function-level-region | opt -analyze -hir-framework -hir-framework-debug=parser -hir-create-function-level-region | FileCheck %s
+; RUN: opt < %s -hir-ssa-deconstruction -analyze -hir-framework -hir-framework-debug=parser -hir-create-function-level-region | FileCheck %s
 
 ; Check parsing output for the loop verifying that we are able to build lexical links successfully.
 
+
 ; CHECK: BEGIN REGION
+
+; Verify that function entry block is split and the new block is set as the region entry block.
+; CHECK: EntryBB: %entry.split
+
 ; CHECK: + DO i1 = 0, 1, 1   <DO_MULTI_EXIT_LOOP>
 ; CHECK: |   + DO i2 = 0, 99, 1   <DO_LOOP>
 ; CHECK: |   |   %conv = sitofp.i32.float(2 * i2);

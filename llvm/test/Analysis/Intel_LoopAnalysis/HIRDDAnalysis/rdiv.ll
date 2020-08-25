@@ -1,6 +1,6 @@
 
-; RUN: opt -basic-aa -analyze -hir-dd-analysis -hir-dd-analysis-verify=Region %s | FileCheck %s
-; RUN: opt -passes="print<hir-dd-analysis>" -hir-create-function-level-region -hir-dd-analysis-verify=Region -disable-output 2>&1 < %s | FileCheck %s
+; RUN: opt -hir-ssa-deconstruction -basic-aa -analyze -hir-dd-analysis -hir-dd-analysis-verify=Region %s | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,print<hir-dd-analysis>" -hir-create-function-level-region -hir-dd-analysis-verify=Region -disable-output 2>&1 < %s | FileCheck %s
 
 ; For DDtest from 12 to 37 we should use RDIV/MIV not SIV test
 ; Even though its "i2" in both refs, it is an i2 corresponding to a
