@@ -2213,6 +2213,7 @@ bool FileCheckString::CheckNot(const SourceMgr &SM, StringRef Buffer,
                                const std::vector<const Pattern *> &NotStrings,
                                const FileCheckRequest &Req,
                                std::vector<FileCheckDiag> *Diags) const {
+  bool DirectiveFail = false;
   for (const Pattern *Pat : NotStrings) {
     assert((Pat->getCheckTy() == Check::CheckNot) && "Expect CHECK-NOT!");
 
@@ -2228,11 +2229,11 @@ bool FileCheckString::CheckNot(const SourceMgr &SM, StringRef Buffer,
 
     PrintMatch(false, SM, Prefix, Pat->getLoc(), *Pat, 1, Buffer, Pos, MatchLen,
                Req, Diags);
-
-    return true;
+    DirectiveFail = true;
+    continue;
   }
 
-  return false;
+  return DirectiveFail;
 }
 
 size_t FileCheckString::CheckDag(const SourceMgr &SM, StringRef Buffer,
