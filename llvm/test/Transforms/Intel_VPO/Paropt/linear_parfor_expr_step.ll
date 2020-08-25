@@ -55,7 +55,7 @@ entry:
 ; CHECK: [[STEP_VAL:%.+]] = load i64, i64* %step.addr
 ; CHECK: store i64 [[STEP_VAL]], i64* [[STEP_VAL_CAPTURED:%[a-zA-Z._0-9]+]]
 ; Check that the captured step value is being sent in through the outlined function.
-; CHECK: call void @foo.{{.*}}(i32* {{.+}}, i32* {{.+}}, i64* [[STEP_VAL_CAPTURED]], i64* %step.addr, i32* %.omp.lb, i32* %y, i32* %.omp.ub)
+; CHECK: call void {{.+}} @__kmpc_fork_call(%struct.ident_t* {{.+}}, i32 5, void (i32*, i32*, ...)* bitcast (void (i32*, i32*, i64*, i64*, i32*, i32*, i32*)* @foo.{{.*}} to void (i32*, i32*, ...)*), i64* [[STEP_VAL_CAPTURED]], i64* %step.addr, i32* %.omp.lb, i32* %y, i32* %.omp.ub)
 
   %1 = call token @llvm.directive.region.entry() [ "DIR.OMP.PARALLEL.LOOP"(), "QUAL.OMP.LINEAR"(i32* %y, i64 %0), "QUAL.OMP.SHARED"(i64* %step.addr), "QUAL.OMP.FIRSTPRIVATE"(i32* %.omp.lb), "QUAL.OMP.NORMALIZED.IV"(i32* %.omp.iv), "QUAL.OMP.NORMALIZED.UB"(i32* %.omp.ub), "QUAL.OMP.PRIVATE"(i32* %i), "QUAL.OMP.SHARED"(i32** @yptr) ]
   %2 = load i32, i32* %.omp.lb, align 4

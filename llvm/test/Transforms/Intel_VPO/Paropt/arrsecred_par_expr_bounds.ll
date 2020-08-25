@@ -61,7 +61,7 @@ entry:
 ; CHECK: store i64 %conv, i64* [[LB_ADDR:%[a-zA-Z._0-9]+]]
 ; CHECK: store i64 %conv3, i64* [[SIZE_ADDR:%[a-zA-Z._0-9]+]]
 ; Check that the captured pointers are sent in to the outlined function
-; CHECK: call void @foo.{{.*}}(i32* {{.+}}, i32*{{.+}}, i64* [[SIZE_ADDR]], i64* [[LB_ADDR]], i32* %n.addr, [10 x i32]* %y)
+; CHECK: call void {{.+}} @__kmpc_fork_call(%struct.ident_t* {{.+}}, i32 4, void (i32*, i32*, ...)* bitcast (void (i32*, i32*, i64*, i64*, i32*, [10 x i32]*)* @foo.{{.*}} to void (i32*, i32*, ...)*), i64* [[SIZE_ADDR]], i64* [[LB_ADDR]], i32* %n.addr, [10 x i32]* %y)
 
   %4 = call token @llvm.directive.region.entry() [ "DIR.OMP.PARALLEL"(), "QUAL.OMP.REDUCTION.ADD:ARRSECT"([10 x i32]* %y, i64 1, i64 %conv, i64 %conv3, i64 1), "QUAL.OMP.NUM_THREADS"(i32 4), "QUAL.OMP.SHARED"(i32* %n.addr), "QUAL.OMP.SHARED"(i32** @yptr) ]
   %5 = load i32, i32* %n.addr, align 4

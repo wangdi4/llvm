@@ -227,45 +227,6 @@ CallInst *VPOParoptUtils::genKmpcEndCall(Function *F, Instruction *AI,
   return KmpcEndCall;
 }
 
-
-// This function generates a runtime library call to __kmpc_ok_to_fork(&loc)
-CallInst *VPOParoptUtils::genKmpcForkTest(WRegionNode *W, StructType *IdentTy,
-                                          Instruction *InsertPt) {
-  BasicBlock *B = W->getEntryBBlock();
-  BasicBlock *E = W->getExitBBlock();
-
-  Function *F = B->getParent();
-
-  Module *M = F->getParent();
-  LLVMContext &C = F->getContext();
-
-  int Flags = KMP_IDENT_KMPC;
-
-  GlobalVariable *Loc =
-      genKmpcLocfromDebugLoc(F, InsertPt, IdentTy, Flags, B, E);
-
-  FunctionType *FnForkTestTy = FunctionType::get(
-      Type::getInt32Ty(C), PointerType::getUnqual(IdentTy), false);
-
-  Function *FnForkTest = M->getFunction("__kmpc_ok_to_fork");
-
-  if (!FnForkTest) {
-    FnForkTest = Function::Create(FnForkTestTy, GlobalValue::ExternalLinkage,
-                                  "__kmpc_ok_to_fork", M);
-    FnForkTest->setCallingConv(CallingConv::C);
-  }
-
-  std::vector<Value *> FnForkTestArgs;
-  FnForkTestArgs.push_back(Loc);
-
-  CallInst *ForkTestCall = CallInst::Create(
-      FnForkTestTy, FnForkTest, FnForkTestArgs, "fork.test", InsertPt);
-  ForkTestCall->setCallingConv(CallingConv::C);
-  ForkTestCall->setTailCall(true);
-
-  return ForkTestCall;
-}
-
 /// Update loop scheduling kind based on ordered clause and chunk
 /// size information
 WRNScheduleKind VPOParoptUtils::genScheduleKind(WRNScheduleKind Kind,

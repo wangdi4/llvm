@@ -7609,6 +7609,7 @@ bool VPOParoptTransform::genMultiThreadedCode(WRegionNode *W) {
     NewF->addFnAttr("target.declare", "true");
 
   CallInst *NewCall = cast<CallInst>(NewF->user_back());
+  assert(NewCall->use_empty() && "Unexpected uses of outlined function call");
 
   unsigned int TidArgNo = 0;
   bool IsTidArg = false;
@@ -7641,29 +7642,37 @@ bool VPOParoptTransform::genMultiThreadedCode(WRegionNode *W) {
     }
   }
 
-  CallInst *MTFnCI =
-      CallInst::Create(MTFn->getFunctionType(), MTFn, MTFnArgs, "", NewCall);
-  MTFnCI->setCallingConv(NewCall->getCallingConv());
+  auto CreateMtFnCall = [MTFn, NewCall, &MTFnArgs](Instruction *InsPt) {
+    auto *CI =
+        CallInst::Create(MTFn->getFunctionType(), MTFn, MTFnArgs, "", InsPt);
+    CI->setCallingConv(NewCall->getCallingConv());
 
-  // Copy isTailCall attribute
-  if (NewCall->isTailCall())
-    MTFnCI->setTailCall();
+    // Copy isTailCall attribute
+    if (NewCall->isTailCall())
+      CI->setTailCall();
 
-  MTFnCI->setDebugLoc(NewCall->getDebugLoc());
+    CI->setDebugLoc(NewCall->getDebugLoc());
+    return CI;
+  };
 
-  // MTFnArgs.clear();
+  Instruction *ForkInsPt = NewCall;
+  if (Value *IfClause = !W->getIsTeams() ? W->getIf() : nullptr) {
+    // TODO: change this to assert once FE starts generating if clause condition
+    // with i1 type.
+    if (!IfClause->getType()->isIntegerTy(1))
+      IfClause = new ICmpInst(NewCall, ICmpInst::ICMP_NE, IfClause,
+                              ConstantInt::getSigned(IfClause->getType(), 0),
+                              "if.cond");
 
-  if (!NewCall->use_empty())
-    NewCall->replaceAllUsesWith(MTFnCI);
+    Instruction *ElseInsPt = nullptr;
+    VPOParoptUtils::buildCFGForIfClause(IfClause, ForkInsPt, ElseInsPt, NewCall,
+                                        DT);
 
-  // Keep the orginal extraced function name after finalization
-  MTFnCI->takeName(NewCall);
-  BasicBlock *MTFnBB = MTFnCI->getParent();
-
-  if (GeneralUtils::hasNextUniqueInstruction(MTFnCI)) {
-    Instruction* NextI = GeneralUtils::nextUniqueInstruction(MTFnCI);
-    SplitBlock(MTFnBB, NextI, DT, LI);
+    // Create serial call in 'else' block.
+    CreateMtFnCall(ElseInsPt);
   }
+
+  CallInst *MTFnCI = CreateMtFnCall(ForkInsPt);
 
   // Remove the orginal serial call to extracted NewF from the program,
   // reducing the use-count of NewF
@@ -7674,78 +7683,7 @@ bool VPOParoptTransform::genMultiThreadedCode(WRegionNode *W) {
 
   // Generate __kmpc_fork_call for multithreaded execution of MTFn call
   CallInst* ForkCI = genForkCallInst(W, MTFnCI);
-
-  // Generate __kmpc_ok_to_fork test Call Instruction
-  CallInst* ForkTestCI = VPOParoptUtils::genKmpcForkTest(W, IdentTy, ForkCI);
-
-  //
-  // Genrerate __kmpc_ok_to_fork test for taking either __kmpc_fork_call
-  // or serial call branch, and update CFG and DomTree
-  //
-  //  ForkTestBB(codeRepl)
-  //         /       \
-  //        /         \
-  // ThenForkBB   ElseCallBB
-  //        \       /
-  //         \     /
-  //  SuccessorOfThenForkBB
-  //
-  BasicBlock *ForkTestBB = ForkTestCI->getParent();
-
-  BasicBlock *ForkBB = ForkCI->getParent();
-
-  BasicBlock *ThenForkBB = SplitBlock(ForkBB, ForkCI, DT, LI);
-  ThenForkBB->setName("if.then.fork." + Twine(W->getNumber()));
-
-  BasicBlock *CallBB = MTFnCI->getParent();
-
-  BasicBlock *ElseCallBB = SplitBlock(CallBB, MTFnCI, DT, LI);
-  ElseCallBB->setName("if.else.call." + Twine(W->getNumber()));
-
-  Function *F = ForkTestBB->getParent();
-  LLVMContext &C = F->getContext();
-
-  ConstantInt *ValueZero = ConstantInt::get(Type::getInt32Ty(C), 0);
-
-  Instruction *TermInst = ForkTestBB->getTerminator();
-
-  Value *IfClauseValue = nullptr;
-
-  if (!W->getIsTeams())
-    IfClauseValue = W->getIf();
-
-  ICmpInst* CondInst = nullptr;
-
-  if (IfClauseValue) {
-    IRBuilder<> Builder(TermInst);
-
-    // FE may generate if() condition as a boolean value,
-    // so we need to cast it to the type of __kmpc_ok_to_fork().
-    IfClauseValue = Builder.CreateZExtOrTrunc(IfClauseValue,
-                                              ForkTestCI->getType());
-    auto *IfAndForkTestCI =
-        Builder.CreateAnd(IfClauseValue, ForkTestCI, "and.if.clause");
-    cast<Instruction>(IfAndForkTestCI)->setDebugLoc(TermInst->getDebugLoc());
-    CondInst = new ICmpInst(TermInst, ICmpInst::ICMP_NE,
-                            IfAndForkTestCI, ValueZero, "if.fork.test");
-  }
-  else
-    CondInst = new ICmpInst(TermInst, ICmpInst::ICMP_NE,
-                            ForkTestCI, ValueZero, "fork.test");
-
-  Instruction *NewTermInst = BranchInst::Create(ThenForkBB, ElseCallBB,
-                                                CondInst);
-  ReplaceInstWithInst(TermInst, NewTermInst);
-
-  Instruction *NewForkBI = BranchInst::Create(
-                               ElseCallBB->getTerminator()->getSuccessor(0));
-
-  ReplaceInstWithInst(ThenForkBB->getTerminator(), NewForkBI);
-
-  DT->changeImmediateDominator(ThenForkBB, ForkTestCI->getParent());
-  DT->changeImmediateDominator(ElseCallBB, ForkTestCI->getParent());
-  DT->changeImmediateDominator(ThenForkBB->getTerminator()->getSuccessor(0),
-                               ForkTestCI->getParent());
+  MTFnCI->eraseFromParent();
 
   // Generate __kmpc_push_num_threads(...) Call Instruction
   Value *NumThreads = nullptr;
@@ -7769,10 +7707,6 @@ bool VPOParoptTransform::genMultiThreadedCode(WRegionNode *W) {
       VPOParoptUtils::genKmpcPushNumThreads(W, IdentTy, Tid, NumThreads,
                                             ForkCI);
   }
-
-  // Remove the serial call to MTFn function from the program, reducing
-  // the use-count of MTFn
-  // MTFnCI->eraseFromParent();
 
   LLVM_DEBUG(dbgs() << "\nExit VPOParoptTransform::genMultiThreadedCode\n");
 
@@ -7885,6 +7819,7 @@ CallInst* VPOParoptTransform::genForkCallInst(WRegionNode *W, CallInst *CI) {
 
   ForkCallInst->setCallingConv(CallingConv::C);
   ForkCallInst->setTailCall(false);
+  ForkCallInst->setDebugLoc(CI->getDebugLoc());
 
   return ForkCallInst;
 }

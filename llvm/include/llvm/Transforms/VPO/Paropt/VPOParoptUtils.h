@@ -266,10 +266,6 @@ public:
                                                   Value *Tid, Value *GV,
                                                   Value *GVSize, Value *TpvGV);
 
-  /// Generate OpenMP runtime `ForkTest = ___kmpc_ok_to_fork(&loc)`.
-  static CallInst *genKmpcForkTest(WRegionNode *W, StructType *IdentTy,
-                                   Instruction *InsertPt);
-
   /// Generate source location information from Instruction \p AI's `DebugLoc`.
   static GlobalVariable *genKmpcLocfromDebugLoc(Function *F, Instruction *AI,
                                                 StructType *IdentTy, int Flags,
