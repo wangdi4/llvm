@@ -50,15 +50,22 @@ alloca:
 ; CHECK-NOT: {{%[^ ]+}} = alloca { i16*, i64, i64, i64, i64, i64, [3 x { i64, i64, i64 }] }
 
 ; Check that the dope vector init call is emitted
-; CHECK: [[SIZE:%[^ ]+]] = call i64 @_f90_dope_vector_init(i8* %{{[^ ]+}}, i8* %{{[^ ]+}})
+; CHECK: [[PRIV_DV_CAST:%[^ ]+]] = bitcast { i16*, i64, i64, i64, i64, i64, [3 x { i64, i64, i64 }] }* [[PRIV_DV]] to i8*
+; CHECK: [[SIZE:%[^ ]+]] = call i64 @_f90_dope_vector_init(i8* [[PRIV_DV_CAST]], i8* %{{[^ ]+}})
+; CHECK: [[IS_ALLOCATED:%[^ ]+]] = icmp ne i64 [[SIZE]], 0
+; CHECK: br i1 [[IS_ALLOCATED]], label %[[IF_THEN:[^ ]+]], label %[[IF_CONTINUE:[^, ]+]]
 
+; CHECK: [[IF_THEN]]:
 ; Check that local data is allocated and stored to the addr0 field of the dope vector.
 ; CHECK: [[ADDR0:%[^ ]+]] = getelementptr inbounds { i16*, i64, i64, i64, i64, i64, [3 x { i64, i64, i64 }] }, { i16*, i64, i64, i64, i64, i64, [3 x { i64, i64, i64 }] }* [[PRIV_DV]], i32 0, i32 0
 ; CHECK: [[DATA:%[^ ]+]] = alloca i16, i64 [[SIZE]]
 ; CHECK: store i16* [[DATA]], i16** [[ADDR0]]
+; CHECK: br label %[[IF_CONTINUE]]
 
-; Check that we call f90_lastprivate_copy function.
-; CHECK: call void @_f90_firstprivate_copy(i8* %{{[^ ]+}}, i8* %{{[^ ]+}})
+; CHECK: [[IF_CONTINUE]]:
+; CHECK: [[PRIV_DV_CAST1:%[^ ]+]] = bitcast { i16*, i64, i64, i64, i64, i64, [3 x { i64, i64, i64 }] }* [[PRIV_DV]] to i8*
+; CHECK: call void @_f90_firstprivate_copy(i8* [[PRIV_DV_CAST1]], i8* %{{[^ ]+}})
+
 ; CHECK: call void @_f90_lastprivate_copy(i8* %{{[^ ]+}}, i8* %{{[^ ]+}})
 
   %"foo_$A_$field0$" = getelementptr inbounds { i16*, i64, i64, i64, i64, i64, [3 x { i64, i64, i64 }] }, { i16*, i64, i64, i64, i64, i64, [3 x { i64, i64, i64 }] }* %"foo_$A", i32 0, i32 0
