@@ -18,6 +18,7 @@
 #include "NameMangleAPI.h"
 #include "OclBuiltinEmitter.h"
 
+#include "llvm/Analysis/VectorUtils.h"
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IRReader/IRReader.h"
@@ -35,6 +36,11 @@ bool VectEntry::kernelCallOnce = true;
 std::vector<VectorKind> VectEntry::vectorKindEncode;
 
 OclBuiltinDB *VectInfo::builtinDB = nullptr;
+
+VectorVariant getVectorVariant(unsigned int V, const std::string &Alias) {
+  return VectorVariant{VectEntry::isaClass,         VectEntry::isMasked, V,
+                       VectEntry::vectorKindEncode, VectEntry::baseName, Alias};
+}
 
 template <class T>
 static VecVec<T> transpose(const std::vector<std::vector<T>> &matrix) {
@@ -125,10 +131,7 @@ std::ostream &operator<<(std::ostream &output, const VectEntry &Ent) {
     } else {
       output << "\",\"";
     }
-    output << VectorVariant{VectEntry::isaClass,    VectEntry::isMasked,
-                            (unsigned)2 << i, VectEntry::vectorKindEncode,
-                            VectEntry::baseName,    Ent.funcNames[i]}
-                  .toString()
+    output << getVectorVariant((unsigned)2 << i, Ent.funcNames[i]).toString()
            << "\"},\n";
   }
   return output;
@@ -224,6 +227,24 @@ void VectInfoGenerator::generateFunctions(
   }
 }
 
+bool isVPlanMaskedFunctionVectorVariant(Function &F, VectorVariant &Variant,
+                                        Type *CharacteristicType) {
+  if (!Variant.isMasked())
+    return false;
+
+  assert(!CharacteristicType->isVoidTy() &&
+         "Characteristic type should not be void");
+
+  FunctionType *FnType = F.getFunctionType();
+  // Mask argument is always the last argument
+  assert(1 <= F.arg_size() && "Unexpected mask argument for vector variant!");
+  unsigned MaskArgIdx = F.arg_size() - 1;
+  auto *MaskType = cast<VectorType>(FnType->getParamType(MaskArgIdx));
+  auto *MaskElementType = MaskType->getElementType();
+
+  return CharacteristicType == MaskElementType;
+}
+
 void VectInfoGenerator::run(raw_ostream &os) {
 
   m_funcCounter = 0;
@@ -296,44 +317,76 @@ void VectInfoGenerator::run(raw_ostream &os) {
   remove("protos.ll");
 
   // Restore the duplicate functions.
-  std::vector<const Function *> funcs;
+  std::vector<Function *> funcs;
   std::for_each(pModule->begin(), pModule->end(),
-                [&](const Function &fn) { funcs.push_back(&fn); });
+                [&](Function &fn) { funcs.push_back(&fn); });
   std::for_each(m_dupFuncToOrigFunc.begin(), m_dupFuncToOrigFunc.end(),
                 [&](const std::pair<size_t, size_t> &item) {
                   funcs[item.first] = funcs[item.second];
                 });
 
   std::stringstream ss;
-  auto funcIt = funcs.cbegin();
+  // Generating list of variants who use VPlan-fashioned masks.
+  std::stringstream ssVPlan;
+  ssVPlan << '{';
 
+  auto funcIt = funcs.cbegin();
   size_t k = 0;
   for (const auto &numEntry : numEntries) {
     VectEntry::kernelCallOnce = kernelCallOnceAttrs[k++];
     size_t i = 0;
-    assert(funcIt != funcs.cend() && funcIt != funcs.cend() - 1 &&
-           "the number of tblgen function and llvm functions should be the same");
+    assert(
+        funcIt != funcs.cend() && funcIt != funcs.cend() - 1 &&
+        "the number of tblgen functions and llvm functions should be the same");
     decodeParamKind((*funcIt)->getName().str(),
                     (*(funcIt + 1))->getName().str());
     while (i++ < numEntry.first) {
       size_t j = 0;
       std::vector<std::string> funcNames;
+      auto origIt = funcIt; // original LLVM function
+
       while (j++ < numEntry.second) {
-        assert(funcIt != funcs.cend() &&
-               "the number of tblgen function and llvm functions should be the same");
-        funcNames.push_back(std::string((*funcIt)->getName()));
+        assert(funcIt != funcs.cend() && "the number of tblgen functions and "
+                                         "llvm functions should be the same");
+
+        std::string fname((*funcIt)->getName());
+        size_t m = funcNames.size();
+
+        // for vector variant
+        if (m > 0) {
+          auto variant = getVectorVariant((unsigned)2 << m, fname);
+          auto *characteristicType = calcCharacteristicType(**origIt, variant);
+
+          if (isVPlanMaskedFunctionVectorVariant(**funcIt, variant,
+                                                 characteristicType)) {
+            ssVPlan << '"' << fname << "\",\n";
+          }
+        }
+
+        funcNames.push_back(fname);
         funcIt++;
       }
       ss << VectEntry{funcNames};
     }
   }
+  ssVPlan << "}\n";
+
   assert(k == kernelCallOnceAttrs.size() &&
          "the number of entries and kernel call once attrs should be the same");
-  assert(funcIt == funcs.cend() &&
-         "the number of tblgen function and llvm functions should be the same");
+  assert(
+      funcIt == funcs.cend() &&
+      "the number of tblgen functions and llvm functions should be the same");
+  os << "#ifndef IMPORT_VPLAN_MASKED_VARIANTS\n";
   os << ss.str();
   ss.clear();
   ss.str("");
+
+  os << "#else\n";
+  os << ssVPlan.str();
+  ssVPlan.clear();
+  ssVPlan.str("");
+
+  os << "#endif // IMPORT_VPLAN_MASKED_VARIANTS\n";
 }
 
 } // namespace llvm

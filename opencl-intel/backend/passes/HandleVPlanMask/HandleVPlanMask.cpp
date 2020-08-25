@@ -18,6 +18,7 @@
 #include "OCLPassSupport.h"
 
 #include <llvm/ADT/SmallSet.h>
+#include <llvm/ADT/StringSet.h>
 #include <llvm/IR/Instructions.h>
 #include <llvm/IR/Module.h>
 
@@ -43,7 +44,8 @@ bool HandleVPlanMask::runOnModule(Module &M) {
   SmallSet<Function *, 8> FuncNeedRemoveAttrs;
 
   for (auto &F : M) {
-    if (!F.isDeclaration() || (F.arg_size() < 1) || F.user_empty())
+    if (!F.isDeclaration() || (F.arg_size() < 1) || F.user_empty() ||
+        hasVPlanMask(F))
       continue;
 
     // All users of built-in functions should be CallInst.
@@ -163,6 +165,21 @@ bool HandleVPlanMask::runOnModule(Module &M) {
   }
   return !(FuncToBeRemoved.empty() && FuncNeedRemoveAttrs.empty());
 }
+
+bool HandleVPlanMask::hasVPlanMask(Function &F) {
+  // The TableGen-generated list of function names using VPlan-fashioned masks,
+  // AKA, using characteristic data type as the element type of mask args.
+  // This is a workaround migrating from Volcano to VPlan, all masked functions
+  // should be using VPlan-fashioned masks when we deprecate Volcano completely.
+  static const StringSet<> VPlanMaskedFunctionNames(
+    #define IMPORT_VPLAN_MASKED_VARIANTS
+    #include "VectInfo.gen"
+    #undef IMPORT_VPLAN_MASKED_VARIANTS
+  );
+
+  return VPlanMaskedFunctionNames.count(F.getName()) == 1;
+}
+
 } // namespace intel
 
 extern "C" llvm::ModulePass *createHandleVPlanMaskPass() {

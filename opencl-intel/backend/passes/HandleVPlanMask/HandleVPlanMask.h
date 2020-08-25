@@ -36,6 +36,12 @@ public:
   /// @param M Module to transform
   /// @returns true if changed
   bool runOnModule(Module &M) override;
+
+private:
+  /// @brief Checks whether a function intends to use VPlan-fashioned masks
+  /// @param F Function to check
+  /// @returns true if F has a VPlan-fashioned mask
+  static bool hasVPlanMask(Function &F);
 };
 } // namespace intel
 

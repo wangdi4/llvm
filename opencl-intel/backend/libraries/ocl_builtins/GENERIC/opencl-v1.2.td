@@ -262,6 +262,23 @@ foreach bi = ["sincos", "native_sincos", "modf", "fract", "native_fract"] in {
     0,1>;
 }
 
+// OpenCL 1.2 rev 15, Table 6.8, masked version
+let Types = [v2f32, v3f32, v4f32, v8f32, v16f32,
+             v2f64, v3f64, v4f64, v8f64, v16f64],
+    Attrs = [CONSTFUNC, OVERLOADABLE], NeedForwardDecl = 1 in {
+  def acos_mask : OclBuiltin<"acos", (outs gentype:$ret), (ins gentype:$x, gentype:$mask), [], [], 0, 1>;
+}
+
+let KernelCallOnce = 0, Types = [v1f32, v1f64] in {
+  foreach bi = ["acos"] in {
+    def intel_#bi : VectInfo<[], !cast<OclBuiltin>(bi), !cast<OclBuiltin>(bi), !cast<OclBuiltin>(bi), !cast<OclBuiltin>(bi)>;
+
+    let HandleAlias = 0 in {
+      def intel_#bi_mask : VectInfo<[], !cast<OclBuiltin>(bi), !cast<OclBuiltin>(bi#"_mask"), !cast<OclBuiltin>(bi#"_mask"), !cast<OclBuiltin>(bi#"_mask")>;
+    }
+  }
+}
+
 // OpenCL 1.2 rev 15, Table 6.10
 let Types = [ v1i8,  v2i8,  v3i8,  v4i8,  v8i8,  v16i8,
               v1u8,  v2u8,  v3u8,  v4u8,  v8u8,  v16u8,
