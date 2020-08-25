@@ -54,7 +54,7 @@ entry:
 
 
 ; CHECK: %vla = alloca i32, i64 [[VLA_SIZE_VAL:%[a-zA-Z._0-9]+]]
-; CHECK-DAG: call void @foo.{{.*}}(i32* {{.+}}, i32* {{.+}}, i64* [[VLA_SIZE_CAPTURED:%.+]], i64* %omp.vla.tmp, i32* %vla)
+; CHECK-DAG: call void {{.+}} @__kmpc_fork_call(%struct.ident_t* {{.+}}, void (i32*, i32*, ...)* bitcast (void (i32*, i32*, i64*, i64*, i32*)* @foo.{{.*}} to void (i32*, i32*, ...)*), i64* [[VLA_SIZE_CAPTURED:%.+]], i64* %omp.vla.tmp, i32* %vla)
 ; Check that VLA_SIZE_VAL was stored to VLA_SIZE_CAPTURED
 ; CHECK-DAG: store i64 [[VLA_SIZE_VAL]], i64* [[VLA_SIZE_CAPTURED]]
 ; CHECK that a load from VLA_SIZE_CAPTURED was used in another alloca (which is for the private copy of %vla)

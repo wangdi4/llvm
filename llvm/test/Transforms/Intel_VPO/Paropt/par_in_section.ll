@@ -6,7 +6,7 @@
 ; directive for the parallel construct, as loop recognition for the
 ; outer sections construct fails.
 ;
-; CHECK: tail call i32 @__kmpc_ok_to_fork
+; CHECK: call void {{.*}} @__kmpc_fork_call
 
 ; Test src:
 ;
