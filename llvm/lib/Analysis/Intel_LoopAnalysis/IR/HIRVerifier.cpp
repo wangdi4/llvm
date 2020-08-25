@@ -382,6 +382,14 @@ void HIRVerifierImpl::checkLoopLiveinLiveout(unsigned UseSB,
     }
 
     DefLoop = DefNode->getLexicalParentLoop();
+
+  } else {
+    auto &BU = UseNode->getBlobUtils();
+
+    if (BU.isInstBlob(BU.findTempBlobIndex(UseSB))) {
+      assert(UseNode->getParentRegion()->isLiveIn(UseSB) &&
+             "Temp expected to be livein to region.");
+    }
   }
 
   // Get the lowest common ancestor loop of the define loop and use loop
