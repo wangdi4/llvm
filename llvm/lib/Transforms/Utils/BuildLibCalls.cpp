@@ -828,22 +828,38 @@ bool llvm::inferLibFuncAttributes(Function &F, const TargetLibraryInfo &TLI) {
   // case LibFunc_memset_pattern4:
   // case LibFunc_memset_pattern8:
 #if INTEL_CUSTOMIZATION
+  case LibFunc_msvc_std_basic_string_append:
+    return Changed;
+  case LibFunc_msvc_std_basic_string_under_xlen:
+    Changed |= setDoesNotReturn(F);
+    return Changed;
   case LibFunc_msvc_std_ctype_do_tolower_char:
   case LibFunc_msvc_std_ctype_do_tolower_ptr_ptr:
   case LibFunc_msvc_std_ctype_do_toupper_char:
   case LibFunc_msvc_std_ctype_do_toupper_ptr_ptr:
     Changed |= setDoesNotThrow(F);
     return Changed;
+  case LibFunc_msvc_std_ctype_use_facet:
   case LibFunc_msvc_std_CxxThrowException:
   case LibFunc_msvc_std_Execute_once:
+  case LibFunc_msvc_std_exception_const_ptr_ctor:
+  case LibFunc_msvc_std_exception_dtor:
+  case LibFunc_msvc_std_exception_scalar_deleting_dtor:
+  case LibFunc_msvc_std_exception_what:
   case LibFunc_msvc_std_facet_register:
+  case LibFunc_msvc_std_ios_base_failure:
   case LibFunc_msvc_std_locimp_Getgloballocale:
   case LibFunc_msvc_std_locinfo_ctor:
   case LibFunc_msvc_std_locinfo_dtor:
   case LibFunc_msvc_std_lockit:
   case LibFunc_msvc_std_lockit_dtor:
-  case LibFunc_msvc_std_uncaught_exception:
+  case LibFunc_msvc_std_runtime_error_ctor:
+  case LibFunc_msvc_std_runtime_error_scalar_deleting_dtor:
   case LibFunc_msvc_std_Syserror_map:
+  case LibFunc_msvc_std_under_system_error_const_ptr_ctor:
+  case LibFunc_msvc_std_uncaught_exception:
+  case LibFunc_msvc_std_under_locinfo_ctor:
+  case LibFunc_msvc_std_under_locinfo_dtor:
   case LibFunc_msvc_std_Xbad_alloc:
   case LibFunc_msvc_std_yarn_dtor:
     return Changed;
@@ -859,6 +875,10 @@ bool llvm::inferLibFuncAttributes(Function &F, const TargetLibraryInfo &TLI) {
   case LibFunc_msvc_std_num_put_do_put_ulong:
   case LibFunc_msvc_std_num_put_do_put_ulong_long:
   case LibFunc_msvc_std_num_put_do_put_void_ptr:
+  case LibFunc_msvc_std_num_put_use_facet:
+    return Changed;
+  case LibFunc_msvc_std_under_immortalize_impl:
+    Changed |= setDoesNotThrow(F);
     return Changed;
 #endif // INTEL_CUSTOMIZATION
   case LibFunc_memset_pattern16:
