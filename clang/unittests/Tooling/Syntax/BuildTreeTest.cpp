@@ -3007,55 +3007,37 @@ namespace n {
 )txt"));
 }
 
-TEST_P(SyntaxTreeTest, Templates2) {
+TEST_P(SyntaxTreeTest, ClassTemplate_MemberClassDefinition) {
   if (!GetParam().isCXX()) {
     return;
   }
-  EXPECT_TRUE(treeDumpEqual(
+  EXPECT_TRUE(treeDumpEqualOnAnnotations(
       R"cpp(
 template <class T> struct X { struct Y; };
-template <class T> struct X<T>::Y {};
+[[template <class T> struct X<T>::Y {};]]
 )cpp",
-      R"txt(
-*: TranslationUnit
-|-TemplateDeclaration
-| |-template
-| |-<
-| |-UnknownDeclaration
-| | |-class
-| | `-T
-| |->
-| `-SimpleDeclaration
-|   |-struct
-|   |-X
-|   |-{
-|   |-SimpleDeclaration
-|   | |-struct
-|   | |-Y
-|   | `-;
-|   |-}
-|   `-;
-`-TemplateDeclaration
-  |-template
-  |-<
-  |-UnknownDeclaration
-  | |-class
-  | `-T
-  |->
-  `-SimpleDeclaration
-    |-struct
-    |-NestedNameSpecifier
-    | |-SimpleTemplateNameSpecifier
-    | | |-X
-    | | |-<
-    | | |-T
-    | | `->
-    | `-::
-    |-Y
-    |-{
-    |-}
-    `-;
-)txt"));
+      {R"txt(
+TemplateDeclaration
+|-template
+|-<
+|-UnknownDeclaration
+| |-class
+| `-T
+|->
+`-SimpleDeclaration
+  |-struct
+  |-NestedNameSpecifier
+  | |-SimpleTemplateNameSpecifier
+  | | |-X
+  | | |-<
+  | | |-T
+  | | `->
+  | `-::
+  |-Y
+  |-{
+  |-}
+  `-;
+)txt"}));
 }
 
 TEST_P(SyntaxTreeTest, ExplicitClassTemplateInstantation_Definition) {
@@ -3962,13 +3944,11 @@ int *(d)(int);
 )txt"));
 }
 
-TEST_P(SyntaxTreeTest, ConstVolatileQualifiers) {
+TEST_P(SyntaxTreeTest, Declaration_ConstVolatileQualifiers_SimpleConst) {
   EXPECT_TRUE(treeDumpEqual(
       R"cpp(
 const int west = -1;
 int const east = 1;
-const int const universal = 0;
-const int const *const *volatile b;
 )cpp",
       R"txt(
 *: TranslationUnit
@@ -3983,25 +3963,45 @@ const int const *const *volatile b;
 | |   `-IntegerLiteralExpression
 | |     `-1
 | `-;
-|-SimpleDeclaration
-| |-int
-| |-const
-| |-SimpleDeclarator
-| | |-east
-| | |-=
-| | `-IntegerLiteralExpression
-| |   `-1
-| `-;
-|-SimpleDeclaration
-| |-const
-| |-int
-| |-const
-| |-SimpleDeclarator
-| | |-universal
-| | |-=
-| | `-IntegerLiteralExpression
-| |   `-0
-| `-;
+`-SimpleDeclaration
+  |-int
+  |-const
+  |-SimpleDeclarator
+  | |-east
+  | |-=
+  | `-IntegerLiteralExpression
+  |   `-1
+  `-;
+)txt"));
+}
+
+TEST_P(SyntaxTreeTest, Declaration_ConstVolatileQualifiers_MultipleConst) {
+  EXPECT_TRUE(treeDumpEqual(
+      R"cpp(
+const int const universal = 0;
+)cpp",
+      R"txt(
+*: TranslationUnit
+`-SimpleDeclaration
+  |-const
+  |-int
+  |-const
+  |-SimpleDeclarator
+  | |-universal
+  | |-=
+  | `-IntegerLiteralExpression
+  |   `-0
+  `-;
+)txt"));
+}
+
+TEST_P(SyntaxTreeTest, Declaration_ConstVolatileQualifiers_ConstAndVolatile) {
+  EXPECT_TRUE(treeDumpEqual(
+      R"cpp(
+const int const *const *volatile b;
+)cpp",
+      R"txt(
+*: TranslationUnit
 `-SimpleDeclaration
   |-const
   |-int
@@ -4059,133 +4059,119 @@ TEST_P(SyntaxTreeTest, MemberPointers) {
   if (!GetParam().isCXX()) {
     return;
   }
-  EXPECT_TRUE(treeDumpEqual(
+  EXPECT_TRUE(treeDumpEqualOnAnnotations(
       R"cpp(
 struct X {};
-int X::* a;
-const int X::* b;
+[[int X::* a;]]
+[[const int X::* b;]]
 )cpp",
-      R"txt(
-*: TranslationUnit
-|-SimpleDeclaration
-| |-struct
-| |-X
-| |-{
-| |-}
-| `-;
-|-SimpleDeclaration
-| |-int
-| |-SimpleDeclarator
-| | |-MemberPointer
-| | | |-X
-| | | |-::
-| | | `-*
-| | `-a
-| `-;
-`-SimpleDeclaration
-  |-const
-  |-int
-  |-SimpleDeclarator
-  | |-MemberPointer
-  | | |-X
-  | | |-::
-  | | `-*
-  | `-b
-  `-;
-)txt"));
+      {R"txt(
+SimpleDeclaration
+|-int
+|-SimpleDeclarator
+| |-MemberPointer
+| | |-X
+| | |-::
+| | `-*
+| `-a
+`-;
+)txt",
+       R"txt(
+SimpleDeclaration
+|-const
+|-int
+|-SimpleDeclarator
+| |-MemberPointer
+| | |-X
+| | |-::
+| | `-*
+| `-b
+`-;
+)txt"}));
 }
 
 TEST_P(SyntaxTreeTest, MemberFunctionPointer) {
   if (!GetParam().isCXX()) {
     return;
   }
-  EXPECT_TRUE(treeDumpEqual(
+  EXPECT_TRUE(treeDumpEqualOnAnnotations(
       R"cpp(
 struct X {
   struct Y {};
 };
-void (X::*xp)();
-void (X::**xpp)(const int*);
+[[void (X::*xp)();]]
+[[void (X::**xpp)(const int*);]]
 // FIXME: Generate the right syntax tree for this type,
 // i.e. create a syntax node for the outer member pointer
-void (X::Y::*xyp)(const int*, char);
+[[void (X::Y::*xyp)(const int*, char);]]
 )cpp",
-      R"txt(
-*: TranslationUnit
-|-SimpleDeclaration
-| |-struct
-| |-X
-| |-{
-| |-SimpleDeclaration
-| | |-struct
-| | |-Y
-| | |-{
-| | |-}
-| | `-;
-| |-}
-| `-;
-|-SimpleDeclaration
-| |-void
-| |-SimpleDeclarator
-| | |-ParenDeclarator
-| | | |-(
-| | | |-MemberPointer
-| | | | |-X
-| | | | |-::
-| | | | `-*
-| | | |-xp
-| | | `-)
-| | `-ParametersAndQualifiers
-| |   |-(
-| |   `-)
-| `-;
-|-SimpleDeclaration
-| |-void
-| |-SimpleDeclarator
-| | |-ParenDeclarator
-| | | |-(
-| | | |-MemberPointer
-| | | | |-X
-| | | | |-::
-| | | | `-*
-| | | |-*
-| | | |-xpp
-| | | `-)
-| | `-ParametersAndQualifiers
-| |   |-(
-| |   |-SimpleDeclaration
-| |   | |-const
-| |   | |-int
-| |   | `-SimpleDeclarator
-| |   |   `-*
-| |   `-)
-| `-;
-`-SimpleDeclaration
-  |-void
-  |-SimpleDeclarator
-  | |-ParenDeclarator
-  | | |-(
-  | | |-X
-  | | |-::
-  | | |-MemberPointer
-  | | | |-Y
-  | | | |-::
-  | | | `-*
-  | | |-xyp
-  | | `-)
-  | `-ParametersAndQualifiers
-  |   |-(
-  |   |-SimpleDeclaration
-  |   | |-const
-  |   | |-int
-  |   | `-SimpleDeclarator
-  |   |   `-*
-  |   |-,
-  |   |-SimpleDeclaration
-  |   | `-char
-  |   `-)
-  `-;
-)txt"));
+      {R"txt(
+SimpleDeclaration
+|-void
+|-SimpleDeclarator
+| |-ParenDeclarator
+| | |-(
+| | |-MemberPointer
+| | | |-X
+| | | |-::
+| | | `-*
+| | |-xp
+| | `-)
+| `-ParametersAndQualifiers
+|   |-(
+|   `-)
+`-;
+)txt",
+       R"txt(
+SimpleDeclaration
+|-void
+|-SimpleDeclarator
+| |-ParenDeclarator
+| | |-(
+| | |-MemberPointer
+| | | |-X
+| | | |-::
+| | | `-*
+| | |-*
+| | |-xpp
+| | `-)
+| `-ParametersAndQualifiers
+|   |-(
+|   |-SimpleDeclaration
+|   | |-const
+|   | |-int
+|   | `-SimpleDeclarator
+|   |   `-*
+|   `-)
+`-;
+)txt",
+       R"txt(
+SimpleDeclaration
+|-void
+|-SimpleDeclarator
+| |-ParenDeclarator
+| | |-(
+| | |-X
+| | |-::
+| | |-MemberPointer
+| | | |-Y
+| | | |-::
+| | | `-*
+| | |-xyp
+| | `-)
+| `-ParametersAndQualifiers
+|   |-(
+|   |-SimpleDeclaration
+|   | |-const
+|   | |-int
+|   | `-SimpleDeclarator
+|   |   `-*
+|   |-,
+|   |-SimpleDeclaration
+|   | `-char
+|   `-)
+`-;
+)txt"}));
 }
 
 TEST_P(SyntaxTreeTest, ComplexDeclarator) {
