@@ -125,6 +125,8 @@ bool getEmitCallSiteInfo();
 
 bool getEnableDebugEntryValues();
 
+bool getValueTrackingVariableLocations();
+
 bool getForceDwarfFrameSection();
 
 bool getXRayOmitFunctionIndex();
