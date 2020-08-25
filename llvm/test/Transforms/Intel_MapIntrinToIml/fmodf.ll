@@ -1,6 +1,6 @@
 ; Check to see that __svml_fmodf4 is translated to the medium accuracy svml variant.
 
-; RUN: opt -iml-trans -S < %s | FileCheck %s
+; RUN: opt -vector-library=SVML -iml-trans -S < %s | FileCheck %s
 
 ; CHECK-LABEL: @vector_foo
 ; CHECK: vector.body
