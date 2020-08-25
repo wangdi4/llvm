@@ -1,8 +1,7 @@
 // RUN: %libomptarget-compilexx-run-and-check-aarch64-unknown-linux-gnu
 // RUN: %libomptarget-compilexx-run-and-check-powerpc64-ibm-linux-gnu
 // RUN: %libomptarget-compilexx-run-and-check-powerpc64le-ibm-linux-gnu
-// INTEL: Enable when CMPLRLLVM-22302 fixed
-// RUN;: %libomptarget-compilexx-run-and-check-x86_64-pc-linux-gnu
+// RUN: %libomptarget-compilexx-run-and-check-x86_64-pc-linux-gnu
 // RUN: %libomptarget-compilexx-run-and-check-nvptx64-nvidia-cuda
 
 #include <omp.h>
@@ -11,6 +10,9 @@
 #include <iostream>
 
 int main(int argc, char *argv[]) {
+#if INTEL_CUSTOMIZATION
+  omp_set_max_active_levels(2);
+#endif // INTEL_CUSTOMIZATION
 #pragma omp parallel for
   for (int i = 0; i < 16; ++i) {
     for (int n = 1; n < (1 << 13); n <<= 1) {
