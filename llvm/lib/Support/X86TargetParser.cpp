@@ -205,6 +205,11 @@ static constexpr FeatureBitset FeaturesTigerlake =
 #endif // INTEL_CUSTOMIZATION
     FeaturesICLClient | FeatureAVX512VP2INTERSECT | FeatureMOVDIR64B |
     FeatureMOVDIRI | FeatureSHSTK;
+static constexpr FeatureBitset FeaturesSapphireRapids =
+    FeaturesICLServer | FeatureAMX_TILE | FeatureAMX_INT8 | FeatureAMX_BF16 |
+    FeatureAVX512BF16 | FeatureAVX512VP2INTERSECT | FeatureCLDEMOTE | FeatureENQCMD |
+    FeatureMOVDIR64B | FeatureMOVDIRI | FeaturePTWRITE | FeatureSERIALIZE |
+    FeatureSHSTK | FeatureTSXLDTRK | FeatureWAITPKG;
 
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_CPU_RKL
@@ -416,6 +421,7 @@ static constexpr ProcInfo Processors[] = {
   { {"icelake-server"}, CK_IcelakeServer, FEATURE_AVX512VBMI2, FeaturesICLServer },
   // Tigerlake microarchitecture based processors.
   { {"tigerlake"}, CK_Tigerlake, FEATURE_AVX512VP2INTERSECT, FeaturesTigerlake },
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_CPU_SPR
   // Sapphire Rapids microarchitecture based processors.
@@ -428,6 +434,10 @@ static constexpr ProcInfo Processors[] = {
   { {"rocketlake"}, CK_Rocketlake, ~0U, FeaturesRocketlake },
 #endif // INTEL_FEATURE_CPU_RKL
 #endif // INTEL_CUSTOMIZATION
+=======
+  // Sapphire Rapids microarchitecture based processors.
+  { {"sapphirerapids"}, CK_SapphireRapids, FEATURE_AVX512VP2INTERSECT, FeaturesSapphireRapids },
+>>>>>>> e02d081f2b60b61eb60ef6a49b1a9f907e432d4c
   // Knights Landing processor.
   { {"knl"}, CK_KNL, FEATURE_AVX512F, FeaturesKNL },
   // Knights Mill processor.

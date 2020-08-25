@@ -981,6 +981,7 @@ def ProcessorFeatures {
   list<SubtargetFeature> TGLFeatures =
     !listconcat(ICLFeatures, TGLAdditionalFeatures );
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   list<SubtargetFeature> IntelAnonymous1AdditionalFeatures =[
 #if INTEL_FEATURE_ISA_AMX
@@ -1017,6 +1018,26 @@ def ProcessorFeatures {
     !listconcat(ICXFeatures, IntelAnonymous1AdditionalFeatures);
   list<SubtargetFeature> IntelAnonymous1Tuning = ICXTuning;
 #endif // INTEL_CUSTOMIZATION
+=======
+  //Sapphirerapids
+  list<SubtargetFeature> SPRAdditionalFeatures = [FeatureAMXTILE,
+                                                  FeatureAMXINT8,
+                                                  FeatureAMXBF16,
+                                                  FeatureBF16,
+                                                  FeatureSERIALIZE,
+                                                  FeatureCLDEMOTE,
+                                                  FeatureWAITPKG,
+                                                  FeaturePTWRITE,
+                                                  FeatureTSXLDTRK,
+                                                  FeatureENQCMD,
+                                                  FeatureSHSTK,
+                                                  FeatureVP2INTERSECT,
+                                                  FeatureMOVDIRI,
+                                                  FeatureMOVDIR64B];
+  list<SubtargetFeature> SPRTuning = ICXTuning;
+  list<SubtargetFeature> SPRFeatures =
+    !listconcat(ICXFeatures, SPRAdditionalFeatures);
+>>>>>>> e02d081f2b60b61eb60ef6a49b1a9f907e432d4c
 
   // Atom
   list<SubtargetFeature> AtomFeatures = [FeatureX87,
@@ -1585,6 +1606,8 @@ def : ProcModel<"icelake-server", SkylakeServerModel,
                 ProcessorFeatures.ICXFeatures, ProcessorFeatures.ICXTuning>;
 def : ProcModel<"tigerlake", SkylakeServerModel,
                 ProcessorFeatures.TGLFeatures, ProcessorFeatures.TGLTuning>;
+def : ProcModel<"sapphirerapids", SkylakeServerModel,
+                ProcessorFeatures.SPRFeatures, ProcessorFeatures.SPRTuning>;
 
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_CPU_SPR

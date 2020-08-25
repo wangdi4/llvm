@@ -26,8 +26,13 @@
 // X86-SAME: pentium3m, pentium-m, c3-2, yonah, pentium4, pentium4m, prescott,
 // X86-SAME: nocona, core2, penryn, bonnell, atom, silvermont, slm, goldmont, goldmont-plus, tremont,
 // X86-SAME: nehalem, corei7, westmere, sandybridge, corei7-avx, ivybridge,
+<<<<<<< HEAD
 // X86-SAME: core-avx-i, haswell, core-avx2, broadwell, common-avx512, skylake, skylake-avx512, ;INTEL
 // X86-SAME: skx, cascadelake, cooperlake, cannonlake, icelake-client, icelake-server, tigerlake, knl, knm, lakemont, k6, k6-2, k6-3, ;INTEL
+=======
+// X86-SAME: core-avx-i, haswell, core-avx2, broadwell, skylake, skylake-avx512,
+// X86-SAME: skx, cascadelake, cooperlake, cannonlake, icelake-client, icelake-server, tigerlake, sapphirerapids, knl, knm, lakemont, k6, k6-2, k6-3,
+>>>>>>> e02d081f2b60b61eb60ef6a49b1a9f907e432d4c
 // X86-SAME: athlon, athlon-tbird, athlon-xp, athlon-mp, athlon-4, k8, athlon64,
 // X86-SAME: athlon-fx, opteron, k8-sse3, athlon64-sse3, opteron-sse3, amdfam10,
 // X86-SAME: barcelona, btver1, btver2, bdver1, bdver2, bdver3, bdver4, znver1, znver2,
@@ -38,8 +43,13 @@
 // X86_64: note: valid target CPU values are: nocona, core2, penryn, bonnell,
 // X86_64-SAME: atom, silvermont, slm, goldmont, goldmont-plus, tremont, nehalem, corei7, westmere,
 // X86_64-SAME: sandybridge, corei7-avx, ivybridge, core-avx-i, haswell,
+<<<<<<< HEAD
 // X86_64-SAME: core-avx2, broadwell, common-avx512, skylake, skylake-avx512, skx, cascadelake, cooperlake, cannonlake, ;INTEL
 // X86_64-SAME: icelake-client, icelake-server, tigerlake, knl, knm, k8, athlon64, athlon-fx, opteron, k8-sse3, ;INTEL
+=======
+// X86_64-SAME: core-avx2, broadwell, skylake, skylake-avx512, skx, cascadelake, cooperlake, cannonlake,
+// X86_64-SAME: icelake-client, icelake-server, tigerlake, sapphirerapids, knl, knm, k8, athlon64, athlon-fx, opteron, k8-sse3,
+>>>>>>> e02d081f2b60b61eb60ef6a49b1a9f907e432d4c
 // X86_64-SAME: athlon64-sse3, opteron-sse3, amdfam10, barcelona, btver1,
 // X86_64-SAME: btver2, bdver1, bdver2, bdver3, bdver4, znver1, znver2, x86-64
 
@@ -50,8 +60,13 @@
 // TUNE_X86-SAME: pentium3m, pentium-m, c3-2, yonah, pentium4, pentium4m, prescott,
 // TUNE_X86-SAME: nocona, core2, penryn, bonnell, atom, silvermont, slm, goldmont, goldmont-plus, tremont,
 // TUNE_X86-SAME: nehalem, corei7, westmere, sandybridge, corei7-avx, ivybridge,
+<<<<<<< HEAD
 // TUNE_X86-SAME: core-avx-i, haswell, core-avx2, broadwell,{{.*}}skylake, skylake-avx512,  ;INTEL
 // TUNE_X86-SAME: skx, cascadelake, cooperlake, cannonlake, icelake-client, icelake-server, tigerlake, knl, knm, lakemont, k6, k6-2, k6-3,
+=======
+// TUNE_X86-SAME: core-avx-i, haswell, core-avx2, broadwell, skylake, skylake-avx512,
+// TUNE_X86-SAME: skx, cascadelake, cooperlake, cannonlake, icelake-client, icelake-server, tigerlake, sapphirerapids, knl, knm, lakemont, k6, k6-2, k6-3,
+>>>>>>> e02d081f2b60b61eb60ef6a49b1a9f907e432d4c
 // TUNE_X86-SAME: athlon, athlon-tbird, athlon-xp, athlon-mp, athlon-4, k8, athlon64,
 // TUNE_X86-SAME: athlon-fx, opteron, k8-sse3, athlon64-sse3, opteron-sse3, amdfam10,
 // TUNE_X86-SAME: barcelona, btver1, btver2, bdver1, bdver2, bdver3, bdver4, znver1, znver2,
@@ -64,8 +79,13 @@
 // TUNE_X86_64-SAME: pentium3m, pentium-m, c3-2, yonah, pentium4, pentium4m, prescott,
 // TUNE_X86_64-SAME: nocona, core2, penryn, bonnell, atom, silvermont, slm, goldmont, goldmont-plus, tremont,
 // TUNE_X86_64-SAME: nehalem, corei7, westmere, sandybridge, corei7-avx, ivybridge,
+<<<<<<< HEAD
 // TUNE_X86_64-SAME: core-avx-i, haswell, core-avx2, broadwell, {{.*}}skylake, skylake-avx512, ;INTEL
 // TUNE_X86_64-SAME: skx, cascadelake, cooperlake, cannonlake, icelake-client, icelake-server, tigerlake, knl, knm, lakemont, k6, k6-2, k6-3,
+=======
+// TUNE_X86_64-SAME: core-avx-i, haswell, core-avx2, broadwell, skylake, skylake-avx512,
+// TUNE_X86_64-SAME: skx, cascadelake, cooperlake, cannonlake, icelake-client, icelake-server, tigerlake, sapphirerapids, knl, knm, lakemont, k6, k6-2, k6-3,
+>>>>>>> e02d081f2b60b61eb60ef6a49b1a9f907e432d4c
 // TUNE_X86_64-SAME: athlon, athlon-tbird, athlon-xp, athlon-mp, athlon-4, k8, athlon64,
 // TUNE_X86_64-SAME: athlon-fx, opteron, k8-sse3, athlon64-sse3, opteron-sse3, amdfam10,
 // TUNE_X86_64-SAME: barcelona, btver1, btver2, bdver1, bdver2, bdver3, bdver4, znver1, znver2,

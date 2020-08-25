@@ -657,6 +657,7 @@ void X86TargetInfo::getTargetDefines(const LangOptions &Opts,
   case CK_IcelakeClient:
   case CK_IcelakeServer:
   case CK_Tigerlake:
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_CPU_SPR
   case CK_SapphireRapids:
@@ -672,6 +673,9 @@ void X86TargetInfo::getTargetDefines(const LangOptions &Opts,
   case CK_Rocketlake:
 #endif // INTEL_FEATURE_CPU_RKL
 #endif // INTEL_CUSTOMIZATION
+=======
+  case CK_SapphireRapids:
+>>>>>>> e02d081f2b60b61eb60ef6a49b1a9f907e432d4c
     // FIXME: Historically, we defined this legacy name, it would be nice to
     // remove it at some point. We've never exposed fine-grained names for
     // recent primary x86 CPUs, and we should keep it that way.
@@ -1887,11 +1891,15 @@ Optional<unsigned> X86TargetInfo::getCPUCacheLineSize() const {
     case CK_Cooperlake:
     case CK_Cannonlake:
     case CK_Tigerlake:
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_CPU_RKL
     case CK_Rocketlake:
 #endif // INTEL_FEATURE_CPU_RKL
 #endif // INTEL_CUSTOMIZATION
+=======
+    case CK_SapphireRapids:
+>>>>>>> e02d081f2b60b61eb60ef6a49b1a9f907e432d4c
     case CK_IcelakeClient:
     case CK_IcelakeServer:
 #if INTEL_CUSTOMIZATION
