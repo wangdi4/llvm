@@ -22,11 +22,7 @@
 #include "llvm/IR/Module.h"
 #include "llvm/IR/Type.h"
 #include "llvm/InitializePasses.h"
-<<<<<<< HEAD
 #include "llvm/Support/CommandLine.h" // INTEL
-#include "llvm/Transforms/Coroutines.h"
-=======
->>>>>>> 44ee9d070adee1aed105f90d88b30b8802d90d35
 #include "llvm/Transforms/IPO.h"
 #include "llvm/Transforms/IPO/Inliner.h"
 #include "llvm/Transforms/Utils/Cloning.h"
