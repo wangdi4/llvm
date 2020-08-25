@@ -1131,7 +1131,7 @@ static int32_t copyData(int32_t DeviceId, void *Dest, void *Src, size_t Size,
                      nullptr);
     if (ownsLock)
       copyLock.unlock();
-    CALL_ZE_RET_FAIL(zeCommandQueueSynchronize, cmdQueue, UINT32_MAX);
+    CALL_ZE_RET_FAIL(zeCommandQueueSynchronize, cmdQueue, UINT64_MAX);
     CALL_ZE_RET_FAIL(zeCommandListReset, cmdList);
   }
   return OFFLOAD_SUCCESS;
@@ -1202,7 +1202,7 @@ static int32_t initModule(int32_t DeviceId) {
   CALL_ZE_RET_FAIL(zeCommandListClose, cmdList);
   CALL_ZE_RET_FAIL(zeCommandQueueExecuteCommandLists, cmdQueue, 1, &cmdList,
                    nullptr);
-  CALL_ZE_RET_FAIL(zeCommandQueueSynchronize, cmdQueue, UINT32_MAX);
+  CALL_ZE_RET_FAIL(zeCommandQueueSynchronize, cmdQueue, UINT64_MAX);
   CALL_ZE_RET_FAIL(zeCommandListReset, cmdList);
   CALL_ZE_RET_FAIL(zeKernelDestroy, initKernel);
   if (!DeviceInfo->Flags.UseMemoryPool) {
@@ -1890,7 +1890,7 @@ static int32_t beginAsyncCommand(ze_command_list_handle_t CmdList,
   std::thread waiter([](AsyncEventTy *event, ze_command_list_handle_t cmdList,
                         ze_fence_handle_t fence) {
     // Wait until the fence is signaled.
-    CALL_ZE_EXIT_FAIL(zeFenceHostSynchronize, fence, UINT32_MAX);
+    CALL_ZE_EXIT_FAIL(zeFenceHostSynchronize, fence, UINT64_MAX);
     // Invoke clean-up routine
     endAsyncCommand(event, cmdList, fence);
   }, Event, CmdList, Fence);
@@ -2457,7 +2457,7 @@ static int32_t runTargetTeamRegion(
     CALL_ZE_RET_FAIL(zeCommandQueueExecuteCommandLists, cmdQueue, 1, &cmdList,
                      nullptr);
     kernelLock.unlock();
-    CALL_ZE_RET_FAIL(zeCommandQueueSynchronize, cmdQueue, UINT32_MAX);
+    CALL_ZE_RET_FAIL(zeCommandQueueSynchronize, cmdQueue, UINT64_MAX);
     // Make sure the command list is ready to accept next command
     CALL_ZE_RET_FAIL(zeCommandListReset, cmdList);
   }
