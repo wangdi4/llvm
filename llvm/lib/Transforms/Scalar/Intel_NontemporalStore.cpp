@@ -71,6 +71,12 @@ public:
     // not optimizing for AVX-512, then don't try to use it.
     HasLibFunc =
       TTI.isAdvancedOptEnabled(TargetTransformInfo::AO_TargetHasAVX512);
+
+    // CMPLRLLVM-21684: For some reason, the library function does not work
+    // correctly on x86-32. Until this can be understood, disable the library
+    // function for now.
+    if (DL.getPointerSizeInBits(0) != 64)
+      HasLibFunc = false;
   }
   void run();
   Optional<Loop *> getContiguousInLoop(StoreInst &SI);
@@ -78,11 +84,6 @@ public:
 };
 
 void NontemporalStore::run() {
-  // If we don't support the library function, do not bother trying to do
-  // anything.
-  if (!HasLibFunc)
-    return;
-
   SmallVector<std::pair<StoreInst *, Loop *>, 2> Worklist;
   for (auto &BB : F) {
     // Only consider instructions in loops.
@@ -103,13 +104,20 @@ void NontemporalStore::run() {
         if (ActualAlignment >= DesiredAlignment)
           continue;
 
+        // Check for scalar movnt instructions: these don't have misalignment
+        // issues.
+        if (DL.getTypeStoreSizeInBits(StoreType).getFixedSize() < 128)
+          continue;
+
         LLVM_DEBUG(dbgs() << "Found unaligned nontemporal store: " <<
             *SI << "\n");
         Loop *L = getContiguousInLoop(*SI).getValueOr(nullptr);
-        if (!L)
-          continue;
-
-        Worklist.push_back(std::make_pair(SI, L));
+        if (HasLibFunc && L) {
+          Worklist.push_back(std::make_pair(SI, L));
+        } else {
+          LLVM_DEBUG(dbgs() << "Dropping nontemporal annotation\n");
+          SI->setMetadata(LLVMContext::MD_nontemporal, nullptr);
+        }
       }
     }
   }
@@ -168,6 +176,7 @@ void NontemporalStore::run() {
     if (!ExitBB || !PreheaderBB || !DT.dominates(PreheaderBB, ExitBB)) {
       LLVM_DEBUG(dbgs() << "Unable to convert, as the exit and preheader blocks"
           " are not in the right configuration\n");
+      SI->setMetadata(LLVMContext::MD_nontemporal, nullptr);
       continue;
     }
 
