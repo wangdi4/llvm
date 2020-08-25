@@ -22,7 +22,7 @@
 ; RUN:     -vplan-cost-model-use-gettype \
 ; RUN:     | FileCheck %s --check-prefix=VPLAN-HIR-CM-VF1
 
-; RUN: opt < %s -S -VPlanDriver -mtriple=x86_64-unknown-unknown -mattr=+avx2 \
+; RUN: opt < %s -S -VPlanDriver -vplan-enable-improved-alignment=true -mtriple=x86_64-unknown-unknown -mattr=+avx2 \
 ; RUN:     -instcombine -simplifycfg  -cost-model -analyze \
 ; RUN:     -vplan-cost-model-use-gettype -vector-library=SVML \
 ; RUN:     -vplan-force-vf=4 | FileCheck %s --check-prefix=LLVM-CM-VF4

@@ -48,6 +48,10 @@ static cl::opt<bool> PredicateSafeValueDivision(
     cl::desc("Always serialize masked integer division, even if divisor is "
              "known to be safe for speculation."));
 
+static cl::opt<bool> EnableImprovedAlignment(
+    "vplan-enable-improved-alignment", cl::init(false), cl::Hidden,
+    cl::desc("Use improved alignment info for vector stores."));
+
 static void addBlockToParentLoop(Loop *L, BasicBlock *BB, LoopInfo &LI) {
   if (auto *ParentLoop = L->getParentLoop())
     ParentLoop->addBasicBlockToLoop(BB, LI);
@@ -2145,7 +2149,7 @@ void VPOCodeGen::vectorizeUnitStrideStore(VPInstruction *VPInst,
   Value *VecPtr = createWidenedBasePtrConsecutiveLoadStore(Ptr, IsNegOneStride);
 
   Align Alignment;
-  if (!PreferredPeeling) {
+  if (!PreferredPeeling && EnableImprovedAlignment) {
     // No peeling means static peeling with peel count = 0.
     VPlanStaticPeeling Peeling(0);
     Alignment =
