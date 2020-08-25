@@ -108,20 +108,12 @@ enum CPUKind {
   CK_IcelakeClient,
   CK_IcelakeServer,
   CK_Tigerlake,
-<<<<<<< HEAD
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_CPU_SPR
-  CK_SapphireRapids,
-#endif // INTEL_FEATURE_CPU_SPR
-#endif // INTEL_CUSTOMIZATION
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_CPU_RKL
   CK_Rocketlake,
 #endif // INTEL_FEATURE_CPU_RKL
 #endif // INTEL_CUSTOMIZATION
-=======
   CK_SapphireRapids,
->>>>>>> e02d081f2b60b61eb60ef6a49b1a9f907e432d4c
   CK_KNL,
   CK_KNM,
   CK_Lakemont,

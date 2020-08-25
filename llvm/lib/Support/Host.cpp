@@ -740,23 +740,12 @@ getIntelProcessorTypeAndSubtype(unsigned Family, unsigned Model,
       *Subtype = X86::INTEL_COREI7_ICELAKE_SERVER;
       break;
 
-<<<<<<< HEAD
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_CPU_SPR
-    // Sapphire Rapids:
-    case 0x8f:
-      CPU = "sapphirerapids";
-      break;
-#endif // INTEL_FEATURE_CPU_SPR
-#endif // INTEL_CUSTOMIZATION
-=======
     // Sapphire Rapids:
     case 0x8f:
       CPU = "sapphirerapids";
       *Type = X86::INTEL_COREI7;
       *Subtype = X86::INTEL_COREI7_SAPPHIRERAPIDS;
       break;
->>>>>>> e02d081f2b60b61eb60ef6a49b1a9f907e432d4c
 
     case 0x1c: // Most 45 nm Intel Atom processors
     case 0x26: // 45 nm Atom Lincroft
