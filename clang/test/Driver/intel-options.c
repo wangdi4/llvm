@@ -564,3 +564,8 @@
 // ZP: "-fpack-struct=1"
 // RUN: %clang -Zp2 -c -### -c %s 2>&1 | FileCheck -check-prefix=ZP2 %s
 // ZP2: "-fpack-struct=2"
+
+///Fo: support
+// RUN: %clang_cl /c /QxSSE3 /Od /Fo:somefile.obj -###  %s 2>&1 | FileCheck -check-prefix FO-CHECK %s
+// RUN: %clang_cl /c /QxSSE3 /Od /Fosomefile.obj -###  %s 2>&1 | FileCheck -check-prefix FO-CHECK %s
+// FO-CHECK: "-o" "somefile.obj"
