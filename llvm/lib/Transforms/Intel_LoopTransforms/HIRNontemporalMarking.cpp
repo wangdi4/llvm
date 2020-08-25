@@ -36,6 +36,7 @@
 #include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRFramework.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/HIRInvalidationUtils.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/HLNodeVisitor.h"
+#include "llvm/Analysis/VPO/Utils/VPOAnalysisUtils.h"
 #include "llvm/IR/IntrinsicsX86.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRTransformPass.h"
 
@@ -96,6 +97,17 @@ bool HIRNontemporalMarking::run() {
       !TTI.isAdvancedOptEnabled(TargetTransformInfo::AO_TargetHasAVX512)) {
     return false;
   }
+
+  // CMPLRLLVM-21684: The nontemporal library function does not work correctly
+  // on 32-bit code for reasons that are not yet understood. Disable this
+  // transformation until it can be better understood.
+  if (HIRF.getDataLayout().getPointerSizeInBits(0) != 64)
+    return false;
+
+  // CMPLRLLVM-21614: Disable this transformation on OpenMP code for the time
+  // being.
+  if (vpo::VPOAnalysisUtils::mayHaveOpenmpDirective(HIRF.getFunction()))
+    return false;
 
   HLNodeUtils &HNU = HIRF.getHLNodeUtils();
   SmallVector<HLLoop *, 8> Loops;
