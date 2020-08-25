@@ -735,11 +735,6 @@ static std::vector<RT::PiProgram> getDeviceLibPrograms(
 
   // Load a fallback library for an extension if the device does not
   // support it.
-<<<<<<< HEAD
-  for (RT::PiDevice Dev : Devices) {
-    std::string DevExtList =
-        get_device_info<std::string, info::device::extensions>::get(
-            Dev, Context->getPlugin());
 #if INTEL_CUSTOMIZATION
     // Allow extensions to be specified as available, manually.
     // This is useful for specifying extensions that we know are supported
@@ -751,18 +746,9 @@ static std::vector<RT::PiProgram> getDeviceLibPrograms(
       DevExtList.append(Env);
     }
 #endif // INTEL_CUSTOMIZATION
-    for (auto &Pair : RequiredDeviceLibExt) {
-      DeviceLibExt Ext = Pair.first;
-      bool &FallbackIsLoaded = Pair.second;
-
-      if (FallbackIsLoaded) {
-        continue;
-      }
-=======
   for (auto &Pair : RequiredDeviceLibExt) {
     DeviceLibExt Ext = Pair.first;
     bool &FallbackIsLoaded = Pair.second;
->>>>>>> 2f64227a0405e6d4eacdf0974fb8e64462d01a8d
 
     if (FallbackIsLoaded) {
       continue;
