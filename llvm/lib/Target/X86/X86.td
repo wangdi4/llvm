@@ -981,43 +981,6 @@ def ProcessorFeatures {
   list<SubtargetFeature> TGLFeatures =
     !listconcat(ICLFeatures, TGLAdditionalFeatures );
 
-#if INTEL_CUSTOMIZATION
-  list<SubtargetFeature> IntelAnonymous1AdditionalFeatures =[
-#if INTEL_FEATURE_ISA_AMX
-    FeatureAMXTILE,
-    FeatureAMXINT8,
-    FeatureAMXBF16,
-#endif // INTEL_FEATURE_ISA_AMX
-#if INTEL_FEATURE_ISA_FP16
-    FeatureFP16,
-#endif // INTEL_FEATURE_ISA_FP16
-    FeatureBF16,
-    FeatureSERIALIZE,
-    FeatureCLDEMOTE,
-    FeatureWAITPKG,
-    FeaturePTWRITE,
-#if INTEL_FEATURE_ISA_ULI
-    FeatureULI,
-#endif // INTEL_FEATURE_ISA_ULI
-    FeatureTSXLDTRK,
-    FeatureENQCMD,
-#if INTEL_FEATURE_ISA_AVX_VNNI
-    FeatureAVXVNNI,
-#endif // INTEL_FEATURE_ISA_AVX_VNNI
-#if INTEL_FEATURE_ISA_HRESET
-    FeatureHRESET,
-#endif // INTEL_FEATURE_ISA_HRESET
-    FeatureSHSTK,
-    FeatureVP2INTERSECT,
-    FeatureMOVDIRI,
-    FeatureMOVDIR64B
-  ];
-  // TODO: inherit from Willowcove instead of ICX.
-  list<SubtargetFeature> IntelAnonymous1Features =
-    !listconcat(ICXFeatures, IntelAnonymous1AdditionalFeatures);
-  list<SubtargetFeature> IntelAnonymous1Tuning = ICXTuning;
-#endif // INTEL_CUSTOMIZATION
-
   //Sapphirerapids
   list<SubtargetFeature> SPRAdditionalFeatures = [FeatureAMXTILE,
                                                   FeatureAMXINT8,
@@ -1027,6 +990,20 @@ def ProcessorFeatures {
                                                   FeatureCLDEMOTE,
                                                   FeatureWAITPKG,
                                                   FeaturePTWRITE,
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+                                                  FeatureFP16,
+#endif // INTEL_FEATURE_ISA_FP16
+#if INTEL_FEATURE_ISA_ULI
+                                                  FeatureULI,
+#endif // INTEL_FEATURE_ISA_ULI
+#if INTEL_FEATURE_ISA_AVX_VNNI
+                                                  FeatureAVXVNNI,
+#endif // INTEL_FEATURE_ISA_AVX_VNNI
+#if INTEL_FEATURE_ISA_HRESET
+                                                  FeatureHRESET,
+#endif // INTEL_FEATURE_ISA_HRESET
+#endif // INTEL_CUSTOMIZATION
                                                   FeatureTSXLDTRK,
                                                   FeatureENQCMD,
                                                   FeatureSHSTK,
@@ -1596,14 +1573,6 @@ def : ProcModel<"tigerlake", SkylakeServerModel,
                 ProcessorFeatures.TGLFeatures, ProcessorFeatures.TGLTuning>;
 def : ProcModel<"sapphirerapids", SkylakeServerModel,
                 ProcessorFeatures.SPRFeatures, ProcessorFeatures.SPRTuning>;
-
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_CPU_SPR
-def : ProcModel<"sapphirerapids", SkylakeServerModel,
-                ProcessorFeatures.IntelAnonymous1Features,
-                ProcessorFeatures.IntelAnonymous1Tuning>;
-#endif // INTEL_FEATURE_CPU_SPR
-#endif // INTEL_CUSTOMIZATION
 
 // AMD CPUs.
 

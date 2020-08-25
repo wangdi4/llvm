@@ -206,6 +206,20 @@ static constexpr FeatureBitset FeaturesTigerlake =
     FeaturesICLClient | FeatureAVX512VP2INTERSECT | FeatureMOVDIR64B |
     FeatureMOVDIRI | FeatureSHSTK;
 static constexpr FeatureBitset FeaturesSapphireRapids =
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX_VNNI
+  FeatureAVXVNNI |
+#endif // INTEL_FEATURE_ISA_AVX_VNNI
+#if INTEL_FEATURE_ISA_HRESET
+  FeatureHRESET |
+#endif // INTEL_FEATURE_ISA_HRESET
+#if INTEL_FEATURE_ISA_FP16
+  FeatureAVX512FP16 |
+#endif // INTEL_FEATURE_ISA_FP16
+#if INTEL_FEATURE_ISA_ULI
+  FeatureULI |
+#endif // INTEL_FEATURE_ISA_ULI
+#endif // INTEL_CUSTOMIZATION
     FeaturesICLServer | FeatureAMX_TILE | FeatureAMX_INT8 | FeatureAMX_BF16 |
     FeatureAVX512BF16 | FeatureAVX512VP2INTERSECT | FeatureCLDEMOTE | FeatureENQCMD |
     FeatureMOVDIR64B | FeatureMOVDIRI | FeaturePTWRITE | FeatureSERIALIZE |
@@ -233,24 +247,6 @@ static constexpr FeatureBitset FeaturesTremont =
     FeaturesGoldmontPlus | FeatureCLWB | FeatureGFNI;
 
 #if INTEL_CUSTOMIZATION
-static constexpr FeatureBitset FeaturesAnonymousCPU1 =
-#if INTEL_FEATURE_ISA_AMX
-  FeatureAMX_TILE | FeatureAMX_INT8 | FeatureAMX_BF16 |
-#endif // INTEL_FEATURE_ISA_AMX
-#if INTEL_FEATURE_ISA_AVX_VNNI
-  FeatureAVXVNNI |
-#endif // INTEL_FEATURE_ISA_AVX_VNNI
-#if INTEL_FEATURE_ISA_HRESET
-  FeatureHRESET |
-#endif // INTEL_FEATURE_ISA_HRESET
-#if INTEL_FEATURE_ISA_FP16
-  FeatureAVX512FP16 |
-#endif // INTEL_FEATURE_ISA_FP16
-#if INTEL_FEATURE_ISA_ULI
-  FeatureULI |
-#endif // INTEL_FEATURE_ISA_ULI
-  FeatureSSE2; // To avoid dangling OR.
-
 static constexpr FeatureBitset FeaturesAnonymousCPU2 =
 #if INTEL_FEATURE_ISA_AVX_VNNI
     FeatureAVXVNNI |

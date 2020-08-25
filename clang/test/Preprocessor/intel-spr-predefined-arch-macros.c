@@ -1,5 +1,5 @@
-// INTEL_FEATURE_CPU_SPR
-// REQUIRES: intel_feature_cpu_spr
+// INTEL_FEATURE_ISA_FP16
+// REQUIRES: intel_feature_isa_fp16
 
 // RUN: %clang -march=sapphirerapids -m32 -E -dM %s -o - 2>&1 \
 // RUN:     -target i386-unknown-linux \
@@ -148,4 +148,4 @@
 // CHECK_SPR_M64: #define __x86_64 1
 // CHECK_SPR_M64: #define __x86_64__ 1
 
-// end INTEL_FEATURE_CPU_SPR
+// end INTEL_FEATURE_ISA_FP16
