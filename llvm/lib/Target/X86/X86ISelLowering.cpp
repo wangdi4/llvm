@@ -26577,7 +26577,6 @@ static SDValue LowerINTRINSIC_W_CHAIN(SDValue Op, const X86Subtarget &Subtarget,
       return DAG.getNode(ISD::MERGE_VALUES, dl, Op->getVTList(), SetCC,
                          Operation.getValue(1));
     }
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_ULI
     case Intrinsic::x86_testui: {
@@ -26773,7 +26772,6 @@ static SDValue LowerINTRINSIC_W_CHAIN(SDValue Op, const X86Subtarget &Subtarget,
     }
 #endif // INTEL_FEATURE_ISA_KEYLOCKER
 #endif // INTEL_CUSTOMIZATION
-=======
     case Intrinsic::x86_mwaitx: {
       // If the current function needs the base pointer, RBX,
       // we shouldn't use mwaitx directly.
@@ -26788,7 +26786,6 @@ static SDValue LowerINTRINSIC_W_CHAIN(SDValue Op, const X86Subtarget &Subtarget,
                                    Op->getOperand(3), Op->getOperand(4)});
       return Chain;
     }
->>>>>>> cda6b0924257f162cc9299dae2d4bb134fac5d38
     }
     return SDValue();
   }
