@@ -590,6 +590,10 @@ MDNode *LoopInfo::createMetadata(
     Metadata *Vals[] = {MDString::get(Ctx,
                                   "llvm.loop.vectorize.ignore_profitability")};
     LoopProperties.push_back(MDNode::get(Ctx, Vals));
+    LoopProperties.push_back(
+        MDNode::get(Ctx, {MDString::get(Ctx, "llvm.loop.vectorize.enable"),
+                          ConstantAsMetadata::get(ConstantInt::get(
+                              llvm::Type::getInt1Ty(Ctx), true))}));
   }
   // Setting loop_count count
   if (Attrs.LoopCount.size() > 0) {
@@ -1020,6 +1024,7 @@ void LoopInfoStack::push(BasicBlock *Header, clang::ASTContext &Ctx,
       switch (Option) {
       case LoopHintAttr::Vectorize:
       case LoopHintAttr::Interleave:
+        if (LH->getSemanticSpelling() != LoopHintAttr::Pragma_vector) // INTEL
         setVectorizeEnable(true);
         break;
       case LoopHintAttr::Unroll:

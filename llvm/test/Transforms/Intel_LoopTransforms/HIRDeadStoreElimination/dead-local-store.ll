@@ -5,10 +5,7 @@
 ; - This LIT testcase is marked XFAIL due to JIRA-19686.
 ;   Once this JIRA closes, will need to revisit this LIT case.
 ;
-; R_N: opt -aa-pipeline="basic-aa" -passes="hir-ssa-deconstruction,print<hir-framework>,hir-dead-store-elimination,print<hir-framework>" -hir-create-function-level-region -print-before=hir-dead-store-elimination -print-after=hir-dead-store-elimination 2>&1 < %s | FileCheck %s
-; [Note]
-; - Run the testcase under the new pass manager is disabled due to JIRA-18272 (leftover dummygep instruction failed LLVM verifier).
-;   Once the JIRA closes, the new pass-manager execution path will be restored.
+; RUN: opt -aa-pipeline="basic-aa" -passes="hir-ssa-deconstruction,print<hir-framework>,hir-dead-store-elimination,print<hir-framework>" -hir-create-function-level-region -print-before=hir-dead-store-elimination -print-after=hir-dead-store-elimination 2>&1 < %s | FileCheck %s
 ;
 ; FORTRAN Source Code:
 ;subroutine sub(A, B, N)

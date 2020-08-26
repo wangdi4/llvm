@@ -5768,6 +5768,9 @@ def _SLASH_Fi : CLCompileJoined<"Fi">,
 def _SLASH_Fo : CLCompileJoined<"Fo">,
   HelpText<"Set output object file (with /c)">,
   MetaVarName<"<file or dir/>">;
+#if INTEL_CUSTOMIZATION
+def : CLCompileJoined<"Fo:">, Alias<_SLASH_Fo>;
+#endif //INTEL_CUSTOMIZATION
 def _SLASH_guard : CLJoined<"guard:">,
   HelpText<"Enable Control Flow Guard with /guard:cf, or only the table with /guard:cf,nochecks">;
 def _SLASH_GX : CLFlag<"GX">,

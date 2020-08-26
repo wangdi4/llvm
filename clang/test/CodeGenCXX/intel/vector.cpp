@@ -36,23 +36,23 @@ void bar_vector() {
   i = 0;
   #pragma vector
   while (i < n) {
-    // CHECK: br label {{.*}}, !llvm.loop ![[LOOP_12:.*]]
+    // CHECK-NOT: br label {{.*}}, !llvm.loop ![[LOOP_12:.*]]
     a[i] += 3;
   }
   i = 0;
   #pragma vector
   do {
-    // CHECK: br i1 %{{.*}}, !llvm.loop ![[LOOP_14:.*]]
+    // CHECK-NOT: br i1 %{{.*}}, !llvm.loop ![[LOOP_14:.*]]
     a[i] += 4;
   } while (i < n);
   #pragma vector
   for (i = 0; i < n; ++i) {
-    // CHECK: br label %{{.*}}, !llvm.loop ![[LOOP_15:.*]]
+    // CHECK-NOT: br label %{{.*}}, !llvm.loop ![[LOOP_15:.*]]
     a[i] += 5;
   }
   #pragma vector
   for (auto j: a) {
-    // CHECK: br label %{{.*}}, !llvm.loop ![[LOOP_16:.*]]
+    // CHECK-NOT: br label %{{.*}}, !llvm.loop ![[LOOP_16:.*]]
     j += 6;
   }
 }
@@ -115,13 +115,9 @@ void foo2()
 // CHECK: ![[LOOP_4]] = distinct !{![[LOOP_4]], ![[VECTORIZE]]}
 // CHECK: ![[LOOP_5]] = distinct !{![[LOOP_5]], ![[VECTORIZE]]}
 // CHECK: ![[LOOP_6]] = distinct !{![[LOOP_6]], ![[VECTORIZE]]}
-// CHECK: ![[LOOP_12]] = distinct !{![[LOOP_12]], ![[VENABLE:.*]]}
-// CHECK: ![[VENABLE]] = !{!"llvm.loop.vectorize.enable", i1 true}
-// CHECK: ![[LOOP_14]] = distinct !{![[LOOP_14]], ![[VENABLE]]}
-// CHECK: ![[LOOP_15]] = distinct !{![[LOOP_15]], ![[VENABLE]]}
-// CHECK: ![[LOOP_16]] = distinct !{![[LOOP_16]], ![[VENABLE]]}
-// CHECK: ![[LOOP_22]] = distinct !{![[LOOP_22]], ![[VALWAYS:.*]], ![[VENABLE]]}
+// CHECK: ![[LOOP_22]] = distinct !{![[LOOP_22]], ![[VALWAYS:.*]], ![[VENABLE:.*]]}
 // CHECK: ![[VALWAYS]] = !{!"llvm.loop.vectorize.ignore_profitability"}
+// CHECK: ![[VENABLE]] = !{!"llvm.loop.vectorize.enable", i1 true}
 // CHECK: ![[LOOP_24]] = distinct !{![[LOOP_24]], ![[VALWAYS]], ![[VENABLE]]}
 // CHECK: ![[LOOP_25]] = distinct !{![[LOOP_25]], ![[VALWAYS]], ![[VENABLE]]}
 // CHECK: ![[LOOP_26]] = distinct !{![[LOOP_26]], ![[VALWAYS]], ![[VENABLE]]}
