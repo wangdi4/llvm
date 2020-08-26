@@ -6427,6 +6427,103 @@ static const Loop *getOutermostLoop(const Loop *Lp) {
   return Lp;
 }
 
+static bool getRefinedFlags(const OverflowingBinaryOperator *UserBinOp,
+                            SCEV::NoWrapFlags &Flags) {
+  if (!UserBinOp->hasNoUnsignedWrap())
+    Flags = ScalarEvolution::clearFlags(Flags, SCEV::FlagNUW);
+
+  if (!UserBinOp->hasNoSignedWrap())
+    Flags = ScalarEvolution::clearFlags(Flags, SCEV::FlagNSW);
+
+  return Flags != SCEV::FlagAnyWrap;
+}
+
+static bool getRefinedFlagsUsingConstantFoldingRec(
+    const Value *Val, unsigned OrigOpcode,
+    const OverflowingBinaryOperator *UserBinOp, APInt AccumulatedConst,
+    SCEV::NoWrapFlags &Flags) {
+  if (!UserBinOp || UserBinOp->getOpcode() != OrigOpcode)
+    return false;
+
+  if (!getRefinedFlags(UserBinOp, Flags))
+    return false;
+
+  auto *Const = dyn_cast<ConstantInt>(UserBinOp->getOperand(1));
+
+  if (!Const)
+    return false;
+
+  bool SignedOverflow = false, UnsignedOverflow = false;
+  APInt TempRes;
+
+  switch (OrigOpcode) {
+  case Instruction::Add:
+  case Instruction::Sub:
+    // Constant is accumulated for sub by addition-
+    // %t1 = sub %a, 3
+    // %t2 = sub %t, 5
+    //
+    // ==>
+    //
+    // %t2 = sub %a, 8
+    //
+    (void)AccumulatedConst.sadd_ov(Const->getValue(), SignedOverflow);
+    AccumulatedConst =
+        AccumulatedConst.uadd_ov(Const->getValue(), UnsignedOverflow);
+    break;
+  case Instruction::Mul:
+    (void)AccumulatedConst.smul_ov(Const->getValue(), SignedOverflow);
+    AccumulatedConst =
+        AccumulatedConst.umul_ov(Const->getValue(), UnsignedOverflow);
+    break;
+  case Instruction::Shl:
+    (void)AccumulatedConst.sshl_ov(Const->getValue(), SignedOverflow);
+    AccumulatedConst =
+        AccumulatedConst.ushl_ov(Const->getValue(), UnsignedOverflow);
+    break;
+  }
+
+  // It is possible to refine nsw/nuw flags separately but this should take care
+  // of the common case of small non-negative constants.
+  if (SignedOverflow || UnsignedOverflow)
+    return false;
+
+  auto *Op0 = UserBinOp->getOperand(0);
+
+  if (Val == Op0)
+    return true;
+
+  return getRefinedFlagsUsingConstantFoldingRec(
+      Val, OrigOpcode, dyn_cast<OverflowingBinaryOperator>(Op0),
+      AccumulatedConst, Flags);
+}
+
+// Tries to refine nowrap flags by tracing through a chain of overflowing binary
+// operators with the same opcode as \p OrigOpcode which are derived from \p Val
+// and a constant operand. For example-
+//
+// %t1 = add nsw %a, 1
+// %t2 = add nsw %t1, 2
+//
+// Implies nsw for-
+//
+// %t3 = add nsw %a, 3
+static bool
+getRefinedFlagsUsingConstantFolding(const Value *Val, unsigned OrigOpcode,
+                                    const OverflowingBinaryOperator *UserBinOp,
+                                    SCEV::NoWrapFlags &Flags) {
+
+  unsigned Size = UserBinOp->getType()->getPrimitiveSizeInBits();
+  // Shl is multiplication with power of 2 so identity of 1 works.
+  APInt IdentityVal =
+      (OrigOpcode == Instruction::Mul || OrigOpcode == Instruction::Shl)
+          ? APInt(Size, 1)
+          : APInt(Size, 0);
+
+  return getRefinedFlagsUsingConstantFoldingRec(Val, OrigOpcode, UserBinOp,
+                                                IdentityVal, Flags);
+}
+
 bool ScalarEvolution::hasWrapSafeUses(
     const Value *Val, const OverflowingBinaryOperator *OrigBinOp,
     const SCEV *OrigSCEV, ScalarEvolution &OtherSE,
@@ -6447,18 +6544,9 @@ bool ScalarEvolution::hasWrapSafeUses(
   WorkList.push_back(Val);
 
   unsigned TrackLimit = NoWrapUserTrackingThreshold;
+  unsigned OrigOpcode = OrigBinOp->getOpcode();
 
   auto ContainOrigSCEV = [OrigSCEV](const SCEV *S) { return S == OrigSCEV; };
-
-  auto GetRefinedFlags = [&Flags](const OverflowingBinaryOperator *UserBinOp) {
-    if (!UserBinOp->hasNoUnsignedWrap())
-      Flags = clearFlags(Flags, SCEV::FlagNUW);
-
-    if (!UserBinOp->hasNoSignedWrap())
-      Flags = clearFlags(Flags, SCEV::FlagNSW);
-
-    return Flags != SCEV::FlagAnyWrap;
-  };
 
   do {
     auto *CurVal = WorkList.pop_back_val();
@@ -6476,12 +6564,12 @@ bool ScalarEvolution::hasWrapSafeUses(
       if (OrigBinOp) {
         UserBinOp = dyn_cast<OverflowingBinaryOperator>(ValUser);
 
-        if (UserBinOp && (OrigBinOp->getOpcode() == UserBinOp->getOpcode()) &&
+        if (UserBinOp && (OrigOpcode == UserBinOp->getOpcode()) &&
             (OrigBinOp->getOperand(0) == UserBinOp->getOperand(0)) &&
             (OrigBinOp->getOperand(1) == UserBinOp->getOperand(1))) {
           // Refine flags using lowest common denominator flags of identical
           // BinOps.
-          if (!GetRefinedFlags(UserBinOp))
+          if (!getRefinedFlags(UserBinOp, Flags))
             return false;
 
           // We don't need to follow the users of identical BinOps as they
@@ -6501,7 +6589,7 @@ bool ScalarEvolution::hasWrapSafeUses(
       }
 
       if (SCEVExprContains(UserSCEV, ContainOrigSCEV)) {
-        if (UserBinOp && OrigBinOp->getOpcode() == UserBinOp->getOpcode()) {
+        if (UserBinOp && (OrigOpcode == UserBinOp->getOpcode())) {
           // We found another BinOp with the same opcode and one identical
           // operand. Even if the same SCEV is present inside, it should still
           // be ok to try to refine flags based on this BinOp. Example-
@@ -6510,9 +6598,18 @@ bool ScalarEvolution::hasWrapSafeUses(
           //   --> (1 + %s)
           // %t2 = add nsw %iv, %s ; UserBinOp
           //   --> {(1 + %s),+,1}
-          if (GetRefinedFlags(UserBinOp))
+          if (getRefinedFlags(UserBinOp, Flags))
             continue;
         }
+
+        // Check if nowrap flags can be implied for an identical SCEV using
+        // constant folding.
+        if (UserSCEV == OrigSCEV &&
+            getRefinedFlagsUsingConstantFolding(
+                Val, OrigOpcode, dyn_cast<OverflowingBinaryOperator>(ValUser),
+                Flags))
+          continue;
+
         // Give up if we found OrigSCEV escaping through a non-identical
         // BinOp.
         return false;
