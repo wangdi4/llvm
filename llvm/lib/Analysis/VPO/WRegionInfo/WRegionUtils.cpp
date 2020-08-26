@@ -928,8 +928,12 @@ void WRegionUtils::collectNonPointerValuesToBeUsedInOutlinedRegion(
     return;
 
   if (!isa<WRNParallelNode>(W) && !isa<WRNParallelLoopNode>(W) &&
-      !isa<WRNParallelSectionsNode>(W) && !isa<WRNTargetNode>(W))
+      !isa<WRNParallelSectionsNode>(W) && !isa<WRNTargetNode>(W) &&
+      !isa<WRNDistributeParLoopNode>(W))
     // TODO: Remove this to enable the function for all outlined WRNs.
+    //
+    // While this condition is here it should match with one in
+    // VPOParoptTransform::captureAndAddCollectedNonPointerValuesToSharedClause.
     return;
 
   SmallSet<Value *, 16> AlreadyCollected;
@@ -1001,6 +1005,15 @@ void WRegionUtils::collectNonPointerValuesToBeUsedInOutlinedRegion(
     for (MapItem *MapI : MapClause.items())
       collectSizeIfVLA(MapI->getOrig());
   }
+
+  // Maybe it is a better idea to request capturing the tripcounts
+  // in front-ends, but we can do it here as well.
+  if (W->canHaveOrderedTripCounts())
+    for (Value *V : W->getOrderedTripCounts())
+      collectIfNonPointerNonConstant(V);
+
+  if (W->canHaveDistSchedule())
+    collectIfNonPointerNonConstant(W->getDistSchedule().getChunkExpr());
 
   LLVM_DEBUG(
       const auto &CollectedVals = W->getDirectlyUsedNonPointerValues();

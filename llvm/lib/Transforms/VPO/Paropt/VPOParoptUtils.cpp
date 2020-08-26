@@ -51,12 +51,12 @@ using namespace llvm::vpo;
 // Disable outline verification by default, because it fails in many tests
 // currently.
 static cl::opt<bool> EnableOutlineVerification(
-    "vpo-paropt-enable-outline-verification", cl::Hidden, cl::init(false),
+    "vpo-paropt-enable-outline-verification", cl::Hidden, cl::init(true),
     cl::desc("Enable checking that all arguments of outlined routines "
              "are pointers or have pointer-sized types."));
 
 static cl::opt<bool> StrictOutlineVerification(
-    "vpo-paropt-strict-outline-verification", cl::Hidden, cl::init(true),
+    "vpo-paropt-strict-outline-verification", cl::Hidden, cl::init(false),
     cl::desc("Only allow pointers to be arguments of outlined routines."));
 
 static cl::opt<bool> SPIRVTargetHasEUFusion(
@@ -5414,7 +5414,11 @@ Function *VPOParoptUtils::genOutlineFunction(
                     << *NewFunction << "\n==============================\n\n");
 #endif
 
-  if (EnableOutlineVerification) {
+  if (EnableOutlineVerification &&
+      // Data related outlined functions can legally accept
+      // non-pointer arguments.
+      !isa<WRNTargetDataNode>(W) && !isa<WRNTargetEnterDataNode>(W) &&
+      !isa<WRNTargetExitDataNode>(W) && !isa<WRNTargetUpdateNode>(W)) {
     const auto &DL = CallSite->getModule()->getDataLayout();
     auto &C = CallSite->getModule()->getContext();
 

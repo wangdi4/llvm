@@ -1375,8 +1375,11 @@ void WRegionNode::handleQualOpndList(const Use *Args, unsigned NumArgs,
     uint64_t N = CI->getZExtValue();
     setOrdered(N);
 
-    if (N == 0)
+    if (N == 0) {
+      assert(NumArgs == 1 &&
+             "Unexpected tripcounts for ordered with no arguments.");
       break;
+    }
 
     // Reaching here means we're looking at doacross loops.
     assert(NumArgs == N + 1 && "Unexpected number of args for Orderd(N).");
@@ -1990,6 +1993,16 @@ bool WRegionNode::canHaveAllocate() const {
   case WRNSections:
   case WRNDistribute:
   case WRNSingle:
+    return true;
+  }
+  return false;
+}
+
+bool WRegionNode::canHaveOrderedTripCounts() const {
+  unsigned SubClassID = getWRegionKindID();
+  switch (SubClassID) {
+  case WRNWksLoop:
+  case WRNParallelLoop:
     return true;
   }
   return false;
