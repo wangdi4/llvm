@@ -157,9 +157,10 @@ static cl::opt<bool>
 static cl::opt<bool>
     EnableSplitLoad("enable-split-load", cl::init(true), cl::Hidden,
                     cl::desc("Enable Vectorizing Split Loads."));
+
 // The maximum number of smaller loads per TreeEntry.
 // TODO: This value may need tuning.
-static cl::opt<unsigned>
+static cl::opt<int>
     MaxSplitLoadGroups("max-split-load", cl::init(4), cl::Hidden,
                        cl::desc("Max number of split-load groups."));
 
@@ -1602,17 +1603,6 @@ public:
 
 private:
 #if INTEL_CUSTOMIZATION
-  /// This represents a group of consecutive loads (the indices within
-  /// TE.Scalars). It is used for split-load.
-  struct LoadGroup {
-    int From;
-    int To;
-    LoadGroup(int F, int T) : From(F), To(T) {
-      assert(F <= T && "Bad From/To");
-    }
-    size_t size() const { return (unsigned)(To + 1 - From); }
-  };
-
   /// A leaf operand of the Multi-Node. These operands get reordered.
   class OperandData {
     /// The leaf operand value.
@@ -2063,8 +2053,11 @@ private:
     /// whole multi-node.
     SmallVector<bool, 4> IsNegativePathSign;
 
-    /// Groups of consecutive loads for split-load support.
-    SmallVector<LoadGroup, 1> ConsecutiveLoadGroups;
+    /// Here load groups are stored (split-load).
+    /// Each load group is represented by a pair of integers:
+    /// first:  starting position index (within vector of scalars).
+    /// second: size of the group (aka number of loaded elements)
+    SmallVector<std::pair<int, int>, 1> SplitLoadGroups;
 #endif // INTEL_CUSTOMIZATION
 
   private:
@@ -2257,13 +2250,12 @@ private:
         dbgs() << Sign << ", ";
       dbgs() << "\n";
 
-      if (!ConsecutiveLoadGroups.empty()) {
-        dbgs() << "ConsecutiveLoadGroups (split groups): "
-               << ConsecutiveLoadGroups.size() << "\n";
+      if (!SplitLoadGroups.empty()) {
+        dbgs() << "Load groups: " << SplitLoadGroups.size() << "\n";
         int Cnt = 0;
-        for (const auto &Group : ConsecutiveLoadGroups) {
-          dbgs() << "Split Group " << Cnt++ << ".\n";
-          for (int i = Group.From; i <= Group.To; ++i)
+        for (const auto &Group : SplitLoadGroups) {
+          dbgs() << "Split load group " << Cnt++ << ".\n";
+          for (int i = Group.first; i < Group.first + Group.second; ++i)
             dbgs() << *Scalars[i] << "\n";
         }
       }
@@ -5302,68 +5294,67 @@ void BoUpSLP::buildTree_rec(ArrayRef<Value *> VL_, unsigned Depth,
           }
 #if INTEL_CUSTOMIZATION
           // Use the split-load support in codegen for the consecutive loads.
-          VectorizableTree.back()->ConsecutiveLoadGroups.push_back(
-              LoadGroup(0, VL.size() - 1));
+          VectorizableTree.back()->SplitLoadGroups.emplace_back(0, VL.size());
 #endif // INTEL_CUSTOMIZATION
           return;
         }
       }
-
 #if INTEL_CUSTOMIZATION
       // Check if we can issue smaller loads in smaller-wide groups
       // (split-load).
       if (EnableSplitLoad) {
-        // Each consecutive group is represented by a pair of indices into VL.
-        // We go through all elements in order. We create a group once we
-        // encounter non-consecutive accesses.
-        SmallVector<LoadGroup, 1> ConsecutiveGroups;
-        for (int To = 0, From = 0, E = (int)VL.size(); To < E; ++To) {
-          // Build group [From, To] as it contains consecutive loads.
-          if (To == E - 1 ||
-              !isConsecutiveAccess(VL[To], VL[To + 1], *DL, *SE)) {
-            assert(To >= From && "To is expected to follow From");
-            uint32_t GroupSize = To - From + 1;
+        // Each consecutive group is represented by a pair of integers:
+        // starting index and load size (number of consecutive scalar
+        // elements).
+        // We go through all elements in order and create a group when
+        // non-consecutive access encountered.
+        SmallVector<std::pair<int, int>, 1> LoadGroups;
+
+        // Build group [From, Size] as it contains consecutive loads.
+        int VF = VL.size();
+        for (int To = 0, From = 0; To < VF; ++To) {
+          bool EndGroup = false;
+          if (To < VF - 1)
+            // Check whether next pair of pointers are adjacent.
+            EndGroup = !isConsecutiveAccess(VL[To], VL[To + 1], *DL, *SE);
+          else
+            EndGroup = true;
+
+          if (EndGroup) {
+            int GroupSize = To - From + 1;
             // Only allow groups of sizes that are power of 2.
             if (GroupSize > 1 && isPowerOf2_32(GroupSize))
-              ConsecutiveGroups.push_back(LoadGroup(From, To));
+              LoadGroups.emplace_back(From, GroupSize);
             From = To + 1;
           }
         }
 
-        // Check if the group contains enough loads.
-        auto isFullGroupLoad = [&]() {
-          unsigned NumGroups = ConsecutiveGroups.size();
+        bool UseSplitLoad = true;
+        // Bail out if no groups found or too many small groups or
+        // number of groups is not power of 2.
+        // TODO: relax pow-of-two requirement in codegen.
+        int NumGroups = LoadGroups.size();
+        if (NumGroups == 0 || NumGroups > MaxSplitLoadGroups ||
+            !isPowerOf2_32(NumGroups))
+          UseSplitLoad = false;
+        else
+          // Check all groups are of same size and cover the entire VL.
+          // TODO: We should allow groups of various sizes.
+          for (const auto &Group : LoadGroups)
+            if (Group.second != VF / NumGroups) {
+              UseSplitLoad = false;
+              break;
+            }
 
-          if ( // No groups.
-              NumGroups == 0 ||
-              // Too many small groups.
-              (NumGroups > MaxSplitLoadGroups) ||
-              // For now only allow power of 2 number of groups.
-              // TODO: We should relax this and fix codegen.
-              !isPowerOf2_32(NumGroups))
-            return false;
-
-          for (const LoadGroup &Group : ConsecutiveGroups) {
-            // All groups should be of equal size and should cover the whole
-            // VL.
-            // TODO: We should allow groups of various sizes.
-            if (Group.size() != VL.size() / ConsecutiveGroups.size())
-              return false;
-          }
-          return true;
-        };
-
-        if (isFullGroupLoad()) {
+        if (UseSplitLoad) {
           ++NumOpsWantToKeepOriginalOrder;
           TreeEntry *TE =
               newTreeEntry(VL, Bundle, S, UserTreeIdx, ReuseShuffleIndicies);
           TE->setOperandsInOrder();
-          assert(!ConsecutiveGroups.empty() && "No groups!");
-          VectorizableTree.back()->ConsecutiveLoadGroups = ConsecutiveGroups;
+          VectorizableTree.back()->SplitLoadGroups = LoadGroups;
           LLVM_DEBUG(dbgs() << "SLP: added a vector of split-loads.\n");
           return;
         }
-        // Fall-thru
       }
 #endif // INTEL_CUSTOMIZATION
 
@@ -6258,6 +6249,10 @@ int BoUpSLP::getEntryCost(TreeEntry *E) {
         ReuseShuffleCost -= (ReuseShuffleNumbers - VL.size()) * ScalarEltCost;
       }
       int ScalarLdCost = VecTy->getNumElements() * ScalarEltCost;
+#if INTEL_CUSTOMIZATION
+      // TODO: Cost modeling for split-load is definitely missed.
+      // Need to implement it.
+#endif // INTEL_CUSTOMIZATION
       int VecLdCost =
           TTI->getMemoryOpCost(Instruction::Load, VecTy, alignment, 0,
                                CostKind, VL0);
@@ -7185,52 +7180,49 @@ Value *BoUpSLP::vectorizeTree(TreeEntry *E) {
 #if INTEL_CUSTOMIZATION
       };
 
-      Value *RetValue = nullptr;
-      std::list<Value *> WorkList;
-
       // Set insertion point once per load. This is done outside of 'createLoad'
       // lambda.
       setInsertPointAfterBundle(E);
 
-      // Go through all split groups and emit the vector loads.
-      for (const LoadGroup &Group : E->ConsecutiveLoadGroups) {
-        assert(Group.size() > 1 && isPowerOf2_32(Group.size()) && "Bad Group");
+      std::list<Value *> WorkList;
+      // Go through all split-load groups and emit the vector loads.
+      for (const auto &Group : E->SplitLoadGroups) {
+        assert(Group.second > 1 && isPowerOf2_32(Group.second) && "Bad Group");
         const auto &ScalarsGroup =
-            ArrayRef<Value *>(&E->Scalars[Group.From], Group.size());
-        RetValue = cast<Instruction>(createVecLoad(E, ScalarsGroup, false));
-        WorkList.push_front(RetValue);
+            ArrayRef<Value *>(&E->Scalars[Group.first], Group.second);
+        Value *VecLoad = createVecLoad(E, ScalarsGroup, false);
+        WorkList.push_front(VecLoad);
       }
 
-      // Emit the pair-wise shuffles.
+      // If we have two or more loads emit the pair-wise shuffles.
+      // At the end we build a tree like this:
+      //
+      //  Load Load Load Load
+      //   \    /    \    /
+      //  Shuffle    Shuffle
+      //      \       /
+      //       Shuffle
+      //
       while (WorkList.size() >= 2) {
-        // We build a tree of shuffles:
-        //
-        //  Load Load Load Load
-        //   \    /    \    /
-        //  Shuffle    Shuffle
-        //      \       /
-        //       Shuffle
-        //
-
-        // Pop front a pair of loads from the worklist, create a shuffle, and
-        // push it back into the worklist.
-        Value *VecLoad0 = WorkList.back();
+        // Pop front a pair of loads/shuffles from the worklist, create a
+        // shuffle, and push it back into the worklist.
+        Value *Vec0 = WorkList.back();
         WorkList.pop_back();
-        Value *VecLoad1 = WorkList.back();
+        Value *Vec1 = WorkList.back();
         WorkList.pop_back();
 
-        SmallVector<Constant *, 8> MaskVec;
-        assert(isa<VectorType>(VecLoad0->getType()) && "Vector expected.");
-        size_t LoadElements =
-            cast<VectorType>(VecLoad0->getType())->getNumElements();
-        for (int i = 0, e = 2 * LoadElements; i != e; ++i)
-          MaskVec.push_back(Builder.getInt32(i));
-        Value *ShuffleMask = ConstantVector::get(MaskVec);
-        RetValue = cast<Instruction>(Builder.CreateShuffleVector(
-            VecLoad0, VecLoad1, ShuffleMask, "SplitLoadShuffle"));
-        WorkList.push_front(RetValue);
+        assert(isa<VectorType>(Vec0->getType()) && "Vector expected.");
+        size_t NumElements =
+            cast<VectorType>(Vec0->getType())->getNumElements();
+
+        SmallVector<int, 8> ShuffleMask(2 * NumElements);
+        std::iota(ShuffleMask.begin(), ShuffleMask.end(), 0);
+        Value *Shuffle = Builder.CreateShuffleVector(Vec0, Vec1, ShuffleMask,
+                                                     "SplitLoadShuffle");
+        WorkList.push_front(Shuffle);
       }
 
+      Value *RetValue = WorkList.back();
       // When split load support is enabled we may need to shuffle resulting
       // vector.
       if (NeedToShuffleReuses) {
