@@ -1697,15 +1697,19 @@ define i32 @test_chr_18(i32* %i, i32 %sum0) !prof !14 {
 ; CHECK-NEXT:    [[SUM1:%.*]] = add i32 [[SUM0:%.*]], 42
 ; CHECK-NEXT:    [[TMP0:%.*]] = and i32 [[LI]], 5
 ; CHECK-NEXT:    [[TMP1:%.*]] = icmp eq i32 [[TMP0]], 5
-; CHECK-NEXT:    br i1 [[TMP1]], label [[BB0_SPLIT:%.*]], label [[BB0_SPLIT_NONCHR:%.*]], !prof !15
-; CHECK:       bb0.split:
-; CHECK-NEXT:    [[INC2:%.*]] = add i32 [[INC1]], 1
+; CHECK-NEXT:    br i1 [[TMP1]], label [[BB1:%.*]], label [[BB0_SPLIT_NONCHR:%.*]], !prof !15
+; CHECK:       bb1:
 ; CHECK-NEXT:    [[SUM3:%.*]] = add i32 [[SUM0]], 86
 ; CHECK-NEXT:    br label [[BB2]]
 ; CHECK:       bb0.split.nonchr:
 ; CHECK-NEXT:    [[A4_NONCHR:%.*]] = and i32 [[LI]], 4
 ; CHECK-NEXT:    [[CMP4_NONCHR:%.*]] = icmp eq i32 [[A4_NONCHR]], 0
+<<<<<<< HEAD
 ; CHECK-NEXT:    [[INC2_NONCHR:%.*]] = add i32 [[INC1]], 1
+=======
+; CHECK-NEXT:    br i1 [[CMP4_NONCHR]], label [[BB2]], label [[BB1_NONCHR:%.*]], !prof !16
+; CHECK:       bb1.nonchr:
+>>>>>>> 95848ea101274b8bd774c63bad55f21a08080705
 ; CHECK-NEXT:    [[A1:%.*]] = and i32 [[LI]], 1
 ; INTEL_CUSTOMIZATION
 ; CHECK-NEXT:    [[CMP1:%.*]] = icmp eq i32 [[A1]], 0
@@ -1715,10 +1719,16 @@ define i32 @test_chr_18(i32* %i, i32 %sum0) !prof !14 {
 ; CHECK-NEXT:    [[TMP2:%.*]] = select i1 [[CMP4_NONCHR]], i32 [[SUM1]], i32 [[SUM3_NONCHR]], !prof !16
 ; CHECK-NEXT:    br label [[BB2]]
 ; CHECK:       bb2:
+<<<<<<< HEAD
 ; CHECK-NEXT:    [[TMP3]] = phi i32 [ [[INC2]], [[BB0_SPLIT]] ], [ [[INC2_NONCHR]], [[BB0_SPLIT_NONCHR]] ]
 ; CHECK-NEXT:    [[SUM4:%.*]] = phi i32 [ [[SUM3]], [[BB0_SPLIT]] ], [ [[TMP2]], [[BB0_SPLIT_NONCHR]] ]
 ; CHECK-NEXT:    [[CMP:%.*]] = icmp eq i32 [[TMP3]], 100
 ; end INTEL_CUSTOMIZATION
+=======
+; CHECK-NEXT:    [[SUM4:%.*]] = phi i32 [ [[SUM3]], [[BB1]] ], [ [[SUM1]], [[BB0_SPLIT_NONCHR]] ], [ [[SUM3_NONCHR]], [[BB1_NONCHR]] ]
+; CHECK-NEXT:    [[TMP2]] = add i32 [[INC1]], 1
+; CHECK-NEXT:    [[CMP:%.*]] = icmp eq i32 [[TMP2]], 100
+>>>>>>> 95848ea101274b8bd774c63bad55f21a08080705
 ; CHECK-NEXT:    br i1 [[CMP]], label [[BB3:%.*]], label [[BB0]], !prof !16
 ; CHECK:       bb3:
 ; CHECK-NEXT:    ret i32 [[SUM4]]
