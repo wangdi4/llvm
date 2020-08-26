@@ -13,11 +13,11 @@
 ; CHECK-NEXT: %vec.retval = alloca <4 x i32>
 ; CHECK-NEXT: store <4 x i32> %i, <4 x i32>* %vec.i, align 4
 ; CHECK-NEXT: store <4 x i32> %j, <4 x i32>* %vec.j, align 4
-; CHECK-NEXT: store <4 x i32> %mask, <4 x i32>* %vec.mask
 ; CHECK-NEXT: %vec.i.cast = bitcast <4 x i32>* %vec.i to i32*
 ; CHECK-NEXT: %vec.j.cast = bitcast <4 x i32>* %vec.j to i32*
-; CHECK-NEXT: %ret.cast = bitcast <4 x i32>* %vec.retval to i32*
 ; CHECK-NEXT: %mask.cast = bitcast <4 x i32>* %vec.mask to i32*
+; CHECK-NEXT: %ret.cast = bitcast <4 x i32>* %vec.retval to i32*
+; CHECK-NEXT: store <4 x i32> %mask, <4 x i32>* %vec.mask
 ; CHECK-NEXT: br label %simd.begin.region
 
 ; CHECK: simd.begin.region:
