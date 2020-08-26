@@ -17,6 +17,7 @@
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/Analysis/Intel_VectorVariant.h"
 #include "llvm/IR/Function.h"
+#include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/PassManager.h"
@@ -103,16 +104,23 @@ class VecCloneImpl {
         std::vector<ParmRef *> &ParmMap, ValueToValueMapTy &VMap);
 
     /// \brief Expand the function parameters to vector types. This function
-    /// returns the instruction corresponding to the mask.
+    /// returns the instruction corresponding to the mask. LastAlloca indicates
+    /// where the alloca of the function argument should be placed in
+    /// EntryBlock. We process the function arguments from left to right. The
+    /// alloca of the most left argument is places at the top of the EntryBlock.
     Instruction *expandVectorParameters(Function *Clone, VectorVariant &V,
                                         BasicBlock *EntryBlock,
                                         std::vector<ParmRef *> &ParmMap,
-                                        ValueToValueMapTy &VMap);
+                                        ValueToValueMapTy &VMap,
+                                        AllocaInst *&LastAlloca);
 
-    /// \brief Expand the function's return value to a vector type.
-    Instruction* expandReturn(Function *Clone, BasicBlock *EntryBlock,
-                             BasicBlock *LoopBlock, BasicBlock *ReturnBlock,
-                             std::vector<ParmRef*>& ParmMap);
+    /// \brief Expand the function's return value to a vector type. LastAlloca
+    /// indicates where the alloca of the return value should be placed in
+    /// EntryBlock.
+    Instruction *expandReturn(Function *Clone, BasicBlock *EntryBlock,
+                              BasicBlock *LoopBlock, BasicBlock *ReturnBlock,
+                              std::vector<ParmRef *> &ParmMap,
+                              AllocaInst *&LastAlloca);
 
     /// \brief Update the old parameter references to with the new vector
     /// references.
@@ -149,13 +157,15 @@ class VecCloneImpl {
                                 VectorVariant &V, BasicBlock *EntryBlock);
 
     /// \brief Create the basic block indicating the end of the SIMD loop.
-    void insertEndRegion(Module& M, Function *Clone, BasicBlock *LoopExitBlock,
+    void insertEndRegion(Module &M, Function *Clone, BasicBlock *LoopExitBlock,
                          BasicBlock *ReturnBlock, CallInst *EntryDirCall);
 
     /// \brief Create a new vector alloca instruction for the return vector and
-    /// bitcast to the appropriate element type.
-    Instruction* createExpandedReturn(Function *F, BasicBlock *BB,
-                                      VectorType *ReturnType);
+    /// bitcast to the appropriate element type. LastAlloca indicates where the
+    /// alloca of the return value should be placed.
+    Instruction *createExpandedReturn(Function *F, BasicBlock *BB,
+                                      VectorType *ReturnType,
+                                      AllocaInst *&LastAlloca);
 
     /// \brief Return the position of the parameter in the function's parameter
     /// list.
@@ -170,10 +180,6 @@ class VecCloneImpl {
     void insertSplitForMaskedVariant(Function *Clone, BasicBlock *LoopBlock,
                                      BasicBlock *LoopExitBlock,
                                      Instruction *Mask, PHINode *Phi);
-
-    /// \brief Utility function to insert instructions with other instructions
-    /// of the same kind.
-    void insertInstruction(Instruction *Inst, BasicBlock *BB);
 
     /// \brief Utility function that generates instructions that calculate the
     /// stride for a linear parameter.

@@ -153,7 +153,6 @@
 #include "llvm/IR/Function.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/IntrinsicInst.h"
-#include "llvm/IR/IRBuilder.h"
 #include "llvm/InitializePasses.h"
 #include "llvm/PassRegistry.h"
 #include "llvm/Support/Debug.h"
@@ -188,37 +187,6 @@ void VecCloneImpl::handleLanguageSpecifics(Function &F, PHINode *Phi,
 
 void VecCloneImpl::languageSpecificInitializations(Module &M) {}
 #endif // INTEL_CUSTOMIZATION
-
-void VecCloneImpl::insertInstruction(Instruction *Inst, BasicBlock *BB)
-{
-  // This function inserts instructions in a way that groups like instructions
-  // together for debuggability/readability purposes. This was designed to make
-  // the entry basic block easier to read since this pass creates/modifies
-  // alloca, store, and bitcast instructions for each vector parameter and
-  // return. Thus, this function ensures all allocas are grouped together, all
-  // stores are grouped together, and so on. If the type of instruction passed
-  // in does not exist in the basic block, then it is added to the end of the
-  // basic block, just before the terminator instruction.
-
-  BasicBlock::reverse_iterator BBIt = BB->rbegin();
-  BasicBlock::reverse_iterator BBEnd = BB->rend();
-  BasicBlock::iterator AnchorInstIt = BB->end();
-  AnchorInstIt--;
-  Instruction *Anchor = &*AnchorInstIt;
-
-  for (; BBIt != BBEnd; ++BBIt) {
-    if (Inst->getOpcode() == (&*BBIt)->getOpcode()) {
-      Anchor = &*BBIt;
-      break;
-    }
-  }
-
-  if (isa<BranchInst>(Anchor)) {
-    Inst->insertBefore(Anchor);
-  } else {
-    Inst->insertAfter(Anchor);
-  }
-}
 
 bool VecCloneImpl::hasComplexType(Function *F)
 {
@@ -566,7 +534,8 @@ PHINode* VecCloneImpl::createPhiAndBackedgeForLoop(
 
 Instruction *VecCloneImpl::expandVectorParameters(
     Function *Clone, VectorVariant &V, BasicBlock *EntryBlock,
-    std::vector<ParmRef *> &VectorParmMap, ValueToValueMapTy &VMap) {
+    std::vector<ParmRef *> &VectorParmMap, ValueToValueMapTy &VMap,
+    AllocaInst *&LastAlloca) {
   // For vector parameters, expand the existing alloca to a vector. Then,
   // bitcast the vector and store this instruction in a map. The map is later
   // used to insert the new instructions and to replace the old scalar memory
@@ -574,7 +543,6 @@ Instruction *VecCloneImpl::expandVectorParameters(
   // perform any expansion since we iterate over the function's arg list.
 
   Instruction *Mask = nullptr;
-  SmallVector<StoreInst*, 4> StoresToInsert;
 
   ArrayRef<VectorKind> ParmKinds = V.getParameters();
 
@@ -615,10 +583,15 @@ Instruction *VecCloneImpl::expandVectorParameters(
     // We do this to put the geps in a more scalar form.
 
     const DataLayout &DL = Clone->getParent()->getDataLayout();
+
     AllocaInst *VecAlloca =
         new AllocaInst(VecType, DL.getAllocaAddrSpace(), nullptr,
                        DL.getPrefTypeAlign(VecType), "vec." + Arg->getName());
-    insertInstruction(VecAlloca, EntryBlock);
+    if (LastAlloca)
+      VecAlloca->insertAfter(LastAlloca);
+    else
+      VecAlloca->insertBefore(&EntryBlock->front());
+    LastAlloca = VecAlloca;
 
     Type *ArgTy = nullptr;
     for (const auto &Pair : VMap)
@@ -635,10 +608,14 @@ Instruction *VecCloneImpl::expandVectorParameters(
     BitCastInst *VecParmCast = nullptr;
     if (MaskArg) {
       Mask = new BitCastInst(VecAlloca, ElemTypePtr, "mask.cast");
+      // Mask points to the bitcast of the alloca instruction to element type
+      // pointer. Insert the bitcast after all of the other bitcasts for vector
+      // parameters.
+      Mask->insertBefore(EntryBlock->getTerminator());
     } else {
       VecParmCast = new BitCastInst(VecAlloca, ElemTypePtr,
                                     "vec." + Arg->getName() + ".cast");
-      insertInstruction(VecParmCast, EntryBlock);
+      VecParmCast->insertBefore(EntryBlock->getTerminator());
     }
 
     StoreInst *StoreUser = nullptr;
@@ -673,9 +650,18 @@ Instruction *VecCloneImpl::expandVectorParameters(
       // vector bitcast so that we can later update any users of the
       // parameter.
       Value *ArgValue = cast<Value>(Arg);
-      StoreInst *Store = new StoreInst(ArgValue, VecAlloca, false /*volatile*/,
-                                       DL.getABITypeAlign(ArgValue->getType()));
-      StoresToInsert.push_back(Store);
+      if (!StoreUser) {
+        StoreInst *Store =
+            new StoreInst(ArgValue, VecAlloca, false /*volatile*/,
+                          DL.getABITypeAlign(ArgValue->getType()));
+
+        // Insert any necessary vector parameter stores here. This is needed for
+        // when there were no existing scalar stores that we can update to
+        // vector stores for the parameter. This is needed when Mem2Reg has
+        // registerized parameters. The stores are inserted after the allocas in
+        // the entry block.
+        Store->insertBefore(EntryBlock->getTerminator());
+      }
       PRef->VectorParm = ArgValue;
     }
 
@@ -688,20 +674,13 @@ Instruction *VecCloneImpl::expandVectorParameters(
     }
   }
 
-  // Insert any necessary vector parameter stores here. This is needed for when
-  // there were no existing scalar stores that we can update to vector stores
-  // for the parameter. This is needed when Mem2Reg has registerized parameters.
-  // The stores are inserted after the allocas in the entry block.
-  for (auto *Inst : StoresToInsert) {
-    insertInstruction(Inst, EntryBlock);
-  }
-
   return Mask;
 }
 
 Instruction *VecCloneImpl::createExpandedReturn(Function *Clone,
                                                 BasicBlock *EntryBlock,
-                                                VectorType *ReturnType) {
+                                                VectorType *ReturnType,
+                                                AllocaInst *&LastAlloca) {
   // Expand the return temp to a vector.
 
   VectorType *AllocaType = cast<VectorType>(Clone->getReturnType());
@@ -710,13 +689,18 @@ Instruction *VecCloneImpl::createExpandedReturn(Function *Clone,
   AllocaInst *VecAlloca =
       new AllocaInst(AllocaType, DL.getAllocaAddrSpace(), nullptr,
                      DL.getPrefTypeAlign(AllocaType), "vec.retval");
-  insertInstruction(VecAlloca, EntryBlock);
+  if (LastAlloca)
+    VecAlloca->insertAfter(LastAlloca);
+  else
+    VecAlloca->insertBefore(&EntryBlock->front());
+  LastAlloca = VecAlloca;
+
   PointerType *ElemTypePtr =
       PointerType::get(ReturnType->getElementType(),
                        VecAlloca->getType()->getAddressSpace());
 
   BitCastInst *VecCast = new BitCastInst(VecAlloca, ElemTypePtr, "ret.cast");
-  insertInstruction(VecCast, EntryBlock);
+  VecCast->insertBefore(EntryBlock->getTerminator());
 
   return VecCast;
 }
@@ -724,7 +708,8 @@ Instruction *VecCloneImpl::createExpandedReturn(Function *Clone,
 Instruction *VecCloneImpl::expandReturn(Function *Clone, BasicBlock *EntryBlock,
                                         BasicBlock *LoopBlock,
                                         BasicBlock *ReturnBlock,
-                                        std::vector<ParmRef *> &VectorParmMap) {
+                                        std::vector<ParmRef *> &VectorParmMap,
+                                        AllocaInst *&LastAlloca) {
   // Determine how the return is currently handled, since this will determine
   // if a new vector alloca is required for it. For simple functions, an alloca
   // may not have been created for the return value. The function may just
@@ -817,7 +802,7 @@ Instruction *VecCloneImpl::expandReturn(Function *Clone, BasicBlock *EntryBlock,
 
     // Case 1
 
-    VecReturn = createExpandedReturn(Clone, EntryBlock, ReturnType);
+    VecReturn = createExpandedReturn(Clone, EntryBlock, ReturnType, LastAlloca);
     Value *RetVal = FuncReturn->getReturnValue();
     Instruction *RetFromTemp = dyn_cast<Instruction>(RetVal);
 
@@ -873,7 +858,8 @@ Instruction *VecCloneImpl::expandReturn(Function *Clone, BasicBlock *EntryBlock,
     } else {
       // A new return vector is needed because we do not load the return value
       // from an alloca.
-      VecReturn = createExpandedReturn(Clone, EntryBlock, ReturnType);
+      VecReturn =
+          createExpandedReturn(Clone, EntryBlock, ReturnType, LastAlloca);
       ParmRef *PRef = new ParmRef();
       PRef->VectorParm = Alloca;
       PRef->VectorParmCast = VecReturn;
@@ -888,26 +874,28 @@ Instruction *VecCloneImpl::expandVectorParametersAndReturn(
     Function *Clone, VectorVariant &V, Instruction **Mask,
     BasicBlock *EntryBlock, BasicBlock *LoopBlock, BasicBlock *ReturnBlock,
     std::vector<ParmRef *> &VectorParmMap, ValueToValueMapTy &VMap) {
+
+  // The function arguments are processed from left to right. The corresponding
+  // allocas should be emitted in a specific order: the alloca that corresponds
+  // to the most left argument should be emitted at the top of the entry block.
+  AllocaInst *LastAlloca = nullptr;
+
   // If there are no parameters, then this function will do nothing and this
   // is the expected behavior.
-  *Mask = expandVectorParameters(Clone, V, EntryBlock, VectorParmMap, VMap);
+  *Mask = expandVectorParameters(Clone, V, EntryBlock, VectorParmMap, VMap,
+                                 LastAlloca);
 
   // If the function returns void, then don't attempt to expand to vector.
   Instruction *ExpandedReturn = ReturnBlock->getTerminator();
   if (!Clone->getReturnType()->isVoidTy()) {
-    ExpandedReturn =
-        expandReturn(Clone, EntryBlock, LoopBlock, ReturnBlock, VectorParmMap);
+    ExpandedReturn = expandReturn(Clone, EntryBlock, LoopBlock, ReturnBlock,
+                                  VectorParmMap, LastAlloca);
     assert(ExpandedReturn && "The return value has not been widened.");
   }
 
   // Insert the mask parameter store to alloca and bitcast if this is a masked
   // variant.
   if (*Mask) {
-    // Mask points to the bitcast of the alloca instruction to element type
-    // pointer. Insert the bitcast after all of the other bitcasts for vector
-    // parameters.
-    insertInstruction(*Mask, EntryBlock);
-
     Value *MaskVector = (*Mask)->getOperand(0);
 
     // MaskParm points to the function's mask parameter.
@@ -927,7 +915,7 @@ Instruction *VecCloneImpl::expandVectorParametersAndReturn(
         new StoreInst(&*MaskParm, MaskVector, false /*volatile*/,
                       Clone->getParent()->getDataLayout().getABITypeAlign(
                           (*MaskParm).getType()));
-    insertInstruction(MaskStore, EntryBlock);
+    MaskStore->insertBefore(EntryBlock->getTerminator());
   }
 
   LLVM_DEBUG(dbgs() << "After Parameter/Return Expansion\n");
