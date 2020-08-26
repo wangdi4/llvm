@@ -839,6 +839,12 @@ bool llvm::inferLibFuncAttributes(Function &F, const TargetLibraryInfo &TLI) {
   case LibFunc_msvc_std_ctype_do_toupper_ptr_ptr:
     Changed |= setDoesNotThrow(F);
     return Changed;
+  case LibFunc_msvc_std_ctype_scalar_deleting_dtor:
+    return Changed;
+  case LibFunc_msvc_std_error_category_default_error:
+  case LibFunc_msvc_std_error_category_equivalent_error_code:
+    Changed |= setDoesNotThrow(F);
+    return Changed;
   case LibFunc_msvc_std_ctype_use_facet:
   case LibFunc_msvc_std_CxxThrowException:
   case LibFunc_msvc_std_Execute_once:
@@ -848,6 +854,10 @@ bool llvm::inferLibFuncAttributes(Function &F, const TargetLibraryInfo &TLI) {
   case LibFunc_msvc_std_exception_what:
   case LibFunc_msvc_std_facet_register:
   case LibFunc_msvc_std_ios_base_failure:
+  case LibFunc_msvc_std_ios_base_failure_const_ptr_ctor:
+  case LibFunc_msvc_std_ios_base_failure_scalar_deleting_dtor:
+  case LibFunc_msvc_std_locale_facet_decref:
+  case LibFunc_msvc_std_locale_facet_incref:
   case LibFunc_msvc_std_locimp_Getgloballocale:
   case LibFunc_msvc_std_locinfo_ctor:
   case LibFunc_msvc_std_locinfo_dtor:
@@ -860,6 +870,16 @@ bool llvm::inferLibFuncAttributes(Function &F, const TargetLibraryInfo &TLI) {
   case LibFunc_msvc_std_uncaught_exception:
   case LibFunc_msvc_std_under_locinfo_ctor:
   case LibFunc_msvc_std_under_locinfo_dtor:
+  case LibFunc_msvc_std_system_error_const_ptr_ctor:
+  case LibFunc_msvc_std_system_error_scalar_deleting_dtor:
+  case LibFunc_msvc_std_under_generic_error_category_message:
+  case LibFunc_msvc_std_under_iostreamer_error_category_message:
+    return Changed;
+  case LibFunc_msvc_std_under_iostreamer_error_category_name:
+    Changed |= setDoesNotThrow(F);
+    return Changed;
+  case LibFunc_msvc_std_under_iostreamer_error_category_scalar_deleting_dtor:
+  case LibFunc_msvc_std_under_system_error_scalar_deleting_dtor:
   case LibFunc_msvc_std_Xbad_alloc:
   case LibFunc_msvc_std_yarn_dtor:
     return Changed;
