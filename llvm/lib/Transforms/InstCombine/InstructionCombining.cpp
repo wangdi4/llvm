@@ -2737,6 +2737,13 @@ static bool isAllocSiteRemovable(Instruction *AI,
           case Intrinsic::objectsize:
             Users.emplace_back(I);
             continue;
+#if INTEL_CUSTOMIZATION
+          case Intrinsic::masked_scatter:
+            if (II->getOperand(1) != PI)
+              return false;
+            Users.emplace_back(I);
+            continue;
+#endif // INTEL_CUSTOMIZATION
           }
         }
 

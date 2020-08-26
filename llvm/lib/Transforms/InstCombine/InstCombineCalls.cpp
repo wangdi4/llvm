@@ -514,6 +514,27 @@ Instruction *InstCombinerImpl::simplifyMaskedGather(IntrinsicInst &II) {
 // * Vector splat address w/known mask -> scalar store
 // * Vector incrementing address -> vector masked store
 Instruction *InstCombinerImpl::simplifyMaskedScatter(IntrinsicInst &II) {
+#if INTEL_CUSTOMIZATION
+  // If the pointer is a non-constant splat vector, replace it with a GEP with
+  // a scalar base pointer and an all zero vector index. This enables
+  // SelectionDAGBuilder to use it as a uniform base. It also enables
+  // isAllocSiteRemovable to find the scatter if the pointer happens to be an
+  // alloca.
+  Value *Ptr = II.getArgOperand(1);
+  if (!isa<Constant>(Ptr)) {
+    if (Value *V = getSplatValue(Ptr)) {
+      Type *IndexTy = DL.getIndexType(V->getType());
+      IndexTy = VectorType::get(
+          IndexTy, cast<VectorType>(Ptr->getType())->getElementCount());
+      Ptr = Builder.CreateGEP(V, Constant::getNullValue(IndexTy));
+      Builder.CreateCall(
+          II.getCalledFunction(),
+          {II.getArgOperand(0), Ptr, II.getArgOperand(2), II.getArgOperand(3)});
+      return eraseInstFromFunction(II);
+    }
+  }
+#endif
+
   auto *ConstMask = dyn_cast<Constant>(II.getArgOperand(3));
   if (!ConstMask)
     return nullptr;
