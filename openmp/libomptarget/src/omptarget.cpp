@@ -919,7 +919,14 @@ public:
     // predefined threshold, we will allocate memory and issue the transfer
     // immediately.
     if (ArgSize > FirstPrivateArgSizeThreshold || !IsFirstPrivate) {
+#if INTEL_COLLAB
+      if (ArgOffset != 0)
+        TgtPtr = Device.data_alloc_base(ArgSize, HstPtr, HstPtr + ArgOffset);
+      else
+        TgtPtr = Device.allocData(ArgSize, HstPtr);
+#else
       TgtPtr = Device.allocData(ArgSize, HstPtr);
+#endif // INTEL_COLLAB
       if (!TgtPtr) {
         DP("Data allocation for %sprivate array " DPxMOD " failed.\n",
            (IsFirstPrivate ? "first-" : ""), DPxPTR(HstPtr));
@@ -1036,14 +1043,10 @@ int processDataBefore(int64_t DeviceId, void *HostPtr, int32_t ArgNum,
                       int64_t *ArgTypes, void **ArgMappers,
                       std::vector<void *> &TgtArgs,
                       std::vector<ptrdiff_t> &TgtOffsets,
-<<<<<<< HEAD
-                      std::vector<void *> &FPArrays,
+                      PrivateArgumentManagerTy &PrivateArgumentManager,
 #if INTEL_COLLAB
                       __tgt_async_info *AsyncInfo, void **TgtNDLoopDesc) {
 #else  // INTEL_COLLAB
-=======
-                      PrivateArgumentManagerTy &PrivateArgumentManager,
->>>>>>> 0775c1dfbce69d1d13414995de2e77acc942b7eb
                       __tgt_async_info *AsyncInfo) {
 #endif // INTEL_COLLAB
 
@@ -1119,49 +1122,6 @@ int processDataBefore(int64_t DeviceId, void *HostPtr, int32_t ArgNum,
       TgtPtrBegin = HstPtrBase;
       TgtBaseOffset = 0;
     } else if (ArgTypes[I] & OMP_TGT_MAPTYPE_PRIVATE) {
-<<<<<<< HEAD
-      // Allocate memory for (first-)private array
-#if INTEL_COLLAB
-      TgtPtrBegin = Device.data_alloc_base(ArgSizes[I], HstPtrBegin,
-                                           HstPtrBase);
-#else
-      TgtPtrBegin = Device.allocData(ArgSizes[I], HstPtrBegin);
-#endif // INTEL_COLLAB
-      if (!TgtPtrBegin) {
-        DP("Data allocation for %sprivate array " DPxMOD " failed, "
-           "abort target.\n",
-           (ArgTypes[I] & OMP_TGT_MAPTYPE_TO ? "first-" : ""),
-           DPxPTR(HstPtrBegin));
-        return OFFLOAD_FAIL;
-      }
-      FPArrays.push_back(TgtPtrBegin);
-      TgtBaseOffset = (intptr_t)HstPtrBase - (intptr_t)HstPtrBegin;
-#ifdef OMPTARGET_DEBUG
-#if INTEL_COLLAB
-      DP("Allocated %" PRId64 " bytes of target memory at " DPxMOD " for "
-          "%sprivate array " DPxMOD " - pushing target argument (Begin: " DPxMOD
-          ", Offset: %" PRId64 ")\n",
-          ArgSizes[I], DPxPTR(TgtPtrBegin),
-          (ArgTypes[I] & OMP_TGT_MAPTYPE_TO ? "first-" : ""),
-          DPxPTR(HstPtrBegin), DPxPTR(TgtPtrBegin), TgtBaseOffset);
-#else
-      void *TgtPtrBase = (void *)((intptr_t)TgtPtrBegin + TgtBaseOffset);
-      DP("Allocated %" PRId64 " bytes of target memory at " DPxMOD " for "
-         "%sprivate array " DPxMOD " - pushing target argument " DPxMOD "\n",
-         ArgSizes[I], DPxPTR(TgtPtrBegin),
-         (ArgTypes[I] & OMP_TGT_MAPTYPE_TO ? "first-" : ""),
-         DPxPTR(HstPtrBegin), DPxPTR(TgtPtrBase));
-#endif // INTEL_COLLAB
-#endif
-      // If first-private, copy data from host
-      if (ArgTypes[I] & OMP_TGT_MAPTYPE_TO) {
-        Ret =
-            Device.submitData(TgtPtrBegin, HstPtrBegin, ArgSizes[I], AsyncInfo);
-        if (Ret != OFFLOAD_SUCCESS) {
-          DP("Copying data to device failed, failed.\n");
-          return OFFLOAD_FAIL;
-        }
-=======
       TgtBaseOffset = (intptr_t)HstPtrBase - (intptr_t)HstPtrBegin;
       const bool IsFirstPrivate = ArgTypes[I] & OMP_TGT_MAPTYPE_TO;
       Ret = PrivateArgumentManager.addArg(HstPtrBegin, ArgSizes[I],
@@ -1171,7 +1131,6 @@ int processDataBefore(int64_t DeviceId, void *HostPtr, int32_t ArgNum,
         DP("Failed to process %sprivate argument " DPxMOD "\n",
            (IsFirstPrivate ? "first-" : ""), DPxPTR(HstPtrBegin));
         return OFFLOAD_FAIL;
->>>>>>> 0775c1dfbce69d1d13414995de2e77acc942b7eb
       }
     } else {
       if (ArgTypes[I] & OMP_TGT_MAPTYPE_PTR_AND_OBJ)
@@ -1280,15 +1239,12 @@ int target(int64_t DeviceId, void *HostPtr, int32_t ArgNum, void **ArgBases,
   // Process data, such as data mapping, before launching the kernel
   int Ret = processDataBefore(DeviceId, HostPtr, ArgNum, ArgBases, Args,
                               ArgSizes, ArgTypes, ArgMappers, TgtArgs,
-<<<<<<< HEAD
 #if INTEL_COLLAB
-                              TgtOffsets, FPArrays, &AsyncInfo, &TgtNDLoopDesc);
+                              TgtOffsets, PrivateArgumentManager, &AsyncInfo,
+                              &TgtNDLoopDesc);
 #else  // INTEL_COLLAB
-                              TgtOffsets, FPArrays, &AsyncInfo);
-#endif // INTEL_COLLAB
-=======
                               TgtOffsets, PrivateArgumentManager, &AsyncInfo);
->>>>>>> 0775c1dfbce69d1d13414995de2e77acc942b7eb
+#endif // INTEL_COLLAB
   if (Ret != OFFLOAD_SUCCESS) {
     DP("Failed to process data before launching the kernel.\n");
     return OFFLOAD_FAIL;
