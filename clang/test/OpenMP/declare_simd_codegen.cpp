@@ -1,10 +1,15 @@
-// RUN: %clang_cc1 -verify -triple x86_64-apple-darwin10 -fopenmp -x c++ -emit-llvm %s -o - -femit-all-decls | FileCheck %s
-// RUN: %clang_cc1 -fopenmp -x c++ -triple x86_64-apple-darwin10 -emit-pch -o %t %s
-// RUN: %clang_cc1 -fopenmp -x c++ -triple x86_64-apple-darwin10 -include-pch %t -verify %s -emit-llvm -o - -femit-all-decls | FileCheck %s
+// TODO for INTEL: Currently, INTEL does not support variable stride in VecClone
+// (INTEL CMPLRLLVM-22849) and alignment propagation (INTEL CMPLRLLVM-22928).
+// Once these features are implemented, -enable-vec-clone flag should
+// be removed.
 
-// RUN: %clang_cc1 -verify -triple x86_64-apple-darwin10 -fopenmp-simd -x c++ -emit-llvm %s -o - -femit-all-decls | FileCheck --check-prefix SIMD-ONLY0 %s
-// RUN: %clang_cc1 -fopenmp-simd -x c++ -triple x86_64-apple-darwin10 -emit-pch -o %t %s
-// RUN: %clang_cc1 -fopenmp-simd -x c++ -triple x86_64-apple-darwin10 -include-pch %t -verify %s -emit-llvm -o - -femit-all-decls | FileCheck --check-prefix SIMD-ONLY0 %s
+// INTEL RUN: %clang_cc1 -verify -triple x86_64-apple-darwin10 -fopenmp -mllvm -enable-vec-clone=false -x c++ -emit-llvm %s -o - -femit-all-decls | FileCheck %s
+// INTEL RUN: %clang_cc1 -fopenmp -x c++ -triple x86_64-apple-darwin10 -mllvm -enable-vec-clone=false -emit-pch -o %t %s
+// INTEL RUN: %clang_cc1 -fopenmp -x c++ -triple x86_64-apple-darwin10 -mllvm -enable-vec-clone=false -include-pch %t -verify %s -emit-llvm -o - -femit-all-decls | FileCheck %s
+
+// INTEL RUN: %clang_cc1 -verify -triple x86_64-apple-darwin10 -fopenmp-simd -mllvm -enable-vec-clone=false -x c++ -emit-llvm %s -o - -femit-all-decls | FileCheck --check-prefix SIMD-ONLY0 %s
+// INTEL RUN: %clang_cc1 -fopenmp-simd -x c++ -triple x86_64-apple-darwin10 -mllvm -enable-vec-clone=false -emit-pch -o %t %s
+// INTEL RUN: %clang_cc1 -fopenmp-simd -x c++ -triple x86_64-apple-darwin10 -mllvm -enable-vec-clone=false -include-pch %t -verify %s -emit-llvm -o - -femit-all-decls | FileCheck --check-prefix SIMD-ONLY0 %s
 // SIMD-ONLY0-NOT: {{__kmpc|__tgt}}
 // expected-no-diagnostics
 #ifndef HEADER

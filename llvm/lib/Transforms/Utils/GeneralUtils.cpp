@@ -49,7 +49,11 @@ Constant *GeneralUtils::getConstantValue(Type *Ty, LLVMContext &Context,
 
   if (Ty->isIntegerTy()) {
     ConstVal = ConstantInt::get(Ty, Val);
+#if INTEL_CUSTOMIZATION
+  } else if (Ty->isFloatingPointTy()) {
+#else
   } else if (Ty->isFloatTy()) {
+#endif
     ConstVal = ConstantFP::get(Ty, Val);
   }
 

@@ -242,11 +242,13 @@ public:
       return Name + ScalarFuncName.str();
   }
 
-  std::string getName() const {
+  Optional<std::string> getName() const {
     if (!Alias.empty())
       return Alias;
 
-    assert(!BaseName.empty() && "No function name information!");
+    if (BaseName.empty())
+      return {};
+
     return generateFunctionName(BaseName);
   }
 
