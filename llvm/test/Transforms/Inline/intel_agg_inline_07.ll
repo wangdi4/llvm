@@ -1,28 +1,10 @@
-; RUN: opt < %s -whole-program-assume -agginliner -inline -inline-report=7 -inline-threshold=-50 -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -disable-output 2>&1 | FileCheck %s
-; RUN: opt < %s -whole-program-assume -passes='module(agginliner),cgscc(inline)' -inline-report=7 -inline-threshold=-50 -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -disable-output 2>&1 | FileCheck %s
-; RUN: opt -inlinereportsetup -inline-report=0x86 < %s -S | opt -whole-program-assume -agginliner -inline -inline-report=0x86 -inline-threshold=-50 -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -S | opt -inlinereportemitter -inline-report=0x86 -S 2>&1 | FileCheck %s
-; RUN: opt -inlinereportsetup -inline-report=0x86 < %s -S | opt -whole-program-assume -passes='module(agginliner),cgscc(inline)' -inline-report=0x86 -inline-threshold=-50 -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -S | opt -inlinereportemitter -inline-report=0x86 -S 2>&1 | FileCheck %s
+; REQUIRES: asserts
+; RUN: opt < %s -whole-program-assume -agginliner -inline -debug-only=agginliner -inline-threshold=-50 -disable-output 2>&1 | FileCheck %s
+; RUN: opt < %s -whole-program-assume -passes='module(agginliner),cgscc(inline)' -debug-only=agginliner -inline-threshold=-50 -disable-output 2>&1 | FileCheck %s
 
-; Check the inlining report to ensure that aggressive inlining has inlined
-; all functions into main, and that aggressive inlining is identified as
-; the reason for at least one INLINE case.
+; Check that aggressive inlining does not happen because AVX2 is not specified.
 
-; CHECK-DAG: DEAD STATIC FUNC: LBM_allocateGrid
-; CHECK-DAG: DEAD STATIC FUNC: LBM_initializeGrid
-; CHECK-DAG: DEAD STATIC FUNC: LBM_initializeSpecialCellsForChannel
-; CHECK-DAG: DEAD STATIC FUNC: LBM_initializeSpecialCellsForLDC
-; CHECK-DAG: DEAD STATIC FUNC: LBM_loadObstacleFile
-; CHECK-DAG: DEAD STATIC FUNC: LBM_compareVelocityField
-; CHECK-DAG: DEAD STATIC FUNC: LBM_freeGrid
-; CHECK-DAG: DEAD STATIC FUNC: LBM_handleInOutFlow
-; CHECK-DAG: DEAD STATIC FUNC: LBM_performStreamCollideTRT
-; CHECK-DAG: DEAD STATIC FUNC: LBM_showGridStatistics
-; CHECK-DAG: DEAD STATIC FUNC: LBM_storeVelocityField
-; CHECK-DAG: DEAD STATIC FUNC: LBM_swapGrids
-; CHECK-DAG: DEAD STATIC FUNC: MAIN_initialize
-; CHECK-DAG: DEAD STATIC FUNC: MAIN_parseCommandLine
-; CHECK-DAG: COMPILE FUNC: main
-; CHECK-DAG: INLINE{{.*}}Aggressive inline to expose uses of global ptrs
+; CHECK:  Skipped AggInl ... NOT AVX2
 
 %struct.MAIN_Param = type { i32, i8*, i32, i32, i8* }
 %struct.stat = type { i64, i64, i64, i32, i32, i32, i32, i64, i64, i64, i64, i64, i64, i64, i64, i64, i64, [3 x i64] }
