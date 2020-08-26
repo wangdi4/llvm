@@ -15,6 +15,7 @@
 ; CHECK-NEXT:   ModulePass Manager
 ; CHECK:          Parse annotations and add a corresponding function attribute
 ; CHECK-NEXT:     DPCPPKernelAnalysis
+; CHECK-NEXT:     VecClone
 ; CHECK-NEXT:     FunctionPass Manager
 ; CHECK-NEXT:       Unify function exit nodes
 ; CHECK-NEXT:     WGLoopCreator

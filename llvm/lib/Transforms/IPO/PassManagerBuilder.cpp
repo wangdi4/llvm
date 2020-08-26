@@ -207,7 +207,7 @@ static cl::opt<bool> EnableVPlanDriver("vplan-driver", cl::init(true),
                                        cl::desc("Enable VPlan Driver"));
 
 static cl::opt<bool> RunVecClone("enable-vec-clone",
-  cl::init(false), cl::Hidden,
+  cl::init(true), cl::Hidden,
   cl::desc("Run Vector Function Cloning"));
 
 static cl::opt<bool> EnableVPlanDriverHIR("vplan-driver-hir", cl::init(true),

@@ -225,9 +225,7 @@ class VecCloneImpl {
     VecCloneImpl() {}
     virtual ~VecCloneImpl() {}
     bool runImpl(Module &M);
-
 }; // end pass class
-
 
 class VecClonePass : public PassInfoMixin<VecClonePass> {
   VecCloneImpl Impl;
@@ -241,11 +239,12 @@ class VecClone : public ModulePass {
   VecCloneImpl Impl;
 
 protected:
-    bool runOnModule(Module &M) override;
+  bool runOnModule(Module &M) override;
+  void getAnalysisUsage(AnalysisUsage &AU) const override;
 
 public:
-    static char ID;
-    VecClone();
+  static char ID;
+  VecClone();
 };
 
 ModulePass *createVecClonePass();

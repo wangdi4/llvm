@@ -145,6 +145,8 @@
 
 #include "llvm/Transforms/Utils/Intel_VecClone.h"
 #include "llvm/Analysis/Directives.h"
+#include "llvm/Analysis/GlobalsModRef.h"
+#include "llvm/Analysis/Intel_Andersens.h"
 #include "llvm/Analysis/Intel_VectorVariant.h"
 #include "llvm/Analysis/Passes.h"
 #include "llvm/Analysis/VectorUtils.h"
@@ -1749,10 +1751,23 @@ void VecCloneImpl::disableLoopUnrolling(BasicBlock *Latch) {
 }
 
 PreservedAnalyses VecClonePass::run(Module &M, ModuleAnalysisManager &AM) {
-  // NOTE: Update here if new analyses are needed before VecClone (getAnalysisUsage from LegacyPM)
+  // NOTE: Update here if new analyses are needed before VecClone
+  // (getAnalysisUsage from LegacyPM)
   if (!Impl.runImpl(M))
     return PreservedAnalyses::all();
-  return PreservedAnalyses::none();
+
+  auto PA = PreservedAnalyses::none();
+  PA.preserve<AndersensAA>();
+  PA.preserve<GlobalsAA>();
+  return PA;
+}
+
+void VecClone::getAnalysisUsage(AnalysisUsage &AU) const {
+  // VecClone pass does not make any changes in the existing functions and
+  // Andersens analysis is conservative on new functions. So we can consider it
+  // as preserved.
+  AU.addPreserved<AndersensAAWrapperPass>(); // INTEL
+  AU.addPreserved<GlobalsAAWrapperPass>();
 }
 
 bool VecCloneImpl::runImpl(Module &M) {
@@ -1794,6 +1809,14 @@ bool VecCloneImpl::runImpl(Module &M) {
     for (unsigned i = 0; i < Variants.size(); i++) {
 
       VectorVariant Variant(Variants[i]);
+
+      // VecClone runs after OCLVecClone. Hence, VecClone will be triggered
+      // again for the OpenCL kernels. To prevent this, we do not process
+      // functions whose name include the current vector variant name. The
+      // vector variant name is a combination of the scalar function name and
+      // the Vector ABI encoding.
+      if (Variant.getName() && M.getFunction(*Variant.getName()))
+        continue;
 
       // Clone the original function.
       LLVM_DEBUG(dbgs() << "Before SIMD Function Cloning\n");
@@ -1888,7 +1911,6 @@ bool VecCloneImpl::runImpl(Module &M) {
 
       // Disable unrolling from kicking in on the simd loop.
       disableLoopUnrolling(LoopExitBlock);
-
     } // End of function cloning for the variant
   } // End of function cloning for all variants
 

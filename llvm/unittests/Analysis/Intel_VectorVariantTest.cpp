@@ -32,7 +32,7 @@ TEST(VectorManglingTest, Basic) {
 
 
   EXPECT_TRUE(FuncName == VV.generateFunctionName("foo"));
-  EXPECT_TRUE(FuncName == VV.getName());
+  EXPECT_TRUE(FuncName == *VV.getName());
 }
 
 TEST(VectorManglingTest, VariableStride) {
@@ -51,7 +51,7 @@ TEST(VectorManglingTest, Alias) {
   std::string Input = "_ZGVcN8ls1u_foo(bar)";
   VectorVariant VV(Input);
 
-  EXPECT_TRUE(VV.getName() == "bar");
+  EXPECT_TRUE(*VV.getName() == "bar");
 }
 
 TEST(VectorManglingTest, MissingValues) {

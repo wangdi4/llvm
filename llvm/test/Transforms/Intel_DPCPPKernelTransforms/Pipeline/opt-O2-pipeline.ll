@@ -8,6 +8,7 @@
 ; CHECK:           Parse annotations and add a corresponding function attribute
 ; CHECK-NEXT:      DPCPPKernelAnalysis
 ; CHECK-NEXT:      DPCPPKernelVecClone pass
+; CHECK-NEXT:      VecClone
 ; CHECK-NEXT:      FunctionPass Manager
 ; CHECK:             VPlan Vectorization Driver
 ; CHECK:           VPlan post vectorization pass for DPCPP kernels
