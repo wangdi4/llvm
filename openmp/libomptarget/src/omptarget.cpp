@@ -923,7 +923,8 @@ public:
     if (ArgSize > FirstPrivateArgSizeThreshold || !IsFirstPrivate) {
 #if INTEL_COLLAB
       if (ArgOffset != 0)
-        TgtPtr = Device.data_alloc_base(ArgSize, HstPtr, HstPtr + ArgOffset);
+        TgtPtr = Device.data_alloc_base(ArgSize, HstPtr,
+                                       (void *)((intptr_t)HstPtr + ArgOffset));
       else
         TgtPtr = Device.allocData(ArgSize, HstPtr);
 #else
