@@ -85,14 +85,19 @@ InlineAggressiveInfo::~InlineAggressiveInfo() {}
 
 // Mark 'CB' as Inlined-Call by inserting 'CB' into AggInlCalls if
 // it is already not there. Return 'true' if the process succeeded.
+// If 'Recursive', propagate the setting up the call graph toward
+// '@main'.
 //
-bool InlineAggressiveInfo::setAggInlInfoForCallSite(CallBase &CB) {
+bool InlineAggressiveInfo::setAggInlInfoForCallSite(CallBase &CB,
+                                                    bool Recursive) {
   Function *F = CB.getCalledFunction();
   if (F && !F->isDeclaration() && !F->isIntrinsic())
     if (AggInlCalls.insert(&CB))
       LLVM_DEBUG(dbgs() << "AggInl: Inserting: " << CB << "\n");
     else
       return true;
+  if (!Recursive)
+    return true;
   return setAggInlInfoForCallSites(*CB.getCaller());
 }
 
@@ -104,7 +109,7 @@ bool InlineAggressiveInfo::setAggInlInfoForCallSites(Function &F) {
     auto CCB = dyn_cast<CallBase>(U);
     if (!CCB)
       return false;
-    if (!setAggInlInfoForCallSite(*CCB))
+    if (!setAggInlInfoForCallSite(*CCB, true /*Recursive*/))
       return false;
   }
   return true;
@@ -322,7 +327,7 @@ bool InlineAggressiveInfo::trackUsesOfAGVs(std::vector<GlobalVariable *> &GVs) {
           LLVM_DEBUG(dbgs() << "TrackAggInl: Too many CallBases\n");
           return false;
         }
-        if (!setAggInlInfoForCallSite(*CB)) {
+        if (!setAggInlInfoForCallSite(*CB, true /*Recursive*/)) {
           LLVM_DEBUG(dbgs() << "TrackAggInl: Could not set AggInfo for "
                             << *CB << "\n");
           return false;
@@ -754,7 +759,7 @@ bool InlineAggressiveInfo::analyzeSingleAccessFunctionGlobalVarHeuristic(
     LLVM_DEBUG(dbgs() << "  Inlining calls\n");
     for (auto *CB : TPair.second) {
       LLVM_DEBUG(dbgs() << "     " << *CB << "\n");
-      if (!setAggInlInfoForCallSite(*CB)) {
+      if (!setAggInlInfoForCallSite(*CB, false /*Recursive*/)) {
         LLVM_DEBUG(dbgs() << "   Could not set AggInfo for " << *CB << "\n");
         return false;
       }
