@@ -69,10 +69,12 @@ omp.precond.end:                                  ; preds = %DIR.OMP.END.SIMD.3,
 }
 
 ; Function Attrs: nounwind readnone
-declare float @sinf(float) local_unnamed_addr
+declare float @sinf(float) local_unnamed_addr #0
 
 ; Function Attrs: nounwind
 declare token @llvm.directive.region.entry()
 
 ; Function Attrs: nounwind
 declare void @llvm.directive.region.exit(token)
+
+attributes #0 = { readnone }
