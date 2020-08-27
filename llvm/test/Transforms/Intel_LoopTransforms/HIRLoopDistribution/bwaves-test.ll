@@ -86,9 +86,9 @@
 ;             %array_size3 = zext.i32.i64((1 + %tmp578a)) + -1  *  %array_size;
 ;             %TempArray = alloca %array_size3;
 ;
-; CHECK:      + DO i1 = 0, zext.i32.i64((1 + %tmp578a)) + -2, 1   <DO_LOOP>
-; CHECK:      |   + DO i2 = 0, zext.i32.i64((1 + %arg3)) + -2, 1   <DO_LOOP>
-; CHECK:      |   |   + DO i3 = 0, zext.i32.i64((1 + %arg2)) + -2, 1   <DO_LOOP>
+; CHECK:      + DO i1 = 0
+; CHECK:      |   + DO i2 = 0
+; CHECK:      |   |   + DO i3 = 0
 ;             |   |   |   %tmp603 = (%tmp79)[i1 + 2][i2][i3][0];
 ;             |   |   |   %tmp606 = (%tmp79)[i1 + 2][i2][i3][1]  /  %tmp603;
 ;             |   |   |   %tmp609 = (%tmp79)[i1 + 2][i2][i3][2]  /  %tmp603;
@@ -153,9 +153,9 @@
 ;             %array_size3 = zext.i32.i64((1 + %tmp578a)) + -1  *  %array_size;
 ;             %TempArray = alloca %array_size3;
 ;
-; CHECK:      + DO i1 = 0, zext.i32.i64((1 + %tmp578a)) + -2, 1   <DO_LOOP>
-; CHECK:      |   + DO i2 = 0, zext.i32.i64((1 + %arg3)) + -2, 1   <DO_LOOP>
-; CHECK:      |   |   + DO i3 = 0, zext.i32.i64((1 + %arg2)) + -2, 1   <DO_LOOP>
+; CHECK:      + DO i1 = 0
+; CHECK:      |   + DO i2 = 0
+; CHECK:      |   |   + DO i3 = 0
 ;             |   |   |   %tmp603 = (%tmp79)[i1 + 2][i2][i3][0];
 ;             |   |   |   %tmp606 = (%tmp79)[i1 + 2][i2][i3][1]  /  %tmp603;
 ;             |   |   |   %tmp609 = (%tmp79)[i1 + 2][i2][i3][2]  /  %tmp603;
