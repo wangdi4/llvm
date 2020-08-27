@@ -3083,30 +3083,32 @@ bool VPOParoptTransform::genTargetVariantDispatchCode(WRegionNode *W) {
   W->populateBBSet();
 
   // The first and last BasicBlocks contain the region.entry/exit calls.
-  // The first call instruction found in the remaining BBs is the
-  // base function call. All other instructions in the region are ignored.
+  // There may be many call instructions in this region like memcpy but there
+  // should be only one call instruction with the following string attribute.
+  // "openmp-variant"="name:foo_gpu;construct:target_variant_dispatch;arch:gen"
+  // where the variant name is "foo_gpu" in this example.
+  // All other instructions in the region are ignored.
 
+  StringRef MatchConstruct("target_variant_dispatch");
+  StringRef MatchArch("gen");
+  StringRef VariantName;
   CallInst *BaseCall = nullptr;
   for (auto *BB : make_range(W->bbset_begin()+1, W->bbset_end()-1)) {
     for (Instruction &I : *BB) {
-      if ((BaseCall = dyn_cast<CallInst>(&I)) != nullptr)
-        break;
+      if (auto *TempCallInst = dyn_cast<CallInst>(&I)) {
+        BaseCall = TempCallInst;
+        VariantName = getVariantName(BaseCall, MatchConstruct, MatchArch);
+        if (!VariantName.empty())
+          break;
+      }
     }
-    if (BaseCall)
+    if (!VariantName.empty())
       break;
   }
 
   assert(BaseCall && "Base call not found in Target Variant Dispatch");
   if (!BaseCall)
     return false;
-
-  // Find the variant name from BaseCall's attributes, which is expected to
-  // contain a string attribute of this form:
-  // "openmp-variant"="name:foo_gpu;construct:target_variant_dispatch;arch:gen"
-  // where the variant name is "foo_gpu" in this example.
-  StringRef MatchConstruct("target_variant_dispatch");
-  StringRef MatchArch("gen");
-  StringRef VariantName = getVariantName(BaseCall, MatchConstruct, MatchArch);
 
   if (VariantName.empty()) {
     LLVM_DEBUG(dbgs() << __FUNCTION__ << ": Variant function not found\n");
