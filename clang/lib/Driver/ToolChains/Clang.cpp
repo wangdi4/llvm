@@ -4564,6 +4564,7 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
   if (Args.getLastArg(options::OPT_save_temps_EQ))
     Args.AddLastArg(CmdArgs, options::OPT_save_temps_EQ);
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   auto AddOptLevel = [&]() {
     // Force -O0 for OpenMP device compilation for SPIRV target.
@@ -4587,6 +4588,10 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
   if (Args.hasArg(options::OPT_fopenmp_stable_file_id))
     CmdArgs.push_back("-fopenmp-stable-file-id");
 #endif // INTEL_CUSTOMIZATION
+=======
+  if (Args.hasFlag(options::OPT_fmemprof, options::OPT_fno_memprof, false))
+    Args.AddLastArg(CmdArgs, options::OPT_fmemprof);
+>>>>>>> 7ed8124d46f94601d5f1364becee9cee8538265e
 
   // Embed-bitcode option.
   // Only white-listed flags below are allowed to be embedded.
