@@ -2073,6 +2073,7 @@ bool SimplifyCFGOpt::SpeculativelyExecuteBB(BranchInst *BI, BasicBlock *ThenBB,
   BasicBlock *BB = BI->getParent();
   BasicBlock *EndBB = ThenBB->getTerminator()->getSuccessor(0);
 
+#ifndef INTEL_CUSTOMIZATION
   TargetTransformInfo::TargetCostKind CostKind =
     BI->getFunction()->hasMinSize()
     ? TargetTransformInfo::TCK_CodeSize
@@ -2092,6 +2093,7 @@ bool SimplifyCFGOpt::SpeculativelyExecuteBB(BranchInst *BI, BasicBlock *ThenBB,
   }
   if (BudgetRemaining < 0)
     return false;
+#endif // !INTEL_CUSTOMIZATION
 
   // If ThenBB is actually on the false edge of the conditional branch, remember
   // to swap the select operands later.
