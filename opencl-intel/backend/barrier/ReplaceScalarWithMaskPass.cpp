@@ -76,6 +76,10 @@ kernel has barrier path and subgroup calls", false, false)
 
       // Inline the masked kernel to scalar kernel.
       LoopUtils::inlineMaskToScalar(pFunc, maskedKernel);
+
+      // Reset VectorizedMaskedKernel to pFunc since pFunc is replaced with
+      // vectorized masked kernel.
+      skimd.VectorizedMaskedKernel.set(pFunc);
     }
     return changed;
   }

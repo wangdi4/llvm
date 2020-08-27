@@ -60,9 +60,9 @@ define void @A(<4 x i8> %c, <4 x i8> %uc, <4 x i16> %s, <4 x i16> %us, <4 x i32>
 ; CHECK: %32 = insertvalue [4 x i64] undef, i64 %27, 0
 ; CHECK: %33 = insertvalue [4 x i64] %32, i64 %29, 1
 ; CHECK: %BaseGlbId = insertvalue [4 x i64] %33, i64 %31, 2
-; CHECK: %34 = mul i64 0, %LocalSize_0
-; CHECK: %35 = mul i64 %34, %LocalSize_1
-; CHECK: %BarrierBufferSize = mul i64 %35, %LocalSize_2
+; CHECK-NEXT: [[MUL01:%[0-9]+]] = mul nuw nsw i64 %LocalSize_0, %LocalSize_1
+; CHECK-NEXT: %LocalSizeProd = mul nuw nsw i64 [[MUL01]], %LocalSize_2
+; CHECK-NEXT: %BarrierBufferSize = mul nuw nsw i64 0, %LocalSizeProd
 ; CHECK: %pSpecialBuf = alloca i8, i64 %BarrierBufferSize, align 128
 ; CHECK: call void @__A_separated_args(<4 x i8> %explicit_0, <4 x i8> %explicit_1, <4 x i16> %explicit_2, <4 x i16> %explicit_3, <4 x i32> %explicit_4, <4 x i32> %explicit_5, <4 x float> %explicit_6, <4 x float> addrspace(1)* %explicit_7, i8 addrspace(3)* null, { i64, [3 x i64], [3 x i64], [2 x [3 x i64]], [3 x i64], {}*, {}* }* %pWorkDim, i64* %pWGId, [4 x i64] %BaseGlbId, i8* %pSpecialBuf, {}* %RuntimeHandle)
 ; CHECK: ret void

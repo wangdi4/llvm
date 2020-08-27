@@ -256,10 +256,13 @@ bool OCLVPOCheckVF::runOnModule(Module &M) {
   // Update VF to metadata.
   for (auto &item : m_kernelToVF) {
     Function *kernel = item.first;
+    unsigned VF = item.second;
+    // TODO report invalid VF as build fail and dump to build log.
+    assert(VF && (VF & (VF - 1)) == 0 && "VF is not power of 2");
     auto KIMD = KernelInternalMetadataAPI(kernel);
     if (KIMD.OclRecommendedVectorLength.hasValue() &&
-        item.second != (unsigned)KIMD.OclRecommendedVectorLength.get()) {
-      KIMD.OclRecommendedVectorLength.set(item.second);
+        VF != (unsigned)KIMD.OclRecommendedVectorLength.get()) {
+      KIMD.OclRecommendedVectorLength.set(VF);
       changed = true;
     }
   }
