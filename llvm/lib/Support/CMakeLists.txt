@@ -60,11 +60,6 @@ if(LLVM_WITH_Z3)
   set(system_libs ${system_libs} ${Z3_LIBRARIES})
 endif()
 
-<<<<<<< HEAD
-# INTEL_CUSTOMIZATION
-set (SUPPORT_SOURCES
-# end INTEL_CUSTOMIZATION
-=======
 # Override the C runtime allocator on Windows and embed it into LLVM tools & libraries
 if(LLVM_INTEGRATED_CRT_ALLOC)
   if (CMAKE_BUILD_TYPE AND NOT ${LLVM_USE_CRT_${uppercase_CMAKE_BUILD_TYPE}} MATCHES "^(MT|MTd)$")
@@ -93,8 +88,9 @@ if(LLVM_INTEGRATED_CRT_ALLOC)
   endif()
 endif()
 
-add_llvm_component_library(LLVMSupport
->>>>>>> a6a37a2fcd2a8048a75bd0d8280497ed89d73224
+# INTEL_CUSTOMIZATION
+set (SUPPORT_SOURCES
+# end INTEL_CUSTOMIZATION
   AArch64TargetParser.cpp
   ABIBreak.cpp
   ARMTargetParser.cpp
