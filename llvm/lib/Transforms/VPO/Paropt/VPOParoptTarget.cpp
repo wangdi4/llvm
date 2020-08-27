@@ -263,10 +263,13 @@ Function *VPOParoptTransform::finalizeKernelFunction(WRegionNode *W,
   unsigned AddrSpaceGlobal = vpo::ADDRESS_SPACE_GLOBAL;
   for (auto ArgTyI = FnTy->param_begin(), ArgTyE = FnTy->param_end();
        ArgTyI != ArgTyE; ++ArgTyI) {
-    assert(isa<PointerType>(*ArgTyI) &&
-           "finalizeKernelFunction: Expect pointer type.");
-    PointerType *PtType = cast<PointerType>(*ArgTyI);
-    ParamsTy.push_back(PtType->getElementType()->getPointerTo(AddrSpaceGlobal));
+    if (PointerType *PtType = dyn_cast<PointerType>(*ArgTyI))
+      ParamsTy.push_back(
+          PtType->getElementType()->getPointerTo(AddrSpaceGlobal));
+    else
+      // A non-pointer argument may appear as a result of scalar
+      // FIRSTPRIVATE.
+      ParamsTy.push_back(*ArgTyI);
   }
 
   Type *RetTy = FnTy->getReturnType();
@@ -290,19 +293,22 @@ Function *VPOParoptTransform::finalizeKernelFunction(WRegionNode *W,
   for (Function::arg_iterator I = Fn->arg_begin(), E = Fn->arg_end(); I != E;
        ++I) {
     auto ArgV = &*NewArgI;
-    unsigned NewAddressSpace =
-        cast<PointerType>(ArgV->getType())->getAddressSpace();
-    unsigned OldAddressSpace =
-        cast<PointerType>(I->getType())->getAddressSpace();
-
     Value *NewArgV = ArgV;
-    if (NewAddressSpace != OldAddressSpace) {
-      // Assert the correct addrspacecast here instead of failing
-      // during SPIRV emission.
-      assert(OldAddressSpace == vpo::ADDRESS_SPACE_GENERIC &&
-             "finalizeKernelFunction: OpenCL global addrspaces can only be "
-             "casted to generic.");
-      NewArgV = Builder.CreatePointerBitCastOrAddrSpaceCast(ArgV, I->getType());
+    // Create an address space cast for pointer argument.
+    if (isa<PointerType>(ArgV->getType())) {
+      unsigned NewAddressSpace =
+          cast<PointerType>(ArgV->getType())->getAddressSpace();
+      unsigned OldAddressSpace =
+          cast<PointerType>(I->getType())->getAddressSpace();
+
+      if (NewAddressSpace != OldAddressSpace) {
+        // Assert the correct addrspacecast here instead of failing
+        // during SPIRV emission.
+        assert(OldAddressSpace == vpo::ADDRESS_SPACE_GENERIC &&
+               "finalizeKernelFunction: OpenCL global addrspaces can only be "
+               "casted to generic.");
+        NewArgV = Builder.CreatePointerBitCastOrAddrSpaceCast(ArgV, I->getType());
+      }
     }
     I->replaceAllUsesWith(NewArgV);
     NewArgI->takeName(&*I);
@@ -1200,16 +1206,21 @@ void VPOParoptTransform::genTgtInformationForPtrs(
         continue;
       if (FprivI->getInMap())
         continue;
-      Type *T = V->getType()->getPointerElementType();
-      if (FprivI->getIsPointer()) {
+      Type *ItemTy = V->getType();
+      if (!isa<PointerType>(ItemTy)) {
+        // Non-pointer firstprivate items must be mapped as literals
+        // with size 0.
+        ConstSizes.push_back(ConstantInt::get(Type::getInt64Ty(C), 0));
+        MapTypes.push_back(TGT_MAP_TARGET_PARAM | TGT_MAP_LITERAL);
+      } else if (FprivI->getIsPointer()) {
         // firstprivate() pointers are mapped with zero size
         // and map type NONE.
         ConstSizes.push_back(ConstantInt::get(Type::getInt64Ty(C), 0));
         MapTypes.push_back(TGT_MAP_TARGET_PARAM);
-      }
-      else {
+      } else {
+        Type *ObjectTy = ItemTy->getPointerElementType();
         ConstSizes.push_back(ConstantInt::get(Type::getInt64Ty(C),
-                                              DL.getTypeAllocSize(T)));
+                                              DL.getTypeAllocSize(ObjectTy)));
         MapTypes.push_back(TGT_MAP_TARGET_PARAM | TGT_MAP_TO);
       }
     }
