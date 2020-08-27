@@ -23,10 +23,7 @@
 #ifdef OMPTARGET_DEBUG
 int DebugLevel = 0;
 #endif // OMPTARGET_DEBUG
-<<<<<<< HEAD
-=======
 int InfoLevel = 0;
->>>>>>> 7a5a74ea9675008589593e0f811c9b60fc962d0b
 
 /* All begin addresses for partially mapped structs must be 8-aligned in order
  * to ensure proper alignment of members. E.g.
