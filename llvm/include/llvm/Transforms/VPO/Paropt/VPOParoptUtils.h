@@ -913,19 +913,26 @@ public:
                                     bool IsTargetSPIRV = false);
 
   /// Emit code to initialize the local copy of \p I, where \p I is an F90 dope
-  /// vector. The code looks like: \code
+  /// vector. The code looks like:
+  /// \code
   ///   %size = call i64 @_f90_dope_vector_init(NewV, OrigV)
-  ///   %local_data = alloca <element_type>, %size
-  ///   store %local_data, getelementpointer(NewV, 0, 0)
+  ///   if (%size != 0) {                                              // (1)
+  ///     %local_data = alloca <element_type>, %size
+  ///     store %local_data, getelementpointer(NewV, 0, 0)
+  ///   }
   ///   %num_elements = udiv %size, <element_size> ; Only for reduction items
   /// \endcode
   /// The emitted code is inserted after the alloca NewV, which is the local
   /// dope vector corresponding to \p I, and OrigV is the original. If NewV is
   /// a global variable or AllowOverrideInsertPt is false, then the code is
   /// inserted before \p InsertPt.
-  static void genF90DVInitCode(Item *I, Instruction *InsertPt,
-                               bool IsTargetSPIRV = false,
-                               bool AllowOverrideInsertPt = true);
+  /// If \p CheckOrigAllocationBeforeAllocatingNew is true, then the local data
+  /// allocation is guarded by a check `if (size != 0)`.
+  static void
+  genF90DVInitCode(Item *I, Instruction *InsertPt, DominatorTree *DT,
+                   LoopInfo *LI, bool IsTargetSPIRV = false,
+                   bool AllowOverrideInsertPt = true,
+                   bool CheckOrigAllocationBeforeAllocatingNew = true);
 
   /// Emits `_f90_dope_vector_init` calls to initialize dope vectors in task's
   /// privates thunk. This is done after the `__kmpc_task_alloc` call, but

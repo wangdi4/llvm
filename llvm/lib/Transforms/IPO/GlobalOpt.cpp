@@ -2035,11 +2035,76 @@ static bool isStoredOnceValueUsedByAllUsesInFunction(
   return true;
 }
 
+// This routine proves the following by checking uses of "GV".
+//  1. Except one store instruction, all uses of "GV" are just loads
+//  2. The store instruction stores "StoredOnceVal" value to the "GV".
+//  3. Makes sure the store instruction dominates all loads.
+// All loads will be collected in "Loads".  "IgnoredI", which is related
+// to "StoredOnceVal", will be ignored while proving that the store
+// instruction is at the beginning of "main" before any other uses of "GV".
+static bool
+safeToReplaceGlobalWithStoredOnceValue(GlobalValue *GV, Value *StoredOnceVal,
+                                       SmallPtrSetImpl<LoadInst *> &Loads,
+                                       Instruction *IgnoreI) {
+  StoreInst *SingleSI = nullptr;
+  for (auto *U : GV->users()) {
+    if (auto *LI = dyn_cast<LoadInst>(U)) {
+      Loads.insert(LI);
+      if (!LI->getType()->isPointerTy())
+        return false;
+    } else if (auto *SI = dyn_cast<StoreInst>(U)) {
+      if (SI->getValueOperand() != StoredOnceVal)
+        return false;
+      if (SingleSI != nullptr)
+        return false;
+      SingleSI = SI;
+    } else if (Operator::getOpcode(U) == Instruction::BitCast) {
+      for (auto *UU : U->users()) {
+        auto *SI = dyn_cast<StoreInst>(UU);
+        if (!SI || SI->getValueOperand() != StoredOnceVal)
+          return false;
+        if (SingleSI != nullptr)
+          return false;
+        SingleSI = SI;
+      }
+    } else {
+      return false;
+    }
+  }
+  if (!SingleSI || Loads.size() == 0)
+    return false;
+
+  // We need to prove that store instruction of GV dominates all
+  // loads of GV but it is expensive to prove since uses of GV
+  // are not in single function. So, we will prove that there are
+  // no uses of GV starting from first instruction of "main" to
+  // the store instruction of GV.
+  Function *SingleSIFunction = SingleSI->getFunction();
+  BasicBlock *EntryBB = &SingleSIFunction->getEntryBlock();
+  // Check if store instruction of GV is in first BB of "main".
+  if (SingleSIFunction->getName() != "main" || SingleSI->getParent() != EntryBB)
+    return false;
+  // Prove that there are no uses of GV before the store instruction
+  // of GV.
+  BasicBlock::iterator EndIt = SingleSI->getIterator();
+  BasicBlock::iterator It = EntryBB->begin();
+  for (; It != EndIt; It++) {
+    Instruction &I = *It;
+    if (IgnoreI && IgnoreI == &I)
+      continue;
+    // Allow only limited instructions that don't use GV.
+    if (!isa<IntrinsicInst>(I) && !isa<StoreInst>(I) && !isa<AllocaInst>(I) &&
+        !isa<BitCastInst>(I))
+      return false;
+  }
+  return true;
+}
+
 // Replace global variable 'GV' with another global variable whose
 // value 'StoredOnceVal' is stored to 'GV' if it is safe.
 //
 // Ex:
-//  Uses of Glob2 will be replaced with Glob1 in the below example.
+//  Uses of Glob2 will be replaced with Glob1 in the example below.
 //
 //  Glob1;
 //  internal Glob2;
@@ -2053,10 +2118,14 @@ static bool isStoredOnceValueUsedByAllUsesInFunction(
 //    fflush(Glob2); // Replace Glob2 with Glob1.
 //    ...
 //  }
-static bool TryToReplaceGlobalWithStoredOnceValue(
-    GlobalValue *GV, Value *StoredOnceVal, WholeProgramInfo *WPInfo) {
+static bool tryToReplaceGlobalWithStoredOnceValue(GlobalValue *GV,
+                                                  Value *StoredOnceVal,
+                                                  WholeProgramInfo *WPInfo) {
 
   if (!WPInfo || !WPInfo->isWholeProgramSafe())
+    return false;
+  // Makes sure no routines are called before main.
+  if (GV->getParent()->getGlobalVariable("llvm.global_ctors"))
     return false;
 
   // Make sure 'StoredOnceVal' is a value of another global variable.
@@ -2084,62 +2153,69 @@ static bool TryToReplaceGlobalWithStoredOnceValue(
       return false;
   }
 
-  // Check all uses of GV:
-  //  1. All uses of it are just loads
-  //  2. Except one store instruction that stores StoredOnceVal.
+  // Check it is safe to replace all uses of GV with StoredOnceVal.
   SmallPtrSet<LoadInst *, 16> Loads;
-  StoreInst *SingleSI = nullptr;
-  for (auto *U : GV->users()) {
-    if (auto *LI = dyn_cast<LoadInst>(U)) {
-      Loads.insert(LI);
-      if (!LI->getType()->isPointerTy())
-        return false;
-    } else if (Operator::getOpcode(U) == Instruction::BitCast) {
-      for (auto *UU : U->users()) {
-        auto *SI = dyn_cast<StoreInst>(UU);
-        if (!SI || SI->getValueOperand() != StoredOnceVal)
-          return false;
-        if (SingleSI != nullptr)
-          return false;
-        SingleSI = SI;
-      }
-    } else {
-      return false;
-    }
-  }
-  if (!SingleSI)
+  if (!safeToReplaceGlobalWithStoredOnceValue(GV, StoredOnceVal, Loads,
+                                              LoadStoredGV))
     return false;
-
-  // We need to prove that store instruction of GV dominates all
-  // loads of GV but it is expensive to prove since uses of GV
-  // are not in single function. So, we will prove that there are
-  // no uses of GV starting from first instruction of "main" to
-  // the store instruction of GV.
-  Function *SingleSIFunction = SingleSI->getParent()->getParent();
-  BasicBlock *EntryBB = &SingleSIFunction->getEntryBlock();
-  // Check if store instruction of GV is in first BB of "main".
-  if (SingleSIFunction->getName() != "main" ||
-      SingleSI->getParent() != EntryBB)
-    return false;
-  // Prove that there are no uses of GV before the store instruction
-  // of GV.
-  BasicBlock::iterator EndIt = SingleSI->getIterator();
-  BasicBlock::iterator It = EntryBB->begin();
-  for (; It != EndIt; It++) {
-    Instruction &I = *It;
-    if (LoadStoredGV == &I)
-      continue;
-    // Allow only limited instruction that don't use GV.
-    if (!isa<IntrinsicInst>(I) && !isa<StoreInst>(I) &&
-        !isa<AllocaInst>(I) && !isa<BitCastInst>(I))
-      return false;
-  }
 
   for (auto *LI : Loads)
     LI->replaceUsesOfWith(GV, StoredGV);
   return true;
 }
 
+// Replace uses of global variable 'GV' with 'StoredOnceVal' value that
+// is stored to 'GV' if 'StoredOnceVal' is "__acrt_iob_func(1)" call and
+// it is safe.
+//
+// Ex:
+//  Uses of Glob1 will be replaced with __acrt_iob_func(1) in the example
+//  below.
+//
+//  Glob1;
+//  ...
+//  main() {
+//    Glob1 = __acrt_iob_func(1); // Whole program is seen.
+//                   // Glob1 is changed only at the beginning of main.
+//                   // All other uses of Glob1 are just loads.
+//    ...
+//    fflush(Glob1); // Replace Glob1 with __acrt_iob_func(1).
+//    ...
+//  }
+static bool tryToReplaceGlobalWithMSVCStdout(
+    GlobalValue *GV, Value *StoredOnceVal, WholeProgramInfo *WPInfo,
+    function_ref<TargetLibraryInfo &(Function &)> GetTLI) {
+
+  if (!WPInfo || !WPInfo->isWholeProgramSafe())
+    return false;
+  // Makes sure no routines are called before main.
+  if (GV->getParent()->getGlobalVariable("llvm.global_ctors"))
+    return false;
+
+  // Makes sure 'StoredOnceVal' is a "__acrt_iob_func(1)".
+  if (!isMSVCStdoutCall(StoredOnceVal, GetTLI))
+    return false;
+  auto CI = cast<CallInst>(StoredOnceVal);
+
+  // Types of GV and StoredOnceVal should be same.
+  if (StoredOnceVal->getType() != GV->getValueType())
+    return false;
+
+  // Check it is safe to replace all uses of GV with StoredOnceVal.
+  SmallPtrSet<LoadInst *, 16> Loads;
+  if (!safeToReplaceGlobalWithStoredOnceValue(GV, StoredOnceVal, Loads, CI))
+    return false;
+
+  // Replace all uses of GV with StoredOnceVal.
+  for (auto *LI : Loads) {
+    auto NewCI = cast<CallInst>(CI->clone());
+    NewCI->insertBefore(LI);
+    NewCI->setDebugLoc(LI->getDebugLoc());
+    LI->replaceAllUsesWith(NewCI);
+    LI->eraseFromParent();
+  }
+  return true;
+}
 #endif // INTEL_CUSTOMIZATION
 
 /// Analyze the specified global variable and optimize
@@ -2303,8 +2379,20 @@ processInternalGlobal(GlobalVariable *GV, const GlobalStatus &GS,
       GV->getValueType()->isSingleValueType() &&
       GV->getType()->getAddressSpace() == 0 &&
       !GV->isExternallyInitialized() &&
-      TryToReplaceGlobalWithStoredOnceValue(GV, GS.StoredOnceValue, WPInfo)) {
+      tryToReplaceGlobalWithStoredOnceValue(GV, GS.StoredOnceValue, WPInfo)) {
     LLVM_DEBUG(dbgs() << "GLOBAL REPLACED WITH ANOTHER GLOBAL: "
+                      << *GV << "\n");
+    return true;
+  }
+  // Replace uses of global variable with @__acrt_iob_func(i32 1) if possible.
+  if (GS.StoredType == GlobalStatus::StoredOnce &&
+      GS.StoredOnceValue &&
+      GV->getValueType()->isSingleValueType() &&
+      GV->getType()->getAddressSpace() == 0 &&
+      !GV->isExternallyInitialized() &&
+      tryToReplaceGlobalWithMSVCStdout(GV, GS.StoredOnceValue, WPInfo,
+                                       GetTLI)) {
+    LLVM_DEBUG(dbgs() << "GLOBAL REPLACED WITH __acrt_iob_func(1): "
                       << *GV << "\n");
     return true;
   }

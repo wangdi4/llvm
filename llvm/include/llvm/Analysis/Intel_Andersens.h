@@ -685,6 +685,9 @@ public:
 // using Andersens points-to analysis.
 //
 ModulePass *createAndersensAAWrapperPass();
-}
 
+// Tests if a value is a call to a library function that returns
+// "stdout" (i.e __acrt_iob_fun(1)).
+bool isMSVCStdoutCall(Value *, AndersGetTLITy);
+}
 #endif
