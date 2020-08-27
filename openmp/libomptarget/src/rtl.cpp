@@ -151,6 +151,10 @@ DllMain(HINSTANCE const instance, // handle to DLL module
 #endif // INTEL_CUSTOMIZATION
 
 void RTLsTy::LoadRTLs() {
+
+  if (char *envStr = getenv("LIBOMPTARGET_INFO")) {
+    InfoLevel = std::stoi(envStr);
+  }
 #ifdef OMPTARGET_DEBUG
   if (char *envStr = getenv("LIBOMPTARGET_DEBUG")) {
     DebugLevel = std::stoi(envStr);
