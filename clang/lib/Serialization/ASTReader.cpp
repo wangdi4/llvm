@@ -11800,6 +11800,9 @@ OMPClause *OMPClauseReader::readClause() {
   case llvm::omp::OMPC_bind:
     C = new (Context) OMPBindClause();
     break;
+  case llvm::omp::OMPC_subdevice:
+    C = new (Context) OMPSubdeviceClause();
+    break;
 #endif // INTEL_COLLAB
 #if INTEL_CUSTOMIZATION
   case llvm::omp::OMPC_tile:
@@ -12103,6 +12106,14 @@ void OMPClauseReader::VisitOMPBindClause(OMPBindClause *C) {
   C->setBindKind(static_cast<llvm::omp::BindKind>(Record.readInt()));
   C->setLParenLoc(Record.readSourceLocation());
   C->setBindKindKwLoc(Record.readSourceLocation());
+}
+
+void OMPClauseReader::VisitOMPSubdeviceClause(OMPSubdeviceClause *C) {
+  VisitOMPClauseWithPreInit(C);
+  C->setLevel(Record.readSubExpr());
+  C->setStart(Record.readSubExpr());
+  C->setLength(Record.readSubExpr());
+  C->setStride(Record.readSubExpr());
 }
 #endif // INTEL_COLLAB
 #if INTEL_CUSTOMIZATION

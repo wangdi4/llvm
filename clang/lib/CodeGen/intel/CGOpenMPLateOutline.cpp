@@ -1453,6 +1453,17 @@ void OpenMPLateOutliner::emitOMPDeviceClause(const OMPDeviceClause *Cl) {
   addArg(CGF.EmitScalarExpr(Cl->getDevice()));
 }
 
+void OpenMPLateOutliner::emitOMPSubdeviceClause(const OMPSubdeviceClause *Cl) {
+  ClauseEmissionHelper CEH(*this, OMPC_subdevice);
+  ClauseStringBuilder &CSB = CEH.getBuilder();
+  CSB.add("QUAL.OMP.SUBDEVICE");
+  addArg(CSB.getString());
+  addArg(CGF.EmitScalarExpr(Cl->getLevel()));
+  addArg(CGF.EmitScalarExpr(Cl->getStart()));
+  addArg(CGF.EmitScalarExpr(Cl->getLength()));
+  addArg(CGF.EmitScalarExpr(Cl->getStride()));
+}
+
 void OpenMPLateOutliner::emitOMPDefaultmapClause(
     const OMPDefaultmapClause *Cl) {
 

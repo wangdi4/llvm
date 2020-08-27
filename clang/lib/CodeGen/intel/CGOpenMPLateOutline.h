@@ -246,6 +246,7 @@ class OpenMPLateOutliner {
   void emitOMPSeqCstClause(const OMPSeqCstClause *);
   void emitOMPDependClause(const OMPDependClause *);
   void emitOMPDeviceClause(const OMPDeviceClause *);
+  void emitOMPSubdeviceClause(const OMPSubdeviceClause *);
   void emitOMPThreadsClause(const OMPThreadsClause *);
   void emitOMPSIMDClause(const OMPSIMDClause *);
   void emitOMPNumTeamsClause(const OMPNumTeamsClause *);

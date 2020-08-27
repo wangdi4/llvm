@@ -737,6 +737,97 @@ public:
     return T->getClauseKind() == llvm::omp::OMPC_bind;
   }
 };
+
+/// This represents the 'subdevice' clause in '#pragma omp ...' directives.
+///
+/// \code
+/// #pragma omp target subdevice(start)
+/// \endcode
+/// In this example directive '#pragma omp target' has clause 'subdevice' with
+/// variable argument 'start'.
+class OMPSubdeviceClause : public OMPClause, public OMPClauseWithPreInit {
+  friend class OMPClauseReader;
+
+  /// enumeration of subdevice arguments
+  enum { LEVEL, START, LENGTH, STRIDE, NUMARGS };
+
+  /// subdevice argument expressions.
+  Expr *SubdeviceArgs[NUMARGS];
+
+  /// Set subdevice level value
+  ///
+  /// \param E level value.
+  void setLevel(Expr *E) { SubdeviceArgs[LEVEL] = E; }
+
+  /// Set subdevice start value
+  ///
+  /// \param E start value.
+  void setStart(Expr *E) { SubdeviceArgs[START] = E; }
+
+  /// Set subdevicee length value.
+  ///
+  /// \param E length value.
+  void setLength(Expr *E) { SubdeviceArgs[LENGTH] = E; }
+
+  /// Set subdevice stride value.
+  ///
+  /// \param E stride value.
+  void setStride(Expr *E) { SubdeviceArgs[STRIDE] = E; }
+
+public:
+  /// Build 'subdevice' clause.
+  ///
+  /// \param level value
+  /// \param start value
+  /// \param length value
+  /// \param stride value
+  /// \param StartLoc Starting location of the clause.
+  /// \param EndLoc Ending location of the clause.
+  OMPSubdeviceClause(Expr *Level, Expr *Start, Expr *Length, Expr *Stride,
+                     Stmt *HelperS, OpenMPDirectiveKind CaptureRegion,
+                     SourceLocation StartLoc, SourceLocation EndLoc)
+      : OMPClause(llvm::omp::OMPC_subdevice, StartLoc, EndLoc),
+        OMPClauseWithPreInit(this) {
+    SubdeviceArgs[LEVEL] = Level;
+    SubdeviceArgs[START] = Start;
+    SubdeviceArgs[LENGTH] = Length;
+    SubdeviceArgs[STRIDE] = Stride;
+    setPreInitStmt(HelperS, CaptureRegion);
+  }
+
+  /// Build an empty clause.
+  explicit OMPSubdeviceClause()
+      : OMPClause(llvm::omp::OMPC_subdevice, SourceLocation(),
+        SourceLocation()), OMPClauseWithPreInit(this) {}
+
+  /// Get subdevice level.
+  Expr *getLevel() const { return SubdeviceArgs[LEVEL]; }
+
+  /// Get subdevice start.
+  Expr *getStart() const { return SubdeviceArgs[START]; }
+
+  /// Get subdevice length.
+  Expr *getLength() const { return SubdeviceArgs[LENGTH]; }
+
+  /// Get subdevice stride.
+  Expr *getStride() const { return SubdeviceArgs[STRIDE]; }
+
+  child_range children() {
+    return child_range(reinterpret_cast<Stmt **>(SubdeviceArgs),
+                       reinterpret_cast<Stmt **>(&SubdeviceArgs[NUMARGS]));
+  }
+
+  child_range used_children() {
+    return child_range(child_iterator(), child_iterator());
+  }
+  const_child_range used_children() const {
+    return const_child_range(const_child_iterator(), const_child_iterator());
+  }
+
+  static bool classof(const OMPClause *T) {
+    return T->getClauseKind() == llvm::omp::OMPC_subdevice;
+  }
+};
 #endif // INTEL_COLLAB
 
 #if INTEL_CUSTOMIZATION
