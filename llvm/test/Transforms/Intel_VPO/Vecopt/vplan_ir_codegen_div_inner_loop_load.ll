@@ -14,7 +14,7 @@
 ; CHECK-NEXT:    [[NOT_AZ:%.*]] = icmp ne i2 [[BC_MASK]], 0
 ; CHECK-NEXT:    br i1 [[NOT_AZ]], label %[[PRED_LOAD_IF:.*]], label %[[MERGE:.*]]
 ; CHECK:       [[PRED_LOAD_IF]]:
-; CHECK-NEXT:    [[LOAD:%.*]] = load i64, i64* [[GEP]]
+; CHECK-NEXT:    [[LOAD:%.*]] = load i64, i64* [[GEP]], align 4
 ; CHECK-NEXT:    [[BROADCAST_SPLATINSERT1:%.*]] = insertelement <2 x i64> undef, i64 [[LOAD]], i32 0
 ; CHECK-NEXT:    br label %[[MERGE]]
 ; CHECK:       [[MERGE]]:
@@ -52,7 +52,7 @@ for.body2.preheader:                              ; preds = %for.body
 for.body2:                                        ; preds = %for.body2.preheader, %for.body2
   %indvars.iv2 = phi i64 [ %indvars.iv.next2, %for.body2 ], [ 0, %for.body2.preheader ]
   %uni.gep = getelementptr inbounds i64, i64* %arr1, i64 42
-  %uni.load = load i64, i64* %uni.gep
+  %uni.load = load i64, i64* %uni.gep, align 4
   %use = add i64 %uni.load, %indvars.iv
   %indvars.iv.next2 = add nuw nsw i64 %indvars.iv2, 1
   %exitcond2 = icmp eq i64 %indvars.iv.next2, %n
@@ -84,7 +84,7 @@ exit:                                             ; preds = %for.end, %entry
 ; CHECK-NEXT:    [[NOT_AZ:%.*]] = icmp ne i2 [[BC_MASK]], 0
 ; CHECK-NEXT:    br i1 [[NOT_AZ]], label %[[PRED_LOAD_IF:.*]], label %[[MERGE:.*]]
 ; CHECK:       [[PRED_LOAD_IF]]:
-; CHECK-NEXT:    [[LOAD:%.*]] = load i64, i64* [[EXTRACT_GEP]]
+; CHECK-NEXT:    [[LOAD:%.*]] = load i64, i64* [[EXTRACT_GEP]], align 4
 ; CHECK-NEXT:    [[BCAST_INSERT:%.*]] = insertelement <2 x i64> undef, i64 [[LOAD]], i32 0
 ; CHECK-NEXT:    br label %[[MERGE]]
 ; CHECK:       [[MERGE]]:
@@ -116,7 +116,7 @@ for.body2.preheader:                              ; preds = %for.body
 for.body2:                                        ; preds = %for.body2.preheader, %for.body2
   %indvars.iv2 = phi i64 [ %indvars.iv.next2, %for.body2 ], [ 0, %for.body2.preheader ]
   %uni.gep = getelementptr inbounds i64, i64* %arr1, i64 42
-  %uni.load = load i64, i64* %uni.gep
+  %uni.load = load i64, i64* %uni.gep, align 4
   %use = add i64 %uni.load, %indvars.iv
   %indvars.iv.next2 = add nuw nsw i64 %indvars.iv2, 1
   %exitcond2 = icmp eq i64 %indvars.iv.next2, %n
