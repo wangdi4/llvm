@@ -372,7 +372,15 @@ InlineAggressiveInfo InlineAggressiveInfo::runImpl(Module &M,
                                                    AggInlGetTLITy GetTLI) {
   InlineAggressiveInfo Result(GetTLI);
   if (!WPI.isWholeProgramSafe()) {
-    LLVM_DEBUG(dbgs() << " Skipped AggInl ... Whole Program NOT safe \n");
+    LLVM_DEBUG(dbgs() << " Skipped AggInl ... Whole Program NOT safe\n");
+    return Result;
+  }
+  //
+  // CMPLRLLVM-22372: Add guard for AVX2 to keep Goldmont from regressing.
+  //
+  auto TTIAVX2 = TargetTransformInfo::AdvancedOptLevel::AO_TargetHasAVX2;
+  if (!WPI.isAdvancedOptEnabled(TTIAVX2)) {
+    LLVM_DEBUG(dbgs() << " Skipped AggInl ... NOT AVX2\n");
     return Result;
   }
   Result.setNoRecurseOnTinyFunctions(M);
@@ -398,7 +406,7 @@ bool InlineAggressiveInfo::analyzeHugeMallocGlobalPointersHeuristic(Module &M) {
 
     if (!F.doesNotRecurse()) {
       LLVM_DEBUG(dbgs() << " Skipped AggInl ..." << F.getName()
-                        << " is recursive \n");
+                        << " is recursive\n");
       return false;
     }
 
@@ -408,7 +416,7 @@ bool InlineAggressiveInfo::analyzeHugeMallocGlobalPointersHeuristic(Module &M) {
     for (auto &II : instructions(F)) {
       TotalInstCount++;
       if (isa<InvokeInst>(&II)) {
-        LLVM_DEBUG(dbgs() << " Skipped AggInl ... InvokeInst is seen");
+        LLVM_DEBUG(dbgs() << " Skipped AggInl ... InvokeInst is seen\n");
         return false;
       }
       auto CI = dyn_cast<CallInst>(&II);
@@ -417,7 +425,7 @@ bool InlineAggressiveInfo::analyzeHugeMallocGlobalPointersHeuristic(Module &M) {
       Function *Callee = CI->getCalledFunction();
 
       if (!Callee) {
-        LLVM_DEBUG(dbgs() << " Skipped AggInl ... Indirect call is seen");
+        LLVM_DEBUG(dbgs() << " Skipped AggInl ... Indirect call is seen\n");
         return false;
       }
       if (!isMallocAllocatingHugeMemory(CI)) {
@@ -426,8 +434,8 @@ bool InlineAggressiveInfo::analyzeHugeMallocGlobalPointersHeuristic(Module &M) {
 
       if (isMallocAddressSavedInArg(F, *CI)) {
         if (AllocRtn != nullptr) {
-          LLVM_DEBUG(dbgs()
-                     << " Skipped AggInl ... Found more than 1 malloc routine");
+          LLVM_DEBUG(dbgs() << " Skipped AggInl ... "
+                            << "Found more than 1 malloc routine\n");
           return false;
         }
         AllocRtn = &F;
@@ -435,14 +443,14 @@ bool InlineAggressiveInfo::analyzeHugeMallocGlobalPointersHeuristic(Module &M) {
     }
 
     if (TotalInstCount > InlineAggressiveInstLimit) {
-      LLVM_DEBUG(dbgs() << " Skipped AggInl ... too many instructions");
+      LLVM_DEBUG(dbgs() << " Skipped AggInl ... too many instructions\n");
       return false;
     }
   }
   LLVM_DEBUG(dbgs() << " Total inst: " << TotalInstCount << "\n");
 
   if (MainRtn == nullptr || AllocRtn == nullptr) {
-    LLVM_DEBUG(dbgs() << " Skipped AggInl ... No main/malloc routine found");
+    LLVM_DEBUG(dbgs() << " Skipped AggInl ... No main/malloc routine found\n");
     return false;
   }
 
@@ -461,12 +469,12 @@ bool InlineAggressiveInfo::analyzeHugeMallocGlobalPointersHeuristic(Module &M) {
   }
 
   if (AllocatedGlobals.empty()) {
-    LLVM_DEBUG(dbgs() << " Skipped AggInl ... No Allocated Globals found");
+    LLVM_DEBUG(dbgs() << " Skipped AggInl ... No Allocated Globals found\n");
     return false;
   }
 
   LLVM_DEBUG({
-    dbgs() << "AggInl:  collected globals \n";
+    dbgs() << "AggInl:  collected globals\n";
     for (unsigned i = 0, e = AllocatedGlobals.size(); i != e; ++i)
       dbgs() << "      " << *AllocatedGlobals[i] << "\n";
   });
@@ -730,7 +738,7 @@ bool InlineAggressiveInfo::analyzeSingleAccessFunctionGlobalVarHeuristic(
                       << "\n");
 
     if (!InlineCallsOkay(InlineCalls, AlmostLeafFunctionMap)) {
-      LLVM_DEBUG(dbgs() << "   Ignored GV ... calls are not okay to inline \n");
+      LLVM_DEBUG(dbgs() << "   Ignored GV ... calls are not okay to inline\n");
       continue;
     }
     for (auto *CB : InlineCalls)
@@ -740,10 +748,10 @@ bool InlineAggressiveInfo::analyzeSingleAccessFunctionGlobalVarHeuristic(
     LLVM_DEBUG(dbgs() << "  Function: " << TPair.first->getName() << "\n");
     if (TPair.second.size() > MaxNumInlineCalls) {
       LLVM_DEBUG(
-          dbgs() << "    Not inlining any calls ...exceeding heuristic. \n");
+          dbgs() << "    Not inlining any calls ...exceeding heuristic.\n");
       continue;
     }
-    LLVM_DEBUG(dbgs() << "  Inlining calls \n");
+    LLVM_DEBUG(dbgs() << "  Inlining calls\n");
     for (auto *CB : TPair.second) {
       LLVM_DEBUG(dbgs() << "     " << *CB << "\n");
       if (!setAggInlInfoForCallSite(*CB)) {
