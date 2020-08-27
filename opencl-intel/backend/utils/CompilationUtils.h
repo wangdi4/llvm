@@ -519,10 +519,6 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     static std::string mangledSGBarrier(BARRIER_TYPE sgBarrierType);
 
     //////////////////////////////////////////////////////////////////
-    // @brief: returns the mangled name of the function get_sub_group_local_id
-    //////////////////////////////////////////////////////////////////
-    static std::string mangledGetSubGroupLID();
-    //////////////////////////////////////////////////////////////////
     // @brief: returns the mangled name of the function get_num_sub_groups
     //////////////////////////////////////////////////////////////////
     static std::string mangledNumSubGroups();

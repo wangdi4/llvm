@@ -12,6 +12,7 @@ include_directories(
   ${BACKEND_ROOT_DIR}/metadata_api
   ${BACKEND_ROOT_DIR}/passes/BuiltinLibInfo
   ${BACKEND_ROOT_DIR}/passes/BuiltinLibInfo/Driver/OpenCL
+  ${BACKEND_ROOT_DIR}/utils
   ${CMAKE_BINARY_DIR}/include
 )
 

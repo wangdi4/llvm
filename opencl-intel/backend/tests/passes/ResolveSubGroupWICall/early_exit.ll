@@ -42,12 +42,14 @@ entry:
   %20 = call i64 @_Z12get_group_idj(i32 0) #1
 ; CHECK-NOT: _Z22get_max_sub_group_sizev
 ; CHECK-NOT: _Z22get_sub_group_local_idv
+; CHECK: %max.sg.size = trunc i64 %vf to i32
+; CHECK: %21 = trunc i64 %20 to i32
+; CHECK: %22 = mul i32 %max.sg.size, %21
+; CHECK: %23 = add i32 0, %22
   %21 = call i32 @_Z22get_max_sub_group_sizev() #1
   %22 = call i32 @_Z22get_sub_group_local_idv() #1
   %23 = trunc i64 %20 to i32
-; CHECK: mul i32 16{{.*}}
   %24 = mul i32 %21, %23
-; CHECK: add i32 0{{.*}}
   %25 = add i32 %22, %24
   %26 = icmp slt i32 %25, %7
   %27 = sext i32 %8 to i64
@@ -78,6 +80,7 @@ declare i64 @get_base_global_id.(i32)
 ; Function Attrs: nounwind
 define void @__Vectorized_._ZTS17mandelbrot_kernelIdE(%struct._ZTS13pixel_block_t.pixel_block_t addrspace(1)* noalias, %"class._ZTSN2cl4sycl5rangeILi1EEE.cl::sycl::range"* byval(%"class._ZTSN2cl4sycl5rangeILi1EEE.cl::sycl::range"), %"class._ZTSN2cl4sycl5rangeILi1EEE.cl::sycl::range"* byval(%"class._ZTSN2cl4sycl5rangeILi1EEE.cl::sycl::range"), %"class._ZTSN2cl4sycl5rangeILi1EEE.cl::sycl::range"* byval(%"class._ZTSN2cl4sycl5rangeILi1EEE.cl::sycl::range"), %"class._ZTSN2cl4sycl5rangeILi2EEE.cl::sycl::range"* byval(%"class._ZTSN2cl4sycl5rangeILi2EEE.cl::sycl::range"), %"class._ZTSN2cl4sycl5rangeILi2EEE.cl::sycl::range"* byval(%"class._ZTSN2cl4sycl5rangeILi2EEE.cl::sycl::range"), %"class._ZTSN2cl4sycl3vecIhLi4EEE.cl::sycl::vec"* byval(%"class._ZTSN2cl4sycl3vecIhLi4EEE.cl::sycl::vec"), i32, i32, i32, double, double, double, i32) local_unnamed_addr #0 !kernel_arg_addr_space !12 !kernel_arg_access_qual !13 !kernel_arg_type !14 !kernel_arg_type_qual !15 !kernel_arg_base_type !16 !intel_reqd_sub_group_size !17 !vectorized_kernel !20 !no_barrier_path !19 !kernel_has_sub_groups !19 !scalarized_kernel !25 !vectorized_width !17 !vectorization_dimension !26 !can_unite_workgroups !27 {
 entry:
+  %early_exit = call [7 x i64] @WG.boundaries._ZTS17mandelbrot_kernelIdE(%struct._ZTS13pixel_block_t.pixel_block_t addrspace(1)* %0, %"class._ZTSN2cl4sycl5rangeILi1EEE.cl::sycl::range"* %1, %"class._ZTSN2cl4sycl5rangeILi1EEE.cl::sycl::range"* %2, %"class._ZTSN2cl4sycl5rangeILi1EEE.cl::sycl::range"* %3, %"class._ZTSN2cl4sycl5rangeILi2EEE.cl::sycl::range"* %4, %"class._ZTSN2cl4sycl5rangeILi2EEE.cl::sycl::range"* %5, %"class._ZTSN2cl4sycl3vecIhLi4EEE.cl::sycl::vec"* %6, i32 %7, i32 %8, i32 %9, double %10, double %11, double %12, i32 %13)
   ret void
 }
 
