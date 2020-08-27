@@ -2020,11 +2020,6 @@ struct DSEState {
       if (PDT.dominates(CommonPred, EarlierAccess->getBlock())) {
         SetVector<BasicBlock *> WorkList;
 
-        // EarlierAccess's post-order number provides an upper bound of the
-        // blocks on a path starting at EarlierAccess.
-        unsigned UpperBound =
-            PostOrderNumbers.find(EarlierAccess->getBlock())->second;
-
         // If CommonPred is null, there are multiple exits from the function.
         // They all have to be added to the worklist.
         if (CommonPred)
@@ -2049,10 +2044,6 @@ struct DSEState {
           if (!DT.isReachableFromEntry(Current))
             continue;
 
-          unsigned CPO = PostOrderNumbers.find(Current)->second;
-          // Current block is not on a path starting at EarlierAccess.
-          if (CPO > UpperBound)
-            continue;
           for (BasicBlock *Pred : predecessors(Current))
             WorkList.insert(Pred);
 
