@@ -178,7 +178,7 @@ public:
   Value *memToShadow(Value *Shadow, IRBuilder<> &IRB);
   bool instrumentFunction(Function &F);
   bool maybeInsertHeapProfInitAtFunctionEntry(Function &F);
-  void insertDynamicShadowAtFunctionEntry(Function &F);
+  bool insertDynamicShadowAtFunctionEntry(Function &F);
 
 private:
   void initializeCallbacks(Module &M);
@@ -414,8 +414,8 @@ void HeapProfiler::instrumentMaskedLoadOrStore(const DataLayout &DL,
                                                Value *Addr, unsigned Alignment,
                                                uint32_t TypeSize,
                                                bool IsWrite) {
-  auto *VTy =
-      cast<VectorType>(cast<PointerType>(Addr->getType())->getElementType());
+  auto *VTy = cast<FixedVectorType>(
+      cast<PointerType>(Addr->getType())->getElementType());
   uint64_t ElemTypeSize = DL.getTypeStoreSizeInBits(VTy->getScalarType());
   unsigned Num = VTy->getNumElements();
   auto *Zero = ConstantInt::get(IntptrTy, 0);
@@ -550,11 +550,12 @@ bool HeapProfiler::maybeInsertHeapProfInitAtFunctionEntry(Function &F) {
   return false;
 }
 
-void HeapProfiler::insertDynamicShadowAtFunctionEntry(Function &F) {
+bool HeapProfiler::insertDynamicShadowAtFunctionEntry(Function &F) {
   IRBuilder<> IRB(&F.front().front());
   Value *GlobalDynamicAddress = F.getParent()->getOrInsertGlobal(
       HeapProfShadowMemoryDynamicAddress, IntptrTy);
   DynamicShadowOffset = IRB.CreateLoad(IntptrTy, GlobalDynamicAddress);
+  return true;
 }
 
 bool HeapProfiler::instrumentFunction(Function &F) {
@@ -577,7 +578,7 @@ bool HeapProfiler::instrumentFunction(Function &F) {
 
   initializeCallbacks(*F.getParent());
 
-  insertDynamicShadowAtFunctionEntry(F);
+  FunctionModified |= insertDynamicShadowAtFunctionEntry(F);
 
   SmallVector<Instruction *, 16> ToInstrument;
 
