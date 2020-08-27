@@ -280,7 +280,8 @@ public:
   static bool getLoopIndexPosInPredicate(Value *LoopIndex,
                                          Instruction *CondInst, bool &IsLeft);
   static PrivateItem *wrnSeenAsPrivate(WRegionNode *W, Value *V);
-  static FirstprivateItem *wrnSeenAsFirstprivate(WRegionNode *W, Value *V);
+  static FirstprivateItem *wrnSeenAsFirstprivate(const WRegionNode *W,
+                                                 const Value *V);
   static LastprivateItem *wrnSeenAsLastprivate(WRegionNode *W, Value *V);
   static ReductionItem *wrnSeenAsReduction(WRegionNode *W, Value *V);
   static MapItem *wrnSeenAsMap(WRegionNode *W, Value *V);

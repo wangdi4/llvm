@@ -95,6 +95,10 @@ static cl::opt<bool, true> UseOmpRegionsInLoopopt(
     cl::Hidden, cl::location(UseOmpRegionsInLoopoptFlag), cl::init(false));
 #endif  // INTEL_CUSTOMIZATION
 
+static cl::opt<bool> OptimizeScalarFirstprivate(
+    "vpo-paropt-opt-scalar-fp", cl::Hidden, cl::init(true),
+    cl::desc("Pass scalar firstprivates as literals."));
+
 static cl::opt<bool> AllowDistributeDimension(
     "vpo-paropt-allow-distribute-dimension",
      cl::Hidden, cl::init(true),
@@ -5440,7 +5444,135 @@ bool VPOParoptTransform::genFirstPrivatizationCode(WRegionNode *W) {
         // copy instructions.
 
         PrivInitEntryBB = createEmptyPrivInitBB(W);
-        if (!NewPrivInst ||
+
+        // For the given FIRSTPRIVATE item, check if the data may fit
+        // a pointer type, so that it may be passed by value to the region's
+        // outlined function. If the check passes, then the first returned
+        // type is the integer type of the same size as the item's data type,
+        // and the second returned type is the intptr_t type for the current
+        // compilation target.
+        auto GetPassAsScalarSizeInBits = [](Function *F, Value *Item) ->
+            std::tuple<Type *, Type *> {
+          if (!Item || !Item->getType()->isPointerTy())
+            return std::make_tuple(nullptr, nullptr);
+
+          // There is no clean way to recognize VLAs now.
+          // They will look like this in IR:
+          //   %vla = alloca i32, i64 %X
+          //   ... "DIR.OMP.PARALLEL"(), "QUAL.OMP.FIRSTPRIVATE"(i32* %vla)
+          //
+          // It does look like a scalar firstprivate, but it is not,
+          // so we have to recognize this and bail out.
+          if (auto *NewAI =
+              dyn_cast<AllocaInst>(Item->stripPointerCasts())) {
+            bool IsVla = true;
+            Value *Size = NewAI->getArraySize();
+            if (auto *ConstSize = dyn_cast<ConstantInt>(Size))
+              if (ConstSize->isOneValue())
+                IsVla = false;
+
+            if (IsVla)
+              return std::make_tuple(nullptr, nullptr);
+          }
+
+          auto *ValueTy = Item->getType()->getPointerElementType();
+          TypeSize ValueTySize = ValueTy->getPrimitiveSizeInBits();
+
+          if (ValueTy->isPointerTy() ||
+              // TODO: check if we can handle small structures as well.
+              //       ValueTySize is zero for them here, and
+              //       they are not isFirstClassType() (i.e. it is not
+              //       a valid Value type).
+              !ValueTy->isFirstClassType() ||
+              ValueTySize.isScalable())
+            return std::make_tuple(nullptr, nullptr);
+
+          uint64_t ValueSize = ValueTySize.getFixedSize();
+
+          // WARNING: in case host and target use differently sized
+          //          pointers this optimization may be illegal
+          //          for target regions. At the same time, libomptarget
+          //          probably does not support such configurations anyway.
+          unsigned PtrSize =
+              F->getParent()->getDataLayout().getPointerSizeInBits(0);
+          Type *IntPtrTy = Type::getIntNTy(Item->getContext(), PtrSize);
+
+          if (ValueSize != 0 && ValueSize <= PtrSize)
+            return std::make_tuple(
+                Type::getIntNTy(Item->getContext(), ValueSize), IntPtrTy);
+
+          return std::make_tuple(nullptr, nullptr);
+        };
+
+        Type *ValueIntTy = nullptr;
+        Type *IntPtrTy = nullptr;
+        // TODO: do the same thing for NORMALIZED.UB item(s).
+        if (OptimizeScalarFirstprivate &&
+            // FIXME: figure out whether we can do anything
+            //        for getInMap() and getIsByRef() firstprivates.
+            !FprivI->getInMap() && !FprivI->getIsByRef() &&
+            // FIXME: temporary disabled the optimization for target
+            //        regions, since this requires plugin APIs extension
+            //        for SPIR-V offload.
+            !isa<WRNTargetNode>(W)) {
+
+          std::tie(ValueIntTy, IntPtrTy) =
+              GetPassAsScalarSizeInBits(F, NewPrivInst);
+        }
+
+        if (ValueIntTy && IntPtrTy) {
+          // Prepare the IR so that the item is passed by value.
+          // Original IR:
+          // RegPredBlock:
+          //   br label %EntryBB
+          //
+          // EntryBB:
+          //   %x.fpriv = alloca float
+          //   %0 = call token @llvm.directive.region.entry() [
+          //       "DIR.OMP.PARALLEL"(),
+          //       "QUAL.OMP.FIRSTPRIVATE"(float* %x.fpriv), ...
+          //   br label %PrivInitEntryBB
+          //
+          // PrivInitEntryBB:
+          //   ...
+          //
+          // New IR:
+          // RegPredBlock:
+          //   %x.val = load float, float* %x, align 4
+          //   %x.val.bcast = bitcast float %x.val to i32
+          //   %x.val.bcast.zext = zext i32 %x.val.bcast to i64
+          //   br label %EntryBB
+          //
+          // EntryBB:
+          //   %x.fpriv = alloca float
+          //   %0 = call token @llvm.directive.region.entry() [
+          //       "DIR.OMP.PARALLEL"(),
+          //       "QUAL.OMP.FIRSTPRIVATE"(float* %x.fpriv), ...
+          //   br label %PrivInitEntryBB
+          //
+          // PrivInitEntryBB:
+          //   %x.val.bcast.zext.trunc = trunc i64 %x.val.bcast.zext to i32
+          //   %x.val.bcast.zext.trunc.bcast =
+          //       bitcast i32 %x.val.bcast.zext.trunc to float
+          //   store float %x.val.bcast.zext.trunc.bcast, float* %x.fpriv
+          //   ...
+          IRBuilder<> PredBuilder(RegPredBlock->getTerminator());
+          Value *NewArg =
+              PredBuilder.CreateLoad(Orig, Orig->getName() + Twine(".val"));
+          NewArg = PredBuilder.CreateBitCast(NewArg, ValueIntTy,
+              NewArg->getName() + Twine(".bcast"));
+          NewArg = PredBuilder.CreateZExt(NewArg, IntPtrTy,
+              NewArg->getName() + Twine(".zext"));
+          FprivI->setOrig(NewArg);
+
+          IRBuilder<> RegBuilder(PrivInitEntryBB->getTerminator());
+          NewArg = RegBuilder.CreateTrunc(NewArg, ValueIntTy,
+              NewArg->getName() + Twine(".trunc"));
+          NewArg = RegBuilder.CreateBitCast(
+              NewArg, NewPrivInst->getType()->getPointerElementType(),
+              NewArg->getName() + Twine(".bcast"));
+          RegBuilder.CreateStore(NewArg, NewPrivInst);
+        } else if (!NewPrivInst ||
             // Note that NewPrivInst will be nullptr, if the variable
             // is also lastprivate.
             FprivI->getIsByRef() || !NewPrivInst->getType()->isPointerTy() ||
