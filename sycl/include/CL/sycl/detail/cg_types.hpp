@@ -210,16 +210,11 @@ public:
       Offset[I] = NDRDesc.GlobalOffset[I];
     }
 
-<<<<<<< HEAD
 /* INTEL_CUSTOMIZATION */
 #if !DPCPP_HOST_DEVICE_SERIAL
     ParallelFor(Range, [this](const sycl::id<Dims> Id) { MKernel(Id); });
 #else
 /* end INTEL_CUSTOMIZATION */
-    detail::NDLoop<Dims>::iterate(
-        Range, [&](const sycl::id<Dims> &ID) { MKernel(ID); });
-#endif // INTEL
-=======
     detail::NDLoop<Dims>::iterate(Range, [&](const sycl::id<Dims> &ID) {
       sycl::item<Dims, /*Offset=*/true> Item =
           IDBuilder::createItem<Dims, true>(Range, ID, Offset);
@@ -227,7 +222,7 @@ public:
       store_item(&Item);
       MKernel(ID);
     });
->>>>>>> b6d779238905145a25557edcbbd54792ded839fb
+#endif // INTEL
   }
 
   template <class ArgT = KernelArgType>
