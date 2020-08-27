@@ -12,7 +12,6 @@ add_llvm_library(LLVMTestingSupport
   Support
   )
 
-<<<<<<< HEAD
 # INTEL_CUSTOMIZATION
 if (LLVM_LIBCXX_USED AND NOT SYCL_USE_LIBCXX)
   add_llvm_library(LLVMTestingSupport_stdcpp
@@ -34,8 +33,4 @@ if (LLVM_LIBCXX_USED AND NOT SYCL_USE_LIBCXX)
   target_link_libraries(LLVMTestingSupport_stdcpp PRIVATE gtest_stdcpp)
 endif()
 # end INTEL_CUSTOMIZATION
-include_directories(${LLVM_MAIN_SRC_DIR}/utils/unittest/googletest/include)
-include_directories(${LLVM_MAIN_SRC_DIR}/utils/unittest/googlemock/include)
-=======
->>>>>>> 9cb222e749e8392517a138cf6645a7c220d671c8
 target_link_libraries(LLVMTestingSupport PRIVATE gtest)
