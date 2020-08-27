@@ -44,24 +44,21 @@ public:
   bool runOnModule(Module &M) override;
 
 private:
-  bool runOnFunction(Function &F, size_t VF, int32_t VD);
-
-  Value *replaceGetSubGroupSize(Module *M, Instruction *insertBefore, size_t VF,
+  Value *replaceGetSubGroupSize(Instruction *insertBefore, Value *VF,
                                 int32_t VD);
-  Value *replaceGetMaxSubGroupSize(Module *M, Instruction *insertBefore,
-                                   size_t VF);
-  Value *replaceGetSubGroupLocalId(Module *M, Instruction *insertBefore,
-                                   size_t VF);
+  Value *replaceGetMaxSubGroupSize(Instruction *insertBefore, Value *VF,
+                                   int32_t VD);
+  Value *replaceGetSubGroupLocalId(Instruction *insertBefore, Value *VF,
+                                   int32_t VD);
 
-  Instruction *replaceGetEnqueuedNumSubGroups(Module *M,
-                                              Instruction *insertBefore,
-                                              size_t VF, int32_t VD);
-  Instruction *replaceGetNumSubGroups(Module *M, Instruction *insertBefore,
-                                      size_t VF, int32_t VD);
-  Instruction *replaceSubGroupBarrier(Module *M, CallInst *insertBefore);
+  Value *replaceGetEnqueuedNumSubGroups(Instruction *insertBefore, Value *VF,
+                                        int32_t VD);
+  Value *replaceGetNumSubGroups(Instruction *insertBefore, Value *VF,
+                                int32_t VD);
+  Value *replaceSubGroupBarrier(Instruction *insertBefore, Value *VF,
+                                int32_t VD);
 
-  Instruction *replaceGetSubGroupId(Module *M, Instruction *insertBefore,
-                                    size_t VF, int32_t VD);
+  Value *replaceGetSubGroupId(Instruction *insertBefore, Value *VF, int32_t VD);
 
   // Helpers:
   CallInst *createWIFunctionCall(Module *M, char const *twine,
@@ -78,6 +75,9 @@ private:
 
   // The return type for the work-item functions
   Type *m_ret;
+
+  // Current Module.
+  Module *m_pModule;
 
   // Pointer to runtime service object
   const RuntimeServices *m_rtServices;

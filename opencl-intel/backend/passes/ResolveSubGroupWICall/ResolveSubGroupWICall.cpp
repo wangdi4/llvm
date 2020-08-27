@@ -15,6 +15,7 @@
 #include "ResolveSubGroupWICall.h"
 #include "CompilationUtils.h"
 #include "InitializePasses.h"
+#include "LoopUtils/LoopUtils.h"
 #include "MetadataAPI.h"
 #include "OCLPassSupport.h"
 
@@ -23,7 +24,7 @@
 #include "llvm/IR/Module.h"
 #include "llvm/Support/Debug.h"
 
-#include <tuple>
+#include <map>
 #include <utility>
 
 using namespace Intel::OpenCL::DeviceBackend;
@@ -50,6 +51,9 @@ ResolveSubGroupWICall::ResolveSubGroupWICall()
       m_ret(nullptr), m_rtServices(nullptr) {}
 
 bool ResolveSubGroupWICall::runOnModule(Module &M) {
+
+  m_pModule = &M;
+
   m_rtServices = getAnalysis<BuiltinLibInfo>().getRuntimeServices();
   assert(m_rtServices && "m_rtServices should exist!");
 
@@ -59,96 +63,106 @@ bool ResolveSubGroupWICall::runOnModule(Module &M) {
 
   m_ret = IntegerType::get(M.getContext(),
                            M.getDataLayout().getPointerSizeInBits(0));
-
-  // Holds functions and respective vector factors.
-  std::vector<std::tuple<Function *, size_t, int32_t>> WorkList;
-
-  // Get all kernels
+  // Get all kernels.
   CompilationUtils::FunctionSet Kernels;
   CompilationUtils::getAllKernels(Kernels, &M);
 
-  for (auto *F : Kernels) {
-    auto kimd = KernelInternalMetadataAPI(F);
-    auto VF = kimd.VectorizedWidth.hasValue() ? kimd.VectorizedWidth.get() : 1;
-    auto VecDim = kimd.VectorizationDimension.hasValue()
-                      ? kimd.VectorizationDimension.get()
-                      : 0;
-    WorkList.push_back(std::make_tuple(F, VF, VecDim));
+  typedef Value *(ResolveSubGroupWICall::*ResolverFunc)(Instruction *, Value *,
+                                                        int32_t);
+  static std::map<std::string, ResolverFunc> SubGroupFuncToResolver = {
+      {CompilationUtils::mangledNumSubGroups(),
+       &ResolveSubGroupWICall::replaceGetNumSubGroups},
+      {CompilationUtils::mangledGetSubGroupId(),
+       &ResolveSubGroupWICall::replaceGetSubGroupId},
+      {CompilationUtils::mangledEnqueuedNumSubGroups(),
+       &ResolveSubGroupWICall::replaceGetEnqueuedNumSubGroups},
+      {CompilationUtils::mangledGetSubGroupSize(),
+       &ResolveSubGroupWICall::replaceGetSubGroupSize},
+      {CompilationUtils::mangledGetMaxSubGroupSize(),
+       &ResolveSubGroupWICall::replaceGetMaxSubGroupSize},
+      {CompilationUtils::mangledGetSubGroupLocalId(),
+       &ResolveSubGroupWICall::replaceGetSubGroupLocalId},
+      {CompilationUtils::mangledSGBarrier(CompilationUtils::BARRIER_WITH_SCOPE),
+       &ResolveSubGroupWICall::replaceSubGroupBarrier},
+      {CompilationUtils::mangledSGBarrier(CompilationUtils::BARRIER_NO_SCOPE),
+       &ResolveSubGroupWICall::replaceSubGroupBarrier}};
 
-    // Get the VF of vectorized counterpart.
-    auto VectorizedKernelMetadata = kimd.VectorizedKernel;
-    auto *VecKernel = VectorizedKernelMetadata.hasValue()
-                          ? VectorizedKernelMetadata.get()
-                          : nullptr;
-    if (VecKernel) {
-      auto vkimd = KernelInternalMetadataAPI(VecKernel);
-      VF = vkimd.VectorizedWidth.hasValue() ? vkimd.VectorizedWidth.get() : 1;
+  // Collect all called subgroup functions.
+  std::set<Function *> SubGroupFunctions;
+  for (const auto &SGItem : SubGroupFuncToResolver) {
+    if (Function *F = M.getFunction(SGItem.first))
+      SubGroupFunctions.insert(F);
+  }
+
+  std::set<Function *> FuncsToBePatched;
+  std::set<CallInst *> CallsToBeFixed;
+  // Hold the VF for every kernel.
+  std::map<Function *, std::pair<Value *, int32_t>> KernelToVecInfo;
+  // Hold the map from original function to patched function.
+  std::map<Function *, Function *> OrigF2PatchedF;
+
+  // Collect all functions which directly/indiectly call subgroups functions.
+  LoopUtils::fillFuncUsersSet(SubGroupFunctions, FuncsToBePatched);
+
+  for (Function *OrigFunc : FuncsToBePatched) {
+    if (Kernels.count(OrigFunc)) {
+      // Get the VF for kernel.
+      auto kimd = KernelInternalMetadataAPI(OrigFunc);
+      auto VF =
+          kimd.VectorizedWidth.hasValue() ? kimd.VectorizedWidth.get() : 1;
+      auto VecDim = kimd.VectorizationDimension.hasValue()
+                        ? kimd.VectorizationDimension.get()
+                        : 0;
+      // TODO: After moving the computation related to VD to runtime, we should
+      // remove this check and support other VDs in ChooseVectorizationDimension
+      // when subgroups existing.
+      assert(VecDim == 0 && "Only support vectorization at Dim 0");
+      KernelToVecInfo.insert(
+          {OrigFunc,
+           {createVFConstant(M.getContext(), M.getDataLayout(), VF), VecDim}});
+      // Kernels are not needed to be patched.
+      continue;
     }
 
-    // Add Loop Boundaries (if exist)
-    std::string FuncName = F->getName().str();
-    std::string EEFuncName = CompilationUtils::WG_BOUND_PREFIX + FuncName;
-    auto *EEFunc = M.getFunction(EEFuncName);
-    // EE function in general can be inlined into a scalar kernel as well as
-    // into a vector one, in native subgroups scalar kernel does not make sense
-    // and is not used, so we spoil EE with correct VF not equal to 1.
-    if (EEFunc)
-      WorkList.push_back(std::make_tuple(EEFunc, VF, VecDim));
+    // Collect the calls to be fixed. No need to handle kernels here since
+    // DuplicateCalledKernelsPass runs before this pass.
+    for (User *U : OrigFunc->users()) {
+      if (CallInst *CI = dyn_cast<CallInst>(U))
+        CallsToBeFixed.insert(CI);
+    }
 
-    // TODO: add processing of vectorized function calls both direct and
-    // indirect. (like SYCL sub_group.invoke etc.). Scalarized function call
-    // does not hold subgroups semantics.
+    // Patch the function by adding an arg to pass down the vectorization
+    // factor.
+    Function *PatchedFunc = CompilationUtils::AddMoreArgsToFunc(
+        OrigFunc, {m_ret}, {"vf"}, {{}}, "ResolveSubGroupWICall");
+    OrigF2PatchedF[OrigFunc] = PatchedFunc;
   }
 
-  bool Changed = false;
-  for (auto WorkTuple : WorkList) {
-    Changed |= runOnFunction(*std::get<0>(WorkTuple), std::get<1>(WorkTuple),
-                             std::get<2>(WorkTuple));
+  // Fix the calls for the patched functions.
+  for (CallInst *CI : CallsToBeFixed) {
+    Function *Caller = CI->getParent()->getParent();
+    Function *Callee = CI->getCalledFunction();
+    assert(OrigF2PatchedF.find(Callee) != OrigF2PatchedF.end());
+    Value *ArgVF = Kernels.count(Caller) ? KernelToVecInfo[Caller].first
+                                         : &*(Caller->arg_end() - 1);
+    SmallVector<Value *, 1> NewArgs{ArgVF};
+    CompilationUtils::AddMoreArgsToCall(CI, NewArgs, OrigF2PatchedF[Callee]);
   }
 
-  return Changed;
-}
-
-bool ResolveSubGroupWICall::runOnFunction(Function &F, size_t VF, int32_t VD) {
   std::vector<std::pair<Instruction *, Value *>> InstRepVec;
-
-  Module *M = F.getParent();
-
-  for (auto &I : instructions(F)) {
-    CallInst *CI = dyn_cast<CallInst>(&I);
-    if (!CI)
-      continue;
-
-    auto *CalledF = CI->getCalledFunction();
-    if (!CalledF)
-      continue;
-
-    std::string funcName = CalledF->getName().str();
-
-    if (CompilationUtils::isGetNumSubGroups(funcName)) {
-      InstRepVec.push_back(std::pair<Instruction *, Value *>(
-          CI, replaceGetNumSubGroups(M, CI, VF, VD)));
-    } else if (CompilationUtils::isGetSubGroupId(funcName)) {
-      InstRepVec.push_back(std::pair<Instruction *, Value *>(
-          CI, replaceGetSubGroupId(M, CI, VF, VD)));
-    } else if (CompilationUtils::isGetEnqueuedNumSubGroups(funcName)) {
-      InstRepVec.push_back(std::pair<Instruction *, Value *>(
-          CI, replaceGetEnqueuedNumSubGroups(M, CI, VF, VD)));
-    } else if (CompilationUtils::isGetSubGroupSize(funcName)) {
-      InstRepVec.push_back(std::pair<Instruction *, Value *>(
-          CI, replaceGetSubGroupSize(M, CI, VF, VD)));
-    } else if (CompilationUtils::isGetMaxSubGroupSize(funcName)) {
-      InstRepVec.push_back(std::pair<Instruction *, Value *>(
-          CI, replaceGetMaxSubGroupSize(M, CI, VF)));
-    } else if (CompilationUtils::isGetSubGroupLocalId(funcName)) {
-      InstRepVec.push_back(std::pair<Instruction *, Value *>(
-          CI, replaceGetSubGroupLocalId(M, CI, VF)));
-    } else if ((funcName == CompilationUtils::mangledSGBarrier(
-                                CompilationUtils::BARRIER_WITH_SCOPE)) ||
-               (funcName == CompilationUtils::mangledSGBarrier(
-                                CompilationUtils::BARRIER_NO_SCOPE))) {
-      InstRepVec.push_back(
-          std::pair<Instruction *, Value *>(CI, replaceSubGroupBarrier(M, CI)));
+  // Replace the subgroup calls.
+  for (Function *SubGroupFunc : SubGroupFunctions) {
+    ResolverFunc resolver =
+        SubGroupFuncToResolver[std::string(SubGroupFunc->getName())];
+    for (User *U : SubGroupFunc->users()) {
+      assert(isa<CallInst>(U) && "Subgroup builtin isn't used in a call");
+      CallInst *CI = cast<CallInst>(U);
+      Function *Caller = CI->getParent()->getParent();
+      Value *VFVal = Kernels.count(Caller) ? KernelToVecInfo[Caller].first
+                                           : &*(Caller->arg_end() - 1);
+      // TODO: Get VD from KernelToVecInfo.
+      int32_t VD = 0;
+      InstRepVec.emplace_back(CI, (this->*resolver)(CI, VFVal, VD));
     }
   }
 
@@ -156,7 +170,6 @@ bool ResolveSubGroupWICall::runOnFunction(Function &F, size_t VF, int32_t VD) {
   for (const auto &pair : InstRepVec) {
     Instruction *from = pair.first;
     Value *to = pair.second;
-
     from->replaceAllUsesWith(to);
     from->eraseFromParent();
   }
@@ -167,9 +180,8 @@ bool ResolveSubGroupWICall::runOnFunction(Function &F, size_t VF, int32_t VD) {
   return true;
 }
 
-Value *ResolveSubGroupWICall::replaceGetSubGroupSize(Module *M,
-                                                     Instruction *insertBefore,
-                                                     size_t VF, int32_t VD) {
+Value *ResolveSubGroupWICall::replaceGetSubGroupSize(Instruction *InsertBefore,
+                                                     Value *VFVal, int32_t VD) {
   // get_sub_group_size will be replaced with:
   // non_uniform_size = get_local_size(VD) % VF
   // max_uniform_id = get_local_size(VD) - non_uniform_size
@@ -179,45 +191,51 @@ Value *ResolveSubGroupWICall::replaceGetSubGroupSize(Module *M,
   // sub group, it does not matter. Because we just use the id to
   // compare with max_uniform_id, any id within a sub group is ok.
 
-  Type *Int32Ty = Type::getInt32Ty(M->getContext());
+  Type *Int32Ty = Type::getInt32Ty(m_pModule->getContext());
   std::string LocalSizeName = CompilationUtils::mangledGetLocalSize();
   std::string LocalIdName = CompilationUtils::mangledGetLID();
 
-  auto *vecDimVar = ConstantInt::get(Int32Ty, VD);
+  auto *VecDimVar = ConstantInt::get(Int32Ty, VD);
 
-  auto *localSize =
-      createWIFunctionCall(M, "", LocalSizeName, insertBefore, vecDimVar);
-  auto *maxUniformId =
-      BinaryOperator::Create(Instruction::And, ConstantInt::get(m_ret, -VF),
-                             localSize, "uniform.id.max", insertBefore);
-  auto *nonUniformSize =
-      BinaryOperator::Create(Instruction::Sub, localSize, maxUniformId,
-                             "nonuniform.size", insertBefore);
-  auto *localId =
-      createWIFunctionCall(M, "", LocalIdName, insertBefore, vecDimVar);
-  auto *cond =
-      new ICmpInst(insertBefore, CmpInst::ICMP_ULT, localId, maxUniformId, "");
-  auto *VFVal = createVFConstant(M->getContext(), M->getDataLayout(), VF);
-  auto *sgSize =
-      SelectInst::Create(cond, VFVal, nonUniformSize, "", insertBefore);
-  auto *ret = CastInst::CreateTruncOrBitCast(sgSize, Int32Ty, "subgroup.size",
-                                             insertBefore);
-  return ret;
+  auto *LocalSize =
+      createWIFunctionCall(m_pModule, "", LocalSizeName, InsertBefore, VecDimVar);
+
+  auto *MinusVFVal =
+      BinaryOperator::Create(Instruction::Sub, ConstantInt::get(m_ret, 0),
+                             VFVal, "minus.vf", InsertBefore);
+  auto *MaxUniformId = BinaryOperator::Create(
+      Instruction::And, MinusVFVal, LocalSize, "uniform.id.max", InsertBefore);
+  auto *NonUniformSize =
+      BinaryOperator::Create(Instruction::Sub, LocalSize, MaxUniformId,
+                             "nonuniform.size", InsertBefore);
+  auto *LocalId =
+      createWIFunctionCall(m_pModule, "", LocalIdName, InsertBefore, VecDimVar);
+  auto *Cond =
+      new ICmpInst(InsertBefore, CmpInst::ICMP_ULT, LocalId, MaxUniformId, "");
+  auto *SGSize =
+      SelectInst::Create(Cond, VFVal, NonUniformSize, "", InsertBefore);
+  auto *Ret = CastInst::CreateTruncOrBitCast(SGSize, Int32Ty, "subgroup.size",
+                                             InsertBefore);
+  return Ret;
 }
 
-Value *ResolveSubGroupWICall::replaceGetMaxSubGroupSize(
-    Module *M, Instruction *insertBefore, size_t VF) {
-  return ConstantInt::get(IntegerType::get(M->getContext(), 32), VF);
+Value *
+ResolveSubGroupWICall::replaceGetMaxSubGroupSize(Instruction *InsertBefore,
+                                                 Value *VFVal, int32_t VD) {
+  return CastInst::CreateTruncOrBitCast(VFVal,
+                                        IntegerType::get(m_pModule->getContext(), 32),
+                                        "max.sg.size", InsertBefore);
 }
 
-Value *ResolveSubGroupWICall::replaceGetSubGroupLocalId(
-    Module *M, Instruction *insertBefore, size_t VF) {
+Value *
+ResolveSubGroupWICall::replaceGetSubGroupLocalId(Instruction *InsertBefore,
+                                                 Value *VFVal, int32_t VD) {
   // Gets expanded to <0, 1, ..., VF - 1> by Vectorizer.
-  return ConstantInt::get(IntegerType::get(M->getContext(), 32), 0);
+  return ConstantInt::get(IntegerType::get(m_pModule->getContext(), 32), 0);
 }
 
-Instruction *ResolveSubGroupWICall::replaceGetEnqueuedNumSubGroups(
-    Module *M, Instruction *insertBefore, size_t VF, int32_t VD) {
+Value *ResolveSubGroupWICall::replaceGetEnqueuedNumSubGroups(
+    Instruction *InsertBefore, Value *VFVal, int32_t VD) {
   // Replace get_enqueued_num_sub_groups with the following sequence:
   // Let x be the dimension over which the vectorization has happened. x is in
   // {0,1,2}. Let y and z be the over simensions. y,z are in {0,1,2}\{x}. Let VF
@@ -227,34 +245,33 @@ Instruction *ResolveSubGroupWICall::replaceGetEnqueuedNumSubGroups(
   std::string EnqdLocalSizeName =
       CompilationUtils::mangledGetEnqueuedLocalSize();
 
-  auto *enqdlsz0 = createWIFunctionCall(M, "enqdlz0", EnqdLocalSizeName,
-                                        insertBefore, m_zero);
-  auto *enqdlsz1 = createWIFunctionCall(M, "enqdlz1", EnqdLocalSizeName,
-                                        insertBefore, m_one);
-  auto *enqdlsz2 = createWIFunctionCall(M, "enqdlz2", EnqdLocalSizeName,
-                                        insertBefore, m_two);
+  auto *EnqdLsz0 = createWIFunctionCall(m_pModule, "enqdlz0", EnqdLocalSizeName,
+                                        InsertBefore, m_zero);
+  auto *EnqdLsz1 = createWIFunctionCall(m_pModule, "enqdlz1", EnqdLocalSizeName,
+                                        InsertBefore, m_one);
+  auto *EnqdLsz2 = createWIFunctionCall(m_pModule, "enqdlz2", EnqdLocalSizeName,
+                                        InsertBefore, m_two);
 
-  Value *valOne = ConstantInt::get(m_ret, 1);
-  std::vector<Value *> enqdlszs = {enqdlsz0, enqdlsz1, enqdlsz2};
-  auto *op0 = BinaryOperator::Create(Instruction::Sub, enqdlszs[VD], valOne, "",
-                                     insertBefore);
-  auto *VFVal = createVFConstant(M->getContext(), M->getDataLayout(), VF);
-  auto *op1 = BinaryOperator::CreateUDiv(op0, VFVal, "", insertBefore);
-  auto *op2 = BinaryOperator::Create(Instruction::Add, op1, valOne,
-                                     "sg.num.vecdim.enqd", insertBefore);
-  enqdlszs[VD] = op2;
+  Value *ValOne = ConstantInt::get(m_ret, 1);
+  std::vector<Value *> EnqdLszs = {EnqdLsz0, EnqdLsz1, EnqdLsz2};
+  auto *Op0 = BinaryOperator::Create(Instruction::Sub, EnqdLszs[VD], ValOne, "",
+                                     InsertBefore);
+  auto *Op1 = BinaryOperator::CreateUDiv(Op0, VFVal, "", InsertBefore);
+  auto *Op2 = BinaryOperator::Create(Instruction::Add, Op1, ValOne,
+                                     "sg.num.vecdim.enqd", InsertBefore);
+  EnqdLszs[VD] = Op2;
 
-  auto *sgNumOp0 = BinaryOperator::Create(Instruction::Mul, enqdlszs[0],
-                                          enqdlszs[1], "", insertBefore);
-  auto *sgNumOp1 = BinaryOperator::Create(Instruction::Mul, sgNumOp0,
-                                          enqdlszs[2], "", insertBefore);
-  auto *res = CastInst::CreateTruncOrBitCast(
-      sgNumOp1, Type::getInt32Ty(M->getContext()), "sg.num.enqd", insertBefore);
-  return res;
+  auto *SGNumOp0 = BinaryOperator::Create(Instruction::Mul, EnqdLszs[0],
+                                          EnqdLszs[1], "", InsertBefore);
+  auto *SGNumOp1 = BinaryOperator::Create(Instruction::Mul, SGNumOp0,
+                                          EnqdLszs[2], "", InsertBefore);
+  auto *Res = CastInst::CreateTruncOrBitCast(
+      SGNumOp1, Type::getInt32Ty(m_pModule->getContext()), "sg.num.enqd", InsertBefore);
+  return Res;
 }
 
-Instruction *ResolveSubGroupWICall::replaceGetNumSubGroups(
-    Module *M, Instruction *insertBefore, size_t VF, int32_t VD) {
+Value *ResolveSubGroupWICall::replaceGetNumSubGroups(Instruction *InsertBefore,
+                                                     Value *VFVal, int32_t VD) {
   // Replace get_num_sub_groups() with the following sequence:
   // Improve the sequence for 2D/3D case:
   // Let x be the dimension over which the vectorization has happened. x is in
@@ -264,141 +281,140 @@ Instruction *ResolveSubGroupWICall::replaceGetNumSubGroups(
   // get_local_size(z).
   std::string LocalSizeName = CompilationUtils::mangledGetLocalSize();
 
-  auto *lsz0 =
-      createWIFunctionCall(M, "lsz0", LocalSizeName, insertBefore, m_zero);
-  auto *lsz1 =
-      createWIFunctionCall(M, "lsz1", LocalSizeName, insertBefore, m_one);
-  auto *lsz2 =
-      createWIFunctionCall(M, "lsz2", LocalSizeName, insertBefore, m_two);
+  auto *Lsz0 =
+      createWIFunctionCall(m_pModule, "lsz0", LocalSizeName, InsertBefore, m_zero);
+  auto *Lsz1 =
+      createWIFunctionCall(m_pModule, "lsz1", LocalSizeName, InsertBefore, m_one);
+  auto *Lsz2 =
+      createWIFunctionCall(m_pModule, "lsz2", LocalSizeName, InsertBefore, m_two);
 
-  Value *valOne = ConstantInt::get(m_ret, 1);
-  std::vector<Value *> lszs = {lsz0, lsz1, lsz2};
-  auto *op0 = BinaryOperator::Create(Instruction::Sub, lszs[VD], valOne, "",
-                                     insertBefore);
-  auto *VFVal = createVFConstant(M->getContext(), M->getDataLayout(), VF);
-  auto *op1 = BinaryOperator::CreateUDiv(op0, VFVal, "", insertBefore);
-  auto *op2 = BinaryOperator::Create(Instruction::Add, op1, valOne,
-                                     "sg.num.vecdim", insertBefore);
-  lszs[VD] = op2;
+  Value *ValOne = ConstantInt::get(m_ret, 1);
+  std::vector<Value *> Lszs = {Lsz0, Lsz1, Lsz2};
+  auto *Op0 = BinaryOperator::Create(Instruction::Sub, Lszs[VD], ValOne, "",
+                                     InsertBefore);
+  auto *Op1 = BinaryOperator::CreateUDiv(Op0, VFVal, "", InsertBefore);
+  auto *Op2 = BinaryOperator::Create(Instruction::Add, Op1, ValOne,
+                                     "sg.num.vecdim", InsertBefore);
+  Lszs[VD] = Op2;
 
-  auto *sgNumOp0 = BinaryOperator::Create(Instruction::Mul, lszs[0], lszs[1],
-                                          "", insertBefore);
-  auto *sgNumOp1 = BinaryOperator::Create(Instruction::Mul, sgNumOp0, lszs[2],
-                                          "", insertBefore);
-  auto *res = CastInst::CreateTruncOrBitCast(
-      sgNumOp1, Type::getInt32Ty(M->getContext()), "sg.num", insertBefore);
-  return res;
+  auto *SGNumOp0 = BinaryOperator::Create(Instruction::Mul, Lszs[0], Lszs[1],
+                                          "", InsertBefore);
+  auto *SGNumOp1 = BinaryOperator::Create(Instruction::Mul, SGNumOp0, Lszs[2],
+                                          "", InsertBefore);
+  auto *Res = CastInst::CreateTruncOrBitCast(
+      SGNumOp1, Type::getInt32Ty(m_pModule->getContext()), "sg.num", InsertBefore);
+  return Res;
 }
 
-Instruction *ResolveSubGroupWICall::replaceGetSubGroupId(
-    Module *M, Instruction *insertBefore, size_t VF, int32_t VD) {
+Value *ResolveSubGroupWICall::replaceGetSubGroupId(Instruction *InsertBefore,
+                                                   Value *VFVal, int32_t VD) {
   // Assume vectorization dimension is 0
   // Replace get_sub_group_id() with the following sequence:
   // (get_local_id(2) * get_local_size(1) + get_local_id(1)) *
   // ((get_local_size(0) - 1) / VF + 1) + get_local_id(0) / VF
   std::vector<int32_t> Dims;
   Dims.push_back(VD);
-  for (int32_t dim = 0; dim < 3; ++dim) {
-    if (dim != VD) {
-      Dims.push_back(dim);
+  for (int32_t Dim = 0; Dim < 3; ++Dim) {
+    if (Dim != VD) {
+      Dims.push_back(Dim);
     }
   }
 
-  std::string idName = CompilationUtils::mangledGetLID();
-  std::string sizeName = CompilationUtils::mangledGetLocalSize();
+  std::string IdName = CompilationUtils::mangledGetLID();
+  std::string SizeName = CompilationUtils::mangledGetLocalSize();
 
   // call get_local_id(2), get_local_id(1), get_local_id(0)
-  CallInst *lid2 = createWIFunctionCall(M, "lid2", idName, insertBefore, m_two);
-  CallInst *lid1 = createWIFunctionCall(M, "lid1", idName, insertBefore, m_one);
-  CallInst *lid0 =
-      createWIFunctionCall(M, "lid0", idName, insertBefore, m_zero);
-  assert(lid0 && lid1 && lid2 && "Can't create get_local_id calls");
+  CallInst *Lid2 = createWIFunctionCall(m_pModule, "lid2", IdName, InsertBefore, m_two);
+  CallInst *Lid1 = createWIFunctionCall(m_pModule, "lid1", IdName, InsertBefore, m_one);
+  CallInst *Lid0 =
+      createWIFunctionCall(m_pModule, "lid0", IdName, InsertBefore, m_zero);
+  assert(Lid0 && Lid1 && Lid2 && "Can't create get_local_id calls");
 
   // call get_local_size(2), get_local_size(1), get_local_size(0)
-  CallInst *lsz2 =
-      createWIFunctionCall(M, "lsz2", sizeName, insertBefore, m_two);
-  CallInst *lsz1 =
-      createWIFunctionCall(M, "lsz1", sizeName, insertBefore, m_one);
-  CallInst *lsz0 =
-      createWIFunctionCall(M, "lsz0", sizeName, insertBefore, m_zero);
-  assert(lsz0 && lsz1 && lsz2 && "Can't create get_local_size calls");
+  CallInst *Lsz2 =
+      createWIFunctionCall(m_pModule, "lsz2", SizeName, InsertBefore, m_two);
+  CallInst *Lsz1 =
+      createWIFunctionCall(m_pModule, "lsz1", SizeName, InsertBefore, m_one);
+  CallInst *Lsz0 =
+      createWIFunctionCall(m_pModule, "lsz0", SizeName, InsertBefore, m_zero);
+  assert(Lsz0 && Lsz1 && Lsz2 && "Can't create get_local_size calls");
 
-  std::vector<Value *> lids = {lid0, lid1, lid2};
-  lids = {lids[Dims[0]], lids[Dims[1]], lids[Dims[2]]};
+  std::vector<Value *> Lids = {Lid0, Lid1, Lid2};
+  Lids = {Lids[Dims[0]], Lids[Dims[1]], Lids[Dims[2]]};
 
-  std::vector<Value *> lszs = {lsz0, lsz1, lsz2};
-  lszs = {lszs[Dims[0]], lszs[Dims[1]], lszs[Dims[2]]};
+  std::vector<Value *> Lszs = {Lsz0, Lsz1, Lsz2};
+  Lszs = {Lszs[Dims[0]], Lszs[Dims[1]], Lszs[Dims[2]]};
 
-  auto *op0 = BinaryOperator::Create(Instruction::Mul, lids[2], lszs[1],
-                                     "sg.id.op0", insertBefore);
-  auto *op1 = BinaryOperator::Create(Instruction::Add, op0, lids[1], "sg.id.op1",
-                                     insertBefore);
-  auto *VFVal = createVFConstant(M->getContext(), M->getDataLayout(), VF);
+  auto *Op0 = BinaryOperator::Create(Instruction::Mul, Lids[2], Lszs[1],
+                                     "sg.id.op0", InsertBefore);
+  auto *Op1 = BinaryOperator::Create(Instruction::Add, Op0, Lids[1],
+                                     "sg.id.op1", InsertBefore);
 
-  Value *valOne = ConstantInt::get(m_ret, 1);
+  Value *ValOne = ConstantInt::get(m_ret, 1);
 
-  auto *op2 = BinaryOperator::Create(Instruction::Sub, lszs[0], valOne, "sg.id.op2",
-                                     insertBefore);
-  auto *op3 = BinaryOperator::CreateUDiv(op2, VFVal, "sg.id.op3", insertBefore);
-  auto *op4 =
-      BinaryOperator::Create(Instruction::Add, op3, valOne, "sg.id.op4", insertBefore);
+  auto *Op2 = BinaryOperator::Create(Instruction::Sub, Lszs[0], ValOne,
+                                     "sg.id.op2", InsertBefore);
+  auto *Op3 = BinaryOperator::CreateUDiv(Op2, VFVal, "sg.id.op3", InsertBefore);
+  auto *Op4 = BinaryOperator::Create(Instruction::Add, Op3, ValOne, "sg.id.op4",
+                                     InsertBefore);
 
-  auto *op5 =
-      BinaryOperator::Create(Instruction::Mul, op4, op1, "sg.id.op5", insertBefore);
+  auto *Op5 = BinaryOperator::Create(Instruction::Mul, Op4, Op1, "sg.id.op5",
+                                     InsertBefore);
 
-  auto *op6 = BinaryOperator::CreateUDiv(lids[0], VFVal, "sg.id.op6", insertBefore);
+  auto *Op6 =
+      BinaryOperator::CreateUDiv(Lids[0], VFVal, "sg.id.op6", InsertBefore);
 
-  auto *op7 =
-      BinaryOperator::Create(Instruction::Add, op5, op6, "sg.id.res", insertBefore);
-  auto *res = CastInst::CreateTruncOrBitCast(
-      op7, Type::getInt32Ty(M->getContext()), "sg.id.res.trunc", insertBefore);
-  return res;
+  auto *Op7 = BinaryOperator::Create(Instruction::Add, Op5, Op6, "sg.id.res",
+                                     InsertBefore);
+  auto *Res = CastInst::CreateTruncOrBitCast(
+      Op7, Type::getInt32Ty(m_pModule->getContext()), "sg.id.res.trunc", InsertBefore);
+  return Res;
 }
 
-Instruction *
-ResolveSubGroupWICall::replaceSubGroupBarrier(Module *M,
-                                              CallInst *insertBefore) {
+Value *ResolveSubGroupWICall::replaceSubGroupBarrier(Instruction *InsertBefore,
+                                                     Value *VFVal, int32_t VD) {
+  CallInst *CI = cast<CallInst>(InsertBefore);
   std::string AtomicWIFenceName =
       CompilationUtils::mangledAtomicWorkItemFence();
   auto *AtomicWIFenceBIF = m_rtServices->findInRuntimeModule(AtomicWIFenceName);
   assert(AtomicWIFenceBIF && "atomic_work_item_fence not found in BI library!");
 
   auto *AtomicWIFenceF =
-      CompilationUtils::importFunctionDecl(M, AtomicWIFenceBIF);
+      CompilationUtils::importFunctionDecl(m_pModule, AtomicWIFenceBIF);
   assert(AtomicWIFenceF && "Failed generating function in current module");
 
   // take mem_fence from the barrier
-  assert((insertBefore->getNumArgOperands() >= 1) &&
+  assert((CI->getNumArgOperands() >= 1) &&
          "Expect sub_group_barrier to have at least mem fence argument!");
-  Value *MemFence = insertBefore->getArgOperand(0);
+  Value *MemFence = CI->getArgOperand(0);
   // Obtain MemoryOrder.
   // must be aligned with clang preprocessor foir
   // __ATOMIC_ACQ_REL
-  const uint64_t memory_order_acq_rel = 4;
+  const uint64_t MemoryOrderAcqRel = 4;
   Value *MemOrder =
-      ConstantInt::get(Type::getInt32Ty(M->getContext()), memory_order_acq_rel);
+      ConstantInt::get(Type::getInt32Ty(m_pModule->getContext()), MemoryOrderAcqRel);
   // obtain mem_scope.
   Value *MemScope = nullptr;
-  if (insertBefore->getNumArgOperands() == 2)
+  if (CI->getNumArgOperands() == 2)
     // take memory scope from the barrier.
-    MemScope = insertBefore->getArgOperand(1);
+    MemScope = CI->getArgOperand(1);
   else {
     // must be aligned with clang preprocessor for
     // __OPENCL_MEMORY_SCOPE_SUB_GROUP.
     const uint64_t memory_scope_sub_group = 4;
-    MemScope = ConstantInt::get(Type::getInt32Ty(M->getContext()),
+    MemScope = ConstantInt::get(Type::getInt32Ty(m_pModule->getContext()),
                                 memory_scope_sub_group);
   }
 
-  SmallVector<Value *, 3> args;
-  args.push_back(MemFence);
-  args.push_back(MemOrder);
-  args.push_back(MemScope);
+  SmallVector<Value *, 3> Args;
+  Args.push_back(MemFence);
+  Args.push_back(MemOrder);
+  Args.push_back(MemScope);
 
   auto *AtomicWIFenceCall =
-      CallInst::Create(AtomicWIFenceF, args, "", insertBefore);
+      CallInst::Create(AtomicWIFenceF, Args, "", InsertBefore);
 
-  AtomicWIFenceCall->setDebugLoc(insertBefore->getDebugLoc());
+  AtomicWIFenceCall->setDebugLoc(InsertBefore->getDebugLoc());
 
   return AtomicWIFenceCall;
 }
@@ -413,23 +429,23 @@ ConstantInt *ResolveSubGroupWICall::createVFConstant(LLVMContext &C,
 }
 
 CallInst *ResolveSubGroupWICall::createWIFunctionCall(Module *M,
-                                                      char const *twine,
-                                                      std::string const &name,
-                                                      Instruction *insertBefore,
-                                                      Value *actPar) {
+                                                      char const *ValueName,
+                                                      std::string const &FuncName,
+                                                      Instruction *InsertBefore,
+                                                      Value *ActPar) {
 
-  Function *func = M->getFunction(name);
+  Function *Func = M->getFunction(FuncName);
 
   // if the function does not exist then we need to create it
-  if (!func) {
-    std::vector<Type *> args(1, actPar->getType());
+  if (!Func) {
+    std::vector<Type *> Args(1, ActPar->getType());
 
-    FunctionType *fType = FunctionType::get(m_ret, args, false);
-    func = dyn_cast<Function>(M->getOrInsertFunction(name, fType).getCallee());
-    assert(func && "Failed creating function");
+    FunctionType *FType = FunctionType::get(m_ret, Args, false);
+    Func = dyn_cast<Function>(m_pModule->getOrInsertFunction(FuncName, FType).getCallee());
+    assert(Func && "Failed creating function");
   }
 
-  return CallInst::Create(func, actPar, twine, insertBefore);
+  return CallInst::Create(Func, ActPar, ValueName, InsertBefore);
 }
 
 } // namespace intel

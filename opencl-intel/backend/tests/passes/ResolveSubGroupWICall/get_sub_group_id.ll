@@ -66,7 +66,8 @@ entry:
   %call4 = tail call i32 @_Z18get_sub_group_sizev() #4
 ; CHECK-NOT: @_Z18get_sub_group_sizev
 ; CHECK: [[local_size:%[0-9]+]] = call i64 @_Z14get_local_sizej(i32 0)
-; CHECK: %uniform.id.max = and i64 {{-16|4294967280}}, [[local_size]]
+; CHECK: %minus.vf = sub i64 0, 16
+; CHECK: %uniform.id.max = and i64 %minus.vf, %3
 ; CHECK: %nonuniform.size = sub i64 [[local_size]], %uniform.id.max
 ; CHECK: [[local_id:%[0-9]+]] = call i64 @_Z12get_local_idj(i32 0)
 ; CHECK: [[cond:%[0-9]+]] = icmp ult i64 [[local_id]], %uniform.id.max

@@ -1,3 +1,4 @@
+;; Verify the cases in which subgroup calls can't be inlined into the kernel body
 ; RUN: %oclopt -resolve-sub-group-wi-call -S < %s | FileCheck %s
 ; ModuleID = 'main'
 source_filename = "1"
@@ -10,6 +11,9 @@ declare i64 @_Z13get_global_idj(i32) local_unnamed_addr #1
 ; Function Attrs: convergent
 declare i32 @_Z22get_max_sub_group_sizev() local_unnamed_addr #2
 
+; Function Attrs: convergent
+declare i32 @_Z16get_sub_group_idv() local_unnamed_addr #2
+
 declare i64 @_Z14get_local_sizej(i32)
 
 ; Function Attrs: convergent nounwind
@@ -19,20 +23,56 @@ entry:
 }
 
 ; Function Attrs: convergent nounwind
-; CHECK-LABEL: @__Vectorized_.testKernel
 define void @__Vectorized_.testKernel(i32 addrspace(1)* noalias %sub_groups_sizes) local_unnamed_addr #0 !kernel_arg_addr_space !11 !kernel_arg_access_qual !12 !kernel_arg_type !13 !kernel_arg_base_type !13 !kernel_arg_type_qual !14 !kernel_arg_host_accessible !15 !kernel_arg_pipe_depth !16 !kernel_arg_pipe_io !14 !kernel_arg_buffer_location !14 !kernel_arg_name !17 !vectorized_kernel !20 !no_barrier_path !19 !kernel_has_sub_groups !19 !vectorized_width !25 !vectorization_dimension !16 !can_unite_workgroups !15 {
 entry:
-  %call = tail call i64 @_Z13get_global_idj(i32 0) #3
-  %call1 = tail call i32 @_Z22get_max_sub_group_sizev() #4
-; CHECK-NOT: @_Z22get_max_sub_group_sizev
-; CHECK: %max.sg.size = trunc i64 16 to i32
-; CHECK: insertelement <16 x i32> undef, i32 %max.sg.size, i32 0
-  %temp17 = insertelement <16 x i32> undef, i32 %call1, i32 0
-  %vector16 = shufflevector <16 x i32> %temp17, <16 x i32> undef, <16 x i32> zeroinitializer
-  %0 = getelementptr inbounds i32, i32 addrspace(1)* %sub_groups_sizes, i64 %call
-  %ptrTypeCast = bitcast i32 addrspace(1)* %0 to <16 x i32> addrspace(1)*
-  store <16 x i32> %vector16, <16 x i32> addrspace(1)* %ptrTypeCast, align 4
+; CHECK-LABEL: @__Vectorized_.testKernel
+; CHECK: call i32 @foo1(i64 16)
+  %call1 = tail call i32 @foo1() #4
   ret void
+}
+
+; Function Attrs: convergent nounwind
+define void @testKernel1(i32 addrspace(1)* noalias %sub_groups_sizes) local_unnamed_addr #0 !kernel_arg_addr_space !11 !kernel_arg_access_qual !12 !kernel_arg_type !13 !kernel_arg_base_type !13 !kernel_arg_type_qual !14 !kernel_arg_host_accessible !15 !kernel_arg_pipe_depth !16 !kernel_arg_pipe_io !14 !kernel_arg_buffer_location !14 !kernel_arg_name !17 !vectorized_kernel !20 !no_barrier_path !19 !kernel_has_sub_groups !19 !vectorized_width !27 !vectorization_dimension !16 !can_unite_workgroups !15 {
+entry:
+; CHECK-LABEL: @testKernel1
+; CHECK: call i32 @foo1(i64 8)
+  %call1 = tail call i32 @foo1() #4
+  ret void
+}
+
+; CHECK-NOT: define i32 @foo1()
+; CHECK-NOT: define i32 @foo()
+
+define i32 @foo1() {
+entry:
+%call = tail call i32 @foo()
+ret i32 %call
+}
+
+define i32 @foo() {
+entry:
+ %call = tail call i32 @_Z22get_max_sub_group_sizev()
+ %call1 = tail call i32 @_Z16get_sub_group_idv()
+; CHECK-NOT: @_Z22get_max_sub_group_sizev()
+; CHECK-NOT: @_Z16get_sub_group_idv()
+; CHECK: %max.sg.size = trunc i64 %vf to i32
+; CHECK: %lid2 = call i64 @_Z12get_local_idj(i32 2)
+; CHECK: %lid1 = call i64 @_Z12get_local_idj(i32 1)
+; CHECK: %lid0 = call i64 @_Z12get_local_idj(i32 0)
+; CHECK: %lsz2 = call i64 @_Z14get_local_sizej(i32 2)
+; CHECK: %lsz1 = call i64 @_Z14get_local_sizej(i32 1)
+; CHECK: %lsz0 = call i64 @_Z14get_local_sizej(i32 0)
+; CHECK: %sg.id.op0 = mul i64 %lid2, %lsz1
+; CHECK: %sg.id.op1 = add i64 %sg.id.op0, %lid1
+; CHECK: %sg.id.op2 = sub i64 %lsz0, 1
+; CHECK: %sg.id.op3 = udiv i64 %sg.id.op2, %vf
+; CHECK: %sg.id.op4 = add i64 %sg.id.op3, 1
+; CHECK: %sg.id.op5 = mul i64 %sg.id.op4, %sg.id.op1
+; CHECK: %sg.id.op6 = udiv i64 %lid0, %vf
+; CHECK: %sg.id.res = add i64 %sg.id.op5, %sg.id.op6
+; CHECK: %sg.id.res.trunc = trunc i64 %sg.id.res to i32
+; CHECK: ret i32 %max.sg.size
+ ret i32 %call
 }
 
 attributes #0 = { convergent nounwind "correctly-rounded-divide-sqrt-fp-math"="false" "denorms-are-zero"="false" "disable-tail-calls"="false" "less-precise-fpmad"="false" "min-legal-vector-width"="0" "no-frame-pointer-elim"="false" "no-infs-fp-math"="false" "no-jump-tables"="false" "no-nans-fp-math"="false" "no-sign
@@ -57,7 +97,7 @@ attributes #4 = { convergent nounwind }
 !0 = !{i32 1, !"wchar_size", i32 4}
 !1 = !{i32 1, i32 2}
 !2 = !{}
-!3 = !{void (i32 addrspace(1)*)* @testKernel}
+!3 = !{void (i32 addrspace(1)*)* @testKernel, void (i32 addrspace(1)*)* @testKernel1}
 !11 = !{i32 1}
 !12 = !{!"none"}
 !13 = !{!"uint*"}
@@ -74,3 +114,4 @@ attributes #4 = { convergent nounwind }
 !24 = !{!"Simple C/C++ TBAA"}
 !25 = !{i32 16}
 !26 = !{i32 1}
+!27 = !{i32 8}
