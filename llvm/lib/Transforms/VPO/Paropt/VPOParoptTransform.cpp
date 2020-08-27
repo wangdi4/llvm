@@ -5510,11 +5510,7 @@ bool VPOParoptTransform::genFirstPrivatizationCode(WRegionNode *W) {
         if (OptimizeScalarFirstprivate &&
             // FIXME: figure out whether we can do anything
             //        for getInMap() and getIsByRef() firstprivates.
-            !FprivI->getInMap() && !FprivI->getIsByRef() &&
-            // FIXME: temporary disabled the optimization for target
-            //        regions, since this requires plugin APIs extension
-            //        for SPIR-V offload.
-            !isa<WRNTargetNode>(W)) {
+            !FprivI->getInMap() && !FprivI->getIsByRef()) {
 
           std::tie(ValueIntTy, IntPtrTy) =
               GetPassAsScalarSizeInBits(F, NewPrivInst);

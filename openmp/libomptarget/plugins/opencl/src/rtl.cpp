@@ -2653,11 +2653,23 @@ static inline int32_t run_target_team_nd_region(
   }
 
   // set kernel args
-  std::vector<void *> ptrs(num_args);
+//  std::vector<void *> ptrs(num_args);
   for (int32_t i = 0; i < num_args; ++i) {
-    ptrs[i] = (void *)((intptr_t)tgt_args[i] + tgt_offsets[i]);
-    CALL_CL_RET_FAIL(clSetKernelArgSVMPointer, *kernel, i, ptrs[i]);
-    DP("Kernel Arg %d set successfully\n", i);
+    ptrdiff_t offset = tgt_offsets[i];
+    const char *ArgType = "Unknown";
+    // Offset equal to MAX(ptrdiff_t) means that the argument
+    // must be passed as literal, and the offset should be ignored.
+    if (offset == (std::numeric_limits<ptrdiff_t>::max)()) {
+      intptr_t arg = (intptr_t)tgt_args[i];
+      CALL_CL_RET_FAIL(clSetKernelArg, *kernel, i, sizeof(arg), &arg);
+      ArgType = "Scalar";
+    } else {
+      void *ptr = (void *)((intptr_t)tgt_args[i] + offset);
+      CALL_CL_RET_FAIL(clSetKernelArgSVMPointer, *kernel, i, ptr);
+      ArgType = "Pointer";
+    }
+    DP("Kernel %s Arg %d set successfully\n", ArgType, i);
+    (void)ArgType;
   }
 
 #if INTEL_CUSTOMIZATION
