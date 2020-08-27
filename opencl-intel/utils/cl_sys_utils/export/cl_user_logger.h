@@ -122,7 +122,10 @@ public:
      * Constructor
      * @param apiCallName name of the API call
      */
-    ApiLogger(const std::string& apiCallName) : m_iLastRetValue(CL_SUCCESS), m_bLogApis(g_pUserLogger->IsApiLoggingEnabled()), m_bFirstApiFuncArg(false), m_iCmdId(-1)
+    ApiLogger(const std::string& apiCallName) : m_iLastRetValue(CL_SUCCESS),
+        m_bLogApis(g_pUserLogger->IsApiLoggingEnabled()),
+        m_bFirstApiFuncArg(false), m_iCmdId(-1), m_isNumEvents(false),
+        m_numEvents(0)
     {
         if (!m_bLogApis)
         {
@@ -158,7 +161,7 @@ public:
     /**
      * Print a value in an API call into the log
      * @param val the value to be printed
-     * @return this FrameworkUserLogger
+     * @return this ApiLogger
      */
     template<typename T>
     ApiLogger& operator<<(const T& val)
@@ -171,20 +174,45 @@ public:
     }
 
     /**
+     * Print a value in an API call into the log and record number of events.
+     * @param val the value to be printed.
+     * @return this ApiLogger.
+     */
+    ApiLogger& operator<<(const cl_uint& val);
+
+    /**
+     * Print a value in an API call into the log and print event list.
+     * @param val the value to be printed.
+     * @return this ApiLogger.
+     */
+    ApiLogger& operator<<(const cl_event *val);
+
+    /**
      * Print the type and name of a parameter of an API call
      * @param sParamTypeAndName type followed by the parameter's name
-     * @return this FrameworkUserLogger
+     * @return this ApiLogger
      */
     ApiLogger& operator<<(const char* sParamTypeAndName);
 
     /**
      * Print a C-string value in an API call (operator<< cannot be used in this case, because it assumes that the string is a parameter type and name)
      * @param sVal the C-string value
-     * @return this FrameworkUserLogger
+     * @return this ApiLogger
      */
     ApiLogger& PrintCStringVal(const char* sVal);
 
+    /**
+     * Print the data pointed to by value.
+     * @param size          the size of the data.
+     * @param value         a pointer to data.
+     */
+    void PrintPtrValue(size_t size, const void* value);
 
+    /**
+     * Print an array of values.
+     * @param size          array size.
+     * @param values        array of values.
+     */
     template<typename T>
     ApiLogger& PrintArray(cl_uint size, const T *values) {
         if (m_bLogApis)
@@ -195,7 +223,7 @@ public:
                 for (cl_uint i = 0; i < size; ++i) {
                     m_strStream << values[i];
                     if (i < (size - 1))
-                        m_strStream << ",";
+                        m_strStream << ", ";
                 }
                 m_strStream << "]";
             }
@@ -278,6 +306,8 @@ private:
     bool m_bFirstApiFuncArg;
     cl_int m_iCmdId;
 
+    bool m_isNumEvents;
+    cl_uint m_numEvents;
 };
 
 // Wrapper for log error from device

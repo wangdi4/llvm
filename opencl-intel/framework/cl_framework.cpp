@@ -1501,7 +1501,10 @@ cl_int CL_API_CALL clSetKernelArg(cl_kernel    kernel,
     if (g_pUserLogger->IsApiLoggingEnabled())
     {
         START_LOG_API(clSetKernelArg);
-        apiLogger << "cl_kernel kernel" << kernel << "cl_uint arg_indx" << arg_indx << "size_t arg_size" << arg_size << "const void * arg_value" << arg_value;
+        apiLogger << "cl_kernel kernel" << kernel << "cl_uint arg_indx"
+                  << arg_indx << "size_t arg_size" << arg_size
+                  << "const void * arg_value" << arg_value;
+        apiLogger.PrintPtrValue(arg_size, arg_value);
 	      CALL_TRACED_API_LOGGER(CONTEXT_MODULE, cl_int, SetKernelArg(kernel, arg_indx, arg_size, arg_value),
            clSetKernelArg, &kernel, &arg_indx, &arg_size, &arg_value);
     }
