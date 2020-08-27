@@ -1302,6 +1302,9 @@ ChangeStatus Attributor::cleanupIR() {
   for (Function *Fn : ToBeDeletedFunctions)
     CGUpdater.removeFunction(*Fn);
 
+  if (!ToBeDeletedFunctions.empty())
+    ManifestChange = ChangeStatus::CHANGED;
+
   NumFnDeleted += ToBeDeletedFunctions.size();
 
   LLVM_DEBUG(dbgs() << "[Attributor] Deleted " << NumFnDeleted
