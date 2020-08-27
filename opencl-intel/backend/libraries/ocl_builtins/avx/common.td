@@ -38,11 +38,12 @@ OclBuiltinImpl step_v4f64 = OclBuiltinImpl<step, [v4f64] , 0, [{
  
 // sign
 OclBuiltinImpl sign_v8f32 = OclBuiltinImpl<sign,[v8f32] , 0, [{
-    //if X=nan -> x=0
-    //  __m256 nan = _mm_set1_ps(0x7FFFFFFF); // or numeric_limits<float>::quiet_NaN();
-
-    $ReturnType f8res = _mm256_cmp_ps($Arg0VarName, f8const_nanStorage, _CMP_NEQ_OS); //if x=nan f8res=0
+    //if x=nan return res=0
+    $ReturnType f8res = _mm256_cmp_ps($Arg0VarName, $Arg0VarName, _CMP_ORD_Q); // f8res = 0 if x = nan
     $Arg0VarName = _mm256_and_ps(f8res, $Arg0VarName); //if f8res=0 (x=nan) x=0
+
+    // Get sign flags
+    $ReturnType signFlag = _mm256_and_ps($Arg0VarName, f8const_minusZeroStorage);
 
     //if x>0 return res=1
     $ReturnType res = _mm256_cmp_ps($Arg0VarName, _mm256_setzero_ps(), _CMP_GT_OS);
@@ -53,13 +54,19 @@ OclBuiltinImpl sign_v8f32 = OclBuiltinImpl<sign,[v8f32] , 0, [{
     res1 = _mm256_and_ps(res1, f8const_minusOneStorage);
     res = _mm256_or_ps(res, res1);
     //if x=0 res=0 (if x=0 res0=res1=0) - no need to do anything
+
+    // Set res=-0 if x=-0
+    res = _mm256_or_ps(res, signFlag);
     return res;
   }]>;
 
 OclBuiltinImpl sign_v4f64 = OclBuiltinImpl<sign,[v4f64] , 0, [{
     //if X=nan -> x=0
-     $ReturnType d4res = _mm256_cmp_pd($Arg0VarName, d4const_nanStorage, _CMP_NEQ_OS); //if x=nan d4res=0
-     $Arg0VarName = _mm256_and_pd(d4res, $Arg0VarName); //if d4res=0 (x=nan) x=0
+    $ReturnType d4res = _mm256_cmp_pd($Arg0VarName, $Arg0VarName, _CMP_ORD_Q); // d4res = 0 if x = nan
+    $Arg0VarName = _mm256_and_pd(d4res, $Arg0VarName); //if d4res=0 (x=nan) x=0
+
+    // Get sign flags
+    $ReturnType signFlag = _mm256_and_pd($Arg0VarName, d4const_minusZeroStorage);
 
     //if x>0 return res=1
     $ReturnType res = _mm256_cmp_pd($Arg0VarName, _mm256_setzero_pd(), _CMP_GT_OS);
@@ -70,5 +77,8 @@ OclBuiltinImpl sign_v4f64 = OclBuiltinImpl<sign,[v4f64] , 0, [{
     res1 = _mm256_and_pd(res1, d4const_minusOneStorage);
     res = _mm256_or_pd(res, res1);
     //if x=0 res=0 (if x=0 res0=res1=0) - no need to do anything
+
+    // Set res=-0 if x=-0
+    res = _mm256_or_pd(res, signFlag);
     return res;
   }]>;

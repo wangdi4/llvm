@@ -56,20 +56,16 @@ const constant ulong   generic_max_ulong   = ULONG_MAX;
 const constant float4 f4const_oneStorage       = {1.0f, 1.0f, 1.0f, 1.0f};
 const constant float4 f4const_minusOneStorage  = {-1.0f, -1.0f, -1.0f, -1.0f};
 const constant float4 f4const_minusZeroStorage = {-0.0f, -0.0f, -0.0f, -0.0f};
-const constant float4 f4const_nanStorage = {0x7FFFFFFF, 0x7FFFFFFF, 0x7FFFFFFF, 0x7FFFFFFF};
 
 const constant double2 d2const_oneStorage       = {1.0, 1.0};
 const constant double2 d2const_minusZeroStorage = {-0.0, -0.0};
 const constant double2 d2const_minusOneStorage  = {-1.0, -1.0};
-const constant double2 d2const_nanStorage = {0x7FFFFFFFFFFFFFFF, 0x7FFFFFFFFFFFFFFF};
 
 // AVX - common
 const constant float8 f8const_oneStorage       = {1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f};
 const constant float8 f8const_minusZeroStorage = {-0.0f, -0.0f, -0.0f, -0.0f, -0.0f, -0.0f, -0.0f, -0.0f};
 const constant float8 f8const_minusOneStorage  = {-1.0f, -1.0f, -1.0f, -1.0f, -1.0f, -1.0f, -1.0f, -1.0f};
-const constant float8 f8const_nanStorage       = {0x7FFFFFFF, 0x7FFFFFFF, 0x7FFFFFFF, 0x7FFFFFFF, 0x7FFFFFFF, 0x7FFFFFFF, 0x7FFFFFFF, 0x7FFFFFFF};
 
 const constant double4 d4const_oneStorage       = {1.0, 1.0, 1.0, 1.0};
 const constant double4 d4const_minusZeroStorage = {-0.0, -0.0, -0.0, -0.0};
 const constant double4 d4const_minusOneStorage  = {-1.0, -1.0, -1.0, -1.0};
-const constant double4 d4const_nanStorage       = {0x7FFFFFFFFFFFFFFF, 0x7FFFFFFFFFFFFFFF, 0x7FFFFFFFFFFFFFFF, 0x7FFFFFFFFFFFFFFF};
