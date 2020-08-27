@@ -146,9 +146,9 @@ VPlanCFGBuilderBase<CFGBuilder>::createVPInstruction(Instruction *Inst) {
         LLVMContext &Ctx = F->getContext();
         auto *Zero = ConstantInt::getSigned(Type::getInt32Ty(Ctx), 0);
         auto *One = ConstantInt::getSigned(Type::getInt32Ty(Ctx), 1);
-        return VPIRBuilder.createInductionInit(
-            getOrCreateVPOperand(Zero), getOrCreateVPOperand(One),
-            Instruction::Add, Call->getName());
+        return VPIRBuilder.create<VPInductionInit>(
+            Call->getName(), getOrCreateVPOperand(Zero),
+            getOrCreateVPOperand(One), Instruction::Add);
       }
     }
   }

@@ -558,7 +558,8 @@ VPValue *VPLoopEntityList::createPrivateMemory(VPLoopEntity &E,
     OrigAlignment = Plan.getDataLayout()->getPrefTypeAlign(ElemTy);
   }
 
-  VPValue *Ret = Builder.createAllocaPrivate(AI, OrigAlignment);
+  VPValue *Ret = Builder.create<VPAllocatePrivate>(AI->getName(), AI->getType(),
+                                                   OrigAlignment);
   linkValue(&E, Ret);
   return Ret;
 }
@@ -674,13 +675,13 @@ void VPLoopEntityList::insertReductionVPInstructions(VPBuilder &Builder,
       VPInstruction *ParentExit;
       VPReductionFinal *ParentFinal;
       std::tie(ParentFinal, ParentExit) = RedFinalMap[Parent];
-      Final = Builder.createReductionFinal(
-          Reduction->getReductionOpcode(), Exit, ParentExit, ParentFinal,
-          Reduction->isSigned(), Name + ".red.final");
+      Final = Builder.create<VPReductionFinal>(
+          Name + ".red.final", Reduction->getReductionOpcode(), Exit,
+          ParentExit, ParentFinal, Reduction->isSigned());
     } else {
       if (StartIncluded || Reduction->isMinMax()) {
-        Final = Builder.createReductionFinal(Reduction->getReductionOpcode(),
-                                             Exit, Name + ".red.final");
+        Final = Builder.create<VPReductionFinal>(
+            Name + ".red.final", Reduction->getReductionOpcode(), Exit);
       } else {
         // Create a load for Start value if it's a pointer.
         VPValue *FinalStartValue = Reduction->getRecurrenceStartValue();
@@ -689,9 +690,9 @@ void VPLoopEntityList::insertReductionVPInstructions(VPBuilder &Builder,
                  "Expected pointer type here.");
           FinalStartValue = Builder.createLoad(Ty, FinalStartValue);
         }
-        Final = Builder.createReductionFinal(
-            Reduction->getReductionOpcode(), Exit, FinalStartValue,
-            Reduction->isSigned(), Name + ".red.final");
+        Final = Builder.create<VPReductionFinal>(
+            Name + ".red.final", Reduction->getReductionOpcode(), Exit,
+            FinalStartValue, Reduction->isSigned());
       }
       RedFinalMap[Reduction] = std::make_pair(Final, Exit);
 
@@ -750,11 +751,11 @@ void VPLoopEntityList::insertInductionVPInstructions(VPBuilder &Builder,
       VPPHINode *PhiN = getRecurrentVPHINode(*Induction);
       Name = PhiN ? PhiN->getName() : "";
     }
-    VPInstruction *Init = Builder.createInductionInit(
-        Start, Induction->getStep(), Opc, Name + ".ind.init");
+    VPInstruction *Init = Builder.create<VPInductionInit>(
+        Name + ".ind.init", Start, Induction->getStep(), Opc);
     processInitValue(*Induction, AI, PrivateMem, Builder, *Init, Ty, *Start);
-    VPInstruction *InitStep = Builder.createInductionInitStep(
-        Induction->getStep(), Opc, Name + ".ind.init.step");
+    VPInstruction *InitStep = Builder.create<VPInductionInitStep>(
+        Name + ".ind.init.step", Induction->getStep(), Opc);
     if (!Induction->needCloseForm()) {
       if (auto *Instr = Induction->getInductionBinOp()) {
         assert(isConsistentInductionUpdate(Instr,
@@ -782,9 +783,9 @@ void VPLoopEntityList::insertInductionVPInstructions(VPBuilder &Builder,
                         : ExitInstr;
     VPInstruction *Final =
         IsExtract && Exit
-            ? Builder.createInductionFinal(Exit, Name + ".ind.final")
-            : Builder.createInductionFinal(Start, Induction->getStep(), Opc,
-                                           Name + ".ind.final");
+            ? Builder.create<VPInductionFinal>(Name + ".ind.final", Exit)
+            : Builder.create<VPInductionFinal>(Name + ".ind.final", Start,
+                                               Induction->getStep(), Opc);
     // Check if induction's last value is live-out of penultimate loop
     // iteration.
     cast<VPInductionFinal>(Final)->setLastValPreIncrement(
