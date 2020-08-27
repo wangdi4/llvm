@@ -662,7 +662,11 @@ void HandledCheck::visit(HLDDNode *Node) {
         return;
       }
 
-      if ((VF > 1 && !TLI->isFunctionVectorizable(CalledFunc, VF)) && !ID) {
+      // Scalar math library calls without readnone or readonly attributes
+      // cannot be vectorized.
+      if ((VF > 1 && (!TLI->isFunctionVectorizable(CalledFunc, VF) ||
+                      !Call->onlyReadsMemory())) &&
+          !ID) {
         LLVM_DEBUG(
             dbgs()
             << "VPLAN_OPTREPORT: Loop not handled - call not vectorizable\n");

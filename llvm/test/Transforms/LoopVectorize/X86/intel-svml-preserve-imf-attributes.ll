@@ -1,9 +1,14 @@
 ; Check that call site attributes are preserved when a function call is vectorized in LV.
 
-; RUN: opt -vector-library=SVML -loop-vectorize -force-vector-width=4 -force-vector-interleave=1 -mattr=avx -S < %s 2>&1 | FileCheck %s 
+; RUN: opt -vector-library=SVML -loop-vectorize -force-vector-width=4 -force-vector-interleave=1 -mattr=avx -S < %s 2>&1 | FileCheck %s
 
 ; CHECK-LABEL: @foo
-; CHECK: {{.*}} = call <4 x double> @__svml_sin4(<4 x double> {{.*}}) #0
+; CHECK: {{.*}} = call <4 x double> @__svml_sin4(<4 x double> {{.*}}) #1
+
+; CHECK: attributes #1 = { nounwind readnone "imf-arch-consistency"="true"
+
+target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
+target triple = "x86_64-unknown-linux-gnu"
 
 define void @foo(double* nocapture %varray) {
 entry:
@@ -26,4 +31,4 @@ for.end:
 
 declare double @sin(double)
 
-attributes #0 = { nounwind "imf-arch-consistency"="true" }
+attributes #0 = { nounwind readnone "imf-arch-consistency"="true" }

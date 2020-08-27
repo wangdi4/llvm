@@ -8,13 +8,13 @@ target datalayout = "p:32:32-p1:32:32-p2:16:16"
 @arr = dso_local global [1024 x float] zeroinitializer, align 16
 
 ; Function Attrs: nounwind
-declare double @_Z4sqrtd(double)
+declare double @_Z4sqrtd(double) #0
 
 ; Function Attrs: nounwind
-declare double @_Z3expd(double)
+declare double @_Z3expd(double) #0
 
 ; Function Attrs: nounwind
-declare float @_Z3logf(float)
+declare float @_Z3logf(float) #0
 
 ; CHECK-LABEL: @test1(
 ; CHECK: vector.body:
@@ -73,3 +73,5 @@ declare token @llvm.directive.region.entry()
 
 ; Function Attrs: nounwind
 declare void @llvm.directive.region.exit(token)
+
+attributes #0 = { readnone }

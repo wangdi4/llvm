@@ -19,8 +19,9 @@
 #include "llvm/IR/Function.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/Module.h"
-#include "llvm/Pass.h"
 #include "llvm/IR/PassManager.h"
+#include "llvm/Pass.h"
+#include "llvm/Transforms/Utils/ValueMapper.h"
 
 #ifndef LLVM_TRANSFORMS_VPO_VECCLONE_H
 #define LLVM_TRANSFORMS_VPO_VECCLONE_H
@@ -63,7 +64,8 @@ class VecCloneImpl {
     bool hasComplexType(Function *F);
 
     /// \brief Make a copy of the function if it is marked as SIMD.
-    Function* CloneFunction(Function &F, VectorVariant &V);
+    Function *CloneFunction(Function &F, VectorVariant &V,
+                            ValueToValueMapTy &Vmap);
 
     /// \brief Take the entry basic block for the function as split off a second
     /// basic block that will form the loop entry.
@@ -95,22 +97,17 @@ class VecCloneImpl {
     /// the function to a vector type. This function returns the instruction
     /// corresponding to the expanded return and the instruction corresponding
     /// to the mask.
-    Instruction* expandVectorParametersAndReturn(
-        Function *Clone,
-        VectorVariant &V,
-        Instruction **Mask,
-        BasicBlock *EntryBlock,
-        BasicBlock *LoopBlock,
-        BasicBlock *ReturnBlock,
-        std::vector<ParmRef*>& ParmMap);
+    Instruction *expandVectorParametersAndReturn(
+        Function *Clone, VectorVariant &V, Instruction **Mask,
+        BasicBlock *EntryBlock, BasicBlock *LoopBlock, BasicBlock *ReturnBlock,
+        std::vector<ParmRef *> &ParmMap, ValueToValueMapTy &VMap);
 
     /// \brief Expand the function parameters to vector types. This function
     /// returns the instruction corresponding to the mask.
-    Instruction* expandVectorParameters(
-        Function *Clone,
-        VectorVariant &V,
-        BasicBlock *EntryBlock,
-        std::vector<ParmRef*>& ParmMap);
+    Instruction *expandVectorParameters(Function *Clone, VectorVariant &V,
+                                        BasicBlock *EntryBlock,
+                                        std::vector<ParmRef *> &ParmMap,
+                                        ValueToValueMapTy &VMap);
 
     /// \brief Expand the function's return value to a vector type.
     Instruction* expandReturn(Function *Clone, BasicBlock *EntryBlock,
