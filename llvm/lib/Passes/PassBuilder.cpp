@@ -1352,7 +1352,6 @@ ModulePassManager PassBuilder::buildModuleSimplificationPipeline(
   if (EnableSyntheticCounts && !PGOOpt)
     MPM.addPass(SyntheticCountsPropagation());
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   // Parse -[no]inline-list option and set corresponding attributes.
   MPM.addPass(InlineListsPass());
@@ -1361,15 +1360,12 @@ ModulePassManager PassBuilder::buildModuleSimplificationPipeline(
 #if INTEL_CUSTOMIZATION
   MPM.addPass(buildInlinerPipeline(Level, Phase, &InlPass, DebugLogging));
 #endif // INTEL_CUSTOMIZATION
-=======
-  MPM.addPass(buildInlinerPipeline(Level, Phase, DebugLogging));
 
   if (EnableHeapProfiler && Phase != ThinLTOPhase::PreLink) {
     MPM.addPass(createModuleToFunctionPassAdaptor(HeapProfilerPass()));
     MPM.addPass(ModuleHeapProfilerPass());
   }
 
->>>>>>> 7ed8124d46f94601d5f1364becee9cee8538265e
   return MPM;
 }
 
