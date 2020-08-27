@@ -365,6 +365,16 @@ static bool rewriteOpenCLBuiltinOperands(CallInst *CI,
     return false;
   }
 
+  // According to OpenCL C spec: the behavior of atomic operations where pointer
+  // arguments to the atomic builtins refers to an atomic type in the private
+  // address space is undefined. So do not replace the first argument (w/atomic
+  // type in atomic builtins) with the one in private address space and return
+  // false.
+  if (OldName.contains("atomic") && (CI->getArgOperand(0) == OldV))
+    if (PointerType *PTy = dyn_cast<PointerType>(NewV->getType()))
+      if (PTy->getAddressSpace() == 0)
+        return false;
+
   SmallString<256> NewName;
   raw_svector_ostream NewNameStream(NewName);
   remangleOpenCLBuiltin(CI, OldV, NewV, NewNameStream);

@@ -13,6 +13,7 @@
 ///
 //==------------------------------------------------------------------------==//
 
+#include "llvm/IR/MDBuilder.h"
 #include "llvm/Transforms/VPO/Paropt/VPOParoptTransform.h"
 #include "llvm/Transforms/VPO/Paropt/VPOParoptUtils.h"
 
@@ -52,9 +53,10 @@ CallInst *VPOParoptUtils::genF90DVInitCall(Value *OrigDV, Value *NewDV,
   return DataSize;
 }
 
-void VPOParoptUtils::genF90DVInitCode(Item *I, Instruction *InsertPt,
-                                      bool IsTargetSPIRV,
-                                      bool AllowOverrideInsertPt) {
+void VPOParoptUtils::genF90DVInitCode(
+    Item *I, Instruction *InsertPt, DominatorTree *DT, LoopInfo *LI,
+    bool IsTargetSPIRV, bool AllowOverrideInsertPt,
+    bool CheckOrigAllocationBeforeAllocatingNew) {
   assert(I->getIsF90DopeVector() && "Item is not an F90 dope vector.");
 
   Value *NewV = I->getNew();
@@ -75,22 +77,44 @@ void VPOParoptUtils::genF90DVInitCode(Item *I, Instruction *InsertPt,
   CallInst *DataSize = genF90DVInitCall(OrigV, NewV, InsertPt, IsTargetSPIRV);
   setFuncCallingConv(DataSize, IsTargetSPIRV);
 
+  Instruction *AllocBuilderInsertPt = &*Builder.GetInsertPoint();
+
+  // Create a branch to guard memory allocation for local copy of DV's data.
+  // if (dv_size != 0) {
+  //  ... then allocate space for local copy
+  // }
+  if (CheckOrigAllocationBeforeAllocatingNew) {
+    Value *ZeroSize =
+        Builder.getIntN(DataSize->getType()->getIntegerBitWidth(), 0);
+    Value *IsOrigAllocated =
+        Builder.CreateICmpNE(DataSize, ZeroSize, "is.allocated");
+
+    Instruction *BranchPt = &*Builder.GetInsertPoint();
+    I->setF90DVDataAllocationPoint(BranchPt);
+
+    Instruction *ThenTerm = SplitBlockAndInsertIfThen(
+        IsOrigAllocated, BranchPt, false,
+        MDBuilder(Builder.getContext()).createBranchWeights(4, 1), DT, LI);
+    BasicBlock *ThenBB = ThenTerm->getParent();
+    ThenBB->setName("allocated.then");
+    AllocBuilderInsertPt = ThenTerm;
+  }
+
+  IRBuilder<> AllocBuilder(AllocBuilderInsertPt);
   // Get base address from the dope vector.
-  auto *Zero = Builder.getInt32(0);
-  auto *Addr0GEP =
-      Builder.CreateInBoundsGEP(NewV, {Zero, Zero}, NamePrefix + ".addr0");
+  auto *Zero = AllocBuilder.getInt32(0);
+  auto *Addr0GEP = AllocBuilder.CreateInBoundsGEP(NewV, {Zero, Zero},
+                                                         NamePrefix + ".addr0");
   Type *ElementTy =
       cast<PointerType>(cast<PointerType>(Addr0GEP->getType()->getScalarType())
                             ->getElementType())
           ->getElementType();
   Value *PointeeData = genPrivatizationAlloca(
-      ElementTy, DataSize, OrigAlignment, InsertPt, IsTargetSPIRV,
-      NamePrefix + ".data");
-  auto *StoreVal =
-      Builder.CreatePointerBitCastOrAddrSpaceCast(
-          PointeeData,
-          cast<GetElementPtrInst>(Addr0GEP)->getResultElementType());
-  Builder.CreateStore(StoreVal, Addr0GEP);
+      ElementTy, DataSize, OrigAlignment, &*AllocBuilder.GetInsertPoint(),
+      IsTargetSPIRV, NamePrefix + ".data");
+  auto *StoreVal = AllocBuilder.CreatePointerBitCastOrAddrSpaceCast(
+      PointeeData, cast<GEPOperator>(Addr0GEP)->getResultElementType());
+  AllocBuilder.CreateStore(StoreVal, Addr0GEP);
 
   if (!isa<ReductionItem>(I))
     return;

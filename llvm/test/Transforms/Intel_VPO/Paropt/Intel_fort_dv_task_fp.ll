@@ -62,13 +62,23 @@ alloca:
 ; First, the buffer should be linked to the dope vector's base field
 ; CHECK: [[FOO_A_PRIV2:%[^ ]+]] = getelementptr inbounds %__struct.kmp_privates.t, %__struct.kmp_privates.t* {{[^,]+}}, i32 0, i32 0
 ; CHECK: [[FOO_A_PRIV1:%[^ ]+]] = getelementptr inbounds %__struct.kmp_privates.t, %__struct.kmp_privates.t* {{[^,]+}}, i32 0, i32 0
+
+; Check for :"if(size != 0) then link data field to base of dope vector".
+; CHECK: [[FOO_A_DATA_SIZE_GEP:[^ ]+]] = getelementptr inbounds %__struct.kmp_privates.t, %__struct.kmp_privates.t* {{[^,]+}}, i32 0, i32 1
+; CHECK: [[FOO_A_DATA_SIZE:[^ ]+]] = load i64, i64* [[FOO_A_DATA_SIZE_GEP]], align 8
+; CHECK: [[IS_SIZE_NON_ZERO:[^ ]+]] = icmp ne i64 [[FOO_A_DATA_SIZE]], 0
+; CHECK: br i1 [[IS_SIZE_NON_ZERO]], label %[[IF_THEN:[^ ]+]], label %[[IF_CONTINUE:[^, ]]]
+
+; CHECK: [[IF_THEN]]:
 ; CHECK: [[FOO_A_BUFFER_OFFSET_GEP:%[^ ]+]] = getelementptr inbounds %__struct.kmp_privates.t, %__struct.kmp_privates.t* {{[^,]+}}, i32 0, i32 2
 ; CHECK: [[FOO_A_BUFFER_OFFSET:%[^ ]+]] = load i64, i64* [[FOO_A_BUFFER_OFFSET_GEP]]
 ; CHECK: [[FOO_A_BUFFER:%[^ ]+]] = getelementptr i8, i8* [[TASK_ALLOC]], i64 [[FOO_A_BUFFER_OFFSET]]
 ; CHECK: [[FOO_A_PRIV1_CAST:%[^ ]+]] = bitcast { i16*, i64, i64, i64, i64, i64, [3 x { i64, i64, i64 }] }* [[FOO_A_PRIV1]] to i8**
 ; CHECK: store i8* [[FOO_A_BUFFER]], i8** [[FOO_A_PRIV1_CAST]]
+; CHECK: br label %[[IF_CONTINUE]]
 
 ; After the linking is done, there should be a call to f90_firstprivate_copy
+; CHECK: [[IF_CONTINUE]]:
 ; CHECK: [[FOO_A_PRIV2_CAST:%[^ ]+]] = bitcast { i16*, i64, i64, i64, i64, i64, [3 x { i64, i64, i64 }] }* [[FOO_A_PRIV2]] to i8*
 ; CHECK: [[FOO_A_CAST1:%[^ ]+]] = bitcast { i16*, i64, i64, i64, i64, i64, [3 x { i64, i64, i64 }] }* %"foo_$A" to i8*
 ; CHECK: call void @_f90_firstprivate_copy(i8* [[FOO_A_PRIV2_CAST]], i8* [[FOO_A_CAST1]])

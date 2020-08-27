@@ -1015,7 +1015,12 @@ AliasResult AndersensAAResult::alias(const MemoryLocation &LocA,
                                      AAQueryInfo &AAQI)  {
 
   // Returns true if V is global variable that represents "stdout".
-  auto IsStdoutFilePtr = [] (Value *V) {
+  auto IsStdoutFilePtr = [this] (Value *V) {
+
+    // Treat __acrt_iob_func(1) call as stdout.
+    if (isMSVCStdoutCall(V, GetTLI))
+      return true;
+
     auto *LI = dyn_cast<LoadInst>(V);
     if (!LI)
       return false;
@@ -6444,4 +6449,22 @@ void AndersensAAResult::PerformEscAnal(Module &M) {
       ProcessOpaqueNode(NodeIdx);
   }
   MarkEscaped();
+}
+
+// Returns true if the value "V" is "__acrt_iob_func(1)"
+bool llvm::isMSVCStdoutCall(Value *V, AndersGetTLITy GetTLI) {
+  auto *CI = dyn_cast<CallInst>(V);
+  if (!CI)
+    return false;
+  Function *Callee = CI->getCalledFunction();
+  Function *Caller = CI->getFunction();
+  if (!Callee || !Caller)
+    return false;
+  auto TLI = &GetTLI(*Caller);
+  LibFunc Fn;
+  if (!TLI || !TLI->getLibFunc(Callee->getName(), Fn) || !TLI->has(Fn) ||
+      Fn != LibFunc_acrt_iob_func)
+    return false;
+  auto Arg0 = dyn_cast<ConstantInt>(CI->getArgOperand(0));
+  return (Arg0 && Arg0->isOne());
 }
