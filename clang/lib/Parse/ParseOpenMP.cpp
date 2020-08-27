@@ -2659,6 +2659,7 @@ OMPClause *Parser::ParseOpenMPUsesAllocatorClause(OpenMPDirectiveKind DKind) {
 ///       exclusive-clause | uses_allocators-clause | use_device_addr-clause
 #if INTEL_COLLAB
 ///       | bind-clause
+///       | subdevice-clause
 #endif // INTEL_COLLAB
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_CSA
@@ -2697,6 +2698,9 @@ OMPClause *Parser::ParseOpenMPClause(OpenMPDirectiveKind DKind,
   case OMPC_allocator:
   case OMPC_depobj:
   case OMPC_detach:
+#if INTEL_COLLAB
+  case OMPC_subdevice:
+#endif // INTEL_COLLAB
 #if INTEL_CUSTOMIZATION
   case OMPC_tile:
 #if INTEL_FEATURE_CSA
@@ -2752,6 +2756,10 @@ OMPClause *Parser::ParseOpenMPClause(OpenMPDirectiveKind DKind,
         Clause = ParseOpenMPDataflowClause(CKind, WrongDirective);
 #endif // INTEL_FEATURE_CSA
 #endif // INTEL_CUSTOMIZATION
+#if INTEL_COLLAB
+    else if (CKind == OMPC_subdevice)
+      Clause = ParseOpenMPSubdeviceClause(WrongDirective);
+#endif // INTEL_COLLAB
     else
       Clause = ParseOpenMPSingleExprClause(CKind, WrongDirective);
     break;
@@ -3979,3 +3987,86 @@ OMPClause *Parser::ParseOpenMPDataflowClause(OpenMPClauseKind Kind,
 }
 #endif // INTEL_FEATURE_CSA
 #endif // INTEL_CUSTOMIZATION
+#if INTEL_COLLAB
+OMPClause *Parser::ParseOpenMPSubdeviceClause(bool ParseOnly) {
+  bool IsInvalid = false;
+  SourceLocation Loc = ConsumeToken();
+  SourceLocation DelimLoc;
+  // Parse '('.
+  BalancedDelimiterTracker T(*this, tok::l_paren, tok::annot_pragma_openmp_end);
+  if (T.expectAndConsume(diag::err_expected_lparen_after,
+                         getOpenMPClauseName(OMPC_subdevice).data()))
+    return nullptr;
+
+  // Parse [ <level> ',' ] <start> [ ':' <length> [ ':' <stride> ] ]
+  // where <level>, if present, must be a nonnegative integer constant.
+  ColonProtectionRAIIObject ColonRAII(*this);
+  ExprResult Level;
+
+  if (GetLookAheadToken(1).is(tok::comma)) {
+    if (Tok.is(tok::numeric_constant)) {
+      // Should be looking at explicit level argument to subdevice
+      Level = Actions.ActOnNumericConstant(Tok, /*UDLScope*/getCurScope());
+    } else {
+      IsInvalid = true;
+      Diag(Tok, diag::warn_omp_expected_nonneg_integer) <<
+        getOpenMPClauseName(OMPC_subdevice);
+    }
+    ConsumeToken();
+    ConsumeToken();
+  }
+  Loc = Tok.getLocation();
+  ExprResult LHS = ParseCastExpression(AnyCastExpr);
+  ExprResult Start = Actions.CorrectDelayedTyposInExpr(
+      ParseRHSOfBinaryExpression(LHS, prec::Conditional));
+  Start = Actions.ActOnFinishFullExpr(Start.get(), Loc,
+                                      /*DiscardedValue=*/false);
+
+  ExprResult Length;
+  ExprResult Stride;
+  IdentifierInfo *Ext;
+  if (Tok.is(tok::colon)) {
+    // Parse optional <length>
+    ConsumeToken();
+    Ext = Tok.is(tok::identifier) ? Tok.getIdentifierInfo() : nullptr;
+    Loc = Tok.getLocation();
+    LHS = ParseCastExpression(AnyCastExpr);
+    Length = Actions.CorrectDelayedTyposInExpr(
+        ParseRHSOfBinaryExpression(LHS, prec::Conditional));
+    Length = Actions.ActOnFinishFullExpr(Length.get(), Loc,
+                                         /*DiscardedValue=*/false);
+    // Parse optional stride.
+    if (Tok.is(tok::colon)) {
+      // Parse <stride>
+      ConsumeToken();
+      Loc = Tok.getLocation();
+      LHS = ParseCastExpression(AnyCastExpr);
+      Stride = Actions.CorrectDelayedTyposInExpr(
+          ParseRHSOfBinaryExpression(LHS, prec::Conditional));
+      Stride = Actions.ActOnFinishFullExpr(Stride.get(), Loc,
+                                           /*DiscardedValue=*/false);
+    } else if (Tok.isNot(tok::r_paren)) {
+      IsInvalid = true;
+      Diag(Tok, diag::warn_pragma_expected_colon) << (Ext ? Ext->getName()
+                                                          : "argument");
+      SkipUntil(tok::colon, tok::r_paren, tok::annot_pragma_openmp_end,
+                StopBeforeMatch);
+    }
+  } else if (Tok.isNot(tok::r_paren)) {
+    IsInvalid = true;
+    Ext = Tok.is(tok::identifier) ? Tok.getIdentifierInfo() : nullptr;
+    Diag(Tok, diag::warn_pragma_expected_colon) << (Ext ? Ext->getName()
+                                                        : "argument");
+    SkipUntil(tok::colon, tok::r_paren, tok::annot_pragma_openmp_end,
+              StopBeforeMatch);
+  }
+  SourceLocation RLoc = Tok.getLocation();
+  if (!T.consumeClose())
+    RLoc = T.getCloseLocation();
+  if (IsInvalid || ParseOnly)
+    return nullptr;
+  return Actions.ActOnOpenMPSubdeviceClause(Level.get(), Start.get(),
+                                            Length.get(), Stride.get(),
+                                            Loc, RLoc);
+}
+#endif // INTEL_COLLAB

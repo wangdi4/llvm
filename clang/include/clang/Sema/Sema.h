@@ -10975,6 +10975,13 @@ public:
                                    SourceLocation StartLoc,
                                    SourceLocation LParenLoc,
                                    SourceLocation EndLoc);
+  /// Called on well-formed 'subdevice' clause.
+  OMPClause *ActOnOpenMPSubdeviceClause(Expr *Level,
+                                        Expr *Start,
+                                        Expr *Length,
+                                        Expr *Stride,
+                                        SourceLocation StartLoc,
+                                        SourceLocation EndLoc);
 #endif // INTEL_COLLAB
 #if INTEL_CUSTOMIZATION
   /// Called on well-formed 'tile' clause.

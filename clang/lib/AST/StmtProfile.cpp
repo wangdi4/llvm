@@ -453,6 +453,18 @@ void OMPClauseProfiler::VisitOMPNumThreadsClause(const OMPNumThreadsClause *C) {
 
 #if INTEL_COLLAB
 void OMPClauseProfiler::VisitOMPBindClause(const OMPBindClause *C) { }
+
+void OMPClauseProfiler::VisitOMPSubdeviceClause(const OMPSubdeviceClause *C) {
+  VistOMPClauseWithPreInit(C);
+  if (C->getLevel())
+    Profiler->VisitStmt(C->getLevel());
+  if (C->getStart())
+    Profiler->VisitStmt(C->getStart());
+  if (C->getLength())
+    Profiler->VisitStmt(C->getLength());
+  if (C->getStride())
+    Profiler->VisitStmt(C->getStride());
+}
 #endif // INTEL_COLLAB
 #if INTEL_CUSTOMIZATION
 void OMPClauseProfiler::VisitOMPTileClause(const OMPTileClause *C) {

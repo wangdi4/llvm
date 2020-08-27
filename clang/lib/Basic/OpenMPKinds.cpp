@@ -175,6 +175,9 @@ unsigned clang::getOpenMPSimpleClauseType(OpenMPClauseKind Kind, StringRef Str,
 #include "clang/Basic/OpenMPKinds.def"
         .Default(OMPC_REDUCTION_unknown);
   case OMPC_unknown:
+#if INTEL_COLLAB
+  case OMPC_subdevice:
+#endif // INTEL_COLLAB
   case OMPC_threadprivate:
   case OMPC_if:
   case OMPC_final:

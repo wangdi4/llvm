@@ -5439,6 +5439,7 @@ static void emitOMPAtomicExpr(CodeGenFunction &CGF, OpenMPClauseKind Kind,
   case OMPC_affinity:
 #if INTEL_COLLAB
   case OMPC_bind:
+  case OMPC_subdevice:
 #endif // INTEL_COLLAB
 #if INTEL_CUSTOMIZATION
   case OMPC_tile:

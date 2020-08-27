@@ -3319,6 +3319,16 @@ private:
 #endif // INTEL_FEATURE_CSA
 #endif // INTEL_CUSTOMIZATION
 
+#if INTEL_COLLAB
+  /// Parses subdevice clause with up to four arguments, one of which is
+  /// required (start).
+  ///
+  /// \param ParseOnly true to skip the clause's semantic actions and return
+  /// nullptr.
+  ///
+  OMPClause *ParseOpenMPSubdeviceClause(bool ParseOnly);
+#endif // INTEL_COLLAB
+
   /// Parses and creates OpenMP 5.0 iterators expression:
   /// <iterators> = 'iterator' '(' { [ <iterator-type> ] identifier =
   /// <range-specification> }+ ')'
