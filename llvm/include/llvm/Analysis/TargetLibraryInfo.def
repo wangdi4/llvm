@@ -57,12 +57,18 @@ TLI_DEFINE_STRING_INTERNAL("??0_System_error@std@@QEAA@AEBV01@@Z")
 /// exception(const exception &right);
 TLI_DEFINE_ENUM_INTERNAL(msvc_std_exception_const_ptr_ctor)
 TLI_DEFINE_STRING_INTERNAL("??0exception@std@@QEAA@AEBV01@@Z")
+/// public: __cdecl std::ios_base::failure::failure(class std::ios_base::failure const & __ptr64) __ptr64
+TLI_DEFINE_ENUM_INTERNAL(msvc_std_ios_base_failure_const_ptr_ctor)
+TLI_DEFINE_STRING_INTERNAL("??0failure@ios_base@std@@QEAA@AEBV012@@Z")
 /// explicit failure(const char* str, const error_code& _Code = io_errc::stream)
 TLI_DEFINE_ENUM_INTERNAL(msvc_std_ios_base_failure)
 TLI_DEFINE_STRING_INTERNAL("??0failure@ios_base@std@@QEAA@PEBDAEBVerror_code@2@@Z")
 /// runtime_error( const runtime_error& other )
 TLI_DEFINE_ENUM_INTERNAL(msvc_std_runtime_error_ctor)
 TLI_DEFINE_STRING_INTERNAL("??0runtime_error@std@@QEAA@AEBV01@@Z")
+/// public: __cdecl std::system_error::system_error(class std::system_error const & __ptr64) __ptr64
+TLI_DEFINE_ENUM_INTERNAL(msvc_std_system_error_const_ptr_ctor)
+TLI_DEFINE_STRING_INTERNAL("??0system_error@std@@QEAA@AEBV01@@Z")
 /// __cdecl std::_Yarn<char>::~_Yarn<char>(void) __ptr64
 TLI_DEFINE_ENUM_INTERNAL(msvc_std_yarn_dtor)
 TLI_DEFINE_STRING_INTERNAL("??1?$_Yarn@D@std@@QEAA@XZ")
@@ -117,12 +123,27 @@ TLI_DEFINE_ENUM_INTERNAL(msvc_delete_ptr64_longlong)
 TLI_DEFINE_STRING_INTERNAL("??3@YAXPEAX_K@Z")
 
 #if INTEL_CUSTOMIZATION
+/// protected: virtual void * __ptr64 __cdecl std::ctype<char>::`scalar deleting destructor'(unsigned int) __ptr64
+TLI_DEFINE_ENUM_INTERNAL(msvc_std_ctype_scalar_deleting_dtor)
+TLI_DEFINE_STRING_INTERNAL("??_G?$ctype@D@std@@MEAAPEAXI@Z")
+/// public: virtual void * __ptr64 __cdecl std::_Iostream_error_category::`scalar deleting destructor'(unsigned int) __ptr64
+TLI_DEFINE_ENUM_INTERNAL(msvc_std_under_iostreamer_error_category_scalar_deleting_dtor)
+TLI_DEFINE_STRING_INTERNAL("??_G_Iostream_error_category@std@@UEAAPEAXI@Z")
+/// public: virtual void * __ptr64 __cdecl std::_System_error::`scalar deleting destructor'(unsigned int) __ptr64
+TLI_DEFINE_ENUM_INTERNAL(msvc_std_under_system_error_scalar_deleting_dtor)
+TLI_DEFINE_STRING_INTERNAL("??_G_System_error@std@@UEAAPEAXI@Z")
 /// public: virtual void * __ptr64 __cdecl std::exception::`scalar deleting destructor'(unsigned int) __ptr64
 TLI_DEFINE_ENUM_INTERNAL(msvc_std_exception_scalar_deleting_dtor)
 TLI_DEFINE_STRING_INTERNAL("??_Gexception@std@@UEAAPEAXI@Z")
+/// public: virtual void * __ptr64 __cdecl std::ios_base::failure::`scalar deleting destructor'(unsigned int) __ptr64
+TLI_DEFINE_ENUM_INTERNAL(msvc_std_ios_base_failure_scalar_deleting_dtor)
+TLI_DEFINE_STRING_INTERNAL("??_Gfailure@ios_base@std@@UEAAPEAXI@Z")
 /// public: virtual void * __ptr64 __cdecl std::runtime_error::`scalar deleting destructor'(unsigned int) __ptr64
 TLI_DEFINE_ENUM_INTERNAL(msvc_std_runtime_error_scalar_deleting_dtor)
 TLI_DEFINE_STRING_INTERNAL("??_Gruntime_error@std@@UEAAPEAXI@Z")
+/// public: virtual void * __ptr64 __cdecl std::system_error::`scalar deleting destructor'(unsigned int) __ptr64
+TLI_DEFINE_ENUM_INTERNAL(msvc_std_system_error_scalar_deleting_dtor)
+TLI_DEFINE_STRING_INTERNAL("??_Gsystem_error@std@@UEAAPEAXI@Z")
 #endif // INTEL_CUSTOMIZATION
 
 /// void *new[](unsigned int);
@@ -166,6 +187,9 @@ TLI_DEFINE_ENUM_INTERNAL(msvc_delete_array_ptr64_longlong)
 TLI_DEFINE_STRING_INTERNAL("??_V@YAXPEAX_K@Z")
 
 #if INTEL_CUSTOMIZATION
+/// public: virtual class std::_Facet_base * __ptr64 __cdecl std::locale::facet::_Decref(void) __ptr64
+TLI_DEFINE_ENUM_INTERNAL(msvc_std_locale_facet_decref)
+TLI_DEFINE_STRING_INTERNAL("?_Decref@facet@locale@std@@UEAAPEAV_Facet_base@3@XZ")
 /// int __cdecl std::_Execute_once(struct std::once_flag & __ptr64,int (__cdecl*)(void * __ptr64,void * __ptr64,void * __ptr64 * __ptr64),void * __ptr64)
 TLI_DEFINE_ENUM_INTERNAL(msvc_std_Execute_once)
 TLI_DEFINE_STRING_INTERNAL("?_Execute_once@std@@YAHAEAUonce_flag@1@P6AHPEAX1PEAPEAX@Z1@Z")
@@ -175,6 +199,9 @@ TLI_DEFINE_STRING_INTERNAL("?_Facet_Register@std@@YAXPEAV_Facet_base@1@@Z")
 /// static class std::locale::_Locimp * __ptr64 __cdecl std::locale::_Getgloballocale(void)
 TLI_DEFINE_ENUM_INTERNAL(msvc_std_locimp_Getgloballocale)
 TLI_DEFINE_STRING_INTERNAL("?_Getgloballocale@locale@std@@CAPEAV_Locimp@12@XZ")
+/// public: virtual void __cdecl std::locale::facet::_Incref(void) __ptr64
+TLI_DEFINE_ENUM_INTERNAL(msvc_std_locale_facet_incref)
+TLI_DEFINE_STRING_INTERNAL("?_Incref@facet@locale@std@@UEAAXXZ")
 /// void __cdecl std::_Locinfo::_Locinfo_ctor(class std::_Locinfo * __ptr64,char const * __ptr64);
 TLI_DEFINE_ENUM_INTERNAL(msvc_std_locinfo_ctor)
 TLI_DEFINE_STRING_INTERNAL("?_Locinfo_ctor@_Locinfo@std@@SAXPEAV12@PEBD@Z")
@@ -199,6 +226,9 @@ TLI_DEFINE_STRING_INTERNAL("?_Xout_of_range@std@@YAXPEBD@Z")
 /// basic_string<CharType, Traits, Allocator>& append(const value_type* ptr, size_type count)
 TLI_DEFINE_ENUM_INTERNAL(msvc_std_basic_string_append)
 TLI_DEFINE_STRING_INTERNAL("?append@?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@std@@QEAAAEAV12@QEBD_K@Z")
+/// virtual class std::error_condition __cdecl std::error_category::default_error_condition(int)const __ptr64
+TLI_DEFINE_ENUM_INTERNAL(msvc_std_error_category_default_error)
+TLI_DEFINE_STRING_INTERNAL("?default_error_condition@error_category@std@@UEBA?AVerror_condition@2@H@Z")
 /// virtual iter_type do_put(iter_type dest, ios_base& _Iosbase, _Elem _Fill, long val) const;
 TLI_DEFINE_ENUM_INTERNAL(msvc_std_num_put_do_put_long)
 TLI_DEFINE_STRING_INTERNAL("?do_put@?$num_put@DV?$ostreambuf_iterator@DU?$char_traits@D@std@@@std@@@std@@MEBA?AV?$ostreambuf_iterator@DU?$char_traits@D@std@@@2@V32@AEAVios_base@2@DJ@Z")
@@ -235,6 +265,18 @@ TLI_DEFINE_STRING_INTERNAL("?do_toupper@?$ctype@D@std@@MEBADD@Z")
 /// virtual CharType do_toupper(CharType *first, const CharType *last) const;
 TLI_DEFINE_ENUM_INTERNAL(msvc_std_ctype_do_toupper_ptr_ptr)
 TLI_DEFINE_STRING_INTERNAL("?do_toupper@?$ctype@D@std@@MEBAPEBDPEADPEBD@Z")
+/// virtual bool __cdecl std::error_category::equivalent(class std::error_code const & __ptr64,int)const __ptr64
+TLI_DEFINE_ENUM_INTERNAL(msvc_std_error_category_equivalent_error_code)
+TLI_DEFINE_STRING_INTERNAL("?equivalent@error_category@std@@UEBA_NAEBVerror_code@2@H@Z")
+/// virtual class std::basic_string<char,struct std::char_traits<char>,class std::allocator<char> > __cdecl std::_Generic_error_category::message(int)const __ptr64
+TLI_DEFINE_ENUM_INTERNAL(msvc_std_under_generic_error_category_message)
+TLI_DEFINE_STRING_INTERNAL("?message@_Generic_error_category@std@@UEBA?AV?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@2@H@Z")
+/// virtual class std::basic_string<char,struct std::char_traits<char>,class std::allocator<char> > __cdecl std::_Iostream_error_category::message(int)const __ptr64
+TLI_DEFINE_ENUM_INTERNAL(msvc_std_under_iostreamer_error_category_message)
+TLI_DEFINE_STRING_INTERNAL("?message@_Iostream_error_category@std@@UEBA?AV?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@2@H@Z")
+/// virtual char const * __ptr64 __cdecl std::_Iostream_error_category::name(void)const __ptr64
+TLI_DEFINE_ENUM_INTERNAL(msvc_std_under_iostreamer_error_category_name)
+TLI_DEFINE_STRING_INTERNAL("?name@_Iostream_error_category@std@@UEBAPEBDXZ")
 /// bool __cdecl std::uncaught_exception(void)
 TLI_DEFINE_ENUM_INTERNAL(msvc_std_uncaught_exception)
 TLI_DEFINE_STRING_INTERNAL("?uncaught_exception@std@@YA_NXZ")
