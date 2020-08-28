@@ -484,10 +484,6 @@ bool CGPassManager::RunAllPassesOnSCC(CallGraphSCC &CurSCC, CallGraph &CG,
     bool LocalChanged =
         RunPassOnSCC(P, CurSCC, CG, CallGraphUpToDate, DevirtualizedCall);
 
-<<<<<<< HEAD
-#if !INTEL_PRODUCT_RELEASE
-    if (Changed)
-=======
     Changed |= LocalChanged;
 
 #ifdef EXPENSIVE_CHECKS
@@ -497,8 +493,9 @@ bool CGPassManager::RunAllPassesOnSCC(CallGraphSCC &CurSCC, CallGraph &CG,
       llvm_unreachable("Pass modifies its input and doesn't report it");
     }
 #endif
+
+#if !INTEL_PRODUCT_RELEASE
     if (LocalChanged)
->>>>>>> b1f4e5979b74ccc6e2228b8ba54c40ea4af73907
       dumpPassInfo(P, MODIFICATION_MSG, ON_CG_MSG, "");
     dumpPreservedSet(P);
 #endif // !INTEL_PRODUCT_RELEASE
