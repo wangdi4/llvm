@@ -9,7 +9,7 @@
 ; }
 
 define dso_local void @_Z3fooPii(i32* nocapture %a, i32 %n) local_unnamed_addr #0 {
-; CHECK-LABEL:  VPlan after loop unrolling:
+; CHECK-LABEL:  VPlan after VPlan loop unrolling:
 ; CHECK-NEXT:  VPlan IR for: Initial VPlan for VF=4
 ; CHECK-NEXT:  External Defs Start:
 ; CHECK-DAG:     [[VP0:%.*]] = {sext.i32.i64(%n) + -1}

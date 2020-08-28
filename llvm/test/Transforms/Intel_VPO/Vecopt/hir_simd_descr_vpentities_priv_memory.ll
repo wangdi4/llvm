@@ -46,7 +46,7 @@ target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: nounwind uwtable
 define dso_local i32 @foo1(i32* %ptr, i32 %step, i32 %n) local_unnamed_addr {
-; CHECK-LABEL:  VPlan after insertion VPEntities instructions:
+; CHECK-LABEL:  VPlan after insertion of VPEntities instructions:
 ; CHECK-NEXT:  External Defs Start:
 ; CHECK-DAG:     [[VP0:%.*]] = {%2}
 ; CHECK-DAG:     [[VP1:%.*]] = {%n + -1}
@@ -167,7 +167,7 @@ omp.precond.end:                                  ; preds = %omp.loop.exit, %ent
 ; variable %s inside the loop.
 
 define dso_local i32 @foo2(i32* %ptr, i32 %step, i32 %n) local_unnamed_addr {
-; CHECK-LABEL:  VPlan after insertion VPEntities instructions:
+; CHECK-LABEL:  VPlan after insertion of VPEntities instructions:
 ; CHECK-NEXT:  External Defs Start:
 ; CHECK-DAG:     [[VP0:%.*]] = {%2}
 ; CHECK-DAG:     [[VP1:%.*]] = {%c.promoted}

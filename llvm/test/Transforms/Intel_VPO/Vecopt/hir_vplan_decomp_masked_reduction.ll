@@ -18,7 +18,7 @@
 ;       @llvm.directive.region.exit(%entry.region); [ DIR.VPO.END.AUTO.VEC() ]
 ; END REGION
 
-; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -VPlanDriverHIR -vplan-print-plain-cfg -vplan-force-vf=4 -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -VPlanDriverHIR -vplan-print-after-plain-cfg -vplan-force-vf=4 -disable-output < %s 2>&1 | FileCheck %s
 
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"

@@ -23,7 +23,7 @@
 ; <0>     END REGION
 
 
-; RUN: opt -hir-ssa-deconstruction -hir-framework -VPlanDriverHIR -vplan-print-plain-cfg -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -hir-ssa-deconstruction -hir-framework -VPlanDriverHIR -vplan-print-after-plain-cfg -disable-output < %s 2>&1 | FileCheck %s
 
 ; CHECK-LABEL:  VPlan after importing plain CFG:
 ; CHECK:          i64 [[VP2:%.*]] = phi  [ i64 0, [[BB1:BB[0-9]+]] ],  [ i64 [[VP3:%.*]], [[BB2:BB[0-9]+]] ]

@@ -33,7 +33,7 @@ target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: norecurse nounwind readonly uwtable
 define dso_local float @ifsum1(i32 %N) local_unnamed_addr {
-; CHECK-LABEL:  VPlan after insertion VPEntities instructions:
+; CHECK-LABEL:  VPlan after insertion of VPEntities instructions:
 ; CHECK:        Loop Entities of the loop with header [[BB0:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Reduction list

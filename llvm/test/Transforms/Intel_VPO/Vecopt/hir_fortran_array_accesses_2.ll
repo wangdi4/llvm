@@ -2,7 +2,7 @@
 ; Check VPlan decomposition and codegen approaches for a simple Fortran-based loop nest with
 ; struct accesses.
 
-; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -vplan-print-plain-cfg -vplan-dump-subscript-details -disable-output< %s 2>&1 | FileCheck %s --check-prefix=VPLAN-IR
+; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -vplan-print-after-plain-cfg -vplan-dump-subscript-details -disable-output< %s 2>&1 | FileCheck %s --check-prefix=VPLAN-IR
 ; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -vplan-force-vf=2 -enable-vp-value-codegen-hir=false -print-after=VPlanDriverHIR -disable-output < %s 2>&1 | FileCheck %s --check-prefix=MIXED-CG
 ; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -vplan-force-vf=2 -enable-vp-value-codegen-hir=true -print-after=VPlanDriverHIR -disable-output < %s 2>&1 | FileCheck %s --check-prefix=VPVALUE-CG
 

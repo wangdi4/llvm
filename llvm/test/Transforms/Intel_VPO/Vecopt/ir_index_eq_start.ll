@@ -11,7 +11,7 @@
 ;}
 ;
 define void @foo(i32* noalias nocapture %A, i32* noalias nocapture readonly %B, i64 %N, i64 %c) local_unnamed_addr #0 {
-; CHECK-LABEL:  VPlan after insertion VPEntities instructions:
+; CHECK-LABEL:  VPlan after insertion of VPEntities instructions:
 ; CHECK-NEXT:    [[BB0:BB[0-9]+]]: # preds:
 ; CHECK-NEXT:     br [[BB1:BB[0-9]+]]
 ; CHECK-EMPTY:

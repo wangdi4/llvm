@@ -10,7 +10,7 @@ declare i64 @llvm.vplan.laneid()
 
 ; Function Attrs: nounwind uwtable
 define dso_local void @foo(i32* nocapture readonly %a, i32* nocapture readonly %b, i32* nocapture %c, i32 %x, i32 %y) local_unnamed_addr #0 {
-; CHECK-LABEL:  VPlan after all zero bypass:
+; CHECK-LABEL:  VPlan after all-zero bypass for VPlan Function vectorization:
 ; CHECK-NEXT:  VPlan IR for: foo
 ; CHECK-NEXT:    [[BB0:BB[0-9]+]]:
 ; CHECK-NEXT:     [DA: Div] i64 [[VP_LANE:%.*]] = induction-init{add} i64 0 i64 1

@@ -29,9 +29,8 @@
 using namespace llvm;
 using namespace llvm::vpo;
 
-static cl::opt<bool> DotBeforeBlends(
-    "vplan-dot-before-blends", cl::init(false), cl::Hidden,
-    cl::desc("Print VPlan digraph before blends are processed."));
+static LoopVPlanDumpControl
+    PredicatesEmissionDumpControl("predicates-emission", "predicates emission");
 
 static cl::opt<bool> PreserveUniformCFG(
     "vplan-preserve-uniform-branches", cl::init(true), cl::Hidden,
@@ -1009,7 +1008,7 @@ void VPlanPredicator::predicate() {
   // during emission.
   emitPredicates();
 
-  VPLAN_DOT(DotBeforeBlends, Plan);
+  VPLAN_DUMP(PredicatesEmissionDumpControl, Plan);
 
   transformPhisToBlends();
 

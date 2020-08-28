@@ -30,7 +30,7 @@
 ; For this example, DDG incorrectly reports that there are 2 reaching definitions for %0, %1 ... %9 leading to
 ; insertion of unnecessary PHI nodes in HCFG. We replace and remove such PHI nodes in fixPhiNodes().
 
-; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-last-value-computation -hir-loop-rematerialize -hir-vec-dir-insert -VPlanDriverHIR -vplan-print-plain-cfg -debug-only=vplan-decomposer < %s 2>&1 | FileCheck %s
+; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-last-value-computation -hir-loop-rematerialize -hir-vec-dir-insert -VPlanDriverHIR -vplan-print-after-plain-cfg -debug-only=vplan-decomposer < %s 2>&1 | FileCheck %s
 ; REQUIRES: asserts
 
 ; Check that 9 invalid PHI nodes are replaced and removed

@@ -74,56 +74,32 @@ static cl::opt<bool, true> LoopMassagingEnabledOpt(
     cl::Hidden,
     cl::desc("Enable loop massaging in VPlan (Multiple to Singular Exit)"));
 
+static LoopVPlanDumpControl LCSSADumpControl("lcssa", "LCSSA transformation");
+static LoopVPlanDumpControl LoopCFUDumpControl("loop-cfu",
+                                               "LoopCFU transformation");
+static LoopVPlanDumpControl
+    LinearizationDumpControl("linearization", "predication and linearization");
+static LoopVPlanDumpControl
+    AllZeroBypassDumpControl("all-zero-bypass", "all zero bypass insertion");
+static LoopVPlanDumpControl
+    LiveInOutListsDumpControl("live-inout-list", "live in/out lists creation");
+
+static LoopVPlanDumpControl LoopMassagingDumpControl("loop-massaging",
+                                                     "loop massaging");
+
+static LoopVPlanDumpControl
+    VPEntityInstructionsDumpControl("vpentity-instrs",
+                                    "insertion of VPEntities instructions");
+static LoopVPlanDumpControl
+    InitialTransformsDumpControl("initial-transforms",
+                                 "initial VPlan transforms");
+
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 static cl::list<unsigned> VPlanCostModelPrintAnalysisForVF(
     "vplan-cost-model-print-analysis-for-vf", cl::Hidden, cl::CommaSeparated,
     cl::ZeroOrMore,
     cl::desc("Print detailed VPlan Cost Model Analysis report for the given "
              "VF. For testing/debug purposes only."));
-
-static cl::opt<bool> DumpAfterVPEntityInstructions(
-    "vplan-print-after-vpentity-instrs", cl::init(false), cl::Hidden,
-    cl::desc("Print VPlan after insertion of VPEntity instructions."));
-
-static cl::opt<bool> VPlanPrintAfterLoopMassaging(
-    "vplan-print-after-loop-massaging", cl::init(false),
-    cl::desc("Print plain dump after loop massaging"));
-
-static cl::opt<bool> VPlanDotLoopMassaging(
-    "vplan-dot-loop-massaging", cl::init(false), cl::Hidden,
-    cl::desc("Print VPlan digraph after loop massaging."));
-
-static cl::opt<bool> VPlanPrintAfterInitialTransforms(
-    "vplan-print-after-initial-transforms", cl::init(false),
-    cl::desc("Print plain dump after initial VPlan transforms."));
-
-static cl::opt<bool>
-    PrintAfterLCSSA("vplan-print-after-lcssa", cl::init(false), cl::Hidden,
-                    cl::desc("Print VPlan after LCSSA transformation."));
-
-static cl::opt<bool>
-    PrintAfterLoopCFU("vplan-print-after-loop-cfu", cl::init(false), cl::Hidden,
-                      cl::desc("Print VPlan after LoopCFU transformation."));
-
-static cl::opt<bool> DotAfterLoopCFU(
-    "vplan-dot-after-loop-cfu", cl::init(false), cl::Hidden,
-    cl::desc("Print VPlan digraph after LoopCFU transformation."));
-
-static cl::opt<bool> PrintAfterLinearization(
-    "vplan-print-after-linearization", cl::init(false), cl::Hidden,
-    cl::desc("Print VPlan after predication and linearization."));
-
-static cl::opt<bool> DotAfterLinearization(
-    "vplan-dot-after-linearization", cl::init(false), cl::Hidden,
-    cl::desc("Print VPlan digraph after predication and linearization."));
-
-static cl::opt<bool> PrintAfterAllZeroBypass(
-    "vplan-print-after-all-zero-bypass", cl::init(false), cl::Hidden,
-    cl::desc("Print VPlan after all zero bypass insertion."));
-
-static cl::opt<bool> DotAfterAllZeroBypass(
-    "vplan-dot-after-all-zero-bypass", cl::init(false), cl::Hidden,
-    cl::desc("Print VPlan digraph after all zero bypass insertion."));
 
 static cl::opt<bool, true> PrintAfterCallVecDecisionsOpt(
     "vplan-print-after-call-vec-decisions", cl::Hidden,
@@ -133,26 +109,9 @@ static cl::opt<bool, true> PrintAfterCallVecDecisionsOpt(
 static cl::opt<bool, true> PrintSVAResultsOpt(
     "vplan-print-scalvec-results", cl::Hidden, cl::location(PrintSVAResults),
     cl::desc("Print VPlan with results of ScalVec analysis."));
-
-static cl::opt<bool> PrintAfterLiveInOutList(
-    "vplan-print-after-live-inout-list", cl::init(false), cl::Hidden,
-    cl::desc("Print VPlan after live in/out lists creation."));
-
 #else
-static constexpr bool DumpAfterVPEntityInstructions = false;
-static constexpr bool VPlanPrintAfterLoopMassaging = false;
-static constexpr bool VPlanDotLoopMassaging = false;
-static constexpr bool VPlanPrintAfterInitialTransforms = false;
-static constexpr bool PrintAfterLCSSA = false;
-static constexpr bool PrintAfterLoopCFU = false;
-static constexpr bool DotAfterLoopCFU = false;
-static constexpr bool PrintAfterLinearization = false;
-static constexpr bool DotAfterLinearization = false;
-static constexpr bool PrintAfterAllZeroBypass = false;
-static constexpr bool DotAfterAllZeroBypass = false;
 static constexpr bool PrintAfterCallVecDecisionsOpt = false;
 static constexpr bool PrintSVAResultsOpt = false;
-static constexpr bool PrintAfterLiveInOutList = false;
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 
 namespace {
@@ -367,7 +326,7 @@ unsigned LoopVectorizationPlanner::buildInitialVPlans(LLVMContext *Context,
 void LoopVectorizationPlanner::createLiveInOutLists(VPlan &Plan) {
   VPLiveInOutCreator LICreator(Plan);
   LICreator.createInOutValues();
-  VPLAN_DUMP(PrintAfterLiveInOutList, "Live-in/out lists creation", Plan);
+  VPLAN_DUMP(LiveInOutListsDumpControl, Plan);
 }
 
 void LoopVectorizationPlanner::selectBestPeelingVariants() {
@@ -561,7 +520,7 @@ void LoopVectorizationPlanner::predicate() {
 
     if (!SearchLoopHack)
       formLCSSA(*VPlan, true /* SkipTopLoop */);
-    VPLAN_DUMP(PrintAfterLCSSA, "LCSSA transformation", VPlan);
+    VPLAN_DUMP(LCSSADumpControl, VPlan);
 
     if (!SearchLoopHack) {
       assert(!VPlan->getVPlanDA()->isDivergent(
@@ -570,17 +529,14 @@ void LoopVectorizationPlanner::predicate() {
       VPlanLoopCFU LoopCFU(*VPlan);
       LoopCFU.run();
     }
-    VPLAN_DUMP(PrintAfterLoopCFU, "Loop CFU transformation", VPlan);
-    VPLAN_DOT(DotAfterLoopCFU, VPlan);
+    VPLAN_DUMP(LoopCFUDumpControl, VPlan);
 
     // Predication "has" to be done even for the search loop hack. Our
     // idiom-matching code and CG currently expect that. Note that predicator
     // has some hacks for search loop processing inside it as well.
     VPlanPredicator VPP(*VPlan);
     VPP.predicate();
-
-    VPLAN_DUMP(PrintAfterLinearization, "predication and linearization", VPlan);
-    VPLAN_DOT(DotAfterLinearization, VPlan);
+    VPLAN_DUMP(LinearizationDumpControl, VPlan);
 
     PredicatedVPlans.insert(VPlan);
   }
@@ -617,9 +573,7 @@ void LoopVectorizationPlanner::insertAllZeroBypasses(VPlan *Plan, unsigned VF) {
                                            &VectorCM);
   }
   AZB.insertAllZeroBypasses(AllZeroBypassRegions);
-
-  VPLAN_DUMP(PrintAfterAllZeroBypass, "all zero bypass insertion", Plan);
-  VPLAN_DOT(DotAfterAllZeroBypass, Plan);
+  VPLAN_DUMP(AllZeroBypassDumpControl, Plan);
 }
 
 void LoopVectorizationPlanner::unroll(
@@ -716,8 +670,7 @@ void LoopVectorizationPlanner::emitVPEntityInstrs(VPlan *Plan) {
   VPBuilder VPIRBuilder;
   LE->insertVPInstructions(VPIRBuilder);
 
-  VPLAN_DUMP(DumpAfterVPEntityInstructions, "insertion VPEntities instructions",
-             Plan);
+  VPLAN_DUMP(VPEntityInstructionsDumpControl, Plan);
 }
 
 void LoopVectorizationPlanner::emitVecSpecifics(VPlan *Plan) {
@@ -811,8 +764,7 @@ void LoopVectorizationPlanner::doLoopMassaging(VPlan *Plan) {
       mergeLoopExits(VPL);
       // TODO: Verify loops here? It is done again after all initial transforms.
     }
-    VPLAN_DUMP(VPlanPrintAfterLoopMassaging, "loop massaging", Plan);
-    VPLAN_DOT(VPlanDotLoopMassaging, Plan);
+    VPLAN_DUMP(LoopMassagingDumpControl, Plan);
     LLVM_DEBUG(dbgs() << "Dominator Tree After mergeLoopExits\n";
                VPDomTree.print(dbgs()));
   }
@@ -836,8 +788,7 @@ void LoopVectorizationPlanner::printAndVerifyAfterInitialTransforms(
       Verifier->verifyLoops(Plan, *Plan->getDT(), Plan->getVPLoopInfo()));
   (void)Verifier;
 
-  VPLAN_DUMP(VPlanPrintAfterInitialTransforms, "initial VPlan transforms",
-             Plan);
+  VPLAN_DUMP(InitialTransformsDumpControl, Plan);
 }
 
 // Feed explicit data, saved in WRNVecLoopNode to the CodeGen.

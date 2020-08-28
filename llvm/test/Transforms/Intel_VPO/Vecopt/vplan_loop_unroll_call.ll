@@ -4,7 +4,7 @@
 ; RUN: opt -S -vector-library=SVML -VPlanDriver -vplan-force-vf=4 -vplan-force-uf=3 -vplan-print-after-unroll < %s | FileCheck %s
 
 define dso_local void @_Z3fooPii(float* nocapture %a, i32 %n) local_unnamed_addr {
-; CHECK-LABEL:  VPlan after loop unrolling:
+; CHECK-LABEL:  VPlan after VPlan loop unrolling:
 ; CHECK-NEXT:  Live-in values:
 ; CHECK-NEXT:  ID: 0 Value: i64 0
 ; CHECK-NEXT:    [[BB0:BB[0-9]+]]:

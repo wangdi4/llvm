@@ -41,18 +41,8 @@ using namespace llvm::vpo;
 
 #if INTEL_CUSTOMIZATION
 extern cl::opt<bool> EnableVPValueCodegen;
-#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-static cl::opt<bool>
-    VPlanPrintPlainCFG("vplan-print-plain-cfg", cl::init(false),
-                       cl::desc("Print plain dump after VPlan buildPlainCFG."));
-
-static cl::opt<bool> VPlanDotPlainCFG(
-    "vplan-dot-plain-cfg", cl::init(false), cl::Hidden,
-    cl::desc("Print VPlan digraph after VPlan buildPlainCFG."));
-#else
-static constexpr bool VPlanPrintPlainCFG = false;
-static constexpr bool VPlanDotPlainCFG = false;
-#endif // !NDEBUG || LLVM_ENABLE_DUMP
+static LoopVPlanDumpControl PlainCFGDumpControl("plain-cfg",
+                                                "importing plain CFG");
 #endif // INTEL_CUSTOMIZATION
 
 VPlanHCFGBuilder::VPlanHCFGBuilder(Loop *Lp, LoopInfo *LI, const DataLayout &DL,
@@ -183,8 +173,7 @@ void VPlanHCFGBuilder::buildHierarchicalCFG() {
   LLVM_DEBUG(dbgs() << "PostDominator Tree After buildPlainCFG:\n";
              Plan->getPDT()->print(dbgs()));
 
-  VPLAN_DUMP(VPlanPrintPlainCFG, "importing plain CFG", Plan);
-  VPLAN_DOT(VPlanDotPlainCFG, Plan);
+  VPLAN_DUMP(PlainCFGDumpControl, Plan);
 }
 
 class PrivatesListCvt;
