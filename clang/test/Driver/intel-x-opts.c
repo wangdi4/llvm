@@ -5,6 +5,7 @@
 // RUN: %clang_cl -### -c /QxSSE -m32 %s 2>&1 \
 // RUN:  | FileCheck -check-prefixes=XSSE,ADV_OPT %s
 // XSSE: "-target-cpu" "pentium3"
+// XSSE-NOT: "-tune-cpu"
 
 // RUN: %clang -### -c -xA -m32 %s 2>&1 \
 // RUN:  | FileCheck -check-prefixes=XA,ADV_OPT %s
@@ -216,6 +217,11 @@
 // RUN:  | FileCheck -check-prefixes=XDUMMY,ADV_OPT %s
 // XDUMMY: "-target-cpu" "dummy"
 
+// RUN: %clang -### -c -xSSE4.2 -mtune=haswell %s 2>&1 \
+// RUN:  | FileCheck -check-prefixes=XSSE42_MTUNE,ADV_OPT %s
+// XSSE42_MTUNE: "-target-cpu" "corei7"
+// XSSE42_MTUNE-SAME: "-tune-cpu" "haswell"
+//
 // ADV_OPT-SAME: "-fintel-advanced-optim"
 // ADV_OPT-NOT: "-enable-multiversioning"
 

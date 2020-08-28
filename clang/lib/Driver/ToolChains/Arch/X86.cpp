@@ -62,7 +62,7 @@ std::string getCPUForIntel(StringRef Arch, const llvm::Triple &Triple,
               .CaseLower("tigerlake", "tigerlake")
               .CasesLower("sapphirerapids", "sapphire-rapids",
                           "sapphire_rapids", "sapphirerapids")
-              .CaseLower("host", llvm::sys::getHostCPUName().data())
+              .CaseLower("host", llvm::sys::getHostCPUName())
               .Default("");
   }
   // We check for valid /arch and /Qx values, so overlap values are covered
@@ -76,7 +76,7 @@ std::string getCPUForIntel(StringRef Arch, const llvm::Triple &Triple,
     // No match found.  Instead of erroring out with a bad language type, we
     // will pass the arg to the compiler to validate.
     if (!IsArchOpt && !types::lookupTypeForTypeSpecifier(Arch.data()))
-      CPU = Arch.data();
+      CPU = Arch;
   }
   return std::string(CPU);
 }

@@ -2147,6 +2147,20 @@ void Clang::AddX86TargetArgs(const ArgList &Args,
   std::string TuneCPU;
   if (!Args.hasArg(clang::driver::options::OPT_march_EQ))
     TuneCPU = "generic";
+#if INTEL_CUSTOMIZATION
+  // Reset TuneCPU if a valid -x or /Qx is specified.
+  if (const Arg *A = Args.getLastArgNoClaim(options::OPT_march_EQ,
+                                            options::OPT_x))
+    if (A->getOption().matches(options::OPT_x))
+      if (x86::isValidIntelCPU(A->getValue(), getToolChain().getTriple()))
+        TuneCPU.clear();
+  if (const Arg *A = Args.getLastArgNoClaim(options::OPT__SLASH_arch,
+                                            options::OPT__SLASH_Qx)) {
+    if (A->getOption().matches(options::OPT__SLASH_Qx))
+      if (x86::isValidIntelCPU(A->getValue(), getToolChain().getTriple()))
+        TuneCPU.clear();
+  }
+#endif // INTEL_CUSTOMIZATION
 
   // Override based on -mtune.
   if (const Arg *A = Args.getLastArg(clang::driver::options::OPT_mtune_EQ)) {
