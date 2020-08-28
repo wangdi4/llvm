@@ -52,7 +52,7 @@ endif( USE_NUMA AND NOT WIN32 )
 if( WIN32 )
     target_link_libraries( ${TARGET_NAME} Version.lib cl_hw_utils )
 else( WIN32 )
-    target_link_libraries( ${TARGET_NAME} cl_hw_utils rt )
+    target_link_libraries( ${TARGET_NAME} cl_hw_utils rt dl )
 endif( WIN32 )
 
 set_target_properties( ${TARGET_NAME} PROPERTIES FOLDER ${UTILS_FOLDER_NAME} )

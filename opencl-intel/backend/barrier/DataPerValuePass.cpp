@@ -167,16 +167,16 @@ namespace intel {
       }
       switch ( isSpecialValue(pInst, m_pWIRelatedValue->isWIRelated(pInst)) ) {
         case SPECIAL_VALUE_TYPE_B1:
-          //It is an special value, add it to special value container
+          // It is a special value, and add it to special value container.
           m_specialValuesPerFuncMap[&F].push_back(pInst);
           break;
         case SPECIAL_VALUE_TYPE_B2:
-          //It is an uniform value that usage cross a barrier
-          //add it to cross barrier value container
+          // It is a uniform value whose usage crosses a barrier,
+          // and add it to cross-barrier value container.
           m_crossBarrierValuesPerFuncMap[&F].push_back(pInst);
           break;
         case SPECIAL_VALUE_TYPE_NONE:
-          //No need to handle this value
+          // No need to handle this value.
           break;
         default:
           assert( false && "Unknown special value type!" );

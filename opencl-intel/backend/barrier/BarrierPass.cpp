@@ -49,11 +49,19 @@ namespace intel {
 
   char Barrier::ID = 0;
 
-  OCL_INITIALIZE_PASS_BEGIN(Barrier, "B-Barrier", "Barrier Pass - Handle special values & replace barrier/fiber with internal loop over WIs", false, true)
+  OCL_INITIALIZE_PASS_BEGIN(
+      Barrier, "B-Barrier",
+      "Barrier Pass - Handle special values & replace barrier/fiber with"
+      "internal loop over WIs",
+      false, false)
   OCL_INITIALIZE_PASS_DEPENDENCY_INTEL(DataPerBarrier)
   OCL_INITIALIZE_PASS_DEPENDENCY_INTEL(DataPerValue)
   OCL_INITIALIZE_PASS_DEPENDENCY(DominatorTreeWrapperPass)
-  OCL_INITIALIZE_PASS_END(Barrier, "B-Barrier", "Barrier Pass - Handle special values & replace barrier/fiber with internal loop over WIs", false, true)
+  OCL_INITIALIZE_PASS_END(
+      Barrier, "B-Barrier",
+      "Barrier Pass - Handle special values & replace barrier/fiber with"
+      "internal loop over WIs",
+      false, false)
 
   Barrier::Barrier(bool isNativeDebug, bool useTLSGlobals)
       : ModulePass(ID), m_DL(nullptr), m_pContext(nullptr), m_uiSizeT(0),

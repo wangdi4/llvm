@@ -22,7 +22,10 @@ namespace intel {
 
   char BarrierInFunction::ID = 0;
 
-  OCL_INITIALIZE_PASS(BarrierInFunction, "B-BarrierInFunction", "Barrier Pass - Handle barrier instructions called from functions", false, true)
+  OCL_INITIALIZE_PASS(
+      BarrierInFunction, "B-BarrierInFunction",
+      "Barrier Pass - Handle barrier instructions called from functions",
+      false, false)
 
   BarrierInFunction::BarrierInFunction() : ModulePass(ID) {}
 

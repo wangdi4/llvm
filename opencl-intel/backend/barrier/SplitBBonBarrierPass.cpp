@@ -21,7 +21,9 @@ namespace intel {
 
   char SplitBBonBarrier::ID = 0;
 
-  OCL_INITIALIZE_PASS(SplitBBonBarrier, "B-SplitOnBarrier", "Barrier Pass - Split Basic Block on Barrier", false, true)
+  OCL_INITIALIZE_PASS(SplitBBonBarrier, "B-SplitOnBarrier",
+                      "Barrier Pass - Split Basic Block on Barrier",
+                      false, false)
 
   SplitBBonBarrier::SplitBBonBarrier() : ModulePass(ID) {}
 
