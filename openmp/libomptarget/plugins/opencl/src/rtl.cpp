@@ -235,31 +235,33 @@ struct ExtensionsTy {
   };
 
   std::vector<LibdeviceExtDescTy> LibdeviceExtensions = {
+#if ENABLE_LIBDEVICE_LINKING
     {
-      "cl_intel_assert",
+      "cl_intel_devicelib_cassert",
       "libomp-fallback-cassert.spv",
       ExtensionStatusUnknown
     },
     {
-      "cl_intel_math",
+      "cl_intel_devicelib_math",
       "libomp-fallback-cmath.spv",
       ExtensionStatusUnknown
     },
     {
-      "cl_intel_math_fp64",
+      "cl_intel_devicelib_math_fp64",
       "libomp-fallback-cmath-fp64.spv",
       ExtensionStatusUnknown
     },
     {
-      "cl_intel_complex",
+      "cl_intel_devicelib_complex",
       "libomp-fallback-complex.spv",
       ExtensionStatusUnknown
     },
     {
-      "cl_intel_complex_fp64",
+      "cl_intel_devicelib_complex_fp64",
       "libomp-fallback-complex-fp64.spv",
       ExtensionStatusUnknown
     },
+#endif // ENABLE_LIBDEVICE_LINKING
   };
 
   // Initialize extensions' statuses for the given device.

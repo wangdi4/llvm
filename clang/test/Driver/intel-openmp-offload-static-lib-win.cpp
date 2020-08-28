@@ -84,4 +84,4 @@
 // STATIC_LIB_WIN_LIBENV: llvm-spirv{{.*}} "-o" "[[SPIRVOUT:.+\.exe]]" "-spirv-ext={{.*}}" "[[POSTLINKBC]]"
 // STATIC_LIB_WIN_LIBENV: clang-offload-wrapper{{.*}} "-host" "x86_64-pc-windows-msvc{{.*}}" "-o" "[[WRAPPEROUT:.+\.bc]]" "-kind=openmp" "-target=spir64" "[[SPIRVOUT]]"
 // STATIC_LIB_WIN_LIBENV: clang{{.*}} "-o" "[[WRAPOBJ:.+\.obj]]" "-x" "ir" "[[WRAPPEROUT]]"
-// STATIC_LIB_WIN_LIBENV: link{{.*}} "liboffload.lib" "[[WRAPOBJ]]"
+// STATIC_LIB_WIN_LIBENV: link{{.*}} "liboffload.lib"{{.*}}"[[WRAPOBJ]]"

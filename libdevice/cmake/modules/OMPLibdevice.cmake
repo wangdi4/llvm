@@ -47,8 +47,7 @@ function(add_obj_file src dst)
             ${omp_target_opts}="${clang_opts}"
             ${src} ${cmplr_obj_out}${dst}
     MAIN_DEPENDENCY ${src}
-    DEPENDS device_complex.h device.h
-            ${ARG_DEPENDS}
+    DEPENDS ${ARG_DEPENDS}
             clang clang-offload-bundler
 # INTEL_CUSTOMIZATION
             icx
@@ -105,6 +104,11 @@ else(WIN32)
     ${binary_dir}/libomp-glibc${objext}
     DEPENDS wrapper.h device.h)
 endif(WIN32)
+add_obj_file(
+  ${CMAKE_CURRENT_SOURCE_DIR}/fallback-cassert.cpp
+  ${binary_dir}/libomp-fallback-cassert${objext}
+  DEPENDS wrapper.h device.h
+  )
 add_spv_file(
   ${CMAKE_CURRENT_SOURCE_DIR}/fallback-cassert.cpp
   ${binary_dir}/libomp-fallback-cassert.spv
@@ -117,6 +121,11 @@ add_obj_file(
   ${binary_dir}/libomp-cmath${objext}
   DEPENDS device_math.h device.h
   )
+add_obj_file(
+  ${CMAKE_CURRENT_SOURCE_DIR}/fallback-cmath.cpp
+  ${binary_dir}/libomp-fallback-cmath${objext}
+  DEPENDS device_math.h device.h
+  )
 add_spv_file(
   ${CMAKE_CURRENT_SOURCE_DIR}/fallback-cmath.cpp
   ${binary_dir}/libomp-fallback-cmath.spv
@@ -125,6 +134,11 @@ add_spv_file(
 add_obj_file(
   ${CMAKE_CURRENT_SOURCE_DIR}/cmath_wrapper_fp64.cpp
   ${binary_dir}/libomp-cmath-fp64${objext}
+  DEPENDS device_math.h device.h
+  )
+add_obj_file(
+  ${CMAKE_CURRENT_SOURCE_DIR}/fallback-cmath-fp64.cpp
+  ${binary_dir}/libomp-fallback-cmath-fp64${objext}
   DEPENDS device_math.h device.h
   )
 add_spv_file(
@@ -139,6 +153,11 @@ add_obj_file(
   ${binary_dir}/libomp-complex${objext}
   DEPENDS device_complex.h device.h
   )
+add_obj_file(
+  ${CMAKE_CURRENT_SOURCE_DIR}/fallback-complex.cpp
+  ${binary_dir}/libomp-fallback-complex${objext}
+  DEPENDS device_math.h device_complex.h device.h
+  )
 add_spv_file(
   ${CMAKE_CURRENT_SOURCE_DIR}/fallback-complex.cpp
   ${binary_dir}/libomp-fallback-complex.spv
@@ -148,6 +167,11 @@ add_obj_file(
   ${CMAKE_CURRENT_SOURCE_DIR}/complex_wrapper_fp64.cpp
   ${binary_dir}/libomp-complex-fp64${objext}
   DEPENDS device_complex.h device.h
+  )
+add_obj_file(
+  ${CMAKE_CURRENT_SOURCE_DIR}/fallback-complex-fp64.cpp
+  ${binary_dir}/libomp-fallback-complex-fp64${objext}
+  DEPENDS device_math.h device_complex.h device.h
   )
 add_spv_file(
   ${CMAKE_CURRENT_SOURCE_DIR}/fallback-complex-fp64.cpp
