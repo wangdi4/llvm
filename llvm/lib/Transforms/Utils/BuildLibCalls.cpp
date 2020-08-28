@@ -909,15 +909,23 @@ bool llvm::inferLibFuncAttributes(Function &F, const TargetLibraryInfo &TLI) {
   // case LibFunc_memset_pattern4:
   // case LibFunc_memset_pattern8:
 #if INTEL_CUSTOMIZATION
+  case LibFunc_msvc_std_bad_alloc_ctor:
+  case LibFunc_msvc_std_bad_alloc_scalar_deleting_dtor:
   case LibFunc_msvc_std_basic_string_append:
+  case LibFunc_msvc_std_basic_string_insert:
+  case LibFunc_msvc_std_basic_string_resize:
     return Changed;
   case LibFunc_msvc_std_basic_string_under_xlen:
     Changed |= setDoesNotReturn(F);
     return Changed;
+  case LibFunc_msvc_std_ctype_do_narrow_char_char:
+  case LibFunc_msvc_std_ctype_do_narrow_ptr_ptr_char_ptr:
   case LibFunc_msvc_std_ctype_do_tolower_char:
   case LibFunc_msvc_std_ctype_do_tolower_ptr_ptr:
   case LibFunc_msvc_std_ctype_do_toupper_char:
   case LibFunc_msvc_std_ctype_do_toupper_ptr_ptr:
+  case LibFunc_msvc_std_ctype_do_widen_char:
+  case LibFunc_msvc_std_ctype_do_widen_ptr_ptr_ptr:
     Changed |= setDoesNotThrow(F);
     return Changed;
   case LibFunc_msvc_std_ctype_scalar_deleting_dtor:
@@ -928,6 +936,7 @@ bool llvm::inferLibFuncAttributes(Function &F, const TargetLibraryInfo &TLI) {
     return Changed;
   case LibFunc_msvc_std_ctype_use_facet:
   case LibFunc_msvc_std_CxxThrowException:
+  case LibFunc_msvc_std_error_category_equivalent_error_condition:
   case LibFunc_msvc_std_Execute_once:
   case LibFunc_msvc_std_exception_const_ptr_ctor:
   case LibFunc_msvc_std_exception_dtor:
@@ -966,8 +975,20 @@ bool llvm::inferLibFuncAttributes(Function &F, const TargetLibraryInfo &TLI) {
     return Changed;
   case LibFunc_msvc_std_Xlength_error:
   case LibFunc_msvc_std_Xout_of_range:
+  case LibFunc_msvc_std_Xran:
     Changed |= setDoesNotReturn(F);
     return Changed;
+  case LibFunc_msvc_std_numpunct_do_decimal_point:
+  case LibFunc_msvc_std_numpunct_do_thousands_sep:
+    Changed |= setDoesNotThrow(F);
+    return Changed;
+  case LibFunc_msvc_std_numpunct_do_falsename:
+  case LibFunc_msvc_std_numpunct_do_grouping:
+  // CMPLRLLVM-22470: This libfunc is disabled on purpose to prevent
+  // achieving whole program for 523.xalancbmk in Windows. This libfunc will
+  // be enabled when the issue in CMPLRLLVM-22470 is solved.
+  // case LibFunc_msvc_std_numpunct_use_facet:
+  case LibFunc_msvc_std_numpunct_do_truename:
   case LibFunc_msvc_std_num_put_do_put_bool:
   case LibFunc_msvc_std_num_put_do_put_double:
   case LibFunc_msvc_std_num_put_do_put_long:
@@ -976,7 +997,11 @@ bool llvm::inferLibFuncAttributes(Function &F, const TargetLibraryInfo &TLI) {
   case LibFunc_msvc_std_num_put_do_put_ulong:
   case LibFunc_msvc_std_num_put_do_put_ulong_long:
   case LibFunc_msvc_std_num_put_do_put_void_ptr:
+  case LibFunc_msvc_std_num_put_ostreambuf_iterator_Fput:
+  case LibFunc_msvc_std_num_put_ostreambuf_iterator_iput:
+  case LibFunc_msvc_std_num_put_ostreambuf_iterator_scalar_deleting_dtor:
   case LibFunc_msvc_std_num_put_use_facet:
+  case LibFunc_msvc_std_numpunct_scalar_deleting_dtor:
     return Changed;
   case LibFunc_msvc_std_under_immortalize_impl:
     Changed |= setDoesNotThrow(F);
@@ -2197,6 +2222,9 @@ bool llvm::inferLibFuncAttributes(Function &F, const TargetLibraryInfo &TLI) {
     Changed |= setDoesNotCapture(F, 3);
     Changed |= setOnlyReadsMemory(F, 3);
     return Changed;
+  // NOTE: sprintf_s in Windows is a wrapper to
+  // __stdio_common_vsprintf_s
+  case LibFunc_sprintf_s:
   case LibFunc_dunder_stdio_common_vsprintf_s:
     Changed |= setDoesNotThrow(F);
     Changed |= setDoesNotCapture(F, 1);
