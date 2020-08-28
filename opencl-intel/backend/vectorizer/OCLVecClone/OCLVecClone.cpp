@@ -39,14 +39,15 @@
 #include "OCLPrepareKernelForVecClone.h"
 #include "OCLVecClone.h"
 
-#include "llvm/Analysis/TargetTransformInfo.h"
 #include "llvm/ADT/DepthFirstIterator.h"
 #include "llvm/ADT/GraphTraits.h"
+#include "llvm/Analysis/TargetTransformInfo.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/InstIterator.h"
 #include "llvm/IR/IntrinsicInst.h"
 #include "llvm/IR/Intrinsics.h"
 #include "llvm/IR/LegacyPassManager.h"
+#include "llvm/IR/PatternMatch.h"
 #include "llvm/InitializePasses.h"
 
 #include <string>
@@ -57,6 +58,7 @@
 
 using namespace llvm;
 using namespace Intel::MetadataAPI;
+using namespace PatternMatch;
 
 static cl::opt<std::string> ReqdSubGroupSizes("reqd-sub-group-size", cl::init(""),
                                         cl::Hidden,
@@ -391,6 +393,31 @@ static void optimizedUpdateAndMoveTID(Instruction *TIDCallInst, PHINode *Phi,
   TIDTrunc->moveBefore(EntryBlock->getTerminator());
 }
 
+// Utility to check if TID call matches the below pattern -
+// %tid = call i64 get_global_id(i32 0)
+// %cmp = icmp ult i64 %tid, INT32_MAX+1
+// call void @llvm.assume(i1 %cmp)
+// Assume and TID call are expected to be in the same BB.
+static bool TIDFitsInInt32(const CallInst *CI) {
+  for (auto *User : CI->users()) {
+    auto *CmpUser = dyn_cast<ICmpInst>(User);
+    if (!CmpUser)
+      continue;
+    CmpInst::Predicate Pred;
+    uint64_t UB = INT32_MAX + 1ULL;
+    if (match(CmpUser,
+              m_OneUse(m_ICmp(Pred, m_Specific(CI), m_SpecificInt(UB)))) &&
+        Pred == ICmpInst::ICMP_ULT) {
+      auto *SingleUsr = *(CmpUser->user_begin());
+      if (match(SingleUsr, m_Intrinsic<Intrinsic::assume>(m_Specific(CmpUser))))
+        if (cast<IntrinsicInst>(SingleUsr)->getParent() == CI->getParent())
+          return true;
+    }
+  }
+  // Pattern match failed.
+  return false;
+}
+
 void OCLVecCloneImpl::handleLanguageSpecifics(Function &F, PHINode *Phi,
                                               Function *Clone,
                                               BasicBlock *EntryBlock) {
@@ -454,7 +481,7 @@ void OCLVecCloneImpl::handleLanguageSpecifics(Function &F, PHINode *Phi,
               LT2GigWorkGroupSize)
             optimizedUpdateAndMoveTID(CI, Phi, EntryBlock);
           else if (FuncName == CompilationUtils::mangledGetGID() &&
-                   LT2GigGlobalWorkSize)
+                   (LT2GigGlobalWorkSize || TIDFitsInInt32(CI)))
             optimizedUpdateAndMoveTID(CI, Phi, EntryBlock);
           else
             updateAndMoveTID(CI, Phi, EntryBlock);

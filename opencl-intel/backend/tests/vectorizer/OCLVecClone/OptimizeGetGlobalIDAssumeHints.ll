@@ -8,15 +8,15 @@
 
 ; CHECK-LABEL: entry:
 ; CHECK:      [[GID_CALL:%.*]] = tail call i64 @_Z13get_global_idj(i32 0)
+; CHECK-NEXT: [[GID_CALL_TRUNC:%.*]] = trunc i64 [[GID_CALL]] to i32
 
 ; CHECK-LABEL: simd.loop:
 ; CHECK-NEXT:  [[IDX:%.*]] = phi i32 [ 0, %simd.loop.preheader ], [ [[INDVAR:%.*]], %simd.loop.exit ]
-; CHECK-NEXT:  [[IDX_SEXT:%.*]] = sext i32 [[IDX]] to i64
-; CHECK-NEXT:  [[ADD_IDX_GID:%.*]] = add nuw i64 [[IDX_SEXT]], [[GID_CALL]]
-; CHECK-NEXT:  [[ASSUME_CMP:%.*]] = icmp ult i64 [[ADD_IDX_GID]], 2147483648
+; CHECK-NEXT:  [[ADD_IDX_GID:%.*]] = add nuw i32 [[GID_CALL_TRUNC]], [[IDX]]
+; CHECK-NEXT:  [[ADD_IDX_GID_SEXT:%.*]] = sext i32 [[ADD_IDX_GID]] to i64
+; CHECK-NEXT:  [[ASSUME_CMP:%.*]] = icmp ult i64 [[ADD_IDX_GID_SEXT]], 2147483648
 ; CHECK-NEXT:  tail call void @llvm.assume(i1 [[ASSUME_CMP]])
-; CHECK-NEXT:  [[TRUNC:%.*]] = trunc i64 [[ADD_IDX_GID]] to i32
-; CHECK-NEXT:  [[INT_ADD:%.*]] = add i32 [[TRUNC]], [[LOAD_INTVAL:%.*]]
+; CHECK-NEXT:  [[INT_ADD:%.*]] = add i32 [[ADD_IDX_GID]], [[LOAD_INTVAL:%.*]]
 ; CHECK-NEXT:  [[INT_ADD_SEXT:%.*]] = sext i32 [[INT_ADD]] to i64
 ; CHECK-NEXT:  [[SRC_PTR:%.*]] = getelementptr inbounds float, float addrspace(1)* [[LOAD_A:%.*]], i64 [[INT_ADD_SEXT]]
 ; CHECK-NEXT:  [[LOAD:%.*]] = load float, float addrspace(1)* [[SRC_PTR]], align 4
@@ -74,4 +74,3 @@ attributes #1 = { nounwind readnone }
 !10 = !{!"int*", !"float*"}
 !11 = !{i1 true}
 !12 = !{i32 8}
-
