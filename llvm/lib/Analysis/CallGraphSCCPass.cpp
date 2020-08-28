@@ -29,6 +29,7 @@
 #include "llvm/IR/Module.h"
 #include "llvm/IR/OptBisect.h"
 #include "llvm/IR/PassTimingInfo.h"
+#include "llvm/IR/StructuralHash.h"
 #include "llvm/Pass.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Debug.h"
@@ -475,12 +476,29 @@ bool CGPassManager::RunAllPassesOnSCC(CallGraphSCC &CurSCC, CallGraph &CG,
 
     initializeAnalysisImpl(P);
 
-    // Actually run this pass on the current SCC.
-    Changed |= RunPassOnSCC(P, CurSCC, CG,
-                            CallGraphUpToDate, DevirtualizedCall);
+#ifdef EXPENSIVE_CHECKS
+    uint64_t RefHash = StructuralHash(CG.getModule());
+#endif
 
+    // Actually run this pass on the current SCC.
+    bool LocalChanged =
+        RunPassOnSCC(P, CurSCC, CG, CallGraphUpToDate, DevirtualizedCall);
+
+<<<<<<< HEAD
 #if !INTEL_PRODUCT_RELEASE
     if (Changed)
+=======
+    Changed |= LocalChanged;
+
+#ifdef EXPENSIVE_CHECKS
+    if (!LocalChanged && (RefHash != StructuralHash(CG.getModule()))) {
+      llvm::errs() << "Pass modifies its input and doesn't report it: "
+                   << P->getPassName() << "\n";
+      llvm_unreachable("Pass modifies its input and doesn't report it");
+    }
+#endif
+    if (LocalChanged)
+>>>>>>> b1f4e5979b74ccc6e2228b8ba54c40ea4af73907
       dumpPassInfo(P, MODIFICATION_MSG, ON_CG_MSG, "");
     dumpPreservedSet(P);
 #endif // !INTEL_PRODUCT_RELEASE
