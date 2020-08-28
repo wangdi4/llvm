@@ -597,6 +597,7 @@ TRACE_FN_DEF(zeModuleDestroy)(
   return rc;
 }
 
+#if ENABLE_LIBDEVICE_LINKING
 TRACE_FN_DEF(zeModuleDynamicLink)(
     uint32_t numModules,
     ze_module_handle_t *phModules,
@@ -609,6 +610,7 @@ TRACE_FN_DEF(zeModuleDynamicLink)(
   TRACE_FN_ARG_END();
   return rc;
 }
+#endif // ENABLE_LIBDEVICE_LINKING
 
 TRACE_FN_DEF(zeModuleGetGlobalPointer)(
     ze_module_handle_t hModule,

@@ -10,7 +10,7 @@
 /// ###########################################################################
 
 /// Check phases graph when using single source file.
-// RUN:   %clang -ccc-print-phases --intel -fsycl -fiopenmp -target x86_64-unknown-linux-gnu -fopenmp-targets=spir64 %s 2>&1 \
+// RUN:   %clang -ccc-print-phases --intel -fsycl -fiopenmp -target x86_64-unknown-linux-gnu -fopenmp-targets=spir64 %s -no-device-math-lib=fp32,fp64 2>&1 \
 // RUN:   | FileCheck -check-prefix=CHK-PHASES %s
 
 // CHK-PHASES: 0: input, "[[INPUT:.+\.c]]", c, (host-sycl)
@@ -48,7 +48,7 @@
 /// ###########################################################################
 
 /// Check of the commands passed to each tool when using valid OpenMP targets.
-// RUN:   %clang -### --intel -fsycl -fiopenmp -o %t.out -target x86_64-unknown-linux-gnu -fopenmp-targets=spir64 %s 2>&1 \
+// RUN:   %clang -### --intel -fsycl -fiopenmp -o %t.out -target x86_64-unknown-linux-gnu -fopenmp-targets=spir64 -no-device-math-lib=fp32,fp64 %s 2>&1 \
 // RUN:   | FileCheck -check-prefix=CHK-COMMANDS %s
 
 // CHK-COMMANDS: clang{{.*}} "-cc1" "-triple" "spir64-unknown-unknown-sycldevice" "-fsycl" "-fsycl-is-device" {{.*}} "-emit-llvm-bc" {{.*}} "-o" "[[SYCLBC:.+\.bc]]" {{.*}} "[[INPUT:.+\.c]]"
@@ -100,7 +100,7 @@
 
 /// Check separate compilation with offloading - unbundling actions
 // RUN:   touch %t.o
-// RUN:   %clang -### -ccc-print-phases --intel -fsycl -fiopenmp -o %t.out -target x86_64-unknown-linux-gnu -fopenmp-targets=spir64 %t.o -no-canonical-prefixes 2>&1 \
+// RUN:   %clang -### -ccc-print-phases --intel -fsycl -fiopenmp -o %t.out -target x86_64-unknown-linux-gnu -fopenmp-targets=spir64 %t.o -no-canonical-prefixes -no-device-math-lib=fp32,fp64 2>&1 \
 // RUN:   | FileCheck -check-prefix=CHK-UBACTIONS %s
 
 // CHK-UBACTIONS: 0: input, "[[INPUT:.+\.o]]", object, (host-openmp-sycl)
@@ -141,7 +141,7 @@
 
 /// Check separate compilation with offloading - unbundling jobs construct
 // RUN:   touch %t.o
-// RUN:   %clang -### --intel -fsycl -fiopenmp %t.o -target x86_64-unknown-linux-gnu -fopenmp-targets=spir64 -no-canonical-prefixes 2>&1 \
+// RUN:   %clang -### --intel -fsycl -fiopenmp %t.o -target x86_64-unknown-linux-gnu -fopenmp-targets=spir64 -no-canonical-prefixes -no-device-math-lib=fp32,fp64 2>&1 \
 // RUN:   | FileCheck -check-prefix=CHK-UBJOBS -DFATOBJ=%t.o %s
 
 // CHK-UBJOBS: clang-offload-bundler{{.*}} "-type=o" "-targets=host-x86_64-unknown-linux-gnu,openmp-spir64,sycl-spir64-unknown-unknown-sycldevice" "-inputs=[[FATOBJ]]" "-outputs=[[HOSTOBJ:.+\.o]],[[OMPBC:.+\.o]],[[SYCLBC:.+\.o]]" "-unbundle"
@@ -171,7 +171,7 @@
 // RUN: touch %t-1.o
 // RUN: touch %t-2.o
 // RUN: touch %t-3.o
-// RUN: %clang -target x86_64-unknown-linux-gnu --intel -fsycl -fiopenmp -fopenmp-targets=spir64 -foffload-static-lib=%t.a -### %t-1.o %t-2.o %t-3.o 2>&1 \
+// RUN: %clang -target x86_64-unknown-linux-gnu --intel -fsycl -fiopenmp -fopenmp-targets=spir64 -foffload-static-lib=%t.a -### %t-1.o %t-2.o %t-3.o -no-device-math-lib=fp32,fp64 2>&1 \
 // RUN:   | FileCheck %s -check-prefix=FOFFLOAD_STATIC_LIB_MULTI_O
 
 // FOFFLOAD_STATIC_LIB_MULTI_O: ld{{.*}} "-r" "-o" "[[FATOBJ:.+\.o]]" "{{.*}}crt1.o" {{.*}} "[[INPUT1:.+\-1.o]]" "[[INPUT2:.+\-2.o]]" "[[INPUT3:.+\-3.o]]" "[[INPUT:.+\.a]]"
@@ -194,7 +194,7 @@
 
 /// Check phases when -foffload-static-lib=<lib> is used.
 // RUN: touch %t.a
-// RUN: %clang -target x86_64-unknown-linux-gnu --intel -fsycl -fiopenmp -fopenmp-targets=spir64 -foffload-static-lib=%t.a -ccc-print-phases %s 2>&1 \
+// RUN: %clang -target x86_64-unknown-linux-gnu --intel -fsycl -fiopenmp -fopenmp-targets=spir64 -foffload-static-lib=%t.a -ccc-print-phases %s -no-device-math-lib=fp32,fp64 2>&1 \
 // RUN:   | FileCheck %s -check-prefix=FOFFLOAD_STATIC_LIB_SRC
 
 // FOFFLOAD_STATIC_LIB_SRC: 0: input, "[[INPUT1:.+\.a]]", object, (host-openmp-sycl)

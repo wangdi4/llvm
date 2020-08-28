@@ -22,7 +22,7 @@
 // RUN:   | FileCheck %s -check-prefix=STATIC_LIB -DINPUTA=%t.a -DINPUTO=%t.o
 // RUN: %clangxx -target x86_64-unknown-linux-gnu -fiopenmp -fopenmp-targets=spir64 -L/dummy/dir %t.lo -### %t.o 2>&1 \
 // RUN:   | FileCheck %s -check-prefix=STATIC_LIB -DINPUTA=%t.lo -DINPUTO=%t.o
-// STATIC_LIB: ld{{(.exe)?}}" "-r" "-o" "[[INPUTLD:[^ ]+\.o]]" {{.*}} "-L/dummy/dir"{{.*}} "[[INPUTO]]" "[[INPUTA]]"
+// STATIC_LIB: ld{{(.exe)?}}" "-r" "-o" "[[INPUTLD:[^ ]+\.o]]" {{.*}} "-L/dummy/dir"{{.*}} "[[INPUTO]]"{{.*}} "[[INPUTA]]"
 // STATIC_LIB: clang-offload-bundler{{.*}} "-type=oo" {{.*}} "-inputs=[[INPUTLD]]" "-outputs=[[LISTFILE:.+\.txt]]"
 // STATIC_LIB: llvm-link{{.*}} "@[[LISTFILE]]"
 // STATIC_LIB: ld{{.*}} "[[INPUTA]]" "[[INPUTO]]"
@@ -58,9 +58,9 @@
 // RUN: touch %t_2.a
 // RUN: touch %t.o
 // RUN: echo "--whole-archive %t.a %t_2.a --no-whole-archive" > %t.arg
-// RUN: %clangxx -target x86_64-unknown-linux-gnu -fiopenmp -fopenmp-targets=spir64 -L/dummy/dir %t.o -Wl,--whole-archive %t.a %t_2.a -Wl,--no-whole-archive -### 2>&1 \
+// RUN: %clangxx -target x86_64-unknown-linux-gnu -fiopenmp -fopenmp-targets=spir64 -L/dummy/dir %t.o -Wl,--whole-archive %t.a %t_2.a -Wl,--no-whole-archive -no-device-math-lib=fp32,fp64 -### 2>&1 \
 // RUN:   | FileCheck %s -check-prefixes=WHOLE_STATIC_LIB,WHOLE_STATIC_LIB_1
-// RUN: %clangxx -target x86_64-unknown-linux-gnu -fiopenmp -fopenmp-targets=spir64 -L/dummy/dir %t.o -Wl,@%t.arg -### 2>&1 \
+// RUN: %clangxx -target x86_64-unknown-linux-gnu -fiopenmp -fopenmp-targets=spir64 -L/dummy/dir %t.o -Wl,@%t.arg -no-device-math-lib=fp32,fp64 -### 2>&1 \
 // RUN:   | FileCheck %s -check-prefixes=WHOLE_STATIC_LIB,WHOLE_STATIC_LIB_2 -DARGFILE=%t.arg
 // WHOLE_STATIC_LIB: ld{{(.exe)?}}" "-r" "-o" "[[INPUT:.+\.o]]" "{{.*}}crt1.o" "{{.*}}crti.o" "-L/dummy/dir" {{.*}} "[[INPUTO:.+\.o]]" "--whole-archive" "[[INPUTA:.+\.a]]" "[[INPUTB:.+\.a]]" "--no-whole-archive" "{{.*}}crtn.o"
 // WHOLE_STATIC_LIB: clang-offload-bundler{{.*}} "-type=oo" {{.*}} "-inputs=[[INPUT]]"
@@ -74,9 +74,9 @@
 /// ###########################################################################
 
 /// test behaviors of static lib with no source/object
-// RUN: %clangxx -target x86_64-unknown-linux-gnu -fiopenmp -fopenmp-targets=spir64 -L/dummy/dir %t.a -### 2>&1 \
+// RUN: %clangxx -target x86_64-unknown-linux-gnu -fiopenmp -fopenmp-targets=spir64 -L/dummy/dir %t.a -no-device-math-lib=fp32,fp64 -### 2>&1 \
 // RUN:   | FileCheck %s -check-prefix=STATIC_LIB_NOSRC -DINPUTLIB=%t.a
-// RUN: %clangxx -target x86_64-unknown-linux-gnu -fiopenmp -fopenmp-targets=spir64 -L/dummy/dir %t.lo -### 2>&1 \
+// RUN: %clangxx -target x86_64-unknown-linux-gnu -fiopenmp -fopenmp-targets=spir64 -L/dummy/dir %t.lo -no-device-math-lib=fp32,fp64 -### 2>&1 \
 // RUN:   | FileCheck %s -check-prefix=STATIC_LIB_NOSRC -DINPUTLIB=%t.lo
 // STATIC_LIB_NOSRC: clang-offload-bundler{{.*}} "-type=ao" "-targets=host-x86_64-unknown-linux-gnu" "-inputs=[[INPUTLIB]]" "-check-section"
 // STATIC_LIB_NOSRC: ld{{.*}} "-r" "-o" "[[PARTIALOBJ:.+\.o]]" "{{.*}}crt1.o" {{.*}} "-L/dummy/dir" {{.*}} "[[INPUTLIB]]"

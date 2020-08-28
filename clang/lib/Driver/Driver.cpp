@@ -372,36 +372,72 @@ static Arg *MakeInputArg(DerivedArgList &Args, const OptTable &Opts,
 #if INTEL_CUSTOMIZATION
 // Add any of the device libraries that are used for offload.  This includes
 // math and system device libraries.
-static void addIntelDeviceLibs(const ToolChain &TC, Driver::InputList &Inputs,
-                               const OptTable &Opts, DerivedArgList &Args) {
-  // Only add the math device libs if requested by the user
+void Driver::addIntelDeviceLibs(const ToolChain &TC, Driver::InputList &Inputs,
+                                const OptTable &Opts,
+                                DerivedArgList &Args) const {
+  // Add the math device libs if requested by the user or enabled by default.
+  // This needs to be done on the linking phase.
+  Arg *FinalPhaseArg;
+  phases::ID FinalPhase = getFinalPhase(Args, &FinalPhaseArg);
+
+  if (FinalPhase < phases::Link)
+    return;
+
+  enum {
+    LinkFP32 = 0x1,
+    LinkFP64 = 0x2
+  };
+  auto UpdateFlag =
+      [](unsigned Flag, StringRef Val, bool Reset) {
+        unsigned Bit = 0;
+        if (Val == "fp32")
+          Bit = LinkFP32;
+        else if (Val == "fp64")
+          Bit = LinkFP64;
+
+        if (Reset)
+          return (Flag & ~Bit);
+        else
+          return (Flag | Bit);
+      };
+
   // TODO - this will become the default sometime in the future.
   // FIXME - There is a bit of common code in this function that can be
   // cleaned up.
-  bool addFP64 = false, addFP32 = false;
-  if (Arg *A = Args.getLastArg(options::OPT_device_math_lib_EQ,
-                               options::OPT_no_device_math_lib_EQ)) {
-    if (A->getOption().matches(options::OPT_no_device_math_lib_EQ))
-      return;
+  // FIXME: I am not sure that SYCL will use the same option.
+  //        See https://github.com/intel/llvm/pull/2277/files
+  unsigned LinkForSYCL = 0;
+  unsigned LinkForOMP = LinkFP32 | LinkFP64;
+
+  for (Arg *A : Args.filtered(options::OPT_device_math_lib_EQ,
+                              options::OPT_no_device_math_lib_EQ)) {
+    bool Reset = A->getOption().matches(options::OPT_no_device_math_lib_EQ);
     for (StringRef Val : A->getValues()) {
-      if (Val == "fp64")
-        addFP64 = true;
-      if (Val == "fp32")
-        addFP32 = true;
+      LinkForSYCL = UpdateFlag(LinkForSYCL, Val, Reset);
+      LinkForOMP = UpdateFlag(LinkForOMP, Val, Reset);
     }
-  } else
+    A->claim();
+  }
+
+  if (LinkForOMP == 0 && LinkForSYCL == 0)
     return;
 
-  SmallVector<std::pair<const StringRef, bool>, 4> omp_device_libs = {
-    { "libomp-complex", false },
-    { "libomp-complex-fp64", true },
-    { "libomp-cmath", false },
-    { "libomp-cmath-fp64", true } };
-  SmallVector<std::pair<const StringRef, bool>, 4> sycl_device_libs = {
-    { "libsycl-complex", false },
-    { "libsycl-complex-fp64", true },
-    { "libsycl-cmath", false },
-    { "libsycl-cmath-fp64", true } };
+  SmallVector<std::pair<const StringRef, unsigned>, 8> omp_device_libs = {
+    { "libomp-complex", LinkFP32 },
+    { "libomp-complex-fp64", LinkFP64 },
+    { "libomp-cmath", LinkFP32 },
+    { "libomp-cmath-fp64", LinkFP64 },
+    // Link the fallback implementations as well, since
+    // SPIR-V modules linking is not supported yet.
+    { "libomp-fallback-complex", LinkFP32 },
+    { "libomp-fallback-complex-fp64", LinkFP64 },
+    { "libomp-fallback-cmath", LinkFP32 },
+    { "libomp-fallback-cmath-fp64", LinkFP64 } };
+  SmallVector<std::pair<const StringRef, unsigned>, 4> sycl_device_libs = {
+    { "libsycl-complex", LinkFP32 },
+    { "libsycl-complex-fp64", LinkFP64 },
+    { "libsycl-cmath", LinkFP32 },
+    { "libsycl-cmath-fp64", LinkFP64 } };
 
   StringRef DPCPPLibLoc;
   if (TC.getTriple().isWindowsMSVCEnvironment())
@@ -414,13 +450,12 @@ static void addIntelDeviceLibs(const ToolChain &TC, Driver::InputList &Inputs,
     Inputs.push_back(std::make_pair(types::TY_Object, InputArg));
   };
   if (Args.hasFlag(options::OPT_fsycl, options::OPT_fno_sycl, false)) {
-    for (const std::pair<const StringRef, bool> &Lib : sycl_device_libs) {
+    for (const std::pair<const StringRef, unsigned> &Lib : sycl_device_libs) {
       SmallString<128> LibName(DPCPPLibLoc);
       llvm::sys::path::append(LibName, Lib.first);
       llvm::sys::path::replace_extension(LibName, ".o");
-      if (addFP64 && Lib.second && llvm::sys::fs::exists(LibName))
-        addInput(Args.MakeArgString(LibName));
-      if (addFP32 && !Lib.second && llvm::sys::fs::exists(LibName))
+      if ((Lib.second & LinkForSYCL) == Lib.second &&
+          llvm::sys::fs::exists(LibName))
         addInput(Args.MakeArgString(LibName));
     }
   }
@@ -433,13 +468,12 @@ static void addIntelDeviceLibs(const ToolChain &TC, Driver::InputList &Inputs,
   StringRef OMPLibLoc(Args.MakeArgString(TC.getDriver().Dir + "/../lib"));
   StringRef Ext(TC.getTriple().isWindowsMSVCEnvironment() ? ".obj" : ".o");
   if (addOmpLibs) {
-    for (const std::pair<const StringRef, bool> &Lib : omp_device_libs) {
+    for (const std::pair<const StringRef, unsigned> &Lib : omp_device_libs) {
       SmallString<128> LibName(OMPLibLoc);
       llvm::sys::path::append(LibName, Lib.first);
       llvm::sys::path::replace_extension(LibName, Ext);
-      if (addFP64 && Lib.second && llvm::sys::fs::exists(LibName))
-        addInput(Args.MakeArgString(LibName));
-      if (addFP32 && !Lib.second && llvm::sys::fs::exists(LibName))
+      if ((Lib.second & LinkForOMP) == Lib.second &&
+          llvm::sys::fs::exists(LibName))
         addInput(Args.MakeArgString(LibName));
     }
   }
