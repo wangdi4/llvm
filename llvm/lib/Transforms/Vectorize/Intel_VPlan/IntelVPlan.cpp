@@ -898,6 +898,7 @@ void VPlanPrinter::dumpBasicBlock(const VPBasicBlock *BB) {
       OS << " (" << DOT::EscapeString(CBI->getParent()->getName().str()) << ")\\l\"";
     } else {
       CBV->printAsOperand(OS);
+      OS << '"';
     }
   }
 #endif
