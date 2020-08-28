@@ -158,7 +158,9 @@ bool CLWGLoopCreator::runOnFunction(Function& F, Function *vectorFunc,
   if (m_hasSubGroupPath && m_numDim &&
       skimd.VectorizedMaskedKernel.hasValue()) {
     m_maskFn = skimd.VectorizedMaskedKernel.get();
-    skimd.VectorizedMaskedKernel.set(nullptr);
+    // Set vectorized masked kernel to m_F. This metadata can be used as an
+    // indicator of vectorized masked kernel being used.
+    skimd.VectorizedMaskedKernel.set(m_F);
     m_remainderRet = getFunctionData(m_maskFn, m_gidCalls, m_lidCalls);
 
     m_vectorMaskEntry = &m_maskFn->getEntryBlock();
@@ -746,8 +748,6 @@ BasicBlock *CLWGLoopCreator::inlineVectorFunction(BasicBlock *BB) {
 CLWGLoopCreator::loopBoundaries
 CLWGLoopCreator::getVectorLoopBoundaries(Value *initVal, Value *dimSize) {
   // computes constant log packetWidth
-  assert(m_packetWidth && ((m_packetWidth & (m_packetWidth - 1)) == 0) &&
-         "packet width is not power of 2");
   unsigned logPacket = Log2_32(m_packetWidth);
   Constant *logPacketVal = ConstantInt::get(m_indTy, logPacket);
 
