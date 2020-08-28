@@ -22,8 +22,10 @@ namespace intel {
 
   char RedundantPhiNode::ID = 0;
 
-  OCL_INITIALIZE_PASS(RedundantPhiNode, "B-RedundantPhiNode", "Barrier Pass - Handle barier instructions called from functions", false, true)
-
+  OCL_INITIALIZE_PASS(
+      RedundantPhiNode, "B-RedundantPhiNode",
+      "Barrier Pass - Handle barier instructions called from functions",
+      false, false)
 
   RedundantPhiNode::RedundantPhiNode() : FunctionPass(ID) {}
 
