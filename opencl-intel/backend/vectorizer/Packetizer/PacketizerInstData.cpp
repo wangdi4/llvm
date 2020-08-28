@@ -161,7 +161,7 @@ void PacketizeFunction::obtainVectorizedValue(Value **retValue, Value * origValu
     {
       // Create a broadcasted constant (no need to make an instruction for this)
       broadcastedVal = ConstantVector::getSplat(
-          ElementCount(m_packetWidth, false), cast<Constant>(origValue));
+          ElementCount::getFixed(m_packetWidth), cast<Constant>(origValue));
     }
     else
     {

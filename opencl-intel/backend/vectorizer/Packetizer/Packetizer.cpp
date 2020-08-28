@@ -1140,7 +1140,7 @@ Instruction* PacketizeFunction::widenScatterGatherOp(MemoryOperation &MO) {
     Constant *vecWidthVal = ConstantInt::get(indexType, m_packetWidth);
     // Not replacing with ConstantDataVector here because the type isn't known to be
     // compatible.
-    vecWidthVal = ConstantVector::getSplat(ElementCount(m_packetWidth, false),
+    vecWidthVal = ConstantVector::getSplat(ElementCount::getFixed(m_packetWidth),
                                            vecWidthVal);
     std::vector<Constant *> laneVec;
     for (unsigned int i=0; i < m_packetWidth; ++i) {
@@ -1175,7 +1175,7 @@ Instruction* PacketizeFunction::widenScatterGatherOp(MemoryOperation &MO) {
 
     // Not replacing with ConstantDataVector here because the type isn't known to be
     // compatible.
-    vecWidthVal = ConstantVector::getSplat(ElementCount(m_packetWidth, false),
+    vecWidthVal = ConstantVector::getSplat(ElementCount::getFixed(m_packetWidth),
                                            vecWidthVal);
     MO.Index = BinaryOperator::CreateNUWMul(MO.Index, vecWidthVal, "mulVecWidthPacked", MO.Orig);
 
@@ -1223,7 +1223,7 @@ Instruction* PacketizeFunction::widenScatterGatherOp(MemoryOperation &MO) {
     Type *indexType = cast<VectorType>(MO.Index->getType())->getElementType();
     Constant *vecVal = ConstantInt::get(indexType, 64/8); // cache line size / scale size
     vecVal =
-        ConstantVector::getSplat(ElementCount(m_packetWidth, false), vecVal);
+        ConstantVector::getSplat(ElementCount::getFixed(m_packetWidth), vecVal);
     args[2] =  BinaryOperator::CreateNUWAdd(MO.Index, vecVal, "Jump2NextLine", MO.Orig);
     VectorizerUtils::createFunctionCall(m_currFunc->getParent(), name, RetTy, args,
         SmallVector<Attribute::AttrKind, 4>(), MO.Orig);
@@ -1911,7 +1911,7 @@ bool PacketizeFunction::obtainNewCallArgs(CallInst *CI, const Function *LibFunc,
     } else {
       Constant *mask = ConstantInt::get(CI->getContext(), APInt(1,1));
       maskV =
-          ConstantVector::getSplat(ElementCount(m_packetWidth, false), mask);
+          ConstantVector::getSplat(ElementCount::getFixed(m_packetWidth), mask);
     }
     newArgs.push_back(maskV);
   }
@@ -2024,7 +2024,7 @@ bool PacketizeFunction::obtainNewCallArgs(CallInst *CI, const Function *LibFunc,
       // 0xffffffff means that mask is active
       Constant *mask = ConstantInt::get(CI->getContext(), APInt(32,-1));
       maskV =
-          ConstantVector::getSplat(ElementCount(m_packetWidth, false), mask);
+          ConstantVector::getSplat(ElementCount::getFixed(m_packetWidth), mask);
     }
     // VPlan style mask is the last argument.
     newArgs.push_back(maskV);
@@ -2150,7 +2150,7 @@ bool PacketizeFunction::handleReturnValueSOAVPlanStyle(CallInst *CI,
   SmallVector<Instruction *, MAX_INPUT_VECTOR_WIDTH> scalars;
   for (unsigned i = 0; i < numElements; i++) {
     Value *InsertInst = ConstantVector::getSplat(
-        ElementCount(m_packetWidth, false), UndefValue::get(elementType));
+        ElementCount::getFixed(m_packetWidth), UndefValue::get(elementType));
     for (unsigned j = 0; j < m_packetWidth; j++) {
       unsigned index = j * numElements + i;
       Constant *indexVal =

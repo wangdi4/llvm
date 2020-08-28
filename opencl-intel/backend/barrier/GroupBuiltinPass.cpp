@@ -158,7 +158,7 @@ namespace intel {
     // Broadcast the constant to vector if relevant
     if (dataWidth > 1) {
       pInitVal =
-          ConstantVector::getSplat(ElementCount(dataWidth, false), pInitVal);
+          ConstantVector::getSplat(ElementCount::getFixed(dataWidth), pInitVal);
     }
 
     return pInitVal;
