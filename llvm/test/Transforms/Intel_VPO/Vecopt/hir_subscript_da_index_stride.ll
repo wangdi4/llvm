@@ -18,7 +18,7 @@
 
 
 ; REQUIRES: asserts
-; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -vplan-dump-da -vplan-dump-subscript-details -print-after=VPlanDriverHIR -vplan-force-vf=4 -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -vplan-print-terminator-inst=false -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -vplan-dump-da -vplan-dump-subscript-details -print-after=VPlanDriverHIR -vplan-force-vf=4 -disable-output < %s 2>&1 | FileCheck %s
 
 ; Check for results from DA.
 ; CHECK:       Printing Divergence info for Loop at depth 1 containing: [[BB0:BB[0-9]+]]<header><latch><exiting>
