@@ -5,8 +5,8 @@
 ; CHECK: %sel = select i1 %cmp, i32 12, i32 %i
 ; CHECK-NOT: switch
 ; CHECK: %cond = icmp eq i32 %sel, 12
-; CHECK: %0 = select i1 %cond, i32 3, i32 4
-; CHECK: ret i32 %0
+; CHECK: %[[SEL:.*]] = select i1 %cond, i32 3, i32 4 ;INTEL
+; CHECK: ret i32 %[[SEL:.*]]                         ;INTEL
 
 define i32 @test(i32 %i) {
 entry:

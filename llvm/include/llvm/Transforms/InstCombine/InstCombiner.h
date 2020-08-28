@@ -98,7 +98,7 @@ public:
       : TTI(TTI), Builder(Builder), Worklist(Worklist),                 // INTEL
         MinimizeSize(MinimizeSize), TypeLoweringOpts(TypeLoweringOpts), // INTEL
         AA(AA), AC(AC), TLI(TLI), DT(DT), DL(DL),                       // INTEL
-        SQ(DL, &TLI, &DT, &AC, nullptr, true, &TTI),                    // INTEL
+        SQ(DL, &TLI, &DT, &AC, nullptr, true, true, &TTI),              // INTEL
         ORE(ORE), BFI(BFI), PSI(PSI), LI(LI) {}                         // INTEL
 
   virtual ~InstCombiner() {}

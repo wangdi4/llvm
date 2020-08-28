@@ -54,19 +54,21 @@ static const char *RTLNames[] = {
     /* OpenCL target  */ "libomptarget.rtl.opencl.so",
 #endif // !_WIN32
 #endif // INTEL_COLLAB
-    /* SX-Aurora VE target  */ "libomptarget.rtl.ve.so",
-    /* PowerPC target */ "libomptarget.rtl.ppc64.so",
+    /* PowerPC target       */ "libomptarget.rtl.ppc64.so",
 #if INTEL_COLLAB
 #if _WIN32
-    /* x86_64 target  */ "omptarget.rtl.x86_64.dll",
+    /* x86_64 target        */ "omptarget.rtl.x86_64.dll",
 #else  // !_WIN32
-    /* x86_64 target  */ "libomptarget.rtl.x86_64.so",
+    /* x86_64 target        */ "libomptarget.rtl.x86_64.so",
 #endif // !_WIN32
 #else  // INTEL_COLLAB
-    /* x86_64 target  */ "libomptarget.rtl.x86_64.so",
+    /* x86_64 target        */ "libomptarget.rtl.x86_64.so",
 #endif  // INTEL_COLLAB
-    /* CUDA target    */ "libomptarget.rtl.cuda.so",
-    /* AArch64 target */ "libomptarget.rtl.aarch64.so"};
+    /* CUDA target          */ "libomptarget.rtl.cuda.so",
+    /* AArch64 target       */ "libomptarget.rtl.aarch64.so",
+    /* SX-Aurora VE target  */ "libomptarget.rtl.ve.so",
+    /* AMDGPU target        */ "libomptarget.rtl.amdgpu.so",
+};
 
 RTLsTy *RTLs;
 std::mutex *RTLsMtx;

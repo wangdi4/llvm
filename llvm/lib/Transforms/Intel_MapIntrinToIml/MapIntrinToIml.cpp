@@ -972,7 +972,7 @@ void MapIntrinToImlImpl::legalizeAVX512MaskArgs(
 
     Constant *Zeros = ConstantAggregateZero::get(NewMaskType);
     Constant *Ones =
-        ConstantVector::getSplat(ElementCount(LogicalVL, false),
+        ConstantVector::getSplat(ElementCount::getFixed(LogicalVL),
                                  ConstantInt::get(NewMaskElementType, -1));
     Value *NewMask =
         Builder.CreateSelect(MaskValue, Ones, Zeros, "select.maskcvt");
@@ -994,7 +994,7 @@ void MapIntrinToImlImpl::legalizeAVX512MaskArgs(
     // parameter and create a new source parameter.
     VectorType *OldMaskType = cast<VectorType>(MaskValue->getType());
     Constant *Splat = ConstantVector::getSplat(
-        ElementCount(LogicalVL, false),
+        ElementCount::getFixed(LogicalVL),
         ConstantInt::get(OldMaskType->getElementType(), -1));
     Value *NewMask = Builder.CreateICmpEQ(MaskValue, Splat, "icmp.maskcvt");
 

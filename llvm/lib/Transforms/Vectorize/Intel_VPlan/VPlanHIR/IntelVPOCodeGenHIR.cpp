@@ -128,7 +128,7 @@ namespace llvm {
 static RegDDRef *getConstantSplatDDRef(DDRefUtils &DDRU, Constant *ConstVal,
                                        unsigned VF) {
   Constant *ConstVec =
-      ConstantVector::getSplat(ElementCount(VF, false), ConstVal);
+      ConstantVector::getSplat(ElementCount::getFixed(VF), ConstVal);
   if (isa<ConstantDataVector>(ConstVec))
     return DDRU.createConstDDRef(cast<ConstantDataVector>(ConstVec));
   if (isa<ConstantAggregateZero>(ConstVec))

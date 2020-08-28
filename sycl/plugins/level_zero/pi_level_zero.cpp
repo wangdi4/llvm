@@ -19,7 +19,6 @@
 #include <string>
 #include <thread>
 #include <utility>
-#include <vector>
 
 #include <level_zero/zet_api.h>
 
@@ -579,6 +578,13 @@ pi_result piPlatformsGet(pi_uint32 NumEntries, pi_platform *Platforms,
     return PI_INVALID_VALUE;
   }
 
+  // Cache pi_platforms for reuse in the future
+  // It solves two problems;
+  // 1. sycl::device equality issue; we always return the same pi_device.
+  // 2. performance; we can save time by immediately return from cache.
+  static std::vector<pi_platform> PiPlatformsCache;
+  static std::mutex PiPlatformsCacheMutex;
+
   // This is a good time to initialize Level Zero.
   static const char *CommandListCacheSize =
       std::getenv("SYCL_PI_LEVEL0_MAX_COMMAND_LIST_CACHE");
@@ -623,6 +629,18 @@ pi_result piPlatformsGet(pi_uint32 NumEntries, pi_platform *Platforms,
     ze_driver_handle_t ZeDriver;
     assert(ZeDriverCount == 1);
     ZE_CALL(zeDriverGet(&ZeDriverCount, &ZeDriver));
+
+    std::lock_guard<std::mutex> Lock(PiPlatformsCacheMutex);
+    for (const pi_platform CachedPlatform : PiPlatformsCache) {
+      if (CachedPlatform->ZeDriver == ZeDriver) {
+        Platforms[0] = CachedPlatform;
+        // if the caller sent a valid NumPlatforms pointer, set it here
+        if (NumPlatforms)
+          *NumPlatforms = 1;
+
+        return PI_SUCCESS;
+      }
+    }
 
     try {
       // TODO: figure out how/when to release this memory
@@ -743,9 +761,16 @@ pi_result piDevicesGet(pi_platform Platform, pi_device_type DeviceType,
 
   // Get number of devices supporting Level Zero
   uint32_t ZeDeviceCount = 0;
+  std::lock_guard<std::mutex> Lock(Platform->PiDevicesCacheMutex);
+  ZeDeviceCount = Platform->PiDevicesCache.size();
+
   const bool AskingForGPU = (DeviceType & PI_DEVICE_TYPE_GPU);
   const bool AskingForDefault = (DeviceType == PI_DEVICE_TYPE_DEFAULT);
-  ZE_CALL(zeDeviceGet(ZeDriver, &ZeDeviceCount, nullptr));
+
+  if (ZeDeviceCount == 0) {
+    ZE_CALL(zeDeviceGet(ZeDriver, &ZeDeviceCount, nullptr));
+  }
+
   if (ZeDeviceCount == 0 || !(AskingForGPU || AskingForDefault)) {
     if (NumDevices)
       *NumDevices = 0;
@@ -761,6 +786,14 @@ pi_result piDevicesGet(pi_platform Platform, pi_device_type DeviceType,
     return PI_SUCCESS;
   }
 
+  // if devices are already captured in cache, return them from the cache.
+  for (const pi_device CachedDevice : Platform->PiDevicesCache) {
+    *Devices++ = CachedDevice;
+  }
+  if (!Platform->PiDevicesCache.empty()) {
+    return PI_SUCCESS;
+  }
+
   try {
     std::vector<ze_device_handle_t> ZeDevices(ZeDeviceCount);
     ZE_CALL(zeDeviceGet(ZeDriver, &ZeDeviceCount, ZeDevices.data()));
@@ -772,6 +805,8 @@ pi_result piDevicesGet(pi_platform Platform, pi_device_type DeviceType,
         if (Result != PI_SUCCESS) {
           return Result;
         }
+        // save a copy in the cache for future uses.
+        Platform->PiDevicesCache.push_back(Devices[I]);
       }
     }
   } catch (const std::bad_alloc &) {
@@ -784,7 +819,6 @@ pi_result piDevicesGet(pi_platform Platform, pi_device_type DeviceType,
 
 pi_result piDeviceRetain(pi_device Device) {
   assert(Device);
-
   // The root-device ref-count remains unchanged (always 1).
   if (Device->IsSubDevice) {
     ++(Device->RefCount);
@@ -794,17 +828,19 @@ pi_result piDeviceRetain(pi_device Device) {
 
 pi_result piDeviceRelease(pi_device Device) {
   assert(Device);
-
+  assert(Device->RefCount > 0 && "Device is already released.");
   // TODO: OpenCL says root-device ref-count remains unchanged (1),
   // but when would we free the device's data?
-  if (--(Device->RefCount) == 0) {
-    // Destroy all the command lists associated with this device.
-    Device->ZeCommandListCacheMutex.lock();
-    for (ze_command_list_handle_t &ZeCommandList : Device->ZeCommandListCache) {
-      zeCommandListDestroy(ZeCommandList);
+  if (Device->IsSubDevice) {
+    if (--(Device->RefCount) == 0) {
+      // Destroy all the command lists associated with this device.
+      Device->ZeCommandListCacheMutex.lock();
+      for (ze_command_list_handle_t &ZeCommandList : Device->ZeCommandListCache) {
+        zeCommandListDestroy(ZeCommandList);
+      }
+      Device->ZeCommandListCacheMutex.unlock();
+      delete Device;
     }
-    Device->ZeCommandListCacheMutex.unlock();
-    delete Device;
   }
 
   return PI_SUCCESS;
@@ -886,7 +922,7 @@ pi_result piDeviceGetInfo(pi_device Device, pi_device_info ParamName,
     //
     std::string SupportedExtensions;
 
-    // cl_khr_il_program - OpenCL 2.0 KHR extension for SPIRV support. Core
+    // cl_khr_il_program - OpenCL 2.0 KHR extension for SPIR-V support. Core
     //   feature in >OpenCL 2.1
     // cl_khr_subgroups - Extension adds support for implementation-controlled
     //   subgroups.

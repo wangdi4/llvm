@@ -14,19 +14,19 @@
 ; end INTEL_FEATURE_CSA
 ; end INTEL_CUSTOMIZATION
 ;
-; RUN: opt -disable-output -disable-verify -debug-pass=Structure \
+; RUN: opt -enable-new-pm=0 -disable-output -disable-verify -debug-pass=Structure \
 ; INTEL CUSTOMIZATION
 ; RUN:     -enable-andersen=false -loopopt=0 -O2 -enable-lv %s 2>&1 \
 ; END INTEL CUSTOMIZATION
 ; RUN:     | FileCheck %s --check-prefix=CHECK-O2
 ; RUN: llvm-profdata merge %S/Inputs/pass-pipelines.proftext -o %t.profdata
-; RUN: opt -disable-output -disable-verify -debug-pass=Structure \
+; RUN: opt -enable-new-pm=0 -disable-output -disable-verify -debug-pass=Structure \
 ; RUN:     -pgo-kind=pgo-instr-use-pipeline -profile-file='%t.profdata' \
 ; INTEL CUSTOMIZATION
 ; RUN:     -enable-andersen=false -loopopt=0 -O2 -enable-lv %s 2>&1 \
 ; END INTEL CUSTOMIZATION
 ; RUN:     | FileCheck %s --check-prefix=CHECK-O2 --check-prefix=PGOUSE
-; RUN: opt -disable-output -disable-verify -debug-pass=Structure \
+; RUN: opt -enable-new-pm=0 -disable-output -disable-verify -debug-pass=Structure \
 ; RUN:     -pgo-kind=pgo-instr-use-pipeline -profile-file='%t.profdata' \
 ; RUN:     -hot-cold-split \
 ; INTEL CUSTOMIZATION

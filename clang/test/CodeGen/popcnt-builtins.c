@@ -1,10 +1,13 @@
-// RUN: %clang_cc1 -ffreestanding %s -triple=x86_64-apple-darwin -target-feature +popcnt -emit-llvm -o - | FileCheck %s --check-prefixes=CHECK,CHECK-POPCNT
-// RUN: %clang_cc1 -ffreestanding %s -triple=x86_64-apple-darwin -emit-llvm -o - | FileCheck %s
+// RUN: %clang_cc1 -x c -ffreestanding %s -triple=x86_64-apple-darwin -target-feature +popcnt -emit-llvm -o - | FileCheck %s --check-prefixes=CHECK,CHECK-POPCNT
+// RUN: %clang_cc1 -x c++ -std=c++11 -ffreestanding %s -triple=x86_64-apple-darwin -target-feature +popcnt -emit-llvm -o - | FileCheck %s --check-prefixes=CHECK,CHECK-POPCNT
+// RUN: %clang_cc1 -x c -ffreestanding %s -triple=x86_64-apple-darwin -emit-llvm -o - | FileCheck %s
+// RUN: %clang_cc1 -x c++ -std=c++11 -ffreestanding %s -triple=x86_64-apple-darwin -emit-llvm -o - | FileCheck %s
 // INTEL_CUSTOMIZATION
-// RUN: %clang_cc1 -ffreestanding %s -triple=i686-apple-darwin -target-feature +popcnt -emit-llvm -o - | FileCheck %s --check-prefixes=CHECK,CHECK-POPCNT
-// RUN: %clang_cc1 -ffreestanding %s -triple=i686-apple-darwin -emit-llvm -o - | FileCheck %s
+// RUN: %clang_cc1 -x c -ffreestanding %s -triple=i686-apple-darwin -target-feature +popcnt -emit-llvm -o - | FileCheck %s --check-prefixes=CHECK,CHECK-POPCNT
+// RUN: %clang_cc1 -x c++ -std=c++11 -ffreestanding %s -triple=i686-apple-darwin -target-feature +popcnt -emit-llvm -o - | FileCheck %s --check-prefixes=CHECK,CHECK-POPCNT
+// RUN: %clang_cc1 -x c -ffreestanding %s -triple=i686-apple-darwin -emit-llvm -o - | FileCheck %s
+// RUN: %clang_cc1 -x c++ -std=c++11 -ffreestanding %s -triple=i686-apple-darwin -emit-llvm -o - | FileCheck %s
 // end INTEL_CUSTOMIZATION
-
 
 #include <x86intrin.h>
 
@@ -43,3 +46,30 @@ long long test__popcntq(unsigned long long __X) {
   return __popcntq(__X);
 }
 // #endif //INTEL
+
+// Test constexpr handling.
+#if defined(__cplusplus) && (__cplusplus >= 201103L)
+#if defined(__POPCNT__)
+char ctpop32_0[_mm_popcnt_u32(0x00000000) == 0 ? 1 : -1];
+char ctpop32_1[_mm_popcnt_u32(0x000000F0) == 4 ? 1 : -1];
+#endif
+
+char popcnt32_0[_popcnt32(0x00000000) == 0 ? 1 : -1];
+char popcnt32_1[_popcnt32(0x100000F0) == 5 ? 1 : -1];
+
+char popcntd_0[__popcntd(0x00000000) == 0 ? 1 : -1];
+char popcntd_1[__popcntd(0x00F000F0) == 8 ? 1 : -1];
+
+#ifdef __x86_64__
+#if defined(__POPCNT__)
+char ctpop64_0[_mm_popcnt_u64(0x0000000000000000ULL) == 0 ? 1 : -1];
+char ctpop64_1[_mm_popcnt_u64(0xF000000000000001ULL) == 5 ? 1 : -1];
+#endif
+
+char popcnt64_0[_popcnt64(0x0000000000000000ULL) == 0 ? 1 : -1];
+char popcnt64_1[_popcnt64(0xF00000F000000001ULL) == 9 ? 1 : -1];
+
+char popcntq_0[__popcntq(0x0000000000000000ULL) == 0 ? 1 : -1];
+char popcntq_1[__popcntq(0xF000010000300001ULL) == 8 ? 1 : -1];
+#endif
+#endif

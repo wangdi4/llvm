@@ -6,6 +6,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include <CL/sycl/ONEAPI/experimental/spec_constant.hpp>
 #include <CL/sycl/backend_types.hpp>
 #include <CL/sycl/context.hpp>
 #include <CL/sycl/detail/common.hpp>
@@ -14,8 +15,8 @@
 #include <CL/sycl/detail/util.hpp>
 #include <CL/sycl/device.hpp>
 #include <CL/sycl/exception.hpp>
-#include <CL/sycl/experimental/spec_constant.hpp>
 #include <CL/sycl/stl.hpp>
+#include <detail/config.hpp>
 #include <detail/context_impl.hpp>
 #include <detail/device_impl.hpp>
 #include <detail/program_impl.hpp>
@@ -239,7 +240,7 @@ static bool isDeviceBinaryTypeSupported(const context &C,
   const backend ContextBackend =
       detail::getSyclObjImpl(C)->getPlugin().getBackend();
 
-  // The CUDA backend cannot use SPIRV
+  // The CUDA backend cannot use SPIR-V
   if (ContextBackend == backend::cuda && Format == PI_DEVICE_BINARY_TYPE_SPIRV)
     return false;
 
@@ -384,10 +385,11 @@ RT::PiProgram ProgramManager::getBuiltPIProgram(OSModuleHandle M,
     // Link a fallback implementation of device libraries if they are not
     // supported by a device compiler.
     // Pre-compiled programs are supposed to be already linked.
-    // If device image is not SPIRV, DeviceLibReqMask will be 0 which means
+    // If device image is not SPIR-V, DeviceLibReqMask will be 0 which means
     // no fallback device library will be linked.
     uint32_t DeviceLibReqMask = 0;
-    if (Img.getFormat() == PI_DEVICE_BINARY_TYPE_SPIRV)
+    if (Img.getFormat() == PI_DEVICE_BINARY_TYPE_SPIRV &&
+        !SYCLConfig<SYCL_DEVICELIB_NO_FALLBACK>::get())
       DeviceLibReqMask = getDeviceLibReqMask(Img);
 
     const std::vector<device> &Devices = ContextImpl->getDevices();
@@ -615,11 +617,12 @@ static RT::PiProgram loadDeviceLibFallback(
 
 ProgramManager::ProgramManager() {
   const char *SpvFile = std::getenv(UseSpvEnv);
-  // If a SPIRV file is specified with an environment variable,
+  // If a SPIR-V file is specified with an environment variable,
   // register the corresponding image
   if (SpvFile) {
     m_UseSpvFile = true;
-    // The env var requests that the program is loaded from a SPIRV file on disk
+    // The env var requests that the program is loaded from a SPIR-V file on
+    // disk
     std::ifstream File(SpvFile, std::ios::binary);
 
     if (!File.is_open())
@@ -834,7 +837,7 @@ ProgramManager::build(ProgramPtr Program, const ContextImplPtr Context,
 
   // TODO: this is a temporary workaround for GPU tests for ESIMD compiler.
   // We do not link with other device libraries, because it may fail
-  // due to unrecognized SPIRV format of those libraries.
+  // due to unrecognized SPIR-V format of those libraries.
   if (std::string(CompileOpts).find(std::string("-cmc")) != std::string::npos ||
       std::string(CompileOpts).find(std::string("-vc-codegen")) !=
           std::string::npos)
@@ -1049,7 +1052,7 @@ void ProgramManager::flushSpecConstants(const program_impl &Prg,
       std::lock_guard<std::mutex> Lock(MNativeProgramsMutex);
       auto It = NativePrograms.find(NativePrg);
       if (It == NativePrograms.end())
-        throw sycl::experimental::spec_const_error(
+        throw sycl::ONEAPI::experimental::spec_const_error(
             "spec constant is set in a program w/o a binary image",
             PI_INVALID_OPERATION);
       Img = It->second;

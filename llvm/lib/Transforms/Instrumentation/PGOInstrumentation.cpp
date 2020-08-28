@@ -694,7 +694,7 @@ static bool canRenameComdat(
     return false;
 
   // FIXME: Current only handle those Comdat groups that only containing one
-  // function and function aliases.
+  // function.
   // (1) For a Comdat group containing multiple functions, we need to have a
   // unique postfix based on the hashes for each function. There is a
   // non-trivial code refactoring to do this efficiently.
@@ -702,8 +702,7 @@ static bool canRenameComdat(
   // group including global vars.
   Comdat *C = F.getComdat();
   for (auto &&CM : make_range(ComdatMembers.equal_range(C))) {
-    if (dyn_cast<GlobalAlias>(CM.second))
-      continue;
+    assert(!isa<GlobalAlias>(CM.second));
     Function *FM = dyn_cast<Function>(CM.second);
     if (FM != &F)
       return false;
@@ -743,18 +742,8 @@ void FuncPGOInstrumentation<Edge, BBInfo>::renameComdatFunction() {
   NewComdat->setSelectionKind(OrigComdat->getSelectionKind());
 
   for (auto &&CM : make_range(ComdatMembers.equal_range(OrigComdat))) {
-    if (GlobalAlias *GA = dyn_cast<GlobalAlias>(CM.second)) {
-      // For aliases, change the name directly.
-      assert(dyn_cast<Function>(GA->getAliasee()->stripPointerCasts()) == &F);
-      std::string OrigGAName = GA->getName().str();
-      GA->setName(Twine(GA->getName() + "." + Twine(FunctionHash)));
-      GlobalAlias::create(GlobalValue::WeakAnyLinkage, OrigGAName, GA);
-      continue;
-    }
     // Must be a function.
-    Function *CF = dyn_cast<Function>(CM.second);
-    assert(CF);
-    CF->setComdat(NewComdat);
+    cast<Function>(CM.second)->setComdat(NewComdat);
   }
 }
 
