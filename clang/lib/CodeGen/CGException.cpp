@@ -1259,6 +1259,11 @@ void CodeGenFunction::ExitCXXTryStmt(const CXXTryStmt &S, bool IsFnTryBlock) {
     // Initialize the catch variable and set up the cleanups.
     SaveAndRestore<llvm::Instruction *> RestoreCurrentFuncletPad(
         CurrentFuncletPad);
+#if INTEL_COLLAB
+    if (CapturedStmtInfo)
+      if (const VarDecl *VD = C->getExceptionDecl())
+        CapturedStmtInfo->recordVariableDefinition(VD);
+#endif  // INTEL_COLLAB
     CGM.getCXXABI().emitBeginCatch(*this, C);
 
     // Emit the PGO counter increment.
