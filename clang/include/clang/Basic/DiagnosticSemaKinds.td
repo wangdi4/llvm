@@ -10480,6 +10480,10 @@ def err_omp_lastprivate_loop_var_non_loop_iteration : Error<
   "loop directives">;
 def err_omp_loop_directive_without_bind : Error<
   "'loop' directive without 'bind' clause must be nested in another construct">;
+def warn_omp_static_duration_allocate_directive : Warning<
+  "'%0' is equivalent to 'omp_default_mem_alloc’ for variables with static "
+  "storage duration, consider using a local variable instead">,
+  InGroup<OpenMPAllocate>;
 // end INTEL_COLLAB
 def note_omp_protected_structured_block
     : Note<"jump bypasses OpenMP structured block">;

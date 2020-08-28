@@ -3189,6 +3189,17 @@ Sema::DeclGroupPtrTy Sema::ActOnOpenMPAllocateDirective(
     auto *DE = cast<DeclRefExpr>(RefExpr);
     auto *VD = cast<VarDecl>(DE->getDecl());
 
+#if INTEL_COLLAB
+    if (getLangOpts().OpenMPLateOutline)
+      if (AllocatorKind != OMPAllocateDeclAttr::OMPDefaultMemAlloc &&
+          VD->getStorageDuration() == SD_Static) {
+        StringRef Allocator =
+            OMPAllocateDeclAttr::ConvertAllocatorTypeTyToStr(AllocatorKind);
+        Diag(DE->getLocation(),
+             diag:: warn_omp_static_duration_allocate_directive) <<
+             Allocator;
+      }
+#endif // INTEL_COLLAB
     // Check if this is a TLS variable or global register.
     if (VD->getTLSKind() != VarDecl::TLS_None ||
         VD->hasAttr<OMPThreadPrivateDeclAttr>() ||

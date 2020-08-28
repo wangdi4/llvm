@@ -2053,11 +2053,16 @@ private:
     /// whole multi-node.
     SmallVector<bool, 4> IsNegativePathSign;
 
-    /// Here load groups are stored (split-load).
+    /// Here is data for load groups (split-load).
     /// Each load group is represented by a pair of integers:
     /// first:  starting position index (within vector of scalars).
+    ///         If scalars are sortable by their pointer operand then
+    ///         the index is within vector of sorted scalars and
+    ///         SplitLoadPtrOrder contains their sorted order.
     /// second: size of the group (aka number of loaded elements)
     SmallVector<std::pair<int, int>, 1> SplitLoadGroups;
+    SmallVector<unsigned, 4> SplitLoadPtrOrder;
+
 #endif // INTEL_CUSTOMIZATION
 
   private:
@@ -2256,7 +2261,10 @@ private:
         for (const auto &Group : SplitLoadGroups) {
           dbgs() << "Split load group " << Cnt++ << ".\n";
           for (int i = Group.first; i < Group.first + Group.second; ++i)
-            dbgs() << *Scalars[i] << "\n";
+            if (SplitLoadPtrOrder.empty())
+              dbgs() << *Scalars[i] << "\n";
+            else
+              dbgs() << *Scalars[SplitLoadPtrOrder[i]] << "\n";
         }
       }
 #endif // INTEL_CUSTOMIZATION
@@ -5300,8 +5308,27 @@ void BoUpSLP::buildTree_rec(ArrayRef<Value *> VL_, unsigned Depth,
         }
       }
 #if INTEL_CUSTOMIZATION
-      // Check if we can issue smaller loads in smaller-wide groups
-      // (split-load).
+      // Check whether we can issue smaller-wide loads to build up the entire
+      // vector (split-load).
+
+      // Just few notes about existing split-load implementation limitations.
+      // We are currently able to handle split-loads when pointer arguments of
+      // scalar loads are not in order but that is only true if all the pointers
+      // have same base address, i.e. they are sortable: non-empty CurrentOrder
+      // is a good indication of that. Otherwise we are still able to handle
+      // split-loads but each group in such a case have to have their pointer
+      // arguments in order. Otherwise it will not be detected as a group and
+      // split loads fails.
+      // For example we have pointers [a+0, a+1, a+2, a+3, b+0, b+1, b+2, b+3]
+      // and their bases "a" and "b" are not SCEV comparable.
+      // llvm::sortPtrAccesses in such a case fails but split-load will detect
+      // two groups: G1: a+0, a+1, a+2, a+3 and G2: b+0, b+1, b+2, b+3
+      // But in a case [a+0, a+2, a+1, a+3, b+0, b+1, b+2, b+3]
+      // current algorithm fails to detect a group that is relative to base "a"
+      // and thus we end up gathering scalar loads to build the entire vector
+      // (this is yet another limitation - partial vector loads combined with
+      // scalar loads for the rest + gathering no supported).
+
       if (EnableSplitLoad) {
         // Each consecutive group is represented by a pair of integers:
         // starting index and load size (number of consecutive scalar
@@ -5313,13 +5340,14 @@ void BoUpSLP::buildTree_rec(ArrayRef<Value *> VL_, unsigned Depth,
         // Build group [From, Size] as it contains consecutive loads.
         int VF = VL.size();
         for (int To = 0, From = 0; To < VF; ++To) {
-          bool EndGroup = false;
-          if (To < VF - 1)
+          bool EndGroup = To == VF - 1;
+          if (!EndGroup)
             // Check whether next pair of pointers are adjacent.
-            EndGroup = !isConsecutiveAccess(VL[To], VL[To + 1], *DL, *SE);
-          else
-            EndGroup = true;
-
+            EndGroup =
+                CurrentOrder.empty()
+                    ? !isConsecutiveAccess(VL[To], VL[To + 1], *DL, *SE)
+                    : !isConsecutiveAccess(VL[CurrentOrder[To]],
+                                           VL[CurrentOrder[To + 1]], *DL, *SE);
           if (EndGroup) {
             int GroupSize = To - From + 1;
             // Only allow groups of sizes that are power of 2.
@@ -5352,6 +5380,9 @@ void BoUpSLP::buildTree_rec(ArrayRef<Value *> VL_, unsigned Depth,
               newTreeEntry(VL, Bundle, S, UserTreeIdx, ReuseShuffleIndicies);
           TE->setOperandsInOrder();
           VectorizableTree.back()->SplitLoadGroups = LoadGroups;
+          if (!CurrentOrder.empty())
+            VectorizableTree.back()->SplitLoadPtrOrder = CurrentOrder;
+
           LLVM_DEBUG(dbgs() << "SLP: added a vector of split-loads.\n");
           return;
         }
@@ -7130,11 +7161,7 @@ Value *BoUpSLP::vectorizeTree(TreeEntry *E) {
 #if INTEL_CUSTOMIZATION
       // We encapsulate the load code generation code in a lambda function so
       // that we can call it for each of the split loads.
-      auto createVecLoad = [&](TreeEntry *E, ArrayRef<Value *> Scalars, bool NeedToShuffleReuses) {
-        Value *VL0 = Scalars[0];
-        // Loads are inserted at the head of the tree because we don't want to
-        // sink them all the way down past store instructions.
-        VectorType *VecTy = FixedVectorType::get(VL0->getType(), Scalars.size());
+      auto createVecLoad = [&](TreeEntry *E, Value *VL0, VectorType *VecTy) {
 #endif // INTEL_CUSTOMIZATION
       // Loads are inserted at the head of the tree because we don't want to
       // sink them all the way down past store instructions.
@@ -7169,28 +7196,26 @@ Value *BoUpSLP::vectorizeTree(TreeEntry *E) {
         V = Builder.CreateShuffleVector(V, UndefValue::get(V->getType()),
                                         Mask, "reorder_shuffle");
       }
-      if (NeedToShuffleReuses) {
-        // TODO: Merge this shuffle with the ReorderShuffleMask.
-        V = Builder.CreateShuffleVector(V, UndefValue::get(VecTy),
-                                        E->ReuseShuffleIndices, "shuffle");
-      }
       E->VectorizedValue = V;
       ++NumVectorInstructions;
       return V;
 #if INTEL_CUSTOMIZATION
       };
 
-      // Set insertion point once per load. This is done outside of 'createLoad'
-      // lambda.
+      // Set insertion point once. This is done outside of 'createLoad' lambda.
       setInsertPointAfterBundle(E);
 
       std::list<Value *> WorkList;
       // Go through all split-load groups and emit the vector loads.
       for (const auto &Group : E->SplitLoadGroups) {
         assert(Group.second > 1 && isPowerOf2_32(Group.second) && "Bad Group");
-        const auto &ScalarsGroup =
-            ArrayRef<Value *>(&E->Scalars[Group.first], Group.second);
-        Value *VecLoad = createVecLoad(E, ScalarsGroup, false);
+        VectorType *VecTy = FixedVectorType::get(ScalarTy, Group.second);
+        Value *L0;
+        if (E->SplitLoadPtrOrder.empty())
+          L0 = E->Scalars[Group.first];
+        else
+          L0 = E->Scalars[E->SplitLoadPtrOrder[Group.first]];
+        Value *VecLoad = createVecLoad(E, L0, VecTy);
         WorkList.push_front(VecLoad);
       }
 
@@ -7216,7 +7241,14 @@ Value *BoUpSLP::vectorizeTree(TreeEntry *E) {
             cast<VectorType>(Vec0->getType())->getNumElements();
 
         SmallVector<int, 8> ShuffleMask(2 * NumElements);
-        std::iota(ShuffleMask.begin(), ShuffleMask.end(), 0);
+        // If we are building the last shuffle and loaded elements are not
+        // in same order as the original scalar elements as a result of
+        // sorting by scalar loads pointer argument, we have to build
+        // ShuffleMask to permute elements based on the sorted order.
+        if (WorkList.empty() && !E->SplitLoadPtrOrder.empty())
+          inversePermutation(E->SplitLoadPtrOrder, ShuffleMask);
+        else
+          std::iota(ShuffleMask.begin(), ShuffleMask.end(), 0);
         Value *Shuffle = Builder.CreateShuffleVector(Vec0, Vec1, ShuffleMask,
                                                      "SplitLoadShuffle");
         WorkList.push_front(Shuffle);

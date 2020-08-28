@@ -1010,11 +1010,6 @@ void VPlanPredicator::predicate() {
   // during emission.
   emitPredicates();
 
-  // Fix the cond bits.
-  for (auto *Block : RPOT)
-    if (Block->getNumSuccessors() == 1)
-      Block->setCondBit(nullptr);
-
   VPLAN_DOT(DotBeforeBlends, Plan);
 
   transformPhisToBlends();

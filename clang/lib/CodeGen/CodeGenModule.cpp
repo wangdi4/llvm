@@ -2815,6 +2815,13 @@ bool CodeGenModule::MayBeEmittedEagerly(const ValueDecl *Global) {
       !isTypeConstant(Global->getType(), false) &&
       !OMPDeclareTargetDeclAttr::isDeclareTargetDeclaration(Global))
     return false;
+#if INTEL_COLLAB
+  // Delay codegen for global variable without declared target variable
+  // since declare target attribute can be set later.
+  if (LangOpts.OpenMPLateOutline && isa<VarDecl>(Global) &&
+      !OMPDeclareTargetDeclAttr::isDeclareTargetDeclaration(Global))
+    return false;
+#endif // INTEL_COLLAB
 
   return true;
 }
