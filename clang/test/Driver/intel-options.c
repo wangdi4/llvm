@@ -557,6 +557,8 @@
 // RUN: %clang -### -target x86_64-linux-gnu -qopenmp -qopenmp-link=static %s 2>&1 | FileCheck -check-prefix CHECK-QOPENMP-STATIC %s
 // RUN: %clang -### -target x86_64-linux-gnu -qopenmp-stubs %s 2>&1 | FileCheck -check-prefix CHECK-QOPENMP-STUBS %s
 // RUN: %clang_cl -### --target=x86_64-pc-windows-msvc /QopenmpS %s 2>&1 | FileCheck -check-prefix CHECK-QOPENMP-STUBS-WIN %s
+// RUN: %clang_cl -### --target=x86_64-pc-windows-msvc /Qopenmp-stubs %s 2>&1 | FileCheck -check-prefix CHECK-QOPENMP-STUBS-WIN %s
+// CHECK-QOPENMP-STUBS-WIN: "--dependent-lib=libiompstubs5md"
 // CHECK-QOPENMP-STATIC: "-Bstatic" "-liomp5" "-Bdynamic"
 // CHECK-QOPENMP-STUBS: "-liompstubs5"
 // CHECK-QOPENMP-STUBS-NOT: "-lpthread"
