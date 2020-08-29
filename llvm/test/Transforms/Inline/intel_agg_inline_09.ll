@@ -1,15 +1,25 @@
-; This test case verifies that aggressive inlining is not triggered using
-; "Single Access Function GlobalVar Heuristic" since "bar3" is not leaf
-; as expected by the heuristic. "bar3" calls "bar4" that calls "bar5".
+; This test case verifies that aggressive inlining is triggered using
+; "Single Access Function GlobalVar Heuristic" with "inline-agg-find-gv-escs"
+; enabled, because even though "bar3" calls "bar4" that calls "bar5",
+; the uses of @grad are not passed all the way down the call chain.
 
 ; REQUIRES: asserts
 
-; RUN: opt < %s -agginliner -debug-only=agginliner -whole-program-assume -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -disable-output  2>&1 | FileCheck %s
-; RUN: opt < %s -passes='module(agginliner)' -debug-only=agginliner -whole-program-assume -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -disable-output  2>&1 | FileCheck %s
+; RUN: opt < %s -agginliner -inline-agg-find-gv-escs -debug-only=agginliner -whole-program-assume -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -disable-output  2>&1 | FileCheck %s
+; RUN: opt < %s -passes='module(agginliner)' -inline-agg-find-gv-escs -debug-only=agginliner -whole-program-assume -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -disable-output  2>&1 | FileCheck %s
 
 ; CHECK: AggInl: SingleAccessFunctionGlobalVarHeuristic
-; CHECK:  GV selected as candidate: grad
-; CHECK:  Ignored GV ... calls are not okay to inline
+; CHECK: GV selected as candidate: grad
+; CHECK: Function: foo1
+; CHECK: Inlining calls
+; CHECK-DAG: tail call void @wfree
+; CHECK-DAG: AggInl: Inserting:   tail call void @wfree
+; CHECK-DAG: tail call void @bar1
+; CHECK-DAG: AggInl: Inserting:   tail call void @bar1
+; CHECK-DAG: tail call void @bar2
+; CHECK-DAG: AggInl: Inserting:   tail call void @bar2
+; CHECK-DAG: tail call void @bar3
+; CHECK-DAG: AggInl: Inserting:   tail call void @bar3
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
