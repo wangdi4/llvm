@@ -89,6 +89,8 @@ TEST_F(VPlanHCFGTest, testBuildHCFGInnerLoop) {
   EXPECT_EQ(IndvarAdd, ICmp->getOperand(0));
   EXPECT_EQ(VecBB->getCondBit(), ICmp);
 
+#if INTEL_CUSTOMIZATION
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   // Add an external value to check we do not print the list of external values,
   // as this is not required with the new printing.
   Plan->addVPValue(&*F->arg_begin());
@@ -127,6 +129,8 @@ compound=true
 }
 )";
   EXPECT_EQ(ExpectedStr, FullDump);
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
+#endif // INTEL_CUSTOMIZATION
 
   LoopVectorizationLegality::InductionList Inductions;
   SmallPtrSet<Instruction *, 1> DeadInstructions;
