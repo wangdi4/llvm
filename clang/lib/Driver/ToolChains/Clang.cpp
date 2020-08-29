@@ -4563,9 +4563,9 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
 
 #if INTEL_CUSTOMIZATION
   auto AddOptLevel = [&]() {
-    // Force -O0 for OpenMP device compilation for SPIRV target.
-    if (D.IsIntelMode() && IsOpenMPDevice && Triple.isSPIR()) {
-      Args.ClaimAllArgs(options::OPT_O_Group);
+    // Set -O0 for OpenMP device compilation for SPIRV target.
+    if (D.IsIntelMode() && IsOpenMPDevice && Triple.isSPIR() &&
+        !Args.hasArg(options::OPT_O_Group, options::OPT__SLASH_O)) {
       CmdArgs.push_back("-O0");
       return;
     }

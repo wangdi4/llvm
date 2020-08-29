@@ -1560,6 +1560,13 @@ llvm::opt::DerivedArgList *ToolChain::TranslateOffloadTargetArgs(
         } else
           DAL->append(A);
         continue;
+      } else if (getTriple().isSPIR() && getDriver().IsIntelMode() &&
+                 (A->getOption().matches(options::OPT_O_Group) ||
+                  A->getOption().matches(options::OPT__SLASH_O))) {
+        // Do not add any optimization option.  It is set either via arg
+        // to -fopenmp-targets or implied when adding args to -cc1
+        Modified = true;
+        continue;
 #endif // INTEL_CUSTOMIZATION
       } else if (XOffloadTargetNoTriple) {
         // Passing device args: -Xopenmp-target -opt=val.
