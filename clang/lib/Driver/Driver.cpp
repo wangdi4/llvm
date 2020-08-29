@@ -3840,6 +3840,12 @@ class OffloadingActionBuilder final {
                    llvm::sys::path::extension(FileName).drop_front()) !=
                    types::TY_Object))
             return ABRT_Inactive;
+#if INTEL_CUSTOMIZATION
+          // Windows archives are handled differently
+          if (isStaticArchiveFile(IA->getInputArg().getAsString(Args)) &&
+              IA->getType() == types::TY_Object)
+            return ABRT_Inactive;
+#endif // INTEL_CUSTOMIZATION
         }
         for (unsigned I = 0; I < ToolChains.size(); ++I) {
           OpenMPDeviceActions.push_back(UA);
@@ -5121,6 +5127,28 @@ void Driver::handleArguments(Compilation &C, DerivedArgList &Args,
   }
 }
 
+#if INTEL_CUSTOMIZATION
+const char *resolveLib(const StringRef &LibName, DerivedArgList &Args,
+                       Compilation &C) {
+  bool isMSVC = C.getDefaultToolChain().getTriple().isWindowsMSVCEnvironment();
+  StringRef RetLib(LibName);
+  const char *envVar(isMSVC ? "LIB" : "LIBRARY_PATH");
+  // TODO - We may want to leverage this for Linux library searches.  This
+  // is currently only used for Windows.
+  if (llvm::Optional<std::string> LibDir = llvm::sys::Process::GetEnv(envVar)) {
+    SmallVector<StringRef, 8> Dirs;
+    StringRef(*LibDir).split(Dirs, llvm::sys::EnvPathSeparator, -1, false);
+    for (StringRef Dir : Dirs) {
+      SmallString<128> FullName(Dir);
+      llvm::sys::path::append(FullName, LibName);
+      if (llvm::sys::fs::exists(FullName))
+        return Args.MakeArgString(FullName.c_str());
+    }
+  }
+  return Args.MakeArgString(RetLib);
+}
+#endif // INTEL_CUSTOMIZATION
+
 void Driver::BuildActions(Compilation &C, DerivedArgList &Args,
                           const InputList &Inputs, ActionList &Actions) const {
   llvm::PrettyStackTraceString CrashInfo("Building compilation actions");
@@ -5368,7 +5396,12 @@ void Driver::BuildActions(Compilation &C, DerivedArgList &Args,
     OffloadBuilder.addDeviceDependencesToHostAction(
         Current, InputArg, phases::Link, PL.back(), PL);
   };
-  for (const StringRef &LA : LinkArgs) {
+#if INTEL_CUSTOMIZATION
+  for (const StringRef &tLA : LinkArgs) {
+    // Augment the current argument to add additional directory information
+    // in case the location of the lib is not in CWD.
+    StringRef LA(resolveLib(tLA, Args, C));
+#endif // INTEL_CUSTOMIZATION
     // At this point, we will process the archives for FPGA AOCO and individual
     // archive unbundling for Windows.
     if (!isStaticArchiveFile(LA))
@@ -6297,7 +6330,8 @@ InputInfo Driver::BuildJobsForActionNoCache(
       if (((C.getInputArgs().hasArg(options::OPT_mkl_EQ) &&
             C.getInputArgs().hasArg(options::OPT_static)) ||
            C.getInputArgs().hasArg(options::OPT_daal_EQ) ||
-           C.getDriver().getOffloadStaticLibSeen()) &&
+           C.getDriver().getOffloadStaticLibSeen() ||
+           (JA->getType() == types::TY_Archive && IsMSVCEnv)) &&
 #endif // INTEL_CUSTOMIZATION
           (JA->getType() == types::TY_Archive ||
            (JA->getType() == types::TY_Object && !IsMSVCEnv))) {
