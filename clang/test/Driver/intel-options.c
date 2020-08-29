@@ -183,7 +183,15 @@
 // RUN: %clang -### --intel -target x86_64-unknown-linux -dynamic -shared-intel %s 2>&1 | FileCheck -check-prefix CHECK-INTEL-LIBS-SHARED-INTEL %s
 // RUN: %clang -### --intel -target x86_64-unknown-linux -shared -shared-intel %s 2>&1 | FileCheck -check-prefix CHECK-INTEL-LIBS-SHARED-INTEL %s
 // RUN: %clang -### --intel -target x86_64-unknown-linux -static -shared -shared-intel %s 2>&1 | FileCheck -check-prefix CHECK-INTEL-LIBS-SHARED-INTEL %s
+// RUN: %clang -### --intel -target i386-unknown-linux -shared-intel %s 2>&1 \
+// RUN:  | FileCheck -check-prefix CHECK-INTEL-LIBS-SHARED-INTEL %s
 // CHECK-INTEL-LIBS-SHARED-INTEL: "-lsvml" "-lirng" "-limf" "-lm" {{.*}} "-lintlc"
+
+// RUN: %clang -### --intel -target i386-unknown-linux -shared -shared-intel %s 2>&1 \
+// RUN:  | FileCheck -check-prefix CHECK-INTEL-LIBS-SHARED-INTEL32 %s
+// RUN: %clang -### --intel -target i386-unknown-linux -shared %s 2>&1 \
+// RUN:  | FileCheck -check-prefix CHECK-INTEL-LIBS-SHARED-INTEL32 %s
+// CHECK-INTEL-LIBS-SHARED-INTEL32: "-lsvml" "-lirng" "-limf" "-lm" {{.*}} "-lirc_pic"
 
 // RUN: %clang -### --intel -target x86_64-unknown-linux -shared -static -static-intel %s 2>&1 | FileCheck -check-prefix CHECK-INTEL-LIBS-SHARED-STATIC %s
 // CHECK-INTEL-LIBS-SHARED-STATIC: "-lsvml" "-lirng" "-limf" "-lm" {{.*}} "-lirc"

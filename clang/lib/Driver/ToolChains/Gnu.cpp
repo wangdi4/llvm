@@ -568,8 +568,12 @@ static void addIntelLibirc(const ToolChain &TC, ArgStringList &CmdArgs,
       return;
     }
   } else {
-    if (Args.hasArg(options::OPT_shared_intel, options::OPT_shared)) {
+    if (Args.hasArg(options::OPT_shared)) {
       addIntelLib("-lirc_pic", TC, CmdArgs, Args);
+      return;
+    }
+    if (Args.hasArg(options::OPT_shared_intel)) {
+      addIntelLib("-lintlc", TC, CmdArgs, Args);
       return;
     }
   }
