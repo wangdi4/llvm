@@ -5349,6 +5349,7 @@ def : CLFlag<"Oy-">, Alias<_SLASH_O>, AliasArgs<["y-"]>,
 def _SLASH_Q_no_use_libirc : CLFlag<"Q_no-use-libirc">, Alias<i_no_use_libirc>,
   HelpText<"Disable usage of libirc.">;
 // Intel specific options (Intel only)
+def : CLJoinedOrSeparate<"constexpr:steps">, Alias<fconstexpr_steps_EQ>;
 def : CLCommaJoined<"device-math-lib:">, Alias<device_math_lib_EQ>,
   HelpText<"Control the addition of device math libraries when compiling for "
   "other devices.  Valid arguments are fp64, fp32">;

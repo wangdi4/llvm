@@ -577,3 +577,8 @@
 // RUN: %clang_cl /c /QxSSE3 /Od /Fo:somefile.obj -###  %s 2>&1 | FileCheck -check-prefix FO-CHECK %s
 // RUN: %clang_cl /c /QxSSE3 /Od /Fosomefile.obj -###  %s 2>&1 | FileCheck -check-prefix FO-CHECK %s
 // FO-CHECK: "-o" "somefile.obj"
+
+/// /constexpr:steps alias
+// RUN: %clang_cl /c /constexpr:steps4 -###  %s 2>&1 | FileCheck -check-prefix CONSTEXPR_STEPS %s
+// RUN: %clang_cl /c /constexpr:steps 4 -###  %s 2>&1 | FileCheck -check-prefix CONSTEXPR_STEPS %s
+// CONSTEXPR_STEPS: "-fconstexpr-steps" "4"
