@@ -1537,6 +1537,11 @@ Compilation *Driver::BuildCompilation(ArrayRef<const char *> ArgList) {
                  VA->getOption().matches(options::OPT__HASH))
       IntelPrintOptions = 1;
   }
+  // Update the Driver Title to something more fitting
+  std::string Title("Intel(R) oneAPI DPC++/C++ Compiler");
+  if (IsIntelPro())
+    Title += " Pro";
+  setTitle(Title);
 #endif // INTEL_CUSTOMIZATION
 
   // -no-canonical-prefixes is used very early in main.
