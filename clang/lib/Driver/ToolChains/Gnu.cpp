@@ -935,7 +935,7 @@ void tools::gnutools::Linker::ConstructJob(Compilation &C, const JobAction &JA,
 #if INTEL_CUSTOMIZATION
     // Add -limf before -lm, it will be linked in the same manner as -lm so
     // don't add with addIntelLib
-    if (D.IsIntelMode())
+    if (D.IsIntelMode() || Args.hasArg(options::OPT__dpcpp))
       CmdArgs.push_back("-limf");
 #endif // INTEL_CUSTOMIZATION
     CmdArgs.push_back("-lm");
@@ -944,7 +944,7 @@ void tools::gnutools::Linker::ConstructJob(Compilation &C, const JobAction &JA,
   // Add -lm for both C and C++ compilation
   else if (!Args.hasArg(options::OPT_nostdlib, options::OPT_nodefaultlibs) &&
            (D.IsIntelMode() || Args.hasArg(options::OPT_mkl_EQ))) {
-    if (D.IsIntelMode())
+    if (D.IsIntelMode() || Args.hasArg(options::OPT__dpcpp))
       CmdArgs.push_back("-limf");
     CmdArgs.push_back("-lm");
   }

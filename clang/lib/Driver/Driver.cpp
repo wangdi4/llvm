@@ -619,7 +619,8 @@ DerivedArgList *Driver::TranslateInputArgs(const InputArgList &Args) const {
         continue;
       }
 #if INTEL_CUSTOMIZATION
-      if (IsIntelMode() && (Value == "m")) {
+      if ((IsIntelMode() || Args.hasArg(options::OPT__dpcpp)) &&
+          (Value == "m")) {
         DAL->AddJoinedArg(0, Opts.getOption(options::OPT_l), "imf");
       }
 #endif //INTEL_CUSTOMIZATION
