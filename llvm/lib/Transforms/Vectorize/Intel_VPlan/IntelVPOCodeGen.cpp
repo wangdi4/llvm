@@ -2814,12 +2814,13 @@ Value *VPOCodeGen::getVectorValue(VPValue *V) {
 
   // VPInstructions should already be handled, only external values are expected
   // here.
-  assert((isa<VPExternalDef>(V) || isa<VPConstant>(V)) &&
+  assert((isa<VPExternalDef>(V) || isa<VPConstant>(V) ||
+          isa<VPMetadataAsValue>(V)) &&
          "Unknown external VPValue.");
   assert(isVPValueUniform(V, Plan) && "External value is not uniform.");
   Value *UnderlyingV = getScalarValue(V, 0 /*Lane*/);
-  assert(UnderlyingV && "VPExternalDefs and VPConstants are expected to have "
-                        "underlying IR value set.");
+  assert(UnderlyingV &&
+         "External VPValues are expected to have underlying IR value set.");
 
   // Place the code for broadcasting invariant variables in the new preheader.
   IRBuilder<>::InsertPointGuard Guard(Builder);
@@ -2849,7 +2850,7 @@ Value *VPOCodeGen::getVectorValue(VPValue *V) {
 }
 
 Value *VPOCodeGen::getScalarValue(VPValue *V, unsigned Lane) {
-  if (isa<VPExternalDef>(V) || isa<VPConstant>(V))
+  if (isa<VPExternalDef>(V) || isa<VPConstant>(V) || isa<VPMetadataAsValue>(V))
     return V->getUnderlyingValue();
 
   if (VPScalarMap.count(V)) {
