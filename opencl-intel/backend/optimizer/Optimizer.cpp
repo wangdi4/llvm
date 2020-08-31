@@ -196,6 +196,7 @@ llvm::ModulePass *createRemoveAtExitPass();
 llvm::FunctionPass *createAddNTAttrPass();
 llvm::ModulePass *createChooseVectorizationDimensionModulePass();
 llvm::ModulePass *createCoerceWin64TypesPass();
+llvm::FunctionPass *createAddFastMathPass();
 }
 
 using namespace intel;
@@ -350,6 +351,10 @@ static void populatePassesPreFailCheck(llvm::legacy::PassManagerBase &PM,
 
   bool HasGatherScatterPrefetch =
     pConfig->GetCpuId().HasGatherScatterPrefetch();
+
+  if (isSPIRV && pConfig->GetRelaxedMath()) {
+    PM.add(createAddFastMathPass());
+  }
 
   // Here we are internalizing non-kernal functions to allow inliner to remove
   // functions' bodies without call sites

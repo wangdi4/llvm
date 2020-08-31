@@ -226,6 +226,7 @@ set( BACKEND_PASSES
     LLVMBarrier
     ImplicitArgsAnalysis
     LLVMVectorizer
+    AddFastMath
     AddImplicitArgs
     AddTLSGlobals
     AutorunReplicator
