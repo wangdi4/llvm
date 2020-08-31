@@ -226,7 +226,7 @@ void Scheduler::releaseHostAccessor(Requirement *Req) {
 // static
 void Scheduler::enqueueLeavesOfReqUnlocked(const Requirement *const Req) {
   MemObjRecord *Record = Req->MSYCLMemObj->MRecord.get();
-  auto EnqueueLeaves = [](CircularBuffer<Command *> &Leaves) {
+  auto EnqueueLeaves = [](LeavesCollection &Leaves) {
     for (Command *Cmd : Leaves) {
       EnqueueResultT Res;
       bool Enqueued = GraphProcessor::enqueueCommand(Cmd, Res);
@@ -264,9 +264,9 @@ void Scheduler::lockSharedTimedMutex(
 #endif // _WIN32
 }
 
-void Scheduler::setLeafLimit(size_t Limit) {  // INTEL
-  MGraphBuilder.setLeafLimit(Limit);          // INTEL
-}                                             // INTEL
+MemObjRecord *Scheduler::getMemObjRecord(const Requirement *const Req) {
+  return Req->MSYCLMemObj->MRecord.get();
+}
 
 } // namespace detail
 } // namespace sycl
