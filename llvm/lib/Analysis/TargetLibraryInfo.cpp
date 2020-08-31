@@ -416,6 +416,8 @@ static void initialize(TargetLibraryInfoImpl &TLI, const Triple &T,
     TLI.setUnavailable(LibFunc_glob);
     TLI.setUnavailable(LibFunc_globfree);
     TLI.setUnavailable(LibFunc_gmtime_r);
+    TLI.setUnavailable(LibFunc_gnu_std_basic_filebuf_dtor);
+    TLI.setUnavailable(LibFunc_gnu_std_cxx11_basic_stringstream_ctor);
     TLI.setUnavailable(LibFunc_ioctl);
     TLI.setUnavailable(LibFunc_isatty);
     TLI.setUnavailable(LibFunc_kill);
@@ -2765,6 +2767,14 @@ case LibFunc_msvc_std_num_put_do_put_ulong:
             FTy.getParamType(4)->isPointerTy());
 #endif  // INTEL_COLLAB
 #if INTEL_CUSTOMIZATION
+  case LibFunc_gnu_std_basic_filebuf_dtor:
+    return (NumParams == 1 && FTy.getReturnType()->isVoidTy() &&
+            FTy.getParamType(0)->isPointerTy());
+
+  case LibFunc_gnu_std_cxx11_basic_stringstream_ctor:
+    return (NumParams == 1 && FTy.getReturnType()->isVoidTy() &&
+            FTy.getParamType(0)->isPointerTy());
+
   case LibFunc_LeaveCriticalSection:
     return (NumParams == 1 && FTy.getReturnType()->isVoidTy() &&
             FTy.getParamType(0)->isPointerTy());
