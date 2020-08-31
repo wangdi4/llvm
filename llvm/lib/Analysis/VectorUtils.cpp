@@ -702,50 +702,9 @@ std::vector<Attribute> llvm::getVectorVariantAttributes(Function& F) {
   return RetVal;
 }
 
-Type* llvm::calcCharacteristicType(Function& F, VectorVariant& Variant)
-{
-  Type* ReturnType = F.getReturnType();
-  Type* CharacteristicDataType = NULL;
-
-  if (!ReturnType->isVoidTy())
-    CharacteristicDataType = ReturnType;
-
-  if (!CharacteristicDataType) {
-
-    std::vector<VectorKind>& ParmKinds = Variant.getParameters();
-    Function::const_arg_iterator ArgIt = F.arg_begin();
-    Function::const_arg_iterator ArgEnd = F.arg_end();
-    std::vector<VectorKind>::iterator VKIt = ParmKinds.begin();
-
-    for (; ArgIt != ArgEnd; ++ArgIt, ++VKIt) {
-      if (VKIt->isVector()) {
-        CharacteristicDataType = (*ArgIt).getType();
-        break;
-      }
-    }
-  }
-
-  // TODO except Clang's ComplexType
-  if (!CharacteristicDataType || CharacteristicDataType->isStructTy() ||
-      CharacteristicDataType->isVectorTy()) {
-    CharacteristicDataType = Type::getInt32Ty(F.getContext());
-  }
-
-  // Promote char/short types to int for Xeon Phi.
-  CharacteristicDataType =
-    VectorVariant::promoteToSupportedType(CharacteristicDataType, Variant);
-
-  if (CharacteristicDataType->isPointerTy()) {
-    // For such cases as 'int* foo(int x)', where x is a non-vector type, the
-    // characteristic type at this point will be i32*. If we use the DataLayout
-    // to query the supported pointer size, then a promotion to i64* is
-    // incorrect because the mask element type will mismatch the element type
-    // of the characteristic type.
-    PointerType *PointerTy = cast<PointerType>(CharacteristicDataType);
-    CharacteristicDataType = PointerTy->getElementType();
-  }
-
-  return CharacteristicDataType;
+Type *llvm::calcCharacteristicType(Function &F, VectorVariant &Variant) {
+  return calcCharacteristicType(F.getReturnType(), F.args(), Variant,
+                                F.getParent()->getDataLayout());
 }
 
 void llvm::getFunctionsToVectorize(

@@ -1710,12 +1710,8 @@ void VPOCodeGen::vectorizeCallArgs(VPCallInstruction *VPCall,
   // Promote to characteristic type.
   Type *CharacteristicType =
       VPlanCallVecDecisions::calcCharacteristicType(VPCall, *VecVariant);
-  unsigned CharacteristicTypeSize = 0;
-  if (CharacteristicType->isPointerTy())
-    CharacteristicTypeSize =
-        Plan->getDataLayout()->getPointerTypeSizeInBits(CharacteristicType);
-  else
-    CharacteristicTypeSize = CharacteristicType->getPrimitiveSizeInBits();
+  unsigned CharacteristicTypeSize =
+      CharacteristicType->getPrimitiveSizeInBits();
 
   // Promote the i1 to an integer type that has the same size as the
   // characteristic type.
@@ -1726,8 +1722,7 @@ void VPOCodeGen::vectorizeCallArgs(VPCallInstruction *VPCall,
 
   // Bitcast if the promoted type is not the same as the characteristic
   // type.
-  if (ScalarToType != CharacteristicType &&
-      !CharacteristicType->isPointerTy()) {
+  if (ScalarToType != CharacteristicType) {
     Type *MaskCastTy = FixedVectorType::get(CharacteristicType, PumpedVF);
     Value *MaskCast = Builder.CreateBitCast(MaskExt, MaskCastTy, "maskcast");
     VecArgs.push_back(MaskCast);

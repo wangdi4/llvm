@@ -472,6 +472,52 @@ std::vector<Attribute> getVectorVariantAttributes(Function& F);
 /// specified according to the vector function ABI.
 Type* calcCharacteristicType(Function& F, VectorVariant& Variant);
 
+/// Determine the characteristic type using the \pReturnType and argument list
+/// passed by \p ArgBegin and \p ArgEnd of the vector function as specified
+/// according to the vector function ABI.
+/// Note: For pointers, the integer type of the pointer size width is returned.
+template <typename RangeIterator>
+Type *calcCharacteristicType(Type *ReturnType, RangeIterator Args,
+                             VectorVariant &Variant, const DataLayout &DL) {
+  Type *CharacteristicDataType = nullptr;
+
+  if (!ReturnType->isVoidTy())
+    CharacteristicDataType = ReturnType;
+
+  if (!CharacteristicDataType) {
+    std::vector<VectorKind> &ParmKinds = Variant.getParameters();
+    std::vector<VectorKind>::iterator VKIt = ParmKinds.begin();
+    auto ArgBegin = Args.begin();
+    auto ArgEnd = Args.end();
+    for (; ArgBegin != ArgEnd; ++ArgBegin, ++VKIt) {
+      if (VKIt->isVector()) {
+        CharacteristicDataType = ArgBegin->getType();
+        break;
+      }
+    }
+  }
+
+  // TODO except Clang's ComplexType
+  if (!CharacteristicDataType || !CharacteristicDataType->isSingleValueType() ||
+      CharacteristicDataType->isX86_MMXTy() ||
+      CharacteristicDataType->isVectorTy()) {
+    CharacteristicDataType = Type::getInt32Ty(ReturnType->getContext());
+  }
+
+  // Promote char/short types to int for Xeon Phi.
+  CharacteristicDataType =
+      VectorVariant::promoteToSupportedType(CharacteristicDataType, Variant);
+
+  if (CharacteristicDataType->isPointerTy()) {
+    unsigned CharacteristicTypeSize =
+        DL.getPointerTypeSizeInBits(CharacteristicDataType);
+    CharacteristicDataType = IntegerType::get(
+        CharacteristicDataType->getContext(), CharacteristicTypeSize);
+  }
+
+  return CharacteristicDataType;
+}
+
 /// Helper function that returns widened type of given type \p Ty.
 inline VectorType *getWidenedType(Type *Ty, unsigned VF) {
   unsigned NumElts =
