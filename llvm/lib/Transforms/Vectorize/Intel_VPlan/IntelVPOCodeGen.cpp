@@ -678,9 +678,9 @@ void VPOCodeGen::vectorizeInstruction(VPInstruction *VPInst) {
       auto *VecType = dyn_cast<VectorType>(Type);
       if (!VecType)
         return 1;
-      assert(!VecType->getElementCount().Scalable &&
+      assert(!VecType->getElementCount().isScalable() &&
              "Re-vectorizing scalable vector type isn't supported!");
-      return VecType->getElementCount().Min;
+      return VecType->getElementCount().getKnownMinValue();
     };
 
     unsigned MaxVL =
