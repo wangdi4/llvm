@@ -10,6 +10,9 @@
 #include <iostream>
 
 int main(int argc, char *argv[]) {
+#if INTEL_CUSTOMIZATION
+  omp_set_max_active_levels(2);
+#endif // INTEL_CUSTOMIZATION
 #pragma omp parallel for
   for (int i = 0; i < 16; ++i) {
     for (int n = 1; n < (1 << 13); n <<= 1) {

@@ -2131,8 +2131,33 @@ bool SimplifyCFGOpt::SpeculativelyExecuteBB(BranchInst *BI, BasicBlock *ThenBB,
 
   BasicBlock *BB = BI->getParent();
   BasicBlock *EndBB = ThenBB->getTerminator()->getSuccessor(0);
+<<<<<<< HEAD
   int BudgetRemaining =
     PHINodeFoldingThreshold * TargetTransformInfo::TCC_Basic;
+=======
+
+#ifndef INTEL_CUSTOMIZATION
+  TargetTransformInfo::TargetCostKind CostKind =
+    BI->getFunction()->hasMinSize()
+    ? TargetTransformInfo::TCK_CodeSize
+    : TargetTransformInfo::TCK_SizeAndLatency;
+  // Check how expensive it will be to insert the necessary selects.
+  int BudgetRemaining =
+    PHINodeFoldingThreshold * TargetTransformInfo::TCC_Basic;
+  for (PHINode &PN : EndBB->phis()) {
+    unsigned OrigI = PN.getBasicBlockIndex(BB);
+    unsigned ThenI = PN.getBasicBlockIndex(ThenBB);
+    Value *OrigV = PN.getIncomingValue(OrigI);
+    Value *ThenV = PN.getIncomingValue(ThenI);
+    if (OrigV != ThenV)
+      BudgetRemaining -=
+          TTI.getCmpSelInstrCost(Instruction::Select, PN.getType(), nullptr,
+                                 CostKind);
+  }
+  if (BudgetRemaining < 0)
+    return false;
+#endif // !INTEL_CUSTOMIZATION
+>>>>>>> 046972092a783f351eb87f779ede6fe0d4730f6d
 
   // If ThenBB is actually on the false edge of the conditional branch, remember
   // to swap the select operands later.
