@@ -925,15 +925,15 @@ RuntimeDDResult HIRRuntimeDD::computeTests(HLLoop *Loop, LoopContext &Context) {
   bool ConstantTripCount = true;
   uint64_t TotalTripCount = 1;
 
+  if (Loop->isInSIMDRegion()) {
+    return SIMD_LOOP;
+  }
+
   for (const HLLoop *LoopI = InnermostLoop, *LoopE = Loop->getParentLoop();
        LoopI != LoopE; LoopI = LoopI->getParentLoop()) {
 
     if (LoopI->hasUnrollEnablingPragma()) {
       return UNROLL_PRAGMA_LOOP;
-    }
-
-    if (LoopI->isSIMD()) {
-      return SIMD_LOOP;
     }
 
     uint64_t TripCount;
