@@ -803,11 +803,18 @@ private:
                                   bool Equal);
 
   // Implementation of load where the pointer operand being loaded from is
-  // uniform. VPInst is the load instruction and Mask specifies the load Mask. A
+  // uniform. VPLoad is the load instruction and Mask specifies the load Mask. A
   // scalar load is done using the pointer operand and the value is
   // broadcast to generate the vector value. If Mask is non-null, the load
   // is done conditionally only if Mask is non-zero.
   void widenUniformLoadImpl(const VPLoadStoreInst *VPLoad, RegDDRef *Mask);
+
+  // Implementation of store where the pointer operand being stored to is
+  // uniform and the store is unmasked. VPStore is the store instruction. A
+  // scalar store is done using the pointer operand and the value to be stored
+  // is extracted from the last vector lane if the value is divergent.If the
+  // value being stored is uniform, we simply store the scalar uniform value.
+  void widenUnmaskedUniformStoreImpl(const VPLoadStoreInst *VPStore);
 
   // Implementation of load/store widening.
   void widenLoadStoreImpl(const VPLoadStoreInst *VPLoadStore, RegDDRef *Mask);

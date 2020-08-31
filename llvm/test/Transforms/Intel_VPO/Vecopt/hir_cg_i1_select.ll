@@ -14,7 +14,8 @@ define void @foo(i1 %cond, i1 %a, i64 *%p) {
 ; CHECK-NEXT:             |   [[DOTVEC40:%.*]] = ([[COND0:%.*]] != 0) ? [[DOTVEC20]] : [[DOTVEC30]]
 ; CHECK-NEXT:             |   [[DOTVEC50:%.*]] = ([[DOTVEC0]] == 42) ? [[DOTVEC20]] : [[COND0]]
 ; CHECK-NEXT:             |   [[DOTVEC60:%.*]] = [[DOTVEC40]]  ^  [[DOTVEC50]]
-; CHECK-NEXT:             |   (<2 x i64>*)([[P0]])[0] = [[DOTVEC60]]
+; CHECK-NEXT:             |   [[LAST:%.*]] = extractelement [[DOTVEC60]],  1;
+; CHECK-NEXT:             |   ([[P0]])[0] = [[LAST]]
 ; CHECK-NEXT:             + END LOOP
 ; CHECK:                  ret
 ; CHECK-NEXT:       END REGION
