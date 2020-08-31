@@ -129,6 +129,9 @@
 
 // Behavior with -lm
 // RUN: %clang -### --intel -lm -target x86_64-unknown-linux %s 2>&1 | FileCheck -check-prefix CHECK-LIMF %s
+// RUN: %clang -### --intel -target x86_64-unknown-linux %s 2>&1 | FileCheck -check-prefix CHECK-LIMF %s
+// RUN: %clangxx -### --dpcpp -lm -target x86_64-unknown-linux %s 2>&1 | FileCheck -check-prefix CHECK-LIMF %s
+// RUN: %clangxx -### --dpcpp -target x86_64-unknown-linux %s 2>&1 | FileCheck -check-prefix CHECK-LIMF %s
 // CHECK-LIMF: "-limf" "-lm"
 
 // Verify that /Qm32 and /Qm64 are accepted - these are aliases to -m32 and -m64
@@ -557,6 +560,8 @@
 // RUN: %clang -### -target x86_64-linux-gnu -qopenmp -qopenmp-link=static %s 2>&1 | FileCheck -check-prefix CHECK-QOPENMP-STATIC %s
 // RUN: %clang -### -target x86_64-linux-gnu -qopenmp-stubs %s 2>&1 | FileCheck -check-prefix CHECK-QOPENMP-STUBS %s
 // RUN: %clang_cl -### --target=x86_64-pc-windows-msvc /QopenmpS %s 2>&1 | FileCheck -check-prefix CHECK-QOPENMP-STUBS-WIN %s
+// RUN: %clang_cl -### --target=x86_64-pc-windows-msvc /Qopenmp-stubs %s 2>&1 | FileCheck -check-prefix CHECK-QOPENMP-STUBS-WIN %s
+// CHECK-QOPENMP-STUBS-WIN: "--dependent-lib=libiompstubs5md"
 // CHECK-QOPENMP-STATIC: "-Bstatic" "-liomp5" "-Bdynamic"
 // CHECK-QOPENMP-STUBS: "-liompstubs5"
 // CHECK-QOPENMP-STUBS-NOT: "-lpthread"
@@ -572,3 +577,8 @@
 // RUN: %clang_cl /c /QxSSE3 /Od /Fo:somefile.obj -###  %s 2>&1 | FileCheck -check-prefix FO-CHECK %s
 // RUN: %clang_cl /c /QxSSE3 /Od /Fosomefile.obj -###  %s 2>&1 | FileCheck -check-prefix FO-CHECK %s
 // FO-CHECK: "-o" "somefile.obj"
+
+/// /constexpr:steps alias
+// RUN: %clang_cl /c /constexpr:steps4 -###  %s 2>&1 | FileCheck -check-prefix CONSTEXPR_STEPS %s
+// RUN: %clang_cl /c /constexpr:steps 4 -###  %s 2>&1 | FileCheck -check-prefix CONSTEXPR_STEPS %s
+// CONSTEXPR_STEPS: "-fconstexpr-steps" "4"

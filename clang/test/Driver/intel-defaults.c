@@ -174,3 +174,6 @@
 // RUN: %clang_cl -### --intel -c -Zi %s 2>&1 | FileCheck -check-prefix CHECK-INTEL-DEBUG %s
 // CHECK-INTEL-DEBUG: "-debug-info-kind=limited"
 
+// help information
+// RUN: %clang -help 2>&1 | FileCheck -check-prefix CHECK-INTEL-HELP %s
+// CHECK-INTEL-HELP: Intel(R) oneAPI DPC++/C++ Compiler

@@ -438,7 +438,8 @@ shouldUseExceptionTablesForObjCExceptions(const ObjCRuntime &runtime,
 static void addExceptionArgs(const ArgList &Args, types::ID InputType,
                              const ToolChain &TC, bool KernelOrKext,
                              const ObjCRuntime &objcRuntime,
-                             ArgStringList &CmdArgs) {
+                             ArgStringList &CmdArgs, // INTEL
+                             const JobAction &JA) { // INTEL
   const llvm::Triple &Triple = TC.getTriple();
 
   if (KernelOrKext) {
@@ -470,7 +471,10 @@ static void addExceptionArgs(const ArgList &Args, types::ID InputType,
   if (types::isCXX(InputType)) {
     // Disable C++ EH by default on XCore and PS4.
     bool CXXExceptionsEnabled =
-        Triple.getArch() != llvm::Triple::xcore && !Triple.isPS4CPU();
+#if INTEL_CUSTOMIZATION
+        Triple.getArch() != llvm::Triple::xcore && !Triple.isPS4CPU() &&
+        !(JA.isDeviceOffloading(Action::OFK_OpenMP) && Triple.isSPIR());
+#endif // INTEL_CUSTOMIZATION
     Arg *ExceptionArg = Args.getLastArg(
         options::OPT_fcxx_exceptions, options::OPT_fno_cxx_exceptions,
         options::OPT_fexceptions, options::OPT_fno_exceptions);
@@ -6236,7 +6240,9 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
 
   // Handle GCC-style exception args.
   if (!C.getDriver().IsCLMode())
-    addExceptionArgs(Args, InputType, TC, KernelOrKext, Runtime, CmdArgs);
+#if INTEL_CUSTOMIZATION
+    addExceptionArgs(Args, InputType, TC, KernelOrKext, Runtime, CmdArgs, JA);
+#endif // INTEL_CUSTOMIZATION
 
   // Handle exception personalities
   Arg *A = Args.getLastArg(

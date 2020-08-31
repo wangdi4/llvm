@@ -5355,6 +5355,7 @@ def : CLFlag<"Oy-">, Alias<_SLASH_O>, AliasArgs<["y-"]>,
 def _SLASH_Q_no_use_libirc : CLFlag<"Q_no-use-libirc">, Alias<i_no_use_libirc>,
   HelpText<"Disable usage of libirc.">;
 // Intel specific options (Intel only)
+def : CLJoinedOrSeparate<"constexpr:steps">, Alias<fconstexpr_steps_EQ>;
 def : CLCommaJoined<"device-math-lib:">, Alias<device_math_lib_EQ>,
   HelpText<"Control the addition of device math libraries when compiling for "
   "other devices.  Valid arguments are fp64, fp32">;
@@ -5422,9 +5423,10 @@ def _SLASH_Qopenmp_ : CLFlagNoDpcpp<"Qopenmp-">, Alias<fno_iopenmp>,
   HelpText<"Disable OpenMP support">;
 def _SLASH_QopenmpP_ : CLFlagNoDpcpp<"QopenmpP-">, Alias<fno_iopenmp>,
   HelpText<"Disable OpenMP support">;
-def _SLASH_QopenmpS : CLFlagNoDpcpp<"QopenmpS">, Alias<qopenmp_stubs>,
+def _SLASH_QopenmpS : CLFlagNoDpcpp<"QopenmpS">, Alias<qopenmp_stubs>;
+def _SLASH_Qopenmp_stubs : CLFlagNoDpcpp<"Qopenmp-stubs">, Alias<qopenmp_stubs>,
   HelpText<"Enables the user to compile OpenMP programs in seqential mode. "
-    "The OpenMP directives are ignored and a stub OpenMP library is linked.">;
+  "The OpenMP directives are ignored and a stub OpenMP library is linked.">;
 def _SLASH_Qiopenmp : CLFlag<"Qiopenmp">, Alias<fiopenmp>;
 def _SLASH_Qopenmp_simd : CLFlagNoDpcpp<"Qopenmp-simd">, Alias<fiopenmp_simd>,
   HelpText<"Emit OpenMP code only for SIMD-based constructs.">;

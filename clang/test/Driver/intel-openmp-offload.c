@@ -33,8 +33,6 @@
 // CHK-PHASES: 16: assembler, {15}, object, (host-openmp)
 // CHK-PHASES: 17: linker, {4, 16}, image, (host-openmp)
 
-
-
 /// ###########################################################################
 
 /// Check of the commands passed to each tool when using valid OpenMP targets.
@@ -49,6 +47,12 @@
 // CHK-COMMANDS: clang-offload-wrapper{{.*}} "-host" "x86_64-unknown-linux-gnu" "-o" "[[WRAPPERBC:.+\.bc]]" "-kind=openmp" "-target=spir64"
 // CHK-COMMANDS: clang{{.*}} "-cc1" "-triple" "x86_64-unknown-linux-gnu" "-emit-obj" {{.*}} "-o" "[[TARGOBJ:.+\.o]]" "-x" "ir" "[[WRAPPERBC]]"
 // CHK-COMMANDS: ld{{.*}} "-o" {{.*}} "[[HOSTOBJ]]" "[[TARGOBJ]]" {{.*}} "-lomptarget"
+
+/// Check to be sure exception handling is not enabled for device
+// RUN: %clangxx -### -fiopenmp -c -target x86_64-unknown-linux-gnu -fopenmp-targets=spir64 %s 2>&1 \
+// RUN:   | FileCheck -check-prefix=CHK-EXCEPT %s
+// CHK-EXCEPT: clang{{.*}} "-cc1" "-triple" "x86_64-unknown-linux-gnu" "-emit-llvm-bc" {{.*}} "-fopenmp" {{.*}} "-fexceptions"
+// CHK-EXCEPT-NOT: clang{{.*}} "-cc1" "-triple" "spir64" "-aux-triple" "x86_64-unknown-linux-gnu" "-emit-llvm-bc" {{.*}} "-fopenmp" {{.*}} "-fexceptions"
 
 /// Check additional options passed through
 // RUN:   %clang -### -fiopenmp -o %t.out -target x86_64-unknown-linux-gnu -fopenmp-targets=spir64="-DFOO -DBAR -mllvm -dummy-opt -Xclang -cc1dummy -O3" %s 2>&1 \

@@ -619,7 +619,8 @@ DerivedArgList *Driver::TranslateInputArgs(const InputArgList &Args) const {
         continue;
       }
 #if INTEL_CUSTOMIZATION
-      if (IsIntelMode() && (Value == "m")) {
+      if ((IsIntelMode() || Args.hasArg(options::OPT__dpcpp)) &&
+          (Value == "m")) {
         DAL->AddJoinedArg(0, Opts.getOption(options::OPT_l), "imf");
       }
 #endif //INTEL_CUSTOMIZATION
@@ -1536,6 +1537,11 @@ Compilation *Driver::BuildCompilation(ArrayRef<const char *> ArgList) {
                  VA->getOption().matches(options::OPT__HASH))
       IntelPrintOptions = 1;
   }
+  // Update the Driver Title to something more fitting
+  std::string Title("Intel(R) oneAPI DPC++/C++ Compiler");
+  if (IsIntelPro())
+    Title += " Pro";
+  setTitle(Title);
 #endif // INTEL_CUSTOMIZATION
 
   // -no-canonical-prefixes is used very early in main.
