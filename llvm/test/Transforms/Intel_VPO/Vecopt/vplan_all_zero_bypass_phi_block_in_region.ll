@@ -13,10 +13,10 @@ define dso_local void @foo(i32* nocapture readonly %a, i32* nocapture readonly %
 ; CHECK-LABEL:  VPlan after all zero bypass:
 ; CHECK-NEXT:  VPlan IR for: foo
 ; CHECK-NEXT:    [[BB0:BB[0-9]+]]:
-; CHECK-NEXT:     [DA: Div] i32 [[VP_LANE:%.*]] = induction-init{add} i32 0 i32 1
+; CHECK-NEXT:     [DA: Div] i64 [[VP_LANE:%.*]] = induction-init{add} i64 0 i64 1
 ; CHECK-NEXT:     [DA: Uni] i1 [[VP_CMP9:%.*]] = icmp eq i32 [[Y0:%.*]] i32 [[X0:%.*]]
 ; CHECK-NEXT:     [DA: Uni] i32 [[VP_MUL11:%.*]] = mul i32 [[Y0]] i32 [[X0]]
-; CHECK-NEXT:     [DA: Div] i32* [[VP_ARRAYIDX:%.*]] = getelementptr inbounds i32* [[A0:%.*]] i32 [[VP_LANE]]
+; CHECK-NEXT:     [DA: Div] i32* [[VP_ARRAYIDX:%.*]] = getelementptr inbounds i32* [[A0:%.*]] i64 [[VP_LANE]]
 ; CHECK-NEXT:     [DA: Div] i32 [[VP0:%.*]] = load i32* [[VP_ARRAYIDX]]
 ; CHECK-NEXT:     [DA: Div] i1 [[VP_CMP1:%.*]] = icmp sgt i32 [[VP0]] i32 7
 ; CHECK-NEXT:    SUCCESSORS(1):all.zero.bypass.begin13
@@ -29,7 +29,7 @@ define dso_local void @foo(i32* nocapture readonly %a, i32* nocapture readonly %
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB1]]:
 ; CHECK-NEXT:       [DA: Div] i1 [[VP1:%.*]] = block-predicate i1 [[VP_CMP1]]
-; CHECK-NEXT:       [DA: Div] i32* [[VP_ARRAYIDX3:%.*]] = getelementptr inbounds i32* [[B0:%.*]] i32 [[VP_LANE]]
+; CHECK-NEXT:       [DA: Div] i32* [[VP_ARRAYIDX3:%.*]] = getelementptr inbounds i32* [[B0:%.*]] i64 [[VP_LANE]]
 ; CHECK-NEXT:       [DA: Div] i32 [[VP2:%.*]] = load i32* [[VP_ARRAYIDX3]]
 ; CHECK-NEXT:       [DA: Div] i1 [[VP_CMP4:%.*]] = icmp sgt i32 [[VP2]] i32 8
 ; CHECK-NEXT:      SUCCESSORS(1):[[BB2:BB[0-9]+]]
@@ -43,14 +43,14 @@ define dso_local void @foo(i32* nocapture readonly %a, i32* nocapture readonly %
 ; CHECK-NEXT:      [[BB3]]:
 ; CHECK-NEXT:       [DA: Div] i1 [[VP3:%.*]] = block-predicate i1 [[VP_BB2_BR_VP_CMP4]]
 ; CHECK-NEXT:       [DA: Uni] i32 [[VP_DIV:%.*]] = sdiv i32 [[X0]] i32 [[Y0]]
-; CHECK-NEXT:       [DA: Div] i32* [[VP_ARRAYIDX7:%.*]] = getelementptr inbounds i32* [[C0:%.*]] i32 [[VP_LANE]]
+; CHECK-NEXT:       [DA: Div] i32* [[VP_ARRAYIDX7:%.*]] = getelementptr inbounds i32* [[C0:%.*]] i64 [[VP_LANE]]
 ; CHECK-NEXT:       [DA: Div] store i32 [[VP_DIV]] i32* [[VP_ARRAYIDX7]]
 ; CHECK-NEXT:      SUCCESSORS(1):[[BB4:BB[0-9]+]]
 ; CHECK-NEXT:      PREDECESSORS(1): [[BB2]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB4]]:
 ; CHECK-NEXT:       [DA: Div] i1 [[VP4:%.*]] = block-predicate i1 [[VP_CMP1]]
-; CHECK-NEXT:       [DA: Div] i32* [[VP_ARRAYIDX13:%.*]] = getelementptr inbounds i32* [[C0]] i32 [[VP_LANE]]
+; CHECK-NEXT:       [DA: Div] i32* [[VP_ARRAYIDX13:%.*]] = getelementptr inbounds i32* [[C0]] i64 [[VP_LANE]]
 ; CHECK-NEXT:      SUCCESSORS(1):[[BB5:BB[0-9]+]]
 ; CHECK-NEXT:      PREDECESSORS(1): [[BB3]]
 ; CHECK-EMPTY:

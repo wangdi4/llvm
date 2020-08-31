@@ -143,9 +143,8 @@ VPlanCFGBuilderBase<CFGBuilder>::createVPInstruction(Instruction *Inst) {
   if (auto *Call = dyn_cast<CallInst>(Inst)) {
     if (Function *F = Call->getCalledFunction()) {
       if (F->getName() == "llvm.vplan.laneid") {
-        LLVMContext &Ctx = F->getContext();
-        auto *Zero = ConstantInt::getSigned(Type::getInt32Ty(Ctx), 0);
-        auto *One = ConstantInt::getSigned(Type::getInt32Ty(Ctx), 1);
+        auto *Zero = ConstantInt::getSigned(Call->getType(), 0);
+        auto *One = ConstantInt::getSigned(Call->getType(), 1);
         return VPIRBuilder.create<VPInductionInit>(
             Call->getName(), getOrCreateVPOperand(Zero),
             getOrCreateVPOperand(One), Instruction::Add);

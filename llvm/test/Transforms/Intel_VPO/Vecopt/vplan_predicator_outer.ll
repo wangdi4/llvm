@@ -11,12 +11,12 @@ target triple = "x86_64-unknown-linux-gnu"
 define void @test_2_level_loop_nest(i64 %vf) local_unnamed_addr {
 ; CHECK-LABEL:  VPlan IR for: test_2_level_loop_nest
 ; CHECK-NEXT:    [[BB0:BB[0-9]+]]:
-; CHECK-NEXT:     [DA: Div] i32 [[VP_LANE:%.*]] = induction-init{add} i32 0 i32 1
+; CHECK-NEXT:     [DA: Div] i64 [[VP_LANE:%.*]] = induction-init{add} i64 0 i64 1
 ; CHECK-NEXT:    SUCCESSORS(1):[[BB1:BB[0-9]+]]
 ; CHECK-NEXT:    no PREDECESSORS
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB1]]:
-; CHECK-NEXT:     [DA: Div] i64 [[VP_OUTER_INDUCTION_PHI:%.*]] = phi  [ i32 [[VP_LANE]], [[BB0]] ],  [ i64 [[VP_OUTER_INDUCTION:%.*]], [[BB2:BB[0-9]+]] ]
+; CHECK-NEXT:     [DA: Div] i64 [[VP_OUTER_INDUCTION_PHI:%.*]] = phi  [ i64 [[VP_LANE]], [[BB0]] ],  [ i64 [[VP_OUTER_INDUCTION:%.*]], [[BB2:BB[0-9]+]] ]
 ; CHECK-NEXT:     [DA: Div] i1 [[VP_LOOP_MASK:%.*]] = phi  [ i1 true, [[BB0]] ],  [ i1 [[VP_LOOP_MASK_NEXT:%.*]], [[BB2]] ]
 ; CHECK-NEXT:    SUCCESSORS(1):[[BB3:BB[0-9]+]]
 ; CHECK-NEXT:    PREDECESSORS(2): [[BB0]] [[BB2]]
@@ -119,12 +119,12 @@ exit:
 define void @test_2_level_loop_nest_swap_inner_branch(i64 %vf) local_unnamed_addr {
 ; CHECK-LABEL:  VPlan IR for: test_2_level_loop_nest_swap_inner_branch
 ; CHECK-NEXT:    [[BB0:BB[0-9]+]]:
-; CHECK-NEXT:     [DA: Div] i32 [[VP_LANE:%.*]] = induction-init{add} i32 0 i32 1
+; CHECK-NEXT:     [DA: Div] i64 [[VP_LANE:%.*]] = induction-init{add} i64 0 i64 1
 ; CHECK-NEXT:    SUCCESSORS(1):[[BB1:BB[0-9]+]]
 ; CHECK-NEXT:    no PREDECESSORS
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB1]]:
-; CHECK-NEXT:     [DA: Div] i64 [[VP_OUTER_INDUCTION_PHI:%.*]] = phi  [ i32 [[VP_LANE]], [[BB0]] ],  [ i64 [[VP_OUTER_INDUCTION:%.*]], [[BB2:BB[0-9]+]] ]
+; CHECK-NEXT:     [DA: Div] i64 [[VP_OUTER_INDUCTION_PHI:%.*]] = phi  [ i64 [[VP_LANE]], [[BB0]] ],  [ i64 [[VP_OUTER_INDUCTION:%.*]], [[BB2:BB[0-9]+]] ]
 ; CHECK-NEXT:     [DA: Div] i1 [[VP_LOOP_MASK:%.*]] = phi  [ i1 true, [[BB0]] ],  [ i1 [[VP_LOOP_MASK_NEXT:%.*]], [[BB2]] ]
 ; CHECK-NEXT:    SUCCESSORS(1):[[BB3:BB[0-9]+]]
 ; CHECK-NEXT:    PREDECESSORS(2): [[BB0]] [[BB2]]
