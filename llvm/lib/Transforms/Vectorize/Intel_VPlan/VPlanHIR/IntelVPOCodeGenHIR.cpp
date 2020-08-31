@@ -15,6 +15,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "IntelVPOCodeGenHIR.h"
+#include "../IntelVPlanCallVecDecisions.h"
 #include "../IntelVPlanUtils.h"
 #include "../IntelVPlanVLSAnalysis.h"
 #include "IntelVPlanHCFGBuilderHIR.h"
@@ -663,9 +664,11 @@ void HandledCheck::visit(HLDDNode *Node) {
       }
 
       // Scalar math library calls without readnone or readonly attributes
-      // cannot be vectorized.
-      if ((VF > 1 && (!TLI->isFunctionVectorizable(CalledFunc, VF) ||
-                      !Call->onlyReadsMemory())) &&
+      // cannot be vectorized. Current default behavior is to relax readonly
+      // restriction.
+      if ((VF > 1 &&
+           (!TLI->isFunctionVectorizable(CalledFunc, VF) ||
+            (!VPlanVecNonReadonlyLibCalls && !Call->onlyReadsMemory()))) &&
           !ID) {
         LLVM_DEBUG(
             dbgs()

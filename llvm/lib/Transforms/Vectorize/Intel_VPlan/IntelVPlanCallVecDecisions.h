@@ -29,6 +29,8 @@ class TargetLibraryInfo;
 
 namespace vpo {
 
+extern bool VPlanVecNonReadonlyLibCalls;
+
 class VPlanCallVecDecisions {
 
 public:
