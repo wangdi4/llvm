@@ -57,7 +57,14 @@
 /// Check additional options passed through
 // RUN:   %clang -### -fiopenmp -o %t.out -target x86_64-unknown-linux-gnu -fopenmp-targets=spir64="-DFOO -DBAR -mllvm -dummy-opt -Xclang -cc1dummy -O3" %s 2>&1 \
 // RUN:   | FileCheck -check-prefix=CHK-TARGOPTS %s
+// RUN:   %clang -### --intel -fiopenmp -o %t.out -target x86_64-unknown-linux-gnu -fopenmp-targets=spir64="-DFOO -DBAR -mllvm -dummy-opt -Xclang -cc1dummy -O3" %s 2>&1 \
+// RUN:   | FileCheck -check-prefix=CHK-TARGOPTS %s
 // CHK-TARGOPTS: clang{{.*}} "-triple" "spir64" "-aux-triple" "x86_64-unknown-linux-gnu" "-emit-llvm-bc" {{.*}} "-D" "FOO" "-D" "BAR" {{.*}} "-O3" {{.*}} "-cc1dummy" "-mllvm" "-dummy-opt" {{.*}} "-fopenmp-targets=spir64"
+
+/// -O0 is the default when in Intel mode
+// RUN:   %clang -### --intel -fiopenmp -o %t.out -target x86_64-unknown-linux-gnu -fopenmp-targets=spir64="-DFOO" %s 2>&1 \
+// RUN:   | FileCheck -check-prefix=CHK-TARGOPTS-NOOPT %s
+// CHK-TARGOPTS-NOOPT: clang{{.*}} "-triple" "spir64" "-aux-triple" "x86_64-unknown-linux-gnu" "-emit-llvm-bc" {{.*}} "-D" "FOO" {{.*}} "-O0" {{.*}} "-fopenmp-targets=spir64"
 
 /// Check vectorizer not enabled
 // RUN:   %clang -### -fiopenmp -o %t.out -target x86_64-unknown-linux-gnu -fopenmp-targets=spir64="-O3" %s 2>&1 \
