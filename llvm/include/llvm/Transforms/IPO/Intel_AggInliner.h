@@ -47,7 +47,7 @@ private:
   // List of calls that are marked as AggInline.
   SetVector<CallBase *> AggInlCalls;
 
-  bool setAggInlInfoForCallSite(CallBase &CB);
+  bool setAggInlInfoForCallSite(CallBase &CB, bool Recursive);
   bool setAggInlInfoForCallSites(Function &F);
   bool trackUsesOfAGVs(std::vector<GlobalVariable *> &GVs);
   bool analyzeHugeMallocGlobalPointersHeuristic(Module &MI);

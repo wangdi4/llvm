@@ -5,6 +5,7 @@ set(LLVM_LINK_COMPONENTS
   BinaryFormat
   CodeGen
   DebugInfoDWARF
+  DebugInfoTraceBack # INTEL
   DebugInfoPDB
   Demangle
   MC

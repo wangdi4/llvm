@@ -183,11 +183,9 @@ Function *VPOParoptTransform::genTaskDestructorThunk(
     // Call the destructor. Insert the call before the return inst.
     // The gencall will verify that the GEP type matches the destructor
     // parameter.
-    auto *DestrCall =
-        VPOParoptUtils::genDestructorCall(FI->getDestructor(), DestrGEP, RetInst);
-
-    // Move the builder before the destructor call.
-    Builder.SetInsertPoint(DestrCall);
+    if (auto *Dtor = FI->getDestructor())
+      genPrivatizationInitOrFini(FI, Dtor, FK_Dtor, DestrGEP, nullptr, RetInst,
+                                 &DT);
   }
 
   return DestThunk;
@@ -1136,9 +1134,8 @@ void VPOParoptTransform::genFprivInitForTask(WRegionNode *W,
     }
 #endif // INTEL_CUSTOMIZATION
 
-    VPOParoptUtils::genCopyByAddr(NewVGep, OrigV, InsertBefore,
-                                  FprivI->getCopyConstructor(),
-                                  FprivI->getIsByRef());
+    genCopyByAddr(FprivI, NewVGep, OrigV, InsertBefore,
+                  FprivI->getCopyConstructor(), FprivI->getIsByRef());
   }
 }
 
@@ -1396,8 +1393,8 @@ VPOParoptTransform::genFLPrivateTaskDup(WRegionNode *W,
         Builder.CreateInBoundsGEP(KmpTaskTTWithPrivatesTy, Arg1, Indices);
     Value *SrcGEP =
         Builder.CreateInBoundsGEP(KmpTaskTTWithPrivatesTy, Arg2, Indices);
-    VPOParoptUtils::genCopyByAddr(DstGEP, SrcGEP, RetInst,
-                                  FI->getCopyConstructor(), FI->getIsByRef());
+    genCopyByAddr(FI, DstGEP, SrcGEP, RetInst, FI->getCopyConstructor(),
+                  FI->getIsByRef());
     Builder.SetInsertPoint(RetInst);
   }
   return FnTaskDup;

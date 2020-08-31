@@ -1075,7 +1075,7 @@ public:
   inline operand_iterator succ_begin() { return op_begin(); }
   inline operand_iterator succ_end() {
     // CondBit is expected to be last operand of VPBranchInst (if available)
-    return getCondition() ? std::prev(op_end()) : op_end();
+    return isConditional() ? std::prev(op_end()) : op_end();
   }
   inline const_operand_iterator succ_begin() const { return op_begin(); }
   inline const_operand_iterator succ_end() const {
@@ -1097,6 +1097,7 @@ public:
   /// (the successor with specified index should already exist).
   void setSuccessor(unsigned idx, VPBasicBlock *NewSucc) {
     assert(idx < getNumSuccessors() && "Successor # out of range for Branch!");
+    assert(NewSucc && "Successor can't be null");
     setOperand(idx, NewSucc);
   }
 
@@ -1105,28 +1106,22 @@ public:
     return std::distance(succ_begin(), succ_end());
   }
 
+  /// Returns true in case if the branch is conditional.
+  bool isConditional() const { return getNumOperands() == 3; }
+
   /// Returns the condition bit selecting the successor.
   VPValue *getCondition() const {
-    VPValue *Cond = nullptr;
-    if (unsigned Count = getNumOperands()) {
-      Cond = getOperand(Count - 1);
-      // Condition can't be a basic block.
-      if (isa<VPBasicBlock>(Cond))
-        Cond = nullptr;
-    }
-    return Cond;
+    assert(isConditional() &&
+           "Can't return condition for the unconditional branch");
+    return getOperand(getNumOperands() - 1);
   }
 
-  /// Set a condition bit or replace the existing one.
+  /// Set the condition bit.
   void setCondition(VPValue *Cond) {
-    if (getCondition()) {
-      if (Cond)
-        setOperand(getNumOperands() - 1, Cond);
-      else
-        removeOperand(getNumOperands() - 1);
-    }
-    else if (Cond)
-      addOperand(Cond);
+    assert(isConditional() &&
+           "Setting CondBit for unconditional instruction is prohibited");
+    assert(Cond && "Condition can't be nullptr");
+    setOperand(getNumOperands() - 1, Cond);
   }
 
 protected:

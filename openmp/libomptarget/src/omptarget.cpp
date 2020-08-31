@@ -1123,7 +1123,12 @@ int processDataBefore(int64_t DeviceId, void *HostPtr, int32_t ArgNum,
       DP("Forwarding first-private value " DPxMOD " to the target construct\n",
          DPxPTR(HstPtrBase));
       TgtPtrBegin = HstPtrBase;
+#if INTEL_COLLAB
+      // Let the plugins know that this argument must be passed as literal.
+      TgtBaseOffset = (std::numeric_limits<ptrdiff_t>::max)();
+#else // INTEL_COLLAB
       TgtBaseOffset = 0;
+#endif // INTEL_COLLAB
     } else if (ArgTypes[I] & OMP_TGT_MAPTYPE_PRIVATE) {
       TgtBaseOffset = (intptr_t)HstPtrBase - (intptr_t)HstPtrBegin;
       const bool IsFirstPrivate = ArgTypes[I] & OMP_TGT_MAPTYPE_TO;

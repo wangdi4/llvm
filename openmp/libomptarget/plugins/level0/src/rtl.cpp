@@ -2058,7 +2058,13 @@ static int32_t runTargetTeamRegion(
   // Set arguments
   std::vector<void *> args(NumArgs);
   for (int32_t i = 0; i < NumArgs; i++) {
-    args[i] = (void *)((intptr_t)TgtArgs[i] + TgtOffsets[i]);
+    ptrdiff_t offset = TgtOffsets[i];
+    // Offset equal to MAX(ptrdiff_t) means that the argument
+    // must be passed as literal, and the offset should be ignored.
+    if (offset == (std::numeric_limits<ptrdiff_t>::max)())
+      args[i] = TgtArgs[i];
+    else
+      args[i] = (void *)((intptr_t)TgtArgs[i] + offset);
     CALL_ZE_RET_FAIL(zeKernelSetArgumentValue, kernel, i, sizeof(void *),
                      args[i] == nullptr ? nullptr : &args[i]);
     DP("Kernel argument %" PRId32 " (value: " DPxMOD ") was set successfully\n",

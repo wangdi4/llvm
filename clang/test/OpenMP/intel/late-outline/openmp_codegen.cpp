@@ -84,14 +84,14 @@ int main(int argc, char **argv) {
 // CHECK-SAME: void (%struct.S2*)* @_ZTS2S2.omp.destr
 
 // CHECK-SAME: "QUAL.OMP.PRIVATE:NONPOD"([10 x %struct.S1]* [[ARR1_ADDR]],
-// CHECK-SAME: [10 x %struct.S1]* ([10 x %struct.S1]*)*
-// CHECK-SAME: @_ZTSA10_2S1.omp.def_constr,
-// CHECK-SAME: void ([10 x %struct.S1]*)* @_ZTSA10_2S1.omp.destr
+// CHECK-SAME: %struct.S1* (%struct.S1*)*
+// CHECK-SAME: @_ZTS2S1.omp.def_constr,
+// CHECK-SAME: void (%struct.S1*)* @_ZTS2S1.omp.destr
 
 // CHECK-SAME: "QUAL.OMP.PRIVATE:NONPOD"([10 x %struct.S2]* [[ARR2_ADDR]],
-// CHECK-SAME: [10 x %struct.S2]* ([10 x %struct.S2]*)*
-// CHECK-SAME: @_ZTSA10_2S2.omp.def_constr,
-// CHECK-SAME: void ([10 x %struct.S2]*)* @_ZTSA10_2S2.omp.destr
+// CHECK-SAME: %struct.S2* (%struct.S2*)*
+// CHECK-SAME: @_ZTS2S2.omp.def_constr,
+// CHECK-SAME: void (%struct.S2*)* @_ZTS2S2.omp.destr
 
 // CHECK-SAME: "QUAL.OMP.PRIVATE"(double* [[ARR3_ADDR]])
 
@@ -100,9 +100,9 @@ int main(int argc, char **argv) {
 // CHECK-SAME: void (%struct.S3*)* @_ZTS2S3.omp.destr)
 
 // CHECK-SAME: "QUAL.OMP.FIRSTPRIVATE:NONPOD"(
-// CHECK-SAME: [10 x %struct.S3]* [[S3ARR_ADDR]], void ([10 x %struct.S3]*,
-// CHECK-SAME: [10 x %struct.S3]*)* @_ZTSA10_2S3.omp.copy_constr,
-// CHECK-SAME: void ([10 x %struct.S3]*)* @_ZTSA10_2S3.omp.destr)
+// CHECK-SAME: [10 x %struct.S3]* [[S3ARR_ADDR]], void (%struct.S3*,
+// CHECK-SAME: %struct.S3*)* @_ZTS2S3.omp.copy_constr,
+// CHECK-SAME: void (%struct.S3*)* @_ZTS2S3.omp.destr)
 
 // CHECK-SAME: "QUAL.OMP.FIRSTPRIVATE"(i32* [[Z_ADDR]]
 // CHECK-SAME: "QUAL.OMP.FIRSTPRIVATE"([20 x i32]* [[ZARR_ADDR]])
@@ -125,14 +125,14 @@ int main(int argc, char **argv) {
 // CHECK-SAME: void (%struct.S2*)* @_ZTS2S2.omp.destr
 
 // CHECK-SAME: "QUAL.OMP.PRIVATE:NONPOD"([10 x %struct.S1]* [[ARR1_ADDR]],
-// CHECK-SAME: [10 x %struct.S1]* ([10 x %struct.S1]*)*
-// CHECK-SAME: @_ZTSA10_2S1.omp.def_constr,
-// CHECK-SAME: void ([10 x %struct.S1]*)* @_ZTSA10_2S1.omp.destr
+// CHECK-SAME: %struct.S1* (%struct.S1*)*
+// CHECK-SAME: @_ZTS2S1.omp.def_constr,
+// CHECK-SAME: void (%struct.S1*)* @_ZTS2S1.omp.destr
 
 // CHECK-SAME: "QUAL.OMP.PRIVATE:NONPOD"([10 x %struct.S2]* [[ARR2_ADDR]],
-// CHECK-SAME: [10 x %struct.S2]* ([10 x %struct.S2]*)*
-// CHECK-SAME: @_ZTSA10_2S2.omp.def_constr,
-// CHECK-SAME: void ([10 x %struct.S2]*)* @_ZTSA10_2S2.omp.destr)
+// CHECK-SAME: %struct.S2* (%struct.S2*)*
+// CHECK-SAME: @_ZTS2S2.omp.def_constr,
+// CHECK-SAME: void (%struct.S2*)* @_ZTS2S2.omp.destr)
 
 // CHECK-SAME: "QUAL.OMP.PRIVATE"(double* [[ARR3_ADDR]])
 
@@ -154,14 +154,14 @@ int main(int argc, char **argv) {
 // CHECK-SAME: void (%struct.S2*)* @_ZTS2S2.omp.destr
 
 // CHECK-SAME: "QUAL.OMP.PRIVATE:NONPOD"([10 x %struct.S1]* [[ARR1_ADDR]],
-// CHECK-SAME: [10 x %struct.S1]* ([10 x %struct.S1]*)*
-// CHECK-SAME: @_ZTSA10_2S1.omp.def_constr,
-// CHECK-SAME: void ([10 x %struct.S1]*)* @_ZTSA10_2S1.omp.destr
+// CHECK-SAME: %struct.S1* (%struct.S1*)*
+// CHECK-SAME: @_ZTS2S1.omp.def_constr,
+// CHECK-SAME: void (%struct.S1*)* @_ZTS2S1.omp.destr
 
 // CHECK-SAME: "QUAL.OMP.PRIVATE:NONPOD"([10 x %struct.S2]* [[ARR2_ADDR]],
-// CHECK_SAME: [10 x %struct.S2]* ([10 x %struct.S2]*)*
-// CHECK-SAME: @_ZTSA10_2S2.omp.def_constr,
-// CHECK-SAME: void ([10 x %struct.S2]*)* @_ZTSA10_2S2.omp.destr)
+// CHECK_SAME: %struct.S2* (%struct.S2*)*
+// CHECK-SAME: @_ZTS2S2.omp.def_constr,
+// CHECK-SAME: void (%struct.S2*)* @_ZTS2S2.omp.destr)
 
 // CHECK-SAME: "QUAL.OMP.PRIVATE"(double* [[ARR3_ADDR]])
 
@@ -519,35 +519,13 @@ int main(int argc, char **argv) {
 // CHECK-NEXT: ret void
 // CHECK-NEXT: }
 
-// CHECK: define internal [10 x %struct.S1]* @_ZTSA10_2S1.omp.def_constr([10 x %struct.S1]* %0)
-// CHECK: alloca [10 x %struct.S1]*,
-// CHECK-NEXT: alloca [10 x %struct.S1]*,
-// CHECK-NEXT: store [10 x %struct.S1]* %{{.+}}, [10 x %struct.S1]** %
-// CHECK-NEXT: load [10 x %struct.S1]*, [10 x %struct.S1]** %
-// CHECK-NEXT: ret [10 x %struct.S1]* %
-// CHECK-NEXT: }
+// CHECK-NOT: define internal [10 x %struct.S1]* @_ZTSA10_2S1.omp.def_constr([10 x %struct.S1]* %0)
 
-// CHECK: define internal void @_ZTSA10_2S1.omp.destr([10 x %struct.S1]* %0)
-// CHECK: alloca [10 x %struct.S1]*,
-// CHECK-NEXT: store [10 x %struct.S1]* %{{.+}}, [10 x %struct.S1]** %
-// CHECK-NEXT: load [10 x %struct.S1]*, [10 x %struct.S1]** %
-// CHECK:  call void @_ZN2S1D1Ev(%struct.S1* %{{.+}})
-// CHECK:  ret void
-// CHECK-NEXT: }
+// CHECK-NOT: define internal void @_ZTSA10_2S1.omp.destr([10 x %struct.S1]* %0)
 
-// CHECK: define internal [10 x %struct.S2]* @_ZTSA10_2S2.omp.def_constr([10 x %struct.S2]* %0)
-// CHECK: alloca [10 x %struct.S2]*,
-// CHECK-NEXT: store [10 x %struct.S2]* %{{.+}}, [10 x %struct.S2]** %
-// CHECK-NEXT: load [10 x %struct.S2]*, [10 x %struct.S2]** %
-// CHECK: call void @_ZN2S2C1Ev(%struct.S2* %{{.+}})
-// CHECK: ret [10 x %struct.S2]* %
-// CHECK-NEXT: }
+// CHECK_NOT: define internal [10 x %struct.S2]* @_ZTSA10_2S2.omp.def_constr([10 x %struct.S2]* %0)
 
-// CHECK: define internal void @_ZTSA10_2S2.omp.destr([10 x %struct.S2]* %0)
-// CHECK: alloca [10 x %struct.S2]*,
-// CHECK-NEXT: store [10 x %struct.S2]* %{{.+}}, [10 x %struct.S2]** %
-// CHECK-NEXT: ret void
-// CHECK-NEXT: }
+// CHECK-NOT: define internal void @_ZTSA10_2S2.omp.destr([10 x %struct.S2]* %0)
 
 #pragma omp declare target
 int a[100];

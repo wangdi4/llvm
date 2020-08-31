@@ -787,13 +787,8 @@ void VPlanHCFGBuilder::emitVectorLoopIV(VPValue *TripCount, VPValue *VF) {
       IVUpdate, TripCount, "vector.loop.exitcond");
 
   VPValue *OrigExitCond = Latch->getCondBit();
-  Latch->setCondBit(ExitCond);
-
-  // FIXME: Without explicit terminators, CondBit isn't a proper user.
-  if (any_of(*Plan, [OrigExitCond](const VPBasicBlock &BB) {
-        return BB.getCondBit() == OrigExitCond;
-      }))
-    return;
+  if (Latch->getNumSuccessors() > 1)
+    Latch->setCondBit(ExitCond);
 
   // If original exit condition had single use, remove it - we calculate exit
   // condition differently now.

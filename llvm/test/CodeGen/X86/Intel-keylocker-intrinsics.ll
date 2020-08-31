@@ -12,6 +12,7 @@ declare { i8, <2 x i64> } @llvm.x86.aesdec128kl(<2 x i64>, i8*)
 declare { i8, <2 x i64> } @llvm.x86.aesenc256kl(<2 x i64>, i8*)
 declare { i8, <2 x i64> } @llvm.x86.aesdec256kl(<2 x i64>, i8*)
 declare { i8, <2 x i64>, <2 x i64>, <2 x i64>, <2 x i64>, <2 x i64>, <2 x i64>, <2 x i64>, <2 x i64> } @llvm.x86.aesencwide128kl(i8*, <2 x i64>, <2 x i64>, <2 x i64>, <2 x i64>, <2 x i64>, <2 x i64>, <2 x i64>, <2 x i64>)
+declare { i8, <2 x i64>, <2 x i64>, <2 x i64>, <2 x i64>, <2 x i64>, <2 x i64>, <2 x i64>, <2 x i64> } @llvm.x86.aesencwide256kl(i8*, <2 x i64>, <2 x i64>, <2 x i64>, <2 x i64>, <2 x i64>, <2 x i64>, <2 x i64>, <2 x i64>)
 
 define void @test_loadiwkey(i32 %ctl, <2 x i64> %intkey, <2 x i64> %enkey_lo, <2 x i64> %enkey_hi) {
 ; X64-LABEL: test_loadiwkey:
@@ -242,10 +243,44 @@ entry:
   ret i8 %1
 }
 
+define i8 @test_mm_aesencwide128kl_u8(i8* %p, <2 x i64> %v0, <2 x i64> %v1, <2 x i64> %v2, <2 x i64> %v3, <2 x i64> %v4, <2 x i64> %v5, <2 x i64> %v6, <2 x i64> %v7) {
+; X64-LABEL: test_mm_aesencwide128kl_u8:
+; X64:       # %bb.0: # %entry
+; X64-NEXT:    aesencwide128kl (%rdi)
+; X64-NEXT:    sete %al
+; X64-NEXT:    retq
+;
+; X32-LABEL: test_mm_aesencwide128kl_u8:
+; X32:       # %bb.0: # %entry
+; X32-NEXT:    pushl %ebp
+; X32-NEXT:    .cfi_def_cfa_offset 8
+; X32-NEXT:    .cfi_offset %ebp, -8
+; X32-NEXT:    movl %esp, %ebp
+; X32-NEXT:    .cfi_def_cfa_register %ebp
+; X32-NEXT:    andl $-16, %esp
+; X32-NEXT:    subl $16, %esp
+; X32-NEXT:    vmovaps 24(%ebp), %xmm3
+; X32-NEXT:    vmovaps 40(%ebp), %xmm4
+; X32-NEXT:    vmovaps 56(%ebp), %xmm5
+; X32-NEXT:    vmovaps 72(%ebp), %xmm6
+; X32-NEXT:    vmovaps 88(%ebp), %xmm7
+; X32-NEXT:    movl 8(%ebp), %eax
+; X32-NEXT:    aesencwide128kl (%eax)
+; X32-NEXT:    sete %al
+; X32-NEXT:    movl %ebp, %esp
+; X32-NEXT:    popl %ebp
+; X32-NEXT:    .cfi_def_cfa %esp, 4
+; X32-NEXT:    retl
+entry:
+  %0 = call { i8, <2 x i64>, <2 x i64>, <2 x i64>, <2 x i64>, <2 x i64>, <2 x i64>, <2 x i64>, <2 x i64> } @llvm.x86.aesencwide128kl(i8* %p, <2 x i64> %v0, <2 x i64> %v1, <2 x i64> %v2, <2 x i64> %v3, <2 x i64> %v4, <2 x i64> %v5, <2 x i64> %v6,      <2 x i64> %v7)
+  %1 = extractvalue { i8, <2 x i64>, <2 x i64>, <2 x i64>, <2 x i64>, <2 x i64>, <2 x i64>, <2 x i64>, <2 x i64> } %0, 0
+  ret i8 %1
+}
+
 define i8 @test_mm_aesencwide256kl_u8(i8* %p, <2 x i64> %v0, <2 x i64> %v1, <2 x i64> %v2, <2 x i64> %v3, <2 x i64> %v4, <2 x i64> %v5, <2 x i64> %v6, <2 x i64> %v7) {
 ; X64-LABEL: test_mm_aesencwide256kl_u8:
 ; X64:       # %bb.0: # %entry
-; X64-NEXT:    aesenc128widekl (%rdi)
+; X64-NEXT:    aesencwide256kl (%rdi)
 ; X64-NEXT:    sete %al
 ; X64-NEXT:    retq
 ;
@@ -264,14 +299,14 @@ define i8 @test_mm_aesencwide256kl_u8(i8* %p, <2 x i64> %v0, <2 x i64> %v1, <2 x
 ; X32-NEXT:    vmovaps 72(%ebp), %xmm6
 ; X32-NEXT:    vmovaps 88(%ebp), %xmm7
 ; X32-NEXT:    movl 8(%ebp), %eax
-; X32-NEXT:    aesenc128widekl (%eax)
+; X32-NEXT:    aesencwide256kl (%eax)
 ; X32-NEXT:    sete %al
 ; X32-NEXT:    movl %ebp, %esp
 ; X32-NEXT:    popl %ebp
 ; X32-NEXT:    .cfi_def_cfa %esp, 4
 ; X32-NEXT:    retl
 entry:
-  %0 = call { i8, <2 x i64>, <2 x i64>, <2 x i64>, <2 x i64>, <2 x i64>, <2 x i64>, <2 x i64>, <2 x i64> } @llvm.x86.aesencwide128kl(i8* %p, <2 x i64> %v0, <2 x i64> %v1, <2 x i64> %v2, <2 x i64> %v3, <2 x i64> %v4, <2 x i64> %v5, <2 x i64> %v6,      <2 x i64> %v7)
+  %0 = call { i8, <2 x i64>, <2 x i64>, <2 x i64>, <2 x i64>, <2 x i64>, <2 x i64>, <2 x i64>, <2 x i64> } @llvm.x86.aesencwide256kl(i8* %p, <2 x i64> %v0, <2 x i64> %v1, <2 x i64> %v2, <2 x i64> %v3, <2 x i64> %v4, <2 x i64> %v5, <2 x i64> %v6,      <2 x i64> %v7)
   %1 = extractvalue { i8, <2 x i64>, <2 x i64>, <2 x i64>, <2 x i64>, <2 x i64>, <2 x i64>, <2 x i64>, <2 x i64> } %0, 0
   ret i8 %1
 }

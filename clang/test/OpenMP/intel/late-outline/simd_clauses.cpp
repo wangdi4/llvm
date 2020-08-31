@@ -44,10 +44,10 @@ void foo()
   // CHECK-SAME: void (%struct.A*, %struct.A*)* @_ZTS1A.omp.copy_assign,
   // CHECK-SAME: void (%struct.A*)* @_ZTS1A.omp.destr)
   // CHECK-SAME: QUAL.OMP.LASTPRIVATE:NONPOD"([4 x %struct.A]* @objarr,
-  // CHECK-SAME: [4 x %struct.A]* ([4 x %struct.A]*)*
-  // CHECK-SAME: @_ZTSA4_1A.omp.def_constr, void ([4 x %struct.A]*,
-  // CHECK-SAME: [4 x %struct.A]*)* @_ZTSA4_1A.omp.copy_assign,
-  // CHECK-SAME: void ([4 x %struct.A]*)* @_ZTSA4_1A.omp.destr)
+  // CHECK-SAME: %struct.A* (%struct.A*)*
+  // CHECK-SAME: @_ZTS1A.omp.def_constr, void (%struct.A*,
+  // CHECK-SAME: %struct.A*)* @_ZTS1A.omp.copy_assign,
+  // CHECK-SAME: void (%struct.A*)* @_ZTS1A.omp.destr)
   // CHECK: region.exit{{.*}}"DIR.OMP.END.SIMD"()
   #pragma omp simd safelen(4) simdlen(4) collapse(2) \
             aligned(y,z:8) aligned(x:4) aligned(q) \
@@ -57,7 +57,7 @@ void foo()
 }
 
 // CHECK: define internal void @_ZTS1A.omp.copy_assign
-// CHECK: define internal void @_ZTSA4_1A.omp.copy_assign
+// CHECK-NOT: define internal void @_ZTSA4_1A.omp.copy_assign
 
 #ifdef OMP50
 struct S {

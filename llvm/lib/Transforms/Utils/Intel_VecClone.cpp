@@ -900,20 +900,6 @@ Instruction *VecCloneImpl::expandVectorParametersAndReturn(
     assert(ExpandedReturn && "The return value has not been widened.");
   }
 
-  // So, essentially what has been done to this point is the creation and
-  // insertion of the vector alloca instructions. Now, we insert the bitcasts of
-  // those instructions, which have been stored in the map. The insertion of the
-  // vector bitcast to element type pointer is done at the end of the EntryBlock
-  // to ensure that any initial stores of vector parameters have been done
-  // before the cast.
-
-  for (auto MapIt : VectorParmMap) {
-    Instruction *ExpandedCast = MapIt->VectorParmCast;
-    if (!ExpandedCast->getParent()) {
-      insertInstruction(ExpandedCast, EntryBlock);
-    }
-  }
-
   // Insert the mask parameter store to alloca and bitcast if this is a masked
   // variant.
   if (*Mask) {

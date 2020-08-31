@@ -296,6 +296,11 @@ void mergeLoopExits(VPLoop *VPL) {
   VPBasicBlock *NewLoopLatch =
       new VPBasicBlock(VPlanUtils::createUniqueName("new.loop.latch"), Plan);
   NewLoopLatch->setTerminator();
+
+  VPValue *OldCondBit = nullptr;
+  if (LatchExitBlock)
+    OldCondBit = OrigLoopLatch->getCondBit();
+
   OrigLoopLatch->moveConditionalEOBTo(NewLoopLatch);
   NewLoopLatch->moveTripCountInfoFrom(OrigLoopLatch);
   VPBlockUtils::insertBlockAfter(NewLoopLatch, OrigLoopLatch);
@@ -321,14 +326,15 @@ void mergeLoopExits(VPLoop *VPL) {
   VPPHINode *NewCondBit =
       VPBldr.createPhiInstruction(Ty1, "take.backedge.cond");
   if (LatchExitBlock) {
-    NewCondBit->addIncoming(NewLoopLatch->getCondBit(), OrigLoopLatch);
+    NewCondBit->addIncoming(OldCondBit, OrigLoopLatch);
   } else {
     assert(BackedgeCond == true &&
            "In while loops, BackedgeCond should be true");
     NewCondBit->addIncoming(TrueConst, OrigLoopLatch);
   }
   // Update the condbit.
-  NewLoopLatch->setCondBit(NewCondBit);
+  if (NewLoopLatch->getNumSuccessors() > 1)
+    NewLoopLatch->setCondBit(NewCondBit);
 
   // This is needed for the generation of cascaded if blocks.
   if (LatchExitBlock) {

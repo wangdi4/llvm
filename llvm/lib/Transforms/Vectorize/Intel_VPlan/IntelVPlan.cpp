@@ -940,8 +940,8 @@ void VPBranchInst::printImpl(raw_ostream &O) const {
     O << "br <External Block>";
   else
     O << "br ";
-  if (VPValue *CondBit = getCondition()) {
-    CondBit->printAsOperand(O);
+  if (isConditional()) {
+    getCondition()->printAsOperand(O);
     O << ", ";
   }
   if (const loopopt::HLGoto *Node = getHLGoto()) {

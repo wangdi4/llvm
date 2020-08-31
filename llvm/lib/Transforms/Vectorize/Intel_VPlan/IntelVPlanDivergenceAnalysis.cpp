@@ -1436,9 +1436,11 @@ VPlanDivergenceAnalysis::computeVectorShape(const VPInstruction *I) {
   else if (Opcode == Instruction::Call)
     NewShape = computeVectorShapeForCallInst(I);
   else if (Opcode == Instruction::Br) {
-    VPValue *Cond = cast<VPBranchInst>(I)->getCondition();
-    NewShape = !Cond ? getUniformVectorShape()
-                     : getObservedShape(ParentBB, *Cond);
+    const VPBranchInst *Br = cast<VPBranchInst>(I);
+    if (Br->isConditional())
+      NewShape = getObservedShape(ParentBB, *Br->getCondition());
+    else
+      NewShape = getUniformVectorShape();
   } else if (Instruction::isUnaryOp(Opcode))
     NewShape = computeVectorShapeForUnaryInst(I);
   else if (Opcode == VPInstruction::Not || Opcode == VPInstruction::Pred)

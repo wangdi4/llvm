@@ -7390,6 +7390,34 @@ void Clang::AddClangCLArgs(const ArgList &Args, types::ID InputType,
     getToolChain().AddTBBLibArgs(Args, CmdArgs, "--dependent-lib=");
   if (Args.hasArg(options::OPT_daal_EQ))
     getToolChain().AddDAALLibArgs(Args, CmdArgs, "--dependent-lib=");
+
+  // Add OpenMP libs
+  bool StubsAdded = false;
+  if (Arg *A = Args.getLastArg(options::OPT_qopenmp_stubs,
+      options::OPT_fopenmp, options::OPT_fopenmp_EQ, options::OPT_fiopenmp)) {
+    if (A->getOption().matches(options::OPT_qopenmp_stubs)) {
+      CmdArgs.push_back("--dependent-lib=libiompstubs5md");
+      StubsAdded = true;
+    }
+  }
+  if (!StubsAdded && (Args.hasFlag(options::OPT_fopenmp,
+                                   options::OPT_fopenmp_EQ,
+                                   options::OPT_fno_openmp, false) ||
+      Args.hasArg(options::OPT_fiopenmp, options::OPT_mkl_EQ))) {
+    switch (getToolChain().getDriver().getOpenMPRuntime(Args)) {
+    case Driver::OMPRT_OMP:
+      CmdArgs.push_back("--dependent-lib=libomp");
+      break;
+    case Driver::OMPRT_IOMP5:
+      CmdArgs.push_back("--dependent-lib=libiomp5md");
+      break;
+    case Driver::OMPRT_GOMP:
+      break;
+    case Driver::OMPRT_Unknown:
+      // Already diagnosed.
+      break;
+    }
+  }
 #endif // INTEL_CUSTOMIZATION
 
   if (Arg *ShowIncludes =
