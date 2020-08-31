@@ -576,25 +576,6 @@ doPromotion(Function *F, SmallPtrSetImpl<Argument *> &ArgsToPromote,
       }
     }
 
-#if INTEL_CUSTOMIZATION
-    // Normally, the original function will be deleted, which will replace
-    // any remaining references from the metadata to the original argument by
-    // the new function being removed. However, due to the interactions between
-    // the indirect call promotion, inliner, and instruction combiner, it's
-    // possible to have a function exist in the SCC graph, which will appear to
-    // have uses, thus preventing the deletion of the arguments. This leads to
-    // dangling references within the metadata which will refer to the original
-    // function. Update the metadata to no longer refer to the just replaced
-    // argument.
-    //
-    // It's possible this fix should be pushed back to the community version,
-    // however, thus far I have not been able to prove the existence in a
-    // problem in the llorg version, due to unique nature of the xmain specific
-    // passes that are involved.
-    if (I->isUsedByMetadata())
-      ValueAsMetadata::handleRAUW(I, UndefValue::get(I->getType()));
-#endif
-
     // Increment I2 past all of the arguments added for this promoted pointer.
     std::advance(I2, ArgIndices.size());
   }
