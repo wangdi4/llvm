@@ -49,7 +49,7 @@ define dso_local void @foo(i32* nocapture %a, i32 %m, i32* nocapture readonly %u
 ; CHECK-NEXT:    PREDECESSORS(1): [[BB2]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB5]]:
-; CHECK-NEXT:     [DA: Div] void [[VP1:%.*]] = ret
+; CHECK-NEXT:     [DA: Div] ret
 ; CHECK-NEXT:    no SUCCESSORS
 ; CHECK-NEXT:    PREDECESSORS(1): [[BB4]]
 ;

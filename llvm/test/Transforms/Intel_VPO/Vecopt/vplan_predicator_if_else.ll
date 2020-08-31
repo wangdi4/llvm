@@ -31,7 +31,7 @@ define void @test_1_hammock(i32* noalias nocapture %a) local_unnamed_addr {
 ; CHECK-NEXT:    PREDECESSORS(1): [[BB1]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB3]]:
-; CHECK-NEXT:     [DA: Div] void [[VP2:%.*]] = ret
+; CHECK-NEXT:     [DA: Div] ret
 ; CHECK-NEXT:    no SUCCESSORS
 ; CHECK-NEXT:    PREDECESSORS(1): [[BB2]]
 ;

@@ -1693,8 +1693,8 @@ class VPLoadStoreInst : public VPInstruction {
 public:
   using MDNodesTy = SmallVector<std::pair<unsigned, MDNode *>, 6>;
 
-  VPLoadStoreInst(unsigned Opcode, Type *BaseTy, ArrayRef<VPValue *> Operands)
-      : VPInstruction(Opcode, BaseTy, Operands) {
+  VPLoadStoreInst(unsigned Opcode, Type *Ty, ArrayRef<VPValue *> Operands)
+      : VPInstruction(Opcode, Ty, Operands) {
     assert((Opcode == Instruction::Load || Opcode == Instruction::Store) &&
            "Invalid opcode for load/store instruction.");
   }

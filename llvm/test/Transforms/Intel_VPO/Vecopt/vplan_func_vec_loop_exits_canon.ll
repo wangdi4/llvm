@@ -5,7 +5,7 @@ define void @test_no_massage() {
 ; CHECK-NEXT:    [[BB0:BB[0-9]+]]:
 ; CHECK-NEXT:     i32 [[VP_LANE:%.*]] = induction-init{add} i32 0 i32 1
 ; CHECK-NEXT:     i32 [[VP_ADD:%.*]] = add i32 [[VP_LANE]] i32 42
-; CHECK-NEXT:     void [[VP0:%.*]] = ret
+; CHECK-NEXT:     ret
 ; CHECK-NEXT:    no SUCCESSORS
 ; CHECK-NEXT:    no PREDECESSORS
 ;
@@ -39,7 +39,7 @@ define void @test_simple_while() {
 ; CHECK-NEXT:    PREDECESSORS(2): [[BB2]] [[BB1]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB3]]:
-; CHECK-NEXT:     void [[VP0:%.*]] = ret
+; CHECK-NEXT:     ret
 ; CHECK-NEXT:    no SUCCESSORS
 ; CHECK-NEXT:    PREDECESSORS(1): [[NEW_LOOP_LATCH0]]
 ;
@@ -91,7 +91,7 @@ define void @test_multi_exit() {
 ; CHECK-NEXT:    PREDECESSORS(2): [[BB2]] [[INTERMEDIATE_BB0]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB3]]:
-; CHECK-NEXT:     void [[VP0:%.*]] = ret
+; CHECK-NEXT:     ret
 ; CHECK-NEXT:    no SUCCESSORS
 ; CHECK-NEXT:    PREDECESSORS(1): [[NEW_LOOP_LATCH0]]
 ;
@@ -157,7 +157,7 @@ define void @test_while_loop_with_allzero() {
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB5]]:
 ; CHECK-NEXT:     i32 [[VP_LIVEOUT_USE:%.*]] = phi  [ i32 [[VP_LIVEOUT]], [[NEW_LOOP_LATCH0]] ]
-; CHECK-NEXT:     void [[VP0:%.*]] = ret
+; CHECK-NEXT:     ret
 ; CHECK-NEXT:    no SUCCESSORS
 ; CHECK-NEXT:    PREDECESSORS(1): [[NEW_LOOP_LATCH0]]
 ;

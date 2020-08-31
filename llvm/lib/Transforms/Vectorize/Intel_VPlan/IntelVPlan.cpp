@@ -435,7 +435,7 @@ void VPInstruction::print(raw_ostream &O) const {
 }
 
 void VPInstruction::printWithoutAnalyses(raw_ostream &O) const {
-  if (getOpcode() != Instruction::Store && !isa<VPBranchInst>(this)) {
+  if (!getType()->isVoidTy()) {
     printAsOperand(O);
     O << " = ";
   }

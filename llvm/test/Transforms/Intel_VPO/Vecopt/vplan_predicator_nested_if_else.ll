@@ -68,7 +68,7 @@ define void @test_nested_if_else(i32* noalias nocapture %a) local_unnamed_addr {
 ; CHECK-NEXT:    PREDECESSORS(1): [[BB7]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB9]]:
-; CHECK-NEXT:     [DA: Div] void [[VP6:%.*]] = ret
+; CHECK-NEXT:     [DA: Div] ret
 ; CHECK-NEXT:    no SUCCESSORS
 ; CHECK-NEXT:    PREDECESSORS(1): [[BB8]]
 ;

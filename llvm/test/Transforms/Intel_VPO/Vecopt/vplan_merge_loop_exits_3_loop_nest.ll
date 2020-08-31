@@ -157,7 +157,7 @@ define void @main(i32 %vf) {
 ; CHECK-NEXT:    PREDECESSORS(1): [[BB2]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB15]]:
-; CHECK-NEXT:     void [[VP4:%.*]] = ret
+; CHECK-NEXT:     ret
 ; CHECK-NEXT:    no SUCCESSORS
 ; CHECK-NEXT:    PREDECESSORS(1): [[BB14]]
 ;

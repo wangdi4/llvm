@@ -43,7 +43,7 @@ define void @main() {
 ; CHECK-NEXT:    PREDECESSORS(1): [[NEW_LOOP_LATCH0]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB5]]:
-; CHECK-NEXT:     void [[VP0:%.*]] = ret
+; CHECK-NEXT:     ret
 ; CHECK-NEXT:    no SUCCESSORS
 ; CHECK-NEXT:    PREDECESSORS(1): [[BB4]]
 ;

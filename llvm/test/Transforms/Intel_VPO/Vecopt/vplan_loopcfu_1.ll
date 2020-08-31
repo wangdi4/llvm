@@ -57,7 +57,7 @@ define dso_local void @foo(i64 %N, i64 %lb, i64 %ub) local_unnamed_addr {
 ; CHECK-NEXT:      PREDECESSORS(1): [[BB4]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB1]]:
-; CHECK-NEXT:     [DA: Div] void [[VP1:%.*]] = ret
+; CHECK-NEXT:     [DA: Div] ret
 ; CHECK-NEXT:    no SUCCESSORS
 ; CHECK-NEXT:    PREDECESSORS(2): [[BB0]] [[BB6]]
 ;

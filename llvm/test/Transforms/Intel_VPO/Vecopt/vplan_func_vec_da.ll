@@ -7,7 +7,7 @@ define void @test(i32 %a) {
 ; CHECK-NEXT:  Divergent: [Shape: Unit Stride, Stride: i32 1] i32 [[VP_LANE:%.*]] = induction-init{add} i32 0 i32 1
 ; CHECK-NEXT:  Uniform: [Shape: Uniform] i32 [[VP_UNI:%.*]] = add i32 [[A0:%.*]] i32 42
 ; CHECK-NEXT:  Divergent: [Shape: Unit Stride, Stride: i64 1] i32 [[VP_ADD:%.*]] = add i32 [[VP_LANE]] i32 42
-; CHECK-NEXT:  Divergent: [Shape: Random] void [[VP0:%.*]] = ret
+; CHECK-NEXT:  Divergent: [Shape: Random] ret
 ;
   %lane = call i32 @llvm.vplan.laneid()
   %uni = add i32 %a, 42
@@ -28,7 +28,7 @@ define void @test_loop_uni(i32 %vf) {
 ; CHECK-NEXT:  Uniform: [Shape: Uniform] i1 [[VP_EXIT_COND:%.*]] = icmp eq i32 [[VP_LOOP_IV]] i32 42
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Basic Block: [[BB2:BB[0-9]+]]
-; CHECK-NEXT:  Divergent: [Shape: Random] void [[VP0:%.*]] = ret
+; CHECK-NEXT:  Divergent: [Shape: Random] ret
 ;
 entry:
   %lane = call i32 @llvm.vplan.laneid()
@@ -57,7 +57,7 @@ define void @test_loop_div_linear(i32 %vf) {
 ; CHECK-NEXT:  Divergent: [Shape: Random] i1 [[VP_EXIT_COND:%.*]] = icmp eq i32 [[VP_LOOP_IV]] i32 42
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Basic Block: [[BB2:BB[0-9]+]]
-; CHECK-NEXT:  Divergent: [Shape: Random] void [[VP0:%.*]] = ret
+; CHECK-NEXT:  Divergent: [Shape: Random] ret
 ;
 entry:
   %lane = call i32 @llvm.vplan.laneid()
@@ -85,7 +85,7 @@ define void @test_loop_div_random(i32 %vf) {
 ; CHECK-NEXT:  Divergent: [Shape: Random] i1 [[VP_EXIT_COND:%.*]] = icmp eq i32 [[VP_LOOP_IV]] i32 42
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Basic Block: [[BB2:BB[0-9]+]]
-; CHECK-NEXT:  Divergent: [Shape: Random] void [[VP0:%.*]] = ret
+; CHECK-NEXT:  Divergent: [Shape: Random] ret
 ;
 entry:
   %lane = call i32 @llvm.vplan.laneid()
@@ -117,7 +117,7 @@ define void @test_loop_reduction(i32 %vf) {
 ; CHECK-NEXT:  Uniform: [Shape: Uniform] i1 [[VP_EXIT_COND:%.*]] = icmp eq i32 [[VP_LOOP_IV]] i32 42
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Basic Block: [[BB2:BB[0-9]+]]
-; CHECK-NEXT:  Divergent: [Shape: Random] void [[VP0:%.*]] = ret
+; CHECK-NEXT:  Divergent: [Shape: Random] ret
 ;
 entry:
   %lane = call i32 @llvm.vplan.laneid()

@@ -68,7 +68,7 @@ define void @test_2_level_loop_nest(i64 %vf) local_unnamed_addr {
 ; CHECK-NEXT:    PREDECESSORS(1): [[BB8]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB9]]:
-; CHECK-NEXT:     [DA: Div] void [[VP8:%.*]] = ret
+; CHECK-NEXT:     [DA: Div] ret
 ; CHECK-NEXT:    no SUCCESSORS
 ; CHECK-NEXT:    PREDECESSORS(1): [[BB2]]
 ;
@@ -177,7 +177,7 @@ define void @test_2_level_loop_nest_swap_inner_branch(i64 %vf) local_unnamed_add
 ; CHECK-NEXT:    PREDECESSORS(1): [[BB8]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB9]]:
-; CHECK-NEXT:     [DA: Div] void [[VP9:%.*]] = ret
+; CHECK-NEXT:     [DA: Div] ret
 ; CHECK-NEXT:    no SUCCESSORS
 ; CHECK-NEXT:    PREDECESSORS(1): [[BB2]]
 ;

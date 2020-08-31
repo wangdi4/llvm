@@ -5,7 +5,7 @@
 ; IR generated from IR in hir_vplan_decomp_term_refs.ll.
 
 ; CHECK: i32 %vp{{[0-9]+}} = load i32* %vp{{[0-9]+}}
-; CHECK-NEXT: void %vp{{[0-9]+}} = call metadata !"MD.TEST"
+; CHECK-NEXT: call metadata !"MD.TEST"
 ; CHECK-NEXT: i32* %vp{{[0-9]+}} = subscript
 ; CHECK-NEXT: store i32 %vp{{[0-9]+}} i32* %vp{{[0-9]+}}
 

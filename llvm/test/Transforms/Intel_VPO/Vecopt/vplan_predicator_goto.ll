@@ -23,7 +23,7 @@ define void @foo(i32* noalias nocapture readnone %a) local_unnamed_addr #0 {
 ; CHECK-NEXT:    PREDECESSORS(1): [[BB0]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB2]]:
-; CHECK-NEXT:     [DA: Div] void [[VP1:%.*]] = ret
+; CHECK-NEXT:     [DA: Div] ret
 ; CHECK-NEXT:    no SUCCESSORS
 ; CHECK-NEXT:    PREDECESSORS(1): [[BB1]]
 ;

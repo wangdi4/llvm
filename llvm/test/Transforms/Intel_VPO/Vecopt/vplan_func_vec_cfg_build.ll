@@ -5,7 +5,7 @@ define void @test() {
 ; CHECK-NEXT:    [[BB0:BB[0-9]+]]:
 ; CHECK-NEXT:     i32 [[VP_LANE:%.*]] = induction-init{add} i32 0 i32 1
 ; CHECK-NEXT:     i32 [[VP_ADD:%.*]] = add i32 [[VP_LANE]] i32 42
-; CHECK-NEXT:     void [[VP0:%.*]] = ret
+; CHECK-NEXT:     ret
 ; CHECK-NEXT:    no SUCCESSORS
 ; CHECK-NEXT:    no PREDECESSORS
 ;

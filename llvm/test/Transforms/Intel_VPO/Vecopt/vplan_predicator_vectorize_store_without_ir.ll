@@ -107,7 +107,7 @@ define dso_local void @foo_non_lcssa(i32 %N, i32 *%a, i32 %mask_out_loop) local_
 ; CHECK-NEXT:    PREDECESSORS(1): [[BB5]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB11]]:
-; CHECK-NEXT:     [DA: Div] void [[VP10:%.*]] = ret
+; CHECK-NEXT:     [DA: Div] ret
 ; CHECK-NEXT:    no SUCCESSORS
 ; CHECK-NEXT:    PREDECESSORS(1): [[BB10]]
 ;

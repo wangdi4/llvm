@@ -66,7 +66,7 @@ define void @foo(i32 %n1, i32 %n2, i64 %vf) {
 ; CHECK-NEXT:    PREDECESSORS(1): [[BB8]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB9]]:
-; CHECK-NEXT:     [DA: Div] void [[VP9:%.*]] = ret
+; CHECK-NEXT:     [DA: Div] ret
 ; CHECK-NEXT:    no SUCCESSORS
 ; CHECK-NEXT:    PREDECESSORS(1): [[BB2]]
 ;

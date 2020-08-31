@@ -91,7 +91,7 @@ define dso_local void @foo(i32* nocapture readonly %a, i32* nocapture readonly %
 ; CHECK-NEXT:    PREDECESSORS(2): [[BB9]] all.zero.bypass.begin13
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB10]]:
-; CHECK-NEXT:     [DA: Div] void [[VP11:%.*]] = ret
+; CHECK-NEXT:     [DA: Div] ret
 ; CHECK-NEXT:    no SUCCESSORS
 ; CHECK-NEXT:    PREDECESSORS(1): all.zero.bypass.end15
 ;

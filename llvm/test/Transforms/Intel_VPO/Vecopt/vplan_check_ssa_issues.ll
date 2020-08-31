@@ -73,7 +73,7 @@ define dso_local void @header_use(i64 %N, i64 *%a, i64 %mask_out_loop) local_unn
 ; CHECK-NEXT:      PREDECESSORS(1): [[CASCADED_IF_BLOCK0]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB7]]:
-; CHECK-NEXT:     void [[VP1:%.*]] = ret
+; CHECK-NEXT:     ret
 ; CHECK-NEXT:    no SUCCESSORS
 ; CHECK-NEXT:    PREDECESSORS(2): [[BB6]] [[BB5]]
 ;
@@ -172,7 +172,7 @@ define dso_local void @side_exit_use(i64 %N, i64 *%a, i64 %mask_out_loop) local_
 ; CHECK-NEXT:      PREDECESSORS(1): [[CASCADED_IF_BLOCK0]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB7]]:
-; CHECK-NEXT:     void [[VP1:%.*]] = ret
+; CHECK-NEXT:     ret
 ; CHECK-NEXT:    no SUCCESSORS
 ; CHECK-NEXT:    PREDECESSORS(2): [[BB6]] [[BB5]]
 ;
@@ -272,7 +272,7 @@ define dso_local void @exit_use(i64 %N, i64 *%a, i64 %mask_out_loop) local_unnam
 ; CHECK-NEXT:      PREDECESSORS(1): [[CASCADED_IF_BLOCK0]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB7]]:
-; CHECK-NEXT:     void [[VP1:%.*]] = ret
+; CHECK-NEXT:     ret
 ; CHECK-NEXT:    no SUCCESSORS
 ; CHECK-NEXT:    PREDECESSORS(2): [[BB6]] [[BB5]]
 ;
@@ -369,7 +369,7 @@ define dso_local void @no_ssa_breakage(i64 %N, i64 *%a, i64 %mask_out_loop) loca
 ; CHECK-NEXT:      PREDECESSORS(1): [[CASCADED_IF_BLOCK0]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB7]]:
-; CHECK-NEXT:     void [[VP1:%.*]] = ret
+; CHECK-NEXT:     ret
 ; CHECK-NEXT:    no SUCCESSORS
 ; CHECK-NEXT:    PREDECESSORS(2): [[BB6]] [[BB5]]
 ;

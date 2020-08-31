@@ -25,7 +25,7 @@ define void @test() {
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB3]]:
 ; CHECK-NEXT:     [DA: Div] i32 [[VP_MERGE_BLEND_BB2:%.*]] = blend [ i32 [[VP_DEF_FALSE]], i1 [[VP_COND_NOT]] ], [ i32 [[VP_DEF_TRUE]], i1 [[VP_COND]] ]
-; CHECK-NEXT:     [DA: Div] void [[VP2:%.*]] = ret
+; CHECK-NEXT:     [DA: Div] ret
 ; CHECK-NEXT:    no SUCCESSORS
 ; CHECK-NEXT:    PREDECESSORS(1): [[BB2]]
 ;
@@ -75,7 +75,7 @@ define void @test_uni_loop(i32 %vf) {
 ; CHECK-NEXT:    PREDECESSORS(1): [[BB3]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB4]]:
-; CHECK-NEXT:     [DA: Div] void [[VP1:%.*]] = ret
+; CHECK-NEXT:     [DA: Div] ret
 ; CHECK-NEXT:    no SUCCESSORS
 ; CHECK-NEXT:    PREDECESSORS(1): [[BB2]]
 ;
@@ -142,7 +142,7 @@ define void @test_div_loop(i32 %vf) {
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB4]]:
 ; CHECK-NEXT:     [DA: Div] i32 [[VP_LIVEOUT_USE:%.*]] = phi  [ i32 [[VP_LIVEOUT_BLEND_BB3]], [[BB2]] ]
-; CHECK-NEXT:     [DA: Div] void [[VP1:%.*]] = ret
+; CHECK-NEXT:     [DA: Div] ret
 ; CHECK-NEXT:    no SUCCESSORS
 ; CHECK-NEXT:    PREDECESSORS(1): [[BB2]]
 ;
@@ -209,7 +209,7 @@ define void @test_uni_loop_div_top_test(i32 %vf) {
 ; CHECK-NEXT:    PREDECESSORS(1): [[BB2]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB4]]:
-; CHECK-NEXT:     [DA: Div] void [[VP5:%.*]] = ret
+; CHECK-NEXT:     [DA: Div] ret
 ; CHECK-NEXT:    no SUCCESSORS
 ; CHECK-NEXT:    PREDECESSORS(1): [[BB3]]
 ;
@@ -286,7 +286,7 @@ define void @test_two_loops(i32 %vf) {
 ; CHECK-NEXT:    PREDECESSORS(1): [[BB4]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB6]]:
-; CHECK-NEXT:     [DA: Div] void [[VP9:%.*]] = ret
+; CHECK-NEXT:     [DA: Div] ret
 ; CHECK-NEXT:    no SUCCESSORS
 ; CHECK-NEXT:    PREDECESSORS(1): [[BB5]]
 ;

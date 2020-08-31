@@ -18,13 +18,13 @@ define dso_local i32 @main() local_unnamed_addr #0 personality i8* bitcast (i32 
 ; CHECK-NEXT:  Basic Block: [[BB0]]
 ; CHECK-NEXT:  Uniform: [Shape: Uniform] i64 [[VP_VECTOR_LOOP_IV:%.*]] = phi  [ i64 0, [[BB5:BB[0-9]+]] ],  [ i64 [[VP_VECTOR_LOOP_IV_NEXT:%.*]], [[BB4]] ]
 ; CHECK-NEXT:  Divergent: [Shape: Unit Stride, Stride: i64 1] i64 [[VP_INDVARS_IV:%.*]] = phi  [ i64 [[VP_INDVARS_IV_NEXT:%.*]], [[BB4]] ],  [ i64 [[VP_INDVARS_IV_IND_INIT:%.*]], [[BB5]] ]
-; CHECK-NEXT:  Divergent: [Shape: Random] void [[VP0:%.*]] = call i64 4 i8* [[VP1:%.*]] void (i64, i8*)* @llvm.lifetime.start.p0i8
+; CHECK-NEXT:  Divergent: [Shape: Random] call i64 4 i8* [[VP1:%.*]] void (i64, i8*)* @llvm.lifetime.start.p0i8
 ; CHECK-NEXT:  Divergent: [Shape: Random] i32 [[VP2:%.*]] = trunc i64 [[VP_INDVARS_IV]] to i32
 ; CHECK-NEXT:  Divergent: [Shape: Random] float [[VP_CONV3:%.*]] = sitofp i32 [[VP2]] to float
 ; CHECK-NEXT:  Divergent: [Shape: Random] float [[VP_MUL4:%.*]] = fmul float [[VP_CONV3]] float 0x3F5063B3E0000000
 ; CHECK-NEXT:  Divergent: [Shape: Random] float [[VP_ADD5:%.*]] = fadd float [[VP_MUL4]] float -2.000000e+00
 ; CHECK-NEXT:  Divergent: [Shape: Random] store float [[VP_ADD5]] float* [[VP_IN_VALS_TMP_REAL_PRIV_PRIV:%.*]]
-; CHECK-NEXT:  Divergent: [Shape: Random] void [[VP3:%.*]] = call i64 4 i8* [[VP4:%.*]] void (i64, i8*)* @llvm.lifetime.start.p0i8
+; CHECK-NEXT:  Divergent: [Shape: Random] call i64 4 i8* [[VP4:%.*]] void (i64, i8*)* @llvm.lifetime.start.p0i8
 ; CHECK-NEXT:  Divergent: [Shape: Random] store float [[SUB0:%.*]] float* [[VP_IN_VALS_TMP_IMAGINE_PRIV_PRIV:%.*]]
 ; CHECK-NEXT:  Divergent: [Shape: Random] float [[VP_MUL_I:%.*]] = fmul float [[VP_ADD5]] float [[VP_ADD5]]
 ; CHECK-NEXT:  Divergent: [Shape: Random] float [[VP_ADD_I:%.*]] = fadd float [[MUL1_I0:%.*]] float [[VP_MUL_I]]
@@ -60,8 +60,8 @@ define dso_local i32 @main() local_unnamed_addr #0 personality i8* bitcast (i32 
 ; CHECK-NEXT:  Divergent: [Shape: Random] i32 [[VP_COUNT_0_I_LCSSA:%.*]] = phi  [ i32 1, [[BB0]] ],  [ i32 [[VP_INC_I_LCSSA]], [[BB3]] ]
 ; CHECK-NEXT:  Divergent: [Shape: Strided, Stride: i64 4] i32* [[VP_ARRAYIDX8:%.*]] = getelementptr inbounds [3000 x [3000 x i32]]* @count i64 0 i64 [[INDVARS_IV390:%.*]] i64 [[VP_INDVARS_IV]]
 ; CHECK-NEXT:  Divergent: [Shape: Random] store i32 [[VP_COUNT_0_I_LCSSA]] i32* [[VP_ARRAYIDX8]]
-; CHECK-NEXT:  Divergent: [Shape: Random] void [[VP5:%.*]] = call i64 4 i8* [[VP4]] void (i64, i8*)* @llvm.lifetime.end.p0i8
-; CHECK-NEXT:  Divergent: [Shape: Random] void [[VP6:%.*]] = call i64 4 i8* [[VP1]] void (i64, i8*)* @llvm.lifetime.end.p0i8
+; CHECK-NEXT:  Divergent: [Shape: Random] call i64 4 i8* [[VP4]] void (i64, i8*)* @llvm.lifetime.end.p0i8
+; CHECK-NEXT:  Divergent: [Shape: Random] call i64 4 i8* [[VP1]] void (i64, i8*)* @llvm.lifetime.end.p0i8
 ; CHECK-NEXT:  Divergent: [Shape: Unit Stride, Stride: i64 1] i64 [[VP_INDVARS_IV_NEXT]] = add i64 [[VP_INDVARS_IV]] i64 [[VP_INDVARS_IV_IND_INIT_STEP:%.*]]
 ; CHECK-NEXT:  Uniform: [Shape: Uniform] i64 [[VP_VECTOR_LOOP_IV_NEXT]] = add i64 [[VP_VECTOR_LOOP_IV]] i64 [[VP_VF:%.*]]
 ; CHECK-NEXT:  Uniform: [Shape: Uniform] i1 [[VP_VECTOR_LOOP_EXITCOND:%.*]] = icmp eq i64 [[VP_VECTOR_LOOP_IV_NEXT]] i64 [[VP_VECTOR_TRIP_COUNT:%.*]]
