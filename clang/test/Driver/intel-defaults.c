@@ -177,3 +177,9 @@
 // help information
 // RUN: %clang -help 2>&1 | FileCheck -check-prefix CHECK-INTEL-HELP %s
 // CHECK-INTEL-HELP: Intel(R) oneAPI DPC++/C++ Compiler
+
+// -fp-model=fast and -ffast-math should set preserve-sign
+// RUN: %clang -### -ffp-model=fast -c %s 2>&1 \
+// RUN: %clang -### -ffast-math -c %s 2>&1 \
+// RUN:  | FileCheck -check-prefix FP_MODEL_FAST %s
+// FP_MODEL_FAST: "-fdenormal-fp-math=preserve-sign,preserve-sign"

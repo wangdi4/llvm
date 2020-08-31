@@ -7,13 +7,20 @@
 // RUN: %clang -### -target x86_64-unknown-linux-gnu -ffast-math --sysroot=%S/Inputs/basic_linux_tree -c %s -v 2>&1 | FileCheck -check-prefix=CHECK-PRESERVESIGN %s
 
 // crt not linked in with nostartfiles
-// RUN: %clang -### -target x86_64-unknown-linux-gnu -ffast-math -nostartfiles --sysroot=%S/Inputs/basic_linux_tree -c %s -v 2>&1 | FileCheck -check-prefix=CHECK-IEEE %s
+// INTEL_CUSTOMIZATION
+// RUN: %clang -### -target x86_64-unknown-linux-gnu -ffast-math -nostartfiles --sysroot=%S/Inputs/basic_linux_tree -c %s -v 2>&1 | FileCheck -check-prefix=CHECK-INTEL %s
+// end INTEL_CUSTOMIZATION
 
 // If there's no crtfastmath, don't assume ftz/daz
-// RUN: %clang -### -target x86_64-unknown-linux-gnu -ffast-math --sysroot=/dev/null -c %s -v 2>&1 | FileCheck -check-prefix=CHECK-IEEE %s
+// INTEL_CUSTOMIZATION
+// RUN: %clang -### -target x86_64-unknown-linux-gnu -ffast-math --sysroot=/dev/null -c %s -v 2>&1 | FileCheck -check-prefix=CHECK-INTEL %s
+// end INTEL_CUSTOMIZATION
 
 // RUN: %clang -### -target x86_64-scei-ps4 -c %s -v 2>&1 | FileCheck -check-prefix=CHECK-PRESERVESIGN %s
 
 // Flag omitted for default
+// INTEL_CUSTOMIZATION
 // CHECK-IEEE-NOT: -fdenormal-fp-math
+// CHECK-INTEL: -fdenormal-fp-math
+// end INTEL_CUSTOMIZATION
 // CHECK-PRESERVESIGN: -fdenormal-fp-math=preserve-sign,preserve-sign
