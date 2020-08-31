@@ -60,7 +60,7 @@ void taskGroupReferenceCountTest() {
   for (unsigned i = 0; i < COUNT; ++i)
     taskGroup.release_wait();
 
-  EXPECT_EQ(taskGroup.ref_count(), 0);
+  EXPECT_EQ(taskGroup.ref_count(), 0U);
 }
 
 TEST(TBBNativeTest, Test_taskArena) {

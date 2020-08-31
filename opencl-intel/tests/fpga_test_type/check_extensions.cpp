@@ -72,7 +72,7 @@ TEST_F(CheckExtensions, FPGADevice) {
   for (auto i = std::istream_iterator<std::string>(extss),
             e = std::istream_iterator<std::string>();
        i != e; ++i) {
-    ASSERT_EQ(extRefFPGA.count(*i), 1)
+    ASSERT_EQ(extRefFPGA.count(*i), 1U)
         << ("Expect " + (*i) + " exists once in reference extensions");
     extRefFPGA.erase(*i);
   }

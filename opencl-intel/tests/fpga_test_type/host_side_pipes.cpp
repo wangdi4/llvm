@@ -339,13 +339,13 @@ TEST_F(TestHostSidePipes, QueryMaxPipes) {
                       sizeof(maxReadPipes), &maxReadPipes, &valueSizeRet);
   ASSERT_EQ(CL_SUCCESS, err) << "clGetDeviceInfo failed";
   ASSERT_EQ(sizeof(maxReadPipes), valueSizeRet);
-  ASSERT_GT(maxReadPipes, 0);
+  ASSERT_GT(maxReadPipes, 0U);
 
   err = clGetDeviceInfo(m_device, CL_DEVICE_MAX_HOST_WRITE_PIPES_INTEL,
                         sizeof(maxWritePipes), &maxWritePipes, &valueSizeRet);
   ASSERT_EQ(CL_SUCCESS, err) << "clGetDeviceInfo failed";
   ASSERT_EQ(sizeof(maxWritePipes), valueSizeRet);
-  ASSERT_GT(maxWritePipes, 0);
+  ASSERT_GT(maxWritePipes, 0U);
 }
 
 TEST_F(TestHostSidePipes, KernelArgType) {

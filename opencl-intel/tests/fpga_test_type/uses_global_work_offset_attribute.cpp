@@ -193,4 +193,4 @@ TEST_P(CanUseGlobalWorkOffsetParamBase, AttributeTrueParameterNonNull) {
 
 INSTANTIATE_TEST_CASE_P(TestCanUseGlobalWorkOffsetParam,
                         CanUseGlobalWorkOffsetParamBase,
-                        ::testing::Values(1, 31));
+                        ::testing::Values(1, 31), );
