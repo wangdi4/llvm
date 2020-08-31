@@ -668,9 +668,12 @@ static bool canShiftBinOpWithConstantRHS(BinaryOperator &Shift,
   case Instruction::Add:
     return Shift.getOpcode() == Instruction::Shl;
   case Instruction::Or:
-  case Instruction::Xor:
   case Instruction::And:
     return true;
+  case Instruction::Xor:
+    // Do not change a 'not' of logical shift because that would create a normal
+    // 'xor'. The 'not' is likely better for analysis, SCEV, and codegen.
+    return !(Shift.isLogicalShift() && match(BO, m_Not(m_Value())));
   }
 }
 
@@ -821,7 +824,7 @@ Instruction *InstCombinerImpl::FoldShiftByConstant(Value *Op0, Constant *Op1,
 
           if (VectorType *VT = dyn_cast<VectorType>(X->getType()))
             Mask = ConstantVector::getSplat(
-                ElementCount(VT->getNumElements(), false), Mask);
+                ElementCount::getFixed(VT->getNumElements()), Mask);
           return BinaryOperator::CreateAnd(X, Mask);
         }
 #endif // INTEL_CUSTOMIZATION
@@ -879,7 +882,7 @@ Instruction *InstCombinerImpl::FoldShiftByConstant(Value *Op0, Constant *Op1,
 
           if (VectorType *VT = dyn_cast<VectorType>(X->getType()))
             Mask = ConstantVector::getSplat(
-                ElementCount(VT->getNumElements(), false), Mask);
+                ElementCount::getFixed(VT->getNumElements()), Mask);
           return BinaryOperator::CreateAnd(X, Mask);
         }
 #endif // INTEL_CUSTOMIZATION

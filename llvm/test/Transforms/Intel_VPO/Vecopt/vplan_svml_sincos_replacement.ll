@@ -55,7 +55,7 @@ target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-pc-linux"
 
 ; Function Attrs: convergent nounwind
-declare float @_Z6sincosfPf(float, float*)
+declare float @_Z6sincosfPf(float, float*) #0
 
 ; Function Attrs: nounwind
 define void @foo(float addrspace(1)* %uni1, float addrspace(1)* %uni2) {
@@ -97,3 +97,5 @@ declare token @llvm.directive.region.entry()
 
 ; Function Attrs: nounwind
 declare void @llvm.directive.region.exit(token)
+
+attributes #0 = { readnone }

@@ -222,22 +222,21 @@ void VPlanPredicator::calculatePredicateTerms(VPBasicBlock *CurrBlock) {
       continue;
 
     auto *Cond = InfluenceBB->getCondBit();
+    assert(Cond && "Unconditional branch can't result in dom frontier!");
+    bool InfluenceBBUniformity =
+        Block2PredicateTermsAndUniformity[InfluenceBB].second;
+    bool CondUniformity = !Plan.getVPlanDA()->isDivergent(*Cond);
+    bool Negate = !VPPostDomTree.dominates(CurrBlock,
+                                           InfluenceBB->getSuccessor(0));
     LLVM_DEBUG(dbgs() << "  Influencing term: {Block: "
                       << InfluenceBB->getName() << ", Cond: ";
-               if (Cond) Cond->printAsOperand(dbgs()); else dbgs() << "nullptr";
-               dbgs() << ", uniformity: "
-                      << Block2PredicateTermsAndUniformity[InfluenceBB].second
+               Cond->printAsOperand(dbgs());
+               dbgs() << ", uniformity (BB, Cond): (" << InfluenceBBUniformity
+                      << ", " << CondUniformity << "), negate: " << Negate
                       << "}\n");
-    Uniform &= Block2PredicateTermsAndUniformity[InfluenceBB].second;
-    Uniform &= !Plan.getVPlanDA()->isDivergent(*Cond);
-    assert((Cond || CurrBlock == InfluenceBB->getSuccessor(0)) &&
-           "Single predecessor on false edge?");
-    // Cond == nullptr would just mean that PredBB's predicate should be used.
-    // Still ok.
-    PredicateTerm Term(
-        InfluenceBB, Cond,
-        !VPPostDomTree.dominates(CurrBlock,
-                                 InfluenceBB->getSuccessor(0)) /* Negate */);
+    Uniform &= InfluenceBBUniformity;
+    Uniform &= CondUniformity;
+    PredicateTerm Term(InfluenceBB, Cond, Negate);
     Block2PredicateTermsAndUniformity[CurrBlock].first.push_back(Term);
     PredicateTerm2UseBlocks[Term].push_back(CurrBlock);
   }
@@ -1010,11 +1009,6 @@ void VPlanPredicator::predicate() {
   // Note that block splitting to make ANDs created for predicates isn't done
   // during emission.
   emitPredicates();
-
-  // Fix the cond bits.
-  for (auto *Block : RPOT)
-    if (Block->getNumSuccessors() == 1)
-      Block->setCondBit(nullptr);
 
   VPLAN_DOT(DotBeforeBlends, Plan);
 

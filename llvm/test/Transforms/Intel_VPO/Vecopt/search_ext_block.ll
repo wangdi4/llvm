@@ -29,14 +29,14 @@ define dso_local i64 @foo([100 x i8]* nocapture readonly %arr, i64* noalias noca
 ; CHECK-NEXT:     i8* [[VP_SUBSCRIPT:%.*]] = subscript inbounds [100 x i8]* [[ARR0:%.*]] i64 [[I10:%.*]] i64 [[VP2]]
 ; CHECK-NEXT:     i8 [[VP5:%.*]] = load i8* [[VP_SUBSCRIPT]]
 ; CHECK-NEXT:     i64 [[VP6:%.*]] = hir-copy i64 [[VP4]] , OriginPhiId: -1
-; CHECK-NEXT:     i1 [[VP7:%.*]] = icmp i8 [[VP5]] i8 100
+; CHECK-NEXT:     i1 [[VP7:%.*]] = icmp ne i8 [[VP5]] i8 100
 ; CHECK-NEXT:    SUCCESSORS(2):[[BB4:BB[0-9]+]](i1 [[VP7]]), [[BB3]](!i1 [[VP7]])
 ; CHECK-NEXT:    PREDECESSORS(2): [[BB1]] [[BB3]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB3]]:
 ; CHECK-NEXT:       i64 [[VP8:%.*]] = hir-copy i64 100 , OriginPhiId: -1
 ; CHECK-NEXT:       i64 [[VP3]] = add i64 [[VP2]] i64 1
-; CHECK-NEXT:       i1 [[VP9:%.*]] = icmp i64 [[VP3]] i64 99
+; CHECK-NEXT:       i1 [[VP9:%.*]] = icmp sle i64 [[VP3]] i64 99
 ; CHECK-NEXT:      SUCCESSORS(2):[[BB2]](i1 [[VP9]]), [[BB5:BB[0-9]+]](!i1 [[VP9]])
 ; CHECK-NEXT:      PREDECESSORS(1): [[BB2]]
 ; CHECK-EMPTY:

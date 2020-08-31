@@ -6,8 +6,8 @@
 ;<15>            + DO i1 = 0, %0 + smax(-2, (-1 + (-1 * %0))) + 1, 1   <DO_LOOP>
 ;<2>             |   %ret.011.out = %ret.011;
 ;<6>             |   %2 = (%1)[-1 * i1 + %0 + -1];
-;<8>             |   %or = %2  ||  4294967296 * %ret.011.out;
-;<9>             |   %ret.011 = %or  %  %w;
+;<8>             |   %or = %2  |  4294967296 * %ret.011.out;
+;<9>             |   %ret.011 = %or  %u  %w;
 ;<15>            + END LOOP
 ;          END REGION
 
@@ -15,7 +15,7 @@
 ; as 4294967296 * %ret.011 in HIR
 ; Ensure we cg such large coeffs correctly
 ; CHECK: region.0:
-; CHECK: shl i64 {{%.*}}, 32
+; CHECK: shl nuw i64 {{%.*}}, 32
 
 ; ModuleID = 'encdec/crypto/bn/bn_word.c'
 target datalayout = "e-m:e-p:32:32-f64:32:64-f80:32-n8:16:32-S128"

@@ -391,11 +391,6 @@ class VPInstruction : public VPUser,
       bool FoldIVConvert;
     };
 
-    // Temporarily used to store alias analysis related metadata for memory
-    // refs. TODO - remove this once metadata representation/propagation fix
-    // is in place (CMPLRLLVM-11656).
-    AAMDNodes AANodes;
-
     /// Pointer to access the underlying HIR data attached to this
     /// VPInstruction, if any, depending on its sub-type:
     ///   1) Master VPInstruction: MasterData points to a VPInstDataHIR holding
@@ -543,7 +538,6 @@ class VPInstruction : public VPUser,
         }
       }
       setSymbase(HIR.getSymbase());
-      AANodes = HIR.AANodes;
       setFoldIVConvert(HIR.getFoldIVConvert());
 
       // Verify correctness of the cloned HIR.
@@ -1081,7 +1075,7 @@ public:
   inline operand_iterator succ_begin() { return op_begin(); }
   inline operand_iterator succ_end() {
     // CondBit is expected to be last operand of VPBranchInst (if available)
-    return getCondition() ? std::prev(op_end()) : op_end();
+    return isConditional() ? std::prev(op_end()) : op_end();
   }
   inline const_operand_iterator succ_begin() const { return op_begin(); }
   inline const_operand_iterator succ_end() const {
@@ -1103,6 +1097,7 @@ public:
   /// (the successor with specified index should already exist).
   void setSuccessor(unsigned idx, VPBasicBlock *NewSucc) {
     assert(idx < getNumSuccessors() && "Successor # out of range for Branch!");
+    assert(NewSucc && "Successor can't be null");
     setOperand(idx, NewSucc);
   }
 
@@ -1111,28 +1106,22 @@ public:
     return std::distance(succ_begin(), succ_end());
   }
 
+  /// Returns true in case if the branch is conditional.
+  bool isConditional() const { return getNumOperands() == 3; }
+
   /// Returns the condition bit selecting the successor.
   VPValue *getCondition() const {
-    VPValue *Cond = nullptr;
-    if (unsigned Count = getNumOperands()) {
-      Cond = getOperand(Count - 1);
-      // Condition can't be a basic block.
-      if (isa<VPBasicBlock>(Cond))
-        Cond = nullptr;
-    }
-    return Cond;
+    assert(isConditional() &&
+           "Can't return condition for the unconditional branch");
+    return getOperand(getNumOperands() - 1);
   }
 
-  /// Set a condition bit or replace the existing one.
+  /// Set the condition bit.
   void setCondition(VPValue *Cond) {
-    if (getCondition()) {
-      if (Cond)
-        setOperand(getNumOperands() - 1, Cond);
-      else
-        removeOperand(getNumOperands() - 1);
-    }
-    else if (Cond)
-      addOperand(Cond);
+    assert(isConditional() &&
+           "Setting CondBit for unconditional instruction is prohibited");
+    assert(Cond && "Condition can't be nullptr");
+    setOperand(getNumOperands() - 1, Cond);
   }
 
 protected:
@@ -1734,14 +1723,37 @@ public:
     return (Iter != MDs.end()) ? Iter->second : nullptr;
   }
 
+  // Get all alias analysis related metadata attached to the incoming
+  // instruction.
+  void getAAMetadata(AAMDNodes &AANodes) const {
+    AANodes.TBAA = getMetadata(LLVMContext::MD_tbaa);
+    AANodes.TBAAStruct = getMetadata(LLVMContext::MD_tbaa_struct);
+    AANodes.Scope = getMetadata(LLVMContext::MD_alias_scope);
+    AANodes.NoAlias = getMetadata(LLVMContext::MD_noalias);
+  }
+
   // Use underlying IR knowledge to access metadata attached to the incoming
   // instruction.
   void getUnderlyingNonDbgMetadata(MDNodesTy &MDs) const {
     MDs.clear();
     if (auto *IRLoadStore = dyn_cast_or_null<Instruction>(getInstruction()))
       IRLoadStore->getAllMetadataOtherThanDebugLoc(MDs);
-    else if (HIR.getUnderlyingNode())
-      llvm_unreachable("Add support for HIR vectorizer.");
+    else if (HIR.getUnderlyingNode()) {
+      auto *OpHIR = dyn_cast_or_null<VPBlob>(HIR.getOperandHIR());
+      assert(OpHIR != nullptr &&
+             "Load/store instruction does not have attached HIR operand.");
+      auto *RDDR = cast<loopopt::RegDDRef>(OpHIR->getBlob());
+      if (!RDDR->hasGEPInfo()) {
+        // This corresponds to a standalone load instruction.
+        auto *HInst = cast<loopopt::HLInst>(HIR.getUnderlyingNode());
+        assert(isa<LoadInst>(HInst->getLLVMInstruction()) &&
+               "Expected standalone load HLInst.");
+        RDDR = HInst->getRvalDDRef();
+      }
+      assert(RDDR->hasGEPInfo() &&
+             "Invalid RegDDRef attached to load/store instruction.");
+      RDDR->getAllMetadataOtherThanDebugLoc(MDs);
+    }
   }
 
   /// Methods for supporting type inquiry through isa, cast and dyn_cast:

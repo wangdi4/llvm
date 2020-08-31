@@ -146,7 +146,6 @@ static cl::opt<bool>
                                   "in the offload table static."),
                          cl::cat(PostLinkCat));
 #endif // INTEL_COLLAB
-
 static cl::opt<bool> EmitKernelParamInfo{
     "emit-param-info", cl::desc("emit kernel parameter optimization info"),
     cl::cat(PostLinkCat)};

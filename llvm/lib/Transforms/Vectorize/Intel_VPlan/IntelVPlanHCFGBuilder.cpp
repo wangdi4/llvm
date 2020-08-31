@@ -244,6 +244,7 @@ void VPlanHCFGBuilder::buildHierarchicalCFG() {
              Plan->getPDT()->print(dbgs()));
 
   VPLAN_DUMP(VPlanPrintPlainCFG, "importing plain CFG", Plan);
+  VPLAN_DOT(VPlanDotPlainCFG, Plan);
 
   // FIXME: Split Move everything after initial CFG construction into separate
   // transformation "passes" and schedule them in the planner/driver instead. We
@@ -786,13 +787,8 @@ void VPlanHCFGBuilder::emitVectorLoopIV(VPValue *TripCount, VPValue *VF) {
       IVUpdate, TripCount, "vector.loop.exitcond");
 
   VPValue *OrigExitCond = Latch->getCondBit();
-  Latch->setCondBit(ExitCond);
-
-  // FIXME: Without explicit terminators, CondBit isn't a proper user.
-  if (any_of(*Plan, [OrigExitCond](const VPBasicBlock &BB) {
-        return BB.getCondBit() == OrigExitCond;
-      }))
-    return;
+  if (Latch->getNumSuccessors() > 1)
+    Latch->setCondBit(ExitCond);
 
   // If original exit condition had single use, remove it - we calculate exit
   // condition differently now.

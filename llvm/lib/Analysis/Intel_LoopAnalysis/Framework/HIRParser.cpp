@@ -1578,23 +1578,6 @@ unsigned HIRParser::getOrAssignSymbase(const Value *Temp, unsigned *BlobIndex) {
 unsigned HIRParser::processInstBlob(const Instruction *Inst,
                                     const Instruction *BaseInst,
                                     unsigned Symbase) {
-  auto ParentBB = Inst->getParent();
-
-  HLLoop *UseLoop = isa<HLLoop>(CurNode) ? cast<HLLoop>(CurNode)
-                                         : CurNode->getLexicalParentLoop();
-
-  // Handle the easier region livein case.
-  if (!CurRegion->containsBBlock(ParentBB)) {
-    CurRegion->addLiveInTemp(Symbase, Inst);
-    assert((Inst == BaseInst) &&
-           "Inst and BaseInst should be same for region liveins!");
-
-    while (UseLoop) {
-      UseLoop->addLiveInTemp(Symbase);
-      UseLoop = UseLoop->getParentLoop();
-    }
-    return 0;
-  }
 
   // Inst and BaseInst are different in these cases-
   // 1) Inst is an SCC inst. In this case BaseInst is the outermost loop header
@@ -1618,6 +1601,21 @@ unsigned HIRParser::processInstBlob(const Instruction *Inst,
   // The issue is that the parser does not have direct knowledge of which of the
   // cases is being handled. We work around the problem by checking the
   // properties of BaseInst.
+
+  HLLoop *UseLoop = isa<HLLoop>(CurNode) ? cast<HLLoop>(CurNode)
+                                         : CurNode->getLexicalParentLoop();
+
+  // Handle the easier region livein case.
+  // Use BaseInst to correctly handle case 3) above.
+  if (!CurRegion->containsBBlock(BaseInst->getParent())) {
+    CurRegion->addLiveInTemp(Symbase, BaseInst);
+
+    while (UseLoop) {
+      UseLoop->addLiveInTemp(Symbase);
+      UseLoop = UseLoop->getParentLoop();
+    }
+    return 0;
+  }
 
   Loop *DefLLVMLoop = LI.getLoopFor(Inst->getParent());
 
@@ -2601,6 +2599,10 @@ void HIRParser::parse(HLLoop *HLoop) {
 
       // Add the explicit loop label and bottom test back to the loop.
       LF.reattachLoopLabelAndBottomTest(HLoop);
+
+      // Store this loop for Ztt extraction at the end of the phase. Extracting
+      // Ztt in the visitor is not safe as it changes the structure of HIR.
+      CountableToUnkownLoops.insert(HLoop);
 
     } else {
       // In some cases, loop is recognized as unknown in loop formation phase
@@ -4567,6 +4569,12 @@ void HIRParser::parse(HLInst *HInst, bool IsPhase1, unsigned Phase2Level) {
 void HIRParser::phase1Parse(HLNode *Node) {
   Phase1Visitor PV(this);
   HLNodeUtils::visit(PV, Node);
+
+  for (auto *UnknownLp : CountableToUnkownLoops) {
+    UnknownLp->extractZtt();
+  }
+
+  CountableToUnkownLoops.clear();
 }
 
 void HIRParser::phase2Parse() {

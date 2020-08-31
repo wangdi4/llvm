@@ -761,11 +761,16 @@ bool DDTest::intersectConstraints(Constraint *X, const Constraint *Y) {
     LLVM_DEBUG(dbgs() << "\n    intersect 2 lines\n");
     const CanonExpr *Prod1 = getMulExpr(X->getA(), Y->getB(), true);
     const CanonExpr *Prod2 = getMulExpr(X->getB(), Y->getA(), true);
+    if (!Prod1 || !Prod2)
+      return false;
+
     if (isKnownPredicate(CmpInst::ICMP_EQ, Prod1, Prod2)) {
       // slopes are equal, so lines are parallel
       LLVM_DEBUG(dbgs() << "\t\tsame slope\n");
       Prod1 = getMulExpr(X->getC(), Y->getB(), true);
       Prod2 = getMulExpr(X->getB(), Y->getC(), true);
+      if (!Prod1 || !Prod2)
+        return false;
       if (isKnownPredicate(CmpInst::ICMP_EQ, Prod1, Prod2))
         return false;
       if (isKnownPredicate(CmpInst::ICMP_NE, Prod1, Prod2)) {
@@ -784,11 +789,15 @@ bool DDTest::intersectConstraints(Constraint *X, const Constraint *Y) {
       const CanonExpr *C2A1 = getMulExpr(Y->getC(), X->getA(), true);
       const CanonExpr *A1B2 = getMulExpr(X->getA(), Y->getB(), true);
       const CanonExpr *A2B1 = getMulExpr(Y->getA(), X->getB(), true);
+      if (!C1B2 || !C1A2 || !C2B1 || !C2A1 || !A1B2 || !A2B1)
+        return false;
       int64_t Xtop, Xbot, Ytop, Ybot;
       const CanonExpr *C1A2_C2A1 = getMinus(C1A2, C2A1);
       const CanonExpr *C1B2_C2B1 = getMinus(C1B2, C2B1);
       const CanonExpr *A1B2_A2B1 = getMinus(A1B2, A2B1);
       const CanonExpr *A2B1_A1B2 = getMinus(A2B1, A1B2);
+      if (!C1A2_C2A1 || !C1B2_C2B1 || !A1B2_A2B1 || !A2B1_A1B2)
+        return false;
       if (!C1B2_C2B1->isIntConstant(&Xtop) ||
           !A1B2_A2B1->isIntConstant(&Xbot) ||
           !C1A2_C2A1->isIntConstant(&Ytop) ||
@@ -842,6 +851,8 @@ bool DDTest::intersectConstraints(Constraint *X, const Constraint *Y) {
     LLVM_DEBUG(dbgs() << "\t    intersect Point and Line\n");
     const CanonExpr *A1X1 = getMulExpr(Y->getA(), X->getX(), true);
     const CanonExpr *B1Y1 = getMulExpr(Y->getB(), X->getY(), true);
+    if (!A1X1 || !B1Y1)
+      return false;
     const CanonExpr *Sum = getAdd(A1X1, B1Y1);
     if (isKnownPredicate(CmpInst::ICMP_EQ, Sum, Y->getC()))
       return false;

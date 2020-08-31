@@ -781,6 +781,22 @@ EXTERN int __tgt_get_interop_property(
   return OFFLOAD_SUCCESS;
 }
 
+EXTERN int __tgt_get_target_memory_info(
+    void *interop_obj, int32_t num_ptrs, void *tgt_ptrs, void *ptr_info) {
+  DP("Call to __tgt_get_target_memory_info with interop_obj " DPxMOD
+     ", num_ptrs %" PRId32 ", tgt_ptrs " DPxMOD ", ptr_info " DPxMOD
+     "\n", DPxPTR(interop_obj), num_ptrs, DPxPTR(tgt_ptrs), DPxPTR(ptr_info));
+
+  if (IsOffloadDisabled() || !interop_obj || !tgt_ptrs || !ptr_info ||
+      num_ptrs <= 0) {
+    return OFFLOAD_FAIL;
+  }
+
+  __tgt_interop_obj *obj = static_cast<__tgt_interop_obj *>(interop_obj);
+  DeviceTy &Device = Devices[obj->device_id];
+  return Device.get_data_alloc_info(num_ptrs, tgt_ptrs, ptr_info);
+}
+
 EXTERN void __tgt_push_code_location(const char *location, void *codeptr_ra) {
   OmptGlobal->getTrace().pushCodeLocation(location, codeptr_ra);
 }

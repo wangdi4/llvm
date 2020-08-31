@@ -19,7 +19,6 @@
 #include <string>
 #include <thread>
 #include <utility>
-#include <vector>
 
 #include <level_zero/zet_api.h>
 
@@ -554,6 +553,8 @@ zeModuleDynamicLinkMock(uint32_t numModules, ze_module_handle_t *phModules,
 static ze_result_t
 zeModuleGetPropertiesMock(ze_module_handle_t hModule,
                           ze_module_properties_t *pModuleProperties);
+
+static bool isOnlineLinkEnabled();
 // End forward declarations for mock Level Zero APIs
 
 std::once_flag OnceFlag;
@@ -576,6 +577,13 @@ pi_result piPlatformsGet(pi_uint32 NumEntries, pi_platform *Platforms,
   if (Platforms == nullptr && NumPlatforms == nullptr) {
     return PI_INVALID_VALUE;
   }
+
+  // Cache pi_platforms for reuse in the future
+  // It solves two problems;
+  // 1. sycl::device equality issue; we always return the same pi_device.
+  // 2. performance; we can save time by immediately return from cache.
+  static std::vector<pi_platform> PiPlatformsCache;
+  static std::mutex PiPlatformsCacheMutex;
 
   // This is a good time to initialize Level Zero.
   static const char *CommandListCacheSize =
@@ -621,6 +629,18 @@ pi_result piPlatformsGet(pi_uint32 NumEntries, pi_platform *Platforms,
     ze_driver_handle_t ZeDriver;
     assert(ZeDriverCount == 1);
     ZE_CALL(zeDriverGet(&ZeDriverCount, &ZeDriver));
+
+    std::lock_guard<std::mutex> Lock(PiPlatformsCacheMutex);
+    for (const pi_platform CachedPlatform : PiPlatformsCache) {
+      if (CachedPlatform->ZeDriver == ZeDriver) {
+        Platforms[0] = CachedPlatform;
+        // if the caller sent a valid NumPlatforms pointer, set it here
+        if (NumPlatforms)
+          *NumPlatforms = 1;
+
+        return PI_SUCCESS;
+      }
+    }
 
     try {
       // TODO: figure out how/when to release this memory
@@ -741,9 +761,16 @@ pi_result piDevicesGet(pi_platform Platform, pi_device_type DeviceType,
 
   // Get number of devices supporting Level Zero
   uint32_t ZeDeviceCount = 0;
+  std::lock_guard<std::mutex> Lock(Platform->PiDevicesCacheMutex);
+  ZeDeviceCount = Platform->PiDevicesCache.size();
+
   const bool AskingForGPU = (DeviceType & PI_DEVICE_TYPE_GPU);
   const bool AskingForDefault = (DeviceType == PI_DEVICE_TYPE_DEFAULT);
-  ZE_CALL(zeDeviceGet(ZeDriver, &ZeDeviceCount, nullptr));
+
+  if (ZeDeviceCount == 0) {
+    ZE_CALL(zeDeviceGet(ZeDriver, &ZeDeviceCount, nullptr));
+  }
+
   if (ZeDeviceCount == 0 || !(AskingForGPU || AskingForDefault)) {
     if (NumDevices)
       *NumDevices = 0;
@@ -759,6 +786,14 @@ pi_result piDevicesGet(pi_platform Platform, pi_device_type DeviceType,
     return PI_SUCCESS;
   }
 
+  // if devices are already captured in cache, return them from the cache.
+  for (const pi_device CachedDevice : Platform->PiDevicesCache) {
+    *Devices++ = CachedDevice;
+  }
+  if (!Platform->PiDevicesCache.empty()) {
+    return PI_SUCCESS;
+  }
+
   try {
     std::vector<ze_device_handle_t> ZeDevices(ZeDeviceCount);
     ZE_CALL(zeDeviceGet(ZeDriver, &ZeDeviceCount, ZeDevices.data()));
@@ -770,6 +805,8 @@ pi_result piDevicesGet(pi_platform Platform, pi_device_type DeviceType,
         if (Result != PI_SUCCESS) {
           return Result;
         }
+        // save a copy in the cache for future uses.
+        Platform->PiDevicesCache.push_back(Devices[I]);
       }
     }
   } catch (const std::bad_alloc &) {
@@ -782,7 +819,6 @@ pi_result piDevicesGet(pi_platform Platform, pi_device_type DeviceType,
 
 pi_result piDeviceRetain(pi_device Device) {
   assert(Device);
-
   // The root-device ref-count remains unchanged (always 1).
   if (Device->IsSubDevice) {
     ++(Device->RefCount);
@@ -792,17 +828,19 @@ pi_result piDeviceRetain(pi_device Device) {
 
 pi_result piDeviceRelease(pi_device Device) {
   assert(Device);
-
+  assert(Device->RefCount > 0 && "Device is already released.");
   // TODO: OpenCL says root-device ref-count remains unchanged (1),
   // but when would we free the device's data?
-  if (--(Device->RefCount) == 0) {
-    // Destroy all the command lists associated with this device.
-    Device->ZeCommandListCacheMutex.lock();
-    for (ze_command_list_handle_t &ZeCommandList : Device->ZeCommandListCache) {
-      zeCommandListDestroy(ZeCommandList);
+  if (Device->IsSubDevice) {
+    if (--(Device->RefCount) == 0) {
+      // Destroy all the command lists associated with this device.
+      Device->ZeCommandListCacheMutex.lock();
+      for (ze_command_list_handle_t &ZeCommandList : Device->ZeCommandListCache) {
+        zeCommandListDestroy(ZeCommandList);
+      }
+      Device->ZeCommandListCacheMutex.unlock();
+      delete Device;
     }
-    Device->ZeCommandListCacheMutex.unlock();
-    delete Device;
   }
 
   return PI_SUCCESS;
@@ -884,7 +922,7 @@ pi_result piDeviceGetInfo(pi_device Device, pi_device_info ParamName,
     //
     std::string SupportedExtensions;
 
-    // cl_khr_il_program - OpenCL 2.0 KHR extension for SPIRV support. Core
+    // cl_khr_il_program - OpenCL 2.0 KHR extension for SPIR-V support. Core
     //   feature in >OpenCL 2.1
     // cl_khr_subgroups - Extension adds support for implementation-controlled
     //   subgroups.
@@ -2469,6 +2507,15 @@ static ze_result_t
 zeModuleDynamicLinkMock(uint32_t numModules, ze_module_handle_t *phModules,
                         ze_module_build_log_handle_t *phLinkLog) {
 
+  // If enabled, try calling the real driver API instead.  At the time this
+  // code was written, the "phLinkLog" parameter to zeModuleDynamicLink()
+  // doesn't work, so hard code it to NULL.
+  if (isOnlineLinkEnabled()) {
+    if (phLinkLog)
+      *phLinkLog = nullptr;
+    return ZE_CALL_NOCHECK(zeModuleDynamicLink(numModules, phModules, nullptr));
+  }
+
   // The mock implementation can only handle the degenerate case where there
   // is only a single module that is "linked" to itself.  There is nothing to
   // do in this degenerate case.
@@ -2488,11 +2535,31 @@ static ze_result_t
 zeModuleGetPropertiesMock(ze_module_handle_t hModule,
                           ze_module_properties_t *pModuleProperties) {
 
+  // If enabled, try calling the real driver API first.  At the time this code
+  // was written it always returns ZE_RESULT_ERROR_UNSUPPORTED_FEATURE, so we
+  // fall back to the mock in this case.
+  if (isOnlineLinkEnabled()) {
+    ze_result_t ZeResult =
+        ZE_CALL_NOCHECK(zeModuleGetProperties(hModule, pModuleProperties));
+    if (ZeResult != ZE_RESULT_ERROR_UNSUPPORTED_FEATURE) {
+      return ZeResult;
+    }
+  }
+
   // The mock implementation assumes that the module has imported symbols.
   // This is a conservative guess which may result in unnecessary calls to
   // copyModule(), but it is always correct.
   pModuleProperties->flags = ZE_MODULE_PROPERTY_FLAG_IMPORTS;
   return ZE_RESULT_SUCCESS;
+}
+
+// Returns true if we should use the Level Zero driver online linking APIs.
+// At the time this code was written, these APIs exist but do not work.  We
+// think that support in the DPC++ runtime is ready once the driver bugs are
+// fixed, so runtime support can be enabled by setting an environment variable.
+static bool isOnlineLinkEnabled() {
+  static bool IsEnabled = std::getenv("SYCL_ENABLE_LEVEL_ZERO_LINK");
+  return IsEnabled;
 }
 
 pi_result piKernelCreate(pi_program Program, const char *KernelName,

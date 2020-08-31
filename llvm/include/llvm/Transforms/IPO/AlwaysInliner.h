@@ -42,6 +42,7 @@ public:
 
   InlineReport& getReport() { return Report; } // INTEL
   InlineReportBuilder& getMDReport() { return MDReport; } // INTEL
+  static bool isRequired() { return true; }
 };
 
 /// Create a legacy pass manager instance of a pass to inline and remove

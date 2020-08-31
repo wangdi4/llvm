@@ -81,7 +81,7 @@ define dso_local i64 @_Z3foollPlPA101_fb(i64 %n, i64 %m, i64* nocapture %ub, [10
 ; CHECK-NEXT:     i64* [[VP19:%.*]] = subscript inbounds i64* [[UB0:%.*]] i64 [[VP14]]
 ; CHECK-NEXT:     store i64 [[VP18]] i64* [[VP19]]
 ; CHECK-NEXT:     i64 [[VP15]] = add i64 [[VP14]] i64 1
-; CHECK-NEXT:     i1 [[VP20:%.*]] = icmp i64 [[VP15]] i64 [[VP3]]
+; CHECK-NEXT:     i1 [[VP20:%.*]] = icmp sle i64 [[VP15]] i64 [[VP3]]
 ; CHECK-NEXT:    SUCCESSORS(2):[[BB5]](i1 [[VP20]]), [[BB3]](!i1 [[VP20]])
 ; CHECK-NEXT:    PREDECESSORS(2): [[BB4]] [[BB5]]
 ; CHECK-EMPTY:
@@ -94,7 +94,7 @@ define dso_local i64 @_Z3foollPlPA101_fb(i64 %n, i64 %m, i64* nocapture %ub, [10
 ; CHECK-NEXT:     i64 [[VP7]] = hir-copy i64 [[VP25]] , OriginPhiId: -1
 ; CHECK-NEXT:     i64 [[VP26:%.*]] = hir-copy i64 [[M0]] , OriginPhiId: -1
 ; CHECK-NEXT:     i64 [[VP9]] = add i64 [[VP8]] i64 1
-; CHECK-NEXT:     i1 [[VP27:%.*]] = icmp i64 [[VP9]] i64 [[VP1]]
+; CHECK-NEXT:     i1 [[VP27:%.*]] = icmp sle i64 [[VP9]] i64 [[VP1]]
 ; CHECK-NEXT:    SUCCESSORS(2):[[BB2]](i1 [[VP27]]), [[BB6:BB[0-9]+]](!i1 [[VP27]])
 ; CHECK-NEXT:    PREDECESSORS(1): [[BB5]]
 ; CHECK-EMPTY:

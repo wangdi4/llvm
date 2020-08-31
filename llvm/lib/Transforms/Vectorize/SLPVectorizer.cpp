@@ -29,6 +29,7 @@
 #include "llvm/ADT/SmallBitVector.h"
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/ADT/SmallSet.h"
+#include "llvm/ADT/SmallString.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/Statistic.h"
 #include "llvm/ADT/iterator.h"
@@ -156,9 +157,10 @@ static cl::opt<bool>
 static cl::opt<bool>
     EnableSplitLoad("enable-split-load", cl::init(true), cl::Hidden,
                     cl::desc("Enable Vectorizing Split Loads."));
+
 // The maximum number of smaller loads per TreeEntry.
 // TODO: This value may need tuning.
-static cl::opt<unsigned>
+static cl::opt<int>
     MaxSplitLoadGroups("max-split-load", cl::init(4), cl::Hidden,
                        cl::desc("Max number of split-load groups."));
 
@@ -887,7 +889,7 @@ public:
 
     EdgeInfo(TreeEntry *UserTE, unsigned EdgeIdx)
         : UserTE(UserTE), EdgeIdx(EdgeIdx) {}
-#endif
+#endif // INTEL_CUSTOMIZATION
     /// The user TreeEntry.
     TreeEntry *UserTE = nullptr;
     /// The operand index of the use.
@@ -898,7 +900,7 @@ public:
     /// TODO: This is now used for the multi-node only. Should go away when
     /// multi-node support is introduced in the community.
     SmallVector<int, 4> OpDirection;
-#endif
+#endif // INTEL_CUSTOMIZATION
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) //INTEL
     friend inline raw_ostream &operator<<(raw_ostream &OS,
                                           const BoUpSLP::EdgeInfo &EI) {
@@ -1601,17 +1603,6 @@ public:
 
 private:
 #if INTEL_CUSTOMIZATION
-  /// This represents a group of consecutive loads (the indices within
-  /// TE.Scalars). It is used for split-load.
-  struct LoadGroup {
-    int From;
-    int To;
-    LoadGroup(int F, int T) : From(F), To(T) {
-      assert(F <= T && "Bad From/To");
-    }
-    size_t size() const { return (unsigned)(To + 1 - From); }
-  };
-
   /// A leaf operand of the Multi-Node. These operands get reordered.
   class OperandData {
     /// The leaf operand value.
@@ -2062,8 +2053,16 @@ private:
     /// whole multi-node.
     SmallVector<bool, 4> IsNegativePathSign;
 
-    /// Groups of consecutive loads for split-load support.
-    SmallVector<LoadGroup, 1> ConsecutiveLoadGroups;
+    /// Here is data for load groups (split-load).
+    /// Each load group is represented by a pair of integers:
+    /// first:  starting position index (within vector of scalars).
+    ///         If scalars are sortable by their pointer operand then
+    ///         the index is within vector of sorted scalars and
+    ///         SplitLoadPtrOrder contains their sorted order.
+    /// second: size of the group (aka number of loaded elements)
+    SmallVector<std::pair<int, int>, 1> SplitLoadGroups;
+    SmallVector<unsigned, 4> SplitLoadPtrOrder;
+
 #endif // INTEL_CUSTOMIZATION
 
   private:
@@ -2256,14 +2255,16 @@ private:
         dbgs() << Sign << ", ";
       dbgs() << "\n";
 
-      if (!ConsecutiveLoadGroups.empty()) {
-        dbgs() << "ConsecutiveLoadGroups (split groups): "
-               << ConsecutiveLoadGroups.size() << "\n";
+      if (!SplitLoadGroups.empty()) {
+        dbgs() << "Load groups: " << SplitLoadGroups.size() << "\n";
         int Cnt = 0;
-        for (const auto &Group : ConsecutiveLoadGroups) {
-          dbgs() << "Split Group " << Cnt++ << ".\n";
-          for (int i = Group.From; i <= Group.To; ++i)
-            dbgs() << *Scalars[i] << "\n";
+        for (const auto &Group : SplitLoadGroups) {
+          dbgs() << "Split load group " << Cnt++ << ".\n";
+          for (int i = Group.first; i < Group.first + Group.second; ++i)
+            if (SplitLoadPtrOrder.empty())
+              dbgs() << *Scalars[i] << "\n";
+            else
+              dbgs() << *Scalars[SplitLoadPtrOrder[i]] << "\n";
         }
       }
 #endif // INTEL_CUSTOMIZATION
@@ -2606,6 +2607,7 @@ private:
       }
     }
 
+#if INTEL_CUSTOMIZATION
     /// Updates the instructions pointed to by the whole bundle, based on the
     /// mapping in \p RemapMap.
     void remapInsts(DenseMap<Value *, Value *> &RemapMap) {
@@ -2615,6 +2617,7 @@ private:
             Bundle->Inst = cast<Instruction>(it->second);
       }
     }
+#endif // INTEL_CUSTOMIZATION
 
     Instruction *Inst = nullptr;
 
@@ -3932,58 +3935,53 @@ bool BoUpSLP::isLegalToBuildMultiNode(ArrayRef<Value *> VL) {
 /// back-to-back before we perform any reordering, then the problem goes away,
 /// because all uses will follow the leaves: L1, L2, L3, T1, T0
 void BoUpSLP::scheduleMultiNodeInstrs() {
-  std::list<TreeEntry *> TEWorklist;
-  TreeEntry *RootTE = VectorizableTree[CurrentMultiNode->getRoot()].get();
   if (CurrentMultiNode->numOfTrunks() <= 1)
     return;
-  assert(static_cast<size_t>(CurrentMultiNode->getRoot()) + 1 <
-             VectorizableTree.size() &&
-         "Should have early exited if only 1 TE in tree.");
-  TreeEntry *SecondTE = VectorizableTree[CurrentMultiNode->getRoot() + 1].get();
-  TEWorklist.push_back(SecondTE);
-
+  TreeEntry *RootTE = VectorizableTree[CurrentMultiNode->getRoot()].get();
   int Lanes = RootTE->Scalars.size();
 
   // The 'Destination' holds the destination position where the scheduled
   // instruction should be moved to. We need one destination per lane, which is
   // why we are using a vector.
   SmallVector<Instruction *, 4> Destination(Lanes);
-  for (int Lane = 0; Lane != Lanes; ++Lane) {
-    assert(isa<Instruction>(RootTE->Scalars[Lane]) &&
-           "Instrs expected in CurrentMultiNode");
-    Destination[Lane] = cast<Instruction>(RootTE->Scalars[Lane]);
+  for (int L = 0; L != Lanes; ++L) {
+      auto *I = dyn_cast<Instruction>(RootTE->Scalars[L]);
+      assert(I && "Instrs expected in CurrentMultiNode");
+      Destination[L] = I;
   }
+
+  std::list<TreeEntry *> TEWorklist;
+  ArrayRef<int> Trunks = CurrentMultiNode->getTrunks();
+  // Start with the first multi-node non-root TreeEntry (Trunks[0] is the root).
+  TEWorklist.push_back(VectorizableTree[Trunks[1]].get());
 
   // Iterate until we are done with all TEs of the multi node.
   while (!TEWorklist.empty()) {
     TreeEntry *TE = TEWorklist.front();
-    assert(TE->State != TreeEntry::NeedToGather && "Not vectorizable ?");
-    assert((int)TE->Scalars.size() == Lanes && "Broken TE?");
+    assert(TE->State == TreeEntry::Vectorize && "Not vectorizable ?");
+    assert(int(TE->Scalars.size()) == Lanes && "Broken TE?");
     TEWorklist.pop_front();
 
     // Move all TE instrs before Destination, and update the Destination.
-    for (int Lane = 0; Lane != Lanes; ++Lane) {
-      if (Instruction *I = dyn_cast<Instruction>(TE->Scalars[Lane])) {
+    for (int L = 0; L != Lanes; ++L) {
+      if (auto *I = dyn_cast<Instruction>(TE->Scalars[L])) {
         // We need to restore the original instruction position.
         CurrentMultiNode->saveBeforeSchedInstrPosition(I, I->getNextNode());
 
         // Perform the actual code motion.
-        I->moveBefore(Destination[Lane]);
+        I->moveBefore(Destination[L]);
         // 'I' becomes the new destination for 'Lane'.
-        Destination[Lane] = I;
+        Destination[L] = I;
       }
     }
 
     // Push predecessor TEs into the worklist.
-    if (Instruction *I0 = dyn_cast<Instruction>(TE->Scalars[0])) {
-      for (unsigned i = 0, e = I0->getNumOperands(); i != e; ++i) {
-        Value *OpV = I0->getOperand(i);
+    if (auto *I0 = dyn_cast<Instruction>(TE->Scalars[0])) {
+      for (unsigned N = 0; N != I0->getNumOperands(); ++N) {
+        Value *OpV = I0->getOperand(N);
         TreeEntry *OpTE = getTreeEntry(OpV);
-        if (OpTE) {
-          if (CurrentMultiNode->containsTrunk(OpTE->Idx)) {
-            TEWorklist.push_back(OpTE);
-          }
-        }
+        if (OpTE && CurrentMultiNode->containsTrunk(OpTE->Idx))
+          TEWorklist.push_back(OpTE);
       }
     }
   }
@@ -4833,11 +4831,9 @@ bool BoUpSLP::areInSameBB(ArrayRef<Value *> VL, int RootIdx) {
   }
   return true;
 }
-#endif // INTEL_CUSTOMIZATION
 
 void BoUpSLP::buildTree_rec(ArrayRef<Value *> VL_, unsigned Depth,
                             const EdgeInfo &UserTreeIdxC) {
-#if INTEL_CUSTOMIZATION
   // Since we are updating VL, we need a non-readonly VL, so create a copy.
   // TODO: Any better way of doing this?
   SmallVector<Value *, 4> VL(
@@ -4848,8 +4844,8 @@ void BoUpSLP::buildTree_rec(ArrayRef<Value *> VL_, unsigned Depth,
 
   InstructionsState S = getSameOpcode(VL);
 
-  EdgeInfo UserTreeIdx = UserTreeIdxC;
 #if INTEL_CUSTOMIZATION
+  EdgeInfo UserTreeIdx = UserTreeIdxC;
   // Take note that we have found a candidate for PSLP for the whole tree.
   // This lets us skip PSLP buildTree() if none has been found during vanilla
   // SLP.
@@ -4877,7 +4873,7 @@ void BoUpSLP::buildTree_rec(ArrayRef<Value *> VL_, unsigned Depth,
     }
 
   // If all of the operands are identical or constant we have a simple solution.
-  if (allConstant(VL) || isSplat(VL) || !allSameBlock(VL)) {
+  if (allConstant(VL) || isSplat(VL) || !allSameBlock(VL)) { // INTEL
     LLVM_DEBUG(dbgs() << "SLP: Gathering due to C,S,B,O. \n");
     newTreeEntry(VL, None /*not vectorized*/, S, UserTreeIdx);
     return;
@@ -5187,186 +5183,209 @@ void BoUpSLP::buildTree_rec(ArrayRef<Value *> VL_, unsigned Depth,
         buildTree_rec(OperandsVec[OpIdx], Depth + 1,       // INTEL
                       {TE, OpIdx, OperandsDirVec[OpIdx]}); // INTEL
       return;
-  }
-  case Instruction::ExtractValue:
-  case Instruction::ExtractElement: {
-    OrdersType CurrentOrder;
-    bool Reuse = canReuseExtract(VL, VL0, CurrentOrder);
-    if (Reuse) {
-      LLVM_DEBUG(dbgs() << "SLP: Reusing or shuffling extract sequence.\n");
-      ++NumOpsWantToKeepOriginalOrder;
-      newTreeEntry(VL, Bundle /*vectorized*/, S, UserTreeIdx,
-                   ReuseShuffleIndicies);
-      // This is a special case, as it does not gather, but at the same time
-      // we are not extending buildTree_rec() towards the operands.
-      ValueList Op0;
-      Op0.assign(VL.size(), VL0->getOperand(0));
-      VectorizableTree.back()->setOperand(0, Op0);
-      return;
     }
-    if (!CurrentOrder.empty()) {
-      LLVM_DEBUG({
-        dbgs() << "SLP: Reusing or shuffling of reordered extract sequence "
-                  "with order";
-        for (unsigned Idx : CurrentOrder)
-          dbgs() << " " << Idx;
-        dbgs() << "\n";
-      });
-      // Insert new order with initial value 0, if it does not exist,
-      // otherwise return the iterator to the existing one.
-      auto StoredCurrentOrderAndNum =
-          NumOpsWantToKeepOrder.try_emplace(CurrentOrder).first;
-      ++StoredCurrentOrderAndNum->getSecond();
-      newTreeEntry(VL, Bundle /*vectorized*/, S, UserTreeIdx,
-                   ReuseShuffleIndicies,
-                   StoredCurrentOrderAndNum->getFirst());
-      // This is a special case, as it does not gather, but at the same time
-      // we are not extending buildTree_rec() towards the operands.
-      ValueList Op0;
-      Op0.assign(VL.size(), VL0->getOperand(0));
-      VectorizableTree.back()->setOperand(0, Op0);
-      return;
-    }
-    LLVM_DEBUG(dbgs() << "SLP: Gather extract sequence.\n");
-    newTreeEntry(VL, None /*not vectorized*/, S, UserTreeIdx,
-                 ReuseShuffleIndicies);
-    BS.cancelScheduling(VL, VL0);
-    return;
-  }
-  case Instruction::Load: {
-    // Check that a vectorized load would load the same memory as a scalar
-    // load. For example, we don't want to vectorize loads that are smaller
-    // than 8-bit. Even though we have a packed struct {<i2, i2, i2, i2>} LLVM
-    // treats loading/storing it as an i8 struct. If we vectorize loads/stores
-    // from such a struct, we read/write packed bits disagreeing with the
-    // unvectorized version.
-    Type *ScalarTy = VL0->getType();
-
-    if (DL->getTypeSizeInBits(ScalarTy) !=
-      DL->getTypeAllocSizeInBits(ScalarTy)) {
-      BS.cancelScheduling(VL, VL0);
+    case Instruction::ExtractValue:
+    case Instruction::ExtractElement: {
+      OrdersType CurrentOrder;
+      bool Reuse = canReuseExtract(VL, VL0, CurrentOrder);
+      if (Reuse) {
+        LLVM_DEBUG(dbgs() << "SLP: Reusing or shuffling extract sequence.\n");
+        ++NumOpsWantToKeepOriginalOrder;
+        newTreeEntry(VL, Bundle /*vectorized*/, S, UserTreeIdx,
+                     ReuseShuffleIndicies);
+        // This is a special case, as it does not gather, but at the same time
+        // we are not extending buildTree_rec() towards the operands.
+        ValueList Op0;
+        Op0.assign(VL.size(), VL0->getOperand(0));
+        VectorizableTree.back()->setOperand(0, Op0);
+        return;
+      }
+      if (!CurrentOrder.empty()) {
+        LLVM_DEBUG({
+          dbgs() << "SLP: Reusing or shuffling of reordered extract sequence "
+                    "with order";
+          for (unsigned Idx : CurrentOrder)
+            dbgs() << " " << Idx;
+          dbgs() << "\n";
+        });
+        // Insert new order with initial value 0, if it does not exist,
+        // otherwise return the iterator to the existing one.
+        auto StoredCurrentOrderAndNum =
+            NumOpsWantToKeepOrder.try_emplace(CurrentOrder).first;
+        ++StoredCurrentOrderAndNum->getSecond();
+        newTreeEntry(VL, Bundle /*vectorized*/, S, UserTreeIdx,
+                     ReuseShuffleIndicies,
+                     StoredCurrentOrderAndNum->getFirst());
+        // This is a special case, as it does not gather, but at the same time
+        // we are not extending buildTree_rec() towards the operands.
+        ValueList Op0;
+        Op0.assign(VL.size(), VL0->getOperand(0));
+        VectorizableTree.back()->setOperand(0, Op0);
+        return;
+      }
+      LLVM_DEBUG(dbgs() << "SLP: Gather extract sequence.\n");
       newTreeEntry(VL, None /*not vectorized*/, S, UserTreeIdx,
                    ReuseShuffleIndicies);
-      LLVM_DEBUG(dbgs() << "SLP: Gathering loads of non-packed type.\n");
+      BS.cancelScheduling(VL, VL0);
       return;
     }
+    case Instruction::Load: {
+      // Check that a vectorized load would load the same memory as a scalar
+      // load. For example, we don't want to vectorize loads that are smaller
+      // than 8-bit. Even though we have a packed struct {<i2, i2, i2, i2>} LLVM
+      // treats loading/storing it as an i8 struct. If we vectorize loads/stores
+      // from such a struct, we read/write packed bits disagreeing with the
+      // unvectorized version.
+      Type *ScalarTy = VL0->getType();
 
-    // Make sure all loads in the bundle are simple - we can't vectorize
-    // atomic or volatile loads.
-    SmallVector<Value *, 4> PointerOps(VL.size());
-    auto POIter = PointerOps.begin();
-    for (Value *V : VL) {
-      auto *L = cast<LoadInst>(V);
-      if (!L->isSimple()) {
+      if (DL->getTypeSizeInBits(ScalarTy) !=
+          DL->getTypeAllocSizeInBits(ScalarTy)) {
         BS.cancelScheduling(VL, VL0);
         newTreeEntry(VL, None /*not vectorized*/, S, UserTreeIdx,
                      ReuseShuffleIndicies);
-        LLVM_DEBUG(dbgs() << "SLP: Gathering non-simple loads.\n");
+        LLVM_DEBUG(dbgs() << "SLP: Gathering loads of non-packed type.\n");
         return;
       }
-      *POIter = L->getPointerOperand();
-      ++POIter;
-    }
 
-    OrdersType CurrentOrder;
-    // Check the order of pointer operands.
-    if (llvm::sortPtrAccesses(PointerOps, *DL, *SE, CurrentOrder)) {
-      Value *Ptr0;
-      Value *PtrN;
-      if (CurrentOrder.empty()) {
-        Ptr0 = PointerOps.front();
-        PtrN = PointerOps.back();
-      } else {
-        Ptr0 = PointerOps[CurrentOrder.front()];
-        PtrN = PointerOps[CurrentOrder.back()];
-      }
-      const SCEV *Scev0 = SE->getSCEV(Ptr0);
-      const SCEV *ScevN = SE->getSCEV(PtrN);
-      const auto *Diff = dyn_cast<SCEVConstant>(SE->getMinusSCEV(ScevN, Scev0));
-      uint64_t Size = DL->getTypeAllocSize(ScalarTy);
-      // Check that the sorted loads are consecutive.
-      if (Diff && Diff->getAPInt() == (VL.size() - 1) * Size) {
-        if (CurrentOrder.empty()) {
-          // Original loads are consecutive and does not require reordering.
-          ++NumOpsWantToKeepOriginalOrder;
-          TreeEntry *TE = newTreeEntry(VL, Bundle /*vectorized*/, S,
-                                       UserTreeIdx,
-                                       ReuseShuffleIndicies);
-          TE->setOperandsInOrder();
-          LLVM_DEBUG(dbgs() << "SLP: added a vector of loads.\n");
-        } else {
-          // Need to reorder.
-          auto I = NumOpsWantToKeepOrder.try_emplace(CurrentOrder).first;
-          ++I->getSecond();
-          TreeEntry *TE = newTreeEntry(VL, Bundle /*vectorized*/, S, UserTreeIdx,
-                                       ReuseShuffleIndicies, I->getFirst());
-          TE->setOperandsInOrder();
-          LLVM_DEBUG(dbgs() << "SLP: added a vector of jumbled loads.\n");
+      // Make sure all loads in the bundle are simple - we can't vectorize
+      // atomic or volatile loads.
+      SmallVector<Value *, 4> PointerOps(VL.size());
+      auto POIter = PointerOps.begin();
+      for (Value *V : VL) {
+        auto *L = cast<LoadInst>(V);
+        if (!L->isSimple()) {
+          BS.cancelScheduling(VL, VL0);
+          newTreeEntry(VL, None /*not vectorized*/, S, UserTreeIdx,
+                       ReuseShuffleIndicies);
+          LLVM_DEBUG(dbgs() << "SLP: Gathering non-simple loads.\n");
+          return;
         }
-#if INTEL_CUSTOMIZATION
-        // Use the split-load support in codegen for the consecutive loads.
-        VectorizableTree.back()->ConsecutiveLoadGroups.push_back(
-              LoadGroup(0, VL.size() - 1));
-#endif // INTEL_CUSTOMIZATION
-        return;
+        *POIter = L->getPointerOperand();
+        ++POIter;
       }
-    }
 
+      OrdersType CurrentOrder;
+      // Check the order of pointer operands.
+      if (llvm::sortPtrAccesses(PointerOps, *DL, *SE, CurrentOrder)) {
+        Value *Ptr0;
+        Value *PtrN;
+        if (CurrentOrder.empty()) {
+          Ptr0 = PointerOps.front();
+          PtrN = PointerOps.back();
+        } else {
+          Ptr0 = PointerOps[CurrentOrder.front()];
+          PtrN = PointerOps[CurrentOrder.back()];
+        }
+        const SCEV *Scev0 = SE->getSCEV(Ptr0);
+        const SCEV *ScevN = SE->getSCEV(PtrN);
+        const auto *Diff =
+            dyn_cast<SCEVConstant>(SE->getMinusSCEV(ScevN, Scev0));
+        uint64_t Size = DL->getTypeAllocSize(ScalarTy);
+        // Check that the sorted loads are consecutive.
+        if (Diff && Diff->getAPInt() == (VL.size() - 1) * Size) {
+          if (CurrentOrder.empty()) {
+            // Original loads are consecutive and does not require reordering.
+            ++NumOpsWantToKeepOriginalOrder;
+            TreeEntry *TE = newTreeEntry(VL, Bundle /*vectorized*/, S,
+                                         UserTreeIdx, ReuseShuffleIndicies);
+            TE->setOperandsInOrder();
+            LLVM_DEBUG(dbgs() << "SLP: added a vector of loads.\n");
+          } else {
+            // Need to reorder.
+            auto I = NumOpsWantToKeepOrder.try_emplace(CurrentOrder).first;
+            ++I->getSecond();
+            TreeEntry *TE =
+                newTreeEntry(VL, Bundle /*vectorized*/, S, UserTreeIdx,
+                             ReuseShuffleIndicies, I->getFirst());
+            TE->setOperandsInOrder();
+            LLVM_DEBUG(dbgs() << "SLP: added a vector of jumbled loads.\n");
+          }
 #if INTEL_CUSTOMIZATION
-      // Check if we can issue smaller loads in smaller-wide groups
-      // (split-load).
+          // Use the split-load support in codegen for the consecutive loads.
+          VectorizableTree.back()->SplitLoadGroups.emplace_back(0, VL.size());
+#endif // INTEL_CUSTOMIZATION
+          return;
+        }
+      }
+#if INTEL_CUSTOMIZATION
+      // Check whether we can issue smaller-wide loads to build up the entire
+      // vector (split-load).
+
+      // Just few notes about existing split-load implementation limitations.
+      // We are currently able to handle split-loads when pointer arguments of
+      // scalar loads are not in order but that is only true if all the pointers
+      // have same base address, i.e. they are sortable: non-empty CurrentOrder
+      // is a good indication of that. Otherwise we are still able to handle
+      // split-loads but each group in such a case have to have their pointer
+      // arguments in order. Otherwise it will not be detected as a group and
+      // split loads fails.
+      // For example we have pointers [a+0, a+1, a+2, a+3, b+0, b+1, b+2, b+3]
+      // and their bases "a" and "b" are not SCEV comparable.
+      // llvm::sortPtrAccesses in such a case fails but split-load will detect
+      // two groups: G1: a+0, a+1, a+2, a+3 and G2: b+0, b+1, b+2, b+3
+      // But in a case [a+0, a+2, a+1, a+3, b+0, b+1, b+2, b+3]
+      // current algorithm fails to detect a group that is relative to base "a"
+      // and thus we end up gathering scalar loads to build the entire vector
+      // (this is yet another limitation - partial vector loads combined with
+      // scalar loads for the rest + gathering no supported).
+
       if (EnableSplitLoad) {
-        // Each consecutive group is represented by a pair of indices into VL.
-        // We go through all elements in order. We create a group once we
-        // encounter non-consecutive accesses.
-        SmallVector<LoadGroup, 1> ConsecutiveGroups;
-        for (int To = 0, From = 0, E = (int)VL.size(); To < E; ++To) {
-          // Build group [From, To] as it contains consecutive loads.
-          if (To == E - 1 ||
-              !isConsecutiveAccess(VL[To], VL[To + 1], *DL, *SE)) {
-            assert(To >= From && "To is expected to follow From");
-            uint32_t GroupSize = To - From + 1;
+        // Each consecutive group is represented by a pair of integers:
+        // starting index and load size (number of consecutive scalar
+        // elements).
+        // We go through all elements in order and create a group when
+        // non-consecutive access encountered.
+        SmallVector<std::pair<int, int>, 1> LoadGroups;
+
+        // Build group [From, Size] as it contains consecutive loads.
+        int VF = VL.size();
+        for (int To = 0, From = 0; To < VF; ++To) {
+          bool EndGroup = To == VF - 1;
+          if (!EndGroup)
+            // Check whether next pair of pointers are adjacent.
+            EndGroup =
+                CurrentOrder.empty()
+                    ? !isConsecutiveAccess(VL[To], VL[To + 1], *DL, *SE)
+                    : !isConsecutiveAccess(VL[CurrentOrder[To]],
+                                           VL[CurrentOrder[To + 1]], *DL, *SE);
+          if (EndGroup) {
+            int GroupSize = To - From + 1;
             // Only allow groups of sizes that are power of 2.
             if (GroupSize > 1 && isPowerOf2_32(GroupSize))
-              ConsecutiveGroups.push_back(LoadGroup(From, To));
+              LoadGroups.emplace_back(From, GroupSize);
             From = To + 1;
           }
         }
 
-        // Check if the group contains enough loads.
-        auto isFullGroupLoad = [&]() {
-          unsigned NumGroups = ConsecutiveGroups.size();
+        bool UseSplitLoad = true;
+        // Bail out if no groups found or too many small groups or
+        // number of groups is not power of 2.
+        // TODO: relax pow-of-two requirement in codegen.
+        int NumGroups = LoadGroups.size();
+        if (NumGroups == 0 || NumGroups > MaxSplitLoadGroups ||
+            !isPowerOf2_32(NumGroups))
+          UseSplitLoad = false;
+        else
+          // Check all groups are of same size and cover the entire VL.
+          // TODO: We should allow groups of various sizes.
+          for (const auto &Group : LoadGroups)
+            if (Group.second != VF / NumGroups) {
+              UseSplitLoad = false;
+              break;
+            }
 
-          if (// No groups.
-              NumGroups == 0 ||
-              // Too many small groups.
-              (NumGroups > MaxSplitLoadGroups) ||
-              // For now only allow power of 2 number of groups.
-              // TODO: We should relax this and fix codegen.
-              !isPowerOf2_32(NumGroups))
-            return false;
-
-          for (const LoadGroup &Group : ConsecutiveGroups) {
-            // All groups should be of equal size and should cover the whole
-            // VL.
-            // TODO: We should allow groups of various sizes.
-            if (Group.size() != VL.size() / ConsecutiveGroups.size())
-              return false;
-          }
-          return true;
-        };
-
-        if (isFullGroupLoad()) {
+        if (UseSplitLoad) {
           ++NumOpsWantToKeepOriginalOrder;
           TreeEntry *TE =
               newTreeEntry(VL, Bundle, S, UserTreeIdx, ReuseShuffleIndicies);
           TE->setOperandsInOrder();
-          assert(!ConsecutiveGroups.empty() && "No groups!");
-          VectorizableTree.back()->ConsecutiveLoadGroups = ConsecutiveGroups;
+          VectorizableTree.back()->SplitLoadGroups = LoadGroups;
+          if (!CurrentOrder.empty())
+            VectorizableTree.back()->SplitLoadPtrOrder = CurrentOrder;
+
           LLVM_DEBUG(dbgs() << "SLP: added a vector of split-loads.\n");
           return;
         }
-        // Fall-thru
       }
 #endif // INTEL_CUSTOMIZATION
 
@@ -5442,18 +5461,22 @@ void BoUpSLP::buildTree_rec(ArrayRef<Value *> VL_, unsigned Depth,
 #if INTEL_CUSTOMIZATION
       SmallVector<int, 4> OpDirLeft, OpDirRight;
       // Collect operands - commute if it uses the swapped predicate.
+#endif // INTEL_CUSTOMIZATION
       ValueList Left, Right;
       if (cast<CmpInst>(VL0)->isCommutative()) {
         // Commutative predicate - collect + sort operands of the instructions
         // so that each side is more likely to have the same opcode.
         assert(P0 == SwapP0 && "Commutative Predicate mismatch");
+#if INTEL_CUSTOMIZATION
         reorderInputsAccordingToOpcode(VL, Left, Right, *DL, *SE, OpDirLeft,
-                                       OpDirRight, *this); // INTEL
+                                       OpDirRight, *this);
+#endif // INTEL_CUSTOMIZATION
       } else {
         for (Value *V : VL) {
           auto *Cmp = cast<CmpInst>(V);
           Value *LHS = Cmp->getOperand(0);
           Value *RHS = Cmp->getOperand(1);
+#if INTEL_CUSTOMIZATION
           if (Cmp->getPredicate() != P0) {
             std::swap(LHS, RHS);
             OpDirLeft.push_back(0);
@@ -5462,17 +5485,16 @@ void BoUpSLP::buildTree_rec(ArrayRef<Value *> VL_, unsigned Depth,
             OpDirLeft.push_back(1);
             OpDirRight.push_back(0);
           }
+#endif // INTEL_CUSTOMIZATION
           Left.push_back(LHS);
           Right.push_back(RHS);
         }
       }
       TE->setOperand(0, Left);
       TE->setOperand(1, Right);
-      buildTree_rec(Left, Depth + 1, {TE, 0, OpDirLeft});
-      buildTree_rec(Right, Depth + 1, {TE, 1, OpDirRight});
+      buildTree_rec(Left, Depth + 1, {TE, 0, OpDirLeft});   // INTEL
+      buildTree_rec(Right, Depth + 1, {TE, 1, OpDirRight}); // INTEL
       return;
-#endif // INTEL_CUSTOMIZATION
-
     }
     case Instruction::Select:
     case Instruction::FNeg:
@@ -5688,7 +5710,7 @@ void BoUpSLP::buildTree_rec(ArrayRef<Value *> VL_, unsigned Depth,
       Intrinsic::ID ID = getVectorIntrinsicIDForCall(CI, TLI);
 
       VFShape Shape = VFShape::get(
-          *CI, {static_cast<unsigned int>(VL.size()), false /*Scalable*/},
+          *CI, ElementCount::getFixed(static_cast<unsigned int>(VL.size())),
           false /*HasGlobalPred*/);
       Function *VecFunc = VFDatabase(*CI).getVectorizedFunction(Shape);
 
@@ -5791,7 +5813,7 @@ void BoUpSLP::buildTree_rec(ArrayRef<Value *> VL_, unsigned Depth,
         buildTree_rec(Right, Depth + 1, {TE, 1, OpDirRight});
         return;
       }
-#endif
+#endif // INTEL_CUSTOMIZATION
 
       TE->setOperandsInOrder();
       for (unsigned i = 0, e = VL0->getNumOperands(); i < e; ++i) {
@@ -5929,9 +5951,9 @@ getVectorCallCosts(CallInst *CI, VectorType *VecTy, TargetTransformInfo *TTI,
   int IntrinsicCost =
     TTI->getIntrinsicInstrCost(CostAttrs, TTI::TCK_RecipThroughput);
 
-  auto Shape =
-      VFShape::get(*CI, {static_cast<unsigned>(VecTy->getNumElements()), false},
-                   false /*HasGlobalPred*/);
+  auto Shape = VFShape::get(*CI, ElementCount::getFixed(static_cast<unsigned>(
+                                     VecTy->getNumElements())),
+                            false /*HasGlobalPred*/);
   Function *VecFunc = VFDatabase(*CI).getVectorizedFunction(Shape);
   int LibCost = IntrinsicCost;
   if (!CI->isNoBuiltin() && VecFunc) {
@@ -6258,6 +6280,10 @@ int BoUpSLP::getEntryCost(TreeEntry *E) {
         ReuseShuffleCost -= (ReuseShuffleNumbers - VL.size()) * ScalarEltCost;
       }
       int ScalarLdCost = VecTy->getNumElements() * ScalarEltCost;
+#if INTEL_CUSTOMIZATION
+      // TODO: Cost modeling for split-load is definitely missed.
+      // Need to implement it.
+#endif // INTEL_CUSTOMIZATION
       int VecLdCost =
           TTI->getMemoryOpCost(Instruction::Load, VecTy, alignment, 0,
                                CostKind, VL0);
@@ -6469,11 +6495,24 @@ int BoUpSLP::getSpillCost() const {
   SmallPtrSet<Instruction*, 4> LiveValues;
   Instruction *PrevInst = nullptr;
 
+  // The entries in VectorizableTree are not necessarily ordered by their
+  // position in basic blocks. Collect them and order them by dominance so later
+  // instructions are guaranteed to be visited first. For instructions in
+  // different basic blocks, we only scan to the beginning of the block, so
+  // their order does not matter, as long as all instructions in a basic block
+  // are grouped together. Using dominance ensures a deterministic order.
+  SmallVector<Instruction *, 16> OrderedScalars;
   for (const auto &TEPtr : VectorizableTree) {
     Instruction *Inst = dyn_cast<Instruction>(TEPtr->Scalars[0]);
     if (!Inst)
       continue;
+    OrderedScalars.push_back(Inst);
+  }
+  llvm::stable_sort(OrderedScalars, [this](Instruction *A, Instruction *B) {
+    return DT->dominates(B, A);
+  });
 
+  for (Instruction *Inst : OrderedScalars) {
     if (!PrevInst) {
       PrevInst = Inst;
       continue;
@@ -6602,17 +6641,18 @@ int BoUpSLP::getTreeCost() {
   int SpillCost = getSpillCost();
   Cost += SpillCost + ExtractCost;
 
-  std::string Str;
+#ifndef NDEBUG
+  SmallString<256> Str;
   {
-    raw_string_ostream OS(Str);
+    raw_svector_ostream OS(Str);
     OS << "SLP: Spill Cost = " << SpillCost << ".\n"
        << "SLP: Extract Cost = " << ExtractCost << ".\n"
        << "SLP: Total Cost = " << Cost << ".\n";
   }
   LLVM_DEBUG(dbgs() << Str);
-
   if (ViewSLPTree)
     ViewGraph(this, "SLP" + F->getName(), false, Str);
+#endif
 
 #if INTEL_CUSTOMIZATION
   // Override Cost for tiny non-fully vectorizable trees.
@@ -7121,11 +7161,7 @@ Value *BoUpSLP::vectorizeTree(TreeEntry *E) {
 #if INTEL_CUSTOMIZATION
       // We encapsulate the load code generation code in a lambda function so
       // that we can call it for each of the split loads.
-      auto createVecLoad = [&](TreeEntry *E, ArrayRef<Value *> Scalars, bool NeedToShuffleReuses) {
-        Value *VL0 = Scalars[0];
-        // Loads are inserted at the head of the tree because we don't want to
-        // sink them all the way down past store instructions.
-        VectorType *VecTy = FixedVectorType::get(VL0->getType(), Scalars.size());
+      auto createVecLoad = [&](TreeEntry *E, Value *VL0, VectorType *VecTy) {
 #endif // INTEL_CUSTOMIZATION
       // Loads are inserted at the head of the tree because we don't want to
       // sink them all the way down past store instructions.
@@ -7160,63 +7196,65 @@ Value *BoUpSLP::vectorizeTree(TreeEntry *E) {
         V = Builder.CreateShuffleVector(V, UndefValue::get(V->getType()),
                                         Mask, "reorder_shuffle");
       }
-      if (NeedToShuffleReuses) {
-        // TODO: Merge this shuffle with the ReorderShuffleMask.
-        V = Builder.CreateShuffleVector(V, UndefValue::get(VecTy),
-                                        E->ReuseShuffleIndices, "shuffle");
-      }
       E->VectorizedValue = V;
       ++NumVectorInstructions;
       return V;
 #if INTEL_CUSTOMIZATION
       };
 
-      Value *RetValue = nullptr;
-      std::list<Value *> WorkList;
-
-      // Set insertion point once per load. This is done outside of 'createLoad'
-      // lambda.
+      // Set insertion point once. This is done outside of 'createLoad' lambda.
       setInsertPointAfterBundle(E);
 
-      // Go through all split groups and emit the vector loads.
-      for (const LoadGroup &Group : E->ConsecutiveLoadGroups) {
-        assert(Group.size() > 1 && isPowerOf2_32(Group.size()) && "Bad Group");
-        const auto &ScalarsGroup =
-            ArrayRef<Value *>(&E->Scalars[Group.From], Group.size());
-        RetValue = cast<Instruction>(createVecLoad(E, ScalarsGroup, false));
-        WorkList.push_front(RetValue);
+      std::list<Value *> WorkList;
+      // Go through all split-load groups and emit the vector loads.
+      for (const auto &Group : E->SplitLoadGroups) {
+        assert(Group.second > 1 && isPowerOf2_32(Group.second) && "Bad Group");
+        VectorType *VecTy = FixedVectorType::get(ScalarTy, Group.second);
+        Value *L0;
+        if (E->SplitLoadPtrOrder.empty())
+          L0 = E->Scalars[Group.first];
+        else
+          L0 = E->Scalars[E->SplitLoadPtrOrder[Group.first]];
+        Value *VecLoad = createVecLoad(E, L0, VecTy);
+        WorkList.push_front(VecLoad);
       }
 
-      // Emit the pair-wise shuffles.
+      // If we have two or more loads emit the pair-wise shuffles.
+      // At the end we build a tree like this:
+      //
+      //  Load Load Load Load
+      //   \    /    \    /
+      //  Shuffle    Shuffle
+      //      \       /
+      //       Shuffle
+      //
       while (WorkList.size() >= 2) {
-        // We build a tree of shuffles:
-        //
-        //  Load Load Load Load
-        //   \    /    \    /
-        //  Shuffle    Shuffle
-        //      \       /
-        //       Shuffle
-        //
-
-        // Pop front a pair of loads from the worklist, create a shuffle, and
-        // push it back into the worklist.
-        Value *VecLoad0 = WorkList.back();
+        // Pop front a pair of loads/shuffles from the worklist, create a
+        // shuffle, and push it back into the worklist.
+        Value *Vec0 = WorkList.back();
         WorkList.pop_back();
-        Value *VecLoad1 = WorkList.back();
+        Value *Vec1 = WorkList.back();
         WorkList.pop_back();
 
-        SmallVector<Constant *, 8> MaskVec;
-        assert(isa<VectorType>(VecLoad0->getType()) && "Vector expected.");
-        size_t LoadElements =
-            cast<VectorType>(VecLoad0->getType())->getNumElements();
-        for (int i = 0, e = 2 * LoadElements; i != e; ++i)
-          MaskVec.push_back(Builder.getInt32(i));
-        Value *ShuffleMask = ConstantVector::get(MaskVec);
-        RetValue = cast<Instruction>(Builder.CreateShuffleVector(
-            VecLoad0, VecLoad1, ShuffleMask, "SplitLoadShuffle"));
-        WorkList.push_front(RetValue);
+        assert(isa<VectorType>(Vec0->getType()) && "Vector expected.");
+        size_t NumElements =
+            cast<VectorType>(Vec0->getType())->getNumElements();
+
+        SmallVector<int, 8> ShuffleMask(2 * NumElements);
+        // If we are building the last shuffle and loaded elements are not
+        // in same order as the original scalar elements as a result of
+        // sorting by scalar loads pointer argument, we have to build
+        // ShuffleMask to permute elements based on the sorted order.
+        if (WorkList.empty() && !E->SplitLoadPtrOrder.empty())
+          inversePermutation(E->SplitLoadPtrOrder, ShuffleMask);
+        else
+          std::iota(ShuffleMask.begin(), ShuffleMask.end(), 0);
+        Value *Shuffle = Builder.CreateShuffleVector(Vec0, Vec1, ShuffleMask,
+                                                     "SplitLoadShuffle");
+        WorkList.push_front(Shuffle);
       }
 
+      Value *RetValue = WorkList.back();
       // When split load support is enabled we may need to shuffle resulting
       // vector.
       if (NeedToShuffleReuses) {
@@ -7345,9 +7383,10 @@ Value *BoUpSLP::vectorizeTree(TreeEntry *E) {
 
       Function *CF;
       if (!UseIntrinsic) {
-        VFShape Shape = VFShape::get(
-            *CI, {static_cast<unsigned>(VecTy->getNumElements()), false},
-            false /*HasGlobalPred*/);
+        VFShape Shape =
+            VFShape::get(*CI, ElementCount::getFixed(static_cast<unsigned>(
+                                  VecTy->getNumElements())),
+                         false /*HasGlobalPred*/);
         CF = VFDatabase(*CI).getVectorizedFunction(Shape);
       } else {
         Type *Tys[] = {FixedVectorType::get(CI->getType(), E->Scalars.size())};
@@ -10236,6 +10275,94 @@ private:
 
 } // end anonymous namespace
 
+static Optional<unsigned> getAggregateSize(Instruction *InsertInst) {
+  if (auto *IE = dyn_cast<InsertElementInst>(InsertInst))
+    return cast<FixedVectorType>(IE->getType())->getNumElements();
+
+  unsigned AggregateSize = 1;
+  auto *IV = cast<InsertValueInst>(InsertInst);
+  Type *CurrentType = IV->getType();
+  do {
+    if (auto *ST = dyn_cast<StructType>(CurrentType)) {
+      for (auto *Elt : ST->elements())
+        if (Elt != ST->getElementType(0)) // check homogeneity
+          return None;
+      AggregateSize *= ST->getNumElements();
+      CurrentType = ST->getElementType(0);
+    } else if (auto *AT = dyn_cast<ArrayType>(CurrentType)) {
+      AggregateSize *= AT->getNumElements();
+      CurrentType = AT->getElementType();
+    } else if (auto *VT = dyn_cast<FixedVectorType>(CurrentType)) {
+      AggregateSize *= VT->getNumElements();
+      return AggregateSize;
+    } else if (CurrentType->isSingleValueType()) {
+      return AggregateSize;
+    } else {
+      return None;
+    }
+  } while (true);
+}
+
+static Optional<unsigned> getOperandIndex(Instruction *InsertInst,
+                                          unsigned OperandOffset) {
+  unsigned OperandIndex = OperandOffset;
+  if (auto *IE = dyn_cast<InsertElementInst>(InsertInst)) {
+    if (auto *CI = dyn_cast<ConstantInt>(IE->getOperand(2))) {
+      auto *VT = cast<FixedVectorType>(IE->getType());
+      OperandIndex *= VT->getNumElements();
+      OperandIndex += CI->getZExtValue();
+      return OperandIndex;
+    }
+    return None;
+  }
+
+  auto *IV = cast<InsertValueInst>(InsertInst);
+  Type *CurrentType = IV->getType();
+  for (unsigned int Index : IV->indices()) {
+    if (auto *ST = dyn_cast<StructType>(CurrentType)) {
+      OperandIndex *= ST->getNumElements();
+      CurrentType = ST->getElementType(Index);
+    } else if (auto *AT = dyn_cast<ArrayType>(CurrentType)) {
+      OperandIndex *= AT->getNumElements();
+      CurrentType = AT->getElementType();
+    } else {
+      return None;
+    }
+    OperandIndex += Index;
+  }
+  return OperandIndex;
+}
+
+static bool findBuildAggregate_rec(Instruction *LastInsertInst,
+                                   TargetTransformInfo *TTI,
+                                   SmallVectorImpl<Value *> &BuildVectorOpds,
+                                   SmallVectorImpl<Value *> &InsertElts,
+                                   unsigned OperandOffset) {
+  do {
+    Value *InsertedOperand = LastInsertInst->getOperand(1);
+    Optional<unsigned> OperandIndex =
+        getOperandIndex(LastInsertInst, OperandOffset);
+    if (!OperandIndex)
+      return false;
+    if (isa<InsertElementInst>(InsertedOperand) ||
+        isa<InsertValueInst>(InsertedOperand)) {
+      if (!findBuildAggregate_rec(cast<Instruction>(InsertedOperand), TTI,
+                                  BuildVectorOpds, InsertElts, *OperandIndex))
+        return false;
+    } else {
+      BuildVectorOpds[*OperandIndex] = InsertedOperand;
+      InsertElts[*OperandIndex] = LastInsertInst;
+    }
+    if (isa<UndefValue>(LastInsertInst->getOperand(0)))
+      return true;
+    LastInsertInst = dyn_cast<Instruction>(LastInsertInst->getOperand(0));
+  } while (LastInsertInst != nullptr &&
+           (isa<InsertValueInst>(LastInsertInst) ||
+            isa<InsertElementInst>(LastInsertInst)) &&
+           LastInsertInst->hasOneUse());
+  return false;
+}
+
 /// Recognize construction of vectors like
 ///  %ra = insertelement <4 x float> undef, float %s0, i32 0
 ///  %rb = insertelement <4 x float> %ra, float %s1, i32 1
@@ -10243,54 +10370,41 @@ private:
 ///  %rd = insertelement <4 x float> %rc, float %s3, i32 3
 ///  starting from the last insertelement or insertvalue instruction.
 ///
-/// Also recognize aggregates like {<2 x float>, <2 x float>},
+/// Also recognize homogeneous aggregates like {<2 x float>, <2 x float>},
 /// {{float, float}, {float, float}}, [2 x {float, float}] and so on.
 /// See llvm/test/Transforms/SLPVectorizer/X86/pr42022.ll for examples.
 ///
 /// Assume LastInsertInst is of InsertElementInst or InsertValueInst type.
 ///
 /// \return true if it matches.
-static bool findBuildAggregate(Value *LastInsertInst, TargetTransformInfo *TTI,
+static bool findBuildAggregate(Instruction *LastInsertInst,
+                               TargetTransformInfo *TTI,
                                SmallVectorImpl<Value *> &BuildVectorOpds,
                                SmallVectorImpl<Value *> &InsertElts) {
+
   assert((isa<InsertElementInst>(LastInsertInst) ||
           isa<InsertValueInst>(LastInsertInst)) &&
          "Expected insertelement or insertvalue instruction!");
-  do {
-    Value *InsertedOperand;
-    auto *IE = dyn_cast<InsertElementInst>(LastInsertInst);
-    if (IE) {
-      InsertedOperand = IE->getOperand(1);
-      LastInsertInst = IE->getOperand(0);
-    } else {
-      auto *IV = cast<InsertValueInst>(LastInsertInst);
-      InsertedOperand = IV->getInsertedValueOperand();
-      LastInsertInst = IV->getAggregateOperand();
-    }
-    if (isa<InsertElementInst>(InsertedOperand) ||
-        isa<InsertValueInst>(InsertedOperand)) {
-      SmallVector<Value *, 8> TmpBuildVectorOpds;
-      SmallVector<Value *, 8> TmpInsertElts;
-      if (!findBuildAggregate(InsertedOperand, TTI, TmpBuildVectorOpds,
-                              TmpInsertElts))
-        return false;
-      BuildVectorOpds.append(TmpBuildVectorOpds.rbegin(),
-                             TmpBuildVectorOpds.rend());
-      InsertElts.append(TmpInsertElts.rbegin(), TmpInsertElts.rend());
-    } else {
-      BuildVectorOpds.push_back(InsertedOperand);
-      InsertElts.push_back(IE);
-    }
-    if (isa<UndefValue>(LastInsertInst))
-      break;
-    if ((!isa<InsertValueInst>(LastInsertInst) &&
-         !isa<InsertElementInst>(LastInsertInst)) ||
-        !LastInsertInst->hasOneUse())
-      return false;
-  } while (true);
-  std::reverse(BuildVectorOpds.begin(), BuildVectorOpds.end());
-  std::reverse(InsertElts.begin(), InsertElts.end());
-  return true;
+
+  assert((BuildVectorOpds.empty() && InsertElts.empty()) &&
+         "Expected empty result vectors!");
+
+  Optional<unsigned> AggregateSize = getAggregateSize(LastInsertInst);
+  if (!AggregateSize)
+    return false;
+  BuildVectorOpds.resize(*AggregateSize);
+  InsertElts.resize(*AggregateSize);
+
+  if (findBuildAggregate_rec(LastInsertInst, TTI, BuildVectorOpds, InsertElts,
+                             0)) {
+    llvm::erase_if(BuildVectorOpds,
+                   [](const Value *V) { return V == nullptr; });
+    llvm::erase_if(InsertElts, [](const Value *V) { return V == nullptr; });
+    if (BuildVectorOpds.size() >= 2)
+      return true;
+  }
+
+  return false;
 }
 
 static bool PhiTypeSorterFunc(Value *V, Value *V2) {
@@ -10473,8 +10587,7 @@ bool SLPVectorizerPass::vectorizeInsertValueInst(InsertValueInst *IVI,
 
   SmallVector<Value *, 16> BuildVectorOpds;
   SmallVector<Value *, 16> BuildVectorInsts;
-  if (!findBuildAggregate(IVI, TTI, BuildVectorOpds, BuildVectorInsts) ||
-      BuildVectorOpds.size() < 2)
+  if (!findBuildAggregate(IVI, TTI, BuildVectorOpds, BuildVectorInsts))
     return false;
 
   LLVM_DEBUG(dbgs() << "SLP: array mappable to vector: " << *IVI << "\n");
@@ -10489,7 +10602,6 @@ bool SLPVectorizerPass::vectorizeInsertElementInst(InsertElementInst *IEI,
   SmallVector<Value *, 16> BuildVectorInsts;
   SmallVector<Value *, 16> BuildVectorOpds;
   if (!findBuildAggregate(IEI, TTI, BuildVectorOpds, BuildVectorInsts) ||
-      BuildVectorOpds.size() < 2 ||
       (llvm::all_of(BuildVectorOpds,
                     [](Value *V) { return isa<ExtractElementInst>(V); }) &&
        isShuffle(BuildVectorOpds)))

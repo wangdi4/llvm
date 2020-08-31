@@ -516,6 +516,7 @@ int targetDataEnd(DeviceTy &Device, int32_t ArgNum, void **ArgBases,
     }
 
     bool IsLast, IsHostPtr;
+    bool IsImplicit = ArgTypes[I] & OMP_TGT_MAPTYPE_IMPLICIT;
     bool UpdateRef = !(ArgTypes[I] & OMP_TGT_MAPTYPE_MEMBER_OF) ||
                      (ArgTypes[I] & OMP_TGT_MAPTYPE_PTR_AND_OBJ);
     bool ForceDelete = ArgTypes[I] & OMP_TGT_MAPTYPE_DELETE;
@@ -523,9 +524,8 @@ int targetDataEnd(DeviceTy &Device, int32_t ArgNum, void **ArgBases,
     bool HasPresentModifier = ArgTypes[I] & OMP_TGT_MAPTYPE_PRESENT;
 
     // If PTR_AND_OBJ, HstPtrBegin is address of pointee
-    void *TgtPtrBegin = Device.getTgtPtrBegin(HstPtrBegin, DataSize, IsLast,
-                                              UpdateRef, IsHostPtr,
-                                              /*MustContain=*/true);
+    void *TgtPtrBegin = Device.getTgtPtrBegin(
+        HstPtrBegin, DataSize, IsLast, UpdateRef, IsHostPtr, !IsImplicit);
     if (!TgtPtrBegin && (DataSize || HasPresentModifier)) {
       DP("Mapping does not exist (%s)\n",
          (HasPresentModifier ? "'present' map type modifier" : "ignored"));
@@ -673,7 +673,8 @@ int targetDataEnd(DeviceTy &Device, int32_t ArgNum, void **ArgBases,
 #if INTEL_COLLAB
   int32_t gtid = __kmpc_global_thread_num(nullptr);
   Device.UsedPtrsMtx.lock();
-  Device.UsedPtrs[gtid].pop_back();
+  if (!Device.UsedPtrs[gtid].empty())
+    Device.UsedPtrs[gtid].pop_back();
   Device.UsedPtrsMtx.unlock();
 #endif // INTEL_COLLAB
 
@@ -951,7 +952,12 @@ int processDataBefore(int64_t DeviceId, void *HostPtr, int32_t ArgNum,
       DP("Forwarding first-private value " DPxMOD " to the target construct\n",
          DPxPTR(HstPtrBase));
       TgtPtrBegin = HstPtrBase;
+#if INTEL_COLLAB
+      // Let the plugins know that this argument must be passed as literal.
+      TgtBaseOffset = (std::numeric_limits<ptrdiff_t>::max)();
+#else // INTEL_COLLAB
       TgtBaseOffset = 0;
+#endif // INTEL_COLLAB
     } else if (ArgTypes[I] & OMP_TGT_MAPTYPE_PRIVATE) {
       // Allocate memory for (first-)private array
 #if INTEL_COLLAB
@@ -1026,8 +1032,6 @@ int processDataBefore(int64_t DeviceId, void *HostPtr, int32_t ArgNum,
 
 /// Process data after launching the kernel, including transferring data back to
 /// host if needed and deallocating target memory of (first-)private variables.
-/// FIXME: This function has correctness issue that target memory might be
-/// deallocated when they're being used.
 int processDataAfter(int64_t DeviceId, void *HostPtr, int32_t ArgNum,
                      void **ArgBases, void **Args, int64_t *ArgSizes,
                      int64_t *ArgTypes, void **ArgMappers,

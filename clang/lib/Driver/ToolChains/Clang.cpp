@@ -399,7 +399,7 @@ static void getTargetFeatures(const Driver &D, const llvm::Triple &Triple,
     break;
   case llvm::Triple::r600:
   case llvm::Triple::amdgcn:
-    amdgpu::getAMDGPUTargetFeatures(D, Args, Features);
+    amdgpu::getAMDGPUTargetFeatures(D, Triple, Args, Features);
     break;
   case llvm::Triple::msp430:
     msp430::getMSP430TargetFeatures(D, Args, Features);
@@ -438,7 +438,8 @@ shouldUseExceptionTablesForObjCExceptions(const ObjCRuntime &runtime,
 static void addExceptionArgs(const ArgList &Args, types::ID InputType,
                              const ToolChain &TC, bool KernelOrKext,
                              const ObjCRuntime &objcRuntime,
-                             ArgStringList &CmdArgs) {
+                             ArgStringList &CmdArgs, // INTEL
+                             const JobAction &JA) { // INTEL
   const llvm::Triple &Triple = TC.getTriple();
 
   if (KernelOrKext) {
@@ -470,7 +471,10 @@ static void addExceptionArgs(const ArgList &Args, types::ID InputType,
   if (types::isCXX(InputType)) {
     // Disable C++ EH by default on XCore and PS4.
     bool CXXExceptionsEnabled =
-        Triple.getArch() != llvm::Triple::xcore && !Triple.isPS4CPU();
+#if INTEL_CUSTOMIZATION
+        Triple.getArch() != llvm::Triple::xcore && !Triple.isPS4CPU() &&
+        !(JA.isDeviceOffloading(Action::OFK_OpenMP) && Triple.isSPIR());
+#endif // INTEL_CUSTOMIZATION
     Arg *ExceptionArg = Args.getLastArg(
         options::OPT_fcxx_exceptions, options::OPT_fno_cxx_exceptions,
         options::OPT_fexceptions, options::OPT_fno_exceptions);
@@ -1009,6 +1013,9 @@ static void RenderDebugEnablingArgs(const ArgList &Args, ArgStringList &CmdArgs,
     break;
   case codegenoptions::FullDebugInfo:
     CmdArgs.push_back("-debug-info-kind=standalone");
+    break;
+  case codegenoptions::UnusedTypeInfo:
+    CmdArgs.push_back("-debug-info-kind=unused-types");
     break;
   default:
     break;
@@ -1950,7 +1957,8 @@ void Clang::AddPPCTargetArgs(const ArgList &Args,
   if (T.isOSBinFormatELF()) {
     switch (getToolChain().getArch()) {
     case llvm::Triple::ppc64: {
-      if (T.isMusl() || (T.isOSFreeBSD() && T.getOSMajorVersion() >= 13))
+      if ((T.isOSFreeBSD() && T.getOSMajorVersion() >= 13) ||
+          T.isOSOpenBSD() || T.isMusl())
         ABIName = "elfv2";
       else
         ABIName = "elfv1";
@@ -2135,6 +2143,23 @@ void Clang::AddX86TargetArgs(const ArgList &Args,
     CmdArgs.push_back("-mfloat-abi");
     CmdArgs.push_back("soft");
     CmdArgs.push_back("-mstack-alignment=4");
+  }
+
+  // Handle -mtune.
+  // FIXME: We should default to "generic" unless -march is set to match gcc.
+  if (const Arg *A = Args.getLastArg(clang::driver::options::OPT_mtune_EQ)) {
+    StringRef Name = A->getValue();
+
+    if (Name == "native")
+      Name = llvm::sys::getHostCPUName();
+
+    // Ignore generic either from getHostCPUName or from command line.
+    // FIXME: We need to support this eventually but isValidCPUName and the
+    // backend aren't ready for it yet.
+    if (Name != "generic") {
+      CmdArgs.push_back("-tune-cpu");
+      CmdArgs.push_back(Args.MakeArgString(Name));
+    }
   }
 }
 
@@ -2574,6 +2599,16 @@ static void RenderFloatingPointOptions(const ToolChain &TC, const Driver &D,
       DenormalFP32Math = llvm::DenormalMode::getIEEE();
 
       StringRef Val = A->getValue();
+#if INTEL_CUSTOMIZATION
+      if (Val.equals("fast=2")) {
+        // When -fp-model=fast=2 is used, override with fast, as fast=2 is
+        // not supported at this time.
+        D.Diag(clang::diag::warn_drv_overriding_flag_option)
+               << Args.MakeArgString("-ffp-model=" + Val)
+               << Args.MakeArgString("-ffp-model=fast");
+        Val = "fast";
+      }
+#endif // INTEL_CUSTOMIZATION
       if (OFastEnabled && !Val.equals("fast")) {
           // Only -ffp-model=fast is compatible with OFast, ignore.
         D.Diag(clang::diag::warn_drv_overriding_flag_option)
@@ -3067,7 +3102,7 @@ static void RenderSCPOptions(const ToolChain &TC, const ArgList &Args,
     return;
 
   if (Args.hasFlag(options::OPT_fstack_clash_protection,
-                   options::OPT_fnostack_clash_protection, false))
+                   options::OPT_fno_stack_clash_protection, false))
     CmdArgs.push_back("-fstack-clash-protection");
 }
 
@@ -3879,8 +3914,14 @@ static void RenderDebugOptions(const ToolChain &TC, const Driver &D,
           TC.GetDefaultStandaloneDebug());
   if (const Arg *A = Args.getLastArg(options::OPT_fstandalone_debug))
     (void)checkDebugInfoOption(A, Args, D, TC);
-  if (DebugInfoKind == codegenoptions::LimitedDebugInfo && NeedFullDebug)
-    DebugInfoKind = codegenoptions::FullDebugInfo;
+
+  if (DebugInfoKind == codegenoptions::LimitedDebugInfo) {
+    if (Args.hasFlag(options::OPT_fno_eliminate_unused_debug_types,
+                     options::OPT_feliminate_unused_debug_types, false))
+      DebugInfoKind = codegenoptions::UnusedTypeInfo;
+    else if (NeedFullDebug)
+      DebugInfoKind = codegenoptions::FullDebugInfo;
+  }
 
 #if INTEL_CUSTOMIZATION
   if (D.IsIntelMode() && DebugInfoKind == codegenoptions::DebugInfoConstructor)
@@ -3900,6 +3941,23 @@ static void RenderDebugOptions(const ToolChain &TC, const Driver &D,
     else if (checkDebugInfoOption(A, Args, D, TC))
       CmdArgs.push_back("-gembed-source");
   }
+
+#if INTEL_CUSTOMIZATION
+  // Pass -traceback to the cc1 and require the minimal debug info if
+  // necessary.
+  if (Args.hasArg(options::OPT_traceback)) {
+    if (!T.isX86()) {
+      D.Diag(diag::err_drv_unsupported_opt_for_target)
+          << Args.getLastArg(options::OPT_traceback)->getAsString(Args)
+          << T.str();
+    } else {
+      CmdArgs.push_back("-traceback");
+      // traceback needs debug info about line and PC delta at least.
+      if (DebugInfoKind < codegenoptions::DebugDirectivesOnly)
+        DebugInfoKind = codegenoptions::DebugDirectivesOnly;
+    }
+  }
+#endif // INTEL_CUSTOMIZATION
 
   if (EmitCodeView) {
     CmdArgs.push_back("-gcodeview");
@@ -4233,10 +4291,10 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
     // Default value for FPGA is false, for all other targets is true.
     if (Triple.getSubArch() == llvm::Triple::SPIRSubArch_fpga)
       WantToDisableEarlyOptimizations = true;
-#endif // INTEL_COLLAB
     if (!Args.hasFlag(options::OPT_fsycl_early_optimizations,
                       options::OPT_fno_sycl_early_optimizations,
-                      !WantToDisableEarlyOptimizations)) // INTEL
+                      !WantToDisableEarlyOptimizations))
+#endif // INTEL_COLLAB
       CmdArgs.push_back("-fno-sycl-early-optimizations");
     else if (RawTriple.isSPIR()) {
       // Set `sycl-opt` option to configure LLVM passes for SPIR target
@@ -4505,9 +4563,9 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
 
 #if INTEL_CUSTOMIZATION
   auto AddOptLevel = [&]() {
-    // Force -O0 for OpenMP device compilation for SPIRV target.
-    if (D.IsIntelMode() && IsOpenMPDevice && Triple.isSPIR()) {
-      Args.ClaimAllArgs(options::OPT_O_Group);
+    // Set -O0 for OpenMP device compilation for SPIRV target.
+    if (D.IsIntelMode() && IsOpenMPDevice && Triple.isSPIR() &&
+        !Args.hasArg(options::OPT_O_Group, options::OPT__SLASH_O)) {
       CmdArgs.push_back("-O0");
       return;
     }
@@ -6158,7 +6216,9 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
 
   // Handle GCC-style exception args.
   if (!C.getDriver().IsCLMode())
-    addExceptionArgs(Args, InputType, TC, KernelOrKext, Runtime, CmdArgs);
+#if INTEL_CUSTOMIZATION
+    addExceptionArgs(Args, InputType, TC, KernelOrKext, Runtime, CmdArgs, JA);
+#endif // INTEL_CUSTOMIZATION
 
   // Handle exception personalities
   Arg *A = Args.getLastArg(
@@ -7312,6 +7372,34 @@ void Clang::AddClangCLArgs(const ArgList &Args, types::ID InputType,
     getToolChain().AddTBBLibArgs(Args, CmdArgs, "--dependent-lib=");
   if (Args.hasArg(options::OPT_daal_EQ))
     getToolChain().AddDAALLibArgs(Args, CmdArgs, "--dependent-lib=");
+
+  // Add OpenMP libs
+  bool StubsAdded = false;
+  if (Arg *A = Args.getLastArg(options::OPT_qopenmp_stubs,
+      options::OPT_fopenmp, options::OPT_fopenmp_EQ, options::OPT_fiopenmp)) {
+    if (A->getOption().matches(options::OPT_qopenmp_stubs)) {
+      CmdArgs.push_back("--dependent-lib=libiompstubs5md");
+      StubsAdded = true;
+    }
+  }
+  if (!StubsAdded && (Args.hasFlag(options::OPT_fopenmp,
+                                   options::OPT_fopenmp_EQ,
+                                   options::OPT_fno_openmp, false) ||
+      Args.hasArg(options::OPT_fiopenmp, options::OPT_mkl_EQ))) {
+    switch (getToolChain().getDriver().getOpenMPRuntime(Args)) {
+    case Driver::OMPRT_OMP:
+      CmdArgs.push_back("--dependent-lib=libomp");
+      break;
+    case Driver::OMPRT_IOMP5:
+      CmdArgs.push_back("--dependent-lib=libiomp5md");
+      break;
+    case Driver::OMPRT_GOMP:
+      break;
+    case Driver::OMPRT_Unknown:
+      // Already diagnosed.
+      break;
+    }
+  }
 #endif // INTEL_CUSTOMIZATION
 
   if (Arg *ShowIncludes =

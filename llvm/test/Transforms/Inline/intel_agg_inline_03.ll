@@ -5,10 +5,10 @@
 
 ; REQUIRES: asserts
 
-; RUN: opt < %s -agginliner -debug-only=agginliner -whole-program-assume -disable-output  2>&1 | FileCheck %s
-; RUN: opt < %s -passes='module(agginliner)' -debug-only=agginliner -whole-program-assume -disable-output  2>&1 | FileCheck %s
+; RUN: opt < %s -agginliner -debug-only=agginliner -whole-program-assume -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -disable-output  2>&1 | FileCheck %s
+; RUN: opt < %s -passes='module(agginliner)' -debug-only=agginliner -whole-program-assume -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -disable-output  2>&1 | FileCheck %s
 
-; CHECK: Started AggInl SingleAccessFunctionGlobalVar Analysis
+; CHECK: AggInl: SingleAccessFunctionGlobalVarHeuristic
 ; CHECK-NOT:  GV selected as candidate: grad
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"

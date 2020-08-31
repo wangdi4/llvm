@@ -235,8 +235,8 @@ bool VecCloneImpl::hasComplexType(Function *F)
   return false;
 }
 
-Function* VecCloneImpl::CloneFunction(Function &F, VectorVariant &V)
-{
+Function *VecCloneImpl::CloneFunction(Function &F, VectorVariant &V,
+                                      ValueToValueMapTy &VMap) {
 
   LLVM_DEBUG(dbgs() << "Cloning Function: " << F.getName() << "\n");
   LLVM_DEBUG(F.dump());
@@ -306,13 +306,12 @@ Function* VecCloneImpl::CloneFunction(Function &F, VectorVariant &V)
     Clone->removeAttributes(Idx, AB);
   }
 
-  ValueToValueMapTy Vmap;
   ArgIt = F.arg_begin();
   ArgEnd = F.arg_end();
   Function::arg_iterator NewArgIt = Clone->arg_begin();
   for (; ArgIt != ArgEnd; ++ArgIt, ++NewArgIt) {
     NewArgIt->setName(ArgIt->getName());
-    Vmap[&*ArgIt] = &*NewArgIt;
+    VMap[&*ArgIt] = &*NewArgIt;
   }
 
   if (V.isMasked()) {
@@ -321,7 +320,7 @@ Function* VecCloneImpl::CloneFunction(Function &F, VectorVariant &V)
   }
 
   SmallVector<ReturnInst*, 8> Returns;
-  CloneFunctionInto(Clone, &F, Vmap, true, Returns);
+  CloneFunctionInto(Clone, &F, VMap, true, Returns);
   // For some reason, this causes DCE to remove calls to these functions.
   // Disable for now.
   //Clone->setCallingConv(CallingConv::X86_RegCall);
@@ -565,10 +564,9 @@ PHINode* VecCloneImpl::createPhiAndBackedgeForLoop(
   return Phi;
 }
 
-Instruction *
-VecCloneImpl::expandVectorParameters(Function *Clone, VectorVariant &V,
-                                     BasicBlock *EntryBlock,
-                                     std::vector<ParmRef *> &VectorParmMap) {
+Instruction *VecCloneImpl::expandVectorParameters(
+    Function *Clone, VectorVariant &V, BasicBlock *EntryBlock,
+    std::vector<ParmRef *> &VectorParmMap, ValueToValueMapTy &VMap) {
   // For vector parameters, expand the existing alloca to a vector. Then,
   // bitcast the vector and store this instruction in a map. The map is later
   // used to insert the new instructions and to replace the old scalar memory
@@ -621,9 +619,18 @@ VecCloneImpl::expandVectorParameters(Function *Clone, VectorVariant &V,
         new AllocaInst(VecType, DL.getAllocaAddrSpace(), nullptr,
                        DL.getPrefTypeAlign(VecType), "vec." + Arg->getName());
     insertInstruction(VecAlloca, EntryBlock);
+
+    Type *ArgTy = nullptr;
+    for (const auto &Pair : VMap)
+      if (Pair.second == Arg)
+        ArgTy = Pair.first->getType();
+
+    // If the argument is a mask, it does not exist in VMap.
+    if (!ArgTy)
+      ArgTy = VecType->getElementType();
+
     PointerType *ElemTypePtr =
-        PointerType::get(VecType->getElementType(),
-                         VecAlloca->getType()->getAddressSpace());
+        PointerType::get(ArgTy, VecAlloca->getType()->getAddressSpace());
 
     BitCastInst *VecParmCast = nullptr;
     if (MaskArg) {
@@ -786,19 +793,25 @@ Instruction *VecCloneImpl::expandReturn(Function *Clone, BasicBlock *EntryBlock,
   // For both cases, generate a vector alloca so that we can later load from it
   // and return the vector temp from the function. The alloca is used to load
   // and store from so that the scalar loop contains load/store/gep
-  // instructions. This enables AVR construction to remain straightforward.
-  // E.g., we don't need to worry about figuring out how to represent
-  // insert/extract when building AVR nodes. This keeps consistent with how ICC
-  // is operating.
+  // instructions.
   //
   // Additionally, for case 1 we must generate a gep and store after the
   // instruction that defines the original return temp, so that we can store
   // the result into the proper index of the return vector. For case 2, we must
   // go into the loop and replace the old scalar alloca reference with the one
   // just created as vector.
+  //
+  // Finally, the vector alloca might already exist. This happends when the
+  // return value is also a function argument. In this case, the vector alloca
+  // has already been created in expandVectorParameters().
 
   Instruction *VecReturn = NULL;
   VectorType *ReturnType = cast<VectorType>(Clone->getReturnType());
+
+  if (isa<Argument>(FuncReturn->getReturnValue()))
+    for (auto *Param : VectorParmMap)
+      if (Param->VectorParm == FuncReturn->getReturnValue())
+        return Param->VectorParmCast;
 
   if (!Alloca) {
 
@@ -838,6 +851,7 @@ Instruction *VecCloneImpl::expandReturn(Function *Clone, BasicBlock *EntryBlock,
                           ValToStore->getType()));
     VecStore->insertAfter(VecGep);
 
+    return VecReturn;
   } else {
 
     // Case 2
@@ -855,7 +869,7 @@ Instruction *VecCloneImpl::expandReturn(Function *Clone, BasicBlock *EntryBlock,
       // There's already a vector alloca created for the return, which is the
       // same one used for the parameter. E.g., we're returning the updated
       // parameter.
-      VecReturn = VectorParmMap[ParmIdx]->VectorParmCast;
+      return VectorParmMap[ParmIdx]->VectorParmCast;
     } else {
       // A new return vector is needed because we do not load the return value
       // from an alloca.
@@ -864,39 +878,26 @@ Instruction *VecCloneImpl::expandReturn(Function *Clone, BasicBlock *EntryBlock,
       PRef->VectorParm = Alloca;
       PRef->VectorParmCast = VecReturn;
       VectorParmMap.push_back(PRef);
+      return VecReturn;
     }
   }
-
-  return VecReturn;
+  return nullptr;
 }
 
 Instruction *VecCloneImpl::expandVectorParametersAndReturn(
     Function *Clone, VectorVariant &V, Instruction **Mask,
     BasicBlock *EntryBlock, BasicBlock *LoopBlock, BasicBlock *ReturnBlock,
-    std::vector<ParmRef *> &VectorParmMap) {
+    std::vector<ParmRef *> &VectorParmMap, ValueToValueMapTy &VMap) {
   // If there are no parameters, then this function will do nothing and this
   // is the expected behavior.
-  *Mask = expandVectorParameters(Clone, V, EntryBlock, VectorParmMap);
+  *Mask = expandVectorParameters(Clone, V, EntryBlock, VectorParmMap, VMap);
 
   // If the function returns void, then don't attempt to expand to vector.
   Instruction *ExpandedReturn = ReturnBlock->getTerminator();
   if (!Clone->getReturnType()->isVoidTy()) {
-    ExpandedReturn = expandReturn(Clone, EntryBlock, LoopBlock, ReturnBlock,
-                                  VectorParmMap);
-  }
-
-  // So, essentially what has been done to this point is the creation and
-  // insertion of the vector alloca instructions. Now, we insert the bitcasts of
-  // those instructions, which have been stored in the map. The insertion of the
-  // vector bitcast to element type pointer is done at the end of the EntryBlock
-  // to ensure that any initial stores of vector parameters have been done
-  // before the cast.
-
-  for (auto MapIt : VectorParmMap) {
-    Instruction *ExpandedCast = MapIt->VectorParmCast;
-    if (!ExpandedCast->getParent()) {
-      insertInstruction(ExpandedCast, EntryBlock);
-    }
+    ExpandedReturn =
+        expandReturn(Clone, EntryBlock, LoopBlock, ReturnBlock, VectorParmMap);
+    assert(ExpandedReturn && "The return value has not been widened.");
   }
 
   // Insert the mask parameter store to alloca and bitcast if this is a masked
@@ -1683,11 +1684,6 @@ void VecCloneImpl::insertSplitForMaskedVariant(Function *Clone,
   // Generate the compare instruction to see if the mask bit is on. In ICC, we
   // use the movemask intrinsic which takes both float/int mask registers and
   // converts to an integer scalar value, one bit representing each element.
-  // AVR construction will be complicated if this intrinsic is introduced here,
-  // so the current solution is to just generate either an integer or floating
-  // point compare instruction for now. This may change anyway if we decide to
-  // go to a vector of i1 values for the mask. I suppose this would be one
-  // positive reason to use vector of i1.
   if (CompareTy->isIntegerTy()) {
     Zero = GeneralUtils::getConstantValue(CompareTy, Clone->getContext(),
                                                0);
@@ -1814,7 +1810,8 @@ bool VecCloneImpl::runImpl(Module &M) {
       // Clone the original function.
       LLVM_DEBUG(dbgs() << "Before SIMD Function Cloning\n");
       LLVM_DEBUG(F.dump());
-      Function *Clone = CloneFunction(F, Variant);
+      ValueToValueMapTy VMap;
+      Function *Clone = CloneFunction(F, Variant, VMap);
       Function::iterator EntryBlock = Clone->begin();
 
       if (isSimpleFunction(Clone))
@@ -1855,7 +1852,7 @@ bool VecCloneImpl::runImpl(Module &M) {
       Instruction *ExpandedReturn =
           expandVectorParametersAndReturn(Clone, Variant, &Mask, &*EntryBlock,
                                           LoopBlock, ReturnBlock,
-                                          VectorParmMap);
+                                          VectorParmMap, VMap);
       updateScalarMemRefsWithVector(Clone, F, &*EntryBlock, ReturnBlock, Phi,
                                     VectorParmMap);
 

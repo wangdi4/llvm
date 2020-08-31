@@ -13,19 +13,7 @@
 
 ; CHECK-LABEL: @_Z23distribute_parallel_forv
 
-; CHECK: call i32 @__kmpc_global_thread_num(
-
-; CHECK: %[[FORKOK:.+]] = {{.*}} call i32 @__kmpc_ok_to_fork(
-; CHECK: %[[FORKTEST:.+]] = icmp ne i32 %[[FORKOK]], 0
-; CHECK: br i1 %[[FORKTEST]], label %[[PARALLEL:.*]], label %[[SERIAL:.*]]
-
-; CHECK: [[PARALLEL]]:
 ; CHECK: call {{.*}} @__kmpc_fork_call({{.*}}@[[PARREG:_Z23distribute_parallel_forv.DIR.OMP.DISTRIBUTE.PARLOOP.[0-9]]]
-
-; CHECK: [[SERIAL]]:
-; CHECK-FIX: call __kmpc_serialized_parallel
-; CHECK: call {{.*}} @[[PARREG]]
-; CHECK-FIX: call __kmpc_end_serialized_parallel
 
 ; CHECK: define internal void @[[PARREG]]
 

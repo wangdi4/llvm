@@ -21,6 +21,8 @@
 // RUN: %ACC_RUN_PLACEHOLDER env SYCL_BE=%sycl_be ./app.exe
 //
 // end INTEL_CUSTOMIZATION
+// RUN: env SYCL_BE=%sycl_be ./app.exe
+
 //==---------device_code_dae.cpp - dead argument elimination test ----------==//
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.

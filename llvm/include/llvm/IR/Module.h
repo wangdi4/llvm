@@ -829,6 +829,9 @@ public:
   unsigned getCodeViewFlag() const;
 
 #if INTEL_CUSTOMIZATION
+  /// Returns true if TraceBack flag is present in module.
+  bool hasTraceBackFlag() const;
+
   /// \brief Returns true if any Intel proprietary optimizations have been
   /// performed on the module.
   ///

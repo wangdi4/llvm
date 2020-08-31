@@ -31,6 +31,7 @@
 #include "llvm/ADT/Triple.h"
 #include "llvm/CodeGen/FaultMaps.h"
 #include "llvm/DebugInfo/DWARF/DWARFContext.h"
+#include "llvm/DebugInfo/Intel_TraceBack/TraceContext.h" // INTEL
 #include "llvm/DebugInfo/Symbolize/Symbolize.h"
 #include "llvm/Demangle/Demangle.h"
 #include "llvm/MC/MCAsmInfo.h"
@@ -118,6 +119,12 @@ cl::opt<bool> objdump::Demangle("demangle", cl::desc("Demangle symbols names"),
 static cl::alias DemangleShort("C", cl::desc("Alias for --demangle"),
                                cl::NotHidden, cl::Grouping,
                                cl::aliasopt(Demangle));
+#if INTEL_CUSTOMIZATION
+cl::opt<bool>
+    objdump::TraceBack("traceback",
+                       cl::desc("Display record information for traceback"),
+                       cl::cat(ObjdumpCat));
+#endif // INTEL_CUSTOMIZATION
 
 cl::opt<bool> objdump::Disassemble(
     "disassemble",
@@ -320,6 +327,11 @@ cl::opt<bool> objdump::SymbolTable("syms", cl::desc("Display the symbol table"),
 static cl::alias SymbolTableShort("t", cl::desc("Alias for --syms"),
                                   cl::NotHidden, cl::Grouping,
                                   cl::aliasopt(SymbolTable));
+
+static cl::opt<bool> SymbolizeOperands(
+    "symbolize-operands",
+    cl::desc("Symbolize instruction operands when disassembling"),
+    cl::cat(ObjdumpCat));
 
 static cl::opt<bool> DynamicSymbolTable(
     "dynamic-syms",
@@ -1394,13 +1406,23 @@ static void addPltEntries(const ObjectFile *Obj,
     return;
   if (auto *ElfObj = dyn_cast<ELFObjectFileBase>(Obj)) {
     for (auto PltEntry : ElfObj->getPltAddresses()) {
-      SymbolRef Symbol(PltEntry.first, ElfObj);
-      uint8_t SymbolType = getElfSymbolType(Obj, Symbol);
-
-      StringRef Name = unwrapOrError(Symbol.getName(), Obj->getFileName());
-      if (!Name.empty())
-        AllSymbols[*Plt].emplace_back(
-            PltEntry.second, Saver.save((Name + "@plt").str()), SymbolType);
+      if (PltEntry.first) {
+        SymbolRef Symbol(*PltEntry.first, ElfObj);
+        uint8_t SymbolType = getElfSymbolType(Obj, Symbol);
+        if (Expected<StringRef> NameOrErr = Symbol.getName()) {
+          if (!NameOrErr->empty())
+            AllSymbols[*Plt].emplace_back(
+                PltEntry.second, Saver.save((*NameOrErr + "@plt").str()),
+                SymbolType);
+          continue;
+        } else {
+          // The warning has been reported in disassembleObject().
+          consumeError(NameOrErr.takeError());
+        }
+      }
+      reportWarning("PLT entry at 0x" + Twine::utohexstr(PltEntry.second) +
+                        " references an invalid symbol",
+                    Obj->getFileName());
     }
   }
 }
@@ -1568,6 +1590,42 @@ static SymbolInfoTy createDummySymbolInfo(const ObjectFile *Obj,
     return SymbolInfoTy(Addr, Name, Type);
 }
 
+static void
+collectLocalBranchTargets(ArrayRef<uint8_t> Bytes, const MCInstrAnalysis *MIA,
+                          MCDisassembler *DisAsm, MCInstPrinter *IP,
+                          const MCSubtargetInfo *STI, uint64_t SectionAddr,
+                          uint64_t Start, uint64_t End,
+                          std::unordered_map<uint64_t, std::string> &Labels) {
+  // So far only supports X86.
+  if (!STI->getTargetTriple().isX86())
+    return;
+
+  Labels.clear();
+  unsigned LabelCount = 0;
+  Start += SectionAddr;
+  End += SectionAddr;
+  uint64_t Index = Start;
+  while (Index < End) {
+    // Disassemble a real instruction and record function-local branch labels.
+    MCInst Inst;
+    uint64_t Size;
+    bool Disassembled = DisAsm->getInstruction(
+        Inst, Size, Bytes.slice(Index - SectionAddr), Index, nulls());
+    if (Size == 0)
+      Size = 1;
+
+    if (Disassembled && MIA) {
+      uint64_t Target;
+      bool TargetKnown = MIA->evaluateBranch(Inst, Index, Size, Target);
+      if (TargetKnown && (Target >= Start && Target < End) &&
+          !Labels.count(Target))
+        Labels[Target] = ("L" + Twine(LabelCount++)).str();
+    }
+
+    Index += Size;
+  }
+}
+
 static void disassembleObject(const Target *TheTarget, const ObjectFile *Obj,
                               MCContext &Ctx, MCDisassembler *PrimaryDisAsm,
                               MCDisassembler *SecondaryDisAsm,
@@ -1594,8 +1652,12 @@ static void disassembleObject(const Target *TheTarget, const ObjectFile *Obj,
   const StringRef FileName = Obj->getFileName();
   const MachOObjectFile *MachO = dyn_cast<const MachOObjectFile>(Obj);
   for (const SymbolRef &Symbol : Obj->symbols()) {
-    StringRef Name = unwrapOrError(Symbol.getName(), FileName);
-    if (Name.empty() && !(Obj->isXCOFF() && SymbolDescription))
+    Expected<StringRef> NameOrErr = Symbol.getName();
+    if (!NameOrErr) {
+      reportWarning(toString(NameOrErr.takeError()), FileName);
+      continue;
+    }
+    if (NameOrErr->empty() && !(Obj->isXCOFF() && SymbolDescription))
       continue;
 
     if (Obj->isELF() && getElfSymbolType(Obj, Symbol) == ELF::STT_SECTION)
@@ -1880,6 +1942,12 @@ static void disassembleObject(const Target *TheTarget, const ObjectFile *Obj,
                              !DisassembleAll;
       bool DumpARMELFData = false;
       formatted_raw_ostream FOS(outs());
+
+      std::unordered_map<uint64_t, std::string> AllLabels;
+      if (SymbolizeOperands)
+        collectLocalBranchTargets(Bytes, MIA, DisAsm, IP, PrimarySTI,
+                                  SectionAddr, Index, End, AllLabels);
+
       while (Index < End) {
         // ARM and AArch64 ELF binaries can interleave data and text in the
         // same section. We rely on the markers introduced to understand what
@@ -1920,6 +1988,11 @@ static void disassembleObject(const Target *TheTarget, const ObjectFile *Obj,
             }
           }
 
+          // Print local label if there's any.
+          auto Iter = AllLabels.find(SectionAddr + Index);
+          if (Iter != AllLabels.end())
+            FOS << "<" << Iter->second << ">:\n";
+
           // Disassemble a real instruction or a data when disassemble all is
           // provided
           MCInst Inst;
@@ -1953,7 +2026,9 @@ static void disassembleObject(const Target *TheTarget, const ObjectFile *Obj,
                           Inst, SectionAddr + Index, Size)) {
                 Target = *MaybeTarget;
                 PrintTarget = true;
-                FOS << "  # " << Twine::utohexstr(Target);
+                // Do not print real address when symbolizing.
+                if (!SymbolizeOperands)
+                  FOS << "  # " << Twine::utohexstr(Target);
               }
             if (PrintTarget) {
               // In a relocatable object, the target's section must reside in
@@ -2003,17 +2078,30 @@ static void disassembleObject(const Target *TheTarget, const ObjectFile *Obj,
                 }
               }
 
+              // Print the labels corresponding to the target if there's any.
+              bool LabelAvailable = AllLabels.count(Target);
               if (TargetSym != nullptr) {
                 uint64_t TargetAddress = TargetSym->Addr;
+                uint64_t Disp = Target - TargetAddress;
                 std::string TargetName = TargetSym->Name.str();
                 if (Demangle)
                   TargetName = demangle(TargetName);
 
-                FOS << " <" << TargetName;
-                uint64_t Disp = Target - TargetAddress;
-                if (Disp)
-                  FOS << "+0x" << Twine::utohexstr(Disp);
-                FOS << '>';
+                FOS << " <";
+                if (!Disp) {
+                  // Always Print the binary symbol precisely corresponding to
+                  // the target address.
+                  FOS << TargetName;
+                } else if (!LabelAvailable) {
+                  // Always Print the binary symbol plus an offset if there's no
+                  // local label corresponding to the target address.
+                  FOS << TargetName << "+0x" << Twine::utohexstr(Disp);
+                } else {
+                  FOS << AllLabels[Target];
+                }
+                FOS << ">";
+              } else if (LabelAvailable) {
+                FOS << " <" << AllLabels[Target] << ">";
               }
             }
           }
@@ -2089,6 +2177,10 @@ static void disassembleObject(const ObjectFile *Obj, bool InlineRelocs) {
   if (!AsmInfo)
     reportError(Obj->getFileName(),
                 "no assembly info for target " + TripleName);
+
+  if (MCPU.empty())
+    MCPU = Obj->tryGetCPUName().getValueOr("").str();
+
   std::unique_ptr<const MCSubtargetInfo> STI(
       TheTarget->createMCSubtargetInfo(TripleName, MCPU, Features.getString()));
   if (!STI)
@@ -2135,6 +2227,8 @@ static void disassembleObject(const ObjectFile *Obj, bool InlineRelocs) {
                 "no instruction printer for target " + TripleName);
   IP->setPrintImmHex(PrintImmHex);
   IP->setPrintBranchImmAsAddress(true);
+  IP->setSymbolizeOperands(SymbolizeOperands);
+  IP->setMCInstrAnalysis(MIA.get());
 
   PrettyPrinter &PIP = selectPrettyPrinter(Triple(TripleName));
   SourcePrinter SP(Obj, TheTarget->getName());
@@ -2148,6 +2242,50 @@ static void disassembleObject(const ObjectFile *Obj, bool InlineRelocs) {
                     MIA.get(), IP.get(), STI.get(), SecondarySTI.get(), PIP,
                     SP, InlineRelocs);
 }
+
+#if INTEL_CUSTOMIZATION
+/// \returns the mapping from the offset in .trace section to its value string
+/// of relocations for object file \p Obj.
+static DenseMap<uint32_t, SmallString<32>>
+getRelocationMapForTraceBack(const ObjectFile *Obj) {
+  DenseMap<uint32_t, SmallString<32>> RelMap;
+  // Return directly if it's not a relocatable file.
+  if (!Obj->isRelocatableObject())
+    return RelMap;
+
+  for (const SectionRef Section : Obj->sections()) {
+    // Start the next iteration if this section has no reloactions.
+    if (Section.relocation_begin() == Section.relocation_end())
+      continue;
+    auto SecOrErr = Section.getRelocatedSection();
+    if (!SecOrErr) {
+      consumeError(SecOrErr.takeError());
+      continue;
+    }
+    auto RelocatedSection = **SecOrErr;
+    auto NameOrErr = RelocatedSection.getName();
+    if (!NameOrErr) {
+      consumeError(NameOrErr.takeError());
+      continue;
+    }
+    // Start the next iteration if the relocated section is not .trace.
+    if (*NameOrErr != TraceContext::TraceName)
+      continue;
+    for (const RelocationRef &Reloc : Section.relocations()) {
+      uint64_t Address = Reloc.getOffset();
+      assert(Address <= UINT32_MAX && "Exceed maximum size of .trace size!");
+      SmallString<32> ValueStr;
+      if (Error E = getRelocationValueString(Reloc, ValueStr))
+        reportError(std::move(E), Obj->getFileName());
+      // Insert the pair of the offset in .trace sectiion and the value string
+      // of this reloaction.
+      RelMap.insert({static_cast<uint32_t>(Address), ValueStr});
+    }
+    return RelMap;
+  }
+  return RelMap;
+}
+#endif // INTEL_CUSTOMIZATION
 
 void objdump::printRelocations(const ObjectFile *Obj) {
   StringRef Fmt = Obj->getBytesInAddress() > 4 ? "%016" PRIx64 :
@@ -2766,6 +2904,14 @@ static void dumpObject(ObjectFile *O, const Archive *A = nullptr,
     printDynamicRelocations(O);
   if (SectionContents)
     printSectionContents(O);
+#if INTEL_CUSTOMIZATION
+  // traceback is only supported on X86.
+  if (TraceBack && O->makeTriple().isX86()) {
+    std::unique_ptr<TraceContext> Ctx =
+        TraceContext::create(*O, getRelocationMapForTraceBack(O));
+    Ctx->dump(outs());
+  }
+#endif // INTEL_CUSTOMIZATION
   if (Disassemble)
     disassembleObject(O, Relocations);
   if (UnwindInfo)
@@ -2890,10 +3036,12 @@ int main(int argc, char **argv) {
       !DisassembleSymbols.empty())
     Disassemble = true;
 
+#if INTEL_CUSTOMIZATION
   if (!ArchiveHeaders && !Disassemble && DwarfDumpType == DIDT_Null &&
       !DynamicRelocations && !FileHeaders && !PrivateHeaders && !RawClangAST &&
-      !Relocations && !SectionHeaders && !SectionContents && !SymbolTable &&
-      !DynamicSymbolTable && !UnwindInfo && !FaultMapSection &&
+      !Relocations && !SectionHeaders && !TraceBack && !SectionContents &&
+      !SymbolTable && !DynamicSymbolTable && !UnwindInfo && !FaultMapSection &&
+#endif // INTEL_CUSTOMIZATION
       !(MachOOpt &&
         (Bind || DataInCode || DylibId || DylibsUsed || ExportsTrie ||
          FirstPrivateHeader || IndirectSymbols || InfoPlist || LazyBind ||

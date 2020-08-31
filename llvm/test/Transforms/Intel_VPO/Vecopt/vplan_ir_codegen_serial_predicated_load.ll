@@ -9,7 +9,7 @@
 ; CHECK-NEXT:    [[NOT_AZ:%.*]] = icmp ne i2 [[BC_MASK]], 0
 ; CHECK-NEXT:    br i1 [[NOT_AZ]], label %[[PRED_LOAD_IF:.*]], label %[[MERGE:.*]]
 ; CHECK:       [[PRED_LOAD_IF]]:
-; CHECK-NEXT:    [[LOAD:%.*]] = load i64, i64* [[GEP]]
+; CHECK-NEXT:    [[LOAD:%.*]] = load i64, i64* [[GEP]], align 4
 ; CHECK-NEXT:    [[BROADCAST_SPLATINSERT1:%.*]] = insertelement <2 x i64> undef, i64 [[LOAD]], i32 0
 ; CHECK-NEXT:    br label %[[MERGE]]
 ; CHECK:       [[MERGE]]:
@@ -41,7 +41,7 @@ for.body:
 
 if.then:
   %gep = getelementptr inbounds i64, i64* %arr, i64 42
-  %load = load i64, i64* %gep
+  %load = load i64, i64* %gep, align 4
   %use = add i64 %load, %indvars.iv
   br label %for.latch
 

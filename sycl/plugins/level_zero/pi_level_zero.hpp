@@ -75,6 +75,9 @@ struct _pi_platform {
   std::string ZeDriverVersion;
   std::string ZeDriverApiVersion;
 
+  // Cache pi_devices for reuse
+  std::vector<pi_device> PiDevicesCache;
+  std::mutex PiDevicesCacheMutex;
   // Maximum Number of Command Lists that can be created.
   // This Value is initialized to 20000, but can be changed by the user
   // thru the environment variable SYCL_PI_LEVEL0_MAX_COMMAND_LIST_CACHE

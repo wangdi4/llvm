@@ -207,11 +207,7 @@ void X86TargetInfo::setFeatureEnabled(llvm::StringMap<bool> &Features,
   }
 
   Features[Name] = Enabled;
-
-  SmallVector<StringRef, 8> ImpliedFeatures;
-  llvm::X86::getImpliedFeatures(Name, Enabled, ImpliedFeatures);
-  for (const auto &F : ImpliedFeatures)
-    Features[F] = Enabled;
+  llvm::X86::updateImpliedFeatures(Name, Enabled, Features);
 }
 
 /// handleTargetFeatures - Perform initialization based on the user
@@ -2067,6 +2063,10 @@ std::string X86TargetInfo::convertConstraint(const char *&Constraint) const {
 void X86TargetInfo::fillValidCPUList(SmallVectorImpl<StringRef> &Values) const {
   bool Only64Bit = getTriple().getArch() != llvm::Triple::x86;
   llvm::X86::fillValidCPUArchList(Values, Only64Bit);
+}
+
+void X86TargetInfo::fillValidTuneCPUList(SmallVectorImpl<StringRef> &Values) const {
+  llvm::X86::fillValidCPUArchList(Values);
 }
 
 ArrayRef<const char *> X86TargetInfo::getGCCRegNames() const {

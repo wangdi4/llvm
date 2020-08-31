@@ -45,19 +45,15 @@ private:
   AggInlGetTLITy GetTLI;
 
   // List of calls that are marked as AggInline.
-  std::vector<CallBase *> AggInlCalls;
+  SetVector<CallBase *> AggInlCalls;
 
-  bool propagateAggInlineInfo(Function *main_rtn);
-  bool propagateAggInlineInfoCall(CallBase &CB);
-  bool setAggInlineInfo(CallBase &CB);
-  bool isCallInstInAggInlList(CallBase &CB);
-  void setAggInlInfoForCallSite(CallBase &CB);
-  bool setAggInlineInfoForAllCallSites(Function *F);
-  bool
-  trackUsesofAllocatedGlobalVariables(std::vector<GlobalVariable *> &Globals);
+  bool setAggInlInfoForCallSite(CallBase &CB, bool Recursive);
+  bool setAggInlInfoForCallSites(Function &F);
+  bool trackUsesOfAGVs(std::vector<GlobalVariable *> &GVs);
   bool analyzeHugeMallocGlobalPointersHeuristic(Module &MI);
   bool analyzeSingleAccessFunctionGlobalVarHeuristic(Module &MI);
   void addInliningAttributes();
+  void setNoRecurseOnTinyFunctions(Module &MI);
 };
 
 ///

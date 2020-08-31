@@ -1,4 +1,4 @@
-; RUN: opt -S -VPlanDriver -vplan-enable-peeling=false -vplan-enable-improved-alignment=true < %s | FileCheck %s
+; RUN: opt -S -VPlanDriver -vplan-enable-peeling=false < %s | FileCheck %s
 
 target triple = "x86_64-unknown-linux-gnu"
 

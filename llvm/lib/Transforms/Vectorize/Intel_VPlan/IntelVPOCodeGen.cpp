@@ -48,10 +48,6 @@ static cl::opt<bool> PredicateSafeValueDivision(
     cl::desc("Always serialize masked integer division, even if divisor is "
              "known to be safe for speculation."));
 
-static cl::opt<bool> EnableImprovedAlignment(
-    "vplan-enable-improved-alignment", cl::init(false), cl::Hidden,
-    cl::desc("Use improved alignment info for vector stores."));
-
 static void addBlockToParentLoop(Loop *L, BasicBlock *BB, LoopInfo &LI) {
   if (auto *ParentLoop = L->getParentLoop())
     ParentLoop->addBasicBlockToLoop(BB, LI);
@@ -1714,12 +1710,8 @@ void VPOCodeGen::vectorizeCallArgs(VPCallInstruction *VPCall,
   // Promote to characteristic type.
   Type *CharacteristicType =
       VPlanCallVecDecisions::calcCharacteristicType(VPCall, *VecVariant);
-  unsigned CharacteristicTypeSize = 0;
-  if (CharacteristicType->isPointerTy())
-    CharacteristicTypeSize =
-        Plan->getDataLayout()->getPointerTypeSizeInBits(CharacteristicType);
-  else
-    CharacteristicTypeSize = CharacteristicType->getPrimitiveSizeInBits();
+  unsigned CharacteristicTypeSize =
+      CharacteristicType->getPrimitiveSizeInBits();
 
   // Promote the i1 to an integer type that has the same size as the
   // characteristic type.
@@ -1730,8 +1722,7 @@ void VPOCodeGen::vectorizeCallArgs(VPCallInstruction *VPCall,
 
   // Bitcast if the promoted type is not the same as the characteristic
   // type.
-  if (ScalarToType != CharacteristicType &&
-      !CharacteristicType->isPointerTy()) {
+  if (ScalarToType != CharacteristicType) {
     Type *MaskCastTy = FixedVectorType::get(CharacteristicType, PumpedVF);
     Value *MaskCast = Builder.CreateBitCast(MaskExt, MaskCastTy, "maskcast");
     VecArgs.push_back(MaskCast);
@@ -2149,7 +2140,7 @@ void VPOCodeGen::vectorizeUnitStrideStore(VPInstruction *VPInst,
   Value *VecPtr = createWidenedBasePtrConsecutiveLoadStore(Ptr, IsNegOneStride);
 
   Align Alignment;
-  if (!PreferredPeeling && EnableImprovedAlignment) {
+  if (!PreferredPeeling) {
     // No peeling means static peeling with peel count = 0.
     VPlanStaticPeeling Peeling(0);
     Alignment =

@@ -217,35 +217,13 @@ Type *
 VPlanCallVecDecisions::calcCharacteristicType(VPCallInstruction *VPCallInst,
                                               VectorVariant &Variant) {
   assert(VPCallInst && "VPCallInst should not be nullptr");
-  Type *CharacteristicDataType =
-      !VPCallInst->getType()->isVoidTy() ? VPCallInst->getType() : nullptr;
-
-  if (!CharacteristicDataType) {
-    std::vector<VectorKind> &ParmKinds = Variant.getParameters();
-    std::vector<VectorKind>::iterator VKIt = ParmKinds.begin();
-    size_t Idx = VPCallInst->isIntelIndirectCall() ? 1 : 0;
-    size_t End = VPCallInst->getNumArgOperands();
-    for (; Idx != End; ++Idx, ++VKIt) {
-      if (VKIt->isVector()) {
-        VPValue *Arg = VPCallInst->getArgOperand(Idx);
-        CharacteristicDataType = Arg->getType();
-        break;
-      }
-    }
-  }
-
-  // TODO except Clang's ComplexType
-  if (!CharacteristicDataType || !CharacteristicDataType->isSingleValueType() ||
-      CharacteristicDataType->isX86_MMXTy() ||
-      CharacteristicDataType->isVectorTy())
-    CharacteristicDataType =
-        Type::getInt32Ty(VPCallInst->getType()->getContext());
-
-  // Promote char/short types to int for Xeon Phi.
-  CharacteristicDataType =
-      VectorVariant::promoteToSupportedType(CharacteristicDataType, Variant);
-
-  return CharacteristicDataType;
+  auto Args  = VPCallInst->arg_operands();
+  if (VPCallInst->isIntelIndirectCall())
+    Args = llvm::drop_begin(Args, 1);
+  return llvm::calcCharacteristicType(
+      VPCallInst->getType(),
+      map_range(Args, [](VPValue* V)->VPValue& {return *V;}),
+      Variant, *VPCallInst->getParent()->getParent()->getDataLayout());
 }
 
 void VPlanCallVecDecisions::analyzeCall(VPCallInstruction *VPCall, unsigned VF,
@@ -286,8 +264,10 @@ void VPlanCallVecDecisions::analyzeCall(VPCallInstruction *VPCall, unsigned VF,
   VPBasicBlock *VPBB = VPCall->getParent();
   bool IsMasked = VPBB->getPredicate() != nullptr;
   // 4. Vectorizable library function like SVML calls. Set vector function
-  // name in CallVecProperties.
-  if (TLI->isFunctionVectorizable(CalledFuncName, VF, IsMasked)) {
+  // name in CallVecProperties. NOTE : Vector library calls can be used if call
+  // is known to read memory only.
+  if (TLI->isFunctionVectorizable(CalledFuncName, VF, IsMasked) &&
+      UnderlyingCI->onlyReadsMemory()) {
     VPCall->setVectorizeWithLibraryFn(
         TLI->getVectorizedFunction(CalledFuncName, VF, IsMasked));
     return;
@@ -314,7 +294,22 @@ void VPlanCallVecDecisions::analyzeCall(VPCallInstruction *VPCall, unsigned VF,
     }
   }
 
-  // 7. Trivially vectorizable call using vector intrinsics.
+  // 7. Vectorize by pumping the call for a lower VF. Since pumping is only done
+  // for library calls today, ensure that call only reads memory. TODO: When
+  // vector-variant pumping is implemented, restrict the check for library func
+  // call.
+  unsigned PumpFactor = getPumpFactor(CalledFuncName, IsMasked, VF, TLI);
+  if (PumpFactor > 1 && UnderlyingCI->onlyReadsMemory()) {
+    unsigned LowerVF = VF / PumpFactor;
+    assert(TLI->isFunctionVectorizable(CalledFuncName, LowerVF, IsMasked) &&
+           "Library function cannot be vectorized with lower VF.");
+    VPCall->setVectorizeWithLibraryFn(
+        TLI->getVectorizedFunction(CalledFuncName, LowerVF, IsMasked),
+        PumpFactor);
+    return;
+  }
+
+  // 8. Trivially vectorizable call using vector intrinsics.
   Intrinsic::ID ID = getVectorIntrinsicIDForCall(UnderlyingCI, TLI);
   bool TrivialVectorIntrinsic =
       (ID != Intrinsic::not_intrinsic) && isTriviallyVectorizable(ID);
@@ -332,18 +327,6 @@ void VPlanCallVecDecisions::analyzeCall(VPCallInstruction *VPCall, unsigned VF,
     }
 
     VPCall->setVectorizeWithIntrinsic(ID);
-    return;
-  }
-
-  // 8. Vectorize by pumping the call for a lower VF.
-  unsigned PumpFactor = getPumpFactor(CalledFuncName, IsMasked, VF, TLI);
-  if (PumpFactor > 1) {
-    unsigned LowerVF = VF / PumpFactor;
-    assert(TLI->isFunctionVectorizable(CalledFuncName, LowerVF, IsMasked) &&
-           "Library function cannot be vectorized with lower VF.");
-    VPCall->setVectorizeWithLibraryFn(
-        TLI->getVectorizedFunction(CalledFuncName, LowerVF, IsMasked),
-        PumpFactor);
     return;
   }
 

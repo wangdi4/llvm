@@ -30,10 +30,10 @@ define dso_local i64 @getmax(i64* noalias nocapture readonly %larr) local_unname
 ; CHECK-NEXT:     i64 [[VP6:%.*]] = load i64* [[VP_SUBSCRIPT]]
 ; CHECK-NEXT:     i64 [[VP7:%.*]] = mul i64 [[VP6]] i64 3
 ; CHECK-NEXT:     i64 [[VP8:%.*]] = add i64 [[VP7]] i64 2
-; CHECK-NEXT:     i1 [[VP9:%.*]] = icmp i64 [[VP2]] i64 [[VP8]]
+; CHECK-NEXT:     i1 [[VP9:%.*]] = icmp sgt i64 [[VP2]] i64 [[VP8]]
 ; CHECK-NEXT:     i64 [[VP3]] = select i1 [[VP9]] i64 [[VP2]] i64 [[VP8]]
 ; CHECK-NEXT:     i64 [[VP5]] = add i64 [[VP4]] i64 1
-; CHECK-NEXT:     i1 [[VP10:%.*]] = icmp i64 [[VP5]] i64 99
+; CHECK-NEXT:     i1 [[VP10:%.*]] = icmp sle i64 [[VP5]] i64 99
 ; CHECK-NEXT:    SUCCESSORS(2):[[BB2]](i1 [[VP10]]), [[BB3:BB[0-9]+]](!i1 [[VP10]])
 ; CHECK-NEXT:    PREDECESSORS(2): [[BB1]] [[BB2]]
 ; CHECK-EMPTY:
@@ -107,11 +107,11 @@ define dso_local i64 @getmin(i64* noalias nocapture readonly %larr) local_unname
 ; CHECK-NEXT:     i64 [[VP6:%.*]] = load i64* [[VP_SUBSCRIPT]]
 ; CHECK-NEXT:     i64 [[VP7:%.*]] = mul i64 [[VP6]] i64 3
 ; CHECK-NEXT:     i64 [[VP8:%.*]] = add i64 [[VP7]] i64 2
-; CHECK-NEXT:     i1 [[VP9:%.*]] = icmp i64 [[VP2]] i64 [[VP8]]
+; CHECK-NEXT:     i1 [[VP9:%.*]] = icmp sgt i64 [[VP2]] i64 [[VP8]]
 ; CHECK-NEXT:     i64 [[VP3]] = select i1 [[VP9]] i64 [[VP8]] i64 [[VP2]]
 ; CHECK-NEXT:     i64 [[VP10:%.*]] = add i64 [[VP4]] i64 1
 ; CHECK-NEXT:     i64 [[VP5]] = add i64 [[VP4]] i64 1
-; CHECK-NEXT:     i1 [[VP11:%.*]] = icmp i64 [[VP5]] i64 99
+; CHECK-NEXT:     i1 [[VP11:%.*]] = icmp sle i64 [[VP5]] i64 99
 ; CHECK-NEXT:    SUCCESSORS(2):[[BB2]](i1 [[VP11]]), [[BB3:BB[0-9]+]](!i1 [[VP11]])
 ; CHECK-NEXT:    PREDECESSORS(2): [[BB1]] [[BB2]]
 ; CHECK-EMPTY:

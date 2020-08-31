@@ -37,7 +37,7 @@ define dso_local void @foo(i32* nocapture readonly %a, i32* nocapture %b, i32* n
 ; CHECK-NEXT:     [DA: Div] i64 [[VP_INDVARS_IV:%.*]] = phi  [ i64 [[VP_INDVARS_IV_NEXT:%.*]], [[BB3]] ],  [ i64 [[VP_INDVARS_IV_IND_INIT]], [[BB1]] ]
 ; CHECK-NEXT:     [DA: Div] i32* [[VP_ARRAYIDX:%.*]] = getelementptr inbounds i32* [[A0:%.*]] i64 [[VP_INDVARS_IV]]
 ; CHECK-NEXT:     [DA: Div] i32 [[VP0:%.*]] = load i32* [[VP_ARRAYIDX]]
-; CHECK-NEXT:     [DA: Div] i1 [[VP_CMP127:%.*]] = icmp i32 [[VP0]] i32 256
+; CHECK-NEXT:     [DA: Div] i1 [[VP_CMP127:%.*]] = icmp slt i32 [[VP0]] i32 256
 ; CHECK-NEXT:    SUCCESSORS(1):all.zero.bypass.begin27
 ; CHECK-NEXT:    PREDECESSORS(2): [[BB1]] [[BB3]]
 ; CHECK-EMPTY:
@@ -74,7 +74,7 @@ define dso_local void @foo(i32* nocapture readonly %a, i32* nocapture %b, i32* n
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB9]]:
 ; CHECK-NEXT:       [DA: Div] i1 [[VP5:%.*]] = block-predicate i1 [[VP_BB5_BR_VP_LOOP_MASK]]
-; CHECK-NEXT:       [DA: Div] i1 [[VP_PIVOT:%.*]] = icmp i32 [[VP2]] i32 24
+; CHECK-NEXT:       [DA: Div] i1 [[VP_PIVOT:%.*]] = icmp slt i32 [[VP2]] i32 24
 ; CHECK-NEXT:       [DA: Div] i1 [[VP_PIVOT_NOT:%.*]] = not i1 [[VP_PIVOT]]
 ; CHECK-NEXT:      SUCCESSORS(1):[[BB10:BB[0-9]+]]
 ; CHECK-NEXT:      PREDECESSORS(1): [[BB8]]
@@ -87,7 +87,7 @@ define dso_local void @foo(i32* nocapture readonly %a, i32* nocapture %b, i32* n
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB11]]:
 ; CHECK-NEXT:       [DA: Div] i1 [[VP6:%.*]] = block-predicate i1 [[VP_BB6_BR_VP_PIVOT_NOT]]
-; CHECK-NEXT:       [DA: Div] i1 [[VP_SWITCHLEAF31:%.*]] = icmp i32 [[VP2]] i32 24
+; CHECK-NEXT:       [DA: Div] i1 [[VP_SWITCHLEAF31:%.*]] = icmp eq i32 [[VP2]] i32 24
 ; CHECK-NEXT:       [DA: Div] i1 [[VP_SWITCHLEAF31_NOT:%.*]] = not i1 [[VP_SWITCHLEAF31]]
 ; CHECK-NEXT:      SUCCESSORS(1):[[BB12:BB[0-9]+]]
 ; CHECK-NEXT:      PREDECESSORS(1): [[BB10]]
@@ -100,7 +100,7 @@ define dso_local void @foo(i32* nocapture readonly %a, i32* nocapture %b, i32* n
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB13]]:
 ; CHECK-NEXT:       [DA: Div] i1 [[VP7:%.*]] = block-predicate i1 [[VP_BB6_BR_VP_PIVOT]]
-; CHECK-NEXT:       [DA: Div] i1 [[VP_SWITCHLEAF:%.*]] = icmp i32 [[VP2]] i32 3
+; CHECK-NEXT:       [DA: Div] i1 [[VP_SWITCHLEAF:%.*]] = icmp eq i32 [[VP2]] i32 3
 ; CHECK-NEXT:       [DA: Div] i1 [[VP_SWITCHLEAF_NOT:%.*]] = not i1 [[VP_SWITCHLEAF]]
 ; CHECK-NEXT:      SUCCESSORS(1):[[BB14:BB[0-9]+]]
 ; CHECK-NEXT:      PREDECESSORS(1): [[BB12]]
@@ -128,7 +128,7 @@ define dso_local void @foo(i32* nocapture readonly %a, i32* nocapture %b, i32* n
 ; CHECK-NEXT:       [DA: Div] i1 [[VP12:%.*]] = block-predicate i1 [[VP_BB5_BR_VP_LOOP_MASK]]
 ; CHECK-NEXT:       [DA: Div] store i32 [[VP_DIV]] i32* [[VP_ARRAYIDX11]]
 ; CHECK-NEXT:       [DA: Div] i32 [[VP_INC]] = add i32 [[VP_STOREMERGE28]] i32 1
-; CHECK-NEXT:       [DA: Div] i1 [[VP_EXITCOND:%.*]] = icmp i32 [[VP_INC]] i32 256
+; CHECK-NEXT:       [DA: Div] i1 [[VP_EXITCOND:%.*]] = icmp eq i32 [[VP_INC]] i32 256
 ; CHECK-NEXT:       [DA: Div] i1 [[VP_EXITCOND_NOT:%.*]] = not i1 [[VP_EXITCOND]]
 ; CHECK-NEXT:      SUCCESSORS(1):[[BB18:BB[0-9]+]]
 ; CHECK-NEXT:      PREDECESSORS(1): [[BB16]]
@@ -171,7 +171,7 @@ define dso_local void @foo(i32* nocapture readonly %a, i32* nocapture %b, i32* n
 ; CHECK-NEXT:    [[BB3]]:
 ; CHECK-NEXT:     [DA: Div] i64 [[VP_INDVARS_IV_NEXT]] = add i64 [[VP_INDVARS_IV]] i64 [[VP_INDVARS_IV_IND_INIT_STEP]]
 ; CHECK-NEXT:     [DA: Uni] i64 [[VP_VECTOR_LOOP_IV_NEXT]] = add i64 [[VP_VECTOR_LOOP_IV]] i64 [[VP_VF]]
-; CHECK-NEXT:     [DA: Uni] i1 [[VP_VECTOR_LOOP_EXITCOND:%.*]] = icmp i64 [[VP_VECTOR_LOOP_IV_NEXT]] i64 [[VP_VECTOR_TRIP_COUNT]]
+; CHECK-NEXT:     [DA: Uni] i1 [[VP_VECTOR_LOOP_EXITCOND:%.*]] = icmp eq i64 [[VP_VECTOR_LOOP_IV_NEXT]] i64 [[VP_VECTOR_TRIP_COUNT]]
 ; CHECK-NEXT:    SUCCESSORS(2):[[BB21:BB[0-9]+]](i1 [[VP_VECTOR_LOOP_EXITCOND]]), [[BB2]](!i1 [[VP_VECTOR_LOOP_EXITCOND]])
 ; CHECK-NEXT:    PREDECESSORS(1): all.zero.bypass.end29
 ; CHECK-EMPTY:

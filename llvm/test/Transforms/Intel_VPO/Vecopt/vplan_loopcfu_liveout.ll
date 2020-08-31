@@ -13,12 +13,12 @@ define dso_local void @foo(i64 %N, i64 *%a, i64 %mask_out_loop) local_unnamed_ad
 ; CHECK-LABEL:  VPlan IR for: foo
 ; CHECK-NEXT:    [[BB0:BB[0-9]+]]:
 ; CHECK-NEXT:     [DA: Div] i32 [[VP_LANE:%.*]] = induction-init{add} i32 0 i32 1
-; CHECK-NEXT:     [DA: Div] i1 [[VP_SKIP_LOOP:%.*]] = icmp i32 [[VP_LANE]] i64 [[MASK_OUT_LOOP0:%.*]]
+; CHECK-NEXT:     [DA: Div] i1 [[VP_SKIP_LOOP:%.*]] = icmp eq i32 [[VP_LANE]] i64 [[MASK_OUT_LOOP0:%.*]]
 ; CHECK-NEXT:    SUCCESSORS(2):[[BB1:BB[0-9]+]](i1 [[VP_SKIP_LOOP]]), [[BB2:BB[0-9]+]](!i1 [[VP_SKIP_LOOP]])
 ; CHECK-NEXT:    no PREDECESSORS
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB2]]:
-; CHECK-NEXT:       [DA: Div] i1 [[VP_CMP216:%.*]] = icmp i32 [[VP_LANE]] i64 0
+; CHECK-NEXT:       [DA: Div] i1 [[VP_CMP216:%.*]] = icmp eq i32 [[VP_LANE]] i64 0
 ; CHECK-NEXT:       [DA: Div] i1 [[VP_CMP216_NOT:%.*]] = not i1 [[VP_CMP216]]
 ; CHECK-NEXT:      SUCCESSORS(2):[[BB1]](i1 [[VP_CMP216]]), [[BB3:BB[0-9]+]](!i1 [[VP_CMP216]])
 ; CHECK-NEXT:      PREDECESSORS(1): [[BB0]]
@@ -39,9 +39,9 @@ define dso_local void @foo(i64 %N, i64 *%a, i64 %mask_out_loop) local_unnamed_ad
 ; CHECK-NEXT:        [[BB6]]:
 ; CHECK-NEXT:         [DA: Uni] i64* [[VP_ARRAYIDX:%.*]] = getelementptr inbounds i64* [[A0:%.*]] i64 [[VP_IV]]
 ; CHECK-NEXT:         [DA: Uni] i64 [[VP_LD:%.*]] = load i64* [[VP_ARRAYIDX]]
-; CHECK-NEXT:         [DA: Uni] i1 [[VP_SOME_CMP:%.*]] = icmp i64 [[VP_LD]] i64 42
+; CHECK-NEXT:         [DA: Uni] i1 [[VP_SOME_CMP:%.*]] = icmp eq i64 [[VP_LD]] i64 42
 ; CHECK-NEXT:         [DA: Uni] i64 [[VP_IV_NEXT]] = add i64 [[VP_IV]] i64 1
-; CHECK-NEXT:         [DA: Div] i1 [[VP_EXITCOND:%.*]] = icmp i64 [[VP_IV_NEXT]] i32 [[VP_LANE]]
+; CHECK-NEXT:         [DA: Div] i1 [[VP_EXITCOND:%.*]] = icmp eq i64 [[VP_IV_NEXT]] i32 [[VP_LANE]]
 ; CHECK-NEXT:        SUCCESSORS(1):[[BB5]]
 ; CHECK-NEXT:        PREDECESSORS(1): [[BB4]]
 ; CHECK-EMPTY:

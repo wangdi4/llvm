@@ -20,7 +20,7 @@ define dso_local void @foo(i64 %N, i64* nocapture readonly %lb, i64* nocapture r
 ; CHECK-NEXT:     [DA: Div] i64 [[VP0:%.*]] = load i64* [[VP_ARRAYIDX]]
 ; CHECK-NEXT:     [DA: Div] i64* [[VP_ARRAYIDX2:%.*]] = getelementptr inbounds i64* [[UB0:%.*]] i32 [[VP_LANE]]
 ; CHECK-NEXT:     [DA: Div] i64 [[VP1:%.*]] = load i64* [[VP_ARRAYIDX2]]
-; CHECK-NEXT:     [DA: Div] i1 [[VP_TOPTEST:%.*]] = icmp i64 [[VP0]] i64 [[VP1]]
+; CHECK-NEXT:     [DA: Div] i1 [[VP_TOPTEST:%.*]] = icmp slt i64 [[VP0]] i64 [[VP1]]
 ; CHECK-NEXT:    SUCCESSORS(2):[[BB1:BB[0-9]+]](i1 [[VP_TOPTEST]]), [[BB2:BB[0-9]+]](!i1 [[VP_TOPTEST]])
 ; CHECK-NEXT:    no PREDECESSORS
 ; CHECK-EMPTY:
@@ -41,7 +41,7 @@ define dso_local void @foo(i64 %N, i64* nocapture readonly %lb, i64* nocapture r
 ; CHECK-NEXT:         [DA: Div] store i64 [[VP_SHL]] i64* [[VP_ARRAYIDX6]]
 ; CHECK-NEXT:         [DA: Div] i64 [[VP_IV_NEXT]] = add i64 [[VP_IV]] i64 1
 ; CHECK-NEXT:         [DA: Div] i64 [[VP2:%.*]] = load i64* [[VP_ARRAYIDX2]]
-; CHECK-NEXT:         [DA: Div] i1 [[VP_CONTINUE_COND:%.*]] = icmp i64 [[VP_IV_NEXT]] i64 [[VP2]]
+; CHECK-NEXT:         [DA: Div] i1 [[VP_CONTINUE_COND:%.*]] = icmp slt i64 [[VP_IV_NEXT]] i64 [[VP2]]
 ; CHECK-NEXT:        SUCCESSORS(1):[[BB4]]
 ; CHECK-NEXT:        PREDECESSORS(1): [[BB3]]
 ; CHECK-EMPTY:

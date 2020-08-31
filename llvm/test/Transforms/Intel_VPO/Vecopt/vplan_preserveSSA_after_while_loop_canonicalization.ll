@@ -21,7 +21,7 @@ define void @main() {
 ; CHECK-NEXT:    [[BB1]]:
 ; CHECK-NEXT:     i32 [[VP_IV:%.*]] = phi  [ i32 0, [[BB0]] ],  [ i32 [[VP_IV_NEXT_SSA_PHI:%.*]], [[NEW_LOOP_LATCH0:new.loop.latch[0-9]+]] ]
 ; CHECK-NEXT:     i32 [[VP_INC:%.*]] = add i32 [[VP_IV]] i32 1
-; CHECK-NEXT:     i1 [[VP_CMP1:%.*]] = icmp i32 [[VP_INC]] i32 16
+; CHECK-NEXT:     i1 [[VP_CMP1:%.*]] = icmp eq i32 [[VP_INC]] i32 16
 ; CHECK-NEXT:    SUCCESSORS(2):[[BB2:BB[0-9]+]](i1 [[VP_CMP1]]), [[NEW_LOOP_LATCH0]](!i1 [[VP_CMP1]])
 ; CHECK-NEXT:    PREDECESSORS(2): [[BB0]] [[NEW_LOOP_LATCH0]]
 ; CHECK-EMPTY:

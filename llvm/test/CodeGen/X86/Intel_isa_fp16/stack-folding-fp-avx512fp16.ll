@@ -72,21 +72,21 @@ define i32 @stack_fold_cmpph(<32 x half> %a0, <32 x half> %a1) {
   ;CHECK-LABEL: stack_fold_cmpph
   ;CHECK:       vcmpeqph {{-?[0-9]*}}(%rsp), {{%zmm[0-9][0-9]*}}, {{%k[0-9]*}} {{.*#+}} 64-byte Folded Reload
   %1 = tail call <2 x i64> asm sideeffect "nop", "=x,~{xmm2},~{xmm3},~{xmm4},~{xmm5},~{xmm6},~{xmm7},~{xmm8},~{xmm9},~{xmm10},~{xmm11},~{xmm12},~{xmm13},~{xmm14},~{xmm15},~{xmm16},~{xmm17},~{xmm18},~{xmm19},~{xmm20},~{xmm21},~{xmm22},~{xmm23},~{xmm24},~{xmm25},~{xmm26},~{xmm27},~{xmm28},~{xmm29},~{xmm30},~{xmm31},~{flags}"()
-  %res = call <32 x i1> @llvm.x86.avx512fp16.cmp.ph.512(<32 x half> %a0, <32 x half> %a1, i32 0, i32 4)
+  %res = call <32 x i1> @llvm.x86.avx512fp16.mask.cmp.ph.512(<32 x half> %a0, <32 x half> %a1, i32 0, <32 x i1> <i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true>, i32 4)
   %2 = bitcast <32 x i1> %res to i32
   ret i32 %2
 }
-declare <32 x i1> @llvm.x86.avx512fp16.cmp.ph.512(<32 x half>, <32 x half>, i32, i32)
+declare <32 x i1> @llvm.x86.avx512fp16.mask.cmp.ph.512(<32 x half>, <32 x half>, i32, <32 x i1>, i32)
 
 define <32 x half> @stack_fold_cmpph_mask(<32 x half> %a0, <32 x half> %a1, <32 x half>* %a2, i32 %mask, <32 x half> %b0, <32 x half> %b1) {
   ;CHECK-LABEL: stack_fold_cmpph_mask:
-  ;CHECK:       vcmpeqph {{-?[0-9]*}}(%rsp), {{%zmm[0-9][0-9]*}}, {{%k[0-7]}} {{{%k[1-7]}}} {{.*#+}} 64-byte Folded Reload
+  ;CHECK:       vcmpeqph {{-?[0-9]*}}(%rsp), {{%zmm[0-9][0-9]*}}, {{%k[0-7]}} {{.*#+}} 64-byte Folded Reload
   %1 = tail call <2 x i64> asm sideeffect "nop", "=x,~{xmm1},~{xmm2},~{xmm3},~{xmm4},~{xmm5},~{xmm6},~{xmm7},~{xmm8},~{xmm9},~{xmm10},~{xmm11},~{xmm12},~{xmm13},~{xmm14},~{xmm15},~{xmm16},~{xmm17},~{xmm18},~{xmm19},~{xmm20},~{xmm21},~{xmm22},~{xmm23},~{xmm24},~{xmm25},~{xmm26},~{xmm27},~{xmm28},~{xmm29},~{xmm30},~{xmm31},~{flags}"()
   ; load and fadd are here to keep the operations below the side effecting block and to avoid folding the wrong load
   %2 = load <32 x half>, <32 x half>* %a2
   %3 = fadd <32 x half> %a1, %2
   %4 = bitcast i32 %mask to <32 x i1>
-  %5 = call <32 x i1> @llvm.x86.avx512fp16.cmp.ph.512(<32 x half> %3, <32 x half> %a0, i32 0, i32 4)
+  %5 = call <32 x i1> @llvm.x86.avx512fp16.mask.cmp.ph.512(<32 x half> %3, <32 x half> %a0, i32 0, <32 x i1> <i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true>, i32 4)
   %6 = and <32 x i1> %4, %5
   %7 = select <32 x i1> %6, <32 x half> %b0, <32 x half> %b1
   ret <32 x half> %7
@@ -94,13 +94,13 @@ define <32 x half> @stack_fold_cmpph_mask(<32 x half> %a0, <32 x half> %a1, <32 
 
 define <32 x half> @stack_fold_cmpph_mask_commuted(<32 x half> %a0, <32 x half> %a1, <32 x half>* %a2, i32 %mask, <32 x half> %b0, <32 x half> %b1) {
   ;CHECK-LABEL: stack_fold_cmpph_mask_commuted:
-  ;CHECK:       vcmpeqph {{-?[0-9]*}}(%rsp), {{%zmm[0-9][0-9]*}}, {{%k[0-7]}} {{{%k[1-7]}}} {{.*#+}} 64-byte Folded Reload
+  ;CHECK:       vcmpeqph {{-?[0-9]*}}(%rsp), {{%zmm[0-9][0-9]*}}, {{%k[0-7]}} {{.*#+}} 64-byte Folded Reload
   %1 = tail call <2 x i64> asm sideeffect "nop", "=x,~{xmm1},~{xmm2},~{xmm3},~{xmm4},~{xmm5},~{xmm6},~{xmm7},~{xmm8},~{xmm9},~{xmm10},~{xmm11},~{xmm12},~{xmm13},~{xmm14},~{xmm15},~{xmm16},~{xmm17},~{xmm18},~{xmm19},~{xmm20},~{xmm21},~{xmm22},~{xmm23},~{xmm24},~{xmm25},~{xmm26},~{xmm27},~{xmm28},~{xmm29},~{xmm30},~{xmm31},~{flags}"()
   ; load and fadd are here to keep the operations below the side effecting block and to avoid folding the wrong load
   %2 = load <32 x half>, <32 x half>* %a2
   %3 = fadd <32 x half> %a1, %2
   %4 = bitcast i32 %mask to <32 x i1>
-  %5 = call <32 x i1> @llvm.x86.avx512fp16.cmp.ph.512(<32 x half> %a0, <32 x half> %3, i32 0, i32 4)
+  %5 = call <32 x i1> @llvm.x86.avx512fp16.mask.cmp.ph.512(<32 x half> %a0, <32 x half> %3, i32 0, <32 x i1> <i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true>, i32 4)
   %6 = and <32 x i1> %4, %5
   %7 = select <32 x i1> %6, <32 x half> %b0, <32 x half> %b1
   ret <32 x half> %7

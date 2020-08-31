@@ -178,7 +178,7 @@ void VPlanDivergenceAnalysis::markUniform(const VPValue &UniVal) {
 
 unsigned VPlanDivergenceAnalysis::getTypeSizeInBytes(Type *Ty) const {
   assert(Ty && "Expected a non-null value for argument type.");
-  return Plan->getDataLayout()->getTypeSizeInBits(Ty) >> 3;
+  return Plan->getDataLayout()->getTypeAllocSize(Ty);
 }
 
 bool VPlanDivergenceAnalysis::isUnitStridePtr(const VPValue *Ptr) const {
@@ -1062,6 +1062,50 @@ VPlanDivergenceAnalysis::computeVectorShapeForMemAddrInst(const VPInstruction *I
       // 0-th dimension index is divergent and we have struct offsets, do not
       // proceed.
       return getRandomVectorShape();
+
+    // Refine IdxShape based on stride of 0-th dimension in subscript.
+    auto *ZeroDimStride = dyn_cast<VPConstant>(Subscript->getStride(0));
+    VPVectorShape ZeroDimLowerShape =
+        getObservedShape(VPBB, *(Subscript->getLower(0)));
+    // Conservatively mark the pointer as Random shape when -
+    // 1. stride is non-constant
+    // 2. lower is loop variant
+    if (!ZeroDimStride || !ZeroDimLowerShape.isUniform())
+      return getRandomVectorShape();
+    if (IdxShape.isAnyStrided() && IdxShape.hasKnownStride()) {
+      // Recompute correct stride for last index of subscript. Consider the
+      // below example -
+      //
+      // Incoming HIR -
+      // (%p1)[0: IV :32(double*:0)] = 1.000000e+00;
+      //
+      // VPlan IR-
+      // double* %vpsub = subscript inbounds double* %p1 {0 : i64 %iv : 32}
+      //
+      // For this subscript, current IdxShape is set to Seq with Stride=1,
+      // however this is incorrect since the actual stride of dimension is 32
+      // bytes i.e index should shift by 4 elements. Note that in this case %iv
+      // still increments by 1 for every loop iteration, however address is
+      // computed within subscript intrinsic by adjusting index value (%iv) with
+      // dimension's stride value. Some details for this example -
+      // CurrIdxStride    = 1 (element)
+      // ZeroDimStrideVal = 32 (bytes)
+      // PointedToTySize  = 8 (bytes)
+      // NewIdxStride     = (32/8) * 1 = 4 (elements)
+      int64_t CurrIdxStride = IdxShape.getStrideVal();
+      unsigned ZeroDimStrideVal = ZeroDimStride->getZExtValue();
+      Type *PointedToTy = cast<PointerType>(I->getType())->getElementType();
+      uint64_t PointedToTySize = getTypeSizeInBytes(PointedToTy);
+      // Index could have a multiplicative co-efficient, so multiply the
+      // dimension's stride with current stride value.
+      int64_t NewIdxStride =
+          (ZeroDimStrideVal / PointedToTySize) * CurrIdxStride;
+      assert(NewIdxStride != 0 && "Idx has no stride.");
+      if (NewIdxStride == 1 || NewIdxStride == -1)
+        IdxShape = getSequentialVectorShape(NewIdxStride);
+      else
+        IdxShape = getStridedVectorShape(NewIdxStride);
+    }
   }
 
   VPConstant *NewStride = nullptr;
@@ -1392,9 +1436,11 @@ VPlanDivergenceAnalysis::computeVectorShape(const VPInstruction *I) {
   else if (Opcode == Instruction::Call)
     NewShape = computeVectorShapeForCallInst(I);
   else if (Opcode == Instruction::Br) {
-    VPValue *Cond = cast<VPBranchInst>(I)->getCondition();
-    NewShape = !Cond ? getUniformVectorShape()
-                     : getObservedShape(ParentBB, *Cond);
+    const VPBranchInst *Br = cast<VPBranchInst>(I);
+    if (Br->isConditional())
+      NewShape = getObservedShape(ParentBB, *Br->getCondition());
+    else
+      NewShape = getUniformVectorShape();
   } else if (Instruction::isUnaryOp(Opcode))
     NewShape = computeVectorShapeForUnaryInst(I);
   else if (Opcode == VPInstruction::Not || Opcode == VPInstruction::Pred)

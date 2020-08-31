@@ -115,7 +115,7 @@ struct InstSimplifyLegacyPass : public FunctionPass {
 #if INTEL_CUSTOMIZATION
     const TargetTransformInfo *TTI =
         &getAnalysis<TargetTransformInfoWrapperPass>().getTTI(F);
-    const SimplifyQuery SQ(DL, TLI, DT, AC, nullptr, true, TTI);
+    const SimplifyQuery SQ(DL, TLI, DT, AC, nullptr, true, true, TTI);
 #endif // INTEL_CUSTOMIZATION
     return runImpl(F, SQ, ORE);
   }

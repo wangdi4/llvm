@@ -2827,10 +2827,6 @@ def X86cmpm_su : PatFrag<(ops node:$src1, node:$src2, node:$cc),
                          (X86cmpm node:$src1, node:$src2, node:$cc), [{
   return N->hasOneUse();
 }]>;
-def X86cmpmSAE_su : PatFrag<(ops node:$src1, node:$src2, node:$cc),
-                            (X86cmpmSAE node:$src1, node:$src2, node:$cc), [{
-  return N->hasOneUse();
-}]>;
 
 def X86cmpm_imm_commute : SDNodeXForm<timm, [{
   uint8_t Imm = X86::getSwappedVCMPImm(N->getZExtValue() & 0x1f);
@@ -2897,19 +2893,71 @@ let Uses = [MXCSR], mayRaiseFPException = 1 in {
             (!cast<Instruction>(Name#_.ZSuffix#"rmbik") _.KRCWM:$mask,
                                                         _.RC:$src1, addr:$src2,
                                                         (X86cmpm_imm_commute timm:$cc))>;
+
+  // Patterns for mask intrinsics.
+  def : Pat<(X86cmpmm (_.VT _.RC:$src1), (_.VT _.RC:$src2), timm:$cc,
+                      (_.KVT immAllOnesV)),
+            (!cast<Instruction>(Name#_.ZSuffix#"rri") _.RC:$src1, _.RC:$src2, timm:$cc)>;
+
+  def : Pat<(X86cmpmm (_.VT _.RC:$src1), (_.VT _.RC:$src2), timm:$cc, _.KRCWM:$mask),
+            (!cast<Instruction>(Name#_.ZSuffix#"rrik") _.KRCWM:$mask, _.RC:$src1,
+                                                       _.RC:$src2, timm:$cc)>;
+
+  def : Pat<(X86cmpmm (_.VT _.RC:$src1), (_.VT (_.LdFrag addr:$src2)), timm:$cc,
+                      (_.KVT immAllOnesV)),
+            (!cast<Instruction>(Name#_.ZSuffix#"rmi") _.RC:$src1, addr:$src2, timm:$cc)>;
+
+  def : Pat<(X86cmpmm (_.VT _.RC:$src1), (_.VT (_.LdFrag addr:$src2)), timm:$cc,
+                      _.KRCWM:$mask),
+            (!cast<Instruction>(Name#_.ZSuffix#"rmik") _.KRCWM:$mask, _.RC:$src1,
+                                                       addr:$src2, timm:$cc)>;
+
+  def : Pat<(X86cmpmm (_.VT _.RC:$src1), (_.VT (_.BroadcastLdFrag addr:$src2)), timm:$cc,
+                      (_.KVT immAllOnesV)),
+            (!cast<Instruction>(Name#_.ZSuffix#"rmbi") _.RC:$src1, addr:$src2, timm:$cc)>;
+
+  def : Pat<(X86cmpmm (_.VT _.RC:$src1), (_.VT (_.BroadcastLdFrag addr:$src2)), timm:$cc,
+                      _.KRCWM:$mask),
+            (!cast<Instruction>(Name#_.ZSuffix#"rmbik") _.KRCWM:$mask, _.RC:$src1,
+                                                        addr:$src2, timm:$cc)>;
+
+  // Patterns for mask intrinsics with loads in other operand.
+  def : Pat<(X86cmpmm (_.VT (_.LdFrag addr:$src2)), (_.VT _.RC:$src1), timm:$cc,
+                      (_.KVT immAllOnesV)),
+            (!cast<Instruction>(Name#_.ZSuffix#"rmi") _.RC:$src1, addr:$src2,
+                                                      (X86cmpm_imm_commute timm:$cc))>;
+
+  def : Pat<(X86cmpmm (_.VT (_.LdFrag addr:$src2)), (_.VT _.RC:$src1), timm:$cc,
+                      _.KRCWM:$mask),
+            (!cast<Instruction>(Name#_.ZSuffix#"rmik") _.KRCWM:$mask,
+                                                       _.RC:$src1, addr:$src2,
+                                                       (X86cmpm_imm_commute timm:$cc))>;
+
+  def : Pat<(X86cmpmm (_.VT (_.BroadcastLdFrag addr:$src2)), (_.VT _.RC:$src1), timm:$cc,
+                      (_.KVT immAllOnesV)),
+            (!cast<Instruction>(Name#_.ZSuffix#"rmbi") _.RC:$src1, addr:$src2,
+                                                       (X86cmpm_imm_commute timm:$cc))>;
+
+  def : Pat<(X86cmpmm (_.VT (_.BroadcastLdFrag addr:$src2)), (_.VT _.RC:$src1), timm:$cc,
+                      _.KRCWM:$mask),
+            (!cast<Instruction>(Name#_.ZSuffix#"rmbik") _.KRCWM:$mask,
+                                                        _.RC:$src1, addr:$src2,
+                                                        (X86cmpm_imm_commute  timm:$cc))>;
 }
 
 multiclass avx512_vcmp_sae<X86FoldableSchedWrite sched, X86VectorVTInfo _> {
   // comparison code form (VCMP[EQ/LT/LE/...]
   let Uses = [MXCSR] in
-  defm  rrib  : AVX512_maskable_cmp<0xC2, MRMSrcReg, _,
-                     (outs _.KRC:$dst),(ins _.RC:$src1, _.RC:$src2, u8imm:$cc),
+  defm  rrib  : AVX512_maskable_custom_cmp<0xC2, MRMSrcReg, (outs _.KRC:$dst),
+                     (ins _.RC:$src1, _.RC:$src2, u8imm:$cc),
+                     (ins _.KRCWM:$mask, _.RC:$src1, _.RC:$src2, u8imm:$cc),
                      "vcmp"#_.Suffix,
                      "$cc, {sae}, $src2, $src1",
                      "$src1, $src2, {sae}, $cc",
-                     (X86cmpmSAE (_.VT _.RC:$src1), (_.VT _.RC:$src2), timm:$cc),
-                     (X86cmpmSAE_su (_.VT _.RC:$src1), (_.VT _.RC:$src2),
-                                    timm:$cc)>,
+                     [(set _.KRC:$dst, (X86cmpmmSAE (_.VT _.RC:$src1),
+                                        (_.VT _.RC:$src2), timm:$cc, (_.KVT immAllOnesV)))],
+                     [(set _.KRC:$dst, (X86cmpmmSAE (_.VT _.RC:$src1),
+                                        (_.VT _.RC:$src2), timm:$cc, _.KRCWM:$mask))]>,
                      EVEX_B, Sched<[sched]>;
 }
 
@@ -11400,6 +11448,31 @@ multiclass avx512_3Op_rm_imm8<bits<8> opc, string OpcodeStr, SDNode OpNode,
   }
 }
 
+#if INTEL_CUSTOMIZATION
+// Extend EVEX2VEXOverride for avx512_3Op_rm_imm8
+multiclass avx512_3Op_rm_imm8_override<bits<8> opc, string OpcodeStr, SDNode OpNode,
+                              X86FoldableSchedWrite sched, X86VectorVTInfo DestInfo,
+                              X86VectorVTInfo SrcInfo, string EVEX2VEXOvrd>{
+  let ExeDomain = DestInfo.ExeDomain in {
+  defm rri : AVX512_maskable<opc, MRMSrcReg, DestInfo, (outs DestInfo.RC:$dst),
+                  (ins SrcInfo.RC:$src1, SrcInfo.RC:$src2, u8imm:$src3),
+                  OpcodeStr, "$src3, $src2, $src1", "$src1, $src2, $src3",
+                  (DestInfo.VT (OpNode (SrcInfo.VT SrcInfo.RC:$src1),
+                               (SrcInfo.VT SrcInfo.RC:$src2),
+                               (i8 timm:$src3)))>,
+                  Sched<[sched]>, EVEX2VEXOverride<EVEX2VEXOvrd#"rri">;
+  defm rmi : AVX512_maskable<opc, MRMSrcMem, DestInfo, (outs DestInfo.RC:$dst),
+                (ins SrcInfo.RC:$src1, SrcInfo.MemOp:$src2, u8imm:$src3),
+                OpcodeStr, "$src3, $src2, $src1", "$src1, $src2, $src3",
+                (DestInfo.VT (OpNode (SrcInfo.VT SrcInfo.RC:$src1),
+                             (SrcInfo.VT (bitconvert
+                                                (SrcInfo.LdFrag addr:$src2))),
+                             (i8 timm:$src3)))>,
+                Sched<[sched.Folded, sched.ReadAfterFold]>, EVEX2VEXOverride<EVEX2VEXOvrd#"rmi">;
+  }
+}
+#endif // INTEL_CUSTOMIZATION
+
 //handle instruction  reg_vec1 = op(reg_vec2,reg_vec3,imm)
 //                               op(reg_vec2,mem_vec,imm)
 //                               op(reg_vec2,broadcast(eltVt),imm)
@@ -11502,20 +11575,22 @@ multiclass avx512_common_3Op_rm_imm8<bits<8> opc, SDNode OpNode, string OpStr,
 }
 
 #if INTEL_CUSTOMIZATION
-multiclass avx512_common_3Op_rm_imm8_as<bits<8> opc, SDNode OpNode, string OpStr,
-                   X86SchedWriteWidths sched, AVX512VLVectorVTInfo DestInfo,
-                   AVX512VLVectorVTInfo SrcInfo, Predicate Pred> {
+#if INTEL_FEATURE_ISA_AVX_MPSADBW
+multiclass avx512_mpsadbw_3Op_rm_imm8<bits<8> opc, SDNode OpNode, string OpStr,
+                      X86SchedWriteWidths sched, AVX512VLVectorVTInfo DestInfo,
+                      AVX512VLVectorVTInfo SrcInfo, Predicate Pred> {
   let Predicates = [Pred] in {
     defm Z    : avx512_3Op_rm_imm8<opc, OpStr, OpNode, sched.ZMM, DestInfo.info512,
                            SrcInfo.info512>, EVEX_V512, AVX512XSIi8Base, TA, EVEX_4V;
   }
   let Predicates = [Pred, HasVLX] in {
-    defm Z128 : avx512_3Op_rm_imm8<opc, OpStr, OpNode, sched.XMM, DestInfo.info128,
-                           SrcInfo.info128>, EVEX_V128, AVX512XSIi8Base, TA, EVEX_4V;
-    defm Z256 : avx512_3Op_rm_imm8<opc, OpStr, OpNode, sched.YMM, DestInfo.info256,
-                           SrcInfo.info256>, EVEX_V256, AVX512XSIi8Base, TA,EVEX_4V;
+    defm Z128 : avx512_3Op_rm_imm8_override<opc, OpStr, OpNode, sched.XMM, DestInfo.info128,
+                           SrcInfo.info128, "VMPSADBW">, EVEX_V128, AVX512XSIi8Base, TA, EVEX_4V;
+    defm Z256 : avx512_3Op_rm_imm8_override<opc, OpStr, OpNode, sched.YMM, DestInfo.info256,
+                           SrcInfo.info256, "VMPSADBWY">, EVEX_V256, AVX512XSIi8Base, TA, EVEX_4V;
   }
 }
+#endif // INTEL_FEATURE_ISA_AVX_MPSADBW
 #endif // INTEL_CUSTOMIZATION
 
 multiclass avx512_common_3Op_imm8<string OpcodeStr, AVX512VLVectorVTInfo _,
@@ -12465,17 +12540,6 @@ multiclass avx512_ternlog<bits<8> opc, string OpcodeStr, SDNode OpNode,
             (!cast<Instruction>(Name#_.ZSuffix#rrik) _.RC:$src1, _.KRCWM:$mask,
              _.RC:$src2, _.RC:$src3, (VPTERNLOG213_imm8 timm:$src4))>;
 
-  // Additional patterns for matching loads in other positions.
-  def : Pat<(_.VT (OpNode (bitconvert (_.LdFrag addr:$src3)),
-                          _.RC:$src2, _.RC:$src1, (i8 timm:$src4))),
-            (!cast<Instruction>(Name#_.ZSuffix#rmi) _.RC:$src1, _.RC:$src2,
-                                   addr:$src3, (VPTERNLOG321_imm8 timm:$src4))>;
-  def : Pat<(_.VT (OpNode _.RC:$src1,
-                          (bitconvert (_.LdFrag addr:$src3)),
-                          _.RC:$src2, (i8 timm:$src4))),
-            (!cast<Instruction>(Name#_.ZSuffix#rmi) _.RC:$src1, _.RC:$src2,
-                                   addr:$src3, (VPTERNLOG132_imm8 timm:$src4))>;
-
   // Additional patterns for matching zero masking with loads in other
   // positions.
   def : Pat<(_.VT (vselect_mask _.KRCWM:$mask,
@@ -12523,17 +12587,6 @@ multiclass avx512_ternlog<bits<8> opc, string OpcodeStr, SDNode OpNode,
                    _.RC:$src1)),
             (!cast<Instruction>(Name#_.ZSuffix#rmik) _.RC:$src1, _.KRCWM:$mask,
              _.RC:$src2, addr:$src3, (VPTERNLOG312_imm8 timm:$src4))>;
-
-  // Additional patterns for matching broadcasts in other positions.
-  def : Pat<(_.VT (OpNode (_.BroadcastLdFrag addr:$src3),
-                          _.RC:$src2, _.RC:$src1, (i8 timm:$src4))),
-            (!cast<Instruction>(Name#_.ZSuffix#rmbi) _.RC:$src1, _.RC:$src2,
-                                   addr:$src3, (VPTERNLOG321_imm8 timm:$src4))>;
-  def : Pat<(_.VT (OpNode _.RC:$src1,
-                          (_.BroadcastLdFrag addr:$src3),
-                          _.RC:$src2, (i8 timm:$src4))),
-            (!cast<Instruction>(Name#_.ZSuffix#rmbi) _.RC:$src1, _.RC:$src2,
-                                   addr:$src3, (VPTERNLOG132_imm8 timm:$src4))>;
 
   // Additional patterns for matching zero masking with broadcasts in other
   // positions.
@@ -12605,398 +12658,6 @@ defm VPTERNLOGD : avx512_common_ternlog<"vpternlogd", SchedWriteVecALU,
                                         avx512vl_i32_info>;
 defm VPTERNLOGQ : avx512_common_ternlog<"vpternlogq", SchedWriteVecALU,
                                         avx512vl_i64_info>, VEX_W;
-
-// Patterns to use VPTERNLOG for vXi16/vXi8 vectors.
-let Predicates = [HasVLX] in {
-  def : Pat<(v16i8 (X86vpternlog VR128X:$src1, VR128X:$src2, VR128X:$src3,
-                                 (i8 timm:$src4))),
-            (VPTERNLOGQZ128rri VR128X:$src1, VR128X:$src2, VR128X:$src3,
-                               timm:$src4)>;
-  def : Pat<(v16i8 (X86vpternlog VR128X:$src1, VR128X:$src2,
-                                 (loadv16i8 addr:$src3), (i8 timm:$src4))),
-            (VPTERNLOGQZ128rmi VR128X:$src1, VR128X:$src2, addr:$src3,
-                               timm:$src4)>;
-  def : Pat<(v16i8 (X86vpternlog (loadv16i8 addr:$src3), VR128X:$src2,
-                                 VR128X:$src1, (i8 timm:$src4))),
-            (VPTERNLOGQZ128rmi VR128X:$src1, VR128X:$src2, addr:$src3,
-                               (VPTERNLOG321_imm8 timm:$src4))>;
-  def : Pat<(v16i8 (X86vpternlog VR128X:$src1, (loadv16i8 addr:$src3),
-                                 VR128X:$src2, (i8 timm:$src4))),
-            (VPTERNLOGQZ128rmi VR128X:$src1, VR128X:$src2, addr:$src3,
-                               (VPTERNLOG132_imm8 timm:$src4))>;
-
-  def : Pat<(v16i8 (X86vpternlog VR128X:$src1, VR128X:$src2,
-                                 (bitconvert (v4i32 (X86VBroadcastld32 addr:$src3))),
-                                 (i8 timm:$src4))),
-            (VPTERNLOGDZ128rmbi VR128X:$src1, VR128X:$src2, addr:$src3,
-                                timm:$src4)>;
-  def : Pat<(v16i8 (X86vpternlog (bitconvert (v4i32 (X86VBroadcastld32 addr:$src3))),
-                                 VR128X:$src2, VR128X:$src1, (i8 timm:$src4))),
-            (VPTERNLOGDZ128rmbi VR128X:$src1, VR128X:$src2, addr:$src3,
-                                (VPTERNLOG321_imm8 timm:$src4))>;
-  def : Pat<(v16i8 (X86vpternlog VR128X:$src1,
-                                 (bitconvert (v4i32 (X86VBroadcastld32 addr:$src3))),
-                                 VR128X:$src2, (i8 timm:$src4))),
-            (VPTERNLOGDZ128rmbi VR128X:$src1, VR128X:$src2, addr:$src3,
-                               (VPTERNLOG132_imm8 timm:$src4))>;
-
-  def : Pat<(v16i8 (X86vpternlog VR128X:$src1, VR128X:$src2,
-                                 (bitconvert (v2i64 (X86VBroadcastld64 addr:$src3))),
-                                 (i8 timm:$src4))),
-            (VPTERNLOGQZ128rmbi VR128X:$src1, VR128X:$src2, addr:$src3,
-                                timm:$src4)>;
-  def : Pat<(v16i8 (X86vpternlog (bitconvert (v2i64 (X86VBroadcastld64 addr:$src3))),
-                                 VR128X:$src2, VR128X:$src1, (i8 timm:$src4))),
-            (VPTERNLOGQZ128rmbi VR128X:$src1, VR128X:$src2, addr:$src3,
-                                (VPTERNLOG321_imm8 timm:$src4))>;
-  def : Pat<(v16i8 (X86vpternlog VR128X:$src1,
-                                 (bitconvert (v2i64 (X86VBroadcastld64 addr:$src3))),
-                                 VR128X:$src2, (i8 timm:$src4))),
-            (VPTERNLOGQZ128rmbi VR128X:$src1, VR128X:$src2, addr:$src3,
-                                (VPTERNLOG132_imm8 timm:$src4))>;
-
-  def : Pat<(v8i16 (X86vpternlog VR128X:$src1, VR128X:$src2, VR128X:$src3,
-                                 (i8 timm:$src4))),
-            (VPTERNLOGQZ128rri VR128X:$src1, VR128X:$src2, VR128X:$src3,
-                               timm:$src4)>;
-  def : Pat<(v8i16 (X86vpternlog VR128X:$src1, VR128X:$src2,
-                                 (loadv8i16 addr:$src3), (i8 timm:$src4))),
-            (VPTERNLOGQZ128rmi VR128X:$src1, VR128X:$src2, addr:$src3,
-                               timm:$src4)>;
-  def : Pat<(v8i16 (X86vpternlog (loadv8i16 addr:$src3), VR128X:$src2,
-                                 VR128X:$src1, (i8 timm:$src4))),
-            (VPTERNLOGQZ128rmi VR128X:$src1, VR128X:$src2, addr:$src3,
-                               (VPTERNLOG321_imm8 timm:$src4))>;
-  def : Pat<(v8i16 (X86vpternlog VR128X:$src1, (loadv8i16 addr:$src3),
-                                 VR128X:$src2, (i8 timm:$src4))),
-            (VPTERNLOGQZ128rmi VR128X:$src1, VR128X:$src2, addr:$src3,
-                               (VPTERNLOG132_imm8 timm:$src4))>;
-
-  def : Pat<(v8i16 (X86vpternlog VR128X:$src1, VR128X:$src2,
-                                 (bitconvert (v4i32 (X86VBroadcastld32 addr:$src3))),
-                                 (i8 timm:$src4))),
-            (VPTERNLOGDZ128rmbi VR128X:$src1, VR128X:$src2, addr:$src3,
-                                timm:$src4)>;
-  def : Pat<(v8i16 (X86vpternlog (bitconvert (v4i32 (X86VBroadcastld32 addr:$src3))),
-                                 VR128X:$src2, VR128X:$src1, (i8 timm:$src4))),
-            (VPTERNLOGDZ128rmbi VR128X:$src1, VR128X:$src2, addr:$src3,
-                                (VPTERNLOG321_imm8 timm:$src4))>;
-  def : Pat<(v8i16 (X86vpternlog VR128X:$src1,
-                                 (bitconvert (v4i32 (X86VBroadcastld32 addr:$src3))),
-                                 VR128X:$src2, (i8 timm:$src4))),
-            (VPTERNLOGDZ128rmbi VR128X:$src1, VR128X:$src2, addr:$src3,
-                               (VPTERNLOG132_imm8 timm:$src4))>;
-
-  def : Pat<(v8i16 (X86vpternlog VR128X:$src1, VR128X:$src2,
-                                 (bitconvert (v2i64 (X86VBroadcastld64 addr:$src3))),
-                                 (i8 timm:$src4))),
-            (VPTERNLOGQZ128rmbi VR128X:$src1, VR128X:$src2, addr:$src3,
-                                timm:$src4)>;
-  def : Pat<(v8i16 (X86vpternlog (bitconvert (v2i64 (X86VBroadcastld64 addr:$src3))),
-                                 VR128X:$src2, VR128X:$src1, (i8 timm:$src4))),
-            (VPTERNLOGQZ128rmbi VR128X:$src1, VR128X:$src2, addr:$src3,
-                                (VPTERNLOG321_imm8 timm:$src4))>;
-  def : Pat<(v8i16 (X86vpternlog VR128X:$src1,
-                                 (bitconvert (v2i64 (X86VBroadcastld64 addr:$src3))),
-                                 VR128X:$src2, (i8 timm:$src4))),
-            (VPTERNLOGQZ128rmbi VR128X:$src1, VR128X:$src2, addr:$src3,
-                                (VPTERNLOG132_imm8 timm:$src4))>;
-
-  def : Pat<(v4i32 (X86vpternlog VR128X:$src1, VR128X:$src2,
-                                 (bitconvert (v2i64 (X86VBroadcastld64 addr:$src3))),
-                                 (i8 timm:$src4))),
-            (VPTERNLOGQZ128rmbi VR128X:$src1, VR128X:$src2, addr:$src3,
-                                timm:$src4)>;
-  def : Pat<(v4i32 (X86vpternlog (bitconvert (v2i64 (X86VBroadcastld64 addr:$src3))),
-                                 VR128X:$src2, VR128X:$src1, (i8 timm:$src4))),
-            (VPTERNLOGQZ128rmbi VR128X:$src1, VR128X:$src2, addr:$src3,
-                                (VPTERNLOG321_imm8 timm:$src4))>;
-  def : Pat<(v4i32 (X86vpternlog VR128X:$src1,
-                                 (bitconvert (v2i64 (X86VBroadcastld64 addr:$src3))),
-                                 VR128X:$src2, (i8 timm:$src4))),
-            (VPTERNLOGQZ128rmbi VR128X:$src1, VR128X:$src2, addr:$src3,
-                                (VPTERNLOG132_imm8 timm:$src4))>;
-
-  def : Pat<(v2i64 (X86vpternlog VR128X:$src1, VR128X:$src2,
-                                 (bitconvert (v4i32 (X86VBroadcastld32 addr:$src3))),
-                                 (i8 timm:$src4))),
-            (VPTERNLOGDZ128rmbi VR128X:$src1, VR128X:$src2, addr:$src3,
-                                timm:$src4)>;
-  def : Pat<(v2i64 (X86vpternlog (bitconvert (v4i32 (X86VBroadcastld32 addr:$src3))),
-                                 VR128X:$src2, VR128X:$src1, (i8 timm:$src4))),
-            (VPTERNLOGDZ128rmbi VR128X:$src1, VR128X:$src2, addr:$src3,
-                                (VPTERNLOG321_imm8 timm:$src4))>;
-  def : Pat<(v2i64 (X86vpternlog VR128X:$src1,
-                                 (bitconvert (v4i32 (X86VBroadcastld32 addr:$src3))),
-                                 VR128X:$src2, (i8 timm:$src4))),
-            (VPTERNLOGDZ128rmbi VR128X:$src1, VR128X:$src2, addr:$src3,
-                               (VPTERNLOG132_imm8 timm:$src4))>;
-
-  def : Pat<(v32i8 (X86vpternlog VR256X:$src1, VR256X:$src2, VR256X:$src3,
-                                 (i8 timm:$src4))),
-            (VPTERNLOGQZ256rri VR256X:$src1, VR256X:$src2, VR256X:$src3,
-                               timm:$src4)>;
-  def : Pat<(v32i8 (X86vpternlog VR256X:$src1, VR256X:$src2,
-                                 (loadv32i8 addr:$src3), (i8 timm:$src4))),
-            (VPTERNLOGQZ256rmi VR256X:$src1, VR256X:$src2, addr:$src3,
-                               timm:$src4)>;
-  def : Pat<(v32i8 (X86vpternlog (loadv32i8 addr:$src3), VR256X:$src2,
-                                 VR256X:$src1, (i8 timm:$src4))),
-            (VPTERNLOGQZ256rmi VR256X:$src1, VR256X:$src2, addr:$src3,
-                               (VPTERNLOG321_imm8 timm:$src4))>;
-  def : Pat<(v32i8 (X86vpternlog VR256X:$src1, (loadv32i8 addr:$src3),
-                                 VR256X:$src2, (i8 timm:$src4))),
-            (VPTERNLOGQZ256rmi VR256X:$src1, VR256X:$src2, addr:$src3,
-                               (VPTERNLOG132_imm8 timm:$src4))>;
-
-  def : Pat<(v32i8 (X86vpternlog VR256X:$src1, VR256X:$src2,
-                                 (bitconvert (v8i32 (X86VBroadcastld32 addr:$src3))),
-                                 (i8 timm:$src4))),
-            (VPTERNLOGDZ256rmbi VR256X:$src1, VR256X:$src2, addr:$src3,
-                                timm:$src4)>;
-  def : Pat<(v32i8 (X86vpternlog (bitconvert (v8i32 (X86VBroadcastld32 addr:$src3))),
-                                 VR256X:$src2, VR256X:$src1, (i8 timm:$src4))),
-            (VPTERNLOGDZ256rmbi VR256X:$src1, VR256X:$src2, addr:$src3,
-                                (VPTERNLOG321_imm8 timm:$src4))>;
-  def : Pat<(v32i8 (X86vpternlog VR256X:$src1,
-                                 (bitconvert (v8i32 (X86VBroadcastld32 addr:$src3))),
-                                 VR256X:$src2, (i8 timm:$src4))),
-            (VPTERNLOGDZ256rmbi VR256X:$src1, VR256X:$src2, addr:$src3,
-                               (VPTERNLOG132_imm8 timm:$src4))>;
-
-  def : Pat<(v32i8 (X86vpternlog VR256X:$src1, VR256X:$src2,
-                                 (bitconvert (v4i64 (X86VBroadcastld64 addr:$src3))),
-                                 (i8 timm:$src4))),
-            (VPTERNLOGQZ256rmbi VR256X:$src1, VR256X:$src2, addr:$src3,
-                                timm:$src4)>;
-  def : Pat<(v32i8 (X86vpternlog (bitconvert (v4i64 (X86VBroadcastld64 addr:$src3))),
-                                 VR256X:$src2, VR256X:$src1, (i8 timm:$src4))),
-            (VPTERNLOGQZ256rmbi VR256X:$src1, VR256X:$src2, addr:$src3,
-                                (VPTERNLOG321_imm8 timm:$src4))>;
-  def : Pat<(v32i8 (X86vpternlog VR256X:$src1,
-                                 (bitconvert (v4i64 (X86VBroadcastld64 addr:$src3))),
-                                 VR256X:$src2, (i8 timm:$src4))),
-            (VPTERNLOGQZ256rmbi VR256X:$src1, VR256X:$src2, addr:$src3,
-                                (VPTERNLOG132_imm8 timm:$src4))>;
-
-  def : Pat<(v16i16 (X86vpternlog VR256X:$src1, VR256X:$src2, VR256X:$src3,
-                                  (i8 timm:$src4))),
-            (VPTERNLOGQZ256rri VR256X:$src1, VR256X:$src2, VR256X:$src3,
-                               timm:$src4)>;
-  def : Pat<(v16i16 (X86vpternlog VR256X:$src1, VR256X:$src2,
-                                  (loadv16i16 addr:$src3), (i8 timm:$src4))),
-            (VPTERNLOGQZ256rmi VR256X:$src1, VR256X:$src2, addr:$src3,
-                               timm:$src4)>;
-  def : Pat<(v16i16 (X86vpternlog (loadv16i16 addr:$src3), VR256X:$src2,
-                                  VR256X:$src1, (i8 timm:$src4))),
-            (VPTERNLOGQZ256rmi VR256X:$src1, VR256X:$src2, addr:$src3,
-                               (VPTERNLOG321_imm8 timm:$src4))>;
-  def : Pat<(v16i16 (X86vpternlog VR256X:$src1, (loadv16i16 addr:$src3),
-                                  VR256X:$src2, (i8 timm:$src4))),
-            (VPTERNLOGQZ256rmi VR256X:$src1, VR256X:$src2, addr:$src3,
-                               (VPTERNLOG132_imm8 timm:$src4))>;
-
-  def : Pat<(v16i16 (X86vpternlog VR256X:$src1, VR256X:$src2,
-                                  (bitconvert (v8i32 (X86VBroadcastld32 addr:$src3))),
-                                  (i8 timm:$src4))),
-            (VPTERNLOGDZ256rmbi VR256X:$src1, VR256X:$src2, addr:$src3,
-                                timm:$src4)>;
-  def : Pat<(v16i16 (X86vpternlog (bitconvert (v8i32 (X86VBroadcastld32 addr:$src3))),
-                                 VR256X:$src2, VR256X:$src1, (i8 timm:$src4))),
-            (VPTERNLOGDZ256rmbi VR256X:$src1, VR256X:$src2, addr:$src3,
-                                (VPTERNLOG321_imm8 timm:$src4))>;
-  def : Pat<(v16i16 (X86vpternlog VR256X:$src1,
-                                  (bitconvert (v8i32 (X86VBroadcastld32 addr:$src3))),
-                                  VR256X:$src2, (i8 timm:$src4))),
-            (VPTERNLOGDZ256rmbi VR256X:$src1, VR256X:$src2, addr:$src3,
-                               (VPTERNLOG132_imm8 timm:$src4))>;
-
-  def : Pat<(v16i16 (X86vpternlog VR256X:$src1, VR256X:$src2,
-                                  (bitconvert (v4i64 (X86VBroadcastld64 addr:$src3))),
-                                  (i8 timm:$src4))),
-            (VPTERNLOGQZ256rmbi VR256X:$src1, VR256X:$src2, addr:$src3,
-                                timm:$src4)>;
-  def : Pat<(v16i16 (X86vpternlog (bitconvert (v4i64 (X86VBroadcastld64 addr:$src3))),
-                                  VR256X:$src2, VR256X:$src1, (i8 timm:$src4))),
-            (VPTERNLOGQZ256rmbi VR256X:$src1, VR256X:$src2, addr:$src3,
-                                (VPTERNLOG321_imm8 timm:$src4))>;
-  def : Pat<(v16i16 (X86vpternlog VR256X:$src1,
-                                  (bitconvert (v4i64 (X86VBroadcastld64 addr:$src3))),
-                                  VR256X:$src2, (i8 timm:$src4))),
-            (VPTERNLOGQZ256rmbi VR256X:$src1, VR256X:$src2, addr:$src3,
-                                (VPTERNLOG132_imm8 timm:$src4))>;
-
-  def : Pat<(v8i32 (X86vpternlog VR256X:$src1, VR256X:$src2,
-                                 (bitconvert (v4i64 (X86VBroadcastld64 addr:$src3))),
-                                 (i8 timm:$src4))),
-            (VPTERNLOGQZ256rmbi VR256X:$src1, VR256X:$src2, addr:$src3,
-                                timm:$src4)>;
-  def : Pat<(v8i32 (X86vpternlog (bitconvert (v4i64 (X86VBroadcastld64 addr:$src3))),
-                                  VR256X:$src2, VR256X:$src1, (i8 timm:$src4))),
-            (VPTERNLOGQZ256rmbi VR256X:$src1, VR256X:$src2, addr:$src3,
-                                (VPTERNLOG321_imm8 timm:$src4))>;
-  def : Pat<(v8i32 (X86vpternlog VR256X:$src1,
-                                 (bitconvert (v4i64 (X86VBroadcastld64 addr:$src3))),
-                                 VR256X:$src2, (i8 timm:$src4))),
-            (VPTERNLOGQZ256rmbi VR256X:$src1, VR256X:$src2, addr:$src3,
-                                (VPTERNLOG132_imm8 timm:$src4))>;
-
-  def : Pat<(v4i64 (X86vpternlog VR256X:$src1, VR256X:$src2,
-                                 (bitconvert (v8i32 (X86VBroadcastld32 addr:$src3))),
-                                 (i8 timm:$src4))),
-            (VPTERNLOGDZ256rmbi VR256X:$src1, VR256X:$src2, addr:$src3,
-                                timm:$src4)>;
-  def : Pat<(v4i64 (X86vpternlog (bitconvert (v8i32 (X86VBroadcastld32 addr:$src3))),
-                                 VR256X:$src2, VR256X:$src1, (i8 timm:$src4))),
-            (VPTERNLOGDZ256rmbi VR256X:$src1, VR256X:$src2, addr:$src3,
-                                (VPTERNLOG321_imm8 timm:$src4))>;
-  def : Pat<(v4i64 (X86vpternlog VR256X:$src1,
-                                 (bitconvert (v8i32 (X86VBroadcastld32 addr:$src3))),
-                                 VR256X:$src2, (i8 timm:$src4))),
-            (VPTERNLOGDZ256rmbi VR256X:$src1, VR256X:$src2, addr:$src3,
-                               (VPTERNLOG132_imm8 timm:$src4))>;
-}
-
-let Predicates = [HasAVX512] in {
-  def : Pat<(v64i8 (X86vpternlog VR512:$src1, VR512:$src2, VR512:$src3,
-                                 (i8 timm:$src4))),
-            (VPTERNLOGQZrri VR512:$src1, VR512:$src2, VR512:$src3,
-                            timm:$src4)>;
-  def : Pat<(v64i8 (X86vpternlog VR512:$src1, VR512:$src2,
-                                 (loadv64i8 addr:$src3), (i8 timm:$src4))),
-            (VPTERNLOGQZrmi VR512:$src1, VR512:$src2, addr:$src3,
-                            timm:$src4)>;
-  def : Pat<(v64i8 (X86vpternlog (loadv64i8 addr:$src3), VR512:$src2,
-                                  VR512:$src1, (i8 timm:$src4))),
-            (VPTERNLOGQZrmi VR512:$src1, VR512:$src2, addr:$src3,
-                            (VPTERNLOG321_imm8 timm:$src4))>;
-  def : Pat<(v64i8 (X86vpternlog VR512:$src1, (loadv64i8 addr:$src3),
-                                 VR512:$src2, (i8 timm:$src4))),
-            (VPTERNLOGQZrmi VR512:$src1, VR512:$src2, addr:$src3,
-                            (VPTERNLOG132_imm8 timm:$src4))>;
-
-  def : Pat<(v64i8 (X86vpternlog VR512:$src1, VR512:$src2,
-                                 (bitconvert (v16i32 (X86VBroadcastld32 addr:$src3))),
-                                 (i8 timm:$src4))),
-            (VPTERNLOGDZrmbi VR512:$src1, VR512:$src2, addr:$src3,
-                             timm:$src4)>;
-  def : Pat<(v64i8 (X86vpternlog (bitconvert (v16i32 (X86VBroadcastld32 addr:$src3))),
-                                 VR512:$src2, VR512:$src1, (i8 timm:$src4))),
-            (VPTERNLOGDZrmbi VR512:$src1, VR512:$src2, addr:$src3,
-                             (VPTERNLOG321_imm8 timm:$src4))>;
-  def : Pat<(v64i8 (X86vpternlog VR512:$src1,
-                                 (bitconvert (v16i32 (X86VBroadcastld32 addr:$src3))),
-                                 VR512:$src2, (i8 timm:$src4))),
-            (VPTERNLOGDZrmbi VR512:$src1, VR512:$src2, addr:$src3,
-                             (VPTERNLOG132_imm8 timm:$src4))>;
-
-  def : Pat<(v64i8 (X86vpternlog VR512:$src1, VR512:$src2,
-                                 (bitconvert (v8i64 (X86VBroadcastld64 addr:$src3))),
-                                 (i8 timm:$src4))),
-            (VPTERNLOGQZrmbi VR512:$src1, VR512:$src2, addr:$src3,
-                                timm:$src4)>;
-  def : Pat<(v64i8 (X86vpternlog (bitconvert (v8i64 (X86VBroadcastld64 addr:$src3))),
-                                 VR512:$src2, VR512:$src1, (i8 timm:$src4))),
-            (VPTERNLOGQZrmbi VR512:$src1, VR512:$src2, addr:$src3,
-                                (VPTERNLOG321_imm8 timm:$src4))>;
-  def : Pat<(v64i8 (X86vpternlog VR512:$src1,
-                                 (bitconvert (v8i64 (X86VBroadcastld64 addr:$src3))),
-                                 VR512:$src2, (i8 timm:$src4))),
-            (VPTERNLOGQZrmbi VR512:$src1, VR512:$src2, addr:$src3,
-                                (VPTERNLOG132_imm8 timm:$src4))>;
-
-  def : Pat<(v32i16 (X86vpternlog VR512:$src1, VR512:$src2, VR512:$src3,
-                                  (i8 timm:$src4))),
-            (VPTERNLOGQZrri VR512:$src1, VR512:$src2, VR512:$src3,
-                            timm:$src4)>;
-  def : Pat<(v32i16 (X86vpternlog VR512:$src1, VR512:$src2,
-                                  (loadv32i16 addr:$src3), (i8 timm:$src4))),
-            (VPTERNLOGQZrmi VR512:$src1, VR512:$src2, addr:$src3,
-                            timm:$src4)>;
-  def : Pat<(v32i16 (X86vpternlog (loadv32i16 addr:$src3), VR512:$src2,
-                                  VR512:$src1, (i8 timm:$src4))),
-            (VPTERNLOGQZrmi VR512:$src1, VR512:$src2, addr:$src3,
-                            (VPTERNLOG321_imm8 timm:$src4))>;
-  def : Pat<(v32i16 (X86vpternlog VR512:$src1, (loadv32i16 addr:$src3),
-                                  VR512:$src2, (i8 timm:$src4))),
-            (VPTERNLOGQZrmi VR512:$src1, VR512:$src2, addr:$src3,
-                            (VPTERNLOG132_imm8 timm:$src4))>;
-
-  def : Pat<(v32i16 (X86vpternlog VR512:$src1, VR512:$src2,
-                                  (bitconvert (v16i32 (X86VBroadcastld32 addr:$src3))),
-                                  (i8 timm:$src4))),
-            (VPTERNLOGDZrmbi VR512:$src1, VR512:$src2, addr:$src3,
-                             timm:$src4)>;
-  def : Pat<(v32i16 (X86vpternlog (bitconvert (v16i32 (X86VBroadcastld32 addr:$src3))),
-                                 VR512:$src2, VR512:$src1, (i8 timm:$src4))),
-            (VPTERNLOGDZrmbi VR512:$src1, VR512:$src2, addr:$src3,
-                                (VPTERNLOG321_imm8 timm:$src4))>;
-  def : Pat<(v32i16 (X86vpternlog VR512:$src1,
-                                  (bitconvert (v16i32 (X86VBroadcastld32 addr:$src3))),
-                                  VR512:$src2, (i8 timm:$src4))),
-            (VPTERNLOGDZrmbi VR512:$src1, VR512:$src2, addr:$src3,
-                               (VPTERNLOG132_imm8 timm:$src4))>;
-
-  def : Pat<(v32i16 (X86vpternlog VR512:$src1, VR512:$src2,
-                                  (bitconvert (v8i64 (X86VBroadcastld64 addr:$src3))),
-                                  (i8 timm:$src4))),
-            (VPTERNLOGQZrmbi VR512:$src1, VR512:$src2, addr:$src3,
-                             timm:$src4)>;
-  def : Pat<(v32i16 (X86vpternlog (bitconvert (v8i64 (X86VBroadcastld64 addr:$src3))),
-                                  VR512:$src2, VR512:$src1, (i8 timm:$src4))),
-            (VPTERNLOGQZrmbi VR512:$src1, VR512:$src2, addr:$src3,
-                             (VPTERNLOG321_imm8 timm:$src4))>;
-  def : Pat<(v32i16 (X86vpternlog VR512:$src1,
-                                  (bitconvert (v8i64 (X86VBroadcastld64 addr:$src3))),
-                                  VR512:$src2, (i8 timm:$src4))),
-            (VPTERNLOGQZrmbi VR512:$src1, VR512:$src2, addr:$src3,
-                             (VPTERNLOG132_imm8 timm:$src4))>;
-
-  def : Pat<(v32i16 (X86vpternlog VR512:$src1, VR512:$src2,
-                                  (bitconvert (v16i32 (X86VBroadcastld32 addr:$src3))),
-                                  (i8 timm:$src4))),
-            (VPTERNLOGDZrmbi VR512:$src1, VR512:$src2, addr:$src3,
-                             timm:$src4)>;
-  def : Pat<(v32i16 (X86vpternlog (bitconvert (v16i32 (X86VBroadcastld32 addr:$src3))),
-                                 VR512:$src2, VR512:$src1, (i8 timm:$src4))),
-            (VPTERNLOGDZrmbi VR512:$src1, VR512:$src2, addr:$src3,
-                                (VPTERNLOG321_imm8 timm:$src4))>;
-  def : Pat<(v32i16 (X86vpternlog VR512:$src1,
-                                  (bitconvert (v16i32 (X86VBroadcastld32 addr:$src3))),
-                                  VR512:$src2, (i8 timm:$src4))),
-            (VPTERNLOGDZrmbi VR512:$src1, VR512:$src2, addr:$src3,
-                               (VPTERNLOG132_imm8 timm:$src4))>;
-
-  def : Pat<(v16i32 (X86vpternlog VR512:$src1, VR512:$src2,
-                                  (bitconvert (v8i64 (X86VBroadcastld64 addr:$src3))),
-                                  (i8 timm:$src4))),
-            (VPTERNLOGQZrmbi VR512:$src1, VR512:$src2, addr:$src3,
-                             timm:$src4)>;
-  def : Pat<(v16i32 (X86vpternlog (bitconvert (v8i64 (X86VBroadcastld64 addr:$src3))),
-                                  VR512:$src2, VR512:$src1, (i8 timm:$src4))),
-            (VPTERNLOGQZrmbi VR512:$src1, VR512:$src2, addr:$src3,
-                             (VPTERNLOG321_imm8 timm:$src4))>;
-  def : Pat<(v16i32 (X86vpternlog VR512:$src1,
-                                  (bitconvert (v8i64 (X86VBroadcastld64 addr:$src3))),
-                                  VR512:$src2, (i8 timm:$src4))),
-            (VPTERNLOGQZrmbi VR512:$src1, VR512:$src2, addr:$src3,
-                             (VPTERNLOG132_imm8 timm:$src4))>;
-
-  def : Pat<(v8i64 (X86vpternlog VR512:$src1, VR512:$src2,
-                                  (bitconvert (v16i32 (X86VBroadcastld32 addr:$src3))),
-                                  (i8 timm:$src4))),
-            (VPTERNLOGDZrmbi VR512:$src1, VR512:$src2, addr:$src3,
-                             timm:$src4)>;
-  def : Pat<(v8i64 (X86vpternlog (bitconvert (v16i32 (X86VBroadcastld32 addr:$src3))),
-                                 VR512:$src2, VR512:$src1, (i8 timm:$src4))),
-            (VPTERNLOGDZrmbi VR512:$src1, VR512:$src2, addr:$src3,
-                                (VPTERNLOG321_imm8 timm:$src4))>;
-  def : Pat<(v8i64 (X86vpternlog VR512:$src1,
-                                  (bitconvert (v16i32 (X86VBroadcastld32 addr:$src3))),
-                                  VR512:$src2, (i8 timm:$src4))),
-            (VPTERNLOGDZrmbi VR512:$src1, VR512:$src2, addr:$src3,
-                               (VPTERNLOG132_imm8 timm:$src4))>;
-}
 
 // Patterns to implement vnot using vpternlog instead of creating all ones
 // using pcmpeq or vpternlog and then xoring with that. The value 15 is chosen
@@ -14877,9 +14538,9 @@ defm VMOVADVISEW : avx512_vmovadvisew_packed_all<"vmovadvisew">;
 #endif // INTEL_FEATURE_ISA_AVX_MEMADVISE
 
 #if INTEL_FEATURE_ISA_AVX_MPSADBW
-defm VMPSADBW: avx512_common_3Op_rm_imm8_as<0x42, X86Vmpsadbw, "vmpsadbw",
-                                         SchedWritePSADBW, avx512vl_i16_info,
-                                         avx512vl_i8_info, HasAVX512MPSADBW>,
-                                         EVEX_CD8<8, CD8VF>;
+defm VMPSADBW: avx512_mpsadbw_3Op_rm_imm8<0x42, X86Vmpsadbw, "vmpsadbw",
+                                          SchedWritePSADBW, avx512vl_i16_info,
+                                          avx512vl_i8_info, HasAVX512MPSADBW>,
+                                          EVEX_CD8<8, CD8VF>;
 #endif // INTEL_FEATURE_ISA_AVX_MPSADBW
 #endif // INTEL_CUSTOMIZATION

@@ -562,7 +562,11 @@ public:
   }
   const SCEV *getUDivExpr(const SCEV *LHS, const SCEV *RHS);
   const SCEV *getUDivExactExpr(const SCEV *LHS, const SCEV *RHS);
-  const SCEV *getURemExpr(const SCEV *LHS, const SCEV *RHS);
+#if INTEL_CUSTOMIZATION
+  // \p Val is the original value being parsed.
+  const SCEV *getURemExpr(const SCEV *LHS, const SCEV *RHS,
+                          Value *Val = nullptr);
+#endif // INTEL_CUSTOMIZATION
   const SCEV *getAddRecExpr(const SCEV *Start, const SCEV *Step, const Loop *L,
                             SCEV::NoWrapFlags Flags);
   const SCEV *getAddRecExpr(SmallVectorImpl<const SCEV *> &Operands,
@@ -690,7 +694,8 @@ public:
   /// and RHS.  This is used to help avoid max expressions in loop trip
   /// counts, and to eliminate casts.
   bool isLoopEntryGuardedByCond(const Loop *L, ICmpInst::Predicate Pred,
-                                const SCEV *LHS, const SCEV *RHS);
+                                const SCEV *LHS, const SCEV *RHS, // INTEL
+                                ICmpInst *PredContext = nullptr); // INTEL
 
   /// Test whether the backedge of the loop is protected by a conditional
   /// between LHS and RHS.  This is used to eliminate casts.
@@ -967,7 +972,10 @@ public:
   /// unequal, LHS and RHS are set to the same value and Pred is set to either
   /// ICMP_EQ or ICMP_NE.
   bool SimplifyICmpOperands(ICmpInst::Predicate &Pred, const SCEV *&LHS,
-                            const SCEV *&RHS, unsigned Depth = 0);
+#if INTEL_CUSTOMIZATION
+                            const SCEV *&RHS, ICmpInst *PredContext = nullptr,
+                            unsigned Depth = 0);
+#endif // INTEL_CUSTOMIZATION
 
   /// Return the "disposition" of the given SCEV with respect to the given
   /// loop.
@@ -1699,14 +1707,14 @@ protected: // INTEL
   /// SCEV predicates in order to return an exact answer.
   ExitLimit howManyLessThans(const SCEV *LHS, const SCEV *RHS, const Loop *L,
                              bool isSigned, bool ControlsExit,
-#if INTEL_CUSTOMIZATION
-                             bool AllowPredicates = false,
-                             bool IVMaxValIsUB = false);
-#endif // INTEL_CUSTOMIZATION
+                             bool AllowPredicates = false,  // INTEL
+                             bool IVMaxValIsUB = false,     // INTEL
+                             ICmpInst *ExitCond = nullptr); // INTEL
 
   ExitLimit howManyGreaterThans(const SCEV *LHS, const SCEV *RHS, const Loop *L,
                                 bool isSigned, bool IsSubExpr,
-                                bool AllowPredicates = false);
+                                bool AllowPredicates = false,  // INTEL
+                                ICmpInst *ExitCond = nullptr); // INTEL
 
   /// Return a predecessor of BB (which may not be an immediate predecessor)
   /// which has exactly one successor from which BB is reachable, or null if
@@ -1717,14 +1725,17 @@ protected: // INTEL
   /// Test whether the condition described by Pred, LHS, and RHS is true
   /// whenever the given FoundCondValue value evaluates to true.
   bool isImpliedCond(ICmpInst::Predicate Pred, const SCEV *LHS, const SCEV *RHS,
-                     Value *FoundCondValue, bool Inverse);
+                     Value *FoundCondValue, bool Inverse, // INTEL
+                     ICmpInst *PredContext = nullptr);    // INTEL
 
   /// Test whether the condition described by Pred, LHS, and RHS is true
   /// whenever the condition described by FoundPred, FoundLHS, FoundRHS is
   /// true.
   bool isImpliedCond(ICmpInst::Predicate Pred, const SCEV *LHS, const SCEV *RHS,
                      ICmpInst::Predicate FoundPred, const SCEV *FoundLHS,
-                     const SCEV *FoundRHS);
+                     const SCEV *FoundRHS,                  // INTEL
+                     ICmpInst *PredContext = nullptr,       // INTEL
+                     ICmpInst *FoundPredContext = nullptr); // INTEL
 
   /// Test whether the condition described by Pred, LHS, and RHS is true
   /// whenever the condition described by Pred, FoundLHS, and FoundRHS is

@@ -432,6 +432,20 @@ VPValue *VPDecomposerHIR::decomposeCanonExpr(RegDDRef *RDDR, CanonExpr *CE) {
   return DecompDef;
 }
 
+/// Utility to get alignment information attached to given memref. When the ref
+/// does not have alignment information we default to the ABI alignment for the
+/// ref's type, similar to LLVM behavior.
+static Align getAlignForMemref(RegDDRef *Ref) {
+  assert(Ref->isMemRef() && "Memref expected to compute alignment.");
+  unsigned Alignment = Ref->getAlignment();
+  if (!Alignment) {
+    auto DL = Ref->getDDRefUtils().getDataLayout();
+    Alignment = DL.getABITypeAlignment(Ref->getDestType());
+  }
+
+  return Align(Alignment);
+}
+
 // Decompose the incoming HIR memory reference \p Ref. Return the last VPValue
 // resulting from its decomposition.
 //
@@ -595,15 +609,13 @@ VPValue *VPDecomposerHIR::decomposeMemoryOp(RegDDRef *Ref) {
     assert(isa<PointerType>(MemOpVPI->getType()) &&
            "Base type of load is not a pointer.");
     // Result type of load will be element type of the pointer
-    MemOpVPI = Builder.createNaryOp(
-        Instruction::Load, {MemOpVPI},
-        cast<PointerType>(MemOpVPI->getType())->getElementType());
+    MemOpVPI = Builder.createLoad(
+        cast<PointerType>(MemOpVPI->getType())->getElementType(), MemOpVPI);
 
-    // Save away scalar memref symbase and alias analysis metadata for later
-    // use.
-    auto *MemOpVPInst = cast<VPInstruction>(MemOpVPI);
+    // Save away scalar memref symbase and original alignment for later use.
+    auto *MemOpVPInst = cast<VPLoadStoreInst>(MemOpVPI);
     MemOpVPInst->setSymbase(Ref->getSymbase());
-    Ref->getAAMetadata(MemOpVPInst->HIR.AANodes);
+    MemOpVPInst->setAlignment(getAlignForMemref(Ref));
 
     // FIXME: This special-casing for loads that are HLInst is becoming more
     // complicated than expected since we also have to special-case
@@ -840,6 +852,11 @@ VPDecomposerHIR::createVPInstruction(HLNode *Node,
       // master VPI for this node which will be the case if DDNode is non-null.
       if (DDNode)
         NewVPInst->HIR.setUnderlyingNode(DDNode);
+    } else if (isa<StoreInst>(LLVMInst)) {
+      // Decompose store instruction into VPLoadStoreInst.
+      assert(VPOperands.size() == 2 &&
+             "Store instruction must have 2 operands only.");
+      NewVPInst = Builder.createStore(VPOperands[0], VPOperands[1], DDNode);
     } else if (auto *Call = dyn_cast<CallInst>(LLVMInst)) {
       if (auto *IntrinCall = dyn_cast<IntrinsicInst>(Call)) {
         if (IntrinCall->getIntrinsicID() == Intrinsic::intel_subscript) {
@@ -909,9 +926,7 @@ VPDecomposerHIR::createVPInstruction(HLNode *Node,
       VPInstruction *StoreVal =
           genVPInst(LLVMInst, nullptr /* DDNode is only set on master */, HInst,
                     VPOperands.drop_back() /* Omit last operand */);
-      NewVPInst = cast<VPInstruction>(Builder.createNaryOp(
-          Instruction::Store, {StoreVal, VPOperands.back()},
-          Type::getVoidTy(*Plan->getLLVMContext()), DDNode));
+      NewVPInst = Builder.createStore(StoreVal, VPOperands.back(), DDNode);
     } else
       NewVPInst = genVPInst(LLVMInst, DDNode, HInst, VPOperands);
 
@@ -920,13 +935,13 @@ VPDecomposerHIR::createVPInstruction(HLNode *Node,
       // standalone loads.
       NewVPInst->HIR.setOperandDDR(LvalDDR);
 
-      // Save away scalar memref symbase and alias analysis metadata for later
-      // use.
+      // Save away scalar memref symbase and original alignment for later use.
       if (NewVPInst->getOpcode() == Instruction::Store) {
         assert(LvalDDR->isMemRef() &&
                "Expected Lval of a store HLInst to be a memref");
         NewVPInst->setSymbase(LvalDDR->getSymbase());
-        LvalDDR->getAAMetadata(NewVPInst->HIR.AANodes);
+        cast<VPLoadStoreInst>(NewVPInst)->setAlignment(
+            getAlignForMemref(LvalDDR));
       }
 
       if (OutermostHLp->isLiveOut(LvalDDR->getSymbase())) {

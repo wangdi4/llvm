@@ -50,7 +50,7 @@
 ; CHECK-NEXT:     i8* [[VP21:%.*]] = bitcast i32* [[B_PRIV0]]
 ; CHECK-NEXT:     void [[VP22:%.*]] = call i64 4 i8* [[VP21]] void (i64, i8*)* @llvm.lifetime.end.p0i8
 ; CHECK-NEXT:     i64 [[VP3]] = add i64 [[VP2]] i64 1
-; CHECK-NEXT:     i1 [[VP23:%.*]] = icmp i64 [[VP3]] i64 [[VP1:%vp.*]]
+; CHECK-NEXT:     i1 [[VP23:%.*]] = icmp sle i64 [[VP3]] i64 [[VP1:%vp.*]]
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"

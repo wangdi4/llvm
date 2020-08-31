@@ -95,6 +95,10 @@ static cl::opt<bool, true> UseOmpRegionsInLoopopt(
     cl::Hidden, cl::location(UseOmpRegionsInLoopoptFlag), cl::init(false));
 #endif  // INTEL_CUSTOMIZATION
 
+static cl::opt<bool> OptimizeScalarFirstprivate(
+    "vpo-paropt-opt-scalar-fp", cl::Hidden, cl::init(true),
+    cl::desc("Pass scalar firstprivates as literals."));
+
 static cl::opt<bool> AllowDistributeDimension(
     "vpo-paropt-allow-distribute-dimension",
      cl::Hidden, cl::init(true),
@@ -2803,6 +2807,33 @@ bool VPOParoptTransform::genRedAggregateInitOrFini(
   return NeedsKmpcCritical;
 }
 
+// Utility to copy data from address "From" to address "To", with an optional
+// copy constructor call (can be null) and by-ref dereference (false);
+void VPOParoptTransform::genCopyByAddr(Item *I, Value *To, Value *From,
+                                       Instruction *InsertPt, Function *Cctor,
+                                       bool IsByRef) {
+  IRBuilder<> Builder(InsertPt);
+  const DataLayout &DL = InsertPt->getModule()->getDataLayout();
+  AllocaInst *AI = dyn_cast<AllocaInst>(To);
+  if (!AI)
+    AI = dyn_cast<AllocaInst>(From);
+
+  // For by-refs, do a pointer dereference to reach the actual operand.
+  if (IsByRef)
+    From = Builder.CreateLoad(From);
+  assert(From->getType()->isPointerTy() && To->getType()->isPointerTy());
+  Type *ObjType = AI ? AI->getAllocatedType()
+                     : cast<PointerType>(From->getType())->getElementType();
+  if (Cctor)
+    genPrivatizationInitOrFini(I, Cctor, FK_CopyCtor, To, From, InsertPt, DT);
+  else if (!VPOUtils::canBeRegisterized(ObjType, DL) ||
+           (AI && AI->isArrayAllocation())) {
+    unsigned Alignment = DL.getABITypeAlignment(ObjType);
+    VPOUtils::genMemcpy(To, From, DL, Alignment, InsertPt);
+  } else
+    Builder.CreateStore(Builder.CreateLoad(From), To);
+}
+
 // Generate the firstprivate initialization code.
 // Here is one example for the firstprivate initialization for the array.
 // num_type    a[100];
@@ -2834,8 +2865,8 @@ void VPOParoptTransform::genFprivInit(FirstprivateItem *FprivI,
     return;
   }
 #endif // INTEL_CUSTOMIZATION
-  VPOParoptUtils::genCopyByAddr(
-      NewV, OldV, InsertPt, FprivI->getCopyConstructor(), FprivI->getIsByRef());
+  genCopyByAddr(FprivI, NewV, OldV, InsertPt, FprivI->getCopyConstructor(),
+                FprivI->getIsByRef());
 }
 
 // Generate the lastprivate update code. The same mechanism is also applied
@@ -2854,14 +2885,13 @@ void VPOParoptTransform::genFprivInit(FirstprivateItem *FprivI,
 //    i8*), i8* %1, i64 400, i32 0, i1 false)
 //    br label %for.end.split
 //
-void VPOParoptTransform::genLprivFini(Value *NewV, Value *OldV,
+void VPOParoptTransform::genLprivFini(Item *I, Value *NewV, Value *OldV,
                                       Instruction *InsertPt) {
   // NewV is either AllocaInst or an AddrSpaceCastInst of AllocaInst.
   assert(GeneralUtils::isOMPItemLocalVAR(NewV) &&
          "genLprivFini: Expect isOMPItemLocalVAR().");
   // todo: copy constructor call needed?
-  VPOParoptUtils::genCopyByAddr(OldV, NewV,
-                                InsertPt->getParent()->getTerminator());
+  genCopyByAddr(I, OldV, NewV, InsertPt->getParent()->getTerminator());
 }
 
 // genLprivFini interface to support nonPOD with call to CopyAssign
@@ -2879,14 +2909,15 @@ void VPOParoptTransform::genLprivFini(LastprivateItem *LprivI,
                                                 isTargetSPIRV());
     return;
   }
-
 #endif // INTEL_CUSTOMIZATION
+
   if (Function *CpAssn = LprivI->getCopyAssign()) {
-    VPOParoptUtils::genCopyAssignCall(CpAssn, OldV, NewV, InsertPt);
+    genPrivatizationInitOrFini(LprivI, CpAssn, FK_CopyAssign, OldV, NewV,
+                               InsertPt, DT);
     return;
   }
 
-  genLprivFini(NewV, OldV, InsertPt);
+  genLprivFini(LprivI, NewV, OldV, InsertPt);
 }
 
 void VPOParoptTransform::collectStoresToLastprivateNewI(
@@ -3635,8 +3666,12 @@ RDECL VPOParoptTransform::genFastRedCallback(WRegionNode *W,
 
 #if INTEL_CUSTOMIZATION
     if (RedI->getIsF90DopeVector()) {
-      VPOParoptUtils::genF90DVInitCode(RedI, &*Builder.GetInsertPoint(),
-                                       isTargetSPIRV(), false);
+      // For reduction operands, the OpenMP spec guarantees that the original
+      // dope vector is allocated, so we can skip emitting a check for it.
+      VPOParoptUtils::genF90DVInitCode(
+          RedI, &*Builder.GetInsertPoint(), &DT, LI, isTargetSPIRV(),
+          /*AllowOverrideInsertPt =*/false,
+          /*CheckOrigAllocationBeforeAllocatingNew =*/false);
     }
 #endif // INTEL_CUSTOMIZATION
 
@@ -4105,7 +4140,12 @@ bool VPOParoptTransform::genReductionCode(WRegionNode *W) {
       genPrivatizationReplacement(W, Orig, ReplacementVal);
 #if INTEL_CUSTOMIZATION
       if (RedI->getIsF90DopeVector())
-        VPOParoptUtils::genF90DVInitCode(RedI, InsertPt, isTargetSPIRV());
+        // For reduction operands, the OpenMP spec guarantees that the original
+        // dope vector is allocated, so we can skip emitting a check for it.
+        VPOParoptUtils::genF90DVInitCode(
+            RedI, InsertPt, DT, LI, isTargetSPIRV(),
+            /*AllowOverrideInsertPt =*/true,
+            /*CheckOrigAllocationBeforeAllocatingNew =*/false);
 #endif // INTEL_CUSTOMIZATION
 
       RedInitEntryBB = createEmptyPrivInitBB(W);
@@ -4698,7 +4738,6 @@ void VPOParoptTransform::getItemInfoFromValue(Value *OrigValue,
                                               Type *&ElementType,    // out
                                               Value *&NumElements,   // out
                                               unsigned &AddrSpace) { // out
-
   assert(OrigValue && "Null input value.");
 
   ElementType = nullptr;
@@ -4727,7 +4766,8 @@ void VPOParoptTransform::getItemInfoFromValue(Value *OrigValue,
 }
 
 // Extract the type and size of local Alloca to be created to privatize I.
-std::tuple<Type *, Value *, unsigned> VPOParoptTransform::getItemInfo(Item *I) {
+std::tuple<Type *, Value *, unsigned>
+VPOParoptTransform::getItemInfo(const Item *I) {
   Type *ElementType = nullptr;
   Value *NumElements = nullptr;
   unsigned AddrSpace = 0;
@@ -4739,7 +4779,7 @@ std::tuple<Type *, Value *, unsigned> VPOParoptTransform::getItemInfo(Item *I) {
 
   auto getItemInfoIfArraySection = [I, &ElementType, &NumElements,
                                     &AddrSpace]() -> bool {
-    if (ReductionItem *RedI = dyn_cast<ReductionItem>(I))
+    if (const ReductionItem *RedI = dyn_cast<ReductionItem>(I))
       if (RedI->getIsArraySection()) {
         const ArraySectionInfo &ArrSecInfo = RedI->getArraySectionInfo();
         ElementType = ArrSecInfo.getElementType();
@@ -5351,7 +5391,6 @@ bool VPOParoptTransform::genFirstPrivatizationCode(WRegionNode *W) {
     bool ForTask = W->getIsTask();
 
     for (FirstprivateItem *FprivI : FprivClause.items()) {
-
       if (FprivI->getInMap())
 #if INTEL_CUSTOMIZATION
         // For F90 dope vectors which are firstprivate, ifx frontend emits a
@@ -5385,7 +5424,6 @@ bool VPOParoptTransform::genFirstPrivatizationCode(WRegionNode *W) {
       //      "genFirstPrivatizationCode: Unexpected firstprivate variable");
       //
       LastprivateItem *LprivI = FprivI->getInLastprivate();
-
       if (!LprivI) {
         // Only make new storage if !LprivI.
         // If the item was lastprivate, we should use the lastprivate
@@ -5403,7 +5441,8 @@ bool VPOParoptTransform::genFirstPrivatizationCode(WRegionNode *W) {
         genPrivatizationReplacement(W, Orig, ReplacementVal);
 #if INTEL_CUSTOMIZATION
         if (!ForTask && FprivI->getIsF90DopeVector())
-          VPOParoptUtils::genF90DVInitCode(FprivI, InsertPt, isTargetSPIRV());
+          VPOParoptUtils::genF90DVInitCode(FprivI, InsertPt, DT, LI,
+                                           isTargetSPIRV());
 #endif // INTEL_CUSTOMIZATION
       } else if (!ForTask) { // && LprivI
         // Lastprivate codegen has replaced the original var with the
@@ -5416,6 +5455,11 @@ bool VPOParoptTransform::genFirstPrivatizationCode(WRegionNode *W) {
         LLVM_DEBUG(dbgs() << "\n  genFirstPrivatizationCode: (" << *Orig
                           << ") is also lastprivate\n");
         FprivI->setNew(LprivI->getNew());
+#if INTEL_CUSTOMIZATION
+        if (FprivI->getIsF90DopeVector())
+          FprivI->setF90DVDataAllocationPoint(
+              LprivI->getF90DVDataAllocationPoint());
+#endif // INTEL_CUSTOMIZATION
       }
 
       if (!ForTask) {
@@ -5425,18 +5469,149 @@ bool VPOParoptTransform::genFirstPrivatizationCode(WRegionNode *W) {
         // copy instructions.
 
         PrivInitEntryBB = createEmptyPrivInitBB(W);
-        if (!NewPrivInst ||
+
+        // For the given FIRSTPRIVATE item, check if the data may fit
+        // a pointer type, so that it may be passed by value to the region's
+        // outlined function. If the check passes, then the first returned
+        // type is the integer type of the same size as the item's data type,
+        // and the second returned type is the intptr_t type for the current
+        // compilation target.
+        auto GetPassAsScalarSizeInBits = [](Function *F, Value *Item) ->
+            std::tuple<Type *, Type *> {
+          if (!Item || !Item->getType()->isPointerTy())
+            return std::make_tuple(nullptr, nullptr);
+
+          // There is no clean way to recognize VLAs now.
+          // They will look like this in IR:
+          //   %vla = alloca i32, i64 %X
+          //   ... "DIR.OMP.PARALLEL"(), "QUAL.OMP.FIRSTPRIVATE"(i32* %vla)
+          //
+          // It does look like a scalar firstprivate, but it is not,
+          // so we have to recognize this and bail out.
+          if (auto *NewAI =
+              dyn_cast<AllocaInst>(Item->stripPointerCasts())) {
+            bool IsVla = true;
+            Value *Size = NewAI->getArraySize();
+            if (auto *ConstSize = dyn_cast<ConstantInt>(Size))
+              if (ConstSize->isOneValue())
+                IsVla = false;
+
+            if (IsVla)
+              return std::make_tuple(nullptr, nullptr);
+          }
+
+          auto *ValueTy = Item->getType()->getPointerElementType();
+          TypeSize ValueTySize = ValueTy->getPrimitiveSizeInBits();
+
+          if (ValueTy->isPointerTy() ||
+              // TODO: check if we can handle small structures as well.
+              //       ValueTySize is zero for them here, and
+              //       they are not isFirstClassType() (i.e. it is not
+              //       a valid Value type).
+              !ValueTy->isFirstClassType() ||
+              ValueTySize.isScalable())
+            return std::make_tuple(nullptr, nullptr);
+
+          uint64_t ValueSize = ValueTySize.getFixedSize();
+
+          // WARNING: in case host and target use differently sized
+          //          pointers this optimization may be illegal
+          //          for target regions. At the same time, libomptarget
+          //          probably does not support such configurations anyway.
+          unsigned PtrSize =
+              F->getParent()->getDataLayout().getPointerSizeInBits(0);
+          Type *IntPtrTy = Type::getIntNTy(Item->getContext(), PtrSize);
+
+          if (ValueSize != 0 && ValueSize <= PtrSize)
+            return std::make_tuple(
+                Type::getIntNTy(Item->getContext(), ValueSize), IntPtrTy);
+
+          return std::make_tuple(nullptr, nullptr);
+        };
+
+        Type *ValueIntTy = nullptr;
+        Type *IntPtrTy = nullptr;
+        // TODO: do the same thing for NORMALIZED.UB item(s).
+        if (OptimizeScalarFirstprivate &&
+            // FIXME: figure out whether we can do anything
+            //        for getInMap() and getIsByRef() firstprivates.
+            !FprivI->getInMap() && !FprivI->getIsByRef()) {
+
+          std::tie(ValueIntTy, IntPtrTy) =
+              GetPassAsScalarSizeInBits(F, NewPrivInst);
+        }
+
+        if (ValueIntTy && IntPtrTy) {
+          // Prepare the IR so that the item is passed by value.
+          // Original IR:
+          // RegPredBlock:
+          //   br label %EntryBB
+          //
+          // EntryBB:
+          //   %x.fpriv = alloca float
+          //   %0 = call token @llvm.directive.region.entry() [
+          //       "DIR.OMP.PARALLEL"(),
+          //       "QUAL.OMP.FIRSTPRIVATE"(float* %x.fpriv), ...
+          //   br label %PrivInitEntryBB
+          //
+          // PrivInitEntryBB:
+          //   ...
+          //
+          // New IR:
+          // RegPredBlock:
+          //   %x.val = load float, float* %x, align 4
+          //   %x.val.bcast = bitcast float %x.val to i32
+          //   %x.val.bcast.zext = zext i32 %x.val.bcast to i64
+          //   br label %EntryBB
+          //
+          // EntryBB:
+          //   %x.fpriv = alloca float
+          //   %0 = call token @llvm.directive.region.entry() [
+          //       "DIR.OMP.PARALLEL"(),
+          //       "QUAL.OMP.FIRSTPRIVATE"(float* %x.fpriv), ...
+          //   br label %PrivInitEntryBB
+          //
+          // PrivInitEntryBB:
+          //   %x.val.bcast.zext.trunc = trunc i64 %x.val.bcast.zext to i32
+          //   %x.val.bcast.zext.trunc.bcast =
+          //       bitcast i32 %x.val.bcast.zext.trunc to float
+          //   store float %x.val.bcast.zext.trunc.bcast, float* %x.fpriv
+          //   ...
+          IRBuilder<> PredBuilder(RegPredBlock->getTerminator());
+          Value *NewArg =
+              PredBuilder.CreateLoad(Orig, Orig->getName() + Twine(".val"));
+          NewArg = PredBuilder.CreateBitCast(NewArg, ValueIntTy,
+              NewArg->getName() + Twine(".bcast"));
+          NewArg = PredBuilder.CreateZExt(NewArg, IntPtrTy,
+              NewArg->getName() + Twine(".zext"));
+          FprivI->setOrig(NewArg);
+
+          IRBuilder<> RegBuilder(PrivInitEntryBB->getTerminator());
+          NewArg = RegBuilder.CreateTrunc(NewArg, ValueIntTy,
+              NewArg->getName() + Twine(".trunc"));
+          NewArg = RegBuilder.CreateBitCast(
+              NewArg, NewPrivInst->getType()->getPointerElementType(),
+              NewArg->getName() + Twine(".bcast"));
+          RegBuilder.CreateStore(NewArg, NewPrivInst);
+        } else if (!NewPrivInst ||
             // Note that NewPrivInst will be nullptr, if the variable
             // is also lastprivate.
-            FprivI->getIsByRef() ||
-            !NewPrivInst->getType()->isPointerTy() ||
-            !NewPrivInst->getType()->getPointerElementType()->isPointerTy())
+            FprivI->getIsByRef() || !NewPrivInst->getType()->isPointerTy() ||
+            !NewPrivInst->getType()->getPointerElementType()->isPointerTy()) {
           // Copy the firstprivate data from the original version to the
           // private copy. In the case of lastprivate, this is the lastprivate
           // copy. The lastprivate codegen will replace all original vars
           // with the lastprivate copy.
-          genFprivInit(FprivI, PrivInitEntryBB->getTerminator());
-        else {
+          Instruction *FprivInitInsertPt = PrivInitEntryBB->getTerminator();
+#if INTEL_CUSTOMIZATION
+          if (FprivI->getIsF90DopeVector())
+            if (Instruction *AllocPt = FprivI->getF90DVDataAllocationPoint())
+              // Firstprivate initialization needs to be done after
+              // F90 DV's local data allocation is done.
+              FprivInitInsertPt = AllocPt;
+#endif // INTEL_CUSTOMIZATION
+          genFprivInit(FprivI, FprivInitInsertPt);
+        } else {
           // If the firstprivate() item is a pointer to pointer,
           // then we can avoid double dereference and pass the
           // pointee's value directly.  This is not an optimization.
@@ -5529,15 +5704,19 @@ bool VPOParoptTransform::genLastPrivatizationCode(
       Value *ReplacementVal = getClauseItemReplacementValue(LprivI, InsertPt);
       genPrivatizationReplacement(W, Orig, ReplacementVal);
 #if INTEL_CUSTOMIZATION
-        if (!ForTask && LprivI->getIsF90DopeVector())
-          VPOParoptUtils::genF90DVInitCode(LprivI, InsertPt, isTargetSPIRV());
+      if (!ForTask && LprivI->getIsF90DopeVector())
+        VPOParoptUtils::genF90DVInitCode(LprivI, InsertPt, DT, LI,
+                                         isTargetSPIRV());
 #endif // INTEL_CUSTOMIZATION
 
       // Emit constructor call for lastprivate var if it is not also a
       // firstprivate (in which case the firstprivate init emits a cctor).
-      if (LprivI->getInFirstprivate() == nullptr)
-        VPOParoptUtils::genConstructorCall(LprivI->getConstructor(),
-                                           NewPrivInst, NewPrivInst);
+      if ((LprivI->getInFirstprivate() == nullptr) &&
+          (LprivI->getConstructor() != nullptr))
+        genPrivatizationInitOrFini(LprivI, LprivI->getConstructor(), FK_Ctor,
+                                   NewPrivInst, nullptr,
+                                   cast<Instruction>(NewPrivInst), DT);
+
       // Generate the if-last-then-copy-out code.
       if (IsConditionalLP && !IsVecLoop)
         genConditionalLPCode(W, LprivI, OMPLBForChunk, OMPZtt,
@@ -5551,11 +5730,10 @@ bool VPOParoptTransform::genLastPrivatizationCode(
       // at the very end (after the thread may have copied-out)
       // If the var is also firstprivate, the runtime will destruct it.
       if (ForTask && LprivI->getDestructor() &&
-          LprivI->getInFirstprivate() == nullptr) {
-        VPOParoptUtils::genDestructorCall(LprivI->getDestructor(),
-                                          LprivI->getNew(),
-                                          W->getExitBBlock()->getTerminator());
-      }
+          LprivI->getInFirstprivate() == nullptr)
+        genPrivatizationInitOrFini(LprivI, LprivI->getDestructor(), FK_Dtor,
+                                   LprivI->getNew(), nullptr,
+                                   W->getExitBBlock()->getTerminator(), DT);
 
       if (IsVecLoop && IsConditionalLP) {
         // For the following case:
@@ -5616,26 +5794,30 @@ bool VPOParoptTransform::genDestructorCode(WRegionNode *W) {
   // Destructors for privates
   if (W->canHavePrivate())
     for (PrivateItem *PI : W->getPriv().items())
-      VPOParoptUtils::genDestructorCall(PI->getDestructor(), PI->getNew(),
-                                        InsertBeforePt);
+      if (auto *Dtor = PI->getDestructor())
+        genPrivatizationInitOrFini(PI, Dtor, FK_Dtor, PI->getNew(), nullptr,
+                                   InsertBeforePt, DT);
+
   // Destructors for firstprivates
   if (W->canHaveFirstprivate())
     for (FirstprivateItem *FI : W->getFpriv().items())
-      VPOParoptUtils::genDestructorCall(FI->getDestructor(), FI->getNew(),
-                                        InsertBeforePt);
+      if (auto *Dtor = FI->getDestructor())
+        genPrivatizationInitOrFini(FI, Dtor, FK_Dtor, FI->getNew(), nullptr,
+                                   InsertBeforePt, DT);
+
   // Destructors for lastprivates (that are not also firstprivate)
   if (W->canHaveLastprivate())
     for (LastprivateItem *LI : W->getLpriv().items())
-      if (LI->getInFirstprivate() == nullptr)
-        VPOParoptUtils::genDestructorCall(LI->getDestructor(), LI->getNew(),
-                                          InsertBeforePt);
+      if (LI->getInFirstprivate() == nullptr &&
+          (LI->getDestructor() != nullptr))
+        genPrivatizationInitOrFini(LI, LI->getDestructor(), FK_Dtor,
+                                   LI->getNew(), nullptr, InsertBeforePt, DT);
       // else do nothing; dtor already emitted for Firstprivates above
 
   if (W->canHaveReduction())
     for (ReductionItem *RI : W->getRed().items())
       VPOParoptUtils::genDestructorCall(RI->getDestructor(), RI->getNew(),
                                         InsertBeforePt);
-
   LLVM_DEBUG(dbgs() << "\nExit VPOParoptTransform::genDestructorCode\n");
   W->resetBBSet(); // CFG changed; clear BBSet
   return true;
@@ -6516,6 +6698,15 @@ llvm::Optional<unsigned> VPOParoptTransform::getPrivatizationAllocaAddrSpace(
   if (!isTargetSPIRV())
     return llvm::None;
 
+  // FIXME: it's workaround for NONPOD array, and the address space is set to
+  // private. It will be removed after global VLA is supported for SPIR-V
+  // target. And genArrayLength should be updated to support global VLA too.
+  Type *AllocaTy = nullptr;
+  Value *NumElements = nullptr;
+  std::tie(AllocaTy, NumElements, std::ignore) = getItemInfo(I);
+  if (I->getIsNonPod() && (AllocaTy->isArrayTy() || (NumElements != nullptr)))
+    return vpo::ADDRESS_SPACE_PRIVATE;
+
 #if INTEL_CUSTOMIZATION
   if (I->getIsWILocal() || I->getIsF90DopeVector())
     // FIXME: Remove the check for F90 DV, when we have a way to privatize them
@@ -6533,6 +6724,236 @@ llvm::Optional<unsigned> VPOParoptTransform::getPrivatizationAllocaAddrSpace(
     return vpo::ADDRESS_SPACE_GLOBAL;
 
   return vpo::ADDRESS_SPACE_PRIVATE;
+}
+
+// For array privatization constructor/destructor/copy assignment/copy
+// constructor loop, compute the base address of the source and destination
+// array, number of elements, and destination element type.
+void VPOParoptTransform::genPrivAggregateSrcDstInfo(
+    Value *SrcVal, Value *DestVal, Instruction *InsertPt, IRBuilder<> &Builder,
+    Value *&NumElements, Value *&SrcArrayBegin, Value *&DestArrayBegin,
+    Type *&DestElementTy) {
+  NumElements = VPOParoptUtils::genArrayLength(
+      DestVal, DestVal, InsertPt, Builder, DestElementTy, DestArrayBegin);
+
+  auto *DestPointerTy = DestArrayBegin->getType();
+  assert(isa<PointerType>(DestPointerTy) &&
+         "Privatization destination must have pointer type.");
+  DestArrayBegin = Builder.CreateBitCast(
+      DestArrayBegin,
+      PointerType::get(DestElementTy,
+                       cast<PointerType>(DestPointerTy)->getAddressSpace()));
+  if (SrcVal != nullptr) {
+    Type *SrcElementTy = nullptr;
+    VPOParoptUtils::genArrayLength(DestVal, SrcVal, InsertPt, Builder,
+                                   SrcElementTy, SrcArrayBegin);
+    auto *SrcPointerTy = SrcArrayBegin->getType();
+    assert(isa<PointerType>(SrcPointerTy) &&
+           "Privatization source must have pointer type.");
+    SrcArrayBegin = Builder.CreateBitCast(
+        SrcArrayBegin,
+        PointerType::get(SrcElementTy,
+                         cast<PointerType>(SrcPointerTy)->getAddressSpace()));
+  }
+}
+
+// Generate the constructor/destructor/copy assignment/copy constructor for
+// privatized arrays.
+//
+// Source code:
+// class A
+// {
+//   public:
+//     A();
+// };
+// void fn1(int n) {
+//   A e[n];
+// #pragma omp parallel for private(e)
+//   for(int d=0; d<n; d++);
+// }
+//
+// IR:
+// define internal void @_Z3fn1i.DIR.OMP.PARALLEL.LOOP.2.split15.split20(i32*
+// %tid, i32* %bid, i64* %.addr, i64* %omp.vla.tmp, i32* %.omp.lb, i32* %.omp.ub
+// ) #4 {
+// newFuncRoot:
+//   %.omp.lb.fpriv = alloca i32, align 4
+//   %d.priv = alloca i32, align 4
+//   %is.last = alloca i32, align 4
+//   %lower.bnd = alloca i32, align 4
+//   %upper.bnd = alloca i32, align 4
+//   %stride = alloca i32, align 4
+//   %upperD = alloca i32, align 4
+//   br label %DIR.OMP.PARALLEL.LOOP.2.split15.split20
+//
+// DIR.OMP.PARALLEL.LOOP.2.split15.split20:          ; preds = %newFuncRoot
+//   %0 = load i64, i64* %.addr, align 8
+//   %vla.priv = alloca %class.A, i64 %0, align 16
+//   ...
+// DIR.OMP.PARALLEL.LOOP.2.split14:                  ; preds =
+// %DIR.OMP.PARALLEL.LOOP.2.split15.split
+//   %array.begin = getelementptr inbounds %class.A, %class.A* %vla.priv,
+//   i32 0                                                                 (1)
+//   %2 = getelementptr %class.A, %class.A* %array.begin, i64 %0           (2)
+//   %priv.constr.isempty = icmp eq %class.A* %array.begin, %2             (3)
+//   br i1 %priv.constr.isempty, label %priv.constr.done,
+//   label %priv.constr.body                                               (4)
+//
+// priv.constr.done:                                 ; preds =
+// %priv.constr.body, %DIR.OMP.PARALLEL.LOOP.2.split14
+//   br label %DIR.OMP.PARALLEL.LOOP.2.split                               (5)
+//
+// priv.constr.body:                                 ; preds =
+// %priv.constr.body, %DIR.OMP.PARALLEL.LOOP.2.split14
+//   %priv.cpy.dest.ptr = phi %class.A* [ %array.begin,
+//   %DIR.OMP.PARALLEL.LOOP.2.split14 ], [ %priv.cpy.dest.inc,
+//   %priv.constr.body ]                                                   (6)
+//   %3 = call %class.A* @_ZTS1A.omp.def_constr(%class.A*
+//   %priv.cpy.dest.ptr)                                                   (7)
+//   %priv.cpy.dest.inc = getelementptr %class.A, %class.A*
+//   %priv.cpy.dest.ptr, i32 1                                             (8)
+//   %priv.cpy.done = icmp eq %class.A* %priv.cpy.dest.inc, %2             (9)
+//   br i1 %priv.cpy.done, label %priv.constr.done, label
+//   %priv.constr.body                                                    (10)
+//
+void VPOParoptTransform::genPrivAggregateInitOrFini(
+    Function *Fn, FunctionKind FuncKind, Value *DestVal, Value *SrcVal,
+    Instruction *InsertPt, DominatorTree *DT) {
+  LLVM_DEBUG(dbgs() << "Enter " << __FUNCTION__ << "\n");
+
+  assert((FuncKind >= FK_Start && FuncKind <= FK_End) &&
+         "Invalid function kind.");
+
+  IRBuilder<> Builder(InsertPt);
+  auto EntryBB = Builder.GetInsertBlock();
+
+  Type *DestElementTy = nullptr;
+  Value *DestBegin = nullptr;
+  Value *SrcBegin = nullptr;
+  Value *NumElements = nullptr;
+
+  genPrivAggregateSrcDstInfo(SrcVal, DestVal, InsertPt, Builder, NumElements,
+                             SrcBegin, DestBegin, DestElementTy); // (1)
+
+  assert(DestBegin &&
+         "Null destination address for privatization constructor/destructor.");
+  assert(DestElementTy &&
+         "Null element type for privatization constructor/destructor.");
+  assert(NumElements &&
+         "Null number of elements for privatization constructor/destructor.");
+  assert((((FuncKind != FK_CopyAssign) && (FuncKind != FK_CopyCtor)) ||
+          SrcBegin) &&
+         "Null source address for copy assignment/constructor.");
+
+  StringRef Prefix;
+  if (FuncKind == FK_Ctor)
+    Prefix = "priv.constr";
+  else if (FuncKind == FK_Dtor)
+    Prefix = "priv.destr";
+  else if (FuncKind == FK_CopyAssign)
+    Prefix = "priv.cpyassn";
+  else
+    Prefix = "priv.cpyctor";
+
+  auto DestEnd = Builder.CreateGEP(DestBegin, NumElements); // (2)
+  auto IsEmpty =
+      Builder.CreateICmpEQ(DestBegin, DestEnd, Prefix + ".isempty"); // (3)
+
+  auto BodyBB = SplitBlock(EntryBB, InsertPt, DT, LI);
+  BodyBB->setName(Prefix + ".body");
+
+  auto DoneBB = SplitBlock(BodyBB, BodyBB->getTerminator(), DT, LI);
+  DoneBB->setName(Prefix + ".done"); // (5)
+
+  EntryBB->getTerminator()->eraseFromParent();
+  Builder.SetInsertPoint(EntryBB);
+  Builder.CreateCondBr(IsEmpty, DoneBB, BodyBB); // (4)
+
+  Builder.SetInsertPoint(BodyBB);
+  BodyBB->getTerminator()->eraseFromParent();
+  PHINode *DestElementPHI =
+      Builder.CreatePHI(DestBegin->getType(), 2, "priv.cpy.dest.ptr"); // (6)
+  DestElementPHI->addIncoming(DestBegin, EntryBB);
+
+  PHINode *SrcElementPHI = nullptr;
+  if (SrcBegin != nullptr) {
+    SrcElementPHI =
+        Builder.CreatePHI(SrcBegin->getType(), 2, "priv.cpy.src.ptr");
+    SrcElementPHI->addIncoming(SrcBegin, EntryBB);
+  }
+
+  Instruction *DestElementNext =
+      cast<Instruction>(Builder.CreateConstGEP1_32(DestElementPHI, 1,
+                                                   "priv.cpy.dest.inc")); // (8)
+  Value *SrcElementNext = nullptr;
+  if (SrcElementPHI != nullptr)
+    SrcElementNext =
+        Builder.CreateConstGEP1_32(SrcElementPHI, 1, "priv.cpy.src.inc");
+
+  if (FuncKind == FK_Ctor)
+    VPOParoptUtils::genConstructorCall(Fn, DestElementPHI,
+                                       DestElementPHI); // (7)
+  else if (FuncKind == FK_Dtor)
+    VPOParoptUtils::genDestructorCall(Fn, DestElementPHI, DestElementNext);
+  else if (FuncKind == FK_CopyAssign)
+    VPOParoptUtils::genCopyAssignCall(Fn, DestElementPHI, SrcElementPHI,
+                                      DestElementNext);
+  else
+    VPOParoptUtils::genCopyConstructorCall(Fn, DestElementPHI, SrcElementPHI,
+                                           DestElementNext);
+
+  auto Done =
+      Builder.CreateICmpEQ(DestElementNext, DestEnd, "priv.cpy.done"); // (9)
+
+  Builder.CreateCondBr(Done, DoneBB, BodyBB); // (10)
+  DestElementPHI->addIncoming(DestElementNext, Builder.GetInsertBlock());
+  if (SrcElementPHI != nullptr)
+    SrcElementPHI->addIncoming(SrcElementNext, Builder.GetInsertBlock());
+
+  if (DT) {
+    DT->changeImmediateDominator(BodyBB, EntryBB);
+    DT->changeImmediateDominator(DoneBB, EntryBB);
+  }
+  LLVM_DEBUG(dbgs() << "Exit " << __FUNCTION__ << "\n");
+}
+
+// Generate the constructor/destructor/copy assignment/copy constructor for
+// privatized variables.
+void VPOParoptTransform::genPrivatizationInitOrFini(
+    Item *I, Function *Fn, FunctionKind FuncKind, Value *DestVal, Value *SrcVal,
+    Instruction *InsertPt, DominatorTree *DT) {
+  // TODO: Remove checking per-element function (constructor/destructor/copy
+  // assignment/copy constructor) for privatized arrays when the frontend only
+  // emit per-element function. Now frontend has the option to switch between
+  // per-element and array functions.
+  FunctionType *FnTy = Fn->getFunctionType();
+  Type *ElementTy =
+      cast<PointerType>(FnTy->getParamType(0))->getPointerElementType();
+  Type *AllocaTy = nullptr;
+  Value *NumElements = nullptr;
+  std::tie(AllocaTy, NumElements, std::ignore) = getItemInfo(I);
+
+  // If it's array (fixed size or variable length array), but the
+  // argument is scalar type, loop for calling constructor will be
+  // emitted.
+  if ((AllocaTy->isArrayTy() || (NumElements != nullptr)) &&
+      (ElementTy->isArrayTy() == false)) {
+    if (!InsertPt->isTerminator()) {
+      BasicBlock *BB = InsertPt->getParent();
+      BasicBlock *EmptyBB = SplitBlock(BB, BB->getTerminator(), DT, LI);
+      InsertPt = EmptyBB->getTerminator();
+    }
+    genPrivAggregateInitOrFini(Fn, FuncKind, DestVal, SrcVal, InsertPt, DT);
+  } else {
+    if (FuncKind == FK_Ctor)
+      VPOParoptUtils::genConstructorCall(Fn, DestVal, InsertPt);
+    else if (FuncKind == FK_Dtor)
+      VPOParoptUtils::genDestructorCall(Fn, DestVal, InsertPt);
+    else if (FuncKind == FK_CopyAssign)
+      VPOParoptUtils::genCopyAssignCall(Fn, DestVal, SrcVal, InsertPt);
+    else
+      VPOParoptUtils::genCopyConstructorCall(Fn, DestVal, SrcVal, InsertPt);
+  }
 }
 
 bool VPOParoptTransform::genPrivatizationCode(WRegionNode *W) {
@@ -6587,21 +7008,25 @@ bool VPOParoptTransform::genPrivatizationCode(WRegionNode *W) {
         Value *ReplacementVal = getClauseItemReplacementValue(PrivI, InsertPt);
         genPrivatizationReplacement(W, Orig, ReplacementVal);
 
-        // checks for constructor existence
-        VPOParoptUtils::genConstructorCall(PrivI->getConstructor(), NewPrivInst,
-                                           NewPrivInst);
+        if (auto *Ctor = PrivI->getConstructor())
+          genPrivatizationInitOrFini(PrivI, Ctor, FK_Ctor, NewPrivInst, nullptr,
+                                     cast<Instruction>(NewPrivInst), DT);
+
 #if INTEL_CUSTOMIZATION
         if (!ForTask && PrivI->getIsF90DopeVector())
-          VPOParoptUtils::genF90DVInitCode(PrivI, InsertPt, isTargetSPIRV());
+          VPOParoptUtils::genF90DVInitCode(PrivI, InsertPt, DT, LI,
+                                           isTargetSPIRV());
 #endif // INTEL_CUSTOMIZATION
         if (ForTask && PrivI->getDestructor()) {
           // For tasks, call the destructor at the end of the region.
           // For non-tasks, genDestructorCode takes care of this.
           if (!DestrBlock)
             DestrBlock = createEmptyPrivFiniBB(W);
-          VPOParoptUtils::genDestructorCall(PrivI->getDestructor(),
-                                            PrivI->getNew(),
-                                            DestrBlock->getTerminator());
+
+          if (auto *Dtor = PrivI->getDestructor())
+            genPrivatizationInitOrFini(PrivI, Dtor, FK_Dtor, PrivI->getNew(),
+                                       nullptr, DestrBlock->getTerminator(),
+                                       DT);
         }
 
         LLVM_DEBUG(dbgs() << __FUNCTION__ << ": privatized '";
@@ -7609,6 +8034,7 @@ bool VPOParoptTransform::genMultiThreadedCode(WRegionNode *W) {
     NewF->addFnAttr("target.declare", "true");
 
   CallInst *NewCall = cast<CallInst>(NewF->user_back());
+  assert(NewCall->use_empty() && "Unexpected uses of outlined function call");
 
   unsigned int TidArgNo = 0;
   bool IsTidArg = false;
@@ -7641,29 +8067,37 @@ bool VPOParoptTransform::genMultiThreadedCode(WRegionNode *W) {
     }
   }
 
-  CallInst *MTFnCI =
-      CallInst::Create(MTFn->getFunctionType(), MTFn, MTFnArgs, "", NewCall);
-  MTFnCI->setCallingConv(NewCall->getCallingConv());
+  auto CreateMtFnCall = [MTFn, NewCall, &MTFnArgs](Instruction *InsPt) {
+    auto *CI =
+        CallInst::Create(MTFn->getFunctionType(), MTFn, MTFnArgs, "", InsPt);
+    CI->setCallingConv(NewCall->getCallingConv());
 
-  // Copy isTailCall attribute
-  if (NewCall->isTailCall())
-    MTFnCI->setTailCall();
+    // Copy isTailCall attribute
+    if (NewCall->isTailCall())
+      CI->setTailCall();
 
-  MTFnCI->setDebugLoc(NewCall->getDebugLoc());
+    CI->setDebugLoc(NewCall->getDebugLoc());
+    return CI;
+  };
 
-  // MTFnArgs.clear();
+  Instruction *ForkInsPt = NewCall;
+  if (Value *IfClause = !W->getIsTeams() ? W->getIf() : nullptr) {
+    // TODO: change this to assert once FE starts generating if clause condition
+    // with i1 type.
+    if (!IfClause->getType()->isIntegerTy(1))
+      IfClause = new ICmpInst(NewCall, ICmpInst::ICMP_NE, IfClause,
+                              ConstantInt::getSigned(IfClause->getType(), 0),
+                              "if.cond");
 
-  if (!NewCall->use_empty())
-    NewCall->replaceAllUsesWith(MTFnCI);
+    Instruction *ElseInsPt = nullptr;
+    VPOParoptUtils::buildCFGForIfClause(IfClause, ForkInsPt, ElseInsPt, NewCall,
+                                        DT);
 
-  // Keep the orginal extraced function name after finalization
-  MTFnCI->takeName(NewCall);
-  BasicBlock *MTFnBB = MTFnCI->getParent();
-
-  if (GeneralUtils::hasNextUniqueInstruction(MTFnCI)) {
-    Instruction* NextI = GeneralUtils::nextUniqueInstruction(MTFnCI);
-    SplitBlock(MTFnBB, NextI, DT, LI);
+    // Create serial call in 'else' block.
+    CreateMtFnCall(ElseInsPt);
   }
+
+  CallInst *MTFnCI = CreateMtFnCall(ForkInsPt);
 
   // Remove the orginal serial call to extracted NewF from the program,
   // reducing the use-count of NewF
@@ -7674,78 +8108,7 @@ bool VPOParoptTransform::genMultiThreadedCode(WRegionNode *W) {
 
   // Generate __kmpc_fork_call for multithreaded execution of MTFn call
   CallInst* ForkCI = genForkCallInst(W, MTFnCI);
-
-  // Generate __kmpc_ok_to_fork test Call Instruction
-  CallInst* ForkTestCI = VPOParoptUtils::genKmpcForkTest(W, IdentTy, ForkCI);
-
-  //
-  // Genrerate __kmpc_ok_to_fork test for taking either __kmpc_fork_call
-  // or serial call branch, and update CFG and DomTree
-  //
-  //  ForkTestBB(codeRepl)
-  //         /       \
-  //        /         \
-  // ThenForkBB   ElseCallBB
-  //        \       /
-  //         \     /
-  //  SuccessorOfThenForkBB
-  //
-  BasicBlock *ForkTestBB = ForkTestCI->getParent();
-
-  BasicBlock *ForkBB = ForkCI->getParent();
-
-  BasicBlock *ThenForkBB = SplitBlock(ForkBB, ForkCI, DT, LI);
-  ThenForkBB->setName("if.then.fork." + Twine(W->getNumber()));
-
-  BasicBlock *CallBB = MTFnCI->getParent();
-
-  BasicBlock *ElseCallBB = SplitBlock(CallBB, MTFnCI, DT, LI);
-  ElseCallBB->setName("if.else.call." + Twine(W->getNumber()));
-
-  Function *F = ForkTestBB->getParent();
-  LLVMContext &C = F->getContext();
-
-  ConstantInt *ValueZero = ConstantInt::get(Type::getInt32Ty(C), 0);
-
-  Instruction *TermInst = ForkTestBB->getTerminator();
-
-  Value *IfClauseValue = nullptr;
-
-  if (!W->getIsTeams())
-    IfClauseValue = W->getIf();
-
-  ICmpInst* CondInst = nullptr;
-
-  if (IfClauseValue) {
-    IRBuilder<> Builder(TermInst);
-
-    // FE may generate if() condition as a boolean value,
-    // so we need to cast it to the type of __kmpc_ok_to_fork().
-    IfClauseValue = Builder.CreateZExtOrTrunc(IfClauseValue,
-                                              ForkTestCI->getType());
-    auto *IfAndForkTestCI =
-        Builder.CreateAnd(IfClauseValue, ForkTestCI, "and.if.clause");
-    cast<Instruction>(IfAndForkTestCI)->setDebugLoc(TermInst->getDebugLoc());
-    CondInst = new ICmpInst(TermInst, ICmpInst::ICMP_NE,
-                            IfAndForkTestCI, ValueZero, "if.fork.test");
-  }
-  else
-    CondInst = new ICmpInst(TermInst, ICmpInst::ICMP_NE,
-                            ForkTestCI, ValueZero, "fork.test");
-
-  Instruction *NewTermInst = BranchInst::Create(ThenForkBB, ElseCallBB,
-                                                CondInst);
-  ReplaceInstWithInst(TermInst, NewTermInst);
-
-  Instruction *NewForkBI = BranchInst::Create(
-                               ElseCallBB->getTerminator()->getSuccessor(0));
-
-  ReplaceInstWithInst(ThenForkBB->getTerminator(), NewForkBI);
-
-  DT->changeImmediateDominator(ThenForkBB, ForkTestCI->getParent());
-  DT->changeImmediateDominator(ElseCallBB, ForkTestCI->getParent());
-  DT->changeImmediateDominator(ThenForkBB->getTerminator()->getSuccessor(0),
-                               ForkTestCI->getParent());
+  MTFnCI->eraseFromParent();
 
   // Generate __kmpc_push_num_threads(...) Call Instruction
   Value *NumThreads = nullptr;
@@ -7769,10 +8132,6 @@ bool VPOParoptTransform::genMultiThreadedCode(WRegionNode *W) {
       VPOParoptUtils::genKmpcPushNumThreads(W, IdentTy, Tid, NumThreads,
                                             ForkCI);
   }
-
-  // Remove the serial call to MTFn function from the program, reducing
-  // the use-count of MTFn
-  // MTFnCI->eraseFromParent();
 
   LLVM_DEBUG(dbgs() << "\nExit VPOParoptTransform::genMultiThreadedCode\n");
 
@@ -7885,6 +8244,7 @@ CallInst* VPOParoptTransform::genForkCallInst(WRegionNode *W, CallInst *CI) {
 
   ForkCallInst->setCallingConv(CallingConv::C);
   ForkCallInst->setTailCall(false);
+  ForkCallInst->setDebugLoc(CI->getDebugLoc());
 
   return ForkCallInst;
 }
@@ -8676,12 +9036,13 @@ bool VPOParoptTransform::genCancelCode(WRNCancelNode *W) {
     // } else {
     //   %2 = __kmpc_cancellationpoint(...);
     // }
-    Function *F = EntryBB->getParent();
-    LLVMContext &C = F->getContext();
-    ConstantInt *ValueZero = ConstantInt::get(Type::getInt32Ty(C), 0);
-
-    auto *CondInst = new ICmpInst(InsertPt, ICmpInst::ICMP_NE, IfExpr,
-                                  ValueZero, "cancel.if");
+    IRBuilder<> Builder(InsertPt);
+    unsigned IfExprBitWidth = IfExpr->getType()->getIntegerBitWidth();
+    auto *CondInst =
+        IfExprBitWidth == 1
+            ? IfExpr
+            : Builder.CreateICmpNE(IfExpr, Builder.getIntN(IfExprBitWidth, 0),
+                                   "cancel.if");
 
     Instruction *IfCancelThen = nullptr;
     Instruction *IfCancelElse = nullptr;
@@ -9398,7 +9759,7 @@ Function *VPOParoptTransform::genCopyPrivateFunc(WRegionNode *W,
     LoadInst *DstLoad = Builder.CreateLoad(DstGep, OrigName + ".dst");
     Value *NewCopyPrivInst =
         genPrivatizationAlloca(CprivI, EntryBB->getTerminator(), ".cp.priv");
-    genLprivFini(NewCopyPrivInst, DstLoad, EntryBB->getTerminator());
+    genLprivFini(CprivI, NewCopyPrivInst, DstLoad, EntryBB->getTerminator());
     NewCopyPrivInst->replaceAllUsesWith(SrcLoad);
     cast<AllocaInst>(NewCopyPrivInst)->eraseFromParent();
   }

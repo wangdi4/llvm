@@ -629,8 +629,13 @@ std::string ToolChain::GetLinkerPath() const {
   }
   // If we're passed -fuse-ld= with no argument, or with the argument ld,
   // then use whatever the default system linker is.
-  if (UseLinker.empty() || UseLinker == "ld")
-    return GetProgramPath(getDefaultLinker());
+  if (UseLinker.empty() || UseLinker == "ld") {
+    const char *DefaultLinker = getDefaultLinker();
+    if (llvm::sys::path::is_absolute(DefaultLinker))
+      return std::string(DefaultLinker);
+    else
+      return GetProgramPath(DefaultLinker);
+  }
 
   // Extending -fuse-ld= to an absolute or relative path is unexpected. Checking
   // for the linker flavor is brittle. In addition, prepending "ld." or "ld64."
@@ -1554,6 +1559,13 @@ llvm::opt::DerivedArgList *ToolChain::TranslateOffloadTargetArgs(
           Modified = true;
         } else
           DAL->append(A);
+        continue;
+      } else if (getTriple().isSPIR() && getDriver().IsIntelMode() &&
+                 (A->getOption().matches(options::OPT_O_Group) ||
+                  A->getOption().matches(options::OPT__SLASH_O))) {
+        // Do not add any optimization option.  It is set either via arg
+        // to -fopenmp-targets or implied when adding args to -cc1
+        Modified = true;
         continue;
 #endif // INTEL_CUSTOMIZATION
       } else if (XOffloadTargetNoTriple) {

@@ -443,12 +443,14 @@ public:
   // Given the pointer operand of a load/store instruction, setup and return the
   // memory ref to use in generating the load/store HLInst. ScalSymbase
   // specifies the symbase to set for the returned ref. AANodes specify alias
-  // analysis metadata to set for the returned ref. Lane0Value specifies if
-  // we need memory ref corresponding to just vector lane 0. This is used to
-  // handle uniform memory accesses. If VPPtr is unit strided(stride of 1/-1),
-  // the ref returned is properly adjusted to enable wide load/store.
+  // analysis metadata to set for the returned ref. Alignment specifies the
+  // alignment to be set for the generated memref. Lane0Value specifies if we
+  // need memory ref corresponding to just vector lane 0. This is used to handle
+  // uniform memory accesses. If VPPtr is unit strided(stride of 1/-1), the ref
+  // returned is properly adjusted to enable wide load/store.
   RegDDRef *getMemoryRef(const VPValue *VPPtr, unsigned ScalSymbase,
-                         const AAMDNodes &AANodes, bool Lane0Value = false);
+                         const AAMDNodes &AANodes, Align Alignment,
+                         bool Lane0Value = false);
 
   bool isSearchLoop() const {
     return VPlanIdioms::isAnySearchLoop(SearchLoopType);
@@ -805,10 +807,10 @@ private:
   // scalar load is done using the pointer operand and the value is
   // broadcast to generate the vector value. If Mask is non-null, the load
   // is done conditionally only if Mask is non-zero.
-  void widenUniformLoadImpl(const VPInstruction *VPInst, RegDDRef *Mask);
+  void widenUniformLoadImpl(const VPLoadStoreInst *VPLoad, RegDDRef *Mask);
 
   // Implementation of load/store widening.
-  void widenLoadStoreImpl(const VPInstruction *VPInst, RegDDRef *Mask);
+  void widenLoadStoreImpl(const VPLoadStoreInst *VPLoadStore, RegDDRef *Mask);
 
   // Implementation of codegen for subscript instruction.
   void generateHIRForSubscript(const VPSubscriptInst *VPSubscript,

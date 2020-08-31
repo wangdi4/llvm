@@ -312,6 +312,53 @@ private:
   /// \param[out] NeedBID : 'true' if any W visited has W->needsBID()==true
   void gatherWRegionNodeList(bool &NeedTID, bool &NeedBID);
 
+  enum FunctionKind : int {
+    FK_Start = 0,
+    FK_Ctor = FK_Start,
+    FK_Dtor = 1,
+    FK_CopyAssign = 2,
+    FK_CopyCtor = 3,
+    FK_End = FK_CopyCtor
+  };
+
+  /// Copy data from the source address \p To to the destination address
+  /// \p From
+  /// These must both be pointer types.
+  /// A copy constructor or copy-assign function \p Cctor will be used if
+  /// given.
+  /// \p IsByRef will insert an extra load to dereference the \p From pointer.
+  void genCopyByAddr(Item *I, Value *To, Value *From, Instruction *InsertPt,
+                     Function *Cctor = nullptr, bool IsByRef = false);
+
+  /// For array constructor/destructor/copy assignment/copy constructor loop,
+  /// get the base address of the destination array, number of elements, and
+  /// destination element type.
+  /// \param [in] SrcVal Source value for copy assignment/copy constructor.
+  /// \param [in] DestVal Destination value for constructor/destructor/copy
+  /// assign/copy constructor.
+  /// \param [in] InsertPt Insert point for any Instructions to be inserted.
+  /// \param [in] Builder IRBuilder using InsertPt for any new Instructions.
+  /// \param [out] NumElements Number of elements in the array.
+  /// \param [out] SrcArrayBegin Base address of the source array.
+  /// \param [out] DestArrayBegin Base address of the destination array.
+  /// \param [out] DestElementTy Type of each element of the array.
+  void genPrivAggregateSrcDstInfo(Value *SrcVal, Value *DestVal,
+                                  Instruction *InsertPt, IRBuilder<> &Builder,
+                                  Value *&NumElements, Value *&SrcArrayBegin,
+                                  Value *&DestArrayBegin, Type *&DestElementTy);
+
+  /// Generate the constructor/destructor/copy assignment/copy constructor for
+  /// privatized arrays.
+  void genPrivAggregateInitOrFini(Function *Fn, FunctionKind FuncKind,
+                                  Value *DestVal, Value *SrcVal,
+                                  Instruction *InsertPt, DominatorTree *DT);
+
+  /// Generate code for calling constructor/destructor/copy assignment/copy
+  /// constructor for privatized variables including scalar and arrays.
+  void genPrivatizationInitOrFini(Item *I, Function *Fn, FunctionKind FuncKind,
+                                  Value *DestVal, Value *SrcVal,
+                                  Instruction *InsertPt, DominatorTree *DT);
+
   /// Generate code for private variables
   bool genPrivatizationCode(WRegionNode *W);
 
@@ -375,7 +422,7 @@ private:
   /// NumElements is the number of elements, in case I's Orig is an array, \b
   /// nullptr otherwise. AddrSpace is the address space of the input item
   /// object.
-  static std::tuple<Type *, Value *, unsigned> getItemInfo(Item *I);
+  static std::tuple<Type *, Value *, unsigned> getItemInfo(const Item *I);
 
   /// Generate an optionally addrspacecast'ed pointer Value for the local copy
   /// of \p OrigValue with \p OrigElemTy Element Type, with \p NameSuffix
@@ -674,7 +721,7 @@ private:
   void genFprivInit(FirstprivateItem *FprivI, Instruction *InsertPt);
 
   /// Utility for last private update or copyprivate code generation.
-  void genLprivFini(Value *NewV, Value *OldV, Instruction *InsertPt);
+  void genLprivFini(Item *I, Value *NewV, Value *OldV, Instruction *InsertPt);
   void genLprivFini(LastprivateItem *LprivI, Instruction *InsertPt);
 
   /// Collect all stores done to the local copy of the lastprivate item \p

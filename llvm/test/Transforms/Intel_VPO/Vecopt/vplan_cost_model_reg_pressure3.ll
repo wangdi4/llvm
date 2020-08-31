@@ -50,7 +50,7 @@ define dso_local void @foo() {
 ; CHECK-NEXT:    Cost 2 for i32 [[VP12:%.*]] = load i32* [[VP_SUBSCRIPT_10]]
 ; CHECK-NEXT:    Cost Unknown for i32 [[VP13:%.*]] = hir-copy i32 0 , OriginPhiId: -1
 ; CHECK-NEXT:    Cost 2 for i32 [[VP14:%.*]] = add i32 [[VP2]] i32 1
-; CHECK-NEXT:    Cost 2 for i1 [[VP15:%.*]] = icmp i32 [[VP14]] i32 0
+; CHECK-NEXT:    Cost 2 for i1 [[VP15:%.*]] = icmp ne i32 [[VP14]] i32 0
 ; CHECK-NEXT:  Analyzing VPBasicBlock [[BB4:BB[0-9]+]], total cost: 20
 ; CHECK-NEXT:  Block Vector spill/fill approximate cost (not included into total cost): 24
 ; CHECK-NEXT:    Cost 0 for i1 [[VP16:%.*]] = block-predicate i1 [[VP15]]
@@ -70,7 +70,7 @@ define dso_local void @foo() {
 ; CHECK-NEXT:    Cost 0 for i32* [[VP_SUBSCRIPT_11:%.*]] = subscript inbounds [1024 x i32]* @b i64 0 i64 [[VP0]]
 ; CHECK-NEXT:    Cost 2 for store i32 [[VP__BLEND_BB4]] i32* [[VP_SUBSCRIPT_11]]
 ; CHECK-NEXT:    Cost 4 for i64 [[VP1]] = add i64 [[VP0]] i64 [[VP__IND_INIT_STEP]]
-; CHECK-NEXT:    Cost 32 for i1 [[VP28:%.*]] = icmp i64 [[VP1]] i64 1023
+; CHECK-NEXT:    Cost 32 for i1 [[VP28:%.*]] = icmp sle i64 [[VP1]] i64 1023
 ; CHECK-NEXT:  Analyzing VPBasicBlock [[BB5:BB[0-9]+]], total cost: 0
 ; CHECK-NEXT:    Cost Unknown for i64 [[VP__IND_FINAL:%.*]] = induction-final{add} i64 live-in0 i64 1
 ; CHECK-NEXT:  Analyzing VPBasicBlock [[BB6:BB[0-9]+]], total cost: 0

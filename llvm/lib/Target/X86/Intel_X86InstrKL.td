@@ -51,13 +51,13 @@ let SchedRW = [WriteSystem], Predicates = [HasKeyLocker] in {
   let Uses = [XMM0, XMM1, XMM2, XMM3, XMM4, XMM5, XMM6, XMM7],
       Defs = [EFLAGS, XMM0, XMM1, XMM2, XMM3, XMM4, XMM5, XMM6, XMM7] in {
     def AESENCWIDE128KL : I<0xD8, MRM0m, (outs), (ins opaquemem:$src),
-                            "aesenc128widekl\t$src", []>, T8XS;
+                            "aesencwide128kl\t$src", []>, T8XS;
     def AESDECWIDE128KL : I<0xD8, MRM1m, (outs), (ins opaquemem:$src),
-                            "aesdec128widekl\t$src", []>, T8XS;
+                            "aesdecwide128kl\t$src", []>, T8XS;
     def AESENCWIDE256KL : I<0xD8, MRM2m, (outs), (ins opaquemem:$src),
-                            "aesenc256widekl\t$src", []>, T8XS;
+                            "aesencwide256kl\t$src", []>, T8XS;
     def AESDECWIDE256KL : I<0xD8, MRM3m, (outs), (ins opaquemem:$src),
-                            "aesdec256widekl\t$src", []>, T8XS;
+                            "aesdecwide256kl\t$src", []>, T8XS;
   }
 
 } // SchedRW, Predicates

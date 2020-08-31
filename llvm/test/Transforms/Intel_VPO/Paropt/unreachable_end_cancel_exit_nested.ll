@@ -59,7 +59,7 @@
 ; After transform, there should be no directives left, and if we don't comp-fail,
 ; then it means we're fine.
 ; TFORM-NOT:  call token @llvm.directive.region.entry()
-; TFORM: tail call i32 @__kmpc_ok_to_fork
+; TFORM: call void {{.+}} @__kmpc_fork_call
 ; TFORM: call i32 @__kmpc_cancel
 
 ; ModuleID = 'cancel_par_exit_nested.c'

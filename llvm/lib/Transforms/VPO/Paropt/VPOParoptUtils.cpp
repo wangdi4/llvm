@@ -227,45 +227,6 @@ CallInst *VPOParoptUtils::genKmpcEndCall(Function *F, Instruction *AI,
   return KmpcEndCall;
 }
 
-
-// This function generates a runtime library call to __kmpc_ok_to_fork(&loc)
-CallInst *VPOParoptUtils::genKmpcForkTest(WRegionNode *W, StructType *IdentTy,
-                                          Instruction *InsertPt) {
-  BasicBlock *B = W->getEntryBBlock();
-  BasicBlock *E = W->getExitBBlock();
-
-  Function *F = B->getParent();
-
-  Module *M = F->getParent();
-  LLVMContext &C = F->getContext();
-
-  int Flags = KMP_IDENT_KMPC;
-
-  GlobalVariable *Loc =
-      genKmpcLocfromDebugLoc(F, InsertPt, IdentTy, Flags, B, E);
-
-  FunctionType *FnForkTestTy = FunctionType::get(
-      Type::getInt32Ty(C), PointerType::getUnqual(IdentTy), false);
-
-  Function *FnForkTest = M->getFunction("__kmpc_ok_to_fork");
-
-  if (!FnForkTest) {
-    FnForkTest = Function::Create(FnForkTestTy, GlobalValue::ExternalLinkage,
-                                  "__kmpc_ok_to_fork", M);
-    FnForkTest->setCallingConv(CallingConv::C);
-  }
-
-  std::vector<Value *> FnForkTestArgs;
-  FnForkTestArgs.push_back(Loc);
-
-  CallInst *ForkTestCall = CallInst::Create(
-      FnForkTestTy, FnForkTest, FnForkTestArgs, "fork.test", InsertPt);
-  ForkTestCall->setCallingConv(CallingConv::C);
-  ForkTestCall->setTailCall(true);
-
-  return ForkTestCall;
-}
-
 /// Update loop scheduling kind based on ordered clause and chunk
 /// size information
 WRNScheduleKind VPOParoptUtils::genScheduleKind(WRNScheduleKind Kind,
@@ -4531,32 +4492,6 @@ CallInst *VPOParoptUtils::genCopyConstructorCall(Function *Cctor, Value *D,
   return Call;
 }
 
-// Utility to copy data from address "From" to address "To", with an optional
-// copy constructor call (can be null) and by-ref dereference (false);
-void VPOParoptUtils::genCopyByAddr(Value *To, Value *From,
-                                   Instruction *InsertPt, Function *Cctor,
-                                   bool IsByRef) {
-  IRBuilder<> Builder(InsertPt);
-  const DataLayout &DL = InsertPt->getModule()->getDataLayout();
-  AllocaInst *AI = dyn_cast<AllocaInst>(To);
-  if (!AI)
-    AI = dyn_cast<AllocaInst>(From);
-
-  // For by-refs, do a pointer dereference to reach the actual operand.
-  if (IsByRef)
-    From = Builder.CreateLoad(From);
-  assert(From->getType()->isPointerTy() && To->getType()->isPointerTy());
-  Type *ObjType = AI ? AI->getAllocatedType()
-                     : cast<PointerType>(From->getType())->getElementType();
-  if (Cctor)
-    genCopyConstructorCall(Cctor, To, From, InsertPt);
-  else if (!VPOUtils::canBeRegisterized(ObjType, DL) ||
-           (AI && AI->isArrayAllocation())) {
-    unsigned Alignment = DL.getABITypeAlignment(ObjType);
-    VPOUtils::genMemcpy(To, From, DL, Alignment, InsertPt);
-  } else
-    Builder.CreateStore(Builder.CreateLoad(From), To);
-}
 
 // Emit Copy Assign call and insert it before InsertBeforePt
 CallInst *VPOParoptUtils::genCopyAssignCall(Function *Cp, Value *D, Value *S,
@@ -4996,9 +4931,8 @@ Value *VPOParoptUtils::genArrayLength(Value *AI, Value *BaseAddr,
   assert(GeneralUtils::isOMPItemLocalVAR(AI) &&
          "genArrayLength: Expect isOMPItemLocalVAR().");
 
-  Type *AllocaTy;
-  Value *NumElements;
-
+  Type *AllocaTy = nullptr;
+  Value *NumElements = nullptr;
   Type *AIElemType = cast<PointerType>(AI->getType())->getElementType();
   std::tie(AllocaTy, NumElements) =
       GeneralUtils::getOMPItemLocalVARPointerTypeAndNumElem(AI, AIElemType);
@@ -5006,27 +4940,34 @@ Value *VPOParoptUtils::genArrayLength(Value *AI, Value *BaseAddr,
 
   // TODO: NumElements??
   Type *ScalarTy = AllocaTy->getScalarType();
-  ArrayType *ArrTy = dyn_cast<ArrayType>(ScalarTy);
-  assert(ArrTy && "Expect array type. ");
-
   SmallVector<llvm::Value *, 8> GepIndices;
-  ConstantInt *Zero = Builder.getInt32(0);
-  GepIndices.push_back(Zero);
+  ArrayType *ArrTy = dyn_cast<ArrayType>(ScalarTy);
   uint64_t CountFromCLAs = 1;
+  ConstantInt *Zero = Builder.getInt32(0);
 
-  ArrayType *ArrayT = ArrTy;
-  while (ArrayT) {
+  if (ArrTy != nullptr) {
     GepIndices.push_back(Zero);
-    CountFromCLAs *= ArrayT->getNumElements();
-    ElementTy = ArrayT->getElementType();
-    ArrayT = dyn_cast<ArrayType>(ElementTy);
+
+    ArrayType *ArrayT = ArrTy;
+    while (ArrayT) {
+      GepIndices.push_back(Zero);
+      CountFromCLAs *= ArrayT->getNumElements();
+      ElementTy = ArrayT->getElementType();
+      ArrayT = dyn_cast<ArrayType>(ElementTy);
+    }
+    NumElements = Builder.getInt32(CountFromCLAs);
+  } else {
+    // For VLA, NumElements is computation result of array length, so we don't
+    // need to compute it here.
+    assert(!(NumElements == nullptr || isa<ConstantInt>(NumElements)) &&
+           "Expect variable length array.");
+    ElementTy = ScalarTy;
+    GepIndices.push_back(Zero);
   }
 
-  LLVMContext &C = InsertPt->getParent()->getParent()->getContext();
   ArrayBegin = Builder.CreateInBoundsGEP(BaseAddr, GepIndices, "array.begin");
-  Value *numElements = ConstantInt::get(Type::getInt32Ty(C), CountFromCLAs);
 
-  return numElements;
+  return NumElements;
 }
 
 Constant* VPOParoptUtils::getMinMaxIntVal(LLVMContext &C, Type *Ty,
@@ -5048,7 +4989,7 @@ Constant* VPOParoptUtils::getMinMaxIntVal(LLVMContext &C, Type *Ty,
 
   ConstantInt *MinMaxVal = ConstantInt::get(C, MinMaxAPInt);
   if (VectorType *VTy = dyn_cast<VectorType>(Ty))
-    return ConstantVector::getSplat(ElementCount(VTy->getNumElements(), false),
+    return ConstantVector::getSplat(ElementCount::getFixed(VTy->getNumElements()),
                                     MinMaxVal);
   return MinMaxVal;
 }
@@ -5199,8 +5140,13 @@ Function *VPOParoptUtils::genOutlineFunction(const WRegionNode &W,
     auto PointerSize =
         DL.getTypeSizeInBits(PointerType::getUnqual(Type::getInt8Ty(C)));
 
+    User::op_iterator ArgIt = CallSite->arg_begin();
+    User::op_iterator ArgEnd = CallSite->arg_end();
     for (auto ArgTyI = FnType->param_begin(), ArgTyE = FnType->param_end();
-         ArgTyI != ArgTyE; ++ArgTyI)
+         ArgTyI != ArgTyE; ++ArgTyI, ++ArgIt) {
+      assert(ArgIt != ArgEnd && "Too few arguments in a function call.");
+      (void)ArgEnd;
+
       // If it is not a pointer type and the strict verification is enabled,
       // then fail. If strict verification is disabled, then check
       // if the argument's size matches the pointer size,
@@ -5210,6 +5156,12 @@ Function *VPOParoptUtils::genOutlineFunction(const WRegionNode &W,
                    dbgs() << "' has a non-pointer argument of type "
                    << **ArgTyI << "\nCall site:\n" << *CallSite << "\n");
 
+        // Non-pointer FIRSTPRIVATE items may appear due to the optimization
+        // that transforms pass-by-pointer to pass-by-value.
+        if (W.canHaveFirstprivate() &&
+            WRegionUtils::wrnSeenAsFirstprivate(&W, ArgIt->get()))
+          continue;
+
         if (StrictOutlineVerification)
           llvm_unreachable("Outlined function has a non-pointer argument.");
 
@@ -5218,6 +5170,7 @@ Function *VPOParoptUtils::genOutlineFunction(const WRegionNode &W,
           llvm_unreachable("Outlined function's argument has size "
                            "different from pointer size.");
       }
+    }
   }
 
   DT->verify(DominatorTree::VerificationLevel::Full);

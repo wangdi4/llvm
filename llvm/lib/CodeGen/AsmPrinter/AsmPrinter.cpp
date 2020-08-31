@@ -15,10 +15,11 @@
 #include "DwarfDebug.h"
 #include "DwarfException.h"
 #if INTEL_CUSTOMIZATION
+#include "Intel_TraceBackDebug.h"
 #include "intel/Intel_AsmOptReport.h"
 #include "intel/STIDebug.h"
 #include "llvm/Analysis/Intel_OptReport/OptReportOptionsPass.h"
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_CUSTOMIZATION
 #include "WasmException.h"
 #include "WinCFGuard.h"
 #include "WinException.h"
@@ -361,7 +362,18 @@ bool AsmPrinter::doInitialization(Module &M) {
       }
 #endif // INTEL_CUSTOMIZATION
     }
-    if (!EmitCodeView || M.getDwarfVersion()) {
+
+#if INTEL_CUSTOMIZATION
+    // Create the debug handler for traceback if there is a TraceBack
+    // module flag.
+    bool TraceBackFlag = M.hasTraceBackFlag();
+    if (TraceBackFlag && TM.getTargetTriple().isX86()) {
+      Handlers.emplace_back(std::make_unique<TraceBackDebug>(this),
+                            DbgTimerName, DbgTimerDescription, nullptr,
+                            nullptr);
+    }
+
+    if ((!EmitCodeView && !TraceBackFlag) || M.getDwarfVersion()) {
       DD = new DwarfDebug(this, &M);
       DD->beginModule();
       Handlers.emplace_back(std::unique_ptr<DwarfDebug>(DD), DbgTimerName,
@@ -369,6 +381,7 @@ bool AsmPrinter::doInitialization(Module &M) {
                             DWARFGroupDescription);
     }
   }
+#endif // INTEL_CUSTOMIZATION
 
   switch (MAI->getExceptionHandlingType()) {
   case ExceptionHandling::SjLj:
@@ -1698,9 +1711,8 @@ bool AsmPrinter::doFinalization(Module &M) {
     // Variable `Name` is the function descriptor symbol (see above). Get the
     // function entry point symbol.
     MCSymbol *FnEntryPointSym = TLOF.getFunctionEntryPointSymbol(&F, TM);
-    if (cast<MCSymbolXCOFF>(FnEntryPointSym)->hasRepresentedCsectSet())
-      // Emit linkage for the function entry point.
-      emitLinkage(&F, FnEntryPointSym);
+    // Emit linkage for the function entry point.
+    emitLinkage(&F, FnEntryPointSym);
 
     // Emit linkage for the function descriptor.
     emitLinkage(&F, Name);
@@ -2264,47 +2276,50 @@ void AsmPrinter::emitLLVMUsedList(const ConstantArray *InitList) {
   }
 }
 
-namespace {
-
-struct Structor {
-  int Priority = 0;
-  Constant *Func = nullptr;
-  GlobalValue *ComdatKey = nullptr;
-
-  Structor() = default;
-};
-
-} // end anonymous namespace
-
-/// EmitXXStructorList - Emit the ctor or dtor list taking into account the init
-/// priority.
-void AsmPrinter::emitXXStructorList(const DataLayout &DL, const Constant *List,
-                                    bool isCtor) {
-  // Should be an array of '{ i32, void ()*, i8* }' structs.  The first value is the
-  // init priority.
-  if (!isa<ConstantArray>(List)) return;
+void AsmPrinter::preprocessXXStructorList(const DataLayout &DL,
+                                          const Constant *List,
+                                          SmallVector<Structor, 8> &Structors) {
+  // Should be an array of '{ i32, void ()*, i8* }' structs.  The first value is
+  // the init priority.
+  if (!isa<ConstantArray>(List))
+    return;
 
   // Gather the structors in a form that's convenient for sorting by priority.
-  SmallVector<Structor, 8> Structors;
   for (Value *O : cast<ConstantArray>(List)->operands()) {
     auto *CS = cast<ConstantStruct>(O);
     if (CS->getOperand(1)->isNullValue())
-      break;  // Found a null terminator, skip the rest.
+      break; // Found a null terminator, skip the rest.
     ConstantInt *Priority = dyn_cast<ConstantInt>(CS->getOperand(0));
-    if (!Priority) continue; // Malformed.
+    if (!Priority)
+      continue; // Malformed.
     Structors.push_back(Structor());
     Structor &S = Structors.back();
     S.Priority = Priority->getLimitedValue(65535);
     S.Func = CS->getOperand(1);
-    if (!CS->getOperand(2)->isNullValue())
+    if (!CS->getOperand(2)->isNullValue()) {
+      if (TM.getTargetTriple().isOSAIX())
+        llvm::report_fatal_error(
+            "associated data of XXStructor list is not yet supported on AIX");
       S.ComdatKey =
           dyn_cast<GlobalValue>(CS->getOperand(2)->stripPointerCasts());
+    }
   }
 
   // Emit the function pointers in the target-specific order
   llvm::stable_sort(Structors, [](const Structor &L, const Structor &R) {
     return L.Priority < R.Priority;
   });
+}
+
+/// EmitXXStructorList - Emit the ctor or dtor list taking into account the init
+/// priority.
+void AsmPrinter::emitXXStructorList(const DataLayout &DL, const Constant *List,
+                                    bool IsCtor) {
+  SmallVector<Structor, 8> Structors;
+  preprocessXXStructorList(DL, List, Structors);
+  if (Structors.empty())
+    return;
+
   const Align Align = DL.getPointerPrefAlignment();
   for (Structor &S : Structors) {
     const TargetLoweringObjectFile &Obj = getObjFileLowering();
@@ -2320,8 +2335,9 @@ void AsmPrinter::emitXXStructorList(const DataLayout &DL, const Constant *List,
 
       KeySym = getSymbol(GV);
     }
+
     MCSection *OutputSection =
-        (isCtor ? Obj.getStaticCtorSection(S.Priority, KeySym)
+        (IsCtor ? Obj.getStaticCtorSection(S.Priority, KeySym)
                 : Obj.getStaticDtorSection(S.Priority, KeySym));
     OutStreamer->SwitchSection(OutputSection);
     if (OutStreamer->getCurrentSection() != OutStreamer->getPreviousSection())

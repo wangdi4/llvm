@@ -413,10 +413,6 @@ private:
   /// emitted when the translation unit is complete.
   CtorList GlobalDtors;
 
-  /// A unique trailing identifier as a part of sinit/sterm function when
-  /// UseSinitAndSterm of CXXABI is set as true.
-  std::string GlobalUniqueModuleId;
-
   /// An ordered map of canonical GlobalDecls to their mangled names.
   llvm::MapVector<GlobalDecl, StringRef> MangledDeclNames;
   llvm::StringMap<GlobalDecl, llvm::BumpPtrAllocator> Manglings;
@@ -843,8 +839,7 @@ public:
 
   llvm::Function *CreateGlobalInitOrCleanUpFunction(
       llvm::FunctionType *ty, const Twine &name, const CGFunctionInfo &FI,
-      SourceLocation Loc = SourceLocation(), bool TLS = false,
-      bool IsExternalLinkage = false);
+      SourceLocation Loc = SourceLocation(), bool TLS = false);
 
   /// Return the AST address space of the underlying global variable for D, as
   /// determined by its declaration. Normally this is the same as the address
@@ -1114,6 +1109,16 @@ public:
   bool inTargetRegion() { return InTargetRegion > 0; }
   void SetTargetRegionFunctionAttributes(llvm::Function *Fn);
   std::string getUniqueItaniumABIMangledName(GlobalDecl GD);
+
+  bool isUnsupportedTargetFunction(const FunctionDecl *FD) {
+    // Variadic functions are not supported in SPIR-V.
+    if (getLangOpts().OpenMPLateOutline && getLangOpts().OpenMPIsDevice &&
+        getTriple().isSPIR())
+      if (auto *FnTy = FD->getType()->getAs<FunctionProtoType>())
+        if (FnTy->isVariadic())
+          return true;
+    return false;
+  }
 #endif // INTEL_COLLAB
 
   void generateIntelFPGAAnnotation(const Decl *D,
@@ -1170,6 +1175,12 @@ public:
   void AddCXXStermFinalizerEntry(llvm::FunctionCallee DtorFn) {
     CXXGlobalDtorsOrStermFinalizers.emplace_back(DtorFn.getFunctionType(),
                                                  DtorFn.getCallee(), nullptr);
+  }
+
+  /// Add an sterm finalizer to its own llvm.global_dtors entry.
+  void AddCXXStermFinalizerToGlobalDtor(llvm::Function *StermFinalizer,
+                                        int Priority) {
+    AddGlobalDtor(StermFinalizer, Priority);
   }
 
   /// Create or return a runtime function declaration with the specified type

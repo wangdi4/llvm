@@ -568,8 +568,12 @@ static void addIntelLibirc(const ToolChain &TC, ArgStringList &CmdArgs,
       return;
     }
   } else {
-    if (Args.hasArg(options::OPT_shared_intel, options::OPT_shared)) {
+    if (Args.hasArg(options::OPT_shared)) {
       addIntelLib("-lirc_pic", TC, CmdArgs, Args);
+      return;
+    }
+    if (Args.hasArg(options::OPT_shared_intel)) {
+      addIntelLib("-lintlc", TC, CmdArgs, Args);
       return;
     }
   }
@@ -644,12 +648,17 @@ void tools::gnutools::StaticLibTool::ConstructJob(
   // Silence warnings when linking C code with a C++ '-stdlib' argument.
   Args.ClaimAllArgs(options::OPT_stdlib_EQ);
 
-  // GNU ar tool command "ar <options> <output_file> <input_files>".
+  // ar tool command "llvm-ar <options> <output_file> <input_files>".
   ArgStringList CmdArgs;
   // Create and insert file members with a deterministic index.
   CmdArgs.push_back("rcsD");
   CmdArgs.push_back(Output.getFilename());
-  AddLinkerInputs(getToolChain(), Inputs, Args, CmdArgs, JA);
+
+  for (const auto &II : Inputs) {
+    if (II.isFilename()) {
+       CmdArgs.push_back(II.getFilename());
+    }
+  }
 
   // Delete old output archive file if it already exists before generating a new
   // archive file.
@@ -930,7 +939,7 @@ void tools::gnutools::Linker::ConstructJob(Compilation &C, const JobAction &JA,
 #if INTEL_CUSTOMIZATION
     // Add -limf before -lm, it will be linked in the same manner as -lm so
     // don't add with addIntelLib
-    if (D.IsIntelMode())
+    if (D.IsIntelMode() || Args.hasArg(options::OPT__dpcpp))
       CmdArgs.push_back("-limf");
 #endif // INTEL_CUSTOMIZATION
     CmdArgs.push_back("-lm");
@@ -939,7 +948,7 @@ void tools::gnutools::Linker::ConstructJob(Compilation &C, const JobAction &JA,
   // Add -lm for both C and C++ compilation
   else if (!Args.hasArg(options::OPT_nostdlib, options::OPT_nodefaultlibs) &&
            (D.IsIntelMode() || Args.hasArg(options::OPT_mkl_EQ))) {
-    if (D.IsIntelMode())
+    if (D.IsIntelMode() || Args.hasArg(options::OPT__dpcpp))
       CmdArgs.push_back("-limf");
     CmdArgs.push_back("-lm");
   }

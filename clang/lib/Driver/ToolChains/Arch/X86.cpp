@@ -21,18 +21,18 @@ using namespace clang;
 using namespace llvm::opt;
 
 #if INTEL_CUSTOMIZATION
-const char *getCPUForIntel(StringRef Arch, const llvm::Triple &Triple,
+std::string getCPUForIntel(StringRef Arch, const llvm::Triple &Triple,
                            bool IsArchOpt = false) {
-  const char *CPU = nullptr;
+  StringRef CPU;
   if (Triple.getArch() == llvm::Triple::x86 && !IsArchOpt) { // 32-bit-only
-    CPU = llvm::StringSwitch<const char *>(Arch)
+    CPU = llvm::StringSwitch<StringRef>(Arch)
               .Case("A", "pentium")
               .CaseLower("sse", "pentium3")
               .CaseLower("sse2", "pentium4")
-              .Default(nullptr);
+              .Default("");
   }
-  if (CPU == nullptr) { // 32-bit and 64-bit
-    CPU = llvm::StringSwitch<const char *>(Arch)
+  if (CPU.empty()) { // 32-bit and 64-bit
+    CPU = llvm::StringSwitch<StringRef>(Arch)
               .CaseLower("sse3", "nocona")
               .CaseLower("ssse3", "core2")
               .CaseLower("sse4.1", "penryn")
@@ -63,55 +63,55 @@ const char *getCPUForIntel(StringRef Arch, const llvm::Triple &Triple,
               .CasesLower("sapphirerapids", "sapphire-rapids",
                           "sapphire_rapids", "sapphirerapids")
               .CaseLower("host", llvm::sys::getHostCPUName().data())
-              .Default(nullptr);
+              .Default("");
   }
   // We check for valid /arch and /Qx values, so overlap values are covered
   // here.
-  if (CPU == nullptr && !IsArchOpt) {
-    CPU = llvm::StringSwitch<const char *>(Arch)
+  if (CPU.empty() && !IsArchOpt) {
+    CPU = llvm::StringSwitch<StringRef>(Arch)
               .CaseLower("avx", "corei7-avx")
-              .Default(nullptr);
+              .Default("");
   }
-  if (!CPU) {
+  if (CPU.empty()) {
     // No match found.  Instead of erroring out with a bad language type, we
     // will pass the arg to the compiler to validate.
     if (!IsArchOpt && !types::lookupTypeForTypeSpecifier(Arch.data()))
       CPU = Arch.data();
   }
-  return CPU;
+  return std::string(CPU);
 }
 
 bool x86::isValidIntelCPU(StringRef CPU, const llvm::Triple &Triple) {
-  return getCPUForIntel(CPU, Triple) != nullptr;
+  return !getCPUForIntel(CPU, Triple).empty();
 }
 #endif // INTEL_CUSTOMIZATION
 
-const char *x86::getX86TargetCPU(const ArgList &Args,
+std::string x86::getX86TargetCPU(const ArgList &Args,
                                  const llvm::Triple &Triple) {
 #if INTEL_CUSTOMIZATION
   if (const Arg *A = Args.getLastArg(options::OPT_march_EQ, options::OPT_x)) {
     if (A->getOption().matches(options::OPT_x)) {
       // -x<code> handling for Intel Processors.
       StringRef Arch = A->getValue();
-      const char *CPU = nullptr;
-      CPU = getCPUForIntel(Arch, Triple);
-      if (CPU)
+      std::string CPU = getCPUForIntel(Arch, Triple);
+      if (!CPU.empty())
         return CPU;
     }
   }
 #endif // INTEL_CUSTOMIZATION
-  if (const Arg *A = Args.getLastArg(options::OPT_march_EQ)) {
-    if (StringRef(A->getValue()) != "native")
-      return A->getValue();
+  if (const Arg *A = Args.getLastArg(clang::driver::options::OPT_march_EQ)) {
+    StringRef CPU = A->getValue();
+    if (CPU != "native")
+      return std::string(CPU);
 
     // FIXME: Reject attempts to use -march=native unless the target matches
     // the host.
     //
     // FIXME: We should also incorporate the detected target features for use
     // with -native.
-    std::string CPU = std::string(llvm::sys::getHostCPUName());
+    CPU = llvm::sys::getHostCPUName();
     if (!CPU.empty() && CPU != "generic")
-      return Args.MakeArgString(CPU);
+      return std::string(CPU);
   }
 
 #if INTEL_CUSTOMIZATION
@@ -120,9 +120,8 @@ const char *x86::getX86TargetCPU(const ArgList &Args,
     if (A->getOption().matches(options::OPT__SLASH_Qx)) {
       // /Qx<code> handling for Intel Processors.
       StringRef Arch = A->getValue();
-      const char *CPU = nullptr;
-      CPU = getCPUForIntel(Arch, Triple);
-      if (CPU) {
+      std::string CPU = getCPUForIntel(Arch, Triple);
+      if (!CPU.empty()) {
         A->claim();
         return CPU;
       }
@@ -132,37 +131,40 @@ const char *x86::getX86TargetCPU(const ArgList &Args,
   if (const Arg *A = Args.getLastArgNoClaim(options::OPT__SLASH_arch)) {
     // Mapping built by looking at lib/Basic's X86TargetInfo::initFeatureMap().
     StringRef Arch = A->getValue();
-    const char *CPU = nullptr;
+    StringRef CPU;
     if (Triple.getArch() == llvm::Triple::x86) {  // 32-bit-only /arch: flags.
-      CPU = llvm::StringSwitch<const char *>(Arch)
+      CPU = llvm::StringSwitch<StringRef>(Arch)
                 .Case("IA32", "i386")
                 .Case("SSE", "pentium3")
                 .Case("SSE2", "pentium4")
-                .Default(nullptr);
+                .Default("");
     }
-    if (CPU == nullptr) {  // 32-bit and 64-bit /arch: flags.
-      CPU = llvm::StringSwitch<const char *>(Arch)
+    if (CPU.empty()) {  // 32-bit and 64-bit /arch: flags.
+      CPU = llvm::StringSwitch<StringRef>(Arch)
                 .Case("AVX", "sandybridge")
                 .Case("AVX2", "haswell")
                 .Case("AVX512F", "knl")
                 .Case("AVX512", "skylake-avx512")
-                .Default(nullptr);
+                .Default("");
+    }
+    if (!CPU.empty()) {
+      A->claim();
+      return std::string(CPU);
     }
 #if INTEL_CUSTOMIZATION
     // Handle 'other' /arch variations that are allowed for icx/Intel
-    if (CPU == nullptr)
-      CPU = getCPUForIntel(Arch, Triple, true);
-#endif // INTEL_CUSTOMIZATION
-    if (CPU) {
+    std::string IntelCPU = getCPUForIntel(Arch, Triple, true);
+    if (!IntelCPU.empty()) {
       A->claim();
-      return CPU;
+      return IntelCPU;
     }
+#endif // INTEL_CUSTOMIZATION
   }
 
   // Select the default CPU if none was given (or detection failed).
 
   if (!Triple.isX86())
-    return nullptr; // This routine is only handling x86 targets.
+    return ""; // This routine is only handling x86 targets.
 
   bool Is64Bit = Triple.getArch() == llvm::Triple::x86_64;
 
@@ -191,13 +193,13 @@ const char *x86::getX86TargetCPU(const ArgList &Args,
     return "x86-64";
 
   switch (Triple.getOS()) {
-  case llvm::Triple::FreeBSD:
-    return "i686";
   case llvm::Triple::NetBSD:
-  case llvm::Triple::OpenBSD:
     return "i486";
   case llvm::Triple::Haiku:
+  case llvm::Triple::OpenBSD:
     return "i586";
+  case llvm::Triple::FreeBSD:
+    return "i686";
   default:
     // Fallback to p4.
     return "pentium4";

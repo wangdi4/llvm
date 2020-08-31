@@ -130,6 +130,7 @@ public:
 
   Result run(Module &M, ModuleAnalysisManager &);
   Result run(Function &F, FunctionAnalysisManager &);
+  static bool isRequired() { return true; }
 };
 
 /// Check a module for errors, but report debug info errors separately.
@@ -155,6 +156,7 @@ public:
 
   PreservedAnalyses run(Module &M, ModuleAnalysisManager &AM);
   PreservedAnalyses run(Function &F, FunctionAnalysisManager &AM);
+  static bool isRequired() { return true; }
 };
 
 } // end namespace llvm

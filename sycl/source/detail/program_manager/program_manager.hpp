@@ -197,7 +197,7 @@ private:
 
   // Keeps track of pi_program to image correspondence. Needed for:
   // - knowing which specialization constants are used in the program and
-  //   injecting their current values before compiling the SPIRV; the binary
+  //   injecting their current values before compiling the SPIR-V; the binary
   //   image object has info about all spec constants used in the module
   // - finding kernel argument masks for kernels associated with each
   //   pi_program
@@ -220,7 +220,7 @@ private:
   std::unordered_map<const RTDeviceBinaryImage *, KernelNameToArgMaskMap>
       m_EliminatedKernelArgMasks;
 
-  /// True iff a SPIRV file has been specified with an environment variable
+  /// True iff a SPIR-V file has been specified with an environment variable
   bool m_UseSpvFile = false;
 };
 } // namespace detail

@@ -73,7 +73,7 @@ define void @foo(float* noalias nocapture %arr, i32 %n1) {
 ; CHECK-NEXT:     [DA: Div] float* [[VP4:%.*]] = subscript inbounds float* [[ARR0:%.*]] i64 [[VP2]]
 ; CHECK-NEXT:     [DA: Div] float [[VP5:%.*]] = load float* [[VP4]]
 ; CHECK-NEXT:     [DA: Div] float [[VP6:%.*]] =  hir-copy float [[VP5]] , OriginPhiId: -1
-; CHECK-NEXT:     [DA: Uni] i1 [[VP7:%.*]] = icmp i32 [[N10:%.*]] i32 0
+; CHECK-NEXT:     [DA: Uni] i1 [[VP7:%.*]] = icmp ne i32 [[N10:%.*]] i32 0
 ; CHECK-NEXT:     [DA: Div] float [[VP8:%.*]] = hir-copy float [[VP0]] , OriginPhiId: 0
 ; CHECK-NEXT:     [DA: Div] float [[VP9:%.*]] = hir-copy float [[VP6]] , OriginPhiId: 1
 ; CHECK-NEXT:    SUCCESSORS(2):[[BB4:BB[0-9]+]](i1 [[VP7]]), [[BB3]](!i1 [[VP7]])
@@ -83,7 +83,7 @@ define void @foo(float* noalias nocapture %arr, i32 %n1) {
 ; CHECK-NEXT:       [DA: Div] float [[VP10:%.*]] = fadd float [[VP5]] float 0.000000e+00
 ; CHECK-NEXT:       [DA: Div] float* [[VP11:%.*]] = subscript inbounds float* [[ARR0]] i64 [[VP2]]
 ; CHECK-NEXT:       [DA: Div] store float [[VP10]] float* [[VP11]]
-; CHECK-NEXT:       [DA: Div] i1 [[VP12:%.*]] = fcmp float [[VP5]] float 0.000000e+00
+; CHECK-NEXT:       [DA: Div] i1 [[VP12:%.*]] = fcmp oeq float [[VP5]] float 0.000000e+00
 ; CHECK-NEXT:       [DA: Div] i1 [[VP__NOT:%.*]] = not i1 [[VP12]]
 ; CHECK-NEXT:      SUCCESSORS(1):[[BB5:BB[0-9]+]]
 ; CHECK-NEXT:      PREDECESSORS(1): [[BB2]]
@@ -119,7 +119,7 @@ define void @foo(float* noalias nocapture %arr, i32 %n1) {
 ; CHECK-NEXT:     [DA: Div] float [[VP26:%.*]] = phi  [ float [[VP9]], [[BB2]] ],  [ float [[VP24]], [[BLEND_BB0]] ]
 ; CHECK-NEXT:     [DA: Div] float [[VP1]] = fadd float [[VP26]] float [[VP25]]
 ; CHECK-NEXT:     [DA: Div] i64 [[VP3]] = add i64 [[VP2]] i64 [[VP__IND_INIT_STEP]]
-; CHECK-NEXT:     [DA: Uni] i1 [[VP27:%.*]] = icmp i64 [[VP3]] i64 99
+; CHECK-NEXT:     [DA: Uni] i1 [[VP27:%.*]] = icmp sle i64 [[VP3]] i64 99
 ; CHECK-NEXT:    SUCCESSORS(2):[[BB2]](i1 [[VP27]]), [[BB7:BB[0-9]+]](!i1 [[VP27]])
 ; CHECK-NEXT:    PREDECESSORS(2): [[BB2]] [[BLEND_BB0]]
 ; CHECK-EMPTY:

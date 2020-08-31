@@ -50,7 +50,7 @@ define dso_local void @foo(i64* nocapture %larr) local_unnamed_addr #0 {
 ; CHECK-NEXT:    [[DOTSPLATINSERT50:%.*]] = insertelement <4 x i64> undef, i64 [[I1_I64_00]], i32 0
 ; CHECK-NEXT:    [[DOTSPLAT60:%.*]] = shufflevector <4 x i64> [[DOTSPLATINSERT50]], <4 x i64> undef, <4 x i32> zeroinitializer
 ; CHECK-NEXT:    [[TMP5:%.*]] = add <4 x i64> <i64 0, i64 1, i64 2, i64 3>, [[DOTSPLAT60]]
-; CHECK-NEXT:    store <4 x i64> [[TMP5]], <4 x i64>* [[TMP4]], align 4
+; CHECK-NEXT:    store <4 x i64> [[TMP5]], <4 x i64>* [[TMP4]], align 8
 ; CHECK-NEXT:    [[NEXTIVLOOP_160]] = add nuw nsw i64 [[I1_I64_00]], 4
 ; CHECK-NEXT:    [[CONDLOOP_160:%.*]] = icmp sle i64 [[NEXTIVLOOP_160]], 99
 ; CHECK-NEXT:    br i1 [[CONDLOOP_160]], label [[LOOP_160]], label [[AFTERLOOP_160:%.*]], !llvm.loop !0

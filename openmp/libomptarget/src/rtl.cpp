@@ -54,19 +54,21 @@ static const char *RTLNames[] = {
     /* OpenCL target  */ "libomptarget.rtl.opencl.so",
 #endif // !_WIN32
 #endif // INTEL_COLLAB
-    /* SX-Aurora VE target  */ "libomptarget.rtl.ve.so",
-    /* PowerPC target */ "libomptarget.rtl.ppc64.so",
+    /* PowerPC target       */ "libomptarget.rtl.ppc64.so",
 #if INTEL_COLLAB
 #if _WIN32
-    /* x86_64 target  */ "omptarget.rtl.x86_64.dll",
+    /* x86_64 target        */ "omptarget.rtl.x86_64.dll",
 #else  // !_WIN32
-    /* x86_64 target  */ "libomptarget.rtl.x86_64.so",
+    /* x86_64 target        */ "libomptarget.rtl.x86_64.so",
 #endif // !_WIN32
 #else  // INTEL_COLLAB
-    /* x86_64 target  */ "libomptarget.rtl.x86_64.so",
+    /* x86_64 target        */ "libomptarget.rtl.x86_64.so",
 #endif  // INTEL_COLLAB
-    /* CUDA target    */ "libomptarget.rtl.cuda.so",
-    /* AArch64 target */ "libomptarget.rtl.aarch64.so"};
+    /* CUDA target          */ "libomptarget.rtl.cuda.so",
+    /* AArch64 target       */ "libomptarget.rtl.aarch64.so",
+    /* SX-Aurora VE target  */ "libomptarget.rtl.ve.so",
+    /* AMDGPU target        */ "libomptarget.rtl.amdgpu.so",
+};
 
 RTLsTy *RTLs;
 std::mutex *RTLsMtx;
@@ -273,69 +275,38 @@ void RTLsTy::LoadRTLs() {
               dlsym(dynlib_handle, "__tgt_rtl_run_target_team_region")))
       continue;
 #if INTEL_COLLAB
-    if ((*((void **)&R.data_submit_nowait) =
-              dlsym(dynlib_handle, "__tgt_rtl_data_submit_nowait")))
-      DP("Optional interface: __tgt_rtl_data_submit_nowait\n");
-    if ((*((void **)&R.data_retrieve_nowait) =
-              dlsym(dynlib_handle, "__tgt_rtl_data_retrieve_nowait")))
-      DP("Optional interface: __tgt_rtl_data_retrieve_nowait\n");
-    if ((*((void **)&R.manifest_data_for_region) =
-              dlsym(dynlib_handle, "__tgt_rtl_manifest_data_for_region")))
-      DP("Optional interface: __tgt_rtl_manifest_data_for_region\n");
-    if ((*((void **)&R.data_alloc_base) =
-              dlsym(dynlib_handle, "__tgt_rtl_data_alloc_base")))
-      DP("Optional interface: __tgt_rtl_data_alloc_base\n");
-    if ((*((void **)&R.data_alloc_user) =
-              dlsym(dynlib_handle, "__tgt_rtl_data_alloc_user")))
-      DP("Optional interface: __tgt_rtl_data_alloc_user\n");
-    if ((*((void **)&R.create_buffer) =
-              dlsym(dynlib_handle, "__tgt_rtl_create_buffer")))
-      DP("Optional interface: __tgt_rtl_create_buffer\n");
-    if ((*((void **)&R.get_device_name) =
-              dlsym(dynlib_handle, "__tgt_rtl_get_device_name")))
-      DP("Optional interface: __tgt_rtl_get_device_name\n");
-    if ((*((void **)&R.release_buffer) =
-              dlsym(dynlib_handle, "__tgt_rtl_release_buffer")))
-      DP("Optional interface: __tgt_rtl_release_buffer\n");
-    if ((*((void **)&R.run_team_nd_region) =
-              dlsym(dynlib_handle, "__tgt_rtl_run_target_team_nd_region")))
-      DP("Optional interface: __tgt_rtl_run_target_team_nd_region\n");
-    if ((*((void **)&R.run_region_nowait) =
-              dlsym(dynlib_handle, "__tgt_rtl_run_target_region_nowait")))
-      DP("Optional interface: __tgt_rtl_run_target_region_nowait\n");
-    if ((*((void **)&R.run_team_region_nowait) =
-              dlsym(dynlib_handle, "__tgt_rtl_run_target_team_region_nowait")))
-      DP("Optional interface: __tgt_rtl_run_target_team_region_nowait\n");
-    if ((*((void **)&R.run_team_nd_region_nowait) = dlsym(
-              dynlib_handle, "__tgt_rtl_run_target_team_nd_region_nowait")))
-      DP("Optional interface: __tgt_rtl_run_target_team_nd_region_nowait\n");
-    if ((*((void **)&R.create_offload_queue) =
-              dlsym(dynlib_handle, "__tgt_rtl_create_offload_queue")))
-      DP("Optional interface: __tgt_rtl_create_offload_queue\n");
-    if ((*((void **)&R.release_offload_queue) =
-              dlsym(dynlib_handle, "__tgt_rtl_release_offload_queue")))
-      DP("Optional interface: __tgt_rtl_release_offload_queue\n");
-    if ((*((void **)&R.get_platform_handle) =
-              dlsym(dynlib_handle, "__tgt_rtl_get_platform_handle")))
-      DP("Optional interface: __tgt_rtl_get_platform_handle\n");
-    if ((*((void **)&R.get_device_handle) =
-              dlsym(dynlib_handle, "__tgt_rtl_get_device_handle")))
-      DP("Optional interface: __tgt_rtl_get_device_handle\n");
-    if ((*((void **)&R.data_alloc_managed) =
-              dlsym(dynlib_handle, "__tgt_rtl_data_alloc_managed")))
-      DP("Optional interface: __tgt_rtl_data_alloc_managed\n");
-    if ((*((void **)&R.data_delete_managed) =
-              dlsym(dynlib_handle, "__tgt_rtl_data_delete_managed")))
-      DP("Optional interface: __tgt_rtl_data_delete_managed\n");
-    if ((*((void **)&R.is_managed_ptr) =
-              dlsym(dynlib_handle, "__tgt_rtl_is_managed_ptr")))
-      DP("Optional interface: __tgt_rtl_is_managed_ptr\n");
-    if ((*((void **)&R.data_alloc_explicit) =
-              dlsym(dynlib_handle, "__tgt_rtl_data_alloc_explicit")))
-      DP("Optional interface: __tgt_rtl_data_alloc_explicit\n");
-    if ((*((void **)&R.init_ompt) =
-              dlsym(dynlib_handle, "__tgt_rtl_init_ompt")))
-      DP("Optional interface: __tgt_rtl_init_ompt\n");
+    #define SET_OPTIONAL_INTERFACE(entry, name)                                \
+      do {                                                                     \
+        if ((*((void **)&R.entry) = dlsym(dynlib_handle, "__tgt_rtl_" #name))) \
+          DP("Optional interface: __tgt_rtl_" #name "\n");                     \
+      } while (0)
+    #define SET_OPTIONAL_INTERFACE_FN(name) SET_OPTIONAL_INTERFACE(name, name)
+    SET_OPTIONAL_INTERFACE_FN(data_alloc_base);
+    SET_OPTIONAL_INTERFACE_FN(data_alloc_user);
+    SET_OPTIONAL_INTERFACE_FN(data_alloc_explicit);
+    SET_OPTIONAL_INTERFACE_FN(data_alloc_managed);
+    SET_OPTIONAL_INTERFACE_FN(data_delete_managed);
+    SET_OPTIONAL_INTERFACE_FN(data_submit_nowait);
+    SET_OPTIONAL_INTERFACE_FN(data_retrieve_nowait);
+    SET_OPTIONAL_INTERFACE_FN(create_buffer);
+    SET_OPTIONAL_INTERFACE_FN(release_buffer);
+    SET_OPTIONAL_INTERFACE_FN(create_offload_queue);
+    SET_OPTIONAL_INTERFACE_FN(release_offload_queue);
+    SET_OPTIONAL_INTERFACE_FN(get_device_name);
+    SET_OPTIONAL_INTERFACE_FN(get_platform_handle);
+    SET_OPTIONAL_INTERFACE_FN(get_device_handle);
+    SET_OPTIONAL_INTERFACE_FN(get_data_alloc_info);
+    SET_OPTIONAL_INTERFACE_FN(init_ompt);
+    SET_OPTIONAL_INTERFACE_FN(is_managed_ptr);
+    SET_OPTIONAL_INTERFACE_FN(manifest_data_for_region);
+    SET_OPTIONAL_INTERFACE(run_team_nd_region, run_target_team_nd_region);
+    SET_OPTIONAL_INTERFACE(run_region_nowait, run_target_region_nowait);
+    SET_OPTIONAL_INTERFACE(run_team_region_nowait,
+                           run_target_team_region_nowait);
+    SET_OPTIONAL_INTERFACE(run_team_nd_region_nowait,
+                           run_target_team_nd_region_nowait);
+    #undef SET_OPTIONAL_INTERFACE
+    #undef SET_OPTIONAL_INTERFACE_FN
 #endif // INTEL_COLLAB
 
     // Optional functions

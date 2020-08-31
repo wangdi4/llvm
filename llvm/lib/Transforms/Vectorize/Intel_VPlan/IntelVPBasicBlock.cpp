@@ -79,13 +79,13 @@ void VPBlockUtils::insertBlockAfter(VPBasicBlock *NewBB,
                                     VPBasicBlock *BlockPtr) {
   NewBB->insertAfter(BlockPtr);
 
-  VPValue *CondBit = NewBB->getCondBit();
-
   if (BlockPtr->getNumSuccessors() == 1)
     NewBB->setTerminator(BlockPtr->getSuccessor(0));
+  else if (BlockPtr->getNumSuccessors() == 2)
+    NewBB->setTerminator(BlockPtr->getSuccessor(0), BlockPtr->getSuccessor(1),
+                         BlockPtr->getCondBit());
   else
-    NewBB->setTerminator(BlockPtr->getSuccessor(0),
-                            BlockPtr->getSuccessor(1), CondBit);
+    NewBB->setTerminator();
 
   BlockPtr->setTerminator(NewBB);
 }
@@ -297,11 +297,12 @@ VPBasicBlock *VPBasicBlock::getSingleSuccessor() const {
 }
 
 VPValue *VPBasicBlock::getCondBit() {
-  return getTerminator()->getCondition();
+  const VPBranchInst *T = getTerminator();
+  return T->isConditional() ? T->getCondition() : nullptr;
 }
 
 const VPValue *VPBasicBlock::getCondBit() const {
-  return getTerminator()->getCondition();
+  return const_cast<VPBasicBlock *>(this)->getCondBit();
 }
 
 void VPBasicBlock::setCondBit(VPValue *CB) {
@@ -371,16 +372,10 @@ void VPBasicBlock::addInstruction(VPInstruction *Instruction,
 
 // TODO: Please, remove this interface once C/T/F blocks have been removed.
 void VPBasicBlock::moveConditionalEOBTo(VPBasicBlock *ToBB) {
-  // Set CondBit in NewBlock. Note that we are only setting the
-  // successor selector pointer. The CondBit is kept in its
-  // original VPBB instructions list.
   if (getNumSuccessors() > 1) {
-    assert(getCondBit() && "Missing CondBit");
-    ToBB->setCondBit(getCondBit());
     ToBB->setCBlock(CBlock);
     ToBB->setTBlock(TBlock);
     ToBB->setFBlock(FBlock);
-    setCondBit(nullptr);
     CBlock = TBlock = FBlock = nullptr;
   }
 }

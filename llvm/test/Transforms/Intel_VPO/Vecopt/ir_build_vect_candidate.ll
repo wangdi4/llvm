@@ -33,7 +33,7 @@ define void @foo(i64* nocapture %larr) {
 ; CHECK-NEXT:     [DA: Div] i64 [[VP_L1:%.*]] = phi  [ i64 [[VP_L1_IND_INIT]], [[BB1]] ],  [ i64 [[VP_INC:%.*]], [[BB3]] ]
 ; CHECK-NEXT:     [DA: Div] i64* [[VP_ARRAYIDX:%.*]] = getelementptr inbounds i64* [[LARR0:%.*]] i64 [[VP_L1]]
 ; CHECK-NEXT:     [DA: Div] i64 [[VP_LDVAL:%.*]] = load i64* [[VP_ARRAYIDX]]
-; CHECK-NEXT:     [DA: Div] i1 [[VP_LDVALCMP:%.*]] = icmp i64 [[VP_LDVAL]] i64 1111
+; CHECK-NEXT:     [DA: Div] i1 [[VP_LDVALCMP:%.*]] = icmp eq i64 [[VP_LDVAL]] i64 1111
 ; CHECK-NEXT:     [DA: Div] i1 [[VP_LDVALCMP_NOT:%.*]] = not i1 [[VP_LDVALCMP]]
 ; CHECK-NEXT:    SUCCESSORS(1):[[BB4:BB[0-9]+]]
 ; CHECK-NEXT:    PREDECESSORS(2): [[BB1]] [[BB3]]
@@ -53,7 +53,7 @@ define void @foo(i64* nocapture %larr) {
 ; CHECK-NEXT:    [[BB3]]:
 ; CHECK-NEXT:     [DA: Div] i64 [[VP_INC]] = add i64 [[VP_L1]] i64 [[VP_L1_IND_INIT_STEP]]
 ; CHECK-NEXT:     [DA: Uni] i64 [[VP_VECTOR_LOOP_IV_NEXT]] = add i64 [[VP_VECTOR_LOOP_IV]] i64 [[VP_VF]]
-; CHECK-NEXT:     [DA: Uni] i1 [[VP_VECTOR_LOOP_EXITCOND:%.*]] = icmp i64 [[VP_VECTOR_LOOP_IV_NEXT]] i64 [[VP_VECTOR_TRIP_COUNT]]
+; CHECK-NEXT:     [DA: Uni] i1 [[VP_VECTOR_LOOP_EXITCOND:%.*]] = icmp eq i64 [[VP_VECTOR_LOOP_IV_NEXT]] i64 [[VP_VECTOR_TRIP_COUNT]]
 ; CHECK-NEXT:    SUCCESSORS(2):[[BB6:BB[0-9]+]](i1 [[VP_VECTOR_LOOP_EXITCOND]]), [[BB2]](!i1 [[VP_VECTOR_LOOP_EXITCOND]])
 ; CHECK-NEXT:    PREDECESSORS(1): [[BB5]]
 ; CHECK-EMPTY:

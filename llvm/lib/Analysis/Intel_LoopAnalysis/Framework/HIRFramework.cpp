@@ -207,7 +207,8 @@ void HIRFramework::processDeferredZtts() {
     auto *Ztt = LoopZttPair.second;
 
     // Loop could have been removed if it was empty.
-    if (!Lp->isAttached()) {
+    // Loop could have become unknown if parsing of upper failed.
+    if (!Lp->isAttached() || Lp->isUnknown()) {
       continue;
     }
     // HLNodeUtils::removeEmptyNodesRange() inverts the condiiton if the

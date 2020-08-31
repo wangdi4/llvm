@@ -2653,11 +2653,23 @@ static inline int32_t run_target_team_nd_region(
   }
 
   // set kernel args
-  std::vector<void *> ptrs(num_args);
+//  std::vector<void *> ptrs(num_args);
   for (int32_t i = 0; i < num_args; ++i) {
-    ptrs[i] = (void *)((intptr_t)tgt_args[i] + tgt_offsets[i]);
-    CALL_CL_RET_FAIL(clSetKernelArgSVMPointer, *kernel, i, ptrs[i]);
-    DP("Kernel Arg %d set successfully\n", i);
+    ptrdiff_t offset = tgt_offsets[i];
+    const char *ArgType = "Unknown";
+    // Offset equal to MAX(ptrdiff_t) means that the argument
+    // must be passed as literal, and the offset should be ignored.
+    if (offset == (std::numeric_limits<ptrdiff_t>::max)()) {
+      intptr_t arg = (intptr_t)tgt_args[i];
+      CALL_CL_RET_FAIL(clSetKernelArg, *kernel, i, sizeof(arg), &arg);
+      ArgType = "Scalar";
+    } else {
+      void *ptr = (void *)((intptr_t)tgt_args[i] + offset);
+      CALL_CL_RET_FAIL(clSetKernelArgSVMPointer, *kernel, i, ptr);
+      ArgType = "Pointer";
+    }
+    DP("Kernel %s Arg %d set successfully\n", ArgType, i);
+    (void)ArgType;
   }
 
 #if INTEL_CUSTOMIZATION
@@ -2868,6 +2880,24 @@ EXTERN char *__tgt_rtl_get_device_name(
 
 EXTERN int32_t __tgt_rtl_synchronize(int32_t device_id,
                                      __tgt_async_info *async_info_ptr) {
+  return OFFLOAD_SUCCESS;
+}
+
+EXTERN int32_t __tgt_rtl_get_data_alloc_info(
+    int32_t device_id, int32_t num_ptrs, void *tgt_ptrs, void *alloc_info) {
+  auto &buffer = DeviceInfo->Buffers[device_id];
+  void **tgtPtrs = static_cast<void **>(tgt_ptrs);
+  __tgt_memory_info *allocInfo = static_cast<__tgt_memory_info *>(alloc_info);
+  for (int32_t i = 0; i < num_ptrs; i++) {
+    if (buffer.count(tgtPtrs[i]) == 0) {
+      DP("%s cannot find allocation information for " DPxMOD "\n", __func__,
+         DPxPTR(tgtPtrs[i]));
+      return OFFLOAD_FAIL;
+    }
+    allocInfo[i].Base = buffer[tgtPtrs[i]].Base;
+    allocInfo[i].Offset = (uintptr_t)tgtPtrs[i] - (uintptr_t)allocInfo[i].Base;
+    allocInfo[i].Size = buffer[tgtPtrs[i]].Size;
+  }
   return OFFLOAD_SUCCESS;
 }
 

@@ -71,15 +71,18 @@ declare void @llvm.notify.nzc(i8*, i8*) #1
 ;X86-NEXT:         .long   .Ltmp3-.Ltmp2
 ;X86-NEXT:         .p2align        2
 ;X86-NEXT: .Ltmp0:
-;X86-NEXT:         .quad   .Lnotify_zc0
+;X86-NEXT:         .long   .Lnotify_zc0
+;X86-NEXT:         .long   0
 ;X86-NEXT:         .long   .Lnotify_zc_probe0-.Lnotify_zc0
 ;X86-NEXT:         .long   0
 ;X86-NEXT:         .long   0
-;X86-NEXT:         .quad   .Lnotify_nzc0
+;X86-NEXT:         .long   .Lnotify_nzc0
+;X86-NEXT:         .long   0
 ;X86-NEXT:         .long   .Lnotify_nzc_probe0-.Lnotify_nzc0
 ;X86-NEXT:         .long   18
 ;X86-NEXT:         .long   2
-;X86-NEXT:         .quad   .Lnotify_zc1
+;X86-NEXT:         .long   .Lnotify_zc1
+;X86-NEXT:         .long   0
 ;X86-NEXT:         .long   .Lnotify_zc_probe1-.Lnotify_zc1
 ;X86-NEXT:         .long   37
 ;X86-NEXT:         .long   4
@@ -138,15 +141,18 @@ declare void @llvm.notify.nzc(i8*, i8*) #1
 ;X86Win-NEXT:         .long   Ltmp3-Ltmp2
 ;X86Win-NEXT:         .p2align        2
 ;X86Win-NEXT: Ltmp0:
-;X86Win-NEXT:         .quad   Lnotify_zc0
+;X86Win-NEXT:         .long   Lnotify_zc0
+;X86Win-NEXT:         .long   0
 ;X86Win-NEXT:         .long   Lnotify_zc_probe0-Lnotify_zc0
 ;X86Win-NEXT:         .long   0
 ;X86Win-NEXT:         .long   0
-;X86Win-NEXT:         .quad   Lnotify_nzc0
+;X86Win-NEXT:         .long   Lnotify_nzc0
+;X86Win-NEXT:         .long   0
 ;X86Win-NEXT:         .long   Lnotify_nzc_probe0-Lnotify_nzc0
 ;X86Win-NEXT:         .long   18
 ;X86Win-NEXT:         .long   2
-;X86Win-NEXT:         .quad   Lnotify_zc1
+;X86Win-NEXT:         .long   Lnotify_zc1
+;X86Win-NEXT:         .long   0
 ;X86Win-NEXT:         .long   Lnotify_zc_probe1-Lnotify_zc1
 ;X86Win-NEXT:         .long   37
 ;X86Win-NEXT:         .long   4

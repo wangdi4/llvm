@@ -85,10 +85,11 @@
 
 // Behavior with qopenmp/Qopenmp option
 // RUN: %clang -### -c -target x86_64-linux-gnu -qopenmp %s 2>&1 | FileCheck -check-prefix CHECK-QOPENMP %s
-// RUN: %clang_cl -### -c -target x86_64-windows-gnu /Qopenmp %s 2>&1 | FileCheck -check-prefix CHECK-QOPENMP %s
+// RUN: %clang_cl -### -c -target x86_64-windows-gnu /Qopenmp %s 2>&1 | FileCheck -check-prefixes=CHECK-QOPENMP,CHECK-QOPENMP-WIN %s
 // RUN: %clang -### -target x86_64-linux-gnu --intel -qopenmp %s -o %t 2>&1 | FileCheck %s -check-prefix CHECK-LD-IOMP5
 // Default behavior with -fopenmp should be liomp5
 // RUN: %clang -### -target x86_64-linux-gnu -fopenmp %s -o %t 2>&1 | FileCheck %s -check-prefix CHECK-LD-IOMP5
+// CHECK-QOPENMP-WIN: "--dependent-lib=libiomp5md"
 // CHECK-QOPENMP: "-fopenmp-late-outline"
 // CHECK-QOPENMP: "-fintel-openmp-region"
 // CHECK-QOPENMP: "-fopenmp-threadprivate-legacy"
@@ -128,6 +129,9 @@
 
 // Behavior with -lm
 // RUN: %clang -### --intel -lm -target x86_64-unknown-linux %s 2>&1 | FileCheck -check-prefix CHECK-LIMF %s
+// RUN: %clang -### --intel -target x86_64-unknown-linux %s 2>&1 | FileCheck -check-prefix CHECK-LIMF %s
+// RUN: %clangxx -### --dpcpp -lm -target x86_64-unknown-linux %s 2>&1 | FileCheck -check-prefix CHECK-LIMF %s
+// RUN: %clangxx -### --dpcpp -target x86_64-unknown-linux %s 2>&1 | FileCheck -check-prefix CHECK-LIMF %s
 // CHECK-LIMF: "-limf" "-lm"
 
 // Verify that /Qm32 and /Qm64 are accepted - these are aliases to -m32 and -m64
@@ -179,7 +183,15 @@
 // RUN: %clang -### --intel -target x86_64-unknown-linux -dynamic -shared-intel %s 2>&1 | FileCheck -check-prefix CHECK-INTEL-LIBS-SHARED-INTEL %s
 // RUN: %clang -### --intel -target x86_64-unknown-linux -shared -shared-intel %s 2>&1 | FileCheck -check-prefix CHECK-INTEL-LIBS-SHARED-INTEL %s
 // RUN: %clang -### --intel -target x86_64-unknown-linux -static -shared -shared-intel %s 2>&1 | FileCheck -check-prefix CHECK-INTEL-LIBS-SHARED-INTEL %s
+// RUN: %clang -### --intel -target i386-unknown-linux -shared-intel %s 2>&1 \
+// RUN:  | FileCheck -check-prefix CHECK-INTEL-LIBS-SHARED-INTEL %s
 // CHECK-INTEL-LIBS-SHARED-INTEL: "-lsvml" "-lirng" "-limf" "-lm" {{.*}} "-lintlc"
+
+// RUN: %clang -### --intel -target i386-unknown-linux -shared -shared-intel %s 2>&1 \
+// RUN:  | FileCheck -check-prefix CHECK-INTEL-LIBS-SHARED-INTEL32 %s
+// RUN: %clang -### --intel -target i386-unknown-linux -shared %s 2>&1 \
+// RUN:  | FileCheck -check-prefix CHECK-INTEL-LIBS-SHARED-INTEL32 %s
+// CHECK-INTEL-LIBS-SHARED-INTEL32: "-lsvml" "-lirng" "-limf" "-lm" {{.*}} "-lirc_pic"
 
 // RUN: %clang -### --intel -target x86_64-unknown-linux -shared -static -static-intel %s 2>&1 | FileCheck -check-prefix CHECK-INTEL-LIBS-SHARED-STATIC %s
 // CHECK-INTEL-LIBS-SHARED-STATIC: "-lsvml" "-lirng" "-limf" "-lm" {{.*}} "-lirc"
@@ -203,12 +215,14 @@
 // RUN: %clang_cl -### /Qfp-speculation:safe -c %s 2>&1 | FileCheck --check-prefix=CHECK-SAFE %s
 // RUN: %clang -### -fp-speculation=safe -c %s 2>&1 | FileCheck --check-prefix=CHECK-SAFE %s
 // RUN: %clang -### -fp-model=fast -S %s 2>&1 | FileCheck --check-prefix=CHECK-FAST %s
+// RUN: %clang -### -fp-model=fast=2 -S %s 2>&1 | FileCheck --check-prefixes=CHECK-FAST,CHECK-FAST2 %s
 // RUN: %clang -### -fp-model source -S %s 2>&1 | FileCheck --check-prefix=CHECK-SOURCE %s
 // RUN: %clang -### -fp-model=source -S %s 2>&1 | FileCheck --check-prefix=CHECK-SOURCE %s
 // RUN: %clang_cl -### -fp:fast -S %s 2>&1 | FileCheck --check-prefix=CHECK-FAST %s
 // CHECK-SAFE: "-ffp-exception-behavior=maytrap"
 // CHECK-STRICT: "-ffp-exception-behavior=strict"
 // CHECK-IGNORE: "-ffp-exception-behavior=ignore"
+// CHECK-FAST2: overriding
 // CHECK-FAST: "-ffp-contract=fast"
 // CHECK-SOURCE: "-fno-rounding-math"
 
@@ -554,6 +568,8 @@
 // RUN: %clang -### -target x86_64-linux-gnu -qopenmp -qopenmp-link=static %s 2>&1 | FileCheck -check-prefix CHECK-QOPENMP-STATIC %s
 // RUN: %clang -### -target x86_64-linux-gnu -qopenmp-stubs %s 2>&1 | FileCheck -check-prefix CHECK-QOPENMP-STUBS %s
 // RUN: %clang_cl -### --target=x86_64-pc-windows-msvc /QopenmpS %s 2>&1 | FileCheck -check-prefix CHECK-QOPENMP-STUBS-WIN %s
+// RUN: %clang_cl -### --target=x86_64-pc-windows-msvc /Qopenmp-stubs %s 2>&1 | FileCheck -check-prefix CHECK-QOPENMP-STUBS-WIN %s
+// CHECK-QOPENMP-STUBS-WIN: "--dependent-lib=libiompstubs5md"
 // CHECK-QOPENMP-STATIC: "-Bstatic" "-liomp5" "-Bdynamic"
 // CHECK-QOPENMP-STUBS: "-liompstubs5"
 // CHECK-QOPENMP-STUBS-NOT: "-lpthread"
@@ -569,3 +585,8 @@
 // RUN: %clang_cl /c /QxSSE3 /Od /Fo:somefile.obj -###  %s 2>&1 | FileCheck -check-prefix FO-CHECK %s
 // RUN: %clang_cl /c /QxSSE3 /Od /Fosomefile.obj -###  %s 2>&1 | FileCheck -check-prefix FO-CHECK %s
 // FO-CHECK: "-o" "somefile.obj"
+
+/// /constexpr:steps alias
+// RUN: %clang_cl /c /constexpr:steps4 -###  %s 2>&1 | FileCheck -check-prefix CONSTEXPR_STEPS %s
+// RUN: %clang_cl /c /constexpr:steps 4 -###  %s 2>&1 | FileCheck -check-prefix CONSTEXPR_STEPS %s
+// CONSTEXPR_STEPS: "-fconstexpr-steps" "4"

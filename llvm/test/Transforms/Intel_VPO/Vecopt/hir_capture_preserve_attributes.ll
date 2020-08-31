@@ -83,6 +83,10 @@ loop.body:                               ; predggs = %omp.inner.for.body, %DIR.O
 ; VPLAN-IR-NEXT:      DbgLoc: lit_test.c:10:12
 ; VPLAN-IR-NEXT:      OperatorFlags -
 ; VPLAN-IR-NEXT:        FMF: 0, NSW: 0, NUW: 0, Exact: 0
+; VPLAN-IR-NEXT:      Align: 4
+; VPLAN-IR-NEXT:      Ordering: 0, Volatile: 0, SSID: 0
+; VPLAN-IR-NEXT:      NonDbgMDs -
+; VPLAN-IR-NEXT:        <0x{{.*}}> = !{<0x{{.*}}>, <0x{{.*}}>, i64 0}
 ; VPLAN-IR-NEXT:      end of details
 
   %arrayidx2 = getelementptr inbounds [1024 x float], [1024 x float]* @C, i64 0, i64 %indvars.iv, !dbg !37, !intel-tbaa !32
@@ -97,6 +101,10 @@ loop.body:                               ; predggs = %omp.inner.for.body, %DIR.O
 ; VPLAN-IR-NEXT:      DbgLoc: lit_test.c:10:19
 ; VPLAN-IR-NEXT:      OperatorFlags -
 ; VPLAN-IR-NEXT:        FMF: 0, NSW: 0, NUW: 0, Exact: 0
+; VPLAN-IR-NEXT:      Align: 4
+; VPLAN-IR-NEXT:      Ordering: 0, Volatile: 0, SSID: 0
+; VPLAN-IR-NEXT:      NonDbgMDs -
+; VPLAN-IR-NEXT:        <0x{{.*}}> = !{<0x{{.*}}>, <0x{{.*}}>, i64 0}
 ; VPLAN-IR-NEXT:      end of details
 
   %mul3 = fmul fast float %1, %0, !dbg !38
@@ -118,6 +126,10 @@ loop.body:                               ; predggs = %omp.inner.for.body, %DIR.O
 ; VPLAN-IR-NEXT:      DbgLoc: lit_test.c:10:10
 ; VPLAN-IR-NEXT:      OperatorFlags -
 ; VPLAN-IR-NEXT:        FMF: 0, NSW: 0, NUW: 0, Exact: 0
+; VPLAN-IR-NEXT:      Align: 4
+; VPLAN-IR-NEXT:      Ordering: 0, Volatile: 0, SSID: 0
+; VPLAN-IR-NEXT:      NonDbgMDs -
+; VPLAN-IR-NEXT:        <0x{{.*}}> = !{<0x{{.*}}>, <0x{{.*}}>, i64 0}
 ; VPLAN-IR-NEXT:      end of details
 
   %2 = ashr exact i32 42, 4, !dbg !41
@@ -128,7 +140,7 @@ loop.body:                               ; predggs = %omp.inner.for.body, %DIR.O
 ; VPLAN-IR-NEXT:      end of details
 
   %fp.cmp = fcmp fast ogt float %mul3, %1, !dbg !41
-; VPLAN-IR:          i1 [[VP15:%.*]] = fcmp float [[VP12]] float [[VP11]]
+; VPLAN-IR:          i1 [[VP15:%.*]] = fcmp ogt float [[VP12]] float [[VP11]]
 ; VPLAN-IR-NEXT:      DbgLoc: lit_test.c:11:5
 ; VPLAN-IR-NEXT:      OperatorFlags -
 ; VPLAN-IR-NEXT:        FMF: 1, NSW: 0, NUW: 0, Exact: 0
@@ -156,7 +168,7 @@ loop.body:                               ; predggs = %omp.inner.for.body, %DIR.O
 ; VPLAN-IR-NEXT:      end of details
 
   %fp.select = select fast i1 %fp.cmp, float %mul3, float %1, !dbg !41
-; VPLAN-IR:          i1 [[VP18:%.*]] = fcmp float [[VP12]] float [[VP11]]
+; VPLAN-IR:          i1 [[VP18:%.*]] = fcmp ogt float [[VP12]] float [[VP11]]
 ; VPLAN-IR-NEXT:      DbgLoc: lit_test.c:11:5
 ; VPLAN-IR-NEXT:      OperatorFlags -
 ; VPLAN-IR-NEXT:        FMF: 1, NSW: 0, NUW: 0, Exact: 0
@@ -179,6 +191,8 @@ loop.body:                               ; predggs = %omp.inner.for.body, %DIR.O
 ; VPLAN-IR-NEXT:      DbgLoc: lit_test.c:11:5
 ; VPLAN-IR-NEXT:      OperatorFlags -
 ; VPLAN-IR-NEXT:        FMF: 0, NSW: 0, NUW: 0, Exact: 0
+; VPLAN-IR-NEXT:      Align: 4
+; VPLAN-IR-NEXT:      Ordering: 0, Volatile: 0, SSID: 0
 ; VPLAN-IR-NEXT:      end of details
 
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1, !dbg !42
@@ -189,7 +203,7 @@ loop.body:                               ; predggs = %omp.inner.for.body, %DIR.O
 ; VPLAN-IR-NEXT:      end of details
 
   %exitcond = icmp eq i64 %indvars.iv.next, 1024, !dbg !42
-; VPLAN-IR:          i1 [[VP21:%.*]] = icmp i64 [[VP7]] i64 1023
+; VPLAN-IR:          i1 [[VP21:%.*]] = icmp sle i64 [[VP7]] i64 1023
 ; VPLAN-IR-NEXT:      DbgLoc: lit_test.c:9:3
 ; VPLAN-IR-NEXT:      OperatorFlags -
 ; VPLAN-IR-NEXT:        FMF: 0, NSW: 0, NUW: 0, Exact: 0

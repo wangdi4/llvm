@@ -243,11 +243,15 @@ X86TargetMachine::~X86TargetMachine() = default;
 const X86Subtarget *
 X86TargetMachine::getSubtargetImpl(const Function &F) const {
   Attribute CPUAttr = F.getFnAttribute("target-cpu");
+  Attribute TuneAttr = F.getFnAttribute("tune-cpu");
   Attribute FSAttr = F.getFnAttribute("target-features");
 
   StringRef CPU = !CPUAttr.hasAttribute(Attribute::None)
                       ? CPUAttr.getValueAsString()
                       : (StringRef)TargetCPU;
+  StringRef TuneCPU = !TuneAttr.hasAttribute(Attribute::None)
+                      ? TuneAttr.getValueAsString()
+                      : (StringRef)CPU;
   StringRef FS = !FSAttr.hasAttribute(Attribute::None)
                      ? FSAttr.getValueAsString()
                      : (StringRef)TargetFS;
@@ -286,6 +290,10 @@ X86TargetMachine::getSubtargetImpl(const Function &F) const {
   // Add CPU to the Key.
   Key += CPU;
 
+  // Add tune CPU to the Key.
+  Key += "tune=";
+  Key += TuneCPU;
+
   // Keep track of the start of the feature portion of the string.
   unsigned FSStart = Key.size();
 
@@ -314,7 +322,7 @@ X86TargetMachine::getSubtargetImpl(const Function &F) const {
     // function that reside in TargetOptions.
     resetTargetOptions(F);
     I = std::make_unique<X86Subtarget>(
-        TargetTriple, CPU, FS, *this,
+        TargetTriple, CPU, TuneCPU, FS, *this,
         MaybeAlign(Options.StackAlignmentOverride), PreferVectorWidthOverride,
         RequiredVectorWidth);
   }

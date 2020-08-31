@@ -301,16 +301,9 @@ bool HIRCreation::sortDomChildren(
 HLNode *HIRCreation::doPreOrderRegionWalk(BasicBlock *BB,
                                           HLNode *InsertionPos) {
 
-  auto Reg = dyn_cast<HLRegion>(InsertionPos);
-
-  if (Reg && Reg->isFunctionLevel()) {
-    // Populate just the terminator of the function entry bblock.
-    InsertionPos = populateTerminator(BB, InsertionPos);
-  } else {
-    assert(CurRegion->containsBBlock(BB) && "Encountered non-region bblock!");
-    // Visit(link) this bblock to HIR.
-    InsertionPos = populateInstSequence(BB, InsertionPos);
-  }
+  assert(CurRegion->containsBBlock(BB) && "Encountered non-region bblock!");
+  // Visit(link) this bblock to HIR.
+  InsertionPos = populateInstSequence(BB, InsertionPos);
 
   SmallVector<BasicBlock *, 8> DomChildren;
 
@@ -455,8 +448,12 @@ void HIRCreation::run(HLContainerTy &Regions) {
 
     EarlyExits.clear();
 
-    HLNode *LastNode =
-        doPreOrderRegionWalk(CurRegion->getEntryBBlock(), CurRegion);
+    auto *EntryBB = CurRegion->getEntryBBlock();
+    assert((EntryBB != &EntryBB->getParent()->getEntryBlock()) &&
+           "Region entry block cannot be the same as function entry block! SSA "
+           "deconstruction is missing or framework is out of sync!");
+
+    HLNode *LastNode = doPreOrderRegionWalk(EntryBB, CurRegion);
 
     (void)LastNode;
     assert(isa<HLRegion>(LastNode->getParent()) && "Invalid last region node!");

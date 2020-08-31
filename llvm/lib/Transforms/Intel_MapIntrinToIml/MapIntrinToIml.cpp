@@ -972,7 +972,7 @@ void MapIntrinToImlImpl::legalizeAVX512MaskArgs(
 
     Constant *Zeros = ConstantAggregateZero::get(NewMaskType);
     Constant *Ones =
-        ConstantVector::getSplat(ElementCount(LogicalVL, false),
+        ConstantVector::getSplat(ElementCount::getFixed(LogicalVL),
                                  ConstantInt::get(NewMaskElementType, -1));
     Value *NewMask =
         Builder.CreateSelect(MaskValue, Ones, Zeros, "select.maskcvt");
@@ -994,7 +994,7 @@ void MapIntrinToImlImpl::legalizeAVX512MaskArgs(
     // parameter and create a new source parameter.
     VectorType *OldMaskType = cast<VectorType>(MaskValue->getType());
     Constant *Splat = ConstantVector::getSplat(
-        ElementCount(LogicalVL, false),
+        ElementCount::getFixed(LogicalVL),
         ConstantInt::get(OldMaskType->getElementType(), -1));
     Value *NewMask = Builder.CreateICmpEQ(MaskValue, Splat, "icmp.maskcvt");
 
@@ -1110,11 +1110,14 @@ bool MapIntrinToImlImpl::runImpl() {
     CallInst *CI = dyn_cast<CallInst>(&*Inst);
     if (CI && CI->getCalledFunction()) {
       StringRef FuncName = CI->getCalledFunction()->getName();
-      if (FuncName.startswith("__svml") &&
-          getVectorTypeForSVMLFunction(CI->getFunctionType()))
-        InstToTranslate.insert(CI);
-      else if (is_libm_function(FuncName.str().c_str()))
+      // Only transform functions with SVML naming scheme if SVML is enabled.
+      if (FuncName.startswith("__svml")) {
+        if (TLI->isSVMLEnabled() &&
+            getVectorTypeForSVMLFunction(CI->getFunctionType()))
+          InstToTranslate.insert(CI);
+      } else if (is_libm_function(FuncName.str().c_str())) {
         ScalarCallsToTranslate.insert(CI);
+      }
     }
   }
 

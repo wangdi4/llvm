@@ -12,14 +12,14 @@ define dso_local void @foo(i32* nocapture readonly %a, i32 %n) local_unnamed_add
 ; CHECK-NEXT:  VPlan IR for: foo
 ; CHECK-NEXT:    [[BB0:BB[0-9]+]]:
 ; CHECK-NEXT:     [DA: Div] i32 [[VP_LANE:%.*]] = induction-init{add} i32 0 i32 1
-; CHECK-NEXT:     [DA: Uni] i1 [[VP_CMP4:%.*]] = icmp i32 [[N0:%.*]] i32 7
+; CHECK-NEXT:     [DA: Uni] i1 [[VP_CMP4:%.*]] = icmp slt i32 [[N0:%.*]] i32 7
 ; CHECK-NEXT:     [DA: Div] i32* [[VP_ARRAYIDX:%.*]] = getelementptr inbounds i32* [[A0:%.*]] i32 [[VP_LANE]]
 ; CHECK-NEXT:     [DA: Div] i32 [[VP0:%.*]] = load i32* [[VP_ARRAYIDX]]
 ; CHECK-NEXT:    SUCCESSORS(1):[[BB1:BB[0-9]+]]
 ; CHECK-NEXT:    no PREDECESSORS
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB1]]:
-; CHECK-NEXT:     [DA: Div] i1 [[VP_CMP1:%.*]] = icmp i32 [[VP0]] i32 3
+; CHECK-NEXT:     [DA: Div] i1 [[VP_CMP1:%.*]] = icmp eq i32 [[VP0]] i32 3
 ; CHECK-NEXT:    SUCCESSORS(1):all.zero.bypass.begin9
 ; CHECK-NEXT:    PREDECESSORS(1): [[BB0]]
 ; CHECK-EMPTY:
@@ -41,7 +41,7 @@ define dso_local void @foo(i32* nocapture readonly %a, i32 %n) local_unnamed_add
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB3]]:
 ; CHECK-NEXT:     <Empty Block>
-; CHECK-NEXT:     Condition([[BB0]]): [DA: Uni] i1 [[VP_CMP4]] = icmp i32 [[N0]] i32 7
+; CHECK-NEXT:     Condition([[BB0]]): [DA: Uni] i1 [[VP_CMP4]] = icmp slt i32 [[N0]] i32 7
 ; CHECK-NEXT:    SUCCESSORS(2):[[BB4:BB[0-9]+]](i1 [[VP_CMP4]]), [[BB5:BB[0-9]+]](!i1 [[VP_CMP4]])
 ; CHECK-NEXT:    PREDECESSORS(1): all.zero.bypass.end11
 ; CHECK-EMPTY:

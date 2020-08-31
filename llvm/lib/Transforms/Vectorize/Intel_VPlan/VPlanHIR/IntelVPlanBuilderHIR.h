@@ -115,6 +115,26 @@ public:
       AbsInst->HIR.setUnderlyingNode(DDNode);
     return AbsInst;
   }
+
+  VPInstruction *createLoad(Type *Ty, VPValue *Ptr,
+                            loopopt::HLDDNode *DDNode = nullptr,
+                            const Twine &Name = "load") {
+    VPInstruction *NewVPLoad =
+        VPBuilder::createLoad(Ty, Ptr, nullptr /*Inst*/, Name);
+    if (DDNode)
+      NewVPLoad->HIR.setUnderlyingNode(DDNode);
+    return NewVPLoad;
+  }
+
+  VPInstruction *createStore(VPValue *Val, VPValue *Ptr,
+                             loopopt::HLDDNode *DDNode = nullptr,
+                             const Twine &Name = "store") {
+    VPInstruction *NewVPStore =
+        VPBuilder::createStore(Val, Ptr, nullptr /*Inst*/, Name);
+    if (DDNode)
+      NewVPStore->HIR.setUnderlyingNode(DDNode);
+    return NewVPStore;
+  }
 };
 
 } // namespace vpo

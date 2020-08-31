@@ -55,6 +55,7 @@
 #if INTEL_CUSTOMIZATION
 #include "ToolChains/Arch/X86.h"
 #endif // INTEL_CUSTOMIZATION
+#include "clang/Basic/TargetID.h"
 #include "clang/Basic/Version.h"
 #include "clang/Config/config.h"
 #include "clang/Driver/Action.h"
@@ -102,6 +103,11 @@
 using namespace clang::driver;
 using namespace clang;
 using namespace llvm::opt;
+
+static llvm::Triple getHIPOffloadTargetTriple() {
+  static const llvm::Triple T("amdgcn-amd-amdhsa");
+  return T;
+}
 
 // static
 std::string Driver::GetResourcesPath(StringRef BinaryPath,
@@ -457,13 +463,16 @@ void Driver::addIntelArgs(DerivedArgList &DAL, const InputArgList &Args,
   if (Arg *A = Args.getLastArg(options::OPT_Ofast)) {
     StringRef Opt(Args.MakeArgString(A->getAsString(Args)));
     bool hasXOpt = false;
-    if (Arg *A = Args.getLastArg(options::OPT_x)) {
-      StringRef Arch = A->getValue();
-      hasXOpt = !types::lookupTypeForTypeSpecifier(Arch.data());
-    }
+    if (IsCLMode())
+      hasXOpt = Args.hasArg(options::OPT__SLASH_Qx);
+    else
+      if (Arg *A = Args.getLastArg(options::OPT_x)) {
+        StringRef Arch = A->getValue();
+        hasXOpt = !types::lookupTypeForTypeSpecifier(Arch.data());
+      }
     if (!Opt.contains("O")) {
       if (!hasXOpt)
-        addClaim(options::OPT_x, "HOST");
+        addClaim(IsCLMode() ? options::OPT__SLASH_Qx : options::OPT_x, "HOST");
       if (!Args.hasFlag(options::OPT_flto, options::OPT_flto_EQ,
                         options::OPT_fno_lto, false)) {
         // check to make sure that if LTO is disabled, it is done after fast.
@@ -610,7 +619,8 @@ DerivedArgList *Driver::TranslateInputArgs(const InputArgList &Args) const {
         continue;
       }
 #if INTEL_CUSTOMIZATION
-      if (IsIntelMode() && (Value == "m")) {
+      if ((IsIntelMode() || Args.hasArg(options::OPT__dpcpp)) &&
+          (Value == "m")) {
         DAL->AddJoinedArg(0, Opts.getOption(options::OPT_l), "imf");
       }
 #endif //INTEL_CUSTOMIZATION
@@ -985,10 +995,8 @@ void Driver::CreateOffloadingDeviceToolChains(Compilation &C,
     C.addOffloadDeviceToolChain(CudaTC, OFK);
   } else if (IsHIP) {
     const ToolChain *HostTC = C.getSingleOffloadToolChain<Action::OFK_Host>();
-    StringRef DeviceTripleStr;
     auto OFK = Action::OFK_HIP;
-    DeviceTripleStr = "amdgcn-amd-amdhsa";
-    llvm::Triple HIPTriple(DeviceTripleStr);
+    llvm::Triple HIPTriple = getHIPOffloadTargetTriple();
     // Use the HIP and host triples as the key into
     // getOffloadingDeviceToolChain, because the device toolchain we create
     // depends on both.
@@ -1529,6 +1537,11 @@ Compilation *Driver::BuildCompilation(ArrayRef<const char *> ArgList) {
                  VA->getOption().matches(options::OPT__HASH))
       IntelPrintOptions = 1;
   }
+  // Update the Driver Title to something more fitting
+  std::string Title("Intel(R) oneAPI DPC++/C++ Compiler");
+  if (IsIntelPro())
+    Title += " Pro";
+  setTitle(Title);
 #endif // INTEL_CUSTOMIZATION
 
   // -no-canonical-prefixes is used very early in main.
@@ -3205,8 +3218,20 @@ class OffloadingActionBuilder final {
     bool EmitLLVM = false;
     bool EmitAsm = false;
 
+    /// ID to identify each device compilation. For CUDA it is simply the
+    /// GPU arch string. For HIP it is either the GPU arch string or GPU
+    /// arch string plus feature strings delimited by a plus sign, e.g.
+    /// gfx906+xnack.
+    struct TargetID {
+      /// Target ID string which is persistent throughout the compilation.
+      const char *ID;
+      TargetID(CudaArch Arch) { ID = CudaArchToString(Arch); }
+      TargetID(const char *ID) : ID(ID) {}
+      operator const char *() { return ID; }
+      operator StringRef() { return StringRef(ID); }
+    };
     /// List of GPU architectures to use in this compilation.
-    SmallVector<CudaArch, 4> GpuArchList;
+    SmallVector<TargetID, 4> GpuArchList;
 
     /// The CUDA actions for the current input.
     ActionList CudaDeviceActions;
@@ -3290,7 +3315,7 @@ class OffloadingActionBuilder final {
 
         for (auto Arch : GpuArchList) {
           CudaDeviceActions.push_back(UA);
-          UA->registerDependentActionInfo(ToolChains[0], CudaArchToString(Arch),
+          UA->registerDependentActionInfo(ToolChains[0], Arch,
                                           AssociatedOffloadKind);
         }
         return ABRT_Success;
@@ -3301,10 +3326,9 @@ class OffloadingActionBuilder final {
 
     void appendTopLevelActions(ActionList &AL) override {
       // Utility to append actions to the top level list.
-      auto AddTopLevel = [&](Action *A, CudaArch BoundArch) {
+      auto AddTopLevel = [&](Action *A, TargetID TargetID) {
         OffloadAction::DeviceDependences Dep;
-        Dep.add(*A, *ToolChains.front(), CudaArchToString(BoundArch),
-                AssociatedOffloadKind);
+        Dep.add(*A, *ToolChains.front(), TargetID, AssociatedOffloadKind);
         AL.push_back(C.MakeAction<OffloadAction>(Dep, A->getType()));
       };
 
@@ -3331,6 +3355,13 @@ class OffloadingActionBuilder final {
 
       CudaDeviceActions.clear();
     }
+
+    /// Get canonicalized offload arch option. \returns empty StringRef if the
+    /// option is invalid.
+    virtual StringRef getCanonicalOffloadArch(StringRef Arch) = 0;
+
+    virtual llvm::Optional<std::pair<llvm::StringRef, llvm::StringRef>>
+    getConflictOffloadArchCombination(const std::set<StringRef> &GpuArchs) = 0;
 
     bool initialize() override {
       assert(AssociatedOffloadKind == Action::OFK_Cuda ||
@@ -3379,7 +3410,7 @@ class OffloadingActionBuilder final {
       EmitAsm = Args.getLastArg(options::OPT_S);
 
       // Collect all cuda_gpu_arch parameters, removing duplicates.
-      std::set<CudaArch> GpuArchs;
+      std::set<StringRef> GpuArchs;
       bool Error = false;
       for (Arg *A : Args) {
         if (!(A->getOption().matches(options::OPT_offload_arch_EQ) ||
@@ -3387,27 +3418,35 @@ class OffloadingActionBuilder final {
           continue;
         A->claim();
 
-        const StringRef ArchStr = A->getValue();
+        StringRef ArchStr = A->getValue();
         if (A->getOption().matches(options::OPT_no_offload_arch_EQ) &&
             ArchStr == "all") {
           GpuArchs.clear();
           continue;
         }
-        CudaArch Arch = StringToCudaArch(ArchStr);
-        if (Arch == CudaArch::UNKNOWN) {
-          C.getDriver().Diag(clang::diag::err_drv_cuda_bad_gpu_arch) << ArchStr;
+        ArchStr = getCanonicalOffloadArch(ArchStr);
+        if (ArchStr.empty()) {
           Error = true;
         } else if (A->getOption().matches(options::OPT_offload_arch_EQ))
-          GpuArchs.insert(Arch);
+          GpuArchs.insert(ArchStr);
         else if (A->getOption().matches(options::OPT_no_offload_arch_EQ))
-          GpuArchs.erase(Arch);
+          GpuArchs.erase(ArchStr);
         else
           llvm_unreachable("Unexpected option.");
       }
 
+      auto &&ConflictingArchs = getConflictOffloadArchCombination(GpuArchs);
+      if (ConflictingArchs) {
+        C.getDriver().Diag(clang::diag::err_drv_bad_offload_arch_combo)
+            << ConflictingArchs.getValue().first
+            << ConflictingArchs.getValue().second;
+        C.setContainsError();
+        return true;
+      }
+
       // Collect list of GPUs remaining in the set.
-      for (CudaArch Arch : GpuArchs)
-        GpuArchList.push_back(Arch);
+      for (auto Arch : GpuArchs)
+        GpuArchList.push_back(Arch.data());
 
       // Default to sm_20 which is the lowest common denominator for
       // supported GPUs.  sm_20 code should work correctly, if
@@ -3427,6 +3466,21 @@ class OffloadingActionBuilder final {
                       const Driver::InputList &Inputs)
         : CudaActionBuilderBase(C, Args, Inputs, Action::OFK_Cuda) {
       DefaultCudaArch = CudaArch::SM_20;
+    }
+
+    StringRef getCanonicalOffloadArch(StringRef ArchStr) override {
+      CudaArch Arch = StringToCudaArch(ArchStr);
+      if (Arch == CudaArch::UNKNOWN) {
+        C.getDriver().Diag(clang::diag::err_drv_cuda_bad_gpu_arch) << ArchStr;
+        return StringRef();
+      }
+      return CudaArchToString(Arch);
+    }
+
+    llvm::Optional<std::pair<llvm::StringRef, llvm::StringRef>>
+    getConflictOffloadArchCombination(
+        const std::set<StringRef> &GpuArchs) override {
+      return llvm::None;
     }
 
     ActionBuilderReturnCode
@@ -3488,8 +3542,7 @@ class OffloadingActionBuilder final {
 
           for (auto &A : {AssembleAction, BackendAction}) {
             OffloadAction::DeviceDependences DDep;
-            DDep.add(*A, *ToolChains.front(), CudaArchToString(GpuArchList[I]),
-                     Action::OFK_Cuda);
+            DDep.add(*A, *ToolChains.front(), GpuArchList[I], Action::OFK_Cuda);
             DeviceActions.push_back(
                 C.MakeAction<OffloadAction>(DDep, A->getType()));
           }
@@ -3548,6 +3601,24 @@ class OffloadingActionBuilder final {
 
     bool canUseBundlerUnbundler() const override { return true; }
 
+    StringRef getCanonicalOffloadArch(StringRef IdStr) override {
+      llvm::StringMap<bool> Features;
+      auto ArchStr =
+          parseTargetID(getHIPOffloadTargetTriple(), IdStr, &Features);
+      if (!ArchStr) {
+        C.getDriver().Diag(clang::diag::err_drv_bad_target_id) << IdStr;
+        return StringRef();
+      }
+      auto CanId = getCanonicalTargetID(ArchStr.getValue(), Features);
+      return Args.MakeArgStringRef(CanId);
+    };
+
+    llvm::Optional<std::pair<llvm::StringRef, llvm::StringRef>>
+    getConflictOffloadArchCombination(
+        const std::set<StringRef> &GpuArchs) override {
+      return getConflictTargetIDCombination(GpuArchs);
+    }
+
     ActionBuilderReturnCode
     getDeviceDependences(OffloadAction::DeviceDependences &DA,
                          phases::ID CurPhase, phases::ID FinalPhase,
@@ -3592,8 +3663,8 @@ class OffloadingActionBuilder final {
           // device arch of the next action being propagated to the above link
           // action.
           OffloadAction::DeviceDependences DDep;
-          DDep.add(*CudaDeviceActions[I], *ToolChains.front(),
-                   CudaArchToString(GpuArchList[I]), AssociatedOffloadKind);
+          DDep.add(*CudaDeviceActions[I], *ToolChains.front(), GpuArchList[I],
+                   AssociatedOffloadKind);
           CudaDeviceActions[I] = C.MakeAction<OffloadAction>(
               DDep, CudaDeviceActions[I]->getType());
         }
@@ -3660,7 +3731,7 @@ class OffloadingActionBuilder final {
         // LI contains all the inputs for the linker.
         OffloadAction::DeviceDependences DeviceLinkDeps;
         DeviceLinkDeps.add(*DeviceLinkAction, *ToolChains[0],
-            CudaArchToString(GpuArchList[I]), AssociatedOffloadKind);
+            GpuArchList[I], AssociatedOffloadKind);
         AL.push_back(C.MakeAction<OffloadAction>(DeviceLinkDeps,
             DeviceLinkAction->getType()));
         ++I;
@@ -3769,6 +3840,12 @@ class OffloadingActionBuilder final {
                    llvm::sys::path::extension(FileName).drop_front()) !=
                    types::TY_Object))
             return ABRT_Inactive;
+#if INTEL_CUSTOMIZATION
+          // Windows archives are handled differently
+          if (isStaticArchiveFile(IA->getInputArg().getAsString(Args)) &&
+              IA->getType() == types::TY_Object)
+            return ABRT_Inactive;
+#endif // INTEL_CUSTOMIZATION
         }
         for (unsigned I = 0; I < ToolChains.size(); ++I) {
           OpenMPDeviceActions.push_back(UA);
@@ -4460,7 +4537,8 @@ class OffloadingActionBuilder final {
         A->claim();
         auto ParsedArg = Opts.ParseOneArg(Args, Index);
         // TODO: Support --no-cuda-gpu-arch, --{,no-}cuda-gpu-arch=all.
-        if (ParsedArg->getOption().matches(options::OPT_offload_arch_EQ)) {
+        if (ParsedArg &&
+            ParsedArg->getOption().matches(options::OPT_offload_arch_EQ)) {
           ParsedArg->claim();
           GpuArchList.push_back(StringToCudaArch(ParsedArg->getValue(0)));
         }
@@ -5049,6 +5127,28 @@ void Driver::handleArguments(Compilation &C, DerivedArgList &Args,
   }
 }
 
+#if INTEL_CUSTOMIZATION
+const char *resolveLib(const StringRef &LibName, DerivedArgList &Args,
+                       Compilation &C) {
+  bool isMSVC = C.getDefaultToolChain().getTriple().isWindowsMSVCEnvironment();
+  StringRef RetLib(LibName);
+  const char *envVar(isMSVC ? "LIB" : "LIBRARY_PATH");
+  // TODO - We may want to leverage this for Linux library searches.  This
+  // is currently only used for Windows.
+  if (llvm::Optional<std::string> LibDir = llvm::sys::Process::GetEnv(envVar)) {
+    SmallVector<StringRef, 8> Dirs;
+    StringRef(*LibDir).split(Dirs, llvm::sys::EnvPathSeparator, -1, false);
+    for (StringRef Dir : Dirs) {
+      SmallString<128> FullName(Dir);
+      llvm::sys::path::append(FullName, LibName);
+      if (llvm::sys::fs::exists(FullName))
+        return Args.MakeArgString(FullName.c_str());
+    }
+  }
+  return Args.MakeArgString(RetLib);
+}
+#endif // INTEL_CUSTOMIZATION
+
 void Driver::BuildActions(Compilation &C, DerivedArgList &Args,
                           const InputList &Inputs, ActionList &Actions) const {
   llvm::PrettyStackTraceString CrashInfo("Building compilation actions");
@@ -5296,7 +5396,12 @@ void Driver::BuildActions(Compilation &C, DerivedArgList &Args,
     OffloadBuilder.addDeviceDependencesToHostAction(
         Current, InputArg, phases::Link, PL.back(), PL);
   };
-  for (const StringRef &LA : LinkArgs) {
+#if INTEL_CUSTOMIZATION
+  for (const StringRef &tLA : LinkArgs) {
+    // Augment the current argument to add additional directory information
+    // in case the location of the lib is not in CWD.
+    StringRef LA(resolveLib(tLA, Args, C));
+#endif // INTEL_CUSTOMIZATION
     // At this point, we will process the archives for FPGA AOCO and individual
     // archive unbundling for Windows.
     if (!isStaticArchiveFile(LA))
@@ -6225,7 +6330,8 @@ InputInfo Driver::BuildJobsForActionNoCache(
       if (((C.getInputArgs().hasArg(options::OPT_mkl_EQ) &&
             C.getInputArgs().hasArg(options::OPT_static)) ||
            C.getInputArgs().hasArg(options::OPT_daal_EQ) ||
-           C.getDriver().getOffloadStaticLibSeen()) &&
+           C.getDriver().getOffloadStaticLibSeen() ||
+           (JA->getType() == types::TY_Archive && IsMSVCEnv)) &&
 #endif // INTEL_CUSTOMIZATION
           (JA->getType() == types::TY_Archive ||
            (JA->getType() == types::TY_Object && !IsMSVCEnv))) {

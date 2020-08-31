@@ -305,31 +305,6 @@ static void deleteDeadInstruction(Instruction *I) {
   I->eraseFromParent();
 }
 
-namespace {
-class ExpandedValuesCleaner {
-  SCEVExpander &Expander;
-  TargetLibraryInfo *TLI;
-  SmallVector<Value *, 4> ExpandedValues;
-  bool Commit = false;
-
-public:
-  ExpandedValuesCleaner(SCEVExpander &Expander, TargetLibraryInfo *TLI)
-      : Expander(Expander), TLI(TLI) {}
-
-  void add(Value *V) { ExpandedValues.push_back(V); }
-
-  void commit() { Commit = true; }
-
-  ~ExpandedValuesCleaner() {
-    if (!Commit) {
-      Expander.clear();
-      for (auto *V : ExpandedValues)
-        RecursivelyDeleteTriviallyDeadInstructions(V, TLI);
-    }
-  }
-};
-} // namespace
-
 //===----------------------------------------------------------------------===//
 //
 //          Implementation of LoopIdiomRecognize
@@ -955,7 +930,7 @@ bool LoopIdiomRecognize::processLoopStridedStore(
   BasicBlock *Preheader = CurLoop->getLoopPreheader();
   IRBuilder<> Builder(Preheader->getTerminator());
   SCEVExpander Expander(*SE, *DL, "loop-idiom");
-  ExpandedValuesCleaner EVC(Expander, TLI);
+  SCEVExpanderCleaner ExpCleaner(Expander, *DT);
 
   Type *DestInt8PtrTy = Builder.getInt8PtrTy(DestAS);
   Type *IntIdxTy = DL->getIndexType(DestPtr->getType());
@@ -978,7 +953,6 @@ bool LoopIdiomRecognize::processLoopStridedStore(
   // base pointer and checking the region.
   Value *BasePtr =
       Expander.expandCodeFor(Start, DestInt8PtrTy, Preheader->getTerminator());
-  EVC.add(BasePtr);
 
   // From here on out, conservatively report to the pass manager that we've
   // changed the IR, even if we later clean up these added instructions. There
@@ -1063,7 +1037,7 @@ bool LoopIdiomRecognize::processLoopStridedStore(
   if (MSSAU && VerifyMemorySSA)
     MSSAU->getMemorySSA()->verifyMemorySSA();
   ++NumMemSet;
-  EVC.commit();
+  ExpCleaner.markResultUsed();
   return true;
 }
 
@@ -1103,7 +1077,7 @@ bool LoopIdiomRecognize::processLoopStoreOfLoopLoad(StoreInst *SI,
   IRBuilder<> Builder(Preheader->getTerminator());
   SCEVExpander Expander(*SE, *DL, "loop-idiom");
 
-  ExpandedValuesCleaner EVC(Expander, TLI);
+  SCEVExpanderCleaner ExpCleaner(Expander, *DT);
 
   bool Changed = false;
   const SCEV *StrStart = StoreEv->getStart();
@@ -1122,7 +1096,6 @@ bool LoopIdiomRecognize::processLoopStoreOfLoopLoad(StoreInst *SI,
   // checking everything.
   Value *StoreBasePtr = Expander.expandCodeFor(
       StrStart, Builder.getInt8PtrTy(StrAS), Preheader->getTerminator());
-  EVC.add(StoreBasePtr);
 
 #if INTEL_CUSTOMIZATION
   AAMDNodes AAInfo;
@@ -1156,7 +1129,6 @@ bool LoopIdiomRecognize::processLoopStoreOfLoopLoad(StoreInst *SI,
   // mutated by the loop.
   Value *LoadBasePtr = Expander.expandCodeFor(
       LdStart, Builder.getInt8PtrTy(LdAS), Preheader->getTerminator());
-  EVC.add(LoadBasePtr);
 
   if (mayLoopAccessLocation(LoadBasePtr, ModRefInfo::Mod, CurLoop, BECount,
                             StoreSize, *AA, Stores, nullptr)) // INTEL
@@ -1172,7 +1144,6 @@ bool LoopIdiomRecognize::processLoopStoreOfLoopLoad(StoreInst *SI,
 
   Value *NumBytes =
       Expander.expandCodeFor(NumBytesS, IntIdxTy, Preheader->getTerminator());
-  EVC.add(NumBytes);
 
   CallInst *NewCall = nullptr;
   // Check whether to generate an unordered atomic memcpy:
@@ -1232,7 +1203,7 @@ bool LoopIdiomRecognize::processLoopStoreOfLoopLoad(StoreInst *SI,
   if (MSSAU && VerifyMemorySSA)
     MSSAU->getMemorySSA()->verifyMemorySSA();
   ++NumMemCpy;
-  EVC.commit();
+  ExpCleaner.markResultUsed();
   return true;
 }
 

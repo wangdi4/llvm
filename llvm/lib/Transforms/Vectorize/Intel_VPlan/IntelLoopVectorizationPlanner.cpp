@@ -61,11 +61,11 @@ static cl::opt<bool>
                            cl::Hidden, cl::desc("Disable VPlan predicator."));
 
 static cl::opt<bool> EnableAllZeroBypassNonLoops(
-    "vplan-enable-all-zero-bypass-non-loops", cl::init(false), cl::Hidden,
+    "vplan-enable-all-zero-bypass-non-loops", cl::init(true), cl::Hidden,
     cl::desc("Enable all-zero bypass insertion for non-loops."));
 
 static cl::opt<bool> EnableAllZeroBypassLoops(
-    "vplan-enable-all-zero-bypass-loops", cl::init(false), cl::Hidden,
+    "vplan-enable-all-zero-bypass-loops", cl::init(true), cl::Hidden,
     cl::desc("Enable all-zero bypass insertion for loops."));
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
@@ -82,6 +82,10 @@ static cl::opt<bool>
 static cl::opt<bool>
     PrintAfterLoopCFU("vplan-print-after-loop-cfu", cl::init(false), cl::Hidden,
                       cl::desc("Print VPlan after LoopCFU transformation."));
+
+static cl::opt<bool> DotAfterLoopCFU(
+    "vplan-dot-after-loop-cfu", cl::init(false), cl::Hidden,
+    cl::desc("Print VPlan digraph after LoopCFU transformation."));
 
 static cl::opt<bool> PrintAfterLinearization(
     "vplan-print-after-linearization", cl::init(false), cl::Hidden,
@@ -115,6 +119,7 @@ static cl::opt<bool> PrintAfterLiveInOutList(
 #else
 static constexpr bool PrintAfterLCSSA = false;
 static constexpr bool PrintAfterLoopCFU = false;
+static constexpr bool DotAfterLoopCFU = false;
 static constexpr bool PrintAfterLinearization = false;
 static constexpr bool DotAfterLinearization = false;
 static constexpr bool PrintAfterAllZeroBypass = false;
@@ -525,6 +530,7 @@ void LoopVectorizationPlanner::predicate() {
       LoopCFU.run();
     }
     VPLAN_DUMP(PrintAfterLoopCFU, "Loop CFU transformation", VPlan);
+    VPLAN_DOT(DotAfterLoopCFU, VPlan);
 
     // Predication "has" to be done even for the search loop hack. Our
     // idiom-matching code and CG currently expect that. Note that predicator

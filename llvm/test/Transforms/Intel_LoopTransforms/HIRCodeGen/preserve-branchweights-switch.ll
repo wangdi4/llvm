@@ -9,7 +9,8 @@
 ;              |   %conv = sitofp.i32.double(i1 + 2);
 ;              |   (@a)[0][i1] = %conv;
 ;              |   %mul = i1  *  i1;
-;              |   switch(%mul + -3 * (%mul /u 3))
+;              |   %rem = %mul  %u  3;
+;              |   switch(%rem)
 ;              |   {
 ;              |   case 0:
 ;              |      %call = @printf(&((@.str)[0][0]),  i1);
@@ -26,7 +27,7 @@
 
 ;CHECK: region.0:
 ;CHECK: loop.{{[0-9]+}}:
-;CHECK: switch i32 %{{[0-9]+}}, label %[[SWITCH_NAME:hir.sw.[0-9]+]].default [
+;CHECK: switch i32 %{{.*}}, label %[[SWITCH_NAME:hir.sw.[0-9]+]].default [
 ;CHECK-NEXT: i32 0, label %[[SWITCH_NAME]].case.0
 ;CHECK-NEXT: i32 1, label %[[SWITCH_NAME]].case.1
 ;CHECK-NEXT: ], !prof ![[PROF_META_BW:[0-9]+]]

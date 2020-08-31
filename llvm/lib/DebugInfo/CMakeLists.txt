@@ -2,5 +2,6 @@ add_subdirectory(DWARF)
 add_subdirectory(GSYM)
 add_subdirectory(MSF)
 add_subdirectory(CodeView)
+add_subdirectory(Intel_TraceBack) # INTEL
 add_subdirectory(PDB)
 add_subdirectory(Symbolize)

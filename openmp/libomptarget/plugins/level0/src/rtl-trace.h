@@ -64,6 +64,7 @@ extern int DebugLevel;
 #define TRACE_FN_ARG_PTR(Arg)                                                  \
   DP1("    %s = " DPxMOD "\n", TO_STRING(Arg), DPxPTR(Arg))
 #define TRACE_FN_ARG_UINT(Arg) TRACE_FN_ARG(Arg, "%" PRIu32)
+#define TRACE_FN_ARG_UINT64(Arg) TRACE_FN_ARG(Arg, "%" PRIu64)
 #define TRACE_FN_ARG_SIZE(Arg) TRACE_FN_ARG(Arg, "%zu")
 
 TRACE_FN_DEF(zeCommandListAppendBarrier)(
@@ -102,7 +103,6 @@ TRACE_FN_DEF(zeCommandListAppendLaunchKernel)(
   return rc;
 }
 
-#if USE_NEW_API
 TRACE_FN_DEF(zeCommandListAppendMemoryCopy)(
     ze_command_list_handle_t hCommandList,
     void *dstptr,
@@ -124,25 +124,6 @@ TRACE_FN_DEF(zeCommandListAppendMemoryCopy)(
   TRACE_FN_ARG_END();
   return rc;
 }
-#else // !USE_NEW_API
-TRACE_FN_DEF(zeCommandListAppendMemoryCopy)(
-    ze_command_list_handle_t hCommandList,
-    void *dstptr,
-    const void *srcptr,
-    size_t size,
-    ze_event_handle_t hEvent) {
-  auto rc = zeCommandListAppendMemoryCopy(hCommandList, dstptr, srcptr, size,
-                                          hEvent);
-  TRACE_FN_ARG_BEGIN();
-  TRACE_FN_ARG_PTR(hCommandList);
-  TRACE_FN_ARG_PTR(dstptr);
-  TRACE_FN_ARG_PTR(srcptr);
-  TRACE_FN_ARG(size, "%zu");
-  TRACE_FN_ARG_PTR(hEvent);
-  TRACE_FN_ARG_END();
-  return rc;
-}
-#endif // !USE_NEW_API
 
 TRACE_FN_DEF(zeCommandListClose)(
     ze_command_list_handle_t hCommandList) {
@@ -153,7 +134,6 @@ TRACE_FN_DEF(zeCommandListClose)(
   return rc;
 }
 
-#if USE_NEW_API
 TRACE_FN_DEF(zeCommandListCreate)(
     ze_context_handle_t hContext,
     ze_device_handle_t hDevice,
@@ -168,20 +148,6 @@ TRACE_FN_DEF(zeCommandListCreate)(
   TRACE_FN_ARG_END();
   return rc;
 }
-#else // !USE_NEW_API
-TRACE_FN_DEF(zeCommandListCreate)(
-    ze_device_handle_t hDevice,
-    const ze_command_list_desc_t *desc,
-    ze_command_list_handle_t *phCommandList) {
-  auto rc = zeCommandListCreate(hDevice, desc, phCommandList);
-  TRACE_FN_ARG_BEGIN();
-  TRACE_FN_ARG_PTR(hDevice);
-  TRACE_FN_ARG_PTR(desc);
-  TRACE_FN_ARG_PTR(phCommandList);
-  TRACE_FN_ARG_END();
-  return rc;
-}
-#endif // !USE_NEW_API
 
 TRACE_FN_DEF(zeCommandListDestroy)(
     ze_command_list_handle_t hCommandList) {
@@ -201,7 +167,6 @@ TRACE_FN_DEF(zeCommandListReset)(
   return rc;
 }
 
-#if USE_NEW_API
 TRACE_FN_DEF(zeCommandQueueCreate)(
     ze_context_handle_t hContext,
     ze_device_handle_t hDevice,
@@ -216,20 +181,6 @@ TRACE_FN_DEF(zeCommandQueueCreate)(
   TRACE_FN_ARG_END();
   return rc;
 }
-#else // !USE_NEW_API
-TRACE_FN_DEF(zeCommandQueueCreate)(
-    ze_device_handle_t hDevice,
-    const ze_command_queue_desc_t *desc,
-    ze_command_queue_handle_t *phCommandQueue) {
-  auto rc = zeCommandQueueCreate(hDevice, desc, phCommandQueue);
-  TRACE_FN_ARG_BEGIN();
-  TRACE_FN_ARG_PTR(hDevice);
-  TRACE_FN_ARG_PTR(desc);
-  TRACE_FN_ARG_PTR(phCommandQueue);
-  TRACE_FN_ARG_END();
-  return rc;
-}
-#endif // !USE_NEW_API
 
 TRACE_FN_DEF(zeCommandQueueDestroy)(
     ze_command_queue_handle_t hCommandQueue) {
@@ -258,16 +209,15 @@ TRACE_FN_DEF(zeCommandQueueExecuteCommandLists)(
 
 TRACE_FN_DEF(zeCommandQueueSynchronize)(
     ze_command_queue_handle_t hCommandQueue,
-    uint32_t timeout) {
+    uint64_t timeout) {
   auto rc = zeCommandQueueSynchronize(hCommandQueue, timeout);
   TRACE_FN_ARG_BEGIN();
   TRACE_FN_ARG_PTR(hCommandQueue);
-  TRACE_FN_ARG_UINT(timeout);
+  TRACE_FN_ARG_UINT64(timeout);
   TRACE_FN_ARG_END();
   return rc;
 }
 
-#if USE_NEW_API
 TRACE_FN_DEF(zeContextCreate)(
     ze_driver_handle_t hDriver,
     const ze_context_desc_t *desc,
@@ -289,7 +239,6 @@ TRACE_FN_DEF(zeContextDestroy)(
   TRACE_FN_ARG_END();
   return rc;
 }
-#endif // USE_NEW_API
 
 TRACE_FN_DEF(zeDeviceGet)(
     ze_driver_handle_t hDriver,
@@ -315,7 +264,6 @@ TRACE_FN_DEF(zeDeviceGetProperties)(
   return rc;
 }
 
-#if USE_NEW_API
 TRACE_FN_DEF(zeDeviceGetCommandQueueGroupProperties)(
     ze_device_handle_t hDevice,
     uint32_t *pCount,
@@ -329,7 +277,6 @@ TRACE_FN_DEF(zeDeviceGetCommandQueueGroupProperties)(
   TRACE_FN_ARG_END();
   return rc;
 }
-#endif // USE_NEW_API
 
 TRACE_FN_DEF(zeDeviceGetComputeProperties)(
     ze_device_handle_t hDevice,
@@ -342,78 +289,6 @@ TRACE_FN_DEF(zeDeviceGetComputeProperties)(
   return rc;
 }
 
-#if !USE_NEW_API
-TRACE_FN_DEF(zeDriverAllocDeviceMem)(
-    ze_driver_handle_t hDriver,
-    const ze_device_mem_alloc_desc_t *device_desc,
-    size_t size,
-    size_t alignment,
-    ze_device_handle_t hDevice,
-    void **pptr) {
-  auto rc = zeDriverAllocDeviceMem(hDriver, device_desc, size, alignment,
-                                   hDevice, pptr);
-  TRACE_FN_ARG_BEGIN();
-  TRACE_FN_ARG_PTR(hDriver);
-  TRACE_FN_ARG_PTR(device_desc);
-  TRACE_FN_ARG(size, "%zu");
-  TRACE_FN_ARG(alignment, "%zu");
-  TRACE_FN_ARG_PTR(hDevice);
-  TRACE_FN_ARG_PTR(pptr);
-  TRACE_FN_ARG_END();
-  return rc;
-}
-
-TRACE_FN_DEF(zeDriverAllocHostMem)(
-    ze_driver_handle_t hDriver,
-    const ze_host_mem_alloc_desc_t *host_desc,
-    size_t size,
-    size_t alignment,
-    void **pptr) {
-  auto rc = zeDriverAllocHostMem(hDriver, host_desc, size, alignment, pptr);
-  TRACE_FN_ARG_BEGIN();
-  TRACE_FN_ARG_PTR(hDriver);
-  TRACE_FN_ARG_PTR(host_desc);
-  TRACE_FN_ARG(size, "%zu");
-  TRACE_FN_ARG(alignment, "%zu");
-  TRACE_FN_ARG_PTR(pptr);
-  TRACE_FN_ARG_END();
-  return rc;
-}
-
-TRACE_FN_DEF(zeDriverAllocSharedMem)(
-    ze_driver_handle_t hDriver,
-    const ze_device_mem_alloc_desc_t *device_desc,
-    const ze_host_mem_alloc_desc_t *host_desc,
-    size_t size,
-    size_t alignment,
-    ze_device_handle_t hDevice,
-    void **pptr) {
-  auto rc = zeDriverAllocSharedMem(hDriver, device_desc, host_desc, size,
-                                   alignment, hDevice, pptr);
-  TRACE_FN_ARG_BEGIN();
-  TRACE_FN_ARG_PTR(hDriver);
-  TRACE_FN_ARG_PTR(device_desc);
-  TRACE_FN_ARG_PTR(host_desc);
-  TRACE_FN_ARG(size, "%zu");
-  TRACE_FN_ARG(alignment, "%zu");
-  TRACE_FN_ARG_PTR(hDevice);
-  TRACE_FN_ARG_PTR(pptr);
-  TRACE_FN_ARG_END();
-  return rc;
-}
-
-TRACE_FN_DEF(zeDriverFreeMem)(
-    ze_driver_handle_t hDriver,
-    void *ptr) {
-  auto rc = zeDriverFreeMem(hDriver, ptr);
-  TRACE_FN_ARG_BEGIN();
-  TRACE_FN_ARG_PTR(hDriver);
-  TRACE_FN_ARG_PTR(ptr);
-  TRACE_FN_ARG_END();
-  return rc;
-}
-#endif // !USE_NEW_API
-
 TRACE_FN_DEF(zeDriverGet)(
     uint32_t *pCount,
     ze_driver_handle_t *phDrivers) {
@@ -424,39 +299,6 @@ TRACE_FN_DEF(zeDriverGet)(
   TRACE_FN_ARG_END();
   return rc;
 }
-
-#if !USE_NEW_API
-TRACE_FN_DEF(zeDriverGetMemAddressRange)(
-    ze_driver_handle_t hDriver,
-    const void *ptr,
-    void **pBase,
-    size_t *pSize) {
-  auto rc = zeDriverGetMemAddressRange(hDriver, ptr, pBase, pSize);
-  TRACE_FN_ARG_BEGIN();
-  TRACE_FN_ARG_PTR(hDriver);
-  TRACE_FN_ARG_PTR(ptr);
-  TRACE_FN_ARG_PTR(pBase);
-  TRACE_FN_ARG_PTR(pSize);
-  TRACE_FN_ARG_END();
-  return rc;
-}
-
-TRACE_FN_DEF(zeDriverGetMemAllocProperties)(
-    ze_driver_handle_t hDriver,
-    const void *ptr,
-    ze_memory_allocation_properties_t *pMemAllocProperties,
-    ze_device_handle_t *phDevice) {
-  auto rc = zeDriverGetMemAllocProperties(hDriver, ptr, pMemAllocProperties,
-                                          phDevice);
-  TRACE_FN_ARG_BEGIN();
-  TRACE_FN_ARG_PTR(hDriver);
-  TRACE_FN_ARG_PTR(ptr);
-  TRACE_FN_ARG_PTR(pMemAllocProperties);
-  TRACE_FN_ARG_PTR(phDevice);
-  TRACE_FN_ARG_END();
-  return rc;
-}
-#endif // !USE_NEW_API
 
 TRACE_FN_DEF(zeFenceCreate)(
     ze_command_queue_handle_t hCommandQueue,
@@ -482,11 +324,11 @@ TRACE_FN_DEF(zeFenceDestroy)(
 
 TRACE_FN_DEF(zeFenceHostSynchronize)(
     ze_fence_handle_t hFence,
-    uint32_t timeout) {
+    uint64_t timeout) {
   auto rc = zeFenceHostSynchronize(hFence, timeout);
   TRACE_FN_ARG_BEGIN();
   TRACE_FN_ARG_PTR(hFence);
-  TRACE_FN_ARG_UINT(timeout);
+  TRACE_FN_ARG_UINT64(timeout);
   TRACE_FN_ARG_END();
   return rc;
 }
@@ -522,7 +364,6 @@ TRACE_FN_DEF(zeKernelDestroy)(
   return rc;
 }
 
-#if USE_NEW_API
 TRACE_FN_DEF(zeKernelGetName)(
     ze_kernel_handle_t hKernel,
     size_t *pSize,
@@ -535,7 +376,6 @@ TRACE_FN_DEF(zeKernelGetName)(
   TRACE_FN_ARG_END();
   return rc;
 }
-#endif // USE_NEW_API
 
 TRACE_FN_DEF(zeKernelGetProperties)(
     ze_kernel_handle_t hKernel,
@@ -563,23 +403,6 @@ TRACE_FN_DEF(zeKernelSetArgumentValue)(
   return rc;
 }
 
-#if !USE_NEW_API
-TRACE_FN_DEF(zeKernelSetAttribute)(
-    ze_kernel_handle_t hKernel,
-    ze_kernel_attribute_t attr,
-    uint32_t size,
-    const void *pValue) {
-  auto rc = zeKernelSetAttribute(hKernel, attr, size, pValue);
-  TRACE_FN_ARG_BEGIN();
-  TRACE_FN_ARG_PTR(hKernel);
-  TRACE_FN_ARG(attr, "%" PRId32);
-  TRACE_FN_ARG(size, "%" PRIu32);
-  TRACE_FN_ARG_PTR(pValue);
-  TRACE_FN_ARG_END();
-  return rc;
-}
-#endif // !USE_NEW_API
-
 TRACE_FN_DEF(zeKernelSetGroupSize)(
     ze_kernel_handle_t hKernel,
     uint32_t groupSizeX,
@@ -595,7 +418,6 @@ TRACE_FN_DEF(zeKernelSetGroupSize)(
   return rc;
 }
 
-#if USE_NEW_API
 TRACE_FN_DEF(zeKernelSetIndirectAccess)(
     ze_kernel_handle_t hKernel,
     ze_kernel_indirect_access_flags_t flags) {
@@ -606,7 +428,6 @@ TRACE_FN_DEF(zeKernelSetIndirectAccess)(
   TRACE_FN_ARG_END();
   return rc;
 }
-#endif // USE_NEW_API
 
 TRACE_FN_DEF(zeKernelSuggestGroupSize)(
     ze_kernel_handle_t hKernel,
@@ -627,7 +448,6 @@ TRACE_FN_DEF(zeKernelSuggestGroupSize)(
   return rc;
 }
 
-#if USE_NEW_API
 TRACE_FN_DEF(zeMemAllocDevice)(
     ze_context_handle_t hContext,
     const ze_device_mem_alloc_desc_t *device_desc,
@@ -728,7 +548,6 @@ TRACE_FN_DEF(zeMemGetAllocProperties)(
   TRACE_FN_ARG_END();
   return rc;
 }
-#endif // USE_NEW_API
 
 TRACE_FN_DEF(zeModuleBuildLogDestroy)(
     ze_module_build_log_handle_t hModuleBuildLog) {
@@ -752,7 +571,6 @@ TRACE_FN_DEF(zeModuleBuildLogGetString)(
   return rc;
 }
 
-#if USE_NEW_API
 TRACE_FN_DEF(zeModuleCreate)(
     ze_context_handle_t hContext,
     ze_device_handle_t hDevice,
@@ -769,22 +587,6 @@ TRACE_FN_DEF(zeModuleCreate)(
   TRACE_FN_ARG_END();
   return rc;
 }
-#else // !USE_NEW_API
-TRACE_FN_DEF(zeModuleCreate)(
-    ze_device_handle_t hDevice,
-    const ze_module_desc_t *desc,
-    ze_module_handle_t *phModule,
-    ze_module_build_log_handle_t *phBuildLog) {
-  auto rc = zeModuleCreate(hDevice, desc, phModule, phBuildLog);
-  TRACE_FN_ARG_BEGIN();
-  TRACE_FN_ARG_PTR(hDevice);
-  TRACE_FN_ARG_PTR(desc);
-  TRACE_FN_ARG_PTR(phModule);
-  TRACE_FN_ARG_PTR(phBuildLog);
-  TRACE_FN_ARG_END();
-  return rc;
-}
-#endif // !USE_NEW_API
 
 TRACE_FN_DEF(zeModuleDestroy)(
     ze_module_handle_t hModule) {
@@ -795,7 +597,6 @@ TRACE_FN_DEF(zeModuleDestroy)(
   return rc;
 }
 
-#if USE_NEW_API
 TRACE_FN_DEF(zeModuleDynamicLink)(
     uint32_t numModules,
     ze_module_handle_t *phModules,
@@ -808,9 +609,7 @@ TRACE_FN_DEF(zeModuleDynamicLink)(
   TRACE_FN_ARG_END();
   return rc;
 }
-#endif // USE_NEW_API
 
-#if USE_NEW_API
 TRACE_FN_DEF(zeModuleGetGlobalPointer)(
     ze_module_handle_t hModule,
     const char *pGlobalName,
@@ -825,20 +624,6 @@ TRACE_FN_DEF(zeModuleGetGlobalPointer)(
   TRACE_FN_ARG_END();
   return rc;
 }
-#else // !USE_NEW_API
-TRACE_FN_DEF(zeModuleGetGlobalPointer)(
-    ze_module_handle_t hModule,
-    const char *pGlobalName,
-    void **pptr) {
-  auto rc = zeModuleGetGlobalPointer(hModule, pGlobalName, pptr);
-  TRACE_FN_ARG_BEGIN();
-  TRACE_FN_ARG_PTR(hModule);
-  TRACE_FN_ARG_PTR(pGlobalName);
-  TRACE_FN_ARG_PTR(pptr);
-  TRACE_FN_ARG_END();
-  return rc;
-}
-#endif // !USE_NEW_API
 
 #define CALL_ZE(Rc, Fn, ...)                                                   \
   do {                                                                         \
@@ -907,7 +692,6 @@ TRACE_FN_DEF(zeModuleGetGlobalPointer)(
     }                                                                          \
   } while (0)
 
-#if USE_NEW_API
 #define FOREACH_ZE_ERROR_CODE(Fn)                                              \
   Fn(ZE_RESULT_SUCCESS)                                                        \
   Fn(ZE_RESULT_NOT_READY)                                                      \
@@ -946,43 +730,6 @@ TRACE_FN_DEF(zeModuleGetGlobalPointer)(
   Fn(ZE_RESULT_ERROR_INVALID_COMMAND_LIST_TYPE)                                \
   Fn(ZE_RESULT_ERROR_OVERLAPPING_REGIONS)                                      \
   Fn(ZE_RESULT_ERROR_UNKNOWN)
-#else // !USE_NEW_API
-#define FOREACH_ZE_ERROR_CODE(Fn)                                              \
-  Fn(ZE_RESULT_SUCCESS)                                                        \
-  Fn(ZE_RESULT_NOT_READY)                                                      \
-  Fn(ZE_RESULT_ERROR_DEVICE_LOST)                                              \
-  Fn(ZE_RESULT_ERROR_OUT_OF_HOST_MEMORY)                                       \
-  Fn(ZE_RESULT_ERROR_OUT_OF_DEVICE_MEMORY)                                     \
-  Fn(ZE_RESULT_ERROR_MODULE_BUILD_FAILURE)                                     \
-  Fn(ZE_RESULT_ERROR_INSUFFICIENT_PERMISSIONS)                                 \
-  Fn(ZE_RESULT_ERROR_NOT_AVAILABLE)                                            \
-  Fn(ZE_RESULT_ERROR_UNINITIALIZED)                                            \
-  Fn(ZE_RESULT_ERROR_UNSUPPORTED_VERSION)                                      \
-  Fn(ZE_RESULT_ERROR_UNSUPPORTED_FEATURE)                                      \
-  Fn(ZE_RESULT_ERROR_INVALID_ARGUMENT)                                         \
-  Fn(ZE_RESULT_ERROR_INVALID_NULL_HANDLE)                                      \
-  Fn(ZE_RESULT_ERROR_HANDLE_OBJECT_IN_USE)                                     \
-  Fn(ZE_RESULT_ERROR_INVALID_NULL_POINTER)                                     \
-  Fn(ZE_RESULT_ERROR_INVALID_SIZE)                                             \
-  Fn(ZE_RESULT_ERROR_UNSUPPORTED_SIZE)                                         \
-  Fn(ZE_RESULT_ERROR_UNSUPPORTED_ALIGNMENT)                                    \
-  Fn(ZE_RESULT_ERROR_INVALID_SYNCHRONIZATION_OBJECT)                           \
-  Fn(ZE_RESULT_ERROR_INVALID_ENUMERATION)                                      \
-  Fn(ZE_RESULT_ERROR_UNSUPPORTED_ENUMERATION)                                  \
-  Fn(ZE_RESULT_ERROR_UNSUPPORTED_IMAGE_FORMAT)                                 \
-  Fn(ZE_RESULT_ERROR_INVALID_NATIVE_BINARY)                                    \
-  Fn(ZE_RESULT_ERROR_INVALID_GLOBAL_NAME)                                      \
-  Fn(ZE_RESULT_ERROR_INVALID_KERNEL_NAME)                                      \
-  Fn(ZE_RESULT_ERROR_INVALID_FUNCTION_NAME)                                    \
-  Fn(ZE_RESULT_ERROR_INVALID_GROUP_SIZE_DIMENSION)                             \
-  Fn(ZE_RESULT_ERROR_INVALID_GLOBAL_WIDTH_DIMENSION)                           \
-  Fn(ZE_RESULT_ERROR_INVALID_KERNEL_ARGUMENT_INDEX)                            \
-  Fn(ZE_RESULT_ERROR_INVALID_KERNEL_ARGUMENT_SIZE)                             \
-  Fn(ZE_RESULT_ERROR_INVALID_KERNEL_ATTRIBUTE_VALUE)                           \
-  Fn(ZE_RESULT_ERROR_INVALID_COMMAND_LIST_TYPE)                                \
-  Fn(ZE_RESULT_ERROR_OVERLAPPING_REGIONS)                                      \
-  Fn(ZE_RESULT_ERROR_UNKNOWN)
-#endif // !USE_NEW_API
 
 #define CASE_TO_STRING(Num) case Num: return #Num;
 static const char *getZeErrorName(int32_t Error) {

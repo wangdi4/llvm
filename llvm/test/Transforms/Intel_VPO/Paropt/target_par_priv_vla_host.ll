@@ -1,6 +1,6 @@
 ; REQUIRES: asserts
-; RUN: opt -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -debug-only=WRegionUtils,vpo-paropt-transform -S < %s 2>&1 | FileCheck %s
-; RUN: opt < %s -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt' -debug-only=WRegionUtils,vpo-paropt-transform -S 2>&1 | FileCheck %s
+; RUN: opt -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -debug-only=WRegionUtils,vpo-paropt-transform -vpo-paropt-opt-scalar-fp=false -S < %s 2>&1 | FileCheck %s
+; RUN: opt < %s -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt' -debug-only=WRegionUtils,vpo-paropt-transform -vpo-paropt-opt-scalar-fp=false -S 2>&1 | FileCheck %s
 
 ; Test src:
 
@@ -50,7 +50,7 @@
 ; CHECK: %{{.*}} = alloca i32, i64 [[SIZE_VAL2]], align 16
 ; Check that the captured VLA size is passed in to the outlined function for the parallel region.
 ; CHECK: store i64 [[SIZE_VAL2]], i64* [[SIZE_ADDR1]], align 8
-; CHECK: call void @main.DIR.OMP.PARALLEL{{.*}}(i32* %{{.*}}, i32* %{{.*}}, i64* [[SIZE_ADDR1]], i64* %{{.*}})
+; CHECK: call void {{.+}} @__kmpc_fork_call(%struct.ident_t* {{.+}}, i32 2, void (i32*, i32*, ...)* bitcast (void (i32*, i32*, i64*, i64*)* @main.DIR.OMP.PARALLEL{{.*}} to void (i32*, i32*, ...)*), i64* [[SIZE_ADDR1]], i64* %{{.*}})
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"

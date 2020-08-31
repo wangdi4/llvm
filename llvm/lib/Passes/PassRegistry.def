@@ -149,6 +149,8 @@ MODULE_PASS("sample-profile", SampleProfileLoaderPass())
 MODULE_PASS("scc-oz-module-inliner",
   buildInlinerPipeline(OptimizationLevel::Oz, ThinLTOPhase::None, nullptr, DebugLogging))
 #endif // INTEL_CUSTOMIZATION
+MODULE_PASS("oz-module-optimizer",
+  buildModuleOptimizationPipeline(OptimizationLevel::Oz, DebugLogging, /*LTOPreLink*/false))
 MODULE_PASS("strip-dead-prototypes", StripDeadPrototypesPass())
 MODULE_PASS("synthetic-counts-propagation", SyntheticCountsPropagation())
 MODULE_PASS("tilemvinlmarker", TileMVInlMarkerPass()) // INTEL
@@ -306,6 +308,7 @@ FUNCTION_PASS("gvn-hoist", GVNHoistPass())
 FUNCTION_PASS("functionrecognizer", FunctionRecognizerPass()) // INTEL
 FUNCTION_PASS("indirectcallconv", IndirectCallConvPass(/* UseAndersen = */ false, /* UseDTrans = */ false)) // INTEL
 FUNCTION_PASS("instcombine", InstCombinePass())
+FUNCTION_PASS("instcount", InstCountPass())
 FUNCTION_PASS("instsimplify", InstSimplifyPass())
 FUNCTION_PASS("invalidate<all>", InvalidateAllAnalysesPass())
 FUNCTION_PASS("irce", IRCEPass())

@@ -3149,7 +3149,7 @@ const SCEV *ScalarEvolution::getMulExpr(SmallVectorImpl<const SCEV *> &Ops,
 
 /// Represents an unsigned remainder expression based on unsigned division.
 const SCEV *ScalarEvolution::getURemExpr(const SCEV *LHS,
-                                         const SCEV *RHS) {
+                                         const SCEV *RHS, Value *Val) { // INTEL
   assert(getEffectiveSCEVType(LHS->getType()) ==
          getEffectiveSCEVType(RHS->getType()) &&
          "SCEVURemExpr operand types don't match!");
@@ -3169,6 +3169,13 @@ const SCEV *ScalarEvolution::getURemExpr(const SCEV *LHS,
     }
   }
 
+#if INTEL_CUSTOMIZATION // HIR parsing
+  // The fallback form of URem doesn't seem too useful for HIR. It adversely
+  // affects cost modelling so we return a conservative result.
+  if (Val && isa<ScopedScalarEvolution>(this)) {
+    return getUnknown(Val);
+  }
+#endif // INTEL_CUSTOMIZATION
   // Fallback to %a == %x urem %y == %x -<nuw> ((%x udiv %y) *<nuw> %y)
   const SCEV *UDiv = getUDivExpr(LHS, RHS);
   const SCEV *Mult = getMulExpr(UDiv, RHS, SCEV::FlagNUW);
@@ -6868,7 +6875,7 @@ const SCEV *ScalarEvolution::createSCEV(Value *V) {
     case Instruction::UDiv:
       return getUDivExpr(getSCEV(BO->LHS), getSCEV(BO->RHS));
     case Instruction::URem:
-      return getURemExpr(getSCEV(BO->LHS), getSCEV(BO->RHS));
+      return getURemExpr(getSCEV(BO->LHS), getSCEV(BO->RHS), V); // INTEL
     case Instruction::Sub: {
       SCEV::NoWrapFlags Flags = SCEV::FlagAnyWrap;
       if (BO->Op)
@@ -7118,7 +7125,10 @@ const SCEV *ScalarEvolution::createSCEV(Value *V) {
     // If both operands are non-negative, this is just an urem.
     if (isKnownNonNegative(getSCEV(U->getOperand(0))) &&
         isKnownNonNegative(getSCEV(U->getOperand(1))))
-      return getURemExpr(getSCEV(U->getOperand(0)), getSCEV(U->getOperand(1)));
+#if INTEL_CUSTOMIZATION // HIR parsing
+      return getURemExpr(getSCEV(U->getOperand(0)), getSCEV(U->getOperand(1)),
+                         V);
+#endif // INTEL_CUSTOMIZATION
     break;
 
   // It's tempting to handle inttoptr and ptrtoint as no-ops, however this can
@@ -8173,7 +8183,7 @@ ScalarEvolution::computeExitLimitFromICmp(const Loop *L,
   bool IVMaxValIsUB = isIVMaxValUB(LHS, Pred, ControlsExit);
 #endif // INTEL_CUSTOMIZATION
   // Simplify the operands before analyzing them.
-  (void)SimplifyICmpOperands(Pred, LHS, RHS);
+  (void)SimplifyICmpOperands(Pred, LHS, RHS, ExitCond); // INTEL
 
   // If we have a comparison of a chrec against a constant, try to use value
   // ranges to answer this query.
@@ -8206,7 +8216,9 @@ ScalarEvolution::computeExitLimitFromICmp(const Loop *L,
   case ICmpInst::ICMP_ULT: {                    // while (X < Y)
     bool IsSigned = Pred == ICmpInst::ICMP_SLT;
     ExitLimit EL = howManyLessThans(LHS, RHS, L, IsSigned, ControlsExit,
-                                    AllowPredicates, IVMaxValIsUB); // INTEL
+#if INTEL_CUSTOMIZATION
+                                    AllowPredicates, IVMaxValIsUB, ExitCond);
+#endif // INTEL_CUSTOMIZATION
     if (EL.hasAnyInfo()) return EL;
     break;
   }
@@ -8215,7 +8227,7 @@ ScalarEvolution::computeExitLimitFromICmp(const Loop *L,
     bool IsSigned = Pred == ICmpInst::ICMP_SGT;
     ExitLimit EL =
         howManyGreaterThans(LHS, RHS, L, IsSigned, ControlsExit,
-                            AllowPredicates);
+                            AllowPredicates, ExitCond); // INTEL
     if (EL.hasAnyInfo()) return EL;
     break;
   }
@@ -9800,21 +9812,79 @@ bool isNotRangeMaxUsingNoWrap(ScalarEvolution &SE, const SCEV *Scev,
                                                        : SCEV::FlagNUW);
 }
 
+// Returns true if appropriate nowrap flag can be deduced for \p Add by
+// analyzing \p BinOp.
+// Handle the case where Add looks like either of these cases-
+// 1) (1 + %n)
+// 2) (%n1 + %n2)
+//
+// We can directly compare SCEVOperands with BinOp operands in these two cases.
+static bool hasNoWrapUsingContext(const SCEVAddExpr *Add, bool IsSigned,
+                                  OverflowingBinaryOperator *BinOp) {
+  if (!BinOp)
+    return false;
+
+  if (!(IsSigned ? BinOp->hasNoSignedWrap() : BinOp->hasNoUnsignedWrap()))
+    return false;
+
+  // Check Op1 first as it is only allowed to be SCEVUnknown.
+  auto *UnknownOp1 = dyn_cast<SCEVUnknown>(Add->getOperand(1));
+
+  if (!UnknownOp1)
+    return false;
+
+  if (UnknownOp1->getValue() != BinOp->getOperand(0) &&
+      UnknownOp1->getValue() != BinOp->getOperand(1))
+    return false;
+
+  // Handle Op0 as either SCEVConstant or SCEVUnknown.
+  auto *AddOp0 = Add->getOperand(0);
+
+  if (auto *ConstOp0 = dyn_cast<SCEVConstant>(AddOp0)) {
+    if (ConstOp0->getValue() == BinOp->getOperand(1))
+      return true;
+
+  } else if (auto *UnknownOp0 = dyn_cast<SCEVUnknown>(AddOp0)) {
+    if (UnknownOp0->getValue() == BinOp->getOperand(0) ||
+        UnknownOp0->getValue() == BinOp->getOperand(1))
+      return true;
+  }
+
+  return false;
+}
+
+// Returns true if appropriate nowrap flag can be deduced for \p Add by
+// analyzing the underlying IR context represented by \p PredContext.
+static bool hasNoWrapUsingContext(const SCEVAddExpr *Add, bool IsSigned,
+                                  ICmpInst *PredContext) {
+  if (!PredContext || Add->getNumOperands() != 2)
+   return false;
+
+  return hasNoWrapUsingContext(Add, IsSigned,
+            dyn_cast<OverflowingBinaryOperator>(PredContext->getOperand(0))) ||
+          hasNoWrapUsingContext(Add, IsSigned,
+            dyn_cast<OverflowingBinaryOperator>(PredContext->getOperand(1)));
+}
+
 // Returns a positive constant additive of \p Scev if found, otherwise returns
 // nullptr.
 static const SCEVConstant *getPositiveConstAdditive(const SCEV *Scev,
-                                                    bool IsSigned) {
-  if (auto *Const = dyn_cast<SCEVConstant>(Scev)) {
+                                                    bool IsSigned,
+                                                    ICmpInst *PredContext) {
+  if (auto *Const = dyn_cast<SCEVConstant>(Scev))
     return Const->getAPInt().isStrictlyPositive() ? Const : nullptr;
-  }
 
   auto *Add = dyn_cast<SCEVAddExpr>(Scev);
 
   // TODO: extend to SCEVAddRecExpr.
-  if (!Add || !Add->getNoWrapFlags(IsSigned ? SCEV::FlagNSW : SCEV::FlagNUW))
+  if (!Add)
     return nullptr;
 
-  // Constant will be the first operand, it it exists.
+  if (!Add->getNoWrapFlags(IsSigned ? SCEV::FlagNSW : SCEV::FlagNUW) &&
+      !hasNoWrapUsingContext(Add, IsSigned, PredContext))
+    return nullptr;
+
+  // Constant will be the first operand, if it exists.
   auto *Const = dyn_cast<SCEVConstant>(Add->getOperand(0));
 
   return (Const && Const->getAPInt().isStrictlyPositive()) ? Const : nullptr;
@@ -9822,7 +9892,10 @@ static const SCEVConstant *getPositiveConstAdditive(const SCEV *Scev,
 #endif // INTEL_CUSTOMIZATION
 bool ScalarEvolution::SimplifyICmpOperands(ICmpInst::Predicate &Pred,
                                            const SCEV *&LHS, const SCEV *&RHS,
+#if INTEL_CUSTOMIZATION
+                                           ICmpInst *PredContext,
                                            unsigned Depth) {
+#endif // INTEL_CUSTOMIZATION
   bool Changed = false;
   // Simplifies ICMP to trivial true or false by turning it into '0 == 0' or
   // '0 != 0'.
@@ -10023,8 +10096,8 @@ bool ScalarEvolution::SimplifyICmpOperands(ICmpInst::Predicate &Pred,
   //
   // a >s (b+1)<nsw>
   bool IsSigned = CmpInst::isSigned(Pred);
-  if (auto *LConst = getPositiveConstAdditive(LHS, IsSigned))
-    if (auto *RConst = getPositiveConstAdditive(RHS, IsSigned)) {
+  if (auto *LConst = getPositiveConstAdditive(LHS, IsSigned, PredContext))
+    if (auto *RConst = getPositiveConstAdditive(RHS, IsSigned, PredContext)) {
     auto *SmallerConst =
         LConst->getAPInt().sle(RConst->getAPInt()) ? LConst : RConst;
     LHS = getMinusSCEV(LHS, SmallerConst,
@@ -10039,7 +10112,7 @@ bool ScalarEvolution::SimplifyICmpOperands(ICmpInst::Predicate &Pred,
   // Recursively simplify until we either hit a recursion limit or nothing
   // changes.
   if (Changed)
-    return SimplifyICmpOperands(Pred, LHS, RHS, Depth+1);
+    return SimplifyICmpOperands(Pred, LHS, RHS, PredContext, Depth+1); // INTEL
 
   return Changed;
 }
@@ -10558,7 +10631,10 @@ ScalarEvolution::isLoopBackedgeGuardedByCond(const Loop *L,
 bool
 ScalarEvolution::isLoopEntryGuardedByCond(const Loop *L,
                                           ICmpInst::Predicate Pred,
-                                          const SCEV *LHS, const SCEV *RHS) {
+#if INTEL_CUSTOMIZATION
+                                          const SCEV *LHS, const SCEV *RHS,
+                                          ICmpInst *PredContext) {
+#endif // INTEL_CUSTOMIZATION
   // Interpret a null as meaning no loop, where there is obviously no guard
   // (interprocedural conditions notwithstanding).
   if (!L) return false;
@@ -10614,15 +10690,21 @@ ScalarEvolution::isLoopEntryGuardedByCond(const Loop *L,
 
   // Try to prove (Pred, LHS, RHS) using isImpliedCond.
   auto ProveViaCond = [&](Value *Condition, bool Inverse) {
-    if (isImpliedCond(Pred, LHS, RHS, Condition, Inverse))
+    if (isImpliedCond(Pred, LHS, RHS, Condition, Inverse, PredContext)) // INTEL
       return true;
     if (ProvingStrictComparison) {
       if (!ProvedNonStrictComparison)
         ProvedNonStrictComparison =
-            isImpliedCond(NonStrictPredicate, LHS, RHS, Condition, Inverse);
+#if INTEL_CUSTOMIZATION
+            isImpliedCond(NonStrictPredicate, LHS, RHS, Condition, Inverse,
+                          PredContext);
+#endif // INTEL_CUSTOMIZATION
       if (!ProvedNonEquality)
         ProvedNonEquality =
-            isImpliedCond(ICmpInst::ICMP_NE, LHS, RHS, Condition, Inverse);
+#if INTEL_CUSTOMIZATION
+            isImpliedCond(ICmpInst::ICMP_NE, LHS, RHS, Condition, Inverse,
+                          PredContext);
+#endif // INTEL_CUSTOMIZATION
       if (ProvedNonStrictComparison && ProvedNonEquality)
         return true;
     }
@@ -10669,7 +10751,8 @@ ScalarEvolution::isLoopEntryGuardedByCond(const Loop *L,
 bool ScalarEvolution::isImpliedCond(ICmpInst::Predicate Pred,
                                     const SCEV *LHS, const SCEV *RHS,
                                     Value *FoundCondValue,
-                                    bool Inverse) {
+                                    bool Inverse,            // INTEL
+                                    ICmpInst *PredContext) { // INTEL
   if (!PendingLoopPredicates.insert(FoundCondValue).second)
     return false;
 
@@ -10703,14 +10786,17 @@ bool ScalarEvolution::isImpliedCond(ICmpInst::Predicate Pred,
   const SCEV *FoundLHS = getSCEV(ICI->getOperand(0));
   const SCEV *FoundRHS = getSCEV(ICI->getOperand(1));
 
-  return isImpliedCond(Pred, LHS, RHS, FoundPred, FoundLHS, FoundRHS);
+  return isImpliedCond(Pred, LHS, RHS, FoundPred, FoundLHS, FoundRHS, // INTEL
+                       PredContext, ICI);                             // INTEL
 }
 
 bool ScalarEvolution::isImpliedCond(ICmpInst::Predicate Pred, const SCEV *LHS,
                                     const SCEV *RHS,
                                     ICmpInst::Predicate FoundPred,
                                     const SCEV *FoundLHS,
-                                    const SCEV *FoundRHS) {
+                                    const SCEV *FoundRHS,         // INTEL
+                                    ICmpInst *PredContext,        // INTEL
+                                    ICmpInst *FoundPredContext) { // INTEL
   // Balance the types.
   if (getTypeSizeInBits(LHS->getType()) <
       getTypeSizeInBits(FoundLHS->getType())) {
@@ -10734,10 +10820,12 @@ bool ScalarEvolution::isImpliedCond(ICmpInst::Predicate Pred, const SCEV *LHS,
 
   // Canonicalize the query to match the way instcombine will have
   // canonicalized the comparison.
-  if (SimplifyICmpOperands(Pred, LHS, RHS))
+  if (SimplifyICmpOperands(Pred, LHS, RHS, PredContext)) // INTEL
     if (LHS == RHS)
       return CmpInst::isTrueWhenEqual(Pred);
-  if (SimplifyICmpOperands(FoundPred, FoundLHS, FoundRHS))
+#if INTEL_CUSTOMIZATION
+  if (SimplifyICmpOperands(FoundPred, FoundLHS, FoundRHS, FoundPredContext))
+#endif // INTEL_CUSTOMIZATION
     if (FoundLHS == FoundRHS)
       return CmpInst::isFalseWhenEqual(FoundPred);
 
@@ -11778,7 +11866,7 @@ ScalarEvolution::howManyLessThans(const SCEV *LHS, const SCEV *RHS,
                                   const Loop *L, bool IsSigned,
 #if INTEL_CUSTOMIZATION
                                   bool ControlsExit, bool AllowPredicates,
-                                  bool IVMaxValIsUB) {
+                                  bool IVMaxValIsUB, ICmpInst *ExitCond) {
 #endif // INTEL_CUSTOMIZATION
   SmallPtrSet<const SCEVPredicate *, 4> Predicates;
 
@@ -11897,15 +11985,23 @@ ScalarEvolution::howManyLessThans(const SCEV *LHS, const SCEV *RHS,
   // count of zero.
   const SCEV *BECount;
 #if INTEL_CUSTOMIZATION
-  if (isLoopEntryGuardedByCond(L, Cond, getMinusSCEV(Start, Stride), RHS) ||
+  if (isLoopEntryGuardedByCond(L, Cond, getMinusSCEV(Start, Stride), RHS,
+                               ExitCond) ||
       // getMinusSCEV(Start, Stride) in the call above may create add without
       // any nowrap flags which makes the analysis conservative. We can try
       // 'exact' match when stride is 1.
-      (Stride->isOne() && isLoopEntryGuardedByCond(L, AltCond, Start, RHS)))
+      (Stride->isOne() && isLoopEntryGuardedByCond(L, AltCond, Start, RHS,
+                                                   ExitCond)))
 #endif // INTEL_CUSTOMIZATION
     BECount = BECountIfBackedgeTaken;
   else {
-    End = IsSigned ? getSMaxExpr(RHS, Start) : getUMaxExpr(RHS, Start);
+    // If we know that RHS >= Start in the context of loop, then we know that
+    // max(RHS, Start) = RHS at this point.
+    if (isLoopEntryGuardedByCond(
+            L, IsSigned ? ICmpInst::ICMP_SGE : ICmpInst::ICMP_UGE, RHS, Start))
+      End = RHS;
+    else
+      End = IsSigned ? getSMaxExpr(RHS, Start) : getUMaxExpr(RHS, Start);
     BECount = computeBECount(getMinusSCEV(End, Start), Stride, false);
   }
 
@@ -11937,7 +12033,10 @@ ScalarEvolution::howManyLessThans(const SCEV *LHS, const SCEV *RHS,
 ScalarEvolution::ExitLimit
 ScalarEvolution::howManyGreaterThans(const SCEV *LHS, const SCEV *RHS,
                                      const Loop *L, bool IsSigned,
-                                     bool ControlsExit, bool AllowPredicates) {
+#if INTEL_CUSTOMIZATION
+                                     bool ControlsExit, bool AllowPredicates,
+                                     ICmpInst *ExitCond) {
+#endif // INTEL_CUSTOMIZATION
   SmallPtrSet<const SCEVPredicate *, 4> Predicates;
   // We handle only IV > Invariant
   if (!isLoopInvariant(RHS, L))
@@ -11978,11 +12077,15 @@ ScalarEvolution::howManyGreaterThans(const SCEV *LHS, const SCEV *RHS,
 
   const SCEV *Start = IV->getStart();
   const SCEV *End = RHS;
-  if (!isLoopEntryGuardedByCond(L, Cond, getAddExpr(Start, Stride), RHS)) {
+  if (!isLoopEntryGuardedByCond(L, Cond, getAddExpr(Start, Stride), RHS, // INTEL
+                                ExitCond)) {                             // INTEL
     // If we know that Start >= RHS in the context of loop, then we know that
     // min(RHS, Start) = RHS at this point.
     if (isLoopEntryGuardedByCond(
-            L, IsSigned ? ICmpInst::ICMP_SGE : ICmpInst::ICMP_UGE, Start, RHS))
+#if INTEL_CUSTOMIZATION
+            L, IsSigned ? ICmpInst::ICMP_SGE : ICmpInst::ICMP_UGE, Start, RHS,
+            ExitCond))
+#endif // INTEL_CUSTOMIZATION
       End = RHS;
     else
       End = IsSigned ? getSMinExpr(RHS, Start) : getUMinExpr(RHS, Start);

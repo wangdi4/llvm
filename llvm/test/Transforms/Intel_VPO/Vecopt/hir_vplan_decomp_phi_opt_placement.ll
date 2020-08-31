@@ -61,7 +61,7 @@
 ; CHECK-NEXT: i32 [[ADD2:%vp.*]] = add i32 [[PHI]] i32 [[MUL2]]
 ; CHECK-NEXT: i32 [[ADD3:%vp.*]] = add i32 [[ADD2]] i32 [[D_I1]]
 ; CHECK-NEXT: i64 [[SEXT:%vp.*]] = sext i32 [[ADD3]] to i64
-; CHECK-NEXT: i1 [[CMP:%vp.*]] = icmp i64 [[IV:%vp.*]] i64 [[SEXT]]
+; CHECK-NEXT: i1 [[CMP:%vp.*]] = icmp sgt i64 [[IV:%vp.*]] i64 [[SEXT]]
 ; CHECK-NEXT: i32 [[SEL:%vp.*]] = select i1 [[CMP]] i32 [[PHI]] i32 [[D_I1]]
 ; CHECK-NEXT: i32* [[GEPD:%vp.*]] = subscript inbounds [1024 x i32]* @d i64 0 i64 [[IV]]
 ; CHECK-NEXT: store i32 [[SEL]] i32* [[GEPD]]

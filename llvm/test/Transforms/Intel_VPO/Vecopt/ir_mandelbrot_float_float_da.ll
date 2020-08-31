@@ -29,7 +29,7 @@ define dso_local i32 @main() local_unnamed_addr #0 personality i8* bitcast (i32 
 ; CHECK-NEXT:  Divergent: [Shape: Random] float [[VP_MUL_I:%.*]] = fmul float [[VP_ADD5]] float [[VP_ADD5]]
 ; CHECK-NEXT:  Divergent: [Shape: Random] float [[VP_ADD_I:%.*]] = fadd float [[MUL1_I0:%.*]] float [[VP_MUL_I]]
 ; CHECK-NEXT:  Divergent: [Shape: Random] float [[VP_CALL_I:%.*]] = call float [[VP_ADD_I]] float (float)* @sqrtf
-; CHECK-NEXT:  Divergent: [Shape: Random] i1 [[VP_CMP_I33:%.*]] = fcmp float [[VP_CALL_I]] float 2.000000e+00
+; CHECK-NEXT:  Divergent: [Shape: Random] i1 [[VP_CMP_I33:%.*]] = fcmp olt float [[VP_CALL_I]] float 2.000000e+00
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Basic Block: [[BB1]]
 ; CHECK-EMPTY:
@@ -49,8 +49,8 @@ define dso_local i32 @main() local_unnamed_addr #0 personality i8* bitcast (i32 
 ; CHECK-NEXT:  Divergent: [Shape: Random] float [[VP_ADD11_I:%.*]] = fadd float [[VP_MUL9_I]] float [[VP_MUL10_I]]
 ; CHECK-NEXT:  Divergent: [Shape: Random] float [[VP_CALL12_I:%.*]] = call float [[VP_ADD11_I]] float (float)* @sqrtf
 ; CHECK-NEXT:  Uniform: [Shape: Uniform] i32 [[VP_INC_I]] = add i32 [[VP_COUNT_0_I35]] i32 1
-; CHECK-NEXT:  Divergent: [Shape: Random] i1 [[VP_CMP_I:%.*]] = fcmp float [[VP_CALL12_I]] float 2.000000e+00
-; CHECK-NEXT:  Uniform: [Shape: Uniform] i1 [[VP_CMP2_I:%.*]] = icmp i32 [[VP_INC_I]] i32 3000
+; CHECK-NEXT:  Divergent: [Shape: Random] i1 [[VP_CMP_I:%.*]] = fcmp olt float [[VP_CALL12_I]] float 2.000000e+00
+; CHECK-NEXT:  Uniform: [Shape: Uniform] i1 [[VP_CMP2_I:%.*]] = icmp ult i32 [[VP_INC_I]] i32 3000
 ; CHECK-NEXT:  Divergent: [Shape: Random] i1 [[VP_OR_COND_I:%.*]] = and i1 [[VP_CMP2_I]] i1 [[VP_CMP_I]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Basic Block: [[BB3]]
@@ -64,7 +64,7 @@ define dso_local i32 @main() local_unnamed_addr #0 personality i8* bitcast (i32 
 ; CHECK-NEXT:  Divergent: [Shape: Random] void [[VP6:%.*]] = call i64 4 i8* [[VP1]] void (i64, i8*)* @llvm.lifetime.end.p0i8
 ; CHECK-NEXT:  Divergent: [Shape: Unit Stride, Stride: i64 1] i64 [[VP_INDVARS_IV_NEXT]] = add i64 [[VP_INDVARS_IV]] i64 [[VP_INDVARS_IV_IND_INIT_STEP:%.*]]
 ; CHECK-NEXT:  Uniform: [Shape: Uniform] i64 [[VP_VECTOR_LOOP_IV_NEXT]] = add i64 [[VP_VECTOR_LOOP_IV]] i64 [[VP_VF:%.*]]
-; CHECK-NEXT:  Uniform: [Shape: Uniform] i1 [[VP_VECTOR_LOOP_EXITCOND:%.*]] = icmp i64 [[VP_VECTOR_LOOP_IV_NEXT]] i64 [[VP_VECTOR_TRIP_COUNT:%.*]]
+; CHECK-NEXT:  Uniform: [Shape: Uniform] i1 [[VP_VECTOR_LOOP_EXITCOND:%.*]] = icmp eq i64 [[VP_VECTOR_LOOP_IV_NEXT]] i64 [[VP_VECTOR_TRIP_COUNT:%.*]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Basic Block: [[BB6:BB[0-9]+]]
 ; CHECK-NEXT:  Uniform: [Shape: Uniform] i64 [[VP_INDVARS_IV_IND_FINAL:%.*]] = induction-final{add} i64 live-in0 i64 1

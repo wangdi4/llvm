@@ -91,6 +91,10 @@ const OMPClauseWithPreInit *OMPClauseWithPreInit::get(const OMPClause *C) {
     return static_cast<const OMPThreadLimitClause *>(C);
   case OMPC_device:
     return static_cast<const OMPDeviceClause *>(C);
+#if INTEL_COLLAB
+  case OMPC_subdevice:
+    return static_cast<const OMPSubdeviceClause *>(C);
+#endif // INTEL_COLLAB
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_CSA
   case OMPC_dataflow:
@@ -1582,6 +1586,25 @@ void OMPClausePrinter::VisitOMPBindClause(OMPBindClause *Node) {
   OS << "bind("
      << getOpenMPSimpleClauseTypeName(OMPC_bind, unsigned(Node->getBindKind()))
      << ")";
+}
+
+void OMPClausePrinter::VisitOMPSubdeviceClause(OMPSubdeviceClause *Node) {
+  OS << "subdevice(";
+  if (auto *E = Node->getLevel()) {
+    E->printPretty(OS, nullptr, Policy);
+    OS << ",";
+  }
+  auto *E = Node->getStart();
+  E->printPretty(OS, nullptr, Policy);
+  if (auto *E = Node->getLength()) {
+    OS << ":";
+    E->printPretty(OS, nullptr, Policy);
+  }
+  if (auto *E = Node->getStride()) {
+    OS << ":";
+    E->printPretty(OS, nullptr, Policy);
+  }
+  OS << ")";
 }
 #endif // INTEL_COLLAB
 #if INTEL_CUSTOMIZATION

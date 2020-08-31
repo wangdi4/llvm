@@ -17,6 +17,7 @@
 #include <cstddef>
 #include <list>
 #include <map>
+#include <memory>
 #include <mutex>
 #include <set>
 #include <vector>
@@ -26,6 +27,7 @@ struct RTLInfoTy;
 struct __tgt_bin_desc;
 struct __tgt_target_table;
 struct __tgt_async_info;
+class MemoryManagerTy;
 
 /// Map between host data and target data.
 struct HostDataToTargetTy {
@@ -149,34 +151,18 @@ struct DeviceTy {
   // moved into the target task in libomp.
   std::map<int32_t, uint64_t> LoopTripCnt;
 
-  DeviceTy(RTLInfoTy *RTL)
-      : DeviceID(-1), RTL(RTL), RTLDeviceID(-1), IsInit(false), InitFlag(),
-        HasPendingGlobals(false), HostDataToTargetMap(), PendingCtorsDtors(),
-        ShadowPtrMap(), DataMapMtx(), PendingGlobalsMtx(), ShadowMtx() {}
+  /// Memory manager
+  std::unique_ptr<MemoryManagerTy> MemoryManager;
+
+  DeviceTy(RTLInfoTy *RTL);
 
   // The existence of mutexes makes DeviceTy non-copyable. We need to
   // provide a copy constructor and an assignment operator explicitly.
-  DeviceTy(const DeviceTy &d)
-      : DeviceID(d.DeviceID), RTL(d.RTL), RTLDeviceID(d.RTLDeviceID),
-        IsInit(d.IsInit), InitFlag(), HasPendingGlobals(d.HasPendingGlobals),
-        HostDataToTargetMap(d.HostDataToTargetMap),
-        PendingCtorsDtors(d.PendingCtorsDtors), ShadowPtrMap(d.ShadowPtrMap),
-        DataMapMtx(), PendingGlobalsMtx(), ShadowMtx(),
-        LoopTripCnt(d.LoopTripCnt) {}
+  DeviceTy(const DeviceTy &D);
 
-  DeviceTy& operator=(const DeviceTy &d) {
-    DeviceID = d.DeviceID;
-    RTL = d.RTL;
-    RTLDeviceID = d.RTLDeviceID;
-    IsInit = d.IsInit;
-    HasPendingGlobals = d.HasPendingGlobals;
-    HostDataToTargetMap = d.HostDataToTargetMap;
-    PendingCtorsDtors = d.PendingCtorsDtors;
-    ShadowPtrMap = d.ShadowPtrMap;
-    LoopTripCnt = d.LoopTripCnt;
+  DeviceTy &operator=(const DeviceTy &D);
 
-    return *this;
-  }
+  ~DeviceTy();
 
   // Return true if data can be copied to DstDevice directly
   bool isDataExchangable(const DeviceTy& DstDevice);
@@ -221,8 +207,8 @@ struct DeviceTy {
   int32_t retrieveData(void *HstPtrBegin, void *TgtPtrBegin, int64_t Size,
                        __tgt_async_info *AsyncInfoPtr);
   // Copy data from current device to destination device directly
-  int32_t data_exchange(void *SrcPtr, DeviceTy DstDev, void *DstPtr,
-                        int64_t Size, __tgt_async_info *AsyncInfoPtr);
+  int32_t dataExchange(void *SrcPtr, DeviceTy &DstDev, void *DstPtr,
+                       int64_t Size, __tgt_async_info *AsyncInfo);
 
   int32_t runRegion(void *TgtEntryPtr, void **TgtVarsPtr, ptrdiff_t *TgtOffsets,
                     int32_t TgtVarsSize, __tgt_async_info *AsyncInfoPtr);
@@ -266,6 +252,7 @@ struct DeviceTy {
   int32_t is_managed_ptr(void *Ptr);
   int32_t managed_memory_supported();
   void *data_alloc_explicit(int64_t Size, int32_t Kind);
+  int32_t get_data_alloc_info(int32_t NumPtrs, void *Ptrs, void *Infos);
 #endif // INTEL_COLLAB
 
   /// Synchronize device/queue/event based on \p AsyncInfoPtr and return

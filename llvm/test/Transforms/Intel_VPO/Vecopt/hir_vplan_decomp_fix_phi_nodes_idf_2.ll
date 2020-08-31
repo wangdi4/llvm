@@ -72,7 +72,7 @@ define i32 @main() local_unnamed_addr #0 {
 ; CHECK-NEXT:     i32 [[VP10:%.*]] = load i32* [[VP9]]
 ; CHECK-NEXT:     i32 [[VP11:%.*]] = zext i16 [[VP1]] to i32
 ; CHECK-NEXT:     i32 [[VP12:%.*]] = hir-copy i32 [[VP11]] , OriginPhiId: -1
-; CHECK-NEXT:     i1 [[VP13:%.*]] = icmp i32 [[VP10]] i32 0
+; CHECK-NEXT:     i1 [[VP13:%.*]] = icmp ne i32 [[VP10]] i32 0
 ; CHECK-NEXT:    SUCCESSORS(2):[[BB4:BB[0-9]+]](i1 [[VP13]]), [[BB3]](!i1 [[VP13]])
 ; CHECK-NEXT:    PREDECESSORS(2): [[BB1]] [[BB3]]
 ; CHECK-EMPTY:
@@ -87,7 +87,7 @@ define i32 @main() local_unnamed_addr #0 {
 ; CHECK-NEXT:     i32 [[VP17:%.*]] = phi  [ i32 [[VP3]], [[BB4]] ],  [ i32 [[VP3]], [[BB2]] ]
 ; CHECK-NEXT:     i32 [[VP4]] = mul i32 [[VP17]] i32 [[VP16]]
 ; CHECK-NEXT:     i64 [[VP6]] = add i64 [[VP5]] i64 1
-; CHECK-NEXT:     i1 [[VP18:%.*]] = icmp i64 [[VP6]] i64 7
+; CHECK-NEXT:     i1 [[VP18:%.*]] = icmp sle i64 [[VP6]] i64 7
 ; CHECK-NEXT:    SUCCESSORS(2):[[BB2]](i1 [[VP18]]), [[BB5:BB[0-9]+]](!i1 [[VP18]])
 ; CHECK-NEXT:    PREDECESSORS(2): [[BB4]] [[BB2]]
 ; CHECK-EMPTY:

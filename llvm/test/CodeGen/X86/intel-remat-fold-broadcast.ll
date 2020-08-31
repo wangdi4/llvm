@@ -1,4 +1,4 @@
-; RUN: llc < %s | FileCheck %s --check-prefixes=CHECK
+; RUN: llc -vector-library=SVML < %s | FileCheck %s --check-prefixes=CHECK
 ; Test for making broadcast loads rematerializable and foldable
 
 ; CHECK: test_broadcast_load_remat_fold:

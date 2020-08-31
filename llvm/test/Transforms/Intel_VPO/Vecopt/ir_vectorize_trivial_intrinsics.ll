@@ -67,7 +67,7 @@ declare double @llvm.fmuladd.f64(double %a, double %b, double %c) nounwind readn
 define void @fmuladd_f64(i32 %n, double* %a_arr, double* %b_arr, double* %c_arr) local_unnamed_addr #2 {
 ; VEC-PROP-LABEL:  VPlan after CallVecDecisions analysis for VF=2:
 ; VEC-PROP:          [DA: Div] double [[VP_CALL1:%.*]] = call double [[VP_A:%vp.*]] double [[VP_B:%vp.*]] double [[VP_C:%vp.*]] llvm.fmuladd.v2f64 [x 1]
-; VEC-PROP-NEXT:     [DA: Div] i1 [[VP_COND:%.*]] = fcmp double [[VP_CALL1]] double 4.200000e+01
+; VEC-PROP-NEXT:     [DA: Div] i1 [[VP_COND:%.*]] = fcmp oeq double [[VP_CALL1]] double 4.200000e+01
 ; VEC-PROP-NEXT:    SUCCESSORS(1):[[BB4:BB[0-9]+]]
 ; VEC-PROP-NEXT:    PREDECESSORS(2): [[BB1:BB.*]] [[BB3:BB.*]]
 ; VEC-PROP-EMPTY:

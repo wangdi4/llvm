@@ -1089,11 +1089,24 @@ void HIRSSADeconstruction::splitNonLoopRegionExit(Instruction *SplitPos) const {
 
 void HIRSSADeconstruction::processNonLoopRegionBlocks() const {
 
-  if (!CurRegIt->hasNonLoopBBlocks()) {
+  auto *RegionEntryBB = CurRegIt->getEntryBBlock();
+
+  if (CurRegIt->isFunctionLevel()) {
+    // Split the function entry block which is also the region entry block.
+    // Function entry block is used for inserting dummy instructions so it
+    // cannot be part of the region.
+    assert((RegionEntryBB == &RegionEntryBB->getParent()->getEntryBlock()) &&
+           "function level region's entry block is expected to be the same as "
+           "function entry block!");
+    auto *NewEntryBB =
+        SplitBlock(RegionEntryBB, RegionEntryBB->getTerminator(), DT, LI);
+    CurRegIt->replaceEntryBBlock(NewEntryBB);
     return;
   }
 
-  auto *RegionEntryBB = CurRegIt->getEntryBBlock();
+  if (!CurRegIt->hasNonLoopBBlocks()) {
+    return;
+  }
 
   if (CurRegIt->isLoopMaterializationCandidate()) {
     // Always split entry block of loop materialization candidate to avoid

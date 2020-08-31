@@ -183,11 +183,9 @@ Function *VPOParoptTransform::genTaskDestructorThunk(
     // Call the destructor. Insert the call before the return inst.
     // The gencall will verify that the GEP type matches the destructor
     // parameter.
-    auto *DestrCall =
-        VPOParoptUtils::genDestructorCall(FI->getDestructor(), DestrGEP, RetInst);
-
-    // Move the builder before the destructor call.
-    Builder.SetInsertPoint(DestrCall);
+    if (auto *Dtor = FI->getDestructor())
+      genPrivatizationInitOrFini(FI, Dtor, FK_Dtor, DestrGEP, nullptr, RetInst,
+                                 &DT);
   }
 
   return DestThunk;
@@ -564,6 +562,30 @@ void VPOParoptTransform::linkPrivateItemToBufferAtEndOfThunkIfApplicable(
                                              {Zero, Builder.getInt32(NewVIdx)},
                                              OrigName + ".gep");
 
+  // Create an if-then branch to check whether there is any space allocated
+  // for NewV's data.
+  Value *NewVDataSizeGep = Builder.CreateInBoundsGEP(
+      KmpPrivatesTy, PrivatesGep, {Zero, Builder.getInt32(NewVIdx + 1)},
+      OrigName + ".data.size.gep");
+  Value *DataSize =
+      Builder.CreateLoad(NewVDataSizeGep, OrigName + ".data.size");
+
+  Value *ZeroSize =
+      Builder.getIntN(DataSize->getType()->getIntegerBitWidth(), 0);
+  Value *IsSizeNonZero =
+      Builder.CreateICmpNE(DataSize, ZeroSize, "is.size.non.zero");
+
+  Instruction *BranchPt = &*Builder.GetInsertPoint();
+
+  Instruction *ThenTerm = SplitBlockAndInsertIfThen(
+      IsSizeNonZero, BranchPt, false,
+      MDBuilder(Builder.getContext()).createBranchWeights(4, 1), DT, LI);
+  BasicBlock *ThenBB = ThenTerm->getParent();
+  ThenBB->setName("size.is.non.zero.then");
+
+  Builder.SetInsertPoint(ThenTerm);
+
+  // Now, inside the if-then branch, link the allocated data to the "new" field.
   Value *NewVDataOffsetGep = Builder.CreateInBoundsGEP(
       KmpPrivatesTy, PrivatesGep, {Zero, Builder.getInt32(NewVIdx + 2)},
       OrigName + ".data.offset.gep");
@@ -579,6 +601,8 @@ void VPOParoptTransform::linkPrivateItemToBufferAtEndOfThunkIfApplicable(
   Builder.CreateStore(NewVData, Builder.CreateBitCast(
                                     NewVGep, PointerType::getUnqual(Int8PtrTy),
                                     OrigName + ".priv.gep.cast"));
+
+  Builder.SetInsertPoint(BranchPt);
 }
 
 // Generate the code to replace the variables in the task loop with
@@ -1110,9 +1134,8 @@ void VPOParoptTransform::genFprivInitForTask(WRegionNode *W,
     }
 #endif // INTEL_CUSTOMIZATION
 
-    VPOParoptUtils::genCopyByAddr(NewVGep, OrigV, InsertBefore,
-                                  FprivI->getCopyConstructor(),
-                                  FprivI->getIsByRef());
+    genCopyByAddr(FprivI, NewVGep, OrigV, InsertBefore,
+                  FprivI->getCopyConstructor(), FprivI->getIsByRef());
   }
 }
 
@@ -1370,8 +1393,8 @@ VPOParoptTransform::genFLPrivateTaskDup(WRegionNode *W,
         Builder.CreateInBoundsGEP(KmpTaskTTWithPrivatesTy, Arg1, Indices);
     Value *SrcGEP =
         Builder.CreateInBoundsGEP(KmpTaskTTWithPrivatesTy, Arg2, Indices);
-    VPOParoptUtils::genCopyByAddr(DstGEP, SrcGEP, RetInst,
-                                  FI->getCopyConstructor(), FI->getIsByRef());
+    genCopyByAddr(FI, DstGEP, SrcGEP, RetInst, FI->getCopyConstructor(),
+                  FI->getIsByRef());
     Builder.SetInsertPoint(RetInst);
   }
   return FnTaskDup;

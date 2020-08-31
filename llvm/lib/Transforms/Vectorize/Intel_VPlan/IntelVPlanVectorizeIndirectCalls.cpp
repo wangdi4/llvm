@@ -129,7 +129,7 @@ Value *
 IndirectCallCodeGenerator::generateIndirectCall(VPCallInstruction *VPCallInst,
                                                 Value *CurrentFuncPtr) {
   unsigned MatchedVecVariantIdx = VPCallInst->getVectorVariantIndex();
-  ElementCount EC(VF, false);
+  auto EC = ElementCount::getFixed(VF);
   Type *VecRetTy = VectorType::get(VPCallInst->getType(), EC);
   FunctionType *VecFuncTy = FunctionType::get(VecRetTy, CallArgsTy, false);
   unsigned AS = OrigCall->getArgOperand(0)->getType()->getPointerAddressSpace();
@@ -159,7 +159,7 @@ void IndirectCallCodeGenerator::generateCodeForUniformIndirectCall(
 void IndirectCallCodeGenerator::generateCodeForNonUniformIndirectCall(
     VPCallInstruction *VPCallInst) {
   bool IsMasked = MaskValue != nullptr;
-  ElementCount EC(VF, false);
+  auto EC = ElementCount::getFixed(VF);
   Constant *NullPtrVec = ConstantVector::getSplat(
       EC, Constant::getNullValue(OrigCall->getArgOperand(0)->getType()));
   CurrentBB = State->Builder.GetInsertBlock();
@@ -209,7 +209,7 @@ void IndirectCallCodeGenerator::generateCodeForNonUniformIndirectCall(
 // replaced with zero.
 void IndirectCallCodeGenerator::fillIndirectCallLoopEntryBB(
     VPCallInstruction *VPCallInst) {
-  ElementCount EC(VF, false);
+  auto EC = ElementCount::getFixed(VF);
   Constant *NullPtrVec = ConstantVector::getSplat(
       EC, Constant::getNullValue(VPCallInst->getType()));
 
@@ -240,7 +240,7 @@ void IndirectCallCodeGenerator::fillIndirectCallLoopEntryBB(
 // function pointer is emitted.
 void IndirectCallCodeGenerator::fillVectorIndirectCallBB(
     VPCallInstruction *VPCallInst) {
-  ElementCount EC(VF, false);
+  auto EC = ElementCount::getFixed(VF);
   Constant *NullPtrVec = ConstantVector::getSplat(
       EC, Constant::getNullValue(OrigCall->getArgOperand(0)->getType()));
   bool IsMasked = MaskValue != nullptr;
@@ -296,7 +296,7 @@ void IndirectCallCodeGenerator::fillVectorIndirectCallBB(
 // Fill-in indirect.call.loop.latch.
 void IndirectCallCodeGenerator::fillIndirectCallLoopLatchBB(
     VPCallInstruction *VPCallInst) {
-  ElementCount EC(VF, false);
+  auto EC = ElementCount::getFixed(VF);
   Constant *NullptrVec = ConstantVector::getSplat(
       EC, Constant::getNullValue(OrigCall->getArgOperand(0)->getType()));
   Constant *NullValueVec = ConstantVector::getSplat(
@@ -338,7 +338,7 @@ void IndirectCallCodeGenerator::fillIndirectCallLoopExitBB(
   State->Builder.SetInsertPoint(IndirectCallLoopExitBB);
   // To keep the LCSSA form of the loop, we emit a phi node for the return value
   // of the indirect call.
-  ElementCount EC(VF, false);
+  auto EC = ElementCount::getFixed(VF);
   PHINode *IndirectCallReturnLCSSAPhi =
       State->Builder.CreatePHI(VectorType::get(VPCallInst->getType(), EC), 1,
                                "indirect_call_return_lcssa_phi");

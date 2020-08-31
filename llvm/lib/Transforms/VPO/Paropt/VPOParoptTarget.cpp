@@ -263,10 +263,13 @@ Function *VPOParoptTransform::finalizeKernelFunction(WRegionNode *W,
   unsigned AddrSpaceGlobal = vpo::ADDRESS_SPACE_GLOBAL;
   for (auto ArgTyI = FnTy->param_begin(), ArgTyE = FnTy->param_end();
        ArgTyI != ArgTyE; ++ArgTyI) {
-    assert(isa<PointerType>(*ArgTyI) &&
-           "finalizeKernelFunction: Expect pointer type.");
-    PointerType *PtType = cast<PointerType>(*ArgTyI);
-    ParamsTy.push_back(PtType->getElementType()->getPointerTo(AddrSpaceGlobal));
+    if (PointerType *PtType = dyn_cast<PointerType>(*ArgTyI))
+      ParamsTy.push_back(
+          PtType->getElementType()->getPointerTo(AddrSpaceGlobal));
+    else
+      // A non-pointer argument may appear as a result of scalar
+      // FIRSTPRIVATE.
+      ParamsTy.push_back(*ArgTyI);
   }
 
   Type *RetTy = FnTy->getReturnType();
@@ -290,19 +293,22 @@ Function *VPOParoptTransform::finalizeKernelFunction(WRegionNode *W,
   for (Function::arg_iterator I = Fn->arg_begin(), E = Fn->arg_end(); I != E;
        ++I) {
     auto ArgV = &*NewArgI;
-    unsigned NewAddressSpace =
-        cast<PointerType>(ArgV->getType())->getAddressSpace();
-    unsigned OldAddressSpace =
-        cast<PointerType>(I->getType())->getAddressSpace();
-
     Value *NewArgV = ArgV;
-    if (NewAddressSpace != OldAddressSpace) {
-      // Assert the correct addrspacecast here instead of failing
-      // during SPIRV emission.
-      assert(OldAddressSpace == vpo::ADDRESS_SPACE_GENERIC &&
-             "finalizeKernelFunction: OpenCL global addrspaces can only be "
-             "casted to generic.");
-      NewArgV = Builder.CreatePointerBitCastOrAddrSpaceCast(ArgV, I->getType());
+    // Create an address space cast for pointer argument.
+    if (isa<PointerType>(ArgV->getType())) {
+      unsigned NewAddressSpace =
+          cast<PointerType>(ArgV->getType())->getAddressSpace();
+      unsigned OldAddressSpace =
+          cast<PointerType>(I->getType())->getAddressSpace();
+
+      if (NewAddressSpace != OldAddressSpace) {
+        // Assert the correct addrspacecast here instead of failing
+        // during SPIRV emission.
+        assert(OldAddressSpace == vpo::ADDRESS_SPACE_GENERIC &&
+               "finalizeKernelFunction: OpenCL global addrspaces can only be "
+               "casted to generic.");
+        NewArgV = Builder.CreatePointerBitCastOrAddrSpaceCast(ArgV, I->getType());
+      }
     }
     I->replaceAllUsesWith(NewArgV);
     NewArgI->takeName(&*I);
@@ -1200,16 +1206,21 @@ void VPOParoptTransform::genTgtInformationForPtrs(
         continue;
       if (FprivI->getInMap())
         continue;
-      Type *T = V->getType()->getPointerElementType();
-      if (FprivI->getIsPointer()) {
+      Type *ItemTy = V->getType();
+      if (!isa<PointerType>(ItemTy)) {
+        // Non-pointer firstprivate items must be mapped as literals
+        // with size 0.
+        ConstSizes.push_back(ConstantInt::get(Type::getInt64Ty(C), 0));
+        MapTypes.push_back(TGT_MAP_TARGET_PARAM | TGT_MAP_LITERAL);
+      } else if (FprivI->getIsPointer()) {
         // firstprivate() pointers are mapped with zero size
         // and map type NONE.
         ConstSizes.push_back(ConstantInt::get(Type::getInt64Ty(C), 0));
         MapTypes.push_back(TGT_MAP_TARGET_PARAM);
-      }
-      else {
+      } else {
+        Type *ObjectTy = ItemTy->getPointerElementType();
         ConstSizes.push_back(ConstantInt::get(Type::getInt64Ty(C),
-                                              DL.getTypeAllocSize(T)));
+                                              DL.getTypeAllocSize(ObjectTy)));
         MapTypes.push_back(TGT_MAP_TARGET_PARAM | TGT_MAP_TO);
       }
     }
@@ -1697,8 +1708,7 @@ void VPOParoptTransform::useUpdatedUseDevicePtrsInTgtDataRegion(
     else if (UDPI->getIsF90DopeVector()) {
       NewV = genPrivatizationAlloca(OrigV, OrigElemTy, AllocaInsertPt,
                                     ".new"); //                             (2)
-      VPOParoptUtils::genCopyByAddr(NewV, OrigV,
-                                    &*Builder.GetInsertPoint()); //         (7)
+      genCopyByAddr(UDPI, NewV, OrigV, &*Builder.GetInsertPoint()); //      (7)
       auto *Zero = Builder.getInt32(0);
       auto *Addr0GEP = Builder.CreateInBoundsGEP(NewV, {Zero, Zero}, //     (8)
                                                  NewV->getName() + ".addr0");
@@ -3073,30 +3083,32 @@ bool VPOParoptTransform::genTargetVariantDispatchCode(WRegionNode *W) {
   W->populateBBSet();
 
   // The first and last BasicBlocks contain the region.entry/exit calls.
-  // The first call instruction found in the remaining BBs is the
-  // base function call. All other instructions in the region are ignored.
+  // There may be many call instructions in this region like memcpy but there
+  // should be only one call instruction with the following string attribute.
+  // "openmp-variant"="name:foo_gpu;construct:target_variant_dispatch;arch:gen"
+  // where the variant name is "foo_gpu" in this example.
+  // All other instructions in the region are ignored.
 
+  StringRef MatchConstruct("target_variant_dispatch");
+  StringRef MatchArch("gen");
+  StringRef VariantName;
   CallInst *BaseCall = nullptr;
   for (auto *BB : make_range(W->bbset_begin()+1, W->bbset_end()-1)) {
     for (Instruction &I : *BB) {
-      if ((BaseCall = dyn_cast<CallInst>(&I)) != nullptr)
-        break;
+      if (auto *TempCallInst = dyn_cast<CallInst>(&I)) {
+        BaseCall = TempCallInst;
+        VariantName = getVariantName(BaseCall, MatchConstruct, MatchArch);
+        if (!VariantName.empty())
+          break;
+      }
     }
-    if (BaseCall)
+    if (!VariantName.empty())
       break;
   }
 
   assert(BaseCall && "Base call not found in Target Variant Dispatch");
   if (!BaseCall)
     return false;
-
-  // Find the variant name from BaseCall's attributes, which is expected to
-  // contain a string attribute of this form:
-  // "openmp-variant"="name:foo_gpu;construct:target_variant_dispatch;arch:gen"
-  // where the variant name is "foo_gpu" in this example.
-  StringRef MatchConstruct("target_variant_dispatch");
-  StringRef MatchArch("gen");
-  StringRef VariantName = getVariantName(BaseCall, MatchConstruct, MatchArch);
 
   if (VariantName.empty()) {
     LLVM_DEBUG(dbgs() << __FUNCTION__ << ": Variant function not found\n");

@@ -1453,6 +1453,17 @@ void OpenMPLateOutliner::emitOMPDeviceClause(const OMPDeviceClause *Cl) {
   addArg(CGF.EmitScalarExpr(Cl->getDevice()));
 }
 
+void OpenMPLateOutliner::emitOMPSubdeviceClause(const OMPSubdeviceClause *Cl) {
+  ClauseEmissionHelper CEH(*this, OMPC_subdevice);
+  ClauseStringBuilder &CSB = CEH.getBuilder();
+  CSB.add("QUAL.OMP.SUBDEVICE");
+  addArg(CSB.getString());
+  addArg(CGF.EmitScalarExpr(Cl->getLevel()));
+  addArg(CGF.EmitScalarExpr(Cl->getStart()));
+  addArg(CGF.EmitScalarExpr(Cl->getLength()));
+  addArg(CGF.EmitScalarExpr(Cl->getStride()));
+}
+
 void OpenMPLateOutliner::emitOMPDefaultmapClause(
     const OMPDefaultmapClause *Cl) {
 
@@ -2380,21 +2391,25 @@ bool OpenMPLateOutliner::needsVLAExprEmission() {
 }
 
 /// Emit the captured statement body.
-void CGLateOutlineOpenMPRegionInfo::EmitBody(CodeGenFunction &CGF,
-                                             const Stmt *S) {
+static void EmitBody(CodeGenFunction &CGF, const OMPExecutableDirective &D) {
   if (!CGF.HaveInsertPoint())
     return;
   CGF.EHStack.pushTerminate();
 
-  auto *CS = (cast<CapturedStmt>(S))->getCapturedStmt();
+  const Stmt *S;
+  if (OpenMPLateOutliner::hasCapturedStmt(D))
+    S = (cast<CapturedStmt>(D.getInnermostCapturedStmt()))->getCapturedStmt();
+  else
+    S = D.getAssociatedStmt();
+
   // The OMP structured-block (captured statement) is a declaration. Create a
   // new exception scope so we can handle any lingering cleanup exceptions
   // (due to ill-formed block) before popping the terminate exception.
-  if (isa<DeclStmt>(CS)) {
+  if (isa<DeclStmt>(S)) {
     CodeGenFunction::RunCleanupsScope Scope(CGF);
-    CGF.EmitStmt(CS);
+    CGF.EmitStmt(S);
   } else {
-    CGF.EmitStmt(CS);
+    CGF.EmitStmt(S);
   }
 
   CGF.EHStack.popTerminate();
@@ -2864,8 +2879,7 @@ void CodeGenFunction::EmitLateOutlineOMPDirective(
       addAttrsForFuncWithTargetRegion(CurFn);
     CodeGenModule::InTargetRegionRAII ITR(CGM, IsDeviceTarget);
     Outliner.emitVLAExpressions();
-    const Stmt *CapturedStmt = S.getInnermostCapturedStmt();
-    CapturedStmtInfo->EmitBody(*this, CapturedStmt);
+    EmitBody(*this, S);
   }
 }
 

@@ -427,11 +427,6 @@ void VPInstruction::print(raw_ostream &O) const {
     O << "    OperatorFlags -\n";
     O << "      FMF: " << hasFastMathFlags() << ", NSW: " << hasNoSignedWrap()
       << ", NUW: " << hasNoUnsignedWrap() << ", Exact: " << isExact() << "\n";
-    if (HIR.getUnderlyingNode()) {
-      // Print other attributes for HIR here when decomposer is updated.
-      O << "    end of details\n";
-      return;
-    }
     if (auto *LSI = dyn_cast<VPLoadStoreInst>(this))
       LSI->printDetails(O);
     // Print other attributes here when imported.
@@ -494,6 +489,12 @@ void VPInstruction::printWithoutAnalyses(raw_ostream &O) const {
     }
     O << getOpcodeName(cast<const VPReductionFinal>(this)->getBinOpcode())
       << "}";
+    break;
+  }
+  case Instruction::ICmp:
+  case Instruction::FCmp: {
+    O << getOpcodeName(getOpcode()) << ' '
+      << CmpInst::getPredicateName(cast<VPCmpInst>(this)->getPredicate());
     break;
   }
   default:
@@ -939,8 +940,8 @@ void VPBranchInst::printImpl(raw_ostream &O) const {
     O << "br <External Block>";
   else
     O << "br ";
-  if (VPValue *CondBit = getCondition()) {
-    CondBit->printAsOperand(O);
+  if (isConditional()) {
+    getCondition()->printAsOperand(O);
     O << ", ";
   }
   if (const loopopt::HLGoto *Node = getHLGoto()) {

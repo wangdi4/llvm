@@ -117,6 +117,12 @@ class Item
     HVAR HOrigItem;       // original var for HIR
     bool IsF90DopeVector; // true for a F90 dope vector
     EXPR F90DVNumElements; // number of elements in the F90 DV
+    Instruction
+        *F90DVDataAllocationPoint; // An instruction after the allocation of the
+                                   // local pointee data for an F90 DV is done.
+                                   // It can be used as the insertion point of
+                                   // the firstprivate initialization code for
+                                   // the DV. Used during transformation.
     bool IsWILocal = false;
 #endif // INTEL_CUSTOMIZATION
     VAR   NewItem;   // new version (eg private) of the var. For tasks, it's
@@ -155,7 +161,8 @@ class Item
     Item(VAR Orig, ItemKind K)
 #if INTEL_CUSTOMIZATION
         : OrigItem(Orig), HOrigItem(nullptr), IsF90DopeVector(false),
-          F90DVNumElements(nullptr), NewItem(nullptr), OrigGEP(nullptr),
+          F90DVNumElements(nullptr), F90DVDataAllocationPoint(nullptr),
+          NewItem(nullptr), OrigGEP(nullptr),
 #else
         : OrigItem(Orig), NewItem(nullptr), OrigGEP(nullptr),
 #endif // INTEL_CUSTOMIZATION
@@ -222,6 +229,12 @@ class Item
     bool getIsF90DopeVector()  const   { return IsF90DopeVector;  }
     void setF90DVNumElements(EXPR Size){ F90DVNumElements = Size; }
     EXPR getF90DVNumElements() const   { return F90DVNumElements; }
+    void setF90DVDataAllocationPoint(Instruction *I) {
+      F90DVDataAllocationPoint = I;
+    }
+    Instruction *getF90DVDataAllocationPoint() const {
+      return F90DVDataAllocationPoint;
+    }
     void setIsWILocal(bool Flag)       { IsWILocal = Flag; }
     bool getIsWILocal()          const { return IsWILocal; }
 #endif // INTEL_CUSTOMIZATION
@@ -1371,7 +1384,7 @@ template <typename ClauseItem> class Clause
     bool print(formatted_raw_ostream &OS, unsigned Depth=0,
                                           unsigned Verbosity=1) const;
     // search the clause for
-    ClauseItem *findOrig(const VAR V) {
+    ClauseItem *findOrig(const Value *V) const {
       for (auto I : items())
         if (I->getOrig() == V)
           return I;

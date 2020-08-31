@@ -49,7 +49,7 @@ define void @foo(i32 %factor) local_unnamed_addr {
 ; CHECK-NEXT:  External Defs End:
 ; CHECK:          i64 [[VP4:%.*]] = phi  [ i64 0, {{.*}} ],  [ i64 [[VP5:%.*]], {{.*}} ]
 ; CHECK:          i64 [[VP5]] = add i64 [[VP4]] i64 1
-; CHECK-NEXT:     i1 [[VP12:%.*]] = icmp i64 [[VP5]] i64 [[VP3]]
+; CHECK-NEXT:     i1 [[VP12:%.*]] = icmp sle i64 [[VP5]] i64 [[VP3]]
 ;
 entry:
   %cmp = icmp sgt i32 %factor, 1600

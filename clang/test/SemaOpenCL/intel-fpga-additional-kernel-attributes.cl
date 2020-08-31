@@ -138,7 +138,7 @@ __attribute__((scheduler_target_fmax_mhz(12)))
 __kernel void kernel_7b() {
 }
 
-__attribute__((scheduler_target_fmax_mhz("sch"))) // expected-error{{expression is not an integer constant expression}}
+__attribute__((scheduler_target_fmax_mhz("sch"))) // expected-error{{integer constant expression must have integer type}}
 __kernel void kernel_7c() {
 }
 

@@ -1,16 +1,26 @@
 # Lowering of SYCL ESIMD kernels depends on vc-intrinsics
 # NOTE: could have been added earlier from llvm/projects
 if (NOT TARGET LLVMGenXIntrinsics)
-if( INTEL_CUSTOMIZATION )
-  set( LLVMGenXIntrinsics_SOURCE_DIR ${LLVM_MAIN_SRC_DIR}/../external/vc-intrinsics)
-endif()
   if (NOT DEFINED LLVMGenXIntrinsics_SOURCE_DIR)
-    message(STATUS "vc-intrinsics are missing. Will try to download them from github.com")
 
+    if( INTEL_CUSTOMIZATION )
+      set( LLVMGenXIntrinsics_GIT_REPO
+           ssh://git-amr-2.devtools.intel.com:29418/dpd_icl-vc-intrinsics.git )
+      if( DEFINED ENV{ICS_GIT_MIRROR} AND NOT "$ENV{ICS_GIT_MIRROR}" STREQUAL "" )
+        set( LLVMGenXIntrinsics_GIT_REPO
+             $ENV{ICS_GIT_MIRROR}/dpd_icl-vc-intrinsics.git )
+        STRING(REGEX REPLACE "\\\\" "/" LLVMGenXIntrinsics_GIT_REPO "${LLVMGenXIntrinsics_GIT_REPO}") 
+      endif()
+    else(INTEL_CUSTOMIZATION)
+      set( LLVMGenXIntrinsics_GIT_REPO
+         https://github.com/intel/vc-intrinsics.git )
+    endif(INTEL_CUSTOMIZATION)
+
+    message(STATUS "vc-intrinsics are missing. Will try to download them from ${LLVMGenXIntrinsics_GIT_REPO} ") #INTEL_CUSTOMIZATION
     include(FetchContent)
     FetchContent_Declare(vc-intrinsics
-      GIT_REPOSITORY https://github.com/intel/vc-intrinsics.git
-      GIT_TAG        5e35898100ebe3747ea50c91b05e679757b25703
+      GIT_REPOSITORY ${LLVMGenXIntrinsics_GIT_REPO} #INTEL_CUSTOMIZATION
+      GIT_TAG        bf7745ca1a4b2b2963b7e33846107839937eb7aa
     )
     FetchContent_MakeAvailable(vc-intrinsics)
     FetchContent_GetProperties(vc-intrinsics)

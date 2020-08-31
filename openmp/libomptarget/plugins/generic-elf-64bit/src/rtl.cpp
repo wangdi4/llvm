@@ -17,6 +17,9 @@
 #include <dlfcn.h>
 #include <ffi.h>
 #include <gelf.h>
+#if INTEL_COLLAB
+#include <limits>
+#endif // INTEL_COLLAB
 #include <link.h>
 #include <list>
 #include <string>
@@ -337,7 +340,17 @@ int32_t __tgt_rtl_run_target_team_region(int32_t device_id, void *tgt_entry_ptr,
   std::vector<void *> ptrs(arg_num);
 
   for (int32_t i = 0; i < arg_num; ++i) {
+#if INTEL_COLLAB
+    ptrdiff_t offset = tgt_offsets[i];
+    // Offset equal to MAX(ptrdiff_t) means that the argument
+    // must be passed as literal, and the offset should be ignored.
+    if (offset == (std::numeric_limits<ptrdiff_t>::max)())
+      ptrs[i] = tgt_args[i];
+    else
+      ptrs[i] = (void *)((intptr_t)tgt_args[i] + offset);
+#else // INTEL_COLLAB
     ptrs[i] = (void *)((intptr_t)tgt_args[i] + tgt_offsets[i]);
+#endif // INTEL_COLLAB
     args[i] = &ptrs[i];
   }
 

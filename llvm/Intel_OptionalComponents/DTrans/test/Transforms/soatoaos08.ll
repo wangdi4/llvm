@@ -5,13 +5,11 @@
 ; RUN:          -enable-dtrans-soatoaos -dtrans-soatoaos-size-heuristic=false              \
 ; RUN:          -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2                   \
 ; RUN:          -dtrans-soatoaos-ignore-classinfo=true                                     \
-; RUN:          -debug-only=dtrans-soatoaos,dtrans-soatoaos-arrays,dtrans-soatoaos-struct  \
 ; RUN:  2>&1 | FileCheck %s
 ; RUN: opt < %s -S -whole-program-assume -passes=dtrans-soatoaos                           \
 ; RUN:          -enable-dtrans-soatoaos -dtrans-soatoaos-size-heuristic=false              \
 ; RUN:          -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2                   \
 ; RUN:          -dtrans-soatoaos-ignore-classinfo=true                                     \
-; RUN:          -debug-only=dtrans-soatoaos,dtrans-soatoaos-arrays,dtrans-soatoaos-struct  \
 ; RUN:  2>&1 | FileCheck %s
 
 ; Checks that transformation happens and executable test passes.
@@ -185,7 +183,8 @@ entry:
   %call = call i32 @"F::get1(int)"(%class.F* %f, i32 0), !dbg !126
   %tmp1 = load i32, i32* @v2, align 4, !dbg !128
   %cmp = icmp ne i32 %call, %tmp1, !dbg !129
-  br i1 %cmp, label %if.then, label %if.end, !dbg !130
+  %or.cond = or i1 %cmp, true
+  br i1 %or.cond, label %if.then, label %if.end, !dbg !130
 
 if.then:                                          ; preds = %entry
   br label %return, !dbg !131

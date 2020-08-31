@@ -29,21 +29,21 @@ define i8 @stack_fold_cmpph(<8 x half> %a0, <8 x half> %a1) {
   ;CHECK-LABEL: stack_fold_cmpph
   ;CHECK:       vcmpeqph {{-?[0-9]*}}(%rsp), {{%xmm[0-9][0-9]*}}, {{%k[0-9]*}} {{.*#+}} 16-byte Folded Reload
   %1 = tail call <2 x i64> asm sideeffect "nop", "=x,~{xmm2},~{xmm3},~{xmm4},~{xmm5},~{xmm6},~{xmm7},~{xmm8},~{xmm9},~{xmm10},~{xmm11},~{xmm12},~{xmm13},~{xmm14},~{xmm15},~{xmm16},~{xmm17},~{xmm18},~{xmm19},~{xmm20},~{xmm21},~{xmm22},~{xmm23},~{xmm24},~{xmm25},~{xmm26},~{xmm27},~{xmm28},~{xmm29},~{xmm30},~{xmm31},~{flags}"()
-  %res = call <8 x i1> @llvm.x86.avx512fp16.cmp.ph.128(<8 x half> %a0, <8 x half> %a1, i32 0)
+  %res = call <8 x i1> @llvm.x86.avx512fp16.mask.cmp.ph.128(<8 x half> %a0, <8 x half> %a1, i32 0, <8 x i1> <i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true>)
   %2 = bitcast <8 x i1> %res to i8
   ret i8 %2
 }
-declare <8 x i1> @llvm.x86.avx512fp16.cmp.ph.128(<8 x half>, <8 x half>, i32)
+declare <8 x i1> @llvm.x86.avx512fp16.mask.cmp.ph.128(<8 x half>, <8 x half>, i32,  <8 x i1>)
 
 define i16 @stack_fold_cmpph_ymm(<16 x half> %a0, <16 x half> %a1) {
   ;CHECK-LABEL: stack_fold_cmpph_ymm
   ;CHECK:       vcmpeqph {{-?[0-9]*}}(%rsp), {{%ymm[0-9][0-9]*}}, {{%k[0-9]*}} {{.*#+}} 32-byte Folded Reload
   %1 = tail call <2 x i64> asm sideeffect "nop", "=x,~{xmm2},~{xmm3},~{xmm4},~{xmm5},~{xmm6},~{xmm7},~{xmm8},~{xmm9},~{xmm10},~{xmm11},~{xmm12},~{xmm13},~{xmm14},~{xmm15},~{xmm16},~{xmm17},~{xmm18},~{xmm19},~{xmm20},~{xmm21},~{xmm22},~{xmm23},~{xmm24},~{xmm25},~{xmm26},~{xmm27},~{xmm28},~{xmm29},~{xmm30},~{xmm31},~{flags}"()
-  %res = call <16 x i1> @llvm.x86.avx512fp16.cmp.ph.256(<16 x half> %a0, <16 x half> %a1, i32 0)
+  %res = call <16 x i1> @llvm.x86.avx512fp16.mask.cmp.ph.256(<16 x half> %a0, <16 x half> %a1, i32 0, <16 x i1> <i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true>)
   %2 = bitcast <16 x i1> %res to i16
   ret i16 %2
 }
-declare <16 x i1> @llvm.x86.avx512fp16.cmp.ph.256(<16 x half>, <16 x half>, i32)
+declare <16 x i1> @llvm.x86.avx512fp16.mask.cmp.ph.256(<16 x half>, <16 x half>, i32, <16 x i1>)
 
 define <8 x half> @stack_fold_divph(<8 x half> %a0, <8 x half> %a1) {
   ;CHECK-LABEL: stack_fold_divph
