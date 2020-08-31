@@ -1,7 +1,7 @@
 # INTEL_CUSTOMIZATION
-# Reenable if CMPLRLLVM-22341 been fixed
-# REQUIRES: x86 && llvm-64-bits
+# UNSUPPORTED: intel_opencl && i686-pc-windows
 # end INTEL_CUSTOMIZATION
+# REQUIRES: x86
 # RUN: split-file %s %t
 
 # RUN: llvm-mc -filetype=obj -triple=x86_64-apple-darwin %t/libtlv.s -o %t/libtlv.o
