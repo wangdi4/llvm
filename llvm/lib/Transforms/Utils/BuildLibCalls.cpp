@@ -208,6 +208,7 @@ bool llvm::inferLibFuncAttributes(Function &F, const TargetLibraryInfo &TLI) {
     return Changed;
   case LibFunc_strchr:
   case LibFunc_strrchr:
+    Changed |= setOnlyAccessesArgMemory(F);
     Changed |= setOnlyReadsMemory(F);
     Changed |= setDoesNotThrow(F);
     return Changed;
@@ -250,11 +251,22 @@ bool llvm::inferLibFuncAttributes(Function &F, const TargetLibraryInfo &TLI) {
   case LibFunc_strspn:      // 0,1
   case LibFunc_strncmp:     // 0,1
   case LibFunc_strcspn:     // 0,1
-  case LibFunc_strcoll:     // 0,1
+    Changed |= setDoesNotThrow(F);
+    Changed |= setOnlyAccessesArgMemory(F);
+    Changed |= setOnlyReadsMemory(F);
+    Changed |= setDoesNotCapture(F, 0);
+    Changed |= setDoesNotCapture(F, 1);
+    return Changed;
+  case LibFunc_strcoll:
   case LibFunc_strcasecmp:  // 0,1
   case LibFunc_strncasecmp: //
+<<<<<<< HEAD
   case LibFunc_under_stricmp:  // INTEL
   case LibFunc_under_strnicmp: // INTEL
+=======
+    // Those functions may depend on the locale, which may be accessed through
+    // global memory.
+>>>>>>> 20e989e9de6abcf9a684978a2688acc4ea01036f
     Changed |= setOnlyReadsMemory(F);
     Changed |= setDoesNotThrow(F);
     Changed |= setDoesNotCapture(F, 0);
@@ -337,6 +349,7 @@ bool llvm::inferLibFuncAttributes(Function &F, const TargetLibraryInfo &TLI) {
     Changed |= setRetDoesNotAlias(F);
     return Changed;
   case LibFunc_memcmp:
+    Changed |= setOnlyAccessesArgMemory(F);
     Changed |= setOnlyReadsMemory(F);
     Changed |= setDoesNotThrow(F);
     Changed |= setDoesNotCapture(F, 0);
@@ -344,8 +357,9 @@ bool llvm::inferLibFuncAttributes(Function &F, const TargetLibraryInfo &TLI) {
     return Changed;
   case LibFunc_memchr:
   case LibFunc_memrchr:
-    Changed |= setOnlyReadsMemory(F);
     Changed |= setDoesNotThrow(F);
+    Changed |= setOnlyAccessesArgMemory(F);
+    Changed |= setOnlyReadsMemory(F);
     return Changed;
   case LibFunc_modf:
   case LibFunc_modff:
@@ -354,24 +368,27 @@ bool llvm::inferLibFuncAttributes(Function &F, const TargetLibraryInfo &TLI) {
     Changed |= setDoesNotCapture(F, 1);
     return Changed;
   case LibFunc_memcpy:
-    Changed |= setDoesNotAlias(F, 0);
-    Changed |= setDoesNotAlias(F, 1);
-    Changed |= setReturnedArg(F, 0);
     Changed |= setDoesNotThrow(F);
+    Changed |= setOnlyAccessesArgMemory(F);
+    Changed |= setDoesNotAlias(F, 0);
+    Changed |= setReturnedArg(F, 0);
+    Changed |= setDoesNotAlias(F, 1);
     Changed |= setDoesNotCapture(F, 1);
     Changed |= setOnlyReadsMemory(F, 1);
     return Changed;
   case LibFunc_memmove:
-    Changed |= setReturnedArg(F, 0);
     Changed |= setDoesNotThrow(F);
+    Changed |= setOnlyAccessesArgMemory(F);
+    Changed |= setReturnedArg(F, 0);
     Changed |= setDoesNotCapture(F, 1);
     Changed |= setOnlyReadsMemory(F, 1);
     return Changed;
   case LibFunc_mempcpy:
   case LibFunc_memccpy:
+    Changed |= setDoesNotThrow(F);
+    Changed |= setOnlyAccessesArgMemory(F);
     Changed |= setDoesNotAlias(F, 0);
     Changed |= setDoesNotAlias(F, 1);
-    Changed |= setDoesNotThrow(F);
     Changed |= setDoesNotCapture(F, 1);
     Changed |= setOnlyReadsMemory(F, 1);
     return Changed;
@@ -449,6 +466,7 @@ bool llvm::inferLibFuncAttributes(Function &F, const TargetLibraryInfo &TLI) {
     return Changed;
   case LibFunc_bcmp:
     Changed |= setDoesNotThrow(F);
+    Changed |= setOnlyAccessesArgMemory(F);
     Changed |= setOnlyReadsMemory(F);
     Changed |= setDoesNotCapture(F, 0);
     Changed |= setDoesNotCapture(F, 1);
