@@ -17,6 +17,18 @@
 
 using namespace llvm::vpo;
 
+static cl::opt<bool, true> VPlanVecNonReadonlyLibCallsOpt(
+    "vplan-vectorize-non-readonly-libcalls", cl::Hidden,
+    cl::location(VPlanVecNonReadonlyLibCalls),
+    cl::desc(
+        "Vectorize library calls even if they don't have readonly attribute."));
+
+namespace llvm {
+namespace vpo {
+bool VPlanVecNonReadonlyLibCalls = true;
+} // namespace vpo
+} // namespace llvm
+
 void VPlanCallVecDecisions::run(unsigned VF, const TargetLibraryInfo *TLI,
                                 const TargetTransformInfo *TTI) {
   LLVM_DEBUG(dbgs() << "Running CallVecDecisions for VF=" << VF << "\n");
@@ -265,9 +277,9 @@ void VPlanCallVecDecisions::analyzeCall(VPCallInstruction *VPCall, unsigned VF,
   bool IsMasked = VPBB->getPredicate() != nullptr;
   // 4. Vectorizable library function like SVML calls. Set vector function
   // name in CallVecProperties. NOTE : Vector library calls can be used if call
-  // is known to read memory only.
+  // is known to read memory only (non-default behavior).
   if (TLI->isFunctionVectorizable(CalledFuncName, VF, IsMasked) &&
-      UnderlyingCI->onlyReadsMemory()) {
+      (VPlanVecNonReadonlyLibCalls || UnderlyingCI->onlyReadsMemory())) {
     VPCall->setVectorizeWithLibraryFn(
         TLI->getVectorizedFunction(CalledFuncName, VF, IsMasked));
     return;
@@ -299,7 +311,8 @@ void VPlanCallVecDecisions::analyzeCall(VPCallInstruction *VPCall, unsigned VF,
   // vector-variant pumping is implemented, restrict the check for library func
   // call.
   unsigned PumpFactor = getPumpFactor(CalledFuncName, IsMasked, VF, TLI);
-  if (PumpFactor > 1 && UnderlyingCI->onlyReadsMemory()) {
+  if (PumpFactor > 1 &&
+      (VPlanVecNonReadonlyLibCalls || UnderlyingCI->onlyReadsMemory())) {
     unsigned LowerVF = VF / PumpFactor;
     assert(TLI->isFunctionVectorizable(CalledFuncName, LowerVF, IsMasked) &&
            "Library function cannot be vectorized with lower VF.");

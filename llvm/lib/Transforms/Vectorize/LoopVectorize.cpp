@@ -308,6 +308,13 @@ cl::opt<bool> llvm::EnableLoopVectorization(
     "vectorize-loops", cl::init(true), cl::Hidden,
     cl::desc("Run the Loop vectorization passes"));
 
+#if INTEL_CUSTOMIZATION
+static cl::opt<bool> VectorizeNonReadonlyLibCalls(
+    "vectorize-non-readonly-libcalls", cl::init(true), cl::Hidden,
+    cl::desc(
+        "Vectorize library calls even if they don't have readonly attribute."));
+#endif
+
 /// A helper function that returns the type of loaded or stored value.
 static Type *getMemInstValueType(Value *I) {
   assert((isa<LoadInst>(I) || isa<StoreInst>(I)) &&
@@ -3423,8 +3430,9 @@ unsigned LoopVectorizationCostModel::getVectorCallCost(CallInst *CI,
     return Cost;
 
 #if INTEL_CUSTOMIZATION
-  // Use vector library call if scalar call is known to read memory only.
-  if (!CI->onlyReadsMemory())
+  // Use vector library call if scalar call is known to read memory only. This
+  // is non-default behavior.
+  if (!VectorizeNonReadonlyLibCalls && !CI->onlyReadsMemory())
     return Cost;
 #endif
 
