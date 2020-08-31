@@ -123,6 +123,8 @@ int getX87Precision();
 
 bool getEmitCallSiteInfo();
 
+bool getEnableMachineFunctionSplitter();
+
 bool getEnableDebugEntryValues();
 
 bool getValueTrackingVariableLocations();
