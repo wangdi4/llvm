@@ -260,13 +260,10 @@ bool llvm::inferLibFuncAttributes(Function &F, const TargetLibraryInfo &TLI) {
   case LibFunc_strcoll:
   case LibFunc_strcasecmp:  // 0,1
   case LibFunc_strncasecmp: //
-<<<<<<< HEAD
   case LibFunc_under_stricmp:  // INTEL
   case LibFunc_under_strnicmp: // INTEL
-=======
     // Those functions may depend on the locale, which may be accessed through
     // global memory.
->>>>>>> 20e989e9de6abcf9a684978a2688acc4ea01036f
     Changed |= setOnlyReadsMemory(F);
     Changed |= setDoesNotThrow(F);
     Changed |= setDoesNotCapture(F, 0);
