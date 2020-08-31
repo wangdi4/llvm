@@ -10,8 +10,8 @@
 
 #include <CL/sycl/detail/cg.hpp>
 #include <CL/sycl/detail/sycl_mem_obj_i.hpp>
-#include <detail/circular_buffer.hpp>
 #include <detail/scheduler/commands.hpp>
+#include <detail/scheduler/leaves_collection.hpp>
 
 #include <cstddef>
 #include <memory>
@@ -189,18 +189,19 @@ using ContextImplPtr = std::shared_ptr<detail::context_impl>;
 ///
 /// \ingroup sycl_graph
 struct MemObjRecord {
-  MemObjRecord(ContextImplPtr CurContext, std::size_t LeafLimit)
-      : MReadLeaves{LeafLimit}, MWriteLeaves{LeafLimit}, MCurContext{
-                                                             CurContext} {}
+  MemObjRecord(ContextImplPtr Ctx, std::size_t LeafLimit,
+               LeavesCollection::AllocateDependencyF AllocateDependency)
+      : MReadLeaves{this, LeafLimit, AllocateDependency},
+        MWriteLeaves{this, LeafLimit, AllocateDependency}, MCurContext{Ctx} {}
 
   // Contains all allocation commands for the memory object.
   std::vector<AllocaCommandBase *> MAllocaCommands;
 
   // Contains latest read only commands working with memory object.
-  CircularBuffer<Command *> MReadLeaves;
+  LeavesCollection MReadLeaves;
 
   // Contains latest write commands working with memory object.
-  CircularBuffer<Command *> MWriteLeaves;
+  LeavesCollection MWriteLeaves;
 
   // The context which has the latest state of the memory object.
   ContextImplPtr MCurContext;
@@ -429,7 +430,7 @@ public:
 
   QueueImplPtr getDefaultHostQueue() { return DefaultHostQueue; }
 
-  void setLeafLimit(size_t Limit); // INTEL
+  static MemObjRecord *getMemObjRecord(const Requirement *const Req);
 
 protected:
   Scheduler();
@@ -536,13 +537,7 @@ protected:
     std::vector<SYCLMemObjI *> MMemObjs;
 
 
-    void setLeafLimit(size_t Limit);              // INTEL
-
   private:
-    static constexpr size_t DefaultLeafLimit = 8; // INTEL
-    size_t LeafLimit = DefaultLeafLimit;          // INTEL
-    size_t getLeafLimit();                        // INTEL
-
     /// Inserts the command required to update the memory object state in the
     /// context.
     ///

@@ -135,9 +135,6 @@ set(SYCL_SOURCES
     "detail/handler_proxy.cpp"
     "detail/image_accessor_util.cpp"
     "detail/image_impl.cpp"
-# INTEL_CUSTOMIZATION
-    "detail/intel_set_leaf_limit.cpp"
-# end INTEL_CUSTOMIZATION
     "detail/kernel_impl.cpp"
     "detail/kernel_program_cache.cpp"
     "detail/memory_manager.cpp"
@@ -151,6 +148,7 @@ set(SYCL_SOURCES
     "detail/sampler_impl.cpp"
     "detail/stream_impl.cpp"
     "detail/scheduler/commands.cpp"
+    "detail/scheduler/leaves_collection.cpp"
     "detail/scheduler/scheduler.cpp"
     "detail/scheduler/graph_processor.cpp"
     "detail/scheduler/graph_builder.cpp"
