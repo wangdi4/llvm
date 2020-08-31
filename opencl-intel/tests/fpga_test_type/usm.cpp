@@ -34,6 +34,12 @@ protected:
 
     // Get USM function address
     cl_platform_id platform = parent_t::platform();
+    m_clHostMemAllocINTEL =
+        (clHostMemAllocINTEL_fn)clGetExtensionFunctionAddressForPlatform(
+            platform, "clHostMemAllocINTEL");
+    ASSERT_NE(m_clHostMemAllocINTEL, nullptr)
+        << "failed to get address of clHostMemAllocINTEL";
+
     m_clSharedMemAllocINTEL =
         (clSharedMemAllocINTEL_fn)clGetExtensionFunctionAddressForPlatform(
             platform, "clSharedMemAllocINTEL");
@@ -96,7 +102,6 @@ protected:
     program = clCreateProgramWithSource(context, count, source, nullptr, &err);
     ASSERT_EQ(err, CL_SUCCESS) << "clCreateProgramWithSource failed";
     err = clBuildProgram(program, 1, &device, "", nullptr, nullptr);
-
     ASSERT_EQ(err, CL_SUCCESS) << "clBuildProgram failed";
     kernel = clCreateKernel(program, kernelName, &err);
     ASSERT_EQ(err, CL_SUCCESS) << "clCreateKernel failed";
@@ -125,12 +130,21 @@ protected:
     else
       ASSERT_NE(err, CL_SUCCESS) << "clEnqueueMemFillINTEL should fail";
 
+    // Explicit host USM
+    void *buffer2 = m_clHostMemAllocINTEL(context, nullptr, size, 0, &err);
+    ASSERT_EQ(err, CL_SUCCESS) << "clHostMemAllocINTEL failed";
+    ASSERT_NE(buffer2, nullptr) << "invalid buffer2";
+
     // kernel arg
-    const char *source[] = {"kernel void test(global char *buffer){}"};
+    const char *source[] = {
+        "kernel void test(global char *buffer, global char *buffer2){}"};
     cl_program program;
     cl_kernel kernel;
-    BuildKernel(context, device, source, 1, "test", program, kernel);
+    ASSERT_NO_FATAL_FAILURE(
+        BuildKernel(context, device, source, 1, "test", program, kernel));
     err = m_clSetKernelArgMemPointerINTEL(kernel, 0, buffer);
+    ASSERT_EQ(err, CL_SUCCESS) << "clSetKernelArgMemPointerINTEL failed";
+    err = m_clSetKernelArgMemPointerINTEL(kernel, 1, buffer2);
     ASSERT_EQ(err, CL_SUCCESS) << "clSetKernelArgMemPointerINTEL failed";
 
     size_t gdim = 1;
@@ -178,6 +192,27 @@ protected:
     else
       ASSERT_NE(err, CL_SUCCESS) << "clEnqueueMemcpyINTEL should fail";
 
+    // Explicit host USM
+    void *buffer3 = m_clHostMemAllocINTEL(context, nullptr, size, 0, &err);
+    ASSERT_EQ(err, CL_SUCCESS) << "clHostMemAllocINTEL failed";
+    ASSERT_NE(buffer3, nullptr) << "invalid buffer2";
+
+    // buffer -> buffer3
+    err = m_clEnqueueMemcpyINTEL(queue, CL_TRUE, buffer3, buffer, size, 0,
+                                 nullptr, nullptr);
+    if (shouldSucceed)
+      ASSERT_EQ(err, CL_SUCCESS) << "clEnqueueMemcpyINTEL should succeed";
+    else
+      ASSERT_NE(err, CL_SUCCESS) << "clEnqueueMemcpyINTEL should fail";
+
+    // buffer3 -> buffer
+    err = m_clEnqueueMemcpyINTEL(queue, CL_TRUE, buffer, buffer3, size, 0,
+                                 nullptr, nullptr);
+    if (shouldSucceed)
+      ASSERT_EQ(err, CL_SUCCESS) << "clEnqueueMemcpyINTEL should succeed";
+    else
+      ASSERT_NE(err, CL_SUCCESS) << "clEnqueueMemcpyINTEL should fail";
+
     m_clMemFreeINTEL(context, buffer2);
   }
 
@@ -200,7 +235,8 @@ protected:
                             "kernel void test(global Foo *foo) {}\n"};
     cl_program program;
     cl_kernel kernel;
-    BuildKernel(context, device, source, 1, "test", program, kernel);
+    ASSERT_NO_FATAL_FAILURE(
+        BuildKernel(context, device, source, 1, "test", program, kernel));
     err = m_clSetKernelArgMemPointerINTEL(kernel, 0, foo);
     ASSERT_EQ(err, CL_SUCCESS) << "clSetKernelArgMemPointerINTEL failed";
 
@@ -248,6 +284,7 @@ protected:
   }
 
 protected:
+  clHostMemAllocINTEL_fn m_clHostMemAllocINTEL;
   clSharedMemAllocINTEL_fn m_clSharedMemAllocINTEL;
   clEnqueueMemsetINTEL_fn m_clEnqueueMemsetINTEL;
   clEnqueueMemFillINTEL_fn m_clEnqueueMemFillINTEL;
@@ -304,10 +341,12 @@ TEST_P(UsmTest, sameDevice) {
     ASSERT_EQ(err, CL_SUCCESS) << "clSharedMemAllocINTEL failed";
     ASSERT_NE(buffer, nullptr) << "invalid buffer";
 
-    TestCommands(device, context, queue, buffer, size,
-                 /*shouldSucceed*/ true);
-    TestMemcpy(device, context, queue, buffer, size, /*shouldSucceed*/ true);
-    TestNonArg(device, context, queue, buffer, size, /*shouldSucceed*/ true);
+    ASSERT_NO_FATAL_FAILURE(TestCommands(device, context, queue, buffer, size,
+                                         /*shouldSucceed*/ true));
+    ASSERT_NO_FATAL_FAILURE(TestMemcpy(device, context, queue, buffer, size,
+                                       /*shouldSucceed*/ true));
+    ASSERT_NO_FATAL_FAILURE(TestNonArg(device, context, queue, buffer, size,
+                                       /*shouldSucceed*/ true));
 
     // Test migrate at last, since CL_MIGRATE_MEM_OBJECT_CONTENT_UNDEFINED
     // will make content of buffer undefined.
@@ -347,10 +386,12 @@ TEST_P(UsmTest, crossDevice) {
     cl_command_queue queue = createCommandQueue(context, device);
     ASSERT_NE(queue, nullptr) << "createCommandQueue failed";
 
-    TestCommands(device, context, queue, buffer, size,
-                 /*shouldSucceed*/ false);
-    TestMemcpy(device, context, queue, buffer, size, /*shouldSucceed*/ false);
-    TestNonArg(device, context, queue, buffer, size, /*shouldSucceed*/ false);
+    ASSERT_NO_FATAL_FAILURE(TestCommands(device, context, queue, buffer, size,
+                                         /*shouldSucceed*/ false));
+    ASSERT_NO_FATAL_FAILURE(TestMemcpy(device, context, queue, buffer, size,
+                                       /*shouldSucceed*/ false));
+    ASSERT_NO_FATAL_FAILURE(TestNonArg(device, context, queue, buffer, size,
+                                       /*shouldSucceed*/ false));
 
     // migrate
     cl_mem_migration_flags flags = CL_MIGRATE_MEM_OBJECT_CONTENT_UNDEFINED;
@@ -375,10 +416,12 @@ TEST_P(UsmTest, system) {
     cl_command_queue queue = createCommandQueue(context, device);
     ASSERT_NE(nullptr, queue) << "createCommandQueue failed";
 
-    TestCommands(device, context, queue, buffer, size,
-                 /*shouldSucceed*/ false);
-    TestMemcpy(device, context, queue, buffer, size, /*shouldSucceed*/ true);
-    TestNonArg(device, context, queue, buffer, size, /*shouldSucceed*/ false);
+    ASSERT_NO_FATAL_FAILURE(TestCommands(device, context, queue, buffer, size,
+                                         /*shouldSucceed*/ false));
+    ASSERT_NO_FATAL_FAILURE(TestMemcpy(device, context, queue, buffer, size,
+                                       /*shouldSucceed*/ true));
+    ASSERT_NO_FATAL_FAILURE(TestNonArg(device, context, queue, buffer, size,
+                                       /*shouldSucceed*/ false));
 
     // migrate
     cl_mem_migration_flags flags = 0;

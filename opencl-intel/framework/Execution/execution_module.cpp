@@ -3661,7 +3661,7 @@ bool ExecutionModule::CanAccessUSM(SharedPtr<IOclCommandQueueBase> &queue,
         auto caps = queueDevice->GetUSMCapabilities(
             CL_DEVICE_CROSS_DEVICE_SHARED_MEM_CAPABILITIES_INTEL);
         cl_device_id bufDeviceId = buf->GetDevice();
-        if (!caps && queueDeviceId != bufDeviceId)
+        if (!caps && bufDeviceId && queueDeviceId != bufDeviceId)
             return false;
     } else {
         auto caps = queueDevice->GetUSMCapabilities(
