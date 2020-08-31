@@ -742,10 +742,8 @@ bool CLWGLoopBoundaries::traceBackBound(Value *v1, Value *v2, bool isCmpSigned,
           // non-negative, otherwise it will result in wrong boundary at
           // unsigned comparison.
           // If overflow has happend, right boundary is less than left
-          // boundary, so there are no WI to execute. If we are dealing with
-          // slack inequality i.e. id <= (b - a), we need to set bounds so,
-          // there are no local id that will comply with both of them.
-          // We use the following bounds: (b - a + 1) <= id <= (b - a).
+          // boundary, so there are no WI to execute. Then we just set left
+          // bound as 1 and set right bound as 0.
           assert(dyn_cast<CmpInst>(loc) &&
                  "Expect CMP instruction for tid user.");
           CmpInst::Predicate condCmpInst =
@@ -753,11 +751,13 @@ bool CLWGLoopBoundaries::traceBackBound(Value *v1, Value *v2, bool isCmpSigned,
                                                          : CmpInst::ICMP_SLE;
           Instruction *rightOverflowCheck = new ICmpInst(
               loc, condCmpInst, rightBound, leftBound, "right_lt_left");
-          // Compute left (lower) boundary for the id: -a <= id
-          // Add additional check for unsigned overflow i.e. -a < 0
-          // If overflow has happend for right boundary computation,
-          // make left (lower) boundary greater than right (upper) boundary
-          // by incrementing right boundary value.
+          // if overflow has happened, right boundary should be set as 0.
+          *bound = SelectInst::Create(rightOverflowCheck, zero,
+            *bound, "final_right_bound", loc);
+          // Compute left (lower) boundary for the id, if overflow has happend
+          // for right boundary computation, right boundary is set 0. To make
+          // left (lower) boundary greater than right (upper) boundary, set
+          // left boundary as right boundary value plus one.
           Value* one = ConstantInt::get((*bound)->getType(), 1);
           BinaryOperator *leftPlusOne = BinaryOperator::Create(
             Instruction::Add, *bound, one, "left_after_overflow", loc);

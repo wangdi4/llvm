@@ -16,7 +16,7 @@
 ; CHECK: CLWGLoopBoundaries
 ; CHECK: found 2 early exit boundaries
 ; CHECK: dim=0, contains=T, isGID=T, isSigned=F, isUpper=T
-; CHECK-NEXT: %right_boundary_align = sub i64 100, -100
+; CHECK-NEXT: %final_right_bound = select i1 %right_lt_left, i64 0, i64 %right_boundary_align
 ; CHECK-NEXT: dim=0, contains=T, isGID=T, isSigned=F, isUpper=F
 ; CHECK-NEXT: %final_left_bound = select i1 %right_lt_left, i64 %left_after_overflow, i64 %non_negative_left_bound
 ; CHECK: found 0 uniform early exit conditions
