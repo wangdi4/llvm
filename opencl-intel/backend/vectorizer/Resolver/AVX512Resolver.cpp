@@ -193,7 +193,7 @@ void AVX512Resolver::FixBaseAndIndexIfNeeded(
 
 bool AVX512Resolver::isBitMask(const VectorType& vecType) const {
   // float16, int16, double8, long8, double16, long16
-  return (!vecType.getElementCount().Scalable &&
+  return (!vecType.getElementCount().isScalable() &&
           vecType.getPrimitiveSizeInBits().getFixedSize() >= 512 &&
           vecType.getNumElements() <= 16);
 }
