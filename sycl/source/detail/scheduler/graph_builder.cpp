@@ -164,12 +164,7 @@ Scheduler::GraphBuilder::getOrInsertMemObjRecord(const QueueImplPtr &Queue,
   if (nullptr != Record)
     return Record;
 
-<<<<<<< HEAD
   const size_t LeafLimit = getLeafLimit(); // INTEL
-  MemObject->MRecord.reset(
-      new MemObjRecord{Queue->getContextImplPtr(), LeafLimit});
-=======
-  const size_t LeafLimit = 8;
   LeavesCollection::AllocateDependencyF AllocateDependency =
       [this](Command *Dependant, Command *Dependency, MemObjRecord *Record) {
         // Add the old leaf as a dependency for the new one by duplicating one
@@ -183,7 +178,6 @@ Scheduler::GraphBuilder::getOrInsertMemObjRecord(const QueueImplPtr &Queue,
 
   MemObject->MRecord.reset(new MemObjRecord{Queue->getContextImplPtr(),
                                             LeafLimit, AllocateDependency});
->>>>>>> b206293d56f2e2983ab4a50f7322a42a4cdc5351
 
   MMemObjs.push_back(MemObject);
   return MemObject->MRecord.get();

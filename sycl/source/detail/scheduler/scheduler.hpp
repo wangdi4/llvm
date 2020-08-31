@@ -431,11 +431,8 @@ public:
 
   QueueImplPtr getDefaultHostQueue() { return DefaultHostQueue; }
 
-<<<<<<< HEAD
   void setLeafLimit(size_t Limit); // INTEL
-=======
   static MemObjRecord *getMemObjRecord(const Requirement *const Req);
->>>>>>> b206293d56f2e2983ab4a50f7322a42a4cdc5351
 
 protected:
   Scheduler();
