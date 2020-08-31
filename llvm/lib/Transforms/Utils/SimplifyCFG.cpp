@@ -2131,10 +2131,8 @@ bool SimplifyCFGOpt::SpeculativelyExecuteBB(BranchInst *BI, BasicBlock *ThenBB,
 
   BasicBlock *BB = BI->getParent();
   BasicBlock *EndBB = ThenBB->getTerminator()->getSuccessor(0);
-<<<<<<< HEAD
   int BudgetRemaining =
     PHINodeFoldingThreshold * TargetTransformInfo::TCC_Basic;
-=======
 
 #ifndef INTEL_CUSTOMIZATION
   TargetTransformInfo::TargetCostKind CostKind =
@@ -2157,7 +2155,6 @@ bool SimplifyCFGOpt::SpeculativelyExecuteBB(BranchInst *BI, BasicBlock *ThenBB,
   if (BudgetRemaining < 0)
     return false;
 #endif // !INTEL_CUSTOMIZATION
->>>>>>> 046972092a783f351eb87f779ede6fe0d4730f6d
 
   // If ThenBB is actually on the false edge of the conditional branch, remember
   // to swap the select operands later.
