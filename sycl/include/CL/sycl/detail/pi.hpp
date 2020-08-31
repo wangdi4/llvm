@@ -181,7 +181,6 @@ template <> inline void print<>(PiPlatform val) {
   std::cout << "pi_platform : " << val << std::endl;
 }
 
-<<<<<<< HEAD
 /* INTEL_CUSTOMIZATION */
 template <> inline void print<>(PiEvent val) {
   std::cout << "pi_event : " << val << std::endl;
@@ -207,7 +206,6 @@ template <> inline void print<>(const PiEvent *val) {
   std::cout << std::endl;
 }
 /* end INTEL_CUSTOMIZATION */
-=======
 template <> inline void print<>(pi_buffer_region rgn) {
   std::cout << "pi_buffer_region origin/size : " << rgn->origin << "/"
             << rgn->size << std::endl;
@@ -233,7 +231,6 @@ template <> inline void print<>(pi_image_offset off) {
   std::cout << "pi_image_offset x/y/z : " << off->x << "/" << off->y << "/"
             << off->z << std::endl;
 }
->>>>>>> 4d468f13a404a5ca18bec21476b5b869701f2b8f
 
 template <> inline void print<>(PiResult val) {
   std::cout << "pi_result : ";
