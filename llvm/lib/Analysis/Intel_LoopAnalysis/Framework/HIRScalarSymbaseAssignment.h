@@ -124,11 +124,6 @@ private:
   /// \brief Assigns a symbase to Temp and returns it.
   unsigned assignTempSymbase(const Value *Temp);
 
-  /// \brief Traces back single operand phis until something else is encountered
-  /// (or we leave the current region) and returns that.
-  const Value *traceSingleOperandPhis(const Value *Scalar,
-                                      const IRRegion &IRReg) const;
-
   /// \brief Implements getOrAssignScalarSymbase() functionality.
   unsigned getOrAssignScalarSymbaseImpl(const Value *Scalar,
                                         const IRRegion &IRReg, bool Assign,
@@ -161,6 +156,11 @@ public:
 
   /// \brief Returns scalar's symbase if it exists, else returns 0.
   unsigned getScalarSymbase(const Value *Scalar, const IRRegion &IRReg);
+
+  /// \brief Traces back single operand phis until something else is encountered
+  /// (or we leave the current region) and returns that.
+  const Value *traceSingleOperandPhis(const Value *Scalar,
+                                      const IRRegion &IRReg) const;
 
   /// Handles specific loop liveout case when the Phi is located in loop's exit
   /// block. This is a public interface because it is also used by HIRParser.

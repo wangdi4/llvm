@@ -3022,8 +3022,8 @@ void HIRParser::populateOffsets(const GEPOrSubsOperator *GEPOp,
   Offsets.push_back(-1);
 
   unsigned NumOp = GEPOp->getNumIndices();
-  auto CurTy = cast<PointerType>(GEPOp->getPointerOperand()->getType())
-                   ->getElementType();
+  auto CurTy =
+      cast<PointerType>(GEPOp->getPointerOperandType())->getElementType();
 
   // Ignore first index.
   for (unsigned I = 1; I < NumOp; ++I) {
@@ -3078,6 +3078,20 @@ bool HIRParser::isValidGEPOp(const GEPOrSubsOperator *GEPOp,
   // checked by region identification pass.
   return ((GEPInst && CurRegion->containsBBlock(GEPInst->getParent())) ||
           !HIRRegionIdentification::containsUnsupportedTy(GEPOp));
+}
+
+const Value *HIRParser::traceSingleOperandPhis(const Value *Val) const {
+
+  // Restrict traceback for unknown loop bottom tests.
+  // Removing this check results in self-build timeouts in alloy.
+  // TODO: remove the workaround.
+  auto *If = dyn_cast<HLIf>(getCurNode());
+
+  if (!If || !If->isUnknownLoopBottomTest()) {
+    return Val;
+  }
+
+  return ScalarSA.traceSingleOperandPhis(Val, CurRegion->getIRRegion());
 }
 
 // Populates \p IndexedTypes vector with types being indexed by the \p GEPOp.
@@ -3353,8 +3367,8 @@ HIRParser::GEPChain::GEPChain(const HIRParser &Parser,
   extend(Parser, GEPOp);
   setBase(GEPOp);
 
-  while (const GEPOrSubsOperator *NextGEPOp =
-             dyn_cast<GEPOrSubsOperator>(GEPOp->getPointerOperand())) {
+  while (const GEPOrSubsOperator *NextGEPOp = dyn_cast<GEPOrSubsOperator>(
+             Parser.traceSingleOperandPhis(GEPOp->getPointerOperand()))) {
 
     if (!Parser.isValidGEPOp(NextGEPOp)) {
       break;
@@ -3722,6 +3736,11 @@ HIRParser::getBaseGEPOp(const GEPOrSubsOperator *GEPOp) const {
   return GEPChain(*this, GEPOp).getBase();
 }
 
+const Value *
+HIRParser::getBaseGEPPointerOperand(const GEPOrSubsOperator *GEPOp) const {
+  return traceSingleOperandPhis(getBaseGEPOp(GEPOp)->getPointerOperand());
+}
+
 // Consider the following sequence of GEPs-
 // %arrayidx = getelementptr inbounds [100 x [100 x i32]], [100 x [100 x
 // i32]]* @B, i64 0, i64 %i
@@ -3870,7 +3889,7 @@ HIRParser::getValidPhiBaseVal(const Value *PhiInitVal,
   }
 
   *InitGEPOp = GEPOp;
-  return getBaseGEPOp(GEPOp)->getPointerOperand();
+  return getBaseGEPPointerOperand(GEPOp);
 }
 
 RegDDRef *HIRParser::createPhiBaseGEPDDRef(const PHINode *BasePhi,
@@ -3962,8 +3981,7 @@ RegDDRef *HIRParser::createRegularGEPDDRef(const GEPOrSubsOperator *GEPOp,
                                            unsigned Level) {
   auto Ref = getDDRefUtils().createRegDDRef(0);
 
-  const GEPOrSubsOperator *BaseGEPOp = getBaseGEPOp(GEPOp);
-  auto BaseVal = BaseGEPOp->getPointerOperand();
+  auto BaseVal = getBaseGEPPointerOperand(GEPOp);
 
   // TODO: This can be improved by first checking if the original SCEV can be
   // handled.
@@ -4042,13 +4060,15 @@ RegDDRef *HIRParser::createGEPDDRef(const Value *GEPVal, unsigned Level,
     GEPVal = Opnd;
   }
 
+  GEPVal = traceSingleOperandPhis(GEPVal);
+
   const GEPOrSubsOperator *GEPOp = dyn_cast<GEPOrSubsOperator>(GEPVal);
 
   // Try to get to the phi associated with this GEP.
   if (GEPOp) {
     // Do not cross the live range indicator for GEP uses (load/store/bitcast).
     if (isValidGEPOp(GEPOp, !IsUse)) {
-      BasePhi = dyn_cast<PHINode>(getBaseGEPOp(GEPOp)->getPointerOperand());
+      BasePhi = dyn_cast<PHINode>(getBaseGEPPointerOperand(GEPOp));
     } else {
       GEPOp = nullptr;
     }
@@ -4650,7 +4670,7 @@ void HIRParser::run() {
   IsReady = true;
 }
 
-void HIRParser::parseMetadata(const Instruction *Inst, RegDDRef *Ref) {
+void HIRParser::parseMetadata(const Instruction *Inst, RegDDRef *Ref) const {
   assert(Ref->hasGEPInfo() && "Ref is expected to be gep DDRef");
 
   const StoreInst *Store = dyn_cast<StoreInst>(Inst);
@@ -4662,6 +4682,8 @@ void HIRParser::parseMetadata(const Instruction *Inst, RegDDRef *Ref) {
 
     const Value *Ptr =
         Store ? Store->getPointerOperand() : Load->getPointerOperand();
+
+    Ptr = traceSingleOperandPhis(Ptr);
 
     if (auto *GepInst = dyn_cast<GetElementPtrInst>(Ptr)) {
       Ref->setGepDebugLoc(GepInst->getDebugLoc());
@@ -4707,7 +4729,7 @@ unsigned HIRParser::getPointerDimensionSize(const Value *Ptr) const {
       }
     } else if (auto GEPOp = dyn_cast<GEPOperator>(Ptr)) {
       if (GEPOp->getNumOperands() == 2) {
-        Ptr = GEPOp->getPointerOperand();
+        Ptr = traceSingleOperandPhis(GEPOp->getPointerOperand());
       } else {
         auto *ArrTy = dyn_cast<ArrayType>(GEPOp->getSourceElementType());
         return ArrTy ? ArrTy->getArrayNumElements() : 0;
