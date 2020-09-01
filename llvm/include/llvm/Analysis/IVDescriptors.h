@@ -269,12 +269,8 @@ public:
                          DenseMap<Instruction *, Instruction *> &SinkAfter,
                          DominatorTree *DT);
 
-<<<<<<< HEAD
 #if !INTEL_CUSTOMIZATION
-  RecurrenceKind getRecurrenceKind() { return Kind; }
-=======
   RecurrenceKind getRecurrenceKind() const { return Kind; }
->>>>>>> 543c5425f1d3ee1be04accd7e658decb0ba27eeb
 
   MinMaxRecurrenceKind getMinMaxRecurrenceKind() const { return MinMaxKind; }
 
@@ -313,12 +309,8 @@ public:
 
 #if !INTEL_CUSTOMIZATION
   /// Returns true if all source operands of the recurrence are SExtInsts.
-<<<<<<< HEAD
-  bool isSigned() { return IsSigned; }
-#endif
-=======
   bool isSigned() const{ return IsSigned; }
->>>>>>> 543c5425f1d3ee1be04accd7e658decb0ba27eeb
+#endif
 
   /// Attempts to find a chain of operations from Phi to LoopExitInst that can
   /// be treated as a set of reductions instructions for in-loop reductions.
