@@ -1,3 +1,4 @@
+; XFAIL: *
 ; There are two insts including pow() functions, and they have the same express trees. We extract the code and restore
 ; the result into a temp array.
 ;

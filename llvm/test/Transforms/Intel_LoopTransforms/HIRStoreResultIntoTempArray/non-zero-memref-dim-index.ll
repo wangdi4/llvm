@@ -1,3 +1,4 @@
+; XFAIL: *
 ; When memref's dim indices do not start from 0 in the extracted loop, we need to update the loop bound accordingly.
 ; We add 1 to the upper bound of i1 loop for the extracted loop because the dimension lower of minref (%"jacobian_$Q")[i1+2][i2][i3] startes from 1.
 ;

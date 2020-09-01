@@ -65,10 +65,16 @@ llvm::MDNode *CodeGenTBAA::createTBAAPointerType(const PointerType *PTy) {
   if (!canCreateUniqueTBAA(PTy))
     return createScalarTypeNode("unspecified pointer", getChar(), /*Size=*/1);
 
+  // Remove CV-qualifiers from the pointed-to type. See CMPLRLLVM-11944.
+  QualType Q = PTy->getPointeeType();
+  Q.removeLocalConst();
+  Q.removeLocalVolatile();
+  QualType PtrTy = Context.getPointerType(Q);
+
   SmallString<256> OutName;
   llvm::raw_svector_ostream Out(OutName);
   Out << "pointer@";
-  MContext.mangleTypeName(QualType(PTy, 0), Out);
+  MContext.mangleTypeName(PtrTy, Out);
   return createScalarTypeNode(OutName, getChar(), /*Size=*/1);
 }
 #endif // INTEL_CUSTOMIZATION
