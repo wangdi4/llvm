@@ -385,7 +385,7 @@ static Instruction *getExitInstruction(Instruction *DirectiveBegin,
   // already been handled above.
   for (auto U : DirectiveBegin->users()) {
     if (auto DEnd = dyn_cast<IntrinsicInst>(U)) {
-      LLVM_DEBUG(dbgs() << "\n Directive End::" << *DEnd);
+      LLVM_DEBUG(dbgs() << "\n Directive End::" << *DEnd << "\n");
       return DEnd;
     }
   }
@@ -459,8 +459,9 @@ static bool ignoreSpecialOperands(const Instruction *I) {
       return true;
   } else if (auto StoreI = dyn_cast<StoreInst>(I)) {
     const Value *StorePointer = StoreI->getPointerOperand();
-    const Value *RootPointer = StorePointer->stripPointerCasts();
-    LLVM_DEBUG(dbgs() << "Store op:: " << *StorePointer);
+    const Value *RootPointer = StorePointer->stripInBoundsOffsets();
+    LLVM_DEBUG(dbgs() << "Store op:: " << *StorePointer << "\n");
+
     // We must not guard stores through private pointers. The store must
     // happen in each work item, so that the variable is initialized
     // in each work item. For values privatized as local allocas RootPointer
@@ -500,7 +501,7 @@ void VPOParoptTransform::guardSideEffectStatements(
   auto InsertWorkGroupBarrier = [](Instruction *InsertPt) {
     LLVMContext &C = InsertPt->getContext();
 
-    LLVM_DEBUG(dbgs() << "\nInsert Barrier before:" << *InsertPt);
+    LLVM_DEBUG(dbgs() << "\nInsert Barrier before:" << *InsertPt << "\n");
 
     // TODO: we only need global fences for side effect instructions
     //       inside "omp target" and outside of the enclosed regions.
@@ -630,7 +631,7 @@ void VPOParoptTransform::guardSideEffectStatements(
           continue;
 
         LLVM_DEBUG(dbgs() << "\nInstruction has side effect::" << I
-                          << "\nBasicBlock: " << I.getParent());
+                          << "\nBasicBlock: " << I.getParent() << "\n");
         SideEffectInstructions.push_back(&I);
         if (CriticalBBSet.find(BB) != CriticalBBSet.end())
           SideEffectsInCritical.insert(&I);
@@ -706,8 +707,9 @@ void VPOParoptTransform::guardSideEffectStatements(
     //   }
     //   master.thread.fallthru:
 
-    LLVM_DEBUG(dbgs() << "\nGuarding instructions from:\n" <<
-               *StartI << "\nto:\n" << *StopI);
+    LLVM_DEBUG(dbgs() << "\nGuarding instructions from:\n"
+                      << *StartI << "\nto:\n"
+                      << *StopI << "\n");
 
     // For the following code:
     //
@@ -790,7 +792,7 @@ void VPOParoptTransform::guardSideEffectStatements(
       //        the parallel region. Can we use alias information for that?
       W->getChildren().size() > 1) {
     for (auto *InsertPt : InsertBarrierAt) {
-      LLVM_DEBUG(dbgs() << "\nInsert Barrier at :" << *InsertPt);
+      LLVM_DEBUG(dbgs() << "Insert Barrier at :" << *InsertPt << "\n");
       InsertWorkGroupBarrier(InsertPt);
     }
   }
@@ -909,7 +911,7 @@ bool VPOParoptTransform::genTargetOffloadingCode(WRegionNode *W) {
       // The extra directive call may prevent address space inferring.
       NewF = finalizeKernelFunction(W, NewF, NewCall);
       LLVM_DEBUG(dbgs() << "\nAfter finalizeKernel Dump the function ::"
-                 << *NewF);
+                        << *NewF << "\n");
     }
   }
 
