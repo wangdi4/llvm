@@ -19,10 +19,11 @@
 #include <string>
 #include <vector>
 
+#include "Debug.h"
 #include "omptargetplugin.h"
 
-#ifndef TARGET_NAME
 #define TARGET_NAME CUDA
+<<<<<<< HEAD
 #endif
 
 #if INTEL_CUSTOMIZATION
@@ -43,18 +44,21 @@ static int DebugLevel = 0;
       DEBUGP("Target " GETNAME(TARGET_NAME) " RTL", __VA_ARGS__); \
     } \
   } while (false)
+=======
+#define DEBUG_PREFIX "Target " GETNAME(TARGET_NAME) " RTL"
+>>>>>>> ae95ceeb8f98d81f615c69da02f73b5ee6b1519a
 
 // Utility for retrieving and printing CUDA error string.
-#define CUDA_ERR_STRING(err) \
-  do { \
-    if (DebugLevel > 0) { \
-      const char *errStr; \
-      cuGetErrorString(err, &errStr); \
-      DEBUGP("Target " GETNAME(TARGET_NAME) " RTL", "CUDA error is: %s\n", errStr); \
-    } \
+#ifdef OMPTARGET_DEBUG
+#define CUDA_ERR_STRING(err)                                                   \
+  do {                                                                         \
+    if (getDebugLevel() > 0) {                                                      \
+      const char *errStr;                                                      \
+      cuGetErrorString(err, &errStr);                                          \
+      DP("CUDA error is: %s\n", errStr);                                       \
+    }                                                                          \
   } while (false)
 #else // OMPTARGET_DEBUG
-#define DP(...) {}
 #define CUDA_ERR_STRING(err) {}
 #endif // OMPTARGET_DEBUG
 
@@ -345,10 +349,6 @@ public:
   DeviceRTLTy()
       : NumberOfDevices(0), EnvNumTeams(-1), EnvTeamLimit(-1),
         RequiresFlags(OMP_REQ_UNDEFINED) {
-#ifdef OMPTARGET_DEBUG
-    if (const char *EnvStr = getenv("LIBOMPTARGET_DEBUG"))
-      DebugLevel = std::stoi(EnvStr);
-#endif // OMPTARGET_DEBUG
 
     DP("Start initializing CUDA\n");
 

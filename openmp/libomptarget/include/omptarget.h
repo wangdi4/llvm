@@ -492,6 +492,7 @@ EXTERN int __tgt_get_target_memory_info(
 }
 #endif
 
+<<<<<<< HEAD
 #ifndef __STDC_FORMAT_MACROS
 #define __STDC_FORMAT_MACROS
 #endif
@@ -533,6 +534,8 @@ EXTERN int __tgt_get_target_memory_info(
 
 #if INTEL_COLLAB
 #else  // INTEL_COLLAB
+=======
+>>>>>>> ae95ceeb8f98d81f615c69da02f73b5ee6b1519a
 #ifdef __cplusplus
 #define EXTERN extern "C"
 #else
