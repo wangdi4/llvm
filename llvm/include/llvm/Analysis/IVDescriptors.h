@@ -269,24 +269,28 @@ public:
                          DenseMap<Instruction *, Instruction *> &SinkAfter,
                          DominatorTree *DT);
 
+<<<<<<< HEAD
 #if !INTEL_CUSTOMIZATION
   RecurrenceKind getRecurrenceKind() { return Kind; }
+=======
+  RecurrenceKind getRecurrenceKind() const { return Kind; }
+>>>>>>> 543c5425f1d3ee1be04accd7e658decb0ba27eeb
 
-  MinMaxRecurrenceKind getMinMaxRecurrenceKind() { return MinMaxKind; }
+  MinMaxRecurrenceKind getMinMaxRecurrenceKind() const { return MinMaxKind; }
 
-  FastMathFlags getFastMathFlags() { return FMF; }
+  FastMathFlags getFastMathFlags() const { return FMF; }
 
-  TrackingVH<Value> getRecurrenceStartValue() { return StartValue; }
+  TrackingVH<Value> getRecurrenceStartValue() const { return StartValue; }
 
-  Instruction *getLoopExitInstr() { return LoopExitInstr; }
+  Instruction *getLoopExitInstr() const { return LoopExitInstr; }
 
 #endif
   /// Returns true if the recurrence has unsafe algebra which requires a relaxed
   /// floating-point model.
-  bool hasUnsafeAlgebra() { return UnsafeAlgebraInst != nullptr; }
+  bool hasUnsafeAlgebra() const { return UnsafeAlgebraInst != nullptr; }
 
   /// Returns first unsafe algebra instruction in the PHI node's use-chain.
-  Instruction *getUnsafeAlgebraInst() { return UnsafeAlgebraInst; }
+  Instruction *getUnsafeAlgebraInst() const { return UnsafeAlgebraInst; }
 
 #if !INTEL_CUSTOMIZATION
   /// Returns true if the recurrence kind is an integer kind.
@@ -300,17 +304,21 @@ public:
 
   /// Returns the type of the recurrence. This type can be narrower than the
   /// actual type of the Phi if the recurrence has been type-promoted.
-  Type *getRecurrenceType() { return RecurrenceType; }
+  Type *getRecurrenceType() const { return RecurrenceType; }
 
 #endif
   /// Returns a reference to the instructions used for type-promoting the
   /// recurrence.
-  SmallPtrSet<Instruction *, 8> &getCastInsts() { return CastInsts; }
+  const SmallPtrSet<Instruction *, 8> &getCastInsts() const { return CastInsts; }
 
 #if !INTEL_CUSTOMIZATION
   /// Returns true if all source operands of the recurrence are SExtInsts.
+<<<<<<< HEAD
   bool isSigned() { return IsSigned; }
 #endif
+=======
+  bool isSigned() const{ return IsSigned; }
+>>>>>>> 543c5425f1d3ee1be04accd7e658decb0ba27eeb
 
   /// Attempts to find a chain of operations from Phi to LoopExitInst that can
   /// be treated as a set of reductions instructions for in-loop reductions.
