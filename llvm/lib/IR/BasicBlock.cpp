@@ -397,8 +397,16 @@ BasicBlock *BasicBlock::splitBasicBlock(iterator I, const Twine &BBName) {
   BasicBlock *New = BasicBlock::Create(getContext(), BBName, getParent(),
                                        this->getNextNode());
 
+#if INTEL_COLLAB
   // Save DebugLoc of split point before invalidating iterator.
-  DebugLoc Loc = I->getDebugLoc();
+  // Skip the dbg instrinsic calls when obtaining DebugLoc.
+  auto TI = I;
+  while (isa<DbgInfoIntrinsic>(TI)) {
+    ++TI;
+  }
+  DebugLoc Loc = (TI != InstList.end()) ? TI->getDebugLoc() : I->getDebugLoc();
+#endif // INTEL_COLLAB
+
   // Move all of the specified instructions from the original basic block into
   // the new basic block.
   New->getInstList().splice(New->end(), this->getInstList(), I, end());
