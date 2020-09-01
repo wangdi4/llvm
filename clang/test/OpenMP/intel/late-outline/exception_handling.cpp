@@ -138,6 +138,27 @@ void call_invoke_check_two() {
   } catch(...) { }
 }
 
+void use(int);
+void foo_ttp();
+
+//BOTH-LABEL: test_try_param
+void test_try_param ()
+{
+  //BOTH: [[TRYPARAM:%try_param.*]] = alloca i32
+
+  //BOTH: DIR.OMP.PARALLEL
+  //BOTH-SAME: "QUAL.OMP.PRIVATE"(i32* [[TRYPARAM]])
+  //BOTH: DIR.OMP.END.PARALLEL
+  #pragma omp parallel
+  {
+    try {
+      foo_ttp();
+    } catch (int try_param) {
+      use(try_param);
+    }
+  }
+}
+
 //BOTH: attributes #[[NOUNWIND]] = { {{.*}}nounwind{{.*}} }
 
 #ifdef TARGET_TEST
