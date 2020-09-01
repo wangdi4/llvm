@@ -264,9 +264,6 @@ void Scheduler::lockSharedTimedMutex(
 #endif // _WIN32
 }
 
-void Scheduler::setLeafLimit(size_t Limit) {  // INTEL
-  MGraphBuilder.setLeafLimit(Limit);          // INTEL
-}                                             // INTEL
 MemObjRecord *Scheduler::getMemObjRecord(const Requirement *const Req) {
   return Req->MSYCLMemObj->MRecord.get();
 }

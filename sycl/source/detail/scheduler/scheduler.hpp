@@ -431,7 +431,6 @@ public:
 
   QueueImplPtr getDefaultHostQueue() { return DefaultHostQueue; }
 
-  void setLeafLimit(size_t Limit); // INTEL
   static MemObjRecord *getMemObjRecord(const Requirement *const Req);
 
 protected:
@@ -539,13 +538,7 @@ protected:
     std::vector<SYCLMemObjI *> MMemObjs;
 
 
-    void setLeafLimit(size_t Limit);              // INTEL
-
   private:
-    static constexpr size_t DefaultLeafLimit = 8; // INTEL
-    size_t LeafLimit = DefaultLeafLimit;          // INTEL
-    size_t getLeafLimit();                        // INTEL
-
     /// Inserts the command required to update the memory object state in the
     /// context.
     ///
