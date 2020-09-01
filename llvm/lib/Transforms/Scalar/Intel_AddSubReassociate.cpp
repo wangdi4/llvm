@@ -1631,10 +1631,13 @@ static bool findSharedLeaves(
     for (auto &T : Cluster) {
       auto *Tree = T.get();
       auto It = Tree->findLeaf(Tree->begin(), Leaf);
-      while (It != Tree->end()) {
+      // It is important that for each tree we only take into account one use
+      // that belongs to the tree. If a leaf is shared within the same tree we
+      // cannot put it in trunk as all trunk instructions only allowed to have
+      // single use within a tree.
+      if (It != Tree->end()) {
         FoundLeaves.push_back(std::make_pair(Tree, It));
         ++UseCount;
-        It = Tree->findLeaf(It + 1, Leaf);
       }
     }
     return Leaf->hasNUses(UseCount);
@@ -1651,6 +1654,8 @@ static bool findSharedLeaves(
     for (auto &TV : *Tree) {
       Value *LeafV = TV.getLeaf();
       auto *I = dyn_cast<Instruction>(LeafV);
+      if (!I)
+        continue;
 
       // Need to clear FoundLeaves since it may be polluted with data from
       // previous iteration.
