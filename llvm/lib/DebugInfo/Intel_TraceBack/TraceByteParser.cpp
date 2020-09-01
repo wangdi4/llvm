@@ -48,7 +48,7 @@ void TraceByteParser::beginRoutine(const std::string &Routine) {
   AddrPair = {0, 0};
 }
 
-void TraceByteParser::beginFile() { LinePair = {0, 0}; }
+void TraceByteParser::beginModule() { LinePair = {0, 0}; }
 
 void TraceByteParser::updateTag(traceback::Tag Tag) {
   if (!LastTwoTags[0])
@@ -332,7 +332,6 @@ bool TraceByteParser::parseNamePossibleWithEntry(traceback::Attribute Att) {
   case traceback::TB_AT_ModuleName:
     break;
   case traceback::TB_AT_FileName:
-    beginFile();
     break;
   case traceback::TB_AT_RoutineName:
     beginRoutine(takeBytesAsNameString(getBytes()));
@@ -343,6 +342,8 @@ bool TraceByteParser::parseNamePossibleWithEntry(traceback::Attribute Att) {
 }
 
 void TraceByteParser::parseModule() {
+  beginModule();
+
   // Major version.
   if (!parseAttribute(traceback::TB_AT_MajorV))
     return;

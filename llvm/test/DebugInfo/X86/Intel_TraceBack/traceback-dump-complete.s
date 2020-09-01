@@ -93,8 +93,8 @@
 # CHECK-NEXT: 000000b4: 73 75 62 72 32           # TB_AT_RoutineName
 # CHECK-NEXT:           (name: "subr2")
 # CHECK-NEXT: 000000b9: 04                       # TB_TAG_LN1
-# CHECK-NEXT: 000000ba: 04                       # TB_AT_LN1
-# CHECK-NEXT:           (line: 17, delta line: 4)
+# CHECK-NEXT: 000000ba: f7                       # TB_AT_LN1
+# CHECK-NEXT:           (line: 4, delta line: -9)
 # CHECK-NEXT: 000000bb: 09                       # TB_TAG_PC4
 # CHECK-NEXT: 000000bc: 0a 00 00 00              # TB_AT_PC4
 # CHECK-NEXT:           (PC: subr2+0, delta PC: 0xb)
@@ -102,7 +102,7 @@
 # CHECK-NEXT:           (warning: could use TB_TAG_CO2 to replace the preivous two tags)
 # CHECK-NEXT: 000000c0: 04                       # TB_TAG_LN1
 # CHECK-NEXT: 000000c1: 01                       # TB_AT_LN1
-# CHECK-NEXT:           (line: 18, delta line: 1)
+# CHECK-NEXT:           (line: 5, delta line: 1)
 # CHECK-NEXT: 000000c2: 09                       # TB_TAG_PC4
 # CHECK-NEXT: 000000c3: 12 00 00 00              # TB_AT_PC4
 # CHECK-NEXT:           (PC: subr2+0xb, delta PC: 0x13)
@@ -253,7 +253,7 @@ x:
     .quad    .Lfunc_begin2                   # TB_AT_RoutineBegin
     .ascii    "subr2"                         # TB_AT_RoutineName
     .byte    4                               # TB_TAG_LN1
-    .byte    4                               # TB_AT_LN1
+    .byte    -9                              # TB_AT_LN1
     .byte    9                               # TB_TAG_PC4
     .long    (.Ltmp6-.Lfunc_begin2)-1        # TB_AT_PC4
     .byte    4                               # TB_TAG_LN1

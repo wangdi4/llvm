@@ -44,19 +44,28 @@ void TraceBackDebug::addLineInfo(const MachineInstr *MI) {
   DebugModule->addLine(Line, Begin);
 }
 
-// Get the filename of the compile unit (excluding the path to it).
-static std::string getFilename(const DICompileUnit *CU) {
-  const auto &PathName = CU->getFilename().str();
+// Get the filename(excluding the path to it).
+static std::string getFilename(const DIFile *File) {
+  const auto &PathName = File->getFilename().str();
   const auto Pos = PathName.find_last_of("/\\");
   return (Pos == std::string::npos) ? PathName : PathName.substr(Pos + 1);
 }
 
 void TraceBackDebug::beginFunctionImpl(const MachineFunction *MF) {
   const DISubprogram *SP = MF->getFunction().getSubprogram();
-  const DICompileUnit *CU = SP->getUnit();
-  if (CU != PrevCU) {
+  const DIFile *File = SP->getFile();
+
+  if (FileToIndex.find(File) == FileToIndex.end()) {
+    // Insert a new {file, index} pair to the map. The functions from different
+    // files can be overlapped in a IR file, e.g, the first is f1 from file1,
+    // the second is f2 from file2, then f3 from file1, so we need to use a map
+    // here to check if a new file is found.
+    FileToIndex.insert({File, FileToIndex.size()});
+  }
+
+  if (File != PrevFile) {
     // Add a new file to debug module.
-    DebugModule->addFile(getFilename(CU));
+    DebugModule->addFile(getFilename(File), FileToIndex[File]);
   }
 
   // Add a new routine to debug module.
@@ -72,9 +81,9 @@ void TraceBackDebug::endFunctionImpl(const MachineFunction *MF) {
   assert(End && End->isDefined() && "Expect defined end label");
   DebugModule->endRoutine(End);
 
-  // Track the CU where the previous subprogram was contained.
+  // Track the file where the previous subprogram was contained.
   // It is be used to check if a new file starts in beginFunctionImpl.
-  PrevCU = MF->getFunction().getSubprogram()->getUnit();
+  PrevFile = MF->getFunction().getSubprogram()->getScope()->getFile();
 }
 
 // Usable locations are valid with non-zero line numbers. A line number of zero
@@ -112,4 +121,7 @@ void TraceBackDebug::beginInstruction(const MachineInstr *MI) {
   addLineInfo(MI);
 }
 
-void TraceBackDebug::endModule() { DebugModule->finish(*(Asm->OutStreamer)); }
+void TraceBackDebug::endModule() {
+  DebugModule->endModule();
+  DebugModule->emit(*(Asm->OutStreamer));
+}

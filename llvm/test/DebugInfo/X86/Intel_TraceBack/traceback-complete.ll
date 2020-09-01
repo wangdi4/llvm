@@ -67,7 +67,7 @@
 ; CHECK-NEXT:    .quad    .L{{.*}}                        # TB_AT_RoutineBegin
 ; CHECK-NEXT:    .ascii    "subr2"                        # TB_AT_RoutineName
 ; CHECK-NEXT:    .byte    4                               # TB_TAG_LN1
-; CHECK-NEXT:    .byte    4                               # TB_AT_LN1
+; CHECK-NEXT:    .byte    -9                              # TB_AT_LN1
 ; CHECK-NEXT:    .byte    9                               # TB_TAG_PC4
 ; CHECK-NEXT:    .long    (.L{{.*}}-.L{{.*}})-1           # TB_AT_PC4
 ; CHECK-NEXT:    .byte    4                               # TB_TAG_LN1

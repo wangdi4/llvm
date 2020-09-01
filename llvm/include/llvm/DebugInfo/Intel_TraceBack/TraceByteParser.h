@@ -53,8 +53,8 @@ private:
   /// Relative offset from the begin of the routine and the PC length of the
   /// line.
   std::pair<uint32_t, uint32_t> AddrPair = {0, 0};
-  /// Corresponding line number in the file and the delta line number between
-  /// the latest two lines.
+  /// Accumulated lines in the module and the delta line number between latest
+  /// two lines.
   std::pair<uint32_t, int32_t> LinePair = {0, 0};
   /// Last seen routine.
   std::string LastRoutine;
@@ -73,8 +73,8 @@ private:
   bool consumeBytes(uint32_t Num = 1);
   /// Hint the following the line records are in scope of routine \p Routine.
   void beginRoutine(const std::string &Routine);
-  /// Hint the following the routine records are in a new file.
-  void beginFile();
+  /// Hint that we start a new module.
+  void beginModule();
   /// Update the last seen tags.
   void updateTag(traceback::Tag Tag);
 

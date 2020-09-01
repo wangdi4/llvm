@@ -18,6 +18,7 @@
 #ifndef LLVM_DEBUGINFO_TRACEBACK_TRACEDINODE_H
 #define LLVM_DEBUGINFO_TRACEBACK_TRACEDINODE_H
 
+#include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/ilist.h"
 #include "llvm/ADT/ilist_node.h"
 #include "llvm/BinaryFormat/Intel_Trace.h"
@@ -71,6 +72,8 @@ public:
 class TraceLine : public TraceDINode,
                   public ilist_node_with_parent<TraceLine, TraceRoutine> {
 private:
+  /// Line number of previous record.
+  unsigned PrevLine;
   /// Line number of this record.
   unsigned Line;
   /// Label before the first of the instructions that this line covers.
@@ -84,8 +87,8 @@ private:
 public:
   TraceLine(unsigned PrevLine, unsigned CurrLine, MCSymbol *Begin,
             TraceRoutine *Parent = nullptr)
-      : TraceDINode(getOptimalTag(PrevLine, CurrLine)), Line(CurrLine),
-        Begin(Begin), Parent(Parent) {}
+      : TraceDINode(getOptimalTag(PrevLine, CurrLine)), PrevLine(PrevLine),
+        Line(CurrLine), Begin(Begin), Parent(Parent) {}
 
   /// \returns the 1-to-1 source line number.
   unsigned getLine() const { return Line; }
@@ -231,6 +234,8 @@ public:
 
   /// \returns the index.
   unsigned getIndex() const { return Index; }
+  /// Set the index.
+  void setIndex(unsigned Val) { Index = Val; }
 
   /// \returns the parent module.
   TraceModule *getParent() const { return Parent; }
@@ -252,7 +257,8 @@ public:
 };
 
 /// Represents a module in .trace section.
-/// In this module, the file/routine without any routines/lines will be removed
+/// In this module, there may be multiple TraceFile corrsponding to the same
+/// source file, and the file/routine without any routines/lines will be removed
 /// at appropriate time.
 class TraceModule : public TraceDINodeWithChildren<TraceFile> {
 private:
@@ -261,12 +267,10 @@ private:
   /// The format version of the trace module.
   unsigned Version;
 
-  /// The begin label at the start of .trace section.
-  MCSymbol *TraceBegin = nullptr;
-  /// The end label at the start of .trace section.
-  MCSymbol *TraceEnd = nullptr;
-  /// The begin label at the start of .text section.
-  MCSymbol *TextBegin = nullptr;
+  /// Map index to TraceFile.
+  DenseMap<unsigned, TraceFile *> IndexToFile;
+  /// Is this module already ended?
+  bool IsEnded = false;
 
 private:
   /// \returns the major version.
@@ -282,46 +286,50 @@ private:
 
   /// \returns the last file in this module.
   TraceFile *getLastFile();
-  /// \returns the last routine in this module.
+  const TraceFile *getLastFile() const;
+  /// \returns the last routine in the last file.
   TraceRoutine *getLastRoutine();
-  /// \returns the last line in the this module.
+  const TraceRoutine *getLastRoutine() const;
+  /// \returns the last line in the last routine.
   TraceLine *getLastLine();
   const TraceLine *getLastLine() const;
 
-  /// \returns the last line number in this module if exits, otherwise returns
-  /// 0.
-  unsigned getLastLineOrZero() const;
-
-  /// Auto-complete the remaining debug info.
-  void selfComplete(MCStreamer &OS);
+  /// \returns the last line in this module if exists, otherwise returns 0.
+  unsigned getLastLineNoInModuleOrZero() const;
 
   /// Clear the file that doesn't have any routine.
   void removeEmptyFile();
 
-  /// Emit this module.
-  void emit(MCStreamer &OS) const;
-
 public:
   TraceModule(unsigned PointerSize, unsigned Version, const std::string &Name);
 
-  /// Add a new file.
+  /// Add a new file, the indices of two file should be same if and only if
+  /// they corresponds to the same source/header file. The indices don't need to
+  /// be continuous or start from 0.
   /// \param Name filename.
-  void addFile(const std::string &Name);
+  /// \param Index index of file.
+  void addFile(const std::string &Name, unsigned Index);
   /// Add a new routine.
   /// \param Name routine name.
   /// \param Line start line of the routine.
   /// \param Begin begin label of the routine.
   void addRoutine(const std::string &Name, unsigned Line, MCSymbol *Begin);
+  /// Add a new line.
+  /// \param Line line number in the file.
+  /// \param Begin begin label of the line.
   void addLine(unsigned Line, MCSymbol *Begin);
 
-  /// \returns the line number of last line record.
+  /// \returns the line number of the last line record in the last file.
   Optional<unsigned> getLastLineNo() const;
 
   /// Hint the current routine ends with label \p End.
   void endRoutine(MCSymbol *End);
 
-  /// Complete the module information and emit this.
-  void finish(MCStreamer &OS);
+  /// End the module, the module is immutable indeed after being ended.
+  void endModule();
+
+  /// Emit this module.
+  void emit(MCStreamer &OS) const;
 
   static bool classof(const TraceDINode *Node) {
     return Node->getTag() == traceback::TB_TAG_Module;
