@@ -42,29 +42,7 @@ traceback::Tag TraceLine::getOptimalTag(unsigned PrevLine, unsigned CurrLine) {
 }
 
 int TraceLine::getDeltaLine() const {
-  // Due to the implementation details of iplist, we need to check if a node has
-  // a parent before call getPrevNode on it.
-  auto getPrevNode = [](auto Node) -> decltype(Node->getPrevNode()) {
-    if (!Node->getParent())
-      return nullptr;
-    return Node->getPrevNode();
-  };
-
-  // We need 2 steps to search the previous line number
-  //  - Step1 Check if we have a previous line in the current routine, if yes,
-  //  get its line number and search completes.
-  //  - Step2 Check if we have a previous line in the previousroutine, if yes,
-  //  get its line number otherwise assume 0.
-  unsigned PrevLineNo;
-  auto *PrevLine = getPrevNode(this);
-  if (PrevLine)
-    PrevLineNo = PrevLine->getLine();
-  else if (getPrevNode(Parent) && !getPrevNode(Parent)->empty())
-    PrevLineNo = getPrevNode(Parent)->back().getLine();
-  else
-    PrevLineNo = 0;
-
-  return computeSignedDeltaLine(PrevLineNo, Line);
+  return computeSignedDeltaLine(PrevLine, Line);
 }
 
 const MCExpr *TraceLine::getDeltaPCMinusOne(MCContext &Context) const {
@@ -141,7 +119,7 @@ void TraceRoutine::emit(MCStreamer &OS) const {
 }
 
 void TraceFile::emit(MCStreamer &OS) const {
-  if (getIndex() != 0) {
+  if (Parent != nullptr && getPrevNode() != nullptr) {
     // Don't emit the index for the first file.
     emitTag(OS, getTag());
     emitIntAttribute(OS, traceback::TB_AT_FileIdx, getIndex());
@@ -149,27 +127,26 @@ void TraceFile::emit(MCStreamer &OS) const {
   emitChildren(OS);
 }
 
-TraceFile *TraceModule::getLastFile() {
-  return Children.empty() ? nullptr : &(Children.back());
-}
-
-// Get the last child from the parent \p Node and its previous node.
+// Get the last child from the parent \p Node.
 template <typename NodeTy>
 static auto getLastChildFrom(NodeTy *Node) -> decltype(&Node->back()) {
-  if (!Node)
+  if (!Node || Node->empty())
     return nullptr;
-  if (!Node->empty())
-    return &(Node->back());
-  auto *PrevNode = Node->getPrevNode();
-  if (!PrevNode)
-    return nullptr;
-  assert(!PrevNode->empty() &&
-         "Empty node should be removed before a new node is inserted!");
-  return &(PrevNode->back());
+  return &(Node->back());
+}
+
+TraceFile *TraceModule::getLastFile() { return getLastChildFrom(this); }
+
+const TraceFile *TraceModule::getLastFile() const {
+  return const_cast<TraceModule *>(this)->getLastFile();
 }
 
 TraceRoutine *TraceModule::getLastRoutine() {
   return getLastChildFrom(getLastFile());
+}
+
+const TraceRoutine *TraceModule::getLastRoutine() const {
+  return const_cast<TraceModule *>(this)->getLastRoutine();
 }
 
 TraceLine *TraceModule::getLastLine() {
@@ -180,46 +157,78 @@ const TraceLine *TraceModule::getLastLine() const {
   return const_cast<TraceModule *>(this)->getLastLine();
 }
 
-unsigned TraceModule::getLastLineOrZero() const {
-  if (getLastLine())
-    return getLastLine()->getLine();
-  return 0;
-}
-
 Optional<unsigned> TraceModule::getLastLineNo() const {
   if (getLastLine())
     return getLastLine()->getLine();
   return None;
 }
 
-void TraceModule::selfComplete(MCStreamer &OS) {
-  // Base PC of .text section.
-  // Don't use getBeginSymbol() for .text section here, the begin symbol is
-  // the section's name to ELF while it is empty by default to COFF/MachO. The
-  // begin symbol is emitted in MCStreamer::SwitchSection when a section begins
-  // and here we already lost the chance to set and emit it.
-  TextBegin = Children.front().front().getBegin();
+// While libirc resets the accumulated line number to zero when starting a new
+// module, it doesn't do it when starting a new file, e.g, if a.c and b.c are
+// in the same module, the last line record for a.c represents line 16, the
+// first line record for b.c represents line 1 and b.c is placed right after
+// a.c in .trace section, then the delta line for first line record of b.c
+// should be -17 rather than 1.
+unsigned TraceModule::getLastLineNoInModuleOrZero() const {
+  // No file added.
+  const TraceFile *File = getLastFile();
+  if (!File)
+    return 0;
+  assert(!File->empty() && "Unexpected control flow!");
 
-  // .trace section range
-  auto &Context = OS.getContext();
-  MCSection *TraceSection = Context.getObjectFileInfo()->getTraceSection();
+  const TraceRoutine &Routine = File->back();
+  // Return the previous line record in current routine.
+  if (!Routine.empty())
+    return Routine.back().getLine();
 
-  if (!TraceSection->getBeginSymbol())
-    TraceSection->setBeginSymbol(Context.createTempSymbol("sec_begin", true));
-  TraceBegin = TraceSection->getBeginSymbol();
-  TraceEnd = TraceSection->getEndSymbol(Context);
+  const TraceRoutine *PrevRoutine = Routine.getPrevNode();
+  // Return the last line record in previous routine.
+  if (PrevRoutine) {
+    assert(!PrevRoutine->empty() && "Empty routine should be removed!");
+    return PrevRoutine->back().getLine();
+  }
+
+  const TraceFile *PrevFile = File->getPrevNode();
+  // There is no line record in current module.
+  if (!PrevFile)
+    return 0;
+
+  // Return the last line record in previous file.
+  assert(!PrevFile->empty() && "Empty file should be removed!");
+  const TraceRoutine &LastRoutineInPrevFile = PrevFile->back();
+  assert(!LastRoutineInPrevFile.empty() && "Empty routine should be removed!");
+  return LastRoutineInPrevFile.back().getLine();
 }
 
 void TraceModule::emit(MCStreamer &OS) const {
+  assert(IsEnded && "This module has not been ended!");
+  // No files, return directly.
+  if (Children.empty())
+    return;
+
+  assert(!Children.front().empty() && "Find an empty file!");
+  // Base PC of .text section.
+  // Don't use getBeginSymbol() for .text section here, the begin symbol is
+  // the section's name to ELF while it is empty by default to COFF/MachO. The
+  // begin symbol is emitted in MCStreamer::SwitchSection when a section
+  // begins and here we already lost the chance to set and emit it.
+  MCSymbol *TextBegin = Children.front().front().getBegin();
+
+  // .trace section range
+  MCContext &Context = OS.getContext();
+  MCSection *TraceSection = Context.getObjectFileInfo()->getTraceSection();
+  assert(TraceSection && "Unexpected control flow!");
+  if (!TraceSection->getBeginSymbol())
+    TraceSection->setBeginSymbol(Context.createTempSymbol("sec_begin", true));
+  MCSymbol *TraceBegin = TraceSection->getBeginSymbol();
+  MCSymbol *TraceEnd = TraceSection->getEndSymbol(Context);
+
   // Set alignment for .trace section, 8-byte align for x86_64 and 4-byte align
   // for ia32
-  MCSection *TraceSection =
-      OS.getContext().getObjectFileInfo()->getTraceSection();
   TraceSection->setAlignment(Align(PointerSize));
 
   // Switch to .trace for writing
   OS.SwitchSection(TraceSection);
-
   emitTag(OS, getTag());
   // Format version
   emitIntAttribute(OS, traceback::TB_AT_MajorV, getMajorID());
@@ -230,8 +239,7 @@ void TraceModule::emit(MCStreamer &OS) const {
   emitReferenceAttribute(OS, traceback::TB_AT_TextBegin, TextBegin,
                          PointerSize);
   // File count
-  emitIntAttribute(OS, traceback::TB_AT_NumOfFiles,
-                   Children.back().getIndex() + 1);
+  emitIntAttribute(OS, traceback::TB_AT_NumOfFiles, IndexToFile.size());
   // .text section size
   emitRangeAttribute(OS, traceback::TB_AT_TextSize, TextBegin,
                      Children.back().back().getEnd());
@@ -241,8 +249,10 @@ void TraceModule::emit(MCStreamer &OS) const {
   if (getName().size())
     emitNameAttribute(OS, traceback::TB_AT_ModuleName, getName());
   // File name
-  for (const auto &File : Children) {
-    const std::string &Filename = File.getName();
+  for (unsigned I = 0; I != IndexToFile.size(); ++I) {
+    auto It = IndexToFile.find(I);
+    assert(It != IndexToFile.end());
+    const std::string &Filename = (*It).second->getName();
     emitIntAttribute(OS, traceback::TB_AT_NameLength, Filename.size());
     emitNameAttribute(OS, traceback::TB_AT_FileName, Filename);
   }
@@ -256,20 +266,20 @@ void TraceModule::emit(MCStreamer &OS) const {
 }
 
 void TraceModule::removeEmptyFile() {
-  if (!Children.empty() && getLastFile()->empty())
+  if (!Children.empty() && Children.back().empty())
     Children.pop_back();
 }
 
-void TraceModule::addFile(const std::string &Name) {
+void TraceModule::addFile(const std::string &Name, unsigned Index) {
+  assert(!IsEnded && "The module is ended!");
   removeEmptyFile();
 
-  // Don't call size() on iplist, it's not a constant time method.
-  unsigned FileIndex = (Children.empty() ? 0 : getLastFile()->getIndex() + 1);
-  push_back(new TraceFile(Name, FileIndex));
+  push_back(new TraceFile(Name, Index));
 }
 
 void TraceModule::addRoutine(const std::string &Name, unsigned Line,
                              MCSymbol *Begin) {
+  assert(!IsEnded && "The module is ended!");
   assert(getLastFile() && "No file is added!");
 
   // Add a new routine
@@ -277,17 +287,20 @@ void TraceModule::addRoutine(const std::string &Name, unsigned Line,
 }
 
 void TraceModule::addLine(unsigned Line, MCSymbol *Begin) {
+  assert(!IsEnded && "The module is ended!");
   assert(getLastRoutine() && "No routine is added!");
+  assert(!getLastRoutine()->getEnd() && "The routine is ended!");
 
   auto *LastRoutine = getLastRoutine();
 
   // Add a initial line record only if the prologue is not null.
   auto *RoutineBegin = LastRoutine->getBegin();
   if (LastRoutine->empty() && Begin != RoutineBegin)
-    LastRoutine->push_back(new TraceLine(getLastLineOrZero(),
+    LastRoutine->push_back(new TraceLine(getLastLineNoInModuleOrZero(),
                                          LastRoutine->getLine(), RoutineBegin));
 
-  LastRoutine->push_back(new TraceLine(getLastLineOrZero(), Line, Begin));
+  LastRoutine->push_back(
+      new TraceLine(getLastLineNoInModuleOrZero(), Line, Begin));
 }
 
 void TraceModule::endRoutine(MCSymbol *End) {
@@ -300,13 +313,38 @@ void TraceModule::endRoutine(MCSymbol *End) {
     getLastRoutine()->setEnd(End);
 }
 
-void TraceModule::finish(MCStreamer &OS) {
-  removeEmptyFile();
-
-  // Nothing to be emitted, return directly.
-  if (Children.empty())
+void TraceModule::endModule() {
+  // This module is already ended, return directly.
+  if (IsEnded)
     return;
 
-  selfComplete(OS);
-  emit(OS);
+  removeEmptyFile();
+
+  // Update the indices of files.
+  // Some corner cases need to be handled here.
+  // 1. A TraceFile is inserted into this module by the order in which its child
+  //    routine appears in IR and the routines from different files can be
+  //    overlapped in a IR file, so the indices of the TraceFiles may be
+  //    duplicated, such as 0, 1, 0.
+  // 2. A TraceFile may be empty due to the source file is empty or all its
+  //    child routines miss debug information, and the empty TraceFile would be
+  //    removed when contructing this module. So the indices of TraceFiles may
+  //    be discontinuous even if we use continuous indices when call addFile,
+  //    such as 1, 2, 4.
+  // 3. 1 and 2 mix together. The indices of TraceFiles may look like
+  //    1, 4, 3, 1.
+  //
+  // We need to update the indices of files to 0, 1, 2, 0 for case 3.
+  unsigned Index = 0;
+  for (auto &File : Children) {
+    unsigned OldIndex = File.getIndex();
+    if (IndexToFile.find(OldIndex) == IndexToFile.end()) {
+      IndexToFile.insert({OldIndex, &File});
+      File.setIndex(Index++);
+    } else {
+      File.setIndex(IndexToFile[OldIndex]->getIndex());
+    }
+  }
+
+  IsEnded = true;
 }
