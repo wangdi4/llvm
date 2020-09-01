@@ -1335,7 +1335,7 @@ __tgt_target_table *__tgt_rtl_load_binary(int32_t DeviceId,
 
   if (DeviceInfo->Flags.EnableTargetGlobals &&
       !DeviceInfo->loadOffloadTable(DeviceId, numEntries))
-    DP("Error: offload table loading failed.\n");
+    DP("Warning: offload table loading failed.\n");
 
   for (uint32_t i = 0; i < numEntries; i++) {
     auto size = Image->EntriesBegin[i].size;
@@ -1357,7 +1357,7 @@ __tgt_target_table *__tgt_rtl_load_binary(int32_t DeviceId,
           DeviceInfo->OwnedMemory[DeviceId].push_back(tgtAddr);
           DeviceInfo->DataMutexes[DeviceId].unlock();
         }
-        DP("Error: global variable '%s' allocated. "
+        DP("Warning: global variable '%s' allocated. "
           "Direct references will not work properly.\n", name);
       }
 
@@ -2300,10 +2300,10 @@ void *RTLDeviceInfoTy::getOffloadVarDeviceAddr(
       return I->Base.addr;
     }
 
-    DP("Error: global variable '%s' was not found in the offload table.\n",
+    DP("Warning: global variable '%s' was not found in the offload table.\n",
        Name);
   } else
-    DP("Error: offload table is not loaded for device %d.\n", DeviceId);
+    DP("Warning: offload table is not loaded for device %d.\n", DeviceId);
 
   // Fallback to the lookup by name.
   return getVarDeviceAddr(DeviceId, Name, Size);
@@ -2319,8 +2319,11 @@ void *RTLDeviceInfoTy::getVarDeviceAddr(
                    FuncGblEntries[DeviceId].Modules[0], Name, &TgtSize,
                    &TgtAddr);
   if (Size != TgtSize) {
-    DP("Error: requested size %zu does not match %zu\n", Size, TgtSize);
+    DP("Warning: requested size %zu does not match %zu\n", Size, TgtSize);
+#if 0
+    // FIXME: when L0 reports correct size.
     return nullptr;
+#endif
   }
   DP("Global variable lookup succeeded.\n");
   return TgtAddr;
@@ -2332,7 +2335,7 @@ bool RTLDeviceInfoTy::loadOffloadTable(int32_t DeviceId, size_t NumEntries) {
       getVarDeviceAddr(DeviceId, OffloadTableSizeVarName, sizeof(int64_t));
 
   if (!OffloadTableSizeVarAddr) {
-    DP("Error: cannot get device value for global variable '%s'.\n",
+    DP("Warning: cannot get device value for global variable '%s'.\n",
        OffloadTableSizeVarName);
     return false;
   }
@@ -2343,7 +2346,7 @@ bool RTLDeviceInfoTy::loadOffloadTable(int32_t DeviceId, size_t NumEntries) {
   size_t TableSize = (size_t)TableSizeVal;
 
   if ((TableSize % sizeof(DeviceOffloadEntryTy)) != 0) {
-    DP("Error: offload table size (%zu) is not a multiple of %zu.\n",
+    DP("Warning: offload table size (%zu) is not a multiple of %zu.\n",
        TableSize, sizeof(DeviceOffloadEntryTy));
     return false;
   }
@@ -2351,7 +2354,7 @@ bool RTLDeviceInfoTy::loadOffloadTable(int32_t DeviceId, size_t NumEntries) {
   size_t DeviceNumEntries = TableSize / sizeof(DeviceOffloadEntryTy);
 
   if (NumEntries != DeviceNumEntries) {
-    DP("Error: number of entries in host and device "
+    DP("Warning: number of entries in host and device "
        "offload tables mismatch (%zu != %zu).\n",
        NumEntries, DeviceNumEntries);
     return false;
@@ -2361,7 +2364,7 @@ bool RTLDeviceInfoTy::loadOffloadTable(int32_t DeviceId, size_t NumEntries) {
   void *OffloadTableVarAddr =
       getVarDeviceAddr(DeviceId, OffloadTableVarName, TableSize);
   if (!OffloadTableVarAddr) {
-    DP("Error: cannot get device value for global variable '%s'.\n",
+    DP("Warning: cannot get device value for global variable '%s'.\n",
        OffloadTableVarName);
     return false;
   }
@@ -2382,7 +2385,7 @@ bool RTLDeviceInfoTy::loadOffloadTable(int32_t DeviceId, size_t NumEntries) {
     Entry.Base.name = nullptr;
 
     if (NameSize == 0) {
-      DP("Error: offload entry (%zu) with 0 size.\n", I);
+      DP("Warning: offload entry (%zu) with 0 size.\n", I);
       break;
     }
 
@@ -2390,21 +2393,21 @@ bool RTLDeviceInfoTy::loadOffloadTable(int32_t DeviceId, size_t NumEntries) {
     __tgt_rtl_data_retrieve(DeviceId, Entry.Base.name,
                             NameTgtAddr, NameSize);
     if (strnlen(Entry.Base.name, NameSize) != NameSize - 1) {
-      DP("Error: offload entry's name has wrong size.\n");
+      DP("Warning: offload entry's name has wrong size.\n");
       break;
     }
 
     int Cmp = strncmp(PreviousName, Entry.Base.name, NameSize);
     if (Cmp > 0) {
-      DP("Error: offload table is not sorted.\n"
-         "Error: previous name is '%s'.\n"
-         "Error:  current name is '%s'.\n",
+      DP("Warning: offload table is not sorted.\n"
+         "Warning: previous name is '%s'.\n"
+         "Warning:  current name is '%s'.\n",
          PreviousName, Entry.Base.name);
       break;
     } else if (Cmp == 0 && (PreviousIsVar || Entry.Base.addr)) {
       // The names are equal. This should never happen for
       // offload variables, but we allow this for offload functions.
-      DP("Error: duplicate names (%s) in offload table.\n", PreviousName);
+      DP("Warning: duplicate names (%s) in offload table.\n", PreviousName);
       break;
     }
     PreviousName = Entry.Base.name;
