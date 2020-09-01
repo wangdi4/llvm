@@ -129,7 +129,11 @@ MODULE_PASS("lowertypetests", LowerTypeTestsPass(nullptr, nullptr))
 MODULE_PASS("mergefunc", MergeFunctionsPass())
 MODULE_PASS("name-anon-globals", NameAnonGlobalPass())
 MODULE_PASS("no-op-module", NoOpModulePass())
+<<<<<<< HEAD
 MODULE_PASS("optimize-dyn-casts", OptimizeDynamicCastsPass())
+=======
+MODULE_PASS("objc-arc", ObjCARCOptPass())
+>>>>>>> cfde93e5d6bebf7b63343ca0a15673a0ff3fa134
 MODULE_PASS("partial-inliner", PartialInlinerPass())
 MODULE_PASS("pgo-icall-prom", PGOIndirectCallPromotion())
 MODULE_PASS("pgo-instr-gen", PGOInstrumentationGen())
