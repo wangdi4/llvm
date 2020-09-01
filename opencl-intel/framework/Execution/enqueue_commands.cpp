@@ -1713,18 +1713,23 @@ cl_err_code NDRangeKernelCommand::Init()
     const size_t* szCompliedWorkGroupSize = m_pDeviceKernel->GetKernelCompileWorkGroupSize();
 
     // If the work-group size is not specified in kernel using the above attribute qualifier (0, 0,0)
-    // is returned in szComplieWorkGroupSize
+    // is returned in szComplieWorkGroupSize.
     if( ! ( (0 == szCompliedWorkGroupSize[0]) &&
             (0 == szCompliedWorkGroupSize[1]) &&
             (0 == szCompliedWorkGroupSize[2])))
     {
-        // case kernel using the __attribute__((reqd_work_group_size(X, Y, Z))) qualifier in program source.
+
+        // The size of workgroup is specified using __attribute__((reqd_work_group_size(X, Y, Z)))
+        // qualifier and local_work_size is NULL.
         if (  nullptr == m_cpszLocalWorkSize )
         {
             return CL_INVALID_WORK_GROUP_SIZE;
         }
         else
         {
+            // CL_INVALID_WORK_GROUP_SIZE if local_work_size is specified and does not match
+            // the work-group size for kernel in the program source given by the
+            // __attribute__((reqd_work_group_size(X, Y, Z))) qualifier.
             for( unsigned int ui=0; ui<m_uiWorkDim; ui++)
             {
                 if( szCompliedWorkGroupSize[ui] != m_cpszLocalWorkSize[ui] )
@@ -1736,6 +1741,19 @@ cl_err_code NDRangeKernelCommand::Init()
         }
     }
 
+    // CL_INVALID_WORK_GROUP_SIZE if the program was compiled with –cl-uniform-work-group-size and
+    // the number of work-items specified by global_work_size is not evenly divisible by size of
+    // work-group given by local_work_size
+    if (!m_pDeviceKernel->GetKernelNonUniformWGSizeSupport() && m_cpszLocalWorkSize != nullptr)
+    {
+        for (unsigned int ui = 0; ui < m_uiWorkDim; ui++)
+        {
+            if (m_cpszGlobalWorkSize[ui] % m_cpszLocalWorkSize[ui] != 0)
+            {
+                return CL_INVALID_WORK_GROUP_SIZE;
+            }
+        }
+    }
 
     if( nullptr != m_cpszLocalWorkSize )
     {
