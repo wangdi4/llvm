@@ -994,6 +994,29 @@ define <2 x double> @sqrt_simplify_before_recip_vec(<2 x double> %x, <2 x double
   ret <2 x double> %sqrt_fast
 }
 
+define double @sqrt_simplify_before_recip_order(double %x, double* %p) nounwind {
+; SSE-LABEL: sqrt_simplify_before_recip_order:
+; SSE:       # %bb.0:
+; SSE-NEXT:    sqrtsd %xmm0, %xmm0
+; SSE-NEXT:    movsd {{.*#+}} xmm1 = mem[0],zero
+; SSE-NEXT:    divsd %xmm0, %xmm1
+; SSE-NEXT:    movsd %xmm1, (%rdi)
+; SSE-NEXT:    retq
+;
+; AVX-LABEL: sqrt_simplify_before_recip_order:
+; AVX:       # %bb.0:
+; AVX-NEXT:    vsqrtsd %xmm0, %xmm0, %xmm0
+; AVX-NEXT:    vmovsd {{.*#+}} xmm1 = mem[0],zero
+; AVX-NEXT:    vdivsd %xmm0, %xmm1, %xmm1
+; AVX-NEXT:    vmovsd %xmm1, (%rdi)
+; AVX-NEXT:    retq
+  %sqrt = tail call fast double @llvm.sqrt.f64(double %x)
+  %sqrt_fast = fdiv fast double %x, %sqrt
+  %rsqrt = fdiv fast double 42.0, %sqrt
+  store double %rsqrt, double* %p, align 8
+  ret double %sqrt_fast
+}
+
 attributes #0 = { "unsafe-fp-math"="true" "reciprocal-estimates"="!sqrtf,!vec-sqrtf,!divf,!vec-divf" }
 attributes #1 = { "unsafe-fp-math"="true" "reciprocal-estimates"="sqrt,vec-sqrt" }
 attributes #2 = { nounwind readnone }
