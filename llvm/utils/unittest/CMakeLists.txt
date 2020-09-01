@@ -71,6 +71,11 @@ if (LLVM_LIBCXX_USED AND NOT SYCL_USE_LIBCXX)
     STDLIB
     stdc++
     )
+
+  target_include_directories(gtest_stdcpp
+    PUBLIC googletest/include googlemock/include
+    PRIVATE googletest googlemock
+  )
 endif()
 # end INTEL_CUSTOMIZATION
 # The googletest and googlemock sources don't presently use the 'override'
