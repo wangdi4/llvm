@@ -1082,6 +1082,10 @@ bool llvm::inferLibFuncAttributes(Function &F, const TargetLibraryInfo &TLI) {
   case LibFunc_fxstat64:
     Changed |= setDoesNotThrow(F);
     return Changed;
+  case LibFunc_gnu_std_basic_filebuf_dtor:
+    return Changed;
+  case LibFunc_gnu_std_cxx11_basic_stringstream_ctor:
+    return Changed;
   case LibFunc_gxx_personality_v0:
     return Changed;
   case LibFunc_isinf:

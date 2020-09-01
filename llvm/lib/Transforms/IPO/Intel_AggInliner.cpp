@@ -56,6 +56,13 @@ static cl::opt<uint64_t> InlineAggressiveInstLimit("inline-agg-inst-limit",
                                                    cl::init(0x3000),
                                                    cl::ReallyHidden);
 
+// Use escape analysis to find the uses of an Argument of a GV in the
+// SingleAccessFunctionGlobalVarHeuristic. I am leaving this at 'false'
+// until additional required optimizations on Windows are implemented.
+static cl::opt<bool> InlineAggressiveFindGVEscs("inline-agg-find-gv-escs",
+                                                cl::init(false),
+                                                cl::ReallyHidden);
+
 // Maximum number of Global variable's uses allowed.
 static const unsigned MaxNumGVUses = 16;
 
@@ -247,6 +254,30 @@ static bool collectMemoryAllocatedGlobVarsUsingAllocRtn(
 
 using Item = std::tuple<Value *, Value *, unsigned>;
 
+//
+// For Value 'X' potentially used as an actual argument to 'CB',
+// return the corresponding Argument of the callee, if it can be
+// uniquely identified. Otherwise return 'nullptr'.
+//
+static Argument *getFormal(Value *X, CallBase *CB) {
+  Function *F = CB->getCalledFunction();
+  if (!F || CB->getNumArgOperands() != F->arg_size())
+    return nullptr;
+  bool FoundIndex = false;
+  unsigned Index = 0;
+  for (unsigned I = 0, E = CB->getNumArgOperands(); I < E; ++I) {
+    if (CB->getArgOperand(I) == X) {
+      if (!FoundIndex) {
+        Index = I;
+        FoundIndex = true;
+      } else {
+        return nullptr;
+      }
+    }
+  }
+  return FoundIndex ? F->getArg(Index) : nullptr;
+}
+
 // Track the use of the GlobalVariables in 'GVs' and mark any CallBase for
 // aggressive inlining that is reachable from them. Return 'true' if the
 // process is successful.
@@ -254,30 +285,6 @@ using Item = std::tuple<Value *, Value *, unsigned>;
 bool InlineAggressiveInfo::trackUsesOfAGVs(std::vector<GlobalVariable *> &GVs) {
   SmallVector<Item, 10> Worklist;
   SmallSet<Value *, 10> Visited;
-
-  //
-  // For Value 'X' potentially used as an actual argument to 'CB',
-  // return the corresponding Argument of the callee, if it can be
-  // uniquely identified. Otherwise return 'nullptr'.
-  //
-  auto GetFormal = [](Value *X, CallBase *CB) -> Argument * {
-    Function *F = CB->getCalledFunction();
-    if (!F || CB->getNumArgOperands() != F->arg_size())
-      return nullptr;
-    bool FoundIndex = false;
-    unsigned Index = 0;
-    for (unsigned I = 0, E = CB->getNumArgOperands(); I < E; ++I) {
-      if (CB->getArgOperand(I) == X) {
-        if (!FoundIndex) {
-          Index = I;
-          FoundIndex = true;
-        } else {
-          return nullptr;
-        }
-      }
-    }
-    return FoundIndex ? F->getArg(Index) : nullptr;
-  };
 
   //
   // Add another Worklist element and put out a trace message.
@@ -328,11 +335,11 @@ bool InlineAggressiveInfo::trackUsesOfAGVs(std::vector<GlobalVariable *> &GVs) {
           return false;
         }
         if (!setAggInlInfoForCallSite(*CB, true /*Recursive*/)) {
-          LLVM_DEBUG(dbgs() << "TrackAggInl: Could not set AggInfo for "
-                            << *CB << "\n");
+          LLVM_DEBUG(dbgs() << "TrackAggInl: Could not set AggInfo for " << *CB
+                            << "\n");
           return false;
         }
-        Argument *A = GetFormal(X, CB);
+        Argument *A = getFormal(X, CB);
         if (!A) {
           LLVM_DEBUG(dbgs() << "TrackAggInl: NO FUNCTION OR UNIQUE FORMAL\n");
           return false;
@@ -341,19 +348,19 @@ bool InlineAggressiveInfo::trackUsesOfAGVs(std::vector<GlobalVariable *> &GVs) {
                           << CB->getCalledFunction()->getName() << "\n");
         for (User *U : A->users())
           TrackAndPrint(A, U, IL);
-      //
-      // Storing back GV kills the analysis. Bail out.
-      //
+        //
+        // Storing back GV kills the analysis. Bail out.
+        //
       } else if (auto SI = dyn_cast<StoreInst>(V)) {
         if (SI->getValueOperand() == GV) {
           LLVM_DEBUG(dbgs() << "TrackAggInl: StoreInst stores GlobalValue "
                             << *GV << "\n");
           return false;
         }
-      //
-      // Ensure that all callsites on any path from @main to this
-      // Instruction get inlined.
-      //
+        //
+        // Ensure that all callsites on any path from @main to this
+        // Instruction get inlined.
+        //
       } else if (auto II = dyn_cast<Instruction>(V)) {
         Function *F = II->getFunction();
         if (!setAggInlInfoForCallSites(*F)) {
@@ -539,10 +546,6 @@ bool InlineAggressiveInfo::analyzeHugeMallocGlobalPointersHeuristic(Module &M) {
 bool InlineAggressiveInfo::analyzeSingleAccessFunctionGlobalVarHeuristic(
     Module &M) {
 
-  std::function<bool(Value *, SmallPtrSet<CallBase *, MaxNumInlineCalls> &,
-                     SmallPtrSet<Value *, MaxNumInstructionsVisited> &)>
-      TrackUses;
-
   // Returns true if "Call" is a wrapper to either Alloc or Free call.
   auto IsTinyAllocFreeCall = [this](const CallBase *Call) {
     auto &TLI = GetTLI(*Call->getFunction());
@@ -564,19 +567,46 @@ bool InlineAggressiveInfo::analyzeSingleAccessFunctionGlobalVarHeuristic(
     return true;
   };
 
-  // Returns true if F doesn't have any user calls except tiny alloc/free
-  // wrapper calls. Get almost leaf info from AlmostLeafFunctionMap if already
-  // computed.
+  // For the GlobalVar aliased to the Argument 'A' of 'F', create a
+  // list of CallBases in 'F' for which a Use (defined recursively) of
+  // that Argument will escape out of the 'F' and put them in 'EscCBs'.
+  auto FindEscCBs = [](Function *F, Argument *A,
+                       SmallPtrSet<CallBase *, 4> &EscCBs) {
+    SmallVector<Value *, 10> Worklist;
+    SmallSet<Value *, 10> Visited;
+    for (User *U : A->users())
+      Worklist.push_back(U);
+    while (!Worklist.empty()) {
+      Value *V = Worklist.pop_back_val();
+      if (!Visited.insert(V).second)
+        continue;
+      if (auto CB = dyn_cast<CallBase>(V)) {
+        EscCBs.insert(CB);
+      }
+      for (User *U : V->users())
+        Worklist.push_back(U);
+    }
+  };
+
+  // Returns true if 'F' doesn't have any user calls except tiny alloc/free
+  // wrapper calls. If 'InlineAggressiveFindGVEscs', ignore calls that are
+  // not reachable from 'A'. Get almost leaf info from AlmostLeafFunctionMap
+  // if already computed.
   auto IsAlmostLeafFunction =
-      [&IsTinyAllocFreeCall](
-          Function *F, DenseMap<Function *, bool> &AlmostLeafFunctionMap) {
+      [&IsTinyAllocFreeCall,
+       &FindEscCBs](Function *F, Argument *A,
+                    DenseMap<Function *, bool> &AlmostLeafFunctionMap) {
         bool IsLeaf = true;
+        if (!A)
+          return false;
 
         if (AlmostLeafFunctionMap.find(F) != AlmostLeafFunctionMap.end()) {
           IsLeaf = AlmostLeafFunctionMap[F];
         } else {
-          for (const auto &I : instructions(F)) {
-            if (auto *Call = dyn_cast<CallBase>(&I)) {
+          if (InlineAggressiveFindGVEscs) {
+            SmallPtrSet<CallBase *, 4> EscCBs;
+            FindEscCBs(F, A, EscCBs);
+            for (auto Call : EscCBs) {
               // Tiny alloc/free wrapper calls are allowed.
               if (IsTinyAllocFreeCall(Call))
                 continue;
@@ -588,21 +618,44 @@ bool InlineAggressiveInfo::analyzeSingleAccessFunctionGlobalVarHeuristic(
                 break;
               }
             }
+          } else {
+            for (const auto &I : instructions(F)) {
+              if (auto *Call = dyn_cast<CallBase>(&I)) {
+                // Tiny alloc/free wrapper calls are allowed.
+                if (IsTinyAllocFreeCall(Call))
+                  continue;
+                // Any call to user function (except tiny alloc/free wrapper
+                // calls) is considered as not leaf.
+                Function *Callee = Call->getCalledFunction();
+                if (!Callee || !Callee->isDeclaration()) {
+                  IsLeaf = false;
+                  break;
+                }
+              }
+            }
           }
           AlmostLeafFunctionMap[F] = IsLeaf;
         }
         return IsLeaf;
       };
 
+  using ICItem = std::pair<CallBase *, Argument *>;
+  using ICItemSet = std::set<ICItem>;
+  std::function<bool(Value *, ICItemSet &,
+                     SmallPtrSet<Value *, MaxNumInstructionsVisited> &)>
+      TrackUses;
+
   // Returns false if any call in InlineCalls is indirect/not-leaf.
   auto InlineCallsOkay =
       [&IsAlmostLeafFunction](
-          SmallPtrSet<CallBase *, MaxNumInlineCalls> &InlineCalls,
+          ICItemSet &InlineCalls,
           DenseMap<Function *, bool> &AlmostLeafFunctionMap) {
         if (InlineCalls.size() > MaxNumInlineCalls)
           return false;
 
-        for (auto *CB : InlineCalls) {
+        for (auto &ICI : InlineCalls) {
+          CallBase *CB = ICI.first;
+          Argument *A = ICI.second;
           Function *F = CB->getCalledFunction();
           // Indirect call is not allowed.
           if (!F)
@@ -616,7 +669,7 @@ bool InlineAggressiveInfo::analyzeSingleAccessFunctionGlobalVarHeuristic(
             return false;
 
           // Make sure they are almost leaf.
-          if (!IsAlmostLeafFunction(F, AlmostLeafFunctionMap))
+          if (!IsAlmostLeafFunction(F, A, AlmostLeafFunctionMap))
             return false;
         }
         return true;
@@ -628,9 +681,9 @@ bool InlineAggressiveInfo::analyzeSingleAccessFunctionGlobalVarHeuristic(
   // collected in "InlineCalls". "Visited" is used to control recursion and
   // reduce compile-time.
   TrackUses =
-      [&TrackUses](Value *V,
-                   SmallPtrSet<CallBase *, MaxNumInlineCalls> &InlineCalls,
+      [&TrackUses](Value *V, ICItemSet &InlineCalls,
                    SmallPtrSet<Value *, MaxNumInstructionsVisited> &Visited) {
+        CallBase *CB = nullptr;
         if (!Visited.insert(V).second)
           return true;
         if (Visited.size() >= MaxNumInstructionsVisited ||
@@ -643,7 +696,8 @@ bool InlineAggressiveInfo::analyzeSingleAccessFunctionGlobalVarHeuristic(
             return false;
           switch (I->getOpcode()) {
           case Instruction::Call:
-            InlineCalls.insert(cast<CallBase>(I));
+            CB = cast<CallBase>(I);
+            InlineCalls.insert({CB, getFormal(V, CB)});
             break;
 
           case Instruction::Load:
@@ -672,10 +726,8 @@ bool InlineAggressiveInfo::analyzeSingleAccessFunctionGlobalVarHeuristic(
   //     No other stores are allowed.
   //  3. All loads of "V" are tracked using TrackUses.
   //
-  auto AnalyzeGV = [this, &TrackUses](
-                       Value *V,
-                       SmallPtrSet<CallBase *, MaxNumInlineCalls> &InlineCalls,
-                       Function *&AccessFunction) -> bool {
+  auto AnalyzeGV = [this, &TrackUses](Value *V, ICItemSet &InlineCalls,
+                                      Function *&AccessFunction) -> bool {
     StoreInst *NullPtrStore = nullptr;
     StoreInst *AllocPtrStore = nullptr;
     SmallPtrSet<Value *, MaxNumInstructionsVisited> Visited;
@@ -733,7 +785,7 @@ bool InlineAggressiveInfo::analyzeSingleAccessFunctionGlobalVarHeuristic(
     if (GV.hasNUsesOrMore(MaxNumGVUses))
       continue;
 
-    SmallPtrSet<CallBase *, MaxNumInlineCalls> InlineCalls;
+    ICItemSet InlineCalls;
     InlineCalls.clear();
     Function *AccessFunction = nullptr;
     if (!AnalyzeGV(&GV, InlineCalls, AccessFunction))
@@ -746,8 +798,10 @@ bool InlineAggressiveInfo::analyzeSingleAccessFunctionGlobalVarHeuristic(
       LLVM_DEBUG(dbgs() << "   Ignored GV ... calls are not okay to inline\n");
       continue;
     }
-    for (auto *CB : InlineCalls)
+    for (auto &ICI : InlineCalls) {
+      CallBase *CB = ICI.first;
       InlineCallsInFunction[AccessFunction].insert(CB);
+    }
   }
   for (auto TPair : InlineCallsInFunction) {
     LLVM_DEBUG(dbgs() << "  Function: " << TPair.first->getName() << "\n");
@@ -795,11 +849,11 @@ void InlineAggressiveInfo::setNoRecurseOnTinyFunctions(Module &M) {
     return true;
   };
 
-  for (auto &F: M.functions())
+  for (auto &F : M.functions())
     if (ShouldSetNoRecurse(F)) {
       F.setDoesNotRecurse();
-      LLVM_DEBUG(dbgs() << "AggInl: Setting NoRecurse on: "
-                        << F.getName() << "\n");
+      LLVM_DEBUG(dbgs() << "AggInl: Setting NoRecurse on: " << F.getName()
+                        << "\n");
     }
 }
 
