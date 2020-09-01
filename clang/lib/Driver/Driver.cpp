@@ -52,13 +52,10 @@
 #include "ToolChains/VEToolchain.h"
 #include "ToolChains/WebAssembly.h"
 #include "ToolChains/XCore.h"
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 #include "ToolChains/Arch/X86.h"
 #endif // INTEL_CUSTOMIZATION
-=======
 #include "ToolChains/ZOS.h"
->>>>>>> 3e1e5f54492d5bdebd40388247254e310cf62c3d
 #include "clang/Basic/TargetID.h"
 #include "clang/Basic/Version.h"
 #include "clang/Config/config.h"
