@@ -96,14 +96,13 @@ inline bool isVolatileOrAtomic(Instruction *I) {
   return false;
 }
 
-/// \returns true if it is a memory RAW or WAR dependence. This is handy for
-/// LoadCoalescing. In case of coalescing stores, we might want to add a check
-/// for WAW dependencies.
+/// \returns true if it is a memory RAW, WAR or WAW dependence.
 inline bool isMemoryDependency(const Instruction *SrcI,
                                const Instruction *DstI) {
   bool RAW = SrcI->mayWriteToMemory() && DstI->mayReadFromMemory();
   bool WAR = SrcI->mayReadFromMemory() && DstI->mayWriteToMemory();
-  return RAW || WAR;
+  bool WAW = SrcI->mayWriteToMemory() && DstI->mayWriteToMemory();
+  return RAW || WAR || WAW;
 }
 
 /// Helper function to identify Types that are valid for vectorization.
