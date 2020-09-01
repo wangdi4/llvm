@@ -543,7 +543,7 @@ end:
 ; variable. We cannot vectorize this.
 ; CHECK-LABEL: reduction_reset(
 ; CHECK-NOT: <4 x i32>
-define void @reduction_reset(i32 %N, i32* nocapture readonly %arrayA, i32* nocapture %arrayB) { 
+define void @reduction_reset(i32 %N, i32* nocapture readonly %arrayA, i32* nocapture %arrayB) {
 entry:
   %c4 = icmp sgt i32 %N, 0
   br i1 %c4, label %.lr.ph.preheader, label %._crit_edge

@@ -124,6 +124,7 @@ public:
   Instruction *visitLShr(BinaryOperator &I);
   Instruction *commonShiftTransforms(BinaryOperator &I);
   Instruction *visitFCmpInst(FCmpInst &I);
+  CmpInst *canonicalizeICmpPredicate(CmpInst &I);
   Instruction *visitICmpInst(ICmpInst &I);
 #if INTEL_CUSTOMIZATION
   Instruction *recognizePopcnt(BinaryOperator &I);
