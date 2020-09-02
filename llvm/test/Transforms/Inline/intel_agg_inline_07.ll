@@ -1,10 +1,26 @@
 ; REQUIRES: asserts
-; RUN: opt < %s -whole-program-assume -agginliner -inline -debug-only=agginliner -inline-threshold=-50 -disable-output 2>&1 | FileCheck %s
-; RUN: opt < %s -whole-program-assume -passes='module(agginliner),cgscc(inline)' -debug-only=agginliner -inline-threshold=-50 -disable-output 2>&1 | FileCheck %s
+; RUN: opt < %s -whole-program-assume -agginliner -inline -inline-threshold=-50 -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -S 2>&1 | FileCheck %s
+; RUN: opt < %s -whole-program-assume -passes='module(agginliner),cgscc(inline)' -inline-threshold=-50 -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -S 2>&1 | FileCheck %s
+; RUN: opt < %s -whole-program-assume -agginliner -inline -inline-threshold=-50 -mtriple=i686-- -mattr=+avx2 -S 2>&1 | FileCheck %s
+; RUN: opt < %s -whole-program-assume -passes='module(agginliner),cgscc(inline)' -inline-threshold=-50 -mtriple=i686-- -mattr=+avx2 -S 2>&1 | FileCheck %s
 
-; Check that aggressive inlining does not happen because AVX2 is not specified.
+; Check that aggressive inlining does happen even when Intel or non-Intel AVX2 is specified explicitly.
 
-; CHECK:  Skipped AggInl ... NOT AVX2
+; CHECK: define{{.*}}@main
+; CHECK-NOT: call{{.*}}@LBM_allocateGrid
+; CHECK-NOT: call{{.*}}@LBM_initializeGrid
+; CHECK-NOT: call{{.*}}@LBM_initializeSpecialCellsForChannel
+; CHECK-NOT: call{{.*}}@LBM_initializeSpecialCellsForLDC
+; CHECK-NOT: call{{.*}}@LBM_loadObstacleFile
+; CHECK-NOT: call{{.*}}@LBM_compareVelocityField
+; CHECK-NOT: call{{.*}}@LBM_freeGrid
+; CHECK-NOT: call{{.*}}@LBM_handleInOutFlow
+; CHECK-NOT: call{{.*}}@LBM_performStreamCollideTRT
+; CHECK-NOT: call{{.*}}@LBM_showGridStatistics
+; CHECK-NOT: call{{.*}}@LBM_storeVelocityField
+; CHECK-NOT: call{{.*}}@LBM_swapGrids
+; CHECK-NOT: call{{.*}}@MAIN_initialize
+; CHECK-NOT: call{{.*}}@MAIN_parseCommandLine
 
 %struct.MAIN_Param = type { i32, i8*, i32, i32, i8* }
 %struct.stat = type { i64, i64, i64, i32, i32, i32, i32, i64, i64, i64, i64, i64, i64, i64, i64, i64, i64, [3 x i64] }

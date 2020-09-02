@@ -387,14 +387,6 @@ InlineAggressiveInfo InlineAggressiveInfo::runImpl(Module &M,
     LLVM_DEBUG(dbgs() << " Skipped AggInl ... Whole Program NOT safe\n");
     return Result;
   }
-  //
-  // CMPLRLLVM-22372: Add guard for AVX2 to keep Goldmont from regressing.
-  //
-  auto TTIAVX2 = TargetTransformInfo::AdvancedOptLevel::AO_TargetHasAVX2;
-  if (!WPI.isAdvancedOptEnabled(TTIAVX2)) {
-    LLVM_DEBUG(dbgs() << " Skipped AggInl ... NOT AVX2\n");
-    return Result;
-  }
   Result.setNoRecurseOnTinyFunctions(M);
   Result.analyzeModule(M);
   return Result;
