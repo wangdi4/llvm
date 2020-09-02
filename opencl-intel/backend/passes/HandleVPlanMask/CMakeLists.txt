@@ -14,7 +14,9 @@ add_library(${TARGET_NAME}
 )
 
 if (OPENCL_INTREE_BUILD)
-  add_dependencies(${TARGET_NAME} intrinsics_gen)
+  add_dependencies(${TARGET_NAME} intrinsics_gen LLVMVectorizer)
 endif()
+
+target_include_directories(${TARGET_NAME} PUBLIC ${OCL_BINARY_DIR}/backend/vectorizer)
 
 set_target_properties( ${TARGET_NAME} PROPERTIES FOLDER ${BACKEND_PASSES_FOLDER_NAME})
