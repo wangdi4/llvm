@@ -240,13 +240,6 @@ public:
     return NewVPPHINode;
   }
 
-  VPBlendInst *createBlendInstruction(Type *Ty, const Twine &Name = "") {
-    auto *Blend = new VPBlendInst(Ty);
-    Blend->setName(Name);
-    insert(Blend);
-    return Blend;
-  }
-
   // Build a VPGEPInstruction for the LLVM-IR instruction \p Inst using base
   // pointer \p Ptr and list of index operands \p IdxList
   VPInstruction *createGEP(VPValue *Ptr, ArrayRef<VPValue *> IdxList,
@@ -372,7 +365,6 @@ public:
     return NewVPCall;
   }
 
-  // Reduction init/final
   VPInstruction *createReductionInit(VPValue *Identity, VPValue *Start,
                                      bool UseStart, const Twine &Name = "") {
     VPInstruction *NewVPInst = Start ? new VPReductionInit(Identity, Start)
@@ -382,96 +374,12 @@ public:
     return NewVPInst;
   }
 
-  VPReductionFinal *createReductionFinal(unsigned BinOp, VPValue *ReducVec,
-                                         VPValue *StartValue, bool Sign,
-                                         const Twine &Name = "") {
-    VPReductionFinal *NewVPInst =
-        new VPReductionFinal(BinOp, ReducVec, StartValue, Sign);
-    NewVPInst->setName(Name);
-    insert(NewVPInst);
-    return NewVPInst;
-  }
-
-  VPReductionFinal *createReductionFinal(unsigned BinOp, VPValue *ReducVec,
-                                         const Twine &Name = "") {
-    VPReductionFinal *NewVPInst = new VPReductionFinal(BinOp, ReducVec);
-    NewVPInst->setName(Name);
-    insert(NewVPInst);
-    return NewVPInst;
-  }
-
-  // Final value of index part of min/max+index
-  VPReductionFinal *createReductionFinal(unsigned BinOp, VPValue *ReducVec,
-                                         VPValue *ParentExit,
-                                         VPReductionFinal *ParentFinal,
-                                         bool Sign, const Twine &Name = "") {
-    VPReductionFinal *NewVPInst =
-        new VPReductionFinal(BinOp, ReducVec, ParentExit, ParentFinal, Sign);
-    NewVPInst->setName(Name);
-    insert(NewVPInst);
-    return NewVPInst;
-  }
-
-  // Induction init/final
-  VPInstruction *createInductionInit(VPValue *Start, VPValue *Step,
-                                     Instruction::BinaryOps Opc,
-                                     const Twine &Name = "") {
-    VPInstruction *NewVPInst = new VPInductionInit(Start, Step, Opc);
-    NewVPInst->setName(Name);
-    insert(NewVPInst);
-    return NewVPInst;
-  }
-
-  VPInstruction *createInductionInitStep(VPValue *Step,
-                                         Instruction::BinaryOps Opcode,
-                                         const Twine &Name = "") {
-    VPInstruction *NewVPInst = new VPInductionInitStep(Step, Opcode);
-    NewVPInst->setName(Name);
-    insert(NewVPInst);
-    return NewVPInst;
-  }
-
-  VPInstruction *createInductionFinal(VPValue *InducVec,
-                                      const Twine &Name = "") {
-    VPInstruction *NewVPInst = new VPInductionFinal(InducVec);
-    NewVPInst->setName(Name);
-    insert(NewVPInst);
-    return NewVPInst;
-  }
-
-  VPInstruction *createInductionFinal(VPValue *Start, VPValue *Step,
-                                      Instruction::BinaryOps Opcode,
-                                      const Twine &Name = "") {
-    VPInstruction *NewVPInst = new VPInductionFinal(Start, Step, Opcode);
-    NewVPInst->setName(Name);
-    insert(NewVPInst);
-    return NewVPInst;
-  }
-
-  VPInstruction *createAllocaPrivate(const VPValue *AI, Align OrigAlignment) {
-    VPInstruction *NewVPInst =
-        new VPAllocatePrivate(AI->getType(), OrigAlignment);
-    insert(NewVPInst);
-    NewVPInst->setName(AI->getName());
-    return NewVPInst;
-  }
-
-  VPOrigTripCountCalculation *
-  createOrigTripCountCalculation(Loop *OrigLoop, VPLoop *VPLp, Type *Ty,
-                                 const Twine &Name = "orig.trip.count") {
-    auto *OrigTC = new VPOrigTripCountCalculation(OrigLoop, VPLp, Ty);
-    OrigTC->setName(Name);
-    insert(OrigTC);
-    return OrigTC;
-  }
-
-  VPVectorTripCountCalculation *
-  createVectorTripCountCalculation(VPOrigTripCountCalculation *OrigTC,
-                                   const Twine &Name = "vector.trip.count") {
-    auto *TC = new VPVectorTripCountCalculation(OrigTC);
-    TC->setName(Name);
-    insert(TC);
-    return TC;
+  template <class T, class NameType, class... Args>
+  T *create(const NameType &Name, Args &&... args) {
+    auto *New = new T(std::forward<Args>(args)...);
+    New->setName(Name);
+    insert(New);
+    return New;
   }
 
   //===--------------------------------------------------------------------===//

@@ -618,9 +618,8 @@ public:
         !VPBlockUtils::blockIsLoopLatch(Block->getSinglePredecessor(), VPLI) &&
         "Loop exits in loop-simplified forms don't require blend processing!");
     for (VPPHINode *Phi : Phis) {
-      VPBlendInst *Blend =
-          VPBuilder().setInsertPoint(Phi).createBlendInstruction(
-              Phi->getType(), Phi->getName());
+      VPBlendInst *Blend = VPBuilder().setInsertPoint(Phi).create<VPBlendInst>(
+          Phi->getName(), Phi->getType());
       Blend->addIncoming(Phi->getOperand(0), nullptr,
                          Phi->getParent()->getParent());
       // TODO: HIR Mixed CG has issues propagating invalidate through the
@@ -738,9 +737,9 @@ public:
       Builder.setInsertPoint(BlendBB);
     }
 
-    VPBlendInst *Blend = Builder.createBlendInstruction(
-        Phis[Idx]->getType(),
-        Phis[Idx]->getName() + ".blend." + From->getName());
+    VPBlendInst *Blend = Builder.create<VPBlendInst>(
+        Phis[Idx]->getName() + ".blend." + From->getName(),
+        Phis[Idx]->getType());
 
     for (int ValNumber = 0; ValNumber < NumBlendVals; ++ValNumber) {
       VPValue *Predicate = BlendOps[NumBlendVals * 2 - ValNumber * 2 - 2];

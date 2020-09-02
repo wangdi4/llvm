@@ -752,11 +752,12 @@ void VPlanHCFGBuilder::emitVecSpecifics() {
 
   VPBuilder Builder;
   Builder.setInsertPoint(PreHeader);
-  auto *VF = Builder.createInductionInitStep(VPOne, Instruction::Add, "VF");
+  auto *VF = Builder.create<VPInductionInitStep>("VF", VPOne, Instruction::Add);
 
-  auto *OrigTC = Builder.createOrigTripCountCalculation(TheLoop, CandidateLoop,
-                                                        VectorLoopIVType);
-  auto *TC = Builder.createVectorTripCountCalculation(OrigTC);
+  auto *OrigTC = Builder.create<VPOrigTripCountCalculation>(
+      "orig.trip.count", TheLoop, CandidateLoop, VectorLoopIVType);
+  auto *TC =
+      Builder.create<VPVectorTripCountCalculation>("vector.trip.count", OrigTC);
 
   emitVectorLoopIV(TC, VF);
 }
