@@ -1776,7 +1776,7 @@ bool VecCloneImpl::runImpl(Module &M) {
   languageSpecificInitializations(M);
 #endif // INTEL_CUSTOMIZATION
 
-  std::map<Function *, std::vector<StringRef>> FunctionsToVectorize;
+  MapVector<Function *, std::vector<StringRef>> FunctionsToVectorize;
   getFunctionsToVectorize(M, FunctionsToVectorize);
 
   // VectorParmMap contains the mapping of the parameter to the bitcast
@@ -1795,8 +1795,8 @@ bool VecCloneImpl::runImpl(Module &M) {
 
   std::vector<ParmRef*> VectorParmMap;
 
-  std::map<Function*, std::vector<StringRef> >::iterator VarIt;
-  std::map<Function*, std::vector<StringRef> >::iterator VarEnd;
+  MapVector<Function*, std::vector<StringRef> >::iterator VarIt;
+  MapVector<Function*, std::vector<StringRef> >::iterator VarEnd;
   for (VarIt = FunctionsToVectorize.begin(),
        VarEnd = FunctionsToVectorize.end(); VarIt != VarEnd; ++VarIt) {
 
