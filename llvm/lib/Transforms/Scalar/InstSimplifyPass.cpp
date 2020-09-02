@@ -146,17 +146,15 @@ FunctionPass *llvm::createInstSimplifyLegacyPass() {
   return new InstSimplifyLegacyPass();
 }
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 FunctionPass *llvm::createUnskippableInstSimplifyLegacyPass() {
   return new UnskippableInstSimplifyLegacyPass();
 }
 #endif // INTEL_CUSTOMIZATION
-=======
+
 void LLVMAddInstructionSimplifyPass(LLVMPassManagerRef PM) {
   unwrap(PM)->add(createInstSimplifyLegacyPass());
 }
->>>>>>> 96f0b57568c3047fde0c1e4b4f52401ce34f2da2
 
 PreservedAnalyses InstSimplifyPass::run(Function &F,
                                         FunctionAnalysisManager &AM) {
