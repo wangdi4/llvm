@@ -56,6 +56,7 @@ enum KernelInvocationKind {
 
 const static std::string InitMethodName = "__init";
 const static std::string FinalizeMethodName = "__finalize";
+constexpr unsigned GPUMaxKernelArgsSize = 2048;
 
 namespace {
 
@@ -1673,6 +1674,86 @@ public:
   using SyclKernelFieldHandler::leaveStruct;
 };
 
+class SyclKernelArgsSizeChecker : public SyclKernelFieldHandler {
+  SourceLocation KernelLoc;
+  unsigned SizeOfParams = 0;
+
+  void addParam(QualType ArgTy) {
+    SizeOfParams +=
+        SemaRef.getASTContext().getTypeSizeInChars(ArgTy).getQuantity();
+  }
+
+  bool handleSpecialType(QualType FieldTy) {
+    const CXXRecordDecl *RecordDecl = FieldTy->getAsCXXRecordDecl();
+    assert(RecordDecl && "The accessor/sampler must be a RecordDecl");
+    CXXMethodDecl *InitMethod = getMethodByName(RecordDecl, InitMethodName);
+    assert(InitMethod && "The accessor/sampler must have the __init method");
+    for (const ParmVarDecl *Param : InitMethod->parameters())
+      addParam(Param->getType());
+    return true;
+  }
+
+public:
+  SyclKernelArgsSizeChecker(Sema &S, SourceLocation Loc)
+      : SyclKernelFieldHandler(S), KernelLoc(Loc) {}
+
+  ~SyclKernelArgsSizeChecker() {
+    if (SemaRef.Context.getTargetInfo().getTriple().getSubArch() ==
+        llvm::Triple::SPIRSubArch_gen)
+      if (SizeOfParams > GPUMaxKernelArgsSize)
+        SemaRef.Diag(KernelLoc, diag::warn_sycl_kernel_too_big_args)
+            << SizeOfParams << GPUMaxKernelArgsSize;
+  }
+
+  bool handleSyclAccessorType(FieldDecl *FD, QualType FieldTy) final {
+    return handleSpecialType(FieldTy);
+  }
+
+  bool handleSyclAccessorType(const CXXRecordDecl *, const CXXBaseSpecifier &,
+                              QualType FieldTy) final {
+    return handleSpecialType(FieldTy);
+  }
+
+  bool handleSyclSamplerType(FieldDecl *FD, QualType FieldTy) final {
+    return handleSpecialType(FieldTy);
+  }
+
+  bool handleSyclSamplerType(const CXXRecordDecl *, const CXXBaseSpecifier &BS,
+                             QualType FieldTy) final {
+    return handleSpecialType(FieldTy);
+  }
+
+  bool handlePointerType(FieldDecl *FD, QualType FieldTy) final {
+    addParam(FieldTy);
+    return true;
+  }
+
+  bool handleScalarType(FieldDecl *FD, QualType FieldTy) final {
+    addParam(FieldTy);
+    return true;
+  }
+
+  bool handleUnionType(FieldDecl *FD, QualType FieldTy) final {
+    return handleScalarType(FD, FieldTy);
+  }
+
+  bool handleSyclHalfType(FieldDecl *FD, QualType FieldTy) final {
+    addParam(FieldTy);
+    return true;
+  }
+
+  bool handleSyclStreamType(FieldDecl *FD, QualType FieldTy) final {
+    addParam(FieldTy);
+    return true;
+  }
+  bool handleSyclStreamType(const CXXRecordDecl *, const CXXBaseSpecifier &,
+                            QualType FieldTy) final {
+    addParam(FieldTy);
+    return true;
+  }
+  using SyclKernelFieldHandler::handleSyclHalfType;
+};
+
 class SyclKernelBodyCreator : public SyclKernelFieldHandler {
   SyclKernelDeclCreator &DeclCreator;
   llvm::SmallVector<Stmt *, 16> BodyStmts;
@@ -2412,6 +2493,7 @@ void Sema::CheckSYCLKernelCall(FunctionDecl *KernelFunc, SourceRange CallLoc,
 
   SyclKernelFieldChecker FieldChecker(*this);
   SyclKernelUnionChecker UnionChecker(*this);
+  SyclKernelArgsSizeChecker ArgsSizeChecker(*this, Args[0]->getExprLoc());
   // check that calling kernel conforms to spec
   QualType KernelParamTy = KernelFunc->getParamDecl(0)->getType();
   if (KernelParamTy->isReferenceType()) {
@@ -2430,8 +2512,10 @@ void Sema::CheckSYCLKernelCall(FunctionDecl *KernelFunc, SourceRange CallLoc,
 
   KernelObjVisitor Visitor{*this};
   DiagnosingSYCLKernel = true;
-  Visitor.VisitRecordBases(KernelObj, FieldChecker, UnionChecker);
-  Visitor.VisitRecordFields(KernelObj, FieldChecker, UnionChecker);
+  Visitor.VisitRecordBases(KernelObj, FieldChecker, UnionChecker,
+                           ArgsSizeChecker);
+  Visitor.VisitRecordFields(KernelObj, FieldChecker, UnionChecker,
+                            ArgsSizeChecker);
   DiagnosingSYCLKernel = false;
   if (!FieldChecker.isValid() || !UnionChecker.isValid())
     KernelFunc->setInvalidDecl();
