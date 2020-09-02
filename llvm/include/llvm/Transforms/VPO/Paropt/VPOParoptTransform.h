@@ -553,6 +553,10 @@ private:
   bool addMapForUseDevicePtr(WRegionNode *W,
                  Instruction *InsertBefore = nullptr);
 
+  // Convert 'IS_DEVICE_PTR' clauses in W to MAP, and 'IS_DEVICE_PTR:PTR_TO_PTR'
+  // clauses to MAP + PRIVATE.
+  bool addMapAndPrivateForIsDevicePtr(WRegionNode *W);
+
   /// Update references of use_device_ptr operands in tgt data region to use the
   /// value updated by the tgt_data_init call.
   void useUpdatedUseDevicePtrsInTgtDataRegion(
