@@ -11,14 +11,10 @@
 //
 //===----------------------------------------------------------------------===//
 
-<<<<<<< HEAD
-#include <omptarget.h>
 #if INTEL_COLLAB
 #include "omptarget-tools.h"
 #endif // INTEL_COLLAB
 
-=======
->>>>>>> ae95ceeb8f98d81f615c69da02f73b5ee6b1519a
 #include "device.h"
 #include "private.h"
 #include "rtl.h"

@@ -23,8 +23,7 @@
 #include "omptargetplugin.h"
 
 #define TARGET_NAME CUDA
-<<<<<<< HEAD
-#endif
+#define DEBUG_PREFIX "Target " GETNAME(TARGET_NAME) " RTL"
 
 #if INTEL_CUSTOMIZATION
 // This source below is clang-compatible and does not build with xmain's
@@ -32,21 +31,6 @@
 // Turn this off to avoid excessive source modifications.
 #pragma GCC diagnostic ignored "-Wsign-compare"
 #endif // INTEL_CUSTOMIZATION
-
-#ifdef OMPTARGET_DEBUG
-static int DebugLevel = 0;
-
-#define GETNAME2(name) #name
-#define GETNAME(name) GETNAME2(name)
-#define DP(...) \
-  do { \
-    if (DebugLevel > 0) { \
-      DEBUGP("Target " GETNAME(TARGET_NAME) " RTL", __VA_ARGS__); \
-    } \
-  } while (false)
-=======
-#define DEBUG_PREFIX "Target " GETNAME(TARGET_NAME) " RTL"
->>>>>>> ae95ceeb8f98d81f615c69da02f73b5ee6b1519a
 
 // Utility for retrieving and printing CUDA error string.
 #ifdef OMPTARGET_DEBUG

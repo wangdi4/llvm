@@ -37,6 +37,9 @@
 #ifndef _OMPTARGET_DEBUG_H
 #define _OMPTARGET_DEBUG_H
 
+#include <stdlib.h>   // INTEL
+#include  <string>    // INTEL
+
 static inline int getInfoLevel() {
   static int InfoLevel = -1;
   if (InfoLevel >= 0)

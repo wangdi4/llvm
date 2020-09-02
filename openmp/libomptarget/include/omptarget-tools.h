@@ -23,6 +23,7 @@
 
 #include <stdint.h>
 #include <stddef.h>
+#include <Debug.h>
 
 /*****************************************************************************
  * iteration macros
@@ -1627,10 +1628,9 @@ typedef struct {
   } while (0)
 
 #ifdef OMPTARGET_DEBUG
-extern int DebugLevel;
 #define DPOMPT(...)                                                            \
   do {                                                                         \
-    if (DebugLevel > 0) {                                                      \
+    if (getDebugLevel() > 0) {                                                      \
       DEBUGP("Libomptarget", __VA_ARGS__);                                     \
     }                                                                          \
   } while (0)
