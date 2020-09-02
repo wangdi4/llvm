@@ -760,13 +760,14 @@ public:
       parseGroupSizes("LIBOMPTARGET_GLOBAL_WG_SIZE", env, ForcedGlobalSizes);
     }
 #endif // INTEL_INTERNAL_BUILD
-
+#if ENABLE_LIBDEVICE_LINKING
     // Link libdevice
     if (char *env = readEnvVar("LIBOMPTARGET_LEVEL0_LINK_LIBDEVICE")) {
       // TODO: turn this on by default when L0 issue is resolved.
       if (env[0] == 'T' || env[0] == 't' || env[0] == '1')
         Flags.LinkLibDevice = 1;
     }
+#endif // ENABLE_LIBDEVICE_LINKING
   }
 
   ze_command_list_handle_t getCmdList(int32_t DeviceId) {
@@ -1290,6 +1291,7 @@ __tgt_target_table *__tgt_rtl_load_binary(int32_t DeviceId,
 
   modules.push_back(mainModule);
 
+#if ENABLE_LIBDEVICE_LINKING
   std::vector<const char *> deviceLibNames {
     "libomp-fallback-cassert.spv",
     "libomp-fallback-cmath.spv",
@@ -1326,6 +1328,8 @@ __tgt_target_table *__tgt_rtl_load_binary(int32_t DeviceId,
     }
     CALL_ZE_RET_NULL(zeModuleBuildLogDestroy, linkLog);
   }
+#endif // ENABLE_LIBDEVICE_LINKING
+
   tmModuleBuild.stop();
 
   auto &entries = DeviceInfo->FuncGblEntries[DeviceId].Entries;

@@ -12,7 +12,7 @@
 /// We should have an offload action joining the host compile and device
 /// preprocessor and another one joining the device linking outputs to the host
 /// action.
-// RUN:   %clang -ccc-print-phases -fiopenmp -target x86_64-pc-windows-msvc -fopenmp-targets=spir64 %s 2>&1 \
+// RUN:   %clang -ccc-print-phases -fiopenmp -target x86_64-pc-windows-msvc -fopenmp-targets=spir64 -no-device-math-lib=fp32,fp64 %s 2>&1 \
 // RUN:   | FileCheck -check-prefix=CHK-PHASES %s
 // CHK-PHASES: 0: input, "[[INPUT:.+\.c]]", c, (host-openmp)
 // CHK-PHASES: 1: preprocessor, {0}, cpp-output, (host-openmp)
@@ -38,10 +38,10 @@
 /// ###########################################################################
 
 /// Check of the commands passed to each tool when using valid OpenMP targets.
-// RUN:   %clang -### -fiopenmp -o %t.out -target x86_64-pc-windows-msvc -fopenmp-targets=spir64 %s 2>&1 \
+// RUN:   %clang -### -fiopenmp -o %t.out -target x86_64-pc-windows-msvc -fopenmp-targets=spir64 -no-device-math-lib=fp32,fp64 %s 2>&1 \
 // RUN:   | FileCheck -check-prefix=CHK-COMMANDS %s
 // CHK-COMMANDS: clang{{(.exe)?}}{{.*}} "-cc1" "-triple" "x86_64-pc-windows-msvc{{.*}}" "-emit-llvm-bc" {{.*}} "-fopenmp" {{.*}} "-o" "[[HOSTBC:.+\.bc]]"
-// CHK-COMMANDS: clang{{(.exe)?}}{{.*}} "-cc1" "-triple" "x86_64-pc-windows-msvc{{.*}}" "-emit-obj" {{.*}} "-o" "[[HOSTOBJ:.+\.o]]" "-x" "ir" "[[HOSTBC]]"     
+// CHK-COMMANDS: clang{{(.exe)?}}{{.*}} "-cc1" "-triple" "x86_64-pc-windows-msvc{{.*}}" "-emit-obj" {{.*}} "-o" "[[HOSTOBJ:.+\.o]]" "-x" "ir" "[[HOSTBC]]"
 // CHK-COMMANDS: clang{{(.exe)?}}{{.*}} "-cc1" "-triple" "spir64" "-aux-triple" "x86_64-pc-windows-msvc" "-fms-extensions" "-fms-compatibility" "-fdelayed-template-parsing" "-fms-compatibility-version={{.*}}" "-emit-llvm-bc" {{.*}} "-fopenmp" {{.*}} "-fopenmp-is-device" "-fopenmp-host-ir-file-path" "[[HOSTBC]]" "-internal-isystem" "{{.*}}bin{{[/\\]+}}..{{[/\\]+}}include{{[/\\]+}}sycl" "-mllvm" "-paropt=63" "-fopenmp-targets=spir64" "-o" "[[TGTBC:.+\.bc]]"
 // CHK-COMMANDS: llvm-link{{(.exe)?}}{{.*}} "[[TGTBC]]" "-o" "[[TGTLINKEDBC:.+\.out]]"
 // CHK-COMMANDS: sycl-post-link{{(.exe)?}}{{.*}} "--ompoffload-link-entries" "--ompoffload-sort-entries" "--ompoffload-make-globals-static" "-ir-output-only" "-spec-const=rt" "-o" "[[TGTPOSTLINK:.+\.bc]]" "[[TGTLINKEDBC]]"
@@ -72,7 +72,7 @@
 
 /// Check separate compilation with offloading - unbundling actions
 // RUN:   touch %t.obj
-// RUN:   %clang -### -ccc-print-phases -fiopenmp -o %t.out -target x86_64-pc-windows-msvc -fopenmp-targets=spir64 %t.obj 2>&1 \
+// RUN:   %clang -### -ccc-print-phases -fiopenmp -o %t.out -target x86_64-pc-windows-msvc -fopenmp-targets=spir64 -no-device-math-lib=fp32,fp64 %t.obj 2>&1 \
 // RUN:   | FileCheck -DINPUT=%t.obj -check-prefix=CHK-UBACTIONS %s
 // CHK-UBACTIONS: 0: input, "[[INPUT]]", object, (host-openmp)
 // CHK-UBACTIONS: 1: clang-offload-unbundler, {0}, object, (host-openmp)
@@ -95,7 +95,7 @@
 
 /// Check separate compilation with offloading - unbundling jobs construct
 // RUN:   touch %t.obj
-// RUN:   %clang -### -fiopenmp %t.obj -target x86_64-pc-windows-msvc -fopenmp-targets=spir64 --intel 2>&1 \
+// RUN:   %clang -### -fiopenmp %t.obj -target x86_64-pc-windows-msvc -fopenmp-targets=spir64 --intel -no-device-math-lib=fp32,fp64 2>&1 \
 // RUN:   | FileCheck -check-prefix=CHK-UBJOBS %s
 // CHK-UBJOBS: clang-offload-bundler{{(.exe)?}}{{.*}} "-type=o" "-targets=host-x86_64-pc-windows-msvc,openmp-spir64" "-inputs=[[FATOBJ:.+\.obj]]" "-outputs=[[HOSTOBJ:.+\.o]],[[TGTBC:.+\.o]]" "-unbundle"
 // CHK-UBJOBS: llvm-link{{(.exe)?}}{{.*}} "[[TGTBC]]" "{{.*}}libomptarget-opencl.bc" "-o" "[[TGTLINKEDBC:.+\.out]]"

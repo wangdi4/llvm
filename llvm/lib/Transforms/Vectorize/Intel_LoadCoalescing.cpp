@@ -522,8 +522,8 @@ void LoadCoalescing::codeGen(const MemInstGroup &G) {
   Builder.SetInsertPoint(Head->getNextNode());
   Value *WidePtr = Builder.CreateBitCast(Head->getPointerOperand(),
                                          G.getWideType()->getPointerTo(AS));
-  Instruction *WideLoad =
-      cast<Instruction>(Builder.CreateAlignedLoad(WidePtr, Head->getAlign()));
+  Instruction *WideLoad = cast<Instruction>(
+      Builder.CreateAlignedLoad(WidePtr, Head->getAlign(), "CoalescedLoad"));
   LLVM_DEBUG(dbgs() << "LC: Emitted WideLoad: " << *WideLoad << "\n");
 
   Instruction *InsertPointForShuffle = WideLoad->getNextNode();

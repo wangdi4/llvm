@@ -1,7 +1,7 @@
-; RUN: opt < %s -whole-program-assume -agginliner -inline -inline-report=7 -inline-threshold=-50 -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -disable-output 2>&1 | FileCheck %s
-; RUN: opt < %s -whole-program-assume -passes='module(agginliner),cgscc(inline)' -inline-report=7 -inline-threshold=-50 -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -disable-output 2>&1 | FileCheck %s
-; RUN: opt -inlinereportsetup -inline-report=0x86 < %s -S | opt -whole-program-assume -agginliner -inline -inline-report=0x86 -inline-threshold=-50 -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -S | opt -inlinereportemitter -inline-report=0x86 -S 2>&1 | FileCheck %s
-; RUN: opt -inlinereportsetup -inline-report=0x86 < %s -S | opt -whole-program-assume -passes='module(agginliner),cgscc(inline)' -inline-report=0x86 -inline-threshold=-50 -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -S | opt -inlinereportemitter -inline-report=0x86 -S 2>&1 | FileCheck %s
+; RUN: opt < %s -whole-program-assume -agginliner -inline -inline-report=7 -inline-threshold=-50 -disable-output 2>&1 | FileCheck %s
+; RUN: opt < %s -whole-program-assume -passes='module(agginliner),cgscc(inline)' -inline-report=7 -inline-threshold=-50 -disable-output 2>&1 | FileCheck %s
+; RUN: opt -inlinereportsetup -inline-report=0x86 < %s -S | opt -whole-program-assume -agginliner -inline -inline-report=0x86 -inline-threshold=-50 -S | opt -inlinereportemitter -inline-report=0x86 -S 2>&1 | FileCheck %s
+; RUN: opt -inlinereportsetup -inline-report=0x86 < %s -S | opt -whole-program-assume -passes='module(agginliner),cgscc(inline)' -inline-report=0x86 -inline-threshold=-50 -S | opt -inlinereportemitter -inline-report=0x86 -S 2>&1 | FileCheck %s
 
 ; Check the inlining report to ensure that aggressive inlining has inlined
 ; all functions into main, except printf variants, and that aggressive

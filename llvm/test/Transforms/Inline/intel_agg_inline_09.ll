@@ -5,8 +5,8 @@
 
 ; REQUIRES: asserts
 
-; RUN: opt < %s -agginliner -inline-agg-find-gv-escs -debug-only=agginliner -whole-program-assume -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -disable-output  2>&1 | FileCheck %s
-; RUN: opt < %s -passes='module(agginliner)' -inline-agg-find-gv-escs -debug-only=agginliner -whole-program-assume -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -disable-output  2>&1 | FileCheck %s
+; RUN: opt < %s -agginliner -inline-agg-find-gv-escs -debug-only=agginliner -whole-program-assume -disable-output  2>&1 | FileCheck %s
+; RUN: opt < %s -passes='module(agginliner)' -inline-agg-find-gv-escs -debug-only=agginliner -whole-program-assume -disable-output  2>&1 | FileCheck %s
 
 ; CHECK: AggInl: SingleAccessFunctionGlobalVarHeuristic
 ; CHECK: GV selected as candidate: grad
