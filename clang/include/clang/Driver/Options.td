@@ -1943,6 +1943,8 @@ def fiopenmp_simd : Flag<["-"], "fiopenmp-simd">, Group<f_Group>, Flags<[CC1Opti
 def fno_iopenmp_simd : Flag<["-"], "fno-iopenmp-simd">, Group<f_Group>, Flags<[NoArgumentUnused, DpcppUnsupported, ProEnabled]>;
 def fopenmp_stable_file_id : Flag<["-"], "fopenmp-stable-file-id">,
     Group<f_Group>, Flags<[CC1Option, NoArgumentUnused, CoreOption, HelpHidden]>;
+def fiopenmp_offload : Flag<["-"], "fiopenmp-offload">, Flags<[DriverOption, DpcppUnsupported]>, Group<f_Group>;
+def fno_iopenmp_offload : Flag<["-"], "fno-iopenmp-offload">, Flags<[DriverOption, DpcppUnsupported]>, Group<f_Group>;
 #endif // INTEL_CUSTOMIZATION
 def fopenmp_enable_irbuilder : Flag<["-"], "fopenmp-enable-irbuilder">, Group<f_Group>, Flags<[CC1Option, NoArgumentUnused, HelpHidden]>,
   HelpText<"Use the experimental OpenMP-IR-Builder codegen path.">;
@@ -5425,6 +5427,8 @@ def _SLASH_Qiopenmp : CLFlag<"Qiopenmp">, Alias<fiopenmp>;
 def _SLASH_Qopenmp_simd : CLFlagNoDpcpp<"Qopenmp-simd">, Alias<fiopenmp_simd>,
   HelpText<"Emit OpenMP code only for SIMD-based constructs.">;
 def _SLASH_Qopenmp_simd_ : CLFlagNoDpcpp<"Qopenmp-simd-">, Alias<fno_iopenmp_simd>;
+def _SLASH_Qiopenmp_offload : CLFlagNoDpcpp<"Qiopenmp-offload">, Alias<fiopenmp_offload>;
+def _SLASH_Qiopenmp_offload_ : CLFlagNoDpcpp<"Qiopenmp-offload-">, Alias<fno_iopenmp_offload>;
 def _SLASH_Qpc : CLJoined<"Qpc">, Alias<pc>, HelpText<"Initialize X87 "
   "floating point precision to single, double or double extended.  Valid "
   "values of 32, 64, and 80.">;
