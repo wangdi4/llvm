@@ -294,6 +294,13 @@ class Item
       OS << ") ";
     }
 
+    void dump() const {
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+      formatted_raw_ostream OS(dbgs());
+      print(OS, false);
+#endif
+    }
+
     // Conditional lastprivate:
     // Abort if these methods are invoked from anything but a LastprivateItem.
     virtual void setIsConditional(bool B){

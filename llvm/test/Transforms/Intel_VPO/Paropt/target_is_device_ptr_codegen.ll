@@ -15,13 +15,13 @@
 ; There must be 4 mapped entries: hh, n, gg, a
 ; Verify that their MAP TYPEs are correct
 ; FPRIV(hh):    33= 0x21= TGT_MAP_TO | TGT_MAP_TARGET_PARAM
+; IsDevPtr(a):  288= 0x120= TGT_MAP_LITERAL | TGT_MAP_TARGET_PARAM
 ; FPRIV(n):     33= 0x21= TGT_MAP_TO | TGT_MAP_TARGET_PARAM
 ; MAPFROM(gg):  34= 0x22= TGT_MAP_FROM | TGT_MAP_TARGET_PARAM
-; IsDevPtr(a):  288= 0x120= TGT_MAP_LITERAL | TGT_MAP_TARGET_PARAM
-; CHECK: @.offload_maptypes = private unnamed_addr constant [4 x i64] [i64 34, i64 33, i64 33, i64 288]
+; CHECK: @.offload_maptypes = private unnamed_addr constant [4 x i64] [i64 34, i64 288, i64 33, i64 33]
 ;
 ; Verify that the offload entry has the 4 matching arguments
-; CHECK: call void @__omp_offloading{{.*}}(double* %gg, i32* %n.addr, double* %hh, i32* %a)
+; CHECK: call void @__omp_offloading{{.*}}(double* %gg, i32* %a, i32* %n.addr, double* %hh)
 
 target triple = "x86_64-unknown-linux-gnu"
 target device_triples = "x86_64-mic"
