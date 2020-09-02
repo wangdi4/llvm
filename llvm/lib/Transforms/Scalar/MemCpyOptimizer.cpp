@@ -266,21 +266,6 @@ public:
 
   bool runOnFunction(Function &F) override;
 
-<<<<<<< HEAD
-  private:
-    // This transformation requires dominator postdominator info
-    void getAnalysisUsage(AnalysisUsage &AU) const override {
-      AU.setPreservesCFG();
-      AU.addRequired<AssumptionCacheTracker>();
-      AU.addRequired<DominatorTreeWrapperPass>();
-      AU.addRequired<MemoryDependenceWrapperPass>();
-      AU.addRequired<AAResultsWrapperPass>();
-      AU.addRequired<TargetLibraryInfoWrapperPass>();
-      AU.addPreserved<GlobalsAAWrapperPass>();
-      AU.addPreserved<AndersensAAWrapperPass>();          // INTEL
-      AU.addPreserved<MemoryDependenceWrapperPass>();
-    }
-=======
 private:
   // This transformation requires dominator postdominator info
   void getAnalysisUsage(AnalysisUsage &AU) const override {
@@ -291,11 +276,11 @@ private:
     AU.addRequired<AAResultsWrapperPass>();
     AU.addPreserved<AAResultsWrapperPass>();
     AU.addPreserved<GlobalsAAWrapperPass>();
+    AU.addPreserved<AndersensAAWrapperPass>();          // INTEL
     AU.addRequired<TargetLibraryInfoWrapperPass>();
     AU.addRequired<MemoryDependenceWrapperPass>();
     AU.addPreserved<MemoryDependenceWrapperPass>();
   }
->>>>>>> 1ccfb52a6174816e450074f65e5f0929a9f046a5
 };
 
 } // end anonymous namespace
