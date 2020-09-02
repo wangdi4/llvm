@@ -524,7 +524,7 @@ inline VectorType *getWidenedType(Type *Ty, unsigned VF) {
 /// \brief Get all functions marked for vectorization in module and their
 /// list of variants.
 void getFunctionsToVectorize(
-  Module &M, std::map<Function*, std::vector<StringRef> > &FuncVars);
+  Module &M, MapVector<Function*, std::vector<StringRef> > &FuncVars);
 
 /// \brief Widens the call to function \p OrigF  using a vector length of \p VL
 /// and inserts the appropriate function declaration if not already created.
