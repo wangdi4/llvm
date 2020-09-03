@@ -119,11 +119,11 @@ void ImplicitGlobalIdPass::insertComputeGlobalIds(Function* pFunc)
     };
     auto I = std::find_if(pFunc->begin(), pFunc->end(), func);
 
-    assert( I != pFunc->end() &&
-            "Failed to find at least one instruction with debug metadata attached to it. "
-            "The gid variables require a valid scope and location information in order "
-            "to be inserted into the function." );
-    (void)I;
+    if (I == pFunc->end()) {
+      DISubprogram *SP = pFunc->getSubprogram();
+      scope = SP;
+      loc = DILocation::get(*m_pContext, SP->getLine(), 0, SP);
+    }
 
     // Find the first and second instructions in the function
     //
