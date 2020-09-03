@@ -10,10 +10,10 @@ target triple = "x86_64-unknown-linux-gnu"
 define void @var_tripcount(i32* %ip, i32 %n, i32* %x) local_unnamed_addr {
 ; CHECK-LABEL: @var_tripcount(
 ; CHECK-NEXT:  entry:
-; CHECK-NEXT:    [[PHI_RES_LOC:%.*]] = alloca i32
+; CHECK-NEXT:    [[PHI_RES_LOC:%.*]] = alloca i32, align 4
 ; CHECK-NEXT:    br label [[DIR_OMP_SIMD_1:%.*]]
 ; CHECK:       DIR.OMP.SIMD.1:
-; CHECK-NEXT:    [[ENTRY_REGION:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"() ]
+; CHECK-NEXT:    [[ENTRY_REGION:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.PRIVATE"(i32* [[PHI_RES_LOC]]) ]
 ; CHECK-NEXT:    br label [[DIR_QUAL_LIST_END_2:%.*]]
 ; CHECK:       DIR.QUAL.LIST.END.2:
 ; CHECK-NEXT:    [[CMP1:%.*]] = icmp sgt i32 [[N:%.*]], 0
@@ -24,13 +24,13 @@ define void @var_tripcount(i32* %ip, i32 %n, i32* %x) local_unnamed_addr {
 ; CHECK:       for.body:
 ; CHECK-NEXT:    [[INDVARS_IV:%.*]] = phi i64 [ [[INDVARS_IV_NEXT:%.*]], [[LATCH:%.*]] ], [ 0, [[FOR_BODY_PREHEADER]] ]
 ; CHECK-NEXT:    [[ARRAYIDX:%.*]] = getelementptr inbounds i32, i32* [[IP:%.*]], i64 [[INDVARS_IV]]
-; CHECK-NEXT:    [[VAL:%.*]] = load i32, i32* [[X:%[^ ,]*]]
+; CHECK-NEXT:    [[VAL:%.*]] = load i32, i32* [[X:%.*]], align 4
 ; CHECK-NEXT:    br label [[CODEREPL:%.*]]
 ; CHECK:       codeRepl:
 ; CHECK-NEXT:    [[LT_CAST:%.*]] = bitcast i32* [[PHI_RES_LOC]] to i8*
 ; CHECK-NEXT:    call void @llvm.lifetime.start.p0i8(i64 -1, i8* [[LT_CAST]])
 ; CHECK-NEXT:    call void @var_tripcount.ordered.simd.region(i32 [[VAL]], i32* [[ARRAYIDX]], i32 [[N]], i32* [[PHI_RES_LOC]])
-; CHECK-NEXT:    [[PHI_RES_RELOAD:%.*]] = load i32, i32* [[PHI_RES_LOC]]
+; CHECK-NEXT:    [[PHI_RES_RELOAD:%.*]] = load i32, i32* [[PHI_RES_LOC]], align 4
 ; CHECK-NEXT:    call void @llvm.lifetime.end.p0i8(i64 -1, i8* [[LT_CAST]])
 ; CHECK-NEXT:    br label [[LATCH]]
 ; CHECK:       latch:
