@@ -81,7 +81,7 @@ entry:
 ; CHECK-LABEL: Function: test04:
 ; CHECK: Both ModRef:  Ptr: i8* %call1	<->  %tmp = call i32 (%struct._IO_FILE*, i8*, ...) @fprintf(%struct._IO_FILE* %fp, i8* getelementptr inbounds ([13 x i8], [13 x i8]* @.str4, i64 0, i64 0), i32* %arindex5)
 ; CHECK: Both ModRef:  Ptr: i32* %ar1	<->  %tmp = call i32 (%struct._IO_FILE*, i8*, ...) @fprintf(%struct._IO_FILE* %fp, i8* getelementptr inbounds ([13 x i8], [13 x i8]* @.str4, i64 0, i64 0), i32* %arindex5)
-; CHECH:   Both ModRef:  Ptr: i32* %arindex5	<->  %tmp = call i32 (%struct._IO_FILE*, i8*, ...) @fprintf(%struct._IO_FILE* %fp, i8* getelementptr inbounds ([13 x i8], [13 x i8]* @.str4, i64 0, i64 0), i32* %arindex5)
+; CHECK:   Both ModRef:  Ptr: i32* %arindex5	<->  %tmp = call i32 (%struct._IO_FILE*, i8*, ...) @fprintf(%struct._IO_FILE* %fp, i8* getelementptr inbounds ([13 x i8], [13 x i8]* @.str4, i64 0, i64 0), i32* %arindex5)
 
 ; Test with library call using a format string that modifies the memory of the parameter and
 ; the %n has a length modifier.
