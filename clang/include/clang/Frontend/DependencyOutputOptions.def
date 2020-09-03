@@ -34,6 +34,8 @@ TYPED_DEPENDENCY_OUTPUTOPT(DependencyOutputFormat, OutputFormat, "The format for
 
 TYPED_DEPENDENCY_OUTPUTOPT(std::string, OutputFile, "The file to write dependency output to.")
 
+TYPED_DEPENDENCY_OUTPUTOPT(std::string, DependencyFilter, "Dependency output which is prefixed with this string is filtered from the dependency output.")
+
 TYPED_DEPENDENCY_OUTPUTOPT(std::string, HeaderIncludeOutputFile, "The file to write header include output to. This is orthogonal to ShowHeaderIncludes (-H) and will include headers mentioned in the predefines buffer. If the output file is \"-\", output will be sent to stderr.")
 
 TYPED_DEPENDENCY_OUTPUTOPT(std::vector<std::string>, Targets, "A list of names to use as the targets in the dependency file; this list must contain at least one entry.")
