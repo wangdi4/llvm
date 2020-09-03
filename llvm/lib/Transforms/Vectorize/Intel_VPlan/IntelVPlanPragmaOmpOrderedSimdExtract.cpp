@@ -148,7 +148,8 @@ bool VPlanPragmaOmpOrderedSimdExtractImpl::runImpl(Module &M, DomT DT,
           nullptr);
 
       CodeExtractorAnalysisCache CEAC(*F);
-      Function *NewFunc = Extractor.extractCodeRegion(CEAC);
+      Function *NewFunc =
+          Extractor.extractCodeRegion(CEAC, true /* fix alloca */);
       if (!NewFunc) {
         LLVM_DEBUG(dbgs() << "Code extractor failed to remove the order region."
                           << "\n");

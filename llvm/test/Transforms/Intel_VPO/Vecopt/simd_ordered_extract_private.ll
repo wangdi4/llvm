@@ -11,11 +11,11 @@ target triple = "x86_64-unknown-linux-gnu"
 define void @var_tripcount(i32* %ip, i32 %n, i32* %x) local_unnamed_addr {
 ; CHECK-LABEL: @var_tripcount(
 ; CHECK-NEXT:  entry:
-; CHECK-NEXT:    [[ADD_LOC:%.*]] = alloca i32
+; CHECK-NEXT:    [[ADD_LOC:%.*]] = alloca i32, align 4
 ; CHECK-NEXT:    [[ARR_PRIV:%.*]] = alloca [1024 x i32], align 4
 ; CHECK-NEXT:    br label [[DIR_QUAL_LIST_END_1:%.*]]
 ; CHECK:       DIR.QUAL.LIST.END.1:
-; CHECK-NEXT:    [[ENTRY_REGION:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.PRIVATE"([1024 x i32]* [[ARR_PRIV]]) ]
+; CHECK-NEXT:    [[ENTRY_REGION:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.PRIVATE"([1024 x i32]* [[ARR_PRIV]]), "QUAL.OMP.PRIVATE"(i32* [[ADD_LOC]]) ]
 ; CHECK-NEXT:    br label [[DIR_QUAL_LIST_END_2:%.*]]
 ; CHECK:       DIR.QUAL.LIST.END.2:
 ; CHECK-NEXT:    [[CMP1:%.*]] = icmp sgt i32 [[N:%.*]], 0
@@ -31,7 +31,7 @@ define void @var_tripcount(i32* %ip, i32 %n, i32* %x) local_unnamed_addr {
 ; CHECK-NEXT:    [[LT_CAST:%.*]] = bitcast i32* [[ADD_LOC]] to i8*
 ; CHECK-NEXT:    call void @llvm.lifetime.start.p0i8(i64 -1, i8* [[LT_CAST]])
 ; CHECK-NEXT:    call void @var_tripcount.ordered.simd.region([1024 x i32]* [[ARR_PRIV]], i64 [[INDVARS_IV]], i32* [[ADD_LOC]])
-; CHECK-NEXT:    [[ADD_RELOAD:%.*]] = load i32, i32* [[ADD_LOC]]
+; CHECK-NEXT:    [[ADD_RELOAD:%.*]] = load i32, i32* [[ADD_LOC]], align 4
 ; CHECK-NEXT:    call void @llvm.lifetime.end.p0i8(i64 -1, i8* [[LT_CAST]])
 ; CHECK-NEXT:    br label [[LATCH]]
 ; CHECK:       latch:

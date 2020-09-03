@@ -11,13 +11,13 @@ define void @var_tripcount(i32* %ip, i32 %n, i32* %x) local_unnamed_addr {
 ; CHECK-LABEL: @var_tripcount(
 ; CHECK-NEXT:  entry:
 ; CHECK-NEXT:    [[VAL_LOC:%.*]] = alloca i32, align 4
-; CHECK-NEXT:    br label [[DIRECTIVE_BB:%.*]]
-; CHECK:       directive.bb:
-; CHECK-NEXT:    [[ENTRY_REGION:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"() ]
+; CHECK-NEXT:    br label [[DIR_OMP_SIMD_1:%.*]]
+; CHECK:       DIR.OMP.SIMD.1:
+; CHECK-NEXT:    [[ENTRY_REGION:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.PRIVATE"(i32* [[VAL_LOC]]) ]
 ; CHECK-NEXT:    br label [[DIR_QUAL_LIST_END_2:%.*]]
 ; CHECK:       DIR.QUAL.LIST.END.2:
 ; CHECK-NEXT:    [[CMP5:%.*]] = icmp sgt i32 [[N:%.*]], 0
-; CHECK-NEXT:    br i1 [[CMP5]], label [[FOR_BODY_PREHEADER:%.*]], label [[FOR_COND_CLEANUP:%.*]]
+; CHECK-NEXT:    br i1 [[CMP5]], label [[FOR_BODY_PREHEADER:%.*]], label [[DIR_OMP_END_SIMD_1:%.*]]
 ; CHECK:       for.body.preheader:
 ; CHECK-NEXT:    [[WIDE_TRIP_COUNT:%.*]] = zext i32 [[N]] to i64
 ; CHECK-NEXT:    br label [[FOR_BODY:%.*]]
@@ -40,23 +40,23 @@ define void @var_tripcount(i32* %ip, i32 %n, i32* %x) local_unnamed_addr {
 ; CHECK-NEXT:    [[EXITCOND:%.*]] = icmp eq i64 [[INDVARS_IV_NEXT]], [[WIDE_TRIP_COUNT]]
 ; CHECK-NEXT:    br i1 [[EXITCOND]], label [[FOR_END:%.*]], label [[FOR_BODY]]
 ; CHECK:       for.end:
-; CHECK-NEXT:    br label [[FOR_COND_CLEANUP]]
-; CHECK:       for.cond.cleanup:
+; CHECK-NEXT:    br label [[DIR_OMP_END_SIMD_1]]
+; CHECK:       DIR.OMP.END.SIMD.1:
 ; CHECK-NEXT:    call void @llvm.directive.region.exit(token [[ENTRY_REGION]]) [ "DIR.OMP.END.SIMD"() ]
 ; CHECK-NEXT:    br label [[DIR_QUAL_LIST_END_3:%.*]]
 ; CHECK:       DIR.QUAL.LIST.END.3:
 ; CHECK-NEXT:    ret void
 ;
 entry:
-  br label %directive.bb
+  br label %DIR.OMP.SIMD.1
 
-directive.bb:
+DIR.OMP.SIMD.1:
   %entry.region = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"() ]
   br label %DIR.QUAL.LIST.END.2
 
 DIR.QUAL.LIST.END.2:
   %cmp5 = icmp sgt i32 %n, 0
-  br i1 %cmp5, label %for.body.preheader, label %for.cond.cleanup
+  br i1 %cmp5, label %for.body.preheader, label %DIR.OMP.END.SIMD.1
 
 for.body.preheader:
   %wide.trip.count = zext i32 %n to i64
@@ -89,9 +89,9 @@ latch:
   br i1 %exitcond, label %for.end, label %for.body
 
 for.end:
-  br label %for.cond.cleanup
+  br label %DIR.OMP.END.SIMD.1
 
-for.cond.cleanup:
+DIR.OMP.END.SIMD.1:
   call void @llvm.directive.region.exit(token %entry.region) [ "DIR.OMP.END.SIMD"() ]
   br label %DIR.QUAL.LIST.END.3
 
