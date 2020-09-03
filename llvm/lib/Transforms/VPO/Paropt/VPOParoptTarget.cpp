@@ -857,6 +857,83 @@ bool VPOParoptTransform::callPushPopNumThreadsAtRegionBoundary(
   return true;
 }
 
+void VPOParoptTransform::renameDuplicateBasesInMapClauses(WRegionNode *W) {
+  if (!W->canHaveMap())
+    return;
+
+  SmallPtrSet<Value *, 16> Bases;
+  BasicBlock *CopyBlock = nullptr;
+
+  auto RenameBase = [this, W, &Bases, &CopyBlock](MapItem *Item, Use &Base) {
+    Value *Orig = Item->getOrig();
+    if (isa<Constant>(Orig))
+      return;
+
+    auto Res = Bases.insert(Orig);
+    if (Res.second)
+      return;
+
+    // We have already seen this base in the map clauses, so it has to be
+    // renamed. Create new empty block right before the entry block for new
+    // instructions.
+    if (!CopyBlock) {
+      CopyBlock = W->getEntryBBlock();
+      W->setEntryBBlock(SplitBlock(CopyBlock, &CopyBlock->front(), DT, LI));
+      W->populateBBSet(true);
+    }
+
+    // Add noop GEP that renames the value.
+    auto *Copy = GetElementPtrInst::CreateInBounds(
+        nullptr, Orig, ConstantInt::get(Type::getInt32Ty(F->getContext()), 0),
+        Orig->getName() + ".copy", CopyBlock->getTerminator());
+
+    Item->setOrig(Copy);
+    Base.set(Copy);
+  };
+
+  MapClause &Map = W->getMap();
+  auto MapIt = Map.begin();
+
+  auto *EntryDir = cast<IntrinsicInst>(W->getEntryDirective());
+  Use *EntryOps = EntryDir->getOperandList();
+
+  // Remove duplicate bases in directive's map bundles.
+  for (auto &BOI : make_range(std::next(EntryDir->bundle_op_info_begin()),
+                              EntryDir->bundle_op_info_end())) {
+    // Get clause ID and check if this is the clause of interest.
+    ClauseSpecifier CS(BOI.Tag->getKey());
+    if (!VPOAnalysisUtils::isMapClause(CS.getId()))
+      continue;
+
+    // Bundle operands.
+    MutableArrayRef<Use> Args(EntryOps + BOI.Begin, EntryOps + BOI.End);
+
+    // The code below replicates the logic of creating map items from the
+    // parsing routine WRegionNode::extractMapOpndList().
+    if (CS.getIsArraySection()) {
+      assert(MapIt != Map.end());
+      RenameBase(*MapIt++, Args[0]);
+    } else if (CS.getIsMapAggrHead() || CS.getIsMapAggr() || Args.size() == 4) {
+      bool AggrStartsNewStyleMapChain =
+          (!CS.getIsMapChainLink() && !CS.getIsMapAggrHead() &&
+           !CS.getIsMapAggr() && Args.size() == 4);
+
+      if (CS.getIsMapAggrHead() || AggrStartsNewStyleMapChain) {
+        // This bundle starts a new chain.
+        assert(MapIt != Map.end());
+        RenameBase(*MapIt++, Args[0]);
+      }
+    } else
+      // TODO: Remove this loop and add an assertion that non-chain maps should
+      // each have their own clause string.
+      // Scalar map items. Each of them has its own MapItem.
+      for (unsigned I = 0; I < Args.size(); ++I) {
+        assert(MapIt != Map.end());
+        RenameBase(*MapIt++, Args[I]);
+      }
+  }
+}
+
 // Generate the code for the directive omp target
 bool VPOParoptTransform::genTargetOffloadingCode(WRegionNode *W) {
 
@@ -869,6 +946,8 @@ bool VPOParoptTransform::genTargetOffloadingCode(WRegionNode *W) {
   resetValueInIsDevicePtrClause(W);
   resetValueInPrivateClause(W);
   resetValueInMapClause(W);
+
+  renameDuplicateBasesInMapClauses(W);
 
   // Set up Fn Attr for the new function
   Function *NewF = VPOParoptUtils::genOutlineFunction(*W, DT, AC);

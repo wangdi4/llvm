@@ -1024,6 +1024,9 @@ private:
   /// Reset the value of \p V in OpenMP clauses of \p W to be empty.
   void resetValueInOmpClauseGeneric(WRegionNode *W, Value *V);
 
+  /// Rename duplicate values in \p W's map clauses.
+  void renameDuplicateBasesInMapClauses(WRegionNode *W);
+
   /// \name Utilities to emit kmpc_spmd_push/pop_num_threads for offloading.
   ///
   /// Code generation like this is needed to support `omp_get_num_threads()`
