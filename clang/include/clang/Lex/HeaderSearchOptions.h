@@ -94,20 +94,9 @@ public:
         : Prefix(Prefix), IsSystemHeader(IsSystemHeader) {}
   };
 
-  /// If non-empty, the directory to use as a "virtual system root" for include
-  /// paths.
-  std::string Sysroot;
+  using PrebuiltModuleFilesTy = std::map<std::string, std::string, std::less<>>;
 
-  /// User specified include entries.
-  std::vector<Entry> UserEntries;
-
-  /// User-specified system header prefixes.
-  std::vector<SystemHeaderPrefix> SystemHeaderPrefixes;
-
-  /// The directory which holds the compiler resource files (builtin includes,
-  /// etc.).
-  std::string ResourceDir;
-
+<<<<<<< HEAD
   /// The directory used for the module cache.
   std::string ModuleCachePath;
 
@@ -203,24 +192,14 @@ public:
 
   /// Whether to validate system input files when a module is loaded.
   unsigned ModulesValidateSystemHeaders : 1;
+=======
+  using ModulesIgnoreMacrosTy =
+      llvm::SmallSetVector<llvm::CachedHashString, 16>;
+>>>>>>> 94b172ce8736b4cad8cb23342e131cfcfabeb996
 
-  // Whether the content of input files should be hashed and used to
-  // validate consistency.
-  unsigned ValidateASTInputFilesContent : 1;
-
-  /// Whether the module includes debug information (-gmodules).
-  unsigned UseDebugInfo : 1;
-
-  unsigned ModulesValidateDiagnosticOptions : 1;
-
-  unsigned ModulesHashContent : 1;
-
-  /// Whether we should include all things that could impact the module in the
-  /// hash.
-  ///
-  /// This includes things like the full header search path, and enabled
-  /// diagnostics.
-  unsigned ModulesStrictContextHash : 1;
+#define HEADERSEARCHOPT(Name, Bits, Description) unsigned Name : Bits;
+#define TYPED_HEADERSEARCHOPT(Type, Name, Description) Type Name;
+#include "clang/Lex/HeaderSearchOptions.def"
 
   HeaderSearchOptions(StringRef _Sysroot = "/")
       : Sysroot(_Sysroot), ModuleFormat("raw"), DisableModuleHash(false),
@@ -231,7 +210,9 @@ public:
         ModulesValidateSystemHeaders(false),
         ValidateASTInputFilesContent(false), UseDebugInfo(false),
         ModulesValidateDiagnosticOptions(true), ModulesHashContent(false),
-        ModulesStrictContextHash(false) {}
+        ModulesStrictContextHash(false),
+        ModuleCachePruneInterval(7 * 24 * 60 * 60),
+        ModuleCachePruneAfter(31 * 24 * 60 * 60), BuildSessionTimestamp(0) {}
 
   /// AddPath - Add the \p Path path to the specified \p Group list.
   void AddPath(StringRef Path, frontend::IncludeDirGroup Group,

@@ -44,6 +44,7 @@ enum ObjCXXARCStandardLibraryKind {
 /// used in preprocessor initialization to InitializePreprocessor().
 class PreprocessorOptions {
 public:
+<<<<<<< HEAD
   std::vector<std::pair<std::string, bool/*isUndef*/>> Macros;
   std::vector<std::string> Includes;
   std::vector<std::string> MacroIncludes;
@@ -157,6 +158,15 @@ public:
   /// by providing appropriate definitions to retrofit the standard library
   /// with support for lifetime-qualified pointers.
   ObjCXXARCStandardLibraryKind ObjCXXARCStandardLibrary = ARCXX_nolib;
+=======
+  using MacrosTy = std::vector<std::pair<std::string, bool>>;
+  using PrecompiledPreambleBytesTy = std::pair<unsigned, bool>;
+  using RemappedFilesTy = std::vector<std::pair<std::string, std::string>>;
+  using RemappedFileBuffersTy =
+      std::vector<std::pair<std::string, llvm::MemoryBuffer *>>;
+  using MacroPrefixMapTy =
+      std::map<std::string, std::string, std::greater<std::string>>;
+>>>>>>> 94b172ce8736b4cad8cb23342e131cfcfabeb996
 
   /// Records the set of modules
   class FailedModulesSet {
@@ -172,33 +182,21 @@ public:
     }
   };
 
-  /// The set of modules that failed to build.
-  ///
-  /// This pointer will be shared among all of the compiler instances created
-  /// to (re)build modules, so that once a module fails to build anywhere,
-  /// other instances will see that the module has failed and won't try to
-  /// build it again.
-  std::shared_ptr<FailedModulesSet> FailedModules;
+#define TYPED_PREPROCESSOROPT(Type, Name, Description) Type Name;
+#include "clang/Lex/PreprocessorOptions.def"
 
-  /// A prefix map for __FILE__ and __BASE_FILE__.
-  std::map<std::string, std::string, std::greater<std::string>> MacroPrefixMap;
-
-  /// Contains the currently active skipped range mappings for skipping excluded
-  /// conditional directives.
-  ///
-  /// The pointer is passed to the Preprocessor when it's constructed. The
-  /// pointer is unowned, the client is responsible for its lifetime.
-  ExcludedPreprocessorDirectiveSkipMapping
-      *ExcludedConditionalDirectiveSkipMappings = nullptr;
-
-  /// Set up preprocessor for RunAnalysis action.
-  bool SetUpStaticAnalyzer = false;
-
-  /// Prevents intended crashes when using #pragma clang __debug. For testing.
-  bool DisablePragmaDebugCrash = false;
-
-public:
-  PreprocessorOptions() : PrecompiledPreambleBytes(0, false) {}
+  PreprocessorOptions()
+      : UsePredefines(true), DetailedRecord(false), PCHWithHdrStop(false),
+        PCHWithHdrStopCreate(false), DisablePCHValidation(false),
+        AllowPCHWithCompilerErrors(false), DumpDeserializedPCHDecls(false),
+        PrecompiledPreambleBytes(0, false), GeneratePreamble(false),
+        WriteCommentListToPCH(true), SingleFileParseMode(false),
+        LexEditorPlaceholders(true), RemappedFilesKeepOriginalName(true),
+        RetainRemappedFileBuffers(false),
+        RetainExcludedConditionalBlocks(false),
+        ObjCXXARCStandardLibrary(ARCXX_nolib),
+        ExcludedConditionalDirectiveSkipMappings(nullptr),
+        SetUpStaticAnalyzer(false), DisablePragmaDebugCrash(false) {}
 
   void addMacroDef(StringRef Name) {
     Macros.emplace_back(std::string(Name), false);

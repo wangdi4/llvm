@@ -120,28 +120,13 @@ public:
     Embed_Marker    // Embed a marker as a placeholder for bitcode.
   };
 
-  // This field stores one of the allowed values for the option
-  // -fbasic-block-sections=.  The allowed values with this option are:
-  // {"labels", "all", "list=<file>", "none"}.
-  //
-  // "labels":      Only generate basic block symbols (labels) for all basic
-  //                blocks, do not generate unique sections for basic blocks.
-  //                Use the machine basic block id in the symbol name to
-  //                associate profile info from virtual address to machine
-  //                basic block.
-  // "all" :        Generate basic block sections for all basic blocks.
-  // "list=<file>": Generate basic block sections for a subset of basic blocks.
-  //                The functions and the machine basic block ids are specified
-  //                in the file.
-  // "none":        Disable sections/labels for basic blocks.
-  std::string BBSections;
-
   enum class FramePointerKind {
     None,        // Omit all frame pointers.
     NonLeaf,     // Keep non-leaf frame pointers.
     All,         // Keep all frame pointers.
   };
 
+<<<<<<< HEAD
   /// The code model to use (-mcmodel).
   std::string CodeModel;
 
@@ -191,12 +176,11 @@ public:
 
   /// The floating-point denormal mode to use.
   llvm::DenormalMode FPDenormalMode = llvm::DenormalMode::getIEEE();
+=======
+  using DebugPrefixMapTy = std::map<std::string, std::string>;
+>>>>>>> 94b172ce8736b4cad8cb23342e131cfcfabeb996
 
-  /// The floating-point denormal mode to use, for float.
-  llvm::DenormalMode FP32DenormalMode = llvm::DenormalMode::getIEEE();
-
-  /// The float precision limit to use, if non-empty.
-  std::string LimitFloatPrecision;
+  using CoverageVersionTy = char[4];
 
   struct BitcodeFileToLink {
     /// The filename of the bitcode file to link in.
@@ -211,6 +195,7 @@ public:
     unsigned LinkFlags = 0;
   };
 
+<<<<<<< HEAD
   /// The files specified here are linked in to the module before optimizations.
   std::vector<BitcodeFileToLink> LinkBitcodeFiles;
 
@@ -359,13 +344,16 @@ public:
   /// Most of the time this will be the full -cc1 command.
   const char *Argv0 = nullptr;
   ArrayRef<const char *> CommandLineArgs;
+=======
+>>>>>>> 94b172ce8736b4cad8cb23342e131cfcfabeb996
 
 public:
   // Define accessors/mutators for code generation options of enumeration type.
 #define CODEGENOPT(Name, Bits, Default)
-#define ENUM_CODEGENOPT(Name, Type, Bits, Default) \
-  Type get##Name() const { return static_cast<Type>(Name); } \
+#define ENUM_CODEGENOPT(Name, Type, Bits, Default)                             \
+  Type get##Name() const { return static_cast<Type>(Name); }                   \
   void set##Name(Type Value) { Name = static_cast<unsigned>(Value); }
+#define TYPED_CODEGENOPT(Type, Name, Description) Type Name;
 #include "clang/Basic/CodeGenOptions.def"
 
   CodeGenOptions();
