@@ -26,3 +26,17 @@ define void @scatter_alloca(<2 x double> %val, <2 x i1> %mask)  {
   call void @llvm.masked.scatter.v2f64.v2p0f64(<2 x double> %val, <2 x double*> %.splat, i32 8, <2 x i1> %mask)
   ret void
 }
+
+define void @scatter_splat_struct_gep({ double, double }* %ptr, <2 x double> %val, <2 x i1> %mask)  {
+; CHECK-LABEL: @scatter_splat_struct_gep(
+; CHECK-NEXT:    [[GEP:%.*]] = getelementptr { double, double }, { double, double }* [[PTR:%.*]], i64 0, i32 1
+; CHECK-NEXT:    [[TMP1:%.*]] = getelementptr double, double* [[GEP]], <2 x i64> zeroinitializer
+; CHECK-NEXT:    call void @llvm.masked.scatter.v2f64.v2p0f64(<2 x double> [[VAL:%.*]], <2 x double*> [[TMP1]], i32 8, <2 x i1> [[MASK:%.*]])
+; CHECK-NEXT:    ret void
+;
+  %gep = getelementptr { double, double }, { double, double }* %ptr, i32 0, i32 1
+  %.splatinsert = insertelement <2 x double*> undef, double* %gep, i64 0
+  %.splat = shufflevector <2 x double*> %.splatinsert, <2 x double*> undef, <2 x i32> zeroinitializer
+  call void @llvm.masked.scatter.v2f64.v2p0f64(<2 x double> %val, <2 x double*> %.splat, i32 8, <2 x i1> %mask)
+  ret void
+}
