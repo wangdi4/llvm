@@ -2359,19 +2359,6 @@ void VPOCodeGen::vectorizeStoreInstruction(VPInstruction *VPInst,
   Builder.CreateMaskedScatter(VecDataOp, ScatterPtr, Alignment, RepMaskValue);
 }
 
-bool VPOCodeGen::isVectorizableLoadStore(const VPValue *V) {
-  auto *VPLoadStore = dyn_cast<VPLoadStoreInst>(V);
-  if (!VPLoadStore)
-    return false;
-
-  // TODO: Load/store to struct types can be potentially vectorized by doing a
-  // wide load/store followed by shuffle + bitcast.
-  if (!isVectorizableTy(getLoadStoreType(VPLoadStore)))
-    return false;
-
-  return VPLoadStore->isSimple();
-}
-
 // This function returns computed addresses of memory locations which should be
 // accessed in the vectorized code. These addresses, take the form of a GEP
 // instruction, and this GEP is used as pointer operand of the resulting
