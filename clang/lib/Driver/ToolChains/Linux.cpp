@@ -576,19 +576,6 @@ void Linux::AddClangSystemIncludeArgs(const ArgList &DriverArgs,
     return;
 
 #if INTEL_CUSTOMIZATION
-  // Add Intel specific headers
-  if (D.IsIntelMode()) {
-    // deploy
-    addSystemInclude(DriverArgs, CC1Args, getDriver().Dir +
-                                          "/../compiler/include");
-    // IA32ROOT
-    const char * IA32Root = getenv("IA32ROOT");
-    if (IA32Root) {
-      SmallString<128> P(IA32Root);
-      llvm::sys::path::append(P, "include");
-      addSystemInclude(DriverArgs, CC1Args, P);
-    }
-  }
   // Add Intel performance library headers
   if (DriverArgs.hasArg(clang::driver::options::OPT_mkl_EQ)) {
     addSystemInclude(DriverArgs, CC1Args,

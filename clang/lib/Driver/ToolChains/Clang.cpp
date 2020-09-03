@@ -1387,6 +1387,25 @@ void Clang::AddPreprocessingOptions(Compilation &C, const JobAction &JA,
   // OBJCPLUS_INCLUDE_PATH - system includes enabled when compiling ObjC++.
   addDirectoryList(Args, CmdArgs, "-objcxx-isystem", "OBJCPLUS_INCLUDE_PATH");
 
+#if INTEL_CUSTOMIZATION
+  // Add Intel specific headers
+  if (D.IsIntelMode()) {
+    SmallString<128> IntelDir(D.Dir);
+    llvm::sys::path::append(IntelDir, "..");
+    llvm::sys::path::append(IntelDir, "compiler");
+    llvm::sys::path::append(IntelDir, "include");
+    CmdArgs.push_back("-internal-isystem");
+    CmdArgs.push_back(Args.MakeArgString(IntelDir));
+    // IA32ROOT
+    const char * IA32Root = getenv("IA32ROOT");
+    if (IA32Root) {
+      SmallString<128> P(IA32Root);
+      llvm::sys::path::append(P, "include");
+      CmdArgs.push_back("-internal-isystem");
+      CmdArgs.push_back(Args.MakeArgString(P));
+    }
+  }
+#endif // INTEL_CUSTOMIZATION
   // While adding the include arguments, we also attempt to retrieve the
   // arguments of related offloading toolchains or arguments that are specific
   // of an offloading programming model.
