@@ -1983,13 +1983,12 @@ void RegDDRef::clear(bool AssumeLvalIfDetached) {
 }
 
 RegDDRef *RegDDRef::simplifyConstArray() {
-  if (!isMemRef() || !accessesConstantArray()) {
+  if (!isMemRef() || !accessesConstantArray() || getBitCastDestType()) {
     return nullptr;
   }
 
   bool Precise;
-  auto *LocationGEP =
-      dyn_cast<GetElementPtrInst>(getLocationPtr(Precise));
+  auto *LocationGEP = dyn_cast<GetElementPtrInst>(getLocationPtr(Precise));
   if (!LocationGEP || !Precise) {
     return nullptr;
   }
