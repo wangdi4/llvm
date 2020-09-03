@@ -521,7 +521,7 @@ Type *calcCharacteristicType(Type *ReturnType, RangeIterator Args,
 /// Helper function that returns widened type of given type \p Ty.
 inline VectorType *getWidenedType(Type *Ty, unsigned VF) {
   unsigned NumElts =
-      Ty->isVectorTy() ? cast<VectorType>(Ty)->getNumElements() * VF : VF;
+      Ty->isVectorTy() ? cast<FixedVectorType>(Ty)->getNumElements() * VF : VF;
   return FixedVectorType::get(Ty->getScalarType(), NumElts);
 }
 
