@@ -6514,6 +6514,8 @@ static bool
 getRefinedFlagsUsingConstantFolding(const Value *Val, unsigned OrigOpcode,
                                     const OverflowingBinaryOperator *UserBinOp,
                                     SCEV::NoWrapFlags &Flags) {
+  if (!UserBinOp)
+    return false;
 
   unsigned Size = UserBinOp->getType()->getPrimitiveSizeInBits();
   // Shl is multiplication with power of 2 so identity of 1 works.
