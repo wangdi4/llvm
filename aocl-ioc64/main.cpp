@@ -78,11 +78,13 @@ static cl::opt<std::string> BuildOptions("bo", cl::desc("Build options"));
 namespace {
 // Avoid conflict with 'link' from unistd.h included from the OpenCL includes
 enum Commands { build, compile, link };
-static cl::opt<Commands>
-    Command("cmd", cl::desc("Command"),
-            cl::values(clEnumVal(build, "Build OpenCL .obj file"),
-                       clEnumVal(compile, "Compile from OpenCL source to .obj"),
-                       clEnumVal(link, "Link OpenCL .obj file(s)")));
+static cl::opt<Commands> Command(
+    "cmd", cl::desc("Command"),
+    cl::values(
+        clEnumVal(build,
+                  "Build executable IR from OpenCL source or OpenCL .obj file"),
+        clEnumVal(compile, "Compile from OpenCL source to .obj"),
+        clEnumVal(link, "Link OpenCL .obj file(s)")));
 } // namespace
 
 enum SupportedDevices { fpga_fast_emu };
@@ -466,29 +468,78 @@ static int linkProgram() {
 }
 
 static int buildProgram() {
-  std::cout << "Using build options: " << BuildOptions << '\n';
+  cl_int clErr = 0;
   discoverCPUType();
   int retcode = loadOpenCLContext();
   if (retcode) {
     exit(1);
   }
 
-  std::list<std::string> binaries;
-  cl_program_sptr progs;
+  if (Binaries.getNumOccurrences()) {
+    // Use Binaries as input
+    std::list<std::string> binaries;
+    cl_program_sptr progs;
+    std::cout << "Using build options: " << BuildOptions << '\n';
+    binaries.push_back(Binaries);
+    DEBUG(dbgs() << "Binary: " << Binaries << '\n');
+    progs = getProgramsFromBinaries(binaries, context, device);
+    if (!progs) {
+      clReleaseContext(context);
+      context = nullptr;
+      DEBUG(dbgs() << "Failed to get program array from binary file\n");
+      return CL_ERR_FAILURE;
+    }
+    clErr = clBuildProgram(*progs, 1, &device, BuildOptions.c_str(), nullptr,
+                           nullptr);
+  } else if ((Input.getNumOccurrences())) {
+    // Use OpenCL source file as input
+    // Add the parent path to the options as an include path.
+    std::string options = BuildOptions;
+    auto parent_dir = sys::path::parent_path(Input);
+    if (!parent_dir.empty()) {
+      options += " -I \"";
+      options += parent_dir;
+      options += "\"";
+    }
+    std::cout << "Using build options: " << options << '\n';
+    DEBUG(dbgs() << "Reading input file: " << Input << '\n');
+    sys::fs::file_status file_stat;
+    auto err = sys::fs::status(Input, file_stat);
+    if (err) {
+      std::cout << "Unable to open input file '" << Input
+                << "', error: " << err.message() << '\n';
+      exit(1);
+    }
+    std::ifstream inputFile(Input.c_str());
+    std::string code((std::istreambuf_iterator<char>(inputFile)),
+                     (std::istreambuf_iterator<char>()));
+    inputFile.close();
 
-  // use Binaries as one input file
-  binaries.push_back(Binaries);
-  DEBUG(dbgs() << "Binary: " << Binaries << '\n');
-  progs = getProgramsFromBinaries(binaries, context, device);
-  if (!progs) {
-    clReleaseContext(context);
-    context = nullptr;
-    DEBUG(dbgs() << "Failed to get program array from binary file\n");
-    return CL_ERR_FAILURE;
+    if (trim(code).empty()) {
+      std::cout << "File " << Input << " contains no code.\n";
+      exit(1);
+    }
+
+    DEBUG(dbgs() << "Creating program...\n");
+    const char *oclCode = code.c_str();
+
+    program = clCreateProgramWithSource(context, 1, (const char **)&oclCode,
+                                        nullptr, &clErr);
+    if (CL_FAILED(clErr) || 0 == program) {
+      DEBUG(if (CL_FAILED(clErr)) {
+        dbgs() << "clCreateProgramWithSource failed: " << clErr << '\n';
+      } else { dbgs() << "clCreateProgramWithSource return 0 program\n"; });
+      clReleaseContext(context);
+      context = 0;
+      DEBUG(dbgs() << formatClError("Failed to create program from source...",
+                                    clErr)
+                   << '\n');
+      return 1;
+    }
+    clErr = clBuildProgram(program, 1, &device, BuildOptions.c_str(), nullptr,
+                           nullptr);
   }
-  cl_int clErr;
-  clErr = clBuildProgram(*progs, 1, &device, BuildOptions.c_str(), nullptr,
-                         nullptr);
+
   std::string build_log;
   GetBuildLog(program, device, build_log);
   std::cout << build_log;
@@ -605,8 +656,13 @@ int main(int argc, char **argv) {
     }
     retcode = linkProgram();
   } else if (Command == build) {
-    if (!Binaries.getNumOccurrences()) {
-      std::cerr << "-cmd=build needs -binary option\n";
+    if (!Input.getNumOccurrences() && !Binaries.getNumOccurrences()) {
+      std::cerr << "-cmd=build needs -input or -binary option\n";
+      exit(1);
+    }
+    // Ensure we don't have both
+    if (Input.getNumOccurrences() && Binaries.getNumOccurrences()) {
+      std::cerr << "-cmd=build accepts only one of -binary or -input option\n";
       exit(1);
     }
     if (!IR.getNumOccurrences()) {
