@@ -45,6 +45,7 @@ public:
   CommonOCLBuilder& withFP64Support(bool );
   CommonOCLBuilder& withImageSupport(bool );
   CommonOCLBuilder& withFpgaEmulator(bool );
+  CommonOCLBuilder& withEyeQEmulator(bool );
   //cleanup function
   void close();
 
@@ -79,6 +80,8 @@ private:
   bool m_bSupportImages;
   // Indicates whether FPGA emulation is supported by the device
   bool m_bFpgaEmulator;
+  // Indicates whether EyeQ emulation is supported by the device
+  bool m_bEyeQEmulator;
 };
 
 }}} // Namespaces
