@@ -1214,6 +1214,8 @@ void VPOParoptTransform::genTgtInformationForPtrs(
     if (!ForceMapping &&
         (MapI->getOrig() != V || !MapI->getOrig()))
       continue;
+    LLVM_DEBUG(dbgs() << __FUNCTION__ << ": Working with Map Item: '";
+               MapI->dump(); dbgs() << "'.\n");
     Type *T = MapI->getOrig()->getType()->getPointerElementType();
     if (MapI->getIsMapChain()) {
       uint64_t MapTypeIndexForBaseOfChain = MapTypes.size() + 1;
@@ -1307,29 +1309,6 @@ void VPOParoptTransform::genTgtInformationForPtrs(
     }
   }
 
-  if (W->canHaveIsDevicePtr()) {
-    IsDevicePtrClause &IDevicePtrClause = W->getIsDevicePtr();
-    for (IsDevicePtrItem *IsDevicePtrI : IDevicePtrClause.items()) {
-      if (IsDevicePtrI->getOrig() != V)
-        continue;
-      Type *T = V->getType();
-      ConstSizes.push_back(
-          ConstantInt::get(Type::getInt64Ty(C), DL.getTypeAllocSize(T)));
-      // Example:
-      //   int *p;
-      //   #pragma omp target is_device_ptr(p)
-      //
-      // The IR will look like:
-      //   %p = load i32* i32** @p
-      //   ...IS_DEVICE_PTR(i32* %p) PRIVATE(i32** @p)
-      //   store i32* %p, i32** @p
-      //
-      // We have to map 'p' as MAP_TYPE_LITERAL so that we pass the value
-      // of the pointer as is to the target construct without mapping/
-      // allocating memory.
-      MapTypes.push_back(TGT_MAP_TARGET_PARAM | TGT_MAP_LITERAL);
-    }
-  }
   if (isa<WRNTargetNode>(W) && W->getParLoopNdInfoAlloca() == V) {
     Type *T = W->getParLoopNdInfoAlloca()->getType()->getPointerElementType();
     ConstSizes.push_back(ConstantInt::get(Type::getInt64Ty(C),
@@ -1677,6 +1656,120 @@ bool VPOParoptTransform::addMapForUseDevicePtr(WRegionNode *W,
                dbgs() << "'.\n");
   }
   return true;
+}
+
+/// Convert 'IS_DEVICE_PTR' clauses in \p W to MAP, and
+/// 'IS_DEVICE_PTR:PTR_TO_PTR' clauses to MAP + PRIVATE.
+///
+/// \code
+/// (A)
+/// --------------------------------------+------------------------------------
+///         Before                        |      After
+/// --------------------------------------+------------------------------------
+///                                       |
+/// "IS.DEVICE.PTR" (i32* %a.load)        | "IS_DEVICE_PTR(i32* %a.load)
+///                                      (1) "MAP"(i32* %a.load, PARAM|LITERAL)
+///                                       |
+///
+/// (B)
+/// --------------------------------------+------------------------------------
+///         Before                        |      After
+/// --------------------------------------+------------------------------------
+///                                      (2) %a.load = load i32*, i32** %a
+///                                       |
+/// "IS.DEVICE.PTR:PTR_TO_PTR" (i32** %a) | "IS_DEVICE_PTR:PTR_TO_PTR(i32** %a)
+///                                      (3) "MAP"(i32* %a.load, PARAM|LITERAL)
+///                                      (4) "PRIVATE(i32** %a)
+///                                       |
+///                                      (5) store i32* %a.load, i32** %a
+///                                       |
+/// \endcode
+/// Note that (1), (3) and (4) are not added to the IR, just the data structures
+/// in \p W.
+bool VPOParoptTransform::addMapAndPrivateForIsDevicePtr(WRegionNode *W) {
+  assert(W && "Null WRegionNode.");
+
+  if (!W->canHaveIsDevicePtr())
+    return false;
+
+  IsDevicePtrClause &IDPC = W->getIsDevicePtr();
+  if (IDPC.empty())
+    return false;
+
+  const DataLayout &DL = F->getParent()->getDataLayout();
+  uint64_t Size = DL.getPointerSizeInBits() / 8;
+  uint64_t MapType = TGT_MAP_TARGET_PARAM | TGT_MAP_LITERAL;
+  auto *MapSize = ConstantInt::get(Type::getInt64Ty(F->getContext()), Size);
+
+  MapClause &MapC = W->getMap();
+
+  auto addMapForValue = [&MapC, &MapSize, &MapType](Value *V) {
+    MapAggrTy *MapAggr = new MapAggrTy(V, V, MapSize, MapType);
+    MapItem *MapI = new MapItem(MapAggr);
+    MapI->setOrig(V);
+    MapC.add(MapI);
+  };
+
+  bool Changed = false;
+  bool SeenPtrToPtrOperands = false;
+
+  auto addMapIfNotPtrToPtr = [&](IsDevicePtrItem *IDPI) {
+    if (IDPI->getIsPointerToPointer()) {
+      SeenPtrToPtrOperands = true;
+      return;
+    }
+    Value *IDP = IDPI->getOrig();
+    addMapForValue(IDP); //                                             (1)
+    LLVM_DEBUG(dbgs() << "addMapIfNotPtrToPtr: Converted 'is_device_ptr(";
+               IDP->printAsOperand(dbgs()); dbgs() << ")' to 'map(";
+               IDP->printAsOperand(dbgs());
+               dbgs() << ", TGT_PARAM | TGT_LITERAL)'.\n");
+    Changed = true;
+  };
+
+  // (A) First, handle all "IS_DEVICE_PTR" clauses without PTR_TO_PTR modifiers.
+  std::for_each(IDPC.items().begin(), IDPC.items().end(), addMapIfNotPtrToPtr);
+  if (!SeenPtrToPtrOperands)
+    return Changed;
+
+  // (B) Handle clauses with PTR_TO_PTR modifiers next.
+
+  // Create an empty BB before the entry BB, to insert the load (2).
+  BasicBlock *EntryBB = W->getEntryBBlock();
+  BasicBlock *NewEntryBB =
+      SplitBlock(EntryBB, EntryBB->getFirstNonPHI(), DT, LI);
+  W->setEntryBBlock(NewEntryBB);
+  W->populateBBSet(true); // rebuild BBSet unconditionally as EntryBB changed
+  Instruction *LoadInsertPt = EntryBB->getTerminator();
+
+  // Create an empty BB after the Entry BB to insert the store (5).
+  BasicBlock *StoreBB = createEmptyPrivInitBB(W);
+
+  IRBuilder<> LoadBuilder(LoadInsertPt);
+  IRBuilder<> StoreBuilder(StoreBB->getTerminator());
+  PrivateClause &PC = W->getPriv();
+
+  for (IsDevicePtrItem *IDPI : IDPC.items()) {
+    Value *IDP = IDPI->getOrig();
+    if (!IDPI->getIsPointerToPointer()) // Already handled above
+      continue;
+
+    Value *IDPLoad = LoadBuilder.CreateLoad(
+        cast<PointerType>(IDP->getType())->getPointerElementType(), IDP,
+        IDP->getName() + ".load"); //                                   (2)
+    addMapForValue(IDPLoad); //                                         (3)
+    PC.add(IDP); //                                                     (4)
+    StoreBuilder.CreateStore(IDPLoad, IDP); //                          (5)
+
+    LLVM_DEBUG(dbgs() << __FUNCTION__
+                      << ": Converted 'is_device_ptr:ptr_to_ptr(";
+               IDP->printAsOperand(dbgs()); dbgs() << ")' to 'map(";
+               IDPLoad->printAsOperand(dbgs());
+               dbgs() << ", TGT_PARAM | TGT_LITERAL) private(";
+               IDP->printAsOperand(dbgs()); dbgs() << ")'.\n");
+    Changed = true;
+  }
+  return Changed;
 }
 
 // For the following code:
