@@ -1660,7 +1660,8 @@ cl_err_code NDRangeKernelCommand::Init()
             // Shared system USM has already been checked in SetKernelExecInfo,
             // so here we only check cross shared access.
             cl_device_id bufDeviceId = buf->GetDevice();
-            if (!crossSharedCaps && queueDeviceId != bufDeviceId)
+            if (!crossSharedCaps && bufDeviceId &&
+                queueDeviceId != bufDeviceId)
                 return CL_INVALID_OPERATION;
 
             cl_unified_shared_memory_type_intel type = buf->GetType();
@@ -1694,7 +1695,8 @@ cl_err_code NDRangeKernelCommand::Init()
     for (USMBuffer *buf : m_pKernel->GetUsmArgs()) {
         if (nullptr != buf) {
             cl_device_id bufDeviceId = buf->GetDevice();
-            if (!crossSharedCaps && queueDeviceId != bufDeviceId)
+            if (!crossSharedCaps && bufDeviceId &&
+                queueDeviceId != bufDeviceId)
                 return CL_INVALID_OPERATION;
         } else if (!systemCaps)
             return CL_INVALID_OPERATION;
