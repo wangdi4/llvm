@@ -42,7 +42,7 @@
 // default header behavior with --intel
 // RUN: %clang -### -c --intel -target x86_64-unknown-linux-gnu %s 2>&1 | FileCheck -check-prefix CHECK-INTEL-HEADER %s
 // RUN: %clang_cl -### -c --intel %s 2>&1 | FileCheck -check-prefix CHECK-INTEL-HEADER %s
-// CHECK-INTEL-HEADER: "-internal-isystem" "{{.*}}../compiler/include"
+// CHECK-INTEL-HEADER: "-internal-isystem" "{{.*}}..{{(/|\\\\)}}compiler{{(/|\\\\)}}include"
 
 // -O2 should be not be set when any other -O is passed
 // RUN: %clang -### -c --intel -O0 %s 2>&1 | FileCheck -check-prefix CHECK-INTEL-O0 %s
