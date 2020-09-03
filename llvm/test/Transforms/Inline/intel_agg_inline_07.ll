@@ -1,4 +1,3 @@
-; REQUIRES: asserts
 ; RUN: opt < %s -whole-program-assume -agginliner -inline -inline-threshold=-50 -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -S 2>&1 | FileCheck %s
 ; RUN: opt < %s -whole-program-assume -passes='module(agginliner),cgscc(inline)' -inline-threshold=-50 -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -S 2>&1 | FileCheck %s
 ; RUN: opt < %s -whole-program-assume -agginliner -inline -inline-threshold=-50 -mtriple=i686-- -mattr=+avx2 -S 2>&1 | FileCheck %s
