@@ -56,13 +56,6 @@ static cl::opt<uint64_t> InlineAggressiveInstLimit("inline-agg-inst-limit",
                                                    cl::init(0x3000),
                                                    cl::ReallyHidden);
 
-// Use escape analysis to find the uses of an Argument of a GV in the
-// SingleAccessFunctionGlobalVarHeuristic. I am leaving this at 'false'
-// until additional required optimizations on Windows are implemented.
-static cl::opt<bool> InlineAggressiveFindGVEscs("inline-agg-find-gv-escs",
-                                                cl::init(false),
-                                                cl::ReallyHidden);
-
 // Maximum number of Global variable's uses allowed.
 static const unsigned MaxNumGVUses = 16;
 
@@ -580,54 +573,45 @@ bool InlineAggressiveInfo::analyzeSingleAccessFunctionGlobalVarHeuristic(
     }
   };
 
+  using ALFMap = DenseMap<Function *, SmallPtrSet<Argument *, 4>>;
+
   // Returns true if 'F' doesn't have any user calls except tiny alloc/free
-  // wrapper calls. If 'InlineAggressiveFindGVEscs', ignore calls that are
-  // not reachable from 'A'. Get almost leaf info from AlmostLeafFunctionMap
-  // if already computed.
+  // wrapper calls. Ignore calls that are not reachable from 'A'. Get almost
+  // leaf info from AlmostLeafFunctionMap if already computed.
   auto IsAlmostLeafFunction =
       [&IsTinyAllocFreeCall,
-       &FindEscCBs](Function *F, Argument *A,
-                    DenseMap<Function *, bool> &AlmostLeafFunctionMap) {
+       &FindEscCBs](Function *F, Argument *A, ALFMap &IsALFMap,
+                    ALFMap &IsNotALFMap) -> bool {
         bool IsLeaf = true;
         if (!A)
           return false;
-
-        if (AlmostLeafFunctionMap.find(F) != AlmostLeafFunctionMap.end()) {
-          IsLeaf = AlmostLeafFunctionMap[F];
-        } else {
-          if (InlineAggressiveFindGVEscs) {
-            SmallPtrSet<CallBase *, 4> EscCBs;
-            FindEscCBs(F, A, EscCBs);
-            for (auto Call : EscCBs) {
-              // Tiny alloc/free wrapper calls are allowed.
-              if (IsTinyAllocFreeCall(Call))
-                continue;
-              // Any call to user function (except tiny alloc/free wrapper
-              // calls) is considered as not leaf.
-              Function *Callee = Call->getCalledFunction();
-              if (!Callee || !Callee->isDeclaration()) {
-                IsLeaf = false;
-                break;
-              }
-            }
-          } else {
-            for (const auto &I : instructions(F)) {
-              if (auto *Call = dyn_cast<CallBase>(&I)) {
-                // Tiny alloc/free wrapper calls are allowed.
-                if (IsTinyAllocFreeCall(Call))
-                  continue;
-                // Any call to user function (except tiny alloc/free wrapper
-                // calls) is considered as not leaf.
-                Function *Callee = Call->getCalledFunction();
-                if (!Callee || !Callee->isDeclaration()) {
-                  IsLeaf = false;
-                  break;
-                }
-              }
-            }
+        // Test the maps to see if we already have computed the answer.
+        auto It = IsALFMap.find(F);
+        if (It != IsALFMap.end() && It->second.count(A))
+           return true;
+        It = IsNotALFMap.find(F);
+        if (It != IsNotALFMap.end() && It->second.count(A))
+           return false;
+        // If not, compute the answer.
+        SmallPtrSet<CallBase *, 4> EscCBs;
+        FindEscCBs(F, A, EscCBs);
+        for (auto Call : EscCBs) {
+          // Tiny alloc/free wrapper calls are allowed.
+          if (IsTinyAllocFreeCall(Call))
+            continue;
+          // Any call to user function (except tiny alloc/free wrapper
+          // calls) is considered as not leaf.
+          Function *Callee = Call->getCalledFunction();
+          if (!Callee || !Callee->isDeclaration()) {
+            IsLeaf = false;
+            break;
           }
-          AlmostLeafFunctionMap[F] = IsLeaf;
         }
+        // Store the answer for future calls to IsAlmostLeafFunction.
+        if (IsLeaf)
+          IsALFMap[F].insert(A);
+        else
+          IsNotALFMap[F].insert(A);
         return IsLeaf;
       };
 
@@ -639,9 +623,8 @@ bool InlineAggressiveInfo::analyzeSingleAccessFunctionGlobalVarHeuristic(
 
   // Returns false if any call in InlineCalls is indirect/not-leaf.
   auto InlineCallsOkay =
-      [&IsAlmostLeafFunction](
-          ICItemSet &InlineCalls,
-          DenseMap<Function *, bool> &AlmostLeafFunctionMap) {
+      [&IsAlmostLeafFunction](ICItemSet &InlineCalls,
+                              ALFMap &IsALFMap, ALFMap &IsNotALFMap) {
         if (InlineCalls.size() > MaxNumInlineCalls)
           return false;
 
@@ -661,7 +644,7 @@ bool InlineAggressiveInfo::analyzeSingleAccessFunctionGlobalVarHeuristic(
             return false;
 
           // Make sure they are almost leaf.
-          if (!IsAlmostLeafFunction(F, A, AlmostLeafFunctionMap))
+          if (!IsAlmostLeafFunction(F, A, IsALFMap, IsNotALFMap))
             return false;
         }
         return true;
@@ -765,8 +748,13 @@ bool InlineAggressiveInfo::analyzeSingleAccessFunctionGlobalVarHeuristic(
   // Used to map function and calls that will be inlined into the function.
   DenseMap<Function *, SmallPtrSet<CallBase *, MaxNumInlineCalls>>
       InlineCallsInFunction;
-  // This map is used to avoid recomputation of leaf info.
-  DenseMap<Function *, bool> AlmostLeafFunctionMap;
+  // These maps are used to avoid recomputation of leaf info. 'IsALFMap'
+  // saves Arguments for which {Function *, Argument *} qualified as almost
+  // leaf function for all callsites reachable from Argument, 'IsNotALFMap'
+  // is for those Arguments for which {Function *, Argument *} did not
+  // qualify.
+  ALFMap IsALFMap;
+  ALFMap IsNotALFMap;
 
   LLVM_DEBUG(dbgs() << "AggInl: SingleAccessFunctionGlobalVarHeuristic\n");
 
@@ -786,7 +774,7 @@ bool InlineAggressiveInfo::analyzeSingleAccessFunctionGlobalVarHeuristic(
     LLVM_DEBUG(dbgs() << "   GV selected as candidate: " << GV.getName()
                       << "\n");
 
-    if (!InlineCallsOkay(InlineCalls, AlmostLeafFunctionMap)) {
+    if (!InlineCallsOkay(InlineCalls, IsALFMap, IsNotALFMap)) {
       LLVM_DEBUG(dbgs() << "   Ignored GV ... calls are not okay to inline\n");
       continue;
     }

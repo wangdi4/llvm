@@ -1,12 +1,12 @@
 ; This test case verifies that aggressive inlining is triggered using
-; "Single Access Function GlobalVar Heuristic" with "inline-agg-find-gv-escs"
-; enabled, because even though "bar3" calls "bar4" that calls "bar5",
-; the uses of @grad are not passed all the way down the call chain.
+; "Single Access Function GlobalVar Heuristic" enabled, because even though
+; "bar3" calls "bar4" that calls "bar5", the uses of @grad are not passed all
+; the way down the call chain.
 
 ; REQUIRES: asserts
 
-; RUN: opt < %s -agginliner -inline-agg-find-gv-escs -debug-only=agginliner -whole-program-assume -disable-output  2>&1 | FileCheck %s
-; RUN: opt < %s -passes='module(agginliner)' -inline-agg-find-gv-escs -debug-only=agginliner -whole-program-assume -disable-output  2>&1 | FileCheck %s
+; RUN: opt < %s -agginliner -debug-only=agginliner -whole-program-assume -disable-output  2>&1 | FileCheck %s
+; RUN: opt < %s -passes='module(agginliner)' -debug-only=agginliner -whole-program-assume -disable-output  2>&1 | FileCheck %s
 
 ; CHECK: AggInl: SingleAccessFunctionGlobalVarHeuristic
 ; CHECK: GV selected as candidate: grad
