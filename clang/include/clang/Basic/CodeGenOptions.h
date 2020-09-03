@@ -126,41 +126,6 @@ public:
     All,         // Keep all frame pointers.
   };
 
-<<<<<<< HEAD
-  /// The code model to use (-mcmodel).
-  std::string CodeModel;
-
-  /// The filename with path we use for coverage data files. The runtime
-  /// allows further manipulation with the GCOV_PREFIX and GCOV_PREFIX_STRIP
-  /// environment variables.
-  std::string CoverageDataFile;
-
-  /// The filename with path we use for coverage notes files.
-  std::string CoverageNotesFile;
-
-  /// Regexes separated by a semi-colon to filter the files to instrument.
-  std::string ProfileFilterFiles;
-
-  /// Regexes separated by a semi-colon to filter the files to not instrument.
-  std::string ProfileExcludeFiles;
-
-  /// The version string to put into coverage files.
-  char CoverageVersion[4];
-
-  /// Enable additional debugging information.
-  std::string DebugPass;
-
-  /// The string to embed in debug information as the current working directory.
-  std::string DebugCompilationDir;
-
-  /// The string to embed in the debug information for the compile unit, if
-  /// non-empty.
-  std::string DwarfDebugFlags;
-
-  /// The string containing the commandline for the llvm.commandline metadata,
-  /// if non-empty.
-  std::string RecordCommandLine;
-
 #if INTEL_CUSTOMIZATION
   // CQ#368125 - support for '/Fd' and '/Fo' options.
   /// The name of object file to emit MS debug info into.
@@ -168,17 +133,7 @@ public:
   /// The name of PDB file to emit MS debug info into.
   std::string MSOutputPdbFile;
 #endif //INTEL_CUSTOMIZATION
-
-  std::map<std::string, std::string> DebugPrefixMap;
-
-  /// The ABI to use for passing floating point arguments.
-  std::string FloatABI;
-
-  /// The floating-point denormal mode to use.
-  llvm::DenormalMode FPDenormalMode = llvm::DenormalMode::getIEEE();
-=======
   using DebugPrefixMapTy = std::map<std::string, std::string>;
->>>>>>> 94b172ce8736b4cad8cb23342e131cfcfabeb996
 
   using CoverageVersionTy = char[4];
 
@@ -195,157 +150,10 @@ public:
     unsigned LinkFlags = 0;
   };
 
-<<<<<<< HEAD
-  /// The files specified here are linked in to the module before optimizations.
-  std::vector<BitcodeFileToLink> LinkBitcodeFiles;
-
-  /// The user provided name for the "main file", if non-empty. This is useful
-  /// in situations where the input file name does not match the original input
-  /// file, for example with -save-temps.
-  std::string MainFileName;
-
-  /// The name for the split debug info file used for the DW_AT_[GNU_]dwo_name
-  /// attribute in the skeleton CU.
-  std::string SplitDwarfFile;
-
-  /// Output filename for the split debug info, not used in the skeleton CU.
-  std::string SplitDwarfOutput;
-
-  /// The name of the relocation model to use.
-  llvm::Reloc::Model RelocationModel;
-
-  /// The thread model to use
-  std::string ThreadModel;
-
-  /// If not an empty string, trap intrinsics are lowered to calls to this
-  /// function instead of to trap instructions.
-  std::string TrapFuncName;
-
 #if INTEL_CUSTOMIZATION
   /// OpenCL compile options to embed in the SPIR metadata
   std::string SPIRCompileOptions;
 #endif // INTEL_CUSTOMIZATION
-
-  /// A list of dependent libraries.
-  std::vector<std::string> DependentLibraries;
-
-  /// A list of linker options to embed in the object file.
-  std::vector<std::string> LinkerOptions;
-
-  /// Name of the profile file to use as output for -fprofile-instr-generate,
-  /// -fprofile-generate, and -fcs-profile-generate.
-  std::string InstrProfileOutput;
-
-  /// Name of the profile file to use with -fprofile-sample-use.
-  std::string SampleProfileFile;
-
-  /// Name of the profile file to use as input for -fprofile-instr-use
-  std::string ProfileInstrumentUsePath;
-
-  /// Name of the profile remapping file to apply to the profile data supplied
-  /// by -fprofile-sample-use or -fprofile-instr-use.
-  std::string ProfileRemappingFile;
-
-  /// Name of the function summary index file to use for ThinLTO function
-  /// importing.
-  std::string ThinLTOIndexFile;
-
-  /// Name of a file that can optionally be written with minimized bitcode
-  /// to be used as input for the ThinLTO thin link step, which only needs
-  /// the summary and module symbol table (and not, e.g. any debug metadata).
-  std::string ThinLinkBitcodeFile;
-
-  /// Prefix to use for -save-temps output.
-  std::string SaveTempsFilePrefix;
-
-  /// Name of file passed with -fcuda-include-gpubinary option to forward to
-  /// CUDA runtime back-end for incorporating them into host-side object file.
-  std::string CudaGpuBinaryFileName;
-
-  /// The name of the file to which the backend should save YAML optimization
-  /// records.
-  std::string OptRecordFile;
-
-  /// The regex that filters the passes that should be saved to the optimization
-  /// records.
-  std::string OptRecordPasses;
-
-  /// The format used for serializing remarks (default: YAML)
-  std::string OptRecordFormat;
-
-  /// The name of the partition that symbols are assigned to, specified with
-  /// -fsymbol-partition (see https://lld.llvm.org/Partitions.html).
-  std::string SymbolPartition;
-
-  /// Regular expression to select optimizations for which we should enable
-  /// optimization remarks. Transformation passes whose name matches this
-  /// expression (and support this feature), will emit a diagnostic
-  /// whenever they perform a transformation. This is enabled by the
-  /// -Rpass=regexp flag.
-  std::shared_ptr<llvm::Regex> OptimizationRemarkPattern;
-
-  /// Regular expression to select optimizations for which we should enable
-  /// missed optimization remarks. Transformation passes whose name matches this
-  /// expression (and support this feature), will emit a diagnostic
-  /// whenever they tried but failed to perform a transformation. This is
-  /// enabled by the -Rpass-missed=regexp flag.
-  std::shared_ptr<llvm::Regex> OptimizationRemarkMissedPattern;
-
-  /// Regular expression to select optimizations for which we should enable
-  /// optimization analyses. Transformation passes whose name matches this
-  /// expression (and support this feature), will emit a diagnostic
-  /// whenever they want to explain why they decided to apply or not apply
-  /// a given transformation. This is enabled by the -Rpass-analysis=regexp
-  /// flag.
-  std::shared_ptr<llvm::Regex> OptimizationRemarkAnalysisPattern;
-
-  /// Set of files defining the rules for the symbol rewriting.
-  std::vector<std::string> RewriteMapFiles;
-
-  /// Set of sanitizer checks that are non-fatal (i.e. execution should be
-  /// continued when possible).
-  SanitizerSet SanitizeRecover;
-
-  /// Set of sanitizer checks that trap rather than diagnose.
-  SanitizerSet SanitizeTrap;
-
-  /// List of backend command-line options for -fembed-bitcode.
-  std::vector<uint8_t> CmdArgs;
-
-  /// A list of all -fno-builtin-* function names (e.g., memset).
-  std::vector<std::string> NoBuiltinFuncs;
-
-  std::vector<std::string> Reciprocals;
-
-  /// The preferred width for auto-vectorization transforms. This is intended to
-  /// override default transforms based on the width of the architected vector
-  /// registers.
-  std::string PreferVectorWidth;
-
-  /// Set of XRay instrumentation kinds to emit.
-  XRayInstrSet XRayInstrumentationBundle;
-
-  std::vector<std::string> DefaultFunctionAttrs;
-
-  /// List of dynamic shared object files to be loaded as pass plugins.
-  std::vector<std::string> PassPlugins;
-
-  /// Path to allowlist file specifying which objects
-  /// (files, functions) should exclusively be instrumented
-  /// by sanitizer coverage pass.
-  std::vector<std::string> SanitizeCoverageAllowlistFiles;
-
-  /// Path to blocklist file specifying which objects
-  /// (files, functions) listed for instrumentation by sanitizer
-  /// coverage pass should actually not be instrumented.
-  std::vector<std::string> SanitizeCoverageBlocklistFiles;
-
-  /// Executable and command-line used to create a given CompilerInvocation.
-  /// Most of the time this will be the full -cc1 command.
-  const char *Argv0 = nullptr;
-  ArrayRef<const char *> CommandLineArgs;
-=======
->>>>>>> 94b172ce8736b4cad8cb23342e131cfcfabeb996
 
 public:
   // Define accessors/mutators for code generation options of enumeration type.

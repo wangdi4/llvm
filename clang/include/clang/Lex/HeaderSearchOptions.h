@@ -96,72 +96,6 @@ public:
 
   using PrebuiltModuleFilesTy = std::map<std::string, std::string, std::less<>>;
 
-<<<<<<< HEAD
-  /// The directory used for the module cache.
-  std::string ModuleCachePath;
-
-  /// The directory used for a user build.
-  std::string ModuleUserBuildPath;
-
-  /// The mapping of module names to prebuilt module files.
-  std::map<std::string, std::string, std::less<>> PrebuiltModuleFiles;
-
-  /// The directories used to load prebuilt module files.
-  std::vector<std::string> PrebuiltModulePaths;
-
-  /// The module/pch container format.
-  std::string ModuleFormat;
-
-  /// Whether we should disable the use of the hash string within the
-  /// module cache.
-  ///
-  /// Note: Only used for testing!
-  unsigned DisableModuleHash : 1;
-
-  /// Implicit module maps.  This option is enabld by default when
-  /// modules is enabled.
-  unsigned ImplicitModuleMaps : 1;
-
-  /// Set the 'home directory' of a module map file to the current
-  /// working directory (or the home directory of the module map file that
-  /// contained the 'extern module' directive importing this module map file
-  /// if any) rather than the directory containing the module map file.
-  //
-  /// The home directory is where we look for files named in the module map
-  /// file.
-  unsigned ModuleMapFileHomeIsCwd : 1;
-
-  /// The interval (in seconds) between pruning operations.
-  ///
-  /// This operation is expensive, because it requires Clang to walk through
-  /// the directory structure of the module cache, stat()'ing and removing
-  /// files.
-  ///
-  /// The default value is large, e.g., the operation runs once a week.
-  unsigned ModuleCachePruneInterval = 7 * 24 * 60 * 60;
-
-  /// The time (in seconds) after which an unused module file will be
-  /// considered unused and will, therefore, be pruned.
-  ///
-  /// When the module cache is pruned, any module file that has not been
-  /// accessed in this many seconds will be removed. The default value is
-  /// large, e.g., a month, to avoid forcing infrequently-used modules to be
-  /// regenerated often.
-  unsigned ModuleCachePruneAfter = 31 * 24 * 60 * 60;
-
-  /// The time in seconds when the build session started.
-  ///
-  /// This time is used by other optimizations in header search and module
-  /// loading.
-  uint64_t BuildSessionTimestamp = 0;
-
-  /// The set of macro names that should be ignored for the purposes
-  /// of computing the module hash.
-  llvm::SmallSetVector<llvm::CachedHashString, 16> ModulesIgnoreMacros;
-
-  /// The set of user-provided virtual filesystem overlay files.
-  std::vector<std::string> VFSOverlayFiles;
-
 #if INTEL_CUSTOMIZATION
   /// The base directory of Intel compiler headers.
   std::string HeaderBasePath;
@@ -170,32 +104,8 @@ public:
   std::vector<std::string> VFSOverlayLibs;
 #endif // INTEL_CUSTOMIZATION
 
-  /// Include the compiler builtin includes.
-  unsigned UseBuiltinIncludes : 1;
-
-  /// Include the system standard include search directories.
-  unsigned UseStandardSystemIncludes : 1;
-
-  /// Include the system standard C++ library include search directories.
-  unsigned UseStandardCXXIncludes : 1;
-
-  /// Use libc++ instead of the default libstdc++.
-  unsigned UseLibcxx : 1;
-
-  /// Whether header search information should be output as for -v.
-  unsigned Verbose : 1;
-
-  /// If true, skip verifying input files used by modules if the
-  /// module was already verified during this build session (see
-  /// \c BuildSessionTimestamp).
-  unsigned ModulesValidateOncePerBuildSession : 1;
-
-  /// Whether to validate system input files when a module is loaded.
-  unsigned ModulesValidateSystemHeaders : 1;
-=======
   using ModulesIgnoreMacrosTy =
       llvm::SmallSetVector<llvm::CachedHashString, 16>;
->>>>>>> 94b172ce8736b4cad8cb23342e131cfcfabeb996
 
 #define HEADERSEARCHOPT(Name, Bits, Description) unsigned Name : Bits;
 #define TYPED_HEADERSEARCHOPT(Type, Name, Description) Type Name;
