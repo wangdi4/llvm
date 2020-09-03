@@ -109,7 +109,7 @@
 using namespace llvm;
 using namespace llvm::loopopt;
 
-static cl::opt<bool> DisablePass("disable-" OPT_SWITCH, cl::init(true),
+static cl::opt<bool> DisablePass("disable-" OPT_SWITCH, cl::init(false),
                                  cl::Hidden,
                                  cl::desc("Disable " OPT_DESC " pass"));
 
@@ -309,28 +309,29 @@ static bool compareMemRefs(RegDDRef *Ref1, RegDDRef *Ref2, DDGraph &DDG,
     }
 
     if (Dim > 1) {
-      CanonExpr *MemRefLowerDimCE = Ref1->getDimensionLower(Dim);
+      CanonExpr *MemRefLowerDimCE1 = Ref1->getDimensionLower(Dim);
+      CanonExpr *MemRefLowerDimCE2 = Ref2->getDimensionLower(Dim);
 
-      // Check the dim lower bound for Ref1
-      if (!MemRefLowerDimCE->isConstant()) {
+      // Check the dim lower bound for Ref1 and Ref2 are identical
+      if (!CanonExprUtils::areEqual(MemRefLowerDimCE1, MemRefLowerDimCE2,
+                                    true)) {
         return false;
       }
 
-      if (!MemRefLowerDimCE->isZero() &&
-          !CanonExprUtils::canAdd(Lp->getUpperCanonExpr(), MemRefLowerDimCE,
+      CanonExpr *MemRefDimStride1 = Ref1->getDimensionStride(Dim);
+      CanonExpr *MemRefDimStride2 = Ref2->getDimensionStride(Dim);
+
+      // Check the dim stride for Ref1 and Ref2 are identical
+      if (!CanonExprUtils::areEqual(MemRefDimStride1, MemRefDimStride2, true)) {
+        return false;
+      }
+
+      if (!MemRefLowerDimCE1->isZero() &&
+          !CanonExprUtils::canAdd(Lp->getUpperCanonExpr(), MemRefLowerDimCE1,
                                   true)) {
         return false;
       }
       Lp = Lp->getParentLoop();
-    }
-  }
-
-  // Check the dim lower bound for Ref2
-  for (unsigned Dim = Ref2->getNumDimensions(); Dim > 1; --Dim) {
-    CanonExpr *MemRefLowerDimCE = Ref2->getDimensionLower(Dim);
-
-    if (!MemRefLowerDimCE->isConstant()) {
-      return false;
     }
   }
 
@@ -344,16 +345,17 @@ static bool compareMemRefs(RegDDRef *Ref1, RegDDRef *Ref2, DDGraph &DDG,
 
     if (CE1->hasIV(Level)) {
 
-      if (CE2->hasBlob()) {
-        if (CE2->numBlobs() != 1) {
-          return false;
-        }
-
+      if (CE2->isStandAloneBlob()) {
         SmallVector<unsigned, 4> BlobIndices;
 
         CE2->collectTempBlobIndices(BlobIndices);
 
+        if (BlobIndices.size() != 1) {
+          return false;
+        }
+
         unsigned BlobIndex = BlobIndices[0];
+
         BlobDDRef *BlobRef = Ref2->getBlobDDRef(BlobIndex);
 
         int64_t Constant = 0;
@@ -829,25 +831,15 @@ static bool NeedUpdateUpperBound(DDGraph DDG, RegDDRef *MaxRef,
 static void updateUpperBound(DDGraph DDG, RegDDRef *MaxRef, unsigned LoopLevel,
                              HLLoop *Lp) {
   int64_t Constant = 0;
-  unsigned NumDim = MaxRef->getNumDimensions();
 
   // We need to update the upperbound by adding the constant in the
   // operand2 of the blob's src instruction, such as %mod = i2 + 3  %
   // %"jacobian_$NY_fetch" + 1;
-  // This is also related to the dim lower bound of memref.
-  // The basic idea is to compute the maximum possible index for the dimension
-  // and update the upper bound accordingly
   for (auto BI = MaxRef->blob_begin(), E = MaxRef->blob_end(); BI != E; ++BI) {
     BlobDDRef *BlobRef = *BI;
 
     if (checkIV(BlobRef, DDG, LoopLevel, Constant) && Constant > 0) {
-      CanonExpr *DimLowerCE = MaxRef->getDimensionLower(NumDim - LoopLevel + 1);
-
-      int64_t Diff = Constant - DimLowerCE->getConstant();
-
-      if (Diff > 0) {
-        Lp->getUpperCanonExpr()->addConstant(Diff, true);
-      }
+      Lp->getUpperCanonExpr()->addConstant(Constant, true);
     }
   }
 
@@ -1096,23 +1088,6 @@ static void removeDependentInsts(HLInst *HInst, DDGraph &DDG,
   return;
 }
 
-// If the dimension lower bounds of MemRef do not start from 0, we need to
-// change the use of temp array's dimension lower bounds
-static void adjustLowerDimsForAllocaRef(RegDDRef *MemRef, RegDDRef *AllocaRef) {
-  unsigned Dim = MemRef->getNumDimensions();
-
-  while (Dim > 1) {
-    CanonExpr *MemRefLowerDimCE = MemRef->getDimensionLower(Dim);
-
-    if (!MemRefLowerDimCE->isZero()) {
-      AllocaRef->getDimensionLower(Dim - 1)->setConstant(
-          MemRefLowerDimCE->getConstant());
-    }
-
-    --Dim;
-  }
-}
-
 bool HIRStoreResultIntoTempArray::doLoopCarriedScalarReplacement(
     HLLoop *Lp, SmallVectorImpl<HLInst *> &ExpensiveInsts) {
   DDGraph DDG = DDA.getGraph(Lp);
@@ -1172,8 +1147,6 @@ bool HIRStoreResultIntoTempArray::doLoopCarriedScalarReplacement(
 
     RegDDRef *AllocaRef = addDimensionForAllocaMemRef(
         ExtractedLoop, Lp, AllocaDDRef->clone(), MemRef, TypeSize, Offsets);
-
-    adjustLowerDimsForAllocaRef(MemRef, AllocaRef);
 
     // Create a load inst to replace the expensive inst, like -
     // transfer from -
