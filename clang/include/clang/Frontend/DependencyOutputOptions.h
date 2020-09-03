@@ -28,6 +28,10 @@ public:
 #define DEPENDENCY_OUTPUTOPT(Name, Bits, Description) unsigned Name : Bits;
 #include "clang/Frontend/DependencyOutputOptions.def"
 public:
+  /// Dependency output which is prefixed with this string is filtered
+  /// from the dependency output.
+  std::string DependencyFilter;
+
   DependencyOutputOptions()
       : IncludeSystemHeaders(0), ShowHeaderIncludes(0), UsePhonyTargets(0),
         AddMissingHeaderDeps(0), IncludeModuleFiles(0),
