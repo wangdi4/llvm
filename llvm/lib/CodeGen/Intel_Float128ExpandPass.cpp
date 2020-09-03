@@ -214,7 +214,35 @@ void Float128Expand::PostTransformFP128PHI() {
     for (unsigned i = 0; i != OldPhi->getNumIncomingValues(); ++i) {
       Value *IncomingValue = OldPhi->getIncomingValue(i);
       Value *IncomingPtr = Value2Ptr[IncomingValue];
-      if (IncomingPtr == nullptr) {
+      // We won't create a NewPhi for OldPhi which has a constant Operand.
+      //
+      // Assume we create a NewPhi for OldPhi which has a constant Operand,
+      // In the following Example, When reach bb3, we create PK for 0.111
+      // i.e. Value2Ptr[0.111]=PK. So PostTransformFP128PHI might falsely use
+      // PK for
+      //    %0 = phi fp128 [0.111, %bb1],[%x, %bb2],
+      // and falsely create
+      //    P0' = phi fp128*[PK, bb1], [PX, bb2]
+      // In fact, we store 0.111 into PK in bb3. So, When the program is running
+      // from bb1 to bb2, PK hasn't been stored by 0.111 yet, which means %1
+      // will be calculated wrongly.
+      //
+      // Example:
+      //        bb1
+      //   /          \
+      //  /            \
+      //  |               bb2
+      //  |             /   %0 = phi fp128 [0.111, %bb1],[%x, %bb2]
+      //  |            |    %1 = fadd fp128 %x, %0
+      //  |             \   br i1 undef, label %bb2, label %bb4
+      // bb3                            |
+      // %2 = fsub fp128 %x,0.111       |
+      // ret 0                          |
+      //                               bb4
+      // A workaround method is to find out all the constant fp128 and create
+      // AllocaInst/StoreInst for them in the entry basicblock but it needs
+      // another traverse and makes this Pass even more sophisticated.
+      if (IncomingPtr == nullptr || isa<Constant>(IncomingValue)) {
         IRBuilder<> Builder(&*NewPhi->getParent()->getFirstInsertionPt());
         AllocaInst *AllocaForPhi =
             CreateFP128AllocaInst(Builder, NewPhi->getParent());
