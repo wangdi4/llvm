@@ -1,5 +1,9 @@
 // Test1 - check that kernel can call a SYCL_EXTERNAL function defined in a
 // different object file.
+#if INTEL_CUSTOMIZATION
+// The test fail if use lld linker until 12.0.0 release
+// UNSUPPORTED: default_linker_lld
+#endif // !INTEL_CUSTOMIZATION
 // RUN: %clangxx -fsycl -fsycl-targets=%sycl_triple -DSOURCE1 -c %s -o %t1.o
 // RUN: %clangxx -fsycl -fsycl-targets=%sycl_triple -DSOURCE2 -c %s -o %t2.o
 // RUN: %clangxx -fsycl -fsycl-targets=%sycl_triple %t1.o %t2.o -o %t.exe

@@ -263,6 +263,25 @@ for aot_tool in aot_tools:
     else:
         lit_config.warning("Couldn't find pre-installed AOT device compiler " + aot_tool)
 
+# INTEL_CUSTOMIZATION
+# Needed for disable some test in case of use of particular linker
+# Check if the default linker is set in the ICS options
+ics_setopts = os.environ.get("ICS_SETOPTS")
+if ics_setopts:
+    # The ICS options command is case insensitive. The string stored
+    # in the environment variable could have any letter casing.
+    ics_setopts = ics_setopts.lower()
+    # Check if lld is the default linker
+    if ics_setopts == 'ld=lld':
+        config.available_features.add('default_linker_lld')
+    # Check if gold is the default linker
+    elif ics_setopts == 'ld=gold':
+        config.available_features.add('default_linker_gold')
+    # Check if bfd is the default linker
+    elif ics_setopts == 'ld=bfd':
+        config.available_features.add('default_linker_bfd')
+# end INTEL_CUSTOMIZATION
+
 # Set timeout for test = 10 mins
 try:
     import psutil
