@@ -73,23 +73,19 @@ extern const constant ulong   generic_max_ulong;
 extern const constant float4 f4const_oneStorage;
 extern const constant float4 f4const_minusOneStorage;
 extern const constant float4 f4const_minusZeroStorage;
-extern const constant float4 f4const_nanStorage;
 
 extern const constant double2 d2const_oneStorage;
 extern const constant double2 d2const_minusZeroStorage;
 extern const constant double2 d2const_minusOneStorage;
-extern const constant double2 d2const_nanStorage;
 
 // AVX - common
 extern const constant float8 f8const_oneStorage;
 extern const constant float8 f8const_minusZeroStorage;
 extern const constant float8 f8const_minusOneStorage;
-extern const constant float8 f8const_nanStorage;
 
 extern const constant double4 d4const_oneStorage;
 extern const constant double4 d4const_minusZeroStorage;
 extern const constant double4 d4const_minusOneStorage;
-extern const constant double4 d4const_nanStorage;
 
 typedef int ocl_int32 __attribute__((ext_vector_type(32)));
 typedef uint ocl_uint32 __attribute__((ext_vector_type(32)));
