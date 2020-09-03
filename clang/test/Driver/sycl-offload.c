@@ -695,11 +695,22 @@
 // CHK-TOOLS-AOT: clang{{.*}} "-triple" "x86_64-unknown-linux-gnu" {{.*}} "-include" "[[INPUT1]]" {{.*}} "-o" "[[OUTPUT7:.+\.o]]"
 // CHK-TOOLS-AOT: ld{{.*}} "[[OUTPUT7]]" "[[OUTPUT6]]" {{.*}} "-lsycl"
 
-// INTEL_CUSTOMIZATION
+// Check to be sure that for windows, the 'exe' tools are called
+// RUN: %clang_cl -fsycl -fsycl-targets=spir64_x86_64-unknown-unknown-sycldevice %s -### 2>&1 \
+// RUN:  | FileCheck %s -check-prefixes=CHK-TOOLS-CPU-WIN
+// RUN: %clang -target x86_64-pc-windows-msvc -fsycl -fsycl-targets=spir64_x86_64-unknown-unknown-sycldevice %s -### 2>&1 \
+// RUN:  | FileCheck %s -check-prefixes=CHK-TOOLS-CPU-WIN
 // RUN: %clang_cl -fsycl -fsycl-targets=spir64_gen-unknown-unknown-sycldevice %s -### 2>&1 \
-// RUN:  | FileCheck %s -check-prefixes=CHK-GEN-EXE
-// CHK-GEN-EXE: ocloc.exe
-// end INTEL_CUSTOMIZATION
+// RUN:  | FileCheck %s -check-prefixes=CHK-TOOLS-GEN-WIN
+// RUN: %clang -target x86_64-pc-windows-msvc -fsycl -fsycl-targets=spir64_gen-unknown-unknown-sycldevice %s -### 2>&1 \
+// RUN:  | FileCheck %s -check-prefixes=CHK-TOOLS-GEN-WIN
+// RUN: %clang_cl -fsycl -fsycl-targets=spir64_fpga-unknown-unknown-sycldevice %s -### 2>&1 \
+// RUN:  | FileCheck %s -check-prefixes=CHK-TOOLS-FPGA-WIN
+// RUN: %clang -target x86_64-pc-windows-msvc -fsycl -fsycl-targets=spir64_fpga-unknown-unknown-sycldevice %s -### 2>&1 \
+// RUN:  | FileCheck %s -check-prefixes=CHK-TOOLS-FPGA-WIN
+// CHK-TOOLS-GEN-WIN: ocloc.exe{{.*}}
+// CHK-TOOLS-CPU-WIN: opencl-aot.exe{{.*}}
+// CHK-TOOLS-FPGA-WIN: aoc.exe{{.*}}
 
 /// ###########################################################################
 
