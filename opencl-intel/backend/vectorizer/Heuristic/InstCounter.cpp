@@ -328,8 +328,8 @@ int WeightedInstCounter::getPreferredVectorizationWidth(Function &F, DenseMap<Lo
 // is consistent for a single run, but not between runs.
 struct TypeComp {
   bool operator() (Type* Left, Type* Right) const {
-    VectorType *VTypeLeft = dyn_cast<VectorType>(Left);
-    VectorType *VTypeRight= dyn_cast<VectorType>(Right);
+    FixedVectorType *VTypeLeft = dyn_cast<FixedVectorType>(Left);
+    FixedVectorType *VTypeRight= dyn_cast<FixedVectorType>(Right);
 
     if( nullptr != VTypeRight && nullptr == VTypeLeft )
         return true;
@@ -455,7 +455,7 @@ int WeightedInstCounter::estimateCall(CallInst *Call)
         return MEM_OP_WEIGHT;
 
        // This is a vector type, it'll be ugly.
-      int NumElements = cast<VectorType>(MaskType)->getNumElements();
+      int NumElements = cast<FixedVectorType>(MaskType)->getNumElements();
       return MEM_OP_WEIGHT * NumElements;
       // TODO: if the vector is really large, still need to multiply...
     }
@@ -538,7 +538,7 @@ int WeightedInstCounter::estimateBinOp(BinaryOperator *I)
   if (!OpType->isVectorTy())
     return Weight;
 
-  VectorType* VecType = cast<VectorType>(OpType);
+  FixedVectorType* VecType = cast<FixedVectorType>(OpType);
   int OpWidth = 0;
 
   if (hasAVX512())
@@ -555,7 +555,7 @@ int WeightedInstCounter::estimateBinOp(BinaryOperator *I)
   return Weight * OpWidth;
 }
 
-int WeightedInstCounter::getOpWidth(VectorType* VecType,
+int WeightedInstCounter::getOpWidth(FixedVectorType* VecType,
       int Float, int Double, int LongInt, int ShortInt) const
 {
   Type* BaseType = VecType->getScalarType();
@@ -600,7 +600,7 @@ int WeightedInstCounter::getInstructionWeight(Instruction *I, DenseMap<Instructi
     // everything else is expensive.
     // (This is purely empirical, probably overfitting)
     Value* Vec = I->getOperand(0);
-    VectorType* OpType = dyn_cast<VectorType>(Vec->getType());
+    FixedVectorType* OpType = dyn_cast<FixedVectorType>(Vec->getType());
     VectorType* ResType = dyn_cast<VectorType>(I->getType());
     assert(OpType && "Shuffle with a non-vector type!");
 
@@ -632,7 +632,7 @@ int WeightedInstCounter::getInstructionWeight(Instruction *I, DenseMap<Instructi
   if (isa<ExtractElementInst>(I)) {
     //Same logic as for shuffles.
     Value* Vec = I->getOperand(0);
-    VectorType* OpType = dyn_cast<VectorType>(Vec->getType());
+    FixedVectorType* OpType = dyn_cast<FixedVectorType>(Vec->getType());
     assert(OpType && "Extract from a non-vector type!");
 
     if (((OpType->getNumElements() == 4) ||

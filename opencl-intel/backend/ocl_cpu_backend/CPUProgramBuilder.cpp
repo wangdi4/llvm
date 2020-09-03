@@ -265,7 +265,7 @@ KernelSet* CPUProgramBuilder::CreateKernels(Program* pProgram,
         {
             //currently if the vector_type_hint attribute is set
             //we types that vector length is below 4, vectorizer restriction
-            const llvm::VectorType* pVect = llvm::dyn_cast<llvm::VectorType>(vTypeHint);
+            const llvm::FixedVectorType* pVect = llvm::dyn_cast<llvm::FixedVectorType>(vTypeHint);
             if( ( nullptr != pVect) && pVect->getNumElements() >= 4)
             {
                 dontVectorize = true;

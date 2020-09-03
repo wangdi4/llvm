@@ -478,7 +478,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
           if ( pArg->hasByValAttr() && isa<VectorType>(PTy->getElementType()))
           {
             // Check by pointer vector passing, used in long16 and double16
-            llvm::VectorType *pVector = llvm::cast<llvm::VectorType>(PTy->getElementType());
+            llvm::FixedVectorType *pVector = llvm::cast<llvm::FixedVectorType>(PTy->getElementType());
             unsigned int uiNumElem = (unsigned int)pVector->getNumElements();;
             unsigned int uiElemSize = pVector->getContainedType(0)->getPrimitiveSizeInBits()/8;
             //assert( ((uiElemSize*uiNumElem) < 8 || (uiElemSize*uiNumElem) > 4*16) &&
@@ -633,7 +633,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
       case Type::FixedVectorTyID:
       case Type::ScalableVectorTyID:
         {
-          llvm::VectorType *pVector = llvm::dyn_cast<llvm::VectorType>(arg_it->getType());
+          llvm::FixedVectorType *pVector = llvm::dyn_cast<llvm::FixedVectorType>(arg_it->getType());
           curArg.type = CL_KRNL_ARG_VECTOR;
           curArg.size_in_bytes = (unsigned int)(pVector->getNumElements() == 3 ? 4 : pVector->getNumElements());
           curArg.size_in_bytes |= (pVector->getContainedType(0)->getPrimitiveSizeInBits()/8)<<16;

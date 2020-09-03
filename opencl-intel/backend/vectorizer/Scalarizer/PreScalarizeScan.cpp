@@ -95,7 +95,7 @@ bool ScalarizeFunction::scanFunctionCall(CallInst *CI, funcRootsVect &rootVals)
 
   if (SFRT->isVectorTy()) {
     // Handle case: [2 x <4 x float>] sincos_retbyarray(<4 x float> %arg) --> <2 x float> prevec_sincos(float %arg)
-    VectorType *SFRTAsVec = cast<VectorType>(SFRT);
+    FixedVectorType *SFRTAsVec = cast<FixedVectorType>(SFRT);
     assert(cast<ArrayType>(vectorFuncType->getReturnType())->getNumElements() == SFRTAsVec->getNumElements());
     desiredRetValType = ArrayType::get(FixedVectorType::get(SFRTAsVec->getElementType(), vectorWidth) ,2);
   } else {
@@ -124,7 +124,7 @@ bool ScalarizeFunction::scanFunctionCall(CallInst *CI, funcRootsVect &rootVals)
     if (SFRT->isVectorTy()) {
       //Sort usages (which are assumed to be all extractvalue's) by index
 
-      rets.resize(cast<VectorType>(SFRT)->getNumElements());
+      rets.resize(cast<FixedVectorType>(SFRT)->getNumElements());
       for (Value::user_iterator ui = CI->user_begin(), ue = CI->user_end(); ui!=ue;
           ++ui) {
         unsigned idx = cast<ExtractValueInst>(*ui)->getIndices()[0];

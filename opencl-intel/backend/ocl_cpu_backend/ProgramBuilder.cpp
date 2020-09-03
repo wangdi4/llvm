@@ -429,7 +429,7 @@ KernelProperties *ProgramBuilder::CreateKernelProperties(
     int vecSize = 1;
 
     if (VTHTy->isVectorTy()) {
-      vecSize = cast<VectorType>(VTHTy)->getNumElements();
+      vecSize = cast<FixedVectorType>(VTHTy)->getNumElements();
       VTHTy = cast<VectorType>(VTHTy)->getElementType();
     }
 

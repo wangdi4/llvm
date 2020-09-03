@@ -564,7 +564,7 @@ static int getSize(Type *Ty) {
   int size = Ty->getScalarSizeInBits() / 8;
   assert (size != 0 && "load/store is not scalar or size is 0");
   if (Ty->isVectorTy())
-    size *= cast<VectorType>(Ty)->getNumElements();
+    size *= cast<FixedVectorType>(Ty)->getNumElements();
   return size;
 }
 
@@ -1420,7 +1420,7 @@ unsigned PrefetchCandidateUtils::detectAddressSpace(Value *addr) {
 // maximum difference between the smallest and largest value, such that
 // the type indexed by this vector is contained in one cache line.
 bool PrefetchCandidateUtils::isTightConstantVect(Value *index, Type *indexedType) {
-  VectorType *VType = dyn_cast<VectorType>(indexedType);
+  FixedVectorType *VType = dyn_cast<FixedVectorType>(indexedType); // INTEL
   if (VType == nullptr)
     return false;
   assert (!isa<ConstantVector>(index) && "need to handle ConstantVector type in Prefetch.cpp");
@@ -1681,10 +1681,10 @@ void PrefetchCandidateUtils::insertPF (Instruction *I) {
     types.push_back(v16i32);
 
     assert (I->getType()->isVectorTy() &&
-        (cast<VectorType>(I->getType())->getNumElements() == 16 ||
-         cast<VectorType>(I->getType())->getNumElements() == 8) &&
+        (cast<FixedVectorType>(I->getType())->getNumElements() == 16 ||
+         cast<FixedVectorType>(I->getType())->getNumElements() == 8) &&
         "gathered data expected to be vector of 8 or 16");
-    if (cast<VectorType>(I->getType())->getNumElements() == 16) {
+    if (cast<FixedVectorType>(I->getType())->getNumElements() == 16) {
       pfIntrinName = m_prefetchGatherIntrinsicName.c_str();
     } else {
       // if the instruction gathers 8 elements need to pf only the first 8
@@ -1750,10 +1750,10 @@ void PrefetchCandidateUtils::insertPF (Instruction *I) {
     types.push_back(pi8);
 
     assert (pCallInst->getOperand(2)->getType()->isVectorTy() &&
-        (cast<VectorType>(pCallInst->getOperand(2)->getType())->getNumElements() == 16 ||
-         cast<VectorType>(pCallInst->getOperand(2)->getType())->getNumElements() == 8) &&
+        (cast<FixedVectorType>(pCallInst->getOperand(2)->getType())->getNumElements() == 16 ||
+         cast<FixedVectorType>(pCallInst->getOperand(2)->getType())->getNumElements() == 8) &&
         "scatter data expected to be vector of 8 or 16");
-    if (cast<VectorType>(pCallInst->getOperand(2)->getType())->getNumElements() == 16) {
+    if (cast<FixedVectorType>(pCallInst->getOperand(2)->getType())->getNumElements() == 16) {
       pfIntrinName = m_prefetchScatterIntrinsicName.c_str();
     } else {
       // if the instruction scatters 8 elements need to pf only the first 8

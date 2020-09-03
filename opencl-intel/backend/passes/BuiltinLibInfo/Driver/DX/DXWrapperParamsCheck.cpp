@@ -55,7 +55,7 @@ bool DXWrapperParamsCheck::checkVec(Type* packetizeType,
 bool DXWrapperParamsCheck::checkSOA(Type* packetizeType,
                            Type* scalarizeType, unsigned packetWidth)
 {
-  const VectorType* vType = dyn_cast<VectorType>(scalarizeType);
+  const FixedVectorType* vType = dyn_cast<FixedVectorType>(scalarizeType);
   if (vType){
     unsigned numElements = vType->getNumElements();
     Type* primitive = vType->getElementType(); 

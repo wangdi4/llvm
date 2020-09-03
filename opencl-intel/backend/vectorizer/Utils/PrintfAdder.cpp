@@ -273,7 +273,7 @@ void addPrintScalar(Value *v, std::vector<Value *> &printf_inputs, std::string &
 
 void addPrintVector(Value *v, std::vector<Value *> &printf_inputs, std::string &printf_str, Instruction *loc) {
   Type *T = v->getType();
-  const VectorType *vType = cast<VectorType>(T);
+  const FixedVectorType *vType = cast<FixedVectorType>(T);
   unsigned numElts = vType->getNumElements();
   printf_str = printf_str + "<";
   for (unsigned i=0; i<numElts; i++) {

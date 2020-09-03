@@ -756,7 +756,7 @@ namespace intel {
         // base type is i1 need to ZEXT/TRUNC to/from i32
         VectorType *pVecType = dyn_cast<VectorType>(pInst->getType());
         if (pVecType) {
-          pTypeInSP = FixedVectorType::get(IntegerType::get(*m_pContext, 32), pVecType->getNumElements());
+          pTypeInSP = FixedVectorType::get(IntegerType::get(*m_pContext, 32), cast<FixedVectorType>(pVecType)->getNumElements());
         } else {
           pTypeInSP = IntegerType::get(*m_pContext, 32);
         }

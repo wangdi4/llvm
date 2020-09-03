@@ -204,7 +204,7 @@ void LoopWIAnalysis::calculate_dep(Instruction* I) {
 bool LoopWIAnalysis::isBroadcast(ShuffleVectorInst *SVI) {
   assert(SVI && "null argument");
 
-  VectorType *vTy = dyn_cast<VectorType>(SVI->getType());
+  FixedVectorType *vTy = dyn_cast<FixedVectorType>(SVI->getType());
   assert (vTy && "shuffle should have vector type");
   unsigned nElts = vTy->getNumElements();
   int ind = SVI->getMaskValue(0);
@@ -229,7 +229,7 @@ bool LoopWIAnalysis::isConsecutiveConstVector(Value *v) {
 
   assert(isa<VectorType>(CV->getType()) &&
                     "constant vector should have vector type");
-  VectorType *vTy = cast<VectorType>(CV->getType());
+  FixedVectorType *vTy = cast<FixedVectorType>(CV->getType());
   // Case not vector int type return false.
   if (!vTy->isIntOrIntVectorTy()) return false;
   
@@ -249,7 +249,7 @@ bool LoopWIAnalysis::isConsecutiveConstVector(Value *v) {
 // #c = add <w x i#> %b, <i# 0, i# 1, ...>
 bool LoopWIAnalysis::isSequentialVector(Instruction *I) {
   assert (I && I->getOpcode() == Instruction::Add && "expected add inst");
-  VectorType *vTy= dyn_cast<VectorType>(I->getType());
+  FixedVectorType *vTy= dyn_cast<FixedVectorType>(I->getType());
   if (!vTy) return false;
 
   // Pattern of of creation sequential ids is addition of constant <0, 1, 2 ,..>

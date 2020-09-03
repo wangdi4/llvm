@@ -263,7 +263,7 @@ void SpecialCaseBuiltinResolver::obtainRetAttrs(Type *theType) {
 
   // check if multiple return (array of vectors)
   ArrayType *arrType = dyn_cast<ArrayType>(theType);
-  VectorType *vecType =  arrType ? dyn_cast<VectorType>(arrType->getElementType()) : nullptr;
+  FixedVectorType *vecType =  arrType ? dyn_cast<FixedVectorType>(arrType->getElementType()) : nullptr;
   if (vecType) {
     m_wrraperRetAttr.isArrayOfVec = true;
     m_wrraperRetAttr.arrType = arrType;

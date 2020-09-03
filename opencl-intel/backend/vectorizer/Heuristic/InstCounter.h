@@ -122,7 +122,7 @@ namespace intel {
     int estimateBinOp(BinaryOperator *I);
 
     // Helper for estimateBinOp
-    int getOpWidth(VectorType* VecType,
+    int getOpWidth(FixedVectorType* VecType,
           int Float, int Double, int LongInt, int ShortInt) const;
 
     // Estimate the relative cost of a call.

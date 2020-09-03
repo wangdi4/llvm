@@ -26,7 +26,7 @@
 #include <sstream>
 #include <vector>
 
-static bool isGatherScatterType(VectorType *VecTy) {
+static bool isGatherScatterType(FixedVectorType *VecTy) {
   return VecTy->getNumElements() == 16;
 }
 
@@ -102,7 +102,7 @@ Instruction* AVX512Resolver::CreateGatherScatterAndReplaceCall(
   V_ASSERT((type == Mangler::GatherPrefetch || (Data ? Data->getType() : caller->getType())->isVectorTy())
     && "Data value type is not a vector");
 
-  VectorType *dataTy = nullptr;
+  FixedVectorType *dataTy = nullptr;
 
   switch (type) {
   case Mangler::GatherPrefetch: {
@@ -111,10 +111,10 @@ Instruction* AVX512Resolver::CreateGatherScatterAndReplaceCall(
     break;
   }
   case Mangler::Gather:
-    dataTy = cast<VectorType>(caller->getType());
+    dataTy = cast<FixedVectorType>(caller->getType());
     break;
   case Mangler::Scatter:
-    dataTy = cast<VectorType>(Data->getType());
+    dataTy = cast<FixedVectorType>(Data->getType());
     break;
   default:
     V_ASSERT(false && "Illegal GatheScatterType ");
@@ -124,7 +124,7 @@ Instruction* AVX512Resolver::CreateGatherScatterAndReplaceCall(
   const bool isMasked = !(isUniformMask && isa<Constant>(Mask) && cast<Constant>(Mask)->isAllOnesValue());
 
   // Get Gather/Scatter function name
-  VectorType *IndexType = cast<VectorType>(Index->getType());
+  FixedVectorType *IndexType = cast<FixedVectorType>(Index->getType());
   std::string name = Mangler::getGatherScatterName(isMasked, type, dataTy, IndexType);
 
   if(isMasked && isUniformMask) {
@@ -162,7 +162,7 @@ void AVX512Resolver::FixBaseAndIndexIfNeeded(
   unsigned int uValidBits = (unsigned int)cast<ConstantInt>(ValidBits)->getZExtValue();
   bool bIsSigned = !cast<Constant>(IsSigned)->isNullValue();
 
-  VectorType *IndexType = cast<VectorType>(Index->getType());
+  FixedVectorType *IndexType = cast<FixedVectorType>(Index->getType());
 
   Type *i32Ty = Type::getInt32Ty(caller->getContext());
   Type *i32Vec = FixedVectorType::get(i32Ty, IndexType->getNumElements());
@@ -191,7 +191,7 @@ void AVX512Resolver::FixBaseAndIndexIfNeeded(
   }
 }
 
-bool AVX512Resolver::isBitMask(const VectorType& vecType) const {
+bool AVX512Resolver::isBitMask(const FixedVectorType& vecType) const {
   // float16, int16, double8, long8, double16, long16
   return (!vecType.getElementCount().isScalable() &&
           vecType.getPrimitiveSizeInBits().getFixedSize() >= 512 &&
