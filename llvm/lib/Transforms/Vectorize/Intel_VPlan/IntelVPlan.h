@@ -3059,9 +3059,6 @@ private:
 /// VPlanPrinter prints a given VPlan to a given output stream. The printing is
 /// indented and follows the dot format.
 class VPlanPrinter {
-  friend inline raw_ostream &operator<<(raw_ostream &OS, const VPlan &Plan);
-
-private:
   raw_ostream &OS;
   const VPlan &Plan;
   unsigned Depth;
@@ -3081,7 +3078,7 @@ private:
 
   /// Print a given \p BasicBlock, including its instructions, followed by
   /// printing its successor blocks.
-  void dumpBasicBlock(const VPBasicBlock *BB);
+  void dumpBasicBlock(const VPBasicBlock *BB, bool SkipInstructions);
 
   unsigned getOrCreateBID(const VPBasicBlock *BB) {
     return BlockID.count(BB) ? BlockID[BB] : BlockID[BB] = BID++;
@@ -3095,9 +3092,9 @@ private:
   void drawEdge(const VPBasicBlock *From, const VPBasicBlock *To, bool Hidden,
                 const Twine &Label);
 
+public:
   VPlanPrinter(raw_ostream &O, const VPlan &P) : OS(O), Plan(P) {}
-
-  void dump();
+  void dump(bool CFGOnly = false);
 };
 
 inline raw_ostream &operator<<(raw_ostream &OS, const VPlan &Plan) {
@@ -3213,18 +3210,21 @@ class VPlanDumpControl {
 
 public:
   VPlanDumpControl(const char *DumpOptPrefix, const char *DotOptPrefix,
-                   const Twine &ShortName, const Twine &LongName,
-                   bool PrintPlainDumpPrefix)
+                   const char *DotCFGOnlyOptPrefix, const Twine &ShortName,
+                   const Twine &LongName, bool PrintPlainDumpPrefix)
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
       : PrintPlainDumpPrefix(PrintPlainDumpPrefix),
         Dump(DumpOptPrefix + ShortName, "Print VPlan after " + LongName),
         Dot(DotOptPrefix + ShortName, "Print VPlan digraph after " + LongName),
+        DotCFGOnly(DotCFGOnlyOptPrefix + ShortName,
+                   "Print VPlan CFG Only after " + LongName),
         PassDescription(LongName.str()) {
   }
 #else
   {
     (void)DumpOptPrefix;
     (void)DotOptPrefix;
+    (void)DotCFGOnlyOptPrefix;
     (void)ShortName;
     (void)LongName;
     (void)PrintPlainDumpPrefix;
@@ -3234,6 +3234,7 @@ public:
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   bool dumpPlain() const { return Dump; }
   bool dumpDot() const { return Dot; }
+  bool dumpCFGOnly() const { return DotCFGOnly; }
 public:
   const bool PrintPlainDumpPrefix;
   StringRef getPassDescription() const { return PassDescription; }
@@ -3241,6 +3242,7 @@ public:
 private:
   OptWrapper Dump;
   OptWrapper Dot;
+  OptWrapper DotCFGOnly;
 
   std::string PassDescription;
 #endif
@@ -3248,14 +3250,15 @@ private:
 
 struct LoopVPlanDumpControl : public VPlanDumpControl {
   LoopVPlanDumpControl(const Twine &ShortName, const Twine &LongName)
-      : VPlanDumpControl("vplan-print-after-", "vplan-dot-after-", ShortName,
-                         LongName, true) {}
+      : VPlanDumpControl("vplan-print-after-", "vplan-dot-after-",
+                         "vplan-cfg-only-after-", ShortName, LongName, true) {}
 };
 struct FuncVecVPlanDumpControl : public VPlanDumpControl {
   FuncVecVPlanDumpControl(const Twine &ShortName, const Twine &LongName,
                           bool PrintPlainDumpPrefix = false)
       : VPlanDumpControl("print-after-vplan-func-vec-",
-                         "dot-after-vplan-func-vec-", ShortName, LongName,
+                         "dot-after-vplan-func-vec-",
+                         "cfg-only-after-vplan-func-vec-", ShortName, LongName,
                          PrintPlainDumpPrefix) {}
 };
 
@@ -3267,10 +3270,15 @@ inline void VPLAN_DUMP(const VPlanDumpControl &Control, const VPlan &Plan) {
     Plan.dump(outs());
     outs().flush();
   }
+  VPlanPrinter Printer(outs(), Plan);
   if (Control.dumpDot()) {
-    outs() << Plan;
+    Printer.dump();
     outs().flush();
- }
+  }
+  if (Control.dumpCFGOnly()) {
+    Printer.dump(true);
+    outs().flush();
+  }
 }
 inline void VPLAN_DUMP(const VPlanDumpControl &Control, const VPlan *Plan) {
   VPLAN_DUMP(Control, *Plan);
