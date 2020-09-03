@@ -5641,6 +5641,14 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
   }
 
 #if INTEL_CUSTOMIZATION
+  //-fiopenmp-offload is default
+  if (Args.hasArg(options::OPT_fiopenmp) &&
+      Args.hasFlag(options::OPT_fno_iopenmp_offload,
+                   options::OPT_fiopenmp_offload, false)) {
+    CmdArgs.push_back("-fno-intel-openmp-offload");
+    CmdArgs.push_back("-mllvm");
+    CmdArgs.push_back("-vpo-paropt-use-offload-metadata=false");
+  }
   if (Args.hasFlag(options::OPT_fiopenmp_simd, options::OPT_fno_iopenmp_simd,
                    false)) {
     // FIXME: Add better interactions with -fopenmp-simd.

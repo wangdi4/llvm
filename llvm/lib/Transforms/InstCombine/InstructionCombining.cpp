@@ -1288,6 +1288,15 @@ static bool shouldMergeGEPs(GEPOperator &GEP, GEPOperator &Src) {
   if (GEP.hasAllZeroIndices() && !Src.hasAllZeroIndices() &&
       !Src.hasOneUse())
     return false;
+#if INTEL_CUSTOMIZATION
+  // Don't combine if this GEP just turns a scalar pointer into a vector
+  // pointer.
+  if (GEP.getNumOperands() == 2 && GEP.getType()->isVectorTy() &&
+      !Src.getType()->isVectorTy() &&
+      isa<Constant>(*GEP.idx_begin()) &&
+      cast<Constant>(*GEP.idx_begin())->isNullValue())
+    return false;
+#endif
   return true;
 }
 

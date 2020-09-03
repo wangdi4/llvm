@@ -153,3 +153,9 @@
 // Behavior with /fstack-limit-register=<arg> option
 // RUN: %clang -### %s -c -fstack-limit-register=et 2>&1 | FileCheck %s --check-prefix=CHECK-FSTACK-LIMIT-REGISTER
 // CHECK-FSTACK-LIMIT-REGISTER: "-fstack-limit-register=et"
+
+//Behavior with -fiopenmp-offload and -fno-iopenmp-offload option
+// RUN: %clang -### %s -c -fiopenmp -fopenmp-targets=spir64 -fno-iopenmp-offload 2>&1 | FileCheck %s --check-prefix=CHECK-FNO-IOPENMP-OFFLOAD
+// RUN: %clang_cl -### %s -c /Qiopenmp /Qiopenmp-offload- 2>&1 | FileCheck %s --check-prefix=CHECK-FNO-IOPENMP-OFFLOAD
+// CHECK-FNO-IOPENMP-OFFLOAD: "-fno-intel-openmp-offload"
+// CHECK-FNO-IOPENMP-OFFLOAD: "-mllvm" "-vpo-paropt-use-offload-metadata=false"
