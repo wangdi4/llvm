@@ -406,12 +406,22 @@ void VPOParoptTransform::genOCLDistParLoopBoundUpdateCode(
   BuilderThen.CreateStore(NewUB, UpperBnd);
 
   if (TeamLowerBnd) {
+    assert(!TeamLowerBnd == !TeamUpperBnd &&
+           "genOCLDistParLoopBoundUpdateCode: team lower/upper bounds "
+           "must be created together.");
+
     BuilderThen.CreateStore(NewUB, TeamUpperBnd);
 
     Builder.SetInsertPoint(InsertPt);
     TeamLB = Builder.CreateLoad(TeamLowerBnd);
     TeamUB = Builder.CreateLoad(TeamUpperBnd);
     TeamST = Builder.CreateLoad(TeamStride);
+    // Team distribute loop may insert minimum upper bound computation
+    // between the above loads and the below stores, and update
+    // TeamUpperBnd variable, so we need to reload the team bounds again
+    // before initializing the loop bounds.
+    Builder.CreateStore(Builder.CreateLoad(TeamLowerBnd), LowerBnd);
+    Builder.CreateStore(Builder.CreateLoad(TeamUpperBnd), UpperBnd);
   }
 }
 
@@ -420,21 +430,24 @@ void VPOParoptTransform::genOCLDistParLoopBoundUpdateCode(
 // #pragma omp target teams distribute
 // for (i = lb; i <= ub; i++)
 // The output of loop partitioning for the Idxth dimension.
-// chunk_size = (new_team_ub - new_team_lb + get_local_size(Idx)) /
+// chunk_size = (ub - lb + get_local_size(Idx)) /
 //              get_local_size(Idx);
-// new_lb = new_team_lb + get_local_id(Idx) * chunk_size;
-// new_ub = min(new_lb + chunk_size - 1, new_team_ub);
+// new_lb = lb + get_local_id(Idx) * chunk_size;
+// new_ub = min(new_lb + chunk_size - 1, ub);
 //
 // for (i = new_lb; i <= new_ub; i++)
 //
 // Idx -- the dimension index.
 // LowerBnd -- the stack variable which holds the loop lower bound.
 // UpperBnd -- the stack variable which holds the loop upper bound.
+//
+// Note that LowerBnd and UpperBnd values may not match the original
+// loop's bounds. Depending on the number of teams running the loop
+// these values are already adjusted to specify the team bounds
+// somewhere before the end of the loop pre-header.
 void VPOParoptTransform::genOCLLoopBoundUpdateCode(WRegionNode *W, unsigned Idx,
                                                    AllocaInst *LowerBnd,
                                                    AllocaInst *UpperBnd,
-                                                   AllocaInst *TeamLowerBnd,
-                                                   AllocaInst *TeamUpperBnd,
                                                    AllocaInst *&SchedStride) {
   assert(W->getIsOmpLoop() && "genOCLLoopBoundUpdateCode: W is not a loop-type WRN");
   assert (LowerBnd->getType() == UpperBnd->getType() &&
@@ -466,24 +479,8 @@ void VPOParoptTransform::genOCLLoopBoundUpdateCode(WRegionNode *W, unsigned Idx,
   DimNum += W->getWRNLoopInfo().getNDRangeStartDim();
   initArgArray(&Arg, DimNum);
 
-  assert(!TeamLowerBnd == !TeamUpperBnd &&
-         "genOCLLoopBoundUpdateCode: team lower/upper bounds "
-         "must be created together.");
-
-  Value *LB = nullptr;
-  Value *UB = nullptr;
-
-  if (TeamLowerBnd) {
-    // Update lower/upper bounds from the team bounds.
-    LB = Builder.CreateLoad(TeamLowerBnd);
-    Builder.CreateStore(LB, LowerBnd);
-    UB = Builder.CreateLoad(TeamUpperBnd);
-    Builder.CreateStore(UB, UpperBnd);
-  }
-  else {
-    LB = Builder.CreateLoad(LowerBnd);
-    UB = Builder.CreateLoad(UpperBnd);
-  }
+  Value *LB = Builder.CreateLoad(LowerBnd);
+  Value *UB = Builder.CreateLoad(UpperBnd);
 
   WRNScheduleKind SchedKind = getSchedKindForMultiLevelLoops(
       W, VPOParoptUtils::getLoopScheduleKind(W), WRNScheduleStaticEven);
@@ -492,15 +489,15 @@ void VPOParoptTransform::genOCLLoopBoundUpdateCode(WRegionNode *W, unsigned Idx,
   // provided by the teams distribution for static even scheduling:
   //   Strided:
   //     chunk_size =
-  //         (team_ub - team_lb + get_local_size(Idx)) /
+  //         (ub - lb + get_local_size(Idx)) /
   //         get_local_size(Idx);
-  //     new_lb = team_lb + get_local_id(Idx) * chunk_size;
-  //     new_ub = min(new_lb + chunk_size - 1, team_ub);
+  //     new_lb = lb + get_local_id(Idx) * chunk_size;
+  //     new_ub = min(new_lb + chunk_size - 1, ub);
   //     for (i = new_lb; i <= new_ub; i++)
   //
   //   Non-strided:
-  //     new_lb = team_lb + get_local_id(Idx);
-  //     new_ub = team_ub;
+  //     new_lb = lb + get_local_id(Idx);
+  //     new_ub = ub;
   //     for (i = new_lb; i <= new_ub; i += get_local_size(Idx))
   //
   // Due to implicit widening (combining adjacent WIs into a SIMD program),
@@ -520,10 +517,10 @@ void VPOParoptTransform::genOCLLoopBoundUpdateCode(WRegionNode *W, unsigned Idx,
   //
   // Non-strided scheduling is actually similar to schedule(static, 1),
   // except that for the latter the generated IR looks more complex:
-  //   new_lb = team_lb + get_local_id(Idx);
-  //   new_ub = min(new_lb, team_ub);
+  //   new_lb = lb + get_local_id(Idx);
+  //   new_ub = min(new_lb, ub);
   //   while (new_lb <= new_ub) {
-  //     new_ub = min(new_ub, team_ub);
+  //     new_ub = min(new_ub, ub);
   //     if (new_lb > new_ub)
   //       break;
   //     for (i = new_lb; i <= new_ub; i++) { ... }
@@ -538,11 +535,11 @@ void VPOParoptTransform::genOCLLoopBoundUpdateCode(WRegionNode *W, unsigned Idx,
   // Note that useSPMDMode() provides non-strided iterations processing
   // as well:
   //   new_lb = get_global_id(Idx);
-  //   new_ub = min(new_lb, team_ub);
+  //   new_ub = min(new_lb, ub);
   //   for (i = new_lb; i <= new_ub; i++)
   //
   // For useSPMDMode() we do not encode the team distribution loop,
-  // so team_ub is equal to the original normalized loop's upper bound.
+  // so ub is equal to the original normalized loop's upper bound.
   // If get_global_id(Idx) returns value outside of the loop's
   // iteration space, then the loop above will just not run,
   // otherwise, it will run exactly one iteration.
@@ -583,7 +580,7 @@ void VPOParoptTransform::genOCLLoopBoundUpdateCode(WRegionNode *W, unsigned Idx,
         // The chunk size is not used for Non-strided scheduling.
         // Otherwise, it is equal to:
         //   chunk_size =
-        //       (team_ub - team_lb + get_local_size(Idx)) /
+        //       (ub - lb + get_local_size(Idx)) /
         //       get_local_size(Idx);
         Value *ItSpace = Builder.CreateSub(UB, LB);
         Value *ItSpaceRounded = Builder.CreateAdd(ItSpace, NumThreads);
@@ -616,23 +613,23 @@ void VPOParoptTransform::genOCLLoopBoundUpdateCode(WRegionNode *W, unsigned Idx,
 
     Value *LBDiff = nullptr;
     if (IncrementByLocalSize)
-      // new_lb = team_lb + get_local_id(Idx);
+      // new_lb = lb + get_local_id(Idx);
       LBDiff = LocalIdCasted;
     else
-      // new_lb = team_lb + get_local_id(Idx) * chunk_size;
+      // new_lb = lb + get_local_id(Idx) * chunk_size;
       LBDiff = Builder.CreateMul(LocalIdCasted, Chunk);
     LB = Builder.CreateAdd(LB, LBDiff);
     Builder.CreateStore(LB, LowerBnd);
 
     if (IncrementByLocalSize) {
-      // new_ub = team_ub;
+      // new_ub = ub;
       NewUB = UB;
 
       auto *LocalSizeCasted = CastInst::CreateIntegerCast(
           LocalSize, IVInc->getType(), false, "", IVInc);
       IVInc->replaceUsesOfWith(IVInc->getOperand(IVAddendOp), LocalSizeCasted);
     } else {
-      // new_ub = min(new_lb + chunk_size - 1, team_ub);
+      // new_ub = min(new_lb + chunk_size - 1, ub);
       //
       // Compute the first operand of the min(). The min() computation
       // will be done below.
@@ -1109,8 +1106,7 @@ bool VPOParoptTransform::genOCLParallelLoop(
         WRegionUtils::isDistributeParLoopNode(W) ||
         isa<WRNParallelLoopNode>(W) || isa<WRNWksLoopNode>(W) ||
         isa<WRNSectionsNode>(W))
-      genOCLLoopBoundUpdateCode(W, I - 1, LowerBnd, UpperBnd,
-                                TeamLowerBnd, TeamUpperBnd, SchedStride);
+      genOCLLoopBoundUpdateCode(W, I - 1, LowerBnd, UpperBnd, SchedStride);
 
     genOCLLoopPartitionCode(W, I - 1, LowerBnd, UpperBnd, SchedStride,
                             TeamLowerBnd, TeamUpperBnd, TeamStride, UpperBndVal,
@@ -7904,29 +7900,16 @@ bool VPOParoptTransform::genLoopSchedulingCode(
   CallInst *KmpcFiniCI = nullptr;
 
   if (DoesNotRequireDispatch) {
-    if (SchedKind == WRNScheduleStaticEven) {
-
-      // Insert fini call so that it is paired with the static init call.
-      // The LoopExitBB may be split after the fini calls for team
-      // distribution loop.
-      auto *FiniInsertPt = &LoopExitBB->front();
-
-      KmpcFiniCI =
-          VPOParoptUtils::genKmpcStaticFini(W, IdentTy, LoadTid,
-                                            FiniInsertPt);
-
-      // Insert doacross_fini call for ordered(n) after the fini call.
-      if (IsDoacrossLoop)
-        KmpcFiniCI =
-            VPOParoptUtils::genKmpcDoacrossFini(W, IdentTy, LoadTid,
-                                                FiniInsertPt);
-
-      // Since we inserted a new ZTT branch, we need to update SSA for
-      // values living out of the loop_region_exit_block.
-      wrnUpdateLiveOutVals(L, LoopRegionExitBB, LiveOutVals, ECs);
-      rewriteUsesOfOutInstructions(ValueToLiveinMap, LiveOutVals, ECs);
-
-    } else if (SchedKind == WRNScheduleStatic) {
+    if (SchedKind == WRNScheduleStatic ||
+        // In case of distribute loop with dist_schedule(static, N),
+        // __kmpc_for_static_init returns the lower/upper bounds
+        // and the stride that should be used for chunked processing
+        // of the loop iterations by the teams' master threads.
+        // And we need to generate the same dispatch loop
+        // as the one we generate for chunked parallel loops.
+        (IsDistForLoop &&
+         VPOParoptUtils::getDistLoopScheduleKind(W) ==
+         WRNScheduleDistributeStatic)) {
 
       // Insert fini call so that it is paired with the static init call.
       // The LoopExitBB may be split after the fini calls for team
@@ -7963,8 +7946,30 @@ bool VPOParoptTransform::genLoopSchedulingCode(
       wrnUpdateSSAPreprocessForOuterLoop(OuterLoop, ValueToLiveinMap,
                                          LiveOutVals, ECs);
       rewriteUsesOfOutInstructions(ValueToLiveinMap, LiveOutVals, ECs);
-    } else
+    } else if (SchedKind == WRNScheduleStaticEven) {
+
+      // Insert fini call so that it is paired with the static init call.
+      // The LoopExitBB may be split after the fini calls for team
+      // distribution loop.
+      auto *FiniInsertPt = &LoopExitBB->front();
+
+      KmpcFiniCI =
+          VPOParoptUtils::genKmpcStaticFini(W, IdentTy, LoadTid,
+                                            FiniInsertPt);
+
+      // Insert doacross_fini call for ordered(n) after the fini call.
+      if (IsDoacrossLoop)
+        KmpcFiniCI =
+            VPOParoptUtils::genKmpcDoacrossFini(W, IdentTy, LoadTid,
+                                                FiniInsertPt);
+
+      // Since we inserted a new ZTT branch, we need to update SSA for
+      // values living out of the loop_region_exit_block.
+      wrnUpdateLiveOutVals(L, LoopRegionExitBB, LiveOutVals, ECs);
+      rewriteUsesOfOutInstructions(ValueToLiveinMap, LiveOutVals, ECs);
+    } else {
       llvm_unreachable("Unexpected scheduling kind.");
+    }
   } else {
     //                |
     //      Disptach Loop HeaderBB <-----------+
