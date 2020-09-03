@@ -23,6 +23,21 @@
 ; 'schedtype' 91 is kmp_distribute_static_chunked
 ; CHECK: [[PHB]]:
 ; CHECK: call void @__kmpc_for_static_init_4({{.*}}, i32 %[[TID:[^,]+]], i32 91, i32* %[[PISLAST:[^,]+]], i32* %[[PLB:[^,]+]], i32* %[[PUB:[^,]+]], i32* %[[PST:[^,]+]], i32 1, i32 33)
+; CHECK: br label %[[DISPHDR:[A-Za-z0-9_.]+]]
+
+; DISPHDR:
+; CHECK: [[DISPHDR]]:
+; CHECK: [[UBTMP:%.+]] = load i32, i32* %[[PUB]]
+; CHECK: [[UBMINP:%[A-Za-z0-9_.]+]] = icmp sle i32 [[UBTMP]], [[NUB2:%[A-Za-z0-9_.]+]]
+; CHECK: br i1 [[UBMINP]], label %[[DISPBODY:[^,]+]], label %[[DISPMIN:[^,]+]]
+
+; DISPMIN:
+; CHECK: [[DISPMIN]]:
+; CHECK: store i32 [[NUB2]], i32* %[[PUB]]
+; CHECK: br label %[[DISPBODY]]
+
+; DISPBODY:
+; CHECK: [[DISPBODY]]:
 ; CHECK: %[[LB:.+]] = load i32, i32* %[[PLB]]
 ; CHECK: %[[UB:.+]] = load i32, i32* %[[PUB]]
 ; CHECK: %[[ZTT2:.+]] = icmp sle i32 %[[LB]], %[[UB]]
@@ -30,11 +45,23 @@
 
 ; LOOPBODY:
 ; CHECK: [[LOOPBODY]]:
-; CHECK: br i1 {{.*}}, label %[[LOOPBODY]], label %[[LOOPREGIONEXIT]]
+; CHECK: br i1 {{.*}}, label %[[LOOPBODY]], label %[[DISPINC:[^,]+]]
+
+; DISPINC:
+; CHECK: [[DISPINC]]:
+; CHECK: [[INC:%.+]] = load i32, i32* %[[PST]]
+; CHECK: [[LB:%.+]] = load i32, i32* %[[PLB]]
+; CHECK: [[LBINC:%.+]] = add i32 [[LB]], [[INC]]
+; CHECK: [[UB:%.+]] = load i32, i32* %[[PUB]]
+; CHECK: [[UBINC:%.+]] = add i32 [[UB]], [[INC]]
+; CHECK: store i32 [[LBINC]], i32* %[[PLB]]
+; CHECK: store i32 [[UBINC]], i32* %[[PUB]]
+; CHECK: br label %[[DISPHDR]]
 
 ; LOOPREGIONEXIT:
 ; CHECK: [[LOOPREGIONEXIT]]:
 ; CHECK: call void @__kmpc_for_static_fini({{.*}}, i32 %[[TID]])
+; CHECK: br label %[[EXIT]]
 
 ; EXIT:
 ; CHECK: [[EXIT]]:
