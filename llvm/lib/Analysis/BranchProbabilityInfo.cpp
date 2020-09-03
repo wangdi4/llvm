@@ -1460,10 +1460,12 @@ void BranchProbabilityInfo::calculate(const Function &F, const LoopInfo &LI,
       continue;
     if (calcUnreachableHeuristics(BB))
       continue;
-    if (calcColdCallHeuristics(BB))
-      continue;
+#if INTEL_CUSTOMIZATION
     if (calcLoopBranchHeuristics(BB, LI))
       continue;
+    if (calcColdCallHeuristics(BB))
+      continue;
+#endif // INTEL_CUSTOMIZATION
     if (calcPointerHeuristics(BB))
       continue;
     if (calcZeroHeuristics(BB, TLI))

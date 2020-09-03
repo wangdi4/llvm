@@ -152,7 +152,9 @@ header:
 body:
   %cond2 = icmp eq i32 %b, 42
   br i1 %cond2, label %header, label %exit
-; CHECK: edge body -> header probability is 0x40000000 / 0x80000000 = 50.00%
+; INTEL_CUSTOMIZATION
+; CHECK: edge body -> header probability is 0x7c000000 / 0x80000000 = 96.88%
+; end INTEL_CUSTOMIZATION
 
 exit:
   call void @coldfunc()
