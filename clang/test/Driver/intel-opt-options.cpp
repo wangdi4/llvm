@@ -159,3 +159,9 @@
 // RUN: %clang_cl -### %s -c /Qiopenmp /Qiopenmp-offload- 2>&1 | FileCheck %s --check-prefix=CHECK-FNO-IOPENMP-OFFLOAD
 // CHECK-FNO-IOPENMP-OFFLOAD: "-fno-intel-openmp-offload"
 // CHECK-FNO-IOPENMP-OFFLOAD: "-mllvm" "-vpo-paropt-use-offload-metadata=false"
+
+// Setting -disable-cpudispatch-ifuncs as default with --intel
+// RUN: %clang -### %s -c --intel 2>&1 | FileCheck %s --check-prefix=CHECK-DISABLE-CPUDISPATCH-IFUNCS
+// RUN: %clang_cl -### %s -c --intel 2>&1 | FileCheck %s --check-prefix=CHECK-DISABLE-CPUDISPATCH-IFUNCS-WIN
+// CHECK-DISABLE-CPUDISPATCH-IFUNCS: "-disable-cpudispatch-ifuncs"
+// CHECK-DISABLE-CPUDISPATCH-IFUNCS-WIN-NOT: "-disable-cpudispatch-ifuncs"
