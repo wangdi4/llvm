@@ -373,6 +373,12 @@ public:
   static bool doOptVarPredicate(HLLoop *Loop,
                                 SmallVectorImpl<HLLoop *> &OutLoops,
                                 SmallPtrSetImpl<HLNode *> &NodesToInvalidate);
+  /// Set \p Ref to be \p Blob with \p BlobIndex
+  /// The ref should be a single canon expr.
+  /// Notice that makeConsistent over Ref is NOT called.
+  /// It is user's responisbility.
+  static void setSelfBlobDDRef(RegDDRef *Ref, BlobTy Blob,
+                               unsigned BlobIndex);
 };
 
 } // End namespace loopopt

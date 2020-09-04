@@ -1298,3 +1298,27 @@ bool HIRTransformUtils::doOptVarPredicate(
   return true;
 }
 
+void HIRTransformUtils::setSelfBlobDDRef(RegDDRef *Ref, BlobTy Blob,
+                                         unsigned BlobIndex) {
+
+  int64_t Value;
+  bool IsConstInt = Ref->getBlobUtils().isConstantIntBlob(Blob, &Value);
+
+  assert(IsConstInt || Ref->getBlobUtils().getBlob(BlobIndex) == Blob);
+
+  CanonExpr *CE = Ref->getSingleCanonExpr();
+  CE->clear();
+
+  if (IsConstInt) {
+    CE->setConstant(Value);
+    Ref->setSymbase(ConstantSymbase);
+  } else {
+    CE->setBlobCoeff(BlobIndex, 1);
+    if (BlobUtils::isTempBlob(Blob)) {
+      BlobUtils &BU = Ref->getBlobUtils();
+      Ref->setSymbase(BU.findTempBlobSymbase(Blob));
+    } else {
+      Ref->setSymbase(GenericRvalSymbase);
+    }
+  }
+}

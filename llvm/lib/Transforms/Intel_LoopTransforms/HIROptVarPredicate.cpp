@@ -190,12 +190,7 @@ private:
   BlobTy castBlob(BlobTy Blob, Type *DesiredType, bool IsSigned,
                   unsigned &BlobIndex);
 
-  void setSelfBlobDDRef(RegDDRef *Ref, BlobTy Blob, unsigned BlobIndex);
-
   void makeBlobsTypeConsistent(BlobTy &BlobA, BlobTy &BlobB, bool IsSigned);
-
-  void setSelfBlobDDRef(BlobUtils &BlobUtilsObj, RegDDRef *Ref, BlobTy Blob,
-                        unsigned BlobIndex);
 
   void updateLoopUpperBound(HLLoop *Loop, BlobTy UpperBlob,
                             BlobTy SplitPointBlob, bool IsSigned);
@@ -482,26 +477,6 @@ BlobTy HIROptVarPredicate::castBlob(BlobTy Blob, Type *DesiredType,
                            !isa<SCEVConstant>(Blob), &BlobIndex);
 }
 
-void HIROptVarPredicate::setSelfBlobDDRef(RegDDRef *Ref, BlobTy Blob,
-                                          unsigned BlobIndex) {
-  CanonExpr *CE = Ref->getSingleCanonExpr();
-  CE->clear();
-
-  int64_t Value;
-  if (BlobUtils::isConstantIntBlob(Blob, &Value)) {
-    CE->setConstant(Value);
-    Ref->setSymbase(ConstantSymbase);
-  } else {
-    CE->setBlobCoeff(BlobIndex, 1);
-
-    if (BlobUtils::isTempBlob(Blob)) {
-      Ref->setSymbase(BU.findTempBlobSymbase(Blob));
-    } else {
-      Ref->setSymbase(GenericRvalSymbase);
-    }
-  }
-}
-
 void HIROptVarPredicate::makeBlobsTypeConsistent(BlobTy &BlobA, BlobTy &BlobB,
                                                  bool IsSigned) {
   Type *TypeA = BlobA->getType();
@@ -546,7 +521,7 @@ void HIROptVarPredicate::updateLoopUpperBound(HLLoop *Loop, BlobTy UpperBlob,
 
   MinBlob = castBlob(MinBlob, Loop->getIVType(), IsSigned, MinBlobIndex);
 
-  setSelfBlobDDRef(Loop->getUpperDDRef(), MinBlob, MinBlobIndex);
+  HIRTransformUtils::setSelfBlobDDRef(Loop->getUpperDDRef(), MinBlob, MinBlobIndex);
 }
 
 void HIROptVarPredicate::updateLoopLowerBound(HLLoop *Loop, BlobTy LowerBlob,
@@ -569,7 +544,7 @@ void HIROptVarPredicate::updateLoopLowerBound(HLLoop *Loop, BlobTy LowerBlob,
 
   MaxBlob = castBlob(MaxBlob, Loop->getIVType(), IsSigned, MaxBlobIndex);
 
-  setSelfBlobDDRef(Loop->getLowerDDRef(), MaxBlob, MaxBlobIndex);
+  HIRTransformUtils::setSelfBlobDDRef(Loop->getLowerDDRef(), MaxBlob, MaxBlobIndex);
 }
 
 static bool isLoopRedundant(const HLLoop *Loop, const HLNode *ContextNode) {
