@@ -708,7 +708,7 @@ Type *llvm::calcCharacteristicType(Function &F, VectorVariant &Variant) {
 }
 
 void llvm::getFunctionsToVectorize(
-  llvm::Module &M, std::map<Function*, std::vector<StringRef> > &FuncVars) {
+  llvm::Module &M, MapVector<Function*, std::vector<StringRef> > &FuncVars) {
 
   // FuncVars will contain a 1-many mapping between the original scalar
   // function and the vector variant encoding strings (represented as
