@@ -30,14 +30,9 @@ program_impl::program_impl(ContextImplPtr Context,
                    PropList) {}
 
 program_impl::program_impl(ContextImplPtr Context,
-<<<<<<< HEAD
                            vector_class<device> DeviceList,
                            const property_list &PropList)
     : MContext(Context), MDevices(DeviceList), MPropList(PropList) {
-=======
-                           vector_class<device> DeviceList)
-    : MContext(Context), MDevices(DeviceList) {
->>>>>>> 8c95871d204de819f07a2d643ffff4bdaddd45a0
   if (Context->getDevices().size() > 1) {
     throw feature_not_supported(
         "multiple devices within a context are not supported with "

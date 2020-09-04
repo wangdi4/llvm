@@ -174,10 +174,6 @@ private:
   PlatformImplPtr MPlatform;
   property_list MPropList;
   bool MHostContext;
-<<<<<<< HEAD
-=======
-  bool MUseCUDAPrimaryContext;
->>>>>>> 8c95871d204de819f07a2d643ffff4bdaddd45a0
   std::map<std::pair<DeviceLibExt, RT::PiDevice>, RT::PiProgram>
       MCachedLibPrograms;
   mutable KernelProgramCache MKernelProgramCache;
