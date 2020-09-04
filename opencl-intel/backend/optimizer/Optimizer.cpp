@@ -660,6 +660,10 @@ static void populatePassesPostFailCheck(
   if (OptLevel > 0) {
     PM.add(llvm::createInstructionCombiningPass());
     PM.add(createSmartGVNPass(false));
+    // In specACCEL/124, InstCombine may generate a cross-barrier bool value
+    // used as a condition of a 'br' instruction, which leads to performance
+    // degradation. JumpThreading eliminates the cross-barrier value.
+    PM.add(llvm::createJumpThreadingPass());
   }
 
   // The debugType enum and isProfiling flag are mutually exclusive, with
