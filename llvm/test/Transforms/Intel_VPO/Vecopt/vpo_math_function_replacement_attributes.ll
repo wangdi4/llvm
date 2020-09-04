@@ -6,19 +6,18 @@
 
 ; MFREPLACE-LABEL: @foo
 ; MFREPLACE:        %_Z4uremjj = call i32 @_Z4uremjj(i32 %dividend, i32 %divisor)
-; MFREPLACE-NEXT:   %call = tail call i32 @_Z19sub_group_broadcastjj(i32 %iv, i32 %_Z4uremjj) #2
+; MFREPLACE-NEXT:   %call = tail call i32 @_Z19sub_group_broadcastjj(i32 %iv, i32 %_Z4uremjj) #3
 
-; FIXME: Function should be declared with nounwind/readnone attributes to indicate
-; no side-effects.
-; MFREPLACE: declare i32 @_Z4uremjj(i32, i32)
+; MFREPLACE:      ; Function Attrs: nounwind readnone
+; MFREPLACE-NEXT: declare i32 @_Z4uremjj(i32, i32) #2
+
+; MFREPLACE: attributes #2 = { nounwind readnone }
 
 ; RUN: opt -replace-with-math-library-functions -VPlanDriver -vplan-print-after-call-vec-decisions -vector-library=SVML -disable-output %s | FileCheck %s --check-prefix=VPLAN
 
 ; VPLAN-LABEL: VPlan after CallVecDecisions analysis for VF=8
-; FIXME: Uniform call was marked Div by DA because call could have side-effects (missing attributes)
-; VPLAN:        [DA: Div] i32 [[UREM_CALL:%vp.*]] = call i32 %dividend i32 %divisor _Z4uremDv8_jS_ [x 1]
-; FIXME: Subgroup bcast call vector-variant matching fails because of divergent 2nd operand
-; VPLAN-NEXT:   [DA: Uni] i32 [[SG_BCAST:%vp.*]] = call i32 [[IV:%vp.*]] i32 [[UREM_CALL]] i32 (i32, i32)* @_Z19sub_group_broadcastjj [Serial]
+; VPLAN:        [DA: Uni] i32 [[UREM_CALL:%vp.*]] = call i32 %dividend i32 %divisor _Z4uremDv8_jS_ [x 1]
+; VPLAN-NEXT:   [DA: Uni] i32 [[SG_BCAST:%vp.*]] = call i32 [[IV:%vp.*]] i32 [[UREM_CALL]] _ZGVbM8vu_(_Z19sub_group_broadcastDv8_jjS_) [x 1] [@CurrMask]
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-pc-linux"
@@ -53,6 +52,5 @@ declare void @llvm.directive.region.exit(token)
 ; Function Attrs: nounwind
 declare i32 @_Z19sub_group_broadcastjj(i32, i32) local_unnamed_addr #1
 
-; FIXME: Add "kernel-call-once" attribute here after attributes of uremjj are fixed.
-attributes #0 = { nounwind "has-vplan-mask" "vector-variants"="_ZGVbM8vu_(_Z19sub_group_broadcastDv8_jjS_)" }
+attributes #0 = { nounwind "has-vplan-mask" "kernel-call-once" "vector-variants"="_ZGVbM8vu_(_Z19sub_group_broadcastDv8_jjS_)" }
 attributes #1 = { nounwind "opencl-vec-uniform-return" }
