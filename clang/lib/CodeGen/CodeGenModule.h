@@ -1119,6 +1119,15 @@ public:
           return true;
     return false;
   }
+
+  unsigned getEffectiveAllocaAddrSpace() {
+    // This matches the code in CreateTempAlloca so the addrspace of
+    // the possibly casted alloca can be determined.
+    if (getLangOpts().OpenMPIsDevice &&
+        getASTAllocaAddressSpace() != LangAS::Default)
+      return Context.getTargetAddressSpace(LangAS::Default);
+    return getDataLayout().getAllocaAddrSpace();
+  }
 #endif // INTEL_COLLAB
 
   void generateIntelFPGAAnnotation(const Decl *D,
