@@ -46,6 +46,10 @@ private:
                                            unsigned &EndRangeVF,
                                            VPExternalValues &Ext) override;
 
+  void emitVecSpecifics(VPlan *Plan) override {
+    Plan->markBackedgeUniformityForced();
+  };
+
 public:
   LoopVectorizationPlannerHIR(WRNVecLoopNode *WRL, HLLoop *Lp,
                               const TargetLibraryInfo *TLI,

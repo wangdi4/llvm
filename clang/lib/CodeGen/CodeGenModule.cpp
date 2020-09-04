@@ -2913,6 +2913,31 @@ ConstantAddress CodeGenModule::GetWeakRefReference(const ValueDecl *VD) {
   return ConstantAddress(Aliasee, Alignment);
 }
 
+#if INTEL_COLLAB
+static bool canDefineAliasOnTarget(CodeGenModule &CGM, GlobalDecl GD) {
+  if (!CGM.getLangOpts().OpenMPIsDevice)
+    return true;
+
+  // If compiling OpenMP device code only define this if it is marked
+  // declare target or the target is already defined.
+  const auto *D = cast<ValueDecl>(GD.getDecl());
+
+  if (D->hasAttr<OMPDeclareTargetDeclAttr>())
+    return true;
+
+  const AliasAttr *AA = D->getAttr<AliasAttr>();
+  assert(AA && "Not an alias?");
+
+  StringRef Name = AA->getAliasee();
+
+  llvm::GlobalValue *Entry = CGM.GetGlobalValue(Name);
+  if (Entry && !Entry->isDeclaration())
+    return true;
+
+  return false;
+}
+#endif // INTEL_COLLAB
+
 void CodeGenModule::EmitGlobal(GlobalDecl GD) {
   const auto *Global = cast<ValueDecl>(GD.getDecl());
 
@@ -2923,6 +2948,9 @@ void CodeGenModule::EmitGlobal(GlobalDecl GD) {
   // If this is an alias definition (which otherwise looks like a declaration)
   // emit it now.
   if (Global->hasAttr<AliasAttr>())
+#if INTEL_COLLAB
+    if (canDefineAliasOnTarget(*this, GD))
+#endif // INTEL_COLLAB
     return EmitAliasDefinition(GD);
 
   // IFunc like an alias whose value is resolved at runtime by calling resolver.

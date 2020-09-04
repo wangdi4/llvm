@@ -29,6 +29,7 @@
 #include "IntelVPlanIdioms.h"
 #include "IntelVPlanLCSSA.h"
 #include "IntelVPlanLoopCFU.h"
+#include "IntelVPlanLoopExitCanonicalization.h"
 #include "IntelVPlanPredicator.h"
 #include "IntelVPlanUtils.h"
 #include "VPlanHIR/IntelVPlanHCFGBuilderHIR.h"
@@ -68,12 +69,33 @@ static cl::opt<bool> EnableAllZeroBypassLoops(
     "vplan-enable-all-zero-bypass-loops", cl::init(true), cl::Hidden,
     cl::desc("Enable all-zero bypass insertion for loops."));
 
+static cl::opt<bool, true> LoopMassagingEnabledOpt(
+    "vplan-enable-loop-massaging", cl::location(LoopMassagingEnabled),
+    cl::Hidden,
+    cl::desc("Enable loop massaging in VPlan (Multiple to Singular Exit)"));
+
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 static cl::list<unsigned> VPlanCostModelPrintAnalysisForVF(
     "vplan-cost-model-print-analysis-for-vf", cl::Hidden, cl::CommaSeparated,
     cl::ZeroOrMore,
     cl::desc("Print detailed VPlan Cost Model Analysis report for the given "
              "VF. For testing/debug purposes only."));
+
+static cl::opt<bool> DumpAfterVPEntityInstructions(
+    "vplan-print-after-vpentity-instrs", cl::init(false), cl::Hidden,
+    cl::desc("Print VPlan after insertion of VPEntity instructions."));
+
+static cl::opt<bool> VPlanPrintAfterLoopMassaging(
+    "vplan-print-after-loop-massaging", cl::init(false),
+    cl::desc("Print plain dump after loop massaging"));
+
+static cl::opt<bool> VPlanDotLoopMassaging(
+    "vplan-dot-loop-massaging", cl::init(false), cl::Hidden,
+    cl::desc("Print VPlan digraph after loop massaging."));
+
+static cl::opt<bool> VPlanPrintAfterInitialTransforms(
+    "vplan-print-after-initial-transforms", cl::init(false),
+    cl::desc("Print plain dump after initial VPlan transforms."));
 
 static cl::opt<bool>
     PrintAfterLCSSA("vplan-print-after-lcssa", cl::init(false), cl::Hidden,
@@ -117,6 +139,10 @@ static cl::opt<bool> PrintAfterLiveInOutList(
     cl::desc("Print VPlan after live in/out lists creation."));
 
 #else
+static constexpr bool DumpAfterVPEntityInstructions = false;
+static constexpr bool VPlanPrintAfterLoopMassaging = false;
+static constexpr bool VPlanDotLoopMassaging = false;
+static constexpr bool VPlanPrintAfterInitialTransforms = false;
 static constexpr bool PrintAfterLCSSA = false;
 static constexpr bool PrintAfterLoopCFU = false;
 static constexpr bool DotAfterLoopCFU = false;
@@ -180,6 +206,7 @@ namespace llvm {
 namespace vpo {
 bool PrintSVAResults = false;
 bool PrintAfterCallVecDecisions = false;
+bool LoopMassagingEnabled = true;
 } // namespace vpo
 } // namespace llvm
 
@@ -286,7 +313,21 @@ unsigned LoopVectorizationPlanner::buildInitialVPlans(LLVMContext *Context,
           dbgs() << "LVP: VPlan is not legal to process, bailing out.\n");
       return 0;
     }
+
+    // TODO: Implement computeScalarVPlanCost()
+
+    // Run initial set of vectorization specific transforms on plain VPlan CFG
+    // obtained from CFGBuilder. Includes the following set of transforms -
+    // 1. emitVPEntityInstrs
+    // 2. emitVecSpecifics
+    runInitialVecSpecificTransforms(Plan.get());
+
     createLiveInOutLists(*Plan.get());
+
+    // CFG canonicalization transform (merge loop exits).
+    doLoopMassaging(Plan.get());
+
+    printAndVerifyAfterInitialTransforms(Plan.get());
 
     auto VPDA = std::make_unique<VPlanDivergenceAnalysis>();
     Plan->setVPlanDA(std::move(VPDA));
@@ -662,6 +703,143 @@ std::shared_ptr<VPlan> LoopVectorizationPlanner::buildInitialVPlan(
   return SharedPlan;
 }
 
+void LoopVectorizationPlanner::runInitialVecSpecificTransforms(VPlan *Plan) {
+  // 1. Convert VPLoopEntities into explicit VPInstructions.
+  emitVPEntityInstrs(Plan);
+  // 2. Emit explicit uniform vector loop IV.
+  emitVecSpecifics(Plan);
+}
+
+void LoopVectorizationPlanner::emitVPEntityInstrs(VPlan *Plan) {
+  VPLoop *MainLoop = *(Plan->getVPLoopInfo()->begin());
+  VPLoopEntityList *LE = Plan->getOrCreateLoopEntities(MainLoop);
+  VPBuilder VPIRBuilder;
+  LE->insertVPInstructions(VPIRBuilder);
+
+  VPLAN_DUMP(DumpAfterVPEntityInstructions, "insertion VPEntities instructions",
+             Plan);
+}
+
+void LoopVectorizationPlanner::emitVecSpecifics(VPlan *Plan) {
+  auto *VPLInfo = Plan->getVPLoopInfo();
+  VPLoop *CandidateLoop = *VPLInfo->begin();
+
+  auto *PreHeader = CandidateLoop->getLoopPreheader();
+  assert(PreHeader && "Single pre-header is expected!");
+
+  Type *VectorLoopIVType = Legal->getWidestInductionType();
+  if (!VectorLoopIVType) {
+    // Ugly workaround for tests forcing VPlan build when we can't actually do
+    // that. Shouldn't happen outside stress/forced pipeline.
+    VectorLoopIVType = Type::getInt64Ty(*Plan->getLLVMContext());
+  }
+  auto *VPOne = Plan->getVPConstant(ConstantInt::get(VectorLoopIVType, 1));
+
+  VPBuilder Builder;
+  Builder.setInsertPoint(PreHeader);
+  auto *VF = Builder.create<VPInductionInitStep>("VF", VPOne, Instruction::Add);
+
+  auto *OrigTC = Builder.create<VPOrigTripCountCalculation>(
+      "orig.trip.count", TheLoop, CandidateLoop, VectorLoopIVType);
+  auto *TC =
+      Builder.create<VPVectorTripCountCalculation>("vector.trip.count", OrigTC);
+
+  emitVectorLoopIV(Plan, TC, VF);
+}
+
+void LoopVectorizationPlanner::emitVectorLoopIV(VPlan *Plan, VPValue *TripCount,
+                                                VPValue *VF) {
+  auto *VPLInfo = Plan->getVPLoopInfo();
+  VPLoop *CandidateLoop = *VPLInfo->begin();
+
+  auto *PreHeader = CandidateLoop->getLoopPreheader();
+  auto *Header = CandidateLoop->getHeader();
+  auto *Latch = CandidateLoop->getLoopLatch();
+  assert(PreHeader && "Single pre-header is expected!");
+  assert(Latch && "Single loop latch is expected!");
+
+  Type *VectorLoopIVType = TripCount->getType();
+  auto *VPZero =
+      Plan->getVPConstant(ConstantInt::getNullValue(VectorLoopIVType));
+
+  VPBuilder Builder;
+  Builder.setInsertPoint(Header, Header->begin());
+  auto *IV = Builder.createPhiInstruction(VectorLoopIVType, "vector.loop.iv");
+  IV->addIncoming(VPZero, PreHeader);
+  Builder.setInsertPoint(Latch);
+  auto *IVUpdate = Builder.createAdd(IV, VF, "vector.loop.iv.next");
+  IV->addIncoming(IVUpdate, Latch);
+  auto *ExitCond = Builder.createCmpInst(
+      Latch->getSuccessor(0) == Header ? CmpInst::ICMP_NE : CmpInst::ICMP_EQ,
+      IVUpdate, TripCount, "vector.loop.exitcond");
+
+  VPValue *OrigExitCond = Latch->getCondBit();
+  if (Latch->getNumSuccessors() > 1)
+    Latch->setCondBit(ExitCond);
+
+  // If original exit condition had single use, remove it - we calculate exit
+  // condition differently now.
+  // FIXME: "_or_null" here is due to broken stess pipeline that must really
+  // stop right after CFG is imported, before *any* transformation is tried on
+  // it.
+  if (auto *Inst = dyn_cast_or_null<VPInstruction>(OrigExitCond))
+    if (Inst->getNumUsers() == 0)
+      Latch->eraseInstruction(Inst);
+}
+
+void LoopVectorizationPlanner::doLoopMassaging(VPlan *Plan) {
+  VPLoopInfo *VPLInfo = Plan->getVPLoopInfo();
+
+  assert((VPLInfo->size() == 1) && "Expected only 1 top-level loop");
+  VPLoop *TopLoop = *VPLInfo->begin();
+  auto &VPDomTree = *Plan->getDT();
+  (void)VPDomTree;
+
+  LLVM_DEBUG(dbgs() << "Dominator Tree Before mergeLoopExits\n";
+             VPDomTree.print(dbgs()));
+
+  if (LoopMassagingEnabled) {
+    // TODO: Bail-out loop massaging for uniform inner loops.
+    for (auto *VPL : post_order(TopLoop)) {
+      if (VPL == TopLoop) {
+        // TODO: Uncomment after search loops are supported without hacks.
+        // assert(VPL->getLoopLatch() == VPL->getExitingBlock() &&
+        //        "Top level loop is expected to be in canonical form!");
+        continue;
+      }
+      singleExitWhileLoopCanonicalization(VPL);
+      mergeLoopExits(VPL);
+      // TODO: Verify loops here? It is done again after all initial transforms.
+    }
+    VPLAN_DUMP(VPlanPrintAfterLoopMassaging, "loop massaging", Plan);
+    VPLAN_DOT(VPlanDotLoopMassaging, Plan);
+    LLVM_DEBUG(dbgs() << "Dominator Tree After mergeLoopExits\n";
+               VPDomTree.print(dbgs()));
+  }
+}
+
+void LoopVectorizationPlanner::printAndVerifyAfterInitialTransforms(
+    VPlan *Plan) {
+  // Run verifier after initial transforms in debug build.
+  std::unique_ptr<VPlanVerifier> Verifier(new VPlanVerifier(TheLoop, *DL));
+
+  LLVM_DEBUG(Plan->setName("Planner: After initial VPlan transforms\n");
+             dbgs() << *Plan);
+  LLVM_DEBUG(dbgs() << "Dominator Tree After initial VPlan transforms\n";
+             Plan->getDT()->print(dbgs()));
+  LLVM_DEBUG(dbgs() << "PostDominator Tree After initial VPlan transforms :\n";
+             Plan->getPDT()->print(dbgs()));
+  LLVM_DEBUG(dbgs() << "VPLoop Info After initial VPlan transforms:\n";
+             Plan->getVPLoopInfo()->print(dbgs()));
+
+  LLVM_DEBUG(
+      Verifier->verifyLoops(Plan, *Plan->getDT(), Plan->getVPLoopInfo()));
+  (void)Verifier;
+
+  VPLAN_DUMP(VPlanPrintAfterInitialTransforms, "initial VPlan transforms",
+             Plan);
+}
+
 // Feed explicit data, saved in WRNVecLoopNode to the CodeGen.
 #if INTEL_CUSTOMIZATION
 template <class Legality> constexpr IRKind getIRKindByLegality() {
@@ -757,16 +935,8 @@ bool LoopVectorizationPlanner::canProcessVPlan(const VPlan &Plan) {
   for (auto &Phi : Header->getVPPhis())
     if (!LE->getInduction(&Phi) && !LE->getReduction(&Phi) &&
         !LE->getPrivate(&Phi)) {
-      // Non-entity phi. Check whether it is explicit vector loop induction.
-      if (llvm::any_of(Phi.operands(), [](const VPValue *V) {
-            if (auto *I = dyn_cast<VPInstruction>(V))
-              return I->getOpcode() == Instruction::Add &&
-                     llvm::any_of(I->operands(), [](const VPValue *V) {
-                       return isa<VPInductionInitStep>(V);
-                     });
-            return false;
-          }))
-        continue;
+      // Non-entity phi. No other PHIs are expected in loop header since we are
+      // working on plain CFG before any transforms.
       LLVM_DEBUG(dbgs() << "LVP: Unrecognized phi found.\n" << Phi);
       return false;
     }
