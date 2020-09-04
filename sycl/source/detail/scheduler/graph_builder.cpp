@@ -472,17 +472,10 @@ Scheduler::GraphBuilder::findDepsForReq(MemObjRecord *Record,
   const bool ReadOnlyReq = Req->MAccessMode == access::mode::read;
 
   std::vector<Command *> ToAnalyze{std::move(Record->MWriteLeaves.toVector())};
-<<<<<<< HEAD
 
   if (!ReadOnlyReq) {
     std::vector<Command *> V{std::move(Record->MReadLeaves.toVector())};
 
-=======
-
-  if (!ReadOnlyReq) {
-    std::vector<Command *> V{std::move(Record->MReadLeaves.toVector())};
-
->>>>>>> f724a40cf4cdc9ab5687daafb659ed9a4fbde971
     ToAnalyze.insert(ToAnalyze.begin(), V.begin(), V.end());
   }
 
