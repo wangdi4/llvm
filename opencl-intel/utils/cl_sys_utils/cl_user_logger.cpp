@@ -223,7 +223,7 @@ void ApiLogger::PrintOutputParam(const string& name, const void* addr, size_t si
         const void* const* pp = reinterpret_cast<const void* const*>(addr);
         if (nullptr != pp)
         {
-            m_stream << "0x" << hex << setfill('0') << setw(sizeof(void*) * 2) << *pp;
+            m_stream << hex << *pp;
         }
         else
         {
@@ -342,17 +342,110 @@ void ApiLogger::StartApiFuncInternal(const string& funcName)
     m_timer.Start();
 }
 
+ApiLogger& ApiLogger::operator<<(const cl_uint& val) {
+    if (m_bLogApis) {
+        m_strStream << val;
+
+        if (m_isNumEvents) {
+            if (val > 0)
+                m_numEvents = val;
+            else
+                m_isNumEvents = false;
+        }
+    }
+    return *this;
+}
+
+ApiLogger& ApiLogger::operator<<(const cl_event *val) {
+    if (m_bLogApis) {
+        if (m_numEvents > 0) {
+            cl_event *const *v = reinterpret_cast<cl_event *const *>(val);
+            PrintArray(m_numEvents, v);
+
+            // Reset event variables.
+            m_isNumEvents = false;
+            m_numEvents = 0;
+        } else
+            m_strStream << val;
+    }
+    return *this;
+}
+
+void ApiLogger::PrintPtrValue(size_t size, const void *value) {
+    if (!value)
+        return;
+    // Limitations due to that we don't know param type of the kernel:
+    //   * we can't differentiate cl_uint3 and cl_uint4 because both of them
+    //     have size of 16 bytes.
+    //   * we can't differentiate cl_ushort16, cl_uint8 and cl_ulong4 because
+    //     all of them have size of 32 bytes.
+    m_strStream << " [" << hex;
+    if (size == sizeof(void*))
+      m_strStream << *reinterpret_cast<const void *const *>(value);
+    else if (size == sizeof(cl_uchar))
+      m_strStream << "0x"
+                  << (cl_uint)*reinterpret_cast<const cl_uchar *>(value);
+    else if (size == sizeof(cl_ushort))
+      m_strStream << "0x" << *reinterpret_cast<const cl_ushort *>(value);
+    else if (size == sizeof(cl_uint))
+      m_strStream << "0x" << *reinterpret_cast<const cl_uint *>(value);
+    else if (size == sizeof(cl_ulong))
+      m_strStream << "0x" << *reinterpret_cast<const cl_ulong *>(value);
+    else if (size == sizeof(cl_uint4)) {
+      const cl_uint4 *v = reinterpret_cast<const cl_uint4*>(value);
+      m_strStream << "as_uint4: X = 0x" << v->s[0] << ", Y = 0x" << v->s[1]
+                  << ", Z = 0x" << v->s[2] << ", W = 0x" << v->s[3];
+    } else if (size == sizeof(cl_ulong4)) {
+      const cl_ulong4 *v = reinterpret_cast<const cl_ulong4*>(value);
+      m_strStream << "as_ulong4: X = 0x" << v->s[0] << ", Y = 0x" << v->s[1]
+                  << ", Z = 0x" << v->s[2] << ", W = 0x" << v->s[3];
+    } else if (size == sizeof(cl_ulong8)) {
+      const cl_ulong8 *v = reinterpret_cast<const cl_ulong8*>(value);
+      m_strStream << "as_ulong8: s0 = 0x" << v->s[0] << ", s1 = 0x" << v->s[1]
+                  << ", s2 = 0x" << v->s[2] << ", s3 = 0x" << v->s[3]
+                  << ", s4 = 0x" << v->s[4] << ", s5 = 0x" << v->s[5]
+                  << ", s6 = 0x" << v->s[6] << ", s7 = 0x" << v->s[7];
+    } else if (size == sizeof(cl_ulong16)) {
+      const cl_ulong16 *v = reinterpret_cast<const cl_ulong16*>(value);
+      m_strStream << "as_ulong16: s0 = 0x" << v->s[0] << ", s1 = 0x" << v->s[1]
+                  << ", s2 = 0x" << v->s[2] << ", s3 = 0x" << v->s[3]
+                  << ", s4 = 0x" << v->s[4] << ", s5 = 0x" << v->s[5]
+                  << ", s6 = 0x" << v->s[6] << ", s7 = 0x" << v->s[7]
+                  << ", s8 = 0x" << v->s[8] << ", s9 = 0x" << v->s[9]
+                  << ", sa = 0x" << v->s[10] << ", sb = 0x" << v->s[11]
+                  << ", sc = 0x" << v->s[12] << ", sd = 0x" << v->s[13]
+                  << ", se = 0x" << v->s[14] << ", sf = 0x" << v->s[15];
+    }
+    m_strStream << "]";
+}
+
 void ApiLogger::PrintParamTypeAndName(const char* sParamTypeAndName)
 {
     if (!m_bFirstApiFuncArg)
     {
-        m_strStream << ", ";        
+        m_strStream << ", ";
     }
     else
     {
         m_bFirstApiFuncArg = false;
     }
     m_strStream << sParamTypeAndName << " = ";
+
+    // Check if param name is num_events_in_wait_list or num_events.
+    static const std::string numEvents[2] = {"num_events_in_wait_list",
+                                             "num_events"};
+    static const size_t numEventsSize[2] = {numEvents[0].size(),
+                                            numEvents[1].size()};
+    std::string param(sParamTypeAndName);
+    size_t paramSize = param.size();
+    for (size_t i = 0; i < sizeof(numEvents)/sizeof(numEvents[0]); ++i) {
+        if (paramSize > numEventsSize[i] &&
+            param.compare(paramSize - numEventsSize[i], numEventsSize[i],
+                          numEvents[i]) == 0) {
+            m_isNumEvents = true;
+            break;
+        }
+    }
 }
 
 void ApiLogger::PrintCStringValInternal(const char* sVal)
