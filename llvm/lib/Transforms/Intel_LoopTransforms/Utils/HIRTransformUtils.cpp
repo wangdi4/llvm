@@ -27,6 +27,7 @@
 #include "HIRLMM.h"
 #include "HIRLoopReversal.h"
 #include "HIRUnroll.h"
+#include "HIROptVarPredicate.h"
 
 #include "llvm/ADT/SmallSet.h"
 #include "llvm/IR/LegacyPassManager.h"
@@ -1281,3 +1282,19 @@ bool HIRTransformUtils::doScalarization(HIRFramework &HIRF, HIRDDAnalysis &HDDA,
                                         SmallSet<unsigned, 8> &SBS) {
   return HIRArrayScalarization(HIRF, HDDA).doScalarization(InnermostLp, SBS);
 }
+
+bool HIRTransformUtils::doOptVarPredicate(
+    HLLoop *Loop, SmallVectorImpl<HLLoop *> &OutLoops,
+    SmallPtrSetImpl<HLNode *> &NodesToInvalidate) {
+  auto Pass = HIROptVarPredicateInterface::create(
+      Loop->getHLNodeUtils().getHIRFramework());
+
+  if (!Pass->processLoop(Loop, false, &OutLoops)) {
+    return false;
+  }
+
+  auto &InvalidatedNodes = Pass->getNodesToInvalidate();
+  NodesToInvalidate.insert(InvalidatedNodes.begin(), InvalidatedNodes.end());
+  return true;
+}
+

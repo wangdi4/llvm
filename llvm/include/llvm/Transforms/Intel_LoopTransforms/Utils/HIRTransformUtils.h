@@ -369,6 +369,10 @@ public:
   ///
   static bool doScalarization(HIRFramework &HIRF, HIRDDAnalysis &HDDA,
                               HLLoop *InnermostLp, SmallSet<unsigned, 8> &SBS);
+
+  static bool doOptVarPredicate(HLLoop *Loop,
+                                SmallVectorImpl<HLLoop *> &OutLoops,
+                                SmallPtrSetImpl<HLNode *> &NodesToInvalidate);
 };
 
 } // End namespace loopopt
