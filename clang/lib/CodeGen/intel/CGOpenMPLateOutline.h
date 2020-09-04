@@ -90,6 +90,7 @@ class OpenMPLateOutliner {
     bool Always = false;
     bool Close = false;
     bool Cmplx = false;
+    bool PtrToPtr = false;
     bool Chain = false;
 
     void addSeparated(StringRef QualString) {
@@ -121,6 +122,8 @@ class OpenMPLateOutliner {
         addSeparated("CLOSE");
       if (Cmplx)
         addSeparated("CMPLX");
+      if (PtrToPtr)
+        addSeparated("PTR_TO_PTR");
       if (Chain)
         addSeparated("CHAIN");
     }
@@ -139,6 +142,7 @@ class OpenMPLateOutliner {
     void setAlways() { Always = true; }
     void setClose() { Close =  true; }
     void setCmplx() { Cmplx = true; }
+    void setPtrToPtr() {PtrToPtr = true; }
     void setChain() { Chain = true; }
 
     void add(StringRef S) { Str += S; }

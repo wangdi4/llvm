@@ -48,11 +48,11 @@ int bar(void)
 void specified_alignment()
 {
   __attribute__((aligned(64))) int (*ptr)[10];
-//CHECK-DISNAME: [[L1: %[0-9]+]] = alloca [10 x i32]*, align 64
+//CHECK-DISNAME: [[L1:%[0-9]+]] = alloca [10 x i32]*, align 64
 // Do not generate temp map
 //CHECK-DISNAME-NOT: alloca [10 x i32]*, align 64
 //CHECK-DISNAME-NEXT: [[T1:%[0-9]+]] = {{.*}}region.entry{{.*}}DIR.OMP.TARGET
-//CHECK-DISNAME-SAME: "QUAL.OMP.MAP.TO"({{.*}}[[L1]], {{.*}}[[L1]]
+//CHECK-DISNAME-SAME: "QUAL.OMP.IS_DEVICE_PTR:PTR_TO_PTR"([10 x i32]** [[L1]])
   #pragma omp target is_device_ptr(ptr)
   {
     ptr[0][0] = 41;
