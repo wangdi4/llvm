@@ -989,14 +989,11 @@ public:
         IsMismatched = true;
         BadcastReason =
             "Dominant type of value pointer being stored not resolved";
-      } else {
-        DTransType *ValDomTy = PTA.getDominantAggregateUsageType(*ValInfo);
-        if (!ValDomTy->isPointerTy() &&
-            hasIncompatibleAggregateDecl(ValDomTy->getPointerElementType(),
+      } else if (!ValTy->isPointerTy() &&
+            hasIncompatibleAggregateDecl(ValTy->getPointerElementType(),
                                          ValInfo)) {
           IsMismatched = true;
           BadcastReason = "Incompatible type for ptr-to-ptr store";
-        }
       }
     }
 
