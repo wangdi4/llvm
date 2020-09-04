@@ -81,7 +81,8 @@ bool VPOUtils::stripDirectives(BasicBlock &BB, ArrayRef<int> IDs) {
 
   for (Instruction *I : IntrinsicsToRemove) {
     if (I->getType()->isTokenTy())
-      I->replaceAllUsesWith(llvm::ConstantTokenNone::get(C));
+      // "llvm::ConstantTokenNone::get(C)" isn't supported by -debugify
+      I->replaceAllUsesWith(llvm::UndefValue::get(Type::getTokenTy(C)));
     I->eraseFromParent();
   }
 
