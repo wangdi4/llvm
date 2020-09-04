@@ -570,26 +570,28 @@ void HIRLoopFusion::sortHLNodes(const FuseGraph &FG) {
   FG.topologicalSort(Nodes);
 
   HLNode *PtrNode = getEffectiveLexicalFirstNode(FG).getHLNode();
-
   bool NeedNextPtr = false;
-  for (const FuseNode *Node : Nodes) {
+
+  auto MoveNode = [&](HLNode *SortedNode) {
     if (NeedNextPtr) {
       PtrNode = &*std::next(PtrNode->getIterator());
       NeedNextPtr = false;
     }
 
-    HLNode *SortedNode = Node->getHLNode();
-
     if (PtrNode == SortedNode) {
       NeedNextPtr = true;
     } else {
-      if (Node->isGoodNode()) {
-        for (auto *LoopNode : Node->loops()) {
-          HLNodeUtils::moveBefore(PtrNode, LoopNode);
-        }
-      } else {
-        HLNodeUtils::moveBefore(PtrNode, SortedNode);
+      HLNodeUtils::moveBefore(PtrNode, SortedNode);
+    }
+  };
+
+  for (const FuseNode *Node : Nodes) {
+    if (Node->isGoodNode()) {
+      for (auto *LoopNode : Node->loops()) {
+        MoveNode(LoopNode);
       }
+    } else {
+      MoveNode(Node->getHLNode());
     }
   }
 }
