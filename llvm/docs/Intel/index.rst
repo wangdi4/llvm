@@ -24,6 +24,7 @@ Xmain
    XmainCurrentLITFailures
    IRSuppression
    LoopOptReport
+   TraceBack
    InlineReportViaMetadata
    LoopAnalysis/index
    LoopTransforms/index
@@ -108,6 +109,8 @@ process change requests to them.
    and the implementation used to do so.
 
 :doc:`Loop Optimization Reports <LoopOptReport>`
+
+:doc:`TraceBack <TraceBack>`
 
 :doc:`Interprocedural Optimization Reports <InlineReportViaMetadata>`
    Describes the usage and implementation details of optimization reports
