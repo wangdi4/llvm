@@ -434,10 +434,11 @@ static CallInst *getCriticalEndCall(CallInst *CallI) {
 
 /// This function ignores special instructions with side effect.
 /// Returns true if the call instruction is a special call.
+/// Returns true if the call instruction is a intrinsic call, except for memcpy
+/// intrinsic, the destination operand is not allocated locally in the thread.
 /// Returns true if the store address is an alloca instruction,
 /// that is allocated locally in the thread.
 static bool ignoreSpecialOperands(const Instruction *I) {
-
   //   Ignore calls to the following OpenCL functions
   const std::set<std::string> IgnoreCalls = {
       "_Z13get_global_idj",  "_Z12get_local_idj",   "_Z14get_local_sizej",
@@ -449,11 +450,20 @@ static bool ignoreSpecialOperands(const Instruction *I) {
 #endif // INTEL_CUSTOMIZATION
       "omp_get_thread_num"};
 
-  if (auto CallI = dyn_cast<CallInst>(I)) {
+  if (auto II = dyn_cast<IntrinsicInst>(I)) {
+    if (II->getIntrinsicID() == Intrinsic::memcpy) {
+      auto Arg0 = II->getArgOperand(0)->stripPointerCasts();
+      LLVM_DEBUG(dbgs() << "Destination operand:: " << *Arg0 << "\n");
+      if (cast<PointerType>(Arg0->getType())->getAddressSpace() !=
+          vpo::ADDRESS_SPACE_PRIVATE)
+        return false;
+    }
+    return true;
+  } else if (auto CallI = dyn_cast<CallInst>(I)) {
     // Unprototyped function calls may result in a call of a bitcasted
     // Function.
     auto CalledF = CallI->getCalledOperand()->stripPointerCasts();
-    assert(CalledF != nullptr && "Called Function not found ");
+    assert(CalledF != nullptr && "Called Function not found.");
     if (CalledF->hasName() &&
         IgnoreCalls.find(std::string(CalledF->getName())) != IgnoreCalls.end())
       return true;
@@ -623,9 +633,6 @@ void VPOParoptTransform::guardSideEffectStatements(
         continue;
       if (TargetDirectiveExit == &I)
         break;
-      // they donot have side effect Ignore intrinsic calls
-      if (isa<IntrinsicInst>(&I))
-        continue;
       if (I.mayHaveSideEffects()) {
         if (ignoreSpecialOperands(&I))
           continue;
@@ -978,15 +985,15 @@ bool VPOParoptTransform::genTargetOffloadingCode(WRegionNode *W) {
     // Please note that the name of NewF is updated in the
     // function registerTargetRegion.
     if (isTargetSPIRV()) {
-      LLVM_DEBUG(dbgs() << "\nBefore guardSideEffectStatemets the function ::"
-                 << *NewF);
+      LLVM_DEBUG(dbgs() << "\nBefore guardSideEffectStatements the function ::"
+                        << *NewF);
       guardSideEffectStatements(W, NewF);
-      LLVM_DEBUG(dbgs() << "\nAfter guardSideEffectStatemets the function ::"
-                 << *NewF);
+      LLVM_DEBUG(dbgs() << "\nAfter guardSideEffectStatements the function ::"
+                        << *NewF);
 
-      // Make sure to run kernel finalization after guardSideEffectStatemets(),
+      // Make sure to run kernel finalization after guardSideEffectStatements(),
       // which is responsible for cleaning up all directive calls that
-      // were left until this point for guardSideEffectStatemets() to work.
+      // were left until this point for guardSideEffectStatements() to work.
       // The extra directive call may prevent address space inferring.
       NewF = finalizeKernelFunction(W, NewF, NewCall);
       LLVM_DEBUG(dbgs() << "\nAfter finalizeKernel Dump the function ::"
