@@ -1771,11 +1771,11 @@ define <8 x half> @build_vector_xxxxxxxx(half %a0, half %a1, half %a2, half %a3,
 ; X64:       # %bb.0:
 ; X64-NEXT:    vpunpcklwd {{.*#+}} xmm6 = xmm6[0],xmm7[0],xmm6[1],xmm7[1],xmm6[2],xmm7[2],xmm6[3],xmm7[3]
 ; X64-NEXT:    vpunpcklwd {{.*#+}} xmm4 = xmm4[0],xmm5[0],xmm4[1],xmm5[1],xmm4[2],xmm5[2],xmm4[3],xmm5[3]
-; X64-NEXT:    vinsertps {{.*#+}} xmm4 = xmm4[0],xmm6[0],zero,zero
+; X64-NEXT:    vpunpckldq {{.*#+}} xmm4 = xmm4[0],xmm6[0],xmm4[1],xmm6[1]
 ; X64-NEXT:    vpunpcklwd {{.*#+}} xmm2 = xmm2[0],xmm3[0],xmm2[1],xmm3[1],xmm2[2],xmm3[2],xmm2[3],xmm3[3]
 ; X64-NEXT:    vpunpcklwd {{.*#+}} xmm0 = xmm0[0],xmm1[0],xmm0[1],xmm1[1],xmm0[2],xmm1[2],xmm0[3],xmm1[3]
-; X64-NEXT:    vinsertps {{.*#+}} xmm0 = xmm0[0],xmm2[0],zero,zero
-; X64-NEXT:    vmovlhps {{.*#+}} xmm0 = xmm0[0],xmm4[0]
+; X64-NEXT:    vpunpckldq {{.*#+}} xmm0 = xmm0[0],xmm2[0],xmm0[1],xmm2[1]
+; X64-NEXT:    vpunpcklqdq {{.*#+}} xmm0 = xmm0[0],xmm4[0]
 ; X64-NEXT:    retq
 ;
 ; X86-LABEL: build_vector_xxxxxxxx:
@@ -1786,15 +1786,15 @@ define <8 x half> @build_vector_xxxxxxxx(half %a0, half %a1, half %a2, half %a3,
 ; X86-NEXT:    vmovsh {{[0-9]+}}(%esp), %xmm1
 ; X86-NEXT:    vmovsh {{[0-9]+}}(%esp), %xmm2
 ; X86-NEXT:    vpunpcklwd {{.*#+}} xmm1 = xmm1[0],xmm2[0],xmm1[1],xmm2[1],xmm1[2],xmm2[2],xmm1[3],xmm2[3]
-; X86-NEXT:    vinsertps {{.*#+}} xmm0 = xmm0[0],xmm1[0],zero,zero
+; X86-NEXT:    vpunpckldq {{.*#+}} xmm0 = xmm0[0],xmm1[0],xmm0[1],xmm1[1]
 ; X86-NEXT:    vmovsh {{[0-9]+}}(%esp), %xmm1
 ; X86-NEXT:    vmovsh {{[0-9]+}}(%esp), %xmm2
 ; X86-NEXT:    vpunpcklwd {{.*#+}} xmm1 = xmm1[0],xmm2[0],xmm1[1],xmm2[1],xmm1[2],xmm2[2],xmm1[3],xmm2[3]
 ; X86-NEXT:    vmovsh {{[0-9]+}}(%esp), %xmm2
 ; X86-NEXT:    vmovsh {{[0-9]+}}(%esp), %xmm3
 ; X86-NEXT:    vpunpcklwd {{.*#+}} xmm2 = xmm2[0],xmm3[0],xmm2[1],xmm3[1],xmm2[2],xmm3[2],xmm2[3],xmm3[3]
-; X86-NEXT:    vinsertps {{.*#+}} xmm1 = xmm1[0],xmm2[0],zero,zero
-; X86-NEXT:    vmovlhps {{.*#+}} xmm0 = xmm0[0],xmm1[0]
+; X86-NEXT:    vpunpckldq {{.*#+}} xmm1 = xmm1[0],xmm2[0],xmm1[1],xmm2[1]
+; X86-NEXT:    vpunpcklqdq {{.*#+}} xmm0 = xmm0[0],xmm1[0]
 ; X86-NEXT:    retl
   %a = insertelement <8 x half> undef, half %a0, i32 0
   %b = insertelement <8 x half> %a, half %a1, i32 1
