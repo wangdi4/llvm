@@ -5,6 +5,7 @@
 
 // REQUIRES: clang-driver
 // REQUIRES: x86-registered-target
+// REQUIRES: intel_libompdevice
 // The driver looks for .o devicelib files, that only exist on Linux:
 // REQUIRES: system-linux
 

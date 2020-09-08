@@ -1,5 +1,3 @@
-// UNSUPPORTED: intel_opencl && i686-pc-windows
-
 ///
 /// Perform driver tests for OpenMP offloading with -fiopenmp and target spir64
 /// with -device-math-lib option on Windows.
@@ -7,6 +5,7 @@
 
 // REQUIRES: clang-driver
 // REQUIRES: x86-registered-target
+// REQUIRES: intel_libompdevice
 // The driver looks for .obj devicelib files, that only exist on Windows:
 // REQUIRES: system-windows
 
