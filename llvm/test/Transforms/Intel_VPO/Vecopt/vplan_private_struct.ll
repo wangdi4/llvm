@@ -23,8 +23,8 @@ target triple = "x86_64-pc-linux"
 ; CHECK: [[LT1:%.*]] = bitcast <2 x <{ i32, i32, i8 addrspace(4)*, i32 addrspace(1)*, i32 }>*> [[PRIV_BC_ADDRS3]] to <2 x i8*>
 ; CHECK: [[E1:%.*]] = extractelement <2 x i8*> [[LT1]], i32 1
 ; CHECK: [[E2:%.*]] = extractelement <2 x i8*> [[LT1]], i32 0
-; CHECK: call void @llvm.lifetime.start.p0i8(i64 28, i8* [[E2]])
-; CHECK: call void @llvm.lifetime.start.p0i8(i64 28, i8* [[E1]])
+; CHECK: call void @llvm.lifetime.start.p0i8(i64 28, i8* nonnull [[E2]])
+; CHECK: call void @llvm.lifetime.start.p0i8(i64 28, i8* nonnull [[E1]])
 
 
 %struct.ndrange_t.6 = type { i32, [3 x i64], [3 x i64], [3 x i64] }
