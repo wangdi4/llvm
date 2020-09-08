@@ -98,38 +98,9 @@ define <4 x float> @gather_v4f32_ptr_v4i32(<4 x float*> %ptr, <4 x i32> %trigger
 ; AVX2:       # %bb.0:
 ; AVX2-NEXT:    vpxor %xmm3, %xmm3, %xmm3
 ; AVX2-NEXT:    vpcmpeqd %xmm3, %xmm1, %xmm1
-; AVX2-NEXT:    vmovmskps %xmm1, %eax
-; AVX2-NEXT:    testb $1, %al
-; AVX2-NEXT:    je .LBB0_2
-; AVX2-NEXT:  # %bb.1: # %cond.load
-; AVX2-NEXT:    vmovq %xmm0, %rcx
-; AVX2-NEXT:    vmovss {{.*#+}} xmm1 = mem[0],zero,zero,zero
-; AVX2-NEXT:    vblendps {{.*#+}} xmm2 = xmm1[0],xmm2[1,2,3]
-; AVX2-NEXT:  .LBB0_2: # %else
-; AVX2-NEXT:    testb $2, %al
-; AVX2-NEXT:    je .LBB0_4
-; AVX2-NEXT:  # %bb.3: # %cond.load1
-; AVX2-NEXT:    vpextrq $1, %xmm0, %rcx
-; AVX2-NEXT:    vinsertps {{.*#+}} xmm2 = xmm2[0],mem[0],xmm2[2,3]
-; AVX2-NEXT:  .LBB0_4: # %else2
-; AVX2-NEXT:    testb $4, %al
-; AVX2-NEXT:    vextracti128 $1, %ymm0, %xmm0
-; AVX2-NEXT:    jne .LBB0_5
-; AVX2-NEXT:  # %bb.6: # %else5
-; AVX2-NEXT:    testb $8, %al
-; AVX2-NEXT:    jne .LBB0_7
-; AVX2-NEXT:  .LBB0_8: # %else8
-; AVX2-NEXT:    vmovaps %xmm2, %xmm0
-; AVX2-NEXT:    vzeroupper
-; AVX2-NEXT:    retq
-; AVX2-NEXT:  .LBB0_5: # %cond.load4
-; AVX2-NEXT:    vmovq %xmm0, %rcx
-; AVX2-NEXT:    vinsertps {{.*#+}} xmm2 = xmm2[0,1],mem[0],xmm2[3]
-; AVX2-NEXT:    testb $8, %al
-; AVX2-NEXT:    je .LBB0_8
-; AVX2-NEXT:  .LBB0_7: # %cond.load7
-; AVX2-NEXT:    vpextrq $1, %xmm0, %rax
-; AVX2-NEXT:    vinsertps {{.*#+}} xmm2 = xmm2[0,1,2],mem[0]
+; INTEL_CUSTOMIZATION
+; AVX2-NEXT:    vgatherqps %xmm1, (,%ymm0), %xmm2
+; end INTEL_CUSTOMIZATION
 ; AVX2-NEXT:    vmovaps %xmm2, %xmm0
 ; AVX2-NEXT:    vzeroupper
 ; AVX2-NEXT:    retq
@@ -250,47 +221,12 @@ define <4 x float> @gather_v4f32_v4i32_v4i32(float* %base, <4 x i32> %idx, <4 x 
 ;
 ; AVX2-LABEL: gather_v4f32_v4i32_v4i32:
 ; AVX2:       # %bb.0:
-; AVX2-NEXT:    vmovq %rdi, %xmm3
-; AVX2-NEXT:    vpbroadcastq %xmm3, %ymm3
-; AVX2-NEXT:    vpmovsxdq %xmm0, %ymm0
-; AVX2-NEXT:    vpsllq $2, %ymm0, %ymm0
-; AVX2-NEXT:    vpaddq %ymm0, %ymm3, %ymm0
 ; AVX2-NEXT:    vpxor %xmm3, %xmm3, %xmm3
 ; AVX2-NEXT:    vpcmpeqd %xmm3, %xmm1, %xmm1
-; AVX2-NEXT:    vmovmskps %xmm1, %eax
-; AVX2-NEXT:    testb $1, %al
-; AVX2-NEXT:    je .LBB1_2
-; AVX2-NEXT:  # %bb.1: # %cond.load
-; AVX2-NEXT:    vmovq %xmm0, %rcx
-; AVX2-NEXT:    vmovss {{.*#+}} xmm1 = mem[0],zero,zero,zero
-; AVX2-NEXT:    vblendps {{.*#+}} xmm2 = xmm1[0],xmm2[1,2,3]
-; AVX2-NEXT:  .LBB1_2: # %else
-; AVX2-NEXT:    testb $2, %al
-; AVX2-NEXT:    je .LBB1_4
-; AVX2-NEXT:  # %bb.3: # %cond.load1
-; AVX2-NEXT:    vpextrq $1, %xmm0, %rcx
-; AVX2-NEXT:    vinsertps {{.*#+}} xmm2 = xmm2[0],mem[0],xmm2[2,3]
-; AVX2-NEXT:  .LBB1_4: # %else2
-; AVX2-NEXT:    testb $4, %al
-; AVX2-NEXT:    vextracti128 $1, %ymm0, %xmm0
-; AVX2-NEXT:    jne .LBB1_5
-; AVX2-NEXT:  # %bb.6: # %else5
-; AVX2-NEXT:    testb $8, %al
-; AVX2-NEXT:    jne .LBB1_7
-; AVX2-NEXT:  .LBB1_8: # %else8
+; INTEL_CUSTOMIZATION
+; AVX2-NEXT:    vgatherdps %xmm1, (%rdi,%xmm0,4), %xmm2
+; end INTEL_CUSTOMIZATION
 ; AVX2-NEXT:    vmovaps %xmm2, %xmm0
-; AVX2-NEXT:    vzeroupper
-; AVX2-NEXT:    retq
-; AVX2-NEXT:  .LBB1_5: # %cond.load4
-; AVX2-NEXT:    vmovq %xmm0, %rcx
-; AVX2-NEXT:    vinsertps {{.*#+}} xmm2 = xmm2[0,1],mem[0],xmm2[3]
-; AVX2-NEXT:    testb $8, %al
-; AVX2-NEXT:    je .LBB1_8
-; AVX2-NEXT:  .LBB1_7: # %cond.load7
-; AVX2-NEXT:    vpextrq $1, %xmm0, %rax
-; AVX2-NEXT:    vinsertps {{.*#+}} xmm2 = xmm2[0,1,2],mem[0]
-; AVX2-NEXT:    vmovaps %xmm2, %xmm0
-; AVX2-NEXT:    vzeroupper
 ; AVX2-NEXT:    retq
 ;
 ; AVX512-LABEL: gather_v4f32_v4i32_v4i32:
@@ -408,44 +344,11 @@ define <4 x float> @gather_v4f32_v4i64_v4i32(float* %base, <4 x i64> %idx, <4 x 
 ;
 ; AVX2-LABEL: gather_v4f32_v4i64_v4i32:
 ; AVX2:       # %bb.0:
-; AVX2-NEXT:    vmovq %rdi, %xmm3
-; AVX2-NEXT:    vpbroadcastq %xmm3, %ymm3
-; AVX2-NEXT:    vpsllq $2, %ymm0, %ymm0
-; AVX2-NEXT:    vpaddq %ymm0, %ymm3, %ymm0
 ; AVX2-NEXT:    vpxor %xmm3, %xmm3, %xmm3
 ; AVX2-NEXT:    vpcmpeqd %xmm3, %xmm1, %xmm1
-; AVX2-NEXT:    vmovmskps %xmm1, %eax
-; AVX2-NEXT:    testb $1, %al
-; AVX2-NEXT:    je .LBB2_2
-; AVX2-NEXT:  # %bb.1: # %cond.load
-; AVX2-NEXT:    vmovq %xmm0, %rcx
-; AVX2-NEXT:    vmovss {{.*#+}} xmm1 = mem[0],zero,zero,zero
-; AVX2-NEXT:    vblendps {{.*#+}} xmm2 = xmm1[0],xmm2[1,2,3]
-; AVX2-NEXT:  .LBB2_2: # %else
-; AVX2-NEXT:    testb $2, %al
-; AVX2-NEXT:    je .LBB2_4
-; AVX2-NEXT:  # %bb.3: # %cond.load1
-; AVX2-NEXT:    vpextrq $1, %xmm0, %rcx
-; AVX2-NEXT:    vinsertps {{.*#+}} xmm2 = xmm2[0],mem[0],xmm2[2,3]
-; AVX2-NEXT:  .LBB2_4: # %else2
-; AVX2-NEXT:    testb $4, %al
-; AVX2-NEXT:    vextracti128 $1, %ymm0, %xmm0
-; AVX2-NEXT:    jne .LBB2_5
-; AVX2-NEXT:  # %bb.6: # %else5
-; AVX2-NEXT:    testb $8, %al
-; AVX2-NEXT:    jne .LBB2_7
-; AVX2-NEXT:  .LBB2_8: # %else8
-; AVX2-NEXT:    vmovaps %xmm2, %xmm0
-; AVX2-NEXT:    vzeroupper
-; AVX2-NEXT:    retq
-; AVX2-NEXT:  .LBB2_5: # %cond.load4
-; AVX2-NEXT:    vmovq %xmm0, %rcx
-; AVX2-NEXT:    vinsertps {{.*#+}} xmm2 = xmm2[0,1],mem[0],xmm2[3]
-; AVX2-NEXT:    testb $8, %al
-; AVX2-NEXT:    je .LBB2_8
-; AVX2-NEXT:  .LBB2_7: # %cond.load7
-; AVX2-NEXT:    vpextrq $1, %xmm0, %rax
-; AVX2-NEXT:    vinsertps {{.*#+}} xmm2 = xmm2[0,1,2],mem[0]
+; INTEL_CUSTOMIZATION
+; AVX2-NEXT:    vgatherqps %xmm1, (%rdi,%ymm0,4), %xmm2
+; end INTEL_CUSTOMIZATION
 ; AVX2-NEXT:    vmovaps %xmm2, %xmm0
 ; AVX2-NEXT:    vzeroupper
 ; AVX2-NEXT:    retq
@@ -1441,216 +1344,15 @@ define <8 x i32> @gather_v8i32_v8i32(<8 x i32> %trigger) {
 ; AVX2-LABEL: gather_v8i32_v8i32:
 ; AVX2:       # %bb.0:
 ; AVX2-NEXT:    vpxor %xmm1, %xmm1, %xmm1
-; AVX2-NEXT:    vpcmpeqd %ymm1, %ymm0, %ymm1
-; AVX2-NEXT:    vmovmskps %ymm1, %eax
-; AVX2-NEXT:    testb $1, %al
-; AVX2-NEXT:    # implicit-def: $ymm1
-; AVX2-NEXT:    jne .LBB4_1
-; AVX2-NEXT:  # %bb.2: # %else
-; AVX2-NEXT:    testb $2, %al
-; AVX2-NEXT:    jne .LBB4_3
-; AVX2-NEXT:  .LBB4_4: # %else2
-; AVX2-NEXT:    testb $4, %al
-; AVX2-NEXT:    jne .LBB4_5
-; AVX2-NEXT:  .LBB4_6: # %else5
-; AVX2-NEXT:    testb $8, %al
-; AVX2-NEXT:    jne .LBB4_7
-; AVX2-NEXT:  .LBB4_8: # %else8
-; AVX2-NEXT:    testb $16, %al
-; AVX2-NEXT:    jne .LBB4_9
-; AVX2-NEXT:  .LBB4_10: # %else11
-; AVX2-NEXT:    testb $32, %al
-; AVX2-NEXT:    jne .LBB4_11
-; AVX2-NEXT:  .LBB4_12: # %else14
-; AVX2-NEXT:    testb $64, %al
-; AVX2-NEXT:    jne .LBB4_13
-; AVX2-NEXT:  .LBB4_14: # %else17
-; AVX2-NEXT:    testb $-128, %al
-; AVX2-NEXT:    je .LBB4_16
-; AVX2-NEXT:  .LBB4_15: # %cond.load19
-; AVX2-NEXT:    vextracti128 $1, %ymm1, %xmm2
-; AVX2-NEXT:    vpinsrd $3, c+{{.*}}(%rip), %xmm2, %xmm2
-; AVX2-NEXT:    vinserti128 $1, %xmm2, %ymm1, %ymm1
-; AVX2-NEXT:  .LBB4_16: # %else20
+; AVX2-NEXT:    vpcmpeqd %ymm1, %ymm0, %ymm0
 ; AVX2-NEXT:    vpxor %xmm2, %xmm2, %xmm2
-; AVX2-NEXT:    vpcmpeqd %ymm2, %ymm0, %ymm2
-; AVX2-NEXT:    vmovmskps %ymm2, %eax
-; AVX2-NEXT:    testb $1, %al
-; AVX2-NEXT:    # implicit-def: $ymm2
-; AVX2-NEXT:    jne .LBB4_17
-; AVX2-NEXT:  # %bb.18: # %else26
-; AVX2-NEXT:    testb $2, %al
-; AVX2-NEXT:    jne .LBB4_19
-; AVX2-NEXT:  .LBB4_20: # %else31
-; AVX2-NEXT:    testb $4, %al
-; AVX2-NEXT:    jne .LBB4_21
-; AVX2-NEXT:  .LBB4_22: # %else36
-; AVX2-NEXT:    testb $8, %al
-; AVX2-NEXT:    jne .LBB4_23
-; AVX2-NEXT:  .LBB4_24: # %else41
-; AVX2-NEXT:    testb $16, %al
-; AVX2-NEXT:    jne .LBB4_25
-; AVX2-NEXT:  .LBB4_26: # %else46
-; AVX2-NEXT:    testb $32, %al
-; AVX2-NEXT:    jne .LBB4_27
-; AVX2-NEXT:  .LBB4_28: # %else51
-; AVX2-NEXT:    testb $64, %al
-; AVX2-NEXT:    jne .LBB4_29
-; AVX2-NEXT:  .LBB4_30: # %else56
-; AVX2-NEXT:    testb $-128, %al
-; AVX2-NEXT:    je .LBB4_32
-; AVX2-NEXT:  .LBB4_31: # %cond.load58
-; AVX2-NEXT:    vextracti128 $1, %ymm2, %xmm3
-; AVX2-NEXT:    vpinsrd $3, c+{{.*}}(%rip), %xmm3, %xmm3
-; AVX2-NEXT:    vinserti128 $1, %xmm3, %ymm2, %ymm2
-; AVX2-NEXT:  .LBB4_32: # %else61
+; AVX2-NEXT:    vmovdqa %ymm0, %ymm3
+; AVX2-NEXT:    vpgatherdd %ymm3, c+12(,%ymm1), %ymm2
 ; AVX2-NEXT:    vpxor %xmm3, %xmm3, %xmm3
-; AVX2-NEXT:    vpcmpeqd %ymm3, %ymm0, %ymm0
-; AVX2-NEXT:    vmovmskps %ymm0, %eax
-; AVX2-NEXT:    testb $1, %al
-; AVX2-NEXT:    # implicit-def: $ymm0
-; AVX2-NEXT:    jne .LBB4_33
-; AVX2-NEXT:  # %bb.34: # %else67
-; AVX2-NEXT:    testb $2, %al
-; AVX2-NEXT:    jne .LBB4_35
-; AVX2-NEXT:  .LBB4_36: # %else72
-; AVX2-NEXT:    testb $4, %al
-; AVX2-NEXT:    jne .LBB4_37
-; AVX2-NEXT:  .LBB4_38: # %else77
-; AVX2-NEXT:    testb $8, %al
-; AVX2-NEXT:    jne .LBB4_39
-; AVX2-NEXT:  .LBB4_40: # %else82
-; AVX2-NEXT:    testb $16, %al
-; AVX2-NEXT:    jne .LBB4_41
-; AVX2-NEXT:  .LBB4_42: # %else87
-; AVX2-NEXT:    testb $32, %al
-; AVX2-NEXT:    jne .LBB4_43
-; AVX2-NEXT:  .LBB4_44: # %else92
-; AVX2-NEXT:    testb $64, %al
-; AVX2-NEXT:    je .LBB4_46
-; AVX2-NEXT:  .LBB4_45: # %cond.load94
-; AVX2-NEXT:    vextracti128 $1, %ymm0, %xmm3
-; AVX2-NEXT:    vpinsrd $2, c+{{.*}}(%rip), %xmm3, %xmm3
-; AVX2-NEXT:    vinserti128 $1, %xmm3, %ymm0, %ymm0
-; AVX2-NEXT:  .LBB4_46: # %else97
-; AVX2-NEXT:    vpaddd %ymm2, %ymm1, %ymm1
-; AVX2-NEXT:    testb $-128, %al
-; AVX2-NEXT:    je .LBB4_48
-; AVX2-NEXT:  # %bb.47: # %cond.load99
-; AVX2-NEXT:    vextracti128 $1, %ymm0, %xmm2
-; AVX2-NEXT:    vpinsrd $3, c+{{.*}}(%rip), %xmm2, %xmm2
-; AVX2-NEXT:    vinserti128 $1, %xmm2, %ymm0, %ymm0
-; AVX2-NEXT:  .LBB4_48: # %else102
-; AVX2-NEXT:    vpaddd %ymm0, %ymm1, %ymm0
+; AVX2-NEXT:    vpgatherdd %ymm0, c+28(,%ymm1), %ymm3
+; AVX2-NEXT:    vpaddd %ymm3, %ymm3, %ymm0
+; AVX2-NEXT:    vpaddd %ymm0, %ymm2, %ymm0
 ; AVX2-NEXT:    retq
-; AVX2-NEXT:  .LBB4_1: # %cond.load
-; AVX2-NEXT:    vmovd {{.*#+}} xmm1 = mem[0],zero,zero,zero
-; AVX2-NEXT:    testb $2, %al
-; AVX2-NEXT:    je .LBB4_4
-; AVX2-NEXT:  .LBB4_3: # %cond.load1
-; AVX2-NEXT:    vpinsrd $1, c+{{.*}}(%rip), %xmm1, %xmm2
-; AVX2-NEXT:    vpblendd {{.*#+}} ymm1 = ymm2[0,1,2,3],ymm1[4,5,6,7]
-; AVX2-NEXT:    testb $4, %al
-; AVX2-NEXT:    je .LBB4_6
-; AVX2-NEXT:  .LBB4_5: # %cond.load4
-; AVX2-NEXT:    vpinsrd $2, c+{{.*}}(%rip), %xmm1, %xmm2
-; AVX2-NEXT:    vpblendd {{.*#+}} ymm1 = ymm2[0,1,2,3],ymm1[4,5,6,7]
-; AVX2-NEXT:    testb $8, %al
-; AVX2-NEXT:    je .LBB4_8
-; AVX2-NEXT:  .LBB4_7: # %cond.load7
-; AVX2-NEXT:    vpinsrd $3, c+{{.*}}(%rip), %xmm1, %xmm2
-; AVX2-NEXT:    vpblendd {{.*#+}} ymm1 = ymm2[0,1,2,3],ymm1[4,5,6,7]
-; AVX2-NEXT:    testb $16, %al
-; AVX2-NEXT:    je .LBB4_10
-; AVX2-NEXT:  .LBB4_9: # %cond.load10
-; AVX2-NEXT:    vextracti128 $1, %ymm1, %xmm2
-; AVX2-NEXT:    vpinsrd $0, c+{{.*}}(%rip), %xmm2, %xmm2
-; AVX2-NEXT:    vinserti128 $1, %xmm2, %ymm1, %ymm1
-; AVX2-NEXT:    testb $32, %al
-; AVX2-NEXT:    je .LBB4_12
-; AVX2-NEXT:  .LBB4_11: # %cond.load13
-; AVX2-NEXT:    vextracti128 $1, %ymm1, %xmm2
-; AVX2-NEXT:    vpinsrd $1, c+{{.*}}(%rip), %xmm2, %xmm2
-; AVX2-NEXT:    vinserti128 $1, %xmm2, %ymm1, %ymm1
-; AVX2-NEXT:    testb $64, %al
-; AVX2-NEXT:    je .LBB4_14
-; AVX2-NEXT:  .LBB4_13: # %cond.load16
-; AVX2-NEXT:    vextracti128 $1, %ymm1, %xmm2
-; AVX2-NEXT:    vpinsrd $2, c+{{.*}}(%rip), %xmm2, %xmm2
-; AVX2-NEXT:    vinserti128 $1, %xmm2, %ymm1, %ymm1
-; AVX2-NEXT:    testb $-128, %al
-; AVX2-NEXT:    jne .LBB4_15
-; AVX2-NEXT:    jmp .LBB4_16
-; AVX2-NEXT:  .LBB4_17: # %cond.load23
-; AVX2-NEXT:    vmovd {{.*#+}} xmm2 = mem[0],zero,zero,zero
-; AVX2-NEXT:    testb $2, %al
-; AVX2-NEXT:    je .LBB4_20
-; AVX2-NEXT:  .LBB4_19: # %cond.load28
-; AVX2-NEXT:    vpinsrd $1, c+{{.*}}(%rip), %xmm2, %xmm3
-; AVX2-NEXT:    vpblendd {{.*#+}} ymm2 = ymm3[0,1,2,3],ymm2[4,5,6,7]
-; AVX2-NEXT:    testb $4, %al
-; AVX2-NEXT:    je .LBB4_22
-; AVX2-NEXT:  .LBB4_21: # %cond.load33
-; AVX2-NEXT:    vpinsrd $2, c+{{.*}}(%rip), %xmm2, %xmm3
-; AVX2-NEXT:    vpblendd {{.*#+}} ymm2 = ymm3[0,1,2,3],ymm2[4,5,6,7]
-; AVX2-NEXT:    testb $8, %al
-; AVX2-NEXT:    je .LBB4_24
-; AVX2-NEXT:  .LBB4_23: # %cond.load38
-; AVX2-NEXT:    vpinsrd $3, c+{{.*}}(%rip), %xmm2, %xmm3
-; AVX2-NEXT:    vpblendd {{.*#+}} ymm2 = ymm3[0,1,2,3],ymm2[4,5,6,7]
-; AVX2-NEXT:    testb $16, %al
-; AVX2-NEXT:    je .LBB4_26
-; AVX2-NEXT:  .LBB4_25: # %cond.load43
-; AVX2-NEXT:    vextracti128 $1, %ymm2, %xmm3
-; AVX2-NEXT:    vpinsrd $0, c+{{.*}}(%rip), %xmm3, %xmm3
-; AVX2-NEXT:    vinserti128 $1, %xmm3, %ymm2, %ymm2
-; AVX2-NEXT:    testb $32, %al
-; AVX2-NEXT:    je .LBB4_28
-; AVX2-NEXT:  .LBB4_27: # %cond.load48
-; AVX2-NEXT:    vextracti128 $1, %ymm2, %xmm3
-; AVX2-NEXT:    vpinsrd $1, c+{{.*}}(%rip), %xmm3, %xmm3
-; AVX2-NEXT:    vinserti128 $1, %xmm3, %ymm2, %ymm2
-; AVX2-NEXT:    testb $64, %al
-; AVX2-NEXT:    je .LBB4_30
-; AVX2-NEXT:  .LBB4_29: # %cond.load53
-; AVX2-NEXT:    vextracti128 $1, %ymm2, %xmm3
-; AVX2-NEXT:    vpinsrd $2, c+{{.*}}(%rip), %xmm3, %xmm3
-; AVX2-NEXT:    vinserti128 $1, %xmm3, %ymm2, %ymm2
-; AVX2-NEXT:    testb $-128, %al
-; AVX2-NEXT:    jne .LBB4_31
-; AVX2-NEXT:    jmp .LBB4_32
-; AVX2-NEXT:  .LBB4_33: # %cond.load64
-; AVX2-NEXT:    vmovd {{.*#+}} xmm0 = mem[0],zero,zero,zero
-; AVX2-NEXT:    testb $2, %al
-; AVX2-NEXT:    je .LBB4_36
-; AVX2-NEXT:  .LBB4_35: # %cond.load69
-; AVX2-NEXT:    vpinsrd $1, c+{{.*}}(%rip), %xmm0, %xmm3
-; AVX2-NEXT:    vpblendd {{.*#+}} ymm0 = ymm3[0,1,2,3],ymm0[4,5,6,7]
-; AVX2-NEXT:    testb $4, %al
-; AVX2-NEXT:    je .LBB4_38
-; AVX2-NEXT:  .LBB4_37: # %cond.load74
-; AVX2-NEXT:    vpinsrd $2, c+{{.*}}(%rip), %xmm0, %xmm3
-; AVX2-NEXT:    vpblendd {{.*#+}} ymm0 = ymm3[0,1,2,3],ymm0[4,5,6,7]
-; AVX2-NEXT:    testb $8, %al
-; AVX2-NEXT:    je .LBB4_40
-; AVX2-NEXT:  .LBB4_39: # %cond.load79
-; AVX2-NEXT:    vpinsrd $3, c+{{.*}}(%rip), %xmm0, %xmm3
-; AVX2-NEXT:    vpblendd {{.*#+}} ymm0 = ymm3[0,1,2,3],ymm0[4,5,6,7]
-; AVX2-NEXT:    testb $16, %al
-; AVX2-NEXT:    je .LBB4_42
-; AVX2-NEXT:  .LBB4_41: # %cond.load84
-; AVX2-NEXT:    vextracti128 $1, %ymm0, %xmm3
-; AVX2-NEXT:    vpinsrd $0, c+{{.*}}(%rip), %xmm3, %xmm3
-; AVX2-NEXT:    vinserti128 $1, %xmm3, %ymm0, %ymm0
-; AVX2-NEXT:    testb $32, %al
-; AVX2-NEXT:    je .LBB4_44
-; AVX2-NEXT:  .LBB4_43: # %cond.load89
-; AVX2-NEXT:    vextracti128 $1, %ymm0, %xmm3
-; AVX2-NEXT:    vpinsrd $1, c+{{.*}}(%rip), %xmm3, %xmm3
-; AVX2-NEXT:    vinserti128 $1, %xmm3, %ymm0, %ymm0
-; AVX2-NEXT:    testb $64, %al
-; AVX2-NEXT:    jne .LBB4_45
-; AVX2-NEXT:    jmp .LBB4_46
 ; end INTEL_CUSTOMIZATION
 ;
 ; AVX512-LABEL: gather_v8i32_v8i32:

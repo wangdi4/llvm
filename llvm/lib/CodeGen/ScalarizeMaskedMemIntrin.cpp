@@ -958,12 +958,9 @@ bool ScalarizeMaskedMemIntrin::optimizeCallInst(CallInst *CI,
       scalarizeMaskedStore(CI, ModifiedDT);
       return true;
     case Intrinsic::masked_gather: {
-      unsigned AlignmentInt =
-          cast<ConstantInt>(CI->getArgOperand(1))->getZExtValue();
-      Type *LoadTy = CI->getType();
-      Align Alignment =
-          DL->getValueOrABITypeAlignment(MaybeAlign(AlignmentInt), LoadTy);
-      if (TTI->isLegalMaskedGather(LoadTy, Alignment))
+#if INTEL_CUSTOMIZATION
+      if (!TTI->shouldScalarizeMaskedGather(CI))
+#endif // INTEL_CUSTOMIZATION
         return false;
       scalarizeMaskedGather(CI, ModifiedDT);
       return true;

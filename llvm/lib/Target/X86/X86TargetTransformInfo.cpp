@@ -4666,6 +4666,73 @@ bool X86TTIImpl::adjustCallArgs(CallInst* CI) {
 }
 #endif // INTEL_CUSTOMIZATION
 
+#if INTEL_CUSTOMIZATION
+static bool isConstantIntVector(Value *Mask) {
+  Constant *C = dyn_cast<Constant>(Mask);
+  if (!C)
+    return false;
+
+  unsigned NumElts = cast<FixedVectorType>(Mask->getType())->getNumElements();
+  for (unsigned i = 0; i != NumElts; ++i) {
+    Constant *CElt = C->getAggregateElement(i);
+    if (!CElt || !isa<ConstantInt>(CElt))
+      return false;
+  }
+
+  return true;
+}
+
+bool X86TTIImpl::shouldScalarizeMaskedGather(CallInst *CI) {
+  // If it is none of the following three situation, we will
+  // scalarize maskgather:
+  // 1. the subtarget has avx512
+  // 2. the subtarget has avx2 && hasfastgather
+  // 3. the target is BDW/HSW and masked-gather has 4 or more elements and the
+  // mask is unknown.
+  //
+  // Notes: According to optimization manual, on Haswell,
+  // gather with 4 or more elements and unknown mask is better than
+  // data-dependent branches:
+  //  if (condition[i] > 0) { result[i] = x[index[i]] }
+  // Since Broadwell improve the throughput of the VGATHER family of
+  // instructions significantly, this rule also works on BDW.
+  Type *DataTy = CI->getType();
+  auto isAVX2GatherProfitable = [&]() {
+    if (!ST->hasAVX2())
+      return false;
+    if (ST->hasFastGather())
+      return true;
+    if (auto *DataVTy = dyn_cast<FixedVectorType>(DataTy)) {
+      if (DataVTy->getNumElements() >= 4 &&
+          !isConstantIntVector(CI->getOperand(2)))
+        return true;
+    }
+    return false;
+  };
+
+  if (ST->hasAVX512() || isAVX2GatherProfitable()) {
+    if (auto *DataVTy = dyn_cast<FixedVectorType>(DataTy)) {
+      unsigned NumElts = DataVTy->getNumElements();
+      if (NumElts == 1 || !isPowerOf2_32(NumElts))
+        return true;
+    }
+    Type *ScalarTy = DataTy->getScalarType();
+    if (ScalarTy->isPointerTy())
+      return false;
+
+    if (ScalarTy->isFloatTy() || ScalarTy->isDoubleTy())
+      return false;
+
+    if (!ScalarTy->isIntegerTy())
+      return true;
+
+    unsigned IntWidth = ScalarTy->getIntegerBitWidth();
+    return !(IntWidth == 32 || IntWidth == 64);
+  }
+  return true;
+}
+#endif // INTEL_CUSTOMIZATION
+
 bool X86TTIImpl::isLegalMaskedGather(Type *DataTy, Align Alignment) {
   // Some CPUs have better gather performance than others.
   // TODO: Remove the explicit ST->hasAVX512()?, That would mean we would only

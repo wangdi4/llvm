@@ -226,6 +226,9 @@ public:
   bool isLegalNTLoad(Type *DataType, Align Alignment);
   bool isLegalNTStore(Type *DataType, Align Alignment);
   bool isLegalMaskedGather(Type *DataType, Align Alignment);
+#if INTEL_CUSTOMIZATION
+  bool shouldScalarizeMaskedGather(CallInst *CI);
+#endif // INTEL_CUSTOMIZATION
   bool isLegalMaskedScatter(Type *DataType, Align Alignment);
   bool isLegalMaskedExpandLoad(Type *DataType);
   bool isLegalMaskedCompressStore(Type *DataType);

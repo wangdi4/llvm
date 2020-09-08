@@ -657,7 +657,9 @@ public:
   bool isLegalMaskedScatter(Type *DataType, Align Alignment) const;
   /// Return true if the target supports masked gather.
   bool isLegalMaskedGather(Type *DataType, Align Alignment) const;
-
+#if INTEL_CUSTOMIZATION
+  bool shouldScalarizeMaskedGather(CallInst *CI) const;
+#endif // INTEL_CUSTOMIZATION
   /// Return true if the target supports masked compress store.
   bool isLegalMaskedCompressStore(Type *DataType) const;
   /// Return true if the target supports masked expand load.
@@ -1473,6 +1475,9 @@ public:
   virtual bool isLegalNTLoad(Type *DataType, Align Alignment) = 0;
   virtual bool isLegalMaskedScatter(Type *DataType, Align Alignment) = 0;
   virtual bool isLegalMaskedGather(Type *DataType, Align Alignment) = 0;
+#if INTEL_CUSTOMIZATION
+  virtual bool shouldScalarizeMaskedGather(CallInst *CI)= 0;
+#endif // INTEL_CUSTOMIZATION
   virtual bool isLegalMaskedCompressStore(Type *DataType) = 0;
   virtual bool isLegalMaskedExpandLoad(Type *DataType) = 0;
   virtual bool hasDivRemOp(Type *DataType, bool IsSigned) = 0;
@@ -1829,6 +1834,11 @@ public:
   bool isLegalMaskedGather(Type *DataType, Align Alignment) override {
     return Impl.isLegalMaskedGather(DataType, Alignment);
   }
+#if INTEL_CUSTOMIZATION
+  bool shouldScalarizeMaskedGather(CallInst *CI) override {
+    return Impl.shouldScalarizeMaskedGather(CI);
+}
+#endif // INTEL_CUSTOMIZATION
   bool isLegalMaskedCompressStore(Type *DataType) override {
     return Impl.isLegalMaskedCompressStore(DataType);
   }
