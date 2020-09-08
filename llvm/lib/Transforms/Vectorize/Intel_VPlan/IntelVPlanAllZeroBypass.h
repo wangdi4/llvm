@@ -31,9 +31,14 @@ class VPlanCostModelProprietary;
 class VPlanAllZeroBypass {
 
 public:
-  // BypassPairTy indicates a begin/end set of basic blocks for which to form
-  // an all-zero bypass around. This data structure reflects the blocks forming
-  // the region before the bypass insertion.
+  // BypassPairTy is used for both pre-insertion and post-insertion to indicate
+  // the begin/end blocks of bypass regions. For region pre-insertion, it
+  // corresponds to the first/last blocks that are contained on the edge where
+  // the bypass is not taken. During insertion, a separate data structure is
+  // used to mark the new begin/end blocks of the region now forming the bypass.
+  // These blocks are used later at the end of region insertion to make sure
+  // valid regions are formed. E.g., assert that we have single entry, single
+  // exit regions formed.
   using BypassPairTy = std::pair<VPBasicBlock *, VPBasicBlock *>;
   using AllZeroBypassRegionsTy = SmallVector<BypassPairTy, 8>;
 
@@ -95,7 +100,8 @@ private:
                              VPBasicBlock *LastBlockInBypassRegion,
                              VPDominatorTree *DT,
                              VPPostDominatorTree *PDT,
-                             VPLoopInfo *VPLI);
+                             VPLoopInfo *VPLI,
+                             AllZeroBypassRegionsTy &AllZeroBypassRegionsFinal);
 
   /// Assert if the structure of the bypass is not well formed.
   void verifyBypassRegion(VPBasicBlock *FirstBlockInRegion,
@@ -137,7 +143,7 @@ public:
   /// Iterate over blocks previously collected and insert an all-zero bypass
   /// around those blocks. This is also done for loops with divergent loop
   /// entry.
-  void insertAllZeroBypasses(AllZeroBypassRegionsTy &AllZeroBypassRegion);
+  void insertAllZeroBypasses(AllZeroBypassRegionsTy &AllZeroBypassRegions);
 };
 } // end namespace vpo
 } // end namespace llvm

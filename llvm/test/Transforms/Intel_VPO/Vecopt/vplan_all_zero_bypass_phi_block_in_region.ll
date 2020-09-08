@@ -3,8 +3,15 @@
 ; RUN: opt < %s -vplan-func-vec -enable-vplan-func-vec-all-zero-bypass-loops -print-after-vplan-func-vec-all-zero-bypass -disable-output -S 2>&1 | FileCheck %s
 ; RUN: opt < %s -passes="vplan-func-vec" -enable-vplan-func-vec-all-zero-bypass-loops -print-after-vplan-func-vec-all-zero-bypass -disable-output -S 2>&1 | FileCheck %s
 
-; This test checks to make sure that a maximal region is formed around the loop starting at BB5. This region starts at BB1 and since the
-; block-predicate for BB1 and BB5 is the same, then a redundant loop region is not generated.
+; Previously, this test checked to make sure that a maximal region was formed around the loop starting at BB5.
+; The region started at BB1 because during loop region collection, the single predecessor chain was traversed
+; while any block-predicate calculations or block-predicates themselves were isStricterOrEqualTo the block-
+; predicate of the loop preheader. During that traversal, each block would be added to the region. This lead
+; to some potential stability problems because in some cases regions started to overlap one another. For now,
+; all-zero bypass was changed to be more conservative and not extend regions "upward". Further testing is needed
+; to determine how to properly extend regions in these cases and for now stability is favored over this optimization.
+; An alternate approach would be to detect loop regions that are nested in non-loop regions under the same predicate
+; and just throw them away. This could be done during non-loop region collection.
 
 declare i64 @llvm.vplan.laneid()
 
@@ -19,46 +26,46 @@ define dso_local void @foo(i32* nocapture readonly %a, i32* nocapture readonly %
 ; CHECK-NEXT:     [DA: Div] i32* [[VP_ARRAYIDX:%.*]] = getelementptr inbounds i32* [[A0:%.*]] i64 [[VP_LANE]]
 ; CHECK-NEXT:     [DA: Div] i32 [[VP0:%.*]] = load i32* [[VP_ARRAYIDX]]
 ; CHECK-NEXT:     [DA: Div] i1 [[VP_CMP1:%.*]] = icmp sgt i32 [[VP0]] i32 7
-; CHECK-NEXT:    SUCCESSORS(1):all.zero.bypass.begin13
+; CHECK-NEXT:    SUCCESSORS(1):[[BB1:BB[0-9]+]]
 ; CHECK-NEXT:    no PREDECESSORS
+; CHECK-EMPTY:
+; CHECK-NEXT:    [[BB1]]:
+; CHECK-NEXT:     [DA: Div] i1 [[VP1:%.*]] = block-predicate i1 [[VP_CMP1]]
+; CHECK-NEXT:     [DA: Div] i32* [[VP_ARRAYIDX3:%.*]] = getelementptr inbounds i32* [[B0:%.*]] i64 [[VP_LANE]]
+; CHECK-NEXT:     [DA: Div] i32 [[VP2:%.*]] = load i32* [[VP_ARRAYIDX3]]
+; CHECK-NEXT:     [DA: Div] i1 [[VP_CMP4:%.*]] = icmp sgt i32 [[VP2]] i32 8
+; CHECK-NEXT:    SUCCESSORS(1):[[BB2:BB[0-9]+]]
+; CHECK-NEXT:    PREDECESSORS(1): [[BB0]]
+; CHECK-EMPTY:
+; CHECK-NEXT:    [[BB2]]:
+; CHECK-NEXT:     [DA: Div] i1 [[VP_BB2_BR_VP_CMP4:%.*]] = and i1 [[VP_CMP1]] i1 [[VP_CMP4]]
+; CHECK-NEXT:    SUCCESSORS(1):[[BB3:BB[0-9]+]]
+; CHECK-NEXT:    PREDECESSORS(1): [[BB1]]
+; CHECK-EMPTY:
+; CHECK-NEXT:    [[BB3]]:
+; CHECK-NEXT:     [DA: Div] i1 [[VP3:%.*]] = block-predicate i1 [[VP_BB2_BR_VP_CMP4]]
+; CHECK-NEXT:     [DA: Uni] i32 [[VP_DIV:%.*]] = sdiv i32 [[X0]] i32 [[Y0]]
+; CHECK-NEXT:     [DA: Div] i32* [[VP_ARRAYIDX7:%.*]] = getelementptr inbounds i32* [[C0:%.*]] i64 [[VP_LANE]]
+; CHECK-NEXT:     [DA: Div] store i32 [[VP_DIV]] i32* [[VP_ARRAYIDX7]]
+; CHECK-NEXT:    SUCCESSORS(1):all.zero.bypass.begin13
+; CHECK-NEXT:    PREDECESSORS(1): [[BB2]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    all.zero.bypass.begin13:
 ; CHECK-NEXT:     [DA: Uni] i1 [[VP_ALL_ZERO_CHECK:%.*]] = all-zero-check i1 [[VP_CMP1]]
-; CHECK-NEXT:    SUCCESSORS(2):all.zero.bypass.end15(i1 [[VP_ALL_ZERO_CHECK]]), [[BB1:BB[0-9]+]](!i1 [[VP_ALL_ZERO_CHECK]])
-; CHECK-NEXT:    PREDECESSORS(1): [[BB0]]
-; CHECK-EMPTY:
-; CHECK-NEXT:      [[BB1]]:
-; CHECK-NEXT:       [DA: Div] i1 [[VP1:%.*]] = block-predicate i1 [[VP_CMP1]]
-; CHECK-NEXT:       [DA: Div] i32* [[VP_ARRAYIDX3:%.*]] = getelementptr inbounds i32* [[B0:%.*]] i64 [[VP_LANE]]
-; CHECK-NEXT:       [DA: Div] i32 [[VP2:%.*]] = load i32* [[VP_ARRAYIDX3]]
-; CHECK-NEXT:       [DA: Div] i1 [[VP_CMP4:%.*]] = icmp sgt i32 [[VP2]] i32 8
-; CHECK-NEXT:      SUCCESSORS(1):[[BB2:BB[0-9]+]]
-; CHECK-NEXT:      PREDECESSORS(1): all.zero.bypass.begin13
-; CHECK-EMPTY:
-; CHECK-NEXT:      [[BB2]]:
-; CHECK-NEXT:       [DA: Div] i1 [[VP_BB2_BR_VP_CMP4:%.*]] = and i1 [[VP_CMP1]] i1 [[VP_CMP4]]
-; CHECK-NEXT:      SUCCESSORS(1):[[BB3:BB[0-9]+]]
-; CHECK-NEXT:      PREDECESSORS(1): [[BB1]]
-; CHECK-EMPTY:
-; CHECK-NEXT:      [[BB3]]:
-; CHECK-NEXT:       [DA: Div] i1 [[VP3:%.*]] = block-predicate i1 [[VP_BB2_BR_VP_CMP4]]
-; CHECK-NEXT:       [DA: Uni] i32 [[VP_DIV:%.*]] = sdiv i32 [[X0]] i32 [[Y0]]
-; CHECK-NEXT:       [DA: Div] i32* [[VP_ARRAYIDX7:%.*]] = getelementptr inbounds i32* [[C0:%.*]] i64 [[VP_LANE]]
-; CHECK-NEXT:       [DA: Div] store i32 [[VP_DIV]] i32* [[VP_ARRAYIDX7]]
-; CHECK-NEXT:      SUCCESSORS(1):[[BB4:BB[0-9]+]]
-; CHECK-NEXT:      PREDECESSORS(1): [[BB2]]
+; CHECK-NEXT:    SUCCESSORS(2):all.zero.bypass.end15(i1 [[VP_ALL_ZERO_CHECK]]), [[BB4:BB[0-9]+]](!i1 [[VP_ALL_ZERO_CHECK]])
+; CHECK-NEXT:    PREDECESSORS(1): [[BB3]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB4]]:
 ; CHECK-NEXT:       [DA: Div] i1 [[VP4:%.*]] = block-predicate i1 [[VP_CMP1]]
 ; CHECK-NEXT:       [DA: Div] i32* [[VP_ARRAYIDX13:%.*]] = getelementptr inbounds i32* [[C0]] i64 [[VP_LANE]]
 ; CHECK-NEXT:      SUCCESSORS(1):[[BB5:BB[0-9]+]]
-; CHECK-NEXT:      PREDECESSORS(1): [[BB3]]
+; CHECK-NEXT:      PREDECESSORS(1): all.zero.bypass.begin13
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB5]]:
 ; CHECK-NEXT:       [DA: Uni] i32 [[VP_J_033:%.*]] = phi  [ i32 0, [[BB4]] ],  [ i32 [[VP_INC:%.*]], [[BB6:BB[0-9]+]] ]
 ; CHECK-NEXT:       [DA: Div] i1 [[VP5:%.*]] = block-predicate i1 [[VP_CMP1]]
 ; CHECK-NEXT:      SUCCESSORS(1):[[BB7:BB[0-9]+]]
-; CHECK-NEXT:      PREDECESSORS(2): [[BB4]] [[BB6]]
+; CHECK-NEXT:      PREDECESSORS(2): [[BB6]] [[BB4]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB7]]:
 ; CHECK-NEXT:       [DA: Div] i1 [[VP_BB6_BR_VP_CMP9:%.*]] = and i1 [[VP_CMP1]] i1 [[VP_CMP9]]
