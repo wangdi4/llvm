@@ -1,13 +1,13 @@
 ; RUN: opt < %s -slp-vectorizer -enable-intel-advanced-opts -mtriple=x86_64-unknown-linux-gnu -pslp -mcpu=skylake-avx512 -tti -enable-path-steering=true -S | FileCheck %s -check-prefix=8WIDE_PATH_STEERING
-; norun: opt < %s -slp-vectorizer -enable-intel-advanced-opts -mtriple=x86_64-unknown-linux-gnu -pslp -mcpu=skylake-avx512 -tti -enable-path-steering=false -S | FileCheck %s -check-prefix=8WIDE
+; RUN: opt < %s -slp-vectorizer -enable-intel-advanced-opts -mtriple=x86_64-unknown-linux-gnu -pslp -mcpu=skylake-avx512 -tti -enable-path-steering=false -slp-threshold=-10 -S | FileCheck %s -check-prefix=8WIDE
 
 ; Check that we vectorize Multi-Node with vector length 8
 
-; 8WIDE_PATH_STEERING: [[L1:%.*]] = load <4 x i8>, <4 x i8>* 
+; 8WIDE_PATH_STEERING: [[L1:%.*]] = load <4 x i8>, <4 x i8>*
 ; 8WIDE_PATH_STEERING: [[L2:%.*]] = load <4 x i8>, <4 x i8>*
 ; 8WIDE_PATH_STEERING: [[L3:%.*]] = load <4 x i8>, <4 x i8>*
 ; 8WIDE_PATH_STEERING: [[L4:%.*]] = load <4 x i8>, <4 x i8>*
-; 8WIDE_PATH_STEERING: [[L5:%.*]] = load <4 x i8>, <4 x i8>* 
+; 8WIDE_PATH_STEERING: [[L5:%.*]] = load <4 x i8>, <4 x i8>*
 ; 8WIDE_PATH_STEERING: [[L6:%.*]] = load <4 x i8>, <4 x i8>*
 ; 8WIDE_PATH_STEERING: [[L7:%.*]] = load <4 x i8>, <4 x i8>*
 ; 8WIDE_PATH_STEERING: [[L8:%.*]] = load <4 x i8>, <4 x i8>*
