@@ -22,7 +22,7 @@ define void @test_uniform_lcssa_phi() {
 ; CHECK-NEXT:    [[BB2]]:
 ; CHECK-NEXT:     [DA: Uni] i32 [[VP_IV_NEXT_LCSSA:%.*]] = phi  [ i32 [[VP_IV_NEXT]], [[BB1]] ]
 ; CHECK-NEXT:     [DA: Uni] i32 [[VP_USE:%.*]] = add i32 [[VP_IV_NEXT_LCSSA]] i32 42
-; CHECK-NEXT:     [DA: Div] void [[VP0:%.*]] = ret
+; CHECK-NEXT:     [DA: Div] ret
 ; CHECK-NEXT:    no SUCCESSORS
 ; CHECK-NEXT:    PREDECESSORS(1): [[BB1]]
 ;

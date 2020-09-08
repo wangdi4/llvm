@@ -10,7 +10,7 @@ define internal void @test_legality_non_alloca(i8** %arr) #3 {
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Reduction list
 ; CHECK-NEXT:   signed (+) Start: i32 [[ZII_RED_CAST_PROMOTED0:%.*]] Exit: i32 [[VP_ADD4:%.*]]
-; CHECK-NEXT:    Linked values: i32 [[VP0:%.*]], i32 [[VP_ADD4]], i32* [[VP_ZII_RED_CAST:%.*]], i32 [[VP_ZII_RED_CAST_RED_INIT:%.*]], i32 [[VP1:%.*]], i32 [[VP_ZII_RED_CAST_RED_FINAL:%.*]],
+; CHECK-NEXT:    Linked values: i32 [[VP0:%.*]], i32 [[VP_ADD4]], i32* [[VP_ZII_RED_CAST:%.*]], i32 [[VP_ZII_RED_CAST_RED_INIT:%.*]], void [[VP1:%.*]], i32 [[VP_ZII_RED_CAST_RED_FINAL:%.*]],
 ; CHECK-NEXT:   Memory: i32* [[ZII_RED_CAST0:%.*]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Induction list

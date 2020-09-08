@@ -90,7 +90,7 @@ omp.inner.for.body:                               ; predggs = %omp.inner.for.bod
 ; CHECK-NEXT:      end of details
 
   call void @bar(float %mul3) #1, !dbg !41
-; CHECK:          void [[VP2:%.*]] = call float [[VP_MUL3]] void (float)* @bar
+; CHECK:          call float [[VP_MUL3]] void (float)* @bar
 ; CHECK-NEXT:      DbgLoc: lit_test.c:11:5
 ; CHECK-NEXT:      OperatorFlags -
 ; CHECK-NEXT:        FMF: 0, NSW: 0, NUW: 0, Exact: 0

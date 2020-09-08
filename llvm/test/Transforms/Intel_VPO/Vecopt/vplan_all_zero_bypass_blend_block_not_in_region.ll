@@ -71,7 +71,7 @@ define void @test_blend_outside_bypass_region(i32* %a, i32 %b) local_unnamed_add
 ; CHECK-NEXT:    [[BB3]]:
 ; CHECK-NEXT:     [DA: Div] i32 [[VP_PHI:%.*]] = phi  [ i32 0, [[BB1]] ],  [ i32 [[VP_PHI_BLEND_BB5]], [[BLEND_BB0]] ]
 ; CHECK-NEXT:     [DA: Div] i32 [[VP_BB4_ADD:%.*]] = add i32 [[VP_LD]] i32 4
-; CHECK-NEXT:     [DA: Div] void [[VP2:%.*]] = ret
+; CHECK-NEXT:     [DA: Div] ret
 ; CHECK-NEXT:    no SUCCESSORS
 ; CHECK-NEXT:    PREDECESSORS(2): [[BB1]] [[BLEND_BB0]]
 ;

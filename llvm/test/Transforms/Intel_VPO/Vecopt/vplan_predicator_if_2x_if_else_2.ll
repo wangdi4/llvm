@@ -85,7 +85,7 @@ define void @test_2_hammocks_2(i32* noalias nocapture %a) local_unnamed_addr #0 
 ; CHECK-NEXT:    PREDECESSORS(1): [[BB10]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB12]]:
-; CHECK-NEXT:     [DA: Div] void [[VP9:%.*]] = ret
+; CHECK-NEXT:     [DA: Div] ret
 ; CHECK-NEXT:    no SUCCESSORS
 ; CHECK-NEXT:    PREDECESSORS(1): [[BB11]]
 ;

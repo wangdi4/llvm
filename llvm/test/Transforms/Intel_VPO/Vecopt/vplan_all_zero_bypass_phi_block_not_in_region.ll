@@ -71,7 +71,7 @@ define dso_local void @foo(i64* nocapture %a, i64* nocapture %b, i64 %x, i64 %y)
 ; CHECK-NEXT:    PREDECESSORS(1): all.zero.bypass.end15
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB6]]:
-; CHECK-NEXT:     [DA: Div] void [[VP2:%.*]] = ret
+; CHECK-NEXT:     [DA: Div] ret
 ; CHECK-NEXT:    no SUCCESSORS
 ; CHECK-NEXT:    PREDECESSORS(1): [[BB4]]
 ;

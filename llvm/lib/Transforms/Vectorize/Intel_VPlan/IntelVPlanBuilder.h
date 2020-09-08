@@ -342,8 +342,9 @@ public:
   VPLoadStoreInst *createStore(VPValue *Val, VPValue *Ptr,
                                Instruction *Inst = nullptr,
                                const Twine &Name = "store") {
-    VPLoadStoreInst *NewStore =
-        new VPLoadStoreInst(Instruction::Store, Val->getType(), {Val, Ptr});
+    VPLoadStoreInst *NewStore = new VPLoadStoreInst(
+        Instruction::Store, Type::getVoidTy(Val->getType()->getContext()),
+        {Val, Ptr});
     NewStore->setName(Name);
     insert(NewStore);
     if (Inst)

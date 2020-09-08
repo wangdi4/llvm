@@ -60,7 +60,7 @@ define void @da_incremental_phi_update(i1 %toptest) {
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB7]]:
 ; CHECK-NEXT:     [DA: Div] i32 [[VP_PHI_BLEND_BB2:%.*]] = blend [ i32 [[VP_PHI_PHI_BB2]], i1 true ], [ i32 [[VP_ADD]], i1 [[VP2]] ]
-; CHECK-NEXT:     [DA: Div] void [[VP4:%.*]] = ret
+; CHECK-NEXT:     [DA: Div] ret
 ; CHECK-NEXT:    no SUCCESSORS
 ; CHECK-NEXT:    PREDECESSORS(1): [[BB1]]
 ;

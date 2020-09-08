@@ -14,7 +14,7 @@ define float @load_store_reduction_add(float* nocapture %a) {
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Reduction list
 ; CHECK-NEXT:   (+) Start: float [[X_PROMOTED0:%.*]]
-; CHECK-NEXT:    Linked values: float [[VP_ADD7:%.*]], float [[VP_ADD:%.*]], float* [[VP_X:%.*]], float [[VP_X_RED_INIT:%.*]], float [[VP0:%.*]], float [[VP_X_RED_FINAL:%.*]],
+; CHECK-NEXT:    Linked values: float [[VP_ADD7:%.*]], float [[VP_ADD:%.*]], float* [[VP_X:%.*]], float [[VP_X_RED_INIT:%.*]], void [[VP0:%.*]], float [[VP_X_RED_FINAL:%.*]],
 ; CHECK-NEXT:   Memory: float* [[X0:%.*]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Induction list

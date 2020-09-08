@@ -87,7 +87,7 @@ define void @main() {
 ; CHECK-NEXT:      PREDECESSORS(1): [[CASCADED_IF_BLOCK0]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB8]]:
-; CHECK-NEXT:     void [[VP2:%.*]] = ret
+; CHECK-NEXT:     ret
 ; CHECK-NEXT:    no SUCCESSORS
 ; CHECK-NEXT:    PREDECESSORS(3): [[BB5]] [[BB6]] [[BB7]]
 ;

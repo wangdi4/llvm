@@ -91,7 +91,7 @@ define dso_local void @foo_non_lcssa(i64 %N, i64 *%a, i64 %mask_out_loop) local_
 ; CHECK-NEXT:      PREDECESSORS(1): [[BB5]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB1]]:
-; CHECK-NEXT:     [DA: Div] void [[VP1:%.*]] = ret
+; CHECK-NEXT:     [DA: Div] ret
 ; CHECK-NEXT:    no SUCCESSORS
 ; CHECK-NEXT:    PREDECESSORS(3): [[BB0]] [[BB2]] [[BB8]]
 ;
@@ -180,7 +180,7 @@ define dso_local void @foo_non_lcssa_from_uniform_sub_loop(i64 %N, i64 *%a, i64 
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB6]]:
 ; CHECK-NEXT:     [DA: Div] i64 [[VP_PHI_USE:%.*]] = phi  [ i64 [[VP_INNER_DEF_LCSSA_LIVE_OUT_BLEND]], [[BB2]] ]
-; CHECK-NEXT:     [DA: Div] void [[VP1:%.*]] = ret
+; CHECK-NEXT:     [DA: Div] ret
 ; CHECK-NEXT:    no SUCCESSORS
 ; CHECK-NEXT:    PREDECESSORS(1): [[BB2]]
 ;

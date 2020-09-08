@@ -62,7 +62,7 @@ define dso_local void @foo(i64 %N, i64 *%a, i64 %mask_out_loop) local_unnamed_ad
 ; CHECK-NEXT:      PREDECESSORS(1): [[BB5]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB1]]:
-; CHECK-NEXT:     [DA: Div] void [[VP1:%.*]] = ret
+; CHECK-NEXT:     [DA: Div] ret
 ; CHECK-NEXT:    no SUCCESSORS
 ; CHECK-NEXT:    PREDECESSORS(3): [[BB0]] [[BB2]] [[BB7]]
 ;
