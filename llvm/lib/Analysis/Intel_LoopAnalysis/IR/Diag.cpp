@@ -170,7 +170,7 @@ OptReportDiag OptReportDiag::Diags[] = {
             "optimization options."},
     {15397, "Suitable vector variant of function '%s' was not found"},
     {15398, "%s was not vectorized: loop was transformed to memset or memcpy"},
-    {15399, "vectorization support: unroll factor set to %s"},
+    {15399, "vectorization support: unroll factor %s"},
     {15400, "vectorization support: type long long is not supported as indices "
             "on given target architecture"},
     {15401,
