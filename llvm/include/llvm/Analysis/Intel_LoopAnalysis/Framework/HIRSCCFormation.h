@@ -138,7 +138,7 @@ private:
   bool hasEarlyExitPredecessor(const PHINode *Phi) const;
 
   /// Returns true if this is a node of the graph.
-  bool isCandidateNode(const NodeTy *Node) const;
+  bool isCandidateNode(const NodeTy *Node, Type *CurNodeTy) const;
 
   /// Returns the next successor of Node in the graph.
   NodeTy::user_iterator getNextSucc(NodeTy *Node,
