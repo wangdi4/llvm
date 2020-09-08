@@ -14,8 +14,8 @@ target triple = "x86_64-unknown-linux-gnu"
 define dso_local void @foo(i32** nocapture readonly %a, i32 %m, i32* nocapture readonly %ub, i32 %k) local_unnamed_addr {
 ; CHECK-LABEL:  VPlan IR for: foo
 ; CHECK-NEXT:    [[BB0:BB[0-9]+]]:
-; CHECK-NEXT:     [DA: Div] i32 [[VP_LANE:%.*]] = induction-init{add} i32 0 i32 1
-; CHECK-NEXT:     [DA: Div] i32* [[VP_ARRAYIDX:%.*]] = getelementptr inbounds i32* [[UB0:%.*]] i32 [[VP_LANE]]
+; CHECK-NEXT:     [DA: Div] i64 [[VP_LANE:%.*]] = induction-init{add} i64 0 i64 1
+; CHECK-NEXT:     [DA: Div] i32* [[VP_ARRAYIDX:%.*]] = getelementptr inbounds i32* [[UB0:%.*]] i64 [[VP_LANE]]
 ; CHECK-NEXT:     [DA: Div] i32 [[VP0:%.*]] = load i32* [[VP_ARRAYIDX]]
 ; CHECK-NEXT:     [DA: Div] i1 [[VP_TOPTEST:%.*]] = icmp slt i32 [[VP0]] i32 0
 ; CHECK-NEXT:     [DA: Div] i1 [[VP_TOPTEST_NOT:%.*]] = not i1 [[VP_TOPTEST]]
@@ -23,7 +23,7 @@ define dso_local void @foo(i32** nocapture readonly %a, i32 %m, i32* nocapture r
 ; CHECK-NEXT:    no PREDECESSORS
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB2]]:
-; CHECK-NEXT:       [DA: Div] i32 [[VP1:%.*]] = trunc i32 [[VP_LANE]] to i32
+; CHECK-NEXT:       [DA: Div] i32 [[VP1:%.*]] = trunc i64 [[VP_LANE]] to i32
 ; CHECK-NEXT:      SUCCESSORS(1):[[BB3:BB[0-9]+]]
 ; CHECK-NEXT:      PREDECESSORS(1): [[BB0]]
 ; CHECK-EMPTY:
@@ -38,7 +38,7 @@ define dso_local void @foo(i32** nocapture readonly %a, i32 %m, i32* nocapture r
 ; CHECK-NEXT:         [DA: Div] i32 [[VP_MUL:%.*]] = mul i32 [[VP2]] i32 [[VP1]]
 ; CHECK-NEXT:         [DA: Uni] i32** [[VP_ARRAYIDX5:%.*]] = getelementptr inbounds i32** [[A0:%.*]] i64 [[VP_IV]]
 ; CHECK-NEXT:         [DA: Uni] i32* [[VP4:%.*]] = load i32** [[VP_ARRAYIDX5]]
-; CHECK-NEXT:         [DA: Div] i32* [[VP_ARRAYIDX7:%.*]] = getelementptr inbounds i32* [[VP4]] i32 [[VP_LANE]]
+; CHECK-NEXT:         [DA: Div] i32* [[VP_ARRAYIDX7:%.*]] = getelementptr inbounds i32* [[VP4]] i64 [[VP_LANE]]
 ; CHECK-NEXT:         [DA: Div] store i32 [[VP_MUL]] i32* [[VP_ARRAYIDX7]]
 ; CHECK-NEXT:         [DA: Uni] i64 [[VP_IV_NEXT]] = add i64 [[VP_IV]] i64 1
 ; CHECK-NEXT:         [DA: Div] i32 [[VP3]] = load i32* [[VP_ARRAYIDX]]

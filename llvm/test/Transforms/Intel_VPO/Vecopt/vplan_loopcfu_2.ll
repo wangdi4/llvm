@@ -15,10 +15,10 @@ target triple = "x86_64-unknown-linux-gnu"
 define dso_local void @foo(i64 %N, i64* nocapture readonly %lb, i64* nocapture readonly %ub) local_unnamed_addr {
 ; CHECK-LABEL:  VPlan IR for: foo
 ; CHECK-NEXT:    [[BB0:BB[0-9]+]]:
-; CHECK-NEXT:     [DA: Div] i32 [[VP_LANE:%.*]] = induction-init{add} i32 0 i32 1
-; CHECK-NEXT:     [DA: Div] i64* [[VP_ARRAYIDX:%.*]] = getelementptr inbounds i64* [[LB0:%.*]] i32 [[VP_LANE]]
+; CHECK-NEXT:     [DA: Div] i64 [[VP_LANE:%.*]] = induction-init{add} i64 0 i64 1
+; CHECK-NEXT:     [DA: Div] i64* [[VP_ARRAYIDX:%.*]] = getelementptr inbounds i64* [[LB0:%.*]] i64 [[VP_LANE]]
 ; CHECK-NEXT:     [DA: Div] i64 [[VP0:%.*]] = load i64* [[VP_ARRAYIDX]]
-; CHECK-NEXT:     [DA: Div] i64* [[VP_ARRAYIDX2:%.*]] = getelementptr inbounds i64* [[UB0:%.*]] i32 [[VP_LANE]]
+; CHECK-NEXT:     [DA: Div] i64* [[VP_ARRAYIDX2:%.*]] = getelementptr inbounds i64* [[UB0:%.*]] i64 [[VP_LANE]]
 ; CHECK-NEXT:     [DA: Div] i64 [[VP1:%.*]] = load i64* [[VP_ARRAYIDX2]]
 ; CHECK-NEXT:     [DA: Div] i1 [[VP_TOPTEST:%.*]] = icmp slt i64 [[VP0]] i64 [[VP1]]
 ; CHECK-NEXT:    SUCCESSORS(2):[[BB1:BB[0-9]+]](i1 [[VP_TOPTEST]]), [[BB2:BB[0-9]+]](!i1 [[VP_TOPTEST]])
@@ -37,7 +37,7 @@ define dso_local void @foo(i64 %N, i64* nocapture readonly %lb, i64* nocapture r
 ; CHECK-EMPTY:
 ; CHECK-NEXT:        [[BB5]]:
 ; CHECK-NEXT:         [DA: Div] i64 [[VP_SHL:%.*]] = shl i64 [[VP_IV]] i64 3
-; CHECK-NEXT:         [DA: Div] i64* [[VP_ARRAYIDX6:%.*]] = getelementptr inbounds [100 x [100 x i64]]* @A i64 0 i64 [[VP_IV]] i32 [[VP_LANE]]
+; CHECK-NEXT:         [DA: Div] i64* [[VP_ARRAYIDX6:%.*]] = getelementptr inbounds [100 x [100 x i64]]* @A i64 0 i64 [[VP_IV]] i64 [[VP_LANE]]
 ; CHECK-NEXT:         [DA: Div] store i64 [[VP_SHL]] i64* [[VP_ARRAYIDX6]]
 ; CHECK-NEXT:         [DA: Div] i64 [[VP_IV_NEXT]] = add i64 [[VP_IV]] i64 1
 ; CHECK-NEXT:         [DA: Div] i64 [[VP2:%.*]] = load i64* [[VP_ARRAYIDX2]]

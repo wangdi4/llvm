@@ -14,7 +14,7 @@ declare void @llvm.directive.region.exit(token)
 define dso_local void @header_use(i64 %N, i64 *%a, i64 %mask_out_loop) local_unnamed_addr {
 ; CHECK-LABEL:  VPlan IR for: header_use
 ; CHECK-NEXT:    [[BB0:BB[0-9]+]]:
-; CHECK-NEXT:     i32 [[VP_LANE:%.*]] = induction-init{add} i32 0 i32 1
+; CHECK-NEXT:     i64 [[VP_LANE:%.*]] = induction-init{add} i64 0 i64 1
 ; CHECK-NEXT:    SUCCESSORS(1):[[BB1:BB[0-9]+]]
 ; CHECK-NEXT:    no PREDECESSORS
 ; CHECK-EMPTY:
@@ -115,7 +115,7 @@ exit:
 define dso_local void @side_exit_use(i64 %N, i64 *%a, i64 %mask_out_loop) local_unnamed_addr {
 ; CHECK-LABEL:  VPlan IR for: side_exit_use
 ; CHECK-NEXT:    [[BB0:BB[0-9]+]]:
-; CHECK-NEXT:     i32 [[VP_LANE:%.*]] = induction-init{add} i32 0 i32 1
+; CHECK-NEXT:     i64 [[VP_LANE:%.*]] = induction-init{add} i64 0 i64 1
 ; CHECK-NEXT:    SUCCESSORS(1):[[BB1:BB[0-9]+]]
 ; CHECK-NEXT:    no PREDECESSORS
 ; CHECK-EMPTY:
@@ -214,7 +214,7 @@ exit:
 define dso_local void @exit_use(i64 %N, i64 *%a, i64 %mask_out_loop) local_unnamed_addr {
 ; CHECK-LABEL:  VPlan IR for: exit_use
 ; CHECK-NEXT:    [[BB0:BB[0-9]+]]:
-; CHECK-NEXT:     i32 [[VP_LANE:%.*]] = induction-init{add} i32 0 i32 1
+; CHECK-NEXT:     i64 [[VP_LANE:%.*]] = induction-init{add} i64 0 i64 1
 ; CHECK-NEXT:    SUCCESSORS(1):[[BB1:BB[0-9]+]]
 ; CHECK-NEXT:    no PREDECESSORS
 ; CHECK-EMPTY:
@@ -314,7 +314,7 @@ exit:
 define dso_local void @no_ssa_breakage(i64 %N, i64 *%a, i64 %mask_out_loop) local_unnamed_addr {
 ; CHECK-LABEL:  VPlan IR for: no_ssa_breakage
 ; CHECK-NEXT:    [[BB0:BB[0-9]+]]:
-; CHECK-NEXT:     i32 [[VP_LANE:%.*]] = induction-init{add} i32 0 i32 1
+; CHECK-NEXT:     i64 [[VP_LANE:%.*]] = induction-init{add} i64 0 i64 1
 ; CHECK-NEXT:    SUCCESSORS(1):[[BB1:BB[0-9]+]]
 ; CHECK-NEXT:    no PREDECESSORS
 ; CHECK-EMPTY:
