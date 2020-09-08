@@ -100,6 +100,102 @@ def tgamma        : OclBuiltin<"tgamma",    (outs gentype:$ret), (ins gentype:$x
 def trunc         : OclBuiltin<"trunc",     (outs gentype:$ret), (ins gentype:$x), [], [], 0, 1>;
 }
 
+// OpenCL 1.2 rev 15, Table 6.8, masked version
+let Types = [v2f32, v3f32, v4f32, v8f32, v16f32,
+             v2f64, v3f64, v4f64, v8f64, v16f64],
+    Attrs = [CONSTFUNC, OVERLOADABLE], NeedForwardDecl = 1 in {
+def acos_mask          : OclBuiltin<"acos",      (outs gentype:$ret), (ins gentype:$x, gentype:$mask), [], [], 0, 1>;
+def acosh_mask         : OclBuiltin<"acosh",     (outs gentype:$ret), (ins gentype:$x, gentype:$mask), [], [], 0, 1>;
+def acospi_mask        : OclBuiltin<"acospi",    (outs gentype:$ret), (ins gentype:$x, gentype:$mask), [], [], 0, 0>;
+def asin_mask          : OclBuiltin<"asin",      (outs gentype:$ret), (ins gentype:$x, gentype:$mask), [], [], 0, 1>;
+def asinh_mask         : OclBuiltin<"asinh",     (outs gentype:$ret), (ins gentype:$x, gentype:$mask), [], [], 0, 1>;
+def asinpi_mask        : OclBuiltin<"asinpi",    (outs gentype:$ret), (ins gentype:$x, gentype:$mask), [], [], 0, 0>;
+def atan_mask          : OclBuiltin<"atan",      (outs gentype:$ret), (ins gentype:$y_over_x, gentype:$mask), [], [], 0, 1>;
+def atan2_mask         : OclBuiltin<"atan2",     (outs gentype:$ret), (ins gentype:$y, gentype:$x, gentype:$mask), [], [], 0, 1>;
+def atanh_mask         : OclBuiltin<"atanh",     (outs gentype:$ret), (ins gentype:$x, gentype:$mask), [], [], 0, 1>;
+def atanpi_mask        : OclBuiltin<"atanpi",    (outs gentype:$ret), (ins gentype:$x, gentype:$mask), [], [], 0, 0>;
+def atan2pi_mask       : OclBuiltin<"atan2pi",   (outs gentype:$ret), (ins gentype:$y, gentype:$x, gentype:$mask), [], [], 0, 0>;
+def cbrt_mask          : OclBuiltin<"cbrt",      (outs gentype:$ret), (ins gentype:$x, gentype:$mask), [], [], 0, 1>;
+def ceil_mask          : OclBuiltin<"ceil",      (outs gentype:$ret), (ins gentype:$x, gentype:$mask), [], [], 0, 1>;
+def copysign_mask      : OclBuiltin<"copysign",  (outs gentype:$ret), (ins gentype:$x, gentype:$y, gentype:$mask), [], [], 0, 1>;
+def cos_mask           : OclBuiltin<"cos",       (outs gentype:$ret), (ins gentype:$x, gentype:$mask), [], [], 0, 1>;
+def cosh_mask          : OclBuiltin<"cosh",      (outs gentype:$ret), (ins gentype:$x, gentype:$mask), [], [], 0, 1>;
+def cospi_mask         : OclBuiltin<"cospi",     (outs gentype:$ret), (ins gentype:$x, gentype:$mask), [], [], 0, 0>;
+def erfc_mask          : OclBuiltin<"erfc",      (outs gentype:$ret), (ins gentype:$x, gentype:$mask), [], [], 0, 1>;
+def erf_mask           : OclBuiltin<"erf",       (outs gentype:$ret), (ins gentype:$x, gentype:$mask), [], [], 0, 1>;
+def exp_mask           : OclBuiltin<"exp",       (outs gentype:$ret), (ins gentype:$x, gentype:$mask), [], [], 0, 1>;
+def exp2_mask          : OclBuiltin<"exp2",      (outs gentype:$ret), (ins gentype:$x, gentype:$mask), [], [], 0, 1>;
+def exp10_mask         : OclBuiltin<"exp10",     (outs gentype:$ret), (ins gentype:$x, gentype:$mask), [], [], 0, 1>;
+def expm1_mask         : OclBuiltin<"expm1",     (outs gentype:$ret), (ins gentype:$x, gentype:$mask), [], [], 0, 1>;
+def fabs_mask          : OclBuiltin<"fabs",      (outs gentype:$ret), (ins gentype:$x, gentype:$mask), [], [], 0, 1>;
+def fdim_mask          : OclBuiltin<"fdim",      (outs gentype:$ret), (ins gentype:$x, gentype:$y, gentype:$mask), [], [], 0, 1>;
+def floor_mask         : OclBuiltin<"floor",     (outs gentype:$ret), (ins gentype:$x, gentype:$mask), [], [], 0, 1>;
+def fma_mask           : OclBuiltin<"fma",       (outs gentype:$ret), (ins gentype:$a, gentype:$b, gentype:$c, gentype:$mask), [], [], 0, 1>;
+def fmax_mask          : OclBuiltin<"fmax",      (outs gentype:$ret), (ins gentype:$x, gentype:$y, gentype:$mask), [], [], 0, 1>;
+def fmax_common_mask   : OclBuiltin<"fmax_common", (outs gentype:$ret), (ins gentype:$x, gentype:$y, gentype:$mask), [], [], 0, 1>;
+def fmin_mask          : OclBuiltin<"fmin",      (outs gentype:$ret), (ins gentype:$x, gentype:$y, gentype:$mask), [], [], 0, 1>;
+def fmin_common_mask   : OclBuiltin<"fmin_common", (outs gentype:$ret), (ins gentype:$x, gentype:$y, gentype:$mask), [], [], 0, 1>;
+def fmod_mask          : OclBuiltin<"fmod",      (outs gentype:$ret), (ins gentype:$x, gentype:$y, gentype:$mask), [], [], 0, 1>;
+def fract_pas_mask     : OclBuiltin<"fract",     (outs gentype:$ret), (ins gentype:$x, pgentype:$iptr, gentype:$mask), [], [], 0, 0>, ExceptAttr<[CONSTFUNC]>, PRIVATE;
+def fract_las_mask     : OclBuiltin<"fract",     (outs gentype:$ret), (ins gentype:$x, pgentype:$iptr, gentype:$mask), [], [], 0, 0>, ExceptAttr<[CONSTFUNC]>, LOCAL;
+def fract_gas_mask     : OclBuiltin<"fract",     (outs gentype:$ret), (ins gentype:$x, pgentype:$iptr, gentype:$mask), [], [], 0, 0>, ExceptAttr<[CONSTFUNC]>, GLOBAL;
+def fract_gen_mask     : OclBuiltin<"fract",     (outs gentype:$ret), (ins gentype:$x, pgentype:$iptr, gentype:$mask), [], [], 0, 0>, ExceptAttr<[CONSTFUNC]>;
+def fract_pas2_mask    : OclBuiltin<"fract_ret2ptr",    (outs), (ins gentype:$x, pgentype:$ret0 ,pgentype:$ret1, gentype:$mask), [], [], 0, 0>, ExceptAttr<[CONSTFUNC]>, PRIVATE;
+def frexp_pas_mask     : OclBuiltin<"frexp",     (outs gentype:$ret), (ins gentype:$x, pi32gentype:$iptr, gentype:$mask), [], [], 0, 1>, ExceptAttr<[CONSTFUNC]>, PRIVATE;
+def frexp_las_mask     : OclBuiltin<"frexp",     (outs gentype:$ret), (ins gentype:$x, pi32gentype:$iptr, gentype:$mask), [], [], 0, 1>, ExceptAttr<[CONSTFUNC]>, LOCAL;
+def frexp_gas_mask     : OclBuiltin<"frexp",     (outs gentype:$ret), (ins gentype:$x, pi32gentype:$iptr, gentype:$mask), [], [], 0, 1>, ExceptAttr<[CONSTFUNC]>, GLOBAL;
+def frexp_gen_mask     : OclBuiltin<"frexp",     (outs gentype:$ret), (ins gentype:$x, pi32gentype:$iptr, gentype:$mask), [], [], 0, 1>, ExceptAttr<[CONSTFUNC]>;
+def hypot_mask         : OclBuiltin<"hypot",     (outs gentype:$ret), (ins gentype:$x, gentype:$y, gentype:$mask), [], [], 0, 1>;
+def ilogb_mask         : OclBuiltin<"ilogb",     (outs i32gentype:$ret), (ins gentype:$x, i32gentype:$mask), [], [], 0, 1>;
+def ldexp_mask         : OclBuiltin<"ldexp",     (outs gentype:$ret), (ins gentype:$x, i32gentype:$k, gentype:$mask), [], [], 0, 1>;
+def lgamma_mask        : OclBuiltin<"lgamma",    (outs gentype:$ret), (ins gentype:$x, gentype:$mask), [], [], 0, 1>;
+def lgamma_r_pas_mask  : OclBuiltin<"lgamma_r",  (outs gentype:$ret), (ins gentype:$x, pi32gentype:$signp, gentype:$mask), [], [], 0, 1>, ExceptAttr<[CONSTFUNC]>, PRIVATE;
+def lgamma_r_las_mask  : OclBuiltin<"lgamma_r",  (outs gentype:$ret), (ins gentype:$x, pi32gentype:$signp, gentype:$mask), [], [], 0, 1>, ExceptAttr<[CONSTFUNC]>, LOCAL;
+def lgamma_r_gas_mask  : OclBuiltin<"lgamma_r",  (outs gentype:$ret), (ins gentype:$x, pi32gentype:$signp, gentype:$mask), [], [], 0, 1>, ExceptAttr<[CONSTFUNC]>, GLOBAL;
+def lgamma_r_gen_mask  : OclBuiltin<"lgamma_r",  (outs gentype:$ret), (ins gentype:$x, pi32gentype:$signp, gentype:$mask), [], [], 0, 1>, ExceptAttr<[CONSTFUNC]>;
+def log_mask           : OclBuiltin<"log",       (outs gentype:$ret), (ins gentype:$x, gentype:$mask), [], [], 0, 1>;
+def log2_mask          : OclBuiltin<"log2",      (outs gentype:$ret), (ins gentype:$x, gentype:$mask), [], [], 0, 1>;
+def log10_mask         : OclBuiltin<"log10",     (outs gentype:$ret), (ins gentype:$x, gentype:$mask), [], [], 0, 1>;
+def log1p_mask         : OclBuiltin<"log1p",     (outs gentype:$ret), (ins gentype:$x, gentype:$mask), [], [], 0, 1>;
+def logb_mask          : OclBuiltin<"logb",      (outs gentype:$ret), (ins gentype:$x, gentype:$mask), [], [], 0, 1>;
+def mad_mask           : OclBuiltin<"mad",       (outs gentype:$ret), (ins gentype:$a, gentype:$b, gentype:$c, gentype:$mask), [], [], 0, 0>;
+def maxmag_mask        : OclBuiltin<"maxmag",    (outs gentype:$ret), (ins gentype:$x, gentype:$y, gentype:$mask), [], [], 0, 0>;
+def minmag_mask        : OclBuiltin<"minmag",    (outs gentype:$ret), (ins gentype:$x, gentype:$y, gentype:$mask), [], [], 0, 0>;
+def modf_pas_mask      : OclBuiltin<"modf",      (outs gentype:$ret), (ins gentype:$x, pgentype:$iptr, gentype:$mask), [], [], 0, 1>, ExceptAttr<[CONSTFUNC]>, PRIVATE;
+def modf_las_mask      : OclBuiltin<"modf",      (outs gentype:$ret), (ins gentype:$x, pgentype:$iptr, gentype:$mask), [], [], 0, 1>, ExceptAttr<[CONSTFUNC]>, LOCAL;
+def modf_gas_mask      : OclBuiltin<"modf",      (outs gentype:$ret), (ins gentype:$x, pgentype:$iptr, gentype:$mask), [], [], 0, 1>, ExceptAttr<[CONSTFUNC]>, GLOBAL;
+def modf_gen_mask      : OclBuiltin<"modf",      (outs gentype:$ret), (ins gentype:$x, pgentype:$iptr, gentype:$mask), [], [], 0, 1>, ExceptAttr<[CONSTFUNC]>;
+def modf_pas2_mask     : OclBuiltin<"modf_ret2ptr",    (outs), (ins gentype:$x, pgentype:$sinval ,pgentype:$cosval, gentype:$mask), [], [], 0, 0>, ExceptAttr<[CONSTFUNC]>, PRIVATE;
+def nan_mask           : OclBuiltin<"nan",       (outs gentype:$ret), (ins ugentype:$x, gentype:$mask), [], [], 0, 1>;
+def nextafter_mask     : OclBuiltin<"nextafter", (outs gentype:$ret), (ins gentype:$x, gentype:$y, gentype:$mask), [], [], 0, 1>;
+def pow_mask           : OclBuiltin<"pow",       (outs gentype:$ret), (ins gentype:$x, gentype:$y, gentype:$mask), [], [], 0, 1>;
+def pown_mask          : OclBuiltin<"pown",      (outs gentype:$ret), (ins gentype:$x, i32gentype:$y, gentype:$mask), [], [], 0, 1>;
+def powr_mask          : OclBuiltin<"powr",      (outs gentype:$ret), (ins gentype:$x, gentype:$y, gentype:$mask), [], [], 0, 1>;
+def remainder_mask     : OclBuiltin<"remainder", (outs gentype:$ret), (ins gentype:$x, gentype:$y, gentype:$mask), [], [], 0, 1>;
+def remquo_pas_mask    : OclBuiltin<"remquo",    (outs gentype:$ret), (ins gentype:$x, gentype:$y, pi32gentype:$quo, gentype:$mask), [], [], 0, 1>, ExceptAttr<[CONSTFUNC]>, PRIVATE;
+def remquo_las_mask    : OclBuiltin<"remquo",    (outs gentype:$ret), (ins gentype:$x, gentype:$y, pi32gentype:$quo, gentype:$mask), [], [], 0, 1>, ExceptAttr<[CONSTFUNC]>, LOCAL;
+def remquo_gas_mask    : OclBuiltin<"remquo",    (outs gentype:$ret), (ins gentype:$x, gentype:$y, pi32gentype:$quo, gentype:$mask), [], [], 0, 1>, ExceptAttr<[CONSTFUNC]>, GLOBAL;
+def remquo_gen_mask    : OclBuiltin<"remquo",    (outs gentype:$ret), (ins gentype:$x, gentype:$y, pi32gentype:$quo, gentype:$mask), [], [], 0, 1>, ExceptAttr<[CONSTFUNC]>;
+def rint_mask          : OclBuiltin<"rint",      (outs gentype:$ret), (ins gentype:$x, gentype:$mask), [], [], 0, 1>;
+def rootn_mask         : OclBuiltin<"rootn",     (outs gentype:$ret), (ins gentype:$x, i32gentype:$y, gentype:$mask), [], [], 0, 0>;
+def round_mask         : OclBuiltin<"round",     (outs gentype:$ret), (ins gentype:$x, gentype:$mask), [], [], 0, 1>;
+def rsqrt_mask         : OclBuiltin<"rsqrt",     (outs gentype:$ret), (ins gentype:$x, gentype:$mask), [], [], 0, 0>;
+def sin_mask           : OclBuiltin<"sin",       (outs gentype:$ret), (ins gentype:$x, gentype:$mask), [], [], 0, 1>;
+def sincos_pas_mask    : OclBuiltin<"sincos",    (outs gentype:$ret), (ins gentype:$x, pgentype:$cosval, gentype:$mask), [], [], 0, 0>, ExceptAttr<[CONSTFUNC]>, PRIVATE;
+def sincos_las_mask    : OclBuiltin<"sincos",    (outs gentype:$ret), (ins gentype:$x, pgentype:$cosval, gentype:$mask), [], [], 0, 0>, ExceptAttr<[CONSTFUNC]>, LOCAL;
+def sincos_gas_mask    : OclBuiltin<"sincos",    (outs gentype:$ret), (ins gentype:$x, pgentype:$cosval, gentype:$mask), [], [], 0, 0>, ExceptAttr<[CONSTFUNC]>, GLOBAL;
+def sincos_gen_mask    : OclBuiltin<"sincos",    (outs gentype:$ret), (ins gentype:$x, pgentype:$cosval, gentype:$mask), [], [], 0, 0>, ExceptAttr<[CONSTFUNC]>;
+def sincos_pas2_mask   : OclBuiltin<"sincos_ret2ptr",    (outs), (ins gentype:$x, pgentype:$sinval ,pgentype:$cosval, gentype:$mask), [], [], 0, 0>, ExceptAttr<[CONSTFUNC]>, PRIVATE;
+def sinh_mask          : OclBuiltin<"sinh",      (outs gentype:$ret), (ins gentype:$x, gentype:$mask), [], [], 0, 0>;
+def sinpi_mask         : OclBuiltin<"sinpi",     (outs gentype:$ret), (ins gentype:$x, gentype:$mask), [], [], 0, 0>;
+def sqrt_mask          : OclBuiltin<"sqrt",      (outs gentype:$ret), (ins gentype:$x, gentype:$mask), [], [], 0, 1>;
+def tan_mask           : OclBuiltin<"tan",       (outs gentype:$ret), (ins gentype:$x, gentype:$mask), [], [], 0, 1>;
+def tanh_mask          : OclBuiltin<"tanh",      (outs gentype:$ret), (ins gentype:$x, gentype:$mask), [], [], 0, 1>;
+def tanpi_mask         : OclBuiltin<"tanpi",     (outs gentype:$ret), (ins gentype:$x, gentype:$mask), [], [], 0, 0>;
+def tgamma_mask        : OclBuiltin<"tgamma",    (outs gentype:$ret), (ins gentype:$x, gentype:$mask), [], [], 0, 1>;
+def trunc_mask         : OclBuiltin<"trunc",     (outs gentype:$ret), (ins gentype:$x, gentype:$mask), [], [], 0, 1>;
+}
+
 // OpenCL 1.2 rev 15, Table 6.9
 // half
 // Spec requires Data type to be ONLY float(f32) (not-double)
@@ -119,6 +215,27 @@ def half_rsqrt    : OclBuiltin<"half_rsqrt",    (outs gentype:$ret), (ins gentyp
 def half_sin      : OclBuiltin<"half_sin",      (outs gentype:$ret), (ins gentype:$x), [], [], 0, 0>;
 def half_sqrt     : OclBuiltin<"half_sqrt",     (outs gentype:$ret), (ins gentype:$x), [], [], 0, 0>;
 def half_tan      : OclBuiltin<"half_tan",      (outs gentype:$ret), (ins gentype:$x), [], [], 0, 0>;
+}
+
+// OpenCL 1.2 rev 15, Table 6.9
+// half, masked version
+// Spec requires Data type to be ONLY float(f32) (not-double)
+let Types = [v2f32, v3f32, v4f32, v8f32, v16f32],
+    Attrs = [CONSTFUNC, OVERLOADABLE] in {
+def half_cos_mask      : OclBuiltin<"half_cos",      (outs gentype:$ret), (ins gentype:$x, gentype:$mask), [], [], 0, 0>;
+def half_divide_mask   : OclBuiltin<"half_divide",   (outs gentype:$ret), (ins gentype:$x, gentype:$y, gentype:$mask), [], [], 0, 0>;
+def half_exp_mask      : OclBuiltin<"half_exp",      (outs gentype:$ret), (ins gentype:$x, gentype:$mask), [], [], 0, 0>;
+def half_exp2_mask     : OclBuiltin<"half_exp2",     (outs gentype:$ret), (ins gentype:$x, gentype:$mask), [], [], 0, 0>;
+def half_exp10_mask    : OclBuiltin<"half_exp10",    (outs gentype:$ret), (ins gentype:$x, gentype:$mask), [], [], 0, 0>;
+def half_log_mask      : OclBuiltin<"half_log",      (outs gentype:$ret), (ins gentype:$x, gentype:$mask), [], [], 0, 0>;
+def half_log2_mask     : OclBuiltin<"half_log2",     (outs gentype:$ret), (ins gentype:$x, gentype:$mask), [], [], 0, 0>;
+def half_log10_mask    : OclBuiltin<"half_log10",    (outs gentype:$ret), (ins gentype:$x, gentype:$mask), [], [], 0, 0>;
+def half_powr_mask     : OclBuiltin<"half_powr",     (outs gentype:$ret), (ins gentype:$x, gentype:$y, gentype:$mask), [], [], 0, 0>;
+def half_recip_mask    : OclBuiltin<"half_recip",    (outs gentype:$ret), (ins gentype:$x, gentype:$mask), [], [], 0, 0>;
+def half_rsqrt_mask    : OclBuiltin<"half_rsqrt",    (outs gentype:$ret), (ins gentype:$x, gentype:$mask), [], [], 0, 0>;
+def half_sin_mask      : OclBuiltin<"half_sin",      (outs gentype:$ret), (ins gentype:$x, gentype:$mask), [], [], 0, 0>;
+def half_sqrt_mask     : OclBuiltin<"half_sqrt",     (outs gentype:$ret), (ins gentype:$x, gentype:$mask), [], [], 0, 0>;
+def half_tan_mask      : OclBuiltin<"half_tan",      (outs gentype:$ret), (ins gentype:$x, gentype:$mask), [], [], 0, 0>;
 }
 
 // OpenCL 1.2 rev 15, Table 6.9
@@ -143,7 +260,7 @@ def native_rsqrt  : OclBuiltin<"native_rsqrt",  (outs gentype:$ret), (ins gentyp
 def native_sin    : OclBuiltin<"native_sin",    (outs gentype:$ret), (ins gentype:$x), [], [], 0, 0>;
 def native_sqrt   : OclBuiltin<"native_sqrt",   (outs gentype:$ret), (ins gentype:$x), [], [], 0, 0>;
 def native_tan    : OclBuiltin<"native_tan",    (outs gentype:$ret), (ins gentype:$x), [], [], 0, 0>;
-// extened native
+// extended native
 def native_acos          : OclBuiltin<"native_acos",      (outs gentype:$ret), (ins gentype:$x), [], [], 0, 0>;
 def native_acosh         : OclBuiltin<"native_acosh",     (outs gentype:$ret), (ins gentype:$x), [], [], 0, 0>;
 def native_acospi        : OclBuiltin<"native_acospi",    (outs gentype:$ret), (ins gentype:$x), [], [], 0, 0>;
@@ -191,6 +308,76 @@ def native_tanh          : OclBuiltin<"native_tanh",      (outs gentype:$ret), (
 def native_tanpi         : OclBuiltin<"native_tanpi",     (outs gentype:$ret), (ins gentype:$x), [], [], 0, 0>;
 }
 }
+
+// OpenCL 1.2 rev 15, Table 6.9
+// native, masked version
+// Spec requires Data type to be ONLY float(f32) (not-double)
+// Double support is not in OpenCL 1.2 spec. It is Intel defined extension of spec
+let Types = [v2f32, v3f32, v4f32, v8f32, v16f32,
+             v2f64, v3f64, v4f64, v8f64, v16f64],
+    Attrs = [CONSTFUNC, OVERLOADABLE] in {
+let NeedForwardDecl = 1 in { /* work around the missing prototype in opencl.h */
+def native_cos_mask    : OclBuiltin<"native_cos",    (outs gentype:$ret), (ins gentype:$x, gentype:$mask), [], [], 0, 0>;
+def native_divide_mask : OclBuiltin<"native_divide", (outs gentype:$ret), (ins gentype:$x, gentype:$y, gentype:$mask), [], [], 0, 0>;
+def native_exp_mask    : OclBuiltin<"native_exp",    (outs gentype:$ret), (ins gentype:$x, gentype:$mask), [], [], 0, 0>;
+def native_exp2_mask   : OclBuiltin<"native_exp2",   (outs gentype:$ret), (ins gentype:$x, gentype:$mask), [], [], 0, 0>;
+def native_exp10_mask  : OclBuiltin<"native_exp10",  (outs gentype:$ret), (ins gentype:$x, gentype:$mask), [], [], 0, 0>;
+def native_log_mask    : OclBuiltin<"native_log",    (outs gentype:$ret), (ins gentype:$x, gentype:$mask), [], [], 0, 0>;
+def native_log2_mask   : OclBuiltin<"native_log2",   (outs gentype:$ret), (ins gentype:$x, gentype:$mask), [], [], 0, 0>;
+def native_log10_mask  : OclBuiltin<"native_log10",  (outs gentype:$ret), (ins gentype:$x, gentype:$mask), [], [], 0, 0>;
+def native_powr_mask   : OclBuiltin<"native_powr",   (outs gentype:$ret), (ins gentype:$x, gentype:$y, gentype:$mask), [], [], 0, 0>;
+def native_recip_mask  : OclBuiltin<"native_recip",  (outs gentype:$ret), (ins gentype:$x, gentype:$mask), [], [], 0, 0>;
+def native_rsqrt_mask  : OclBuiltin<"native_rsqrt",  (outs gentype:$ret), (ins gentype:$x, gentype:$mask), [], [], 0, 0>;
+def native_sin_mask    : OclBuiltin<"native_sin",    (outs gentype:$ret), (ins gentype:$x, gentype:$mask), [], [], 0, 0>;
+def native_sqrt_mask   : OclBuiltin<"native_sqrt",   (outs gentype:$ret), (ins gentype:$x, gentype:$mask), [], [], 0, 0>;
+def native_tan_mask    : OclBuiltin<"native_tan",    (outs gentype:$ret), (ins gentype:$x, gentype:$mask), [], [], 0, 0>;
+// extended native
+def native_acos_mask          : OclBuiltin<"native_acos",      (outs gentype:$ret), (ins gentype:$x, gentype:$mask), [], [], 0, 0>;
+def native_acosh_mask         : OclBuiltin<"native_acosh",     (outs gentype:$ret), (ins gentype:$x, gentype:$mask), [], [], 0, 0>;
+def native_acospi_mask        : OclBuiltin<"native_acospi",    (outs gentype:$ret), (ins gentype:$x, gentype:$mask), [], [], 0, 0>;
+def native_asin_mask          : OclBuiltin<"native_asin",      (outs gentype:$ret), (ins gentype:$x, gentype:$mask), [], [], 0, 0>;
+def native_asinh_mask         : OclBuiltin<"native_asinh",     (outs gentype:$ret), (ins gentype:$x, gentype:$mask), [], [], 0, 0>;
+def native_asinpi_mask        : OclBuiltin<"native_asinpi",    (outs gentype:$ret), (ins gentype:$x, gentype:$mask), [], [], 0, 0>;
+def native_atan_mask          : OclBuiltin<"native_atan",      (outs gentype:$ret), (ins gentype:$y_over_x, gentype:$mask), [], [], 0, 0>;
+def native_atan2_mask         : OclBuiltin<"native_atan2",     (outs gentype:$ret), (ins gentype:$y, gentype:$x, gentype:$mask), [], [], 0, 0>;
+def native_atanh_mask         : OclBuiltin<"native_atanh",     (outs gentype:$ret), (ins gentype:$x, gentype:$mask), [], [], 0, 0>;
+def native_atanpi_mask        : OclBuiltin<"native_atanpi",    (outs gentype:$ret), (ins gentype:$x, gentype:$mask), [], [], 0, 0>;
+def native_atan2pi_mask       : OclBuiltin<"native_atan2pi",   (outs gentype:$ret), (ins gentype:$y, gentype:$x, gentype:$mask), [], [], 0, 0>;
+def native_cbrt_mask          : OclBuiltin<"native_cbrt",      (outs gentype:$ret), (ins gentype:$x, gentype:$mask), [], [], 0, 0>;
+def native_cosh_mask          : OclBuiltin<"native_cosh",      (outs gentype:$ret), (ins gentype:$x, gentype:$mask), [], [], 0, 0>;
+def native_cospi_mask         : OclBuiltin<"native_cospi",     (outs gentype:$ret), (ins gentype:$x, gentype:$mask), [], [], 0, 0>;
+def native_erfc_mask          : OclBuiltin<"native_erfc",      (outs gentype:$ret), (ins gentype:$x, gentype:$mask), [], [], 0, 0>;
+def native_erf_mask           : OclBuiltin<"native_erf",       (outs gentype:$ret), (ins gentype:$x, gentype:$mask), [], [], 0, 0>;
+def native_expm1_mask         : OclBuiltin<"native_expm1",     (outs gentype:$ret), (ins gentype:$x, gentype:$mask), [], [], 0, 0>;
+def native_fdim_mask          : OclBuiltin<"native_fdim",      (outs gentype:$ret), (ins gentype:$x, gentype:$y, gentype:$mask), [], [], 0, 0>;
+def native_fmax_mask          : OclBuiltin<"native_fmax",      (outs gentype:$ret), (ins gentype:$x, gentype:$y, gentype:$mask), [], [], 0, 0>;
+def native_fmin_mask          : OclBuiltin<"native_fmin",      (outs gentype:$ret), (ins gentype:$x, gentype:$y, gentype:$mask), [], [], 0, 0>;
+def native_fmod_mask          : OclBuiltin<"native_fmod",      (outs gentype:$ret), (ins gentype:$x, gentype:$y, gentype:$mask), [], [], 0, 0>;
+def native_fract_pas_mask     : OclBuiltin<"native_fract",     (outs gentype:$ret), (ins gentype:$x, pgentype:$iptr, gentype:$mask), [], [], 0, 0>, ExceptAttr<[CONSTFUNC]>, PRIVATE; // MIC
+def native_fract_las_mask     : OclBuiltin<"native_fract",     (outs gentype:$ret), (ins gentype:$x, pgentype:$iptr, gentype:$mask), [], [], 0, 0>, ExceptAttr<[CONSTFUNC]>, LOCAL; // MIC
+def native_fract_gas_mask     : OclBuiltin<"native_fract",     (outs gentype:$ret), (ins gentype:$x, pgentype:$iptr, gentype:$mask), [], [], 0, 0>, ExceptAttr<[CONSTFUNC]>, GLOBAL; // MIC
+def native_fract_gen_mask     : OclBuiltin<"native_fract",     (outs gentype:$ret), (ins gentype:$x, pgentype:$iptr, gentype:$mask), [], [], 0, 0>, ExceptAttr<[CONSTFUNC]>;  // MIC
+def native_fract_pas2_mask    : OclBuiltin<"native_fract_ret2ptr",    (outs), (ins gentype:$x, pgentype:$sinval ,pgentype:$cosval, gentype:$mask), [], [], 0, 0>, ExceptAttr<[CONSTFUNC]>, PRIVATE;
+def native_hypot_mask         : OclBuiltin<"native_hypot",     (outs gentype:$ret), (ins gentype:$x, gentype:$y, gentype:$mask), [], [], 0, 0>;
+def native_ilogb_mask         : OclBuiltin<"native_ilogb",     (outs i32gentype:$ret), (ins gentype:$x, i32gentype:$mask), [], [], 0, 0>;
+def native_log1p_mask         : OclBuiltin<"native_log1p",     (outs gentype:$ret), (ins gentype:$x, gentype:$mask), [], [], 0, 0>;
+def native_logb_mask          : OclBuiltin<"native_logb",      (outs gentype:$ret), (ins gentype:$x, gentype:$mask), [], [], 0, 0>;
+def native_pow_mask           : OclBuiltin<"native_pow",       (outs gentype:$ret), (ins gentype:$x, gentype:$y, gentype:$mask), [], [], 0, 0>;
+def native_pown_mask          : OclBuiltin<"native_pown",      (outs gentype:$ret), (ins gentype:$x, i32gentype:$y, gentype:$mask), [], [], 0, 0>;
+def native_rcbrt_mask         : OclBuiltin<"native_rcbrt",     (outs gentype:$ret), (ins gentype:$x, gentype:$mask), [], [], 0, 0>;
+def native_rootn_mask         : OclBuiltin<"native_rootn",     (outs gentype:$ret), (ins gentype:$x, i32gentype:$y, gentype:$mask), [], [], 0, 0>;
+def native_sincos_pas_mask    : OclBuiltin<"native_sincos",    (outs gentype:$ret), (ins gentype:$x, pgentype:$cosval, gentype:$mask), [], [], 0, 0>, ExceptAttr<[CONSTFUNC]>, PRIVATE;
+def native_sincos_las_mask    : OclBuiltin<"native_sincos",    (outs gentype:$ret), (ins gentype:$x, pgentype:$cosval, gentype:$mask), [], [], 0, 0>, ExceptAttr<[CONSTFUNC]>, LOCAL;
+def native_sincos_gas_mask    : OclBuiltin<"native_sincos",    (outs gentype:$ret), (ins gentype:$x, pgentype:$cosval, gentype:$mask), [], [], 0, 0>, ExceptAttr<[CONSTFUNC]>, GLOBAL;
+def native_sincos_gen_mask    : OclBuiltin<"native_sincos",    (outs gentype:$ret), (ins gentype:$x, pgentype:$cosval, gentype:$mask), [], [], 0, 0>, ExceptAttr<[CONSTFUNC]>;
+def native_sincos_pas2_mask   : OclBuiltin<"native_sincos_ret2ptr",    (outs), (ins gentype:$x, pgentype:$sinval ,pgentype:$cosval, gentype:$mask), [], [], 0, 0>, ExceptAttr<[CONSTFUNC]>, PRIVATE;
+def native_sinh_mask          : OclBuiltin<"native_sinh",      (outs gentype:$ret), (ins gentype:$x, gentype:$mask), [], [], 0, 0>;
+def native_sinpi_mask         : OclBuiltin<"native_sinpi",     (outs gentype:$ret), (ins gentype:$x, gentype:$mask), [], [], 0, 0>;
+def native_tanh_mask          : OclBuiltin<"native_tanh",      (outs gentype:$ret), (ins gentype:$x, gentype:$mask), [], [], 0, 0>;
+def native_tanpi_mask         : OclBuiltin<"native_tanpi",     (outs gentype:$ret), (ins gentype:$x, gentype:$mask), [], [], 0, 0>;
+}
+}
+
 //Vectorizer generated table
 //{{"_Z20__retbyvector_sincosd" , "_Z19__retbyarray_sincosDv2_d" , "_Z19__retbyarray_sincosDv4_d" , "_Z19__retbyarray_sincosDv8_d" , "_Z19__retbyarray_sincosDv16_d" , "_Z19__retbyarray_sincosDv3_d" },1, 0}
 foreach bi = ["sincos", "native_sincos", "modf", "fract", "native_fract"] in {
@@ -262,33 +449,21 @@ foreach bi = ["sincos", "native_sincos", "modf", "fract", "native_fract"] in {
     0,1>;
 }
 
-// OpenCL 1.2 rev 15, Table 6.8, masked version
-let Types = [v2f32, v3f32, v4f32, v8f32, v16f32,
-             v2f64, v3f64, v4f64, v8f64, v16f64],
-    Attrs = [CONSTFUNC, OVERLOADABLE], NeedForwardDecl = 1 in {
-  def acos_mask : OclBuiltin<"acos", (outs gentype:$ret), (ins gentype:$x, gentype:$mask), [], [], 0, 1>;
-}
-
-let KernelCallOnce = 0, Types = [v1f32, v1f64] in {
-  foreach bi = ["acos"] in {
-    def intel_#bi : VectInfo<[], !cast<OclBuiltin>(bi), !cast<OclBuiltin>(bi), !cast<OclBuiltin>(bi), !cast<OclBuiltin>(bi)>;
-
-    let HandleAlias = 0 in {
-      def intel_#bi_mask : VectInfo<[], !cast<OclBuiltin>(bi), !cast<OclBuiltin>(bi#"_mask"), !cast<OclBuiltin>(bi#"_mask"), !cast<OclBuiltin>(bi#"_mask")>;
-    }
-  }
-}
-
 //VecInfo for OCLVecClone
 let KernelCallOnce = 0 in {
   let Types = [v1f32, v1f64] in {
-    foreach bi = ["acosh", "acospi", "asin", "asinh", "asinpi", "atan", "atan2", "atanh", "atanpi",
+    foreach bi = ["acos", "acosh", "acospi", "asin", "asinh", "asinpi", "atan", "atan2", "atanh", "atanpi",
                   "atan2pi", "cbrt", "ceil", "copysign", "cos", "cosh", "cospi", "erfc", "erf", "exp", "exp2",
                   "exp10", "expm1", "fabs", "fdim", "floor", "fma", "fmax", "fmax_common", "fmin", "fmin_common",
                   "fmod", "hypot", "ilogb", "ldexp", "lgamma", "log", "log2", "log10", "log1p", "logb",
                   "mad", "maxmag", "minmag", "nan", "nextafter", "pow", "pown", "powr", "remainder", "rint",
                   "rootn", "round", "rsqrt", "sin", "sinh", "sinpi", "sqrt", "tan", "tanh", "tanpi", "tgamma", "trunc"] in {
       def intel_#bi : VectInfo<[], !cast<OclBuiltin>(bi), !cast<OclBuiltin>(bi), !cast<OclBuiltin>(bi), !cast<OclBuiltin>(bi)>;
+
+      // masked version
+      let HandleAlias = 0 in {
+        def intel_#bi#_mask : VectInfo<[], !cast<OclBuiltin>(bi), !cast<OclBuiltin>(bi#"_mask"), !cast<OclBuiltin>(bi#"_mask"), !cast<OclBuiltin>(bi#"_mask")>;
+      }
     }
   }
 
@@ -297,6 +472,11 @@ let KernelCallOnce = 0 in {
                   "half_log", "half_log2", "half_log10", "half_powr", "half_recip",
                   "half_rsqrt", "half_sin", "half_sqrt", "half_tan"] in {
       def intel_#bi : VectInfo<[], !cast<OclBuiltin>(bi), !cast<OclBuiltin>(bi), !cast<OclBuiltin>(bi), !cast<OclBuiltin>(bi)>;
+
+      // masked version
+      let HandleAlias = 0 in {
+        def intel_#bi#_mask : VectInfo<[], !cast<OclBuiltin>(bi), !cast<OclBuiltin>(bi#"_mask"), !cast<OclBuiltin>(bi#"_mask"), !cast<OclBuiltin>(bi#"_mask")>;
+      }
     }
   }
 
@@ -317,6 +497,11 @@ let KernelCallOnce = 0 in {
                   "native_sincos_gas", "native_sincos_gen", "native_sincos_pas2",
                   "native_sinh", "native_sinpi", "native_tanh", "native_tanpi"] in {
       def intel_#bi : VectInfo<[], !cast<OclBuiltin>(bi), !cast<OclBuiltin>(bi), !cast<OclBuiltin>(bi), !cast<OclBuiltin>(bi)>;
+
+      // masked version
+      let HandleAlias = 0 in {
+        def intel_#bi#_mask : VectInfo<[], !cast<OclBuiltin>(bi), !cast<OclBuiltin>(bi#"_mask"), !cast<OclBuiltin>(bi#"_mask"), !cast<OclBuiltin>(bi#"_mask")>;
+      }
     }
   }
 }
@@ -369,6 +554,46 @@ def min_s   : OclBuiltin<"min",   (outs gentype:$ret), (ins gentype:$x, sgentype
               Except<[v1i8, v1u8, v1i16, v1u16, v1i32, v1u32, v1i64, v1u64, v1f32, v1f64]>;
 }
 
+// OpenCL 1.2 rev 15, Table 6.10, masked version
+let Types = [ v2i8,  v3i8,  v4i8,  v8i8,  v16i8,
+              v2u8,  v3u8,  v4u8,  v8u8,  v16u8,
+             v2i16, v3i16, v4i16, v8i16, v16i16,
+             v2u16, v3u16, v4u16, v8u16, v16u16,
+             v2i32, v3i32, v4i32, v8i32, v16i32,
+             v2u32, v3u32, v4u32, v8u32, v16u32,
+             v2i64, v3i64, v4i64, v8i64, v16i64,
+             v2u64, v3u64, v4u64, v8u64, v16u64],
+    Attrs = [CONSTFUNC, OVERLOADABLE] in {
+def abs_mask       : OclBuiltin<"abs",       (outs ugentype:$ret), (ins gentype:$x, ugentype:$mask), [], [], 0, 1>;
+def abs_diff_mask  : OclBuiltin<"abs_diff",  (outs ugentype:$ret), (ins gentype:$x, gentype:$y, ugentype:$mask), [], [], 0, 0>;
+def add_sat_mask   : OclBuiltin<"add_sat",   (outs gentype:$ret), (ins gentype:$x, gentype:$y, gentype:$mask), [], [], 0, 0>;
+def hadd_mask      : OclBuiltin<"hadd",      (outs gentype:$ret), (ins gentype:$x, gentype:$y, gentype:$mask), [], [], 0, 0>;
+def rhadd_mask     : OclBuiltin<"rhadd",     (outs gentype:$ret), (ins gentype:$x, gentype:$y, gentype:$mask), [], [], 0, 0>;
+def clz_mask       : OclBuiltin<"clz",       (outs gentype:$ret), (ins gentype:$x, gentype:$mask), [], [], 0, 0>;
+def mad_hi_mask    : OclBuiltin<"mad_hi",    (outs gentype:$ret), (ins gentype:$a, gentype:$b, gentype:$c, gentype:$mask), [], [], 0, 0>;
+def mad_sat_mask   : OclBuiltin<"mad_sat",   (outs gentype:$ret), (ins gentype:$a, gentype:$b, gentype:$c, gentype:$mask), [], [], 0, 0>;
+def mul_hi_mask    : OclBuiltin<"mul_hi",    (outs gentype:$ret), (ins gentype:$x, gentype:$y, gentype:$mask), [], [], 0, 0>;
+def rotate_mask    : OclBuiltin<"rotate",    (outs gentype:$ret), (ins gentype:$v, gentype:$i, gentype:$mask), [], [], 0, 0>;
+def sub_sat_mask   : OclBuiltin<"sub_sat",   (outs gentype:$ret), (ins gentype:$x, gentype:$y, gentype:$mask), [], [], 0, 0>;
+def upsample_mask  : OclBuiltin<"upsample",  (outs up_gentype:$ret), (ins gentype:$hi, ugentype:$lo, up_gentype:$mask), [], [], 0, 0>,
+                Except<[v2i64, v3i64, v4i64, v8i64, v16i64, v2u64, v3u64, v4u64, v8u64, v16u64]>;
+}
+let Types = [ v2i8,  v3i8,  v4i8,  v8i8,  v16i8,
+              v2u8,  v3u8,  v4u8,  v8u8,  v16u8,
+             v2i16, v3i16, v4i16, v8i16, v16i16,
+             v2u16, v3u16, v4u16, v8u16, v16u16,
+             v2i32, v3i32, v4i32, v8i32, v16i32,
+             v2u32, v3u32, v4u32, v8u32, v16u32,
+             v2i64, v3i64, v4i64, v8i64, v16i64,
+             v2u64, v3u64, v4u64, v8u64, v16u64,
+             v2f32, v3f32, v4f32, v8f32, v16f32,
+             v2f64, v3f64, v4f64, v8f64, v16f64],
+    Attrs = [CONSTFUNC, OVERLOADABLE] in {
+def clamp_mask   : OclBuiltin<"clamp", (outs gentype:$ret), (ins gentype:$x, gentype:$minval, gentype:$maxval, gentype:$mask), [], [], 0, 0>;
+def max_mask     : OclBuiltin<"max",   (outs gentype:$ret), (ins gentype:$x, gentype:$y, gentype:$mask), [], [], 0, 0>;
+def min_mask     : OclBuiltin<"min",   (outs gentype:$ret), (ins gentype:$x, gentype:$y, gentype:$mask), [], [], 0, 0>;
+}
+
 // VectInfo for OclVecClone
 let KernelCallOnce = 0 in {
   let Types = [v1i8, v1u8, v1i16, v1u16, v1i32, v1u32, v1i64, v1u64] in {
@@ -376,6 +601,11 @@ let KernelCallOnce = 0 in {
                   "clz", "mad_hi", "mad_sat", "mul_hi", "rotate",
                   "sub_sat"] in {
       def intel_#bi : VectInfo<[], !cast<OclBuiltin>(bi), !cast<OclBuiltin>(bi), !cast<OclBuiltin>(bi), !cast<OclBuiltin>(bi)>;
+
+      // masked version
+      let HandleAlias = 0 in {
+        def intel_#bi#_mask : VectInfo<[], !cast<OclBuiltin>(bi), !cast<OclBuiltin>(bi#"_mask"), !cast<OclBuiltin>(bi#"_mask"), !cast<OclBuiltin>(bi#"_mask")>;
+      }
     }
   }
 
@@ -388,6 +618,11 @@ let KernelCallOnce = 0 in {
                 v1f32, v1f64] in {
     foreach bi = ["clamp", "max", "min"] in {
       def intel_#bi : VectInfo<[], !cast<OclBuiltin>(bi), !cast<OclBuiltin>(bi), !cast<OclBuiltin>(bi), !cast<OclBuiltin>(bi)>;
+
+      // masked version
+      let HandleAlias = 0 in {
+        def intel_#bi#_mask : VectInfo<[], !cast<OclBuiltin>(bi), !cast<OclBuiltin>(bi#"_mask"), !cast<OclBuiltin>(bi#"_mask"), !cast<OclBuiltin>(bi#"_mask")>;
+      }
     }
   }
 }
@@ -423,11 +658,28 @@ def smoothstep_s  : OclBuiltin<"smoothstep",  (outs gentype:$ret), (ins sgentype
 def sign          : OclBuiltin<"sign",        (outs gentype:$ret), (ins gentype:$x), [], [], 0, 0>;
 }
 
+// OpenCL 1.2 rev 15, Table 6.12, masked version
+let Types = [v2f32, v3f32, v4f32, v8f32, v16f32,
+             v2f64, v3f64, v4f64, v8f64, v16f64],
+    Attrs = [CONSTFUNC, OVERLOADABLE] in {
+def degrees_mask       : OclBuiltin<"degrees",     (outs gentype:$ret), (ins gentype:$radians, gentype:$mask), [], [], 0, 0>;
+def mix_mask           : OclBuiltin<"mix",         (outs gentype:$ret), (ins gentype:$x, gentype:$y, gentype:$a, gentype:$mask), [], [], 0, 0>;
+def radians_mask       : OclBuiltin<"radians",     (outs gentype:$ret), (ins gentype:$degrees, gentype:$mask), [], [], 0, 0>;
+def step_mask          : OclBuiltin<"step",        (outs gentype:$ret), (ins gentype:$edge, gentype:$x, gentype:$mask), [], [], 0, 0>;
+def smoothstep_mask    : OclBuiltin<"smoothstep",  (outs gentype:$ret), (ins gentype:$edge0, gentype:$edge1, gentype:$x, gentype:$mask), [], [], 0, 0>;
+def sign_mask          : OclBuiltin<"sign",        (outs gentype:$ret), (ins gentype:$x, gentype:$mask), [], [], 0, 0>;
+}
+
 // VectInfo for OclVecClone
 let KernelCallOnce = 0 in {
   let Types = [v1f32, v1f64] in {
     foreach bi = ["degrees", "mix", "radians", "step", "smoothstep", "sign"] in {
       def intel_#bi : VectInfo<[], !cast<OclBuiltin>(bi), !cast<OclBuiltin>(bi), !cast<OclBuiltin>(bi), !cast<OclBuiltin>(bi)>;
+
+      // masked version
+      let HandleAlias = 0 in {
+        def intel_#bi#_mask : VectInfo<[], !cast<OclBuiltin>(bi), !cast<OclBuiltin>(bi#"_mask"), !cast<OclBuiltin>(bi#"_mask"), !cast<OclBuiltin>(bi#"_mask")>;
+      }
     }
   }
 }
@@ -493,6 +745,28 @@ let Types = [ v1i8,  v2i8,  v3i8,  v4i8,  v8i8,  v16i8,  v32i8,  v64i8,
 def bitselect   : OclBuiltin<"bitselect", (outs gentype:$ret), (ins gentype:$a, gentype:$b, gentype:$c), [], [], 0, 0>;
 def iselect     : OclBuiltin<"select",    (outs gentype:$ret), (ins gentype:$a, gentype:$b, igentype:$c), [], [], 0, 0>;
 def uselect     : OclBuiltin<"select",    (outs gentype:$ret), (ins gentype:$a, gentype:$b, ugentype:$c), [], [], 0, 0>;
+}
+
+// OpenCL 1.2 rev 15, Table 6.14, masked version
+let Types = [v2f32, v3f32, v4f32, v8f32, v16f32, v32f32, v64f32,
+             v2f64, v3f64, v4f64, v8f64, v16f64, v32f64, v64f64],
+    Attrs = [CONSTFUNC, OVERLOADABLE] in {
+//def isequal         : OclBuiltin<"isequal",         (outs rf2igentype:$ret), (ins gentype:$x, gentype:$y), [], [], 0, 0>;
+//def isnotequal      : OclBuiltin<"isnotequal",      (outs rf2igentype:$ret), (ins gentype:$x, gentype:$y), [], [], 0, 0>;
+//def isgreater       : OclBuiltin<"isgreater",       (outs rf2igentype:$ret), (ins gentype:$x, gentype:$y), [], [], 0, 0>;
+//def isgreaterequal  : OclBuiltin<"isgreaterequal",  (outs rf2igentype:$ret), (ins gentype:$x, gentype:$y), [], [], 0, 0>;
+//def isless          : OclBuiltin<"isless",          (outs rf2igentype:$ret), (ins gentype:$x, gentype:$y), [], [], 0, 0>;
+//def islessequal     : OclBuiltin<"islessequal",     (outs rf2igentype:$ret), (ins gentype:$x, gentype:$y), [], [], 0, 0>;
+def islessgreater_mask   : OclBuiltin<"islessgreater",   (outs rf2igentype:$ret), (ins gentype:$x, gentype:$y, rf2igentype:$mask), [], [], 0, 1>;
+let NeedForwardDecl = 1 in {
+def isfinite_mask        : OclBuiltin<"isfinite",        (outs rf2igentype:$ret), (ins gentype:$x, rf2igentype:$mask), [], [], 0, 1>;
+def isinf_mask           : OclBuiltin<"isinf",           (outs rf2igentype:$ret), (ins gentype:$x, rf2igentype:$mask), [], [], 0, 1>;
+def isnan_mask           : OclBuiltin<"isnan",           (outs rf2igentype:$ret), (ins gentype:$x, rf2igentype:$mask), [], [], 0, 1>;
+def isnormal_mask        : OclBuiltin<"isnormal",        (outs rf2igentype:$ret), (ins gentype:$x, rf2igentype:$mask), [], [], 0, 1>;
+def isordered_mask       : OclBuiltin<"isordered",       (outs rf2igentype:$ret), (ins gentype:$x, gentype:$y, rf2igentype:$mask), [], [], 0, 0>;
+def isunordered_mask     : OclBuiltin<"isunordered",     (outs rf2igentype:$ret), (ins gentype:$x, gentype:$y, rf2igentype:$mask), [], [], 0, 0>;
+def signbit_mask         : OclBuiltin<"signbit",         (outs rf2igentype:$ret), (ins gentype:$x, rf2igentype:$mask), [], [], 0, 1>;
+}
 }
 
 // VectInfo for OclVecClone
