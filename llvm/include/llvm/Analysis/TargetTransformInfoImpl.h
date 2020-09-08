@@ -228,6 +228,18 @@ public:
   bool isLegalMaskedScatter(Type *DataType, Align Alignment) { return false; }
 
   bool isLegalMaskedGather(Type *DataType, Align Alignment) { return false; }
+#if INTEL_CUSTOMIZATION
+  bool shouldScalarizeMaskedGather(CallInst *CI) {
+    // By default, This function will return !isLegalMaskedGather.
+    const DataLayout *DL = &CI->getModule()->getDataLayout();
+    unsigned AlignmentInt =
+        cast<ConstantInt>(CI->getArgOperand(1))->getZExtValue();
+    Type *LoadTy = CI->getType();
+    Align Alignment =
+        DL->getValueOrABITypeAlignment(MaybeAlign(AlignmentInt), LoadTy);
+    return !isLegalMaskedGather(LoadTy, Alignment);
+  }
+#endif // INTEL_CUSTOMIZATION
 
   bool isLegalMaskedCompressStore(Type *DataType) { return false; }
 

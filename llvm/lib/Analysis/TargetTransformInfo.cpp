@@ -433,7 +433,11 @@ bool TargetTransformInfo::isLegalMaskedGather(Type *DataType,
                                               Align Alignment) const {
   return TTIImpl->isLegalMaskedGather(DataType, Alignment);
 }
-
+#if INTEL_CUSTOMIZATION
+bool TargetTransformInfo::shouldScalarizeMaskedGather(CallInst *CI) const {
+  return TTIImpl->shouldScalarizeMaskedGather(CI);
+}
+#endif // INTEL_CUSTOMIZATION
 bool TargetTransformInfo::isLegalMaskedScatter(Type *DataType,
                                                Align Alignment) const {
   return TTIImpl->isLegalMaskedScatter(DataType, Alignment);
