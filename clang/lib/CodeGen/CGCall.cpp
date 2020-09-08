@@ -1671,7 +1671,11 @@ CodeGenTypes::GetFunctionType(const CGFunctionInfo &FI) {
       // indirect arguments are always on the stack, which is alloca addr space.
       llvm::Type *LTy = ConvertTypeForMem(it->type);
       ArgTypes[FirstIRArg] = LTy->getPointerTo(
+#if INTEL_COLLAB
+          CGM.getEffectiveAllocaAddrSpace());
+#else // INTEL_COLLAB
           CGM.getDataLayout().getAllocaAddrSpace());
+#endif // INTEL_COLLAB
       break;
     }
     case ABIArgInfo::IndirectAliased: {
@@ -4577,10 +4581,17 @@ RValue CodeGenFunction::EmitCall(const CGFunctionInfo &CallInfo,
         CharUnits Align = ArgInfo.getIndirectAlign();
         const llvm::DataLayout *TD = &CGM.getDataLayout();
 
+#if INTEL_COLLAB
+        assert((FirstIRArg >= IRFuncTy->getNumParams() ||
+                IRFuncTy->getParamType(FirstIRArg)->getPointerAddressSpace() ==
+                    CGM.getEffectiveAllocaAddrSpace()) &&
+               "indirect argument must be in alloca address space");
+#else // INTEL_COLLAB
         assert((FirstIRArg >= IRFuncTy->getNumParams() ||
                 IRFuncTy->getParamType(FirstIRArg)->getPointerAddressSpace() ==
                     TD->getAllocaAddrSpace()) &&
                "indirect argument must be in alloca address space");
+#endif // INTEL_COLLAB
 
         bool NeedCopy = false;
 
@@ -4633,7 +4644,11 @@ RValue CodeGenFunction::EmitCall(const CGFunctionInfo &CallInfo,
         } else {
           // Skip the extra memcpy call.
           auto *T = V->getType()->getPointerElementType()->getPointerTo(
+#if INTEL_COLLAB
+              CGM.getEffectiveAllocaAddrSpace());
+#else // INTEL_COLLAB
               CGM.getDataLayout().getAllocaAddrSpace());
+#endif // INTEL_COLLAB
           IRCallArgs[FirstIRArg] = getTargetHooks().performAddrSpaceCast(
               *this, V, LangAS::Default, CGM.getASTAllocaAddressSpace(), T,
               true);
