@@ -20,7 +20,7 @@ define void @foo(i32* nocapture readonly %arr) {
 ; CHECK-NEXT:    [[TMP4:%.*]] = icmp eq i1 [[PREDICATE]], true
 ; CHECK-NEXT:    br i1 [[TMP4]], label [[PRED_CALL_IF:%.*]], label [[TMP5:%.*]]
 ; CHECK:       pred.call.if:
-; CHECK-NEXT:    call fastcc void @baz(i32 [[DOTEXTRACT_0_:%.*]])
+; CHECK-NEXT:    call fastcc void @baz(i32 [[DOTEXTRACT_0_:%.*]]) #0
 ; CHECK-NEXT:    br label [[TMP5]]
 ; CHECK:       5:
 ; CHECK-NEXT:    br label [[PRED_CALL_CONTINUE:%.*]]
@@ -29,7 +29,7 @@ define void @foo(i32* nocapture readonly %arr) {
 ; CHECK-NEXT:    [[TMP6:%.*]] = icmp eq i1 [[PREDICATE1]], true
 ; CHECK-NEXT:    br i1 [[TMP6]], label %[[PRED_CALL_IF3:.*]], label [[TMP7:%.*]]
 ; CHECK:       [[PRED_CALL_IF3]]:
-; CHECK-NEXT:    call fastcc void @baz(i32 [[DOTEXTRACT_1_:%.*]])
+; CHECK-NEXT:    call fastcc void @baz(i32 [[DOTEXTRACT_1_:%.*]]) #0
 ; CHECK-NEXT:    br label [[TMP7]]
 ; CHECK:       7:
 ; CHECK-NEXT:    br label [[PRED_CALL_CONTINUE4:%.*]]
@@ -47,7 +47,7 @@ for.body:                                         ; preds = %for.inc, %entry
 
 if.then:                                          ; preds = %for.body
   %1 = trunc i64 %indvars.iv to i32
-  tail call fastcc void @baz(i32 %1) #3
+  tail call fastcc void @baz(i32 %1) #0
   br label %for.inc
 
 for.inc:                                          ; preds = %for.body, %if.then
@@ -66,3 +66,5 @@ DIR.QUAL.LIST.END.1:                              ; preds = %for.end
 declare token @llvm.directive.region.entry()
 declare void @llvm.directive.region.exit(token)
 declare void @baz(i32 )
+
+attributes #0 = { nounwind }

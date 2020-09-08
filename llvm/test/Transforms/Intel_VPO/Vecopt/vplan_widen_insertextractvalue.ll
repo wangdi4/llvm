@@ -14,14 +14,14 @@ define void @test_pointer_induction_escape() {
 ;
 ; CHECK:       vector.body:
 ; CHECK:         [[VEC_PHI_EXTRACT_1_0:%.*]] = extractelement <2 x i64> [[VEC_PHI0:%.*]], i32 1
-; CHECK-NEXT:    [[TMP1:%.*]] = call { double, double } @bar1(i64 [[UNI_PHI0:%.*]])
-; CHECK-NEXT:    [[TMP2:%.*]] = call { double, double } @bar1(i64 [[VEC_PHI_EXTRACT_1_0]])
+; CHECK-NEXT:    [[TMP1:%.*]] = tail call { double, double } @bar1(i64 [[UNI_PHI0:%.*]])
+; CHECK-NEXT:    [[TMP2:%.*]] = tail call { double, double } @bar1(i64 [[VEC_PHI_EXTRACT_1_0]])
 ; CHECK-NEXT:    [[SERIAL_EXTRACTVALUE0:%.*]] = extractvalue { double, double } [[TMP1]], 0
 ; CHECK-NEXT:    [[SERIAL_EXTRACTVALUE10:%.*]] = extractvalue { double, double } [[TMP2]], 0
 ; CHECK-NEXT:    [[SERIAL_EXTRACTVALUE20:%.*]] = extractvalue { double, double } [[TMP1]], 1
 ; CHECK-NEXT:    [[SERIAL_EXTRACTVALUE30:%.*]] = extractvalue { double, double } [[TMP2]], 1
-; CHECK-NEXT:    [[TMP3:%.*]] = call { double, <4 x i32>, [10 x i32] } @bar2(i64 [[UNI_PHI0]])
-; CHECK-NEXT:    [[TMP4:%.*]] = call { double, <4 x i32>, [10 x i32] } @bar2(i64 [[VEC_PHI_EXTRACT_1_0]])
+; CHECK-NEXT:    [[TMP3:%.*]] = tail call { double, <4 x i32>, [10 x i32] } @bar2(i64 [[UNI_PHI0]])
+; CHECK-NEXT:    [[TMP4:%.*]] = tail call { double, <4 x i32>, [10 x i32] } @bar2(i64 [[VEC_PHI_EXTRACT_1_0]])
 ; CHECK-NEXT:    [[SERIAL_EXTRACTVALUE40:%.*]] = extractvalue { double, <4 x i32>, [10 x i32] } [[TMP3]], 1
 ; CHECK-NEXT:    [[SERIAL_EXTRACTVALUE50:%.*]] = extractvalue { double, <4 x i32>, [10 x i32] } [[TMP4]], 1
 ; CHECK-NEXT:    [[SERIAL_EXTRACTVALUE60:%.*]] = extractvalue { double, <4 x i32>, [10 x i32] } [[TMP3]], 2
@@ -39,7 +39,7 @@ define void @test_pointer_induction_escape() {
 ; CHECK-NEXT:    br i1 [[TMP7]], label %[[PRED_CALL_IF0:.*]], label %[[TMP9:.*]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  [[PRED_CALL_IF0]]:
-; CHECK-NEXT:    [[TMP8:%.*]] = call { double, double } @bar1(i64 [[DOTEXTRACT_0_0]])
+; CHECK-NEXT:    [[TMP8:%.*]] = tail call { double, double } @bar1(i64 [[DOTEXTRACT_0_0]])
 ; CHECK-NEXT:    br label %[[TMP9]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  [[TMP9]]:
@@ -52,7 +52,7 @@ define void @test_pointer_induction_escape() {
 ; CHECK-NEXT:    br i1 [[TMP11]], label %[[PRED_CALL_IF170:.*]], label %[[TMP13:.*]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  [[PRED_CALL_IF170]]:
-; CHECK-NEXT:    [[TMP12:%.*]] = call { double, double } @bar1(i64 [[DOTEXTRACT_1_0]])
+; CHECK-NEXT:    [[TMP12:%.*]] = tail call { double, double } @bar1(i64 [[DOTEXTRACT_1_0]])
 ; CHECK-NEXT:    br label %[[TMP13]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  [[TMP13]]:
