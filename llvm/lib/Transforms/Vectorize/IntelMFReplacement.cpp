@@ -306,8 +306,10 @@ bool MathLibraryFunctionsReplacement::transformDivRem(Module *M) {
     OperandTys.push_back(Divisor->getType());
 
     FunctionType *FnSignature = FunctionType::get(InstTy, OperandTys, false);
+    // Create function with { nounwind readnone } attributes.
     Function *FnDecl = cast<Function>(
-        M->getOrInsertFunction(DivRemInstFnMap[Inst->getOpcode()], FnSignature)
+        M->getOrInsertFunction(DivRemInstFnMap[Inst->getOpcode()], FnSignature,
+                               getPureAttr(M->getContext()))
             .getCallee());
 
     // Create the call
