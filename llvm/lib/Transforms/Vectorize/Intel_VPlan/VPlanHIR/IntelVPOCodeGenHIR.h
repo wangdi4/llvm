@@ -114,6 +114,7 @@ public:
   HLLoop *getOrigLoop() const { return OrigLoop; }
   HLLoop *getMainLoop() const { return MainLoop; }
   unsigned getVF() const { return VF; };
+  unsigned getUF() const { return UF; };
   VPlanVLSAnalysis *getVLS() const { return VLSA; }
   const VPlan *getPlan() const { return Plan; }
   bool getNeedRemainderLoop() const { return NeedRemainderLoop; }

@@ -715,7 +715,10 @@ void VPlanDriverImpl::addOptReportRemarks(VPlanOptReportBuilder &VPORBuilder,
   // Add remark about VF
   VPORBuilder.addRemark(MainLoop, OptReportVerbosity::Low, 15305,
                         Twine(VCodeGen->getVF()).str());
-
+  // Add remark about UF
+  if (VCodeGen->getUF() > 1)
+    VPORBuilder.addRemark(MainLoop, OptReportVerbosity::Low, 15399,
+                          Twine(VCodeGen->getUF()).str());
   VCodeGen->getOptReportStatsTracker().emitRemarks(VPORBuilder, MainLoop);
 
   // If remainder loop was generated for MainLoop, report that it is currently
