@@ -502,7 +502,9 @@ void CPUProgramBuilder::PostBuildProgramStep(Program* pProgram, const ICLDevBack
 
   // Get pointer of global variables
   std::vector<cl_prog_gv> &globalVariables = pProgram->GetGlobalVariables();
-  for (auto &gv : globalVariables)
+  for (auto &gv : globalVariables) {
     gv.pointer = pCPUProgram->GetPointerToGlobalValue(gv.name);
+    assert(gv.pointer && "failed to get address of global variable");
+  }
 }
 }}} // namespace
