@@ -29,3 +29,9 @@
 /// Unsupported on other targets.
 // RUN: %clang -### -S -traceback -target aarch64  %s 2>&1 | FileCheck --check-prefix=TARGET %s
 // TARGET: unsupported option '-traceback' for target 'aarch64'
+
+// -traceback requires lgcc_s
+// RUN: %clang -### -traceback -target x86_64-unknown-linux-gnu  %s 2>&1 \
+// RUN:  | FileCheck -check-prefix=LIBGCC_S %s
+// LIBGCC_S: "-lgcc_s"
+// LIBGCC_S-NOT: "--as-needed" "-lgcc_s" "--no-as-needed"
