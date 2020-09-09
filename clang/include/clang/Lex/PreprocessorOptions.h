@@ -44,7 +44,7 @@ enum ObjCXXARCStandardLibraryKind {
 /// used in preprocessor initialization to InitializePreprocessor().
 class PreprocessorOptions {
 public:
-<<<<<<< HEAD
+
 #if INTEL_CUSTOMIZATION
   // The output file specified so #import processing can find output directory
   StringRef OutputFile;
@@ -57,7 +57,7 @@ public:
       std::vector<std::pair<std::string, llvm::MemoryBuffer *>>;
   using MacroPrefixMapTy =
       std::map<std::string, std::string, std::greater<std::string>>;
-=======
+
   std::vector<std::pair<std::string, bool/*isUndef*/>> Macros;
   std::vector<std::string> Includes;
   std::vector<std::string> MacroIncludes;
@@ -166,7 +166,6 @@ public:
   /// by providing appropriate definitions to retrofit the standard library
   /// with support for lifetime-qualified pointers.
   ObjCXXARCStandardLibraryKind ObjCXXARCStandardLibrary = ARCXX_nolib;
->>>>>>> 07dea1c3d7c26f5084ed3334ebe03f53e8ef4a47
 
   /// Records the set of modules
   class FailedModulesSet {

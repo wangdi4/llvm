@@ -108,7 +108,6 @@ public:
   /// etc.).
   std::string ResourceDir;
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   /// The base directory of Intel compiler headers.
   std::string HeaderBasePath;
@@ -119,7 +118,7 @@ public:
 
   using ModulesIgnoreMacrosTy =
       llvm::SmallSetVector<llvm::CachedHashString, 16>;
-=======
+
   /// The directory used for the module cache.
   std::string ModuleCachePath;
 
@@ -207,7 +206,6 @@ public:
 
   /// Whether to validate system input files when a module is loaded.
   unsigned ModulesValidateSystemHeaders : 1;
->>>>>>> 07dea1c3d7c26f5084ed3334ebe03f53e8ef4a47
 
   // Whether the content of input files should be hashed and used to
   // validate consistency.

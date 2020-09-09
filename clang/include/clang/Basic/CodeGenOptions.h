@@ -142,7 +142,6 @@ public:
     All,         // Keep all frame pointers.
   };
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   // CQ#368125 - support for '/Fd' and '/Fo' options.
   /// The name of object file to emit MS debug info into.
@@ -151,7 +150,7 @@ public:
   std::string MSOutputPdbFile;
 #endif //INTEL_CUSTOMIZATION
   using DebugPrefixMapTy = std::map<std::string, std::string>;
-=======
+
   /// The code model to use (-mcmodel).
   std::string CodeModel;
 
@@ -193,7 +192,6 @@ public:
 
   /// The floating-point denormal mode to use.
   llvm::DenormalMode FPDenormalMode = llvm::DenormalMode::getIEEE();
->>>>>>> 07dea1c3d7c26f5084ed3334ebe03f53e8ef4a47
 
   /// The floating-point denormal mode to use, for float.
   llvm::DenormalMode FP32DenormalMode = llvm::DenormalMode::getIEEE();
@@ -214,12 +212,11 @@ public:
     unsigned LinkFlags = 0;
   };
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   /// OpenCL compile options to embed in the SPIR metadata
   std::string SPIRCompileOptions;
 #endif // INTEL_CUSTOMIZATION
-=======
+
   /// The files specified here are linked in to the module before optimizations.
   std::vector<BitcodeFileToLink> LinkBitcodeFiles;
 
@@ -363,7 +360,6 @@ public:
   /// Most of the time this will be the full -cc1 command.
   const char *Argv0 = nullptr;
   ArrayRef<const char *> CommandLineArgs;
->>>>>>> 07dea1c3d7c26f5084ed3334ebe03f53e8ef4a47
 
 public:
   // Define accessors/mutators for code generation options of enumeration type.
