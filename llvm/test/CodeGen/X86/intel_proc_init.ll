@@ -12,6 +12,9 @@
 ; RUN: llc < %s -mtriple=x86_64-unknown-unknown -mattr=+avx512f -mattr=+sse2 -mattr=+cldemote -mattr=-sse2 -enable-intel-advanced-opts -intel-libirc-allowed | FileCheck %s --check-prefix=CHECK-PINIT-AVX512
 ; RUN: llc < %s -mtriple=x86_64-unknown-unknown -mattr=+avx512bw -mattr=+cldemote -enable-intel-advanced-opts -intel-libirc-allowed | FileCheck %s --check-prefix=CHECK-PINIT-AVX512BW
 ; RUN: llc < %s -mtriple=x86_64-unknown-unknown -mattr=+avx512bw -mattr=+avx512f -mattr=+avx -mattr=+sse2 -mattr=+sse -mattr=+mmx -mattr=+cmov -mattr=+x87 -enable-intel-advanced-opts -intel-libirc-allowed | FileCheck %s --check-prefix=CHECK-PINIT-MIX
+; RUN: llc < %s -mtriple=x86_64-unknown-unknown -mattr=+amx-tile -enable-intel-advanced-opts -intel-libirc-allowed | FileCheck %s --check-prefix=CHECK-PINIT-AMX
+; RUN: llc < %s -mtriple=x86_64-unknown-unknown -mattr=+amx-int8 -enable-intel-advanced-opts -intel-libirc-allowed | FileCheck %s --check-prefix=CHECK-PINIT-AMX
+; RUN: llc < %s -mtriple=x86_64-unknown-unknown -mattr=+amx-bf16 -enable-intel-advanced-opts -intel-libirc-allowed | FileCheck %s --check-prefix=CHECK-PINIT-AMX
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
@@ -129,6 +132,19 @@ define dso_local i32 @MAIN__() local_unnamed_addr #0 {
 ; CHECK-PINIT-MIX-NEXT:    popq %rcx
 ; CHECK-PINIT-MIX-NEXT:    .cfi_def_cfa_offset 8
 ; CHECK-PINIT-MIX-NEXT:    retq
+
+; CHECK-PINIT-AMX-LABEL: MAIN__:
+; CHECK-PINIT-AMX:       # %bb.0:
+; CHECK-PINIT-AMX-NEXT:    pushq   %rax
+; CHECK-PINIT-AMX-NEXT:    .cfi_def_cfa_offset 16
+; CHECK-PINIT-AMX-NEXT:    xorl    %edi, %edi
+; CHECK-PINIT-AMX-NEXT:    xorl    %esi, %esi
+; CHECK-PINIT-AMX-NEXT:    callq   __intel_new_feature_proc_init
+; CHECK-PINIT-AMX-NEXT:    xorl    %eax, %eax
+; CHECK-PINIT-AMX-NEXT:    popq    %rcx
+; CHECK-PINIT-AMX-NEXT:    .cfi_def_cfa_offset 8
+; CHECK-PINIT-AMX-NEXT:    retq
+
   ret i32 0
 }
 
@@ -246,6 +262,18 @@ define dso_local i32 @main() local_unnamed_addr #0 {
 ; CHECK-PINIT-MIX-NEXT:    popq %rcx
 ; CHECK-PINIT-MIX-NEXT:    .cfi_def_cfa_offset 8
 ; CHECK-PINIT-MIX-NEXT:    retq
+
+; CHECK-PINIT-AMX-LABEL: main:
+; CHECK-PINIT-AMX:       # %bb.0:
+; CHECK-PINIT-AMX-NEXT:    pushq   %rax
+; CHECK-PINIT-AMX-NEXT:    .cfi_def_cfa_offset 16
+; CHECK-PINIT-AMX-NEXT:    xorl    %edi, %edi
+; CHECK-PINIT-AMX-NEXT:    xorl    %esi, %esi
+; CHECK-PINIT-AMX-NEXT:    callq   __intel_new_feature_proc_init
+; CHECK-PINIT-AMX-NEXT:    xorl    %eax, %eax
+; CHECK-PINIT-AMX-NEXT:    popq    %rcx
+; CHECK-PINIT-AMX-NEXT:    .cfi_def_cfa_offset 8
+; CHECK-PINIT-AMX-NEXT:    retq
 
   ret i32 0
 }
