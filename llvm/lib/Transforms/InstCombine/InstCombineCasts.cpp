@@ -2292,9 +2292,7 @@ static Instruction *canonicalizeBitCastExtElt(BitCastInst &BitCast,
   if (!VectorType::isValidElementType(DestType))
     return nullptr;
 
-  unsigned NumElts =
-      cast<FixedVectorType>(ExtElt->getVectorOperandType())->getNumElements();
-  auto *NewVecType = FixedVectorType::get(DestType, NumElts);
+  auto *NewVecType = VectorType::get(DestType, ExtElt->getVectorOperandType());
   auto *NewBC = IC.Builder.CreateBitCast(ExtElt->getVectorOperand(),
                                          NewVecType, "bc");
   return ExtractElementInst::Create(NewBC, ExtElt->getIndexOperand());
