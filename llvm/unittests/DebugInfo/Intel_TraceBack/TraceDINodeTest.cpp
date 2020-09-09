@@ -11,15 +11,52 @@
 
 #include "llvm/DebugInfo/Intel_TraceBack/TraceDINode.h"
 #include "llvm/MC/Intel_MCTrace.h"
+#include "llvm/MC/MCAsmInfo.h"
 #include "llvm/MC/MCContext.h"
 #include "llvm/MC/MCExpr.h"
 #include "llvm/MC/MCObjectFileInfo.h"
+#include "llvm/MC/MCRegisterInfo.h"
 #include "llvm/MC/MCStreamer.h"
+#include "llvm/MC/MCSymbol.h"
+#include "llvm/Support/TargetRegistry.h"
+#include "llvm/Support/TargetSelect.h"
 #include "gtest/gtest.h"
 #include <cstdint>
+#include <vector>
 
 using namespace llvm;
 using namespace traceback;
+
+struct Context {
+  const char *Triple = "x86_64-pc-linux";
+  std::unique_ptr<MCRegisterInfo> MRI;
+  std::unique_ptr<MCAsmInfo> MAI;
+  std::unique_ptr<MCContext> Ctx;
+
+  Context() {
+    llvm::InitializeAllTargetInfos();
+    llvm::InitializeAllTargetMCs();
+
+    // If we didn't build x86, do not run the test.
+    std::string Error;
+    const Target *TheTarget = TargetRegistry::lookupTarget(Triple, Error);
+    if (!TheTarget)
+      return;
+
+    MRI.reset(TheTarget->createMCRegInfo(Triple));
+    MCTargetOptions MCOptions;
+    MAI.reset(TheTarget->createMCAsmInfo(*MRI, Triple, MCOptions));
+    Ctx = std::make_unique<MCContext>(MAI.get(), MRI.get(), nullptr);
+  }
+
+  operator bool() { return Ctx.get(); }
+  operator MCContext &() { return *Ctx; };
+};
+
+Context &getContext() {
+  static Context Ctxt;
+  return Ctxt;
+}
 
 namespace {
 TEST(TraceDINodeTest, TraceLine) {
@@ -93,19 +130,78 @@ TEST(TraceDINodeTest, TraceFile) {
   EXPECT_EQ(File.getTag(), traceback::TB_TAG_File);
   // Check file index
   EXPECT_EQ(File.getIndex(), 1U);
+  File.setIndex(2U);
+  EXPECT_EQ(File.getIndex(), 2U);
 }
 
 TEST(TraceDINodeTest, TraceModule) {
-  // Check last line number
+  if (!getContext())
+    return;
+
+  MCContext &Ctx = getContext();
+
+  // Check last line number in last file.
   TraceModule Module(8U, 200U, "org");
   EXPECT_FALSE(Module.getLastLineNo());
-  Module.addFile("file");
+  Module.addFile("file0", 1);
   EXPECT_FALSE(Module.getLastLineNo());
-  Module.addRoutine("routine", 1U, nullptr);
+  Module.addRoutine("routine0", 1U,
+                    Ctx.createTempSymbol("routine0_beg", false));
   EXPECT_FALSE(Module.getLastLineNo());
   Module.addLine(2U, nullptr);
   EXPECT_EQ(Module.getLastLineNo(), 2U);
   Module.addLine(3U, nullptr);
   EXPECT_EQ(Module.getLastLineNo(), 3U);
+  Module.endRoutine(Ctx.createTempSymbol("routine0_end", false));
+
+  // Check the empty routine is removed.
+  Module.addRoutine("routine1", 4U,
+                    Ctx.createTempSymbol("routine1_beg", false));
+  Module.endRoutine(Ctx.createTempSymbol("routine1_end", false));
+  EXPECT_EQ(Module.back().back().getName(), "routine0");
+
+  // Check the empty file is removed.
+  Module.addFile("file1", 2);
+  Module.addFile("file2", 3);
+  EXPECT_EQ(Module.back().getName(), "file2");
+  Module.endModule();
+  EXPECT_EQ(Module.back().getName(), "file0");
+
+  // Check the indices of files are updated correctly
+  // 1, 4, 3, 1 --> 0, 1, 2, 0
+  TraceModule Module2(8U, 200U, "com");
+  Module2.addFile("file0", 1);
+  Module2.addRoutine("routine0", 1U,
+                     Ctx.createTempSymbol("routine0_beg", false));
+  Module2.addLine(3U, nullptr);
+  Module2.addFile("file3", 4);
+  Module2.addRoutine("routine1", 1U,
+                     Ctx.createTempSymbol("routine1_beg", false));
+  Module2.addLine(4U, nullptr);
+  Module2.endRoutine(Ctx.createTempSymbol("routine1_end", false));
+  Module2.addFile("file2", 3);
+  Module2.addRoutine("routine2", 1U,
+                     Ctx.createTempSymbol("routine2_beg", false));
+  Module2.addLine(5U, nullptr);
+  Module2.endRoutine(Ctx.createTempSymbol("routine2_end", false));
+  Module2.addFile("file0", 1);
+  Module2.addRoutine("routine3", 1U,
+                     Ctx.createTempSymbol("routine3_beg", false));
+  Module2.addLine(6U, nullptr);
+
+  std::vector<unsigned> OldIndices;
+  std::vector<unsigned> OldRef = {1, 4, 3, 1};
+  for (const auto &File : Module2) {
+    OldIndices.push_back(File.getIndex());
+  }
+  EXPECT_EQ(OldIndices, OldRef);
+  Module2.endModule();
+
+  std::vector<unsigned> NewIndices;
+  std::vector<unsigned> NewRef = {0, 1, 2, 0};
+  for (const auto &File : Module2) {
+    NewIndices.push_back(File.getIndex());
+  }
+  EXPECT_EQ(NewIndices, NewRef);
 }
 } // end anonymous namespace

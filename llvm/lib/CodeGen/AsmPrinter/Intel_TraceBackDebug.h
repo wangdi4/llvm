@@ -19,6 +19,7 @@
 #ifndef LLVM_LIB_CODEGEN_ASMPRINTER_TRACEBACKDEBUG_H
 #define LLVM_LIB_CODEGEN_ASMPRINTER_TRACEBACKDEBUG_H
 
+#include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/ilist.h"
 #include "llvm/CodeGen/DebugHandlerBase.h"
 #include "llvm/DebugInfo/Intel_TraceBack/TraceDINode.h"
@@ -54,8 +55,10 @@ private:
   void addLineInfo(const MachineInstr *MI);
 
 private:
-  /// The CU in which the previous subprogram was contained.
-  const DICompileUnit *PrevCU = nullptr;
+  /// The file in which the previous subprogram was contained.
+  const DIFile *PrevFile = nullptr;
+  /// Map a file to a unsigned integer.
+  DenseMap<const DIFile *, unsigned> FileToIndex;
   /// The module used to store all debug info in .trace section
   std::unique_ptr<TraceModule> DebugModule;
 };
