@@ -620,22 +620,15 @@ unsigned VPlanCostModelProprietary::getSpillFillCost(
     // N = 2    ==>   RP = 2
     // N = 4    ==>   RP = 4
     // N = 8    ==>   RP = 6
-    // N = 16   ==>   RP = 12
-    // N > 16   ==>   RP = N / 2
+    // N = 16   ==>   RP = 11
+    // N > 16   ==>   RP => N / 2
     auto TranslateVPInstRPToHWRP =
       [](unsigned VPInstRP) -> unsigned {
-      switch (VPInstRP) {
-        case 1:
-        case 2:
-        case 4:
-          return VPInstRP;
-        case 8:
-          return 6;
-        case 16:
-          return 12;
-        default:
-          return VPInstRP / 2;
-      }
+      if (VPInstRP <= 4)
+        return VPInstRP;
+      else if (VPInstRP <= 8)
+        return (VPInstRP + 4) / 2;
+      return (VPInstRP + 6) / 2;
     };
 
     for (auto *Op : VPInst.operands()) {
@@ -682,8 +675,7 @@ unsigned VPlanCostModelProprietary::getSpillFillCost(
     if ((VPInst.getOpcode() == Instruction::Load ||
          VPInst.getOpcode() == Instruction::Store) &&
         (InstCost = VPlanCostModel::getCost(&VPInst)) > 1)
-      NumberLiveValuesCur = TranslateVPInstRPToHWRP(
-        InstCost * NumberLiveValuesCur);
+      NumberLiveValuesCur += TranslateVPInstRPToHWRP(InstCost);
 
     LLVM_DEBUG(auto LVNs = make_second_range(LiveValues);
                dbgs() << "RP = " << NumberLiveValuesCur << ", LV# = " <<
