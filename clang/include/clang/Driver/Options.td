@@ -5740,6 +5740,7 @@ def _SLASH_Zs : CLFlag<"Zs">, HelpText<"Syntax-check only">,
   Alias<fsyntax_only>;
 #if INTEL_CUSTOMIZATION
 def _SLASH_ZI : CLFlag<"ZI">, Alias<_SLASH_Z7>, HelpText<"Like /Z7">;
+#endif // INTEL_CUSTOMIZATION
 def _SLASH_openmp_ : CLFlagNoDpcpp<"openmp-">,
   HelpText<"Disable OpenMP support">, Alias<fno_openmp>;
 def _SLASH_openmp : CLFlagNoDpcpp<"openmp">, HelpText<"Enable OpenMP support">,
@@ -5747,13 +5748,9 @@ def _SLASH_openmp : CLFlagNoDpcpp<"openmp">, HelpText<"Enable OpenMP support">,
 def _SLASH_openmp_experimental : CLFlagNoDpcpp<"openmp:experimental">,
   HelpText<"Enable OpenMP support with experimental SIMD support">,
   Alias<fopenmp>;
-<<<<<<< HEAD
-#endif // INTEL_CUSTOMIZATION
-=======
 def _SLASH_tune : CLCompileJoined<"tune:">,
   HelpText<"Set CPU for optimization without affecting instruction set">,
   Alias<mtune_EQ>;
->>>>>>> ca134374b74e2c2c6e96695502f3a0974c1da4c1
 
 // Non-aliases:
 
@@ -5898,9 +5895,6 @@ def _SLASH_permissive_ : CLIgnoredFlag<"permissive-">;
 def _SLASH_RTC : CLIgnoredJoined<"RTC">;
 def _SLASH_sdl : CLIgnoredFlag<"sdl">;
 def _SLASH_sdl_ : CLIgnoredFlag<"sdl-">;
-#if INTEL_CUSTOMIZATION
-def _SLASH_tune_COL : CLIgnoredJoined<"tune:">;
-#endif // INTEL_CUSTOMIZATION
 def _SLASH_utf8 : CLIgnoredFlag<"utf-8">,
   HelpText<"Set source and runtime encoding to UTF-8 (default)">;
 def _SLASH_w : CLIgnoredJoined<"w">;
