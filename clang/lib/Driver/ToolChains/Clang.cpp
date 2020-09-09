@@ -6462,17 +6462,14 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
   // selected. For optimization levels that want vectorization we use the alias
   // option to simplify the hasFlag logic.
   bool EnableVec = shouldEnableVectorizerAtOLevel(Args, false);
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   // Do not enable vectorization for SPIR-V
   if (JA.isDeviceOffloading(Action::OFK_OpenMP) &&
       getToolChain().getTriple().isSPIR())
     EnableVec = false;
 #endif // INTEL_CUSTOMIZATION
-=======
   if (UseSYCLTriple && EnableSYCLEarlyOptimizations)
     EnableVec = false; // But disable vectorization for SYCL device code
->>>>>>> 20921b10e722e87b4d83665b8bf6e525c932a0ea
   OptSpecifier VectorizeAliasOption =
       EnableVec ? options::OPT_O_Group : options::OPT_fvectorize;
   if (Args.hasFlag(options::OPT_fvectorize, VectorizeAliasOption,
@@ -6481,17 +6478,14 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
 
   // -fslp-vectorize is enabled based on the optimization level selected.
   bool EnableSLPVec = shouldEnableVectorizerAtOLevel(Args, true);
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   // Do not enable vectorization for SPIR-V
   if (JA.isDeviceOffloading(Action::OFK_OpenMP) &&
       getToolChain().getTriple().isSPIR())
     EnableSLPVec = false;
 #endif // INTEL_CUSTOMIZATION
-=======
   if (UseSYCLTriple && EnableSYCLEarlyOptimizations)
     EnableSLPVec = false; // But disable vectorization for SYCL device code
->>>>>>> 20921b10e722e87b4d83665b8bf6e525c932a0ea
   OptSpecifier SLPVectAliasOption =
       EnableSLPVec ? options::OPT_O_Group : options::OPT_fslp_vectorize;
   if (Args.hasFlag(options::OPT_fslp_vectorize, SLPVectAliasOption,
