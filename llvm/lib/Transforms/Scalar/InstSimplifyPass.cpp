@@ -19,7 +19,6 @@
 #include "llvm/IR/DataLayout.h"
 #include "llvm/IR/Dominators.h"
 #include "llvm/IR/Function.h"
-#include "llvm/IR/LegacyPassManager.h"
 #include "llvm/IR/Type.h"
 #include "llvm/InitializePasses.h"
 #include "llvm/Pass.h"
@@ -146,6 +145,7 @@ FunctionPass *llvm::createInstSimplifyLegacyPass() {
   return new InstSimplifyLegacyPass();
 }
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 FunctionPass *llvm::createUnskippableInstSimplifyLegacyPass() {
   return new UnskippableInstSimplifyLegacyPass();
@@ -156,6 +156,8 @@ void LLVMAddInstructionSimplifyPass(LLVMPassManagerRef PM) {
   unwrap(PM)->add(createInstSimplifyLegacyPass());
 }
 
+=======
+>>>>>>> 352cf57cfb6ad33a95ff2d80109e1e88aa39b77e
 PreservedAnalyses InstSimplifyPass::run(Function &F,
                                         FunctionAnalysisManager &AM) {
   auto &DT = AM.getResult<DominatorTreeAnalysis>(F);
