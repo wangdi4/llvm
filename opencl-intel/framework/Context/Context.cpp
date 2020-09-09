@@ -1443,6 +1443,8 @@ size_t Context::CalculateSupportedImageFormats( const cl_mem_flags clMemFlags, c
             exitWithErr = true;
             break;
         }
+        assert(devSpecificFormatsCount > 0 &&
+               "Image format count should not be 0");
 
         if (maxFormatCount < devSpecificFormatsCount)
         {
