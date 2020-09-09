@@ -203,6 +203,9 @@ ics_wsvariant = os.environ.get("ICS_WSVARIANT")
 if ics_wsvariant and ics_wsvariant.startswith('xmainocl'):
     config.available_features.add("intel_opencl")
 
+if config.intel_llvm_has_libompdevice:
+    config.available_features.add("intel_libompdevice")
+
 llvm_config.add_intel_features()
 # end INTEL_CUSTOMIZATION
 

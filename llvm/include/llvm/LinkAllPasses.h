@@ -382,9 +382,10 @@ namespace {
       (void) llvm::createHIRConditionalLoadStoreMotionPass();
       (void) llvm::createHIRNontemporalMarkingPass();
       (void) llvm::createHIRStoreResultIntoTempArrayPass();
-      (void)llvm::createHIRSumWindowReusePass();
+      (void) llvm::createHIRSumWindowReusePass();
       (void) llvm::createHIRNonZeroSinkingForPerfectLoopnestPass();
       (void) llvm::createHIRIdentityMatrixSubstitutionPass();
+      (void) llvm::createHIRArrayScalarizationTestLauncherPass();
 
       // DPCPP Kernel Transformations
       (void) llvm::createDPCPPKernelVecClonePass();

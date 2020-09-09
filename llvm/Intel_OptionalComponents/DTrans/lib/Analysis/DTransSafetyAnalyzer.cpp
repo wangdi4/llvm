@@ -62,8 +62,8 @@ class DTransSafetyInstVisitor : public InstVisitor<DTransSafetyInstVisitor> {
 public:
   DTransSafetyInstVisitor(LLVMContext &Ctx, const DataLayout &DL,
                           DTransSafetyInfo &DTInfo, PtrTypeAnalyzer &PTA,
-                          DTransTypeManager &TM)
-      : DL(DL), DTInfo(DTInfo), PTA(PTA), TM(TM) {
+                          DTransTypeManager &TM, TypeMetadataReader& MDReader)
+      : DL(DL), DTInfo(DTInfo), PTA(PTA), TM(TM), MDReader(MDReader) {
     DTransI8Type = TM.getOrCreateAtomicType(llvm::Type::getInt8Ty(Ctx));
     DTransI8PtrType = TM.getOrCreatePointerType(DTransI8Type);
     LLVMPtrSizedIntType = llvm::Type::getIntNTy(Ctx, DL.getPointerSizeInBits());
@@ -1713,9 +1713,139 @@ public:
     // intrinsic call.
   }
 
+  // For ReturnInst, we need to perform the following checks:
+  // - The address of structure is not being returned as a generic type, as this
+  // would allow the caller to use the object in a way that is not tracked by
+  // the analysis.
+  // - The address of a field is not returned, because this would allow
+  // reads/writes to the field to be performed without the analysis tracking the
+  // location as an element pointee
+  // - The type returned is unambiguous and matches the expected type for the
+  // function.
   void visitReturnInst(ReturnInst &I) {
-    // TODO: Check the return type matches the expected type, and that a field
-    // member address is not returned.
+    Value *RetVal = I.getReturnValue();
+    if (!RetVal)
+      return;
+
+    // No need to check type for constants like null or undef values being
+    // returned.
+    if (isa<ConstantData>(RetVal))
+      return;
+
+    // Identify the type that is expected to be returned.
+    llvm::Type *ExpectedRetTy = RetVal->getType();
+    DTransType *ExpectedRetDTransTy = nullptr;
+    if (TM.isSimpleType(ExpectedRetTy)) {
+      ExpectedRetDTransTy = TM.getOrCreateSimpleType(ExpectedRetTy);
+    } else {
+      DTransType *FnTy = MDReader.getDTransTypeFromMD(I.getFunction());
+      if (FnTy)
+        ExpectedRetDTransTy = cast<DTransFunctionType>(FnTy)->getReturnType();
+    }
+
+    // Check for a structure type being returned
+    if (ExpectedRetDTransTy) {
+      DTransType *BaseTy = ExpectedRetDTransTy;
+      while (BaseTy->isArrayTy())
+        BaseTy = BaseTy->getArrayElementType();
+
+      if (isa<DTransStructType>(BaseTy))
+        setBaseTypeInfoSafetyData(BaseTy, dtrans::WholeStructureReference,
+          "return of structure type", &I);
+    }
+
+    // If the value is not a type of interest, then it will not affect any
+    // safety data.
+    if (!isPossiblePtrValue(RetVal))
+      return;
+
+    // Now find the types collected by the PtrTypeAnalyzer for the value being
+    // returned, and start the checks for whether it is safe for the expected
+    // type to be returned.
+    ValueTypeInfo *Info = PTA.getValueTypeInfo(RetVal);
+    if (Info && isValueTypeInfoUnhandled(*Info)) {
+      DTInfo.setUnhandledPtrType(RetVal);
+      setAllAliasedAndPointeeTypeSafetyData(
+          Info, dtrans::UnhandledUse,
+          "PointerTypeAnalyzer could not analyze return instruction value", &I);
+      return;
+    }
+
+    if (!ExpectedRetDTransTy) {
+      setAllAliasedTypeSafetyData(Info, dtrans::UnhandledUse,
+                                  "Return of unknown type", &I);
+      return;
+    }
+
+    if (!Info || Info->empty()) {
+      setAllAliasedAndPointeeTypeSafetyData(
+          Info, dtrans::UnhandledUse,
+          "PointerTypeAnalyzer failed to collect type for return instruction",
+          &I);
+      return;
+    }
+
+    // Check whether the address of a field is being returned
+    if (Info->pointsToSomeElement()) {
+      bool MismatchedType = false;
+      for (auto PointeePair :
+           Info->getElementPointeeSet(ValueTypeInfo::VAT_Use)) {
+        dtrans::TypeInfo *ParentTI =
+            DTInfo.getOrCreateTypeInfo(PointeePair.first);
+        if (auto *ParentStInfo = dyn_cast<StructInfo>(ParentTI)) {
+          assert(PointeePair.second.getKind() ==
+                     ValueTypeInfo::PointeeLoc::PLK_Field &&
+                 "Unexpected use of non-field offset");
+          size_t Idx = PointeePair.second.getElementNum();
+          setBaseTypeInfoSafetyData(PointeePair.first,
+                                    dtrans::FieldAddressTaken,
+                                    "Field address returned", &I);
+          ParentStInfo->getField(Idx).setAddressTaken();
+
+          // Check that the field type matches the returned type
+          if (TM.getOrCreatePointerType(
+                  ParentStInfo->getField(Idx).getDTransType()) !=
+              ExpectedRetDTransTy)
+            MismatchedType = true;
+        }
+      }
+
+      if (MismatchedType)
+        setAllAliasedAndPointeeTypeSafetyData(
+            Info, dtrans::BadCasting, "Return of field using mismatched type",
+            &I);
+    }
+
+    if (Info->canAliasToAggregatePointer()) {
+      // Check that the type being returned matches the expected type for the
+      // function
+      DTransType *PtrDomTy = PTA.getDominantAggregateUsageType(*Info);
+      if (!PtrDomTy)
+        setAllAliasedTypeSafetyData(Info, dtrans::BadCasting,
+                                    "Return of ambiguous type", &I);
+
+      // If a pointer to an aggregate type is being returned as a generic type
+      // (i8* or pointer-sized-int), then the AddressTaken safety bit will be
+      // applied because the caller will treating the returned pointer as just a
+      // generic pointer, rather than the actual type.
+      if (ExpectedRetDTransTy == getDTransI8PtrType() ||
+          ExpectedRetDTransTy == getDTransPtrSizedIntType())
+        setAllAliasedTypeSafetyData(
+            Info, dtrans::AddressTaken,
+            "Return of aggregate pointer as a generic type", &I);
+
+      // If a pointer to an aggregate type is being returned as a type that is
+      // different than the expected type, we will treat it as BadCasting.
+      // TODO: There is the special case where a pointer to an aggregate is
+      // returned as the element zero type, which could be treated as
+      // FieldAddressTaken in the future, which may be less conservative,
+      // because of differences in how the safety conditions cascade and
+      // propagate.
+      else if (PtrDomTy != ExpectedRetDTransTy)
+        setAllAliasedAndPointeeTypeSafetyData(
+            Info, dtrans::BadCasting,
+            "Return of aggregate type that does not match expected type", &I);
+    }
   }
 
   void visitICmpInst(ICmpInst &I) {
@@ -1773,6 +1903,37 @@ private:
     for (auto *U : CE->users())
       if (auto *UCE = dyn_cast<ConstantExpr>(U))
         analyzeConstantExpr(UCE);
+  }
+
+  // Check whether the type for the Value object is something that needs to be
+  // analyzed for potential pointer types. This differs from just checking the
+  // Type of V with isTypeOfInterest, because this also needs to consider the
+  // case of a pointer converted into a pointer sized integer.
+  bool isPossiblePtrValue(Value *V) const {
+    llvm::Type *ValueTy = V->getType();
+
+    // If the value is a pointer or the result of a pointer-to-int cast
+    // it definitely is a pointer.
+    if (ValueTy->isPointerTy() || isa<PtrToIntOperator>(V))
+      return true;
+
+    // A vector of pointers should be analyzed to track the pointer type.
+    if (ValueTy->isVectorTy() &&
+        cast<VectorType>(ValueTy)->getElementType()->isPointerTy())
+      return true;
+
+    // If the value is not a pointer and is not a pointer-sized integer, it
+    // is definitely not a value we will track as a pointer.
+    if (ValueTy != getLLVMPtrSizedIntType())
+      return false;
+
+    // If it is a pointer-sized integer, we may need to analyze it if
+    // it is the result of a load, select or PHI node.
+    if (isa<LoadInst>(V) || isa<SelectInst>(V) || isa<PHINode>(V))
+      return true;
+
+    // Otherwise, we don't need to analyze it as a pointer.
+    return false;
   }
 
   // Check whether any of the aliases that were collected for the declaration of
@@ -2194,6 +2355,7 @@ private:
   DTransSafetyInfo &DTInfo;
   PtrTypeAnalyzer &PTA;
   DTransTypeManager &TM;
+  TypeMetadataReader &MDReader;
 
   // Types that are frequently needed for comparing type aliases against
   // known types.
@@ -2248,7 +2410,7 @@ void DTransSafetyInfo::analyzeModule(
   PtrAnalyzer->run(M);
   LLVM_DEBUG(dbgs() << "DTransSafetyInfo: PtrTypeAnalyzer complete\n");
 
-  DTransSafetyInstVisitor Visitor(Ctx, DL, *this, *PtrAnalyzer, *TM);
+  DTransSafetyInstVisitor Visitor(Ctx, DL, *this, *PtrAnalyzer, *TM, *MDReader);
   Visitor.visit(M);
 
   LLVM_DEBUG({

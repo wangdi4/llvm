@@ -19,6 +19,7 @@
 #ifndef LLVM_TRANSFORMS_INTEL_LOOPTRANSFORMS_UTILS_HIRTRANSFORM_UTILS_H
 #define LLVM_TRANSFORMS_INTEL_LOOPTRANSFORMS_UTILS_HIRTRANSFORM_UTILS_H
 
+#include "llvm/ADT/SmallSet.h"
 #include "llvm/ADT/SmallVector.h"
 
 #include "llvm/Analysis/Intel_LoopAnalysis/IR/CanonExpr.h"
@@ -340,6 +341,34 @@ public:
 
   static bool substituteConstGlobals(HLNode *Node);
 
+  /// Conduct Array Scalarization for all memrefs provided in a set of symbases.
+  ///
+  /// A typical transformation looks like-
+  ///  example1 [BEFORE]
+  ///  do i1
+  ///    A[0][0] = .
+  ///    ...
+  ///       .    = A[0][0]
+  ///    ...
+  ///
+  ///  end do
+  ///
+  ///  These memrefs are on local arrays, contain only const-only subscripts,
+  ///  and are dead after the loop. Thus they can be replaced by a scalar temp.
+  ///  The above loop will become-
+  ///
+  ///  example1 [AFTER]
+  ///    type t0
+  ///  do i1
+  ///    t0       = .
+  ///    ...
+  ///          .  = t0
+  ///    ...
+  ///
+  ///  end do
+  ///
+  static bool doScalarization(HIRFramework &HIRF, HIRDDAnalysis &HDDA,
+                              HLLoop *InnermostLp, SmallSet<unsigned, 8> &SBS);
 };
 
 } // End namespace loopopt

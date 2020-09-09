@@ -3018,37 +3018,6 @@ ValueTypeInfo *PtrTypeAnalyzerImpl::getValueTypeInfo(const User *U,
   return getValueTypeInfo(V);
 }
 
-// Check whether the type for the Value object is something that needs to be
-// analyzed for potential pointer types. This differs from just checking the
-// Type of V with isTypeOfInterest, because this also needs to consider the
-// case of a pointer converted into a pointer sized integer.
-bool PtrTypeAnalyzer::isPossiblePtrValue(Value *V) const {
-  llvm::Type *ValueTy = V->getType();
-
-  // If the value is a pointer or the result of a pointer-to-int cast
-  // it definitely is a pointer.
-  if (ValueTy->isPointerTy() || isa<PtrToIntOperator>(V))
-    return true;
-
-  // A vector of pointers should be analyzed to track the pointer type.
-  if (ValueTy->isVectorTy() &&
-      cast<VectorType>(ValueTy)->getElementType()->isPointerTy())
-    return true;
-
-  // If the value is not a pointer and is not a pointer-sized integer, it
-  // is definitely not a value we will track as a pointer.
-  if (ValueTy != Impl->getLLVMPointerSizedIntType())
-    return false;
-
-  // If it is a pointer-sized integer, we may need to analyze it if
-  // it is the result of a load, select or PHI node.
-  if (isa<LoadInst>(V) || isa<SelectInst>(V) || isa<PHINode>(V))
-    return true;
-
-  // Otherwise, we don't need to analyze it as a pointer.
-  return false;
-}
-
 void PtrTypeAnalyzerImpl::setDeclaredType(Value *V, dtrans::DTransType *Ty) {
   ValueTypeInfo *Info = getOrCreateValueTypeInfo(V);
   Info->addTypeAlias(ValueTypeInfo::VAT_Decl, Ty);
