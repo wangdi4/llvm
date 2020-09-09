@@ -125,6 +125,7 @@ void initializeSGSizeCollectorIndirectPass(llvm::PassRegistry &);
 void initializeVectorVariantLoweringPass(llvm::PassRegistry &);
 void initializeVectorVariantFillInPass(llvm::PassRegistry &);
 void initializeUpdateCallAttrsPass(llvm::PassRegistry &);
+void initializeAddFastMathPass(llvm::PassRegistry &);
 }
 
 #endif
