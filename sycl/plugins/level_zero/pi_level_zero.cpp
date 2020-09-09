@@ -452,7 +452,6 @@ _pi_device::getAvailableCommandList(pi_queue Queue,
     Queue->Device->ZeCommandListCacheMutex.unlock();
     return PI_SUCCESS;
   }
-<<<<<<< HEAD
 
   // If there are no available command lists in the cache, then we check for
   // command lists that have already signalled, but have not been added to the
@@ -493,48 +492,6 @@ _pi_device::getAvailableCommandList(pi_queue Queue,
     pi_result = PI_SUCCESS;
   }
 
-=======
-
-  // If there are no available command lists in the cache, then we check for
-  // command lists that have already signalled, but have not been added to the
-  // available list yet. Each command list has a fence associated which tracks
-  // if a command list has completed dispatch of its commands and is ready for
-  // reuse. If a command list is found to have been signalled, then the
-  // command list & fence are reset and we return.
-  Queue->ZeCommandListFenceMapMutex.lock();
-  for (const auto &MapEntry : Queue->ZeCommandListFenceMap) {
-    ze_result_t ZeResult = ZE_CALL_NOCHECK(zeFenceQueryStatus(MapEntry.second));
-    if (ZeResult == ZE_RESULT_SUCCESS) {
-      Queue->resetCommandListFenceEntry(MapEntry.first, false);
-      *ZeCommandList = MapEntry.first;
-      *ZeFence = MapEntry.second;
-      Queue->ZeCommandListFenceMapMutex.unlock();
-      return PI_SUCCESS;
-    }
-  }
-  Queue->ZeCommandListFenceMapMutex.unlock();
-
-  // If there are no available command lists nor signalled command lists, then
-  // we must create another command list if we have not exceed the maximum
-  // command lists we can create.
-  // Once created, this command list & fence are added to the command list fence
-  // map.
-  if ((*ZeCommandList == nullptr) && (this->Platform->ZeGlobalCommandListCount <
-                                      this->Platform->ZeMaxCommandListCache)) {
-    ZE_CALL(zeCommandListCreate(Queue->Context->ZeContext, ZeDevice,
-                                &ZeCommandListDesc, ZeCommandList));
-    // Increments the total number of command lists created on this platform.
-    this->Platform->ZeGlobalCommandListCount++;
-    ZE_CALL(zeFenceCreate(Queue->ZeCommandQueue, &ZeFenceDesc, ZeFence));
-    Queue->ZeCommandListFenceMapMutex.lock();
-    Queue->ZeCommandListFenceMap.insert(
-        std::pair<ze_command_list_handle_t, ze_fence_handle_t>(*ZeCommandList,
-                                                               *ZeFence));
-    Queue->ZeCommandListFenceMapMutex.unlock();
-    pi_result = PI_SUCCESS;
-  }
-
->>>>>>> 6d34b95c3eb3bccf5d739d66a7c57eed196cc206
   return pi_result;
 }
 
@@ -596,12 +553,6 @@ zeModuleDynamicLinkMock(uint32_t numModules, ze_module_handle_t *phModules,
 static ze_result_t
 zeModuleGetPropertiesMock(ze_module_handle_t hModule,
                           ze_module_properties_t *pModuleProperties);
-<<<<<<< HEAD
-
-static bool isOnlineLinkEnabled();
-// End forward declarations for mock Level Zero APIs
-=======
->>>>>>> 6d34b95c3eb3bccf5d739d66a7c57eed196cc206
 
 static bool isOnlineLinkEnabled();
 // End forward declarations for mock Level Zero APIs
@@ -715,12 +666,9 @@ pi_result piPlatformsGet(pi_uint32 NumEntries, pi_platform *Platforms,
       Platforms[0]->ZeDriverApiVersion =
           std::to_string(ZE_MAJOR_VERSION(ZeApiVersion)) + std::string(".") +
           std::to_string(ZE_MINOR_VERSION(ZeApiVersion));
-<<<<<<< HEAD
-=======
 
       // save a copy in the cache for future uses
       PiPlatformsCache.push_back(Platforms[0]);
->>>>>>> 6d34b95c3eb3bccf5d739d66a7c57eed196cc206
       Platforms[0]->ZeMaxCommandListCache = CommandListCacheSizeValue;
     } catch (const std::bad_alloc &) {
       return PI_OUT_OF_HOST_MEMORY;
@@ -889,12 +837,8 @@ pi_result piDeviceRelease(pi_device Device) {
     if (--(Device->RefCount) == 0) {
       // Destroy all the command lists associated with this device.
       Device->ZeCommandListCacheMutex.lock();
-<<<<<<< HEAD
-      for (ze_command_list_handle_t &ZeCommandList : Device->ZeCommandListCache) {
-=======
       for (ze_command_list_handle_t &ZeCommandList :
            Device->ZeCommandListCache) {
->>>>>>> 6d34b95c3eb3bccf5d739d66a7c57eed196cc206
         zeCommandListDestroy(ZeCommandList);
       }
       Device->ZeCommandListCacheMutex.unlock();
@@ -2614,10 +2558,7 @@ static bool isOnlineLinkEnabled() {
   static bool IsEnabled = std::getenv("SYCL_ENABLE_LEVEL_ZERO_LINK");
   return IsEnabled;
 }
-<<<<<<< HEAD
 
-=======
->>>>>>> 6d34b95c3eb3bccf5d739d66a7c57eed196cc206
 pi_result piKernelCreate(pi_program Program, const char *KernelName,
                          pi_kernel *RetKernel) {
 
