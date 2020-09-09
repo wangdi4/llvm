@@ -3401,6 +3401,44 @@ void VPOCodeGenHIR::widenUniformLoadImpl(const VPLoadStoreInst *VPLoad,
       VPLoad, widenRef(ScalarInst->getLvalDDRef()->clone(), getVF()));
 }
 
+void VPOCodeGenHIR::widenUnmaskedUniformStoreImpl(
+    const VPLoadStoreInst *VPStore) {
+  const VPValue *PtrOp = getLoadStorePointerOperand(VPStore);
+  const VPValue *ValOp = VPStore->getOperand(0);
+  AAMDNodes AANodes;
+  VPStore->getAAMetadata(AANodes);
+
+  RegDDRef *MemRef =
+      getMemoryRef(PtrOp, VPStore->getSymbase(), AANodes,
+                   VPStore->getAlignment(), true /* Lane0Value */);
+  RegDDRef *ValRef = nullptr;
+  if (!Plan->getVPlanDA()->isDivergent(*ValOp))
+    // Value being stored is uniform - use lane 0 value as the value to store.
+    ValRef = getOrCreateScalarRef(ValOp);
+  else {
+    const VPPHINode *VPPhi = dyn_cast<VPPHINode>(ValOp);
+    if (VPPhi && MainLoopIVInsts.count(VPPhi)) {
+      // If the value being stored is the loop IV, generate IV + (VF - 1).
+      auto RefDestTy = VPPhi->getType();
+      auto *CE = CanonExprUtilities.createCanonExpr(RefDestTy);
+      CE->addIV(OrigLoop->getNestingLevel(), InvalidBlobIndex /* no blob */,
+                1 /* constant IV coefficient */);
+      CE->addConstant(getVF() - 1, false /* IsMathAdd */);
+      ValRef = DDRefUtilities.createScalarRegDDRef(GenericRvalSymbase, CE);
+    } else {
+      ValRef = widenRef(ValOp, getVF());
+      auto Extract =
+          HLNodeUtilities.createExtractElementInst(ValRef, getVF() - 1, "last");
+      addInstUnmasked(Extract);
+      ValRef = Extract->getLvalDDRef()->clone();
+    }
+  }
+
+  HLInst *WideInst =
+      HLNodeUtilities.createStore(ValRef, "uniform.store", MemRef);
+  addInstUnmasked(WideInst);
+}
+
 void VPOCodeGenHIR::widenLoadStoreImpl(const VPLoadStoreInst *VPLoadStore,
                                        RegDDRef *Mask) {
   // Loads/stores need to be masked with current mask value if Mask is null.
@@ -3411,9 +3449,15 @@ void VPOCodeGenHIR::widenLoadStoreImpl(const VPLoadStoreInst *VPLoadStore,
 
   // Handle uniform load
   const VPValue *PtrOp = getLoadStorePointerOperand(VPLoadStore);
-  if (Opcode == Instruction::Load && !Plan->getVPlanDA()->isDivergent(*PtrOp)) {
-    widenUniformLoadImpl(VPLoadStore, Mask);
-    return;
+  if (!Plan->getVPlanDA()->isDivergent(*PtrOp)) {
+    if (Opcode == Instruction::Load) {
+      widenUniformLoadImpl(VPLoadStore, Mask);
+      return;
+    } else if (!Mask) {
+      // Handle unmasked uniform store
+      widenUnmaskedUniformStoreImpl(VPLoadStore);
+      return;
+    }
   }
 
   AAMDNodes AANodes;
@@ -4115,7 +4159,8 @@ void VPOCodeGenHIR::widenNodeImpl(const VPInstruction *VPInst, RegDDRef *Mask,
   // changed later to use SVA information.
   if (isa<VPGEPInstruction>(VPInst) || isa<VPSubscriptInst>(VPInst)) {
     bool IsNegOneStride;
-    if (isUnitStridePtr(VPInst, IsNegOneStride))
+    if (isUnitStridePtr(VPInst, IsNegOneStride) ||
+        !Plan->getVPlanDA()->isDivergent(*VPInst))
       generateHIR(VPInst, Mask, Grp, InterleaveFactor, InterleaveIndex,
                   GrpStartInst, false /* Widen */);
     return;
