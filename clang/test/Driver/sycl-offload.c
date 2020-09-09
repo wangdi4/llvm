@@ -693,13 +693,6 @@
 // CHK-TOOLS-AOT: clang{{.*}} "-triple" "x86_64-unknown-linux-gnu" {{.*}} "-include" "[[INPUT1]]" {{.*}} "-o" "[[OUTPUT7:.+\.o]]"
 // CHK-TOOLS-AOT: ld{{.*}} "[[OUTPUT7]]" "[[OUTPUT6]]" {{.*}} "-lsycl"
 
-<<<<<<< HEAD
-// INTEL_CUSTOMIZATION
-// RUN: %clang_cl -fsycl -fsycl-targets=spir64_gen-unknown-unknown-sycldevice %s -### 2>&1 \
-// RUN:  | FileCheck %s -check-prefixes=CHK-GEN-EXE
-// CHK-GEN-EXE: ocloc.exe
-// end INTEL_CUSTOMIZATION
-=======
 // Check to be sure that for windows, the 'exe' tools are called
 // RUN: %clang_cl -fsycl -fsycl-targets=spir64_x86_64-unknown-unknown-sycldevice %s -### 2>&1 \
 // RUN:  | FileCheck %s -check-prefixes=CHK-TOOLS-CPU-WIN
@@ -710,7 +703,6 @@
 // CHK-TOOLS-GEN-WIN: ocloc.exe{{.*}}
 // CHK-TOOLS-CPU-WIN: opencl-aot.exe{{.*}}
 // CHK-TOOLS-FPGA-WIN: aoc.exe{{.*}}
->>>>>>> 78a86da38185266b63f02d2e977b64c6c9eeacd3
 
 /// ###########################################################################
 

@@ -365,16 +365,8 @@ void SYCL::gen::BackendCompiler::ConstructJob(Compilation &C,
       static_cast<const toolchains::SYCLToolChain &>(getToolChain());
   TC.TranslateBackendTargetArgs(Args, CmdArgs);
   TC.TranslateLinkerTargetArgs(Args, CmdArgs);
-<<<<<<< HEAD
-  std::string ProgName("ocloc");
-  if (C.getSingleOffloadToolChain<Action::OFK_Host>()
-      ->getTriple().isWindowsMSVCEnvironment())
-    ProgName.append(".exe");
-  SmallString<128> ExecPath(getToolChain().GetProgramPath(ProgName.c_str()));
-=======
   SmallString<128> ExecPath(
       getToolChain().GetProgramPath(makeExeName(C, "ocloc")));
->>>>>>> 78a86da38185266b63f02d2e977b64c6c9eeacd3
   const char *Exec = C.getArgs().MakeArgString(ExecPath);
   auto Cmd = std::make_unique<Command>(
       JA, *this, ResponseFileSupport::None(), Exec, CmdArgs, None);
