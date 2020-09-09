@@ -1,9 +1,5 @@
-<<<<<<< HEAD
 // UNSUPPORTED: intel_opencl && i686-pc-windows
-// RUN: %clang_cc1 -I %S/Inputs -fsycl -fsycl-is-device -fsycl-int-header=%t.h %s
-=======
 // RUN: %clang_cc1 -fsycl -fsycl-is-device -fsycl-int-header=%t.h %s
->>>>>>> e35466be32bd41607a10a39bf36546f7667829fa
 // RUN: FileCheck -input-file=%t.h %s
 
 #include "Inputs/sycl.hpp"
