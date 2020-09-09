@@ -145,19 +145,12 @@ FunctionPass *llvm::createInstSimplifyLegacyPass() {
   return new InstSimplifyLegacyPass();
 }
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 FunctionPass *llvm::createUnskippableInstSimplifyLegacyPass() {
   return new UnskippableInstSimplifyLegacyPass();
 }
 #endif // INTEL_CUSTOMIZATION
 
-void LLVMAddInstructionSimplifyPass(LLVMPassManagerRef PM) {
-  unwrap(PM)->add(createInstSimplifyLegacyPass());
-}
-
-=======
->>>>>>> 352cf57cfb6ad33a95ff2d80109e1e88aa39b77e
 PreservedAnalyses InstSimplifyPass::run(Function &F,
                                         FunctionAnalysisManager &AM) {
   auto &DT = AM.getResult<DominatorTreeAnalysis>(F);
