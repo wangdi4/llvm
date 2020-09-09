@@ -1510,7 +1510,11 @@ static void AddUnwindLibrary(const ToolChain &TC, const Driver &D,
 
   LibGccType LGT = getLibGccType(D, Args);
   bool AsNeeded = LGT == LibGccType::UnspecifiedLibGcc &&
-                  !TC.getTriple().isAndroid() && !TC.getTriple().isOSCygMing();
+#if INTEL_CUSTOMIZATION
+                  !TC.getTriple().isAndroid() &&
+                  !TC.getTriple().isOSCygMing() &&
+                  !Args.hasArg(options::OPT_traceback);
+#endif // INTEL_CUSTOMIZATION
   if (AsNeeded)
     CmdArgs.push_back(getAsNeededOption(TC, true));
 
