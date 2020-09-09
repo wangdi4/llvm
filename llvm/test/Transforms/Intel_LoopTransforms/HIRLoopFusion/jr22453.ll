@@ -37,19 +37,20 @@
 
 ; CHECK:     BEGIN REGION { modified }
 ; CHECK:           + DO i1 = 0, 10, 1   <DO_LOOP>
-; CHECK:           |   (undef)[0] = undef;
-; CHECK:           |
+;                  |   (undef)[0] = undef;
+;                  |
 ; CHECK:           |   + DO i2 = 0, sext.i32.i64(undef) + -1 * undef + -1, 1   <DO_LOOP>
-; CHECK:           |   |   + DO i3 = 0, undef + -3, 1   <DO_LOOP>
-; CHECK:           |   |   |   (%"module_ra_gfdleta_mp_swr93_$DFNTRN475")[i3 + 2][i2 + undef] = undef;
-; CHECK:           |   |   + END LOOP
-; CHECK:           |   |
-; CHECK:           |   |   %"NCLDS[]13600_fetch" = (undef)[0];
-; CHECK:           |   |   %"NCLDS[]14228_fetch" = (undef)[0];
-; CHECK:           |   |   %"NCLDS[]14857_fetch" = (undef)[0];
-; CHECK:           |   |   %"NCLDS[]15890_fetch" = (undef)[0];
-; CHECK:           |   |   (%"module_ra_gfdleta_mp_swr93_$DFNTRN475")[1][i2 + undef] = undef;
+;                  |   |   + DO i3 = 0, undef + -3, 1   <DO_LOOP>
+;                  |   |   |   (%"module_ra_gfdleta_mp_swr93_$DFNTRN475")[i3 + 2][i2 + undef] = undef;
+;                  |   |   + END LOOP
+;                  |   |
+;                  |   |   %"NCLDS[]13600_fetch" = (undef)[0];
+;                  |   |   %"NCLDS[]14228_fetch" = (undef)[0];
+;                  |   |   %"NCLDS[]14857_fetch" = (undef)[0];
+;                  |   |   %"NCLDS[]15890_fetch" = (undef)[0];
+;                  |   |   (%"module_ra_gfdleta_mp_swr93_$DFNTRN475")[1][i2 + undef] = undef;
 ; CHECK:           |   + END LOOP
+; CHECK-NOT: DO i2
 ; CHECK:           + END LOOP
 ; CHECK:     END REGION
 
