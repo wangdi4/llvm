@@ -361,12 +361,16 @@ int getSplatIndex(ArrayRef<int> Mask);
 /// Get splat value if the input is a splat vector or return nullptr.
 /// The value may be extracted from a splat constants vector or from
 /// a sequence of instructions that broadcast a single value into a vector.
+<<<<<<< HEAD
 const Value *getSplatValue(const Value *V);
 #if INTEL_CUSTOMIZATION
 inline Value *getSplatValue(Value *V) {
   return const_cast<Value *>(getSplatValue(static_cast<const Value *>(V)));
 }
 #endif // INTEL_CUSTOMIZATION
+=======
+Value *getSplatValue(const Value *V);
+>>>>>>> b16e8687ab6c977ddab3409939e867828f394311
 
 /// Return true if each element of the vector value \p V is poisoned or equal to
 /// every other non-poisoned element. If an index element is specified, either
