@@ -261,15 +261,30 @@ Function *VPOParoptTransform::finalizeKernelFunction(WRegionNode *W,
   SmallVector<Type *, 8> ParamsTy;
 
   unsigned AddrSpaceGlobal = vpo::ADDRESS_SPACE_GLOBAL;
+
+  // Modify the kernel function declaration so that function pointer arguments
+  // are received by the kernel as cl_ulong values, and all other pointer
+  // arguments are in addrspace(1). This also requires aligning the new argument
+  // types with the original uses of the arguments inside the function body.
+  // For example, cl_ulong function pointer arguments must be casted
+  // to their original pointer types, and all other pointer arguments
+  // must be addrspacecasted to their original address spaces.
   for (auto ArgTyI = FnTy->param_begin(), ArgTyE = FnTy->param_end();
        ArgTyI != ArgTyE; ++ArgTyI) {
-    if (PointerType *PtType = dyn_cast<PointerType>(*ArgTyI))
-      ParamsTy.push_back(
-          PtType->getElementType()->getPointerTo(AddrSpaceGlobal));
-    else
+    if (PointerType *ArgPtrTy = dyn_cast<PointerType>(*ArgTyI)) {
+      if (isa<FunctionType>(ArgPtrTy->getElementType())) {
+        // Kernel arguments representing function pointers
+        // must be declared as 64-bit integers.
+        ParamsTy.push_back(Type::getInt64Ty(Fn->getContext()));
+      } else {
+        ParamsTy.push_back(
+            ArgPtrTy->getElementType()->getPointerTo(AddrSpaceGlobal));
+      }
+    } else {
       // A non-pointer argument may appear as a result of scalar
       // FIRSTPRIVATE.
       ParamsTy.push_back(*ArgTyI);
+    }
   }
 
   Type *RetTy = FnTy->getReturnType();
@@ -294,20 +309,28 @@ Function *VPOParoptTransform::finalizeKernelFunction(WRegionNode *W,
        ++I) {
     auto ArgV = &*NewArgI;
     Value *NewArgV = ArgV;
-    // Create an address space cast for pointer argument.
-    if (isa<PointerType>(ArgV->getType())) {
-      unsigned NewAddressSpace =
-          cast<PointerType>(ArgV->getType())->getAddressSpace();
-      unsigned OldAddressSpace =
-          cast<PointerType>(I->getType())->getAddressSpace();
+    if (PointerType *OldArgPtrTy = dyn_cast<PointerType>(I->getType())) {
+      if (isa<FunctionType>(OldArgPtrTy->getElementType())) {
+        // The new argument has 64-bit integer type.
+        // We need to cast it to a function pointer type of the original
+        // argument.
+        NewArgV = Builder.CreateIntToPtr(
+            ArgV, OldArgPtrTy, ArgV->getName() + Twine(".cast"));
+      } else {
+        // Create an address space cast for pointer argument.
+        unsigned NewAddressSpace =
+            cast<PointerType>(ArgV->getType())->getAddressSpace();
+        unsigned OldAddressSpace = OldArgPtrTy->getAddressSpace();
 
-      if (NewAddressSpace != OldAddressSpace) {
-        // Assert the correct addrspacecast here instead of failing
-        // during SPIRV emission.
-        assert(OldAddressSpace == vpo::ADDRESS_SPACE_GENERIC &&
-               "finalizeKernelFunction: OpenCL global addrspaces can only be "
-               "casted to generic.");
-        NewArgV = Builder.CreatePointerBitCastOrAddrSpaceCast(ArgV, I->getType());
+        if (NewAddressSpace != OldAddressSpace) {
+          // Assert the correct addrspacecast here instead of failing
+          // during SPIRV emission.
+          assert(OldAddressSpace == vpo::ADDRESS_SPACE_GENERIC &&
+                 "finalizeKernelFunction: OpenCL global addrspaces can only be "
+                 "casted to generic.");
+          NewArgV = Builder.CreatePointerBitCastOrAddrSpaceCast(
+              ArgV, I->getType(), ArgV->getName() + Twine(".ascast"));
+        }
       }
     }
     I->replaceAllUsesWith(NewArgV);

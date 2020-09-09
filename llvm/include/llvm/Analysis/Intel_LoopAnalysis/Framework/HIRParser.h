@@ -354,7 +354,7 @@ class HIRParser {
   bool processedRemovableIntrinsic(HLInst *HInst);
 
   /// Parses LLVM metadata and updates RegDDRef \p Ref.
-  static void parseMetadata(const Instruction *Inst, RegDDRef *Ref);
+  void parseMetadata(const Instruction *Inst, RegDDRef *Ref) const;
 
   /// Parses LLVM instruction metadata and updates canon expr \p CE.
   static void parseMetadata(const Instruction *Inst, CanonExpr *CE);
@@ -400,6 +400,10 @@ class HIRParser {
   /// not-sized.
   unsigned getPointerElementSize(Type *Ty) const;
 
+  /// Traces \p Val through a chain of single operand phis and returns the
+  /// resulting value.
+  const Value *traceSingleOperandPhis(const Value *Val) const;
+
   /// Check if \p GEPOp is compatible with existing chain represented by \p
   /// StridesV. If compatible, GEPOp strides will merged into StrideV.
   bool isCompatibleGEOpWithChain(const GEPOrSubsOperator *GEPOp,
@@ -412,6 +416,9 @@ class HIRParser {
   /// Returns the base(earliest) GEP in case there are multiple GEPs associated
   /// with this load/store.
   const GEPOrSubsOperator *getBaseGEPOp(const GEPOrSubsOperator *GEPOp) const;
+
+  /// Returns the pointer operand of the base GEP.
+  const Value *getBaseGEPPointerOperand(const GEPOrSubsOperator *GEPOp) const;
 
   /// Returns either the inital or update operand of header phi corresponding to
   /// the passed in boolean argument.
