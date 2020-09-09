@@ -1,7 +1,11 @@
+<<<<<<< HEAD
 // UNSUPPORTED: intel_opencl && i686-pc-windows
 // RUN: %clang_cc1 -S -I %S/Inputs -fsycl -fsycl-is-device -triple spir64 -ast-dump %s | FileCheck %s
+=======
+// RUN: %clang_cc1 -S -fsycl -fsycl-is-device -triple spir64 -ast-dump %s | FileCheck %s
+>>>>>>> e35466be32bd41607a10a39bf36546f7667829fa
 
-#include <sycl.hpp>
+#include "Inputs/sycl.hpp"
 
 template <typename name, typename Func>
 __attribute__((sycl_kernel)) void kernel(const Func &kernelFunc) {
