@@ -232,9 +232,17 @@ elseif ( REVISION_ID MATCHES "-r[0-9]*" ) # Review ID
   set( GIT_REVISION $ENV{RELEASE_BRANCH} )
 endif()
 
-# Align OpenCL version to release date
-string(TIMESTAMP PRODUCTVER_MAJOR "%Y")
-string(TIMESTAMP PRODUCTVER_MINOR "%m")
+# Align OpenCL version to source code revision if revision is not "head"
+if ("${OCL_REVISION}" MATCHES "^[0-9]+(_[0-9]+)?")
+  # Get year value
+  string(SUBSTRING "${OCL_REVISION}" 0 4 PRODUCTVER_MAJOR)
+  # Get month value
+  string(SUBSTRING "${OCL_REVISION}" 4 2 PRODUCTVER_MINOR)
+# If revision is "head", we use build time
+else ("${OCL_REVISION}" MATCHES "^[0-9]+(_[0-9]+)?")
+  string(TIMESTAMP PRODUCTVER_MAJOR "%Y")
+  string(TIMESTAMP PRODUCTVER_MINOR "%m")
+endif()
 
 # Make month number single digit
 string(FIND ${PRODUCTVER_MINOR} "0" ZERO_POS)

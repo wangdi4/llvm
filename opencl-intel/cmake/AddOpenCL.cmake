@@ -41,11 +41,12 @@ macro(set_opencl_version)
         endif()
         # Get dd_hhmmss info of changeset.
         string(LENGTH "${OCL_REVISION}" CHANGESET_LEN)
-        if ( "${CHANGESET_LEN}" GREATER 7 ) # yyyymmdd or #yyyymmdd_hhmmss pattern
+        # yyyymmdd or #yyyymmdd_hhmmss pattern
+        if ("${OCL_REVISION}" MATCHES "^[0-9]+(_[0-9]+)?")
             # Exclude the "yyyymm" value from the changeset info.
             math(EXPR LENTH_LEFT "${CHANGESET_LEN} - 6")
             string(SUBSTRING "${OCL_REVISION}" 6 ${LENTH_LEFT} WSDATE)
-        else ()
+        else ("${OCL_REVISION}" MATCHES "^[0-9]+(_[0-9]+)?")
             set(WSDATE "${OCL_REVISION}")
         endif()
         if ( "${WSDATE}" STREQUAL "" )

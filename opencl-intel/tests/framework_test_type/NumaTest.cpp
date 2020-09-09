@@ -82,7 +82,8 @@ TEST_F(NumaTest, numaAPIEnabled) {
 
 /// This test checks that NUMA API is working correctly if DPCPP_CPU_NUM_CUS is
 /// set to half number of CPUs.
-TEST_F(NumaTest, halfCUs) {
+/// Disable the test because it is flaky [CMPLRLLVM-22235].
+TEST_F(NumaTest, DISABLED_halfCUs) {
   // Skip test if there is only a single NUMA node.
   if (m_numNumaNodes < 2)
     return;
