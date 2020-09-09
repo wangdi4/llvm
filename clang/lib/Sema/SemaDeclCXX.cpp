@@ -5882,8 +5882,26 @@ static void ReferenceDllExportedMembers(Sema &S, CXXRecordDecl *Class) {
         // Instantiate non-default class member functions ...
 
         // .. except for certain kinds of template specializations.
-        if (TSK == TSK_ImplicitInstantiation && !ClassAttr->isInherited())
+#if INTEL_CUSTOMIZATION
+        if (TSK == TSK_ImplicitInstantiation && !ClassAttr->isInherited()) {
+          if (S.getLangOpts().isIntelCompat(
+                  LangOptions::InstantiateDefaultArgs)) {
+              // But before that, make sure to instantiate default args for
+              // defaulted constructor.
+              CXXConstructorDecl *Ctor = dyn_cast<CXXConstructorDecl>(Member);
+              if (Ctor && Ctor->isDefaultConstructor() &&
+                  Ctor->hasOneParamOrDefaultArgs()) {
+                for (unsigned I = 0; I != Ctor->getNumParams(); ++I) {
+                  S.CheckCXXDefaultArgExpr(
+                      Member->getAttr<DLLExportAttr>()->getLocation(), Ctor,
+                      Ctor->getParamDecl(I));
+                  S.DiscardCleanupsInEvaluationContext();
+                }
+              }
+          }
           continue;
+        }
+#endif // INTEL_CSUTOMIZATION
 
         S.MarkFunctionReferenced(Class->getLocation(), MD);
 
