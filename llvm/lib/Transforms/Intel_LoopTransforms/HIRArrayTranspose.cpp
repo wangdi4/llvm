@@ -218,6 +218,7 @@ bool HIRArrayTranspose::run() {
     return false;
   }
 
+  LLVM_DEBUG(dbgs() << "HIR array transpose performed\n");
   performTranspose();
 
   Reg->setGenCode();
