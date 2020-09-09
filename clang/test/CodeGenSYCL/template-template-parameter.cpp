@@ -1,4 +1,3 @@
-// UNSUPPORTED: intel_opencl && i686-pc-windows
 // RUN: %clang_cc1 -I %S/Inputs -fsycl -fsycl-is-device -fsycl-int-header=%t.h %s
 // RUN: FileCheck -input-file=%t.h %s
 

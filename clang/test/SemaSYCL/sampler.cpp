@@ -1,4 +1,3 @@
-// UNSUPPORTED: intel_opencl && i686-pc-windows
 // RUN: %clang_cc1 -S -I %S/Inputs -fsycl -fsycl-is-device -triple spir64 -ast-dump %s | FileCheck %s
 
 #include <sycl.hpp>
