@@ -321,8 +321,7 @@ bool VPInstruction::mayHaveSideEffects() const {
       Opcode == VPInstruction::Not || Opcode == VPInstruction::Abs ||
       Opcode == VPInstruction::AllZeroCheck ||
       Opcode == VPInstruction::InductionInit || Opcode == Instruction::Br ||
-      Opcode == VPInstruction::HIRCopy || Opcode == VPInstruction::ActiveLane ||
-      Opcode == VPInstruction::ActiveLaneExtract)
+      Opcode == VPInstruction::HIRCopy)
     return false;
 
   return true;
@@ -374,10 +373,6 @@ const char *VPInstruction::getOpcodeName(unsigned Opcode) {
     return "orig-trip-count";
   case VPInstruction::VectorTripCountCalculation:
     return "vector-trip-count";
-  case VPInstruction::ActiveLane:
-    return "active-lane";
-  case VPInstruction::ActiveLaneExtract:
-    return "lane-extract";
 #endif
   default:
     return Instruction::getOpcodeName(Opcode);
