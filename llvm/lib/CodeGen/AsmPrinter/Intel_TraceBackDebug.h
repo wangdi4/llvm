@@ -55,7 +55,7 @@ private:
   void addLineInfo(const MachineInstr *MI);
 
 private:
-  /// The file in which the previous subprogram was contained.
+  /// The file in which the previous subprogram is contained.
   const DIFile *PrevFile = nullptr;
   /// Map a file to a unsigned integer.
   DenseMap<const DIFile *, unsigned> FileToIndex;

@@ -81,9 +81,9 @@ void TraceBackDebug::endFunctionImpl(const MachineFunction *MF) {
   assert(End && End->isDefined() && "Expect defined end label");
   DebugModule->endRoutine(End);
 
-  // Track the file where the previous subprogram was contained.
-  // It is be used to check if a new file starts in beginFunctionImpl.
-  PrevFile = MF->getFunction().getSubprogram()->getScope()->getFile();
+  // Track the file where the previous subprogram is contained.
+  // It is used to check if a new file starts in beginFunctionImpl.
+  PrevFile = MF->getFunction().getSubprogram()->getFile();
 }
 
 // Usable locations are valid with non-zero line numbers. A line number of zero
