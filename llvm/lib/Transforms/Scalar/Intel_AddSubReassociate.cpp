@@ -317,44 +317,6 @@ static inline bool isAllowedAssocInstr(const Instruction *I) {
   }
 }
 
-// Returns true if 'V' is an Associative instruction.
-static inline bool isAllowedAssocInstr(const Value *V) {
-  return isa<Instruction>(V) && isAllowedAssocInstr(cast<Instruction>(V));
-}
-
-// TODO: find better name for this routine as it does not reflect what it does.
-static bool isAddSubInstr(const Instruction *I, const DataLayout &DL) {
-  switch (I->getOpcode()) {
-  case Instruction::Add:
-  case Instruction::Sub:
-    return true;
-  case Instruction::Or:
-    return haveNoCommonBitsSet(I->getOperand(0), I->getOperand(1), DL);
-  default:
-    return false;
-  }
-}
-
-static bool isFAddSubInstr(const Instruction *I, const DataLayout &DL) {
-  switch (I->getOpcode()) {
-  case Instruction::FAdd:
-  case Instruction::FSub:
-    return true;
-  default:
-    return false;
-  }
-}
-
-static bool isFMulDivInstr(const Instruction *I, const DataLayout &DL) {
-  switch (I->getOpcode()) {
-  case Instruction::FMul:
-  case Instruction::FDiv:
-    return true;
-  default:
-    return false;
-  }
-}
-
 // Returns positive counterpart of \p Opcode.
 static unsigned getPositiveOpcode(unsigned Opcode) {
   switch (Opcode) {
@@ -670,23 +632,51 @@ LLVM_DUMP_METHOD void CanonForm::dump() const {
 }
 #endif // #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 
-// Begin of AddSubReassociatePass::Tree
+// Return true if \p I is not null and is valid to be part of a tree trunk.
+bool isLegalTrunkInstr(const Instruction *I, const Instruction *Root,
+                       const DataLayout &DL) {
+  auto isFAddSub = [](const Instruction *I) {
+    return I->getOpcode() == Instruction::FAdd ||
+           I->getOpcode() == Instruction::FSub;
+  };
+  auto isFMulDiv = [](const Instruction *I) {
+    return I->getOpcode() == Instruction::FMul ||
+           I->getOpcode() == Instruction::FDiv;
+  };
+  auto isAddSubKind = [DL](const Instruction *I) {
+    switch (I->getOpcode()) {
+    case Instruction::Add:
+    case Instruction::Sub:
+      return true;
+    case Instruction::Or:
+      return haveNoCommonBitsSet(I->getOperand(0), I->getOperand(1), DL);
+    }
+    return false;
+  };
 
-bool Tree::isAllowedTrunkInstr(const Instruction *I) const {
   if (!I)
     return false;
 
-  if ((isAddSubInstr(I, DL) && (!Root || isAddSubInstr(Root, DL))) ||
-      isAllowedAssocInstr(I))
-    return true;
+  // If root has already been esteblished all trunk instructions have to be
+  // "compatible" with the root.
+  // Otherwise check whether the instruction is okay for root.
+  if (Root) {
+    if ((isAddSubKind(Root) && !(isAddSubKind(I) || isAllowedAssocInstr(I))) ||
+        (isFAddSub(Root) && !isFAddSub(I)) ||
+        (isFMulDiv(Root) && !isFMulDiv(I)))
+      return false;
+  } else if (!isAddSubKind(I) && !isFAddSub(I) && !isFMulDiv(I))
+    return false;
 
-  if (((isFAddSubInstr(I, DL) && (!Root || (isFAddSubInstr(Root, DL)))) ||
-       (isFMulDivInstr(I, DL) && (!Root || isFMulDivInstr(Root, DL)))) &&
-      cast<FPMathOperator>(I)->getFastMathFlags().isFast())
-    return true;
+  // If this is an FP op make sure fast math flags are set.
+  auto *FPMathOp = dyn_cast<FPMathOperator>(I);
+  if (FPMathOp && !FPMathOp->getFastMathFlags().isFast())
+    return false;
 
-  return false;
+  return true;
 }
+
+// Begin of AddSubReassociatePass::Tree
 
 bool Tree::hasTrunkInstruction(const Instruction *I) const {
   // Note: Currently maximum tree size is limited to a small number (64). That's
@@ -696,15 +686,14 @@ bool Tree::hasTrunkInstruction(const Instruction *I) const {
       [&](Instruction *TreeI) -> bool {
     if (I == TreeI)
       return true;
-    for (int i = 0, e = TreeI->getNumOperands(); i != e; ++i) {
-      auto *Op = dyn_cast<Instruction>(TreeI->getOperand(i));
-      if (isAllowedTrunkInstr(Op) && findLeaf(begin(), Op) == end() &&
-          checkTreeRec(Op))
+    for (Value *V : TreeI->operands()) {
+      auto *Op = dyn_cast<Instruction>(V);
+      if (isLegalTrunkInstr(Op, Root, DL) && !hasLeaf(Op) && checkTreeRec(Op))
         return true;
     }
     return false;
   };
-  return getRoot() != nullptr && checkTreeRec(getRoot());
+  return Root && checkTreeRec(Root);
 }
 
 void Tree::clear() {
@@ -722,7 +711,7 @@ void Tree::removeTreeFromIR() {
   // Push the instructions into the POT vector.
   std::function<void(Value *)> GetPOT = [&](Value *V) {
     Instruction *I = dyn_cast<Instruction>(V);
-    if (!I || findLeaf(begin(), V) != end())
+    if (!I || hasLeaf(V))
       return;
     for (int i = 0, e = I->getNumOperands(); i != e; ++i)
       GetPOT(I->getOperand(i));
@@ -778,16 +767,14 @@ LLVM_DUMP_METHOD void Tree::dump() const {
 
   // Then dump IR repesentation.
   std::function<void(Value *)> dumpTreeRec = [&](Value *V) {
-    Instruction *I = dyn_cast<Instruction>(V);
-    if (I && findLeaf(begin(), I) == end() && !isa<PHINode>(I))
-      for (int i = 0, e = I->getNumOperands(); i != e; ++i) {
-        Value *Op = I->getOperand(i);
+    auto *I = dyn_cast<Instruction>(V);
+    if (I && !hasLeaf(I) && !isa<PHINode>(I))
+      for (Value *Op : I->operands())
         if (isa<Instruction>(Op))
           dumpTreeRec(Op);
-      }
     // Post-order
     const char *Prefix = nullptr;
-    if (findLeaf(begin(), V) != end())
+    if (hasLeaf(V))
       Prefix = "(Leaf)";
     else if (V == Root)
       Prefix = "(Root)";
@@ -1482,9 +1469,6 @@ static bool TreesMatch(const Tree *T1, const Tree *T2) {
   // Ideally this should be a constant time calculation.
 
   SmallPtrSet<Value *, 8> T1Values;
-  if (!T1->isAllowedTrunkInstr(T2->getRoot()))
-    return false;
-
   for (auto &TV : *T1)
     T1Values.insert(TV.getLeaf());
 
@@ -1516,6 +1500,7 @@ void AddSubReassociate::clusterTrees() {
       if ((std::abs((int64_t)T2->size() - (int64_t)T1->size()) /
                (double)T2->size() <
            MaxTreeSizeDiffForCluster) &&
+          isLegalTrunkInstr(T2->getRoot(), T1->getRoot(), DL) &&
           TreesMatch(T2, T1)) {
         // Move this element next to the last member of the cluster.
         auto First = Trees.begin() + i + ClusterSize;
@@ -1545,14 +1530,13 @@ bool AddSubReassociate::growTree(Tree *T,
     auto LastOp = WorkList.pop_back_val();
     auto *I = cast<Instruction>(LastOp.getLeaf());
 
-    assert(T->isAllowedTrunkInstr(I) &&
+    assert(isLegalTrunkInstr(I, T->getRoot(), DL) &&
            "Work list item can't be trunk instruction.");
 
     // If current instruction starts another tree then just clear that tree
     // since it will become part of the growing tree.
-    if (auto *Tree = findTreeWithRoot(I, T)) {
+    if (auto *Tree = findTreeWithRoot(I, T))
       Tree->clear();
-    }
 
     bool IsAllowedAssocInstrI = isAllowedAssocInstr(I);
     if (IsAllowedAssocInstrI) {
@@ -1593,12 +1577,12 @@ bool AddSubReassociate::growTree(Tree *T,
         OpCanonOpcode = LastOp.getOpcodeData();
       }
 
-      if (isa<Instruction>(Op) && Op->hasOneUse() &&
+      auto *OpI = dyn_cast<Instruction>(Op);
+      if (OpI && Op->hasOneUse() &&
           // Keep the size of a tree below a maximum value.
           T->size() + 2 * WorkList.size() < MaxTreeSize &&
-          areInSameBB(cast<Instruction>(Op), I) &&
-          T->isAllowedTrunkInstr(cast<Instruction>(Op)) &&
-          (!isAllowedAssocInstr(Op) ||
+          areInSameBB(OpI, I) && isLegalTrunkInstr(OpI, T->getRoot(), DL) &&
+          (!isAllowedAssocInstr(OpI) ||
            // Check number of allowed assoc instruction.
            (++NumAssociations <= MaxUnaryAssociations))) {
         // Push the operand to the WorkList to continue the walk up the code.
@@ -1606,12 +1590,13 @@ bool AddSubReassociate::growTree(Tree *T,
       } else {
         // Op is a leaf node, so stop growing and add it into T's leaves.
         T->appendLeaf(Op, OpCanonOpcode);
-        // If Op is an add/sub and it is shared (maybe across trees maybe
-        // not),
-        // then this tree is a candidate for growing towards the shared
-        // leaves. This is performed by extendTrees().
-        if (T->isAllowedTrunkInstr(dyn_cast<Instruction>(Op)) &&
-            Op->getNumUses() > 1)
+        // If Op has multiple uses and is legal for trunk then this tree is
+        // a candidate for trying to grow towards the shared leaves.
+        // Those leaves shared across trees are candidates while those
+        // having multiple uses within same tree are not. It is determined later
+        // in findSharedleaves() routine and further tree growth is performed by
+        // extendTrees().
+        if (Op->getNumUses() > 1 && isLegalTrunkInstr(OpI, T->getRoot(), DL))
           T->setSharedLeafCandidate(true);
       }
     }
@@ -1624,7 +1609,8 @@ bool AddSubReassociate::growTree(Tree *T,
 /// to a \p FoundLeaves as a Tree* and Leaf index pair.
 static bool findSharedLeaves(
     MutableArrayRef<AddSubReassociate::TreePtr> &Cluster,
-    SmallVectorImpl<std::pair<Tree *, CanonForm::NodeItTy>> &FoundLeaves) {
+    SmallVectorImpl<std::pair<Tree *, CanonForm::NodeItTy>> &FoundLeaves,
+    const DataLayout &DL) {
 
   auto AllUsesInsideCluster = [&](const Value *Leaf) -> bool {
     unsigned UseCount = 0;
@@ -1661,8 +1647,8 @@ static bool findSharedLeaves(
       // previous iteration.
       FoundLeaves.clear();
 
-      // Only Add/Sub leaves can become parts of trees once replicated.
-      if (Tree->isAllowedTrunkInstr(I) && I->getNumUses() > 1 &&
+      // Only legal for trunk leaves can become parts of trees once replicated.
+      if (I->getNumUses() > 1 && isLegalTrunkInstr(I, Tree->getRoot(), DL) &&
           areInSameBB(I, Tree->getRoot()) && AllUsesInsideCluster(I))
         return true;
     }
@@ -1676,7 +1662,7 @@ void AddSubReassociate::extendTrees() {
     SmallVector<std::pair<Tree *, CanonForm::NodeItTy>, 8> SharedUsers;
     int Attempts = MaxSharedNodesIterations;
     while (--Attempts >= 0) {
-      if (!findSharedLeaves(Cluster, SharedUsers))
+      if (!findSharedLeaves(Cluster, SharedUsers, DL))
         break;
       size_t SharedLeavesNum = 0;
       // Important note! Call to removeLeaf invalidates all iterators pointing
@@ -1703,19 +1689,6 @@ void AddSubReassociate::extendTrees() {
 }
 
 void AddSubReassociate::buildInitialTrees(BasicBlock *BB) {
-  // Returns true if I is a candidate for a tree root.
-  auto isRootCandidate = [&](const Instruction *I) -> bool {
-    // Conditions:
-    //  i.  It has opcode allowed for the trunk. Please note that we
-    //      don't use Tree::isAllowedTrunkInstruction directly since
-    //      we don't have an instance of a Tree yet.
-    //  ii. It doesn't belong to another tree.
-    return (isAddSubInstr(I, DL) ||
-            ((isFAddSubInstr(I, DL) || isFMulDivInstr(I, DL)) &&
-             cast<FPMathOperator>(I)->getFastMathFlags().isFast())) &&
-           !findEnclosingTree(I);
-  };
-
   // Scan the BB in reverse and build a tree.
   for (Instruction &I : make_range(BB->rbegin(), BB->rend())) {
     // Check that number of built trees doesn't exceed specified limits.
@@ -1724,9 +1697,8 @@ void AddSubReassociate::buildInitialTrees(BasicBlock *BB) {
         Trees.size() >= (unsigned)MaxTreeCount)
       break;
 
-    // A tree is rooted at an Add/Sub instruction that is not already in a
-    // tree.
-    if (!isRootCandidate(&I))
+    // A tree is rooted at a legal instruction not belonging to other tree.
+    if (!isLegalTrunkInstr(&I, nullptr, DL) || findEnclosingTree(&I))
       continue;
 
     TreePtr UTree = std::make_unique<Tree>(DL);
