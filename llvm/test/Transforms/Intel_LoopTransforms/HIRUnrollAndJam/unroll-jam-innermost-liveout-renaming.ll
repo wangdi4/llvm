@@ -1,4 +1,4 @@
-; RUN: opt < %s -hir-ssa-deconstruction -hir-temp-cleanup -hir-unroll-and-jam -print-before=hir-unroll-and-jam -print-after=hir-unroll-and-jam 2>&1 | FileCheck %s
+; RUN: opt < %s -xmain-opt-level=3 -hir-ssa-deconstruction -hir-temp-cleanup -hir-unroll-and-jam -print-before=hir-unroll-and-jam -print-after=hir-unroll-and-jam 2>&1 | FileCheck %s
 
 ; Verify that we rename the liveout temp %t101 defined in innermost loop with unroll & jam.
 
@@ -9,7 +9,7 @@
 ; CHECK: |   |   %row_sum.037.i = 0.000000e+00;
 ; CHECK: |   |
 ; CHECK: |   |   + DO i3 = 0, 255, 1   <DO_LOOP>
-; CHECK: |   |   |   %t101 = @llvm.fma.f64((@_ZZ4mainE9first_ref)[0][i1 + 256 * i3],  (@_ZZ4mainE10second_ref)[0][256 * i2 + i3],  %row_sum.037.i);
+; CHECK: |   |   |   %t101 = @bar((@_ZZ4mainE9first_ref)[0][i1 + 256 * i3],  (@_ZZ4mainE10second_ref)[0][256 * i2 + i3],  %row_sum.037.i);
 ; CHECK: |   |   |   %row_sum.037.i = %t101;
 ; CHECK: |   |   + END LOOP
 ; CHECK: |   |
@@ -27,7 +27,7 @@
 ; CHECK: |   + DO i2 = 0, 63, 1   <DO_LOOP>
 
 ; CHECK: |   |   + DO i3 = 0, 255, 1   <DO_LOOP>
-; CHECK: |   |   |   %temp21 = @llvm.fma.f64((@_ZZ4mainE9first_ref)[0][4 * i1 + 256 * i3],  (@_ZZ4mainE10second_ref)[0][1024 * i2 + i3],  %temp9);
+; CHECK: |   |   |   %temp21 = @bar((@_ZZ4mainE9first_ref)[0][4 * i1 + 256 * i3],  (@_ZZ4mainE10second_ref)[0][1024 * i2 + i3],  %temp9);
 ; CHECK: |   |   |   %temp9 = %temp21;
 
 ; CHECK: |   |   + END LOOP
@@ -65,7 +65,7 @@ for.body8.i:                                      ; preds = %for.body8.i, %for.c
   %t99 = add nuw nsw i64 %indvars.iv.i435, %t94
   %arrayidx12.i = getelementptr inbounds [65536 x double], [65536 x double]* @_ZZ4mainE10second_ref, i64 0, i64 %t99
   %t100 = load double, double* %arrayidx12.i, align 8
-  %t101 = call double @llvm.fma.f64(double %t98, double %t100, double %row_sum.037.i) #16
+  %t101 = call double @bar(double %t98, double %t100, double %row_sum.037.i) #16
   %indvars.iv.next.i437 = add nuw nsw i64 %indvars.iv.i435, 1
   %exitcond.i438 = icmp eq i64 %indvars.iv.next.i437, 256
   br i1 %exitcond.i438, label %for.cond.cleanup7.i, label %for.body8.i
@@ -88,7 +88,8 @@ for.cond1.preheader.i421.preheader:
   ret void
 }
 
-; Function Attrs: nounwind readnone speculatable
-declare double @llvm.fma.f64(double, double, double)
+declare double @bar(double, double, double) #0
+
+attributes #0 = { nounwind readnone speculatable willreturn }
 
 

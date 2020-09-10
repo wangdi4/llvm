@@ -260,7 +260,8 @@ bool HIRSCCFormation::hasEarlyExitPredecessor(const PHINode *Phi) const {
   return false;
 }
 
-bool HIRSCCFormation::isCandidateNode(const NodeTy *Node) const {
+bool HIRSCCFormation::isCandidateNode(const NodeTy *Node,
+                                      Type *CurNodeTy) const {
 
   // Use is outside the loop bring processed.
   if (!CurLoop->contains(Node->getParent())) {
@@ -288,9 +289,15 @@ bool HIRSCCFormation::isCandidateNode(const NodeTy *Node) const {
   }
 
   // Phi SCCs do not have anything to do with calls.
-  // issues.
-  if (isa<CallInst>(Node) && !isa<SubscriptInst>(Node) &&
-      !ScopedSE.getHIRMetadata(Node, ScalarEvolution::HIRLiveKind::LiveOut)) {
+  if (auto *Call = dyn_cast<CallInst>(Node)) {
+    // Allow certain intrinsics which don't have side effects and return the
+    // same type as the node type to be candidates. This will handle intrinsics
+    // like subscript/ssa_copy/maxnum/minnum etc.
+    if (isa<IntrinsicInst>(Call) && (Call->getType() == CurNodeTy) &&
+        !Call->mayHaveSideEffects()) {
+      return true;
+    }
+
     return false;
   }
 
@@ -334,10 +341,11 @@ HIRSCCFormation::getNextSucc(NodeTy *Node,
     I = std::next(PrevSucc);
   }
 
+  auto *Ty = Node->getType();
   for (auto E = getLastSucc(Node); I != E; ++I) {
     assert(isa<NodeTy>(*I) && "Use is not an instruction!");
 
-    if (isCandidateNode(cast<NodeTy>(*I))) {
+    if (isCandidateNode(cast<NodeTy>(*I), Ty)) {
       break;
     }
   }
