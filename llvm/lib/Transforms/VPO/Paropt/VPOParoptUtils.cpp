@@ -5098,8 +5098,9 @@ Function *VPOParoptUtils::genOutlineFunction(const WRegionNode &W,
   // Remove the use of the entry directive in the exit directive, so that it
   // isn't considered a live-out, in case the end directive is unreachable,
   // and won't be in the outlined function.
-  W.getEntryDirective()->replaceAllUsesWith(llvm::ConstantTokenNone::get(
-      W.getEntryDirective()->getModule()->getContext()));
+  // "llvm::ConstantTokenNone::get(C)" isn't supported by -debugify
+  W.getEntryDirective()->replaceAllUsesWith(llvm::UndefValue::get(
+      Type::getTokenTy(W.getEntryDirective()->getModule()->getContext())));
 
   CodeExtractorAnalysisCache CEAC(*W.getEntryBBlock()->getParent());
   auto *NewFunction = CE.extractCodeRegion(CEAC, /* hoistAlloca */ true);
