@@ -2009,7 +2009,8 @@ static void dumpFormalsConstants(Function &F) {
 //
 static bool findWorthyFormalsForCloning(Function &F, bool AfterInl,
                                         bool IFSwitchHeuristic, bool IsGenRec,
-                                        bool *IsGenRecQualified) {
+                                        bool *IsGenRecQualified,
+                                        WholeProgramInfo *WPInfo) {
 
   SmallPtrSet<Value *, 16> PossiblyWorthyFormalsForCloning;
   WorthyFormalsForCloning.clear();
@@ -2071,8 +2072,10 @@ static bool findWorthyFormalsForCloning(Function &F, bool AfterInl,
       WorthyFormalsForCloning.insert(V);
     }
   }
+  auto TTIOptLevel = TargetTransformInfo::AdvancedOptLevel::AO_TargetHasAVX2;
   if (EnableMorphologyCloning && GlobalIFCount >= IPGenCloningMinIFCount &&
-      GlobalSwitchCount >= IPGenCloningMinSwitchCount) {
+      GlobalSwitchCount >= IPGenCloningMinSwitchCount && WPInfo &&
+      WPInfo->isAdvancedOptEnabled(TTIOptLevel)) {
     // There are enough "if" and "switch" values to qualify the clone under
     // the if-switch heuristic. Convert the pending formals to qualified.
     LLVM_DEBUG(dbgs() << "  Selecting all Pending FORMALs\n");
@@ -4454,7 +4457,8 @@ static void createManyRecCallsClone(Function &F, SmallArgumentSet &IfArgs,
 //
 static bool analysisCallsCloneFunctions(Module &M, bool AfterInl,
                                         bool EnableDTrans,
-                                        bool IFSwitchHeuristic) {
+                                        bool IFSwitchHeuristic,
+                                        WholeProgramInfo *WPInfo) {
   bool FunctionAddressTaken;
 
   // Force RecProCloneSplitting for LIT testing.
@@ -4595,7 +4599,7 @@ static bool analysisCallsCloneFunctions(Module &M, bool AfterInl,
     bool IsGenRec = CloneType == GenericClone && isDirectlyRecursive(&F);
     bool IsGenRecQualified = false;
     if (!findWorthyFormalsForCloning(F, AfterInl, IFSwitchHeuristic, IsGenRec,
-                                     &IsGenRecQualified)) {
+                                     &IsGenRecQualified, WPInfo)) {
       LLVM_DEBUG(dbgs() << " Skipping due to Heuristics " << F.getName()
                         << "\n");
       continue;
@@ -4631,12 +4635,13 @@ static bool analysisCallsCloneFunctions(Module &M, bool AfterInl,
   return false;
 }
 
-static bool runIPCloning(Module &M, bool AfterInl, bool EnableDTrans) {
+static bool runIPCloning(Module &M, bool AfterInl, bool EnableDTrans,
+                         WholeProgramInfo *WPInfo) {
   bool Change = false;
   bool IFSwitchHeuristicOn = EnableDTrans || ForceIFSwitchHeuristic;
   bool EnableDTransOn = EnableDTrans || ForceEnableDTrans;
   Change = analysisCallsCloneFunctions(M, AfterInl, EnableDTransOn,
-                                       IFSwitchHeuristicOn);
+                                       IFSwitchHeuristicOn, WPInfo);
   clearAllMaps();
   return Change;
 }
@@ -4652,6 +4657,7 @@ public:
   }
 
   void getAnalysisUsage(AnalysisUsage &AU) const override {
+    AU.addRequired<WholeProgramWrapperPass>();
     AU.addPreserved<WholeProgramWrapperPass>();
     AU.addPreserved<AndersensAAWrapperPass>();
   }
@@ -4659,10 +4665,11 @@ public:
   bool runOnModule(Module &M) override {
     if (skipModule(M))
       return false;
-
+    WholeProgramInfo *WPInfo =
+        &getAnalysis<WholeProgramWrapperPass>().getResult();
     if (IPCloningAfterInl)
       AfterInl = true;
-    return runIPCloning(M, AfterInl, EnableDTrans);
+    return runIPCloning(M, AfterInl, EnableDTrans, WPInfo);
   }
 
 private:
@@ -4676,7 +4683,11 @@ private:
 } // namespace
 
 char IPCloningLegacyPass::ID = 0;
-INITIALIZE_PASS(IPCloningLegacyPass, "ip-cloning", "IP Cloning", false, false)
+INITIALIZE_PASS_BEGIN(IPCloningLegacyPass, "ip-cloning",
+                      "IP Cloning", false, false)
+INITIALIZE_PASS_DEPENDENCY(WholeProgramWrapperPass)
+INITIALIZE_PASS_END(IPCloningLegacyPass, "ip-cloning",
+                    "IP Cloning", false, false)
 
 ModulePass *llvm::createIPCloningLegacyPass(bool AfterInl, bool EnableDTrans) {
   return new IPCloningLegacyPass(AfterInl, EnableDTrans);
@@ -4686,7 +4697,8 @@ IPCloningPass::IPCloningPass(bool AfterInl, bool EnableDTrans)
     : AfterInl(AfterInl), EnableDTrans(EnableDTrans) {}
 
 PreservedAnalyses IPCloningPass::run(Module &M, ModuleAnalysisManager &AM) {
-  if (!runIPCloning(M, AfterInl, EnableDTrans))
+  auto &WPInfo = AM.getResult<WholeProgramAnalysis>(M);
+  if (!runIPCloning(M, AfterInl, EnableDTrans, &WPInfo))
     return PreservedAnalyses::all();
 
   auto PA = PreservedAnalyses();

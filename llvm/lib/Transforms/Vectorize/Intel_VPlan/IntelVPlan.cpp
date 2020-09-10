@@ -831,7 +831,7 @@ void VPlan::printLiveIns(raw_ostream &OS) const {
 
 void VPlan::dump() const { dump(dbgs()); }
 
-void VPlanPrinter::dump() {
+void VPlanPrinter::dump(bool CFGOnly) {
 #if INTEL_CUSTOMIZATION
   if (DumpPlainVPlanIR) {
     Plan.dump(OS);
@@ -851,7 +851,7 @@ void VPlanPrinter::dump() {
   OS << "compound=true\n";
 
   for (const VPBasicBlock *BB : depth_first(Plan.getEntryBlock()))
-    dumpBasicBlock(BB);
+    dumpBasicBlock(BB, CFGOnly);
 
   OS << "}\n";
 }
@@ -878,20 +878,26 @@ void VPlanPrinter::dumpEdges(const VPBasicBlock *BB) {
   }
 }
 
-void VPlanPrinter::dumpBasicBlock(const VPBasicBlock *BB) {
+void VPlanPrinter::dumpBasicBlock(const VPBasicBlock *BB, bool SkipInstructions) {
   OS << Indent << getUID(BB) << " [label =\n";
   bumpIndent(1);
   OS << Indent << "\"" << DOT::EscapeString(BB->getName().str()) << ":\\n\"";
   bumpIndent(1);
-  for (const VPInstruction &Inst : *BB) {
-    OS << " +\n" << Indent << "\"EMIT ";
-    Inst.print(OS);
-    OS << "\\l\"";
-  }
-#if INTEL_CUSTOMIZATION
+  if (!SkipInstructions)
+    for (const VPInstruction &Inst : *BB) {
+      OS << " +\n" << Indent << "\"EMIT ";
+      Inst.print(OS);
+      OS << "\\l\"";
+    }
   const VPValue *CBV = BB->getCondBit();
   // Dump the CondBit
   if (CBV) {
+    if (SkipInstructions) {
+      // In order to have DA results.
+      OS << " +\n" << Indent << "\"EMIT ";
+      CBV->print(OS);
+      OS << "\\l\"";
+    }
     OS << " +\n" << Indent << " \"CondBit: ";
     if (const VPInstruction *CBI = dyn_cast<VPInstruction>(CBV)) {
       CBI->printAsOperand(OS);
@@ -901,7 +907,6 @@ void VPlanPrinter::dumpBasicBlock(const VPBasicBlock *BB) {
       OS << '"';
     }
   }
-#endif
   bumpIndent(-2);
   OS << "\n" << Indent << "]\n";
   dumpEdges(BB);

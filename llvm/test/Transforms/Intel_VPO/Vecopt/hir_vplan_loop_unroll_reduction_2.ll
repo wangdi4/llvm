@@ -30,7 +30,7 @@ target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16
 target triple = "x86_64-unknown-linux-gnu"
 ; Function Attrs: norecurse nounwind readonly uwtable
 define dso_local i32 @foo(i32* nocapture readonly %a, i32 %n) local_unnamed_addr {
-; CHECK-LABEL:  VPlan after loop unrolling:
+; CHECK-LABEL:  VPlan after VPlan loop unrolling:
 ; CHECK-NEXT:  VPlan IR for: Initial VPlan for VF=4
 ; CHECK-NEXT:  External Defs Start:
 ; CHECK-DAG:     [[VP0:%.*]] = {%acc.08}

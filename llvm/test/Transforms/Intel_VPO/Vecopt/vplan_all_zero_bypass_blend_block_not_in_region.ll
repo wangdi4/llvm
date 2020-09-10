@@ -7,7 +7,7 @@ target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
 define void @test_blend_outside_bypass_region(i32* %a, i32 %b) local_unnamed_addr {
-; CHECK-LABEL:  VPlan after all zero bypass:
+; CHECK-LABEL:  VPlan after all-zero bypass for VPlan Function vectorization:
 ; CHECK-NEXT:  VPlan IR for: test_blend_outside_bypass_region
 ; CHECK-NEXT:    [[BB0:BB[0-9]+]]:
 ; CHECK-NEXT:     [DA: Div] i32 [[VP_LANE:%.*]] = induction-init{add} i32 0 i32 1

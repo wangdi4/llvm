@@ -5,7 +5,7 @@
 ; RUN: opt -S -VPlanDriver -vplan-print-after-vpentity-instrs -vplan-force-vf=2 %s | FileCheck %s
 
 define dso_local i32 @foo(i64 %n) local_unnamed_addr {
-; CHECK-LABEL:  VPlan after insertion VPEntities instructions:
+; CHECK-LABEL:  VPlan after insertion of VPEntities instructions:
 ; CHECK:          i64 [[VP_INDVARS_IV_IND_FINAL:%.*]] = induction-final{add} i64 0 i64 1
 ; CHECK-NEXT:     i32 [[VP_OTHER_IV_IND_FINAL:%.*]] = induction-final{add} i32 42 i32 3, LastValPreInc = 1
 ;

@@ -1,15 +1,23 @@
-; Test that generic cloning based on the if-switch heuristic occurred.
-; This is the same test as ip_cloning_6.ll, but checks the IR only without
-; requiring asserts.
+; Test that generic cloning based on the if-switch heuristic did not occur,
+; because it is not Intel AVX2.
 
-; RUN: opt < %s -ip-gen-cloning-enable-morphology -ip-cloning -ip-cloning-after-inl -ip-cloning-if-heuristic -ip-cloning-switch-heuristic -ip-gen-cloning-force-if-switch-heuristic -ip-gen-cloning-min-if-count=2 -ip-gen-cloning-min-switch-count=1 -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -S 2>&1 | FileCheck %s
-; RUN: opt < %s -ip-gen-cloning-enable-morphology -passes='module(post-inline-ip-cloning)' -ip-cloning-if-heuristic -ip-cloning-switch-heuristic -ip-gen-cloning-force-if-switch-heuristic -ip-gen-cloning-min-if-count=2 -ip-gen-cloning-min-switch-count=1 -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2  -S 2>&1 | FileCheck %s
+; REQUIRES: asserts
+; RUN: opt < %s -ip-gen-cloning-enable-morphology -debug-only=ipcloning -ip-cloning -ip-cloning-after-inl -ip-cloning-if-heuristic -ip-cloning-switch-heuristic -ip-gen-cloning-force-if-switch-heuristic -ip-gen-cloning-min-if-count=2 -ip-gen-cloning-min-switch-count=1 -S 2>&1 | FileCheck %s
+; RUN: opt < %s -ip-gen-cloning-enable-morphology -debug-only=ipcloning -passes='module(post-inline-ip-cloning)' -ip-cloning-if-heuristic -ip-cloning-switch-heuristic -ip-gen-cloning-force-if-switch-heuristic -ip-gen-cloning-min-if-count=2 -ip-gen-cloning-min-switch-count=1 -S 2>&1 | FileCheck %s
+
+; CHECK: Enter IP cloning: (After inlining)
+; CHECK: Cloning Analysis for:  foo
+; CHECK: Selected generic cloning
+; CHECK: Total clones:  0
 
 ; CHECK: define dso_local i32 @main
-; CHECK: call i32 @foo.2
-; CHECK: call i32 @foo.1
-; CHECK: define internal i32 @foo.1
-; CHECK: define internal i32 @foo.2
+; CHECK: call i32 @foo
+; CHECK: call i32 @foo
+; CHECK-NOT: call i32 @foo.2
+; CHECK-NOT: call i32 @foo.1
+; CHECK: define internal i32 @foo
+; CHECK-NOT: define internal i32 @foo.1
+; CHECK-NOT: define internal i32 @foo.2
 
 define dso_local i32 @main() #0 {
 entry:

@@ -13,7 +13,7 @@
 
 define dso_local i32 @_Z3fooPii(i32* nocapture readonly %a, i32 %n) local_unnamed_addr #0 {
 ;
-; CHECK-LABEL:  VPlan after loop unrolling:
+; CHECK-LABEL:  VPlan after VPlan loop unrolling:
 ; CHECK-NEXT:  Live-in values:
 ; CHECK-NEXT:  ID: 1 Value: i64 0
 ; CHECK-NEXT:    [[BB0:BB[0-9]+]]:

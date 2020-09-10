@@ -1,5 +1,5 @@
-; RUN: opt -S < %s -vplan-force-vf=2 -disable-output -vplan-print-plain-cfg -VPlanDriver | FileCheck --allow-empty %s
-; RUN: opt -S < %s -vplan-force-vf=2 -disable-output -vplan-print-plain-cfg -hir-framework -VPlanDriverHIR | FileCheck --allow-empty %s
+; RUN: opt -S < %s -vplan-force-vf=2 -disable-output -vplan-print-after-plain-cfg -VPlanDriver | FileCheck --allow-empty %s
+; RUN: opt -S < %s -vplan-force-vf=2 -disable-output -vplan-print-after-plain-cfg -hir-framework -VPlanDriverHIR | FileCheck --allow-empty %s
 
 ; Ensure VPlan wasn't built at all  due to unsupported "#pragma omp simd ordered"
 ; TODO: Implement support for it.

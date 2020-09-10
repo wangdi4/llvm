@@ -1,7 +1,7 @@
 ; Test to verify correctness of the PHI node fixing algorithm for a simple case
 ; of if-else diamond for a single variable within HCFG.
 
-; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -vplan-print-plain-cfg -vplan-dump-external-defs-hir=0 -S -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -vplan-print-after-plain-cfg -vplan-dump-external-defs-hir=0 -S -disable-output < %s 2>&1 | FileCheck %s
 
 ; Input HIR
 ; <34>    + DO i1 = 0, 1023, 1   <DO_LOOP>
