@@ -5,9 +5,6 @@
 // expected-no-diagnostics
 
 // TODO: Teach the update script to check new functions too.
-// INTEL: Re-enable after CMPLRLLVM-21859 fixed
-// XFAIL: *
-
 
 #ifndef HEADER
 #define HEADER

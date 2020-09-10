@@ -286,10 +286,12 @@ CodeExtractor::CodeExtractor(ArrayRef<BasicBlock *> BBs, DominatorTree *DT,
                              BranchProbabilityInfo *BPI, AssumptionCache *AC,
                              bool AllowVarArgs, bool AllowAlloca,
 #if INTEL_COLLAB
+                             std::string Suffix,
                              bool AllowEHTypeID,
-                             const OrderedArgs *TgtClauseArgs,
-#endif // INTEL_COLLAB
+                             const OrderedArgs *TgtClauseArgs)
+#else // INTEL_COLLAB
                              std::string Suffix)
+#endif // INTEL_COLLAB
     : DT(DT), AggregateArgs(AggregateArgs || AggregateArgsOpt), BFI(BFI),
       BPI(BPI), AC(AC), AllowVarArgs(AllowVarArgs),
 #if INTEL_COLLAB

@@ -327,10 +327,12 @@ Function *HotColdSplitting::extractColdRegion(
                    /* BPI */ nullptr, AC, /* AllowVarArgs */ false,
                    /* AllowAlloca */ false,
 #if INTEL_COLLAB
+                   /* Suffix */ "cold." + std::to_string(Count),
                    /* AllowEHTypeID */ false,
-                   /* OrderedArgs */ nullptr,
-#endif // INTEL_COLLAB
+                   /* OrderedArgs */ nullptr);
+#else // INTEL_COLLAB
                    /* Suffix */ "cold." + std::to_string(Count));
+#endif // INTEL_COLLAB
 
   // Perform a simple cost/benefit analysis to decide whether or not to permit
   // splitting.
