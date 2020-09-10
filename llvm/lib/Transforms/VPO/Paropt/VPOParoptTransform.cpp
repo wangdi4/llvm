@@ -4943,6 +4943,95 @@ Value *VPOParoptTransform::genPrivatizationAlloca(
   return NewVal;
 }
 
+// Generate debug information describing the mapping from PrivValue to the
+// privatized NewPrivValue.
+static void genPrivatizationDebug(WRegionNode *W,
+                                  Value *PrivValue,
+                                  Value *NewPrivValue) {
+  Module *M = W->getEntryBBlock()->getModule();
+  const bool AllowUnresolved = false;
+  DICompileUnit *CU = nullptr;
+  DIBuilder DIB(*M, AllowUnresolved, CU);
+  TinyPtrVector<DbgVariableIntrinsic *> DVIs;
+
+  // Follow the PrivValue looking for debug information we can use to describe
+  // the newly privatized value.
+  Value *Current = PrivValue;
+  while (Current) {
+    // We don't currently support debugging constants (includes globals) which
+    // are privatized into the parallel region.
+    if (isa<Constant>(Current))
+      break;
+
+    // If the current value has any debug information available then use it.
+    DVIs = FindDbgAddrUses(Current);
+    if (!DVIs.empty())
+      break;
+
+    if (CastInst *CI = dyn_cast_or_null<CastInst>(Current)) {
+      if (CI->isNoopCast(M->getDataLayout()))
+        Current = CI->getOperand(0);
+      else
+        Current = nullptr;
+    } else {
+      // No support for handling this instruction type yet.
+      Current = nullptr;
+    }
+  }
+
+  // If no debug information was found then we're done.
+  if (DVIs.empty())
+    return;
+
+  // Find a location where we can insert llvm.dbg intrinsics for the privatized
+  // value into the parallel region.
+  Instruction *Before;
+  if (Instruction *I = dyn_cast_or_null<Instruction>(NewPrivValue))
+    Before = I->getNextNonDebugInstruction();
+  else
+    Before = W->getEntryBBlock()->getTerminator();
+
+  // Create a llvm.dbg intrinsic mapping each variable to the newly
+  // privatiaized value. Note the NewPrivValue may be in fact be a global
+  // value. There can be multiple variables which have storage represented
+  // by a single value and we should privatize all of them.
+  for (DbgVariableIntrinsic *ODVI : DVIs) {
+    DILocalVariable *Variable = ODVI->getVariable();
+    DILocation *Location = ODVI->getDebugLoc().get();
+    DIExpression *Expression = ODVI->getExpression();
+    // If a variable was a parameter in the original routine, then create an
+    // auto variable which doesn't inherit the positional parameter number.
+    if (Variable->isParameter()) {
+      const bool AlwaysPreserve = true;
+      Variable = DIB.createAutoVariable(
+          Variable->getScope(),
+          Variable->getName(),
+          Variable->getFile(),
+          Variable->getLine(),
+          Variable->getType(),
+          AlwaysPreserve,
+          Variable->getFlags(),
+          Variable->getAlignInBits());
+      LLVM_DEBUG(dbgs() << "[DEBUG] Created Auto Variable: " << *Variable
+                        << "\n");
+    }
+    assert(Variable->getScope()->getSubprogram() ==
+           Location->getScope()->getSubprogram() &&
+           "Variable and source location must be in the same subprogram!");
+    Instruction *NDVI;
+    if (isa<DbgDeclareInst>(ODVI) || isa<DbgAddrIntrinsic>(ODVI))
+      NDVI = DIB.insertDeclare(NewPrivValue, Variable, Expression, Location,
+                               Before);
+    else if (isa<DbgValueInst>(ODVI))
+      NDVI = DIB.insertDbgValueIntrinsic(NewPrivValue, Variable, Expression,
+                                         Location, Before);
+    else
+      NDVI = nullptr;
+    if (NDVI)
+      LLVM_DEBUG(dbgs() << "[DEBUG] Created: " << *NDVI << "\n");
+  }
+}
+
 // Replace the variable with the privatized variable
 void VPOParoptTransform::genPrivatizationReplacement(WRegionNode *W,
                                                      Value *PrivValue,
@@ -5087,40 +5176,7 @@ void VPOParoptTransform::genPrivatizationReplacement(WRegionNode *W,
     // cause a use-before-def. We need to remove it from the directive.
     resetValueInOmpClauseGeneric(W, NewPrivValue);
 
-  if (isa<AllocaInst>(PrivValue)) {
-    // Locate llvm.dbg.declare instrinsics corresponding to the original value
-    // and build a new llvm.dbg.declare intrinsic for the privatized value.
-    // The storage for the newly privatized variable may be a global value
-    // (instead of a local alloca instruction) and that's okay.
-    DIBuilder DIB(
-        *W->getEntryBBlock()->getModule(), /* AllowUnresolved */ false);
-    for (DbgVariableIntrinsic *OldDVI : FindDbgAddrUses(PrivValue)) {
-      DILocalVariable *Variable = OldDVI->getVariable();
-      if (Variable->getArg() != 0) {
-        // Create an auto variable representing the privatized parameter.
-        Variable = DIB.createAutoVariable(
-            Variable->getScope(),
-            Variable->getName(),
-            Variable->getFile(),
-            Variable->getLine(),
-            Variable->getType(),
-            false,                // AlwaysPreserve
-            Variable->getFlags(),
-            Variable->getAlignInBits());
-      }
-      DIExpression *Expression = OldDVI->getExpression();
-      DILocation *Location = OldDVI->getDebugLoc().get();
-      Instruction *Before;
-      if (Instruction *I = dyn_cast_or_null<Instruction>(NewPrivValue))
-        Before = I->getNextNonDebugInstruction();
-      else
-        Before = W->getEntryBBlock()->getTerminator();
-      assert(Variable->getScope()->getSubprogram() ==
-             Location->getScope()->getSubprogram() &&
-             "Variable and source location must be in the same subprogram!");
-      DIB.insertDeclare(NewPrivValue, Variable, Expression, Location, Before);
-    }
-  }
+  genPrivatizationDebug(W, PrivValue, NewPrivValue);
 
   LLVM_DEBUG(dbgs() << __FUNCTION__ << ": Replaced uses of '";
              PrivValue->printAsOperand(dbgs()); dbgs() << "' with '";
