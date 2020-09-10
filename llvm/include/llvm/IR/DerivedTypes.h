@@ -423,12 +423,16 @@ public:
   /// Get the number of elements in this vector. It does not make sense to call
   /// this function on a scalable vector, and this will be moved into
   /// FixedVectorType in a future commit
-  LLVM_ATTRIBUTE_DEPRECATED(
-      inline unsigned getNumElements() const,
-      "Calling this function via a base VectorType is deprecated. Either call "
-      "getElementCount() and handle the case where Scalable is true or cast to "
-      "FixedVectorType.");
-
+#ifdef INTEL_CUSTOMIZATION
+  /// Temporarily commenting this out until the massive changes it induces
+  /// are addressed.
+  /// LLVM_ATTRIBUTE_DEPRECATED(
+  /// inline unsigned getNumElements() const,
+  /// "Calling this function via a base VectorType is deprecated. Either call "
+  /// "getElementCount() and handle the case where Scalable is true or cast to "
+  /// "FixedVectorType.");
+  inline unsigned getNumElements() const;
+#endif // INTEL_CUSTOMIZATION
   Type *getElementType() const { return ContainedType; }
 
   /// This static method is the primary way to construct an VectorType.
