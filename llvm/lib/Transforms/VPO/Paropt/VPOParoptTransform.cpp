@@ -80,6 +80,7 @@
 
 #include <algorithm>
 #include <set>
+#include <unordered_set>
 #include <vector>
 
 using namespace llvm;
@@ -1253,6 +1254,72 @@ void VPOParoptTransform::addBranchToEndDirective(WRegionNode *W) {
   return;
 }
 
+bool VPOParoptTransform::genLaunderIntrinIfPrivatizedInAncestor(
+    WRegionNode *W) {
+
+  std::unordered_set<Value *> GlobalValues;
+  std::unordered_set<Value *> ValuesToChange;
+
+  // Early bailout if W is not a nested WRegion.
+  WRegionNode *Parent = W->getParent();
+  if (Parent == nullptr)
+    return false;
+
+  // 1. Find all W clause item values that use a Global Variable and add them to
+  // GlobalValues set.
+
+  auto addValueIfGlobal = [&](Item *I) {
+    if (GeneralUtils::isOMPItemGlobalVAR(I->getOrig()))
+      GlobalValues.insert(I->getOrig());
+  };
+  // Check all clauses where a variable can be used.
+  VPOParoptUtils::executeForEachItemInClause(W->getSharedIfSupported(),
+                                             addValueIfGlobal);
+  VPOParoptUtils::executeForEachItemInClause(W->getPrivIfSupported(),
+                                             addValueIfGlobal);
+  VPOParoptUtils::executeForEachItemInClause(W->getFprivIfSupported(),
+                                             addValueIfGlobal);
+  VPOParoptUtils::executeForEachItemInClause(W->getLprivIfSupported(),
+                                             addValueIfGlobal);
+  VPOParoptUtils::executeForEachItemInClause(W->getRedIfSupported(),
+                                             addValueIfGlobal);
+  VPOParoptUtils::executeForEachItemInClause(W->getLinearIfSupported(),
+                                             addValueIfGlobal);
+  VPOParoptUtils::executeForEachItemInClause(W->getMapIfSupported(),
+                                             addValueIfGlobal);
+
+  // 2. If a value in GlobalValues is privatized by an ancestor, add it to
+  // ValuesToChange so it will be laundered.
+  while (Parent != nullptr) {
+    // If parent has any target construct, then launder all GlobalValues.
+    if (Parent->getIsTarget()) {
+      ValuesToChange = GlobalValues;
+      break;
+    }
+
+    auto AddToFinalSet = [&](Item *I) {
+      auto It = GlobalValues.find(I->getOrig());
+      if (It != GlobalValues.end())
+        ValuesToChange.insert(*It);
+    };
+
+    VPOParoptUtils::executeForEachItemInClause(Parent->getPrivIfSupported(),
+                                               AddToFinalSet);
+    VPOParoptUtils::executeForEachItemInClause(Parent->getFprivIfSupported(),
+                                               AddToFinalSet);
+    VPOParoptUtils::executeForEachItemInClause(Parent->getLprivIfSupported(),
+                                               AddToFinalSet);
+    VPOParoptUtils::executeForEachItemInClause(Parent->getRedIfSupported(),
+                                               AddToFinalSet);
+    VPOParoptUtils::executeForEachItemInClause(Parent->getLinearIfSupported(),
+                                               AddToFinalSet);
+
+    Parent = Parent->getParent();
+  }
+
+  return genGlobalPrivatizationLaunderIntrin(W, &ValuesToChange);
+}
+
 //
 // ParPrepare mode:
 //   Paropt prepare transformations for lowering and privatizing
@@ -1452,6 +1519,7 @@ bool VPOParoptTransform::paroptTransforms() {
         }
         if ((Mode & OmpPar) && (Mode & ParTrans)) {
           Changed |= clearCancellationPointAllocasFromIR(W);
+          Changed |= genLaunderIntrinIfPrivatizedInAncestor(W);
           WRegionUtils::collectNonPointerValuesToBeUsedInOutlinedRegion(W);
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_CSA
@@ -1461,6 +1529,7 @@ bool VPOParoptTransform::paroptTransforms() {
             else
               llvm_unreachable("Unexpected work region kind");
             RemoveDirectives = true;
+            Changed |= clearLaunderIntrinBeforeRegion(W);
             break;
           }
 #endif  // INTEL_FEATURE_CSA
@@ -1502,7 +1571,7 @@ bool VPOParoptTransform::paroptTransforms() {
               HandledWithoutRemovingDirectives = true;
             }
           }
-
+          Changed |= clearLaunderIntrinBeforeRegion(W);
           LLVM_DEBUG(dbgs()<<"\n Parallel W-Region::"<<*W->getEntryBBlock());
         }
         break;
@@ -1525,7 +1594,7 @@ bool VPOParoptTransform::paroptTransforms() {
         if ((Mode & OmpPar) && (Mode & ParTrans)) {
           Changed |= clearCancellationPointAllocasFromIR(W);
           WRegionUtils::collectNonPointerValuesToBeUsedInOutlinedRegion(W);
-
+          Changed |= genLaunderIntrinIfPrivatizedInAncestor(W);
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_CSA
           if (isTargetCSA()) {
@@ -1632,6 +1701,7 @@ bool VPOParoptTransform::paroptTransforms() {
             Changed |= captureAndAddCollectedNonPointerValuesToSharedClause(W);
             Changed |= genMultiThreadedCode(W);
           }
+          Changed |= clearLaunderIntrinBeforeRegion(W);
           Changed |= sinkSIMDDirectives(W);
           RemoveDirectives = true;
 
@@ -1660,6 +1730,10 @@ bool VPOParoptTransform::paroptTransforms() {
           StructType *KmpSharedTy;
           Value *LastIterGep;
           BasicBlock *IfLastIterBB = nullptr;
+          // Task Construct Doesn't need a call to
+          // genLaunderIntrinIfPrivatizedInAncestor because
+          // outlining algorithm stores the global variables in the kmpc_struct
+          // as it should.
           Changed |= genTaskInitCode(W, KmpTaskTTWithPrivatesTy, KmpSharedTy,
                                      LastIterGep);
           Changed |= genPrivatizationCode(W);
@@ -1686,6 +1760,10 @@ bool VPOParoptTransform::paroptTransforms() {
           StructType *KmpSharedTy;
           Value *LBPtr, *UBPtr, *STPtr, *LastIterGep;
           BasicBlock *IfLastIterBB = nullptr;
+          // Taskloop Construct Doesn't need a call to
+          // genLaunderIntrinIfPrivatizedInAncestor because
+          // outlining algorithm stores the global variables in the kmpc_struct
+          // as it should.
           Changed |= addFirstprivateForNormalizedUB(W);
           Changed |=
               genTaskLoopInitCode(W, KmpTaskTTWithPrivatesTy, KmpSharedTy,

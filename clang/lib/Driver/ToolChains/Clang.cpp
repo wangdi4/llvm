@@ -2684,13 +2684,7 @@ static void RenderFloatingPointOptions(const ToolChain &TC, const Driver &D,
         FPModel = Val;
         FPContract = "off";
         TrappingMath = true;
-      }
-#if INTEL_CUSTOMIZATION
-      else if (Val.equals("source")) {
-        optID = options::OPT_fno_rounding_math;
-      }
-#endif // INTEL_CUSTOMIZATION
-      else
+      } else
         D.Diag(diag::err_drv_unsupported_option_argument)
             << A->getOption().getName() << Val;
       break;
