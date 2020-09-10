@@ -1680,6 +1680,7 @@ def fimf_precision_EQ : Joined<["-"],"fimf-precision=">,Group<f_Group>,
 def fpermissive : Flag<["-"], "fpermissive">, Group<f_Group>,
   Flags<[DriverOption]>, HelpText<"Allow extensions for some non-conformant code">;
 def fno_permissive : Flag<["-"], "fno-permissive">, Group<f_Group>;
+def fmax_errors_EQ : Joined<["-"], "fmax-errors=">, Alias<ferror_limit_EQ>;
 #endif // INTEL_CUSTOMIZATION
 def fmodules_ts : Flag <["-"], "fmodules-ts">, Group<f_Group>,
   Flags<[CC1Option]>, HelpText<"Enable support for the C++ Modules TS">;
@@ -4024,7 +4025,10 @@ def finit_integer_EQ : Joined<["-"], "finit-integer=">, Group<gfortran_Group>;
 def finit_logical_EQ : Joined<["-"], "finit-logical=">, Group<gfortran_Group>;
 def finit_real_EQ : Joined<["-"], "finit-real=">, Group<gfortran_Group>;
 def fmax_array_constructor_EQ : Joined<["-"], "fmax-array-constructor=">, Group<gfortran_Group>;
+#ifndef INTEL_CUSTOMIZATION
+// Intel max-errors added for C/C++
 def fmax_errors_EQ : Joined<["-"], "fmax-errors=">, Group<gfortran_Group>;
+#endif // !INTEL_CUSTOMIZATION
 def fmax_stack_var_size_EQ : Joined<["-"], "fmax-stack-var-size=">, Group<gfortran_Group>;
 def fmax_subrecord_length_EQ : Joined<["-"], "fmax-subrecord-length=">, Group<gfortran_Group>;
 def frecord_marker_EQ : Joined<["-"], "frecord-marker=">, Group<gfortran_Group>;

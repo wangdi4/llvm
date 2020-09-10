@@ -587,3 +587,7 @@
 // RUN: %clang_cl /c /constexpr:steps4 -###  %s 2>&1 | FileCheck -check-prefix CONSTEXPR_STEPS %s
 // RUN: %clang_cl /c /constexpr:steps 4 -###  %s 2>&1 | FileCheck -check-prefix CONSTEXPR_STEPS %s
 // CONSTEXPR_STEPS: "-fconstexpr-steps" "4"
+
+/// -fmax-errors alias
+// RUN: %clang -### -fmax-errors=256 -c %s 2>&1 | FileCheck -check-prefix=CHECK-MAX-ERRORS %s
+// CHECK-MAX-ERRORS: "-ferror-limit" "256"
