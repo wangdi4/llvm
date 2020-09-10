@@ -3439,9 +3439,7 @@ define <4 x i32> @splat_ptr_gather(i32* %ptr, <4 x i1> %mask, <4 x i32> %passthr
 ; SKX:       # %bb.0:
 ; SKX-NEXT:    vpslld $31, %xmm0, %xmm0
 ; SKX-NEXT:    vpmovd2m %xmm0, %k1
-; SKX-NEXT:    vpxor %xmm0, %xmm0, %xmm0
-; SKX-NEXT:    vpgatherdd (%rdi,%xmm0,4), %xmm1 {%k1}
-; SKX-NEXT:    vmovdqa %xmm1, %xmm0
+; SKX-NEXT:    vpblendmd (%rdi){1to4}, %xmm1, %xmm0 {%k1} ;INTEL
 ; SKX-NEXT:    retq
 ;
 ; SKX_32-LABEL: splat_ptr_gather:
@@ -3449,9 +3447,7 @@ define <4 x i32> @splat_ptr_gather(i32* %ptr, <4 x i1> %mask, <4 x i32> %passthr
 ; SKX_32-NEXT:    vpslld $31, %xmm0, %xmm0
 ; SKX_32-NEXT:    vpmovd2m %xmm0, %k1
 ; SKX_32-NEXT:    movl {{[0-9]+}}(%esp), %eax
-; SKX_32-NEXT:    vpxor %xmm0, %xmm0, %xmm0
-; SKX_32-NEXT:    vpgatherdd (%eax,%xmm0,4), %xmm1 {%k1}
-; SKX_32-NEXT:    vmovdqa %xmm1, %xmm0
+; SKX_32-NEXT:    vpblendmd (%eax){1to4}, %xmm1, %xmm0 {%k1} ;INTEL
 ; SKX_32-NEXT:    retl
   %1 = insertelement <4 x i32*> undef, i32* %ptr, i32 0
   %2 = shufflevector <4 x i32*> %1, <4 x i32*> undef, <4 x i32> zeroinitializer
