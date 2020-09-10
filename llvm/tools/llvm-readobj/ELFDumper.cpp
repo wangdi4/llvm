@@ -120,11 +120,11 @@ template <class ELFT> class DumpStyle;
 /// order (DT_REL, DT_RELSZ, DT_RELENT for example).
 struct DynRegionInfo {
   DynRegionInfo(StringRef ObjName) : FileName(ObjName) {}
-  DynRegionInfo(const void *A, uint64_t S, uint64_t ES, StringRef ObjName)
+  DynRegionInfo(const uint8_t *A, uint64_t S, uint64_t ES, StringRef ObjName)
       : Addr(A), Size(S), EntSize(ES), FileName(ObjName) {}
 
   /// Address in current address space.
-  const void *Addr = nullptr;
+  const uint8_t *Addr = nullptr;
   /// Size in bytes of the region.
   uint64_t Size = 0;
   /// Size of each entity in the region.
@@ -731,11 +731,10 @@ public:
                                   std::function<void()> PrintHeader);
   void printFunctionStackSize(const ELFObjectFile<ELFT> *Obj, uint64_t SymValue,
                               Optional<SectionRef> FunctionSec,
-                              const StringRef SectionName, DataExtractor Data,
+                              const Elf_Shdr &StackSizeSec, DataExtractor Data,
                               uint64_t *Offset);
   void printStackSize(const ELFObjectFile<ELFT> *Obj, RelocationRef Rel,
-                      SectionRef FunctionSec,
-                      const StringRef &StackSizeSectionName,
+                      SectionRef FunctionSec, const Elf_Shdr &StackSizeSec,
                       const RelocationResolver &Resolver, DataExtractor Data);
   virtual void printStackSizeEntry(uint64_t Size, StringRef FuncName) = 0;
   virtual void printMipsGOT(const MipsGOTParser<ELFT> &Parser) = 0;
@@ -864,8 +863,6 @@ private:
   }
   void printHashedSymbol(const Elf_Sym *FirstSym, uint32_t Sym,
                          StringRef StrTable, uint32_t Bucket);
-  void printRelocHeader(unsigned SType);
-
   void printRelReloc(unsigned SecIndex, const Elf_Shdr *SymTab,
                      const Elf_Rel &R, unsigned RelIndex) override;
   void printRelaReloc(unsigned SecIndex, const Elf_Shdr *SymTab,
@@ -3683,7 +3680,8 @@ void GNUStyle<ELFT>::printRelRelaReloc(const Elf_Sym *Sym, StringRef SymbolName,
   OS << Addend << "\n";
 }
 
-template <class ELFT> void GNUStyle<ELFT>::printRelocHeader(unsigned SType) {
+template <class ELFT>
+static void printRelocHeaderFields(formatted_raw_ostream &OS, unsigned SType) {
   bool IsRela = SType == ELF::SHT_RELA || SType == ELF::SHT_ANDROID_RELA;
   bool IsRelr = SType == ELF::SHT_RELR || SType == ELF::SHT_ANDROID_RELR;
   if (ELFT::Is64Bits)
@@ -3702,6 +3700,16 @@ template <class ELFT> void GNUStyle<ELFT>::printRelocHeader(unsigned SType) {
   if (IsRela)
     OS << " + Addend";
   OS << "\n";
+}
+
+template <class ELFT>
+static void printDynamicRelocHeader(const ELFFile<ELFT> &Obj,
+                                    formatted_raw_ostream &OS, unsigned Type,
+                                    StringRef Name, const DynRegionInfo &Reg) {
+  uint64_t Offset = Reg.Addr - Obj.base();
+  OS << "\n'" << Name.str().c_str() << "' relocation section at offset 0x"
+     << to_hexString(Offset, false) << " contains " << Reg.Size << " bytes:\n";
+  printRelocHeaderFields<ELFT>(OS, Type);
 }
 
 template <class ELFT>
@@ -3755,7 +3763,7 @@ template <class ELFT> void GNUStyle<ELFT>::printRelocations() {
     OS << "\nRelocation section '" << Name << "' at offset 0x"
        << to_hexString(Offset, false) << " contains " << EntriesNum
        << " entries:\n";
-    printRelocHeader(Sec.sh_type);
+    printRelocHeaderFields<ELFT>(OS, Sec.sh_type);
     this->printRelocationsHelper(Sec);
   }
   if (!HasRelocSections)
@@ -4437,49 +4445,31 @@ template <class ELFT> void GNUStyle<ELFT>::printDynamicRelocations() {
   const DynRegionInfo &DynRelrRegion = this->dumper()->getDynRelrRegion();
   const DynRegionInfo &DynPLTRelRegion = this->dumper()->getDynPLTRelRegion();
   if (DynRelaRegion.Size > 0) {
-    OS << "\n'RELA' relocation section at offset "
-       << format_hex(reinterpret_cast<const uint8_t *>(DynRelaRegion.Addr) -
-                         this->Obj.base(),
-                     1)
-       << " contains " << DynRelaRegion.Size << " bytes:\n";
-    printRelocHeader(ELF::SHT_RELA);
+    printDynamicRelocHeader(this->Obj, OS, ELF::SHT_RELA, "RELA",
+                            DynRelaRegion);
     for (const Elf_Rela &Rela : this->dumper()->dyn_relas())
       printDynamicRelocation(Rela);
   }
   if (DynRelRegion.Size > 0) {
-    OS << "\n'REL' relocation section at offset "
-       << format_hex(reinterpret_cast<const uint8_t *>(DynRelRegion.Addr) -
-                         this->Obj.base(),
-                     1)
-       << " contains " << DynRelRegion.Size << " bytes:\n";
-    printRelocHeader(ELF::SHT_REL);
+    printDynamicRelocHeader(this->Obj, OS, ELF::SHT_REL, "REL", DynRelRegion);
     for (const Elf_Rel &Rel : this->dumper()->dyn_rels())
       printDynamicRelocation(Rel);
   }
   if (DynRelrRegion.Size > 0) {
-    OS << "\n'RELR' relocation section at offset "
-       << format_hex(reinterpret_cast<const uint8_t *>(DynRelrRegion.Addr) -
-                         this->Obj.base(),
-                     1)
-       << " contains " << DynRelrRegion.Size << " bytes:\n";
-    printRelocHeader(ELF::SHT_REL);
+    printDynamicRelocHeader(this->Obj, OS, ELF::SHT_REL, "RELR", DynRelrRegion);
     Elf_Relr_Range Relrs = this->dumper()->dyn_relrs();
     for (const Elf_Rel &R : this->Obj.decode_relrs(Relrs))
       printDynamicRelocation(R);
   }
   if (DynPLTRelRegion.Size) {
-    OS << "\n'PLT' relocation section at offset "
-       << format_hex(reinterpret_cast<const uint8_t *>(DynPLTRelRegion.Addr) -
-                         this->Obj.base(),
-                     1)
-       << " contains " << DynPLTRelRegion.Size << " bytes:\n";
-
     if (DynPLTRelRegion.EntSize == sizeof(Elf_Rela)) {
-      printRelocHeader(ELF::SHT_RELA);
+      printDynamicRelocHeader(this->Obj, OS, ELF::SHT_RELA, "PLT",
+                              DynPLTRelRegion);
       for (const Elf_Rela &Rela : DynPLTRelRegion.getAsArrayRef<Elf_Rela>())
         printDynamicRelocation(Rela);
     } else {
-      printRelocHeader(ELF::SHT_REL);
+      printDynamicRelocHeader(this->Obj, OS, ELF::SHT_REL, "PLT",
+                              DynPLTRelRegion);
       for (const Elf_Rel &Rel : DynPLTRelRegion.getAsArrayRef<Elf_Rel>())
         printDynamicRelocation(Rel);
     }
@@ -5596,7 +5586,7 @@ template <class ELFT>
 void DumpStyle<ELFT>::printFunctionStackSize(const ELFObjectFile<ELFT> *Obj,
                                              uint64_t SymValue,
                                              Optional<SectionRef> FunctionSec,
-                                             const StringRef SectionName,
+                                             const Elf_Shdr &StackSizeSec,
                                              DataExtractor Data,
                                              uint64_t *Offset) {
   // This function ignores potentially erroneous input, unless it is directly
@@ -5641,8 +5631,8 @@ void DumpStyle<ELFT>::printFunctionStackSize(const ELFObjectFile<ELFT> *Obj,
   if (*Offset == PrevOffset) {
     reportWarning(
         createStringError(object_error::parse_failed,
-                          "could not extract a valid stack size in section %s",
-                          SectionName.data()),
+                          "could not extract a valid stack size in " +
+                              describe(*Obj->getELFFile(), StackSizeSec)),
         Obj->getFileName());
     return;
   }
@@ -5662,7 +5652,7 @@ template <class ELFT>
 void DumpStyle<ELFT>::printStackSize(const ELFObjectFile<ELFT> *Obj,
                                      RelocationRef Reloc,
                                      SectionRef FunctionSec,
-                                     const StringRef &StackSizeSectionName,
+                                     const Elf_Shdr &StackSizeSec,
                                      const RelocationResolver &Resolver,
                                      DataExtractor Data) {
   // This function ignores potentially erroneous input, unless it is directly
@@ -5703,15 +5693,15 @@ void DumpStyle<ELFT>::printStackSize(const ELFObjectFile<ELFT> *Obj,
     reportUniqueWarning(createStringError(
         object_error::parse_failed,
         "found invalid relocation offset (0x" + Twine::utohexstr(Offset) +
-            ") into section " + StackSizeSectionName +
+            ") into " + describe(*Obj->getELFFile(), StackSizeSec) +
             " while trying to extract a stack size entry"));
     return;
   }
 
   uint64_t Addend = Data.getAddress(&Offset);
   uint64_t SymValue = Resolver(Reloc, RelocSymValue, Addend);
-  this->printFunctionStackSize(Obj, SymValue, FunctionSec, StackSizeSectionName,
-                               Data, &Offset);
+  this->printFunctionStackSize(Obj, SymValue, FunctionSec, StackSizeSec, Data,
+                               &Offset);
 }
 
 template <class ELFT>
@@ -5721,8 +5711,7 @@ void DumpStyle<ELFT>::printNonRelocatableStackSizes(
   // related to stack size reporting.
   const ELFFile<ELFT> *EF = Obj->getELFFile();
   for (const SectionRef &Sec : Obj->sections()) {
-    StringRef SectionName = getSectionName(Sec);
-    if (SectionName != ".stack_sizes")
+    if (getSectionName(Sec) != ".stack_sizes")
       continue;
     PrintHeader();
     const Elf_Shdr *ElfSec = Obj->getSection(Sec.getRawDataRefImpl());
@@ -5741,8 +5730,8 @@ void DumpStyle<ELFT>::printNonRelocatableStackSizes(
         break;
       }
       uint64_t SymValue = Data.getAddress(&Offset);
-      printFunctionStackSize(Obj, SymValue, /*FunctionSec=*/None, SectionName,
-                             Data, &Offset);
+      printFunctionStackSize(Obj, SymValue, /*FunctionSec=*/None, *ElfSec, Data,
+                             &Offset);
     }
   }
 }
@@ -5807,22 +5796,23 @@ void DumpStyle<ELFT>::printRelocatableStackSizes(
     PrintHeader();
     const SectionRef &StackSizesSec = StackSizeMapEntry.first;
     const SectionRef &RelocSec = StackSizeMapEntry.second;
+    const Elf_Shdr *StackSizesELFSec =
+        Obj->getSection(StackSizesSec.getRawDataRefImpl());
 
     // Warn about stack size sections without a relocation section.
-    StringRef StackSizeSectionName = getSectionName(StackSizesSec);
     if (RelocSec == NullSection) {
-      reportWarning(createError("section " + StackSizeSectionName +
-                                " does not have a corresponding "
-                                "relocation section"),
-                    Obj->getFileName());
+      reportWarning(
+          createError(".stack_sizes (" +
+                      describe(*Obj->getELFFile(), *StackSizesELFSec) +
+                      ") does not have a corresponding "
+                      "relocation section"),
+          Obj->getFileName());
       continue;
     }
 
     // A .stack_sizes section header's sh_link field is supposed to point
     // to the section that contains the functions whose stack sizes are
     // described in it.
-    const Elf_Shdr *StackSizesELFSec =
-        Obj->getSection(StackSizesSec.getRawDataRefImpl());
     const SectionRef FunctionSec = Obj->toSectionRef(unwrapOrError(
         this->FileName, EF->getSection(StackSizesELFSec->sh_link)));
 
@@ -5844,8 +5834,8 @@ void DumpStyle<ELFT>::printRelocatableStackSizes(
                 ": " + EF->getRelocationTypeName(Reloc.getType())));
         continue;
       }
-      this->printStackSize(Obj, Reloc, FunctionSec, StackSizeSectionName,
-                           Resolver, Data);
+      this->printStackSize(Obj, Reloc, FunctionSec, *StackSizesELFSec, Resolver,
+                           Data);
     }
   }
 }
