@@ -719,14 +719,11 @@ void AndersensAAResult::RunAndersensAnalysis(Module &M)  {
   // check if it exceeds AndersNumConstraintsBeforeOptLimit.
   // Ex: 483.xlanc (595K constraints ), 403.gcc (503K constraints)
   // and 400.perlbench (149K constraints)
-  if (AndersNumConstraintsBeforeOptLimit != -1 &&
-      (Constraints.size() > (unsigned)std::numeric_limits<int>::max() ||
-       (int)Constraints.size() > AndersNumConstraintsBeforeOptLimit)) {
+  if (checkConstraintsSizeLimitExceeded(false /* AfterOpt */)) {
     // Clear ValueNodes so that AA queries go conservative. 
-    ValueNodes.clear(); 
-    if (PrintAndersConstraints || PrintAndersPointsTo) {
+    clearOnEarlyExit();
+    if (PrintAndersConstraints || PrintAndersPointsTo)
       dbgs() << "\nAnders disabled...exceeded NumConstraintsBeforeOptLimit\n";
-    }
     return;
   }
 
@@ -751,14 +748,11 @@ void AndersensAAResult::RunAndersensAnalysis(Module &M)  {
   // check if it exceeds AndersNumConstraintsAfterOptLimit.
   // Ex: 483.xlanc (174K constraints), 403.gcc (77K constraints) and
   // 400.perlbench (28K constraints)
-  if (AndersNumConstraintsAfterOptLimit != -1 &&
-      (Constraints.size() > (unsigned)std::numeric_limits<int>::max() ||
-       (int)Constraints.size() > AndersNumConstraintsAfterOptLimit)) {
+  if (checkConstraintsSizeLimitExceeded(true /* AfterOpt */)) {
     // Clear ValueNodes so that AA queries go conservative. 
-    ValueNodes.clear(); 
-    if (PrintAndersConstraints || PrintAndersPointsTo) {
+    clearOnEarlyExit();
+    if (PrintAndersConstraints || PrintAndersPointsTo)
       dbgs() << "\nAnders disabled...exceeded NumConstraintsAfterOptLimit\n";
-    }
     return;
   }
 
@@ -1923,6 +1917,8 @@ void AndersensAAResult::CollectConstraints(Module &M) {
       // pointer values defined by instructions and used as operands.
       visit(&(*F));
     }
+    if (checkConstraintsSizeLimitExceeded(false /* AfterOpt */))
+      return;
   }
   // Treat Indirect calls conservatively if number of indirect calls exceeds
   // AndersIndirectCallsLimit
@@ -2487,6 +2483,35 @@ void AndersensAAResult::checkCall(CallBase &CB) {
   } else {
     AddConstraintsForCall(&CB, nullptr);
   }
+}
+
+// Returns true if number of Constraints exceeds the heuristic limit.
+// If "AfterOpt" is true, AndersNumConstraintsAfterOptLimit will be
+// used as heuristic limit.
+bool AndersensAAResult::checkConstraintsSizeLimitExceeded(bool AfterOpt) {
+  int NumConstraintsLimit;
+
+  if (AfterOpt)
+    NumConstraintsLimit = AndersNumConstraintsAfterOptLimit;
+  else
+    NumConstraintsLimit = AndersNumConstraintsBeforeOptLimit;
+
+  return (NumConstraintsLimit != -1 &&
+          (Constraints.size() > (unsigned)std::numeric_limits<int>::max() ||
+           (int)Constraints.size() > NumConstraintsLimit));
+}
+
+// Clear all nodes on early exit as we go conservative for all AA queries.
+void AndersensAAResult::clearOnEarlyExit(void) {
+  ValueNodes.clear();
+  GraphNodes.clear();
+  ObjectNodes.clear();
+  ReturnNodes.clear();
+  VarargNodes.clear();
+  IndirectCallList.clear();
+  DirectCallList.clear();
+  NonEscapeStaticVars.clear();
+  NonPointerAssignments.clear();
 }
 
 //===----------------------------------------------------------------------===//
