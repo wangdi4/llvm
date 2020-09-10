@@ -16,6 +16,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/DebugInfo/Intel_TraceBack/TraceDINode.h"
+#include "llvm/ADT/SmallVector.h"
 #include "llvm/MC/Intel_MCTrace.h"
 #include "llvm/MC/MCContext.h"
 #include "llvm/MC/MCExpr.h"
@@ -207,12 +208,6 @@ void TraceModule::emit(MCStreamer &OS) const {
     return;
 
   assert(!Children.front().empty() && "Find an empty file!");
-  // Base PC of .text section.
-  // Don't use getBeginSymbol() for .text section here, the begin symbol is
-  // the section's name to ELF while it is empty by default to COFF/MachO. The
-  // begin symbol is emitted in MCStreamer::SwitchSection when a section
-  // begins and here we already lost the chance to set and emit it.
-  MCSymbol *TextBegin = Children.front().front().getBegin();
 
   // .trace section range
   MCContext &Context = OS.getContext();
@@ -236,13 +231,16 @@ void TraceModule::emit(MCStreamer &OS) const {
   // .trace section size
   emitRangeAttribute(OS, traceback::TB_AT_TraceSize, TraceBegin, TraceEnd);
   // Base PC of .text section
-  emitReferenceAttribute(OS, traceback::TB_AT_TextBegin, TextBegin,
-                         PointerSize);
+  // Don't use getBeginSymbol() for .text section here, the begin symbol is
+  // the section's name to ELF while it is empty by default to COFF/MachO. The
+  // begin symbol is emitted in MCStreamer::SwitchSection when a section
+  // begins and here we already lost the chance to set and emit it.
+  emitReferenceAttribute(OS, traceback::TB_AT_TextBegin,
+                         Children.front().front().getBegin(), PointerSize);
   // File count
   emitIntAttribute(OS, traceback::TB_AT_NumOfFiles, IndexToFile.size());
   // .text section size
-  emitRangeAttribute(OS, traceback::TB_AT_TextSize, TextBegin,
-                     Children.back().back().getEnd());
+  emitTextSizeAttribute(OS);
   // Module name
   // Module name is always empty in ICC's implementation.
   emitIntAttribute(OS, traceback::TB_AT_NameLength, getName().size());
@@ -268,6 +266,62 @@ void TraceModule::emit(MCStreamer &OS) const {
 void TraceModule::removeEmptyFile() {
   if (!Children.empty() && Children.back().empty())
     Children.pop_back();
+}
+
+static bool isInSameSection(const MCSymbol *LHS, const MCSymbol *RHS) {
+  assert(LHS && RHS);
+  return &(LHS->getSection()) == &(RHS->getSection());
+}
+
+static const MCExpr *createSub(const MCSymbol *Hi, const MCSymbol *Low,
+                               MCContext &Context) {
+  return MCBinaryExpr::createSub(MCSymbolRefExpr::create(Hi, Context),
+                                 MCSymbolRefExpr::create(Low, Context),
+                                 Context);
+}
+
+void TraceModule::emitTextSizeAttribute(MCStreamer &OS) const {
+  MCSymbol *FirstRoutineBegin = Children.front().front().getBegin();
+  MCSymbol *LastRoutineEnd = Children.back().back().getEnd();
+
+  if (isInSameSection(FirstRoutineBegin, LastRoutineEnd)) {
+    // There is only one .text section.
+    emitRangeAttribute(OS, traceback::TB_AT_TextSize, FirstRoutineBegin,
+                       LastRoutineEnd);
+    return;
+  }
+  // The routines are in different sections (.text and its subsections), e.g,
+  // when -function-sections is enabled. So we need to add up the size of them
+  // to get the code length.
+  SmallVector<const MCExpr *, 4> Ranges;
+  MCContext &Context = OS.getContext();
+  MCSymbol *SecBegin = FirstRoutineBegin;
+  MCSymbol *SecEnd = Children.front().front().getBegin();
+  // Gather the sizes of sections.
+  for (const auto &File : Children) {
+    for (const auto &Routine : File) {
+      MCSymbol *End = Routine.getEnd();
+      if (isInSameSection(SecBegin, End)) {
+        SecEnd = End;
+        continue;
+      }
+      assert(isInSameSection(SecBegin, SecEnd));
+      Ranges.push_back(createSub(SecEnd, SecBegin, Context));
+      SecBegin = Routine.getBegin();
+      SecEnd = End;
+    }
+  }
+  Ranges.push_back(createSub(SecEnd, SecBegin, Context));
+  assert(Ranges.size() > 1);
+
+  // Add up all the sizes to get the code length.
+  const MCExpr *TextSize = Ranges[0];
+  for (unsigned I = 1; I != Ranges.size(); ++I)
+    TextSize = MCBinaryExpr::createAdd(TextSize, Ranges[I], Context);
+
+  OS.AddComment(traceback::getAttributeString(traceback::TB_AT_TextSize));
+  OS.emitValue(TextSize,
+               traceback::getAttributeSize(traceback::TB_AT_TextSize));
 }
 
 void TraceModule::addFile(const std::string &Name, unsigned Index) {

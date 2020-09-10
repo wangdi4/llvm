@@ -300,6 +300,9 @@ private:
   /// Clear the file that doesn't have any routine.
   void removeEmptyFile();
 
+  /// Emit the text size attribute.
+  void emitTextSizeAttribute(MCStreamer &OS) const;
+
 public:
   TraceModule(unsigned PointerSize, unsigned Version, const std::string &Name);
 
