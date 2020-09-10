@@ -1,6 +1,9 @@
 ; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-aos-to-soa -print-after=hir-aos-to-soa < %s 2>&1 | FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-aos-to-soa,print<hir>" -aa-pipeline="basic-aa"  < %s 2>&1 | FileCheck %s
 
+; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-aos-to-soa -print-after=hir-aos-to-soa -hir-details < %s 2>&1 | FileCheck %s --check-prefix=DEFATLEV
+; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-aos-to-soa,print<hir>" -aa-pipeline="basic-aa"  -hir-details < %s 2>&1 | FileCheck %s --check-prefix=DEFATLEV
+
 ; Check if array of structures are copied into temp arrays and later read from temp arrays.
 ; Temp arrays are allocated with alloca.
 
@@ -31,6 +34,8 @@
 
 ; CHECK: @llvm.stackrestore(&(([[ADDR]])[0]));
 ; CHECK: END LOOP
+
+; DEFATLEV: <BLOB> LINEAR double* %alloca{def@1}
 
 
 ; *** IR Dump Before HIR AOS to SOA ***
