@@ -199,10 +199,15 @@ bool FixupBWInstPass::runOnMachineFunction(MachineFunction &MF) {
 ///
 /// If so, return that super register in \p SuperDestReg.
 bool FixupBWInstPass::getSuperRegDestIfDead(MachineInstr *OrigMI,
+<<<<<<< HEAD
                                             Register &SuperDestReg, // INTEL
                                             bool IsMOV) const { // INTEL
   auto *TRI = &TII->getRegisterInfo();
 
+=======
+                                            Register &SuperDestReg) const {
+  const X86RegisterInfo *TRI = &TII->getRegisterInfo();
+>>>>>>> 890707aa0169a259ab8572091120756aec2d0c06
   Register OrigDestReg = OrigMI->getOperand(0).getReg();
   SuperDestReg = getX86SubSuperRegister(OrigDestReg, 32);
 
@@ -341,7 +346,7 @@ MachineInstr *FixupBWInstPass::tryReplaceCopy(MachineInstr *MI) const {
 
   // This is only correct if we access the same subregister index: otherwise,
   // we could try to replace "movb %ah, %al" with "movl %eax, %eax".
-  auto *TRI = &TII->getRegisterInfo();
+  const X86RegisterInfo *TRI = &TII->getRegisterInfo();
   if (TRI->getSubRegIndex(NewSrcReg, OldSrc.getReg()) !=
       TRI->getSubRegIndex(NewDestReg, OldDest.getReg()))
     return nullptr;
