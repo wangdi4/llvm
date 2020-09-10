@@ -1780,13 +1780,13 @@ void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
 #endif // INTEL_CUSTOMIZATION
 
   PM.add(createLICMPass(LicmMssaOptCap, LicmMssaNoAccForPromotionCap));
-  PM.add(createMergedLoadStoreMotionPass()); // Merge ld/st in diamonds.
   PM.add(NewGVN ? createNewGVNPass()
                 : createGVNPass(DisableGVNLoadPRE)); // Remove redundancies.
   PM.add(createMemCpyOptPass());            // Remove dead memcpys.
 
   // Nuke dead stores.
   PM.add(createDeadStoreEliminationPass());
+  PM.add(createMergedLoadStoreMotionPass()); // Merge ld/st in diamonds.
 
   // More loops are countable; try to optimize them.
   PM.add(createIndVarSimplifyPass());
