@@ -24,6 +24,8 @@
 #include "llvm/Analysis/Intel_Andersens.h"          // INTEL
 #include "llvm/Analysis/MemoryDependenceAnalysis.h"
 #include "llvm/Analysis/MemoryLocation.h"
+#include "llvm/Analysis/MemorySSA.h"
+#include "llvm/Analysis/MemorySSAUpdater.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/Analysis/ValueTracking.h"
 #include "llvm/IR/Argument.h"
@@ -280,6 +282,7 @@ private:
     AU.addPreserved<MemoryDependenceWrapperPass>();
     AU.addRequired<AAResultsWrapperPass>();
     AU.addPreserved<AAResultsWrapperPass>();
+    AU.addPreserved<MemorySSAWrapperPass>();
   }
 };
 
@@ -317,7 +320,27 @@ Instruction *MemCpyOptPass::tryMergingIntoMemset(Instruction *StartInst,
   MemsetRanges Ranges(DL);
 
   BasicBlock::iterator BI(StartInst);
+
+  // Keeps track of the last memory use or def before the insertion point for
+  // the new memset. The new MemoryDef for the inserted memsets will be inserted
+  // after MemInsertPoint. It points to either LastMemDef or to the last user
+  // before the insertion point of the memset, if there are any such users.
+  MemoryUseOrDef *MemInsertPoint = nullptr;
+  // Keeps track of the last MemoryDef between StartInst and the insertion point
+  // for the new memset. This will become the defining access of the inserted
+  // memsets.
+  MemoryDef *LastMemDef = nullptr;
   for (++BI; !BI->isTerminator(); ++BI) {
+    if (MSSAU) {
+      auto *CurrentAcc = cast_or_null<MemoryUseOrDef>(
+          MSSAU->getMemorySSA()->getMemoryAccess(&*BI));
+      if (CurrentAcc) {
+        MemInsertPoint = CurrentAcc;
+        if (auto *CurrentDef = dyn_cast<MemoryDef>(CurrentAcc))
+          LastMemDef = CurrentDef;
+      }
+    }
+
     if (!isa<StoreInst>(BI) && !isa<MemSetInst>(BI)) {
       // If the instruction is readnone, ignore it, otherwise bail out.  We
       // don't even allow readonly here because we don't want something like:
@@ -396,15 +419,27 @@ Instruction *MemCpyOptPass::tryMergingIntoMemset(Instruction *StartInst,
                                                    : Range.TheStores) dbgs()
                                               << *SI << '\n';
                dbgs() << "With: " << *AMemSet << '\n');
-
     if (!Range.TheStores.empty())
       AMemSet->setDebugLoc(Range.TheStores[0]->getDebugLoc());
 
+    if (MSSAU) {
+      assert(LastMemDef && MemInsertPoint &&
+             "Both LastMemDef and MemInsertPoint need to be set");
+      auto *NewDef = cast<MemoryDef>(
+          MSSAU->createMemoryAccessAfter(AMemSet, LastMemDef, MemInsertPoint));
+      MSSAU->insertDef(NewDef, /*RenameUses=*/true);
+      LastMemDef = NewDef;
+      MemInsertPoint = NewDef;
+    }
+
     // Zap all the stores.
     for (Instruction *SI : Range.TheStores) {
+      if (MSSAU)
+        MSSAU->removeMemoryAccess(SI);
       MD->removeInstruction(SI);
       SI->eraseFromParent();
     }
+
     ++NumMemSetInfer;
   }
 
@@ -575,6 +610,17 @@ bool MemCpyOptPass::processStore(StoreInst *SI, BasicBlock::iterator &BBI) {
           LLVM_DEBUG(dbgs() << "Promoting " << *LI << " to " << *SI << " => "
                             << *M << "\n");
 
+          if (MSSAU) {
+            assert(isa<MemoryDef>(MSSAU->getMemorySSA()->getMemoryAccess(P)));
+            auto *LastDef =
+                cast<MemoryDef>(MSSAU->getMemorySSA()->getMemoryAccess(P));
+            auto *NewAccess =
+                MSSAU->createMemoryAccessAfter(M, LastDef, LastDef);
+            MSSAU->insertDef(cast<MemoryDef>(NewAccess), /*RenameUses=*/true);
+            MSSAU->removeMemoryAccess(SI);
+            MSSAU->removeMemoryAccess(LI);
+          }
+
           MD->removeInstruction(SI);
           SI->eraseFromParent();
           MD->removeInstruction(LI);
@@ -623,6 +669,11 @@ bool MemCpyOptPass::processStore(StoreInst *SI, BasicBlock::iterator &BBI) {
             DL.getTypeStoreSize(SI->getOperand(0)->getType()),
             commonAlignment(SI->getAlign(), LI->getAlign()), C);
         if (changed) {
+          if (MSSAU) {
+            MSSAU->removeMemoryAccess(SI);
+            MSSAU->removeMemoryAccess(LI);
+          }
+
           MD->removeInstruction(SI);
           SI->eraseFromParent();
           MD->removeInstruction(LI);
@@ -659,6 +710,15 @@ bool MemCpyOptPass::processStore(StoreInst *SI, BasicBlock::iterator &BBI) {
                                      SI->getAlign());
 
       LLVM_DEBUG(dbgs() << "Promoting " << *SI << " to " << *M << "\n");
+
+      if (MSSAU) {
+        assert(isa<MemoryDef>(MSSAU->getMemorySSA()->getMemoryAccess(SI)));
+        auto *LastDef =
+            cast<MemoryDef>(MSSAU->getMemorySSA()->getMemoryAccess(SI));
+        auto *NewAccess = MSSAU->createMemoryAccessAfter(M, LastDef, LastDef);
+        MSSAU->insertDef(cast<MemoryDef>(NewAccess), /*RenameUses=*/true);
+        MSSAU->removeMemoryAccess(SI);
+      }
 
       MD->removeInstruction(SI);
       SI->eraseFromParent();
@@ -941,14 +1001,23 @@ bool MemCpyOptPass::processMemCpyMemCpyDependence(MemCpyInst *M,
   // TODO: Is this worth it if we're creating a less aligned memcpy? For
   // example we could be moving from movaps -> movq on x86.
   IRBuilder<> Builder(M);
+  Instruction *NewM;
   if (UseMemMove)
-    Builder.CreateMemMove(M->getRawDest(), M->getDestAlign(),
-                          MDep->getRawSource(), MDep->getSourceAlign(),
-                          M->getLength(), M->isVolatile());
+    NewM = Builder.CreateMemMove(M->getRawDest(), M->getDestAlign(),
+                                 MDep->getRawSource(), MDep->getSourceAlign(),
+                                 M->getLength(), M->isVolatile());
   else
-    Builder.CreateMemCpy(M->getRawDest(), M->getDestAlign(),
-                         MDep->getRawSource(), MDep->getSourceAlign(),
-                         M->getLength(), M->isVolatile());
+    NewM = Builder.CreateMemCpy(M->getRawDest(), M->getDestAlign(),
+                                MDep->getRawSource(), MDep->getSourceAlign(),
+                                M->getLength(), M->isVolatile());
+
+  if (MSSAU) {
+    assert(isa<MemoryDef>(MSSAU->getMemorySSA()->getMemoryAccess(M)));
+    auto *LastDef = cast<MemoryDef>(MSSAU->getMemorySSA()->getMemoryAccess(M));
+    auto *NewAccess = MSSAU->createMemoryAccessAfter(NewM, LastDef, LastDef);
+    MSSAU->insertDef(cast<MemoryDef>(NewAccess), /*RenameUses=*/true);
+    MSSAU->removeMemoryAccess(M);
+  }
 
   // Remove the instruction we're replacing.
   MD->removeInstruction(M);
@@ -1014,10 +1083,24 @@ bool MemCpyOptPass::processMemSetMemCpyDependence(MemCpyInst *MemCpy,
   Value *SizeDiff = Builder.CreateSub(DestSize, SrcSize);
   Value *MemsetLen = Builder.CreateSelect(
       Ule, ConstantInt::getNullValue(DestSize->getType()), SizeDiff);
-  Builder.CreateMemSet(
+  Instruction *NewMemSet = Builder.CreateMemSet(
       Builder.CreateGEP(Dest->getType()->getPointerElementType(), Dest,
                         SrcSize),
       MemSet->getOperand(1), MemsetLen, MaybeAlign(Align));
+
+  if (MSSAU) {
+    assert(isa<MemoryDef>(MSSAU->getMemorySSA()->getMemoryAccess(MemCpy)) &&
+           "MemCpy must be a MemoryDef");
+    // The new memset is inserted after the memcpy, but it is known that its
+    // defining access is the memset about to be removed which immediately
+    // precedes the memcpy.
+    auto *LastDef =
+        cast<MemoryDef>(MSSAU->getMemorySSA()->getMemoryAccess(MemCpy));
+    auto *NewAccess = MSSAU->createMemoryAccessBefore(
+        NewMemSet, LastDef->getDefiningAccess(), LastDef);
+    MSSAU->insertDef(cast<MemoryDef>(NewAccess), /*RenameUses=*/true);
+    MSSAU->removeMemoryAccess(MemSet);
+  }
 
   MD->removeInstruction(MemSet);
   MemSet->eraseFromParent();
@@ -1083,8 +1166,16 @@ bool MemCpyOptPass::performMemCpyToMemSetOptzn(MemCpyInst *MemCpy,
   }
 
   IRBuilder<> Builder(MemCpy);
-  Builder.CreateMemSet(MemCpy->getRawDest(), MemSet->getOperand(1), CopySize,
-                       MaybeAlign(MemCpy->getDestAlignment()));
+  Instruction *NewM =
+      Builder.CreateMemSet(MemCpy->getRawDest(), MemSet->getOperand(1),
+                           CopySize, MaybeAlign(MemCpy->getDestAlignment()));
+  if (MSSAU) {
+    auto *LastDef =
+        cast<MemoryDef>(MSSAU->getMemorySSA()->getMemoryAccess(MemCpy));
+    auto *NewAccess = MSSAU->createMemoryAccessAfter(NewM, LastDef, LastDef);
+    MSSAU->insertDef(cast<MemoryDef>(NewAccess), /*RenameUses=*/true);
+  }
+
   return true;
 }
 
@@ -1100,6 +1191,9 @@ bool MemCpyOptPass::processMemCpy(MemCpyInst *M, BasicBlock::iterator &BBI) {
   // If the source and destination of the memcpy are the same, then zap it.
   if (M->getSource() == M->getDest()) {
     ++BBI;
+    if (MSSAU)
+      MSSAU->removeMemoryAccess(M);
+
     MD->removeInstruction(M);
     M->eraseFromParent();
     return true;
@@ -1111,8 +1205,18 @@ bool MemCpyOptPass::processMemCpy(MemCpyInst *M, BasicBlock::iterator &BBI) {
       if (Value *ByteVal = isBytewiseValue(GV->getInitializer(),
                                            M->getModule()->getDataLayout())) {
         IRBuilder<> Builder(M);
-        Builder.CreateMemSet(M->getRawDest(), ByteVal, M->getLength(),
-                             MaybeAlign(M->getDestAlignment()), false);
+        Instruction *NewM =
+            Builder.CreateMemSet(M->getRawDest(), ByteVal, M->getLength(),
+                                 MaybeAlign(M->getDestAlignment()), false);
+        if (MSSAU) {
+          auto *LastDef =
+              cast<MemoryDef>(MSSAU->getMemorySSA()->getMemoryAccess(M));
+          auto *NewAccess =
+              MSSAU->createMemoryAccessAfter(NewM, LastDef, LastDef);
+          MSSAU->insertDef(cast<MemoryDef>(NewAccess), /*RenameUses=*/true);
+          MSSAU->removeMemoryAccess(M);
+        }
+
         MD->removeInstruction(M);
         M->eraseFromParent();
         ++NumCpyToSet;
@@ -1147,6 +1251,9 @@ bool MemCpyOptPass::processMemCpy(MemCpyInst *M, BasicBlock::iterator &BBI) {
                                  M->getSourceAlign().valueOrOne());
       if (performCallSlotOptzn(M, M->getDest(), M->getSource(),
                                CopySize->getZExtValue(), Alignment, C)) {
+        if (MSSAU)
+          MSSAU->removeMemoryAccess(M);
+
         MD->removeInstruction(M);
         M->eraseFromParent();
         return true;
@@ -1163,6 +1270,9 @@ bool MemCpyOptPass::processMemCpy(MemCpyInst *M, BasicBlock::iterator &BBI) {
       return processMemCpyMemCpyDependence(M, MDep);
   } else if (SrcDepInfo.isDef()) {
     if (hasUndefContents(SrcDepInfo.getInst(), CopySize)) {
+      if (MSSAU)
+        MSSAU->removeMemoryAccess(M);
+
       MD->removeInstruction(M);
       M->eraseFromParent();
       ++NumMemCpyInstr;
@@ -1173,6 +1283,8 @@ bool MemCpyOptPass::processMemCpy(MemCpyInst *M, BasicBlock::iterator &BBI) {
   if (SrcDepInfo.isClobber())
     if (MemSetInst *MDep = dyn_cast<MemSetInst>(SrcDepInfo.getInst()))
       if (performMemCpyToMemSetOptzn(M, MDep)) {
+        if (MSSAU)
+          MSSAU->removeMemoryAccess(M);
         MD->removeInstruction(M);
         M->eraseFromParent();
         ++NumCpyToSet;
@@ -1202,6 +1314,9 @@ bool MemCpyOptPass::processMemMove(MemMoveInst *M) {
                       M->getLength()->getType() };
   M->setCalledFunction(Intrinsic::getDeclaration(M->getModule(),
                                                  Intrinsic::memcpy, ArgTys));
+
+  // For MemorySSA nothing really changes (except that memcpy may imply stricter
+  // aliasing guarantees).
 
   // MemDep may have over conservative information about this instruction, just
   // conservatively flush it from the cache.
@@ -1340,8 +1455,10 @@ PreservedAnalyses MemCpyOptPass::run(Function &F, FunctionAnalysisManager &AM) {
   auto *AA = &AM.getResult<AAManager>(F);
   auto *AC = &AM.getResult<AssumptionAnalysis>(F);
   auto *DT = &AM.getResult<DominatorTreeAnalysis>(F);
+  auto *MSSA = AM.getCachedResult<MemorySSAAnalysis>(F);
 
-  bool MadeChange = runImpl(F, &MD, &TLI, AA, AC, DT);
+  bool MadeChange =
+      runImpl(F, &MD, &TLI, AA, AC, DT, MSSA ? &MSSA->getMSSA() : nullptr);
   if (!MadeChange)
     return PreservedAnalyses::all();
 
@@ -1349,19 +1466,27 @@ PreservedAnalyses MemCpyOptPass::run(Function &F, FunctionAnalysisManager &AM) {
   PA.preserveSet<CFGAnalyses>();
   PA.preserve<GlobalsAA>();
   PA.preserve<MemoryDependenceAnalysis>();
+<<<<<<< HEAD
   PA.preserve<AndersensAA>();                // INTEL
+=======
+  if (MSSA)
+    PA.preserve<MemorySSAAnalysis>();
+>>>>>>> e2fc6a31d347dc96c2dec6acb72045150f525630
   return PA;
 }
 
 bool MemCpyOptPass::runImpl(Function &F, MemoryDependenceResults *MD_,
                             TargetLibraryInfo *TLI_, AliasAnalysis *AA_,
-                            AssumptionCache *AC_, DominatorTree *DT_) {
+                            AssumptionCache *AC_, DominatorTree *DT_,
+                            MemorySSA *MSSA_) {
   bool MadeChange = false;
   MD = MD_;
   TLI = TLI_;
   AA = AA_;
   AC = AC_;
   DT = DT_;
+  MemorySSAUpdater MSSAU_(MSSA_);
+  MSSAU = MSSA_ ? &MSSAU_ : nullptr;
   // If we don't have at least memset and memcpy, there is little point of doing
   // anything here.  These are required by a freestanding implementation, so if
   // even they are disabled, there is no point in trying hard.
@@ -1373,6 +1498,9 @@ bool MemCpyOptPass::runImpl(Function &F, MemoryDependenceResults *MD_,
       break;
     MadeChange = true;
   }
+
+  if (MSSA_ && VerifyMemorySSA)
+    MSSA_->verifyMemorySSA();
 
   MD = nullptr;
   return MadeChange;
@@ -1388,6 +1516,8 @@ bool MemCpyOptLegacyPass::runOnFunction(Function &F) {
   auto *AA = &getAnalysis<AAResultsWrapperPass>().getAAResults();
   auto *AC = &getAnalysis<AssumptionCacheTracker>().getAssumptionCache(F);
   auto *DT = &getAnalysis<DominatorTreeWrapperPass>().getDomTree();
+  auto *MSSAWP = getAnalysisIfAvailable<MemorySSAWrapperPass>();
 
-  return Impl.runImpl(F, MD, TLI, AA, AC, DT);
+  return Impl.runImpl(F, MD, TLI, AA, AC, DT,
+                      MSSAWP ? &MSSAWP->getMSSA() : nullptr);
 }
