@@ -1,4 +1,4 @@
-// UNSUPPORTED: intel_opencl && i686-pc-windows
+// INTEL UNSUPPORTED: intel_opencl && i686-pc-windows
 // RUN: %clang_cc1 -fintel-compatibility -fasm-blocks -emit-llvm %s -o - | FileCheck %s
 
 __declspec(naked) int foo(void) {
