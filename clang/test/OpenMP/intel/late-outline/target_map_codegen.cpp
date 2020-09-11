@@ -149,4 +149,23 @@ int test_complex_class() {
   AOO *obj = new AOO(1000);
   return 0;
 }
+
+struct ThreadData { int teams; int threads;};
+
+void ThreadsTeams(ThreadData* threads)
+{
+// CHECK: [[TEAMS:%teams]] = getelementptr inbounds %struct.ThreadData,
+// CHECK: [[T:%[0-9]+]] = {{.*}}region.entry{{.*}}DIR.OMP.TARGET
+// CHECK-NOT: "QUAL.OMP.MAP.TOFROM"
+// CHECK: [[T1:%[0-9]+]] = {{.*}}region.entry{{.*}}DIR.OMP.TEAMS
+// CHECK: [[THREADS:%threads1]] = getelementptr inbounds %struct.ThreadData
+// CHECK: [[T2:%[0-9]+]] = {{.*}}region.entry{{.*}}DIR.OMP.DISTRIBUTE.PARLOOP
+#pragma omp target teams distribute parallel for num_teams(threads->teams) num_threads(threads->threads)
+   for (int i = 0; i < 100; ++i)
+   {
+   }
+// CHECK: region.exit(token [[T2]]) [ "DIR.OMP.END.DISTRIBUTE.PARLOOP"() ]
+// CHECK: region.exit(token [[T1]]) [ "DIR.OMP.END.TEAMS"() ]
+// CHECK: region.exit(token [[T]]) [ "DIR.OMP.END.TARGET"() ]
+}
 // end INTEL_COLLAB
