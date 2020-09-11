@@ -1,6 +1,10 @@
 ; INTEL_CUSTOMIZATION
-; RUN: opt -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -S < %s | FileCheck %s
-; RUN: opt -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt' -S < %s  | FileCheck %s
+; RUN: opt -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt  -vpo-paropt-fast-reduction-ctrl=0 -S < %s | FileCheck %s
+; RUN: opt -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt' -vpo-paropt-fast-reduction-ctrl=0 -S < %s  | FileCheck %s
+
+; This test is identical to Intel_fort_dv_par_reduction.ll, with -vpo-paropt-fast-reduction-ctrl=0
+; to disable creation of an extra local copy, outside the fast reduction struct,
+; for the reduction operand dope vector.
 
 ; This file is a simplified version of the IR emitted by ifx FE.
 ; Test src:
@@ -39,43 +43,33 @@
 ; Now check the code generated inside the outlined function for the parallel region.
 ; CHECK-LABEL: define internal void @foo{{[^ ]*}}DIR.OMP.PARALLEL{{[^ ]*}}(i32* {{[^ ,]+}}, i32* {{[^ ,]+}}, %"QNCA_a0$i16*$rank3$"* %"foo_$A")
 
-; Check for the allocation of local dope vector, and the fast reduction struct.
+; Check for the allocation of the fast reduction struct, but not an extra local dope vector.
 ; CHECK: [[FAST_RED_STR:[^ ]+]] = alloca %struct.fast_red_t, align 4
-; CHECK: [[PRIV_DV:[^ ]+]] = alloca %"QNCA_a0$i16*$rank3$", align 1
+; CHECK-NOT: alloca %"QNCA_a0$i16*$rank3$", align 1
+; CHECK: [[FAST_RED_DV:[^ ]+]] = getelementptr inbounds %struct.fast_red_t, %struct.fast_red_t* [[FAST_RED_STR]], i32 0, i32 0
 
-; Check that the dope vector init call is emitted for PRIV_DV.
-; CHECK: [[PRIV_DV_CAST:[^ ]+]] = bitcast %"QNCA_a0$i16*$rank3$"* [[PRIV_DV]] to i8*
+; Check that the dope vector init call is emitted for FAST_RED_DV.
+; CHECK: [[FAST_RED_DV_CAST:[^ ]+]] = bitcast %"QNCA_a0$i16*$rank3$"* [[FAST_RED_DV]] to i8*
 ; CHECK: [[ORIG_DV_CAST:[^ ]+]] = bitcast %"QNCA_a0$i16*$rank3$"* %"foo_$A" to i8*
-; CHECK: [[PRIV_DV_ARR_SIZE:[^ ]+]] = call i64 @_f90_dope_vector_init(i8* [[PRIV_DV_CAST]], i8* [[ORIG_DV_CAST]])
+; CHECK: [[FAST_RED_DV_ARR_SIZE:[^ ]+]] = call i64 @_f90_dope_vector_init(i8* [[FAST_RED_DV_CAST]], i8* [[ORIG_DV_CAST]])
 
 ; Check that local data is allocated and stored to the addr0 field of the dope vector.
-; CHECK: [[PRIV_DV_ADDR0:[^ ]+]] = getelementptr inbounds %"QNCA_a0$i16*$rank3$", %"QNCA_a0$i16*$rank3$"* [[PRIV_DV]], i32 0, i32 0
-; CHECK: [[PRIV_DV_DATA:[^ ]+]] = alloca i16, i64 [[PRIV_DV_ARR_SIZE]], align 1
-; CHECK: store i16* [[PRIV_DV_DATA]], i16** [[PRIV_DV_ADDR0]]
-; CHECK: [[NUM_ELEMENTS:[^ ]+]] = udiv i64 [[PRIV_DV_ARR_SIZE]], 2
+; CHECK: [[FAST_RED_DV_ADDR0:[^ ]+]] = getelementptr inbounds %"QNCA_a0$i16*$rank3$", %"QNCA_a0$i16*$rank3$"* [[FAST_RED_DV]], i32 0, i32 0
+; CHECK: [[FAST_RED_DV_DATA:[^ ]+]] = alloca i16, i64 [[FAST_RED_DV_ARR_SIZE]], align 1
+; CHECK: store i16* [[FAST_RED_DV_DATA]], i16** [[FAST_RED_DV_ADDR0]]
+; CHECK: [[NUM_ELEMENTS:[^ ]+]] = udiv i64 [[FAST_RED_DV_ARR_SIZE]], 2
 ; Check that num_elements is stored to a global so that it can be accessed from the reduction callback.
 ; CHECK: store i64 [[NUM_ELEMENTS]], i64* [[NUM_ELEMENTS_GV]], align 8
 
 ; Check that the GEP for the dope vector in the fast-reduction struct is computed:
-; CHECK: [[FAST_RED_DV:[^ ]+]] = getelementptr inbounds %struct.fast_red_t, %struct.fast_red_t* [[FAST_RED_STR]], i32 0, i32 0
 
-; Check that PRIV_DV is used for the code inside the parallel region.
-; CHECK: %"foo_$A.addr_a0$" = getelementptr inbounds %"QNCA_a0$i16*$rank3$", %"QNCA_a0$i16*$rank3$"* [[PRIV_DV]], i64 0, i32 0
+; Check that FAST_RED_DV is used for the code inside the parallel region.
+; CHECK: %"foo_$A.addr_a0$" = getelementptr inbounds %"QNCA_a0$i16*$rank3$", %"QNCA_a0$i16*$rank3$"* [[FAST_RED_DV]], i64 0, i32 0
 ; CHECK: %"foo_$A.addr_a0$_fetch" = load i16*, i16** %"foo_$A.addr_a0$", align 1
 ; CHECK: store i16 1, i16* %"foo_$A.addr_a0$_fetch", align 1
 
-; Check that the copy of the dope vector in the fast reduction struct is initialized.
-; CHECK: [[FAST_RED_DV_CAST:[^ ]+]] = bitcast %"QNCA_a0$i16*$rank3$"* [[FAST_RED_DV]] to i8*
-; CHECK: [[PRIV_DV_CAST:[^ ]+]] = bitcast %"QNCA_a0$i16*$rank3$"* [[PRIV_DV]] to i8*
-; CHECK: [[FAST_RED_DV_ARR_SIZE:[^ ]+]] = call i64 @_f90_dope_vector_init(i8* [[FAST_RED_DV_CAST]], i8* [[PRIV_DV_CAST]])
-; CHECK: [[FAST_RED_DV_ADDR0:[^ ]+]] = getelementptr inbounds %"QNCA_a0$i16*$rank3$", %"QNCA_a0$i16*$rank3$"* [[FAST_RED_DV]], i32 0, i32 0
-; CHECK: [[FAST_RED_DV_DATA:[^ ]+]] = alloca i16, i64 [[FAST_RED_DV_ARR_SIZE]], align 1
-; CHECK: store i16* [[FAST_RED_DV_DATA]], i16** [[FAST_RED_DV_ADDR0]]
-; CHECK: [[NUM_ELEMENTS_1:[^ ]+]] = udiv i64 [[FAST_RED_DV_ARR_SIZE]], 2
-
-; Check for calls to kmpc_[end_]reduce, and that FAST_RED_DV and Orig (%"foo_$A") are used between those calls, but not PRIV_DV.
+; Check for calls to kmpc_[end_]reduce, and that FAST_RED_DV and Orig (%"foo_$A") are used between those calls.
 ; CHECK: {{[^ ]+}} = call i32 @__kmpc_reduce(%struct.ident_t* {{[^ ,]+}}, i32 {{[^ ,]+}}, i32 1, i32 120, i8* {{[^ ,]+}}, void (i8*, i8*)* @foo{{[^ ,]*}}tree_reduce{{[^ ,]*}}, [8 x i32]* {{[^ ,]+}})
-; CHECK-NOT: {{[^ ]+}} = getelementptr inbounds %"QNCA_a0$i16*$rank3$", %"QNCA_a0$i16*$rank3$"* [[PRIV_DV]], i32 0, i32 0
 ; CHECK: {{[^ ]+}} = getelementptr inbounds %"QNCA_a0$i16*$rank3$", %"QNCA_a0$i16*$rank3$"* [[FAST_RED_DV]], i32 0, i32 0
 ; CHECK: {{[^ ]+}} = getelementptr inbounds %"QNCA_a0$i16*$rank3$", %"QNCA_a0$i16*$rank3$"* %"foo_$A", i32 0, i32 0
 ; CHECK: call void @__kmpc_end_reduce(%struct.ident_t* {{[^ ,]+}}, i32 {{[^ ,]+}}, [8 x i32]* {{[^ ,]+}})
