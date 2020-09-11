@@ -23,7 +23,7 @@ define dso_local void @foo(i32* nocapture readonly %a, i32* nocapture %b, i32* n
 ; CHECK-NEXT:    no PREDECESSORS
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB1]]:
-; CHECK-NEXT:     [DA: Div] i32* [[VP_I_LPRIV:%.*]] = allocate-priv i32*
+; CHECK-NEXT:     [DA: Div] i32* [[VP_I_LPRIV:%.*]] = allocate-priv i32*, OrigAlign = 4
 ; CHECK-NEXT:     [DA: Div] i64 [[VP_INDVARS_IV_IND_INIT:%.*]] = induction-init{add} i64 live-in0 i64 1
 ; CHECK-NEXT:     [DA: Uni] i64 [[VP_INDVARS_IV_IND_INIT_STEP:%.*]] = induction-init-step{add} i64 1
 ; CHECK-NEXT:     [DA: Uni] i64 [[VP_VF:%.*]] = induction-init-step{add} i64 1
@@ -55,7 +55,7 @@ define dso_local void @foo(i32* nocapture readonly %a, i32* nocapture %b, i32* n
 ; CHECK-NEXT:      PREDECESSORS(1): all.zero.bypass.begin27
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB5]]:
-; CHECK-NEXT:       [DA: Div] i32 [[VP2:%.*]] = phi  [ i32 [[VP0]], [[BB4]] ],  [ i32 [[VP__PRE_SSA_PHI_BLEND_BB13:%.*]], [[BB6:BB[0-9]+]] ]
+; CHECK-NEXT:       [DA: Div] i32 [[VP2:%.*]] = phi  [ i32 [[VP0]], [[BB4]] ],  [ i32 [[VP__PRE:%.*]], [[BB6:BB[0-9]+]] ]
 ; CHECK-NEXT:       [DA: Div] i32 [[VP_STOREMERGE28:%.*]] = phi  [ i32 [[VP0]], [[BB4]] ],  [ i32 [[VP_INC:%.*]], [[BB6]] ]
 ; CHECK-NEXT:       [DA: Div] i1 [[VP_LOOP_MASK:%.*]] = phi  [ i1 [[VP_CMP127]], [[BB4]] ],  [ i1 [[VP_LOOP_MASK_NEXT:%.*]], [[BB6]] ]
 ; CHECK-NEXT:       [DA: Div] i1 [[VP3:%.*]] = block-predicate i1 [[VP_CMP127]]
@@ -140,12 +140,11 @@ define dso_local void @foo(i32* nocapture readonly %a, i32* nocapture %b, i32* n
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB19]]:
 ; CHECK-NEXT:       [DA: Div] i1 [[VP13:%.*]] = block-predicate i1 [[VP_BB11_BR_VP_EXITCOND_NOT]]
-; CHECK-NEXT:       [DA: Div] i32 [[VP__PRE:%.*]] = load i32* [[VP_ARRAYIDX]]
+; CHECK-NEXT:       [DA: Div] i32 [[VP__PRE]] = load i32* [[VP_ARRAYIDX]]
 ; CHECK-NEXT:      SUCCESSORS(1):[[NEW_LOOP_LATCH0:new.loop.latch[0-9]+]]
 ; CHECK-NEXT:      PREDECESSORS(1): [[BB18]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[NEW_LOOP_LATCH0]]:
-; CHECK-NEXT:       [DA: Div] i32 [[VP__PRE_SSA_PHI_BLEND_BB13]] = blend [ i32 undef, i1 [[VP_BB5_BR_VP_LOOP_MASK]] ], [ i32 [[VP__PRE]], i1 [[VP_BB11_BR_VP_EXITCOND_NOT]] ]
 ; CHECK-NEXT:       [DA: Div] i1 [[VP_TAKEBACKEDGECOND_BLEND_BB13:%.*]] = blend [ i1 false, i1 [[VP_BB5_BR_VP_LOOP_MASK]] ], [ i1 true, i1 [[VP_BB11_BR_VP_EXITCOND_NOT]] ]
 ; CHECK-NEXT:       [DA: Div] i1 [[VP14:%.*]] = block-predicate i1 [[VP_BB5_BR_VP_LOOP_MASK]]
 ; CHECK-NEXT:      SUCCESSORS(1):[[BB6]]

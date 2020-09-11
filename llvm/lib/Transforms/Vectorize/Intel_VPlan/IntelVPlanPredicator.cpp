@@ -666,11 +666,17 @@ public:
   /// when we arrive at the unpredicated block.
   void getBlendArgs(int Idx, VPBasicBlock *AtBB,
                     SmallVectorImpl<VPValue *> &BlendOps) {
+    auto IsUndef = [](const VPValue *V) {
+      return isa<VPConstant>(V) &&
+             isa<UndefValue>(cast<VPConstant>(V)->getConstant());
+    };
     if (OrigValsMaps[Idx].count(AtBB)) {
       VPValue *Val = OrigValsMaps[Idx][AtBB];
-      VPValue *Pred = AtBB->getPredicate();
-      BlendOps.push_back(Pred);
-      BlendOps.push_back(Val);
+      if (!IsUndef(Val)) {
+        VPValue *Pred = AtBB->getPredicate();
+        BlendOps.push_back(Pred);
+        BlendOps.push_back(Val);
+      }
     }
     // The phi corresponds to the values blended earlier in CFG than the def
     // from the block itself.
