@@ -41,6 +41,7 @@
 #include "llvm/Support/CommandLine.h"
 
 #include "llvm/Analysis/Intel_Andersens.h"
+#include "llvm/Analysis/GlobalsModRef.h"
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/Analysis/ScalarEvolution.h"
 #include "llvm/Analysis/ScalarEvolutionExpressions.h"
@@ -192,6 +193,7 @@ PreservedAnalyses HIRSSADeconstructionPass::run(Function &F,
   PA.preserve<HIRRegionIdentificationAnalysis>();
   PA.preserve<HIRSCCFormationAnalysis>();
   PA.preserve<AndersensAA>();
+  PA.preserve<GlobalsAA>();
   return PA;
 }
 
@@ -238,6 +240,7 @@ public:
     AU.addPreserved<HIRRegionIdentificationWrapperPass>();
     AU.addPreserved<HIRSCCFormationWrapperPass>();
     AU.addPreserved<AndersensAAWrapperPass>();
+    AU.addPreserved<GlobalsAAWrapperPass>();
   }
 };
 

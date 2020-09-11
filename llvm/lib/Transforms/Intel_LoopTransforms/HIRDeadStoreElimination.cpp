@@ -553,7 +553,7 @@ bool HIRDeadStoreElimination::doSingleItemGroup(
   }
   auto *Parent = DDNode->getParent();
   HLNodeUtils::remove(DDNode);
-  HLNodeUtils::removeEmptyNodes(Parent, true);
+  HLNodeUtils::removeRedundantNodes(Parent, true);
   ++NumHIRDeadLocalStoreEliminated;
 
   return true;
@@ -647,7 +647,7 @@ bool HIRDeadStoreElimination::run(HLRegion &Region, HLLoop *Lp, bool IsRegion) {
 
         auto *PrevParent = PrevDDNode->getParent();
         HLNodeUtils::remove(const_cast<HLDDNode *>(PrevDDNode));
-        HLNodeUtils::removeEmptyNodes(PrevParent, true);
+        HLNodeUtils::removeRedundantNodes(PrevParent, true);
         ++NumHIRDeadRegularStoreEliminated;
         Result = true;
 
