@@ -680,6 +680,7 @@ int FuzzerDriver(int *argc, char ***argv, UserCallback Callback) {
   Options.IgnoreCrashes = Flags.ignore_crashes;
   Options.MaxTotalTimeSec = Flags.max_total_time;
   Options.DoCrossOver = Flags.cross_over;
+  Options.CrossOverUniformDist = Flags.cross_over_uniform_dist;
   Options.MutateDepth = Flags.mutate_depth;
   Options.ReduceDepth = Flags.reduce_depth;
   Options.UseCounters = Flags.use_counters;
@@ -763,6 +764,7 @@ int FuzzerDriver(int *argc, char ***argv, UserCallback Callback) {
       (size_t)Flags.entropic_feature_frequency_threshold;
   Options.EntropicNumberOfRarestFeatures =
       (size_t)Flags.entropic_number_of_rarest_features;
+  Options.EntropicScalePerExecTime = Flags.entropic_scale_per_exec_time;
   if (Options.Entropic) {
     if (!Options.FocusFunction.empty()) {
       Printf("ERROR: The parameters `--entropic` and `--focus_function` cannot "
@@ -778,6 +780,7 @@ int FuzzerDriver(int *argc, char ***argv, UserCallback Callback) {
   Entropic.FeatureFrequencyThreshold =
       Options.EntropicFeatureFrequencyThreshold;
   Entropic.NumberOfRarestFeatures = Options.EntropicNumberOfRarestFeatures;
+  Entropic.ScalePerExecTime = Options.EntropicScalePerExecTime;
 
   unsigned Seed = Flags.seed;
   // Initialize Seed.

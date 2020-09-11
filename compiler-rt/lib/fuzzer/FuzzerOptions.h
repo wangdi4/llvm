@@ -31,6 +31,7 @@ struct FuzzingOptions {
   int RssLimitMb = 0;
   int MallocLimitMb = 0;
   bool DoCrossOver = true;
+  bool CrossOverUniformDist = false;
   int MutateDepth = 5;
   bool ReduceDepth = false;
   bool UseCounters = false;
@@ -48,6 +49,7 @@ struct FuzzingOptions {
   bool Entropic = false;
   size_t EntropicFeatureFrequencyThreshold = 0xFF;
   size_t EntropicNumberOfRarestFeatures = 100;
+  bool EntropicScalePerExecTime = false;
   std::string OutputCorpus;
   std::string ArtifactPrefix = "./";
   std::string ExactArtifactPath;
