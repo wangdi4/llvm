@@ -648,6 +648,8 @@ private:
 
   void processWinEhOperands(Instruction &AI);
   void checkCall(CallBase &CB);
+  bool checkConstraintsSizeLimitExceeded(bool AfterOpt);
+  void clearOnEarlyExit(void);
  
 };
 
