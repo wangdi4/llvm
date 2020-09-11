@@ -814,7 +814,7 @@ bool BranchProbabilityInfo::calcLoopBranchHeuristics(const BasicBlock *BB,
 #if INTEL_CUSTOMIZATION
   bool IsADIL = false;
   if (LB.getLoop() && enableAbnormalDeepLoopHeuristics &&
-      maxLoopDepth(LB.getLoop()) >= AbnormalLoopDepthThreshold)
+      maxLoopDepth(LB.getLoop()) >= AbnormalLoopDepthThreshold && CurrentDT)
     IsADIL = true;
 #endif // INTEL_CUSTOMIZATIO
 
@@ -846,9 +846,8 @@ bool BranchProbabilityInfo::calcLoopBranchHeuristics(const BasicBlock *BB,
 
 #if INTEL_CUSTOMIZATION
   if (BackEdges.empty() && ExitingEdges.empty() && UnlikelyEdges.empty()) {
-    if (!IsADIL || InEdges.empty())
+    if (!IsADIL || InEdges.empty() || !CurrentDT)
       return false;
-    assert(CurrentDT);
     SmallVector<unsigned, 8> InnerLoopEdges;
     SmallVector<unsigned, 8> CurrentLoopEdges;
     for (unsigned SuccIdx : InEdges) {
@@ -1334,6 +1333,10 @@ void BranchProbabilityInfo::calculate(const Function &F, const LoopInfo &LI,
   PostDominatedByUnreachable.clear();
   PostDominatedByColdCall.clear();
   SccI.reset();
+
+#if INTEL_CUSTOMIZATION
+  CurrentDT = nullptr;
+#endif // INTEL_CUSTOMIZATION
 
   if (PrintBranchProb &&
       (PrintBranchProbFuncName.empty() ||
