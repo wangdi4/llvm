@@ -4729,7 +4729,7 @@ unsigned HIRParser::getPointerDimensionSize(const Value *Ptr) const {
       }
     } else if (auto GEPOp = dyn_cast<GEPOperator>(Ptr)) {
       if (GEPOp->getNumOperands() == 2) {
-        Ptr = traceSingleOperandPhis(GEPOp->getPointerOperand());
+        Ptr = GEPOp->getPointerOperand();
       } else {
         auto *ArrTy = dyn_cast<ArrayType>(GEPOp->getSourceElementType());
         return ArrTy ? ArrTy->getArrayNumElements() : 0;
