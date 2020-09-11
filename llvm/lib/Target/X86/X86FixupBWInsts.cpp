@@ -199,15 +199,9 @@ bool FixupBWInstPass::runOnMachineFunction(MachineFunction &MF) {
 ///
 /// If so, return that super register in \p SuperDestReg.
 bool FixupBWInstPass::getSuperRegDestIfDead(MachineInstr *OrigMI,
-<<<<<<< HEAD
                                             Register &SuperDestReg, // INTEL
                                             bool IsMOV) const { // INTEL
-  auto *TRI = &TII->getRegisterInfo();
-
-=======
-                                            Register &SuperDestReg) const {
   const X86RegisterInfo *TRI = &TII->getRegisterInfo();
->>>>>>> 890707aa0169a259ab8572091120756aec2d0c06
   Register OrigDestReg = OrigMI->getOperand(0).getReg();
   SuperDestReg = getX86SubSuperRegister(OrigDestReg, 32);
 
