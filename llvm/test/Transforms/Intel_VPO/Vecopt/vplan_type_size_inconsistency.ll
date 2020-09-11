@@ -16,14 +16,14 @@ define void @vecInStruct(%vec3 addrspace(1)* %base.ptr) {
 ; CHECK-NEXT:    [[UNI_PHI1:%.*]] = phi i64 [ 0, [[VECTOR_PH]] ], [ [[TMP2:%.*]], [[VECTOR_BODY]] ]
 ; CHECK-NEXT:    [[VEC_PHI:%.*]] = phi <8 x i64> [ <i64 0, i64 1, i64 2, i64 3, i64 4, i64 5, i64 6, i64 7>, [[VECTOR_PH]] ], [ [[TMP1:%.*]], [[VECTOR_BODY]] ]
 ; CHECK-NEXT:    [[MM_VECTORGEP:%.*]] = getelementptr inbounds [[VEC3:%.*]], <8 x [[VEC3]] addrspace(1)*> [[BROADCAST_SPLAT:%.*]], <8 x i64> [[VEC_PHI]]
-; CHECK-NEXT:    [[MM_VECTORGEP_EXTRACT_0_:%.*]] = extractelement <8 x [[VEC3]] addrspace(1)*> [[MM_VECTORGEP]], i32 0
-; CHECK-NEXT:    [[SCALAR_GEP:%.*]] = getelementptr inbounds [[VEC3]], [[VEC3]] addrspace(1)* [[MM_VECTORGEP_EXTRACT_0_]], i64 0, i32 0
-; CHECK-NEXT:    [[TMP0:%.*]] = bitcast <3 x i32> addrspace(1)* [[SCALAR_GEP]] to <24 x i32> addrspace(1)*
-; FIXME: Incoming vector load is treated incorrectly as unit-stride access, alloc and store type sizes don't match.
-; CHECK-NEXT:    [[WIDE_LOAD:%.*]] = load <24 x i32>, <24 x i32> addrspace(1)* [[TMP0]], align 16
-; CHECK-NEXT:    [[WIDE_EXTRACT:%.*]] = shufflevector <24 x i32> [[WIDE_LOAD]], <24 x i32> undef, <8 x i32> <i32 0, i32 3, i32 6, i32 9, i32 12, i32 15, i32 18, i32 21>
-; CHECK-NEXT:    [[WIDE_EXTRACT2:%.*]] = shufflevector <24 x i32> [[WIDE_LOAD]], <24 x i32> undef, <8 x i32> <i32 1, i32 4, i32 7, i32 10, i32 13, i32 16, i32 19, i32 22>
-; CHECK-NEXT:    [[WIDE_EXTRACT3:%.*]] = shufflevector <24 x i32> [[WIDE_LOAD]], <24 x i32> undef, <8 x i32> <i32 2, i32 5, i32 8, i32 11, i32 14, i32 17, i32 20, i32 23>
+; CHECK-NEXT:    [[MM_VECTORGEP2:%.*]] = getelementptr inbounds [[VEC3]], <8 x [[VEC3]] addrspace(1)*> [[MM_VECTORGEP]], <8 x i64> zeroinitializer, <8 x i32> zeroinitializer
+; CHECK-NEXT:    [[TMP0:%.*]] = bitcast <8 x <3 x i32> addrspace(1)*> [[MM_VECTORGEP2]] to <8 x i32 addrspace(1)*>
+; CHECK-NEXT:    [[VECBASEPTR_:%.*]] = shufflevector <8 x i32 addrspace(1)*> [[TMP0]], <8 x i32 addrspace(1)*> undef, <24 x i32> <i32 0, i32 0, i32 0, i32 1, i32 1, i32 1, i32 2, i32 2, i32 2, i32 3, i32 3, i32 3, i32 4, i32 4, i32 4, i32 5, i32 5, i32 5, i32 6, i32 6, i32 6, i32 7, i32 7, i32 7>
+; CHECK-NEXT:    [[ELEMBASEPTR_:%.*]] = getelementptr i32, <24 x i32 addrspace(1)*> [[VECBASEPTR_]], <24 x i64> <i64 0, i64 1, i64 2, i64 0, i64 1, i64 2, i64 0, i64 1, i64 2, i64 0, i64 1, i64 2, i64 0, i64 1, i64 2, i64 0, i64 1, i64 2, i64 0, i64 1, i64 2, i64 0, i64 1, i64 2>
+; CHECK-NEXT:    [[WIDE_MASKED_GATHER:%.*]] = call <24 x i32> @llvm.masked.gather.v24i32.v24p1i32(<24 x i32 addrspace(1)*> [[ELEMBASEPTR_]], i32 4, <24 x i1> <i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true>, <24 x i32> undef)
+; CHECK-NEXT:    [[WIDE_EXTRACT:%.*]] = shufflevector <24 x i32> [[WIDE_MASKED_GATHER]], <24 x i32> undef, <8 x i32> <i32 0, i32 3, i32 6, i32 9, i32 12, i32 15, i32 18, i32 21>
+; CHECK-NEXT:    [[WIDE_EXTRACT3:%.*]] = shufflevector <24 x i32> [[WIDE_MASKED_GATHER]], <24 x i32> undef, <8 x i32> <i32 1, i32 4, i32 7, i32 10, i32 13, i32 16, i32 19, i32 22>
+; CHECK-NEXT:    [[WIDE_EXTRACT4:%.*]] = shufflevector <24 x i32> [[WIDE_MASKED_GATHER]], <24 x i32> undef, <8 x i32> <i32 2, i32 5, i32 8, i32 11, i32 14, i32 17, i32 20, i32 23>
 ;
 entry:
   br label %simd.loop.ph
@@ -58,13 +58,14 @@ define void @vecTy(<3 x i32>* %base.ptr) {
 ; CHECK-NEXT:    [[UNI_PHI:%.*]] = phi i64 [ 0, [[VECTOR_PH:%.*]] ], [ [[TMP3:%.*]], [[VECTOR_BODY:%.*]] ]
 ; CHECK-NEXT:    [[UNI_PHI1:%.*]] = phi i64 [ 0, [[VECTOR_PH]] ], [ [[TMP2:%.*]], [[VECTOR_BODY]] ]
 ; CHECK-NEXT:    [[VEC_PHI:%.*]] = phi <8 x i64> [ <i64 0, i64 1, i64 2, i64 3, i64 4, i64 5, i64 6, i64 7>, [[VECTOR_PH]] ], [ [[TMP1:%.*]], [[VECTOR_BODY]] ]
-; CHECK-NEXT:    [[SCALAR_GEP:%.*]] = getelementptr inbounds <3 x i32>, <3 x i32>* [[BASE_PTR:%.*]], i64 [[UNI_PHI1]]
-; CHECK-NEXT:    [[TMP0:%.*]] = bitcast <3 x i32>* [[SCALAR_GEP]] to <24 x i32>*
-; FIXME: Incoming vector load is treated incorrectly as unit-stride access, alloc and store type sizes don't match.
-; CHECK-NEXT:    [[WIDE_LOAD:%.*]] = load <24 x i32>, <24 x i32>* [[TMP0]], align 16
-; CHECK-NEXT:    [[WIDE_EXTRACT:%.*]] = shufflevector <24 x i32> [[WIDE_LOAD]], <24 x i32> undef, <8 x i32> <i32 0, i32 3, i32 6, i32 9, i32 12, i32 15, i32 18, i32 21>
-; CHECK-NEXT:    [[WIDE_EXTRACT2:%.*]] = shufflevector <24 x i32> [[WIDE_LOAD]], <24 x i32> undef, <8 x i32> <i32 1, i32 4, i32 7, i32 10, i32 13, i32 16, i32 19, i32 22>
-; CHECK-NEXT:    [[WIDE_EXTRACT3:%.*]] = shufflevector <24 x i32> [[WIDE_LOAD]], <24 x i32> undef, <8 x i32> <i32 2, i32 5, i32 8, i32 11, i32 14, i32 17, i32 20, i32 23>
+; CHECK-NEXT:    [[MM_VECTORGEP:%.*]] = getelementptr inbounds <3 x i32>, <8 x <3 x i32>*> [[BROADCAST_SPLAT:%.*]], <8 x i64> [[VEC_PHI]]
+; CHECK-NEXT:    [[TMP0:%.*]] = bitcast <8 x <3 x i32>*> [[MM_VECTORGEP]] to <8 x i32*>
+; CHECK-NEXT:    [[VECBASEPTR_:%.*]] = shufflevector <8 x i32*> [[TMP0]], <8 x i32*> undef, <24 x i32> <i32 0, i32 0, i32 0, i32 1, i32 1, i32 1, i32 2, i32 2, i32 2, i32 3, i32 3, i32 3, i32 4, i32 4, i32 4, i32 5, i32 5, i32 5, i32 6, i32 6, i32 6, i32 7, i32 7, i32 7>
+; CHECK-NEXT:    [[ELEMBASEPTR_:%.*]] = getelementptr i32, <24 x i32*> [[VECBASEPTR_]], <24 x i64> <i64 0, i64 1, i64 2, i64 0, i64 1, i64 2, i64 0, i64 1, i64 2, i64 0, i64 1, i64 2, i64 0, i64 1, i64 2, i64 0, i64 1, i64 2, i64 0, i64 1, i64 2, i64 0, i64 1, i64 2>
+; CHECK-NEXT:    [[WIDE_MASKED_GATHER:%.*]] = call <24 x i32> @llvm.masked.gather.v24i32.v24p0i32(<24 x i32*> [[ELEMBASEPTR_]], i32 4, <24 x i1> <i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true>, <24 x i32> undef)
+; CHECK-NEXT:    [[WIDE_EXTRACT:%.*]] = shufflevector <24 x i32> [[WIDE_MASKED_GATHER]], <24 x i32> undef, <8 x i32> <i32 0, i32 3, i32 6, i32 9, i32 12, i32 15, i32 18, i32 21>
+; CHECK-NEXT:    [[WIDE_EXTRACT2:%.*]] = shufflevector <24 x i32> [[WIDE_MASKED_GATHER]], <24 x i32> undef, <8 x i32> <i32 1, i32 4, i32 7, i32 10, i32 13, i32 16, i32 19, i32 22>
+; CHECK-NEXT:    [[WIDE_EXTRACT3:%.*]] = shufflevector <24 x i32> [[WIDE_MASKED_GATHER]], <24 x i32> undef, <8 x i32> <i32 2, i32 5, i32 8, i32 11, i32 14, i32 17, i32 20, i32 23>
 ;
 entry:
   br label %simd.loop.ph
@@ -99,7 +100,7 @@ define void @structTy(%myStruct* %base.ptr) {
 ; CHECK-NEXT:    [[UNI_PHI:%.*]] = phi i64 [ 0, [[VECTOR_PH:%.*]] ], [ [[TMP2:%.*]], [[VECTOR_BODY:%.*]] ]
 ; CHECK-NEXT:    [[UNI_PHI1:%.*]] = phi i64 [ 0, [[VECTOR_PH]] ], [ [[TMP1:%.*]], [[VECTOR_BODY]] ]
 ; CHECK-NEXT:    [[VEC_PHI:%.*]] = phi <8 x i64> [ <i64 0, i64 1, i64 2, i64 3, i64 4, i64 5, i64 6, i64 7>, [[VECTOR_PH]] ], [ [[TMP0:%.*]], [[VECTOR_BODY]] ]
-; CHECK-NEXT:    [[MM_VECTORGEP:%.*]] = getelementptr inbounds [[MYSTRUCT:%.*]], <8 x %myStruct*> [[BROADCAST_SPLAT]], <8 x i64> [[VEC_PHI]]
+; CHECK-NEXT:    [[MM_VECTORGEP:%.*]] = getelementptr inbounds [[MYSTRUCT:%.*]], <8 x %myStruct*> [[BROADCAST_SPLAT:%.*]], <8 x i64> [[VEC_PHI]]
 ; CHECK-NEXT:    [[MM_VECTORGEP2:%.*]] = getelementptr inbounds [[MYSTRUCT]], <8 x %myStruct*> [[MM_VECTORGEP]], <8 x i64> zeroinitializer, <8 x i32> zeroinitializer
 ; CHECK-NEXT:    [[WIDE_MASKED_GATHER:%.*]] = call <8 x i32> @llvm.masked.gather.v8i32.v8p0i32(<8 x i32*> [[MM_VECTORGEP2]], i32 4, <8 x i1> <i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true>, <8 x i32> undef)
 ;
