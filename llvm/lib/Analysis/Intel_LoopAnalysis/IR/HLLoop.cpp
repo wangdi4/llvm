@@ -1175,28 +1175,42 @@ void HLLoop::verify() const {
          "Found an empty Loop, assumption that there should be no empty loops");
 }
 
+static inline bool nodeIsDirective(const HLNode *Node, int DirectiveID) {
+  const HLInst *I = dyn_cast<HLInst>(Node);
+  // Loop, IF, Switch, etc.
+  if (!I)
+    return false;
+
+  return I->isDirective(DirectiveID);
+}
+
 static bool nodeHasDirective(const HLNode *Node, int DirectiveID) {
   while (Node = Node->getPrevNode()) {
-    const HLInst *I = dyn_cast<HLInst>(Node);
-    // Loop, IF, Switch, etc.
-    if (!I)
-      return false;
-    if (I->isDirective(DirectiveID))
+    if (nodeIsDirective(Node, DirectiveID)) {
       return true;
+    }
   }
   return false;
 }
 
 bool HLLoop::hasDirective(int DirectiveID) const {
   // Allow SIMD loop detection if directive is inside loop's Preheader.
-  if (hasPreheader() && nodeHasDirective(getLastPreheaderNode(), DirectiveID))
+  if (hasPreheader() &&
+      (nodeIsDirective(getLastPreheaderNode(), DirectiveID) ||
+       nodeHasDirective(getLastPreheaderNode(), DirectiveID))) {
     return true;
+  }
+
   // Allow SIMD loop detection if directive is sibling node to HLLoop.
-  if (nodeHasDirective(this, DirectiveID))
+  if (nodeHasDirective(this, DirectiveID)) {
     return true;
+  }
+
   // Allow SIMD loop detection inside if conditions inside SIMD region
-  if (auto *Parent = dyn_cast<HLIf>(getParent()))
+  if (auto *Parent = dyn_cast<HLIf>(getParent())) {
     return nodeHasDirective(Parent, DirectiveID);
+  }
+
   return false;
 }
 
