@@ -26,7 +26,6 @@
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/FormatVariadic.h"
 #include "llvm/Support/raw_ostream.h"
-#include <unordered_set>
 #include <vector>
 
 using namespace llvm;
@@ -44,6 +43,7 @@ static cl::opt<bool>
                    cl::desc("Print all pass management debugging information. "
                             "`-debug-pass-manager` must also be specified"));
 
+<<<<<<< HEAD
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
 // A hidden option that prints out the IR after passes, similar to
 // -print-after-all except that it only prints the IR after passes that
@@ -73,6 +73,8 @@ static cl::list<std::string>
                              "match for the print-changed option"),
                     cl::CommaSeparated, cl::Hidden);
 
+=======
+>>>>>>> b2e65cf9501d791429e80cba8a9b8ed3d3f193f8
 namespace {
 
 /// Extracting Module out of \p IR unit. Also fills a textual description
@@ -219,39 +221,9 @@ void unwrapAndPrint(raw_ostream &OS, Any IR, StringRef Banner,
   llvm_unreachable("Unknown wrapped IR type");
 }
 
-// Return true when this is a pass for which printing of changes is desired.
-inline bool isIgnored(StringRef PassID) {
-  return PassID.startswith("PassManager<") || PassID.contains("PassAdaptor<");
-}
-
-// Return true when this is a defined function for which printing
-// of changes is desired.
-inline bool isInterestingFunction(const Function &F) {
-  return llvm::isFunctionInPrintList(F.getName());
-}
-
-// Return true when this is a pass for which printing of changes is desired.
-inline bool isInterestingPass(StringRef PassID) {
-  if (isIgnored(PassID))
-    return false;
-
-  static std::unordered_set<std::string> PrintPassNames(PrintPassesList.begin(),
-                                                        PrintPassesList.end());
-  return PrintPassNames.empty() || PrintPassNames.count(PassID.str());
-}
-
-// Return true when this is a pass on IR for which printing
-// of changes is desired.
-bool isInteresting(Any IR, StringRef PassID) {
-  if (!isInterestingPass(PassID))
-    return false;
-  if (any_isa<const Function *>(IR))
-    return isInterestingFunction(*any_cast<const Function *>(IR));
-  return true;
-}
-
 } // namespace
 
+<<<<<<< HEAD
 #endif //!defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
 
 template <typename T>
@@ -412,6 +384,8 @@ void IRChangePrinter::registerCallbacks(PassInstrumentationCallbacks &PIC) {
       });
 }
 
+=======
+>>>>>>> b2e65cf9501d791429e80cba8a9b8ed3d3f193f8
 PrintIRInstrumentation::~PrintIRInstrumentation() {
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
   assert(ModuleDescStack.empty() && "ModuleDescStack is not empty at exit");
@@ -585,5 +559,4 @@ void StandardInstrumentations::registerCallbacks(
 #endif //!defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
   TimePasses.registerCallbacks(PIC);
   OptNone.registerCallbacks(PIC);
-  PrintChangedIR.registerCallbacks(PIC);
 }
