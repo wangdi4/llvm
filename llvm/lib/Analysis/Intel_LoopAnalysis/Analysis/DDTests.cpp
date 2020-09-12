@@ -71,6 +71,7 @@
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/raw_ostream.h"
+#include <algorithm>
 
 using namespace llvm;
 using namespace llvm::loopopt;
@@ -3088,7 +3089,7 @@ bool DDTest::banerjeeMIVtest(const CanonExpr *Src, const CanonExpr *Dst,
   for (auto CurIVPair = Src->iv_begin(), E = Src->iv_end(); CurIVPair != E;
        ++CurIVPair) {
     unsigned IVLevel = Src->getLevel(CurIVPair);
-    if (InputDV[IVLevel - 1] == DVKind::EQ) {
+    if (IVLevel <= InputDV.size() && InputDV[IVLevel - 1] == DVKind::EQ) {
       Src->getIVCoeff(CurIVPair, &BlobIndex1, &Coeff1);
       Dst->getIVCoeff(IVLevel, &BlobIndex2, &Coeff2);
       if (BlobIndex1 == BlobIndex2 && Coeff1 == Coeff2) {
@@ -4582,7 +4583,7 @@ std::unique_ptr<Dependences> DDTest::depends(const DDRef *SrcDDRef,
                     << SrcDDRef->getHLDDNode()->getNumber() << ":"
                     << DstDDRef->getHLDDNode()->getNumber());
 
-  LLVM_DEBUG(dbgs() << "\n Input DV "; InputDV.print(dbgs(), MaxLoopNestLevel));
+  LLVM_DEBUG(dbgs() << "\n Input DV "; InputDV.print(dbgs()));
 
   assert(SrcDDRef->getSymbase() == DstDDRef->getSymbase() &&
          "Asking DDA for distinct references is useless");
@@ -5074,6 +5075,7 @@ std::unique_ptr<Dependences> DDTest::depends(const DDRef *SrcDDRef,
 
   for (unsigned II = 1; II <= CommonLevels; ++II) {
     unsigned Level = II - 1;
+    assert(Level < InputDV.size() && "Incorrect InputDV size");
     Result.DV[Level].Direction &= InputDV[Level];
     if (Result.DV[Level].Direction == DVKind::NONE) {
       LLVM_DEBUG(dbgs() << "\n\t return INDEP-09\n");
@@ -5234,20 +5236,13 @@ void DDTest::splitDVForForwardBackwardEdge(DirectionVector &ForwardDV,
 static void printDirDistVectors(DirectionVector &ForwardDV,
                                 DirectionVector &BackwardDV,
                                 DistanceVector &ForwardDistV,
-                                DistanceVector &BackwardDistV,
-                                unsigned Levels) {
+                                DistanceVector &BackwardDistV) {
 
-  LLVM_DEBUG(dbgs() << "\nforward DV: "; ForwardDV.print(dbgs(), Levels));
-  if (ForwardDV[0] != DVKind::NONE) {
-    LLVM_DEBUG(dbgs() << "\nforward DistV: ";
-               ForwardDistV.print(dbgs(), Levels));
-  }
+  LLVM_DEBUG(dbgs() << "\nforward DV: "; ForwardDV.print(dbgs()));
+  LLVM_DEBUG(dbgs() << "\nforward DistV: "; ForwardDistV.print(dbgs()));
 
-  LLVM_DEBUG(dbgs() << "\nbackward DV: "; BackwardDV.print(dbgs(), Levels));
-  if (BackwardDV[0] != DVKind::NONE) {
-    LLVM_DEBUG(dbgs() << "\nbackward DistV: ";
-               BackwardDistV.print(dbgs(), Levels));
-  }
+  LLVM_DEBUG(dbgs() << "\nbackward DV: "; BackwardDV.print(dbgs()));
+  LLVM_DEBUG(dbgs() << "\nbackward DistV: "; BackwardDistV.print(dbgs()));
 }
 
 DistTy DDTest::mapDVToDist(DVKind DV, unsigned Level,
@@ -5279,18 +5274,17 @@ void DDTest::populateDistanceVector(const DirectionVector &ForwardDV,
                                     const DirectionVector &BackwardDV,
                                     const Dependences &Result,
                                     DistanceVector &ForwardDistV,
-                                    DistanceVector &BackwardDistV,
-                                    unsigned Levels) {
+                                    DistanceVector &BackwardDistV) {
+  assert(ForwardDV.size() == BackwardDV.size() && "Mismatched DV sizes");
+  assert(ForwardDistV.size() == BackwardDistV.size() &&
+         "Mismatched DistV sizes");
+  assert(ForwardDV.size() == ForwardDistV.size() &&
+         "Mismatched DV/DistV sizes");
 
-  if (ForwardDV[0] != DVKind::NONE) {
-    for (unsigned II = 1; II <= Levels; ++II) {
-      ForwardDistV[II - 1] = mapDVToDist(ForwardDV[II - 1], II, Result);
-    }
-  }
-  if (BackwardDV[0] != DVKind::NONE) {
-    for (unsigned II = 1; II <= Levels; ++II) {
-      BackwardDistV[II - 1] = mapDVToDist(BackwardDV[II - 1], II, Result);
-    }
+  unsigned Levels = ForwardDV.size();
+  for (unsigned II = 1; II <= Levels; ++II) {
+    ForwardDistV[II - 1] = mapDVToDist(ForwardDV[II - 1], II, Result);
+    BackwardDistV[II - 1] = mapDVToDist(BackwardDV[II - 1], II, Result);
   }
 }
 
@@ -5532,12 +5526,6 @@ bool DDTest::findDependencies(DDRef *SrcDDRef, DDRef *DstDDRef,
   //    t1 =
   //       = t1
 
-  ForwardDV.setZero();
-  BackwardDV.setZero();
-
-  ForwardDistV.setZero();
-  BackwardDistV.setZero();
-
   // the argument after InputDV indicates calling to rebuild DDG
   auto Result = depends(SrcDDRef, DstDDRef, InputDV, true, AssumeLoopFusion);
 
@@ -5551,6 +5539,14 @@ bool DDTest::findDependencies(DDRef *SrcDDRef, DDRef *DstDDRef,
   }
 
   unsigned Levels = Result->getLevels();
+
+  // DVs and DistVs must always be smaller than the constructed capacity, so
+  // this should not result in reallocations.
+  ForwardDV.resize(Levels);
+  BackwardDV.resize(Levels);
+
+  ForwardDistV.resize(Levels);
+  BackwardDistV.resize(Levels);
 
   ///  Bidirectional DV is needed when scanning from L to R, it encounters
   ///  a * before hitting <.
@@ -5750,27 +5746,15 @@ bool DDTest::findDependencies(DDRef *SrcDDRef, DDRef *DstDDRef,
 L1:
 
   populateDistanceVector(ForwardDV, BackwardDV, *Result, ForwardDistV,
-                         BackwardDistV, Levels);
-  printDirDistVectors(ForwardDV, BackwardDV, ForwardDistV, BackwardDistV,
-                      Levels);
+                         BackwardDistV);
+  printDirDistVectors(ForwardDV, BackwardDV, ForwardDistV, BackwardDistV);
   return true;
-}
-
-// Returns last level used  in DV
-// e.g  ( = = >)  return 3
-unsigned DirectionVector::getLastLevel() const {
-  for (unsigned II = 1; II <= MaxLoopNestLevel; ++II) {
-    if ((*this)[II - 1] == DVKind::NONE) {
-      return II - 1;
-    }
-  }
-
-  return MaxLoopNestLevel;
 }
 
 void DirectionVector::setAsInput(const unsigned int StartLevel,
                                  const unsigned int EndLevel) {
   DirectionVector &InputDV = *this;
+  InputDV.resize(EndLevel);
 
   // setInputDV (&InputDV, 3,4)
   // will construct (= = * *)
@@ -5782,19 +5766,9 @@ void DirectionVector::setAsInput(const unsigned int StartLevel,
   for (unsigned II = StartLevel; II <= EndLevel; ++II) {
     InputDV[II - 1] = DVKind::ALL;
   }
-
-  for (unsigned II = EndLevel + 1; II <= MaxLoopNestLevel; ++II) {
-    InputDV[II - 1] = DVKind::NONE;
-  }
 }
 
-void DirectionVector::setZero() {
-  // Construct all  0 (NONE)
-  fill(DVKind::NONE);
-}
-
-void DirectionVector::print(raw_ostream &OS, unsigned Levels,
-                            bool ShowLevelDetail) const {
+void DirectionVector::print(raw_ostream &OS, bool ShowLevelDetail) const {
   const DirectionVector &DV = *this;
   if (DV[0] == DVKind::NONE) {
     OS << "nil\n";
@@ -5802,7 +5776,7 @@ void DirectionVector::print(raw_ostream &OS, unsigned Levels,
   }
 
   OS << "(";
-  for (unsigned II = 1; II <= Levels; ++II) {
+  for (unsigned II = 1, Levels = size(); II <= Levels; ++II) {
     if (ShowLevelDetail) {
       OS << II << ": ";
     }
@@ -5842,16 +5816,11 @@ void DirectionVector::print(raw_ostream &OS, unsigned Levels,
   OS << ") ";
 }
 
-void DistanceVector::setZero() {
-  // Construct all  0 (NONE)
-  fill(0);
-}
-
-void DistanceVector::print(raw_ostream &OS, unsigned Levels) const {
+void DistanceVector::print(raw_ostream &OS) const {
   const DistanceVector &DistV = *this;
 
   OS << "(";
-  for (unsigned II = 1; II <= Levels; ++II) {
+  for (unsigned II = 1, Levels = size(); II <= Levels; ++II) {
     DistTy Distance = DistV[II - 1];
     if (Distance == UnknownDistance) {
       OS << "?";
@@ -5865,22 +5834,10 @@ void DistanceVector::print(raw_ostream &OS, unsigned Levels) const {
   OS << ") ";
 }
 
-void DirectionVector::print(raw_ostream &OS, bool ShowLevelDetail) const {
-  print(OS, getLastLevel(), ShowLevelDetail);
-}
-
 /// Is  DV all ( = = = .. =)?
 bool DirectionVector::isEQ() const {
-  for (unsigned II = 1; II <= MaxLoopNestLevel; ++II) {
-    auto Direction = (*this)[II - 1];
-    if (Direction == DVKind::NONE) {
-      break;
-    }
-    if (Direction != DVKind::EQ) {
-      return false;
-    }
-  }
-  return true;
+  return std::all_of(begin(), end(),
+                     [](DVKind Dir) { return Dir == DVKind::EQ; });
 }
 
 /// DV with leading = in leftmost:  (= = = *)
@@ -5904,6 +5861,10 @@ bool DirectionVector::isTestingForInnermostLoop(
 bool DirectionVector::isIndepFromLevel(unsigned Level) const {
 
   assert(CanonExprUtils::isValidLoopLevel(Level) && "incorrect Level");
+
+  // If the Level is beyond the DV's common levels return true.
+  if (Level > size())
+    return true;
 
   // A DVKind::NONE at Level indicates no loop carried nor loop independent
   // dependence.

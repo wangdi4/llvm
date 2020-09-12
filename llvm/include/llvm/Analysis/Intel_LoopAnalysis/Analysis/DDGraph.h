@@ -199,7 +199,11 @@ private:
         return false;
 
       // Filter out edges carried outside the Node in question.
-      if (LoopNestLevel > Edge->getDV().getLastLevel())
+      // TODO: can this just check isIndepFromLevel()?
+      if (LoopNestLevel > Edge->getDV().size())
+        return false;
+      if (LoopNestLevel > 0 &&
+          Edge->getDVAtLevel(LoopNestLevel) == DVKind::NONE)
         return false;
 
       return true;

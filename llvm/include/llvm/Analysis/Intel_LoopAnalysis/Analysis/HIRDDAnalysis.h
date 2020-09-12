@@ -89,7 +89,7 @@ public:
     if (!isIndependent()) {
       DV.print(OS, false);
       OS << " ";
-      DistV.print(OS, DV.getLastLevel());
+      DistV.print(OS);
     }
 
     OS << "< ";
