@@ -15806,8 +15806,7 @@ Value *CodeGenFunction::EmitX86BuiltinExpr(unsigned BuiltinID,
   case X86::BI__builtin_ia32_psubusw256:
   case X86::BI__builtin_ia32_psubusb128:
   case X86::BI__builtin_ia32_psubusw128:
-<<<<<<< HEAD
-    return EmitX86AddSubSatExpr(*this, Ops, false, false);
+    return EmitX86BinaryIntrinsic(*this, Ops, Intrinsic::usub_sat);
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_KEYLOCKER
   case X86::BI__builtin_ia32_encodekey128:
@@ -15899,9 +15898,6 @@ Value *CodeGenFunction::EmitX86BuiltinExpr(unsigned BuiltinID,
   }
 #endif  // INTEL_FEATURE_ISA_KEYLOCKER
 #endif  // INTEL_CUSTOMIZATION
-=======
-    return EmitX86BinaryIntrinsic(*this, Ops, Intrinsic::usub_sat);
->>>>>>> a8a91533dd65041ced68ed5b9348b5d023837488
   }
 }
 
