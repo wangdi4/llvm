@@ -774,7 +774,11 @@ protected:
   virtual void printReloc(const Relocation<ELFT> &R, unsigned RelIndex,
                           const Elf_Shdr &Sec, const Elf_Shdr *SymTab) = 0;
   virtual void printRelrReloc(const Elf_Relr &R) = 0;
+  virtual void printDynamicReloc(const Relocation<ELFT> &R) = 0;
   void printRelocationsHelper(const Elf_Shdr &Sec);
+  void printDynamicRelocationsHelper();
+  virtual void printDynamicRelocHeader(unsigned Type, StringRef Name,
+                                       const DynRegionInfo &Reg){};
 
   StringRef getPrintableSectionName(const Elf_Shdr &Sec) const;
 
@@ -894,9 +898,12 @@ private:
   void printSymbol(const Elf_Sym *Symbol, const Elf_Sym *First,
                    Optional<StringRef> StrTable, bool IsDynamic,
                    bool NonVisibilityBitsUsed) override;
+  void printDynamicRelocHeader(unsigned Type, StringRef Name,
+                               const DynRegionInfo &Reg) override;
+  void printDynamicReloc(const Relocation<ELFT> &R) override;
+
   std::string getSymbolSectionNdx(const Elf_Sym *Symbol,
                                   const Elf_Sym *FirstSym);
-  void printDynamicRelocation(const Relocation<ELFT> &R);
   void printProgramHeaders();
   void printSectionMapping();
   void printGNUVersionSectionProlog(const typename ELFT::Shdr *Sec,
@@ -951,9 +958,9 @@ private:
   void printReloc(const Relocation<ELFT> &R, unsigned RelIndex,
                   const Elf_Shdr &Sec, const Elf_Shdr *SymTab) override;
   void printRelrReloc(const Elf_Relr &R) override;
+  void printDynamicReloc(const Relocation<ELFT> &R) override;
 
-  void printDynamicRelocation(const Relocation<ELFT> &R);
-
+  void printRelRelaReloc(const Relocation<ELFT> &R, StringRef SymbolName);
   void printSymbols();
   void printDynamicSymbols();
   void printSymbolSection(const Elf_Sym *Symbol, const Elf_Sym *First);
@@ -3694,10 +3701,9 @@ static void printRelocHeaderFields(formatted_raw_ostream &OS, unsigned SType) {
 }
 
 template <class ELFT>
-static void printDynamicRelocHeader(const ELFFile<ELFT> &Obj,
-                                    formatted_raw_ostream &OS, unsigned Type,
-                                    StringRef Name, const DynRegionInfo &Reg) {
-  uint64_t Offset = Reg.Addr - Obj.base();
+void GNUStyle<ELFT>::printDynamicRelocHeader(unsigned Type, StringRef Name,
+                                             const DynRegionInfo &Reg) {
+  uint64_t Offset = Reg.Addr - this->Obj.base();
   OS << "\n'" << Name.str().c_str() << "' relocation section at offset 0x"
      << to_hexString(Offset, false) << " contains " << Reg.Size << " bytes:\n";
   printRelocHeaderFields<ELFT>(OS, Type);
@@ -4376,7 +4382,7 @@ RelSymbol<ELFT> getSymbolForReloc(const ELFFile<ELFT> &Obj, StringRef FileName,
 } // namespace
 
 template <class ELFT>
-void GNUStyle<ELFT>::printDynamicRelocation(const Relocation<ELFT> &R) {
+void GNUStyle<ELFT>::printDynamicReloc(const Relocation<ELFT> &R) {
   printRelRelaReloc(
       R, getSymbolForReloc(this->Obj, this->FileName, this->dumper(), R));
 }
@@ -4424,39 +4430,43 @@ template <class ELFT> void GNUStyle<ELFT>::printDynamic() {
 }
 
 template <class ELFT> void GNUStyle<ELFT>::printDynamicRelocations() {
-  const DynRegionInfo &DynRelRegion = this->dumper()->getDynRelRegion();
-  const DynRegionInfo &DynRelaRegion = this->dumper()->getDynRelaRegion();
-  const DynRegionInfo &DynRelrRegion = this->dumper()->getDynRelrRegion();
-  const DynRegionInfo &DynPLTRelRegion = this->dumper()->getDynPLTRelRegion();
+  this->printDynamicRelocationsHelper();
+}
+
+template <class ELFT> void DumpStyle<ELFT>::printDynamicRelocationsHelper() {
   const bool IsMips64EL = this->Obj.isMips64EL();
+  const DynRegionInfo &DynRelaRegion = this->dumper()->getDynRelaRegion();
   if (DynRelaRegion.Size > 0) {
-    printDynamicRelocHeader(this->Obj, OS, ELF::SHT_RELA, "RELA",
-                            DynRelaRegion);
+    printDynamicRelocHeader(ELF::SHT_RELA, "RELA", DynRelaRegion);
     for (const Elf_Rela &Rela : this->dumper()->dyn_relas())
-      printDynamicRelocation(Relocation<ELFT>(Rela, IsMips64EL));
+      printDynamicReloc(Relocation<ELFT>(Rela, IsMips64EL));
   }
+
+  const DynRegionInfo &DynRelRegion = this->dumper()->getDynRelRegion();
   if (DynRelRegion.Size > 0) {
-    printDynamicRelocHeader(this->Obj, OS, ELF::SHT_REL, "REL", DynRelRegion);
+    printDynamicRelocHeader(ELF::SHT_REL, "REL", DynRelRegion);
     for (const Elf_Rel &Rel : this->dumper()->dyn_rels())
-      printDynamicRelocation(Relocation<ELFT>(Rel, IsMips64EL));
+      printDynamicReloc(Relocation<ELFT>(Rel, IsMips64EL));
   }
+
+  const DynRegionInfo &DynRelrRegion = this->dumper()->getDynRelrRegion();
   if (DynRelrRegion.Size > 0) {
-    printDynamicRelocHeader(this->Obj, OS, ELF::SHT_REL, "RELR", DynRelrRegion);
+    printDynamicRelocHeader(ELF::SHT_REL, "RELR", DynRelrRegion);
     Elf_Relr_Range Relrs = this->dumper()->dyn_relrs();
-    for (const Elf_Rel &R : this->Obj.decode_relrs(Relrs))
-      printDynamicRelocation(Relocation<ELFT>(R, IsMips64EL));
+    for (const Elf_Rel &Rel : Obj.decode_relrs(Relrs))
+      printDynamicReloc(Relocation<ELFT>(Rel, IsMips64EL));
   }
+
+  const DynRegionInfo &DynPLTRelRegion = this->dumper()->getDynPLTRelRegion();
   if (DynPLTRelRegion.Size) {
     if (DynPLTRelRegion.EntSize == sizeof(Elf_Rela)) {
-      printDynamicRelocHeader(this->Obj, OS, ELF::SHT_RELA, "PLT",
-                              DynPLTRelRegion);
+      printDynamicRelocHeader(ELF::SHT_RELA, "PLT", DynPLTRelRegion);
       for (const Elf_Rela &Rela : DynPLTRelRegion.getAsArrayRef<Elf_Rela>())
-        printDynamicRelocation(Relocation<ELFT>(Rela, IsMips64EL));
+        printDynamicReloc(Relocation<ELFT>(Rela, IsMips64EL));
     } else {
-      printDynamicRelocHeader(this->Obj, OS, ELF::SHT_REL, "PLT",
-                              DynPLTRelRegion);
+      printDynamicRelocHeader(ELF::SHT_REL, "PLT", DynPLTRelRegion);
       for (const Elf_Rel &Rel : DynPLTRelRegion.getAsArrayRef<Elf_Rel>())
-        printDynamicRelocation(Relocation<ELFT>(Rel, IsMips64EL));
+        printDynamicReloc(Relocation<ELFT>(Rel, IsMips64EL));
     }
   }
 }
@@ -6147,7 +6157,12 @@ void LLVMStyle<ELFT>::printReloc(const Relocation<ELFT> &R, unsigned RelIndex,
     return;
   }
 
-  std::string TargetName = Target->Name;
+  printRelRelaReloc(R, Target->Name);
+}
+
+template <class ELFT>
+void LLVMStyle<ELFT>::printRelRelaReloc(const Relocation<ELFT> &R,
+                                        StringRef SymbolName) {
   SmallString<32> RelocName;
   this->Obj.getRelocationTypeName(R.Type, RelocName);
 
@@ -6156,12 +6171,12 @@ void LLVMStyle<ELFT>::printReloc(const Relocation<ELFT> &R, unsigned RelIndex,
     DictScope Group(W, "Relocation");
     W.printHex("Offset", R.Offset);
     W.printNumber("Type", RelocName, R.Type);
-    W.printNumber("Symbol", !TargetName.empty() ? TargetName : "-", R.Symbol);
+    W.printNumber("Symbol", !SymbolName.empty() ? SymbolName : "-", R.Symbol);
     W.printHex("Addend", Addend);
   } else {
     raw_ostream &OS = W.startLine();
     OS << W.hex(R.Offset) << " " << RelocName << " "
-       << (!TargetName.empty() ? TargetName : "-") << " " << W.hex(Addend)
+       << (!SymbolName.empty() ? SymbolName : "-") << " " << W.hex(Addend)
        << "\n";
   }
 }
@@ -6344,59 +6359,18 @@ template <class ELFT> void LLVMStyle<ELFT>::printDynamic() {
 }
 
 template <class ELFT> void LLVMStyle<ELFT>::printDynamicRelocations() {
-  const DynRegionInfo &DynRelRegion = this->dumper()->getDynRelRegion();
-  const DynRegionInfo &DynRelaRegion = this->dumper()->getDynRelaRegion();
-  const DynRegionInfo &DynRelrRegion = this->dumper()->getDynRelrRegion();
-  const DynRegionInfo &DynPLTRelRegion = this->dumper()->getDynPLTRelRegion();
-  const bool IsMips64EL = this->Obj.isMips64EL();
-
   W.startLine() << "Dynamic Relocations {\n";
   W.indent();
-  if (DynRelaRegion.Size > 0) {
-    for (const Elf_Rela &Rela : this->dumper()->dyn_relas())
-      printDynamicRelocation(Relocation<ELFT>(Rela, IsMips64EL));
-  }
-  if (DynRelRegion.Size > 0) {
-    for (const Elf_Rel &Rel : this->dumper()->dyn_rels())
-      printDynamicRelocation(Relocation<ELFT>(Rel, IsMips64EL));
-  }
-
-  if (DynRelrRegion.Size > 0) {
-    Elf_Relr_Range Relrs = this->dumper()->dyn_relrs();
-    for (const Elf_Rel &Rel : this->Obj.decode_relrs(Relrs))
-      printDynamicRelocation(Relocation<ELFT>(Rel, IsMips64EL));
-  }
-  if (DynPLTRelRegion.EntSize == sizeof(Elf_Rela))
-    for (const Elf_Rela &Rela : DynPLTRelRegion.getAsArrayRef<Elf_Rela>())
-      printDynamicRelocation(Relocation<ELFT>(Rela, IsMips64EL));
-  else
-    for (const Elf_Rel &Rel : DynPLTRelRegion.getAsArrayRef<Elf_Rel>())
-      printDynamicRelocation(Relocation<ELFT>(Rel, IsMips64EL));
-
+  this->printDynamicRelocationsHelper();
   W.unindent();
   W.startLine() << "}\n";
 }
 
 template <class ELFT>
-void LLVMStyle<ELFT>::printDynamicRelocation(const Relocation<ELFT> &R) {
-  SmallString<32> RelocName;
-  this->Obj.getRelocationTypeName(R.Type, RelocName);
-  std::string SymbolName =
-      getSymbolForReloc(this->Obj, this->FileName, this->dumper(), R).Name;
-
-  uintX_t Addend = R.Addend.getValueOr(0);
-  if (opts::ExpandRelocs) {
-    DictScope Group(W, "Relocation");
-    W.printHex("Offset", R.Offset);
-    W.printNumber("Type", RelocName, R.Type);
-    W.printString("Symbol", !SymbolName.empty() ? SymbolName : "-");
-    W.printHex("Addend", Addend);
-  } else {
-    raw_ostream &OS = W.startLine();
-    OS << W.hex(R.Offset) << " " << RelocName << " "
-       << (!SymbolName.empty() ? SymbolName : "-") << " " << W.hex(Addend)
-       << "\n";
-  }
+void LLVMStyle<ELFT>::printDynamicReloc(const Relocation<ELFT> &R) {
+  RelSymbol<ELFT> S =
+      getSymbolForReloc(this->Obj, this->FileName, this->dumper(), R);
+  printRelRelaReloc(R, S.Name);
 }
 
 template <class ELFT>
