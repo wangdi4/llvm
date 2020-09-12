@@ -519,5 +519,38 @@ lpad:
 exit:
   ret void
 }
+; INTEL_CUSTOMIZATION
+define void @test_likely_loopbranch(i32 %a, i32 %max, i32* %addr.x, i32 %while.i)
+{
+entry:
+  %i0 = add i32 %a, 1
+  br label %loop.if
+; CHECK: edge entry -> loop.if probability is 0x80000000 / 0x80000000 = 100.00% [HOT edge]
 
+loop.if:                                          ; preds = %loop.while, %then.body
+  %i = phi i32 [ %i1, %loop.while ], [ %i0, %entry ]
+  %if.cmp = icmp ugt i32 %i, %max
+  br i1 %if.cmp, label %loop.while, label %then.body
+; CHECK: edge loop.if -> loop.while probability is 0x3d482789 / 0x80000000 = 47.88%
+; CHECK: edge loop.if -> then.body probability is 0x42b7d877 / 0x80000000 = 52.12%
+
+then.body:                                           ; preds = %loop.while
+  %addr.x72 = getelementptr inbounds i32, i32* %addr.x, i32 72
+  %x72 = load i32, i32* %addr.x72
+  %result = add i32 %x72, 1
+  store i32 %result, i32* %addr.x72
+  br label %loop.while
+; CHECK: edge then.body -> loop.while probability is 0x80000000 / 0x80000000 = 100.00% [HOT edge]
+loop.while:                                        ; preds = %afterloop, %loop.if
+  %i1 = add i32 %i, 1
+  %while.i.next = add i32 %while.i, -1
+  %condloop = icmp eq i32 %while.i.next, -1
+  br i1 %condloop, label %afterloop, label %loop.if
+; CHECK: edge loop.while -> afterloop probability is 0x04000000 / 0x80000000 = 3.12%
+; CHECK: edge loop.while -> loop.if probability is 0x7c000000 / 0x80000000 = 96.88% [HOT edge]
+
+afterloop:
+  ret void
+}
+; end INTEL_CUSTOMIZATION
 declare i32 @InvokeCall()

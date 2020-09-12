@@ -105,6 +105,10 @@ static const uint32_t LBH_TAKEN_WEIGHT = 124;
 static const uint32_t LBH_NONTAKEN_WEIGHT = 4;
 // Unlikely edges within a loop are half as likely as other edges
 static const uint32_t LBH_UNLIKELY_WEIGHT = 62;
+#if INTEL_CUSTOMIZATION
+// Likely edges within a loop are a little bigger than other edges
+static const uint32_t LBH_LIKELY_WEIGHT = 135;
+#endif // INTEL_CUSTOMIZATION
 
 /// Unreachable-terminating branch taken probability.
 ///
@@ -790,6 +794,115 @@ computeUnlikelySuccessors(const BasicBlock *BB, Loop *L,
 }
 
 #if INTEL_CUSTOMIZATION
+static void
+computeLikelySuccessors(const BasicBlock *BB, Loop *L,
+                          SmallPtrSetImpl<const BasicBlock*> &LikelyBlocks) {
+  // Consider the following C code example:
+  //  int n = a;
+  //  while (...) {
+  //    if (++n < max_invariant) {
+  //      do sth;
+  //    }
+  //  }
+  // The IR code is:
+  //  loop.if:
+  //    %i = phi i32 [ %i1, %loop.while ], [ %i0, %entry ]
+  //    %if.cmp = icmp ugt i32 %i, %max
+  //    br i1 %if.cmp, label %loop.while, label %then.body
+  //  then.body:
+  //    ;do sth
+  //    br label %loop.while
+  //  loop.while:
+  //    %i1 = add i32 %i, 1
+  //    ...
+  //    br i1 %condloop, label %afterloop, label %loop.if
+  //
+  // In this sort of situation it is very possible to take the branch
+  // again in the next iteration of the loop, so we should
+  // consider it more likely than a typical branch.
+  //
+  // We detect this by looking back through the graph of PHI nodes that compute the
+  // variable that belongs to the loop, and seeing if we can reach a successor
+  // block which can be determined to make the condition probably true.
+  //
+  // FIXME: We currently consider the situation of "++n < max_invariant",
+  // we could extense the pattern in the future if need.
+
+  const BranchInst *BI = dyn_cast<BranchInst>(BB->getTerminator());
+  if (!BI || !BI->isConditional())
+    return;
+
+  // Check if the branch is based on an instruction compared with a constant
+  // or a loop invariant
+  CmpInst *CI = dyn_cast<CmpInst>(BI->getCondition());
+  if (!CI || !isa<Instruction>(CI->getOperand(0)))
+    return;
+
+  Instruction *CmpRHS = dyn_cast<Instruction>(CI->getOperand(1));
+  if (!isa<Constant>(CI->getOperand(1)) && CmpRHS && L->contains(CmpRHS))
+    return;
+
+  // Either the instruction must be a PHI, or a chain of operations
+  // that ends in a PHI which we can then collapse into a simple operation
+  Instruction *CmpLHS = dyn_cast<Instruction>(CI->getOperand(0));
+  PHINode *CmpPHI = dyn_cast<PHINode>(CmpLHS);
+  // Collect the instructions until we hit a PHI
+  // FIXME: Use InstChain to recored all the operations to identify the likely
+  // branch pattern
+  // SmallVector<BinaryOperator *, 1> InstChain;
+  while (!CmpPHI && CmpLHS && isa<BinaryOperator>(CmpLHS)) {
+    // Stop if the chain extends outside of the loop
+    if (!L->contains(CmpLHS))
+      return;
+    // FIXME: recored all the operatins to identify the likely branch pattern
+    //InstChain.push_back(cast<BinaryOperator>(CmpLHS));
+    CmpLHS = dyn_cast<Instruction>(CmpLHS->getOperand(0));
+    if (CmpLHS)
+      CmpPHI = dyn_cast<PHINode>(CmpLHS);
+  }
+  if (!CmpPHI || !L->contains(CmpPHI))
+    return;
+
+  // Trace the phi node to find operations that come from successors of BB
+  SmallPtrSet<PHINode*, 8> VisitedInsts;
+  SmallVector<PHINode*, 8> WorkList;
+  WorkList.push_back(CmpPHI);
+  VisitedInsts.insert(CmpPHI);
+  while (!WorkList.empty()) {
+    PHINode *P = WorkList.back();
+    WorkList.pop_back();
+    for (BasicBlock *B : P->blocks()) {
+      // Skip blocks that aren't part of the loop
+      if (!L->contains(B))
+        continue;
+      Value *V = P->getIncomingValueForBlock(B);
+      // If the source is a PHI add it to the work list if we haven't
+      // already visited it.
+      if (PHINode *PN = dyn_cast<PHINode>(V)) {
+        if (VisitedInsts.insert(PN).second)
+          WorkList.push_back(PN);
+        continue;
+      }
+      // If B is a successor of BB,
+      // and (CmpLHS is INC) && (CmpLHS <= CmpRHS)
+      // we can valuate the compare result is likely true.
+      if (!llvm::is_contained(successors(BB), B))
+        continue;
+      Instruction *OpInst = dyn_cast<Instruction>(V);
+      if ((CI->getPredicate() == llvm::CmpInst::ICMP_UGT) &&
+           OpInst && OpInst->getOpcode() == llvm::Instruction::Add) {
+        ConstantInt *CV = dyn_cast_or_null<ConstantInt>(OpInst->getOperand(1));
+        if(CV && CV->isOne())  //condition of branch is: (i++) <= invariable
+        {
+          for(const_succ_iterator I = succ_begin(BB), E = succ_end(BB); I != E; ++I)
+            if ((*I)->getSingleSuccessor() ==  B)
+              LikelyBlocks.insert(*I);
+        }
+      }
+    }
+  }
+}
+
 static unsigned maxLoopDepth(Loop *L) {
   unsigned MaxDepth = 0;
   if (L->empty())
@@ -822,6 +935,14 @@ bool BranchProbabilityInfo::calcLoopBranchHeuristics(const BasicBlock *BB,
   if (LB.getLoop())
     computeUnlikelySuccessors(BB, LB.getLoop(), UnlikelyBlocks);
 
+#if INTEL_CUSTOMIZATION
+  SmallPtrSet<const BasicBlock*, 8> LikelyBlocks;
+  if (LB.getLoop())
+    computeLikelySuccessors(BB, LB.getLoop(), LikelyBlocks);
+
+  SmallVector<unsigned, 8> LikelyEdges;
+#endif // INTEL_CUSTOMIZATION
+
   SmallVector<unsigned, 8> BackEdges;
   SmallVector<unsigned, 8> ExitingEdges;
   SmallVector<unsigned, 8> InEdges; // Edges from header to the loop.
@@ -832,9 +953,17 @@ bool BranchProbabilityInfo::calcLoopBranchHeuristics(const BasicBlock *BB,
     LoopEdge Edge(LB, SuccLB);
     bool IsUnlikelyEdge =
         LB.getLoop() && (UnlikelyBlocks.find(*I) != UnlikelyBlocks.end());
+#if INTEL_CUSTOMIZATION
+    bool IsLikelyEdge =
+        LB.getLoop() && (LikelyBlocks.find(*I) != LikelyBlocks.end());
+#endif // INTEL_CUSTOMIZATION
 
     if (IsUnlikelyEdge)
       UnlikelyEdges.push_back(I.getSuccessorIndex());
+#if INTEL_CUSTOMIZATION
+    else if (IsLikelyEdge)
+      LikelyEdges.push_back(I.getSuccessorIndex());
+#endif // INTEL_CUSTOMIZATION
     else if (isLoopExitingEdge(Edge))
       ExitingEdges.push_back(I.getSuccessorIndex());
     else if (isLoopBackEdge(Edge))
@@ -845,7 +974,8 @@ bool BranchProbabilityInfo::calcLoopBranchHeuristics(const BasicBlock *BB,
   }
 
 #if INTEL_CUSTOMIZATION
-  if (BackEdges.empty() && ExitingEdges.empty() && UnlikelyEdges.empty()) {
+  if (BackEdges.empty() && ExitingEdges.empty() && UnlikelyEdges.empty()
+      && LikelyEdges.empty()) {
     if (!IsADIL || InEdges.empty() || !CurrentDT)
       return false;
     SmallVector<unsigned, 8> InnerLoopEdges;
@@ -885,6 +1015,7 @@ bool BranchProbabilityInfo::calcLoopBranchHeuristics(const BasicBlock *BB,
   unsigned BackEdges_Weight;
   unsigned InEdges_Weight;
   unsigned UnlikelyEdges_Weight;
+  unsigned LikelyEdges_Weight;
   unsigned ExitingEdges_Weight;
   if (IsADIL) {
     // Make back-edge probability 4 times smaller to avoid block frequency
@@ -892,11 +1023,13 @@ bool BranchProbabilityInfo::calcLoopBranchHeuristics(const BasicBlock *BB,
     BackEdges_Weight = LBH_TAKEN_WEIGHT/4;
     InEdges_Weight = LBH_TAKEN_WEIGHT;
     UnlikelyEdges_Weight = LBH_UNLIKELY_WEIGHT;
+    LikelyEdges_Weight = LBH_LIKELY_WEIGHT;
     ExitingEdges_Weight = LBH_NONTAKEN_WEIGHT;
   } else {
     BackEdges_Weight = LBH_TAKEN_WEIGHT;
     InEdges_Weight = LBH_TAKEN_WEIGHT;
     UnlikelyEdges_Weight = LBH_UNLIKELY_WEIGHT;
+    LikelyEdges_Weight = LBH_LIKELY_WEIGHT;
     ExitingEdges_Weight = LBH_NONTAKEN_WEIGHT;
   }
 
@@ -905,6 +1038,7 @@ bool BranchProbabilityInfo::calcLoopBranchHeuristics(const BasicBlock *BB,
   unsigned Denom = (BackEdges.empty() ? 0 : BackEdges_Weight) +
                    (InEdges.empty() ? 0 : InEdges_Weight) +
                    (UnlikelyEdges.empty() ? 0 : UnlikelyEdges_Weight) +
+                   (LikelyEdges.empty() ? 0 : LikelyEdges_Weight) +
                    (ExitingEdges.empty() ? 0 : ExitingEdges_Weight);
 
   SmallVector<BranchProbability, 4> EdgeProbabilities(
@@ -936,6 +1070,14 @@ bool BranchProbabilityInfo::calcLoopBranchHeuristics(const BasicBlock *BB,
                                                        Denom);
     auto Prob = UnlikelyProb / numUnlikelyEdges;
     for (unsigned SuccIdx : UnlikelyEdges)
+      EdgeProbabilities[SuccIdx] = Prob;
+  }
+
+  if (uint32_t numLikelyEdges = LikelyEdges.size()) {
+    BranchProbability LikelyProb = BranchProbability(LikelyEdges_Weight,
+                                                       Denom);
+    auto Prob = LikelyProb / numLikelyEdges;
+    for (unsigned SuccIdx : LikelyEdges)
       EdgeProbabilities[SuccIdx] = Prob;
   }
 #endif // INTEL_CUSTOMIZATION
