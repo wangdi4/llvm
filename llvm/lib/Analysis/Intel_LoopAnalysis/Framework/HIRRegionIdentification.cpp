@@ -766,29 +766,23 @@ bool HIRRegionIdentification::CostModelAnalyzer::visitBasicBlock(
 
 bool HIRRegionIdentification::CostModelAnalyzer::visitInstruction(
     const Instruction &Inst) {
-  // Compares are most likely eliminated in HIR.
-  // Subscript instructions are like GEPs and hence most likely eliminated in
-  // HIR. This check can be removed once we add support for them in
-  // ScalarEvolution.
-  if (!isa<CmpInst>(Inst) && !isa<SubscriptInst>(Inst) &&
-      !isa<DbgInfoIntrinsic>(Inst)) {
 
-    // The following checks are to ignore linear instructions.
-    if (RI.SE.isSCEVable(Inst.getType())) {
-      auto SC = RI.SE.getSCEV(const_cast<Instruction *>(&Inst));
-      auto AddRec = dyn_cast<SCEVAddRecExpr>(SC);
+  // This logic is very similar to HIRParser::isEssential().
+  if (isa<CallInst>(Inst)) {
 
-      if (!AddRec || !AddRec->isAffine()) {
-        auto Phi = dyn_cast<PHINode>(&Inst);
+    if (!isa<SubscriptInst>(Inst) && !isa<DbgInfoIntrinsic>(Inst)) {
+      ++InstCount;
+    }
 
-        if (Phi) {
-          // Non-linear phis will be deconstructed using copy stmts for each
-          // operand.
-          InstCount += Phi->getNumIncomingValues();
-        } else {
-          ++InstCount;
-        }
-      }
+  } else if (isa<LoadInst>(Inst) || isa<StoreInst>(Inst)) {
+    ++InstCount;
+
+  } else if (!RI.SE.isSCEVable(Inst.getType())) {
+
+    if (auto *Phi = dyn_cast<PHINode>(&Inst)) {
+      // Non-linear phis will be deconstructed using copy stmts for each
+      // operand.
+      InstCount += Phi->getNumIncomingValues();
     } else {
       ++InstCount;
     }
