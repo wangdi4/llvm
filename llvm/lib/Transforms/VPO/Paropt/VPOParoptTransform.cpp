@@ -9954,6 +9954,13 @@ bool VPOParoptTransform::privatizeSharedItems(WRegionNode *W) {
     // item to alloca instruction.
     if (auto *BCI = dyn_cast<BitCastInst>(I->getOrig()))
       if (auto *AI = dyn_cast<AllocaInst>(BCI->getOperand(0))) {
+
+        // TODO: If the BC's region is nested, we cannot make the alloca
+        // live-into the inner region without fixing up all the outer
+        // regions with map and/or explicit shared. Just disable for now.
+        if (W->getParent() && W->needsOutlining())
+          continue;
+
         if (!IsPrivatizationCandidate(AI))
           continue;
 
