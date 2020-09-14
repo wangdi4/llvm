@@ -2025,6 +2025,44 @@ HLInst *VPOCodeGenHIR::createInterleavedStore(RegDDRef **StoreVals,
   return WideStore;
 }
 
+bool VPOCodeGenHIR::interleaveAccess(const OVLSGroup *Group,
+                                     const RegDDRef *Mask,
+                                     const VPInstruction *VPInst) {
+  // TODO: Mask for the interleaved accesses must be shuffled as well. Currently
+  // it's not done, thus disable CG for it.
+  if (Mask)
+    return false;
+
+  // Interleaving makes sense iff Group is non-null.
+  if (!Group)
+    return false;
+
+  // Check for other conditions based on command line switches.
+  if (!EnableVPlanVLSCG)
+    return false;
+
+  // If the user is limiting the number of vectorized loops for which
+  // VLS optimization is enabled, only interleave for the specified
+  // number of loops.
+  if (VPlanVLSNumLoops >= 0 && LoopsVectorized > (unsigned)VPlanVLSNumLoops)
+    return false;
+
+  auto Opcode = VPInst->getOpcode();
+  if (Opcode == Instruction::Load && !EnableVPlanVLSLoads)
+    return false;
+  if (Opcode == Instruction::Store && !EnableVPlanVLSStores)
+    return false;
+
+  // If the reference is unit strided, we do not need interleaving.
+  const VPValue *PtrOp = getLoadStorePointerOperand(VPInst);
+  bool IsNegOneStride;
+  bool IsUnitStride = isUnitStridePtr(PtrOp, IsNegOneStride);
+  if (IsUnitStride)
+    return false;
+
+  return true;
+}
+
 HLInst *VPOCodeGenHIR::widenInterleavedAccess(
     const HLInst *INode, RegDDRef *Mask, const OVLSGroup *Grp,
     int64_t InterleaveFactor, int64_t InterleaveIndex,
@@ -2606,34 +2644,11 @@ void VPOCodeGenHIR::widenNodeImpl(const HLInst *INode, RegDDRef *Mask,
     Mask = CurMaskValue;
 
   // Check if we want to widen the current Inst as an interleaved memory access.
-  // TODO: Mask for the interleaved accesse must be shuffled as well. Currently
-  // it's not done, thus disable CG for it.
-  if (Grp && !Mask) {
-    bool InterleaveAccess = EnableVPlanVLSCG;
-    const RegDDRef *MemRef;
-
-    // If the user is limiting the number of vectorized loops for which
-    // VLS optimization is enabled, only interleave for the specified
-    // number of loops.
-    if (VPlanVLSNumLoops >= 0)
-      InterleaveAccess &= LoopsVectorized <= ((unsigned)VPlanVLSNumLoops);
-
-    // Check if the user is limiting interleaved accesses to loads or stores.
-    if (isa<LoadInst>(CurInst)) {
-      MemRef = INode->getOperandDDRef(1);
-      InterleaveAccess &= EnableVPlanVLSLoads;
-    } else {
-      MemRef = INode->getOperandDDRef(0);
-      InterleaveAccess &= EnableVPlanVLSStores;
-    }
-
-    // If the reference is unit strided, we do not need interleaving
-    InterleaveAccess &= !refIsUnit(OrigLoop->getNestingLevel(), MemRef, this);
-    if (InterleaveAccess) {
-      widenInterleavedAccess(INode, Mask, Grp, InterleaveFactor,
-                             InterleaveIndex, GrpStartInst, VPInst);
-      return;
-    }
+  bool InterleaveAccess = interleaveAccess(Grp, Mask, VPInst);
+  if (InterleaveAccess) {
+    widenInterleavedAccess(INode, Mask, Grp, InterleaveFactor, InterleaveIndex,
+                           GrpStartInst, VPInst);
+    return;
   }
 
   // Widened values for SCEV expressions cannot be reused across HIR

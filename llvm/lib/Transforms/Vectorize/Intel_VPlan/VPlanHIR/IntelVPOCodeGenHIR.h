@@ -195,6 +195,10 @@ public:
                     RegDDRef *Mask, SmallVectorImpl<RegDDRef *> &CallRegs,
                     bool HasLvalArg);
 
+  // Return true if we want to interleave the memory access.
+  bool interleaveAccess(const OVLSGroup *Group, const RegDDRef *Mask,
+                        const VPInstruction *VPInst);
+
   // Widen an interleaved memory access - operands correspond to operands of
   // WidenNode.
   HLInst *widenInterleavedAccess(const HLInst *INode, RegDDRef *Mask,
