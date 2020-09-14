@@ -77,6 +77,9 @@ list(APPEND CLANG_TEST_DEPS
   clang-format
   clang-tblgen
   clang-offload-bundler
+# INTEL_COLLAB
+  clang-offload-wrapper
+# end INTEL_COLLAB
   clang-import-test
   clang-rename
   clang-refactor
