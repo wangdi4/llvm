@@ -291,7 +291,7 @@ static cl::opt<unsigned>
 // Threshold for the number of instructions in a BasicBlock, such that the
 // BasicBlock can be classified as "large".
 static cl::opt<unsigned>
-    LargeBBThreshold(PASS_NAME_STR "-largebb-threshold", cl::init(25),
+    LargeBBThreshold(PASS_NAME_STR "-largebb-threshold", cl::init(30),
                      cl::ReallyHidden,
                      cl::desc("Large Basic-block size threadhold"));
 
@@ -1601,10 +1601,10 @@ bool IPOPrefetcher::identifyPrefetchPositions(Function *F) {
       // entry1:
       BasicBlockInfo(nullptr,        /* BasicBlock * BB  */
                      136,            /* unsigned Index   */
-                     29,             /* unsigned NumInst */
+                     25,             /* unsigned NumInst */
                      3,              /* unsigned NumPred */
                      2,              /* unsigned NumSucc */
-                     BBSC_Huge,      /* BasicBlockSizeCategory SizeCategory */
+                     BBSC_Large,     /* BasicBlockSizeCategory SizeCategory */
                      BBIR_4thQuarter /*BasicBlockIndexRange IndexRange)*/
                      ),
   };
