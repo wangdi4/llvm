@@ -564,7 +564,7 @@ void HIRAosToSoa::TransformAosToSoa::populatedBodyOfCopyLoop(
     // Create Lval of store, alloca0[%add * i2  + i3]
     HLInst *AllocaInst = TrailingOffsetToAlloca.find(TrailingOffset)->second;
     RegDDRef *AllocaRef = DDRU.createMemRef(
-        AllocaInst->getLvalDDRef()->getSelfBlobIndex(), AllocaLevel);
+        AllocaInst->getLvalDDRef()->getSelfBlobIndex(), AllocaInst->getNodeLevel());
 
     CanonExpr *NewDimension = CEU.createCanonExpr(IVType);
     NewDimension->setIVCoeff(InnerLevel, InvalidBlobIndex, 1);
@@ -594,7 +594,7 @@ void HIRAosToSoa::TransformAosToSoa::replaceTrailingOffsetWithAlloca(
         TrailingOffsetToAlloca.find(getTrailingOffset(Ref))->second;
     RegDDRef *AllocaRef = DDRU.createMemRef(
         AllocaInst->getLvalDDRef()->getSingleCanonExpr()->getSingleBlobIndex(),
-        AllocaLevel);
+        AllocaInst->getNodeLevel());
 
     CanonExpr *NewDimension = HIRAosToSoa::getIndexCE(Ref)->clone();
     NewDimension->setIVBlobCoeff(IVBlobLevel, AddBlobIndex);

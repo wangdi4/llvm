@@ -957,7 +957,10 @@ static bool ParseCodeGenArgs(CodeGenOptions &Opts, ArgList &Args, InputKind IK,
       Opts.setFramePointer(FP);
   }
 
-  Opts.DisableFree = Args.hasArg(OPT_disable_free);
+#ifdef INTEL_CUSTOMIZATION
+  Opts.DisableFree =
+      Args.hasFlag(OPT_disable_free, OPT_no_disable_free, /*Default=*/false);
+#endif //INTEL_CUSTOMIZATION
   Opts.DiscardValueNames = Args.hasArg(OPT_discard_value_names);
   Opts.DisableTailCalls = Args.hasArg(OPT_mdisable_tail_calls);
   Opts.NoEscapingBlockTailCalls =
@@ -1964,7 +1967,10 @@ static InputKind ParseFrontendArgs(FrontendOptions &Opts, ArgList &Args,
       Diags.Report(diag::err_drv_invalid_value)
         << A->getAsString(Args) << A->getValue();
   }
-  Opts.DisableFree = Args.hasArg(OPT_disable_free);
+#ifdef INTEL_CUSTOMIZATION
+  Opts.DisableFree =
+      Args.hasFlag(OPT_disable_free, OPT_no_disable_free, /*Default=*/false);
+#endif //INTEL_CUSTOMIZATION
 
   Opts.OutputFile = std::string(Args.getLastArgValue(OPT_o));
   Opts.Plugins = Args.getAllArgValues(OPT_load);
