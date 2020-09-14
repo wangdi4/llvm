@@ -4643,6 +4643,10 @@ def code_completion_with_fixits : Flag<["-"], "code-completion-with-fixits">,
   HelpText<"Include code completion results which require small fix-its.">;
 def disable_free : Flag<["-"], "disable-free">,
   HelpText<"Disable freeing of memory on exit">;
+#if INTEL_CUSTOMIZATION
+def no_disable_free: Flag<["-"], "no-disable-free">,
+  HelpText<"Do not disable freeing of memory on exit">;
+#endif // INTEL_CUSTOMIZATION
 def discard_value_names : Flag<["-"], "discard-value-names">,
   HelpText<"Discard value names in LLVM IR">;
 def load : Separate<["-"], "load">, MetaVarName<"<dsopath>">,
