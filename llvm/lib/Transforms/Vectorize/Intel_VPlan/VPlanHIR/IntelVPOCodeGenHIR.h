@@ -444,16 +444,15 @@ public:
     return Plan->getVPlanDA()->isUnitStridePtr(VPPtr, IsNegOneStride);
   }
 
-  // Given the pointer operand of a load/store instruction, setup and return the
-  // memory ref to use in generating the load/store HLInst. ScalSymbase
-  // specifies the symbase to set for the returned ref. AANodes specify alias
-  // analysis metadata to set for the returned ref. Alignment specifies the
-  // alignment to be set for the generated memref. Lane0Value specifies if we
-  // need memory ref corresponding to just vector lane 0. This is used to handle
-  // uniform memory accesses. If VPPtr is unit strided(stride of 1/-1), the ref
-  // returned is properly adjusted to enable wide load/store.
-  RegDDRef *getMemoryRef(const VPValue *VPPtr, unsigned ScalSymbase,
-                         const AAMDNodes &AANodes, Align Alignment,
+  // Given a load/store instruction, setup and return the memory ref to use in
+  // generating the load/store HLInst. The given load/store instruction is also
+  // used to get the symbase and alignment to set for the returned ref. It is
+  // also used to set the alias analysis metadata for the returned ref.
+  // Lane0Value specifies if we need memory ref corresponding to just vector
+  // lane 0. This is used to handle uniform memory accesses. If the pointer
+  // operand of the load/store instruction is unit strided(stride of 1/-1), the
+  // ref returned is properly adjusted to enable wide load/store.
+  RegDDRef *getMemoryRef(const VPLoadStoreInst *VPLdSt,
                          bool Lane0Value = false);
 
   bool isSearchLoop() const {

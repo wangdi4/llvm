@@ -2981,13 +2981,16 @@ RegDDRef *VPOCodeGenHIR::widenRef(const VPValue *VPVal, unsigned VF) {
   return WideRef->clone();
 }
 
-RegDDRef *VPOCodeGenHIR::getMemoryRef(const VPValue *VPPtr,
-                                      unsigned ScalSymbase,
-                                      const AAMDNodes &AANodes, Align Alignment,
+RegDDRef *VPOCodeGenHIR::getMemoryRef(const VPLoadStoreInst *VPLdSt,
                                       bool Lane0Value) {
+  const VPValue *VPPtr = getLoadStorePointerOperand(VPLdSt);
   bool IsNegOneStride;
   bool IsUnitStride = isUnitStridePtr(VPPtr, IsNegOneStride);
   bool NeedScalarRef = IsUnitStride || Lane0Value;
+  unsigned ScalSymbase = VPLdSt->getSymbase();
+  Align Alignment = VPLdSt->getAlignment();
+  AAMDNodes AANodes;
+  VPLdSt->getAAMetadata(AANodes);
 
   RegDDRef *PtrRef;
   if (NeedScalarRef)
@@ -3394,12 +3397,7 @@ void VPOCodeGenHIR::widenUniformLoadImpl(const VPLoadStoreInst *VPLoad,
         generateCompareToZero(Mask, nullptr /* InstMask */, false /* Equal */);
   }
 
-  const VPValue *PtrOp = getLoadStorePointerOperand(VPLoad);
-  AAMDNodes AANodes;
-  VPLoad->getAAMetadata(AANodes);
-  RegDDRef *MemRef =
-      getMemoryRef(PtrOp, VPLoad->getSymbase(), AANodes, VPLoad->getAlignment(),
-                   true /* Lane0Value */);
+  RegDDRef *MemRef = getMemoryRef(VPLoad, true /* Lane0Value */);
   auto *ScalarInst = HLNodeUtilities.createLoad(MemRef, ".unifload");
   if (Mask) {
     HLIf *If = HLNodeUtilities.createHLIf(
@@ -3418,14 +3416,8 @@ void VPOCodeGenHIR::widenUniformLoadImpl(const VPLoadStoreInst *VPLoad,
 
 void VPOCodeGenHIR::widenUnmaskedUniformStoreImpl(
     const VPLoadStoreInst *VPStore) {
-  const VPValue *PtrOp = getLoadStorePointerOperand(VPStore);
   const VPValue *ValOp = VPStore->getOperand(0);
-  AAMDNodes AANodes;
-  VPStore->getAAMetadata(AANodes);
-
-  RegDDRef *MemRef =
-      getMemoryRef(PtrOp, VPStore->getSymbase(), AANodes,
-                   VPStore->getAlignment(), true /* Lane0Value */);
+  RegDDRef *MemRef = getMemoryRef(VPStore, true /* Lane0Value */);
   RegDDRef *ValRef = nullptr;
   if (!Plan->getVPlanDA()->isDivergent(*ValOp))
     // Value being stored is uniform - use lane 0 value as the value to store.
@@ -3475,10 +3467,7 @@ void VPOCodeGenHIR::widenLoadStoreImpl(const VPLoadStoreInst *VPLoadStore,
     }
   }
 
-  AAMDNodes AANodes;
-  VPLoadStore->getAAMetadata(AANodes);
-  RegDDRef *MemRef = getMemoryRef(PtrOp, VPLoadStore->getSymbase(), AANodes,
-                                  VPLoadStore->getAlignment());
+  RegDDRef *MemRef = getMemoryRef(VPLoadStore);
   HLInst *WInst;
 
   // Reverse mask for negative -1 stride.
