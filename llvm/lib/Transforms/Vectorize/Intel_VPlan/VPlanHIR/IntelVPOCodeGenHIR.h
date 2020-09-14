@@ -200,12 +200,15 @@ public:
 
   // Widen an interleaved memory access - operands correspond to operands of
   // WidenNode.
-  HLInst *widenInterleavedAccess(const HLInst *INode, RegDDRef *Mask,
-                                 const OVLSGroup *Group,
-                                 int64_t InterleaveFactor,
-                                 int64_t InterleaveIndex,
-                                 const HLInst *GrpStartInst,
-                                 const VPInstruction *VPInst);
+  void widenInterleavedAccess(const HLInst *INode, RegDDRef *Mask,
+                              const OVLSGroup *Group, int64_t InterleaveFactor,
+                              int64_t InterleaveIndex,
+                              const HLInst *GrpStartInst,
+                              const VPInstruction *VPInst);
+
+  void widenInterleavedAccess(const VPLoadStoreInst *VPLdSt, RegDDRef *Mask,
+                              const OVLSGroup *Group, int64_t InterleaveFactor,
+                              int64_t InterleaveIndex);
 
   // A helper function for concatenating vectors. This function concatenates two
   // vectors having the same element type. If the second vector has fewer
@@ -250,7 +253,7 @@ public:
   //     %interleaved.vec = shuffle %R_G.vec, undef,
   //                                 <0, 4, 1, 5, 2, 6, 3, 7>
   //     store <8 x i32> %interleaved.vec, Pic[2*i]
-  HLInst *createInterleavedStore(RegDDRef **StoreVals, const RegDDRef *StoreRef,
+  HLInst *createInterleavedStore(RegDDRef **StoreVals, RegDDRef *WStorePtrRef,
                                  int64_t InterleaveFactor, RegDDRef *Mask);
 
   HLInst *createReverseVector(RegDDRef *ValRef);
@@ -442,6 +445,12 @@ public:
   bool isUnitStridePtr(const VPValue *VPPtr, bool &IsNegOneStride) const {
     return Plan->getVPlanDA()->isUnitStridePtr(VPPtr, IsNegOneStride);
   }
+
+  // Given a pointer ref that is a selfblob, create and return memory reference
+  // for PtrRef[Index]. NumElements if greater than 1 is used to set the
+  // destination type of canon expr corresponding to Index appropriately.
+  RegDDRef *createMemrefFromBlob(RegDDRef *PtrRef, int Index,
+                                 unsigned NumElements);
 
   // Given a load/store instruction, setup and return the memory ref to use in
   // generating the load/store HLInst. The given load/store instruction is also
@@ -819,7 +828,9 @@ private:
   void widenUnmaskedUniformStoreImpl(const VPLoadStoreInst *VPStore);
 
   // Implementation of load/store widening.
-  void widenLoadStoreImpl(const VPLoadStoreInst *VPLoadStore, RegDDRef *Mask);
+  void widenLoadStoreImpl(const VPLoadStoreInst *VPLoadStore, RegDDRef *Mask,
+                          const OVLSGroup *Group, int64_t InterleaveFactor,
+                          int64_t InterleaveIndex);
 
   // Implementation of codegen for subscript instruction.
   void generateHIRForSubscript(const VPSubscriptInst *VPSubscript,
