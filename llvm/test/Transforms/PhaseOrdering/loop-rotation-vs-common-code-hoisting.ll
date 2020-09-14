@@ -8,7 +8,7 @@
 ; RUN: opt -O3 -rotation-max-header-size=2 -S < %s                    | FileCheck %s --check-prefixes=ROTATED_LATER,ROTATED_LATER_OLDPM,FALLBACK4
 ; RUN: opt -passes='default<O3>' -rotation-max-header-size=2 -S < %s  | FileCheck %s --check-prefixes=ROTATED_LATER,ROTATED_LATER_NEWPM,FALLBACK5
 
-<<<<<<< HEAD
+; <<<<<<< HEAD
 ; RUN: opt -O3 -rotation-max-header-size=3 -S < %s                    | FileCheck %s --check-prefixes=ROTATED_LATER,ROTATED_LATER_OLDPM,FALLBACK6
 ; RUN: opt -passes='default<O3>' -rotation-max-header-size=3 -S < %s  | FileCheck %s --check-prefixes=ROTATED_LATER,ROTATED_LATER_NEWPM,FALLBACK7
 ; INTEL
@@ -16,10 +16,10 @@
 ; RUN;: opt -O3 -rotation-max-header-size=4 -S < %s                    | FileCheck %s --check-prefixes=ROTATE,ROTATE_OLDPM,FALLBACK8
 ; RUN;: opt -passes='default<O3>' -rotation-max-header-size=4 -S < %s  | FileCheck %s --check-prefixes=ROTATE,ROTATE_NEWPM,FALLBACK9
 ;end INTEL
-=======
+; =======
 ; RUN: opt -O3 -rotation-max-header-size=3 -S < %s                    | FileCheck %s --check-prefixes=ROTATE,ROTATE_OLDPM,FALLBACK6
 ; RUN: opt -passes='default<O3>' -rotation-max-header-size=3 -S < %s  | FileCheck %s --check-prefixes=ROTATE,ROTATE_NEWPM,FALLBACK7
->>>>>>> bb7d3af1139c36270bc9948605e06f40e4c51541
+; >>>>>>> bb7d3af1139c36270bc9948605e06f40e4c51541
 
 ; This example is produced from a very basic C code:
 ;
