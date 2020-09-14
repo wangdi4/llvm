@@ -893,6 +893,24 @@ private:
         EntriesStop->setVisibility(GlobalValue::HiddenVisibility);
         EntriesStop->setUnnamedAddr(GlobalValue::UnnamedAddr::Local);
         EntriesE = ConstantExpr::getBitCast(EntriesStop, getEntryPtrTy());
+
+        // LLD will discard empty omp_offloading_entries section,
+        // if the compiler does not generate any entries. Then the references
+        // to the start/stop symbols will become an error. MSVC linker
+        // seems to work even with the empty section.
+        // We have to add a dummy entry symbol of *non-zero* size
+        // to keep the section alive. We also have to make sure that
+        // the dummy symbol is not placed between the start/stop symbols,
+        // hence the "$D" suffix below.
+        // The worst effect of this is a 32-byte blob per executable.
+        auto *DummyInit =
+          ConstantAggregateZero::get(ArrayType::get(getEntryTy(), 1u));
+        auto *DummyEntry = new GlobalVariable(
+            M, DummyInit->getType(), true, GlobalVariable::ExternalLinkage,
+            DummyInit, "__dummy.omp_offloading.entry");
+        DummyEntry->setAlignment(MaybeAlign(32));
+        DummyEntry->setSection("omp_offloading_entries$D");
+        DummyEntry->setVisibility(GlobalValue::HiddenVisibility);
       } else {
         // Create external begin/end symbols for the offload entries table.
         EntriesStart = new GlobalVariable(
