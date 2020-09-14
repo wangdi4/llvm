@@ -1393,8 +1393,8 @@ RegDDRef *VPOCodeGenHIR::widenRef(const RegDDRef *Ref, unsigned VF,
   // is set to vector of pointers(scalar desttype).
   if (WideRef->hasGEPInfo()) {
     auto AddressSpace = Ref->getPointerAddressSpace();
-
-    propagateMetadata(WideRef, nullptr /*VLS Group*/, Ref);
+    SmallVector<const RegDDRef *, 1> RefVec = {Ref};
+    propagateMetadata(WideRef, RefVec);
     if (WideRef->isAddressOf()) {
       WideRef->setBitCastDestType(VecRefDestTy);
     } else {
@@ -1780,8 +1780,9 @@ static Constant *createSequentialMask(unsigned Start, unsigned NumInts,
   return ConstantVector::get(Mask);
 }
 
-void VPOCodeGenHIR::propagateMetadata(RegDDRef *NewRef, const OVLSGroup *Group,
-                                      const RegDDRef *OldRef) {
+template <class MDSource>
+void VPOCodeGenHIR::propagateMetadata(
+    RegDDRef *NewRef, SmallVectorImpl<const MDSource *> &MDSrcVec) {
   SmallVector<unsigned, 6> PreservedMDKinds = {
       LLVMContext::MD_tbaa,        LLVMContext::MD_alias_scope,
       LLVMContext::MD_noalias,     LLVMContext::MD_fpmath,
@@ -1798,25 +1799,14 @@ void VPOCodeGenHIR::propagateMetadata(RegDDRef *NewRef, const OVLSGroup *Group,
 
   // TODO - we need to ensure that metadata is being set properly with
   // VPValue based code generation.
-  SmallVector<const RegDDRef *, 4> MemDDRefVec;
-  if (Group)
-    for (int64_t Index = 0, Size = Group->size(); Index < Size; ++Index) {
-      auto *Memref = cast<VPVLSClientMemrefHIR>(Group->getMemref(Index));
-      MemDDRefVec.push_back(Memref->getRegDDRef());
-    }
-  else {
-    assert(OldRef && "Expected non null reference");
-    assert(OldRef->hasGEPInfo() && "Expected reference with GEP info");
-    MemDDRefVec.push_back(OldRef);
-  }
-
-  const RegDDRef *R0 = MemDDRefVec[0];
+  assert(MDSrcVec.size() && "Unexpected empty source vector");
+  const MDSource *Src0 = MDSrcVec[0];
   for (auto Kind : PreservedMDKinds) {
-    MDNode *MD = R0->getMetadata(Kind);
+    MDNode *MD = Src0->getMetadata(Kind);
 
-    for (int J = 1, E = MemDDRefVec.size(); MD && J != E; ++J) {
-      const RegDDRef *RJ = MemDDRefVec[J];
-      MDNode *MDJ = RJ->getMetadata(Kind);
+    for (int J = 1, E = MDSrcVec.size(); MD && J != E; ++J) {
+      const MDSource *SrcJ = MDSrcVec[J];
+      MDNode *MDJ = SrcJ->getMetadata(Kind);
       switch (Kind) {
       case LLVMContext::MD_tbaa:
         MD = MDNode::getMostGenericTBAA(MD, MDJ);
@@ -2041,23 +2031,22 @@ bool VPOCodeGenHIR::interleaveAccess(const OVLSGroup *Group,
   if (!EnableVPlanVLSCG)
     return false;
 
-  // If the user is limiting the number of vectorized loops for which
-  // VLS optimization is enabled, only interleave for the specified
-  // number of loops.
-  if (VPlanVLSNumLoops >= 0 && LoopsVectorized > (unsigned)VPlanVLSNumLoops)
-    return false;
-
   auto Opcode = VPInst->getOpcode();
   if (Opcode == Instruction::Load && !EnableVPlanVLSLoads)
     return false;
   if (Opcode == Instruction::Store && !EnableVPlanVLSStores)
     return false;
 
+  // If the user is limiting the number of vectorized loops for which
+  // VLS optimization is enabled, only interleave for the specified
+  // number of loops.
+  if (VPlanVLSNumLoops >= 0 && LoopsVectorized > (unsigned)VPlanVLSNumLoops)
+    return false;
+
   // If the reference is unit strided, we do not need interleaving.
   const VPValue *PtrOp = getLoadStorePointerOperand(VPInst);
   bool IsNegOneStride;
-  bool IsUnitStride = isUnitStridePtr(PtrOp, IsNegOneStride);
-  if (IsUnitStride)
+  if (isUnitStridePtr(PtrOp, IsNegOneStride))
     return false;
 
   return true;
@@ -2069,6 +2058,13 @@ HLInst *VPOCodeGenHIR::widenInterleavedAccess(
     const HLInst *GrpStartInst, const VPInstruction *VPInst) {
   auto CurInst = INode->getLLVMInstruction();
   HLInst *WideInst = nullptr;
+
+  auto FillRefVec = [](const OVLSGroup *Grp,
+                       SmallVectorImpl<const RegDDRef *> &MemDDRefVec) {
+    for (auto *Memref : Grp->getMemrefVec())
+      MemDDRefVec.push_back(
+          (cast<VPVLSClientMemrefHIR>(Memref))->getRegDDRef());
+  };
 
   if (isa<LoadInst>(CurInst)) {
     RegDDRef *WLoadRes;
@@ -2088,7 +2084,9 @@ HLInst *VPOCodeGenHIR::widenInterleavedAccess(
         OptRptStats.UnmaskedVLSLoads += Grp->size();
       HLInst *WideLoad =
           HLNodeUtilities.createLoad(WMemRef, CurInst->getName() + ".vls.load");
-      propagateMetadata(WMemRef, Grp);
+      SmallVector<const RegDDRef *, 4> MemDDRefVec;
+      FillRefVec(Grp, MemDDRefVec);
+      propagateMetadata(WMemRef, MemDDRefVec);
 
       addInst(WideLoad, Mask);
 
@@ -2146,7 +2144,9 @@ HLInst *VPOCodeGenHIR::widenInterleavedAccess(
       WideInst =
           createInterleavedStore(StoreValRefs, GrpStartInst->getOperandDDRef(0),
                                  InterleaveFactor, Mask);
-      propagateMetadata(WideInst->getOperandDDRef(0), Grp);
+      SmallVector<const RegDDRef *, 4> MemDDRefVec;
+      FillRefVec(Grp, MemDDRefVec);
+      propagateMetadata(WideInst->getOperandDDRef(0), MemDDRefVec);
 
       DEBUG_WITH_TYPE("ovls",
                       dbgs() << "Emitted a group-wide vector STORE for Group#"

@@ -139,12 +139,11 @@ public:
   // unmodified HIR.
   void setRednHoistPtForVectorLoop();
 
-  // Propagate metadata from memory references in either the group or old DDRef
-  // to the new DDRef. If Group is non-null, references in Group are used to set
-  // NewRef's metadata. Otherwise, OldRef is expected to be non-null and the
-  // same is used to set NewRef's metadata.
-  void propagateMetadata(RegDDRef *NewRef, const OVLSGroup *Group = nullptr,
-                         const RegDDRef *OldRef = nullptr);
+  // Propagate metadata using elements of MdSrcVec which are expected to be
+  // either RegDDRefs or VPLoadStoreInsts to NewRef.
+  template <class MDSource>
+  void propagateMetadata(RegDDRef *NewRef,
+                         SmallVectorImpl<const MDSource *> &MDSrcVec);
 
   // Propagate debug location information from VPInstruction to the generated
   // HIR constructs. This is a post processing approach i.e. we don't attach
