@@ -211,6 +211,9 @@ add_custom_target(libsycldevice-obj DEPENDS
   ${devicelib-obj-complex-fp64}
   ${devicelib-obj-cmath}
   ${devicelib-obj-cmath-fp64}
+# INTEL_CUSTOMIZATION
+  ${devicelib-obj-intel-dot-product}
+# end INTEL_CUSTOMIZATION
 )
 add_custom_target(libsycldevice-spv DEPENDS
   ${spv_binary_dir}/libsycl-fallback-cassert.spv
