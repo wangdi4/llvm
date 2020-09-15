@@ -959,11 +959,13 @@ bool llvm::inferLibFuncAttributes(Function &F, const TargetLibraryInfo &TLI) {
   case LibFunc_msvc_std_exception_scalar_deleting_dtor:
   case LibFunc_msvc_std_exception_what:
   case LibFunc_msvc_std_facet_register:
+  case LibFunc_msvc_std_ios_base_under_Ios_base_dtor:
   case LibFunc_msvc_std_ios_base_failure:
   case LibFunc_msvc_std_ios_base_failure_const_ptr_ctor:
   case LibFunc_msvc_std_ios_base_failure_scalar_deleting_dtor:
   case LibFunc_msvc_std_locale_facet_decref:
   case LibFunc_msvc_std_locale_facet_incref:
+  case LibFunc_msvc_std_locale_under_Init:
   case LibFunc_msvc_std_locimp_Getgloballocale:
   case LibFunc_msvc_std_locinfo_ctor:
   case LibFunc_msvc_std_locinfo_dtor:
@@ -1229,8 +1231,14 @@ bool llvm::inferLibFuncAttributes(Function &F, const TargetLibraryInfo &TLI) {
     return Changed;
   case LibFunc_dunder_CxxFrameHandler3:
     return Changed;
+  case LibFunc_dunder_RTDynamicCast:
+    return Changed;
   case LibFunc_dunder_std_terminate:
     Changed |= setDoesNotReturn(F);
+    return Changed;
+  case LibFunc_dunder_std_type_info_compare:
+    return Changed;
+  case LibFunc_dunder_std_type_info_name:
     return Changed;
   case LibFunc_sysv_signal:
     Changed |= setDoesNotThrow(F);
@@ -1288,6 +1296,9 @@ bool llvm::inferLibFuncAttributes(Function &F, const TargetLibraryInfo &TLI) {
     return Changed;
   case LibFunc_under_ftelli64:
     Changed |= setDoesNotCapture(F, 0);
+    return Changed;
+  case LibFunc_under_Init_thread_header:
+  case LibFunc_under_Init_thread_footer:
     return Changed;
   case LibFunc_under_invalid_parameter_noinfo_noreturn:
     Changed |= setDoesNotReturn(F);
@@ -1819,6 +1830,9 @@ bool llvm::inferLibFuncAttributes(Function &F, const TargetLibraryInfo &TLI) {
   case LibFunc_FindResourceA:
     Changed |= setDoesNotThrow(F);
     return Changed;
+  case LibFunc_FormatMessageA:
+    Changed |= setDoesNotThrow(F);
+    return Changed;
   case LibFunc_FreeResource:
     Changed |= setDoesNotThrow(F);
     return Changed;
@@ -1946,8 +1960,14 @@ bool llvm::inferLibFuncAttributes(Function &F, const TargetLibraryInfo &TLI) {
   case LibFunc_link:
     Changed |= setDoesNotThrow(F);
     return Changed;
+  case LibFunc_LoadLibraryA:
+    Changed |= setDoesNotThrow(F);
+    return Changed;
   case LibFunc_LoadResource:
     Changed |= setDoesNotThrow(F);
+    return Changed;
+  case LibFunc_LocalFree:
+     Changed |= setDoesNotThrow(F);
     return Changed;
   case LibFunc_LockResource:
     Changed |= setDoesNotThrow(F);
