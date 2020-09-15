@@ -1981,23 +1981,13 @@ RValue CodeGenFunction::EmitLoadOfBitfieldLValue(LValue LV,
   llvm::Type *ResLTy = ConvertType(LV.getType());
 
   Address Ptr = LV.getBitFieldAddress();
-<<<<<<< HEAD
   llvm::Value *Val =
       Builder.CreateLoad(Ptr, LV.isVolatileQualified(), "bf.load");
 
-  bool UseVolatile = LV.isVolatileQualified() &&
-                     Info.VolatileStorageSize != 0 && isAAPCS(CGM.getTarget());
-  const unsigned Offset = UseVolatile ? Info.VolatileOffset : Info.Offset;
-  const unsigned StorageSize =
-      UseVolatile ? Info.VolatileStorageSize : Info.StorageSize;
 #if INTEL_CUSTOMIZATION
   if (getLangOpts().isIntelCompat(LangOptions::IntelTBAABF))
     CGM.DecorateInstructionWithTBAA(cast<llvm::LoadInst>(Val), LV.getTBAAInfo());
 #endif  // INTEL_CUSTOMIZATION
-=======
-  llvm::Value *Val = Builder.CreateLoad(Ptr, LV.isVolatileQualified(), "bf.load");
-
->>>>>>> d6f3f612318f31c46b95dd62eee45a75397ccfcf
   if (Info.IsSigned) {
     assert(static_cast<unsigned>(Info.Offset + Info.Size) <= Info.StorageSize);
     unsigned HighBits = Info.StorageSize - Info.Offset - Info.Size;
@@ -2219,14 +2209,11 @@ void CodeGenFunction::EmitStoreThroughBitfieldLValue(RValue Src, LValue Dst,
     assert(Info.StorageSize > Info.Size && "Invalid bitfield size.");
     llvm::Value *Val =
       Builder.CreateLoad(Ptr, Dst.isVolatileQualified(), "bf.load");
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
     if (getLangOpts().isIntelCompat(LangOptions::IntelTBAABF)) {
       CGM.DecorateInstructionWithTBAA(cast<llvm::LoadInst>(Val), Dst.getTBAAInfo());
     }
 #endif  // INTEL_CUSTOMIZATION
-=======
->>>>>>> d6f3f612318f31c46b95dd62eee45a75397ccfcf
 
     // Mask the source value as needed.
     if (!hasBooleanRepresentation(Dst.getType()))
