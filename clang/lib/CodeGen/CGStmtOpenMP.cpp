@@ -5061,6 +5061,26 @@ static void emitOMPAtomicWriteExpr(CodeGenFunction &CGF,
   }
 }
 
+#if INTEL_CUSTOMIZATION
+static bool hasBuiltinAtomic(CodeGenFunction &CGF, uint64_t AtomicSizeInBits,
+                             uint64_t AlignmentInBits) {
+  const auto &TI = CGF.getContext().getTargetInfo();
+  if (CGF.getLangOpts().OpenMPUseLLVMAtomic) {
+    // Make a custom version of TargetInfo::hasBuiltinAtomic for testing.
+    auto &Tr = TI.getTriple();
+    if (Tr.getArch() == llvm::Triple::spir64 ||
+        Tr.getArch() == llvm::Triple::spir) {
+      const unsigned MaxWidth = 64;
+      return AtomicSizeInBits <= AlignmentInBits &&
+             AtomicSizeInBits <= MaxWidth &&
+             (AtomicSizeInBits <= TI.getCharWidth() ||
+              llvm::isPowerOf2_64(AtomicSizeInBits / TI.getCharWidth()));
+    }
+  }
+  return TI.hasBuiltinAtomic(AtomicSizeInBits, AlignmentInBits);
+}
+#endif // INTEL_CUSTOMIZATION
+
 static std::pair<bool, RValue> emitOMPAtomicRMW(CodeGenFunction &CGF, LValue X,
                                                 RValue Update,
                                                 BinaryOperatorKind BO,
@@ -5076,7 +5096,7 @@ static std::pair<bool, RValue> emitOMPAtomicRMW(CodeGenFunction &CGF, LValue X,
        (Update.getScalarVal()->getType() !=
         X.getAddress(CGF).getElementType())) ||
       !X.getAddress(CGF).getElementType()->isIntegerTy() ||
-      !Context.getTargetInfo().hasBuiltinAtomic(
+      !hasBuiltinAtomic(CGF, // INTEL
           Context.getTypeSize(X.getType()), Context.toBits(X.getAlignment())))
     return std::make_pair(false, RValue::get(nullptr));
 
