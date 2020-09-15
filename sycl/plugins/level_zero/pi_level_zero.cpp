@@ -2807,6 +2807,7 @@ pi_result piKernelRelease(pi_kernel Kernel) {
 
   assert(Kernel);
   if (--(Kernel->RefCount) == 0) {
+    zeKernelDestroy(Kernel->ZeKernel);
     delete Kernel;
   }
   return PI_SUCCESS;
