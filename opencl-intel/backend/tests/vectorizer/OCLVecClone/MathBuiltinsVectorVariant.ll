@@ -68,11 +68,6 @@ entry:
 ; CHECK: call <4 x float> @_Z3mixDv4_fS_S_(<4 x float> [[WIDE_LOAD_TRUNCf32]]
 ; CHECK: call <4 x double> @_Z3mixDv4_dS_S_(<4 x double> [[WIDE_LOAD_TRUNCf64]]
 
-  %call20 = tail call spir_func float @_Z13islessgreaterff(float %4) #0
-  %call21 = tail call spir_func double @_Z13islessgreaterdd(double %5) #0
-; CHECK: call <4 x float> @_Z13islessgreaterDv4_fS_(<4 x float> [[WIDE_LOAD_TRUNCf32]]
-; CHECK: call <4 x double> @_Z13islessgreaterDv4_dS_(<4 x double> [[WIDE_LOAD_TRUNCf64]]
-
   %call22 = tail call spir_func i8 @_Z3anyc(i8 %2) #0
 ; CHECK: call <4 x i8> @_Z3anyDv4_c(<4 x i8> [[WIDE_LOAD_TRUNCi8]])
 
@@ -103,8 +98,6 @@ declare spir_func float @_Z7degreesf(float) #0
 declare spir_func double @_Z7degreesd(double) #0
 declare spir_func float @_Z3mixfff(float) #0
 declare spir_func double @_Z3mixddd(double) #0
-declare spir_func float @_Z13islessgreaterff(float) #0
-declare spir_func double @_Z13islessgreaterdd(double) #0
 declare spir_func i8 @_Z3anyc(i8) #0
 declare spir_func i8 @_Z6selectccc(i8) #0
 
