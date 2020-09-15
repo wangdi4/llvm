@@ -372,9 +372,22 @@ static Arg *MakeInputArg(DerivedArgList &Args, const OptTable &Opts,
 #if INTEL_CUSTOMIZATION
 // Add any of the device libraries that are used for offload.  This includes
 // math and system device libraries.
-void Driver::addIntelDeviceLibs(const ToolChain &TC, Driver::InputList &Inputs,
+void Driver::addIntelOMPDeviceLibs(const ToolChain &TC, Driver::InputList &Inputs,
                                 const OptTable &Opts,
                                 DerivedArgList &Args) const {
+  // For 'pure' sycl program, need to use '-f[no-]sycl-device-lib' to link
+  // sycl device libraries with device code. In '-fsycl -fiopenmp' mode,
+  // '-f[no-]sycl-device-lib' and '-[no-]device-math-lib' can be used together.
+  if (Args.hasFlag(options::OPT_fsycl, options::OPT_fno_sycl, false) &&
+      !Args.hasArg(options::OPT_fiopenmp)) {
+    Arg *DeviceMathLibArg = Args.getLastArg(options::OPT_device_math_lib_EQ,
+                                            options::OPT_no_device_math_lib_EQ);
+    if (DeviceMathLibArg) {
+      Diag(clang::diag::warn_drv_unused_argument)
+          << DeviceMathLibArg->getSpelling();
+      return;
+    }
+  }
   // Add the math device libs if requested by the user or enabled by default.
   // This needs to be done on the linking phase.
   Arg *FinalPhaseArg;
@@ -404,22 +417,18 @@ void Driver::addIntelDeviceLibs(const ToolChain &TC, Driver::InputList &Inputs,
   // TODO - this will become the default sometime in the future.
   // FIXME - There is a bit of common code in this function that can be
   // cleaned up.
-  // FIXME: I am not sure that SYCL will use the same option.
-  //        See https://github.com/intel/llvm/pull/2277/files
-  unsigned LinkForSYCL = 0;
   unsigned LinkForOMP = LinkFP32 | LinkFP64;
 
   for (Arg *A : Args.filtered(options::OPT_device_math_lib_EQ,
                               options::OPT_no_device_math_lib_EQ)) {
     bool Reset = A->getOption().matches(options::OPT_no_device_math_lib_EQ);
     for (StringRef Val : A->getValues()) {
-      LinkForSYCL = UpdateFlag(LinkForSYCL, Val, Reset);
       LinkForOMP = UpdateFlag(LinkForOMP, Val, Reset);
     }
     A->claim();
   }
 
-  if (LinkForOMP == 0 && LinkForSYCL == 0)
+  if (LinkForOMP == 0)
     return;
 
   SmallVector<std::pair<const StringRef, unsigned>, 8> omp_device_libs = {
@@ -433,32 +442,12 @@ void Driver::addIntelDeviceLibs(const ToolChain &TC, Driver::InputList &Inputs,
     { "libomp-fallback-complex-fp64", LinkFP64 },
     { "libomp-fallback-cmath", LinkFP32 },
     { "libomp-fallback-cmath-fp64", LinkFP64 } };
-  SmallVector<std::pair<const StringRef, unsigned>, 4> sycl_device_libs = {
-    { "libsycl-complex", LinkFP32 },
-    { "libsycl-complex-fp64", LinkFP64 },
-    { "libsycl-cmath", LinkFP32 },
-    { "libsycl-cmath-fp64", LinkFP64 } };
 
-  StringRef DPCPPLibLoc;
-  if (TC.getTriple().isWindowsMSVCEnvironment())
-    DPCPPLibLoc = Args.MakeArgString(TC.getDriver().Dir + "/../bin");
-  else
-    DPCPPLibLoc = Args.MakeArgString(TC.getDriver().Dir + "/../lib");
   // Go through the lib vectors and add them accordingly.
   auto addInput = [&](const char * LibName) {
     Arg *InputArg = MakeInputArg(Args, Opts, LibName);
     Inputs.push_back(std::make_pair(types::TY_Object, InputArg));
   };
-  if (Args.hasFlag(options::OPT_fsycl, options::OPT_fno_sycl, false)) {
-    for (const std::pair<const StringRef, unsigned> &Lib : sycl_device_libs) {
-      SmallString<128> LibName(DPCPPLibLoc);
-      llvm::sys::path::append(LibName, Lib.first);
-      llvm::sys::path::replace_extension(LibName, ".o");
-      if ((Lib.second & LinkForSYCL) == Lib.second &&
-          llvm::sys::fs::exists(LibName))
-        addInput(Args.MakeArgString(LibName));
-    }
-  }
   bool addOmpLibs = false;
   if (Arg *A = Args.getLastArg(options::OPT_fopenmp_targets_EQ)) {
     for (const StringRef &Val : A->getValues())
@@ -2952,7 +2941,7 @@ void Driver::BuildInputs(const ToolChain &TC, DerivedArgList &Args,
     }
 #endif // INTEL_CUSTOMIZATION
   }
-  addIntelDeviceLibs(TC, Inputs, Opts, Args); // INTEL
+  addIntelOMPDeviceLibs(TC, Inputs, Opts, Args); // INTEL
   if (CCCIsCPP() && Inputs.empty()) {
     // If called as standalone preprocessor, stdin is processed
     // if no other input is present.
@@ -3115,6 +3104,16 @@ static SmallVector<const char *, 16> getLinkerArgs(Compilation &C,
     }
   }
   return LibArgs;
+}
+
+static bool IsSYCLDeviceLibObj(std::string ObjFilePath, bool isMSVCEnv) {
+  StringRef ObjFileName = llvm::sys::path::filename(ObjFilePath);
+  StringRef ObjSuffix = isMSVCEnv ? ".obj" : ".o";
+  bool Ret =
+      (ObjFileName.startswith("libsycl-") && ObjFileName.endswith(ObjSuffix))
+          ? true
+          : false;
+  return Ret;
 }
 
 // Goes through all of the arguments, including inputs expected for the
@@ -4222,7 +4221,12 @@ class OffloadingActionBuilder final {
           if (IA->getType() == types::TY_Object) {
             if (!isObjectFile(FileName))
               return ABRT_Inactive;
-            if (Args.hasArg(options::OPT_fintelfpga))
+            // For SYCL device libraries, don't need to add them to
+            // FPGAObjectInputs as there is no FPGA dep files inside.
+            if (Args.hasArg(options::OPT_fintelfpga) &&
+                !IsSYCLDeviceLibObj(FileName, C.getDefaultToolChain()
+                                                  .getTriple()
+                                                  .isWindowsMSVCEnvironment()))
               FPGAObjectInputs.push_back(IA);
           }
           // When creating FPGA device fat objects, all host objects are
@@ -4284,6 +4288,92 @@ class OffloadingActionBuilder final {
       }
       // We no longer need the action stored in this builder.
       SYCLDeviceActions.clear();
+    }
+
+    void addSYCLDeviceLibs(const ToolChain *TC, ActionList &DeviceLinkObjects,
+                           bool isSpirvAOT, bool isMSVCEnv) {
+      enum SYCLDeviceLibType {
+        sycl_devicelib_wrapper,
+        sycl_devicelib_fallback
+      };
+      struct DeviceLibOptInfo {
+        StringRef devicelib_name;
+        StringRef devicelib_option;
+      };
+
+      bool NoDeviceLibs = false;
+      // Currently, libc, libm-fp32 will be linked in by default. In order
+      // to use libm-fp64, -fsycl-device-lib=libm-fp64/all should be used.
+      llvm::StringMap<bool> devicelib_link_info = {
+          {"libc", true}, {"libm-fp32", true}, {"libm-fp64", false}};
+      if (Arg *A = Args.getLastArg(options::OPT_fsycl_device_lib_EQ,
+                                   options::OPT_fno_sycl_device_lib_EQ)) {
+        if (A->getValues().size() == 0)
+          C.getDriver().Diag(diag::warn_drv_empty_joined_argument)
+              << A->getAsString(Args);
+        else {
+          if (A->getOption().matches(options::OPT_fno_sycl_device_lib_EQ))
+            NoDeviceLibs = true;
+
+          for (StringRef Val : A->getValues()) {
+            if (Val == "all") {
+              for (auto &K : devicelib_link_info.keys())
+                devicelib_link_info[K] = true && !NoDeviceLibs;
+              break;
+            }
+            auto LinkInfoIter = devicelib_link_info.find(Val);
+            if (LinkInfoIter == devicelib_link_info.end()) {
+              C.getDriver().Diag(diag::err_drv_unsupported_option_argument)
+                  << A->getOption().getName() << Val;
+            }
+            devicelib_link_info[Val] = true && !NoDeviceLibs;
+          }
+        }
+      }
+
+      SmallString<128> LibLoc(TC->getDriver().Dir);
+      llvm::sys::path::append(LibLoc, "/../lib");
+      StringRef LibSuffix = isMSVCEnv ? ".obj" : ".o";
+      SmallVector<DeviceLibOptInfo, 5> sycl_device_wrapper_libs = {
+          {"libsycl-crt", "libc"},
+          {"libsycl-complex", "libm-fp32"},
+          {"libsycl-complex-fp64", "libm-fp64"},
+          {"libsycl-cmath", "libm-fp32"},
+          {"libsycl-cmath-fp64", "libm-fp64"}};
+      // For AOT compilation, we need to link sycl_device_fallback_libs as
+      // default too.
+      SmallVector<DeviceLibOptInfo, 5> sycl_device_fallback_libs = {
+          {"libsycl-fallback-cassert", "libc"},
+          {"libsycl-fallback-complex", "libm-fp32"},
+          {"libsycl-fallback-complex-fp64", "libm-fp64"},
+          {"libsycl-fallback-cmath", "libm-fp32"},
+          {"libsycl-fallback-cmath-fp64", "libm-fp64"}};
+      auto addInputs = [&](SYCLDeviceLibType t) {
+        auto sycl_libs = (t == sycl_devicelib_wrapper)
+                             ? sycl_device_wrapper_libs
+                             : sycl_device_fallback_libs;
+        for (const DeviceLibOptInfo &Lib : sycl_libs) {
+          if (!devicelib_link_info[Lib.devicelib_option])
+            continue;
+          SmallString<128> LibName(LibLoc);
+          llvm::sys::path::append(LibName, Lib.devicelib_name);
+          llvm::sys::path::replace_extension(LibName, LibSuffix);
+          if (llvm::sys::fs::exists(LibName)) {
+            Arg *InputArg = MakeInputArg(Args, C.getDriver().getOpts(),
+                                         Args.MakeArgString(LibName));
+            auto *SYCLDeviceLibsInputAction =
+                C.MakeAction<InputAction>(*InputArg, types::TY_Object);
+            auto *SYCLDeviceLibsUnbundleAction =
+                C.MakeAction<OffloadUnbundlingJobAction>(
+                    SYCLDeviceLibsInputAction);
+            addDeviceDepences(SYCLDeviceLibsUnbundleAction);
+            DeviceLinkObjects.push_back(SYCLDeviceLibsUnbundleAction);
+          }
+        }
+      };
+      addInputs(sycl_devicelib_wrapper);
+      if (isSpirvAOT)
+        addInputs(sycl_devicelib_fallback);
     }
 
     void appendLinkDependences(OffloadAction::DeviceDependences &DA) override {
@@ -4365,12 +4455,26 @@ class OffloadingActionBuilder final {
         }
         ActionList DeviceLibObjects;
         ActionList LinkObjects;
+        auto TT = SYCLTripleList[I];
+        auto isNVPTX = (*TC)->getTriple().isNVPTX();
+        bool isSpirvAOT = TT.getSubArch() == llvm::Triple::SPIRSubArch_fpga ||
+                          TT.getSubArch() == llvm::Triple::SPIRSubArch_gen ||
+                          TT.getSubArch() == llvm::Triple::SPIRSubArch_x86_64;
         for (const auto &Input : LI) {
           // FPGA aoco does not go through the link, everything else does.
           if (Input->getType() == types::TY_FPGA_AOCO)
             DeviceLibObjects.push_back(Input);
           else
             LinkObjects.push_back(Input);
+        }
+        // FIXME: Link all wrapper and fallback device libraries as default,
+        // When spv online link is supported by all backends, the fallback
+        // device libraries are only needed when current toolchain is using
+        // AOT compilation.
+        if (!isNVPTX) {
+          addSYCLDeviceLibs(
+              *TC, LinkObjects, true,
+              C.getDefaultToolChain().getTriple().isWindowsMSVCEnvironment());
         }
         // The linkage actions subgraph leading to the offload wrapper.
         // [cond] Means incoming/outgoing dependence is created only when cond
@@ -4426,7 +4530,6 @@ class OffloadingActionBuilder final {
         Action *DeviceLinkAction =
             C.MakeAction<LinkJobAction>(LinkObjects, types::TY_LLVM_BC);
         // setup some flags upfront
-        auto isNVPTX = (*TC)->getTriple().isNVPTX();
 
         if (isNVPTX && DeviceCodeSplit) {
           // TODO Temporary limitation, need to support code splitting for PTX
@@ -4438,10 +4541,6 @@ class OffloadingActionBuilder final {
           D.Diag(diag::err_drv_unsupported_opt_for_target)
               << OptName << (*TC)->getTriple().str();
         }
-        auto TT = SYCLTripleList[I];
-        bool isSpirvAOT = TT.getSubArch() == llvm::Triple::SPIRSubArch_fpga ||
-                          TT.getSubArch() == llvm::Triple::SPIRSubArch_gen ||
-                          TT.getSubArch() == llvm::Triple::SPIRSubArch_x86_64;
         // reflects whether current target is ahead-of-time and can't support
         // runtime setting of specialization constants
         bool isAOT = isNVPTX || isSpirvAOT;

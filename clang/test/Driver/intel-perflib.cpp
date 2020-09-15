@@ -188,7 +188,7 @@
 
 // Check phases for -mkl and objects
 // RUN: touch %t.o
-// RUN: %clang -target x86_64-unknown-linux-gnu -fsycl -mkl %t.o -### -ccc-print-phases 2>&1 \
+// RUN: %clang -target x86_64-unknown-linux-gnu -fsycl -fno-sycl-device-lib=all -mkl %t.o -### -ccc-print-phases 2>&1 \
 // RUN:  | FileCheck -check-prefix=MKL-SHARED-OBJ-PHASES %s
 // MKL-SHARED-OBJ-PHASES: 0: input, "{{.*}}", object, (host-sycl)
 // MKL-SHARED-OBJ-PHASES: 1: clang-offload-unbundler, {0}, object, (host-sycl)
