@@ -617,14 +617,7 @@ public:
         !VPBlockUtils::blockIsLoopLatch(Block->getSinglePredecessor(), VPLI) &&
         "Loop exits in loop-simplified forms don't require blend processing!");
     for (VPPHINode *Phi : Phis) {
-      VPBlendInst *Blend = VPBuilder().setInsertPoint(Phi).create<VPBlendInst>(
-          Phi->getName(), Phi->getType());
-      Blend->addIncoming(Phi->getOperand(0), nullptr,
-                         Phi->getParent()->getParent());
-      // TODO: HIR Mixed CG has issues propagating invalidate through the
-      // use-chain. Blends/phis are gonna be lowered to using the same temp, so
-      // invalidation might not actually be needed.
-      Phi->replaceAllUsesWith(Blend, false /* InvalidateIR */);
+      Phi->replaceAllUsesWith(Phi->getOperand(0), false /* InvalidateIR */);
       Phi->getParent()->eraseInstruction(Phi);
     }
   }
@@ -666,11 +659,17 @@ public:
   /// when we arrive at the unpredicated block.
   void getBlendArgs(int Idx, VPBasicBlock *AtBB,
                     SmallVectorImpl<VPValue *> &BlendOps) {
+    auto IsUndef = [](const VPValue *V) {
+      return isa<VPConstant>(V) &&
+             isa<UndefValue>(cast<VPConstant>(V)->getConstant());
+    };
     if (OrigValsMaps[Idx].count(AtBB)) {
       VPValue *Val = OrigValsMaps[Idx][AtBB];
-      VPValue *Pred = AtBB->getPredicate();
-      BlendOps.push_back(Pred);
-      BlendOps.push_back(Val);
+      if (!IsUndef(Val)) {
+        VPValue *Pred = AtBB->getPredicate();
+        BlendOps.push_back(Pred);
+        BlendOps.push_back(Val);
+      }
     }
     // The phi corresponds to the values blended earlier in CFG than the def
     // from the block itself.
@@ -756,6 +755,16 @@ public:
       Phis.push_back(&Phi);
 
     if (Phis[0]->getNumIncomingValues() == 1) {
+      // LLVM IR CG merges (reuses) several VPBasicBlocks so we can't leave a
+      // phi even in case of
+      //
+      // BB0:
+      //   br BB1
+      // BB1: ; preds: BB0
+      //   %val = phi[ %something, BB0 ]
+      //
+      // as that might result in a phi in the middle of the llvm::BasicBlock
+      // after VPlan CG.
       processSingleIncomingValuePhis();
       return;
     }

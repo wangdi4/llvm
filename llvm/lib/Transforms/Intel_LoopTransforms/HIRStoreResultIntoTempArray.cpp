@@ -283,28 +283,32 @@ static bool compareMemRefs(RegDDRef *Ref1, RegDDRef *Ref2, DDGraph &DDG,
       return false;
     }
 
-    switch (Dim) {
-    case 4:
-      if (!CE->hasIV(LoopLevel)) {
-        return false;
-      }
-      break;
-    case 3:
-      if (!CE->isStandAloneIV(false, &Level) && Level == LoopLevel) {
-        return false;
-      }
-      break;
-    case 2:
-      if (!CE->isStandAloneIV(false, &Level) && Level == LoopLevel) {
-        return false;
-      }
-      break;
-    case 1:
+    if (Dim == 1) {
       if (!CE->isConstant()) {
         return false;
       }
-      break;
-    default:
+    } else if (Dim <= 4) {
+      if (!CE->hasIV(LoopLevel)) {
+        return false;
+      }
+
+      if (CE->numIVs() != 1 || CE->getDenominator() != 1) {
+        return false;
+      }
+
+      unsigned Index;
+      int64_t Coeff;
+
+      CE->getIVCoeff(LoopLevel, &Index, &Coeff);
+
+      if ((Coeff != 1) || (Index != InvalidBlobIndex)) {
+        return false;
+      }
+
+      if (CE->getSrcType() != CE->getDestType()) {
+        return false;
+      }
+    } else {
       return false;
     }
 
@@ -326,11 +330,6 @@ static bool compareMemRefs(RegDDRef *Ref1, RegDDRef *Ref2, DDGraph &DDG,
         return false;
       }
 
-      if (!MemRefLowerDimCE1->isZero() &&
-          !CanonExprUtils::canAdd(Lp->getUpperCanonExpr(), MemRefLowerDimCE1,
-                                  true)) {
-        return false;
-      }
       Lp = Lp->getParentLoop();
     }
   }
@@ -657,6 +656,7 @@ static HLInst *createAllocaInst(DDGraph DDG, RegDDRef *MinRef, RegDDRef *MaxRef,
   while (Lp = Lp->getParentLoop()) {
     RegDDRef *ParentTripCountRef = Lp->getTripCountDDRef();
     LoopLevel = Lp->getNestingLevel();
+
     recordOffsets(MinRef, LoopLevel, Offsets);
 
     // Create trip count multiplication inst, like %array_size =
@@ -765,6 +765,8 @@ RegDDRef *HIRStoreResultIntoTempArray::addDimensionForAllocaMemRef(
       }
 
       CanonExpr *CloneCE = CE->clone();
+
+      CloneCE->convertToStandAloneBlob();
 
       CloneCE->addConstant(-Offsets[I - 1], true);
 

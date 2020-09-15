@@ -5090,6 +5090,7 @@ Function *VPOParoptUtils::genOutlineFunction(const WRegionNode &W,
                    /* AssumptionCache */ AC,
                    /* AllowVarArgs */ false,
                    /* AllowAlloca */ true,
+                   /* Suffix */ "",
                    /* AllowEHTypeID */ true,
                    IsTarget ? &TgtClauseArgs : nullptr);
   CE.setDeclLoc(W.getEntryDirective()->getDebugLoc());
