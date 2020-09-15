@@ -858,6 +858,14 @@ static bool isSafeToPromoteArgument(Argument *Arg, Type *ByValTy, AAResults &AAR
     if (DL.getTypeStoreSize(BaseTy) > DL.getTypeStoreSize(Arg->getType()))
       return false;
   }
+
+  // Since the argument is only used by load instructions (i.e not escaped)
+  // and the argument is marked with NoAlias, we don't need to prove that
+  // the argument pointer is not modified before its uses. It is safe to
+  // assume that the argument pointer is not modified in the current routine.
+  if (isNoAliasArgument(Arg))
+    return true;
+
 #endif // INTEL_CUSTOMIZATION
 
   // Okay, now we know that the argument is only used by load instructions and
