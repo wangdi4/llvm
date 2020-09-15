@@ -13875,6 +13875,30 @@ isNonNegativeIntegerValue(Expr *&ValExpr, Sema &SemaRef, OpenMPClauseKind CKind,
   return true;
 }
 
+#if INTEL_COLLAB
+static bool isHoistedTeamsClause(OpenMPDirectiveKind DKind,
+                                 OpenMPDirectiveKind ParentKind) {
+  switch (DKind) {
+    case OMPD_target_teams:
+    case OMPD_target_teams_distribute:
+    case OMPD_target_teams_distribute_simd:
+    case OMPD_target_teams_distribute_parallel_for:
+    case OMPD_target_teams_distribute_parallel_for_simd:
+      return true;
+    case OMPD_teams:
+    case OMPD_teams_distribute:
+    case OMPD_teams_distribute_simd:
+    case OMPD_teams_distribute_parallel_for:
+    case OMPD_teams_distribute_parallel_for_simd:
+      if (ParentKind == OMPD_target)
+        return true;
+      return false;
+    default:
+      return false;
+  }
+}
+#endif // INTEL_COLLAB
+
 OMPClause *Sema::ActOnOpenMPNumThreadsClause(Expr *NumThreads,
                                              SourceLocation StartLoc,
                                              SourceLocation LParenLoc,
@@ -13891,6 +13915,11 @@ OMPClause *Sema::ActOnOpenMPNumThreadsClause(Expr *NumThreads,
   OpenMPDirectiveKind DKind = DSAStack->getCurrentDirective();
   OpenMPDirectiveKind CaptureRegion =
       getOpenMPCaptureRegionForClause(DKind, OMPC_num_threads, LangOpts.OpenMP);
+#if INTEL_COLLAB
+  if (LangOpts.OpenMPLateOutline &&
+      isHoistedTeamsClause(DKind, DSAStack->getParentDirective()))
+    CaptureRegion = OMPD_unknown;
+#endif // INTEL_COLLAB
   if (CaptureRegion != OMPD_unknown && !CurContext->isDependentContext()) {
     ValExpr = MakeFullExpr(ValExpr).get();
     llvm::MapVector<const Expr *, DeclRefExpr *> Captures;
@@ -19392,6 +19421,11 @@ OMPClause *Sema::ActOnOpenMPNumTeamsClause(Expr *NumTeams,
   OpenMPDirectiveKind DKind = DSAStack->getCurrentDirective();
   OpenMPDirectiveKind CaptureRegion =
       getOpenMPCaptureRegionForClause(DKind, OMPC_num_teams, LangOpts.OpenMP);
+#if INTEL_COLLAB
+  if (LangOpts.OpenMPLateOutline &&
+      isHoistedTeamsClause(DKind, DSAStack->getParentDirective()))
+    CaptureRegion = OMPD_unknown;
+#endif // INTEL_COLLAB
   if (CaptureRegion != OMPD_unknown && !CurContext->isDependentContext()) {
     ValExpr = MakeFullExpr(ValExpr).get();
     llvm::MapVector<const Expr *, DeclRefExpr *> Captures;

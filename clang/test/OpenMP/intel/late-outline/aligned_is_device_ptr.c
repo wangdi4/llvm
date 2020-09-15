@@ -20,7 +20,7 @@ void normal_alignment_is_device_ptr()
 
   //CHECK: [[L:%[0-9]+]] = load [[TYPE]], [[TYPE]]* [[PTR]], align 8
   //CHECK: "DIR.OMP.TARGET"
-  //CHECK-SAME: MAP{{.*}}"([[TYPE]] [[L]], [[TYPE]] [[L]], i64 8, i64 288)
+  //CHECK-SAME: "QUAL.OMP.IS_DEVICE_PTR:PTR_TO_PTR"([10 x i32]** %ptr)
   //CHECK-SAME: MAP.FROM"(i32* [[I]], i32* [[I]], i64 4,
   //CHECK: "DIR.OMP.END.TARGET"
   #pragma omp target device(0) map(from:i) is_device_ptr(ptr)
@@ -43,7 +43,7 @@ void specific_alignment_is_device_ptr()
   // Flags are OMP_MAP_TARGET_PARAM|OMP_MAP_TO (currently 0x21 or 33)
 
   //CHECK: "DIR.OMP.TARGET"
-  //CHECK-SAME: MAP{{.*}}"([[TP]]* [[PTR]], [[TP]]* [[PTR]], i64 8, i64 33)
+  //CHECK-SAME: "QUAL.OMP.IS_DEVICE_PTR:PTR_TO_PTR"([10 x i32]** %ptr)
   //CHECK-SAME: MAP.FROM"(i32* [[I]], i32* [[I]], i64 4,
   //CHECK: "DIR.OMP.END.TARGET"
   #pragma omp target device(0) map(from:i) is_device_ptr(ptr)
