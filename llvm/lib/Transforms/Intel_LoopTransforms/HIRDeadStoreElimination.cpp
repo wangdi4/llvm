@@ -551,6 +551,11 @@ bool HIRDeadStoreElimination::doSingleItemGroup(
     LLVM_DEBUG(dbgs() << "Expect a StoreInst to delete\n";);
     return false;
   }
+
+  if (auto *ParentLoop = DDNode->getLexicalParentLoop()) {
+    HIRInvalidationUtils::invalidateBody<HIRLoopStatistics>(ParentLoop);
+  }
+
   auto *Parent = DDNode->getParent();
   HLNodeUtils::remove(DDNode);
   HLNodeUtils::removeRedundantNodes(Parent, true);
