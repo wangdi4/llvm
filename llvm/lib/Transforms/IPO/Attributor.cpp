@@ -911,13 +911,15 @@ bool Attributor::checkForAllInstructions(function_ref<bool(Instruction &)> Pred,
 
   // TODO: use the function scope once we have call site AAReturnedValues.
   const IRPosition &QueryIRP = IRPosition::function(*AssociatedFunction);
-  const auto &LivenessAA =
-      getAAFor<AAIsDead>(QueryingAA, QueryIRP, /* TrackDependence */ false);
+  const auto *LivenessAA =
+      CheckBBLivenessOnly ? nullptr
+                          : &(getAAFor<AAIsDead>(QueryingAA, QueryIRP,
+                                                 /* TrackDependence */ false));
 
   auto &OpcodeInstMap =
       InfoCache.getOpcodeInstMapForFunction(*AssociatedFunction);
   if (!checkForAllInstructionsImpl(this, OpcodeInstMap, Pred, &QueryingAA,
-                                   &LivenessAA, Opcodes, CheckBBLivenessOnly))
+                                   LivenessAA, Opcodes, CheckBBLivenessOnly))
     return false;
 
   return true;
@@ -1299,8 +1301,14 @@ ChangeStatus Attributor::cleanupIR() {
   for (Function *Fn : CGModifiedFunctions)
     CGUpdater.reanalyzeFunction(*Fn);
 
-  for (Function *Fn : ToBeDeletedFunctions)
+  for (Function *Fn : ToBeDeletedFunctions) {
+    if (!Functions.count(Fn))
+      continue;
     CGUpdater.removeFunction(*Fn);
+  }
+
+  if (!ToBeDeletedFunctions.empty())
+    ManifestChange = ChangeStatus::CHANGED;
 
   NumFnDeleted += ToBeDeletedFunctions.size();
 
@@ -1321,7 +1329,7 @@ ChangeStatus Attributor::cleanupIR() {
 ChangeStatus Attributor::run() {
   TimeTraceScope TimeScope("Attributor::run");
 
-  SeedingPeriod = false;
+  Phase = AttributorPhase::UPDATE;
   runTillFixpoint();
 
   // dump graphs on demand
@@ -1334,13 +1342,19 @@ ChangeStatus Attributor::run() {
   if (PrintDependencies)
     DG.print();
 
+  Phase = AttributorPhase::MANIFEST;
   ChangeStatus ManifestChange = manifestAttributes();
+
+  Phase = AttributorPhase::CLEANUP;
   ChangeStatus CleanupChange = cleanupIR();
+
   return ManifestChange | CleanupChange;
 }
 
 ChangeStatus Attributor::updateAA(AbstractAttribute &AA) {
   TimeTraceScope TimeScope(AA.getName() + "::updateAA");
+  assert(Phase == AttributorPhase::UPDATE &&
+         "We can update AA only in the update stage!");
 
   // Use a new dependence vector for this update.
   DependenceVector DV;
@@ -1599,7 +1613,7 @@ ChangeStatus Attributor::rewriteFunctionSignatures(
     Function *OldFn = It.getFirst();
 
     // Deleted functions do not require rewrites.
-    if (ToBeDeletedFunctions.count(OldFn))
+    if (!Functions.count(OldFn) || ToBeDeletedFunctions.count(OldFn))
       continue;
 
     const SmallVectorImpl<std::unique_ptr<ArgumentReplacementInfo>> &ARIs =
@@ -1952,6 +1966,9 @@ void Attributor::identifyDefaultAbstractAttributes(Function &F) {
     // Every function might be simplified.
     getOrCreateAAFor<AAValueSimplify>(RetPos);
 
+    // Every returned value might be marked noundef.
+    getOrCreateAAFor<AANoUndef>(RetPos);
+
     if (ReturnType->isPointerTy()) {
 
       // Every function with pointer return type might be marked align.
@@ -1966,9 +1983,6 @@ void Attributor::identifyDefaultAbstractAttributes(Function &F) {
       // Every function with pointer return type might be marked
       // dereferenceable.
       getOrCreateAAFor<AADereferenceable>(RetPos);
-
-      // Every function with pointer return type might be marked noundef.
-      getOrCreateAAFor<AANoUndef>(RetPos);
     }
   }
 
@@ -1980,6 +1994,9 @@ void Attributor::identifyDefaultAbstractAttributes(Function &F) {
 
     // Every argument might be dead.
     getOrCreateAAFor<AAIsDead>(ArgPos);
+
+    // Every argument might be marked noundef.
+    getOrCreateAAFor<AANoUndef>(ArgPos);
 
     if (Arg.getType()->isPointerTy()) {
       // Every argument with pointer type might be marked nonnull.
@@ -2006,9 +2023,6 @@ void Attributor::identifyDefaultAbstractAttributes(Function &F) {
 
       // Every argument with pointer type might be privatizable (or promotable)
       getOrCreateAAFor<AAPrivatizablePtr>(ArgPos);
-
-      // Every argument with pointer type might be marked noundef.
-      getOrCreateAAFor<AANoUndef>(ArgPos);
     }
   }
 
@@ -2051,6 +2065,9 @@ void Attributor::identifyDefaultAbstractAttributes(Function &F) {
       // Call site argument might be simplified.
       getOrCreateAAFor<AAValueSimplify>(CBArgPos);
 
+      // Every call site argument might be marked "noundef".
+      getOrCreateAAFor<AANoUndef>(CBArgPos);
+
       if (!CB.getArgOperand(I)->getType()->isPointerTy())
         continue;
 
@@ -2075,9 +2092,6 @@ void Attributor::identifyDefaultAbstractAttributes(Function &F) {
 
       // Call site argument attribute "nofree".
       getOrCreateAAFor<AANoFree>(CBArgPos);
-
-      // Call site argument attribute "noundef".
-      getOrCreateAAFor<AANoUndef>(CBArgPos);
     }
     return true;
   };
@@ -2166,9 +2180,12 @@ raw_ostream &llvm::operator<<(raw_ostream &OS,
   OS << "set-state(< {";
   if (!S.isValidState())
     OS << "full-set";
-  else
+  else {
     for (auto &it : S.getAssumedSet())
       OS << it << ", ";
+    if (S.undefIsContained())
+      OS << "undef ";
+  }
   OS << "} >)";
 
   return OS;

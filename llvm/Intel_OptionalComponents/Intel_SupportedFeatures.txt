@@ -210,10 +210,6 @@
 # === New SW features section end ===
 
 # === New CPU section begin ===
-# INTEL_FEATURE_CPU_SPR
-@CPU_SPR:SECRET@
-# end INTEL_FEATURE_CPU_SPR
-
 # INTEL_FEATURE_CPU_ADL
 @CPU_ADL:SECRET@
 # end INTEL_FEATURE_CPU_ADL

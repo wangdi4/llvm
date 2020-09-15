@@ -793,8 +793,7 @@ private:
 #else
   kernel_parallel_for(const KernelType &KernelFunc) {
 #endif
-    KernelFunc(
-        detail::Builder::getElement(static_cast<ElementType *>(nullptr)));
+    KernelFunc(detail::Builder::getElement(detail::declptr<ElementType>()));
   }
 
   // NOTE: the name of this function - "kernel_parallel_for_work_group" - is
@@ -806,8 +805,7 @@ private:
 #else
   kernel_parallel_for_work_group(const KernelType &KernelFunc) {
 #endif
-    KernelFunc(
-        detail::Builder::getElement(static_cast<ElementType *>(nullptr)));
+    KernelFunc(detail::Builder::getElement(detail::declptr<ElementType>()));
   }
 
 #endif

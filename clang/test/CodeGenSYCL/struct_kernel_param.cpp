@@ -15,7 +15,7 @@
 
 // This test checks if compiler accepts structures as kernel parameters.
 
-#include "sycl.hpp"
+#include "Inputs/sycl.hpp"
 
 using namespace cl::sycl;
 

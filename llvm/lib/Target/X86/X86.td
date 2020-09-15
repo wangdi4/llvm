@@ -981,42 +981,38 @@ def ProcessorFeatures {
   list<SubtargetFeature> TGLFeatures =
     !listconcat(ICLFeatures, TGLAdditionalFeatures );
 
+  //Sapphirerapids
+  list<SubtargetFeature> SPRAdditionalFeatures = [FeatureAMXTILE,
+                                                  FeatureAMXINT8,
+                                                  FeatureAMXBF16,
+                                                  FeatureBF16,
+                                                  FeatureSERIALIZE,
+                                                  FeatureCLDEMOTE,
+                                                  FeatureWAITPKG,
+                                                  FeaturePTWRITE,
 #if INTEL_CUSTOMIZATION
-  list<SubtargetFeature> IntelAnonymous1AdditionalFeatures =[
-#if INTEL_FEATURE_ISA_AMX
-    FeatureAMXTILE,
-    FeatureAMXINT8,
-    FeatureAMXBF16,
-#endif // INTEL_FEATURE_ISA_AMX
 #if INTEL_FEATURE_ISA_FP16
-    FeatureFP16,
+                                                  FeatureFP16,
 #endif // INTEL_FEATURE_ISA_FP16
-    FeatureBF16,
-    FeatureSERIALIZE,
-    FeatureCLDEMOTE,
-    FeatureWAITPKG,
-    FeaturePTWRITE,
 #if INTEL_FEATURE_ISA_ULI
-    FeatureULI,
+                                                  FeatureULI,
 #endif // INTEL_FEATURE_ISA_ULI
-    FeatureTSXLDTRK,
-    FeatureENQCMD,
 #if INTEL_FEATURE_ISA_AVX_VNNI
-    FeatureAVXVNNI,
+                                                  FeatureAVXVNNI,
 #endif // INTEL_FEATURE_ISA_AVX_VNNI
 #if INTEL_FEATURE_ISA_HRESET
-    FeatureHRESET,
+                                                  FeatureHRESET,
 #endif // INTEL_FEATURE_ISA_HRESET
-    FeatureSHSTK,
-    FeatureVP2INTERSECT,
-    FeatureMOVDIRI,
-    FeatureMOVDIR64B
-  ];
-  // TODO: inherit from Willowcove instead of ICX.
-  list<SubtargetFeature> IntelAnonymous1Features =
-    !listconcat(ICXFeatures, IntelAnonymous1AdditionalFeatures);
-  list<SubtargetFeature> IntelAnonymous1Tuning = ICXTuning;
 #endif // INTEL_CUSTOMIZATION
+                                                  FeatureTSXLDTRK,
+                                                  FeatureENQCMD,
+                                                  FeatureSHSTK,
+                                                  FeatureVP2INTERSECT,
+                                                  FeatureMOVDIRI,
+                                                  FeatureMOVDIR64B];
+  list<SubtargetFeature> SPRTuning = ICXTuning;
+  list<SubtargetFeature> SPRFeatures =
+    !listconcat(ICXFeatures, SPRAdditionalFeatures);
 
   // Atom
   list<SubtargetFeature> AtomFeatures = [FeatureX87,
@@ -1359,8 +1355,14 @@ class ProcModel<string Name, SchedMachineModel Model,
 // NOTE: 64Bit is here as "generic" is the default llc CPU. The X86Subtarget
 // constructor checks that any CPU used in 64-bit mode has Feature64Bit enabled.
 // It has no effect on code generation.
-def : Proc<"generic",         [FeatureX87, FeatureCMPXCHG8B, Feature64Bit],
-                              [FeatureSlowUAMem16, FeatureInsertVZEROUPPER]>;
+def : ProcModel<"generic", SandyBridgeModel,
+                [FeatureX87, FeatureCMPXCHG8B, Feature64Bit],
+                [FeatureSlow3OpsLEA,
+                 FeatureSlowDivide64,
+                 FeatureSlowIncDec,
+                 FeatureMacroFusion,
+                 FeatureInsertVZEROUPPER]>;
+
 def : Proc<"i386",            [FeatureX87],
                               [FeatureSlowUAMem16, FeatureInsertVZEROUPPER]>;
 def : Proc<"i486",            [FeatureX87],
@@ -1404,20 +1406,10 @@ def : ProcModel<"pentium-m", GenericPostRAModel,
                 [FeatureSlowUAMem16, FeatureInsertVZEROUPPER]>;
 
 foreach P = ["pentium4", "pentium4m"] in {
-//  def : ProcModel<P, GenericPostRAModel,
-//                  [FeatureX87, FeatureCMPXCHG8B, FeatureMMX, FeatureSSE2,
-//                   FeatureFXSR, FeatureNOPL, FeatureCMOV]>;
-//                  [FeatureSlowUAMem16, FeatureInsertVZEROUPPER]>;
-
-  // Since 'pentium4' is the default 32-bit CPU on Linux and Windows,
-  // give it more modern tunings.
-  // FIXME: This wouldn't be needed if we supported mtune.
-  def : ProcModel<P, SandyBridgeModel,
+  def : ProcModel<P, GenericPostRAModel,
                   [FeatureX87, FeatureCMPXCHG8B, FeatureMMX, FeatureSSE2,
                    FeatureFXSR, FeatureNOPL, FeatureCMOV],
-                  [FeatureSlow3OpsLEA, FeatureSlowDivide64,
-                   FeatureSlowIncDec, FeatureMacroFusion,
-                   FeatureInsertVZEROUPPER]>;
+                  [FeatureSlowUAMem16, FeatureInsertVZEROUPPER]>;
 }
 
 // Intel Quark.
@@ -1579,14 +1571,8 @@ def : ProcModel<"icelake-server", SkylakeServerModel,
                 ProcessorFeatures.ICXFeatures, ProcessorFeatures.ICXTuning>;
 def : ProcModel<"tigerlake", SkylakeServerModel,
                 ProcessorFeatures.TGLFeatures, ProcessorFeatures.TGLTuning>;
-
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_CPU_SPR
 def : ProcModel<"sapphirerapids", SkylakeServerModel,
-                ProcessorFeatures.IntelAnonymous1Features,
-                ProcessorFeatures.IntelAnonymous1Tuning>;
-#endif // INTEL_FEATURE_CPU_SPR
-#endif // INTEL_CUSTOMIZATION
+                ProcessorFeatures.SPRFeatures, ProcessorFeatures.SPRTuning>;
 
 // AMD CPUs.
 

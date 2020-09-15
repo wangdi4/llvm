@@ -14,7 +14,7 @@ const char *OmptDocument = nullptr;
 OmptGlobalTy *OmptGlobal = nullptr;
 
 extern int DebugLevel;
-#define DP(...)                                                                \
+#define IDP(...)                                                               \
   do {                                                                         \
     if (DebugLevel > 0) {                                                      \
       fprintf(stderr, "%s --> ", "Target LEVEL0 RTL");                         \
@@ -49,14 +49,14 @@ extern int DebugLevel;
 /// Return available OpenMP PROCS on the device.
 static int ompt_get_device_num_procs_fn(ompt_device_t *device) {
   // TODO
-  DP("Warning: ompt_get_device_num_procs_t is not available\n");
+  IDP("Warning: ompt_get_device_num_procs_t is not available\n");
   return 0;
 }
 
 /// Return the current time on the device.
 static ompt_device_time_t ompt_get_device_time_fn(ompt_device_t *device) {
   // TODO
-  DP("Warning: ompt_device_time_t is not available\n");
+  IDP("Warning: ompt_device_time_t is not available\n");
   return 0;
 }
 
@@ -64,7 +64,7 @@ static ompt_device_time_t ompt_get_device_time_fn(ompt_device_t *device) {
 static double ompt_translate_time_fn(ompt_device_t *device,
                                      ompt_device_time_t deviceTime) {
   // TODO
-  DP("Warning: ompt_translate_time_t entry is not available\n");
+  IDP("Warning: ompt_translate_time_t entry is not available\n");
   return 0.0;
 }
 
@@ -73,7 +73,7 @@ static ompt_set_result_t ompt_set_trace_ompt_fn(ompt_device_t *device,
                                                 unsigned int enable,
                                                 unsigned int etype) {
   // TODO
-  DP("Warning: ompt_set_trace_ompt_t entry is not available\n");
+  IDP("Warning: ompt_set_trace_ompt_t entry is not available\n");
   return ompt_set_never;
 }
 
@@ -81,7 +81,7 @@ static ompt_set_result_t ompt_set_trace_ompt_fn(ompt_device_t *device,
 static ompt_set_result_t ompt_set_trace_native_fn(ompt_device_t *device,
                                                   int enable, int flags) {
   // TODO
-  DP("Warning: ompt_set_trace_native_t entry is not available\n");
+  IDP("Warning: ompt_set_trace_native_t entry is not available\n");
   return ompt_set_never;
 }
 
@@ -90,14 +90,14 @@ static int ompt_start_trace_fn(ompt_device_t *device,
                                ompt_callback_buffer_request_t request,
                                ompt_callback_buffer_complete_t complete) {
   // TODO
-  DP("Warning: ompt_start_trace_t entry is not available\n");
+  IDP("Warning: ompt_start_trace_t entry is not available\n");
   return OMPT_FAIL;
 }
 
 /// Pause or restart tracing on the device.
 static int ompt_pause_trace_fn(ompt_device_t *device, int beginPause) {
   // TODO
-  DP("Warning: ompt_pause_trace_t entry is not available\n");
+  IDP("Warning: ompt_pause_trace_t entry is not available\n");
   return OMPT_FAIL;
 }
 
@@ -105,14 +105,14 @@ static int ompt_pause_trace_fn(ompt_device_t *device, int beginPause) {
 /// uncompleted buffers.
 static int ompt_flush_trace_fn(ompt_device_t *device) {
   // TODO
-  DP("Warning: ompt_flush_trace_t entry is not available\n");
+  IDP("Warning: ompt_flush_trace_t entry is not available\n");
   return OMPT_FAIL;
 }
 
 /// Stop tracing on the device.
 static int ompt_stop_trace_fn(ompt_device_t *device) {
   // TODO
-  DP("Warning: ompt_stop_trace_t entry is not available\n");
+  IDP("Warning: ompt_stop_trace_t entry is not available\n");
   return OMPT_FAIL;
 }
 
@@ -121,7 +121,7 @@ static int ompt_advance_buffer_cursor_fn(
     ompt_device_t *device, ompt_buffer_t *buffer, size_t size,
     ompt_buffer_cursor_t current, ompt_buffer_cursor_t *next) {
   // TODO
-  DP("Warning: ompt_advance_buffer_cursor_t entry is not available\n");
+  IDP("Warning: ompt_advance_buffer_cursor_t entry is not available\n");
   return OMPT_FAIL;
 }
 
@@ -129,7 +129,7 @@ static int ompt_advance_buffer_cursor_fn(
 static ompt_record_t ompt_get_record_type_fn(ompt_buffer_t *buffer,
                                              ompt_buffer_cursor_t current) {
   // TODO
-  DP("Warning: ompt_get_record_type_t entry is not available\n");
+  IDP("Warning: ompt_get_record_type_t entry is not available\n");
   return ompt_record_invalid;
 }
 
@@ -137,7 +137,7 @@ static ompt_record_t ompt_get_record_type_fn(ompt_buffer_t *buffer,
 static ompt_record_ompt_t *ompt_get_record_ompt_fn(
     ompt_buffer_t *buffer, ompt_buffer_cursor_t current) {
   // TODO
-  DP("Warning: ompt_get_record_ompt_t entry is not available\n");
+  IDP("Warning: ompt_get_record_ompt_t entry is not available\n");
   return nullptr;
 }
 
@@ -146,14 +146,14 @@ static void *ompt_get_record_native_fn(ompt_buffer_t *buffer,
                                        ompt_buffer_cursor_t current,
                                        ompt_id_t *hostOpId) {
   // TODO
-  DP("Warning: ompt_get_record_native_t entry is not available\n");
+  IDP("Warning: ompt_get_record_native_t entry is not available\n");
   return nullptr;
 }
 
 /// Return an abstract record from the native record.
 static ompt_record_abstract_t *ompt_get_record_abstract_fn(void *record) {
   // TODO
-  DP("Warning: ompt_get_record_abstract_t entry is not available\n");
+  IDP("Warning: ompt_get_record_abstract_t entry is not available\n");
   return nullptr;
 }
 
@@ -165,7 +165,7 @@ static ompt_record_abstract_t *ompt_get_record_abstract_fn(void *record) {
 /// Return the number of assigned teams for the given target ID.
 static int ompt_ext_get_num_teams_fn(ompt_id_t targetId) {
   if (targetId != OmptGlobal->getTrace().TargetId) {
-    DP("Warning: cannot find num_teams for target %" PRIu64 "\n", targetId);
+    IDP("Warning: cannot find num_teams for target %" PRIu64 "\n", targetId);
     return 0;
   }
   return OmptGlobal->getTrace().NumTeams;
@@ -174,7 +174,7 @@ static int ompt_ext_get_num_teams_fn(ompt_id_t targetId) {
 /// Return the number of assigned threads for the given target ID.
 static int ompt_ext_get_thread_limit_fn(ompt_id_t targetId) {
   if (targetId != OmptGlobal->getTrace().TargetId) {
-    DP("Warning: cannot find thread_limit for target %" PRIu64 "\n", targetId);
+    IDP("Warning: cannot find thread_limit for target %" PRIu64 "\n", targetId);
     return 0;
   }
   return OmptGlobal->getTrace().ThreadLimit;
@@ -190,7 +190,7 @@ static const char *ompt_ext_get_code_location_fn(const void *returnAddress) {
 EXTERN void __tgt_rtl_init_ompt(void *omptGlobal) {
   OmptGlobal = (OmptGlobalTy *)omptGlobal;
   if (!OmptGlobal) {
-    DP("Warning: cannot initialize OMPT\n");
+    IDP("Warning: cannot initialize OMPT\n");
     return;
   }
   OmptDocument =
@@ -213,7 +213,7 @@ EXTERN void __tgt_rtl_init_ompt(void *omptGlobal) {
       "\n  Returns the code location string for the specified return address."
       "\n  Returns null if a code location is not found."
       "\n";
-  DP("Initialized OMPT\n");
+  IDP("Initialized OMPT\n");
 }
 
 ompt_interface_fn_t omptLookupEntries(const char *name) {

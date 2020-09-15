@@ -61,6 +61,7 @@ public:
     csa,            // CSA: csa
 #endif // INTEL_FEATURE_CSA
 #endif // INTEL_CUSTOMIZATION
+    csky,           // CSKY: csky
     hexagon,        // Hexagon: hexagon
     mips,           // MIPS: mips, mipsallegrex, mipsr6
     mipsel,         // MIPSEL: mipsel, mipsallegrexe, mipsr6el
@@ -794,6 +795,11 @@ public:
   /// Tests whether the target is wasm (32- and 64-bit).
   bool isWasm() const {
     return getArch() == Triple::wasm32 || getArch() == Triple::wasm64;
+  }
+
+  // Tests whether the target is CSKY
+  bool isCSKY() const {
+    return getArch() == Triple::csky;
   }
 
   /// Tests whether the target supports comdat

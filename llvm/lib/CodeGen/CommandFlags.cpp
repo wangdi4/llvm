@@ -88,7 +88,9 @@ CGOPT(bool, EnableIntelAdvancedOpts)
 CGOPT(int, X87Precision)
 #endif // INTEL_CUSTOMIZATION
 CGOPT(bool, EmitCallSiteInfo)
+CGOPT(bool, EnableMachineFunctionSplitter)
 CGOPT(bool, EnableDebugEntryValues)
+CGOPT(bool, ValueTrackingVariableLocations)
 CGOPT(bool, ForceDwarfFrameSection)
 CGOPT(bool, XRayOmitFunctionIndex)
 
@@ -420,6 +422,19 @@ codegen::RegisterCodeGenFlags::RegisterCodeGenFlags() {
       cl::init(false));
   CGBINDOPT(EnableDebugEntryValues);
 
+  static cl::opt<bool> ValueTrackingVariableLocations(
+      "experimental-debug-variable-locations",
+      cl::desc("Use experimental new value-tracking variable locations"),
+      cl::init(false));
+  CGBINDOPT(ValueTrackingVariableLocations);
+
+  static cl::opt<bool> EnableMachineFunctionSplitter(
+      "split-machine-functions",
+      cl::desc("Split out cold basic blocks from machine functions based on "
+               "profile information"),
+      cl::init(false));
+  CGBINDOPT(EnableMachineFunctionSplitter);
+
   static cl::opt<bool> ForceDwarfFrameSection(
       "force-dwarf-frame-section",
       cl::desc("Always emit a debug frame section."), cl::init(false));
@@ -492,6 +507,7 @@ TargetOptions codegen::InitTargetOptionsFromCodeGenFlags() {
   Options.ExplicitEmulatedTLS = EmulatedTLSView->getNumOccurrences() > 0;
   Options.ExceptionModel = getExceptionModel();
   Options.EmitStackSizeSection = getEnableStackSizeSection();
+  Options.EnableMachineFunctionSplitter = getEnableMachineFunctionSplitter();
   Options.EmitAddrsig = getEnableAddrsig();
 #if INTEL_CUSTOMIZATION
   Options.IntelAdvancedOptim = getEnableIntelAdvancedOpts();
@@ -499,6 +515,7 @@ TargetOptions codegen::InitTargetOptionsFromCodeGenFlags() {
 #endif // INTEL_CUSTOMIZATION
   Options.EmitCallSiteInfo = getEmitCallSiteInfo();
   Options.EnableDebugEntryValues = getEnableDebugEntryValues();
+  Options.ValueTrackingVariableLocations = getValueTrackingVariableLocations();
   Options.ForceDwarfFrameSection = getForceDwarfFrameSection();
   Options.XRayOmitFunctionIndex = getXRayOmitFunctionIndex();
 

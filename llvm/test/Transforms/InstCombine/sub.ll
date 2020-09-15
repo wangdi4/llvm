@@ -504,7 +504,6 @@ define i64 @test24b(i8* %P, i64 %A){
   ret i64 %G
 }
 
-
 define i64 @test25(i8* %P, i64 %A){
 ; CHECK-LABEL: @test25(
 ; INTEL_CUSTOMIZATION
@@ -834,8 +833,8 @@ define i32 @test28commuted(i32 %x, i32 %y, i32 %z) {
 
 define i64 @test29(i8* %foo, i64 %i, i64 %j) {
 ; CHECK-LABEL: @test29(
-; CHECK-NEXT:    [[DOTNEG:%.*]] = sub i64 [[I:%.*]], [[J:%.*]]
-; CHECK-NEXT:    ret i64 [[DOTNEG]]
+; CHECK-NEXT:    [[GEPDIFF_NEG:%.*]] = sub i64 [[I:%.*]], [[J:%.*]]
+; CHECK-NEXT:    ret i64 [[GEPDIFF_NEG]]
 ;
   %gep1 = getelementptr inbounds i8, i8* %foo, i64 %i
   %gep2 = getelementptr inbounds i8, i8* %foo, i64 %j
@@ -1249,8 +1248,8 @@ define i64 @test58([100 x [100 x i8]]* %foo, i64 %i, i64 %j) {
 ; CHECK-LABEL: @test58(
 ; CHECK-NEXT:    [[GEP2_OFFS:%.*]] = add i64 [[J:%.*]], 4200
 ; CHECK-NEXT:    [[GEP1_OFFS:%.*]] = add i64 [[I:%.*]], 4200
-; CHECK-NEXT:    [[DOTNEG:%.*]] = sub i64 [[GEP1_OFFS]], [[GEP2_OFFS]]
-; CHECK-NEXT:    ret i64 [[DOTNEG]]
+; CHECK-NEXT:    [[GEPDIFF_NEG:%.*]] = sub i64 [[GEP1_OFFS]], [[GEP2_OFFS]]
+; CHECK-NEXT:    ret i64 [[GEPDIFF_NEG]]
 ;
   %gep1 = getelementptr inbounds [100 x [100 x i8]], [100 x [100 x i8]]* %foo, i64 0, i64 42, i64 %i
   %gep2 = getelementptr inbounds [100 x [100 x i8]], [100 x [100 x i8]]* %foo, i64 0, i64 42, i64 %j

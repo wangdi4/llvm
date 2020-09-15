@@ -146,6 +146,13 @@ MaxSmallBlockSize("simplifycfg-max-small-block-size", cl::Hidden, cl::init(10),
                   cl::desc("Max size of a block which is still considered "
                            "small enough to thread through"));
 
+// Two is chosen to allow one negation and a logical combine.
+static cl::opt<unsigned>
+    BranchFoldThreshold("simplifycfg-branch-fold-threshold", cl::Hidden,
+                        cl::init(2),
+                        cl::desc("Maximum cost of combining conditions when "
+                                 "folding branches"));
+
 STATISTIC(NumBitMaps, "Number of switch instructions turned into bitmaps");
 STATISTIC(NumLinearMaps,
           "Number of switch instructions turned into linear mapping");
@@ -2026,6 +2033,65 @@ static Value *isSafeToSpeculateStore(Instruction *I, BasicBlock *BrBB,
   return nullptr;
 }
 
+/// Estimate the cost of the insertion(s) and check that the PHI nodes can be
+/// converted to selects.
+static bool validateAndCostRequiredSelects(BasicBlock *BB, BasicBlock *ThenBB,
+                                           BasicBlock *EndBB,
+                                           unsigned &SpeculatedInstructions,
+                                           int &BudgetRemaining,
+                                           const TargetTransformInfo &TTI) {
+  TargetTransformInfo::TargetCostKind CostKind =
+    BB->getParent()->hasMinSize()
+    ? TargetTransformInfo::TCK_CodeSize
+    : TargetTransformInfo::TCK_SizeAndLatency;
+
+  bool HaveRewritablePHIs = false;
+  for (PHINode &PN : EndBB->phis()) {
+    Value *OrigV = PN.getIncomingValueForBlock(BB);
+    Value *ThenV = PN.getIncomingValueForBlock(ThenBB);
+
+    // FIXME: Try to remove some of the duplication with HoistThenElseCodeToIf.
+    // Skip PHIs which are trivial.
+    if (ThenV == OrigV)
+      continue;
+
+    BudgetRemaining -=
+        TTI.getCmpSelInstrCost(Instruction::Select, PN.getType(), nullptr,
+                               CostKind);
+
+    // Don't convert to selects if we could remove undefined behavior instead.
+    if (passingValueIsAlwaysUndefined(OrigV, &PN) ||
+        passingValueIsAlwaysUndefined(ThenV, &PN))
+      return false;
+
+    HaveRewritablePHIs = true;
+    ConstantExpr *OrigCE = dyn_cast<ConstantExpr>(OrigV);
+    ConstantExpr *ThenCE = dyn_cast<ConstantExpr>(ThenV);
+    if (!OrigCE && !ThenCE)
+      continue; // Known safe and cheap.
+
+    if ((ThenCE && !isSafeToSpeculativelyExecute(ThenCE)) ||
+        (OrigCE && !isSafeToSpeculativelyExecute(OrigCE)))
+      return false;
+    unsigned OrigCost = OrigCE ? ComputeSpeculationCost(OrigCE, TTI) : 0;
+    unsigned ThenCost = ThenCE ? ComputeSpeculationCost(ThenCE, TTI) : 0;
+    unsigned MaxCost =
+        2 * PHINodeFoldingThreshold * TargetTransformInfo::TCC_Basic;
+    if (OrigCost + ThenCost > MaxCost)
+      return false;
+
+    // Account for the cost of an unfolded ConstantExpr which could end up
+    // getting expanded into Instructions.
+    // FIXME: This doesn't account for how many operations are combined in the
+    // constant expression.
+    ++SpeculatedInstructions;
+    if (SpeculatedInstructions > 1)
+      return false;
+  }
+
+  return HaveRewritablePHIs;
+}
+
 /// Speculate a conditional basic block flattening the CFG.
 ///
 /// Note that this is a very risky transform currently. Speculating
@@ -2072,6 +2138,8 @@ bool SimplifyCFGOpt::SpeculativelyExecuteBB(BranchInst *BI, BasicBlock *ThenBB,
 
   BasicBlock *BB = BI->getParent();
   BasicBlock *EndBB = ThenBB->getTerminator()->getSuccessor(0);
+  int BudgetRemaining =
+    PHINodeFoldingThreshold * TargetTransformInfo::TCC_Basic;
 
 #ifndef INTEL_CUSTOMIZATION
   TargetTransformInfo::TargetCostKind CostKind =
@@ -2171,50 +2239,13 @@ bool SimplifyCFGOpt::SpeculativelyExecuteBB(BranchInst *BI, BasicBlock *ThenBB,
         return false;
     }
 
-  // Check that the PHI nodes can be converted to selects.
-  bool HaveRewritablePHIs = false;
-  for (PHINode &PN : EndBB->phis()) {
-    Value *OrigV = PN.getIncomingValueForBlock(BB);
-    Value *ThenV = PN.getIncomingValueForBlock(ThenBB);
-
-    // FIXME: Try to remove some of the duplication with HoistThenElseCodeToIf.
-    // Skip PHIs which are trivial.
-    if (ThenV == OrigV)
-      continue;
-
-    // Don't convert to selects if we could remove undefined behavior instead.
-    if (passingValueIsAlwaysUndefined(OrigV, &PN) ||
-        passingValueIsAlwaysUndefined(ThenV, &PN))
-      return false;
-
-    HaveRewritablePHIs = true;
-    ConstantExpr *OrigCE = dyn_cast<ConstantExpr>(OrigV);
-    ConstantExpr *ThenCE = dyn_cast<ConstantExpr>(ThenV);
-    if (!OrigCE && !ThenCE)
-      continue; // Known safe and cheap.
-
-    if ((ThenCE && !isSafeToSpeculativelyExecute(ThenCE)) ||
-        (OrigCE && !isSafeToSpeculativelyExecute(OrigCE)))
-      return false;
-    unsigned OrigCost = OrigCE ? ComputeSpeculationCost(OrigCE, TTI) : 0;
-    unsigned ThenCost = ThenCE ? ComputeSpeculationCost(ThenCE, TTI) : 0;
-    unsigned MaxCost =
-        2 * PHINodeFoldingThreshold * TargetTransformInfo::TCC_Basic;
-    if (OrigCost + ThenCost > MaxCost)
-      return false;
-
-    // Account for the cost of an unfolded ConstantExpr which could end up
-    // getting expanded into Instructions.
-    // FIXME: This doesn't account for how many operations are combined in the
-    // constant expression.
-    ++SpeculatedInstructions;
-    if (SpeculatedInstructions > 1)
-      return false;
-  }
-
-  // If there are no PHIs to process, bail early. This helps ensure idempotence
-  // as well.
-  if (!HaveRewritablePHIs && !(HoistCondStores && SpeculatedStoreValue))
+  // Check that we can insert the selects and that it's not too expensive to do
+  // so.
+  bool Convert = SpeculatedStore != nullptr;
+  Convert |= validateAndCostRequiredSelects(BB, ThenBB, EndBB,
+                                            SpeculatedInstructions,
+                                            BudgetRemaining, TTI);
+  if (!Convert || BudgetRemaining < 0)
     return false;
 
   // If we get here, we can hoist the instruction and if-convert.
@@ -3285,12 +3316,16 @@ static bool extractPredSuccWeights(BranchInst *PBI, BranchInst *BI,
 /// and one of our successors, fold the block into the predecessor and use
 /// logical operations to pick the right destination.
 bool llvm::FoldBranchToCommonDest(BranchInst *BI, MemorySSAUpdater *MSSAU,
+                                  const TargetTransformInfo *TTI,
                                   unsigned BonusInstThreshold) {
   BasicBlock *BB = BI->getParent();
 
   const unsigned PredCount = pred_size(BB);
 
   bool Changed = false;
+  TargetTransformInfo::TargetCostKind CostKind =
+    BB->getParent()->hasMinSize() ? TargetTransformInfo::TCK_CodeSize
+                                  : TargetTransformInfo::TCK_SizeAndLatency;
 
   Instruction *Cond = nullptr;
   if (BI->isConditional())
@@ -3416,6 +3451,19 @@ bool llvm::FoldBranchToCommonDest(BranchInst *BI, MemorySSAUpdater *MSSAU,
       }
     } else {
       if (PBI->getSuccessor(0) != TrueDest && PBI->getSuccessor(1) != TrueDest)
+        continue;
+    }
+
+    // Check the cost of inserting the necessary logic before performing the
+    // transformation.
+    if (TTI && Opc != Instruction::BinaryOpsEnd) {
+      Type *Ty = BI->getCondition()->getType();
+      unsigned Cost = TTI->getArithmeticInstrCost(Opc, Ty, CostKind);
+      if (InvertPredCond && (!PBI->getCondition()->hasOneUse() ||
+          !isa<CmpInst>(PBI->getCondition())))
+        Cost += TTI->getArithmeticInstrCost(Instruction::Xor, Ty, CostKind);
+
+      if (Cost > BranchFoldThreshold)
         continue;
     }
 
@@ -3757,7 +3805,7 @@ static bool mergeConditionalStoreToAddress(BasicBlock *PTB, BasicBlock *PFB,
     return true;
   };
 
-  const SmallVector<StoreInst *, 2> FreeStores = {PStore, QStore};
+  const std::array<StoreInst *, 2> FreeStores = {PStore, QStore};
   if (!MergeCondStoresAggressively &&
       (!IsWorthwhile(PTB, FreeStores) || !IsWorthwhile(PFB, FreeStores) ||
        !IsWorthwhile(QTB, FreeStores) || !IsWorthwhile(QFB, FreeStores)))
@@ -6896,7 +6944,7 @@ bool SimplifyCFGOpt::simplifyUncondBranch(BranchInst *BI,
   // branches to us and our successor, fold the comparison into the
   // predecessor and use logical operations to update the incoming value
   // for PHI nodes in common successor.
-  if (FoldBranchToCommonDest(BI, nullptr, Options.BonusInstThreshold))
+  if (FoldBranchToCommonDest(BI, nullptr, &TTI, Options.BonusInstThreshold))
     return requestResimplify();
   return false;
 }
@@ -6965,7 +7013,7 @@ bool SimplifyCFGOpt::simplifyCondBranch(BranchInst *BI, IRBuilder<> &Builder) {
   // If this basic block is ONLY a compare and a branch, and if a predecessor
   // branches to us and one of our successors, fold the comparison into the
   // predecessor and use logical operations to pick the right destination.
-  if (FoldBranchToCommonDest(BI, nullptr, Options.BonusInstThreshold))
+  if (FoldBranchToCommonDest(BI, nullptr, &TTI, Options.BonusInstThreshold))
     return requestResimplify();
 
   // We have a conditional branch to two blocks that are only reachable

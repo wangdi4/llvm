@@ -3,10 +3,10 @@
 //      this inteferes with pre-commit testing, and continue investigation.
 //      This is non-essential platform for the spec constant feature at this
 //      point.
-// RUN: %clang_cc1 -I %S/Inputs -fsycl -fsycl-is-device -fsycl-int-header=%t.h %s -o %t.out
+// RUN: %clang_cc1 -fsycl -fsycl-is-device -fsycl-int-header=%t.h %s -o %t.out
 // RUN: FileCheck -input-file=%t.h %s
 
-#include "sycl.hpp"
+#include "Inputs/sycl.hpp"
 
 // This test verifies proper emission of specialization constants into the
 // integration header.

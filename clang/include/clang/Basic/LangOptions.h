@@ -304,6 +304,15 @@ public:
   /// Options for parsing comments.
   CommentOptions CommentOpts;
 
+#if INTEL_CUSTOMIZATION
+  /// Name of the file for communication between front-end and driver.
+  std::string IntelDriverTempfileName;
+#endif // INTEL_CUSTOMIZATION
+
+#define LANGOPT(Name, Bits, Default, Description)
+#define TYPED_LANGOPT(Type, Name, Description) Type Name;
+#include "clang/Basic/LangOptions.def"
+
   /// A list of all -fno-builtin-* function names (e.g., memset).
   std::vector<std::string> NoBuiltinFuncs;
 
@@ -314,11 +323,6 @@ public:
   /// Name of the IR file that contains the result of the OpenMP target
   /// host code generation.
   std::string OMPHostIRFile;
-
-#if INTEL_CUSTOMIZATION
-  /// Name of the file for communication between front-end and driver.
-  std::string IntelDriverTempfileName;
-#endif // INTEL_CUSTOMIZATION
 
   /// Indicates whether the front-end is explicitly told that the
   /// input is a header file (i.e. -x c-header).

@@ -19,11 +19,11 @@
 #include <string>
 #include <vector>
 
+#include "Debug.h"
 #include "omptargetplugin.h"
 
-#ifndef TARGET_NAME
 #define TARGET_NAME CUDA
-#endif
+#define DEBUG_PREFIX "Target " GETNAME(TARGET_NAME) " RTL"
 
 #if INTEL_CUSTOMIZATION
 // This source below is clang-compatible and does not build with xmain's
@@ -32,29 +32,17 @@
 #pragma GCC diagnostic ignored "-Wsign-compare"
 #endif // INTEL_CUSTOMIZATION
 
-#ifdef OMPTARGET_DEBUG
-static int DebugLevel = 0;
-
-#define GETNAME2(name) #name
-#define GETNAME(name) GETNAME2(name)
-#define DP(...) \
-  do { \
-    if (DebugLevel > 0) { \
-      DEBUGP("Target " GETNAME(TARGET_NAME) " RTL", __VA_ARGS__); \
-    } \
-  } while (false)
-
 // Utility for retrieving and printing CUDA error string.
-#define CUDA_ERR_STRING(err) \
-  do { \
-    if (DebugLevel > 0) { \
-      const char *errStr; \
-      cuGetErrorString(err, &errStr); \
-      DEBUGP("Target " GETNAME(TARGET_NAME) " RTL", "CUDA error is: %s\n", errStr); \
-    } \
+#ifdef OMPTARGET_DEBUG
+#define CUDA_ERR_STRING(err)                                                   \
+  do {                                                                         \
+    if (getDebugLevel() > 0) {                                                      \
+      const char *errStr;                                                      \
+      cuGetErrorString(err, &errStr);                                          \
+      DP("CUDA error is: %s\n", errStr);                                       \
+    }                                                                          \
   } while (false)
 #else // OMPTARGET_DEBUG
-#define DP(...) {}
 #define CUDA_ERR_STRING(err) {}
 #endif // OMPTARGET_DEBUG
 
@@ -345,10 +333,6 @@ public:
   DeviceRTLTy()
       : NumberOfDevices(0), EnvNumTeams(-1), EnvTeamLimit(-1),
         RequiresFlags(OMP_REQ_UNDEFINED) {
-#ifdef OMPTARGET_DEBUG
-    if (const char *EnvStr = getenv("LIBOMPTARGET_DEBUG"))
-      DebugLevel = std::stoi(EnvStr);
-#endif // OMPTARGET_DEBUG
 
     DP("Start initializing CUDA\n");
 

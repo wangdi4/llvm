@@ -65,7 +65,7 @@
 // CHECK: template <> struct KernelInfo<::third_kernel<1, int, ::point<X>>> {
 // CHECK: template <> struct KernelInfo<::fourth_kernel<::template_arg_ns::namespaced_arg<1>>> {
 
-#include "sycl.hpp"
+#include "Inputs/sycl.hpp"
 
 template <typename KernelName, typename KernelType>
 __attribute__((sycl_kernel)) void kernel_single_task(const KernelType &kernelFunc) {

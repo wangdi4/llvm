@@ -1316,7 +1316,6 @@ def LoopUnrollHint : InheritableAttr {
 
 def IntelReqdSubGroupSize: InheritableAttr {
   let Spellings = [GNU<"intel_reqd_sub_group_size">,
-                   CXX11<"cl", "intel_reqd_sub_group_size">,
                    CXX11<"intel", "reqd_sub_group_size">];
   let Args = [ExprArgument<"SubGroupSize">];
   let Subjects = SubjectList<[Function, CXXMethod], ErrorDiag>;
@@ -2110,6 +2109,8 @@ def ArmSveVectorBits : TypeAttr {
   let Args = [UnsignedArgument<"NumBits">];
   let Documentation = [ArmSveVectorBitsDocs];
   let PragmaAttributeSupport = 0;
+  // Represented as VectorType instead.
+  let ASTNode = 0;
 }
 
 def ArmMveStrictPolymorphism : TypeAttr, TargetSpecificAttr<TargetARM> {
@@ -3954,13 +3955,15 @@ def OMPDeclareTargetDecl : InheritableAttr {
                  [ "MT_To", "MT_Link" ]>,
     EnumArgument<"DevType", "DevTypeTy",
                  [ "host", "nohost", "any" ],
-                 [ "DT_Host", "DT_NoHost", "DT_Any" ]>
+                 [ "DT_Host", "DT_NoHost", "DT_Any" ]>,
+    UnsignedArgument<"Level">
   ];
   let AdditionalMembers = [{
     void printPrettyPragma(raw_ostream &OS, const PrintingPolicy &Policy) const;
     static llvm::Optional<MapTypeTy>
     isDeclareTargetDeclaration(const ValueDecl *VD);
     static llvm::Optional<DevTypeTy> getDeviceType(const ValueDecl *VD);
+    static llvm::Optional<SourceLocation> getLocation(const ValueDecl *VD);
   }];
 }
 

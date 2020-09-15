@@ -2934,8 +2934,7 @@ bool X86FastISel::fastLowerIntrinsicCall(const IntrinsicInst *II) {
     const Value *RHS = II->getArgOperand(1);
 
     // Canonicalize immediate to the RHS.
-    if (isa<ConstantInt>(LHS) && !isa<ConstantInt>(RHS) &&
-        isCommutativeIntrinsic(II))
+    if (isa<ConstantInt>(LHS) && !isa<ConstantInt>(RHS) && II->isCommutative())
       std::swap(LHS, RHS);
 
     unsigned BaseOpc, CondCode;

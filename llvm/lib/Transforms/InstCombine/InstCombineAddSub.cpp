@@ -1433,6 +1433,14 @@ Instruction *InstCombinerImpl::visitAdd(BinaryOperator &I) {
   if (Instruction *SatAdd = foldToUnsignedSaturatedAdd(I))
     return SatAdd;
 
+  // usub.sat(A, B) + B => umax(A, B)
+  if (match(&I, m_c_BinOp(
+          m_OneUse(m_Intrinsic<Intrinsic::usub_sat>(m_Value(A), m_Value(B))),
+          m_Deferred(B)))) {
+    return replaceInstUsesWith(I,
+        Builder.CreateIntrinsic(Intrinsic::umax, {I.getType()}, {A, B}));
+  }
+
   return Changed ? &I : nullptr;
 }
 
@@ -1691,7 +1699,7 @@ Value *InstCombinerImpl::OptimizePointerDifference(Value *LHS, Value *RHS,
   // pointer, subtract it from the offset we have.
   if (GEP2) {
     Value *Offset = EmitGEPOffset(GEP2);
-    Result = Builder.CreateSub(Result, Offset);
+    Result = Builder.CreateSub(Result, Offset, "gepdiff");
   }
 
   // If we have p - gep(p, ...)  then we have to negate the result.

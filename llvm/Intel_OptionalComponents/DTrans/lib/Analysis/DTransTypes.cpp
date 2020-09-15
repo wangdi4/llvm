@@ -581,7 +581,7 @@ DTransType *DTransTypeManager::getOrCreateSimpleType(llvm::Type *Ty) {
       return nullptr;
 
     return getOrCreateVectorType(getOrCreateSimpleType(ElemType),
-      VecTy->getElementCount().Min);
+      VecTy->getElementCount().getKnownMinValue());
   }
 
   if (auto *StTy = dyn_cast<StructType>(Ty)) {

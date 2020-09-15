@@ -22,6 +22,8 @@
 
 #include <level_zero/zet_api.h>
 
+#include "usm_allocator.hpp"
+
 namespace {
 
 // Controls Level Zero calls serialization to w/a Level Zero driver being not MT
@@ -292,11 +294,11 @@ enqueueMemCopyHelper(pi_command_type CommandType, pi_queue Queue, void *Dst,
 
 static pi_result enqueueMemCopyRectHelper(
     pi_command_type CommandType, pi_queue Queue, void *SrcBuffer,
-    void *DstBuffer, const size_t *SrcOrigin, const size_t *DstOrigin,
-    const size_t *Region, size_t SrcRowPitch, size_t SrcSlicePitch,
-    size_t DstRowPitch, size_t DstSlicePitch, pi_bool Blocking,
-    pi_uint32 NumEventsInWaitList, const pi_event *EventWaitList,
-    pi_event *Event);
+    void *DstBuffer, pi_buff_rect_offset SrcOrigin,
+    pi_buff_rect_offset DstOrigin, pi_buff_rect_region Region,
+    size_t SrcRowPitch, size_t SrcSlicePitch, size_t DstRowPitch,
+    size_t DstSlicePitch, pi_bool Blocking, pi_uint32 NumEventsInWaitList,
+    const pi_event *EventWaitList, pi_event *Event);
 
 inline void zeParseError(ze_result_t ZeError, std::string &ErrorString) {
   switch (ZeError) {
@@ -556,7 +558,6 @@ zeModuleGetPropertiesMock(ze_module_handle_t hModule,
 
 static bool isOnlineLinkEnabled();
 // End forward declarations for mock Level Zero APIs
-
 std::once_flag OnceFlag;
 
 pi_result piPlatformsGet(pi_uint32 NumEntries, pi_platform *Platforms,
@@ -667,6 +668,9 @@ pi_result piPlatformsGet(pi_uint32 NumEntries, pi_platform *Platforms,
       Platforms[0]->ZeDriverApiVersion =
           std::to_string(ZE_MAJOR_VERSION(ZeApiVersion)) + std::string(".") +
           std::to_string(ZE_MINOR_VERSION(ZeApiVersion));
+
+      // save a copy in the cache for future uses
+      PiPlatformsCache.push_back(Platforms[0]);
       Platforms[0]->ZeMaxCommandListCache = CommandListCacheSizeValue;
     } catch (const std::bad_alloc &) {
       return PI_OUT_OF_HOST_MEMORY;
@@ -835,7 +839,8 @@ pi_result piDeviceRelease(pi_device Device) {
     if (--(Device->RefCount) == 0) {
       // Destroy all the command lists associated with this device.
       Device->ZeCommandListCacheMutex.lock();
-      for (ze_command_list_handle_t &ZeCommandList : Device->ZeCommandListCache) {
+      for (ze_command_list_handle_t &ZeCommandList :
+           Device->ZeCommandListCache) {
         zeCommandListDestroy(ZeCommandList);
       }
       Device->ZeCommandListCacheMutex.unlock();
@@ -994,7 +999,7 @@ pi_result piDeviceGetInfo(pi_device Device, pi_device_info ParamName,
     return ReturnValue(pi_uint64{Device->ZeDeviceProperties.maxMemAllocSize});
   }
   case PI_DEVICE_INFO_GLOBAL_MEM_SIZE: {
-    uint32_t GlobalMemSize = 0;
+    uint64_t GlobalMemSize = 0;
     for (uint32_t I = 0; I < ZeAvailMemCount; I++) {
       GlobalMemSize += ZeDeviceMemoryProperties[I].totalSize;
     }
@@ -1510,10 +1515,16 @@ pi_result piContextRelease(pi_context Context) {
 
   assert(Context);
   if (--(Context->RefCount) == 0) {
+    auto ZeContext = Context->ZeContext;
     // Destroy the command list used for initializations
     ZE_CALL(zeCommandListDestroy(Context->ZeCommandListInit));
-    ZE_CALL(zeContextDestroy(Context->ZeContext));
     delete Context;
+
+    // Destruction of some members of pi_context uses L0 context
+    // and therefore it must be valid at that point.
+    // Technically it should be placed to the destructor of pi_context
+    // but this makes API error handling more complex.
+    ZE_CALL(zeContextDestroy(ZeContext));
   }
   return PI_SUCCESS;
 }
@@ -1950,7 +1961,6 @@ pi_result piProgramCreateWithBinary(pi_context Context, pi_uint32 NumDevices,
   // IL (SPIR-v) or native device code.  For now, we assume that
   // piProgramCreateWithBinary() is only used to load a "program executable"
   // as native device code.
-  //
   // If we wanted to support all the same cases as OpenCL, we would need to
   // somehow examine the binary image to distinguish the cases.  Alternatively,
   // we could change the PI interface and have the caller pass additional
@@ -3320,10 +3330,11 @@ pi_result piEnqueueMemBufferRead(pi_queue Queue, pi_mem Src,
 
 pi_result piEnqueueMemBufferReadRect(
     pi_queue Queue, pi_mem Buffer, pi_bool BlockingRead,
-    const size_t *BufferOffset, const size_t *HostOffset, const size_t *Region,
-    size_t BufferRowPitch, size_t BufferSlicePitch, size_t HostRowPitch,
-    size_t HostSlicePitch, void *Ptr, pi_uint32 NumEventsInWaitList,
-    const pi_event *EventWaitList, pi_event *Event) {
+    pi_buff_rect_offset BufferOffset, pi_buff_rect_offset HostOffset,
+    pi_buff_rect_region Region, size_t BufferRowPitch, size_t BufferSlicePitch,
+    size_t HostRowPitch, size_t HostSlicePitch, void *Ptr,
+    pi_uint32 NumEventsInWaitList, const pi_event *EventWaitList,
+    pi_event *Event) {
 
   assert(Buffer);
   return enqueueMemCopyRectHelper(
@@ -3395,11 +3406,11 @@ enqueueMemCopyHelper(pi_command_type CommandType, pi_queue Queue, void *Dst,
 // Shared by all memory read/write/copy rect PI interfaces.
 static pi_result enqueueMemCopyRectHelper(
     pi_command_type CommandType, pi_queue Queue, void *SrcBuffer,
-    void *DstBuffer, const size_t *SrcOrigin, const size_t *DstOrigin,
-    const size_t *Region, size_t SrcRowPitch, size_t DstRowPitch,
-    size_t SrcSlicePitch, size_t DstSlicePitch, pi_bool Blocking,
-    pi_uint32 NumEventsInWaitList, const pi_event *EventWaitList,
-    pi_event *Event) {
+    void *DstBuffer, pi_buff_rect_offset SrcOrigin,
+    pi_buff_rect_offset DstOrigin, pi_buff_rect_region Region,
+    size_t SrcRowPitch, size_t DstRowPitch, size_t SrcSlicePitch,
+    size_t DstSlicePitch, pi_bool Blocking, pi_uint32 NumEventsInWaitList,
+    const pi_event *EventWaitList, pi_event *Event) {
 
   assert(Region);
   assert(SrcOrigin);
@@ -3442,31 +3453,31 @@ static pi_result enqueueMemCopyRectHelper(
   }
   zePrint("\n");
 
-  uint32_t SrcOriginX = pi_cast<uint32_t>(SrcOrigin[0]);
-  uint32_t SrcOriginY = pi_cast<uint32_t>(SrcOrigin[1]);
-  uint32_t SrcOriginZ = pi_cast<uint32_t>(SrcOrigin[2]);
+  uint32_t SrcOriginX = pi_cast<uint32_t>(SrcOrigin->x_bytes);
+  uint32_t SrcOriginY = pi_cast<uint32_t>(SrcOrigin->y_scalar);
+  uint32_t SrcOriginZ = pi_cast<uint32_t>(SrcOrigin->z_scalar);
 
   uint32_t SrcPitch = SrcRowPitch;
   if (SrcPitch == 0)
-    SrcPitch = pi_cast<uint32_t>(Region[0]);
+    SrcPitch = pi_cast<uint32_t>(Region->width_bytes);
 
   if (SrcSlicePitch == 0)
-    SrcSlicePitch = pi_cast<uint32_t>(Region[1]) * SrcPitch;
+    SrcSlicePitch = pi_cast<uint32_t>(Region->height_scalar) * SrcPitch;
 
-  uint32_t DstOriginX = pi_cast<uint32_t>(DstOrigin[0]);
-  uint32_t DstOriginY = pi_cast<uint32_t>(DstOrigin[1]);
-  uint32_t DstOriginZ = pi_cast<uint32_t>(DstOrigin[2]);
+  uint32_t DstOriginX = pi_cast<uint32_t>(DstOrigin->x_bytes);
+  uint32_t DstOriginY = pi_cast<uint32_t>(DstOrigin->y_scalar);
+  uint32_t DstOriginZ = pi_cast<uint32_t>(DstOrigin->z_scalar);
 
   uint32_t DstPitch = DstRowPitch;
   if (DstPitch == 0)
-    DstPitch = pi_cast<uint32_t>(Region[0]);
+    DstPitch = pi_cast<uint32_t>(Region->width_bytes);
 
   if (DstSlicePitch == 0)
-    DstSlicePitch = pi_cast<uint32_t>(Region[1]) * DstPitch;
+    DstSlicePitch = pi_cast<uint32_t>(Region->height_scalar) * DstPitch;
 
-  uint32_t Width = pi_cast<uint32_t>(Region[0]);
-  uint32_t Height = pi_cast<uint32_t>(Region[1]);
-  uint32_t Depth = pi_cast<uint32_t>(Region[2]);
+  uint32_t Width = pi_cast<uint32_t>(Region->width_bytes);
+  uint32_t Height = pi_cast<uint32_t>(Region->height_scalar);
+  uint32_t Depth = pi_cast<uint32_t>(Region->depth_scalar);
 
   const ze_copy_region_t ZeSrcRegion = {SrcOriginX, SrcOriginY, SrcOriginZ,
                                         Width,      Height,     Depth};
@@ -3512,10 +3523,11 @@ pi_result piEnqueueMemBufferWrite(pi_queue Queue, pi_mem Buffer,
 
 pi_result piEnqueueMemBufferWriteRect(
     pi_queue Queue, pi_mem Buffer, pi_bool BlockingWrite,
-    const size_t *BufferOffset, const size_t *HostOffset, const size_t *Region,
-    size_t BufferRowPitch, size_t BufferSlicePitch, size_t HostRowPitch,
-    size_t HostSlicePitch, const void *Ptr, pi_uint32 NumEventsInWaitList,
-    const pi_event *EventWaitList, pi_event *Event) {
+    pi_buff_rect_offset BufferOffset, pi_buff_rect_offset HostOffset,
+    pi_buff_rect_region Region, size_t BufferRowPitch, size_t BufferSlicePitch,
+    size_t HostRowPitch, size_t HostSlicePitch, const void *Ptr,
+    pi_uint32 NumEventsInWaitList, const pi_event *EventWaitList,
+    pi_event *Event) {
 
   assert(Buffer);
   return enqueueMemCopyRectHelper(
@@ -3543,13 +3555,12 @@ pi_result piEnqueueMemBufferCopy(pi_queue Queue, pi_mem SrcBuffer,
       NumEventsInWaitList, EventWaitList, Event);
 }
 
-pi_result
-piEnqueueMemBufferCopyRect(pi_queue Queue, pi_mem SrcBuffer, pi_mem DstBuffer,
-                           const size_t *SrcOrigin, const size_t *DstOrigin,
-                           const size_t *Region, size_t SrcRowPitch,
-                           size_t SrcSlicePitch, size_t DstRowPitch,
-                           size_t DstSlicePitch, pi_uint32 NumEventsInWaitList,
-                           const pi_event *EventWaitList, pi_event *Event) {
+pi_result piEnqueueMemBufferCopyRect(
+    pi_queue Queue, pi_mem SrcBuffer, pi_mem DstBuffer,
+    pi_buff_rect_offset SrcOrigin, pi_buff_rect_offset DstOrigin,
+    pi_buff_rect_region Region, size_t SrcRowPitch, size_t SrcSlicePitch,
+    size_t DstRowPitch, size_t DstSlicePitch, pi_uint32 NumEventsInWaitList,
+    const pi_event *EventWaitList, pi_event *Event) {
 
   assert(SrcBuffer);
   assert(DstBuffer);
@@ -3792,8 +3803,9 @@ pi_result piMemImageGetInfo(pi_mem Image, pi_image_info ParamName,
 
 } // extern "C"
 
-static ze_image_region_t getImageRegionHelper(pi_mem Mem, const size_t *Origin,
-                                              const size_t *Region) {
+static ze_image_region_t getImageRegionHelper(pi_mem Mem,
+                                              pi_image_offset Origin,
+                                              pi_image_region Region) {
 
   assert(Mem && Origin);
 #ifndef NDEBUG
@@ -3802,26 +3814,26 @@ static ze_image_region_t getImageRegionHelper(pi_mem Mem, const size_t *Origin,
   ze_image_desc_t ZeImageDesc = Image->ZeImageDesc;
 #endif // !NDEBUG
 
-  assert((ZeImageDesc.type == ZE_IMAGE_TYPE_1D && Origin[1] == 0 &&
-          Origin[2] == 0) ||
-         (ZeImageDesc.type == ZE_IMAGE_TYPE_1DARRAY && Origin[2] == 0) ||
-         (ZeImageDesc.type == ZE_IMAGE_TYPE_2D && Origin[2] == 0) ||
+  assert((ZeImageDesc.type == ZE_IMAGE_TYPE_1D && Origin->y == 0 &&
+          Origin->z == 0) ||
+         (ZeImageDesc.type == ZE_IMAGE_TYPE_1DARRAY && Origin->z == 0) ||
+         (ZeImageDesc.type == ZE_IMAGE_TYPE_2D && Origin->z == 0) ||
          (ZeImageDesc.type == ZE_IMAGE_TYPE_3D));
 
-  uint32_t OriginX = pi_cast<uint32_t>(Origin[0]);
-  uint32_t OriginY = pi_cast<uint32_t>(Origin[1]);
-  uint32_t OriginZ = pi_cast<uint32_t>(Origin[2]);
+  uint32_t OriginX = pi_cast<uint32_t>(Origin->x);
+  uint32_t OriginY = pi_cast<uint32_t>(Origin->y);
+  uint32_t OriginZ = pi_cast<uint32_t>(Origin->z);
 
-  assert(Region[0] && Region[1] && Region[2]);
-  assert((ZeImageDesc.type == ZE_IMAGE_TYPE_1D && Region[1] == 1 &&
-          Region[2] == 1) ||
-         (ZeImageDesc.type == ZE_IMAGE_TYPE_1DARRAY && Region[2] == 1) ||
-         (ZeImageDesc.type == ZE_IMAGE_TYPE_2D && Region[2] == 1) ||
+  assert(Region->width && Region->height && Region->depth);
+  assert((ZeImageDesc.type == ZE_IMAGE_TYPE_1D && Region->height == 1 &&
+          Region->depth == 1) ||
+         (ZeImageDesc.type == ZE_IMAGE_TYPE_1DARRAY && Region->depth == 1) ||
+         (ZeImageDesc.type == ZE_IMAGE_TYPE_2D && Region->depth == 1) ||
          (ZeImageDesc.type == ZE_IMAGE_TYPE_3D));
 
-  uint32_t Width = pi_cast<uint32_t>(Region[0]);
-  uint32_t Height = pi_cast<uint32_t>(Region[1]);
-  uint32_t Depth = pi_cast<uint32_t>(Region[2]);
+  uint32_t Width = pi_cast<uint32_t>(Region->width);
+  uint32_t Height = pi_cast<uint32_t>(Region->height);
+  uint32_t Depth = pi_cast<uint32_t>(Region->depth);
 
   const ze_image_region_t ZeRegion = {OriginX, OriginY, OriginZ,
                                       Width,   Height,  Depth};
@@ -3833,8 +3845,8 @@ static pi_result
 enqueueMemImageCommandHelper(pi_command_type CommandType, pi_queue Queue,
                              const void *Src, // image or ptr
                              void *Dst,       // image or ptr
-                             pi_bool IsBlocking, const size_t *SrcOrigin,
-                             const size_t *DstOrigin, const size_t *Region,
+                             pi_bool IsBlocking, pi_image_offset SrcOrigin,
+                             pi_image_offset DstOrigin, pi_image_region Region,
                              size_t RowPitch, size_t SlicePitch,
                              pi_uint32 NumEventsInWaitList,
                              const pi_event *EventWaitList, pi_event *Event) {
@@ -3948,8 +3960,8 @@ enqueueMemImageCommandHelper(pi_command_type CommandType, pi_queue Queue,
 extern "C" {
 
 pi_result piEnqueueMemImageRead(pi_queue Queue, pi_mem Image,
-                                pi_bool BlockingRead, const size_t *Origin,
-                                const size_t *Region, size_t RowPitch,
+                                pi_bool BlockingRead, pi_image_offset Origin,
+                                pi_image_region Region, size_t RowPitch,
                                 size_t SlicePitch, void *Ptr,
                                 pi_uint32 NumEventsInWaitList,
                                 const pi_event *EventWaitList,
@@ -3966,8 +3978,8 @@ pi_result piEnqueueMemImageRead(pi_queue Queue, pi_mem Image,
 }
 
 pi_result piEnqueueMemImageWrite(pi_queue Queue, pi_mem Image,
-                                 pi_bool BlockingWrite, const size_t *Origin,
-                                 const size_t *Region, size_t InputRowPitch,
+                                 pi_bool BlockingWrite, pi_image_offset Origin,
+                                 pi_image_region Region, size_t InputRowPitch,
                                  size_t InputSlicePitch, const void *Ptr,
                                  pi_uint32 NumEventsInWaitList,
                                  const pi_event *EventWaitList,
@@ -3984,12 +3996,11 @@ pi_result piEnqueueMemImageWrite(pi_queue Queue, pi_mem Image,
                                       Event);
 }
 
-pi_result piEnqueueMemImageCopy(pi_queue Queue, pi_mem SrcImage,
-                                pi_mem DstImage, const size_t *SrcOrigin,
-                                const size_t *DstOrigin, const size_t *Region,
-                                pi_uint32 NumEventsInWaitList,
-                                const pi_event *EventWaitList,
-                                pi_event *Event) {
+pi_result
+piEnqueueMemImageCopy(pi_queue Queue, pi_mem SrcImage, pi_mem DstImage,
+                      pi_image_offset SrcOrigin, pi_image_offset DstOrigin,
+                      pi_image_region Region, pi_uint32 NumEventsInWaitList,
+                      const pi_event *EventWaitList, pi_event *Event) {
 
   return enqueueMemImageCommandHelper(
       PI_COMMAND_TYPE_IMAGE_COPY, Queue, SrcImage, DstImage,
@@ -4083,7 +4094,6 @@ pi_result piextGetDeviceFunctionPointer(pi_device Device, pi_program Program,
 pi_result piextUSMHostAlloc(void **ResultPtr, pi_context Context,
                             pi_usm_mem_properties *Properties, size_t Size,
                             pi_uint32 Alignment) {
-
   assert(Context);
   // Check that incorrect bits are not set in the properties.
   assert(!Properties || (Properties && !(*Properties & ~PI_MEM_ALLOC_FLAGS)));
@@ -4097,11 +4107,17 @@ pi_result piextUSMHostAlloc(void **ResultPtr, pi_context Context,
   return PI_SUCCESS;
 }
 
-pi_result piextUSMDeviceAlloc(void **ResultPtr, pi_context Context,
-                              pi_device Device,
-                              pi_usm_mem_properties *Properties, size_t Size,
-                              pi_uint32 Alignment) {
+static bool ShouldUseUSMAllocator() {
+  // Enable allocator by default if it's not explicitly disabled
+  return std::getenv("SYCL_PI_LEVEL0_DISABLE_USM_ALLOCATOR") == nullptr;
+}
 
+static const bool UseUSMAllocator = ShouldUseUSMAllocator();
+
+pi_result USMDeviceAllocImpl(void **ResultPtr, pi_context Context,
+                             pi_device Device,
+                             pi_usm_mem_properties *Properties, size_t Size,
+                             pi_uint32 Alignment) {
   assert(Context);
   assert(Device);
   // Check that incorrect bits are not set in the properties.
@@ -4117,11 +4133,10 @@ pi_result piextUSMDeviceAlloc(void **ResultPtr, pi_context Context,
   return PI_SUCCESS;
 }
 
-pi_result piextUSMSharedAlloc(void **ResultPtr, pi_context Context,
-                              pi_device Device,
-                              pi_usm_mem_properties *Properties, size_t Size,
-                              pi_uint32 Alignment) {
-
+pi_result USMSharedAllocImpl(void **ResultPtr, pi_context Context,
+                             pi_device Device,
+                             pi_usm_mem_properties *Properties, size_t Size,
+                             pi_uint32 Alignment) {
   assert(Context);
   assert(Device);
   // Check that incorrect bits are not set in the properties.
@@ -4139,9 +4154,168 @@ pi_result piextUSMSharedAlloc(void **ResultPtr, pi_context Context,
   return PI_SUCCESS;
 }
 
-pi_result piextUSMFree(pi_context Context, void *Ptr) {
+pi_result USMFreeImpl(pi_context Context, void *Ptr) {
   ZE_CALL(zeMemFree(Context->ZeContext, Ptr));
   return PI_SUCCESS;
+}
+
+// Exception type to pass allocation errors
+class UsmAllocationException {
+  const pi_result Error;
+
+public:
+  UsmAllocationException(pi_result Err) : Error{Err} {}
+  pi_result getError() const { return Error; }
+};
+
+pi_result USMSharedMemoryAlloc::allocateImpl(void **ResultPtr, size_t Size,
+                                             pi_uint32 Alignment) {
+  return USMSharedAllocImpl(ResultPtr, Context, Device, nullptr, Size,
+                            Alignment);
+}
+
+pi_result USMDeviceMemoryAlloc::allocateImpl(void **ResultPtr, size_t Size,
+                                             pi_uint32 Alignment) {
+  return USMDeviceAllocImpl(ResultPtr, Context, Device, nullptr, Size,
+                            Alignment);
+}
+
+void *USMMemoryAllocBase::allocate(size_t Size) {
+  void *Ptr = nullptr;
+
+  auto Res = allocateImpl(&Ptr, Size, sizeof(void *));
+  if (Res != PI_SUCCESS) {
+    throw UsmAllocationException(Res);
+  }
+
+  return Ptr;
+}
+
+void *USMMemoryAllocBase::allocate(size_t Size, size_t Alignment) {
+  void *Ptr = nullptr;
+
+  auto Res = allocateImpl(&Ptr, Size, Alignment);
+  if (Res != PI_SUCCESS) {
+    throw UsmAllocationException(Res);
+  }
+  return Ptr;
+}
+
+void USMMemoryAllocBase::deallocate(void *Ptr) {
+  auto Res = USMFreeImpl(Context, Ptr);
+  if (Res != PI_SUCCESS) {
+    throw UsmAllocationException(Res);
+  }
+}
+
+pi_result piextUSMDeviceAlloc(void **ResultPtr, pi_context Context,
+                              pi_device Device,
+                              pi_usm_mem_properties *Properties, size_t Size,
+                              pi_uint32 Alignment) {
+  if (!UseUSMAllocator ||
+      // L0 spec says that allocation fails if Alignment != 2^n, in order to
+      // keep the same behavior for the allocator, just call L0 API directly and
+      // return the error code.
+      ((Alignment & (Alignment - 1)) != 0)) {
+    return USMDeviceAllocImpl(ResultPtr, Context, Device, Properties, Size,
+                              Alignment);
+  }
+
+  try {
+    auto It = Context->DeviceMemAllocContexts.find(Device);
+    if (It == Context->DeviceMemAllocContexts.end())
+      return PI_INVALID_VALUE;
+
+    *ResultPtr = It->second.allocate(Size, Alignment);
+  } catch (const UsmAllocationException &Ex) {
+    *ResultPtr = nullptr;
+    return Ex.getError();
+  }
+
+  return PI_SUCCESS;
+}
+
+pi_result piextUSMSharedAlloc(void **ResultPtr, pi_context Context,
+                              pi_device Device,
+                              pi_usm_mem_properties *Properties, size_t Size,
+                              pi_uint32 Alignment) {
+  if (!UseUSMAllocator ||
+      // L0 spec says that allocation fails if Alignment != 2^n, in order to
+      // keep the same behavior for the allocator, just call L0 API directly and
+      // return the error code.
+      ((Alignment & (Alignment - 1)) != 0)) {
+    return USMSharedAllocImpl(ResultPtr, Context, Device, Properties, Size,
+                              Alignment);
+  }
+
+  try {
+    auto It = Context->SharedMemAllocContexts.find(Device);
+    if (It == Context->SharedMemAllocContexts.end())
+      return PI_INVALID_VALUE;
+
+    *ResultPtr = It->second.allocate(Size, Alignment);
+  } catch (const UsmAllocationException &Ex) {
+    *ResultPtr = nullptr;
+    return Ex.getError();
+  }
+
+  return PI_SUCCESS;
+}
+
+pi_result piextUSMFree(pi_context Context, void *Ptr) {
+  if (!UseUSMAllocator) {
+    return USMFreeImpl(Context, Ptr);
+  }
+
+  // Query the device of the allocation to determine the right allocator context
+  ze_device_handle_t ZeDeviceHandle;
+  ze_memory_allocation_properties_t ZeMemoryAllocationProperties = {};
+
+  // Query memory type of the pointer we're freeing to determine the correct
+  // way to do it(directly or via the allocator)
+  ZE_CALL(zeMemGetAllocProperties(
+      Context->ZeContext, Ptr, &ZeMemoryAllocationProperties, &ZeDeviceHandle));
+
+  // TODO: when support for multiple devices is implemented, here
+  // we should do the following:
+  // - Find pi_device instance corresponding to ZeDeviceHandle we've just got if
+  // exist
+  // - Use that pi_device to find the right allocator context and free the
+  // pointer.
+
+  // The allocation doesn't belong to any device for which USM allocator is
+  // enabled.
+  if (Context->Device->ZeDevice != ZeDeviceHandle) {
+    return USMFreeImpl(Context, Ptr);
+  }
+
+  auto DeallocationHelper =
+      [Context,
+       Ptr](std::unordered_map<pi_device, USMAllocContext> &AllocContextMap) {
+        try {
+          auto It = AllocContextMap.find(Context->Device);
+          if (It == AllocContextMap.end())
+            return PI_INVALID_VALUE;
+
+          // The right context is found, deallocate the pointer
+          It->second.deallocate(Ptr);
+        } catch (const UsmAllocationException &Ex) {
+          return Ex.getError();
+        }
+
+        return PI_SUCCESS;
+      };
+
+  switch (ZeMemoryAllocationProperties.type) {
+  case ZE_MEMORY_TYPE_SHARED:
+    return DeallocationHelper(Context->SharedMemAllocContexts);
+  case ZE_MEMORY_TYPE_DEVICE:
+    return DeallocationHelper(Context->DeviceMemAllocContexts);
+  default:
+    // Handled below
+    break;
+  }
+  return USMFreeImpl(Context, Ptr);
 }
 
 pi_result piextKernelSetArgPointer(pi_kernel Kernel, pi_uint32 ArgIndex,

@@ -205,6 +205,25 @@ static constexpr FeatureBitset FeaturesTigerlake =
 #endif // INTEL_CUSTOMIZATION
     FeaturesICLClient | FeatureAVX512VP2INTERSECT | FeatureMOVDIR64B |
     FeatureMOVDIRI | FeatureSHSTK;
+static constexpr FeatureBitset FeaturesSapphireRapids =
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX_VNNI
+  FeatureAVXVNNI |
+#endif // INTEL_FEATURE_ISA_AVX_VNNI
+#if INTEL_FEATURE_ISA_HRESET
+  FeatureHRESET |
+#endif // INTEL_FEATURE_ISA_HRESET
+#if INTEL_FEATURE_ISA_FP16
+  FeatureAVX512FP16 |
+#endif // INTEL_FEATURE_ISA_FP16
+#if INTEL_FEATURE_ISA_ULI
+  FeatureULI |
+#endif // INTEL_FEATURE_ISA_ULI
+#endif // INTEL_CUSTOMIZATION
+    FeaturesICLServer | FeatureAMX_TILE | FeatureAMX_INT8 | FeatureAMX_BF16 |
+    FeatureAVX512BF16 | FeatureAVX512VP2INTERSECT | FeatureCLDEMOTE | FeatureENQCMD |
+    FeatureMOVDIR64B | FeatureMOVDIRI | FeaturePTWRITE | FeatureSERIALIZE |
+    FeatureSHSTK | FeatureTSXLDTRK | FeatureWAITPKG;
 
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_CPU_RKL
@@ -228,31 +247,6 @@ static constexpr FeatureBitset FeaturesTremont =
     FeaturesGoldmontPlus | FeatureCLWB | FeatureGFNI;
 
 #if INTEL_CUSTOMIZATION
-static constexpr FeatureBitset FeaturesAnonymousCPU1 =
-#if INTEL_FEATURE_ISA_AMX
-  FeatureAMX_TILE | FeatureAMX_INT8 | FeatureAMX_BF16 |
-#endif // INTEL_FEATURE_ISA_AMX
-#if INTEL_FEATURE_ISA_AVX_VNNI
-  FeatureAVXVNNI |
-#endif // INTEL_FEATURE_ISA_AVX_VNNI
-#if INTEL_FEATURE_ISA_HRESET
-  FeatureHRESET |
-#endif // INTEL_FEATURE_ISA_HRESET
-#if INTEL_FEATURE_ISA_FP16
-  FeatureAVX512FP16 |
-#endif // INTEL_FEATURE_ISA_FP16
-#if INTEL_FEATURE_ISA_ULI
-  FeatureULI |
-#endif // INTEL_FEATURE_ISA_ULI
-  FeatureSSE2; // To avoid dangling OR.
-#if INTEL_FEATURE_CPU_SPR
-static constexpr FeatureBitset FeaturesSapphireRapids =
-  FeaturesICLServer | FeaturesAnonymousCPU1 | FeatureAVX512BF16 |
-  FeatureAVX512VP2INTERSECT | FeatureCLDEMOTE | FeatureENQCMD |
-  FeatureMOVDIR64B | FeatureMOVDIRI | FeaturePTWRITE | FeatureSERIALIZE |
-  FeatureSHSTK | FeatureTSXLDTRK | FeatureWAITPKG;
-#endif // INTEL_FEATURE_CPU_SPR
-
 static constexpr FeatureBitset FeaturesAnonymousCPU2 =
 #if INTEL_FEATURE_ISA_AVX_VNNI
     FeatureAVXVNNI |
@@ -417,17 +411,13 @@ static constexpr ProcInfo Processors[] = {
   // Tigerlake microarchitecture based processors.
   { {"tigerlake"}, CK_Tigerlake, FEATURE_AVX512VP2INTERSECT, FeaturesTigerlake },
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_CPU_SPR
-  // Sapphire Rapids microarchitecture based processors.
-  { {"sapphirerapids"}, CK_SapphireRapids, ~0U, FeaturesSapphireRapids },
-#endif // INTEL_FEATURE_CPU_SPR
-#endif // INTEL_CUSTOMIZATION
-#if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_CPU_RKL
   // Rocketlake microarchitecture based processors.
   { {"rocketlake"}, CK_Rocketlake, ~0U, FeaturesRocketlake },
 #endif // INTEL_FEATURE_CPU_RKL
 #endif // INTEL_CUSTOMIZATION
+  // Sapphire Rapids microarchitecture based processors.
+  { {"sapphirerapids"}, CK_SapphireRapids, FEATURE_AVX512VP2INTERSECT, FeaturesSapphireRapids },
   // Knights Landing processor.
   { {"knl"}, CK_KNL, FEATURE_AVX512F, FeaturesKNL },
   // Knights Mill processor.

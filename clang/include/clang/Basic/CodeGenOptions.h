@@ -142,6 +142,15 @@ public:
     All,         // Keep all frame pointers.
   };
 
+#if INTEL_CUSTOMIZATION
+  // CQ#368125 - support for '/Fd' and '/Fo' options.
+  /// The name of object file to emit MS debug info into.
+  std::string MSOutputObjFile;
+  /// The name of PDB file to emit MS debug info into.
+  std::string MSOutputPdbFile;
+#endif //INTEL_CUSTOMIZATION
+  using DebugPrefixMapTy = std::map<std::string, std::string>;
+
   /// The code model to use (-mcmodel).
   std::string CodeModel;
 
@@ -176,14 +185,6 @@ public:
   /// if non-empty.
   std::string RecordCommandLine;
 
-#if INTEL_CUSTOMIZATION
-  // CQ#368125 - support for '/Fd' and '/Fo' options.
-  /// The name of object file to emit MS debug info into.
-  std::string MSOutputObjFile;
-  /// The name of PDB file to emit MS debug info into.
-  std::string MSOutputPdbFile;
-#endif //INTEL_CUSTOMIZATION
-
   std::map<std::string, std::string> DebugPrefixMap;
 
   /// The ABI to use for passing floating point arguments.
@@ -211,6 +212,11 @@ public:
     unsigned LinkFlags = 0;
   };
 
+#if INTEL_CUSTOMIZATION
+  /// OpenCL compile options to embed in the SPIR metadata
+  std::string SPIRCompileOptions;
+#endif // INTEL_CUSTOMIZATION
+
   /// The files specified here are linked in to the module before optimizations.
   std::vector<BitcodeFileToLink> LinkBitcodeFiles;
 
@@ -235,11 +241,6 @@ public:
   /// If not an empty string, trap intrinsics are lowered to calls to this
   /// function instead of to trap instructions.
   std::string TrapFuncName;
-
-#if INTEL_CUSTOMIZATION
-  /// OpenCL compile options to embed in the SPIR metadata
-  std::string SPIRCompileOptions;
-#endif // INTEL_CUSTOMIZATION
 
   /// A list of dependent libraries.
   std::vector<std::string> DependentLibraries;

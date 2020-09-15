@@ -55,6 +55,7 @@
 #if INTEL_CUSTOMIZATION
 #include "ToolChains/Arch/X86.h"
 #endif // INTEL_CUSTOMIZATION
+#include "ToolChains/ZOS.h"
 #include "clang/Basic/TargetID.h"
 #include "clang/Basic/Version.h"
 #include "clang/Config/config.h"
@@ -81,6 +82,7 @@
 #include "llvm/Option/Option.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/ErrorHandling.h"
+#include "llvm/Support/ExitCodes.h"
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/FormatVariadic.h"
 #include "llvm/Support/Host.h"
@@ -97,7 +99,6 @@
 #include <utility>
 #if LLVM_ON_UNIX
 #include <unistd.h> // getpid
-#include <sysexits.h> // EX_IOERR
 #endif
 
 using namespace clang::driver;
@@ -6638,8 +6639,9 @@ const char *Driver::GetNamedOutputPath(Compilation &C, const JobAction &JA,
   }
 
   // For /P, preprocess to file named after BaseInput.
-  if (C.getArgs().hasArg(options::OPT__SLASH_P)) {
-    assert(AtTopLevel && isa<PreprocessJobAction>(JA));
+  if (C.getArgs().hasArg(options::OPT__SLASH_P) &&
+      ((AtTopLevel && isa<PreprocessJobAction>(JA)) ||
+       isa<OffloadBundlingJobAction>(JA))) {
     StringRef BaseName = llvm::sys::path::filename(BaseInput);
     StringRef NameArg;
     if (Arg *A = C.getArgs().getLastArg(options::OPT__SLASH_Fi))
@@ -7139,6 +7141,9 @@ const ToolChain &Driver::getToolChain(const ArgList &Args,
       break;
     case llvm::Triple::Hurd:
       TC = std::make_unique<toolchains::Hurd>(*this, Target, Args);
+      break;
+    case llvm::Triple::ZOS:
+      TC = std::make_unique<toolchains::ZOS>(*this, Target, Args);
       break;
     default:
       // Of these targets, Hexagon is the only one that might have

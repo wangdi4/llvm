@@ -5,7 +5,7 @@
 // integration header when the kernel name class is wrapped in an inline
 // namespace.
 
-#include "sycl.hpp"
+#include "Inputs/sycl.hpp"
 
 template <typename KernelName, typename KernelType>
 __attribute__((sycl_kernel)) void kernel_single_task(const KernelType &kernelFunc) {

@@ -2984,6 +2984,8 @@ def err_attribute_invalid_size : Error<
   "vector size not an integral multiple of component size">;
 def err_attribute_zero_size : Error<"zero %0 size">;
 def err_attribute_size_too_large : Error<"%0 size too large">;
+def err_typecheck_vector_not_convertable_sizeless : Error<
+  "cannot convert between a fixed-length and a sizeless vector (%0 and %1)">;
 def err_typecheck_vector_not_convertable_implict_truncation : Error<
    "cannot convert between %select{scalar|vector}0 type %1 and vector type"
    " %2 as implicit conversion would cause truncation">;
@@ -3544,6 +3546,9 @@ def warn_acquired_before_after_cycle : Warning<
 def warn_acquire_requires_negative_cap : Warning<
   "acquiring %0 '%1' requires negative capability '%2'">,
   InGroup<ThreadSafetyNegative>, DefaultIgnore;
+def warn_fun_requires_negative_cap : Warning<
+  "calling function %0 requires negative capability '%1'">,
+  InGroup<ThreadSafetyAnalysis>, DefaultIgnore;
 
 // Thread safety warnings on pass by reference
 def warn_guarded_pass_by_reference : Warning<
@@ -11066,6 +11071,9 @@ def err_sycl_restrict : Error<
   "|use a const static or global variable that is neither zero-initialized "
   "nor constant-initialized"
   "}0">;
+def warn_sycl_kernel_too_big_args : Warning<
+  "size of kernel arguments (%0 bytes) exceeds supported maximum of %1 bytes "
+  "on GPU">, InGroup<SyclStrict>;
 def err_sycl_virtual_types : Error<
   "No class with a vtable can be used in a SYCL kernel or any code included in the kernel">;
 def note_sycl_recursive_function_declared_here: Note<"function implemented using recursion declared here">;
@@ -11133,11 +11141,6 @@ def err_ivdep_declrefexpr_arg : Error<
 def warn_ivdep_redundant : Warning <"ignoring redundant Intel FPGA loop "
   "attribute 'ivdep': safelen %select{INF|%1}0 >= safelen %select{INF|%3}2">,
   InGroup<IgnoredAttributes>;
-def warn_attribute_spelling_deprecated : Warning<
-  "attribute %0 is deprecated">,
-  InGroup<DeprecatedAttributes>;
-def note_spelling_suggestion : Note<
-  "did you mean to use %0 instead?">;
 
 // errors of expect.with.probability
 def err_probability_not_constant_float : Error<

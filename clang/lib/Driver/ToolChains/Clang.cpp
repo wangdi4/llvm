@@ -2165,20 +2165,42 @@ void Clang::AddX86TargetArgs(const ArgList &Args,
   }
 
   // Handle -mtune.
-  // FIXME: We should default to "generic" unless -march is set to match gcc.
+
+  // Default to "generic" unless -march is present or targetting the PS4.
+  std::string TuneCPU;
+  if (!Args.hasArg(clang::driver::options::OPT_march_EQ) &&
+      !getToolChain().getTriple().isPS4CPU())
+    TuneCPU = "generic";
+#if INTEL_CUSTOMIZATION
+  // Reset TuneCPU if a valid -x or /Qx is specified.
+  if (const Arg *A = Args.getLastArgNoClaim(options::OPT_march_EQ,
+                                            options::OPT_x))
+    if (A->getOption().matches(options::OPT_x))
+      if (x86::isValidIntelCPU(A->getValue(), getToolChain().getTriple()))
+        TuneCPU.clear();
+  if (const Arg *A = Args.getLastArgNoClaim(options::OPT__SLASH_arch,
+                                            options::OPT__SLASH_Qx)) {
+    if (A->getOption().matches(options::OPT__SLASH_Qx))
+      if (x86::isValidIntelCPU(A->getValue(), getToolChain().getTriple()))
+        TuneCPU.clear();
+  }
+#endif // INTEL_CUSTOMIZATION
+
+  // Override based on -mtune.
   if (const Arg *A = Args.getLastArg(clang::driver::options::OPT_mtune_EQ)) {
     StringRef Name = A->getValue();
 
-    if (Name == "native")
+    if (Name == "native") {
       Name = llvm::sys::getHostCPUName();
+      if (!Name.empty())
+        TuneCPU = std::string(Name);
+    } else
+      TuneCPU = std::string(Name);
+  }
 
-    // Ignore generic either from getHostCPUName or from command line.
-    // FIXME: We need to support this eventually but isValidCPUName and the
-    // backend aren't ready for it yet.
-    if (Name != "generic") {
-      CmdArgs.push_back("-tune-cpu");
-      CmdArgs.push_back(Args.MakeArgString(Name));
-    }
+  if (!TuneCPU.empty()) {
+    CmdArgs.push_back("-tune-cpu");
+    CmdArgs.push_back(Args.MakeArgString(TuneCPU));
   }
 }
 
@@ -4329,7 +4351,9 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
       CmdArgs.push_back("-fenable-sycl-dae");
 
     // Pass the triple of host when doing SYCL
-    auto AuxT = llvm::Triple(llvm::sys::getProcessTriple());
+    llvm::Triple AuxT = C.getDefaultToolChain().getTriple();
+    if (Args.hasFlag(options::OPT_fsycl_device_only, OptSpecifier(), false))
+      AuxT = llvm::Triple(llvm::sys::getProcessTriple());
     std::string NormalizedTriple = AuxT.normalize();
     CmdArgs.push_back("-aux-triple");
     CmdArgs.push_back(Args.MakeArgString(NormalizedTriple));
@@ -4384,8 +4408,8 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
       SYCLStdArg->render(Args, CmdArgs);
       CmdArgs.push_back("-fsycl-std-layout-kernel-params");
     } else {
-      // Ensure the default version in SYCL mode is 1.2.1 (aka 2017)
-      CmdArgs.push_back("-sycl-std=2017");
+      // Ensure the default version in SYCL mode is 2020
+      CmdArgs.push_back("-sycl-std=2020");
     }
   }
 
@@ -4603,6 +4627,9 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
   if (Args.hasArg(options::OPT_fopenmp_stable_file_id))
     CmdArgs.push_back("-fopenmp-stable-file-id");
 #endif // INTEL_CUSTOMIZATION
+  if (Args.hasFlag(options::OPT_fmemory_profile,
+                   options::OPT_fno_memory_profile, false))
+    Args.AddLastArg(CmdArgs, options::OPT_fmemory_profile);
 
   // Embed-bitcode option.
   // Only white-listed flags below are allowed to be embedded.
@@ -5709,6 +5736,8 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
   }
 
   Args.AddLastArg(CmdArgs, options::OPT_fvisibility_inlines_hidden);
+  Args.AddLastArg(CmdArgs, options::OPT_fvisibility_inlines_hidden_static_local_var,
+                           options::OPT_fno_visibility_inlines_hidden_static_local_var);
   Args.AddLastArg(CmdArgs, options::OPT_fvisibility_global_new_delete_hidden);
 
   Args.AddLastArg(CmdArgs, options::OPT_ftlsmodel_EQ);
@@ -6128,7 +6157,7 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
       LanguageStandard = llvm::StringSwitch<StringRef>(StdArg->getValue())
                              .Case("c++14", "-std=c++14")
                              .Case("c++17", "-std=c++17")
-                             .Case("c++latest", "-std=c++2a")
+                             .Case("c++latest", "-std=c++20")
                              .Default("");
       if (LanguageStandard.empty())
         D.Diag(clang::diag::warn_drv_unused_argument)
@@ -6219,7 +6248,8 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
   // FIXME: Find a better way to determine whether the language has modules
   // support by default, or just assume that all languages do.
   bool HaveModules =
-      Std && (Std->containsValue("c++2a") || Std->containsValue("c++latest"));
+      Std && (Std->containsValue("c++2a") || Std->containsValue("c++20") ||
+              Std->containsValue("c++latest"));
   RenderModulesOptions(C, D, Args, Input, Output, CmdArgs, HaveModules);
 
   if (Args.hasFlag(options::OPT_fpch_validate_input_files_content,
@@ -6711,11 +6741,10 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
         options::OPT_fno_sycl_unnamed_lambda, Args.hasArg(options::OPT__dpcpp)))
       CmdArgs.push_back("-fsycl-unnamed-lambda");
 
-    // Enable generation of USM address spaces as opt-in.
+    // Enable generation of USM address spaces for FPGA.
     // __ENABLE_USM_ADDR_SPACE__ will be used during compilation of SYCL headers
     if (getToolChain().getTriple().getSubArch() ==
-            llvm::Triple::SPIRSubArch_fpga &&
-        Args.hasArg(options::OPT_fsycl_enable_usm_address_spaces))
+        llvm::Triple::SPIRSubArch_fpga)
       CmdArgs.push_back("-D__ENABLE_USM_ADDR_SPACE__");
   }
 
@@ -8363,18 +8392,28 @@ void SPIRVTranslator::ConstructJob(Compilation &C, const JobAction &JA,
   TranslatorArgs.push_back(Output.getFilename());
   if (getToolChain().getTriple().isSYCLDeviceEnvironment()) {
     TranslatorArgs.push_back("-spirv-max-version=1.1");
-    std::string ExtArg("-spirv-ext=+all");
+    TranslatorArgs.push_back("-spirv-debug-info-version=legacy");
     if (C.getArgs().hasArg(options::OPT_fsycl_esimd))
       TranslatorArgs.push_back("-spirv-allow-unknown-intrinsics");
+
     // Disable SPV_INTEL_usm_storage_classes by default since it adds new
     // storage classes that represent global_device and global_host address
     // spaces, which are not supported for all targets. With the extension
     // disable the storage classes will be lowered to CrossWorkgroup storage
-    // class that is mapped to just global address space.
-    if (!(getToolChain().getTriple().getSubArch() ==
-              llvm::Triple::SPIRSubArch_fpga &&
-          TCArgs.hasArg(options::OPT_fsycl_enable_usm_address_spaces)))
-      ExtArg += ",-SPV_INTEL_usm_storage_classes";
+    // class that is mapped to just global address space. The extension is
+    // supposed to be enabled only for FPGA hardware.
+    std::string ExtArg("-spirv-ext=+all,-SPV_INTEL_usm_storage_classes");
+    if (getToolChain().getTriple().getSubArch() ==
+        llvm::Triple::SPIRSubArch_fpga) {
+      for (auto *A : TCArgs) {
+        if (A->getOption().matches(options::OPT_Xs_separate) ||
+            A->getOption().matches(options::OPT_Xs)) {
+          StringRef ArgString(A->getValue());
+          if (ArgString == "hardware" || ArgString == "simulation")
+            ExtArg = "-spirv-ext=+all";
+        }
+      }
+    }
     TranslatorArgs.push_back(TCArgs.MakeArgString(ExtArg));
   }
 #if INTEL_CUSTOMIZATION

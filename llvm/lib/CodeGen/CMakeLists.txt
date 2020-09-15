@@ -96,6 +96,7 @@ add_llvm_component_library(LLVMCodeGen
   MachineFunction.cpp
   MachineFunctionPass.cpp
   MachineFunctionPrinterPass.cpp
+  MachineFunctionSplitter.cpp
   MachineInstrBundle.cpp
   MachineInstr.cpp
   MachineLICM.cpp
@@ -150,6 +151,7 @@ add_llvm_component_library(LLVMCodeGen
   RegisterPressure.cpp
   RegisterScavenging.cpp
   RenameIndependentSubregs.cpp
+  MachineStableHash.cpp
   MIRVRegNamerUtils.cpp
   MIRNamerPass.cpp
   MIRCanonicalizerPass.cpp

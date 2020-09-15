@@ -28,7 +28,7 @@
 
 // CHECK: template <> struct KernelInfo<class wrapped_access> {
 
-#include <sycl.hpp>
+#include "Inputs/sycl.hpp"
 
 template <typename Acc>
 struct AccWrapper { Acc accessor; };
