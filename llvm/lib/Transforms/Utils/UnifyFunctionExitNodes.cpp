@@ -70,9 +70,13 @@ bool UnifyFunctionExitNodes::runOnFunction(Function &F) {
     }
   }
 
-  // There is nothing more to do if we do not have multiple return blocks.
-  if (ReturningBlocks.size() <= 1)
+  // There is nothing more to do if we do not have multiple return blocks
+#if INTEL_CUSTOMIZATION
+  if (ReturningBlocks.size() <= 1) {
+    ReturnBlock = nullptr;
     return false;
+  }
+#endif // INTEL_CUSTOMIZATION
 
   // Otherwise, we need to insert a new basic block into the function, add a PHI
   // nodes (if the function returns values), and convert all of the return
@@ -104,5 +108,6 @@ bool UnifyFunctionExitNodes::runOnFunction(Function &F) {
     BB->getInstList().pop_back();  // Remove the return insn
     BranchInst::Create(NewRetBlock, BB);
   }
+  ReturnBlock = NewRetBlock; // INTEL
   return true;
 }

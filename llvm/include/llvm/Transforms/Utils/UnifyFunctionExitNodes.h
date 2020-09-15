@@ -21,6 +21,7 @@ namespace llvm {
 class BasicBlock;
 
 struct UnifyFunctionExitNodes : public FunctionPass {
+  BasicBlock *ReturnBlock;  // INTEL
 public:
   static char ID; // Pass identification, replacement for typeid
   UnifyFunctionExitNodes();
@@ -29,6 +30,8 @@ public:
   void getAnalysisUsage(AnalysisUsage &AU) const override;
 
   bool runOnFunction(Function &F) override;
+
+  BasicBlock *getReturnBlock() { return ReturnBlock; } // INTEL
 };
 
 Pass *createUnifyFunctionExitNodesPass();
