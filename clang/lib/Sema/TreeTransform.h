@@ -28,13 +28,10 @@
 #include "clang/AST/StmtCXX.h"
 #include "clang/AST/StmtObjC.h"
 #include "clang/AST/StmtOpenMP.h"
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 #include "clang/Basic/Builtins.h"
 #endif  // INTEL_CUSTOMIZATION
-=======
 #include "clang/Basic/DiagnosticParse.h"
->>>>>>> 9c9974c3ccb6468cc83f759240293538cf123fcd
 #include "clang/Basic/OpenMPKinds.h"
 #include "clang/Sema/Designator.h"
 #include "clang/Sema/Lookup.h"
