@@ -872,12 +872,8 @@ static void closeRTL() {
     DeviceInfo->unloadOffloadTable(i);
   }
   delete[] DeviceInfo->Mutexes;
-<<<<<<< HEAD
-  IDP("Closed RTL successfully\n");
-=======
   delete[] DeviceInfo->ProfileLocks;
-  DP("Closed RTL successfully\n");
->>>>>>> 4e5e6c1c08403cf4b43c02b204bb8aa79458ba4e
+  IDP("Closed RTL successfully\n");
 }
 
 static std::string getDeviceRTLPath(const char *basename) {
@@ -2823,12 +2819,7 @@ static inline int32_t run_target_team_nd_region(
       }
       DeviceInfo->getProfiles(device_id).update(kernel_name.c_str(), event);
     }
-<<<<<<< HEAD
-    CALL_CL_RET_FAIL(clFinish, DeviceInfo->Queues[device_id]);
     IDP("Successfully finished kernel execution.\n");
-=======
-    DP("Successfully finished kernel execution.\n");
->>>>>>> 4e5e6c1c08403cf4b43c02b204bb8aa79458ba4e
   }
 
   return OFFLOAD_SUCCESS;
