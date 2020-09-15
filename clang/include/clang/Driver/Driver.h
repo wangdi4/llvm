@@ -308,8 +308,8 @@ private:
                     const llvm::opt::InputArgList &Args,
                     const llvm::opt::OptTable &Opts) const;
 
-  /// Add SYCL/OpenMP SPIR-V device libraries for linking.
-  void addIntelDeviceLibs(const ToolChain &TC, Driver::InputList &Inputs,
+  /// Add OpenMP SPIR-V device libraries for linking.
+  void addIntelOMPDeviceLibs(const ToolChain &TC, Driver::InputList &Inputs,
                           const llvm::opt::OptTable &Opts,
                           llvm::opt::DerivedArgList &Args) const;
 #endif // INTEL_CUSTOMIZATION
