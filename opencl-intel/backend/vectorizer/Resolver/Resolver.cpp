@@ -352,7 +352,7 @@ void FuncResolver::resolveLoadVector(CallInst* caller, unsigned align) {
     return;
   }
 
-  VectorType *VT = cast<VectorType>(Tp);
+  FixedVectorType *VT = cast<FixedVectorType>(Tp);
   unsigned NumElem = VT->getNumElements();
   Type *Elem = VT->getElementType();
 
@@ -393,7 +393,7 @@ bool FuncResolver::isResolvedMaskedLoad(CallInst* caller) {
   Value *Ptr = caller->getArgOperand(1);
   PointerType* ptrType = dyn_cast<PointerType>(Ptr->getType());
   V_ASSERT(ptrType && "Type is not a pointer type");
-  VectorType* vecType = dyn_cast<VectorType>(ptrType->getElementType());
+  FixedVectorType* vecType = dyn_cast<FixedVectorType>(ptrType->getElementType());
   V_ASSERT(vecType && "Pointer must be of vector type");
   // check availability of masked store BI
   std::string funcName =
@@ -469,7 +469,7 @@ void FuncResolver::resolveStoreVector(CallInst* caller, unsigned align) {
   Type *Tp = Data->getType();
   V_ASSERT(Ptr->getType()->isPointerTy() && "Pointer must be of pointer type");
 
-  VectorType *VT = cast<VectorType>(Tp);
+  FixedVectorType *VT = cast<FixedVectorType>(Tp);
   unsigned NumElem = VT->getNumElements();
   Type *Elem = VT->getElementType();
 
@@ -523,7 +523,7 @@ bool FuncResolver::isResolvedMaskedStore(CallInst* caller) {
   Value *Ptr = caller->getArgOperand(2);
   PointerType* ptrType = dyn_cast<PointerType>(Ptr->getType());
   V_ASSERT(ptrType && "Type is not a PointerType");
-  VectorType* vecType = dyn_cast<VectorType>(ptrType->getElementType());
+  FixedVectorType* vecType = dyn_cast<FixedVectorType>(ptrType->getElementType());
   V_ASSERT(vecType && "Pointer must be of vector type");
   // check availability of masked store BI
   std::string funcName =

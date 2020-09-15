@@ -49,7 +49,7 @@ namespace intel {
     // Collect parameters for initialization value selection
     Type *pRetType = pFunc->getFunctionType()->getReturnType();
     unsigned dataWidth = pRetType->isVectorTy()
-                             ? cast<VectorType>(pRetType)->getNumElements()
+                             ? cast<FixedVectorType>(pRetType)->getNumElements()
                              : 1;
     std::string funcName = pFunc->getName().str();
     assert(isMangledName(funcName.c_str()) && "WG BI function name is expected to be mangled!");

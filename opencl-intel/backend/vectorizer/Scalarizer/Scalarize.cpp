@@ -301,7 +301,7 @@ void ScalarizeFunction::scalarizeInstruction(BinaryOperator *BI, bool supportsWr
 {
   V_PRINT(scalarizer, "\t\tBinary instruction\n");
   V_ASSERT(BI && "instruction type dynamic cast failed");
-  VectorType *instType = dyn_cast<VectorType>(BI->getType());
+  FixedVectorType *instType = dyn_cast<FixedVectorType>(BI->getType());
   // Only need handling for vector binary ops
   if (!instType) return;
 
@@ -350,7 +350,7 @@ void ScalarizeFunction::scalarizeInstruction(UnaryOperator *UI)
 {
   V_PRINT(scalarizer, "\t\tUnary instruction\n");
   V_ASSERT(UI && "instruction type dynamic cast failed");
-  VectorType *instType = dyn_cast<VectorType>(UI->getType());
+  FixedVectorType *instType = dyn_cast<FixedVectorType>(UI->getType());
   // Only need handling for vector unary ops
   if (!instType) return;
 
@@ -393,7 +393,7 @@ void ScalarizeFunction::scalarizeInstruction(CmpInst *CI)
 {
   V_PRINT(scalarizer, "\t\tCompare instruction\n");
   V_ASSERT(CI && "instruction type dynamic cast failed");
-  VectorType *instType = dyn_cast<VectorType>(CI->getType());
+  FixedVectorType *instType = dyn_cast<FixedVectorType>(CI->getType());
   // Only need handling for vector compares
   if (!instType) return;
 
@@ -439,12 +439,12 @@ void ScalarizeFunction::scalarizeInstruction(CastInst *CI)
 {
   V_PRINT(scalarizer, "\t\tCast instruction\n");
   V_ASSERT(CI && "instruction type dynamic cast failed");
-  VectorType *instType = dyn_cast<VectorType>(CI->getType());
+  FixedVectorType *instType = dyn_cast<FixedVectorType>(CI->getType());
 
   // For BitCast - we only scalarize if src and dst types have same vector length
   if (isa<BitCastInst>(CI) || isa<AddrSpaceCastInst>(CI)) {
     if (!instType) return recoverNonScalarizableInst(CI);
-    VectorType *srcType = dyn_cast<VectorType>(CI->getOperand(0)->getType());
+    FixedVectorType *srcType = dyn_cast<FixedVectorType>(CI->getOperand(0)->getType());
     if (!srcType || (instType->getNumElements() != srcType->getNumElements()))
       return recoverNonScalarizableInst(CI);
   }
@@ -459,7 +459,7 @@ void ScalarizeFunction::scalarizeInstruction(CastInst *CI)
   unsigned numElements = instType->getNumElements();
   V_ASSERT(numElements <= MAX_INPUT_VECTOR_WIDTH && "Inst vector width larger than supported");
   V_ASSERT(isa<VectorType>(CI->getOperand(0)->getType()) && "unexpected type!");
-  V_ASSERT(cast<VectorType>(CI->getOperand(0)->getType())->getNumElements() == numElements
+  V_ASSERT(cast<FixedVectorType>(CI->getOperand(0)->getType())->getNumElements() == numElements
     && "unexpected vector width");
 
   // Obtain scalarized argument
@@ -497,7 +497,7 @@ void ScalarizeFunction::scalarizeInstruction(PHINode *PI)
 {
   V_PRINT(scalarizer, "\t\tPHI instruction\n");
   V_ASSERT(PI && "instruction type dynamic cast failed");
-  VectorType *instType = dyn_cast<VectorType>(PI->getType());
+  FixedVectorType *instType = dyn_cast<FixedVectorType>(PI->getType());
   // Only need handling for vector PHI
   if (!instType) return;
 
@@ -546,7 +546,7 @@ void ScalarizeFunction::scalarizeInstruction(SelectInst * SI)
 {
   V_PRINT(scalarizer, "\t\tSelect instruction\n");
   V_ASSERT(SI && "instruction type dynamic cast failed");
-  VectorType *instType = dyn_cast<VectorType>(SI->getType());
+  FixedVectorType *instType = dyn_cast<FixedVectorType>(SI->getType());
   // Only need handling for vector select
   if (!instType) return;
 
@@ -620,7 +620,7 @@ void ScalarizeFunction::scalarizeInstruction(ExtractElementInst *EI)
 
   // Obtain the scalarized operands
   V_ASSERT(dyn_cast<VectorType>(vectorValue->getType()) &&
-       dyn_cast<VectorType>(vectorValue->getType())->getNumElements() <=
+       dyn_cast<FixedVectorType>(vectorValue->getType())->getNumElements() <=
        MAX_INPUT_VECTOR_WIDTH && "Inst vector width larger than supported");
   Value *operand[MAX_INPUT_VECTOR_WIDTH] = {nullptr};
   obtainScalarizedValues(operand, NULL, vectorValue, EI);
@@ -655,9 +655,9 @@ void ScalarizeFunction::scalarizeInstruction(InsertElementInst *II)
 
   V_ASSERT(isa<ConstantInt>(scalarIndexVal) && "inst arguments error");
   uint64_t scalarIndex = cast<ConstantInt>(scalarIndexVal)->getZExtValue();
-  V_ASSERT(scalarIndex <= cast<VectorType>(II->getType())->getNumElements()
+  V_ASSERT(scalarIndex <= cast<FixedVectorType>(II->getType())->getNumElements()
       && "index error");
-  V_ASSERT(cast<VectorType>(II->getType())->getNumElements() <=
+  V_ASSERT(cast<FixedVectorType>(II->getType())->getNumElements() <=
        MAX_INPUT_VECTOR_WIDTH && "Inst vector width larger than supported");
 
   // Obtain breakdown of input vector
@@ -665,7 +665,7 @@ void ScalarizeFunction::scalarizeInstruction(InsertElementInst *II)
   if (isa<UndefValue>(sourceVectorValue))
   {
     // Scalarize the undef value (generate a scalar undef)
-    VectorType *inputVectorType = dyn_cast<VectorType>(sourceVectorValue->getType());
+    FixedVectorType *inputVectorType = dyn_cast<FixedVectorType>(sourceVectorValue->getType());
     V_ASSERT(inputVectorType && "expected vector argument");
     UndefValue *undefVal = UndefValue::get(inputVectorType->getElementType());
 
@@ -700,7 +700,7 @@ void ScalarizeFunction::scalarizeInstruction(ShuffleVectorInst * SI)
   // Grab input vectors types and width
   Value *sourceVector0Value = SI->getOperand(0);
   Value *sourceVector1Value = SI->getOperand(1);
-  VectorType *inputType = dyn_cast<VectorType>(sourceVector0Value->getType());
+  FixedVectorType *inputType = dyn_cast<FixedVectorType>(sourceVector0Value->getType());
   V_ASSERT (inputType && inputType == sourceVector1Value->getType() && "vector input error");
   unsigned sourceVectorWidth = inputType->getNumElements();
 
@@ -722,7 +722,7 @@ void ScalarizeFunction::scalarizeInstruction(ShuffleVectorInst * SI)
 
   // Generate array for shuffled scalar values
   Value *newVector[MAX_INPUT_VECTOR_WIDTH];
-  unsigned width = SI->getType()->getNumElements();
+  unsigned width = cast<FixedVectorType>(SI->getType())->getNumElements();
   V_ASSERT (MAX_INPUT_VECTOR_WIDTH >= width && "Vector size unsupported");
 
   // Generate undef value, which may be needed as some scalar elements
@@ -1056,7 +1056,7 @@ void ScalarizeFunction::scalarizeInstruction(LoadInst *LI) {
     return;
   }
 
-  VectorType *dataType = dyn_cast<VectorType>(LI->getType());
+  FixedVectorType *dataType = dyn_cast<FixedVectorType>(LI->getType());
   if (isScalarizableLoadStoreType(dataType) && m_pDL) {
     // Prepare empty SCM entry for the instruction
     SCMEntry *newEntry = getSCMEntry(LI);
@@ -1139,7 +1139,7 @@ void ScalarizeFunction::scalarizeInstruction(StoreInst *SI) {
 
   int indexPtr = SI->getPointerOperandIndex();
   int indexData = 1-indexPtr;
-  VectorType *dataType = dyn_cast<VectorType>(SI->getOperand(indexData)->getType());
+  FixedVectorType *dataType = dyn_cast<FixedVectorType>(SI->getOperand(indexData)->getType());
   if (isScalarizableLoadStoreType(dataType) && m_pDL) {
     // Get additional info from instruction
     unsigned int vectorSize = m_pDL->getTypeAllocSize(dataType);
@@ -1231,7 +1231,7 @@ void ScalarizeFunction::handleScalarRetVector(CallInst* callerInst, SmallVectorI
   clone->insertBefore(callerInst);
   clone->setName(callerInst->getName() + "_clone");
 
-  unsigned numElements = cast<VectorType>(callerInst->getType())->getNumElements();
+  unsigned numElements = cast<FixedVectorType>(callerInst->getType())->getNumElements();
   SmallVector<Value*, 16> newExtractInsts;
   // Break result vector into scalars.
   Instruction* nextInst = &*(++BasicBlock::iterator(clone));
@@ -1255,7 +1255,7 @@ void ScalarizeFunction::obtainScalarizedValues(Value *retValues[], bool *retIsCo
   bool isSoaAlloca = m_soaAllocaAnalysis->isSoaAllocaVectorRelated(origValue);
 
   V_ASSERT(origValue && "origValue is nullptr");
-  VectorType *origType = dyn_cast<VectorType>(origValue->getType());
+  FixedVectorType *origType = dyn_cast<FixedVectorType>(origValue->getType());
   V_ASSERT((origType || isSoaAlloca) && "All non SoaAlloca derived values must have a vector type!");
   unsigned width = isSoaAlloca ?
     m_soaAllocaAnalysis->getSoaAllocaVectorWidth(origValue) :
@@ -1408,7 +1408,7 @@ void ScalarizeFunction::obtainVectorValueWhichMightBeScalarizedImpl(Value * vect
   }
 
   Value *assembledVector = UndefValue::get(vectorVal->getType());
-  unsigned width = cast<VectorType>(vectorVal->getType())->getNumElements();
+  unsigned width = cast<FixedVectorType>(vectorVal->getType())->getNumElements();
   for (unsigned i = 0; i < width; i++)
   {
     V_ASSERT(NULL != valueEntry->scalarValues[i] && "SCM entry has NULL value");
@@ -1432,7 +1432,7 @@ void ScalarizeFunction::obtainVectorValueWhichMightBeScalarizedImpl(Value * vect
 Value *ScalarizeFunction::obtainAssembledVector(Value *vectorVal, Instruction *loc)
 {
   // Assemble a vector from the scalarized values.
-  VectorType *vType = dyn_cast<VectorType>(vectorVal->getType());
+  FixedVectorType *vType = dyn_cast<FixedVectorType>(vectorVal->getType());
   V_ASSERT(vType && "param must be a vector");
   Value *assembledVector = UndefValue::get(vType);
   unsigned width = vType->getNumElements();
@@ -1514,7 +1514,7 @@ void ScalarizeFunction::updateSCMEntryWithValues(ScalarizeFunction::SCMEntry *en
     "only SoaAlloca derived or Vector values are supported");
   unsigned width = isSoaAlloca ?
     m_soaAllocaAnalysis->getSoaAllocaVectorWidth(origValue) :
-    cast<VectorType>(origValue->getType())->getNumElements();
+    cast<FixedVectorType>(origValue->getType())->getNumElements();
 
   entry->isOriginalVectorRemoved = isOrigValueRemoved;
 
@@ -1570,7 +1570,7 @@ void ScalarizeFunction::resolveDeferredInstructions()
     V_ASSERT(vectorInst && "DRL only handles unresolved instructions");
 
     bool isSoaAlloca = m_soaAllocaAnalysis->isSoaAllocaVectorRelated(vectorInst);
-    VectorType *currType = dyn_cast<VectorType>(vectorInst->getType());
+    FixedVectorType *currType = dyn_cast<FixedVectorType>(vectorInst->getType());
     V_ASSERT((currType || isSoaAlloca) && "Cannot have DRL of non-vector value that is non SoaAlloca derived value");
     unsigned width = isSoaAlloca ?
       m_soaAllocaAnalysis->getSoaAllocaVectorWidth(vectorInst) :
@@ -1626,7 +1626,7 @@ void ScalarizeFunction::resolveDeferredInstructions()
   m_DRL.clear();
 }
 
-bool ScalarizeFunction::isScalarizableLoadStoreType(VectorType *type) {
+bool ScalarizeFunction::isScalarizableLoadStoreType(FixedVectorType *type) {
   // Scalarize Load/Store worth doing only if:
   //  1. KNL
   //  2. Load/Store type is a vector with less than 16 elements

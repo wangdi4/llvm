@@ -317,7 +317,7 @@ namespace intel {
     unsigned int sizeInBits = m_pDL->getTypeStoreSizeInBits(pType);
 
     Type *pElementType = pType;
-    VectorType* pVecType = dyn_cast<VectorType>(pType);
+    FixedVectorType* pVecType = dyn_cast<FixedVectorType>(pType);
     if ( pVecType ) {
       pElementType = pVecType->getElementType();
     }

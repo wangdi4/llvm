@@ -56,13 +56,13 @@ TEST_F(TestInfo, Device) {
     cl_int err =
         clGetDeviceInfo(device, CL_DEVICE_TYPE, sizeof(type), &type, nullptr);
     ASSERT_EQ(CL_SUCCESS, err);
-    ASSERT_EQ(CL_DEVICE_TYPE_ACCELERATOR, type);
+    ASSERT_EQ((cl_device_type)CL_DEVICE_TYPE_ACCELERATOR, type);
 
     cl_uint vendorId;
     err = clGetDeviceInfo(device, CL_DEVICE_VENDOR_ID, sizeof(vendorId),
                           &vendorId, nullptr);
     ASSERT_EQ(CL_SUCCESS, err);
-    ASSERT_EQ(4466, vendorId);
+    ASSERT_EQ((cl_uint)4466, vendorId);
   }
 }
 

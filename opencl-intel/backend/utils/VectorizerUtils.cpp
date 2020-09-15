@@ -51,12 +51,12 @@ Value *VectorizerUtils::isExtendedByShuffle(ShuffleVectorInst *SI, Type *realTyp
   // That is legal, as the consumer of the shuffleInst is known to be using only the
   // lower WIDTH elements of the vector.
   // WIDTH is calculated as number of vector Elements of realType
-  VectorType *desiredVectorType = dyn_cast<VectorType>(realType);
+  FixedVectorType *desiredVectorType = dyn_cast<FixedVectorType>(realType);
   if (!desiredVectorType) return nullptr;
   unsigned realWidth = desiredVectorType->getNumElements();
 
   // realWidth must be smaller-or-equal to the width of the shuffleInst result
-  if (realWidth > SI->getType()->getNumElements()) return nullptr;
+  if (realWidth > cast<FixedVectorType>(SI->getType())->getNumElements()) return nullptr;
 
   // Check that the shuffle components correspond to the input vector
   for (unsigned i = 0; i < realWidth; ++i)
@@ -123,7 +123,7 @@ Value *VectorizerUtils::RootInputArgument(Value *arg, Type *rootType, CallInst *
     }
 
     const bool is3Vector = (rootType->isVectorTy() &&
-      cast<VectorType>(rootType)->getNumElements() == 3);
+      cast<FixedVectorType>(rootType)->getNumElements() == 3);
 
     // Check the 2 users are really a store and the function call.
     Value *retVal = nullptr;
@@ -193,7 +193,7 @@ Value *VectorizerUtils::RootInputArgument(Value *arg, Type *rootType, CallInst *
     {
       // ExtractElement is allowed in a single case: ExtractElement <1 x Type>, 0
       currVal = EE->getVectorOperand();
-      if (EE->getVectorOperandType()->getNumElements() != 1)
+      if (cast<FixedVectorType>(EE->getVectorOperandType())->getNumElements() != 1)
         return canRootInputByShuffle(valInChain, rootType, CI);
     }
     // Check for the more-complicated ShuffleVector cast
@@ -252,10 +252,10 @@ bool VectorizerUtils::isShuffleVectorTruncate(ShuffleVectorInst *SI)
   if (!SI) return false;
   // The "proper" input is supposed to be in the first vector input,
   // and the shuffle values (locations) are the ordered components of that input.
-  VectorType *inputType = dyn_cast<VectorType>(SI->getOperand(0)->getType());
+  FixedVectorType *inputType = dyn_cast<FixedVectorType>(SI->getOperand(0)->getType());
   assert(inputType && "ShuffleVector is expected to have vector inputs!");
   unsigned inputWidth = inputType->getNumElements();
-  unsigned resultWidth = SI->getType()->getNumElements();
+  unsigned resultWidth = cast<FixedVectorType>(SI->getType())->getNumElements();
   if (resultWidth > inputWidth) return false;
 
   for (unsigned i = 0; i < resultWidth; i++)
@@ -639,8 +639,8 @@ Type* VectorizerUtils::convertSoaAllocaType(Type *type, unsigned int width) {
 Value *VectorizerUtils::isInsertEltExtend(Instruction *I, Type *realType) {
   // If I is an extension of vector by insert element then both I and the real
   // type are vectors with the same element type.
-  const VectorType *origTy = dyn_cast<VectorType>(I->getType());
-  const VectorType *destTy = dyn_cast<VectorType>(realType);
+  const FixedVectorType *origTy = dyn_cast<FixedVectorType>(I->getType());
+  const FixedVectorType *destTy = dyn_cast<FixedVectorType>(realType);
   if (!destTy || !origTy) return nullptr;
   const Type *origElTy = origTy->getElementType();
   unsigned origNelts = origTy->getNumElements();
@@ -695,8 +695,8 @@ Instruction *VectorizerUtils::convertUsingShuffle(Value *v,
                                                   Instruction *loc) {
   // In order to convert using shuffle both v and realType need to be vectors
   // with the same element type.
-  const VectorType *destTy = dyn_cast<VectorType>(realType);
-  VectorType *vTy = dyn_cast<VectorType>(v->getType());
+  const FixedVectorType *destTy = dyn_cast<FixedVectorType>(realType);
+  FixedVectorType *vTy = dyn_cast<FixedVectorType>(v->getType());
   if (!destTy || !vTy) return nullptr;
   const Type *destElTy = destTy->getElementType();
   const Type *vElTy = vTy->getElementType();

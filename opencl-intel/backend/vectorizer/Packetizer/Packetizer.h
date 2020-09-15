@@ -220,7 +220,7 @@ private:
   /// @param isScatterGather True if this is a scatter/gather, false if normal store/load
   /// @param isMasked True if this is a masked operation, false if a regular op.
   /// @return transpose function to be called
-  Function* getTransposeFunc(bool isLoad, VectorType * origVecType, bool isScatterGather, bool isMasked);
+  Function* getTransposeFunc(bool isLoad, FixedVectorType * origVecType, bool isScatterGather, bool isMasked);
 
   /// @brief Creates load and transpose sequence
   ///        This is the order of the sequence (first load, then transpose), hence the name.
@@ -461,7 +461,7 @@ private:
   /// @returns true if operation is available for VecTy.
   bool isGatherScatterType(bool masked,
                            Mangler::GatherScatterType type,
-                           VectorType *VecTy);
+                           FixedVectorType *VecTy);
   /// @brief Returns the mask type a transpose function expects
   /// @param TransFunc Transpose function to which the mask is passed
   /// @returns the type of the mask

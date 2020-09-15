@@ -123,7 +123,7 @@ namespace Validation
         case llvm::Type::ScalableVectorTyID:
             {
                 ret.SetType(TVECTOR);
-                ret.SetNumberOfElements(llvm::cast<llvm::VectorType>(type)->getNumElements());
+                ret.SetNumberOfElements(llvm::cast<llvm::FixedVectorType>(type)->getNumElements());
                 TypeDesc subElemType = GetTypeDesc(llvm::cast<llvm::VectorType>(type)->getElementType(), td);
                 ret.SetSubTypeDesc(0, subElemType);
                 ret.SetTypeAllocSize(td->getTypeAllocSize(type));

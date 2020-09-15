@@ -79,7 +79,7 @@ TypeDesc OpenCLKernelArgumentsParser::forParserStruct(StructType *structTy)
         case Type::FixedVectorTyID:
         case Type::ScalableVectorTyID:
             {
-                const VectorType *vectorTy = cast<VectorType>(structTy->getElementType(i));
+                const FixedVectorType *vectorTy = cast<FixedVectorType>(structTy->getElementType(i));
                 std::size_t numOfElements = vectorTy->getNumElements();
                 TypeDesc SubElemDesc(TVECTOR);
                 SubElemDesc.SetNumberOfElements(numOfElements);
@@ -192,7 +192,7 @@ TypeDesc OpenCLKernelArgumentsParser::forParserStruct(StructType *structTy)
                 case Type::FixedVectorTyID:
                 case Type::ScalableVectorTyID:
                     {
-                        const VectorType *vectorTy = cast<VectorType>(ptr->getElementType());
+                        const FixedVectorType *vectorTy = cast<FixedVectorType>(ptr->getElementType());
                         std::size_t numOfElements = vectorTy->getNumElements();
                         TypeDesc VectorSubElemDesc(TVECTOR);
                         VectorSubElemDesc.SetNumberOfElements(numOfElements);
@@ -329,7 +329,7 @@ TypeDesc OpenCLKernelArgumentsParser::forParserStruct(StructType *structTy)
                 case Type::FixedVectorTyID:
                 case Type::ScalableVectorTyID:
                     {
-                        const VectorType *vectorTy = cast<VectorType>(arrayTy->getElementType());
+                        const FixedVectorType *vectorTy = cast<FixedVectorType>(arrayTy->getElementType());
                         std::size_t numOfElements = vectorTy->getNumElements();
                         TypeDesc VectorSubElemDesc(TVECTOR);
                         VectorSubElemDesc.SetNumberOfElements(numOfElements);
@@ -487,8 +487,7 @@ OCLKernelArgumentsList OpenCLKernelArgumentsParser::KernelArgumentsParser(const 
         case Type::FixedVectorTyID:
         case Type::ScalableVectorTyID:
             {
-                std::size_t numOfElements =
-                    dyn_cast<VectorType>(arg_it->getType())->getNumElements();
+                std::size_t numOfElements = dyn_cast<FixedVectorType>(arg_it->getType())->getNumElements();
                 TypeDesc ElemDesc(TVECTOR);
                 ElemDesc.SetNumberOfElements(numOfElements);
                 switch ( dyn_cast<VectorType> (
@@ -605,7 +604,7 @@ OCLKernelArgumentsList OpenCLKernelArgumentsParser::KernelArgumentsParser(const 
                 case Type::FixedVectorTyID:
                 case Type::ScalableVectorTyID:
                     {
-                        const VectorType *vectorTy = cast<VectorType>(ptr->getElementType());
+                        const FixedVectorType *vectorTy = cast<FixedVectorType>(ptr->getElementType());
                         std::size_t numOfElements = vectorTy->getNumElements();
                         TypeDesc SubElemDesc(TVECTOR);
                         SubElemDesc.SetNumberOfElements(numOfElements);

@@ -250,7 +250,7 @@ namespace intel{
                 return Half;
             if (type->isVectorTy())
             {
-                VectorType *vt = cast<VectorType>(type);
+                FixedVectorType *vt = cast<FixedVectorType>(type);
                 Type *et = vt->getElementType();
                 int num = vt->getNumElements();
                 if (et->isFloatTy())

@@ -150,7 +150,7 @@ namespace intel{
 
     // Convert mask type to vector of i32, shuffflevector mask scalar size is always 32
     Constant* newMask = nullptr;
-    unsigned int maskVecSize = cast<VectorType>(mask->getType())->getNumElements();
+    unsigned int maskVecSize = cast<FixedVectorType>(mask->getType())->getNumElements();
     Type *maskType = FixedVectorType::get(Type::getInt32Ty(shuffleCall->getContext()), maskVecSize);
 
     // We previously searched for shuffle calls with constant mask only

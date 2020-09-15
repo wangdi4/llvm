@@ -57,7 +57,7 @@ OCL_INITIALIZE_PASS(SoaAllocaAnalysis, "SoaAllocaAnalysis", "SoaAllocaAnalysis p
         continue;
       }
       bool isVectorBasedType = allocaType->isVectorTy();
-      int width = isVectorBasedType ? (cast<VectorType>(allocaType))->getNumElements() : 0;
+      int width = isVectorBasedType ? (cast<FixedVectorType>(allocaType))->getNumElements() : 0;
       // At this point the alloca type is supported for SOA-alloca
       // Need to check the all the derived usages of the alloca pointer are allowed
       std::set<const Value*> visited;

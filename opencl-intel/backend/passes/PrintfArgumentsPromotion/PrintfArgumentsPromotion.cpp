@@ -70,7 +70,7 @@ namespace intel {
         scaPromoTy = Type::getDoubleTy(ctx);
       assert(scaPromoTy && "unsupported source type");
 
-      if (VectorType *srcVecTy = dyn_cast<VectorType>(srcTy))
+      if (FixedVectorType *srcVecTy = dyn_cast<FixedVectorType>(srcTy))
         return FixedVectorType::get(scaPromoTy, srcVecTy->getNumElements());
       return scaPromoTy;
     }

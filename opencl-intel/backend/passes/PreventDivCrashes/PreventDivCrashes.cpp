@@ -145,7 +145,7 @@ namespace intel {
 
       // Check if divisor is a vector, and update divisorElemType, isIntegerOverflowType
       if (divisorType->isVectorTy()) {
-        VectorType* vecType = static_cast<VectorType *>(divisorType);
+        FixedVectorType* vecType = static_cast<FixedVectorType *>(divisorType);
         divisorElemType = vecType->getElementType();
         // Create vector type of i1 to represent a vector of booleans
         isIntegerOverflowType = FixedVectorType::get(isIntegerOverflowType, vecType->getNumElements());
@@ -235,7 +235,7 @@ namespace intel {
           return false;
       }
     }
-    VectorType* vecType = static_cast<VectorType *>(divisorType);
+    FixedVectorType* vecType = static_cast<FixedVectorType *>(divisorType);
     reflection::FunctionDescriptor funcDesc;
     funcDesc.width = (reflection::width::V)vecType->getNumElements();
     if ((funcDesc.width != 8) && (funcDesc.width != 16))

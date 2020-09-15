@@ -77,7 +77,7 @@ bool HandleVPlanMask::runOnModule(Module &M) {
     // Check the type of mask parameter.
     FunctionType *FnType = F.getFunctionType();
     unsigned LastArgIdx = F.arg_size() - 1;
-    auto *MaskType = cast<VectorType>(FnType->getParamType(LastArgIdx));
+    auto *MaskType = cast<FixedVectorType>(FnType->getParamType(LastArgIdx));
     unsigned VF = MaskType->getNumElements();
     auto *ExpectMaskType = FixedVectorType::get(Int32Type, VF);
     auto *MaskElementType = dyn_cast<IntegerType>(MaskType->getElementType());

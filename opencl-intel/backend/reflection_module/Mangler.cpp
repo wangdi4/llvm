@@ -122,7 +122,7 @@ std::string Mangler::getStoreName(unsigned align) {
 }
 
 std::string Mangler::getGatherScatterName(bool isMasked, GatherScatterType gatherType,
-                                          VectorType *DataTy, VectorType *IndexTy) {
+                                          FixedVectorType *DataTy, FixedVectorType *IndexTy) {
   std::stringstream result;
   unsigned numElements = DataTy->getNumElements();
   const char* elemTyName = getScalarTypeName(DataTy->getScalarType());
@@ -160,7 +160,7 @@ std::string Mangler::getGatherScatterName(bool isMasked, GatherScatterType gathe
   return result.str();
 }
 
-std::string Mangler::getGatherScatterInternalName(GatherScatterType gatherType, Type *maskType, VectorType *retDataVecTy, Type *indexType) {
+std::string Mangler::getGatherScatterInternalName(GatherScatterType gatherType, Type *maskType, FixedVectorType *retDataVecTy, Type *indexType) {
   std::stringstream result;
   unsigned numElements = retDataVecTy->getNumElements();
   const char* elemRetTyName = getScalarTypeName(retDataVecTy->getScalarType());
@@ -189,7 +189,7 @@ std::string Mangler::getGatherScatterInternalName(GatherScatterType gatherType, 
 
   result << prefix;
   result << ".v" << numElements << elemRetTyName << "[" << elemIndexTyName << "].m";
-  result << (isa<VectorType>(maskType) ? cast<VectorType>(maskType)->getNumElements() : 1);
+  result << (isa<FixedVectorType>(maskType) ? cast<FixedVectorType>(maskType)->getNumElements() : 1);
   return result.str();
 }
 
@@ -380,7 +380,7 @@ std::string Mangler::get_original_scalar_name_from_retbyvector_builtin(const std
 }
 
 std::string Mangler::getTransposeBuiltinName(bool isLoad, bool isScatterGather, bool isMasked,
-                          VectorType * origVecType, unsigned int packetWidth) {
+                          FixedVectorType * origVecType, unsigned int packetWidth) {
 
   // Is this a masked operation?
   std::string maskedName = "";
@@ -419,7 +419,7 @@ std::string Mangler::getTransposeBuiltinName(bool isLoad, bool isScatterGather, 
   return funcName.str();
 }
 
-std::string Mangler::getMaskedLoadStoreBuiltinName(bool isLoad, VectorType * vecType, bool isBitMask) {
+std::string Mangler::getMaskedLoadStoreBuiltinName(bool isLoad, FixedVectorType * vecType, bool isBitMask) {
 
   // Determine load or store
   std::string baseFuncName;

@@ -356,10 +356,10 @@ TEST_P(MultipleDevicesBase, CheckThatChannelsAreNotShared) {
                             result, 0, nullptr, nullptr);
     ASSERT_EQ(CL_SUCCESS, error)
         << "clEnqueueReadBuffer failed with error " << ErrToStr(error);
-    ASSERT_EQ(i + 1, result[0]) << "invalid result for " << i << "-th device";
+    ASSERT_EQ((cl_int)i + 1, result[0]) << "invalid result for " << i << "-th device";
     ASSERT_EQ(0, result[1]) << "invlid result for " << i << "-th device";
   }
 }
 
 INSTANTIATE_TEST_CASE_P(TestFPGAMultiDevice, MultipleDevicesBase,
-                        ::testing::Values(1, 2, 3, 10));
+                        ::testing::Values(1, 2, 3, 10), );

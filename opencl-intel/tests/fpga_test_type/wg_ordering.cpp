@@ -80,17 +80,17 @@ TEST_F(TestWGOrdering, Channels) {
         for (size_t wiz = 0; wiz < localSize[2]; ++wiz) {
           for (size_t wiy = 0; wiy < localSize[1]; ++wiy) {
             for (size_t wix = 0; wix < localSize[0]; ++wix) {
-              ASSERT_EQ(wix, data[offset + 0].s[0])
+              ASSERT_EQ(wix, (size_t)data[offset + 0].s[0])
                   << " incorrect value of get_local_id(0) at offset " << offset;
-              ASSERT_EQ(wiy, data[offset + 0].s[1])
+              ASSERT_EQ(wiy, (size_t)data[offset + 0].s[1])
                   << " incorrect value of get_local_id(1) at offset " << offset;
-              ASSERT_EQ(wiz, data[offset + 0].s[2])
+              ASSERT_EQ(wiz, (size_t)data[offset + 0].s[2])
                   << " incorrect value of get_local_id(2) at offset " << offset;
-              ASSERT_EQ(wgx, data[offset + 1].s[0])
+              ASSERT_EQ(wgx, (size_t)data[offset + 1].s[0])
                   << " incorrect value of get_group_id(0) at offset " << offset;
-              ASSERT_EQ(wgy, data[offset + 1].s[1])
+              ASSERT_EQ(wgy, (size_t)data[offset + 1].s[1])
                   << " incorrect value of get_group_id(1) at offset " << offset;
-              ASSERT_EQ(wgz, data[offset + 1].s[2])
+              ASSERT_EQ(wgz, (size_t)data[offset + 1].s[2])
                   << " incorrect value of get_group_id(2) at offset " << offset;
               offset += 2;
             }
@@ -163,17 +163,17 @@ TEST_F(TestWGOrdering, Pipes) {
         for (size_t wiz = 0; wiz < localSize[2]; ++wiz) {
           for (size_t wiy = 0; wiy < localSize[1]; ++wiy) {
             for (size_t wix = 0; wix < localSize[0]; ++wix) {
-              ASSERT_EQ(wix, data[offset + 0].s[0])
+              ASSERT_EQ(wix, (size_t)data[offset + 0].s[0])
                   << " incorrect value of get_local_id(0) at offset " << offset;
-              ASSERT_EQ(wiy, data[offset + 0].s[1])
+              ASSERT_EQ(wiy, (size_t)data[offset + 0].s[1])
                   << " incorrect value of get_local_id(1) at offset " << offset;
-              ASSERT_EQ(wiz, data[offset + 0].s[2])
+              ASSERT_EQ(wiz, (size_t)data[offset + 0].s[2])
                   << " incorrect value of get_local_id(2) at offset " << offset;
-              ASSERT_EQ(wgx, data[offset + 1].s[0])
+              ASSERT_EQ(wgx, (size_t)data[offset + 1].s[0])
                   << " incorrect value of get_group_id(0) at offset " << offset;
-              ASSERT_EQ(wgy, data[offset + 1].s[1])
+              ASSERT_EQ(wgy, (size_t)data[offset + 1].s[1])
                   << " incorrect value of get_group_id(1) at offset " << offset;
-              ASSERT_EQ(wgz, data[offset + 1].s[2])
+              ASSERT_EQ(wgz, (size_t)data[offset + 1].s[2])
                   << " incorrect value of get_group_id(2) at offset " << offset;
               offset += 2;
             }

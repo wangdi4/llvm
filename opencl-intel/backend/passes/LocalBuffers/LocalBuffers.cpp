@@ -172,7 +172,7 @@ namespace intel{
 
     if (ConstantVector *CV = dyn_cast<ConstantVector>(pCE)) {
 
-      VectorType *VT = CV->getType();
+      FixedVectorType *VT = CV->getType();
       unsigned numElem = VT->getNumElements();
 
       Value *UpdatedVec = UndefValue::get(CV->getType());

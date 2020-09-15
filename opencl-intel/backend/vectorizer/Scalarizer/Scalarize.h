@@ -123,7 +123,7 @@ private:
   ///@brief Check if worth scalarize Load/Store with given vector type
   ///@param type vector type of Load/Store (can be NULL)
   ///@return true if Load/Store worth scalarize, false otherwise
-  bool isScalarizableLoadStoreType(VectorType *type);
+  bool isScalarizableLoadStoreType(FixedVectorType *type);
 
   /*! \name Scalarizarion Utility Functions
    *  \{ */

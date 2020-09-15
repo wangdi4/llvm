@@ -589,7 +589,7 @@ void OpenCLReferenceRunner::ReadKernelArgs(
             case Type::ScalableVectorTyID:
                 {
                     std::size_t numOfElements =
-                        dyn_cast<VectorType>(arg_it->getType())->getNumElements();
+                        dyn_cast<FixedVectorType>(arg_it->getType())->getNumElements();
                     switch ( dyn_cast<VectorType> (
                         arg_it->getType())->getElementType()->getTypeID() )
                     {

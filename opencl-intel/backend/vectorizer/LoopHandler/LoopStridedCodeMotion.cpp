@@ -244,7 +244,7 @@ Value *LoopStridedCodeMotion::getStrideForInst(Instruction *I) {
          "strided intermediate must have constant stride");
 
   // Non constant strides must be vectors.
-  VectorType *vTy = dyn_cast<VectorType>(I->getType());
+  FixedVectorType *vTy = dyn_cast<FixedVectorType>(I->getType());
   assert(vTy && "input should be a vector");
   unsigned nElts = vTy->getNumElements();
   Type *baseType = vTy->getElementType();
@@ -270,7 +270,7 @@ Value *LoopStridedCodeMotion::getStrideForInst(Instruction *I) {
 Value *LoopStridedCodeMotion::getVectorStrideIfNeeded(Instruction *I,
                                                       Value *stride) {
   // For scalars just return the stride.
-  VectorType *vTy = dyn_cast<VectorType>(I->getType());
+  FixedVectorType *vTy = dyn_cast<FixedVectorType>(I->getType());
   if (!vTy) return stride;
 
   unsigned nElts = vTy->getNumElements();

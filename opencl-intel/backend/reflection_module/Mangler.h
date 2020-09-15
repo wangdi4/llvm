@@ -52,7 +52,7 @@ public:
   /// @param retDataVecTy type of return/data value (should be a vector)
   /// @return name
   static std::string getGatherScatterName(bool isMasked, GatherScatterType gatherType,
-                                          VectorType *retDataVecTy, VectorType *indexTy = 0);
+                                          FixedVectorType *retDataVecTy, FixedVectorType *indexTy = 0);
   /// @brief Get internal mangled name for gather or scatter instruction
   /// (this name will be resolved at Resolver pass, thus it is for vectorizer internal use only)
   /// @param isGather true for gather instruction, false for scatter instruction
@@ -60,7 +60,7 @@ public:
   /// @param retDataVecTy type of return/data value (should be a vector)
   /// @param indexType type of index element
   /// @return name
-  static std::string getGatherScatterInternalName(GatherScatterType gatherType, Type *maskType, VectorType *retDataVecTy, Type *indexType);
+  static std::string getGatherScatterInternalName(GatherScatterType gatherType, Type *maskType, FixedVectorType *retDataVecTy, Type *indexType);
   /// @brief Get mangled name for vectorized prefetch built-in.
   /// @param name name of original prefetch built-in name.
   /// @param packetWidth width of vector data type for prefetch.
@@ -120,14 +120,14 @@ public:
   /// @param packetWidth Packetization width
   /// @return name
   static std::string getTransposeBuiltinName(bool isLoad, bool isScatterGather, bool isMasked,
-          VectorType * origVecType, unsigned int packetWidth);
+          FixedVectorType * origVecType, unsigned int packetWidth);
 
   /// @brief Get mangled name for masked load/store function
   /// @param isLoad True if this is load, false otherwise
   /// @param vecType Vector type of the data to load/store
   /// @param isBitMask Mask vector has 1-bit form
   /// @return name
-  static std::string getMaskedLoadStoreBuiltinName(bool isLoad, VectorType * vecType, bool isBitMask = false);
+  static std::string getMaskedLoadStoreBuiltinName(bool isLoad, FixedVectorType * vecType, bool isBitMask = false);
 
   /// @brief returns fake builtin name for a given builtin name
   /// @param name - original builtin name

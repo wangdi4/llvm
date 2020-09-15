@@ -430,7 +430,7 @@ bool PacketizeFunction::canTransposeMemory(Value* addr, Value* origVal, bool isL
   // Finally, the last option is to handle it properly - e.g. a masked load from a
   // uniform address should be a load+broadcast protected by an allZero branch.
 
-  VectorType* origVecType = dyn_cast<VectorType>(origVal->getType());
+  FixedVectorType* origVecType = dyn_cast<FixedVectorType>(origVal->getType());
   // We do not transpose scalars
   if (!origVecType) return false;
 
@@ -503,7 +503,7 @@ void PacketizeFunction::obtainTransposeAndStore(Instruction* SI, Value* storeAdd
   if (!prevIEI) return; // The origin of the store is not from inserts
 
   // setting the limit of AOS build-up chain to AOS width
-  VectorType *vType = dyn_cast<VectorType>(storeVal->getType());
+  FixedVectorType *vType = dyn_cast<FixedVectorType>(storeVal->getType());
   V_ASSERT(vType && "Store should be a vector");
   unsigned AOSVectorWidth = vType->getNumElements();
 
@@ -1033,7 +1033,7 @@ void PacketizeFunction::packetizeInstruction(CmpInst *CI)
 // types not supported by target.  For now, refrain from generating them.
 bool PacketizeFunction::isGatherScatterType(bool masked,
                                 Mangler::GatherScatterType type,
-                                VectorType *VecTy) {
+                                FixedVectorType *VecTy) {
   unsigned NumElements = VecTy->getNumElements();
   Type *ElemTy = VecTy->getElementType();
   if ( UseScatterGather && ElemTy->getPrimitiveSizeInBits() < 32)
@@ -1072,7 +1072,7 @@ Instruction* PacketizeFunction::widenScatterGatherOp(MemoryOperation &MO) {
     ElemTy = (cast<VectorType>(ElemTy))->getElementType();
   }
 
-  VectorType *VecElemTy = FixedVectorType::get(ElemTy, m_packetWidth);
+  FixedVectorType *VecElemTy = FixedVectorType::get(ElemTy, m_packetWidth);
 
   Mangler::GatherScatterType type = Mangler::Scatter;
 
@@ -1164,7 +1164,7 @@ Instruction* PacketizeFunction::widenScatterGatherOp(MemoryOperation &MO) {
   // The following code treats prefetch of vector types
   Type * eType = cast<PointerType>(MO.Base->getType())->getElementType();
   int vectorWidth = 0;
-  if (VectorType *vType = dyn_cast<VectorType>(eType)) {
+  if (FixedVectorType *vType = dyn_cast<FixedVectorType>(eType)) {
     V_ASSERT(MO.type == PREFETCH && "vector type is valid only for prefetch");
     vectorWidth = vType->getNumElements();
     vectorWidth = (vectorWidth == 3) ? 4 : vectorWidth; //vector3 is treated as vector4
@@ -1936,7 +1936,7 @@ bool PacketizeFunction::obtainNewCallArgs(CallInst *CI, const Function *LibFunc,
           calleeName.contains("intel_sub_group_block") &&
           argIndex == 1){
         V_ASSERT(
-            cast<VectorType>(curScalarArgType)->getNumElements() == 2 &&
+            cast<FixedVectorType>(curScalarArgType)->getNumElements() == 2 &&
             cast<VectorType>(curScalarArgType)
                 ->getElementType()
                 ->isIntegerTy(32) &&
@@ -2002,7 +2002,7 @@ bool PacketizeFunction::obtainNewCallArgs(CallInst *CI, const Function *LibFunc,
   // to the argument list. when handling return we will create load from these
   // pointers.
   if (LibFunc->getReturnType()->isVoidTy() && CI->getType()->isVectorTy()) {
-    VectorType *vTy = cast<VectorType>(CI->getType());
+    FixedVectorType *vTy = cast<FixedVectorType>(CI->getType());
     unsigned numElements = vTy->getNumElements();
     Instruction *loc = &*(m_currFunc->getEntryBlock().begin());
     for (unsigned i=0; i<numElements; ++i) {
@@ -2103,7 +2103,7 @@ bool PacketizeFunction::obtainInsertElement(Value* val,
 bool PacketizeFunction::handleReturnValueSOA(CallInst* CI, CallInst *soaRet){
   // first validate that the new call return is proper array of vectors.
   V_ASSERT(CI->getType()->isVectorTy() && "expected vector type");
-  VectorType *aosType = cast<VectorType>(CI->getType());
+  FixedVectorType *aosType = cast<FixedVectorType>(CI->getType());
   ArrayType *soaType = ArrayType::get(FixedVectorType::get(
       aosType->getElementType(), m_packetWidth) , aosType->getNumElements());
   if (soaType != soaRet->getType()) {
@@ -2131,7 +2131,7 @@ bool PacketizeFunction::handleReturnValueSOAVPlanStyle(CallInst *CI,
                                                        CallInst *soaRet) {
   // first validate that the new call return is proper array of vectors.
   V_ASSERT(CI->getType()->isVectorTy() && "expected vector type");
-  VectorType *aosType = cast<VectorType>(CI->getType());
+  FixedVectorType *aosType = cast<FixedVectorType>(CI->getType());
   Type *elementType = aosType->getElementType();
   V_ASSERT(elementType && !elementType->isVectorTy() &&
            "do not expect vector type");
@@ -2187,7 +2187,7 @@ void PacketizeFunction::mapFakeExtractUsagesTo(CallInst* CI,
 
 bool PacketizeFunction::handleReturnByPointers(CallInst* CI, CallInst *newCall) {
   V_ASSERT(CI->getType()->isVectorTy() && "expected vector type");
-  VectorType *vTy = cast<VectorType>(CI->getType());
+  FixedVectorType *vTy = cast<FixedVectorType>(CI->getType());
   unsigned numArgs = newCall->getNumArgOperands();
   unsigned numPtrs = vTy->getNumElements();
   V_ASSERT(numArgs > numPtrs && "bad signature");
@@ -2223,7 +2223,7 @@ Value *PacketizeFunction::handleParamSOA(CallInst* CI, Value *scalarParam){
   /// Scalar elements are obtained by fake insert calls added by the scalarizer.
   /// foo(<2 float> %a) --> foo4([2 x <4 x float>]%a)
   V_ASSERT(scalarParam->getType()->isVectorTy() && "expected vector type");
-  VectorType *aosType = cast<VectorType>(scalarParam->getType());
+  FixedVectorType *aosType = cast<FixedVectorType>(scalarParam->getType());
   ArrayType *soaType = ArrayType::get(FixedVectorType::get(aosType->getElementType(),
                                       m_packetWidth),aosType->getNumElements());
 
@@ -2251,7 +2251,7 @@ Value *PacketizeFunction::handleParamSOAVPlanStyle(CallInst *CI,
   /// Scalar elements are obtained by fake insert calls added by the scalarizer.
   /// foo(<2 float> %a) --> foo4(<8 x float> %a)
   V_ASSERT(scalarParam->getType()->isVectorTy() && "expected vector type");
-  VectorType *aosType = cast<VectorType>(scalarParam->getType());
+  FixedVectorType *aosType = cast<FixedVectorType>(scalarParam->getType());
   V_ASSERT(aosType->getElementType() &&
            !aosType->getElementType()->isVectorTy() &&
            "do not expect vector type");
@@ -2293,7 +2293,7 @@ bool PacketizeFunction::spreadVectorParam(CallInst* CI, Value *scalarParam,
   /// scalar elements are obtained by fake insert calls added by the scalarizer.
   /// foo(<2 x float> %a) --> foo4(<4 x float> %a.x, <4 x float> %a.y)
   V_ASSERT(scalarParam->getType()->isVectorTy() && "expexted vector type");
-  VectorType *vTy = cast<VectorType>(scalarParam->getType());
+  FixedVectorType *vTy = cast<FixedVectorType>(scalarParam->getType());
   SmallVector<Value *, MAX_INPUT_VECTOR_WIDTH> multiOperands;
   unsigned numElements = vTy->getNumElements();
   if (! obtainInsertElement(scalarParam, multiOperands, numElements, CI)) {
@@ -2320,7 +2320,7 @@ bool PacketizeFunction::obtainInsertElts(InsertElementInst *IEI, InsertElementIn
   // assembly of vectors should start with undef
   if (!isa<UndefValue>(assembledVector)) return false;
 
-  VectorType *vType = dyn_cast<VectorType>(IEI->getType());
+  FixedVectorType *vType = dyn_cast<FixedVectorType>(IEI->getType());
   V_ASSERT(vType && "InsertElement should be a vector");
   // currently supports 32 bit vectors or char4
   if (vType->getScalarSizeInBits() != 32 &&
@@ -2591,7 +2591,7 @@ bool PacketizeFunction::obtainExtracts(Value  *vectorValue,
                              SmallVectorImpl<ExtractElementInst *> &extracts,
                              bool &allUsersExtract,
                              bool attemptingLoadTranspose) {
-  VectorType *VT = dyn_cast<VectorType>(vectorValue->getType());
+  FixedVectorType *VT = dyn_cast<FixedVectorType>(vectorValue->getType());
   if (!VT) return false;
   unsigned inputVectorWidth = VT->getNumElements();
   if (inputVectorWidth < 2) return false;
@@ -2723,7 +2723,7 @@ void PacketizeFunction::packetizeInstruction(ExtractElementInst *EI)
     return duplicateNonPacketizableInst(EI);
   }
 
-  unsigned inputVectorWidth = EI->getVectorOperandType()->getNumElements();
+  unsigned inputVectorWidth = cast<FixedVectorType>(EI->getVectorOperandType())->getNumElements();
 
   Instruction *location = dyn_cast<Instruction>(vectorValue);
   if (location) {
@@ -2908,7 +2908,7 @@ void PacketizeFunction::packetizeInstruction(AllocaInst *AI) {
   return duplicateNonPacketizableInst(AI);
 }
 
-Function* PacketizeFunction::getTransposeFunc(bool isLoad, VectorType * origVecType, bool isScatterGather, bool isMasked) {
+Function* PacketizeFunction::getTransposeFunc(bool isLoad, FixedVectorType * origVecType, bool isScatterGather, bool isMasked) {
 
   // Get transpose function name
   std::string funcName = Mangler::getTransposeBuiltinName(isLoad, isScatterGather, isMasked, origVecType, m_packetWidth);
@@ -2941,7 +2941,7 @@ Type* PacketizeFunction::getMaskTypeForTranpose(Function* TransFunc) {
 void PacketizeFunction::createLoadAndTranspose(Instruction* I, Value* loadPtrVal, Type* loadType, Value* Mask) {
 
   V_ASSERT(isa<VectorType>(loadType) && "loadType is not a vector");
-  VectorType* origVecType = cast<VectorType>(loadType);
+  FixedVectorType* origVecType = cast<FixedVectorType>(loadType);
   unsigned int numDestVectors = origVecType->getNumElements();
   unsigned int numDestVectElems = m_packetWidth;
   Type* destVecType = FixedVectorType::get(origVecType->getElementType(), numDestVectElems);
@@ -3039,7 +3039,7 @@ void PacketizeFunction::createLoadAndTranspose(Instruction* I, Value* loadPtrVal
 void PacketizeFunction::createTransposeAndStore(Instruction* I, Value* storePtrVal, Type* storeType, Value* Mask) {
 
   V_ASSERT(isa<VectorType>(storeType) && "storeType is not a vector");
-  VectorType *origVecType = cast<VectorType>(storeType);
+  FixedVectorType *origVecType = cast<FixedVectorType>(storeType);
   unsigned int numOrigVectors = origVecType->getNumElements();
   bool isScatterGather = isScatterGatherAddr(storePtrVal);
   bool isMasked = (Mask != nullptr);
