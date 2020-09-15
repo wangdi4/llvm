@@ -46618,6 +46618,49 @@ static SDValue combineLoad(SDNode *N, SelectionDAG &DAG,
     }
   }
 
+#if INTEL_CUSTOMIZATION
+  // Transform non-power of 2 load to masked load.
+  // Limit this transform to advanced optimizations.
+  if (RegVT.isVector() && RegVT == MemVT && DCI.isBeforeLegalize() &&
+      Subtarget.hasAVX512() && Subtarget.hasVLX() &&
+      DAG.getTarget().Options.IntelAdvancedOptim) {
+
+    EVT WidenVT = TLI.getTypeToTransformTo(*DAG.getContext(), RegVT);
+
+    unsigned WidenEleNum = 1;
+    unsigned EleNum = RegVT.getVectorNumElements();
+    EVT EleTy = RegVT.getScalarType();
+
+    if (WidenVT.isVector())
+      WidenEleNum = WidenVT.getVectorNumElements();
+
+    if (WidenEleNum > EleNum && !isPowerOf2_32(EleNum) &&
+        ((EleTy == MVT::i64 || EleTy == MVT::f64 || EleTy == MVT::i32 ||
+           EleTy == MVT::f32) ||
+         (Subtarget.hasBWI() && (EleTy == MVT::i8 || EleTy == MVT::i16)))) {
+
+      EVT VecI1Ty = EVT::getVectorVT(*DAG.getContext(), MVT::i1, WidenEleNum);
+      SmallVector<SDValue, 8> MaskVec;
+
+      for (unsigned i = 0, e = EleNum; i != e; ++i)
+        MaskVec.push_back(DAG.getBoolConstant(true, dl, MVT::i1, MVT::i1));
+
+      for (unsigned i = EleNum, e = WidenEleNum; i != e; ++i)
+        MaskVec.push_back(DAG.getBoolConstant(false, dl, MVT::i1, MVT::i1));
+
+      SDValue Mask = DAG.getBuildVector(VecI1Ty, dl, MaskVec);
+
+      SDValue PassThru = DAG.getUNDEF(WidenVT);
+      SDValue MaskLoad = DAG.getMaskedLoad(
+          WidenVT, dl, Ld->getChain(), Ld->getBasePtr(), Ld->getOffset(), Mask,
+          PassThru, MemVT, Ld->getMemOperand(), Ld->getAddressingMode(),
+          Ld->getExtensionType());
+      SDValue SubVec = DAG.getNode(ISD::EXTRACT_SUBVECTOR, dl, RegVT, MaskLoad,
+                                   DAG.getVectorIdxConstant(0, dl));
+      return DCI.CombineTo(N, {SubVec, MaskLoad.getValue(1)}, true);
+    }
+  }
+#endif
   return SDValue();
 }
 
@@ -46900,6 +46943,51 @@ static SDValue combineStore(SDNode *N, SelectionDAG &DAG,
                         St->getPointerInfo(), St->getOriginalAlign(),
                         St->getMemOperand()->getFlags());
   }
+
+#if INTEL_CUSTOMIZATION
+  // Transform non-power of 2 store to masked store.
+  // Limit this transform to advanced optimizations.
+  if (VT.isVector() && VT == StVT && DCI.isBeforeLegalize() &&
+      Subtarget.hasAVX512() && Subtarget.hasVLX() &&
+      DAG.getTarget().Options.IntelAdvancedOptim) {
+
+    EVT WidenVT = TLI.getTypeToTransformTo(*DAG.getContext(), VT);
+    unsigned WidenEleNum = 1;
+    unsigned EleNum = VT.getVectorNumElements();
+    EVT EleTy = VT.getScalarType();
+
+    if (WidenVT.isVector())
+      WidenEleNum = WidenVT.getVectorNumElements();
+
+    if (WidenEleNum > EleNum && !isPowerOf2_32(EleNum) &&
+        ((EleTy == MVT::i64 || EleTy == MVT::f64 || EleTy == MVT::i32 ||
+           EleTy == MVT::f32) ||
+          (Subtarget.hasBWI() && (EleTy == MVT::i8 || EleTy == MVT::i16)))) {
+
+      EVT VecI1Ty = EVT::getVectorVT(*DAG.getContext(), MVT::i1, WidenEleNum);
+      SmallVector<SDValue, 8> MaskVec;
+      for (unsigned i = 0, e = EleNum; i != e; ++i)
+        MaskVec.push_back(DAG.getBoolConstant(true, dl, MVT::i1, MVT::i1));
+
+      for (unsigned i = EleNum, e = WidenEleNum; i != e; ++i)
+        MaskVec.push_back(DAG.getBoolConstant(false, dl, MVT::i1, MVT::i1));
+
+      SDValue Mask = DAG.getBuildVector(VecI1Ty, dl, MaskVec);
+
+      EVT SVT = WidenVT.getVectorElementType();
+      SmallVector<SDValue, 4> Ops(WidenEleNum, DAG.getUNDEF(SVT));
+
+      for (unsigned i = 0; i < EleNum; ++i) {
+        SDValue Idx = DAG.getIntPtrConstant(i, dl);
+        Ops[i] = DAG.getNode(ISD::EXTRACT_VECTOR_ELT, dl, SVT, StoredVal, Idx);
+      }
+      StoredVal = DAG.getBuildVector(WidenVT, dl, Ops);
+      return DAG.getMaskedStore(St->getChain(), dl, StoredVal, St->getBasePtr(),
+                             St->getOffset(), Mask, StVT, St->getMemOperand(),
+                             St->getAddressingMode(), St->isTruncatingStore());
+    }
+  }
+#endif
 
   // If this is a store of a scalar_to_vector to v1i1, just use a scalar store.
   // This will avoid a copy to k-register.
