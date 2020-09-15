@@ -119,6 +119,11 @@ void LLVMAddAddSubReassociatePass(LLVMPassManagerRef PM);
 void LLVMAddForcedCMOVGenerationPass(LLVMPassManagerRef PM);
 #endif // INTEL_CUSTOMIZATION
 
+#if INTEL_CUSTOMIZATION
+/** See llvm::createTransformSinAndCosCallsPass function. */
+void LLVMAddTransformSinAndCosCallsPass(LLVMPassManagerRef PM);
+#endif // INTEL_CUSTOMIZATION
+
 /** See llvm::createSCCPPass function. */
 void LLVMAddSCCPPass(LLVMPassManagerRef PM);
 

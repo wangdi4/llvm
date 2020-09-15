@@ -872,6 +872,12 @@ void PassManagerBuilder::addFunctionSimplificationPasses(
   if (EnableCHR && OptLevel >= 3 &&
       (!PGOInstrUse.empty() || !PGOSampleUse.empty() || EnablePGOCSInstrGen))
     MPM.add(createControlHeightReductionLegacyPass());
+
+#if INTEL_CUSTOMIZATION
+  // Transform calls to sin and cos to calls to sinpi, cospi or
+  // sincospi.
+  MPM.add(createTransformSinAndCosCallsPass());
+#endif // INTEL_CUSTOMIZATION
 }
 
 void PassManagerBuilder::populateModulePassManager(

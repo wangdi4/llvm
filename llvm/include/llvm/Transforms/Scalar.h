@@ -261,6 +261,13 @@ FunctionPass *createForcedCMOVGenerationPass();
 
 //===----------------------------------------------------------------------===//
 //
+// TransformSinAndCosCalls - This pass transforms calls to sin and cos to
+// calls to sinpi, cospi, or sincospi.
+//
+FunctionPass *createTransformSinAndCosCallsPass();
+
+//===----------------------------------------------------------------------===//
+//
 // JumpThreading - Thread control through mult-pred/multi-succ blocks where some
 // preds always go to some succ. If FreezeSelectCond is true, unfold the
 // condition of a select that unfolds to branch. Thresholds other than minus one
