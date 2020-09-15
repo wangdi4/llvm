@@ -5438,4 +5438,21 @@ void VPOParoptUtils::replaceUsesInFunction(Function *F, Value *Old,
 bool VPOParoptUtils::isForcedTargetCompilation() {
   return SwitchToOffload;
 }
+
+// Create a thread local global GV, insert a store of V to it, and return it.
+GlobalVariable *
+VPOParoptUtils::storeIntToThreadLocalGlobal(Value *V, Instruction *InsertBefore,
+                                            StringRef VarName) {
+  assert(isa<IntegerType>(V->getType()) && "V is not an integer.");
+
+  IRBuilder<> Builder(InsertBefore);
+  Module *M = InsertBefore->getModule();
+
+  GlobalVariable *GV = new GlobalVariable(
+      *M, V->getType(), false, GlobalValue::CommonLinkage,
+      Builder.getIntN(V->getType()->getIntegerBitWidth(), 0), VarName, nullptr,
+      GlobalVariable::ThreadLocalMode::GeneralDynamicTLSModel);
+  Builder.CreateStore(V, GV);
+  return GV;
+}
 #endif // INTEL_COLLAB

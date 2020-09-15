@@ -915,24 +915,39 @@ public:
   /// Emit code to initialize the local copy of \p I, where \p I is an F90 dope
   /// vector. The code looks like:
   /// \code
+  ///   @num_elements_gv = common thread_local global i64 0            // (1)
+  ///
   ///   %size = call i64 @_f90_dope_vector_init(NewV, OrigV)
-  ///   if (%size != 0) {                                              // (1)
+  ///   if (%size != 0) {                                              // (2)
   ///     %local_data = alloca <element_type>, %size
   ///     store %local_data, getelementpointer(NewV, 0, 0)
   ///   }
   ///   %num_elements = udiv %size, <element_size> ; Only for reduction items
+  ///   store i64 %num_elements, i64* @num_elements_gv                 // (3)
   /// \endcode
   /// The emitted code is inserted after the alloca NewV, which is the local
   /// dope vector corresponding to \p I, and OrigV is the original. If NewV is
   /// a global variable or AllowOverrideInsertPt is false, then the code is
   /// inserted before \p InsertPt.
   /// If \p CheckOrigAllocationBeforeAllocatingNew is true, then the local data
-  /// allocation is guarded by a check `if (size != 0)`.
+  /// allocation is guarded by an `if (size != 0)` check (2).
+  /// If \p StoreNumElementsToGlobal is true, then emit store `%num_elements` to
+  /// a thread local global variable `@num_elements_gv` (1), (3).
   static void
   genF90DVInitCode(Item *I, Instruction *InsertPt, DominatorTree *DT,
                    LoopInfo *LI, bool IsTargetSPIRV = false,
                    bool AllowOverrideInsertPt = true,
-                   bool CheckOrigAllocationBeforeAllocatingNew = true);
+                   bool CheckOrigAllocationBeforeAllocatingNew = true,
+                   bool StoreNumElementsToGlobal = false);
+
+  /// A variant of genF90DVInitCode which accepts source and destination dope
+  /// vectors (\p SrcV and \p DstV).
+  static void
+  genF90DVInitCode(Item *I, Value *SrcV, Value *DstV, Instruction *InsertPt,
+                   DominatorTree *DT, LoopInfo *LI, bool IsTargetSPIRV = false,
+                   bool AllowOverrideInsertPt = true,
+                   bool CheckOrigAllocationBeforeAllocatingNew = true,
+                   bool StoreNumElementsToGlobal = false);
 
   /// Emits `_f90_dope_vector_init` calls to initialize dope vectors in task's
   /// privates thunk. This is done after the `__kmpc_task_alloc` call, but
@@ -1573,6 +1588,12 @@ public:
   /// Returns true, if this is a target compilation invocation
   /// forced by dedicated compiler option.
   static bool isForcedTargetCompilation();
+
+  /// Create a thread local global GV, insert a store of \p V to it before
+  /// \p InsertBefore, and return GV.
+  static GlobalVariable *storeIntToThreadLocalGlobal(Value *V,
+                                                     Instruction *InsertBefore,
+                                                     StringRef VarName = "");
 
 private:
   /// \name Private constructor and destructor to disable instantiation.
