@@ -2594,6 +2594,7 @@
 // CHECK_AMDFAM10_M32: #define __SSE4A__ 1
 // CHECK_AMDFAM10_M32: #define __SSE_MATH__ 1
 // CHECK_AMDFAM10_M32: #define __SSE__ 1
+// CHECK_AMDFAM10_M32-NOT: #define __SSSE3__ 1
 // CHECK_AMDFAM10_M32: #define __amdfam10 1
 // CHECK_AMDFAM10_M32: #define __amdfam10__ 1
 // CHECK_AMDFAM10_M32: #define __i386 1
@@ -2616,6 +2617,7 @@
 // CHECK_AMDFAM10_M64: #define __SSE4A__ 1
 // CHECK_AMDFAM10_M64: #define __SSE_MATH__ 1
 // CHECK_AMDFAM10_M64: #define __SSE__ 1
+// CHECK_AMDFAM10_M64-NOT: #define __SSSE3__ 1
 // CHECK_AMDFAM10_M64: #define __amd64 1
 // CHECK_AMDFAM10_M64: #define __amd64__ 1
 // CHECK_AMDFAM10_M64: #define __amdfam10 1
