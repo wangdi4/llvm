@@ -886,11 +886,13 @@ public:
       Mask = Block->getParent()->getVPConstant(
           ConstantInt::getTrue(*Block->getParent()->getLLVMContext()));
     Builder.setInsertPoint(ActiveLaneExtractBB);
-    VPActiveLane *ActiveLane = Builder.createActiveLane(Mask);
+    VPActiveLane *ActiveLane =
+        Builder.create<VPActiveLane>(Mask->getName() + ".active", Mask);
     DA->markUniform(*ActiveLane);
 
     for (VPValue *Blend : UniformBlends) {
-      VPValue *UniformVal = Builder.createActiveLaneExtract(Blend, ActiveLane);
+      VPValue *UniformVal = Builder.create<VPActiveLaneExtract>(
+          Blend->getName() + ".active", Blend, ActiveLane);
       DA->markUniform(*UniformVal);
       Blend->replaceUsesWithIf(
           UniformVal, [UniformVal](VPUser *U) { return U != UniformVal; });
