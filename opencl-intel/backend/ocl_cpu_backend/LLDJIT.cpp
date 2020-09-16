@@ -166,15 +166,23 @@ std::string LLDJIT::getLastErrorMessage() {
 
 void LLDJIT::mapDllFunctions(llvm::Module *M, void *DLLHandle) {
   HMODULE HMod = reinterpret_cast<HMODULE>(DLLHandle);
-  for (llvm::Function &F : M->functions()) {
-    if (F.getDLLStorageClass() ==
-        llvm::GlobalValue::DLLStorageClassTypes::DLLExportStorageClass) {
-      StringRef SymbolName = F.getName();
-      void *Function = GetProcAddress(HMod, SymbolName.data());
-      if (Function) {
-        updateGlobalMapping(SymbolName, (uint64_t)Function);
-      }
-    }
+  for (GlobalObject &GO : M->global_objects()) {
+    if (!GO.hasDLLExportStorageClass())
+      continue;
+    StringRef SymbolName = GO.getName();
+    void *Addr = GetProcAddress(HMod, SymbolName.data());
+    if (Addr)
+      updateGlobalMapping(
+          SymbolName, static_cast<uint64_t>(reinterpret_cast<uintptr_t>(Addr)));
+  }
+}
+
+void LLDJIT::dllExportGlobalVariables(llvm::Module *M) {
+  for (auto &GV : M->globals()) {
+    unsigned AS = GV.getAddressSpace();
+    if ((IS_ADDR_SPACE_GLOBAL(AS) || IS_ADDR_SPACE_CONSTANT(AS)) &&
+        !GV.hasInternalLinkage() && !GV.hasDLLImportStorageClass())
+      GV.setDLLStorageClass(GlobalValue::DLLExportStorageClass);
   }
 }
 
@@ -221,6 +229,9 @@ void LLDJIT::generateCodeForModule(Module *M) {
   // Re-compilation is not supported
   if (OwnedModules.hasModuleBeenLoaded(M))
     return;
+
+  // Change DLLStorageClass to dllexport for global variables.
+  dllExportGlobalVariables(M);
 
   std::string ObjectToLoad;
 
