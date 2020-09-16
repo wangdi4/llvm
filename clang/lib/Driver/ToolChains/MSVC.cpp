@@ -1753,7 +1753,7 @@ MSVCToolChain::TranslateArgs(const llvm::opt::DerivedArgList &Args,
     // These are transformed from the added base library names to the full
     // path including the library.
     else if (A->getOption().matches(options::OPT_foffload_static_lib_EQ) &&
-             A->getValue() == StringRef("libmkl_sycl")) {
+             A->getValue() == StringRef("mkl_sycl.lib")) {
       SmallString<128> MKLPath(GetMKLLibPath());
       llvm::sys::path::append(MKLPath, "mkl_sycl.lib");
       DAL->AddJoinedArg(A, Opts.getOption(options::OPT_foffload_static_lib_EQ),
@@ -1761,9 +1761,9 @@ MSVCToolChain::TranslateArgs(const llvm::opt::DerivedArgList &Args,
       continue;
     }
     else if (A->getOption().matches(options::OPT_foffload_static_lib_EQ) &&
-             A->getValue() == StringRef("libdaal_sycl")) {
+             A->getValue() == StringRef("onedal_sycl.lib")) {
       SmallString<128> DAALPath(GetDAALLibPath());
-      llvm::sys::path::append(DAALPath, "daal_sycl.lib");
+      llvm::sys::path::append(DAALPath, "onedal_sycl.lib");
       DAL->AddJoinedArg(A, Opts.getOption(options::OPT_foffload_static_lib_EQ),
                         Args.MakeArgString(DAALPath));
       continue;

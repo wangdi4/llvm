@@ -2922,8 +2922,8 @@ void Driver::BuildInputs(const ToolChain &TC, DerivedArgList &Args,
       }
       if (A->getOption().matches(options::OPT_daal_EQ)) {
         LibName = TC.GetDAALLibPath();
-        llvm::sys::path::append(LibName, IsMSVC ? "daal_sycl.lib"
-                                                : "libdaal_sycl.a");
+        llvm::sys::path::append(LibName, IsMSVC ? "onedal_sycl.lib"
+                                                : "libonedal_sycl.a");
       }
       // Only add the static lib if used with -static or is Windows.
       // DAAL is also only available in static form.

@@ -3538,9 +3538,9 @@ Generic_GCC::TranslateArgs(const llvm::opt::DerivedArgList &Args, StringRef,
           continue;
         }
         if (A->getOption().matches(options::OPT_foffload_static_lib_EQ) &&
-            A->getValue() == StringRef("libdaal_sycl")) {
+            A->getValue() == StringRef("libonedal_sycl")) {
           SmallString<128> DAALPath(GetDAALLibPath());
-          llvm::sys::path::append(DAALPath, "libdaal_sycl.a");
+          llvm::sys::path::append(DAALPath, "libonedal_sycl.a");
           DAL->AddJoinedArg(A,
             Opts.getOption(options::OPT_foffload_static_lib_EQ),
             Args.MakeArgString(DAALPath));

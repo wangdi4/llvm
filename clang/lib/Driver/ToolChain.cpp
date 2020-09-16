@@ -1314,11 +1314,11 @@ void ToolChain::AddDAALLibArgs(const ArgList &Args, ArgStringList &CmdArgs,
                               std::string Prefix) const {
   if (const Arg *A = Args.getLastArg(options::OPT_daal_EQ)) {
     SmallVector<StringRef, 4> DAALLibs;
-    DAALLibs.push_back("daal_core");
+    DAALLibs.push_back("onedal_core");
     if (A->getValue() == StringRef("parallel"))
-      DAALLibs.push_back("daal_thread");
+      DAALLibs.push_back("onedal_thread");
     if (A->getValue() == StringRef("sequential"))
-      DAALLibs.push_back("daal_sequential");
+      DAALLibs.push_back("onedal_sequential");
     for (const auto &Lib : DAALLibs) {
       std::string LibName(Lib);
       if (Prefix.size() > 0)
