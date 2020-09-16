@@ -300,6 +300,75 @@ TRACE_FN_DEF(zeDriverGet)(
   return rc;
 }
 
+TRACE_FN_DEF(zeEventCreate)(
+    ze_event_pool_handle_t hEventPool,
+    const ze_event_desc_t *desc,
+    ze_event_handle_t *phEvent) {
+  auto rc = zeEventCreate(hEventPool, desc, phEvent);
+  TRACE_FN_ARG_BEGIN();
+  TRACE_FN_ARG_PTR(hEventPool);
+  TRACE_FN_ARG_PTR(desc);
+  TRACE_FN_ARG_PTR(phEvent);
+  TRACE_FN_ARG_END();
+  return rc;
+}
+
+TRACE_FN_DEF(zeEventDestroy)(
+    ze_event_handle_t hEvent) {
+  auto rc = zeEventDestroy(hEvent);
+  TRACE_FN_ARG_BEGIN();
+  TRACE_FN_ARG_PTR(hEvent);
+  TRACE_FN_ARG_END();
+  return rc;
+}
+
+TRACE_FN_DEF(zeEventHostReset)(
+    ze_event_handle_t hEvent) {
+  auto rc = zeEventHostReset(hEvent);
+  TRACE_FN_ARG_BEGIN();
+  TRACE_FN_ARG_PTR(hEvent);
+  TRACE_FN_ARG_END();
+  return rc;
+}
+
+TRACE_FN_DEF(zeEventPoolCreate)(
+    ze_context_handle_t hContext,
+    const ze_event_pool_desc_t *desc,
+    uint32_t numDevices,
+    ze_device_handle_t *phDevices,
+    ze_event_pool_handle_t *phEventPool) {
+  auto rc = zeEventPoolCreate(hContext, desc, numDevices, phDevices,
+                              phEventPool);
+  TRACE_FN_ARG_BEGIN();
+  TRACE_FN_ARG_PTR(hContext);
+  TRACE_FN_ARG_PTR(desc);
+  TRACE_FN_ARG_UINT(numDevices);
+  TRACE_FN_ARG_PTR(phDevices);
+  TRACE_FN_ARG_PTR(phEventPool);
+  TRACE_FN_ARG_END();
+  return rc;
+}
+
+TRACE_FN_DEF(zeEventPoolDestroy)(
+    ze_event_pool_handle_t hEventPool) {
+  auto rc = zeEventPoolDestroy(hEventPool);
+  TRACE_FN_ARG_BEGIN();
+  TRACE_FN_ARG_PTR(hEventPool);
+  TRACE_FN_ARG_END();
+  return rc;
+}
+
+TRACE_FN_DEF(zeEventQueryKernelTimestamp)(
+    ze_event_handle_t hEvent,
+    ze_kernel_timestamp_result_t *dstptr) {
+  auto rc = zeEventQueryKernelTimestamp(hEvent, dstptr);
+  TRACE_FN_ARG_BEGIN();
+  TRACE_FN_ARG_PTR(hEvent);
+  TRACE_FN_ARG_PTR(dstptr);
+  TRACE_FN_ARG_END();
+  return rc;
+}
+
 TRACE_FN_DEF(zeFenceCreate)(
     ze_command_queue_handle_t hCommandQueue,
     const ze_fence_desc_t *desc,
