@@ -352,6 +352,7 @@ bool llvm::inferLibFuncAttributes(Function &F, const TargetLibraryInfo &TLI) {
     Changed |= setDoesNotCapture(F, 0);
     Changed |= setDoesNotCapture(F, 1);
     return Changed;
+  case LibFunc_dunder_rawmemchr:                           // INTEL
   case LibFunc_memchr:
   case LibFunc_memrchr:
     Changed |= setDoesNotThrow(F);

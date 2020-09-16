@@ -391,6 +391,7 @@ static void initialize(TargetLibraryInfoImpl &TLI, const Triple &T,
     TLI.setUnavailable(LibFunc_asprintf);
     TLI.setUnavailable(LibFunc_backtrace);
     TLI.setUnavailable(LibFunc_backtrace_symbols);
+    TLI.setUnavailable(LibFunc_dunder_rawmemchr);
     TLI.setUnavailable(LibFunc_dup);
     TLI.setUnavailable(LibFunc_dup2);
     TLI.setUnavailable(LibFunc_error);
@@ -4068,6 +4069,11 @@ case LibFunc_under_commit:
   case LibFunc_div:
     return (NumParams == 2 && FTy.getReturnType()->isStructTy() &&
             FTy.getParamType(0)->isIntegerTy() &&
+            FTy.getParamType(1)->isIntegerTy());
+
+  case LibFunc_dunder_rawmemchr:
+    return (NumParams == 2 && FTy.getReturnType()->isPointerTy() &&
+            FTy.getParamType(0)->isPointerTy() &&
             FTy.getParamType(1)->isIntegerTy());
 
   case LibFunc_dup:
