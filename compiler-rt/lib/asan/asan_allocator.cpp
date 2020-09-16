@@ -354,17 +354,18 @@ struct Allocator {
 
   // -------------------- Helper methods. -------------------------
   uptr ComputeRZLog(uptr user_requested_size) {
-    u32 rz_log =
-      user_requested_size <= 64        - 16   ? 0 :
-      user_requested_size <= 128       - 32   ? 1 :
-      user_requested_size <= 512       - 64   ? 2 :
-      user_requested_size <= 4096      - 128  ? 3 :
-      user_requested_size <= (1 << 14) - 256  ? 4 :
-      user_requested_size <= (1 << 15) - 512  ? 5 :
-      user_requested_size <= (1 << 16) - 1024 ? 6 : 7;
-    u32 min_rz = atomic_load(&min_redzone, memory_order_acquire);
-    u32 max_rz = atomic_load(&max_redzone, memory_order_acquire);
-    return Min(Max(rz_log, RZSize2Log(min_rz)), RZSize2Log(max_rz));
+    u32 rz_log = user_requested_size <= 64 - 16            ? 0
+                 : user_requested_size <= 128 - 32         ? 1
+                 : user_requested_size <= 512 - 64         ? 2
+                 : user_requested_size <= 4096 - 128       ? 3
+                 : user_requested_size <= (1 << 14) - 256  ? 4
+                 : user_requested_size <= (1 << 15) - 512  ? 5
+                 : user_requested_size <= (1 << 16) - 1024 ? 6
+                                                           : 7;
+    u32 hdr_log = RZSize2Log(RoundUpToPowerOfTwo(sizeof(ChunkHeader)));
+    u32 min_log = RZSize2Log(atomic_load(&min_redzone, memory_order_acquire));
+    u32 max_log = RZSize2Log(atomic_load(&max_redzone, memory_order_acquire));
+    return Min(Max(rz_log, Max(min_log, hdr_log)), Max(max_log, hdr_log));
   }
 
   static uptr ComputeUserRequestedAlignmentLog(uptr user_requested_alignment) {
@@ -730,6 +731,9 @@ struct Allocator {
   // -------------------------- Chunk lookup ----------------------
 
   // Assumes alloc_beg == allocator.GetBlockBegin(alloc_beg).
+  // Returns nullptr if AsanChunk is not yet initialized just after
+  // get_allocator().Allocate(), or is being destroyed just before
+  // get_allocator().Deallocate().
   AsanChunk *GetAsanChunk(void *alloc_beg) {
     if (!alloc_beg)
       return nullptr;
@@ -747,26 +751,6 @@ struct Allocator {
     return reinterpret_cast<AsanChunk *>(alloc_beg);
   }
 
-  AsanChunk *GetAsanChunkDebug(void *alloc_beg) {
-    if (!alloc_beg)
-      return nullptr;
-    if (!allocator.FromPrimary(alloc_beg)) {
-      uptr *meta = reinterpret_cast<uptr *>(allocator.GetMetaData(alloc_beg));
-      AsanChunk *m = reinterpret_cast<AsanChunk *>(meta[1]);
-      Printf("GetAsanChunkDebug1 alloc_beg %p meta %p m %p\n", alloc_beg, meta,
-             m);
-      return m;
-    }
-    uptr *alloc_magic = reinterpret_cast<uptr *>(alloc_beg);
-    Printf(
-        "GetAsanChunkDebug2 alloc_beg %p  alloc_magic %p alloc_magic[0] %p "
-        "alloc_magic[1] %p\n",
-        alloc_beg, alloc_magic, alloc_magic[0], alloc_magic[1]);
-    if (alloc_magic[0] == kAllocBegMagic)
-      return reinterpret_cast<AsanChunk *>(alloc_magic[1]);
-    return reinterpret_cast<AsanChunk *>(alloc_beg);
-  }
-
   AsanChunk *GetAsanChunkByAddr(uptr p) {
     void *alloc_beg = allocator.GetBlockBegin(reinterpret_cast<void *>(p));
     return GetAsanChunk(alloc_beg);
@@ -777,14 +761,6 @@ struct Allocator {
     void *alloc_beg =
         allocator.GetBlockBeginFastLocked(reinterpret_cast<void *>(p));
     return GetAsanChunk(alloc_beg);
-  }
-
-  AsanChunk *GetAsanChunkByAddrFastLockedDebug(uptr p) {
-    void *alloc_beg =
-        allocator.GetBlockBeginFastLockedDebug(reinterpret_cast<void *>(p));
-    Printf("GetAsanChunkByAddrFastLockedDebug p %p alloc_beg %p\n", p,
-           alloc_beg);
-    return GetAsanChunkDebug(alloc_beg);
   }
 
   uptr AllocationSize(uptr p) {
@@ -1090,38 +1066,19 @@ uptr PointsIntoChunk(void* p) {
   return 0;
 }
 
-// Debug code. Delete once issue #1193 is chased down.
-extern "C" SANITIZER_WEAK_ATTRIBUTE const char *__lsan_current_stage;
-
-void GetUserBeginDebug(uptr chunk) {
-  Printf("GetUserBeginDebug1 chunk %p\n", chunk);
-  __asan::AsanChunk *m =
-      __asan::instance.GetAsanChunkByAddrFastLockedDebug(chunk);
-  Printf("GetUserBeginDebug2 m     %p\n", m);
-}
-
 uptr GetUserBegin(uptr chunk) {
   __asan::AsanChunk *m = __asan::instance.GetAsanChunkByAddrFastLocked(chunk);
-  if (!m) {
-    Printf(
-        "ASAN is about to crash with a CHECK failure.\n"
-        "The ASAN developers are trying to chase down this bug,\n"
-        "so if you've encountered this bug please let us know.\n"
-        "See also: https://github.com/google/sanitizers/issues/1193\n"
-        "Internal ref b/149237057\n"
-        "chunk: %p caller %p __lsan_current_stage %s\n",
-        chunk, GET_CALLER_PC(), __lsan_current_stage);
-    GetUserBeginDebug(chunk);
-  }
-  CHECK(m);
-  return m->Beg();
+  return m ? m->Beg() : 0;
 }
 
 LsanMetadata::LsanMetadata(uptr chunk) {
-  metadata_ = reinterpret_cast<void *>(chunk - __asan::kChunkHeaderSize);
+  metadata_ = chunk ? reinterpret_cast<void *>(chunk - __asan::kChunkHeaderSize)
+                    : nullptr;
 }
 
 bool LsanMetadata::allocated() const {
+  if (!metadata_)
+    return false;
   __asan::AsanChunk *m = reinterpret_cast<__asan::AsanChunk *>(metadata_);
   return atomic_load(&m->chunk_state, memory_order_relaxed) ==
          __asan::CHUNK_ALLOCATED;
