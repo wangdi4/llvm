@@ -6685,6 +6685,19 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
       if (Args.hasFlag(options::OPT_fsycl_esimd, options::OPT_fno_sycl_esimd,
                        false))
         CmdArgs.push_back("-fsycl-explicit-simd");
+
+      if (!D.IsCLMode()) {
+        // SYCL library is guaranteed to work correctly only with dynamic
+        // MSVC runtime.
+        llvm::Triple AuxT = C.getDefaultToolChain().getTriple();
+        if (Args.hasFlag(options::OPT_fsycl_device_only, OptSpecifier(), false))
+          AuxT = llvm::Triple(llvm::sys::getProcessTriple());
+        if (AuxT.isWindowsMSVCEnvironment()) {
+          CmdArgs.push_back("-D_MT");
+          CmdArgs.push_back("-D_DLL");
+          CmdArgs.push_back("--dependent-lib=msvcrt");
+        }
+      }
     }
     if (IsSYCLOffloadDevice && JA.getType() == types::TY_SYCL_Header) {
       // Generating a SYCL Header
@@ -7301,15 +7314,37 @@ void Clang::AddClangCLArgs(const ArgList &Args, types::ID InputType,
                            bool *EmitCodeView) const {
   unsigned RTOptionID = options::OPT__SLASH_MT;
   bool isNVPTX = getToolChain().getTriple().isNVPTX();
+  bool isSYCLDevice =
+      getToolChain().getTriple().getEnvironment() == llvm::Triple::SYCLDevice;
+  bool isSYCL = Args.hasArg(options::OPT_fsycl) || isSYCLDevice;
+  // For SYCL Windows, /MD is the default.
+  if (isSYCL)
+    RTOptionID = options::OPT__SLASH_MD;
 
   if (Args.hasArg(options::OPT__SLASH_LDd))
-    // The /LDd option implies /MTd. The dependent lib part can be overridden,
-    // but defining _DEBUG is sticky.
-    RTOptionID = options::OPT__SLASH_MTd;
+    // The /LDd option implies /MTd (/MDd for SYCL). The dependent lib part
+    // can be overridden but defining _DEBUG is sticky.
+    RTOptionID = isSYCL ? options::OPT__SLASH_MDd : options::OPT__SLASH_MTd;
 
-  if (Arg *A = Args.getLastArg(options::OPT__SLASH_M_Group))
+  if (Arg *A = Args.getLastArg(options::OPT__SLASH_M_Group)) {
     RTOptionID = A->getOption().getID();
+    if (isSYCL && !isSYCLDevice &&
+        (RTOptionID == options::OPT__SLASH_MT ||
+         RTOptionID == options::OPT__SLASH_MTd))
+      // Use of /MT or /MTd is not supported for SYCL.
+      getToolChain().getDriver().Diag(diag::err_drv_unsupported_opt_dpcpp)
+          << A->getOption().getName();
+  }
 
+  enum { addDEBUG = 0x1, addMT = 0x2, addDLL = 0x4 };
+  auto addPreDefines = [&](unsigned Defines) {
+    if (Defines & addDEBUG)
+      CmdArgs.push_back("-D_DEBUG");
+    if (Defines & addMT && !isSYCLDevice)
+      CmdArgs.push_back("-D_MT");
+    if (Defines & addDLL && !isSYCLDevice)
+      CmdArgs.push_back("-D_DLL");
+  };
   StringRef FlagForCRT;
 #if INTEL_CUSTOMIZATION
   StringRef FlagForIntelMathLib;
@@ -7317,10 +7352,8 @@ void Clang::AddClangCLArgs(const ArgList &Args, types::ID InputType,
 #endif // INTEL_CUSTOMIZATION
   switch (RTOptionID) {
   case options::OPT__SLASH_MD:
-    if (Args.hasArg(options::OPT__SLASH_LDd))
-      CmdArgs.push_back("-D_DEBUG");
-    CmdArgs.push_back("-D_MT");
-    CmdArgs.push_back("-D_DLL");
+    addPreDefines((Args.hasArg(options::OPT__SLASH_LDd) ? addDEBUG : 0x0) |
+                  addMT | addDLL);
     FlagForCRT = "--dependent-lib=msvcrt";
 #if INTEL_CUSTOMIZATION
     FlagForIntelMathLib = "--dependent-lib=libmmd";
@@ -7328,9 +7361,7 @@ void Clang::AddClangCLArgs(const ArgList &Args, types::ID InputType,
 #endif // INTEL_CUSTOMIZATION
     break;
   case options::OPT__SLASH_MDd:
-    CmdArgs.push_back("-D_DEBUG");
-    CmdArgs.push_back("-D_MT");
-    CmdArgs.push_back("-D_DLL");
+    addPreDefines(addDEBUG | addMT | addDLL);
     FlagForCRT = "--dependent-lib=msvcrtd";
 #if INTEL_CUSTOMIZATION
     FlagForIntelMathLib = "--dependent-lib=libmmdd";
@@ -7338,9 +7369,8 @@ void Clang::AddClangCLArgs(const ArgList &Args, types::ID InputType,
 #endif // INTEL_CUSTOMIZATION
     break;
   case options::OPT__SLASH_MT:
-    if (Args.hasArg(options::OPT__SLASH_LDd))
-      CmdArgs.push_back("-D_DEBUG");
-    CmdArgs.push_back("-D_MT");
+    addPreDefines((Args.hasArg(options::OPT__SLASH_LDd) ? addDEBUG : 0x0) |
+                  addMT);
     CmdArgs.push_back("-flto-visibility-public-std");
     FlagForCRT = "--dependent-lib=libcmt";
 #if INTEL_CUSTOMIZATION
@@ -7349,8 +7379,7 @@ void Clang::AddClangCLArgs(const ArgList &Args, types::ID InputType,
 #endif // INTEL_CUSTOMIZATION
     break;
   case options::OPT__SLASH_MTd:
-    CmdArgs.push_back("-D_DEBUG");
-    CmdArgs.push_back("-D_MT");
+    addPreDefines(addDEBUG | addMT);
     CmdArgs.push_back("-flto-visibility-public-std");
     FlagForCRT = "--dependent-lib=libcmtd";
 #if INTEL_CUSTOMIZATION
@@ -7388,8 +7417,7 @@ void Clang::AddClangCLArgs(const ArgList &Args, types::ID InputType,
     // Add SYCL dependent library
     if (Args.hasArg(options::OPT_fsycl) &&
         !Args.hasArg(options::OPT_nolibsycl)) {
-      if (RTOptionID == options::OPT__SLASH_MDd ||
-          RTOptionID == options::OPT__SLASH_MTd)
+      if (RTOptionID == options::OPT__SLASH_MDd)
         CmdArgs.push_back("--dependent-lib=sycld");
       else
         CmdArgs.push_back("--dependent-lib=sycl");
