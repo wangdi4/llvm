@@ -20,16 +20,12 @@ namespace llvm {
 
 class BasicBlock;
 
-<<<<<<< HEAD
-struct UnifyFunctionExitNodes : public FunctionPass {
-  BasicBlock *ReturnBlock;  // INTEL
-=======
 class UnifyFunctionExitNodes : public FunctionPass {
   bool unifyUnreachableBlocks(Function &F);
   bool unifyReturnBlocks(Function &F);
 
->>>>>>> 48fc781438767bd8337facf2e232c695b0426fb4
 public:
+  BasicBlock *ReturnBlock;  // INTEL
   static char ID; // Pass identification, replacement for typeid
   UnifyFunctionExitNodes();
 

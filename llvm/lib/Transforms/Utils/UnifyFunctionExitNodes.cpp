@@ -59,12 +59,6 @@ bool UnifyFunctionExitNodes::unifyUnreachableBlocks(Function &F) {
     BranchInst::Create(UnreachableBlock, BB);
   }
 
-<<<<<<< HEAD
-  // There is nothing more to do if we do not have multiple return blocks
-#if INTEL_CUSTOMIZATION
-  if (ReturningBlocks.size() <= 1) {
-    ReturnBlock = nullptr;
-=======
   return true;
 }
 
@@ -75,10 +69,14 @@ bool UnifyFunctionExitNodes::unifyReturnBlocks(Function &F) {
     if (isa<ReturnInst>(I.getTerminator()))
       ReturningBlocks.push_back(&I);
 
-  if (ReturningBlocks.size() <= 1)
->>>>>>> 48fc781438767bd8337facf2e232c695b0426fb4
+#if INTEL_CUSTOMIZATION
+  if (ReturningBlocks.size() <= 1) {
+    ReturnBlock = nullptr;
     return false;
   }
+#else // INTEL_CUSTOMIZATION
+  if (ReturningBlocks.size() <= 1)
+    return false;
 #endif // INTEL_CUSTOMIZATION
 
   // Insert a new basic block into the function, add PHI nodes (if the function
@@ -109,11 +107,7 @@ bool UnifyFunctionExitNodes::unifyReturnBlocks(Function &F) {
     BB->getInstList().pop_back();  // Remove the return insn
     BranchInst::Create(NewRetBlock, BB);
   }
-<<<<<<< HEAD
   ReturnBlock = NewRetBlock; // INTEL
-=======
-
->>>>>>> 48fc781438767bd8337facf2e232c695b0426fb4
   return true;
 }
 
