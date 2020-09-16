@@ -747,6 +747,7 @@ TEST_F(TargetLibraryInfoTest, ValidProto) {
       "declare i64* @__local_stdio_scanf_options()\n"
       "declare i32 @__lxstat(i32, i8*, i8*)\n"
       "declare i32 @__pthread_key_create(i32*, i8*)\n"
+      "declare i8* @__rawmemchr(i8*, i32)\n"
       "declare i32 @__signbit(double)\n"
       "declare i32 @__sigsetjmp(i8*, i32)\n"
       "declare void @__std_exception_copy(i8*, i8*)\n"

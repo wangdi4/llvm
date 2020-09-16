@@ -1374,6 +1374,9 @@ TLI_DEFINE_STRING_INTERNAL("__powl_finite")
 /// int __pthread_key_create(pthread_key_t *key, void (*destructor)(void*));
 TLI_DEFINE_ENUM_INTERNAL(pthread_key_create)
 TLI_DEFINE_STRING_INTERNAL("__pthread_key_create")
+/// void * __rawmemchr(const void * s, int c)
+TLI_DEFINE_ENUM_INTERNAL(dunder_rawmemchr)
+TLI_DEFINE_STRING_INTERNAL("__rawmemchr")
 /// int __signbit(double arg);
 TLI_DEFINE_ENUM_INTERNAL(signbit)
 TLI_DEFINE_STRING_INTERNAL("__signbit")
