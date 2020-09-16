@@ -16,6 +16,8 @@
 #include "InitializePasses.h"
 #include "MetadataAPI.h"
 
+#include "llvm/ADT/SmallVector.h"
+#include "llvm/ADT/StringExtras.h"
 #include "llvm/Analysis/VPO/Utils/VPOAnalysisUtils.h"
 #include "llvm/IR/InstIterator.h"
 #include "llvm/IR/LegacyPassManager.h"
@@ -47,10 +49,67 @@ bool OCLPostVect::isKernelVectorized(Function *Clone) {
   return true;
 }
 
+// Make sure the cloned vectorized kernel (if there's one) is binded
+// to the original function correctly.
+// A cloned vectorized kernel may not be binded to original function
+// metadata if it "isSimpleFunction()".
+// In such case metadata updating was skipped, so we need to recover
+// here, otherwise the VectorizationWidth may be set to zero.
+bool OCLPostVect::rebindVectorizedKernel(Module &M, Function *F) {
+  bool ModifiedModule = false;
+
+  auto FMD = KernelInternalMetadataAPI(F);
+  Function *ClonedKernel = FMD.VectorizedKernel.get();
+  Function *MaskedKernel = FMD.VectorizedMaskedKernel.get();
+  // Vectorized kernel already binded.
+  if (ClonedKernel || MaskedKernel)
+    return ModifiedModule;
+
+  // Get vectorized kernel name from "vector-variants" attribute
+  Attribute Attr = F->getFnAttribute("vector-variants");
+  SmallVector<StringRef, 4> VecVariants;
+  SplitString(Attr.getValueAsString(), VecVariants, ",");
+
+  auto VL = FMD.OclRecommendedVectorLength.get();
+  Function *Clone = nullptr;
+  for (auto &VariantName : VecVariants) {
+    Clone = M.getFunction(VariantName);
+    if (nullptr == Clone)
+      continue;
+
+    // Set clone's metadata
+    auto CloneMD = KernelInternalMetadataAPI(Clone);
+
+    CloneMD.VectorizedKernel.set(nullptr);
+    CloneMD.VectorizedWidth.set(VL);
+    CloneMD.ScalarizedKernel.set(F);
+
+    // Set origin's metadata
+    FMD.VectorizedWidth.set(1);
+    FMD.ScalarizedKernel.set(nullptr);
+
+    if (F->getFunctionType() == Clone->getFunctionType()) {
+      assert(nullptr == FMD.VectorizedKernel.get() &&
+             "Should not overwrite original metadata.");
+      FMD.VectorizedKernel.set(Clone);
+    } else { // Vectorized kernel with mask
+      assert(nullptr == FMD.VectorizedMaskedKernel.get() &&
+             "Should not overwrite original metadata.");
+      FMD.VectorizedMaskedKernel.set(Clone);
+    }
+
+    ModifiedModule = true;
+  }
+
+  return ModifiedModule;
+}
+
 bool OCLPostVect::runOnModule(Module &M) {
   auto Kernels = KernelList(*&M).getList();
   bool ModifiedModule = false;
   for (Function *F : Kernels) {
+    // Try to rebind vectorized kernel if missing.
+    ModifiedModule |= rebindVectorizedKernel(M, F);
     // Remove "ocl_recommended_vector_length" metadata.
     MDValueGlobalObjectStrategy::unset(F, "ocl_recommended_vector_length");
     auto FMD = KernelInternalMetadataAPI(F);
