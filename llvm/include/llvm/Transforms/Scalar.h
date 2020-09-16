@@ -267,7 +267,6 @@ FunctionPass *createForcedCMOVGenerationPass();
 // condition of a select that unfolds to branch. Thresholds other than minus one
 // override the internal BB duplication default threshold.
 //
-<<<<<<< HEAD
 
 // AllowCFGSimps is an Intel-specific argument that specifies whether the jump
 // threading pass may perform simple CFG simplifications other than jump
@@ -275,7 +274,8 @@ FunctionPass *createForcedCMOVGenerationPass();
 // possible CFG simplifications, so when running jump threading before
 // CFGSimplification, we want it to do jump threading and nothing else.
 //
-FunctionPass *createJumpThreadingPass(int Threshold = -1,
+FunctionPass *createJumpThreadingPass(bool FreezeSelectCond = false,
+                                      int Threshold = -1,
                                       bool AllowCFGSimps = true);
 // NonLTOGlobalOptimizerPass is a pass which pormotes the non escaped block
 // scope global variables into the registers.
@@ -326,11 +326,6 @@ FunctionPass *createNontemporalStoreWrapperPass();
 // VPOParoptTpv - Supports the thread private legacy mode.
 ModulePass *createVPOParoptTpvPass();
 #endif // INTEL_COLLAB
-
-=======
-FunctionPass *createJumpThreadingPass(bool FreezeSelectCond = false,
-                                      int Threshold = -1);
->>>>>>> 39c1653b3dbb7d1c439a3e8cf31d1aa159a4afc5
 
 //===----------------------------------------------------------------------===//
 //
