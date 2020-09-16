@@ -9818,19 +9818,14 @@ ScalarEvolution::howFarToNonZero(const SCEV *V, const Loop *L) {
   return getCouldNotCompute();
 }
 
-<<<<<<< HEAD
-std::pair<BasicBlock *, BasicBlock *>
-ScalarEvolution::getPredecessorWithUniqueSuccessorForBB(BasicBlock *BB) {
+std::pair<const BasicBlock *, const BasicBlock *>
+ScalarEvolution::getPredecessorWithUniqueSuccessorForBB(const BasicBlock *BB)
+    const {
 #if INTEL_CUSTOMIZATION
   // This loop iterates through dominating edges of BB to catch more cases.
   for (auto *DomNode = DT.getNode(BB); DomNode; DomNode = DomNode->getIDom()) {
     BB = DomNode->getBlock();
 #endif // INTEL_CUSTOMIZATION
-=======
-std::pair<const BasicBlock *, const BasicBlock *>
-ScalarEvolution::getPredecessorWithUniqueSuccessorForBB(const BasicBlock *BB)
-    const {
->>>>>>> 8c0bbbade169d9fda6cac8f181660009599a7656
   // If the block has a unique predecessor, then there is no path from the
   // predecessor to the block that does not go through the direct edge
   // from the predecessor to the block.
@@ -9840,16 +9835,12 @@ ScalarEvolution::getPredecessorWithUniqueSuccessorForBB(const BasicBlock *BB)
   // A loop's header is defined to be a block that dominates the loop.
   // If the header has a unique predecessor outside the loop, it must be
   // a block that has exactly one successor that can reach the loop.
-<<<<<<< HEAD
-  if (Loop *L = LI.getLoopFor(BB))
+  if (const Loop *L = LI.getLoopFor(BB))
 #if INTEL_CUSTOMIZATION
     // Only go out of the loop if we have reached the header otherwise let the
     // for loop iterate through dominating blocks.
     if (L->getHeader() == BB)
 #endif // INTEL_CUSTOMIZATION
-=======
-  if (const Loop *L = LI.getLoopFor(BB))
->>>>>>> 8c0bbbade169d9fda6cac8f181660009599a7656
     return {L->getLoopPredecessor(), L->getHeader()};
   } // INTEL - end for loop
   return {nullptr, nullptr};
@@ -9998,7 +9989,7 @@ static bool hasNoWrapUsingContext(const SCEVAddExpr *Add, bool IsSigned,
 // Returns true if appropriate nowrap flag can be deduced for \p Add by
 // analyzing the underlying IR context represented by \p PredContext.
 static bool hasNoWrapUsingContext(const SCEVAddExpr *Add, bool IsSigned,
-                                  ICmpInst *PredContext) {
+                                  const ICmpInst *PredContext) { // INTEL
   if (!PredContext || Add->getNumOperands() != 2)
    return false;
 
@@ -10012,7 +10003,8 @@ static bool hasNoWrapUsingContext(const SCEVAddExpr *Add, bool IsSigned,
 // nullptr.
 static const SCEVConstant *getPositiveConstAdditive(const SCEV *Scev,
                                                     bool IsSigned,
-                                                    ICmpInst *PredContext) {
+                                                    const ICmpInst      //INTEL
+                                                        *PredContext) { //INTEL
   if (auto *Const = dyn_cast<SCEVConstant>(Scev))
     return Const->getAPInt().isStrictlyPositive() ? Const : nullptr;
 
@@ -10035,7 +10027,7 @@ static const SCEVConstant *getPositiveConstAdditive(const SCEV *Scev,
 bool ScalarEvolution::SimplifyICmpOperands(ICmpInst::Predicate &Pred,
                                            const SCEV *&LHS, const SCEV *&RHS,
 #if INTEL_CUSTOMIZATION
-                                           ICmpInst *PredContext,
+                                           const ICmpInst *PredContext,
                                            unsigned Depth) {
 #endif // INTEL_CUSTOMIZATION
   bool Changed = false;
@@ -10831,13 +10823,8 @@ ScalarEvolution::isLoopEntryGuardedByCond(const Loop *L,
   };
 
   // Try to prove (Pred, LHS, RHS) using isImpliedCond.
-<<<<<<< HEAD
-  auto ProveViaCond = [&](Value *Condition, bool Inverse) {
-    if (isImpliedCond(Pred, LHS, RHS, Condition, Inverse, PredContext)) // INTEL
-=======
   auto ProveViaCond = [&](const Value *Condition, bool Inverse) {
-    if (isImpliedCond(Pred, LHS, RHS, Condition, Inverse))
->>>>>>> 8c0bbbade169d9fda6cac8f181660009599a7656
+    if (isImpliedCond(Pred, LHS, RHS, Condition, Inverse, PredContext)) // INTEL
       return true;
     if (ProvingStrictComparison) {
       if (!ProvedNonStrictComparison)
@@ -10894,17 +10881,11 @@ ScalarEvolution::isLoopEntryGuardedByCond(const Loop *L,
   return false;
 }
 
-<<<<<<< HEAD
 bool ScalarEvolution::isImpliedCond(ICmpInst::Predicate Pred,
                                     const SCEV *LHS, const SCEV *RHS,
-                                    Value *FoundCondValue,
+                                    const Value *FoundCondValue,
                                     bool Inverse,            // INTEL
-                                    ICmpInst *PredContext) { // INTEL
-=======
-bool ScalarEvolution::isImpliedCond(ICmpInst::Predicate Pred, const SCEV *LHS,
-                                    const SCEV *RHS,
-                                    const Value *FoundCondValue, bool Inverse) {
->>>>>>> 8c0bbbade169d9fda6cac8f181660009599a7656
+                                    const ICmpInst *PredContext) { // INTEL
   if (!PendingLoopPredicates.insert(FoundCondValue).second)
     return false;
 
@@ -10947,8 +10928,8 @@ bool ScalarEvolution::isImpliedCond(ICmpInst::Predicate Pred, const SCEV *LHS,
                                     ICmpInst::Predicate FoundPred,
                                     const SCEV *FoundLHS,
                                     const SCEV *FoundRHS,         // INTEL
-                                    ICmpInst *PredContext,        // INTEL
-                                    ICmpInst *FoundPredContext) { // INTEL
+                                    const ICmpInst *PredContext,        // INTEL
+                                    const ICmpInst *FoundPredContext) { // INTEL
   // Balance the types.
   if (getTypeSizeInBits(LHS->getType()) <
       getTypeSizeInBits(FoundLHS->getType())) {

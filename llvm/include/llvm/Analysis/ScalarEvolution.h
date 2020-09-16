@@ -978,7 +978,8 @@ public:
   /// ICMP_EQ or ICMP_NE.
   bool SimplifyICmpOperands(ICmpInst::Predicate &Pred, const SCEV *&LHS,
 #if INTEL_CUSTOMIZATION
-                            const SCEV *&RHS, ICmpInst *PredContext = nullptr,
+                            const SCEV *&RHS,
+                            const ICmpInst *PredContext = nullptr,
                             unsigned Depth = 0);
 #endif // INTEL_CUSTOMIZATION
 
@@ -1730,12 +1731,8 @@ protected: // INTEL
   /// Test whether the condition described by Pred, LHS, and RHS is true
   /// whenever the given FoundCondValue value evaluates to true.
   bool isImpliedCond(ICmpInst::Predicate Pred, const SCEV *LHS, const SCEV *RHS,
-<<<<<<< HEAD
-                     Value *FoundCondValue, bool Inverse, // INTEL
-                     ICmpInst *PredContext = nullptr);    // INTEL
-=======
-                     const Value *FoundCondValue, bool Inverse);
->>>>>>> 8c0bbbade169d9fda6cac8f181660009599a7656
+                     const Value *FoundCondValue, bool Inverse, // INTEL
+                     const ICmpInst *PredContext = nullptr);    // INTEL
 
   /// Test whether the condition described by Pred, LHS, and RHS is true
   /// whenever the condition described by FoundPred, FoundLHS, FoundRHS is
@@ -1743,8 +1740,8 @@ protected: // INTEL
   bool isImpliedCond(ICmpInst::Predicate Pred, const SCEV *LHS, const SCEV *RHS,
                      ICmpInst::Predicate FoundPred, const SCEV *FoundLHS,
                      const SCEV *FoundRHS,                  // INTEL
-                     ICmpInst *PredContext = nullptr,       // INTEL
-                     ICmpInst *FoundPredContext = nullptr); // INTEL
+                     const ICmpInst *PredContext = nullptr,       // INTEL
+                     const ICmpInst *FoundPredContext = nullptr); // INTEL
 
   /// Test whether the condition described by Pred, LHS, and RHS is true
   /// whenever the condition described by Pred, FoundLHS, and FoundRHS is
