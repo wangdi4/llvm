@@ -2348,6 +2348,7 @@ bool SCEVExpander::isHighCostExpansionHelper(
   } else if (const SCEVNAryExpr *NAry = dyn_cast<SCEVNAryExpr>(S)) {
     assert(NAry->getNumOperands() > 1 &&
            "Nary expr should have more than 1 operand.");
+    (void) NAry; // INTEL
     // The simple nary expr will require one less op (or pair of ops)
     // than the number of it's terms.
     int Cost =
@@ -2357,6 +2358,7 @@ bool SCEVExpander::isHighCostExpansionHelper(
   } else if (const auto *NAry = dyn_cast<SCEVAddRecExpr>(S)) {
     assert(NAry->getNumOperands() >= 2 &&
            "Polynomial should be at least linear");
+    (void) NAry; // INTEL
     BudgetRemaining -= costAndCollectOperands<SCEVAddRecExpr>(
       WorkItem, TTI, CostKind, Worklist);
     return BudgetRemaining < 0;

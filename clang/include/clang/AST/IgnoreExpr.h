@@ -20,7 +20,11 @@ namespace clang {
 namespace detail {
 /// Given an expression E and functions Fn_1,...,Fn_n : Expr * -> Expr *,
 /// Return Fn_n(...(Fn_1(E)))
+<<<<<<< HEAD
 inline Expr *IgnoreExprNodesImpl(Expr *E) { return E; }
+=======
+inline Expr *IgnoreExprNodesImpl(Expr *E) { return E; } // INTEL
+>>>>>>> aefd5c8c2728202a734ccceaa5f3928eb8a89e26
 template <typename FnTy, typename... FnTys>
 Expr *IgnoreExprNodesImpl(Expr *E, FnTy &&Fn, FnTys &&... Fns) {
   return IgnoreExprNodesImpl(Fn(E), std::forward<FnTys>(Fns)...);
