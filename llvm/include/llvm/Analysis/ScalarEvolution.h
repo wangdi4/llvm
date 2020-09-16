@@ -1224,7 +1224,7 @@ protected: // INTEL
   ValueExprMapType ValueExprMap;
 
   /// Mark predicate values currently being processed by isImpliedCond.
-  SmallPtrSet<Value *, 6> PendingLoopPredicates;
+  SmallPtrSet<const Value *, 6> PendingLoopPredicates;
 
   /// Mark SCEVUnknown Phis currently being processed by getRangeRef.
   SmallPtrSet<const PHINode *, 6> PendingPhiRanges;
@@ -1724,14 +1724,18 @@ protected: // INTEL
   /// Return a predecessor of BB (which may not be an immediate predecessor)
   /// which has exactly one successor from which BB is reachable, or null if
   /// no such block is found.
-  std::pair<BasicBlock *, BasicBlock *>
-  getPredecessorWithUniqueSuccessorForBB(BasicBlock *BB);
+  std::pair<const BasicBlock *, const BasicBlock *>
+  getPredecessorWithUniqueSuccessorForBB(const BasicBlock *BB) const;
 
   /// Test whether the condition described by Pred, LHS, and RHS is true
   /// whenever the given FoundCondValue value evaluates to true.
   bool isImpliedCond(ICmpInst::Predicate Pred, const SCEV *LHS, const SCEV *RHS,
+<<<<<<< HEAD
                      Value *FoundCondValue, bool Inverse, // INTEL
                      ICmpInst *PredContext = nullptr);    // INTEL
+=======
+                     const Value *FoundCondValue, bool Inverse);
+>>>>>>> 8c0bbbade169d9fda6cac8f181660009599a7656
 
   /// Test whether the condition described by Pred, LHS, and RHS is true
   /// whenever the condition described by FoundPred, FoundLHS, FoundRHS is
@@ -1780,7 +1784,7 @@ protected: // INTEL
 
   /// Return true if the condition denoted by \p LHS \p Pred \p RHS is implied
   /// by a call to @llvm.experimental.guard in \p BB.
-  bool isImpliedViaGuard(BasicBlock *BB, ICmpInst::Predicate Pred,
+  bool isImpliedViaGuard(const BasicBlock *BB, ICmpInst::Predicate Pred,
                          const SCEV *LHS, const SCEV *RHS);
 
   /// Test whether the condition described by Pred, LHS, and RHS is true
