@@ -400,11 +400,8 @@ bool llvm::inferLibFuncAttributes(Function &F, const TargetLibraryInfo &TLI) {
     Changed |= setRetDoesNotAlias(F);
     return Changed;
   case LibFunc_mkdir:
-<<<<<<< HEAD
   case LibFunc_under_mkdir:                   // INTEL
-=======
     Changed |= setRetAndArgsNoUndef(F);
->>>>>>> 36c8621638d18c830efe2c6a2a6d0a0338b0f79d
     Changed |= setDoesNotThrow(F);
     Changed |= setDoesNotCapture(F, 0);
     Changed |= setOnlyReadsMemory(F, 0);
@@ -521,11 +518,8 @@ bool llvm::inferLibFuncAttributes(Function &F, const TargetLibraryInfo &TLI) {
     Changed |= setDoesNotCapture(F, 0);
     return Changed;
   case LibFunc_access:
-<<<<<<< HEAD
   case LibFunc_under_waccess:                   // INTEL
-=======
     Changed |= setRetAndArgsNoUndef(F);
->>>>>>> 36c8621638d18c830efe2c6a2a6d0a0338b0f79d
     Changed |= setDoesNotThrow(F);
     Changed |= setDoesNotCapture(F, 0);
     Changed |= setOnlyReadsMemory(F, 0);
