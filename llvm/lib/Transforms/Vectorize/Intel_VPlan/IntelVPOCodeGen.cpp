@@ -1164,6 +1164,36 @@ void VPOCodeGen::vectorizeInstruction(VPInstruction *VPInst) {
     assert(VTCCalc->getUF() == UF && "Mismatch in UFs!");
     return;
   }
+  case VPInstruction::ActiveLane: {
+    assert(!MaskValue && "ActiveLane calculation is expected to be unmasked!");
+    assert(isVPValueUniform(VPInst, Plan) &&
+           "ActiveLane instruction is expected to be uniform!");
+    VPValue *MaskOp = VPInst->getOperand(0);
+    Value *WidenedMaskOp = getVectorValue(MaskOp);
+    Type *Ty = WidenedMaskOp->getType();
+    Type *IntTy = IntegerType::get(Ty->getContext(), VF);
+    auto *CastedMask = Builder.CreateBitCast(WidenedMaskOp, IntTy);
+    Module *M = OrigLoop->getHeader()->getModule();
+    Function *F =
+        Intrinsic::getDeclaration(M, Intrinsic::cttz, CastedMask->getType());
+    // TODO: We don't branch on any uniform condition inside linearized control
+    // flow, so there is no issue ActiveLane returning undef for the all-false mask,
+    // technically. Still, ask for the non-undef value to ease debugging. Note
+    // that currently this is a temporary solution and we don't try to get the
+    // most performance out of it.
+    Value *CTTZ =
+        Builder.CreateCall(F, {CastedMask, Builder.getFalse()}, "cttz");
+    VPScalarMap[VPInst][0] = CTTZ;
+    return;
+  }
+  case VPInstruction::ActiveLaneExtract: {
+    assert(isa<VPBlendInst>(VPInst->getOperand(0)) &&
+           "ActiveLaneExtact only expects a blend 0-th operand so far.");
+    VPScalarMap[VPInst][0] =
+        Builder.CreateExtractElement(getVectorValue(VPInst->getOperand(0)),
+                                     getScalarValue(VPInst->getOperand(1), 0));
+    return;
+  }
   case Instruction::Br:
     // Do nothing.
     return;

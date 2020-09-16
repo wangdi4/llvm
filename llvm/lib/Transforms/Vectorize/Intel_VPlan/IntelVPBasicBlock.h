@@ -423,6 +423,18 @@ public:
                                   VPLoopInfo *VPLInfo,
                                   VPDominatorTree *DomTree = nullptr,
                                   VPPostDominatorTree *PostDomTree = nullptr);
+  /// Same as splitBlock, but the block containing instructions after \p
+  /// BeforeIt gets the original pointer/name.
+  ///
+  /// In other words, Adjust \p BeforeIt not to point to the phi/blend if
+  /// it happens to be so, create a new block in place of the \p BB, make it a
+  /// single predecessor of \p BB and move all the instructions in range
+  /// [BB->begin(), BeforeIt) into the newly created block.
+  static VPBasicBlock *
+  splitBlockHead(VPBasicBlock *BB, VPBasicBlock::iterator BeforeIt,
+                 VPLoopInfo *VPLInfo, const Twine &Name = "",
+                 VPDominatorTree *DomTree = nullptr,
+                 VPPostDominatorTree *PostDomTree = nullptr);
 
   static VPBasicBlock *
   splitBlockBegin(VPBasicBlock *BB, VPLoopInfo *VPLInfo,

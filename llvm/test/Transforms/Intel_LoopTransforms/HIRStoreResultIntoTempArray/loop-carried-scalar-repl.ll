@@ -89,7 +89,7 @@
 ; CHECK:           |   |   + DO i3 = 0, sext.i32.i64(%"jacobian_$NX_fetch") + -1, 1   <DO_LOOP>
 ; CHECK:           |   |   |   %mod26 = i3 + 2  %  %"jacobian_$NX_fetch";
 ; CHECK:           |   |   |   %func_result = (%TempArray)[i1][i2][i3];
-; CHECK:           |   |   |   %func_result242 = (%TempArray)[i1 + 1][%mod + -1][%mod26 + -1];
+; CHECK:           |   |   |   %func_result242 = (%TempArray)[i1 + 1][zext.i32.i64(%mod) + -1][zext.i32.i64(%mod26) + -1];
 ; CHECK:           |   |   |   %add243 = %"jacobian_$M.0"  +  %func_result242;
 ; CHECK:           |   |   |   %"jacobian_$M.0" = %func_result  +  %add243;
 ; CHECK:           |   |   + END LOOP

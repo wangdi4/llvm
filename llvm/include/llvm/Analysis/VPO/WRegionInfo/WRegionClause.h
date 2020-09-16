@@ -117,6 +117,9 @@ class Item
     HVAR HOrigItem;       // original var for HIR
     bool IsF90DopeVector; // true for a F90 dope vector
     EXPR F90DVNumElements; // number of elements in the F90 DV
+    GlobalVariable *F90DVNumElementsGV; // A global variable where
+                                        // F90DVNumElements is stored for use
+                                        // in the fast reduction callback.
     Instruction
         *F90DVDataAllocationPoint; // An instruction after the allocation of the
                                    // local pointee data for an F90 DV is done.
@@ -161,8 +164,8 @@ class Item
     Item(VAR Orig, ItemKind K)
 #if INTEL_CUSTOMIZATION
         : OrigItem(Orig), HOrigItem(nullptr), IsF90DopeVector(false),
-          F90DVNumElements(nullptr), F90DVDataAllocationPoint(nullptr),
-          NewItem(nullptr), OrigGEP(nullptr),
+          F90DVNumElements(nullptr), F90DVNumElementsGV(nullptr),
+          F90DVDataAllocationPoint(nullptr), NewItem(nullptr), OrigGEP(nullptr),
 #else
         : OrigItem(Orig), NewItem(nullptr), OrigGEP(nullptr),
 #endif // INTEL_CUSTOMIZATION
@@ -229,6 +232,8 @@ class Item
     bool getIsF90DopeVector()  const   { return IsF90DopeVector;  }
     void setF90DVNumElements(EXPR Size){ F90DVNumElements = Size; }
     EXPR getF90DVNumElements() const   { return F90DVNumElements; }
+    GlobalVariable *getF90DVNumElementsGV() const { return F90DVNumElementsGV; }
+    void setF90DVNumElementsGV(GlobalVariable *GV) { F90DVNumElementsGV = GV; }
     void setF90DVDataAllocationPoint(Instruction *I) {
       F90DVDataAllocationPoint = I;
     }

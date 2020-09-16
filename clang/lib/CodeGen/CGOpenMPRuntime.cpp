@@ -7436,6 +7436,9 @@ private:
 
 #if INTEL_COLLAB
 public:
+  bool isDevPoingerMap(const ValueDecl *VD) {
+    return DevPointersMap.count(VD);
+  }
 #endif // INTEL_COLLAB
   /// Generate the base pointers, section pointers, sizes, map type bits, and
   /// user-defined mappers (all included in \a CombinedInfo) for the provided
@@ -9132,6 +9135,10 @@ void CGOpenMPRuntime::getLOMapInfo(const OMPExecutableDirective &Dir,
         //Fix me: adding this cause BE assert.
         continue;
       }
+
+      if (!CI->capturesThis() &&
+          MEHandler.isDevPoingerMap(CI->getCapturedVar()))
+        continue;
 
       MappableExprsHandler::MapCombinedInfoTy CurInfo;
       MappableExprsHandler::StructRangeInfoTy PartialStruct;

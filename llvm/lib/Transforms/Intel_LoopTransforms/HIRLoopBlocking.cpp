@@ -1158,7 +1158,8 @@ private:
     for (const HLLoop *Lp = InnermostLoop->getParentLoop(),
                       *ELp = OutermostLoop->getParentLoop(),
                       *InnerLp = InnermostLoop;
-         Lp != ELp; InnerLp = Lp, Lp = Lp->getParentLoop(), Level = Level - 1) {
+         Lp != ELp && NumTotalLoops < MaxLoopNestLevel;
+         InnerLp = Lp, Lp = Lp->getParentLoop(), Level = Level - 1) {
       // Reused carried across Level
       // OR
       // See if any refs deepest dimension has this Level IV with a small stride
@@ -1167,9 +1168,6 @@ private:
       LLVM_DEBUG(dbgs() << "NumRefsWithSmallStrides " << Level << ": "
                         << NumRefsWithSmallStrides[Level] << "\n");
 
-      if (NumTotalLoops >= MaxLoopNestLevel) {
-        break;
-      }
       if (NumRefsMissingAtLevel[Level] > 0 ||
           NumRefsWithSmallStrides[Level] > 0) {
 
@@ -1188,10 +1186,13 @@ private:
       }
     }
 
+    if (!IsCandFound)
+      return false;
+
     // Look into the innermost loop again for blocking when algo is MatMul.
     // Experiments in skx showed blocking all three levels of matrix
     // multiplication gives best performance.
-    if (LoopBlockingAlgorithm == MatMul &&
+    if (NumTotalLoops < MaxLoopNestLevel && LoopBlockingAlgorithm == MatMul &&
         (std::any_of(std::next(NumRefsMissingAtLevel.begin(), OuterLevel),
                      std::next(NumRefsMissingAtLevel.begin(), InnerLevel + 1),
                      [](int Num) { return Num > 0; }))) {
@@ -1201,8 +1202,6 @@ private:
                         << " will be stripmined\n");
 
       markAsToStripmine(InnermostLoop, StripmineCandidateMap);
-
-      IsCandFound = true;
     }
 
     LLVM_DEBUG(dbgs() << "determineProfitableStipmineLoop result: "

@@ -90,7 +90,7 @@
 ; CHECK:           |   |   + DO i3 = 0, sext.i32.i64(%"jacobian_$NX_fetch") + -1, 1   <DO_LOOP>
 ; CHECK:           |   |   |   %mod27 = i3 + 2  %  %"jacobian_$NX_fetch";
 ; CHECK:           |   |   |   %func_result = (%TempArray)[i1][i2][i3];
-; CHECK:           |   |   |   %func_result250 = (%TempArray)[i1 + 1][%mod + -1][zext.i32.i64(%mod27)];
+; CHECK:           |   |   |   %func_result250 = (%TempArray)[i1 + 1][zext.i32.i64(%mod) + -1][zext.i32.i64(%mod27)];
 ; CHECK:           |   |   |   %add251 = %"jacobian_$M.0"  +  %func_result250;
 ; CHECK:           |   |   |   %"jacobian_$M.0" = %func_result  +  %add251;
 ; CHECK:           |   |   + END LOOP
@@ -180,7 +180,7 @@
 ; CHECK-DETAIL:    |   |   + DO i3 = 0, sext.i32.i64(%"jacobian_$NX_fetch") + -1, 1   <DO_LOOP>
 ; CHECK-DETAIL:    |   |   |   %mod27 = i3 + 2  %  %"jacobian_$NX_fetch";
 ; CHECK-DETAIL:    |   |   |   %func_result = (%TempArray)[0:i1:8 * (sext.i32.i64(%"jacobian_$NX_fetch") * (2 + sext.i32.i64(%"jacobian_$NY_fetch")))(double*:0)][0:i2:8 * sext.i32.i64(%"jacobian_$NX_fetch")(double*:0)][0:i3:8(double*:0)];
-; CHECK-DETAIL:    |   |   |   %func_result250 = (%TempArray)[0:i1 + 1:8 * (sext.i32.i64(%"jacobian_$NX_fetch") * (2 + sext.i32.i64(%"jacobian_$NY_fetch")))(double*:0)][0:%mod + -1:8 * sext.i32.i64(%"jacobian_$NX_fetch")(double*:0)][0:zext.i32.i64(%mod27):8(double*:0)];
+; CHECK-DETAIL:    |   |   |   %func_result250 = (%TempArray)[0:i1 + 1:8 * (sext.i32.i64(%"jacobian_$NX_fetch") * (2 + sext.i32.i64(%"jacobian_$NY_fetch")))(double*:0)][0:zext.i32.i64(%mod) + -1:8 * sext.i32.i64(%"jacobian_$NX_fetch")(double*:0)][0:zext.i32.i64(%mod27):8(double*:0)];
 ; CHECK-DETAIL:    |   |   |   %add251 = %"jacobian_$M.0"  +  %func_result250;
 ; CHECK-DETAIL:    |   |   |   %"jacobian_$M.0" = %func_result  +  %add251;
 ; CHECK-DETAIL:    |   |   + END LOOP

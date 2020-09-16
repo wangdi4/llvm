@@ -2025,6 +2025,44 @@ HLInst *VPOCodeGenHIR::createInterleavedStore(RegDDRef **StoreVals,
   return WideStore;
 }
 
+bool VPOCodeGenHIR::interleaveAccess(const OVLSGroup *Group,
+                                     const RegDDRef *Mask,
+                                     const VPInstruction *VPInst) {
+  // TODO: Mask for the interleaved accesses must be shuffled as well. Currently
+  // it's not done, thus disable CG for it.
+  if (Mask)
+    return false;
+
+  // Interleaving makes sense iff Group is non-null.
+  if (!Group)
+    return false;
+
+  // Check for other conditions based on command line switches.
+  if (!EnableVPlanVLSCG)
+    return false;
+
+  // If the user is limiting the number of vectorized loops for which
+  // VLS optimization is enabled, only interleave for the specified
+  // number of loops.
+  if (VPlanVLSNumLoops >= 0 && LoopsVectorized > (unsigned)VPlanVLSNumLoops)
+    return false;
+
+  auto Opcode = VPInst->getOpcode();
+  if (Opcode == Instruction::Load && !EnableVPlanVLSLoads)
+    return false;
+  if (Opcode == Instruction::Store && !EnableVPlanVLSStores)
+    return false;
+
+  // If the reference is unit strided, we do not need interleaving.
+  const VPValue *PtrOp = getLoadStorePointerOperand(VPInst);
+  bool IsNegOneStride;
+  bool IsUnitStride = isUnitStridePtr(PtrOp, IsNegOneStride);
+  if (IsUnitStride)
+    return false;
+
+  return true;
+}
+
 HLInst *VPOCodeGenHIR::widenInterleavedAccess(
     const HLInst *INode, RegDDRef *Mask, const OVLSGroup *Grp,
     int64_t InterleaveFactor, int64_t InterleaveIndex,
@@ -2606,34 +2644,11 @@ void VPOCodeGenHIR::widenNodeImpl(const HLInst *INode, RegDDRef *Mask,
     Mask = CurMaskValue;
 
   // Check if we want to widen the current Inst as an interleaved memory access.
-  // TODO: Mask for the interleaved accesse must be shuffled as well. Currently
-  // it's not done, thus disable CG for it.
-  if (Grp && !Mask) {
-    bool InterleaveAccess = EnableVPlanVLSCG;
-    const RegDDRef *MemRef;
-
-    // If the user is limiting the number of vectorized loops for which
-    // VLS optimization is enabled, only interleave for the specified
-    // number of loops.
-    if (VPlanVLSNumLoops >= 0)
-      InterleaveAccess &= LoopsVectorized <= ((unsigned)VPlanVLSNumLoops);
-
-    // Check if the user is limiting interleaved accesses to loads or stores.
-    if (isa<LoadInst>(CurInst)) {
-      MemRef = INode->getOperandDDRef(1);
-      InterleaveAccess &= EnableVPlanVLSLoads;
-    } else {
-      MemRef = INode->getOperandDDRef(0);
-      InterleaveAccess &= EnableVPlanVLSStores;
-    }
-
-    // If the reference is unit strided, we do not need interleaving
-    InterleaveAccess &= !refIsUnit(OrigLoop->getNestingLevel(), MemRef, this);
-    if (InterleaveAccess) {
-      widenInterleavedAccess(INode, Mask, Grp, InterleaveFactor,
-                             InterleaveIndex, GrpStartInst, VPInst);
-      return;
-    }
+  bool InterleaveAccess = interleaveAccess(Grp, Mask, VPInst);
+  if (InterleaveAccess) {
+    widenInterleavedAccess(INode, Mask, Grp, InterleaveFactor, InterleaveIndex,
+                           GrpStartInst, VPInst);
+    return;
   }
 
   // Widened values for SCEV expressions cannot be reused across HIR
@@ -2966,13 +2981,16 @@ RegDDRef *VPOCodeGenHIR::widenRef(const VPValue *VPVal, unsigned VF) {
   return WideRef->clone();
 }
 
-RegDDRef *VPOCodeGenHIR::getMemoryRef(const VPValue *VPPtr,
-                                      unsigned ScalSymbase,
-                                      const AAMDNodes &AANodes, Align Alignment,
+RegDDRef *VPOCodeGenHIR::getMemoryRef(const VPLoadStoreInst *VPLdSt,
                                       bool Lane0Value) {
+  const VPValue *VPPtr = getLoadStorePointerOperand(VPLdSt);
   bool IsNegOneStride;
   bool IsUnitStride = isUnitStridePtr(VPPtr, IsNegOneStride);
   bool NeedScalarRef = IsUnitStride || Lane0Value;
+  unsigned ScalSymbase = VPLdSt->getSymbase();
+  Align Alignment = VPLdSt->getAlignment();
+  AAMDNodes AANodes;
+  VPLdSt->getAAMetadata(AANodes);
 
   RegDDRef *PtrRef;
   if (NeedScalarRef)
@@ -3379,12 +3397,7 @@ void VPOCodeGenHIR::widenUniformLoadImpl(const VPLoadStoreInst *VPLoad,
         generateCompareToZero(Mask, nullptr /* InstMask */, false /* Equal */);
   }
 
-  const VPValue *PtrOp = getLoadStorePointerOperand(VPLoad);
-  AAMDNodes AANodes;
-  VPLoad->getAAMetadata(AANodes);
-  RegDDRef *MemRef =
-      getMemoryRef(PtrOp, VPLoad->getSymbase(), AANodes, VPLoad->getAlignment(),
-                   true /* Lane0Value */);
+  RegDDRef *MemRef = getMemoryRef(VPLoad, true /* Lane0Value */);
   auto *ScalarInst = HLNodeUtilities.createLoad(MemRef, ".unifload");
   if (Mask) {
     HLIf *If = HLNodeUtilities.createHLIf(
@@ -3403,14 +3416,8 @@ void VPOCodeGenHIR::widenUniformLoadImpl(const VPLoadStoreInst *VPLoad,
 
 void VPOCodeGenHIR::widenUnmaskedUniformStoreImpl(
     const VPLoadStoreInst *VPStore) {
-  const VPValue *PtrOp = getLoadStorePointerOperand(VPStore);
   const VPValue *ValOp = VPStore->getOperand(0);
-  AAMDNodes AANodes;
-  VPStore->getAAMetadata(AANodes);
-
-  RegDDRef *MemRef =
-      getMemoryRef(PtrOp, VPStore->getSymbase(), AANodes,
-                   VPStore->getAlignment(), true /* Lane0Value */);
+  RegDDRef *MemRef = getMemoryRef(VPStore, true /* Lane0Value */);
   RegDDRef *ValRef = nullptr;
   if (!Plan->getVPlanDA()->isDivergent(*ValOp))
     // Value being stored is uniform - use lane 0 value as the value to store.
@@ -3460,10 +3467,7 @@ void VPOCodeGenHIR::widenLoadStoreImpl(const VPLoadStoreInst *VPLoadStore,
     }
   }
 
-  AAMDNodes AANodes;
-  VPLoadStore->getAAMetadata(AANodes);
-  RegDDRef *MemRef = getMemoryRef(PtrOp, VPLoadStore->getSymbase(), AANodes,
-                                  VPLoadStore->getAlignment());
+  RegDDRef *MemRef = getMemoryRef(VPLoadStore);
   HLInst *WInst;
 
   // Reverse mask for negative -1 stride.

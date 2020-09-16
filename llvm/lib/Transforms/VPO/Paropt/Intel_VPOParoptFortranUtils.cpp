@@ -56,25 +56,35 @@ CallInst *VPOParoptUtils::genF90DVInitCall(Value *OrigDV, Value *NewDV,
 void VPOParoptUtils::genF90DVInitCode(
     Item *I, Instruction *InsertPt, DominatorTree *DT, LoopInfo *LI,
     bool IsTargetSPIRV, bool AllowOverrideInsertPt,
-    bool CheckOrigAllocationBeforeAllocatingNew) {
+    bool CheckOrigAllocationBeforeAllocatingNew,
+    bool StoreNumElementsToGlobal) {
+  VPOParoptUtils::genF90DVInitCode(I, I->getOrig(), I->getNew(), InsertPt, DT,
+                                   LI, IsTargetSPIRV, AllowOverrideInsertPt,
+                                   CheckOrigAllocationBeforeAllocatingNew,
+                                   StoreNumElementsToGlobal);
+}
+
+void VPOParoptUtils::genF90DVInitCode(
+    Item *I, Value *SrcV, Value *DstV, Instruction *InsertPt, DominatorTree *DT,
+    LoopInfo *LI, bool IsTargetSPIRV, bool AllowOverrideInsertPt,
+    bool CheckOrigAllocationBeforeAllocatingNew,
+    bool StoreNumElementsToGlobal) {
   assert(I->getIsF90DopeVector() && "Item is not an F90 dope vector.");
 
-  Value *NewV = I->getNew();
-  Value *OrigV = I->getOrig();
-  StringRef NamePrefix = NewV->getName();
-  assert(isa<PointerType>(OrigV->getType()) && "Orig value is not a pointer");
+  StringRef NamePrefix = DstV->getName();
+  assert(isa<PointerType>(SrcV->getType()) && "Orig value is not a pointer");
   assert(
-      isa<StructType>(cast<PointerType>(OrigV->getType())->getElementType()) &&
+      isa<StructType>(cast<PointerType>(SrcV->getType())->getElementType()) &&
       "Clause item is expected to be a struct for F90 DVs.");
 
-  if (AllowOverrideInsertPt && !GeneralUtils::isOMPItemGlobalVAR(NewV))
-    InsertPt = (cast<Instruction>(NewV))->getParent()->getTerminator();
+  if (AllowOverrideInsertPt && !GeneralUtils::isOMPItemGlobalVAR(DstV))
+    InsertPt = (cast<Instruction>(DstV))->getParent()->getTerminator();
 
   IRBuilder<> Builder(InsertPt);
 
   MaybeAlign OrigAlignment =
-      OrigV->getPointerAlignment(InsertPt->getModule()->getDataLayout());
-  CallInst *DataSize = genF90DVInitCall(OrigV, NewV, InsertPt, IsTargetSPIRV);
+      SrcV->getPointerAlignment(InsertPt->getModule()->getDataLayout());
+  CallInst *DataSize = genF90DVInitCall(SrcV, DstV, InsertPt, IsTargetSPIRV);
   setFuncCallingConv(DataSize, IsTargetSPIRV);
 
   Instruction *AllocBuilderInsertPt = &*Builder.GetInsertPoint();
@@ -103,8 +113,8 @@ void VPOParoptUtils::genF90DVInitCode(
   IRBuilder<> AllocBuilder(AllocBuilderInsertPt);
   // Get base address from the dope vector.
   auto *Zero = AllocBuilder.getInt32(0);
-  auto *Addr0GEP = AllocBuilder.CreateInBoundsGEP(NewV, {Zero, Zero},
-                                                         NamePrefix + ".addr0");
+  auto *Addr0GEP =
+      AllocBuilder.CreateInBoundsGEP(DstV, {Zero, Zero}, NamePrefix + ".addr0");
   Type *ElementTy =
       cast<PointerType>(cast<PointerType>(Addr0GEP->getType()->getScalarType())
                             ->getElementType())
@@ -119,8 +129,8 @@ void VPOParoptUtils::genF90DVInitCode(
   if (!isa<ReductionItem>(I))
     return;
 
-  // For reduction, emit the init and fini loops, we need to compute the
-  // number of elements in the dope vector.  DataSize is in size of the size in
+  // For reduction, to emit the init and fini loops, we need to compute the
+  // number of elements in the dope vector.  DataSize is the size in
   // bytes of the data "array" for the dope vector. To get number of elements,
   // divide by the size of each element in bytes.
   auto *NumElements = Builder.CreateUDiv(
@@ -129,6 +139,13 @@ void VPOParoptUtils::genF90DVInitCode(
                       ElementTy->getPrimitiveSizeInBits() / 8),
       NamePrefix + ".num_elements");
   I->setF90DVNumElements(NumElements);
+
+  if (!StoreNumElementsToGlobal)
+    return;
+
+  GlobalVariable *GV = VPOParoptUtils::storeIntToThreadLocalGlobal(
+      NumElements, &*Builder.GetInsertPoint(), "dv.num.elements");
+  I->setF90DVNumElementsGV(GV);
 }
 
 void VPOParoptUtils::genF90DVInitForItemsInTaskPrivatesThunk(
@@ -215,7 +232,20 @@ void VPOParoptUtils::genF90DVReductionInitDstInfo(const Item *I, Value *&NewV,
   DestElementTyOut =
       cast<PointerType>(DestArrayBeginOut->getType())->getElementType();
 
-  NumElementsOut = I->getF90DVNumElements();
+  Value *NumElementsFromI = I->getF90DVNumElements();
+  GlobalVariable *NumElementsGV = I->getF90DVNumElementsGV();
+  bool NumElementsFromIIsInSameFunctionAsInsertBefore =
+      (cast<Instruction>(NumElementsFromI)->getFunction() ==
+       InsertBefore->getFunction());
+
+  if (!NumElementsGV || NumElementsFromIIsInSameFunctionAsInsertBefore) {
+    NumElementsOut = NumElementsFromI;
+    return;
+  }
+
+  Value *NumElementsLoadedFromGV =
+      Builder.CreateLoad(NumElementsGV, NumElementsGV->getName() + ".load");
+  NumElementsOut = NumElementsLoadedFromGV;
 }
 
 void VPOParoptUtils::genF90DVReductionSrcDstInfo(
