@@ -221,7 +221,10 @@ public:
   /// to handle nodes with identical leaves.
   NodeItTy findLeaf(const NodeItTy It, const Value *Leaf,
                     const OpcodeData &Opcode = OpcodeData()) const;
-
+  /// Convinience interface to check whether a Leaf is in the Form.
+  bool hasLeaf(const Value *Leaf) const {
+    return findLeaf(begin(), Leaf) != end();
+  }
   /// Performs massaging aimed at more optimal code generation.
   // TODO: describe what exactly it does.
   bool simplify();
@@ -282,9 +285,6 @@ public:
   void setRoot(Instruction *R) { Root = R; }
   /// Returns tree root.
   Instruction *getRoot() const { return Root; }
-  /// Returns true if \p I is not null and is valid to be part of the tree
-  /// trunk.
-  bool isAllowedTrunkInstr(const Instruction *I) const;
   /// Returns true if \p I belongs to truck of the tree in IR representation.
   /// Please note that canonical representation has no trunk instructions.
   bool hasTrunkInstruction(const Instruction *I) const;
