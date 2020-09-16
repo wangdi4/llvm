@@ -31,6 +31,12 @@
 #include <unistd.h>
 #include <dlfcn.h>
 #endif // !_WIN32
+
+#ifndef TARGET_NAME
+#define TARGET_NAME Generic ELF - 64bit
+#endif
+#define DEBUG_PREFIX "TARGET " GETNAME(TARGET_NAME) " RTL"
+
 #include "omptargetplugin.h"
 #include "omptarget-tools.h"
 #include "rtl-trace.h"
