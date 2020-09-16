@@ -21,12 +21,10 @@ std::string get_exe_dir(unsigned int pid = 0);
 #include <windows.h>
 #define SETENV(NAME,VALUE)      (_putenv_s(NAME,VALUE) == 0)
 #define UNSETENV(NAME)          (_putenv_s(NAME,"") == 0)
-#define GETENV(NAME)            (getenv(NAME))
 #else
 #include <cstdlib>
 #define SETENV(NAME,VALUE)      (setenv(NAME,VALUE,1) == 0)
 #define UNSETENV(NAME)          (unsetenv(NAME) == 0)
-#define GETENV(NAME)            (getenv(NAME))
 #endif
 
 #endif /*__COMMON_UTILS_H__*/
