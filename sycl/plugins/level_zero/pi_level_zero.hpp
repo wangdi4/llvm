@@ -78,6 +78,8 @@ struct _pi_platform {
   // Cache pi_devices for reuse
   std::vector<pi_device> PiDevicesCache;
   std::mutex PiDevicesCacheMutex;
+  pi_device getDeviceFromNativeHandle(ze_device_handle_t);
+
   // Maximum Number of Command Lists that can be created.
   // This Value is initialized to 20000, but can be changed by the user
   // thru the environment variable SYCL_PI_LEVEL0_MAX_COMMAND_LIST_CACHE
@@ -143,17 +145,17 @@ struct _pi_device : _pi_object {
 };
 
 struct _pi_context : _pi_object {
-  _pi_context(pi_device Device)
-      : Device{Device}, ZeCommandListInit{nullptr}, ZeEventPool{nullptr},
-        NumEventsAvailableInEventPool{}, NumEventsLiveInEventPool{} {}
+  _pi_context(pi_uint32 NumDevices, const pi_device *Devs)
+      : Devices{Devs, Devs + NumDevices}, ZeCommandListInit{nullptr},
+        ZeEventPool{nullptr}, NumEventsAvailableInEventPool{},
+        NumEventsLiveInEventPool{} {}
 
   // A L0 context handle is primarily used during creation and management of
   // resources that may be used by multiple devices.
   ze_context_handle_t ZeContext;
 
-  // Keep the device here (must be exactly one) to return it when PI context
-  // is queried for devices.
-  pi_device Device;
+  // Keep the PI devices this PI context was created for.
+  std::vector<pi_device> Devices;
 
   // Immediate Level Zero command list for the device in this context, to be
   // used for initializations. To be created as:
