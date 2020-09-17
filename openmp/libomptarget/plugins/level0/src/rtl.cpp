@@ -771,12 +771,7 @@ public:
       // Intel Graphics compilers that do not support that option
       // silently ignore it. Other OpenCL compilers may fail.
       const char *env = readEnvVar("LIBOMPTARGET_LEVEL0_TARGET_GLOBALS");
-#ifndef _WIN32
       if (!env || (env[0] != 'F' && env[0] != 'f' && env[0] != '0')) {
-#else // _WIN32
-        // Temporary workaround for CMPLRLLVM-22182.
-      if (env && (env[0] == 'T' || env[0] == 't' || env[0] == '1')) {
-#endif // _WIN32
         InternalCompilationOptions += " -cl-take-global-address ";
         Flags.EnableTargetGlobals = 1;
       }
