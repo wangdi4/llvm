@@ -500,6 +500,25 @@ void hp_bar(int M, int N)
   //ALL: region.exit(token [[T1]]) [ "DIR.OMP.END.TEAMS"
   //ALL: region.exit(token [[T0]]) [ "DIR.OMP.END.TARGET"
 
+  //ALL: [[TT0:%[0-9]+]] = call token @llvm.directive.region.entry()
+  //ALL-SAME:"DIR.OMP.TARGET"
+  //ALL: [[TT1:%[0-9]+]] = call token @llvm.directive.region.entry()
+  //ALL-SAME:"DIR.OMP.TEAMS"
+  //ALL: [[TT2:%[0-9]+]] = call token @llvm.directive.region.entry()
+  //ALL-SAME:"DIR.OMP.DISTRIBUTE"
+  //ALL: [[TS0:%[0-9]+]] = call token @llvm.directive.region.entry()
+  //ALL-SAME:"DIR.OMP.SIMD"
+  #pragma omp target
+  #pragma omp teams distribute simd
+  for (int i = 0; i < N; ++i)
+  {
+    hp_func(i);
+  }
+  //ALL: region.exit(token [[TS0]]) [ "DIR.OMP.END.SIMD"
+  //ALL: region.exit(token [[TT2]]) [ "DIR.OMP.END.DISTRIBUTE"
+  //ALL: region.exit(token [[TT1]]) [ "DIR.OMP.END.TEAMS"
+  //ALL: region.exit(token [[TT0]]) [ "DIR.OMP.END.TARGET"
+
   //ALL: [[T0:%[0-9]+]] = call token @llvm.directive.region.entry()
   //ALL-SAME:"DIR.OMP.TARGET"
   //ALL: [[T1:%[0-9]+]] = call token @llvm.directive.region.entry()
