@@ -728,6 +728,7 @@ void TargetLoweringBase::initActions() {
     setOperationAction(ISD::CTTZ_ZERO_UNDEF, VT, Expand);
 
     setOperationAction(ISD::BITREVERSE, VT, Expand);
+    setOperationAction(ISD::PARITY, VT, Expand);
 
     // These library functions default to expand.
     setOperationAction(ISD::FROUND, VT, Expand);
