@@ -34,12 +34,18 @@ enum ClangFlags {
   CC1AsOption = (1 << 11),
   NoDriverOption = (1 << 12),
   LinkOption = (1 << 13),
+<<<<<<< HEAD
   Ignored = (1 << 14),
 #if INTEL_CUSTOMIZATION
   DpcppUnsupported = (1 << 15),
   DpcppHidden = (1 << 16),
   ProEnabled = (1 << 17)
 #endif // INTEL_CUSTOMIZATION
+=======
+  FlangOption = (1 << 14),
+  FC1Option = (1 << 15),
+  Ignored = (1 << 16),
+>>>>>>> 257b29715bb27b7d9f6c3c40c481b6a4af0b37e5
 };
 
 enum ID {

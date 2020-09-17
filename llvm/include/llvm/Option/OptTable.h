@@ -50,7 +50,11 @@ public:
     unsigned ID;
     unsigned char Kind;
     unsigned char Param;
+<<<<<<< HEAD
     unsigned Flags; // INTEL
+=======
+    unsigned int Flags;
+>>>>>>> 257b29715bb27b7d9f6c3c40c481b6a4af0b37e5
     unsigned short GroupID;
     unsigned short AliasID;
     const char *AliasArgs;
