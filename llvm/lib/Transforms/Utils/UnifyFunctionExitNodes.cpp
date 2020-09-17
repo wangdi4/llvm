@@ -70,8 +70,13 @@ bool UnifyFunctionExitNodes::unifyReturnBlocks(Function &F) {
       ReturningBlocks.push_back(&I);
 
 #if INTEL_CUSTOMIZATION
-  if (ReturningBlocks.size() <= 1) {
+  if (ReturningBlocks.empty()) {
+    // No blocks return.
     ReturnBlock = nullptr;
+    return false;
+  } else if (ReturningBlocks.size() == 1) {
+    // Already has a single return block.
+    ReturnBlock = ReturningBlocks.front();
     return false;
   }
 #else // INTEL_CUSTOMIZATION
