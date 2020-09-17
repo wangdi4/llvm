@@ -229,6 +229,8 @@ void VPlanCallVecDecisions::analyzeCall(VPCallInstruction *VPCall, unsigned VF,
 
   // Indirect calls will be serialized, as of today.
   if (!F) {
+    VPCall->setSerializationReason(VPCallInstruction::
+        SerializationReasonTy::INDIRECT_CALL);
     VPCall->setShouldBeSerialized();
     return;
   }
@@ -270,6 +272,8 @@ void VPlanCallVecDecisions::analyzeCall(VPCallInstruction *VPCall, unsigned VF,
       assert(VPCall->getVFForScenario() == VF &&
              "No known scenario for call without underlying CI.");
     }
+    VPCall->setSerializationReason(VPCallInstruction::
+        SerializationReasonTy::CURRENT_CONTEXT);
     return;
   }
 
@@ -319,6 +323,8 @@ void VPlanCallVecDecisions::analyzeCall(VPCallInstruction *VPCall, unsigned VF,
       unsigned ArgIdx = VPCall->getOperandIndex(ArgOp);
       if (hasVectorInstrinsicScalarOpd(ID, ArgIdx) &&
           Plan.getVPlanDA()->isDivergent(*ArgOp)) {
+        VPCall->setSerializationReason(VPCallInstruction::
+            SerializationReasonTy::SCALAR_OPERANDS);
         VPCall->setShouldBeSerialized();
         return;
       }
@@ -365,6 +371,11 @@ void VPlanCallVecDecisions::analyzeCall(VPCallInstruction *VPCall, unsigned VF,
 
   // All other cases implies default properties i.e. call serialization.
   VPCall->setShouldBeSerialized();
+  if (!VPCall->isIntrinsicFromList({Intrinsic::lifetime_start,
+      Intrinsic::lifetime_end, Intrinsic::invariant_start,
+      Intrinsic::invariant_end}))
+    VPCall->setSerializationReason
+        (VPCallInstruction::SerializationReasonTy::NO_VECTOR_VARIANT);
   // TODO:
   // 1. OpenCLReadChannel/OpenCLWriteChannel calls?
 }

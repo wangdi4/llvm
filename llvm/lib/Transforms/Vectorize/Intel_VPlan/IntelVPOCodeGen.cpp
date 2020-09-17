@@ -1146,8 +1146,12 @@ void VPOCodeGen::generateVectorCode(VPInstruction *VPInst) {
     if (MaskValue && !DivisorIsSafe) {
       if (DA->isUniform(*VPInst))
         serializePredicatedUniformInstruction(VPInst);
-      else
+      else {
         serializeWithPredication(VPInst);
+        // Remark: division was scalarized due to fp-model requirements
+        OptRptStats.SerializedInstRemarks.emplace_back(15566,
+            Instruction::getOpcodeName(VPInst->getOpcode()));
+      }
       return;
     }
     LLVM_FALLTHROUGH;
@@ -1373,9 +1377,21 @@ void VPOCodeGen::generateVectorCode(VPInstruction *VPInst) {
     }
     case VPCallInstruction::CallVecScenariosTy::Serialization: {
       // Call cannot be vectorized for current context, emulate with
-      // serialization.
+      // serialization
+      auto *Func = VPCall->getCalledFunction();
       serializeWithPredication(VPCall);
       ++OptRptStats.SerializedCalls;
+      // Below we add in OptReport remarks about serialized calls.
+      // Check if called function is indirect call
+      assert(VPCall->getSerialReason() != VPCallInstruction::
+           SerializationReasonTy::UNDEFINED &&
+           "Serialization reason is undefined");
+      if (Func == nullptr)
+         OptRptStats.SerializedInstRemarks.emplace_back
+             (15557 + VPCall->getSerialReasonNum(), "");
+      else
+         OptRptStats.SerializedInstRemarks.emplace_back
+             (15557 + VPCall->getSerialReasonNum(), (Func->getName()).str());
       return;
     }
     default:
@@ -2586,6 +2602,8 @@ void VPOCodeGen::vectorizeLoadInstruction(VPLoadStoreInst *VPLoad,
 
   // Loads that are non-vectorizable should be serialized.
   if (!isVectorizableLoadStore(VPLoad)) {
+    // Remark: serilalized due to operating on non-vectorizable types
+    OptRptStats.SerializedInstRemarks.emplace_back(15563, "");
     return serializeWithPredication(VPLoad);
   }
 
@@ -2701,8 +2719,11 @@ void VPOCodeGen::vectorizeStoreInstruction(VPLoadStoreInst *VPStore,
   VPValue *Ptr = VPStore->getPointerOperand();
 
   // Stores that are non-vectorizable should be serialized.
-  if (!isVectorizableLoadStore(VPStore))
+  if (!isVectorizableLoadStore(VPStore)) {
+    // Remark: serilalized due to operating on non-vectorizable types
+    OptRptStats.SerializedInstRemarks.emplace_back(15563, "");
     return serializeWithPredication(VPStore);
+  }
 
   // Stores to uniform pointers can be optimally generated as a scalar store in
   // vectorized code.
@@ -3516,6 +3537,8 @@ void VPOCodeGen::vectorizeExtractElement(VPInstruction *VPInst) {
 
     if (MaskValue) {
       serializeWithPredication(VPInst);
+      // Remark: masked instruction can't be vectorized
+      OptRptStats.SerializedInstRemarks.emplace_back(15565, "");
       return;
     }
 
@@ -3531,6 +3554,8 @@ void VPOCodeGen::vectorizeExtractElement(VPInstruction *VPInst) {
           WideExtract, Builder.CreateExtractElement(ExtrFrom, VectorIdx), VIdx);
     }
     VPWidenMap[VPInst] = WideExtract;
+    // Remark: instruction was serialized due to non-const index
+    OptRptStats.SerializedInstRemarks.emplace_back(15564, "");
     return;
   }
 
@@ -3564,6 +3589,8 @@ void VPOCodeGen::vectorizeInsertElement(VPInstruction *VPInst) {
       !cast<VPConstant>(OrigIndexVal)->isConstantInt()) {
     if (MaskValue) {
       serializeWithPredication(VPInst);
+      // Remark: masked instruction can't be vectorized
+      OptRptStats.SerializedInstRemarks.emplace_back(15565, "");
       return;
     }
     Value *WideInsert = InsertTo;
@@ -3580,6 +3607,8 @@ void VPOCodeGen::vectorizeInsertElement(VPInstruction *VPInst) {
           WideInsert, getScalarValue(VPInst->getOperand(1), VIdx), VectorIdx);
     }
     VPWidenMap[VPInst] = WideInsert;
+    // Remark: instruction was serialized due to non-const index
+    OptRptStats.SerializedInstRemarks.emplace_back(15564, "");
     return;
   }
 

@@ -49,12 +49,12 @@ public:
              PredicatedScalarEvolution &PSE, LoopInfo *LI, DominatorTree *DT,
              TargetLibraryInfo *TLI, unsigned VecWidth, unsigned UnrollFactor,
              VPOVectorizationLegality *LVL, VPlanVLSAnalysis *VLSA,
-             const VPlanVector *Plan,
+             const VPlanVector *Plan, bool IsOmpSIMD = false,
              FatalErrorHandlerTy FatalErrorHandler = nullptr)
       : OrigLoop(OrigLoop), PSE(PSE), LI(LI), DT(DT), TLI(TLI), Legal(LVL),
         VLSA(VLSA), VPAA(*Plan->getVPSE(), *Plan->getVPVT(), VecWidth),
         Plan(Plan), VF(VecWidth), UF(UnrollFactor), Builder(Context),
-        OrigPreHeader(OrigLoop->getLoopPreheader()),
+        OrigPreHeader(OrigLoop->getLoopPreheader()), IsOmpSIMD(IsOmpSIMD),
         FatalErrorHandler(FatalErrorHandler) {}
 
   ~VPOCodeGen() { assert(VFStack.empty() && "expected empty VF stack"); }
@@ -94,6 +94,7 @@ public:
   Loop *getOrigLoop() const { return OrigLoop; }
   unsigned getVF() const { return VF; }
   unsigned getUF() const { return UF; }
+  bool getIsOmpSIMD() const { return IsOmpSIMD; }
   bool getNeedRemainderLoop() const { return false; }
   Loop *getRemainderLoop() const { return nullptr; }
 
@@ -698,6 +699,9 @@ private:
   DenseMap<AllocaInst *, Value *> ReductionVecInitVal;
 
   SmallDenseMap<const OVLSGroup *, Instruction *> VLSGroupLoadMap;
+
+  // True if #pragma omp simd defined for OrigLoop
+  bool IsOmpSIMD;
 
   FatalErrorHandlerTy FatalErrorHandler;
 };

@@ -19,6 +19,8 @@ define void @test_serialized(i32* nocapture %arr) local_unnamed_addr {
 ; LLVM-NEXT:      remark #15482: vectorized math library calls: 0
 ; LLVM-NEXT:      remark #15484: vector function calls: 0
 ; LLVM-NEXT:      remark #15485: serialized function calls: 2
+; LLVM-NEXT:      remark #15558: Call to function 'serial_call' was serialized due to no suitable vector variants were found.
+; LLVM-NEXT:      remark #15558: Call to function 'serial_call' was serialized due to no suitable vector variants were found.
 ; LLVM-NEXT:      remark #15488: --- end vector loop cost summary ---
 ; LLVM:       LOOP END
 ; LLVM-NEXT:  =================================================================
@@ -166,6 +168,8 @@ define void @test_nonvls_mem(i64* %ptr, i64 *%ptr2) #1 {
 ; LLVM-NEXT:      remark #15459: masked indexed (or scatter) stores: 1
 ; LLVM-NEXT:      remark #15462: unmasked indexed (or gather) loads: 1
 ; LLVM-NEXT:      remark #15463: unmasked indexed (or scatter) stores: 1
+; LLVM-NEXT:      remark #15567: Gathers are generated due to non-unit stride index of the corresponding loads.
+; LLVM-NEXT:      remark #15568: Scatters are generated due to non-unit stride index of the corresponding stores.
 ; LLVM:           remark #15474: --- end vector loop memory reference summary ---
 ; LLVM-NEXT:  LOOP END
 ; LLVM-NEXT:  =================================================================
@@ -208,6 +212,8 @@ define void @test_nonvls_mem(i64* %ptr, i64 *%ptr2) #1 {
 ; HIR-NEXT:      remark #15459: masked indexed (or scatter) stores: 1
 ; HIR-NEXT:      remark #15462: unmasked indexed (or gather) loads: 1
 ; HIR-NEXT:      remark #15463: unmasked indexed (or scatter) stores: 1
+; HIR-NEXT:      remark #15567: Gathers are generated due to non-unit stride index of the corresponding loads.
+; HIR-NEXT:      remark #15568: Scatters are generated due to non-unit stride index of the corresponding stores.
 ; HIR:           remark #15474: --- end vector loop memory reference summary ---
 ; HIR-NEXT:  LOOP END
 ; HIR-NEXT:  =================================================================
@@ -266,6 +272,8 @@ define void @test_vls_mem(i64 *%ptr, i64 *%ptr2, i64 *%ptr3, i64 *%ptr4) #1 {
 ; Gaps aren't supported by VLS yet.
 ; LLVM-NEXT:      remark #15462: unmasked indexed (or gather) loads: 2
 ; LLVM-NEXT:      remark #15463: unmasked indexed (or scatter) stores: 2
+; LLVM-NEXT:      remark #15567: Gathers are generated due to non-unit stride index of the corresponding loads.
+; LLVM-NEXT:      remark #15568: Scatters are generated due to non-unit stride index of the corresponding stores.
 ; LLVM-NEXT:      remark #15554: Unmasked VLS-optimized loads (each part of the group counted separately): 2
 ; LLVM-NEXT:      remark #15555: Masked VLS-optimized loads (each part of the group counted separately): 2
 ; LLVM-NEXT:      remark #15556: Unmasked VLS-optimized stores (each part of the group counted separately): 2
@@ -320,6 +328,8 @@ define void @test_vls_mem(i64 *%ptr, i64 *%ptr2, i64 *%ptr3, i64 *%ptr4) #1 {
 ; HIR-NEXT:      remark #15459: masked indexed (or scatter) stores: 0
 ; HIR-NEXT:      remark #15462: unmasked indexed (or gather) loads: 2
 ; HIR-NEXT:      remark #15463: unmasked indexed (or scatter) stores: 2
+; HIR-NEXT:      remark #15567: Gathers are generated due to non-unit stride index of the corresponding loads.
+; HIR-NEXT:      remark #15568: Scatters are generated due to non-unit stride index of the corresponding stores.
 ; HIR-NEXT:      remark #15554: Unmasked VLS-optimized loads (each part of the group counted separately): 2
 ; HIR-NEXT:      remark #15555: Masked VLS-optimized loads (each part of the group counted separately): 2
 ; HIR-NEXT:      remark #15556: Unmasked VLS-optimized stores (each part of the group counted separately): 2
