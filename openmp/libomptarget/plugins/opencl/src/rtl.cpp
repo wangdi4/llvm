@@ -43,6 +43,9 @@
 #include "omptarget-tools.h"
 #include "rtl-trace.h"
 
+#define TARGET_NAME OPENCL
+#define DEBUG_PREFIX "Target " GETNAME(TARGET_NAME) " RTL"
+
 int DebugLevel = 0;
 
 #if INTEL_CUSTOMIZATION

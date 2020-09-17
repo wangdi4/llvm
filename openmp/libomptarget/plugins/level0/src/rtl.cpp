@@ -41,6 +41,9 @@
 #include "omptarget-tools.h"
 #include "rtl-trace.h"
 
+#define TARGET_NAME LEVEL0
+#define DEBUG_PREFIX "Target " GETNAME(TARGET_NAME) " RTL"
+
 /// Host runtime routines being used
 extern "C" {
 #ifdef _WIN32
