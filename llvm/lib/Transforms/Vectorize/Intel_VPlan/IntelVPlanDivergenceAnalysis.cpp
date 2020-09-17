@@ -471,14 +471,15 @@ void VPlanDivergenceAnalysis::pushPHINodes(const VPBasicBlock &Block,
 }
 
 void VPlanDivergenceAnalysis::pushUsers(const VPValue &V) {
+  // Add all user-instructions in the VPlan to the worklist, including those in
+  // the loop-preheader. This is because, sometimes, we can have important
+  // instructions in the loop-preheader and computing/updating their shapes is
+  // important for accuracy of DA-results.
   for (const auto *User : V.users()) {
     const auto *UserInst = dyn_cast<const VPInstruction>(User);
     if (!UserInst)
       continue;
 
-    // only compute divergent/shapes inside loop
-    if (!inRegion(*UserInst))
-      continue;
     pushToWorklist(*UserInst);
   }
 }
