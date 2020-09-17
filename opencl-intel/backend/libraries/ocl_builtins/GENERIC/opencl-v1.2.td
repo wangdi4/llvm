@@ -501,13 +501,6 @@ def uselect     : OclBuiltin<"select",    (outs gentype:$ret), (ins gentype:$a, 
 
 // VectInfo for OclVecClone
 let KernelCallOnce = 0 in {
-  let Types = [v1f32, v1f64] in {
-    foreach bi = ["islessgreater", "isfinite", "isinf", "isnan",
-                  "isnormal", "isordered", "isunordered", "signbit"] in {
-      def intel_#bi : VectInfo<[], !cast<OclBuiltin>(bi), !cast<OclBuiltin>(bi), !cast<OclBuiltin>(bi), !cast<OclBuiltin>(bi), !cast<OclBuiltin>(bi), !cast<OclBuiltin>(bi)>;
-    }
-  }
-
   let Types = [v1i8, v1i16, v1i32, v1i64] in {
     def intel_any : VectInfo<[], any, any, any, any, any, any>;
     def intel_all : VectInfo<[], all, all, all, all, all, all>;
