@@ -586,8 +586,14 @@ bool HIROptPredicate::processPUEdge(
     return false;
   }
 
-  for (auto &Edge : DDG.outgoing(SrcRef)) {
-    if (Edge->isOutput()) {
+  for (auto &SrcEdge : DDG.outgoing(SrcRef)) {
+    if (SrcEdge->isOutput()) {
+      return false;
+    }
+  }
+
+  for (auto &SrcEdge : DDG.incoming(SrcRef)) {
+    if (SrcEdge->isOutput()) {
       return false;
     }
   }
