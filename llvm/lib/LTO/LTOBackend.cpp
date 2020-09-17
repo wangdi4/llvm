@@ -365,38 +365,18 @@ bool opt(const Config &Conf, TargetMachine *TM, unsigned Task, Module &Mod,
   return !Conf.PostOptModuleHook || Conf.PostOptModuleHook(Task, Mod);
 }
 
-<<<<<<< HEAD
-static cl::opt<bool> EmbedBitcode(
-    "lto-embed-bitcode", cl::init(false),
-    cl::desc("Embed LLVM bitcode in object files produced by LTO"));
-
-static void EmitBitcodeSection(Module &M) {
-  if (!EmbedBitcode)
-    return;
-#if !INTEL_PRODUCT_RELEASE
-  SmallVector<char, 0> Buffer;
-  raw_svector_ostream OS(Buffer);
-  WriteBitcodeToFile(M, OS);
-
-  std::unique_ptr<MemoryBuffer> Buf(
-      new SmallVectorMemoryBuffer(std::move(Buffer)));
-  llvm::EmbedBitcodeInModule(M, llvm::MemoryBufferRef(), /*EmbedBitcode*/ true,
-                             /*EmbedMarker*/ false, /*CmdArgs*/ nullptr);
-#endif // !INTEL_PRODUCT_RELEASE
-}
-
-=======
->>>>>>> 9a2bab5ea2f4aacbb267e634ff1189fa64143b76
 void codegen(const Config &Conf, TargetMachine *TM, AddStreamFn AddStream,
              unsigned Task, Module &Mod,
              const ModuleSummaryIndex &CombinedIndex) {
   if (Conf.PreCodeGenModuleHook && !Conf.PreCodeGenModuleHook(Task, Mod))
     return;
 
-  if (EmbedBitcode == LTOBitcodeEmbedding::EmbedOptimized)
+#if !INTEL_PRODUCT_RELEASE
+  if (::EmbedBitcode == LTOBitcodeEmbedding::EmbedOptimized) // INTEL
     llvm::EmbedBitcodeInModule(Mod, llvm::MemoryBufferRef(),
                                /*EmbedBitcode*/ true,
                                /*EmbedMarker*/ false, /*CmdArgs*/ nullptr);
+#endif // !INTEL_PRODUCT_RELEASE
 
   std::unique_ptr<ToolOutputFile> DwoOut;
   SmallString<1024> DwoFile(Conf.SplitDwarfOutput);
