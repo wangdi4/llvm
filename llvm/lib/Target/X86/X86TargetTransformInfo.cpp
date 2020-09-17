@@ -336,6 +336,41 @@ int X86TTIImpl::getArithmeticInstrCost(unsigned Opcode, Type *Ty,
                                     TargetTransformInfo::OP_None);
   }
 
+#if INTEL_CUSTOMIZATION
+  // On X86, div and rem on none-power-of-2 constants need more register
+  // spilling and shifts. Currently the cost of div/rem on none-power-of-2
+  // constants is default 1, which is even smaller than power-of-2 ones.
+  // Creating a CostTable here for div/rem on none-power-of-2 can make
+  // their costs more comparible. The values are tuned by compensating
+  // power-of-2 costs which is {4,1,6,1}. Since different constant leads
+  // to different optimizations, the costs set here are conservative.
+  static const CostTblEntry AVX2DivRemNormalConstCostTable[] = {
+    { ISD::SDIV, MVT::i64,     6 },
+    { ISD::SDIV, MVT::i32,     6 },
+
+    { ISD::UDIV, MVT::i64,     2 },
+    { ISD::UDIV, MVT::i32,     2 },
+
+    { ISD::SREM, MVT::i64,     8 },
+    { ISD::SREM, MVT::i32,     8 },
+
+    { ISD::UREM, MVT::i64,     6 },
+    { ISD::UREM, MVT::i32,     6 },
+  };
+
+  if (ST->hasAVX2() &&
+      (ISD == ISD::SDIV || ISD == ISD::SREM || ISD == ISD::UDIV ||
+       ISD == ISD::UREM) &&
+      (Op2Info == TargetTransformInfo::OK_UniformConstantValue ||
+       Op2Info == TargetTransformInfo::OK_NonUniformConstantValue) &&
+      Opd2PropInfo != TargetTransformInfo::OP_PowerOf2) {
+
+    if (const auto *Entry = CostTableLookup(AVX2DivRemNormalConstCostTable, ISD,
+                                            LT.second))
+      return LT.first * Entry->Cost;
+  }
+#endif // INTEL_CUSTOMIZATION
+
   static const CostTblEntry AVX512BWUniformConstCostTable[] = {
     { ISD::SHL,  MVT::v64i8,   2 }, // psllw + pand.
     { ISD::SRL,  MVT::v64i8,   2 }, // psrlw + pand.
