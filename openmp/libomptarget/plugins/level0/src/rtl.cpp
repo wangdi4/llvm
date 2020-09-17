@@ -41,10 +41,14 @@ extern "C" {
 int __cdecl omp_get_max_teams(void);
 int __cdecl omp_get_thread_limit(void);
 double __cdecl omp_get_wtime(void);
+int __cdecl omp_get_max_threads(void);
+int __cdecl __kmpc_global_thread_num(void *);
 #else
 int omp_get_max_teams(void) __attribute__((weak));
 int omp_get_thread_limit(void) __attribute__((weak));
 double omp_get_wtime(void) __attribute__((weak));
+int omp_get_max_threads(void) __attribute__((weak));
+int __kmpc_global_thread_num(void *) __attribute__((weak));
 #endif
 } // extern "C"
 
@@ -265,13 +269,24 @@ class RTLProfileTy {
   };
   std::thread::id ThreadId;
   std::map<std::string, TimeTy> Data;
+  uint64_t TimestampFreq = 0;
+  uint64_t TimestampMax = 0;
 public:
   static const int64_t MSEC_PER_SEC = 1000;
   static const int64_t USEC_PER_SEC = 1000000;
+  static const int64_t NSEC_PER_SEC = 1000000000;
   static int64_t Multiplier;
 
-  RTLProfileTy() {
+  RTLProfileTy(const ze_device_properties_t &DeviceProperties) {
     ThreadId = std::this_thread::get_id();
+    TimestampFreq = DeviceProperties.timerResolution;
+    auto validBits = DeviceProperties.kernelTimestampValidBits;
+    if (validBits > 0 && validBits < 64)
+      TimestampMax = ~(-1ULL << validBits);
+    else
+      WARNING("Invalid kernel timestamp bit width (%" PRIu32 "). "
+              "Long-running kernels may report incorrect device time.\n",
+              validBits);
   }
 
   void printData(int32_t DeviceId, const char *DeviceName) {
@@ -280,14 +295,20 @@ public:
     fprintf(stderr, "LIBOMPTARGET_PROFILE for OMP DEVICE(%" PRId32 ") %s"
             ", Thread %s\n", DeviceId, DeviceName, o.str().c_str());
     const char *unit = (Multiplier == MSEC_PER_SEC) ? "msec" : "usec";
-    fprintf(stderr, "-- Name: Host Time (%s)\n", unit);
+    fprintf(stderr, "-- Name: Host Time (%s), Device Time (%s)\n", unit, unit);
     double hostTotal = 0.0;
+    double deviceTotal = 0.0;
     for (const auto &d : Data) {
       double hostTime = d.second.HostTime * Multiplier;
-      fprintf(stderr, "-- %s: %.3f\n", d.first.c_str(), hostTime);
+      double deviceTime = (d.first.find("Kernel#") == std::string::npos)
+                              ? hostTime // device time is not available
+                              : d.second.DeviceTime * Multiplier;
+      fprintf(stderr, "-- %s: %.6f, %.6f\n", d.first.c_str(), hostTime,
+              deviceTime);
       hostTotal += hostTime;
+      deviceTotal += deviceTime;
     }
-    fprintf(stderr, "-- Total: %.3f\n", hostTotal);
+    fprintf(stderr, "-- Total: %.6f, %.6f\n", hostTotal, deviceTotal);
   }
 
   void update(const char *Name, double Elapsed) {
@@ -299,6 +320,21 @@ public:
   void update(std::string &Name, double Elapsed) {
     TimeTy &time = Data[Name];
     time.HostTime += Elapsed;
+  }
+
+  void update(std::string &Name, ze_event_handle_t Event) {
+    TimeTy &time = Data[Name];
+    ze_kernel_timestamp_result_t ts;
+    CALL_ZE_EXIT_FAIL(zeEventQueryKernelTimestamp, Event, &ts);
+    double wallTime = 0;
+    if (ts.global.kernelEnd >= ts.global.kernelStart)
+      wallTime = ts.global.kernelEnd - ts.global.kernelStart;
+    else if (TimestampMax > 0)
+      wallTime = TimestampMax - ts.global.kernelStart + ts.global.kernelEnd + 1;
+    else
+      WARNING("Timestamp overflow cannot be handled for this device.\n");
+    time.DeviceTime += wallTime * (double)TimestampFreq / NSEC_PER_SEC;
+    CALL_ZE_EXIT_FAIL(zeEventHostReset, Event);
   }
 };
 int64_t RTLProfileTy::Multiplier;
@@ -527,6 +563,55 @@ struct KernelPropertiesTy {
   bool RequiresIndirectAccess = false;
 };
 
+/// Events for kernel profiling
+struct KernelProfileEventsTy {
+  ze_event_pool_handle_t Pool = nullptr;
+  size_t Size = 0;
+  std::map<int32_t, ze_event_handle_t> Events;  // Per-thread events
+  std::mutex *EventLock = nullptr;
+
+  void init(ze_context_handle_t Context) {
+    Size = omp_get_max_threads();
+    ze_event_pool_desc_t poolDesc = {
+      ZE_STRUCTURE_TYPE_EVENT_POOL_DESC,
+      nullptr,
+      ZE_EVENT_POOL_FLAG_KERNEL_TIMESTAMP,
+      (uint32_t)Size
+    };
+    CALL_ZE_EXIT_FAIL(zeEventPoolCreate, Context, &poolDesc, 0, nullptr, &Pool);
+    EventLock = new std::mutex();
+  }
+
+  void deinit() {
+    for (auto event : Events)
+      CALL_ZE_EXIT_FAIL(zeEventDestroy, event.second);
+    CALL_ZE_EXIT_FAIL(zeEventPoolDestroy, Pool);
+    delete EventLock;
+  }
+
+  ze_event_handle_t getEvent() {
+    int32_t gtid = __kmpc_global_thread_num(nullptr);
+    std::unique_lock<std::mutex> lock(*EventLock);
+    if (Events.count(gtid) == 0) {
+      if (Events.size() == Size) {
+        DP("Cannot create profiling events more than %zu.\n", Size);
+        return nullptr;
+      }
+      ze_event_desc_t eventDesc = {
+        ZE_STRUCTURE_TYPE_EVENT_DESC,
+        nullptr,
+        (uint32_t)Events.size(), // index
+        0,
+        0
+      };
+      ze_event_handle_t event;
+      CALL_ZE_RET_NULL(zeEventCreate, Pool, &eventDesc, &event);
+      Events[gtid] = event;
+    }
+    return Events[gtid];
+  }
+};
+
 /// Device information
 class RTLDeviceInfoTy {
   /// Type of the device version of the offload table.
@@ -548,6 +633,8 @@ public:
   uint32_t NumDevices = 0;
   ze_driver_handle_t Driver = nullptr;
   ze_context_handle_t Context = nullptr;
+  // Events for kernel profiling
+  KernelProfileEventsTy ProfileEvents;
   std::vector<ze_device_properties_t> DeviceProperties;
   std::vector<ze_device_compute_properties_t> ComputeProperties;
   std::vector<ze_device_handle_t> Devices;
@@ -805,7 +892,8 @@ public:
       ThreadLocalHandles.emplace(DeviceId, PrivateHandlesTy());
     }
     if (!ThreadLocalHandles[DeviceId].Profile && Flags.EnableProfile) {
-      ThreadLocalHandles[DeviceId].Profile = new RTLProfileTy();
+      auto &deviceProperties = DeviceProperties[DeviceId];
+      ThreadLocalHandles[DeviceId].Profile = new RTLProfileTy(deviceProperties);
       DataMutexes[DeviceId].lock();
       Profiles[DeviceId].push_back(ThreadLocalHandles[DeviceId].Profile);
       DataMutexes[DeviceId].unlock();
@@ -948,6 +1036,15 @@ public:
     Profile->update(Name, currStamp - TimeStamp);
     Active = false;
   }
+  void updateDeviceTime(ze_event_handle_t Event) {
+    if (!DeviceInfo->Flags.EnableProfile)
+      return;
+    if (!Profile) {
+      WARNING("Profile data are invalid.\n");
+      return;
+    }
+    Profile->update(Name, Event);
+  }
 };
 
 static void addDataTransferLatency() {
@@ -998,6 +1095,8 @@ static void closeRTL() {
       DeviceInfo->unloadOffloadTable(i);
     MEMSTAT_PRINT(i);
   }
+  if (DeviceInfo->Flags.EnableProfile)
+    DeviceInfo->ProfileEvents.deinit();
   CALL_ZE_EXIT_FAIL(zeContextDestroy, DeviceInfo->Context);
   delete[] DeviceInfo->Mutexes;
   delete[] DeviceInfo->DataMutexes;
@@ -1189,7 +1288,7 @@ int32_t __tgt_rtl_number_of_devices() {
                      devices.data());
 
     for (auto device : devices) {
-      ze_device_properties_t properties;
+      ze_device_properties_t properties = {};
       CALL_ZE_RET_ZERO(zeDeviceGetProperties, device, &properties);
       DP("Found a GPU device, Name = %s\n", properties.name);
 
@@ -1226,6 +1325,8 @@ int32_t __tgt_rtl_number_of_devices() {
     MemStats.resize(DeviceInfo->NumDevices);
 #endif // INTEL_INTERNAL_BUILD
   DeviceInfo->Context = createContext(DeviceInfo->Driver);
+  if (DeviceInfo->Flags.EnableProfile)
+    DeviceInfo->ProfileEvents.init(DeviceInfo->Context);
 
 #ifndef _WIN32
   if (std::atexit(closeRTL)) {
@@ -2155,8 +2256,11 @@ static int32_t runTargetTeamRegion(
     DP("Asynchronous execution started for kernel " DPxMOD "\n",
        DPxPTR(TgtEntryPtr));
   } else {
+    ze_event_handle_t event = nullptr;
+    if (DeviceInfo->Flags.EnableProfile)
+      event = DeviceInfo->ProfileEvents.getEvent();
     CALL_ZE_RET_FAIL(zeCommandListAppendLaunchKernel, cmdList, kernel,
-                     &groupCounts, nullptr, 0, nullptr);
+                     &groupCounts, event, 0, nullptr);
     CALL_ZE_RET_FAIL(zeCommandListAppendBarrier, cmdList, nullptr, 0, nullptr);
 
     CALL_ZE_RET_FAIL(zeCommandListClose, cmdList);
@@ -2164,6 +2268,7 @@ static int32_t runTargetTeamRegion(
                      nullptr);
     kernelLock.unlock();
     CALL_ZE_RET_FAIL(zeCommandQueueSynchronize, cmdQueue, UINT64_MAX);
+    tmKernel.updateDeviceTime(event);
     // Make sure the command list is ready to accept next command
     CALL_ZE_RET_FAIL(zeCommandListReset, cmdList);
   }
