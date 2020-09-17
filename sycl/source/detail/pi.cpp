@@ -14,6 +14,7 @@
 #include "context_impl.hpp"
 #include <CL/sycl/context.hpp>
 #include <CL/sycl/detail/common.hpp>
+#include <CL/sycl/detail/device_filter.hpp>
 #include <CL/sycl/detail/pi.hpp>
 #include <detail/config.hpp>
 #include <detail/plugin.hpp>
@@ -214,13 +215,41 @@ bool findPlugins(vector_class<std::pair<std::string, backend>> &PluginNames) {
   // search is done for libpi_opencl.so/pi_opencl.dll file in LD_LIBRARY_PATH
   // env only.
   //
-  PluginNames.emplace_back(OPENCL_PLUGIN_NAME, backend::opencl);
+  device_filter_list *FilterList = SYCLConfig<SYCL_DEVICE_FILTER>::get();
+  if (!FilterList) {
+    PluginNames.emplace_back(OPENCL_PLUGIN_NAME, backend::opencl);
 
-  PluginNames.emplace_back(LEVEL_ZERO_PLUGIN_NAME, backend::level_zero);
+    PluginNames.emplace_back(LEVEL_ZERO_PLUGIN_NAME, backend::level_zero);
 #if INTEL_CUSTOMIZATION
   // Deliberatly disable CUDA plugin per CMPLRLLVM-16249.
   // PluginNames.emplace_back(CUDA_PLUGIN_NAME, backend::cuda);
 #endif // INTEL_CUSTOMIZATION
+  } else {
+    std::vector<device_filter> Filters = FilterList->get();
+    bool OpenCLFound = false;
+    bool LevelZeroFound = false;
+#if INTEL_CUSTOMIZATION
+    bool CudaFound = false;
+#endif // INTEL_CUSTOMIZATION
+    for (const device_filter &Filter : Filters) {
+      backend Backend = Filter.Backend;
+      if (!OpenCLFound &&
+          (Backend == backend::opencl || Backend == backend::all)) {
+        PluginNames.emplace_back(OPENCL_PLUGIN_NAME, backend::opencl);
+        OpenCLFound = true;
+      } else if (!LevelZeroFound &&
+                 (Backend == backend::level_zero || Backend == backend::all)) {
+        PluginNames.emplace_back(LEVEL_ZERO_PLUGIN_NAME, backend::level_zero);
+        LevelZeroFound = true;
+#if INTEL_CUSTOMIZATION
+      } else if (!CudaFound &&
+                 (Backend == backend::cuda || Backend == backend::all)) {
+        PluginNames.emplace_back(CUDA_PLUGIN_NAME, backend::cuda);
+        CudaFound = true;
+#endif // INTEL_CUSTOMIZATION
+      }
+    }
+  }
   return true;
 }
 
