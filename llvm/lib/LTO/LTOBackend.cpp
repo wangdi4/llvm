@@ -359,6 +359,7 @@ static cl::opt<bool> EmbedBitcode(
 static void EmitBitcodeSection(Module &M) {
   if (!EmbedBitcode)
     return;
+<<<<<<< HEAD
 #if !INTEL_PRODUCT_RELEASE
   SmallVector<char, 0> Buffer;
   raw_svector_ostream OS(Buffer);
@@ -367,6 +368,9 @@ static void EmitBitcodeSection(Module &M) {
   std::unique_ptr<MemoryBuffer> Buf(
       new SmallVectorMemoryBuffer(std::move(Buffer)));
   llvm::EmbedBitcodeInModule(M, Buf->getMemBufferRef(), /*EmbedBitcode*/ true,
+=======
+  llvm::EmbedBitcodeInModule(M, llvm::MemoryBufferRef(), /*EmbedBitcode*/ true,
+>>>>>>> e543708e5ea7af0ec3ef11d6fe932db507472aa1
                              /*EmbedMarker*/ false, /*CmdArgs*/ nullptr);
 #endif // !INTEL_PRODUCT_RELEASE
 }
