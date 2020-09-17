@@ -21,10 +21,19 @@ macro(add_sycl_unittest test_dirname link_variant)
 
   if ("${link_variant}" MATCHES "SHARED")
     set(SYCL_LINK_LIBS ${sycl_so_target})
-    add_unittest(SYCLUnitTests ${test_dirname} ${ARGN})
+    if(INTEL_CUSTOMIZATION)
+        add_unittest(SYCLUnitTests ${test_dirname} CUSTOM_WIN_VER ${ARGN})
+    else(INTEL_CUSTOMIZATION)
+        add_unittest(SYCLUnitTests ${test_dirname} ${ARGN})
+    endif(INTEL_CUSTOMIZATION)
   else()
-    add_unittest(SYCLUnitTests ${test_dirname}
-                $<TARGET_OBJECTS:${sycl_obj_target}> ${ARGN})
+    if(INTEL_CUSTOMIZATION)
+        add_unittest(SYCLUnitTests ${test_dirname}
+                    $<TARGET_OBJECTS:${sycl_obj_target}> CUSTOM_WIN_VER ${ARGN})
+    else(INTEL_CUSTOMIZATION)
+        add_unittest(SYCLUnitTests ${test_dirname}
+                    $<TARGET_OBJECTS:${sycl_obj_target}> ${ARGN})
+    endif(INTEL_CUSTOMIZATION)
     target_compile_definitions(${test_dirname} PRIVATE __SYCL_BUILD_SYCL_DLL)
 
     get_target_property(SYCL_LINK_LIBS ${sycl_so_target} LINK_LIBRARIES)
