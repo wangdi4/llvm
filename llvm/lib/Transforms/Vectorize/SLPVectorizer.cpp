@@ -1779,7 +1779,7 @@ private:
     // Save the instruction position before the scheduling code motion.
     // This is used by undoMultiNodeScheduling().
     void saveBeforeSchedInstrPosition(Instruction *I, Instruction *NextI) {
-      InstrPositionBeforeScheduling.push_back({I, NextI});
+      InstrPositionBeforeScheduling.emplace_back(I, NextI);
     }
     // Save the original operands for all entries in the Multi-Node.
     // This is for undoing the changes upon failure.
@@ -3110,7 +3110,6 @@ private:
       State = UNINIT;
       OperandsVec.clear();
     }
-    int getEndLane() const { return size() - 1; }
     void dump() const;
   };
 
@@ -4344,22 +4343,18 @@ void BoUpSLP::buildMaxGroup(OpGroup &Group, unsigned OpI,
   assert(!Group.empty() && "Expected at least one instruction in the group");
   int TotalScore = 0;
   // Try to get the best operands to grow Group.
-  for (int RHSLane = Group.getEndLane() + 1,
-           Lanes = CurrentMultiNode->getNumLanes();
+  for (int RHSLane = Group.size(), Lanes = CurrentMultiNode->getNumLanes();
        RHSLane != Lanes; ++RHSLane) {
-    assert(RHSLane > 0 && "Lane should be the RHS");
     // Get 1) the best candidate for 'RHSLane' that matches best agaisnt LHSOp,
     //     2) whether we should swap frontiers with the CurrRHSOperand.
     OperandData *BestRHSOperand = nullptr;
     OperandData *LHSOp = Group.back();
     OpVec BestOps;
-    int LaneScore = -1;
     // We are looking for a node of a specific type according to the operand
     // history in VMode.
-    LaneScore = getBestOperand(BestOps, LHSOp, RHSLane, OpI, Group.getOpVec(),
-                               Group.getMode());
+    int LaneScore = getBestOperand(BestOps, LHSOp, RHSLane, OpI,
+                                   Group.getOpVec(), Group.getMode());
     TotalScore += LaneScore;
-
     if (BestOps.empty()) {
       // No solution. Mark OpI as failed and return.
       Group.setMode(VM_FAILED);
@@ -4419,7 +4414,6 @@ int BoUpSLP::getMNScore() const {
 BoUpSLP::GroupState BoUpSLP::getBestGroupForOpI(int OpI,
                                                 OpGroup &GlobalBestGroup) {
   GlobalBestGroup.clear();
-  assert(GlobalBestGroup.empty() && "Already visited?");
   // We are trying all nodes with maximum scores as seeds of groups.
   OpVec FirstOperandCandidates;
   // For the first lane we need to try all operand nodes.
@@ -4554,23 +4548,19 @@ void BoUpSLP::steerPath(SteerTowardsData &SteerTowards) {
 //    \ /     \ /
 //     +       +
 bool BoUpSLP::findMultiNodeOrder() {
-  // Holds the hint that will help steer SLP through the multi-node.
-  SteerTowardsData SteerTowards;
-  // Get the score before we perform any operand sorting. We will use it later
-  // to check if sorting improved the score.
-  int OrigScore = getMNScore();
+  // Early exit if no more than one operand.
+  unsigned NumMultiNodeOps = CurrentMultiNode->getNumOperands();
+  if (NumMultiNodeOps <= 1)
+    return false;
 
-  SmallVector<int, 8> VisitingOrder;
-  for (int OpI = 0, E = CurrentMultiNode->getNumOperands(); OpI != E; ++OpI)
-    VisitingOrder.push_back(OpI);
-  auto CmpDistFromRoot = [&](int Idx1, int Idx2) -> bool {
+  auto CmpDistFromRoot = [this](int Idx1, int Idx2) -> bool {
     OperandData *Op1 = CurrentMultiNode->getOperand(0, Idx1);
     OperandData *Op2 = CurrentMultiNode->getOperand(0, Idx2);
     TreeEntry *TE1 = getTreeEntry(Op1->getFrontier());
     TreeEntry *TE2 = getTreeEntry(Op2->getFrontier());
     assert(TE1 && TE2 && "Broken Op1, Op2 ?");
     // If TE the TE is the root of the MultiNode, return -1 as the user.
-    auto getDistanceFromRoot = [&](TreeEntry *TE) {
+    auto getDistanceFromRoot = [this](TreeEntry *TE) {
       int Cnt = 0;
       // NOTE: I think that there may be more than 1 use in the Multi-Node, but
       //       it should be good enough to use UserTreeIndices[0] here.
@@ -4582,14 +4572,6 @@ bool BoUpSLP::findMultiNodeOrder() {
     };
     return getDistanceFromRoot(TE1) < getDistanceFromRoot(TE2);
   };
-  // Sort the visiting order such that operands closer to the root of the
-  // Multi-Node are visited first.
-  std::sort(VisitingOrder.begin(), VisitingOrder.end(), CmpDistFromRoot);
-
-  // Early exit if no more than one operand.
-  unsigned NumMultiNodeOps = CurrentMultiNode->getNumOperands();
-  if (NumMultiNodeOps <= 1)
-    return false;
 
   // // Save the original values and frontiers for undo.
   // // NOTE: This is disabled because we are saving the operands on the fly
@@ -4599,24 +4581,28 @@ bool BoUpSLP::findMultiNodeOrder() {
   // The assumption is that the Multi-Node has been canonicalized, therefore
   // the closer we are to the root (the lower the OpI), the more important
   // it is to find the best match.
-  //
   // Multi-Node canonicalization is transformation from:
   //
-  //  A   B
-  //   \ /
-  //    -  C
-  //    | /
-  //    +
-  //
-  //  to:
-  //
-  //  0 A
-  //  |/
-  //  + B
-  //  |/
-  //  + C
-  //  |/
-  //  +
+  //  A   B            0 A
+  //   \ /             |/
+  //    -  C    to:    + B
+  //    | /            |/
+  //    +              + C
+  //                   |/
+  //                   +
+
+  // Holds the hint that will help steer SLP through the multi-node.
+  SteerTowardsData SteerTowards;
+  // Get the score before we perform any operand sorting. We will use it later
+  // to check if sorting improved the score.
+  int OrigScore = getMNScore();
+
+  // Sort the visiting order such that operands closer to the root of the
+  // Multi-Node are visited first.
+  SmallVector<int, 8> VisitingOrder(NumMultiNodeOps);
+  std::iota(VisitingOrder.begin(), VisitingOrder.end(), 0);
+  std::sort(VisitingOrder.begin(), VisitingOrder.end(), CmpDistFromRoot);
+
   for (int OpI : VisitingOrder) {
     // Find the best operands for the whole 'OpI'.
     OpGroup BestGroup;
@@ -4658,8 +4644,7 @@ bool BoUpSLP::findMultiNodeOrder() {
       if (EnablePathSteering)
         if (BestGroup.getScore() > SteerTowards.Score)
           SteerTowards.set(
-              OpI,
-              CurrentMultiNode->getOperand(0, OpI)->getOperandNum(),
+              OpI, CurrentMultiNode->getOperand(0, OpI)->getOperandNum(),
               BestGroup.getScore());
 
       break;
@@ -8631,7 +8616,7 @@ LLVM_DUMP_METHOD void BoUpSLP::OpGroup::dump() const {
     OD->dump();
   }
   dbgs() << Ind << "StartLane: " << 0 << "\n";
-  dbgs() << Ind << "EndLane: " << getEndLane() << "\n";
+  dbgs() << Ind << "EndLane: " << size() - 1 << "\n";
   dbgs() << Ind << "Score: " << Score << "\n";
   dbgs() << Ind << "Mode: ";
   dumpVecMode(Mode, dbgs());
