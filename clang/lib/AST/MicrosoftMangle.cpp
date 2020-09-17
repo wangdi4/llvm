@@ -1378,7 +1378,6 @@ MicrosoftCXXNameMangler::mangleUnscopedTemplateName(const TemplateDecl *TD) {
   mangleUnqualifiedName(TD);
 }
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 // Fix for CQ#371742: C++ Lambda debug info class is created with empty name
 void MicrosoftCXXNameMangler::mangleUnscopedLambdaName(const RecordDecl *RD) {
@@ -1388,13 +1387,9 @@ void MicrosoftCXXNameMangler::mangleUnscopedLambdaName(const RecordDecl *RD) {
 }
 #endif //INTEL_CUSTOMIZATION
 
-void MicrosoftCXXNameMangler::mangleIntegerLiteral(const llvm::APSInt &Value,
-                                                   bool IsBoolean) {
-=======
 void MicrosoftCXXNameMangler::mangleIntegerLiteral(
     const llvm::APSInt &Value, const NonTypeTemplateParmDecl *PD,
     QualType TemplateArgType) {
->>>>>>> 83286a1a8f059d1664b64341854676a36a85cecd
   // <integer-literal> ::= $0 <number>
   Out << "$";
 
