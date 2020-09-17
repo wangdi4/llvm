@@ -3025,9 +3025,10 @@ private:
   /// \returns the path sign of \p LeafOD.
   bool isNegativePathSignForLeaf(OperandData *LeafOD);
 
-  /// \returns true if it is legal to move the Multi-Node 'Operand' from
-  /// 'CurrFrontierI' down to 'NewFrontierI'.
-  bool isLegalToMoveLeaf(OperandData *FromOD, OperandData *ToOD);
+  /// Given the two operand data of the same Multi-Node \p Op1 and \p Op2
+  /// check whether it is legal to swap operands (aka Multi-Node leaves)
+  /// between their frontier instructions (aka Multi-Node trunk instructions).
+  bool isLegalToMoveLeaf(OperandData *Op1, OperandData *Op2);
 
   /// \returns true if /p V is not a trunk value.
   bool isLeafValue(Value *V);
@@ -4064,32 +4065,38 @@ bool BoUpSLP::isNegativePathSignForLeaf(OperandData *LeafOD) {
   return TrunkSign != IsSubRHS;
 }
 
-// Check if we can move V2Candidate and attach it to the frontier node at
-// Index, which is V2CandidatesImmut[Index].
+// Check if we can swap two leaf operands between their frontiers.
+//  Multi-Node: +------+
+//              | ...  |
+//              |  |   |
+//       Op1 => | Fr--Operand
+//              |  |   |
+//              | ...  |   Q:can swap?
+//              |  |   |
+//       Op2 => | Fr--Operand
+//              |  |   |
+//              | ...  |
+//              |  |   |
+//              | Root |
+//              +------+
+// To maintain semantics this is only allowed if the path from Op1
+// to Root and from Op2 to Root pass through the same number of right
+// operand edges feeding into subtracts.
 // In the simplest case, when we have commutative operations of the same
 // type within the Multi-Node, it is always legal to move.
-//  Multi-Node
-//  +------+
-//  | ...  |
-//  |  |   |
-//  | CurrF--FromOperand <-- FROM HERE
-//  |  |   |
-//  | ...  |
-//  |  |   |
-//  | NewF---ToOperand <-- TO HERE
-//  |  |   |
-//  | ...  |
-//  |  |   |
-//  | Root |
-//  +------+
-//
-// This is only allowed if the path from 'FromOperand' to 'Root' and from
-// 'ToOperand' to 'Root' pass through the same number of right operand edges
-// feeding into subtracts.
-bool BoUpSLP::isLegalToMoveLeaf(OperandData *FromLeafOD,
-                                OperandData *ToLeafOD) {
-  return isNegativePathSignForLeaf(FromLeafOD) ==
-         isNegativePathSignForLeaf(ToLeafOD);
+bool BoUpSLP::isLegalToMoveLeaf(OperandData *Op1, OperandData *Op2) {
+  if (Op1 == Op2) // Not a swap
+    return true;
+  if (isNegativePathSignForLeaf(Op1) != isNegativePathSignForLeaf(Op2))
+    return false;
+
+  auto *Leaf1 = dyn_cast<Instruction>(Op1->getValue());
+  auto *Leaf2 = dyn_cast<Instruction>(Op2->getValue());
+
+  if ((Leaf1 && !DT->dominates(Leaf1, Op2->getFrontier())) ||
+      (Leaf2 && !DT->dominates(Leaf2, Op1->getFrontier())))
+    return false;
+  return true;
 }
 
 // Returns true if V is not a trunk value.
@@ -4163,11 +4170,13 @@ int BoUpSLP::getBestOperand(OpVec &BestOps, OperandData *LHSOp, int RHSLane,
     OperandData *FrontierOperandToSwapWith = nullptr;
 
     if (RHSOperand != OrigRHSOperand &&
-        // Check signs.
         !isLegalToMoveLeaf(RHSOperand, OrigRHSOperand)) {
       // If we can't move the sub-tree to Index, then try to see if we can
       // move it along with its frontier instruction.
       if (EnableSwapFrontiers &&
+          // First check that signs mismatch was the reason of bail out.
+          isNegativePathSignForLeaf(RHSOperand) !=
+              isNegativePathSignForLeaf(OrigRHSOperand) &&
           // This is allowed only if the frontiers are different.
           RHSOperand->getFrontier() != OrigRHSOperand->getFrontier() &&
           // Operand 0 is tricky.
@@ -4179,11 +4188,9 @@ int BoUpSLP::getBestOperand(OpVec &BestOps, OperandData *LHSOp, int RHSLane,
           // If we have different opcodes we need PSLP
           (RHSOperand->getFrontier()->getOpcode() ==
                LHSOp->getFrontier()->getOpcode() ||
-           DoPSLP)) {
+           DoPSLP))
         FrontierOperandToSwapWith = OrigRHSOperand;
-      }
-      // If not, then skip this candidate and look for another.
-      else
+      else // If not, then skip this candidate and look for another.
         continue;
     }
 
