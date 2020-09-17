@@ -185,20 +185,15 @@
 ; CHECK-O23SZ-NEXT: Running pass: CorrelatedValuePropagationPass
 ; CHECK-O23SZ-NEXT: Invalidating analysis: LazyValueAnalysis
 ; CHECK-O23SZ-NEXT: Running pass: DSEPass
-; CHECK-O23SZ-NEXT: Running analysis: PostDominatorTreeAnalysis on foo
+; Running analysis: PostDominatorTreeAnalysis on foo   ;INTEL PostDom has moved, cannot make check work
 ; CHECK-O23SZ-NEXT: Starting llvm::Function pass manager run
 ; CHECK-O23SZ-NEXT: Running pass: LoopSimplifyPass
 ; CHECK-O23SZ-NEXT: Running pass: LCSSAPass
 ; CHECK-O23SZ-NEXT: Finished llvm::Function pass manager run
 ; CHECK-O23SZ-NEXT: Running pass: LICMPass on Loop at depth 1 containing: %loop
 ; CHECK-O-NEXT: Running pass: ADCEPass
-<<<<<<< HEAD
-; Running analysis: PostDominatorTreeAnalysis       ;INTEL PostDom has moved, cannot make check work
-; CHECK-O: Running pass: SimplifyCFGPass            ;INTEL
-=======
 ; CHECK-O1-NEXT: Running analysis: PostDominatorTreeAnalysis
 ; CHECK-O-NEXT: Running pass: SimplifyCFGPass
->>>>>>> fb109c42d91c30c8c7497ef1fd7aff6f2969c6e7
 ; CHECK-O-NEXT: Running pass: InstCombinePass
 ; CHECK-O-NEXT: Finished llvm::Function pass manager run.
 ; CHECK-O-NEXT: Finished CGSCC pass manager run.

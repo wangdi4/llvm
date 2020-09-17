@@ -66,14 +66,10 @@ int f2() {
     // CHECK-NEXT: [[T1:%.*]] = load i32, i32* [[X]]
     // CHECK-NEXT: [[T2:%.*]] = add nsw i32 [[T1]], -1
 
-<<<<<<< HEAD
     // This store is dead.
     // CHECK-NEXT: store i32 [[T2]], i32* [[X]]
 
     // COM: CHECK: store i32 6, i32* [[X]] ;INTEL this line moved up verbatim
-=======
-    // CHECK: store i32 6, i32* [[X]]
->>>>>>> fb109c42d91c30c8c7497ef1fd7aff6f2969c6e7
     x++;
     // ;INTEL  4 lines from here moved up verbatim
     foo();
