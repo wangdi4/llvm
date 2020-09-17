@@ -4043,6 +4043,13 @@ def err_objc_bridged_related_known_method : Error<
 def err_objc_attr_protocol_requires_definition : Error<
   "attribute %0 can only be applied to @protocol definitions, not forward declarations">;
 
+def err_attr_swift_error_no_error_parameter : Error<
+  "%0 attribute can only be applied to a %select{function|method}1 with an "
+  "error parameter">;
+def err_attr_swift_error_return_type : Error<
+  "%0 attribute with '%1' convention can only be applied to a "
+  "%select{function|method}2 returning %select{an integral type|a pointer}3">;
+
 def warn_ignored_objc_externally_retained : Warning<
   "'objc_externally_retained' can only be applied to local variables "
   "%select{of retainable type|with strong ownership}0">,
@@ -11057,6 +11064,7 @@ def err_sycl_kernel_incorrectly_named : Error<
   "kernel %select{name is missing"
   "|needs to have a globally-visible name"
   "|name is invalid. Unscoped enum requires fixed underlying type"
+  "|name cannot be a type in the \"std\" namespace"
   "}0">;
 def err_sycl_kernel_not_function_object
     : Error<"kernel parameter must be a lambda or function object">;
