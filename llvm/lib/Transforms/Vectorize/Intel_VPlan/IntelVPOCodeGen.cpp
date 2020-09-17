@@ -28,6 +28,7 @@
 #include "llvm/IR/Intrinsics.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
+#include "llvm/Transforms/Utils/Cloning.h"
 #include "llvm/Transforms/Utils/IntrinsicUtils.h"
 #include "llvm/Transforms/Utils/LoopUtils.h"
 #include "llvm/Transforms/Utils/ScalarEvolutionExpander.h"
@@ -528,6 +529,62 @@ bool VPOCodeGen::isScalarArgument(StringRef FnName, unsigned Idx) {
     return (Idx == 0);
   }
   return false;
+}
+
+// Clone the given Scalar-loop and connect it to nodes NewLoopPred and
+// NewLoopSucc in the CFG.
+//
+//  NewLoopPred                              NewLoopPred
+//      |                                         |
+//      V                                         V
+//  NewLoopSucc       cloneScalarLoop()      OrigLp.clone
+//      |           ------------------->          |
+//      .                                         V
+//      .                                    MewLoopSucc
+//      .                                         |
+//   OrigLp                                       .
+//                                                .
+//                                                .
+//                                             OrigLp
+//
+//
+Loop *VPOCodeGen::cloneScalarLoop(Loop *OrigLP, BasicBlock *NewLoopPred,
+                                  BasicBlock *NewLoopSucc, const Twine &Name) {
+
+  // Make sure that NewLoopPred and NewLoopSucc are connected.
+  assert(count(successors(NewLoopPred), NewLoopSucc) == 1 &&
+         "Expect NewLoopPred and NewLoopSucc to be connected.");
+
+  // Make sure that the original loop has a unique exit-block.
+  assert(OrigLP->getUniqueExitBlock() &&
+         "The original loop should have a valid unique exit block.");
+
+  // This is a map that holds mapping of values of new-loop that correspond
+  // to the old-loop.
+  ValueToValueMapTy VMap;
+
+  // This is the vector of blocks that would belong to the newly cloned loop.
+  SmallVector<BasicBlock *, 16> ClonedLoopBlocks;
+
+  // Clone the loop.
+  Loop *NewLoop = cloneLoopWithPreheader(
+      NewLoopSucc,
+      NewLoopPred /*Block that you want to dominate the new loop.*/,
+      OrigLP /*The original loop.*/, VMap /*Value2Value Map*/, Name, LI, DT,
+      ClonedLoopBlocks);
+
+  // Adjust the target blocks in the newly cloned loops.
+  remapInstructionsInBlocks(ClonedLoopBlocks, VMap);
+
+  // Connect the NewLoopPred to the new-loop preheader.
+  NewLoopPred->getTerminator()->replaceUsesOfWith(NewLoopSucc,
+                                                  NewLoop->getLoopPreheader());
+
+  // Connect the new loops exit to the provided  NewLoopSucc node.
+  NewLoop->getLoopLatch()->getTerminator()->replaceUsesOfWith(
+      OrigLP->getUniqueExitBlock(), NewLoopSucc);
+
+  return NewLoop;
 }
 
 void VPOCodeGen::addMaskToSVMLCall(Function *OrigF, Value *CallMaskValue,

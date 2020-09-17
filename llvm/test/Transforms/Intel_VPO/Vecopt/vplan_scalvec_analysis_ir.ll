@@ -393,7 +393,7 @@ define dso_local void @svmlFnCall(float* nocapture %a, float* nocapture %b) loca
 ; CHECK-NEXT:     [DA: Div, SVA: (FV )] i64 [[VP_INDVARS_IV:%.*]] = phi  [ i64 [[VP_INDVARS_IV_IND_INIT]], [[BB1]] ],  [ i64 [[VP_INDVARS_IV_NEXT:%.*]], [[BB2]] ] (SVAOpBits 0->FV 1->FV )
 ; CHECK-NEXT:     [DA: Div, SVA: (F  )] float* [[VP_A_GEP:%.*]] = getelementptr inbounds float* [[A0:%.*]] i64 [[VP_INDVARS_IV]] (SVAOpBits 0->F 1->F )
 ; CHECK-NEXT:     [DA: Div, SVA: ( V )] float [[VP_A_LOAD:%.*]] = load float* [[VP_A_GEP]] (SVAOpBits 0->F )
-; CHECK-NEXT:     [DA: Div, SVA: ( V )] float [[VP_CALL:%.*]] = call float [[VP_A_LOAD]] __svml_sinf2 [x 1] (SVAOpBits 0->V 1->F )
+; CHECK-NEXT:     [DA: Div, SVA: ( V )] float [[VP_CALL:%.*]] = call float [[VP_A_LOAD]] __svml_sinf4 [x 1] (SVAOpBits 0->V 1->F )
 ; CHECK-NEXT:     [DA: Div, SVA: (F  )] float* [[VP_B_GEP:%.*]] = getelementptr inbounds float* [[B0:%.*]] i64 [[VP_INDVARS_IV]] (SVAOpBits 0->F 1->F )
 ; CHECK-NEXT:     [DA: Div, SVA: ( V )] store float [[VP_CALL]] float* [[VP_B_GEP]] (SVAOpBits 0->V 1->F )
 ; CHECK-NEXT:     [DA: Div, SVA: (FV )] i64 [[VP_INDVARS_IV_NEXT]] = add i64 [[VP_INDVARS_IV]] i64 [[VP_INDVARS_IV_IND_INIT_STEP]] (SVAOpBits 0->FV 1->FV )

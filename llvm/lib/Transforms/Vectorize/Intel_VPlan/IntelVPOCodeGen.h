@@ -153,6 +153,16 @@ public:
 
   OptReportStatsTracker &getOptReportStatsTracker() { return OptRptStats; }
 
+  /// Clone the given scalar loop \p OrigLP and insert the cloned loop on the
+  /// edge between NewLoopPred and NewLoopSucc. The NewLoopPred and NewLoopSucc
+  /// should be connected directly and that is asserted by the function.
+  //  TODO: This function will most likely not work for multi-exit loops. The
+  //  full support for cloning such loops would have to be tested before this
+  //  function is used for cloning such loops.
+  Loop *cloneScalarLoop(Loop *OrigLP, BasicBlock *NewLoopPred,
+                        BasicBlock *NewLoopSucc,
+                        const Twine &Name = "cloned.loop");
+
 private:
   /// Return true if instruction \p V needs scalar code generated, i.e. is
   /// used in scalar context after vectorization.

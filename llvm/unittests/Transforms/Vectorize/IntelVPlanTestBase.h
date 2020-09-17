@@ -16,12 +16,14 @@
 #define LLVM_UNITTESTS_TRANSFORMS_VECTORIZE_INTELVPLANTESTBASE_H
 
 #include "../lib/Transforms/Vectorize/Intel_VPlan/IntelLoopVectorizationLegality.h"
+#include "../lib/Transforms/Vectorize/Intel_VPlan/IntelVPOCodeGen.h"
 #include "../lib/Transforms/Vectorize/Intel_VPlan/IntelVPlan.h"
 #include "../lib/Transforms/Vectorize/Intel_VPlan/IntelVPlanHCFGBuilder.h"
-#include "llvm/Analysis/LoopInfo.h"
 #include "llvm/Analysis/AssumptionCache.h"
-#include "llvm/AsmParser/Parser.h"
+#include "llvm/Analysis/LoopInfo.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
+#include "llvm/Analysis/TargetTransformInfo.h"
+#include "llvm/AsmParser/Parser.h"
 #include "llvm/IR/Dominators.h"
 #include "llvm/Support/SourceMgr.h"
 #include "gtest/gtest.h"
@@ -39,6 +41,7 @@ protected:
   std::unique_ptr<DominatorTree> DT;
   std::unique_ptr<TargetLibraryInfoImpl> TLIImpl;
   std::unique_ptr<TargetLibraryInfo> TLI;
+  std::unique_ptr<TargetTransformInfo> TTI;
   std::unique_ptr<AssumptionCache> AC;
   std::unique_ptr<DataLayout> DL;
   std::unique_ptr<ScalarEvolution> SE;
@@ -61,6 +64,7 @@ protected:
     LI.reset(new LoopInfo(*DT));
     TLIImpl.reset(new TargetLibraryInfoImpl());
     TLI.reset(new TargetLibraryInfo(*TLIImpl));
+    TTI.reset(new TargetTransformInfo(*DL.get()));
     AC.reset(new AssumptionCache(F));
     auto Loop = LI->getLoopFor(LoopHeader);
     SE.reset(new ScalarEvolution(F, *TLI, *AC, *DT, *LI));
@@ -84,6 +88,16 @@ protected:
     Plan->setVPVT(
         std::make_unique<VPlanValueTrackingLLVM>(VPSE, *DL, &*AC, &*DT));
     return Plan;
+  }
+
+  std::unique_ptr<VPOCodeGen> getVPOCodeGen(BasicBlock *LoopHeader, unsigned VF,
+                                            unsigned UF) {
+    auto Plan = buildHCFG(LoopHeader);
+    auto VPOCG = std::make_unique<VPOCodeGen>(
+        LI->getLoopFor(LoopHeader), *Ctx.get(), *PSE.get(), LI.get(), DT.get(),
+        TLI.get(), TTI.get(), VF, UF, Legal.get(), nullptr /*VLSA*/,
+        Plan.get());
+    return VPOCG;
   }
 };
 } // namespace vpo

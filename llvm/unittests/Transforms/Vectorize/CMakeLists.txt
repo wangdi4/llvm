@@ -12,6 +12,7 @@ add_llvm_unittest(VectorizeTests
   IntelVPlanClonePlanTest.cpp
   IntelVPlanValueTrackingTest.cpp
   IntelVPlanVPSubscriptTest.cpp
+  IntelVPlanCGTest.cpp
 # end INTEL_CUSTOMIZATION
   VPlanDominatorTreeTest.cpp
   VPlanLoopInfoTest.cpp
