@@ -415,6 +415,7 @@ define zeroext i1 @test22(i32 %a, i32 %b)  nounwind  {
   ret i1 %i5
 }
 
+<<<<<<< HEAD
 ; rdar://7362831
 define i32 @test23(i8* %P, i64 %A){
 ; CHECK-LABEL: @test23(
@@ -535,6 +536,8 @@ define i16 @test25_as1(i8 addrspace(1)* %P, i64 %A) {
   ret i16 %G
 }
 
+=======
+>>>>>>> 6b5b6511a52276820d4a2e8529370a67cf0bd746
 define i32 @test26(i32 %x) {
 ; CHECK-LABEL: @test26(
 ; CHECK-NEXT:    [[SHL_NEG:%.*]] = shl i32 -3, [[X:%.*]]
@@ -831,6 +834,7 @@ define i32 @test28commuted(i32 %x, i32 %y, i32 %z) {
   ret i32 %sub
 }
 
+<<<<<<< HEAD
 define i64 @test29(i8* %foo, i64 %i, i64 %j) {
 ; CHECK-LABEL: @test29(
 ; CHECK-NEXT:    [[GEPDIFF:%.*]] = sub i64 [[I:%.*]], [[J:%.*]]
@@ -878,6 +882,8 @@ define i16 @test30_as1(i8 addrspace(1)* %foo, i16 %i, i16 %j) {
   ret i16 %sub
 }
 
+=======
+>>>>>>> 6b5b6511a52276820d4a2e8529370a67cf0bd746
 define <2 x i64> @test31(<2 x i64> %A) {
 ; CHECK-LABEL: @test31(
 ; CHECK-NEXT:    [[SUB:%.*]] = add <2 x i64> [[A:%.*]], <i64 3, i64 4>
