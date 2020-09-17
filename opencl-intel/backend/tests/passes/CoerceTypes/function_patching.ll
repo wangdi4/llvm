@@ -74,7 +74,13 @@ entry:
 ; CHECK-NEXT: store i64 %arg.coerce.low, i64* [[GEP]]
 ; CHECK-NEXT: getelementptr inbounds %struct.TwoWords, %struct.TwoWords* [[ALLOCA]], i32 0, i32 0
 
-; Function Attrs: argmemonly nounwind
+define void @checkAllocaAddrspace(%struct.OneWord addrspace(4)* byval(%struct.OneWord) %arg) #0 {
+; CHECK:  define void @checkAllocaAddrspace(i64 %arg.coerce.high)
+; CHECK-NEXT:  [[ALLOCA:%[a-zA-Z0-9]+]] = alloca %struct.OneWord
+; CHECK-NEXT:  %2 = addrspacecast %struct.OneWord* [[ALLOCA]] to %struct.OneWord addrspace(4)*
+ ret void
+}
+
 declare void @llvm.lifetime.start.p0i8(i64 immarg, i8* nocapture) #2
 
 ; Function Attrs: argmemonly nounwind
