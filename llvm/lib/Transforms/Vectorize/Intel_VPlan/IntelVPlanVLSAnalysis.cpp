@@ -92,6 +92,13 @@ void VPlanVLSAnalysis::collectMemrefs(OVLSMemrefVector &MemrefVector,
       if (Opcode != Instruction::Load && Opcode != Instruction::Store)
         continue;
 
+      // FIXME: VPOCodeGen does not support widening of VLS groups composed of
+      //        types with padding (e.g. <3 x i32> or x86_fp80). See
+      //        CMPLRLLVM-23003 for more details.
+      Type *MrfTy = getLoadStoreType(&VPInst);
+      if (DL.getTypeAllocSize(MrfTy) != DL.getTypeStoreSize(MrfTy))
+        continue;
+
       OVLSMemref *Memref = createVLSMemref(&VPInst, VF);
       if (!Memref)
         continue;
