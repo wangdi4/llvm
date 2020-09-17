@@ -205,8 +205,21 @@ bool VPlanDivergenceAnalysis::isUnitStridePtr(const VPValue *Ptr,
   assert(isa<PointerType>(Ptr->getType()) &&
          "Expect argument of isUnitStridePtr to be of PointerType.");
   // Compute the pointee-size in bytes.
-  unsigned PtrNumBytes =
-      getTypeSizeInBytes(Ptr->getType()->getPointerElementType());
+  Type *PointeeTy = Ptr->getType()->getPointerElementType();
+  unsigned PtrNumBytes = getTypeSizeInBytes(PointeeTy);
+
+  // We can't do unit-stride access optimization if pointee type's allocated
+  // size does not match its store size since it implies implicit padding. Check
+  // https://godbolt.org/z/7e1r1j. For example -
+  // Type         SizeInBits  StoreSizeInBits  AllocSizeInBits
+  // ----         ----------  ---------------  ---------------
+  // <3 x i32>        96           96               128
+  //
+  // TODO: This bailout is too conservative since vectorizer codegen can
+  // generate optimal unit-stride accesses for such types by masking out lanes
+  // that access padding bytes. Check JIRA - CMPLRLLVM-22929.
+  if (Plan->getDataLayout()->getTypeStoreSize(PointeeTy) != PtrNumBytes)
+    return false;
 
   auto VectorShape = getVectorShape(Ptr);
 

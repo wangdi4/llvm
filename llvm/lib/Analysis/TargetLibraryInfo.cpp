@@ -391,6 +391,7 @@ static void initialize(TargetLibraryInfoImpl &TLI, const Triple &T,
     TLI.setUnavailable(LibFunc_asprintf);
     TLI.setUnavailable(LibFunc_backtrace);
     TLI.setUnavailable(LibFunc_backtrace_symbols);
+    TLI.setUnavailable(LibFunc_dunder_rawmemchr);
     TLI.setUnavailable(LibFunc_dup);
     TLI.setUnavailable(LibFunc_dup2);
     TLI.setUnavailable(LibFunc_error);
@@ -797,7 +798,10 @@ static void initialize(TargetLibraryInfoImpl &TLI, const Triple &T,
     TLI.setUnavailable(LibFunc_atexit);
     TLI.setUnavailable(LibFunc_tunder_mb_cur_max_func);
     TLI.setUnavailable(LibFunc_dunder_CxxFrameHandler3);
+    TLI.setUnavailable(LibFunc_dunder_RTDynamicCast);
     TLI.setUnavailable(LibFunc_dunder_std_terminate);
+    TLI.setUnavailable(LibFunc_dunder_std_type_info_compare);
+    TLI.setUnavailable(LibFunc_dunder_std_type_info_name);
     TLI.setUnavailable(LibFunc_CloseHandle);
     TLI.setUnavailable(LibFunc_CreateFileA);
     TLI.setUnavailable(LibFunc_CreateFileW);
@@ -809,6 +813,7 @@ static void initialize(TargetLibraryInfoImpl &TLI, const Triple &T,
     TLI.setUnavailable(LibFunc_FindNextFileA);
     TLI.setUnavailable(LibFunc_FindNextFileW);
     TLI.setUnavailable(LibFunc_FindResourceA);
+    TLI.setUnavailable(LibFunc_FormatMessageA);
     TLI.setUnavailable(LibFunc_FreeResource);
     TLI.setUnavailable(LibFunc_GetCurrentDirectoryA);
     TLI.setUnavailable(LibFunc_GetCurrentDirectoryW);
@@ -828,7 +833,9 @@ static void initialize(TargetLibraryInfoImpl &TLI, const Triple &T,
     TLI.setUnavailable(LibFunc_InitializeCriticalSection);
     TLI.setUnavailable(LibFunc_InitializeCriticalSectionAndSpinCount);
     TLI.setUnavailable(LibFunc_LeaveCriticalSection);
+    TLI.setUnavailable(LibFunc_LoadLibraryA);
     TLI.setUnavailable(LibFunc_LoadResource);
+    TLI.setUnavailable(LibFunc_LocalFree);
     TLI.setUnavailable(LibFunc_LockResource);
     TLI.setUnavailable(LibFunc_MultiByteToWideChar);
     TLI.setUnavailable(LibFunc_QueryPerformanceCounter);
@@ -870,11 +877,13 @@ static void initialize(TargetLibraryInfoImpl &TLI, const Triple &T,
     TLI.setUnavailable(LibFunc_msvc_std_exception_scalar_deleting_dtor);
     TLI.setUnavailable(LibFunc_msvc_std_exception_what);
     TLI.setUnavailable(LibFunc_msvc_std_facet_register);
+    TLI.setUnavailable(LibFunc_msvc_std_ios_base_under_Ios_base_dtor);
     TLI.setUnavailable(LibFunc_msvc_std_ios_base_failure);
     TLI.setUnavailable(LibFunc_msvc_std_ios_base_failure_const_ptr_ctor);
     TLI.setUnavailable(LibFunc_msvc_std_ios_base_failure_scalar_deleting_dtor);
     TLI.setUnavailable(LibFunc_msvc_std_locale_facet_decref);
     TLI.setUnavailable(LibFunc_msvc_std_locale_facet_incref);
+    TLI.setUnavailable(LibFunc_msvc_std_locale_under_Init);
     TLI.setUnavailable(LibFunc_msvc_std_lockit);
     TLI.setUnavailable(LibFunc_msvc_std_lockit_dtor);
     TLI.setUnavailable(LibFunc_msvc_std_locimp_Getgloballocale);
@@ -957,6 +966,8 @@ static void initialize(TargetLibraryInfoImpl &TLI, const Triple &T,
     TLI.setUnavailable(LibFunc_under_getdrive);
     TLI.setUnavailable(LibFunc_under_getpid);
     TLI.setUnavailable(LibFunc_under_gmtime64);
+    TLI.setUnavailable(LibFunc_under_Init_thread_footer);
+    TLI.setUnavailable(LibFunc_under_Init_thread_header);
     TLI.setUnavailable(LibFunc_under_mkdir);
     TLI.setUnavailable(LibFunc_under_purecall);
     TLI.setUnavailable(LibFunc_under_read);
@@ -1833,6 +1844,14 @@ bool TargetLibraryInfoImpl::isValidProtoForLibFunc(const FunctionType &FTy,
     return (NumParams == 1 && FTy.getReturnType()->isVoidTy() &&
             FTy.getParamType(0)->isPointerTy());
 
+  case LibFunc_msvc_std_ios_base_under_Ios_base_dtor:
+    return (NumParams == 1 && FTy.getReturnType()->isVoidTy() &&
+            FTy.getParamType(0)->isPointerTy());
+
+  case LibFunc_msvc_std_locale_under_Init:
+    return (NumParams == 1 && FTy.getReturnType()->isPointerTy() &&
+            FTy.getParamType(0)->isIntegerTy());
+
   case LibFunc_msvc_std_ios_base_failure:
     return (NumParams == 3 && FTy.getReturnType()->isPointerTy() &&
             FTy.getParamType(0)->isPointerTy() &&
@@ -2598,6 +2617,16 @@ case LibFunc_msvc_std_num_put_do_put_ulong:
             FTy.getParamType(1)->isPointerTy() &&
             FTy.getParamType(2)->isPointerTy());
 
+  case LibFunc_FormatMessageA:
+    return (NumParams == 7 && FTy.getReturnType()->isIntegerTy() &&
+            FTy.getParamType(0)->isIntegerTy() &&
+            FTy.getParamType(1)->isPointerTy() &&
+            FTy.getParamType(2)->isIntegerTy() &&
+            FTy.getParamType(3)->isIntegerTy() &&
+            FTy.getParamType(4)->isPointerTy() &&
+            FTy.getParamType(5)->isIntegerTy() &&
+            FTy.getParamType(6)->isPointerTy());
+
   case LibFunc_FreeResource:
     return (NumParams == 1 && FTy.getReturnType()->isIntegerTy() &&
             FTy.getParamType(0)->isPointerTy());
@@ -2928,10 +2957,18 @@ case LibFunc_msvc_std_num_put_do_put_ulong:
     return (NumParams == 1 && FTy.getReturnType()->isVoidTy() &&
             FTy.getParamType(0)->isPointerTy());
 
+  case LibFunc_LoadLibraryA:
+    return (NumParams == 1 && FTy.getReturnType()->isPointerTy() &&
+            FTy.getParamType(0)->isPointerTy());
+
   case LibFunc_LoadResource:
     return (NumParams == 2 && FTy.getReturnType()->isPointerTy() &&
             FTy.getParamType(0)->isPointerTy() &&
             FTy.getParamType(1)->isPointerTy());
+
+  case LibFunc_LocalFree:
+    return (NumParams == 1 && FTy.getReturnType()->isPointerTy() &&
+            FTy.getParamType(0)->isPointerTy());
 
   case LibFunc_LockResource:
     return (NumParams == 1 && FTy.getReturnType()->isPointerTy() &&
@@ -3025,8 +3062,26 @@ case LibFunc_msvc_std_num_put_do_put_ulong:
   case LibFunc_dunder_CxxFrameHandler3:
     return (NumParams == 0 && FTy.getReturnType()->isIntegerTy());
 
+  case LibFunc_dunder_RTDynamicCast:
+    return (NumParams == 5 && FTy.getReturnType()->isPointerTy() &&
+            FTy.getParamType(0)->isPointerTy() &&
+            FTy.getParamType(1)->isIntegerTy() &&
+            FTy.getParamType(2)->isPointerTy() &&
+            FTy.getParamType(3)->isPointerTy() &&
+            FTy.getParamType(4)->isIntegerTy());
+
   case LibFunc_dunder_std_terminate:
     return (NumParams == 0 && FTy.getReturnType()->isVoidTy());
+
+  case LibFunc_dunder_std_type_info_compare:
+    return (NumParams == 2 && FTy.getReturnType()->isIntegerTy() &&
+            FTy.getParamType(0)->isPointerTy() &&
+            FTy.getParamType(1)->isPointerTy());
+
+  case LibFunc_dunder_std_type_info_name:
+    return (NumParams == 2 && FTy.getReturnType()->isPointerTy() &&
+            FTy.getParamType(0)->isPointerTy() &&
+            FTy.getParamType(1)->isPointerTy());
 
   case LibFunc_sysv_signal:
     return (NumParams == 2 && FTy.getReturnType()->isPointerTy() &&
@@ -3129,11 +3184,19 @@ case LibFunc_under_commit:
     return (NumParams == 1 && FTy.getReturnType()->isPointerTy() &&
             FTy.getParamType(0)->isPointerTy());
 
-    case LibFunc_under_lseeki64:
+  case LibFunc_under_lseeki64:
     return (NumParams == 3 && FTy.getReturnType()->isIntegerTy() &&
             FTy.getParamType(0)->isIntegerTy() &&
             FTy.getParamType(1)->isIntegerTy() &&
             FTy.getParamType(2)->isIntegerTy());
+
+  case LibFunc_under_Init_thread_footer:
+    return (NumParams == 1 && FTy.getReturnType()->isVoidTy() &&
+            FTy.getParamType(0)->isPointerTy());
+
+  case LibFunc_under_Init_thread_header:
+    return (NumParams == 1 && FTy.getReturnType()->isVoidTy() &&
+            FTy.getParamType(0)->isPointerTy());
 
   case LibFunc_under_mkdir:
     return (NumParams == 1 && FTy.getReturnType()->isIntegerTy() &&
@@ -4068,6 +4131,11 @@ case LibFunc_under_commit:
   case LibFunc_div:
     return (NumParams == 2 && FTy.getReturnType()->isStructTy() &&
             FTy.getParamType(0)->isIntegerTy() &&
+            FTy.getParamType(1)->isIntegerTy());
+
+  case LibFunc_dunder_rawmemchr:
+    return (NumParams == 2 && FTy.getReturnType()->isPointerTy() &&
+            FTy.getParamType(0)->isPointerTy() &&
             FTy.getParamType(1)->isIntegerTy());
 
   case LibFunc_dup:

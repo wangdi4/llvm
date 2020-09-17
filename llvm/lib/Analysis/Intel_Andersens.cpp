@@ -400,17 +400,19 @@ static bool safePossibleTarget(Value *FP, Value* Target, CallBase *Call) {
     // If signatures of call and possible target are same, makes sure
     // args and formals do match. Treat the target as unsafe if they
     // don't match.
-    if (Call->arg_size() != FTy->getNumParams()) return false;
+    if (Call->arg_size() != CalleeTy->getNumParams()) return false;
+    if (Call->getFunctionType()->getReturnType() != CalleeTy->getReturnType())
+     return false;
 
     // Not sure whether we need to check for some of Function/Parameter
     // attributes to treat target as unsafe. Skipping those checks for
     // now.
     //
     auto *Args = Call->arg_begin();
-    for (unsigned I = 0, E = FTy->getNumParams(); I != E; ++I) {
+    for (unsigned I = 0, E = CalleeTy->getNumParams(); I != E; ++I) {
       // Check types of param and arg
       auto *Arg = Args++;
-      if ((*Arg)->getType() != FTy->getParamType(I))
+      if ((*Arg)->getType() != CalleeTy->getParamType(I))
         return false;
     }
 
@@ -1935,9 +1937,6 @@ void AndersensAAResult::CollectConstraints(Module &M) {
 
 
 void AndersensAAResult::visitInstruction(Instruction &I) {
-#ifdef NDEBUG
-  return;          // This function is just a big assert.
-#endif
   // Most instructions don't have any effect on pointer values.
   switch (I.getOpcode()) {
   case Instruction::Br:
