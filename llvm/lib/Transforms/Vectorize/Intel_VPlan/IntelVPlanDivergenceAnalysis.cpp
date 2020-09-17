@@ -1626,6 +1626,8 @@ void VPlanDivergenceAnalysis::recomputeShapes(
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   if (DumpDA)
     print(dbgs(), RegionLoop);
+  if (DumpPlanDA)
+    print(dbgs());
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 }
 
