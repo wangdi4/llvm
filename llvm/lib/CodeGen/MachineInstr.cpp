@@ -116,11 +116,7 @@ void MachineInstr::addImplicitDefUseOperands(MachineFunction &MF) {
 /// the MCInstrDesc.
 MachineInstr::MachineInstr(MachineFunction &MF, const MCInstrDesc &tid,
                            DebugLoc dl, bool NoImp)
-<<<<<<< HEAD
-    : MCID(&tid), Flags(0), debugLoc(std::move(dl)) { // INTEL
-=======
-    : MCID(&tid), debugLoc(std::move(dl)), DebugInstrNum(0) {
->>>>>>> d3af441dfeb69d4c2a91b427e3d7a57e04c59201
+    : MCID(&tid), Flags(0), debugLoc(std::move(dl)), DebugInstrNum(0) { // INTEL
   assert(debugLoc.hasTrivialDestructor() && "Expected trivial destructor");
 
   // Reserve space for the expected number of operands.
@@ -138,13 +134,8 @@ MachineInstr::MachineInstr(MachineFunction &MF, const MCInstrDesc &tid,
 /// Does not copy the number from debug instruction numbering, to preserve
 /// uniqueness.
 MachineInstr::MachineInstr(MachineFunction &MF, const MachineInstr &MI)
-<<<<<<< HEAD
-    : MCID(&MI.getDesc()), Flags(0), Info(MI.Info), // INTEL
-      debugLoc(MI.getDebugLoc()) { // INTEL
-=======
-    : MCID(&MI.getDesc()), Info(MI.Info), debugLoc(MI.getDebugLoc()),
-      DebugInstrNum(0) {
->>>>>>> d3af441dfeb69d4c2a91b427e3d7a57e04c59201
+    : MCID(&MI.getDesc()), Flags(0), Info(MI.Info),  // INTEL
+      debugLoc(MI.getDebugLoc()), DebugInstrNum(0) { // INTEL
   assert(debugLoc.hasTrivialDestructor() && "Expected trivial destructor");
 
   CapOperands = OperandCapacity::get(MI.getNumOperands());
