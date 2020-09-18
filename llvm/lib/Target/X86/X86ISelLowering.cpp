@@ -39848,7 +39848,8 @@ bool X86TargetLowering::SimplifyDemandedVectorEltsForTargetNode(
     case X86ISD::UNPCKL:
     case X86ISD::UNPCKH:
     case X86ISD::BLENDI:
-      // Saturated Packs.
+      // Integer ops.
+    case X86ISD::AVG:
     case X86ISD::PACKSS:
     case X86ISD::PACKUS:
       // Horizontal Ops.
@@ -46390,8 +46391,7 @@ static SDValue detectAVGPattern(SDValue In, EVT VT, SelectionDAG &DAG,
   unsigned NumElems = VT.getVectorNumElements();
 
   EVT ScalarVT = VT.getVectorElementType();
-  if (!((ScalarVT == MVT::i8 || ScalarVT == MVT::i16) &&
-        NumElems >= 2 && isPowerOf2_32(NumElems)))
+  if (!((ScalarVT == MVT::i8 || ScalarVT == MVT::i16) && NumElems >= 2))
     return SDValue();
 
   // InScalarVT is the intermediate type in AVG pattern and it should be greater
@@ -46442,6 +46442,29 @@ static SDValue detectAVGPattern(SDValue In, EVT VT, SelectionDAG &DAG,
     return DAG.getNode(X86ISD::AVG, DL, Ops[0].getValueType(), Ops);
   };
 
+  auto AVGSplitter = [&](SDValue Op0, SDValue Op1) {
+    // Pad to a power-of-2 vector, split+apply and extract the original vector.
+    unsigned NumElemsPow2 = PowerOf2Ceil(NumElems);
+    EVT Pow2VT = EVT::getVectorVT(*DAG.getContext(), ScalarVT, NumElemsPow2);
+    if (NumElemsPow2 != NumElems) {
+      SmallVector<SDValue, 32> Ops0(NumElemsPow2, DAG.getUNDEF(ScalarVT));
+      SmallVector<SDValue, 32> Ops1(NumElemsPow2, DAG.getUNDEF(ScalarVT));
+      for (unsigned i = 0; i != NumElems; ++i) {
+        SDValue Idx = DAG.getIntPtrConstant(i, DL);
+        Ops0[i] = DAG.getNode(ISD::EXTRACT_VECTOR_ELT, DL, ScalarVT, Op0, Idx);
+        Ops1[i] = DAG.getNode(ISD::EXTRACT_VECTOR_ELT, DL, ScalarVT, Op1, Idx);
+      }
+      Op0 = DAG.getBuildVector(Pow2VT, DL, Ops0);
+      Op1 = DAG.getBuildVector(Pow2VT, DL, Ops1);
+    }
+    SDValue Res =
+        SplitOpsAndApply(DAG, Subtarget, DL, Pow2VT, {Op0, Op1}, AVGBuilder);
+    if (NumElemsPow2 == NumElems)
+      return Res;
+    return DAG.getNode(ISD::EXTRACT_SUBVECTOR, DL, VT, Res,
+                       DAG.getIntPtrConstant(0, DL));
+  };
+
   // Take care of the case when one of the operands is a constant vector whose
   // element is in the range [1, 256].
   if (IsConstVectorInRange(Operands[1], 1, ScalarVT == MVT::i8 ? 256 : 65536) &&
@@ -46452,9 +46475,7 @@ static SDValue detectAVGPattern(SDValue In, EVT VT, SelectionDAG &DAG,
     SDValue VecOnes = DAG.getConstant(1, DL, InVT);
     Operands[1] = DAG.getNode(ISD::SUB, DL, InVT, Operands[1], VecOnes);
     Operands[1] = DAG.getNode(ISD::TRUNCATE, DL, VT, Operands[1]);
-    return SplitOpsAndApply(DAG, Subtarget, DL, VT,
-                            { Operands[0].getOperand(0), Operands[1] },
-                            AVGBuilder);
+    return AVGSplitter(Operands[0].getOperand(0), Operands[1]);
   }
 
   // Matches 'add like' patterns: add(Op0,Op1) + zext(or(Op0,Op1)).
@@ -46501,8 +46522,7 @@ static SDValue detectAVGPattern(SDValue In, EVT VT, SelectionDAG &DAG,
       }
 
     // The pattern is detected, emit X86ISD::AVG instruction(s).
-    return SplitOpsAndApply(DAG, Subtarget, DL, VT, {Operands[0], Operands[1]},
-                            AVGBuilder);
+    return AVGSplitter(Operands[0], Operands[1]);
   }
 
   return SDValue();
