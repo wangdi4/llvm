@@ -234,8 +234,6 @@ private:
         };
         cpq_operation( const value_type& value, operation_type t )
             : type(t), elem(const_cast<value_type*>(&value)) {}
-
-        cpq_operation( operation_type t ) : type(t) {}
     }; // class cpq_operation
 
     class functor {
