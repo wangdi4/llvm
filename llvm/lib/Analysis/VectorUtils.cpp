@@ -887,7 +887,7 @@ Function *llvm::getOrInsertVectorFunction(Function *OrigF, unsigned VL,
   }
 
   if (VecVariant) {
-    std::string VFnName = VecVariant->getName();
+    std::string VFnName = *VecVariant->getName();
     Function *VectorF = M->getFunction(VFnName);
     if (!VectorF) {
       FunctionType *FTy = FunctionType::get(VecRetTy, ArgTys, false);
