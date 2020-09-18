@@ -564,14 +564,8 @@ public:
     // Intel Graphics compilers that do not support that option
     // silently ignore it.
     if (DeviceType == CL_DEVICE_TYPE_GPU) {
-#ifndef _WIN32
       if (!(env = readEnvVar("LIBOMPTARGET_OPENCL_TARGET_GLOBALS")) ||
           (env[0] != 'F' && env[0] != 'f' && env[0] != '0'))
-#else // _WIN32
-      // Temporary workaround for CMPLRLLVM-22182.
-      if (env = readEnvVar("LIBOMPTARGET_OPENCL_TARGET_GLOBALS"))
-        if (env[0] == 'T' || env[0] == 't' || env[0] == '1')
-#endif // _WIN32
         InternalLinkingOptions += " -cl-take-global-address ";
       if (!(env = readEnvVar("LIBOMPTARGET_OPENCL_MATCH_SINCOSPI")) ||
           (env[0] != 'F' && env[0] != 'f' && env[0] != '0'))
