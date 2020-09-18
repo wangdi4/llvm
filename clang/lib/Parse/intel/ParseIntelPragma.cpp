@@ -453,7 +453,7 @@ void PragmaBlockLoopHandler::HandlePragma(Preprocessor &PP,
 }
 
 void Parser::initializeIntelPragmaHandlers() {
-  if (getLangOpts().IntelCompat) {
+  if (getLangOpts().isIntelCompat(LangOptions::PragmaInline)) {
     // #pragma inline
     InlineHandler.reset(new PragmaInlineHandler("inline"));
     PP.AddPragmaHandler(InlineHandler.get());
@@ -476,7 +476,7 @@ void Parser::initializeIntelPragmaHandlers() {
 
 void Parser::resetIntelPragmaHandlers() {
   // Remove the pragma handlers we installed.
-  if (getLangOpts().IntelCompat) {
+  if (getLangOpts().isIntelCompat(LangOptions::PragmaInline)) {
     // #pragma inline
     PP.RemovePragmaHandler(InlineHandler.get());
     InlineHandler.reset();

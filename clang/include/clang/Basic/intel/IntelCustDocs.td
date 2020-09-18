@@ -480,6 +480,146 @@ Support GCC __builtin_va_arg_pack and __builtin_va_arg_pack_len builtins.
   }];
 }
 
+def PragmaInlineDocs : Documentation {
+  let Category = DocCatIntelLoops;
+  let Option = "IntelCompat";
+  let BugTracker= "CMPLRLLVM-22959";
+  let RegressionTest = "";
+  let Owner = "zahiraam";
+  let Content = [{
+The ``inline`` pragmas and its options are pragmas used at call point. It gives
+a hint to the compiler that called function is to be inlined, no inlined and
+sometimes forced inline. Each pragma can take the option ``recursive`` to
+indicate that the pragma holds for each callee of the called function.
+
+Syntax:
+
+.. code-block:: text
+
+  #pragma inline [recursive]
+  #pragma forceinline [recursive]
+  #pragma noinline
+
+Example:
+
+.. code-block:: c++
+
+  void foo() { }
+
+  void bar1() {
+    foo();
+  }
+
+  void bar2() {
+  #pragma inline
+    foo();
+  }
+
+  void bar3() {
+  #pragma noinline
+    foo();
+  }
+
+  void bar4() {
+  #pragma forceinline
+    foo();
+  }
+
+  void bar5() {
+  #pragma inline recursive
+    foo();
+  }
+
+  void bar6() {
+  #pragma forceinline recursive
+    foo();
+  }
+
+AST:
+
+.. code-block:: console
+
+  FunctionDecl 0x1209c1f8 <line:7:1, line:10:1> line:7:6 bar2 'void ()'
+   -CompoundStmt 0x1209c388 <col:13, line:10:1>
+     -AttributedStmt 0x1209c370 <<invalid sloc>, line:9:7>
+       -IntelInlineAttr 0x1209c348 <line:8:9> Implicit inline NotRecursive
+       -CallExpr 0x1209c328 <line:9:3, col:7> 'void'
+
+  FunctionDecl 0x1209c3c0 <line:12:1, line:15:1> line:12:6 bar3 'void ()'
+   -CompoundStmt 0x1209c550 <col:13, line:15:1>
+     -AttributedStmt 0x1209c538 <<invalid sloc>, line:14:7>
+       -IntelInlineAttr 0x1209c510 <line:13:9> Implicit noinline NotRecursive
+       -CallExpr 0x1209c4f0 <line:14:3, col:7> 'void'
+
+  FunctionDecl 0x1209c588 <line:17:1, line:20:1> line:17:6 bar4 'void ()'
+   -CompoundStmt 0x1209c718 <col:13, line:20:1>
+     -AttributedStmt 0x1209c700 <<invalid sloc>, line:19:7>
+       -IntelInlineAttr 0x1209c6d8 <line:18:9> Implicit forceinline NotRecursive
+       -CallExpr 0x1209c6b8 <line:19:3, col:7> 'void'
+
+  FunctionDecl 0x1209c750 <line:22:1, line:25:1> line:22:6 bar5 'void ()'
+   -CompoundStmt 0x1209c8f0 <col:13, line:25:1>
+     -AttributedStmt 0x1209c8d8 <<invalid sloc>, line:24:7>
+       -IntelInlineAttr 0x1209c8b0 <line:23:9, col:16> Implicit inline Recursive
+       -CallExpr 0x1209c890 <line:24:3, col:7> 'void'
+
+  FunctionDecl 0x1209c928 <line:27:1, line:30:1> line:27:6 bar6 'void ()'
+   -CompoundStmt 0x1209cac8 <col:13, line:30:1>
+     -AttributedStmt 0x1209cab0 <<invalid sloc>, line:29:7>
+       -IntelInlineAttr 0x1209ca88 <line:28:9, col:21> Implicit forceinline Recursive
+       -CallExpr 0x1209ca68 <line:29:3, col:7> 'void'
+
+IR:
+
+.. code-block:: console
+
+  $ clang -cc1 -disable-llvm-passes -fintel-compatibility -emit-llvm inline.cpp -O2 -o inline.ll
+
+.. code-block:: llvm
+
+  define void @_Z4bar2v() {
+  entry:
+    call void @_Z3foov() #1
+    ret void
+  }
+
+  define void @_Z4bar3v() {
+  entry:
+    call void @_Z3foov() #2
+    ret void
+  }
+
+  define void @_Z4bar4v() {
+  entry:
+    call void @_Z3foov() #3
+    ret void
+  }
+
+  define void @_Z4bar5v() {
+  entry:
+    call void @_Z3foov() #4
+    ret void
+  }
+
+  define void @_Z4bar6v() {
+  entry:
+    call void @_Z3foov() #5
+    ret void
+  }
+
+  attributes #1 = { inlinehint }
+  attributes #2 = { noinline }
+  attributes #3 = { alwaysinline }
+  attributes #4 = { "inline-hint-recursive" }
+  attributes #5 = { "always-inline-recursive" }
+  }];
+  let UserContent = [{
+Pragma inline gives a hint to the compiler that the called function and its
+callees are to be inlined, not inlined, forced inlined according to its keyword
+argument 'recursive'.
+  }];
+}
+
 def PragmaNoVectorDocs : Documentation {
   let Category = DocCatIntelLoops;
   let Option = "IntelCompat";
