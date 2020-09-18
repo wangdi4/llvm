@@ -285,13 +285,9 @@ let KernelCallOnce = 0 in {
     foreach bi = ["acosh", "acospi", "asin", "asinh", "asinpi", "atan", "atan2", "atanh", "atanpi",
                   "atan2pi", "cbrt", "ceil", "copysign", "cos", "cosh", "cospi", "erfc", "erf", "exp", "exp2",
                   "exp10", "expm1", "fabs", "fdim", "floor", "fma", "fmax", "fmax_common", "fmin", "fmin_common",
-                  "fmod", "fract_pas", "fract_las", "fract_gas", "fract_gen", "fract_pas2", "frexp_pas",
-                  "frexp_las", "frexp_gas", "frexp_gen", "hypot", "ilogb", "ldexp", "lgamma", "lgamma_r_pas",
-                  "lgamma_r_las", "lgamma_r_gas", "lgamma_r_gen", "log", "log2", "log10", "log1p", "logb",
-                  "mad", "maxmag", "minmag", "modf_pas", "modf_las", "modf_gas", "modf_gen", "modf_pas2", "nan",
-                  "nextafter", "pow", "pown", "powr", "remainder", "remquo_pas", "remquo_las", "remquo_gas",
-                  "remquo_gen", "rint", "rootn", "round", "rsqrt", "sin", "sincos_pas", "sincos_las", "sincos_gas",
-                  "sincos_gen", "sincos_pas2", "sinh", "sinpi", "sqrt", "tan", "tanh", "tanpi", "tgamma", "trunc"] in {
+                  "fmod", "hypot", "ilogb", "ldexp", "lgamma", "log", "log2", "log10", "log1p", "logb",
+                  "mad", "maxmag", "minmag", "nan", "nextafter", "pow", "pown", "powr", "remainder", "rint",
+                  "rootn", "round", "rsqrt", "sin", "sinh", "sinpi", "sqrt", "tan", "tanh", "tanpi", "tgamma", "trunc"] in {
       def intel_#bi : VectInfo<[], !cast<OclBuiltin>(bi), !cast<OclBuiltin>(bi), !cast<OclBuiltin>(bi), !cast<OclBuiltin>(bi)>;
     }
   }
