@@ -388,6 +388,12 @@ void Driver::addIntelOMPDeviceLibs(const ToolChain &TC, Driver::InputList &Input
       return;
     }
   }
+  // Let the user know to use -fopenmp-device-lib instead
+  if (Arg *OldOpt = Args.getLastArg(options::OPT_device_math_lib_EQ,
+                                    options::OPT_no_device_math_lib_EQ))
+    Diag(clang::diag::warn_drv_deprecated_arg)
+        << OldOpt->getAsString(Args) << "-f[no-]openmp-device-lib";
+
   // Add the math device libs if requested by the user or enabled by default.
   // This needs to be done on the linking phase.
   Arg *FinalPhaseArg;
@@ -398,15 +404,27 @@ void Driver::addIntelOMPDeviceLibs(const ToolChain &TC, Driver::InputList &Input
 
   enum {
     LinkFP32 = 0x1,
-    LinkFP64 = 0x2
+    LinkFP64 = 0x2,
+    LinkLibc = 0x4
   };
   auto UpdateFlag =
-      [](unsigned Flag, StringRef Val, bool Reset) {
+      [](unsigned Flag, StringRef Val, bool Reset, bool OldOpt=false) {
         unsigned Bit = 0;
-        if (Val == "fp32")
-          Bit = LinkFP32;
-        else if (Val == "fp64")
-          Bit = LinkFP64;
+        if (OldOpt) {
+          if (Val == "fp32")
+            Bit = LinkFP32;
+          else if (Val == "fp64")
+            Bit = LinkFP64;
+        } else {
+          if (Val == "libm-fp32")
+            Bit = LinkFP32;
+          else if (Val == "libm-fp64")
+            Bit = LinkFP64;
+          else if (Val == "libc")
+            Bit = LinkLibc;
+          else if (Val == "all")
+            Bit = LinkFP32 | LinkFP64 | LinkLibc;
+        }
 
         if (Reset)
           return (Flag & ~Bit);
@@ -419,19 +437,34 @@ void Driver::addIntelOMPDeviceLibs(const ToolChain &TC, Driver::InputList &Input
   // cleaned up.
   unsigned LinkForOMP = LinkFP32 | LinkFP64;
 
+  // TODO - Clean out -device-math-lib usage when it is removed.  For now
+  // it is deprecated.  Also, we do nothing special for when both options
+  // (-fopenmp-device-lib and -device-math-lib) are passed on the command
+  // line together.
   for (Arg *A : Args.filtered(options::OPT_device_math_lib_EQ,
                               options::OPT_no_device_math_lib_EQ)) {
     bool Reset = A->getOption().matches(options::OPT_no_device_math_lib_EQ);
     for (StringRef Val : A->getValues()) {
-      LinkForOMP = UpdateFlag(LinkForOMP, Val, Reset);
+      LinkForOMP = UpdateFlag(LinkForOMP, Val, Reset, true);
     }
+    A->claim();
+  }
+
+  for (Arg *A : Args.filtered(options::OPT_fopenmp_device_lib_EQ,
+                              options::OPT_fno_openmp_device_lib_EQ)) {
+    bool Reset = A->getOption().matches(options::OPT_fno_openmp_device_lib_EQ);
+    for (StringRef Val : A->getValues())
+      LinkForOMP = UpdateFlag(LinkForOMP, Val, Reset);
     A->claim();
   }
 
   if (LinkForOMP == 0)
     return;
 
+  bool IsMSVC = TC.getTriple().isWindowsMSVCEnvironment();
+  StringRef LibCName = IsMSVC ? "libomp-msvc" : "libomp-glibc";
   SmallVector<std::pair<const StringRef, unsigned>, 8> omp_device_libs = {
+    { LibCName, LinkLibc },
     { "libomp-complex", LinkFP32 },
     { "libomp-complex-fp64", LinkFP64 },
     { "libomp-cmath", LinkFP32 },
@@ -455,7 +488,7 @@ void Driver::addIntelOMPDeviceLibs(const ToolChain &TC, Driver::InputList &Input
         addOmpLibs = true;
   }
   StringRef OMPLibLoc(Args.MakeArgString(TC.getDriver().Dir + "/../lib"));
-  StringRef Ext(TC.getTriple().isWindowsMSVCEnvironment() ? ".obj" : ".o");
+  StringRef Ext(IsMSVC ? ".obj" : ".o");
   if (addOmpLibs) {
     for (const std::pair<const StringRef, unsigned> &Lib : omp_device_libs) {
       SmallString<128> LibName(OMPLibLoc);

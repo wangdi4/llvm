@@ -1944,6 +1944,16 @@ def fiopenmp_simd : Flag<["-"], "fiopenmp-simd">, Group<f_Group>, Flags<[CC1Opti
 def fno_iopenmp_simd : Flag<["-"], "fno-iopenmp-simd">, Group<f_Group>, Flags<[NoArgumentUnused, DpcppUnsupported, ProEnabled]>;
 def fopenmp_stable_file_id : Flag<["-"], "fopenmp-stable-file-id">,
     Group<f_Group>, Flags<[CC1Option, NoArgumentUnused, CoreOption, HelpHidden]>;
+def fopenmp_device_lib_EQ : CommaJoined<["-"], "fopenmp-device-lib=">, Flags<[DriverOption, CoreOption, DpcppUnsupported]>,
+  Values<"libc, libm-fp32, libm-fp64, all">, HelpText<"Control inclusion of "
+  "device libraries into device binary linkage. Valid arguments "
+  "are libc, libm-fp32, libm-fp64, all">;
+def fno_openmp_device_lib_EQ : CommaJoined<["-"], "fno-openmp-device-lib=">, Flags<[DriverOption, CoreOption, DpcppUnsupported]>,
+  Values<"libc, libm-fp32, libm-fp64, all">, HelpText<"Control exclusion of "
+  "device libraries from device binary linkage. Valid arguments "
+  "are libc, libm-fp32, libm-fp64, all">;
+def fiopenmp_offload : Flag<["-"], "fiopenmp-offload">, Flags<[DriverOption, DpcppUnsupported]>, Group<f_Group>;
+def fno_iopenmp_offload : Flag<["-"], "fno-iopenmp-offload">, Flags<[DriverOption, DpcppUnsupported]>, Group<f_Group>;
 #endif // INTEL_CUSTOMIZATION
 def fopenmp_enable_irbuilder : Flag<["-"], "fopenmp-enable-irbuilder">, Group<f_Group>, Flags<[CC1Option, NoArgumentUnused, HelpHidden]>,
   HelpText<"Use the experimental OpenMP-IR-Builder codegen path.">;
