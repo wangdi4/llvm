@@ -83,18 +83,6 @@ add_custom_command(OUTPUT ${devicelib-obj-cmath-fp64}
                    DEPENDS device_math.h device.h clang clang-offload-bundler
                    VERBATIM)
 
-# INTEL_CUSTOMIZATION
-set(devicelib-obj-intel-dot-product ${obj_binary_dir}/libsycl-intel-dot-product.${lib-suffix})
-add_custom_command(OUTPUT ${devicelib-obj-intel-dot-product}
-                   COMMAND ${clang} -fsycl -c
-                           ${compile_opts} ${sycl_targets_opt}
-                           ${CMAKE_CURRENT_SOURCE_DIR}/intel_dot_product_wrapper.cpp
-                           -o ${devicelib-obj-intel-dot-product}
-                   MAIN_DEPENDENCY intel_dot_product_wrapper.cpp
-                   DEPENDS clang clang-offload-bundler
-                   VERBATIM)
-# end INTEL_CUSTOMIZATION
-
 add_custom_command(OUTPUT ${spv_binary_dir}/libsycl-fallback-cassert.spv
                    COMMAND ${clang} -S -fsycl-device-only -fno-sycl-use-bitcode
                            ${compile_opts}
@@ -185,35 +173,12 @@ add_custom_command(OUTPUT ${obj_binary_dir}/libsycl-fallback-cmath-fp64.${lib-su
                    DEPENDS device_math.h device.h clang clang-offload-bundler
                    VERBATIM)
 
-# INTEL_CUSTOMIZATION
-add_custom_command(OUTPUT ${spv_binary_dir}/libsycl-fallback-intel-dot-product.spv
-                   COMMAND ${clang} -S -fsycl-device-only -fno-sycl-use-bitcode
-                           ${compile_opts}
-                           ${CMAKE_CURRENT_SOURCE_DIR}/fallback-intel-dot-product.cpp
-                           -o ${spv_binary_dir}/libsycl-fallback-intel-dot-product.spv
-                   MAIN_DEPENDENCY fallback-intel-dot-product.cpp
-                   DEPENDS clang llvm-spirv
-                   VERBATIM)
-
-add_custom_command(OUTPUT ${obj_binary_dir}/libsycl-fallback-intel-dot-product.${lib-suffix}
-                   COMMAND ${clang} -fsycl -c
-                           ${compile_opts} ${sycl_targets_opt}
-                           ${CMAKE_CURRENT_SOURCE_DIR}/fallback-intel-dot-product.cpp
-                           -o ${obj_binary_dir}/libsycl-fallback-intel-dot-product.${lib-suffix}
-                   MAIN_DEPENDENCY fallback-intel-dot-product.cpp
-                   DEPENDS clang clang-offload-bundler
-                   VERBATIM)
-# end INTEL_CUSTOMIZATION
-
 add_custom_target(libsycldevice-obj DEPENDS
   ${devicelib-obj-file}
   ${devicelib-obj-complex}
   ${devicelib-obj-complex-fp64}
   ${devicelib-obj-cmath}
   ${devicelib-obj-cmath-fp64}
-# INTEL_CUSTOMIZATION
-  ${devicelib-obj-intel-dot-product}
-# end INTEL_CUSTOMIZATION
 )
 add_custom_target(libsycldevice-spv DEPENDS
   ${spv_binary_dir}/libsycl-fallback-cassert.spv
@@ -221,9 +186,6 @@ add_custom_target(libsycldevice-spv DEPENDS
   ${spv_binary_dir}/libsycl-fallback-complex-fp64.spv
   ${spv_binary_dir}/libsycl-fallback-cmath.spv
   ${spv_binary_dir}/libsycl-fallback-cmath-fp64.spv
-# INTEL_CUSTOMIZATION
-  ${spv_binary_dir}/libsycl-fallback-intel-dot-product.spv
-# end INTEL_CUSTOMIZATION
   )
 add_custom_target(libsycldevice-fallback-obj DEPENDS
   ${obj_binary_dir}/libsycl-fallback-cassert.${lib-suffix}
@@ -231,9 +193,6 @@ add_custom_target(libsycldevice-fallback-obj DEPENDS
   ${obj_binary_dir}/libsycl-fallback-complex-fp64.${lib-suffix}
   ${obj_binary_dir}/libsycl-fallback-cmath.${lib-suffix}
   ${obj_binary_dir}/libsycl-fallback-cmath-fp64.${lib-suffix}
-# INTEL_CUSTOMIZATION
-  ${obj_binary_dir}/libsycl-fallback-intel-dot-product.${lib-suffix}
-# end INTEL_CUSTOMIZATION
 )
 add_custom_target(libsycldevice DEPENDS
   libsycldevice-obj
@@ -260,10 +219,6 @@ install(FILES ${devicelib-obj-file}
               ${obj_binary_dir}/libsycl-fallback-cmath.${lib-suffix}
               ${devicelib-obj-cmath-fp64}
 	      ${obj_binary_dir}/libsycl-fallback-cmath-fp64.${lib-suffix}
-# INTEL_CUSTOMIZATION
-              ${devicelib-obj-intel-dot-product}
-              ${obj_binary_dir}/libsycl-fallback-intel-dot-product.${lib-suffix}
-# end INTEL_CUSTOMIZATION
         DESTINATION ${install_dest_lib}
         COMPONENT libsycldevice)
 
@@ -272,8 +227,5 @@ install(FILES ${spv_binary_dir}/libsycl-fallback-cassert.spv
               ${spv_binary_dir}/libsycl-fallback-complex-fp64.spv
               ${spv_binary_dir}/libsycl-fallback-cmath.spv
               ${spv_binary_dir}/libsycl-fallback-cmath-fp64.spv
-# INTEL_CUSTOMIZATION
-              ${spv_binary_dir}/libsycl-fallback-intel-dot-product.spv
-# end INTEL_CUSTOMIZATION
         DESTINATION ${install_dest_spv}
         COMPONENT libsycldevice)
