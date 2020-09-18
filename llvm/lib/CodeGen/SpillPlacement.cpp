@@ -38,11 +38,8 @@
 #include "llvm/CodeGen/Passes.h"
 #include "llvm/InitializePasses.h"
 #include "llvm/Pass.h"
-<<<<<<< HEAD
-#include "llvm/Support/CommandLine.h" // INTEL
 #include "llvm/Support/BlockFrequency.h"
-=======
->>>>>>> 6c1f2a34fbcaa57c3dc0de3f9e4da58da7f328b6
+#include "llvm/Support/CommandLine.h" // INTEL
 #include <algorithm>
 #include <cassert>
 #include <cstdint>
