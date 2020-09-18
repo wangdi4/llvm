@@ -81,8 +81,11 @@
 #include "llvm/Transforms/Coroutines/CoroEarly.h"
 #include "llvm/Transforms/Coroutines/CoroElide.h"
 #include "llvm/Transforms/Coroutines/CoroSplit.h"
+<<<<<<< HEAD
 #include "llvm/Transforms/HelloNew/HelloWorld.h"
 #include "llvm/Transforms/Instrumentation/Intel_FunctionSplitting.h" // INTEL
+=======
+>>>>>>> 39ec36415df5162fcffae09fde9b931e336a6f3d
 #include "llvm/Transforms/IPO/AlwaysInliner.h"
 #include "llvm/Transforms/IPO/ArgumentPromotion.h"
 #include "llvm/Transforms/IPO/Attributor.h"
