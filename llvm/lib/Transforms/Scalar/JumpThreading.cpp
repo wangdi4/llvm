@@ -1365,6 +1365,9 @@ bool JumpThreadingPass::ProcessBlock(BasicBlock *BB) {
     return false; // Must be an invoke or callbr.
   }
 
+  // Keep track if we constant folded the condition in this invocation.
+  bool ConstantFolded = false;
+
   // Run constant folding to see if we can reduce the condition to a simple
   // constant.
   if (Instruction *I = dyn_cast<Instruction>(Condition)) {
@@ -1375,6 +1378,7 @@ bool JumpThreadingPass::ProcessBlock(BasicBlock *BB) {
       if (isInstructionTriviallyDead(I, TLI))
         I->eraseFromParent();
       Condition = SimpleVal;
+      ConstantFolded = true;
     }
   }
 
@@ -1425,7 +1429,7 @@ bool JumpThreadingPass::ProcessBlock(BasicBlock *BB) {
     // FIXME: Unify this with code below.
     if (ProcessThreadableEdges(Condition, BB, Preference, Terminator))
       return true;
-    return false;
+    return ConstantFolded;
   }
 
   if (CmpInst *CondCmp = dyn_cast<CmpInst>(CondInst)) {
