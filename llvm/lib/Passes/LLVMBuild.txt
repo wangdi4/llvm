@@ -18,11 +18,7 @@
 type = Library
 name = Passes
 parent = Libraries
-<<<<<<< HEAD
-required_libraries = AggressiveInstCombine Analysis Core Coroutines IPO InstCombine ObjCARC Scalar Support Target TransformUtils Vectorize Instrumentation
+required_libraries = AggressiveInstCombine Analysis Core Coroutines HelloNew IPO InstCombine ObjCARC Scalar Support Target TransformUtils Vectorize Instrumentation
                      Intel_LoopAnalysis Intel_LoopTransforms Intel_OpenCLTransforms VPOAnalysis VPOTransforms Intel_OptReport Intel_MapIntrinToIml Intel_DPCPPKernelTransforms
 
 ; ***INTEL: Intel_LoopAnalysis, Intel_LoopTransforms, Intel_OpenCLTransforms, VPOAnalysis, VPOTransforms, Intel_OptReport, Intel_MapIntrinToIml, Intel_DPCPPKernelTransforms
-=======
-required_libraries = AggressiveInstCombine Analysis Core Coroutines HelloNew IPO InstCombine ObjCARC Scalar Support Target TransformUtils Vectorize Instrumentation
->>>>>>> c2590de30df23ef0db39b496cdec62a83a61fbfa
