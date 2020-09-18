@@ -7670,11 +7670,13 @@ bool VPOParoptTransform::genLoopSchedulingCode(
 
   wrnUpdateSSAPreprocess(L, ValueToLiveinMap, LiveOutVals, ECs);
 
-#if INTEL_CUSTOMIZATION
   // Try to find average and maximum trip counts for the loop. If loop has
   // static or dynamic schedule and known chunk then both average and maximum
   // trip counts will be equal to the chunk value.
-  Optional<APInt> MaxTC, AvgTC;
+  Optional<APInt> MaxTC;
+#if INTEL_CUSTOMIZATION
+  Optional<APInt> AvgTC;
+#endif // INTEL_CUSTOMIZATION
   if (W->canHaveSchedule() && (SchedKind == WRNScheduleStatic ||
                                SchedKind == WRNScheduleOrderedStatic ||
                                SchedKind == WRNScheduleDynamic ||
@@ -7683,7 +7685,9 @@ bool VPOParoptTransform::genLoopSchedulingCode(
             dyn_cast_or_null<ConstantInt>(W->getSchedule().getChunkExpr()))
       if (!Chunk->isZero() && !Chunk->isOne()) {
         MaxTC = Chunk->getValue();
+#if INTEL_CUSTOMIZATION
         AvgTC = Chunk->getValue();
+#endif // INTEL_CUSTOMIZATION
       }
 
   // Try to find loop's upper bound to get maximum trip count if it is not known
@@ -7723,6 +7727,7 @@ bool VPOParoptTransform::genLoopSchedulingCode(
     }
   }
 
+#if INTEL_CUSTOMIZATION
   if (MaxTC &&
       !findStringMetadataForLoop(L, "llvm.loop.intel.loopcount_maximum"))
     addStringMetadataToLoop(L, "llvm.loop.intel.loopcount_maximum",
@@ -8019,6 +8024,19 @@ bool VPOParoptTransform::genLoopSchedulingCode(
       PHBuilder.CreateAlignedLoad(IndValTy, LowerBnd, Align(4), "lb.new");
   LoadInst *LoadUB =
       PHBuilder.CreateAlignedLoad(IndValTy, UpperBnd, Align(4), "ub.new");
+
+  // If IV is signed add range metadata indicating that LB/UB are in positive
+  // range [0, MaxValue), where MaxValue is the original loop's TC+1 if loop
+  // bounds are known, or the maximum signed value of the IV's type otherwise.
+  if (!IsUnsigned) {
+    APInt MaxValue =
+        MaxTC ? *MaxTC + 1u : APInt::getSignedMaxValue(IndValTy->getBitWidth());
+    MDNode *RNode = MDBuilder(C).createRange(
+        ConstantInt::get(IndValTy, 0),
+        ConstantInt::get(IndValTy, MaxValue.getSExtValue()));
+    LoadLB->setMetadata(llvm::LLVMContext::MD_range, RNode);
+    LoadUB->setMetadata(llvm::LLVMContext::MD_range, RNode);
+  }
 
   // Fixup the induction variable's PHI to take the initial value
   // from the value of the lower bound returned by the run-time init.
