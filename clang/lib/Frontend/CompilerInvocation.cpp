@@ -2699,12 +2699,9 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
     Opts.SYCLValueFitInMaxInt =
         Args.hasFlag(options::OPT_fsycl_id_queries_fit_in_int,
                      options::OPT_fno_sycl_id_queries_fit_in_int, false);
-<<<<<<< HEAD
     Opts.EnableDAEInSpirKernels = Args.hasArg(options::OPT_fenable_sycl_dae);
-=======
     Opts.SYCLIntHeader =
         std::string(Args.getLastArgValue(OPT_fsycl_int_header));
->>>>>>> dc5e614b6d67bb80c027a46d0fa3f77b22e0d968
   }
 
 #if INTEL_CUSTOMIZATION
