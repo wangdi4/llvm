@@ -14,6 +14,19 @@
 // RUN:  -fopenmp-host-ir-file-path %t-host.bc %s -emit-llvm -o - | \
 // RUN:  FileCheck %s --check-prefixes=TARG,ALL
 
+// RUN: %clang_cc1 -triple x86_64-unknown-linux-gnu -fopenmp \
+// RUN:  -fintel-compatibility -fopenmp-late-outline \
+// RUN:  -fno-intel-openmp-use-llvm-atomic \
+// RUN:  -fopenmp-version=50 -fopenmp-targets=spir64 \
+// RUN:  -emit-llvm-bc %s -o %t-host_old.bc
+//
+// RUN: %clang_cc1 -triple spir64 -fopenmp \
+// RUN:  -fintel-compatibility -fopenmp-late-outline \
+// RUN:  -fno-intel-openmp-use-llvm-atomic \
+// RUN:  -fopenmp-version=50 -fopenmp-targets=spir64 -fopenmp-is-device \
+// RUN:  -fopenmp-host-ir-file-path %t-host_old.bc %s -emit-llvm -o - | \
+// RUN:  FileCheck %s --check-prefixes=TARG-OLD,ALL
+
 #define N 100
 
 int main()
@@ -27,8 +40,9 @@ int main()
     #pragma omp parallel for
     for(int ii = 0; ii < N; ++ii)
       //HOST: atomicrmw add {{.*}}1 seq_cst
-      //TARG: call void @__atomic_load
-      //TARG: call {{.*}}@__atomic_compare_exchange
+      //TARG: atomicrmw add {{.*}}1 seq_cst
+      //TARG-OLD: call void @__atomic_load
+      //TARG-OLD: call {{.*}}@__atomic_compare_exchange
       #pragma omp atomic seq_cst
       b++;
     //ALL: "DIR.OMP.END.PARALLEL.LOOP"()

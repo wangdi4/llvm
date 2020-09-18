@@ -5009,6 +5009,9 @@ def fintel_openmp_region_atomic : Flag<["-"], "fintel-openmp-region-atomic">,
 def fintel_openmp_use_llvm_atomic : Flag<["-"],
   "fintel-openmp-use-llvm-atomic">,
   HelpText<"Use LLVM atomics instead of lib calls for OpenMP SPIR-V targets">;
+def fno_intel_openmp_use_llvm_atomic : Flag<["-"],
+  "fno-intel-openmp-use-llvm-atomic">,
+  HelpText<"Use LLVM atomics instead of lib calls for OpenMP SPIR-V targets">;
 def fintel_openmp_region_early_collapsed_loops : Flag<["-"],
       "fintel-openmp-region-early-collapsed-loops">,
       HelpText<"Always generate early collapsed OpenMP loops">;
