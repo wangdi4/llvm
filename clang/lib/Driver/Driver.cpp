@@ -372,9 +372,22 @@ static Arg *MakeInputArg(DerivedArgList &Args, const OptTable &Opts,
 #if INTEL_CUSTOMIZATION
 // Add any of the device libraries that are used for offload.  This includes
 // math and system device libraries.
-void Driver::addIntelDeviceLibs(const ToolChain &TC, Driver::InputList &Inputs,
+void Driver::addIntelOMPDeviceLibs(const ToolChain &TC, Driver::InputList &Inputs,
                                 const OptTable &Opts,
                                 DerivedArgList &Args) const {
+  // For 'pure' sycl program, need to use '-f[no-]sycl-device-lib' to link
+  // sycl device libraries with device code. In '-fsycl -fiopenmp' mode,
+  // '-f[no-]sycl-device-lib' and '-[no-]device-math-lib' can be used together.
+  if (Args.hasFlag(options::OPT_fsycl, options::OPT_fno_sycl, false) &&
+      !Args.hasArg(options::OPT_fiopenmp)) {
+    Arg *DeviceMathLibArg = Args.getLastArg(options::OPT_device_math_lib_EQ,
+                                            options::OPT_no_device_math_lib_EQ);
+    if (DeviceMathLibArg) {
+      Diag(clang::diag::warn_drv_unused_argument)
+          << DeviceMathLibArg->getSpelling();
+      return;
+    }
+  }
   // Add the math device libs if requested by the user or enabled by default.
   // This needs to be done on the linking phase.
   Arg *FinalPhaseArg;
@@ -404,22 +417,18 @@ void Driver::addIntelDeviceLibs(const ToolChain &TC, Driver::InputList &Inputs,
   // TODO - this will become the default sometime in the future.
   // FIXME - There is a bit of common code in this function that can be
   // cleaned up.
-  // FIXME: I am not sure that SYCL will use the same option.
-  //        See https://github.com/intel/llvm/pull/2277/files
-  unsigned LinkForSYCL = 0;
   unsigned LinkForOMP = LinkFP32 | LinkFP64;
 
   for (Arg *A : Args.filtered(options::OPT_device_math_lib_EQ,
                               options::OPT_no_device_math_lib_EQ)) {
     bool Reset = A->getOption().matches(options::OPT_no_device_math_lib_EQ);
     for (StringRef Val : A->getValues()) {
-      LinkForSYCL = UpdateFlag(LinkForSYCL, Val, Reset);
       LinkForOMP = UpdateFlag(LinkForOMP, Val, Reset);
     }
     A->claim();
   }
 
-  if (LinkForOMP == 0 && LinkForSYCL == 0)
+  if (LinkForOMP == 0)
     return;
 
   SmallVector<std::pair<const StringRef, unsigned>, 8> omp_device_libs = {
@@ -433,32 +442,12 @@ void Driver::addIntelDeviceLibs(const ToolChain &TC, Driver::InputList &Inputs,
     { "libomp-fallback-complex-fp64", LinkFP64 },
     { "libomp-fallback-cmath", LinkFP32 },
     { "libomp-fallback-cmath-fp64", LinkFP64 } };
-  SmallVector<std::pair<const StringRef, unsigned>, 4> sycl_device_libs = {
-    { "libsycl-complex", LinkFP32 },
-    { "libsycl-complex-fp64", LinkFP64 },
-    { "libsycl-cmath", LinkFP32 },
-    { "libsycl-cmath-fp64", LinkFP64 } };
 
-  StringRef DPCPPLibLoc;
-  if (TC.getTriple().isWindowsMSVCEnvironment())
-    DPCPPLibLoc = Args.MakeArgString(TC.getDriver().Dir + "/../bin");
-  else
-    DPCPPLibLoc = Args.MakeArgString(TC.getDriver().Dir + "/../lib");
   // Go through the lib vectors and add them accordingly.
   auto addInput = [&](const char * LibName) {
     Arg *InputArg = MakeInputArg(Args, Opts, LibName);
     Inputs.push_back(std::make_pair(types::TY_Object, InputArg));
   };
-  if (Args.hasFlag(options::OPT_fsycl, options::OPT_fno_sycl, false)) {
-    for (const std::pair<const StringRef, unsigned> &Lib : sycl_device_libs) {
-      SmallString<128> LibName(DPCPPLibLoc);
-      llvm::sys::path::append(LibName, Lib.first);
-      llvm::sys::path::replace_extension(LibName, ".o");
-      if ((Lib.second & LinkForSYCL) == Lib.second &&
-          llvm::sys::fs::exists(LibName))
-        addInput(Args.MakeArgString(LibName));
-    }
-  }
   bool addOmpLibs = false;
   if (Arg *A = Args.getLastArg(options::OPT_fopenmp_targets_EQ)) {
     for (const StringRef &Val : A->getValues())
@@ -2959,7 +2948,7 @@ void Driver::BuildInputs(const ToolChain &TC, DerivedArgList &Args,
     }
 #endif // INTEL_CUSTOMIZATION
   }
-  addIntelDeviceLibs(TC, Inputs, Opts, Args); // INTEL
+  addIntelOMPDeviceLibs(TC, Inputs, Opts, Args); // INTEL
   if (CCCIsCPP() && Inputs.empty()) {
     // If called as standalone preprocessor, stdin is processed
     // if no other input is present.
@@ -4241,7 +4230,10 @@ class OffloadingActionBuilder final {
               return ABRT_Inactive;
             // For SYCL device libraries, don't need to add them to
             // FPGAObjectInputs as there is no FPGA dep files inside.
+<<<<<<< HEAD
 
+=======
+>>>>>>> cd85ff333e5ec79f4f72c571bd65c4942f1236bf
             if (Args.hasArg(options::OPT_fintelfpga) &&
                 !IsSYCLDeviceLibObj(FileName, C.getDefaultToolChain()
                                                   .getTriple()

@@ -4136,6 +4136,10 @@ def fno_sycl_device_lib_EQ : CommaJoined<["-"], "fno-sycl-device-lib=">, Group<s
   Values<"libc, libm-fp32, libm-fp64, all">, HelpText<"Control exclusion of "
   "device libraries from device binary linkage. Valid arguments "
   "are libc, libm-fp32, libm-fp64, all">;
+<<<<<<< HEAD
+=======
+
+>>>>>>> cd85ff333e5ec79f4f72c571bd65c4942f1236bf
 
 //===----------------------------------------------------------------------===//
 // CC1 Options
