@@ -2984,18 +2984,13 @@ void CodeGenModule::EmitGlobal(GlobalDecl GD) {
     return;
 
   // If this is an alias definition (which otherwise looks like a declaration)
-<<<<<<< HEAD
-  // emit it now.
-  if (Global->hasAttr<AliasAttr>())
-#if INTEL_COLLAB
-    if (canDefineAliasOnTarget(*this, GD))
-#endif // INTEL_COLLAB
-    return EmitAliasDefinition(GD);
-=======
   // handle it now.
   if (AliasAttr *Attr = Global->getAttr<AliasAttr>()) {
     // Emit the alias here if it is not SYCL device compilation.
     if (!LangOpts.SYCLIsDevice)
+#if INTEL_COLLAB
+      if (canDefineAliasOnTarget(*this, GD))
+#endif // INTEL_COLLAB
       return EmitAliasDefinition(GD);
     // Defer for SYCL devices, until either the alias or what it aliases
     // is used.
@@ -3005,7 +3000,6 @@ void CodeGenModule::EmitGlobal(GlobalDecl GD) {
     DeferredAliases[AliaseeName] = GD;
     return;
   }
->>>>>>> 5a2fe9ccbd17db1aa64ddfbb267685234aa41038
 
   // IFunc like an alias whose value is resolved at runtime by calling resolver.
   if (Global->hasAttr<IFuncAttr>())
