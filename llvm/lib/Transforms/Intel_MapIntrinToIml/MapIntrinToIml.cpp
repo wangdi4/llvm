@@ -1165,6 +1165,11 @@ bool MapIntrinToImlImpl::runImpl() {
           ScalarFuncName, TargetVL, Masked, CI);
     }
 
+    // Preserve fast math flag of the original call (if any)
+    IRBuilder<>::FastMathFlagGuard FMFGuard(Builder);
+    if (isa<FPMathOperator>(CI))
+      Builder.setFastMathFlags(CI->getFastMathFlags());
+
     // An alternate math library function was found for the original call, so
     // replace the original call with the new call. Set Dirty to true since
     // the LLVM IR is modified. Scalarize the call when:

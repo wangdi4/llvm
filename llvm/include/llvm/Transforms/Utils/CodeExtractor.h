@@ -281,9 +281,11 @@ public:
         BasicBlock *CodeReplacer,
         DenseMap<BasicBlock *, BlockFrequency> &ExitWeights,
         BranchProbabilityInfo *BPI);
-
     CallInst *emitCallAndSwitchStatement(Function *newFunction,
                                          BasicBlock *newHeader,
+#if INTEL_COLLAB
+                                         ValueSet &newAllocas,
+#endif // INTEL_COLLAB
                                          ValueSet &inputs, ValueSet &outputs);
   };
 

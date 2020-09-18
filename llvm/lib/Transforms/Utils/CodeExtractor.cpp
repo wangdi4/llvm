@@ -42,7 +42,6 @@
 #include "llvm/IR/InstrTypes.h"
 #include "llvm/IR/Instruction.h"
 #include "llvm/IR/Instructions.h"
-#include "llvm/IR/Intrinsics.h"
 #include "llvm/IR/IntrinsicInst.h"
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/MDBuilder.h"
@@ -1195,8 +1194,15 @@ static void insertLifetimeMarkersSurroundingCall(
 /// necessary.
 CallInst *CodeExtractor::emitCallAndSwitchStatement(Function *newFunction,
                                                     BasicBlock *codeReplacer,
+#if INTEL_COLLAB
+                                                    ValueSet &newAllocas,
+#endif // INTEL_COLLAB
                                                     ValueSet &inputs,
                                                     ValueSet &outputs) {
+#if INTEL_COLLAB
+  assert(newAllocas.empty() && "Possibly wrong set parameters.");
+#endif // INTEL_COLLAB
+
   // Emit a call to the new function, passing in: *pointer to struct (if
   // aggregating parameters), or plan inputs and allocated memory for outputs
   std::vector<Value *> params, StructValues, ReloadOutputs, Reloads;
@@ -1231,6 +1237,7 @@ CallInst *CodeExtractor::emitCallAndSwitchStatement(Function *newFunction,
                        &codeReplacer->getParent()->front().front());
       ReloadOutputs.push_back(alloca);
       params.push_back(alloca);
+      newAllocas.insert(alloca);
     }
   }
 
@@ -2086,8 +2093,14 @@ CodeExtractor::extractCodeRegion(const CodeExtractorAnalysisCache &CEAC) {
     BFI->setBlockFreq(codeReplacer, EntryFreq.getFrequency());
   }
 
+#if INTEL_COLLAB
+  ValueSet NewAllocas;
+  CallInst *TheCall = emitCallAndSwitchStatement(newFunction, codeReplacer,
+                                                 NewAllocas, inputs, outputs);
+#else // INTEL_COLLAB
   CallInst *TheCall =
       emitCallAndSwitchStatement(newFunction, codeReplacer, inputs, outputs);
+#endif // INTEL_COLLAB
 
   moveCodeToFunction(newFunction);
 
@@ -2179,8 +2192,15 @@ CodeExtractor::extractCodeRegion(const CodeExtractorAnalysisCache &CEAC) {
 
 #if INTEL_COLLAB
   if (hoistAlloca) {
+    // Hoist and privatize allocas in the new function.
     DominatorTree ChildDT(*newFunction);
     doHoistAlloca(*newFunction, ChildDT);
+
+    for (Value *V : NewAllocas) {
+      auto *AI = cast<Instruction>(V);
+      llvm::vpo::VPOUtils::addPrivateToEnclosingRegion(
+          AI, TheCall->getParent(), *DT, true /* SimdOnly */);
+    }
   }
 
   if (IntelCodeExtractorDebug)
@@ -2192,7 +2212,7 @@ CodeExtractor::extractCodeRegion(const CodeExtractorAnalysisCache &CEAC) {
     report_fatal_error("verification of newFunction failed!");
   });
   LLVM_DEBUG(if (verifyFunction(*oldFunction))
-             report_fatal_error("verification of oldFunction failed!"));
+                 report_fatal_error("verification of oldFunction failed!"));
   LLVM_DEBUG(if (AC && verifyAssumptionCache(*oldFunction, *newFunction, AC))
                  report_fatal_error("Stale Asumption cache for old Function!"));
   return newFunction;
