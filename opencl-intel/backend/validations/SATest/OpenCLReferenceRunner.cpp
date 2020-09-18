@@ -51,6 +51,7 @@
 #include "llvm/IR/DerivedTypes.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/GlobalVariable.h"
+#include "llvm/IR/LegacyPassManager.h"
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/Module.h"
 #include "llvm/Pass.h"
@@ -75,6 +76,9 @@
 #elif defined(_WIN32)
 #include <windows.h>
 #endif
+
+// #include "llvm/Transforms/Intel_OpenCLTransforms/Passes.h"
+llvm::FunctionPass* createFMASplitterPass();
 
 extern "C" void LLVMLinkInInterpreterPluggable();
 
@@ -164,6 +168,16 @@ void OpenCLReferenceRunner::Run(IRunResult* runResult,
 
     // if FP_CONTRACT is on, use fma in NEAT
     m_bUseFmaNEAT = m_pModule->getNamedMetadata("opencl.enable.FP_CONTRACT");
+
+    llvm::legacy::PassManager PM;
+
+    // As interpreter cannot lower "llvm.fmuladd.*" intrinsics, split to
+    // "fmul + fadd"
+    if (m_bUseFmaNEAT) {
+        PM.add(createFMASplitterPass());
+    }
+
+    PM.run(*m_pModule);
 
     for(OpenCLProgramConfiguration::KernelConfigList::const_iterator it = pProgramConfig->beginKernels();
         it != pProgramConfig->endKernels();
