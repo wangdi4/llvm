@@ -2401,6 +2401,9 @@ bool VPOParoptTransform::genGlobalPrivatizationLaunderIntrin(
         ValuesToChange->find(V) == ValuesToChange->end())
       return V;
 
+    if (RenameMap.find(V) != RenameMap.end())
+      return RenameMap.find(V)->second;
+
     Value *VNew = createRenamedValueForV(V);
     RenameMap.insert({V, VNew});
     Changed = true;
@@ -2492,6 +2495,14 @@ bool VPOParoptTransform::genGlobalPrivatizationLaunderIntrin(
   if (W->canHaveLastprivate()) {
     LastprivateClause &LprivClause = W->getLpriv();
     for (LastprivateItem *I : LprivClause.items()) {
+      VNew = createRenamedValueForGlobalsAndConstExprs(I->getOrig());
+      I->setOrig(VNew);
+    }
+  }
+
+  if (W->canHaveReduction()) {
+    ReductionClause &RedClause = W->getRed();
+    for (ReductionItem *I : RedClause.items()) {
       VNew = createRenamedValueForGlobalsAndConstExprs(I->getOrig());
       I->setOrig(VNew);
     }
