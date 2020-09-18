@@ -49,6 +49,7 @@ class VPPHINode;
 class VPBasicBlock;
 class VPBuilder;
 class VPAllocatePrivate;
+class VPReductionFinal;
 
 /// Base class for loop entities
 class VPLoopEntity {
@@ -622,6 +623,13 @@ private:
 
   // Insert VPInstructions related to VPPrivates.
   void insertPrivateVPInstructions(VPBuilder &Builder, VPBasicBlock *Preheader);
+
+  // Insert VPInstructions related to one VPReduction
+  void insertOneReductionVPInstructions(
+    VPReduction *Reduction, VPBuilder &Builder, VPBasicBlock *PostExit,
+    VPBasicBlock *Preheader,
+    DenseMap<const VPReduction *,
+             std::pair<VPReductionFinal *, VPInstruction *>> &RedFinalMap);
 
   // Mapping function that returns the underlying raw pointer.
   template <typename EntityType>
