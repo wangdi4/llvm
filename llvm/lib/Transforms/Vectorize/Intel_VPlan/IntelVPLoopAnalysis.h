@@ -131,17 +131,25 @@ class VPIndexReduction : public VPReduction {
 public:
   VPIndexReduction(const VPReduction *Parent, VPValue *Start,
                    VPInstruction *Exit, Type *RT, bool Signed, bool ForLast,
-                   bool IsMemOnly = false)
+                   bool IsLinIndex, bool IsMemOnly = false)
       : VPReduction(Start, Exit,
                     ForLast ? (Signed ? RecurKind::SMax : RecurKind::UMax)
                             : (Signed ? RecurKind::SMin : RecurKind::UMin),
-                    FastMathFlags::getFast(), RT, Signed, IsMemOnly,
+                    FastMathFlags(), RT, Signed, IsMemOnly,
                     IndexReduction),
-        ParentRed(Parent) {
+        ParentRed(Parent), IsLinearIndex(IsLinIndex) {
     assert((Parent && Parent->isMinMax()) && "Incorrect parent reduction");
   }
 
   const VPReduction *getParentReduction() const { return ParentRed; }
+  void replaceParentReduction(const VPReduction *NewParent) {
+    assert((NewParent && NewParent->isMinMax()) &&
+           "Incorrect parent reduction");
+    ParentRed = NewParent;
+  }
+
+  bool isLinearIndex() const { return IsLinearIndex; }
+  void setIsLinearIndex(bool V) { IsLinearIndex = V; }
 
   /// Method to support type inquiry through isa, cast, and dyn_cast.
   static inline bool classof(const VPLoopEntity *V) {
@@ -153,6 +161,32 @@ public:
 private:
   // Parent reduction, either min or max.
   const VPReduction *ParentRed;
+
+  // Flag shows that this entity is created for a linear index. This rules
+  // the last value calculation. If the flag is true then the value is simply
+  // calculated as horizontal min or max value of indexes in the vector that
+  // correspond to parent reduction last value. Otherwise, the last value is
+  // taken from vector by position that corresponds to the min/max linear index.
+  // For example, we have the following values for min+min_index reduction
+  //    if (b>a[i]) {
+  //      b = a[i];  // min value
+  //      n = i;     // min linear index
+  //      t = log(c[i/3]);  // other non-linear index
+  //    }
+  // main value : {1, 2, 1, 3}  -> last value is 1.
+  // linear index: {10, 4, 6, 2} -> last value is 6, min index of value 1.
+  // non-linear index {20, 2, 60, 10} -> last value is 60, at position of
+  //                                     min index.
+  // A min/max+index idiom should contain at least one linear index. If
+  // there is no such indexes then it is added using main induction
+  // variable.
+  //
+  // The following relations are established between main reduction and linear
+  // and non-linear indexes:
+  // - main reduction is a parent for all linear indexes.
+  // - the first encountered linear index is a parent for all non-linear indexes.
+  //
+  bool IsLinearIndex;
 };
 
 /// Induction descriptor.
@@ -349,7 +383,7 @@ public:
                                       const VPReduction *Parent,
                                       VPValue *Incoming, VPInstruction *Exit,
                                       Type *RT, bool Signed, bool ForLast,
-                                      VPValue *AI = nullptr,
+                                      bool IsLinNdx, VPValue *AI = nullptr,
                                       bool ValidMemOnly = false);
 
   /// Add induction of kind \p K, with opcode \p Opc or binary operation
@@ -453,8 +487,10 @@ public:
 
   VPIndexReduction *getMinMaxIndex(const VPReduction *Red) const {
     MinMaxIndexTy::const_iterator It = MinMaxIndexes.find(Red);
-    if (It != MinMaxIndexes.end())
+    if (It != MinMaxIndexes.end()) {
+      assert(It->second->isLinearIndex() && "expected linear index reduction");
       return It->second;
+    }
     return nullptr;
   }
 
@@ -516,17 +552,16 @@ private:
   VPPrivateMap PrivateMap;
 
   // Mapping of VPLoopEntity to VPLoopEntityMemoryDescriptor.
-  typedef DenseMap<VPLoopEntity *,
-                   std::unique_ptr<VPLoopEntityMemoryDescriptor>>
-      MemDescrTy;
+  using MemDescrTy =
+      DenseMap<VPLoopEntity *, std::unique_ptr<VPLoopEntityMemoryDescriptor>>;
   MemDescrTy MemoryDescriptors;
 
   // Mapping alloca instructions to memory descriptors.
-  typedef DenseMap<VPValue *, VPLoopEntityMemoryDescriptor *> MemInstDescrMapTy;
+  using MemInstDescrMapTy = DenseMap<VPValue *, VPLoopEntityMemoryDescriptor *>;
   MemInstDescrMapTy MemInstructions;
 
   // MinMax reduction to index reduction
-  typedef DenseMap<const VPReduction *, VPIndexReduction *> MinMaxIndexTy;
+  using MinMaxIndexTy = DenseMap<const VPReduction *, VPIndexReduction *>;
   MinMaxIndexTy MinMaxIndexes;
 
   // Collection of duplicate induction PHI nodes. First element of the pair
@@ -649,19 +684,34 @@ private:
   // Insert VPInstructions related to VPPrivates.
   void insertPrivateVPInstructions(VPBuilder &Builder, VPBasicBlock *Preheader);
 
-  // Insert VPInstructions related to one VPReduction
-  void insertOneReductionVPInstructions(
-    VPReduction *Reduction, VPBuilder &Builder, VPBasicBlock *PostExit,
-    VPBasicBlock *Preheader,
-    DenseMap<const VPReduction *,
-             std::pair<VPReductionFinal *, VPInstruction *>> &RedFinalMap);
-
   // Mapping function that returns the underlying raw pointer.
   template <typename EntityType>
   static inline EntityType *
   getRawPointer(const std::unique_ptr<EntityType> &En) {
     return En.get();
   }
+
+  // Preprocess entities before instructions insertion.
+  // - Identify/fix indexes of index reductions
+  void preprocess();
+
+  // Insert VPInstructions (init/final) for the reduction \p Reduction,
+  // keeping its final and exit instructions in a special map \p RedFinalMap,
+  // and inserting the reduction into list of processed reductions
+  // \p ProcessedReductions.
+  void insertOneReductionVPInstructions(
+      VPReduction *Reduction, VPBuilder &Builder, VPBasicBlock *PostExit,
+      VPBasicBlock *Preheader,
+      // The map contains, for each reduction, pairs {ReductionFinal,
+      // ReductionExit} and is used to obtain parent reduction values needed for
+      // the index part of min/max+index last value code generation.
+      DenseMap<const VPReduction *,
+               std::pair<VPReductionFinal *, VPInstruction *>> &RedFinalMap,
+      SmallPtrSetImpl<const VPReduction *> &ProcessedReductions);
+
+  // Look through min/max+index reductions and identify which ones
+  // are linears. See comment for VPIndexReduction::isLinearIndex().
+  void identifyMinMaxLinearIdxs();
 };
 
 class VPEntityImportDescr {
@@ -730,6 +780,7 @@ public:
   Type *getRecType() const { return RT; }
   bool getSigned() const { return Signed; }
   VPInstruction *getLinkPhi() const { return LinkPhi; }
+  bool getLinearIndex() const { return IsLinearIndex; }
   iterator_range<SmallVectorImpl<VPInstruction *>::iterator>
   getUpdateVPInsts() {
     return make_range(UpdateVPInsts.begin(), UpdateVPInsts.end());
@@ -742,6 +793,7 @@ public:
   void setRecType(Type *V) { RT = V; }
   void setSigned(bool V) { Signed = V; }
   void setLinkPhi(VPInstruction *V) { LinkPhi = V; }
+  void setIsLinearIndex(bool V) { IsLinearIndex = V; }
   void addUpdateVPInst(VPInstruction *V) { UpdateVPInsts.push_back(V); }
   void addLinkedVPValue(VPValue *V) { LinkedVPVals.push_back(V); }
 
@@ -757,6 +809,7 @@ public:
     Signed = false;
     LinkPhi = nullptr;
     LinkedVPVals.clear();
+    IsLinearIndex = false;
   }
   /// Check for that all non-null VPInstructions in the descriptor are in the \p
   /// Loop.
@@ -800,6 +853,8 @@ private:
   Type *RT = nullptr;
   bool Signed = false;
   VPInstruction *LinkPhi = nullptr; // TODO: Consider changing to VPPHINode.
+  bool IsLinearIndex = false;
+
   /// VPValues that are associated with reduction variable
   /// NOTE: This list is accessed and populated internally within the descriptor
   /// object, hence no getters or setters.

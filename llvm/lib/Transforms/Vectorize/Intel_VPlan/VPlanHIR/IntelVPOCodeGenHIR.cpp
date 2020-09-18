@@ -3380,33 +3380,50 @@ void VPOCodeGenHIR::generateMinMaxIndex(const VPReductionFinal *RedFinal,
   // Get broadcasted DDRef.
   ParentFinal = widenRef(ParentFinal, getVF());
   unsigned Opc = RedFinal->getBinOpcode();
-  PredicateTy Pred = (Opc == VPInstruction::FMax || Opc == VPInstruction::FMin)
+  PredicateTy Pred = ParentFinal->getDestType()->isFPOrFPVectorTy()
                          ? PredicateTy::FCMP_OEQ
                          : PredicateTy::ICMP_EQ;
 
   Type *IndexVecTy = ReduceVal->getDestType();
-  assert(isa<IntegerType>(IndexVecTy->getScalarType()) &&
-         "Index part of minmax+index idiom is not integer type.");
+  if (RedFinal->isLinearIndex()) {
+    assert(isa<IntegerType>(IndexVecTy->getScalarType()) &&
+           "Index part of minmax+index idiom is not integer type.");
 
-  bool NeedMaxIntVal =
-      (Opc == VPInstruction::FMin || Opc == VPInstruction::SMin ||
-       Opc == VPInstruction::UMin);
+    bool NeedMaxIntVal =
+        (Opc == VPInstruction::FMin || Opc == VPInstruction::SMin ||
+         Opc == VPInstruction::UMin);
 
-  Constant *MinMaxIntVec = VPOParoptUtils::getMinMaxIntVal(
-      CanonExprUtilities.getContext(), IndexVecTy, !RedFinal->isSigned(),
-      NeedMaxIntVal);
-  RegDDRef *MinMaxIntVecRef = DDRefUtilities.createConstDDRef(MinMaxIntVec);
-  HLInst *IndexBlend =
-      HLNodeUtilities.createSelect(Pred, ParentFinal, ParentExit->clone(),
-                                   ReduceVal, MinMaxIntVecRef, "idx.blend");
-  RedTail.push_back(*IndexBlend);
+    Constant *MinMaxIntVec = VPOParoptUtils::getMinMaxIntVal(
+        CanonExprUtilities.getContext(), IndexVecTy, !RedFinal->isSigned(),
+        NeedMaxIntVal);
+    RegDDRef *MinMaxIntVecRef = DDRefUtilities.createConstDDRef(MinMaxIntVec);
+    HLInst *IndexBlend =
+        HLNodeUtilities.createSelect(Pred, ParentFinal, ParentExit->clone(),
+                                     ReduceVal, MinMaxIntVecRef, "idx.blend");
+    RedTail.push_back(*IndexBlend);
 
-  RegDDRef *Acc = nullptr;
-  HLInst *IdxReduceCall =
+    RegDDRef *Acc = nullptr;
+    HLInst *IdxReduceCall =
       createVectorReduce(RedFinal, IndexBlend->getLvalDDRef()->clone(), Acc,
                          RednVariable, HLNodeUtilities);
-  RedTail.push_back(*IdxReduceCall);
-  WInst = IdxReduceCall;
+    RedTail.push_back(*IdxReduceCall);
+    WInst = IdxReduceCall;
+  } else {
+    HLInst *CmpInst = HLNodeUtilities.createCmp(
+        Pred, ParentFinal, ParentExit->clone(), "mmidx.cmp.");
+    RedTail.push_back(*CmpInst);
+
+    // Call is pushed to container automatically
+    HLInst *BsfCall =
+        createCTZCall(CmpInst->getLvalDDRef()->clone(), Intrinsic::cttz,
+                      true /* MaskIsNonZero */, &RedTail);
+
+    HLInst *ExtractInst = HLNodeUtilities.createExtractElementInst(
+        ReduceVal->clone(), BsfCall->getLvalDDRef()->clone(), "elem",
+        RednVariable);
+    RedTail.push_back(*ExtractInst);
+    WInst = ExtractInst;
+  }
 }
 
 void VPOCodeGenHIR::widenLoopEntityInst(const VPInstruction *VPInst) {

@@ -92,7 +92,7 @@ void VPReduction::dump(raw_ostream &OS) const {
 
 void VPIndexReduction::dump(raw_ostream &OS) const {
   VPReduction::dump(OS);
-  OS << " Parent exit: ";
+  OS << "IsLinearIndex: " << isLinearIndex() << " Parent exit: ";
   ParentRed->getLoopExitInstr()->printAsOperand(OS);
 }
 
@@ -326,16 +326,21 @@ VPReduction *VPLoopEntityList::addReduction(VPInstruction *Instr,
 
 VPIndexReduction *VPLoopEntityList::addIndexReduction(
     VPInstruction *Instr, const VPReduction *Parent, VPValue *Incoming,
-    VPInstruction *Exit, Type *RedTy, bool Signed, bool ForLast, VPValue *AI,
-    bool ValidMemOnly) {
+    VPInstruction *Exit, Type *RedTy, bool Signed, bool ForLast,
+    bool IsLinIndex, VPValue *AI, bool ValidMemOnly) {
+
   assert(Parent && "null parent in index-reduction");
-  VPIndexReduction *Red = new VPIndexReduction(Parent, Incoming, Exit, RedTy,
-                                               Signed, ForLast, ValidMemOnly);
+  VPIndexReduction *Red = new VPIndexReduction(
+      Parent, Incoming, Exit, RedTy, Signed, ForLast, IsLinIndex, ValidMemOnly);
   ReductionList.emplace_back(Red);
   linkValue(ReductionMap, Red, Instr);
   linkValue(ReductionMap, Red, Exit);
-  MinMaxIndexes[Parent] = Red;
   createMemDescFor(Red, AI);
+
+  // Remember the first index for parent
+  if (IsLinIndex && !getMinMaxIndex(Parent))
+    MinMaxIndexes[Parent] = Red;
+
   return Red;
 }
 VPInduction *VPLoopEntityList::addInduction(VPInstruction *Start,
@@ -623,84 +628,89 @@ void VPLoopEntityList::insertOneReductionVPInstructions(
     VPReduction *Reduction, VPBuilder &Builder, VPBasicBlock *PostExit,
     VPBasicBlock *Preheader,
     DenseMap<const VPReduction *,
-             std::pair<VPReductionFinal *, VPInstruction *>> &RedFinalMap) {
-    VPValue *AI = nullptr;
-    Builder.setInsertPoint(Preheader);
-    VPValue *Identity = getReductionIdentity(Reduction);
-    Type *Ty = Reduction->getRecurrenceType();
-    VPValue *PrivateMem = createPrivateMemory(*Reduction, Builder, AI);
-    if (Reduction->getIsMemOnly())
-      if (!isa<VPConstant>(Identity))
-        // min/max in-memory reductions. Need to generate a load.
-        Identity = Builder.createLoad(Ty, AI);
+             std::pair<VPReductionFinal *, VPInstruction *>> &RedFinalMap,
+    SmallPtrSetImpl<const VPReduction *> &ProcessedReductions) {
+  VPValue *AI = nullptr;
+  Builder.setInsertPoint(Preheader);
+  VPValue *Identity = getReductionIdentity(Reduction);
+  Type *Ty = Reduction->getRecurrenceType();
+  VPValue *PrivateMem = createPrivateMemory(*Reduction, Builder, AI);
+  if (Reduction->getIsMemOnly())
+    if (!isa<VPConstant>(Identity))
+      // min/max in-memory reductions. Need to generate a load.
+      Identity = Builder.createLoad(Ty, AI);
 
-    // We can initialize reduction either with broadcasted identity only or
-    // inserting additionally the initial value into 0th element. In the
-    // second case we don't need an additional instruction when reducing.
-    // Currently, we use broadcast-only for FP data types and min/max
-    // reductions. For integers and pointers we use the broadcast-and-insert
-    // method.
-    StringRef Name;
-    if (AI)
-      Name = AI->getName();
-    else {
-      VPPHINode *PhiN = getRecurrentVPHINode(*Reduction);
-      Name = PhiN ? PhiN->getName() : "";
-    }
-    bool StartIncluded = !Ty->isFloatingPointTy() && !Reduction->isMinMax();
-    VPValue *StartValue =
-        StartIncluded ? Reduction->getRecurrenceStartValue() : nullptr;
-    bool UseStart = StartValue != nullptr || Reduction->isMinMax();
+  // We can initialize reduction either with broadcasted identity only or
+  // inserting additionally the initial value into 0th element. In the
+  // second case we don't need an additional instruction when reducing.
+  // Currently, we use broadcast-only for FP data types and min/max
+  // reductions. For integers and pointers we use the broadcast-and-insert
+  // method.
+  StringRef Name;
+  if (AI)
+    Name = AI->getName();
+  else {
+    VPPHINode *PhiN = getRecurrentVPHINode(*Reduction);
+    Name = PhiN ? PhiN->getName() : "";
+  }
+  bool StartIncluded = !Ty->isFloatingPointTy() && !Reduction->isMinMax();
+  VPValue *StartValue =
+      StartIncluded ? Reduction->getRecurrenceStartValue() : nullptr;
+  bool UseStart = StartValue != nullptr || Reduction->isMinMax();
 
-    VPInstruction *Init = Builder.createReductionInit(
-        Identity, StartValue, UseStart, Name + ".red.init");
+  VPInstruction *Init = Builder.createReductionInit(
+      Identity, StartValue, UseStart, Name + ".red.init");
 
-    processInitValue(*Reduction, AI, PrivateMem, Builder, *Init, Ty,
-                     *Reduction->getRecurrenceStartValue());
+  processInitValue(*Reduction, AI, PrivateMem, Builder, *Init, Ty,
+                   *Reduction->getRecurrenceStartValue());
 
-    // Create instruction for last value. If a register reduction does not have
-    // a liveout loop exit instruction (store to reduction variable after
-    // update), then last value computation should be done by loading from
-    // private memory created for the reduction.
-    Builder.setInsertPoint(PostExit);
-    VPInstruction *Exit = cast<VPInstruction>(
-        Reduction->getIsMemOnly() || !Reduction->getLoopExitInstr()
-            ? Builder.createLoad(Ty, PrivateMem)
-            : Reduction->getLoopExitInstr());
+  // Create instruction for last value. If a register reduction does not have
+  // a liveout loop exit instruction (store to reduction variable after
+  // update), then last value computation should be done by loading from
+  // private memory created for the reduction.
+  Builder.setInsertPoint(PostExit);
+  VPInstruction *Exit = cast<VPInstruction>(
+      Reduction->getIsMemOnly() || !Reduction->getLoopExitInstr()
+          ? Builder.createLoad(Ty, PrivateMem)
+          : Reduction->getLoopExitInstr());
 
-    VPReductionFinal *Final = nullptr;
-    if (auto IndexRed = dyn_cast<VPIndexReduction>(Reduction)) {
-      const VPReduction *Parent = IndexRed->getParentReduction();
-      VPInstruction *ParentExit;
-      VPReductionFinal *ParentFinal;
-      std::tie(ParentFinal, ParentExit) = RedFinalMap[Parent];
+  VPReductionFinal *Final = nullptr;
+  if (auto IndexRed = dyn_cast<VPIndexReduction>(Reduction)) {
+    const VPReduction *Parent = IndexRed->getParentReduction();
+    VPInstruction *ParentExit;
+    VPReductionFinal *ParentFinal;
+    std::tie(ParentFinal, ParentExit) = RedFinalMap[Parent];
+    Final = Builder.create<VPReductionFinal>(
+        Name + ".red.final", Reduction->getReductionOpcode(), Exit, ParentExit,
+        ParentFinal, Reduction->isSigned());
+    if (IndexRed->isLinearIndex())
+      Final->setIsLinearIndex();
+  } else {
+    if (StartIncluded || Reduction->isMinMax()) {
+      Final = Builder.create<VPReductionFinal>(
+          Name + ".red.final", Reduction->getReductionOpcode(), Exit);
+    } else {
+      // Create a load for Start value if it's a pointer.
+      VPValue *FinalStartValue = Reduction->getRecurrenceStartValue();
+      if (FinalStartValue->getType() != Ty) { // Ty is recurrence type
+        assert(isa<PointerType>(FinalStartValue->getType()) &&
+               "Expected pointer type here.");
+        FinalStartValue = Builder.createLoad(Ty, FinalStartValue);
+      }
       Final = Builder.create<VPReductionFinal>(
           Name + ".red.final", Reduction->getReductionOpcode(), Exit,
-          ParentExit, ParentFinal, Reduction->isSigned());
-    } else {
-      if (StartIncluded || Reduction->isMinMax()) {
-        Final = Builder.create<VPReductionFinal>(
-            Name + ".red.final", Reduction->getReductionOpcode(), Exit);
-      } else {
-        // Create a load for Start value if it's a pointer.
-        VPValue *FinalStartValue = Reduction->getRecurrenceStartValue();
-        if (FinalStartValue->getType() != Ty) { // Ty is recurrence type
-          assert(isa<PointerType>(FinalStartValue->getType()) &&
-                 "Expected pointer type here.");
-          FinalStartValue = Builder.createLoad(Ty, FinalStartValue);
-        }
-        Final = Builder.create<VPReductionFinal>(
-            Name + ".red.final", Reduction->getReductionOpcode(), Exit,
-            FinalStartValue, Reduction->isSigned());
-      }
-      RedFinalMap[Reduction] = std::make_pair(Final, Exit);
-
-      // Attach FastMathFlags to reduction-final.
-      FastMathFlags FMF = Reduction->getFastMathFlags();
-      if (FMF.any())
-        Final->setFastMathFlags(FMF);
+          FinalStartValue, Reduction->isSigned());
     }
-    processFinalValue(*Reduction, AI, Builder, *Final, Ty, Exit);
+  }
+  // Attach FastMathFlags to reduction-final.
+  FastMathFlags FMF = Reduction->getFastMathFlags();
+  if (FMF.any())
+    Final->setFastMathFlags(FMF);
+
+  processFinalValue(*Reduction, AI, Builder, *Final, Ty, Exit);
+
+  RedFinalMap[Reduction] = std::make_pair(Final, Exit);
+  ProcessedReductions.insert(Reduction);
 }
 
 // Insert VPInstructions related to VPReductions.
@@ -713,15 +723,73 @@ void VPLoopEntityList::insertReductionVPInstructions(VPBuilder &Builder,
 
   DenseMap<const VPReduction *, std::pair<VPReductionFinal *, VPInstruction *>>
       RedFinalMap;
+  SmallPtrSet<const VPReduction *, 4> ProcessedReductions;
 
   // Set the insert-guard-point.
   VPBuilder::InsertPointGuard Guard(Builder);
 
   // Process the list of Reductions.
-  for (VPReduction *Reduction : vpreductions())
-    insertOneReductionVPInstructions(Reduction, Builder, PostExit, Preheader,
-                                     RedFinalMap);
+  for (VPReduction *Reduction : vpreductions()) {
+    if (ProcessedReductions.find(Reduction) != ProcessedReductions.end())
+      continue;
+    SmallVector<const VPReduction *, 3> WorkList;
+    WorkList.push_back(Reduction);
+    if (auto IndexRed = dyn_cast<VPIndexReduction>(Reduction)) {
+      // For index part of min/max+index idioms, it's essential that
+      // parent reductions are processed before. As we don't care about
+      // reductions order during import we should make additional checks here
+      // and process parent reductions first.
+      const VPReduction *Parent = IndexRed->getParentReduction();
+      while (ProcessedReductions.find(Parent) == ProcessedReductions.end()) {
+        WorkList.push_back(Parent);
+        if (auto IndexRed = dyn_cast<VPIndexReduction>(Parent))
+          Parent = IndexRed->getParentReduction();
+        else
+          break;
+      }
+    }
+    while (!WorkList.empty()) {
+      Reduction = const_cast<VPReduction*>(WorkList.pop_back_val());
+      insertOneReductionVPInstructions(Reduction, Builder, PostExit, Preheader,
+                                    RedFinalMap, ProcessedReductions);
+    }
+  }
 }
+
+void VPLoopEntityList::preprocess() {
+  identifyMinMaxLinearIdxs();
+}
+
+void VPLoopEntityList::identifyMinMaxLinearIdxs() {
+  // Relink parents of non-linear indexes.
+  for (auto &RedPtr : ReductionList) {
+    auto *Reduction = dyn_cast<VPIndexReduction>(RedPtr.get());
+    if (!Reduction)
+      continue;
+    if (Reduction->isLinearIndex())
+      continue;
+    auto *Parent = Reduction->getParentReduction();
+    auto Index = getMinMaxIndex(Parent);
+    // TODO: implement adding of a new index-reduction in case when
+    // it's absent in the source.
+    assert(Index && "linear index is not set for reduction");
+    Reduction->replaceParentReduction(Index);
+  }
+}
+
+#if 0 //leaving for the future
+// Create linear index for min/max + index idiom.
+// 1) Emit the following set of VPInstructions:
+//    ; in the loop header
+//    %phi_val = phi [-1, preheader], [%select, loop_latch]
+//    ; in the loop body, just after NonLinNdx update instruction.
+//    %select = select NonLinNdx.cond, %loop_induction, %phi_val
+// 2) Create VPIndexReduction descriptor for these instructions, setting
+//    parent reduction to the parent of NonLinNdx.
+VPIndexReduction* createLinearIndexReduction(VPIndexReduction* NonLinNdx) {
+
+}
+#endif
 
 // Check whether \p Inst is a consistent update of induction, i.e. it
 // has correct opcode and contains induction step.
@@ -871,6 +939,8 @@ void VPLoopEntityList::insertVPInstructions(VPBuilder &Builder) {
   // underlying IR and we don't need to emit anything here.
   if (!Loop.getUniqueExitBlock())
     return;
+
+  preprocess();
 
   VPBasicBlock *PostExit = Loop.getUniqueExitBlock();
   VPBasicBlock *Preheader = Loop.getLoopPreheader();
@@ -1210,8 +1280,9 @@ void ReductionDescr::passToVPlan(VPlan *Plan, const VPLoop *Loop) {
     const VPReduction *Parent = LE->getReduction(LinkPhi);
     assert(Parent && "nullptr is unexpected");
     bool ForLast = LE->isMinMaxLastItem(*Parent);
-    VPRed = LE->addIndexReduction(StartPhi, Parent, Start, Exit, RT, Signed,
-                                  ForLast, AllocaInst, ValidMemOnly);
+    VPRed =
+        LE->addIndexReduction(StartPhi, Parent, Start, Exit, RT, Signed,
+                              ForLast, IsLinearIndex, AllocaInst, ValidMemOnly);
   }
 
   // Add all linked VPValues collected during Phase 2 analysis

@@ -48,14 +48,14 @@ static cl::opt<bool>
                   "from ParVec analyzer"));
 
 cl::opt<bool>
-    MinMaxIndexEnabled("enable-mmindex", cl::init(false), cl::Hidden,
+    MinMaxIndexEnabled("enable-mmindex", cl::init(true), cl::Hidden,
                        cl::desc("Enable min/max+index idiom recognition"));
 
 cl::opt<bool> VConflictIdiomEnabled("enable-vconflict-idiom", cl::init(false),
                                     cl::Hidden,
                                     cl::desc("Enable vconflict idiom"));
 
-static cl::opt<bool> DisableNonLinearMMIndexes(
+static cl::opt<bool> DisableNonMonotonicIndexes(
     "disable-nonlinear-mmindex", cl::init(true), cl::Hidden,
     cl::desc("Disable min/max+index idiom recognition for non-linear indexes"));
 
@@ -176,7 +176,7 @@ struct MatchFail {
 #endif
   {
   }
-  bool operator()(StringRef Reason) {
+  bool operator()(Twine Reason) {
     LLVM_DEBUG(dbgs() << '[' << IdiomName << "] Skipped: " << Reason << '\n');
     return false;
   }
@@ -337,7 +337,8 @@ bool DDWalk::isSafeReductionFlowDep(const DDEdge *Edge) {
   }
 
   return IdiomList.isIdiom(Inst) == HIRVectorIdioms::MinOrMax ||
-         IdiomList.isIdiom(Inst) == HIRVectorIdioms::MMFirstLastLoc;
+         IdiomList.isIdiom(Inst) == HIRVectorIdioms::MMFirstLastIdx ||
+         IdiomList.isIdiom(Inst) == HIRVectorIdioms::MMFirstLastVal;
 }
 
 void DDWalk::analyze(const RegDDRef *SrcRef, const DDEdge *Edge) {
@@ -695,6 +696,12 @@ bool HIRIdiomAnalyzer::tryMinMaxIdiom(HLDDNode *Node) {
   const RegDDRef *Operand4 = MinMaxInst->getOperandDDRef(4);
   const RegDDRef *Lval = MinMaxInst->getLvalDDRef();
 
+  // Temporary disable FP data types for primary minmax. For FP data type
+  // we need some additional checks to be generated (eg for NAN) which is
+  // not implemented yet.
+  if (!Lval->getDestType()->isIntegerTy())
+    return false;
+
   PredicateTy Pred = MinMaxInst->getPredicate();
 
   if (!Lval->isTerminalRef())
@@ -727,8 +734,8 @@ bool HIRIdiomAnalyzer::tryMinMaxIdiom(HLDDNode *Node) {
   LLVM_DEBUG(dbgs() << "[MinMax+Index] Looking at candidate:";
              MinMaxInst->dump());
 
-  SmallPtrSet<HLInst *, 2> LinkedInstr;
   MatchFail Mismatch("MinMax+Index");
+  DenseMap<HLInst *, HIRVectorIdioms::IdiomId> LinkedInstr;
 
   for (DDEdge *E : DDG.outgoing(Lval)) {
     if (E->isOutput()) {
@@ -777,35 +784,47 @@ bool HIRIdiomAnalyzer::tryMinMaxIdiom(HLDDNode *Node) {
           !DDRefUtils::areEqual(SelectOp2, Operand2))
         return Mismatch("dependency on not the same comparison");
 
-      if (DisableNonLinearMMIndexes) {
-        // Non-linear indexes are disabled. Check for we have assignment of a
-        // linear value. In the example below the value to check is 'i1'.
-        // + DO i1 = 0, sext.i32.i64(%m) + -1, 1 <DO_LOOP>  <MAX_TC_EST = 1000>
+      HIRVectorIdioms::IdiomId IdiomKind = HIRVectorIdioms::NoIdiom;
+      const RegDDRef *Rhs = LvalEqualsThirdOp ? Select->getOperandDDRef(4)
+                                              : Select->getOperandDDRef(3);
+      StringRef Msg;
+      if (!Rhs->isLinear()) {
+        IdiomKind = HIRVectorIdioms::MMFirstLastVal;
+        Msg = "\n";
+      }
+      else {
+        IdiomKind = HIRVectorIdioms::MMFirstLastIdx;
+        // Check that we have assignment of a pure linear value.
+        // That means: exclude non-terminals, conversions, and values with
+        // division (like i1/4).
+        // In the example below the value to check is 'i1'.
+        // + DO i1 = 0, sext.i32.i64(%m) + -1, 1 <DO_LOOP> <MAX_TC_EST = 1000>
         // |   %0 = (@ordering)[0][i1];
         // |   %tmp.015 = (%0 > %best.014) ? i1 : %tmp.015;
         // |   %best.014 = (%0 > %best.014) ? %0 : %best.014;
         // + END LOOP
-        const RegDDRef *Rhs = LvalEqualsThirdOp ? Select->getOperandDDRef(4)
-                                                : Select->getOperandDDRef(3);
-        if (!Rhs->isLinear())
-          return Mismatch("nonlinear rhs disabled");
-
-        if (!Rhs->isTerminalRef())
-          return Mismatch("nonlinear rhs disabled (nonterm)");
-
-        if (Rhs->getSrcType() != Rhs->getDestType())
+        if (!Rhs->isTerminalRef()) {
+          IdiomKind = HIRVectorIdioms::MMFirstLastVal;
+          Msg = "(nonterm)\n";
+        } else if (Rhs->getSrcType() != Rhs->getDestType()) {
           // TODO: Currently, linears are usually promoted to 64-bit even in
           // source code they are 32-bit. Then in IR we have their truncation
           // 64->32 bit before using them. Our DA does not have capability to
-          // promote vector shape through that truncation so we have to bail out
-          // here. We need to improve linearity analysis in DA.
-          return Mismatch("nonlinear rhs disabled (conversion)");
-
-        if (Rhs->getSingleCanonExpr()->getDenominator() != 1)
+          // promote vector shape through that truncation so we have to bail
+          // out here. We need to improve linearity analysis in DA.
+          //
+          IdiomKind = HIRVectorIdioms::MMFirstLastVal;
+          Msg = "(conversion)\n";
+        } else if (Rhs->getSingleCanonExpr()->getDenominator() != 1) {
           // Loopopt can declare as linear e.g. i1/3. But we need a monotonic
           // sequence so bail out on any denominator.
-          return Mismatch("nonlinear rhs disabled (denom)");
+          IdiomKind = HIRVectorIdioms::MMFirstLastVal;
+          Msg = "(denom)\n";
+        }
       }
+      if (DisableNonMonotonicIndexes &&
+          IdiomKind != HIRVectorIdioms::MMFirstLastIdx)
+        return Mismatch(Twine("nonlinear rhs disabled ") + Msg);
 
       // This verifies that temp occurs in the rval in the same position as the
       // minmax temp.
@@ -826,14 +845,15 @@ bool HIRIdiomAnalyzer::tryMinMaxIdiom(HLDDNode *Node) {
       }
 
       // Add HInst as recognized temp.
-      LinkedInstr.insert(Select);
+      LinkedInstr.insert({Select, IdiomKind});
     }
   }
   if (!LinkedInstr.empty()) {
     // Add Node as idiom.
     IdiomList.addIdiom(MinMaxInst, HIRVectorIdioms::MinOrMax);
     for (auto Linked : LinkedInstr) {
-      IdiomList.addLinked(MinMaxInst, Linked, HIRVectorIdioms::MMFirstLastLoc);
+      IdiomList.addLinked(MinMaxInst, Linked.first /* Instruction */,
+                          Linked.second /* IdiomKind */);
     }
     LLVM_DEBUG(dbgs() << "[MinMax+Index] Accepted\n");
     return true;

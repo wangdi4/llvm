@@ -874,10 +874,19 @@ private:
 
   // The following code is generated supposing we have
   //    reduction-final (pred) reduce_val, parent_final, parent_exit
-  // %bcst = broadcast parent_final
-  // %cmp_v = cmp eq %bcst, parent_exit
-  // %ndx_fixup = select %cmp_v  %reduce_val, (is_min(pred) ? MAX_INT:MIN_INT)
-  // %result = (is_min(pred) ? reduce_min: reduce_max)(%ndx_fixup)
+  // if (IsLinearIndex) {
+  //   // here parent is main component of min/max + index idiom
+  //   %bcst = broadcast parent_final
+  //   %cmp_v = cmp eq %bcst, parent_exit
+  //   %ndx_fixup = select %cmp_v  %reduce_val, (is_min(pred) ? MAX_INT:MIN_INT)
+  //   %result = (is_min(pred) ? reduce_min: reduce_max)(%ndx_fixup)
+  // } else {
+  //   // here parent is linear index reduction
+  //   %bcst = broadcast parent_final
+  //   %cmp_v = cmp eq %bcst, parent_exit
+  //   %ndx = cttz(cmp_v)
+  //   %result =  extract_element reduce_val, %ndx
+  // }
   //
   // For example, we have the following values for min+min_index.
   //  parent_exit:  {1,5,1,3}      // minimal values for 4 lanes
