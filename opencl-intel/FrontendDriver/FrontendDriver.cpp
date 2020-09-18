@@ -79,6 +79,7 @@ ClangFECompiler::ClangFECompiler(const void *pszDeviceInfo) {
   m_sDeviceInfo.bDoubleSupport = pDevInfo->bDoubleSupport;
   m_sDeviceInfo.bEnableSourceLevelProfiling =
       pDevInfo->bEnableSourceLevelProfiling;
+  m_sDeviceInfo.bIsFPGAEmu = pDevInfo->bIsFPGAEmu;
   m_config.Initialize(GetConfigFilePath());
 }
 
