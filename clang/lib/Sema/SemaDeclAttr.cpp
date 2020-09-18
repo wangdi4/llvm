@@ -9233,6 +9233,7 @@ static void ProcessDeclAttribute(Sema &S, Scope *scope, Decl *D,
     break;
   case ParsedAttr::AT_SYCLIntelPipeIO:
     handleSYCLIntelPipeIOAttr(S, D, AL);
+    break;
 
   // Swift attributes.
   case ParsedAttr::AT_SwiftError:
