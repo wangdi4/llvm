@@ -70,8 +70,8 @@
 #include "llvm/Transforms/Instrumentation/BoundsChecking.h"
 #include "llvm/Transforms/Instrumentation/GCOVProfiler.h"
 #include "llvm/Transforms/Instrumentation/HWAddressSanitizer.h"
-#include "llvm/Transforms/Instrumentation/HeapProfiler.h"
 #include "llvm/Transforms/Instrumentation/InstrProfiling.h"
+#include "llvm/Transforms/Instrumentation/MemProfiler.h"
 #include "llvm/Transforms/Instrumentation/MemorySanitizer.h"
 #include "llvm/Transforms/Instrumentation/SanitizerCoverage.h"
 #include "llvm/Transforms/Instrumentation/ThreadSanitizer.h"
@@ -271,10 +271,10 @@ static bool asanUseGlobalsGC(const Triple &T, const CodeGenOptions &CGOpts) {
   return false;
 }
 
-static void addHeapProfilerPasses(const PassManagerBuilder &Builder,
-                                  legacy::PassManagerBase &PM) {
-  PM.add(createHeapProfilerFunctionPass());
-  PM.add(createModuleHeapProfilerLegacyPassPass());
+static void addMemProfilerPasses(const PassManagerBuilder &Builder,
+                                 legacy::PassManagerBase &PM) {
+  PM.add(createMemProfilerFunctionPass());
+  PM.add(createModuleMemProfilerLegacyPassPass());
 }
 
 static void addAddressSanitizerPasses(const PassManagerBuilder &Builder,
@@ -683,11 +683,11 @@ void EmitAssemblyHelper::CreatePasses(legacy::PassManager &MPM,
   if (LangOpts.Coroutines)
     addCoroutinePassesToExtensionPoints(PMBuilder);
 
-  if (CodeGenOpts.HeapProf) {
+  if (CodeGenOpts.MemProf) {
     PMBuilder.addExtension(PassManagerBuilder::EP_OptimizerLast,
-                           addHeapProfilerPasses);
+                           addMemProfilerPasses);
     PMBuilder.addExtension(PassManagerBuilder::EP_EnabledOnOptLevel0,
-                           addHeapProfilerPasses);
+                           addMemProfilerPasses);
   }
 
   if (LangOpts.Sanitize.has(SanitizerKind::LocalBounds)) {
@@ -1432,9 +1432,9 @@ void EmitAssemblyHelper::EmitAssemblyWithNewPassManager(
       }
     }
 
-    if (CodeGenOpts.HeapProf) {
-      MPM.addPass(createModuleToFunctionPassAdaptor(HeapProfilerPass()));
-      MPM.addPass(ModuleHeapProfilerPass());
+    if (CodeGenOpts.MemProf) {
+      MPM.addPass(createModuleToFunctionPassAdaptor(MemProfilerPass()));
+      MPM.addPass(ModuleMemProfilerPass());
     }
 
     if (LangOpts.Sanitize.has(SanitizerKind::HWAddress)) {

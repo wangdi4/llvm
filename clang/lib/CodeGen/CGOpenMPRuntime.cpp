@@ -7839,6 +7839,7 @@ public:
                 break;
               }
             }
+            assert(Size && "Failed to determine structure size");
             CombinedInfo.BasePointers.push_back(BP.getPointer());
             CombinedInfo.Pointers.push_back(LB.getPointer());
             CombinedInfo.Sizes.push_back(CGF.Builder.CreateIntCast(
