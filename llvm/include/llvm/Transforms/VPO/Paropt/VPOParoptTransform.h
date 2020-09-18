@@ -148,7 +148,8 @@ public:
   ///
   /// This branch is added at the end of paropt-prepare pass, and later removed
   /// before the vpo-paropt transformation.
-  void addBranchToEndDirective(WRegionNode *W);
+  /// \returns \b true if a branch was added, \b false otherwise.
+  bool addBranchToEndDirective(WRegionNode *W);
 
   /// Top level interface for parallel and prepare transformation
   bool paroptTransforms();

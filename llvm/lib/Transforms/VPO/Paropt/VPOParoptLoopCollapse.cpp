@@ -119,7 +119,7 @@ PreservedAnalyses VPOParoptLoopCollapsePass::run(
   PreservedAnalyses PA;
 
   LLVM_DEBUG(dbgs() << "\n\n====== Enter " << PASS_NAME << " ======\n\n");
-  if (collapseLoops(F, WI, ORE))
+  if (!collapseLoops(F, WI, ORE))
     PA = PreservedAnalyses::all();
   else
     PA = PreservedAnalyses::none();

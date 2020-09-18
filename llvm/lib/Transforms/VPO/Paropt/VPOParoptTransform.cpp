@@ -1204,7 +1204,7 @@ bool VPOParoptTransform::renameAndReplaceLibatomicCallsForSPIRV(Function *F) {
 //
 //   REGION.END:
 //   llvm.region.exit(%0)
-void VPOParoptTransform::addBranchToEndDirective(WRegionNode *W) {
+bool VPOParoptTransform::addBranchToEndDirective(WRegionNode *W) {
   assert(W && "Null WRegionNode.");
   Instruction *EntryDirective = W->getEntryDirective();
 
@@ -1247,7 +1247,7 @@ void VPOParoptTransform::addBranchToEndDirective(WRegionNode *W) {
                     << W->getNumber() << "', using '";
              TempAddr->printAsOperand(dbgs()); dbgs() << "'.\n";);
 
-  return;
+  return true;
 }
 
 bool VPOParoptTransform::genLaunderIntrinIfPrivatizedInAncestor(
@@ -2227,7 +2227,7 @@ bool VPOParoptTransform::paroptTransforms() {
   if (!isTargetCSA())
 #endif  // INTEL_FEATURE_CSA
 #endif  // INTEL_CUSTOMIZATION
-      addBranchToEndDirective(W);
+      RoutineChanged |= addBranchToEndDirective(W);
 
     if (Changed) { // Code transformations happened for this WRN
       RoutineChanged = true;
