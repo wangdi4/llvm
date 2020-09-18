@@ -378,8 +378,8 @@ void visualstudio::Linker::ConstructJob(Compilation &C, const JobAction &JA,
 #endif // INTEL_CUSTOMIZATION
   }
 
-  if (!Args.hasArg(options::OPT_nostdlib) && Args.hasArg(options::OPT_fsycl) &&
-      !Args.hasArg(options::OPT_nolibsycl)) {
+  if (!C.getDriver().IsCLMode() && !Args.hasArg(options::OPT_nostdlib) &&
+      Args.hasArg(options::OPT_fsycl) && !Args.hasArg(options::OPT_nolibsycl)) {
     if (Args.hasArg(options::OPT__SLASH_MDd) ||
         Args.hasArg(options::OPT__SLASH_MTd))
       CmdArgs.push_back("-defaultlib:sycld.lib");
