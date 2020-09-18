@@ -222,7 +222,7 @@ llvm::Value *OpenMPLateOutliner::emitOpenMPCopyConstructor(const Expr *IPriv) {
                         ObjPtrTy, VK_LValue, SourceLocation());
     ImplicitCastExpr CastExpr(ImplicitCastExpr::OnStack,
                               C.getPointerType(ElemType), CK_BitCast, &SrcExpr,
-                              VK_RValue);
+                              VK_RValue, FPOptionsOverride());
     UnaryOperator *SRC = UnaryOperator::Create(
         C, &CastExpr, UO_Deref, ElemType, VK_LValue, OK_Ordinary,
         SourceLocation(), /*CanOverflow=*/false, FPOptionsOverride());
@@ -230,7 +230,7 @@ llvm::Value *OpenMPLateOutliner::emitOpenMPCopyConstructor(const Expr *IPriv) {
     QualType CTy = ElemType;
     CTy.addConst();
     ImplicitCastExpr NoOpCast(ImplicitCastExpr::OnStack, CTy, CK_NoOp, SRC,
-                              VK_LValue);
+                              VK_LValue, FPOptionsOverride());
 
     SmallVector<Expr *, 8> ConstructorArgs;
     ConstructorArgs.push_back(&NoOpCast);

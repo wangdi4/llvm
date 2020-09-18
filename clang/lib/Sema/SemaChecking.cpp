@@ -6565,6 +6565,7 @@ ExprResult Sema::BuildAtomicExpr(SourceRange CallRange, SourceRange ExprRange,
       auto CastType = Context.getPointerType(ValType);
       auto Cast = CStyleCastExpr::Create(
           Context, CastType, Ptr->getValueKind(), CK_BitCast, Ptr, nullptr,
+          CurFPFeatureOverrides(),
           Context.getTrivialTypeSourceInfo(CastType, SourceLocation()),
           SourceLocation(), SourceLocation());
       Ptr = Cast;
@@ -6698,6 +6699,7 @@ ExprResult Sema::BuildAtomicExpr(SourceRange CallRange, SourceRange ExprRange,
 
             auto Cast = CStyleCastExpr::Create(
                 Context, Ty, tmp->getValueKind(), CK_BitCast, tmp, nullptr,
+                CurFPFeatureOverrides(),
                 Context.getTrivialTypeSourceInfo(Ty, SourceLocation()),
                 SourceLocation(), SourceLocation());
             Args[i] = Cast;
