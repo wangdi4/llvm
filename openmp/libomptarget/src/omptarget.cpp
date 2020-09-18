@@ -900,7 +900,14 @@ class PrivateArgumentManagerTy {
   // TODO: What would be the best value here? Should we make it configurable?
   // If the size is larger than this threshold, we will allocate and transfer it
   // immediately instead of packing it.
+#if INTEL_COLLAB
+  // Setting this to 0 due to new failure in
+  // sollveC/test_target_teams_distribute_firstprivate, which needs to be
+  // investigated.
+  static constexpr const int64_t FirstPrivateArgSizeThreshold = 0;
+#else // INTEL_COLLAB
   static constexpr const int64_t FirstPrivateArgSizeThreshold = 1024;
+#endif // INTEL_COLLAB
 
 public:
   /// Constructor
@@ -915,11 +922,8 @@ public:
     // immediately.
     if (ArgSize > FirstPrivateArgSizeThreshold || !IsFirstPrivate) {
 #if INTEL_COLLAB
-      if (ArgOffset != 0)
-        TgtPtr = Device.data_alloc_base(ArgSize, HstPtr,
-                                       (void *)((intptr_t)HstPtr + ArgOffset));
-      else
-        TgtPtr = Device.allocData(ArgSize, HstPtr);
+      TgtPtr = Device.data_alloc_base(ArgSize, HstPtr,
+                                      (void *)((intptr_t)HstPtr + ArgOffset));
 #else
       TgtPtr = Device.allocData(ArgSize, HstPtr);
 #endif // INTEL_COLLAB
