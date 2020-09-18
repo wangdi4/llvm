@@ -4230,10 +4230,6 @@ class OffloadingActionBuilder final {
               return ABRT_Inactive;
             // For SYCL device libraries, don't need to add them to
             // FPGAObjectInputs as there is no FPGA dep files inside.
-<<<<<<< HEAD
-
-=======
->>>>>>> cd85ff333e5ec79f4f72c571bd65c4942f1236bf
             if (Args.hasArg(options::OPT_fintelfpga) &&
                 !IsSYCLDeviceLibObj(FileName, C.getDefaultToolChain()
                                                   .getTriple()
