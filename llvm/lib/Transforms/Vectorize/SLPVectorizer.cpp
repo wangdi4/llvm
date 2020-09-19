@@ -10029,20 +10029,6 @@ public:
 
       // 3. If not profitable to vectorize, bail out.
       if (Cost >= -SLPCostThreshold) {
-<<<<<<< HEAD
-          V.getORE()->emit([&]() {
-              return OptimizationRemarkMissed(
-                         SV_NAME, "HorSLPNotBeneficial", cast<Instruction>(VL[0]))
-                     << "Vectorizing horizontal reduction is possible"
-                     << "but not beneficial with cost "
-                     << ore::NV("Cost", Cost) << " and threshold "
-                     << ore::NV("Threshold", -SLPCostThreshold);
-          });
-#if INTEL_CUSTOMIZATION
-        V.undoMultiNodeReordering();
-        V.PSLPFailureCleanup();
-#endif // INTEL_CUSTOMIZATION
-=======
         V.getORE()->emit([&]() {
           return OptimizationRemarkMissed(SV_NAME, "HorSLPNotBeneficial",
                                           cast<Instruction>(VL[0]))
@@ -10051,7 +10037,10 @@ public:
                  << " and threshold "
                  << ore::NV("Threshold", -SLPCostThreshold);
         });
->>>>>>> 24238f09edb98b0f460aa41139874ae5d4e5cd8d
+#if INTEL_CUSTOMIZATION
+        V.undoMultiNodeReordering();
+        V.PSLPFailureCleanup();
+#endif // INTEL_CUSTOMIZATION
         break;
       }
       // It is profitable to vectorize!
