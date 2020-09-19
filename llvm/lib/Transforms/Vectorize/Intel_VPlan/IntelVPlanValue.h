@@ -463,6 +463,12 @@ public:
     return getConstantInt()->getValue();
   }
 
+  /// This function will return true iff every bit in this constant is set to true.
+  // Adapted from Constant.h
+  bool isMinusOne() const {
+    return getConstant()->isAllOnesValue();
+  }
+
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   void printAsOperand(raw_ostream &OS) const override {
     getUnderlyingValue()->printAsOperand(OS);

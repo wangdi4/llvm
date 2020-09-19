@@ -581,6 +581,9 @@ private:
   // TODO: Add support for pumping.
   void vectorizeVecVariant(VPCallInstruction *VPCall);
 
+  // Widen or Serialize lifetime_start/end intrinsic call.
+  void vectorizeLifetimeStartEndIntrinsic(VPCallInstruction *VPCall);
+
   // Widen Select instruction.
   void vectorizeSelectInstruction(VPInstruction *VPInst);
 

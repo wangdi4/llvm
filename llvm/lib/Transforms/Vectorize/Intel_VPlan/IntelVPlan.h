@@ -1919,6 +1919,22 @@ public:
     return getOrigCallAttrs().hasFnAttribute("kernel-uniform-call");
   }
 
+  /// Return \p true if this call is a lifetime_start/end intrinsic call.
+  bool isLifetimeStartOrEndIntrinsic() const {
+    return isIntrinsicFromList(
+        {Intrinsic::lifetime_start, Intrinsic::lifetime_end});
+  }
+
+  /// Return \p true if this call is a intrinsic from the given list \p
+  /// IntrinsicsList.
+  bool isIntrinsicFromList(ArrayRef<Intrinsic::ID> IntrinsicsList) const {
+    if (auto *F = getCalledFunction())
+      return F->isIntrinsic() &&
+             llvm::find(IntrinsicsList, F->getIntrinsicID()) !=
+                 IntrinsicsList.end();
+    return false;
+  }
+
   /// Clear decision that was last computed for this call, and reset to initial
   /// state (Undef scenario) for new VF.
   void resetVecScenario(unsigned NewVF) {

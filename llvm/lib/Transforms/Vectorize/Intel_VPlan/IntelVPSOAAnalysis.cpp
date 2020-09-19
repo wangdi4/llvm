@@ -116,16 +116,11 @@ bool VPSOAAnalysis::isSafePointerEscapeFunction(const VPInstruction *UseInst) {
   if (!VPCall)
     return false;
 
-  Function *CalleeFunc = VPCall->getCalledFunction();
-  // For indirect calls we will have a null CalledFunc.
-  if (!CalleeFunc)
-    return false;
-  if (CalleeFunc->isIntrinsic())
-    return (CalleeFunc->getIntrinsicID() == Intrinsic::lifetime_start ||
-            CalleeFunc->getIntrinsicID() == Intrinsic::lifetime_end ||
-            CalleeFunc->getIntrinsicID() == Intrinsic::invariant_start ||
-            CalleeFunc->getIntrinsicID() == Intrinsic::invariant_end);
-  return false;
+  // Only lifetime_start/end and invariant_start/end intrinsics are considered
+  // safe.
+  return VPCall->isIntrinsicFromList(
+      {Intrinsic::lifetime_start, Intrinsic::lifetime_end,
+       Intrinsic::invariant_start, Intrinsic::invariant_end});
 }
 
 // Returns true if the instruction has operands registered as potentially-unsafe
