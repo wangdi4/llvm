@@ -73,149 +73,6 @@ bool IsInRanges(const IntRange &R, const std::vector<IntRange> &Ranges) {
   return I != Ranges.end() && I->Low <= R.Low;
 }
 
-<<<<<<< HEAD
-namespace {
-
-  /// Replace all SwitchInst instructions with chained branch instructions.
-  class LowerSwitch : public FunctionPass {
-#if INTEL_CUSTOMIZATION
-    // Flag to check if pass should be run only when function has a SIMD loop
-    // region
-    bool FnWithSIMDLoopOnly;
-#endif // INTEL_CUSTOMIZATION
-
-  public:
-    // Pass identification, replacement for typeid
-    static char ID;
-
-#if INTEL_CUSTOMIZATION
-    LowerSwitch(bool FnWithSIMDLoopOnly = false)
-        : FunctionPass(ID), FnWithSIMDLoopOnly(FnWithSIMDLoopOnly) {
-#endif // INTEL_CUSTOMIZATION
-      initializeLowerSwitchPass(*PassRegistry::getPassRegistry());
-    }
-
-    bool runOnFunction(Function &F) override;
-
-    void getAnalysisUsage(AnalysisUsage &AU) const override {
-      AU.addRequired<LazyValueInfoWrapperPass>();
-#if INTEL_CUSTOMIZATION
-
-      AU.addPreserved<GlobalsAAWrapperPass>();
-      AU.addPreserved<AndersensAAWrapperPass>();
-#endif // INTEL_CUSTOMIZATION
-    }
-
-    struct CaseRange {
-      ConstantInt* Low;
-      ConstantInt* High;
-      BasicBlock* BB;
-
-      CaseRange(ConstantInt *low, ConstantInt *high, BasicBlock *bb)
-          : Low(low), High(high), BB(bb) {}
-    };
-
-    using CaseVector = std::vector<CaseRange>;
-    using CaseItr = std::vector<CaseRange>::iterator;
-
-  private:
-    void processSwitchInst(SwitchInst *SI,
-                           SmallPtrSetImpl<BasicBlock *> &DeleteList,
-                           AssumptionCache *AC, LazyValueInfo *LVI);
-
-    BasicBlock *switchConvert(CaseItr Begin, CaseItr End,
-                              ConstantInt *LowerBound, ConstantInt *UpperBound,
-                              Value *Val, BasicBlock *Predecessor,
-                              BasicBlock *OrigBlock, BasicBlock *Default,
-                              const std::vector<IntRange> &UnreachableRanges);
-    BasicBlock *newLeafBlock(CaseRange &Leaf, Value *Val,
-                             ConstantInt *LowerBound, ConstantInt *UpperBound,
-                             BasicBlock *OrigBlock, BasicBlock *Default);
-    unsigned Clusterify(CaseVector &Cases, SwitchInst *SI);
-  };
-
-  /// The comparison function for sorting the switch case values in the vector.
-  /// WARNING: Case ranges should be disjoint!
-  struct CaseCmp {
-    bool operator()(const LowerSwitch::CaseRange& C1,
-                    const LowerSwitch::CaseRange& C2) {
-      const ConstantInt* CI1 = cast<const ConstantInt>(C1.Low);
-      const ConstantInt* CI2 = cast<const ConstantInt>(C2.High);
-      return CI1->getValue().slt(CI2->getValue());
-    }
-  };
-
-} // end anonymous namespace
-
-char LowerSwitch::ID = 0;
-
-// Publicly exposed interface to pass...
-char &llvm::LowerSwitchID = LowerSwitch::ID;
-
-INITIALIZE_PASS_BEGIN(LowerSwitch, "lowerswitch",
-                      "Lower SwitchInst's to branches", false, false)
-INITIALIZE_PASS_DEPENDENCY(AssumptionCacheTracker)
-INITIALIZE_PASS_DEPENDENCY(LazyValueInfoWrapperPass)
-INITIALIZE_PASS_END(LowerSwitch, "lowerswitch",
-                    "Lower SwitchInst's to branches", false, false)
-
-// createLowerSwitchPass - Interface to this file...
-#if INTEL_CUSTOMIZATION
-FunctionPass *llvm::createLowerSwitchPass(bool FnWithSIMDLoopOnly) {
-  return new LowerSwitch(FnWithSIMDLoopOnly);
-}
-
-/// Checks if incoming function \p F has atleast one OMP SIMD loop region
-static bool functionHasSIMDLoops(Function &F) {
-  for (auto &BB : F) {
-    for (auto &I : BB) {
-      StringRef DirString = vpo::VPOAnalysisUtils::getRegionDirectiveString(&I);
-      if (!DirString.empty() && DirString.equals("DIR.OMP.SIMD"))
-        return true;
-    }
-  }
-
-  return false;
-}
-#endif // INTEL_CUSTOMIZATION
-
-bool LowerSwitch::runOnFunction(Function &F) {
-  LazyValueInfo *LVI = &getAnalysis<LazyValueInfoWrapperPass>().getLVI();
-  auto *ACT = getAnalysisIfAvailable<AssumptionCacheTracker>();
-  AssumptionCache *AC = ACT ? &ACT->getAssumptionCache(F) : nullptr;
-
-  bool Changed = false;
-  SmallPtrSet<BasicBlock*, 8> DeleteList;
-
-#if INTEL_CUSTOMIZATION
-  if (FnWithSIMDLoopOnly) {
-    LLVM_DEBUG(dbgs() << "LowerSwitch: Required to run pass only for functions "
-                         "with SIMD loops.\n");
-    if (!functionHasSIMDLoops(F))
-      return false;
-    LLVM_DEBUG(
-        dbgs() << "LowerSwitch: Function has SIMD loops, executing pass.\n");
-  }
-#endif // INTEL_CUSTOMIZATION
-
-  for (Function::iterator I = F.begin(), E = F.end(); I != E; ) {
-    BasicBlock *Cur = &*I++; // Advance over block so we don't traverse new blocks
-
-    // If the block is a dead Default block that will be deleted later, don't
-    // waste time processing it.
-    if (DeleteList.count(Cur))
-      continue;
-
-    if (SwitchInst *SI = dyn_cast<SwitchInst>(Cur->getTerminator())) {
-      Changed = true;
-      processSwitchInst(SI, DeleteList, AC, LVI);
-    }
-  }
-
-  for (BasicBlock* BB: DeleteList) {
-    LVI->eraseBlock(BB);
-    DeleteDeadBlock(BB);
-=======
 struct CaseRange {
   ConstantInt *Low;
   ConstantInt *High;
@@ -235,7 +92,6 @@ struct CaseCmp {
     const ConstantInt *CI1 = cast<const ConstantInt>(C1.Low);
     const ConstantInt *CI2 = cast<const ConstantInt>(C2.High);
     return CI1->getValue().slt(CI2->getValue());
->>>>>>> f7aa1563eb5ff00416fba373073ba19832b6fc34
   }
 };
 
@@ -698,18 +554,31 @@ bool LowerSwitch(Function &F, LazyValueInfo *LVI, AssumptionCache *AC) {
 
 /// Replace all SwitchInst instructions with chained branch instructions.
 class LowerSwitchLegacyPass : public FunctionPass {
+#if INTEL_CUSTOMIZATION
+    // Flag to check if pass should be run only when function has a SIMD loop
+    // region
+    bool FnWithSIMDLoopOnly;
+#endif // INTEL_CUSTOMIZATION
+
 public:
   // Pass identification, replacement for typeid
   static char ID;
 
-  LowerSwitchLegacyPass() : FunctionPass(ID) {
+#if INTEL_CUSTOMIZATION
+  LowerSwitchLegacyPass(bool FnWithSIMDLoopOnly = false)
+      : FunctionPass(ID), FnWithSIMDLoopOnly(FnWithSIMDLoopOnly) {
     initializeLowerSwitchLegacyPassPass(*PassRegistry::getPassRegistry());
   }
+#endif // INTEL_CUSTOMIZATION
 
   bool runOnFunction(Function &F) override;
 
   void getAnalysisUsage(AnalysisUsage &AU) const override {
     AU.addRequired<LazyValueInfoWrapperPass>();
+#if INTEL_CUSTOMIZATION
+    AU.addPreserved<GlobalsAAWrapperPass>();
+    AU.addPreserved<AndersensAAWrapperPass>();
+#endif // INTEL_CUSTOMIZATION
   }
 };
 
@@ -728,14 +597,39 @@ INITIALIZE_PASS_END(LowerSwitchLegacyPass, "lowerswitch",
                     "Lower SwitchInst's to branches", false, false)
 
 // createLowerSwitchPass - Interface to this file...
-FunctionPass *llvm::createLowerSwitchPass() {
-  return new LowerSwitchLegacyPass();
+#if INTEL_CUSTOMIZATION
+FunctionPass *llvm::createLowerSwitchPass(bool FnWithSIMDLoopOnly) {
+  return new LowerSwitchLegacyPass(FnWithSIMDLoopOnly);
 }
+
+/// Checks if incoming function \p F has atleast one OMP SIMD loop region
+static bool functionHasSIMDLoops(Function &F) {
+  for (auto &BB : F) {
+    for (auto &I : BB) {
+      StringRef DirString = vpo::VPOAnalysisUtils::getRegionDirectiveString(&I);
+      if (!DirString.empty() && DirString.equals("DIR.OMP.SIMD"))
+        return true;
+    }
+  }
+
+  return false;
+}
+#endif // INTEL_CUSTOMIZATION
 
 bool LowerSwitchLegacyPass::runOnFunction(Function &F) {
   LazyValueInfo *LVI = &getAnalysis<LazyValueInfoWrapperPass>().getLVI();
   auto *ACT = getAnalysisIfAvailable<AssumptionCacheTracker>();
   AssumptionCache *AC = ACT ? &ACT->getAssumptionCache(F) : nullptr;
+#if INTEL_CUSTOMIZATION
+  if (FnWithSIMDLoopOnly) {
+    LLVM_DEBUG(dbgs() << "LowerSwitch: Required to run pass only for functions "
+                         "with SIMD loops.\n");
+    if (!functionHasSIMDLoops(F))
+      return false;
+    LLVM_DEBUG(
+        dbgs() << "LowerSwitch: Function has SIMD loops, executing pass.\n");
+  }
+#endif // INTEL_CUSTOMIZATION
   return LowerSwitch(F, LVI, AC);
 }
 
