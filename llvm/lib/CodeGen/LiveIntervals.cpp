@@ -524,12 +524,7 @@ bool LiveIntervals::computeDeadValues(LiveInterval &LI,
 
     // Is the register live before? Otherwise we may have to add a read-undef
     // flag for subregister defs.
-<<<<<<< HEAD
-    unsigned VReg = LI.reg;
-
-=======
     unsigned VReg = LI.reg();
->>>>>>> 6e85c3d5c786f0d3878d7f79503e8641d1b7030b
     if (MRI->shouldTrackSubRegLiveness(VReg)) {
       if ((I == LI.begin() || std::prev(I)->end < Def) && !VNI->isPHIDef()) {
         MachineInstr *MI = getInstructionFromIndex(Def);
