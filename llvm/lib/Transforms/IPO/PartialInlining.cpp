@@ -256,10 +256,13 @@ struct PartialInlinerImpl {
     // multi-region outlining.
     FunctionCloner(Function *F, FunctionOutliningInfo *OI,
                    OptimizationRemarkEmitter &ORE,
-                   function_ref<AssumptionCache *(Function &)> LookupAC);
+                   function_ref<AssumptionCache *(Function &)> LookupAC,
+                   function_ref<TargetTransformInfo &(Function &)> GetTTI);
     FunctionCloner(Function *F, FunctionOutliningMultiRegionInfo *OMRI,
                    OptimizationRemarkEmitter &ORE,
-                   function_ref<AssumptionCache *(Function &)> LookupAC);
+                   function_ref<AssumptionCache *(Function &)> LookupAC,
+                   function_ref<TargetTransformInfo &(Function &)> GetTTI);
+
     ~FunctionCloner();
 
     // Prepare for function outlining: making sure there is only
@@ -296,6 +299,7 @@ struct PartialInlinerImpl {
     std::unique_ptr<BlockFrequencyInfo> ClonedFuncBFI = nullptr;
     OptimizationRemarkEmitter &ORE;
     function_ref<AssumptionCache *(Function &)> LookupAC;
+    function_ref<TargetTransformInfo &(Function &)> GetTTI;
   };
 
 private:
@@ -413,7 +417,7 @@ private:
   // Compute the 'InlineCost' of block BB. InlineCost is a proxy used to
   // approximate both the size and runtime cost (Note that in the current
   // inline cost analysis, there is no clear distinction there either).
-  static int computeBBInlineCost(BasicBlock *BB);
+  static int computeBBInlineCost(BasicBlock *BB, TargetTransformInfo *TTI);
 
   std::unique_ptr<FunctionOutliningInfo> computeOutliningInfo(Function *F);
   std::unique_ptr<FunctionOutliningMultiRegionInfo>
@@ -545,9 +549,10 @@ PartialInlinerImpl::computeOutliningColdRegionsInfo(Function *F,
 
   // Use the same computeBBInlineCost function to compute the cost savings of
   // the outlining the candidate region.
+  TargetTransformInfo *FTTI = &GetTTI(*F);
   int OverallFunctionCost = 0;
   for (auto &BB : *F)
-    OverallFunctionCost += computeBBInlineCost(&BB);
+    OverallFunctionCost += computeBBInlineCost(&BB, FTTI);
 
 #ifndef NDEBUG
   if (TracePartialInlining)
@@ -606,7 +611,7 @@ PartialInlinerImpl::computeOutliningColdRegionsInfo(Function *F,
         continue;
       int OutlineRegionCost = 0;
       for (auto *BB : DominateVector)
-        OutlineRegionCost += computeBBInlineCost(BB);
+        OutlineRegionCost += computeBBInlineCost(BB, &GetTTI(*BB->getParent()));
 
 #ifndef NDEBUG
       if (TracePartialInlining)
@@ -952,7 +957,8 @@ bool PartialInlinerImpl::shouldPartialInline(
 // TODO: Ideally  we should share Inliner's InlineCost Analysis code.
 // For now use a simplified version. The returned 'InlineCost' will be used
 // to esimate the size cost as well as runtime cost of the BB.
-int PartialInlinerImpl::computeBBInlineCost(BasicBlock *BB) {
+int PartialInlinerImpl::computeBBInlineCost(BasicBlock *BB,
+                                            TargetTransformInfo *TTI) {
   int InlineCost = 0;
   const DataLayout &DL = BB->getParent()->getParent()->getDataLayout();
   for (Instruction &I : BB->instructionsWithoutDebug()) {
@@ -993,6 +999,21 @@ int PartialInlinerImpl::computeBBInlineCost(BasicBlock *BB) {
 #endif // INTEL_CUSTOMIZATION
     }
 
+    if (auto *II = dyn_cast<IntrinsicInst>(&I)) {
+      Intrinsic::ID IID = II->getIntrinsicID();
+      SmallVector<Type *, 4> Tys;
+      FastMathFlags FMF;
+      for (Value *Val : II->args())
+        Tys.push_back(Val->getType());
+
+      if (auto *FPMO = dyn_cast<FPMathOperator>(II))
+        FMF = FPMO->getFastMathFlags();
+
+      IntrinsicCostAttributes ICA(IID, II->getType(), Tys, FMF);
+      InlineCost += TTI->getIntrinsicInstrCost(ICA, TTI::TCK_SizeAndLatency);
+      continue;
+    }
+
     if (CallInst *CI = dyn_cast<CallInst>(&I)) {
       InlineCost += getCallsiteCost(*CI, DL);
       continue;
@@ -1020,11 +1041,13 @@ PartialInlinerImpl::computeOutliningCosts(FunctionCloner &Cloner) {
     BasicBlock* OutliningCallBB = FuncBBPair.second;
     // Now compute the cost of the call sequence to the outlined function
     // 'OutlinedFunction' in BB 'OutliningCallBB':
-    OutliningFuncCallCost += computeBBInlineCost(OutliningCallBB);
+    auto *OutlinedFuncTTI = &GetTTI(*OutlinedFunc);
+    OutliningFuncCallCost +=
+        computeBBInlineCost(OutliningCallBB, OutlinedFuncTTI);
 
     // Now compute the cost of the extracted/outlined function itself:
     for (BasicBlock &BB : *OutlinedFunc)
-      OutlinedFunctionCost += computeBBInlineCost(&BB);
+      OutlinedFunctionCost += computeBBInlineCost(&BB, OutlinedFuncTTI);
   }
   assert(OutlinedFunctionCost >= Cloner.OutlinedRegionCost &&
          "Outlined function cost should be no less than the outlined region");
@@ -1099,8 +1122,9 @@ void PartialInlinerImpl::computeCallsiteToProfCountMap(
 
 PartialInlinerImpl::FunctionCloner::FunctionCloner(
     Function *F, FunctionOutliningInfo *OI, OptimizationRemarkEmitter &ORE,
-    function_ref<AssumptionCache *(Function &)> LookupAC)
-    : OrigFunc(F), ORE(ORE), LookupAC(LookupAC) {
+    function_ref<AssumptionCache *(Function &)> LookupAC,
+    function_ref<TargetTransformInfo &(Function &)> GetTTI)
+    : OrigFunc(F), ORE(ORE), LookupAC(LookupAC), GetTTI(GetTTI) {
   ClonedOI = std::make_unique<FunctionOutliningInfo>();
 
   // Clone the function, so that we can hack away on it.
@@ -1124,8 +1148,9 @@ PartialInlinerImpl::FunctionCloner::FunctionCloner(
 PartialInlinerImpl::FunctionCloner::FunctionCloner(
     Function *F, FunctionOutliningMultiRegionInfo *OI,
     OptimizationRemarkEmitter &ORE,
-    function_ref<AssumptionCache *(Function &)> LookupAC)
-    : OrigFunc(F), ORE(ORE), LookupAC(LookupAC) {
+    function_ref<AssumptionCache *(Function &)> LookupAC,
+    function_ref<TargetTransformInfo &(Function &)> GetTTI)
+    : OrigFunc(F), ORE(ORE), LookupAC(LookupAC), GetTTI(GetTTI) {
   ClonedOMRI = std::make_unique<FunctionOutliningMultiRegionInfo>();
 
   // Clone the function, so that we can hack away on it.
@@ -1236,10 +1261,10 @@ void PartialInlinerImpl::FunctionCloner::NormalizeReturnBlock() {
 
 bool PartialInlinerImpl::FunctionCloner::doMultiRegionFunctionOutlining() {
 
-  auto ComputeRegionCost = [](SmallVectorImpl<BasicBlock *> &Region) {
+  auto ComputeRegionCost = [&](SmallVectorImpl<BasicBlock *> &Region) {
     int Cost = 0;
     for (BasicBlock* BB : Region)
-      Cost += computeBBInlineCost(BB);
+      Cost += computeBBInlineCost(BB, &GetTTI(*BB->getParent()));
     return Cost;
   };
 
@@ -1333,9 +1358,10 @@ PartialInlinerImpl::FunctionCloner::doSingleRegionFunctionOutlining() {
 
   // Gather up the blocks that we're going to extract.
   std::vector<BasicBlock *> ToExtract;
+  auto *ClonedFuncTTI = &GetTTI(*ClonedFunc);
   ToExtract.push_back(ClonedOI->NonReturnBlock);
-  OutlinedRegionCost +=
-      PartialInlinerImpl::computeBBInlineCost(ClonedOI->NonReturnBlock);
+  OutlinedRegionCost += PartialInlinerImpl::computeBBInlineCost(
+      ClonedOI->NonReturnBlock, ClonedFuncTTI);
   for (BasicBlock &BB : *ClonedFunc)
     if (!ToBeInlined(&BB) && &BB != ClonedOI->NonReturnBlock) {
       ToExtract.push_back(&BB);
@@ -1343,7 +1369,7 @@ PartialInlinerImpl::FunctionCloner::doSingleRegionFunctionOutlining() {
       // into the outlined function which may make the outlining
       // overhead (the difference of the outlined function cost
       // and OutliningRegionCost) look larger.
-      OutlinedRegionCost += computeBBInlineCost(&BB);
+      OutlinedRegionCost += computeBBInlineCost(&BB, ClonedFuncTTI);
     }
 
   // Extract the body of the if.
@@ -1527,7 +1553,7 @@ std::pair<bool, Function *> PartialInlinerImpl::unswitchFunction(Function *F) {
     std::unique_ptr<FunctionOutliningMultiRegionInfo> OMRI =
         computeOutliningColdRegionsInfo(F, ORE);
     if (OMRI) {
-      FunctionCloner Cloner(F, OMRI.get(), ORE, LookupAssumptionCache);
+      FunctionCloner Cloner(F, OMRI.get(), ORE, LookupAssumptionCache, GetTTI);
 
 #ifndef NDEBUG
       if (TracePartialInlining) {
@@ -1560,7 +1586,7 @@ std::pair<bool, Function *> PartialInlinerImpl::unswitchFunction(Function *F) {
   if (!OI)
     return {false, nullptr};
 
-  FunctionCloner Cloner(F, OI.get(), ORE, LookupAssumptionCache);
+  FunctionCloner Cloner(F, OI.get(), ORE, LookupAssumptionCache, GetTTI);
   Cloner.NormalizeReturnBlock();
 
   Function *OutlinedFunction = Cloner.doSingleRegionFunctionOutlining();
