@@ -9930,9 +9930,9 @@ public:
     Builder.setFastMathFlags(Unsafe);
 
     BoUpSLP::ExtraValueToDebugLocsMap ExternallyUsedValues;
-    // The same extra argument may be used several time, so log each attempt
+    // The same extra argument may be used several times, so log each attempt
     // to use it.
-    for (auto &Pair : ExtraArgs) {
+    for (std::pair<Instruction *, Value *> &Pair : ExtraArgs) {
       assert(Pair.first && "DebugLoc must be set.");
       ExternallyUsedValues[Pair.second].push_back(Pair.first);
     }
@@ -9957,12 +9957,16 @@ public:
 
     unsigned i = 0;
     while (i < NumReducedVals - ReduxWidth + 1 && ReduxWidth > 2) {
+<<<<<<< HEAD
       auto VL = makeArrayRef(&ReducedVals[i], ReduxWidth);
 
 #if INTEL_CUSTOMIZATION
       V.PSLPInit();
 #endif // INTEL_CUSTOMIZATION
 
+=======
+      ArrayRef<Value *> VL = makeArrayRef(&ReducedVals[i], ReduxWidth);
+>>>>>>> 6a23668e78b05703ccba552e09b09b8055924bb6
       V.buildTree(VL, ExternallyUsedValues, IgnoreList);
       SmallVector<Value *, 4> ReorderedOps(VL.begin(), VL.end()); // INTEL
       Optional<ArrayRef<unsigned>> Order = V.bestOrder();
