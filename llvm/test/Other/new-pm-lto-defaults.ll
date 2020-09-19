@@ -132,12 +132,7 @@
 ; CHECK-O2-NEXT: Running analysis: PhiValuesAnalysis
 ; CHECK-O2-NEXT: Running pass: MemCpyOptPass on foo
 ; CHECK-O2-NEXT: Running pass: DSEPass on foo
-<<<<<<< HEAD
-; CHECK-O2-NEXT: Running analysis: MemorySSAAnalysis on foo
-; Running analysis: PostDominatorTreeAnalysis on foo                                  ;INTEL this line moved up verbatim
-=======
->>>>>>> 3a59628f3cc26eb085acfc9cbdc97243ef71a6c5
-; CHECK-O2-NEXT: Running pass: InstCombinePass on foo
+; CHECK-O2-NEXT: Running pass: InstCombinePass on foo ;INTEL
 ; CHECK-O2-NEXT: Running pass: SimplifyCFGPass on foo
 ; CHECK-O2-NEXT: Running pass: SCCPPass on foo
 ; CHECK-O2-NEXT: Running pass: InstCombinePass on foo
