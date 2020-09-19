@@ -9918,10 +9918,6 @@ public:
     if (NumReducedVals < 4)
       return false;
 
-    unsigned ReduxWidth = PowerOf2Floor(NumReducedVals);
-
-    Value *VectorizedTree = nullptr;
-
     // FIXME: Fast-math-flags should be set based on the instructions in the
     //        reduction (not all of 'fast' are required).
     IRBuilder<> Builder(cast<Instruction>(ReductionRoot));
@@ -9955,7 +9951,9 @@ public:
     for (ReductionOpsType &RdxOp : ReductionOps)
       IgnoreList.append(RdxOp.begin(), RdxOp.end());
 
+    Value *VectorizedTree = nullptr;
     unsigned i = 0;
+    unsigned ReduxWidth = PowerOf2Floor(NumReducedVals);
     while (i < NumReducedVals - ReduxWidth + 1 && ReduxWidth > 2) {
       ArrayRef<Value *> VL = makeArrayRef(&ReducedVals[i], ReduxWidth);
 #if INTEL_CUSTOMIZATION
@@ -10031,6 +10029,7 @@ public:
 
       // 3. If not profitable to vectorize, bail out.
       if (Cost >= -SLPCostThreshold) {
+<<<<<<< HEAD
           V.getORE()->emit([&]() {
               return OptimizationRemarkMissed(
                          SV_NAME, "HorSLPNotBeneficial", cast<Instruction>(VL[0]))
@@ -10043,6 +10042,16 @@ public:
         V.undoMultiNodeReordering();
         V.PSLPFailureCleanup();
 #endif // INTEL_CUSTOMIZATION
+=======
+        V.getORE()->emit([&]() {
+          return OptimizationRemarkMissed(SV_NAME, "HorSLPNotBeneficial",
+                                          cast<Instruction>(VL[0]))
+                 << "Vectorizing horizontal reduction is possible"
+                 << "but not beneficial with cost " << ore::NV("Cost", Cost)
+                 << " and threshold "
+                 << ore::NV("Threshold", -SLPCostThreshold);
+        });
+>>>>>>> 24238f09edb98b0f460aa41139874ae5d4e5cd8d
         break;
       }
       // It is profitable to vectorize!
@@ -10055,11 +10064,11 @@ public:
       LLVM_DEBUG(dbgs() << "SLP: Vectorizing horizontal reduction at cost:"
                         << Cost << ". (HorRdx)\n");
       V.getORE()->emit([&]() {
-          return OptimizationRemark(
-                     SV_NAME, "VectorizedHorizontalReduction", cast<Instruction>(VL[0]))
-          << "Vectorized horizontal reduction with cost "
-          << ore::NV("Cost", Cost) << " and with tree size "
-          << ore::NV("TreeSize", V.getTreeSize());
+        return OptimizationRemark(SV_NAME, "VectorizedHorizontalReduction",
+                                  cast<Instruction>(VL[0]))
+               << "Vectorized horizontal reduction with cost "
+               << ore::NV("Cost", Cost) << " and with tree size "
+               << ore::NV("TreeSize", V.getTreeSize());
       });
 
       // Vectorize a tree.
@@ -10076,15 +10085,19 @@ public:
 
       Value *ReducedSubTree =
           emitReduction(VectorizedRoot, Builder, ReduxWidth, TTI);
-      if (VectorizedTree) {
+
+      if (!VectorizedTree) {
+        // Initialize the final value in the reduction.
+        VectorizedTree = ReducedSubTree;
+      } else {
+        // Update the final value in the reduction.
         Builder.SetCurrentDebugLocation(Loc);
         OperationData VectReductionData(ReductionData.getOpcode(),
                                         VectorizedTree, ReducedSubTree,
                                         ReductionData.getKind());
         VectorizedTree =
             VectReductionData.createOp(Builder, "op.rdx", ReductionOps);
-      } else
-        VectorizedTree = ReducedSubTree;
+      }
       i += ReduxWidth;
       ReduxWidth = PowerOf2Floor(NumReducedVals - i);
     }
