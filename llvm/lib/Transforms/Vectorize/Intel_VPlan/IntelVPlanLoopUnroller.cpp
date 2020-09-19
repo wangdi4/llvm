@@ -29,19 +29,34 @@ void VPlanLoopUnroller::run(VPInstUnrollPartTy *VPInstUnrollPart) {
          "Unrolling of loops with subloops is not supported");
 
   // Collect loop live-out users to process them after the unroll.
-  DenseMap<VPUser *, VPInstruction *> LiveOutUsers;
+  // Two containers, the first one is map for cases when we can have only one
+  // use, and the second one is vector, for cases when several users can have
+  // same operand. The first case corresponds to VPExternalUses, the second - to
+  // VPInstructions in loop exit. For example, the last value calculation
+  // for minmax+index. Some values calculated inside the loop can be used
+  // at least twice, e.g. the main reduction in minmax+index idiom is used
+  // to calculate last value of that main reduction itself and also to calculate
+  // the value of index part of the idiom. Below is the code snipped with
+  // example of VPInstruction for minmax+index with two indexes. Here, %VP0 and
+  // %VP2 calculated inside the loop are used twice in the loop exit.
+  // i32 %RED_FINAL = reduction-final{u_smax} i32 %VP0
+  // i32 %RED_FINAL_1 = reduction-final{s_smin} i32 %VP2 i32 %VP0 i32 %RED_FINAL
+  // i32 %RED_FINAL_2 = reduction-final{s_smin} i32 %VP4 i32 %VP2 i32
+  // %RED_FINAL_1
+  DenseMap<VPUser *, VPInstruction *> LiveOutExtUsers;
+  using UseOpPair = std::pair<VPInstruction *, VPInstruction *>;
+  SmallVector<UseOpPair, 4> LiveOutInstUsers;
+
   for (VPBasicBlock *Block : VPL->blocks())
     for (VPInstruction &Inst : *Block)
       for (VPUser *User : Inst.users())
         if (isa<VPExternalUse>(User)) {
-          assert(LiveOutUsers.find(User) == LiveOutUsers.end() &&
+          assert(LiveOutExtUsers.find(User) == LiveOutExtUsers.end() &&
                  "Only one instruction for a live-out user is supported");
-          LiveOutUsers[User] = &Inst;
+          LiveOutExtUsers[User] = &Inst;
         } else if (auto UseInst = dyn_cast<VPInstruction>(User))
           if (!VPL->contains(UseInst)) {
-            assert(LiveOutUsers.find(User) == LiveOutUsers.end() &&
-                   "Only one instruction for a live-out user is supported");
-            LiveOutUsers[User] = &Inst;
+            LiveOutInstUsers.push_back(std::make_pair(UseInst, &Inst));
           }
 
   VPBasicBlock *Header = VPL->getHeader();
@@ -148,7 +163,7 @@ void VPlanLoopUnroller::run(VPInstUnrollPartTy *VPInstUnrollPart) {
 
       // Not actually a live-out, but this will help to replace phi's operand
       // to the final last update instruction
-      LiveOutUsers[OrigInst] = LastUpdate;
+      LiveOutExtUsers[OrigInst] = LastUpdate;
 
       InstToRemove.insert(&ClonedInst);
     }
@@ -187,8 +202,11 @@ void VPlanLoopUnroller::run(VPInstUnrollPartTy *VPInstUnrollPart) {
 
   // Replace uses of live-outs with the last unrolling part clone of them.
   VPCloneUtils::Value2ValueMapTy &ValueMap = Clones[UF - 2];
-  for (auto It : LiveOutUsers)
+  for (auto It : LiveOutExtUsers)
     It.first->replaceUsesOfWith(It.second, ValueMap[It.second]);
+  for (auto It : LiveOutInstUsers)
+    It.first->replaceUsesOfWith(It.second, ValueMap[It.second]);
+
 
   CurrentLatch->setCondBit(ValueMap[CurrentLatch->getCondBit()]);
 

@@ -56,7 +56,7 @@ cl::opt<bool> VConflictIdiomEnabled("enable-vconflict-idiom", cl::init(false),
                                     cl::desc("Enable vconflict idiom"));
 
 static cl::opt<bool> DisableNonMonotonicIndexes(
-    "disable-nonlinear-mmindex", cl::init(true), cl::Hidden,
+    "disable-nonlinear-mmindex", cl::init(false), cl::Hidden,
     cl::desc("Disable min/max+index idiom recognition for non-linear indexes"));
 
 namespace {

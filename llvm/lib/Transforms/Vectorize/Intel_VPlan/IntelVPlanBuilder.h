@@ -199,7 +199,7 @@ public:
                              {Operand});
   }
 
-  VPValue *createSelect(VPValue *Mask, VPValue *Tval, VPValue *Fval,
+  VPInstruction *createSelect(VPValue *Mask, VPValue *Tval, VPValue *Fval,
                         const Twine &Name = "") {
     return createInstruction(Instruction::Select, Tval->getType(),
                              {Mask, Tval, Fval}, Name);
