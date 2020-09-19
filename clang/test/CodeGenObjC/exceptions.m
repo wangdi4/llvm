@@ -64,6 +64,12 @@ int f2() {
     // CHECK-NEXT: store i32 [[T2]], i32* [[X]]
 
     // CHECK: store i32 6, i32* [[X]]
+
+    // CHECK-NEXT: call void asm sideeffect "", "*m,*m"(i32* nonnull [[X]] ;INTEL
+    // CHECK-NEXT: call void @foo()                                        ;INTEL
+    // CHECK-NEXT: call void @objc_exception_try_exit                      ;INTEL
+    // CHECK-NEXT: [[T:%.*]] = load i32, i32* [[X]]                        ;INTEL
+
     x++;
     // ;INTEL  4 lines from here moved up verbatim
     foo();
