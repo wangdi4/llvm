@@ -2232,7 +2232,12 @@ CodeGenFunction::EmitAsmInputLValue(const TargetInfo::ConstraintInfo &Info,
       uint64_t Size = CGM.getDataLayout().getTypeSizeInBits(Ty);
       if (Size <= 64 && llvm::isPowerOf2_64(Size)) {
         Ty = llvm::IntegerType::get(getLLVMContext(), Size);
+#if INTEL_COLLAB
+        llvm::PointerType *PTy = InputValue.getAddress(*this).getType();
+        Ty = llvm::PointerType::get(Ty, PTy->getAddressSpace());
+#else // INTEL_COLLAB
         Ty = llvm::PointerType::getUnqual(Ty);
+#endif // INTEL_COLLAB
 
         Arg = Builder.CreateLoad(
             Builder.CreateBitCast(InputValue.getAddress(*this), Ty));

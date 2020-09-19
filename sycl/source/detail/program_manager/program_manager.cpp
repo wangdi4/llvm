@@ -534,10 +534,6 @@ static const char *getDeviceLibFilename(DeviceLibExt Extension) {
     return "libsycl-fallback-complex.spv";
   case DeviceLibExt::cl_intel_devicelib_complex_fp64:
     return "libsycl-fallback-complex-fp64.spv";
-#if INTEL_CUSTOMIZATION
-  case DeviceLibExt::cl_intel_devicelib_dot_product:
-    return "libsycl-fallback-intel-dot-product.spv";
-#endif // INTEL_CUSTOMIZATION
   }
   throw compile_program_error("Unhandled (new?) device library extension",
                               PI_INVALID_OPERATION);
@@ -555,10 +551,6 @@ static const char *getDeviceLibExtensionStr(DeviceLibExt Extension) {
     return "cl_intel_devicelib_complex";
   case DeviceLibExt::cl_intel_devicelib_complex_fp64:
     return "cl_intel_devicelib_complex_fp64";
-#if INTEL_CUSTOMIZATION
-  case DeviceLibExt::cl_intel_devicelib_dot_product:
-    return "cl_intel_devicelib_dot_product";
-#endif // INTEL_CUSTOMIZATION
   }
   throw compile_program_error("Unhandled (new?) device library extension",
                               PI_INVALID_OPERATION);
@@ -724,10 +716,7 @@ static std::vector<RT::PiProgram> getDeviceLibPrograms(
       {DeviceLibExt::cl_intel_devicelib_math, false},
       {DeviceLibExt::cl_intel_devicelib_math_fp64, false},
       {DeviceLibExt::cl_intel_devicelib_complex, false},
-#if INTEL_CUSTOMIZATION
-      {DeviceLibExt::cl_intel_devicelib_complex_fp64, false},
-      {DeviceLibExt::cl_intel_devicelib_dot_product, false}};
-#endif // INTEL_CUSTOMIZATION
+      {DeviceLibExt::cl_intel_devicelib_complex_fp64, false}};
 
   // Disable all devicelib extensions requiring fp64 support if at least
   // one underlying device doesn't support cl_khr_fp64.
