@@ -9,13 +9,9 @@ target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
 ; COMMON-LABEL: @llvm.compiler.used = appending global
-<<<<<<< HEAD
 ; INTEL_CUSTOMIZATION
 ; SVML-SAME:        [12 x i8*] [
 ; end INTEL_CUSTOMIZATION
-=======
-; SVML-SAME:        [6 x i8*] [
->>>>>>> 056534dc2b15ed1d276bead76f054cc7ac9d2bf1
 ; SVML-SAME:          i8* bitcast (<2 x double> (<2 x double>)* @__svml_sin2 to i8*),
 ; SVML-SAME:          i8* bitcast (<4 x double> (<4 x double>)* @__svml_sin4 to i8*),
 ; SVML-SAME:          i8* bitcast (<8 x double> (<8 x double>)* @__svml_sin8 to i8*),
