@@ -5367,10 +5367,6 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
                    options::OPT_fno_unique_basic_block_section_names, false))
     CmdArgs.push_back("-funique-basic-block-section-names");
 
-<<<<<<< HEAD
-#if INTEL_CUSTOMIZATION
-  Args.AddLastArg(CmdArgs, options::OPT_finstrument_functions_after_inlining,
-=======
   if (Arg *A = Args.getLastArg(options::OPT_fsplit_machine_functions,
                                options::OPT_fno_split_machine_functions)) {
     // This codegen pass is only available on x86-elf targets.
@@ -5391,9 +5387,8 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
     }
   }
 
-  Args.AddLastArg(CmdArgs, options::OPT_finstrument_functions,
-                  options::OPT_finstrument_functions_after_inlining,
->>>>>>> f1a3ab904439a63b21ba1c4521765c46630687c6
+#if INTEL_CUSTOMIZATION
+  Args.AddLastArg(CmdArgs, options::OPT_finstrument_functions_after_inlining,
                   options::OPT_finstrument_function_entry_bare);
 
   if ((Args.hasFlag(options::OPT_finstrument_functions,
