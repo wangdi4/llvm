@@ -148,6 +148,7 @@ void initializeCalledValuePropagationLegacyPassPass(PassRegistry &);
 void initializeCodeGenPreparePass(PassRegistry&);
 void initializeConstantHoistingLegacyPassPass(PassRegistry&);
 void initializeConstantMergeLegacyPassPass(PassRegistry&);
+void initializeConstraintEliminationPass(PassRegistry &);
 void initializeControlHeightReductionLegacyPassPass(PassRegistry&);
 void initializeConvertGEPToSubscriptIntrinsicLegacyPassPass(PassRegistry &); // INTEL
 void initializeCorrelatedValuePropagationPass(PassRegistry&);
