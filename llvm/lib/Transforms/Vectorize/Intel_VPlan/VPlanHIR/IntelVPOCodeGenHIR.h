@@ -139,12 +139,11 @@ public:
   // unmodified HIR.
   void setRednHoistPtForVectorLoop();
 
-  // Propagate metadata from memory references in either the group or old DDRef
-  // to the new DDRef. If Group is non-null, references in Group are used to set
-  // NewRef's metadata. Otherwise, OldRef is expected to be non-null and the
-  // same is used to set NewRef's metadata.
-  void propagateMetadata(RegDDRef *NewRef, const OVLSGroup *Group = nullptr,
-                         const RegDDRef *OldRef = nullptr);
+  // Propagate metadata using elements of MdSrcVec which are expected to be
+  // either RegDDRefs or VPLoadStoreInsts to NewRef.
+  template <class MDSource>
+  void propagateMetadata(RegDDRef *NewRef,
+                         SmallVectorImpl<const MDSource *> &MDSrcVec);
 
   // Propagate debug location information from VPInstruction to the generated
   // HIR constructs. This is a post processing approach i.e. we don't attach
@@ -195,14 +194,21 @@ public:
                     RegDDRef *Mask, SmallVectorImpl<RegDDRef *> &CallRegs,
                     bool HasLvalArg);
 
+  // Return true if we want to interleave the memory access.
+  bool interleaveAccess(const OVLSGroup *Group, const RegDDRef *Mask,
+                        const VPInstruction *VPInst);
+
   // Widen an interleaved memory access - operands correspond to operands of
   // WidenNode.
-  HLInst *widenInterleavedAccess(const HLInst *INode, RegDDRef *Mask,
-                                 const OVLSGroup *Group,
-                                 int64_t InterleaveFactor,
-                                 int64_t InterleaveIndex,
-                                 const HLInst *GrpStartInst,
-                                 const VPInstruction *VPInst);
+  void widenInterleavedAccess(const HLInst *INode, RegDDRef *Mask,
+                              const OVLSGroup *Group, int64_t InterleaveFactor,
+                              int64_t InterleaveIndex,
+                              const HLInst *GrpStartInst,
+                              const VPInstruction *VPInst);
+
+  void widenInterleavedAccess(const VPLoadStoreInst *VPLdSt, RegDDRef *Mask,
+                              const OVLSGroup *Group, int64_t InterleaveFactor,
+                              int64_t InterleaveIndex);
 
   // A helper function for concatenating vectors. This function concatenates two
   // vectors having the same element type. If the second vector has fewer
@@ -247,7 +253,7 @@ public:
   //     %interleaved.vec = shuffle %R_G.vec, undef,
   //                                 <0, 4, 1, 5, 2, 6, 3, 7>
   //     store <8 x i32> %interleaved.vec, Pic[2*i]
-  HLInst *createInterleavedStore(RegDDRef **StoreVals, const RegDDRef *StoreRef,
+  HLInst *createInterleavedStore(RegDDRef **StoreVals, RegDDRef *WStorePtrRef,
                                  int64_t InterleaveFactor, RegDDRef *Mask);
 
   HLInst *createReverseVector(RegDDRef *ValRef);
@@ -440,16 +446,21 @@ public:
     return Plan->getVPlanDA()->isUnitStridePtr(VPPtr, IsNegOneStride);
   }
 
-  // Given the pointer operand of a load/store instruction, setup and return the
-  // memory ref to use in generating the load/store HLInst. ScalSymbase
-  // specifies the symbase to set for the returned ref. AANodes specify alias
-  // analysis metadata to set for the returned ref. Alignment specifies the
-  // alignment to be set for the generated memref. Lane0Value specifies if we
-  // need memory ref corresponding to just vector lane 0. This is used to handle
-  // uniform memory accesses. If VPPtr is unit strided(stride of 1/-1), the ref
-  // returned is properly adjusted to enable wide load/store.
-  RegDDRef *getMemoryRef(const VPValue *VPPtr, unsigned ScalSymbase,
-                         const AAMDNodes &AANodes, Align Alignment,
+  // Given a pointer ref that is a selfblob, create and return memory reference
+  // for PtrRef[Index]. NumElements if greater than 1 is used to set the
+  // destination type of canon expr corresponding to Index appropriately.
+  RegDDRef *createMemrefFromBlob(RegDDRef *PtrRef, int Index,
+                                 unsigned NumElements);
+
+  // Given a load/store instruction, setup and return the memory ref to use in
+  // generating the load/store HLInst. The given load/store instruction is also
+  // used to get the symbase and alignment to set for the returned ref. It is
+  // also used to set the alias analysis metadata for the returned ref.
+  // Lane0Value specifies if we need memory ref corresponding to just vector
+  // lane 0. This is used to handle uniform memory accesses. If the pointer
+  // operand of the load/store instruction is unit strided(stride of 1/-1), the
+  // ref returned is properly adjusted to enable wide load/store.
+  RegDDRef *getMemoryRef(const VPLoadStoreInst *VPLdSt,
                          bool Lane0Value = false);
 
   bool isSearchLoop() const {
@@ -810,7 +821,9 @@ private:
   void widenUniformLoadImpl(const VPLoadStoreInst *VPLoad, RegDDRef *Mask);
 
   // Implementation of load/store widening.
-  void widenLoadStoreImpl(const VPLoadStoreInst *VPLoadStore, RegDDRef *Mask);
+  void widenLoadStoreImpl(const VPLoadStoreInst *VPLoadStore, RegDDRef *Mask,
+                          const OVLSGroup *Group, int64_t InterleaveFactor,
+                          int64_t InterleaveIndex);
 
   // Implementation of codegen for subscript instruction.
   void generateHIRForSubscript(const VPSubscriptInst *VPSubscript,

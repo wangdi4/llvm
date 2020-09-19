@@ -296,21 +296,23 @@ define void @test_vls_mem(i64 *%ptr, i64 *%ptr2, i64 *%ptr3, i64 *%ptr4) #1 {
 ; HIR-EMPTY:
 ; HIR-NEXT:  BEGIN REGION { modified }
 ; HIR-NEXT:        + DO i1 = 0, 299, 4   <DO_LOOP> <novectorize>
-; HIR-NEXT:        |   %.vec7 = undef;
 ; HIR-NEXT:        |   %.vec6 = undef;
+; HIR-NEXT:        |   %.vec5 = undef;
 ; HIR-NEXT:        |   %.vec = (<4 x i64>*)(%ptr)[3 * i1 + 3 * <i64 0, i64 1, i64 2, i64 3>];
 ; HIR-NEXT:        |   %.vec2 = (<4 x i64>*)(%ptr)[3 * i1 + 3 * <i64 0, i64 1, i64 2, i64 3> + 1];
 ; HIR-NEXT:        |   (<4 x i64>*)(%ptr)[3 * i1 + 3 * <i64 0, i64 1, i64 2, i64 3>] = 41;
 ; HIR-NEXT:        |   (<4 x i64>*)(%ptr)[3 * i1 + 3 * <i64 0, i64 1, i64 2, i64 3> + 1] = %.vec;
-; HIR-NEXT:        |   %.vec3 = (<4 x i64>*)(%ptr2)[2 * i1 + 2 * <i64 0, i64 1, i64 2, i64 3>];
-; HIR-NEXT:        |   %.vec4 = (<4 x i64>*)(%ptr2)[2 * i1 + 2 * <i64 0, i64 1, i64 2, i64 3> + 1];
-; HIR-NEXT:        |   (<4 x i64>*)(%ptr2)[2 * i1 + 2 * <i64 0, i64 1, i64 2, i64 3>] = 41;
-; HIR-NEXT:        |   (<4 x i64>*)(%ptr2)[2 * i1 + 2 * <i64 0, i64 1, i64 2, i64 3> + 1] = %.vec3;
-; HIR-NEXT:        |   %.vec5 = %.vec3 == 67;
-; HIR-NEXT:        |   %.vec6 = (<4 x i64>*)(%ptr3)[2 * i1 + 2 * <i64 0, i64 1, i64 2, i64 3>]; Mask = @{%.vec5}
-; HIR-NEXT:        |   %.vec7 = (<4 x i64>*)(%ptr3)[2 * i1 + 2 * <i64 0, i64 1, i64 2, i64 3> + 1]; Mask = @{%.vec5}
-; HIR-NEXT:        |   (<4 x i64>*)(%ptr4)[2 * i1 + 2 * <i64 0, i64 1, i64 2, i64 3>] = 41; Mask = @{%.vec5}
-; HIR-NEXT:        |   (<4 x i64>*)(%ptr4)[2 * i1 + 2 * <i64 0, i64 1, i64 2, i64 3> + 1] = 42; Mask = @{%.vec5}
+; HIR-NEXT:        |   %.vls.load = (<8 x i64>*)(%ptr2)[2 * i1];
+; HIR-NEXT:        |   %vls.shuf = shufflevector %.vls.load,  undef,  <i32 0, i32 2, i32 4, i32 6>;
+; HIR-NEXT:        |   %vls.shuf3 = shufflevector %.vls.load,  undef,  <i32 1, i32 3, i32 5, i32 7>;
+; HIR-NEXT:        |   %comb.shuf = shufflevector 41,  %vls.shuf,  <i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7>;
+; HIR-NEXT:        |   %vls.interleave = shufflevector %comb.shuf,  undef,  <i32 0, i32 4, i32 1, i32 5, i32 2, i32 6, i32 3, i32 7>;
+; HIR-NEXT:        |   (<8 x i64>*)(%ptr2)[2 * i1] = %vls.interleave;
+; HIR-NEXT:        |   %.vec4 = %vls.shuf == 67;
+; HIR-NEXT:        |   %.vec5 = (<4 x i64>*)(%ptr3)[2 * i1 + 2 * <i64 0, i64 1, i64 2, i64 3>]; Mask = @{%.vec4}
+; HIR-NEXT:        |   %.vec6 = (<4 x i64>*)(%ptr3)[2 * i1 + 2 * <i64 0, i64 1, i64 2, i64 3> + 1]; Mask = @{%.vec4}
+; HIR-NEXT:        |   (<4 x i64>*)(%ptr4)[2 * i1 + 2 * <i64 0, i64 1, i64 2, i64 3>] = 41; Mask = @{%.vec4}
+; HIR-NEXT:        |   (<4 x i64>*)(%ptr4)[2 * i1 + 2 * <i64 0, i64 1, i64 2, i64 3> + 1] = 42; Mask = @{%.vec4}
 ; HIR-NEXT:        + END LOOP
 ; HIR:             ret ;
 ; HIR-NEXT:  END REGION
@@ -321,19 +323,17 @@ define void @test_vls_mem(i64 *%ptr, i64 *%ptr2, i64 *%ptr3, i64 *%ptr4) #1 {
 ; HIR-NEXT:      Remark: LOOP WAS VECTORIZED
 ; HIR-NEXT:      Remark: vectorization support: vector length 4
 ; HIR:           Remark: --- begin vector loop memory reference summary ---
-; TODO: HIR VLS doesn't work in full VPValue-based HIR CG.
-;       This is being tracked in CMPLRLLVM-20246.
 ; HIR-NEXT:      Remark: unmasked unaligned unit stride loads: 0
 ; HIR-NEXT:      Remark: unmasked unaligned unit stride stores: 0
 ; HIR-NEXT:      Remark: masked unaligned unit stride loads: 0
 ; HIR-NEXT:      Remark: masked unaligned unit stride stores: 0
 ; HIR-NEXT:      Remark: masked indexed (or gather) loads: 2
 ; HIR-NEXT:      Remark: masked indexed (or scatter) stores: 2
-; HIR-NEXT:      Remark: unmasked indexed (or gather) loads: 4
-; HIR-NEXT:      Remark: unmasked indexed (or scatter) stores: 4
-; HIR-NEXT:      Remark: Unmasked VLS-optimized loads (each part of the group counted separately): 0
+; HIR-NEXT:      Remark: unmasked indexed (or gather) loads: 2
+; HIR-NEXT:      Remark: unmasked indexed (or scatter) stores: 2
+; HIR-NEXT:      Remark: Unmasked VLS-optimized loads (each part of the group counted separately): 2
 ; HIR-NEXT:      Remark: Masked VLS-optimized loads (each part of the group counted separately): 0
-; HIR-NEXT:      Remark: Unmasked VLS-optimized stores (each part of the group counted separately): 0
+; HIR-NEXT:      Remark: Unmasked VLS-optimized stores (each part of the group counted separately): 2
 ; HIR-NEXT:      Remark: Masked VLS-optimized stores (each part of the group counted separately): 0
 ; HIR-NEXT:      Remark: --- end vector loop memory reference summary ---
 ; HIR:       LOOP END
