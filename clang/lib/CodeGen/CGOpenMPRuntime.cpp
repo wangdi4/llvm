@@ -8674,28 +8674,12 @@ public:
     if (DevPointersMap.count(VD)) {
       CombinedInfo.BasePointers.emplace_back(Arg, VD);
       CombinedInfo.Pointers.push_back(Arg);
-<<<<<<< HEAD
-      CombinedInfo.Sizes.push_back(
-          CGF.Builder.CreateIntCast(CGF.getTypeSize(CGF.getContext().VoidPtrTy),
-                                    CGF.Int64Ty, /*isSigned=*/true));
-#if INTEL_COLLAB
-      // Port of https://reviews.llvm.org/D84887. If it is accepted we can
-      // remove this customization.
-      CombinedInfo.Types.push_back(
-          (Cap->capturesVariable() && CGF.getLangOpts().OpenMPLateOutline
-               ? OMP_MAP_TO
-               : OMP_MAP_LITERAL) | OMP_MAP_TARGET_PARAM);
-#else // INTEL_COLLAB
-      CombinedInfo.Types.push_back(OMP_MAP_LITERAL | OMP_MAP_TARGET_PARAM);
-#endif // INTEL_COLLAB
-=======
       CombinedInfo.Sizes.push_back(CGF.Builder.CreateIntCast(
           CGF.getTypeSize(CGF.getContext().VoidPtrTy), CGF.Int64Ty,
           /*isSigned=*/true));
       CombinedInfo.Types.push_back(
           (Cap->capturesVariable() ? OMP_MAP_TO : OMP_MAP_LITERAL) |
           OMP_MAP_TARGET_PARAM);
->>>>>>> 9e3842d60351f986d77dfe0a94f76e4fd895f188
       CombinedInfo.Mappers.push_back(nullptr);
       return;
     }
