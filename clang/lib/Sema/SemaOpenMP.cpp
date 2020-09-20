@@ -6503,14 +6503,10 @@ Sema::checkOpenMPDeclareVariantFunction(Sema::DeclGroupPtrTy DG,
 
   // Convert VariantRef expression to the type of the original function to
   // resolve possible conflicts.
-<<<<<<< HEAD
-  ExprResult VariantRefCast;
+  ExprResult VariantRefCast = VariantRef;
 #if INTEL_COLLAB
   if (LangOpts.CPlusPlus && !IsTargetVariantDispatchCase) {
 #else // INTEL_COLLAB
-=======
-  ExprResult VariantRefCast = VariantRef;
->>>>>>> 5c1084e8840b02d410ba125cbba466465242d820
   if (LangOpts.CPlusPlus) {
 #endif // INTEL_COLLAB
     QualType FnPtrType;
