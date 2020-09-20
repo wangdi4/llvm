@@ -215,20 +215,14 @@ bool findPlugins(vector_class<std::pair<std::string, backend>> &PluginNames) {
   // search is done for libpi_opencl.so/pi_opencl.dll file in LD_LIBRARY_PATH
   // env only.
   //
-<<<<<<< HEAD
-  PluginNames.emplace_back(OPENCL_PLUGIN_NAME, backend::opencl);
-
-  PluginNames.emplace_back(LEVEL_ZERO_PLUGIN_NAME, backend::level_zero);
-#if INTEL_CUSTOMIZATION
-  // Deliberatly disable CUDA plugin per CMPLRLLVM-16249.
-  // PluginNames.emplace_back(CUDA_PLUGIN_NAME, backend::cuda);
-#endif // INTEL_CUSTOMIZATION
-=======
   device_filter_list *FilterList = SYCLConfig<SYCL_DEVICE_FILTER>::get();
   if (!FilterList) {
     PluginNames.emplace_back(OPENCL_PLUGIN_NAME, backend::opencl);
     PluginNames.emplace_back(LEVEL_ZERO_PLUGIN_NAME, backend::level_zero);
-    PluginNames.emplace_back(CUDA_PLUGIN_NAME, backend::cuda);
+#if INTEL_CUSTOMIZATION
+    // Deliberately disable CUDA plugin per CMPLRLLVM-16249.
+    // PluginNames.emplace_back(CUDA_PLUGIN_NAME, backend::cuda);
+#endif // INTEL_CUSTOMIZATION
   } else {
     std::vector<device_filter> Filters = FilterList->get();
     bool OpenCLFound = false;
@@ -246,12 +240,14 @@ bool findPlugins(vector_class<std::pair<std::string, backend>> &PluginNames) {
         LevelZeroFound = true;
       } else if (!CudaFound &&
                  (Backend == backend::cuda || Backend == backend::all)) {
-        PluginNames.emplace_back(CUDA_PLUGIN_NAME, backend::cuda);
-        CudaFound = true;
+#if INTEL_CUSTOMIZATION
+        // Deliberately disable CUDA plugin per CMPLRLLVM-16249.
+        // PluginNames.emplace_back(CUDA_PLUGIN_NAME, backend::cuda);
+        // CudaFound = true;
+#endif // INTEL_CUSTOMIZATION
       }
     }
   }
->>>>>>> e742845fbc70f2adf6d88ef6718d1e57370317c8
   return true;
 }
 
