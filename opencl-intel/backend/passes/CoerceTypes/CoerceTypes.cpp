@@ -479,8 +479,16 @@ void CoerceTypes::moveFunctionBody(Function *OldF, Function *NewF,
     // Otherwise allocate the original type, store values from the coerced
     // arguments, replace uses of old argument with the allocated value
     auto OldArgT = cast<PointerType>(OldArgI->getType());
-    AllocaInst *Alloca = Builder.CreateAlloca(OldArgT->getElementType(),
-                                              OldArgT->getAddressSpace());
+    Value *Alloca = [&] ()->Value* {
+      AllocaInst *AllocaRes =
+        Builder.CreateAlloca(OldArgT->getElementType(),
+                             m_pDataLayout->getAllocaAddrSpace());
+      if (m_pDataLayout->getAllocaAddrSpace() != OldArgT->getAddressSpace())
+        return Builder.CreateAddrSpaceCast(AllocaRes,
+                PointerType::get(OldArgT->getElementType(),
+                                 OldArgT->getAddressSpace()));
+      return AllocaRes;
+    }();
     auto OldStructT = cast<StructType>(OldArgT->getElementType());
     Value *BC = Builder.CreateBitCast(
         Alloca, PointerType::get(getCombinedCoercedType(NewArgTypePair,

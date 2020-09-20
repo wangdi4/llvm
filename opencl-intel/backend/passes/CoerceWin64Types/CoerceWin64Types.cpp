@@ -125,14 +125,18 @@ static void removeCallArgsAttr(const CallInst *OldCI, CallInst *NewCI,
   NewCI->setAttributes(AttrList);
 }
 
-
-static AllocaInst *CreateAllocaInst(Type *Ty, Function *F) {
+static Value *CreateAllocaInst(Type *Ty, Function *F, unsigned Alignment,
+                               unsigned AS) {
   Module *M = F->getParent();
   const DataLayout &DL = M->getDataLayout();
-
   unsigned AllocaAS = DL.getAllocaAddrSpace();
-  AllocaInst *AllocaRes =
-      new AllocaInst(Ty, AllocaAS, "", &F->getEntryBlock().front());
+  IRBuilder<> Builder(&F->getEntryBlock().front());
+  AllocaInst *AllocaRes = Builder.CreateAlloca(Ty, AllocaAS);
+  // If the alignment is defined, set it.
+  if (Alignment)
+    AllocaRes->setAlignment(Align(Alignment));
+  if (AS != AllocaAS)
+    return Builder.CreateAddrSpaceCast(AllocaRes, PointerType::get(Ty, AS));
   return AllocaRes;
 }
 
@@ -144,9 +148,8 @@ static AllocaInst *CreateAllocaInst(Type *Ty, Function *F) {
 // call void @foo(%struct.A* byval(%struct.A) align 4 %arg1)
 //
 // After:
-// %1 = getelementptr inbounds %struct.A, %struct.A* %arg1, i32 0
-// %2 = bitcast %struct.A* %1 to i32*
-// %arg2 = load i32, i32* %2, align 4
+// %1 = bitcast %struct.A* %arg1 to i32*
+// %arg2 = load i32, i32* %1, align 4
 // call void @foo(i32 align 4 %arg2)
 //
 // For the aggregate of another size, we memcopy the argument to a
@@ -178,21 +181,16 @@ static void updateCallInst(CallInst *CI, Function *NewFun,
         unsigned Alignment = ValueMap[I].first;
         uint64_t MemSize = ValueMap[I].second;
         if (shouldPassByval(MemSize)) {
-          Value *DstPtr =
-            Builder.CreateInBoundsGEP(ElementTy, ArgI, { Builder.getInt32(0) });
           Value *BI =
-            Builder.CreateBitCast(DstPtr,
+            Builder.CreateBitCast(ArgI,
                     PointerType::get(NewFun->getArg(I)->getType(),
                                      PT->getAddressSpace()));
           LoadInst *LI = Builder.CreateAlignedLoad(NewFun->getArg(I)->getType(),
                                                    BI, MaybeAlign(Alignment));
           Args.push_back(LI);
         } else {
-          AllocaInst *Alloca = CreateAllocaInst(ElementTy,
-                                                CI->getFunction());
-          // If the alignment is not undefined, set it.
-          if (Alignment != 0)
-            Alloca->setAlignment(Align(Alignment));
+          Value *Alloca = CreateAllocaInst(ElementTy, CI->getFunction(),
+                                           Alignment, PT->getAddressSpace());
           Value *DstPtr = Builder.CreateInBoundsGEP(ElementTy, Alloca,
                                                     { Builder.getInt32(0) });
           Builder.CreateMemCpy(DstPtr, MaybeAlign(Alignment), ArgI,
@@ -231,7 +229,6 @@ static void moveFunctionBody(Function *OldF, Function *NewF,
       continue;
     }
 
-    Type *OldArgByvalType = OldArg.getParamByValType();
     uint64_t MemSize = ValueMap[NewArgI->getArgNo()].second;
     if (shouldPassByval(MemSize)) {
       // For the aggregates of size 1, 2, 4, 8 bytes, allocating the original
@@ -243,20 +240,17 @@ static void moveFunctionBody(Function *OldF, Function *NewF,
       // After:
       //  define dso_local void @foo(i32 align 4 %0)
       //   %2 = alloca %struct.A, align 4
-      //   %3 = getelementptr inbounds %struct.A, %struct.A* %2, i32 0
-      //   %4 = bitcast %struct.A* %3 to i32*
+      //   %3 = bitcast %struct.A* %2 to i32*
       //   store i32 %0, i32* %4, align 4
       unsigned Alignment = ValueMap[NewArgI->getArgNo()].first;
-      AllocaInst *Alloca = CreateAllocaInst(OldArgByvalType, NewF);
-      // If the alignment is not undefined, set it.
-      if (Alignment != 0)
-        Alloca->setAlignment(Align(Alignment));
-      Value *GEP = Builder.CreateInBoundsGEP(OldArgByvalType, Alloca,
-                                             { Builder.getInt32(0) });
       Type *NewArgT = NewArgI->getType();
-      auto OldArgPT = cast<PointerType>(OldArg.getType());
-      Value *BC = Builder.CreateBitCast(GEP,
-                  PointerType::get(NewArgT, OldArgPT->getAddressSpace()));
+      auto *OldArgPT = cast<PointerType>(OldArg.getType());
+      Type *OldArgByvalType = OldArg.getParamByValType();
+      Value *Alloca = CreateAllocaInst(OldArgByvalType, NewF, Alignment,
+                                       OldArgPT->getAddressSpace());
+
+      Value *BC = Builder.CreateBitCast(Alloca,
+                    PointerType::get(NewArgT, OldArgPT->getAddressSpace()));
       Builder.CreateAlignedStore(&*NewArgI, BC, MaybeAlign(Alignment));
       OldArg.replaceAllUsesWith(Alloca);
     } else
