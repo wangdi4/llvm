@@ -105,6 +105,28 @@ def IntelBlockLoop : Attr {
   let Documentation = [Undocumented];
 }
 
+// Pragma prefetch and noprefetch
+def IntelPrefetch : Attr {
+  let Spellings = [Pragma<"", "prefetch">,
+                   Pragma<"", "noprefetch">];
+  let Args = [
+    VariadicExprArgument<"PrefetchExprs">
+  ];
+  let AdditionalMembers = [{
+  void printPrettyPragma(raw_ostream &OS, const PrintingPolicy &Policy) const {
+    OS << getDiagnosticName(Policy);
+  }
+  std::string getDiagnosticName(const PrintingPolicy &Policy) const {
+    unsigned SpellingIndex = getSpellingListIndex();
+    if (SpellingIndex == Pragma_prefetch)
+      return "#pragma prefetch";
+    else
+      return "#pragma noprefetch";
+  }
+  }];
+  let Documentation = [Undocumented];
+}
+
 
 // FPGA-specific attributes
 

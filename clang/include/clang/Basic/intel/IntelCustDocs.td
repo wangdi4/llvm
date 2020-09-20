@@ -1121,6 +1121,88 @@ the performance by disabling loop blocking for nested loops.
   }];
 }
 
+def PragmaPrefetchDocs : Documentation {
+  let Category = DocCatIntelCompat;
+  let Option = "IntelCompat";
+  let RegressionTest = "CodeGenCXX/intel/prefetch.cpp, CodeGenCXX/intel/prefetch_messages.cpp";
+  let Owner = "dpagan";
+  let Content = [{
+The ``prefetch`` pragma enables data prefetching for some memory references.
+Prefetching data can minimize the effects of memory latency. The
+``noprefetch`` disables data prefetching for some memory references.
+
+Syntax:
+
+.. code-block:: text
+
+  #pragma prefetch [var1 [: hint1 [: distance1]] [, var2 [: hint2 [: distance2]]]...]
+  #pragma noprefetch [var1, [var2, [varN, ... ]]]
+
+Implements a new attribute (IntelPrefetchAttr) instead of using the LoopHint
+attribute framework. LoopHintAttrs create metadata but this pragma generates
+only directives.
+
+Example:
+
+.. code-block:: c
+
+  void *  sub(float *A, float *B, float *C,  int N) {
+
+    int i;
+    #pragma noprefetch C
+    #pragma prefetch A:1:40
+    #pragma prefetch B
+    for (i=0; i< N; i++) {
+      A[i] = B[i] + C[i] *  2.0;
+    }
+  }
+
+AST:
+
+.. code-block:: console
+
+  $ clang -cc1 -fintel-compatibility -ast-dump -o - t.c
+
+.. code-block:: text
+
+  AttributedStmt 0x11356a98 <<invalid sloc>, line:10:3>
+  |-IntelPrefetchAttr 0x113569d0 <line:5:9, col:21> Implicit noprefetch
+  | `-DeclRefExpr 0x113564f0 <col:20> 'float *' lvalue ParmVar 0x113561c0 'C' 'float *'
+  |-IntelPrefetchAttr 0x11356a08 <line:6:9, col:24> Implicit prefetch
+  | |-DeclRefExpr 0x11356520 <col:18> 'float *' lvalue ParmVar 0x113560c0 'A' 'float *'
+  | |-IntegerLiteral 0x11356540 <col:20> 'int' 1
+  | `-IntegerLiteral 0x11356560 <col:22> 'int' 40
+  |-IntelPrefetchAttr 0x11356a58 <line:7:9, col:19> Implicit prefetch
+  | `-DeclRefExpr 0x11356590 <col:18> 'float *' lvalue ParmVar 0x11356140 'B' 'float *'
+  `-ForStmt 0x11356998 <line:8:3, line:10:3>
+
+IR:
+
+.. code-block:: console
+
+  $ clang -cc1 -fintel-compatibility -emit-llvm -o - t.c
+
+.. code-block:: llvm
+
+  %1 = call token @llvm.directive.region.entry() [ "DIR.PRAGMA.PREFETCH_LOOP"(), "QUAL.PRAGMA.ATTRIB"(i32 0), "QUAL.PRAGMA.VAR"(float** %C.addr) ]
+  %2 = call token @llvm.directive.region.entry() [ "DIR.PRAGMA.PREFETCH_LOOP"(), "QUAL.PRAGMA.ATTRIB"(i32 1), "QUAL.PRAGMA.VAR"(float** %A.addr), "QUAL.PRAGMA.HINT"(i32 1), "QUAL.PRAGMA.DISTANCE"(i32 40) ]
+  %3 = call token @llvm.directive.region.entry() [ "DIR.PRAGMA.PREFETCH_LOOP"(), "QUAL.PRAGMA.ATTRIB"(i32 1), "QUAL.PRAGMA.VAR"(float** %B.addr) ]
+  store i32 0, i32* %i, align 4, !tbaa !6
+  br label %for.cond
+
+  call void @llvm.directive.region.exit(token %1) [ "DIR.PRAGMA.END.PREFETCH_LOOP"() ]
+  call void @llvm.directive.region.exit(token %2) [ "DIR.PRAGMA.END.PREFETCH_LOOP"() ]
+  }];
+  let UserContent = [{
+The ``prefetch`` pragma enables data prefetching for memory references
+specified with the pragma, or all suitable memory references if no arguments
+were specified. Prefetching data can minimize the effects of memory latency.
+The ``noprefetch`` pragma disables data prefetching for memory references
+specified with the pragma, or all memory references if no arguments
+were specified with the pragma.
+  }];
+}
+
 def PragmaLoopCountDocs : Documentation {
   let Category = DocCatIntelLoops;
   let Option = "IntelCompat";

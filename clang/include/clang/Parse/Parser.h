@@ -2212,6 +2212,15 @@ private:
                                   ParsedStmtContext StmtCtx,
                                   SourceLocation *TrailingElseLoc,
                                   ParsedAttributesWithRange &Attrs);
+  // Pragma prefetch
+  std::unique_ptr<PragmaHandler> PrefetchHandler;
+  // Pragma noprefetch
+  std::unique_ptr<PragmaHandler> NoPrefetchHandler;
+  StmtResult ParsePragmaPrefetch(StmtVector &Stmts,
+                                 ParsedStmtContext StmtCtx,
+                                 SourceLocation *TrailingElseLoc,
+                                 ParsedAttributesWithRange &Attrs);
+  bool HandlePragmaPrefetch(ArgsVector *ArgExprs);
 #endif // INTEL_CUSTOMIZATION
 
   /// Describes the behavior that should be taken for an __if_exists

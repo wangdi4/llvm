@@ -815,6 +815,60 @@ bool Sema::CheckIntelBlockLoopAttribute(const IntelBlockLoopAttr *BL) {
   }
   return true;
 }
+
+static Attr *handleIntelPrefetchAttr(Sema &S, Stmt *St,
+                                     const ParsedAttr &AA,
+                                     const ParsedAttributesView &AttrList,
+                                     SourceRange) {
+  if (St->getStmtClass() != Stmt::DoStmtClass &&
+      St->getStmtClass() != Stmt::ForStmtClass &&
+      St->getStmtClass() != Stmt::CXXForRangeStmtClass &&
+      St->getStmtClass() != Stmt::WhileStmtClass) {
+    SmallString<24> DiagStr("#pragma ");
+    DiagStr += AA.getArgAsIdent(0)->Ident->getName();
+    S.Diag(St->getBeginLoc(), diag::err_pragma_loop_precedes_nonloop)
+        << DiagStr;
+    return nullptr;
+  }
+
+  SmallVector<Expr *, 2> PrefetchExprs;
+  // Check arguments to prefetch and place them on the argument list.
+  //   #pragma prefetch [var [: hint [ : distance ]]] [, var ... ]
+  bool HintSeen = false;
+  for (unsigned AI = 1, NumArgs = AA.getNumArgs(); AI < NumArgs; ++AI) {
+    Expr *Arg = AA.getArgAsExpr(AI);
+    // Memory reference.
+    if (Arg->isLValue()) {
+      HintSeen = false;
+      PrefetchExprs.push_back(Arg);
+    } else if (!HintSeen) {
+      // Prefetch hint value.
+      int32_t Hint = getConstInt(S, AI, AA);
+      HintSeen = true;
+      PrefetchExprs.push_back(Arg);
+      // Hint value must be between 1 and 4
+      if (Hint < 1 || Hint > 4) {
+        S.Diag(Arg->getExprLoc(),
+          diag::warn_prefetch_hint_out_of_range) << Hint << 1 << 4;
+        return nullptr;
+      }
+    } else {
+      // Prefetch distance value, if present, follows the hint value.
+      HintSeen = false;
+      PrefetchExprs.push_back(Arg);
+      int32_t Distance = getConstInt(S, AI, AA);
+      // Distance must be greater than zero.
+      if (Distance == 0) {
+        S.Diag(Arg->getExprLoc(),
+          diag::warn_prefetch_distance_greater_than_zero);
+        return nullptr;
+      }
+    }
+  }
+  const IntelPrefetchAttr *PA = IntelPrefetchAttr::CreateImplicit(
+      S.Context, PrefetchExprs.data(), PrefetchExprs.size(), AA);
+  return const_cast<IntelPrefetchAttr *>(PA);
+}
 #endif // INTEL_CUSTOMIZATION
 
 namespace {
@@ -1371,6 +1425,8 @@ static Attr *ProcessStmtAttribute(Sema &S, Stmt *St, const ParsedAttr &A,
     return handleIntelBlockLoopAttr(S, St, A, AL, Range);
   case ParsedAttr::AT_LoopFuse:
     return handleLoopFuseAttr(S, St, A, Range);
+  case ParsedAttr::AT_IntelPrefetch:
+    return handleIntelPrefetchAttr(S, St, A, AL, Range);
 #endif // INTEL_CUSTOMIZATION
   case ParsedAttr::AT_FallThrough:
     return handleFallThroughAttr(S, St, A, Range);

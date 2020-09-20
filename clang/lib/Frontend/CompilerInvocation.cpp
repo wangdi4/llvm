@@ -3242,6 +3242,11 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
   Opts.FakeAddressSpaceMap = Args.hasArg(OPT_ffake_address_space_map);
 #if INTEL_CUSTOMIZATION
   Opts.OpenCLForceVectorABI = Args.hasArg(OPT_fopencl_force_vector_abi);
+  // Temporary internal option to enable new support. When ready just
+  // switch default to true.
+  Opts.IntelPragmaPrefetch =
+      Args.hasFlag(OPT_fintel_pragma_prefetch, OPT_fno_intel_pragma_prefetch,
+                   /*default=*/false);
 #endif // INTEL_CUSTOMIZATION
   Opts.ParseUnknownAnytype = Args.hasArg(OPT_funknown_anytype);
   Opts.DebuggerSupport = Args.hasArg(OPT_fdebugger_support);

@@ -31,4 +31,20 @@ class PragmaNoBlockLoopHandler : public PragmaHandler {
     virtual void HandlePragma(Preprocessor &PP, PragmaIntroducer Introducer,
                               Token &Tok);
 };
+
+// #pragma prefetch
+class PragmaPrefetchHandler : public PragmaHandler {
+  public:
+    PragmaPrefetchHandler(const char *name) : PragmaHandler(name) {}
+    virtual void HandlePragma(Preprocessor &PP, PragmaIntroducer Introducer,
+                              Token &Tok);
+};
+
+// #pragma noprefetch
+class PragmaNoPrefetchHandler : public PragmaHandler {
+  public:
+    PragmaNoPrefetchHandler(const char *name) : PragmaHandler(name) {}
+    virtual void HandlePragma(Preprocessor &PP, PragmaIntroducer Introducer,
+                              Token &Tok);
+};
 #endif // INTEL_CUSTOMIZATION
