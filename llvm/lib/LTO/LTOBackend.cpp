@@ -360,6 +360,7 @@ bool opt(const Config &Conf, TargetMachine *TM, unsigned Task, Module &Mod,
          bool IsThinLTO, ModuleSummaryIndex *ExportSummary,
          const ModuleSummaryIndex *ImportSummary,
          const std::vector<uint8_t> *CmdArgs = nullptr) {
+#if !INTEL_PRODUCT_RELEASE
   if (EmbedBitcode == LTOBitcodeEmbedding::EmbedPostMergePreOptimized) {
     // FIXME: the motivation for capturing post-merge bitcode and command line
     // is replicating the compilation environment from bitcode, without needing
@@ -377,6 +378,7 @@ bool opt(const Config &Conf, TargetMachine *TM, unsigned Task, Module &Mod,
                                /*EmbedBitcode*/ true,
                                /*EmbedMarker*/ false, CmdArgs);
   }
+#endif // !INTEL_PRODUCT_RELEASE
   // FIXME: Plumb the combined index into the new pass manager.
   if (!Conf.OptPipeline.empty())
     runNewPMCustomPasses(Conf, Mod, TM, Conf.OptPipeline, Conf.AAPipeline,
