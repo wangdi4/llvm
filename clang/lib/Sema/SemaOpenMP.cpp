@@ -6166,10 +6166,21 @@ static void setPrototype(Sema &S, FunctionDecl *FD, FunctionDecl *FDWithProto,
 Sema::OMPDeclareVariantScope::OMPDeclareVariantScope(OMPTraitInfo &TI)
     : TI(&TI), NameSuffix(TI.getMangledName()) {}
 
-FunctionDecl *
-Sema::ActOnStartOfFunctionDefinitionInOpenMPDeclareVariantScope(Scope *S,
-                                                                Declarator &D) {
+void Sema::ActOnStartOfFunctionDefinitionInOpenMPDeclareVariantScope(
+    Scope *S, Declarator &D, MultiTemplateParamsArg TemplateParamLists,
+    SmallVectorImpl<FunctionDecl *> &Bases) {
+  if (!D.getIdentifier())
+    return;
+
   OMPDeclareVariantScope &DVScope = OMPDeclareVariantScopes.back();
+
+  // Template specialization is an extension, check if we do it.
+  bool IsTemplated = !TemplateParamLists.empty();
+  if (IsTemplated &
+      !DVScope.TI->isExtensionActive(
+          llvm::omp::TraitProperty::implementation_extension_allow_templates))
+    return;
+
   IdentifierInfo *BaseII = D.getIdentifier();
   LookupResult Lookup(*this, DeclarationName(BaseII), D.getIdentifierLoc(),
                       LookupOrdinaryName);
@@ -6181,9 +6192,13 @@ Sema::ActOnStartOfFunctionDefinitionInOpenMPDeclareVariantScope(Scope *S,
   bool IsConstexpr = D.getDeclSpec().getConstexprSpecifier() == CSK_constexpr;
   bool IsConsteval = D.getDeclSpec().getConstexprSpecifier() == CSK_consteval;
 
-  FunctionDecl *BaseFD = nullptr;
   for (auto *Candidate : Lookup) {
-    auto *UDecl = dyn_cast<FunctionDecl>(Candidate->getUnderlyingDecl());
+    auto *CandidateDecl = Candidate->getUnderlyingDecl();
+    FunctionDecl *UDecl = nullptr;
+    if (IsTemplated && isa<FunctionTemplateDecl>(CandidateDecl))
+      UDecl = cast<FunctionTemplateDecl>(CandidateDecl)->getTemplatedDecl();
+    else if (!IsTemplated)
+      UDecl = dyn_cast<FunctionDecl>(CandidateDecl);
     if (!UDecl)
       continue;
 
@@ -6194,23 +6209,31 @@ Sema::ActOnStartOfFunctionDefinitionInOpenMPDeclareVariantScope(Scope *S,
     if (UDecl->isConsteval() && !IsConsteval)
       continue;
 
-    QualType NewType = Context.mergeFunctionTypes(
-        FType, UDecl->getType(), /* OfBlockPointer */ false,
-        /* Unqualified */ false, /* AllowCXX */ true);
-    if (NewType.isNull())
-      continue;
+    QualType UDeclTy = UDecl->getType();
+    // TODO: Verify types for templates eventually.
+    if (!UDeclTy->isDependentType()) {
+      QualType NewType = Context.mergeFunctionTypes(
+          FType, UDeclTy, /* OfBlockPointer */ false,
+          /* Unqualified */ false, /* AllowCXX */ true);
+      if (NewType.isNull())
+        continue;
+    }
 
     // Found a base!
-    BaseFD = UDecl;
-    break;
+    Bases.push_back(UDecl);
   }
 
   bool UseImplicitBase = !DVScope.TI->isExtensionActive(
       llvm::omp::TraitProperty::implementation_extension_disable_implicit_base);
   // If no base was found we create a declaration that we use as base.
-  if (!BaseFD && UseImplicitBase) {
-    BaseFD = cast<FunctionDecl>(ActOnDeclarator(S, D));
-    BaseFD->setImplicit(true);
+  if (Bases.empty() && UseImplicitBase) {
+    D.setFunctionDefinitionKind(FDK_Declaration);
+    Decl *BaseD = HandleDeclarator(S, D, TemplateParamLists);
+    BaseD->setImplicit(true);
+    if (auto *BaseTemplD = dyn_cast<FunctionTemplateDecl>(BaseD))
+      Bases.push_back(BaseTemplD->getTemplatedDecl());
+    else
+      Bases.push_back(cast<FunctionDecl>(BaseD));
   }
 
   std::string MangledName;
@@ -6221,17 +6244,21 @@ Sema::ActOnStartOfFunctionDefinitionInOpenMPDeclareVariantScope(Scope *S,
 
   VariantII.setMangledOpenMPVariantName(true);
   D.SetIdentifier(&VariantII, D.getBeginLoc());
-  return BaseFD;
 }
 
 void Sema::ActOnFinishedFunctionDefinitionInOpenMPDeclareVariantScope(
-    FunctionDecl *FD, FunctionDecl *BaseFD) {
+    Decl *D, SmallVectorImpl<FunctionDecl *> &Bases) {
   // Do not mark function as is used to prevent its emission if this is the
   // only place where it is used.
   EnterExpressionEvaluationContext Unevaluated(
       *this, Sema::ExpressionEvaluationContext::Unevaluated);
 
-  Expr *VariantFuncRef = DeclRefExpr::Create(
+  FunctionDecl *FD = nullptr;
+  if (auto *UTemplDecl = dyn_cast<FunctionTemplateDecl>(D))
+    FD = UTemplDecl->getTemplatedDecl();
+  else
+    FD = cast<FunctionDecl>(D);
+  auto *VariantFuncRef = DeclRefExpr::Create(
       Context, NestedNameSpecifierLoc(), SourceLocation(), FD,
       /* RefersToEnclosingVariableOrCapture */ false,
       /* NameLoc */ FD->getLocation(), FD->getType(), ExprValueKind::VK_RValue);
@@ -6239,7 +6266,8 @@ void Sema::ActOnFinishedFunctionDefinitionInOpenMPDeclareVariantScope(
   OMPDeclareVariantScope &DVScope = OMPDeclareVariantScopes.back();
   auto *OMPDeclareVariantA = OMPDeclareVariantAttr::CreateImplicit(
       Context, VariantFuncRef, DVScope.TI);
-  BaseFD->addAttr(OMPDeclareVariantA);
+  for (FunctionDecl *BaseFD : Bases)
+    BaseFD->addAttr(OMPDeclareVariantA);
 }
 
 ExprResult Sema::ActOnOpenMPCall(ExprResult Call, Scope *Scope,
@@ -6475,10 +6503,14 @@ Sema::checkOpenMPDeclareVariantFunction(Sema::DeclGroupPtrTy DG,
 
   // Convert VariantRef expression to the type of the original function to
   // resolve possible conflicts.
+<<<<<<< HEAD
   ExprResult VariantRefCast;
 #if INTEL_COLLAB
   if (LangOpts.CPlusPlus && !IsTargetVariantDispatchCase) {
 #else // INTEL_COLLAB
+=======
+  ExprResult VariantRefCast = VariantRef;
+>>>>>>> 5c1084e8840b02d410ba125cbba466465242d820
   if (LangOpts.CPlusPlus) {
 #endif // INTEL_COLLAB
     QualType FnPtrType;
@@ -6504,25 +6536,27 @@ Sema::checkOpenMPDeclareVariantFunction(Sema::DeclGroupPtrTy DG,
     } else {
       FnPtrType = Context.getPointerType(FD->getType());
     }
-    ImplicitConversionSequence ICS =
-        TryImplicitConversion(VariantRef, FnPtrType.getUnqualifiedType(),
-                              /*SuppressUserConversions=*/false,
-                              AllowedExplicit::None,
-                              /*InOverloadResolution=*/false,
-                              /*CStyle=*/false,
-                              /*AllowObjCWritebackConversion=*/false);
-    if (ICS.isFailure()) {
-      Diag(VariantRef->getExprLoc(),
-           diag::err_omp_declare_variant_incompat_types)
-          << VariantRef->getType()
-          << ((Method && !Method->isStatic()) ? FnPtrType : FD->getType())
-          << VariantRef->getSourceRange();
-      return None;
+    QualType VarianPtrType = Context.getPointerType(VariantRef->getType());
+    if (VarianPtrType.getUnqualifiedType() != FnPtrType.getUnqualifiedType()) {
+      ImplicitConversionSequence ICS = TryImplicitConversion(
+          VariantRef, FnPtrType.getUnqualifiedType(),
+          /*SuppressUserConversions=*/false, AllowedExplicit::None,
+          /*InOverloadResolution=*/false,
+          /*CStyle=*/false,
+          /*AllowObjCWritebackConversion=*/false);
+      if (ICS.isFailure()) {
+        Diag(VariantRef->getExprLoc(),
+             diag::err_omp_declare_variant_incompat_types)
+            << VariantRef->getType()
+            << ((Method && !Method->isStatic()) ? FnPtrType : FD->getType())
+            << VariantRef->getSourceRange();
+        return None;
+      }
+      VariantRefCast = PerformImplicitConversion(
+          VariantRef, FnPtrType.getUnqualifiedType(), AA_Converting);
+      if (!VariantRefCast.isUsable())
+        return None;
     }
-    VariantRefCast = PerformImplicitConversion(
-        VariantRef, FnPtrType.getUnqualifiedType(), AA_Converting);
-    if (!VariantRefCast.isUsable())
-      return None;
     // Drop previously built artificial addr_of unary op for member functions.
     if (Method && !Method->isStatic()) {
       Expr *PossibleAddrOfVariantRef = VariantRefCast.get();
@@ -6530,8 +6564,6 @@ Sema::checkOpenMPDeclareVariantFunction(Sema::DeclGroupPtrTy DG,
               PossibleAddrOfVariantRef->IgnoreImplicit()))
         VariantRefCast = UO->getSubExpr();
     }
-  } else {
-    VariantRefCast = VariantRef;
   }
 
   ExprResult ER = CheckPlaceholderExpr(VariantRefCast.get());
