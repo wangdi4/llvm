@@ -52,9 +52,7 @@ static cl::opt<bool>
                    cl::desc("Print all pass management debugging information. "
                             "`-debug-pass-manager` must also be specified"));
 
-<<<<<<< HEAD
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
-=======
 // A hidden option that prints out the IR after passes, similar to
 // -print-after-all except that it only prints the IR after passes that
 // change the IR.  Those passes that do not make changes to the IR are
@@ -83,7 +81,6 @@ static cl::list<std::string>
                              "match for the print-changed option"),
                     cl::CommaSeparated, cl::Hidden);
 
->>>>>>> b2d2750827c8244ce7e0d2c8b05658338fe947ea
 namespace {
 
 /// Extracting Module out of \p IR unit. Also fills a textual description
@@ -267,9 +264,6 @@ bool isInteresting(Any IR, StringRef PassID) {
 
 } // namespace
 
-<<<<<<< HEAD
-#endif //!defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
-=======
 template <typename IRUnitT>
 void ChangePrinter<IRUnitT>::saveIRBeforePass(Any IR, StringRef PassID) {
   // Always need to place something on the stack because invalidated passes
@@ -422,7 +416,7 @@ bool IRChangePrinter::same(const std::string &Before,
                            const std::string &After) {
   return Before.compare(After) == 0;
 }
->>>>>>> b2d2750827c8244ce7e0d2c8b05658338fe947ea
+#endif //!defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
 
 PrintIRInstrumentation::~PrintIRInstrumentation() {
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
