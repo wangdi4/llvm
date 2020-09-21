@@ -42,6 +42,7 @@
 ; Checks for vector HIR generated.
 ; CHECK:       + DO i1 = 0, 27, 4   <DO_LOOP> <novectorize>
 ; CHECK-NEXT:  |   [[NSBGEPCOPY0:%.*]] = &((<4 x double*>)(@A)[0][2])
+; CHECK-NEXT:  |   [[NSBGEPCOPY1:%.*]] = &((double*)(@A)[0][2]);
 ; CHECK-NEXT:  |   (<4 x double>*)([[NSBGEPCOPY0]])[i1 + <i64 0, i64 1, i64 2, i64 3>] = 1.000000e+00
 ; CHECK-NEXT:  |   (<4 x double>*)([[B0]])[2 * i1 + 2 * <i64 0, i64 1, i64 2, i64 3>] = 2.000000e+00
 ; CHECK-NEXT:  + END LOOP
