@@ -760,12 +760,8 @@ namespace {
 
     bool runOnFunction(Function &F) override {
       auto &AAWP = getAnalysis<AAResultsWrapperPass>();
-<<<<<<< HEAD
-      Tracker = new AliasSetTracker(AAWP.getAAResults(),
+      AliasSetTracker Tracker(AAWP.getAAResults(),
                                     PrintLoopCarriedAliasSets); // INTEL
-=======
-      AliasSetTracker Tracker(AAWP.getAAResults());
->>>>>>> f4ea0f98142a97666cd0478757570e819923a829
       errs() << "Alias sets for function '" << F.getName() << "':\n";
       for (inst_iterator I = inst_begin(F), E = inst_end(F); I != E; ++I)
         Tracker.add(&*I);
