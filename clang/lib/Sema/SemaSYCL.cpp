@@ -2740,19 +2740,12 @@ void Sema::MarkDevice(void) {
 // SYCL device specific diagnostics implementation
 // -----------------------------------------------------------------------------
 
-<<<<<<< HEAD
-Sema::SemaDiagnosticBuilder Sema::SYCLDiagIfDeviceCode(SourceLocation Loc,
-                                                       unsigned DiagID) {
+Sema::DeviceDiagBuilder Sema::SYCLDiagIfDeviceCode(SourceLocation Loc,
+                                                   unsigned DiagID) {
 #if INTEL_CUSTOMIZATION
   assert((getLangOpts().SYCLIsDevice || getLangOpts().HLS) &&
          "Should only be called during SYCL or HLS compilation");
 #endif // INTEL_CUSTOMIZATION
-=======
-Sema::DeviceDiagBuilder Sema::SYCLDiagIfDeviceCode(SourceLocation Loc,
-                                                   unsigned DiagID) {
-  assert(getLangOpts().SYCLIsDevice &&
-         "Should only be called during SYCL compilation");
->>>>>>> 9f982eea835508e85baedd52ead0f02cb757fe8b
   FunctionDecl *FD = dyn_cast<FunctionDecl>(getCurLexicalContext());
   DeviceDiagBuilder::Kind DiagKind = [this, FD] {
     if (DiagnosingSYCLKernel)
