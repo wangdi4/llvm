@@ -416,7 +416,10 @@ bool IRChangePrinter::same(const std::string &Before,
                            const std::string &After) {
   return Before.compare(After) == 0;
 }
+<<<<<<< HEAD
 #endif //!defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
+=======
+>>>>>>> 6859d95ea2d0f3fe0de2923a3f642170e66a1a14
 
 PrintIRInstrumentation::~PrintIRInstrumentation() {
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
