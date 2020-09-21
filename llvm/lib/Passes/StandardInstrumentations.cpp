@@ -26,7 +26,6 @@
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/FormatVariadic.h"
 #include "llvm/Support/raw_ostream.h"
-#include <unordered_set>
 #include <vector>
 
 using namespace llvm;
@@ -52,6 +51,7 @@ static cl::opt<bool>
                    cl::desc("Print all pass management debugging information. "
                             "`-debug-pass-manager` must also be specified"));
 
+<<<<<<< HEAD
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
 // A hidden option that prints out the IR after passes, similar to
 // -print-after-all except that it only prints the IR after passes that
@@ -81,6 +81,8 @@ static cl::list<std::string>
                              "match for the print-changed option"),
                     cl::CommaSeparated, cl::Hidden);
 
+=======
+>>>>>>> 3c742326b450f77ce29ce2b480a0be639a57a751
 namespace {
 
 /// Extracting Module out of \p IR unit. Also fills a textual description
@@ -137,8 +139,7 @@ void printIR(raw_ostream &OS, const Function *F, StringRef Banner,
 }
 
 void printIR(raw_ostream &OS, const Module *M, StringRef Banner,
-             StringRef Extra = StringRef(), bool Brief = false,
-             bool ShouldPreserveUseListOrder = false) {
+             StringRef Extra = StringRef(), bool Brief = false) {
   if (Brief) {
     OS << M->getName() << '\n';
     return;
@@ -146,7 +147,7 @@ void printIR(raw_ostream &OS, const Module *M, StringRef Banner,
 
   if (llvm::isFunctionInPrintList("*") || llvm::forcePrintModuleIR()) {
     OS << Banner << Extra << "\n";
-    M->print(OS, nullptr, ShouldPreserveUseListOrder);
+    M->print(OS, nullptr, false);
   } else {
     for (const auto &F : M->functions()) {
       printIR(OS, &F, Banner, Extra);
@@ -190,19 +191,17 @@ void printIR(raw_ostream &OS, const Loop *L, StringRef Banner,
 /// Generic IR-printing helper that unpacks a pointer to IRUnit wrapped into
 /// llvm::Any and does actual print job.
 void unwrapAndPrint(raw_ostream &OS, Any IR, StringRef Banner,
-                    bool ForceModule = false, bool Brief = false,
-                    bool ShouldPreserveUseListOrder = false) {
+                    bool ForceModule = false, bool Brief = false) {
   if (ForceModule) {
     if (auto UnwrappedModule = unwrapModule(IR))
-      printIR(OS, UnwrappedModule->first, Banner, UnwrappedModule->second,
-              Brief, ShouldPreserveUseListOrder);
+      printIR(OS, UnwrappedModule->first, Banner, UnwrappedModule->second);
     return;
   }
 
   if (any_isa<const Module *>(IR)) {
     const Module *M = any_cast<const Module *>(IR);
     assert(M && "module should be valid for printing");
-    printIR(OS, M, Banner, "", Brief, ShouldPreserveUseListOrder);
+    printIR(OS, M, Banner, "", Brief);
     return;
   }
 
@@ -230,40 +229,9 @@ void unwrapAndPrint(raw_ostream &OS, Any IR, StringRef Banner,
   llvm_unreachable("Unknown wrapped IR type");
 }
 
-// Return true when this is a pass for which changes should be ignored
-inline bool isIgnored(StringRef PassID) {
-  return isSpecialPass(PassID,
-                       {"PassManager", "PassAdaptor", "AnalysisManagerProxy"});
-}
-
-// Return true when this is a defined function for which printing
-// of changes is desired.
-inline bool isInterestingFunction(const Function &F) {
-  return llvm::isFunctionInPrintList(F.getName());
-}
-
-// Return true when this is a pass for which printing of changes is desired.
-inline bool isInterestingPass(StringRef PassID) {
-  if (isIgnored(PassID))
-    return false;
-
-  static std::unordered_set<std::string> PrintPassNames(PrintPassesList.begin(),
-                                                        PrintPassesList.end());
-  return PrintPassNames.empty() || PrintPassNames.count(PassID.str());
-}
-
-// Return true when this is a pass on IR for which printing
-// of changes is desired.
-bool isInteresting(Any IR, StringRef PassID) {
-  if (!isInterestingPass(PassID))
-    return false;
-  if (any_isa<const Function *>(IR))
-    return isInterestingFunction(*any_cast<const Function *>(IR));
-  return true;
-}
-
 } // namespace
 
+<<<<<<< HEAD
 template <typename IRUnitT>
 void ChangePrinter<IRUnitT>::saveIRBeforePass(Any IR, StringRef PassID) {
   // Always need to place something on the stack because invalidated passes
@@ -418,6 +386,8 @@ bool IRChangePrinter::same(const std::string &Before,
 }
 #endif //!defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
 
+=======
+>>>>>>> 3c742326b450f77ce29ce2b480a0be639a57a751
 PrintIRInstrumentation::~PrintIRInstrumentation() {
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
   assert(ModuleDescStack.empty() && "ModuleDescStack is not empty at exit");
@@ -747,5 +717,4 @@ void StandardInstrumentations::registerCallbacks(
   TimePasses.registerCallbacks(PIC);
   OptNone.registerCallbacks(PIC);
   PreservedCFGChecker.registerCallbacks(PIC);
-  PrintChangedIR.registerCallbacks(PIC);
 }
