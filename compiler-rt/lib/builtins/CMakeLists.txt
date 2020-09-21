@@ -82,6 +82,7 @@ set(GENERIC_SOURCES
   divdi3.c
   divmoddi4.c
   divmodsi4.c
+  divmodti4.c
   divsc3.c
   divsf3.c
   divsi3.c
