@@ -20,7 +20,7 @@ if (NOT TARGET LLVMGenXIntrinsics)
     include(FetchContent)
     FetchContent_Declare(vc-intrinsics
       GIT_REPOSITORY ${LLVMGenXIntrinsics_GIT_REPO} #INTEL_CUSTOMIZATION
-      GIT_TAG        bf7745ca1a4b2b2963b7e33846107839937eb7aa
+      GIT_TAG        4143fa153a471c4d54969a10bca472a53088f556
     )
     FetchContent_MakeAvailable(vc-intrinsics)
     FetchContent_GetProperties(vc-intrinsics)

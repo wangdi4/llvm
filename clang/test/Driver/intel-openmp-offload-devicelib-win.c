@@ -12,7 +12,7 @@
 /// ###########################################################################
 
 /// Check explicit linking under -device-math-lib:
-// RUN:   %clang -ccc-print-phases -fiopenmp -target x86_64-pc-windows-msvc -fopenmp-targets=spir64 -device-math-lib=fp32,fp64 %s 2>&1 \
+// RUN:   %clang -ccc-print-phases -fiopenmp -target x86_64-pc-windows-msvc -fopenmp-targets=spir64 -fopenmp-device-lib=libm-fp32,libm-fp64 %s 2>&1 \
 // RUN:   | FileCheck -check-prefix=CHK-PHASES %s
 
 // CHK-PHASES: 0: input, "[[INPUT:.+\.c]]", c, (host-openmp)
@@ -89,8 +89,32 @@
 // CHK-PHASES-DEF: 32: assembler, {31}, object, (host-openmp)
 // CHK-PHASES-DEF: 33: linker, {4, 6, 8, 10, 12, 14, 16, 18, 20, 32}, image, (host-openmp)
 
-/// Check that -device-math-lib does not affect separate compilation:
-// RUN:   %clang -### -ccc-print-phases -fiopenmp -c -o %t.obj -target x86_64-pc-windows-msvc -fopenmp-targets=spir64 -device-math-lib=fp32,fp64 %s 2>&1 \
+/// Check explicit linking for libc
+// RUN:   %clang -ccc-print-phases -fiopenmp -target x86_64-pc-windows-msvc -fopenmp-targets=spir64 -fno-openmp-device-lib=all -fopenmp-device-lib=libc %s 2>&1 \
+// RUN:   | FileCheck -check-prefix=CHK-PHASES-LIBC %s
+// CHK-PHASES-LIBC: 0: input, "[[INPUT:.+\.c]]", c, (host-openmp)
+// CHK-PHASES-LIBC: 1: preprocessor, {0}, cpp-output, (host-openmp)
+// CHK-PHASES-LIBC: 2: compiler, {1}, ir, (host-openmp)
+// CHK-PHASES-LIBC: 3: backend, {2}, assembler, (host-openmp)
+// CHK-PHASES-LIBC: 4: assembler, {3}, object, (host-openmp)
+// CHK-PHASES-LIBC: 5: input, "{{.*libomp-msvc.obj.*}}", object, (host-openmp)
+// CHK-PHASES-LIBC: 6: clang-offload-unbundler, {5}, object, (host-openmp)
+// CHK-PHASES-LIBC: 7: input, "[[INPUT]]", c, (device-openmp)
+// CHK-PHASES-LIBC: 8: preprocessor, {7}, cpp-output, (device-openmp)
+// CHK-PHASES-LIBC: 9: compiler, {8}, ir, (device-openmp)
+// CHK-PHASES-LIBC: 10: offload, "host-openmp (x86_64-pc-windows-msvc)" {2}, "device-openmp (spir64)" {9}, ir
+// CHK-PHASES-LIBC: 11: backend, {10}, ir, (device-openmp)
+// CHK-PHASES-LIBC: 12: linker, {11, 6}, image, (device-openmp)
+// CHK-PHASES-LIBC: 13: sycl-post-link, {12}, ir, (device-openmp)
+// CHK-PHASES-LIBC: 14: llvm-spirv, {13}, image, (device-openmp)
+// CHK-PHASES-LIBC: 15: offload, "device-openmp (spir64)" {14}, image
+// CHK-PHASES-LIBC: 16: clang-offload-wrapper, {15}, ir, (host-openmp)
+// CHK-PHASES-LIBC: 17: backend, {16}, assembler, (host-openmp)
+// CHK-PHASES-LIBC: 18: assembler, {17}, object, (host-openmp)
+// CHK-PHASES-LIBC: 19: linker, {4, 6, 18}, image, (host-openmp)
+
+/// Check that -fopenmp-device-lib does not affect separate compilation:
+// RUN:   %clang -### -ccc-print-phases -fiopenmp -c -o %t.obj -target x86_64-pc-windows-msvc -fopenmp-targets=spir64 -fopenmp-device-lib=all %s 2>&1 \
 // RUN:   | FileCheck -check-prefix=CHK-BUACTIONS %s
 // CHK-BUACTIONS: 0: input, "[[INPUT:.+\.c]]", c, (host-openmp)
 // CHK-BUACTIONS: 1: preprocessor, {0}, cpp-output, (host-openmp)
@@ -104,3 +128,8 @@
 // CHK-BUACTIONS: 9: backend, {2}, assembler, (host-openmp)
 // CHK-BUACTIONS: 10: assembler, {9}, object, (host-openmp)
 // CHK-BUACTIONS: 11: clang-offload-bundler, {8, 10}, object, (host-openmp)
+
+/// Check for deprecation of option
+// RUN: %clang -target x86_64-pc-windows-msvc -fiopenmp -fopenmp-targets=spir64 -device-math-lib=fp32 -c %s 2>&1 \
+// RUN:   | FileCheck -check-prefix=WARNING_CHECK %s
+// WARNING_CHECK: warning: argument '-device-math-lib=fp32' is deprecated, use '-f[no-]openmp-device-lib' instead [-Wdeprecated]

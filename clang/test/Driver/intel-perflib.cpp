@@ -143,8 +143,8 @@
 // DAAL tests
 // Copy the libs created above from MKL
 // RUN: mkdir -p %t_dir/daal/lib/intel64
-// RUN: cp %t_dir/mkl/lib/intel64/libmkl_sycl.a %t_dir/daal/lib/intel64/libdaal_sycl.a
-// RUN: cp %t_dir/mkl/lib/intel64/mkl_sycl.lib %t_dir/daal/lib/intel64/daal_sycl.lib
+// RUN: cp %t_dir/mkl/lib/intel64/libmkl_sycl.a %t_dir/daal/lib/intel64/libonedal_sycl.a
+// RUN: cp %t_dir/mkl/lib/intel64/mkl_sycl.lib %t_dir/daal/lib/intel64/onedal_sycl.lib
 // RUN: env DAALROOT=%t_dir/daal TBBROOT=/dummy/tbb \
 // RUN: %clangxx -target x86_64-unknown-linux-gnu -daal -### %s 2>&1 \
 // RUN: | FileCheck -check-prefixes=CHECK-DAAL,CHECK-DAAL-LIN,CHECK-DAAL-LIN-PARALLEL %s
@@ -169,21 +169,21 @@
 // RUN: env DAALROOT=%t_dir/daal TBBROOT=/dummy/tbb \
 // RUN: %clang_cl -Qdaal=sequential -### %s 2>&1 \
 // RUN: | FileCheck -check-prefixes=CHECK-DAAL,CHECK-DAAL-WIN-SEQUENTIAL %s
-// CHECK-DAAL-WIN-PARALLEL: clang{{.*}} "--dependent-lib=daal_core" "--dependent-lib=daal_thread"
-// CHECK-DAAL-WIN-SEQUENTIAL: clang{{.*}} "--dependent-lib=daal_core" "--dependent-lib=daal_sequential"
+// CHECK-DAAL-WIN-PARALLEL: clang{{.*}} "--dependent-lib=onedal_core" "--dependent-lib=onedal_thread"
+// CHECK-DAAL-WIN-SEQUENTIAL: clang{{.*}} "--dependent-lib=onedal_core" "--dependent-lib=onedal_sequential"
 // CHECK-DAAL: "-internal-isystem" "{{.*}}tbb{{/|\\\\}}include" "-internal-isystem" "{{.*}}daal{{/|\\\\}}include"
-// CHECK-DAAL-WIN-SYCL: clang-offload-bundler{{.*}} "-inputs={{.*}}lib{{/|\\\\}}intel64{{/|\\\\}}daal_sycl.lib" "-outputs=[[LISTWIN:.+\.txt]]" "-unbundle"
+// CHECK-DAAL-WIN-SYCL: clang-offload-bundler{{.*}} "-inputs={{.*}}lib{{/|\\\\}}intel64{{/|\\\\}}onedal_sycl.lib" "-outputs=[[LISTWIN:.+\.txt]]" "-unbundle"
 // CHECK-DAAL-WIN-SYCL: llvm-link{{.*}} "@[[LISTWIN]]"
-// CHECK-DAAL-LIN-SYCL: ld{{.*}} "-r" {{.*}} "{{.*}}daal{{/|\\\\}}lib{{/|\\\\}}intel64{{/|\\\\}}libdaal_sycl.a"
+// CHECK-DAAL-LIN-SYCL: ld{{.*}} "-r" {{.*}} "{{.*}}daal{{/|\\\\}}lib{{/|\\\\}}intel64{{/|\\\\}}libonedal_sycl.a"
 // CHECK-DAAL-LIN-SYCL: clang-offload-bundler{{.*}} "-type=oo" "-targets=sycl-spir64-unknown-unknown-sycldevice" "-inputs={{.*}}" "-outputs=[[LISTLIN:.+\.txt]]" "-unbundle"
 // CHECK-DAAL-LIN-SYCL: llvm-link{{.*}} "@[[LISTLIN]]"
 // CHECK-DAAL-SYCL: llvm-spirv{{.*}}
 // CHECK-DAAL-SYCL: clang-offload-wrapper{{.*}}
 // CHECK-DAAL-SYCL: llc{{.*}}
 // CHECK-DAAL-LIN: ld{{.*}} "-L{{.*}}tbb{{/|\\\\}}lib{{/|\\\\}}intel64{{/|\\\\}}gcc4.8" "-L{{.*}}daal{{/|\\\\}}lib{{/|\\\\}}intel64"
-// CHECK-DAAL-LIN-PARALLEL: "--start-group" "-ldaal_core" "-ldaal_thread" "--end-group" "-ltbb"
-// CHECK-DAAL-LIN-SEQUENTIAL: "--start-group" "-ldaal_core" "-ldaal_sequential" "--end-group" "-ltbb"
-// CHECK-DAAL-WIN-SYCL: link{{.*}} "-defaultlib:{{.*}}daal{{/|\\\\}}lib{{/|\\\\}}intel64{{/|\\\\}}daal_sycl.lib"
+// CHECK-DAAL-LIN-PARALLEL: "--start-group" "-lonedal_core" "-lonedal_thread" "--end-group" "-ltbb"
+// CHECK-DAAL-LIN-SEQUENTIAL: "--start-group" "-lonedal_core" "-lonedal_sequential" "--end-group" "-ltbb"
+// CHECK-DAAL-WIN-SYCL: link{{.*}} "-defaultlib:{{.*}}daal{{/|\\\\}}lib{{/|\\\\}}intel64{{/|\\\\}}onedal_sycl.lib"
 // CHECK-DAAL-WIN: "-libpath:{{.*}}tbb{{/|\\\\}}lib{{/|\\\\}}intel64{{/|\\\\}}vc14" "-libpath:{{.*}}daal{{/|\\\\}}lib{{/|\\\\}}intel64"
 
 // Check phases for -mkl and objects
