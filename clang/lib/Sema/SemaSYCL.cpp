@@ -2740,23 +2740,30 @@ void Sema::MarkDevice(void) {
 // SYCL device specific diagnostics implementation
 // -----------------------------------------------------------------------------
 
+<<<<<<< HEAD
 Sema::SemaDiagnosticBuilder Sema::SYCLDiagIfDeviceCode(SourceLocation Loc,
                                                        unsigned DiagID) {
 #if INTEL_CUSTOMIZATION
   assert((getLangOpts().SYCLIsDevice || getLangOpts().HLS) &&
          "Should only be called during SYCL or HLS compilation");
 #endif // INTEL_CUSTOMIZATION
+=======
+Sema::DeviceDiagBuilder Sema::SYCLDiagIfDeviceCode(SourceLocation Loc,
+                                                   unsigned DiagID) {
+  assert(getLangOpts().SYCLIsDevice &&
+         "Should only be called during SYCL compilation");
+>>>>>>> 9f982eea835508e85baedd52ead0f02cb757fe8b
   FunctionDecl *FD = dyn_cast<FunctionDecl>(getCurLexicalContext());
-  SemaDiagnosticBuilder::Kind DiagKind = [this, FD] {
+  DeviceDiagBuilder::Kind DiagKind = [this, FD] {
     if (DiagnosingSYCLKernel)
-      return SemaDiagnosticBuilder::K_ImmediateWithCallStack;
+      return DeviceDiagBuilder::K_ImmediateWithCallStack;
     if (!FD)
-      return SemaDiagnosticBuilder::K_Nop;
+      return DeviceDiagBuilder::K_Nop;
     if (getEmissionStatus(FD) == Sema::FunctionEmissionStatus::Emitted)
-      return SemaDiagnosticBuilder::K_ImmediateWithCallStack;
-    return SemaDiagnosticBuilder::K_Deferred;
+      return DeviceDiagBuilder::K_ImmediateWithCallStack;
+    return DeviceDiagBuilder::K_Deferred;
   }();
-  return SemaDiagnosticBuilder(DiagKind, Loc, DiagID, FD, *this);
+  return DeviceDiagBuilder(DiagKind, Loc, DiagID, FD, *this);
 }
 
 bool Sema::checkSYCLDeviceFunction(SourceLocation Loc, FunctionDecl *Callee) {
@@ -2774,18 +2781,18 @@ bool Sema::checkSYCLDeviceFunction(SourceLocation Loc, FunctionDecl *Callee) {
   if (!Caller)
     return true;
 
-  SemaDiagnosticBuilder::Kind DiagKind = SemaDiagnosticBuilder::K_Nop;
+  DeviceDiagBuilder::Kind DiagKind = DeviceDiagBuilder::K_Nop;
 
   // TODO Set DiagKind to K_Immediate/K_Deferred to emit diagnostics for Callee
 
-  SemaDiagnosticBuilder(DiagKind, Loc, diag::err_sycl_restrict, Caller, *this)
+  DeviceDiagBuilder(DiagKind, Loc, diag::err_sycl_restrict, Caller, *this)
       << Sema::KernelCallUndefinedFunction;
-  SemaDiagnosticBuilder(DiagKind, Callee->getLocation(),
-                        diag::note_previous_decl, Caller, *this)
+  DeviceDiagBuilder(DiagKind, Callee->getLocation(), diag::note_previous_decl,
+                    Caller, *this)
       << Callee;
 
-  return DiagKind != SemaDiagnosticBuilder::K_Immediate &&
-         DiagKind != SemaDiagnosticBuilder::K_ImmediateWithCallStack;
+  return DiagKind != DeviceDiagBuilder::K_Immediate &&
+         DiagKind != DeviceDiagBuilder::K_ImmediateWithCallStack;
 }
 
 void Sema::finalizeSYCLDelayedAnalysis(const FunctionDecl *Caller,
