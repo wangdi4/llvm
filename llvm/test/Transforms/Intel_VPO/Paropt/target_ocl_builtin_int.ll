@@ -27,11 +27,11 @@ declare void @llvm.directive.region.exit(token) #1
 
 ; Function Attrs: nounwind readnone
 declare dso_local spir_func i32 @abs(i32) #2
-; CHECK: declare {{.*}} i32 @_Z3absi(i32) #0
+; CHECK: declare {{.*}} i32 @_Z17__spirv_ocl_s_absi(i32) #0
 
 ; Function Attrs: nounwind readnone
 declare dso_local spir_func i64 @labs(i64) #2
-; CHECK: declare {{.*}} i64 @_Z3absl(i64)
+; CHECK: declare {{.*}} i64 @_Z17__spirv_ocl_s_absl(i64)
 
 define hidden spir_func void @_Z3foov() #0 {
 entry:
@@ -54,12 +54,12 @@ DIR.OMP.TARGET.35:                                ; preds = %DIR.OMP.TARGET.2
 DIR.OMP.TARGET.3:                                 ; preds = %DIR.OMP.TARGET.35
 
   %call = call spir_func i32 @abs(i32 123) #3
-; CHECK:  call spir_func i32 @_Z3absi(i32 123)
+; CHECK:  call spir_func i32 @_Z17__spirv_ocl_s_absi(i32 123)
 
   store i32 %call, i32 addrspace(4)* %aa.ascast, align 4
 
   %call1 = call spir_func i64 @labs(i64 456) #3
-; CHECK:   call spir_func i64 @_Z3absl(i64 456)
+; CHECK:   call spir_func i64 @_Z17__spirv_ocl_s_absl(i64 456)
 
   store i64 %call1, i64 addrspace(4)* %bb.ascast, align 8
   br label %DIR.OMP.END.TARGET.4.split
