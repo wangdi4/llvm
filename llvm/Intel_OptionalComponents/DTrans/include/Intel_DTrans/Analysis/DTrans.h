@@ -525,6 +525,10 @@ const SafetyData UnsafePointerStoreRelatedTypes = 0x0000'0040'0000'0000;
 /// field zero in the outer most structure.
 const SafetyData MemFuncNestedStructsPartialWrite = 0x0000'0080'0000'0000;
 
+/// This safety data is used when the memory allocation size is constant, but
+/// is not a direct multiple of the element size. e.g. ElemSize * 4 + 128
+const SafetyData ComplexAllocSize = 0x0000'0100'0000'0000;
+
 /// This is a catch-all flag that will be used to mark any usage pattern
 /// that we don't specifically recognize. The use might actually be safe
 /// or unsafe, but we will conservatively assume it is unsafe.
@@ -537,93 +541,90 @@ const SafetyData UnhandledUse = 0x8000'0000'0000'0000;
 //
 const SafetyData SDDeleteField =
     BadCasting | BadAllocSizeArg | BadPtrManipulation | AmbiguousGEP |
-        VolatileData | MismatchedElementAccess | WholeStructureReference |
-        UnsafePointerStore | FieldAddressTaken | BadMemFuncSize |
-        BadMemFuncManipulation | AmbiguousPointerTarget | UnsafePtrMerge |
-        AddressTaken | NoFieldsInStruct | SystemObject | MismatchedArgUse |
-        HasVTable | HasFnPtr | HasZeroSizedArray | HasFnPtr |
-        BadCastingConditional | UnsafePointerStoreConditional | DopeVector |
-        BadCastingForRelatedTypes | BadPtrManipulationForRelatedTypes |
-        MismatchedElementAccessRelatedTypes |
-        UnsafePointerStoreRelatedTypes | MemFuncNestedStructsPartialWrite;
+    VolatileData | MismatchedElementAccess | WholeStructureReference |
+    UnsafePointerStore | FieldAddressTaken | BadMemFuncSize |
+    BadMemFuncManipulation | AmbiguousPointerTarget | UnsafePtrMerge |
+    AddressTaken | NoFieldsInStruct | SystemObject | MismatchedArgUse |
+    HasVTable | HasFnPtr | HasZeroSizedArray | HasFnPtr |
+    BadCastingConditional | UnsafePointerStoreConditional | DopeVector |
+    BadCastingForRelatedTypes | BadPtrManipulationForRelatedTypes |
+    MismatchedElementAccessRelatedTypes | UnsafePointerStoreRelatedTypes |
+    MemFuncNestedStructsPartialWrite | ComplexAllocSize;
 
 const SafetyData SDReorderFields =
     BadCasting | BadAllocSizeArg | BadPtrManipulation | AmbiguousGEP |
-        VolatileData | MismatchedElementAccess | WholeStructureReference |
-        UnsafePointerStore | FieldAddressTaken | GlobalInstance |
-        HasInitializerList | UnsafePtrMerge | BadMemFuncSize |
-        MemFuncPartialWrite | BadMemFuncManipulation | AmbiguousPointerTarget |
-        AddressTaken | NoFieldsInStruct | NestedStruct | ContainsNestedStruct |
-        SystemObject | MismatchedArgUse | LocalInstance | HasCppHandling |
-        BadCastingConditional | UnsafePointerStoreConditional | UnhandledUse |
-        DopeVector | BadCastingForRelatedTypes |
-        BadPtrManipulationForRelatedTypes |
-        MismatchedElementAccessRelatedTypes |
-        UnsafePointerStoreRelatedTypes | MemFuncNestedStructsPartialWrite;
+    VolatileData | MismatchedElementAccess | WholeStructureReference |
+    UnsafePointerStore | FieldAddressTaken | GlobalInstance |
+    HasInitializerList | UnsafePtrMerge | BadMemFuncSize | MemFuncPartialWrite |
+    BadMemFuncManipulation | AmbiguousPointerTarget | AddressTaken |
+    NoFieldsInStruct | NestedStruct | ContainsNestedStruct | SystemObject |
+    MismatchedArgUse | LocalInstance | HasCppHandling | BadCastingConditional |
+    UnsafePointerStoreConditional | UnhandledUse | DopeVector |
+    BadCastingForRelatedTypes | BadPtrManipulationForRelatedTypes |
+    MismatchedElementAccessRelatedTypes | UnsafePointerStoreRelatedTypes |
+    MemFuncNestedStructsPartialWrite | ComplexAllocSize;
 
 const SafetyData SDReorderFieldsDependent =
     BadPtrManipulation | GlobalInstance | HasInitializerList |
-        MemFuncPartialWrite | NoFieldsInStruct | LocalInstance |
-        BadCastingConditional | UnsafePointerStoreConditional | UnhandledUse |
-        WholeStructureReference | VolatileData | BadMemFuncSize |
-        BadMemFuncManipulation | AmbiguousPointerTarget | DopeVector |
-        BadPtrManipulationForRelatedTypes | MemFuncNestedStructsPartialWrite;
+    MemFuncPartialWrite | NoFieldsInStruct | LocalInstance |
+    BadCastingConditional | UnsafePointerStoreConditional | UnhandledUse |
+    WholeStructureReference | VolatileData | BadMemFuncSize |
+    BadMemFuncManipulation | AmbiguousPointerTarget | DopeVector |
+    BadPtrManipulationForRelatedTypes | MemFuncNestedStructsPartialWrite |
+    ComplexAllocSize;
 
 //
 // Safety conditions for field single value analysis
 //
 const SafetyData SDFieldSingleValueNoFieldAddressTaken =
     BadCasting | BadPtrManipulation | AmbiguousGEP | VolatileData |
-        MismatchedElementAccess | UnsafePointerStore | AmbiguousPointerTarget |
-        UnsafePtrMerge | AddressTaken | MismatchedArgUse |
-        BadCastingForRelatedTypes | BadPtrManipulationForRelatedTypes |
-        MismatchedElementAccessRelatedTypes |
-        UnsafePointerStoreRelatedTypes |
-        UnhandledUse;
+    MismatchedElementAccess | UnsafePointerStore | AmbiguousPointerTarget |
+    UnsafePtrMerge | AddressTaken | MismatchedArgUse |
+    BadCastingForRelatedTypes | BadPtrManipulationForRelatedTypes |
+    MismatchedElementAccessRelatedTypes | UnsafePointerStoreRelatedTypes |
+    UnhandledUse;
 
 const SafetyData SDFieldSingleValue =
     SDFieldSingleValueNoFieldAddressTaken | FieldAddressTaken;
 
 const SafetyData SDSingleAllocFunctionNoFieldAddressTaken =
     BadCasting | BadPtrManipulation | AmbiguousGEP | VolatileData |
-        MismatchedElementAccess | UnsafePointerStore | BadMemFuncSize |
-        BadMemFuncManipulation | AmbiguousPointerTarget | UnsafePtrMerge |
-        AddressTaken | MismatchedArgUse |
-        BadCastingForRelatedTypes | BadPtrManipulationForRelatedTypes |
-        MismatchedElementAccessRelatedTypes |
-        UnsafePointerStoreRelatedTypes | MemFuncNestedStructsPartialWrite |
-        UnhandledUse;
+    MismatchedElementAccess | UnsafePointerStore | BadMemFuncSize |
+    BadMemFuncManipulation | AmbiguousPointerTarget | UnsafePtrMerge |
+    AddressTaken | MismatchedArgUse | BadCastingForRelatedTypes |
+    BadPtrManipulationForRelatedTypes | MismatchedElementAccessRelatedTypes |
+    UnsafePointerStoreRelatedTypes | MemFuncNestedStructsPartialWrite |
+    UnhandledUse;
 
 const SafetyData SDSingleAllocFunction =
     SDSingleAllocFunctionNoFieldAddressTaken | FieldAddressTaken;
 
 const SafetyData SDElimROFieldAccess =
     BadCasting | BadPtrManipulation | AmbiguousGEP | VolatileData |
-        MismatchedElementAccess | UnsafePointerStore | FieldAddressTaken |
-        BadMemFuncSize | BadMemFuncManipulation | AmbiguousPointerTarget |
-        HasInitializerList | UnsafePtrMerge | AddressTaken | MismatchedArgUse |
-        BadCastingConditional | UnsafePointerStoreConditional | UnhandledUse |
-        DopeVector | BadCastingForRelatedTypes |
-        BadPtrManipulationForRelatedTypes |
-        MismatchedElementAccessRelatedTypes |
-        UnsafePointerStoreRelatedTypes | MemFuncNestedStructsPartialWrite;
+    MismatchedElementAccess | UnsafePointerStore | FieldAddressTaken |
+    BadMemFuncSize | BadMemFuncManipulation | AmbiguousPointerTarget |
+    HasInitializerList | UnsafePtrMerge | AddressTaken | MismatchedArgUse |
+    BadCastingConditional | UnsafePointerStoreConditional | UnhandledUse |
+    DopeVector | BadCastingForRelatedTypes | BadPtrManipulationForRelatedTypes |
+    MismatchedElementAccessRelatedTypes | UnsafePointerStoreRelatedTypes |
+    MemFuncNestedStructsPartialWrite;
 
 //
 // Safety conditions for a structure to be considered for the AOS-to-SOA
 // transformation.
 const SafetyData SDAOSToSOA =
     BadCasting | BadAllocSizeArg | BadPtrManipulation | AmbiguousGEP |
-        VolatileData | MismatchedElementAccess | WholeStructureReference |
-        UnsafePointerStore | FieldAddressTaken | GlobalInstance |
-        HasInitializerList | UnsafePtrMerge | BadMemFuncSize |
-        BadMemFuncManipulation | AmbiguousPointerTarget | AddressTaken |
-        NoFieldsInStruct | NestedStruct | ContainsNestedStruct | SystemObject |
-        LocalInstance | MismatchedArgUse | GlobalArray | HasVTable | HasFnPtr |
-        HasCppHandling | HasZeroSizedArray |
-        BadCastingConditional | UnsafePointerStoreConditional | DopeVector |
-        BadCastingForRelatedTypes | BadPtrManipulationForRelatedTypes |
-        MismatchedElementAccessRelatedTypes |
-        UnsafePointerStoreRelatedTypes | MemFuncNestedStructsPartialWrite;
+    VolatileData | MismatchedElementAccess | WholeStructureReference |
+    UnsafePointerStore | FieldAddressTaken | GlobalInstance |
+    HasInitializerList | UnsafePtrMerge | BadMemFuncSize |
+    BadMemFuncManipulation | AmbiguousPointerTarget | AddressTaken |
+    NoFieldsInStruct | NestedStruct | ContainsNestedStruct | SystemObject |
+    LocalInstance | MismatchedArgUse | GlobalArray | HasVTable | HasFnPtr |
+    HasCppHandling | HasZeroSizedArray | BadCastingConditional |
+    UnsafePointerStoreConditional | DopeVector | BadCastingForRelatedTypes |
+    BadPtrManipulationForRelatedTypes | MismatchedElementAccessRelatedTypes |
+    UnsafePointerStoreRelatedTypes | MemFuncNestedStructsPartialWrite |
+    ComplexAllocSize;
 
 //
 // Safety conditions for a structure type that contains a pointer to a
@@ -631,14 +632,13 @@ const SafetyData SDAOSToSOA =
 //
 const SafetyData SDAOSToSOADependent =
     BadCasting | BadPtrManipulation | AmbiguousGEP | VolatileData |
-        MismatchedElementAccess | WholeStructureReference | UnsafePointerStore |
-        UnsafePtrMerge | AmbiguousPointerTarget | AddressTaken |
-        NoFieldsInStruct | NestedStruct | ContainsNestedStruct | SystemObject |
-        MismatchedArgUse | GlobalArray | HasVTable | HasCppHandling |
-        BadCastingConditional | UnsafePointerStoreConditional | DopeVector |
-        BadCastingForRelatedTypes | BadPtrManipulationForRelatedTypes |
-        MismatchedElementAccessRelatedTypes |
-        UnsafePointerStoreRelatedTypes;
+    MismatchedElementAccess | WholeStructureReference | UnsafePointerStore |
+    UnsafePtrMerge | AmbiguousPointerTarget | AddressTaken | NoFieldsInStruct |
+    NestedStruct | ContainsNestedStruct | SystemObject | MismatchedArgUse |
+    GlobalArray | HasVTable | HasCppHandling | BadCastingConditional |
+    UnsafePointerStoreConditional | DopeVector | BadCastingForRelatedTypes |
+    BadPtrManipulationForRelatedTypes | MismatchedElementAccessRelatedTypes |
+    UnsafePointerStoreRelatedTypes | ComplexAllocSize;
 
 //
 // Safety conditions for a structure type that contains a pointer to a
@@ -648,78 +648,71 @@ const SafetyData SDAOSToSOADependent =
 //
 const SafetyData SDAOSToSOADependentIndex32 =
     BadCasting | BadAllocSizeArg | BadPtrManipulation | AmbiguousGEP |
-        VolatileData | MismatchedElementAccess | WholeStructureReference |
-        UnsafePointerStore | UnsafePtrMerge | BadMemFuncSize |
-        BadMemFuncManipulation | MemFuncPartialWrite | AmbiguousPointerTarget |
-        AddressTaken | NoFieldsInStruct | NestedStruct | ContainsNestedStruct |
-        SystemObject | MismatchedArgUse | GlobalArray | HasVTable |
-        HasCppHandling | HasZeroSizedArray | BadCastingConditional |
-        UnsafePointerStoreConditional | DopeVector |
-        BadCastingForRelatedTypes | BadPtrManipulationForRelatedTypes |
-        MismatchedElementAccessRelatedTypes |
-        UnsafePointerStoreRelatedTypes | MemFuncNestedStructsPartialWrite;
+    VolatileData | MismatchedElementAccess | WholeStructureReference |
+    UnsafePointerStore | UnsafePtrMerge | BadMemFuncSize |
+    BadMemFuncManipulation | MemFuncPartialWrite | AmbiguousPointerTarget |
+    AddressTaken | NoFieldsInStruct | NestedStruct | ContainsNestedStruct |
+    SystemObject | MismatchedArgUse | GlobalArray | HasVTable | HasCppHandling |
+    HasZeroSizedArray | BadCastingConditional | UnsafePointerStoreConditional |
+    DopeVector | BadCastingForRelatedTypes | BadPtrManipulationForRelatedTypes |
+    MismatchedElementAccessRelatedTypes | UnsafePointerStoreRelatedTypes |
+    MemFuncNestedStructsPartialWrite | ComplexAllocSize;
 
 const SafetyData SDDynClone =
     BadCasting | BadAllocSizeArg | BadPtrManipulation | AmbiguousGEP |
-        VolatileData | MismatchedElementAccess | WholeStructureReference |
-        UnsafePointerStore | FieldAddressTaken | GlobalInstance |
-        HasInitializerList | UnsafePtrMerge | BadMemFuncSize |
-        MemFuncPartialWrite | BadMemFuncManipulation | AmbiguousPointerTarget |
-        AddressTaken | NoFieldsInStruct | NestedStruct | ContainsNestedStruct |
-        SystemObject | LocalInstance | MismatchedArgUse | GlobalArray |
-        HasVTable | HasFnPtr | HasZeroSizedArray | BadCastingConditional |
-        UnsafePointerStoreConditional | UnhandledUse | DopeVector |
-        BadCastingForRelatedTypes | BadPtrManipulationForRelatedTypes |
-        MismatchedElementAccessRelatedTypes |
-        UnsafePointerStoreRelatedTypes | MemFuncNestedStructsPartialWrite;
+    VolatileData | MismatchedElementAccess | WholeStructureReference |
+    UnsafePointerStore | FieldAddressTaken | GlobalInstance |
+    HasInitializerList | UnsafePtrMerge | BadMemFuncSize | MemFuncPartialWrite |
+    BadMemFuncManipulation | AmbiguousPointerTarget | AddressTaken |
+    NoFieldsInStruct | NestedStruct | ContainsNestedStruct | SystemObject |
+    LocalInstance | MismatchedArgUse | GlobalArray | HasVTable | HasFnPtr |
+    HasZeroSizedArray | BadCastingConditional | UnsafePointerStoreConditional |
+    UnhandledUse | DopeVector | BadCastingForRelatedTypes |
+    BadPtrManipulationForRelatedTypes | MismatchedElementAccessRelatedTypes |
+    UnsafePointerStoreRelatedTypes | MemFuncNestedStructsPartialWrite |
+    ComplexAllocSize;
 
 const SafetyData SDSOAToAOS =
-    BadCasting | BadPtrManipulation |
-        VolatileData | MismatchedElementAccess | WholeStructureReference |
-        UnsafePointerStore | FieldAddressTaken | GlobalInstance |
-        HasInitializerList | UnsafePtrMerge | BadMemFuncSize |
-        BadMemFuncManipulation | AmbiguousPointerTarget | AddressTaken |
-        NoFieldsInStruct | SystemObject | LocalInstance | MismatchedArgUse |
-        GlobalArray | HasFnPtr | HasZeroSizedArray |
-        BadCastingConditional | UnsafePointerStoreConditional | UnhandledUse |
-        DopeVector | BadCastingForRelatedTypes |
-        BadPtrManipulationForRelatedTypes |
-        MismatchedElementAccessRelatedTypes |
-        UnsafePointerStoreRelatedTypes | MemFuncNestedStructsPartialWrite;
+    BadCasting | BadPtrManipulation | VolatileData | MismatchedElementAccess |
+    WholeStructureReference | UnsafePointerStore | FieldAddressTaken |
+    GlobalInstance | HasInitializerList | UnsafePtrMerge | BadMemFuncSize |
+    BadMemFuncManipulation | AmbiguousPointerTarget | AddressTaken |
+    NoFieldsInStruct | SystemObject | LocalInstance | MismatchedArgUse |
+    GlobalArray | HasFnPtr | HasZeroSizedArray | BadCastingConditional |
+    UnsafePointerStoreConditional | UnhandledUse | DopeVector |
+    BadCastingForRelatedTypes | BadPtrManipulationForRelatedTypes |
+    MismatchedElementAccessRelatedTypes | UnsafePointerStoreRelatedTypes |
+    MemFuncNestedStructsPartialWrite | ComplexAllocSize;
 
 const SafetyData SDMemInitTrimDown =
-    BadCasting | BadPtrManipulation |
-        VolatileData | MismatchedElementAccess | WholeStructureReference |
-        UnsafePointerStore | FieldAddressTaken | GlobalInstance |
-        HasInitializerList | UnsafePtrMerge | BadMemFuncSize |
-        BadMemFuncManipulation | AmbiguousPointerTarget | AddressTaken |
-        NoFieldsInStruct | SystemObject | LocalInstance | MismatchedArgUse |
-        GlobalArray | HasFnPtr | HasZeroSizedArray |
-        BadCastingConditional | UnsafePointerStoreConditional | UnhandledUse |
-        DopeVector | BadCastingForRelatedTypes |
-        BadPtrManipulationForRelatedTypes |
-        MismatchedElementAccessRelatedTypes |
-        UnsafePointerStoreRelatedTypes | MemFuncNestedStructsPartialWrite;
+    BadCasting | BadPtrManipulation | VolatileData | MismatchedElementAccess |
+    WholeStructureReference | UnsafePointerStore | FieldAddressTaken |
+    GlobalInstance | HasInitializerList | UnsafePtrMerge | BadMemFuncSize |
+    BadMemFuncManipulation | AmbiguousPointerTarget | AddressTaken |
+    NoFieldsInStruct | SystemObject | LocalInstance | MismatchedArgUse |
+    GlobalArray | HasFnPtr | HasZeroSizedArray | BadCastingConditional |
+    UnsafePointerStoreConditional | UnhandledUse | DopeVector |
+    BadCastingForRelatedTypes | BadPtrManipulationForRelatedTypes |
+    MismatchedElementAccessRelatedTypes | UnsafePointerStoreRelatedTypes |
+    MemFuncNestedStructsPartialWrite | ComplexAllocSize;
 
 // Safety conditions for structures with padding
 const SafetyData SDPaddedStructures =
     BadCasting | BadAllocSizeArg | BadPtrManipulation | AmbiguousGEP |
-        VolatileData | MismatchedElementAccess |
-        UnsafePointerStore | UnsafePtrMerge | BadMemFuncSize |
-        BadMemFuncManipulation | AmbiguousPointerTarget | AddressTaken |
-        MismatchedArgUse | UnhandledUse;
+    VolatileData | MismatchedElementAccess | UnsafePointerStore |
+    UnsafePtrMerge | BadMemFuncSize | BadMemFuncManipulation |
+    AmbiguousPointerTarget | AddressTaken | MismatchedArgUse | UnhandledUse;
 
 // Safety conditions for arrays with constant entries
 const SafetyData SDArraysWithConstantEntries =
-    BadCasting | BadAllocSizeArg | BadPtrManipulation |
-        AmbiguousGEP | VolatileData | MismatchedElementAccess |
-        WholeStructureReference | UnsafePointerStore | FieldAddressTaken |
-        HasInitializerList | GlobalArray | GlobalInstance | UnsafePtrMerge |
-        BadMemFuncSize | MemFuncPartialWrite | BadMemFuncManipulation |
-        AmbiguousPointerTarget | AddressTaken | NoFieldsInStruct |
-        SystemObject | MismatchedArgUse | BadCastingPending |
-        BadCastingConditional | UnsafePointerStorePending |
-        UnsafePointerStoreConditional | UnhandledUse;
+    BadCasting | BadAllocSizeArg | BadPtrManipulation | AmbiguousGEP |
+    VolatileData | MismatchedElementAccess | WholeStructureReference |
+    UnsafePointerStore | FieldAddressTaken | HasInitializerList | GlobalArray |
+    GlobalInstance | UnsafePtrMerge | BadMemFuncSize | MemFuncPartialWrite |
+    BadMemFuncManipulation | AmbiguousPointerTarget | AddressTaken |
+    NoFieldsInStruct | SystemObject | MismatchedArgUse | BadCastingPending |
+    BadCastingConditional | UnsafePointerStorePending |
+    UnsafePointerStoreConditional | UnhandledUse;
 
 //
 // TODO: Update the list each time we add a new safety conditions check for a

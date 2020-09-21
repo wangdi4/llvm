@@ -8440,8 +8440,11 @@ private:
     dtrans::TypeInfo *TI = DTInfo.getOrCreateTypeInfo(Ty->getElementType());
     bool EndsInZeroSizedArray = TI ? TI->hasZeroSizedArrayAsLastField() : false;
     if (!dtrans::isValueConstant(AllocSizeVal, &Res) &&
-      dtrans::traceNonConstantValue(AllocSizeVal, ElementSize, EndsInZeroSizedArray))
+        dtrans::traceNonConstantValue(AllocSizeVal, ElementSize,
+                                      EndsInZeroSizedArray)) {
+      setBaseTypeInfoSafetyData(Ty, dtrans::ComplexAllocSize);
       return;
+    }
 
     // Check if the allocation size is not constant, but we can prove that the
     // variable is a multiple of the type's size
