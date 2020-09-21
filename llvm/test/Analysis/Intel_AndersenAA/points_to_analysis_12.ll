@@ -1,11 +1,13 @@
 ; RUN: opt < %s -anders-aa -disable-output 2>/dev/null
+; RUN: opt < %s -anders-aa -disable-output -skip-anders-unreachable-asserts=false 2> /dev/null
 ; This test has different WinEH related instruction.
-; It tests Andersens analysis doesn't crash in presence of WinEH.
+; It tests Andersens analysis doesn't crash in presence of WinEH, and that it
+; doesn't just silently ignore the instructions.
 
 declare void @_Z3quxv()
 declare void @"\01?foo@@YAXXZ"()
 declare i32 @__C_specific_handler(...)
-declare void @"\01?bar@@YAXXZ"() 
+declare void @"\01?bar@@YAXXZ"()
 declare i32 @__gxx_personality_v0(...)
 
 ; Function Attrs: nounwind uwtable
@@ -22,7 +24,7 @@ __except.ret:                                     ; preds = %catch.dispatch
   catchret from %0 to label %__except
 
 __except:                                         ; preds = %__except.ret
-  tail call void @"\01?bar@@YAXXZ"() 
+  tail call void @"\01?bar@@YAXXZ"()
   br label %__try.cont
 
 __try.cont:                                       ; preds = %entry, %__except
