@@ -232,19 +232,12 @@ static bool isDeviceBinaryTypeSupported(const context &C,
   if (ContextBackend == backend::cuda)
     return false;
 
-<<<<<<< HEAD
-  // All formats except PI_DEVICE_BINARY_TYPE_SPIRV are supported.
-  if (Format != PI_DEVICE_BINARY_TYPE_SPIRV)
-    return true;
-
 #if INTEL_CUSTOMIZATION
   // TODO: can we just query piDeviceGetInfo(PI_DEVICE_INFO_COMPILER_AVAILABLE)?
   if (ContextBackend == backend::level_zero)
     return true;
 #endif // INTEL_CUSTOMIZATION
 
-=======
->>>>>>> 62ea9a251f8d880a8e9116217e463e94c5c920c6
   vector_class<device> Devices = C.get_devices();
 
   // Program type is SPIR-V, so we need a device compiler to do JIT.
