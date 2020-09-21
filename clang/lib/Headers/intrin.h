@@ -130,13 +130,7 @@ void __writefsbyte(unsigned long, unsigned char);
 void __writefsdword(unsigned long, unsigned long);
 void __writefsqword(unsigned long, unsigned __int64);
 void __writefsword(unsigned long, unsigned short);
-<<<<<<< HEAD
-static __inline__ /* INTEL */
-void __writemsr(unsigned long, unsigned __int64); /* INTEL */
-static __inline__
-=======
 void __writemsr(unsigned long, unsigned __int64);
->>>>>>> e09107ab80dced55414fa458cf78e6cdfe90da6e
 void *_AddressOfReturnAddress(void);
 unsigned char _BitScanForward(unsigned long *_Index, unsigned long _Mask);
 unsigned char _BitScanReverse(unsigned long *_Index, unsigned long _Mask);
