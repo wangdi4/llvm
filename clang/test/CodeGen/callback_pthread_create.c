@@ -1,4 +1,12 @@
+<<<<<<< HEAD
 // RUN: %clang_cc1 %s -S -emit-llvm -mllvm -sccp-enable-callbacks=false -o - -disable-llvm-optzns | FileCheck %s  ;INTEL
+=======
+// FIXME: pthread_create() definition in Builtins.def doesn't match the real one, so it doesn't get recognized as a builtin and attributes aren't added.
+// RUN: false
+// XFAIL: *
+
+// RUN: %clang_cc1 %s -S -emit-llvm -o - -disable-llvm-optzns | FileCheck %s
+>>>>>>> e09107ab80dced55414fa458cf78e6cdfe90da6e
 
 // CHECK: declare !callback ![[cid:[0-9]+]] {{.*}}i32 @pthread_create
 // CHECK: ![[cid]] = !{![[cidb:[0-9]+]]}
