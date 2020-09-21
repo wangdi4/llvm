@@ -3570,39 +3570,34 @@ define void @splat_ptr_scatter(i32* %ptr, <4 x i1> %mask, <4 x i32> %val) {
 define <8 x i64> @pr45906(<8 x %struct.foo*> %ptr) {
 ; KNL_64-LABEL: pr45906:
 ; KNL_64:       # %bb.0: # %bb
-; KNL_64-NEXT:    vpaddq {{.*}}(%rip){1to8}, %zmm0, %zmm1
 ; KNL_64-NEXT:    kxnorw %k0, %k0, %k1
-; KNL_64-NEXT:    vpgatherqq (,%zmm1), %zmm0 {%k1}
+; KNL_64-NEXT:    vpxor %xmm1, %xmm1, %xmm1 ;INTEL
+; KNL_64-NEXT:    vpgatherqq 8(,%zmm0), %zmm1 {%k1} ;INTEL
+; KNL_64-NEXT:    vmovdqa64 %zmm1, %zmm0 ;INTEL
 ; KNL_64-NEXT:    retq
 ;
 ; KNL_32-LABEL: pr45906:
 ; KNL_32:       # %bb.0: # %bb
-; KNL_32-NEXT:    vpbroadcastd {{.*#+}} ymm1 = [4,4,4,4,4,4,4,4]
-; KNL_32-NEXT:    vpaddd %ymm1, %ymm0, %ymm1
 ; KNL_32-NEXT:    kxnorw %k0, %k0, %k1
-; KNL_32-NEXT:    vpgatherdq (,%ymm1), %zmm0 {%k1}
+; KNL_32-NEXT:    vpxor %xmm1, %xmm1, %xmm1 ;INTEL
+; KNL_32-NEXT:    vpgatherdq 4(,%ymm0), %zmm1 {%k1} ;INTEL
+; KNL_32-NEXT:    vmovdqa64 %zmm1, %zmm0 ;INTEL
 ; KNL_32-NEXT:    retl
 ;
-; SKX_SMALL-LABEL: pr45906:
-; SKX_SMALL:       # %bb.0: # %bb
-; SKX_SMALL-NEXT:    vpaddq {{.*}}(%rip){1to8}, %zmm0, %zmm1
-; SKX_SMALL-NEXT:    kxnorw %k0, %k0, %k1
-; SKX_SMALL-NEXT:    vpgatherqq (,%zmm1), %zmm0 {%k1}
-; SKX_SMALL-NEXT:    retq
-;
-; SKX_LARGE-LABEL: pr45906:
-; SKX_LARGE:       # %bb.0: # %bb
-; SKX_LARGE-NEXT:    movabsq ${{\.LCPI.*}}, %rax
-; SKX_LARGE-NEXT:    vpaddq (%rax){1to8}, %zmm0, %zmm1
-; SKX_LARGE-NEXT:    kxnorw %k0, %k0, %k1
-; SKX_LARGE-NEXT:    vpgatherqq (,%zmm1), %zmm0 {%k1}
-; SKX_LARGE-NEXT:    retq
+; SKX-LABEL: pr45906: ;INTEL
+; SKX:       # %bb.0: # %bb ;INTEL
+; SKX-NEXT:    kxnorw %k0, %k0, %k1 ;INTEL
+; SKX-NEXT:    vpxor %xmm1, %xmm1, %xmm1 ;INTEL
+; SKX-NEXT:    vpgatherqq 8(,%zmm0), %zmm1 {%k1} ;INTEL
+; SKX-NEXT:    vmovdqa64 %zmm1, %zmm0 ;INTEL
+; SKX-NEXT:    retq ;INTEL
 ;
 ; SKX_32-LABEL: pr45906:
 ; SKX_32:       # %bb.0: # %bb
-; SKX_32-NEXT:    vpaddd {{\.LCPI.*}}{1to8}, %ymm0, %ymm1
 ; SKX_32-NEXT:    kxnorw %k0, %k0, %k1
-; SKX_32-NEXT:    vpgatherdq (,%ymm1), %zmm0 {%k1}
+; SKX_32-NEXT:    vpxor %xmm1, %xmm1, %xmm1 ;INTEL
+; SKX_32-NEXT:    vpgatherdq 4(,%ymm0), %zmm1 {%k1} ;INTEL
+; SKX_32-NEXT:    vmovdqa64 %zmm1, %zmm0 ;INTEL
 ; SKX_32-NEXT:    retl
 bb:
   %tmp = getelementptr inbounds %struct.foo, <8 x %struct.foo*> %ptr, i64 0, i32 1
