@@ -236,7 +236,13 @@ CleanupPointerRootUsers(GlobalVariable *GV,
       if (MemSrc && MemSrc->isConstant()) {
         Changed = true;
         MTI->eraseFromParent();
-      } else if (Instruction *I = dyn_cast<Instruction>(MemSrc)) {
+#if INTEL_CUSTOMIZATION
+      // This if-chain is intended to suppress DSE when the source might be
+      // a heap pointer. This is entirely to prevent fails in sanitizer leak
+      // testing. We might want to investigate whether or not to remove
+      // this memcpy when the source is not a GlobalVariable.
+      } else if (Instruction *I = dyn_cast_or_null<Instruction>(MemSrc)) {
+#endif // INTEL_CUSTOMIZATION
         if (I->hasOneUse())
           Dead.push_back(std::make_pair(I, MTI));
       }
