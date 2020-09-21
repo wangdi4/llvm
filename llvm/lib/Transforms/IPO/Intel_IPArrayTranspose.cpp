@@ -1584,7 +1584,7 @@ void ArrayTransposeImpl::transformMemRefs(void) {
 bool ArrayTransposeImpl::run(void) {
 
   LLVM_DEBUG(dbgs() << "  IP Array Transpose: Started\n");
-  auto TTIAVX2 = TargetTransformInfo::AdvancedOptLevel::AO_TargetHasAVX2;
+  auto TTIAVX2 = TargetTransformInfo::AdvancedOptLevel::AO_TargetHasIntelAVX2;
   if (!WPInfo.isWholeProgramSafe() || !WPInfo.isAdvancedOptEnabled(TTIAVX2)) {
     LLVM_DEBUG(dbgs() << "    Failed: Whole Program or target\n");
     return false;

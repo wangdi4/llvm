@@ -1238,6 +1238,7 @@ public:
   enum AdvancedOptLevel {
       AO_TargetHasSSE42 = 0,
       AO_TargetHasAVX,
+      AO_TargetHasIntelAVX2,
       AO_TargetHasAVX2,
       AO_TargetHasAVX512,
       AO_TargetNumLevels // This is a sentinel to mark the end of the list

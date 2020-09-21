@@ -927,7 +927,7 @@ bool VPOCodeGenHIR::initializeVectorLoop(unsigned int VF, unsigned int UF) {
 
   bool SearchLoopNeedsPeeling =
       TTI->isAdvancedOptEnabled(
-          TargetTransformInfo::AdvancedOptLevel::AO_TargetHasAVX2) &&
+          TargetTransformInfo::AdvancedOptLevel::AO_TargetHasIntelAVX2) &&
       (EnableFirstIterPeelMEVec || EnablePeelMEVec) && isSearchLoop() &&
       (getSearchLoopType() == VPlanIdioms::SearchLoopStrEq ||
        getSearchLoopType() == VPlanIdioms::SearchLoopStructPtrEq);

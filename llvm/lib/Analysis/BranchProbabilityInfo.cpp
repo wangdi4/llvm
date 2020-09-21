@@ -1443,7 +1443,7 @@ void BranchProbabilityInfo::calculate(const Function &F, const LoopInfo &LI,
 
   CurrentDT = DT;
   enableAbnormalDeepLoopHeuristics = TTI && TTI->isAdvancedOptEnabled(
-      TargetTransformInfo::AdvancedOptLevel::AO_TargetHasAVX2);
+      TargetTransformInfo::AdvancedOptLevel::AO_TargetHasIntelAVX2);
 #endif // INTEL_CUSTOMIZATION
 
   // Walk the basic blocks in post-order so that we can build up state about

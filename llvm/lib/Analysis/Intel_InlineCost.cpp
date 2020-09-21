@@ -506,7 +506,7 @@ static bool passesMinimalSmallAppConditions(
   Function *Callee = CB.getCalledFunction();
   if (!Caller->isFortran() || !Callee->isFortran())
     return false;
-  auto TTIAVX2 = TargetTransformInfo::AdvancedOptLevel::AO_TargetHasAVX2;
+  auto TTIAVX2 = TargetTransformInfo::AdvancedOptLevel::AO_TargetHasIntelAVX2;
   if (!CalleeTTI.isAdvancedOptEnabled(TTIAVX2))
     return false;
   if (!IsSmall(*(Callee->getParent())))
@@ -886,7 +886,7 @@ static bool preferMultiversioningToInlining(
   // Quick tests:
   if (!DTransInlineHeuristics)
     return false;
-  auto TTIAVX2 = TargetTransformInfo::AdvancedOptLevel::AO_TargetHasAVX2;
+  auto TTIAVX2 = TargetTransformInfo::AdvancedOptLevel::AO_TargetHasIntelAVX2;
   if (!CalleeTTI.isAdvancedOptEnabled(TTIAVX2))
     return false;
   Function *Callee = CB.getCalledFunction();
@@ -2116,7 +2116,7 @@ static bool worthInliningForFusion(CallBase &CB, TargetLibraryInfo *TLI,
 
   // Must have at least AVX2 for this heuristic.
   if (InliningForFusionHeuristics != cl::BOU_TRUE) {
-    auto TTIAVX2 = TargetTransformInfo::AdvancedOptLevel::AO_TargetHasAVX2;
+    auto TTIAVX2 = TargetTransformInfo::AdvancedOptLevel::AO_TargetHasIntelAVX2;
     if (!CalleeTTI.isAdvancedOptEnabled(TTIAVX2)) {
       LLVM_DEBUG(llvm::dbgs()
                  << "IC: No inlining for fusion. Must support at least AVX2.");

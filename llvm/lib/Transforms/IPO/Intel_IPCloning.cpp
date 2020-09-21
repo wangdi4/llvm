@@ -2072,10 +2072,21 @@ static bool findWorthyFormalsForCloning(Function &F, bool AfterInl,
       WorthyFormalsForCloning.insert(V);
     }
   }
-  auto TTIOptLevel = TargetTransformInfo::AdvancedOptLevel::AO_TargetHasAVX2;
+
+  //
+  // Return 'true' if 'WPInfo' determines that this is an AVX2 compilation,
+  // but not an advanced AVX2 compilation.
+  //
+  auto IsNonAdvancedAVX2 = [](WholeProgramInfo *WPInfo) {
+    auto AVX2 = TargetTransformInfo::AdvancedOptLevel::AO_TargetHasAVX2;
+    auto IAVX2 = TargetTransformInfo::AdvancedOptLevel::AO_TargetHasIntelAVX2;
+    return WPInfo && WPInfo->isAdvancedOptEnabled(AVX2) &&
+        !WPInfo->isAdvancedOptEnabled(IAVX2);
+  };
+
   if (EnableMorphologyCloning && GlobalIFCount >= IPGenCloningMinIFCount &&
-      GlobalSwitchCount >= IPGenCloningMinSwitchCount && WPInfo &&
-      WPInfo->isAdvancedOptEnabled(TTIOptLevel)) {
+      GlobalSwitchCount >= IPGenCloningMinSwitchCount &&
+      !IsNonAdvancedAVX2(WPInfo)) {
     // There are enough "if" and "switch" values to qualify the clone under
     // the if-switch heuristic. Convert the pending formals to qualified.
     LLVM_DEBUG(dbgs() << "  Selecting all Pending FORMALs\n");

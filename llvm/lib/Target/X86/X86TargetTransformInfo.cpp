@@ -4600,8 +4600,10 @@ bool X86TTIImpl::isAdvancedOptEnabled(TTI::AdvancedOptLevel AO) const {
       return IntelTargetCheck && ST->hasSSE42();
     case TTI::AdvancedOptLevel::AO_TargetHasAVX:
       return IntelTargetCheck && ST->hasAVX();
-    case TTI::AdvancedOptLevel::AO_TargetHasAVX2:
+    case TTI::AdvancedOptLevel::AO_TargetHasIntelAVX2:
       return IntelTargetCheck && ST->hasAVX2();
+    case TTI::AdvancedOptLevel::AO_TargetHasAVX2:
+      return ST->hasAVX2();
     case TTI::AdvancedOptLevel::AO_TargetHasAVX512:
       return IntelTargetCheck && ST->hasAVX512();
     default:
