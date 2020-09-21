@@ -372,21 +372,14 @@ void visualstudio::Linker::ConstructJob(Compilation &C, const JobAction &JA,
 
   if (!Args.hasArg(options::OPT_nostdlib, options::OPT_nostartfiles) &&
       !C.getDriver().IsCLMode()) {
-<<<<<<< HEAD
-    if (Args.hasArg(options::OPT_fsycl) && !Args.hasArg(options::OPT_nolibsycl)) {
+    if (Args.hasArg(options::OPT_fsycl) && !Args.hasArg(options::OPT_nolibsycl))
       CmdArgs.push_back("-defaultlib:msvcrt");
-    } else {
+    else { // INTEL
       CmdArgs.push_back("-defaultlib:libcmt");
 #if INTEL_CUSTOMIZATION
       CmdArgs.push_back("-defaultlib:libmmt");
 #endif // INTEL_CUSTOMIZATION
-    }
-=======
-    if (Args.hasArg(options::OPT_fsycl) && !Args.hasArg(options::OPT_nolibsycl))
-      CmdArgs.push_back("-defaultlib:msvcrt");
-    else
-      CmdArgs.push_back("-defaultlib:libcmt");
->>>>>>> 8735bb81992fe2bf984226f915d0e80ed90b61d1
+    }  // INTEL
   }
 
   if (!C.getDriver().IsCLMode() && !Args.hasArg(options::OPT_nostdlib) &&
