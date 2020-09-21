@@ -689,13 +689,12 @@ define void @float_17x(<17 x float>* %in, <17 x float>* %out) {
 ; X86-AVX512-VL:       # %bb.0: # %entry
 ; X86-AVX512-VL-NEXT:    movl {{[0-9]+}}(%esp), %eax
 ; X86-AVX512-VL-NEXT:    movl {{[0-9]+}}(%esp), %ecx
-; X86-AVX512-VL-NEXT:    kxnorw %k0, %k0, %k1
-; X86-AVX512-VL-NEXT:    vmovaps (%ecx), %zmm0 {%k1} {z}
 ; X86-AVX512-VL-NEXT:    movw $1, %dx
-; X86-AVX512-VL-NEXT:    kmovw %edx, %k2
-; X86-AVX512-VL-NEXT:    vmovaps 64(%ecx), %zmm1 {%k2} {z}
-; X86-AVX512-VL-NEXT:    vmovaps %zmm1, 64(%eax) {%k2}
-; X86-AVX512-VL-NEXT:    vmovaps %zmm0, (%eax) {%k1}
+; X86-AVX512-VL-NEXT:    kmovw %edx, %k1
+; X86-AVX512-VL-NEXT:    vmovaps 64(%ecx), %zmm0 {%k1} {z}
+; X86-AVX512-VL-NEXT:    vmovaps (%ecx), %zmm1
+; X86-AVX512-VL-NEXT:    vmovaps %zmm0, 64(%eax) {%k1}
+; X86-AVX512-VL-NEXT:    vmovaps %zmm1, (%eax)
 ; X86-AVX512-VL-NEXT:    vzeroupper
 ; X86-AVX512-VL-NEXT:    retl
 ;
@@ -703,37 +702,34 @@ define void @float_17x(<17 x float>* %in, <17 x float>* %out) {
 ; X86-AVX512-VL-BW:       # %bb.0: # %entry
 ; X86-AVX512-VL-BW-NEXT:    movl {{[0-9]+}}(%esp), %eax
 ; X86-AVX512-VL-BW-NEXT:    movl {{[0-9]+}}(%esp), %ecx
-; X86-AVX512-VL-BW-NEXT:    kxnorw %k0, %k0, %k1
-; X86-AVX512-VL-BW-NEXT:    vmovaps (%ecx), %zmm0 {%k1} {z}
 ; X86-AVX512-VL-BW-NEXT:    movw $1, %dx
-; X86-AVX512-VL-BW-NEXT:    kmovd %edx, %k2
-; X86-AVX512-VL-BW-NEXT:    vmovaps 64(%ecx), %zmm1 {%k2} {z}
-; X86-AVX512-VL-BW-NEXT:    vmovaps %zmm1, 64(%eax) {%k2}
-; X86-AVX512-VL-BW-NEXT:    vmovaps %zmm0, (%eax) {%k1}
+; X86-AVX512-VL-BW-NEXT:    kmovd %edx, %k1
+; X86-AVX512-VL-BW-NEXT:    vmovaps 64(%ecx), %zmm0 {%k1} {z}
+; X86-AVX512-VL-BW-NEXT:    vmovaps (%ecx), %zmm1
+; X86-AVX512-VL-BW-NEXT:    vmovaps %zmm0, 64(%eax) {%k1}
+; X86-AVX512-VL-BW-NEXT:    vmovaps %zmm1, (%eax)
 ; X86-AVX512-VL-BW-NEXT:    vzeroupper
 ; X86-AVX512-VL-BW-NEXT:    retl
 ;
 ; X86_64-AVX512-VL-LABEL: float_17x:
 ; X86_64-AVX512-VL:       ## %bb.0: ## %entry
-; X86_64-AVX512-VL-NEXT:    kxnorw %k0, %k0, %k1
-; X86_64-AVX512-VL-NEXT:    vmovaps (%rdi), %zmm0 {%k1} {z}
 ; X86_64-AVX512-VL-NEXT:    movw $1, %ax
-; X86_64-AVX512-VL-NEXT:    kmovw %eax, %k2
-; X86_64-AVX512-VL-NEXT:    vmovaps 64(%rdi), %zmm1 {%k2} {z}
-; X86_64-AVX512-VL-NEXT:    vmovaps %zmm1, 64(%rsi) {%k2}
-; X86_64-AVX512-VL-NEXT:    vmovaps %zmm0, (%rsi) {%k1}
+; X86_64-AVX512-VL-NEXT:    kmovw %eax, %k1
+; X86_64-AVX512-VL-NEXT:    vmovaps 64(%rdi), %zmm0 {%k1} {z}
+; X86_64-AVX512-VL-NEXT:    vmovaps (%rdi), %zmm1
+; X86_64-AVX512-VL-NEXT:    vmovaps %zmm0, 64(%rsi) {%k1}
+; X86_64-AVX512-VL-NEXT:    vmovaps %zmm1, (%rsi)
 ; X86_64-AVX512-VL-NEXT:    vzeroupper
 ; X86_64-AVX512-VL-NEXT:    retq
 ;
 ; X86_64-AVX512-VL-BW-LABEL: float_17x:
 ; X86_64-AVX512-VL-BW:       ## %bb.0: ## %entry
-; X86_64-AVX512-VL-BW-NEXT:    kxnorw %k0, %k0, %k1
-; X86_64-AVX512-VL-BW-NEXT:    vmovaps (%rdi), %zmm0 {%k1} {z}
 ; X86_64-AVX512-VL-BW-NEXT:    movw $1, %ax
-; X86_64-AVX512-VL-BW-NEXT:    kmovd %eax, %k2
-; X86_64-AVX512-VL-BW-NEXT:    vmovaps 64(%rdi), %zmm1 {%k2} {z}
-; X86_64-AVX512-VL-BW-NEXT:    vmovaps %zmm1, 64(%rsi) {%k2}
-; X86_64-AVX512-VL-BW-NEXT:    vmovaps %zmm0, (%rsi) {%k1}
+; X86_64-AVX512-VL-BW-NEXT:    kmovd %eax, %k1
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps 64(%rdi), %zmm0 {%k1} {z}
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps (%rdi), %zmm1
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps %zmm0, 64(%rsi) {%k1}
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps %zmm1, (%rsi)
 ; X86_64-AVX512-VL-BW-NEXT:    vzeroupper
 ; X86_64-AVX512-VL-BW-NEXT:    retq
 entry:
@@ -747,13 +743,12 @@ define void @float_18x(<18 x float>* %in, <18 x float>* %out) {
 ; X86-AVX512-VL:       # %bb.0: # %entry
 ; X86-AVX512-VL-NEXT:    movl {{[0-9]+}}(%esp), %eax
 ; X86-AVX512-VL-NEXT:    movl {{[0-9]+}}(%esp), %ecx
-; X86-AVX512-VL-NEXT:    kxnorw %k0, %k0, %k1
-; X86-AVX512-VL-NEXT:    vmovaps (%ecx), %zmm0 {%k1} {z}
 ; X86-AVX512-VL-NEXT:    movw $3, %dx
-; X86-AVX512-VL-NEXT:    kmovw %edx, %k2
-; X86-AVX512-VL-NEXT:    vmovaps 64(%ecx), %zmm1 {%k2} {z}
-; X86-AVX512-VL-NEXT:    vmovaps %zmm1, 64(%eax) {%k2}
-; X86-AVX512-VL-NEXT:    vmovaps %zmm0, (%eax) {%k1}
+; X86-AVX512-VL-NEXT:    kmovw %edx, %k1
+; X86-AVX512-VL-NEXT:    vmovaps 64(%ecx), %zmm0 {%k1} {z}
+; X86-AVX512-VL-NEXT:    vmovaps (%ecx), %zmm1
+; X86-AVX512-VL-NEXT:    vmovaps %zmm0, 64(%eax) {%k1}
+; X86-AVX512-VL-NEXT:    vmovaps %zmm1, (%eax)
 ; X86-AVX512-VL-NEXT:    vzeroupper
 ; X86-AVX512-VL-NEXT:    retl
 ;
@@ -761,37 +756,34 @@ define void @float_18x(<18 x float>* %in, <18 x float>* %out) {
 ; X86-AVX512-VL-BW:       # %bb.0: # %entry
 ; X86-AVX512-VL-BW-NEXT:    movl {{[0-9]+}}(%esp), %eax
 ; X86-AVX512-VL-BW-NEXT:    movl {{[0-9]+}}(%esp), %ecx
-; X86-AVX512-VL-BW-NEXT:    kxnorw %k0, %k0, %k1
-; X86-AVX512-VL-BW-NEXT:    vmovaps (%ecx), %zmm0 {%k1} {z}
 ; X86-AVX512-VL-BW-NEXT:    movw $3, %dx
-; X86-AVX512-VL-BW-NEXT:    kmovd %edx, %k2
-; X86-AVX512-VL-BW-NEXT:    vmovaps 64(%ecx), %zmm1 {%k2} {z}
-; X86-AVX512-VL-BW-NEXT:    vmovaps %zmm1, 64(%eax) {%k2}
-; X86-AVX512-VL-BW-NEXT:    vmovaps %zmm0, (%eax) {%k1}
+; X86-AVX512-VL-BW-NEXT:    kmovd %edx, %k1
+; X86-AVX512-VL-BW-NEXT:    vmovaps 64(%ecx), %zmm0 {%k1} {z}
+; X86-AVX512-VL-BW-NEXT:    vmovaps (%ecx), %zmm1
+; X86-AVX512-VL-BW-NEXT:    vmovaps %zmm0, 64(%eax) {%k1}
+; X86-AVX512-VL-BW-NEXT:    vmovaps %zmm1, (%eax)
 ; X86-AVX512-VL-BW-NEXT:    vzeroupper
 ; X86-AVX512-VL-BW-NEXT:    retl
 ;
 ; X86_64-AVX512-VL-LABEL: float_18x:
 ; X86_64-AVX512-VL:       ## %bb.0: ## %entry
-; X86_64-AVX512-VL-NEXT:    kxnorw %k0, %k0, %k1
-; X86_64-AVX512-VL-NEXT:    vmovaps (%rdi), %zmm0 {%k1} {z}
 ; X86_64-AVX512-VL-NEXT:    movw $3, %ax
-; X86_64-AVX512-VL-NEXT:    kmovw %eax, %k2
-; X86_64-AVX512-VL-NEXT:    vmovaps 64(%rdi), %zmm1 {%k2} {z}
-; X86_64-AVX512-VL-NEXT:    vmovaps %zmm1, 64(%rsi) {%k2}
-; X86_64-AVX512-VL-NEXT:    vmovaps %zmm0, (%rsi) {%k1}
+; X86_64-AVX512-VL-NEXT:    kmovw %eax, %k1
+; X86_64-AVX512-VL-NEXT:    vmovaps 64(%rdi), %zmm0 {%k1} {z}
+; X86_64-AVX512-VL-NEXT:    vmovaps (%rdi), %zmm1
+; X86_64-AVX512-VL-NEXT:    vmovaps %zmm0, 64(%rsi) {%k1}
+; X86_64-AVX512-VL-NEXT:    vmovaps %zmm1, (%rsi)
 ; X86_64-AVX512-VL-NEXT:    vzeroupper
 ; X86_64-AVX512-VL-NEXT:    retq
 ;
 ; X86_64-AVX512-VL-BW-LABEL: float_18x:
 ; X86_64-AVX512-VL-BW:       ## %bb.0: ## %entry
-; X86_64-AVX512-VL-BW-NEXT:    kxnorw %k0, %k0, %k1
-; X86_64-AVX512-VL-BW-NEXT:    vmovaps (%rdi), %zmm0 {%k1} {z}
 ; X86_64-AVX512-VL-BW-NEXT:    movw $3, %ax
-; X86_64-AVX512-VL-BW-NEXT:    kmovd %eax, %k2
-; X86_64-AVX512-VL-BW-NEXT:    vmovaps 64(%rdi), %zmm1 {%k2} {z}
-; X86_64-AVX512-VL-BW-NEXT:    vmovaps %zmm1, 64(%rsi) {%k2}
-; X86_64-AVX512-VL-BW-NEXT:    vmovaps %zmm0, (%rsi) {%k1}
+; X86_64-AVX512-VL-BW-NEXT:    kmovd %eax, %k1
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps 64(%rdi), %zmm0 {%k1} {z}
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps (%rdi), %zmm1
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps %zmm0, 64(%rsi) {%k1}
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps %zmm1, (%rsi)
 ; X86_64-AVX512-VL-BW-NEXT:    vzeroupper
 ; X86_64-AVX512-VL-BW-NEXT:    retq
 entry:
@@ -805,13 +797,12 @@ define void @float_30x(<30 x float>* %in, <30 x float>* %out) {
 ; X86-AVX512-VL:       # %bb.0: # %entry
 ; X86-AVX512-VL-NEXT:    movl {{[0-9]+}}(%esp), %eax
 ; X86-AVX512-VL-NEXT:    movl {{[0-9]+}}(%esp), %ecx
-; X86-AVX512-VL-NEXT:    kxnorw %k0, %k0, %k1
-; X86-AVX512-VL-NEXT:    vmovaps (%ecx), %zmm0 {%k1} {z}
 ; X86-AVX512-VL-NEXT:    movw $16383, %dx # imm = 0x3FFF
-; X86-AVX512-VL-NEXT:    kmovw %edx, %k2
-; X86-AVX512-VL-NEXT:    vmovaps 64(%ecx), %zmm1 {%k2} {z}
-; X86-AVX512-VL-NEXT:    vmovaps %zmm1, 64(%eax) {%k2}
-; X86-AVX512-VL-NEXT:    vmovaps %zmm0, (%eax) {%k1}
+; X86-AVX512-VL-NEXT:    kmovw %edx, %k1
+; X86-AVX512-VL-NEXT:    vmovaps 64(%ecx), %zmm0 {%k1} {z}
+; X86-AVX512-VL-NEXT:    vmovaps (%ecx), %zmm1
+; X86-AVX512-VL-NEXT:    vmovaps %zmm0, 64(%eax) {%k1}
+; X86-AVX512-VL-NEXT:    vmovaps %zmm1, (%eax)
 ; X86-AVX512-VL-NEXT:    vzeroupper
 ; X86-AVX512-VL-NEXT:    retl
 ;
@@ -819,37 +810,34 @@ define void @float_30x(<30 x float>* %in, <30 x float>* %out) {
 ; X86-AVX512-VL-BW:       # %bb.0: # %entry
 ; X86-AVX512-VL-BW-NEXT:    movl {{[0-9]+}}(%esp), %eax
 ; X86-AVX512-VL-BW-NEXT:    movl {{[0-9]+}}(%esp), %ecx
-; X86-AVX512-VL-BW-NEXT:    kxnorw %k0, %k0, %k1
-; X86-AVX512-VL-BW-NEXT:    vmovaps (%ecx), %zmm0 {%k1} {z}
 ; X86-AVX512-VL-BW-NEXT:    movw $16383, %dx # imm = 0x3FFF
-; X86-AVX512-VL-BW-NEXT:    kmovd %edx, %k2
-; X86-AVX512-VL-BW-NEXT:    vmovaps 64(%ecx), %zmm1 {%k2} {z}
-; X86-AVX512-VL-BW-NEXT:    vmovaps %zmm1, 64(%eax) {%k2}
-; X86-AVX512-VL-BW-NEXT:    vmovaps %zmm0, (%eax) {%k1}
+; X86-AVX512-VL-BW-NEXT:    kmovd %edx, %k1
+; X86-AVX512-VL-BW-NEXT:    vmovaps 64(%ecx), %zmm0 {%k1} {z}
+; X86-AVX512-VL-BW-NEXT:    vmovaps (%ecx), %zmm1
+; X86-AVX512-VL-BW-NEXT:    vmovaps %zmm0, 64(%eax) {%k1}
+; X86-AVX512-VL-BW-NEXT:    vmovaps %zmm1, (%eax)
 ; X86-AVX512-VL-BW-NEXT:    vzeroupper
 ; X86-AVX512-VL-BW-NEXT:    retl
 ;
 ; X86_64-AVX512-VL-LABEL: float_30x:
 ; X86_64-AVX512-VL:       ## %bb.0: ## %entry
-; X86_64-AVX512-VL-NEXT:    kxnorw %k0, %k0, %k1
-; X86_64-AVX512-VL-NEXT:    vmovaps (%rdi), %zmm0 {%k1} {z}
 ; X86_64-AVX512-VL-NEXT:    movw $16383, %ax ## imm = 0x3FFF
-; X86_64-AVX512-VL-NEXT:    kmovw %eax, %k2
-; X86_64-AVX512-VL-NEXT:    vmovaps 64(%rdi), %zmm1 {%k2} {z}
-; X86_64-AVX512-VL-NEXT:    vmovaps %zmm1, 64(%rsi) {%k2}
-; X86_64-AVX512-VL-NEXT:    vmovaps %zmm0, (%rsi) {%k1}
+; X86_64-AVX512-VL-NEXT:    kmovw %eax, %k1
+; X86_64-AVX512-VL-NEXT:    vmovaps 64(%rdi), %zmm0 {%k1} {z}
+; X86_64-AVX512-VL-NEXT:    vmovaps (%rdi), %zmm1
+; X86_64-AVX512-VL-NEXT:    vmovaps %zmm0, 64(%rsi) {%k1}
+; X86_64-AVX512-VL-NEXT:    vmovaps %zmm1, (%rsi)
 ; X86_64-AVX512-VL-NEXT:    vzeroupper
 ; X86_64-AVX512-VL-NEXT:    retq
 ;
 ; X86_64-AVX512-VL-BW-LABEL: float_30x:
 ; X86_64-AVX512-VL-BW:       ## %bb.0: ## %entry
-; X86_64-AVX512-VL-BW-NEXT:    kxnorw %k0, %k0, %k1
-; X86_64-AVX512-VL-BW-NEXT:    vmovaps (%rdi), %zmm0 {%k1} {z}
 ; X86_64-AVX512-VL-BW-NEXT:    movw $16383, %ax ## imm = 0x3FFF
-; X86_64-AVX512-VL-BW-NEXT:    kmovd %eax, %k2
-; X86_64-AVX512-VL-BW-NEXT:    vmovaps 64(%rdi), %zmm1 {%k2} {z}
-; X86_64-AVX512-VL-BW-NEXT:    vmovaps %zmm1, 64(%rsi) {%k2}
-; X86_64-AVX512-VL-BW-NEXT:    vmovaps %zmm0, (%rsi) {%k1}
+; X86_64-AVX512-VL-BW-NEXT:    kmovd %eax, %k1
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps 64(%rdi), %zmm0 {%k1} {z}
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps (%rdi), %zmm1
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps %zmm0, 64(%rsi) {%k1}
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps %zmm1, (%rsi)
 ; X86_64-AVX512-VL-BW-NEXT:    vzeroupper
 ; X86_64-AVX512-VL-BW-NEXT:    retq
 entry:
@@ -863,13 +851,12 @@ define void @float_31x(<31 x float>* %in, <31 x float>* %out) {
 ; X86-AVX512-VL:       # %bb.0: # %entry
 ; X86-AVX512-VL-NEXT:    movl {{[0-9]+}}(%esp), %eax
 ; X86-AVX512-VL-NEXT:    movl {{[0-9]+}}(%esp), %ecx
-; X86-AVX512-VL-NEXT:    kxnorw %k0, %k0, %k1
-; X86-AVX512-VL-NEXT:    vmovaps (%ecx), %zmm0 {%k1} {z}
 ; X86-AVX512-VL-NEXT:    movw $32767, %dx # imm = 0x7FFF
-; X86-AVX512-VL-NEXT:    kmovw %edx, %k2
-; X86-AVX512-VL-NEXT:    vmovaps 64(%ecx), %zmm1 {%k2} {z}
-; X86-AVX512-VL-NEXT:    vmovaps %zmm1, 64(%eax) {%k2}
-; X86-AVX512-VL-NEXT:    vmovaps %zmm0, (%eax) {%k1}
+; X86-AVX512-VL-NEXT:    kmovw %edx, %k1
+; X86-AVX512-VL-NEXT:    vmovaps 64(%ecx), %zmm0 {%k1} {z}
+; X86-AVX512-VL-NEXT:    vmovaps (%ecx), %zmm1
+; X86-AVX512-VL-NEXT:    vmovaps %zmm0, 64(%eax) {%k1}
+; X86-AVX512-VL-NEXT:    vmovaps %zmm1, (%eax)
 ; X86-AVX512-VL-NEXT:    vzeroupper
 ; X86-AVX512-VL-NEXT:    retl
 ;
@@ -877,37 +864,34 @@ define void @float_31x(<31 x float>* %in, <31 x float>* %out) {
 ; X86-AVX512-VL-BW:       # %bb.0: # %entry
 ; X86-AVX512-VL-BW-NEXT:    movl {{[0-9]+}}(%esp), %eax
 ; X86-AVX512-VL-BW-NEXT:    movl {{[0-9]+}}(%esp), %ecx
-; X86-AVX512-VL-BW-NEXT:    kxnorw %k0, %k0, %k1
-; X86-AVX512-VL-BW-NEXT:    vmovaps (%ecx), %zmm0 {%k1} {z}
 ; X86-AVX512-VL-BW-NEXT:    movw $32767, %dx # imm = 0x7FFF
-; X86-AVX512-VL-BW-NEXT:    kmovd %edx, %k2
-; X86-AVX512-VL-BW-NEXT:    vmovaps 64(%ecx), %zmm1 {%k2} {z}
-; X86-AVX512-VL-BW-NEXT:    vmovaps %zmm1, 64(%eax) {%k2}
-; X86-AVX512-VL-BW-NEXT:    vmovaps %zmm0, (%eax) {%k1}
+; X86-AVX512-VL-BW-NEXT:    kmovd %edx, %k1
+; X86-AVX512-VL-BW-NEXT:    vmovaps 64(%ecx), %zmm0 {%k1} {z}
+; X86-AVX512-VL-BW-NEXT:    vmovaps (%ecx), %zmm1
+; X86-AVX512-VL-BW-NEXT:    vmovaps %zmm0, 64(%eax) {%k1}
+; X86-AVX512-VL-BW-NEXT:    vmovaps %zmm1, (%eax)
 ; X86-AVX512-VL-BW-NEXT:    vzeroupper
 ; X86-AVX512-VL-BW-NEXT:    retl
 ;
 ; X86_64-AVX512-VL-LABEL: float_31x:
 ; X86_64-AVX512-VL:       ## %bb.0: ## %entry
-; X86_64-AVX512-VL-NEXT:    kxnorw %k0, %k0, %k1
-; X86_64-AVX512-VL-NEXT:    vmovaps (%rdi), %zmm0 {%k1} {z}
 ; X86_64-AVX512-VL-NEXT:    movw $32767, %ax ## imm = 0x7FFF
-; X86_64-AVX512-VL-NEXT:    kmovw %eax, %k2
-; X86_64-AVX512-VL-NEXT:    vmovaps 64(%rdi), %zmm1 {%k2} {z}
-; X86_64-AVX512-VL-NEXT:    vmovaps %zmm1, 64(%rsi) {%k2}
-; X86_64-AVX512-VL-NEXT:    vmovaps %zmm0, (%rsi) {%k1}
+; X86_64-AVX512-VL-NEXT:    kmovw %eax, %k1
+; X86_64-AVX512-VL-NEXT:    vmovaps 64(%rdi), %zmm0 {%k1} {z}
+; X86_64-AVX512-VL-NEXT:    vmovaps (%rdi), %zmm1
+; X86_64-AVX512-VL-NEXT:    vmovaps %zmm0, 64(%rsi) {%k1}
+; X86_64-AVX512-VL-NEXT:    vmovaps %zmm1, (%rsi)
 ; X86_64-AVX512-VL-NEXT:    vzeroupper
 ; X86_64-AVX512-VL-NEXT:    retq
 ;
 ; X86_64-AVX512-VL-BW-LABEL: float_31x:
 ; X86_64-AVX512-VL-BW:       ## %bb.0: ## %entry
-; X86_64-AVX512-VL-BW-NEXT:    kxnorw %k0, %k0, %k1
-; X86_64-AVX512-VL-BW-NEXT:    vmovaps (%rdi), %zmm0 {%k1} {z}
 ; X86_64-AVX512-VL-BW-NEXT:    movw $32767, %ax ## imm = 0x7FFF
-; X86_64-AVX512-VL-BW-NEXT:    kmovd %eax, %k2
-; X86_64-AVX512-VL-BW-NEXT:    vmovaps 64(%rdi), %zmm1 {%k2} {z}
-; X86_64-AVX512-VL-BW-NEXT:    vmovaps %zmm1, 64(%rsi) {%k2}
-; X86_64-AVX512-VL-BW-NEXT:    vmovaps %zmm0, (%rsi) {%k1}
+; X86_64-AVX512-VL-BW-NEXT:    kmovd %eax, %k1
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps 64(%rdi), %zmm0 {%k1} {z}
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps (%rdi), %zmm1
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps %zmm0, 64(%rsi) {%k1}
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps %zmm1, (%rsi)
 ; X86_64-AVX512-VL-BW-NEXT:    vzeroupper
 ; X86_64-AVX512-VL-BW-NEXT:    retq
 entry:
@@ -970,12 +954,11 @@ define void @float_33x(<33 x float>* %in, <33 x float>* %out) {
 ; X86-AVX512-VL-NEXT:    movw $1, %dx
 ; X86-AVX512-VL-NEXT:    kmovw %edx, %k1
 ; X86-AVX512-VL-NEXT:    vmovaps 128(%ecx), %zmm0 {%k1} {z}
-; X86-AVX512-VL-NEXT:    kxnorw %k0, %k0, %k2
-; X86-AVX512-VL-NEXT:    vmovaps (%ecx), %zmm1 {%k2} {z}
-; X86-AVX512-VL-NEXT:    vmovaps 64(%ecx), %zmm2 {%k2} {z}
-; X86-AVX512-VL-NEXT:    vmovaps %zmm2, 64(%eax) {%k2}
-; X86-AVX512-VL-NEXT:    vmovaps %zmm1, (%eax) {%k2}
+; X86-AVX512-VL-NEXT:    vmovaps (%ecx), %zmm1
+; X86-AVX512-VL-NEXT:    vmovaps 64(%ecx), %zmm2
 ; X86-AVX512-VL-NEXT:    vmovaps %zmm0, 128(%eax) {%k1}
+; X86-AVX512-VL-NEXT:    vmovaps %zmm2, 64(%eax)
+; X86-AVX512-VL-NEXT:    vmovaps %zmm1, (%eax)
 ; X86-AVX512-VL-NEXT:    vzeroupper
 ; X86-AVX512-VL-NEXT:    retl
 ;
@@ -986,12 +969,11 @@ define void @float_33x(<33 x float>* %in, <33 x float>* %out) {
 ; X86-AVX512-VL-BW-NEXT:    movw $1, %dx
 ; X86-AVX512-VL-BW-NEXT:    kmovd %edx, %k1
 ; X86-AVX512-VL-BW-NEXT:    vmovaps 128(%ecx), %zmm0 {%k1} {z}
-; X86-AVX512-VL-BW-NEXT:    kxnorw %k0, %k0, %k2
-; X86-AVX512-VL-BW-NEXT:    vmovaps (%ecx), %zmm1 {%k2} {z}
-; X86-AVX512-VL-BW-NEXT:    vmovaps 64(%ecx), %zmm2 {%k2} {z}
-; X86-AVX512-VL-BW-NEXT:    vmovaps %zmm2, 64(%eax) {%k2}
-; X86-AVX512-VL-BW-NEXT:    vmovaps %zmm1, (%eax) {%k2}
+; X86-AVX512-VL-BW-NEXT:    vmovaps (%ecx), %zmm1
+; X86-AVX512-VL-BW-NEXT:    vmovaps 64(%ecx), %zmm2
 ; X86-AVX512-VL-BW-NEXT:    vmovaps %zmm0, 128(%eax) {%k1}
+; X86-AVX512-VL-BW-NEXT:    vmovaps %zmm2, 64(%eax)
+; X86-AVX512-VL-BW-NEXT:    vmovaps %zmm1, (%eax)
 ; X86-AVX512-VL-BW-NEXT:    vzeroupper
 ; X86-AVX512-VL-BW-NEXT:    retl
 ;
@@ -1000,12 +982,11 @@ define void @float_33x(<33 x float>* %in, <33 x float>* %out) {
 ; X86_64-AVX512-VL-NEXT:    movw $1, %ax
 ; X86_64-AVX512-VL-NEXT:    kmovw %eax, %k1
 ; X86_64-AVX512-VL-NEXT:    vmovaps 128(%rdi), %zmm0 {%k1} {z}
-; X86_64-AVX512-VL-NEXT:    kxnorw %k0, %k0, %k2
-; X86_64-AVX512-VL-NEXT:    vmovaps (%rdi), %zmm1 {%k2} {z}
-; X86_64-AVX512-VL-NEXT:    vmovaps 64(%rdi), %zmm2 {%k2} {z}
-; X86_64-AVX512-VL-NEXT:    vmovaps %zmm2, 64(%rsi) {%k2}
-; X86_64-AVX512-VL-NEXT:    vmovaps %zmm1, (%rsi) {%k2}
+; X86_64-AVX512-VL-NEXT:    vmovaps (%rdi), %zmm1
+; X86_64-AVX512-VL-NEXT:    vmovaps 64(%rdi), %zmm2
 ; X86_64-AVX512-VL-NEXT:    vmovaps %zmm0, 128(%rsi) {%k1}
+; X86_64-AVX512-VL-NEXT:    vmovaps %zmm2, 64(%rsi)
+; X86_64-AVX512-VL-NEXT:    vmovaps %zmm1, (%rsi)
 ; X86_64-AVX512-VL-NEXT:    vzeroupper
 ; X86_64-AVX512-VL-NEXT:    retq
 ;
@@ -1014,12 +995,11 @@ define void @float_33x(<33 x float>* %in, <33 x float>* %out) {
 ; X86_64-AVX512-VL-BW-NEXT:    movw $1, %ax
 ; X86_64-AVX512-VL-BW-NEXT:    kmovd %eax, %k1
 ; X86_64-AVX512-VL-BW-NEXT:    vmovaps 128(%rdi), %zmm0 {%k1} {z}
-; X86_64-AVX512-VL-BW-NEXT:    kxnorw %k0, %k0, %k2
-; X86_64-AVX512-VL-BW-NEXT:    vmovaps (%rdi), %zmm1 {%k2} {z}
-; X86_64-AVX512-VL-BW-NEXT:    vmovaps 64(%rdi), %zmm2 {%k2} {z}
-; X86_64-AVX512-VL-BW-NEXT:    vmovaps %zmm2, 64(%rsi) {%k2}
-; X86_64-AVX512-VL-BW-NEXT:    vmovaps %zmm1, (%rsi) {%k2}
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps (%rdi), %zmm1
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps 64(%rdi), %zmm2
 ; X86_64-AVX512-VL-BW-NEXT:    vmovaps %zmm0, 128(%rsi) {%k1}
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps %zmm2, 64(%rsi)
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps %zmm1, (%rsi)
 ; X86_64-AVX512-VL-BW-NEXT:    vzeroupper
 ; X86_64-AVX512-VL-BW-NEXT:    retq
 entry:
@@ -1036,12 +1016,11 @@ define void @float_34x(<34 x float>* %in, <34 x float>* %out) {
 ; X86-AVX512-VL-NEXT:    movw $3, %dx
 ; X86-AVX512-VL-NEXT:    kmovw %edx, %k1
 ; X86-AVX512-VL-NEXT:    vmovaps 128(%ecx), %zmm0 {%k1} {z}
-; X86-AVX512-VL-NEXT:    kxnorw %k0, %k0, %k2
-; X86-AVX512-VL-NEXT:    vmovaps (%ecx), %zmm1 {%k2} {z}
-; X86-AVX512-VL-NEXT:    vmovaps 64(%ecx), %zmm2 {%k2} {z}
-; X86-AVX512-VL-NEXT:    vmovaps %zmm2, 64(%eax) {%k2}
-; X86-AVX512-VL-NEXT:    vmovaps %zmm1, (%eax) {%k2}
+; X86-AVX512-VL-NEXT:    vmovaps (%ecx), %zmm1
+; X86-AVX512-VL-NEXT:    vmovaps 64(%ecx), %zmm2
 ; X86-AVX512-VL-NEXT:    vmovaps %zmm0, 128(%eax) {%k1}
+; X86-AVX512-VL-NEXT:    vmovaps %zmm2, 64(%eax)
+; X86-AVX512-VL-NEXT:    vmovaps %zmm1, (%eax)
 ; X86-AVX512-VL-NEXT:    vzeroupper
 ; X86-AVX512-VL-NEXT:    retl
 ;
@@ -1052,12 +1031,11 @@ define void @float_34x(<34 x float>* %in, <34 x float>* %out) {
 ; X86-AVX512-VL-BW-NEXT:    movw $3, %dx
 ; X86-AVX512-VL-BW-NEXT:    kmovd %edx, %k1
 ; X86-AVX512-VL-BW-NEXT:    vmovaps 128(%ecx), %zmm0 {%k1} {z}
-; X86-AVX512-VL-BW-NEXT:    kxnorw %k0, %k0, %k2
-; X86-AVX512-VL-BW-NEXT:    vmovaps (%ecx), %zmm1 {%k2} {z}
-; X86-AVX512-VL-BW-NEXT:    vmovaps 64(%ecx), %zmm2 {%k2} {z}
-; X86-AVX512-VL-BW-NEXT:    vmovaps %zmm2, 64(%eax) {%k2}
-; X86-AVX512-VL-BW-NEXT:    vmovaps %zmm1, (%eax) {%k2}
+; X86-AVX512-VL-BW-NEXT:    vmovaps (%ecx), %zmm1
+; X86-AVX512-VL-BW-NEXT:    vmovaps 64(%ecx), %zmm2
 ; X86-AVX512-VL-BW-NEXT:    vmovaps %zmm0, 128(%eax) {%k1}
+; X86-AVX512-VL-BW-NEXT:    vmovaps %zmm2, 64(%eax)
+; X86-AVX512-VL-BW-NEXT:    vmovaps %zmm1, (%eax)
 ; X86-AVX512-VL-BW-NEXT:    vzeroupper
 ; X86-AVX512-VL-BW-NEXT:    retl
 ;
@@ -1066,12 +1044,11 @@ define void @float_34x(<34 x float>* %in, <34 x float>* %out) {
 ; X86_64-AVX512-VL-NEXT:    movw $3, %ax
 ; X86_64-AVX512-VL-NEXT:    kmovw %eax, %k1
 ; X86_64-AVX512-VL-NEXT:    vmovaps 128(%rdi), %zmm0 {%k1} {z}
-; X86_64-AVX512-VL-NEXT:    kxnorw %k0, %k0, %k2
-; X86_64-AVX512-VL-NEXT:    vmovaps (%rdi), %zmm1 {%k2} {z}
-; X86_64-AVX512-VL-NEXT:    vmovaps 64(%rdi), %zmm2 {%k2} {z}
-; X86_64-AVX512-VL-NEXT:    vmovaps %zmm2, 64(%rsi) {%k2}
-; X86_64-AVX512-VL-NEXT:    vmovaps %zmm1, (%rsi) {%k2}
+; X86_64-AVX512-VL-NEXT:    vmovaps (%rdi), %zmm1
+; X86_64-AVX512-VL-NEXT:    vmovaps 64(%rdi), %zmm2
 ; X86_64-AVX512-VL-NEXT:    vmovaps %zmm0, 128(%rsi) {%k1}
+; X86_64-AVX512-VL-NEXT:    vmovaps %zmm2, 64(%rsi)
+; X86_64-AVX512-VL-NEXT:    vmovaps %zmm1, (%rsi)
 ; X86_64-AVX512-VL-NEXT:    vzeroupper
 ; X86_64-AVX512-VL-NEXT:    retq
 ;
@@ -1080,12 +1057,11 @@ define void @float_34x(<34 x float>* %in, <34 x float>* %out) {
 ; X86_64-AVX512-VL-BW-NEXT:    movw $3, %ax
 ; X86_64-AVX512-VL-BW-NEXT:    kmovd %eax, %k1
 ; X86_64-AVX512-VL-BW-NEXT:    vmovaps 128(%rdi), %zmm0 {%k1} {z}
-; X86_64-AVX512-VL-BW-NEXT:    kxnorw %k0, %k0, %k2
-; X86_64-AVX512-VL-BW-NEXT:    vmovaps (%rdi), %zmm1 {%k2} {z}
-; X86_64-AVX512-VL-BW-NEXT:    vmovaps 64(%rdi), %zmm2 {%k2} {z}
-; X86_64-AVX512-VL-BW-NEXT:    vmovaps %zmm2, 64(%rsi) {%k2}
-; X86_64-AVX512-VL-BW-NEXT:    vmovaps %zmm1, (%rsi) {%k2}
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps (%rdi), %zmm1
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps 64(%rdi), %zmm2
 ; X86_64-AVX512-VL-BW-NEXT:    vmovaps %zmm0, 128(%rsi) {%k1}
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps %zmm2, 64(%rsi)
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps %zmm1, (%rsi)
 ; X86_64-AVX512-VL-BW-NEXT:    vzeroupper
 ; X86_64-AVX512-VL-BW-NEXT:    retq
 entry:
@@ -1099,13 +1075,12 @@ define void @float_48x(<48 x float>* %in, <48 x float>* %out) {
 ; X86-AVX512-VL:       # %bb.0: # %entry
 ; X86-AVX512-VL-NEXT:    movl {{[0-9]+}}(%esp), %eax
 ; X86-AVX512-VL-NEXT:    movl {{[0-9]+}}(%esp), %ecx
-; X86-AVX512-VL-NEXT:    kxnorw %k0, %k0, %k1
-; X86-AVX512-VL-NEXT:    vmovaps 128(%ecx), %zmm0 {%k1} {z}
-; X86-AVX512-VL-NEXT:    vmovaps (%ecx), %zmm1 {%k1} {z}
-; X86-AVX512-VL-NEXT:    vmovaps 64(%ecx), %zmm2 {%k1} {z}
-; X86-AVX512-VL-NEXT:    vmovaps %zmm2, 64(%eax) {%k1}
-; X86-AVX512-VL-NEXT:    vmovaps %zmm1, (%eax) {%k1}
-; X86-AVX512-VL-NEXT:    vmovaps %zmm0, 128(%eax) {%k1}
+; X86-AVX512-VL-NEXT:    vmovaps 128(%ecx), %zmm0
+; X86-AVX512-VL-NEXT:    vmovaps (%ecx), %zmm1
+; X86-AVX512-VL-NEXT:    vmovaps 64(%ecx), %zmm2
+; X86-AVX512-VL-NEXT:    vmovaps %zmm1, (%eax)
+; X86-AVX512-VL-NEXT:    vmovaps %zmm2, 64(%eax)
+; X86-AVX512-VL-NEXT:    vmovaps %zmm0, 128(%eax)
 ; X86-AVX512-VL-NEXT:    vzeroupper
 ; X86-AVX512-VL-NEXT:    retl
 ;
@@ -1113,37 +1088,34 @@ define void @float_48x(<48 x float>* %in, <48 x float>* %out) {
 ; X86-AVX512-VL-BW:       # %bb.0: # %entry
 ; X86-AVX512-VL-BW-NEXT:    movl {{[0-9]+}}(%esp), %eax
 ; X86-AVX512-VL-BW-NEXT:    movl {{[0-9]+}}(%esp), %ecx
-; X86-AVX512-VL-BW-NEXT:    kxnorw %k0, %k0, %k1
-; X86-AVX512-VL-BW-NEXT:    vmovaps 128(%ecx), %zmm0 {%k1} {z}
-; X86-AVX512-VL-BW-NEXT:    vmovaps (%ecx), %zmm1 {%k1} {z}
-; X86-AVX512-VL-BW-NEXT:    vmovaps 64(%ecx), %zmm2 {%k1} {z}
-; X86-AVX512-VL-BW-NEXT:    vmovaps %zmm2, 64(%eax) {%k1}
-; X86-AVX512-VL-BW-NEXT:    vmovaps %zmm1, (%eax) {%k1}
-; X86-AVX512-VL-BW-NEXT:    vmovaps %zmm0, 128(%eax) {%k1}
+; X86-AVX512-VL-BW-NEXT:    vmovaps 128(%ecx), %zmm0
+; X86-AVX512-VL-BW-NEXT:    vmovaps (%ecx), %zmm1
+; X86-AVX512-VL-BW-NEXT:    vmovaps 64(%ecx), %zmm2
+; X86-AVX512-VL-BW-NEXT:    vmovaps %zmm2, 64(%eax)
+; X86-AVX512-VL-BW-NEXT:    vmovaps %zmm0, 128(%eax)
+; X86-AVX512-VL-BW-NEXT:    vmovaps %zmm1, (%eax)
 ; X86-AVX512-VL-BW-NEXT:    vzeroupper
 ; X86-AVX512-VL-BW-NEXT:    retl
 ;
 ; X86_64-AVX512-VL-LABEL: float_48x:
 ; X86_64-AVX512-VL:       ## %bb.0: ## %entry
-; X86_64-AVX512-VL-NEXT:    kxnorw %k0, %k0, %k1
-; X86_64-AVX512-VL-NEXT:    vmovaps 128(%rdi), %zmm0 {%k1} {z}
-; X86_64-AVX512-VL-NEXT:    vmovaps (%rdi), %zmm1 {%k1} {z}
-; X86_64-AVX512-VL-NEXT:    vmovaps 64(%rdi), %zmm2 {%k1} {z}
-; X86_64-AVX512-VL-NEXT:    vmovaps %zmm2, 64(%rsi) {%k1}
-; X86_64-AVX512-VL-NEXT:    vmovaps %zmm1, (%rsi) {%k1}
-; X86_64-AVX512-VL-NEXT:    vmovaps %zmm0, 128(%rsi) {%k1}
+; X86_64-AVX512-VL-NEXT:    vmovaps (%rdi), %zmm0
+; X86_64-AVX512-VL-NEXT:    vmovaps 64(%rdi), %zmm1
+; X86_64-AVX512-VL-NEXT:    vmovaps 128(%rdi), %zmm2
+; X86_64-AVX512-VL-NEXT:    vmovaps %zmm0, (%rsi)
+; X86_64-AVX512-VL-NEXT:    vmovaps %zmm1, 64(%rsi)
+; X86_64-AVX512-VL-NEXT:    vmovaps %zmm2, 128(%rsi)
 ; X86_64-AVX512-VL-NEXT:    vzeroupper
 ; X86_64-AVX512-VL-NEXT:    retq
 ;
 ; X86_64-AVX512-VL-BW-LABEL: float_48x:
 ; X86_64-AVX512-VL-BW:       ## %bb.0: ## %entry
-; X86_64-AVX512-VL-BW-NEXT:    kxnorw %k0, %k0, %k1
-; X86_64-AVX512-VL-BW-NEXT:    vmovaps 128(%rdi), %zmm0 {%k1} {z}
-; X86_64-AVX512-VL-BW-NEXT:    vmovaps (%rdi), %zmm1 {%k1} {z}
-; X86_64-AVX512-VL-BW-NEXT:    vmovaps 64(%rdi), %zmm2 {%k1} {z}
-; X86_64-AVX512-VL-BW-NEXT:    vmovaps %zmm2, 64(%rsi) {%k1}
-; X86_64-AVX512-VL-BW-NEXT:    vmovaps %zmm1, (%rsi) {%k1}
-; X86_64-AVX512-VL-BW-NEXT:    vmovaps %zmm0, 128(%rsi) {%k1}
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps (%rdi), %zmm0
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps 64(%rdi), %zmm1
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps 128(%rdi), %zmm2
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps %zmm1, 64(%rsi)
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps %zmm2, 128(%rsi)
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps %zmm0, (%rsi)
 ; X86_64-AVX512-VL-BW-NEXT:    vzeroupper
 ; X86_64-AVX512-VL-BW-NEXT:    retq
 entry:
@@ -1157,17 +1129,16 @@ define void @float_49x(<49 x float>* %in, <49 x float>* %out) {
 ; X86-AVX512-VL:       # %bb.0: # %entry
 ; X86-AVX512-VL-NEXT:    movl {{[0-9]+}}(%esp), %eax
 ; X86-AVX512-VL-NEXT:    movl {{[0-9]+}}(%esp), %ecx
-; X86-AVX512-VL-NEXT:    kxnorw %k0, %k0, %k1
-; X86-AVX512-VL-NEXT:    vmovaps (%ecx), %zmm0 {%k1} {z}
-; X86-AVX512-VL-NEXT:    vmovaps 64(%ecx), %zmm1 {%k1} {z}
-; X86-AVX512-VL-NEXT:    vmovaps 128(%ecx), %zmm2 {%k1} {z}
 ; X86-AVX512-VL-NEXT:    movw $1, %dx
-; X86-AVX512-VL-NEXT:    kmovw %edx, %k2
-; X86-AVX512-VL-NEXT:    vmovaps 192(%ecx), %zmm3 {%k2} {z}
-; X86-AVX512-VL-NEXT:    vmovaps %zmm3, 192(%eax) {%k2}
-; X86-AVX512-VL-NEXT:    vmovaps %zmm2, 128(%eax) {%k1}
-; X86-AVX512-VL-NEXT:    vmovaps %zmm1, 64(%eax) {%k1}
-; X86-AVX512-VL-NEXT:    vmovaps %zmm0, (%eax) {%k1}
+; X86-AVX512-VL-NEXT:    kmovw %edx, %k1
+; X86-AVX512-VL-NEXT:    vmovaps 192(%ecx), %zmm0 {%k1} {z}
+; X86-AVX512-VL-NEXT:    vmovaps 128(%ecx), %zmm1
+; X86-AVX512-VL-NEXT:    vmovaps (%ecx), %zmm2
+; X86-AVX512-VL-NEXT:    vmovaps 64(%ecx), %zmm3
+; X86-AVX512-VL-NEXT:    vmovaps %zmm0, 192(%eax) {%k1}
+; X86-AVX512-VL-NEXT:    vmovaps %zmm2, (%eax)
+; X86-AVX512-VL-NEXT:    vmovaps %zmm3, 64(%eax)
+; X86-AVX512-VL-NEXT:    vmovaps %zmm1, 128(%eax)
 ; X86-AVX512-VL-NEXT:    vzeroupper
 ; X86-AVX512-VL-NEXT:    retl
 ;
@@ -1175,49 +1146,46 @@ define void @float_49x(<49 x float>* %in, <49 x float>* %out) {
 ; X86-AVX512-VL-BW:       # %bb.0: # %entry
 ; X86-AVX512-VL-BW-NEXT:    movl {{[0-9]+}}(%esp), %eax
 ; X86-AVX512-VL-BW-NEXT:    movl {{[0-9]+}}(%esp), %ecx
-; X86-AVX512-VL-BW-NEXT:    kxnorw %k0, %k0, %k1
-; X86-AVX512-VL-BW-NEXT:    vmovaps (%ecx), %zmm0 {%k1} {z}
-; X86-AVX512-VL-BW-NEXT:    vmovaps 64(%ecx), %zmm1 {%k1} {z}
-; X86-AVX512-VL-BW-NEXT:    vmovaps 128(%ecx), %zmm2 {%k1} {z}
 ; X86-AVX512-VL-BW-NEXT:    movw $1, %dx
-; X86-AVX512-VL-BW-NEXT:    kmovd %edx, %k2
-; X86-AVX512-VL-BW-NEXT:    vmovaps 192(%ecx), %zmm3 {%k2} {z}
-; X86-AVX512-VL-BW-NEXT:    vmovaps %zmm3, 192(%eax) {%k2}
-; X86-AVX512-VL-BW-NEXT:    vmovaps %zmm2, 128(%eax) {%k1}
-; X86-AVX512-VL-BW-NEXT:    vmovaps %zmm1, 64(%eax) {%k1}
-; X86-AVX512-VL-BW-NEXT:    vmovaps %zmm0, (%eax) {%k1}
+; X86-AVX512-VL-BW-NEXT:    kmovd %edx, %k1
+; X86-AVX512-VL-BW-NEXT:    vmovaps 192(%ecx), %zmm0 {%k1} {z}
+; X86-AVX512-VL-BW-NEXT:    vmovaps 128(%ecx), %zmm1
+; X86-AVX512-VL-BW-NEXT:    vmovaps (%ecx), %zmm2
+; X86-AVX512-VL-BW-NEXT:    vmovaps 64(%ecx), %zmm3
+; X86-AVX512-VL-BW-NEXT:    vmovaps %zmm0, 192(%eax) {%k1}
+; X86-AVX512-VL-BW-NEXT:    vmovaps %zmm3, 64(%eax)
+; X86-AVX512-VL-BW-NEXT:    vmovaps %zmm1, 128(%eax)
+; X86-AVX512-VL-BW-NEXT:    vmovaps %zmm2, (%eax)
 ; X86-AVX512-VL-BW-NEXT:    vzeroupper
 ; X86-AVX512-VL-BW-NEXT:    retl
 ;
 ; X86_64-AVX512-VL-LABEL: float_49x:
 ; X86_64-AVX512-VL:       ## %bb.0: ## %entry
-; X86_64-AVX512-VL-NEXT:    kxnorw %k0, %k0, %k1
-; X86_64-AVX512-VL-NEXT:    vmovaps (%rdi), %zmm0 {%k1} {z}
-; X86_64-AVX512-VL-NEXT:    vmovaps 64(%rdi), %zmm1 {%k1} {z}
-; X86_64-AVX512-VL-NEXT:    vmovaps 128(%rdi), %zmm2 {%k1} {z}
 ; X86_64-AVX512-VL-NEXT:    movw $1, %ax
-; X86_64-AVX512-VL-NEXT:    kmovw %eax, %k2
-; X86_64-AVX512-VL-NEXT:    vmovaps 192(%rdi), %zmm3 {%k2} {z}
-; X86_64-AVX512-VL-NEXT:    vmovaps %zmm3, 192(%rsi) {%k2}
-; X86_64-AVX512-VL-NEXT:    vmovaps %zmm2, 128(%rsi) {%k1}
-; X86_64-AVX512-VL-NEXT:    vmovaps %zmm1, 64(%rsi) {%k1}
-; X86_64-AVX512-VL-NEXT:    vmovaps %zmm0, (%rsi) {%k1}
+; X86_64-AVX512-VL-NEXT:    kmovw %eax, %k1
+; X86_64-AVX512-VL-NEXT:    vmovaps 192(%rdi), %zmm0 {%k1} {z}
+; X86_64-AVX512-VL-NEXT:    vmovaps (%rdi), %zmm1
+; X86_64-AVX512-VL-NEXT:    vmovaps 64(%rdi), %zmm2
+; X86_64-AVX512-VL-NEXT:    vmovaps 128(%rdi), %zmm3
+; X86_64-AVX512-VL-NEXT:    vmovaps %zmm0, 192(%rsi) {%k1}
+; X86_64-AVX512-VL-NEXT:    vmovaps %zmm1, (%rsi)
+; X86_64-AVX512-VL-NEXT:    vmovaps %zmm2, 64(%rsi)
+; X86_64-AVX512-VL-NEXT:    vmovaps %zmm3, 128(%rsi)
 ; X86_64-AVX512-VL-NEXT:    vzeroupper
 ; X86_64-AVX512-VL-NEXT:    retq
 ;
 ; X86_64-AVX512-VL-BW-LABEL: float_49x:
 ; X86_64-AVX512-VL-BW:       ## %bb.0: ## %entry
-; X86_64-AVX512-VL-BW-NEXT:    kxnorw %k0, %k0, %k1
-; X86_64-AVX512-VL-BW-NEXT:    vmovaps (%rdi), %zmm0 {%k1} {z}
-; X86_64-AVX512-VL-BW-NEXT:    vmovaps 64(%rdi), %zmm1 {%k1} {z}
-; X86_64-AVX512-VL-BW-NEXT:    vmovaps 128(%rdi), %zmm2 {%k1} {z}
 ; X86_64-AVX512-VL-BW-NEXT:    movw $1, %ax
-; X86_64-AVX512-VL-BW-NEXT:    kmovd %eax, %k2
-; X86_64-AVX512-VL-BW-NEXT:    vmovaps 192(%rdi), %zmm3 {%k2} {z}
-; X86_64-AVX512-VL-BW-NEXT:    vmovaps %zmm3, 192(%rsi) {%k2}
-; X86_64-AVX512-VL-BW-NEXT:    vmovaps %zmm2, 128(%rsi) {%k1}
-; X86_64-AVX512-VL-BW-NEXT:    vmovaps %zmm1, 64(%rsi) {%k1}
-; X86_64-AVX512-VL-BW-NEXT:    vmovaps %zmm0, (%rsi) {%k1}
+; X86_64-AVX512-VL-BW-NEXT:    kmovd %eax, %k1
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps 192(%rdi), %zmm0 {%k1} {z}
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps (%rdi), %zmm1
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps 64(%rdi), %zmm2
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps 128(%rdi), %zmm3
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps %zmm0, 192(%rsi) {%k1}
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps %zmm2, 64(%rsi)
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps %zmm3, 128(%rsi)
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps %zmm1, (%rsi)
 ; X86_64-AVX512-VL-BW-NEXT:    vzeroupper
 ; X86_64-AVX512-VL-BW-NEXT:    retq
 entry:
@@ -1559,13 +1527,12 @@ define void @double_9x(<9 x double>* %in, <9 x double>* %out) {
 ; X86-AVX512-VL:       # %bb.0: # %entry
 ; X86-AVX512-VL-NEXT:    movl {{[0-9]+}}(%esp), %eax
 ; X86-AVX512-VL-NEXT:    movl {{[0-9]+}}(%esp), %ecx
-; X86-AVX512-VL-NEXT:    kxnorw %k0, %k0, %k1
-; X86-AVX512-VL-NEXT:    vmovapd (%ecx), %zmm0 {%k1} {z}
 ; X86-AVX512-VL-NEXT:    movb $1, %dl
-; X86-AVX512-VL-NEXT:    kmovw %edx, %k2
-; X86-AVX512-VL-NEXT:    vmovapd 64(%ecx), %zmm1 {%k2} {z}
-; X86-AVX512-VL-NEXT:    vmovapd %zmm1, 64(%eax) {%k2}
-; X86-AVX512-VL-NEXT:    vmovapd %zmm0, (%eax) {%k1}
+; X86-AVX512-VL-NEXT:    kmovw %edx, %k1
+; X86-AVX512-VL-NEXT:    vmovapd 64(%ecx), %zmm0 {%k1} {z}
+; X86-AVX512-VL-NEXT:    vmovaps (%ecx), %zmm1
+; X86-AVX512-VL-NEXT:    vmovapd %zmm0, 64(%eax) {%k1}
+; X86-AVX512-VL-NEXT:    vmovaps %zmm1, (%eax)
 ; X86-AVX512-VL-NEXT:    vzeroupper
 ; X86-AVX512-VL-NEXT:    retl
 ;
@@ -1573,37 +1540,34 @@ define void @double_9x(<9 x double>* %in, <9 x double>* %out) {
 ; X86-AVX512-VL-BW:       # %bb.0: # %entry
 ; X86-AVX512-VL-BW-NEXT:    movl {{[0-9]+}}(%esp), %eax
 ; X86-AVX512-VL-BW-NEXT:    movl {{[0-9]+}}(%esp), %ecx
-; X86-AVX512-VL-BW-NEXT:    kxnorw %k0, %k0, %k1
-; X86-AVX512-VL-BW-NEXT:    vmovapd (%ecx), %zmm0 {%k1} {z}
 ; X86-AVX512-VL-BW-NEXT:    movb $1, %dl
-; X86-AVX512-VL-BW-NEXT:    kmovd %edx, %k2
-; X86-AVX512-VL-BW-NEXT:    vmovapd 64(%ecx), %zmm1 {%k2} {z}
-; X86-AVX512-VL-BW-NEXT:    vmovapd %zmm1, 64(%eax) {%k2}
-; X86-AVX512-VL-BW-NEXT:    vmovapd %zmm0, (%eax) {%k1}
+; X86-AVX512-VL-BW-NEXT:    kmovd %edx, %k1
+; X86-AVX512-VL-BW-NEXT:    vmovapd 64(%ecx), %zmm0 {%k1} {z}
+; X86-AVX512-VL-BW-NEXT:    vmovaps (%ecx), %zmm1
+; X86-AVX512-VL-BW-NEXT:    vmovapd %zmm0, 64(%eax) {%k1}
+; X86-AVX512-VL-BW-NEXT:    vmovaps %zmm1, (%eax)
 ; X86-AVX512-VL-BW-NEXT:    vzeroupper
 ; X86-AVX512-VL-BW-NEXT:    retl
 ;
 ; X86_64-AVX512-VL-LABEL: double_9x:
 ; X86_64-AVX512-VL:       ## %bb.0: ## %entry
-; X86_64-AVX512-VL-NEXT:    kxnorw %k0, %k0, %k1
-; X86_64-AVX512-VL-NEXT:    vmovapd (%rdi), %zmm0 {%k1} {z}
 ; X86_64-AVX512-VL-NEXT:    movb $1, %al
-; X86_64-AVX512-VL-NEXT:    kmovw %eax, %k2
-; X86_64-AVX512-VL-NEXT:    vmovapd 64(%rdi), %zmm1 {%k2} {z}
-; X86_64-AVX512-VL-NEXT:    vmovapd %zmm1, 64(%rsi) {%k2}
-; X86_64-AVX512-VL-NEXT:    vmovapd %zmm0, (%rsi) {%k1}
+; X86_64-AVX512-VL-NEXT:    kmovw %eax, %k1
+; X86_64-AVX512-VL-NEXT:    vmovapd 64(%rdi), %zmm0 {%k1} {z}
+; X86_64-AVX512-VL-NEXT:    vmovaps (%rdi), %zmm1
+; X86_64-AVX512-VL-NEXT:    vmovapd %zmm0, 64(%rsi) {%k1}
+; X86_64-AVX512-VL-NEXT:    vmovaps %zmm1, (%rsi)
 ; X86_64-AVX512-VL-NEXT:    vzeroupper
 ; X86_64-AVX512-VL-NEXT:    retq
 ;
 ; X86_64-AVX512-VL-BW-LABEL: double_9x:
 ; X86_64-AVX512-VL-BW:       ## %bb.0: ## %entry
-; X86_64-AVX512-VL-BW-NEXT:    kxnorw %k0, %k0, %k1
-; X86_64-AVX512-VL-BW-NEXT:    vmovapd (%rdi), %zmm0 {%k1} {z}
 ; X86_64-AVX512-VL-BW-NEXT:    movb $1, %al
-; X86_64-AVX512-VL-BW-NEXT:    kmovd %eax, %k2
-; X86_64-AVX512-VL-BW-NEXT:    vmovapd 64(%rdi), %zmm1 {%k2} {z}
-; X86_64-AVX512-VL-BW-NEXT:    vmovapd %zmm1, 64(%rsi) {%k2}
-; X86_64-AVX512-VL-BW-NEXT:    vmovapd %zmm0, (%rsi) {%k1}
+; X86_64-AVX512-VL-BW-NEXT:    kmovd %eax, %k1
+; X86_64-AVX512-VL-BW-NEXT:    vmovapd 64(%rdi), %zmm0 {%k1} {z}
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps (%rdi), %zmm1
+; X86_64-AVX512-VL-BW-NEXT:    vmovapd %zmm0, 64(%rsi) {%k1}
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps %zmm1, (%rsi)
 ; X86_64-AVX512-VL-BW-NEXT:    vzeroupper
 ; X86_64-AVX512-VL-BW-NEXT:    retq
 entry:
@@ -1617,13 +1581,12 @@ define void @double_10x(<10 x double>* %in, <10 x double>* %out) {
 ; X86-AVX512-VL:       # %bb.0: # %entry
 ; X86-AVX512-VL-NEXT:    movl {{[0-9]+}}(%esp), %eax
 ; X86-AVX512-VL-NEXT:    movl {{[0-9]+}}(%esp), %ecx
-; X86-AVX512-VL-NEXT:    kxnorw %k0, %k0, %k1
-; X86-AVX512-VL-NEXT:    vmovapd (%ecx), %zmm0 {%k1} {z}
 ; X86-AVX512-VL-NEXT:    movb $3, %dl
-; X86-AVX512-VL-NEXT:    kmovw %edx, %k2
-; X86-AVX512-VL-NEXT:    vmovapd 64(%ecx), %zmm1 {%k2} {z}
-; X86-AVX512-VL-NEXT:    vmovapd %zmm1, 64(%eax) {%k2}
-; X86-AVX512-VL-NEXT:    vmovapd %zmm0, (%eax) {%k1}
+; X86-AVX512-VL-NEXT:    kmovw %edx, %k1
+; X86-AVX512-VL-NEXT:    vmovapd 64(%ecx), %zmm0 {%k1} {z}
+; X86-AVX512-VL-NEXT:    vmovaps (%ecx), %zmm1
+; X86-AVX512-VL-NEXT:    vmovapd %zmm0, 64(%eax) {%k1}
+; X86-AVX512-VL-NEXT:    vmovaps %zmm1, (%eax)
 ; X86-AVX512-VL-NEXT:    vzeroupper
 ; X86-AVX512-VL-NEXT:    retl
 ;
@@ -1631,37 +1594,34 @@ define void @double_10x(<10 x double>* %in, <10 x double>* %out) {
 ; X86-AVX512-VL-BW:       # %bb.0: # %entry
 ; X86-AVX512-VL-BW-NEXT:    movl {{[0-9]+}}(%esp), %eax
 ; X86-AVX512-VL-BW-NEXT:    movl {{[0-9]+}}(%esp), %ecx
-; X86-AVX512-VL-BW-NEXT:    kxnorw %k0, %k0, %k1
-; X86-AVX512-VL-BW-NEXT:    vmovapd (%ecx), %zmm0 {%k1} {z}
 ; X86-AVX512-VL-BW-NEXT:    movb $3, %dl
-; X86-AVX512-VL-BW-NEXT:    kmovd %edx, %k2
-; X86-AVX512-VL-BW-NEXT:    vmovapd 64(%ecx), %zmm1 {%k2} {z}
-; X86-AVX512-VL-BW-NEXT:    vmovapd %zmm1, 64(%eax) {%k2}
-; X86-AVX512-VL-BW-NEXT:    vmovapd %zmm0, (%eax) {%k1}
+; X86-AVX512-VL-BW-NEXT:    kmovd %edx, %k1
+; X86-AVX512-VL-BW-NEXT:    vmovapd 64(%ecx), %zmm0 {%k1} {z}
+; X86-AVX512-VL-BW-NEXT:    vmovaps (%ecx), %zmm1
+; X86-AVX512-VL-BW-NEXT:    vmovapd %zmm0, 64(%eax) {%k1}
+; X86-AVX512-VL-BW-NEXT:    vmovaps %zmm1, (%eax)
 ; X86-AVX512-VL-BW-NEXT:    vzeroupper
 ; X86-AVX512-VL-BW-NEXT:    retl
 ;
 ; X86_64-AVX512-VL-LABEL: double_10x:
 ; X86_64-AVX512-VL:       ## %bb.0: ## %entry
-; X86_64-AVX512-VL-NEXT:    kxnorw %k0, %k0, %k1
-; X86_64-AVX512-VL-NEXT:    vmovapd (%rdi), %zmm0 {%k1} {z}
 ; X86_64-AVX512-VL-NEXT:    movb $3, %al
-; X86_64-AVX512-VL-NEXT:    kmovw %eax, %k2
-; X86_64-AVX512-VL-NEXT:    vmovapd 64(%rdi), %zmm1 {%k2} {z}
-; X86_64-AVX512-VL-NEXT:    vmovapd %zmm1, 64(%rsi) {%k2}
-; X86_64-AVX512-VL-NEXT:    vmovapd %zmm0, (%rsi) {%k1}
+; X86_64-AVX512-VL-NEXT:    kmovw %eax, %k1
+; X86_64-AVX512-VL-NEXT:    vmovapd 64(%rdi), %zmm0 {%k1} {z}
+; X86_64-AVX512-VL-NEXT:    vmovaps (%rdi), %zmm1
+; X86_64-AVX512-VL-NEXT:    vmovapd %zmm0, 64(%rsi) {%k1}
+; X86_64-AVX512-VL-NEXT:    vmovaps %zmm1, (%rsi)
 ; X86_64-AVX512-VL-NEXT:    vzeroupper
 ; X86_64-AVX512-VL-NEXT:    retq
 ;
 ; X86_64-AVX512-VL-BW-LABEL: double_10x:
 ; X86_64-AVX512-VL-BW:       ## %bb.0: ## %entry
-; X86_64-AVX512-VL-BW-NEXT:    kxnorw %k0, %k0, %k1
-; X86_64-AVX512-VL-BW-NEXT:    vmovapd (%rdi), %zmm0 {%k1} {z}
 ; X86_64-AVX512-VL-BW-NEXT:    movb $3, %al
-; X86_64-AVX512-VL-BW-NEXT:    kmovd %eax, %k2
-; X86_64-AVX512-VL-BW-NEXT:    vmovapd 64(%rdi), %zmm1 {%k2} {z}
-; X86_64-AVX512-VL-BW-NEXT:    vmovapd %zmm1, 64(%rsi) {%k2}
-; X86_64-AVX512-VL-BW-NEXT:    vmovapd %zmm0, (%rsi) {%k1}
+; X86_64-AVX512-VL-BW-NEXT:    kmovd %eax, %k1
+; X86_64-AVX512-VL-BW-NEXT:    vmovapd 64(%rdi), %zmm0 {%k1} {z}
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps (%rdi), %zmm1
+; X86_64-AVX512-VL-BW-NEXT:    vmovapd %zmm0, 64(%rsi) {%k1}
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps %zmm1, (%rsi)
 ; X86_64-AVX512-VL-BW-NEXT:    vzeroupper
 ; X86_64-AVX512-VL-BW-NEXT:    retq
 entry:
@@ -1675,13 +1635,12 @@ define void @double_11x(<11 x double>* %in, <11 x double>* %out) {
 ; X86-AVX512-VL:       # %bb.0: # %entry
 ; X86-AVX512-VL-NEXT:    movl {{[0-9]+}}(%esp), %eax
 ; X86-AVX512-VL-NEXT:    movl {{[0-9]+}}(%esp), %ecx
-; X86-AVX512-VL-NEXT:    kxnorw %k0, %k0, %k1
-; X86-AVX512-VL-NEXT:    vmovapd (%ecx), %zmm0 {%k1} {z}
 ; X86-AVX512-VL-NEXT:    movb $7, %dl
-; X86-AVX512-VL-NEXT:    kmovw %edx, %k2
-; X86-AVX512-VL-NEXT:    vmovapd 64(%ecx), %zmm1 {%k2} {z}
-; X86-AVX512-VL-NEXT:    vmovapd %zmm1, 64(%eax) {%k2}
-; X86-AVX512-VL-NEXT:    vmovapd %zmm0, (%eax) {%k1}
+; X86-AVX512-VL-NEXT:    kmovw %edx, %k1
+; X86-AVX512-VL-NEXT:    vmovapd 64(%ecx), %zmm0 {%k1} {z}
+; X86-AVX512-VL-NEXT:    vmovaps (%ecx), %zmm1
+; X86-AVX512-VL-NEXT:    vmovapd %zmm0, 64(%eax) {%k1}
+; X86-AVX512-VL-NEXT:    vmovaps %zmm1, (%eax)
 ; X86-AVX512-VL-NEXT:    vzeroupper
 ; X86-AVX512-VL-NEXT:    retl
 ;
@@ -1689,37 +1648,34 @@ define void @double_11x(<11 x double>* %in, <11 x double>* %out) {
 ; X86-AVX512-VL-BW:       # %bb.0: # %entry
 ; X86-AVX512-VL-BW-NEXT:    movl {{[0-9]+}}(%esp), %eax
 ; X86-AVX512-VL-BW-NEXT:    movl {{[0-9]+}}(%esp), %ecx
-; X86-AVX512-VL-BW-NEXT:    kxnorw %k0, %k0, %k1
-; X86-AVX512-VL-BW-NEXT:    vmovapd (%ecx), %zmm0 {%k1} {z}
 ; X86-AVX512-VL-BW-NEXT:    movb $7, %dl
-; X86-AVX512-VL-BW-NEXT:    kmovd %edx, %k2
-; X86-AVX512-VL-BW-NEXT:    vmovapd 64(%ecx), %zmm1 {%k2} {z}
-; X86-AVX512-VL-BW-NEXT:    vmovapd %zmm1, 64(%eax) {%k2}
-; X86-AVX512-VL-BW-NEXT:    vmovapd %zmm0, (%eax) {%k1}
+; X86-AVX512-VL-BW-NEXT:    kmovd %edx, %k1
+; X86-AVX512-VL-BW-NEXT:    vmovapd 64(%ecx), %zmm0 {%k1} {z}
+; X86-AVX512-VL-BW-NEXT:    vmovaps (%ecx), %zmm1
+; X86-AVX512-VL-BW-NEXT:    vmovapd %zmm0, 64(%eax) {%k1}
+; X86-AVX512-VL-BW-NEXT:    vmovaps %zmm1, (%eax)
 ; X86-AVX512-VL-BW-NEXT:    vzeroupper
 ; X86-AVX512-VL-BW-NEXT:    retl
 ;
 ; X86_64-AVX512-VL-LABEL: double_11x:
 ; X86_64-AVX512-VL:       ## %bb.0: ## %entry
-; X86_64-AVX512-VL-NEXT:    kxnorw %k0, %k0, %k1
-; X86_64-AVX512-VL-NEXT:    vmovapd (%rdi), %zmm0 {%k1} {z}
 ; X86_64-AVX512-VL-NEXT:    movb $7, %al
-; X86_64-AVX512-VL-NEXT:    kmovw %eax, %k2
-; X86_64-AVX512-VL-NEXT:    vmovapd 64(%rdi), %zmm1 {%k2} {z}
-; X86_64-AVX512-VL-NEXT:    vmovapd %zmm1, 64(%rsi) {%k2}
-; X86_64-AVX512-VL-NEXT:    vmovapd %zmm0, (%rsi) {%k1}
+; X86_64-AVX512-VL-NEXT:    kmovw %eax, %k1
+; X86_64-AVX512-VL-NEXT:    vmovapd 64(%rdi), %zmm0 {%k1} {z}
+; X86_64-AVX512-VL-NEXT:    vmovaps (%rdi), %zmm1
+; X86_64-AVX512-VL-NEXT:    vmovapd %zmm0, 64(%rsi) {%k1}
+; X86_64-AVX512-VL-NEXT:    vmovaps %zmm1, (%rsi)
 ; X86_64-AVX512-VL-NEXT:    vzeroupper
 ; X86_64-AVX512-VL-NEXT:    retq
 ;
 ; X86_64-AVX512-VL-BW-LABEL: double_11x:
 ; X86_64-AVX512-VL-BW:       ## %bb.0: ## %entry
-; X86_64-AVX512-VL-BW-NEXT:    kxnorw %k0, %k0, %k1
-; X86_64-AVX512-VL-BW-NEXT:    vmovapd (%rdi), %zmm0 {%k1} {z}
 ; X86_64-AVX512-VL-BW-NEXT:    movb $7, %al
-; X86_64-AVX512-VL-BW-NEXT:    kmovd %eax, %k2
-; X86_64-AVX512-VL-BW-NEXT:    vmovapd 64(%rdi), %zmm1 {%k2} {z}
-; X86_64-AVX512-VL-BW-NEXT:    vmovapd %zmm1, 64(%rsi) {%k2}
-; X86_64-AVX512-VL-BW-NEXT:    vmovapd %zmm0, (%rsi) {%k1}
+; X86_64-AVX512-VL-BW-NEXT:    kmovd %eax, %k1
+; X86_64-AVX512-VL-BW-NEXT:    vmovapd 64(%rdi), %zmm0 {%k1} {z}
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps (%rdi), %zmm1
+; X86_64-AVX512-VL-BW-NEXT:    vmovapd %zmm0, 64(%rsi) {%k1}
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps %zmm1, (%rsi)
 ; X86_64-AVX512-VL-BW-NEXT:    vzeroupper
 ; X86_64-AVX512-VL-BW-NEXT:    retq
 entry:
@@ -1733,13 +1689,12 @@ define void @double_12x(<12 x double>* %in, <12 x double>* %out) {
 ; X86-AVX512-VL:       # %bb.0: # %entry
 ; X86-AVX512-VL-NEXT:    movl {{[0-9]+}}(%esp), %eax
 ; X86-AVX512-VL-NEXT:    movl {{[0-9]+}}(%esp), %ecx
-; X86-AVX512-VL-NEXT:    kxnorw %k0, %k0, %k1
-; X86-AVX512-VL-NEXT:    vmovapd (%ecx), %zmm0 {%k1} {z}
 ; X86-AVX512-VL-NEXT:    movb $15, %dl
-; X86-AVX512-VL-NEXT:    kmovw %edx, %k2
-; X86-AVX512-VL-NEXT:    vmovapd 64(%ecx), %zmm1 {%k2} {z}
-; X86-AVX512-VL-NEXT:    vmovapd %zmm1, 64(%eax) {%k2}
-; X86-AVX512-VL-NEXT:    vmovapd %zmm0, (%eax) {%k1}
+; X86-AVX512-VL-NEXT:    kmovw %edx, %k1
+; X86-AVX512-VL-NEXT:    vmovapd 64(%ecx), %zmm0 {%k1} {z}
+; X86-AVX512-VL-NEXT:    vmovaps (%ecx), %zmm1
+; X86-AVX512-VL-NEXT:    vmovapd %zmm0, 64(%eax) {%k1}
+; X86-AVX512-VL-NEXT:    vmovaps %zmm1, (%eax)
 ; X86-AVX512-VL-NEXT:    vzeroupper
 ; X86-AVX512-VL-NEXT:    retl
 ;
@@ -1747,37 +1702,34 @@ define void @double_12x(<12 x double>* %in, <12 x double>* %out) {
 ; X86-AVX512-VL-BW:       # %bb.0: # %entry
 ; X86-AVX512-VL-BW-NEXT:    movl {{[0-9]+}}(%esp), %eax
 ; X86-AVX512-VL-BW-NEXT:    movl {{[0-9]+}}(%esp), %ecx
-; X86-AVX512-VL-BW-NEXT:    kxnorw %k0, %k0, %k1
-; X86-AVX512-VL-BW-NEXT:    vmovapd (%ecx), %zmm0 {%k1} {z}
 ; X86-AVX512-VL-BW-NEXT:    movb $15, %dl
-; X86-AVX512-VL-BW-NEXT:    kmovd %edx, %k2
-; X86-AVX512-VL-BW-NEXT:    vmovapd 64(%ecx), %zmm1 {%k2} {z}
-; X86-AVX512-VL-BW-NEXT:    vmovapd %zmm1, 64(%eax) {%k2}
-; X86-AVX512-VL-BW-NEXT:    vmovapd %zmm0, (%eax) {%k1}
+; X86-AVX512-VL-BW-NEXT:    kmovd %edx, %k1
+; X86-AVX512-VL-BW-NEXT:    vmovapd 64(%ecx), %zmm0 {%k1} {z}
+; X86-AVX512-VL-BW-NEXT:    vmovaps (%ecx), %zmm1
+; X86-AVX512-VL-BW-NEXT:    vmovapd %zmm0, 64(%eax) {%k1}
+; X86-AVX512-VL-BW-NEXT:    vmovaps %zmm1, (%eax)
 ; X86-AVX512-VL-BW-NEXT:    vzeroupper
 ; X86-AVX512-VL-BW-NEXT:    retl
 ;
 ; X86_64-AVX512-VL-LABEL: double_12x:
 ; X86_64-AVX512-VL:       ## %bb.0: ## %entry
-; X86_64-AVX512-VL-NEXT:    kxnorw %k0, %k0, %k1
-; X86_64-AVX512-VL-NEXT:    vmovapd (%rdi), %zmm0 {%k1} {z}
 ; X86_64-AVX512-VL-NEXT:    movb $15, %al
-; X86_64-AVX512-VL-NEXT:    kmovw %eax, %k2
-; X86_64-AVX512-VL-NEXT:    vmovapd 64(%rdi), %zmm1 {%k2} {z}
-; X86_64-AVX512-VL-NEXT:    vmovapd %zmm1, 64(%rsi) {%k2}
-; X86_64-AVX512-VL-NEXT:    vmovapd %zmm0, (%rsi) {%k1}
+; X86_64-AVX512-VL-NEXT:    kmovw %eax, %k1
+; X86_64-AVX512-VL-NEXT:    vmovapd 64(%rdi), %zmm0 {%k1} {z}
+; X86_64-AVX512-VL-NEXT:    vmovaps (%rdi), %zmm1
+; X86_64-AVX512-VL-NEXT:    vmovapd %zmm0, 64(%rsi) {%k1}
+; X86_64-AVX512-VL-NEXT:    vmovaps %zmm1, (%rsi)
 ; X86_64-AVX512-VL-NEXT:    vzeroupper
 ; X86_64-AVX512-VL-NEXT:    retq
 ;
 ; X86_64-AVX512-VL-BW-LABEL: double_12x:
 ; X86_64-AVX512-VL-BW:       ## %bb.0: ## %entry
-; X86_64-AVX512-VL-BW-NEXT:    kxnorw %k0, %k0, %k1
-; X86_64-AVX512-VL-BW-NEXT:    vmovapd (%rdi), %zmm0 {%k1} {z}
 ; X86_64-AVX512-VL-BW-NEXT:    movb $15, %al
-; X86_64-AVX512-VL-BW-NEXT:    kmovd %eax, %k2
-; X86_64-AVX512-VL-BW-NEXT:    vmovapd 64(%rdi), %zmm1 {%k2} {z}
-; X86_64-AVX512-VL-BW-NEXT:    vmovapd %zmm1, 64(%rsi) {%k2}
-; X86_64-AVX512-VL-BW-NEXT:    vmovapd %zmm0, (%rsi) {%k1}
+; X86_64-AVX512-VL-BW-NEXT:    kmovd %eax, %k1
+; X86_64-AVX512-VL-BW-NEXT:    vmovapd 64(%rdi), %zmm0 {%k1} {z}
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps (%rdi), %zmm1
+; X86_64-AVX512-VL-BW-NEXT:    vmovapd %zmm0, 64(%rsi) {%k1}
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps %zmm1, (%rsi)
 ; X86_64-AVX512-VL-BW-NEXT:    vzeroupper
 ; X86_64-AVX512-VL-BW-NEXT:    retq
 entry:
@@ -1791,13 +1743,12 @@ define void @double_13x(<13 x double>* %in, <13 x double>* %out) {
 ; X86-AVX512-VL:       # %bb.0: # %entry
 ; X86-AVX512-VL-NEXT:    movl {{[0-9]+}}(%esp), %eax
 ; X86-AVX512-VL-NEXT:    movl {{[0-9]+}}(%esp), %ecx
-; X86-AVX512-VL-NEXT:    kxnorw %k0, %k0, %k1
-; X86-AVX512-VL-NEXT:    vmovapd (%ecx), %zmm0 {%k1} {z}
 ; X86-AVX512-VL-NEXT:    movb $31, %dl
-; X86-AVX512-VL-NEXT:    kmovw %edx, %k2
-; X86-AVX512-VL-NEXT:    vmovapd 64(%ecx), %zmm1 {%k2} {z}
-; X86-AVX512-VL-NEXT:    vmovapd %zmm1, 64(%eax) {%k2}
-; X86-AVX512-VL-NEXT:    vmovapd %zmm0, (%eax) {%k1}
+; X86-AVX512-VL-NEXT:    kmovw %edx, %k1
+; X86-AVX512-VL-NEXT:    vmovapd 64(%ecx), %zmm0 {%k1} {z}
+; X86-AVX512-VL-NEXT:    vmovaps (%ecx), %zmm1
+; X86-AVX512-VL-NEXT:    vmovapd %zmm0, 64(%eax) {%k1}
+; X86-AVX512-VL-NEXT:    vmovaps %zmm1, (%eax)
 ; X86-AVX512-VL-NEXT:    vzeroupper
 ; X86-AVX512-VL-NEXT:    retl
 ;
@@ -1805,37 +1756,34 @@ define void @double_13x(<13 x double>* %in, <13 x double>* %out) {
 ; X86-AVX512-VL-BW:       # %bb.0: # %entry
 ; X86-AVX512-VL-BW-NEXT:    movl {{[0-9]+}}(%esp), %eax
 ; X86-AVX512-VL-BW-NEXT:    movl {{[0-9]+}}(%esp), %ecx
-; X86-AVX512-VL-BW-NEXT:    kxnorw %k0, %k0, %k1
-; X86-AVX512-VL-BW-NEXT:    vmovapd (%ecx), %zmm0 {%k1} {z}
 ; X86-AVX512-VL-BW-NEXT:    movb $31, %dl
-; X86-AVX512-VL-BW-NEXT:    kmovd %edx, %k2
-; X86-AVX512-VL-BW-NEXT:    vmovapd 64(%ecx), %zmm1 {%k2} {z}
-; X86-AVX512-VL-BW-NEXT:    vmovapd %zmm1, 64(%eax) {%k2}
-; X86-AVX512-VL-BW-NEXT:    vmovapd %zmm0, (%eax) {%k1}
+; X86-AVX512-VL-BW-NEXT:    kmovd %edx, %k1
+; X86-AVX512-VL-BW-NEXT:    vmovapd 64(%ecx), %zmm0 {%k1} {z}
+; X86-AVX512-VL-BW-NEXT:    vmovaps (%ecx), %zmm1
+; X86-AVX512-VL-BW-NEXT:    vmovapd %zmm0, 64(%eax) {%k1}
+; X86-AVX512-VL-BW-NEXT:    vmovaps %zmm1, (%eax)
 ; X86-AVX512-VL-BW-NEXT:    vzeroupper
 ; X86-AVX512-VL-BW-NEXT:    retl
 ;
 ; X86_64-AVX512-VL-LABEL: double_13x:
 ; X86_64-AVX512-VL:       ## %bb.0: ## %entry
-; X86_64-AVX512-VL-NEXT:    kxnorw %k0, %k0, %k1
-; X86_64-AVX512-VL-NEXT:    vmovapd (%rdi), %zmm0 {%k1} {z}
 ; X86_64-AVX512-VL-NEXT:    movb $31, %al
-; X86_64-AVX512-VL-NEXT:    kmovw %eax, %k2
-; X86_64-AVX512-VL-NEXT:    vmovapd 64(%rdi), %zmm1 {%k2} {z}
-; X86_64-AVX512-VL-NEXT:    vmovapd %zmm1, 64(%rsi) {%k2}
-; X86_64-AVX512-VL-NEXT:    vmovapd %zmm0, (%rsi) {%k1}
+; X86_64-AVX512-VL-NEXT:    kmovw %eax, %k1
+; X86_64-AVX512-VL-NEXT:    vmovapd 64(%rdi), %zmm0 {%k1} {z}
+; X86_64-AVX512-VL-NEXT:    vmovaps (%rdi), %zmm1
+; X86_64-AVX512-VL-NEXT:    vmovapd %zmm0, 64(%rsi) {%k1}
+; X86_64-AVX512-VL-NEXT:    vmovaps %zmm1, (%rsi)
 ; X86_64-AVX512-VL-NEXT:    vzeroupper
 ; X86_64-AVX512-VL-NEXT:    retq
 ;
 ; X86_64-AVX512-VL-BW-LABEL: double_13x:
 ; X86_64-AVX512-VL-BW:       ## %bb.0: ## %entry
-; X86_64-AVX512-VL-BW-NEXT:    kxnorw %k0, %k0, %k1
-; X86_64-AVX512-VL-BW-NEXT:    vmovapd (%rdi), %zmm0 {%k1} {z}
 ; X86_64-AVX512-VL-BW-NEXT:    movb $31, %al
-; X86_64-AVX512-VL-BW-NEXT:    kmovd %eax, %k2
-; X86_64-AVX512-VL-BW-NEXT:    vmovapd 64(%rdi), %zmm1 {%k2} {z}
-; X86_64-AVX512-VL-BW-NEXT:    vmovapd %zmm1, 64(%rsi) {%k2}
-; X86_64-AVX512-VL-BW-NEXT:    vmovapd %zmm0, (%rsi) {%k1}
+; X86_64-AVX512-VL-BW-NEXT:    kmovd %eax, %k1
+; X86_64-AVX512-VL-BW-NEXT:    vmovapd 64(%rdi), %zmm0 {%k1} {z}
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps (%rdi), %zmm1
+; X86_64-AVX512-VL-BW-NEXT:    vmovapd %zmm0, 64(%rsi) {%k1}
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps %zmm1, (%rsi)
 ; X86_64-AVX512-VL-BW-NEXT:    vzeroupper
 ; X86_64-AVX512-VL-BW-NEXT:    retq
 entry:
@@ -1849,13 +1797,12 @@ define void @double_14x(<14 x double>* %in, <14 x double>* %out) {
 ; X86-AVX512-VL:       # %bb.0: # %entry
 ; X86-AVX512-VL-NEXT:    movl {{[0-9]+}}(%esp), %eax
 ; X86-AVX512-VL-NEXT:    movl {{[0-9]+}}(%esp), %ecx
-; X86-AVX512-VL-NEXT:    kxnorw %k0, %k0, %k1
-; X86-AVX512-VL-NEXT:    vmovapd (%ecx), %zmm0 {%k1} {z}
 ; X86-AVX512-VL-NEXT:    movb $63, %dl
-; X86-AVX512-VL-NEXT:    kmovw %edx, %k2
-; X86-AVX512-VL-NEXT:    vmovapd 64(%ecx), %zmm1 {%k2} {z}
-; X86-AVX512-VL-NEXT:    vmovapd %zmm1, 64(%eax) {%k2}
-; X86-AVX512-VL-NEXT:    vmovapd %zmm0, (%eax) {%k1}
+; X86-AVX512-VL-NEXT:    kmovw %edx, %k1
+; X86-AVX512-VL-NEXT:    vmovapd 64(%ecx), %zmm0 {%k1} {z}
+; X86-AVX512-VL-NEXT:    vmovaps (%ecx), %zmm1
+; X86-AVX512-VL-NEXT:    vmovapd %zmm0, 64(%eax) {%k1}
+; X86-AVX512-VL-NEXT:    vmovaps %zmm1, (%eax)
 ; X86-AVX512-VL-NEXT:    vzeroupper
 ; X86-AVX512-VL-NEXT:    retl
 ;
@@ -1863,37 +1810,34 @@ define void @double_14x(<14 x double>* %in, <14 x double>* %out) {
 ; X86-AVX512-VL-BW:       # %bb.0: # %entry
 ; X86-AVX512-VL-BW-NEXT:    movl {{[0-9]+}}(%esp), %eax
 ; X86-AVX512-VL-BW-NEXT:    movl {{[0-9]+}}(%esp), %ecx
-; X86-AVX512-VL-BW-NEXT:    kxnorw %k0, %k0, %k1
-; X86-AVX512-VL-BW-NEXT:    vmovapd (%ecx), %zmm0 {%k1} {z}
 ; X86-AVX512-VL-BW-NEXT:    movb $63, %dl
-; X86-AVX512-VL-BW-NEXT:    kmovd %edx, %k2
-; X86-AVX512-VL-BW-NEXT:    vmovapd 64(%ecx), %zmm1 {%k2} {z}
-; X86-AVX512-VL-BW-NEXT:    vmovapd %zmm1, 64(%eax) {%k2}
-; X86-AVX512-VL-BW-NEXT:    vmovapd %zmm0, (%eax) {%k1}
+; X86-AVX512-VL-BW-NEXT:    kmovd %edx, %k1
+; X86-AVX512-VL-BW-NEXT:    vmovapd 64(%ecx), %zmm0 {%k1} {z}
+; X86-AVX512-VL-BW-NEXT:    vmovaps (%ecx), %zmm1
+; X86-AVX512-VL-BW-NEXT:    vmovapd %zmm0, 64(%eax) {%k1}
+; X86-AVX512-VL-BW-NEXT:    vmovaps %zmm1, (%eax)
 ; X86-AVX512-VL-BW-NEXT:    vzeroupper
 ; X86-AVX512-VL-BW-NEXT:    retl
 ;
 ; X86_64-AVX512-VL-LABEL: double_14x:
 ; X86_64-AVX512-VL:       ## %bb.0: ## %entry
-; X86_64-AVX512-VL-NEXT:    kxnorw %k0, %k0, %k1
-; X86_64-AVX512-VL-NEXT:    vmovapd (%rdi), %zmm0 {%k1} {z}
 ; X86_64-AVX512-VL-NEXT:    movb $63, %al
-; X86_64-AVX512-VL-NEXT:    kmovw %eax, %k2
-; X86_64-AVX512-VL-NEXT:    vmovapd 64(%rdi), %zmm1 {%k2} {z}
-; X86_64-AVX512-VL-NEXT:    vmovapd %zmm1, 64(%rsi) {%k2}
-; X86_64-AVX512-VL-NEXT:    vmovapd %zmm0, (%rsi) {%k1}
+; X86_64-AVX512-VL-NEXT:    kmovw %eax, %k1
+; X86_64-AVX512-VL-NEXT:    vmovapd 64(%rdi), %zmm0 {%k1} {z}
+; X86_64-AVX512-VL-NEXT:    vmovaps (%rdi), %zmm1
+; X86_64-AVX512-VL-NEXT:    vmovapd %zmm0, 64(%rsi) {%k1}
+; X86_64-AVX512-VL-NEXT:    vmovaps %zmm1, (%rsi)
 ; X86_64-AVX512-VL-NEXT:    vzeroupper
 ; X86_64-AVX512-VL-NEXT:    retq
 ;
 ; X86_64-AVX512-VL-BW-LABEL: double_14x:
 ; X86_64-AVX512-VL-BW:       ## %bb.0: ## %entry
-; X86_64-AVX512-VL-BW-NEXT:    kxnorw %k0, %k0, %k1
-; X86_64-AVX512-VL-BW-NEXT:    vmovapd (%rdi), %zmm0 {%k1} {z}
 ; X86_64-AVX512-VL-BW-NEXT:    movb $63, %al
-; X86_64-AVX512-VL-BW-NEXT:    kmovd %eax, %k2
-; X86_64-AVX512-VL-BW-NEXT:    vmovapd 64(%rdi), %zmm1 {%k2} {z}
-; X86_64-AVX512-VL-BW-NEXT:    vmovapd %zmm1, 64(%rsi) {%k2}
-; X86_64-AVX512-VL-BW-NEXT:    vmovapd %zmm0, (%rsi) {%k1}
+; X86_64-AVX512-VL-BW-NEXT:    kmovd %eax, %k1
+; X86_64-AVX512-VL-BW-NEXT:    vmovapd 64(%rdi), %zmm0 {%k1} {z}
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps (%rdi), %zmm1
+; X86_64-AVX512-VL-BW-NEXT:    vmovapd %zmm0, 64(%rsi) {%k1}
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps %zmm1, (%rsi)
 ; X86_64-AVX512-VL-BW-NEXT:    vzeroupper
 ; X86_64-AVX512-VL-BW-NEXT:    retq
 entry:
@@ -1907,13 +1851,12 @@ define void @double_15x(<15 x double>* %in, <15 x double>* %out) {
 ; X86-AVX512-VL:       # %bb.0: # %entry
 ; X86-AVX512-VL-NEXT:    movl {{[0-9]+}}(%esp), %eax
 ; X86-AVX512-VL-NEXT:    movl {{[0-9]+}}(%esp), %ecx
-; X86-AVX512-VL-NEXT:    kxnorw %k0, %k0, %k1
-; X86-AVX512-VL-NEXT:    vmovapd (%ecx), %zmm0 {%k1} {z}
 ; X86-AVX512-VL-NEXT:    movb $127, %dl
-; X86-AVX512-VL-NEXT:    kmovw %edx, %k2
-; X86-AVX512-VL-NEXT:    vmovapd 64(%ecx), %zmm1 {%k2} {z}
-; X86-AVX512-VL-NEXT:    vmovapd %zmm1, 64(%eax) {%k2}
-; X86-AVX512-VL-NEXT:    vmovapd %zmm0, (%eax) {%k1}
+; X86-AVX512-VL-NEXT:    kmovw %edx, %k1
+; X86-AVX512-VL-NEXT:    vmovapd 64(%ecx), %zmm0 {%k1} {z}
+; X86-AVX512-VL-NEXT:    vmovaps (%ecx), %zmm1
+; X86-AVX512-VL-NEXT:    vmovapd %zmm0, 64(%eax) {%k1}
+; X86-AVX512-VL-NEXT:    vmovaps %zmm1, (%eax)
 ; X86-AVX512-VL-NEXT:    vzeroupper
 ; X86-AVX512-VL-NEXT:    retl
 ;
@@ -1921,37 +1864,34 @@ define void @double_15x(<15 x double>* %in, <15 x double>* %out) {
 ; X86-AVX512-VL-BW:       # %bb.0: # %entry
 ; X86-AVX512-VL-BW-NEXT:    movl {{[0-9]+}}(%esp), %eax
 ; X86-AVX512-VL-BW-NEXT:    movl {{[0-9]+}}(%esp), %ecx
-; X86-AVX512-VL-BW-NEXT:    kxnorw %k0, %k0, %k1
-; X86-AVX512-VL-BW-NEXT:    vmovapd (%ecx), %zmm0 {%k1} {z}
 ; X86-AVX512-VL-BW-NEXT:    movb $127, %dl
-; X86-AVX512-VL-BW-NEXT:    kmovd %edx, %k2
-; X86-AVX512-VL-BW-NEXT:    vmovapd 64(%ecx), %zmm1 {%k2} {z}
-; X86-AVX512-VL-BW-NEXT:    vmovapd %zmm1, 64(%eax) {%k2}
-; X86-AVX512-VL-BW-NEXT:    vmovapd %zmm0, (%eax) {%k1}
+; X86-AVX512-VL-BW-NEXT:    kmovd %edx, %k1
+; X86-AVX512-VL-BW-NEXT:    vmovapd 64(%ecx), %zmm0 {%k1} {z}
+; X86-AVX512-VL-BW-NEXT:    vmovaps (%ecx), %zmm1
+; X86-AVX512-VL-BW-NEXT:    vmovapd %zmm0, 64(%eax) {%k1}
+; X86-AVX512-VL-BW-NEXT:    vmovaps %zmm1, (%eax)
 ; X86-AVX512-VL-BW-NEXT:    vzeroupper
 ; X86-AVX512-VL-BW-NEXT:    retl
 ;
 ; X86_64-AVX512-VL-LABEL: double_15x:
 ; X86_64-AVX512-VL:       ## %bb.0: ## %entry
-; X86_64-AVX512-VL-NEXT:    kxnorw %k0, %k0, %k1
-; X86_64-AVX512-VL-NEXT:    vmovapd (%rdi), %zmm0 {%k1} {z}
 ; X86_64-AVX512-VL-NEXT:    movb $127, %al
-; X86_64-AVX512-VL-NEXT:    kmovw %eax, %k2
-; X86_64-AVX512-VL-NEXT:    vmovapd 64(%rdi), %zmm1 {%k2} {z}
-; X86_64-AVX512-VL-NEXT:    vmovapd %zmm1, 64(%rsi) {%k2}
-; X86_64-AVX512-VL-NEXT:    vmovapd %zmm0, (%rsi) {%k1}
+; X86_64-AVX512-VL-NEXT:    kmovw %eax, %k1
+; X86_64-AVX512-VL-NEXT:    vmovapd 64(%rdi), %zmm0 {%k1} {z}
+; X86_64-AVX512-VL-NEXT:    vmovaps (%rdi), %zmm1
+; X86_64-AVX512-VL-NEXT:    vmovapd %zmm0, 64(%rsi) {%k1}
+; X86_64-AVX512-VL-NEXT:    vmovaps %zmm1, (%rsi)
 ; X86_64-AVX512-VL-NEXT:    vzeroupper
 ; X86_64-AVX512-VL-NEXT:    retq
 ;
 ; X86_64-AVX512-VL-BW-LABEL: double_15x:
 ; X86_64-AVX512-VL-BW:       ## %bb.0: ## %entry
-; X86_64-AVX512-VL-BW-NEXT:    kxnorw %k0, %k0, %k1
-; X86_64-AVX512-VL-BW-NEXT:    vmovapd (%rdi), %zmm0 {%k1} {z}
 ; X86_64-AVX512-VL-BW-NEXT:    movb $127, %al
-; X86_64-AVX512-VL-BW-NEXT:    kmovd %eax, %k2
-; X86_64-AVX512-VL-BW-NEXT:    vmovapd 64(%rdi), %zmm1 {%k2} {z}
-; X86_64-AVX512-VL-BW-NEXT:    vmovapd %zmm1, 64(%rsi) {%k2}
-; X86_64-AVX512-VL-BW-NEXT:    vmovapd %zmm0, (%rsi) {%k1}
+; X86_64-AVX512-VL-BW-NEXT:    kmovd %eax, %k1
+; X86_64-AVX512-VL-BW-NEXT:    vmovapd 64(%rdi), %zmm0 {%k1} {z}
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps (%rdi), %zmm1
+; X86_64-AVX512-VL-BW-NEXT:    vmovapd %zmm0, 64(%rsi) {%k1}
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps %zmm1, (%rsi)
 ; X86_64-AVX512-VL-BW-NEXT:    vzeroupper
 ; X86_64-AVX512-VL-BW-NEXT:    retq
 entry:
@@ -2014,12 +1954,11 @@ define void @double_17x(<17 x double>* %in, <17 x double>* %out) {
 ; X86-AVX512-VL-NEXT:    movb $1, %dl
 ; X86-AVX512-VL-NEXT:    kmovw %edx, %k1
 ; X86-AVX512-VL-NEXT:    vmovapd 128(%ecx), %zmm0 {%k1} {z}
-; X86-AVX512-VL-NEXT:    kxnorw %k0, %k0, %k2
-; X86-AVX512-VL-NEXT:    vmovapd (%ecx), %zmm1 {%k2} {z}
-; X86-AVX512-VL-NEXT:    vmovapd 64(%ecx), %zmm2 {%k2} {z}
-; X86-AVX512-VL-NEXT:    vmovapd %zmm2, 64(%eax) {%k2}
-; X86-AVX512-VL-NEXT:    vmovapd %zmm1, (%eax) {%k2}
+; X86-AVX512-VL-NEXT:    vmovaps (%ecx), %zmm1
+; X86-AVX512-VL-NEXT:    vmovaps 64(%ecx), %zmm2
 ; X86-AVX512-VL-NEXT:    vmovapd %zmm0, 128(%eax) {%k1}
+; X86-AVX512-VL-NEXT:    vmovaps %zmm2, 64(%eax)
+; X86-AVX512-VL-NEXT:    vmovaps %zmm1, (%eax)
 ; X86-AVX512-VL-NEXT:    vzeroupper
 ; X86-AVX512-VL-NEXT:    retl
 ;
@@ -2030,12 +1969,11 @@ define void @double_17x(<17 x double>* %in, <17 x double>* %out) {
 ; X86-AVX512-VL-BW-NEXT:    movb $1, %dl
 ; X86-AVX512-VL-BW-NEXT:    kmovd %edx, %k1
 ; X86-AVX512-VL-BW-NEXT:    vmovapd 128(%ecx), %zmm0 {%k1} {z}
-; X86-AVX512-VL-BW-NEXT:    kxnorw %k0, %k0, %k2
-; X86-AVX512-VL-BW-NEXT:    vmovapd (%ecx), %zmm1 {%k2} {z}
-; X86-AVX512-VL-BW-NEXT:    vmovapd 64(%ecx), %zmm2 {%k2} {z}
-; X86-AVX512-VL-BW-NEXT:    vmovapd %zmm2, 64(%eax) {%k2}
-; X86-AVX512-VL-BW-NEXT:    vmovapd %zmm1, (%eax) {%k2}
+; X86-AVX512-VL-BW-NEXT:    vmovaps (%ecx), %zmm1
+; X86-AVX512-VL-BW-NEXT:    vmovaps 64(%ecx), %zmm2
 ; X86-AVX512-VL-BW-NEXT:    vmovapd %zmm0, 128(%eax) {%k1}
+; X86-AVX512-VL-BW-NEXT:    vmovaps %zmm2, 64(%eax)
+; X86-AVX512-VL-BW-NEXT:    vmovaps %zmm1, (%eax)
 ; X86-AVX512-VL-BW-NEXT:    vzeroupper
 ; X86-AVX512-VL-BW-NEXT:    retl
 ;
@@ -2044,12 +1982,11 @@ define void @double_17x(<17 x double>* %in, <17 x double>* %out) {
 ; X86_64-AVX512-VL-NEXT:    movb $1, %al
 ; X86_64-AVX512-VL-NEXT:    kmovw %eax, %k1
 ; X86_64-AVX512-VL-NEXT:    vmovapd 128(%rdi), %zmm0 {%k1} {z}
-; X86_64-AVX512-VL-NEXT:    kxnorw %k0, %k0, %k2
-; X86_64-AVX512-VL-NEXT:    vmovapd (%rdi), %zmm1 {%k2} {z}
-; X86_64-AVX512-VL-NEXT:    vmovapd 64(%rdi), %zmm2 {%k2} {z}
-; X86_64-AVX512-VL-NEXT:    vmovapd %zmm2, 64(%rsi) {%k2}
-; X86_64-AVX512-VL-NEXT:    vmovapd %zmm1, (%rsi) {%k2}
+; X86_64-AVX512-VL-NEXT:    vmovaps (%rdi), %zmm1
+; X86_64-AVX512-VL-NEXT:    vmovaps 64(%rdi), %zmm2
 ; X86_64-AVX512-VL-NEXT:    vmovapd %zmm0, 128(%rsi) {%k1}
+; X86_64-AVX512-VL-NEXT:    vmovaps %zmm2, 64(%rsi)
+; X86_64-AVX512-VL-NEXT:    vmovaps %zmm1, (%rsi)
 ; X86_64-AVX512-VL-NEXT:    vzeroupper
 ; X86_64-AVX512-VL-NEXT:    retq
 ;
@@ -2058,12 +1995,11 @@ define void @double_17x(<17 x double>* %in, <17 x double>* %out) {
 ; X86_64-AVX512-VL-BW-NEXT:    movb $1, %al
 ; X86_64-AVX512-VL-BW-NEXT:    kmovd %eax, %k1
 ; X86_64-AVX512-VL-BW-NEXT:    vmovapd 128(%rdi), %zmm0 {%k1} {z}
-; X86_64-AVX512-VL-BW-NEXT:    kxnorw %k0, %k0, %k2
-; X86_64-AVX512-VL-BW-NEXT:    vmovapd (%rdi), %zmm1 {%k2} {z}
-; X86_64-AVX512-VL-BW-NEXT:    vmovapd 64(%rdi), %zmm2 {%k2} {z}
-; X86_64-AVX512-VL-BW-NEXT:    vmovapd %zmm2, 64(%rsi) {%k2}
-; X86_64-AVX512-VL-BW-NEXT:    vmovapd %zmm1, (%rsi) {%k2}
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps (%rdi), %zmm1
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps 64(%rdi), %zmm2
 ; X86_64-AVX512-VL-BW-NEXT:    vmovapd %zmm0, 128(%rsi) {%k1}
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps %zmm2, 64(%rsi)
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps %zmm1, (%rsi)
 ; X86_64-AVX512-VL-BW-NEXT:    vzeroupper
 ; X86_64-AVX512-VL-BW-NEXT:    retq
 entry:
@@ -2080,12 +2016,11 @@ define void @double_18x(<18 x double>* %in, <18 x double>* %out) {
 ; X86-AVX512-VL-NEXT:    movb $3, %dl
 ; X86-AVX512-VL-NEXT:    kmovw %edx, %k1
 ; X86-AVX512-VL-NEXT:    vmovapd 128(%ecx), %zmm0 {%k1} {z}
-; X86-AVX512-VL-NEXT:    kxnorw %k0, %k0, %k2
-; X86-AVX512-VL-NEXT:    vmovapd (%ecx), %zmm1 {%k2} {z}
-; X86-AVX512-VL-NEXT:    vmovapd 64(%ecx), %zmm2 {%k2} {z}
-; X86-AVX512-VL-NEXT:    vmovapd %zmm2, 64(%eax) {%k2}
-; X86-AVX512-VL-NEXT:    vmovapd %zmm1, (%eax) {%k2}
+; X86-AVX512-VL-NEXT:    vmovaps (%ecx), %zmm1
+; X86-AVX512-VL-NEXT:    vmovaps 64(%ecx), %zmm2
 ; X86-AVX512-VL-NEXT:    vmovapd %zmm0, 128(%eax) {%k1}
+; X86-AVX512-VL-NEXT:    vmovaps %zmm2, 64(%eax)
+; X86-AVX512-VL-NEXT:    vmovaps %zmm1, (%eax)
 ; X86-AVX512-VL-NEXT:    vzeroupper
 ; X86-AVX512-VL-NEXT:    retl
 ;
@@ -2096,12 +2031,11 @@ define void @double_18x(<18 x double>* %in, <18 x double>* %out) {
 ; X86-AVX512-VL-BW-NEXT:    movb $3, %dl
 ; X86-AVX512-VL-BW-NEXT:    kmovd %edx, %k1
 ; X86-AVX512-VL-BW-NEXT:    vmovapd 128(%ecx), %zmm0 {%k1} {z}
-; X86-AVX512-VL-BW-NEXT:    kxnorw %k0, %k0, %k2
-; X86-AVX512-VL-BW-NEXT:    vmovapd (%ecx), %zmm1 {%k2} {z}
-; X86-AVX512-VL-BW-NEXT:    vmovapd 64(%ecx), %zmm2 {%k2} {z}
-; X86-AVX512-VL-BW-NEXT:    vmovapd %zmm2, 64(%eax) {%k2}
-; X86-AVX512-VL-BW-NEXT:    vmovapd %zmm1, (%eax) {%k2}
+; X86-AVX512-VL-BW-NEXT:    vmovaps (%ecx), %zmm1
+; X86-AVX512-VL-BW-NEXT:    vmovaps 64(%ecx), %zmm2
 ; X86-AVX512-VL-BW-NEXT:    vmovapd %zmm0, 128(%eax) {%k1}
+; X86-AVX512-VL-BW-NEXT:    vmovaps %zmm2, 64(%eax)
+; X86-AVX512-VL-BW-NEXT:    vmovaps %zmm1, (%eax)
 ; X86-AVX512-VL-BW-NEXT:    vzeroupper
 ; X86-AVX512-VL-BW-NEXT:    retl
 ;
@@ -2110,12 +2044,11 @@ define void @double_18x(<18 x double>* %in, <18 x double>* %out) {
 ; X86_64-AVX512-VL-NEXT:    movb $3, %al
 ; X86_64-AVX512-VL-NEXT:    kmovw %eax, %k1
 ; X86_64-AVX512-VL-NEXT:    vmovapd 128(%rdi), %zmm0 {%k1} {z}
-; X86_64-AVX512-VL-NEXT:    kxnorw %k0, %k0, %k2
-; X86_64-AVX512-VL-NEXT:    vmovapd (%rdi), %zmm1 {%k2} {z}
-; X86_64-AVX512-VL-NEXT:    vmovapd 64(%rdi), %zmm2 {%k2} {z}
-; X86_64-AVX512-VL-NEXT:    vmovapd %zmm2, 64(%rsi) {%k2}
-; X86_64-AVX512-VL-NEXT:    vmovapd %zmm1, (%rsi) {%k2}
+; X86_64-AVX512-VL-NEXT:    vmovaps (%rdi), %zmm1
+; X86_64-AVX512-VL-NEXT:    vmovaps 64(%rdi), %zmm2
 ; X86_64-AVX512-VL-NEXT:    vmovapd %zmm0, 128(%rsi) {%k1}
+; X86_64-AVX512-VL-NEXT:    vmovaps %zmm2, 64(%rsi)
+; X86_64-AVX512-VL-NEXT:    vmovaps %zmm1, (%rsi)
 ; X86_64-AVX512-VL-NEXT:    vzeroupper
 ; X86_64-AVX512-VL-NEXT:    retq
 ;
@@ -2124,12 +2057,11 @@ define void @double_18x(<18 x double>* %in, <18 x double>* %out) {
 ; X86_64-AVX512-VL-BW-NEXT:    movb $3, %al
 ; X86_64-AVX512-VL-BW-NEXT:    kmovd %eax, %k1
 ; X86_64-AVX512-VL-BW-NEXT:    vmovapd 128(%rdi), %zmm0 {%k1} {z}
-; X86_64-AVX512-VL-BW-NEXT:    kxnorw %k0, %k0, %k2
-; X86_64-AVX512-VL-BW-NEXT:    vmovapd (%rdi), %zmm1 {%k2} {z}
-; X86_64-AVX512-VL-BW-NEXT:    vmovapd 64(%rdi), %zmm2 {%k2} {z}
-; X86_64-AVX512-VL-BW-NEXT:    vmovapd %zmm2, 64(%rsi) {%k2}
-; X86_64-AVX512-VL-BW-NEXT:    vmovapd %zmm1, (%rsi) {%k2}
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps (%rdi), %zmm1
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps 64(%rdi), %zmm2
 ; X86_64-AVX512-VL-BW-NEXT:    vmovapd %zmm0, 128(%rsi) {%k1}
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps %zmm2, 64(%rsi)
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps %zmm1, (%rsi)
 ; X86_64-AVX512-VL-BW-NEXT:    vzeroupper
 ; X86_64-AVX512-VL-BW-NEXT:    retq
 entry:
@@ -2143,17 +2075,16 @@ define void @double_31x(<31 x double>* %in, <31 x double>* %out) {
 ; X86-AVX512-VL:       # %bb.0: # %entry
 ; X86-AVX512-VL-NEXT:    movl {{[0-9]+}}(%esp), %eax
 ; X86-AVX512-VL-NEXT:    movl {{[0-9]+}}(%esp), %ecx
-; X86-AVX512-VL-NEXT:    kxnorw %k0, %k0, %k1
-; X86-AVX512-VL-NEXT:    vmovapd (%ecx), %zmm0 {%k1} {z}
-; X86-AVX512-VL-NEXT:    vmovapd 64(%ecx), %zmm1 {%k1} {z}
-; X86-AVX512-VL-NEXT:    vmovapd 128(%ecx), %zmm2 {%k1} {z}
 ; X86-AVX512-VL-NEXT:    movb $127, %dl
-; X86-AVX512-VL-NEXT:    kmovw %edx, %k2
-; X86-AVX512-VL-NEXT:    vmovapd 192(%ecx), %zmm3 {%k2} {z}
-; X86-AVX512-VL-NEXT:    vmovapd %zmm3, 192(%eax) {%k2}
-; X86-AVX512-VL-NEXT:    vmovapd %zmm2, 128(%eax) {%k1}
-; X86-AVX512-VL-NEXT:    vmovapd %zmm1, 64(%eax) {%k1}
-; X86-AVX512-VL-NEXT:    vmovapd %zmm0, (%eax) {%k1}
+; X86-AVX512-VL-NEXT:    kmovw %edx, %k1
+; X86-AVX512-VL-NEXT:    vmovapd 192(%ecx), %zmm0 {%k1} {z}
+; X86-AVX512-VL-NEXT:    vmovaps 128(%ecx), %zmm1
+; X86-AVX512-VL-NEXT:    vmovaps (%ecx), %zmm2
+; X86-AVX512-VL-NEXT:    vmovaps 64(%ecx), %zmm3
+; X86-AVX512-VL-NEXT:    vmovapd %zmm0, 192(%eax) {%k1}
+; X86-AVX512-VL-NEXT:    vmovaps %zmm2, (%eax)
+; X86-AVX512-VL-NEXT:    vmovaps %zmm3, 64(%eax)
+; X86-AVX512-VL-NEXT:    vmovaps %zmm1, 128(%eax)
 ; X86-AVX512-VL-NEXT:    vzeroupper
 ; X86-AVX512-VL-NEXT:    retl
 ;
@@ -2161,49 +2092,46 @@ define void @double_31x(<31 x double>* %in, <31 x double>* %out) {
 ; X86-AVX512-VL-BW:       # %bb.0: # %entry
 ; X86-AVX512-VL-BW-NEXT:    movl {{[0-9]+}}(%esp), %eax
 ; X86-AVX512-VL-BW-NEXT:    movl {{[0-9]+}}(%esp), %ecx
-; X86-AVX512-VL-BW-NEXT:    kxnorw %k0, %k0, %k1
-; X86-AVX512-VL-BW-NEXT:    vmovapd (%ecx), %zmm0 {%k1} {z}
-; X86-AVX512-VL-BW-NEXT:    vmovapd 64(%ecx), %zmm1 {%k1} {z}
-; X86-AVX512-VL-BW-NEXT:    vmovapd 128(%ecx), %zmm2 {%k1} {z}
 ; X86-AVX512-VL-BW-NEXT:    movb $127, %dl
-; X86-AVX512-VL-BW-NEXT:    kmovd %edx, %k2
-; X86-AVX512-VL-BW-NEXT:    vmovapd 192(%ecx), %zmm3 {%k2} {z}
-; X86-AVX512-VL-BW-NEXT:    vmovapd %zmm3, 192(%eax) {%k2}
-; X86-AVX512-VL-BW-NEXT:    vmovapd %zmm2, 128(%eax) {%k1}
-; X86-AVX512-VL-BW-NEXT:    vmovapd %zmm1, 64(%eax) {%k1}
-; X86-AVX512-VL-BW-NEXT:    vmovapd %zmm0, (%eax) {%k1}
+; X86-AVX512-VL-BW-NEXT:    kmovd %edx, %k1
+; X86-AVX512-VL-BW-NEXT:    vmovapd 192(%ecx), %zmm0 {%k1} {z}
+; X86-AVX512-VL-BW-NEXT:    vmovaps 128(%ecx), %zmm1
+; X86-AVX512-VL-BW-NEXT:    vmovaps (%ecx), %zmm2
+; X86-AVX512-VL-BW-NEXT:    vmovaps 64(%ecx), %zmm3
+; X86-AVX512-VL-BW-NEXT:    vmovapd %zmm0, 192(%eax) {%k1}
+; X86-AVX512-VL-BW-NEXT:    vmovaps %zmm3, 64(%eax)
+; X86-AVX512-VL-BW-NEXT:    vmovaps %zmm1, 128(%eax)
+; X86-AVX512-VL-BW-NEXT:    vmovaps %zmm2, (%eax)
 ; X86-AVX512-VL-BW-NEXT:    vzeroupper
 ; X86-AVX512-VL-BW-NEXT:    retl
 ;
 ; X86_64-AVX512-VL-LABEL: double_31x:
 ; X86_64-AVX512-VL:       ## %bb.0: ## %entry
-; X86_64-AVX512-VL-NEXT:    kxnorw %k0, %k0, %k1
-; X86_64-AVX512-VL-NEXT:    vmovapd (%rdi), %zmm0 {%k1} {z}
-; X86_64-AVX512-VL-NEXT:    vmovapd 64(%rdi), %zmm1 {%k1} {z}
-; X86_64-AVX512-VL-NEXT:    vmovapd 128(%rdi), %zmm2 {%k1} {z}
 ; X86_64-AVX512-VL-NEXT:    movb $127, %al
-; X86_64-AVX512-VL-NEXT:    kmovw %eax, %k2
-; X86_64-AVX512-VL-NEXT:    vmovapd 192(%rdi), %zmm3 {%k2} {z}
-; X86_64-AVX512-VL-NEXT:    vmovapd %zmm3, 192(%rsi) {%k2}
-; X86_64-AVX512-VL-NEXT:    vmovapd %zmm2, 128(%rsi) {%k1}
-; X86_64-AVX512-VL-NEXT:    vmovapd %zmm1, 64(%rsi) {%k1}
-; X86_64-AVX512-VL-NEXT:    vmovapd %zmm0, (%rsi) {%k1}
+; X86_64-AVX512-VL-NEXT:    kmovw %eax, %k1
+; X86_64-AVX512-VL-NEXT:    vmovapd 192(%rdi), %zmm0 {%k1} {z}
+; X86_64-AVX512-VL-NEXT:    vmovaps (%rdi), %zmm1
+; X86_64-AVX512-VL-NEXT:    vmovaps 64(%rdi), %zmm2
+; X86_64-AVX512-VL-NEXT:    vmovaps 128(%rdi), %zmm3
+; X86_64-AVX512-VL-NEXT:    vmovapd %zmm0, 192(%rsi) {%k1}
+; X86_64-AVX512-VL-NEXT:    vmovaps %zmm1, (%rsi)
+; X86_64-AVX512-VL-NEXT:    vmovaps %zmm2, 64(%rsi)
+; X86_64-AVX512-VL-NEXT:    vmovaps %zmm3, 128(%rsi)
 ; X86_64-AVX512-VL-NEXT:    vzeroupper
 ; X86_64-AVX512-VL-NEXT:    retq
 ;
 ; X86_64-AVX512-VL-BW-LABEL: double_31x:
 ; X86_64-AVX512-VL-BW:       ## %bb.0: ## %entry
-; X86_64-AVX512-VL-BW-NEXT:    kxnorw %k0, %k0, %k1
-; X86_64-AVX512-VL-BW-NEXT:    vmovapd (%rdi), %zmm0 {%k1} {z}
-; X86_64-AVX512-VL-BW-NEXT:    vmovapd 64(%rdi), %zmm1 {%k1} {z}
-; X86_64-AVX512-VL-BW-NEXT:    vmovapd 128(%rdi), %zmm2 {%k1} {z}
 ; X86_64-AVX512-VL-BW-NEXT:    movb $127, %al
-; X86_64-AVX512-VL-BW-NEXT:    kmovd %eax, %k2
-; X86_64-AVX512-VL-BW-NEXT:    vmovapd 192(%rdi), %zmm3 {%k2} {z}
-; X86_64-AVX512-VL-BW-NEXT:    vmovapd %zmm3, 192(%rsi) {%k2}
-; X86_64-AVX512-VL-BW-NEXT:    vmovapd %zmm2, 128(%rsi) {%k1}
-; X86_64-AVX512-VL-BW-NEXT:    vmovapd %zmm1, 64(%rsi) {%k1}
-; X86_64-AVX512-VL-BW-NEXT:    vmovapd %zmm0, (%rsi) {%k1}
+; X86_64-AVX512-VL-BW-NEXT:    kmovd %eax, %k1
+; X86_64-AVX512-VL-BW-NEXT:    vmovapd 192(%rdi), %zmm0 {%k1} {z}
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps (%rdi), %zmm1
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps 64(%rdi), %zmm2
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps 128(%rdi), %zmm3
+; X86_64-AVX512-VL-BW-NEXT:    vmovapd %zmm0, 192(%rsi) {%k1}
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps %zmm2, 64(%rsi)
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps %zmm3, 128(%rsi)
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps %zmm1, (%rsi)
 ; X86_64-AVX512-VL-BW-NEXT:    vzeroupper
 ; X86_64-AVX512-VL-BW-NEXT:    retq
 entry:
@@ -2282,16 +2210,15 @@ define void @double_33x(<33 x double>* %in, <33 x double>* %out) {
 ; X86-AVX512-VL-NEXT:    movb $1, %dl
 ; X86-AVX512-VL-NEXT:    kmovw %edx, %k1
 ; X86-AVX512-VL-NEXT:    vmovapd 256(%ecx), %zmm0 {%k1} {z}
-; X86-AVX512-VL-NEXT:    kxnorw %k0, %k0, %k2
-; X86-AVX512-VL-NEXT:    vmovapd (%ecx), %zmm1 {%k2} {z}
-; X86-AVX512-VL-NEXT:    vmovapd 64(%ecx), %zmm2 {%k2} {z}
-; X86-AVX512-VL-NEXT:    vmovapd 128(%ecx), %zmm3 {%k2} {z}
-; X86-AVX512-VL-NEXT:    vmovapd 192(%ecx), %zmm4 {%k2} {z}
-; X86-AVX512-VL-NEXT:    vmovapd %zmm4, 192(%eax) {%k2}
-; X86-AVX512-VL-NEXT:    vmovapd %zmm3, 128(%eax) {%k2}
-; X86-AVX512-VL-NEXT:    vmovapd %zmm2, 64(%eax) {%k2}
-; X86-AVX512-VL-NEXT:    vmovapd %zmm1, (%eax) {%k2}
+; X86-AVX512-VL-NEXT:    vmovaps 128(%ecx), %zmm1
+; X86-AVX512-VL-NEXT:    vmovaps 192(%ecx), %zmm2
+; X86-AVX512-VL-NEXT:    vmovaps (%ecx), %zmm3
+; X86-AVX512-VL-NEXT:    vmovaps 64(%ecx), %zmm4
 ; X86-AVX512-VL-NEXT:    vmovapd %zmm0, 256(%eax) {%k1}
+; X86-AVX512-VL-NEXT:    vmovaps %zmm3, (%eax)
+; X86-AVX512-VL-NEXT:    vmovaps %zmm4, 64(%eax)
+; X86-AVX512-VL-NEXT:    vmovaps %zmm2, 192(%eax)
+; X86-AVX512-VL-NEXT:    vmovaps %zmm1, 128(%eax)
 ; X86-AVX512-VL-NEXT:    vzeroupper
 ; X86-AVX512-VL-NEXT:    retl
 ;
@@ -2302,16 +2229,15 @@ define void @double_33x(<33 x double>* %in, <33 x double>* %out) {
 ; X86-AVX512-VL-BW-NEXT:    movb $1, %dl
 ; X86-AVX512-VL-BW-NEXT:    kmovd %edx, %k1
 ; X86-AVX512-VL-BW-NEXT:    vmovapd 256(%ecx), %zmm0 {%k1} {z}
-; X86-AVX512-VL-BW-NEXT:    kxnorw %k0, %k0, %k2
-; X86-AVX512-VL-BW-NEXT:    vmovapd (%ecx), %zmm1 {%k2} {z}
-; X86-AVX512-VL-BW-NEXT:    vmovapd 64(%ecx), %zmm2 {%k2} {z}
-; X86-AVX512-VL-BW-NEXT:    vmovapd 128(%ecx), %zmm3 {%k2} {z}
-; X86-AVX512-VL-BW-NEXT:    vmovapd 192(%ecx), %zmm4 {%k2} {z}
-; X86-AVX512-VL-BW-NEXT:    vmovapd %zmm4, 192(%eax) {%k2}
-; X86-AVX512-VL-BW-NEXT:    vmovapd %zmm3, 128(%eax) {%k2}
-; X86-AVX512-VL-BW-NEXT:    vmovapd %zmm2, 64(%eax) {%k2}
-; X86-AVX512-VL-BW-NEXT:    vmovapd %zmm1, (%eax) {%k2}
+; X86-AVX512-VL-BW-NEXT:    vmovaps (%ecx), %zmm1
+; X86-AVX512-VL-BW-NEXT:    vmovaps 64(%ecx), %zmm2
+; X86-AVX512-VL-BW-NEXT:    vmovaps 128(%ecx), %zmm3
+; X86-AVX512-VL-BW-NEXT:    vmovaps 192(%ecx), %zmm4
 ; X86-AVX512-VL-BW-NEXT:    vmovapd %zmm0, 256(%eax) {%k1}
+; X86-AVX512-VL-BW-NEXT:    vmovaps %zmm4, 192(%eax)
+; X86-AVX512-VL-BW-NEXT:    vmovaps %zmm3, 128(%eax)
+; X86-AVX512-VL-BW-NEXT:    vmovaps %zmm2, 64(%eax)
+; X86-AVX512-VL-BW-NEXT:    vmovaps %zmm1, (%eax)
 ; X86-AVX512-VL-BW-NEXT:    vzeroupper
 ; X86-AVX512-VL-BW-NEXT:    retl
 ;
@@ -2320,16 +2246,15 @@ define void @double_33x(<33 x double>* %in, <33 x double>* %out) {
 ; X86_64-AVX512-VL-NEXT:    movb $1, %al
 ; X86_64-AVX512-VL-NEXT:    kmovw %eax, %k1
 ; X86_64-AVX512-VL-NEXT:    vmovapd 256(%rdi), %zmm0 {%k1} {z}
-; X86_64-AVX512-VL-NEXT:    kxnorw %k0, %k0, %k2
-; X86_64-AVX512-VL-NEXT:    vmovapd (%rdi), %zmm1 {%k2} {z}
-; X86_64-AVX512-VL-NEXT:    vmovapd 64(%rdi), %zmm2 {%k2} {z}
-; X86_64-AVX512-VL-NEXT:    vmovapd 128(%rdi), %zmm3 {%k2} {z}
-; X86_64-AVX512-VL-NEXT:    vmovapd 192(%rdi), %zmm4 {%k2} {z}
-; X86_64-AVX512-VL-NEXT:    vmovapd %zmm4, 192(%rsi) {%k2}
-; X86_64-AVX512-VL-NEXT:    vmovapd %zmm3, 128(%rsi) {%k2}
-; X86_64-AVX512-VL-NEXT:    vmovapd %zmm2, 64(%rsi) {%k2}
-; X86_64-AVX512-VL-NEXT:    vmovapd %zmm1, (%rsi) {%k2}
+; X86_64-AVX512-VL-NEXT:    vmovaps (%rdi), %zmm1
+; X86_64-AVX512-VL-NEXT:    vmovaps 64(%rdi), %zmm2
+; X86_64-AVX512-VL-NEXT:    vmovaps 128(%rdi), %zmm3
+; X86_64-AVX512-VL-NEXT:    vmovaps 192(%rdi), %zmm4
 ; X86_64-AVX512-VL-NEXT:    vmovapd %zmm0, 256(%rsi) {%k1}
+; X86_64-AVX512-VL-NEXT:    vmovaps %zmm1, (%rsi)
+; X86_64-AVX512-VL-NEXT:    vmovaps %zmm2, 64(%rsi)
+; X86_64-AVX512-VL-NEXT:    vmovaps %zmm4, 192(%rsi)
+; X86_64-AVX512-VL-NEXT:    vmovaps %zmm3, 128(%rsi)
 ; X86_64-AVX512-VL-NEXT:    vzeroupper
 ; X86_64-AVX512-VL-NEXT:    retq
 ;
@@ -2338,16 +2263,15 @@ define void @double_33x(<33 x double>* %in, <33 x double>* %out) {
 ; X86_64-AVX512-VL-BW-NEXT:    movb $1, %al
 ; X86_64-AVX512-VL-BW-NEXT:    kmovd %eax, %k1
 ; X86_64-AVX512-VL-BW-NEXT:    vmovapd 256(%rdi), %zmm0 {%k1} {z}
-; X86_64-AVX512-VL-BW-NEXT:    kxnorw %k0, %k0, %k2
-; X86_64-AVX512-VL-BW-NEXT:    vmovapd (%rdi), %zmm1 {%k2} {z}
-; X86_64-AVX512-VL-BW-NEXT:    vmovapd 64(%rdi), %zmm2 {%k2} {z}
-; X86_64-AVX512-VL-BW-NEXT:    vmovapd 128(%rdi), %zmm3 {%k2} {z}
-; X86_64-AVX512-VL-BW-NEXT:    vmovapd 192(%rdi), %zmm4 {%k2} {z}
-; X86_64-AVX512-VL-BW-NEXT:    vmovapd %zmm4, 192(%rsi) {%k2}
-; X86_64-AVX512-VL-BW-NEXT:    vmovapd %zmm3, 128(%rsi) {%k2}
-; X86_64-AVX512-VL-BW-NEXT:    vmovapd %zmm2, 64(%rsi) {%k2}
-; X86_64-AVX512-VL-BW-NEXT:    vmovapd %zmm1, (%rsi) {%k2}
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps (%rdi), %zmm1
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps 64(%rdi), %zmm2
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps 128(%rdi), %zmm3
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps 192(%rdi), %zmm4
 ; X86_64-AVX512-VL-BW-NEXT:    vmovapd %zmm0, 256(%rsi) {%k1}
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps %zmm4, 192(%rsi)
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps %zmm3, 128(%rsi)
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps %zmm2, 64(%rsi)
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps %zmm1, (%rsi)
 ; X86_64-AVX512-VL-BW-NEXT:    vzeroupper
 ; X86_64-AVX512-VL-BW-NEXT:    retq
 entry:
@@ -2364,16 +2288,15 @@ define void @double_34x(<34 x double>* %in, <34 x double>* %out) {
 ; X86-AVX512-VL-NEXT:    movb $3, %dl
 ; X86-AVX512-VL-NEXT:    kmovw %edx, %k1
 ; X86-AVX512-VL-NEXT:    vmovapd 256(%ecx), %zmm0 {%k1} {z}
-; X86-AVX512-VL-NEXT:    kxnorw %k0, %k0, %k2
-; X86-AVX512-VL-NEXT:    vmovapd (%ecx), %zmm1 {%k2} {z}
-; X86-AVX512-VL-NEXT:    vmovapd 64(%ecx), %zmm2 {%k2} {z}
-; X86-AVX512-VL-NEXT:    vmovapd 128(%ecx), %zmm3 {%k2} {z}
-; X86-AVX512-VL-NEXT:    vmovapd 192(%ecx), %zmm4 {%k2} {z}
-; X86-AVX512-VL-NEXT:    vmovapd %zmm4, 192(%eax) {%k2}
-; X86-AVX512-VL-NEXT:    vmovapd %zmm3, 128(%eax) {%k2}
-; X86-AVX512-VL-NEXT:    vmovapd %zmm2, 64(%eax) {%k2}
-; X86-AVX512-VL-NEXT:    vmovapd %zmm1, (%eax) {%k2}
+; X86-AVX512-VL-NEXT:    vmovaps 128(%ecx), %zmm1
+; X86-AVX512-VL-NEXT:    vmovaps 192(%ecx), %zmm2
+; X86-AVX512-VL-NEXT:    vmovaps (%ecx), %zmm3
+; X86-AVX512-VL-NEXT:    vmovaps 64(%ecx), %zmm4
 ; X86-AVX512-VL-NEXT:    vmovapd %zmm0, 256(%eax) {%k1}
+; X86-AVX512-VL-NEXT:    vmovaps %zmm3, (%eax)
+; X86-AVX512-VL-NEXT:    vmovaps %zmm4, 64(%eax)
+; X86-AVX512-VL-NEXT:    vmovaps %zmm2, 192(%eax)
+; X86-AVX512-VL-NEXT:    vmovaps %zmm1, 128(%eax)
 ; X86-AVX512-VL-NEXT:    vzeroupper
 ; X86-AVX512-VL-NEXT:    retl
 ;
@@ -2384,16 +2307,15 @@ define void @double_34x(<34 x double>* %in, <34 x double>* %out) {
 ; X86-AVX512-VL-BW-NEXT:    movb $3, %dl
 ; X86-AVX512-VL-BW-NEXT:    kmovd %edx, %k1
 ; X86-AVX512-VL-BW-NEXT:    vmovapd 256(%ecx), %zmm0 {%k1} {z}
-; X86-AVX512-VL-BW-NEXT:    kxnorw %k0, %k0, %k2
-; X86-AVX512-VL-BW-NEXT:    vmovapd (%ecx), %zmm1 {%k2} {z}
-; X86-AVX512-VL-BW-NEXT:    vmovapd 64(%ecx), %zmm2 {%k2} {z}
-; X86-AVX512-VL-BW-NEXT:    vmovapd 128(%ecx), %zmm3 {%k2} {z}
-; X86-AVX512-VL-BW-NEXT:    vmovapd 192(%ecx), %zmm4 {%k2} {z}
-; X86-AVX512-VL-BW-NEXT:    vmovapd %zmm4, 192(%eax) {%k2}
-; X86-AVX512-VL-BW-NEXT:    vmovapd %zmm3, 128(%eax) {%k2}
-; X86-AVX512-VL-BW-NEXT:    vmovapd %zmm2, 64(%eax) {%k2}
-; X86-AVX512-VL-BW-NEXT:    vmovapd %zmm1, (%eax) {%k2}
+; X86-AVX512-VL-BW-NEXT:    vmovaps (%ecx), %zmm1
+; X86-AVX512-VL-BW-NEXT:    vmovaps 64(%ecx), %zmm2
+; X86-AVX512-VL-BW-NEXT:    vmovaps 128(%ecx), %zmm3
+; X86-AVX512-VL-BW-NEXT:    vmovaps 192(%ecx), %zmm4
 ; X86-AVX512-VL-BW-NEXT:    vmovapd %zmm0, 256(%eax) {%k1}
+; X86-AVX512-VL-BW-NEXT:    vmovaps %zmm4, 192(%eax)
+; X86-AVX512-VL-BW-NEXT:    vmovaps %zmm3, 128(%eax)
+; X86-AVX512-VL-BW-NEXT:    vmovaps %zmm2, 64(%eax)
+; X86-AVX512-VL-BW-NEXT:    vmovaps %zmm1, (%eax)
 ; X86-AVX512-VL-BW-NEXT:    vzeroupper
 ; X86-AVX512-VL-BW-NEXT:    retl
 ;
@@ -2402,16 +2324,15 @@ define void @double_34x(<34 x double>* %in, <34 x double>* %out) {
 ; X86_64-AVX512-VL-NEXT:    movb $3, %al
 ; X86_64-AVX512-VL-NEXT:    kmovw %eax, %k1
 ; X86_64-AVX512-VL-NEXT:    vmovapd 256(%rdi), %zmm0 {%k1} {z}
-; X86_64-AVX512-VL-NEXT:    kxnorw %k0, %k0, %k2
-; X86_64-AVX512-VL-NEXT:    vmovapd (%rdi), %zmm1 {%k2} {z}
-; X86_64-AVX512-VL-NEXT:    vmovapd 64(%rdi), %zmm2 {%k2} {z}
-; X86_64-AVX512-VL-NEXT:    vmovapd 128(%rdi), %zmm3 {%k2} {z}
-; X86_64-AVX512-VL-NEXT:    vmovapd 192(%rdi), %zmm4 {%k2} {z}
-; X86_64-AVX512-VL-NEXT:    vmovapd %zmm4, 192(%rsi) {%k2}
-; X86_64-AVX512-VL-NEXT:    vmovapd %zmm3, 128(%rsi) {%k2}
-; X86_64-AVX512-VL-NEXT:    vmovapd %zmm2, 64(%rsi) {%k2}
-; X86_64-AVX512-VL-NEXT:    vmovapd %zmm1, (%rsi) {%k2}
+; X86_64-AVX512-VL-NEXT:    vmovaps (%rdi), %zmm1
+; X86_64-AVX512-VL-NEXT:    vmovaps 64(%rdi), %zmm2
+; X86_64-AVX512-VL-NEXT:    vmovaps 128(%rdi), %zmm3
+; X86_64-AVX512-VL-NEXT:    vmovaps 192(%rdi), %zmm4
 ; X86_64-AVX512-VL-NEXT:    vmovapd %zmm0, 256(%rsi) {%k1}
+; X86_64-AVX512-VL-NEXT:    vmovaps %zmm1, (%rsi)
+; X86_64-AVX512-VL-NEXT:    vmovaps %zmm2, 64(%rsi)
+; X86_64-AVX512-VL-NEXT:    vmovaps %zmm4, 192(%rsi)
+; X86_64-AVX512-VL-NEXT:    vmovaps %zmm3, 128(%rsi)
 ; X86_64-AVX512-VL-NEXT:    vzeroupper
 ; X86_64-AVX512-VL-NEXT:    retq
 ;
@@ -2420,16 +2341,15 @@ define void @double_34x(<34 x double>* %in, <34 x double>* %out) {
 ; X86_64-AVX512-VL-BW-NEXT:    movb $3, %al
 ; X86_64-AVX512-VL-BW-NEXT:    kmovd %eax, %k1
 ; X86_64-AVX512-VL-BW-NEXT:    vmovapd 256(%rdi), %zmm0 {%k1} {z}
-; X86_64-AVX512-VL-BW-NEXT:    kxnorw %k0, %k0, %k2
-; X86_64-AVX512-VL-BW-NEXT:    vmovapd (%rdi), %zmm1 {%k2} {z}
-; X86_64-AVX512-VL-BW-NEXT:    vmovapd 64(%rdi), %zmm2 {%k2} {z}
-; X86_64-AVX512-VL-BW-NEXT:    vmovapd 128(%rdi), %zmm3 {%k2} {z}
-; X86_64-AVX512-VL-BW-NEXT:    vmovapd 192(%rdi), %zmm4 {%k2} {z}
-; X86_64-AVX512-VL-BW-NEXT:    vmovapd %zmm4, 192(%rsi) {%k2}
-; X86_64-AVX512-VL-BW-NEXT:    vmovapd %zmm3, 128(%rsi) {%k2}
-; X86_64-AVX512-VL-BW-NEXT:    vmovapd %zmm2, 64(%rsi) {%k2}
-; X86_64-AVX512-VL-BW-NEXT:    vmovapd %zmm1, (%rsi) {%k2}
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps (%rdi), %zmm1
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps 64(%rdi), %zmm2
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps 128(%rdi), %zmm3
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps 192(%rdi), %zmm4
 ; X86_64-AVX512-VL-BW-NEXT:    vmovapd %zmm0, 256(%rsi) {%k1}
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps %zmm4, 192(%rsi)
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps %zmm3, 128(%rsi)
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps %zmm2, 64(%rsi)
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps %zmm1, (%rsi)
 ; X86_64-AVX512-VL-BW-NEXT:    vzeroupper
 ; X86_64-AVX512-VL-BW-NEXT:    retq
 entry:
@@ -2443,19 +2363,18 @@ define void @double_48x(<48 x double>* %in, <48 x double>* %out) {
 ; X86-AVX512-VL:       # %bb.0: # %entry
 ; X86-AVX512-VL-NEXT:    movl {{[0-9]+}}(%esp), %eax
 ; X86-AVX512-VL-NEXT:    movl {{[0-9]+}}(%esp), %ecx
-; X86-AVX512-VL-NEXT:    kxnorw %k0, %k0, %k1
-; X86-AVX512-VL-NEXT:    vmovapd (%ecx), %zmm0 {%k1} {z}
-; X86-AVX512-VL-NEXT:    vmovapd 64(%ecx), %zmm1 {%k1} {z}
-; X86-AVX512-VL-NEXT:    vmovapd 128(%ecx), %zmm2 {%k1} {z}
-; X86-AVX512-VL-NEXT:    vmovapd 192(%ecx), %zmm3 {%k1} {z}
-; X86-AVX512-VL-NEXT:    vmovapd 256(%ecx), %zmm4 {%k1} {z}
-; X86-AVX512-VL-NEXT:    vmovapd 320(%ecx), %zmm5 {%k1} {z}
-; X86-AVX512-VL-NEXT:    vmovapd %zmm5, 320(%eax) {%k1}
-; X86-AVX512-VL-NEXT:    vmovapd %zmm4, 256(%eax) {%k1}
-; X86-AVX512-VL-NEXT:    vmovapd %zmm3, 192(%eax) {%k1}
-; X86-AVX512-VL-NEXT:    vmovapd %zmm2, 128(%eax) {%k1}
-; X86-AVX512-VL-NEXT:    vmovapd %zmm1, 64(%eax) {%k1}
-; X86-AVX512-VL-NEXT:    vmovapd %zmm0, (%eax) {%k1}
+; X86-AVX512-VL-NEXT:    vmovaps 256(%ecx), %zmm0
+; X86-AVX512-VL-NEXT:    vmovaps 192(%ecx), %zmm1
+; X86-AVX512-VL-NEXT:    vmovaps (%ecx), %zmm2
+; X86-AVX512-VL-NEXT:    vmovaps 64(%ecx), %zmm3
+; X86-AVX512-VL-NEXT:    vmovaps 320(%ecx), %zmm4
+; X86-AVX512-VL-NEXT:    vmovaps 128(%ecx), %zmm5
+; X86-AVX512-VL-NEXT:    vmovaps %zmm5, 128(%eax)
+; X86-AVX512-VL-NEXT:    vmovaps %zmm4, 320(%eax)
+; X86-AVX512-VL-NEXT:    vmovaps %zmm2, (%eax)
+; X86-AVX512-VL-NEXT:    vmovaps %zmm1, 192(%eax)
+; X86-AVX512-VL-NEXT:    vmovaps %zmm3, 64(%eax)
+; X86-AVX512-VL-NEXT:    vmovaps %zmm0, 256(%eax)
 ; X86-AVX512-VL-NEXT:    vzeroupper
 ; X86-AVX512-VL-NEXT:    retl
 ;
@@ -2463,55 +2382,52 @@ define void @double_48x(<48 x double>* %in, <48 x double>* %out) {
 ; X86-AVX512-VL-BW:       # %bb.0: # %entry
 ; X86-AVX512-VL-BW-NEXT:    movl {{[0-9]+}}(%esp), %eax
 ; X86-AVX512-VL-BW-NEXT:    movl {{[0-9]+}}(%esp), %ecx
-; X86-AVX512-VL-BW-NEXT:    kxnorw %k0, %k0, %k1
-; X86-AVX512-VL-BW-NEXT:    vmovapd (%ecx), %zmm0 {%k1} {z}
-; X86-AVX512-VL-BW-NEXT:    vmovapd 64(%ecx), %zmm1 {%k1} {z}
-; X86-AVX512-VL-BW-NEXT:    vmovapd 128(%ecx), %zmm2 {%k1} {z}
-; X86-AVX512-VL-BW-NEXT:    vmovapd 192(%ecx), %zmm3 {%k1} {z}
-; X86-AVX512-VL-BW-NEXT:    vmovapd 256(%ecx), %zmm4 {%k1} {z}
-; X86-AVX512-VL-BW-NEXT:    vmovapd 320(%ecx), %zmm5 {%k1} {z}
-; X86-AVX512-VL-BW-NEXT:    vmovapd %zmm5, 320(%eax) {%k1}
-; X86-AVX512-VL-BW-NEXT:    vmovapd %zmm4, 256(%eax) {%k1}
-; X86-AVX512-VL-BW-NEXT:    vmovapd %zmm3, 192(%eax) {%k1}
-; X86-AVX512-VL-BW-NEXT:    vmovapd %zmm2, 128(%eax) {%k1}
-; X86-AVX512-VL-BW-NEXT:    vmovapd %zmm1, 64(%eax) {%k1}
-; X86-AVX512-VL-BW-NEXT:    vmovapd %zmm0, (%eax) {%k1}
+; X86-AVX512-VL-BW-NEXT:    vmovaps 256(%ecx), %zmm0
+; X86-AVX512-VL-BW-NEXT:    vmovaps 128(%ecx), %zmm1
+; X86-AVX512-VL-BW-NEXT:    vmovaps (%ecx), %zmm2
+; X86-AVX512-VL-BW-NEXT:    vmovaps 64(%ecx), %zmm3
+; X86-AVX512-VL-BW-NEXT:    vmovaps 192(%ecx), %zmm4
+; X86-AVX512-VL-BW-NEXT:    vmovaps 320(%ecx), %zmm5
+; X86-AVX512-VL-BW-NEXT:    vmovaps %zmm5, 320(%eax)
+; X86-AVX512-VL-BW-NEXT:    vmovaps %zmm4, 192(%eax)
+; X86-AVX512-VL-BW-NEXT:    vmovaps %zmm3, 64(%eax)
+; X86-AVX512-VL-BW-NEXT:    vmovaps %zmm1, 128(%eax)
+; X86-AVX512-VL-BW-NEXT:    vmovaps %zmm0, 256(%eax)
+; X86-AVX512-VL-BW-NEXT:    vmovaps %zmm2, (%eax)
 ; X86-AVX512-VL-BW-NEXT:    vzeroupper
 ; X86-AVX512-VL-BW-NEXT:    retl
 ;
 ; X86_64-AVX512-VL-LABEL: double_48x:
 ; X86_64-AVX512-VL:       ## %bb.0: ## %entry
-; X86_64-AVX512-VL-NEXT:    kxnorw %k0, %k0, %k1
-; X86_64-AVX512-VL-NEXT:    vmovapd (%rdi), %zmm0 {%k1} {z}
-; X86_64-AVX512-VL-NEXT:    vmovapd 64(%rdi), %zmm1 {%k1} {z}
-; X86_64-AVX512-VL-NEXT:    vmovapd 128(%rdi), %zmm2 {%k1} {z}
-; X86_64-AVX512-VL-NEXT:    vmovapd 192(%rdi), %zmm3 {%k1} {z}
-; X86_64-AVX512-VL-NEXT:    vmovapd 256(%rdi), %zmm4 {%k1} {z}
-; X86_64-AVX512-VL-NEXT:    vmovapd 320(%rdi), %zmm5 {%k1} {z}
-; X86_64-AVX512-VL-NEXT:    vmovapd %zmm5, 320(%rsi) {%k1}
-; X86_64-AVX512-VL-NEXT:    vmovapd %zmm4, 256(%rsi) {%k1}
-; X86_64-AVX512-VL-NEXT:    vmovapd %zmm3, 192(%rsi) {%k1}
-; X86_64-AVX512-VL-NEXT:    vmovapd %zmm2, 128(%rsi) {%k1}
-; X86_64-AVX512-VL-NEXT:    vmovapd %zmm1, 64(%rsi) {%k1}
-; X86_64-AVX512-VL-NEXT:    vmovapd %zmm0, (%rsi) {%k1}
+; X86_64-AVX512-VL-NEXT:    vmovaps 256(%rdi), %zmm0
+; X86_64-AVX512-VL-NEXT:    vmovaps 320(%rdi), %zmm1
+; X86_64-AVX512-VL-NEXT:    vmovaps (%rdi), %zmm2
+; X86_64-AVX512-VL-NEXT:    vmovaps 64(%rdi), %zmm3
+; X86_64-AVX512-VL-NEXT:    vmovaps 128(%rdi), %zmm4
+; X86_64-AVX512-VL-NEXT:    vmovaps 192(%rdi), %zmm5
+; X86_64-AVX512-VL-NEXT:    vmovaps %zmm4, 128(%rsi)
+; X86_64-AVX512-VL-NEXT:    vmovaps %zmm1, 320(%rsi)
+; X86_64-AVX512-VL-NEXT:    vmovaps %zmm2, (%rsi)
+; X86_64-AVX512-VL-NEXT:    vmovaps %zmm5, 192(%rsi)
+; X86_64-AVX512-VL-NEXT:    vmovaps %zmm3, 64(%rsi)
+; X86_64-AVX512-VL-NEXT:    vmovaps %zmm0, 256(%rsi)
 ; X86_64-AVX512-VL-NEXT:    vzeroupper
 ; X86_64-AVX512-VL-NEXT:    retq
 ;
 ; X86_64-AVX512-VL-BW-LABEL: double_48x:
 ; X86_64-AVX512-VL-BW:       ## %bb.0: ## %entry
-; X86_64-AVX512-VL-BW-NEXT:    kxnorw %k0, %k0, %k1
-; X86_64-AVX512-VL-BW-NEXT:    vmovapd (%rdi), %zmm0 {%k1} {z}
-; X86_64-AVX512-VL-BW-NEXT:    vmovapd 64(%rdi), %zmm1 {%k1} {z}
-; X86_64-AVX512-VL-BW-NEXT:    vmovapd 128(%rdi), %zmm2 {%k1} {z}
-; X86_64-AVX512-VL-BW-NEXT:    vmovapd 192(%rdi), %zmm3 {%k1} {z}
-; X86_64-AVX512-VL-BW-NEXT:    vmovapd 256(%rdi), %zmm4 {%k1} {z}
-; X86_64-AVX512-VL-BW-NEXT:    vmovapd 320(%rdi), %zmm5 {%k1} {z}
-; X86_64-AVX512-VL-BW-NEXT:    vmovapd %zmm5, 320(%rsi) {%k1}
-; X86_64-AVX512-VL-BW-NEXT:    vmovapd %zmm4, 256(%rsi) {%k1}
-; X86_64-AVX512-VL-BW-NEXT:    vmovapd %zmm3, 192(%rsi) {%k1}
-; X86_64-AVX512-VL-BW-NEXT:    vmovapd %zmm2, 128(%rsi) {%k1}
-; X86_64-AVX512-VL-BW-NEXT:    vmovapd %zmm1, 64(%rsi) {%k1}
-; X86_64-AVX512-VL-BW-NEXT:    vmovapd %zmm0, (%rsi) {%k1}
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps 256(%rdi), %zmm0
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps (%rdi), %zmm1
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps 64(%rdi), %zmm2
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps 128(%rdi), %zmm3
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps 192(%rdi), %zmm4
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps 320(%rdi), %zmm5
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps %zmm5, 320(%rsi)
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps %zmm4, 192(%rsi)
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps %zmm2, 64(%rsi)
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps %zmm3, 128(%rsi)
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps %zmm0, 256(%rsi)
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps %zmm1, (%rsi)
 ; X86_64-AVX512-VL-BW-NEXT:    vzeroupper
 ; X86_64-AVX512-VL-BW-NEXT:    retq
 entry:
@@ -2525,23 +2441,22 @@ define void @double_49x(<49 x double>* %in, <49 x double>* %out) {
 ; X86-AVX512-VL:       # %bb.0: # %entry
 ; X86-AVX512-VL-NEXT:    movl {{[0-9]+}}(%esp), %eax
 ; X86-AVX512-VL-NEXT:    movl {{[0-9]+}}(%esp), %ecx
-; X86-AVX512-VL-NEXT:    kxnorw %k0, %k0, %k1
-; X86-AVX512-VL-NEXT:    vmovapd (%ecx), %zmm0 {%k1} {z}
-; X86-AVX512-VL-NEXT:    vmovapd 64(%ecx), %zmm1 {%k1} {z}
-; X86-AVX512-VL-NEXT:    vmovapd 128(%ecx), %zmm2 {%k1} {z}
-; X86-AVX512-VL-NEXT:    vmovapd 192(%ecx), %zmm3 {%k1} {z}
 ; X86-AVX512-VL-NEXT:    movb $1, %dl
-; X86-AVX512-VL-NEXT:    kmovw %edx, %k2
-; X86-AVX512-VL-NEXT:    vmovapd 384(%ecx), %zmm4 {%k2} {z}
-; X86-AVX512-VL-NEXT:    vmovapd 256(%ecx), %zmm5 {%k1} {z}
-; X86-AVX512-VL-NEXT:    vmovapd 320(%ecx), %zmm6 {%k1} {z}
-; X86-AVX512-VL-NEXT:    vmovapd %zmm6, 320(%eax) {%k1}
-; X86-AVX512-VL-NEXT:    vmovapd %zmm5, 256(%eax) {%k1}
-; X86-AVX512-VL-NEXT:    vmovapd %zmm4, 384(%eax) {%k2}
-; X86-AVX512-VL-NEXT:    vmovapd %zmm3, 192(%eax) {%k1}
-; X86-AVX512-VL-NEXT:    vmovapd %zmm2, 128(%eax) {%k1}
-; X86-AVX512-VL-NEXT:    vmovapd %zmm1, 64(%eax) {%k1}
-; X86-AVX512-VL-NEXT:    vmovapd %zmm0, (%eax) {%k1}
+; X86-AVX512-VL-NEXT:    kmovw %edx, %k1
+; X86-AVX512-VL-NEXT:    vmovapd 384(%ecx), %zmm0 {%k1} {z}
+; X86-AVX512-VL-NEXT:    vmovaps 256(%ecx), %zmm1
+; X86-AVX512-VL-NEXT:    vmovaps 192(%ecx), %zmm2
+; X86-AVX512-VL-NEXT:    vmovaps (%ecx), %zmm3
+; X86-AVX512-VL-NEXT:    vmovaps 64(%ecx), %zmm4
+; X86-AVX512-VL-NEXT:    vmovaps 320(%ecx), %zmm5
+; X86-AVX512-VL-NEXT:    vmovaps 128(%ecx), %zmm6
+; X86-AVX512-VL-NEXT:    vmovapd %zmm0, 384(%eax) {%k1}
+; X86-AVX512-VL-NEXT:    vmovaps %zmm6, 128(%eax)
+; X86-AVX512-VL-NEXT:    vmovaps %zmm5, 320(%eax)
+; X86-AVX512-VL-NEXT:    vmovaps %zmm3, (%eax)
+; X86-AVX512-VL-NEXT:    vmovaps %zmm2, 192(%eax)
+; X86-AVX512-VL-NEXT:    vmovaps %zmm4, 64(%eax)
+; X86-AVX512-VL-NEXT:    vmovaps %zmm1, 256(%eax)
 ; X86-AVX512-VL-NEXT:    vzeroupper
 ; X86-AVX512-VL-NEXT:    retl
 ;
@@ -2549,67 +2464,64 @@ define void @double_49x(<49 x double>* %in, <49 x double>* %out) {
 ; X86-AVX512-VL-BW:       # %bb.0: # %entry
 ; X86-AVX512-VL-BW-NEXT:    movl {{[0-9]+}}(%esp), %eax
 ; X86-AVX512-VL-BW-NEXT:    movl {{[0-9]+}}(%esp), %ecx
-; X86-AVX512-VL-BW-NEXT:    kxnorw %k0, %k0, %k1
-; X86-AVX512-VL-BW-NEXT:    vmovapd (%ecx), %zmm0 {%k1} {z}
-; X86-AVX512-VL-BW-NEXT:    vmovapd 64(%ecx), %zmm1 {%k1} {z}
-; X86-AVX512-VL-BW-NEXT:    vmovapd 128(%ecx), %zmm2 {%k1} {z}
-; X86-AVX512-VL-BW-NEXT:    vmovapd 192(%ecx), %zmm3 {%k1} {z}
 ; X86-AVX512-VL-BW-NEXT:    movb $1, %dl
-; X86-AVX512-VL-BW-NEXT:    kmovd %edx, %k2
-; X86-AVX512-VL-BW-NEXT:    vmovapd 384(%ecx), %zmm4 {%k2} {z}
-; X86-AVX512-VL-BW-NEXT:    vmovapd 256(%ecx), %zmm5 {%k1} {z}
-; X86-AVX512-VL-BW-NEXT:    vmovapd 320(%ecx), %zmm6 {%k1} {z}
-; X86-AVX512-VL-BW-NEXT:    vmovapd %zmm6, 320(%eax) {%k1}
-; X86-AVX512-VL-BW-NEXT:    vmovapd %zmm5, 256(%eax) {%k1}
-; X86-AVX512-VL-BW-NEXT:    vmovapd %zmm4, 384(%eax) {%k2}
-; X86-AVX512-VL-BW-NEXT:    vmovapd %zmm3, 192(%eax) {%k1}
-; X86-AVX512-VL-BW-NEXT:    vmovapd %zmm2, 128(%eax) {%k1}
-; X86-AVX512-VL-BW-NEXT:    vmovapd %zmm1, 64(%eax) {%k1}
-; X86-AVX512-VL-BW-NEXT:    vmovapd %zmm0, (%eax) {%k1}
+; X86-AVX512-VL-BW-NEXT:    kmovd %edx, %k1
+; X86-AVX512-VL-BW-NEXT:    vmovapd 384(%ecx), %zmm0 {%k1} {z}
+; X86-AVX512-VL-BW-NEXT:    vmovaps 256(%ecx), %zmm1
+; X86-AVX512-VL-BW-NEXT:    vmovaps 128(%ecx), %zmm2
+; X86-AVX512-VL-BW-NEXT:    vmovaps (%ecx), %zmm3
+; X86-AVX512-VL-BW-NEXT:    vmovaps 64(%ecx), %zmm4
+; X86-AVX512-VL-BW-NEXT:    vmovaps 192(%ecx), %zmm5
+; X86-AVX512-VL-BW-NEXT:    vmovaps 320(%ecx), %zmm6
+; X86-AVX512-VL-BW-NEXT:    vmovapd %zmm0, 384(%eax) {%k1}
+; X86-AVX512-VL-BW-NEXT:    vmovaps %zmm6, 320(%eax)
+; X86-AVX512-VL-BW-NEXT:    vmovaps %zmm5, 192(%eax)
+; X86-AVX512-VL-BW-NEXT:    vmovaps %zmm4, 64(%eax)
+; X86-AVX512-VL-BW-NEXT:    vmovaps %zmm2, 128(%eax)
+; X86-AVX512-VL-BW-NEXT:    vmovaps %zmm1, 256(%eax)
+; X86-AVX512-VL-BW-NEXT:    vmovaps %zmm3, (%eax)
 ; X86-AVX512-VL-BW-NEXT:    vzeroupper
 ; X86-AVX512-VL-BW-NEXT:    retl
 ;
 ; X86_64-AVX512-VL-LABEL: double_49x:
 ; X86_64-AVX512-VL:       ## %bb.0: ## %entry
-; X86_64-AVX512-VL-NEXT:    kxnorw %k0, %k0, %k1
-; X86_64-AVX512-VL-NEXT:    vmovapd (%rdi), %zmm0 {%k1} {z}
-; X86_64-AVX512-VL-NEXT:    vmovapd 64(%rdi), %zmm1 {%k1} {z}
-; X86_64-AVX512-VL-NEXT:    vmovapd 128(%rdi), %zmm2 {%k1} {z}
-; X86_64-AVX512-VL-NEXT:    vmovapd 192(%rdi), %zmm3 {%k1} {z}
 ; X86_64-AVX512-VL-NEXT:    movb $1, %al
-; X86_64-AVX512-VL-NEXT:    kmovw %eax, %k2
-; X86_64-AVX512-VL-NEXT:    vmovapd 384(%rdi), %zmm4 {%k2} {z}
-; X86_64-AVX512-VL-NEXT:    vmovapd 256(%rdi), %zmm5 {%k1} {z}
-; X86_64-AVX512-VL-NEXT:    vmovapd 320(%rdi), %zmm6 {%k1} {z}
-; X86_64-AVX512-VL-NEXT:    vmovapd %zmm6, 320(%rsi) {%k1}
-; X86_64-AVX512-VL-NEXT:    vmovapd %zmm5, 256(%rsi) {%k1}
-; X86_64-AVX512-VL-NEXT:    vmovapd %zmm4, 384(%rsi) {%k2}
-; X86_64-AVX512-VL-NEXT:    vmovapd %zmm3, 192(%rsi) {%k1}
-; X86_64-AVX512-VL-NEXT:    vmovapd %zmm2, 128(%rsi) {%k1}
-; X86_64-AVX512-VL-NEXT:    vmovapd %zmm1, 64(%rsi) {%k1}
-; X86_64-AVX512-VL-NEXT:    vmovapd %zmm0, (%rsi) {%k1}
+; X86_64-AVX512-VL-NEXT:    kmovw %eax, %k1
+; X86_64-AVX512-VL-NEXT:    vmovapd 384(%rdi), %zmm0 {%k1} {z}
+; X86_64-AVX512-VL-NEXT:    vmovaps 256(%rdi), %zmm1
+; X86_64-AVX512-VL-NEXT:    vmovaps 320(%rdi), %zmm2
+; X86_64-AVX512-VL-NEXT:    vmovaps (%rdi), %zmm3
+; X86_64-AVX512-VL-NEXT:    vmovaps 64(%rdi), %zmm4
+; X86_64-AVX512-VL-NEXT:    vmovaps 128(%rdi), %zmm5
+; X86_64-AVX512-VL-NEXT:    vmovaps 192(%rdi), %zmm6
+; X86_64-AVX512-VL-NEXT:    vmovapd %zmm0, 384(%rsi) {%k1}
+; X86_64-AVX512-VL-NEXT:    vmovaps %zmm5, 128(%rsi)
+; X86_64-AVX512-VL-NEXT:    vmovaps %zmm2, 320(%rsi)
+; X86_64-AVX512-VL-NEXT:    vmovaps %zmm3, (%rsi)
+; X86_64-AVX512-VL-NEXT:    vmovaps %zmm6, 192(%rsi)
+; X86_64-AVX512-VL-NEXT:    vmovaps %zmm4, 64(%rsi)
+; X86_64-AVX512-VL-NEXT:    vmovaps %zmm1, 256(%rsi)
 ; X86_64-AVX512-VL-NEXT:    vzeroupper
 ; X86_64-AVX512-VL-NEXT:    retq
 ;
 ; X86_64-AVX512-VL-BW-LABEL: double_49x:
 ; X86_64-AVX512-VL-BW:       ## %bb.0: ## %entry
-; X86_64-AVX512-VL-BW-NEXT:    kxnorw %k0, %k0, %k1
-; X86_64-AVX512-VL-BW-NEXT:    vmovapd (%rdi), %zmm0 {%k1} {z}
-; X86_64-AVX512-VL-BW-NEXT:    vmovapd 64(%rdi), %zmm1 {%k1} {z}
-; X86_64-AVX512-VL-BW-NEXT:    vmovapd 128(%rdi), %zmm2 {%k1} {z}
-; X86_64-AVX512-VL-BW-NEXT:    vmovapd 192(%rdi), %zmm3 {%k1} {z}
 ; X86_64-AVX512-VL-BW-NEXT:    movb $1, %al
-; X86_64-AVX512-VL-BW-NEXT:    kmovd %eax, %k2
-; X86_64-AVX512-VL-BW-NEXT:    vmovapd 384(%rdi), %zmm4 {%k2} {z}
-; X86_64-AVX512-VL-BW-NEXT:    vmovapd 256(%rdi), %zmm5 {%k1} {z}
-; X86_64-AVX512-VL-BW-NEXT:    vmovapd 320(%rdi), %zmm6 {%k1} {z}
-; X86_64-AVX512-VL-BW-NEXT:    vmovapd %zmm6, 320(%rsi) {%k1}
-; X86_64-AVX512-VL-BW-NEXT:    vmovapd %zmm5, 256(%rsi) {%k1}
-; X86_64-AVX512-VL-BW-NEXT:    vmovapd %zmm4, 384(%rsi) {%k2}
-; X86_64-AVX512-VL-BW-NEXT:    vmovapd %zmm3, 192(%rsi) {%k1}
-; X86_64-AVX512-VL-BW-NEXT:    vmovapd %zmm2, 128(%rsi) {%k1}
-; X86_64-AVX512-VL-BW-NEXT:    vmovapd %zmm1, 64(%rsi) {%k1}
-; X86_64-AVX512-VL-BW-NEXT:    vmovapd %zmm0, (%rsi) {%k1}
+; X86_64-AVX512-VL-BW-NEXT:    kmovd %eax, %k1
+; X86_64-AVX512-VL-BW-NEXT:    vmovapd 384(%rdi), %zmm0 {%k1} {z}
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps 256(%rdi), %zmm1
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps (%rdi), %zmm2
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps 64(%rdi), %zmm3
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps 128(%rdi), %zmm4
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps 192(%rdi), %zmm5
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps 320(%rdi), %zmm6
+; X86_64-AVX512-VL-BW-NEXT:    vmovapd %zmm0, 384(%rsi) {%k1}
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps %zmm6, 320(%rsi)
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps %zmm5, 192(%rsi)
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps %zmm3, 64(%rsi)
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps %zmm4, 128(%rsi)
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps %zmm1, 256(%rsi)
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps %zmm2, (%rsi)
 ; X86_64-AVX512-VL-BW-NEXT:    vzeroupper
 ; X86_64-AVX512-VL-BW-NEXT:    retq
 entry:
@@ -4602,13 +4514,12 @@ define void @i16_33x(<33 x i16>* %in, <33 x i16>* %out) {
 ; X86-AVX512-VL-BW:       # %bb.0: # %entry
 ; X86-AVX512-VL-BW-NEXT:    movl {{[0-9]+}}(%esp), %eax
 ; X86-AVX512-VL-BW-NEXT:    movl {{[0-9]+}}(%esp), %ecx
-; X86-AVX512-VL-BW-NEXT:    kxnord %k0, %k0, %k1
-; X86-AVX512-VL-BW-NEXT:    vmovdqu16 (%ecx), %zmm0 {%k1} {z}
 ; X86-AVX512-VL-BW-NEXT:    movl $1, %edx
-; X86-AVX512-VL-BW-NEXT:    kmovd %edx, %k2
-; X86-AVX512-VL-BW-NEXT:    vmovdqu16 64(%ecx), %zmm1 {%k2} {z}
-; X86-AVX512-VL-BW-NEXT:    vmovdqu16 %zmm1, 64(%eax) {%k2}
-; X86-AVX512-VL-BW-NEXT:    vmovdqu16 %zmm0, (%eax) {%k1}
+; X86-AVX512-VL-BW-NEXT:    kmovd %edx, %k1
+; X86-AVX512-VL-BW-NEXT:    vmovdqu16 64(%ecx), %zmm0 {%k1} {z}
+; X86-AVX512-VL-BW-NEXT:    vmovaps (%ecx), %zmm1
+; X86-AVX512-VL-BW-NEXT:    vmovdqu16 %zmm0, 64(%eax) {%k1}
+; X86-AVX512-VL-BW-NEXT:    vmovaps %zmm1, (%eax)
 ; X86-AVX512-VL-BW-NEXT:    vzeroupper
 ; X86-AVX512-VL-BW-NEXT:    retl
 ;
@@ -4623,13 +4534,12 @@ define void @i16_33x(<33 x i16>* %in, <33 x i16>* %out) {
 ;
 ; X86_64-AVX512-VL-BW-LABEL: i16_33x:
 ; X86_64-AVX512-VL-BW:       ## %bb.0: ## %entry
-; X86_64-AVX512-VL-BW-NEXT:    kxnord %k0, %k0, %k1
-; X86_64-AVX512-VL-BW-NEXT:    vmovdqu16 (%rdi), %zmm0 {%k1} {z}
 ; X86_64-AVX512-VL-BW-NEXT:    movl $1, %eax
-; X86_64-AVX512-VL-BW-NEXT:    kmovd %eax, %k2
-; X86_64-AVX512-VL-BW-NEXT:    vmovdqu16 64(%rdi), %zmm1 {%k2} {z}
-; X86_64-AVX512-VL-BW-NEXT:    vmovdqu16 %zmm1, 64(%rsi) {%k2}
-; X86_64-AVX512-VL-BW-NEXT:    vmovdqu16 %zmm0, (%rsi) {%k1}
+; X86_64-AVX512-VL-BW-NEXT:    kmovd %eax, %k1
+; X86_64-AVX512-VL-BW-NEXT:    vmovdqu16 64(%rdi), %zmm0 {%k1} {z}
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps (%rdi), %zmm1
+; X86_64-AVX512-VL-BW-NEXT:    vmovdqu16 %zmm0, 64(%rsi) {%k1}
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps %zmm1, (%rsi)
 ; X86_64-AVX512-VL-BW-NEXT:    vzeroupper
 ; X86_64-AVX512-VL-BW-NEXT:    retq
 entry:
@@ -4654,13 +4564,12 @@ define void @i16_34x(<34 x i16>* %in, <34 x i16>* %out) {
 ; X86-AVX512-VL-BW:       # %bb.0: # %entry
 ; X86-AVX512-VL-BW-NEXT:    movl {{[0-9]+}}(%esp), %eax
 ; X86-AVX512-VL-BW-NEXT:    movl {{[0-9]+}}(%esp), %ecx
-; X86-AVX512-VL-BW-NEXT:    kxnord %k0, %k0, %k1
-; X86-AVX512-VL-BW-NEXT:    vmovdqu16 (%ecx), %zmm0 {%k1} {z}
 ; X86-AVX512-VL-BW-NEXT:    movl $3, %edx
-; X86-AVX512-VL-BW-NEXT:    kmovd %edx, %k2
-; X86-AVX512-VL-BW-NEXT:    vmovdqu16 64(%ecx), %zmm1 {%k2} {z}
-; X86-AVX512-VL-BW-NEXT:    vmovdqu16 %zmm1, 64(%eax) {%k2}
-; X86-AVX512-VL-BW-NEXT:    vmovdqu16 %zmm0, (%eax) {%k1}
+; X86-AVX512-VL-BW-NEXT:    kmovd %edx, %k1
+; X86-AVX512-VL-BW-NEXT:    vmovdqu16 64(%ecx), %zmm0 {%k1} {z}
+; X86-AVX512-VL-BW-NEXT:    vmovaps (%ecx), %zmm1
+; X86-AVX512-VL-BW-NEXT:    vmovdqu16 %zmm0, 64(%eax) {%k1}
+; X86-AVX512-VL-BW-NEXT:    vmovaps %zmm1, (%eax)
 ; X86-AVX512-VL-BW-NEXT:    vzeroupper
 ; X86-AVX512-VL-BW-NEXT:    retl
 ;
@@ -4675,13 +4584,12 @@ define void @i16_34x(<34 x i16>* %in, <34 x i16>* %out) {
 ;
 ; X86_64-AVX512-VL-BW-LABEL: i16_34x:
 ; X86_64-AVX512-VL-BW:       ## %bb.0: ## %entry
-; X86_64-AVX512-VL-BW-NEXT:    kxnord %k0, %k0, %k1
-; X86_64-AVX512-VL-BW-NEXT:    vmovdqu16 (%rdi), %zmm0 {%k1} {z}
 ; X86_64-AVX512-VL-BW-NEXT:    movl $3, %eax
-; X86_64-AVX512-VL-BW-NEXT:    kmovd %eax, %k2
-; X86_64-AVX512-VL-BW-NEXT:    vmovdqu16 64(%rdi), %zmm1 {%k2} {z}
-; X86_64-AVX512-VL-BW-NEXT:    vmovdqu16 %zmm1, 64(%rsi) {%k2}
-; X86_64-AVX512-VL-BW-NEXT:    vmovdqu16 %zmm0, (%rsi) {%k1}
+; X86_64-AVX512-VL-BW-NEXT:    kmovd %eax, %k1
+; X86_64-AVX512-VL-BW-NEXT:    vmovdqu16 64(%rdi), %zmm0 {%k1} {z}
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps (%rdi), %zmm1
+; X86_64-AVX512-VL-BW-NEXT:    vmovdqu16 %zmm0, 64(%rsi) {%k1}
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps %zmm1, (%rsi)
 ; X86_64-AVX512-VL-BW-NEXT:    vzeroupper
 ; X86_64-AVX512-VL-BW-NEXT:    retq
 entry:
@@ -4706,13 +4614,12 @@ define void @i16_48x(<48 x i16>* %in, <48 x i16>* %out) {
 ; X86-AVX512-VL-BW:       # %bb.0: # %entry
 ; X86-AVX512-VL-BW-NEXT:    movl {{[0-9]+}}(%esp), %eax
 ; X86-AVX512-VL-BW-NEXT:    movl {{[0-9]+}}(%esp), %ecx
-; X86-AVX512-VL-BW-NEXT:    kxnord %k0, %k0, %k1
-; X86-AVX512-VL-BW-NEXT:    vmovdqu16 (%ecx), %zmm0 {%k1} {z}
 ; X86-AVX512-VL-BW-NEXT:    movl $65535, %edx # imm = 0xFFFF
-; X86-AVX512-VL-BW-NEXT:    kmovd %edx, %k2
-; X86-AVX512-VL-BW-NEXT:    vmovdqu16 64(%ecx), %zmm1 {%k2} {z}
-; X86-AVX512-VL-BW-NEXT:    vmovdqu16 %zmm1, 64(%eax) {%k2}
-; X86-AVX512-VL-BW-NEXT:    vmovdqu16 %zmm0, (%eax) {%k1}
+; X86-AVX512-VL-BW-NEXT:    kmovd %edx, %k1
+; X86-AVX512-VL-BW-NEXT:    vmovdqu16 64(%ecx), %zmm0 {%k1} {z}
+; X86-AVX512-VL-BW-NEXT:    vmovaps (%ecx), %zmm1
+; X86-AVX512-VL-BW-NEXT:    vmovdqu16 %zmm0, 64(%eax) {%k1}
+; X86-AVX512-VL-BW-NEXT:    vmovaps %zmm1, (%eax)
 ; X86-AVX512-VL-BW-NEXT:    vzeroupper
 ; X86-AVX512-VL-BW-NEXT:    retl
 ;
@@ -4727,13 +4634,12 @@ define void @i16_48x(<48 x i16>* %in, <48 x i16>* %out) {
 ;
 ; X86_64-AVX512-VL-BW-LABEL: i16_48x:
 ; X86_64-AVX512-VL-BW:       ## %bb.0: ## %entry
-; X86_64-AVX512-VL-BW-NEXT:    kxnord %k0, %k0, %k1
-; X86_64-AVX512-VL-BW-NEXT:    vmovdqu16 (%rdi), %zmm0 {%k1} {z}
 ; X86_64-AVX512-VL-BW-NEXT:    movl $65535, %eax ## imm = 0xFFFF
-; X86_64-AVX512-VL-BW-NEXT:    kmovd %eax, %k2
-; X86_64-AVX512-VL-BW-NEXT:    vmovdqu16 64(%rdi), %zmm1 {%k2} {z}
-; X86_64-AVX512-VL-BW-NEXT:    vmovdqu16 %zmm1, 64(%rsi) {%k2}
-; X86_64-AVX512-VL-BW-NEXT:    vmovdqu16 %zmm0, (%rsi) {%k1}
+; X86_64-AVX512-VL-BW-NEXT:    kmovd %eax, %k1
+; X86_64-AVX512-VL-BW-NEXT:    vmovdqu16 64(%rdi), %zmm0 {%k1} {z}
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps (%rdi), %zmm1
+; X86_64-AVX512-VL-BW-NEXT:    vmovdqu16 %zmm0, 64(%rsi) {%k1}
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps %zmm1, (%rsi)
 ; X86_64-AVX512-VL-BW-NEXT:    vzeroupper
 ; X86_64-AVX512-VL-BW-NEXT:    retq
 entry:
@@ -4760,13 +4666,12 @@ define void @i16_49x(<49 x i16>* %in, <49 x i16>* %out) {
 ; X86-AVX512-VL-BW:       # %bb.0: # %entry
 ; X86-AVX512-VL-BW-NEXT:    movl {{[0-9]+}}(%esp), %eax
 ; X86-AVX512-VL-BW-NEXT:    movl {{[0-9]+}}(%esp), %ecx
-; X86-AVX512-VL-BW-NEXT:    kxnord %k0, %k0, %k1
-; X86-AVX512-VL-BW-NEXT:    vmovdqu16 (%ecx), %zmm0 {%k1} {z}
 ; X86-AVX512-VL-BW-NEXT:    movl $131071, %edx # imm = 0x1FFFF
-; X86-AVX512-VL-BW-NEXT:    kmovd %edx, %k2
-; X86-AVX512-VL-BW-NEXT:    vmovdqu16 64(%ecx), %zmm1 {%k2} {z}
-; X86-AVX512-VL-BW-NEXT:    vmovdqu16 %zmm1, 64(%eax) {%k2}
-; X86-AVX512-VL-BW-NEXT:    vmovdqu16 %zmm0, (%eax) {%k1}
+; X86-AVX512-VL-BW-NEXT:    kmovd %edx, %k1
+; X86-AVX512-VL-BW-NEXT:    vmovdqu16 64(%ecx), %zmm0 {%k1} {z}
+; X86-AVX512-VL-BW-NEXT:    vmovaps (%ecx), %zmm1
+; X86-AVX512-VL-BW-NEXT:    vmovdqu16 %zmm0, 64(%eax) {%k1}
+; X86-AVX512-VL-BW-NEXT:    vmovaps %zmm1, (%eax)
 ; X86-AVX512-VL-BW-NEXT:    vzeroupper
 ; X86-AVX512-VL-BW-NEXT:    retl
 ;
@@ -4783,13 +4688,12 @@ define void @i16_49x(<49 x i16>* %in, <49 x i16>* %out) {
 ;
 ; X86_64-AVX512-VL-BW-LABEL: i16_49x:
 ; X86_64-AVX512-VL-BW:       ## %bb.0: ## %entry
-; X86_64-AVX512-VL-BW-NEXT:    kxnord %k0, %k0, %k1
-; X86_64-AVX512-VL-BW-NEXT:    vmovdqu16 (%rdi), %zmm0 {%k1} {z}
 ; X86_64-AVX512-VL-BW-NEXT:    movl $131071, %eax ## imm = 0x1FFFF
-; X86_64-AVX512-VL-BW-NEXT:    kmovd %eax, %k2
-; X86_64-AVX512-VL-BW-NEXT:    vmovdqu16 64(%rdi), %zmm1 {%k2} {z}
-; X86_64-AVX512-VL-BW-NEXT:    vmovdqu16 %zmm1, 64(%rsi) {%k2}
-; X86_64-AVX512-VL-BW-NEXT:    vmovdqu16 %zmm0, (%rsi) {%k1}
+; X86_64-AVX512-VL-BW-NEXT:    kmovd %eax, %k1
+; X86_64-AVX512-VL-BW-NEXT:    vmovdqu16 64(%rdi), %zmm0 {%k1} {z}
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps (%rdi), %zmm1
+; X86_64-AVX512-VL-BW-NEXT:    vmovdqu16 %zmm0, 64(%rsi) {%k1}
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps %zmm1, (%rsi)
 ; X86_64-AVX512-VL-BW-NEXT:    vzeroupper
 ; X86_64-AVX512-VL-BW-NEXT:    retq
 entry:
@@ -5484,13 +5388,12 @@ define void @i32_17x(<17 x i32>* %in, <17 x i32>* %out) {
 ; X86-AVX512-VL:       # %bb.0: # %entry
 ; X86-AVX512-VL-NEXT:    movl {{[0-9]+}}(%esp), %eax
 ; X86-AVX512-VL-NEXT:    movl {{[0-9]+}}(%esp), %ecx
-; X86-AVX512-VL-NEXT:    kxnorw %k0, %k0, %k1
-; X86-AVX512-VL-NEXT:    vmovdqa32 (%ecx), %zmm0 {%k1} {z}
 ; X86-AVX512-VL-NEXT:    movw $1, %dx
-; X86-AVX512-VL-NEXT:    kmovw %edx, %k2
-; X86-AVX512-VL-NEXT:    vmovdqa32 64(%ecx), %zmm1 {%k2} {z}
-; X86-AVX512-VL-NEXT:    vmovdqa32 %zmm1, 64(%eax) {%k2}
-; X86-AVX512-VL-NEXT:    vmovdqa32 %zmm0, (%eax) {%k1}
+; X86-AVX512-VL-NEXT:    kmovw %edx, %k1
+; X86-AVX512-VL-NEXT:    vmovdqa32 64(%ecx), %zmm0 {%k1} {z}
+; X86-AVX512-VL-NEXT:    vmovaps (%ecx), %zmm1
+; X86-AVX512-VL-NEXT:    vmovdqa32 %zmm0, 64(%eax) {%k1}
+; X86-AVX512-VL-NEXT:    vmovaps %zmm1, (%eax)
 ; X86-AVX512-VL-NEXT:    vzeroupper
 ; X86-AVX512-VL-NEXT:    retl
 ;
@@ -5498,37 +5401,34 @@ define void @i32_17x(<17 x i32>* %in, <17 x i32>* %out) {
 ; X86-AVX512-VL-BW:       # %bb.0: # %entry
 ; X86-AVX512-VL-BW-NEXT:    movl {{[0-9]+}}(%esp), %eax
 ; X86-AVX512-VL-BW-NEXT:    movl {{[0-9]+}}(%esp), %ecx
-; X86-AVX512-VL-BW-NEXT:    kxnorw %k0, %k0, %k1
-; X86-AVX512-VL-BW-NEXT:    vmovdqa32 (%ecx), %zmm0 {%k1} {z}
 ; X86-AVX512-VL-BW-NEXT:    movw $1, %dx
-; X86-AVX512-VL-BW-NEXT:    kmovd %edx, %k2
-; X86-AVX512-VL-BW-NEXT:    vmovdqa32 64(%ecx), %zmm1 {%k2} {z}
-; X86-AVX512-VL-BW-NEXT:    vmovdqa32 %zmm1, 64(%eax) {%k2}
-; X86-AVX512-VL-BW-NEXT:    vmovdqa32 %zmm0, (%eax) {%k1}
+; X86-AVX512-VL-BW-NEXT:    kmovd %edx, %k1
+; X86-AVX512-VL-BW-NEXT:    vmovdqa32 64(%ecx), %zmm0 {%k1} {z}
+; X86-AVX512-VL-BW-NEXT:    vmovaps (%ecx), %zmm1
+; X86-AVX512-VL-BW-NEXT:    vmovdqa32 %zmm0, 64(%eax) {%k1}
+; X86-AVX512-VL-BW-NEXT:    vmovaps %zmm1, (%eax)
 ; X86-AVX512-VL-BW-NEXT:    vzeroupper
 ; X86-AVX512-VL-BW-NEXT:    retl
 ;
 ; X86_64-AVX512-VL-LABEL: i32_17x:
 ; X86_64-AVX512-VL:       ## %bb.0: ## %entry
-; X86_64-AVX512-VL-NEXT:    kxnorw %k0, %k0, %k1
-; X86_64-AVX512-VL-NEXT:    vmovdqa32 (%rdi), %zmm0 {%k1} {z}
 ; X86_64-AVX512-VL-NEXT:    movw $1, %ax
-; X86_64-AVX512-VL-NEXT:    kmovw %eax, %k2
-; X86_64-AVX512-VL-NEXT:    vmovdqa32 64(%rdi), %zmm1 {%k2} {z}
-; X86_64-AVX512-VL-NEXT:    vmovdqa32 %zmm1, 64(%rsi) {%k2}
-; X86_64-AVX512-VL-NEXT:    vmovdqa32 %zmm0, (%rsi) {%k1}
+; X86_64-AVX512-VL-NEXT:    kmovw %eax, %k1
+; X86_64-AVX512-VL-NEXT:    vmovdqa32 64(%rdi), %zmm0 {%k1} {z}
+; X86_64-AVX512-VL-NEXT:    vmovaps (%rdi), %zmm1
+; X86_64-AVX512-VL-NEXT:    vmovdqa32 %zmm0, 64(%rsi) {%k1}
+; X86_64-AVX512-VL-NEXT:    vmovaps %zmm1, (%rsi)
 ; X86_64-AVX512-VL-NEXT:    vzeroupper
 ; X86_64-AVX512-VL-NEXT:    retq
 ;
 ; X86_64-AVX512-VL-BW-LABEL: i32_17x:
 ; X86_64-AVX512-VL-BW:       ## %bb.0: ## %entry
-; X86_64-AVX512-VL-BW-NEXT:    kxnorw %k0, %k0, %k1
-; X86_64-AVX512-VL-BW-NEXT:    vmovdqa32 (%rdi), %zmm0 {%k1} {z}
 ; X86_64-AVX512-VL-BW-NEXT:    movw $1, %ax
-; X86_64-AVX512-VL-BW-NEXT:    kmovd %eax, %k2
-; X86_64-AVX512-VL-BW-NEXT:    vmovdqa32 64(%rdi), %zmm1 {%k2} {z}
-; X86_64-AVX512-VL-BW-NEXT:    vmovdqa32 %zmm1, 64(%rsi) {%k2}
-; X86_64-AVX512-VL-BW-NEXT:    vmovdqa32 %zmm0, (%rsi) {%k1}
+; X86_64-AVX512-VL-BW-NEXT:    kmovd %eax, %k1
+; X86_64-AVX512-VL-BW-NEXT:    vmovdqa32 64(%rdi), %zmm0 {%k1} {z}
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps (%rdi), %zmm1
+; X86_64-AVX512-VL-BW-NEXT:    vmovdqa32 %zmm0, 64(%rsi) {%k1}
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps %zmm1, (%rsi)
 ; X86_64-AVX512-VL-BW-NEXT:    vzeroupper
 ; X86_64-AVX512-VL-BW-NEXT:    retq
 entry:
@@ -5542,13 +5442,12 @@ define void @i32_18x(<18 x i32>* %in, <18 x i32>* %out) {
 ; X86-AVX512-VL:       # %bb.0: # %entry
 ; X86-AVX512-VL-NEXT:    movl {{[0-9]+}}(%esp), %eax
 ; X86-AVX512-VL-NEXT:    movl {{[0-9]+}}(%esp), %ecx
-; X86-AVX512-VL-NEXT:    kxnorw %k0, %k0, %k1
-; X86-AVX512-VL-NEXT:    vmovdqa32 (%ecx), %zmm0 {%k1} {z}
 ; X86-AVX512-VL-NEXT:    movw $3, %dx
-; X86-AVX512-VL-NEXT:    kmovw %edx, %k2
-; X86-AVX512-VL-NEXT:    vmovdqa32 64(%ecx), %zmm1 {%k2} {z}
-; X86-AVX512-VL-NEXT:    vmovdqa32 %zmm1, 64(%eax) {%k2}
-; X86-AVX512-VL-NEXT:    vmovdqa32 %zmm0, (%eax) {%k1}
+; X86-AVX512-VL-NEXT:    kmovw %edx, %k1
+; X86-AVX512-VL-NEXT:    vmovdqa32 64(%ecx), %zmm0 {%k1} {z}
+; X86-AVX512-VL-NEXT:    vmovaps (%ecx), %zmm1
+; X86-AVX512-VL-NEXT:    vmovdqa32 %zmm0, 64(%eax) {%k1}
+; X86-AVX512-VL-NEXT:    vmovaps %zmm1, (%eax)
 ; X86-AVX512-VL-NEXT:    vzeroupper
 ; X86-AVX512-VL-NEXT:    retl
 ;
@@ -5556,37 +5455,34 @@ define void @i32_18x(<18 x i32>* %in, <18 x i32>* %out) {
 ; X86-AVX512-VL-BW:       # %bb.0: # %entry
 ; X86-AVX512-VL-BW-NEXT:    movl {{[0-9]+}}(%esp), %eax
 ; X86-AVX512-VL-BW-NEXT:    movl {{[0-9]+}}(%esp), %ecx
-; X86-AVX512-VL-BW-NEXT:    kxnorw %k0, %k0, %k1
-; X86-AVX512-VL-BW-NEXT:    vmovdqa32 (%ecx), %zmm0 {%k1} {z}
 ; X86-AVX512-VL-BW-NEXT:    movw $3, %dx
-; X86-AVX512-VL-BW-NEXT:    kmovd %edx, %k2
-; X86-AVX512-VL-BW-NEXT:    vmovdqa32 64(%ecx), %zmm1 {%k2} {z}
-; X86-AVX512-VL-BW-NEXT:    vmovdqa32 %zmm1, 64(%eax) {%k2}
-; X86-AVX512-VL-BW-NEXT:    vmovdqa32 %zmm0, (%eax) {%k1}
+; X86-AVX512-VL-BW-NEXT:    kmovd %edx, %k1
+; X86-AVX512-VL-BW-NEXT:    vmovdqa32 64(%ecx), %zmm0 {%k1} {z}
+; X86-AVX512-VL-BW-NEXT:    vmovaps (%ecx), %zmm1
+; X86-AVX512-VL-BW-NEXT:    vmovdqa32 %zmm0, 64(%eax) {%k1}
+; X86-AVX512-VL-BW-NEXT:    vmovaps %zmm1, (%eax)
 ; X86-AVX512-VL-BW-NEXT:    vzeroupper
 ; X86-AVX512-VL-BW-NEXT:    retl
 ;
 ; X86_64-AVX512-VL-LABEL: i32_18x:
 ; X86_64-AVX512-VL:       ## %bb.0: ## %entry
-; X86_64-AVX512-VL-NEXT:    kxnorw %k0, %k0, %k1
-; X86_64-AVX512-VL-NEXT:    vmovdqa32 (%rdi), %zmm0 {%k1} {z}
 ; X86_64-AVX512-VL-NEXT:    movw $3, %ax
-; X86_64-AVX512-VL-NEXT:    kmovw %eax, %k2
-; X86_64-AVX512-VL-NEXT:    vmovdqa32 64(%rdi), %zmm1 {%k2} {z}
-; X86_64-AVX512-VL-NEXT:    vmovdqa32 %zmm1, 64(%rsi) {%k2}
-; X86_64-AVX512-VL-NEXT:    vmovdqa32 %zmm0, (%rsi) {%k1}
+; X86_64-AVX512-VL-NEXT:    kmovw %eax, %k1
+; X86_64-AVX512-VL-NEXT:    vmovdqa32 64(%rdi), %zmm0 {%k1} {z}
+; X86_64-AVX512-VL-NEXT:    vmovaps (%rdi), %zmm1
+; X86_64-AVX512-VL-NEXT:    vmovdqa32 %zmm0, 64(%rsi) {%k1}
+; X86_64-AVX512-VL-NEXT:    vmovaps %zmm1, (%rsi)
 ; X86_64-AVX512-VL-NEXT:    vzeroupper
 ; X86_64-AVX512-VL-NEXT:    retq
 ;
 ; X86_64-AVX512-VL-BW-LABEL: i32_18x:
 ; X86_64-AVX512-VL-BW:       ## %bb.0: ## %entry
-; X86_64-AVX512-VL-BW-NEXT:    kxnorw %k0, %k0, %k1
-; X86_64-AVX512-VL-BW-NEXT:    vmovdqa32 (%rdi), %zmm0 {%k1} {z}
 ; X86_64-AVX512-VL-BW-NEXT:    movw $3, %ax
-; X86_64-AVX512-VL-BW-NEXT:    kmovd %eax, %k2
-; X86_64-AVX512-VL-BW-NEXT:    vmovdqa32 64(%rdi), %zmm1 {%k2} {z}
-; X86_64-AVX512-VL-BW-NEXT:    vmovdqa32 %zmm1, 64(%rsi) {%k2}
-; X86_64-AVX512-VL-BW-NEXT:    vmovdqa32 %zmm0, (%rsi) {%k1}
+; X86_64-AVX512-VL-BW-NEXT:    kmovd %eax, %k1
+; X86_64-AVX512-VL-BW-NEXT:    vmovdqa32 64(%rdi), %zmm0 {%k1} {z}
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps (%rdi), %zmm1
+; X86_64-AVX512-VL-BW-NEXT:    vmovdqa32 %zmm0, 64(%rsi) {%k1}
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps %zmm1, (%rsi)
 ; X86_64-AVX512-VL-BW-NEXT:    vzeroupper
 ; X86_64-AVX512-VL-BW-NEXT:    retq
 entry:
@@ -5600,13 +5496,12 @@ define void @i32_30x(<30 x i32>* %in, <30 x i32>* %out) {
 ; X86-AVX512-VL:       # %bb.0: # %entry
 ; X86-AVX512-VL-NEXT:    movl {{[0-9]+}}(%esp), %eax
 ; X86-AVX512-VL-NEXT:    movl {{[0-9]+}}(%esp), %ecx
-; X86-AVX512-VL-NEXT:    kxnorw %k0, %k0, %k1
-; X86-AVX512-VL-NEXT:    vmovdqa32 (%ecx), %zmm0 {%k1} {z}
 ; X86-AVX512-VL-NEXT:    movw $16383, %dx # imm = 0x3FFF
-; X86-AVX512-VL-NEXT:    kmovw %edx, %k2
-; X86-AVX512-VL-NEXT:    vmovdqa32 64(%ecx), %zmm1 {%k2} {z}
-; X86-AVX512-VL-NEXT:    vmovdqa32 %zmm1, 64(%eax) {%k2}
-; X86-AVX512-VL-NEXT:    vmovdqa32 %zmm0, (%eax) {%k1}
+; X86-AVX512-VL-NEXT:    kmovw %edx, %k1
+; X86-AVX512-VL-NEXT:    vmovdqa32 64(%ecx), %zmm0 {%k1} {z}
+; X86-AVX512-VL-NEXT:    vmovaps (%ecx), %zmm1
+; X86-AVX512-VL-NEXT:    vmovdqa32 %zmm0, 64(%eax) {%k1}
+; X86-AVX512-VL-NEXT:    vmovaps %zmm1, (%eax)
 ; X86-AVX512-VL-NEXT:    vzeroupper
 ; X86-AVX512-VL-NEXT:    retl
 ;
@@ -5614,37 +5509,34 @@ define void @i32_30x(<30 x i32>* %in, <30 x i32>* %out) {
 ; X86-AVX512-VL-BW:       # %bb.0: # %entry
 ; X86-AVX512-VL-BW-NEXT:    movl {{[0-9]+}}(%esp), %eax
 ; X86-AVX512-VL-BW-NEXT:    movl {{[0-9]+}}(%esp), %ecx
-; X86-AVX512-VL-BW-NEXT:    kxnorw %k0, %k0, %k1
-; X86-AVX512-VL-BW-NEXT:    vmovdqa32 (%ecx), %zmm0 {%k1} {z}
 ; X86-AVX512-VL-BW-NEXT:    movw $16383, %dx # imm = 0x3FFF
-; X86-AVX512-VL-BW-NEXT:    kmovd %edx, %k2
-; X86-AVX512-VL-BW-NEXT:    vmovdqa32 64(%ecx), %zmm1 {%k2} {z}
-; X86-AVX512-VL-BW-NEXT:    vmovdqa32 %zmm1, 64(%eax) {%k2}
-; X86-AVX512-VL-BW-NEXT:    vmovdqa32 %zmm0, (%eax) {%k1}
+; X86-AVX512-VL-BW-NEXT:    kmovd %edx, %k1
+; X86-AVX512-VL-BW-NEXT:    vmovdqa32 64(%ecx), %zmm0 {%k1} {z}
+; X86-AVX512-VL-BW-NEXT:    vmovaps (%ecx), %zmm1
+; X86-AVX512-VL-BW-NEXT:    vmovdqa32 %zmm0, 64(%eax) {%k1}
+; X86-AVX512-VL-BW-NEXT:    vmovaps %zmm1, (%eax)
 ; X86-AVX512-VL-BW-NEXT:    vzeroupper
 ; X86-AVX512-VL-BW-NEXT:    retl
 ;
 ; X86_64-AVX512-VL-LABEL: i32_30x:
 ; X86_64-AVX512-VL:       ## %bb.0: ## %entry
-; X86_64-AVX512-VL-NEXT:    kxnorw %k0, %k0, %k1
-; X86_64-AVX512-VL-NEXT:    vmovdqa32 (%rdi), %zmm0 {%k1} {z}
 ; X86_64-AVX512-VL-NEXT:    movw $16383, %ax ## imm = 0x3FFF
-; X86_64-AVX512-VL-NEXT:    kmovw %eax, %k2
-; X86_64-AVX512-VL-NEXT:    vmovdqa32 64(%rdi), %zmm1 {%k2} {z}
-; X86_64-AVX512-VL-NEXT:    vmovdqa32 %zmm1, 64(%rsi) {%k2}
-; X86_64-AVX512-VL-NEXT:    vmovdqa32 %zmm0, (%rsi) {%k1}
+; X86_64-AVX512-VL-NEXT:    kmovw %eax, %k1
+; X86_64-AVX512-VL-NEXT:    vmovdqa32 64(%rdi), %zmm0 {%k1} {z}
+; X86_64-AVX512-VL-NEXT:    vmovaps (%rdi), %zmm1
+; X86_64-AVX512-VL-NEXT:    vmovdqa32 %zmm0, 64(%rsi) {%k1}
+; X86_64-AVX512-VL-NEXT:    vmovaps %zmm1, (%rsi)
 ; X86_64-AVX512-VL-NEXT:    vzeroupper
 ; X86_64-AVX512-VL-NEXT:    retq
 ;
 ; X86_64-AVX512-VL-BW-LABEL: i32_30x:
 ; X86_64-AVX512-VL-BW:       ## %bb.0: ## %entry
-; X86_64-AVX512-VL-BW-NEXT:    kxnorw %k0, %k0, %k1
-; X86_64-AVX512-VL-BW-NEXT:    vmovdqa32 (%rdi), %zmm0 {%k1} {z}
 ; X86_64-AVX512-VL-BW-NEXT:    movw $16383, %ax ## imm = 0x3FFF
-; X86_64-AVX512-VL-BW-NEXT:    kmovd %eax, %k2
-; X86_64-AVX512-VL-BW-NEXT:    vmovdqa32 64(%rdi), %zmm1 {%k2} {z}
-; X86_64-AVX512-VL-BW-NEXT:    vmovdqa32 %zmm1, 64(%rsi) {%k2}
-; X86_64-AVX512-VL-BW-NEXT:    vmovdqa32 %zmm0, (%rsi) {%k1}
+; X86_64-AVX512-VL-BW-NEXT:    kmovd %eax, %k1
+; X86_64-AVX512-VL-BW-NEXT:    vmovdqa32 64(%rdi), %zmm0 {%k1} {z}
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps (%rdi), %zmm1
+; X86_64-AVX512-VL-BW-NEXT:    vmovdqa32 %zmm0, 64(%rsi) {%k1}
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps %zmm1, (%rsi)
 ; X86_64-AVX512-VL-BW-NEXT:    vzeroupper
 ; X86_64-AVX512-VL-BW-NEXT:    retq
 entry:
@@ -5658,13 +5550,12 @@ define void @i32_31x(<31 x i32>* %in, <31 x i32>* %out) {
 ; X86-AVX512-VL:       # %bb.0: # %entry
 ; X86-AVX512-VL-NEXT:    movl {{[0-9]+}}(%esp), %eax
 ; X86-AVX512-VL-NEXT:    movl {{[0-9]+}}(%esp), %ecx
-; X86-AVX512-VL-NEXT:    kxnorw %k0, %k0, %k1
-; X86-AVX512-VL-NEXT:    vmovdqa32 (%ecx), %zmm0 {%k1} {z}
 ; X86-AVX512-VL-NEXT:    movw $32767, %dx # imm = 0x7FFF
-; X86-AVX512-VL-NEXT:    kmovw %edx, %k2
-; X86-AVX512-VL-NEXT:    vmovdqa32 64(%ecx), %zmm1 {%k2} {z}
-; X86-AVX512-VL-NEXT:    vmovdqa32 %zmm1, 64(%eax) {%k2}
-; X86-AVX512-VL-NEXT:    vmovdqa32 %zmm0, (%eax) {%k1}
+; X86-AVX512-VL-NEXT:    kmovw %edx, %k1
+; X86-AVX512-VL-NEXT:    vmovdqa32 64(%ecx), %zmm0 {%k1} {z}
+; X86-AVX512-VL-NEXT:    vmovaps (%ecx), %zmm1
+; X86-AVX512-VL-NEXT:    vmovdqa32 %zmm0, 64(%eax) {%k1}
+; X86-AVX512-VL-NEXT:    vmovaps %zmm1, (%eax)
 ; X86-AVX512-VL-NEXT:    vzeroupper
 ; X86-AVX512-VL-NEXT:    retl
 ;
@@ -5672,37 +5563,34 @@ define void @i32_31x(<31 x i32>* %in, <31 x i32>* %out) {
 ; X86-AVX512-VL-BW:       # %bb.0: # %entry
 ; X86-AVX512-VL-BW-NEXT:    movl {{[0-9]+}}(%esp), %eax
 ; X86-AVX512-VL-BW-NEXT:    movl {{[0-9]+}}(%esp), %ecx
-; X86-AVX512-VL-BW-NEXT:    kxnorw %k0, %k0, %k1
-; X86-AVX512-VL-BW-NEXT:    vmovdqa32 (%ecx), %zmm0 {%k1} {z}
 ; X86-AVX512-VL-BW-NEXT:    movw $32767, %dx # imm = 0x7FFF
-; X86-AVX512-VL-BW-NEXT:    kmovd %edx, %k2
-; X86-AVX512-VL-BW-NEXT:    vmovdqa32 64(%ecx), %zmm1 {%k2} {z}
-; X86-AVX512-VL-BW-NEXT:    vmovdqa32 %zmm1, 64(%eax) {%k2}
-; X86-AVX512-VL-BW-NEXT:    vmovdqa32 %zmm0, (%eax) {%k1}
+; X86-AVX512-VL-BW-NEXT:    kmovd %edx, %k1
+; X86-AVX512-VL-BW-NEXT:    vmovdqa32 64(%ecx), %zmm0 {%k1} {z}
+; X86-AVX512-VL-BW-NEXT:    vmovaps (%ecx), %zmm1
+; X86-AVX512-VL-BW-NEXT:    vmovdqa32 %zmm0, 64(%eax) {%k1}
+; X86-AVX512-VL-BW-NEXT:    vmovaps %zmm1, (%eax)
 ; X86-AVX512-VL-BW-NEXT:    vzeroupper
 ; X86-AVX512-VL-BW-NEXT:    retl
 ;
 ; X86_64-AVX512-VL-LABEL: i32_31x:
 ; X86_64-AVX512-VL:       ## %bb.0: ## %entry
-; X86_64-AVX512-VL-NEXT:    kxnorw %k0, %k0, %k1
-; X86_64-AVX512-VL-NEXT:    vmovdqa32 (%rdi), %zmm0 {%k1} {z}
 ; X86_64-AVX512-VL-NEXT:    movw $32767, %ax ## imm = 0x7FFF
-; X86_64-AVX512-VL-NEXT:    kmovw %eax, %k2
-; X86_64-AVX512-VL-NEXT:    vmovdqa32 64(%rdi), %zmm1 {%k2} {z}
-; X86_64-AVX512-VL-NEXT:    vmovdqa32 %zmm1, 64(%rsi) {%k2}
-; X86_64-AVX512-VL-NEXT:    vmovdqa32 %zmm0, (%rsi) {%k1}
+; X86_64-AVX512-VL-NEXT:    kmovw %eax, %k1
+; X86_64-AVX512-VL-NEXT:    vmovdqa32 64(%rdi), %zmm0 {%k1} {z}
+; X86_64-AVX512-VL-NEXT:    vmovaps (%rdi), %zmm1
+; X86_64-AVX512-VL-NEXT:    vmovdqa32 %zmm0, 64(%rsi) {%k1}
+; X86_64-AVX512-VL-NEXT:    vmovaps %zmm1, (%rsi)
 ; X86_64-AVX512-VL-NEXT:    vzeroupper
 ; X86_64-AVX512-VL-NEXT:    retq
 ;
 ; X86_64-AVX512-VL-BW-LABEL: i32_31x:
 ; X86_64-AVX512-VL-BW:       ## %bb.0: ## %entry
-; X86_64-AVX512-VL-BW-NEXT:    kxnorw %k0, %k0, %k1
-; X86_64-AVX512-VL-BW-NEXT:    vmovdqa32 (%rdi), %zmm0 {%k1} {z}
 ; X86_64-AVX512-VL-BW-NEXT:    movw $32767, %ax ## imm = 0x7FFF
-; X86_64-AVX512-VL-BW-NEXT:    kmovd %eax, %k2
-; X86_64-AVX512-VL-BW-NEXT:    vmovdqa32 64(%rdi), %zmm1 {%k2} {z}
-; X86_64-AVX512-VL-BW-NEXT:    vmovdqa32 %zmm1, 64(%rsi) {%k2}
-; X86_64-AVX512-VL-BW-NEXT:    vmovdqa32 %zmm0, (%rsi) {%k1}
+; X86_64-AVX512-VL-BW-NEXT:    kmovd %eax, %k1
+; X86_64-AVX512-VL-BW-NEXT:    vmovdqa32 64(%rdi), %zmm0 {%k1} {z}
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps (%rdi), %zmm1
+; X86_64-AVX512-VL-BW-NEXT:    vmovdqa32 %zmm0, 64(%rsi) {%k1}
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps %zmm1, (%rsi)
 ; X86_64-AVX512-VL-BW-NEXT:    vzeroupper
 ; X86_64-AVX512-VL-BW-NEXT:    retq
 entry:
@@ -5765,12 +5653,11 @@ define void @i32_33x(<33 x i32>* %in, <33 x i32>* %out) {
 ; X86-AVX512-VL-NEXT:    movw $1, %dx
 ; X86-AVX512-VL-NEXT:    kmovw %edx, %k1
 ; X86-AVX512-VL-NEXT:    vmovdqa32 128(%ecx), %zmm0 {%k1} {z}
-; X86-AVX512-VL-NEXT:    kxnorw %k0, %k0, %k2
-; X86-AVX512-VL-NEXT:    vmovdqa32 (%ecx), %zmm1 {%k2} {z}
-; X86-AVX512-VL-NEXT:    vmovdqa32 64(%ecx), %zmm2 {%k2} {z}
-; X86-AVX512-VL-NEXT:    vmovdqa32 %zmm2, 64(%eax) {%k2}
-; X86-AVX512-VL-NEXT:    vmovdqa32 %zmm1, (%eax) {%k2}
+; X86-AVX512-VL-NEXT:    vmovaps (%ecx), %zmm1
+; X86-AVX512-VL-NEXT:    vmovaps 64(%ecx), %zmm2
 ; X86-AVX512-VL-NEXT:    vmovdqa32 %zmm0, 128(%eax) {%k1}
+; X86-AVX512-VL-NEXT:    vmovaps %zmm2, 64(%eax)
+; X86-AVX512-VL-NEXT:    vmovaps %zmm1, (%eax)
 ; X86-AVX512-VL-NEXT:    vzeroupper
 ; X86-AVX512-VL-NEXT:    retl
 ;
@@ -5781,12 +5668,11 @@ define void @i32_33x(<33 x i32>* %in, <33 x i32>* %out) {
 ; X86-AVX512-VL-BW-NEXT:    movw $1, %dx
 ; X86-AVX512-VL-BW-NEXT:    kmovd %edx, %k1
 ; X86-AVX512-VL-BW-NEXT:    vmovdqa32 128(%ecx), %zmm0 {%k1} {z}
-; X86-AVX512-VL-BW-NEXT:    kxnorw %k0, %k0, %k2
-; X86-AVX512-VL-BW-NEXT:    vmovdqa32 (%ecx), %zmm1 {%k2} {z}
-; X86-AVX512-VL-BW-NEXT:    vmovdqa32 64(%ecx), %zmm2 {%k2} {z}
-; X86-AVX512-VL-BW-NEXT:    vmovdqa32 %zmm2, 64(%eax) {%k2}
-; X86-AVX512-VL-BW-NEXT:    vmovdqa32 %zmm1, (%eax) {%k2}
+; X86-AVX512-VL-BW-NEXT:    vmovaps (%ecx), %zmm1
+; X86-AVX512-VL-BW-NEXT:    vmovaps 64(%ecx), %zmm2
 ; X86-AVX512-VL-BW-NEXT:    vmovdqa32 %zmm0, 128(%eax) {%k1}
+; X86-AVX512-VL-BW-NEXT:    vmovaps %zmm2, 64(%eax)
+; X86-AVX512-VL-BW-NEXT:    vmovaps %zmm1, (%eax)
 ; X86-AVX512-VL-BW-NEXT:    vzeroupper
 ; X86-AVX512-VL-BW-NEXT:    retl
 ;
@@ -5795,12 +5681,11 @@ define void @i32_33x(<33 x i32>* %in, <33 x i32>* %out) {
 ; X86_64-AVX512-VL-NEXT:    movw $1, %ax
 ; X86_64-AVX512-VL-NEXT:    kmovw %eax, %k1
 ; X86_64-AVX512-VL-NEXT:    vmovdqa32 128(%rdi), %zmm0 {%k1} {z}
-; X86_64-AVX512-VL-NEXT:    kxnorw %k0, %k0, %k2
-; X86_64-AVX512-VL-NEXT:    vmovdqa32 (%rdi), %zmm1 {%k2} {z}
-; X86_64-AVX512-VL-NEXT:    vmovdqa32 64(%rdi), %zmm2 {%k2} {z}
-; X86_64-AVX512-VL-NEXT:    vmovdqa32 %zmm2, 64(%rsi) {%k2}
-; X86_64-AVX512-VL-NEXT:    vmovdqa32 %zmm1, (%rsi) {%k2}
+; X86_64-AVX512-VL-NEXT:    vmovaps (%rdi), %zmm1
+; X86_64-AVX512-VL-NEXT:    vmovaps 64(%rdi), %zmm2
 ; X86_64-AVX512-VL-NEXT:    vmovdqa32 %zmm0, 128(%rsi) {%k1}
+; X86_64-AVX512-VL-NEXT:    vmovaps %zmm2, 64(%rsi)
+; X86_64-AVX512-VL-NEXT:    vmovaps %zmm1, (%rsi)
 ; X86_64-AVX512-VL-NEXT:    vzeroupper
 ; X86_64-AVX512-VL-NEXT:    retq
 ;
@@ -5809,12 +5694,11 @@ define void @i32_33x(<33 x i32>* %in, <33 x i32>* %out) {
 ; X86_64-AVX512-VL-BW-NEXT:    movw $1, %ax
 ; X86_64-AVX512-VL-BW-NEXT:    kmovd %eax, %k1
 ; X86_64-AVX512-VL-BW-NEXT:    vmovdqa32 128(%rdi), %zmm0 {%k1} {z}
-; X86_64-AVX512-VL-BW-NEXT:    kxnorw %k0, %k0, %k2
-; X86_64-AVX512-VL-BW-NEXT:    vmovdqa32 (%rdi), %zmm1 {%k2} {z}
-; X86_64-AVX512-VL-BW-NEXT:    vmovdqa32 64(%rdi), %zmm2 {%k2} {z}
-; X86_64-AVX512-VL-BW-NEXT:    vmovdqa32 %zmm2, 64(%rsi) {%k2}
-; X86_64-AVX512-VL-BW-NEXT:    vmovdqa32 %zmm1, (%rsi) {%k2}
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps (%rdi), %zmm1
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps 64(%rdi), %zmm2
 ; X86_64-AVX512-VL-BW-NEXT:    vmovdqa32 %zmm0, 128(%rsi) {%k1}
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps %zmm2, 64(%rsi)
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps %zmm1, (%rsi)
 ; X86_64-AVX512-VL-BW-NEXT:    vzeroupper
 ; X86_64-AVX512-VL-BW-NEXT:    retq
 entry:
@@ -5831,12 +5715,11 @@ define void @i32_34x(<34 x i32>* %in, <34 x i32>* %out) {
 ; X86-AVX512-VL-NEXT:    movw $3, %dx
 ; X86-AVX512-VL-NEXT:    kmovw %edx, %k1
 ; X86-AVX512-VL-NEXT:    vmovdqa32 128(%ecx), %zmm0 {%k1} {z}
-; X86-AVX512-VL-NEXT:    kxnorw %k0, %k0, %k2
-; X86-AVX512-VL-NEXT:    vmovdqa32 (%ecx), %zmm1 {%k2} {z}
-; X86-AVX512-VL-NEXT:    vmovdqa32 64(%ecx), %zmm2 {%k2} {z}
-; X86-AVX512-VL-NEXT:    vmovdqa32 %zmm2, 64(%eax) {%k2}
-; X86-AVX512-VL-NEXT:    vmovdqa32 %zmm1, (%eax) {%k2}
+; X86-AVX512-VL-NEXT:    vmovaps (%ecx), %zmm1
+; X86-AVX512-VL-NEXT:    vmovaps 64(%ecx), %zmm2
 ; X86-AVX512-VL-NEXT:    vmovdqa32 %zmm0, 128(%eax) {%k1}
+; X86-AVX512-VL-NEXT:    vmovaps %zmm2, 64(%eax)
+; X86-AVX512-VL-NEXT:    vmovaps %zmm1, (%eax)
 ; X86-AVX512-VL-NEXT:    vzeroupper
 ; X86-AVX512-VL-NEXT:    retl
 ;
@@ -5847,12 +5730,11 @@ define void @i32_34x(<34 x i32>* %in, <34 x i32>* %out) {
 ; X86-AVX512-VL-BW-NEXT:    movw $3, %dx
 ; X86-AVX512-VL-BW-NEXT:    kmovd %edx, %k1
 ; X86-AVX512-VL-BW-NEXT:    vmovdqa32 128(%ecx), %zmm0 {%k1} {z}
-; X86-AVX512-VL-BW-NEXT:    kxnorw %k0, %k0, %k2
-; X86-AVX512-VL-BW-NEXT:    vmovdqa32 (%ecx), %zmm1 {%k2} {z}
-; X86-AVX512-VL-BW-NEXT:    vmovdqa32 64(%ecx), %zmm2 {%k2} {z}
-; X86-AVX512-VL-BW-NEXT:    vmovdqa32 %zmm2, 64(%eax) {%k2}
-; X86-AVX512-VL-BW-NEXT:    vmovdqa32 %zmm1, (%eax) {%k2}
+; X86-AVX512-VL-BW-NEXT:    vmovaps (%ecx), %zmm1
+; X86-AVX512-VL-BW-NEXT:    vmovaps 64(%ecx), %zmm2
 ; X86-AVX512-VL-BW-NEXT:    vmovdqa32 %zmm0, 128(%eax) {%k1}
+; X86-AVX512-VL-BW-NEXT:    vmovaps %zmm2, 64(%eax)
+; X86-AVX512-VL-BW-NEXT:    vmovaps %zmm1, (%eax)
 ; X86-AVX512-VL-BW-NEXT:    vzeroupper
 ; X86-AVX512-VL-BW-NEXT:    retl
 ;
@@ -5861,12 +5743,11 @@ define void @i32_34x(<34 x i32>* %in, <34 x i32>* %out) {
 ; X86_64-AVX512-VL-NEXT:    movw $3, %ax
 ; X86_64-AVX512-VL-NEXT:    kmovw %eax, %k1
 ; X86_64-AVX512-VL-NEXT:    vmovdqa32 128(%rdi), %zmm0 {%k1} {z}
-; X86_64-AVX512-VL-NEXT:    kxnorw %k0, %k0, %k2
-; X86_64-AVX512-VL-NEXT:    vmovdqa32 (%rdi), %zmm1 {%k2} {z}
-; X86_64-AVX512-VL-NEXT:    vmovdqa32 64(%rdi), %zmm2 {%k2} {z}
-; X86_64-AVX512-VL-NEXT:    vmovdqa32 %zmm2, 64(%rsi) {%k2}
-; X86_64-AVX512-VL-NEXT:    vmovdqa32 %zmm1, (%rsi) {%k2}
+; X86_64-AVX512-VL-NEXT:    vmovaps (%rdi), %zmm1
+; X86_64-AVX512-VL-NEXT:    vmovaps 64(%rdi), %zmm2
 ; X86_64-AVX512-VL-NEXT:    vmovdqa32 %zmm0, 128(%rsi) {%k1}
+; X86_64-AVX512-VL-NEXT:    vmovaps %zmm2, 64(%rsi)
+; X86_64-AVX512-VL-NEXT:    vmovaps %zmm1, (%rsi)
 ; X86_64-AVX512-VL-NEXT:    vzeroupper
 ; X86_64-AVX512-VL-NEXT:    retq
 ;
@@ -5875,12 +5756,11 @@ define void @i32_34x(<34 x i32>* %in, <34 x i32>* %out) {
 ; X86_64-AVX512-VL-BW-NEXT:    movw $3, %ax
 ; X86_64-AVX512-VL-BW-NEXT:    kmovd %eax, %k1
 ; X86_64-AVX512-VL-BW-NEXT:    vmovdqa32 128(%rdi), %zmm0 {%k1} {z}
-; X86_64-AVX512-VL-BW-NEXT:    kxnorw %k0, %k0, %k2
-; X86_64-AVX512-VL-BW-NEXT:    vmovdqa32 (%rdi), %zmm1 {%k2} {z}
-; X86_64-AVX512-VL-BW-NEXT:    vmovdqa32 64(%rdi), %zmm2 {%k2} {z}
-; X86_64-AVX512-VL-BW-NEXT:    vmovdqa32 %zmm2, 64(%rsi) {%k2}
-; X86_64-AVX512-VL-BW-NEXT:    vmovdqa32 %zmm1, (%rsi) {%k2}
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps (%rdi), %zmm1
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps 64(%rdi), %zmm2
 ; X86_64-AVX512-VL-BW-NEXT:    vmovdqa32 %zmm0, 128(%rsi) {%k1}
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps %zmm2, 64(%rsi)
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps %zmm1, (%rsi)
 ; X86_64-AVX512-VL-BW-NEXT:    vzeroupper
 ; X86_64-AVX512-VL-BW-NEXT:    retq
 entry:
@@ -5894,13 +5774,12 @@ define void @i32_48x(<48 x i32>* %in, <48 x i32>* %out) {
 ; X86-AVX512-VL:       # %bb.0: # %entry
 ; X86-AVX512-VL-NEXT:    movl {{[0-9]+}}(%esp), %eax
 ; X86-AVX512-VL-NEXT:    movl {{[0-9]+}}(%esp), %ecx
-; X86-AVX512-VL-NEXT:    kxnorw %k0, %k0, %k1
-; X86-AVX512-VL-NEXT:    vmovdqa32 128(%ecx), %zmm0 {%k1} {z}
-; X86-AVX512-VL-NEXT:    vmovdqa32 (%ecx), %zmm1 {%k1} {z}
-; X86-AVX512-VL-NEXT:    vmovdqa32 64(%ecx), %zmm2 {%k1} {z}
-; X86-AVX512-VL-NEXT:    vmovdqa32 %zmm2, 64(%eax) {%k1}
-; X86-AVX512-VL-NEXT:    vmovdqa32 %zmm1, (%eax) {%k1}
-; X86-AVX512-VL-NEXT:    vmovdqa32 %zmm0, 128(%eax) {%k1}
+; X86-AVX512-VL-NEXT:    vmovaps 128(%ecx), %zmm0
+; X86-AVX512-VL-NEXT:    vmovaps (%ecx), %zmm1
+; X86-AVX512-VL-NEXT:    vmovaps 64(%ecx), %zmm2
+; X86-AVX512-VL-NEXT:    vmovaps %zmm1, (%eax)
+; X86-AVX512-VL-NEXT:    vmovaps %zmm2, 64(%eax)
+; X86-AVX512-VL-NEXT:    vmovaps %zmm0, 128(%eax)
 ; X86-AVX512-VL-NEXT:    vzeroupper
 ; X86-AVX512-VL-NEXT:    retl
 ;
@@ -5908,37 +5787,34 @@ define void @i32_48x(<48 x i32>* %in, <48 x i32>* %out) {
 ; X86-AVX512-VL-BW:       # %bb.0: # %entry
 ; X86-AVX512-VL-BW-NEXT:    movl {{[0-9]+}}(%esp), %eax
 ; X86-AVX512-VL-BW-NEXT:    movl {{[0-9]+}}(%esp), %ecx
-; X86-AVX512-VL-BW-NEXT:    kxnorw %k0, %k0, %k1
-; X86-AVX512-VL-BW-NEXT:    vmovdqa32 128(%ecx), %zmm0 {%k1} {z}
-; X86-AVX512-VL-BW-NEXT:    vmovdqa32 (%ecx), %zmm1 {%k1} {z}
-; X86-AVX512-VL-BW-NEXT:    vmovdqa32 64(%ecx), %zmm2 {%k1} {z}
-; X86-AVX512-VL-BW-NEXT:    vmovdqa32 %zmm2, 64(%eax) {%k1}
-; X86-AVX512-VL-BW-NEXT:    vmovdqa32 %zmm1, (%eax) {%k1}
-; X86-AVX512-VL-BW-NEXT:    vmovdqa32 %zmm0, 128(%eax) {%k1}
+; X86-AVX512-VL-BW-NEXT:    vmovaps 128(%ecx), %zmm0
+; X86-AVX512-VL-BW-NEXT:    vmovaps (%ecx), %zmm1
+; X86-AVX512-VL-BW-NEXT:    vmovaps 64(%ecx), %zmm2
+; X86-AVX512-VL-BW-NEXT:    vmovaps %zmm2, 64(%eax)
+; X86-AVX512-VL-BW-NEXT:    vmovaps %zmm0, 128(%eax)
+; X86-AVX512-VL-BW-NEXT:    vmovaps %zmm1, (%eax)
 ; X86-AVX512-VL-BW-NEXT:    vzeroupper
 ; X86-AVX512-VL-BW-NEXT:    retl
 ;
 ; X86_64-AVX512-VL-LABEL: i32_48x:
 ; X86_64-AVX512-VL:       ## %bb.0: ## %entry
-; X86_64-AVX512-VL-NEXT:    kxnorw %k0, %k0, %k1
-; X86_64-AVX512-VL-NEXT:    vmovdqa32 128(%rdi), %zmm0 {%k1} {z}
-; X86_64-AVX512-VL-NEXT:    vmovdqa32 (%rdi), %zmm1 {%k1} {z}
-; X86_64-AVX512-VL-NEXT:    vmovdqa32 64(%rdi), %zmm2 {%k1} {z}
-; X86_64-AVX512-VL-NEXT:    vmovdqa32 %zmm2, 64(%rsi) {%k1}
-; X86_64-AVX512-VL-NEXT:    vmovdqa32 %zmm1, (%rsi) {%k1}
-; X86_64-AVX512-VL-NEXT:    vmovdqa32 %zmm0, 128(%rsi) {%k1}
+; X86_64-AVX512-VL-NEXT:    vmovaps (%rdi), %zmm0
+; X86_64-AVX512-VL-NEXT:    vmovaps 64(%rdi), %zmm1
+; X86_64-AVX512-VL-NEXT:    vmovaps 128(%rdi), %zmm2
+; X86_64-AVX512-VL-NEXT:    vmovaps %zmm0, (%rsi)
+; X86_64-AVX512-VL-NEXT:    vmovaps %zmm1, 64(%rsi)
+; X86_64-AVX512-VL-NEXT:    vmovaps %zmm2, 128(%rsi)
 ; X86_64-AVX512-VL-NEXT:    vzeroupper
 ; X86_64-AVX512-VL-NEXT:    retq
 ;
 ; X86_64-AVX512-VL-BW-LABEL: i32_48x:
 ; X86_64-AVX512-VL-BW:       ## %bb.0: ## %entry
-; X86_64-AVX512-VL-BW-NEXT:    kxnorw %k0, %k0, %k1
-; X86_64-AVX512-VL-BW-NEXT:    vmovdqa32 128(%rdi), %zmm0 {%k1} {z}
-; X86_64-AVX512-VL-BW-NEXT:    vmovdqa32 (%rdi), %zmm1 {%k1} {z}
-; X86_64-AVX512-VL-BW-NEXT:    vmovdqa32 64(%rdi), %zmm2 {%k1} {z}
-; X86_64-AVX512-VL-BW-NEXT:    vmovdqa32 %zmm2, 64(%rsi) {%k1}
-; X86_64-AVX512-VL-BW-NEXT:    vmovdqa32 %zmm1, (%rsi) {%k1}
-; X86_64-AVX512-VL-BW-NEXT:    vmovdqa32 %zmm0, 128(%rsi) {%k1}
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps (%rdi), %zmm0
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps 64(%rdi), %zmm1
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps 128(%rdi), %zmm2
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps %zmm1, 64(%rsi)
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps %zmm2, 128(%rsi)
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps %zmm0, (%rsi)
 ; X86_64-AVX512-VL-BW-NEXT:    vzeroupper
 ; X86_64-AVX512-VL-BW-NEXT:    retq
 entry:
@@ -5952,17 +5828,16 @@ define void @i32_49x(<49 x i32>* %in, <49 x i32>* %out) {
 ; X86-AVX512-VL:       # %bb.0: # %entry
 ; X86-AVX512-VL-NEXT:    movl {{[0-9]+}}(%esp), %eax
 ; X86-AVX512-VL-NEXT:    movl {{[0-9]+}}(%esp), %ecx
-; X86-AVX512-VL-NEXT:    kxnorw %k0, %k0, %k1
-; X86-AVX512-VL-NEXT:    vmovdqa32 (%ecx), %zmm0 {%k1} {z}
-; X86-AVX512-VL-NEXT:    vmovdqa32 64(%ecx), %zmm1 {%k1} {z}
-; X86-AVX512-VL-NEXT:    vmovdqa32 128(%ecx), %zmm2 {%k1} {z}
 ; X86-AVX512-VL-NEXT:    movw $1, %dx
-; X86-AVX512-VL-NEXT:    kmovw %edx, %k2
-; X86-AVX512-VL-NEXT:    vmovdqa32 192(%ecx), %zmm3 {%k2} {z}
-; X86-AVX512-VL-NEXT:    vmovdqa32 %zmm3, 192(%eax) {%k2}
-; X86-AVX512-VL-NEXT:    vmovdqa32 %zmm2, 128(%eax) {%k1}
-; X86-AVX512-VL-NEXT:    vmovdqa32 %zmm1, 64(%eax) {%k1}
-; X86-AVX512-VL-NEXT:    vmovdqa32 %zmm0, (%eax) {%k1}
+; X86-AVX512-VL-NEXT:    kmovw %edx, %k1
+; X86-AVX512-VL-NEXT:    vmovdqa32 192(%ecx), %zmm0 {%k1} {z}
+; X86-AVX512-VL-NEXT:    vmovaps 128(%ecx), %zmm1
+; X86-AVX512-VL-NEXT:    vmovaps (%ecx), %zmm2
+; X86-AVX512-VL-NEXT:    vmovaps 64(%ecx), %zmm3
+; X86-AVX512-VL-NEXT:    vmovdqa32 %zmm0, 192(%eax) {%k1}
+; X86-AVX512-VL-NEXT:    vmovaps %zmm2, (%eax)
+; X86-AVX512-VL-NEXT:    vmovaps %zmm3, 64(%eax)
+; X86-AVX512-VL-NEXT:    vmovaps %zmm1, 128(%eax)
 ; X86-AVX512-VL-NEXT:    vzeroupper
 ; X86-AVX512-VL-NEXT:    retl
 ;
@@ -5970,49 +5845,46 @@ define void @i32_49x(<49 x i32>* %in, <49 x i32>* %out) {
 ; X86-AVX512-VL-BW:       # %bb.0: # %entry
 ; X86-AVX512-VL-BW-NEXT:    movl {{[0-9]+}}(%esp), %eax
 ; X86-AVX512-VL-BW-NEXT:    movl {{[0-9]+}}(%esp), %ecx
-; X86-AVX512-VL-BW-NEXT:    kxnorw %k0, %k0, %k1
-; X86-AVX512-VL-BW-NEXT:    vmovdqa32 (%ecx), %zmm0 {%k1} {z}
-; X86-AVX512-VL-BW-NEXT:    vmovdqa32 64(%ecx), %zmm1 {%k1} {z}
-; X86-AVX512-VL-BW-NEXT:    vmovdqa32 128(%ecx), %zmm2 {%k1} {z}
 ; X86-AVX512-VL-BW-NEXT:    movw $1, %dx
-; X86-AVX512-VL-BW-NEXT:    kmovd %edx, %k2
-; X86-AVX512-VL-BW-NEXT:    vmovdqa32 192(%ecx), %zmm3 {%k2} {z}
-; X86-AVX512-VL-BW-NEXT:    vmovdqa32 %zmm3, 192(%eax) {%k2}
-; X86-AVX512-VL-BW-NEXT:    vmovdqa32 %zmm2, 128(%eax) {%k1}
-; X86-AVX512-VL-BW-NEXT:    vmovdqa32 %zmm1, 64(%eax) {%k1}
-; X86-AVX512-VL-BW-NEXT:    vmovdqa32 %zmm0, (%eax) {%k1}
+; X86-AVX512-VL-BW-NEXT:    kmovd %edx, %k1
+; X86-AVX512-VL-BW-NEXT:    vmovdqa32 192(%ecx), %zmm0 {%k1} {z}
+; X86-AVX512-VL-BW-NEXT:    vmovaps 128(%ecx), %zmm1
+; X86-AVX512-VL-BW-NEXT:    vmovaps (%ecx), %zmm2
+; X86-AVX512-VL-BW-NEXT:    vmovaps 64(%ecx), %zmm3
+; X86-AVX512-VL-BW-NEXT:    vmovdqa32 %zmm0, 192(%eax) {%k1}
+; X86-AVX512-VL-BW-NEXT:    vmovaps %zmm3, 64(%eax)
+; X86-AVX512-VL-BW-NEXT:    vmovaps %zmm1, 128(%eax)
+; X86-AVX512-VL-BW-NEXT:    vmovaps %zmm2, (%eax)
 ; X86-AVX512-VL-BW-NEXT:    vzeroupper
 ; X86-AVX512-VL-BW-NEXT:    retl
 ;
 ; X86_64-AVX512-VL-LABEL: i32_49x:
 ; X86_64-AVX512-VL:       ## %bb.0: ## %entry
-; X86_64-AVX512-VL-NEXT:    kxnorw %k0, %k0, %k1
-; X86_64-AVX512-VL-NEXT:    vmovdqa32 (%rdi), %zmm0 {%k1} {z}
-; X86_64-AVX512-VL-NEXT:    vmovdqa32 64(%rdi), %zmm1 {%k1} {z}
-; X86_64-AVX512-VL-NEXT:    vmovdqa32 128(%rdi), %zmm2 {%k1} {z}
 ; X86_64-AVX512-VL-NEXT:    movw $1, %ax
-; X86_64-AVX512-VL-NEXT:    kmovw %eax, %k2
-; X86_64-AVX512-VL-NEXT:    vmovdqa32 192(%rdi), %zmm3 {%k2} {z}
-; X86_64-AVX512-VL-NEXT:    vmovdqa32 %zmm3, 192(%rsi) {%k2}
-; X86_64-AVX512-VL-NEXT:    vmovdqa32 %zmm2, 128(%rsi) {%k1}
-; X86_64-AVX512-VL-NEXT:    vmovdqa32 %zmm1, 64(%rsi) {%k1}
-; X86_64-AVX512-VL-NEXT:    vmovdqa32 %zmm0, (%rsi) {%k1}
+; X86_64-AVX512-VL-NEXT:    kmovw %eax, %k1
+; X86_64-AVX512-VL-NEXT:    vmovdqa32 192(%rdi), %zmm0 {%k1} {z}
+; X86_64-AVX512-VL-NEXT:    vmovaps (%rdi), %zmm1
+; X86_64-AVX512-VL-NEXT:    vmovaps 64(%rdi), %zmm2
+; X86_64-AVX512-VL-NEXT:    vmovaps 128(%rdi), %zmm3
+; X86_64-AVX512-VL-NEXT:    vmovdqa32 %zmm0, 192(%rsi) {%k1}
+; X86_64-AVX512-VL-NEXT:    vmovaps %zmm1, (%rsi)
+; X86_64-AVX512-VL-NEXT:    vmovaps %zmm2, 64(%rsi)
+; X86_64-AVX512-VL-NEXT:    vmovaps %zmm3, 128(%rsi)
 ; X86_64-AVX512-VL-NEXT:    vzeroupper
 ; X86_64-AVX512-VL-NEXT:    retq
 ;
 ; X86_64-AVX512-VL-BW-LABEL: i32_49x:
 ; X86_64-AVX512-VL-BW:       ## %bb.0: ## %entry
-; X86_64-AVX512-VL-BW-NEXT:    kxnorw %k0, %k0, %k1
-; X86_64-AVX512-VL-BW-NEXT:    vmovdqa32 (%rdi), %zmm0 {%k1} {z}
-; X86_64-AVX512-VL-BW-NEXT:    vmovdqa32 64(%rdi), %zmm1 {%k1} {z}
-; X86_64-AVX512-VL-BW-NEXT:    vmovdqa32 128(%rdi), %zmm2 {%k1} {z}
 ; X86_64-AVX512-VL-BW-NEXT:    movw $1, %ax
-; X86_64-AVX512-VL-BW-NEXT:    kmovd %eax, %k2
-; X86_64-AVX512-VL-BW-NEXT:    vmovdqa32 192(%rdi), %zmm3 {%k2} {z}
-; X86_64-AVX512-VL-BW-NEXT:    vmovdqa32 %zmm3, 192(%rsi) {%k2}
-; X86_64-AVX512-VL-BW-NEXT:    vmovdqa32 %zmm2, 128(%rsi) {%k1}
-; X86_64-AVX512-VL-BW-NEXT:    vmovdqa32 %zmm1, 64(%rsi) {%k1}
-; X86_64-AVX512-VL-BW-NEXT:    vmovdqa32 %zmm0, (%rsi) {%k1}
+; X86_64-AVX512-VL-BW-NEXT:    kmovd %eax, %k1
+; X86_64-AVX512-VL-BW-NEXT:    vmovdqa32 192(%rdi), %zmm0 {%k1} {z}
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps (%rdi), %zmm1
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps 64(%rdi), %zmm2
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps 128(%rdi), %zmm3
+; X86_64-AVX512-VL-BW-NEXT:    vmovdqa32 %zmm0, 192(%rsi) {%k1}
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps %zmm2, 64(%rsi)
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps %zmm3, 128(%rsi)
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps %zmm1, (%rsi)
 ; X86_64-AVX512-VL-BW-NEXT:    vzeroupper
 ; X86_64-AVX512-VL-BW-NEXT:    retq
 entry:
@@ -6359,13 +6231,12 @@ define void @i64_9x(<9 x i64>* %in, <9 x i64>* %out) {
 ; X86-AVX512-VL:       # %bb.0: # %entry
 ; X86-AVX512-VL-NEXT:    movl {{[0-9]+}}(%esp), %eax
 ; X86-AVX512-VL-NEXT:    movl {{[0-9]+}}(%esp), %ecx
-; X86-AVX512-VL-NEXT:    kxnorw %k0, %k0, %k1
-; X86-AVX512-VL-NEXT:    vmovdqa64 (%ecx), %zmm0 {%k1} {z}
 ; X86-AVX512-VL-NEXT:    movb $1, %dl
-; X86-AVX512-VL-NEXT:    kmovw %edx, %k2
-; X86-AVX512-VL-NEXT:    vmovdqa64 64(%ecx), %zmm1 {%k2} {z}
-; X86-AVX512-VL-NEXT:    vmovdqa64 %zmm1, 64(%eax) {%k2}
-; X86-AVX512-VL-NEXT:    vmovdqa64 %zmm0, (%eax) {%k1}
+; X86-AVX512-VL-NEXT:    kmovw %edx, %k1
+; X86-AVX512-VL-NEXT:    vmovdqa64 64(%ecx), %zmm0 {%k1} {z}
+; X86-AVX512-VL-NEXT:    vmovaps (%ecx), %zmm1
+; X86-AVX512-VL-NEXT:    vmovdqa64 %zmm0, 64(%eax) {%k1}
+; X86-AVX512-VL-NEXT:    vmovaps %zmm1, (%eax)
 ; X86-AVX512-VL-NEXT:    vzeroupper
 ; X86-AVX512-VL-NEXT:    retl
 ;
@@ -6373,37 +6244,34 @@ define void @i64_9x(<9 x i64>* %in, <9 x i64>* %out) {
 ; X86-AVX512-VL-BW:       # %bb.0: # %entry
 ; X86-AVX512-VL-BW-NEXT:    movl {{[0-9]+}}(%esp), %eax
 ; X86-AVX512-VL-BW-NEXT:    movl {{[0-9]+}}(%esp), %ecx
-; X86-AVX512-VL-BW-NEXT:    kxnorw %k0, %k0, %k1
-; X86-AVX512-VL-BW-NEXT:    vmovdqa64 (%ecx), %zmm0 {%k1} {z}
 ; X86-AVX512-VL-BW-NEXT:    movb $1, %dl
-; X86-AVX512-VL-BW-NEXT:    kmovd %edx, %k2
-; X86-AVX512-VL-BW-NEXT:    vmovdqa64 64(%ecx), %zmm1 {%k2} {z}
-; X86-AVX512-VL-BW-NEXT:    vmovdqa64 %zmm1, 64(%eax) {%k2}
-; X86-AVX512-VL-BW-NEXT:    vmovdqa64 %zmm0, (%eax) {%k1}
+; X86-AVX512-VL-BW-NEXT:    kmovd %edx, %k1
+; X86-AVX512-VL-BW-NEXT:    vmovdqa64 64(%ecx), %zmm0 {%k1} {z}
+; X86-AVX512-VL-BW-NEXT:    vmovaps (%ecx), %zmm1
+; X86-AVX512-VL-BW-NEXT:    vmovdqa64 %zmm0, 64(%eax) {%k1}
+; X86-AVX512-VL-BW-NEXT:    vmovaps %zmm1, (%eax)
 ; X86-AVX512-VL-BW-NEXT:    vzeroupper
 ; X86-AVX512-VL-BW-NEXT:    retl
 ;
 ; X86_64-AVX512-VL-LABEL: i64_9x:
 ; X86_64-AVX512-VL:       ## %bb.0: ## %entry
-; X86_64-AVX512-VL-NEXT:    kxnorw %k0, %k0, %k1
-; X86_64-AVX512-VL-NEXT:    vmovdqa64 (%rdi), %zmm0 {%k1} {z}
 ; X86_64-AVX512-VL-NEXT:    movb $1, %al
-; X86_64-AVX512-VL-NEXT:    kmovw %eax, %k2
-; X86_64-AVX512-VL-NEXT:    vmovdqa64 64(%rdi), %zmm1 {%k2} {z}
-; X86_64-AVX512-VL-NEXT:    vmovdqa64 %zmm1, 64(%rsi) {%k2}
-; X86_64-AVX512-VL-NEXT:    vmovdqa64 %zmm0, (%rsi) {%k1}
+; X86_64-AVX512-VL-NEXT:    kmovw %eax, %k1
+; X86_64-AVX512-VL-NEXT:    vmovdqa64 64(%rdi), %zmm0 {%k1} {z}
+; X86_64-AVX512-VL-NEXT:    vmovaps (%rdi), %zmm1
+; X86_64-AVX512-VL-NEXT:    vmovdqa64 %zmm0, 64(%rsi) {%k1}
+; X86_64-AVX512-VL-NEXT:    vmovaps %zmm1, (%rsi)
 ; X86_64-AVX512-VL-NEXT:    vzeroupper
 ; X86_64-AVX512-VL-NEXT:    retq
 ;
 ; X86_64-AVX512-VL-BW-LABEL: i64_9x:
 ; X86_64-AVX512-VL-BW:       ## %bb.0: ## %entry
-; X86_64-AVX512-VL-BW-NEXT:    kxnorw %k0, %k0, %k1
-; X86_64-AVX512-VL-BW-NEXT:    vmovdqa64 (%rdi), %zmm0 {%k1} {z}
 ; X86_64-AVX512-VL-BW-NEXT:    movb $1, %al
-; X86_64-AVX512-VL-BW-NEXT:    kmovd %eax, %k2
-; X86_64-AVX512-VL-BW-NEXT:    vmovdqa64 64(%rdi), %zmm1 {%k2} {z}
-; X86_64-AVX512-VL-BW-NEXT:    vmovdqa64 %zmm1, 64(%rsi) {%k2}
-; X86_64-AVX512-VL-BW-NEXT:    vmovdqa64 %zmm0, (%rsi) {%k1}
+; X86_64-AVX512-VL-BW-NEXT:    kmovd %eax, %k1
+; X86_64-AVX512-VL-BW-NEXT:    vmovdqa64 64(%rdi), %zmm0 {%k1} {z}
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps (%rdi), %zmm1
+; X86_64-AVX512-VL-BW-NEXT:    vmovdqa64 %zmm0, 64(%rsi) {%k1}
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps %zmm1, (%rsi)
 ; X86_64-AVX512-VL-BW-NEXT:    vzeroupper
 ; X86_64-AVX512-VL-BW-NEXT:    retq
 entry:
@@ -6417,13 +6285,12 @@ define void @i64_10x(<10 x i64>* %in, <10 x i64>* %out) {
 ; X86-AVX512-VL:       # %bb.0: # %entry
 ; X86-AVX512-VL-NEXT:    movl {{[0-9]+}}(%esp), %eax
 ; X86-AVX512-VL-NEXT:    movl {{[0-9]+}}(%esp), %ecx
-; X86-AVX512-VL-NEXT:    kxnorw %k0, %k0, %k1
-; X86-AVX512-VL-NEXT:    vmovdqa64 (%ecx), %zmm0 {%k1} {z}
 ; X86-AVX512-VL-NEXT:    movb $3, %dl
-; X86-AVX512-VL-NEXT:    kmovw %edx, %k2
-; X86-AVX512-VL-NEXT:    vmovdqa64 64(%ecx), %zmm1 {%k2} {z}
-; X86-AVX512-VL-NEXT:    vmovdqa64 %zmm1, 64(%eax) {%k2}
-; X86-AVX512-VL-NEXT:    vmovdqa64 %zmm0, (%eax) {%k1}
+; X86-AVX512-VL-NEXT:    kmovw %edx, %k1
+; X86-AVX512-VL-NEXT:    vmovdqa64 64(%ecx), %zmm0 {%k1} {z}
+; X86-AVX512-VL-NEXT:    vmovaps (%ecx), %zmm1
+; X86-AVX512-VL-NEXT:    vmovdqa64 %zmm0, 64(%eax) {%k1}
+; X86-AVX512-VL-NEXT:    vmovaps %zmm1, (%eax)
 ; X86-AVX512-VL-NEXT:    vzeroupper
 ; X86-AVX512-VL-NEXT:    retl
 ;
@@ -6431,37 +6298,34 @@ define void @i64_10x(<10 x i64>* %in, <10 x i64>* %out) {
 ; X86-AVX512-VL-BW:       # %bb.0: # %entry
 ; X86-AVX512-VL-BW-NEXT:    movl {{[0-9]+}}(%esp), %eax
 ; X86-AVX512-VL-BW-NEXT:    movl {{[0-9]+}}(%esp), %ecx
-; X86-AVX512-VL-BW-NEXT:    kxnorw %k0, %k0, %k1
-; X86-AVX512-VL-BW-NEXT:    vmovdqa64 (%ecx), %zmm0 {%k1} {z}
 ; X86-AVX512-VL-BW-NEXT:    movb $3, %dl
-; X86-AVX512-VL-BW-NEXT:    kmovd %edx, %k2
-; X86-AVX512-VL-BW-NEXT:    vmovdqa64 64(%ecx), %zmm1 {%k2} {z}
-; X86-AVX512-VL-BW-NEXT:    vmovdqa64 %zmm1, 64(%eax) {%k2}
-; X86-AVX512-VL-BW-NEXT:    vmovdqa64 %zmm0, (%eax) {%k1}
+; X86-AVX512-VL-BW-NEXT:    kmovd %edx, %k1
+; X86-AVX512-VL-BW-NEXT:    vmovdqa64 64(%ecx), %zmm0 {%k1} {z}
+; X86-AVX512-VL-BW-NEXT:    vmovaps (%ecx), %zmm1
+; X86-AVX512-VL-BW-NEXT:    vmovdqa64 %zmm0, 64(%eax) {%k1}
+; X86-AVX512-VL-BW-NEXT:    vmovaps %zmm1, (%eax)
 ; X86-AVX512-VL-BW-NEXT:    vzeroupper
 ; X86-AVX512-VL-BW-NEXT:    retl
 ;
 ; X86_64-AVX512-VL-LABEL: i64_10x:
 ; X86_64-AVX512-VL:       ## %bb.0: ## %entry
-; X86_64-AVX512-VL-NEXT:    kxnorw %k0, %k0, %k1
-; X86_64-AVX512-VL-NEXT:    vmovdqa64 (%rdi), %zmm0 {%k1} {z}
 ; X86_64-AVX512-VL-NEXT:    movb $3, %al
-; X86_64-AVX512-VL-NEXT:    kmovw %eax, %k2
-; X86_64-AVX512-VL-NEXT:    vmovdqa64 64(%rdi), %zmm1 {%k2} {z}
-; X86_64-AVX512-VL-NEXT:    vmovdqa64 %zmm1, 64(%rsi) {%k2}
-; X86_64-AVX512-VL-NEXT:    vmovdqa64 %zmm0, (%rsi) {%k1}
+; X86_64-AVX512-VL-NEXT:    kmovw %eax, %k1
+; X86_64-AVX512-VL-NEXT:    vmovdqa64 64(%rdi), %zmm0 {%k1} {z}
+; X86_64-AVX512-VL-NEXT:    vmovaps (%rdi), %zmm1
+; X86_64-AVX512-VL-NEXT:    vmovdqa64 %zmm0, 64(%rsi) {%k1}
+; X86_64-AVX512-VL-NEXT:    vmovaps %zmm1, (%rsi)
 ; X86_64-AVX512-VL-NEXT:    vzeroupper
 ; X86_64-AVX512-VL-NEXT:    retq
 ;
 ; X86_64-AVX512-VL-BW-LABEL: i64_10x:
 ; X86_64-AVX512-VL-BW:       ## %bb.0: ## %entry
-; X86_64-AVX512-VL-BW-NEXT:    kxnorw %k0, %k0, %k1
-; X86_64-AVX512-VL-BW-NEXT:    vmovdqa64 (%rdi), %zmm0 {%k1} {z}
 ; X86_64-AVX512-VL-BW-NEXT:    movb $3, %al
-; X86_64-AVX512-VL-BW-NEXT:    kmovd %eax, %k2
-; X86_64-AVX512-VL-BW-NEXT:    vmovdqa64 64(%rdi), %zmm1 {%k2} {z}
-; X86_64-AVX512-VL-BW-NEXT:    vmovdqa64 %zmm1, 64(%rsi) {%k2}
-; X86_64-AVX512-VL-BW-NEXT:    vmovdqa64 %zmm0, (%rsi) {%k1}
+; X86_64-AVX512-VL-BW-NEXT:    kmovd %eax, %k1
+; X86_64-AVX512-VL-BW-NEXT:    vmovdqa64 64(%rdi), %zmm0 {%k1} {z}
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps (%rdi), %zmm1
+; X86_64-AVX512-VL-BW-NEXT:    vmovdqa64 %zmm0, 64(%rsi) {%k1}
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps %zmm1, (%rsi)
 ; X86_64-AVX512-VL-BW-NEXT:    vzeroupper
 ; X86_64-AVX512-VL-BW-NEXT:    retq
 entry:
@@ -6475,13 +6339,12 @@ define void @i64_11x(<11 x i64>* %in, <11 x i64>* %out) {
 ; X86-AVX512-VL:       # %bb.0: # %entry
 ; X86-AVX512-VL-NEXT:    movl {{[0-9]+}}(%esp), %eax
 ; X86-AVX512-VL-NEXT:    movl {{[0-9]+}}(%esp), %ecx
-; X86-AVX512-VL-NEXT:    kxnorw %k0, %k0, %k1
-; X86-AVX512-VL-NEXT:    vmovdqa64 (%ecx), %zmm0 {%k1} {z}
 ; X86-AVX512-VL-NEXT:    movb $7, %dl
-; X86-AVX512-VL-NEXT:    kmovw %edx, %k2
-; X86-AVX512-VL-NEXT:    vmovdqa64 64(%ecx), %zmm1 {%k2} {z}
-; X86-AVX512-VL-NEXT:    vmovdqa64 %zmm1, 64(%eax) {%k2}
-; X86-AVX512-VL-NEXT:    vmovdqa64 %zmm0, (%eax) {%k1}
+; X86-AVX512-VL-NEXT:    kmovw %edx, %k1
+; X86-AVX512-VL-NEXT:    vmovdqa64 64(%ecx), %zmm0 {%k1} {z}
+; X86-AVX512-VL-NEXT:    vmovaps (%ecx), %zmm1
+; X86-AVX512-VL-NEXT:    vmovdqa64 %zmm0, 64(%eax) {%k1}
+; X86-AVX512-VL-NEXT:    vmovaps %zmm1, (%eax)
 ; X86-AVX512-VL-NEXT:    vzeroupper
 ; X86-AVX512-VL-NEXT:    retl
 ;
@@ -6489,37 +6352,34 @@ define void @i64_11x(<11 x i64>* %in, <11 x i64>* %out) {
 ; X86-AVX512-VL-BW:       # %bb.0: # %entry
 ; X86-AVX512-VL-BW-NEXT:    movl {{[0-9]+}}(%esp), %eax
 ; X86-AVX512-VL-BW-NEXT:    movl {{[0-9]+}}(%esp), %ecx
-; X86-AVX512-VL-BW-NEXT:    kxnorw %k0, %k0, %k1
-; X86-AVX512-VL-BW-NEXT:    vmovdqa64 (%ecx), %zmm0 {%k1} {z}
 ; X86-AVX512-VL-BW-NEXT:    movb $7, %dl
-; X86-AVX512-VL-BW-NEXT:    kmovd %edx, %k2
-; X86-AVX512-VL-BW-NEXT:    vmovdqa64 64(%ecx), %zmm1 {%k2} {z}
-; X86-AVX512-VL-BW-NEXT:    vmovdqa64 %zmm1, 64(%eax) {%k2}
-; X86-AVX512-VL-BW-NEXT:    vmovdqa64 %zmm0, (%eax) {%k1}
+; X86-AVX512-VL-BW-NEXT:    kmovd %edx, %k1
+; X86-AVX512-VL-BW-NEXT:    vmovdqa64 64(%ecx), %zmm0 {%k1} {z}
+; X86-AVX512-VL-BW-NEXT:    vmovaps (%ecx), %zmm1
+; X86-AVX512-VL-BW-NEXT:    vmovdqa64 %zmm0, 64(%eax) {%k1}
+; X86-AVX512-VL-BW-NEXT:    vmovaps %zmm1, (%eax)
 ; X86-AVX512-VL-BW-NEXT:    vzeroupper
 ; X86-AVX512-VL-BW-NEXT:    retl
 ;
 ; X86_64-AVX512-VL-LABEL: i64_11x:
 ; X86_64-AVX512-VL:       ## %bb.0: ## %entry
-; X86_64-AVX512-VL-NEXT:    kxnorw %k0, %k0, %k1
-; X86_64-AVX512-VL-NEXT:    vmovdqa64 (%rdi), %zmm0 {%k1} {z}
 ; X86_64-AVX512-VL-NEXT:    movb $7, %al
-; X86_64-AVX512-VL-NEXT:    kmovw %eax, %k2
-; X86_64-AVX512-VL-NEXT:    vmovdqa64 64(%rdi), %zmm1 {%k2} {z}
-; X86_64-AVX512-VL-NEXT:    vmovdqa64 %zmm1, 64(%rsi) {%k2}
-; X86_64-AVX512-VL-NEXT:    vmovdqa64 %zmm0, (%rsi) {%k1}
+; X86_64-AVX512-VL-NEXT:    kmovw %eax, %k1
+; X86_64-AVX512-VL-NEXT:    vmovdqa64 64(%rdi), %zmm0 {%k1} {z}
+; X86_64-AVX512-VL-NEXT:    vmovaps (%rdi), %zmm1
+; X86_64-AVX512-VL-NEXT:    vmovdqa64 %zmm0, 64(%rsi) {%k1}
+; X86_64-AVX512-VL-NEXT:    vmovaps %zmm1, (%rsi)
 ; X86_64-AVX512-VL-NEXT:    vzeroupper
 ; X86_64-AVX512-VL-NEXT:    retq
 ;
 ; X86_64-AVX512-VL-BW-LABEL: i64_11x:
 ; X86_64-AVX512-VL-BW:       ## %bb.0: ## %entry
-; X86_64-AVX512-VL-BW-NEXT:    kxnorw %k0, %k0, %k1
-; X86_64-AVX512-VL-BW-NEXT:    vmovdqa64 (%rdi), %zmm0 {%k1} {z}
 ; X86_64-AVX512-VL-BW-NEXT:    movb $7, %al
-; X86_64-AVX512-VL-BW-NEXT:    kmovd %eax, %k2
-; X86_64-AVX512-VL-BW-NEXT:    vmovdqa64 64(%rdi), %zmm1 {%k2} {z}
-; X86_64-AVX512-VL-BW-NEXT:    vmovdqa64 %zmm1, 64(%rsi) {%k2}
-; X86_64-AVX512-VL-BW-NEXT:    vmovdqa64 %zmm0, (%rsi) {%k1}
+; X86_64-AVX512-VL-BW-NEXT:    kmovd %eax, %k1
+; X86_64-AVX512-VL-BW-NEXT:    vmovdqa64 64(%rdi), %zmm0 {%k1} {z}
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps (%rdi), %zmm1
+; X86_64-AVX512-VL-BW-NEXT:    vmovdqa64 %zmm0, 64(%rsi) {%k1}
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps %zmm1, (%rsi)
 ; X86_64-AVX512-VL-BW-NEXT:    vzeroupper
 ; X86_64-AVX512-VL-BW-NEXT:    retq
 entry:
@@ -6533,13 +6393,12 @@ define void @i64_12x(<12 x i64>* %in, <12 x i64>* %out) {
 ; X86-AVX512-VL:       # %bb.0: # %entry
 ; X86-AVX512-VL-NEXT:    movl {{[0-9]+}}(%esp), %eax
 ; X86-AVX512-VL-NEXT:    movl {{[0-9]+}}(%esp), %ecx
-; X86-AVX512-VL-NEXT:    kxnorw %k0, %k0, %k1
-; X86-AVX512-VL-NEXT:    vmovdqa64 (%ecx), %zmm0 {%k1} {z}
 ; X86-AVX512-VL-NEXT:    movb $15, %dl
-; X86-AVX512-VL-NEXT:    kmovw %edx, %k2
-; X86-AVX512-VL-NEXT:    vmovdqa64 64(%ecx), %zmm1 {%k2} {z}
-; X86-AVX512-VL-NEXT:    vmovdqa64 %zmm1, 64(%eax) {%k2}
-; X86-AVX512-VL-NEXT:    vmovdqa64 %zmm0, (%eax) {%k1}
+; X86-AVX512-VL-NEXT:    kmovw %edx, %k1
+; X86-AVX512-VL-NEXT:    vmovdqa64 64(%ecx), %zmm0 {%k1} {z}
+; X86-AVX512-VL-NEXT:    vmovaps (%ecx), %zmm1
+; X86-AVX512-VL-NEXT:    vmovdqa64 %zmm0, 64(%eax) {%k1}
+; X86-AVX512-VL-NEXT:    vmovaps %zmm1, (%eax)
 ; X86-AVX512-VL-NEXT:    vzeroupper
 ; X86-AVX512-VL-NEXT:    retl
 ;
@@ -6547,37 +6406,34 @@ define void @i64_12x(<12 x i64>* %in, <12 x i64>* %out) {
 ; X86-AVX512-VL-BW:       # %bb.0: # %entry
 ; X86-AVX512-VL-BW-NEXT:    movl {{[0-9]+}}(%esp), %eax
 ; X86-AVX512-VL-BW-NEXT:    movl {{[0-9]+}}(%esp), %ecx
-; X86-AVX512-VL-BW-NEXT:    kxnorw %k0, %k0, %k1
-; X86-AVX512-VL-BW-NEXT:    vmovdqa64 (%ecx), %zmm0 {%k1} {z}
 ; X86-AVX512-VL-BW-NEXT:    movb $15, %dl
-; X86-AVX512-VL-BW-NEXT:    kmovd %edx, %k2
-; X86-AVX512-VL-BW-NEXT:    vmovdqa64 64(%ecx), %zmm1 {%k2} {z}
-; X86-AVX512-VL-BW-NEXT:    vmovdqa64 %zmm1, 64(%eax) {%k2}
-; X86-AVX512-VL-BW-NEXT:    vmovdqa64 %zmm0, (%eax) {%k1}
+; X86-AVX512-VL-BW-NEXT:    kmovd %edx, %k1
+; X86-AVX512-VL-BW-NEXT:    vmovdqa64 64(%ecx), %zmm0 {%k1} {z}
+; X86-AVX512-VL-BW-NEXT:    vmovaps (%ecx), %zmm1
+; X86-AVX512-VL-BW-NEXT:    vmovdqa64 %zmm0, 64(%eax) {%k1}
+; X86-AVX512-VL-BW-NEXT:    vmovaps %zmm1, (%eax)
 ; X86-AVX512-VL-BW-NEXT:    vzeroupper
 ; X86-AVX512-VL-BW-NEXT:    retl
 ;
 ; X86_64-AVX512-VL-LABEL: i64_12x:
 ; X86_64-AVX512-VL:       ## %bb.0: ## %entry
-; X86_64-AVX512-VL-NEXT:    kxnorw %k0, %k0, %k1
-; X86_64-AVX512-VL-NEXT:    vmovdqa64 (%rdi), %zmm0 {%k1} {z}
 ; X86_64-AVX512-VL-NEXT:    movb $15, %al
-; X86_64-AVX512-VL-NEXT:    kmovw %eax, %k2
-; X86_64-AVX512-VL-NEXT:    vmovdqa64 64(%rdi), %zmm1 {%k2} {z}
-; X86_64-AVX512-VL-NEXT:    vmovdqa64 %zmm1, 64(%rsi) {%k2}
-; X86_64-AVX512-VL-NEXT:    vmovdqa64 %zmm0, (%rsi) {%k1}
+; X86_64-AVX512-VL-NEXT:    kmovw %eax, %k1
+; X86_64-AVX512-VL-NEXT:    vmovdqa64 64(%rdi), %zmm0 {%k1} {z}
+; X86_64-AVX512-VL-NEXT:    vmovaps (%rdi), %zmm1
+; X86_64-AVX512-VL-NEXT:    vmovdqa64 %zmm0, 64(%rsi) {%k1}
+; X86_64-AVX512-VL-NEXT:    vmovaps %zmm1, (%rsi)
 ; X86_64-AVX512-VL-NEXT:    vzeroupper
 ; X86_64-AVX512-VL-NEXT:    retq
 ;
 ; X86_64-AVX512-VL-BW-LABEL: i64_12x:
 ; X86_64-AVX512-VL-BW:       ## %bb.0: ## %entry
-; X86_64-AVX512-VL-BW-NEXT:    kxnorw %k0, %k0, %k1
-; X86_64-AVX512-VL-BW-NEXT:    vmovdqa64 (%rdi), %zmm0 {%k1} {z}
 ; X86_64-AVX512-VL-BW-NEXT:    movb $15, %al
-; X86_64-AVX512-VL-BW-NEXT:    kmovd %eax, %k2
-; X86_64-AVX512-VL-BW-NEXT:    vmovdqa64 64(%rdi), %zmm1 {%k2} {z}
-; X86_64-AVX512-VL-BW-NEXT:    vmovdqa64 %zmm1, 64(%rsi) {%k2}
-; X86_64-AVX512-VL-BW-NEXT:    vmovdqa64 %zmm0, (%rsi) {%k1}
+; X86_64-AVX512-VL-BW-NEXT:    kmovd %eax, %k1
+; X86_64-AVX512-VL-BW-NEXT:    vmovdqa64 64(%rdi), %zmm0 {%k1} {z}
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps (%rdi), %zmm1
+; X86_64-AVX512-VL-BW-NEXT:    vmovdqa64 %zmm0, 64(%rsi) {%k1}
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps %zmm1, (%rsi)
 ; X86_64-AVX512-VL-BW-NEXT:    vzeroupper
 ; X86_64-AVX512-VL-BW-NEXT:    retq
 entry:
@@ -6591,13 +6447,12 @@ define void @i64_13x(<13 x i64>* %in, <13 x i64>* %out) {
 ; X86-AVX512-VL:       # %bb.0: # %entry
 ; X86-AVX512-VL-NEXT:    movl {{[0-9]+}}(%esp), %eax
 ; X86-AVX512-VL-NEXT:    movl {{[0-9]+}}(%esp), %ecx
-; X86-AVX512-VL-NEXT:    kxnorw %k0, %k0, %k1
-; X86-AVX512-VL-NEXT:    vmovdqa64 (%ecx), %zmm0 {%k1} {z}
 ; X86-AVX512-VL-NEXT:    movb $31, %dl
-; X86-AVX512-VL-NEXT:    kmovw %edx, %k2
-; X86-AVX512-VL-NEXT:    vmovdqa64 64(%ecx), %zmm1 {%k2} {z}
-; X86-AVX512-VL-NEXT:    vmovdqa64 %zmm1, 64(%eax) {%k2}
-; X86-AVX512-VL-NEXT:    vmovdqa64 %zmm0, (%eax) {%k1}
+; X86-AVX512-VL-NEXT:    kmovw %edx, %k1
+; X86-AVX512-VL-NEXT:    vmovdqa64 64(%ecx), %zmm0 {%k1} {z}
+; X86-AVX512-VL-NEXT:    vmovaps (%ecx), %zmm1
+; X86-AVX512-VL-NEXT:    vmovdqa64 %zmm0, 64(%eax) {%k1}
+; X86-AVX512-VL-NEXT:    vmovaps %zmm1, (%eax)
 ; X86-AVX512-VL-NEXT:    vzeroupper
 ; X86-AVX512-VL-NEXT:    retl
 ;
@@ -6605,37 +6460,34 @@ define void @i64_13x(<13 x i64>* %in, <13 x i64>* %out) {
 ; X86-AVX512-VL-BW:       # %bb.0: # %entry
 ; X86-AVX512-VL-BW-NEXT:    movl {{[0-9]+}}(%esp), %eax
 ; X86-AVX512-VL-BW-NEXT:    movl {{[0-9]+}}(%esp), %ecx
-; X86-AVX512-VL-BW-NEXT:    kxnorw %k0, %k0, %k1
-; X86-AVX512-VL-BW-NEXT:    vmovdqa64 (%ecx), %zmm0 {%k1} {z}
 ; X86-AVX512-VL-BW-NEXT:    movb $31, %dl
-; X86-AVX512-VL-BW-NEXT:    kmovd %edx, %k2
-; X86-AVX512-VL-BW-NEXT:    vmovdqa64 64(%ecx), %zmm1 {%k2} {z}
-; X86-AVX512-VL-BW-NEXT:    vmovdqa64 %zmm1, 64(%eax) {%k2}
-; X86-AVX512-VL-BW-NEXT:    vmovdqa64 %zmm0, (%eax) {%k1}
+; X86-AVX512-VL-BW-NEXT:    kmovd %edx, %k1
+; X86-AVX512-VL-BW-NEXT:    vmovdqa64 64(%ecx), %zmm0 {%k1} {z}
+; X86-AVX512-VL-BW-NEXT:    vmovaps (%ecx), %zmm1
+; X86-AVX512-VL-BW-NEXT:    vmovdqa64 %zmm0, 64(%eax) {%k1}
+; X86-AVX512-VL-BW-NEXT:    vmovaps %zmm1, (%eax)
 ; X86-AVX512-VL-BW-NEXT:    vzeroupper
 ; X86-AVX512-VL-BW-NEXT:    retl
 ;
 ; X86_64-AVX512-VL-LABEL: i64_13x:
 ; X86_64-AVX512-VL:       ## %bb.0: ## %entry
-; X86_64-AVX512-VL-NEXT:    kxnorw %k0, %k0, %k1
-; X86_64-AVX512-VL-NEXT:    vmovdqa64 (%rdi), %zmm0 {%k1} {z}
 ; X86_64-AVX512-VL-NEXT:    movb $31, %al
-; X86_64-AVX512-VL-NEXT:    kmovw %eax, %k2
-; X86_64-AVX512-VL-NEXT:    vmovdqa64 64(%rdi), %zmm1 {%k2} {z}
-; X86_64-AVX512-VL-NEXT:    vmovdqa64 %zmm1, 64(%rsi) {%k2}
-; X86_64-AVX512-VL-NEXT:    vmovdqa64 %zmm0, (%rsi) {%k1}
+; X86_64-AVX512-VL-NEXT:    kmovw %eax, %k1
+; X86_64-AVX512-VL-NEXT:    vmovdqa64 64(%rdi), %zmm0 {%k1} {z}
+; X86_64-AVX512-VL-NEXT:    vmovaps (%rdi), %zmm1
+; X86_64-AVX512-VL-NEXT:    vmovdqa64 %zmm0, 64(%rsi) {%k1}
+; X86_64-AVX512-VL-NEXT:    vmovaps %zmm1, (%rsi)
 ; X86_64-AVX512-VL-NEXT:    vzeroupper
 ; X86_64-AVX512-VL-NEXT:    retq
 ;
 ; X86_64-AVX512-VL-BW-LABEL: i64_13x:
 ; X86_64-AVX512-VL-BW:       ## %bb.0: ## %entry
-; X86_64-AVX512-VL-BW-NEXT:    kxnorw %k0, %k0, %k1
-; X86_64-AVX512-VL-BW-NEXT:    vmovdqa64 (%rdi), %zmm0 {%k1} {z}
 ; X86_64-AVX512-VL-BW-NEXT:    movb $31, %al
-; X86_64-AVX512-VL-BW-NEXT:    kmovd %eax, %k2
-; X86_64-AVX512-VL-BW-NEXT:    vmovdqa64 64(%rdi), %zmm1 {%k2} {z}
-; X86_64-AVX512-VL-BW-NEXT:    vmovdqa64 %zmm1, 64(%rsi) {%k2}
-; X86_64-AVX512-VL-BW-NEXT:    vmovdqa64 %zmm0, (%rsi) {%k1}
+; X86_64-AVX512-VL-BW-NEXT:    kmovd %eax, %k1
+; X86_64-AVX512-VL-BW-NEXT:    vmovdqa64 64(%rdi), %zmm0 {%k1} {z}
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps (%rdi), %zmm1
+; X86_64-AVX512-VL-BW-NEXT:    vmovdqa64 %zmm0, 64(%rsi) {%k1}
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps %zmm1, (%rsi)
 ; X86_64-AVX512-VL-BW-NEXT:    vzeroupper
 ; X86_64-AVX512-VL-BW-NEXT:    retq
 entry:
@@ -6649,13 +6501,12 @@ define void @i64_14x(<14 x i64>* %in, <14 x i64>* %out) {
 ; X86-AVX512-VL:       # %bb.0: # %entry
 ; X86-AVX512-VL-NEXT:    movl {{[0-9]+}}(%esp), %eax
 ; X86-AVX512-VL-NEXT:    movl {{[0-9]+}}(%esp), %ecx
-; X86-AVX512-VL-NEXT:    kxnorw %k0, %k0, %k1
-; X86-AVX512-VL-NEXT:    vmovdqa64 (%ecx), %zmm0 {%k1} {z}
 ; X86-AVX512-VL-NEXT:    movb $63, %dl
-; X86-AVX512-VL-NEXT:    kmovw %edx, %k2
-; X86-AVX512-VL-NEXT:    vmovdqa64 64(%ecx), %zmm1 {%k2} {z}
-; X86-AVX512-VL-NEXT:    vmovdqa64 %zmm1, 64(%eax) {%k2}
-; X86-AVX512-VL-NEXT:    vmovdqa64 %zmm0, (%eax) {%k1}
+; X86-AVX512-VL-NEXT:    kmovw %edx, %k1
+; X86-AVX512-VL-NEXT:    vmovdqa64 64(%ecx), %zmm0 {%k1} {z}
+; X86-AVX512-VL-NEXT:    vmovaps (%ecx), %zmm1
+; X86-AVX512-VL-NEXT:    vmovdqa64 %zmm0, 64(%eax) {%k1}
+; X86-AVX512-VL-NEXT:    vmovaps %zmm1, (%eax)
 ; X86-AVX512-VL-NEXT:    vzeroupper
 ; X86-AVX512-VL-NEXT:    retl
 ;
@@ -6663,37 +6514,34 @@ define void @i64_14x(<14 x i64>* %in, <14 x i64>* %out) {
 ; X86-AVX512-VL-BW:       # %bb.0: # %entry
 ; X86-AVX512-VL-BW-NEXT:    movl {{[0-9]+}}(%esp), %eax
 ; X86-AVX512-VL-BW-NEXT:    movl {{[0-9]+}}(%esp), %ecx
-; X86-AVX512-VL-BW-NEXT:    kxnorw %k0, %k0, %k1
-; X86-AVX512-VL-BW-NEXT:    vmovdqa64 (%ecx), %zmm0 {%k1} {z}
 ; X86-AVX512-VL-BW-NEXT:    movb $63, %dl
-; X86-AVX512-VL-BW-NEXT:    kmovd %edx, %k2
-; X86-AVX512-VL-BW-NEXT:    vmovdqa64 64(%ecx), %zmm1 {%k2} {z}
-; X86-AVX512-VL-BW-NEXT:    vmovdqa64 %zmm1, 64(%eax) {%k2}
-; X86-AVX512-VL-BW-NEXT:    vmovdqa64 %zmm0, (%eax) {%k1}
+; X86-AVX512-VL-BW-NEXT:    kmovd %edx, %k1
+; X86-AVX512-VL-BW-NEXT:    vmovdqa64 64(%ecx), %zmm0 {%k1} {z}
+; X86-AVX512-VL-BW-NEXT:    vmovaps (%ecx), %zmm1
+; X86-AVX512-VL-BW-NEXT:    vmovdqa64 %zmm0, 64(%eax) {%k1}
+; X86-AVX512-VL-BW-NEXT:    vmovaps %zmm1, (%eax)
 ; X86-AVX512-VL-BW-NEXT:    vzeroupper
 ; X86-AVX512-VL-BW-NEXT:    retl
 ;
 ; X86_64-AVX512-VL-LABEL: i64_14x:
 ; X86_64-AVX512-VL:       ## %bb.0: ## %entry
-; X86_64-AVX512-VL-NEXT:    kxnorw %k0, %k0, %k1
-; X86_64-AVX512-VL-NEXT:    vmovdqa64 (%rdi), %zmm0 {%k1} {z}
 ; X86_64-AVX512-VL-NEXT:    movb $63, %al
-; X86_64-AVX512-VL-NEXT:    kmovw %eax, %k2
-; X86_64-AVX512-VL-NEXT:    vmovdqa64 64(%rdi), %zmm1 {%k2} {z}
-; X86_64-AVX512-VL-NEXT:    vmovdqa64 %zmm1, 64(%rsi) {%k2}
-; X86_64-AVX512-VL-NEXT:    vmovdqa64 %zmm0, (%rsi) {%k1}
+; X86_64-AVX512-VL-NEXT:    kmovw %eax, %k1
+; X86_64-AVX512-VL-NEXT:    vmovdqa64 64(%rdi), %zmm0 {%k1} {z}
+; X86_64-AVX512-VL-NEXT:    vmovaps (%rdi), %zmm1
+; X86_64-AVX512-VL-NEXT:    vmovdqa64 %zmm0, 64(%rsi) {%k1}
+; X86_64-AVX512-VL-NEXT:    vmovaps %zmm1, (%rsi)
 ; X86_64-AVX512-VL-NEXT:    vzeroupper
 ; X86_64-AVX512-VL-NEXT:    retq
 ;
 ; X86_64-AVX512-VL-BW-LABEL: i64_14x:
 ; X86_64-AVX512-VL-BW:       ## %bb.0: ## %entry
-; X86_64-AVX512-VL-BW-NEXT:    kxnorw %k0, %k0, %k1
-; X86_64-AVX512-VL-BW-NEXT:    vmovdqa64 (%rdi), %zmm0 {%k1} {z}
 ; X86_64-AVX512-VL-BW-NEXT:    movb $63, %al
-; X86_64-AVX512-VL-BW-NEXT:    kmovd %eax, %k2
-; X86_64-AVX512-VL-BW-NEXT:    vmovdqa64 64(%rdi), %zmm1 {%k2} {z}
-; X86_64-AVX512-VL-BW-NEXT:    vmovdqa64 %zmm1, 64(%rsi) {%k2}
-; X86_64-AVX512-VL-BW-NEXT:    vmovdqa64 %zmm0, (%rsi) {%k1}
+; X86_64-AVX512-VL-BW-NEXT:    kmovd %eax, %k1
+; X86_64-AVX512-VL-BW-NEXT:    vmovdqa64 64(%rdi), %zmm0 {%k1} {z}
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps (%rdi), %zmm1
+; X86_64-AVX512-VL-BW-NEXT:    vmovdqa64 %zmm0, 64(%rsi) {%k1}
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps %zmm1, (%rsi)
 ; X86_64-AVX512-VL-BW-NEXT:    vzeroupper
 ; X86_64-AVX512-VL-BW-NEXT:    retq
 entry:
@@ -6707,13 +6555,12 @@ define void @i64_15x(<15 x i64>* %in, <15 x i64>* %out) {
 ; X86-AVX512-VL:       # %bb.0: # %entry
 ; X86-AVX512-VL-NEXT:    movl {{[0-9]+}}(%esp), %eax
 ; X86-AVX512-VL-NEXT:    movl {{[0-9]+}}(%esp), %ecx
-; X86-AVX512-VL-NEXT:    kxnorw %k0, %k0, %k1
-; X86-AVX512-VL-NEXT:    vmovdqa64 (%ecx), %zmm0 {%k1} {z}
 ; X86-AVX512-VL-NEXT:    movb $127, %dl
-; X86-AVX512-VL-NEXT:    kmovw %edx, %k2
-; X86-AVX512-VL-NEXT:    vmovdqa64 64(%ecx), %zmm1 {%k2} {z}
-; X86-AVX512-VL-NEXT:    vmovdqa64 %zmm1, 64(%eax) {%k2}
-; X86-AVX512-VL-NEXT:    vmovdqa64 %zmm0, (%eax) {%k1}
+; X86-AVX512-VL-NEXT:    kmovw %edx, %k1
+; X86-AVX512-VL-NEXT:    vmovdqa64 64(%ecx), %zmm0 {%k1} {z}
+; X86-AVX512-VL-NEXT:    vmovaps (%ecx), %zmm1
+; X86-AVX512-VL-NEXT:    vmovdqa64 %zmm0, 64(%eax) {%k1}
+; X86-AVX512-VL-NEXT:    vmovaps %zmm1, (%eax)
 ; X86-AVX512-VL-NEXT:    vzeroupper
 ; X86-AVX512-VL-NEXT:    retl
 ;
@@ -6721,37 +6568,34 @@ define void @i64_15x(<15 x i64>* %in, <15 x i64>* %out) {
 ; X86-AVX512-VL-BW:       # %bb.0: # %entry
 ; X86-AVX512-VL-BW-NEXT:    movl {{[0-9]+}}(%esp), %eax
 ; X86-AVX512-VL-BW-NEXT:    movl {{[0-9]+}}(%esp), %ecx
-; X86-AVX512-VL-BW-NEXT:    kxnorw %k0, %k0, %k1
-; X86-AVX512-VL-BW-NEXT:    vmovdqa64 (%ecx), %zmm0 {%k1} {z}
 ; X86-AVX512-VL-BW-NEXT:    movb $127, %dl
-; X86-AVX512-VL-BW-NEXT:    kmovd %edx, %k2
-; X86-AVX512-VL-BW-NEXT:    vmovdqa64 64(%ecx), %zmm1 {%k2} {z}
-; X86-AVX512-VL-BW-NEXT:    vmovdqa64 %zmm1, 64(%eax) {%k2}
-; X86-AVX512-VL-BW-NEXT:    vmovdqa64 %zmm0, (%eax) {%k1}
+; X86-AVX512-VL-BW-NEXT:    kmovd %edx, %k1
+; X86-AVX512-VL-BW-NEXT:    vmovdqa64 64(%ecx), %zmm0 {%k1} {z}
+; X86-AVX512-VL-BW-NEXT:    vmovaps (%ecx), %zmm1
+; X86-AVX512-VL-BW-NEXT:    vmovdqa64 %zmm0, 64(%eax) {%k1}
+; X86-AVX512-VL-BW-NEXT:    vmovaps %zmm1, (%eax)
 ; X86-AVX512-VL-BW-NEXT:    vzeroupper
 ; X86-AVX512-VL-BW-NEXT:    retl
 ;
 ; X86_64-AVX512-VL-LABEL: i64_15x:
 ; X86_64-AVX512-VL:       ## %bb.0: ## %entry
-; X86_64-AVX512-VL-NEXT:    kxnorw %k0, %k0, %k1
-; X86_64-AVX512-VL-NEXT:    vmovdqa64 (%rdi), %zmm0 {%k1} {z}
 ; X86_64-AVX512-VL-NEXT:    movb $127, %al
-; X86_64-AVX512-VL-NEXT:    kmovw %eax, %k2
-; X86_64-AVX512-VL-NEXT:    vmovdqa64 64(%rdi), %zmm1 {%k2} {z}
-; X86_64-AVX512-VL-NEXT:    vmovdqa64 %zmm1, 64(%rsi) {%k2}
-; X86_64-AVX512-VL-NEXT:    vmovdqa64 %zmm0, (%rsi) {%k1}
+; X86_64-AVX512-VL-NEXT:    kmovw %eax, %k1
+; X86_64-AVX512-VL-NEXT:    vmovdqa64 64(%rdi), %zmm0 {%k1} {z}
+; X86_64-AVX512-VL-NEXT:    vmovaps (%rdi), %zmm1
+; X86_64-AVX512-VL-NEXT:    vmovdqa64 %zmm0, 64(%rsi) {%k1}
+; X86_64-AVX512-VL-NEXT:    vmovaps %zmm1, (%rsi)
 ; X86_64-AVX512-VL-NEXT:    vzeroupper
 ; X86_64-AVX512-VL-NEXT:    retq
 ;
 ; X86_64-AVX512-VL-BW-LABEL: i64_15x:
 ; X86_64-AVX512-VL-BW:       ## %bb.0: ## %entry
-; X86_64-AVX512-VL-BW-NEXT:    kxnorw %k0, %k0, %k1
-; X86_64-AVX512-VL-BW-NEXT:    vmovdqa64 (%rdi), %zmm0 {%k1} {z}
 ; X86_64-AVX512-VL-BW-NEXT:    movb $127, %al
-; X86_64-AVX512-VL-BW-NEXT:    kmovd %eax, %k2
-; X86_64-AVX512-VL-BW-NEXT:    vmovdqa64 64(%rdi), %zmm1 {%k2} {z}
-; X86_64-AVX512-VL-BW-NEXT:    vmovdqa64 %zmm1, 64(%rsi) {%k2}
-; X86_64-AVX512-VL-BW-NEXT:    vmovdqa64 %zmm0, (%rsi) {%k1}
+; X86_64-AVX512-VL-BW-NEXT:    kmovd %eax, %k1
+; X86_64-AVX512-VL-BW-NEXT:    vmovdqa64 64(%rdi), %zmm0 {%k1} {z}
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps (%rdi), %zmm1
+; X86_64-AVX512-VL-BW-NEXT:    vmovdqa64 %zmm0, 64(%rsi) {%k1}
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps %zmm1, (%rsi)
 ; X86_64-AVX512-VL-BW-NEXT:    vzeroupper
 ; X86_64-AVX512-VL-BW-NEXT:    retq
 entry:
@@ -6814,12 +6658,11 @@ define void @i64_17x(<17 x i64>* %in, <17 x i64>* %out) {
 ; X86-AVX512-VL-NEXT:    movb $1, %dl
 ; X86-AVX512-VL-NEXT:    kmovw %edx, %k1
 ; X86-AVX512-VL-NEXT:    vmovdqa64 128(%ecx), %zmm0 {%k1} {z}
-; X86-AVX512-VL-NEXT:    kxnorw %k0, %k0, %k2
-; X86-AVX512-VL-NEXT:    vmovdqa64 (%ecx), %zmm1 {%k2} {z}
-; X86-AVX512-VL-NEXT:    vmovdqa64 64(%ecx), %zmm2 {%k2} {z}
-; X86-AVX512-VL-NEXT:    vmovdqa64 %zmm2, 64(%eax) {%k2}
-; X86-AVX512-VL-NEXT:    vmovdqa64 %zmm1, (%eax) {%k2}
+; X86-AVX512-VL-NEXT:    vmovaps (%ecx), %zmm1
+; X86-AVX512-VL-NEXT:    vmovaps 64(%ecx), %zmm2
 ; X86-AVX512-VL-NEXT:    vmovdqa64 %zmm0, 128(%eax) {%k1}
+; X86-AVX512-VL-NEXT:    vmovaps %zmm2, 64(%eax)
+; X86-AVX512-VL-NEXT:    vmovaps %zmm1, (%eax)
 ; X86-AVX512-VL-NEXT:    vzeroupper
 ; X86-AVX512-VL-NEXT:    retl
 ;
@@ -6830,12 +6673,11 @@ define void @i64_17x(<17 x i64>* %in, <17 x i64>* %out) {
 ; X86-AVX512-VL-BW-NEXT:    movb $1, %dl
 ; X86-AVX512-VL-BW-NEXT:    kmovd %edx, %k1
 ; X86-AVX512-VL-BW-NEXT:    vmovdqa64 128(%ecx), %zmm0 {%k1} {z}
-; X86-AVX512-VL-BW-NEXT:    kxnorw %k0, %k0, %k2
-; X86-AVX512-VL-BW-NEXT:    vmovdqa64 (%ecx), %zmm1 {%k2} {z}
-; X86-AVX512-VL-BW-NEXT:    vmovdqa64 64(%ecx), %zmm2 {%k2} {z}
-; X86-AVX512-VL-BW-NEXT:    vmovdqa64 %zmm2, 64(%eax) {%k2}
-; X86-AVX512-VL-BW-NEXT:    vmovdqa64 %zmm1, (%eax) {%k2}
+; X86-AVX512-VL-BW-NEXT:    vmovaps (%ecx), %zmm1
+; X86-AVX512-VL-BW-NEXT:    vmovaps 64(%ecx), %zmm2
 ; X86-AVX512-VL-BW-NEXT:    vmovdqa64 %zmm0, 128(%eax) {%k1}
+; X86-AVX512-VL-BW-NEXT:    vmovaps %zmm2, 64(%eax)
+; X86-AVX512-VL-BW-NEXT:    vmovaps %zmm1, (%eax)
 ; X86-AVX512-VL-BW-NEXT:    vzeroupper
 ; X86-AVX512-VL-BW-NEXT:    retl
 ;
@@ -6844,12 +6686,11 @@ define void @i64_17x(<17 x i64>* %in, <17 x i64>* %out) {
 ; X86_64-AVX512-VL-NEXT:    movb $1, %al
 ; X86_64-AVX512-VL-NEXT:    kmovw %eax, %k1
 ; X86_64-AVX512-VL-NEXT:    vmovdqa64 128(%rdi), %zmm0 {%k1} {z}
-; X86_64-AVX512-VL-NEXT:    kxnorw %k0, %k0, %k2
-; X86_64-AVX512-VL-NEXT:    vmovdqa64 (%rdi), %zmm1 {%k2} {z}
-; X86_64-AVX512-VL-NEXT:    vmovdqa64 64(%rdi), %zmm2 {%k2} {z}
-; X86_64-AVX512-VL-NEXT:    vmovdqa64 %zmm2, 64(%rsi) {%k2}
-; X86_64-AVX512-VL-NEXT:    vmovdqa64 %zmm1, (%rsi) {%k2}
+; X86_64-AVX512-VL-NEXT:    vmovaps (%rdi), %zmm1
+; X86_64-AVX512-VL-NEXT:    vmovaps 64(%rdi), %zmm2
 ; X86_64-AVX512-VL-NEXT:    vmovdqa64 %zmm0, 128(%rsi) {%k1}
+; X86_64-AVX512-VL-NEXT:    vmovaps %zmm2, 64(%rsi)
+; X86_64-AVX512-VL-NEXT:    vmovaps %zmm1, (%rsi)
 ; X86_64-AVX512-VL-NEXT:    vzeroupper
 ; X86_64-AVX512-VL-NEXT:    retq
 ;
@@ -6858,12 +6699,11 @@ define void @i64_17x(<17 x i64>* %in, <17 x i64>* %out) {
 ; X86_64-AVX512-VL-BW-NEXT:    movb $1, %al
 ; X86_64-AVX512-VL-BW-NEXT:    kmovd %eax, %k1
 ; X86_64-AVX512-VL-BW-NEXT:    vmovdqa64 128(%rdi), %zmm0 {%k1} {z}
-; X86_64-AVX512-VL-BW-NEXT:    kxnorw %k0, %k0, %k2
-; X86_64-AVX512-VL-BW-NEXT:    vmovdqa64 (%rdi), %zmm1 {%k2} {z}
-; X86_64-AVX512-VL-BW-NEXT:    vmovdqa64 64(%rdi), %zmm2 {%k2} {z}
-; X86_64-AVX512-VL-BW-NEXT:    vmovdqa64 %zmm2, 64(%rsi) {%k2}
-; X86_64-AVX512-VL-BW-NEXT:    vmovdqa64 %zmm1, (%rsi) {%k2}
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps (%rdi), %zmm1
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps 64(%rdi), %zmm2
 ; X86_64-AVX512-VL-BW-NEXT:    vmovdqa64 %zmm0, 128(%rsi) {%k1}
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps %zmm2, 64(%rsi)
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps %zmm1, (%rsi)
 ; X86_64-AVX512-VL-BW-NEXT:    vzeroupper
 ; X86_64-AVX512-VL-BW-NEXT:    retq
 entry:
@@ -6880,12 +6720,11 @@ define void @i64_18x(<18 x i64>* %in, <18 x i64>* %out) {
 ; X86-AVX512-VL-NEXT:    movb $3, %dl
 ; X86-AVX512-VL-NEXT:    kmovw %edx, %k1
 ; X86-AVX512-VL-NEXT:    vmovdqa64 128(%ecx), %zmm0 {%k1} {z}
-; X86-AVX512-VL-NEXT:    kxnorw %k0, %k0, %k2
-; X86-AVX512-VL-NEXT:    vmovdqa64 (%ecx), %zmm1 {%k2} {z}
-; X86-AVX512-VL-NEXT:    vmovdqa64 64(%ecx), %zmm2 {%k2} {z}
-; X86-AVX512-VL-NEXT:    vmovdqa64 %zmm2, 64(%eax) {%k2}
-; X86-AVX512-VL-NEXT:    vmovdqa64 %zmm1, (%eax) {%k2}
+; X86-AVX512-VL-NEXT:    vmovaps (%ecx), %zmm1
+; X86-AVX512-VL-NEXT:    vmovaps 64(%ecx), %zmm2
 ; X86-AVX512-VL-NEXT:    vmovdqa64 %zmm0, 128(%eax) {%k1}
+; X86-AVX512-VL-NEXT:    vmovaps %zmm2, 64(%eax)
+; X86-AVX512-VL-NEXT:    vmovaps %zmm1, (%eax)
 ; X86-AVX512-VL-NEXT:    vzeroupper
 ; X86-AVX512-VL-NEXT:    retl
 ;
@@ -6896,12 +6735,11 @@ define void @i64_18x(<18 x i64>* %in, <18 x i64>* %out) {
 ; X86-AVX512-VL-BW-NEXT:    movb $3, %dl
 ; X86-AVX512-VL-BW-NEXT:    kmovd %edx, %k1
 ; X86-AVX512-VL-BW-NEXT:    vmovdqa64 128(%ecx), %zmm0 {%k1} {z}
-; X86-AVX512-VL-BW-NEXT:    kxnorw %k0, %k0, %k2
-; X86-AVX512-VL-BW-NEXT:    vmovdqa64 (%ecx), %zmm1 {%k2} {z}
-; X86-AVX512-VL-BW-NEXT:    vmovdqa64 64(%ecx), %zmm2 {%k2} {z}
-; X86-AVX512-VL-BW-NEXT:    vmovdqa64 %zmm2, 64(%eax) {%k2}
-; X86-AVX512-VL-BW-NEXT:    vmovdqa64 %zmm1, (%eax) {%k2}
+; X86-AVX512-VL-BW-NEXT:    vmovaps (%ecx), %zmm1
+; X86-AVX512-VL-BW-NEXT:    vmovaps 64(%ecx), %zmm2
 ; X86-AVX512-VL-BW-NEXT:    vmovdqa64 %zmm0, 128(%eax) {%k1}
+; X86-AVX512-VL-BW-NEXT:    vmovaps %zmm2, 64(%eax)
+; X86-AVX512-VL-BW-NEXT:    vmovaps %zmm1, (%eax)
 ; X86-AVX512-VL-BW-NEXT:    vzeroupper
 ; X86-AVX512-VL-BW-NEXT:    retl
 ;
@@ -6910,12 +6748,11 @@ define void @i64_18x(<18 x i64>* %in, <18 x i64>* %out) {
 ; X86_64-AVX512-VL-NEXT:    movb $3, %al
 ; X86_64-AVX512-VL-NEXT:    kmovw %eax, %k1
 ; X86_64-AVX512-VL-NEXT:    vmovdqa64 128(%rdi), %zmm0 {%k1} {z}
-; X86_64-AVX512-VL-NEXT:    kxnorw %k0, %k0, %k2
-; X86_64-AVX512-VL-NEXT:    vmovdqa64 (%rdi), %zmm1 {%k2} {z}
-; X86_64-AVX512-VL-NEXT:    vmovdqa64 64(%rdi), %zmm2 {%k2} {z}
-; X86_64-AVX512-VL-NEXT:    vmovdqa64 %zmm2, 64(%rsi) {%k2}
-; X86_64-AVX512-VL-NEXT:    vmovdqa64 %zmm1, (%rsi) {%k2}
+; X86_64-AVX512-VL-NEXT:    vmovaps (%rdi), %zmm1
+; X86_64-AVX512-VL-NEXT:    vmovaps 64(%rdi), %zmm2
 ; X86_64-AVX512-VL-NEXT:    vmovdqa64 %zmm0, 128(%rsi) {%k1}
+; X86_64-AVX512-VL-NEXT:    vmovaps %zmm2, 64(%rsi)
+; X86_64-AVX512-VL-NEXT:    vmovaps %zmm1, (%rsi)
 ; X86_64-AVX512-VL-NEXT:    vzeroupper
 ; X86_64-AVX512-VL-NEXT:    retq
 ;
@@ -6924,12 +6761,11 @@ define void @i64_18x(<18 x i64>* %in, <18 x i64>* %out) {
 ; X86_64-AVX512-VL-BW-NEXT:    movb $3, %al
 ; X86_64-AVX512-VL-BW-NEXT:    kmovd %eax, %k1
 ; X86_64-AVX512-VL-BW-NEXT:    vmovdqa64 128(%rdi), %zmm0 {%k1} {z}
-; X86_64-AVX512-VL-BW-NEXT:    kxnorw %k0, %k0, %k2
-; X86_64-AVX512-VL-BW-NEXT:    vmovdqa64 (%rdi), %zmm1 {%k2} {z}
-; X86_64-AVX512-VL-BW-NEXT:    vmovdqa64 64(%rdi), %zmm2 {%k2} {z}
-; X86_64-AVX512-VL-BW-NEXT:    vmovdqa64 %zmm2, 64(%rsi) {%k2}
-; X86_64-AVX512-VL-BW-NEXT:    vmovdqa64 %zmm1, (%rsi) {%k2}
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps (%rdi), %zmm1
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps 64(%rdi), %zmm2
 ; X86_64-AVX512-VL-BW-NEXT:    vmovdqa64 %zmm0, 128(%rsi) {%k1}
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps %zmm2, 64(%rsi)
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps %zmm1, (%rsi)
 ; X86_64-AVX512-VL-BW-NEXT:    vzeroupper
 ; X86_64-AVX512-VL-BW-NEXT:    retq
 entry:
@@ -6943,17 +6779,16 @@ define void @i64_30x(<30 x i64>* %in, <30 x i64>* %out) {
 ; X86-AVX512-VL:       # %bb.0: # %entry
 ; X86-AVX512-VL-NEXT:    movl {{[0-9]+}}(%esp), %eax
 ; X86-AVX512-VL-NEXT:    movl {{[0-9]+}}(%esp), %ecx
-; X86-AVX512-VL-NEXT:    kxnorw %k0, %k0, %k1
-; X86-AVX512-VL-NEXT:    vmovdqa64 (%ecx), %zmm0 {%k1} {z}
-; X86-AVX512-VL-NEXT:    vmovdqa64 64(%ecx), %zmm1 {%k1} {z}
-; X86-AVX512-VL-NEXT:    vmovdqa64 128(%ecx), %zmm2 {%k1} {z}
 ; X86-AVX512-VL-NEXT:    movb $63, %dl
-; X86-AVX512-VL-NEXT:    kmovw %edx, %k2
-; X86-AVX512-VL-NEXT:    vmovdqa64 192(%ecx), %zmm3 {%k2} {z}
-; X86-AVX512-VL-NEXT:    vmovdqa64 %zmm3, 192(%eax) {%k2}
-; X86-AVX512-VL-NEXT:    vmovdqa64 %zmm2, 128(%eax) {%k1}
-; X86-AVX512-VL-NEXT:    vmovdqa64 %zmm1, 64(%eax) {%k1}
-; X86-AVX512-VL-NEXT:    vmovdqa64 %zmm0, (%eax) {%k1}
+; X86-AVX512-VL-NEXT:    kmovw %edx, %k1
+; X86-AVX512-VL-NEXT:    vmovdqa64 192(%ecx), %zmm0 {%k1} {z}
+; X86-AVX512-VL-NEXT:    vmovaps 128(%ecx), %zmm1
+; X86-AVX512-VL-NEXT:    vmovaps (%ecx), %zmm2
+; X86-AVX512-VL-NEXT:    vmovaps 64(%ecx), %zmm3
+; X86-AVX512-VL-NEXT:    vmovdqa64 %zmm0, 192(%eax) {%k1}
+; X86-AVX512-VL-NEXT:    vmovaps %zmm3, 64(%eax)
+; X86-AVX512-VL-NEXT:    vmovaps %zmm1, 128(%eax)
+; X86-AVX512-VL-NEXT:    vmovaps %zmm2, (%eax)
 ; X86-AVX512-VL-NEXT:    vzeroupper
 ; X86-AVX512-VL-NEXT:    retl
 ;
@@ -6961,49 +6796,46 @@ define void @i64_30x(<30 x i64>* %in, <30 x i64>* %out) {
 ; X86-AVX512-VL-BW:       # %bb.0: # %entry
 ; X86-AVX512-VL-BW-NEXT:    movl {{[0-9]+}}(%esp), %eax
 ; X86-AVX512-VL-BW-NEXT:    movl {{[0-9]+}}(%esp), %ecx
-; X86-AVX512-VL-BW-NEXT:    kxnorw %k0, %k0, %k1
-; X86-AVX512-VL-BW-NEXT:    vmovdqa64 (%ecx), %zmm0 {%k1} {z}
-; X86-AVX512-VL-BW-NEXT:    vmovdqa64 64(%ecx), %zmm1 {%k1} {z}
-; X86-AVX512-VL-BW-NEXT:    vmovdqa64 128(%ecx), %zmm2 {%k1} {z}
 ; X86-AVX512-VL-BW-NEXT:    movb $63, %dl
-; X86-AVX512-VL-BW-NEXT:    kmovd %edx, %k2
-; X86-AVX512-VL-BW-NEXT:    vmovdqa64 192(%ecx), %zmm3 {%k2} {z}
-; X86-AVX512-VL-BW-NEXT:    vmovdqa64 %zmm3, 192(%eax) {%k2}
-; X86-AVX512-VL-BW-NEXT:    vmovdqa64 %zmm2, 128(%eax) {%k1}
-; X86-AVX512-VL-BW-NEXT:    vmovdqa64 %zmm1, 64(%eax) {%k1}
-; X86-AVX512-VL-BW-NEXT:    vmovdqa64 %zmm0, (%eax) {%k1}
+; X86-AVX512-VL-BW-NEXT:    kmovd %edx, %k1
+; X86-AVX512-VL-BW-NEXT:    vmovdqa64 192(%ecx), %zmm0 {%k1} {z}
+; X86-AVX512-VL-BW-NEXT:    vmovaps 128(%ecx), %zmm1
+; X86-AVX512-VL-BW-NEXT:    vmovaps (%ecx), %zmm2
+; X86-AVX512-VL-BW-NEXT:    vmovaps 64(%ecx), %zmm3
+; X86-AVX512-VL-BW-NEXT:    vmovdqa64 %zmm0, 192(%eax) {%k1}
+; X86-AVX512-VL-BW-NEXT:    vmovaps %zmm3, 64(%eax)
+; X86-AVX512-VL-BW-NEXT:    vmovaps %zmm1, 128(%eax)
+; X86-AVX512-VL-BW-NEXT:    vmovaps %zmm2, (%eax)
 ; X86-AVX512-VL-BW-NEXT:    vzeroupper
 ; X86-AVX512-VL-BW-NEXT:    retl
 ;
 ; X86_64-AVX512-VL-LABEL: i64_30x:
 ; X86_64-AVX512-VL:       ## %bb.0: ## %entry
-; X86_64-AVX512-VL-NEXT:    kxnorw %k0, %k0, %k1
-; X86_64-AVX512-VL-NEXT:    vmovdqa64 (%rdi), %zmm0 {%k1} {z}
-; X86_64-AVX512-VL-NEXT:    vmovdqa64 64(%rdi), %zmm1 {%k1} {z}
-; X86_64-AVX512-VL-NEXT:    vmovdqa64 128(%rdi), %zmm2 {%k1} {z}
 ; X86_64-AVX512-VL-NEXT:    movb $63, %al
-; X86_64-AVX512-VL-NEXT:    kmovw %eax, %k2
-; X86_64-AVX512-VL-NEXT:    vmovdqa64 192(%rdi), %zmm3 {%k2} {z}
-; X86_64-AVX512-VL-NEXT:    vmovdqa64 %zmm3, 192(%rsi) {%k2}
-; X86_64-AVX512-VL-NEXT:    vmovdqa64 %zmm2, 128(%rsi) {%k1}
-; X86_64-AVX512-VL-NEXT:    vmovdqa64 %zmm1, 64(%rsi) {%k1}
-; X86_64-AVX512-VL-NEXT:    vmovdqa64 %zmm0, (%rsi) {%k1}
+; X86_64-AVX512-VL-NEXT:    kmovw %eax, %k1
+; X86_64-AVX512-VL-NEXT:    vmovdqa64 192(%rdi), %zmm0 {%k1} {z}
+; X86_64-AVX512-VL-NEXT:    vmovaps (%rdi), %zmm1
+; X86_64-AVX512-VL-NEXT:    vmovaps 64(%rdi), %zmm2
+; X86_64-AVX512-VL-NEXT:    vmovaps 128(%rdi), %zmm3
+; X86_64-AVX512-VL-NEXT:    vmovdqa64 %zmm0, 192(%rsi) {%k1}
+; X86_64-AVX512-VL-NEXT:    vmovaps %zmm1, (%rsi)
+; X86_64-AVX512-VL-NEXT:    vmovaps %zmm2, 64(%rsi)
+; X86_64-AVX512-VL-NEXT:    vmovaps %zmm3, 128(%rsi)
 ; X86_64-AVX512-VL-NEXT:    vzeroupper
 ; X86_64-AVX512-VL-NEXT:    retq
 ;
 ; X86_64-AVX512-VL-BW-LABEL: i64_30x:
 ; X86_64-AVX512-VL-BW:       ## %bb.0: ## %entry
-; X86_64-AVX512-VL-BW-NEXT:    kxnorw %k0, %k0, %k1
-; X86_64-AVX512-VL-BW-NEXT:    vmovdqa64 (%rdi), %zmm0 {%k1} {z}
-; X86_64-AVX512-VL-BW-NEXT:    vmovdqa64 64(%rdi), %zmm1 {%k1} {z}
-; X86_64-AVX512-VL-BW-NEXT:    vmovdqa64 128(%rdi), %zmm2 {%k1} {z}
 ; X86_64-AVX512-VL-BW-NEXT:    movb $63, %al
-; X86_64-AVX512-VL-BW-NEXT:    kmovd %eax, %k2
-; X86_64-AVX512-VL-BW-NEXT:    vmovdqa64 192(%rdi), %zmm3 {%k2} {z}
-; X86_64-AVX512-VL-BW-NEXT:    vmovdqa64 %zmm3, 192(%rsi) {%k2}
-; X86_64-AVX512-VL-BW-NEXT:    vmovdqa64 %zmm2, 128(%rsi) {%k1}
-; X86_64-AVX512-VL-BW-NEXT:    vmovdqa64 %zmm1, 64(%rsi) {%k1}
-; X86_64-AVX512-VL-BW-NEXT:    vmovdqa64 %zmm0, (%rsi) {%k1}
+; X86_64-AVX512-VL-BW-NEXT:    kmovd %eax, %k1
+; X86_64-AVX512-VL-BW-NEXT:    vmovdqa64 192(%rdi), %zmm0 {%k1} {z}
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps (%rdi), %zmm1
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps 64(%rdi), %zmm2
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps 128(%rdi), %zmm3
+; X86_64-AVX512-VL-BW-NEXT:    vmovdqa64 %zmm0, 192(%rsi) {%k1}
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps %zmm2, 64(%rsi)
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps %zmm3, 128(%rsi)
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps %zmm1, (%rsi)
 ; X86_64-AVX512-VL-BW-NEXT:    vzeroupper
 ; X86_64-AVX512-VL-BW-NEXT:    retq
 entry:
@@ -7017,17 +6849,16 @@ define void @i64_31x(<31 x i64>* %in, <31 x i64>* %out) {
 ; X86-AVX512-VL:       # %bb.0: # %entry
 ; X86-AVX512-VL-NEXT:    movl {{[0-9]+}}(%esp), %eax
 ; X86-AVX512-VL-NEXT:    movl {{[0-9]+}}(%esp), %ecx
-; X86-AVX512-VL-NEXT:    kxnorw %k0, %k0, %k1
-; X86-AVX512-VL-NEXT:    vmovdqa64 (%ecx), %zmm0 {%k1} {z}
-; X86-AVX512-VL-NEXT:    vmovdqa64 64(%ecx), %zmm1 {%k1} {z}
-; X86-AVX512-VL-NEXT:    vmovdqa64 128(%ecx), %zmm2 {%k1} {z}
 ; X86-AVX512-VL-NEXT:    movb $127, %dl
-; X86-AVX512-VL-NEXT:    kmovw %edx, %k2
-; X86-AVX512-VL-NEXT:    vmovdqa64 192(%ecx), %zmm3 {%k2} {z}
-; X86-AVX512-VL-NEXT:    vmovdqa64 %zmm3, 192(%eax) {%k2}
-; X86-AVX512-VL-NEXT:    vmovdqa64 %zmm2, 128(%eax) {%k1}
-; X86-AVX512-VL-NEXT:    vmovdqa64 %zmm1, 64(%eax) {%k1}
-; X86-AVX512-VL-NEXT:    vmovdqa64 %zmm0, (%eax) {%k1}
+; X86-AVX512-VL-NEXT:    kmovw %edx, %k1
+; X86-AVX512-VL-NEXT:    vmovdqa64 192(%ecx), %zmm0 {%k1} {z}
+; X86-AVX512-VL-NEXT:    vmovaps 128(%ecx), %zmm1
+; X86-AVX512-VL-NEXT:    vmovaps (%ecx), %zmm2
+; X86-AVX512-VL-NEXT:    vmovaps 64(%ecx), %zmm3
+; X86-AVX512-VL-NEXT:    vmovdqa64 %zmm0, 192(%eax) {%k1}
+; X86-AVX512-VL-NEXT:    vmovaps %zmm3, 64(%eax)
+; X86-AVX512-VL-NEXT:    vmovaps %zmm1, 128(%eax)
+; X86-AVX512-VL-NEXT:    vmovaps %zmm2, (%eax)
 ; X86-AVX512-VL-NEXT:    vzeroupper
 ; X86-AVX512-VL-NEXT:    retl
 ;
@@ -7035,49 +6866,46 @@ define void @i64_31x(<31 x i64>* %in, <31 x i64>* %out) {
 ; X86-AVX512-VL-BW:       # %bb.0: # %entry
 ; X86-AVX512-VL-BW-NEXT:    movl {{[0-9]+}}(%esp), %eax
 ; X86-AVX512-VL-BW-NEXT:    movl {{[0-9]+}}(%esp), %ecx
-; X86-AVX512-VL-BW-NEXT:    kxnorw %k0, %k0, %k1
-; X86-AVX512-VL-BW-NEXT:    vmovdqa64 (%ecx), %zmm0 {%k1} {z}
-; X86-AVX512-VL-BW-NEXT:    vmovdqa64 64(%ecx), %zmm1 {%k1} {z}
-; X86-AVX512-VL-BW-NEXT:    vmovdqa64 128(%ecx), %zmm2 {%k1} {z}
 ; X86-AVX512-VL-BW-NEXT:    movb $127, %dl
-; X86-AVX512-VL-BW-NEXT:    kmovd %edx, %k2
-; X86-AVX512-VL-BW-NEXT:    vmovdqa64 192(%ecx), %zmm3 {%k2} {z}
-; X86-AVX512-VL-BW-NEXT:    vmovdqa64 %zmm3, 192(%eax) {%k2}
-; X86-AVX512-VL-BW-NEXT:    vmovdqa64 %zmm2, 128(%eax) {%k1}
-; X86-AVX512-VL-BW-NEXT:    vmovdqa64 %zmm1, 64(%eax) {%k1}
-; X86-AVX512-VL-BW-NEXT:    vmovdqa64 %zmm0, (%eax) {%k1}
+; X86-AVX512-VL-BW-NEXT:    kmovd %edx, %k1
+; X86-AVX512-VL-BW-NEXT:    vmovdqa64 192(%ecx), %zmm0 {%k1} {z}
+; X86-AVX512-VL-BW-NEXT:    vmovaps 128(%ecx), %zmm1
+; X86-AVX512-VL-BW-NEXT:    vmovaps (%ecx), %zmm2
+; X86-AVX512-VL-BW-NEXT:    vmovaps 64(%ecx), %zmm3
+; X86-AVX512-VL-BW-NEXT:    vmovdqa64 %zmm0, 192(%eax) {%k1}
+; X86-AVX512-VL-BW-NEXT:    vmovaps %zmm3, 64(%eax)
+; X86-AVX512-VL-BW-NEXT:    vmovaps %zmm1, 128(%eax)
+; X86-AVX512-VL-BW-NEXT:    vmovaps %zmm2, (%eax)
 ; X86-AVX512-VL-BW-NEXT:    vzeroupper
 ; X86-AVX512-VL-BW-NEXT:    retl
 ;
 ; X86_64-AVX512-VL-LABEL: i64_31x:
 ; X86_64-AVX512-VL:       ## %bb.0: ## %entry
-; X86_64-AVX512-VL-NEXT:    kxnorw %k0, %k0, %k1
-; X86_64-AVX512-VL-NEXT:    vmovdqa64 (%rdi), %zmm0 {%k1} {z}
-; X86_64-AVX512-VL-NEXT:    vmovdqa64 64(%rdi), %zmm1 {%k1} {z}
-; X86_64-AVX512-VL-NEXT:    vmovdqa64 128(%rdi), %zmm2 {%k1} {z}
 ; X86_64-AVX512-VL-NEXT:    movb $127, %al
-; X86_64-AVX512-VL-NEXT:    kmovw %eax, %k2
-; X86_64-AVX512-VL-NEXT:    vmovdqa64 192(%rdi), %zmm3 {%k2} {z}
-; X86_64-AVX512-VL-NEXT:    vmovdqa64 %zmm3, 192(%rsi) {%k2}
-; X86_64-AVX512-VL-NEXT:    vmovdqa64 %zmm2, 128(%rsi) {%k1}
-; X86_64-AVX512-VL-NEXT:    vmovdqa64 %zmm1, 64(%rsi) {%k1}
-; X86_64-AVX512-VL-NEXT:    vmovdqa64 %zmm0, (%rsi) {%k1}
+; X86_64-AVX512-VL-NEXT:    kmovw %eax, %k1
+; X86_64-AVX512-VL-NEXT:    vmovdqa64 192(%rdi), %zmm0 {%k1} {z}
+; X86_64-AVX512-VL-NEXT:    vmovaps (%rdi), %zmm1
+; X86_64-AVX512-VL-NEXT:    vmovaps 64(%rdi), %zmm2
+; X86_64-AVX512-VL-NEXT:    vmovaps 128(%rdi), %zmm3
+; X86_64-AVX512-VL-NEXT:    vmovdqa64 %zmm0, 192(%rsi) {%k1}
+; X86_64-AVX512-VL-NEXT:    vmovaps %zmm1, (%rsi)
+; X86_64-AVX512-VL-NEXT:    vmovaps %zmm2, 64(%rsi)
+; X86_64-AVX512-VL-NEXT:    vmovaps %zmm3, 128(%rsi)
 ; X86_64-AVX512-VL-NEXT:    vzeroupper
 ; X86_64-AVX512-VL-NEXT:    retq
 ;
 ; X86_64-AVX512-VL-BW-LABEL: i64_31x:
 ; X86_64-AVX512-VL-BW:       ## %bb.0: ## %entry
-; X86_64-AVX512-VL-BW-NEXT:    kxnorw %k0, %k0, %k1
-; X86_64-AVX512-VL-BW-NEXT:    vmovdqa64 (%rdi), %zmm0 {%k1} {z}
-; X86_64-AVX512-VL-BW-NEXT:    vmovdqa64 64(%rdi), %zmm1 {%k1} {z}
-; X86_64-AVX512-VL-BW-NEXT:    vmovdqa64 128(%rdi), %zmm2 {%k1} {z}
 ; X86_64-AVX512-VL-BW-NEXT:    movb $127, %al
-; X86_64-AVX512-VL-BW-NEXT:    kmovd %eax, %k2
-; X86_64-AVX512-VL-BW-NEXT:    vmovdqa64 192(%rdi), %zmm3 {%k2} {z}
-; X86_64-AVX512-VL-BW-NEXT:    vmovdqa64 %zmm3, 192(%rsi) {%k2}
-; X86_64-AVX512-VL-BW-NEXT:    vmovdqa64 %zmm2, 128(%rsi) {%k1}
-; X86_64-AVX512-VL-BW-NEXT:    vmovdqa64 %zmm1, 64(%rsi) {%k1}
-; X86_64-AVX512-VL-BW-NEXT:    vmovdqa64 %zmm0, (%rsi) {%k1}
+; X86_64-AVX512-VL-BW-NEXT:    kmovd %eax, %k1
+; X86_64-AVX512-VL-BW-NEXT:    vmovdqa64 192(%rdi), %zmm0 {%k1} {z}
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps (%rdi), %zmm1
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps 64(%rdi), %zmm2
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps 128(%rdi), %zmm3
+; X86_64-AVX512-VL-BW-NEXT:    vmovdqa64 %zmm0, 192(%rsi) {%k1}
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps %zmm2, 64(%rsi)
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps %zmm3, 128(%rsi)
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps %zmm1, (%rsi)
 ; X86_64-AVX512-VL-BW-NEXT:    vzeroupper
 ; X86_64-AVX512-VL-BW-NEXT:    retq
 entry:
@@ -7156,16 +6984,15 @@ define void @i64_33x(<33 x i64>* %in, <33 x i64>* %out) {
 ; X86-AVX512-VL-NEXT:    movb $1, %dl
 ; X86-AVX512-VL-NEXT:    kmovw %edx, %k1
 ; X86-AVX512-VL-NEXT:    vmovdqa64 256(%ecx), %zmm0 {%k1} {z}
-; X86-AVX512-VL-NEXT:    kxnorw %k0, %k0, %k2
-; X86-AVX512-VL-NEXT:    vmovdqa64 (%ecx), %zmm1 {%k2} {z}
-; X86-AVX512-VL-NEXT:    vmovdqa64 64(%ecx), %zmm2 {%k2} {z}
-; X86-AVX512-VL-NEXT:    vmovdqa64 128(%ecx), %zmm3 {%k2} {z}
-; X86-AVX512-VL-NEXT:    vmovdqa64 192(%ecx), %zmm4 {%k2} {z}
-; X86-AVX512-VL-NEXT:    vmovdqa64 %zmm4, 192(%eax) {%k2}
-; X86-AVX512-VL-NEXT:    vmovdqa64 %zmm3, 128(%eax) {%k2}
-; X86-AVX512-VL-NEXT:    vmovdqa64 %zmm2, 64(%eax) {%k2}
-; X86-AVX512-VL-NEXT:    vmovdqa64 %zmm1, (%eax) {%k2}
+; X86-AVX512-VL-NEXT:    vmovaps (%ecx), %zmm1
+; X86-AVX512-VL-NEXT:    vmovaps 64(%ecx), %zmm2
+; X86-AVX512-VL-NEXT:    vmovaps 192(%ecx), %zmm3
+; X86-AVX512-VL-NEXT:    vmovaps 128(%ecx), %zmm4
 ; X86-AVX512-VL-NEXT:    vmovdqa64 %zmm0, 256(%eax) {%k1}
+; X86-AVX512-VL-NEXT:    vmovaps %zmm4, 128(%eax)
+; X86-AVX512-VL-NEXT:    vmovaps %zmm3, 192(%eax)
+; X86-AVX512-VL-NEXT:    vmovaps %zmm2, 64(%eax)
+; X86-AVX512-VL-NEXT:    vmovaps %zmm1, (%eax)
 ; X86-AVX512-VL-NEXT:    vzeroupper
 ; X86-AVX512-VL-NEXT:    retl
 ;
@@ -7176,16 +7003,15 @@ define void @i64_33x(<33 x i64>* %in, <33 x i64>* %out) {
 ; X86-AVX512-VL-BW-NEXT:    movb $1, %dl
 ; X86-AVX512-VL-BW-NEXT:    kmovd %edx, %k1
 ; X86-AVX512-VL-BW-NEXT:    vmovdqa64 256(%ecx), %zmm0 {%k1} {z}
-; X86-AVX512-VL-BW-NEXT:    kxnorw %k0, %k0, %k2
-; X86-AVX512-VL-BW-NEXT:    vmovdqa64 (%ecx), %zmm1 {%k2} {z}
-; X86-AVX512-VL-BW-NEXT:    vmovdqa64 64(%ecx), %zmm2 {%k2} {z}
-; X86-AVX512-VL-BW-NEXT:    vmovdqa64 128(%ecx), %zmm3 {%k2} {z}
-; X86-AVX512-VL-BW-NEXT:    vmovdqa64 192(%ecx), %zmm4 {%k2} {z}
-; X86-AVX512-VL-BW-NEXT:    vmovdqa64 %zmm4, 192(%eax) {%k2}
-; X86-AVX512-VL-BW-NEXT:    vmovdqa64 %zmm3, 128(%eax) {%k2}
-; X86-AVX512-VL-BW-NEXT:    vmovdqa64 %zmm2, 64(%eax) {%k2}
-; X86-AVX512-VL-BW-NEXT:    vmovdqa64 %zmm1, (%eax) {%k2}
+; X86-AVX512-VL-BW-NEXT:    vmovaps (%ecx), %zmm1
+; X86-AVX512-VL-BW-NEXT:    vmovaps 64(%ecx), %zmm2
+; X86-AVX512-VL-BW-NEXT:    vmovaps 128(%ecx), %zmm3
+; X86-AVX512-VL-BW-NEXT:    vmovaps 192(%ecx), %zmm4
 ; X86-AVX512-VL-BW-NEXT:    vmovdqa64 %zmm0, 256(%eax) {%k1}
+; X86-AVX512-VL-BW-NEXT:    vmovaps %zmm4, 192(%eax)
+; X86-AVX512-VL-BW-NEXT:    vmovaps %zmm3, 128(%eax)
+; X86-AVX512-VL-BW-NEXT:    vmovaps %zmm2, 64(%eax)
+; X86-AVX512-VL-BW-NEXT:    vmovaps %zmm1, (%eax)
 ; X86-AVX512-VL-BW-NEXT:    vzeroupper
 ; X86-AVX512-VL-BW-NEXT:    retl
 ;
@@ -7194,16 +7020,15 @@ define void @i64_33x(<33 x i64>* %in, <33 x i64>* %out) {
 ; X86_64-AVX512-VL-NEXT:    movb $1, %al
 ; X86_64-AVX512-VL-NEXT:    kmovw %eax, %k1
 ; X86_64-AVX512-VL-NEXT:    vmovdqa64 256(%rdi), %zmm0 {%k1} {z}
-; X86_64-AVX512-VL-NEXT:    kxnorw %k0, %k0, %k2
-; X86_64-AVX512-VL-NEXT:    vmovdqa64 (%rdi), %zmm1 {%k2} {z}
-; X86_64-AVX512-VL-NEXT:    vmovdqa64 64(%rdi), %zmm2 {%k2} {z}
-; X86_64-AVX512-VL-NEXT:    vmovdqa64 128(%rdi), %zmm3 {%k2} {z}
-; X86_64-AVX512-VL-NEXT:    vmovdqa64 192(%rdi), %zmm4 {%k2} {z}
-; X86_64-AVX512-VL-NEXT:    vmovdqa64 %zmm4, 192(%rsi) {%k2}
-; X86_64-AVX512-VL-NEXT:    vmovdqa64 %zmm3, 128(%rsi) {%k2}
-; X86_64-AVX512-VL-NEXT:    vmovdqa64 %zmm2, 64(%rsi) {%k2}
-; X86_64-AVX512-VL-NEXT:    vmovdqa64 %zmm1, (%rsi) {%k2}
+; X86_64-AVX512-VL-NEXT:    vmovaps (%rdi), %zmm1
+; X86_64-AVX512-VL-NEXT:    vmovaps 64(%rdi), %zmm2
+; X86_64-AVX512-VL-NEXT:    vmovaps 128(%rdi), %zmm3
+; X86_64-AVX512-VL-NEXT:    vmovaps 192(%rdi), %zmm4
 ; X86_64-AVX512-VL-NEXT:    vmovdqa64 %zmm0, 256(%rsi) {%k1}
+; X86_64-AVX512-VL-NEXT:    vmovaps %zmm1, (%rsi)
+; X86_64-AVX512-VL-NEXT:    vmovaps %zmm2, 64(%rsi)
+; X86_64-AVX512-VL-NEXT:    vmovaps %zmm4, 192(%rsi)
+; X86_64-AVX512-VL-NEXT:    vmovaps %zmm3, 128(%rsi)
 ; X86_64-AVX512-VL-NEXT:    vzeroupper
 ; X86_64-AVX512-VL-NEXT:    retq
 ;
@@ -7212,16 +7037,15 @@ define void @i64_33x(<33 x i64>* %in, <33 x i64>* %out) {
 ; X86_64-AVX512-VL-BW-NEXT:    movb $1, %al
 ; X86_64-AVX512-VL-BW-NEXT:    kmovd %eax, %k1
 ; X86_64-AVX512-VL-BW-NEXT:    vmovdqa64 256(%rdi), %zmm0 {%k1} {z}
-; X86_64-AVX512-VL-BW-NEXT:    kxnorw %k0, %k0, %k2
-; X86_64-AVX512-VL-BW-NEXT:    vmovdqa64 (%rdi), %zmm1 {%k2} {z}
-; X86_64-AVX512-VL-BW-NEXT:    vmovdqa64 64(%rdi), %zmm2 {%k2} {z}
-; X86_64-AVX512-VL-BW-NEXT:    vmovdqa64 128(%rdi), %zmm3 {%k2} {z}
-; X86_64-AVX512-VL-BW-NEXT:    vmovdqa64 192(%rdi), %zmm4 {%k2} {z}
-; X86_64-AVX512-VL-BW-NEXT:    vmovdqa64 %zmm4, 192(%rsi) {%k2}
-; X86_64-AVX512-VL-BW-NEXT:    vmovdqa64 %zmm3, 128(%rsi) {%k2}
-; X86_64-AVX512-VL-BW-NEXT:    vmovdqa64 %zmm2, 64(%rsi) {%k2}
-; X86_64-AVX512-VL-BW-NEXT:    vmovdqa64 %zmm1, (%rsi) {%k2}
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps (%rdi), %zmm1
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps 64(%rdi), %zmm2
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps 128(%rdi), %zmm3
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps 192(%rdi), %zmm4
 ; X86_64-AVX512-VL-BW-NEXT:    vmovdqa64 %zmm0, 256(%rsi) {%k1}
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps %zmm4, 192(%rsi)
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps %zmm3, 128(%rsi)
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps %zmm2, 64(%rsi)
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps %zmm1, (%rsi)
 ; X86_64-AVX512-VL-BW-NEXT:    vzeroupper
 ; X86_64-AVX512-VL-BW-NEXT:    retq
 entry:
@@ -7238,16 +7062,15 @@ define void @i64_34x(<34 x i64>* %in, <34 x i64>* %out) {
 ; X86-AVX512-VL-NEXT:    movb $3, %dl
 ; X86-AVX512-VL-NEXT:    kmovw %edx, %k1
 ; X86-AVX512-VL-NEXT:    vmovdqa64 256(%ecx), %zmm0 {%k1} {z}
-; X86-AVX512-VL-NEXT:    kxnorw %k0, %k0, %k2
-; X86-AVX512-VL-NEXT:    vmovdqa64 (%ecx), %zmm1 {%k2} {z}
-; X86-AVX512-VL-NEXT:    vmovdqa64 64(%ecx), %zmm2 {%k2} {z}
-; X86-AVX512-VL-NEXT:    vmovdqa64 128(%ecx), %zmm3 {%k2} {z}
-; X86-AVX512-VL-NEXT:    vmovdqa64 192(%ecx), %zmm4 {%k2} {z}
-; X86-AVX512-VL-NEXT:    vmovdqa64 %zmm4, 192(%eax) {%k2}
-; X86-AVX512-VL-NEXT:    vmovdqa64 %zmm3, 128(%eax) {%k2}
-; X86-AVX512-VL-NEXT:    vmovdqa64 %zmm2, 64(%eax) {%k2}
-; X86-AVX512-VL-NEXT:    vmovdqa64 %zmm1, (%eax) {%k2}
+; X86-AVX512-VL-NEXT:    vmovaps (%ecx), %zmm1
+; X86-AVX512-VL-NEXT:    vmovaps 64(%ecx), %zmm2
+; X86-AVX512-VL-NEXT:    vmovaps 192(%ecx), %zmm3
+; X86-AVX512-VL-NEXT:    vmovaps 128(%ecx), %zmm4
 ; X86-AVX512-VL-NEXT:    vmovdqa64 %zmm0, 256(%eax) {%k1}
+; X86-AVX512-VL-NEXT:    vmovaps %zmm4, 128(%eax)
+; X86-AVX512-VL-NEXT:    vmovaps %zmm3, 192(%eax)
+; X86-AVX512-VL-NEXT:    vmovaps %zmm2, 64(%eax)
+; X86-AVX512-VL-NEXT:    vmovaps %zmm1, (%eax)
 ; X86-AVX512-VL-NEXT:    vzeroupper
 ; X86-AVX512-VL-NEXT:    retl
 ;
@@ -7258,16 +7081,15 @@ define void @i64_34x(<34 x i64>* %in, <34 x i64>* %out) {
 ; X86-AVX512-VL-BW-NEXT:    movb $3, %dl
 ; X86-AVX512-VL-BW-NEXT:    kmovd %edx, %k1
 ; X86-AVX512-VL-BW-NEXT:    vmovdqa64 256(%ecx), %zmm0 {%k1} {z}
-; X86-AVX512-VL-BW-NEXT:    kxnorw %k0, %k0, %k2
-; X86-AVX512-VL-BW-NEXT:    vmovdqa64 (%ecx), %zmm1 {%k2} {z}
-; X86-AVX512-VL-BW-NEXT:    vmovdqa64 64(%ecx), %zmm2 {%k2} {z}
-; X86-AVX512-VL-BW-NEXT:    vmovdqa64 128(%ecx), %zmm3 {%k2} {z}
-; X86-AVX512-VL-BW-NEXT:    vmovdqa64 192(%ecx), %zmm4 {%k2} {z}
-; X86-AVX512-VL-BW-NEXT:    vmovdqa64 %zmm4, 192(%eax) {%k2}
-; X86-AVX512-VL-BW-NEXT:    vmovdqa64 %zmm3, 128(%eax) {%k2}
-; X86-AVX512-VL-BW-NEXT:    vmovdqa64 %zmm2, 64(%eax) {%k2}
-; X86-AVX512-VL-BW-NEXT:    vmovdqa64 %zmm1, (%eax) {%k2}
+; X86-AVX512-VL-BW-NEXT:    vmovaps (%ecx), %zmm1
+; X86-AVX512-VL-BW-NEXT:    vmovaps 64(%ecx), %zmm2
+; X86-AVX512-VL-BW-NEXT:    vmovaps 128(%ecx), %zmm3
+; X86-AVX512-VL-BW-NEXT:    vmovaps 192(%ecx), %zmm4
 ; X86-AVX512-VL-BW-NEXT:    vmovdqa64 %zmm0, 256(%eax) {%k1}
+; X86-AVX512-VL-BW-NEXT:    vmovaps %zmm4, 192(%eax)
+; X86-AVX512-VL-BW-NEXT:    vmovaps %zmm3, 128(%eax)
+; X86-AVX512-VL-BW-NEXT:    vmovaps %zmm2, 64(%eax)
+; X86-AVX512-VL-BW-NEXT:    vmovaps %zmm1, (%eax)
 ; X86-AVX512-VL-BW-NEXT:    vzeroupper
 ; X86-AVX512-VL-BW-NEXT:    retl
 ;
@@ -7276,16 +7098,15 @@ define void @i64_34x(<34 x i64>* %in, <34 x i64>* %out) {
 ; X86_64-AVX512-VL-NEXT:    movb $3, %al
 ; X86_64-AVX512-VL-NEXT:    kmovw %eax, %k1
 ; X86_64-AVX512-VL-NEXT:    vmovdqa64 256(%rdi), %zmm0 {%k1} {z}
-; X86_64-AVX512-VL-NEXT:    kxnorw %k0, %k0, %k2
-; X86_64-AVX512-VL-NEXT:    vmovdqa64 (%rdi), %zmm1 {%k2} {z}
-; X86_64-AVX512-VL-NEXT:    vmovdqa64 64(%rdi), %zmm2 {%k2} {z}
-; X86_64-AVX512-VL-NEXT:    vmovdqa64 128(%rdi), %zmm3 {%k2} {z}
-; X86_64-AVX512-VL-NEXT:    vmovdqa64 192(%rdi), %zmm4 {%k2} {z}
-; X86_64-AVX512-VL-NEXT:    vmovdqa64 %zmm4, 192(%rsi) {%k2}
-; X86_64-AVX512-VL-NEXT:    vmovdqa64 %zmm3, 128(%rsi) {%k2}
-; X86_64-AVX512-VL-NEXT:    vmovdqa64 %zmm2, 64(%rsi) {%k2}
-; X86_64-AVX512-VL-NEXT:    vmovdqa64 %zmm1, (%rsi) {%k2}
+; X86_64-AVX512-VL-NEXT:    vmovaps (%rdi), %zmm1
+; X86_64-AVX512-VL-NEXT:    vmovaps 64(%rdi), %zmm2
+; X86_64-AVX512-VL-NEXT:    vmovaps 128(%rdi), %zmm3
+; X86_64-AVX512-VL-NEXT:    vmovaps 192(%rdi), %zmm4
 ; X86_64-AVX512-VL-NEXT:    vmovdqa64 %zmm0, 256(%rsi) {%k1}
+; X86_64-AVX512-VL-NEXT:    vmovaps %zmm1, (%rsi)
+; X86_64-AVX512-VL-NEXT:    vmovaps %zmm2, 64(%rsi)
+; X86_64-AVX512-VL-NEXT:    vmovaps %zmm4, 192(%rsi)
+; X86_64-AVX512-VL-NEXT:    vmovaps %zmm3, 128(%rsi)
 ; X86_64-AVX512-VL-NEXT:    vzeroupper
 ; X86_64-AVX512-VL-NEXT:    retq
 ;
@@ -7294,16 +7115,15 @@ define void @i64_34x(<34 x i64>* %in, <34 x i64>* %out) {
 ; X86_64-AVX512-VL-BW-NEXT:    movb $3, %al
 ; X86_64-AVX512-VL-BW-NEXT:    kmovd %eax, %k1
 ; X86_64-AVX512-VL-BW-NEXT:    vmovdqa64 256(%rdi), %zmm0 {%k1} {z}
-; X86_64-AVX512-VL-BW-NEXT:    kxnorw %k0, %k0, %k2
-; X86_64-AVX512-VL-BW-NEXT:    vmovdqa64 (%rdi), %zmm1 {%k2} {z}
-; X86_64-AVX512-VL-BW-NEXT:    vmovdqa64 64(%rdi), %zmm2 {%k2} {z}
-; X86_64-AVX512-VL-BW-NEXT:    vmovdqa64 128(%rdi), %zmm3 {%k2} {z}
-; X86_64-AVX512-VL-BW-NEXT:    vmovdqa64 192(%rdi), %zmm4 {%k2} {z}
-; X86_64-AVX512-VL-BW-NEXT:    vmovdqa64 %zmm4, 192(%rsi) {%k2}
-; X86_64-AVX512-VL-BW-NEXT:    vmovdqa64 %zmm3, 128(%rsi) {%k2}
-; X86_64-AVX512-VL-BW-NEXT:    vmovdqa64 %zmm2, 64(%rsi) {%k2}
-; X86_64-AVX512-VL-BW-NEXT:    vmovdqa64 %zmm1, (%rsi) {%k2}
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps (%rdi), %zmm1
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps 64(%rdi), %zmm2
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps 128(%rdi), %zmm3
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps 192(%rdi), %zmm4
 ; X86_64-AVX512-VL-BW-NEXT:    vmovdqa64 %zmm0, 256(%rsi) {%k1}
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps %zmm4, 192(%rsi)
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps %zmm3, 128(%rsi)
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps %zmm2, 64(%rsi)
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps %zmm1, (%rsi)
 ; X86_64-AVX512-VL-BW-NEXT:    vzeroupper
 ; X86_64-AVX512-VL-BW-NEXT:    retq
 entry:
@@ -7317,19 +7137,18 @@ define void @i64_48x(<48 x i64>* %in, <48 x i64>* %out) {
 ; X86-AVX512-VL:       # %bb.0: # %entry
 ; X86-AVX512-VL-NEXT:    movl {{[0-9]+}}(%esp), %eax
 ; X86-AVX512-VL-NEXT:    movl {{[0-9]+}}(%esp), %ecx
-; X86-AVX512-VL-NEXT:    kxnorw %k0, %k0, %k1
-; X86-AVX512-VL-NEXT:    vmovdqa64 (%ecx), %zmm0 {%k1} {z}
-; X86-AVX512-VL-NEXT:    vmovdqa64 64(%ecx), %zmm1 {%k1} {z}
-; X86-AVX512-VL-NEXT:    vmovdqa64 128(%ecx), %zmm2 {%k1} {z}
-; X86-AVX512-VL-NEXT:    vmovdqa64 192(%ecx), %zmm3 {%k1} {z}
-; X86-AVX512-VL-NEXT:    vmovdqa64 256(%ecx), %zmm4 {%k1} {z}
-; X86-AVX512-VL-NEXT:    vmovdqa64 320(%ecx), %zmm5 {%k1} {z}
-; X86-AVX512-VL-NEXT:    vmovdqa64 %zmm5, 320(%eax) {%k1}
-; X86-AVX512-VL-NEXT:    vmovdqa64 %zmm4, 256(%eax) {%k1}
-; X86-AVX512-VL-NEXT:    vmovdqa64 %zmm3, 192(%eax) {%k1}
-; X86-AVX512-VL-NEXT:    vmovdqa64 %zmm2, 128(%eax) {%k1}
-; X86-AVX512-VL-NEXT:    vmovdqa64 %zmm1, 64(%eax) {%k1}
-; X86-AVX512-VL-NEXT:    vmovdqa64 %zmm0, (%eax) {%k1}
+; X86-AVX512-VL-NEXT:    vmovaps (%ecx), %zmm0
+; X86-AVX512-VL-NEXT:    vmovaps 64(%ecx), %zmm1
+; X86-AVX512-VL-NEXT:    vmovaps 256(%ecx), %zmm2
+; X86-AVX512-VL-NEXT:    vmovaps 192(%ecx), %zmm3
+; X86-AVX512-VL-NEXT:    vmovaps 320(%ecx), %zmm4
+; X86-AVX512-VL-NEXT:    vmovaps 128(%ecx), %zmm5
+; X86-AVX512-VL-NEXT:    vmovaps %zmm5, 128(%eax)
+; X86-AVX512-VL-NEXT:    vmovaps %zmm4, 320(%eax)
+; X86-AVX512-VL-NEXT:    vmovaps %zmm3, 192(%eax)
+; X86-AVX512-VL-NEXT:    vmovaps %zmm2, 256(%eax)
+; X86-AVX512-VL-NEXT:    vmovaps %zmm1, 64(%eax)
+; X86-AVX512-VL-NEXT:    vmovaps %zmm0, (%eax)
 ; X86-AVX512-VL-NEXT:    vzeroupper
 ; X86-AVX512-VL-NEXT:    retl
 ;
@@ -7337,55 +7156,52 @@ define void @i64_48x(<48 x i64>* %in, <48 x i64>* %out) {
 ; X86-AVX512-VL-BW:       # %bb.0: # %entry
 ; X86-AVX512-VL-BW-NEXT:    movl {{[0-9]+}}(%esp), %eax
 ; X86-AVX512-VL-BW-NEXT:    movl {{[0-9]+}}(%esp), %ecx
-; X86-AVX512-VL-BW-NEXT:    kxnorw %k0, %k0, %k1
-; X86-AVX512-VL-BW-NEXT:    vmovdqa64 (%ecx), %zmm0 {%k1} {z}
-; X86-AVX512-VL-BW-NEXT:    vmovdqa64 64(%ecx), %zmm1 {%k1} {z}
-; X86-AVX512-VL-BW-NEXT:    vmovdqa64 128(%ecx), %zmm2 {%k1} {z}
-; X86-AVX512-VL-BW-NEXT:    vmovdqa64 192(%ecx), %zmm3 {%k1} {z}
-; X86-AVX512-VL-BW-NEXT:    vmovdqa64 256(%ecx), %zmm4 {%k1} {z}
-; X86-AVX512-VL-BW-NEXT:    vmovdqa64 320(%ecx), %zmm5 {%k1} {z}
-; X86-AVX512-VL-BW-NEXT:    vmovdqa64 %zmm5, 320(%eax) {%k1}
-; X86-AVX512-VL-BW-NEXT:    vmovdqa64 %zmm4, 256(%eax) {%k1}
-; X86-AVX512-VL-BW-NEXT:    vmovdqa64 %zmm3, 192(%eax) {%k1}
-; X86-AVX512-VL-BW-NEXT:    vmovdqa64 %zmm2, 128(%eax) {%k1}
-; X86-AVX512-VL-BW-NEXT:    vmovdqa64 %zmm1, 64(%eax) {%k1}
-; X86-AVX512-VL-BW-NEXT:    vmovdqa64 %zmm0, (%eax) {%k1}
+; X86-AVX512-VL-BW-NEXT:    vmovaps 256(%ecx), %zmm0
+; X86-AVX512-VL-BW-NEXT:    vmovaps 128(%ecx), %zmm1
+; X86-AVX512-VL-BW-NEXT:    vmovaps (%ecx), %zmm2
+; X86-AVX512-VL-BW-NEXT:    vmovaps 64(%ecx), %zmm3
+; X86-AVX512-VL-BW-NEXT:    vmovaps 192(%ecx), %zmm4
+; X86-AVX512-VL-BW-NEXT:    vmovaps 320(%ecx), %zmm5
+; X86-AVX512-VL-BW-NEXT:    vmovaps %zmm5, 320(%eax)
+; X86-AVX512-VL-BW-NEXT:    vmovaps %zmm4, 192(%eax)
+; X86-AVX512-VL-BW-NEXT:    vmovaps %zmm3, 64(%eax)
+; X86-AVX512-VL-BW-NEXT:    vmovaps %zmm1, 128(%eax)
+; X86-AVX512-VL-BW-NEXT:    vmovaps %zmm0, 256(%eax)
+; X86-AVX512-VL-BW-NEXT:    vmovaps %zmm2, (%eax)
 ; X86-AVX512-VL-BW-NEXT:    vzeroupper
 ; X86-AVX512-VL-BW-NEXT:    retl
 ;
 ; X86_64-AVX512-VL-LABEL: i64_48x:
 ; X86_64-AVX512-VL:       ## %bb.0: ## %entry
-; X86_64-AVX512-VL-NEXT:    kxnorw %k0, %k0, %k1
-; X86_64-AVX512-VL-NEXT:    vmovdqa64 (%rdi), %zmm0 {%k1} {z}
-; X86_64-AVX512-VL-NEXT:    vmovdqa64 64(%rdi), %zmm1 {%k1} {z}
-; X86_64-AVX512-VL-NEXT:    vmovdqa64 128(%rdi), %zmm2 {%k1} {z}
-; X86_64-AVX512-VL-NEXT:    vmovdqa64 192(%rdi), %zmm3 {%k1} {z}
-; X86_64-AVX512-VL-NEXT:    vmovdqa64 256(%rdi), %zmm4 {%k1} {z}
-; X86_64-AVX512-VL-NEXT:    vmovdqa64 320(%rdi), %zmm5 {%k1} {z}
-; X86_64-AVX512-VL-NEXT:    vmovdqa64 %zmm5, 320(%rsi) {%k1}
-; X86_64-AVX512-VL-NEXT:    vmovdqa64 %zmm4, 256(%rsi) {%k1}
-; X86_64-AVX512-VL-NEXT:    vmovdqa64 %zmm3, 192(%rsi) {%k1}
-; X86_64-AVX512-VL-NEXT:    vmovdqa64 %zmm2, 128(%rsi) {%k1}
-; X86_64-AVX512-VL-NEXT:    vmovdqa64 %zmm1, 64(%rsi) {%k1}
-; X86_64-AVX512-VL-NEXT:    vmovdqa64 %zmm0, (%rsi) {%k1}
+; X86_64-AVX512-VL-NEXT:    vmovaps 256(%rdi), %zmm0
+; X86_64-AVX512-VL-NEXT:    vmovaps 320(%rdi), %zmm1
+; X86_64-AVX512-VL-NEXT:    vmovaps (%rdi), %zmm2
+; X86_64-AVX512-VL-NEXT:    vmovaps 64(%rdi), %zmm3
+; X86_64-AVX512-VL-NEXT:    vmovaps 128(%rdi), %zmm4
+; X86_64-AVX512-VL-NEXT:    vmovaps 192(%rdi), %zmm5
+; X86_64-AVX512-VL-NEXT:    vmovaps %zmm4, 128(%rsi)
+; X86_64-AVX512-VL-NEXT:    vmovaps %zmm1, 320(%rsi)
+; X86_64-AVX512-VL-NEXT:    vmovaps %zmm2, (%rsi)
+; X86_64-AVX512-VL-NEXT:    vmovaps %zmm5, 192(%rsi)
+; X86_64-AVX512-VL-NEXT:    vmovaps %zmm3, 64(%rsi)
+; X86_64-AVX512-VL-NEXT:    vmovaps %zmm0, 256(%rsi)
 ; X86_64-AVX512-VL-NEXT:    vzeroupper
 ; X86_64-AVX512-VL-NEXT:    retq
 ;
 ; X86_64-AVX512-VL-BW-LABEL: i64_48x:
 ; X86_64-AVX512-VL-BW:       ## %bb.0: ## %entry
-; X86_64-AVX512-VL-BW-NEXT:    kxnorw %k0, %k0, %k1
-; X86_64-AVX512-VL-BW-NEXT:    vmovdqa64 (%rdi), %zmm0 {%k1} {z}
-; X86_64-AVX512-VL-BW-NEXT:    vmovdqa64 64(%rdi), %zmm1 {%k1} {z}
-; X86_64-AVX512-VL-BW-NEXT:    vmovdqa64 128(%rdi), %zmm2 {%k1} {z}
-; X86_64-AVX512-VL-BW-NEXT:    vmovdqa64 192(%rdi), %zmm3 {%k1} {z}
-; X86_64-AVX512-VL-BW-NEXT:    vmovdqa64 256(%rdi), %zmm4 {%k1} {z}
-; X86_64-AVX512-VL-BW-NEXT:    vmovdqa64 320(%rdi), %zmm5 {%k1} {z}
-; X86_64-AVX512-VL-BW-NEXT:    vmovdqa64 %zmm5, 320(%rsi) {%k1}
-; X86_64-AVX512-VL-BW-NEXT:    vmovdqa64 %zmm4, 256(%rsi) {%k1}
-; X86_64-AVX512-VL-BW-NEXT:    vmovdqa64 %zmm3, 192(%rsi) {%k1}
-; X86_64-AVX512-VL-BW-NEXT:    vmovdqa64 %zmm2, 128(%rsi) {%k1}
-; X86_64-AVX512-VL-BW-NEXT:    vmovdqa64 %zmm1, 64(%rsi) {%k1}
-; X86_64-AVX512-VL-BW-NEXT:    vmovdqa64 %zmm0, (%rsi) {%k1}
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps 256(%rdi), %zmm0
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps (%rdi), %zmm1
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps 64(%rdi), %zmm2
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps 128(%rdi), %zmm3
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps 192(%rdi), %zmm4
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps 320(%rdi), %zmm5
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps %zmm5, 320(%rsi)
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps %zmm4, 192(%rsi)
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps %zmm2, 64(%rsi)
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps %zmm3, 128(%rsi)
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps %zmm0, 256(%rsi)
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps %zmm1, (%rsi)
 ; X86_64-AVX512-VL-BW-NEXT:    vzeroupper
 ; X86_64-AVX512-VL-BW-NEXT:    retq
 entry:
@@ -7399,23 +7215,22 @@ define void @i64_49x(<49 x i64>* %in, <49 x i64>* %out) {
 ; X86-AVX512-VL:       # %bb.0: # %entry
 ; X86-AVX512-VL-NEXT:    movl {{[0-9]+}}(%esp), %eax
 ; X86-AVX512-VL-NEXT:    movl {{[0-9]+}}(%esp), %ecx
-; X86-AVX512-VL-NEXT:    kxnorw %k0, %k0, %k1
-; X86-AVX512-VL-NEXT:    vmovdqa64 (%ecx), %zmm0 {%k1} {z}
-; X86-AVX512-VL-NEXT:    vmovdqa64 64(%ecx), %zmm1 {%k1} {z}
-; X86-AVX512-VL-NEXT:    vmovdqa64 128(%ecx), %zmm2 {%k1} {z}
-; X86-AVX512-VL-NEXT:    vmovdqa64 192(%ecx), %zmm3 {%k1} {z}
 ; X86-AVX512-VL-NEXT:    movb $1, %dl
-; X86-AVX512-VL-NEXT:    kmovw %edx, %k2
-; X86-AVX512-VL-NEXT:    vmovdqa64 384(%ecx), %zmm4 {%k2} {z}
-; X86-AVX512-VL-NEXT:    vmovdqa64 256(%ecx), %zmm5 {%k1} {z}
-; X86-AVX512-VL-NEXT:    vmovdqa64 320(%ecx), %zmm6 {%k1} {z}
-; X86-AVX512-VL-NEXT:    vmovdqa64 %zmm6, 320(%eax) {%k1}
-; X86-AVX512-VL-NEXT:    vmovdqa64 %zmm5, 256(%eax) {%k1}
-; X86-AVX512-VL-NEXT:    vmovdqa64 %zmm4, 384(%eax) {%k2}
-; X86-AVX512-VL-NEXT:    vmovdqa64 %zmm3, 192(%eax) {%k1}
-; X86-AVX512-VL-NEXT:    vmovdqa64 %zmm2, 128(%eax) {%k1}
-; X86-AVX512-VL-NEXT:    vmovdqa64 %zmm1, 64(%eax) {%k1}
-; X86-AVX512-VL-NEXT:    vmovdqa64 %zmm0, (%eax) {%k1}
+; X86-AVX512-VL-NEXT:    kmovw %edx, %k1
+; X86-AVX512-VL-NEXT:    vmovdqa64 384(%ecx), %zmm0 {%k1} {z}
+; X86-AVX512-VL-NEXT:    vmovaps (%ecx), %zmm1
+; X86-AVX512-VL-NEXT:    vmovaps 64(%ecx), %zmm2
+; X86-AVX512-VL-NEXT:    vmovaps 192(%ecx), %zmm3
+; X86-AVX512-VL-NEXT:    vmovaps 320(%ecx), %zmm4
+; X86-AVX512-VL-NEXT:    vmovaps 128(%ecx), %zmm5
+; X86-AVX512-VL-NEXT:    vmovaps 256(%ecx), %zmm6
+; X86-AVX512-VL-NEXT:    vmovdqa64 %zmm0, 384(%eax) {%k1}
+; X86-AVX512-VL-NEXT:    vmovaps %zmm6, 256(%eax)
+; X86-AVX512-VL-NEXT:    vmovaps %zmm5, 128(%eax)
+; X86-AVX512-VL-NEXT:    vmovaps %zmm4, 320(%eax)
+; X86-AVX512-VL-NEXT:    vmovaps %zmm3, 192(%eax)
+; X86-AVX512-VL-NEXT:    vmovaps %zmm2, 64(%eax)
+; X86-AVX512-VL-NEXT:    vmovaps %zmm1, (%eax)
 ; X86-AVX512-VL-NEXT:    vzeroupper
 ; X86-AVX512-VL-NEXT:    retl
 ;
@@ -7423,67 +7238,64 @@ define void @i64_49x(<49 x i64>* %in, <49 x i64>* %out) {
 ; X86-AVX512-VL-BW:       # %bb.0: # %entry
 ; X86-AVX512-VL-BW-NEXT:    movl {{[0-9]+}}(%esp), %eax
 ; X86-AVX512-VL-BW-NEXT:    movl {{[0-9]+}}(%esp), %ecx
-; X86-AVX512-VL-BW-NEXT:    kxnorw %k0, %k0, %k1
-; X86-AVX512-VL-BW-NEXT:    vmovdqa64 (%ecx), %zmm0 {%k1} {z}
-; X86-AVX512-VL-BW-NEXT:    vmovdqa64 64(%ecx), %zmm1 {%k1} {z}
-; X86-AVX512-VL-BW-NEXT:    vmovdqa64 128(%ecx), %zmm2 {%k1} {z}
-; X86-AVX512-VL-BW-NEXT:    vmovdqa64 192(%ecx), %zmm3 {%k1} {z}
 ; X86-AVX512-VL-BW-NEXT:    movb $1, %dl
-; X86-AVX512-VL-BW-NEXT:    kmovd %edx, %k2
-; X86-AVX512-VL-BW-NEXT:    vmovdqa64 384(%ecx), %zmm4 {%k2} {z}
-; X86-AVX512-VL-BW-NEXT:    vmovdqa64 256(%ecx), %zmm5 {%k1} {z}
-; X86-AVX512-VL-BW-NEXT:    vmovdqa64 320(%ecx), %zmm6 {%k1} {z}
-; X86-AVX512-VL-BW-NEXT:    vmovdqa64 %zmm6, 320(%eax) {%k1}
-; X86-AVX512-VL-BW-NEXT:    vmovdqa64 %zmm5, 256(%eax) {%k1}
-; X86-AVX512-VL-BW-NEXT:    vmovdqa64 %zmm4, 384(%eax) {%k2}
-; X86-AVX512-VL-BW-NEXT:    vmovdqa64 %zmm3, 192(%eax) {%k1}
-; X86-AVX512-VL-BW-NEXT:    vmovdqa64 %zmm2, 128(%eax) {%k1}
-; X86-AVX512-VL-BW-NEXT:    vmovdqa64 %zmm1, 64(%eax) {%k1}
-; X86-AVX512-VL-BW-NEXT:    vmovdqa64 %zmm0, (%eax) {%k1}
+; X86-AVX512-VL-BW-NEXT:    kmovd %edx, %k1
+; X86-AVX512-VL-BW-NEXT:    vmovdqa64 384(%ecx), %zmm0 {%k1} {z}
+; X86-AVX512-VL-BW-NEXT:    vmovaps 256(%ecx), %zmm1
+; X86-AVX512-VL-BW-NEXT:    vmovaps 128(%ecx), %zmm2
+; X86-AVX512-VL-BW-NEXT:    vmovaps (%ecx), %zmm3
+; X86-AVX512-VL-BW-NEXT:    vmovaps 64(%ecx), %zmm4
+; X86-AVX512-VL-BW-NEXT:    vmovaps 192(%ecx), %zmm5
+; X86-AVX512-VL-BW-NEXT:    vmovaps 320(%ecx), %zmm6
+; X86-AVX512-VL-BW-NEXT:    vmovdqa64 %zmm0, 384(%eax) {%k1}
+; X86-AVX512-VL-BW-NEXT:    vmovaps %zmm6, 320(%eax)
+; X86-AVX512-VL-BW-NEXT:    vmovaps %zmm5, 192(%eax)
+; X86-AVX512-VL-BW-NEXT:    vmovaps %zmm4, 64(%eax)
+; X86-AVX512-VL-BW-NEXT:    vmovaps %zmm2, 128(%eax)
+; X86-AVX512-VL-BW-NEXT:    vmovaps %zmm1, 256(%eax)
+; X86-AVX512-VL-BW-NEXT:    vmovaps %zmm3, (%eax)
 ; X86-AVX512-VL-BW-NEXT:    vzeroupper
 ; X86-AVX512-VL-BW-NEXT:    retl
 ;
 ; X86_64-AVX512-VL-LABEL: i64_49x:
 ; X86_64-AVX512-VL:       ## %bb.0: ## %entry
-; X86_64-AVX512-VL-NEXT:    kxnorw %k0, %k0, %k1
-; X86_64-AVX512-VL-NEXT:    vmovdqa64 (%rdi), %zmm0 {%k1} {z}
-; X86_64-AVX512-VL-NEXT:    vmovdqa64 64(%rdi), %zmm1 {%k1} {z}
-; X86_64-AVX512-VL-NEXT:    vmovdqa64 128(%rdi), %zmm2 {%k1} {z}
-; X86_64-AVX512-VL-NEXT:    vmovdqa64 192(%rdi), %zmm3 {%k1} {z}
 ; X86_64-AVX512-VL-NEXT:    movb $1, %al
-; X86_64-AVX512-VL-NEXT:    kmovw %eax, %k2
-; X86_64-AVX512-VL-NEXT:    vmovdqa64 384(%rdi), %zmm4 {%k2} {z}
-; X86_64-AVX512-VL-NEXT:    vmovdqa64 256(%rdi), %zmm5 {%k1} {z}
-; X86_64-AVX512-VL-NEXT:    vmovdqa64 320(%rdi), %zmm6 {%k1} {z}
-; X86_64-AVX512-VL-NEXT:    vmovdqa64 %zmm6, 320(%rsi) {%k1}
-; X86_64-AVX512-VL-NEXT:    vmovdqa64 %zmm5, 256(%rsi) {%k1}
-; X86_64-AVX512-VL-NEXT:    vmovdqa64 %zmm4, 384(%rsi) {%k2}
-; X86_64-AVX512-VL-NEXT:    vmovdqa64 %zmm3, 192(%rsi) {%k1}
-; X86_64-AVX512-VL-NEXT:    vmovdqa64 %zmm2, 128(%rsi) {%k1}
-; X86_64-AVX512-VL-NEXT:    vmovdqa64 %zmm1, 64(%rsi) {%k1}
-; X86_64-AVX512-VL-NEXT:    vmovdqa64 %zmm0, (%rsi) {%k1}
+; X86_64-AVX512-VL-NEXT:    kmovw %eax, %k1
+; X86_64-AVX512-VL-NEXT:    vmovdqa64 384(%rdi), %zmm0 {%k1} {z}
+; X86_64-AVX512-VL-NEXT:    vmovaps 256(%rdi), %zmm1
+; X86_64-AVX512-VL-NEXT:    vmovaps 320(%rdi), %zmm2
+; X86_64-AVX512-VL-NEXT:    vmovaps (%rdi), %zmm3
+; X86_64-AVX512-VL-NEXT:    vmovaps 64(%rdi), %zmm4
+; X86_64-AVX512-VL-NEXT:    vmovaps 128(%rdi), %zmm5
+; X86_64-AVX512-VL-NEXT:    vmovaps 192(%rdi), %zmm6
+; X86_64-AVX512-VL-NEXT:    vmovdqa64 %zmm0, 384(%rsi) {%k1}
+; X86_64-AVX512-VL-NEXT:    vmovaps %zmm5, 128(%rsi)
+; X86_64-AVX512-VL-NEXT:    vmovaps %zmm2, 320(%rsi)
+; X86_64-AVX512-VL-NEXT:    vmovaps %zmm3, (%rsi)
+; X86_64-AVX512-VL-NEXT:    vmovaps %zmm6, 192(%rsi)
+; X86_64-AVX512-VL-NEXT:    vmovaps %zmm4, 64(%rsi)
+; X86_64-AVX512-VL-NEXT:    vmovaps %zmm1, 256(%rsi)
 ; X86_64-AVX512-VL-NEXT:    vzeroupper
 ; X86_64-AVX512-VL-NEXT:    retq
 ;
 ; X86_64-AVX512-VL-BW-LABEL: i64_49x:
 ; X86_64-AVX512-VL-BW:       ## %bb.0: ## %entry
-; X86_64-AVX512-VL-BW-NEXT:    kxnorw %k0, %k0, %k1
-; X86_64-AVX512-VL-BW-NEXT:    vmovdqa64 (%rdi), %zmm0 {%k1} {z}
-; X86_64-AVX512-VL-BW-NEXT:    vmovdqa64 64(%rdi), %zmm1 {%k1} {z}
-; X86_64-AVX512-VL-BW-NEXT:    vmovdqa64 128(%rdi), %zmm2 {%k1} {z}
-; X86_64-AVX512-VL-BW-NEXT:    vmovdqa64 192(%rdi), %zmm3 {%k1} {z}
 ; X86_64-AVX512-VL-BW-NEXT:    movb $1, %al
-; X86_64-AVX512-VL-BW-NEXT:    kmovd %eax, %k2
-; X86_64-AVX512-VL-BW-NEXT:    vmovdqa64 384(%rdi), %zmm4 {%k2} {z}
-; X86_64-AVX512-VL-BW-NEXT:    vmovdqa64 256(%rdi), %zmm5 {%k1} {z}
-; X86_64-AVX512-VL-BW-NEXT:    vmovdqa64 320(%rdi), %zmm6 {%k1} {z}
-; X86_64-AVX512-VL-BW-NEXT:    vmovdqa64 %zmm6, 320(%rsi) {%k1}
-; X86_64-AVX512-VL-BW-NEXT:    vmovdqa64 %zmm5, 256(%rsi) {%k1}
-; X86_64-AVX512-VL-BW-NEXT:    vmovdqa64 %zmm4, 384(%rsi) {%k2}
-; X86_64-AVX512-VL-BW-NEXT:    vmovdqa64 %zmm3, 192(%rsi) {%k1}
-; X86_64-AVX512-VL-BW-NEXT:    vmovdqa64 %zmm2, 128(%rsi) {%k1}
-; X86_64-AVX512-VL-BW-NEXT:    vmovdqa64 %zmm1, 64(%rsi) {%k1}
-; X86_64-AVX512-VL-BW-NEXT:    vmovdqa64 %zmm0, (%rsi) {%k1}
+; X86_64-AVX512-VL-BW-NEXT:    kmovd %eax, %k1
+; X86_64-AVX512-VL-BW-NEXT:    vmovdqa64 384(%rdi), %zmm0 {%k1} {z}
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps 256(%rdi), %zmm1
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps (%rdi), %zmm2
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps 64(%rdi), %zmm3
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps 128(%rdi), %zmm4
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps 192(%rdi), %zmm5
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps 320(%rdi), %zmm6
+; X86_64-AVX512-VL-BW-NEXT:    vmovdqa64 %zmm0, 384(%rsi) {%k1}
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps %zmm6, 320(%rsi)
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps %zmm5, 192(%rsi)
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps %zmm3, 64(%rsi)
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps %zmm4, 128(%rsi)
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps %zmm1, 256(%rsi)
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps %zmm2, (%rsi)
 ; X86_64-AVX512-VL-BW-NEXT:    vzeroupper
 ; X86_64-AVX512-VL-BW-NEXT:    retq
 entry:
@@ -7495,931 +7307,935 @@ entry:
 define void @float_1025x(<1025 x float>* %in, <1025 x float>* %out) {
 ; X86-AVX512-VL-LABEL: float_1025x:
 ; X86-AVX512-VL:       # %bb.0: # %entry
-; X86-AVX512-VL-NEXT:    subl $3708, %esp # imm = 0xE7C
-; X86-AVX512-VL-NEXT:    .cfi_def_cfa_offset 3712
+; X86-AVX512-VL-NEXT:    subl $3772, %esp # imm = 0xEBC
+; X86-AVX512-VL-NEXT:    .cfi_def_cfa_offset 3776
 ; X86-AVX512-VL-NEXT:    movl {{[0-9]+}}(%esp), %eax
 ; X86-AVX512-VL-NEXT:    movl {{[0-9]+}}(%esp), %ecx
 ; X86-AVX512-VL-NEXT:    movw $1, %dx
 ; X86-AVX512-VL-NEXT:    kmovw %edx, %k1
 ; X86-AVX512-VL-NEXT:    vmovaps 4096(%ecx), %zmm0 {%k1} {z}
 ; X86-AVX512-VL-NEXT:    vmovups %zmm0, {{[-0-9]+}}(%e{{[sb]}}p) # 64-byte Spill
-; X86-AVX512-VL-NEXT:    kxnorw %k0, %k0, %k2
-; X86-AVX512-VL-NEXT:    vmovaps (%ecx), %zmm0 {%k2} {z}
+; X86-AVX512-VL-NEXT:    vmovaps (%ecx), %zmm0
 ; X86-AVX512-VL-NEXT:    vmovups %zmm0, {{[-0-9]+}}(%e{{[sb]}}p) # 64-byte Spill
-; X86-AVX512-VL-NEXT:    vmovaps 64(%ecx), %zmm0 {%k2} {z}
+; X86-AVX512-VL-NEXT:    vmovaps 64(%ecx), %zmm0
 ; X86-AVX512-VL-NEXT:    vmovups %zmm0, {{[-0-9]+}}(%e{{[sb]}}p) # 64-byte Spill
-; X86-AVX512-VL-NEXT:    vmovaps 128(%ecx), %zmm0 {%k2} {z}
+; X86-AVX512-VL-NEXT:    vmovaps 128(%ecx), %zmm0
 ; X86-AVX512-VL-NEXT:    vmovups %zmm0, {{[-0-9]+}}(%e{{[sb]}}p) # 64-byte Spill
-; X86-AVX512-VL-NEXT:    vmovaps 192(%ecx), %zmm0 {%k2} {z}
+; X86-AVX512-VL-NEXT:    vmovaps 192(%ecx), %zmm0
 ; X86-AVX512-VL-NEXT:    vmovups %zmm0, {{[-0-9]+}}(%e{{[sb]}}p) # 64-byte Spill
-; X86-AVX512-VL-NEXT:    vmovaps 256(%ecx), %zmm0 {%k2} {z}
+; X86-AVX512-VL-NEXT:    vmovaps 256(%ecx), %zmm0
 ; X86-AVX512-VL-NEXT:    vmovups %zmm0, {{[-0-9]+}}(%e{{[sb]}}p) # 64-byte Spill
-; X86-AVX512-VL-NEXT:    vmovaps 320(%ecx), %zmm0 {%k2} {z}
+; X86-AVX512-VL-NEXT:    vmovaps 320(%ecx), %zmm0
 ; X86-AVX512-VL-NEXT:    vmovups %zmm0, {{[-0-9]+}}(%e{{[sb]}}p) # 64-byte Spill
-; X86-AVX512-VL-NEXT:    vmovaps 384(%ecx), %zmm0 {%k2} {z}
+; X86-AVX512-VL-NEXT:    vmovaps 384(%ecx), %zmm0
 ; X86-AVX512-VL-NEXT:    vmovups %zmm0, {{[-0-9]+}}(%e{{[sb]}}p) # 64-byte Spill
-; X86-AVX512-VL-NEXT:    vmovaps 448(%ecx), %zmm0 {%k2} {z}
+; X86-AVX512-VL-NEXT:    vmovaps 448(%ecx), %zmm0
 ; X86-AVX512-VL-NEXT:    vmovups %zmm0, {{[-0-9]+}}(%e{{[sb]}}p) # 64-byte Spill
-; X86-AVX512-VL-NEXT:    vmovaps 512(%ecx), %zmm0 {%k2} {z}
+; X86-AVX512-VL-NEXT:    vmovaps 512(%ecx), %zmm0
 ; X86-AVX512-VL-NEXT:    vmovups %zmm0, {{[-0-9]+}}(%e{{[sb]}}p) # 64-byte Spill
-; X86-AVX512-VL-NEXT:    vmovaps 576(%ecx), %zmm0 {%k2} {z}
+; X86-AVX512-VL-NEXT:    vmovaps 576(%ecx), %zmm0
 ; X86-AVX512-VL-NEXT:    vmovups %zmm0, {{[-0-9]+}}(%e{{[sb]}}p) # 64-byte Spill
-; X86-AVX512-VL-NEXT:    vmovaps 640(%ecx), %zmm0 {%k2} {z}
+; X86-AVX512-VL-NEXT:    vmovaps 640(%ecx), %zmm0
 ; X86-AVX512-VL-NEXT:    vmovups %zmm0, {{[-0-9]+}}(%e{{[sb]}}p) # 64-byte Spill
-; X86-AVX512-VL-NEXT:    vmovaps 704(%ecx), %zmm0 {%k2} {z}
+; X86-AVX512-VL-NEXT:    vmovaps 704(%ecx), %zmm0
 ; X86-AVX512-VL-NEXT:    vmovups %zmm0, {{[-0-9]+}}(%e{{[sb]}}p) # 64-byte Spill
-; X86-AVX512-VL-NEXT:    vmovaps 768(%ecx), %zmm0 {%k2} {z}
+; X86-AVX512-VL-NEXT:    vmovaps 768(%ecx), %zmm0
 ; X86-AVX512-VL-NEXT:    vmovups %zmm0, {{[-0-9]+}}(%e{{[sb]}}p) # 64-byte Spill
-; X86-AVX512-VL-NEXT:    vmovaps 832(%ecx), %zmm0 {%k2} {z}
+; X86-AVX512-VL-NEXT:    vmovaps 832(%ecx), %zmm0
 ; X86-AVX512-VL-NEXT:    vmovups %zmm0, {{[-0-9]+}}(%e{{[sb]}}p) # 64-byte Spill
-; X86-AVX512-VL-NEXT:    vmovaps 896(%ecx), %zmm0 {%k2} {z}
+; X86-AVX512-VL-NEXT:    vmovaps 896(%ecx), %zmm0
 ; X86-AVX512-VL-NEXT:    vmovups %zmm0, {{[-0-9]+}}(%e{{[sb]}}p) # 64-byte Spill
-; X86-AVX512-VL-NEXT:    vmovaps 960(%ecx), %zmm0 {%k2} {z}
+; X86-AVX512-VL-NEXT:    vmovaps 960(%ecx), %zmm0
 ; X86-AVX512-VL-NEXT:    vmovups %zmm0, {{[-0-9]+}}(%e{{[sb]}}p) # 64-byte Spill
-; X86-AVX512-VL-NEXT:    vmovaps 1024(%ecx), %zmm0 {%k2} {z}
+; X86-AVX512-VL-NEXT:    vmovaps 1024(%ecx), %zmm0
 ; X86-AVX512-VL-NEXT:    vmovups %zmm0, {{[-0-9]+}}(%e{{[sb]}}p) # 64-byte Spill
-; X86-AVX512-VL-NEXT:    vmovaps 1088(%ecx), %zmm0 {%k2} {z}
+; X86-AVX512-VL-NEXT:    vmovaps 1088(%ecx), %zmm0
 ; X86-AVX512-VL-NEXT:    vmovups %zmm0, {{[-0-9]+}}(%e{{[sb]}}p) # 64-byte Spill
-; X86-AVX512-VL-NEXT:    vmovaps 1152(%ecx), %zmm0 {%k2} {z}
+; X86-AVX512-VL-NEXT:    vmovaps 1152(%ecx), %zmm0
 ; X86-AVX512-VL-NEXT:    vmovups %zmm0, {{[-0-9]+}}(%e{{[sb]}}p) # 64-byte Spill
-; X86-AVX512-VL-NEXT:    vmovaps 1216(%ecx), %zmm0 {%k2} {z}
+; X86-AVX512-VL-NEXT:    vmovaps 1216(%ecx), %zmm0
 ; X86-AVX512-VL-NEXT:    vmovups %zmm0, {{[-0-9]+}}(%e{{[sb]}}p) # 64-byte Spill
-; X86-AVX512-VL-NEXT:    vmovaps 1280(%ecx), %zmm0 {%k2} {z}
+; X86-AVX512-VL-NEXT:    vmovaps 1280(%ecx), %zmm0
 ; X86-AVX512-VL-NEXT:    vmovups %zmm0, {{[-0-9]+}}(%e{{[sb]}}p) # 64-byte Spill
-; X86-AVX512-VL-NEXT:    vmovaps 1344(%ecx), %zmm0 {%k2} {z}
+; X86-AVX512-VL-NEXT:    vmovaps 1344(%ecx), %zmm0
 ; X86-AVX512-VL-NEXT:    vmovups %zmm0, {{[-0-9]+}}(%e{{[sb]}}p) # 64-byte Spill
-; X86-AVX512-VL-NEXT:    vmovaps 1408(%ecx), %zmm0 {%k2} {z}
+; X86-AVX512-VL-NEXT:    vmovaps 1408(%ecx), %zmm0
 ; X86-AVX512-VL-NEXT:    vmovups %zmm0, {{[-0-9]+}}(%e{{[sb]}}p) # 64-byte Spill
-; X86-AVX512-VL-NEXT:    vmovaps 1472(%ecx), %zmm0 {%k2} {z}
+; X86-AVX512-VL-NEXT:    vmovaps 1472(%ecx), %zmm0
 ; X86-AVX512-VL-NEXT:    vmovups %zmm0, {{[-0-9]+}}(%e{{[sb]}}p) # 64-byte Spill
-; X86-AVX512-VL-NEXT:    vmovaps 1536(%ecx), %zmm0 {%k2} {z}
+; X86-AVX512-VL-NEXT:    vmovaps 1536(%ecx), %zmm0
 ; X86-AVX512-VL-NEXT:    vmovups %zmm0, {{[-0-9]+}}(%e{{[sb]}}p) # 64-byte Spill
-; X86-AVX512-VL-NEXT:    vmovaps 1600(%ecx), %zmm0 {%k2} {z}
+; X86-AVX512-VL-NEXT:    vmovaps 1600(%ecx), %zmm0
 ; X86-AVX512-VL-NEXT:    vmovups %zmm0, {{[-0-9]+}}(%e{{[sb]}}p) # 64-byte Spill
-; X86-AVX512-VL-NEXT:    vmovaps 1664(%ecx), %zmm0 {%k2} {z}
+; X86-AVX512-VL-NEXT:    vmovaps 1664(%ecx), %zmm0
 ; X86-AVX512-VL-NEXT:    vmovups %zmm0, {{[-0-9]+}}(%e{{[sb]}}p) # 64-byte Spill
-; X86-AVX512-VL-NEXT:    vmovaps 1728(%ecx), %zmm0 {%k2} {z}
+; X86-AVX512-VL-NEXT:    vmovaps 1728(%ecx), %zmm0
 ; X86-AVX512-VL-NEXT:    vmovups %zmm0, {{[-0-9]+}}(%e{{[sb]}}p) # 64-byte Spill
-; X86-AVX512-VL-NEXT:    vmovaps 1792(%ecx), %zmm0 {%k2} {z}
+; X86-AVX512-VL-NEXT:    vmovaps 1792(%ecx), %zmm0
 ; X86-AVX512-VL-NEXT:    vmovups %zmm0, {{[-0-9]+}}(%e{{[sb]}}p) # 64-byte Spill
-; X86-AVX512-VL-NEXT:    vmovaps 1856(%ecx), %zmm0 {%k2} {z}
+; X86-AVX512-VL-NEXT:    vmovaps 1856(%ecx), %zmm0
 ; X86-AVX512-VL-NEXT:    vmovups %zmm0, {{[-0-9]+}}(%e{{[sb]}}p) # 64-byte Spill
-; X86-AVX512-VL-NEXT:    vmovaps 1920(%ecx), %zmm0 {%k2} {z}
+; X86-AVX512-VL-NEXT:    vmovaps 1920(%ecx), %zmm0
 ; X86-AVX512-VL-NEXT:    vmovups %zmm0, {{[-0-9]+}}(%e{{[sb]}}p) # 64-byte Spill
-; X86-AVX512-VL-NEXT:    vmovaps 1984(%ecx), %zmm0 {%k2} {z}
+; X86-AVX512-VL-NEXT:    vmovaps 1984(%ecx), %zmm0
 ; X86-AVX512-VL-NEXT:    vmovups %zmm0, {{[-0-9]+}}(%e{{[sb]}}p) # 64-byte Spill
-; X86-AVX512-VL-NEXT:    vmovaps 2048(%ecx), %zmm0 {%k2} {z}
+; X86-AVX512-VL-NEXT:    vmovaps 2048(%ecx), %zmm0
 ; X86-AVX512-VL-NEXT:    vmovups %zmm0, {{[-0-9]+}}(%e{{[sb]}}p) # 64-byte Spill
-; X86-AVX512-VL-NEXT:    vmovaps 2112(%ecx), %zmm0 {%k2} {z}
+; X86-AVX512-VL-NEXT:    vmovaps 2112(%ecx), %zmm0
 ; X86-AVX512-VL-NEXT:    vmovups %zmm0, {{[-0-9]+}}(%e{{[sb]}}p) # 64-byte Spill
-; X86-AVX512-VL-NEXT:    vmovaps 2176(%ecx), %zmm0 {%k2} {z}
+; X86-AVX512-VL-NEXT:    vmovaps 2176(%ecx), %zmm0
 ; X86-AVX512-VL-NEXT:    vmovups %zmm0, {{[-0-9]+}}(%e{{[sb]}}p) # 64-byte Spill
-; X86-AVX512-VL-NEXT:    vmovaps 2240(%ecx), %zmm0 {%k2} {z}
+; X86-AVX512-VL-NEXT:    vmovaps 2240(%ecx), %zmm0
 ; X86-AVX512-VL-NEXT:    vmovups %zmm0, {{[-0-9]+}}(%e{{[sb]}}p) # 64-byte Spill
-; X86-AVX512-VL-NEXT:    vmovaps 2304(%ecx), %zmm0 {%k2} {z}
+; X86-AVX512-VL-NEXT:    vmovaps 2304(%ecx), %zmm0
 ; X86-AVX512-VL-NEXT:    vmovups %zmm0, {{[-0-9]+}}(%e{{[sb]}}p) # 64-byte Spill
-; X86-AVX512-VL-NEXT:    vmovaps 2368(%ecx), %zmm0 {%k2} {z}
+; X86-AVX512-VL-NEXT:    vmovaps 2368(%ecx), %zmm0
 ; X86-AVX512-VL-NEXT:    vmovups %zmm0, {{[-0-9]+}}(%e{{[sb]}}p) # 64-byte Spill
-; X86-AVX512-VL-NEXT:    vmovaps 2432(%ecx), %zmm0 {%k2} {z}
+; X86-AVX512-VL-NEXT:    vmovaps 2432(%ecx), %zmm0
 ; X86-AVX512-VL-NEXT:    vmovups %zmm0, {{[-0-9]+}}(%e{{[sb]}}p) # 64-byte Spill
-; X86-AVX512-VL-NEXT:    vmovaps 2496(%ecx), %zmm0 {%k2} {z}
+; X86-AVX512-VL-NEXT:    vmovaps 2496(%ecx), %zmm0
 ; X86-AVX512-VL-NEXT:    vmovups %zmm0, {{[-0-9]+}}(%e{{[sb]}}p) # 64-byte Spill
-; X86-AVX512-VL-NEXT:    vmovaps 2560(%ecx), %zmm0 {%k2} {z}
+; X86-AVX512-VL-NEXT:    vmovaps 2560(%ecx), %zmm0
 ; X86-AVX512-VL-NEXT:    vmovups %zmm0, {{[-0-9]+}}(%e{{[sb]}}p) # 64-byte Spill
-; X86-AVX512-VL-NEXT:    vmovaps 2624(%ecx), %zmm0 {%k2} {z}
+; X86-AVX512-VL-NEXT:    vmovaps 2624(%ecx), %zmm0
 ; X86-AVX512-VL-NEXT:    vmovups %zmm0, {{[-0-9]+}}(%e{{[sb]}}p) # 64-byte Spill
-; X86-AVX512-VL-NEXT:    vmovaps 2688(%ecx), %zmm0 {%k2} {z}
+; X86-AVX512-VL-NEXT:    vmovaps 2688(%ecx), %zmm0
 ; X86-AVX512-VL-NEXT:    vmovups %zmm0, {{[-0-9]+}}(%e{{[sb]}}p) # 64-byte Spill
-; X86-AVX512-VL-NEXT:    vmovaps 2752(%ecx), %zmm0 {%k2} {z}
+; X86-AVX512-VL-NEXT:    vmovaps 2752(%ecx), %zmm0
 ; X86-AVX512-VL-NEXT:    vmovups %zmm0, {{[-0-9]+}}(%e{{[sb]}}p) # 64-byte Spill
-; X86-AVX512-VL-NEXT:    vmovaps 2816(%ecx), %zmm0 {%k2} {z}
+; X86-AVX512-VL-NEXT:    vmovaps 2816(%ecx), %zmm0
 ; X86-AVX512-VL-NEXT:    vmovups %zmm0, {{[-0-9]+}}(%e{{[sb]}}p) # 64-byte Spill
-; X86-AVX512-VL-NEXT:    vmovaps 2880(%ecx), %zmm0 {%k2} {z}
+; X86-AVX512-VL-NEXT:    vmovaps 2880(%ecx), %zmm0
 ; X86-AVX512-VL-NEXT:    vmovups %zmm0, {{[-0-9]+}}(%e{{[sb]}}p) # 64-byte Spill
-; X86-AVX512-VL-NEXT:    vmovaps 2944(%ecx), %zmm0 {%k2} {z}
+; X86-AVX512-VL-NEXT:    vmovaps 2944(%ecx), %zmm0
 ; X86-AVX512-VL-NEXT:    vmovups %zmm0, {{[-0-9]+}}(%e{{[sb]}}p) # 64-byte Spill
-; X86-AVX512-VL-NEXT:    vmovaps 3008(%ecx), %zmm0 {%k2} {z}
+; X86-AVX512-VL-NEXT:    vmovaps 3008(%ecx), %zmm0
 ; X86-AVX512-VL-NEXT:    vmovups %zmm0, {{[-0-9]+}}(%e{{[sb]}}p) # 64-byte Spill
-; X86-AVX512-VL-NEXT:    vmovaps 3072(%ecx), %zmm0 {%k2} {z}
+; X86-AVX512-VL-NEXT:    vmovaps 3072(%ecx), %zmm0
 ; X86-AVX512-VL-NEXT:    vmovups %zmm0, {{[-0-9]+}}(%e{{[sb]}}p) # 64-byte Spill
-; X86-AVX512-VL-NEXT:    vmovaps 3136(%ecx), %zmm0 {%k2} {z}
+; X86-AVX512-VL-NEXT:    vmovaps 3136(%ecx), %zmm0
 ; X86-AVX512-VL-NEXT:    vmovups %zmm0, {{[-0-9]+}}(%e{{[sb]}}p) # 64-byte Spill
-; X86-AVX512-VL-NEXT:    vmovaps 3200(%ecx), %zmm0 {%k2} {z}
+; X86-AVX512-VL-NEXT:    vmovaps 3200(%ecx), %zmm0
 ; X86-AVX512-VL-NEXT:    vmovups %zmm0, {{[-0-9]+}}(%e{{[sb]}}p) # 64-byte Spill
-; X86-AVX512-VL-NEXT:    vmovaps 3264(%ecx), %zmm0 {%k2} {z}
+; X86-AVX512-VL-NEXT:    vmovaps 3264(%ecx), %zmm0
 ; X86-AVX512-VL-NEXT:    vmovups %zmm0, {{[-0-9]+}}(%e{{[sb]}}p) # 64-byte Spill
-; X86-AVX512-VL-NEXT:    vmovaps 3328(%ecx), %zmm0 {%k2} {z}
+; X86-AVX512-VL-NEXT:    vmovaps 3328(%ecx), %zmm0
 ; X86-AVX512-VL-NEXT:    vmovups %zmm0, {{[-0-9]+}}(%e{{[sb]}}p) # 64-byte Spill
-; X86-AVX512-VL-NEXT:    vmovaps 3392(%ecx), %zmm0 {%k2} {z}
+; X86-AVX512-VL-NEXT:    vmovaps 3392(%ecx), %zmm0
 ; X86-AVX512-VL-NEXT:    vmovups %zmm0, {{[-0-9]+}}(%e{{[sb]}}p) # 64-byte Spill
-; X86-AVX512-VL-NEXT:    vmovaps 3456(%ecx), %zmm0 {%k2} {z}
+; X86-AVX512-VL-NEXT:    vmovaps 3456(%ecx), %zmm0
 ; X86-AVX512-VL-NEXT:    vmovups %zmm0, {{[-0-9]+}}(%e{{[sb]}}p) # 64-byte Spill
-; X86-AVX512-VL-NEXT:    vmovaps 3520(%ecx), %zmm0 {%k2} {z}
+; X86-AVX512-VL-NEXT:    vmovaps 3520(%ecx), %zmm0
+; X86-AVX512-VL-NEXT:    vmovups %zmm0, {{[-0-9]+}}(%e{{[sb]}}p) # 64-byte Spill
+; X86-AVX512-VL-NEXT:    vmovaps 3584(%ecx), %zmm0
 ; X86-AVX512-VL-NEXT:    vmovups %zmm0, (%esp) # 64-byte Spill
-; X86-AVX512-VL-NEXT:    vmovaps 3584(%ecx), %zmm6 {%k2} {z}
-; X86-AVX512-VL-NEXT:    vmovaps 3648(%ecx), %zmm5 {%k2} {z}
-; X86-AVX512-VL-NEXT:    vmovaps 3712(%ecx), %zmm4 {%k2} {z}
-; X86-AVX512-VL-NEXT:    vmovaps 3776(%ecx), %zmm3 {%k2} {z}
-; X86-AVX512-VL-NEXT:    vmovaps 3840(%ecx), %zmm2 {%k2} {z}
-; X86-AVX512-VL-NEXT:    vmovaps 3904(%ecx), %zmm1 {%k2} {z}
-; X86-AVX512-VL-NEXT:    vmovaps 3968(%ecx), %zmm0 {%k2} {z}
-; X86-AVX512-VL-NEXT:    vmovaps 4032(%ecx), %zmm7 {%k2} {z}
-; X86-AVX512-VL-NEXT:    vmovaps %zmm7, 4032(%eax) {%k2}
-; X86-AVX512-VL-NEXT:    vmovaps %zmm0, 3968(%eax) {%k2}
-; X86-AVX512-VL-NEXT:    vmovaps %zmm1, 3904(%eax) {%k2}
-; X86-AVX512-VL-NEXT:    vmovaps %zmm2, 3840(%eax) {%k2}
-; X86-AVX512-VL-NEXT:    vmovaps %zmm3, 3776(%eax) {%k2}
-; X86-AVX512-VL-NEXT:    vmovaps %zmm4, 3712(%eax) {%k2}
-; X86-AVX512-VL-NEXT:    vmovaps %zmm5, 3648(%eax) {%k2}
-; X86-AVX512-VL-NEXT:    vmovaps %zmm6, 3584(%eax) {%k2}
+; X86-AVX512-VL-NEXT:    vmovaps 3648(%ecx), %zmm6
+; X86-AVX512-VL-NEXT:    vmovaps 3712(%ecx), %zmm5
+; X86-AVX512-VL-NEXT:    vmovaps 3776(%ecx), %zmm4
+; X86-AVX512-VL-NEXT:    vmovaps 3840(%ecx), %zmm3
+; X86-AVX512-VL-NEXT:    vmovaps 3904(%ecx), %zmm2
+; X86-AVX512-VL-NEXT:    vmovaps 3968(%ecx), %zmm1
+; X86-AVX512-VL-NEXT:    vmovaps 4032(%ecx), %zmm0
+; X86-AVX512-VL-NEXT:    vmovups {{[-0-9]+}}(%e{{[sb]}}p), %zmm7 # 64-byte Reload
+; X86-AVX512-VL-NEXT:    vmovaps %zmm7, 4096(%eax) {%k1}
+; X86-AVX512-VL-NEXT:    vmovaps %zmm0, 4032(%eax)
+; X86-AVX512-VL-NEXT:    vmovaps %zmm1, 3968(%eax)
+; X86-AVX512-VL-NEXT:    vmovaps %zmm2, 3904(%eax)
+; X86-AVX512-VL-NEXT:    vmovaps %zmm3, 3840(%eax)
+; X86-AVX512-VL-NEXT:    vmovaps %zmm4, 3776(%eax)
+; X86-AVX512-VL-NEXT:    vmovaps %zmm5, 3712(%eax)
+; X86-AVX512-VL-NEXT:    vmovaps %zmm6, 3648(%eax)
 ; X86-AVX512-VL-NEXT:    vmovups (%esp), %zmm0 # 64-byte Reload
-; X86-AVX512-VL-NEXT:    vmovaps %zmm0, 3520(%eax) {%k2}
+; X86-AVX512-VL-NEXT:    vmovaps %zmm0, 3584(%eax)
 ; X86-AVX512-VL-NEXT:    vmovups {{[-0-9]+}}(%e{{[sb]}}p), %zmm0 # 64-byte Reload
-; X86-AVX512-VL-NEXT:    vmovaps %zmm0, 3456(%eax) {%k2}
+; X86-AVX512-VL-NEXT:    vmovaps %zmm0, 3520(%eax)
 ; X86-AVX512-VL-NEXT:    vmovups {{[-0-9]+}}(%e{{[sb]}}p), %zmm0 # 64-byte Reload
-; X86-AVX512-VL-NEXT:    vmovaps %zmm0, 3392(%eax) {%k2}
+; X86-AVX512-VL-NEXT:    vmovaps %zmm0, 3456(%eax)
 ; X86-AVX512-VL-NEXT:    vmovups {{[-0-9]+}}(%e{{[sb]}}p), %zmm0 # 64-byte Reload
-; X86-AVX512-VL-NEXT:    vmovaps %zmm0, 3328(%eax) {%k2}
+; X86-AVX512-VL-NEXT:    vmovaps %zmm0, 3392(%eax)
 ; X86-AVX512-VL-NEXT:    vmovups {{[-0-9]+}}(%e{{[sb]}}p), %zmm0 # 64-byte Reload
-; X86-AVX512-VL-NEXT:    vmovaps %zmm0, 3264(%eax) {%k2}
+; X86-AVX512-VL-NEXT:    vmovaps %zmm0, 3328(%eax)
 ; X86-AVX512-VL-NEXT:    vmovups {{[-0-9]+}}(%e{{[sb]}}p), %zmm0 # 64-byte Reload
-; X86-AVX512-VL-NEXT:    vmovaps %zmm0, 3200(%eax) {%k2}
+; X86-AVX512-VL-NEXT:    vmovaps %zmm0, 3264(%eax)
 ; X86-AVX512-VL-NEXT:    vmovups {{[-0-9]+}}(%e{{[sb]}}p), %zmm0 # 64-byte Reload
-; X86-AVX512-VL-NEXT:    vmovaps %zmm0, 3136(%eax) {%k2}
+; X86-AVX512-VL-NEXT:    vmovaps %zmm0, 3200(%eax)
 ; X86-AVX512-VL-NEXT:    vmovups {{[-0-9]+}}(%e{{[sb]}}p), %zmm0 # 64-byte Reload
-; X86-AVX512-VL-NEXT:    vmovaps %zmm0, 3072(%eax) {%k2}
+; X86-AVX512-VL-NEXT:    vmovaps %zmm0, 3136(%eax)
 ; X86-AVX512-VL-NEXT:    vmovups {{[-0-9]+}}(%e{{[sb]}}p), %zmm0 # 64-byte Reload
-; X86-AVX512-VL-NEXT:    vmovaps %zmm0, 3008(%eax) {%k2}
+; X86-AVX512-VL-NEXT:    vmovaps %zmm0, 3072(%eax)
 ; X86-AVX512-VL-NEXT:    vmovups {{[-0-9]+}}(%e{{[sb]}}p), %zmm0 # 64-byte Reload
-; X86-AVX512-VL-NEXT:    vmovaps %zmm0, 2944(%eax) {%k2}
+; X86-AVX512-VL-NEXT:    vmovaps %zmm0, 3008(%eax)
 ; X86-AVX512-VL-NEXT:    vmovups {{[-0-9]+}}(%e{{[sb]}}p), %zmm0 # 64-byte Reload
-; X86-AVX512-VL-NEXT:    vmovaps %zmm0, 2880(%eax) {%k2}
+; X86-AVX512-VL-NEXT:    vmovaps %zmm0, 2944(%eax)
 ; X86-AVX512-VL-NEXT:    vmovups {{[-0-9]+}}(%e{{[sb]}}p), %zmm0 # 64-byte Reload
-; X86-AVX512-VL-NEXT:    vmovaps %zmm0, 2816(%eax) {%k2}
+; X86-AVX512-VL-NEXT:    vmovaps %zmm0, 2880(%eax)
 ; X86-AVX512-VL-NEXT:    vmovups {{[-0-9]+}}(%e{{[sb]}}p), %zmm0 # 64-byte Reload
-; X86-AVX512-VL-NEXT:    vmovaps %zmm0, 2752(%eax) {%k2}
+; X86-AVX512-VL-NEXT:    vmovaps %zmm0, 2816(%eax)
 ; X86-AVX512-VL-NEXT:    vmovups {{[-0-9]+}}(%e{{[sb]}}p), %zmm0 # 64-byte Reload
-; X86-AVX512-VL-NEXT:    vmovaps %zmm0, 2688(%eax) {%k2}
+; X86-AVX512-VL-NEXT:    vmovaps %zmm0, 2752(%eax)
 ; X86-AVX512-VL-NEXT:    vmovups {{[-0-9]+}}(%e{{[sb]}}p), %zmm0 # 64-byte Reload
-; X86-AVX512-VL-NEXT:    vmovaps %zmm0, 2624(%eax) {%k2}
+; X86-AVX512-VL-NEXT:    vmovaps %zmm0, 2688(%eax)
 ; X86-AVX512-VL-NEXT:    vmovups {{[-0-9]+}}(%e{{[sb]}}p), %zmm0 # 64-byte Reload
-; X86-AVX512-VL-NEXT:    vmovaps %zmm0, 2560(%eax) {%k2}
+; X86-AVX512-VL-NEXT:    vmovaps %zmm0, 2624(%eax)
 ; X86-AVX512-VL-NEXT:    vmovups {{[-0-9]+}}(%e{{[sb]}}p), %zmm0 # 64-byte Reload
-; X86-AVX512-VL-NEXT:    vmovaps %zmm0, 2496(%eax) {%k2}
+; X86-AVX512-VL-NEXT:    vmovaps %zmm0, 2560(%eax)
 ; X86-AVX512-VL-NEXT:    vmovups {{[-0-9]+}}(%e{{[sb]}}p), %zmm0 # 64-byte Reload
-; X86-AVX512-VL-NEXT:    vmovaps %zmm0, 2432(%eax) {%k2}
+; X86-AVX512-VL-NEXT:    vmovaps %zmm0, 2496(%eax)
 ; X86-AVX512-VL-NEXT:    vmovups {{[-0-9]+}}(%e{{[sb]}}p), %zmm0 # 64-byte Reload
-; X86-AVX512-VL-NEXT:    vmovaps %zmm0, 2368(%eax) {%k2}
+; X86-AVX512-VL-NEXT:    vmovaps %zmm0, 2432(%eax)
 ; X86-AVX512-VL-NEXT:    vmovups {{[-0-9]+}}(%e{{[sb]}}p), %zmm0 # 64-byte Reload
-; X86-AVX512-VL-NEXT:    vmovaps %zmm0, 2304(%eax) {%k2}
+; X86-AVX512-VL-NEXT:    vmovaps %zmm0, 2368(%eax)
 ; X86-AVX512-VL-NEXT:    vmovups {{[-0-9]+}}(%e{{[sb]}}p), %zmm0 # 64-byte Reload
-; X86-AVX512-VL-NEXT:    vmovaps %zmm0, 2240(%eax) {%k2}
+; X86-AVX512-VL-NEXT:    vmovaps %zmm0, 2304(%eax)
 ; X86-AVX512-VL-NEXT:    vmovups {{[-0-9]+}}(%e{{[sb]}}p), %zmm0 # 64-byte Reload
-; X86-AVX512-VL-NEXT:    vmovaps %zmm0, 2176(%eax) {%k2}
+; X86-AVX512-VL-NEXT:    vmovaps %zmm0, 2240(%eax)
 ; X86-AVX512-VL-NEXT:    vmovups {{[-0-9]+}}(%e{{[sb]}}p), %zmm0 # 64-byte Reload
-; X86-AVX512-VL-NEXT:    vmovaps %zmm0, 2112(%eax) {%k2}
+; X86-AVX512-VL-NEXT:    vmovaps %zmm0, 2176(%eax)
 ; X86-AVX512-VL-NEXT:    vmovups {{[-0-9]+}}(%e{{[sb]}}p), %zmm0 # 64-byte Reload
-; X86-AVX512-VL-NEXT:    vmovaps %zmm0, 2048(%eax) {%k2}
+; X86-AVX512-VL-NEXT:    vmovaps %zmm0, 2112(%eax)
 ; X86-AVX512-VL-NEXT:    vmovups {{[-0-9]+}}(%e{{[sb]}}p), %zmm0 # 64-byte Reload
-; X86-AVX512-VL-NEXT:    vmovaps %zmm0, 1984(%eax) {%k2}
+; X86-AVX512-VL-NEXT:    vmovaps %zmm0, 2048(%eax)
 ; X86-AVX512-VL-NEXT:    vmovups {{[-0-9]+}}(%e{{[sb]}}p), %zmm0 # 64-byte Reload
-; X86-AVX512-VL-NEXT:    vmovaps %zmm0, 1920(%eax) {%k2}
+; X86-AVX512-VL-NEXT:    vmovaps %zmm0, 1984(%eax)
 ; X86-AVX512-VL-NEXT:    vmovups {{[-0-9]+}}(%e{{[sb]}}p), %zmm0 # 64-byte Reload
-; X86-AVX512-VL-NEXT:    vmovaps %zmm0, 1856(%eax) {%k2}
+; X86-AVX512-VL-NEXT:    vmovaps %zmm0, 1920(%eax)
 ; X86-AVX512-VL-NEXT:    vmovups {{[-0-9]+}}(%e{{[sb]}}p), %zmm0 # 64-byte Reload
-; X86-AVX512-VL-NEXT:    vmovaps %zmm0, 1792(%eax) {%k2}
+; X86-AVX512-VL-NEXT:    vmovaps %zmm0, 1856(%eax)
 ; X86-AVX512-VL-NEXT:    vmovups {{[-0-9]+}}(%e{{[sb]}}p), %zmm0 # 64-byte Reload
-; X86-AVX512-VL-NEXT:    vmovaps %zmm0, 1728(%eax) {%k2}
+; X86-AVX512-VL-NEXT:    vmovaps %zmm0, 1792(%eax)
 ; X86-AVX512-VL-NEXT:    vmovups {{[-0-9]+}}(%e{{[sb]}}p), %zmm0 # 64-byte Reload
-; X86-AVX512-VL-NEXT:    vmovaps %zmm0, 1664(%eax) {%k2}
+; X86-AVX512-VL-NEXT:    vmovaps %zmm0, 1728(%eax)
 ; X86-AVX512-VL-NEXT:    vmovups {{[-0-9]+}}(%e{{[sb]}}p), %zmm0 # 64-byte Reload
-; X86-AVX512-VL-NEXT:    vmovaps %zmm0, 1600(%eax) {%k2}
+; X86-AVX512-VL-NEXT:    vmovaps %zmm0, 1664(%eax)
 ; X86-AVX512-VL-NEXT:    vmovups {{[-0-9]+}}(%e{{[sb]}}p), %zmm0 # 64-byte Reload
-; X86-AVX512-VL-NEXT:    vmovaps %zmm0, 1536(%eax) {%k2}
+; X86-AVX512-VL-NEXT:    vmovaps %zmm0, 1600(%eax)
 ; X86-AVX512-VL-NEXT:    vmovups {{[-0-9]+}}(%e{{[sb]}}p), %zmm0 # 64-byte Reload
-; X86-AVX512-VL-NEXT:    vmovaps %zmm0, 1472(%eax) {%k2}
+; X86-AVX512-VL-NEXT:    vmovaps %zmm0, 1536(%eax)
 ; X86-AVX512-VL-NEXT:    vmovups {{[-0-9]+}}(%e{{[sb]}}p), %zmm0 # 64-byte Reload
-; X86-AVX512-VL-NEXT:    vmovaps %zmm0, 1408(%eax) {%k2}
+; X86-AVX512-VL-NEXT:    vmovaps %zmm0, 1472(%eax)
 ; X86-AVX512-VL-NEXT:    vmovups {{[-0-9]+}}(%e{{[sb]}}p), %zmm0 # 64-byte Reload
-; X86-AVX512-VL-NEXT:    vmovaps %zmm0, 1344(%eax) {%k2}
+; X86-AVX512-VL-NEXT:    vmovaps %zmm0, 1408(%eax)
 ; X86-AVX512-VL-NEXT:    vmovups {{[-0-9]+}}(%e{{[sb]}}p), %zmm0 # 64-byte Reload
-; X86-AVX512-VL-NEXT:    vmovaps %zmm0, 1280(%eax) {%k2}
+; X86-AVX512-VL-NEXT:    vmovaps %zmm0, 1344(%eax)
 ; X86-AVX512-VL-NEXT:    vmovups {{[-0-9]+}}(%e{{[sb]}}p), %zmm0 # 64-byte Reload
-; X86-AVX512-VL-NEXT:    vmovaps %zmm0, 1216(%eax) {%k2}
+; X86-AVX512-VL-NEXT:    vmovaps %zmm0, 1280(%eax)
 ; X86-AVX512-VL-NEXT:    vmovups {{[-0-9]+}}(%e{{[sb]}}p), %zmm0 # 64-byte Reload
-; X86-AVX512-VL-NEXT:    vmovaps %zmm0, 1152(%eax) {%k2}
+; X86-AVX512-VL-NEXT:    vmovaps %zmm0, 1216(%eax)
 ; X86-AVX512-VL-NEXT:    vmovups {{[-0-9]+}}(%e{{[sb]}}p), %zmm0 # 64-byte Reload
-; X86-AVX512-VL-NEXT:    vmovaps %zmm0, 1088(%eax) {%k2}
+; X86-AVX512-VL-NEXT:    vmovaps %zmm0, 1152(%eax)
 ; X86-AVX512-VL-NEXT:    vmovups {{[-0-9]+}}(%e{{[sb]}}p), %zmm0 # 64-byte Reload
-; X86-AVX512-VL-NEXT:    vmovaps %zmm0, 1024(%eax) {%k2}
+; X86-AVX512-VL-NEXT:    vmovaps %zmm0, 1088(%eax)
 ; X86-AVX512-VL-NEXT:    vmovups {{[-0-9]+}}(%e{{[sb]}}p), %zmm0 # 64-byte Reload
-; X86-AVX512-VL-NEXT:    vmovaps %zmm0, 960(%eax) {%k2}
+; X86-AVX512-VL-NEXT:    vmovaps %zmm0, 1024(%eax)
 ; X86-AVX512-VL-NEXT:    vmovups {{[-0-9]+}}(%e{{[sb]}}p), %zmm0 # 64-byte Reload
-; X86-AVX512-VL-NEXT:    vmovaps %zmm0, 896(%eax) {%k2}
+; X86-AVX512-VL-NEXT:    vmovaps %zmm0, 960(%eax)
 ; X86-AVX512-VL-NEXT:    vmovups {{[-0-9]+}}(%e{{[sb]}}p), %zmm0 # 64-byte Reload
-; X86-AVX512-VL-NEXT:    vmovaps %zmm0, 832(%eax) {%k2}
+; X86-AVX512-VL-NEXT:    vmovaps %zmm0, 896(%eax)
 ; X86-AVX512-VL-NEXT:    vmovups {{[-0-9]+}}(%e{{[sb]}}p), %zmm0 # 64-byte Reload
-; X86-AVX512-VL-NEXT:    vmovaps %zmm0, 768(%eax) {%k2}
+; X86-AVX512-VL-NEXT:    vmovaps %zmm0, 832(%eax)
 ; X86-AVX512-VL-NEXT:    vmovups {{[-0-9]+}}(%e{{[sb]}}p), %zmm0 # 64-byte Reload
-; X86-AVX512-VL-NEXT:    vmovaps %zmm0, 704(%eax) {%k2}
+; X86-AVX512-VL-NEXT:    vmovaps %zmm0, 768(%eax)
 ; X86-AVX512-VL-NEXT:    vmovups {{[-0-9]+}}(%e{{[sb]}}p), %zmm0 # 64-byte Reload
-; X86-AVX512-VL-NEXT:    vmovaps %zmm0, 640(%eax) {%k2}
+; X86-AVX512-VL-NEXT:    vmovaps %zmm0, 704(%eax)
 ; X86-AVX512-VL-NEXT:    vmovups {{[-0-9]+}}(%e{{[sb]}}p), %zmm0 # 64-byte Reload
-; X86-AVX512-VL-NEXT:    vmovaps %zmm0, 576(%eax) {%k2}
+; X86-AVX512-VL-NEXT:    vmovaps %zmm0, 640(%eax)
 ; X86-AVX512-VL-NEXT:    vmovups {{[-0-9]+}}(%e{{[sb]}}p), %zmm0 # 64-byte Reload
-; X86-AVX512-VL-NEXT:    vmovaps %zmm0, 512(%eax) {%k2}
+; X86-AVX512-VL-NEXT:    vmovaps %zmm0, 576(%eax)
 ; X86-AVX512-VL-NEXT:    vmovups {{[-0-9]+}}(%e{{[sb]}}p), %zmm0 # 64-byte Reload
-; X86-AVX512-VL-NEXT:    vmovaps %zmm0, 448(%eax) {%k2}
+; X86-AVX512-VL-NEXT:    vmovaps %zmm0, 512(%eax)
 ; X86-AVX512-VL-NEXT:    vmovups {{[-0-9]+}}(%e{{[sb]}}p), %zmm0 # 64-byte Reload
-; X86-AVX512-VL-NEXT:    vmovaps %zmm0, 384(%eax) {%k2}
+; X86-AVX512-VL-NEXT:    vmovaps %zmm0, 448(%eax)
 ; X86-AVX512-VL-NEXT:    vmovups {{[-0-9]+}}(%e{{[sb]}}p), %zmm0 # 64-byte Reload
-; X86-AVX512-VL-NEXT:    vmovaps %zmm0, 320(%eax) {%k2}
+; X86-AVX512-VL-NEXT:    vmovaps %zmm0, 384(%eax)
 ; X86-AVX512-VL-NEXT:    vmovups {{[-0-9]+}}(%e{{[sb]}}p), %zmm0 # 64-byte Reload
-; X86-AVX512-VL-NEXT:    vmovaps %zmm0, 256(%eax) {%k2}
+; X86-AVX512-VL-NEXT:    vmovaps %zmm0, 320(%eax)
 ; X86-AVX512-VL-NEXT:    vmovups {{[-0-9]+}}(%e{{[sb]}}p), %zmm0 # 64-byte Reload
-; X86-AVX512-VL-NEXT:    vmovaps %zmm0, 192(%eax) {%k2}
+; X86-AVX512-VL-NEXT:    vmovaps %zmm0, 256(%eax)
 ; X86-AVX512-VL-NEXT:    vmovups {{[-0-9]+}}(%e{{[sb]}}p), %zmm0 # 64-byte Reload
-; X86-AVX512-VL-NEXT:    vmovaps %zmm0, 128(%eax) {%k2}
+; X86-AVX512-VL-NEXT:    vmovaps %zmm0, 192(%eax)
 ; X86-AVX512-VL-NEXT:    vmovups {{[-0-9]+}}(%e{{[sb]}}p), %zmm0 # 64-byte Reload
-; X86-AVX512-VL-NEXT:    vmovaps %zmm0, 64(%eax) {%k2}
+; X86-AVX512-VL-NEXT:    vmovaps %zmm0, 128(%eax)
 ; X86-AVX512-VL-NEXT:    vmovups {{[-0-9]+}}(%e{{[sb]}}p), %zmm0 # 64-byte Reload
-; X86-AVX512-VL-NEXT:    vmovaps %zmm0, (%eax) {%k2}
+; X86-AVX512-VL-NEXT:    vmovaps %zmm0, 64(%eax)
 ; X86-AVX512-VL-NEXT:    vmovups {{[-0-9]+}}(%e{{[sb]}}p), %zmm0 # 64-byte Reload
-; X86-AVX512-VL-NEXT:    vmovaps %zmm0, 4096(%eax) {%k1}
-; X86-AVX512-VL-NEXT:    addl $3708, %esp # imm = 0xE7C
+; X86-AVX512-VL-NEXT:    vmovaps %zmm0, (%eax)
+; X86-AVX512-VL-NEXT:    addl $3772, %esp # imm = 0xEBC
 ; X86-AVX512-VL-NEXT:    .cfi_def_cfa_offset 4
 ; X86-AVX512-VL-NEXT:    vzeroupper
 ; X86-AVX512-VL-NEXT:    retl
 ;
 ; X86-AVX512-VL-BW-LABEL: float_1025x:
 ; X86-AVX512-VL-BW:       # %bb.0: # %entry
-; X86-AVX512-VL-BW-NEXT:    subl $3708, %esp # imm = 0xE7C
-; X86-AVX512-VL-BW-NEXT:    .cfi_def_cfa_offset 3712
+; X86-AVX512-VL-BW-NEXT:    subl $3772, %esp # imm = 0xEBC
+; X86-AVX512-VL-BW-NEXT:    .cfi_def_cfa_offset 3776
 ; X86-AVX512-VL-BW-NEXT:    movl {{[0-9]+}}(%esp), %eax
 ; X86-AVX512-VL-BW-NEXT:    movl {{[0-9]+}}(%esp), %ecx
 ; X86-AVX512-VL-BW-NEXT:    movw $1, %dx
 ; X86-AVX512-VL-BW-NEXT:    kmovd %edx, %k1
 ; X86-AVX512-VL-BW-NEXT:    vmovaps 4096(%ecx), %zmm0 {%k1} {z}
 ; X86-AVX512-VL-BW-NEXT:    vmovups %zmm0, {{[-0-9]+}}(%e{{[sb]}}p) # 64-byte Spill
-; X86-AVX512-VL-BW-NEXT:    kxnorw %k0, %k0, %k2
-; X86-AVX512-VL-BW-NEXT:    vmovaps (%ecx), %zmm0 {%k2} {z}
+; X86-AVX512-VL-BW-NEXT:    vmovaps (%ecx), %zmm0
 ; X86-AVX512-VL-BW-NEXT:    vmovups %zmm0, {{[-0-9]+}}(%e{{[sb]}}p) # 64-byte Spill
-; X86-AVX512-VL-BW-NEXT:    vmovaps 64(%ecx), %zmm0 {%k2} {z}
+; X86-AVX512-VL-BW-NEXT:    vmovaps 64(%ecx), %zmm0
 ; X86-AVX512-VL-BW-NEXT:    vmovups %zmm0, {{[-0-9]+}}(%e{{[sb]}}p) # 64-byte Spill
-; X86-AVX512-VL-BW-NEXT:    vmovaps 128(%ecx), %zmm0 {%k2} {z}
+; X86-AVX512-VL-BW-NEXT:    vmovaps 256(%ecx), %zmm0
 ; X86-AVX512-VL-BW-NEXT:    vmovups %zmm0, {{[-0-9]+}}(%e{{[sb]}}p) # 64-byte Spill
-; X86-AVX512-VL-BW-NEXT:    vmovaps 192(%ecx), %zmm0 {%k2} {z}
+; X86-AVX512-VL-BW-NEXT:    vmovaps 320(%ecx), %zmm0
 ; X86-AVX512-VL-BW-NEXT:    vmovups %zmm0, {{[-0-9]+}}(%e{{[sb]}}p) # 64-byte Spill
-; X86-AVX512-VL-BW-NEXT:    vmovaps 256(%ecx), %zmm0 {%k2} {z}
+; X86-AVX512-VL-BW-NEXT:    vmovaps 512(%ecx), %zmm0
 ; X86-AVX512-VL-BW-NEXT:    vmovups %zmm0, {{[-0-9]+}}(%e{{[sb]}}p) # 64-byte Spill
-; X86-AVX512-VL-BW-NEXT:    vmovaps 320(%ecx), %zmm0 {%k2} {z}
+; X86-AVX512-VL-BW-NEXT:    vmovaps 576(%ecx), %zmm0
 ; X86-AVX512-VL-BW-NEXT:    vmovups %zmm0, {{[-0-9]+}}(%e{{[sb]}}p) # 64-byte Spill
-; X86-AVX512-VL-BW-NEXT:    vmovaps 384(%ecx), %zmm0 {%k2} {z}
+; X86-AVX512-VL-BW-NEXT:    vmovaps 768(%ecx), %zmm0
 ; X86-AVX512-VL-BW-NEXT:    vmovups %zmm0, {{[-0-9]+}}(%e{{[sb]}}p) # 64-byte Spill
-; X86-AVX512-VL-BW-NEXT:    vmovaps 448(%ecx), %zmm0 {%k2} {z}
+; X86-AVX512-VL-BW-NEXT:    vmovaps 832(%ecx), %zmm0
 ; X86-AVX512-VL-BW-NEXT:    vmovups %zmm0, {{[-0-9]+}}(%e{{[sb]}}p) # 64-byte Spill
-; X86-AVX512-VL-BW-NEXT:    vmovaps 512(%ecx), %zmm0 {%k2} {z}
+; X86-AVX512-VL-BW-NEXT:    vmovaps 1024(%ecx), %zmm0
 ; X86-AVX512-VL-BW-NEXT:    vmovups %zmm0, {{[-0-9]+}}(%e{{[sb]}}p) # 64-byte Spill
-; X86-AVX512-VL-BW-NEXT:    vmovaps 576(%ecx), %zmm0 {%k2} {z}
+; X86-AVX512-VL-BW-NEXT:    vmovaps 1088(%ecx), %zmm0
 ; X86-AVX512-VL-BW-NEXT:    vmovups %zmm0, {{[-0-9]+}}(%e{{[sb]}}p) # 64-byte Spill
-; X86-AVX512-VL-BW-NEXT:    vmovaps 640(%ecx), %zmm0 {%k2} {z}
+; X86-AVX512-VL-BW-NEXT:    vmovaps 1280(%ecx), %zmm0
 ; X86-AVX512-VL-BW-NEXT:    vmovups %zmm0, {{[-0-9]+}}(%e{{[sb]}}p) # 64-byte Spill
-; X86-AVX512-VL-BW-NEXT:    vmovaps 704(%ecx), %zmm0 {%k2} {z}
+; X86-AVX512-VL-BW-NEXT:    vmovaps 1344(%ecx), %zmm0
 ; X86-AVX512-VL-BW-NEXT:    vmovups %zmm0, {{[-0-9]+}}(%e{{[sb]}}p) # 64-byte Spill
-; X86-AVX512-VL-BW-NEXT:    vmovaps 768(%ecx), %zmm0 {%k2} {z}
+; X86-AVX512-VL-BW-NEXT:    vmovaps 1536(%ecx), %zmm0
 ; X86-AVX512-VL-BW-NEXT:    vmovups %zmm0, {{[-0-9]+}}(%e{{[sb]}}p) # 64-byte Spill
-; X86-AVX512-VL-BW-NEXT:    vmovaps 832(%ecx), %zmm0 {%k2} {z}
+; X86-AVX512-VL-BW-NEXT:    vmovaps 1600(%ecx), %zmm0
 ; X86-AVX512-VL-BW-NEXT:    vmovups %zmm0, {{[-0-9]+}}(%e{{[sb]}}p) # 64-byte Spill
-; X86-AVX512-VL-BW-NEXT:    vmovaps 896(%ecx), %zmm0 {%k2} {z}
+; X86-AVX512-VL-BW-NEXT:    vmovaps 1792(%ecx), %zmm0
 ; X86-AVX512-VL-BW-NEXT:    vmovups %zmm0, {{[-0-9]+}}(%e{{[sb]}}p) # 64-byte Spill
-; X86-AVX512-VL-BW-NEXT:    vmovaps 960(%ecx), %zmm0 {%k2} {z}
+; X86-AVX512-VL-BW-NEXT:    vmovaps 1856(%ecx), %zmm0
 ; X86-AVX512-VL-BW-NEXT:    vmovups %zmm0, {{[-0-9]+}}(%e{{[sb]}}p) # 64-byte Spill
-; X86-AVX512-VL-BW-NEXT:    vmovaps 1024(%ecx), %zmm0 {%k2} {z}
+; X86-AVX512-VL-BW-NEXT:    vmovaps 2048(%ecx), %zmm0
 ; X86-AVX512-VL-BW-NEXT:    vmovups %zmm0, {{[-0-9]+}}(%e{{[sb]}}p) # 64-byte Spill
-; X86-AVX512-VL-BW-NEXT:    vmovaps 1088(%ecx), %zmm0 {%k2} {z}
+; X86-AVX512-VL-BW-NEXT:    vmovaps 2112(%ecx), %zmm0
 ; X86-AVX512-VL-BW-NEXT:    vmovups %zmm0, {{[-0-9]+}}(%e{{[sb]}}p) # 64-byte Spill
-; X86-AVX512-VL-BW-NEXT:    vmovaps 1152(%ecx), %zmm0 {%k2} {z}
+; X86-AVX512-VL-BW-NEXT:    vmovaps 2304(%ecx), %zmm0
 ; X86-AVX512-VL-BW-NEXT:    vmovups %zmm0, {{[-0-9]+}}(%e{{[sb]}}p) # 64-byte Spill
-; X86-AVX512-VL-BW-NEXT:    vmovaps 1216(%ecx), %zmm0 {%k2} {z}
+; X86-AVX512-VL-BW-NEXT:    vmovaps 2368(%ecx), %zmm0
 ; X86-AVX512-VL-BW-NEXT:    vmovups %zmm0, {{[-0-9]+}}(%e{{[sb]}}p) # 64-byte Spill
-; X86-AVX512-VL-BW-NEXT:    vmovaps 1280(%ecx), %zmm0 {%k2} {z}
+; X86-AVX512-VL-BW-NEXT:    vmovaps 2560(%ecx), %zmm0
 ; X86-AVX512-VL-BW-NEXT:    vmovups %zmm0, {{[-0-9]+}}(%e{{[sb]}}p) # 64-byte Spill
-; X86-AVX512-VL-BW-NEXT:    vmovaps 1344(%ecx), %zmm0 {%k2} {z}
+; X86-AVX512-VL-BW-NEXT:    vmovaps 2624(%ecx), %zmm0
 ; X86-AVX512-VL-BW-NEXT:    vmovups %zmm0, {{[-0-9]+}}(%e{{[sb]}}p) # 64-byte Spill
-; X86-AVX512-VL-BW-NEXT:    vmovaps 1408(%ecx), %zmm0 {%k2} {z}
+; X86-AVX512-VL-BW-NEXT:    vmovaps 2816(%ecx), %zmm0
 ; X86-AVX512-VL-BW-NEXT:    vmovups %zmm0, {{[-0-9]+}}(%e{{[sb]}}p) # 64-byte Spill
-; X86-AVX512-VL-BW-NEXT:    vmovaps 1472(%ecx), %zmm0 {%k2} {z}
+; X86-AVX512-VL-BW-NEXT:    vmovaps 2880(%ecx), %zmm0
 ; X86-AVX512-VL-BW-NEXT:    vmovups %zmm0, {{[-0-9]+}}(%e{{[sb]}}p) # 64-byte Spill
-; X86-AVX512-VL-BW-NEXT:    vmovaps 1536(%ecx), %zmm0 {%k2} {z}
+; X86-AVX512-VL-BW-NEXT:    vmovaps 3072(%ecx), %zmm0
 ; X86-AVX512-VL-BW-NEXT:    vmovups %zmm0, {{[-0-9]+}}(%e{{[sb]}}p) # 64-byte Spill
-; X86-AVX512-VL-BW-NEXT:    vmovaps 1600(%ecx), %zmm0 {%k2} {z}
+; X86-AVX512-VL-BW-NEXT:    vmovaps 3136(%ecx), %zmm0
 ; X86-AVX512-VL-BW-NEXT:    vmovups %zmm0, {{[-0-9]+}}(%e{{[sb]}}p) # 64-byte Spill
-; X86-AVX512-VL-BW-NEXT:    vmovaps 1664(%ecx), %zmm0 {%k2} {z}
+; X86-AVX512-VL-BW-NEXT:    vmovaps 3328(%ecx), %zmm0
 ; X86-AVX512-VL-BW-NEXT:    vmovups %zmm0, {{[-0-9]+}}(%e{{[sb]}}p) # 64-byte Spill
-; X86-AVX512-VL-BW-NEXT:    vmovaps 1728(%ecx), %zmm0 {%k2} {z}
+; X86-AVX512-VL-BW-NEXT:    vmovaps 3392(%ecx), %zmm0
 ; X86-AVX512-VL-BW-NEXT:    vmovups %zmm0, {{[-0-9]+}}(%e{{[sb]}}p) # 64-byte Spill
-; X86-AVX512-VL-BW-NEXT:    vmovaps 1792(%ecx), %zmm0 {%k2} {z}
+; X86-AVX512-VL-BW-NEXT:    vmovaps 3584(%ecx), %zmm0
 ; X86-AVX512-VL-BW-NEXT:    vmovups %zmm0, {{[-0-9]+}}(%e{{[sb]}}p) # 64-byte Spill
-; X86-AVX512-VL-BW-NEXT:    vmovaps 1856(%ecx), %zmm0 {%k2} {z}
+; X86-AVX512-VL-BW-NEXT:    vmovaps 3648(%ecx), %zmm0
 ; X86-AVX512-VL-BW-NEXT:    vmovups %zmm0, {{[-0-9]+}}(%e{{[sb]}}p) # 64-byte Spill
-; X86-AVX512-VL-BW-NEXT:    vmovaps 1920(%ecx), %zmm0 {%k2} {z}
+; X86-AVX512-VL-BW-NEXT:    vmovaps 3840(%ecx), %zmm0
 ; X86-AVX512-VL-BW-NEXT:    vmovups %zmm0, {{[-0-9]+}}(%e{{[sb]}}p) # 64-byte Spill
-; X86-AVX512-VL-BW-NEXT:    vmovaps 1984(%ecx), %zmm0 {%k2} {z}
+; X86-AVX512-VL-BW-NEXT:    vmovaps 3904(%ecx), %zmm0
 ; X86-AVX512-VL-BW-NEXT:    vmovups %zmm0, {{[-0-9]+}}(%e{{[sb]}}p) # 64-byte Spill
-; X86-AVX512-VL-BW-NEXT:    vmovaps 2048(%ecx), %zmm0 {%k2} {z}
+; X86-AVX512-VL-BW-NEXT:    vmovaps 192(%ecx), %zmm0
 ; X86-AVX512-VL-BW-NEXT:    vmovups %zmm0, {{[-0-9]+}}(%e{{[sb]}}p) # 64-byte Spill
-; X86-AVX512-VL-BW-NEXT:    vmovaps 2112(%ecx), %zmm0 {%k2} {z}
+; X86-AVX512-VL-BW-NEXT:    vmovaps 448(%ecx), %zmm0
 ; X86-AVX512-VL-BW-NEXT:    vmovups %zmm0, {{[-0-9]+}}(%e{{[sb]}}p) # 64-byte Spill
-; X86-AVX512-VL-BW-NEXT:    vmovaps 2176(%ecx), %zmm0 {%k2} {z}
+; X86-AVX512-VL-BW-NEXT:    vmovaps 704(%ecx), %zmm0
 ; X86-AVX512-VL-BW-NEXT:    vmovups %zmm0, {{[-0-9]+}}(%e{{[sb]}}p) # 64-byte Spill
-; X86-AVX512-VL-BW-NEXT:    vmovaps 2240(%ecx), %zmm0 {%k2} {z}
+; X86-AVX512-VL-BW-NEXT:    vmovaps 960(%ecx), %zmm0
 ; X86-AVX512-VL-BW-NEXT:    vmovups %zmm0, {{[-0-9]+}}(%e{{[sb]}}p) # 64-byte Spill
-; X86-AVX512-VL-BW-NEXT:    vmovaps 2304(%ecx), %zmm0 {%k2} {z}
+; X86-AVX512-VL-BW-NEXT:    vmovaps 1216(%ecx), %zmm0
 ; X86-AVX512-VL-BW-NEXT:    vmovups %zmm0, {{[-0-9]+}}(%e{{[sb]}}p) # 64-byte Spill
-; X86-AVX512-VL-BW-NEXT:    vmovaps 2368(%ecx), %zmm0 {%k2} {z}
+; X86-AVX512-VL-BW-NEXT:    vmovaps 1472(%ecx), %zmm0
 ; X86-AVX512-VL-BW-NEXT:    vmovups %zmm0, {{[-0-9]+}}(%e{{[sb]}}p) # 64-byte Spill
-; X86-AVX512-VL-BW-NEXT:    vmovaps 2432(%ecx), %zmm0 {%k2} {z}
+; X86-AVX512-VL-BW-NEXT:    vmovaps 1728(%ecx), %zmm0
 ; X86-AVX512-VL-BW-NEXT:    vmovups %zmm0, {{[-0-9]+}}(%e{{[sb]}}p) # 64-byte Spill
-; X86-AVX512-VL-BW-NEXT:    vmovaps 2496(%ecx), %zmm0 {%k2} {z}
+; X86-AVX512-VL-BW-NEXT:    vmovaps 1984(%ecx), %zmm0
 ; X86-AVX512-VL-BW-NEXT:    vmovups %zmm0, {{[-0-9]+}}(%e{{[sb]}}p) # 64-byte Spill
-; X86-AVX512-VL-BW-NEXT:    vmovaps 2560(%ecx), %zmm0 {%k2} {z}
+; X86-AVX512-VL-BW-NEXT:    vmovaps 2240(%ecx), %zmm0
 ; X86-AVX512-VL-BW-NEXT:    vmovups %zmm0, {{[-0-9]+}}(%e{{[sb]}}p) # 64-byte Spill
-; X86-AVX512-VL-BW-NEXT:    vmovaps 2624(%ecx), %zmm0 {%k2} {z}
+; X86-AVX512-VL-BW-NEXT:    vmovaps 2496(%ecx), %zmm0
 ; X86-AVX512-VL-BW-NEXT:    vmovups %zmm0, {{[-0-9]+}}(%e{{[sb]}}p) # 64-byte Spill
-; X86-AVX512-VL-BW-NEXT:    vmovaps 2688(%ecx), %zmm0 {%k2} {z}
+; X86-AVX512-VL-BW-NEXT:    vmovaps 2752(%ecx), %zmm0
 ; X86-AVX512-VL-BW-NEXT:    vmovups %zmm0, {{[-0-9]+}}(%e{{[sb]}}p) # 64-byte Spill
-; X86-AVX512-VL-BW-NEXT:    vmovaps 2752(%ecx), %zmm0 {%k2} {z}
+; X86-AVX512-VL-BW-NEXT:    vmovaps 3008(%ecx), %zmm0
 ; X86-AVX512-VL-BW-NEXT:    vmovups %zmm0, {{[-0-9]+}}(%e{{[sb]}}p) # 64-byte Spill
-; X86-AVX512-VL-BW-NEXT:    vmovaps 2816(%ecx), %zmm0 {%k2} {z}
+; X86-AVX512-VL-BW-NEXT:    vmovaps 3264(%ecx), %zmm0
 ; X86-AVX512-VL-BW-NEXT:    vmovups %zmm0, {{[-0-9]+}}(%e{{[sb]}}p) # 64-byte Spill
-; X86-AVX512-VL-BW-NEXT:    vmovaps 2880(%ecx), %zmm0 {%k2} {z}
+; X86-AVX512-VL-BW-NEXT:    vmovaps 3520(%ecx), %zmm0
 ; X86-AVX512-VL-BW-NEXT:    vmovups %zmm0, {{[-0-9]+}}(%e{{[sb]}}p) # 64-byte Spill
-; X86-AVX512-VL-BW-NEXT:    vmovaps 2944(%ecx), %zmm0 {%k2} {z}
+; X86-AVX512-VL-BW-NEXT:    vmovaps 3776(%ecx), %zmm0
 ; X86-AVX512-VL-BW-NEXT:    vmovups %zmm0, {{[-0-9]+}}(%e{{[sb]}}p) # 64-byte Spill
-; X86-AVX512-VL-BW-NEXT:    vmovaps 3008(%ecx), %zmm0 {%k2} {z}
+; X86-AVX512-VL-BW-NEXT:    vmovaps 4032(%ecx), %zmm0
 ; X86-AVX512-VL-BW-NEXT:    vmovups %zmm0, {{[-0-9]+}}(%e{{[sb]}}p) # 64-byte Spill
-; X86-AVX512-VL-BW-NEXT:    vmovaps 3072(%ecx), %zmm0 {%k2} {z}
+; X86-AVX512-VL-BW-NEXT:    vmovaps 128(%ecx), %zmm0
 ; X86-AVX512-VL-BW-NEXT:    vmovups %zmm0, {{[-0-9]+}}(%e{{[sb]}}p) # 64-byte Spill
-; X86-AVX512-VL-BW-NEXT:    vmovaps 3136(%ecx), %zmm0 {%k2} {z}
+; X86-AVX512-VL-BW-NEXT:    vmovaps 384(%ecx), %zmm0
 ; X86-AVX512-VL-BW-NEXT:    vmovups %zmm0, {{[-0-9]+}}(%e{{[sb]}}p) # 64-byte Spill
-; X86-AVX512-VL-BW-NEXT:    vmovaps 3200(%ecx), %zmm0 {%k2} {z}
+; X86-AVX512-VL-BW-NEXT:    vmovaps 640(%ecx), %zmm0
 ; X86-AVX512-VL-BW-NEXT:    vmovups %zmm0, {{[-0-9]+}}(%e{{[sb]}}p) # 64-byte Spill
-; X86-AVX512-VL-BW-NEXT:    vmovaps 3264(%ecx), %zmm0 {%k2} {z}
+; X86-AVX512-VL-BW-NEXT:    vmovaps 896(%ecx), %zmm0
 ; X86-AVX512-VL-BW-NEXT:    vmovups %zmm0, {{[-0-9]+}}(%e{{[sb]}}p) # 64-byte Spill
-; X86-AVX512-VL-BW-NEXT:    vmovaps 3328(%ecx), %zmm0 {%k2} {z}
+; X86-AVX512-VL-BW-NEXT:    vmovaps 1152(%ecx), %zmm0
 ; X86-AVX512-VL-BW-NEXT:    vmovups %zmm0, {{[-0-9]+}}(%e{{[sb]}}p) # 64-byte Spill
-; X86-AVX512-VL-BW-NEXT:    vmovaps 3392(%ecx), %zmm0 {%k2} {z}
+; X86-AVX512-VL-BW-NEXT:    vmovaps 1408(%ecx), %zmm0
 ; X86-AVX512-VL-BW-NEXT:    vmovups %zmm0, {{[-0-9]+}}(%e{{[sb]}}p) # 64-byte Spill
-; X86-AVX512-VL-BW-NEXT:    vmovaps 3456(%ecx), %zmm0 {%k2} {z}
+; X86-AVX512-VL-BW-NEXT:    vmovaps 1664(%ecx), %zmm0
 ; X86-AVX512-VL-BW-NEXT:    vmovups %zmm0, {{[-0-9]+}}(%e{{[sb]}}p) # 64-byte Spill
-; X86-AVX512-VL-BW-NEXT:    vmovaps 3520(%ecx), %zmm0 {%k2} {z}
+; X86-AVX512-VL-BW-NEXT:    vmovaps 1920(%ecx), %zmm0
+; X86-AVX512-VL-BW-NEXT:    vmovups %zmm0, {{[-0-9]+}}(%e{{[sb]}}p) # 64-byte Spill
+; X86-AVX512-VL-BW-NEXT:    vmovaps 2176(%ecx), %zmm0
 ; X86-AVX512-VL-BW-NEXT:    vmovups %zmm0, (%esp) # 64-byte Spill
-; X86-AVX512-VL-BW-NEXT:    vmovaps 3584(%ecx), %zmm6 {%k2} {z}
-; X86-AVX512-VL-BW-NEXT:    vmovaps 3648(%ecx), %zmm5 {%k2} {z}
-; X86-AVX512-VL-BW-NEXT:    vmovaps 3712(%ecx), %zmm4 {%k2} {z}
-; X86-AVX512-VL-BW-NEXT:    vmovaps 3776(%ecx), %zmm3 {%k2} {z}
-; X86-AVX512-VL-BW-NEXT:    vmovaps 3840(%ecx), %zmm2 {%k2} {z}
-; X86-AVX512-VL-BW-NEXT:    vmovaps 3904(%ecx), %zmm1 {%k2} {z}
-; X86-AVX512-VL-BW-NEXT:    vmovaps 3968(%ecx), %zmm0 {%k2} {z}
-; X86-AVX512-VL-BW-NEXT:    vmovaps 4032(%ecx), %zmm7 {%k2} {z}
-; X86-AVX512-VL-BW-NEXT:    vmovaps %zmm7, 4032(%eax) {%k2}
-; X86-AVX512-VL-BW-NEXT:    vmovaps %zmm0, 3968(%eax) {%k2}
-; X86-AVX512-VL-BW-NEXT:    vmovaps %zmm1, 3904(%eax) {%k2}
-; X86-AVX512-VL-BW-NEXT:    vmovaps %zmm2, 3840(%eax) {%k2}
-; X86-AVX512-VL-BW-NEXT:    vmovaps %zmm3, 3776(%eax) {%k2}
-; X86-AVX512-VL-BW-NEXT:    vmovaps %zmm4, 3712(%eax) {%k2}
-; X86-AVX512-VL-BW-NEXT:    vmovaps %zmm5, 3648(%eax) {%k2}
-; X86-AVX512-VL-BW-NEXT:    vmovaps %zmm6, 3584(%eax) {%k2}
+; X86-AVX512-VL-BW-NEXT:    vmovaps 2432(%ecx), %zmm6
+; X86-AVX512-VL-BW-NEXT:    vmovaps 2688(%ecx), %zmm5
+; X86-AVX512-VL-BW-NEXT:    vmovaps 2944(%ecx), %zmm4
+; X86-AVX512-VL-BW-NEXT:    vmovaps 3200(%ecx), %zmm3
+; X86-AVX512-VL-BW-NEXT:    vmovaps 3456(%ecx), %zmm2
+; X86-AVX512-VL-BW-NEXT:    vmovaps 3712(%ecx), %zmm1
+; X86-AVX512-VL-BW-NEXT:    vmovaps 3968(%ecx), %zmm0
+; X86-AVX512-VL-BW-NEXT:    vmovups {{[-0-9]+}}(%e{{[sb]}}p), %zmm7 # 64-byte Reload
+; X86-AVX512-VL-BW-NEXT:    vmovaps %zmm7, 4096(%eax) {%k1}
+; X86-AVX512-VL-BW-NEXT:    vmovaps %zmm0, 3968(%eax)
+; X86-AVX512-VL-BW-NEXT:    vmovaps %zmm1, 3712(%eax)
+; X86-AVX512-VL-BW-NEXT:    vmovaps %zmm2, 3456(%eax)
+; X86-AVX512-VL-BW-NEXT:    vmovaps %zmm3, 3200(%eax)
+; X86-AVX512-VL-BW-NEXT:    vmovaps %zmm4, 2944(%eax)
+; X86-AVX512-VL-BW-NEXT:    vmovaps %zmm5, 2688(%eax)
+; X86-AVX512-VL-BW-NEXT:    vmovaps %zmm6, 2432(%eax)
 ; X86-AVX512-VL-BW-NEXT:    vmovups (%esp), %zmm0 # 64-byte Reload
-; X86-AVX512-VL-BW-NEXT:    vmovaps %zmm0, 3520(%eax) {%k2}
+; X86-AVX512-VL-BW-NEXT:    vmovaps %zmm0, 2176(%eax)
 ; X86-AVX512-VL-BW-NEXT:    vmovups {{[-0-9]+}}(%e{{[sb]}}p), %zmm0 # 64-byte Reload
-; X86-AVX512-VL-BW-NEXT:    vmovaps %zmm0, 3456(%eax) {%k2}
+; X86-AVX512-VL-BW-NEXT:    vmovaps %zmm0, 1920(%eax)
 ; X86-AVX512-VL-BW-NEXT:    vmovups {{[-0-9]+}}(%e{{[sb]}}p), %zmm0 # 64-byte Reload
-; X86-AVX512-VL-BW-NEXT:    vmovaps %zmm0, 3392(%eax) {%k2}
+; X86-AVX512-VL-BW-NEXT:    vmovaps %zmm0, 1664(%eax)
 ; X86-AVX512-VL-BW-NEXT:    vmovups {{[-0-9]+}}(%e{{[sb]}}p), %zmm0 # 64-byte Reload
-; X86-AVX512-VL-BW-NEXT:    vmovaps %zmm0, 3328(%eax) {%k2}
+; X86-AVX512-VL-BW-NEXT:    vmovaps %zmm0, 1408(%eax)
 ; X86-AVX512-VL-BW-NEXT:    vmovups {{[-0-9]+}}(%e{{[sb]}}p), %zmm0 # 64-byte Reload
-; X86-AVX512-VL-BW-NEXT:    vmovaps %zmm0, 3264(%eax) {%k2}
+; X86-AVX512-VL-BW-NEXT:    vmovaps %zmm0, 1152(%eax)
 ; X86-AVX512-VL-BW-NEXT:    vmovups {{[-0-9]+}}(%e{{[sb]}}p), %zmm0 # 64-byte Reload
-; X86-AVX512-VL-BW-NEXT:    vmovaps %zmm0, 3200(%eax) {%k2}
+; X86-AVX512-VL-BW-NEXT:    vmovaps %zmm0, 896(%eax)
 ; X86-AVX512-VL-BW-NEXT:    vmovups {{[-0-9]+}}(%e{{[sb]}}p), %zmm0 # 64-byte Reload
-; X86-AVX512-VL-BW-NEXT:    vmovaps %zmm0, 3136(%eax) {%k2}
+; X86-AVX512-VL-BW-NEXT:    vmovaps %zmm0, 640(%eax)
 ; X86-AVX512-VL-BW-NEXT:    vmovups {{[-0-9]+}}(%e{{[sb]}}p), %zmm0 # 64-byte Reload
-; X86-AVX512-VL-BW-NEXT:    vmovaps %zmm0, 3072(%eax) {%k2}
+; X86-AVX512-VL-BW-NEXT:    vmovaps %zmm0, 384(%eax)
 ; X86-AVX512-VL-BW-NEXT:    vmovups {{[-0-9]+}}(%e{{[sb]}}p), %zmm0 # 64-byte Reload
-; X86-AVX512-VL-BW-NEXT:    vmovaps %zmm0, 3008(%eax) {%k2}
+; X86-AVX512-VL-BW-NEXT:    vmovaps %zmm0, 128(%eax)
 ; X86-AVX512-VL-BW-NEXT:    vmovups {{[-0-9]+}}(%e{{[sb]}}p), %zmm0 # 64-byte Reload
-; X86-AVX512-VL-BW-NEXT:    vmovaps %zmm0, 2944(%eax) {%k2}
+; X86-AVX512-VL-BW-NEXT:    vmovaps %zmm0, 4032(%eax)
 ; X86-AVX512-VL-BW-NEXT:    vmovups {{[-0-9]+}}(%e{{[sb]}}p), %zmm0 # 64-byte Reload
-; X86-AVX512-VL-BW-NEXT:    vmovaps %zmm0, 2880(%eax) {%k2}
+; X86-AVX512-VL-BW-NEXT:    vmovaps %zmm0, 3776(%eax)
 ; X86-AVX512-VL-BW-NEXT:    vmovups {{[-0-9]+}}(%e{{[sb]}}p), %zmm0 # 64-byte Reload
-; X86-AVX512-VL-BW-NEXT:    vmovaps %zmm0, 2816(%eax) {%k2}
+; X86-AVX512-VL-BW-NEXT:    vmovaps %zmm0, 3520(%eax)
 ; X86-AVX512-VL-BW-NEXT:    vmovups {{[-0-9]+}}(%e{{[sb]}}p), %zmm0 # 64-byte Reload
-; X86-AVX512-VL-BW-NEXT:    vmovaps %zmm0, 2752(%eax) {%k2}
+; X86-AVX512-VL-BW-NEXT:    vmovaps %zmm0, 3264(%eax)
 ; X86-AVX512-VL-BW-NEXT:    vmovups {{[-0-9]+}}(%e{{[sb]}}p), %zmm0 # 64-byte Reload
-; X86-AVX512-VL-BW-NEXT:    vmovaps %zmm0, 2688(%eax) {%k2}
+; X86-AVX512-VL-BW-NEXT:    vmovaps %zmm0, 3008(%eax)
 ; X86-AVX512-VL-BW-NEXT:    vmovups {{[-0-9]+}}(%e{{[sb]}}p), %zmm0 # 64-byte Reload
-; X86-AVX512-VL-BW-NEXT:    vmovaps %zmm0, 2624(%eax) {%k2}
+; X86-AVX512-VL-BW-NEXT:    vmovaps %zmm0, 2752(%eax)
 ; X86-AVX512-VL-BW-NEXT:    vmovups {{[-0-9]+}}(%e{{[sb]}}p), %zmm0 # 64-byte Reload
-; X86-AVX512-VL-BW-NEXT:    vmovaps %zmm0, 2560(%eax) {%k2}
+; X86-AVX512-VL-BW-NEXT:    vmovaps %zmm0, 2496(%eax)
 ; X86-AVX512-VL-BW-NEXT:    vmovups {{[-0-9]+}}(%e{{[sb]}}p), %zmm0 # 64-byte Reload
-; X86-AVX512-VL-BW-NEXT:    vmovaps %zmm0, 2496(%eax) {%k2}
+; X86-AVX512-VL-BW-NEXT:    vmovaps %zmm0, 2240(%eax)
 ; X86-AVX512-VL-BW-NEXT:    vmovups {{[-0-9]+}}(%e{{[sb]}}p), %zmm0 # 64-byte Reload
-; X86-AVX512-VL-BW-NEXT:    vmovaps %zmm0, 2432(%eax) {%k2}
+; X86-AVX512-VL-BW-NEXT:    vmovaps %zmm0, 1984(%eax)
 ; X86-AVX512-VL-BW-NEXT:    vmovups {{[-0-9]+}}(%e{{[sb]}}p), %zmm0 # 64-byte Reload
-; X86-AVX512-VL-BW-NEXT:    vmovaps %zmm0, 2368(%eax) {%k2}
+; X86-AVX512-VL-BW-NEXT:    vmovaps %zmm0, 1728(%eax)
 ; X86-AVX512-VL-BW-NEXT:    vmovups {{[-0-9]+}}(%e{{[sb]}}p), %zmm0 # 64-byte Reload
-; X86-AVX512-VL-BW-NEXT:    vmovaps %zmm0, 2304(%eax) {%k2}
+; X86-AVX512-VL-BW-NEXT:    vmovaps %zmm0, 1472(%eax)
 ; X86-AVX512-VL-BW-NEXT:    vmovups {{[-0-9]+}}(%e{{[sb]}}p), %zmm0 # 64-byte Reload
-; X86-AVX512-VL-BW-NEXT:    vmovaps %zmm0, 2240(%eax) {%k2}
+; X86-AVX512-VL-BW-NEXT:    vmovaps %zmm0, 1216(%eax)
 ; X86-AVX512-VL-BW-NEXT:    vmovups {{[-0-9]+}}(%e{{[sb]}}p), %zmm0 # 64-byte Reload
-; X86-AVX512-VL-BW-NEXT:    vmovaps %zmm0, 2176(%eax) {%k2}
+; X86-AVX512-VL-BW-NEXT:    vmovaps %zmm0, 960(%eax)
 ; X86-AVX512-VL-BW-NEXT:    vmovups {{[-0-9]+}}(%e{{[sb]}}p), %zmm0 # 64-byte Reload
-; X86-AVX512-VL-BW-NEXT:    vmovaps %zmm0, 2112(%eax) {%k2}
+; X86-AVX512-VL-BW-NEXT:    vmovaps %zmm0, 704(%eax)
 ; X86-AVX512-VL-BW-NEXT:    vmovups {{[-0-9]+}}(%e{{[sb]}}p), %zmm0 # 64-byte Reload
-; X86-AVX512-VL-BW-NEXT:    vmovaps %zmm0, 2048(%eax) {%k2}
+; X86-AVX512-VL-BW-NEXT:    vmovaps %zmm0, 448(%eax)
 ; X86-AVX512-VL-BW-NEXT:    vmovups {{[-0-9]+}}(%e{{[sb]}}p), %zmm0 # 64-byte Reload
-; X86-AVX512-VL-BW-NEXT:    vmovaps %zmm0, 1984(%eax) {%k2}
+; X86-AVX512-VL-BW-NEXT:    vmovaps %zmm0, 192(%eax)
 ; X86-AVX512-VL-BW-NEXT:    vmovups {{[-0-9]+}}(%e{{[sb]}}p), %zmm0 # 64-byte Reload
-; X86-AVX512-VL-BW-NEXT:    vmovaps %zmm0, 1920(%eax) {%k2}
+; X86-AVX512-VL-BW-NEXT:    vmovaps %zmm0, 3904(%eax)
 ; X86-AVX512-VL-BW-NEXT:    vmovups {{[-0-9]+}}(%e{{[sb]}}p), %zmm0 # 64-byte Reload
-; X86-AVX512-VL-BW-NEXT:    vmovaps %zmm0, 1856(%eax) {%k2}
+; X86-AVX512-VL-BW-NEXT:    vmovaps %zmm0, 3840(%eax)
 ; X86-AVX512-VL-BW-NEXT:    vmovups {{[-0-9]+}}(%e{{[sb]}}p), %zmm0 # 64-byte Reload
-; X86-AVX512-VL-BW-NEXT:    vmovaps %zmm0, 1792(%eax) {%k2}
+; X86-AVX512-VL-BW-NEXT:    vmovaps %zmm0, 3648(%eax)
 ; X86-AVX512-VL-BW-NEXT:    vmovups {{[-0-9]+}}(%e{{[sb]}}p), %zmm0 # 64-byte Reload
-; X86-AVX512-VL-BW-NEXT:    vmovaps %zmm0, 1728(%eax) {%k2}
+; X86-AVX512-VL-BW-NEXT:    vmovaps %zmm0, 3584(%eax)
 ; X86-AVX512-VL-BW-NEXT:    vmovups {{[-0-9]+}}(%e{{[sb]}}p), %zmm0 # 64-byte Reload
-; X86-AVX512-VL-BW-NEXT:    vmovaps %zmm0, 1664(%eax) {%k2}
+; X86-AVX512-VL-BW-NEXT:    vmovaps %zmm0, 3392(%eax)
 ; X86-AVX512-VL-BW-NEXT:    vmovups {{[-0-9]+}}(%e{{[sb]}}p), %zmm0 # 64-byte Reload
-; X86-AVX512-VL-BW-NEXT:    vmovaps %zmm0, 1600(%eax) {%k2}
+; X86-AVX512-VL-BW-NEXT:    vmovaps %zmm0, 3328(%eax)
 ; X86-AVX512-VL-BW-NEXT:    vmovups {{[-0-9]+}}(%e{{[sb]}}p), %zmm0 # 64-byte Reload
-; X86-AVX512-VL-BW-NEXT:    vmovaps %zmm0, 1536(%eax) {%k2}
+; X86-AVX512-VL-BW-NEXT:    vmovaps %zmm0, 3136(%eax)
 ; X86-AVX512-VL-BW-NEXT:    vmovups {{[-0-9]+}}(%e{{[sb]}}p), %zmm0 # 64-byte Reload
-; X86-AVX512-VL-BW-NEXT:    vmovaps %zmm0, 1472(%eax) {%k2}
+; X86-AVX512-VL-BW-NEXT:    vmovaps %zmm0, 3072(%eax)
 ; X86-AVX512-VL-BW-NEXT:    vmovups {{[-0-9]+}}(%e{{[sb]}}p), %zmm0 # 64-byte Reload
-; X86-AVX512-VL-BW-NEXT:    vmovaps %zmm0, 1408(%eax) {%k2}
+; X86-AVX512-VL-BW-NEXT:    vmovaps %zmm0, 2880(%eax)
 ; X86-AVX512-VL-BW-NEXT:    vmovups {{[-0-9]+}}(%e{{[sb]}}p), %zmm0 # 64-byte Reload
-; X86-AVX512-VL-BW-NEXT:    vmovaps %zmm0, 1344(%eax) {%k2}
+; X86-AVX512-VL-BW-NEXT:    vmovaps %zmm0, 2816(%eax)
 ; X86-AVX512-VL-BW-NEXT:    vmovups {{[-0-9]+}}(%e{{[sb]}}p), %zmm0 # 64-byte Reload
-; X86-AVX512-VL-BW-NEXT:    vmovaps %zmm0, 1280(%eax) {%k2}
+; X86-AVX512-VL-BW-NEXT:    vmovaps %zmm0, 2624(%eax)
 ; X86-AVX512-VL-BW-NEXT:    vmovups {{[-0-9]+}}(%e{{[sb]}}p), %zmm0 # 64-byte Reload
-; X86-AVX512-VL-BW-NEXT:    vmovaps %zmm0, 1216(%eax) {%k2}
+; X86-AVX512-VL-BW-NEXT:    vmovaps %zmm0, 2560(%eax)
 ; X86-AVX512-VL-BW-NEXT:    vmovups {{[-0-9]+}}(%e{{[sb]}}p), %zmm0 # 64-byte Reload
-; X86-AVX512-VL-BW-NEXT:    vmovaps %zmm0, 1152(%eax) {%k2}
+; X86-AVX512-VL-BW-NEXT:    vmovaps %zmm0, 2368(%eax)
 ; X86-AVX512-VL-BW-NEXT:    vmovups {{[-0-9]+}}(%e{{[sb]}}p), %zmm0 # 64-byte Reload
-; X86-AVX512-VL-BW-NEXT:    vmovaps %zmm0, 1088(%eax) {%k2}
+; X86-AVX512-VL-BW-NEXT:    vmovaps %zmm0, 2304(%eax)
 ; X86-AVX512-VL-BW-NEXT:    vmovups {{[-0-9]+}}(%e{{[sb]}}p), %zmm0 # 64-byte Reload
-; X86-AVX512-VL-BW-NEXT:    vmovaps %zmm0, 1024(%eax) {%k2}
+; X86-AVX512-VL-BW-NEXT:    vmovaps %zmm0, 2112(%eax)
 ; X86-AVX512-VL-BW-NEXT:    vmovups {{[-0-9]+}}(%e{{[sb]}}p), %zmm0 # 64-byte Reload
-; X86-AVX512-VL-BW-NEXT:    vmovaps %zmm0, 960(%eax) {%k2}
+; X86-AVX512-VL-BW-NEXT:    vmovaps %zmm0, 2048(%eax)
 ; X86-AVX512-VL-BW-NEXT:    vmovups {{[-0-9]+}}(%e{{[sb]}}p), %zmm0 # 64-byte Reload
-; X86-AVX512-VL-BW-NEXT:    vmovaps %zmm0, 896(%eax) {%k2}
+; X86-AVX512-VL-BW-NEXT:    vmovaps %zmm0, 1856(%eax)
 ; X86-AVX512-VL-BW-NEXT:    vmovups {{[-0-9]+}}(%e{{[sb]}}p), %zmm0 # 64-byte Reload
-; X86-AVX512-VL-BW-NEXT:    vmovaps %zmm0, 832(%eax) {%k2}
+; X86-AVX512-VL-BW-NEXT:    vmovaps %zmm0, 1792(%eax)
 ; X86-AVX512-VL-BW-NEXT:    vmovups {{[-0-9]+}}(%e{{[sb]}}p), %zmm0 # 64-byte Reload
-; X86-AVX512-VL-BW-NEXT:    vmovaps %zmm0, 768(%eax) {%k2}
+; X86-AVX512-VL-BW-NEXT:    vmovaps %zmm0, 1600(%eax)
 ; X86-AVX512-VL-BW-NEXT:    vmovups {{[-0-9]+}}(%e{{[sb]}}p), %zmm0 # 64-byte Reload
-; X86-AVX512-VL-BW-NEXT:    vmovaps %zmm0, 704(%eax) {%k2}
+; X86-AVX512-VL-BW-NEXT:    vmovaps %zmm0, 1536(%eax)
 ; X86-AVX512-VL-BW-NEXT:    vmovups {{[-0-9]+}}(%e{{[sb]}}p), %zmm0 # 64-byte Reload
-; X86-AVX512-VL-BW-NEXT:    vmovaps %zmm0, 640(%eax) {%k2}
+; X86-AVX512-VL-BW-NEXT:    vmovaps %zmm0, 1344(%eax)
 ; X86-AVX512-VL-BW-NEXT:    vmovups {{[-0-9]+}}(%e{{[sb]}}p), %zmm0 # 64-byte Reload
-; X86-AVX512-VL-BW-NEXT:    vmovaps %zmm0, 576(%eax) {%k2}
+; X86-AVX512-VL-BW-NEXT:    vmovaps %zmm0, 1280(%eax)
 ; X86-AVX512-VL-BW-NEXT:    vmovups {{[-0-9]+}}(%e{{[sb]}}p), %zmm0 # 64-byte Reload
-; X86-AVX512-VL-BW-NEXT:    vmovaps %zmm0, 512(%eax) {%k2}
+; X86-AVX512-VL-BW-NEXT:    vmovaps %zmm0, 1088(%eax)
 ; X86-AVX512-VL-BW-NEXT:    vmovups {{[-0-9]+}}(%e{{[sb]}}p), %zmm0 # 64-byte Reload
-; X86-AVX512-VL-BW-NEXT:    vmovaps %zmm0, 448(%eax) {%k2}
+; X86-AVX512-VL-BW-NEXT:    vmovaps %zmm0, 1024(%eax)
 ; X86-AVX512-VL-BW-NEXT:    vmovups {{[-0-9]+}}(%e{{[sb]}}p), %zmm0 # 64-byte Reload
-; X86-AVX512-VL-BW-NEXT:    vmovaps %zmm0, 384(%eax) {%k2}
+; X86-AVX512-VL-BW-NEXT:    vmovaps %zmm0, 832(%eax)
 ; X86-AVX512-VL-BW-NEXT:    vmovups {{[-0-9]+}}(%e{{[sb]}}p), %zmm0 # 64-byte Reload
-; X86-AVX512-VL-BW-NEXT:    vmovaps %zmm0, 320(%eax) {%k2}
+; X86-AVX512-VL-BW-NEXT:    vmovaps %zmm0, 768(%eax)
 ; X86-AVX512-VL-BW-NEXT:    vmovups {{[-0-9]+}}(%e{{[sb]}}p), %zmm0 # 64-byte Reload
-; X86-AVX512-VL-BW-NEXT:    vmovaps %zmm0, 256(%eax) {%k2}
+; X86-AVX512-VL-BW-NEXT:    vmovaps %zmm0, 576(%eax)
 ; X86-AVX512-VL-BW-NEXT:    vmovups {{[-0-9]+}}(%e{{[sb]}}p), %zmm0 # 64-byte Reload
-; X86-AVX512-VL-BW-NEXT:    vmovaps %zmm0, 192(%eax) {%k2}
+; X86-AVX512-VL-BW-NEXT:    vmovaps %zmm0, 512(%eax)
 ; X86-AVX512-VL-BW-NEXT:    vmovups {{[-0-9]+}}(%e{{[sb]}}p), %zmm0 # 64-byte Reload
-; X86-AVX512-VL-BW-NEXT:    vmovaps %zmm0, 128(%eax) {%k2}
+; X86-AVX512-VL-BW-NEXT:    vmovaps %zmm0, 320(%eax)
 ; X86-AVX512-VL-BW-NEXT:    vmovups {{[-0-9]+}}(%e{{[sb]}}p), %zmm0 # 64-byte Reload
-; X86-AVX512-VL-BW-NEXT:    vmovaps %zmm0, 64(%eax) {%k2}
+; X86-AVX512-VL-BW-NEXT:    vmovaps %zmm0, 256(%eax)
 ; X86-AVX512-VL-BW-NEXT:    vmovups {{[-0-9]+}}(%e{{[sb]}}p), %zmm0 # 64-byte Reload
-; X86-AVX512-VL-BW-NEXT:    vmovaps %zmm0, (%eax) {%k2}
+; X86-AVX512-VL-BW-NEXT:    vmovaps %zmm0, 64(%eax)
 ; X86-AVX512-VL-BW-NEXT:    vmovups {{[-0-9]+}}(%e{{[sb]}}p), %zmm0 # 64-byte Reload
-; X86-AVX512-VL-BW-NEXT:    vmovaps %zmm0, 4096(%eax) {%k1}
-; X86-AVX512-VL-BW-NEXT:    addl $3708, %esp # imm = 0xE7C
+; X86-AVX512-VL-BW-NEXT:    vmovaps %zmm0, (%eax)
+; X86-AVX512-VL-BW-NEXT:    addl $3772, %esp # imm = 0xEBC
 ; X86-AVX512-VL-BW-NEXT:    .cfi_def_cfa_offset 4
 ; X86-AVX512-VL-BW-NEXT:    vzeroupper
 ; X86-AVX512-VL-BW-NEXT:    retl
 ;
 ; X86_64-AVX512-VL-LABEL: float_1025x:
 ; X86_64-AVX512-VL:       ## %bb.0: ## %entry
-; X86_64-AVX512-VL-NEXT:    subq $2040, %rsp ## imm = 0x7F8
-; X86_64-AVX512-VL-NEXT:    .cfi_def_cfa_offset 2048
+; X86_64-AVX512-VL-NEXT:    subq $2104, %rsp ## imm = 0x838
+; X86_64-AVX512-VL-NEXT:    .cfi_def_cfa_offset 2112
 ; X86_64-AVX512-VL-NEXT:    movw $1, %ax
 ; X86_64-AVX512-VL-NEXT:    kmovw %eax, %k1
 ; X86_64-AVX512-VL-NEXT:    vmovaps 4096(%rdi), %zmm0 {%k1} {z}
 ; X86_64-AVX512-VL-NEXT:    vmovups %zmm0, {{[-0-9]+}}(%r{{[sb]}}p) ## 64-byte Spill
-; X86_64-AVX512-VL-NEXT:    kxnorw %k0, %k0, %k2
-; X86_64-AVX512-VL-NEXT:    vmovaps (%rdi), %zmm0 {%k2} {z}
+; X86_64-AVX512-VL-NEXT:    vmovaps (%rdi), %zmm0
 ; X86_64-AVX512-VL-NEXT:    vmovups %zmm0, {{[-0-9]+}}(%r{{[sb]}}p) ## 64-byte Spill
-; X86_64-AVX512-VL-NEXT:    vmovaps 64(%rdi), %zmm0 {%k2} {z}
+; X86_64-AVX512-VL-NEXT:    vmovaps 64(%rdi), %zmm0
 ; X86_64-AVX512-VL-NEXT:    vmovups %zmm0, {{[-0-9]+}}(%r{{[sb]}}p) ## 64-byte Spill
-; X86_64-AVX512-VL-NEXT:    vmovaps 128(%rdi), %zmm0 {%k2} {z}
+; X86_64-AVX512-VL-NEXT:    vmovaps 128(%rdi), %zmm0
 ; X86_64-AVX512-VL-NEXT:    vmovups %zmm0, {{[-0-9]+}}(%r{{[sb]}}p) ## 64-byte Spill
-; X86_64-AVX512-VL-NEXT:    vmovaps 192(%rdi), %zmm0 {%k2} {z}
+; X86_64-AVX512-VL-NEXT:    vmovaps 192(%rdi), %zmm0
 ; X86_64-AVX512-VL-NEXT:    vmovups %zmm0, {{[-0-9]+}}(%r{{[sb]}}p) ## 64-byte Spill
-; X86_64-AVX512-VL-NEXT:    vmovaps 256(%rdi), %zmm0 {%k2} {z}
+; X86_64-AVX512-VL-NEXT:    vmovaps 256(%rdi), %zmm0
 ; X86_64-AVX512-VL-NEXT:    vmovups %zmm0, {{[-0-9]+}}(%r{{[sb]}}p) ## 64-byte Spill
-; X86_64-AVX512-VL-NEXT:    vmovaps 320(%rdi), %zmm0 {%k2} {z}
+; X86_64-AVX512-VL-NEXT:    vmovaps 320(%rdi), %zmm0
 ; X86_64-AVX512-VL-NEXT:    vmovups %zmm0, {{[-0-9]+}}(%r{{[sb]}}p) ## 64-byte Spill
-; X86_64-AVX512-VL-NEXT:    vmovaps 384(%rdi), %zmm0 {%k2} {z}
+; X86_64-AVX512-VL-NEXT:    vmovaps 384(%rdi), %zmm0
 ; X86_64-AVX512-VL-NEXT:    vmovups %zmm0, {{[-0-9]+}}(%r{{[sb]}}p) ## 64-byte Spill
-; X86_64-AVX512-VL-NEXT:    vmovaps 448(%rdi), %zmm0 {%k2} {z}
+; X86_64-AVX512-VL-NEXT:    vmovaps 448(%rdi), %zmm0
 ; X86_64-AVX512-VL-NEXT:    vmovups %zmm0, {{[-0-9]+}}(%r{{[sb]}}p) ## 64-byte Spill
-; X86_64-AVX512-VL-NEXT:    vmovaps 512(%rdi), %zmm0 {%k2} {z}
+; X86_64-AVX512-VL-NEXT:    vmovaps 512(%rdi), %zmm0
 ; X86_64-AVX512-VL-NEXT:    vmovups %zmm0, {{[-0-9]+}}(%r{{[sb]}}p) ## 64-byte Spill
-; X86_64-AVX512-VL-NEXT:    vmovaps 576(%rdi), %zmm0 {%k2} {z}
+; X86_64-AVX512-VL-NEXT:    vmovaps 576(%rdi), %zmm0
 ; X86_64-AVX512-VL-NEXT:    vmovups %zmm0, {{[-0-9]+}}(%r{{[sb]}}p) ## 64-byte Spill
-; X86_64-AVX512-VL-NEXT:    vmovaps 640(%rdi), %zmm0 {%k2} {z}
+; X86_64-AVX512-VL-NEXT:    vmovaps 640(%rdi), %zmm0
 ; X86_64-AVX512-VL-NEXT:    vmovups %zmm0, {{[-0-9]+}}(%r{{[sb]}}p) ## 64-byte Spill
-; X86_64-AVX512-VL-NEXT:    vmovaps 704(%rdi), %zmm0 {%k2} {z}
+; X86_64-AVX512-VL-NEXT:    vmovaps 704(%rdi), %zmm0
 ; X86_64-AVX512-VL-NEXT:    vmovups %zmm0, {{[-0-9]+}}(%r{{[sb]}}p) ## 64-byte Spill
-; X86_64-AVX512-VL-NEXT:    vmovaps 768(%rdi), %zmm0 {%k2} {z}
+; X86_64-AVX512-VL-NEXT:    vmovaps 768(%rdi), %zmm0
 ; X86_64-AVX512-VL-NEXT:    vmovups %zmm0, {{[-0-9]+}}(%r{{[sb]}}p) ## 64-byte Spill
-; X86_64-AVX512-VL-NEXT:    vmovaps 832(%rdi), %zmm0 {%k2} {z}
+; X86_64-AVX512-VL-NEXT:    vmovaps 832(%rdi), %zmm0
 ; X86_64-AVX512-VL-NEXT:    vmovups %zmm0, {{[-0-9]+}}(%r{{[sb]}}p) ## 64-byte Spill
-; X86_64-AVX512-VL-NEXT:    vmovaps 896(%rdi), %zmm0 {%k2} {z}
+; X86_64-AVX512-VL-NEXT:    vmovaps 896(%rdi), %zmm0
 ; X86_64-AVX512-VL-NEXT:    vmovups %zmm0, {{[-0-9]+}}(%r{{[sb]}}p) ## 64-byte Spill
-; X86_64-AVX512-VL-NEXT:    vmovaps 960(%rdi), %zmm0 {%k2} {z}
+; X86_64-AVX512-VL-NEXT:    vmovaps 960(%rdi), %zmm0
 ; X86_64-AVX512-VL-NEXT:    vmovups %zmm0, {{[-0-9]+}}(%r{{[sb]}}p) ## 64-byte Spill
-; X86_64-AVX512-VL-NEXT:    vmovaps 1024(%rdi), %zmm0 {%k2} {z}
+; X86_64-AVX512-VL-NEXT:    vmovaps 1024(%rdi), %zmm0
 ; X86_64-AVX512-VL-NEXT:    vmovups %zmm0, {{[-0-9]+}}(%r{{[sb]}}p) ## 64-byte Spill
-; X86_64-AVX512-VL-NEXT:    vmovaps 1088(%rdi), %zmm0 {%k2} {z}
+; X86_64-AVX512-VL-NEXT:    vmovaps 1088(%rdi), %zmm0
 ; X86_64-AVX512-VL-NEXT:    vmovups %zmm0, {{[-0-9]+}}(%r{{[sb]}}p) ## 64-byte Spill
-; X86_64-AVX512-VL-NEXT:    vmovaps 1152(%rdi), %zmm0 {%k2} {z}
+; X86_64-AVX512-VL-NEXT:    vmovaps 1152(%rdi), %zmm0
 ; X86_64-AVX512-VL-NEXT:    vmovups %zmm0, {{[-0-9]+}}(%r{{[sb]}}p) ## 64-byte Spill
-; X86_64-AVX512-VL-NEXT:    vmovaps 1216(%rdi), %zmm0 {%k2} {z}
+; X86_64-AVX512-VL-NEXT:    vmovaps 1216(%rdi), %zmm0
 ; X86_64-AVX512-VL-NEXT:    vmovups %zmm0, {{[-0-9]+}}(%r{{[sb]}}p) ## 64-byte Spill
-; X86_64-AVX512-VL-NEXT:    vmovaps 1280(%rdi), %zmm0 {%k2} {z}
+; X86_64-AVX512-VL-NEXT:    vmovaps 1280(%rdi), %zmm0
 ; X86_64-AVX512-VL-NEXT:    vmovups %zmm0, {{[-0-9]+}}(%r{{[sb]}}p) ## 64-byte Spill
-; X86_64-AVX512-VL-NEXT:    vmovaps 1344(%rdi), %zmm0 {%k2} {z}
+; X86_64-AVX512-VL-NEXT:    vmovaps 1344(%rdi), %zmm0
 ; X86_64-AVX512-VL-NEXT:    vmovups %zmm0, {{[-0-9]+}}(%r{{[sb]}}p) ## 64-byte Spill
-; X86_64-AVX512-VL-NEXT:    vmovaps 1408(%rdi), %zmm0 {%k2} {z}
+; X86_64-AVX512-VL-NEXT:    vmovaps 1408(%rdi), %zmm0
 ; X86_64-AVX512-VL-NEXT:    vmovups %zmm0, {{[-0-9]+}}(%r{{[sb]}}p) ## 64-byte Spill
-; X86_64-AVX512-VL-NEXT:    vmovaps 1472(%rdi), %zmm0 {%k2} {z}
+; X86_64-AVX512-VL-NEXT:    vmovaps 1472(%rdi), %zmm0
 ; X86_64-AVX512-VL-NEXT:    vmovups %zmm0, {{[-0-9]+}}(%r{{[sb]}}p) ## 64-byte Spill
-; X86_64-AVX512-VL-NEXT:    vmovaps 1536(%rdi), %zmm0 {%k2} {z}
+; X86_64-AVX512-VL-NEXT:    vmovaps 1536(%rdi), %zmm0
 ; X86_64-AVX512-VL-NEXT:    vmovups %zmm0, {{[-0-9]+}}(%r{{[sb]}}p) ## 64-byte Spill
-; X86_64-AVX512-VL-NEXT:    vmovaps 1600(%rdi), %zmm0 {%k2} {z}
+; X86_64-AVX512-VL-NEXT:    vmovaps 1600(%rdi), %zmm0
 ; X86_64-AVX512-VL-NEXT:    vmovups %zmm0, {{[-0-9]+}}(%r{{[sb]}}p) ## 64-byte Spill
-; X86_64-AVX512-VL-NEXT:    vmovaps 1664(%rdi), %zmm0 {%k2} {z}
+; X86_64-AVX512-VL-NEXT:    vmovaps 1664(%rdi), %zmm0
 ; X86_64-AVX512-VL-NEXT:    vmovups %zmm0, {{[-0-9]+}}(%r{{[sb]}}p) ## 64-byte Spill
-; X86_64-AVX512-VL-NEXT:    vmovaps 1728(%rdi), %zmm0 {%k2} {z}
+; X86_64-AVX512-VL-NEXT:    vmovaps 1728(%rdi), %zmm0
 ; X86_64-AVX512-VL-NEXT:    vmovups %zmm0, {{[-0-9]+}}(%r{{[sb]}}p) ## 64-byte Spill
-; X86_64-AVX512-VL-NEXT:    vmovaps 1792(%rdi), %zmm0 {%k2} {z}
+; X86_64-AVX512-VL-NEXT:    vmovaps 1792(%rdi), %zmm0
 ; X86_64-AVX512-VL-NEXT:    vmovups %zmm0, {{[-0-9]+}}(%r{{[sb]}}p) ## 64-byte Spill
-; X86_64-AVX512-VL-NEXT:    vmovaps 1856(%rdi), %zmm0 {%k2} {z}
+; X86_64-AVX512-VL-NEXT:    vmovaps 1856(%rdi), %zmm0
+; X86_64-AVX512-VL-NEXT:    vmovups %zmm0, {{[-0-9]+}}(%r{{[sb]}}p) ## 64-byte Spill
+; X86_64-AVX512-VL-NEXT:    vmovaps 1920(%rdi), %zmm0
+; X86_64-AVX512-VL-NEXT:    vmovups %zmm0, {{[-0-9]+}}(%r{{[sb]}}p) ## 64-byte Spill
+; X86_64-AVX512-VL-NEXT:    vmovaps 1984(%rdi), %zmm0
 ; X86_64-AVX512-VL-NEXT:    vmovups %zmm0, (%rsp) ## 64-byte Spill
-; X86_64-AVX512-VL-NEXT:    vmovaps 1920(%rdi), %zmm0 {%k2} {z}
+; X86_64-AVX512-VL-NEXT:    vmovaps 2048(%rdi), %zmm0
 ; X86_64-AVX512-VL-NEXT:    vmovups %zmm0, {{[-0-9]+}}(%r{{[sb]}}p) ## 64-byte Spill
-; X86_64-AVX512-VL-NEXT:    vmovaps 1984(%rdi), %zmm0 {%k2} {z}
-; X86_64-AVX512-VL-NEXT:    vmovups %zmm0, {{[-0-9]+}}(%r{{[sb]}}p) ## 64-byte Spill
-; X86_64-AVX512-VL-NEXT:    vmovaps 2048(%rdi), %zmm30 {%k2} {z}
-; X86_64-AVX512-VL-NEXT:    vmovaps 2112(%rdi), %zmm29 {%k2} {z}
-; X86_64-AVX512-VL-NEXT:    vmovaps 2176(%rdi), %zmm28 {%k2} {z}
-; X86_64-AVX512-VL-NEXT:    vmovaps 2240(%rdi), %zmm27 {%k2} {z}
-; X86_64-AVX512-VL-NEXT:    vmovaps 2304(%rdi), %zmm26 {%k2} {z}
-; X86_64-AVX512-VL-NEXT:    vmovaps 2368(%rdi), %zmm25 {%k2} {z}
-; X86_64-AVX512-VL-NEXT:    vmovaps 2432(%rdi), %zmm24 {%k2} {z}
-; X86_64-AVX512-VL-NEXT:    vmovaps 2496(%rdi), %zmm23 {%k2} {z}
-; X86_64-AVX512-VL-NEXT:    vmovaps 2560(%rdi), %zmm22 {%k2} {z}
-; X86_64-AVX512-VL-NEXT:    vmovaps 2624(%rdi), %zmm21 {%k2} {z}
-; X86_64-AVX512-VL-NEXT:    vmovaps 2688(%rdi), %zmm20 {%k2} {z}
-; X86_64-AVX512-VL-NEXT:    vmovaps 2752(%rdi), %zmm19 {%k2} {z}
-; X86_64-AVX512-VL-NEXT:    vmovaps 2816(%rdi), %zmm18 {%k2} {z}
-; X86_64-AVX512-VL-NEXT:    vmovaps 2880(%rdi), %zmm17 {%k2} {z}
-; X86_64-AVX512-VL-NEXT:    vmovaps 2944(%rdi), %zmm16 {%k2} {z}
-; X86_64-AVX512-VL-NEXT:    vmovaps 3008(%rdi), %zmm15 {%k2} {z}
-; X86_64-AVX512-VL-NEXT:    vmovaps 3072(%rdi), %zmm14 {%k2} {z}
-; X86_64-AVX512-VL-NEXT:    vmovaps 3136(%rdi), %zmm13 {%k2} {z}
-; X86_64-AVX512-VL-NEXT:    vmovaps 3200(%rdi), %zmm12 {%k2} {z}
-; X86_64-AVX512-VL-NEXT:    vmovaps 3264(%rdi), %zmm11 {%k2} {z}
-; X86_64-AVX512-VL-NEXT:    vmovaps 3328(%rdi), %zmm10 {%k2} {z}
-; X86_64-AVX512-VL-NEXT:    vmovaps 3392(%rdi), %zmm9 {%k2} {z}
-; X86_64-AVX512-VL-NEXT:    vmovaps 3456(%rdi), %zmm8 {%k2} {z}
-; X86_64-AVX512-VL-NEXT:    vmovaps 3520(%rdi), %zmm7 {%k2} {z}
-; X86_64-AVX512-VL-NEXT:    vmovaps 3584(%rdi), %zmm6 {%k2} {z}
-; X86_64-AVX512-VL-NEXT:    vmovaps 3648(%rdi), %zmm5 {%k2} {z}
-; X86_64-AVX512-VL-NEXT:    vmovaps 3712(%rdi), %zmm4 {%k2} {z}
-; X86_64-AVX512-VL-NEXT:    vmovaps 3776(%rdi), %zmm3 {%k2} {z}
-; X86_64-AVX512-VL-NEXT:    vmovaps 3840(%rdi), %zmm2 {%k2} {z}
-; X86_64-AVX512-VL-NEXT:    vmovaps 3904(%rdi), %zmm1 {%k2} {z}
-; X86_64-AVX512-VL-NEXT:    vmovaps 3968(%rdi), %zmm0 {%k2} {z}
-; X86_64-AVX512-VL-NEXT:    vmovaps 4032(%rdi), %zmm31 {%k2} {z}
-; X86_64-AVX512-VL-NEXT:    vmovaps %zmm31, 4032(%rsi) {%k2}
-; X86_64-AVX512-VL-NEXT:    vmovaps %zmm0, 3968(%rsi) {%k2}
-; X86_64-AVX512-VL-NEXT:    vmovaps %zmm1, 3904(%rsi) {%k2}
-; X86_64-AVX512-VL-NEXT:    vmovaps %zmm2, 3840(%rsi) {%k2}
-; X86_64-AVX512-VL-NEXT:    vmovaps %zmm3, 3776(%rsi) {%k2}
-; X86_64-AVX512-VL-NEXT:    vmovaps %zmm4, 3712(%rsi) {%k2}
-; X86_64-AVX512-VL-NEXT:    vmovaps %zmm5, 3648(%rsi) {%k2}
-; X86_64-AVX512-VL-NEXT:    vmovaps %zmm6, 3584(%rsi) {%k2}
-; X86_64-AVX512-VL-NEXT:    vmovaps %zmm7, 3520(%rsi) {%k2}
-; X86_64-AVX512-VL-NEXT:    vmovaps %zmm8, 3456(%rsi) {%k2}
-; X86_64-AVX512-VL-NEXT:    vmovaps %zmm9, 3392(%rsi) {%k2}
-; X86_64-AVX512-VL-NEXT:    vmovaps %zmm10, 3328(%rsi) {%k2}
-; X86_64-AVX512-VL-NEXT:    vmovaps %zmm11, 3264(%rsi) {%k2}
-; X86_64-AVX512-VL-NEXT:    vmovaps %zmm12, 3200(%rsi) {%k2}
-; X86_64-AVX512-VL-NEXT:    vmovaps %zmm13, 3136(%rsi) {%k2}
-; X86_64-AVX512-VL-NEXT:    vmovaps %zmm14, 3072(%rsi) {%k2}
-; X86_64-AVX512-VL-NEXT:    vmovaps %zmm15, 3008(%rsi) {%k2}
-; X86_64-AVX512-VL-NEXT:    vmovaps %zmm16, 2944(%rsi) {%k2}
-; X86_64-AVX512-VL-NEXT:    vmovaps %zmm17, 2880(%rsi) {%k2}
-; X86_64-AVX512-VL-NEXT:    vmovaps %zmm18, 2816(%rsi) {%k2}
-; X86_64-AVX512-VL-NEXT:    vmovaps %zmm19, 2752(%rsi) {%k2}
-; X86_64-AVX512-VL-NEXT:    vmovaps %zmm20, 2688(%rsi) {%k2}
-; X86_64-AVX512-VL-NEXT:    vmovaps %zmm21, 2624(%rsi) {%k2}
-; X86_64-AVX512-VL-NEXT:    vmovaps %zmm22, 2560(%rsi) {%k2}
-; X86_64-AVX512-VL-NEXT:    vmovaps %zmm23, 2496(%rsi) {%k2}
-; X86_64-AVX512-VL-NEXT:    vmovaps %zmm24, 2432(%rsi) {%k2}
-; X86_64-AVX512-VL-NEXT:    vmovaps %zmm25, 2368(%rsi) {%k2}
-; X86_64-AVX512-VL-NEXT:    vmovaps %zmm26, 2304(%rsi) {%k2}
-; X86_64-AVX512-VL-NEXT:    vmovaps %zmm27, 2240(%rsi) {%k2}
-; X86_64-AVX512-VL-NEXT:    vmovaps %zmm28, 2176(%rsi) {%k2}
-; X86_64-AVX512-VL-NEXT:    vmovaps %zmm29, 2112(%rsi) {%k2}
-; X86_64-AVX512-VL-NEXT:    vmovaps %zmm30, 2048(%rsi) {%k2}
+; X86_64-AVX512-VL-NEXT:    vmovaps 2112(%rdi), %zmm30
+; X86_64-AVX512-VL-NEXT:    vmovaps 2176(%rdi), %zmm29
+; X86_64-AVX512-VL-NEXT:    vmovaps 2240(%rdi), %zmm28
+; X86_64-AVX512-VL-NEXT:    vmovaps 2304(%rdi), %zmm27
+; X86_64-AVX512-VL-NEXT:    vmovaps 2368(%rdi), %zmm26
+; X86_64-AVX512-VL-NEXT:    vmovaps 2432(%rdi), %zmm25
+; X86_64-AVX512-VL-NEXT:    vmovaps 2496(%rdi), %zmm24
+; X86_64-AVX512-VL-NEXT:    vmovaps 2560(%rdi), %zmm23
+; X86_64-AVX512-VL-NEXT:    vmovaps 2624(%rdi), %zmm22
+; X86_64-AVX512-VL-NEXT:    vmovaps 2688(%rdi), %zmm21
+; X86_64-AVX512-VL-NEXT:    vmovaps 2752(%rdi), %zmm20
+; X86_64-AVX512-VL-NEXT:    vmovaps 2816(%rdi), %zmm19
+; X86_64-AVX512-VL-NEXT:    vmovaps 2880(%rdi), %zmm18
+; X86_64-AVX512-VL-NEXT:    vmovaps 2944(%rdi), %zmm17
+; X86_64-AVX512-VL-NEXT:    vmovaps 3008(%rdi), %zmm16
+; X86_64-AVX512-VL-NEXT:    vmovaps 3072(%rdi), %zmm15
+; X86_64-AVX512-VL-NEXT:    vmovaps 3136(%rdi), %zmm14
+; X86_64-AVX512-VL-NEXT:    vmovaps 3200(%rdi), %zmm13
+; X86_64-AVX512-VL-NEXT:    vmovaps 3264(%rdi), %zmm12
+; X86_64-AVX512-VL-NEXT:    vmovaps 3328(%rdi), %zmm11
+; X86_64-AVX512-VL-NEXT:    vmovaps 3392(%rdi), %zmm10
+; X86_64-AVX512-VL-NEXT:    vmovaps 3456(%rdi), %zmm9
+; X86_64-AVX512-VL-NEXT:    vmovaps 3520(%rdi), %zmm8
+; X86_64-AVX512-VL-NEXT:    vmovaps 3584(%rdi), %zmm7
+; X86_64-AVX512-VL-NEXT:    vmovaps 3648(%rdi), %zmm6
+; X86_64-AVX512-VL-NEXT:    vmovaps 3712(%rdi), %zmm5
+; X86_64-AVX512-VL-NEXT:    vmovaps 3776(%rdi), %zmm4
+; X86_64-AVX512-VL-NEXT:    vmovaps 3840(%rdi), %zmm3
+; X86_64-AVX512-VL-NEXT:    vmovaps 3904(%rdi), %zmm2
+; X86_64-AVX512-VL-NEXT:    vmovaps 3968(%rdi), %zmm1
+; X86_64-AVX512-VL-NEXT:    vmovaps 4032(%rdi), %zmm0
+; X86_64-AVX512-VL-NEXT:    vmovups {{[-0-9]+}}(%r{{[sb]}}p), %zmm31 ## 64-byte Reload
+; X86_64-AVX512-VL-NEXT:    vmovaps %zmm31, 4096(%rsi) {%k1}
+; X86_64-AVX512-VL-NEXT:    vmovaps %zmm0, 4032(%rsi)
+; X86_64-AVX512-VL-NEXT:    vmovaps %zmm1, 3968(%rsi)
+; X86_64-AVX512-VL-NEXT:    vmovaps %zmm2, 3904(%rsi)
+; X86_64-AVX512-VL-NEXT:    vmovaps %zmm3, 3840(%rsi)
+; X86_64-AVX512-VL-NEXT:    vmovaps %zmm4, 3776(%rsi)
+; X86_64-AVX512-VL-NEXT:    vmovaps %zmm5, 3712(%rsi)
+; X86_64-AVX512-VL-NEXT:    vmovaps %zmm6, 3648(%rsi)
+; X86_64-AVX512-VL-NEXT:    vmovaps %zmm7, 3584(%rsi)
+; X86_64-AVX512-VL-NEXT:    vmovaps %zmm8, 3520(%rsi)
+; X86_64-AVX512-VL-NEXT:    vmovaps %zmm9, 3456(%rsi)
+; X86_64-AVX512-VL-NEXT:    vmovaps %zmm10, 3392(%rsi)
+; X86_64-AVX512-VL-NEXT:    vmovaps %zmm11, 3328(%rsi)
+; X86_64-AVX512-VL-NEXT:    vmovaps %zmm12, 3264(%rsi)
+; X86_64-AVX512-VL-NEXT:    vmovaps %zmm13, 3200(%rsi)
+; X86_64-AVX512-VL-NEXT:    vmovaps %zmm14, 3136(%rsi)
+; X86_64-AVX512-VL-NEXT:    vmovaps %zmm15, 3072(%rsi)
+; X86_64-AVX512-VL-NEXT:    vmovaps %zmm16, 3008(%rsi)
+; X86_64-AVX512-VL-NEXT:    vmovaps %zmm17, 2944(%rsi)
+; X86_64-AVX512-VL-NEXT:    vmovaps %zmm18, 2880(%rsi)
+; X86_64-AVX512-VL-NEXT:    vmovaps %zmm19, 2816(%rsi)
+; X86_64-AVX512-VL-NEXT:    vmovaps %zmm20, 2752(%rsi)
+; X86_64-AVX512-VL-NEXT:    vmovaps %zmm21, 2688(%rsi)
+; X86_64-AVX512-VL-NEXT:    vmovaps %zmm22, 2624(%rsi)
+; X86_64-AVX512-VL-NEXT:    vmovaps %zmm23, 2560(%rsi)
+; X86_64-AVX512-VL-NEXT:    vmovaps %zmm24, 2496(%rsi)
+; X86_64-AVX512-VL-NEXT:    vmovaps %zmm25, 2432(%rsi)
+; X86_64-AVX512-VL-NEXT:    vmovaps %zmm26, 2368(%rsi)
+; X86_64-AVX512-VL-NEXT:    vmovaps %zmm27, 2304(%rsi)
+; X86_64-AVX512-VL-NEXT:    vmovaps %zmm28, 2240(%rsi)
+; X86_64-AVX512-VL-NEXT:    vmovaps %zmm29, 2176(%rsi)
+; X86_64-AVX512-VL-NEXT:    vmovaps %zmm30, 2112(%rsi)
 ; X86_64-AVX512-VL-NEXT:    vmovups {{[-0-9]+}}(%r{{[sb]}}p), %zmm0 ## 64-byte Reload
-; X86_64-AVX512-VL-NEXT:    vmovaps %zmm0, 1984(%rsi) {%k2}
-; X86_64-AVX512-VL-NEXT:    vmovups {{[-0-9]+}}(%r{{[sb]}}p), %zmm0 ## 64-byte Reload
-; X86_64-AVX512-VL-NEXT:    vmovaps %zmm0, 1920(%rsi) {%k2}
+; X86_64-AVX512-VL-NEXT:    vmovaps %zmm0, 2048(%rsi)
 ; X86_64-AVX512-VL-NEXT:    vmovups (%rsp), %zmm0 ## 64-byte Reload
-; X86_64-AVX512-VL-NEXT:    vmovaps %zmm0, 1856(%rsi) {%k2}
+; X86_64-AVX512-VL-NEXT:    vmovaps %zmm0, 1984(%rsi)
 ; X86_64-AVX512-VL-NEXT:    vmovups {{[-0-9]+}}(%r{{[sb]}}p), %zmm0 ## 64-byte Reload
-; X86_64-AVX512-VL-NEXT:    vmovaps %zmm0, 1792(%rsi) {%k2}
+; X86_64-AVX512-VL-NEXT:    vmovaps %zmm0, 1920(%rsi)
 ; X86_64-AVX512-VL-NEXT:    vmovups {{[-0-9]+}}(%r{{[sb]}}p), %zmm0 ## 64-byte Reload
-; X86_64-AVX512-VL-NEXT:    vmovaps %zmm0, 1728(%rsi) {%k2}
+; X86_64-AVX512-VL-NEXT:    vmovaps %zmm0, 1856(%rsi)
 ; X86_64-AVX512-VL-NEXT:    vmovups {{[-0-9]+}}(%r{{[sb]}}p), %zmm0 ## 64-byte Reload
-; X86_64-AVX512-VL-NEXT:    vmovaps %zmm0, 1664(%rsi) {%k2}
+; X86_64-AVX512-VL-NEXT:    vmovaps %zmm0, 1792(%rsi)
 ; X86_64-AVX512-VL-NEXT:    vmovups {{[-0-9]+}}(%r{{[sb]}}p), %zmm0 ## 64-byte Reload
-; X86_64-AVX512-VL-NEXT:    vmovaps %zmm0, 1600(%rsi) {%k2}
+; X86_64-AVX512-VL-NEXT:    vmovaps %zmm0, 1728(%rsi)
 ; X86_64-AVX512-VL-NEXT:    vmovups {{[-0-9]+}}(%r{{[sb]}}p), %zmm0 ## 64-byte Reload
-; X86_64-AVX512-VL-NEXT:    vmovaps %zmm0, 1536(%rsi) {%k2}
+; X86_64-AVX512-VL-NEXT:    vmovaps %zmm0, 1664(%rsi)
 ; X86_64-AVX512-VL-NEXT:    vmovups {{[-0-9]+}}(%r{{[sb]}}p), %zmm0 ## 64-byte Reload
-; X86_64-AVX512-VL-NEXT:    vmovaps %zmm0, 1472(%rsi) {%k2}
+; X86_64-AVX512-VL-NEXT:    vmovaps %zmm0, 1600(%rsi)
 ; X86_64-AVX512-VL-NEXT:    vmovups {{[-0-9]+}}(%r{{[sb]}}p), %zmm0 ## 64-byte Reload
-; X86_64-AVX512-VL-NEXT:    vmovaps %zmm0, 1408(%rsi) {%k2}
+; X86_64-AVX512-VL-NEXT:    vmovaps %zmm0, 1536(%rsi)
 ; X86_64-AVX512-VL-NEXT:    vmovups {{[-0-9]+}}(%r{{[sb]}}p), %zmm0 ## 64-byte Reload
-; X86_64-AVX512-VL-NEXT:    vmovaps %zmm0, 1344(%rsi) {%k2}
+; X86_64-AVX512-VL-NEXT:    vmovaps %zmm0, 1472(%rsi)
 ; X86_64-AVX512-VL-NEXT:    vmovups {{[-0-9]+}}(%r{{[sb]}}p), %zmm0 ## 64-byte Reload
-; X86_64-AVX512-VL-NEXT:    vmovaps %zmm0, 1280(%rsi) {%k2}
+; X86_64-AVX512-VL-NEXT:    vmovaps %zmm0, 1408(%rsi)
 ; X86_64-AVX512-VL-NEXT:    vmovups {{[-0-9]+}}(%r{{[sb]}}p), %zmm0 ## 64-byte Reload
-; X86_64-AVX512-VL-NEXT:    vmovaps %zmm0, 1216(%rsi) {%k2}
+; X86_64-AVX512-VL-NEXT:    vmovaps %zmm0, 1344(%rsi)
 ; X86_64-AVX512-VL-NEXT:    vmovups {{[-0-9]+}}(%r{{[sb]}}p), %zmm0 ## 64-byte Reload
-; X86_64-AVX512-VL-NEXT:    vmovaps %zmm0, 1152(%rsi) {%k2}
+; X86_64-AVX512-VL-NEXT:    vmovaps %zmm0, 1280(%rsi)
 ; X86_64-AVX512-VL-NEXT:    vmovups {{[-0-9]+}}(%r{{[sb]}}p), %zmm0 ## 64-byte Reload
-; X86_64-AVX512-VL-NEXT:    vmovaps %zmm0, 1088(%rsi) {%k2}
+; X86_64-AVX512-VL-NEXT:    vmovaps %zmm0, 1216(%rsi)
 ; X86_64-AVX512-VL-NEXT:    vmovups {{[-0-9]+}}(%r{{[sb]}}p), %zmm0 ## 64-byte Reload
-; X86_64-AVX512-VL-NEXT:    vmovaps %zmm0, 1024(%rsi) {%k2}
+; X86_64-AVX512-VL-NEXT:    vmovaps %zmm0, 1152(%rsi)
 ; X86_64-AVX512-VL-NEXT:    vmovups {{[-0-9]+}}(%r{{[sb]}}p), %zmm0 ## 64-byte Reload
-; X86_64-AVX512-VL-NEXT:    vmovaps %zmm0, 960(%rsi) {%k2}
+; X86_64-AVX512-VL-NEXT:    vmovaps %zmm0, 1088(%rsi)
 ; X86_64-AVX512-VL-NEXT:    vmovups {{[-0-9]+}}(%r{{[sb]}}p), %zmm0 ## 64-byte Reload
-; X86_64-AVX512-VL-NEXT:    vmovaps %zmm0, 896(%rsi) {%k2}
+; X86_64-AVX512-VL-NEXT:    vmovaps %zmm0, 1024(%rsi)
 ; X86_64-AVX512-VL-NEXT:    vmovups {{[-0-9]+}}(%r{{[sb]}}p), %zmm0 ## 64-byte Reload
-; X86_64-AVX512-VL-NEXT:    vmovaps %zmm0, 832(%rsi) {%k2}
+; X86_64-AVX512-VL-NEXT:    vmovaps %zmm0, 960(%rsi)
 ; X86_64-AVX512-VL-NEXT:    vmovups {{[-0-9]+}}(%r{{[sb]}}p), %zmm0 ## 64-byte Reload
-; X86_64-AVX512-VL-NEXT:    vmovaps %zmm0, 768(%rsi) {%k2}
+; X86_64-AVX512-VL-NEXT:    vmovaps %zmm0, 896(%rsi)
 ; X86_64-AVX512-VL-NEXT:    vmovups {{[-0-9]+}}(%r{{[sb]}}p), %zmm0 ## 64-byte Reload
-; X86_64-AVX512-VL-NEXT:    vmovaps %zmm0, 704(%rsi) {%k2}
+; X86_64-AVX512-VL-NEXT:    vmovaps %zmm0, 832(%rsi)
 ; X86_64-AVX512-VL-NEXT:    vmovups {{[-0-9]+}}(%r{{[sb]}}p), %zmm0 ## 64-byte Reload
-; X86_64-AVX512-VL-NEXT:    vmovaps %zmm0, 640(%rsi) {%k2}
+; X86_64-AVX512-VL-NEXT:    vmovaps %zmm0, 768(%rsi)
 ; X86_64-AVX512-VL-NEXT:    vmovups {{[-0-9]+}}(%r{{[sb]}}p), %zmm0 ## 64-byte Reload
-; X86_64-AVX512-VL-NEXT:    vmovaps %zmm0, 576(%rsi) {%k2}
+; X86_64-AVX512-VL-NEXT:    vmovaps %zmm0, 704(%rsi)
 ; X86_64-AVX512-VL-NEXT:    vmovups {{[-0-9]+}}(%r{{[sb]}}p), %zmm0 ## 64-byte Reload
-; X86_64-AVX512-VL-NEXT:    vmovaps %zmm0, 512(%rsi) {%k2}
+; X86_64-AVX512-VL-NEXT:    vmovaps %zmm0, 640(%rsi)
 ; X86_64-AVX512-VL-NEXT:    vmovups {{[-0-9]+}}(%r{{[sb]}}p), %zmm0 ## 64-byte Reload
-; X86_64-AVX512-VL-NEXT:    vmovaps %zmm0, 448(%rsi) {%k2}
+; X86_64-AVX512-VL-NEXT:    vmovaps %zmm0, 576(%rsi)
 ; X86_64-AVX512-VL-NEXT:    vmovups {{[-0-9]+}}(%r{{[sb]}}p), %zmm0 ## 64-byte Reload
-; X86_64-AVX512-VL-NEXT:    vmovaps %zmm0, 384(%rsi) {%k2}
+; X86_64-AVX512-VL-NEXT:    vmovaps %zmm0, 512(%rsi)
 ; X86_64-AVX512-VL-NEXT:    vmovups {{[-0-9]+}}(%r{{[sb]}}p), %zmm0 ## 64-byte Reload
-; X86_64-AVX512-VL-NEXT:    vmovaps %zmm0, 320(%rsi) {%k2}
+; X86_64-AVX512-VL-NEXT:    vmovaps %zmm0, 448(%rsi)
 ; X86_64-AVX512-VL-NEXT:    vmovups {{[-0-9]+}}(%r{{[sb]}}p), %zmm0 ## 64-byte Reload
-; X86_64-AVX512-VL-NEXT:    vmovaps %zmm0, 256(%rsi) {%k2}
+; X86_64-AVX512-VL-NEXT:    vmovaps %zmm0, 384(%rsi)
 ; X86_64-AVX512-VL-NEXT:    vmovups {{[-0-9]+}}(%r{{[sb]}}p), %zmm0 ## 64-byte Reload
-; X86_64-AVX512-VL-NEXT:    vmovaps %zmm0, 192(%rsi) {%k2}
+; X86_64-AVX512-VL-NEXT:    vmovaps %zmm0, 320(%rsi)
 ; X86_64-AVX512-VL-NEXT:    vmovups {{[-0-9]+}}(%r{{[sb]}}p), %zmm0 ## 64-byte Reload
-; X86_64-AVX512-VL-NEXT:    vmovaps %zmm0, 128(%rsi) {%k2}
+; X86_64-AVX512-VL-NEXT:    vmovaps %zmm0, 256(%rsi)
 ; X86_64-AVX512-VL-NEXT:    vmovups {{[-0-9]+}}(%r{{[sb]}}p), %zmm0 ## 64-byte Reload
-; X86_64-AVX512-VL-NEXT:    vmovaps %zmm0, 64(%rsi) {%k2}
+; X86_64-AVX512-VL-NEXT:    vmovaps %zmm0, 192(%rsi)
 ; X86_64-AVX512-VL-NEXT:    vmovups {{[-0-9]+}}(%r{{[sb]}}p), %zmm0 ## 64-byte Reload
-; X86_64-AVX512-VL-NEXT:    vmovaps %zmm0, (%rsi) {%k2}
+; X86_64-AVX512-VL-NEXT:    vmovaps %zmm0, 128(%rsi)
 ; X86_64-AVX512-VL-NEXT:    vmovups {{[-0-9]+}}(%r{{[sb]}}p), %zmm0 ## 64-byte Reload
-; X86_64-AVX512-VL-NEXT:    vmovaps %zmm0, 4096(%rsi) {%k1}
-; X86_64-AVX512-VL-NEXT:    addq $2040, %rsp ## imm = 0x7F8
+; X86_64-AVX512-VL-NEXT:    vmovaps %zmm0, 64(%rsi)
+; X86_64-AVX512-VL-NEXT:    vmovups {{[-0-9]+}}(%r{{[sb]}}p), %zmm0 ## 64-byte Reload
+; X86_64-AVX512-VL-NEXT:    vmovaps %zmm0, (%rsi)
+; X86_64-AVX512-VL-NEXT:    addq $2104, %rsp ## imm = 0x838
 ; X86_64-AVX512-VL-NEXT:    vzeroupper
 ; X86_64-AVX512-VL-NEXT:    retq
 ;
 ; X86_64-AVX512-VL-BW-LABEL: float_1025x:
 ; X86_64-AVX512-VL-BW:       ## %bb.0: ## %entry
-; X86_64-AVX512-VL-BW-NEXT:    subq $2040, %rsp ## imm = 0x7F8
-; X86_64-AVX512-VL-BW-NEXT:    .cfi_def_cfa_offset 2048
+; X86_64-AVX512-VL-BW-NEXT:    subq $2104, %rsp ## imm = 0x838
+; X86_64-AVX512-VL-BW-NEXT:    .cfi_def_cfa_offset 2112
 ; X86_64-AVX512-VL-BW-NEXT:    movw $1, %ax
 ; X86_64-AVX512-VL-BW-NEXT:    kmovd %eax, %k1
 ; X86_64-AVX512-VL-BW-NEXT:    vmovaps 4096(%rdi), %zmm0 {%k1} {z}
 ; X86_64-AVX512-VL-BW-NEXT:    vmovups %zmm0, {{[-0-9]+}}(%r{{[sb]}}p) ## 64-byte Spill
-; X86_64-AVX512-VL-BW-NEXT:    kxnorw %k0, %k0, %k2
-; X86_64-AVX512-VL-BW-NEXT:    vmovaps (%rdi), %zmm0 {%k2} {z}
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps 256(%rdi), %zmm0
 ; X86_64-AVX512-VL-BW-NEXT:    vmovups %zmm0, {{[-0-9]+}}(%r{{[sb]}}p) ## 64-byte Spill
-; X86_64-AVX512-VL-BW-NEXT:    vmovaps 64(%rdi), %zmm0 {%k2} {z}
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps 320(%rdi), %zmm0
 ; X86_64-AVX512-VL-BW-NEXT:    vmovups %zmm0, {{[-0-9]+}}(%r{{[sb]}}p) ## 64-byte Spill
-; X86_64-AVX512-VL-BW-NEXT:    vmovaps 128(%rdi), %zmm0 {%k2} {z}
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps 512(%rdi), %zmm0
 ; X86_64-AVX512-VL-BW-NEXT:    vmovups %zmm0, {{[-0-9]+}}(%r{{[sb]}}p) ## 64-byte Spill
-; X86_64-AVX512-VL-BW-NEXT:    vmovaps 192(%rdi), %zmm0 {%k2} {z}
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps 576(%rdi), %zmm0
 ; X86_64-AVX512-VL-BW-NEXT:    vmovups %zmm0, {{[-0-9]+}}(%r{{[sb]}}p) ## 64-byte Spill
-; X86_64-AVX512-VL-BW-NEXT:    vmovaps 256(%rdi), %zmm0 {%k2} {z}
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps 768(%rdi), %zmm0
 ; X86_64-AVX512-VL-BW-NEXT:    vmovups %zmm0, {{[-0-9]+}}(%r{{[sb]}}p) ## 64-byte Spill
-; X86_64-AVX512-VL-BW-NEXT:    vmovaps 320(%rdi), %zmm0 {%k2} {z}
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps 832(%rdi), %zmm0
 ; X86_64-AVX512-VL-BW-NEXT:    vmovups %zmm0, {{[-0-9]+}}(%r{{[sb]}}p) ## 64-byte Spill
-; X86_64-AVX512-VL-BW-NEXT:    vmovaps 384(%rdi), %zmm0 {%k2} {z}
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps 1024(%rdi), %zmm0
 ; X86_64-AVX512-VL-BW-NEXT:    vmovups %zmm0, {{[-0-9]+}}(%r{{[sb]}}p) ## 64-byte Spill
-; X86_64-AVX512-VL-BW-NEXT:    vmovaps 448(%rdi), %zmm0 {%k2} {z}
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps 1088(%rdi), %zmm0
 ; X86_64-AVX512-VL-BW-NEXT:    vmovups %zmm0, {{[-0-9]+}}(%r{{[sb]}}p) ## 64-byte Spill
-; X86_64-AVX512-VL-BW-NEXT:    vmovaps 512(%rdi), %zmm0 {%k2} {z}
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps 1280(%rdi), %zmm0
 ; X86_64-AVX512-VL-BW-NEXT:    vmovups %zmm0, {{[-0-9]+}}(%r{{[sb]}}p) ## 64-byte Spill
-; X86_64-AVX512-VL-BW-NEXT:    vmovaps 576(%rdi), %zmm0 {%k2} {z}
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps 1344(%rdi), %zmm0
 ; X86_64-AVX512-VL-BW-NEXT:    vmovups %zmm0, {{[-0-9]+}}(%r{{[sb]}}p) ## 64-byte Spill
-; X86_64-AVX512-VL-BW-NEXT:    vmovaps 640(%rdi), %zmm0 {%k2} {z}
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps 1536(%rdi), %zmm0
 ; X86_64-AVX512-VL-BW-NEXT:    vmovups %zmm0, {{[-0-9]+}}(%r{{[sb]}}p) ## 64-byte Spill
-; X86_64-AVX512-VL-BW-NEXT:    vmovaps 704(%rdi), %zmm0 {%k2} {z}
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps 1600(%rdi), %zmm0
 ; X86_64-AVX512-VL-BW-NEXT:    vmovups %zmm0, {{[-0-9]+}}(%r{{[sb]}}p) ## 64-byte Spill
-; X86_64-AVX512-VL-BW-NEXT:    vmovaps 768(%rdi), %zmm0 {%k2} {z}
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps 1792(%rdi), %zmm0
 ; X86_64-AVX512-VL-BW-NEXT:    vmovups %zmm0, {{[-0-9]+}}(%r{{[sb]}}p) ## 64-byte Spill
-; X86_64-AVX512-VL-BW-NEXT:    vmovaps 832(%rdi), %zmm0 {%k2} {z}
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps 1856(%rdi), %zmm0
 ; X86_64-AVX512-VL-BW-NEXT:    vmovups %zmm0, {{[-0-9]+}}(%r{{[sb]}}p) ## 64-byte Spill
-; X86_64-AVX512-VL-BW-NEXT:    vmovaps 896(%rdi), %zmm0 {%k2} {z}
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps 2048(%rdi), %zmm0
 ; X86_64-AVX512-VL-BW-NEXT:    vmovups %zmm0, {{[-0-9]+}}(%r{{[sb]}}p) ## 64-byte Spill
-; X86_64-AVX512-VL-BW-NEXT:    vmovaps 960(%rdi), %zmm0 {%k2} {z}
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps 2112(%rdi), %zmm0
 ; X86_64-AVX512-VL-BW-NEXT:    vmovups %zmm0, {{[-0-9]+}}(%r{{[sb]}}p) ## 64-byte Spill
-; X86_64-AVX512-VL-BW-NEXT:    vmovaps 1024(%rdi), %zmm0 {%k2} {z}
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps 2304(%rdi), %zmm0
 ; X86_64-AVX512-VL-BW-NEXT:    vmovups %zmm0, {{[-0-9]+}}(%r{{[sb]}}p) ## 64-byte Spill
-; X86_64-AVX512-VL-BW-NEXT:    vmovaps 1088(%rdi), %zmm0 {%k2} {z}
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps 2368(%rdi), %zmm0
 ; X86_64-AVX512-VL-BW-NEXT:    vmovups %zmm0, {{[-0-9]+}}(%r{{[sb]}}p) ## 64-byte Spill
-; X86_64-AVX512-VL-BW-NEXT:    vmovaps 1152(%rdi), %zmm0 {%k2} {z}
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps 2560(%rdi), %zmm0
 ; X86_64-AVX512-VL-BW-NEXT:    vmovups %zmm0, {{[-0-9]+}}(%r{{[sb]}}p) ## 64-byte Spill
-; X86_64-AVX512-VL-BW-NEXT:    vmovaps 1216(%rdi), %zmm0 {%k2} {z}
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps 2624(%rdi), %zmm0
 ; X86_64-AVX512-VL-BW-NEXT:    vmovups %zmm0, {{[-0-9]+}}(%r{{[sb]}}p) ## 64-byte Spill
-; X86_64-AVX512-VL-BW-NEXT:    vmovaps 1280(%rdi), %zmm0 {%k2} {z}
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps 2816(%rdi), %zmm0
 ; X86_64-AVX512-VL-BW-NEXT:    vmovups %zmm0, {{[-0-9]+}}(%r{{[sb]}}p) ## 64-byte Spill
-; X86_64-AVX512-VL-BW-NEXT:    vmovaps 1344(%rdi), %zmm0 {%k2} {z}
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps 2880(%rdi), %zmm0
 ; X86_64-AVX512-VL-BW-NEXT:    vmovups %zmm0, {{[-0-9]+}}(%r{{[sb]}}p) ## 64-byte Spill
-; X86_64-AVX512-VL-BW-NEXT:    vmovaps 1408(%rdi), %zmm0 {%k2} {z}
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps 3072(%rdi), %zmm0
 ; X86_64-AVX512-VL-BW-NEXT:    vmovups %zmm0, {{[-0-9]+}}(%r{{[sb]}}p) ## 64-byte Spill
-; X86_64-AVX512-VL-BW-NEXT:    vmovaps 1472(%rdi), %zmm0 {%k2} {z}
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps 3136(%rdi), %zmm0
 ; X86_64-AVX512-VL-BW-NEXT:    vmovups %zmm0, {{[-0-9]+}}(%r{{[sb]}}p) ## 64-byte Spill
-; X86_64-AVX512-VL-BW-NEXT:    vmovaps 1536(%rdi), %zmm0 {%k2} {z}
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps 3328(%rdi), %zmm0
 ; X86_64-AVX512-VL-BW-NEXT:    vmovups %zmm0, {{[-0-9]+}}(%r{{[sb]}}p) ## 64-byte Spill
-; X86_64-AVX512-VL-BW-NEXT:    vmovaps 1600(%rdi), %zmm0 {%k2} {z}
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps 3392(%rdi), %zmm0
 ; X86_64-AVX512-VL-BW-NEXT:    vmovups %zmm0, {{[-0-9]+}}(%r{{[sb]}}p) ## 64-byte Spill
-; X86_64-AVX512-VL-BW-NEXT:    vmovaps 1664(%rdi), %zmm0 {%k2} {z}
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps 3584(%rdi), %zmm0
 ; X86_64-AVX512-VL-BW-NEXT:    vmovups %zmm0, {{[-0-9]+}}(%r{{[sb]}}p) ## 64-byte Spill
-; X86_64-AVX512-VL-BW-NEXT:    vmovaps 1728(%rdi), %zmm0 {%k2} {z}
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps 3648(%rdi), %zmm0
 ; X86_64-AVX512-VL-BW-NEXT:    vmovups %zmm0, {{[-0-9]+}}(%r{{[sb]}}p) ## 64-byte Spill
-; X86_64-AVX512-VL-BW-NEXT:    vmovaps 1792(%rdi), %zmm0 {%k2} {z}
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps 3840(%rdi), %zmm0
 ; X86_64-AVX512-VL-BW-NEXT:    vmovups %zmm0, {{[-0-9]+}}(%r{{[sb]}}p) ## 64-byte Spill
-; X86_64-AVX512-VL-BW-NEXT:    vmovaps 1856(%rdi), %zmm0 {%k2} {z}
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps 3904(%rdi), %zmm0
 ; X86_64-AVX512-VL-BW-NEXT:    vmovups %zmm0, (%rsp) ## 64-byte Spill
-; X86_64-AVX512-VL-BW-NEXT:    vmovaps 1920(%rdi), %zmm0 {%k2} {z}
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps 448(%rdi), %zmm0
 ; X86_64-AVX512-VL-BW-NEXT:    vmovups %zmm0, {{[-0-9]+}}(%r{{[sb]}}p) ## 64-byte Spill
-; X86_64-AVX512-VL-BW-NEXT:    vmovaps 1984(%rdi), %zmm0 {%k2} {z}
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps 704(%rdi), %zmm30
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps 960(%rdi), %zmm29
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps 1216(%rdi), %zmm28
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps 1472(%rdi), %zmm27
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps 1728(%rdi), %zmm26
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps 1984(%rdi), %zmm25
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps 2240(%rdi), %zmm24
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps 2496(%rdi), %zmm23
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps 2752(%rdi), %zmm21
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps 3008(%rdi), %zmm20
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps 3264(%rdi), %zmm19
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps 3520(%rdi), %zmm18
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps 3776(%rdi), %zmm17
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps 4032(%rdi), %zmm16
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps (%rdi), %zmm0
 ; X86_64-AVX512-VL-BW-NEXT:    vmovups %zmm0, {{[-0-9]+}}(%r{{[sb]}}p) ## 64-byte Spill
-; X86_64-AVX512-VL-BW-NEXT:    vmovaps 2048(%rdi), %zmm30 {%k2} {z}
-; X86_64-AVX512-VL-BW-NEXT:    vmovaps 2112(%rdi), %zmm29 {%k2} {z}
-; X86_64-AVX512-VL-BW-NEXT:    vmovaps 2176(%rdi), %zmm28 {%k2} {z}
-; X86_64-AVX512-VL-BW-NEXT:    vmovaps 2240(%rdi), %zmm27 {%k2} {z}
-; X86_64-AVX512-VL-BW-NEXT:    vmovaps 2304(%rdi), %zmm26 {%k2} {z}
-; X86_64-AVX512-VL-BW-NEXT:    vmovaps 2368(%rdi), %zmm25 {%k2} {z}
-; X86_64-AVX512-VL-BW-NEXT:    vmovaps 2432(%rdi), %zmm24 {%k2} {z}
-; X86_64-AVX512-VL-BW-NEXT:    vmovaps 2496(%rdi), %zmm23 {%k2} {z}
-; X86_64-AVX512-VL-BW-NEXT:    vmovaps 2560(%rdi), %zmm22 {%k2} {z}
-; X86_64-AVX512-VL-BW-NEXT:    vmovaps 2624(%rdi), %zmm21 {%k2} {z}
-; X86_64-AVX512-VL-BW-NEXT:    vmovaps 2688(%rdi), %zmm20 {%k2} {z}
-; X86_64-AVX512-VL-BW-NEXT:    vmovaps 2752(%rdi), %zmm19 {%k2} {z}
-; X86_64-AVX512-VL-BW-NEXT:    vmovaps 2816(%rdi), %zmm18 {%k2} {z}
-; X86_64-AVX512-VL-BW-NEXT:    vmovaps 2880(%rdi), %zmm17 {%k2} {z}
-; X86_64-AVX512-VL-BW-NEXT:    vmovaps 2944(%rdi), %zmm16 {%k2} {z}
-; X86_64-AVX512-VL-BW-NEXT:    vmovaps 3008(%rdi), %zmm15 {%k2} {z}
-; X86_64-AVX512-VL-BW-NEXT:    vmovaps 3072(%rdi), %zmm14 {%k2} {z}
-; X86_64-AVX512-VL-BW-NEXT:    vmovaps 3136(%rdi), %zmm13 {%k2} {z}
-; X86_64-AVX512-VL-BW-NEXT:    vmovaps 3200(%rdi), %zmm12 {%k2} {z}
-; X86_64-AVX512-VL-BW-NEXT:    vmovaps 3264(%rdi), %zmm11 {%k2} {z}
-; X86_64-AVX512-VL-BW-NEXT:    vmovaps 3328(%rdi), %zmm10 {%k2} {z}
-; X86_64-AVX512-VL-BW-NEXT:    vmovaps 3392(%rdi), %zmm9 {%k2} {z}
-; X86_64-AVX512-VL-BW-NEXT:    vmovaps 3456(%rdi), %zmm8 {%k2} {z}
-; X86_64-AVX512-VL-BW-NEXT:    vmovaps 3520(%rdi), %zmm7 {%k2} {z}
-; X86_64-AVX512-VL-BW-NEXT:    vmovaps 3584(%rdi), %zmm6 {%k2} {z}
-; X86_64-AVX512-VL-BW-NEXT:    vmovaps 3648(%rdi), %zmm5 {%k2} {z}
-; X86_64-AVX512-VL-BW-NEXT:    vmovaps 3712(%rdi), %zmm4 {%k2} {z}
-; X86_64-AVX512-VL-BW-NEXT:    vmovaps 3776(%rdi), %zmm3 {%k2} {z}
-; X86_64-AVX512-VL-BW-NEXT:    vmovaps 3840(%rdi), %zmm2 {%k2} {z}
-; X86_64-AVX512-VL-BW-NEXT:    vmovaps 3904(%rdi), %zmm1 {%k2} {z}
-; X86_64-AVX512-VL-BW-NEXT:    vmovaps 3968(%rdi), %zmm0 {%k2} {z}
-; X86_64-AVX512-VL-BW-NEXT:    vmovaps 4032(%rdi), %zmm31 {%k2} {z}
-; X86_64-AVX512-VL-BW-NEXT:    vmovaps %zmm31, 4032(%rsi) {%k2}
-; X86_64-AVX512-VL-BW-NEXT:    vmovaps %zmm0, 3968(%rsi) {%k2}
-; X86_64-AVX512-VL-BW-NEXT:    vmovaps %zmm1, 3904(%rsi) {%k2}
-; X86_64-AVX512-VL-BW-NEXT:    vmovaps %zmm2, 3840(%rsi) {%k2}
-; X86_64-AVX512-VL-BW-NEXT:    vmovaps %zmm3, 3776(%rsi) {%k2}
-; X86_64-AVX512-VL-BW-NEXT:    vmovaps %zmm4, 3712(%rsi) {%k2}
-; X86_64-AVX512-VL-BW-NEXT:    vmovaps %zmm5, 3648(%rsi) {%k2}
-; X86_64-AVX512-VL-BW-NEXT:    vmovaps %zmm6, 3584(%rsi) {%k2}
-; X86_64-AVX512-VL-BW-NEXT:    vmovaps %zmm7, 3520(%rsi) {%k2}
-; X86_64-AVX512-VL-BW-NEXT:    vmovaps %zmm8, 3456(%rsi) {%k2}
-; X86_64-AVX512-VL-BW-NEXT:    vmovaps %zmm9, 3392(%rsi) {%k2}
-; X86_64-AVX512-VL-BW-NEXT:    vmovaps %zmm10, 3328(%rsi) {%k2}
-; X86_64-AVX512-VL-BW-NEXT:    vmovaps %zmm11, 3264(%rsi) {%k2}
-; X86_64-AVX512-VL-BW-NEXT:    vmovaps %zmm12, 3200(%rsi) {%k2}
-; X86_64-AVX512-VL-BW-NEXT:    vmovaps %zmm13, 3136(%rsi) {%k2}
-; X86_64-AVX512-VL-BW-NEXT:    vmovaps %zmm14, 3072(%rsi) {%k2}
-; X86_64-AVX512-VL-BW-NEXT:    vmovaps %zmm15, 3008(%rsi) {%k2}
-; X86_64-AVX512-VL-BW-NEXT:    vmovaps %zmm16, 2944(%rsi) {%k2}
-; X86_64-AVX512-VL-BW-NEXT:    vmovaps %zmm17, 2880(%rsi) {%k2}
-; X86_64-AVX512-VL-BW-NEXT:    vmovaps %zmm18, 2816(%rsi) {%k2}
-; X86_64-AVX512-VL-BW-NEXT:    vmovaps %zmm19, 2752(%rsi) {%k2}
-; X86_64-AVX512-VL-BW-NEXT:    vmovaps %zmm20, 2688(%rsi) {%k2}
-; X86_64-AVX512-VL-BW-NEXT:    vmovaps %zmm21, 2624(%rsi) {%k2}
-; X86_64-AVX512-VL-BW-NEXT:    vmovaps %zmm22, 2560(%rsi) {%k2}
-; X86_64-AVX512-VL-BW-NEXT:    vmovaps %zmm23, 2496(%rsi) {%k2}
-; X86_64-AVX512-VL-BW-NEXT:    vmovaps %zmm24, 2432(%rsi) {%k2}
-; X86_64-AVX512-VL-BW-NEXT:    vmovaps %zmm25, 2368(%rsi) {%k2}
-; X86_64-AVX512-VL-BW-NEXT:    vmovaps %zmm26, 2304(%rsi) {%k2}
-; X86_64-AVX512-VL-BW-NEXT:    vmovaps %zmm27, 2240(%rsi) {%k2}
-; X86_64-AVX512-VL-BW-NEXT:    vmovaps %zmm28, 2176(%rsi) {%k2}
-; X86_64-AVX512-VL-BW-NEXT:    vmovaps %zmm29, 2112(%rsi) {%k2}
-; X86_64-AVX512-VL-BW-NEXT:    vmovaps %zmm30, 2048(%rsi) {%k2}
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps 64(%rdi), %zmm0
+; X86_64-AVX512-VL-BW-NEXT:    vmovups %zmm0, {{[-0-9]+}}(%r{{[sb]}}p) ## 64-byte Spill
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps 128(%rdi), %zmm15
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps 192(%rdi), %zmm22
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps 384(%rdi), %zmm14
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps 640(%rdi), %zmm13
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps 896(%rdi), %zmm12
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps 1152(%rdi), %zmm11
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps 1408(%rdi), %zmm10
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps 1664(%rdi), %zmm9
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps 1920(%rdi), %zmm8
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps 2176(%rdi), %zmm7
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps 2432(%rdi), %zmm6
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps 2688(%rdi), %zmm5
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps 2944(%rdi), %zmm4
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps 3200(%rdi), %zmm3
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps 3456(%rdi), %zmm2
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps 3712(%rdi), %zmm1
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps 3968(%rdi), %zmm0
+; X86_64-AVX512-VL-BW-NEXT:    vmovups {{[-0-9]+}}(%r{{[sb]}}p), %zmm31 ## 64-byte Reload
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps %zmm31, 4096(%rsi) {%k1}
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps %zmm0, 3968(%rsi)
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps %zmm1, 3712(%rsi)
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps %zmm2, 3456(%rsi)
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps %zmm3, 3200(%rsi)
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps %zmm4, 2944(%rsi)
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps %zmm5, 2688(%rsi)
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps %zmm6, 2432(%rsi)
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps %zmm7, 2176(%rsi)
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps %zmm8, 1920(%rsi)
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps %zmm9, 1664(%rsi)
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps %zmm10, 1408(%rsi)
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps %zmm11, 1152(%rsi)
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps %zmm12, 896(%rsi)
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps %zmm13, 640(%rsi)
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps %zmm14, 384(%rsi)
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps %zmm15, 128(%rsi)
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps %zmm16, 4032(%rsi)
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps %zmm17, 3776(%rsi)
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps %zmm18, 3520(%rsi)
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps %zmm19, 3264(%rsi)
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps %zmm20, 3008(%rsi)
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps %zmm21, 2752(%rsi)
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps %zmm23, 2496(%rsi)
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps %zmm24, 2240(%rsi)
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps %zmm25, 1984(%rsi)
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps %zmm26, 1728(%rsi)
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps %zmm27, 1472(%rsi)
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps %zmm28, 1216(%rsi)
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps %zmm29, 960(%rsi)
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps %zmm30, 704(%rsi)
 ; X86_64-AVX512-VL-BW-NEXT:    vmovups {{[-0-9]+}}(%r{{[sb]}}p), %zmm0 ## 64-byte Reload
-; X86_64-AVX512-VL-BW-NEXT:    vmovaps %zmm0, 1984(%rsi) {%k2}
-; X86_64-AVX512-VL-BW-NEXT:    vmovups {{[-0-9]+}}(%r{{[sb]}}p), %zmm0 ## 64-byte Reload
-; X86_64-AVX512-VL-BW-NEXT:    vmovaps %zmm0, 1920(%rsi) {%k2}
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps %zmm0, 448(%rsi)
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps %zmm22, 192(%rsi)
 ; X86_64-AVX512-VL-BW-NEXT:    vmovups (%rsp), %zmm0 ## 64-byte Reload
-; X86_64-AVX512-VL-BW-NEXT:    vmovaps %zmm0, 1856(%rsi) {%k2}
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps %zmm0, 3904(%rsi)
 ; X86_64-AVX512-VL-BW-NEXT:    vmovups {{[-0-9]+}}(%r{{[sb]}}p), %zmm0 ## 64-byte Reload
-; X86_64-AVX512-VL-BW-NEXT:    vmovaps %zmm0, 1792(%rsi) {%k2}
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps %zmm0, 3840(%rsi)
 ; X86_64-AVX512-VL-BW-NEXT:    vmovups {{[-0-9]+}}(%r{{[sb]}}p), %zmm0 ## 64-byte Reload
-; X86_64-AVX512-VL-BW-NEXT:    vmovaps %zmm0, 1728(%rsi) {%k2}
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps %zmm0, 3648(%rsi)
 ; X86_64-AVX512-VL-BW-NEXT:    vmovups {{[-0-9]+}}(%r{{[sb]}}p), %zmm0 ## 64-byte Reload
-; X86_64-AVX512-VL-BW-NEXT:    vmovaps %zmm0, 1664(%rsi) {%k2}
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps %zmm0, 3584(%rsi)
 ; X86_64-AVX512-VL-BW-NEXT:    vmovups {{[-0-9]+}}(%r{{[sb]}}p), %zmm0 ## 64-byte Reload
-; X86_64-AVX512-VL-BW-NEXT:    vmovaps %zmm0, 1600(%rsi) {%k2}
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps %zmm0, 3392(%rsi)
 ; X86_64-AVX512-VL-BW-NEXT:    vmovups {{[-0-9]+}}(%r{{[sb]}}p), %zmm0 ## 64-byte Reload
-; X86_64-AVX512-VL-BW-NEXT:    vmovaps %zmm0, 1536(%rsi) {%k2}
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps %zmm0, 3328(%rsi)
 ; X86_64-AVX512-VL-BW-NEXT:    vmovups {{[-0-9]+}}(%r{{[sb]}}p), %zmm0 ## 64-byte Reload
-; X86_64-AVX512-VL-BW-NEXT:    vmovaps %zmm0, 1472(%rsi) {%k2}
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps %zmm0, 3136(%rsi)
 ; X86_64-AVX512-VL-BW-NEXT:    vmovups {{[-0-9]+}}(%r{{[sb]}}p), %zmm0 ## 64-byte Reload
-; X86_64-AVX512-VL-BW-NEXT:    vmovaps %zmm0, 1408(%rsi) {%k2}
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps %zmm0, 3072(%rsi)
 ; X86_64-AVX512-VL-BW-NEXT:    vmovups {{[-0-9]+}}(%r{{[sb]}}p), %zmm0 ## 64-byte Reload
-; X86_64-AVX512-VL-BW-NEXT:    vmovaps %zmm0, 1344(%rsi) {%k2}
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps %zmm0, 2880(%rsi)
 ; X86_64-AVX512-VL-BW-NEXT:    vmovups {{[-0-9]+}}(%r{{[sb]}}p), %zmm0 ## 64-byte Reload
-; X86_64-AVX512-VL-BW-NEXT:    vmovaps %zmm0, 1280(%rsi) {%k2}
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps %zmm0, 2816(%rsi)
 ; X86_64-AVX512-VL-BW-NEXT:    vmovups {{[-0-9]+}}(%r{{[sb]}}p), %zmm0 ## 64-byte Reload
-; X86_64-AVX512-VL-BW-NEXT:    vmovaps %zmm0, 1216(%rsi) {%k2}
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps %zmm0, 2624(%rsi)
 ; X86_64-AVX512-VL-BW-NEXT:    vmovups {{[-0-9]+}}(%r{{[sb]}}p), %zmm0 ## 64-byte Reload
-; X86_64-AVX512-VL-BW-NEXT:    vmovaps %zmm0, 1152(%rsi) {%k2}
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps %zmm0, 2560(%rsi)
 ; X86_64-AVX512-VL-BW-NEXT:    vmovups {{[-0-9]+}}(%r{{[sb]}}p), %zmm0 ## 64-byte Reload
-; X86_64-AVX512-VL-BW-NEXT:    vmovaps %zmm0, 1088(%rsi) {%k2}
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps %zmm0, 2368(%rsi)
 ; X86_64-AVX512-VL-BW-NEXT:    vmovups {{[-0-9]+}}(%r{{[sb]}}p), %zmm0 ## 64-byte Reload
-; X86_64-AVX512-VL-BW-NEXT:    vmovaps %zmm0, 1024(%rsi) {%k2}
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps %zmm0, 2304(%rsi)
 ; X86_64-AVX512-VL-BW-NEXT:    vmovups {{[-0-9]+}}(%r{{[sb]}}p), %zmm0 ## 64-byte Reload
-; X86_64-AVX512-VL-BW-NEXT:    vmovaps %zmm0, 960(%rsi) {%k2}
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps %zmm0, 2112(%rsi)
 ; X86_64-AVX512-VL-BW-NEXT:    vmovups {{[-0-9]+}}(%r{{[sb]}}p), %zmm0 ## 64-byte Reload
-; X86_64-AVX512-VL-BW-NEXT:    vmovaps %zmm0, 896(%rsi) {%k2}
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps %zmm0, 2048(%rsi)
 ; X86_64-AVX512-VL-BW-NEXT:    vmovups {{[-0-9]+}}(%r{{[sb]}}p), %zmm0 ## 64-byte Reload
-; X86_64-AVX512-VL-BW-NEXT:    vmovaps %zmm0, 832(%rsi) {%k2}
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps %zmm0, 1856(%rsi)
 ; X86_64-AVX512-VL-BW-NEXT:    vmovups {{[-0-9]+}}(%r{{[sb]}}p), %zmm0 ## 64-byte Reload
-; X86_64-AVX512-VL-BW-NEXT:    vmovaps %zmm0, 768(%rsi) {%k2}
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps %zmm0, 1792(%rsi)
 ; X86_64-AVX512-VL-BW-NEXT:    vmovups {{[-0-9]+}}(%r{{[sb]}}p), %zmm0 ## 64-byte Reload
-; X86_64-AVX512-VL-BW-NEXT:    vmovaps %zmm0, 704(%rsi) {%k2}
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps %zmm0, 1600(%rsi)
 ; X86_64-AVX512-VL-BW-NEXT:    vmovups {{[-0-9]+}}(%r{{[sb]}}p), %zmm0 ## 64-byte Reload
-; X86_64-AVX512-VL-BW-NEXT:    vmovaps %zmm0, 640(%rsi) {%k2}
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps %zmm0, 1536(%rsi)
 ; X86_64-AVX512-VL-BW-NEXT:    vmovups {{[-0-9]+}}(%r{{[sb]}}p), %zmm0 ## 64-byte Reload
-; X86_64-AVX512-VL-BW-NEXT:    vmovaps %zmm0, 576(%rsi) {%k2}
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps %zmm0, 1344(%rsi)
 ; X86_64-AVX512-VL-BW-NEXT:    vmovups {{[-0-9]+}}(%r{{[sb]}}p), %zmm0 ## 64-byte Reload
-; X86_64-AVX512-VL-BW-NEXT:    vmovaps %zmm0, 512(%rsi) {%k2}
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps %zmm0, 1280(%rsi)
 ; X86_64-AVX512-VL-BW-NEXT:    vmovups {{[-0-9]+}}(%r{{[sb]}}p), %zmm0 ## 64-byte Reload
-; X86_64-AVX512-VL-BW-NEXT:    vmovaps %zmm0, 448(%rsi) {%k2}
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps %zmm0, 1088(%rsi)
 ; X86_64-AVX512-VL-BW-NEXT:    vmovups {{[-0-9]+}}(%r{{[sb]}}p), %zmm0 ## 64-byte Reload
-; X86_64-AVX512-VL-BW-NEXT:    vmovaps %zmm0, 384(%rsi) {%k2}
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps %zmm0, 1024(%rsi)
 ; X86_64-AVX512-VL-BW-NEXT:    vmovups {{[-0-9]+}}(%r{{[sb]}}p), %zmm0 ## 64-byte Reload
-; X86_64-AVX512-VL-BW-NEXT:    vmovaps %zmm0, 320(%rsi) {%k2}
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps %zmm0, 832(%rsi)
 ; X86_64-AVX512-VL-BW-NEXT:    vmovups {{[-0-9]+}}(%r{{[sb]}}p), %zmm0 ## 64-byte Reload
-; X86_64-AVX512-VL-BW-NEXT:    vmovaps %zmm0, 256(%rsi) {%k2}
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps %zmm0, 768(%rsi)
 ; X86_64-AVX512-VL-BW-NEXT:    vmovups {{[-0-9]+}}(%r{{[sb]}}p), %zmm0 ## 64-byte Reload
-; X86_64-AVX512-VL-BW-NEXT:    vmovaps %zmm0, 192(%rsi) {%k2}
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps %zmm0, 576(%rsi)
 ; X86_64-AVX512-VL-BW-NEXT:    vmovups {{[-0-9]+}}(%r{{[sb]}}p), %zmm0 ## 64-byte Reload
-; X86_64-AVX512-VL-BW-NEXT:    vmovaps %zmm0, 128(%rsi) {%k2}
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps %zmm0, 512(%rsi)
 ; X86_64-AVX512-VL-BW-NEXT:    vmovups {{[-0-9]+}}(%r{{[sb]}}p), %zmm0 ## 64-byte Reload
-; X86_64-AVX512-VL-BW-NEXT:    vmovaps %zmm0, 64(%rsi) {%k2}
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps %zmm0, 320(%rsi)
 ; X86_64-AVX512-VL-BW-NEXT:    vmovups {{[-0-9]+}}(%r{{[sb]}}p), %zmm0 ## 64-byte Reload
-; X86_64-AVX512-VL-BW-NEXT:    vmovaps %zmm0, (%rsi) {%k2}
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps %zmm0, 256(%rsi)
 ; X86_64-AVX512-VL-BW-NEXT:    vmovups {{[-0-9]+}}(%r{{[sb]}}p), %zmm0 ## 64-byte Reload
-; X86_64-AVX512-VL-BW-NEXT:    vmovaps %zmm0, 4096(%rsi) {%k1}
-; X86_64-AVX512-VL-BW-NEXT:    addq $2040, %rsp ## imm = 0x7F8
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps %zmm0, 64(%rsi)
+; X86_64-AVX512-VL-BW-NEXT:    vmovups {{[-0-9]+}}(%r{{[sb]}}p), %zmm0 ## 64-byte Reload
+; X86_64-AVX512-VL-BW-NEXT:    vmovaps %zmm0, (%rsi)
+; X86_64-AVX512-VL-BW-NEXT:    addq $2104, %rsp ## imm = 0x838
 ; X86_64-AVX512-VL-BW-NEXT:    vzeroupper
 ; X86_64-AVX512-VL-BW-NEXT:    retq
 entry:
