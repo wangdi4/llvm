@@ -1940,6 +1940,7 @@ void AndersensAAResult::visitInstruction(Instruction &I) {
   // Most instructions don't have any effect on pointer values.
   switch (I.getOpcode()) {
   case Instruction::Br:
+  case Instruction::CatchSwitch:
   case Instruction::Switch:
   case Instruction::Unreachable:
   case Instruction::ICmp:
