@@ -63,12 +63,12 @@
 // RUN:   | FileCheck -DLIB=%t.lib %s -check-prefix=FOFFLOAD_STATIC_LIB_SRC
 
 // FOFFLOAD_STATIC_LIB_SRC: 0: input, "[[INPUTLIB:.+\.lib]]", object, (host-sycl)
-// FOFFLOAD_STATIC_LIB_SRC: 1: input, "[[INPUTC:.+\.c]]", c, (host-sycl)
-// FOFFLOAD_STATIC_LIB_SRC: 2: preprocessor, {1}, cpp-output, (host-sycl)
-// FOFFLOAD_STATIC_LIB_SRC: 3: input, "[[INPUTC]]", c, (device-sycl)
-// FOFFLOAD_STATIC_LIB_SRC: 4: preprocessor, {3}, cpp-output, (device-sycl)
+// FOFFLOAD_STATIC_LIB_SRC: 1: input, "[[INPUTC:.+\.c]]", c++, (host-sycl)
+// FOFFLOAD_STATIC_LIB_SRC: 2: preprocessor, {1}, c++-cpp-output, (host-sycl)
+// FOFFLOAD_STATIC_LIB_SRC: 3: input, "[[INPUTC]]", c++, (device-sycl)
+// FOFFLOAD_STATIC_LIB_SRC: 4: preprocessor, {3}, c++-cpp-output, (device-sycl)
 // FOFFLOAD_STATIC_LIB_SRC: 5: compiler, {4}, sycl-header, (device-sycl)
-// FOFFLOAD_STATIC_LIB_SRC: 6: offload, "host-sycl (x86_64-pc-windows-msvc)" {2}, "device-sycl (spir64-unknown-unknown-sycldevice)" {5}, cpp-output
+// FOFFLOAD_STATIC_LIB_SRC: 6: offload, "host-sycl (x86_64-pc-windows-msvc)" {2}, "device-sycl (spir64-unknown-unknown-sycldevice)" {5}, c++-cpp-output
 // FOFFLOAD_STATIC_LIB_SRC: 7: compiler, {6}, ir, (host-sycl)
 // FOFFLOAD_STATIC_LIB_SRC: 8: backend, {7}, assembler, (host-sycl)
 // FOFFLOAD_STATIC_LIB_SRC: 9: assembler, {8}, object, (host-sycl)
