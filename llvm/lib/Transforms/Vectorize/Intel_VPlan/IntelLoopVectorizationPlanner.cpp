@@ -298,13 +298,13 @@ unsigned LoopVectorizationPlanner::buildInitialVPlans(LLVMContext *Context,
                                 *Plan->getDT(), *Plan->getPDT(),
                                 false /*Not in LCSSA form*/);
 
-    // Do SOA-analysis for loop-privates.
-    VPSOAAnalysis VPSOAA(*Plan.get(), *CandidateLoop);
-    SmallPtrSet<VPInstruction *, 32> SOAVars;
-    VPSOAA.doSOAAnalysis(SOAVars);
-
-    if (EnableSOAAnalysis)
+    if (EnableSOAAnalysis) {
+      // Do SOA-analysis for loop-privates.
+      VPSOAAnalysis VPSOAA(*Plan.get(), *CandidateLoop);
+      SmallPtrSet<VPInstruction *, 32> SOAVars;
+      VPSOAA.doSOAAnalysis(SOAVars);
       Plan->getVPlanDA()->recomputeShapes(SOAVars);
+    }
 
     // TODO: Insert initial run of SVA here for any new users before CM & CG.
 
