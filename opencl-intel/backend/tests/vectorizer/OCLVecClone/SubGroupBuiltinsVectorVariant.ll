@@ -40,9 +40,7 @@ entry:
   %call1 = tail call spir_func i32 @_Z13sub_group_alli(i32 %0) #4
   %call2 = tail call spir_func i32 @_Z16get_sub_group_idv() #4
 ; CHECK: [[VECTOR_ALL:%.*]] = call <4 x i32> @_Z13sub_group_allDv4_iDv4_j(<4 x i32> %wide.load, <4 x i32> <i32 -1, i32 -1, i32 -1, i32 -1>)
-; TODO: VPValue-based CG does not preserve any attributes for serialized Calls.
-; Check JIRA : CMPLRLLVM-10806
-; CHECK: [[UNIFORM_SUB_GROUP_ID:%.*]] = call spir_func i32 @_Z16get_sub_group_idv()
+; CHECK: [[UNIFORM_SUB_GROUP_ID:%.*]] = {{(tail )?}}call spir_func i32 @_Z16get_sub_group_idv()
 
   %call3 = tail call spir_func i64 @_Z19sub_group_broadcastlj(i64 %3, i32 0) #4
   %call4 = tail call spir_func i32 @_Z19sub_group_broadcastij(i32 %0, i32 0) #4
