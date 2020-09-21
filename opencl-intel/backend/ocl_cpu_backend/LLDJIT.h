@@ -349,6 +349,9 @@ protected:
       llvm::raw_fd_ostream *OutObjectFileStream);
   std::set<std::string>
   getExternalSymbolsList(const llvm::SmallVector<std::string, 2> &ObjectFiles);
+
+  /// Change DLLStorageClass of global variables to dllexport
+  void dllExportGlobalVariables(llvm::Module *M);
 };
 
 } // namespace DeviceBackend
