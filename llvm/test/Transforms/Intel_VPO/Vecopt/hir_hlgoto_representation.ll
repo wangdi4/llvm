@@ -1,12 +1,12 @@
 ; RUN: opt < %s -S -hir-ssa-deconstruction -hir-temp-cleanup -hir-last-value-computation \
 ; RUN:     -hir-vec-dir-insert -VPlanDriverHIR -allow-memory-speculation \
-; RUN:     -debug -debug-only=VPlanHCFGBuilder 2>&1 | FileCheck --check-prefix=HLGOTO-CHECK %s
+; RUN:     -debug -debug-only=VPlanHCFGBuilder 2>&1 | FileCheck %s
 ;
 ; REQUIRES: asserts
 
 ; Check that search loop idiom was recognized by vectorizer
 
-; HLGOTO-CHECK: "EMIT br cleanup.loopexit.split.loop.exit\l"
+; CHECK: br cleanup.loopexit.split.loop.exit
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
