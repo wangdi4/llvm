@@ -378,12 +378,10 @@ if config.have_libxml2:
 if config.have_opt_viewer_modules:
     config.available_features.add('have_opt_viewer_modules')
 
-<<<<<<< HEAD
 # INTEL_CUSTOMIZATION
 if config.llvm_use_sanitizer:
     config.available_features.add('intel_use_sanitizers')
 # end INTEL_CUSTOMIZATION
-=======
+
 if config.expensive_checks:
     config.available_features.add('expensive_checks')
->>>>>>> 1321160a26e7e489baf9b10d6de90a342f898960
