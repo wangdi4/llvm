@@ -14,6 +14,7 @@
 #include "AArch64LegalizerInfo.h"
 #include "AArch64Subtarget.h"
 #include "llvm/CodeGen/GlobalISel/LegalizerHelper.h"
+#include "llvm/CodeGen/GlobalISel/LegalizerInfo.h"
 #include "llvm/CodeGen/GlobalISel/MachineIRBuilder.h"
 #include "llvm/CodeGen/GlobalISel/Utils.h"
 #include "llvm/CodeGen/MachineInstr.h"
@@ -97,15 +98,20 @@ AArch64LegalizerInfo::AArch64LegalizerInfo(const AArch64Subtarget &ST)
       .moreElementsToNextPow2(0);
 
   getActionDefinitionsBuilder(G_SHL)
-    .legalFor({{s32, s32}, {s64, s64},
-               {v2s32, v2s32}, {v4s32, v4s32}, {v2s64, v2s64}})
-    .clampScalar(1, s32, s64)
-    .clampScalar(0, s32, s64)
-    .widenScalarToNextPow2(0)
-    .clampNumElements(0, v2s32, v4s32)
-    .clampNumElements(0, v2s64, v2s64)
-    .moreElementsToNextPow2(0)
-    .minScalarSameAs(1, 0);
+      .legalFor({{s32, s32},
+                 {s64, s64},
+                 {v2s32, v2s32},
+                 {v4s32, v4s32},
+                 {v2s64, v2s64},
+                 {v16s8, v16s8},
+                 {v8s16, v8s16}})
+      .clampScalar(1, s32, s64)
+      .clampScalar(0, s32, s64)
+      .widenScalarToNextPow2(0)
+      .clampNumElements(0, v2s32, v4s32)
+      .clampNumElements(0, v2s64, v2s64)
+      .moreElementsToNextPow2(0)
+      .minScalarSameAs(1, 0);
 
   getActionDefinitionsBuilder(G_PTR_ADD)
       .legalFor({{p0, s64}, {v2p0, v2s64}})
@@ -132,7 +138,9 @@ AArch64LegalizerInfo::AArch64LegalizerInfo(const AArch64Subtarget &ST)
                  {s64, s64},
                  {v2s32, v2s32},
                  {v4s32, v4s32},
-                 {v2s64, v2s64}})
+                 {v2s64, v2s64},
+                 {v16s8, v16s8},
+                 {v8s16, v8s16}})
       .clampScalar(1, s32, s64)
       .clampScalar(0, s32, s64)
       .minScalarSameAs(1, 0);
@@ -558,10 +566,34 @@ AArch64LegalizerInfo::AArch64LegalizerInfo(const AArch64Subtarget &ST)
       .legalIf([=](const LegalityQuery &Query) {
         const LLT &VecTy = Query.Types[1];
         return VecTy == v2s16 || VecTy == v4s16 || VecTy == v8s16 ||
-               VecTy == v4s32 || VecTy == v2s64 || VecTy == v2s32;
-      });
+               VecTy == v4s32 || VecTy == v2s64 || VecTy == v2s32 ||
+               VecTy == v16s8 || VecTy == v2s32;
+      })
+      .minScalarOrEltIf(
+          [=](const LegalityQuery &Query) {
+            // We want to promote to <M x s1> to <M x s64> if that wouldn't
+            // cause the total vec size to be > 128b.
+            return Query.Types[1].getNumElements() <= 2;
+          },
+          0, s64)
+      .minScalarOrEltIf(
+          [=](const LegalityQuery &Query) {
+            return Query.Types[1].getNumElements() <= 4;
+          },
+          0, s32)
+      .minScalarOrEltIf(
+          [=](const LegalityQuery &Query) {
+            return Query.Types[1].getNumElements() <= 8;
+          },
+          0, s16)
+      .minScalarOrEltIf(
+          [=](const LegalityQuery &Query) {
+            return Query.Types[1].getNumElements() <= 16;
+          },
+          0, s8)
+      .minScalarOrElt(0, s8); // Worst case, we need at least s8.
 
-  getActionDefinitionsBuilder(G_INSERT_VECTOR_ELT)
+      getActionDefinitionsBuilder(G_INSERT_VECTOR_ELT)
       .legalIf([=](const LegalityQuery &Query) {
         const LLT &VecTy = Query.Types[0];
         // TODO: Support s8 and s16

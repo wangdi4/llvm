@@ -134,7 +134,7 @@ namespace llvm {
 namespace clang {
 
   // Basic
-  class StreamableDiagnosticBase;
+  class DiagnosticBuilder;
 
   // Determines whether the low bit of the result pointer for the
   // given UID is always zero. If so, ActionResult will use that bit
@@ -281,12 +281,8 @@ namespace clang {
   inline StmtResult StmtError() { return StmtResult(true); }
   inline TypeResult TypeError() { return TypeResult(true); }
 
-  inline ExprResult ExprError(const StreamableDiagnosticBase &) {
-    return ExprError();
-  }
-  inline StmtResult StmtError(const StreamableDiagnosticBase &) {
-    return StmtError();
-  }
+  inline ExprResult ExprError(const DiagnosticBuilder&) { return ExprError(); }
+  inline StmtResult StmtError(const DiagnosticBuilder&) { return StmtError(); }
 
   inline ExprResult ExprEmpty() { return ExprResult(false); }
   inline StmtResult StmtEmpty() { return StmtResult(false); }
