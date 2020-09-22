@@ -26,6 +26,7 @@
 #include "clang/Basic/CharInfo.h"
 #include "clang/Basic/CodeGenOptions.h"
 #include "clang/Basic/LangOptions.h"
+#include "clang/Basic/LangStandard.h"
 #include "clang/Basic/ObjCRuntime.h"
 #include "clang/Basic/Version.h"
 #include "clang/Driver/Distro.h"
@@ -5490,6 +5491,7 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
         CmdArgs.push_back("-std=c++98");
       else
         CmdArgs.push_back("-std=c89");
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
     // Intel compiler allows for /Qstd which is an alias -std.  We want to be
     // sure to limit valid args to C++14 or higher.
@@ -5503,7 +5505,19 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
         Std->render(Args, CmdArgs);
     } else
 #endif // INTEL_CUSTOMIZATION
+=======
+    else {
+      if (Args.hasArg(options::OPT_fsycl)) {
+        // Use of -std= with 'C' is not supported for SYCL.
+        const LangStandard *LangStd =
+            LangStandard::getLangStandardForName(Std->getValue());
+        if (LangStd && LangStd->getLanguage() == Language::C)
+          D.Diag(diag::err_drv_argument_not_allowed_with)
+              << Std->getAsString(Args) << "-fsycl";
+      }
+>>>>>>> adc2ac72a265ee1faabe3c7a99d2592c4d9e0b1c
       Std->render(Args, CmdArgs);
+    }
 
     // If -f(no-)trigraphs appears after the language standard flag, honor it.
     if (Arg *A = Args.getLastArg(options::OPT_std_EQ, options::OPT_ansi,
