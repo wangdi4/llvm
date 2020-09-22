@@ -1959,7 +1959,9 @@ VPDecomposerHIR::createVPInstructionsForNode(HLNode *Node,
 VPConstant *VPDecomposerHIR::VPBlobDecompVisitor::decomposeNonIntConstBlob(
     const SCEVUnknown *Blob) {
   BlobUtils &BlUtils = RDDR.getBlobUtils();
-  assert(BlUtils.isConstantDataBlob(Blob) && "Expected a ConstantDataBlob.");
+  assert((BlUtils.isConstantDataBlob(Blob) ||
+          BlUtils.isConstantVectorBlob(Blob)) &&
+         "Expected a ConstantData/ConstantVector Blob.");
   (void)BlUtils;
 
   ConstantFP *FPConst;
@@ -1981,7 +1983,8 @@ VPConstant *VPDecomposerHIR::VPBlobDecompVisitor::decomposeNonIntConstBlob(
 VPValue *VPDecomposerHIR::VPBlobDecompVisitor::decomposeStandAloneBlob(
     const SCEVUnknown *Blob) {
 
-  if (RDDR.getBlobUtils().isConstantDataBlob(Blob))
+  if (RDDR.getBlobUtils().isConstantDataBlob(Blob) ||
+      RDDR.getBlobUtils().isConstantVectorBlob(Blob))
     // Decompose constant blobs that are not integer values.
     return decomposeNonIntConstBlob(Blob);
 
