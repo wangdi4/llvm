@@ -4654,6 +4654,7 @@ bool BoUpSLP::findMultiNodeOrder() {
     }
   }
 
+<<<<<<< HEAD
   // Perform the code transformation only if it leads to a better score.
   // TODO: We would ideally update CurrentMultiNode and get rid of getScore().
   // But this is not so easy as CurrentMultiNode does not contain pointers.
@@ -4662,6 +4663,14 @@ bool BoUpSLP::findMultiNodeOrder() {
   int FinalScore = getMNScore();
   if (FinalScore >= OrigScore)
     DoCodeGen = true;
+=======
+void BoUpSLP::eraseInstructions(ArrayRef<Value *> AV) {
+  for (auto *V : AV) {
+    if (auto *I = dyn_cast<Instruction>(V))
+      eraseInstruction(I, /*ReplaceOpsWithUndef=*/true);
+  };
+}
+>>>>>>> 6913812abcd8d10690570decefeaf7c92db12028
 
   // Steer the SLP direction to always start from the best path first.
   if (EnablePathSteering && !SteerTowards.isUninit())
