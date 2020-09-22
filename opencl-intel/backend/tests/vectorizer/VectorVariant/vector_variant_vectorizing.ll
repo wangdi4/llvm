@@ -37,8 +37,8 @@ define dso_local i32 @_Z3barPii(i32* nocapture readnone %a, i32 %n) {
 ; CHECK-NEXT:    [[UNI_PHI0:%.*]] = phi i32 [ 0, [[VECTOR_PH0]] ], [ [[TMP11:%.*]], [[VECTOR_BODY0]] ]
 ; CHECK-NEXT:    [[UNI_PHI10:%.*]] = phi i32 [ [[TMP10:%.*]], [[VECTOR_BODY0]] ], [ 0, [[VECTOR_PH0]] ]
 ; CHECK-NEXT:    [[VEC_PHI0:%.*]] = phi <2 x i32> [ [[TMP9:%.*]], [[VECTOR_BODY0]] ], [ <i32 0, i32 1>, [[VECTOR_PH0]] ]
-; CHECK-NEXT:    [[TMP5:%.*]] = call i32 (i32, float)** @_ZNKSt5arrayIPFiifELm2EE4dataEv(%"struct.std::array"* [[PTRS_I0]])
-; CHECK-NEXT:    [[TMP6:%.*]] = call i32 (i32, float)** @_ZNKSt5arrayIPFiifELm2EE4dataEv(%"struct.std::array"* [[PTRS_I0]])
+; CHECK-NEXT:    [[TMP5:%.*]] = call i32 (i32, float)** @_ZNKSt5arrayIPFiifELm2EE4dataEv(%"struct.std::array"* {{(nonnull )?}}[[PTRS_I0]])
+; CHECK-NEXT:    [[TMP6:%.*]] = call i32 (i32, float)** @_ZNKSt5arrayIPFiifELm2EE4dataEv(%"struct.std::array"* {{(nonnull )?}}[[PTRS_I0]])
 ; CHECK-NEXT:    [[TMP7:%.*]] = call i32 (i32 (i32, float)**, ...) @llvm.indirect.call.i32.p0p0f_i32i32f32f(i32 (i32, float)** [[TMP5]], i32 5, float 2.000000e+00)
 ; CHECK-NEXT:    [[TMP8:%.*]] = call i32 (i32 (i32, float)**, ...) @llvm.indirect.call.i32.p0p0f_i32i32f32f(i32 (i32, float)** [[TMP6]], i32 5, float 2.000000e+00)
 ; CHECK-NEXT:    [[TMP9]] = add nuw nsw <2 x i32> [[VEC_PHI0]], <i32 2, i32 2>
