@@ -29,9 +29,9 @@
 ; RUN: %oclopt -runtimelib=%p/../../vectorizer/Full/runtime.bc -pipe-io-transformation -verify %s -S | FileCheck %s
 
 ; CHECK: @llvm.global_dtors = appending global [1 x { i32, void ()*, i8* }] [{ i32, void ()*, i8* } { i32 65535, void ()* @__pipe_global_dtor, i8* null }]
-; CHECK: @test_ch_in.str = private unnamed_addr constant [11 x i8] c"test_ch_in\00", align 1
 ; CHECK: @test1.str = private unnamed_addr constant [6 x i8] c"test1\00", align 1
 ; CHECK: @test2.str = private unnamed_addr constant [6 x i8] c"test2\00", align 1
+; CHECK: @test_ch_in.str = private unnamed_addr constant [11 x i8] c"test_ch_in\00", align 1
 ;
 ; CHECK: define void @k1
 ; CHECK: %[[PIPERO:[0-9]+]] = load %opencl.pipe_ro_t {{.*}} %p1.addr
