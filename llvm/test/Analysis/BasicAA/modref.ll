@@ -42,25 +42,19 @@ define i8 @test1() {
 }
 
 define i8 @test2(i8* %P) {
-<<<<<<< HEAD
-; CHECK-LABEL: @test2
-; INTEL
-; CHECK-SUBS-LABEL: @test2
-=======
 ; CHECK-LABEL: @test2(
 ; CHECK-NEXT:    [[P2:%.*]] = getelementptr i8, i8* [[P:%.*]], i32 127
 ; CHECK-NEXT:    store i8 1, i8* [[P2]], align 1
 ; CHECK-NEXT:    call void @llvm.memset.p0i8.i8(i8* [[P]], i8 2, i8 127, i1 false)
 ; CHECK-NEXT:    ret i8 1
 ;
->>>>>>> fa33235df5a276e11f926158e571635c4c9cfba8
+; INTEL
+; CHECK-SUBS-LABEL: @test2
   %P2 = getelementptr i8, i8* %P, i32 127
   store i8 1, i8* %P2  ;; Not dead across memset
   call void @llvm.memset.p0i8.i8(i8* %P, i8 2, i8 127, i1 false)
   %A = load i8, i8* %P2
   ret i8 %A
-<<<<<<< HEAD
-; CHECK: ret i8 1
 ; INTEL
 ; CHECK-SUBS: ret i8 1
 }
@@ -68,16 +62,10 @@ define i8 @test2(i8* %P) {
 define i8 @test2a(i8* %P) {
 ; INTEL
 ; Explicit offset, not suitable for llvm.intel.subscript
-; CHECK-LABEL: @test2
-=======
-}
-
-define i8 @test2a(i8* %P) {
 ; CHECK-LABEL: @test2a(
 ; CHECK-NEXT:    call void @llvm.memset.p0i8.i8(i8* [[P:%.*]], i8 2, i8 127, i1 false)
 ; CHECK-NEXT:    ret i8 2
 ;
->>>>>>> fa33235df5a276e11f926158e571635c4c9cfba8
   %P2 = getelementptr i8, i8* %P, i32 126
 
   store i8 1, i8* %P2  ;; Dead, clobbered by memset.
@@ -88,20 +76,14 @@ define i8 @test2a(i8* %P) {
 }
 
 define void @test3(i8* %P, i8 %X) {
-<<<<<<< HEAD
 ; INTEL
 ; Explicit offset, not suitable for llvm.intel.subscript
-; CHECK-LABEL: @test3
-; CHECK-NOT: store
-; CHECK-NOT: %Y
-=======
 ; CHECK-LABEL: @test3(
 ; CHECK-NEXT:    [[P2:%.*]] = getelementptr i8, i8* [[P:%.*]], i32 2
 ; CHECK-NEXT:    call void @llvm.lifetime.end.p0i8(i64 1, i8* [[P]])
 ; CHECK-NEXT:    store i8 2, i8* [[P2]], align 1
 ; CHECK-NEXT:    ret void
 ;
->>>>>>> fa33235df5a276e11f926158e571635c4c9cfba8
   %Y = add i8 %X, 1     ;; Dead, because the only use (the store) is dead.
 
   %P2 = getelementptr i8, i8* %P, i32 2
@@ -112,16 +94,12 @@ define void @test3(i8* %P, i8 %X) {
 }
 
 define void @test3a(i8* %P, i8 %X) {
-<<<<<<< HEAD
 ; INTEL
 ; Explicit offset, not suitable for llvm.intel.subscript
-; CHECK-LABEL: @test3a
-=======
 ; CHECK-LABEL: @test3a(
 ; CHECK-NEXT:    call void @llvm.lifetime.end.p0i8(i64 10, i8* [[P:%.*]])
 ; CHECK-NEXT:    ret void
 ;
->>>>>>> fa33235df5a276e11f926158e571635c4c9cfba8
   %Y = add i8 %X, 1     ;; Dead, because the only use (the store) is dead.
 
   %P2 = getelementptr i8, i8* %P, i32 2
@@ -185,6 +163,11 @@ define i32 @test7() nounwind uwtable ssp {
 ; CHECK-NEXT:    [[TMP:%.*]] = load i32, i32* [[X]], align 4
 ; CHECK-NEXT:    ret i32 [[TMP]]
 ;
+; INTEL
+; CHECK-SUBS-LABEL: @test7(
+; CHECK-SUBS: store i32 0
+; CHECK-SUBS: call void @test7decl
+; CHECK-SUBS: load i32, i32*
 entry:
   %x = alloca i32, align 4
   store i32 0, i32* %x, align 4
@@ -192,18 +175,6 @@ entry:
   call void @test7decl(i32* %add.ptr)
   %tmp = load i32, i32* %x, align 4
   ret i32 %tmp
-<<<<<<< HEAD
-; CHECK-LABEL: @test7(
-; CHECK: store i32 0
-; CHECK: call void @test7decl
-; CHECK: load i32, i32*
-; INTEL
-; CHECK-SUBS-LABEL: @test7(
-; CHECK-SUBS: store i32 0
-; CHECK-SUBS: call void @test7decl
-; CHECK-SUBS: load i32, i32*
-=======
->>>>>>> fa33235df5a276e11f926158e571635c4c9cfba8
 }
 
 ;; Check that aa correctly handles functions marked with argmemonly
