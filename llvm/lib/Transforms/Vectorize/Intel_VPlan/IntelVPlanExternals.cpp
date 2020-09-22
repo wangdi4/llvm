@@ -41,25 +41,20 @@ void VPExternalValues::verifyVPExternalDefs() const {
 }
 
 void VPExternalValues::verifyVPExternalDefsHIR() const {
-  SmallSet<unsigned, 16> SymbaseSet;
   SmallSet<unsigned, 16> IVLevelSet;
   for (const auto &ExtDef : VPExternalDefsHIR) {
     const VPOperandHIR *HIROperand = ExtDef.getOperandHIR();
 
     // Deeper verification depending on the kind of the underlying HIR operand.
-    if (const auto *Blob = dyn_cast<VPBlob>(HIROperand)) {
-      // For blobs we check that the symbases are unique.
-      unsigned Symbase = Blob->getBlob()->getSymbase();
-      assert(!SymbaseSet.count(Symbase) && "Repeated blob VPExternalDef!");
-      SymbaseSet.insert(Symbase);
-    } else if (isa<VPCanonExpr>(HIROperand)) {
+    if (isa<VPBlob>(HIROperand) || isa<VPCanonExpr>(HIROperand)) {
+      // For blobs and CEs check that they are structurally unique.
       assert(
           llvm::count_if(VPExternalDefsHIR,
                          [HIROperand](const VPExternalDef &ExtDef) {
                            return ExtDef.getOperandHIR()->isStructurallyEqual(
                                HIROperand);
                          }) == 1 &&
-          "Repeated CanonExpr VPExternalDef!");
+          "Repeated Blob/CanonExpr VPExternalDef!");
     } else {
       // For IVs we check that the IV levels are unique.
       const auto *IV = cast<VPIndVar>(HIROperand);
