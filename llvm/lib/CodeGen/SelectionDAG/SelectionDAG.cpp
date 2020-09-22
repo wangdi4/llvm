@@ -2076,7 +2076,8 @@ SDValue SelectionDAG::CreateStackTemporary(EVT VT1, EVT VT2) {
 }
 
 SDValue SelectionDAG::FoldSetCC(EVT VT, SDValue N1, SDValue N2,
-                                ISD::CondCode Cond, const SDLoc &dl) {
+                                ISD::CondCode Cond, const SDLoc &dl, // INTEL
+                                const SDNodeFlags Flags) { // INTEL
   EVT OpVT = N1.getValueType();
 
   // These setcc operations always fold.
@@ -2206,7 +2207,7 @@ SDValue SelectionDAG::FoldSetCC(EVT VT, SDValue N1, SDValue N2,
     ISD::CondCode SwappedCond = ISD::getSetCCSwappedOperands(Cond);
     if (!TLI->isCondCodeLegal(SwappedCond, OpVT.getSimpleVT()))
       return SDValue();
-    return getSetCC(dl, VT, N2, N1, SwappedCond);
+    return getSetCC(dl, VT, N2, N1, SwappedCond, Flags);
   } else if ((N2CFP && N2CFP->getValueAPF().isNaN()) ||
              (OpVT.isFloatingPoint() && (N1.isUndef() || N2.isUndef()))) {
     // If an operand is known to be a nan (or undef that could be a nan), we can
@@ -5716,7 +5717,8 @@ SDValue SelectionDAG::getNode(unsigned Opcode, const SDLoc &DL, EVT VT,
                                   N1.getValueType().getVectorElementCount()) &&
            "SETCC vector element counts must match!");
     // Use FoldSetCC to simplify SETCC's.
-    if (SDValue V = FoldSetCC(VT, N1, N2, cast<CondCodeSDNode>(N3)->get(), DL))
+    if (SDValue V = FoldSetCC(VT, N1, N2, cast<CondCodeSDNode>(N3)->get(), DL, // INTEL
+                              Flags)) // INTEL
       return V;
     // Vector constant folding.
     SDValue Ops[] = {N1, N2, N3};

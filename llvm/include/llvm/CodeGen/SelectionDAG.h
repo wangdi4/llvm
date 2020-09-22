@@ -1650,7 +1650,8 @@ public:
 
   /// Constant fold a setcc to true or false.
   SDValue FoldSetCC(EVT VT, SDValue N1, SDValue N2, ISD::CondCode Cond,
-                    const SDLoc &dl);
+                    const SDLoc &dl, // INTEL
+                    const SDNodeFlags Flags = SDNodeFlags()); // INTEL
 
   /// See if the specified operand can be simplified with the knowledge that
   /// only the bits specified by DemandedBits are used.  If so, return the
