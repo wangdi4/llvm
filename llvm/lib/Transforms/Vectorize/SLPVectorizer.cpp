@@ -710,13 +710,9 @@ public:
   using StoreList = SmallVector<StoreInst *, 8>;
   using ExtraValueToDebugLocsMap =
       MapVector<Value *, SmallVector<Instruction *, 2>>;
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   using ValuePair = std::pair<Value *, Value *>;
 #endif // INTEL_CUSTOMIZATION
-  using OrdersType = SmallVector<unsigned, 4>;
-=======
->>>>>>> ecfd8161bf43d035eafb75c14e9cf4a6d3966946
 
   BoUpSLP(Function *Func, ScalarEvolution *Se, TargetTransformInfo *Tti,
           TargetLibraryInfo *TLi, AAResults *Aa, LoopInfo *Li,
