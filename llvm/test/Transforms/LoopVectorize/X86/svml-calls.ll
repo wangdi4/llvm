@@ -748,7 +748,7 @@ for.end:
 
 define void @sqrt_f64_intrinsic(double* nocapture %varray) {
 ; CHECK-LABEL: @sqrt_f64_intrinsic(
-; CHECK:    [[TMP5:%.*]] = call <4 x double> @__svml_sqrt4(<4 x double> [[TMP4:%.*]])
+; CHECK:    [[TMP5:%.*]] = call <4 x double> @llvm.sqrt.v4f64(<4 x double> [[TMP4:%.*]]) ;INTEL
 ; CHECK:    ret void
 ;
 entry:
@@ -771,7 +771,7 @@ for.end:
 
 define void @sqrt_f32_intrinsic(float* nocapture %varray) {
 ; CHECK-LABEL: @sqrt_f32_intrinsic(
-; CHECK:    [[TMP5:%.*]] = call <4 x float> @__svml_sqrtf4(<4 x float> [[TMP4:%.*]])
+; CHECK:    [[TMP5:%.*]] = call <4 x float> @llvm.sqrt.v4f32(<4 x float> [[TMP4:%.*]]) ;INTEL
 ; CHECK:    ret void
 ;
 entry:
