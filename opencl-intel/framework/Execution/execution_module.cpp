@@ -2252,6 +2252,11 @@ cl_err_code ExecutionModule::EnqueueNDRangeKernel(
             {
                 return errVal;
             }
+
+            // To track kernel execution we need to implicitly set a tracker
+            // event even if a user set it as null.
+            cl_event* trackerEvent = pEvent ? pEvent : ::new cl_event;
+
             {
                 OclAutoMutex mu(&KernelEventMutex);
                 auto it = m_OclKernelEventMap.find(kernelName);
@@ -2267,11 +2272,8 @@ cl_err_code ExecutionModule::EnqueueNDRangeKernel(
                     // Update the map replacing old with a newer one.
                     m_OclKernelEventMap.erase(kernelName);
                 }
+                m_OclKernelEventMap.insert(std::make_pair(kernelName, trackerEvent));
             }
-            // To track kernel execution we need to implicitly set a tracker
-            // event even if a user set it as null.
-            cl_event* trackerEvent = pEvent ? pEvent : ::new cl_event;
-            m_OclKernelEventMap.insert(std::make_pair(kernelName, trackerEvent));
             errVal = pNDRangeKernelCmd->EnqueueSelf(
                 false/*never blocking*/, EventListToWait.size(),
                 EventListToWait.empty() ? nullptr : &EventListToWait[0],
