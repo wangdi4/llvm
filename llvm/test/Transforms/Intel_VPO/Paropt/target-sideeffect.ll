@@ -48,6 +48,7 @@ for.body:                                         ; preds = %for.cond
 
   %call = call spir_func float @sinf(float %6) #1
 ; Check that %call is stored to a global and then loaded in other threads
+; CHECK: call spir_func void @_Z18work_group_barrierj(i32 3)
 ; CHECK: %call = call spir_func float @sinf(float %{{.*}})
 ; CHECK: store float %call, float addrspace(3)* @call.broadcast.ptr.__local
 ; CHECK: call spir_func void @_Z18work_group_barrierj(i32 3)
@@ -61,6 +62,7 @@ for.body:                                         ; preds = %for.cond
 
   %call5 = call spir_func float @cosf(float %9) #1
 ; Check that %call5 is captured and then broadcast
+; CHECK: call spir_func void @_Z18work_group_barrierj(i32 3)
 ; CHECK: %call5 = call spir_func float @cosf(float %{{.*}})
 ; CHECK: store float %call5, float addrspace(3)* @call5.broadcast.ptr.__local
 ; CHECK: call spir_func void @_Z18work_group_barrierj(i32 3)
