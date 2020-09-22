@@ -28,6 +28,8 @@
 #ifndef LLVM_PASS_H
 #define LLVM_PASS_H
 
+#include "llvm/Config/llvm-config.h" // INTEL
+
 #include <string>
 
 namespace llvm {
