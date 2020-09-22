@@ -1239,6 +1239,7 @@ void ToolChain::AddIPPLibArgs(const ArgList &Args, ArgStringList &CmdArgs,
       IPPLibs.push_back("ippch");
       IPPLibs.push_back("ippcc");
       IPPLibs.push_back("ippdc");
+      IPPLibs.push_back("ippe");
       IPPLibs.push_back("ippi");
       IPPLibs.push_back("ipps");
       IPPLibs.push_back("ippvm");
