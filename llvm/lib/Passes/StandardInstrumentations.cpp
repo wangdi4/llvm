@@ -51,6 +51,7 @@ static cl::opt<bool>
                    cl::desc("Print all pass management debugging information. "
                             "`-debug-pass-manager` must also be specified"));
 
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
 namespace {
 
 /// Extracting Module out of \p IR unit. Also fills a textual description
@@ -198,6 +199,8 @@ void unwrapAndPrint(raw_ostream &OS, Any IR, StringRef Banner,
 }
 
 } // namespace
+
+#endif //!defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
 
 PrintIRInstrumentation::~PrintIRInstrumentation() {
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
