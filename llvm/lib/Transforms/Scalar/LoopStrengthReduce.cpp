@@ -3422,6 +3422,23 @@ bool LSRInstance::InsertFormula(LSRUse &LU, unsigned LUIdx, const Formula &F) {
 /// TODO: Should this give more weight to users inside the loop?
 void
 LSRInstance::CollectLoopInvariantFixupsAndFormulae() {
+#if INTEL_CUSTOMIZATION
+  // Return "true" if "V" is an operand of "PN" and incoming predecessor
+  // block of "V" that ends in an EHPad.
+  auto IsPHIIncomingBBEndsWithEHPad = [this](const PHINode *PN,
+                                             const Value *V) {
+    if (!PN)
+      return false;
+    for (unsigned I = 0, E = PN->getNumIncomingValues(); I != E; ++I)
+      if (PN->getIncomingValue(I) == V) {
+        const BasicBlock *UseBB = PN->getIncomingBlock(I);
+        // Return false if the instruction is in a BB which ends in an EHPad.
+        if (UseBB->getTerminator()->isEHPad())
+          return true;
+      }
+    return false;
+  };
+#endif // INTEL_CUSTOMIZATION
   SmallVector<const SCEV *, 8> Worklist(RegUses.begin(), RegUses.end());
   SmallPtrSet<const SCEV *, 32> Visited;
 
@@ -3469,6 +3486,14 @@ LSRInstance::CollectLoopInvariantFixupsAndFormulae() {
         // Don't bother rewriting PHIs in catchswitch blocks.
         if (isa<CatchSwitchInst>(UserInst->getParent()->getTerminator()))
           continue;
+#if INTEL_CUSTOMIZATION
+        // The same "V" operand may be coming from multiple incoming blocks.
+        // Later the transformation can't handle if any of incoming block
+        // of operand "V" ends with EHPad instructions. So, skip rewriting
+        // PHI node if incoming block of "V" ends with EHPad instruction.
+        if (IsPHIIncomingBBEndsWithEHPad(dyn_cast<PHINode>(UserInst), V))
+          continue;
+#endif // INTEL_CUSTOMIZATION
         // Ignore uses which are part of other SCEV expressions, to avoid
         // analyzing them multiple times.
         if (SE.isSCEVable(UserInst->getType())) {
