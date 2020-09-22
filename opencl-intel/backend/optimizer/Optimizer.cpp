@@ -58,10 +58,11 @@ llvm::FunctionPass* createFMASplitterPass();
 
 // INTEL VPO BEGIN
 #include "llvm/Transforms/Intel_MapIntrinToIml/MapIntrinToIml.h"
+#include "llvm/Transforms/Utils/Intel_VecClone.h"
 #include "llvm/Transforms/VPO/Paropt/VPOParopt.h"
 #include "llvm/Transforms/VPO/VPOPasses.h"
 #include "llvm/Transforms/Vectorize.h"
-#include "llvm/Transforms/Utils/Intel_VecClone.h"
+#include "llvm/Transforms/Vectorize/VectorCombine.h"
 
 // This flag enables VPlan for loop vectorization.
 static cl::opt<bool> DisableVPlanVec("disable-vplan-loop-vectorizer",
@@ -665,6 +666,7 @@ static void populatePassesPostFailCheck(
   if (OptLevel > 0) {
     PM.add(llvm::createInstructionCombiningPass());
     PM.add(createSmartGVNPass(false));
+    PM.add(createVectorCombinePass());
     // In specACCEL/124, InstCombine may generate a cross-barrier bool value
     // used as a condition of a 'br' instruction, which leads to performance
     // degradation. JumpThreading eliminates the cross-barrier value.
