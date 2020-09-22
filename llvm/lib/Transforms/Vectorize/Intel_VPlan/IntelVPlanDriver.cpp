@@ -388,11 +388,13 @@ bool VPlanDriverImpl::processLoop(Loop *Lp, Function &Fn,
   VPlanOptReportBuilder VPORBuilder(LORBuilder, LI);
   addOptReportRemarks<VPOCodeGen>(VPORBuilder, &VCodeGen);
 
-  // Mark source and vectorized loops with isvectorized directive so that
-  // WarnMissedTransforms pass will not complain that this loop is not
-  // vectorized
-  if (isOmpSIMDLoop)
+  // Mark source and vector and scalar loops with isvectorized directive so that
+  // WarnMissedTransforms pass will not complain that vector and scalar loops
+  // are not vectorized
+  if (isOmpSIMDLoop) {
     setLoopMD(VCodeGen.getMainLoop(), "llvm.loop.isvectorized");
+    setLoopMD(Lp, "llvm.loop.isvectorized");
+  }
 
   // Emit kernel optimization remarks.
   if (isEmitKernelOptRemarks) {
