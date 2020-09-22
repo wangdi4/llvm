@@ -727,13 +727,14 @@ void VPOParoptTransform::guardSideEffectStatements(
     //
     //  @c.broadcast.ptr.__local = internal addrspace(3) global i32 0 //  (1)
     //
-    //  if (is_master) {                                              //  (2)
+    //  call spir_func void @_Z18work_group_barrierj(i32 3)           //  (2)
+    //  if (is_master) {                                              //  (3)
     //    %c = call spir_func i32 @_Z3barPi(i32 addrspace(4)* %8)     // StartI
-    //    store i32 %c, i32 addrspace(3)* @c.broadcast.ptr.__local    //  (3)
+    //    store i32 %c, i32 addrspace(3)* @c.broadcast.ptr.__local    //  (4)
     //  }
     //
-    //  call spir_func void @_Z18work_group_barrierj(i32 3)           //  (4)
-    //  %c.new = load i32, i32 addrspace(3)* @c.broadcast.ptr.__local //  (5)
+    //  call spir_func void @_Z18work_group_barrierj(i32 3)           //  (5)
+    //  %c.new = load i32, i32 addrspace(3)* @c.broadcast.ptr.__local //  (6)
     //  store i32 %c.new, i32* %val.priv, align 4  // Replaced %c with %c.new
     //
     Value *TeamLocalVal = nullptr;
@@ -747,8 +748,37 @@ void VPOParoptTransform::guardSideEffectStatements(
           isTargetSPIRV(), StartI->getName() + ".broadcast.ptr",
           vpo::ADDRESS_SPACE_LOCAL);
 
+    // Insert barrier right before checking is_master to avoid data race issue.
+    // It ensures all threads reading the same unmodified value in local/global
+    // address space, which may be updated by the following basic block being
+    // executed in master thread. In The example below, master thread may
+    // execute all instructions and wait at barrier(), while other threads will
+    // read modified Z at first load instruction, instead of unmodified value as
+    // expected. So we have to insert barrier() before "br is.master.thread..."
+    // instruction, to ensure all threads read unmodified value Z and then
+    // master thread modify the value Z.
+    // Example:
+    //   start:
+    //     load Z
+    //     call barrier()
+    //     br is.master.thread, master.thread.code, master.thread.fallthru
+    //   master.thread.code:
+    //     store Z
+    //     br master.thread.fallthru
+    //   master.thread.fallthru:
+    //     call barrier()
+    //
+    // If previous instruction is barrier, we don't need to insert barrier
+    // again.
+    Instruction *PrevI = StartI->getPrevNonDebugInstruction();
+    if ((SideEffectsInCritical.count(StartI) == 0) &&
+        (!PrevI || !isa<CallInst>(PrevI) ||
+         dyn_cast<CallInst>(PrevI)->getCalledFunction()->getName() !=
+             "_Z18work_group_barrierj"))
+      InsertWorkGroupBarrier(StartI); //         (2)
+
     Instruction *ThenTerm = SplitBlockAndInsertIfThen(
-        MasterCheckPredicate, StartI, false, nullptr, DT, LI); //         (2)
+        MasterCheckPredicate, StartI, false, nullptr, DT, LI); //         (3)
     BasicBlock *ThenBB = ThenTerm->getParent();
     ThenBB->setName("master.thread.code");
     Instruction *ElseInst = StopI->getNextNonDebugInstruction();
@@ -760,14 +790,14 @@ void VPOParoptTransform::guardSideEffectStatements(
 
     Instruction *BarrierInsertPt = ElseBB->getFirstNonPHI();
 
-    if (StartIHasUses) { //                                               (3)
+    if (StartIHasUses) { //                                               (4)
       Type *StartITy = StartI->getType();
       Align StartIAlign = DL.getABITypeAlign(StartITy);
       StoreInst *StoreGuardedInstValue =
           new StoreInst(StartI, TeamLocalVal, false /*volatile*/, StartIAlign);
       StoreGuardedInstValue->insertAfter(StartI);
 
-      LoadInst *LoadSavedValue = //                                       (5)
+      LoadInst *LoadSavedValue = //                                       (6)
           new LoadInst(StartITy, TeamLocalVal, StartI->getName() + ".new",
                        false /*volatile*/, StartIAlign);
       LoadSavedValue->insertBefore(BarrierInsertPt);
@@ -779,7 +809,8 @@ void VPOParoptTransform::guardSideEffectStatements(
 
     // Insert group barrier at the merge point.
     if (SideEffectsInCritical.count(StartI) == 0)
-      InsertWorkGroupBarrier(BarrierInsertPt); //                         (4)
+      InsertWorkGroupBarrier(BarrierInsertPt); //                         (5)
+
     I = std::next(I);
   }
 
