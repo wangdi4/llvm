@@ -5491,7 +5491,6 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
         CmdArgs.push_back("-std=c++98");
       else
         CmdArgs.push_back("-std=c89");
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
     // Intel compiler allows for /Qstd which is an alias -std.  We want to be
     // sure to limit valid args to C++14 or higher.
@@ -5503,9 +5502,8 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
         ImplyVCPPCXXVer = true;
       } else
         Std->render(Args, CmdArgs);
-    } else
+    }
 #endif // INTEL_CUSTOMIZATION
-=======
     else {
       if (Args.hasArg(options::OPT_fsycl)) {
         // Use of -std= with 'C' is not supported for SYCL.
@@ -5515,7 +5513,6 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
           D.Diag(diag::err_drv_argument_not_allowed_with)
               << Std->getAsString(Args) << "-fsycl";
       }
->>>>>>> adc2ac72a265ee1faabe3c7a99d2592c4d9e0b1c
       Std->render(Args, CmdArgs);
     }
 
