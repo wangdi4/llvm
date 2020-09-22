@@ -2383,8 +2383,8 @@ bool SCEVExpander::isHighCostExpansionHelper(
       costAndCollectOperands<SCEVNAryExpr>(WorkItem, TTI, CostKind, Worklist);
     BudgetRemaining -= Cost;
     return BudgetRemaining < 0;
-  } else if (const auto *NAry = dyn_cast<SCEVAddRecExpr>(S)) {
-    assert(NAry->getNumOperands() >= 2 &&
+  } else if (isa<SCEVAddRecExpr>(S)) {
+    assert(cast<SCEVAddRecExpr>(S)->getNumOperands() >= 2 &&
            "Polynomial should be at least linear");
     (void) NAry; // INTEL
     BudgetRemaining -= costAndCollectOperands<SCEVAddRecExpr>(
