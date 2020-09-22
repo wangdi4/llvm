@@ -222,8 +222,8 @@ bool findPlugins(vector_class<std::pair<std::string, backend>> &PluginNames) {
     PluginNames.emplace_back(LEVEL_ZERO_PLUGIN_NAME, backend::level_zero);
 #if INTEL_CUSTOMIZATION
   // Deliberatly disable CUDA plugin per CMPLRLLVM-16249.
-       // PluginNames.emplace_back(CUDA_PLUGIN_NAME, backend::cuda);
-          #endif // INTEL_CUSTOMIZATION
+  // PluginNames.emplace_back(CUDA_PLUGIN_NAME, backend::cuda);
+#endif // INTEL_CUSTOMIZATION
   } else {
     std::vector<device_filter> Filters = FilterList->get();
     bool OpenCLFound = false;
