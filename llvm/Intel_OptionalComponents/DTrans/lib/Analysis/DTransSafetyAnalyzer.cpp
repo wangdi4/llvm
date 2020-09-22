@@ -11,6 +11,7 @@
 #include "Intel_DTrans/Analysis/DTransSafetyAnalyzer.h"
 
 #include "Intel_DTrans/Analysis/DTrans.h"
+#include "Intel_DTrans/Analysis/DTransAllocAnalyzer.h"
 #include "Intel_DTrans/Analysis/DTransDebug.h"
 #include "Intel_DTrans/Analysis/DTransTypes.h"
 #include "Intel_DTrans/Analysis/DTransUtils.h"
@@ -61,9 +62,12 @@ static bool isPtrToPtr(const DTransType *Ty) {
 class DTransSafetyInstVisitor : public InstVisitor<DTransSafetyInstVisitor> {
 public:
   DTransSafetyInstVisitor(LLVMContext &Ctx, const DataLayout &DL,
+                          DTransSafetyInfo::GetTLIFnType GetTLI,
                           DTransSafetyInfo &DTInfo, PtrTypeAnalyzer &PTA,
-                          DTransTypeManager &TM, TypeMetadataReader& MDReader)
-      : DL(DL), DTInfo(DTInfo), PTA(PTA), TM(TM), MDReader(MDReader) {
+                          DTransTypeManager &TM, TypeMetadataReader &MDReader,
+                          DTransAllocAnalyzer &DTAA)
+      : DL(DL), GetTLI(GetTLI), DTInfo(DTInfo), PTA(PTA), TM(TM),
+        MDReader(MDReader), DTAA(DTAA) {
     DTransI8Type = TM.getOrCreateAtomicType(llvm::Type::getInt8Ty(Ctx));
     DTransI8PtrType = TM.getOrCreatePointerType(DTransI8Type);
     LLVMPtrSizedIntType = llvm::Type::getIntNTy(Ctx, DL.getPointerSizeInBits());
@@ -1686,8 +1690,172 @@ public:
   }
 
   void visitCallBase(CallBase &Call) {
-    // TODO: Check whether argument types are compatible with the expected type,
-    // and that no field member addresses are passed.
+    // If the called function is a known allocation function, we need to
+    // analyze the allocation to determine the type allocated, and whether
+    // the size allocated is appropriate.
+    SmallPtrSet<const Value *, 3> SpecialArguments;
+    const TargetLibraryInfo &TLI = GetTLI(*Call.getFunction());
+    auto AllocKind = dtrans::getAllocFnKind(&Call, TLI);
+
+    // TODO: Enable the following code to check for user allocation/free wrapper
+    // functions after the DTransAllocAnalyzer is updated to work with opaque
+    // pointers:
+    // if (AllocKind == dtrans::AK_NotAlloc && DTAA.isMallocPostDom(&Call))
+    //   AllocKind = dtrans::AK_UserMalloc;
+    if (AllocKind != dtrans::AK_NotAlloc) {
+      analyzeAllocationCall(&Call, AllocKind);
+      collectSpecialAllocArgs(AllocKind, &Call, SpecialArguments, TLI);
+    }
+
+    // If this is a call to the "free" lib function,  the call is safe, but
+    // we analyze the instruction for the purpose of capturing the argument
+    // TypeInfo, which will be needed by some of the transformations when
+    // rewriting allocations and frees.
+    auto FreeKind = dtrans::isFreeFn(&Call, TLI)
+                        ? (dtrans::isDeleteFn(&Call, TLI) ? dtrans::FK_Delete
+                                                          : dtrans::FK_Free)
+                        : dtrans::FK_NotFree;
+
+    // TODO: Enable the following code to check for user allocation/free wrapper
+    // functions after the DTransAllocAnalyzer is updated to work with opaque
+    // pointers:
+    // if (FreeKind == dtrans::FK_NotFree && DTAA.isFreePostDom(&Call))
+    //   FreeKind = dtrans::FK_UserFree;
+
+    if (FreeKind != dtrans::FK_NotFree) {
+      analyzeFreeCall(&Call, FreeKind);
+      collectSpecialFreeArgs(FreeKind, &Call, SpecialArguments, TLI);
+    }
+
+    // Do not check and potentially set the mismatched arg safety condition on
+    // the 'this' pointer argument of a call created by devirtualization. The
+    // devirtualizer has already proven the argument type is the correct type
+    // for the member function.
+    if (Call.getMetadata("_Intel.Devirt.Call") && Call.arg_size() >= 1)
+      SpecialArguments.insert(Call.getArgOperand(0));
+
+    if (SpecialArguments.size() == Call.arg_size())
+      return;
+
+    // TODO: Check whether argument types are compatible with the expected type
+    // for the arguments that were not classified as special arguments, and
+    // that no field member addresses are passed.
+  }
+
+  // For an allocation call, we want to check that the value produced does not
+  // get used as multiple types. Also, collect information for use by the
+  // transformations that need to rewrite allocation and free calls. This is
+  // just a convenience for migrating legacy code, to avoid the transformations
+  // needing to look at the ValueTypeInfo object.
+  void analyzeAllocationCall(CallBase *Call, dtrans::AllocKind Kind) {
+    // This function supports allocation functions that use the return value to
+    // return the pointer to the memory allocated. If another type of allocation
+    // function is supported in the future that returns the memory address via a
+    // passed in pointer, this function will need to be changed. This assertion
+    // is to ensure that any new allocation types handled are also considered
+    // here.
+    assert((Kind == AK_Malloc || Kind == AK_Calloc || Kind == AK_Realloc ||
+            Kind == AK_UserMalloc || Kind == AK_UserMalloc0 ||
+            Kind == AK_New) &&
+           "Only functions that use return value of call for allocation "
+           "supported");
+
+    ValueTypeInfo *Info = PTA.getValueTypeInfo(Call);
+    assert(Info && "PtrTypeAnalyzer failed to construct ValueTypeInfo for "
+                   "allocation call");
+    if (isValueTypeInfoUnhandled(*Info))
+      DTInfo.setUnhandledPtrType(Call);
+
+    // If the allocation wasn't cast to a type of interest, then nothing needs
+    // to be done.
+    if (!Info->canAliasToAggregatePointer())
+      return;
+
+    if (Kind == dtrans::AK_New) {
+      setAllAliasedTypeSafetyData(Info, dtrans::HasCppHandling,
+                                  "Allocation of using 'new'", Call);
+    }
+
+    DTransType *DomTy = PTA.getDominantAggregateUsageType(*Info);
+    if (!DomTy) {
+      setAllAliasedTypeSafetyData(Info, dtrans::BadCasting,
+                                  "Allocation of ambiguous type", Call);
+      return;
+    }
+
+    if (!isValidAllocationSize(Call, Kind, DomTy))
+      setBaseTypeInfoSafetyData(
+          DomTy, dtrans::BadAllocSizeArg,
+          "Allocation size does not match expected type size", Call);
+
+    // TODO: Create AllocCallInfo object about the allocation
+  }
+
+  // Return 'true' if the allocation size is valid for the type being allocated.
+  bool isValidAllocationSize(CallBase *Call, dtrans::AllocKind Kind,
+                             DTransType *Ty) {
+    assert(Ty->isPointerTy() && "Expected pointer type");
+    DTransType *AllocType = Ty->getPointerElementType();
+
+    // No need to check pointer-to-pointer allocations, because DTrans is only
+    // concerned with modifying uses of an aggregate type.
+    if (AllocType->isPointerTy())
+      return true;
+
+    const TargetLibraryInfo &TLI = GetTLI(*Call->getFunction());
+    uint64_t ElementSize = DL.getTypeAllocSize(AllocType->getLLVMType());
+    unsigned AllocSizeInd = 0;
+    unsigned AllocCountInd = 0;
+    getAllocSizeArgs(Kind, Call, AllocSizeInd, AllocCountInd, TLI);
+    auto *AllocSizeVal = Call->getArgOperand(AllocSizeInd);
+    auto *AllocCountVal =
+        AllocCountInd != -1U ? Call->getArgOperand(AllocCountInd) : nullptr;
+
+    // If either AllocSizeVal or AllocCountVal can be proven to be a multiple
+    // of the element size, the size arguments are acceptable.
+    if (dtrans::isValueMultipleOfSize(AllocSizeVal, ElementSize) ||
+        dtrans::isValueMultipleOfSize(AllocCountVal, ElementSize))
+      return true;
+
+    // If the allocation is cast as a pointer to a fixed size array, and
+    // one argument is a multiple of the array's element size and the other
+    // is a multiple of the number of elements in the array, the size arguments
+    // are acceptable.
+    if (AllocType->isArrayTy() && (AllocCountVal != nullptr)) {
+      auto *ArrTy = cast<DTransArrayType>(AllocType);
+      uint64_t NumArrElements = ArrTy->getNumElements();
+      uint64_t ArrElementSize =
+          DL.getTypeAllocSize(ArrTy->getElementType()->getLLVMType());
+      if ((dtrans::isValueMultipleOfSize(AllocSizeVal, ArrElementSize) &&
+           dtrans::isValueMultipleOfSize(AllocCountVal, NumArrElements)) ||
+          (dtrans::isValueMultipleOfSize(AllocCountVal, ArrElementSize) &&
+           dtrans::isValueMultipleOfSize(AllocSizeVal, NumArrElements)))
+        return true;
+    }
+
+    // If allocation size is not constant we can try tracing it back to the
+    // constant
+    uint64_t Res;
+    dtrans::TypeInfo *TI = DTInfo.getTypeInfo(AllocType);
+    bool EndsInZeroSizedArray = TI ? TI->hasZeroSizedArrayAsLastField() : false;
+    if (!dtrans::isValueConstant(AllocSizeVal, &Res) &&
+        dtrans::traceNonConstantValue(AllocSizeVal, ElementSize,
+                                      EndsInZeroSizedArray)) {
+      setBaseTypeInfoSafetyData(AllocType, dtrans::ComplexAllocSize,
+                                "Allocation is not direct multiple of size",
+                                Call);
+      return true;
+    }
+
+    return false;
+  }
+
+  // For a "free" call, we just collect information for use by the
+  // transformations that need to rewrite allocation and free calls. This is
+  // just a convenience for migrating legacy code, since the transformation
+  // could directly obtain the information from the DTransSafetyInfo class.
+  void analyzeFreeCall(CallBase *Call, dtrans::FreeKind FK) {
+    // TODO: Create FreeCallInfo object about the deallocation
   }
 
   void visitIntrinsicInst(IntrinsicInst &I) {
@@ -2053,6 +2221,7 @@ private:
     case dtrans::BadCastingConditional:
     case dtrans::BadMemFuncSize:
     case dtrans::BadPtrManipulation:
+    case dtrans::ComplexAllocSize:
     case dtrans::ContainsNestedStruct:
     case dtrans::DopeVector:
     case dtrans::GlobalArray:
@@ -2106,6 +2275,7 @@ private:
     case dtrans::BadMemFuncManipulation:
     case dtrans::BadMemFuncSize:
     case dtrans::BadPtrManipulation:
+    case dtrans::ComplexAllocSize:
     case dtrans::ContainsNestedStruct:
     case dtrans::DopeVector:
     case dtrans::GlobalArray:
@@ -2352,10 +2522,12 @@ private:
 private:
   // private data members
   const DataLayout &DL;
+  DTransSafetyInfo::GetTLIFnType GetTLI;
   DTransSafetyInfo &DTInfo;
   PtrTypeAnalyzer &PTA;
   DTransTypeManager &TM;
   TypeMetadataReader &MDReader;
+  DTransAllocAnalyzer &DTAA;
 
   // Types that are frequently needed for comparing type aliases against
   // known types.
@@ -2384,9 +2556,7 @@ DTransSafetyInfo &DTransSafetyInfo::operator=(DTransSafetyInfo &&Other) {
 }
 
 void DTransSafetyInfo::analyzeModule(
-    Module &M,
-    std::function<const TargetLibraryInfo &(const Function &)> GetTLI,
-    WholeProgramInfo &WPInfo,
+    Module &M, GetTLIFnType GetTLI, WholeProgramInfo &WPInfo,
     function_ref<BlockFrequencyInfo &(Function &)> GetBFI) {
 
   LLVM_DEBUG(dbgs() << "DTransSafetyInfo::analyzeModule running\n");
@@ -2410,7 +2580,15 @@ void DTransSafetyInfo::analyzeModule(
   PtrAnalyzer->run(M);
   LLVM_DEBUG(dbgs() << "DTransSafetyInfo: PtrTypeAnalyzer complete\n");
 
-  DTransSafetyInstVisitor Visitor(Ctx, DL, *this, *PtrAnalyzer, *TM, *MDReader);
+  dtrans::DTransAllocAnalyzer DTAA(GetTLI, M);
+
+  // TODO: Enable the following code to check for user allocation/free wrapper
+  // functions after the DTransAllocAnalyzer is updated to work with opaque
+  // pointers:
+  // DTAA.populateAllocDeallocTable(M);
+
+  DTransSafetyInstVisitor Visitor(Ctx, DL, GetTLI, *this, *PtrAnalyzer, *TM,
+                                  *MDReader, DTAA);
   Visitor.visit(M);
 
   LLVM_DEBUG({
