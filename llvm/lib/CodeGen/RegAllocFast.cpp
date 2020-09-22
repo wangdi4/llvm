@@ -206,17 +206,12 @@ namespace {
   private:
     bool runOnMachineFunction(MachineFunction &MF) override;
 
-<<<<<<< HEAD
     bool allocateBasicBlock(MachineBasicBlock &MBB); // INTEL
-    bool allocateInstruction(MachineInstr &MI);      // INTEL
-=======
-    void allocateBasicBlock(MachineBasicBlock &MBB);
 
     void addRegClassDefCounts(std::vector<unsigned> &RegClassDefCounts,
                               Register Reg) const;
 
-    void allocateInstruction(MachineInstr &MI);
->>>>>>> c8757ff3aa7dd7a25a6343f6ef74a70c7be04325
+    bool allocateInstruction(MachineInstr &MI);      // INTEL
     void handleDebugValue(MachineInstr &MI);
 #ifndef NDEBUG
     bool verifyRegStateMapping(const LiveReg &LR) const;
@@ -1010,22 +1005,6 @@ void RegAllocFast::dumpState() const {
 }
 #endif
 
-<<<<<<< HEAD
-bool RegAllocFast::allocateInstruction(MachineInstr &MI) { // INTEL
-  bool HasVirtualRegs = false;  // INTEL
-  const MCInstrDesc &MCID = MI.getDesc();
-
-  // If this is a copy, we may be able to coalesce.
-  Register CopySrcReg;
-  Register CopyDstReg;
-  unsigned CopySrcSub = 0;
-  unsigned CopyDstSub = 0;
-  if (MI.isCopy()) {
-    CopyDstReg = MI.getOperand(0).getReg();
-    CopySrcReg = MI.getOperand(1).getReg();
-    CopyDstSub = MI.getOperand(0).getSubReg();
-    CopySrcSub = MI.getOperand(1).getSubReg();
-=======
 /// Count number of defs consumed from each register class by \p Reg
 void RegAllocFast::addRegClassDefCounts(std::vector<unsigned> &RegClassDefCounts,
                                         Register Reg) const {
@@ -1042,7 +1021,6 @@ void RegAllocFast::addRegClassDefCounts(std::vector<unsigned> &RegClassDefCounts
     }
 
     return;
->>>>>>> c8757ff3aa7dd7a25a6343f6ef74a70c7be04325
   }
 
   for (unsigned RCIdx = 0, RCIdxEnd = TRI->getNumRegClasses();
@@ -1057,7 +1035,9 @@ void RegAllocFast::addRegClassDefCounts(std::vector<unsigned> &RegClassDefCounts
   }
 }
 
-void RegAllocFast::allocateInstruction(MachineInstr &MI) {
+bool RegAllocFast::allocateInstruction(MachineInstr &MI) { // INTEL
+  bool HasVirtualRegs = false;  // INTEL
+
   // The basic algorithm here is:
   // 1. Mark registers of def operands as free
   // 2. Allocate registers to use operands and place reload instructions for
@@ -1343,24 +1323,8 @@ void RegAllocFast::allocateInstruction(MachineInstr &MI) {
       if (MI.readsRegister(Reg, TRI))
         continue;
 
-<<<<<<< HEAD
-#if INTEL_CUSTOMIZATION
-    if (Reg.isPhysical()) {
-      if (!MRI->isAllocatable(Reg)) continue;
-      definePhysReg(MI, Reg, MO.isDead() ? regFree : regReserved);
-      continue;
-    }
-#endif // INTEL_CUSTOMIZATION
-    MCPhysReg PhysReg = defineVirtReg(MI, I, Reg, CopySrcReg);
-    if (setPhysReg(MI, MI.getOperand(I), PhysReg)) {
-      VirtDead.push_back(Reg);
-      CopyDstReg = Register(); // cancel coalescing;
-    } else
-      CopyDstReg = (CopyDstReg == Reg || CopyDstReg == PhysReg) ? PhysReg : 0;
-=======
       freePhysReg(Reg);
     }
->>>>>>> c8757ff3aa7dd7a25a6343f6ef74a70c7be04325
   }
 
   LLVM_DEBUG(dbgs() << "<< " << MI);
@@ -1406,10 +1370,6 @@ void RegAllocFast::handleDebugValue(MachineInstr &MI) {
   LiveDbgValueMap[Reg].push_back(&MI);
 }
 
-<<<<<<< HEAD
-bool RegAllocFast::allocateBasicBlock(MachineBasicBlock &MBB) { // INTEL
-  bool HasVirtualRegs = false;  // INTEL
-=======
 #ifndef NDEBUG
 bool RegAllocFast::verifyRegStateMapping(const LiveReg &LR) const {
   for (MCRegUnitIterator UI(LR.PhysReg, TRI); UI.isValid(); ++UI) {
@@ -1421,8 +1381,8 @@ bool RegAllocFast::verifyRegStateMapping(const LiveReg &LR) const {
 }
 #endif
 
-void RegAllocFast::allocateBasicBlock(MachineBasicBlock &MBB) {
->>>>>>> c8757ff3aa7dd7a25a6343f6ef74a70c7be04325
+bool RegAllocFast::allocateBasicBlock(MachineBasicBlock &MBB) { // INTEL
+  bool HasVirtualRegs = false;  // INTEL
   this->MBB = &MBB;
   LLVM_DEBUG(dbgs() << "\nAllocating " << MBB);
 
