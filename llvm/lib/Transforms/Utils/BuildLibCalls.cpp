@@ -991,6 +991,7 @@ bool llvm::inferLibFuncAttributes(Function &F, const TargetLibraryInfo &TLI) {
   case LibFunc_msvc_std_exception_scalar_deleting_dtor:
   case LibFunc_msvc_std_exception_what:
   case LibFunc_msvc_std_facet_register:
+  case LibFunc_msvc_std_under_Fiopen:
   case LibFunc_msvc_std_ios_base_under_Ios_base_dtor:
   case LibFunc_msvc_std_ios_base_failure:
   case LibFunc_msvc_std_ios_base_failure_const_ptr_ctor:
@@ -1266,6 +1267,8 @@ bool llvm::inferLibFuncAttributes(Function &F, const TargetLibraryInfo &TLI) {
     return Changed;
   case LibFunc_dunder_RTDynamicCast:
     return Changed;
+  case LibFunc_dunder_RTtypeid:
+    return Changed;
   case LibFunc_dunder_std_terminate:
     Changed |= setDoesNotReturn(F);
     return Changed;
@@ -1280,6 +1283,10 @@ bool llvm::inferLibFuncAttributes(Function &F, const TargetLibraryInfo &TLI) {
     return Changed;
   case LibFunc_under_Getcvt:
     return Changed;
+  case LibFunc_under_Init_thread_abort:
+    return Changed;
+  case LibFunc_under_get_stream_buffer_pointers:
+    return Changed;
   // Get working directory in Windows can throw an exception
   // compared to the Linux version (LibFunc_getcwd)
   case LibFunc_under_getcwd:
@@ -1291,6 +1298,11 @@ bool llvm::inferLibFuncAttributes(Function &F, const TargetLibraryInfo &TLI) {
   // gmtime in Windows can throw an exception as opposed to the
   // Linux version (LibFunc_gmtime)
   case LibFunc_under_gmtime64:
+    return Changed;
+  case LibFunc_under_Stollx:
+  case LibFunc_under_Stolx:
+  case LibFunc_under_Stoullx:
+  case LibFunc_under_Stoulx:
     return Changed;
   case LibFunc_under_Tolower:
     Changed |= setOnlyAccessesArgMemory(F);
@@ -1327,6 +1339,15 @@ bool llvm::inferLibFuncAttributes(Function &F, const TargetLibraryInfo &TLI) {
     return Changed;
   case LibFunc_under_fileno:
     return Changed;
+  case LibFunc_under_findclose:
+    Changed |= setDoesNotThrow(F);
+    return Changed;
+  case LibFunc_under_findfirst64i32:
+    Changed |= setDoesNotThrow(F);
+    return Changed;
+  case LibFunc_under_findnext64i32:
+    Changed |= setDoesNotThrow(F);
+    return Changed;
   case LibFunc_under_ftelli64:
     Changed |= setDoesNotCapture(F, 0);
     return Changed;
@@ -1337,6 +1358,9 @@ bool llvm::inferLibFuncAttributes(Function &F, const TargetLibraryInfo &TLI) {
     Changed |= setDoesNotReturn(F);
     return Changed;
   case LibFunc_under_localtime64:
+    Changed |= setDoesNotThrow(F);
+    return Changed;
+  case LibFunc_under_lock_file:
     Changed |= setDoesNotThrow(F);
     return Changed;
   case LibFunc_under_lseeki64:
@@ -1718,12 +1742,18 @@ bool llvm::inferLibFuncAttributes(Function &F, const TargetLibraryInfo &TLI) {
     return Changed;
   case LibFunc_CloseHandle:
     return Changed;
+  case LibFunc_ConvertThreadToFiber:
+    return Changed;
+  case LibFunc_CreateFiber:
+    return Changed;
   case LibFunc_CreateFileA:
   case LibFunc_CreateFileW:
     Changed |= setDoesNotThrow(F);
     return Changed;
   case LibFunc_DeleteCriticalSection:
     Changed |= setDoesNotThrow(F);
+    return Changed;
+  case LibFunc_DeleteFiber:
     return Changed;
   case LibFunc_difftime:
   case LibFunc_under_difftime64:  // INTEL
@@ -2270,6 +2300,8 @@ bool llvm::inferLibFuncAttributes(Function &F, const TargetLibraryInfo &TLI) {
   case LibFunc_sleep:
     Changed |= setDoesNotThrow(F);
     return Changed;
+  case LibFunc_SwitchToFiber:
+    return Changed;
   case LibFunc_srand:
     Changed |= setDoesNotThrow(F);
     return Changed;
@@ -2338,6 +2370,9 @@ bool llvm::inferLibFuncAttributes(Function &F, const TargetLibraryInfo &TLI) {
   case LibFunc_under_ftime64:
     return Changed;
   case LibFunc_under_time64:
+    Changed |= setDoesNotThrow(F);
+    return Changed;
+  case LibFunc_under_unlock_file:
     Changed |= setDoesNotThrow(F);
     return Changed;
   case LibFunc_under_wassert:
