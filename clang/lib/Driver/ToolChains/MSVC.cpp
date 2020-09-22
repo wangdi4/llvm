@@ -437,6 +437,9 @@ void visualstudio::Linker::ConstructJob(Compilation &C, const JobAction &JA,
       A->claim();
     }
   }
+  // Suppress multiple section warning LNK4078
+  if (Args.hasFlag(options::OPT_fsycl, options::OPT_fno_sycl, false))
+    CmdArgs.push_back("/IGNORE:4078");
 #endif // INTEL_CUSTOMIZATION
 
   if (!llvm::sys::Process::GetEnv("LIB")) {

@@ -68,6 +68,15 @@ this checklist when evaluating change sets.
    must be captured in JIRA, and the Gerrit review must contain a clear
    explanation for why the change should be approved for xmain in spite of the
    failures.
+#. Make sure pre-commit testing results are current. The alloy results used
+   for verification should not be more than two days old when gatekeeper
+   approval is requested. If local alloy testing is used, a rebase of the patch
+   should have been done before the final alloy run (not more than three days
+   before gatekeeper approval). If gerrit-alloy testing is used, the patch
+   will always be applied to top-of-branch during alloy testing, so rebasing
+   before testing is not essential in this case.
+#. If a pulldown has occurred since the last rebase, the patch must be rebased
+   and retested, regardless of the age of the alloy results.
 
 The next step depends on whether you are submitting an individual change set or
 a branch promotion.
