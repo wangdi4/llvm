@@ -36,21 +36,22 @@
 ; Check the records about ranges have correct format.
 ; RUN: FileCheck < %t1 %s --check-prefixes=RANGE
 ; RUN: FileCheck < %t3 %s --check-prefixes=RANGE
-; RANGE: .long .{{.*}}-.{{.*}}       # TB_AT_TraceSize
-; RANGE: .long .{{.*}}-.{{.*}}       # TB_AT_TextSize
-; RANGE: .long (.{{.*}}-.{{.*}})-1   # TB_AT_PC4
+; RANGE: .long .{{.*}}-.{{.*}}       # TB_AT_ModuleSize
+; RANGE: .long .{{.*}}-{{.*}}        # TB_AT_CodeSize
+; RANGE: .long (.{{.*}}-{{.*}})-1    # TB_AT_PC4
 
 ; Check the version of .trace format.
 ; RUN: FileCheck < %t1 %s --check-prefixes=VERSION
 ; VERSION:      .short 2   # TB_AT_MajorV
 ; VERSION-NEXT: .byte 0    # TB_AT_MinorV
 
-; Check the optimal line record LN1, and widest PC record PC4 for this file.
+; Check only one initial line record LN1, and widest PC record PC4 for function main.
 ; RUN: FileCheck < %t1 %s --check-prefixes=RECORD
 ; RECORD:      .byte {{[0-9]+}}        # TB_TAG_LN1
 ; RECORD-NEXT: .byte {{[0-9]+}}        # TB_AT_LN1
 ; RECORD-NEXT: .byte {{[0-9]+}}        # TB_TAG_PC4
-; RECORD-NEXT: .long {{.*}}            # TB_AT_PC4
+; RECORD-NEXT: .long (.{{.*}}-main)-1  # TB_AT_PC4
+; RECORD-NOT:  .byte {{[0-9]+}}        # TB_TAG_LN1
 
 ; Check the DWARF section is not emitted when there is a "TraceBack" flag but
 ; no "Dwarf Version" flag.

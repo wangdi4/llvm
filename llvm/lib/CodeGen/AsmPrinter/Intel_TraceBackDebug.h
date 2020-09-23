@@ -53,14 +53,19 @@ protected:
 private:
   /// Add a line node for the machine instruction \p MI.
   void addLineInfo(const MachineInstr *MI);
+  /// Add an initial line node for the machine instruction \p MI, the address
+  /// and line number are assumed to be same as it's parent routine's.
+  void addInitialLineInfo(const MachineInstr *MI);
 
 private:
   /// The file in which the previous subprogram is contained.
   const DIFile *PrevFile = nullptr;
+  /// The begin symbol of preivous machine function.
+  const MCSymbol *PrevFnSym = nullptr;
   /// Map a file to a unsigned integer.
   DenseMap<const DIFile *, unsigned> FileToIndex;
-  /// The module used to store all debug info in .trace section
-  std::unique_ptr<TraceModule> DebugModule;
+  /// The modules used to store all debug info in .trace section
+  iplist<TraceModule> DebugModules;
 };
 
 } // end namespace llvm
