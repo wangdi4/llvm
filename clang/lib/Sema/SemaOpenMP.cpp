@@ -10390,6 +10390,20 @@ StmtResult Sema::ActOnOpenMPOrderedDirective(ArrayRef<OMPClause *> Clauses,
   // must not execute more than one ordered region corresponding to an ordered
   // construct without a depend clause.
   if (!DependFound) {
+#if INTEL_COLLAB
+    // More than one ordered regions can be enclosed in an SIMD region.
+    // Therefore, the following error message should not be printed when we have
+    // the following case:
+    // #pragma omp simd
+    // for (int i = 0; i < 1024; i++) {
+    //    A[i] = B[i] + C[i];
+    // #pragma omp ordered simd
+    //    t = A[i];
+    // #pragma omp ordered simd
+    //    B[i] = t;
+    // }
+    if (!getLangOpts().OpenMPLateOutline || !SC)
+#endif // INTEL_COLLAB
     if (DSAStack->doesParentHasOrderedDirective()) {
       Diag(StartLoc, diag::err_omp_several_directives_in_region) << "ordered";
       Diag(DSAStack->getParentOrderedDirectiveLoc(),
