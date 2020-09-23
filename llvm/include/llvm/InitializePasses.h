@@ -160,11 +160,7 @@ void initializeDAESYCLPass(PassRegistry&);
 void initializeDCELegacyPassPass(PassRegistry&);
 void initializeDSELegacyPassPass(PassRegistry&);
 void initializeDataFlowSanitizerLegacyPassPass(PassRegistry &);
-<<<<<<< HEAD
 void initializeDeadArrayOpsEliminationLegacyPassPass(PassRegistry&); // INTEL
-void initializeDeadInstEliminationPass(PassRegistry&);
-=======
->>>>>>> f4f7df037e71fa77b06a37d86f2596db47d583d0
 void initializeDeadMachineInstructionElimPass(PassRegistry&);
 void initializeDebugifyMachineModulePass(PassRegistry &);
 void initializeDelinearizationPass(PassRegistry&);
