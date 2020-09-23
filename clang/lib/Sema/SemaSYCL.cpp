@@ -1562,6 +1562,20 @@ public:
     return true;
   }
 
+#if INTEL_CUSTOMIZATION
+  bool enterStruct(const CXXRecordDecl *, const CXXBaseSpecifier &BS,
+                   QualType FieldTy) final {
+    ++StructDepth;
+    return true;
+  }
+
+  bool leaveStruct(const CXXRecordDecl *, const CXXBaseSpecifier &BS,
+                   QualType FieldTy) final {
+    --StructDepth;
+    return true;
+  }
+#endif // INTEL_CUSTOMIZATION
+
   bool handleSyclAccessorType(const CXXRecordDecl *, const CXXBaseSpecifier &BS,
                               QualType FieldTy) final {
     const auto *RecordDecl = FieldTy->getAsCXXRecordDecl();
