@@ -143,7 +143,6 @@ class aggregator : public aggregator_generic<OperationType> {
     HandlerType handle_operations;
 public:
     aggregator() = default;
-    explicit aggregator( HandlerType h ) : handle_operations(h) {}
 
     void initialize_handler( HandlerType h ) { handle_operations = h; }
 
