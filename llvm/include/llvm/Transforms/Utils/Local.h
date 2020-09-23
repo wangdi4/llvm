@@ -259,7 +259,7 @@ Value *emitBaseOffset(IRBuilderTy *Builder, const DataLayout &DL, Type *ElTy,
   unsigned NumVectorElements = SubscriptInst::getResultVectorNumElements(
       {Lower, Stride, BasePtr, Index});
 
-  Type *OffsetTy = DL.getIntPtrType(BasePtr->getType());
+  Type *OffsetTy = DL.getIndexType(BasePtr->getType());
 
   // Perform scalar/vector division of stride by sizeof(element).
   {

@@ -3359,9 +3359,8 @@ public:
 
 HIRParser::GEPChain::GEPChain(const HIRParser &Parser,
                               const GEPOrSubsOperator *GEPOp) {
-  OffsetTy = Type::getIntNTy(
-      Parser.getContext(),
-      Parser.getDataLayout().getTypeSizeInBits(GEPOp->getType()));
+  OffsetTy =
+      cast<IntegerType>(Parser.getDataLayout().getIndexType(GEPOp->getType()));
 
   extend(Parser, GEPOp);
   setBase(GEPOp);
@@ -3930,8 +3929,7 @@ RegDDRef *HIRParser::createPhiBaseGEPDDRef(const PHINode *BasePhi,
   // is then translated into a normalized index of i. The final mapped expr
   // looks like this: (%p)[i]
 
-  auto OffsetTy = Type::getIntNTy(
-      getContext(), getDataLayout().getTypeSizeInBits(CurBasePhi->getType()));
+  auto OffsetTy = getDataLayout().getIndexType(CurBasePhi->getType());
 
   // A phi can be initialized using another phi so we should trace back.
   do {
@@ -3999,8 +3997,7 @@ RegDDRef *HIRParser::createSingleElementGEPDDRef(const Value *GEPVal,
 
   auto Ref = getDDRefUtils().createRegDDRef(0);
   auto GEPTy = GEPVal->getType();
-  auto OffsetTy =
-      Type::getIntNTy(getContext(), getDataLayout().getTypeSizeInBits(GEPTy));
+  auto OffsetTy = getDataLayout().getIndexType(GEPTy);
 
   // TODO: This can be improved by first checking if the original SCEV can be
   // handled.
