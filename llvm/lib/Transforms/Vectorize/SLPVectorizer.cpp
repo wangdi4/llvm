@@ -7253,13 +7253,10 @@ Value *BoUpSLP::vectorizeTree(TreeEntry *E) {
         inversePermutation(E->ReorderIndices, Mask);
         V = Builder.CreateShuffleVector(V, Mask, "reorder_shuffle");
       }
-<<<<<<< HEAD
-=======
       if (NeedToShuffleReuses) {
         // TODO: Merge this shuffle with the ReorderShuffleMask.
         V = Builder.CreateShuffleVector(V, E->ReuseShuffleIndices, "shuffle");
       }
->>>>>>> a44238cb443f13c1e9fd42f6269f019d505ff5dd
       E->VectorizedValue = V;
       ++NumVectorInstructions;
       return V;
