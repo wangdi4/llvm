@@ -873,6 +873,9 @@ public:
     if (UniformBlends.empty())
       return;
 
+    if (Block->getParent()->areActiveLaneInstructionsDisabled())
+      return;
+
     auto SplitIt = Block->getBlockPredicate()
                        ? Block->getBlockPredicate()->getIterator()
                        : Block->begin(); // splitBlockHead will adjust it to
