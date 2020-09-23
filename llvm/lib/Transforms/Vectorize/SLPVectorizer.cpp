@@ -719,13 +719,10 @@ public:
   using StoreList = SmallVector<StoreInst *, 8>;
   using ExtraValueToDebugLocsMap =
       MapVector<Value *, SmallVector<Instruction *, 2>>;
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   using ValuePair = std::pair<Value *, Value *>;
 #endif // INTEL_CUSTOMIZATION
-=======
   using OrdersType = SmallVector<unsigned, 4>;
->>>>>>> 3ff07fcd542ebef657bb93fe8ee1750527210b94
 
   BoUpSLP(Function *Func, ScalarEvolution *Se, TargetTransformInfo *Tti,
           TargetLibraryInfo *TLi, AAResults *Aa, LoopInfo *Li,
@@ -3799,7 +3796,7 @@ BoUpSLP::~BoUpSLP() {
 void BoUpSLP::eraseInstructions(ArrayRef<Value *> AV) {
   for (auto *V : AV) {
     if (auto *I = dyn_cast<Instruction>(V))
-      eraseInstruction(I, /*ReplaceWithUndef=*/true);
+      eraseInstruction(I, /*ReplaceOpsWithUndef=*/true);
   };
 }
 
