@@ -507,7 +507,7 @@ public:
 
     // If AVX2 or higher is not present, then don't run optimization
     if (!TTI.isAdvancedOptEnabled(
-          TargetTransformInfo::AdvancedOptLevel::AO_TargetHasAVX2)) {
+          TargetTransformInfo::AdvancedOptLevel::AO_TargetHasIntelAVX2)) {
       return false;
     }
 

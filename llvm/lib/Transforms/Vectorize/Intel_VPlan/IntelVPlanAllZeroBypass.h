@@ -47,7 +47,7 @@ public:
   // multimap because it could be possible that multiple regions are formed
   // using the same block-predicate.
   using RegionsCollectedTy =
-      std::multimap<VPValue *, SmallPtrSet<VPBasicBlock *, 4>>;
+      std::multimap<VPValue *, SetVector<VPBasicBlock *>>;
 
 private:
   // VPlan for bypass insertion.
@@ -70,7 +70,7 @@ private:
   /// Computes the set of blocks that forms the all-zero bypass region.
   void getRegionBlocks(VPBasicBlock *FirstBlockInBypassRegion,
                        VPBasicBlock *LastBlockInBypassRegion,
-                       SmallPtrSetImpl<VPBasicBlock *> &RegionBlocks);
+                       SetVector<VPBasicBlock *> &RegionBlocks);
 
   /// Records a live-out value \p LiveOutVal and its corresponding user
   /// \p LiveOutUser that is outside of the region specified by the caller.
@@ -105,7 +105,7 @@ private:
 
   /// Assert if the structure of the bypass is not well formed.
   void verifyBypassRegion(VPBasicBlock *FirstBlockInRegion,
-                          SmallPtrSetImpl<VPBasicBlock *> &RegionBlocks);
+                          SetVector<VPBasicBlock *> &RegionBlocks);
 
   /// Returns true if \p Block has already been included within a region
   /// under block-predicate \p Pred.
@@ -122,7 +122,7 @@ private:
   /// Returns true if the loop or non-loop region should end at \p Block.
   /// The region will not include \p Block.
   bool endRegionAtBlock(VPBasicBlock *Block, VPValue *CandidateBlockPred,
-                        SmallPtrSetImpl<VPBasicBlock *> &RegionBlocks);
+                        SetVector<VPBasicBlock *> &RegionBlocks);
 
 public:
   VPlanAllZeroBypass(VPlan &Plan) : Plan(Plan) {};

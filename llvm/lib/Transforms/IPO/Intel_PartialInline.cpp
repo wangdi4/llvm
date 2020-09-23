@@ -621,8 +621,8 @@ Function *FunctionCloner::createClone(
 bool PartialInliner::runImpl() {
 
   // Check for AVX2 or higher
-  auto TTIOptLevel = TargetTransformInfo::AdvancedOptLevel::AO_TargetHasAVX2;
-  if (!WPInfo || !WPInfo->isAdvancedOptEnabled(TTIOptLevel))
+  auto TTIOptLvl = TargetTransformInfo::AdvancedOptLevel::AO_TargetHasIntelAVX2;
+  if (!WPInfo || !WPInfo->isAdvancedOptEnabled(TTIOptLvl))
     return false;
 
   // Check if we are running for testing, else check if DTrans is

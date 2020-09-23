@@ -511,7 +511,7 @@ static Value *ThreadCmpOverSelect(CmpInst::Predicate Pred, Value *LHS,
 static Value *threadCmpOverTwoSelects(CmpInst::Predicate Pred, Value *LHS,
                                       Value *RHS, const SimplifyQuery &Q,
                                       unsigned MaxRecurse) {
-  auto TTIAVX2 = TargetTransformInfo::AdvancedOptLevel::AO_TargetHasAVX2;
+  auto TTIAVX2 = TargetTransformInfo::AdvancedOptLevel::AO_TargetHasIntelAVX2;
   if (!Q.TTI || !Q.TTI->isAdvancedOptEnabled(TTIAVX2))
     return nullptr;
 

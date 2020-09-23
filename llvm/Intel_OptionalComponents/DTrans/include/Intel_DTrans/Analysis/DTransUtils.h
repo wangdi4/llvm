@@ -98,6 +98,15 @@ bool isLoadedValueUnused(Value *V, Value *LoadAddr);
 // Return 'true' if "I" is either llvm.type_test or llvm.assume intrinsic.
 bool isTypeTestRelatedIntrinsic(const Instruction *I);
 
+// Trace back instruction sequence corresponding to the following code:
+//     foo (..., int n, ...) {
+//         struct s *s_ptr = malloc(c1 + c2 * n);
+//     }
+// Returns false if it cannot trace \p InVal back to constants and calculate
+// the size.
+bool traceNonConstantValue(Value *InVal, uint64_t ElementSize,
+                           bool EndsInZeroSizedArray);
+
 } // namespace dtrans
 } // namespace llvm
 

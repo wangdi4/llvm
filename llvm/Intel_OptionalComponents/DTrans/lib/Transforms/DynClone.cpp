@@ -4396,7 +4396,7 @@ bool DynClonePass::runImpl(Module &M, DTransAnalysisInfo &DTInfo,
                            DynGetTLITy GetTLI, WholeProgramInfo &WPInfo,
                            LoopInfoFuncType &GetLI) {
 
-  auto TTIAVX2 = TargetTransformInfo::AdvancedOptLevel::AO_TargetHasAVX2;
+  auto TTIAVX2 = TargetTransformInfo::AdvancedOptLevel::AO_TargetHasIntelAVX2;
   if (!WPInfo.isWholeProgramSafe() || !WPInfo.isAdvancedOptEnabled(TTIAVX2))
     return false;
 

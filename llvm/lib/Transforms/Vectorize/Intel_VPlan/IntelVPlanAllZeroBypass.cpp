@@ -54,7 +54,7 @@ void VPlanAllZeroBypass::dumpBypassRegionLiveOuts(
 void VPlanAllZeroBypass::getRegionBlocks(
     VPBasicBlock *FirstBlockInBypassRegion,
     VPBasicBlock *LastBlockInBypassRegion,
-    SmallPtrSetImpl<VPBasicBlock *> &RegionBlocks) {
+    SetVector<VPBasicBlock *> &RegionBlocks) {
   for (auto *Block : sese_depth_first(FirstBlockInBypassRegion,
                                       LastBlockInBypassRegion))
     RegionBlocks.insert(Block);
@@ -65,7 +65,7 @@ void VPlanAllZeroBypass::collectRegionLiveOuts(
     VPBasicBlock *LastBlockInBypassRegion,
     LiveOutUsersMapTy &LiveOutMap) {
 
-  SmallPtrSet<VPBasicBlock *, 4> RegionBlocks;
+  SetVector<VPBasicBlock *> RegionBlocks;
   getRegionBlocks(FirstBlockInBypassRegion, LastBlockInBypassRegion,
                   RegionBlocks);
   for (auto *RegionBlock : RegionBlocks) {
@@ -240,7 +240,7 @@ static void getUnpredicatedInstructions(
 
 void VPlanAllZeroBypass::verifyBypassRegion(
     VPBasicBlock *FirstBlockInRegion,
-    SmallPtrSetImpl<VPBasicBlock *> &RegionBlocks) {
+    SetVector<VPBasicBlock *> &RegionBlocks) {
   for (auto *RegionBlock : RegionBlocks) {
     // For any phis in the region we want to assert that any incoming blocks
     // to those phis are part of the region. This will catch if all-zero
@@ -279,7 +279,7 @@ bool VPlanAllZeroBypass::regionFoundForBlock(
 bool VPlanAllZeroBypass::endRegionAtBlock(
     VPBasicBlock *Block,
     VPValue *CandidateBlockPred,
-    SmallPtrSetImpl<VPBasicBlock *> &RegionBlocks) {
+    SetVector<VPBasicBlock *> &RegionBlocks) {
 
   SmallVector<VPInstruction *, 4> UnpredicatedInsts;
   getUnpredicatedInstructions(Block, UnpredicatedInsts);
@@ -338,7 +338,7 @@ void VPlanAllZeroBypass::collectAllZeroBypassLoopRegions(
     AllZeroBypassRegionsTy &AllZeroBypassRegions,
     RegionsCollectedTy &RegionsCollected) {
   VPLoopInfo *VPLI = Plan.getVPLoopInfo();
-  SmallPtrSet<VPBasicBlock *, 4> RegionBlocks;
+  SetVector<VPBasicBlock *> RegionBlocks;
   for (auto *VPLp : VPLI->getLoopsInPreorder()) {
     VPBasicBlock *Preheader = VPLp->getLoopPreheader();
     VPValue *PreheaderPred = Preheader ? Preheader->getPredicate() : nullptr;
@@ -386,7 +386,7 @@ void VPlanAllZeroBypass::collectAllZeroBypassLoopRegions(
         VPLoop *VPLp = VPLI->getLoopFor(SingleSucc);
         assert(VPLp && "VPLoop object is expected to exist for the block");
         VPBasicBlock *LoopExit = VPLp->getExitBlock();
-        SmallPtrSet<VPBasicBlock *, 4> LoopBlocks;
+        SetVector<VPBasicBlock *> LoopBlocks;
         getRegionBlocks(SingleSucc, LoopExit, LoopBlocks);
         RegionBlocks.insert(LoopBlocks.begin(), LoopBlocks.end());
         RegionEnd = LoopExit;
@@ -454,7 +454,7 @@ void VPlanAllZeroBypass::collectAllZeroBypassNonLoopRegions(
 
     // Collect blocks for the region on-the-fly so we can check to make sure
     // incoming blocks for phis are in the region.
-    SmallPtrSet<VPBasicBlock *, 4> RegionBlocks;
+    SetVector<VPBasicBlock *> RegionBlocks;
 
     // Candidate Block is included in the region as the first and last in the
     // region.

@@ -27,6 +27,7 @@
 #include "llvm/Support/FormattedStream.h"
 
 using namespace llvm;
+using namespace llvm::PatternMatch;
 using namespace dtrans;
 
 #define DEBUG_TYPE "dtransanalysis"
@@ -1877,4 +1878,103 @@ bool dtrans::isTypeTestRelatedIntrinsic(const Instruction *I) {
     return false;
   Intrinsic::ID IID = II->getIntrinsicID();
   return (IID == Intrinsic::assume || IID == Intrinsic::type_test);
+}
+
+// Trace back instruction sequence corresponding to the following code:
+//     foo (..., int n, ...) {
+//         struct s *s_ptr = malloc(c1 + c2 * n);
+//     }
+// Returns false if it cannot trace \p InVal back to constants and calculate
+// the size.
+bool dtrans::traceNonConstantValue(Value *InVal, uint64_t ElementSize,
+                                   bool EndsInZeroSizedArray) {
+  // Trace call sites to collect all constant actual parameters corresponding to
+  // \p FormalArgNo.
+  std::function<bool(Function *, Value *, unsigned,
+                     SmallVectorImpl<ConstantInt *> &)>
+      FindAllArgValues =
+          [&FindAllArgValues](
+              Function *F, Value *V, unsigned FormalArgNo,
+              SmallVectorImpl<ConstantInt *> &ActualArgs) -> bool {
+    for (Use &U : V->uses()) {
+      Value *Inst = U.getUser();
+      // In case of function cast operator do one more step.
+      if (BitCastOperator *BC = dyn_cast<BitCastOperator>(Inst)) {
+        if (!FindAllArgValues(F, BC, FormalArgNo, ActualArgs))
+          return false;
+        continue;
+      }
+
+      // Must be a direct call.
+      auto *Call = dyn_cast<CallBase>(Inst);
+      if (!Call || Call->isIndirectCall())
+        return false;
+
+      // A called function should be F.
+      if (!Call->isCallee(&U))
+        if (dtrans::getCalledFunction(*Call) != F)
+          return false;
+
+      ConstantInt *ArgC =
+          dyn_cast_or_null<ConstantInt>(Call->getArgOperand(FormalArgNo));
+      if (!ArgC)
+        return false;
+
+      ActualArgs.push_back(ArgC);
+    }
+
+    return true;
+  };
+
+  if (!InVal)
+    return false;
+
+  Value *AddOp, *ShlOp;
+  ConstantInt *AddC, *ShlC = nullptr, *MulC = nullptr;
+
+  // Match alloc size with the add with the constant operand.
+  if (!match(InVal, m_OneUse(m_Add(m_ConstantInt(AddC), m_Value(AddOp)))) &&
+      !match(InVal, m_OneUse(m_Add(m_Value(AddOp), m_ConstantInt(AddC)))))
+    return false;
+
+  // Second add operand with the shl or mul with the constant operand.
+  if (!match(AddOp, m_Shl(m_Value(ShlOp), m_ConstantInt(ShlC))) &&
+      !match(AddOp, m_Mul(m_Value(ShlOp), m_ConstantInt(MulC))) &&
+      !match(AddOp, m_Mul(m_ConstantInt(MulC), m_Value(ShlOp))))
+    return false;
+
+  // Second operand of the shl or mul expected to be function argument.
+  Argument *FormalArg = dyn_cast<Argument>(ShlOp);
+  if (!FormalArg)
+    return false;
+
+  // Now we need to look into each call site and find all constant values
+  // for the corresponding argument. If not all actual arguments are constant,
+  // return false.
+  Function *Callee = FormalArg->getParent();
+  unsigned FormalArgNo = FormalArg->getArgNo();
+
+  SmallVector<ConstantInt *, 8> ActualArgs;
+  if (!FindAllArgValues(Callee, Callee, FormalArgNo, ActualArgs))
+    return false;
+
+  // Now iterate through all constants to verify that the allocation size was
+  // correct.
+  bool Verified = true;
+  for (auto *Const : ActualArgs) {
+    uint64_t ArgConst = Const->getLimitedValue();
+    uint64_t Res = ShlC ? (ArgConst << ShlC->getLimitedValue())
+                        : (ArgConst * MulC->getLimitedValue());
+    Res += AddC->getLimitedValue();
+
+    // If the structure has zero-sized array in the last field. It means
+    // that allocation size is allowed to be greater or equal to the structure
+    // size.
+    if (!EndsInZeroSizedArray)
+      Verified &= ((Res % ElementSize) == 0);
+    else
+      Verified &= (Res > ElementSize);
+  }
+
+  return Verified;
 }

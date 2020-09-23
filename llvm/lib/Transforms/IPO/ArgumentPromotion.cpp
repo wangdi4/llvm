@@ -594,6 +594,9 @@ static bool allCallersPassValidPointerForArgument(Argument *Arg, Type *Ty) {
   unsigned ArgNo = Arg->getArgNo();
 
 #if INTEL_CUSTOMIZATION
+  // Check if Arg is marked with dereferenceable attribute.
+  if (isDereferenceablePointer(Arg, Ty, DL))
+    return true;
   // Look at all call sites of the function.  At this point we know we only have
   // direct or callback callees.
   for (const Use &U : Callee->uses()) {

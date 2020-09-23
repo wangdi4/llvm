@@ -953,11 +953,26 @@ static bool isLoopHandledByLoopOpt(Loop *Lp, LoopInfo *LI,
 
     ++NumBlocks;
 
+    // Give up on loops with volatile/atomic accesses or inline asm as LoopOpt
+    // does not handle them.
+    //
     // Give up if loop has a user call. LoopOpt is not likely to optimize loops
     // with user calls, especially when it comes to textbook optimizations which
     // require perfect loopnest. Also, in LTO mode inlining of these calls may
     // result in LoopOpt skipping this loop.
     for (auto Inst = BB->begin(), E = BB->end(); Inst != E; ++Inst) {
+
+      if (Inst->isAtomic())
+        return false;
+
+      if (auto *Load = dyn_cast<LoadInst>(&*Inst))
+        if (Load->isVolatile())
+          return false;
+
+      if (auto *Store = dyn_cast<StoreInst>(&*Inst))
+        if (Store->isVolatile())
+          return false;
+
       auto *CInst = dyn_cast<CallInst>(&*Inst);
 
       if (!CInst)
@@ -965,6 +980,9 @@ static bool isLoopHandledByLoopOpt(Loop *Lp, LoopInfo *LI,
 
       if (isa<IntrinsicInst>(CInst))
         continue;
+
+      if (CInst->isInlineAsm())
+        return false;
 
       auto *Func = CInst->getCalledFunction();
 
@@ -991,6 +1009,14 @@ static bool isLoopHandledByLoopOpt(Loop *Lp, LoopInfo *LI,
   return true;
 }
 
+static bool isFortranLang(Function *F) {
+  if (!F->hasFnAttribute("intel-lang"))
+    return false;
+
+  StringRef Lang = F->getFnAttribute("intel-lang").getValueAsString();
+  return (Lang == "fortran");
+}
+
 static bool mayAffectPerfectLoopnest(LoopInfo *LI, Loop *CurLoop,
                                      Instruction *Inst,
                                      TargetLibraryInfo *TLI) {
@@ -1003,11 +1029,22 @@ static bool mayAffectPerfectLoopnest(LoopInfo *LI, Loop *CurLoop,
     return false;
 
   auto *BB = Inst->getParent();
-  if (!BB->getParent()->isPreLoopOpt())
+  auto *Func = BB->getParent();
+  if (!Func->isPreLoopOpt())
     return false;
 
+  // This flag is used as a heuristic to predict whether the functon may be
+  // inlined. There are a couple of problems with accurate prediction- 1)
+  // Unswitching happens very early before inlining in the pass pipeline. 2)
+  // There are some conditions which are handled by this pass but not the
+  // LoopOpt predicate opt pass. For example- CMPLRLLVM-23157.
+  //
+  // The heuristics reflect the fact that we are trying to suppress this
+  // particularly for fortran benchmarks which have loopnest heavy code.
+  bool MayBeInlined = Func->hasExternalLinkage() && isFortranLang(Func);
+
   // Let unswitching happen for outermost loops.
-  if (!CurLoop->getParentLoop())
+  if (!MayBeInlined && !CurLoop->getParentLoop())
     return false;
 
   // We need to get the innermost loop for the block as the same bblock
@@ -1040,13 +1077,13 @@ static bool mayAffectPerfectLoopnest(LoopInfo *LI, Loop *CurLoop,
 
   auto *ParentLp = CondLp->getParentLoop();
 
-  if (!ParentLp)
+  if (!MayBeInlined && !ParentLp)
     return false;
 
   if (!isLoopHandledByLoopOpt(CondLp, LI, TLI))
     return false;
 
-  if (!isLoopHandledByLoopOpt(ParentLp, LI, TLI))
+  if (ParentLp && !isLoopHandledByLoopOpt(ParentLp, LI, TLI))
     return false;
 
   return true;

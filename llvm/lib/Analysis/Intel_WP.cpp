@@ -866,6 +866,8 @@ void WholeProgramInfo::computeIsAdvancedOptEnabled() {
         dbgs() << "Target has SSE42\n";
       if (Enabled[TargetTransformInfo::AdvancedOptLevel::AO_TargetHasAVX])
         dbgs() << "Target has AVX\n";
+      if (Enabled[TargetTransformInfo::AdvancedOptLevel::AO_TargetHasIntelAVX2])
+        dbgs() << "Target has Intel AVX2\n";
       if (Enabled[TargetTransformInfo::AdvancedOptLevel::AO_TargetHasAVX2])
         dbgs() << "Target has AVX2\n";
       if (Enabled[TargetTransformInfo::AdvancedOptLevel::AO_TargetHasAVX512])

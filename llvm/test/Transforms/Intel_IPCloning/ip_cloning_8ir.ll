@@ -1,10 +1,10 @@
 ; Test that generic cloning based on the if-switch heuristic does not occur,
-; because it is not Intel AVX2.
+; because it is non-Intel AVX2.
 ; This is the same test as ip_cloning_8.ll, but checks the IR only without
 ; requiring asserts.
 
-; RUN: opt < %s -ip-gen-cloning-enable-morphology -ip-cloning -ip-cloning-after-inl -ip-cloning-if-heuristic -ip-cloning-switch-heuristic -ip-gen-cloning-force-if-switch-heuristic -ip-gen-cloning-min-if-count=2 -ip-gen-cloning-min-switch-count=1 -S 2>&1 | FileCheck %s
-; RUN: opt < %s -ip-gen-cloning-enable-morphology -passes='module(post-inline-ip-cloning)' -ip-cloning-if-heuristic -ip-cloning-switch-heuristic -ip-gen-cloning-force-if-switch-heuristic -ip-gen-cloning-min-if-count=2 -ip-gen-cloning-min-switch-count=1 -S 2>&1 | FileCheck %s
+; RUN: opt < %s -ip-gen-cloning-enable-morphology -ip-cloning -ip-cloning-after-inl -ip-cloning-if-heuristic -ip-cloning-switch-heuristic -ip-gen-cloning-force-if-switch-heuristic -ip-gen-cloning-min-if-count=2 -ip-gen-cloning-min-switch-count=1  -mtriple=i686-- -mattr=+avx2 -S 2>&1 | FileCheck %s
+; RUN: opt < %s -ip-gen-cloning-enable-morphology -passes='module(post-inline-ip-cloning)' -ip-cloning-if-heuristic -ip-cloning-switch-heuristic -ip-gen-cloning-force-if-switch-heuristic -ip-gen-cloning-min-if-count=2 -ip-gen-cloning-min-switch-count=1  -mtriple=i686-- -mattr=+avx2 -S 2>&1 | FileCheck %s
 
 ; CHECK: define dso_local i32 @main
 ; CHECK: call i32 @foo
