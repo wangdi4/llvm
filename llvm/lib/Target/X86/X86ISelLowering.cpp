@@ -1833,6 +1833,12 @@ X86TargetLowering::X86TargetLowering(const X86TargetMachine &TM,
 
       setOperationAction(ISD::TRUNCATE,           VT, Custom);
       setOperationAction(ISD::SETCC,              VT, Custom);
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+      setOperationAction(ISD::STRICT_FSETCC,      VT, Custom);
+      setOperationAction(ISD::STRICT_FSETCCS,     VT, Custom);
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
       setOperationAction(ISD::EXTRACT_VECTOR_ELT, VT, Custom);
       setOperationAction(ISD::INSERT_VECTOR_ELT,  VT, Custom);
       setOperationAction(ISD::SELECT,             VT, Custom);
@@ -1870,21 +1876,32 @@ X86TargetLowering::X86TargetLowering(const X86TargetMachine &TM,
   if (!Subtarget.useSoftFloat() && Subtarget.hasFP16()) {
     auto setGroup = [&] (MVT VT) {
       setOperationAction(ISD::FADD,               VT, Legal);
+      setOperationAction(ISD::STRICT_FADD,        VT, Legal);
       setOperationAction(ISD::FSUB,               VT, Legal);
+      setOperationAction(ISD::STRICT_FSUB,        VT, Legal);
       setOperationAction(ISD::FMUL,               VT, Legal);
+      setOperationAction(ISD::STRICT_FMUL,        VT, Legal);
       setOperationAction(ISD::FDIV,               VT, Legal);
+      setOperationAction(ISD::STRICT_FDIV,        VT, Legal);
       setOperationAction(ISD::FSQRT,              VT, Legal);
+      setOperationAction(ISD::STRICT_FSQRT,       VT, Legal);
 
       setOperationAction(ISD::FFLOOR,             VT, Legal);
+      setOperationAction(ISD::STRICT_FFLOOR,      VT, Legal);
       setOperationAction(ISD::FCEIL,              VT, Legal);
+      setOperationAction(ISD::STRICT_FCEIL,       VT, Legal);
       setOperationAction(ISD::FTRUNC,             VT, Legal);
+      setOperationAction(ISD::STRICT_FTRUNC,      VT, Legal);
       setOperationAction(ISD::FRINT,              VT, Legal);
+      setOperationAction(ISD::STRICT_FRINT,       VT, Legal);
       setOperationAction(ISD::FNEARBYINT,         VT, Legal);
+      setOperationAction(ISD::STRICT_FNEARBYINT,  VT, Legal);
 
       setOperationAction(ISD::LOAD,               VT, Legal);
       setOperationAction(ISD::STORE,              VT, Legal);
 
       setOperationAction(ISD::FMA,                VT, Legal);
+      setOperationAction(ISD::STRICT_FMA,         VT, Legal);
       setOperationAction(ISD::VSELECT,            VT, Legal);
       setOperationAction(ISD::BUILD_VECTOR,       VT, Custom);
 
@@ -1896,19 +1913,20 @@ X86TargetLowering::X86TargetLowering(const X86TargetMachine &TM,
     };
 
     // AVX512_FP16 scalar operations
+    setGroup(MVT::f16);
     addRegisterClass(MVT::f16,    &X86::FR16XRegClass);
-    setOperationAction(ISD::SELECT_CC,            MVT::f16,   Expand);
-    setOperationAction(ISD::BR_CC,                MVT::f16,   Expand);
+    setOperationAction(ISD::SELECT_CC,            MVT::f16, Expand);
+    setOperationAction(ISD::BR_CC,                MVT::f16, Expand);
     setOperationAction(ISD::SETCC,                MVT::f16, Custom);
+    setOperationAction(ISD::STRICT_FSETCC,        MVT::f16, Custom);
+    setOperationAction(ISD::STRICT_FSETCCS,       MVT::f16, Custom);
     setOperationAction(ISD::SELECT,               MVT::f16, Custom);
-    setOperationAction(ISD::FDIV,                 MVT::f16, Legal);
-    setOperationAction(ISD::FSQRT,                MVT::f16, Legal);
-    setOperationAction(ISD::FNEG,                 MVT::f16, Custom);
-    setOperationAction(ISD::FABS,                 MVT::f16, Custom);
-    setOperationAction(ISD::FCOPYSIGN,            MVT::f16, Custom);
     setOperationAction(ISD::FP_ROUND,             MVT::f16, Custom);
-    if (isTypeLegal(MVT::f80))
-      setOperationAction(ISD::FP_EXTEND,            MVT::f80, Custom);
+    setOperationAction(ISD::STRICT_FP_ROUND,      MVT::f16, Custom);
+    if (isTypeLegal(MVT::f80)) {
+      setOperationAction(ISD::FP_EXTEND,          MVT::f80, Custom);
+      setOperationAction(ISD::STRICT_FP_EXTEND,   MVT::f80, Custom);
+    }
 
     setCondCodeAction(ISD::SETOEQ, MVT::f16, Expand);
     setCondCodeAction(ISD::SETUNE, MVT::f16, Expand);
@@ -1918,8 +1936,29 @@ X86TargetLowering::X86TargetLowering(const X86TargetMachine &TM,
       addRegisterClass(MVT::v32f16, &X86::VR512RegClass);
       setOperationAction(ISD::SCALAR_TO_VECTOR,       MVT::v32f16, Custom);
       setOperationAction(ISD::SINT_TO_FP,             MVT::v32i16, Legal);
+      setOperationAction(ISD::STRICT_SINT_TO_FP,      MVT::v32i16, Legal);
       setOperationAction(ISD::UINT_TO_FP,             MVT::v32i16, Legal);
+      setOperationAction(ISD::STRICT_UINT_TO_FP,      MVT::v32i16, Legal);
+      setOperationAction(ISD::STRICT_FP_ROUND,        MVT::v16f16, Legal);
+      setOperationAction(ISD::STRICT_FP_EXTEND,       MVT::v16f32, Legal);
       setOperationAction(ISD::INSERT_VECTOR_ELT,      MVT::v32f16, Custom);
+
+      setOperationAction(ISD::FP_TO_SINT,             MVT::v32i16, Custom);
+      setOperationAction(ISD::STRICT_FP_TO_SINT,      MVT::v32i16, Custom);
+      setOperationAction(ISD::FP_TO_UINT,             MVT::v32i16, Custom);
+      setOperationAction(ISD::STRICT_FP_TO_UINT,      MVT::v32i16, Custom);
+      setOperationPromotedToType(ISD::FP_TO_SINT,     MVT::v32i8,  MVT::v32i16);
+      setOperationPromotedToType(ISD::STRICT_FP_TO_SINT, MVT::v32i8,
+                                 MVT::v32i16);
+      setOperationPromotedToType(ISD::FP_TO_UINT,     MVT::v32i8,  MVT::v32i16);
+      setOperationPromotedToType(ISD::STRICT_FP_TO_UINT, MVT::v32i8,
+                                 MVT::v32i16);
+      setOperationPromotedToType(ISD::FP_TO_SINT,     MVT::v32i1,  MVT::v32i16);
+      setOperationPromotedToType(ISD::STRICT_FP_TO_SINT, MVT::v32i1,
+                                 MVT::v32i16);
+      setOperationPromotedToType(ISD::FP_TO_UINT,     MVT::v32i1,  MVT::v32i16);
+      setOperationPromotedToType(ISD::STRICT_FP_TO_UINT, MVT::v32i1,
+                                 MVT::v32i16);
 
       setOperationAction(ISD::EXTRACT_SUBVECTOR,      MVT::v16f16, Legal);
       setOperationAction(ISD::INSERT_SUBVECTOR,       MVT::v32f16, Legal);
@@ -1938,18 +1977,24 @@ X86TargetLowering::X86TargetLowering(const X86TargetMachine &TM,
       setOperationAction(ISD::SCALAR_TO_VECTOR,   MVT::v8f16,  Legal);
       setOperationAction(ISD::SCALAR_TO_VECTOR,   MVT::v16f16, Custom);
       setOperationAction(ISD::SINT_TO_FP,         MVT::v16i16, Legal);
+      setOperationAction(ISD::STRICT_SINT_TO_FP,  MVT::v16i16, Legal);
       setOperationAction(ISD::SINT_TO_FP,         MVT::v8i16,  Legal);
+      setOperationAction(ISD::STRICT_SINT_TO_FP,  MVT::v8i16,  Legal);
       setOperationAction(ISD::UINT_TO_FP,         MVT::v16i16, Legal);
+      setOperationAction(ISD::STRICT_UINT_TO_FP,  MVT::v16i16, Legal);
       setOperationAction(ISD::UINT_TO_FP,         MVT::v8i16,  Legal);
+      setOperationAction(ISD::STRICT_UINT_TO_FP,  MVT::v8i16,  Legal);
 
       setOperationAction(ISD::FP_TO_SINT,         MVT::v8i16, Custom);
+      setOperationAction(ISD::STRICT_FP_TO_SINT,  MVT::v8i16, Custom);
       setOperationAction(ISD::FP_TO_UINT,         MVT::v8i16, Custom);
+      setOperationAction(ISD::STRICT_FP_TO_UINT,  MVT::v8i16, Custom);
+      setOperationAction(ISD::STRICT_FP_ROUND,    MVT::v8f16, Legal);
+      setOperationAction(ISD::STRICT_FP_EXTEND,   MVT::v8f32, Legal);
 
       // INSERT_VECTOR_ELT v8f16 extended to VECTOR_SHUFFLE
       setOperationAction(ISD::INSERT_VECTOR_ELT,    MVT::v8f16,  Custom);
       setOperationAction(ISD::INSERT_VECTOR_ELT,    MVT::v16f16, Custom);
-
-      setOperationAction(ISD::FP_TO_SINT,           MVT::v4f16, Custom);
 
       setOperationAction(ISD::EXTRACT_SUBVECTOR,    MVT::v8f16, Legal);
       setOperationAction(ISD::INSERT_SUBVECTOR,     MVT::v16f16, Legal);
@@ -2011,17 +2056,34 @@ X86TargetLowering::X86TargetLowering(const X86TargetMachine &TM,
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_FP16
     if (Subtarget.hasFP16()) {
+      // vcvttph2[u]dq v4f16 -> v4i32/64, v2f16 -> v2i32/64
+      setOperationAction(ISD::FP_TO_SINT,        MVT::v2f16, Custom);
+      setOperationAction(ISD::STRICT_FP_TO_SINT, MVT::v2f16, Custom);
+      setOperationAction(ISD::FP_TO_UINT,        MVT::v2f16, Custom);
+      setOperationAction(ISD::STRICT_FP_TO_UINT, MVT::v2f16, Custom);
+      setOperationAction(ISD::FP_TO_SINT,        MVT::v4f16, Custom);
+      setOperationAction(ISD::STRICT_FP_TO_SINT, MVT::v4f16, Custom);
+      setOperationAction(ISD::FP_TO_UINT,        MVT::v4f16, Custom);
+      setOperationAction(ISD::STRICT_FP_TO_UINT, MVT::v4f16, Custom);
       // vcvt[u]dq2ph v4i32/64 -> v4f16, v2i32/64 -> v2f16
-      setOperationAction(ISD::SINT_TO_FP,    MVT::v2f16, Custom);
-      setOperationAction(ISD::UINT_TO_FP,    MVT::v2f16, Custom);
-      setOperationAction(ISD::SINT_TO_FP,    MVT::v4f16, Custom);
-      setOperationAction(ISD::UINT_TO_FP,    MVT::v4f16, Custom);
+      setOperationAction(ISD::SINT_TO_FP,        MVT::v2f16, Custom);
+      setOperationAction(ISD::STRICT_SINT_TO_FP, MVT::v2f16, Custom);
+      setOperationAction(ISD::UINT_TO_FP,        MVT::v2f16, Custom);
+      setOperationAction(ISD::STRICT_UINT_TO_FP, MVT::v2f16, Custom);
+      setOperationAction(ISD::SINT_TO_FP,        MVT::v4f16, Custom);
+      setOperationAction(ISD::STRICT_SINT_TO_FP, MVT::v4f16, Custom);
+      setOperationAction(ISD::UINT_TO_FP,        MVT::v4f16, Custom);
+      setOperationAction(ISD::STRICT_UINT_TO_FP, MVT::v4f16, Custom);
       // vcvtps2phx v4f32 -> v4f16, v2f32 -> v2f16
-      setOperationAction(ISD::FP_ROUND,      MVT::v2f16, Custom);
-      setOperationAction(ISD::FP_ROUND,      MVT::v4f16, Custom);
+      setOperationAction(ISD::FP_ROUND,          MVT::v2f16, Custom);
+      setOperationAction(ISD::STRICT_FP_ROUND,   MVT::v2f16, Custom);
+      setOperationAction(ISD::FP_ROUND,          MVT::v4f16, Custom);
+      setOperationAction(ISD::STRICT_FP_ROUND,   MVT::v4f16, Custom);
       // vcvtph2psx v4f16 -> v4f32, v2f16 -> v2f32
-      setOperationAction(ISD::FP_EXTEND,     MVT::v2f16, Custom);
-      setOperationAction(ISD::FP_EXTEND,     MVT::v4f16, Custom);
+      setOperationAction(ISD::FP_EXTEND,         MVT::v2f16, Custom);
+      setOperationAction(ISD::STRICT_FP_EXTEND,  MVT::v2f16, Custom);
+      setOperationAction(ISD::FP_EXTEND,         MVT::v4f16, Custom);
+      setOperationAction(ISD::STRICT_FP_EXTEND,  MVT::v4f16, Custom);
     }
 #endif // INTEL_FEATURE_ISA_FP16
 #endif // INTEL_CUSTOMIZATION
@@ -19021,9 +19083,21 @@ X86TargetLowering::LowerEXTRACT_VECTOR_ELT(SDValue Op,
     // we're going to zero extend the register or fold the store (SSE41 only).
     if (IdxVal == 0 && !MayFoldIntoZeroExtend(Op) &&
         !(Subtarget.hasSSE41() && MayFoldIntoStore(Op)))
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+    {
+      if (Subtarget.hasFP16())
+        return Op;
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
       return DAG.getNode(ISD::TRUNCATE, dl, MVT::i16,
                          DAG.getNode(ISD::EXTRACT_VECTOR_ELT, dl, MVT::i32,
                                      DAG.getBitcast(MVT::v4i32, Vec), Idx));
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+    }
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
 
     SDValue Extract = DAG.getNode(X86ISD::PEXTRW, dl, MVT::i32, Vec,
                                   DAG.getTargetConstant(IdxVal, dl, MVT::i8));
@@ -20025,16 +20099,22 @@ static SDValue LowerI64IntToFP16(SDValue Op, SelectionDAG &DAG,
     return SDValue();
 
   assert(Subtarget.hasFP16() && "Expected FP16");
-  // FIXME: We may need strict FP support for FP16 in future.
-  assert(!IsStrict && "Strict FP hasn't been supported");
 
   // Pack the i64 into a vector, do the operation and extract.
 
   SDLoc dl(Op);
   SDValue InVec = DAG.getNode(ISD::SCALAR_TO_VECTOR, dl, MVT::v2i64, Src);
-  unsigned Opc = Op.getOpcode() == ISD::SINT_TO_FP ? X86ISD::CVTSI2P
-                                                   : X86ISD::CVTUI2P;
-  SDValue CvtVec = DAG.getNode(Opc, dl, MVT::v8f16, InVec);
+  if (IsStrict) {
+    SDValue CvtVec = DAG.getNode(Op.getOpcode(), dl, {MVT::v2f16, MVT::Other},
+                                 {Op.getOperand(0), InVec});
+    SDValue Chain = CvtVec.getValue(1);
+    SDValue Value = DAG.getNode(ISD::EXTRACT_VECTOR_ELT, dl, VT, CvtVec,
+                                DAG.getIntPtrConstant(0, dl));
+    return DAG.getMergeValues({Value, Chain}, dl);
+  }
+
+  SDValue CvtVec = DAG.getNode(Op.getOpcode(), dl, MVT::v2f16, InVec);
+
   return DAG.getNode(ISD::EXTRACT_VECTOR_ELT, dl, VT, CvtVec,
                      DAG.getIntPtrConstant(0, dl));
 }
@@ -21578,6 +21658,49 @@ SDValue X86TargetLowering::LowerFP_TO_INT(SDValue Op, SelectionDAG &DAG) const {
     }
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_FP16
+    if (Subtarget.hasFP16() && SrcVT.getVectorElementType() == MVT::f16) {
+      if (VT == MVT::v8i16 || VT == MVT::v16i16 || VT == MVT::v32i16)
+        return Op;
+
+      MVT ResVT = VT;
+      MVT EleVT = VT.getVectorElementType();
+      if (EleVT != MVT::i64)
+        ResVT = EleVT == MVT::i32 ? MVT::v4i32 : MVT::v8i16;
+
+      if (SrcVT != MVT::v8f16) {
+        SDValue Tmp = IsStrict ? DAG.getConstantFP(0.0, dl, SrcVT)
+                               : DAG.getUNDEF(SrcVT);
+        SmallVector<SDValue, 4> Ops(SrcVT == MVT::v2f16 ? 4 : 2, Tmp);
+        Ops[0] = Src;
+        Src = DAG.getNode(ISD::CONCAT_VECTORS, dl, MVT::v8f16, Ops);
+      }
+
+      SDValue Res, Chain;
+      if (IsStrict) {
+        Res = DAG.getNode(IsSigned ? X86ISD::STRICT_CVTTP2SI
+                                   : X86ISD::STRICT_CVTTP2UI,
+                          dl, {ResVT, MVT::Other}, {Op->getOperand(0), Src});
+        Chain = Res.getValue(1);
+      } else {
+        Res = DAG.getNode(IsSigned ? X86ISD::CVTTP2SI : X86ISD::CVTTP2UI, dl,
+                          ResVT, Src);
+      }
+
+      // TODO: Need to add exception check code for strict FP.
+      if (EleVT.getSizeInBits() < 16) {
+        ResVT = MVT::getVectorVT(EleVT, 8);
+        Res = DAG.getNode(ISD::TRUNCATE, dl, ResVT, Res);
+      }
+
+      if (ResVT != VT)
+        Res = DAG.getNode(ISD::EXTRACT_SUBVECTOR, dl, VT, Res,
+                          DAG.getIntPtrConstant(0, dl));
+
+      if (IsStrict)
+        return DAG.getMergeValues({Res, Chain}, dl);
+      return Res;
+    }
+
     if (VT == MVT::v8i16 && (SrcVT == MVT::v8f32 || SrcVT == MVT::v8f64)) {
       SDValue Res = DAG.getNode(IsSigned ? ISD::FP_TO_SINT : ISD::FP_TO_UINT,
                                 dl, MVT::v8i32, Src);
@@ -21866,18 +21989,17 @@ SDValue X86TargetLowering::LowerFP_EXTEND(SDValue Op, SelectionDAG &DAG) const {
     return Op;
   }
 
-  if (SVT == MVT::v4f16) {
+  if (SVT.getVectorElementType() == MVT::f16) {
     assert(Subtarget.hasFP16() && Subtarget.hasVLX() && "Unexpected features!");
-    return DAG.getNode(X86ISD::VFPEXT, DL, VT,
-                       DAG.getNode(ISD::CONCAT_VECTORS, DL, MVT::v8f16,
-                                   In, DAG.getUNDEF(SVT)));
-  }
-  if (SVT == MVT::v2f16) {
-    assert(Subtarget.hasFP16() && Subtarget.hasVLX() && "Unexpected features!");
-    return DAG.getNode(X86ISD::VFPEXT, DL, VT,
-                       DAG.getNode(ISD::CONCAT_VECTORS, DL, MVT::v8f16,
-                                   In, DAG.getUNDEF(SVT), DAG.getUNDEF(SVT),
-                                   DAG.getUNDEF(SVT)));
+    if (SVT == MVT::v2f16)
+      In = DAG.getNode(ISD::CONCAT_VECTORS, DL, MVT::v4f16, In,
+                       DAG.getUNDEF(MVT::v2f16));
+    SDValue Res = DAG.getNode(ISD::CONCAT_VECTORS, DL, MVT::v8f16, In,
+                              DAG.getUNDEF(MVT::v4f16));
+    if (IsStrict)
+      return DAG.getNode(X86ISD::STRICT_VFPEXT, DL, {VT, MVT::Other},
+                         {Op->getOperand(0), Res});
+    return DAG.getNode(X86ISD::VFPEXT, DL, VT, Res);
   }
 #endif // INTEL_FEATURE_ISA_FP16
 #endif // INTEL_CUSTOMIZATION
@@ -30955,6 +31077,54 @@ void X86TargetLowering::ReplaceNodeResults(SDNode *N,
     EVT VT = N->getValueType(0);
     SDValue Src = N->getOperand(IsStrict ? 1 : 0);
     EVT SrcVT = Src.getValueType();
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+    if (VT.isVector() && Subtarget.hasFP16() &&
+        SrcVT.getVectorElementType() == MVT::f16) {
+      EVT EleVT = VT.getVectorElementType();
+      EVT ResVT = EleVT == MVT::i32 ? MVT::v4i32 : MVT::v8i16;
+
+      if (SrcVT != MVT::v8f16) {
+        SDValue Tmp = IsStrict ? DAG.getConstantFP(0.0, dl, SrcVT)
+                               : DAG.getUNDEF(SrcVT);
+        SmallVector<SDValue, 4> Ops(SrcVT == MVT::v2f16 ? 4 : 2, Tmp);
+        Ops[0] = Src;
+        Src = DAG.getNode(ISD::CONCAT_VECTORS, dl, MVT::v8f16, Ops);
+      }
+
+      SDValue Res, Chain;
+      if (IsStrict) {
+        unsigned Opc = IsSigned ? X86ISD::STRICT_CVTTP2SI
+                                : X86ISD::STRICT_CVTTP2UI;
+        Res = DAG.getNode(Opc, dl, {ResVT, MVT::Other},
+                          {N->getOperand(0), Src});
+        Chain = Res.getValue(1);
+      } else {
+        unsigned Opc = IsSigned ? X86ISD::CVTTP2SI : X86ISD::CVTTP2UI;
+        Res = DAG.getNode(Opc, dl, ResVT, Src);
+      }
+
+      // TODO: Need to add exception check code for strict FP.
+      if (EleVT.getSizeInBits() < 16) {
+        MVT TmpVT = MVT::getVectorVT(EleVT.getSimpleVT(), 8);
+        Res = DAG.getNode(ISD::TRUNCATE, dl, TmpVT, Res);
+
+        // Now widen to 128 bits.
+        unsigned NumConcats = 128 / TmpVT.getSizeInBits();
+        MVT ConcatVT = MVT::getVectorVT(EleVT.getSimpleVT(), 8 * NumConcats);
+        SmallVector<SDValue, 8> ConcatOps(NumConcats, DAG.getUNDEF(TmpVT));
+        ConcatOps[0] = Res;
+        Res = DAG.getNode(ISD::CONCAT_VECTORS, dl, ConcatVT, ConcatOps);
+      }
+
+      Results.push_back(Res);
+      if (IsStrict)
+        Results.push_back(Chain);
+
+      return;
+    }
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
 
     if (VT.isVector() && VT.getScalarSizeInBits() < 32) {
       assert(getTypeAction(*DAG.getContext(), VT) == TypeWidenVector &&
@@ -31126,14 +31296,23 @@ void X86TargetLowering::ReplaceNodeResults(SDNode *N,
 #if INTEL_CUSTOMIZATION
     SDValue Src = N->getOperand(IsStrict ? 1 : 0);
 #if INTEL_FEATURE_ISA_FP16
-    EVT SVT = Src.getValueType();
     if (VT.getVectorElementType() == MVT::f16
         && Subtarget.hasFP16() && Subtarget.hasVLX()) {
-      assert(!IsStrict && "Strict FP not supported on FP16!");
-      if (SVT.getVectorElementType() != MVT::i16) {
-        if (VT == MVT::v2f16 && SVT == MVT::v2i32)
-          Src = DAG.getNode(ISD::CONCAT_VECTORS, dl, MVT::v4i32, Src,
-                            DAG.getUNDEF(MVT::v2i32));
+      if (Src.getValueType().getVectorElementType() == MVT::i16)
+        return;
+
+      if (VT == MVT::v2f16 && Src.getValueType() == MVT::v2i32)
+        Src = DAG.getNode(ISD::CONCAT_VECTORS, dl, MVT::v4i32, Src,
+                          IsStrict ? DAG.getConstant(0, dl, MVT::v2i32)
+                                   : DAG.getUNDEF(MVT::v2i32));
+      if (IsStrict) {
+        unsigned Opc = IsSigned ? X86ISD::STRICT_CVTSI2P
+                                : X86ISD::STRICT_CVTUI2P;
+        SDValue Res = DAG.getNode(Opc, dl, {MVT::v8f16, MVT::Other},
+                                  {N->getOperand(0), Src});
+        Results.push_back(Res);
+        Results.push_back(Res.getValue(1));
+      } else {
         unsigned Opc = IsSigned ? X86ISD::CVTSI2P : X86ISD::CVTUI2P;
         Results.push_back(DAG.getNode(Opc, dl, MVT::v8f16, Src));
       }
@@ -31248,9 +31427,11 @@ void X86TargetLowering::ReplaceNodeResults(SDNode *N,
     EVT VT = N->getValueType(0);
     EVT NewVT = VT.getVectorElementType() == MVT::f16 ? MVT::v8f16
                                                       : MVT::v4f32;
-    if (VT == MVT::v2f16 && Src.getValueType() == MVT::v2f32)
-      Src = DAG.getNode(ISD::CONCAT_VECTORS, dl, MVT::v4f32,
-                        Src, DAG.getUNDEF(MVT::v2f32));
+    if (VT == MVT::v2f16 && Src.getValueType() == MVT::v2f32) {
+      SDValue Ext = IsStrict ? DAG.getConstantFP(0.0, dl, MVT::v2f32)
+                             : DAG.getUNDEF(MVT::v2f32);
+      Src = DAG.getNode(ISD::CONCAT_VECTORS, dl, MVT::v4f32, Src, Ext);
+    }
 #else // INTEL_FEATURE_ISA_FP16
     EVT NewVT = MVT::v4f32;
 #endif // INTEL_FEATURE_ISA_FP16
@@ -31276,13 +31457,21 @@ void X86TargetLowering::ReplaceNodeResults(SDNode *N,
            "Do not know how to legalize this Node");
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_FP16
-    if (Subtarget.hasFP16() && Subtarget.hasVLX()) {
-      SDValue Src = N->getOperand(0);
-      SDValue V = DAG.getNode(ISD::FP_EXTEND, dl, MVT::v4f32,
-                              DAG.getNode(ISD::CONCAT_VECTORS, dl, MVT::v4f16,
-                                          Src, DAG.getUNDEF(MVT::v2f16)));
-      Results.push_back(V);
-    }
+    if (!Subtarget.hasFP16() || !Subtarget.hasVLX())
+      return;
+    bool IsStrict = N->isStrictFPOpcode();
+    SDValue Src = N->getOperand(IsStrict ? 1 : 0);
+    SDValue Ext = IsStrict ? DAG.getConstantFP(0.0, dl, MVT::v2f16)
+                           : DAG.getUNDEF(MVT::v2f16);
+    SDValue V = DAG.getNode(ISD::CONCAT_VECTORS, dl, MVT::v4f16, Src, Ext);
+    if (IsStrict)
+      V = DAG.getNode(ISD::STRICT_FP_EXTEND, dl, {MVT::v4f32, MVT::Other},
+                      {N->getOperand(0), V});
+    else
+      V = DAG.getNode(ISD::FP_EXTEND, dl, MVT::v4f32, V);
+    Results.push_back(V);
+    if (IsStrict)
+      Results.push_back(V.getValue(1));
 #endif // INTEL_FEATURE_ISA_FP16
 #endif // INTEL_CUSTOMIZATION
     return;
@@ -32258,15 +32447,15 @@ bool X86TargetLowering::isFMAFasterThanFMulAndFAdd(const MachineFunction &MF,
     return false;
 
   switch (VT.getSimpleVT().SimpleTy) {
-  case MVT::f32:
-  case MVT::f64:
-    return true;
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_FP16
   case MVT::f16:
     return Subtarget.hasFP16();
 #endif // INTEL_FEATURE_ISA_FP16
 #endif // INTEL_CUSTOMIZATION
+  case MVT::f32:
+  case MVT::f64:
+    return true;
   default:
     break;
   }
@@ -41806,7 +41995,13 @@ static SDValue scalarizeExtEltFP(SDNode *ExtElt, SelectionDAG &DAG) {
     return DAG.getNode(Vec.getOpcode(), DL, VT, Ext0, Ext1, Vec.getOperand(2));
   }
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+  if (VT != MVT::f16 && VT != MVT::f32 && VT != MVT::f64)
+#else // INTEL_FEATURE_ISA_FP16
   if (VT != MVT::f32 && VT != MVT::f64)
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
     return SDValue();
 
   // Vector FP selects don't fit the pattern of FP math ops (because the
