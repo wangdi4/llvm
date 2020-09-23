@@ -48,7 +48,7 @@
 ; CHECK:    END REGION
 
 ; RUN: opt -loop-simplify -hir-ssa-deconstruction -hir-opt-var-predicate -disable-output -hir-cg -intel-loop-optreport=low -simplifycfg -intel-ir-optreport-emitter 2>&1 < %s -S | FileCheck %s -check-prefix=OPTREPORT
-; RUN: opt -passes="loop-simplify,hir-ssa-deconstruction,hir-opt-var-predicate,hir-cg,simplify-cfg,intel-ir-optreport-emitter" -aa-pipeline="basic-aa" -disable-output -intel-loop-optreport=low 2>&1 < %s -S | FileCheck %s -check-prefix=OPTREPORT
+; RUN: opt -passes="loop-simplify,hir-ssa-deconstruction,hir-opt-var-predicate,hir-cg,loop-simplifycfg,intel-ir-optreport-emitter" -aa-pipeline="basic-aa" -disable-output -intel-loop-optreport=low 2>&1 < %s -S | FileCheck %s -check-prefix=OPTREPORT
 
 ;OPTREPORT: Global loop optimization report for : foo
 ;

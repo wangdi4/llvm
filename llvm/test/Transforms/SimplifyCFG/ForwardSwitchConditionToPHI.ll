@@ -2,8 +2,8 @@
 ; RUN: opt < %s -simplifycfg -forward-switch-cond=false -S | FileCheck %s --check-prefix=NO_FWD
 ; RUN: opt < %s -simplifycfg -forward-switch-cond=true  -S | FileCheck %s --check-prefix=FWD
 
-; RUN: opt < %s -passes='simplify-cfg<no-forward-switch-cond>' -S | FileCheck %s --check-prefix=NO_FWD
-; RUN: opt < %s -passes='simplify-cfg<forward-switch-cond>' -S | FileCheck %s --check-prefix=FWD
+; RUN: opt < %s -passes='loop-simplifycfg<no-forward-switch-cond>' -S | FileCheck %s --check-prefix=NO_FWD
+; RUN: opt < %s -passes='loop-simplifycfg<forward-switch-cond>' -S | FileCheck %s --check-prefix=FWD
 
 ; PR10131
 

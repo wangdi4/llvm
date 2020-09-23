@@ -1317,7 +1317,7 @@ ModulePassManager PassBuilder::buildModuleSimplificationPipeline(
 
   // Promote any localized globals to SSA registers.
   // FIXME: Should this instead by a run of SROA?
-  // FIXME: We should probably run instcombine and simplify-cfg afterward to
+  // FIXME: We should probably run instcombine and loop-simplifycfg afterward to
   // delete control flows that are dead once globals have been folded to
   // constants.
   MPM.addPass(createModuleToFunctionPassAdaptor(PromotePass()));
@@ -1464,7 +1464,7 @@ ModulePassManager PassBuilder::buildModuleOptimizationPipeline(
   }
 
   // FIXME: We need to run some loop optimizations to re-rotate loops after
-  // simplify-cfg and others undo their rotation.
+  // loop-simplifycfg and others undo their rotation.
 
   // Optimize the loop execution. These passes operate on entire loop nests
   // rather than on each loop in an inside-out manner, and so they are actually

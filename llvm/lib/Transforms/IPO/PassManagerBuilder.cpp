@@ -760,8 +760,8 @@ void PassManagerBuilder::addFunctionSimplificationPasses(
   else
     MPM.add(createLoopUnswitchPass(SizeLevel || OptLevel < 3, DivergentTarget));
   // FIXME: We break the loop pass pipeline here in order to do full
-  // simplify-cfg. Eventually loop-simplifycfg should be enhanced to replace the
-  // need for this.
+  // loop-simplifycfg. Eventually loop-simplifycfg should be enhanced to replace
+  // the need for this.
   MPM.add(createCFGSimplificationPass());
   addInstructionCombiningPass(MPM);  // INTEL
   // We resume loop passes creating a second loop pipeline here.

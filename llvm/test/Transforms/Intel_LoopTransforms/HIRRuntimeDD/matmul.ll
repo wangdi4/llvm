@@ -29,7 +29,7 @@
 ; Check that proper optreport is emitted for multiversioned loop.
 
 ; RUN: opt -hir-ssa-deconstruction -hir-runtime-dd  -hir-post-vec-complete-unroll -hir-cg -S -intel-loop-optreport=low -simplifycfg -intel-ir-optreport-emitter 2>&1 < %s | FileCheck %s -check-prefix=OPTREPORT --strict-whitespace
-; RUN: opt -passes="hir-ssa-deconstruction,hir-runtime-dd,hir-post-vec-complete-unroll,hir-cg,simplify-cfg,intel-ir-optreport-emitter" -aa-pipeline="basic-aa"  -S -intel-loop-optreport=low 2>&1 < %s | FileCheck %s -check-prefix=OPTREPORT --strict-whitespace
+; RUN: opt -passes="hir-ssa-deconstruction,hir-runtime-dd,hir-post-vec-complete-unroll,hir-cg,loop-simplifycfg,intel-ir-optreport-emitter" -aa-pipeline="basic-aa"  -S -intel-loop-optreport=low 2>&1 < %s | FileCheck %s -check-prefix=OPTREPORT --strict-whitespace
 
 ; OPTREPORT: LOOP BEGIN
 ; OPTREPORT-NEXT:     Remark: The loop has been multiversioned{{[[:space:]]}}

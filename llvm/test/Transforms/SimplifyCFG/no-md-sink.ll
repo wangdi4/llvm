@@ -1,5 +1,5 @@
 ; RUN: opt < %s -simplifycfg -sink-common-insts -S | FileCheck %s
-; RUN: opt < %s -passes='simplify-cfg<sink-common-insts>' -S | FileCheck %s
+; RUN: opt < %s -passes='loop-simplifycfg<sink-common-insts>' -S | FileCheck %s
 
 define i1 @test1(i1 zeroext %flag, i8* %y) #0 {
 entry:

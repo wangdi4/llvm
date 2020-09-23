@@ -61,7 +61,7 @@
 
 ; Check that proper optreport is emitted for Unroll and Jam.
 ; RUN: opt -hir-ssa-deconstruction -hir-lmm -hir-unroll-and-jam -hir-cg -intel-loop-optreport=low -simplifycfg -intel-ir-optreport-emitter %s 2>&1 < %s -S | FileCheck %s -check-prefix=OPTREPORT --strict-whitespace
-; RUN: opt -passes="hir-ssa-deconstruction,hir-lmm,hir-unroll-and-jam,hir-cg,simplify-cfg,intel-ir-optreport-emitter" -aa-pipeline="basic-aa" -intel-loop-optreport=low %s 2>&1 < %s -S | FileCheck %s -check-prefix=OPTREPORT --strict-whitespace
+; RUN: opt -passes="hir-ssa-deconstruction,hir-lmm,hir-unroll-and-jam,hir-cg,loop-simplifycfg,intel-ir-optreport-emitter" -aa-pipeline="basic-aa" -intel-loop-optreport=low %s 2>&1 < %s -S | FileCheck %s -check-prefix=OPTREPORT --strict-whitespace
 
 ; OPTREPORT:      LOOP BEGIN
 ; OPTREPORT-NEXT:     Remark: Loop has been unrolled and jammed by {{.*}}{{[[:space:]]}}
