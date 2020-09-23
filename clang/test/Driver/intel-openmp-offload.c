@@ -219,3 +219,8 @@
 // RUN: %clangxx -target x86_64-unknown-linux-gnu -fopenmp -fopenmp-targets=x86_64 %s -### 2>&1 \
 // RUN:  | FileCheck %s -check-prefix=FOPENMP_NOGCC_OPT
 // FOPENMP_NOGCC_OPT-NOT: gcc{{.*}} "-fiopenmp" {{.*}} "-fheinous-gnu-extensions" "-fveclib=SVML"
+
+/// -fsycl-device-code-split=per_kernel should not be used for OpenMP
+// RUN: %clangxx -target x86_64-unknown-linux-gnu -fopenmp -fopenmp-targets=spir64 %s -### 2>&1 \
+// RUN:  | FileCheck %s -check-prefix=FOPENMP_NO_SPLIT
+// FOPENMP_NO_SPLIT-NOT: sycl-post-link{{.*}} -split=per_kernel
