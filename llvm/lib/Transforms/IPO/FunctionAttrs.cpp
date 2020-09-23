@@ -1534,9 +1534,11 @@ static bool runImpl(CallGraphSCC &SCC, AARGetterT AARGetter, // INTEL
     // when whole-program-safe is true.
     if (F->getName() == "main" && F->use_empty()) {
       if (WPA && WPA->getResult().isWholeProgramSafe()) {
-        Changed |= setDoesNotRecurse(*F);
+        F->setDoesNotRecurse();
+        ++NumNoRecurse;
+        Changed |= true;
       }
-  }
+    }
 #endif // INTEL_CUSTOMIZATION
 
     SCCNodes.insert(F);
