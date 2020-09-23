@@ -7246,10 +7246,14 @@ Value *BoUpSLP::vectorizeTree(TreeEntry *E) {
         inversePermutation(E->ReorderIndices, Mask);
         V = Builder.CreateShuffleVector(V, Mask, "reorder_shuffle");
       }
+#if INTEL_CUSTOMIZATION
+      // Reuse shuffling is handled outside of the lambda.
+#else
       if (NeedToShuffleReuses) {
         // TODO: Merge this shuffle with the ReorderShuffleMask.
         V = Builder.CreateShuffleVector(V, E->ReuseShuffleIndices, "shuffle");
       }
+#endif // INTEL_CUSTOMIZATION
       E->VectorizedValue = V;
       ++NumVectorInstructions;
       return V;
@@ -7312,9 +7316,8 @@ Value *BoUpSLP::vectorizeTree(TreeEntry *E) {
       // When split load support is enabled we may need to shuffle resulting
       // vector.
       if (NeedToShuffleReuses) {
-        RetValue = Builder.CreateShuffleVector(
-            RetValue, UndefValue::get(RetValue->getType()),
-            E->ReuseShuffleIndices, "SplitLoadReuseShuffle");
+        RetValue = Builder.CreateShuffleVector(RetValue, E->ReuseShuffleIndices,
+                                               "SplitLoadReuseShuffle");
         if (auto *I = dyn_cast<Instruction>(RetValue)) {
           GatherSeq.insert(I);
           CSEBlocks.insert(I->getParent());
