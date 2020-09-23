@@ -1805,9 +1805,9 @@ namespace X86 {
     sib   = 504,
     sib64 = 505
   };
-}
+} // namespace X86
 
-}
+} // namespace llvm
 
 static bool translateInstruction(MCInst &target,
                                 InternalInstruction &source,
@@ -1837,7 +1837,7 @@ private:
 #endif // INTEL_CUSTOMIZATION
 };
 
-}
+} // namespace
 
 X86GenericDisassembler::X86GenericDisassembler(
                                          const MCSubtargetInfo &STI,
