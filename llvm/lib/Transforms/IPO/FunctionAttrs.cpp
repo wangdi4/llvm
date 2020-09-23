@@ -1360,12 +1360,6 @@ static bool inferAttrsFromFunctionBodies(const SCCNodeSet &SCCNodes) {
   return AI.run(SCCNodes);
 }
 
-static bool setDoesNotRecurse(Function &F) {
-  F.setDoesNotRecurse();
-  ++NumNoRecurse;
-  return true;
-}
-
 static bool addNoRecurseAttrs(const SCCNodeSet &SCCNodes) {
   // Try and identify functions that do not recurse.
 
@@ -1392,7 +1386,9 @@ static bool addNoRecurseAttrs(const SCCNodeSet &SCCNodes) {
   // Every call was to a non-recursive function other than this function, and
   // we have no indirect recursion as the SCC size is one. This function cannot
   // recurse.
-  return setDoesNotRecurse(*F);
+  F->setDoesNotRecurse();
+  ++NumNoRecurse;
+  return true;
 }
 
 template <typename AARGetterT>
@@ -1621,7 +1617,9 @@ static bool addNoRecurseAttrsTopDown(Function &F) {
     if (!CB || !CB->getParent()->getParent()->doesNotRecurse())
       return false;
   }
-  return setDoesNotRecurse(F);
+  F.setDoesNotRecurse();
+  ++NumNoRecurse;
+  return true;
 }
 
 static bool deduceFunctionAttributeInRPO(Module &M, CallGraph &CG) {
