@@ -29,13 +29,14 @@
 #include "llvm/ExecutionEngine/ExecutionEngine.h"
 #include "llvm/ExecutionEngine/JITEventListener.h"
 #include "llvm/ExecutionEngine/MCJIT.h"
-#include "llvm/ExecutionEngine/SectionMemoryManager.h"
 #include "llvm/ExecutionEngine/Orc/RTDyldObjectLinkingLayer.h"
+#include "llvm/ExecutionEngine/SectionMemoryManager.h"
 #include "llvm/IR/DataLayout.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/LegacyPassManager.h"
 #include "llvm/IR/Module.h"
 #include "llvm/Support/CommandLine.h"
+#include "llvm/Support/TargetSelect.h"
 
 #include <string>
 
@@ -281,6 +282,9 @@ CPUCompiler::CPUCompiler(const ICompilerConfig& config):
     {
         m_pVTuneListener = llvm::JITEventListener::createIntelJITEventListener();
     }
+
+    // Initialize asm parsers to support inline assembly
+    llvm::InitializeAllAsmParsers();
 }
 
 CPUCompiler::~CPUCompiler()
