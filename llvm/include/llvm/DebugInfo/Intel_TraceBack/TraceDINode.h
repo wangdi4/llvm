@@ -260,7 +260,8 @@ public:
 /// In this module, there may be multiple TraceFile corrsponding to the same
 /// source file, and the file/routine without any routines/lines will be removed
 /// at appropriate time.
-class TraceModule : public TraceDINodeWithChildren<TraceFile> {
+class TraceModule : public TraceDINodeWithChildren<TraceFile>,
+                    public ilist_node<TraceModule> {
 private:
   /// The pointer size of the target machine.
   unsigned PointerSize;
@@ -268,7 +269,7 @@ private:
   unsigned Version;
 
   /// Map index to TraceFile.
-  DenseMap<unsigned, TraceFile *> IndexToFile;
+  DenseMap<unsigned, const TraceFile *> IndexToFile;
   /// Is this module already ended?
   bool IsEnded = false;
 
@@ -300,11 +301,13 @@ private:
   /// Clear the file that doesn't have any routine.
   void removeEmptyFile();
 
-  /// Emit the text size attribute.
-  void emitTextSizeAttribute(MCStreamer &OS) const;
-
 public:
-  TraceModule(unsigned PointerSize, unsigned Version, const std::string &Name);
+  // Module name(always empty) and format version (always 2.00) in ICC's
+  // current implementation. Unlike DWARF, we only want to support the latest
+  // version of traceback. So the version info is used to debug only for
+  // developers.
+  TraceModule(unsigned PointerSize, unsigned Version = 200,
+              const std::string &Name = "");
 
   /// Add a new file, the indices of two file should be same if and only if
   /// they corresponds to the same source/header file. The indices don't need to
@@ -316,7 +319,9 @@ public:
   /// \param Name routine name.
   /// \param Line start line of the routine.
   /// \param Begin begin label of the routine.
-  void addRoutine(const std::string &Name, unsigned Line, MCSymbol *Begin);
+  /// \param HasPrologue whether the function has prologue.
+  void addRoutine(const std::string &Name, unsigned Line, MCSymbol *Begin,
+                  bool HasPrologue);
   /// Add a new line.
   /// \param Line line number in the file.
   /// \param Begin begin label of the line.

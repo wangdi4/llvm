@@ -23,11 +23,21 @@
 
 ; Check the relocations of section .trace, there should be 4 relocations,
 ; 1 for .text begin and 3 function entries.
-; RUN: llvm-readelf -r  %t1.o | FileCheck --check-prefixes=RELOCATION %s
+; RUN: llvm-readelf -r  %t1.o | FileCheck --check-prefixes=RELOCATION-ELF %s
+; RUN: llvm-readelf -r  %t3.o | FileCheck --check-prefixes=RELOCATION-COFF %s
 
 ; RELOCATION-LABEL: Relocation section '.rela.trace'
-; RELOCATION:          Type             Symbol's Value
-; RELOCATION-COUNT-4:  R_X86_64_64      0000000000000000
+; RELOCATION-ELF:          Type          {{.*}}   Symbol's Name + Addend
+; RELOCATION-ELF:       R_X86_64_64      {{.*}}   subr2 + 0
+; RELOCATION-ELF-NEXT:  R_X86_64_64      {{.*}}   subr2 + 0
+; RELOCATION-ELF-NEXT:  R_X86_64_64      {{.*}}   subr1 + 0
+; RELOCATION-ELF-NEXT:  R_X86_64_64      {{.*}}   main  + 0
+
+; RELOCATION-COFF-LABEL: Section {{.*}} .trace
+; RELOCATION-COFF-NEXT:  IMAGE_REL_AMD64_ADDR64 subr2
+; RELOCATION-COFF-NEXT:  IMAGE_REL_AMD64_ADDR64 subr2
+; RELOCATION-COFF-NEXT:  IMAGE_REL_AMD64_ADDR64 subr1
+; RELOCATION-COFF-NEXT:  IMAGE_REL_AMD64_ADDR64 main
 
 ; To regenerate the test file traceback-binary.ll
 ; clang -traceback -S -emit-llvm traceback-binary.c
