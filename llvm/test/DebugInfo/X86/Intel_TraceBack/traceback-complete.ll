@@ -10,13 +10,13 @@
 ; llvm-dis traceback-complete.bc
 
 ; CHECK-LABEL:    .section    .trace,"a",@progbits
-; CHECK-NEXT:    .byte    10                              # TB_TAG_Module
+; CHECK:         .byte    10                              # TB_TAG_Module
 ; CHECK-NEXT:    .short    2                              # TB_AT_MajorV
 ; CHECK-NEXT:    .byte    0                               # TB_AT_MinorV
-; CHECK-NEXT:    .long    .L{{.*}}-.trace                 # TB_AT_TraceSize
-; CHECK-NEXT:    .quad    .L{{.*}}                        # TB_AT_TextBegin
+; CHECK-NEXT:    .long    .L{{.*}}-.L{{.*}}               # TB_AT_ModuleSize
+; CHECK-NEXT:    .quad    main                            # TB_AT_CodeBegin
 ; CHECK-NEXT:    .long    2                               # TB_AT_NumOfFiles
-; CHECK-NEXT:    .long    .L{{.*}}-.L{{.*}}               # TB_AT_TextSize
+; CHECK-NEXT:    .long    .L{{.*}}-main                   # TB_AT_CodeSize
 ; CHECK-NEXT:    .short    0                              # TB_AT_NameLength
 ; CHECK-NEXT:    .short    22                             # TB_AT_NameLength
 ; CHECK-NEXT:    .ascii    "traceback-complete_a.c"       # TB_AT_FileName
@@ -26,12 +26,12 @@
 ; CHECK-NEXT:    .byte    12                              # TB_TAG_RTN64
 ; CHECK-NEXT:    .byte    0                               # TB_AT_Padding
 ; CHECK-NEXT:    .short    4                              # TB_AT_NameLength
-; CHECK-NEXT:    .quad    .Lfunc_begin0                   # TB_AT_RoutineBegin
+; CHECK-NEXT:    .quad    main                            # TB_AT_RoutineBegin
 ; CHECK-NEXT:    .ascii    "main"                         # TB_AT_RoutineName
 ; CHECK-NEXT:    .byte    4                               # TB_TAG_LN1
 ; CHECK-NEXT:    .byte    6                               # TB_AT_LN1
 ; CHECK-NEXT:    .byte    9                               # TB_TAG_PC4
-; CHECK-NEXT:    .long    (.L{{.*}}-.L{{.*}})-1           # TB_AT_PC4
+; CHECK-NEXT:    .long    (.L{{.*}}-main)-1               # TB_AT_PC4
 ; CHECK-NEXT:    .byte    4                               # TB_TAG_LN1
 ; CHECK-NEXT:    .byte    1                               # TB_AT_LN1
 ; CHECK-NEXT:    .byte    9                               # TB_TAG_PC4
@@ -40,12 +40,12 @@
 ; CHECK-NEXT:    .byte    12                              # TB_TAG_RTN64
 ; CHECK-NEXT:    .byte    0                               # TB_AT_Padding
 ; CHECK-NEXT:    .short    5                              # TB_AT_NameLength
-; CHECK-NEXT:    .quad    .L{{.*}}                        # TB_AT_RoutineBegin
+; CHECK-NEXT:    .quad    subr1                           # TB_AT_RoutineBegin
 ; CHECK-NEXT:    .ascii    "subr1"                        # TB_AT_RoutineName
 ; CHECK-NEXT:    .byte    4                               # TB_TAG_LN1
 ; CHECK-NEXT:    .byte    3                               # TB_AT_LN1
 ; CHECK-NEXT:    .byte    9                               # TB_TAG_PC4
-; CHECK-NEXT:    .long    (.L{{.*}}-.L{{.*}})-1           # TB_AT_PC4
+; CHECK-NEXT:    .long    (.L{{.*}}-subr1)-1              # TB_AT_PC4
 ; CHECK-NEXT:    .byte    4                               # TB_TAG_LN1
 ; CHECK-NEXT:    .byte    1                               # TB_AT_LN1
 ; CHECK-NEXT:    .byte    9                               # TB_TAG_PC4
@@ -64,12 +64,12 @@
 ; CHECK-NEXT:    .byte    12                              # TB_TAG_RTN64
 ; CHECK-NEXT:    .byte    0                               # TB_AT_Padding
 ; CHECK-NEXT:    .short    5                              # TB_AT_NameLength
-; CHECK-NEXT:    .quad    .L{{.*}}                        # TB_AT_RoutineBegin
+; CHECK-NEXT:    .quad    subr2                           # TB_AT_RoutineBegin
 ; CHECK-NEXT:    .ascii    "subr2"                        # TB_AT_RoutineName
 ; CHECK-NEXT:    .byte    4                               # TB_TAG_LN1
 ; CHECK-NEXT:    .byte    -9                              # TB_AT_LN1
 ; CHECK-NEXT:    .byte    9                               # TB_TAG_PC4
-; CHECK-NEXT:    .long    (.L{{.*}}-.L{{.*}})-1           # TB_AT_PC4
+; CHECK-NEXT:    .long    (.L{{.*}}-subr2)-1              # TB_AT_PC4
 ; CHECK-NEXT:    .byte    4                               # TB_TAG_LN1
 ; CHECK-NEXT:    .byte    1                               # TB_AT_LN1
 ; CHECK-NEXT:    .byte    9                               # TB_TAG_PC4
