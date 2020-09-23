@@ -511,7 +511,7 @@ FUNCTION_PASS_WITH_PARAMS("msan",
                              return MemorySanitizerPass(Opts);
                            },
                            parseMSanPassOptions)
-FUNCTION_PASS_WITH_PARAMS("loop-simplifycfg",
+FUNCTION_PASS_WITH_PARAMS("simplify-cfg",
                            [](SimplifyCFGOptions Opts) {
                              return SimplifyCFGPass(Opts);
                            },

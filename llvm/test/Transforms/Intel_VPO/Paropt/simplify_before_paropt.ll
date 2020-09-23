@@ -1,5 +1,5 @@
 ; RUN: opt < %s -simplifycfg -vpo-cfg-restructuring -vpo-paropt  -S | FileCheck %s
-; RUN: opt < %s -passes='function(loop-simplifycfg,vpo-cfg-restructuring),vpo-paropt'  -S | FileCheck %s
+; RUN: opt < %s -passes='function(simplify-cfg,vpo-cfg-restructuring),vpo-paropt'  -S | FileCheck %s
 
 ; Verify the unreachable BB "lpad2" is removed by CFG simplification, and that
 ; outlining for the parallel region occurred. If "lpad2" is not removed,

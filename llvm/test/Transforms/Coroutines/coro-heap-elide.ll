@@ -3,7 +3,7 @@
 ; call attribute removed.
 ; RUN: opt < %s -S -inline -coro-elide -instsimplify -simplifycfg | FileCheck %s
 ; RUN: opt < %s -S \
-; RUN:   -passes='cgscc(inline,function(coro-elide,instsimplify,loop-simplifycfg))' \
+; RUN:   -passes='cgscc(inline,function(coro-elide,instsimplify,simplify-cfg))' \
 ; RUN:   -aa-pipeline='basic-aa' | FileCheck %s
 
 declare void @print(i32) nounwind

@@ -75,7 +75,7 @@
 ; CHECK-O2: Loop Pass Manager
 ; CHECK-O2: Loop Pass Manager
 ; CHECK-O2-NOT: Manager
-; FIXME: We shouldn't be pulling out to loop-simplifycfg and instcombine and
+; FIXME: We shouldn't be pulling out to simplify-cfg and instcombine and
 ; causing new loop pass managers.
 ; CHECK-O2: Simplify the CFG
 ; CHECK-O2-NOT: Manager

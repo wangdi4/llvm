@@ -88,7 +88,7 @@ void llvm::handleExecNameEncodedOptimizerOpts(StringRef ExecName) {
     } else if (Opt == "earlycse") {
       Args.push_back("-passes=early-cse");
     } else if (Opt == "simplifycfg") {
-      Args.push_back("-passes=loop-simplifycfg");
+      Args.push_back("-passes=simplify-cfg");
     } else if (Opt == "gvn") {
       Args.push_back("-passes=gvn");
     } else if (Opt == "sccp") {
