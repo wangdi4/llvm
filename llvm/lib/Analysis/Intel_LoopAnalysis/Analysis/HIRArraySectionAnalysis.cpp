@@ -362,6 +362,10 @@ HIRArraySectionAnalysis::getOrCompute(const HLLoop *Loop) {
   auto DDG = DDA.getGraph(Loop);
   SmallPtrSet<const DDRef *, 32> Visited;
   for (auto *Ref : Refs) {
+    if (Ref->accessesStruct()) {
+      InvalidBaseIndices.insert(Ref->getBasePtrBlobIndex());
+    }
+
     SmallVector<const RegDDRef *, 8> Worklist;
     Worklist.push_back(Ref);
 
