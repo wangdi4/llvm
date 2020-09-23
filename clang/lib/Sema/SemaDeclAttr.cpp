@@ -3847,31 +3847,6 @@ static void handleWorkGroupSize(Sema &S, Decl *D, const ParsedAttr &AL) {
 }
 
 // Handles intel_reqd_sub_group_size.
-void Sema::addIntelReqdSubGroupSizeAttr(Decl *D,
-                                        const AttributeCommonInfo &Attr,
-                                        Expr *E) {
-  if (!E)
-    return;
-
-  if (!E->isInstantiationDependent()) {
-    Optional<llvm::APSInt> ArgVal = E->getIntegerConstantExpr(getASTContext());
-    if (!ArgVal) {
-      Diag(E->getExprLoc(), diag::err_attribute_argument_type)
-          << Attr.getAttrName() << AANT_ArgumentIntegerConstant
-          << E->getSourceRange();
-      return;
-    }
-    int32_t ArgInt = ArgVal->getSExtValue();
-    if (ArgInt <= 0) {
-      Diag(E->getExprLoc(), diag::err_attribute_requires_positive_integer)
-          << Attr.getAttrName() << /*positive*/ 0;
-      return;
-    }
-  }
-
-  D->addAttr(::new (Context) IntelReqdSubGroupSizeAttr(Context, Attr, E));
-}
-
 static void handleSubGroupSize(Sema &S, Decl *D, const ParsedAttr &AL) {
   if (S.LangOpts.SYCLIsHost)
     return;
@@ -3881,7 +3856,7 @@ static void handleSubGroupSize(Sema &S, Decl *D, const ParsedAttr &AL) {
   if (D->getAttr<IntelReqdSubGroupSizeAttr>())
     S.Diag(AL.getLoc(), diag::warn_duplicate_attribute) << AL;
 
-  S.addIntelReqdSubGroupSizeAttr(D, AL, E);
+  S.addIntelSYCLSingleArgFunctionAttr<IntelReqdSubGroupSizeAttr>(D, AL, E);
 }
 
 // Handles num_simd_work_items.
@@ -3890,23 +3865,13 @@ static void handleSYCLNumSimdWorkItemsAttr(Sema &S, Decl *D,         // INTEL
   if (D->isInvalidDecl())
     return;
 
-  uint32_t NumSimdWorkItems = 0;
-  const Expr *E = Attr.getArgAsExpr(0);
-  if (!checkUInt32Argument(S, Attr, E, NumSimdWorkItems, 0,
-                           /*StrictlyUnsigned=*/true))
-    return;
-
-  if (NumSimdWorkItems == 0) {
-    S.Diag(Attr.getLoc(), diag::err_attribute_argument_is_zero)
-      << Attr << E->getSourceRange();
-    return;
-  }
+  Expr *E = Attr.getArgAsExpr(0);
 
   if (D->getAttr<SYCLIntelNumSimdWorkItemsAttr>())
     S.Diag(Attr.getLoc(), diag::warn_duplicate_attribute) << Attr;
 
-  D->addAttr(::new (S.Context) SYCLIntelNumSimdWorkItemsAttr(
-        S.Context, Attr, NumSimdWorkItems));
+  S.addIntelSYCLSingleArgFunctionAttr<SYCLIntelNumSimdWorkItemsAttr>(D, Attr,
+                                                                     E);
 }
 
 // Handles max_global_work_dim.
