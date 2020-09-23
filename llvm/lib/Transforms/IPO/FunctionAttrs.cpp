@@ -1361,8 +1361,6 @@ static bool inferAttrsFromFunctionBodies(const SCCNodeSet &SCCNodes) {
 }
 
 static bool setDoesNotRecurse(Function &F) {
-  if (F.doesNotRecurse())
-    return false;
   F.setDoesNotRecurse();
   ++NumNoRecurse;
   return true;
