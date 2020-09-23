@@ -437,7 +437,9 @@ public:
     AU.addRequired<LoopInfoWrapperPass>();
     AU.addRequired<ScalarEvolutionWrapperPass>();
     AU.addRequired<TargetTransformInfoWrapperPass>();
-    AU.setPreservesAll();
+    AU.addPreserved<DominatorTreeWrapperPass>();
+    AU.addPreserved<LoopInfoWrapperPass>();
+    AU.addPreserved<ScalarEvolutionWrapperPass>();
   };
 
   bool runOnFunction(Function &F) override;
@@ -453,7 +455,12 @@ PreservedAnalyses NontemporalStorePass::run(Function &F,
       AM.getResult<ScalarEvolutionAnalysis>(F),
       AM.getResult<TargetIRAnalysis>(F));
   Impl.run();
-  return PreservedAnalyses::all();
+
+  PreservedAnalyses PA;
+  PA.preserve<DominatorTreeAnalysis>();
+  PA.preserve<LoopAnalysis>();
+  PA.preserve<ScalarEvolutionAnalysis>();
+  return PA;
 }
 
 char NontemporalStoreWrapperPass::ID = 0;
