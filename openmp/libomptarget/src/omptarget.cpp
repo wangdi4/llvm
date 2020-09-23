@@ -1146,11 +1146,22 @@ int processDataBefore(int64_t DeviceId, void *HostPtr, int32_t ArgNum,
         return OFFLOAD_FAIL;
       }
     } else {
+#if INTEL_COLLAB
+      if (ArgTypes[I] & OMP_TGT_MAPTYPE_PTR_AND_OBJ) {
+        TgtPtrBegin = Device.getTgtPtrBegin(HstPtrBase, sizeof(void *), IsLast, false, IsHostPtr);
+        TgtBaseOffset = 0;
+      } else {
+        TgtPtrBegin = Device.getTgtPtrBegin(HstPtrBegin, ArgSizes[I], IsLast,
+                                            false, IsHostPtr);
+        TgtBaseOffset =(intptr_t)HstPtrBase - (intptr_t)HstPtrBegin;
+      }
+#else // INTEL COLLAB
       if (ArgTypes[I] & OMP_TGT_MAPTYPE_PTR_AND_OBJ)
         HstPtrBase = *reinterpret_cast<void **>(HstPtrBase);
       TgtPtrBegin = Device.getTgtPtrBegin(HstPtrBegin, ArgSizes[I], IsLast,
                                           false, IsHostPtr);
       TgtBaseOffset = (intptr_t)HstPtrBase - (intptr_t)HstPtrBegin;
+#endif // INTEL_COLLAB
 #ifdef OMPTARGET_DEBUG
 #if INTEL_COLLAB
       DP("Obtained target argument (Begin: " DPxMOD ", Offset: %" PRId64
