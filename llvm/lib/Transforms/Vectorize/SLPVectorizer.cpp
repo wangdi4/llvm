@@ -6958,14 +6958,10 @@ Value *BoUpSLP::vectorizeTree(ArrayRef<Value *> VL) {
       VL = UniqueValues;
   }
 
-<<<<<<< HEAD
-  Value *V = Gather(VL, VecTy);
+  Value *Vec = gather(VL);
 #if INTEL_CUSTOMIZATION
   if (!PSLPSuccess)
 #endif
-=======
-  Value *Vec = gather(VL);
->>>>>>> 46075e0b78c33be79c6c1ae5547a78ef87ddb374
   if (!ReuseShuffleIndicies.empty()) {
     Vec = Builder.CreateShuffleVector(Vec, UndefValue::get(Vec->getType()),
                                       ReuseShuffleIndicies, "shuffle");
