@@ -146,7 +146,7 @@ bool FalkorMarkStridedAccesses::run() {
 
 bool FalkorMarkStridedAccesses::runOnLoop(Loop &L) {
   // Only mark strided loads in the inner-most loop
-  if (!L.empty())
+  if (!L.isInnermost())
     return false;
 
   bool MadeChange = false;
