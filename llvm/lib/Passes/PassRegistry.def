@@ -312,12 +312,9 @@ FUNCTION_PASS("make-guards-explicit", MakeGuardsExplicitPass())
 FUNCTION_PASS("fma-splitter", FMASplitterPass()) // INTEL
 FUNCTION_PASS("post-inline-ee-instrument", EntryExitInstrumenterPass(/*PostInlining=*/true))
 FUNCTION_PASS("gvn-hoist", GVNHoistPass())
-<<<<<<< HEAD
 FUNCTION_PASS("functionrecognizer", FunctionRecognizerPass()) // INTEL
 FUNCTION_PASS("indirectcallconv", IndirectCallConvPass(/* UseAndersen = */ false, /* UseDTrans = */ false)) // INTEL
-=======
 FUNCTION_PASS("gvn-sink", GVNSinkPass())
->>>>>>> a031ef6f3ab451d797763275ce4bc658aa940794
 FUNCTION_PASS("helloworld", HelloWorldPass())
 FUNCTION_PASS("instcombine", InstCombinePass())
 FUNCTION_PASS("instcount", InstCountPass())
