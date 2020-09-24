@@ -627,7 +627,6 @@ pi_result piPlatformsGet(pi_uint32 NumEntries, pi_platform *Platforms,
       return Res;
     }
   }
-<<<<<<< HEAD
 
   if (NumPlatforms)
     *NumPlatforms = 1;
@@ -640,20 +639,6 @@ pi_result piPlatformsGet(pi_uint32 NumEntries, pi_platform *Platforms,
 static pi_result getOrCreatePlatform(ze_driver_handle_t ZeDriver,
                                      pi_platform *Platform) {
 
-=======
-
-  if (NumPlatforms)
-    *NumPlatforms = 1;
-
-  return PI_SUCCESS;
-}
-
-// Retrieve a cached Platform that has a matching driver handle or use the
-// driver handle to create and initialize a new Platform.
-static pi_result getOrCreatePlatform(ze_driver_handle_t ZeDriver,
-                                     pi_platform *Platform) {
-
->>>>>>> 1210ddc2ac9637877111282cada2b1d11dd6f1f4
   // We will retrieve the Max CommandList Cache in this lamda function so that
   // it only has to be executed once
   static pi_uint32 CommandListCacheSizeValue = ([] {
@@ -796,7 +781,6 @@ pi_result piextPlatformCreateWithNativeHandle(pi_native_handle NativeHandle,
   // from the cache.
   auto ZeDriver = pi_cast<ze_driver_handle_t>(NativeHandle);
   return getOrCreatePlatform(ZeDriver, Platform);
-<<<<<<< HEAD
 }
 
 // Get the cahched PI device created for the L0 device handle.
@@ -810,8 +794,6 @@ pi_device _pi_platform::getDeviceFromNativeHandle(ze_device_handle_t ZeDevice) {
     return *it;
   }
   return nullptr;
-=======
->>>>>>> 1210ddc2ac9637877111282cada2b1d11dd6f1f4
 }
 
 pi_result piDevicesGet(pi_platform Platform, pi_device_type DeviceType,
