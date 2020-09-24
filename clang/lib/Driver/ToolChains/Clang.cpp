@@ -5475,9 +5475,15 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
 #if INTEL_CUSTOMIZATION
   const Arg *Std = Args.getLastArg(options::OPT_std_EQ, options::OPT_ansi,
                      options::OPT_strict_ansi);
+#else //INTEL_CUSTOMIZATION
+  const Arg *Std = Args.getLastArg(options::OPT_std_EQ, options::OPT_ansi);
+#endif //INTEL_CUSTOMIZATION
   if (Std) {
+#if INTEL_CUSTOMIZATION
     if (Std->getOption().matches(options::OPT_ansi) ||
         Std->getOption().matches(options::OPT_strict_ansi))
+#else //INTEL_CUSTOMIZATION
+    if (Std->getOption().matches(options::OPT_ansi))
 #endif //INTEL_CUSTOMIZATION
       if (types::isCXX(InputType))
         CmdArgs.push_back("-std=c++98");
@@ -5494,7 +5500,6 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
         ImplyVCPPCXXVer = true;
       } else
         Std->render(Args, CmdArgs);
-<<<<<<< HEAD
     }
 #endif // INTEL_CUSTOMIZATION
     else {
@@ -5502,14 +5507,6 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
         // Use of -std= with 'C' is not supported for SYCL.
         const LangStandard *LangStd =
             LangStandard::getLangStandardForName(Std->getValue());
-=======
-    } else {
-#endif // INTEL_CUSTOMIZATION
-      if (Args.hasArg(options::OPT_fsycl)) {
-        // Use of -std= with 'C' is not supported for SYCL.
-        const LangStandard *LangStd =
-           LangStandard::getLangStandardForName(Std->getValue());
->>>>>>> b821274d782936549ff589c97d20b9c9b1a63f06
         if (LangStd && LangStd->getLanguage() == Language::C)
           D.Diag(diag::err_drv_argument_not_allowed_with)
               << Std->getAsString(Args) << "-fsycl";
