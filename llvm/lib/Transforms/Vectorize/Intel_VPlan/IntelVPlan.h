@@ -2791,6 +2791,16 @@ private:
   // condition as uniform.
   bool ForceOuterLoopBackedgeUniformity = false;
 
+  // HIR CG handles very limited scalar compute and tends to keep most of things
+  // on vectors. As such, the stability issue addressed by
+  // VPActiveLane/VPActiveLaneExtract doesn't seem to exist for HIR case. Also,
+  // implementing the proper CG for them
+  //   1) Doesn't seem to be needed right now - we have some time until we'll
+  //      implement a better approach to the problem.
+  //   2) Might not be easy/possible because the support for the scalar compute
+  //      itself is very weak in HIR CG.
+  bool DisableActiveLaneInstructions = false;
+
   /// Holds the name of the VPlan, for printing.
   std::string Name;
 
@@ -2865,6 +2875,12 @@ public:
   }
   bool isBackedgeUniformityForced() const {
     return ForceOuterLoopBackedgeUniformity;
+  }
+  void disableActiveLaneInstructions() {
+    DisableActiveLaneInstructions = true;
+  }
+  bool areActiveLaneInstructionsDisabled() {
+    return DisableActiveLaneInstructions;
   }
 
   const DataLayout *getDataLayout() const { return Externals.getDataLayout(); }

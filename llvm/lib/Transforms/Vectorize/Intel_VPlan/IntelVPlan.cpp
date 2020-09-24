@@ -1136,6 +1136,9 @@ std::unique_ptr<VPlan> VPlan::clone(VPAnalysesFactory &VPAF,
   if (isBackedgeUniformityForced())
     ClonedVPlan->markBackedgeUniformityForced();
 
+  if (areActiveLaneInstructionsDisabled())
+    ClonedVPlan->disableActiveLaneInstructions();
+
   // Set SCEV to Cloned Plan
   ClonedVPlan->setVPSE(VPAF.createVPSE());
 

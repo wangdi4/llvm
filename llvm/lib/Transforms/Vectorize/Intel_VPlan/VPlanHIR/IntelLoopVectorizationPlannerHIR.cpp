@@ -98,6 +98,7 @@ std::shared_ptr<VPlan> LoopVectorizationPlannerHIR::buildInitialVPlan(
 
   if (ForceLinearizationHIR || SearchLoop)
     Plan->markFullLinearizationForced();
+  Plan->disableActiveLaneInstructions();
 
   return SharedPlan;
 }

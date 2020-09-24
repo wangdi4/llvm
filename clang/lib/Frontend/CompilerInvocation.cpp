@@ -3405,7 +3405,10 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
         Opts.OpenMP && Args.hasArg(OPT_fintel_openmp_region);
   Opts.OpenMPLateOutlineTarget = !Args.hasArg(OPT_fno_intel_openmp_offload);
   Opts.OpenMPLateOutlineAtomic = Args.hasArg(OPT_fintel_openmp_region_atomic);
-  Opts.OpenMPUseLLVMAtomic = Args.hasArg(OPT_fintel_openmp_use_llvm_atomic);
+
+  Opts.OpenMPUseLLVMAtomic = Args.hasFlag(
+          options::OPT_fintel_openmp_use_llvm_atomic,
+          options::OPT_fno_intel_openmp_use_llvm_atomic);
   if (!Opts.OpenMPLateOutlineAllowUncollapsedLoops)
     Opts.OpenMPLateOutlineAllowUncollapsedLoops =
       Args.hasArg(OPT_fintel_openmp_region_late_collapsed_loops);
