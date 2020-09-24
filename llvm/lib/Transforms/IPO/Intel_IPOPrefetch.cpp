@@ -1007,7 +1007,7 @@ public:
 bool IPOPrefetcher::run(Module &M) {
   // Check if AVX2 is supported.
   LLVM_DEBUG(dbgs() << "IPO Prefetch: BEGIN\n");
-  auto TTIAVX2 = TargetTransformInfo::AdvancedOptLevel::AO_TargetHasAVX2;
+  auto TTIAVX2 = TargetTransformInfo::AdvancedOptLevel::AO_TargetHasIntelAVX2;
   if (!WPInfo.isAdvancedOptEnabled(TTIAVX2)) {
     LLVM_DEBUG(dbgs() << "NOT AVX2\n");
     LLVM_DEBUG(dbgs() << "IPO Prefetch: END\n");

@@ -1863,7 +1863,7 @@ bool HIRLoopBlocking::run(bool ForPragma) {
   SmallVector<HLLoop *, 32> InnermostLoops;
   (HIRF.getHLNodeUtils()).gatherInnermostLoops(InnermostLoops);
   bool Advanced = TTI.isAdvancedOptEnabled(
-      TargetTransformInfo::AdvancedOptLevel::AO_TargetHasAVX2);
+      TargetTransformInfo::AdvancedOptLevel::AO_TargetHasIntelAVX2);
 
   bool Changed = false;
   for (auto *InnermostLoop : InnermostLoops) {

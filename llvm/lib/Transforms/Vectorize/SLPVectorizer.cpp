@@ -8742,7 +8742,7 @@ bool SLPVectorizerPass::runImpl(Function &F, ScalarEvolution *SE_,
 
 #if INTEL_CUSTOMIZATION
   if (!TTI->isAdvancedOptEnabled(
-          TargetTransformInfo::AdvancedOptLevel::AO_TargetHasAVX2)) {
+          TargetTransformInfo::AdvancedOptLevel::AO_TargetHasIntelAVX2)) {
     PSLPEnabled = false;
     EnableMultiNodeSLP = false;
   }

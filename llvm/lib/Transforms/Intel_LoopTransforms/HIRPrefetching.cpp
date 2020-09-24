@@ -356,7 +356,7 @@ bool HIRPrefetching::run() {
 
   if (!SkipAVX2Check &&
       !TTI.isAdvancedOptEnabled(
-          TargetTransformInfo::AdvancedOptLevel::AO_TargetHasAVX2)) {
+          TargetTransformInfo::AdvancedOptLevel::AO_TargetHasIntelAVX2)) {
     return false;
   }
 

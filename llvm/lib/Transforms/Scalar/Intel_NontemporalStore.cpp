@@ -67,10 +67,11 @@ public:
       ScalarEvolution &SE, TargetTransformInfo &TTI)
     : F(F), AA(AA), DT(DT), LI(LI), SE(SE),
       DL(F.getParent()->getDataLayout()) {
-    // The library function we use requires AVX-512 to work correctly. If we're
-    // not optimizing for AVX-512, then don't try to use it.
+    // The library function we use requires AVX-512 or AVX-2 to work correctly.
+    // If we're not optimizing for either, then don't try to use it.
     HasLibFunc =
-      TTI.isAdvancedOptEnabled(TargetTransformInfo::AO_TargetHasAVX512);
+      TTI.isAdvancedOptEnabled(TargetTransformInfo::AO_TargetHasAVX512) ||
+      TTI.isAdvancedOptEnabled(TargetTransformInfo::AO_TargetHasIntelAVX2);
 
     // CMPLRLLVM-21684: For some reason, the library function does not work
     // correctly on x86-32. Until this can be understood, disable the library
