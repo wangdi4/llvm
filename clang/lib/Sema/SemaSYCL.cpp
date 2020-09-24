@@ -588,20 +588,10 @@ public:
       auto NewDecl = MappingPair.second;
       return DeclRefExpr::Create(
           SemaRef.getASTContext(), DRE->getQualifierLoc(),
-          DRE->getTemplateKeywordLoc(), NewDecl, false,
-          DeclarationNameInfo(DRE->getNameInfo().getName(), SourceLocation(),
-                              DRE->getNameInfo().getInfo()),
+          DRE->getTemplateKeywordLoc(), NewDecl, false, DRE->getNameInfo(),
           NewDecl->getType(), DRE->getValueKind());
     }
     return DRE;
-  }
-
-  StmtResult RebuildCompoundStmt(SourceLocation LBraceLoc,
-                                 MultiStmtArg Statements,
-                                 SourceLocation RBraceLoc, bool IsStmtExpr) {
-    // Build a new compound statement but clear the source locations.
-    return getSema().ActOnCompoundStmt(SourceLocation(), SourceLocation(),
-                                       Statements, IsStmtExpr);
   }
 
 private:
@@ -2744,15 +2734,15 @@ void Sema::MarkDevice(void) {
               KernelBody ? KernelBody->getAttr<SYCLSimdAttr>() : nullptr;
           if (auto *Existing =
                   SYCLKernel->getAttr<IntelReqdSubGroupSizeAttr>()) {
-            if (getIntExprValue(Existing->getSubGroupSize(), getASTContext()) !=
-                getIntExprValue(Attr->getSubGroupSize(), getASTContext())) {
+            if (getIntExprValue(Existing->getValue(), getASTContext()) !=
+                getIntExprValue(Attr->getValue(), getASTContext())) {
               Diag(SYCLKernel->getLocation(),
                    diag::err_conflicting_sycl_kernel_attributes);
               Diag(Existing->getLocation(), diag::note_conflicting_attribute);
               Diag(Attr->getLocation(), diag::note_conflicting_attribute);
               SYCLKernel->setInvalidDecl();
             }
-          } else if (KBSimdAttr && (getIntExprValue(Attr->getSubGroupSize(),
+          } else if (KBSimdAttr && (getIntExprValue(Attr->getValue(),
                                                     getASTContext()) != 1)) {
             reportConflictingAttrs(*this, KernelBody, KBSimdAttr, Attr);
           } else {
