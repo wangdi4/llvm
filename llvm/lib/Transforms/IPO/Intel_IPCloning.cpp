@@ -203,11 +203,6 @@ SmallDenseMap<Value *, Value *> SpecialConstPropagatedValueMap;
 // basically helps to get NumIndices during transformation.
 SmallDenseMap<Value *, GetElementPtrInst *> SpecialConstGEPMap;
 
-// It is mapping between Function and LoopInfo. It is used
-// to avoid recomputing LoopInfo for a function each time
-// when a CallSite of the function is analyzed.
-SmallDenseMap<Function *, LoopInfo *> FunctionLoopInfoMap;
-
 // Returns true if 'Arg' is considered as constant for
 // cloning based on FuncPtrsClone.
 static bool isConstantArgWorthyForFuncPtrsClone(Value *Arg) {
@@ -692,7 +687,8 @@ collectArgsSetsForSpecialization(Function &F, CallInst &CI,
 // Analyze CallInst 'CI' of 'F' and collect argument sets for
 // specialization cloning if possible.
 //
-static bool analyzeCallForSpecialization(Function &F, CallInst &CI) {
+static bool analyzeCallForSpecialization(Function &F, CallInst &CI,
+                                         LoopInfo **LI) {
   SmallPtrSet<Value *, 8> PhiValues;
 
   // Collect PHINodes that are passed as arguments for cloning
@@ -704,12 +700,10 @@ static bool analyzeCallForSpecialization(Function &F, CallInst &CI) {
   // Using Loop based heuristics here and remove
   // PHI nodes from PhiValues if not useful in callee.
   // Reuse LoopInfo if it is already available.
-  LoopInfo *LI = FunctionLoopInfoMap[&F];
-  if (!LI) {
-    LI = new LoopInfo(DominatorTree(const_cast<Function &>(F)));
-    FunctionLoopInfoMap[&F] = LI;
-  }
-  if (!applyHeuristicsForSpecialization(F, CI, PhiValues, LI))
+  if (!*LI)
+    *LI = new LoopInfo(DominatorTree(const_cast<Function &>(F)));
+
+  if (!applyHeuristicsForSpecialization(F, CI, PhiValues, *LI))
     return false;
 
   // Collect argument sets for specialization.
@@ -721,26 +715,22 @@ static bool analyzeCallForSpecialization(Function &F, CallInst &CI) {
 // for specialization cloning if possible.
 //
 static void analyzeCallSitesForSpecializationCloning(Function &F) {
+  LoopInfo *LI = nullptr;
   if (!IPSpecializationCloning) {
     LLVM_DEBUG(dbgs() << "   Specialization cloning disabled \n");
     return;
   }
-  FunctionLoopInfoMap.clear();
   for (User *UR : F.users()) {
-
     if (!isa<CallInst>(UR))
       continue;
-
     auto CI = cast<CallInst>(UR);
     if (CI->getCalledFunction() != &F)
       continue;
-
-    analyzeCallForSpecialization(F, *CI);
+    analyzeCallForSpecialization(F, *CI, &LI);
   }
   // All CallSites of 'F' are analyzed. Delete if
   // LoopInfo is computed.
-  LoopInfo *LI = FunctionLoopInfoMap[&F];
-  if (!LI)
+  if (LI)
     delete LI;
 }
 
