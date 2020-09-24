@@ -658,11 +658,11 @@ public:
   /// Each recipe prints itself.
   virtual void print(raw_ostream &O, const Twine &Indent,
                      VPSlotTracker &SlotTracker) const = 0;
-#endif // !NDEBUG || LLVM_ENABLE_DUMP
-#endif // INTEL_CUSTOMIZATION
 
   /// Dump the recipe to stderr (for debugging).
   void dump() const;
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
+#endif // INTEL_CUSTOMIZATION
 
   /// Insert an unlinked recipe into a basic block immediately before
   /// the specified recipe.

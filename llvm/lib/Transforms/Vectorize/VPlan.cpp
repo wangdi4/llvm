@@ -57,8 +57,6 @@ raw_ostream &llvm::operator<<(raw_ostream &OS, const VPValue &V) {
   V.print(OS, SlotTracker);
   return OS;
 }
-#endif // !NDEBUG || LLVM_ENABLE_DUMP
-#endif // INTEL_CUSTOMIZATION
 
 void VPValue::print(raw_ostream &OS, VPSlotTracker &SlotTracker) const {
   if (const VPInstruction *Instr = dyn_cast<VPInstruction>(this))
@@ -80,6 +78,8 @@ void VPRecipeBase::dump() const {
   print(dbgs(), "", SlotTracker);
   dbgs() << "\n";
 }
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
+#endif // INTEL_CUSTOMIZATION
 
 // Get the top-most entry block of \p Start. This is the entry block of the
 // containing VPlan. This function is templated to support both const and non-const blocks
@@ -906,6 +906,8 @@ void VPValue::replaceAllUsesWith(VPValue *New) {
         User->setOperand(I, New);
 }
 
+#if INTEL_CUSTOMIZATION
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 void VPValue::printAsOperand(raw_ostream &OS, VPSlotTracker &Tracker) const {
   if (const Value *UV = getUnderlyingValue()) {
     OS << "ir<";
@@ -920,6 +922,8 @@ void VPValue::printAsOperand(raw_ostream &OS, VPSlotTracker &Tracker) const {
   else
     OS << "vp<%" << Tracker.getSlot(this) << ">";
 }
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
+#endif // INTEL_CUSTOMIZATION
 
 void VPInterleavedAccessInfo::visitRegion(VPRegionBlock *Region,
                                           Old2NewTy &Old2New,
