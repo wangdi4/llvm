@@ -1428,6 +1428,43 @@ static bool canEvaluateSExtd(Value *V, Type *Ty) {
   return false;
 }
 
+#if INTEL_CUSTOMIZATION
+/// Check if the Value is Phi or Trunc.
+static bool isPhiOrTrunc(Value *V) {
+  return isa<PHINode>(V) || isa<TruncInst>(V);
+}
+/// Check if the instruction CI has one Load/Store user.
+static bool hasOneLoadStoreUser(GetElementPtrInst *CI) {
+  if (!CI->hasOneUse())
+    return false;
+  auto *I = CI->user_back();
+  if (auto *CastI = dyn_cast<AddrSpaceCastInst>(I)) {
+    if (!CastI->hasOneUse())
+      return false;
+    I = CastI->user_back();
+  }
+  if (isa<LoadInst>(I) || isa<StoreInst>(I))
+    return true;
+  return false;
+}
+/// Check if the instruction CI has one GEP+Load/Store user.
+static bool hasOneGEPLoadStoreUser(Instruction &CI) {
+  if (!CI.hasOneUse())
+    return false;
+  auto *GEP = dyn_cast<GetElementPtrInst>(CI.user_back());
+  if (!GEP)
+    return false;
+  if (hasOneLoadStoreUser(GEP))
+    return true;
+  return false;
+}
+/// Check if the function is SPIRV kernel/function.
+static bool isSPIRFunction(Function *F) {
+  auto CC = F->getCallingConv();
+  return CC == CallingConv::SPIR_KERNEL || CC == CallingConv::SPIR_FUNC;
+}
+#endif // INTEL_CUSTOMIZATION
+
 Instruction *InstCombinerImpl::visitSExt(SExtInst &CI) {
   // If this sign extend is only used by a truncate, let the truncate be
   // eliminated before we try to optimize this sext.
@@ -1444,7 +1481,21 @@ Instruction *InstCombinerImpl::visitSExt(SExtInst &CI) {
   // instead.
   KnownBits Known = computeKnownBits(Src, 0, &CI);
   if (Known.isNonNegative())
-    return CastInst::Create(Instruction::ZExt, Src, DestTy);
+#if INTEL_CUSTOMIZATION
+    // Avoid turning into zext if CI has a GEP + Load/Store user,
+    // to avoid negatively impacting vectorizer's unit-stride analysis.
+    // Look for something that resembles A[SExt(loop_index + ...)].
+    // Loop_index here can be real 32bit loop index (from PHI) or
+    // OpenCL ID truncated to 32bit (if needed, use stricter check than
+    // isPhiOrTrunc().
+    if (Instruction *ISrc = dyn_cast<Instruction>(Src))
+      if (!(isSPIRFunction(CI.getFunction()) ||
+            (ISrc->getOpcode() == Instruction::Add &&
+             (isPhiOrTrunc(ISrc->getOperand(0)) ||
+              isPhiOrTrunc(ISrc->getOperand(1)))   &&
+             hasOneGEPLoadStoreUser(CI))))
+#endif // INTEL_CUSTOMIZATION
+        return CastInst::Create(Instruction::ZExt, Src, DestTy);
 
   // Try to extend the entire expression tree to the wide destination type.
   if (shouldChangeType(SrcTy, DestTy) && canEvaluateSExtd(Src, DestTy)) {
