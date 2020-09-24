@@ -562,10 +562,6 @@ class HIRCompleteUnroll::ProfitabilityAnalyzer final
   /// Returns percentage savings achieved by unrolling the loopnest.
   float getSavingsInPercentage() const;
 
-  /// Returns true if this loop should be unrolled before vectorizer. This is a
-  /// temporary workaround.
-  bool isPreVectorProfitableLoop(const HLLoop *CurLoop) const;
-
   /// Returns true if we find a simplified alloca store with base ptr blob index
   /// \p BaseIndex which dominates \p AllocaLoadRef in a previous loopnest.
   bool foundSimplifiedDominatingStoreInPreviousLoopnest(
@@ -785,48 +781,6 @@ void HIRCompleteUnroll::CanonExprUpdater::processCanonExpr(CanonExpr *CExpr) {
 
 ///// ProfitabilityAnalyzer Visitor Start
 
-bool HIRCompleteUnroll::ProfitabilityAnalyzer::isPreVectorProfitableLoop(
-    const HLLoop *CurLoop) const {
-
-  if (!HCU.IsPreVec || !CurLoop->isInnermost()) {
-    return false;
-  }
-
-  auto Upper = CurLoop->getUpperCanonExpr();
-  int64_t UpperVal;
-
-  if (!Upper->isIntConstant(&UpperVal) || (UpperVal != 3)) {
-    return false;
-  }
-
-  unsigned NumIfs = 0;
-  unsigned NumSelects = 0;
-  unsigned NumRems = 0;
-  unsigned NumXORs = 0;
-
-  for (auto NodeIt = CurLoop->child_begin(), E = CurLoop->child_end();
-       NodeIt != E; ++NodeIt) {
-    auto Node = &*NodeIt;
-
-    if (isa<HLIf>(Node)) {
-      ++NumIfs;
-
-    } else if (auto HInst = dyn_cast<HLInst>(Node)) {
-      unsigned OpCode = HInst->getLLVMInstruction()->getOpcode();
-
-      if (OpCode == Instruction::URem || OpCode == Instruction::SRem) {
-        ++NumRems;
-      } else if (OpCode == Instruction::Select) {
-        ++NumSelects;
-      } else if (OpCode == Instruction::Xor) {
-        ++NumXORs;
-      }
-    }
-  }
-
-  return (NumIfs == 4) && (NumRems == 2) && (NumSelects == 1) && (NumXORs == 3);
-}
-
 void HIRCompleteUnroll::ProfitabilityAnalyzer::analyze() {
 
   if (HCU.IsPreVec && CurLoop->isInnermost() && CurLoop->isDo()) {
@@ -846,18 +800,11 @@ void HIRCompleteUnroll::ProfitabilityAnalyzer::analyze() {
   auto Iter = HCU.AvgTripCount.find(CurLoop);
   assert((Iter != HCU.AvgTripCount.end()) && "Trip count of loop not found!");
 
-  bool IsPreVecProfitableLoop = isPreVectorProfitableLoop(CurLoop);
-
   // Check if the loop is small enough to assign some extra profitability to it
   // (for eliminating loop control) and give it higher chance of unrolling.
-  if (isSmallLoop(Iter->second) || IsPreVecProfitableLoop) {
+  if (isSmallLoop(Iter->second)) {
     Savings +=
         std::min(HCU.Limits.SmallLoopAdditionalSavingsThreshold, Iter->second);
-  }
-
-  // Workaround to make loop profitable till vectorizer fixes its cost model.
-  if (IsPreVecProfitableLoop) {
-    Savings *= 3;
   }
 
   scale(Iter->second);
