@@ -1688,6 +1688,13 @@ public:
     }
   }
 
+  VPValue *getPointerOperand() const {
+    if (getOpcode() == Instruction::Load)
+      return getOperand(0);
+    assert(getOpcode() == Instruction::Store && "Unknown LoadStore opcode");
+    return getOperand(1);
+  }
+
   /// Methods for supporting type inquiry through isa, cast and dyn_cast:
   static bool classof(const VPInstruction *VPI) {
     return VPI->getOpcode() == Instruction::Load ||
