@@ -391,8 +391,10 @@ bool VPlanDriverImpl::processLoop(Loop *Lp, Function &Fn,
   // Mark source and vectorized loops with isvectorized directive so that
   // WarnMissedTransforms pass will not complain that this loop is not
   // vectorized
-  if (isOmpSIMDLoop)
+  if (isOmpSIMDLoop) {
     setLoopMD(VCodeGen.getMainLoop(), "llvm.loop.isvectorized");
+    setLoopMD(VCodeGen.getOrigLoop(), "llvm.loop.isvectorized");
+  }
 
   // Emit kernel optimization remarks.
   if (isEmitKernelOptRemarks) {

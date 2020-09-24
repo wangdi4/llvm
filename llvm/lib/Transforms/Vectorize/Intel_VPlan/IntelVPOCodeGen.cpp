@@ -410,6 +410,7 @@ void VPOCodeGen::finalizeLoop() {
   LI->analyze(*DT);
 
   NewLoop = LI->getLoopFor(LoopVectorBody);
+  OrigLoop = LI->getLoopFor(LoopScalarBody);
 }
 
 void VPOCodeGen::updateAnalysis() {
