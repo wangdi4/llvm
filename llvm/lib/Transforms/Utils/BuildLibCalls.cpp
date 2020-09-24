@@ -928,11 +928,23 @@ bool llvm::inferLibFuncAttributes(Function &F, const TargetLibraryInfo &TLI) {
   case LibFunc_msvc_std_bad_alloc_ctor:
   case LibFunc_msvc_std_bad_alloc_scalar_deleting_dtor:
   case LibFunc_msvc_std_basic_string_append:
+  case LibFunc_msvc_std_basic_string_append_size_value:
+  case LibFunc_msvc_std_basic_string_assign_const_ptr:
+  case LibFunc_msvc_std_basic_string_assign_const_ptr_size:
+  case LibFunc_msvc_std_basic_string_dtor:
   case LibFunc_msvc_std_basic_string_insert:
+  case LibFunc_msvc_std_basic_string_operator_equal_const_ptr:
+  case LibFunc_msvc_std_basic_string_operator_plus_equal_char:
   case LibFunc_msvc_std_basic_string_resize:
     return Changed;
   case LibFunc_msvc_std_basic_string_under_xlen:
     Changed |= setDoesNotReturn(F);
+    return Changed;
+  case LibFunc_msvc_std_codecvt_do_always_noconv:
+    Changed |= setDoesNotThrow(F);
+    return Changed;
+  case LibFunc_msvc_std_codecvt_scalar_deleting_dtor:
+  case LibFunc_msvc_std_codecvt_use_facet:
     return Changed;
   case LibFunc_msvc_std_ctype_do_narrow_char_char:
   case LibFunc_msvc_std_ctype_do_narrow_ptr_ptr_char_ptr:
@@ -973,6 +985,7 @@ bool llvm::inferLibFuncAttributes(Function &F, const TargetLibraryInfo &TLI) {
   case LibFunc_msvc_std_lockit:
   case LibFunc_msvc_std_lockit_dtor:
   case LibFunc_msvc_std_runtime_error_ctor:
+  case LibFunc_msvc_std_runtime_error_char_ctor:
   case LibFunc_msvc_std_runtime_error_scalar_deleting_dtor:
   case LibFunc_msvc_std_Syserror_map:
   case LibFunc_msvc_std_under_system_error_const_ptr_ctor:
@@ -991,6 +1004,7 @@ bool llvm::inferLibFuncAttributes(Function &F, const TargetLibraryInfo &TLI) {
   case LibFunc_msvc_std_under_system_error_scalar_deleting_dtor:
   case LibFunc_msvc_std_Xbad_alloc:
   case LibFunc_msvc_std_yarn_dtor:
+  case LibFunc_msvc_std_yarn_wchar_dtor:
     return Changed;
   case LibFunc_msvc_std_Xlength_error:
   case LibFunc_msvc_std_Xout_of_range:
