@@ -544,6 +544,8 @@ const char *dtrans::getSafetyDataName(const SafetyData &SafetyInfo) {
     return "Unsafe pointer store (related types)";
   if (SafetyInfo & dtrans::MemFuncNestedStructsPartialWrite)
     return "Memfunc partial write (nested structure)";
+  if (SafetyInfo & dtrans::ComplexAllocSize)
+    return "Complex alloc size";
   if (SafetyInfo & dtrans::UnhandledUse)
     return "Unhandled use";
 
@@ -577,7 +579,8 @@ static void printSafetyInfo(const SafetyData &SafetyInfo,
       dtrans::BadPtrManipulationForRelatedTypes |
       dtrans::MismatchedElementAccessRelatedTypes |
       dtrans::UnsafePointerStoreRelatedTypes |
-      dtrans::MemFuncNestedStructsPartialWrite | dtrans::UnhandledUse;
+      dtrans::MemFuncNestedStructsPartialWrite | dtrans::ComplexAllocSize |
+      dtrans::UnhandledUse;
   // This assert is intended to catch non-unique safety condition values.
   // It needs to be kept synchronized with the statement above.
   static_assert(
@@ -603,7 +606,8 @@ static void printSafetyInfo(const SafetyData &SafetyInfo,
            dtrans::BadPtrManipulationForRelatedTypes ^
            dtrans::MismatchedElementAccessRelatedTypes ^
            dtrans::UnsafePointerStoreRelatedTypes ^
-           dtrans::MemFuncNestedStructsPartialWrite ^ dtrans::UnhandledUse),
+           dtrans::MemFuncNestedStructsPartialWrite ^ dtrans::ComplexAllocSize ^
+           dtrans::UnhandledUse),
       "Duplicate value used in dtrans safety conditions");
 
   // Go through the issues in the order of LSB to MSB, and print the names of

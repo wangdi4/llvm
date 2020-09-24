@@ -107,17 +107,17 @@ define dso_local i32 @bar2() local_unnamed_addr #0 {
 ; CHECK:  Safety data: Bad alloc size
 
 ; CHECK:  LLVMType: %struct.S2 = type { i32 }
-; CHECK:  Safety data: No issues found
+; CHECK:  Safety data: Complex alloc size
 
 ; CHECK:  LLVMType: %struct.S3 = type { i32, [0 x i8] }
 ; CHECK:  Safety data: Bad alloc size | Has zero-sized array
 
 ; CHECK:  LLVMType: %struct.S4 = type { i32, [0 x i8] }
-; CHECK:  Safety data: Has zero-sized array
+; CHECK:  Safety data: Has zero-sized array | Complex alloc size
 
 ; CHECK:  LLVMType: %struct.S5 = type { i32, [4 x i8] }
 ; CHECK:  Safety data: Bad alloc size
 
 ; CHECK:  LLVMType: %struct.S6 = type { i32, [4 x i8] }
-; CHECK:  Safety data: No issues found
+; CHECK:  Safety data: Complex alloc size
 

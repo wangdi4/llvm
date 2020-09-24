@@ -2040,11 +2040,12 @@ static bool validateAndCostRequiredSelects(BasicBlock *BB, BasicBlock *ThenBB,
                                            unsigned &SpeculatedInstructions,
                                            int &BudgetRemaining,
                                            const TargetTransformInfo &TTI) {
+#ifndef INTEL_CUSTOMIZATION
   TargetTransformInfo::TargetCostKind CostKind =
     BB->getParent()->hasMinSize()
     ? TargetTransformInfo::TCK_CodeSize
     : TargetTransformInfo::TCK_SizeAndLatency;
-
+#endif
   bool HaveRewritablePHIs = false;
   for (PHINode &PN : EndBB->phis()) {
     Value *OrigV = PN.getIncomingValueForBlock(BB);
@@ -2054,11 +2055,11 @@ static bool validateAndCostRequiredSelects(BasicBlock *BB, BasicBlock *ThenBB,
     // Skip PHIs which are trivial.
     if (ThenV == OrigV)
       continue;
-
+#ifndef INTEL_CUSTOMIZATION
     BudgetRemaining -=
         TTI.getCmpSelInstrCost(Instruction::Select, PN.getType(), nullptr,
                                CostKind);
-
+#endif
     // Don't convert to selects if we could remove undefined behavior instead.
     if (passingValueIsAlwaysUndefined(OrigV, &PN) ||
         passingValueIsAlwaysUndefined(ThenV, &PN))
@@ -2140,28 +2141,6 @@ bool SimplifyCFGOpt::SpeculativelyExecuteBB(BranchInst *BI, BasicBlock *ThenBB,
   BasicBlock *EndBB = ThenBB->getTerminator()->getSuccessor(0);
   int BudgetRemaining =
     PHINodeFoldingThreshold * TargetTransformInfo::TCC_Basic;
-
-#ifndef INTEL_CUSTOMIZATION
-  TargetTransformInfo::TargetCostKind CostKind =
-    BI->getFunction()->hasMinSize()
-    ? TargetTransformInfo::TCK_CodeSize
-    : TargetTransformInfo::TCK_SizeAndLatency;
-  // Check how expensive it will be to insert the necessary selects.
-  int BudgetRemaining =
-    PHINodeFoldingThreshold * TargetTransformInfo::TCC_Basic;
-  for (PHINode &PN : EndBB->phis()) {
-    unsigned OrigI = PN.getBasicBlockIndex(BB);
-    unsigned ThenI = PN.getBasicBlockIndex(ThenBB);
-    Value *OrigV = PN.getIncomingValue(OrigI);
-    Value *ThenV = PN.getIncomingValue(ThenI);
-    if (OrigV != ThenV)
-      BudgetRemaining -=
-          TTI.getCmpSelInstrCost(Instruction::Select, PN.getType(), nullptr,
-                                 CostKind);
-  }
-  if (BudgetRemaining < 0)
-    return false;
-#endif // !INTEL_CUSTOMIZATION
 
   // If ThenBB is actually on the false edge of the conditional branch, remember
   // to swap the select operands later.
@@ -2245,7 +2224,11 @@ bool SimplifyCFGOpt::SpeculativelyExecuteBB(BranchInst *BI, BasicBlock *ThenBB,
   Convert |= validateAndCostRequiredSelects(BB, ThenBB, EndBB,
                                             SpeculatedInstructions,
                                             BudgetRemaining, TTI);
-  if (!Convert || BudgetRemaining < 0)
+#ifndef INTEL_CUSTOMIZATION
+  if (BudgetRemaining < 0)
+    return false;
+#endif
+  if (!Convert)
     return false;
 
   // If we get here, we can hoist the instruction and if-convert.
