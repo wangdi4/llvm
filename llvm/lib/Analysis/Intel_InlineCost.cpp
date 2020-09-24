@@ -1830,7 +1830,7 @@ static bool boundConstArg(Function *F, Loop *L) {
 // have trip counts that will be constant after F is inlined.
 //
 static bool hasConstTripCountArg(Function *F, Loop *L) {
-  if (L->empty() && L->getParentLoop() && boundConstArg(F, L) &&
+  if (L->isInnermost() && !L->isOutermost() && boundConstArg(F, L) &&
       boundConstArg(F, L->getParentLoop()))
     return true;
   for (auto LB = L->begin(), LE = L->end(); LB != LE; ++LB)

@@ -830,7 +830,7 @@ bool FalkorHWPFFix::runOnMachineFunction(MachineFunction &Fn) {
   for (MachineLoop *I : LI)
     for (auto L = df_begin(I), LE = df_end(I); L != LE; ++L)
       // Only process inner-loops
-      if (L->empty())
+      if (L->isInnermost())
         runOnLoop(**L, Fn);
 
   return Modified;

@@ -241,7 +241,7 @@ bool HIRSCCFormation::dependsOnSameBasicBlockPhi(const PHINode *Phi) const {
 bool HIRSCCFormation::hasEarlyExitPredecessor(const PHINode *Phi) const {
 
   // Phis in innermost loops cannot have early exit predecessors.
-  if (CurLoop->empty()) {
+  if (CurLoop->isInnermost()) {
     return false;
   }
 
@@ -534,7 +534,7 @@ bool HIRSCCFormation::isMulByConstRecurrence(const SCC &CurSCC) const {
 
   // Recurrences (reductions of interest) in innermost loops will most likely be
   // live out of the loop which makes the suppression non-profitable.
-  if (CurLoop->empty()) {
+  if (CurLoop->isInnermost()) {
     return false;
   }
 

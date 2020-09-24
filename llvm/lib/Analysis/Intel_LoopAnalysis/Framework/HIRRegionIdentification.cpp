@@ -659,7 +659,7 @@ public:
 HIRRegionIdentification::CostModelAnalyzer::CostModelAnalyzer(
     const HIRRegionIdentification &RI, const Loop &Lp, const SCEV *BECount,
     bool &ThrottleParentLoop)
-    : RI(RI), Lp(Lp), IsInnermostLoop(Lp.empty()),
+    : RI(RI), Lp(Lp), IsInnermostLoop(Lp.isInnermost()),
       IsUnknownLoop(isa<SCEVCouldNotCompute>(BECount)), IsProfitable(true),
       OptLevel(RI.OptLevel), InstCount(0), UnstructuredJumpCount(0),
       IfCount(0) {
@@ -709,7 +709,7 @@ void HIRRegionIdentification::CostModelAnalyzer::analyze() {
   }
 
   // Only allow innermost multi-exit loops for now.
-  if (!Lp.getExitingBlock() && !Lp.empty()) {
+  if (!Lp.getExitingBlock() && !Lp.isInnermost()) {
     printOptReportRemark(
         &Lp, "Outer multi-exit loop throttled for compile time reasons.");
     IsProfitable = false;
@@ -722,7 +722,7 @@ void HIRRegionIdentification::CostModelAnalyzer::analyze() {
   // ready yet. Innermost unknown loops embedded inside other loops are
   // throttled for compile time reasons.
   if (IsUnknownLoop &&
-      (((OptLevel < 3) && (Lp.getNumBlocks() != 1)) || !Lp.empty())) {
+      (((OptLevel < 3) && (Lp.getNumBlocks() != 1)) || !Lp.isInnermost())) {
     printOptReportRemark(
         &Lp, "Non-countable loop throttled for compile time reasons.");
     IsProfitable = false;
@@ -1046,7 +1046,7 @@ static bool isConvolutionReduction(const PHINode *HeaderPhi,
 }
 
 bool isInnermostConvolutionLoop(const Loop &Lp) {
-  if (!Lp.empty() || !Lp.getExitingBlock()) {
+  if (!Lp.isInnermost() || !Lp.getExitingBlock()) {
     return false;
   }
 
@@ -1082,7 +1082,7 @@ static bool isMiddleConvolutionLoop(const Loop &Lp) {
 static bool isOuterConvolutionLoop(const Loop &Lp, const SCEV *BECount) {
 
   // We are looking for an outer single-exit countable loop.
-  if (Lp.empty() || !Lp.getExitingBlock() ||
+  if (Lp.isInnermost() || !Lp.getExitingBlock() ||
       (BECount && isa<SCEVCouldNotCompute>(BECount))) {
     return false;
   }
@@ -1105,7 +1105,7 @@ static bool isOuterConvolutionLoop(const Loop &Lp, const SCEV *BECount) {
 
 static bool isOutermostConvolutionLoop(const Loop &Lp) {
 
-  if (Lp.empty() || !Lp.getExitingBlock()) {
+  if (Lp.isInnermost() || !Lp.getExitingBlock()) {
     return false;
   }
 
@@ -1164,7 +1164,7 @@ static bool containsInvariantSwitchInInnermostLoop(const Loop *Lp,
 
   const Loop *InnermostLp = Lp;
   // Recurse into single child loop to get to innermost loop.
-  while (!InnermostLp->empty()) {
+  while (!InnermostLp->isInnermost()) {
     if (std::distance(InnermostLp->begin(), InnermostLp->end()) != 1) {
       return false;
     }
@@ -1194,7 +1194,7 @@ static bool hasHugeOutermostParentLoop(const Loop *Lp, const SCEV *BECount) {
   if (BECount && !isa<SCEVCouldNotCompute>(BECount))
     return false;
 
-  if (!Lp->getExitingBlock() || Lp->getLoopDepth() > 2 || !Lp->empty())
+  if (!Lp->getExitingBlock() || Lp->getLoopDepth() > 2 || !Lp->isInnermost())
     return false;
 
   Loop *PLp = Lp->getParentLoop();
@@ -1560,7 +1560,7 @@ bool HIRRegionIdentification::isGenerable(const BasicBlock *BB,
 }
 
 bool HIRRegionIdentification::areBBlocksGenerable(const Loop &Lp) const {
-  bool IsInnermostLoop = Lp.empty();
+  bool IsInnermostLoop = Lp.isInnermost();
 
   // Check instructions inside the loop.
   for (auto BB = Lp.block_begin(), E = Lp.block_end(); BB != E; ++BB) {

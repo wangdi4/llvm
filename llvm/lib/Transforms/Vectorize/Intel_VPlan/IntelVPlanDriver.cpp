@@ -1279,7 +1279,7 @@ bool VPlanDriverImpl::isVPlanCandidate<llvm::Loop>(Function &Fn, Loop *Lp) {
 bool VPlanDriverImpl::isVPlanCandidate(Function &Fn, Loop *Lp) {
 #endif
   // Only consider inner loops
-  if (!Lp->empty())
+  if (!Lp->isInnermost())
     return false;
 
   PredicatedScalarEvolution PSE(*SE, *Lp);

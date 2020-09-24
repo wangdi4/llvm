@@ -930,7 +930,7 @@ static bool isLoopHandledByLoopOpt(Loop *Lp, LoopInfo *LI,
   if (!LatchBr)
     return false;
 
-  bool IsOuterLoop = !Lp->empty();
+  bool IsOuterLoop = !Lp->isInnermost();
 
   // Outer loop may not be rotated yet so this cannot be checked.
   if (!IsOuterLoop) {
@@ -1049,11 +1049,11 @@ static bool mayAffectPerfectLoopnest(LoopInfo *LI, Loop *CurLoop,
 
   // We need to get the innermost loop for the block as the same bblock
   // may be traversed for outer loops as well.
-  Loop *CondLp = CurLoop->empty() ? CurLoop : LI->getLoopFor(BB);
+  Loop *CondLp = CurLoop->isInnermost() ? CurLoop : LI->getLoopFor(BB);
 
   // Check if this loopnest looks like a perfect loopnest.
 
-  if (!CondLp->empty()) {
+  if (!CondLp->isInnermost()) {
     // Check whether the condition being hoisted looks like inner loop's ztt.
     auto &SubLoops = CondLp->getSubLoops();
 
