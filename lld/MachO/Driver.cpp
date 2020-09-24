@@ -88,26 +88,29 @@ void MachOOptTable::printHelp(const char *argv0, bool showHidden) const {
   lld::outs() << "\n";
 }
 
-static Optional<std::string> findWithExtension(StringRef base,
-                                               ArrayRef<StringRef> extensions) {
-  for (StringRef ext : extensions) {
-    Twine location = base + ext;
-    if (fs::exists(location))
-      return location.str();
+static Optional<std::string>
+findAlongPathsWithExtensions(StringRef name, ArrayRef<StringRef> extensions) {
+  llvm::SmallString<261> base;
+  for (StringRef dir : config->librarySearchPaths) {
+    base = dir;
+    path::append(base, Twine("lib") + name);
+    for (StringRef ext : extensions) {
+      Twine location = base + ext;
+      if (fs::exists(location))
+        return location.str();
+    }
   }
   return {};
 }
 
 static Optional<std::string> findLibrary(StringRef name) {
-  llvm::SmallString<261> location;
-  for (StringRef dir : config->librarySearchPaths) {
-      location = dir;
-      path::append(location, Twine("lib") + name);
-      if (Optional<std::string> path =
-              findWithExtension(location, {".tbd", ".dylib", ".a"}))
-        return path;
+  if (config->searchDylibsFirst) {
+    if (Optional<std::string> path =
+            findAlongPathsWithExtensions(name, {".tbd", ".dylib"}))
+      return path;
+    return findAlongPathsWithExtensions(name, {".a"});
   }
-  return {};
+  return findAlongPathsWithExtensions(name, {".tbd", ".dylib", ".a"});
 }
 
 static Optional<std::string> findFramework(StringRef name) {
@@ -469,7 +472,7 @@ static void warnIfDeprecatedOption(const opt::Option &opt) {
 }
 
 static void warnIfUnimplementedOption(const opt::Option &opt) {
-  if (!opt.getGroup().isValid())
+  if (!opt.getGroup().isValid() || !opt.hasFlag(DriverFlag::HelpHidden))
     return;
   switch (opt.getGroup().getID()) {
   case OPT_grp_deprecated:
@@ -521,6 +524,8 @@ bool macho::link(llvm::ArrayRef<const char *> argsArr, bool canExitEarly,
   config->installName =
       args.getLastArgValue(OPT_install_name, config->outputFile);
   config->headerPad = args::getHex(args, OPT_headerpad, /*Default=*/32);
+  config->headerPadMaxInstallNames =
+      args.hasArg(OPT_headerpad_max_install_names);
   config->outputType = args.hasArg(OPT_dylib) ? MH_DYLIB : MH_EXECUTE;
   config->runtimePaths = args::getStrings(args, OPT_rpath);
   config->allLoad = args.hasArg(OPT_all_load);
@@ -541,6 +546,10 @@ bool macho::link(llvm::ArrayRef<const char *> argsArr, bool canExitEarly,
 
   getLibrarySearchPaths(args, roots, config->librarySearchPaths);
   getFrameworkSearchPaths(args, roots, config->frameworkSearchPaths);
+  if (const opt::Arg *arg =
+          args.getLastArg(OPT_search_paths_first, OPT_search_dylibs_first))
+    config->searchDylibsFirst =
+        (arg && arg->getOption().getID() == OPT_search_dylibs_first);
   config->forceLoadObjC = args.hasArg(OPT_ObjC);
 
   if (args.hasArg(OPT_v)) {
@@ -560,6 +569,8 @@ bool macho::link(llvm::ArrayRef<const char *> argsArr, bool canExitEarly,
   for (const auto &arg : args) {
     const auto &opt = arg->getOption();
     warnIfDeprecatedOption(opt);
+    warnIfUnimplementedOption(opt);
+    // TODO: are any of these better handled via filtered() or getLastArg()?
     switch (arg->getOption().getID()) {
     case OPT_INPUT:
       addFile(arg->getValue());
@@ -591,26 +602,7 @@ bool macho::link(llvm::ArrayRef<const char *> argsArr, bool canExitEarly,
     case OPT_platform_version:
       handlePlatformVersion(arg);
       break;
-    case OPT_all_load:
-    case OPT_o:
-    case OPT_dylib:
-    case OPT_e:
-    case OPT_F:
-    case OPT_L:
-    case OPT_ObjC:
-    case OPT_headerpad:
-    case OPT_install_name:
-    case OPT_rpath:
-    case OPT_sub_library:
-    case OPT_Z:
-    case OPT_arch:
-    case OPT_syslibroot:
-    case OPT_sectcreate:
-    case OPT_dynamic:
-      // handled elsewhere
-      break;
     default:
-      warnIfUnimplementedOption(opt);
       break;
     }
   }

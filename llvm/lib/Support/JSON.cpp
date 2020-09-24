@@ -7,8 +7,11 @@
 //===---------------------------------------------------------------------===//
 
 #include "llvm/Support/JSON.h"
+#include "llvm/ADT/STLExtras.h"
 #include "llvm/Support/ConvertUTF.h"
+#include "llvm/Support/Error.h"
 #include "llvm/Support/Format.h"
+#include "llvm/Support/raw_ostream.h"
 #include <cctype>
 
 namespace llvm {
@@ -196,6 +199,40 @@ bool operator==(const Value &L, const Value &R) {
     return *L.getAsObject() == *R.getAsObject();
   }
   llvm_unreachable("Unknown value kind");
+}
+
+void Path::report(llvm::StringLiteral Msg) {
+  // Walk up to the root context, and count the number of segments.
+  unsigned Count = 0;
+  const Path *P;
+  for (P = this; P->Parent != nullptr; P = P->Parent)
+    ++Count;
+  Path::Root *R = P->Seg.root();
+  // Fill in the error message and copy the path (in reverse order).
+  R->ErrorMessage = Msg;
+  R->ErrorPath.resize(Count);
+  auto It = R->ErrorPath.begin();
+  for (P = this; P->Parent != nullptr; P = P->Parent)
+    *It++ = P->Seg;
+}
+
+Error Path::Root::getError() const {
+  std::string S;
+  raw_string_ostream OS(S);
+  OS << (ErrorMessage.empty() ? "invalid JSON contents" : ErrorMessage);
+  if (ErrorPath.empty()) {
+    if (!Name.empty())
+      OS << " when parsing " << Name;
+  } else {
+    OS << " at " << (Name.empty() ? "(root)" : Name);
+    for (const Path::Segment &S : llvm::reverse(ErrorPath)) {
+      if (S.isField())
+        OS << '.' << S.field();
+      else
+        OS << '[' << S.index() << ']';
+    }
+  }
+  return createStringError(llvm::inconvertibleErrorCode(), OS.str());
 }
 
 namespace {
@@ -633,7 +670,38 @@ void llvm::json::OStream::valueBegin() {
   }
   if (Stack.back().Ctx == Array)
     newline();
+  flushComment();
   Stack.back().HasValue = true;
+}
+
+void OStream::comment(llvm::StringRef Comment) {
+  assert(PendingComment.empty() && "Only one comment per value!");
+  PendingComment = Comment;
+}
+
+void OStream::flushComment() {
+  if (PendingComment.empty())
+    return;
+  OS << (IndentSize ? "/* " : "/*");
+  // Be sure not to accidentally emit "*/". Transform to "* /".
+  while (!PendingComment.empty()) {
+    auto Pos = PendingComment.find("*/");
+    if (Pos == StringRef::npos) {
+      OS << PendingComment;
+      PendingComment = "";
+    } else {
+      OS << PendingComment.take_front(Pos) << "* /";
+      PendingComment = PendingComment.drop_front(Pos + 2);
+    }
+  }
+  OS << (IndentSize ? " */" : "*/");
+  // Comments are on their own line unless attached to an attribute value.
+  if (Stack.size() > 1 && Stack.back().Ctx == Singleton) {
+    if (IndentSize)
+      OS << ' ';
+  } else {
+    newline();
+  }
 }
 
 void llvm::json::OStream::newline() {
@@ -657,6 +725,7 @@ void llvm::json::OStream::arrayEnd() {
   if (Stack.back().HasValue)
     newline();
   OS << ']';
+  assert(PendingComment.empty());
   Stack.pop_back();
   assert(!Stack.empty());
 }
@@ -675,6 +744,7 @@ void llvm::json::OStream::objectEnd() {
   if (Stack.back().HasValue)
     newline();
   OS << '}';
+  assert(PendingComment.empty());
   Stack.pop_back();
   assert(!Stack.empty());
 }
@@ -684,6 +754,7 @@ void llvm::json::OStream::attributeBegin(llvm::StringRef Key) {
   if (Stack.back().HasValue)
     OS << ',';
   newline();
+  flushComment();
   Stack.back().HasValue = true;
   Stack.emplace_back();
   Stack.back().Ctx = Singleton;
@@ -701,6 +772,7 @@ void llvm::json::OStream::attributeBegin(llvm::StringRef Key) {
 void llvm::json::OStream::attributeEnd() {
   assert(Stack.back().Ctx == Singleton);
   assert(Stack.back().HasValue && "Attribute must have a value");
+  assert(PendingComment.empty());
   Stack.pop_back();
   assert(Stack.back().Ctx == Object);
 }

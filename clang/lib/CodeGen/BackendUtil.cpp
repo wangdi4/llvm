@@ -1310,12 +1310,6 @@ void EmitAssemblyHelper::EmitAssemblyWithNewPassManager(
       if (LangOpts.Sanitize.has(SanitizerKind::LocalBounds))
         MPM.addPass(createModuleToFunctionPassAdaptor(BoundsCheckingPass()));
 
-      // Add UniqueInternalLinkageNames Pass which renames internal linkage
-      // symbols with unique names.
-      if (CodeGenOpts.UniqueInternalLinkageNames) {
-        MPM.addPass(UniqueInternalLinkageNamesPass());
-      }
-
       // Lastly, add semantically necessary passes for LTO.
       if (IsLTO || IsThinLTO) {
         MPM.addPass(CanonicalizeAliasesPass());
@@ -1411,12 +1405,6 @@ void EmitAssemblyHelper::EmitAssemblyWithNewPassManager(
           MPM.addPass(InstrProfiling(*Options, false));
         });
 
-      // Add UniqueInternalLinkageNames Pass which renames internal linkage
-      // symbols with unique names.
-      if (CodeGenOpts.UniqueInternalLinkageNames) {
-        MPM.addPass(UniqueInternalLinkageNamesPass());
-      }
-
       if (IsThinLTO) {
         MPM = PB.buildThinLTOPreLinkDefaultPipeline(
             Level, CodeGenOpts.DebugPassManager);
@@ -1432,6 +1420,11 @@ void EmitAssemblyHelper::EmitAssemblyWithNewPassManager(
                                                CodeGenOpts.DebugPassManager);
       }
     }
+
+    // Add UniqueInternalLinkageNames Pass which renames internal linkage
+    // symbols with unique names.
+    if (CodeGenOpts.UniqueInternalLinkageNames)
+      MPM.addPass(UniqueInternalLinkageNamesPass());
 
     if (CodeGenOpts.MemProf) {
       MPM.addPass(createModuleToFunctionPassAdaptor(MemProfilerPass()));

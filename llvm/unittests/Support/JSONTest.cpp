@@ -8,6 +8,7 @@
 
 #include "llvm/Support/JSON.h"
 #include "llvm/Support/raw_ostream.h"
+#include "llvm/Testing/Support/Error.h"
 
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
@@ -420,15 +421,19 @@ TEST(JSONTest, Stream) {
     std::string S;
     llvm::raw_string_ostream OS(S);
     OStream J(OS, Indent);
+    J.comment("top*/level");
     J.object([&] {
       J.attributeArray("foo", [&] {
         J.value(nullptr);
+        J.comment("element");
         J.value(42.5);
         J.arrayBegin();
         J.value(43);
         J.arrayEnd();
       });
+      J.comment("attribute");
       J.attributeBegin("bar");
+      J.comment("attribute value");
       J.objectBegin();
       J.objectEnd();
       J.attributeEnd();
@@ -437,20 +442,35 @@ TEST(JSONTest, Stream) {
     return OS.str();
   };
 
-  const char *Plain = R"({"foo":[null,42.5,[43]],"bar":{},"baz":"xyz"})";
+  const char *Plain =
+      R"(/*top* /level*/{"foo":[null,/*element*/42.5,[43]],/*attribute*/"bar":/*attribute value*/{},"baz":"xyz"})";
   EXPECT_EQ(Plain, StreamStuff(0));
-  const char *Pretty = R"({
+  const char *Pretty = R"(/* top* /level */
+{
   "foo": [
     null,
+    /* element */
     42.5,
     [
       43
     ]
   ],
-  "bar": {},
+  /* attribute */
+  "bar": /* attribute value */ {},
   "baz": "xyz"
 })";
   EXPECT_EQ(Pretty, StreamStuff(2));
+}
+
+TEST(JSONTest, Path) {
+  Path::Root R("foo");
+  Path P = R, A = P.field("a"), B = P.field("b");
+  A.index(1).field("c").index(2).report("boom");
+  EXPECT_THAT_ERROR(R.getError(), FailedWithMessage("boom at foo.a[1].c[2]"));
+  B.field("d").field("e").report("bam");
+  EXPECT_THAT_ERROR(R.getError(), FailedWithMessage("bam at foo.b.d.e"));
+  P.report("oh no");
+  EXPECT_THAT_ERROR(R.getError(), FailedWithMessage("oh no when parsing foo"));
 }
 
 } // namespace

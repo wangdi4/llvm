@@ -101,20 +101,16 @@ def Z : Flag<["-"], "Z">,
 def syslibroot : Separate<["-"], "syslibroot">,
      MetaVarName<"<rootdir>">,
      HelpText<"Prepend <rootdir> to all library and framework search paths">,
-     Flags<[HelpHidden]>,
      Group<grp_libs>;
 def search_paths_first : Flag<["-"], "search_paths_first">,
      HelpText<"Search for lib<name>.dylib and lib<name>.a at each step in traversing search path (default for Xcode 4 and later)">,
-     Flags<[HelpHidden]>,
      Group<grp_libs>;
 def search_dylibs_first : Flag<["-"], "search_dylibs_first">,
      HelpText<"Search for lib<name>.dylib on first pass, then for lib<name>.a on second pass through search path (default for Xcode 3 and earlier)">,
-     Flags<[HelpHidden]>,
      Group<grp_libs>;
 def framework : Separate<["-"], "framework">,
      MetaVarName<"<name>">,
      HelpText<"Search for <name>.framework/<name> on the framework search path">,
-     Flags<[HelpHidden]>,
      Group<grp_libs>;
 def weak_framework : Separate<["-"], "weak_framework">,
      MetaVarName<"<name>">,
@@ -134,20 +130,16 @@ def upward_framework : Separate<["-"], "upward_framework">,
 def F : JoinedOrSeparate<["-"], "F">,
      MetaVarName<"<dir>">,
      HelpText<"Add dir to the framework search path">,
-     Flags<[HelpHidden]>,
      Group<grp_libs>;
 def all_load : Flag<["-"], "all_load">,
      HelpText<"Load all members of all static archive libraries">,
-     Flags<[HelpHidden]>,
      Group<grp_libs>;
 def ObjC : Flag<["-"], "ObjC">,
      HelpText<"Load all members of static archives that are an Objective-C class or category.">,
-     Flags<[HelpHidden]>,
      Group<grp_libs>;
 def force_load : Separate<["-"], "force_load">,
      MetaVarName<"<path>">,
      HelpText<"Load all members static archive library at <path>">,
-     Flags<[HelpHidden]>,
      Group<grp_libs>;
 
 def grp_content : OptionGroup<"content">, HelpText<"ADDITIONAL CONTENT">;
@@ -165,7 +157,6 @@ def segcreate : MultiArg<["-"], "segcreate", 3>,
 def filelist : Separate<["-"], "filelist">,
      MetaVarName<"<file>">,
      HelpText<"Read names of files to link from <file>">,
-     Flags<[HelpHidden]>,
      Group<grp_content>;
 def dtrace : Separate<["-"], "dtrace">,
      MetaVarName<"<script>">,
@@ -182,7 +173,6 @@ def dead_strip : Flag<["-"], "dead_strip">,
 def order_file : Separate<["-"], "order_file">,
      MetaVarName<"<file>">,
      HelpText<"Layout functions and data according to specification in <file>">,
-     Flags<[HelpHidden]>,
      Group<grp_opts>;
 def sectorder : MultiArg<["-"], "sectorder", 3>,
      MetaVarName<"<segname> <sectname> <orderfile>">,
@@ -200,7 +190,6 @@ def no_order_data : Flag<["-"], "no_order_data">,
 def platform_version : MultiArg<["-"], "platform_version", 3>,
      MetaVarName<"<platform> <min_version> <sdk_version>">,
      HelpText<"Platform (e.g., macos, ios, tvos, watchos, bridgeos, mac-catalyst, ios-sim, tvos-sim, watchos-sim, driverkit) and version numbers">,
-     Flags<[HelpHidden]>,
      Group<grp_opts>;
 def macos_version_min : Separate<["-"], "macos_version_min">,
      MetaVarName<"<version>">,
@@ -505,7 +494,6 @@ def grp_rare : OptionGroup<"rare">, HelpText<"RARELY USED">;
 
 def v : Flag<["-"], "v">,
      HelpText<"Print the linker version">,
-     Flags<[HelpHidden]>,
      Group<grp_rare>;
 def version_details : Flag<["-"], "version_details">,
      HelpText<"Print the linker version in JSON form">,
@@ -665,7 +653,6 @@ def init : Separate<["-"], "init">,
 def sub_library : Separate<["-"], "sub_library">,
      MetaVarName<"<name>">,
      HelpText<"Re-export the dylib as <name>">,
-     Flags<[HelpHidden]>,
      Group<grp_rare>;
 def sub_umbrella : Separate<["-"], "sub_umbrella">,
      MetaVarName<"<name>">,
@@ -689,11 +676,10 @@ def umbrella : Separate<["-"], "umbrella">,
      Group<grp_rare>;
 def headerpad : Separate<["-"], "headerpad">,
      MetaVarName<"<size>">,
-     HelpText<"Allocate hex <size> extra space for future expansion of the load commands via install_name_tool">,
+     HelpText<"Allocate hex <size> extra space for future expansion of the load commands via install_name_tool (default is 0x20)">,
      Group<grp_rare>;
 def headerpad_max_install_names : Flag<["-"], "headerpad_max_install_names">,
      HelpText<"Allocate extra space so all load-command paths can expand to MAXPATHLEN via install_name_tool">,
-     Flags<[HelpHidden]>,
      Group<grp_rare>;
 def bind_at_load : Flag<["-"], "bind_at_load">,
      HelpText<"Tell dyld to bind all symbols at load time, rather than lazily">,
