@@ -25,6 +25,7 @@
 #include "llvm/IR/ConstantRange.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/DataLayout.h"
+#include "llvm/IR/DebugInfoMetadata.h"
 #include "llvm/IR/DerivedTypes.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/IRBuilder.h"
@@ -122,6 +123,10 @@ public:
 
     auto FirstNonAlloca = getFirstNonAllocaInTheEntryBlock(F);
     IRBuilder<> IRB(FirstNonAlloca);
+    DebugLoc Loc;
+    if (auto *SP = F.getSubprogram())
+      Loc = DebugLoc::get(SP->getScopeLine(), 0, SP);
+    IRB.SetCurrentDebugLocation(Loc);
 
     // %tmp = alloca i32, align 4
     IntegerType *I32Ty = IRB.getInt32Ty();
@@ -193,6 +198,10 @@ public:
     auto FirstNonAlloca = getFirstNonAllocaInTheEntryBlock(F);
     const DataLayout &DL = FirstNonAlloca->getModule()->getDataLayout();
     IRBuilder<> IRB(FirstNonAlloca);
+    DebugLoc Loc;
+    if (auto *SP = F.getSubprogram())
+      Loc = DebugLoc::get(SP->getScopeLine(), 0, SP);
+    IRB.SetCurrentDebugLocation(Loc);
 
     // %1 = alloca i16, align 2
     IntegerType *I16Ty = IRB.getInt16Ty();
@@ -260,6 +269,11 @@ public:
 
     auto FirstNonAlloca = getFirstNonAllocaInTheEntryBlock(F);
     IRBuilder<> IRB(FirstNonAlloca);
+    DebugLoc Loc;
+    if (auto *SP = F.getSubprogram())
+      Loc = DebugLoc::get(SP->getScopeLine(), 0, SP);
+    IRB.SetCurrentDebugLocation(Loc);
+
     uint32_t FtzDaz = getFtzDaz(F);
     Value *Args[] = {
         ConstantInt::get(IRB.getInt32Ty(), FtzDaz),
