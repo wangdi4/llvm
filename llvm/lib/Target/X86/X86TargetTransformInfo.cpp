@@ -4746,7 +4746,7 @@ bool X86TTIImpl::shouldScalarizeMaskedGather(CallInst *CI) {
   if (ST->hasAVX512() || isAVX2GatherProfitable()) {
     if (auto *DataVTy = dyn_cast<FixedVectorType>(DataTy)) {
       unsigned NumElts = DataVTy->getNumElements();
-      if (NumElts == 1 || !isPowerOf2_32(NumElts))
+      if (NumElts == 1)
         return true;
     }
     Type *ScalarTy = DataTy->getScalarType();
