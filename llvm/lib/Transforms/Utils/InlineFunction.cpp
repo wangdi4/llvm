@@ -1001,21 +1001,29 @@ static void AddAliasScopeMetadata(CallBase &CB, ValueToValueMapTy &VMap,
     return;
 
   const Function *CalledFunc = CB.getCalledFunction();
-  SmallVector<const Value *, 4> NoAliasArgs; // INTEL
+  SmallVector<const Argument *, 4> NoAliasArgs;
+  DenseMap<const Argument *, SmallVector<const Value *, 2>> PtrNoAliasArgs; // INTEL
 
   for (const Argument &Arg : CalledFunc->args()) { // INTEL
     if (CB.paramHasAttr(Arg.getArgNo(), Attribute::NoAlias) && !Arg.use_empty())
       NoAliasArgs.push_back(&Arg);
 
-    AddPtrNoAliasLoads(CB, Arg, NoAliasArgs); // INTEL
+#if INTEL_CUSTOMIZATION
+    SmallVector<const Value *, 2> PtrNoAliasArgLoads;
+    AddPtrNoAliasLoads(CB, Arg, PtrNoAliasArgLoads);
+    if (!PtrNoAliasArgLoads.empty()) {
+      // Keep an argument with all associated pointer loads.
+      PtrNoAliasArgs[&Arg] = PtrNoAliasArgLoads;
+    }
+#endif // INTEL_CUSTOMIZATION
   } // INTEL
 
 #if INTEL_CUSTOMIZATION
   MDNode *ArgAliasScopeList = CB.getMetadata("intel.args.alias.scope");
-#endif // INTEL_CUSTOMIZATION
 
-  if (NoAliasArgs.empty() && !ArgAliasScopeList) // INTEL
+  if (NoAliasArgs.empty() && !ArgAliasScopeList && PtrNoAliasArgs.empty())
     return;
+#endif // INTEL_CUSTOMIZATION
 
   // To do a good job, if a noalias variable is captured, we need to know if
   // the capture point dominates the particular use we're considering.
@@ -1028,14 +1036,14 @@ static void AddAliasScopeMetadata(CallBase &CB, ValueToValueMapTy &VMap,
   // become part of that alias scope, accesses using pointers not based on that
   // argument are tagged as noalias with that scope.
 
-  DenseMap<const Value *, MDNode *> NewScopes; // INTEL
+  DenseMap<const Argument *, MDNode *> NewScopes;
   MDBuilder MDB(CalledFunc->getContext());
 
   // Create a new scope domain for this function.
   MDNode *NewDomain =
     MDB.createAnonymousAliasScopeDomain(CalledFunc->getName());
   for (unsigned i = 0, e = NoAliasArgs.size(); i != e; ++i) {
-    const Value *A = NoAliasArgs[i]; // INTEL
+    const Argument *A = NoAliasArgs[i];
 
     std::string Name = std::string(CalledFunc->getName());
     if (A->hasName()) {
@@ -1054,6 +1062,26 @@ static void AddAliasScopeMetadata(CallBase &CB, ValueToValueMapTy &VMap,
   }
 
 #if INTEL_CUSTOMIZATION
+  DenseMap<const Argument *, MDNode *> PtrNoAliasNewScopes;
+  DenseMap<const Value *, const Argument *> PtrNoAliasEquivSets;
+
+  // Merge PtrNoAliasArgs into NoAliasArgs and NewScopes
+  for (auto &PtrNoAliasLoads : PtrNoAliasArgs) {
+    std::string Name = std::string(CalledFunc->getName());
+    if (PtrNoAliasLoads.first->hasName()) {
+      Name += ": ptrnoalias %";
+      Name += PtrNoAliasLoads.first->getName();
+    }
+
+    MDNode *NewScope = MDB.createAnonymousAliasScope(NewDomain, Name);
+    PtrNoAliasNewScopes.insert(std::make_pair(PtrNoAliasLoads.first, NewScope));
+
+    for (const Value *PtrLoad : PtrNoAliasLoads.second) {
+      // Construct reverse map that associates ptr load to an argument.
+      PtrNoAliasEquivSets[PtrLoad] = PtrNoAliasLoads.first;
+    }
+  }
+
   // Look for alias.scopes defined in argument metadata.
   if (ArgAliasScopeList) {
     for (int I = 0, E = ArgAliasScopeList->getNumOperands(); I < E; ++I) {
@@ -1169,9 +1197,12 @@ static void AddAliasScopeMetadata(CallBase &CB, ValueToValueMapTy &VMap,
         // If this is anything other than a noalias argument, then we cannot
         // completely describe the aliasing properties using alias.scope
         // metadata (and, thus, won't add any).
-        if (isa<Argument>(V) || isa<LoadInst>(V)) { // INTEL
-          if (NewScopes.count(V) == 0) // INTEL
+        if (const Argument *A = dyn_cast<Argument>(V)) {
+          if (NewScopes.count(A) == 0) // INTEL
             UsesAliasingPtr = true;
+        } else if (const LoadInst *LI = dyn_cast<LoadInst>(V)) { // INTEL
+          if (PtrNoAliasNewScopes.count(PtrNoAliasEquivSets[LI]) == 0) // INTEL
+            UsesAliasingPtr = true; // INTEL
         } else {
           UsesAliasingPtr = true;
         }
@@ -1198,19 +1229,33 @@ static void AddAliasScopeMetadata(CallBase &CB, ValueToValueMapTy &VMap,
       // An arbitrary function that might load pointers could see captured
       // noalias arguments via other noalias arguments or globals, and so we
       // must always check for prior capture.
-      for (const Value *A : NoAliasArgs) { // INTEL
-        if (!ObjSet.count(A) && (!CanDeriveViaCapture ||
-                                 // It might be tempting to skip the
-                                 // PointerMayBeCapturedBefore check if
-                                 // A->hasNoCaptureAttr() is true, but this is
-                                 // incorrect because nocapture only guarantees
-                                 // that no copies outlive the function, not
-                                 // that the value cannot be locally captured.
-                                 !PointerMayBeCapturedBefore(A,
-                                   /* ReturnCaptures */ false,
-                                   /* StoreCaptures */ false, I, &DT)))
+#if INTEL_CUSTOMIZATION
+      auto MayAssumeNoAlias = [&](const Value *V) {
+        return !ObjSet.count(V) &&
+               (!CanDeriveViaCapture ||
+                // It might be tempting to skip the
+                // PointerMayBeCapturedBefore check if
+                // A->hasNoCaptureAttr() is true, but this is
+                // incorrect because nocapture only guarantees
+                // that no copies outlive the function, not
+                // that the value cannot be locally captured.
+                !PointerMayBeCapturedBefore(V,
+                                            /* ReturnCaptures */ false,
+                                            /* StoreCaptures */ false, I, &DT));
+      };
+#endif // INTEL_CUSTOMIZATION
+
+      for (const Argument *A : NoAliasArgs) {
+        if (MayAssumeNoAlias(A)) // INTEL
           NoAliases.push_back(NewScopes[A]);
       }
+
+#if INTEL_CUSTOMIZATION
+      for (auto &ArgLoadsPair : PtrNoAliasArgs) {
+        if (llvm::all_of(ArgLoadsPair.second, MayAssumeNoAlias))
+          NoAliases.push_back(PtrNoAliasNewScopes[ArgLoadsPair.first]);
+      }
+#endif // INTEL_CUSTOMIZATION
 
       if (!NoAliases.empty())
         NI->setMetadata(LLVMContext::MD_noalias,
@@ -1232,11 +1277,20 @@ static void AddAliasScopeMetadata(CallBase &CB, ValueToValueMapTy &VMap,
       if (CanAddScopes && IsFuncCall)
         CanAddScopes = IsArgMemOnlyCall;
 
-      if (CanAddScopes)
-        for (const Value *A : NoAliasArgs) { // INTEL
+      if (CanAddScopes) { // INTEL
+        for (const Argument *A : NoAliasArgs) {
           if (ObjSet.count(A))
             Scopes.push_back(NewScopes[A]);
         }
+
+#if INTEL_CUSTOMIZATION
+        for (auto &ArgLoadsPair : PtrNoAliasArgs) {
+          if (llvm::any_of(ArgLoadsPair.second,
+                           [&](const Value *V) { return ObjSet.count(V); }))
+            Scopes.push_back(PtrNoAliasNewScopes[ArgLoadsPair.first]);
+        }
+#endif // INTEL_CUSTOMIZATION
+      } // INTEL
 
       if (!Scopes.empty())
         NI->setMetadata(
