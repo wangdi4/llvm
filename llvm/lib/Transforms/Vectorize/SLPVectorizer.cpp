@@ -5252,13 +5252,9 @@ void BoUpSLP::buildTree_rec(ArrayRef<Value *> VL_, unsigned Depth,
 
       // Keeps the reordered operands to avoid code duplication.
       SmallVector<ValueList, 2> OperandsVec;
-<<<<<<< HEAD
       SmallVector<SmallVector<int, 4>, 2> OperandsDirVec;  // INTEL
-      for (unsigned i = 0, e = PH->getNumIncomingValues(); i < e; ++i) {
-        SmallVector<int, 4> OpDirection(VL.size(), i); // INTEL
-=======
       for (unsigned I = 0, E = PH->getNumIncomingValues(); I < E; ++I) {
->>>>>>> d6ac649ccda289ecc2d2c0cb51892d57e8ec328c
+        SmallVector<int, 4> OpDirection(VL.size(), I); // INTEL
         ValueList Operands;
         // Prepare the operand vector.
         for (Value *V : VL)
