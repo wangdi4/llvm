@@ -46,15 +46,7 @@ namespace clang {
 #if !INTEL_PRODUCT_RELEASE
   void EmbedBitcode(llvm::Module *M, const CodeGenOptions &CGOpts,
                     llvm::MemoryBufferRef Buf);
-<<<<<<< HEAD
 #endif // !INTEL_PRODUCT_RELEASE
-
-  llvm::Expected<llvm::BitcodeModule>
-  FindThinLTOModule(llvm::MemoryBufferRef MBRef);
-  llvm::BitcodeModule *
-  FindThinLTOModule(llvm::MutableArrayRef<llvm::BitcodeModule> BMs);
-=======
->>>>>>> cf112382ddd0d717edf0b8a3e5b061de925258e9
 }
 
 #endif
