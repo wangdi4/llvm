@@ -1561,6 +1561,8 @@ private:
       case LibFunc_malloc:
       case LibFunc_realloc:
       case LibFunc_strcpy:
+      case LibFunc_Znam:
+      case LibFunc_Znwm:
         return PTA.getDTransI8PtrType();
 
         // Functions that return the system object for FILE*
@@ -1671,6 +1673,8 @@ private:
       case LibFunc_realloc:
       case LibFunc_sprintf:
       case LibFunc_strcpy:
+      case LibFunc_ZdlPv:
+      case LibFunc_ZdaPv:
         break;
 
         // Handle cases where the argument may be used as something other than

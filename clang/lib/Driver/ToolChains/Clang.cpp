@@ -8626,9 +8626,14 @@ void SYCLPostLink::ConstructJob(Compilation &C, const JobAction &JA,
   // Construct sycl-post-link command.
   assert(isa<SYCLPostLinkJobAction>(JA) && "Expecting SYCL post link job!");
   ArgStringList CmdArgs;
+#if INTEL_CUSTOMIZATION
+  bool IsOpenMPSPIRV = JA.isDeviceOffloading(Action::OFK_OpenMP) &&
+                       getToolChain().getTriple().isSPIR();
 
+  Arg *A = TCArgs.getLastArg(options::OPT_fsycl_device_code_split_EQ);
   // See if device code splitting is requested
-  if (Arg *A = TCArgs.getLastArg(options::OPT_fsycl_device_code_split_EQ)) {
+  if (!IsOpenMPSPIRV && A) {
+#endif // INTEL_CUSTOMIZATION
     if (StringRef(A->getValue()) == "per_kernel")
       addArgs(CmdArgs, TCArgs, {"-split=kernel"});
     else if (StringRef(A->getValue()) == "per_source")
