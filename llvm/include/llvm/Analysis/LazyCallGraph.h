@@ -1010,6 +1010,10 @@ public:
   /// remain active and reachable.
   bool isLibFunction(Function &F) const { return LibFunctions.count(&F); }
 
+  /// Helper to initialize a new node created outside of creating SCCs and add
+  /// it to the NodeMap. e.g. when a function is outlined.
+  Node &initNode(Node &N, LazyCallGraph::SCC &C);
+
   ///@{
   /// \name Pre-SCC Mutation API
   ///
@@ -1058,13 +1062,6 @@ public:
   /// DFS in order to call this safely. Typically, the function will have been
   /// fully visited by the DFS prior to calling this routine.
   void removeDeadFunction(Function &F);
-
-  /// Introduce a node for the function \p NewF in the SCC \p C.
-  void addNewFunctionIntoSCC(Function &NewF, SCC &C);
-
-  /// Introduce a node for the function \p NewF, as a single node in a
-  /// new SCC, in the RefSCC \p RC.
-  void addNewFunctionIntoRefSCC(Function &NewF, RefSCC &RC);
 
   ///@}
 
@@ -1206,13 +1203,6 @@ private:
 
   /// Helper to update pointers back to the graph object during moves.
   void updateGraphPtrs();
-
-  /// Helper to insert a new function, add it to the NodeMap, and populate its
-  /// node.
-  Node &createNode(Function &F);
-
-  /// Helper to add the given Node \p N to the SCCMap, mapped to the SCC \p C.
-  void addNodeToSCC(SCC &C, Node &N);
 
   /// Allocates an SCC and constructs it using the graph allocator.
   ///
