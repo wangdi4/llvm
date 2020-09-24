@@ -95,6 +95,7 @@ public:
   BasicBlock *getLoopVectorPH() { return LoopVectorPreHeader; }
 
   Loop *getMainLoop() const { return NewLoop; }
+  Loop *getOrigLoop() const { return OrigLoop; }
   unsigned getVF() const { return VF; }
   bool getNeedRemainderLoop() const { return false; }
   Loop *getRemainderLoop() const { return nullptr; }

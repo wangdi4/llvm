@@ -393,7 +393,7 @@ bool VPlanDriverImpl::processLoop(Loop *Lp, Function &Fn,
   // are not vectorized
   if (isOmpSIMDLoop) {
     setLoopMD(VCodeGen.getMainLoop(), "llvm.loop.isvectorized");
-    setLoopMD(Lp, "llvm.loop.isvectorized");
+    setLoopMD(VCodeGen.getOrigLoop(), "llvm.loop.isvectorized");
   }
 
   // Emit kernel optimization remarks.
