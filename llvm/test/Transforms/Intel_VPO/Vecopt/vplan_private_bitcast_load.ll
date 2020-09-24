@@ -29,10 +29,10 @@
 ; CHECK-NEXT: [[_0:%.*]] = extractelement <4 x i64 addrspace(1)*> [[BC2]], i32 0
 ; CHECK-NEXT: [[GROUPPTR:%.*]] = bitcast i64 addrspace(1)* [[_0]] to <4 x i64> addrspace(1)*
 ; CHECK-NEXT: store <4 x i64> [[GATHER2]], <4 x i64> addrspace(1)* [[GROUPPTR]], align 8
-; CHECK-NEXT: call void @llvm.lifetime.end.p0i8(i64 {{.*}}, i8* [[PRIV_PTR4]])
-; CHECK-NEXT: call void @llvm.lifetime.end.p0i8(i64 {{.*}}, i8* [[PRIV_PTR3]])
-; CHECK-NEXT: call void @llvm.lifetime.end.p0i8(i64 {{.*}}, i8* [[PRIV_PTR2]])
-; CHECK-NEXT: call void @llvm.lifetime.end.p0i8(i64 {{.*}}, i8* [[PRIV_PTR1]])
+; CHECK-NEXT: call void @llvm.lifetime.end.p0i8(i64 {{.*}}, i8* nonnull [[PRIV_PTR4]])
+; CHECK-NEXT: call void @llvm.lifetime.end.p0i8(i64 {{.*}}, i8* nonnull [[PRIV_PTR3]])
+; CHECK-NEXT: call void @llvm.lifetime.end.p0i8(i64 {{.*}}, i8* nonnull [[PRIV_PTR2]])
+; CHECK-NEXT: call void @llvm.lifetime.end.p0i8(i64 {{.*}}, i8* nonnull [[PRIV_PTR1]])
 
 ; ModuleID = 'main'
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"

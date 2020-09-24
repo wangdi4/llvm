@@ -344,6 +344,10 @@ public:
   /// directive.
   bool isAutoVecDirective() const;
 
+  /// If the instruction can be constant folded, return equivalent instruction,
+  /// otherwise return nullptr
+  HLInst *doConstantFolding();
+
   /// Checks if the Opcode is a reduction and returns it in \p OpCode.
   bool isReductionOp(unsigned *OpCode = nullptr) const;
 

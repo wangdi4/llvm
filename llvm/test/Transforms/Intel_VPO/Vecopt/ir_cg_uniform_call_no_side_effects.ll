@@ -25,7 +25,7 @@ define void @_ZGVeN2u_testKernel(i64 addrspace(1)* noalias %results) local_unnam
 ; CHECK-NEXT:    [[TMP3:%.*]] = icmp ne i2 [[TMP2]], 0
 ; CHECK-NEXT:    br i1 [[TMP3]], label [[PRED_CALL_IF:%.*]], label [[TMP5:%.*]]
 ; CHECK:       pred.call.if:
-; CHECK-NEXT:    [[TMP4:%.*]] = call i64 @uniform_call(i32 0)
+; CHECK-NEXT:    [[TMP4:%.*]] = tail call i64 @uniform_call(i32 0)
 ; CHECK-NEXT:    br label [[TMP5]]
 ; CHECK:       5:
 ; CHECK-NEXT:    [[TMP6:%.*]] = phi i64 [ undef, [[VECTOR_BODY:%.*]] ], [ [[TMP4]], [[PRED_CALL_IF]] ]

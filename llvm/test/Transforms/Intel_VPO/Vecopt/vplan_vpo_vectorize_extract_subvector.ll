@@ -4,30 +4,30 @@
 ; RUN: opt -S -VPlanDriver -vplan-force-vf=8 %s | FileCheck %s
 
 ; CHECK:      [[E:%.*]] = shufflevector <16 x i32> [[VAR:%.*]], <16 x i32> undef, <2 x i32> <i32 0, i32 1>
-; CHECK-NEXT: [[C:%.*]] = call <4 x float> @_Z11read_imagef14ocl_image2d_ro11ocl_splrDv2_i(%IMG_R_Ty addrspace(1)* [[srcimg:%.*]], %SPLR_Ty addrspace(2)* [[splr:%.*]], <2 x i32> [[E]])
+; CHECK-NEXT: [[C:%.*]] = tail call <4 x float> @_Z11read_imagef14ocl_image2d_ro11ocl_splrDv2_i(%IMG_R_Ty addrspace(1)* [[srcimg:%.*]], %SPLR_Ty addrspace(2)* [[splr:%.*]], <2 x i32> [[E]])
 ; CHECK:      [[E1:%.*]] = shufflevector <16 x i32> [[VAR:%.*]], <16 x i32> undef, <2 x i32> <i32 2, i32 3>
-; CHECK-NEXT: [[C1:%.*]] = call <4 x float> @_Z11read_imagef14ocl_image2d_ro11ocl_splrDv2_i(%IMG_R_Ty addrspace(1)* [[srcimg:%.*]], %SPLR_Ty addrspace(2)* [[splr]], <2 x i32> [[E1]])
+; CHECK-NEXT: [[C1:%.*]] = tail call <4 x float> @_Z11read_imagef14ocl_image2d_ro11ocl_splrDv2_i(%IMG_R_Ty addrspace(1)* [[srcimg:%.*]], %SPLR_Ty addrspace(2)* [[splr]], <2 x i32> [[E1]])
 ; CHECK:      [[E2:%.*]] = shufflevector <16 x i32> [[VAR:%.*]], <16 x i32> undef, <2 x i32> <i32 4, i32 5>
-; CHECK-NEXT: [[C2:%.*]] = call <4 x float> @_Z11read_imagef14ocl_image2d_ro11ocl_splrDv2_i(%IMG_R_Ty addrspace(1)* [[srcimg:%.*]], %SPLR_Ty addrspace(2)* [[splr]], <2 x i32> [[E2]])
+; CHECK-NEXT: [[C2:%.*]] = tail call <4 x float> @_Z11read_imagef14ocl_image2d_ro11ocl_splrDv2_i(%IMG_R_Ty addrspace(1)* [[srcimg:%.*]], %SPLR_Ty addrspace(2)* [[splr]], <2 x i32> [[E2]])
 ; CHECK:      [[E3:%.*]] = shufflevector <16 x i32> [[VAR:%.*]], <16 x i32> undef, <2 x i32> <i32 6, i32 7>
-; CHECK-NEXT: [[C3:%.*]] = call <4 x float> @_Z11read_imagef14ocl_image2d_ro11ocl_splrDv2_i(%IMG_R_Ty addrspace(1)* [[srcimg:%.*]], %SPLR_Ty addrspace(2)* [[splr]], <2 x i32> [[E3]])
+; CHECK-NEXT: [[C3:%.*]] = tail call <4 x float> @_Z11read_imagef14ocl_image2d_ro11ocl_splrDv2_i(%IMG_R_Ty addrspace(1)* [[srcimg:%.*]], %SPLR_Ty addrspace(2)* [[splr]], <2 x i32> [[E3]])
 ; CHECK:      [[E4:%.*]] = shufflevector <16 x i32> [[VAR:%.*]], <16 x i32> undef, <2 x i32> <i32 8, i32 9>
-; CHECK-NEXT: [[C4:%.*]] = call <4 x float> @_Z11read_imagef14ocl_image2d_ro11ocl_splrDv2_i(%IMG_R_Ty addrspace(1)* [[srcimg:%.*]], %SPLR_Ty addrspace(2)* [[splr]], <2 x i32> [[E4]])
+; CHECK-NEXT: [[C4:%.*]] = tail call <4 x float> @_Z11read_imagef14ocl_image2d_ro11ocl_splrDv2_i(%IMG_R_Ty addrspace(1)* [[srcimg:%.*]], %SPLR_Ty addrspace(2)* [[splr]], <2 x i32> [[E4]])
 ; CHECK:      [[E5:%.*]] = shufflevector <16 x i32> [[VAR:%.*]], <16 x i32> undef, <2 x i32> <i32 10, i32 11>
-; CHECK-NEXT: [[C5:%.*]] = call <4 x float> @_Z11read_imagef14ocl_image2d_ro11ocl_splrDv2_i(%IMG_R_Ty addrspace(1)* [[srcimg:%.*]], %SPLR_Ty addrspace(2)* [[splr]], <2 x i32> [[E5]])
+; CHECK-NEXT: [[C5:%.*]] = tail call <4 x float> @_Z11read_imagef14ocl_image2d_ro11ocl_splrDv2_i(%IMG_R_Ty addrspace(1)* [[srcimg:%.*]], %SPLR_Ty addrspace(2)* [[splr]], <2 x i32> [[E5]])
 ; CHECK:      [[E6:%.*]] = shufflevector <16 x i32> [[VAR:%.*]], <16 x i32> undef, <2 x i32> <i32 12, i32 13>
-; CHECK-NEXT: [[C6:%.*]] = call <4 x float> @_Z11read_imagef14ocl_image2d_ro11ocl_splrDv2_i(%IMG_R_Ty addrspace(1)* [[srcimg:%.*]], %SPLR_Ty addrspace(2)* [[splr]], <2 x i32> [[E6]])
+; CHECK-NEXT: [[C6:%.*]] = tail call <4 x float> @_Z11read_imagef14ocl_image2d_ro11ocl_splrDv2_i(%IMG_R_Ty addrspace(1)* [[srcimg:%.*]], %SPLR_Ty addrspace(2)* [[splr]], <2 x i32> [[E6]])
 ; CHECK:      [[E7:%.*]] = shufflevector <16 x i32> [[VAR:%.*]], <16 x i32> undef, <2 x i32> <i32 14, i32 15>
-; CHECK-NEXT: [[C7:%.*]] = call <4 x float> @_Z11read_imagef14ocl_image2d_ro11ocl_splrDv2_i(%IMG_R_Ty addrspace(1)* [[srcimg:%.*]], %SPLR_Ty addrspace(2)* [[splr]], <2 x i32> [[E7]])
+; CHECK-NEXT: [[C7:%.*]] = tail call <4 x float> @_Z11read_imagef14ocl_image2d_ro11ocl_splrDv2_i(%IMG_R_Ty addrspace(1)* [[srcimg:%.*]], %SPLR_Ty addrspace(2)* [[splr]], <2 x i32> [[E7]])
 
-; CHECK:      call void @_Z12write_imagef14ocl_image2d_woDv2_iDv4_f(%IMG_W_Ty addrspace(1)* [[dstimg:%.*]], <2 x i32> [[E]], <4 x float> [[C]])
-; CHECK-NEXT: call void @_Z12write_imagef14ocl_image2d_woDv2_iDv4_f(%IMG_W_Ty addrspace(1)* [[dstimg]], <2 x i32> [[E1]], <4 x float> [[C1]])
-; CHECK-NEXT: call void @_Z12write_imagef14ocl_image2d_woDv2_iDv4_f(%IMG_W_Ty addrspace(1)* [[dstimg]], <2 x i32> [[E2]], <4 x float> [[C2]])
-; CHECK-NEXT: call void @_Z12write_imagef14ocl_image2d_woDv2_iDv4_f(%IMG_W_Ty addrspace(1)* [[dstimg]], <2 x i32> [[E3]], <4 x float> [[C3]])
-; CHECK-NEXT: call void @_Z12write_imagef14ocl_image2d_woDv2_iDv4_f(%IMG_W_Ty addrspace(1)* [[dstimg]], <2 x i32> [[E4]], <4 x float> [[C4]])
-; CHECK-NEXT: call void @_Z12write_imagef14ocl_image2d_woDv2_iDv4_f(%IMG_W_Ty addrspace(1)* [[dstimg]], <2 x i32> [[E5]], <4 x float> [[C5]])
-; CHECK-NEXT: call void @_Z12write_imagef14ocl_image2d_woDv2_iDv4_f(%IMG_W_Ty addrspace(1)* [[dstimg]], <2 x i32> [[E6]], <4 x float> [[C6]])
-; CHECK-NEXT: call void @_Z12write_imagef14ocl_image2d_woDv2_iDv4_f(%IMG_W_Ty addrspace(1)* [[dstimg]], <2 x i32> [[E7]], <4 x float> [[C7]])
+; CHECK:      tail call void @_Z12write_imagef14ocl_image2d_woDv2_iDv4_f(%IMG_W_Ty addrspace(1)* [[dstimg:%.*]], <2 x i32> [[E]], <4 x float> [[C]])
+; CHECK-NEXT: tail call void @_Z12write_imagef14ocl_image2d_woDv2_iDv4_f(%IMG_W_Ty addrspace(1)* [[dstimg]], <2 x i32> [[E1]], <4 x float> [[C1]])
+; CHECK-NEXT: tail call void @_Z12write_imagef14ocl_image2d_woDv2_iDv4_f(%IMG_W_Ty addrspace(1)* [[dstimg]], <2 x i32> [[E2]], <4 x float> [[C2]])
+; CHECK-NEXT: tail call void @_Z12write_imagef14ocl_image2d_woDv2_iDv4_f(%IMG_W_Ty addrspace(1)* [[dstimg]], <2 x i32> [[E3]], <4 x float> [[C3]])
+; CHECK-NEXT: tail call void @_Z12write_imagef14ocl_image2d_woDv2_iDv4_f(%IMG_W_Ty addrspace(1)* [[dstimg]], <2 x i32> [[E4]], <4 x float> [[C4]])
+; CHECK-NEXT: tail call void @_Z12write_imagef14ocl_image2d_woDv2_iDv4_f(%IMG_W_Ty addrspace(1)* [[dstimg]], <2 x i32> [[E5]], <4 x float> [[C5]])
+; CHECK-NEXT: tail call void @_Z12write_imagef14ocl_image2d_woDv2_iDv4_f(%IMG_W_Ty addrspace(1)* [[dstimg]], <2 x i32> [[E6]], <4 x float> [[C6]])
+; CHECK-NEXT: tail call void @_Z12write_imagef14ocl_image2d_woDv2_iDv4_f(%IMG_W_Ty addrspace(1)* [[dstimg]], <2 x i32> [[E7]], <4 x float> [[C7]])
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-pc-linux"

@@ -341,6 +341,12 @@ public:
             isConstantVector() || isNullVector());
   }
 
+  /// Returns true if canon expr represents a constant that can be constant
+  /// propagated.
+  bool isFoldableConstant() const {
+    return (isIntConstant() || isFPConstant() || isConstantVector());
+  }
+
   /// Returns true if canon expr is a constant integer. Integer value is
   /// returned in \p Val.
   bool isIntConstant(int64_t *Val = nullptr) const;
@@ -469,6 +475,19 @@ public:
     if (isIntConstant(&Val) && Val == 1) {
       return true;
     } else if (isFPConstant(&ConstFPVal) && ConstFPVal->isExactlyValue(1.0)) {
+      return true;
+    }
+    return false;
+  }
+
+  /// return true if the CanonExpr is negative one
+  /// Does not handle FP vector types
+  bool isMinusOne() const {
+    int64_t Val;
+    ConstantFP *ConstFPVal;
+    if (isIntConstant(&Val) && Val == -1) {
+      return true;
+    } else if (isFPConstant(&ConstFPVal) && ConstFPVal->isExactlyValue(-1.0)) {
       return true;
     }
     return false;
@@ -672,7 +691,8 @@ public:
   bool replaceTempBlob(unsigned TempIndex, unsigned NewTempIndex);
 
   /// Replaces the blob with \p OldTempIndex by the \p Constant value.
-  bool replaceTempBlobByConstant(unsigned TempIndex, int64_t Constant);
+  bool replaceTempBlobByConstant(unsigned TempIndex, int64_t Constant,
+                                 bool Simplify = false);
 
   /// Clears everything from the CanonExpr except Type so it represents constant
   /// 0 or null. Denominator is set to 1.

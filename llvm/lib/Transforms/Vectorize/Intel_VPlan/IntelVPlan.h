@@ -1952,6 +1952,9 @@ public:
     return getUnderlyingCallInst()->getCallingConv();
   }
 
+  /// Getter for original call's tail call attribute.
+  bool isOrigTailCall() const { return getUnderlyingCallInst()->isTailCall(); }
+
   // Getter for original call's callsite attributes.
   AttributeList getOrigCallAttrs() const {
     return getUnderlyingCallInst()->getAttributes();
