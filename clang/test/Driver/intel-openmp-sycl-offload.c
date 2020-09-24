@@ -13,17 +13,17 @@
 // RUN:   %clang -ccc-print-phases --intel -fsycl -fno-sycl-device-lib=all -fiopenmp -target x86_64-unknown-linux-gnu -fopenmp-targets=spir64 %s -fno-openmp-device-lib=all 2>&1 \
 // RUN:   | FileCheck -check-prefix=CHK-PHASES %s
 
-// CHK-PHASES: 0: input, "[[INPUT:.+\.c]]", c, (host-sycl)
-// CHK-PHASES: 1: preprocessor, {0}, cpp-output, (host-sycl)
-// CHK-PHASES: 2: input, "[[INPUT]]", c, (device-sycl)
-// CHK-PHASES: 3: preprocessor, {2}, cpp-output, (device-sycl)
+// CHK-PHASES: 0: input, "[[INPUT:.+\.c]]", c++, (host-sycl)
+// CHK-PHASES: 1: preprocessor, {0}, c++-cpp-output, (host-sycl)
+// CHK-PHASES: 2: input, "[[INPUT]]", c++, (device-sycl)
+// CHK-PHASES: 3: preprocessor, {2}, c++-cpp-output, (device-sycl)
 // CHK-PHASES: 4: compiler, {3}, sycl-header, (device-sycl)
-// CHK-PHASES: 5: offload, "host-sycl (x86_64-unknown-linux-gnu)" {1}, "device-sycl (spir64-unknown-unknown-sycldevice)" {4}, cpp-output
+// CHK-PHASES: 5: offload, "host-sycl (x86_64-unknown-linux-gnu)" {1}, "device-sycl (spir64-unknown-unknown-sycldevice)" {4}, c++-cpp-output
 // CHK-PHASES: 6: compiler, {5}, ir, (host-openmp-sycl)
 // CHK-PHASES: 7: backend, {6}, assembler, (host-openmp-sycl)
 // CHK-PHASES: 8: assembler, {7}, object, (host-openmp-sycl)
-// CHK-PHASES: 9: input, "[[INPUT]]", c, (device-openmp)
-// CHK-PHASES: 10: preprocessor, {9}, cpp-output, (device-openmp)
+// CHK-PHASES: 9: input, "[[INPUT]]", c++, (device-openmp)
+// CHK-PHASES: 10: preprocessor, {9}, c++-cpp-output, (device-openmp)
 // CHK-PHASES: 11: compiler, {10}, ir, (device-openmp)
 // CHK-PHASES: 12: offload, "host-openmp-sycl (x86_64-unknown-linux-gnu)" {6}, "device-openmp (spir64)" {11}, ir
 // CHK-PHASES: 13: backend, {12}, ir, (device-openmp)
@@ -77,15 +77,15 @@
 // RUN:   %clang -### -ccc-print-phases --intel -fsycl -fno-sycl-device-lib=all -fiopenmp -c -o %t.o -target x86_64-unknown-linux-gnu -fopenmp-targets=spir64 %s -no-canonical-prefixes 2>&1 \
 // RUN:   | FileCheck -check-prefix=CHK-BUACTIONS %s
 
-// CHK-BUACTIONS: 0: input, "[[INPUT:.+\.c]]", c, (host-sycl)
-// CHK-BUACTIONS: 1: preprocessor, {0}, cpp-output, (host-sycl)
-// CHK-BUACTIONS: 2: input, "[[INPUT]]", c, (device-sycl)
-// CHK-BUACTIONS: 3: preprocessor, {2}, cpp-output, (device-sycl)
+// CHK-BUACTIONS: 0: input, "[[INPUT:.+\.c]]", c++, (host-sycl)
+// CHK-BUACTIONS: 1: preprocessor, {0}, c++-cpp-output, (host-sycl)
+// CHK-BUACTIONS: 2: input, "[[INPUT]]", c++, (device-sycl)
+// CHK-BUACTIONS: 3: preprocessor, {2}, c++-cpp-output, (device-sycl)
 // CHK-BUACTIONS: 4: compiler, {3}, sycl-header, (device-sycl)
-// CHK-BUACTIONS: 5: offload, "host-sycl (x86_64-unknown-linux-gnu)" {1}, "device-sycl (spir64-unknown-unknown-sycldevice)" {4}, cpp-output
+// CHK-BUACTIONS: 5: offload, "host-sycl (x86_64-unknown-linux-gnu)" {1}, "device-sycl (spir64-unknown-unknown-sycldevice)" {4}, c++-cpp-output
 // CHK-BUACTIONS: 6: compiler, {5}, ir, (host-openmp-sycl)
-// CHK-BUACTIONS: 7: input, "[[INPUT]]", c, (device-openmp)
-// CHK-BUACTIONS: 8: preprocessor, {7}, cpp-output, (device-openmp)
+// CHK-BUACTIONS: 7: input, "[[INPUT]]", c++, (device-openmp)
+// CHK-BUACTIONS: 8: preprocessor, {7}, c++-cpp-output, (device-openmp)
 // CHK-BUACTIONS: 9: compiler, {8}, ir, (device-openmp)
 // CHK-BUACTIONS: 10: offload, "host-openmp-sycl (x86_64-unknown-linux-gnu)" {6}, "device-openmp (spir64)" {9}, ir
 // CHK-BUACTIONS: 11: backend, {10}, ir, (device-openmp)
@@ -198,17 +198,17 @@
 // RUN:   | FileCheck %s -check-prefix=FOFFLOAD_STATIC_LIB_SRC
 
 // FOFFLOAD_STATIC_LIB_SRC: 0: input, "[[INPUT1:.+\.a]]", object, (host-openmp-sycl)
-// FOFFLOAD_STATIC_LIB_SRC: 1: input, "[[INPUT2:.+\.c]]", c, (host-sycl)
-// FOFFLOAD_STATIC_LIB_SRC: 2: preprocessor, {1}, cpp-output, (host-sycl)
-// FOFFLOAD_STATIC_LIB_SRC: 3: input, "[[INPUT2]]", c, (device-sycl)
-// FOFFLOAD_STATIC_LIB_SRC: 4: preprocessor, {3}, cpp-output, (device-sycl)
+// FOFFLOAD_STATIC_LIB_SRC: 1: input, "[[INPUT2:.+\.c]]", c++, (host-sycl)
+// FOFFLOAD_STATIC_LIB_SRC: 2: preprocessor, {1}, c++-cpp-output, (host-sycl)
+// FOFFLOAD_STATIC_LIB_SRC: 3: input, "[[INPUT2]]", c++, (device-sycl)
+// FOFFLOAD_STATIC_LIB_SRC: 4: preprocessor, {3}, c++-cpp-output, (device-sycl)
 // FOFFLOAD_STATIC_LIB_SRC: 5: compiler, {4}, sycl-header, (device-sycl)
-// FOFFLOAD_STATIC_LIB_SRC: 6: offload, "host-sycl (x86_64-unknown-linux-gnu)" {2}, "device-sycl (spir64-unknown-unknown-sycldevice)" {5}, cpp-output
+// FOFFLOAD_STATIC_LIB_SRC: 6: offload, "host-sycl (x86_64-unknown-linux-gnu)" {2}, "device-sycl (spir64-unknown-unknown-sycldevice)" {5}, c++-cpp-output
 // FOFFLOAD_STATIC_LIB_SRC: 7: compiler, {6}, ir, (host-openmp-sycl)
 // FOFFLOAD_STATIC_LIB_SRC: 8: backend, {7}, assembler, (host-openmp-sycl)
 // FOFFLOAD_STATIC_LIB_SRC: 9: assembler, {8}, object, (host-openmp-sycl)
-// FOFFLOAD_STATIC_LIB_SRC: 10: input, "[[INPUT2]]", c, (device-openmp)
-// FOFFLOAD_STATIC_LIB_SRC: 11: preprocessor, {10}, cpp-output, (device-openmp)
+// FOFFLOAD_STATIC_LIB_SRC: 10: input, "[[INPUT2]]", c++, (device-openmp)
+// FOFFLOAD_STATIC_LIB_SRC: 11: preprocessor, {10}, c++-cpp-output, (device-openmp)
 // FOFFLOAD_STATIC_LIB_SRC: 12: compiler, {11}, ir, (device-openmp)
 // FOFFLOAD_STATIC_LIB_SRC: 13: offload, "host-openmp-sycl (x86_64-unknown-linux-gnu)" {7}, "device-openmp (spir64)" {12}, ir
 // FOFFLOAD_STATIC_LIB_SRC: 14: backend, {13}, ir, (device-openmp)
