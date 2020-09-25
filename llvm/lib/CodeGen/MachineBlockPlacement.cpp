@@ -3404,7 +3404,8 @@ bool MachineBlockPlacement::runOnMachineFunction(MachineFunction &MF) {
            MF.getSubtarget().hasDSB()) {
     const TargetTransformInfo *TTI =
         &getAnalysis<TargetTransformInfoWrapperPass>().getTTI(MF.getFunction());
-    auto TTIAVX512 = TargetTransformInfo::AdvancedOptLevel::AO_TargetHasAVX512;
+    auto TTIAVX512 =
+        TargetTransformInfo::AdvancedOptLevel::AO_TargetHasIntelAVX512;
     if (TTI && TTI->isAdvancedOptEnabled(TTIAVX512)) {
       // Align all of the blocks that have no fall-through predecessors to DSB
       // window size for better DSB utilization. The block's predecessor has an

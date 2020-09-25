@@ -29,8 +29,8 @@ entry:
 
 attributes #1 = { "target-features"="+avx,+avx2,+sse4.2" }
 
-; CHECK: Target has SSE42
-; CHECK: Target has AVX
+; CHECK: Target has Intel SSE42
+; CHECK: Target has Intel AVX
 ; CHECK: Target has Intel AVX2
-; CHECK: Target has AVX2
-; CHECK-NOT: Target has AVX512
+; CHECK: Target has generic AVX2
+; CHECK-NOT: Target has Intel AVX512

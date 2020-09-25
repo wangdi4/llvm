@@ -2068,7 +2068,7 @@ static bool findWorthyFormalsForCloning(Function &F, bool AfterInl,
   // but not an advanced AVX2 compilation.
   //
   auto IsNonAdvancedAVX2 = [](WholeProgramInfo *WPInfo) {
-    auto AVX2 = TargetTransformInfo::AdvancedOptLevel::AO_TargetHasAVX2;
+    auto AVX2 = TargetTransformInfo::AdvancedOptLevel::AO_TargetHasGenericAVX2;
     auto IAVX2 = TargetTransformInfo::AdvancedOptLevel::AO_TargetHasIntelAVX2;
     return WPInfo && WPInfo->isAdvancedOptEnabled(AVX2) &&
         !WPInfo->isAdvancedOptEnabled(IAVX2);
