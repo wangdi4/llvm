@@ -235,7 +235,8 @@ void *DeviceTy::getOrAllocTgtPtr(void *HstPtrBegin, void *HstPtrBase,
               "exist for host address " DPxMOD " (%" PRId64 " bytes)",
               DPxPTR(HstPtrBegin), Size);
 #if INTEL_COLLAB
-  } else if (((RTLs->RequiresFlags & OMP_REQ_UNIFIED_SHARED_MEMORY) ||
+  } else if (((RTLs->RequiresFlags & OMP_REQ_UNIFIED_SHARED_MEMORY &&
+                   !managed_memory_supported()) ||
              is_managed_ptr(HstPtrBegin)) &&
 #else // INTEL_COLLAB
   } else if ((RTLs->RequiresFlags & OMP_REQ_UNIFIED_SHARED_MEMORY) &&
@@ -322,7 +323,8 @@ void *DeviceTy::getTgtPtrBegin(void *HstPtrBegin, int64_t Size, bool &IsLast,
         HT.isRefCountInf() ? "INF" : std::to_string(HT.getRefCount()).c_str());
     rc = (void *)tp;
 #if INTEL_COLLAB
-  } else if ((RTLs->RequiresFlags & OMP_REQ_UNIFIED_SHARED_MEMORY) ||
+  } else if ((RTLs->RequiresFlags & OMP_REQ_UNIFIED_SHARED_MEMORY &&
+                  !managed_memory_supported()) ||
              is_managed_ptr(HstPtrBegin)) {
 #else  // INTEL_COLLAB
   } else if (RTLs->RequiresFlags & OMP_REQ_UNIFIED_SHARED_MEMORY) {
@@ -357,7 +359,9 @@ void *DeviceTy::getTgtPtrBegin(void *HstPtrBegin, int64_t Size) {
 int DeviceTy::deallocTgtPtr(void *HstPtrBegin, int64_t Size, bool ForceDelete,
                             bool HasCloseModifier) {
 #if INTEL_COLLAB
-  if ( !HasCloseModifier && is_managed_ptr(HstPtrBegin))
+  if (((RTLs->RequiresFlags & OMP_REQ_UNIFIED_SHARED_MEMORY &&
+            !managed_memory_supported()) ||
+       is_managed_ptr(HstPtrBegin)) && !HasCloseModifier)
 #else  // INTEL_COLLAB
   if (RTLs->RequiresFlags & OMP_REQ_UNIFIED_SHARED_MEMORY && !HasCloseModifier)
 #endif // INTEL_COLLAB
