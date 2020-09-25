@@ -104,6 +104,7 @@ protected:
   FastMathFlags FMF;
 
   bool IsFPConstrained;
+  bool IsFPHonorNaNCompares; // INTEL
   fp::ExceptionBehavior DefaultConstrainedExcept;
   RoundingMode DefaultConstrainedRounding;
 
@@ -115,6 +116,7 @@ public:
                 MDNode *FPMathTag, ArrayRef<OperandBundleDef> OpBundles)
       : Context(context), Folder(Folder), Inserter(Inserter),
         DefaultFPMathTag(FPMathTag), IsFPConstrained(false),
+        IsFPHonorNaNCompares(false), // INTEL
         DefaultConstrainedExcept(fp::ebStrict),
         DefaultConstrainedRounding(RoundingMode::Dynamic),
         DefaultOperandBundles(OpBundles) {
@@ -263,6 +265,16 @@ public:
 
   /// Query for the use of constrained floating point math
   bool getIsFPConstrained() { return IsFPConstrained; }
+
+#if INTEL_CUSTOMIZATION
+  /// Enable/Disable honoring of floating point compares. When
+  /// enabled the CreateFCmp() calls instead create intel.honor.fcmp intrinsic
+  /// calls. Fast math flags are unaffected by this setting.
+  void setIsFPHonorNaNCompares(bool IsHonor) { IsFPHonorNaNCompares = IsHonor; }
+
+  /// Query for the honoring of floating point compares
+  bool getIsFPHonorNaNCompares() { return IsFPHonorNaNCompares; }
+#endif // INTEL_CUSTOMIZATION
 
   /// Set the exception handling to be used with constrained floating point
   void setDefaultConstrainedExcept(fp::ExceptionBehavior NewExcept) {
@@ -2358,8 +2370,15 @@ public:
     CallInst *CI = CallInst::Create(FTy, Callee, Args, DefaultOperandBundles);
     if (IsFPConstrained)
       setConstrainedFPCallAttr(CI);
-    if (isa<FPMathOperator>(CI))
-      setFPAttrs(CI, FPMathTag, FMF);
+#if INTEL_CUSTOMIZATION
+    // We don't want to use nnan when creating intel.honor.fcmp intrinsics.
+    if (isa<FPMathOperator>(CI)) {
+      FastMathFlags UseFMF = FMF;
+      if (isa<IntelHonorFCmpIntrinsic>(CI))
+        UseFMF.setNoNaNs(false);
+      setFPAttrs(CI, FPMathTag, UseFMF);
+    }
+#endif // INTEL_CUSTOMIZATION
     return Insert(CI, Name);
   }
 
