@@ -85,6 +85,8 @@ bool link(ArrayRef<const char *> args, bool canExitEarly, raw_ostream &stdoutOS,
   lld::stdoutOS = &stdoutOS;
   lld::stderrOS = &stderrOS;
 
+  errorHandler().cleanupCallback = []() { freeArena(); };
+
   errorHandler().logName = args::getFilenameWithoutExe(args[0]);
   errorHandler().errorLimitExceededMsg =
       "too many errors emitted, stopping now (use "
@@ -103,6 +105,7 @@ bool link(ArrayRef<const char *> args, bool canExitEarly, raw_ostream &stdoutOS,
   if (canExitEarly)
     exitLld(errorCount() ? 1 : 0);
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   // CMPLRLLVM-10208: This part here is for destroying the global data
   // if the user doesn't need it (e.g. testing system).
@@ -110,6 +113,8 @@ bool link(ArrayRef<const char *> args, bool canExitEarly, raw_ostream &stdoutOS,
 #endif // INTEL_CUSTOMIZATION
 
   freeArena();
+=======
+>>>>>>> f2efb5742cc9f74ad73987760651e3d23894a416
   return !errorCount();
 }
 
@@ -791,6 +796,7 @@ void LinkerDriver::link(ArrayRef<const char *> argsArr) {
   v.push_back("wasm-ld (LLVM option parsing)");
   for (auto *arg : args.filtered(OPT_mllvm))
     v.push_back(arg->getValue());
+  cl::ResetAllOptionOccurrences();
   cl::ParseCommandLineOptions(v.size(), v.data());
 
   errorHandler().errorLimit = args::getInteger(args, OPT_error_limit, 20);
