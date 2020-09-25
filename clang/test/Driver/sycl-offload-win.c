@@ -97,9 +97,9 @@
 
 // Check for /P behaviors
 // RUN: %clang_cl --target=x86_64-pc-windows-msvc -fsycl -P %s -### 2>&1 | FileCheck -check-prefix=FSYCL_P %s
-// FSYCL_P: clang{{.*}} "-cc1" "-triple" "spir64-unknown-unknown-sycldevice" {{.*}} "-E" {{.*}} "-o" "[[DEVICEPP:.+\.i]]"
-// FSYCL_P: clang{{.*}} "-cc1" "-triple" "x86_64-pc-windows-msvc{{.*}}" {{.*}} "-E" {{.*}} "-o" "[[HOSTPP:.+\.i]]"
-// FSYCL_P: clang-offload-bundler{{.*}} "-type=i" "-targets=sycl-spir64-unknown-unknown-sycldevice,host-x86_64-pc-windows-msvc" {{.*}} "-inputs=[[DEVICEPP]],[[HOSTPP]]"
+// FSYCL_P: clang{{.*}} "-cc1" "-triple" "spir64-unknown-unknown-sycldevice" {{.*}} "-E" {{.*}} "-o" "[[DEVICEPP:.+\.ii]]"
+// FSYCL_P: clang{{.*}} "-cc1" "-triple" "x86_64-pc-windows-msvc{{.*}}" {{.*}} "-E" {{.*}} "-o" "[[HOSTPP:.+\.ii]]"
+// FSYCL_P: clang-offload-bundler{{.*}} "-type=ii" "-targets=sycl-spir64-unknown-unknown-sycldevice,host-x86_64-pc-windows-msvc" {{.*}} "-inputs=[[DEVICEPP]],[[HOSTPP]]"
 
 // TODO: SYCL specific fail - analyze and enable
 // XFAIL: windows-msvc
