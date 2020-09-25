@@ -52479,6 +52479,90 @@ static SDValue combineMOVDQ2Q(SDNode *N, SelectionDAG &DAG) {
   return SDValue();
 }
 
+#if INTEL_CUSTOMIZATION
+static unsigned getFPClassFlag(unsigned Predicate, ConstantFPSDNode *LHS,
+                               ConstantFPSDNode *RHS) {
+  // SSE Condition code mapping:
+  //  0 - EQ
+  //  1 - LT
+  //  2 - LE
+  //  3 - UNORD
+  //  4 - NEQ
+  //  5 - NLT
+  //  6 - NLE
+  //  7 - ORD
+
+  // Only handle zero for now.
+  switch (Predicate) {
+  case 0: // EQ
+    if ((LHS && LHS->isZero()) || (RHS && RHS->isZero()))
+      return X86::FPCLASS_PZERO | X86::FPCLASS_NZERO;
+    break;
+
+  case 1: // LT
+    if (RHS && RHS->isZero())
+      return X86::FPCLASS_NEG_FINITE | X86::FPCLASS_NINF;
+    break;
+
+  case 2: // LE
+    if (RHS && RHS->isZero())
+      return X86::FPCLASS_PZERO | X86::FPCLASS_NZERO |
+             X86::FPCLASS_NEG_FINITE | X86::FPCLASS_NINF;
+    break;
+  }
+
+  return 0;
+}
+
+static SDValue combineToFpclass(SDNode *N, SelectionDAG &DAG,
+                                TargetLowering::DAGCombinerInfo &DCI,
+                                const X86Subtarget &Subtarget) {
+  assert(N->getOpcode() == X86ISD::CMPM && "Unsupported opcode!");
+
+  EVT VT = N->getValueType(0);
+  SDValue LHS = N->getOperand(0);
+  SDValue RHS = N->getOperand(1);
+  uint64_t Predicate = N->getConstantOperandVal(2);
+  SDLoc DL(N);
+
+  EVT SrcVT = LHS.getValueType();
+
+  if (!Subtarget.hasDQI() || !Subtarget.hasVLX() ||
+      (SrcVT.getScalarType() != MVT::f64 && SrcVT.getScalarType() != MVT::f32))
+    return SDValue();
+
+  ConstantFPSDNode *CLHS = isConstOrConstSplatFP(LHS);
+  ConstantFPSDNode *CRHS = isConstOrConstSplatFP(RHS);
+
+  // If both operands are constants, they should be folded.
+  if (CLHS && CRHS)
+    return SDValue();
+
+  unsigned FPClassFlag = getFPClassFlag(Predicate, CLHS, CRHS);
+  if (!FPClassFlag)
+    return SDValue();
+
+  SDValue Ops[] = {CLHS ? RHS : LHS,
+                   DAG.getTargetConstant(FPClassFlag, DL, MVT::i8)};
+  return DAG.getNode(SrcVT.isVector() ? X86ISD::VFPCLASS :
+                                        X86ISD::VFPCLASSS, DL, VT, Ops);
+}
+
+static SDValue combineCMPM(SDNode *N, SelectionDAG &DAG,
+                           TargetLowering::DAGCombinerInfo &DCI,
+                           const X86Subtarget &Subtarget) {
+
+  if (DAG.getTarget().Options.IntelAdvancedOptim) {
+    // Try to convert cmpm to fpclass which only has one operand.
+    if (SDValue Fpclass = combineToFpclass(N, DAG, DCI, Subtarget))
+      return Fpclass;
+  }
+
+  return SDValue();
+}
+
+#endif // INTEL_CUSTOMIZATION
+
 SDValue X86TargetLowering::PerformDAGCombine(SDNode *N,
                                              DAGCombinerInfo &DCI) const {
   SelectionDAG &DAG = DCI.DAG;
@@ -52656,6 +52740,9 @@ SDValue X86TargetLowering::PerformDAGCombine(SDNode *N,
   case ISD::FP_ROUND:       return combineFP_ROUND(N, DAG, Subtarget);
   case X86ISD::VBROADCAST_LOAD: return combineVBROADCAST_LOAD(N, DAG, DCI);
   case X86ISD::MOVDQ2Q:     return combineMOVDQ2Q(N, DAG);
+#if INTEL_CUSTOMIZATION
+  case X86ISD::CMPM:        return combineCMPM(N, DAG, DCI, Subtarget);
+#endif // INTEL_CUSTOMIZATION
   }
 
   return SDValue();
