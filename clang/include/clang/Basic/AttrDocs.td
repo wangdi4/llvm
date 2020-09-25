@@ -4166,6 +4166,7 @@ typedef.
 * ``swift_newtype(enum)`` means that a Swift enum will be created for this
 ypedef.
 
+
   .. code-block:: c
 
     // Import UIFontTextStyle as an enum type, with enumerated values being
