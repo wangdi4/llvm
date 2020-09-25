@@ -105,6 +105,35 @@ getInitFinal(EntityTy *E) {
   return std::make_tuple(Init, Final, FinalExternalUse);
 }
 
+template <class InitTy, class FinalTy>
+void VPLiveInOutCreator::addInOutValues(InitTy *Init, FinalTy *Final,
+                                        VPExternalUse *ExtUse, bool ExtUseAdded,
+                                        VPValue *StartV) {
+  VPExternalValues &ExtVals = Plan.getExternals();
+
+  // Create live-in/out descriptors
+  int MergeId = ExtUse->getMergeId();
+  VPLiveInValue *LIV = createLiveInValue(MergeId, StartV->getType());
+  VPLiveOutValue *LOV = createLiveOutValue(MergeId, Final);
+  // Unlink External use
+  ExtUse->removeOperand(ExtUse->getOperandIndex(Final));
+  // Put live-in/out to their lists
+  if (ExtUseAdded) {
+    Plan.addLiveInValue(LIV);
+    Plan.addLiveOutValue(LOV);
+    ExtVals.addOriginalIncomingValue(StartV);
+  } else {
+    Plan.setLiveInValue(LIV, MergeId);
+    Plan.setLiveOutValue(LOV, MergeId);
+    ExtVals.setOriginalIncomingValue(StartV, MergeId);
+  }
+  // Replace start value with live-in
+  if (Init->usesStartValue())
+    Init->replaceStartValue(LIV);
+  if (Final->usesStartValue())
+    Final->replaceStartValue(LIV);
+}
+
 void VPLiveInOutCreator::createInOutsInductions(
     const VPLoopEntityList *VPLEntityList) {
 
@@ -125,29 +154,8 @@ void VPLiveInOutCreator::createInOutsInductions(
       IndFinalExternalUse = ExtVals.createVPExternalUseNoIR(IndInit->getType());
       IndFinalExternalUse->addOperand(IndFinal);
     }
-
-    // Create live-in/out descriptors
-    unsigned MergeId = IndFinalExternalUse->getMergeId();
-    VPValue *StartV = IndInit->getStartValueOperand();
-    VPLiveInValue *LIV = createLiveInValue(MergeId, StartV->getType());
-    VPLiveOutValue *LOV = createLiveOutValue(MergeId, IndFinal);
-    // Unlink External use
-    IndFinalExternalUse->removeOperand(
-        IndFinalExternalUse->getOperandIndex(IndFinal));
-    // Put live-in/out to their lists
-    if (NeedAddExtUse) {
-      Plan.addLiveInValue(LIV);
-      Plan.addLiveOutValue(LOV);
-      ExtVals.addOriginalIncomingValue(StartV);
-    } else {
-      Plan.setLiveInValue(LIV, MergeId);
-      Plan.setLiveOutValue(LOV, MergeId);
-      ExtVals.setOriginalIncomingValue(StartV, MergeId);
-    }
-    // Replace start value with live-in
-    IndInit->replaceStartValue(LIV);
-    if (IndFinal->usesStartValue())
-      IndFinal->replaceStartValue(LIV);
+    addInOutValues(IndInit, IndFinal, IndFinalExternalUse, NeedAddExtUse,
+                   IndInit->getStartValueOperand());
   }
 }
 
@@ -164,33 +172,42 @@ void VPLiveInOutCreator::createInOutsReductions(
     VPExternalUse *RedFinalExternalUse = nullptr;
     std::tie(RedInit, RedFinal, RedFinalExternalUse) =
         getInitFinal<VPReductionInit, VPReductionFinal, VPReduction>(Red);
-    if (!RedFinalExternalUse)
-      // Can be possible for some auto-generated reductions, e.g. fake linear
-      // index for min/max+index idiom.
-      continue;
     assert((RedInit && RedFinal) && "Expected non-null init and final");
-    // Create live-in/out descriptors
-    int MergeId = RedFinalExternalUse->getMergeId();
     VPValue *StartV = nullptr;
     if (RedInit->usesStartValue())
       StartV = RedInit->getStartValueOperand();
     else
       StartV = RedFinal->getStartValueOperand();
     assert(StartV && "StartV is expected to be non-null here.");
-    VPLiveInValue *LIV = createLiveInValue(MergeId, StartV->getType());
-    VPLiveOutValue *LOV = createLiveOutValue(MergeId, RedFinal);
-    // Unlink External use
-    RedFinalExternalUse->removeOperand(
-        RedFinalExternalUse->getOperandIndex(RedFinal));
-    // Put live-in/out to their lists
-    Plan.setLiveInValue(LIV, MergeId);
-    Plan.setLiveOutValue(LOV, MergeId);
-    ExtVals.setOriginalIncomingValue(StartV, MergeId);
-    // Replace start value with live-in
-    if (RedInit->usesStartValue())
-      RedInit->replaceStartValue(LIV);
-    if (RedFinal->usesStartValue())
-      RedFinal->replaceStartValue(LIV);
+    bool ExtUseAdded = false;
+    if (!RedFinalExternalUse) {
+      // No external use can be possible for some auto-generated reductions,
+      // e.g. fake linear index for min/max+index idiom or for reductions that
+      // are not used outside of the loop. Then we don't need to create an
+      // external use except when it's non-index minmax reduction and it's used
+      // to calculate index. In such cases we need to keep it's value after
+      // peel/main loop.
+      if (!Red->isMinMax() || isa<VPIndexReduction>(Red))
+        continue;
+      if (!VPLEntityList->getMinMaxIndex(Red))
+        continue;
+      // In those cases we create a fake external use, with symbase equal to
+      // symbase of start value.
+      if (auto ExtDef = dyn_cast<VPExternalDef>(StartV))
+        if (auto VBlob = dyn_cast<VPBlob>(ExtDef->getOperandHIR())) {
+          RedFinalExternalUse =
+              ExtVals.getOrCreateVPExternalUseForDDRef(VBlob->getBlob());
+          RedFinalExternalUse->addOperand(RedFinal);
+        }
+      if (!RedFinalExternalUse) {
+        // That means we have a constant start value.
+        RedFinalExternalUse =
+            ExtVals.createVPExternalUseNoIR(RedInit->getType());
+        RedFinalExternalUse->addOperand(RedFinal);
+      }
+      ExtUseAdded = true;
+    }
+    addInOutValues(RedInit, RedFinal, RedFinalExternalUse, ExtUseAdded, StartV);
   }
 }
 
