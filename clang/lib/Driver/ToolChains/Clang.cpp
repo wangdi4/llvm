@@ -2587,6 +2587,16 @@ static void RenderFloatingPointOptions(const ToolChain &TC, const Driver &D,
   // LLVM flags based on the final state.
   bool HonorINFs = true;
   bool HonorNaNs = true;
+#if INTEL_CUSTOMIZATION
+  // This flag is a modifier on HonorNaNs. If HonorNaNs is true, then
+  // the value of this flag doesn't matter. If HonorNaNs is false, but
+  // this flag is true, we will reset HonorNaNs to true.
+  // Because of the special nature of this option, it doesn't get turned
+  // on and off by the other fp-model and fast-math options and imposes its
+  // effect after all other FP options have been rendered.
+  bool HonorNaNCompares = false;
+#endif // INTEL_CUSTOMIZATION
+
   // -fmath-errno is the default on some platforms, e.g. BSD-derived OSes.
   bool MathErrno = TC.IsMathErrnoDefault();
   bool AssociativeMath = false;
@@ -2722,6 +2732,12 @@ static void RenderFloatingPointOptions(const ToolChain &TC, const Driver &D,
     case options::OPT_fno_honor_infinities: HonorINFs = false;        break;
     case options::OPT_fhonor_nans:          HonorNaNs = true;         break;
     case options::OPT_fno_honor_nans:       HonorNaNs = false;        break;
+#if INTEL_CUSTOMIZATION
+    case options::OPT_fhonor_nan_compares:
+                                            HonorNaNCompares = true;  break;
+    case options::OPT_fno_honor_nan_compares:
+                                            HonorNaNCompares = false; break;
+#endif // INTEL_CUSTOMIZATION
     case options::OPT_fmath_errno:          MathErrno = true;         break;
     case options::OPT_fno_math_errno:       MathErrno = false;        break;
     case options::OPT_fassociative_math:    AssociativeMath = true;   break;
@@ -2921,6 +2937,13 @@ static void RenderFloatingPointOptions(const ToolChain &TC, const Driver &D,
     // If we handled this option claim it
     A->claim();
   }
+
+#if INTEL_CUSTOMIZATION
+  if (HonorNaNCompares) {
+    CmdArgs.push_back("-fhonor-nan-compares");
+    HonorNaNs = true;
+  }
+#endif // INTEL_CUSTOMIZATION
 
   if (!HonorINFs)
     CmdArgs.push_back("-menable-no-infs");

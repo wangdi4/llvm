@@ -1139,6 +1139,13 @@ def fp_model_EQ : Joined<["-"], "fp-model=">, Alias<ffp_model_EQ>,
 def fp_model : Separate<["-"], "fp-model">, Alias<ffp_model_EQ>;
 def fp_speculation_EQ : Joined<["-"], "fp-speculation=">,Alias<ffp_exception_behavior_EQ>,
   HelpText<"Specifies the exception behavior of floating-point operations.">;
+// icc-compatible fcmp handling
+def fhonor_nan_compares : Flag<["-"], "fhonor-nan-compares">,
+  Flags<[DriverOption, CC1Option]>,
+  HelpText<"Honor NaN compares with fast math">;
+def fno_honor_nan_compares : Flag<["-"], "fno-honor-nan-compares">,
+  Flags<[DriverOption, CC1Option]>,
+  HelpText<"Do not honor NaN compares with fast math">;
 #endif // INTEL_CUSTOMIZATION
 defm fast_math : OptInFFlag<"fast-math", "Allow aggressive, lossy floating-point optimizations">;
 defm math_errno : OptInFFlag<"math-errno", "Require math functions to indicate errors by setting errno">;

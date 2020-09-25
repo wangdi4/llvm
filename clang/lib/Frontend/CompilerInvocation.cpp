@@ -3609,6 +3609,11 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
                     Args.hasArg(OPT_ffast_math) ||
                     Args.hasArg(OPT_cl_unsafe_math_optimizations) ||
                     Args.hasArg(OPT_cl_fast_relaxed_math);
+#if INTEL_CUSTOMIZATION
+  Opts.HonorNaNCompares = Args.hasFlag(OPT_fhonor_nan_compares,
+                                       OPT_fno_honor_nan_compares,
+                                       false);
+#endif // INTEL_CUSTOMIZATION
 
   if (Arg *A = Args.getLastArg(OPT_ffp_contract)) {
     StringRef Val = A->getValue();

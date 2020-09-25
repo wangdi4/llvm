@@ -120,7 +120,10 @@ void CodeGenFunction::SetFPModel() {
 void CodeGenFunction::SetFastMathFlags(FPOptions FPFeatures) {
   llvm::FastMathFlags FMF;
   FMF.setAllowReassoc(FPFeatures.getAllowFPReassociate());
-  FMF.setNoNaNs(FPFeatures.getNoHonorNaNs());
+#if INTEL_CUSTOMIZATION
+  FMF.setNoNaNs(FPFeatures.getNoHonorNaNs() &&
+                !FPFeatures.getHonorNaNCompares());
+#endif // INTEL_CUSTOMIZATION
   FMF.setNoInfs(FPFeatures.getNoHonorInfs());
   FMF.setNoSignedZeros(FPFeatures.getNoSignedZero());
   FMF.setAllowReciprocal(FPFeatures.getAllowReciprocal());
@@ -164,7 +167,10 @@ CodeGenFunction::CGFPOptionsRAII::CGFPOptionsRAII(CodeGenFunction &CGF,
       CGF.CurFn->addFnAttr(Name, llvm::toStringRef(NewValue));
   };
   mergeFnAttrValue("no-infs-fp-math", FPFeatures.getNoHonorInfs());
-  mergeFnAttrValue("no-nans-fp-math", FPFeatures.getNoHonorNaNs());
+#if INTEL_CUSTOMIZATION
+  mergeFnAttrValue("no-nans-fp-math", FPFeatures.getNoHonorNaNs() &&
+                                      !FPFeatures.getHonorNaNCompares());
+#endif // INTEL_CUSTOMIZATION
   mergeFnAttrValue("no-signed-zeros-fp-math", FPFeatures.getNoSignedZero());
   mergeFnAttrValue("unsafe-fp-math", FPFeatures.getAllowFPReassociate() &&
                                          FPFeatures.getAllowReciprocal() &&

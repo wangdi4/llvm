@@ -1847,8 +1847,13 @@ void CodeGenModule::getDefaultFunctionAttributes(StringRef Name,
     // unsafe/inf/nan/nsz are handled by instruction-level FastMathFlags.
     FuncAttrs.addAttribute("no-infs-fp-math",
                            llvm::toStringRef(LangOpts.NoHonorInfs));
+#if INTEL_CUSTOMIZATION
+    // If we want to preserve NaN comparisons, we need to avoid setting
+    // the no-nans-fp-math attribute.
     FuncAttrs.addAttribute("no-nans-fp-math",
-                           llvm::toStringRef(LangOpts.NoHonorNaNs));
+                           llvm::toStringRef(LangOpts.NoHonorNaNs &&
+                                             !LangOpts.HonorNaNCompares));
+#endif // INTEL_CUSTOMIZATION
     FuncAttrs.addAttribute("unsafe-fp-math",
                            llvm::toStringRef(LangOpts.UnsafeFPMath));
     FuncAttrs.addAttribute("use-soft-float",
