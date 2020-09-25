@@ -7574,6 +7574,49 @@ bool VPOParoptTransform::genLoopSchedulingCode(
 
   wrnUpdateSSAPreprocess(L, ValueToLiveinMap, LiveOutVals, ECs);
 
+#if INTEL_CUSTOMIZATION
+  // Try to find loop upper bound and if known add trip count information to the
+  // loop as metadata.
+  // TODO: add support for collapsed loops with more than one normalized UB.
+  if (!findStringMetadataForLoop(L, "llvm.loop.intel.loopcount_maximum") &&
+      W->getWRNLoopInfo().getNormUBSize() == 1) {
+    if (auto *UB = dyn_cast<AllocaInst>(W->getWRNLoopInfo().getNormUB(0))) {
+      // Walk UB uses trying to find single store that initializes UB.
+      StoreInst *SingleStore = nullptr;
+      for (Use &U : UB->uses())
+        if (auto *I = dyn_cast<Instruction>(U.getUser())) {
+          if (VPOAnalysisUtils::isOpenMPDirective(I) || isa<LoadInst>(I) ||
+              I->isLifetimeStartOrEnd() ||
+              isa<BitCastInst>(I) && all_of(I->uses(), [](Use &U) {
+                if (auto *I = dyn_cast<Instruction>(U.getUser()))
+                  return I->isLifetimeStartOrEnd();
+                return false;
+              }))
+            continue;
+
+          if (auto *SI = dyn_cast<StoreInst>(I))
+            if (SI->getPointerOperand() == UB)
+              if (!SingleStore) {
+                SingleStore = SI;
+                continue;
+              }
+
+          SingleStore = nullptr;
+          break;
+        }
+
+      // If we have found single store check what is being stored. If it is a
+      // constant integer then trip count is known.
+      if (SingleStore)
+        if (auto *CI = dyn_cast<ConstantInt>(SingleStore->getValueOperand())) {
+          APInt MaxTC = CI->getValue() + 1u;
+          addStringMetadataToLoop(L, "llvm.loop.intel.loopcount_maximum",
+                                  MaxTC.getZExtValue());
+        }
+    }
+  }
+#endif // INTEL_CUSTOMIZATION
+
   //
   // This is initial implementation of parallel loop scheduling to get
   // a simple loop to work end-to-end.
