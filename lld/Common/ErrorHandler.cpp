@@ -78,32 +78,6 @@ void lld::exitLld(int val) {
   llvm::sys::Process::Exit(val);
 }
 
-#if INTEL_CUSTOMIZATION
-// Destroy the LTO temporary data and flush the stream buffers.
-void lld::cleanIntelLld() {
-  // Delete temporary files.
-  if (errorHandler().outputBuffer)
-    errorHandler().outputBuffer->discard();
-
-#ifndef NDEBUG
-  if (errorHandler().intelDebugMem)
-    warn("Cleaning up LLD memory\n");
-#endif // NDEBUG
-
-  // Clean up the memory from the LTO process
-  if (!errorHandler().intelEmbeddedLinker) {
-    llvm_shutdown();
-#ifndef NDEBUG
-    if (errorHandler().intelDebugMem)
-      warn("Cleaning up LLVM memory");
-#endif // NDEBUG
-  }
-
-  outs().flush();
-  errs().flush();
-}
-#endif // INTEL_CUSTOMIZATION
-
 void lld::diagnosticHandler(const DiagnosticInfo &di) {
   SmallString<128> s;
   raw_svector_ostream os(s);

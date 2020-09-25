@@ -102,11 +102,6 @@ public:
   bool disableOutput = false;
   std::function<void()> cleanupCallback;
 
-#if INTEL_CUSTOMIZATION
-  bool intelDebugMem = false;
-  bool intelEmbeddedLinker = false;
-#endif // INTEL_CUSTOMIZATION
-
   void error(const Twine &msg);
   LLVM_ATTRIBUTE_NORETURN void fatal(const Twine &msg);
   void log(const Twine &msg);
@@ -140,10 +135,6 @@ inline void warn(const Twine &msg) { errorHandler().warn(msg); }
 inline uint64_t errorCount() { return errorHandler().errorCount; }
 
 LLVM_ATTRIBUTE_NORETURN void exitLld(int val);
-#if INTEL_CUSTOMIZATION
-// Destroy the LTO temporary data and flush the stream buffers
-void cleanIntelLld();
-#endif // INTEL_CUSTOMIZATION
 
 void diagnosticHandler(const llvm::DiagnosticInfo &di);
 void checkError(Error e);
