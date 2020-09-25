@@ -188,7 +188,7 @@ unsigned HIRParser::findOrInsertTempBlobIndex(unsigned Symbase) {
   }
   // Some lvals may not be parsed as blobs during parsing, insert them as blobs
   // now.
-  assert((Symbase < ScalarSA.getMaxScalarSymbase()) &&
+  assert((Symbase <= ScalarSA.getMaxScalarSymbase()) &&
          "Blob index for symbase not found!");
 
   auto Val = ScalarSA.getBaseScalar(Symbase);
@@ -1374,7 +1374,7 @@ bool HIRParser::BlobProcessor::isReplacableAddRec(
 }
 
 void HIRParser::printScalar(raw_ostream &OS, unsigned Symbase) const {
-  if (Symbase < ScalarSA.getMaxScalarSymbase()) {
+  if (Symbase <= ScalarSA.getMaxScalarSymbase()) {
     ScalarSA.getBaseScalar(Symbase)->printAsOperand(OS, false);
     return;
   }
