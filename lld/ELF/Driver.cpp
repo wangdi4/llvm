@@ -93,6 +93,7 @@ bool elf::link(ArrayRef<const char *> args, bool canExitEarly,
     lazyObjFiles.clear();
     objectFiles.clear();
     sharedFiles.clear();
+    gNULTOFiles.clear();  // INTEL
     backwardReferences.clear();
 
     tar = nullptr;
@@ -110,20 +111,6 @@ bool elf::link(ArrayRef<const char *> args, bool canExitEarly,
   errorHandler().exitEarly = canExitEarly;
   stderrOS.enable_colors(stderrOS.has_colors());
 
-<<<<<<< HEAD
-  inputSections.clear();
-  outputSections.clear();
-  archiveFiles.clear();
-  binaryFiles.clear();
-  bitcodeFiles.clear();
-  lazyObjFiles.clear();
-  objectFiles.clear();
-  sharedFiles.clear();
-  gNULTOFiles.clear();  // INTEL
-  backwardReferences.clear();
-
-=======
->>>>>>> f2efb5742cc9f74ad73987760651e3d23894a416
   config = make<Configuration>();
   driver = make<LinkerDriver>();
   script = make<LinkerScript>();
@@ -141,16 +128,12 @@ bool elf::link(ArrayRef<const char *> args, bool canExitEarly,
   if (canExitEarly)
     exitLld(errorCount() ? 1 : 0);
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   // CMPLRLLVM-10208: This part here is for destroying the global data
   // if the user doesn't need it (e.g. testing system).
   cleanIntelLld();
 #endif // INTEL_CUSTOMIZATION
 
-  freeArena();
-=======
->>>>>>> f2efb5742cc9f74ad73987760651e3d23894a416
   return !errorCount();
 }
 

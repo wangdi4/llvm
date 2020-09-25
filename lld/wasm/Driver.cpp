@@ -105,16 +105,12 @@ bool link(ArrayRef<const char *> args, bool canExitEarly, raw_ostream &stdoutOS,
   if (canExitEarly)
     exitLld(errorCount() ? 1 : 0);
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   // CMPLRLLVM-10208: This part here is for destroying the global data
   // if the user doesn't need it (e.g. testing system).
   cleanIntelLld();
 #endif // INTEL_CUSTOMIZATION
 
-  freeArena();
-=======
->>>>>>> f2efb5742cc9f74ad73987760651e3d23894a416
   return !errorCount();
 }
 
