@@ -519,7 +519,8 @@ public:
     // Current CG uses VPlan to generate the code, so Gotos should be ok to
     // support in CG.
     if (!CG->isSearchLoop()) {
-      LLVM_DEBUG(
+      DEBUG_WITH_TYPE(
+          "VPOCGHIR-bailout",
           dbgs() << "VPLAN_OPTREPORT: Loop not handled - unsupported HLNode\n");
       IsHandled = false;
     }
@@ -553,9 +554,9 @@ public:
 
 void HandledCheck::visit(HLDDNode *Node) {
   if (!isa<HLInst>(Node) && !isa<HLIf>(Node)) {
-    LLVM_DEBUG(
-        dbgs() << "VPLAN_OPTREPORT: Loop not handled - only HLInst/HLIf are "
-                  "supported\n");
+    DEBUG_WITH_TYPE("VPOCGHIR-bailout",
+                    dbgs() << "VPLAN_OPTREPORT: Loop not handled - only "
+                              "HLInst/HLIf are supported\n");
     IsHandled = false;
     return;
   }
@@ -565,10 +566,11 @@ void HandledCheck::visit(HLDDNode *Node) {
     auto LLInst = Inst->getLLVMInstruction();
 
     if (LLInst->mayThrow()) {
-      LLVM_DEBUG(Inst->dump());
-      LLVM_DEBUG(
+      DEBUG_WITH_TYPE("VPOCGHIR-bailout", Inst->dump());
+      DEBUG_WITH_TYPE(
+          "VPOCGHIR-bailout",
           dbgs()
-          << "VPLAN_OPTREPORT: Loop not handled - instruction may throw\n");
+              << "VPLAN_OPTREPORT: Loop not handled - instruction may throw\n");
       IsHandled = false;
       return;
     }
@@ -577,16 +579,18 @@ void HandledCheck::visit(HLDDNode *Node) {
     if ((Opcode == Instruction::UDiv || Opcode == Instruction::SDiv ||
          Opcode == Instruction::URem || Opcode == Instruction::SRem) &&
         (Inst->getParent() != OrigLoop)) {
-      LLVM_DEBUG(Inst->dump());
-      LLVM_DEBUG(dbgs() << "VPLAN_OPTREPORT: Loop not handled - masked DIV/REM "
-                           "instruction\n");
+      DEBUG_WITH_TYPE("VPOCGHIR-bailout", Inst->dump());
+      DEBUG_WITH_TYPE("VPOCGHIR-bailout",
+                      dbgs() << "VPLAN_OPTREPORT: Loop not handled - masked "
+                                "DIV/REM instruction\n");
       IsHandled = false;
       return;
     }
 
     if (Opcode == Instruction::Alloca) {
-      LLVM_DEBUG(Inst->dump());
-      LLVM_DEBUG(
+      DEBUG_WITH_TYPE("VPOCGHIR-bailout", Inst->dump());
+      DEBUG_WITH_TYPE(
+          "VPOCGHIR-bailout",
           dbgs() << "VPLAN_OPTREPORT: Loop not handled - alloca instruction\n");
       IsHandled = false;
       return;
@@ -605,8 +609,10 @@ void HandledCheck::visit(HLDDNode *Node) {
                       "handled - forcing mixed CG\n");
         CG->setForceMixedCG(true);
         if (getVectorizableCallSeen()) {
-          LLVM_DEBUG(dbgs()
-                     << "VPLAN_OPTREPORT: Loop not handled - call "
+          DEBUG_WITH_TYPE("VPOCGHIR-bailout", Inst->dump());
+          DEBUG_WITH_TYPE(
+              "VPOCGHIR-bailout",
+              dbgs() << "VPLAN_OPTREPORT: Loop not handled - call "
                         "vectorization not supported in mixed CG mode\n");
           IsHandled = false;
           return;
@@ -619,11 +625,10 @@ void HandledCheck::visit(HLDDNode *Node) {
         OrigLoop->isLiveOut(TLval->getSymbase()) &&
         Inst->getParent() != OrigLoop &&
         !CG->isReductionRef(TLval, MaskedRedOpcode)) {
-      LLVM_DEBUG(Inst->dump());
-      LLVM_DEBUG(
-          dbgs()
-          << "VPLAN_OPTREPORT: Liveout conditional non-reduction scalar assign "
-             "not handled\n");
+      DEBUG_WITH_TYPE("VPOCGHIR-bailout", Inst->dump());
+      DEBUG_WITH_TYPE("VPOCGHIR-bailout",
+                      dbgs() << "VPLAN_OPTREPORT: Liveout conditional "
+                                "non-reduction scalar assign not handled\n");
       IsHandled = false;
       return;
     }
@@ -631,16 +636,19 @@ void HandledCheck::visit(HLDDNode *Node) {
     if (const CallInst *Call = Inst->getCallInst()) {
       if (CG->getForceMixedCG() || !EnableVPValueCodegenHIR) {
         LLVM_DEBUG(Inst->dump());
-        LLVM_DEBUG(dbgs() << "VPLAN_OPTREPORT: Loop not handled - call "
-                             "vectorization not supported in mixed CG mode\n");
+        DEBUG_WITH_TYPE("VPOCGHIR-bailout", Inst->dump());
+        DEBUG_WITH_TYPE(
+            "VPOCGHIR-bailout",
+            dbgs() << "VPLAN_OPTREPORT: Loop not handled - call vectorization "
+                      "not supported in mixed CG mode\n");
         IsHandled = false;
         return;
       }
 
       Function *Fn = Call->getCalledFunction();
       if (!Fn) {
-        LLVM_DEBUG(Inst->dump());
-        LLVM_DEBUG(
+        DEBUG_WITH_TYPE("VPOCGHIR-bailout", Inst->dump());
+        DEBUG_WITH_TYPE("VPOCGHIR-bailout",
             dbgs() << "VPLAN_OPTREPORT: Loop not handled - indirect call\n");
         IsHandled = false;
         return;
@@ -662,9 +670,10 @@ void HandledCheck::visit(HLDDNode *Node) {
            !TLI->isFunctionVectorizable(CalledFunc, VF))) {
         // Masked svml calls are supported, but masked non-trivially
         // vectorizable intrinsics are not at the moment.
-        LLVM_DEBUG(Inst->dump());
-        LLVM_DEBUG(dbgs() << "VPLAN_OPTREPORT: Loop not handled - masked "
-                             "non-trivially vectorizable intrinsic\n");
+        DEBUG_WITH_TYPE("VPOCGHIR-bailout", Inst->dump());
+        DEBUG_WITH_TYPE("VPOCGHIR-bailout",
+                        dbgs() << "VPLAN_OPTREPORT: Loop not handled - masked "
+                                  "non-trivially vectorizable intrinsic\n");
         IsHandled = false;
         return;
       }
@@ -675,8 +684,8 @@ void HandledCheck::visit(HLDDNode *Node) {
       // floor calls are also temporarily disabled until FeatureOutlining is
       // fixed (CQ410864)
       if (CalledFunc == "fabs" || CalledFunc == "floor") {
-        LLVM_DEBUG(Inst->dump());
-        LLVM_DEBUG(
+        DEBUG_WITH_TYPE("VPOCGHIR-bailout", Inst->dump());
+        DEBUG_WITH_TYPE("VPOCGHIR-bailout",
             dbgs() << "VPLAN_OPTREPORT: Loop not handled - fabs/floor call "
                       "disabled\n");
         IsHandled = false;
@@ -690,9 +699,9 @@ void HandledCheck::visit(HLDDNode *Node) {
            (!TLI->isFunctionVectorizable(CalledFunc, VF) ||
             (!VPlanVecNonReadonlyLibCalls && !Call->onlyReadsMemory()))) &&
           !ID) {
-        LLVM_DEBUG(
-            dbgs()
-            << "VPLAN_OPTREPORT: Loop not handled - call not vectorizable\n");
+        DEBUG_WITH_TYPE("VPOCGHIR-bailout",
+                        dbgs() << "VPLAN_OPTREPORT: Loop not handled - call "
+                                  "not vectorizable\n");
         IsHandled = false;
         return;
       }
@@ -708,8 +717,9 @@ void HandledCheck::visit(HLDDNode *Node) {
             auto *OperandCE =
                 Inst->getOperandDDRef(ArgOffset + I)->getSingleCanonExpr();
             if (!OperandCE->isInvariantAtLevel(OrigLoop->getNestingLevel())) {
-              LLVM_DEBUG(dbgs()
-                         << "VPLAN_OPTREPORT: Loop not handled - always scalar "
+              DEBUG_WITH_TYPE(
+                  "VPOCGHIR-bailout",
+                  dbgs() << "VPLAN_OPTREPORT: Loop not handled - always scalar "
                             "operand of vector intrinsic is loop variant\n");
               IsHandled = false;
               return;
@@ -734,9 +744,9 @@ void HandledCheck::visitRegDDRef(RegDDRef *RegDD) {
 
   if (!VectorType::isValidElementType(RegDD->getSrcType()) ||
       !VectorType::isValidElementType(RegDD->getDestType())) {
-    LLVM_DEBUG(RegDD->getSrcType()->dump());
-    LLVM_DEBUG(RegDD->getDestType()->dump());
-    LLVM_DEBUG(
+    DEBUG_WITH_TYPE("VPOCGHIR-bailout", RegDD->getSrcType()->dump());
+    DEBUG_WITH_TYPE("VPOCGHIR-bailout", RegDD->getDestType()->dump());
+    DEBUG_WITH_TYPE("VPOCGHIR-bailout",
         dbgs() << "VPLAN_OPTREPORT: Loop not handled - invalid element type\n");
     IsHandled = false;
     return;
@@ -767,7 +777,7 @@ void HandledCheck::visitCanonExpr(CanonExpr *CExpr, bool InMemRef,
     CExpr->getIVCoeff(LoopLevel, nullptr, &ConstCoeff);
   }
   if (!EnableBlobCoeffVec && CExpr->hasIVBlobCoeff(LoopLevel)) {
-    LLVM_DEBUG(
+    DEBUG_WITH_TYPE("VPOCGHIR-bailout",
         dbgs()
         << "VPLAN_OPTREPORT: Loop not handled - IV with blob coefficient\n");
     IsHandled = false;
@@ -789,7 +799,7 @@ void HandledCheck::visitCanonExpr(CanonExpr *CExpr, bool InMemRef,
         ZeroCheck.visitAll(TopBlob);
 
         if (ZChk.isDivByZeroPossible()) {
-          LLVM_DEBUG(dbgs() << "VPLAN_OPTREPORT: Masked divide support TBI\n");
+          DEBUG_WITH_TYPE("VPOCGHIR-bailout", dbgs() << "VPLAN_OPTREPORT: Masked divide support TBI\n");
           IsHandled = false;
           return;
         }
@@ -803,7 +813,7 @@ void HandledCheck::visitCanonExpr(CanonExpr *CExpr, bool InMemRef,
     auto TopBlob = BlobUtilities.getBlob(BI);
 
     if (BlobUtilities.isNestedBlob(TopBlob)) {
-      LLVM_DEBUG(dbgs() << "VPLAN_OPTREPORT: Loop not handled - nested blob\n");
+      DEBUG_WITH_TYPE("VPOCGHIR-bailout", dbgs() << "VPLAN_OPTREPORT: Loop not handled - nested blob\n");
       IsHandled = false;
       return;
     }
@@ -824,7 +834,7 @@ bool VPOCodeGenHIR::loopIsHandled(HLLoop *Loop, unsigned int VF) {
 
   // Only handle normalized loops
   if (!Loop->isNormalized()) {
-    LLVM_DEBUG(
+    DEBUG_WITH_TYPE("VPOCGHIR-bailout",
         dbgs()
         << "VPLAN_OPTREPORT: Loop not handled - loop not in normalized form\n");
     return false;
@@ -839,7 +849,7 @@ bool VPOCodeGenHIR::loopIsHandled(HLLoop *Loop, unsigned int VF) {
 
     // Check for minimum trip count threshold
     if (TinyTripCountThreshold && ConstTripCount <= TinyTripCountThreshold) {
-      LLVM_DEBUG(
+      DEBUG_WITH_TYPE("VPOCGHIR-bailout",
           dbgs() << "VPLAN_OPTREPORT: Loop not handled - loop with small "
                     "trip count\n");
       return false;
@@ -847,7 +857,7 @@ bool VPOCodeGenHIR::loopIsHandled(HLLoop *Loop, unsigned int VF) {
 
     // Check that main vector loop will have at least one iteration
     if (ConstTripCount < VF) {
-      LLVM_DEBUG(
+      DEBUG_WITH_TYPE("VPOCGHIR-bailout",
           dbgs()
           << "VPLAN_OPTREPORT: Loop not handled - zero iteration main loop\n");
       return false;
@@ -868,7 +878,7 @@ bool VPOCodeGenHIR::loopIsHandled(HLLoop *Loop, unsigned int VF) {
   // implemented.
   if (DisableStressTest && NodeCheck.getMemRefSeen() &&
       !NodeCheck.getUnitStrideRefSeen()) {
-    LLVM_DEBUG(dbgs() << "VPLAN_OPTREPORT: Loop not handled - all mem refs non "
+    DEBUG_WITH_TYPE("VPOCGHIR-bailout", dbgs() << "VPLAN_OPTREPORT: Loop not handled - all mem refs non "
                          "unit-stride\n");
     return false;
   }
