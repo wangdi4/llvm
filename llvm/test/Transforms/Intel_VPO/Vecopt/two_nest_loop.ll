@@ -1,7 +1,7 @@
 ;
 ; REQUIRES: asserts
-; RUN: opt -S %s -VPlanDriver -vplan-print-after-linearization -disable-output | FileCheck %s
-; RUN: opt -S %s -passes="vplan-driver" -vplan-print-after-linearization -disable-output | FileCheck %s
+; RUN: opt -vplan-enable-soa=false -S %s -VPlanDriver -vplan-print-after-linearization -disable-output | FileCheck %s
+; RUN: opt -vplan-enable-soa=false -S %s -passes="vplan-driver" -vplan-print-after-linearization -disable-output | FileCheck %s
 
 ;source code:
 ;void foo(float *a, float *b, int* n) {

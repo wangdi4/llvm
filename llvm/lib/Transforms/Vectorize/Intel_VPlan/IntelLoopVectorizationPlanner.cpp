@@ -109,6 +109,14 @@ static cl::opt<bool, true> PrintAfterCallVecDecisionsOpt(
 static cl::opt<bool, true> PrintSVAResultsOpt(
     "vplan-print-scalvec-results", cl::Hidden, cl::location(PrintSVAResults),
     cl::desc("Print VPlan with results of ScalVec analysis."));
+
+// Flag to enable SOA-analysis.
+// TODO: Ideally, this should be in the IntelVPlanDriver file. In the future,
+// consider moving it there.
+static cl::opt<bool, true>
+    EnableSOAAnalysisOpt("vplan-enable-soa", cl::Hidden,
+                         cl::location(EnableSOAAnalysis),
+                         cl::desc("Enable VPlan SOAAnalysis."));
 #else
 static constexpr bool PrintAfterCallVecDecisionsOpt = false;
 static constexpr bool PrintSVAResultsOpt = false;
@@ -166,6 +174,7 @@ namespace vpo {
 bool PrintSVAResults = false;
 bool PrintAfterCallVecDecisions = false;
 bool LoopMassagingEnabled = true;
+bool EnableSOAAnalysis = false;
 } // namespace vpo
 } // namespace llvm
 
@@ -298,8 +307,9 @@ unsigned LoopVectorizationPlanner::buildInitialVPlans(LLVMContext *Context,
                                 *Plan->getDT(), *Plan->getPDT(),
                                 false /*Not in LCSSA form*/);
 
-    if (EnableSOAAnalysis) {
+    if (Plan->isSOAAnalysisEnabled()) {
       // Do SOA-analysis for loop-privates.
+      // TODO: Consider moving SOA-analysis to VPAnalysesFactory.
       VPSOAAnalysis VPSOAA(*Plan.get(), *CandidateLoop);
       SmallPtrSet<VPInstruction *, 32> SOAVars;
       VPSOAA.doSOAAnalysis(SOAVars);
@@ -649,6 +659,10 @@ std::shared_ptr<VPlan> LoopVectorizationPlanner::buildInitialVPlan(
   // Create new empty VPlan
   std::shared_ptr<VPlan> SharedPlan = std::make_shared<VPlan>(Ext);
   VPlan *Plan = SharedPlan.get();
+
+  if (EnableSOAAnalysis)
+    // Enable SOA-analysis.
+    Plan->enableSOAAnalysis();
 
   // Build hierarchical CFG
   VPlanHCFGBuilder HCFGBuilder(TheLoop, LI, *DL, WRLp, Plan, Legal);
