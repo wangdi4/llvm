@@ -1411,7 +1411,8 @@ bool GVN::PerformLoadPRE(LoadInst *LI, AvailValInBlkVect &ValuesPerBlock,
         (PH->getIncomingValueForBlock(CriticalEdgePred[0]) ==
          PH->getIncomingValueForBlock(CriticalEdgePred[1]))) {
       BasicBlock *NewBB = SplitBlockPredecessors(LoadBB, CriticalEdgePred,
-                                                 ".split", DT, this->LI);
+                                                 ".split", DT, this->LI,
+                                                 MSSAU);
       if (NewBB) {
         LLVM_DEBUG(dbgs() << " ENABLING PRE BY SPLITTING BB for LOAD: " << *LI
                           << '\n');
