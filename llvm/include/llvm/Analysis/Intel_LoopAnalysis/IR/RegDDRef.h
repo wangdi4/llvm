@@ -277,6 +277,9 @@ public:
   virtual void print(formatted_raw_ostream &OS,
                      bool Detailed = false) const override;
 
+  /// Print together with list of attached BlobDDRefs.
+  void printWithBlobDDRefs(formatted_raw_ostream &OS, unsigned Depth) const;
+
   /// Prints details of dimensions, matching with -hir-details-refs
   /// Argument Detailed has the same meaning of Detailed in print.
   void dumpDims(bool Detailed = false) const;
