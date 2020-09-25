@@ -2108,7 +2108,7 @@ AnalysisBasedWarnings::IssueWarnings(sema::AnalysisBasedWarnings::Policy P,
   if (cast<DeclContext>(D)->isDependentContext())
     return;
 
-  if (S.hasUncompilableErrorOccurred()) {
+  if (Diags.hasUncompilableErrorOccurred()) {
     // Flush out any possibly unreachable diagnostics.
     flushDiagnostics(S, fscope);
     return;
