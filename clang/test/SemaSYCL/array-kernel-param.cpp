@@ -303,14 +303,10 @@ int main() {
 // CHECK-NEXT: DeclRefExpr {{.*}} '__wrapper_class' lvalue ParmVar {{.*}} '_arg_foo_2D' '__wrapper_class'
 // CHECK-NEXT: InitListExpr {{.*}} 'int *[1]'
 // CHECK-NEXT: ImplicitCastExpr
-<<<<<<< HEAD
-// CHECK-NEXT: DeclRefExpr {{.*}} 'int' lvalue ParmVar {{.*}} '_arg_foo_c' 'int'
-=======
 // CHECK-NEXT: ImplicitCastExpr {{.*}} '__global int *'
 // CHECK-NEXT: MemberExpr {{.*}} '__global int *' lvalue .
 // CHECK-NEXT: DeclRefExpr {{.*}} '__wrapper_class' lvalue ParmVar {{.*}} '_arg_foo_2D' '__wrapper_class'
 
->>>>>>> 15e62c2d0e23839224661d4f8a4e291720dd401c
 // Check kernel_E parameters
 // CHECK: FunctionDecl {{.*}}kernel_E{{.*}} 'void (S<int>)'
 // CHECK-NEXT: ParmVarDecl {{.*}} used _arg_ 'S<int>':'S<int>'

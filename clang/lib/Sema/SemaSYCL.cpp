@@ -1792,10 +1792,6 @@ public:
     return true;
   }
 
-<<<<<<< HEAD
-#if INTEL_CUSTOMIZATION
-=======
->>>>>>> 15e62c2d0e23839224661d4f8a4e291720dd401c
   bool enterStruct(const CXXRecordDecl *, const CXXBaseSpecifier &BS,
                    QualType FieldTy) final {
     ++StructDepth;
@@ -1807,10 +1803,6 @@ public:
     --StructDepth;
     return true;
   }
-<<<<<<< HEAD
-#endif // INTEL_CUSTOMIZATION
-=======
->>>>>>> 15e62c2d0e23839224661d4f8a4e291720dd401c
 
   bool handleSyclAccessorType(const CXXRecordDecl *, const CXXBaseSpecifier &BS,
                               QualType FieldTy) final {
