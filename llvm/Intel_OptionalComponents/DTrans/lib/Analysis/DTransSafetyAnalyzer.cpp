@@ -1727,6 +1727,46 @@ public:
       collectSpecialFreeArgs(FreeKind, &Call, SpecialArguments, TLI);
     }
 
+    // If the call returns a type of interest, then we need to analyze the
+    // return value for safety bits that need to be set
+    if (!Call.getType()->isVoidTy()) {
+      ValueTypeInfo *Info = PTA.getValueTypeInfo(&Call);
+      if (Info && Info->canAliasToAggregatePointer()) {
+        if (isa<InvokeInst>(&Call))
+          setAllAliasedTypeSafetyData(Info, dtrans::HasCppHandling,
+            "Type returned by invoke call", &Call);
+
+        // If the value was declared as returning an 'i8*', then check that it
+        // does not get used as an aggregate type. This is only done for i8*
+        // return values because that is a generic type that is generally
+        // allowed as a safe alias type when analyzing instructions that use the
+        // value. Other type mismatches should be detected when the value gets
+        // used.
+        if (PTA.getDominantType(*Info, ValueTypeInfo::VAT_Decl) ==
+          getDTransI8PtrType() &&
+          AllocKind == dtrans::AK_NotAlloc)
+          setAllAliasedTypeSafetyData(
+            Info, dtrans::BadCasting,
+            "i8* type returned by call used as aggregate pointer type",
+            &Call);
+
+        // Types returned by non-local functions should be treated as
+        // system objects since we cannot transform them.
+        Function *F = dtrans::getCalledFunction(Call);
+        bool IsFnLocal =
+          F ? (!F->isDeclaration() && !F->hasDLLExportStorageClass()) : false;
+        LibFunc TheLibFunc = NotLibFunc;
+        bool IsLibFunc = false;
+        if (F && F->hasName())
+          IsLibFunc = TLI.getLibFunc(F->getName(), TheLibFunc);
+        if ((!IsFnLocal || (IsLibFunc && TLI.has(TheLibFunc))) &&
+          AllocKind == dtrans::AK_NotAlloc)
+          setAllAliasedTypeSafetyData(Info, dtrans::SystemObject,
+            "Type returned by non-local function",
+            &Call);
+      }
+    }
+
     // Do not check and potentially set the mismatched arg safety condition on
     // the 'this' pointer argument of a call created by devirtualization. The
     // devirtualizer has already proven the argument type is the correct type
