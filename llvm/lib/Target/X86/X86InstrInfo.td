@@ -3336,14 +3336,7 @@ include "X86InstrSVM.td"
 include "X86InstrTSX.td"
 include "X86InstrSGX.td"
 
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_TDX
-// FIXME merge with X86InstrTDX.td
-include "Intel_X86InstrTDX.td"
-#else // INTEL_FEATURE_ISA_TDX
 include "X86InstrTDX.td"
-#endif // INTEL_FEATURE_ISA_TDX
-#endif // INTEL_CUSTOMIZATION
 
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_KEYLOCKER
