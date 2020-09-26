@@ -9959,7 +9959,7 @@ public:
     BoUpSLP::ExtraValueToDebugLocsMap ExternallyUsedValues;
     // The same extra argument may be used several times, so log each attempt
     // to use it.
-    for (std::pair<Instruction *, Value *> &Pair : ExtraArgs) {
+    for (const std::pair<Instruction *, Value *> &Pair : ExtraArgs) {
       assert(Pair.first && "DebugLoc must be set.");
       ExternallyUsedValues[Pair.second].push_back(Pair.first);
     }
@@ -10014,10 +10014,14 @@ public:
     Value *VectorizedTree = nullptr;
     unsigned i = 0;
     while (i < NumReducedVals - ReduxWidth + 1 && ReduxWidth > 2) {
+<<<<<<< HEAD
       ArrayRef<Value *> VL = makeArrayRef(&ReducedVals[i], ReduxWidth);
 #if INTEL_CUSTOMIZATION
       V.PSLPInit();
 #endif // INTEL_CUSTOMIZATION
+=======
+      ArrayRef<Value *> VL(&ReducedVals[i], ReduxWidth);
+>>>>>>> 0a349d5827f6864ee89a5d0867d609339c07115d
       V.buildTree(VL, ExternallyUsedValues, IgnoreList);
       SmallVector<Value *, 4> ReorderedOps(VL.begin(), VL.end()); // INTEL
       Optional<ArrayRef<unsigned>> Order = V.bestOrder();
@@ -10853,7 +10857,7 @@ bool SLPVectorizerPass::vectorizeGEPIndices(BasicBlock *BB, BoUpSLP &R) {
     unsigned MaxElts = MaxVecRegSize / EltSize;
     for (unsigned BI = 0, BE = Entry.second.size(); BI < BE; BI += MaxElts) {
       auto Len = std::min<unsigned>(BE - BI, MaxElts);
-      auto GEPList = makeArrayRef(&Entry.second[BI], Len);
+      ArrayRef<GetElementPtrInst *> GEPList(&Entry.second[BI], Len);
 
       // Initialize a set a candidate getelementptrs. Note that we use a
       // SetVector here to preserve program order. If the index computations
