@@ -894,7 +894,11 @@ static void parseClangOption(StringRef opt, const Twine &msg) {
   raw_string_ostream os(err);
 
   const char *argv[] = {config->progName.data(), opt.data()};
-  cl::ResetAllOptionOccurrences();
+#if INTEL_CUSTOMIZATION
+  // CMPLRLLVM-CMPLRLLVM-23292: The following command resets the options passed
+  // to clang every time parseClangOption is called.
+  // cl::ResetAllOptionOccurrences();
+#endif // INTEL_CUSTOMIZATION
   if (cl::ParseCommandLineOptions(2, argv, "", &os))
     return;
   os.flush();
