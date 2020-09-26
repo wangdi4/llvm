@@ -10014,14 +10014,10 @@ public:
     Value *VectorizedTree = nullptr;
     unsigned i = 0;
     while (i < NumReducedVals - ReduxWidth + 1 && ReduxWidth > 2) {
-<<<<<<< HEAD
-      ArrayRef<Value *> VL = makeArrayRef(&ReducedVals[i], ReduxWidth);
+      ArrayRef<Value *> VL(&ReducedVals[i], ReduxWidth);
 #if INTEL_CUSTOMIZATION
       V.PSLPInit();
 #endif // INTEL_CUSTOMIZATION
-=======
-      ArrayRef<Value *> VL(&ReducedVals[i], ReduxWidth);
->>>>>>> 0a349d5827f6864ee89a5d0867d609339c07115d
       V.buildTree(VL, ExternallyUsedValues, IgnoreList);
       SmallVector<Value *, 4> ReorderedOps(VL.begin(), VL.end()); // INTEL
       Optional<ArrayRef<unsigned>> Order = V.bestOrder();
