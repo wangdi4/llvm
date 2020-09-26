@@ -127,7 +127,7 @@ MODULE_PASS("dopevectorconstprop", DopeVectorConstPropPass())           // INTEL
 MODULE_PASS("intel-fold-wp-intrinsic", IntelFoldWPIntrinsicPass())      // INTEL
 MODULE_PASS("ipsccp", IPSCCPPass())
 MODULE_PASS("print-ir-similarity", IRSimilarityAnalysisPrinterPass(dbgs()))
-MODULE_PASS("lowertypetests", LowerTypeTestsPass(nullptr, nullptr))
+MODULE_PASS("lowertypetests", LowerTypeTestsPass())
 MODULE_PASS("mergefunc", MergeFunctionsPass())
 MODULE_PASS("name-anon-globals", NameAnonGlobalPass())
 MODULE_PASS("no-op-module", NoOpModulePass())
@@ -576,6 +576,7 @@ LOOP_PASS("print<loop-cache-cost>", LoopCachePrinterPass(dbgs()))
 LOOP_PASS("loop-predication", LoopPredicationPass())
 LOOP_PASS("guard-widening", GuardWideningPass())
 LOOP_PASS("simple-loop-unswitch", SimpleLoopUnswitchPass())
+LOOP_PASS("loop-reroll", LoopRerollPass())
 #undef LOOP_PASS
 
 #ifndef LOOP_PASS_WITH_PARAMS
