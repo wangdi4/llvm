@@ -35,16 +35,13 @@
 #include "llvm/Analysis/DominanceFrontier.h"
 #include "llvm/Analysis/FunctionPropertiesAnalysis.h"
 #include "llvm/Analysis/GlobalsModRef.h"
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 #include "llvm/Analysis/Intel_Andersens.h"
 #include "llvm/Analysis/Intel_ArrayUseAnalysis.h"
 #include "llvm/Analysis/Intel_StdContainerAA.h"
 #include "llvm/Analysis/Intel_WP.h"
 #endif // INTEL_CUSTOMIZATION
-=======
 #include "llvm/Analysis/IRSimilarityIdentifier.h"
->>>>>>> f02c4c87b46c8203d7368cadc62607707d6f66b8
 #include "llvm/Analysis/IVUsers.h"
 #include "llvm/Analysis/InlineAdvisor.h"
 #include "llvm/Analysis/InlineSizeEstimatorAnalysis.h"
