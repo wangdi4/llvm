@@ -59,107 +59,209 @@ static void ForeachNumInConstantRange(const ConstantRange &CR, Fn TestFn) {
   }
 }
 
-template<typename Fn1, typename Fn2>
-static void TestUnsignedUnaryOpExhaustive(
-    Fn1 RangeFn, Fn2 IntFn, bool SkipSignedIntMin = false) {
+unsigned GetNumValuesInConstantRange(const ConstantRange &CR) {
+  unsigned NumValues = 0;
+  ForeachNumInConstantRange(CR, [&NumValues](const APInt &) { ++NumValues; });
+  return NumValues;
+}
+
+struct OpRangeGathererBase {
+  void account(const APInt &N);
+  ConstantRange getRange();
+};
+
+struct UnsignedOpRangeGatherer : public OpRangeGathererBase {
+  APInt Min;
+  APInt Max;
+
+  UnsignedOpRangeGatherer(unsigned Bits)
+      : Min(APInt::getMaxValue(Bits)), Max(APInt::getMinValue(Bits)) {}
+
+  void account(const APInt &N) {
+    if (N.ult(Min))
+      Min = N;
+    if (N.ugt(Max))
+      Max = N;
+  }
+
+  ConstantRange getRange() {
+    if (Min.ugt(Max))
+      return ConstantRange::getEmpty(Min.getBitWidth());
+    return ConstantRange::getNonEmpty(Min, Max + 1);
+  }
+};
+
+struct SignedOpRangeGatherer : public OpRangeGathererBase {
+  APInt Min;
+  APInt Max;
+
+  SignedOpRangeGatherer(unsigned Bits)
+      : Min(APInt::getSignedMaxValue(Bits)),
+        Max(APInt::getSignedMinValue(Bits)) {}
+
+  void account(const APInt &N) {
+    if (N.slt(Min))
+      Min = N;
+    if (N.sgt(Max))
+      Max = N;
+  }
+
+  ConstantRange getRange() {
+    if (Min.sgt(Max))
+      return ConstantRange::getEmpty(Min.getBitWidth());
+    return ConstantRange::getNonEmpty(Min, Max + 1);
+  }
+};
+
+struct AccumulatedPrecisionData {
+  unsigned NumActualValues;
+  unsigned NumValuesInActualCR;
+  unsigned NumValuesInExactCR;
+
+  // If NumValuesInActualCR and NumValuesInExactCR are identical, and are not
+  // equal to the NumActualValues, then the implementation is
+  // overly conservatively correct, i.e. imprecise.
+
+  void reset() {
+    NumActualValues = 0;
+    NumValuesInActualCR = 0;
+    NumValuesInExactCR = 0;
+  }
+};
+
+template <typename OpRangeGathererTy, typename Fn1, typename Fn2>
+static void TestUnaryOpExhaustive(Fn1 RangeFn, Fn2 IntFn,
+                                  AccumulatedPrecisionData &Total) {
+  Total.reset();
+
+  constexpr unsigned Bits = 4;
+
+  EnumerateConstantRanges(Bits, [&](const ConstantRange &CR) {
+    // We'll want to record each true new value, for precision testing.
+    SmallDenseSet<APInt, 1 << Bits> ExactValues;
+
+    // What constant range does ConstantRange method return?
+    ConstantRange ActualCR = RangeFn(CR);
+
+    // We'll want to sanity-check the ActualCR, so this will build our own CR.
+    OpRangeGathererTy ExactR(CR.getBitWidth());
+
+    // Let's iterate for each value in the original constant range.
+    ForeachNumInConstantRange(CR, [&](const APInt &N) {
+      // For this singular value, what is the true new value?
+      const APInt NewN = IntFn(N);
+
+      // Constant range provided by ConstantRange method must be conservatively
+      // correct, it must contain the true new value.
+      EXPECT_TRUE(ActualCR.contains(NewN));
+
+      // Record this true new value in our own constant range.
+      ExactR.account(NewN);
+
+      // And record the new true value itself.
+      ExactValues.insert(NewN);
+    });
+
+    // So, what range did we grok by exhaustively looking over each value?
+    ConstantRange ExactCR = ExactR.getRange();
+
+    // So, how many new values are there actually, and as per the ranges?
+    unsigned NumActualValues = ExactValues.size();
+    unsigned NumValuesInExactCR = GetNumValuesInConstantRange(ExactCR);
+    unsigned NumValuesInActualCR = GetNumValuesInConstantRange(ActualCR);
+
+    // Ranges should contain at least as much values as there actually was,
+    // but it is possible they will contain extras.
+    EXPECT_GE(NumValuesInExactCR, NumActualValues);
+    EXPECT_GE(NumValuesInActualCR, NumActualValues);
+
+    // We expect that OpRangeGathererTy produces the exactly identical range
+    // to what the ConstantRange method does.
+    EXPECT_EQ(ExactR.getRange(), ActualCR);
+
+    // For precision testing, accumulate the overall numbers.
+    Total.NumActualValues += NumActualValues;
+    Total.NumValuesInActualCR += NumValuesInActualCR;
+    Total.NumValuesInExactCR += NumValuesInExactCR;
+  });
+}
+
+template <typename Fn1, typename Fn2>
+static void TestUnsignedUnaryOpExhaustive(Fn1 RangeFn, Fn2 IntFn,
+                                          bool SkipSignedIntMin = false) {
   unsigned Bits = 4;
   EnumerateConstantRanges(Bits, [&](const ConstantRange &CR) {
-    APInt Min = APInt::getMaxValue(Bits);
-    APInt Max = APInt::getMinValue(Bits);
+    UnsignedOpRangeGatherer R(CR.getBitWidth());
     ForeachNumInConstantRange(CR, [&](const APInt &N) {
       if (SkipSignedIntMin && N.isMinSignedValue())
         return;
-
-      APInt AbsN = IntFn(N);
-      if (AbsN.ult(Min))
-        Min = AbsN;
-      if (AbsN.ugt(Max))
-        Max = AbsN;
+      R.account(IntFn(N));
     });
 
-    ConstantRange ResultCR = RangeFn(CR);
-    if (Min.ugt(Max)) {
-      EXPECT_TRUE(ResultCR.isEmptySet());
-      return;
-    }
+    ConstantRange ExactCR = R.getRange();
+    ConstantRange ActualCR = RangeFn(CR);
 
-    ConstantRange Exact = ConstantRange::getNonEmpty(Min, Max + 1);
-    EXPECT_EQ(Exact, ResultCR);
+    EXPECT_EQ(ExactCR, ActualCR);
   });
 }
 
-template<typename Fn1, typename Fn2>
-static void TestUnsignedBinOpExhaustive(
-    Fn1 RangeFn, Fn2 IntFn,
-    bool SkipZeroRHS = false, bool CorrectnessOnly = false) {
+template <typename Fn1, typename Fn2>
+static void TestUnsignedBinOpExhaustive(Fn1 RangeFn, Fn2 IntFn,
+                                        bool SkipZeroRHS = false,
+                                        bool CorrectnessOnly = false) {
   unsigned Bits = 4;
-  EnumerateTwoConstantRanges(Bits, [&](const ConstantRange &CR1,
-                                       const ConstantRange &CR2) {
-    APInt Min = APInt::getMaxValue(Bits);
-    APInt Max = APInt::getMinValue(Bits);
-    ForeachNumInConstantRange(CR1, [&](const APInt &N1) {
-      ForeachNumInConstantRange(CR2, [&](const APInt &N2) {
-        if (SkipZeroRHS && N2 == 0)
+  EnumerateTwoConstantRanges(
+      Bits, [&](const ConstantRange &CR1, const ConstantRange &CR2) {
+        UnsignedOpRangeGatherer R(CR1.getBitWidth());
+        ForeachNumInConstantRange(CR1, [&](const APInt &N1) {
+          ForeachNumInConstantRange(CR2, [&](const APInt &N2) {
+            if (SkipZeroRHS && N2 == 0)
+              return;
+            R.account(IntFn(N1, N2));
+          });
+        });
+
+        ConstantRange CR = RangeFn(CR1, CR2);
+
+        ConstantRange Exact = R.getRange();
+
+        if (!CorrectnessOnly) {
+          EXPECT_EQ(Exact, CR);
           return;
+        }
 
-        APInt N = IntFn(N1, N2);
-        if (N.ult(Min))
-          Min = N;
-        if (N.ugt(Max))
-          Max = N;
+        EXPECT_TRUE(CR.contains(Exact));
+        if (Exact.isEmptySet())
+          EXPECT_TRUE(CR.isEmptySet());
       });
-    });
-
-    ConstantRange CR = RangeFn(CR1, CR2);
-    if (Min.ugt(Max)) {
-      EXPECT_TRUE(CR.isEmptySet());
-      return;
-    }
-
-    ConstantRange Exact = ConstantRange::getNonEmpty(Min, Max + 1);
-    if (CorrectnessOnly) {
-      EXPECT_TRUE(CR.contains(Exact));
-    } else {
-      EXPECT_EQ(Exact, CR);
-    }
-  });
 }
 
-template<typename Fn1, typename Fn2>
-static void TestSignedBinOpExhaustive(
-    Fn1 RangeFn, Fn2 IntFn,
-    bool SkipZeroRHS = false, bool CorrectnessOnly = false) {
+template <typename Fn1, typename Fn2>
+static void TestSignedBinOpExhaustive(Fn1 RangeFn, Fn2 IntFn,
+                                      bool SkipZeroRHS = false,
+                                      bool CorrectnessOnly = false) {
   unsigned Bits = 4;
-  EnumerateTwoConstantRanges(Bits, [&](const ConstantRange &CR1,
-                                       const ConstantRange &CR2) {
-    APInt Min = APInt::getSignedMaxValue(Bits);
-    APInt Max = APInt::getSignedMinValue(Bits);
-    ForeachNumInConstantRange(CR1, [&](const APInt &N1) {
-      ForeachNumInConstantRange(CR2, [&](const APInt &N2) {
-        if (SkipZeroRHS && N2 == 0)
-          return;
+  EnumerateTwoConstantRanges(
+      Bits, [&](const ConstantRange &CR1, const ConstantRange &CR2) {
+        SignedOpRangeGatherer R(CR1.getBitWidth());
+        ForeachNumInConstantRange(CR1, [&](const APInt &N1) {
+          ForeachNumInConstantRange(CR2, [&](const APInt &N2) {
+            if (SkipZeroRHS && N2 == 0)
+              return;
 
-        APInt N = IntFn(N1, N2);
-        if (N.slt(Min))
-          Min = N;
-        if (N.sgt(Max))
-          Max = N;
+            R.account(IntFn(N1, N2));
+          });
+        });
+
+        ConstantRange CR = RangeFn(CR1, CR2);
+
+        ConstantRange Exact = R.getRange();
+        if (CorrectnessOnly) {
+          EXPECT_TRUE(CR.contains(Exact));
+        } else {
+          EXPECT_EQ(Exact, CR);
+        }
       });
-    });
-
-    ConstantRange CR = RangeFn(CR1, CR2);
-    if (Min.sgt(Max)) {
-      EXPECT_TRUE(CR.isEmptySet());
-      return;
-    }
-
-    ConstantRange Exact = ConstantRange::getNonEmpty(Min, Max + 1);
-    if (CorrectnessOnly) {
-      EXPECT_TRUE(CR.contains(Exact));
-    } else {
-      EXPECT_EQ(Exact, CR);
-    }
-  });
 }
 
 ConstantRange ConstantRangeTest::Full(16, true);
@@ -731,8 +833,7 @@ static void TestAddWithNoSignedWrapExhaustive(Fn1 RangeFn, Fn2 IntFn) {
   EnumerateTwoConstantRanges(Bits, [&](const ConstantRange &CR1,
                                        const ConstantRange &CR2) {
     ConstantRange CR = RangeFn(CR1, CR2);
-    APInt Min = APInt::getSignedMaxValue(Bits);
-    APInt Max = APInt::getSignedMinValue(Bits);
+    SignedOpRangeGatherer R(CR.getBitWidth());
     bool AllOverflow = true;
     ForeachNumInConstantRange(CR1, [&](const APInt &N1) {
       ForeachNumInConstantRange(CR2, [&](const APInt &N2) {
@@ -740,10 +841,7 @@ static void TestAddWithNoSignedWrapExhaustive(Fn1 RangeFn, Fn2 IntFn) {
         APInt N = IntFn(IsOverflow, N1, N2);
         if (!IsOverflow) {
           AllOverflow = false;
-          if (N.slt(Min))
-            Min = N;
-          if (N.sgt(Max))
-            Max = N;
+          R.account(N);
           EXPECT_TRUE(CR.contains(N));
         }
       });
@@ -751,15 +849,11 @@ static void TestAddWithNoSignedWrapExhaustive(Fn1 RangeFn, Fn2 IntFn) {
 
     EXPECT_EQ(CR.isEmptySet(), AllOverflow);
 
-    if (!CR1.isSignWrappedSet() && !CR2.isSignWrappedSet()) {
-      if (Min.sgt(Max)) {
-        EXPECT_TRUE(CR.isEmptySet());
-        return;
-      }
+    if (CR1.isSignWrappedSet() || CR2.isSignWrappedSet())
+      return;
 
-      ConstantRange Exact = ConstantRange::getNonEmpty(Min, Max + 1);
-      EXPECT_EQ(Exact, CR);
-    }
+    ConstantRange Exact = R.getRange();
+    EXPECT_EQ(Exact, CR);
   });
 }
 
@@ -769,8 +863,7 @@ static void TestAddWithNoUnsignedWrapExhaustive(Fn1 RangeFn, Fn2 IntFn) {
   EnumerateTwoConstantRanges(Bits, [&](const ConstantRange &CR1,
                                        const ConstantRange &CR2) {
     ConstantRange CR = RangeFn(CR1, CR2);
-    APInt Min = APInt::getMaxValue(Bits);
-    APInt Max = APInt::getMinValue(Bits);
+    UnsignedOpRangeGatherer R(CR.getBitWidth());
     bool AllOverflow = true;
     ForeachNumInConstantRange(CR1, [&](const APInt &N1) {
       ForeachNumInConstantRange(CR2, [&](const APInt &N2) {
@@ -778,10 +871,7 @@ static void TestAddWithNoUnsignedWrapExhaustive(Fn1 RangeFn, Fn2 IntFn) {
         APInt N = IntFn(IsOverflow, N1, N2);
         if (!IsOverflow) {
           AllOverflow = false;
-          if (N.ult(Min))
-            Min = N;
-          if (N.ugt(Max))
-            Max = N;
+          R.account(N);
           EXPECT_TRUE(CR.contains(N));
         }
       });
@@ -789,15 +879,11 @@ static void TestAddWithNoUnsignedWrapExhaustive(Fn1 RangeFn, Fn2 IntFn) {
 
     EXPECT_EQ(CR.isEmptySet(), AllOverflow);
 
-    if (!CR1.isWrappedSet() && !CR2.isWrappedSet()) {
-      if (Min.ugt(Max)) {
-        EXPECT_TRUE(CR.isEmptySet());
-        return;
-      }
+    if (CR1.isWrappedSet() || CR2.isWrappedSet())
+      return;
 
-      ConstantRange Exact = ConstantRange::getNonEmpty(Min, Max + 1);
-      EXPECT_EQ(Exact, CR);
-    }
+    ConstantRange Exact = R.getRange();
+    EXPECT_EQ(Exact, CR);
   });
 }
 
@@ -809,10 +895,8 @@ static void TestAddWithNoSignedUnsignedWrapExhaustive(Fn1 RangeFn,
   EnumerateTwoConstantRanges(
       Bits, [&](const ConstantRange &CR1, const ConstantRange &CR2) {
         ConstantRange CR = RangeFn(CR1, CR2);
-        APInt UMin = APInt::getMaxValue(Bits);
-        APInt UMax = APInt::getMinValue(Bits);
-        APInt SMin = APInt::getSignedMaxValue(Bits);
-        APInt SMax = APInt::getSignedMinValue(Bits);
+        UnsignedOpRangeGatherer UR(CR.getBitWidth());
+        SignedOpRangeGatherer SR(CR.getBitWidth());
         bool AllOverflow = true;
         ForeachNumInConstantRange(CR1, [&](const APInt &N1) {
           ForeachNumInConstantRange(CR2, [&](const APInt &N2) {
@@ -821,14 +905,8 @@ static void TestAddWithNoSignedUnsignedWrapExhaustive(Fn1 RangeFn,
             (void) IntFnUnsigned(IsOverflow, N1, N2);
             if (!IsSignedOverflow && !IsOverflow) {
               AllOverflow = false;
-              if (N.slt(SMin))
-                SMin = N;
-              if (N.sgt(SMax))
-                SMax = N;
-              if (N.ult(UMin))
-                UMin = N;
-              if (N.ugt(UMax))
-                UMax = N;
+              UR.account(N);
+              SR.account(N);
               EXPECT_TRUE(CR.contains(N));
             }
           });
@@ -836,18 +914,20 @@ static void TestAddWithNoSignedUnsignedWrapExhaustive(Fn1 RangeFn,
 
         EXPECT_EQ(CR.isEmptySet(), AllOverflow);
 
-        if (!CR1.isWrappedSet() && !CR2.isWrappedSet() &&
-            !CR1.isSignWrappedSet() && !CR2.isSignWrappedSet()) {
-          if (UMin.ugt(UMax) || SMin.sgt(SMax)) {
-            EXPECT_TRUE(CR.isEmptySet());
-            return;
-          }
+        if (CR1.isWrappedSet() || CR2.isWrappedSet() ||
+            CR1.isSignWrappedSet() || CR2.isSignWrappedSet())
+          return;
 
-          ConstantRange Exact =
-              ConstantRange::getNonEmpty(SMin, SMax + 1)
-                  .intersectWith(ConstantRange::getNonEmpty(UMin, UMax + 1));
-          EXPECT_EQ(Exact, CR);
+        ConstantRange ExactUnsignedCR = UR.getRange();
+        ConstantRange ExactSignedCR = SR.getRange();
+
+        if (ExactUnsignedCR.isEmptySet() || ExactSignedCR.isEmptySet()) {
+          EXPECT_TRUE(CR.isEmptySet());
+          return;
         }
+
+        ConstantRange Exact = ExactSignedCR.intersectWith(ExactUnsignedCR);
+        EXPECT_EQ(Exact, CR);
       });
 }
 
@@ -2229,23 +2309,19 @@ TEST_F(ConstantRangeTest, FromKnownBitsExhaustive) {
       if (Known.hasConflict() || Known.isUnknown())
         continue;
 
-      APInt MinUnsigned = APInt::getMaxValue(Bits);
-      APInt MaxUnsigned = APInt::getMinValue(Bits);
-      APInt MinSigned = APInt::getSignedMaxValue(Bits);
-      APInt MaxSigned = APInt::getSignedMinValue(Bits);
+      UnsignedOpRangeGatherer UR(Bits);
+      SignedOpRangeGatherer SR(Bits);
       for (unsigned N = 0; N < Max; ++N) {
         APInt Num(Bits, N);
         if ((Num & Known.Zero) != 0 || (~Num & Known.One) != 0)
           continue;
 
-        if (Num.ult(MinUnsigned)) MinUnsigned = Num;
-        if (Num.ugt(MaxUnsigned)) MaxUnsigned = Num;
-        if (Num.slt(MinSigned)) MinSigned = Num;
-        if (Num.sgt(MaxSigned)) MaxSigned = Num;
+        UR.account(Num);
+        SR.account(Num);
       }
 
-      ConstantRange UnsignedCR(MinUnsigned, MaxUnsigned + 1);
-      ConstantRange SignedCR(MinSigned, MaxSigned + 1);
+      ConstantRange UnsignedCR = UR.getRange();
+      ConstantRange SignedCR = SR.getRange();
       EXPECT_EQ(UnsignedCR, ConstantRange::fromKnownBits(Known, false));
       EXPECT_EQ(SignedCR, ConstantRange::fromKnownBits(Known, true));
     }
@@ -2403,9 +2479,16 @@ TEST_F(ConstantRangeTest, binaryXor) {
 }
 
 TEST_F(ConstantRangeTest, binaryNot) {
-  TestUnsignedUnaryOpExhaustive(
+  AccumulatedPrecisionData Precision;
+
+  TestUnaryOpExhaustive<UnsignedOpRangeGatherer>(
       [](const ConstantRange &CR) { return CR.binaryNot(); },
-      [](const APInt &N) { return ~N; });
+      [](const APInt &N) { return ~N; }, Precision);
+  // FIXME: the implementation is not precise.
+  EXPECT_EQ(Precision.NumActualValues, 1936u);
+  EXPECT_EQ(Precision.NumValuesInActualCR, 2496u);
+  EXPECT_EQ(Precision.NumValuesInExactCR, 2496u);
+
   TestUnsignedUnaryOpExhaustive(
       [](const ConstantRange &CR) {
         return CR.binaryXor(
