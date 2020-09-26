@@ -14,9 +14,11 @@
 ;   foo();
 ; }
 
-; Function foo() code generation should ignore "omp target" and generate
-; no calls:
+; Function foo() code generation should ignore "omp target", should not have
+; a conditional branch (for the dummy branch from begin to end target directives,
+; and generate no calls:
 ; CHECK-LABEL: @foo
+; CHECK-NOT: br i1 %{{[^ ,]+}}, label %{{[^ ,]+}}, label %{{[^ ]+}}
 ; CHECK-NOT: call
 
 ; bar's "omp target" must call foo():

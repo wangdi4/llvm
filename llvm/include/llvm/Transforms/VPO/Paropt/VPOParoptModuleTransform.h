@@ -184,9 +184,12 @@ private:
   /// region(s). If F is the original function, then the method clones it
   /// into NewF and does the following:
   ///   1. Removes all target directives from F.
+  ///     (including calling \p DummyBranchDeleter on F to delete of branches
+  ///      from begin to end directives, added by addBranchToEndDirective()).
   ///   2. Resets "contains-openmp-target" attrbiute for F.
   ///   3. Resets "openmp-target-declare" attribute for NewF.
-  bool cloneDeclareTargetFunctions() const;
+  bool cloneDeclareTargetFunctions(
+      std::function<bool(Function *F)> DummyBranchDeleter) const;
 
   /// Base class for offload entries. It is not supposed to be instantiated.
   class OffloadEntry {
