@@ -859,9 +859,18 @@ static void initialize(TargetLibraryInfoImpl &TLI, const Triple &T,
     TLI.setUnavailable(LibFunc_msvc_std_bad_alloc_ctor);
     TLI.setUnavailable(LibFunc_msvc_std_bad_alloc_scalar_deleting_dtor);
     TLI.setUnavailable(LibFunc_msvc_std_basic_string_append);
+    TLI.setUnavailable(LibFunc_msvc_std_basic_string_append_size_value);
+    TLI.setUnavailable(LibFunc_msvc_std_basic_string_assign_const_ptr);
+    TLI.setUnavailable(LibFunc_msvc_std_basic_string_assign_const_ptr_size);
+    TLI.setUnavailable(LibFunc_msvc_std_basic_string_dtor);
     TLI.setUnavailable(LibFunc_msvc_std_basic_string_insert);
+    TLI.setUnavailable(LibFunc_msvc_std_basic_string_operator_equal_const_ptr);
+    TLI.setUnavailable(LibFunc_msvc_std_basic_string_operator_plus_equal_char);
     TLI.setUnavailable(LibFunc_msvc_std_basic_string_resize);
     TLI.setUnavailable(LibFunc_msvc_std_basic_string_under_xlen);
+    TLI.setUnavailable(LibFunc_msvc_std_codecvt_do_always_noconv);
+    TLI.setUnavailable(LibFunc_msvc_std_codecvt_scalar_deleting_dtor);
+    TLI.setUnavailable(LibFunc_msvc_std_codecvt_use_facet);
     TLI.setUnavailable(LibFunc_msvc_std_ctype_do_narrow_char_char);
     TLI.setUnavailable(LibFunc_msvc_std_ctype_do_narrow_ptr_ptr_char_ptr);
     TLI.setUnavailable(LibFunc_msvc_std_ctype_do_tolower_char);
@@ -918,6 +927,7 @@ static void initialize(TargetLibraryInfoImpl &TLI, const Triple &T,
     // TLI.setUnavailable(LibFunc_msvc_std_numpunct_use_facet);
     TLI.setUnavailable(LibFunc_msvc_std_num_put_use_facet);
     TLI.setUnavailable(LibFunc_msvc_std_runtime_error_ctor);
+    TLI.setUnavailable(LibFunc_msvc_std_runtime_error_char_ctor);
     TLI.setUnavailable(LibFunc_msvc_std_runtime_error_scalar_deleting_dtor);
     TLI.setUnavailable(LibFunc_msvc_std_system_error_const_ptr_ctor);
     TLI.setUnavailable(LibFunc_msvc_std_system_error_scalar_deleting_dtor);
@@ -937,6 +947,7 @@ static void initialize(TargetLibraryInfoImpl &TLI, const Triple &T,
     TLI.setUnavailable(LibFunc_msvc_std_Xlength_error);
     TLI.setUnavailable(LibFunc_msvc_std_Xran);
     TLI.setUnavailable(LibFunc_msvc_std_yarn_dtor);
+    TLI.setUnavailable(LibFunc_msvc_std_yarn_wchar_dtor);
     TLI.setUnavailable(LibFunc_sprintf_s);
     TLI.setUnavailable(LibFunc_stdio_common_vfprintf);
     TLI.setUnavailable(LibFunc_stdio_common_vfscanf);
@@ -1743,12 +1754,43 @@ bool TargetLibraryInfoImpl::isValidProtoForLibFunc(const FunctionType &FTy,
             FTy.getParamType(1)->isPointerTy() &&
             FTy.getParamType(2)->isIntegerTy());
 
+  case LibFunc_msvc_std_basic_string_append_size_value:
+    return (NumParams == 3 && FTy.getReturnType()->isPointerTy() &&
+            FTy.getParamType(0)->isPointerTy() &&       // this pointer
+            FTy.getParamType(1)->isIntegerTy() &&
+            FTy.getParamType(2)->isIntegerTy());
+
+  case LibFunc_msvc_std_basic_string_assign_const_ptr:
+    return (NumParams == 2 && FTy.getReturnType()->isPointerTy() &&
+            FTy.getParamType(0)->isPointerTy() &&       // this pointer
+            FTy.getParamType(1)->isPointerTy());
+
+  case LibFunc_msvc_std_basic_string_assign_const_ptr_size:
+    return (NumParams == 3 && FTy.getReturnType()->isPointerTy() &&
+            FTy.getParamType(0)->isPointerTy() &&
+            FTy.getParamType(1)->isPointerTy() &&
+            FTy.getParamType(2)->isIntegerTy());
+
+  case LibFunc_msvc_std_basic_string_dtor:
+    return (NumParams == 1 && FTy.getReturnType()->isVoidTy() &&
+            FTy.getParamType(0)->isPointerTy());         // this pointer
+
   case LibFunc_msvc_std_basic_string_insert:
     return (NumParams == 4 && FTy.getReturnType()->isPointerTy() &&
             FTy.getParamType(0)->isPointerTy() &&       // this pointer
             FTy.getParamType(1)->isIntegerTy() &&
             FTy.getParamType(2)->isIntegerTy() &&
             FTy.getParamType(3)->isIntegerTy());
+
+  case LibFunc_msvc_std_basic_string_operator_equal_const_ptr:
+    return (NumParams == 2 && FTy.getReturnType()->isPointerTy() &&
+            FTy.getParamType(0)->isPointerTy() &&       // this pointer
+            FTy.getParamType(1)->isPointerTy());
+
+  case LibFunc_msvc_std_basic_string_operator_plus_equal_char:
+    return (NumParams == 2 && FTy.getReturnType()->isPointerTy() &&
+            FTy.getParamType(0)->isPointerTy() &&       // this pointer
+            FTy.getParamType(1)->isIntegerTy());
 
   case LibFunc_msvc_std_basic_string_resize:
     return (NumParams == 3 && FTy.getReturnType()->isVoidTy() &&
@@ -1758,6 +1800,19 @@ bool TargetLibraryInfoImpl::isValidProtoForLibFunc(const FunctionType &FTy,
 
   case LibFunc_msvc_std_basic_string_under_xlen:
     return (NumParams == 0 && FTy.getReturnType()->isVoidTy());
+
+  case LibFunc_msvc_std_codecvt_do_always_noconv:
+    return (NumParams == 1 && FTy.getReturnType()->isIntegerTy() &&
+            FTy.getParamType(0)->isPointerTy());
+
+  case LibFunc_msvc_std_codecvt_scalar_deleting_dtor:
+    return (NumParams == 2 && FTy.getReturnType()->isPointerTy() &&
+            FTy.getParamType(0)->isPointerTy() &&       // this pointer
+            FTy.getParamType(1)->isIntegerTy());
+
+  case LibFunc_msvc_std_codecvt_use_facet:
+    return (NumParams == 1 && FTy.getReturnType()->isPointerTy() &&
+            FTy.getParamType(0)->isPointerTy());
 
   case LibFunc_msvc_std_ctype_do_narrow_char_char:
     return (NumParams == 3 && FTy.getReturnType()->isIntegerTy() &&
@@ -2062,6 +2117,11 @@ case LibFunc_msvc_std_num_put_do_put_ulong:
             FTy.getParamType(0)->isPointerTy() &&
             FTy.getParamType(1)->isPointerTy());
 
+  case LibFunc_msvc_std_runtime_error_char_ctor:
+    return (NumParams == 2 && FTy.getReturnType()->isPointerTy() &&
+            FTy.getParamType(0)->isPointerTy() &&
+            FTy.getParamType(1)->isPointerTy());
+
   case LibFunc_msvc_std_runtime_error_scalar_deleting_dtor:
     return (NumParams == 2 && FTy.getReturnType()->isPointerTy() &&
             FTy.getParamType(0)->isPointerTy() &&
@@ -2145,6 +2205,10 @@ case LibFunc_msvc_std_num_put_do_put_ulong:
     return (NumParams == 0 && FTy.getReturnType()->isVoidTy());
 
   case LibFunc_msvc_std_yarn_dtor:
+    return (NumParams == 1 && FTy.getReturnType()->isVoidTy() &&
+            FTy.getParamType(0)->isPointerTy());
+
+  case LibFunc_msvc_std_yarn_wchar_dtor:
     return (NumParams == 1 && FTy.getReturnType()->isVoidTy() &&
             FTy.getParamType(0)->isPointerTy());
 
