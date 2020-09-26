@@ -88,7 +88,9 @@ static cl::opt<int> NumberOfTrailingOffsets(
     OPT_SWITCH "-num-trailing-offsets", cl::init(DefaultNumOfTrailingOffsets),
     cl::Hidden, cl::desc("Number of trailing offsets " OPT_DESC " handles"));
 
-// TODO : Add knobs for changing default values.
+static cl::opt<bool>
+    AllocConverted(OPT_SWITCH "-alloc-converted", cl::init(true), cl::Hidden,
+                   cl::desc(OPT_DESC " allocated converted value"));
 
 namespace {
 
@@ -545,17 +547,25 @@ void HIRAosToSoa::TransformAosToSoa::populatedBodyOfCopyLoop(
       continue;
     CopiedOffset.insert(TrailingOffset);
 
-    // Reuse SrcInst.
-    // SrcInst is already in the form of
-    //   %t = uitofp(s[i2 + %alpha * i3 + i4].0)
-    // Replace its operand to make it
-    //   %newLvalTmp = uitofp(s[%alpha * i2 + i3].0);
-    HLInst *SrcInst = cast<HLInst>(Ref->getHLDDNode());
-    RegDDRef *NewLval =
-        HNU.createTemp(SrcInst->getLvalDDRef()->getDestType(), "tmp");
-    SrcInst->replaceOperandDDRef(SrcInst->getLvalDDRef(), NewLval);
-    HNU.insertAsLastChild(CopyInnerLoop, SrcInst);
-    CanonExpr *CE = HIRAosToSoa::getIndexCE(Ref);
+    RegDDRef *NewRef = Ref;
+    HLInst *SrcInst = nullptr;
+    if (AllocConverted) {
+      // Reuse SrcInst.
+      // SrcInst is already in the form of
+      //   %t = uitofp(s[i2 + %alpha * i3 + i4].0)
+      // Replace its operand to make it
+      //   %newLvalTmp = uitofp(s[%alpha * i2 + i3].0);
+      SrcInst = cast<HLInst>(NewRef->getHLDDNode());
+      RegDDRef *NewLval =
+          HNU.createTemp(SrcInst->getLvalDDRef()->getDestType(), "tmp");
+      SrcInst->replaceOperandDDRef(SrcInst->getLvalDDRef(), NewLval);
+      HNU.insertAsLastChild(CopyInnerLoop, SrcInst);
+    } else {
+      // Copy should be done without cast, which is mainly a load
+      NewRef = Ref->clone();
+    }
+
+    CanonExpr *CE = HIRAosToSoa::getIndexCE(NewRef);
     unsigned OrigBlobIndex = CE->getIVBlobCoeff(IVBlobLevel);
     CE->clear();
     CE->setIVCoeff(InnerLevel, InvalidBlobIndex, 1);
@@ -563,8 +573,9 @@ void HIRAosToSoa::TransformAosToSoa::populatedBodyOfCopyLoop(
 
     // Create Lval of store, alloca0[%add * i2  + i3]
     HLInst *AllocaInst = TrailingOffsetToAlloca.find(TrailingOffset)->second;
-    RegDDRef *AllocaRef = DDRU.createMemRef(
-        AllocaInst->getLvalDDRef()->getSelfBlobIndex(), AllocaInst->getNodeLevel());
+    RegDDRef *AllocaRef =
+        DDRU.createMemRef(AllocaInst->getLvalDDRef()->getSelfBlobIndex(),
+                          AllocaInst->getNodeLevel());
 
     CanonExpr *NewDimension = CEU.createCanonExpr(IVType);
     NewDimension->setIVCoeff(InnerLevel, InvalidBlobIndex, 1);
@@ -573,8 +584,9 @@ void HIRAosToSoa::TransformAosToSoa::populatedBodyOfCopyLoop(
 
     // Create Store to Alloca
     //   alloca0[%add * i2  + i3] = %newLvalTmp
-    HLInst *StoreInst =
-        HNU.createStore(SrcInst->getLvalDDRef()->clone(), "store", AllocaRef);
+    RegDDRef *ToStore =
+        AllocConverted ? SrcInst->getLvalDDRef()->clone() : NewRef;
+    HLInst *StoreInst = HNU.createStore(ToStore, "store", AllocaRef);
     HNU.insertAsLastChild(CopyInnerLoop, StoreInst);
     AllocaRef->makeConsistent(AuxRef);
   }
@@ -600,11 +612,17 @@ void HIRAosToSoa::TransformAosToSoa::replaceTrailingOffsetWithAlloca(
     NewDimension->setIVBlobCoeff(IVBlobLevel, AddBlobIndex);
     AllocaRef->addDimension(NewDimension);
 
-    HLInst *Load =
-        HNU.createLoad(AllocaRef, ".read.temp", Src->getLvalDDRef()->clone());
+    if (AllocConverted) {
+      HLInst *Load =
+          HNU.createLoad(AllocaRef, ".read.temp", Src->getLvalDDRef()->clone());
 
-    // By default, replace only unlink the replaced node, not destroying it.
-    HNU.replace(Src, Load);
+      // By default, replace only unlink the replaced node, not destroying it.
+      HNU.replace(Src, Load);
+    } else {
+      // Reuse src
+      HLInst *SrcInst = cast<HLInst>(Src);
+      SrcInst->replaceOperandDDRef(Ref, AllocaRef);
+    }
     AllocaRef->makeConsistent(AuxRef);
   }
 }
@@ -696,9 +714,11 @@ void HIRAosToSoa::TransformAosToSoa::insertAllocas(
   MulOprd1->makeConsistent();
 
   // Create temp arrays for each trailing offset using Alloca
-  Type *DestTy = cast<HLInst>((*RefsToCopy.begin())->getHLDDNode())
-                     ->getLLVMInstruction()
-                     ->getType();
+  Type *DestTy = AllocConverted
+                     ? cast<HLInst>((*RefsToCopy.begin())->getHLDDNode())
+                           ->getLLVMInstruction()
+                           ->getType()
+                     : (*RefsToCopy.begin())->getDestType();
 
   for (auto *Ref : RefsToCopy) {
     unsigned Offset = HIRAosToSoa::getTrailingOffset(Ref);

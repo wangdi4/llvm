@@ -1,11 +1,7 @@
-; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-aos-to-soa -print-after=hir-aos-to-soa < %s 2>&1 | FileCheck %s
-; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-aos-to-soa,print<hir>" -aa-pipeline="basic-aa"  < %s 2>&1 | FileCheck %s
+; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-aos-to-soa -print-after=hir-aos-to-soa -hir-aos-to-soa-alloc-converted=false < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-aos-to-soa,print<hir>" -aa-pipeline="basic-aa" -hir-aos-to-soa-alloc-converted=false < %s 2>&1 | FileCheck %s
 
-; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-aos-to-soa -print-after=hir-aos-to-soa -hir-details < %s 2>&1 | FileCheck %s --check-prefix=DEFATLEV
-; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-aos-to-soa,print<hir>" -aa-pipeline="basic-aa"  -hir-details < %s 2>&1 | FileCheck %s --check-prefix=DEFATLEV
-
-; Check if array of structures are copied into temp arrays and later read from temp arrays.
-; Temp arrays are allocated with alloca.
+; With an option -hir-aos-to-soa-alloc-converted=false, conversion from uitofp does not occur during allocation.
 
 ; CHECK: Function: foo
 
@@ -18,19 +14,16 @@
 
 ; CHECK: DO i2 =
 ; CHECK: DO i3 =
-; CHECK:  = uitofp.i16.double
 ; CHECK:     [[ALLOC_0]]
-; CHECK:  = uitofp.i16.double
 ; CHECK:     [[ALLOC_1]]
-; CHECK:  = uitofp.i16.double
 ; CHECK:     [[ALLOC_2]]
 
 ; CHECK: DO i2 =
 ; CHECK: DO i3 =
 ; CHECK: DO i4 =
-; CHECK:  = ([[ALLOC_0]])[i2 + %add13 * i3 + i4];
-; CHECK:  = ([[ALLOC_1]])[i2 + %add13 * i3 + i4];
-; CHECK:  = ([[ALLOC_2]])[i2 + %add13 * i3 + i4];
+; CHECK:  =  uitofp.i16.double(([[ALLOC_0]])[i2 + %add13 * i3 + i4]);
+; CHECK:  =  uitofp.i16.double(([[ALLOC_1]])[i2 + %add13 * i3 + i4]);
+; CHECK:  =  uitofp.i16.double(([[ALLOC_2]])[i2 + %add13 * i3 + i4]);
 ; CHECK: END LOOP
 ; CHECK: END LOOP
 ; CHECK: END LOOP
@@ -38,87 +31,78 @@
 ; CHECK: @llvm.stackrestore(&(([[ADDR]])[0]));
 ; CHECK: END LOOP
 
-; DEFATLEV: <BLOB> LINEAR double* %alloca{def@1}
-
-
-; *** IR Dump Before HIR AOS to SOA ***
-; Function: foo
-;
-;       BEGIN REGION { }
-;             + DO i1 = 0, %2 + -1, 1   <DO_LOOP>
-;             |      %3 = (%kernel)[0].1;
-;             |   + DO i2 = 0, %0 + -1, 1   <DO_LOOP>
-;             |   |   %result.sroa.0.0.copyload = (%q)[i2].0;
-;             |   |   %result.sroa.6.0.copyload = (%q)[i2].1;
-;             |   |   %result.sroa.9.0.copyload = (%q)[i2].2;
-;             |   |   %result.sroa.9.0.lcssa = %result.sroa.9.0.copyload;
-;             |   |   %result.sroa.6.0.lcssa = %result.sroa.6.0.copyload;
-;             |   |   %result.sroa.0.0.lcssa = %result.sroa.0.0.copyload;
-;             |   |
-;             |   |      %result.sroa.0.0163 = %result.sroa.0.0.copyload;
-;             |   |      %result.sroa.6.0162 = %result.sroa.6.0.copyload;
-;             |   |      %result.sroa.9.0161 = %result.sroa.9.0.copyload;
-;             |   |   + DO i3 = 0, %3 + -1, 1   <DO_LOOP>
-;             |   |   |      %4 = (%kernel)[0].2;
-;             |   |   |      %result.sroa.0.1156 = %result.sroa.0.0163;
-;             |   |   |      %result.sroa.6.1155 = %result.sroa.6.0162;
-;             |   |   |      %result.sroa.9.1154 = %result.sroa.9.0161;
-;             |   |   |   + DO i4 = 0, %1 + -1, 1   <DO_LOOP>
-;             |   |   |   |   %5 = (%4)[%1 * i3 + -1 * i4 + ((-1 + %3) * %1)];
-;             |   |   |   |   %conv27 = uitofp.i16.double((%p)[i2 + (-1 + %1 + %0) * i3 + i4].0);
-;             |   |   |   |   %mul28 = %5  *  %conv27;
-;             |   |   |   |   %result.sroa.0.1156 = %result.sroa.0.1156  +  %mul28;
-;             |   |   |   |   %conv48 = uitofp.i16.double((%p)[i2 + (-1 + %1 + %0) * i3 + i4].1);
-;             |   |   |   |   %mul49 = %5  *  %conv48;
-;             |   |   |   |   %result.sroa.6.1155 = %result.sroa.6.1155  +  %mul49;
-;             |   |   |   |   %conv69 = uitofp.i16.double((%p)[i2 + (-1 + %1 + %0) * i3 + i4].2);
-;             |   |   |   |   %mul70 = %5  *  %conv69;
-;             |   |   |   |   %result.sroa.9.1154 = %result.sroa.9.1154  +  %mul70;
-;             |   |   |   + END LOOP
-;             |   |   |      %result.sroa.0.0163 = %result.sroa.0.1156;
-;             |   |   |      %result.sroa.6.0162 = %result.sroa.6.1155;
-;             |   |   |      %result.sroa.9.0161 = %result.sroa.9.1154;
-;             |   |   + END LOOP
-;             |   |      %result.sroa.9.0.lcssa = %result.sroa.9.0161;
-;             |   |      %result.sroa.6.0.lcssa = %result.sroa.6.0162;
-;             |   |      %result.sroa.0.0.lcssa = %result.sroa.0.0163;
-;             |   |
-;             |   |   (%q)[i2].0 = %result.sroa.0.0.lcssa;
-;             |   |   (%q)[i2].1 = %result.sroa.6.0.lcssa;
-;             |   |   (%q)[i2].2 = %result.sroa.9.0.lcssa;
-;             |   + END LOOP
-;             + END LOOP
-;       END REGION
-;
-; *** IR Dump After HIR AOS to SOA ***
+; Before transformation
 ; Function: foo
 ;
 ;        BEGIN REGION { }
 ;              + DO i1 = 0, %2 + -1, 1   <DO_LOOP>
-;              |   if (%0 != 0)                          // i2-loop's preheader is extracted
+;              |      %3 = (%kernel)[0].1;
+;              |   + DO i2 = 0, %0 + -1, 1   <DO_LOOP>
+;              |   |   %result.sroa.0.0.copyload = (%q)[i2].0;
+;              |   |   %result.sroa.6.0.copyload = (%q)[i2].1;
+;              |   |   %result.sroa.9.0.copyload = (%q)[i2].2;
+;              |   |   %result.sroa.9.0.lcssa = %result.sroa.9.0.copyload;
+;              |   |   %result.sroa.6.0.lcssa = %result.sroa.6.0.copyload;
+;              |   |   %result.sroa.0.0.lcssa = %result.sroa.0.0.copyload;
+;              |   |
+;              |   |      %result.sroa.0.0163 = %result.sroa.0.0.copyload;
+;              |   |      %result.sroa.6.0162 = %result.sroa.6.0.copyload;
+;              |   |      %result.sroa.9.0161 = %result.sroa.9.0.copyload;
+;              |   |   + DO i3 = 0, %3 + -1, 1   <DO_LOOP>
+;              |   |   |      %4 = (%kernel)[0].2;
+;              |   |   |      %result.sroa.0.1156 = %result.sroa.0.0163;
+;              |   |   |      %result.sroa.6.1155 = %result.sroa.6.0162;
+;              |   |   |      %result.sroa.9.1154 = %result.sroa.9.0161;
+;              |   |   |   + DO i4 = 0, %1 + -1, 1   <DO_LOOP>
+;              |   |   |   |   %5 = (%4)[%1 * i3 + -1 * i4 + ((-1 + %3) * %1)];
+;              |   |   |   |   %conv27 = uitofp.i16.double((%p)[i2 + (-1 + %1 + %0) * i3 + i4].0);
+;              |   |   |   |   %mul28 = %5  *  %conv27;
+;              |   |   |   |   %result.sroa.0.1156 = %result.sroa.0.1156  +  %mul28;
+;              |   |   |   |   %conv48 = uitofp.i16.double((%p)[i2 + (-1 + %1 + %0) * i3 + i4].1);
+;              |   |   |   |   %mul49 = %5  *  %conv48;
+;              |   |   |   |   %result.sroa.6.1155 = %result.sroa.6.1155  +  %mul49;
+;              |   |   |   |   %conv69 = uitofp.i16.double((%p)[i2 + (-1 + %1 + %0) * i3 + i4].2);
+;              |   |   |   |   %mul70 = %5  *  %conv69;
+;              |   |   |   |   %result.sroa.9.1154 = %result.sroa.9.1154  +  %mul70;
+;              |   |   |   + END LOOP
+;              |   |   |      %result.sroa.0.0163 = %result.sroa.0.1156;
+;              |   |   |      %result.sroa.6.0162 = %result.sroa.6.1155;
+;              |   |   |      %result.sroa.9.0161 = %result.sroa.9.1154;
+;              |   |   + END LOOP
+;              |   |      %result.sroa.9.0.lcssa = %result.sroa.9.0161;
+;              |   |      %result.sroa.6.0.lcssa = %result.sroa.6.0162;
+;              |   |      %result.sroa.0.0.lcssa = %result.sroa.0.0163;
+;              |   |
+;              |   |   (%q)[i2].0 = %result.sroa.0.0.lcssa;
+;              |   |   (%q)[i2].1 = %result.sroa.6.0.lcssa;
+;              |   |   (%q)[i2].2 = %result.sroa.9.0.lcssa;
+;              |   + END LOOP
+;              + END LOOP
+;        END REGION
+;
+
+; After transformation
+; Function: foo
+;
+;        BEGIN REGION { }
+;              + DO i1 = 0, %2 + -1, 1   <DO_LOOP>
+;              |   if (%0 != 0)
 ;              |   {
 ;              |      %3 = (%kernel)[0].1;
-;              |      %call = @llvm.stacksave();         // stack save
-;              |      %add13 = %1  +  %0;                // 3 allocas for three trailing offsets
+;              |      %call = @llvm.stacksave();
+;              |      %add13 = %1  +  %0;
 ;              |      %array_size = %add13  *  %3;
 ;              |      %alloca = alloca %array_size;
 ;              |      %alloca14 = alloca %array_size;
 ;              |      %alloca15 = alloca %array_size;
 ;              |
-;                     if (%3 != 0 && %1 != 0)            // Ztt: Notice ztt is not
-;                                                        //      verified because not extracted.
-;                     {
-;              |      + DO i2 = 0, %3 + -1, 1   <DO_LOOP>         // copy loop
+;              |      + DO i2 = 0, %3 + -1, 1   <DO_LOOP>
 ;              |      |   + DO i3 = 0, %add13 + -1, 1   <DO_LOOP>
-;              |      |   |   %tmp = uitofp.i16.double((%p)[(-1 + %1 + %0) * i2 + i3].0);
-;              |      |   |   (%alloca)[%add13 * i2 + i3] = %tmp;
-;              |      |   |   %tmp18 = uitofp.i16.double((%p)[(-1 + %1 + %0) * i2 + i3].1);
-;              |      |   |   (%alloca14)[%add13 * i2 + i3] = %tmp18;
-;              |      |   |   %tmp19 = uitofp.i16.double((%p)[(-1 + %1 + %0) * i2 + i3].2);
-;              |      |   |   (%alloca15)[%add13 * i2 + i3] = %tmp19;
+;              |      |   |   (%alloca)[%add13 * i2 + i3] = (%p)[(-1 + %1 + %0) * i2 + i3].0;
+;              |      |   |   (%alloca14)[%add13 * i2 + i3] = (%p)[(-1 + %1 + %0) * i2 + i3].1;
+;              |      |   |   (%alloca15)[%add13 * i2 + i3] = (%p)[(-1 + %1 + %0) * i2 + i3].2;
 ;              |      |   + END LOOP
 ;              |      + END LOOP
-;                     }
 ;              |
 ;              |
 ;              |      + DO i2 = 0, %0 + -1, 1   <DO_LOOP>
@@ -138,15 +122,14 @@
 ;              |      |   |      %result.sroa.6.1155 = %result.sroa.6.0162;
 ;              |      |   |      %result.sroa.9.1154 = %result.sroa.9.0161;
 ;              |      |   |   + DO i4 = 0, %1 + -1, 1   <DO_LOOP>
-;                                 // Main loop replacement
 ;              |      |   |   |   %5 = (%4)[%1 * i3 + -1 * i4 + ((-1 + %3) * %1)];
-;              |      |   |   |   %conv27 = (%alloca)[i2 + %add13 * i3 + i4];
+;              |      |   |   |   %conv27 = uitofp.i16.double((%alloca)[i2 + %add13 * i3 + i4]);
 ;              |      |   |   |   %mul28 = %5  *  %conv27;
 ;              |      |   |   |   %result.sroa.0.1156 = %result.sroa.0.1156  +  %mul28;
-;              |      |   |   |   %conv48 = (%alloca14)[i2 + %add13 * i3 + i4];
+;              |      |   |   |   %conv48 = uitofp.i16.double((%alloca14)[i2 + %add13 * i3 + i4]);
 ;              |      |   |   |   %mul49 = %5  *  %conv48;
 ;              |      |   |   |   %result.sroa.6.1155 = %result.sroa.6.1155  +  %mul49;
-;              |      |   |   |   %conv69 = (%alloca15)[i2 + %add13 * i3 + i4];
+;              |      |   |   |   %conv69 = uitofp.i16.double((%alloca15)[i2 + %add13 * i3 + i4]);
 ;              |      |   |   |   %mul70 = %5  *  %conv69;
 ;              |      |   |   |   %result.sroa.9.1154 = %result.sroa.9.1154  +  %mul70;
 ;              |      |   |   + END LOOP
@@ -167,7 +150,6 @@
 ;              |   }
 ;              + END LOOP
 ;        END REGION
-
 
 ;Module Before HIR
 ; ModuleID = 'convolv.c'
