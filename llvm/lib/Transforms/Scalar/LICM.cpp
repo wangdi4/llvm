@@ -1740,6 +1740,7 @@ static void hoist(Instruction &I, const DominatorTree *DT, const Loop *CurLoop,
     // Move the new node to the destination block, before its terminator.
     moveInstructionBefore(I, *Dest->getTerminator(), *SafetyInfo, MSSAU, SE);
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   // INTEL - Maintain the original (correct) source correlation. Hoisting
   //         the instruction does not invalidate the source correlation.
@@ -1749,6 +1750,9 @@ static void hoist(Instruction &I, const DominatorTree *DT, const Loop *CurLoop,
   // if (const DebugLoc &DL = I.getDebugLoc())
   //   I.setDebugLoc(DebugLoc::get(0, 0, DL.getScope(), DL.getInlinedAt()));
 #endif // INTEL_CUSTOMIZATION
+=======
+  I.updateLocationAfterHoist();
+>>>>>>> dfc5a9eb57aaaac972764bf731503419284bd3dc
 
   if (isa<LoadInst>(I))
     ++NumMovedLoads;
