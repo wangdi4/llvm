@@ -226,10 +226,13 @@ bool llvm::inferLibFuncAttributes(Function &F, const TargetLibraryInfo &TLI) {
     return Changed;
   case LibFunc_strcpy:
   case LibFunc_strncpy:
+<<<<<<< HEAD
   case LibFunc_wcscpy:                      // INTEL
     Changed |= setDoesNotAlias(F, 0);
     Changed |= setDoesNotAlias(F, 1);
     LLVM_FALLTHROUGH;
+=======
+>>>>>>> 155ac333945d7af507bb28dc6f2539300a4c0666
   case LibFunc_strcat:
   case LibFunc_strncat:
   case LibFunc_wcsncat:                     // INTEL
@@ -240,6 +243,8 @@ bool llvm::inferLibFuncAttributes(Function &F, const TargetLibraryInfo &TLI) {
     Changed |= setDoesNotThrow(F);
     Changed |= setDoesNotCapture(F, 1);
     Changed |= setOnlyReadsMemory(F, 1);
+    Changed |= setDoesNotAlias(F, 0);
+    Changed |= setDoesNotAlias(F, 1);
     return Changed;
   case LibFunc_strxfrm:
     Changed |= setDoesNotThrow(F);
