@@ -609,22 +609,11 @@ void VPLoopEntityList::processFinalValue(VPLoopEntity &E, VPValue *AI,
   linkValue(&E, &Final);
 }
 
-// Insert VPInstructions related to VPReductions.
-void VPLoopEntityList::insertReductionVPInstructions(VPBuilder &Builder,
-                                                     VPBasicBlock *Preheader,
-                                                     VPBasicBlock *PostExit) {
-
-  assert(Preheader && "Expect valid Preheader to be passed as input argument.");
-  assert(PostExit && "Expect valid PostExit to be passed as input argument.");
-
-  DenseMap<const VPReduction *, std::pair<VPReductionFinal *, VPInstruction *>>
-      RedFinalMap;
-
-  // Set the insert-guard-point.
-  VPBuilder::InsertPointGuard Guard(Builder);
-
-  // Process the list of Reductions.
-  for (VPReduction *Reduction : vpreductions()) {
+void VPLoopEntityList::insertOneReductionVPInstructions(
+    VPReduction *Reduction, VPBuilder &Builder, VPBasicBlock *PostExit,
+    VPBasicBlock *Preheader,
+    DenseMap<const VPReduction *,
+             std::pair<VPReductionFinal *, VPInstruction *>> &RedFinalMap) {
     VPValue *AI = nullptr;
     Builder.setInsertPoint(Preheader);
     VPValue *Identity = getReductionIdentity(Reduction);
@@ -702,7 +691,26 @@ void VPLoopEntityList::insertReductionVPInstructions(VPBuilder &Builder,
         Final->setFastMathFlags(FMF);
     }
     processFinalValue(*Reduction, AI, Builder, *Final, Ty, Exit);
-  }
+}
+
+// Insert VPInstructions related to VPReductions.
+void VPLoopEntityList::insertReductionVPInstructions(VPBuilder &Builder,
+                                                     VPBasicBlock *Preheader,
+                                                     VPBasicBlock *PostExit) {
+
+  assert(Preheader && "Expect valid Preheader to be passed as input argument.");
+  assert(PostExit && "Expect valid PostExit to be passed as input argument.");
+
+  DenseMap<const VPReduction *, std::pair<VPReductionFinal *, VPInstruction *>>
+      RedFinalMap;
+
+  // Set the insert-guard-point.
+  VPBuilder::InsertPointGuard Guard(Builder);
+
+  // Process the list of Reductions.
+  for (VPReduction *Reduction : vpreductions())
+    insertOneReductionVPInstructions(Reduction, Builder, PostExit, Preheader,
+                                     RedFinalMap);
 }
 
 // Check whether \p Inst is a consistent update of induction, i.e. it

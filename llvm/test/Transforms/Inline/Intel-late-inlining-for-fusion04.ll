@@ -1,26 +1,28 @@
-; RUN: opt -inline -pre-lto-inline-cost=false -inlining-for-fusion-heuristics=true -inline-threshold=20 -inline-for-fusion-min-arg-refs=3 -dtrans-inline-heuristics -inline-report=7 < %s -S 2>&1 | FileCheck --check-prefix=CHECK-OLD %s
-; RUN: opt -passes='cgscc(inline)' -pre-lto-inline-cost=false -inlining-for-fusion-heuristics=true -inline-threshold=20 -inline-for-fusion-min-arg-refs=3 -dtrans-inline-heuristics -inline-report=7 < %s -S 2>&1 | FileCheck --check-prefix=CHECK-NEW %s
-; RUN:  opt -inlinereportsetup -inline-report=0x86 < %s -S | opt -inline -pre-lto-inline-cost=false -inlining-for-fusion-heuristics=true -inline-threshold=20 -inline-for-fusion-min-arg-refs=3 -dtrans-inline-heuristics -inline-report=0x86 -S  | opt -inlinereportemitter -inline-report=0x86 -S 2>&1 | FileCheck --check-prefix=CHECK-META %s
-; RUN: opt -inlinereportsetup -inline-report=0x86 < %s -S | opt -passes='cgscc(inline)' -pre-lto-inline-cost=false -inlining-for-fusion-heuristics=true -inline-threshold=20 -inline-for-fusion-min-arg-refs=3 -dtrans-inline-heuristics -inline-report=0x86 | opt -inlinereportemitter -inline-report=0x86 -S 2>&1 | FileCheck --check-prefix=CHECK-META %s
+; RUN: opt -inline -pre-lto-inline-cost=false -inlining-for-fusion-heuristics=true -inline-threshold=20 -inline-for-fusion-min-arg-refs=3 -dtrans-inline-heuristics=true -inline-for-fusion-small-app-function-limit=0 -inline-report=7 < %s -S 2>&1 | FileCheck --check-prefix=CHECK-OLD %s
+; RUN: opt -passes='cgscc(inline)' -pre-lto-inline-cost=false -inlining-for-fusion-heuristics=true -inline-threshold=20 -inline-for-fusion-min-arg-refs=3 -dtrans-inline-heuristics=true -inline-for-fusion-small-app-function-limit=0 -inline-report=7 < %s -S 2>&1 | FileCheck --check-prefix=CHECK-NEW %s
+; RUN:  opt -inlinereportsetup -inline-report=0x86 < %s -S | opt -inline -pre-lto-inline-cost=false -inlining-for-fusion-heuristics=true -inline-threshold=20 -inline-for-fusion-min-arg-refs=3 -dtrans-inline-heuristics=true -inline-for-fusion-small-app-function-limit=0 -inline-report=0x86 -S  | opt -inlinereportemitter -inline-report=0x86 -S 2>&1 | FileCheck --check-prefix=CHECK-META %s
+; RUN: opt -inlinereportsetup -inline-report=0x86 < %s -S | opt -passes='cgscc(inline)' -pre-lto-inline-cost=false -inlining-for-fusion-heuristics=true -inline-threshold=20 -inline-for-fusion-min-arg-refs=3 -dtrans-inline-heuristics=true -inline-for-fusion-small-app-function-limit=0 -inline-report=0x86 | opt -inlinereportemitter -inline-report=0x86 -S 2>&1 | FileCheck --check-prefix=CHECK-META %s
 
-; Test link compile step loop fusion heuristic
+; Test link compile step loop fusion heuristic does not engage because
+; -inline-for-fusion-small-app-function-limit=0, implying this is a small app.
 
 ; Checks for old pass manager with old inline report
 
 ; CHECK-OLD: COMPILE FUNC: bar_
 ; CHECK-OLD: COMPILE FUNC: baz_
 ; CHECK-OLD: COMPILE FUNC: foo_
-; CHECK-OLD: baz{{.*}}Inlining is not profitable
-; CHECK-OLD: INLINE: bar_{{.*}}Callee has multiple callsites with loops that could be fused
-; CHECK-OLD: INLINE: bar_{{.*}}Callee has multiple callsites with loops that could be fused
-; CHECK-OLD: INLINE: bar_{{.*}}Callee has multiple callsites with loops that could be fused
+; CHECK-OLD: baz_{{.*}}Inlining is not profitable
+; CHECK-OLD: bar_{{.*}}Inlining is not profitable
+; CHECK-OLD: bar_{{.*}}Inlining is not profitable
 ; CHECK-OLD: COMPILE FUNC: MAIN__
 ; CHECK-OLD: foo_{{.*}}Inlining is not profitable
 
 ; CHECK-OLD: define void @bar_
 ; CHECK-OLD: define void @foo_
 ; CHECK-OLD: call void @baz_
-; CHECK-OLD-NOT: call void @bar_
+; CHECK-OLD: call void @bar_
+; CHECK-OLD: call void @bar_
+; CHECK-OLD: call void @bar_
 ; CHECK-OLD: define void @MAIN__
 ; CHECK-OLD: call void @foo_
 ; CHECK-OLD: define void @baz_
@@ -30,7 +32,9 @@
 ; CHECK-NEW: define void @bar_
 ; CHECK-NEW: define void @foo_
 ; CHECK-NEW: call void @baz_
-; CHECK-NEW-NOT: call void @bar_
+; CHECK-NEW: call void @bar_
+; CHECK-NEW: call void @bar_
+; CHECK-NEW: call void @bar_
 ; CHECK-NEW: define void @MAIN__
 ; CHECK-NEW: call void @foo_
 ; CHECK-NEW: define void @baz_
@@ -38,10 +42,10 @@
 ; CHECK-NEW: COMPILE FUNC: baz_
 ; CHECK-NEW: COMPILE FUNC: bar_
 ; CHECK-NEW: COMPILE FUNC: foo_
-; CHECK-NEW: baz{{.*}}Inlining is not profitable
-; CHECK-NEW: INLINE: bar_{{.*}}Callee has multiple callsites with loops that could be fused
-; CHECK-NEW: INLINE: bar_{{.*}}Callee has multiple callsites with loops that could be fused
-; CHECK-NEW: INLINE: bar_{{.*}}Callee has multiple callsites with loops that could be fused
+; CHECK-NEW: baz_{{.*}}Inlining is not profitable
+; CHECK-NEW: bar_{{.*}}Inlining is not profitable
+; CHECK-NEW: bar_{{.*}}Inlining is not profitable
+; CHECK-NEW: bar_{{.*}}Inlining is not profitable
 ; CHECK-NEW: COMPILE FUNC: MAIN__
 ; CHECK-NEW: foo_{{.*}}Inlining is not profitable
 
@@ -49,10 +53,9 @@
 
 ; CHECK-META: COMPILE FUNC: bar_
 ; CHECK-META: COMPILE FUNC: foo_
-; CHECK-META: baz{{.*}}Inlining is not profitable
-; CHECK-META: INLINE: bar_{{.*}}Callee has multiple callsites with loops that could be fused
-; CHECK-META: INLINE: bar_{{.*}}Callee has multiple callsites with loops that could be fused
-; CHECK-META: INLINE: bar_{{.*}}Callee has multiple callsites with loops that could be fused
+; CHECK-META: baz_{{.*}}Inlining is not profitable
+; CHECK-META: bar_{{.*}}Inlining is not profitable
+; CHECK-META: bar_{{.*}}Inlining is not profitable
 ; CHECK-META: COMPILE FUNC: MAIN__
 ; CHECK-META: foo_{{.*}}Inlining is not profitable
 ; CHECK-META: COMPILE FUNC: baz_
@@ -60,7 +63,9 @@
 ; CHECK-META: define void @bar_
 ; CHECK-META: define void @foo_
 ; CHECK-META: call void @baz_
-; CHECK-META-NOT: call void @bar_
+; CHECK-META: call void @bar_
+; CHECK-META: call void @bar_
+; CHECK-META: call void @bar_
 ; CHECK-META: define void @MAIN__
 ; CHECK-META: call void @foo_
 ; CHECK-META: define void @baz_

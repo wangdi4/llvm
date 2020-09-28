@@ -7,7 +7,6 @@
 ; RUN:     -disable-output -vplan-cost-model-print-analysis-for-vf=16 \
 ; RUN:     -mattr=+avx512f 2>&1 | FileCheck %s --check-prefix=VPLAN-CM-AVX512
 
-; FIXME:
 ; Expensive load/store operations in the loop should not induce register
 ; pressure high enough to cause spill/fills if they are not serialized.
 ; For the first run scatter is disabled which makes RP high.
@@ -61,18 +60,16 @@ define dso_local void @foo() {
 ; VPLAN-CM-AVX2-NEXT:  Analyzing VPBasicBlock [[BB4:BB[0-9]+]], total cost: 0
 ;
 ; VPLAN-CM-AVX512-LABEL:  HIR Cost Model for VPlan foo.25 with VF = 16:
-; VPLAN-CM-AVX512-NEXT:  Total VPlan Cost: 582
+; VPLAN-CM-AVX512-NEXT:  Total VPlan Cost: 510
 ; VPLAN-CM-AVX512-NEXT:  VPlan Base Cost before adjustments: 222
 ; VPLAN-CM-AVX512-NEXT:  VPlan Base Cost includes Total VPlan GS Cost: 144
 ; VPLAN-CM-AVX512-NEXT:  Total VPlan GS Cost is bumped: +288
-; VPLAN-CM-AVX512-NEXT:  Total VPlan spill/fill cost: +72
 ; VPLAN-CM-AVX512-NEXT:  Analyzing VPBasicBlock [[BB0:BB[0-9]+]], total cost: 0
 ; VPLAN-CM-AVX512-NEXT:  Analyzing VPBasicBlock [[BB1:BB[0-9]+]], total cost: 0
 ; VPLAN-CM-AVX512-NEXT:    Cost Unknown for i64 [[VP__IND_INIT:%.*]] = induction-init{add} i64 live-in0 i64 1
 ; VPLAN-CM-AVX512-NEXT:    Cost Unknown for i64 [[VP__IND_INIT_STEP:%.*]] = induction-init-step{add} i64 1
 ; VPLAN-CM-AVX512-NEXT:  Analyzing VPBasicBlock [[BB2:BB[0-9]+]], total cost: 222
 ; VPLAN-CM-AVX512-NEXT:  total cost includes GS Cost: 144
-; VPLAN-CM-AVX512-NEXT:  Block Vector spill/fill approximate cost (not included into total cost): 72
 ; VPLAN-CM-AVX512-NEXT:    Cost Unknown for i64 [[VP0:%.*]] = phi  [ i64 [[VP__IND_INIT]], [[BB1]] ],  [ i64 [[VP1:%.*]], [[BB2]] ]
 ; VPLAN-CM-AVX512-NEXT:    Cost 0 for i64* [[VP_SUBSCRIPT:%.*]] = subscript inbounds [1024 x i64]* @a i64 0 i64 [[VP0]]
 ; VPLAN-CM-AVX512-NEXT:    Cost 2 for i64 [[VP_LOAD:%.*]] = load i64* [[VP_SUBSCRIPT]]

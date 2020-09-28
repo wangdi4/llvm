@@ -95,7 +95,7 @@ public:
 bool HIRNontemporalMarking::run() {
   if (DisablePass || !(
       TTI.isAdvancedOptEnabled(TargetTransformInfo::AO_TargetHasAVX512) ||
-      TTI.isAdvancedOptEnabled(TargetTransformInfo::AO_TargetHasAVX2))) {
+      TTI.isAdvancedOptEnabled(TargetTransformInfo::AO_TargetHasIntelAVX2))) {
     return false;
   }
 

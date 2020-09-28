@@ -186,6 +186,22 @@ inline unsigned getLoadStoreAlignment(VPInstruction *VPInst, Loop *L) {
   return DL.getPrefTypeAlignment(PtrType);
 }
 
+/// Helper function to determine if given VPValue \p V is a vectorizable
+/// load/store. A load/store is not vectorizable if it's not simple or if it
+/// operates on non-vectorizable types.
+inline bool isVectorizableLoadStore(const VPValue *V) {
+  auto *VPLoadStore = dyn_cast<VPLoadStoreInst>(V);
+  if (!VPLoadStore)
+    return false;
+
+  // TODO: Load/store to struct types can be potentially vectorized by doing a
+  // wide load/store followed by shuffle + bitcast.
+  if (!isVectorizableTy(getLoadStoreType(VPLoadStore)))
+    return false;
+
+  return VPLoadStore->isSimple();
+}
+
 #if INTEL_CUSTOMIZATION
 // Obtain stride information using loopopt interfaces. HNode is expected to
 // specify the underlying node for a load/store VPInstruction. We return false
