@@ -575,7 +575,7 @@ void foo4() {
 // CHECK-NEXT: ret void
 
 // CHECK: define internal void @.omp_initializer..21(%struct.A4* noalias %0, %struct.A4* noalias %1)
-// CHECK: call void @_Z4boo4v(%struct.A4* sret {{(align 4 )?}}%3)
+// CHECK: call void @_Z4boo4v(%struct.A4* sret(%struct.A4) {{(align 4 )?}}%3)
 // CHECK-NEXT: ret void
 
 
@@ -603,7 +603,7 @@ void foo5()
 }
 
 // CHECK: define internal void @.omp_initializer..23(%struct.AA3* noalias %0, %struct.AA3* noalias %1)
-// CHECK: call void @_Z3booP3AA3(%struct.AA3* sret {{(align 4 )?}}%agg.tmp.ensured, %struct.AA3* %3)
+// CHECK: call void @_Z3booP3AA3(%struct.AA3* sret(%struct.AA3) {{(align 4 )?}}%agg.tmp.ensured, %struct.AA3* %3)
 // CHECK-NEXT: call void @_ZN3AA3D1Ev(%struct.AA3* %agg.tmp.ensured)
 // CHECK-NEXT: ret void
 
