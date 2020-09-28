@@ -1318,12 +1318,34 @@ struct ConstantPropagater final : public HLNodeVisitorBase {
   }
 
   void postVisit(HLLoop *Loop) {
+
+    if (IndexToRefMap.empty()) {
+      return;
+    }
+
     // Remove liveout SB from propagation candidates
     for (unsigned SB :
          make_range(Loop->live_out_begin(), Loop->live_out_end())) {
       unsigned Index = Loop->getBlobUtils().findTempBlobIndex(SB);
       if (Index != InvalidBlobIndex) {
         IndexToRefMap.erase(Index);
+      }
+    }
+
+    // Remove any entries Live in and are also defined in the same loop
+    // Handle cases where there could be a backwards use of temp:
+    // t = 0;
+    // DO
+    // ... = t
+    // t = 1 <-- defined after use
+    // ENDDO
+    for (unsigned SB : make_range(Loop->live_in_begin(), Loop->live_in_end())) {
+      unsigned Index = Loop->getBlobUtils().findTempBlobIndex(SB);
+      if (Index != InvalidBlobIndex) {
+        RegDDRef *Ref = IndexToRefMap[Index];
+        if (Ref && (Ref->getLexicalParentLoop() == Loop)) {
+          IndexToRefMap.erase(Index);
+        }
       }
     }
 

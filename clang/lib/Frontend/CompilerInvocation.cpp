@@ -2704,7 +2704,7 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
     Opts.EnableDAEInSpirKernels = Args.hasArg(options::OPT_fenable_sycl_dae);
     Opts.SYCLValueFitInMaxInt =
         Args.hasFlag(options::OPT_fsycl_id_queries_fit_in_int,
-                     options::OPT_fno_sycl_id_queries_fit_in_int, false);
+                     options::OPT_fno_sycl_id_queries_fit_in_int, true);
     Opts.EnableDAEInSpirKernels = Args.hasArg(options::OPT_fenable_sycl_dae);
     Opts.SYCLIntHeader =
         std::string(Args.getLastArgValue(OPT_fsycl_int_header));
