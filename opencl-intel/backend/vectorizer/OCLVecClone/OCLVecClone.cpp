@@ -97,8 +97,6 @@ namespace intel {
 using DefUseTreeChildSet = SmallPtrSet<Instruction *, 8>;
 using DefUseTree = SmallDenseMap<Instruction *, DefUseTreeChildSet>;
 
-using ContainerTy = std::vector<std::tuple<std::string, std::string, VectorVariant>>;
-static ContainerTy OCLBuiltinVecInfo();
 using ReturnInfoTy = std::vector<std::pair<std::string, VectorKind>>;
 static ReturnInfoTy PopulateOCLBuiltinReturnInfo();
 
@@ -512,20 +510,12 @@ void OCLVecCloneImpl::handleLanguageSpecifics(Function &F, PHINode *Phi,
 
   updateMetadata(F, Clone, VecDim, CanUniteWorkgroups);
 
-  std::vector<std::tuple<const char*, const char*, std::string>> VectInfoStr = {
+  const static std::tuple<const char *, const char *, const char *> VecInfo[] = {
     #include "VectInfo.gen"
-    {"intel_sub_group_ballot", "kernel-call-once", VectorVariant{VectorVariant::ISAClass::XMM, true, 4,
-     {VectorKind::vector()}, "", "intel_sub_group_ballot_vf4"}.toString()},
-    {"intel_sub_group_ballot", "kernel-call-once", VectorVariant{VectorVariant::ISAClass::XMM, true, 8,
-     {VectorKind::vector()}, "", "intel_sub_group_ballot_vf8"}.toString()},
-    {"intel_sub_group_ballot", "kernel-call-once", VectorVariant{VectorVariant::ISAClass::XMM, true, 16,
-     {VectorKind::vector()}, "", "intel_sub_group_ballot_vf16"}.toString()},
+    {"intel_sub_group_ballot", "kernel-call-once", "_ZGVbM4v_(intel_sub_group_ballot_vf4)"},
+    {"intel_sub_group_ballot", "kernel-call-once", "_ZGVbM8v_(intel_sub_group_ballot_vf8)"},
+    {"intel_sub_group_ballot", "kernel-call-once", "_ZGVbM16v_(intel_sub_group_ballot_vf16)"},
   };
-  ContainerTy VectInfo;
-  for (auto &vi : VectInfoStr) {
-    VectInfo.emplace_back(std::get<0>(vi), std::get<1>(vi), std::move(std::get<2>(vi)));
-  }
-  static ContainerTy VecInfo = std::move(VectInfo);
 
   for (auto &Inst : instructions(Clone)) {
     auto *Call = dyn_cast<CallInst>(&Inst);
@@ -543,8 +533,8 @@ void OCLVecCloneImpl::handleLanguageSpecifics(Function &F, PHINode *Phi,
     // not the case).
     auto MatchingVariants = make_filter_range(
         VecInfo,
-        [FnName, VF](std::tuple<std::string, std::string, VectorVariant> Info) -> bool {
-          return std::get<0>(Info) == FnName && std::get<2>(Info).getVlen() == VF;
+        [FnName, VF](const std::tuple<const char *, const char *, const char *> &Info) -> bool {
+          return std::get<0>(Info) == FnName && VectorVariant(std::get<2>(Info)).getVlen() == VF;
         });
 
     if (MatchingVariants.begin() == MatchingVariants.end())
@@ -568,12 +558,12 @@ void OCLVecCloneImpl::handleLanguageSpecifics(Function &F, PHINode *Phi,
       if (!Variants.empty())
         Variants += ',';
 
-      Variants +=  std::get<2>(Variant).toString();
-      if (std::get<2>(Variant).isMasked())
+      Variants += std::get<2>(Variant);
+      if (VectorVariant(std::get<2>(Variant)).isMasked())
         NotHasMask = false;
       else
         HasMask = false;
-      if (std::get<1>(Variant) != "kernel-call-once")
+      if (strcmp(std::get<1>(Variant), "kernel-call-once") != 0)
         KernelCallOnce = false;
     }
 
