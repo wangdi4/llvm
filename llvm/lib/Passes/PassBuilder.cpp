@@ -1190,7 +1190,7 @@ PassBuilder::buildInlinerPipeline(OptimizationLevel Level, ThinLTOPhase Phase,
     MainCGPipeline.addPass(AttributorCGSCCPass());
 
   if (PTO.Coroutines)
-    MainCGPipeline.addPass(CoroSplitPass());
+    MainCGPipeline.addPass(CoroSplitPass(Level != OptimizationLevel::O0));
 
   // Now deduce any function attributes based in the current code.
   MainCGPipeline.addPass(PostOrderFunctionAttrsPass());
