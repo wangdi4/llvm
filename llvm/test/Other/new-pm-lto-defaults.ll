@@ -132,7 +132,6 @@
 ; CHECK-O2-NEXT: Running analysis: PhiValuesAnalysis
 ; CHECK-O2-NEXT: Running pass: MemCpyOptPass on foo
 ; CHECK-O2-NEXT: Running pass: DSEPass on foo
-; CHECK-O2-NEXT: Running analysis: MemorySSAAnalysis on foo
 ; Running analysis: PostDominatorTreeAnalysis on foo   ;INTEL PostDom has moved, cannot make check work
 ; CHECK-O2-NEXT: Running pass: InstCombinePass on foo
 ; CHECK-O2-NEXT: Running pass: SimplifyCFGPass on foo
