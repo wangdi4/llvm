@@ -655,9 +655,10 @@ void CanonExpr::addIVInternal(unsigned Lvl, unsigned Index, int64_t Coeff) {
     BlobTy AddBlob, MulBlob1 = nullptr, MulBlob2 = nullptr;
     unsigned NewIndex = InvalidBlobIndex;
     int64_t NewCoeff = 1;
+    auto *SrcTy = getSrcType()->getScalarType();
 
     // Create a mul blob from new index/coeff.
-    MulBlob1 = getBlobUtils().createBlob(Coeff, getSrcType(), false);
+    MulBlob1 = getBlobUtils().createBlob(Coeff, SrcTy, false);
 
     if (Index != InvalidBlobIndex) {
       MulBlob1 = getBlobUtils().createMulBlob(
@@ -666,8 +667,8 @@ void CanonExpr::addIVInternal(unsigned Lvl, unsigned Index, int64_t Coeff) {
 
     // Create a mul blob from existing index/coeff.
     if (IVCoeffs[Lvl - 1].Coeff) {
-      MulBlob2 = getBlobUtils().createBlob(IVCoeffs[Lvl - 1].Coeff,
-                                           getSrcType(), false);
+      MulBlob2 =
+          getBlobUtils().createBlob(IVCoeffs[Lvl - 1].Coeff, SrcTy, false);
 
       if (IVCoeffs[Lvl - 1].Index != InvalidBlobIndex) {
         MulBlob2 = getBlobUtils().createMulBlob(
