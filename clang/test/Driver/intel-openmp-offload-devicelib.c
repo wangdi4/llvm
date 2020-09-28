@@ -99,19 +99,21 @@
 // CHK-PHASES-LIBC: 4: assembler, {3}, object, (host-openmp)
 // CHK-PHASES-LIBC: 5: input, "{{.*libomp-glibc.o.*}}", object, (host-openmp)
 // CHK-PHASES-LIBC: 6: clang-offload-unbundler, {5}, object, (host-openmp)
-// CHK-PHASES-LIBC: 7: input, "[[INPUT]]", c, (device-openmp)
-// CHK-PHASES-LIBC: 8: preprocessor, {7}, cpp-output, (device-openmp)
-// CHK-PHASES-LIBC: 9: compiler, {8}, ir, (device-openmp)
-// CHK-PHASES-LIBC: 10: offload, "host-openmp (x86_64-unknown-linux-gnu)" {2}, "device-openmp (spir64)" {9}, ir
-// CHK-PHASES-LIBC: 11: backend, {10}, ir, (device-openmp)
-// CHK-PHASES-LIBC: 12: linker, {11, 6}, image, (device-openmp)
-// CHK-PHASES-LIBC: 13: sycl-post-link, {12}, ir, (device-openmp)
-// CHK-PHASES-LIBC: 14: llvm-spirv, {13}, image, (device-openmp)
-// CHK-PHASES-LIBC: 15: offload, "device-openmp (spir64)" {14}, image
-// CHK-PHASES-LIBC: 16: clang-offload-wrapper, {15}, ir, (host-openmp)
-// CHK-PHASES-LIBC: 17: backend, {16}, assembler, (host-openmp)
-// CHK-PHASES-LIBC: 18: assembler, {17}, object, (host-openmp)
-// CHK-PHASES-LIBC: 19: linker, {4, 6, 18}, image, (host-openmp)
+// CHK-PHASES-LIBC: 7: input, "{{.*libomp-fallback-cassert.o.*}}", object, (host-openmp)
+// CHK-PHASES-LIBC: 8: clang-offload-unbundler, {7}, object, (host-openmp)
+// CHK-PHASES-LIBC: 9: input, "[[INPUT]]", c, (device-openmp)
+// CHK-PHASES-LIBC: 10: preprocessor, {9}, cpp-output, (device-openmp)
+// CHK-PHASES-LIBC: 11: compiler, {10}, ir, (device-openmp)
+// CHK-PHASES-LIBC: 12: offload, "host-openmp (x86_64-unknown-linux-gnu)" {2}, "device-openmp (spir64)" {11}, ir
+// CHK-PHASES-LIBC: 13: backend, {12}, ir, (device-openmp)
+// CHK-PHASES-LIBC: 14: linker, {13, 6, 8}, image, (device-openmp)
+// CHK-PHASES-LIBC: 15: sycl-post-link, {14}, ir, (device-openmp)
+// CHK-PHASES-LIBC: 16: llvm-spirv, {15}, image, (device-openmp)
+// CHK-PHASES-LIBC: 17: offload, "device-openmp (spir64)" {16}, image
+// CHK-PHASES-LIBC: 18: clang-offload-wrapper, {17}, ir, (host-openmp)
+// CHK-PHASES-LIBC: 19: backend, {18}, assembler, (host-openmp)
+// CHK-PHASES-LIBC: 20: assembler, {19}, object, (host-openmp)
+// CHK-PHASES-LIBC: 21: linker, {4, 6, 8, 20}, image, (host-openmp)
 
 /// Check that -fopenmp-device-lib does not affect separate compilation:
 // RUN:   %clang -### -ccc-print-phases -fiopenmp -c -o %t.o -target x86_64-unknown-linux-gnu -fopenmp-targets=spir64 -fopenmp-device-lib=all %s 2>&1 \
