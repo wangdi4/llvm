@@ -197,6 +197,10 @@ static cl::opt<unsigned> FusionMinLoopNestDepth(
     "inline-for-fusion-loop-nest-depth", cl::Hidden, cl::init(3),
     cl::desc("Min depth of loop nest for link time inlining for fusion"));
 
+static cl::opt<unsigned> FusionSmallAppFunctionLimit(
+    "inline-for-fusion-small-app-function-limit", cl::Hidden, cl::init(10),
+    cl::desc("Max user Function count in inlining for fusion"));
+
 // worthInliningForDeeplyNestedIfs()
 // InliningForDeeplyNestedIfs has three possible values(BOU_UNSET is
 // default). Use TRUE to force enabling of heuristic. Use FALSE to disable.
@@ -2114,6 +2118,30 @@ static bool worthInliningForFusion(CallBase &CB, TargetLibraryInfo *TLI,
                                    InliningLoopInfoCache &ILIC,
                                    bool PrepareForLTO) {
 
+  //
+  // Return 'true' if the module 'M' has no more than 'Limit' Functions
+  // with IR.
+  //
+  auto IsSmallApp = [](Module *M, unsigned Limit) {
+    static bool Computed = false;
+    static bool ComputedIsSmallApp = false;
+    if (Computed)
+      return ComputedIsSmallApp;
+    unsigned FunctionCount = 0;
+    for (auto &F : M->functions()) {
+      if (F.isDeclaration())
+        continue;
+      if (++FunctionCount > Limit) {
+        Computed = true;
+        ComputedIsSmallApp = false;
+        return false;
+      }
+    }
+    Computed = true;
+    ComputedIsSmallApp = true;
+    return true;
+  };
+
   // Must have at least AVX2 for this heuristic.
   if (InliningForFusionHeuristics != cl::BOU_TRUE) {
     auto TTIAVX2 = TargetTransformInfo::AdvancedOptLevel::AO_TargetHasIntelAVX2;
@@ -2140,6 +2168,18 @@ static bool worthInliningForFusion(CallBase &CB, TargetLibraryInfo *TLI,
   Function *Caller = CB.getCaller();
   Function *Callee = CB.getCalledFunction();
   BasicBlock *CSBB = CB.getParent();
+
+  //
+  // CMPLRLLVM-22909: Limit the size of the application to which the
+  // !PrepareForLTO heuristic can be applied to save compile time.
+  //
+  Module *M = CB.getFunction()->getParent();
+  if (!PrepareForLTO && (!DTransInlineHeuristics ||
+      !IsSmallApp(M, FusionSmallAppFunctionLimit))) {
+    LLVM_DEBUG(llvm::dbgs() << "IC: No inlining for fusion. "
+                               "Large app or not advanced opt enabled.");
+    return false;
+  }
 
   SmallVector<CallBase *, 20> LocalCSForFusion;
   int CSCount = 0;

@@ -599,13 +599,6 @@ private:
   /// Hold names of scalar select builtins
   SmallSet<std::string, 20> ScalarSelectSet;
 
-  /// Helper internal method to determine if given VPValue \p V is a
-  /// vectorizable load/store. A load/store is not vectorizable if it's not
-  /// simple or if it operates on non-vectorizable types.
-  // TODO : Move this to VPlanUtils when volatile/atomic property is represented
-  // in VPInstruction.
-  bool isVectorizableLoadStore(const VPValue *V);
-
   /// This function returns the widened GEP instruction for a pointer. In the
   /// generated code, the returned GEP is itself used as an operand of a
   /// Scatter/Gather function.

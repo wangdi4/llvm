@@ -564,8 +564,8 @@ unsigned VPlanCostModelProprietary::getSpillFillCost(
   auto PHIs = (cast<VPBasicBlock>(OuterMostVPLoop->getHeader()))->getVPPhis();
   int NumberPHIs = llvm::count_if(PHIs, [&](auto& PHI) {
     return !SkipInst(&PHI);});
-  int FreeVecHWRegsNum =
-    TTI->getNumberOfRegisters(TTI->getRegisterClassForType(true)) - NumberPHIs;
+  int FreeVecHWRegsNum = TTI->getNumberOfRegisters(
+    TTI->getRegisterClassForType(VectorRegsPressure)) - NumberPHIs;
 
   for (const VPInstruction &VPInst : reverse(*VPBlock)) {
     if (SkipInst(&VPInst))
@@ -619,8 +619,8 @@ unsigned VPlanCostModelProprietary::getSpillFillCost(
         continue;
 
       const VPInstruction *OpInst = cast<VPInstruction>(Op);
-      InstCost = VPlanCostModel::getCost(OpInst);
-      if (InstCost == UnknownCost || InstCost == 0)
+      unsigned OpInstCost = VPlanCostModel::getCost(OpInst);
+      if (OpInstCost == UnknownCost || OpInstCost == 0)
         continue;
 
       Type *OpScalTy = OpInst->getType()->getScalarType();
@@ -647,15 +647,51 @@ unsigned VPlanCostModelProprietary::getSpillFillCost(
     // The same heuristics as for N legalization cost is applied.
     //
     // The number of instructions VPInst is lowered into is its TTI Cost if it
-    // is Load/Store.  Doesn't apply to other costly instructions such as Mul
-    // or Div.
+    // is Load/Store. Applies to serialized Loads/Stores only.
+    // Also Doesn't apply to other costly instructions such as Mul or Div.
     //
     // TODO: the model doesn't apply to Instructions that remain as a call to a
     // library (such as SVML).  For call cases we need estimation of how many
     // registers such call requires.
+    //
+    auto SerializableLoadStore =
+      [&](const VPInstruction &VPInst) -> bool {
+      // Don't need to serialize for Scalar VPlan but isLegalMaskedLoad/Store,
+      // isLegalMaskedGather/Scatter return false for <1 x ...> vectors.
+      // So special case VF = 1 here.
+      if (VF == 1)
+        return false;
+
+      // Unvectorizable by VPlan types.
+      if (!isVectorizableLoadStore(&VPInst))
+        return true;
+
+      bool IsLoad  =  (VPInst.getOpcode() == Instruction::Load);
+      bool IsStore =  (VPInst.getOpcode() == Instruction::Store);
+      bool IsMasked = (VPInst.getParent()->getPredicate() != nullptr);
+
+      Align Alignment = Align(getMemInstAlignment(&VPInst));
+      Type *VTy = getWidenedType(getLoadStoreType(&VPInst), VF);
+      bool NegativeStride = false;
+
+      // Check for masked unit load/store presence in HW.
+      if (isUnitStrideLoadStore(&VPInst, NegativeStride)) {
+        if ((IsMasked && IsLoad  && !TTI->isLegalMaskedLoad(VTy, Alignment)) ||
+            (IsMasked && IsStore && !TTI->isLegalMaskedStore(VTy, Alignment)))
+          return true;
+      }
+      // Check for unsupported gather/scatter instruction.
+      // Note: any gather/scatter is considered as masked.
+      else if ((IsLoad  && !TTI->isLegalMaskedGather(VTy, Alignment)) ||
+               (IsStore && !TTI->isLegalMaskedScatter(VTy, Alignment)))
+        return true;
+
+      return false;
+    };
+
     if ((VPInst.getOpcode() == Instruction::Load ||
          VPInst.getOpcode() == Instruction::Store) &&
-        (InstCost = VPlanCostModel::getCost(&VPInst)) > 1)
+        SerializableLoadStore(VPInst))
       NumberLiveValuesCur += TranslateVPInstRPToHWRP(InstCost);
 
     LLVM_DEBUG(auto LVNs = make_second_range(LiveValues);
