@@ -60,17 +60,26 @@ entry:
 define <3 x i8> @test_char_div(<3 x i8> %num, <3 x i8> %div) {
 ; CHECK-LABEL: test_char_div:
 ; CHECK:       # %bb.0:
-; CHECK-NEXT:    movsbl %dil, %eax
+; CHECK-NEXT:    pextrb $2, %xmm1, %ecx ;INTEL
+; CHECK-NEXT:    pextrb $2, %xmm0, %eax ;INTEL
+; CHECK-NEXT:    cbtw ;INTEL
 ; CHECK-NEXT:    idivb %cl
-; CHECK-NEXT:    movl %eax, %edi
-; CHECK-NEXT:    movsbl %sil, %eax
-; CHECK-NEXT:    idivb %r8b
-; CHECK-NEXT:    movl %eax, %esi
-; CHECK-NEXT:    movsbl %dl, %eax
-; CHECK-NEXT:    idivb %r9b
 ; CHECK-NEXT:    movl %eax, %ecx
-; CHECK-NEXT:    movl %edi, %eax
-; CHECK-NEXT:    movl %esi, %edx
+; CHECK-NEXT:    movd %xmm1, %edx ;INTEL
+; CHECK-NEXT:    movd %xmm0, %eax ;INTEL
+; CHECK-NEXT:    cbtw ;INTEL
+; CHECK-NEXT:    idivb %dl ;INTEL
+; CHECK-NEXT:    movl %eax, %edx ;INTEL
+; CHECK-NEXT:    pextrb $1, %xmm1, %esi ;INTEL
+; CHECK-NEXT:    pextrb $1, %xmm0, %eax ;INTEL
+; CHECK-NEXT:    cbtw ;INTEL
+; CHECK-NEXT:    idivb %sil ;INTEL
+; CHECK-NEXT:    movzbl %al, %eax ;INTEL
+; CHECK-NEXT:    movzbl %dl, %edx ;INTEL
+; CHECK-NEXT:    movd %edx, %xmm0 ;INTEL
+; CHECK-NEXT:    pinsrb $1, %eax, %xmm0 ;INTEL
+; CHECK-NEXT:    movzbl %cl, %eax ;INTEL
+; CHECK-NEXT:    pinsrb $2, %eax, %xmm0 ;INTEL
 ; CHECK-NEXT:    retq
   %div.r = sdiv <3 x i8> %num, %div
   ret <3 x i8>  %div.r
@@ -80,17 +89,26 @@ define <3 x i8> @test_char_div(<3 x i8> %num, <3 x i8> %div) {
 define <3 x i8> @test_uchar_div(<3 x i8> %num, <3 x i8> %div) {
 ; CHECK-LABEL: test_uchar_div:
 ; CHECK:       # %bb.0:
-; CHECK-NEXT:    movzbl %dil, %eax
+; CHECK-NEXT:    pextrb $2, %xmm1, %ecx ;INTEL
+; CHECK-NEXT:    pextrb $2, %xmm0, %eax ;INTEL
+; CHECK-NEXT:    movzbl %al, %eax ;INTEL
 ; CHECK-NEXT:    divb %cl
-; CHECK-NEXT:    movl %eax, %edi
-; CHECK-NEXT:    movzbl %sil, %eax
-; CHECK-NEXT:    divb %r8b
-; CHECK-NEXT:    movl %eax, %esi
-; CHECK-NEXT:    movzbl %dl, %eax
-; CHECK-NEXT:    divb %r9b
 ; CHECK-NEXT:    movl %eax, %ecx
-; CHECK-NEXT:    movl %edi, %eax
-; CHECK-NEXT:    movl %esi, %edx
+; CHECK-NEXT:    movd %xmm1, %edx ;INTEL
+; CHECK-NEXT:    movd %xmm0, %eax ;INTEL
+; CHECK-NEXT:    movzbl %al, %eax ;INTEL
+; CHECK-NEXT:    divb %dl ;INTEL
+; CHECK-NEXT:    movl %eax, %edx ;INTEL
+; CHECK-NEXT:    pextrb $1, %xmm1, %esi ;INTEL
+; CHECK-NEXT:    pextrb $1, %xmm0, %eax ;INTEL
+; CHECK-NEXT:    movzbl %al, %eax ;INTEL
+; CHECK-NEXT:    divb %sil ;INTEL
+; CHECK-NEXT:    movzbl %al, %eax ;INTEL
+; CHECK-NEXT:    movzbl %dl, %edx ;INTEL
+; CHECK-NEXT:    movd %edx, %xmm0 ;INTEL
+; CHECK-NEXT:    pinsrb $1, %eax, %xmm0 ;INTEL
+; CHECK-NEXT:    movzbl %cl, %eax ;INTEL
+; CHECK-NEXT:    pinsrb $2, %eax, %xmm0 ;INTEL
 ; CHECK-NEXT:    retq
   %div.r = udiv <3 x i8> %num, %div
   ret <3 x i8>  %div.r

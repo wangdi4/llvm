@@ -1427,7 +1427,11 @@ public:
 
   /// Return the type of registers that this ValueType will eventually require.
   MVT getRegisterType(LLVMContext &Context, EVT VT) const {
-    if (VT.isSimple()) {
+#if INTEL_CUSTOMIZATION
+    // For non-power of 2 vector use getVectorTypeBreakdown.
+    if (VT.isSimple() &&
+        (!VT.getSimpleVT().isVector() || VT.getSimpleVT().isPow2VectorType())) {
+#endif // INTEL_CUSTOMIZATION
       assert((unsigned)VT.getSimpleVT().SimpleTy <
                 array_lengthof(RegisterTypeForVT));
       return RegisterTypeForVT[VT.getSimpleVT().SimpleTy];
@@ -1455,7 +1459,11 @@ public:
   /// registers needed to hold all the bits of the original type.  For an i140
   /// on a 32 bit machine this means 5 registers.
   unsigned getNumRegisters(LLVMContext &Context, EVT VT) const {
-    if (VT.isSimple()) {
+#if INTEL_CUSTOMIZATION
+    // For non-power of 2 vector use getVectorTypeBreakdown.
+    if (VT.isSimple() &&
+        (!VT.getSimpleVT().isVector() || VT.getSimpleVT().isPow2VectorType())) {
+#endif // INTEL_CUSTOMIZATION
       assert((unsigned)VT.getSimpleVT().SimpleTy <
                 array_lengthof(NumRegistersForVT));
       return NumRegistersForVT[VT.getSimpleVT().SimpleTy];
