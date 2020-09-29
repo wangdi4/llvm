@@ -52607,7 +52607,6 @@ static SDValue combineMOVDQ2Q(SDNode *N, SelectionDAG &DAG) {
   return SDValue();
 }
 
-<<<<<<< HEAD
 static SDValue combinePDEP(SDNode *N, SelectionDAG &DAG,
                            TargetLowering::DAGCombinerInfo &DCI) {
   unsigned NumBits = N->getSimpleValueType(0).getSizeInBits();
@@ -52615,7 +52614,10 @@ static SDValue combinePDEP(SDNode *N, SelectionDAG &DAG,
   if (TLI.SimplifyDemandedBits(SDValue(N, 0),
                                APInt::getAllOnesValue(NumBits), DCI))
     return SDValue(N, 0);
-=======
+
+  return SDValue();
+}
+
 #if INTEL_CUSTOMIZATION
 static unsigned getFPClassFlag(unsigned Predicate, ConstantFPSDNode *LHS,
                                ConstantFPSDNode *RHS) {
@@ -52694,16 +52696,11 @@ static SDValue combineCMPM(SDNode *N, SelectionDAG &DAG,
     if (SDValue Fpclass = combineToFpclass(N, DAG, DCI, Subtarget))
       return Fpclass;
   }
->>>>>>> 5d11ad61de7ee589853fe5c4f90df0f23b377f82
 
   return SDValue();
 }
-
-<<<<<<< HEAD
-=======
 #endif // INTEL_CUSTOMIZATION
 
->>>>>>> 5d11ad61de7ee589853fe5c4f90df0f23b377f82
 SDValue X86TargetLowering::PerformDAGCombine(SDNode *N,
                                              DAGCombinerInfo &DCI) const {
   SelectionDAG &DAG = DCI.DAG;
@@ -52881,13 +52878,10 @@ SDValue X86TargetLowering::PerformDAGCombine(SDNode *N,
   case ISD::FP_ROUND:       return combineFP_ROUND(N, DAG, Subtarget);
   case X86ISD::VBROADCAST_LOAD: return combineVBROADCAST_LOAD(N, DAG, DCI);
   case X86ISD::MOVDQ2Q:     return combineMOVDQ2Q(N, DAG);
-<<<<<<< HEAD
   case X86ISD::PDEP:        return combinePDEP(N, DAG, DCI);
-=======
 #if INTEL_CUSTOMIZATION
   case X86ISD::CMPM:        return combineCMPM(N, DAG, DCI, Subtarget);
 #endif // INTEL_CUSTOMIZATION
->>>>>>> 5d11ad61de7ee589853fe5c4f90df0f23b377f82
   }
 
   return SDValue();
