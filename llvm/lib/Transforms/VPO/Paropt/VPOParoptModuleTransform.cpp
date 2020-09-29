@@ -388,6 +388,27 @@ bool VPOParoptModuleTransform::doParoptTransforms(
   assert((!DisableOffload || !IsTargetSPIRV) &&
          "Compilation for SPIR-V target without -fopenmp-targets?");
 
+  SmallPtrSet<Function *, 16> FuncsWithDummyBranchesRemoved;
+  auto removeDummyBranchesFromBeginToEnd = [&WRegionInfoGetter,
+                                            &FuncsWithDummyBranchesRemoved](
+                                               Function *F) {
+    if (FuncsWithDummyBranchesRemoved.count(F))
+      return false;
+
+    bool Changed = false;
+    WRegionInfo &WI = WRegionInfoGetter(*F, &Changed);
+    auto *DT = WI.getDomTree();
+    auto *TLI = WI.getTargetLibraryInfo();
+    if (VPOUtils::removeBranchesFromBeginToEndDirective(*F, TLI, DT)) {
+      FuncsWithDummyBranchesRemoved.insert(F);
+      LLVM_DEBUG(
+          dbgs() << "=== After removing branches from Begin To End Directive:\n"
+                 << *F);
+      Changed = true;
+    }
+    return Changed;
+  };
+
   processDeviceTriples();
 
   if (!DisableOffload) {
@@ -406,7 +427,7 @@ bool VPOParoptModuleTransform::doParoptTransforms(
     // target region inside it. Here we create clones of Functions
     // that contain "target" region and are "declare target" themselves.
     // See details inside cloneDeclareTargetFunctions().
-    Changed |= cloneDeclareTargetFunctions();
+    Changed |= cloneDeclareTargetFunctions(removeDummyBranchesFromBeginToEnd);
 
   /// As new functions to be added, so we need to prepare the
   /// list of functions we want to work on in advance.
@@ -445,19 +466,10 @@ bool VPOParoptModuleTransform::doParoptTransforms(
     LLVM_DEBUG(dbgs() << "\n=== VPOParoptPass Process func: " << F->getName()
                       << " {\n");
 
+    if (Mode & ParTrans)
+      Changed |= removeDummyBranchesFromBeginToEnd(F);
+
     WRegionInfo &WI = WRegionInfoGetter(*F, &Changed);
-
-    if (Mode & ParTrans) {
-      auto *DT = WI.getDomTree();
-      auto *TLI = WI.getTargetLibraryInfo();
-      Changed |= VPOUtils::removeBranchesFromBeginToEndDirective(*F, TLI, DT);
-      if (Changed)
-        LLVM_DEBUG(
-            dbgs()
-            << "=== After removing branches from Begin To End Directive:\n"
-            << *F);
-    }
-
     // Walk the W-Region Graph top-down, and create W-Region List
     WI.buildWRGraph();
 
@@ -1113,7 +1125,8 @@ bool VPOParoptModuleTransform::genOffloadEntries() {
   return Changed;
 }
 
-bool VPOParoptModuleTransform::cloneDeclareTargetFunctions() const {
+bool VPOParoptModuleTransform::cloneDeclareTargetFunctions(
+    std::function<bool(Function *F)> DummyBranchDeleter) const {
   bool Changed = false;
 
   SmallVector<Function *, 128> FuncList;
@@ -1141,6 +1154,10 @@ bool VPOParoptModuleTransform::cloneDeclareTargetFunctions() const {
     // so we should compile it without "target" regions enclosed
     // into it.
     F->removeFnAttr(ContainsOmpTargetAttrName);
+    // Since there would be dummy branches from the begin to end directives
+    // present (added in Prepare pass using addBranchToEndDirective), we
+    // need to delete those branches before removing any directives.
+    Changed |= DummyBranchDeleter(F);
     VPOUtils::stripDirectives(*F, { DIR_OMP_TARGET, DIR_OMP_END_TARGET });
     Changed = true;
   }
