@@ -1073,6 +1073,23 @@ void SCCPSolver::visitCmpInst(CmpInst &I) {
   markOverdefined(&I);
 }
 
+#if INTEL_CUSTOMIZATION
+// If the input constant 'ConstPtr' is a pointer to the beginning of an array,
+// then return the ArrayType.
+static ArrayType *getArrayFromPointerCast(Constant *ConstPtr) {
+  if (!ConstPtr)
+    return nullptr;
+
+  PointerType *ConstTy = dyn_cast<PointerType>(ConstPtr->getType());
+  if (!ConstTy)
+    return nullptr;
+
+  Constant *TempRetConst = ConstPtr->stripPointerCasts();
+  PointerType *ArrPtr = dyn_cast<PointerType>(TempRetConst->getType());
+  return dyn_cast<ArrayType>(ArrPtr->getElementType());
+}
+#endif // INTEL_CUSTOMIZATION
+
 // Handle getelementptr instructions.  If all operands are constants then we
 // can turn this into a getelementptr ConstantExpr.
 void SCCPSolver::visitGetElementPtrInst(GetElementPtrInst &I) {
@@ -1100,6 +1117,15 @@ void SCCPSolver::visitGetElementPtrInst(GetElementPtrInst &I) {
 
   Constant *Ptr = Operands[0];
   auto Indices = makeArrayRef(Operands.begin() + 1, Operands.end());
+
+#if INTEL_CUSTOMIZATION
+  // CMPLRLLVM-22930: If the constant is casted from an array to a pointer,
+  // then we need to collect the actual array to create the new GEP.
+  if (ArrayType *Arr = getArrayFromPointerCast(Ptr))
+    if (I.getSourceElementType() == Arr)
+      Ptr = Ptr->stripPointerCasts();
+#endif // INTEL_CUSTOMIZATION
+
   Constant *C =
       ConstantExpr::getGetElementPtr(I.getSourceElementType(), Ptr, Indices);
   if (isa<UndefValue>(C))
@@ -1268,13 +1294,25 @@ void SCCPSolver::handleCallArguments(CallBase &CB) {
           continue;
         }
 
-        // Thread dependent values cannot be propagated to callbacks.
-        if (IsCallback)
-          if (auto *C = dyn_cast<Constant>(V))
-            if (C->isThreadDependent()) {
+        if (auto *C = dyn_cast<Constant>(V)) {
+          // Thread dependent values cannot be propagated to callbacks.
+          if (IsCallback && C->isThreadDependent()) {
+            markOverdefined(&A);
+            continue;
+          }
+
+          // CMPLRLLVM-22930: If the constant is casted from an array to a
+          // pointer, then we need to make sure that the types matches between
+          // the argument and the array that has been casted.
+          if (PointerType *VPtr = dyn_cast<PointerType>(V->getType())) {
+            ArrayType *ArrTy = getArrayFromPointerCast(C);
+            if (ArrTy &&
+                ArrTy->getArrayElementType() != VPtr->getElementType()) {
               markOverdefined(&A);
               continue;
             }
+          }
+        }
 
         if (auto *STy = dyn_cast<StructType>(A.getType())) {
           for (unsigned i = 0, e = STy->getNumElements(); i != e; ++i) {
@@ -1669,6 +1707,18 @@ static bool tryToReplaceWithConstant(SCCPSolver &Solver, Value *V) {
         isConstant(IV) ? Solver.getConstant(IV) : UndefValue::get(V->getType());
   }
   assert(Const && "Constant is nullptr here!");
+
+#if INTEL_CUSTOMIZATION
+  // CMPLRLLVM-22930: If the constant is casted from an array to a pointer,
+  // then we need to collect the actual array to generate to apply the
+  // transformation.
+  if (auto *VPtrType = dyn_cast<PointerType>(V->getType())) {
+    auto *ElemType = VPtrType->getElementType();
+    if (ArrayType *ArrTy = getArrayFromPointerCast(Const))
+      if (ArrTy == ElemType)
+        Const = Const->stripPointerCasts();
+  }
+#endif // INTEL_CUSTOMIZATION
 
   // Replacing `musttail` instructions with constant breaks `musttail` invariant
   // unless the call itself can be removed

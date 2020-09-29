@@ -10320,6 +10320,17 @@ dtrans::TypeInfo *DTransAnalysisInfo::getOrCreateTypeInfo(llvm::Type *Ty) {
   } else if (Ty->isArrayTy()) {
     dtrans::TypeInfo *ElementInfo =
         getOrCreateTypeInfo(Ty->getArrayElementType());
+
+    // Creating the ElementInfo may have created the needed type during a
+    // recursive call because the type was a field in a type referenced
+    // by the array, so check for the type again before creating a new object.
+    // For example:
+    //   Ty: [5 x %struct.foo*]
+    //       %struct.foo = type { [5 x %struct.foo*] }
+    auto TI = getTypeInfo(Ty);
+    if (TI)
+      return TI;
+
     DTransTy =
         new dtrans::ArrayInfo(Ty, ElementInfo, Ty->getArrayNumElements());
   } else if (Ty->isStructTy()) {
@@ -10330,6 +10341,16 @@ dtrans::TypeInfo *DTransAnalysisInfo::getOrCreateTypeInfo(llvm::Type *Ty) {
       // Create a DTrans type for the field, in case it is an aggregate.
       (void)getOrCreateTypeInfo(FieldTy);
     }
+
+    // Creating the TypeInfo objects for the fields may have resulted
+    // in the StructInfo for this type being created because the type
+    // may be reachable from one of the fields, so check for the type again
+    // before creating a new object. For example:
+    //   Ty: %struct.foo = type { i32, %struct.foo* }
+    auto TI = getTypeInfo(Ty);
+    if (TI)
+      return TI;
+
     DTransTy = new dtrans::StructInfo(Ty, FieldTypes);
   } else {
     assert(!Ty->isAggregateType() &&
