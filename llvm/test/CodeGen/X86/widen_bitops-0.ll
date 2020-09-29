@@ -131,36 +131,12 @@ define i24 @or_i24_as_v8i3(i24 %a, i24 %b) nounwind {
 define <3 x i8> @and_v3i8_as_i24(<3 x i8> %a, <3 x i8> %b) nounwind {
 ; X32-SSE-LABEL: and_v3i8_as_i24:
 ; X32-SSE:       # %bb.0:
-; X32-SSE-NEXT:    movd {{.*#+}} xmm0 = mem[0],zero,zero,zero
-; X32-SSE-NEXT:    pinsrb $1, {{[0-9]+}}(%esp), %xmm0
-; X32-SSE-NEXT:    pinsrb $2, {{[0-9]+}}(%esp), %xmm0
-; X32-SSE-NEXT:    movd {{.*#+}} xmm1 = mem[0],zero,zero,zero
-; X32-SSE-NEXT:    pinsrb $1, {{[0-9]+}}(%esp), %xmm1
-; X32-SSE-NEXT:    pinsrb $2, {{[0-9]+}}(%esp), %xmm1
-; X32-SSE-NEXT:    pand %xmm0, %xmm1
-; X32-SSE-NEXT:    movd %xmm1, %eax
-; X32-SSE-NEXT:    pextrb $1, %xmm1, %edx
-; X32-SSE-NEXT:    pextrb $2, %xmm1, %ecx
-; X32-SSE-NEXT:    # kill: def $al killed $al killed $eax
-; X32-SSE-NEXT:    # kill: def $dl killed $dl killed $edx
-; X32-SSE-NEXT:    # kill: def $cl killed $cl killed $ecx
+; X32-SSE-NEXT:    andps %xmm1, %xmm0 ;INTEL
 ; X32-SSE-NEXT:    retl
 ;
 ; X64-SSE-LABEL: and_v3i8_as_i24:
 ; X64-SSE:       # %bb.0:
-; X64-SSE-NEXT:    movd %ecx, %xmm0
-; X64-SSE-NEXT:    pinsrb $1, %r8d, %xmm0
-; X64-SSE-NEXT:    pinsrb $2, %r9d, %xmm0
-; X64-SSE-NEXT:    movd %edi, %xmm1
-; X64-SSE-NEXT:    pinsrb $1, %esi, %xmm1
-; X64-SSE-NEXT:    pinsrb $2, %edx, %xmm1
-; X64-SSE-NEXT:    pand %xmm0, %xmm1
-; X64-SSE-NEXT:    movd %xmm1, %eax
-; X64-SSE-NEXT:    pextrb $1, %xmm1, %edx
-; X64-SSE-NEXT:    pextrb $2, %xmm1, %ecx
-; X64-SSE-NEXT:    # kill: def $al killed $al killed $eax
-; X64-SSE-NEXT:    # kill: def $dl killed $dl killed $edx
-; X64-SSE-NEXT:    # kill: def $cl killed $cl killed $ecx
+; X64-SSE-NEXT:    andps %xmm1, %xmm0 ;INTEL
 ; X64-SSE-NEXT:    retq
   %1 = bitcast <3 x i8> %a to i24
   %2 = bitcast <3 x i8> %b to i24
@@ -172,36 +148,12 @@ define <3 x i8> @and_v3i8_as_i24(<3 x i8> %a, <3 x i8> %b) nounwind {
 define <3 x i8> @xor_v3i8_as_i24(<3 x i8> %a, <3 x i8> %b) nounwind {
 ; X32-SSE-LABEL: xor_v3i8_as_i24:
 ; X32-SSE:       # %bb.0:
-; X32-SSE-NEXT:    movd {{.*#+}} xmm0 = mem[0],zero,zero,zero
-; X32-SSE-NEXT:    pinsrb $1, {{[0-9]+}}(%esp), %xmm0
-; X32-SSE-NEXT:    pinsrb $2, {{[0-9]+}}(%esp), %xmm0
-; X32-SSE-NEXT:    movd {{.*#+}} xmm1 = mem[0],zero,zero,zero
-; X32-SSE-NEXT:    pinsrb $1, {{[0-9]+}}(%esp), %xmm1
-; X32-SSE-NEXT:    pinsrb $2, {{[0-9]+}}(%esp), %xmm1
-; X32-SSE-NEXT:    pxor %xmm0, %xmm1
-; X32-SSE-NEXT:    movd %xmm1, %eax
-; X32-SSE-NEXT:    pextrb $1, %xmm1, %edx
-; X32-SSE-NEXT:    pextrb $2, %xmm1, %ecx
-; X32-SSE-NEXT:    # kill: def $al killed $al killed $eax
-; X32-SSE-NEXT:    # kill: def $dl killed $dl killed $edx
-; X32-SSE-NEXT:    # kill: def $cl killed $cl killed $ecx
+; X32-SSE-NEXT:    xorps %xmm1, %xmm0 ;INTEL
 ; X32-SSE-NEXT:    retl
 ;
 ; X64-SSE-LABEL: xor_v3i8_as_i24:
 ; X64-SSE:       # %bb.0:
-; X64-SSE-NEXT:    movd %ecx, %xmm0
-; X64-SSE-NEXT:    pinsrb $1, %r8d, %xmm0
-; X64-SSE-NEXT:    pinsrb $2, %r9d, %xmm0
-; X64-SSE-NEXT:    movd %edi, %xmm1
-; X64-SSE-NEXT:    pinsrb $1, %esi, %xmm1
-; X64-SSE-NEXT:    pinsrb $2, %edx, %xmm1
-; X64-SSE-NEXT:    pxor %xmm0, %xmm1
-; X64-SSE-NEXT:    movd %xmm1, %eax
-; X64-SSE-NEXT:    pextrb $1, %xmm1, %edx
-; X64-SSE-NEXT:    pextrb $2, %xmm1, %ecx
-; X64-SSE-NEXT:    # kill: def $al killed $al killed $eax
-; X64-SSE-NEXT:    # kill: def $dl killed $dl killed $edx
-; X64-SSE-NEXT:    # kill: def $cl killed $cl killed $ecx
+; X64-SSE-NEXT:    xorps %xmm1, %xmm0 ;INTEL
 ; X64-SSE-NEXT:    retq
   %1 = bitcast <3 x i8> %a to i24
   %2 = bitcast <3 x i8> %b to i24
@@ -213,36 +165,12 @@ define <3 x i8> @xor_v3i8_as_i24(<3 x i8> %a, <3 x i8> %b) nounwind {
 define <3 x i8> @or_v3i8_as_i24(<3 x i8> %a, <3 x i8> %b) nounwind {
 ; X32-SSE-LABEL: or_v3i8_as_i24:
 ; X32-SSE:       # %bb.0:
-; X32-SSE-NEXT:    movd {{.*#+}} xmm0 = mem[0],zero,zero,zero
-; X32-SSE-NEXT:    pinsrb $1, {{[0-9]+}}(%esp), %xmm0
-; X32-SSE-NEXT:    pinsrb $2, {{[0-9]+}}(%esp), %xmm0
-; X32-SSE-NEXT:    movd {{.*#+}} xmm1 = mem[0],zero,zero,zero
-; X32-SSE-NEXT:    pinsrb $1, {{[0-9]+}}(%esp), %xmm1
-; X32-SSE-NEXT:    pinsrb $2, {{[0-9]+}}(%esp), %xmm1
-; X32-SSE-NEXT:    por %xmm0, %xmm1
-; X32-SSE-NEXT:    movd %xmm1, %eax
-; X32-SSE-NEXT:    pextrb $1, %xmm1, %edx
-; X32-SSE-NEXT:    pextrb $2, %xmm1, %ecx
-; X32-SSE-NEXT:    # kill: def $al killed $al killed $eax
-; X32-SSE-NEXT:    # kill: def $dl killed $dl killed $edx
-; X32-SSE-NEXT:    # kill: def $cl killed $cl killed $ecx
+; X32-SSE-NEXT:    orps %xmm1, %xmm0 ;INTEL
 ; X32-SSE-NEXT:    retl
 ;
 ; X64-SSE-LABEL: or_v3i8_as_i24:
 ; X64-SSE:       # %bb.0:
-; X64-SSE-NEXT:    movd %ecx, %xmm0
-; X64-SSE-NEXT:    pinsrb $1, %r8d, %xmm0
-; X64-SSE-NEXT:    pinsrb $2, %r9d, %xmm0
-; X64-SSE-NEXT:    movd %edi, %xmm1
-; X64-SSE-NEXT:    pinsrb $1, %esi, %xmm1
-; X64-SSE-NEXT:    pinsrb $2, %edx, %xmm1
-; X64-SSE-NEXT:    por %xmm0, %xmm1
-; X64-SSE-NEXT:    movd %xmm1, %eax
-; X64-SSE-NEXT:    pextrb $1, %xmm1, %edx
-; X64-SSE-NEXT:    pextrb $2, %xmm1, %ecx
-; X64-SSE-NEXT:    # kill: def $al killed $al killed $eax
-; X64-SSE-NEXT:    # kill: def $dl killed $dl killed $edx
-; X64-SSE-NEXT:    # kill: def $cl killed $cl killed $ecx
+; X64-SSE-NEXT:    orps %xmm1, %xmm0 ;INTEL
 ; X64-SSE-NEXT:    retq
   %1 = bitcast <3 x i8> %a to i24
   %2 = bitcast <3 x i8> %b to i24

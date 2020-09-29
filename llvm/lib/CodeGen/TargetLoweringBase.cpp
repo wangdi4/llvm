@@ -1471,13 +1471,19 @@ unsigned TargetLoweringBase::getVectorTypeBreakdown(LLVMContext &Context, EVT VT
   LegalizeTypeAction TA = getTypeAction(Context, VT);
   if (EltCnt.getKnownMinValue() != 1 &&
       (TA == TypeWidenVector || TA == TypePromoteInteger)) {
-    EVT RegisterEVT = getTypeToTransformTo(Context, VT);
-    if (isTypeLegal(RegisterEVT)) {
-      IntermediateVT = RegisterEVT;
-      RegisterVT = RegisterEVT.getSimpleVT();
-      NumIntermediates = 1;
-      return 1;
-    }
+#if INTEL_CUSTOMIZATION
+    EVT RegisterEVT = VT;
+    do  {
+      RegisterEVT = getTypeToTransformTo(Context, RegisterEVT);
+      if (isTypeLegal(RegisterEVT)) {
+        IntermediateVT = RegisterEVT;
+        RegisterVT = RegisterEVT.getSimpleVT();
+        NumIntermediates = 1;
+        return 1;
+      }
+      TA = getTypeAction(Context, RegisterEVT);
+    } while (TA == TypeWidenVector);
+#endif // INTEL_CUSTOMIZATION
   }
 
   // Figure out the right, legal destination reg to copy into.
