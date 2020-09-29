@@ -10804,24 +10804,13 @@ ScalarEvolution::isLoopBackedgeGuardedByCond(const Loop *L,
   return false;
 }
 
-<<<<<<< HEAD
-bool
-ScalarEvolution::isLoopEntryGuardedByCond(const Loop *L,
-                                          ICmpInst::Predicate Pred,
-#if INTEL_CUSTOMIZATION
-                                          const SCEV *LHS, const SCEV *RHS,
-                                          ICmpInst *PredContext) {
-#endif // INTEL_CUSTOMIZATION
-  // Interpret a null as meaning no loop, where there is obviously no guard
-  // (interprocedural conditions notwithstanding).
-  if (!L) return false;
-
-=======
 bool ScalarEvolution::isBasicBlockEntryGuardedByCond(const BasicBlock *BB,
                                                      ICmpInst::Predicate Pred,
                                                      const SCEV *LHS,
-                                                     const SCEV *RHS) {
->>>>>>> 9100bd772d4ff153fd2d5cb13034f4ed8ea2d477
+#if INTEL_CUSTOMIZATION
+                                                     const SCEV *RHS,
+                                                     ICmpInst *PredContext) {
+#endif // INTEL_CUSTOMIZATION
   if (VerifyIR)
     assert(!verifyFunction(*BB->getParent(), &dbgs()) &&
            "This cannot be done on broken IR!");
@@ -10928,17 +10917,13 @@ bool ScalarEvolution::isBasicBlockEntryGuardedByCond(const BasicBlock *BB,
   return false;
 }
 
-<<<<<<< HEAD
-bool ScalarEvolution::isImpliedCond(ICmpInst::Predicate Pred,
-                                    const SCEV *LHS, const SCEV *RHS,
-                                    const Value *FoundCondValue,
-                                    bool Inverse,            // INTEL
-                                    const ICmpInst *PredContext) { // INTEL
-=======
 bool ScalarEvolution::isLoopEntryGuardedByCond(const Loop *L,
                                                ICmpInst::Predicate Pred,
                                                const SCEV *LHS,
-                                               const SCEV *RHS) {
+#if INTEL_CUSTOMIZATION
+                                               const SCEV *RHS,
+                                               ICmpInst *PredContext) {
+#endif // INTEL_CUSTOMIZATION
   // Interpret a null as meaning no loop, where there is obviously no guard
   // (interprocedural conditions notwithstanding).
   if (!L)
@@ -10949,13 +10934,15 @@ bool ScalarEvolution::isLoopEntryGuardedByCond(const Loop *L,
          "LHS is not available at Loop Entry");
   assert(isAvailableAtLoopEntry(RHS, L) &&
          "RHS is not available at Loop Entry");
-  return isBasicBlockEntryGuardedByCond(L->getHeader(), Pred, LHS, RHS);
+  return isBasicBlockEntryGuardedByCond(L->getHeader(), Pred, LHS, RHS, // INTEL
+                                        PredContext);                   // INTEL
 }
 
 bool ScalarEvolution::isImpliedCond(ICmpInst::Predicate Pred, const SCEV *LHS,
                                     const SCEV *RHS,
-                                    const Value *FoundCondValue, bool Inverse) {
->>>>>>> 9100bd772d4ff153fd2d5cb13034f4ed8ea2d477
+                                    const Value *FoundCondValue,
+                                    bool Inverse,                  // INTEL
+                                    const ICmpInst *PredContext) { // INTEL
   if (!PendingLoopPredicates.insert(FoundCondValue).second)
     return false;
 

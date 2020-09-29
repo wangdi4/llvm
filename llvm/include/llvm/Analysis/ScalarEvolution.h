@@ -701,7 +701,8 @@ public:
   /// between LHS and RHS.
   bool isBasicBlockEntryGuardedByCond(const BasicBlock *BB,
                                       ICmpInst::Predicate Pred, const SCEV *LHS,
-                                      const SCEV *RHS);
+                                      const SCEV *RHS,        // INTEL
+                                      ICmpInst *PredContext); // INTEL
 
   /// Test whether the backedge of the loop is protected by a conditional
   /// between LHS and RHS.  This is used to eliminate casts.
