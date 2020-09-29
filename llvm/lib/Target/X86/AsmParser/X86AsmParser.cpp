@@ -2467,26 +2467,17 @@ bool X86AsmParser::HandleAVX512Operand(OperandVector &Operands) {
       if (!BroadcastString.startswith("1to"))
         return TokError("Expected 1to<NUM> at this point");
       const char *BroadcastPrimitive =
-<<<<<<< HEAD
-        StringSwitch<const char*>(getLexer().getTok().getIdentifier())
-          .Case("to2",  "{1to2}")
-          .Case("to4",  "{1to4}")
-          .Case("to8",  "{1to8}")
-          .Case("to16", "{1to16}")
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_FP16
-          .Case("to32", "{1to32}")
-#endif // INTEL_FEATURE_ISA_FP16
-#endif // INTEL_CUSTOMIZATION
-          .Default(nullptr);
-=======
           StringSwitch<const char *>(BroadcastString)
               .Case("1to2", "{1to2}")
               .Case("1to4", "{1to4}")
               .Case("1to8", "{1to8}")
               .Case("1to16", "{1to16}")
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+              .Case("1to32", "{1to32}")
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
               .Default(nullptr);
->>>>>>> 6b70a83d9cc0ec17aa4bc199081c0a51e65be6dd
       if (!BroadcastPrimitive)
         return TokError("Invalid memory broadcast primitive.");
       Parser.Lex(); // Eat trailing token of 1toN
