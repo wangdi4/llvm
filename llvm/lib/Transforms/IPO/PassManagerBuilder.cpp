@@ -541,7 +541,8 @@ void PassManagerBuilder::addInstructionCombiningPass(
 #else
   bool GEPInstOptimizations = true;
 #endif // INTEL_INCLUDE_DTRANS
-  PM.add(createInstructionCombiningPass(GEPInstOptimizations));
+  PM.add(createInstructionCombiningPass(
+      GEPInstOptimizations, PrepareForLTO && EnableIPArrayTranspose));
 }
 #endif // INTEL_CUSTOMIZATION
 

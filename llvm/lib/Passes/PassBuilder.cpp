@@ -848,9 +848,11 @@ PassBuilder::buildFunctionSimplificationPipeline(OptimizationLevel Level,
 #else
   bool GEPInstOptimizations = true;
 #endif // INTEL_INCLUDE_DTRANS
-  FPM.addPass(
-      InstCombinePass(GEPInstOptimizations)); // Combine silly sequences.
-#endif                                        // INTEL_CUSTOMIZATION
+  // Combine silly sequences. Set PreserveAddrCompute to true in LTO phase 1 if
+  // IP ArrayTranspose is enabled.
+  FPM.addPass(InstCombinePass(GEPInstOptimizations,
+                              PrepareForLTO && EnableIPArrayTranspose));
+#endif // INTEL_CUSTOMIZATION
 
   if (!Level.isOptimizingForSize())
     FPM.addPass(LibCallsShrinkWrapPass());
@@ -930,8 +932,10 @@ PassBuilder::buildFunctionSimplificationPipeline(OptimizationLevel Level,
       std::move(LPM1), EnableMSSALoopDependency, DebugLogging));
   FPM.addPass(SimplifyCFGPass());
 #if INTEL_CUSTOMIZATION
-  FPM.addPass(
-      InstCombinePass(GEPInstOptimizations)); // Combine silly sequences.
+  // Combine silly sequences. Set PreserveAddrCompute to true in LTO phase 1 if
+  // IP ArrayTranspose is enabled.
+  FPM.addPass(InstCombinePass(GEPInstOptimizations,
+                              PrepareForLTO && EnableIPArrayTranspose));
 #endif // INTEL_CUSTOMIZATION
   // The loop passes in LPM2 (IndVarSimplifyPass, LoopIdiomRecognizePass,
   // LoopDeletionPass and LoopFullUnrollPass) do not preserve MemorySSA.
@@ -977,8 +981,10 @@ PassBuilder::buildFunctionSimplificationPipeline(OptimizationLevel Level,
   // Run instcombine after redundancy and dead bit elimination to exploit
   // opportunities opened up by them.
 #if INTEL_CUSTOMIZATION
-  FPM.addPass(
-      InstCombinePass(GEPInstOptimizations)); // Combine silly sequences.
+  // Combine silly sequences. Set PreserveAddrCompute to true in LTO phase 1 if
+  // IP ArrayTranspose is enabled.
+  FPM.addPass(InstCombinePass(GEPInstOptimizations,
+                              PrepareForLTO && EnableIPArrayTranspose));
 #endif // INTEL_CUSTOMIZATION
   invokePeepholeEPCallbacks(FPM, Level);
 
@@ -1003,8 +1009,10 @@ PassBuilder::buildFunctionSimplificationPipeline(OptimizationLevel Level,
   FPM.addPass(ADCEPass());
   FPM.addPass(SimplifyCFGPass());
 #if INTEL_CUSTOMIZATION
-  FPM.addPass(
-      InstCombinePass(GEPInstOptimizations)); // Combine silly sequences.
+  // Combine silly sequences. Set PreserveAddrCompute to true in LTO phase 1 if
+  // IP ArrayTranspose is enabled.
+  FPM.addPass(InstCombinePass(GEPInstOptimizations,
+                              PrepareForLTO && EnableIPArrayTranspose));
 #endif // INTEL_CUSTOMIZATION
   invokePeepholeEPCallbacks(FPM, Level);
 
@@ -1058,9 +1066,11 @@ void PassBuilder::addPGOInstrPasses(ModulePassManager &MPM, bool DebugLogging,
 #else
     bool GEPInstOptimizations = true;
 #endif // INTEL_INCLUDE_DTRANS
-    FPM.addPass(
-        InstCombinePass(GEPInstOptimizations)); // Combine silly sequences.
-#endif                                          // INTEL_CUSTOMIZATION
+    // Combine silly sequences. Set PreserveAddrCompute to true in LTO phase 1
+    // if IP ArrayTranspose is enabled.
+    FPM.addPass(InstCombinePass(GEPInstOptimizations,
+                                PrepareForLTO && EnableIPArrayTranspose));
+#endif // INTEL_CUSTOMIZATION
     invokePeepholeEPCallbacks(FPM, Level);
 
     CGPipeline.addPass(createCGSCCToFunctionPassAdaptor(std::move(FPM)));
@@ -1323,9 +1333,11 @@ ModulePassManager PassBuilder::buildModuleSimplificationPipeline(
 #else
   bool GEPInstOptimizations = true;
 #endif // INTEL_INCLUDE_DTRANS
-  GlobalCleanupPM.addPass(
-      InstCombinePass(GEPInstOptimizations)); // Combine silly sequences.
-#endif                                        // INTEL_CUSTOMIZATION
+  // Combine silly sequences. Set PreserveAddrCompute to true in LTO phase 1 if
+  // IP ArrayTranspose is enabled.
+  GlobalCleanupPM.addPass(InstCombinePass(
+      GEPInstOptimizations, PrepareForLTO && EnableIPArrayTranspose));
+#endif // INTEL_CUSTOMIZATION
   invokePeepholeEPCallbacks(GlobalCleanupPM, Level);
 
   GlobalCleanupPM.addPass(SimplifyCFGPass());
@@ -1516,8 +1528,10 @@ ModulePassManager PassBuilder::buildModuleOptimizationPipeline(
   OptimizePM.addPass(VectorCombinePass());
 #if INTEL_CUSTOMIZATION
   OptimizePM.addPass(EarlyCSEPass());
-  OptimizePM.addPass(
-      InstCombinePass(GEPInstOptimizations)); // Combine silly sequences.
+  // Combine silly sequences. Set PreserveAddrCompute to true in LTO phase 1 if
+  // IP ArrayTranspose is enabled.
+  OptimizePM.addPass(InstCombinePass(GEPInstOptimizations,
+                                     PrepareForLTO && EnableIPArrayTranspose));
 #endif // INTEL_CUSTOMIZATION
 
   // Unroll small loops to hide loop backedge latency and saturate any parallel
@@ -1535,8 +1549,10 @@ ModulePassManager PassBuilder::buildModuleOptimizationPipeline(
       PTO.ForgetAllSCEVInLoopUnroll)));
   OptimizePM.addPass(WarnMissedTransformationsPass());
 #if INTEL_CUSTOMIZATION
-  OptimizePM.addPass(
-      InstCombinePass(GEPInstOptimizations)); // Combine silly sequences.
+  // Combine silly sequences. Set PreserveAddrCompute to true in LTO phase 1 if
+  // IP ArrayTranspose is enabled.
+  OptimizePM.addPass(InstCombinePass(GEPInstOptimizations,
+                                     PrepareForLTO && EnableIPArrayTranspose));
 #endif // INTEL_CUSTOMIZATION
   OptimizePM.addPass(RequireAnalysisPass<OptimizationRemarkEmitterAnalysis, Function>());
   OptimizePM.addPass(createFunctionToLoopPassAdaptor(

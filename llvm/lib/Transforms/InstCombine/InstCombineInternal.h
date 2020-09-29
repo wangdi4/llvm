@@ -65,13 +65,15 @@ public:
   InstCombinerImpl(InstCombineWorklist &Worklist, BuilderTy &Builder,
 #if INTEL_CUSTOMIZATION
                    bool MinimizeSize, bool TypeLoweringOpts,
-                   AAResults *AA, AssumptionCache &AC,
+                   bool PreserveAddrCompute, AAResults *AA, AssumptionCache &AC,
                    TargetLibraryInfo &TLI, TargetTransformInfo &TTI,
                    DominatorTree &DT, OptimizationRemarkEmitter &ORE,
                    BlockFrequencyInfo *BFI, ProfileSummaryInfo *PSI,
                    const DataLayout &DL, LoopInfo *LI)
       : InstCombiner(Worklist, Builder, MinimizeSize, TypeLoweringOpts,
-                     AA, AC, TLI, TTI, DT, ORE, BFI, PSI, DL, LI) {}
+                     PreserveAddrCompute, AA, AC, TLI, TTI, DT, ORE, BFI, PSI,
+                     DL, LI) {
+  }
 #endif // INTEL_CUSTOMIZATION
 
   virtual ~InstCombinerImpl() {}

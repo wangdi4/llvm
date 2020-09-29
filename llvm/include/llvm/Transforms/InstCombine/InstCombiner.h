@@ -56,7 +56,9 @@ public:
   using BuilderTy = IRBuilder<TargetFolder, IRBuilderCallbackInserter>;
   BuilderTy &Builder;
 
-  bool allowTypeLoweringOpts() { return TypeLoweringOpts; } // INTEL
+  bool allowTypeLoweringOpts() const { return TypeLoweringOpts; } // INTEL
+
+  bool preserveAddrCompute() const { return PreserveAddrCompute; } // INTEL
 
 protected:
   /// A worklist of the instructions that need to be simplified.
@@ -65,9 +67,18 @@ protected:
   // Mode in which we are running the combiner.
   const bool MinimizeSize;
 
-  /// INTEL Enable optimizations like GEP merging, zero element GEP removal
-  /// INTEL and pointer type bitcasts
-  const bool TypeLoweringOpts; // INTEL
+#if INTEL_CUSTOMIZATION
+  /// Enable optimizations like GEP merging, zero element GEP removal and
+  /// pointer type bitcasts
+  const bool TypeLoweringOpts;
+
+  /// If true, avoid doing transformations that significantly change address
+  /// computation expressions for load and store instructions to preserve
+  /// memory references for downstream optimizations. This flag is set to true
+  /// in LTO phase 1 to preserve memrefs in IR for IP ArrayTranspose if this
+  /// pass is enabled.
+  const bool PreserveAddrCompute;
+#endif // INTEL_CUSTOMIZATION
 
   AAResults *AA;
 
@@ -89,17 +100,20 @@ protected:
 
 public:
   InstCombiner(InstCombineWorklist &Worklist, BuilderTy &Builder,
-               bool MinimizeSize, bool TypeLoweringOpts, AAResults *AA, // INTEL
-               AssumptionCache &AC, TargetLibraryInfo &TLI,             // INTEL
-               TargetTransformInfo &TTI, DominatorTree &DT,             // INTEL
-               OptimizationRemarkEmitter &ORE, BlockFrequencyInfo *BFI, // INTEL
-               ProfileSummaryInfo *PSI, const DataLayout &DL,           // INTEL
-               LoopInfo *LI)                                            // INTEL
-      : TTI(TTI), Builder(Builder), Worklist(Worklist),                 // INTEL
-        MinimizeSize(MinimizeSize), TypeLoweringOpts(TypeLoweringOpts), // INTEL
-        AA(AA), AC(AC), TLI(TLI), DT(DT), DL(DL),                       // INTEL
-        SQ(DL, &TLI, &DT, &AC, nullptr, true, true, &TTI),              // INTEL
-        ORE(ORE), BFI(BFI), PSI(PSI), LI(LI) {}                         // INTEL
+#if INTEL_CUSTOMIZATION
+               bool MinimizeSize, bool TypeLoweringOpts,
+               bool PreserveAddrCompute, AAResults *AA, AssumptionCache &AC,
+               TargetLibraryInfo &TLI, TargetTransformInfo &TTI,
+               DominatorTree &DT, OptimizationRemarkEmitter &ORE,
+               BlockFrequencyInfo *BFI, ProfileSummaryInfo *PSI,
+               const DataLayout &DL, LoopInfo *LI)
+      : TTI(TTI), Builder(Builder), Worklist(Worklist),
+        MinimizeSize(MinimizeSize), TypeLoweringOpts(TypeLoweringOpts),
+        PreserveAddrCompute(PreserveAddrCompute), AA(AA), AC(AC), TLI(TLI),
+        DT(DT), DL(DL), SQ(DL, &TLI, &DT, &AC, nullptr, true, true, &TTI),
+        ORE(ORE), BFI(BFI), PSI(PSI), LI(LI) {
+  }
+#endif // INTEL_CUSTOMIZATION
 
   virtual ~InstCombiner() {}
 
