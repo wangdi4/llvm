@@ -697,6 +697,12 @@ public:
                                 const SCEV *LHS, const SCEV *RHS, // INTEL
                                 ICmpInst *PredContext = nullptr); // INTEL
 
+  /// Test whether entry to the basic block is protected by a conditional
+  /// between LHS and RHS.
+  bool isBasicBlockEntryGuardedByCond(const BasicBlock *BB,
+                                      ICmpInst::Predicate Pred, const SCEV *LHS,
+                                      const SCEV *RHS);
+
   /// Test whether the backedge of the loop is protected by a conditional
   /// between LHS and RHS.  This is used to eliminate casts.
   bool isLoopBackedgeGuardedByCond(const Loop *L, ICmpInst::Predicate Pred,
