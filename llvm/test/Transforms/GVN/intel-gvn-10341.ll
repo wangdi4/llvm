@@ -3,7 +3,7 @@
 ; The correctness of the transformation is covered by other GVN tests. The
 ; commit in this case is a cost model change only.
 
-; RUN: opt < %s -gvn -S | FileCheck %s
+; RUN: opt < %s -memoryssa -gvn -S | FileCheck %s
 
 ; CHECK-LABEL: 26:
 ; CHECK: icmp ult
