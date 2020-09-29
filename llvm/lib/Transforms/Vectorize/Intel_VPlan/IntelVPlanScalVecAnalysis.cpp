@@ -92,16 +92,35 @@ bool VPlanScalVecAnalysis::computeSpecialInstruction(
 
   switch (Inst->getOpcode()) {
   case Instruction::PHI: {
+    auto *Phi = cast<VPPHINode>(Inst);
     // Loop header PHIs need special back propagation since they introduce
     // backedges.
-    if (isLoopHeaderPHI(Plan, cast<VPPHINode>(Inst))) {
-      SVABits ExistingSVABits = getAllSetBitsFromUsers(Inst);
-      // Set all bits from users to def and operands.
-      setSVABitsForInst(Inst, ExistingSVABits);
-      setSVABitsForAllOperands(Inst, ExistingSVABits);
-      // Special back propagation needed for loop header PHIs.
-      backPropagateSVABitsForRecurrentPHI(cast<VPPHINode>(Inst),
-                                          ExistingSVABits, VF, TLI);
+    if (isLoopHeaderPHI(Plan, Phi)) {
+      SVABits ExistingSVABits = getAllSetBitsFromUsers(Phi);
+      // Do not attempt to back propagate if header PHI has no processed users
+      // yet. This implies that PHI is unused or used by another loop header
+      // PHI. For example -
+      //
+      // header:
+      //   %phi1 = phi i32 [0, %preheader], [%phi2, %exit]
+      //   %phi2 = phi i32 [0, %preheader], [%val, %exit]  ---> Skipped
+      //   ; No other use of %phi2
+      //
+      // In above example, we skip processing %phi2 here. Appropriate SVA bits
+      // will be set during back propagation of %phi1.
+      if (!ExistingSVABits.any()) {
+        SkippedPHIs.insert(Phi);
+      } else {
+        // Set all bits from users to def and operands.
+        setSVABitsForInst(Phi, ExistingSVABits);
+        setSVABitsForAllOperands(Phi, ExistingSVABits);
+        // Special back propagation needed for loop header PHIs.
+        backPropagateSVABitsForRecurrentPHI(Phi, ExistingSVABits, VF, TLI);
+        // Remove skipped phi from the list after it's processed (triggered via
+        // back propagation).
+        if (SkippedPHIs.count(Phi))
+          SkippedPHIs.erase(Phi);
+      }
       return true;
     }
 
@@ -627,9 +646,14 @@ void VPlanScalVecAnalysis::backPropagateSVABitsForRecurrentPHI(
       }
 
       if (CurrentOpSVABits == None) {
-        // Nothing to do, operand has not been visited yet. No need to process
-        // in worklist.
-        continue;
+        // Allow skipped loop header PHIs whose only users are other loop header
+        // PHIs. Check PHI handling in computeSpecialInstruction for more
+        // details.
+        if (!isa<VPPHINode>(OpInst) ||
+            !SkippedPHIs.count(cast<VPPHINode>(OpInst)))
+          // Nothing to do, operand has not been visited yet. No need to process
+          // in worklist.
+          continue;
       }
 
       // All checks failed, add to worklist for reprocessing.
@@ -644,7 +668,11 @@ void VPlanScalVecAnalysis::backPropagateSVABitsForRecurrentPHI(
   // (like reduction/induction).
   while (!Worklist.empty()) {
     const VPInstruction *Inst = Worklist.pop_back_val();
-    SVABits OrigBits = getSVABitsForInst(Inst);
+    SVABits OrigBits(0);
+    if (auto FoundBits = findSVABitsForInst(Inst))
+      OrigBits = FoundBits.getValue();
+    assert((OrigBits.any() || SkippedPHIs.count(cast<VPPHINode>(Inst))) &&
+           "Trying to back propagate to an unprocessed instruction.");
     // Compute SVA results for instruction during back propagation.
     compute(Inst, VF, TLI);
     SVABits NewBits = getSVABitsForInst(Inst);
