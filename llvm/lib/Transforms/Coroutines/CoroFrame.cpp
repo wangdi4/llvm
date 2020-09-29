@@ -1232,10 +1232,12 @@ static void rewritePHIs(BasicBlock &BB) {
           dyn_cast_or_null<CleanupPadInst>(BB.getFirstNonPHI())) {
     SmallVector<BasicBlock *, 8> Preds(pred_begin(&BB), pred_end(&BB));
     for (BasicBlock *Pred : Preds) {
-      if (dyn_cast<CatchSwitchInst>(Pred->getTerminator())) { // INTEL
+      if (CatchSwitchInst *CS =
+              dyn_cast<CatchSwitchInst>(Pred->getTerminator())) {
         // CleanupPad with a CatchSwitch predecessor: therefore this is an
         // unwind destination that needs to be handle specially.
         assert(CS->getUnwindDest() == &BB);
+        CS = CS; // INTEL (So that prod and release builds both work.
         rewritePHIsForCleanupPad(&BB, CleanupPad);
         return;
       }
