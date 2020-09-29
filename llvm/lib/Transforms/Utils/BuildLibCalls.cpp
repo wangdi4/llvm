@@ -426,17 +426,15 @@ bool llvm::inferLibFuncAttributes(Function &F, const TargetLibraryInfo &TLI) {
     Changed |= setRetDoesNotAlias(F);
     Changed |= setDoesNotCapture(F, 0);
     return Changed;
-<<<<<<< HEAD
-#if INTEL_CUSTOMIZATION
-  // NOTE: The libfunc read is an alias to _read in Windows (LibFunc_under_read)
-  case LibFunc_under_read:
-#endif // INTEL_CUSTOMIZATION
-=======
   case LibFunc_reallocf:
     Changed |= setRetNoUndef(F);
     return Changed;
->>>>>>> 67aac915ba94a75cbdb3c9c5f6c8e9904829ce37
   case LibFunc_read:
+#if INTEL_CUSTOMIZATION
+  // NOTE: The libfunc read is an alias to _read in Windows
+  // (LibFunc_under_read)
+  case LibFunc_under_read:
+#endif // INTEL_CUSTOMIZATION
     // May throw; "read" is a valid pthread cancellation point.
     Changed |= setRetAndArgsNoUndef(F);
     Changed |= setDoesNotCapture(F, 1);
