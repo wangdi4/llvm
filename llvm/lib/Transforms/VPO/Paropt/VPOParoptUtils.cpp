@@ -3760,6 +3760,38 @@ CallInst *VPOParoptUtils::genCall(StringRef FnName, Type *ReturnTy,
 //                                |   call @foo(i32* %a.val)
 //                                | }
 //                                |
+#if INTEL_CUSTOMIZATION
+// -------------------------------+--------------------------------------------
+//           Before               |      After
+// -------------------------------+--------------------------------------------
+//                               (5) %dv.new = alloca QNCA
+//   "USE.DEVICE.PTR:F90_DV"      |
+//                   (QNCA* %dv)  |
+//                                |
+//                                | if (__tgt_is_device_available(...) {
+//                                |   %a.addr = gep (%dv, 0, 0)
+//                                |   %a = load i32*, i32** %a.addr
+//                                |   ...
+//                                |   %a.cast = bitcast i32* %a to i8*
+//                                |   store i8* %a.cast, i8** <a_gep>
+//                                |   ...
+//                                |   __tgt_data_begin(...)
+//                                |   %a.gep.cast = bitcast i8** <a_gep>
+//                                |                 to i32**
+//                                |
+//                               (3)  %a.updated = load i32*, i32** %a.gep.cast
+//                               (6)  memcpy(%dv.new, %dv, sizeof(QNCA)
+//                               (7)  %a.addr.new = gep(%dv.new, 0, 0)
+//                               (8)  store %a.updated, %a.addr.new
+//                                |
+//   call @foo(QNCA* %dv)        (4)  call @foo_gpu(QNCA* %dv.new)
+//                                |
+//                                |   __tgt_data_end(...)
+//                                | } else {
+//                                |   call @foo(QNCA* %dv)
+//                                | }
+//                                |
+#endif // INTEL_CUSTOMIZATION
 CallInst *VPOParoptUtils::genVariantCall(CallInst *BaseCall,
                                          StringRef VariantName,
                                          Value *InteropObj,
@@ -3843,8 +3875,28 @@ CallInst *VPOParoptUtils::genVariantCall(CallInst *BaseCall,
       }
 
       StringRef OrigName = HostPtr->getName();
-      LoadInst *Buffer =
+      Value *Buffer =
           VCBuilder.CreateLoad(TgtBufferAddr, OrigName + ".buffer"); // (1), (3)
+#if INTEL_CUSTOMIZATION
+      if (Item->getIsF90DopeVector()) {
+        const DataLayout &DL = M->getDataLayout();
+        Type *OrigElemType = Item->getOrigElemType();
+        Instruction *AllocaInsertPt =
+            VPOParoptUtils::getInsertionPtForAllocas(W, F);
+        unsigned Alignment = DL.getABITypeAlignment(OrigElemType);
+        Value *NewV =
+            genPrivatizationAlloca(OrigElemType, /*NumElements=*/nullptr,
+                                   MaybeAlign(Alignment), AllocaInsertPt,
+                                   /*IsTargetSpirv=*/false, ".new"); // (5)
+        VPOUtils::genMemcpy(NewV, HostPtr, DL, Alignment,
+                            &*VCBuilder.GetInsertPoint()); //           (6)
+        auto *Zero = VCBuilder.getInt32(0);
+        auto *Addr0GEP = VCBuilder.CreateInBoundsGEP(
+            NewV, {Zero, Zero}, NewV->getName() + ".addr0"); //         (7)
+        VCBuilder.CreateStore(Buffer, Addr0GEP); //                     (8)
+        Buffer = NewV;
+      }
+#endif // INTEL_CUSTOMIZATION
 
       // HostPtr       type is:  SomeType** if ptr_to_ptr is present
       //                         SomeType*  otherwise
