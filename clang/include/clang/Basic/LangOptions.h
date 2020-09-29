@@ -484,6 +484,15 @@ public:
     return Opts;
   }
 
+  storage_type getDiffWith(FPOptions FPO) const {
+    storage_type Diff = 0;
+#define OPTION(NAME, TYPE, WIDTH, PREVIOUS)                                    \
+  if (get##NAME() != FPO.get##NAME())                                          \
+    Diff |= NAME##Mask;
+#include "clang/Basic/FPOptions.def"
+    return Diff;
+  }
+
   // We can define most of the accessors automatically:
 #define OPTION(NAME, TYPE, WIDTH, PREVIOUS)                                    \
   TYPE get##NAME() const {                                                     \
@@ -532,6 +541,8 @@ public:
       : Options(LO), OverrideMask(OverrideMaskBits) {}
   FPOptionsOverride(FPOptions FPO)
       : Options(FPO), OverrideMask(OverrideMaskBits) {}
+  FPOptionsOverride(FPOptions New, FPOptions Old)
+      : Options(New), OverrideMask(New.getDiffWith(Old)) {}
 
   bool requiresTrailingStorage() const { return OverrideMask != 0; }
 

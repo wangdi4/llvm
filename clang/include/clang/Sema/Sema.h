@@ -824,13 +824,7 @@ public:
   // This stack tracks the current state of Sema.CurFPFeatures.
   PragmaStack<FPOptionsOverride> FpPragmaStack;
   FPOptionsOverride CurFPFeatureOverrides() {
-    FPOptionsOverride result;
-    if (!FpPragmaStack.hasValue()) {
-      result = FPOptionsOverride();
-    } else {
-      result = FpPragmaStack.CurrentValue;
-    }
-    return result;
+    return FpPragmaStack.CurrentValue;
   }
 
   // RAII object to push / pop sentinel slots for all MS #pragma stacks.
@@ -1664,7 +1658,6 @@ public:
 
   const LangOptions &getLangOpts() const { return LangOpts; }
   OpenCLOptions &getOpenCLOptions() { return OpenCLFeatures; }
-  FPOptions     &getCurFPFeatures() { return CurFPFeatures; }
 
   DiagnosticsEngine &getDiagnostics() const { return Diags; }
   SourceManager &getSourceManager() const { return SourceMgr; }
@@ -1673,6 +1666,12 @@ public:
   ASTConsumer &getASTConsumer() const { return Consumer; }
   ASTMutationListener *getASTMutationListener() const;
   ExternalSemaSource* getExternalSource() const { return ExternalSource; }
+
+  const FPOptions &getCurFPFeatures() const { return CurFPFeatures; }
+  void setCurFPFeatures(FPOptions FPO) {
+    FpPragmaStack.CurrentValue = FPOptionsOverride(FPO, CurFPFeatures);
+    CurFPFeatures = FPO;
+  }
 
   ///Registers an external source. If an external source already exists,
   /// creates a multiplex external source and appends to it.
