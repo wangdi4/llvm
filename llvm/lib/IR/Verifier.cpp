@@ -4669,6 +4669,16 @@ void Verifier::visitIntrinsicCall(Intrinsic::ID ID, CallBase &Call) {
 #include "llvm/IR/ConstrainedOps.def"
     visitConstrainedFPIntrinsic(cast<ConstrainedFPIntrinsic>(Call));
     break;
+#if INTEL_CUSTOMIZATION
+  case Intrinsic::intel_honor_fcmp: {
+    auto Pred = cast<IntelHonorFCmpIntrinsic>(&Call)->getPredicate();
+    Assert(CmpInst::isFPPredicate(Pred),
+           "invalid predicate for intel.honor.fcmp intrinsic", Call);
+    Assert(!Call.hasNoNaNs(),
+           "nnan is not permitted on intel.honor.fcmp intrinsic", Call);
+    break;
+  }
+#endif // INTEL_CUSTOMIZATION
   case Intrinsic::dbg_declare: // llvm.dbg.declare
     Assert(isa<MetadataAsValue>(Call.getArgOperand(0)),
            "invalid llvm.dbg.declare intrinsic call 1", Call);

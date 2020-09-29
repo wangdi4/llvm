@@ -979,6 +979,23 @@ Value *IRBuilderBase::CreateFCmpHelper(
     return CreateConstrainedFPCmp(ID, P, LHS, RHS, Name);
   }
 
+#if INTEL_CUSTOMIZATION
+  if (IsFPHonorNaNCompares) {
+    // We don't want this to be treated as a constrained intrinsic, but
+    // the predicate handling is the same, so we can reuse that function.
+    Value *PredicateV = getConstrainedFPPredicate(P);
+
+    // CreateIntrinsic calls Insert, so that isn't needed here.
+    CallInst *C = CreateIntrinsic(Intrinsic::intel_honor_fcmp, {LHS->getType()},
+                                {LHS, RHS, PredicateV}, nullptr, Name);
+    // Don't allow the nnan flag on this intrinisic.
+    FastMathFlags fcmpFMF = FMF;
+    fcmpFMF.setNoNaNs(false);
+    setFPAttrs(C, FPMathTag, fcmpFMF);
+    return C;
+  }
+#endif // INTEL_CUSTOMIZATION
+
   if (auto *LC = dyn_cast<Constant>(LHS))
     if (auto *RC = dyn_cast<Constant>(RHS))
       return Insert(Folder.CreateFCmp(P, LC, RC), Name);

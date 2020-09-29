@@ -680,6 +680,19 @@ def int_objectsize : Intrinsic<[llvm_anyint_ty],
 def int_for_cpystr : Intrinsic<[],
                                [llvm_ptr_ty, llvm_anyint_ty, llvm_ptr_ty,
                                 llvm_anyint_ty, llvm_anyint_ty]>;
+//===---------------- icc/ifort Compatibility Intrinsics ------------------===//
+//
+
+let IntrProperties = [IntrNoMem, IntrSpeculatable, IntrWillReturn] in {
+  // Protected floating-point comparison (non-signaling).
+  // This intrinsic prevents optimizations from assuming that operand input
+  // values are not NaN, even if the 'nnan' fast-math flags is set on the
+  // operand values.
+  // The third operand is the predicate represented as a metadata string.
+  def int_intel_honor_fcmp
+      : Intrinsic<[ LLVMScalarOrSameVectorWidth<0, llvm_i1_ty> ],
+                  [ llvm_anyfloat_ty, LLVMMatchType<0>, llvm_metadata_ty ]>;
+}
 #endif // INTEL_CUSTOMIZATION
 
 //===--------------- Access to Floating Point Environment -----------------===//
