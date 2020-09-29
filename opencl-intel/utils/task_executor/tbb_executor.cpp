@@ -489,7 +489,7 @@ bool TBBTaskExecutor::LoadTBBLibrary()
 
 #ifdef WIN32
     // The loading on tbb.dll was delayed,
-    // Need to load manually before defualt dll is loaded
+    // Need to load manually before default dll is loaded
 
     std::string tbbPath("tbb");
 
@@ -500,10 +500,22 @@ bool TBBTaskExecutor::LoadTBBLibrary()
     tbbPath += TBB_BINARIES_POSTFIX;
     tbbPath += ".dll";
 
-    bLoadRes = m_dllTBBLib.Load(tbbPath.c_str());
-    if ( !bLoadRes )
-    {
-        LOG_ERROR(TEXT("Failed to load TBB from %s"), tbbPath.c_str());
+    // check the current module folder first.
+    std::string modulePath = std::string(MAX_PATH, '\0');
+
+    Intel::OpenCL::Utils::GetModuleDirectory(&modulePath[0], MAX_PATH);
+    modulePath.resize(modulePath.find_first_of('\0'));
+    modulePath += tbbPath;
+
+    bLoadRes = m_dllTBBLib.Load(modulePath.c_str());
+    if (!bLoadRes) {
+        bLoadRes = m_dllTBBLib.Load(tbbPath.c_str());
+
+        if ( !bLoadRes )
+        {
+            LOG_ERROR(TEXT("Failed to load TBB from system path or relative path %s"),
+                      modulePath.c_str());
+        }
     }
 #endif
 
