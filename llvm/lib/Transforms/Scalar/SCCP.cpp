@@ -31,11 +31,8 @@
 #include "llvm/Analysis/DomTreeUpdater.h"
 #include "llvm/Analysis/GlobalsModRef.h"
 #include "llvm/Analysis/InstructionSimplify.h"
-<<<<<<< HEAD
 #include "llvm/Analysis/Intel_Andersens.h"  // INTEL
 #include "llvm/Analysis/Intel_WP.h"         // INTEL
-=======
->>>>>>> 86a20d9e34f5a9989da72097f23f3b0a44157e73
 #include "llvm/Analysis/Loads.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/Analysis/ValueLattice.h"
