@@ -10349,7 +10349,7 @@ bool VPOParoptTransform::collapseOmpLoops(WRegionNode *W) {
   }
 
   // IsTopLevelTargetLoop is true only if the current region
-  // is a single top-level loop region enclosed into a target region.
+  // is a single top-level, non-SIMD, loop region enclosed into a target region.
   //
   // For example:
   // #pragma omp target teams
@@ -10377,7 +10377,7 @@ bool VPOParoptTransform::collapseOmpLoops(WRegionNode *W) {
   // The distribute loop is a top-level loop region.
   // The parallel for is not a top-level loop region.
   bool IsTopLevelTargetLoop = true;
-  if (!WTarget) {
+  if (!WTarget || isa<WRNVecLoopNode>(W)) {
     IsTopLevelTargetLoop = false;
   } else {
     auto IsNotTargetRegion = [](WRegionNode *W) {
