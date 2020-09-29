@@ -72,6 +72,27 @@ namespace X86 {
     OPERAND_COND_CODE,
   };
 
+#if INTEL_CUSTOMIZATION
+  enum FPClassCode {
+    // QNaN
+    FPCLASS_QNAN = 0x1,
+    // Positive Zero
+    FPCLASS_PZERO = 0x2,
+    // Negative Zero
+    FPCLASS_NZERO = 0x4,
+    // Positive Infinity
+    FPCLASS_PINF = 0x8,
+    // Negative Infinity
+    FPCLASS_NINF = 0x10,
+    // Denormal
+    FPCLASS_DENORMAL = 0x20,
+    // Negative finite
+    FPCLASS_NEG_FINITE = 0x40,
+    // SNaN
+    FPCLASS_SNAN = 0x80,
+  };
+#endif
+
   // X86 specific condition code. These correspond to X86_*_COND in
   // X86InstrInfo.td. They must be kept in synch.
   enum CondCode {
