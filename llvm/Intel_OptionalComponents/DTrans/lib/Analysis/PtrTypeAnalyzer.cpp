@@ -1452,10 +1452,17 @@ private:
       if (OptRetType.second) {
         ResultInfo->addTypeAlias(ValueTypeInfo::VAT_Decl, OptRetType.second);
 
-        // An indirect call that returns an i8* should be checked for the
-        // actual type it gets used as.
-        if (Call->isIndirectCall() &&
-            OptRetType.second == PTA.getDTransI8PtrType())
+        // Any call that returns an i8* should be checked for the type it gets
+        // used as to support handling IR with non-opaque pointer type casts.
+        // For example:
+        //   1)  %ty1 = call i8* @creator()
+        //   2)  %ty2 = bitcast i8* %ty1 to %struct.type2*
+        //   3)  <some instruction using %ty2 as %struct.type2*>
+        //
+        // TODO: Once opaque pointers are introduced, the bitcast will no longer
+        // exist, and instruction 3 will directly use %ty1 as a %struct.type2*
+        // value, so this inference should no longer be necessary.
+        if (OptRetType.second == PTA.getDTransI8PtrType())
           inferTypeFromUse(Call, ResultInfo);
       } else {
         ResultInfo->setUnhandled();
