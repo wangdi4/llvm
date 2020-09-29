@@ -935,6 +935,7 @@ bool llvm::inferLibFuncAttributes(Function &F, const TargetLibraryInfo &TLI) {
   case LibFunc_msvc_std_basic_string_insert:
   case LibFunc_msvc_std_basic_string_operator_equal_const_ptr:
   case LibFunc_msvc_std_basic_string_operator_plus_equal_char:
+  case LibFunc_msvc_std_basic_string_push_back:
   case LibFunc_msvc_std_basic_string_resize:
     return Changed;
   case LibFunc_msvc_std_basic_string_under_xlen:
@@ -946,12 +947,18 @@ bool llvm::inferLibFuncAttributes(Function &F, const TargetLibraryInfo &TLI) {
   case LibFunc_msvc_std_codecvt_scalar_deleting_dtor:
   case LibFunc_msvc_std_codecvt_use_facet:
     return Changed;
+  case LibFunc_msvc_std_codecvt_do_encoding:
+  case LibFunc_msvc_std_codecvt_do_in:
+  case LibFunc_msvc_std_codecvt_do_length:
+  case LibFunc_msvc_std_codecvt_do_max_length:
   case LibFunc_msvc_std_ctype_do_narrow_char_char:
   case LibFunc_msvc_std_ctype_do_narrow_ptr_ptr_char_ptr:
+  case LibFunc_msvc_std_codecvt_do_out:
   case LibFunc_msvc_std_ctype_do_tolower_char:
   case LibFunc_msvc_std_ctype_do_tolower_ptr_ptr:
   case LibFunc_msvc_std_ctype_do_toupper_char:
   case LibFunc_msvc_std_ctype_do_toupper_ptr_ptr:
+  case LibFunc_msvc_std_codecvt_do_unshift:
   case LibFunc_msvc_std_ctype_do_widen_char:
   case LibFunc_msvc_std_ctype_do_widen_ptr_ptr_ptr:
     Changed |= setDoesNotThrow(F);
@@ -984,6 +991,21 @@ bool llvm::inferLibFuncAttributes(Function &F, const TargetLibraryInfo &TLI) {
   case LibFunc_msvc_std_locinfo_dtor:
   case LibFunc_msvc_std_lockit:
   case LibFunc_msvc_std_lockit_dtor:
+  case LibFunc_msvc_std_num_get_do_get_bool_ptr:
+  case LibFunc_msvc_std_num_get_do_get_double_ptr:
+  case LibFunc_msvc_std_num_get_do_get_float_ptr:
+  case LibFunc_msvc_std_num_get_do_get_long_double_ptr:
+  case LibFunc_msvc_std_num_get_do_get_long_long_ptr:
+  case LibFunc_msvc_std_num_get_do_get_long_ptr:
+  case LibFunc_msvc_std_num_get_do_get_unsigned_int_ptr:
+  case LibFunc_msvc_std_num_get_do_get_unsigned_long_long_ptr:
+  case LibFunc_msvc_std_num_get_do_get_unsigned_long_ptr:
+  case LibFunc_msvc_std_num_get_do_get_unsigned_short_ptr:
+  case LibFunc_msvc_std_num_get_do_get_void_ptr:
+  case LibFunc_msvc_std_num_get_scalar_deleting_dtor:
+  case LibFunc_msvc_std_num_get_under_Getffld:
+  case LibFunc_msvc_std_num_get_under_Getifld:
+  case LibFunc_msvc_std_num_get_use_facet:
   case LibFunc_msvc_std_runtime_error_ctor:
   case LibFunc_msvc_std_runtime_error_char_ctor:
   case LibFunc_msvc_std_runtime_error_scalar_deleting_dtor:
@@ -1017,9 +1039,9 @@ bool llvm::inferLibFuncAttributes(Function &F, const TargetLibraryInfo &TLI) {
     return Changed;
   case LibFunc_msvc_std_numpunct_do_falsename:
   case LibFunc_msvc_std_numpunct_do_grouping:
-  // CMPLRLLVM-22470: This libfunc is disabled on purpose to prevent
+  // CMPLRLLVM-23243: This libfunc is disabled on purpose to prevent
   // achieving whole program for 523.xalancbmk in Windows. This libfunc will
-  // be enabled when the issue in CMPLRLLVM-22470 is solved.
+  // be enabled when the issue in CMPLRLLVM-23243 is solved.
   // case LibFunc_msvc_std_numpunct_use_facet:
   case LibFunc_msvc_std_numpunct_do_truename:
   case LibFunc_msvc_std_num_put_do_put_bool:
