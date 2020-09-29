@@ -11,11 +11,7 @@ include(AddSYCLUnitTest)
 
 add_subdirectory(misc)
 add_subdirectory(pi)
-# INTEL_CUSTOMIZATION
-# Disabled because of build failures from not passing --gcc-toolchain value
-# in command lines. (CMPLRLLVM-21852)
-#add_subdirectory(kernel-and-program)
-# end INTEL_CUSTOMIZATION
+add_subdirectory(kernel-and-program)
 add_subdirectory(queue)
 add_subdirectory(scheduler)
 add_subdirectory(thread_safety)
