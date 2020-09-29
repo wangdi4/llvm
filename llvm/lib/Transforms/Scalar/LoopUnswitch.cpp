@@ -1004,14 +1004,6 @@ static bool isLoopHandledByLoopOpt(Loop *Lp, LoopInfo *LI,
   return true;
 }
 
-static bool isFortranLang(Function *F) {
-  if (!F->hasFnAttribute("intel-lang"))
-    return false;
-
-  StringRef Lang = F->getFnAttribute("intel-lang").getValueAsString();
-  return (Lang == "fortran");
-}
-
 static bool mayAffectPerfectLoopnest(LoopInfo *LI, Loop *CurLoop,
                                      Instruction *Inst,
                                      TargetLibraryInfo *TLI) {
@@ -1036,7 +1028,7 @@ static bool mayAffectPerfectLoopnest(LoopInfo *LI, Loop *CurLoop,
   //
   // The heuristics reflect the fact that we are trying to suppress this
   // particularly for fortran benchmarks which have loopnest heavy code.
-  bool MayBeInlined = Func->hasExternalLinkage() && isFortranLang(Func);
+  bool MayBeInlined = Func->hasExternalLinkage() && Func->isFortran();
 
   // Let unswitching happen for outermost loops.
   if (!MayBeInlined && !CurLoop->getParentLoop())

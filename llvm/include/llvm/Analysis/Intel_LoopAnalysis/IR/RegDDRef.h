@@ -958,6 +958,7 @@ public:
   /// If the ref is a terminal lval ref and \p OldIndex corresponds to the
   /// symbase of the Ref, it is assumed as a use of the temp. This is relavant
   /// for instructions such as: t = i1 + 1, where 't' has a linear form.
+  /// Note: The new temp is assumed to have the same def level as the old temp.
   /// For constants, see replaceSelfBlobByConstBlob()
   bool replaceTempBlob(unsigned OldIndex, unsigned NewIndex,
                        bool AssumeLvalIfDetached = false);

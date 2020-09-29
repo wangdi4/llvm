@@ -123,6 +123,7 @@ public:
 
   /// Used to represent a different blob by replacing the existing blob
   /// index with the new one. Symbase is automatically updated.
+  /// The original definition level is kept for the new blob.
   void replaceBlob(unsigned NewIndex);
 
   /// Returns defined at level of the blob.
