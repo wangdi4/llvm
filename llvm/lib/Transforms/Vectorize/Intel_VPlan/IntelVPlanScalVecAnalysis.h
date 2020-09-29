@@ -20,6 +20,7 @@
 #define LLVM_TRANSFORM_VECTORIZE_INTEL_VPLAN_INTELVPLANSCALVECANALYSIS_H
 
 #include "llvm/ADT/DenseMap.h"
+#include "llvm/ADT/DenseSet.h"
 #include <bitset>
 
 namespace llvm {
@@ -152,6 +153,11 @@ private:
 
   // VPlan for which SVA results are computed for.
   VPlan *Plan;
+
+  // Container to track loop header PHIs that are skipped during forward
+  // propagation. Such PHIs occur when they do not have any processed users i.e.
+  // used by other unprocessed loop header PHIs.
+  DenseSet<const VPPHINode *> SkippedPHIs;
 
   /// Utility to reverse-map bitset index to SVAKind.
   SVAKind getSVAKindForBit(unsigned BitIdx) {
