@@ -2181,6 +2181,39 @@ int X86TTIImpl::getCastInstrCost(unsigned Opcode, Type *Dst, Type *Src,
   EVT SrcTy = TLI->getValueType(DL, Src);
   EVT DstTy = TLI->getValueType(DL, Dst);
 
+#if INTEL_CUSTOMIZATION
+  // Get the widen VT if VT is vector, and the element
+  // count is non-power of 2.
+  auto getWidenVT = [&](Type* Ty, EVT& VT) {
+    auto* VTy = dyn_cast<FixedVectorType>(Ty);
+    if (!VTy) return false;
+
+    unsigned NumElem = VTy->getNumElements();
+    Type* ScalarTy = VTy->getScalarType();
+
+    if (isPowerOf2_32(NumElem))
+      return false;
+
+    EVT ScalarVT = TLI->getValueType(DL, ScalarTy);
+
+    if (!ScalarVT.isSimple())
+      return false;
+
+    Type* NewTy = FixedVectorType::get(ScalarTy, NextPowerOf2(NumElem));
+    VT = TLI->getValueType(DL, NewTy);
+
+    return true;
+  };
+
+  EVT NSrcTy = SrcTy;
+  EVT NDstTy = DstTy;
+
+  if (getWidenVT(Src, NSrcTy) && getWidenVT(Dst, NDstTy)) {
+    SrcTy = NSrcTy;
+    DstTy = NDstTy;
+  }
+#endif // INTEL_CUSTOMIZATION
+
   // The function getSimpleVT only handles simple value types.
   if (!SrcTy.isSimple() || !DstTy.isSimple())
     return AdjustCost(BaseT::getCastInstrCost(Opcode, Dst, Src, CCH, CostKind));
@@ -3304,6 +3337,28 @@ int X86TTIImpl::getMemoryOpCost(unsigned Opcode, Type *Src,
   // Handle non-power-of-two vectors such as <3 x float>
   if (auto *VTy = dyn_cast<FixedVectorType>(Src)) {
     unsigned NumElem = VTy->getNumElements();
+
+#if INTEL_CUSTOMIZATION
+    if (!isPowerOf2_32(NumElem)) {
+      unsigned ScalarSize = VTy->getScalarSizeInBits();
+      if (ST->hasAVX512() && ST->hasVLX() &&
+          ((ScalarSize == 64 || ScalarSize == 32) ||
+           (ST->hasBWI() && (ScalarSize == 16 || ScalarSize == 8)))) {
+
+        // Type legalization can't handle structs
+        if (TLI->getValueType(DL, Src, true) != MVT::Other) {
+          // Legalize the type.
+          std::pair<int, MVT> LT = TLI->getTypeLegalizationCost(DL, Src);
+          assert(
+              (Opcode == Instruction::Load || Opcode == Instruction::Store) &&
+              "Invalid Opcode");
+
+          // Skip the extra mask cost.
+          return LT.first;
+        }
+      }
+    }
+#endif // INTEL_CUSTOMIZATION
 
     // Handle a few common cases:
     // <3 x float>
