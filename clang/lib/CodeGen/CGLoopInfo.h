@@ -106,6 +106,9 @@ struct LoopAttributes {
   /// Value for llvm.loop.vector_always.enable metadata.
   bool VectorizeAlwaysEnable;
 
+  /// Value for llvm.loop.intel.vector_aligned.enable metadata.
+  bool VectorizeAlignedEnable;
+
   /// Value for llvm.loop.intel.loopcount
   llvm::SmallVector<unsigned, 2> LoopCount;
 
@@ -450,6 +453,10 @@ public:
   /// Set next pushed loop  'vector_always.enable'
   void setVectorizeAlwaysEnable() {
     StagedAttrs.VectorizeAlwaysEnable = true;
+  }
+  /// Set next pushed loop  'vector_aligned.enable'
+  void setVectorizeAlignedEnable() {
+    StagedAttrs.VectorizeAlignedEnable = true;
   }
 
   /// Set the LoopCount for the next loop pushed.

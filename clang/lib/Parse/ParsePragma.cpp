@@ -4391,12 +4391,12 @@ void PragmaNoVectorHandler::HandlePragma(Preprocessor &PP,
 }
 
 void PragmaVectorHandler::HandlePragma(Preprocessor &PP,
-                                         PragmaIntroducer Introducer,
-                                         Token &Tok) {
+                                       PragmaIntroducer Introducer,
+                                       Token &Tok) {
   // Incoming token is "vector" for
   // "#pragma vector {always[assert]|aligned|unaligned|
   //  temporal|nontemporal|[no]vecremainder|[no]mask_readwrite}"
-  Token PragmaName = Tok;
+  Token PragmaNameTok = Tok;
   SmallVector<Token, 2> TokenList;
 
   if (Tok.isNot(tok::identifier) && Tok.isNot(tok::eod)) {
@@ -4404,43 +4404,54 @@ void PragmaVectorHandler::HandlePragma(Preprocessor &PP,
         << "vector";
     return;
   }
-  do {
-    Token Option = Tok;
+
+  PP.Lex(Tok);
+
+  auto AddLoopHintToken = [&TokenList, &PP, &PragmaNameTok](Token &OptionTok) {
+    Token LoopHintTok;
+    auto *Info =
+        new (PP.getPreprocessorAllocator()) PragmaLoopHintInfo(PragmaNameTok);
+    Info->Option = OptionTok;
+    LoopHintTok.startToken();
+    LoopHintTok.setKind(tok::annot_pragma_loop_hint);
+    LoopHintTok.setLocation(PragmaNameTok.getLocation());
+    LoopHintTok.setAnnotationEndLoc(PragmaNameTok.getLocation());
+    LoopHintTok.setAnnotationValue(static_cast<void *>(Info));
+    TokenList.push_back(LoopHintTok);
+  };
+
+  // Parse the options and create a LoopHint for each.
+  while (Tok.is(tok::identifier)) {
+    Token OptionTok = Tok;
     IdentifierInfo *OptionInfo = Tok.getIdentifierInfo();
     bool OptionValid = llvm::StringSwitch<bool>(OptionInfo->getName())
-                           .Case("vector", true)
                            .Case("always", true)
+                           .Case("aligned", true)
                            .Default(false);
     if (!OptionValid) {
       PP.Diag(Tok.getLocation(), diag::warn_pragma_vector_invalid_option)
           << /*MissingOption=*/false << OptionInfo;
       return;
     }
-    auto *Info =
-        new (PP.getPreprocessorAllocator()) PragmaLoopHintInfo(PragmaName);
-    Info->Option = Option;
+    AddLoopHintToken(OptionTok);
     PP.Lex(Tok);
-    // Generate the loop hint token.
-    Token LoopHintTok;
-    LoopHintTok.startToken();
-    LoopHintTok.setKind(tok::annot_pragma_loop_hint);
-    LoopHintTok.setLocation(PragmaName.getLocation());
-    LoopHintTok.setAnnotationEndLoc(PragmaName.getLocation());
-    LoopHintTok.setAnnotationValue(static_cast<void *>(Info));
-    TokenList.push_back(LoopHintTok);
-  } while (Tok.is(tok::identifier) &&
-           Tok.getIdentifierInfo()->getName() != "vector");
+  }
 
   if (Tok.isNot(tok::eod)) {
     PP.Diag(Tok.getLocation(), diag::warn_pragma_extra_tokens_at_eol)
         << "vector";
     return;
   }
+
+  // If there were no options, add the hint for plain '#pragma vector'.
+  if (TokenList.empty())
+    AddLoopHintToken(PragmaNameTok);
+
   auto TokenArray = std::make_unique<Token[]>(TokenList.size());
   std::copy(TokenList.begin(), TokenList.end(), TokenArray.get());
 
   PP.EnterTokenStream(std::move(TokenArray), TokenList.size(),
-                      /*DisableMacroExpansion=*/false, /*IsReinject*/false);
+                      /*DisableMacroExpansion=*/false, /*IsReinject*/ false);
 }
 
 #endif // INTEL_CUSTOMIZATION
