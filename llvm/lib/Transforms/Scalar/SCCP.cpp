@@ -31,8 +31,11 @@
 #include "llvm/Analysis/DomTreeUpdater.h"
 #include "llvm/Analysis/GlobalsModRef.h"
 #include "llvm/Analysis/InstructionSimplify.h"
+<<<<<<< HEAD
 #include "llvm/Analysis/Intel_Andersens.h"  // INTEL
 #include "llvm/Analysis/Intel_WP.h"         // INTEL
+=======
+>>>>>>> 86a20d9e34f5a9989da72097f23f3b0a44157e73
 #include "llvm/Analysis/Loads.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/Analysis/ValueLattice.h"
@@ -187,6 +190,8 @@ class SCCPSolver : public InstVisitor<SCCPSolver> {
   LLVMContext &Ctx;
 
 public:
+  const DataLayout &getDataLayout() const { return DL; }
+
   void addAnalysis(Function &F, AnalysisResultsForFn A) {
     AnalysisResults.insert({&F, std::move(A)});
   }
@@ -1685,6 +1690,14 @@ static bool tryToReplaceWithConstant(SCCPSolver &Solver, Value *V) {
                       << " as a constant\n");
     return false;
   }
+
+  // Do not propagate equality of a un-dereferenceable pointer.
+  // FIXME: Currently this only treats pointers one past the last element
+  // for array types. Should probably be much stricter.
+  if (Const->getType()->isPointerTy() &&
+      !canReplacePointersIfEqual(V, Const, Solver.getDataLayout(),
+                                 dyn_cast<Instruction>(V)))
+    return false;
 
   LLVM_DEBUG(dbgs() << "  Constant: " << *Const << " = " << *V << '\n');
 
