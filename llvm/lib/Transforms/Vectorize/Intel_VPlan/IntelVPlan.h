@@ -2791,6 +2791,8 @@ private:
 public:
   VPlan(VPExternalValues &E);
 
+  ~VPlan();
+
   /// Generate the IR code for this VPlan.
   void execute(struct VPTransformState *State);
 #if INTEL_CUSTOMIZATION
