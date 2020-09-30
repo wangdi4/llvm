@@ -1301,7 +1301,18 @@ Testing Requirements
 ====================
 
 Commits to xmain are expected to meet a minimum level of stability and
-performance. Prior to requesting commit permission, developers should run
+performance. It is recommended to run build and and have successful LIT testing
+locally first.
+
+**NOTE:** When performing LIT testing on a shared machine keep in mind that
+finishing ``make check-*`` with ``Ctrl-C`` only finishes a script. Hence, the
+executables run in parallel are not finished. Current shell session will become
+parent process for them now. If the shell terminates, then ``init`` process will
+become parent now. Thus, you'll have to look for these processes pretty
+carefully. Moreover, if the test hangs due to some bug it's process will be
+running or IO-waiting untill it's properly ``kill``-ed.
+
+Prior to requesting commit permission, developers should run
 xmain_checkin for stability testing and zperf_checkin_xmain for performance
 testing. The following alloy command is suitable.
 
