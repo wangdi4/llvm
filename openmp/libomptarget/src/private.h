@@ -128,7 +128,7 @@ static inline void dumpTargetPointerMappings(const DeviceTy &Device) {
   fprintf(stderr, "Device %d Host-Device Pointer Mappings:\n", Device.DeviceID);
   fprintf(stderr, "%-18s %-18s %s\n", "Host Ptr", "Target Ptr", "Size (B)");
   for (const auto &HostTargetMap : Device.HostDataToTargetMap) {
-    fprintf(stderr, DPxMOD " " DPxMOD " %lu\n",
+    fprintf(stderr, DPxMOD " " DPxMOD " %" PRIxPTR "\n", // INTEL
             DPxPTR(HostTargetMap.HstPtrBegin),
             DPxPTR(HostTargetMap.TgtPtrBegin),
             HostTargetMap.HstPtrEnd - HostTargetMap.HstPtrBegin);
