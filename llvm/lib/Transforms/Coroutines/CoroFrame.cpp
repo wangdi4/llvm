@@ -1236,8 +1236,8 @@ static void rewritePHIs(BasicBlock &BB) {
               dyn_cast<CatchSwitchInst>(Pred->getTerminator())) {
         // CleanupPad with a CatchSwitch predecessor: therefore this is an
         // unwind destination that needs to be handle specially.
+        (void) CS;
         assert(CS->getUnwindDest() == &BB);
-        CS = CS; // INTEL (So that prod and release builds both work.
         rewritePHIsForCleanupPad(&BB, CleanupPad);
         return;
       }
