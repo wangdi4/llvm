@@ -238,6 +238,8 @@ public:
 
   VPBasicBlock(const Twine &Name, VPlan *Plan);
 
+  ~VPBasicBlock();
+
   /// Drop an existing terminator (if there is one) and append a new terminator
   /// instruction without successors.
   void setTerminator();
@@ -310,6 +312,11 @@ public:
   /// structures might have wrong values. For this reason, we completely erase
   /// VPInstuctions only at the end of VPlan.
   void eraseInstruction(VPInstruction *Instruction);
+
+  /// This drops all operand uses from instructions within this block, which is
+  /// an essential step in breaking cyclic dependences between references when
+  /// they are to be deleted.
+  void dropAllReferences();
 
   /// The method which generates all new IR instructions that correspond to
   /// this VPBasicBlock in the vectorized version, thereby "executing" the

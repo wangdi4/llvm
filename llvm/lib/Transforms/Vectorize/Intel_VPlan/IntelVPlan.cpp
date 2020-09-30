@@ -104,9 +104,10 @@ void ilist_traits<VPBasicBlock>::removeNodeFromList(VPBasicBlock *VPBB) {
   VPBB->setParent(nullptr);
 }
 
-// TODO: Update deleteNode once adding an eraseFromParent() function for
-// VPBasicBlock.
-void ilist_traits<VPBasicBlock>::deleteNode(VPBasicBlock *VPBB) {}
+void ilist_traits<VPBasicBlock>::deleteNode(VPBasicBlock *VPBB) {
+  assert(!VPBB->getParent() && "VPBasicBlock is still in a VPlan!");
+  delete VPBB;
+}
 
 void VPInstruction::generateInstruction(VPTransformState &State,
                                         unsigned Part) {
@@ -610,6 +611,16 @@ void VPInstruction::printWithoutAnalyses(raw_ostream &O) const {
 
 #if INTEL_CUSTOMIZATION
 VPlan::VPlan(VPExternalValues &E) : Externals(E) {}
+
+VPlan::~VPlan() {
+  // After this it is safe to delete instructions.
+  for (auto &BB : *this)
+    BB.dropAllReferences();
+  // Drop all operands of VPLiveOutValues that belong to current Plan.
+  for (auto *LOV : liveOutValues())
+    if (LOV)
+      LOV->dropAllReferences();
+}
 
 void VPlan::computeDT(void) {
   if (!PlanDT)
