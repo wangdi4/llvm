@@ -5094,6 +5094,153 @@ uint64_t VPOParoptUtils::getMinInt(Type *Ty, bool IsUnsigned) {
 }
 #endif // if 0
 
+// If the region exits to BB, which is also reachable from outside the region,
+// and the exit is through an EH pad, the exit path is undefined. We can make
+// the exit edge unreachable, and exclude BB from the region.
+static void BreakEHToBlock(BasicBlock *BB,
+                           const SmallSet<BasicBlock *, 8> &BBSet,
+                           SmallSet<BasicBlock *, 4> &DeleteSet,
+                           DominatorTree *DT) {
+  // Copy the preds as we will be breaking edges.
+  SmallVector<BasicBlock *, 4> PredCopy(predecessors(BB));
+  for (auto *PredBB : PredCopy) {
+    if (BBSet.find(PredBB) != BBSet.end()) {
+      // PredBB is in the region and precedes the bad exit block.
+      // (lpad_loop_exit in the below example)
+      // Find out if there is an EH pad that dominates PredBB.
+      // If there is, this is an undefined path and we can terminate it
+      // before it hits BB.
+      LLVM_DEBUG(dbgs() << "In-set pred is " << PredBB->getName() << "\n");
+      auto *DomNode = DT->getNode(PredBB);
+      while (DomNode) {
+        auto *DomBB = DomNode->getBlock();
+        if (DomBB->isEHPad() && (BBSet.find(DomBB) != BBSet.end())) {
+          LLVM_DEBUG(dbgs() << "Found EH pad at " << DomBB->getName()
+                            << " dominates " << PredBB->getName() << "\n");
+          LLVM_DEBUG(dbgs() << "Breaking edge between " << PredBB->getName()
+                            << " and " << BB->getName() << "\n");
+          IRBuilder<> Builder(PredBB->getContext());
+          PredBB->getTerminator()->eraseFromParent();
+          Builder.SetInsertPoint(PredBB);
+          Builder.CreateUnreachable();
+
+          // Fix any phis at the inside/outside join.
+          for (PHINode &PN : BB->phis())
+            if (PN.getBasicBlockIndex(PredBB))
+              PN.removeIncomingValue(PredBB);
+
+          // Fix the dom tree after breaking the edge.
+          DT->deleteEdge(PredBB, BB);
+
+          // Stop searching.
+          break;
+        }
+        DomNode = DomNode->getIDom();
+      }
+    }
+  }
+
+  // If BB no longer has any incoming edges from the region, exclude it.
+  // Even if we didn't break any edges, the block may be excluded by an
+  // earlier break.
+  bool HasPredInSet = llvm::any_of(predecessors(BB), [&](BasicBlock *PredBB) {
+    return (BBSet.find(PredBB) != BBSet.end()) &&
+           (DeleteSet.find(PredBB) == DeleteSet.end());
+  });
+
+  if (!HasPredInSet) {
+    DeleteSet.insert(BB);
+    // Exclude any blocks that BB dominates also.
+    for (auto *SetBB : BBSet) // order doesn't make a difference
+      if (DT->dominates(BB, SetBB))
+        DeleteSet.insert(SetBB);
+  }
+}
+
+// After inlining, there may be an exception-path that leads
+// outside the region to a shared handler.
+//
+// invoke throw, unreachable, lpad
+// ...
+// OMP_LOOP {
+//    ...
+//    invoke throw, unreachable, lpad.i.i
+//    ...
+//    lpad.i.i:
+//      cmp eh_type,..
+//      ; if exception uncaught, go to the outer handler
+//      br inner_handler, lpad_loop_exit
+//
+//    inner_handler:
+//      ...
+// }
+// lpad_loop_exit: ; from inside the loop
+//      br shared_handler
+// lpad: ; from outside the loop
+//      br shared_handler
+//
+// shared_handler: ; preds: lpad, lpad_loop_exit
+//
+// The shared block will be made part of the region, as it is reachable from
+// inside the loop.
+// It prevents CE from working, as it has an incoming edge from outside
+// the region.
+// Since the path from the region to the shared block is actually an undefined
+// early-exit, we can break the edge to the shared block with an unreachable
+// instruction. In the example above, the unreachable is placed in
+// lpad_loop_exit.
+// The shared block can then be removed from the region set.
+// The non-OMP path is unaffected.
+static void FixEHEscapes(ArrayRef<BasicBlock *> &BBVec,
+                         SmallVectorImpl<BasicBlock *> &OutputVec,
+                         DominatorTree *DT) {
+  SmallSet<BasicBlock *, 4> DeleteSet;
+
+  // Scan for EH first, as we only break edges from exception paths.
+  bool EHFound = false;
+  for (auto *BB : BBVec) {
+    if (BB->isEHPad()) {
+      EHFound = true;
+      break;
+    }
+  }
+  if (!EHFound)
+    return;
+
+  // Use a better search structure.
+  SmallSet<BasicBlock *, 8> BBSet;
+  for (auto *BB : BBVec)
+    BBSet.insert(BB);
+
+  // Search BBVec for blocks that have edges from outside the region.
+  for (auto *BB : BBVec) {
+    // Exclude the head region block.
+    if (BB == *(BBVec.begin()))
+      continue;
+
+    for (auto *PredBB : predecessors(BB)) {
+      if (BBSet.find(PredBB) == BBSet.end()) {
+        LLVM_DEBUG(dbgs() << "Found set block " << BB->getName()
+                          << " with non-set pred " << PredBB->getName()
+                          << "\n");
+        // Try to break the edge from the region to the block.
+        BreakEHToBlock(BB, BBSet, DeleteSet, DT);
+      }
+    }
+  }
+
+  if (!DeleteSet.empty()) {
+    // Copy BBVec to OutputVec, excluding the former shared blocks that are
+    // no longer part of the region.
+    LLVM_DEBUG(for (auto *BB
+                    : DeleteSet) dbgs()
+                   << "Removing block from region: " << BB->getName() << "\n";);
+
+    llvm::copy_if(BBVec, std::back_inserter(OutputVec),
+                  [&](BasicBlock *R) { return DeleteSet.count(R) == 0; });
+  }
+}
+
 Function *VPOParoptUtils::genOutlineFunction(const WRegionNode &W,
                                              DominatorTree *DT,
                                              AssumptionCache *AC) {
@@ -5135,7 +5282,17 @@ Function *VPOParoptUtils::genOutlineFunction(const WRegionNode &W,
     }
   }
 
-  CodeExtractor CE(makeArrayRef(W.bbset_begin(), W.bbset_end()), DT,
+  // Fix "escaping" EH edges that go outside the region. More details
+  // in FixEHEscapes() above.
+  // If a fix was made, the new set of region blocks is copied to FixedBlocks.
+  // We avoid mutating the actual region set.
+  SmallVector<BasicBlock *, 16> FixedBlocks;
+  auto ExtractArray = makeArrayRef(W.bbset_begin(), W.bbset_end());
+  FixEHEscapes(ExtractArray, FixedBlocks, DT);
+  if (!FixedBlocks.empty())
+    ExtractArray = makeArrayRef(FixedBlocks);
+
+  CodeExtractor CE(ExtractArray, DT,
                    /* AggregateArgs */ false,
                    /* BlockFrequencyInfo */ nullptr,
                    /* BranchProbabilityInfo */ nullptr,
