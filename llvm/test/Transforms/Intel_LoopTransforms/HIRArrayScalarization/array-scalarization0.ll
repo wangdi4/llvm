@@ -71,27 +71,27 @@
 ;CHECK:            + DO i1 = 0, 99, 1   <DO_LOOP>
 ;CHECK:            |   %1 = (@x1)[0];
 ;CHECK:            |   %2 = (@B1)[0][i1 + 1];
-;CHECK:            |   %array-scalarize = %1 + %2;
+;CHECK:            |   %[[ARRSC:array-scalarize[0-9]*]] = %1 + %2;
 ;CHECK:            |   %3 = (@x2)[0];
 ;CHECK:            |   %4 = (@B2)[0][i1 + 1];
-;CHECK:            |   %array-scalarize11 = %3 + %4;
+;CHECK:            |   %[[ARRSC2:array-scalarize[0-9]*]] = %3 + %4;
 ;CHECK:            |   %5 = (@x3)[0];
 ;CHECK:            |   %6 = (@B3)[0][i1 + 1];
-;CHECK:            |   %array-scalarize14 = %5 + %6;
+;CHECK:            |   %[[ARRSC3:array-scalarize[0-9]*]] = %5 + %6;
 ;CHECK:            |   %7 = (@x4)[0];
 ;CHECK:            |   %8 = (@B4)[0][i1 + 1];
-;CHECK:            |   %array-scalarize17 = %7 + %8;
+;CHECK:            |   %[[ARRSC4:array-scalarize[0-9]*]] = %7 + %8;
 ;CHECK:            |   %9 = (@D)[0][1][i1 + 1];
-;CHECK:            |   %10 = %array-scalarize;
+;CHECK:            |   %10 = %[[ARRSC]];
 ;CHECK:            |   (@D)[0][1][i1 + 1] = %9 + %10;
 ;CHECK:            |   %9 = (@D)[0][2][i1 + 1];
-;CHECK:            |   %10 = %array-scalarize11;
+;CHECK:            |   %10 = %[[ARRSC2]];
 ;CHECK:            |   (@D)[0][2][i1 + 1] = %9 + %10;
 ;CHECK:            |   %9 = (@D)[0][3][i1 + 1];
-;CHECK:            |   %10 = %array-scalarize14;
+;CHECK:            |   %10 = %[[ARRSC3]];
 ;CHECK:            |   (@D)[0][3][i1 + 1] = %9 + %10;
 ;CHECK:            |   %9 = (@D)[0][4][i1 + 1];
-;CHECK:            |   %10 = %array-scalarize17;
+;CHECK:            |   %10 = %[[ARRSC4]];
 ;CHECK:            |   (@D)[0][4][i1 + 1] = %9 + %10;
 ;CHECK:            + END LOOP
 ;

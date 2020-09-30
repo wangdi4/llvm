@@ -4,34 +4,34 @@
 ; Check that Partial Predicate optimization will not trigger because of %0 -> %0 output edge.
 
 ; CHECK:     BEGIN REGION { modified }
-; CHECK:              %limm = (undef)[0];
-; CHECK:              %limm9 = (%q)[0][1];
-; CHECK:              %limm10 = (%q)[0][2];
-; CHECK:              %limm11 = (%q)[0][3];
+; CHECK:              %[[LIMM:limm[0-9]*]] = (undef)[0];
+; CHECK:              %[[LIMM2:limm[0-9]*]] = (%q)[0][1];
+; CHECK:              %[[LIMM3:limm[0-9]*]] = (%q)[0][2];
+; CHECK:              %[[LIMM4:limm[0-9]*]] = (%q)[0][3];
 ; CHECK:           + DO i1 = 0, 78, 1   <DO_LOOP>
-; CHECK:           |   %0 = %limm;
-; CHECK:           |   if (%limm9 <u %0)
+; CHECK:           |   %0 = %[[LIMM]];
+; CHECK:           |   if (%[[LIMM2]] <u %0)
 ; CHECK:           |   {
 ; CHECK:           |      (null)[0] = undef;
 ; CHECK:           |   }
-; CHECK:           |   if (%limm10 <u %0)
+; CHECK:           |   if (%[[LIMM3]] <u %0)
 ; CHECK:           |   {
 ; CHECK:           |      (null)[0] = undef;
 ; CHECK:           |   }
-; CHECK:           |   if (%limm11 <u %0)
+; CHECK:           |   if (%[[LIMM4]] <u %0)
 ; CHECK:           |   {
 ; CHECK:           |      (null)[0] = undef;
 ; CHECK:           |   }
-; CHECK:           |   %0 = %limm;
-; CHECK:           |   if (%limm9 <u %0)
+; CHECK:           |   %0 = %[[LIMM]];
+; CHECK:           |   if (%[[LIMM2]] <u %0)
 ; CHECK:           |   {
 ; CHECK:           |      (null)[0] = undef;
 ; CHECK:           |   }
-; CHECK:           |   if (%limm10 <u %0)
+; CHECK:           |   if (%[[LIMM3]] <u %0)
 ; CHECK:           |   {
 ; CHECK:           |      (null)[0] = undef;
 ; CHECK:           |   }
-; CHECK:           |   if (%limm11 <u %0)
+; CHECK:           |   if (%[[LIMM4]] <u %0)
 ; CHECK:           |   {
 ; CHECK:           |      (null)[0] = undef;
 ; CHECK:           |   }

@@ -1249,11 +1249,6 @@ public:
   void promoteIVs(unsigned StartLevel);
   void demoteIVs(unsigned StartLevel);
 
-  /// Does constant folding for the ref if it is a global const.
-  /// If the ref can be replaced with a constant value, that constant
-  /// ref is returned, otherwise nullptr if no constant equivalent found.
-  RegDDRef *simplifyConstArray();
-
   /// Verifies RegDDRef integrity.
   virtual void verify() const override;
 };

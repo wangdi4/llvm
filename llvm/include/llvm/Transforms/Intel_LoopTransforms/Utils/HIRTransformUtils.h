@@ -33,6 +33,7 @@ namespace llvm {
 
 class LoopOptReportBuilder;
 class FieldModRefResult;
+class DTransImmutableInfo;
 
 namespace loopopt {
 
@@ -349,7 +350,7 @@ public:
 
   /// Propagates constants to refs and does constant folding for instructions.
   /// Also substitutes constant global refs with equivalent constants.
-  static bool doConstantPropagation(HLNode *Node);
+  static bool doConstantPropagation(HLNode *Node, DTransImmutableInfo *DTII);
 
   /// Returns true if instruction was folded, along with the new instruction.
   /// If the instruction is null, it folded into a self-assignment (no-op).

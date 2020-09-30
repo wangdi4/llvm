@@ -65,6 +65,7 @@
 #include "llvm/Analysis/TargetTransformInfo.h"
 
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/HIRTransformUtils.h"
+#include "Intel_DTrans/Analysis/DTransImmutableAnalysis.h"
 
 #include "HIRCompleteUnroll.h"
 
@@ -199,9 +200,10 @@ HIRCompleteUnroll::HIRCompleteUnroll(HIRFramework &HIRF, DominatorTree &DT,
                                      const TargetTransformInfo &TTI,
                                      HIRLoopStatistics &HLS, HIRDDAnalysis &DDA,
                                      HIRSafeReductionAnalysis &HSRA,
+                                     DTransImmutableInfo *DTII,
                                      unsigned OptLevel, bool IsPreVec,
                                      bool PragmaOnlyUnroll)
-    : HIRF(HIRF), DT(DT), TTI(TTI), HLS(HLS), DDA(DDA), HSRA(HSRA),
+    : HIRF(HIRF), DT(DT), TTI(TTI), HLS(HLS), DDA(DDA), HSRA(HSRA), DTII(DTII),
       IsPreVec(IsPreVec), PragmaOnlyUnroll(PragmaOnlyUnroll) {
 
   Limits.SavingsThreshold =
@@ -458,6 +460,8 @@ class HIRCompleteUnroll::ProfitabilityAnalyzer final
   // current loopnest.
   SmallPtrSet<const HLNode *, 8> &SimplifiedNonLoopParents;
 
+  DTransImmutableInfo *DTII;
+
   // Private constructor used for children loops.
   ProfitabilityAnalyzer(
       HIRCompleteUnroll &HCU, const HLLoop *CurLp, const HLLoop *OuterLp,
@@ -465,13 +469,14 @@ class HIRCompleteUnroll::ProfitabilityAnalyzer final
       SmallVector<SimplifiedTempBlob, 8> &SimplifiedBlobs,
       HIRCompleteUnroll::MemRefGatherer::MapTy &MemRefMap,
       DenseMap<unsigned, const RegDDRef *> &AllocaStores,
-      SmallPtrSet<const HLNode *, 8> &SimplifiedNonLoopParents)
+      SmallPtrSet<const HLNode *, 8> &SimplifiedNonLoopParents,
+      DTransImmutableInfo *DTII)
       : HCU(HCU), CurLoop(CurLp), OuterLoop(OuterLp),
         CurLevel(CurLp->getNestingLevel()), Cost(0), ScaledCost(0), Savings(0),
         ScaledSavings(0), GEPCost(0), GEPSavings(0), NumMemRefs(0),
         NumDDRefs(0), SimplifiedTempBlobs(SimplifiedBlobs),
         OuterLoopMemRefMap(MemRefMap), AllocaStores(AllocaStores),
-        SimplifiedNonLoopParents(SimplifiedNonLoopParents) {
+        SimplifiedNonLoopParents(SimplifiedNonLoopParents), DTII(DTII) {
     auto Iter = HCU.AvgTripCount.find(CurLp);
     assert((Iter != HCU.AvgTripCount.end()) && "Trip count of loop not found!");
     LoopNestTripCount = (ParentLoopNestTripCount * Iter->second);
@@ -623,10 +628,11 @@ public:
       SmallVector<SimplifiedTempBlob, 8> &SimplifiedTempBlobs,
       HIRCompleteUnroll::MemRefGatherer::MapTy &MemRefMap,
       DenseMap<unsigned, const RegDDRef *> &AllocaStores,
-      SmallPtrSet<const HLNode *, 8> &SimplifiedNonLoopParents)
+      SmallPtrSet<const HLNode *, 8> &SimplifiedNonLoopParents,
+      DTransImmutableInfo *DTII)
       : ProfitabilityAnalyzer(HCU, CurLp, CurLp, 1, SimplifiedTempBlobs,
-                              MemRefMap, AllocaStores,
-                              SimplifiedNonLoopParents) {
+                              MemRefMap, AllocaStores, SimplifiedNonLoopParents,
+                              DTII) {
     if (auto OuterLp = CurLp->getParentLoop()) {
       MemRefGatherer::gatherRange(OuterLp->child_begin(), OuterLp->child_end(),
                                   MemRefMap);
@@ -895,7 +901,7 @@ void HIRCompleteUnroll::ProfitabilityAnalyzer::visit(const HLLoop *Lp) {
   // Analyze child loop.
   ProfitabilityAnalyzer PA(HCU, Lp, OuterLoop, LoopNestTripCount,
                            SimplifiedTempBlobs, OuterLoopMemRefMap,
-                           AllocaStores, SimplifiedNonLoopParents);
+                           AllocaStores, SimplifiedNonLoopParents, DTII);
   PA.analyze();
 
   // Add the result of child loop profitability analysis.
@@ -1853,6 +1859,10 @@ bool HIRCompleteUnroll::ProfitabilityAnalyzer::canEliminate(
   if (CanSimplifySubs && MemRef->accessesConstantArray()) {
     return true;
   }
+
+  if (CanSimplifySubs && MemRef->isRval() &&
+      DDRefUtils::hasConstantEntriesFromArray(MemRef, DTII, nullptr, nullptr))
+    return true;
 
   if (!MemRef->accessesAlloca()) {
     return false;
@@ -3003,7 +3013,7 @@ bool HIRCompleteUnroll::isProfitable(const HLLoop *Loop) {
   }
 
   ProfitabilityAnalyzer PA(*this, Loop, SimplifiedTempBlobs, MemRefMap,
-                           AllocaStores, SimplifiedNonLoopParents);
+                           AllocaStores, SimplifiedNonLoopParents, DTII);
 
   PA.analyze();
 
@@ -3079,7 +3089,7 @@ void HIRCompleteUnroll::transformLoops() {
     doUnroll(Loop);
 
     if ((IsPreVec && HasParentLoop) || ForceConstantPropagation) {
-      HIRTransformUtils::doConstantPropagation(ParentNode);
+      HIRTransformUtils::doConstantPropagation(ParentNode, DTII);
     }
 
     HLNodeUtils::removeRedundantNodes(ParentNode);
@@ -3265,6 +3275,7 @@ void HIRCompleteUnrollLegacyPass::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.addRequiredTransitive<HIRLoopStatisticsWrapperPass>();
   AU.addRequiredTransitive<HIRDDAnalysisWrapperPass>();
   AU.addRequiredTransitive<HIRSafeReductionAnalysisWrapperPass>();
+  AU.addRequiredTransitive<DTransImmutableAnalysisWrapper>();
 }
 
 bool HIRCompleteUnrollLegacyPass::runOnFunction(Function &F) {
@@ -3280,6 +3291,7 @@ bool HIRCompleteUnrollLegacyPass::runOnFunction(Function &F) {
              getAnalysis<HIRLoopStatisticsWrapperPass>().getHLS(),
              getAnalysis<HIRDDAnalysisWrapperPass>().getDDA(),
              getAnalysis<HIRSafeReductionAnalysisWrapperPass>().getHSR(),
+             &getAnalysis<DTransImmutableAnalysisWrapper>().getResult(),
              OptLevel, IsPreVec, PragmaOnlyUnroll)
       .run();
 }
