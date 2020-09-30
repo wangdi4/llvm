@@ -15861,6 +15861,115 @@ Examples:
       %r2 = call float @llvm.fmuladd.f32(float %a, float %b, float %c) ; yields float:r2 = (a * b) + c
 
 
+.. INTEL_CUSTOMIZATION
+
+'``llvm.intel.honor.fcmp.*``' Intrinsic
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Syntax:
+"""""""
+
+::
+
+      declare i1 @llvm.intel.honor.fcmp.f32(float %a, float %b,
+                                            metadata <condition code>)
+      declare i1 @llvm.intel.honor.fcmp.f64(double %a, double %b,
+                                            metadata <condition code>)
+      declare <4 x i1> @llvm.intel.honor.fcmp.v4f32(<4 x float> %a,
+                                                    <4 x float> %b,
+                                                    metadata <condition code>)
+      declare <2 x i1> @llvm.intel.honor.fcmp.v2f64(<2 x double> %a,
+                                                    <2 x double> %b,
+                                                    metadata <condition code>)
+      etc.
+
+Overview:
+"""""""""
+
+The llvm.intel.honor.fcmp intrinsic return a boolean value or vector of boolean
+values based on comparison of its operands.
+
+If the operands are floating-point scalars, then the result type is a boolean
+(i1).
+
+If the operands are floating-point vectors, then the result type is a vector of
+boolean with the same number of elements as the operands being compared.
+
+Arguments:
+""""""""""
+
+The first two arguments to the llvm.intel.honor.fcmp intrinsic must be
+floating-point or vector of floating-point values. Both arguments must have
+identical types.
+
+The third argument is the condition code indicating the kind of comparison
+to perform. It must be a metadata string with one of the following values:
+
+oeq: ordered and equal
+ogt: ordered and greater than
+oge: ordered and greater than or equal
+olt: ordered and less than
+ole: ordered and less than or equal
+one: ordered and not equal
+ord: ordered (no nans)
+ueq: unordered or equal
+ugt: unordered or greater than
+uge: unordered or greater than or equal
+ult: unordered or less than
+ule: unordered or less than or equal
+une: unordered or not equal
+uno: unordered (either nans)
+
+Ordered comparisons return false if either operand is NaN while unordered
+comparisons return true if either operand is NaN. For example,
+
+.. code-block:: llvm
+
+      ; %cmp1 = %x is 'ordered and greater than NaN' -- always false
+      %cmp1 = call i1 @llvm.intel.honor.fcmp.f32(float %x,
+                                                 float 0x7FF8000000000000,
+                                                 metadata !"ogt")
+      ; %cmp2 = %x is 'unordered or greater than NaN' -- always true
+      %cmp2 = call i1 @llvm.intel.honor.fcmp.f32(float %x,
+                                                 float 0x7FF8000000000000,
+                                                 metadata !"ugt")
+      ; %cmp3 = %x is 'ordered and equal to itself' -- false if x is NaN
+      ;                                                true otherwise
+      %cmp3 = call i1 @llvm.intel.honor.fcmp.f32(float %x, float %x
+                                                 metadata !"oeq")
+      ; %cmp4 = %x is 'unordered or equal to itself' -- always true
+      %cmp4 = call i1 @llvm.intel.honor.fcmp.f32(float %x, float %x
+                                                 metadata !"ueq")
+
+
+Semantics:
+""""""""""
+
+The semantics of this intrinsic are identical to those of the fcmp instruction
+except that the operands are never assumed not to be NaN. Even if the
+instructions on which the operands are based have the 'nnan' fast-math flag set,
+they cannot be assumed not to be NaN for the purposes of handling this
+intrinsic.
+
+The 'nnan' flag may not be set for this intrinsic. All other fast-math flags
+are valid.
+
+This intrinsic will be lowered to an fcmp instruction with the same fast-math
+flags (if any) set just before instruction selection.
+
+If this intrinsic is used in a function with the "no-nans-fp-math" attribute
+set the behavior is undefined.
+
+Example:
+""""""""
+
+.. code-block:: llvm
+
+      %cmp = call i1 @llvm.intel.honor.fcmp.f32(float %a, float %b,
+                                                metadata !"oeq")
+
+.. END INTEL_CUSTOMIZATION
+
 Hardware-Loop Intrinsics
 ------------------------
 

@@ -471,6 +471,7 @@ void Driver::addIntelOMPDeviceLibs(const ToolChain &TC, Driver::InputList &Input
     { "libomp-cmath-fp64", LinkFP64 },
     // Link the fallback implementations as well, since
     // SPIR-V modules linking is not supported yet.
+    { "libomp-fallback-cassert", LinkLibc },
     { "libomp-fallback-complex", LinkFP32 },
     { "libomp-fallback-complex-fp64", LinkFP64 },
     { "libomp-fallback-cmath", LinkFP32 },

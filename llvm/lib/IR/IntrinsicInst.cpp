@@ -201,6 +201,30 @@ bool ConstrainedFPIntrinsic::classof(const IntrinsicInst *I) {
 }
 
 #if INTEL_CUSTOMIZATION
+// This duplicates ConstrainedFPCmpIntrinsic::getPredicate(), but I don't see a
+// way around that without refactoring code that is shared with open source.
+FCmpInst::Predicate IntelHonorFCmpIntrinsic::getPredicate() const {
+  Metadata *MD = cast<MetadataAsValue>(getArgOperand(2))->getMetadata();
+  if (!MD || !isa<MDString>(MD))
+    return FCmpInst::BAD_FCMP_PREDICATE;
+  return StringSwitch<FCmpInst::Predicate>(cast<MDString>(MD)->getString())
+      .Case("oeq", FCmpInst::FCMP_OEQ)
+      .Case("ogt", FCmpInst::FCMP_OGT)
+      .Case("oge", FCmpInst::FCMP_OGE)
+      .Case("olt", FCmpInst::FCMP_OLT)
+      .Case("ole", FCmpInst::FCMP_OLE)
+      .Case("one", FCmpInst::FCMP_ONE)
+      .Case("ord", FCmpInst::FCMP_ORD)
+      .Case("uno", FCmpInst::FCMP_UNO)
+      .Case("ueq", FCmpInst::FCMP_UEQ)
+      .Case("ugt", FCmpInst::FCMP_UGT)
+      .Case("uge", FCmpInst::FCMP_UGE)
+      .Case("ult", FCmpInst::FCMP_ULT)
+      .Case("ule", FCmpInst::FCMP_ULE)
+      .Case("une", FCmpInst::FCMP_UNE)
+      .Default(FCmpInst::BAD_FCMP_PREDICATE);
+}
+
 unsigned SubscriptInst::getResultVectorNumElements(ArrayRef<Value *> Args) {
   unsigned VectorNumElem = 0;
   for (auto &Arg : Args) {

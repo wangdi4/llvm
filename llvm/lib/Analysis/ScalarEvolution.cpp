@@ -6635,13 +6635,6 @@ bool ScalarEvolution::hasWrapSafeUses(
   return true;
 }
 
-static bool isFortranLang(Function &F) {
-  if (!F.hasFnAttribute("intel-lang"))
-    return false;
-
-  StringRef Lang = F.getFnAttribute("intel-lang").getValueAsString();
-  return (Lang == "fortran");
-}
 
 bool ScalarEvolution::hasWrapSafeOperands(const BinaryOperator *BinOp,
                                           SCEV::NoWrapFlags &Flags) const {
@@ -6653,7 +6646,7 @@ bool ScalarEvolution::hasWrapSafeOperands(const BinaryOperator *BinOp,
 
   // Ugly temporary hack to skip C/C++ cases to avoid performance regressions.
   // TODO: remove hack.
-  if (!isFortranLang(F))
+  if (!F.isFortran())
     return false;
 
   auto *OverflowingOp = dyn_cast<OverflowingBinaryOperator>(BinOp);

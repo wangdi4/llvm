@@ -397,6 +397,14 @@ public:
     case Instruction::PHI:
     case Instruction::Select:
     case Instruction::Call: {
+#if INTEL_CUSTOMIZATION
+      // Most intrinsics are identified by the fact that they return a floating
+      // point value, but fcmp intrinsics require special handling.
+      if (isa<IntelHonorFCmpIntrinsic>(V))
+        return true;
+      // This must fall through to handle intrinsics that return floating point
+      // values, such as llvm.sqrt*.
+#endif // INTEL_CUSTOMIZATION
       Type *Ty = V->getType();
       while (ArrayType *ArrTy = dyn_cast<ArrayType>(Ty))
         Ty = ArrTy->getElementType();
