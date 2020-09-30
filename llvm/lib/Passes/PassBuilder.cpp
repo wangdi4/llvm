@@ -849,8 +849,7 @@ PassBuilder::buildFunctionSimplificationPipeline(OptimizationLevel Level,
   bool GEPInstOptimizations = true;
 #endif // INTEL_INCLUDE_DTRANS
   FPM.addPass(
-      InstCombinePass(/*ExpensiveCombines=default value*/ true,
-                      GEPInstOptimizations)); // Combine silly sequences.
+      InstCombinePass(GEPInstOptimizations)); // Combine silly sequences.
 #endif                                        // INTEL_CUSTOMIZATION
 
   if (!Level.isOptimizingForSize())
@@ -932,8 +931,7 @@ PassBuilder::buildFunctionSimplificationPipeline(OptimizationLevel Level,
   FPM.addPass(SimplifyCFGPass());
 #if INTEL_CUSTOMIZATION
   FPM.addPass(
-      InstCombinePass(/*ExpensiveCombines=default value*/ true,
-                      GEPInstOptimizations)); // Combine silly sequences.
+      InstCombinePass(GEPInstOptimizations)); // Combine silly sequences.
 #endif // INTEL_CUSTOMIZATION
   // The loop passes in LPM2 (IndVarSimplifyPass, LoopIdiomRecognizePass,
   // LoopDeletionPass and LoopFullUnrollPass) do not preserve MemorySSA.
@@ -980,8 +978,7 @@ PassBuilder::buildFunctionSimplificationPipeline(OptimizationLevel Level,
   // opportunities opened up by them.
 #if INTEL_CUSTOMIZATION
   FPM.addPass(
-      InstCombinePass(/*ExpensiveCombines=default value*/ true,
-                      GEPInstOptimizations)); // Combine silly sequences.
+      InstCombinePass(GEPInstOptimizations)); // Combine silly sequences.
 #endif // INTEL_CUSTOMIZATION
   invokePeepholeEPCallbacks(FPM, Level);
 
@@ -1007,8 +1004,7 @@ PassBuilder::buildFunctionSimplificationPipeline(OptimizationLevel Level,
   FPM.addPass(SimplifyCFGPass());
 #if INTEL_CUSTOMIZATION
   FPM.addPass(
-      InstCombinePass(/*ExpensiveCombines=default value*/ true,
-                      GEPInstOptimizations)); // Combine silly sequences.
+      InstCombinePass(GEPInstOptimizations)); // Combine silly sequences.
 #endif // INTEL_CUSTOMIZATION
   invokePeepholeEPCallbacks(FPM, Level);
 
@@ -1063,8 +1059,7 @@ void PassBuilder::addPGOInstrPasses(ModulePassManager &MPM, bool DebugLogging,
     bool GEPInstOptimizations = true;
 #endif // INTEL_INCLUDE_DTRANS
     FPM.addPass(
-        InstCombinePass(/*ExpensiveCombines=default value*/ true,
-                        GEPInstOptimizations)); // Combine silly sequences.
+        InstCombinePass(GEPInstOptimizations)); // Combine silly sequences.
 #endif                                          // INTEL_CUSTOMIZATION
     invokePeepholeEPCallbacks(FPM, Level);
 
@@ -1322,16 +1317,15 @@ ModulePassManager PassBuilder::buildModuleSimplificationPipeline(
   FunctionPassManager GlobalCleanupPM(DebugLogging);
 #if INTEL_CUSTOMIZATION
 #if INTEL_INCLUDE_DTRANS
-    // Configure the instruction combining pass to avoid some transformations
-    // that lose type information for DTrans.
-    bool GEPInstOptimizations = !(PrepareForLTO && EnableDTrans);
+  // Configure the instruction combining pass to avoid some transformations
+  // that lose type information for DTrans.
+  bool GEPInstOptimizations = !(PrepareForLTO && EnableDTrans);
 #else
-    bool GEPInstOptimizations = true;
+  bool GEPInstOptimizations = true;
 #endif // INTEL_INCLUDE_DTRANS
-    GlobalCleanupPM.addPass(
-        InstCombinePass(/*ExpensiveCombines=default value*/ true,
-                        GEPInstOptimizations)); // Combine silly sequences.
-#endif                                          // INTEL_CUSTOMIZATION
+  GlobalCleanupPM.addPass(
+      InstCombinePass(GEPInstOptimizations)); // Combine silly sequences.
+#endif                                        // INTEL_CUSTOMIZATION
   invokePeepholeEPCallbacks(GlobalCleanupPM, Level);
 
   GlobalCleanupPM.addPass(SimplifyCFGPass());
@@ -1496,8 +1490,7 @@ ModulePassManager PassBuilder::buildModuleOptimizationPipeline(
   bool GEPInstOptimizations = true;
 #endif // INTEL_INCLUDE_DTRANS
   OptimizePM.addPass(
-      InstCombinePass(/*ExpensiveCombines=default value*/ true,
-                      GEPInstOptimizations)); // Combine silly sequences.
+      InstCombinePass(GEPInstOptimizations)); // Combine silly sequences.
 #endif                                        // INTEL_CUSTOMIZATION
 
   // Now that we've formed fast to execute loop structures, we do further
@@ -1524,8 +1517,7 @@ ModulePassManager PassBuilder::buildModuleOptimizationPipeline(
 #if INTEL_CUSTOMIZATION
   OptimizePM.addPass(EarlyCSEPass());
   OptimizePM.addPass(
-      InstCombinePass(/*ExpensiveCombines=default value*/ true,
-                      GEPInstOptimizations)); // Combine silly sequences.
+      InstCombinePass(GEPInstOptimizations)); // Combine silly sequences.
 #endif // INTEL_CUSTOMIZATION
 
   // Unroll small loops to hide loop backedge latency and saturate any parallel
@@ -1544,8 +1536,7 @@ ModulePassManager PassBuilder::buildModuleOptimizationPipeline(
   OptimizePM.addPass(WarnMissedTransformationsPass());
 #if INTEL_CUSTOMIZATION
   OptimizePM.addPass(
-      InstCombinePass(/*ExpensiveCombines=default value*/ true,
-                      GEPInstOptimizations)); // Combine silly sequences.
+      InstCombinePass(GEPInstOptimizations)); // Combine silly sequences.
 #endif // INTEL_CUSTOMIZATION
   OptimizePM.addPass(RequireAnalysisPass<OptimizationRemarkEmitterAnalysis, Function>());
   OptimizePM.addPass(createFunctionToLoopPassAdaptor(
