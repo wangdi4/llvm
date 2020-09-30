@@ -4187,42 +4187,6 @@ void VPOCodeGenHIR::generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
     // Any other case of GEP implies it was introduced after decomposer by some
     // VPlan-to-VPlan xform.
     assert(false && "VPlan-to-VPlan xform introduced a new IR-agnostic GEP.");
-
-    auto RefDestTy = VPInst->getType();
-    auto ResultRefTy = getResultRefTy(RefDestTy, VF, Widen);
-    auto VPGEP = cast<VPGEPInstruction>(VPInst);
-    RegDDRef *NewRef = RefOp0;
-
-    // Base canon expression needs to be a self blob.
-    if (!RefOp0->isSelfBlob()) {
-      auto *CopyInst = HLNodeUtilities.createCopyInst(RefOp0, "nsbgepcopy");
-      addInst(CopyInst, Mask);
-      NewRef = CopyInst->getLvalDDRef();
-    }
-
-    NewRef = DDRefUtilities.createAddressOfRef(NewRef->getSelfBlobIndex(),
-                                               NewRef->getDefinedAtLevel());
-    NewRef->setBitCastDestType(ResultRefTy);
-
-    // Widened operands contain reference dimensions and trailing struct
-    // offsets. Add reference dimensions and trailing struct offsets.
-    for (unsigned OpIdx = 1; OpIdx < RefOps.size();) {
-      auto Operand = RefOps[OpIdx];
-      AuxRefs.push_back(Operand);
-      ++OpIdx;
-      SmallVector<unsigned, 2> StructOffsets;
-      while (OpIdx < RefOps.size() && VPGEP->isOperandStructOffset(OpIdx)) {
-        const VPValue *VPOffset = VPInst->getOperand(OpIdx);
-        ConstantInt *CVal =
-            cast<ConstantInt>(cast<VPConstant>(VPOffset)->getConstant());
-        unsigned Offset = CVal->getZExtValue();
-        StructOffsets.push_back(Offset);
-        ++OpIdx;
-      }
-      NewRef->addDimension(Operand->getSingleCanonExpr(), StructOffsets);
-    }
-
-    makeConsistentAndAddToMap(NewRef, VPInst, AuxRefs, Widen);
     return;
   }
 
