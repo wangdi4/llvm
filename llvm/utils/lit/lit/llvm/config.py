@@ -29,8 +29,11 @@ class LLVMConfig(object):
                 path = self.lit_config.getToolsPath(lit_tools_dir,
                                                     config.environment['PATH'],
                                                     required_tools)
-            if path is None:
-                path = self._find_git_windows_unix_tools(required_tools)
+# INTEL_CUSTOMIZATION
+# Comment this out this new feature until we are ready for it at Intel.
+#            if path is None:
+#                path = self._find_git_windows_unix_tools(required_tools)
+# end INTEL_CUSTOMIZATION
             if path is not None:
                 self.with_environment('PATH', path, append_path=True)
             # Many tools behave strangely if these environment variables aren't set.
