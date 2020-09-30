@@ -5377,10 +5377,15 @@ let TargetPrefix = "x86" in {
               Intrinsic<[], [], []>;
 }
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_KEYLOCKER
 //===----------------------------------------------------------------------===//
 // KeyLocker
+=======
+//===----------------------------------------------------------------------===//
+// Key Locker
+>>>>>>> 413577a8790407d75ba834fa5668c2632fe1851e
 let TargetPrefix = "x86" in {
   def int_x86_loadiwkey : GCCBuiltin<"__builtin_ia32_loadiwkey">,
       Intrinsic<[], [llvm_i32_ty, llvm_v2i64_ty, llvm_v2i64_ty, llvm_v2i64_ty],
@@ -5430,6 +5435,7 @@ let TargetPrefix = "x86" in {
                  llvm_v2i64_ty, llvm_v2i64_ty, llvm_v2i64_ty,
                  llvm_v2i64_ty, llvm_v2i64_ty, llvm_v2i64_ty], []>;
 }
+<<<<<<< HEAD
 #endif // INTEL_FEATURE_ISA_KEYLOCKER
 
 #if INTEL_FEATURE_ISA_ULI
@@ -6233,6 +6239,8 @@ let TargetPrefix = "x86" in {
 }
 #endif // INTEL_FEATURE_ISA_AVX_MEMADVISE
 #endif // INTEL_CUSTOMIZATION
+=======
+>>>>>>> 413577a8790407d75ba834fa5668c2632fe1851e
 
 //===----------------------------------------------------------------------===//
 // AMX - Intel AMX extensions

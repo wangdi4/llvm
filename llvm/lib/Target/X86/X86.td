@@ -470,6 +470,7 @@ def FeatureWAITPKG  : SubtargetFeature<"waitpkg", "HasWAITPKG", "true",
                                       "Wait and pause enhancements">;
 def FeatureENQCMD : SubtargetFeature<"enqcmd", "HasENQCMD", "true",
                                      "Has ENQCMD instructions">;
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_KEYLOCKER
 def FeatureKeyLocker  : SubtargetFeature<"keylocker", "HasKeyLocker", "true",
@@ -485,6 +486,14 @@ def FeatureHRESET : SubtargetFeature<"hreset", "HasHRESET", "true",
                                       "Has hreset instruction">;
 #endif // INTEL_FEATURE_ISA_HRESET
 #endif // INTEL_CUSTOMIZATION
+=======
+def FeatureKL  : SubtargetFeature<"kl", "HasKL", "true",
+                                  "Support Key Locker kl Instructions",
+                                  [FeatureSSE2]>;
+def FeatureWIDEKL  : SubtargetFeature<"widekl", "HasWIDEKL", "true",
+                                      "Support Key Locker wide Instructions",
+                                      [FeatureKL]>;
+>>>>>>> 413577a8790407d75ba834fa5668c2632fe1851e
 def FeatureSERIALIZE : SubtargetFeature<"serialize", "HasSERIALIZE", "true",
                                         "Has serialize instruction">;
 def FeatureTSXLDTRK : SubtargetFeature<"tsxldtrk", "HasTSXLDTRK", "true",

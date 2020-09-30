@@ -204,7 +204,7 @@ static constexpr FeatureBitset FeaturesTigerlake =
 #endif // INTEL_FEATURE_ISA_KEYLOCKER
 #endif // INTEL_CUSTOMIZATION
     FeaturesICLClient | FeatureAVX512VP2INTERSECT | FeatureMOVDIR64B |
-    FeatureMOVDIRI | FeatureSHSTK;
+    FeatureMOVDIRI | FeatureSHSTK | FeatureKL | FeatureWIDEKL;
 static constexpr FeatureBitset FeaturesSapphireRapids =
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_AVX_VNNI
@@ -607,6 +607,7 @@ static constexpr FeatureBitset ImpliedFeaturesAMX_TILE = {};
 static constexpr FeatureBitset ImpliedFeaturesAMX_BF16 = FeatureAMX_TILE;
 static constexpr FeatureBitset ImpliedFeaturesAMX_INT8 = FeatureAMX_TILE;
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_ULI
 static constexpr FeatureBitset ImpliedFeaturesULI = {};
@@ -710,6 +711,11 @@ static constexpr FeatureBitset ImpliedFeaturesAMX_BF8 = FeatureAMX_TILE;
 static constexpr FeatureBitset ImpliedFeaturesAMX_MEMADVISE = FeatureAMX_TILE;
 #endif // INTEL_FEATURE_ISA_AMX_MEMADVISE
 #endif // INTEL_CUSTOMIZATION
+=======
+// Key Locker Features
+static constexpr FeatureBitset ImpliedFeaturesKL = FeatureSSE2;
+static constexpr FeatureBitset ImpliedFeaturesWIDEKL = FeatureKL;
+>>>>>>> 413577a8790407d75ba834fa5668c2632fe1851e
 
 static constexpr FeatureInfo FeatureInfos[X86::CPU_FEATURE_MAX] = {
 #define X86_FEATURE(ENUM, STR) {{STR}, ImpliedFeatures##ENUM},

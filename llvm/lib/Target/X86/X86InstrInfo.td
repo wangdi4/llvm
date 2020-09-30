@@ -1107,6 +1107,7 @@ def HasCmpxchg8b : Predicate<"Subtarget->hasCmpxchg8b()">;
 def HasCmpxchg16b: Predicate<"Subtarget->hasCmpxchg16b()">;
 def HasPCONFIG   : Predicate<"Subtarget->hasPCONFIG()">;
 def HasENQCMD    : Predicate<"Subtarget->hasENQCMD()">;
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_KEYLOCKER
 def HasKeyLocker : Predicate<"Subtarget->hasKeyLocker()">;
@@ -1170,6 +1171,10 @@ def HasAMXBF8    : Predicate<"Subtarget->hasAMXBF8()">;
 def HasAMXMEMADVISE    : Predicate<"Subtarget->hasAMXMEMADVISE()">;
 #endif // INTEL_FEATURE_ISA_AMX_MEMADVISE
 #endif // INTEL_CUSTOMIZATION
+=======
+def HasKL        : Predicate<"Subtarget->hasKL()">;
+def HasWIDEKL    : Predicate<"Subtarget->hasWIDEKL()">;
+>>>>>>> 413577a8790407d75ba834fa5668c2632fe1851e
 def HasSERIALIZE : Predicate<"Subtarget->hasSERIALIZE()">;
 def HasTSXLDTRK  : Predicate<"Subtarget->hasTSXLDTRK()">;
 def HasAMXTILE   : Predicate<"Subtarget->hasAMXTILE()">;
@@ -3338,6 +3343,7 @@ include "X86InstrSGX.td"
 
 include "X86InstrTDX.td"
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_KEYLOCKER
 include "Intel_X86InstrKL.td"
@@ -3349,6 +3355,10 @@ include "Intel_X86InstrKL.td"
 include "Intel_X86InstrIceCode.td"
 #endif // INTEL_FEATURE_ICECODE
 #endif // INTEL_CUSTOMIZATION
+=======
+// Key Locker instructions
+include "X86InstrKL.td"
+>>>>>>> 413577a8790407d75ba834fa5668c2632fe1851e
 
 // AMX instructions
 #if INTEL_CUSTOMIZATION
