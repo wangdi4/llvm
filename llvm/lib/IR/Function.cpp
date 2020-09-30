@@ -845,16 +845,8 @@ enum IIT_Info {
   IIT_SUBDIVIDE4_ARG = 45,
   IIT_VEC_OF_BITCASTS_TO_INT = 46,
   IIT_V128 = 47,
-<<<<<<< HEAD
-  IIT_BF16 = 48
-#if INTEL_CUSTOMIZATION
-  ,
-  IIT_STRUCT9 = 49
-#endif  // INTEL_CUSTOMIZATION
-=======
   IIT_BF16 = 48,
   IIT_STRUCT9 = 49
->>>>>>> 413577a8790407d75ba834fa5668c2632fe1851e
 };
 
 static void DecodeIITType(unsigned &NextElt, ArrayRef<unsigned char> Infos,
@@ -1016,13 +1008,7 @@ static void DecodeIITType(unsigned &NextElt, ArrayRef<unsigned char> Infos,
   case IIT_EMPTYSTRUCT:
     OutputTable.push_back(IITDescriptor::get(IITDescriptor::Struct, 0));
     return;
-<<<<<<< HEAD
-#if INTEL_CUSTOMIZATION
   case IIT_STRUCT9: ++StructElts; LLVM_FALLTHROUGH;
-#endif  // INTEL_CUSTOMIZATION
-=======
-  case IIT_STRUCT9: ++StructElts; LLVM_FALLTHROUGH;
->>>>>>> 413577a8790407d75ba834fa5668c2632fe1851e
   case IIT_STRUCT8: ++StructElts; LLVM_FALLTHROUGH;
   case IIT_STRUCT7: ++StructElts; LLVM_FALLTHROUGH;
   case IIT_STRUCT6: ++StructElts; LLVM_FALLTHROUGH;

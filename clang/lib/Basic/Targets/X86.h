@@ -140,14 +140,10 @@ class LLVM_LIBRARY_VISIBILITY X86TargetInfo : public TargetInfo {
   bool HasPTWRITE = false;
   bool HasINVPCID = false;
   bool HasENQCMD = false;
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_ULI
   bool HasULI = false;
 #endif // INTEL_FEATURE_ISA_ULI
-#if INTEL_FEATURE_ISA_KEYLOCKER
-  bool HasKeyLocker = false;
-#endif // INTEL_FEATURE_ISA_KEYLOCKER
 #if INTEL_FEATURE_ISA_HRESET
   bool HasHRESET = false;
 #endif // INTEL_FEATURE_ISA_HRESET
@@ -226,10 +222,8 @@ class LLVM_LIBRARY_VISIBILITY X86TargetInfo : public TargetInfo {
   bool HasAVX512MPSADBW = false;
 #endif // INTEL_FEATURE_ISA_AVX_MPSADBW
 #endif // INTEL_CUSTOMIZATION
-=======
   bool HasKL = false;      // For key locker
   bool HasWIDEKL = false; // For wide key locker
->>>>>>> 413577a8790407d75ba834fa5668c2632fe1851e
   bool HasAMXTILE = false;
   bool HasAMXINT8 = false;
   bool HasAMXBF16 = false;

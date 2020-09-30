@@ -415,12 +415,7 @@ class X86Subtarget final : public X86GenSubtargetInfo {
   /// Processor supports PCONFIG instruction
   bool HasPCONFIG = false;
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_KEYLOCKER
-  /// Processor support Keylocker instructions
-  bool HasKeyLocker = false;
-#endif // INTEL_FEATURE_ISA_KEYLOCKER
 #if INTEL_FEATURE_ISA_ULI
   bool HasULI = false;
 #endif // INTEL_FEATURE_ISA_ULI
@@ -518,14 +513,12 @@ class X86Subtarget final : public X86GenSubtargetInfo {
   bool HasAVXDOTPRODPHPS = false;
 #endif // INTEL_FEATURE_ISA_AVX_DOTPROD_PHPS
 #endif // INTEL_CUSTOMIZATION
-=======
   /// Processor support key locker instructions
   bool HasKL = false;
 
   /// Processor support key locker wide instructions
   bool HasWIDEKL = false;
 
->>>>>>> 413577a8790407d75ba834fa5668c2632fe1851e
   /// Processor supports SERIALIZE instruction
   bool HasSERIALIZE = false;
 
@@ -902,11 +895,7 @@ public:
 #endif // INTEL_CUSTOMIZATION
   bool hasINVPCID() const { return HasINVPCID; }
   bool hasENQCMD() const { return HasENQCMD; }
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_KEYLOCKER
-  bool hasKeyLocker() const { return HasKeyLocker; }
-#endif // INTEL_FEATURE_ISA_KEYLOCKER
 #if INTEL_FEATURE_ISA_ULI
   bool hasULI() const { return HasULI; }
 #endif // INTEL_FEATURE_ISA_ULI
@@ -914,10 +903,8 @@ public:
   bool hasHRESET() const { return HasHRESET; }
 #endif // INTEL_FEATURE_ISA_HRESET
 #endif // INTEL_CUSTOMIZATION
-=======
   bool hasKL() const { return HasKL; }
   bool hasWIDEKL() const { return HasWIDEKL; }
->>>>>>> 413577a8790407d75ba834fa5668c2632fe1851e
   bool hasSERIALIZE() const { return HasSERIALIZE; }
   bool hasTSXLDTRK() const { return HasTSXLDTRK; }
   bool useRetpolineIndirectCalls() const { return UseRetpolineIndirectCalls; }

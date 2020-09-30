@@ -3817,23 +3817,16 @@ def minvpcid : Flag<["-"], "minvpcid">, Group<m_x86_Features_Group>;
 def mno_invpcid : Flag<["-"], "mno-invpcid">, Group<m_x86_Features_Group>;
 def mgfni : Flag<["-"], "mgfni">, Group<m_x86_Features_Group>;
 def mno_gfni : Flag<["-"], "mno-gfni">, Group<m_x86_Features_Group>;
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_HRESET
 def mhreset : Flag<["-"], "mhreset">, Group<m_x86_Features_Group>;
 def mno_hreset : Flag<["-"], "mno-hreset">, Group<m_x86_Features_Group>;
 #endif // INTEL_FEATURE_ISA_HRESET
-#if INTEL_FEATURE_ISA_KEYLOCKER
+#endif // INTEL_CUSTOMIZATION
 def mkeylocker : Flag<["-"], "mkeylocker">, Group<m_x86_Features_Group>;
 def mno_keylocker : Flag<["-"], "mno-keylocker">, Group<m_x86_Features_Group>;
-#endif // INTEL_FEATURE_ISA_KEYLOCKER
-#endif // INTEL_CUSTOMIZATION
-=======
-def mkl : Flag<["-"], "mkl">, Group<m_x86_Features_Group>;
-def mno_kl : Flag<["-"], "mno-kl">, Group<m_x86_Features_Group>;
 def mwidekl : Flag<["-"], "mwidekl">, Group<m_x86_Features_Group>;
 def mno_widekl : Flag<["-"], "mno-widekl">, Group<m_x86_Features_Group>;
->>>>>>> 413577a8790407d75ba834fa5668c2632fe1851e
 def mlwp : Flag<["-"], "mlwp">, Group<m_x86_Features_Group>;
 def mno_lwp : Flag<["-"], "mno-lwp">, Group<m_x86_Features_Group>;
 def mlzcnt : Flag<["-"], "mlzcnt">, Group<m_x86_Features_Group>;

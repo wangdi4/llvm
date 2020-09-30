@@ -331,19 +331,10 @@ bool X86TargetInfo::handleTargetFeatures(std::vector<std::string> &Features,
       HasCLDEMOTE = true;
     } else if (Feature == "+rdpid") {
       HasRDPID = true;
-<<<<<<< HEAD
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_KEYLOCKER
-    } else if (Feature == "+keylocker") {
-      HasKeyLocker = true;
-#endif // INTEL_FEATURE_ISA_KEYLOCKER
-#endif // INTEL_CUSTOMIZATION
-=======
     } else if (Feature == "+kl") {
       HasKL = true;
     } else if (Feature == "+widekl") {
       HasWIDEKL = true;
->>>>>>> 413577a8790407d75ba834fa5668c2632fe1851e
     } else if (Feature == "+retpoline-external-thunk") {
       HasRetpolineExternalThunk = true;
     } else if (Feature == "+sahf") {
@@ -903,20 +894,10 @@ void X86TargetInfo::getTargetDefines(const LangOptions &Opts,
     Builder.defineMacro("__PREFETCHWT1__");
   if (HasCLZERO)
     Builder.defineMacro("__CLZERO__");
-<<<<<<< HEAD
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_KEYLOCKER
-  if (HasKeyLocker)
-    Builder.defineMacro("__KEYLOCKER__");
-  Builder.defineMacro("__KEYLOCKER_SUPPORTED__");
-#endif // INTEL_FEATURE_ISA_KEYLOCKER
-#endif // INTEL_CUSTOMIZATION
-=======
   if (HasKL)
     Builder.defineMacro("__KL__");
   if (HasWIDEKL)
     Builder.defineMacro("__WIDEKL__");
->>>>>>> 413577a8790407d75ba834fa5668c2632fe1851e
   if (HasRDPID)
     Builder.defineMacro("__RDPID__");
   if (HasCLDEMOTE)
@@ -1311,16 +1292,8 @@ bool X86TargetInfo::isValidFeatureName(StringRef Name) const {
 #endif // INTEL_FEATURE_ISA_HRESET
 #endif // INTEL_CUSTOMIZATION
       .Case("invpcid", true)
-<<<<<<< HEAD
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_KEYLOCKER
-      .Case("keylocker", true)
-#endif // INTEL_FEATURE_ISA_KEYLOCKER
-#endif // INTEL_CUSTOMIZATION
-=======
       .Case("kl", true)
       .Case("widekl", true)
->>>>>>> 413577a8790407d75ba834fa5668c2632fe1851e
       .Case("lwp", true)
       .Case("lzcnt", true)
       .Case("mmx", true)
@@ -1536,16 +1509,8 @@ bool X86TargetInfo::hasFeature(StringRef Feature) const {
 #endif // INTEL_FEATURE_ISA_HRESET
 #endif // INTEL_CUSTOMIZATION
       .Case("invpcid", HasINVPCID)
-<<<<<<< HEAD
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_KEYLOCKER
-      .Case("keylocker", HasKeyLocker)
-#endif // INTEL_FEATURE_ISA_KEYLOCKER
-#endif // INTEL_CUSTOMIZATION
-=======
       .Case("kl", HasKL)
       .Case("widekl", HasWIDEKL)
->>>>>>> 413577a8790407d75ba834fa5668c2632fe1851e
       .Case("lwp", HasLWP)
       .Case("lzcnt", HasLZCNT)
       .Case("mm3dnow", MMX3DNowLevel >= AMD3DNow)

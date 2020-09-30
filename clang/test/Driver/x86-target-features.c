@@ -254,8 +254,8 @@
 // TSXLDTRK: "-target-feature" "+tsxldtrk"
 // NO-TSXLDTRK: "-target-feature" "-tsxldtrk"
 
-// RUN: %clang -target i386-linux-gnu -mkl %s -### -o %t.o 2>&1 | FileCheck -check-prefix=KL %s
-// RUN: %clang -target i386-linux-gnu -mno-kl %s -### -o %t.o 2>&1 | FileCheck -check-prefix=NO-KL %s
+// RUN: %clang -target i386-linux-gnu -mkeylocker %s -### -o %t.o 2>&1 | FileCheck -check-prefix=KL %s
+// RUN: %clang -target i386-linux-gnu -mno-keylocker %s -### -o %t.o 2>&1 | FileCheck -check-prefix=NO-KL %s
 // KL: "-target-feature" "+kl"
 // NO-KL: "-target-feature" "-kl"
 
