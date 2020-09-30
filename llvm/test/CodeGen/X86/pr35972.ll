@@ -5,12 +5,12 @@ define void @test3(i32 %c, <64 x i1>* %ptr) {
 ; CHECK-LABEL: test3:
 ; CHECK:       # %bb.0:
 ; CHECK-NEXT:    movl {{[0-9]+}}(%esp), %eax
-; CHECK-NEXT:    xorl %ecx, %ecx
-; CHECK-NEXT:    cmpl $1, {{[0-9]+}}(%esp)
-; CHECK-NEXT:    sbbl %ecx, %ecx
-; CHECK-NEXT:    kmovd %ecx, %k0
+; CHECK-NEXT:    vpbroadcastd {{[0-9]+}}(%esp), %zmm0 ;INTEL
+; CHECK-NEXT:    vptestnmd %zmm0, %zmm0, %k0 ;INTEL
+; CHECK-NEXT:    kunpckwd %k0, %k0, %k0 ;INTEL
 ; CHECK-NEXT:    kunpckdq %k0, %k0, %k0
 ; CHECK-NEXT:    kmovq %k0, (%eax)
+; CHECK-NEXT:    vzeroupper ;INTEL
 ; CHECK-NEXT:    retl
   %cmp = icmp eq i32 %c, 0
   %insert = insertelement <64 x i1> undef, i1 %cmp, i32 0
