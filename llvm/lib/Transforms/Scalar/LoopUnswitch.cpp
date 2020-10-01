@@ -909,7 +909,7 @@ static BasicBlock *isTrivialLoopExitBlock(Loop *L, BasicBlock *BB) {
 
 #if INTEL_CUSTOMIZATION
 static bool isLoopHandledByLoopOpt(Loop *Lp, LoopInfo *LI,
-                                   TargetLibraryInfo *TLI) {
+                                   TargetLibraryInfo *TLI, bool RelaxChecks) {
 
   // Perfect loopnest is only meaningful for single exit loops.
   if (!Lp->getExitingBlock())
@@ -987,7 +987,8 @@ static bool isLoopHandledByLoopOpt(Loop *Lp, LoopInfo *LI,
 
       // Allow library and vectorizable calls.
       LibFunc LF;
-      if ((TLI->getLibFunc(Func->getName(), LF) && TLI->has(LF)) ||
+      if (RelaxChecks ||
+          (TLI->getLibFunc(Func->getName(), LF) && TLI->has(LF)) ||
           TLI->isFunctionVectorizable(Func->getName()))
         continue;
 
@@ -998,7 +999,7 @@ static bool isLoopHandledByLoopOpt(Loop *Lp, LoopInfo *LI,
   // We are unlikely to perform loop transformations if loop has too many
   // branches. The number of blocks is used as a simplistic heuristic for number
   // of branches allowed.
-  if (NumBlocks > 5)
+  if (NumBlocks > (RelaxChecks ? 20u : 5u))
     return false;
 
   return true;
@@ -1058,7 +1059,7 @@ static bool mayAffectPerfectLoopnest(LoopInfo *LI, Loop *CurLoop,
         BrInst->getSuccessor(1) != SubLoopPreheader)
       return false;
 
-    if (!isLoopHandledByLoopOpt(SubLoop, LI, TLI))
+    if (!isLoopHandledByLoopOpt(SubLoop, LI, TLI, MayBeInlined))
       return false;
   }
 
@@ -1067,10 +1068,10 @@ static bool mayAffectPerfectLoopnest(LoopInfo *LI, Loop *CurLoop,
   if (!MayBeInlined && !ParentLp)
     return false;
 
-  if (!isLoopHandledByLoopOpt(CondLp, LI, TLI))
+  if (!isLoopHandledByLoopOpt(CondLp, LI, TLI, MayBeInlined))
     return false;
 
-  if (ParentLp && !isLoopHandledByLoopOpt(ParentLp, LI, TLI))
+  if (ParentLp && !isLoopHandledByLoopOpt(ParentLp, LI, TLI, MayBeInlined))
     return false;
 
   return true;
