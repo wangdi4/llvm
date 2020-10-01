@@ -6468,8 +6468,7 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
   bool EnableVec = shouldEnableVectorizerAtOLevel(Args, false);
 #if INTEL_CUSTOMIZATION
   // Do not enable vectorization for SPIR-V
-  if ((JA.isDeviceOffloading(Action::OFK_OpenMP) ||
-       JA.isDeviceOffloading(Action::OFK_SYCL)) &&
+  if (JA.isDeviceOffloading(Action::OFK_OpenMP) &&
       getToolChain().getTriple().isSPIR())
     EnableVec = false;
 #endif // INTEL_CUSTOMIZATION
@@ -6485,8 +6484,7 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
   bool EnableSLPVec = shouldEnableVectorizerAtOLevel(Args, true);
 #if INTEL_CUSTOMIZATION
   // Do not enable vectorization for SPIR-V
-  if ((JA.isDeviceOffloading(Action::OFK_OpenMP) ||
-       JA.isDeviceOffloading(Action::OFK_SYCL)) &&
+  if (JA.isDeviceOffloading(Action::OFK_OpenMP) &&
       getToolChain().getTriple().isSPIR())
     EnableSLPVec = false;
 #endif // INTEL_CUSTOMIZATION
