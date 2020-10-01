@@ -771,11 +771,6 @@ def signbit_mask         : OclBuiltin<"signbit",         (outs rf2igentype:$ret)
 
 // VectInfo for OclVecClone
 let KernelCallOnce = 0 in {
-  let Types = [v1i8, v1i16, v1i32, v1i64] in {
-    def intel_any : VectInfo<[], any, any, any, any, any, any>;
-    def intel_all : VectInfo<[], all, all, all, all, all, all>;
-  }
-
   let Types = [v1i8, v1u8, v1i16, v1u16, v1i32, v1u32,
                v1i64, v1u64, v1f32, v1f64] in {
     def intel_bitselect : VectInfo<[], bitselect, bitselect, bitselect, bitselect, bitselect, bitselect>;
