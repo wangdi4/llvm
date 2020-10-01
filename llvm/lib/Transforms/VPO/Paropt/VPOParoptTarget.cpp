@@ -3430,6 +3430,18 @@ bool VPOParoptTransform::genTargetVariantDispatchCode(WRegionNode *W) {
   UseDevicePtrClause &UDPtrClause = W->getUseDevicePtr();
   // NOTE : Remove after switching to UseDevicePtr
   if (!UseRawDevicePtr && !UDPtrClause.empty()) {
+#if INTEL_CUSTOMIZATION
+    if (std::any_of(UDPtrClause.items().begin(), UDPtrClause.items().end(),
+                    [](UseDevicePtrItem *UDPI) {
+                      return UDPI->getIsF90DopeVector();
+                    })) {
+      std::string Msg =
+          "'vpo-paropt-use-raw-dev-ptr=false' is not supported with "
+          "use_device_ptr clause on Fortran assumed-shape arrays.";
+      F->getContext().diagnose(DiagnosticInfoUnsupported(*F, Msg));
+    }
+
+#endif // INTEL_CUSTOMIZATION
     // A use_device_ptr clause is present. Therefore:
     //   (A) Create the target buffers
     //   (C) Free all target buffers if some failed to create
