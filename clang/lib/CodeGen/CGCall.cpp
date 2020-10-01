@@ -1857,11 +1857,6 @@ void CodeGenModule::getDefaultFunctionAttributes(StringRef Name,
                            llvm::utostr(CodeGenOpts.SSPBufferSize));
     FuncAttrs.addAttribute("no-signed-zeros-fp-math",
                            llvm::toStringRef(LangOpts.NoSignedZero));
-    if (getLangOpts().OpenCL) {
-      FuncAttrs.addAttribute(
-          "correctly-rounded-divide-sqrt-fp-math",
-          llvm::toStringRef(CodeGenOpts.CorrectlyRoundedDivSqrt));
-    }
 
     // TODO: Reciprocal estimate codegen options should apply to instructions?
     const std::vector<std::string> &Recips = CodeGenOpts.Reciprocals;
