@@ -333,7 +333,7 @@ public:
 // CHECK-LABEL: BOOC2
   BOO() {
   // CHECK: [[T1:%[0-9]+]] = {{.*}}region.entry{{.*}}DIR.OMP.TARGET.ENTER.DATA
-  // CHECK-SAME: "QUAL.OMP.MAP.TO"(%class.BOO* %arrayidx, %class.BOO* %arrayidx2, i64 8, i64 33)
+  // CHECK-SAME: "QUAL.OMP.MAP.TO"(%class.BOO* %this1, %class.BOO* %this1, i64 8, i64 33)
 #pragma omp target enter data map(to:this[0:1])
       {
        zoo[1] = 1.0;
