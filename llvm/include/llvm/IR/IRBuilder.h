@@ -2392,8 +2392,15 @@ public:
     CallInst *CI = CallInst::Create(FTy, Callee, Args, OpBundles);
     if (IsFPConstrained)
       setConstrainedFPCallAttr(CI);
-    if (isa<FPMathOperator>(CI))
-      setFPAttrs(CI, FPMathTag, FMF);
+#if INTEL_CUSTOMIZATION
+    // We don't want to use nnan when creating intel.honor.fcmp intrinsics.
+    if (isa<FPMathOperator>(CI)) {
+      FastMathFlags UseFMF = FMF;
+      if (isa<IntelHonorFCmpIntrinsic>(CI))
+        UseFMF.setNoNaNs(false);
+      setFPAttrs(CI, FPMathTag, UseFMF);
+    }
+#endif // INTEL_CUSTOMIZATION
     return Insert(CI, Name);
   }
 
