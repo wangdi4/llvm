@@ -9,14 +9,21 @@
 ; RUN: opt -thinlto-bc -o %t3.o %s
 ; RUN: opt -thinlto-bc -o %t4.o %p/Inputs/devirt_promote.ll
 
+; INTEL_CUSTOMIZATION
+; This customization is for turning off the multiversioning during
+; whole program devirtualization
+
 ; RUN: llvm-lto -thinlto-action=run %t3.o %t4.o --thinlto-save-temps=%t5. \
 ; RUN:   -whole-program-visibility \
+; RUN:   -wholeprogramdevirt-multiversion=false \
 ; RUN:   --pass-remarks=. \
 ; RUN:   --exported-symbol=test \
 ; RUN:   --exported-symbol=test2 \
 ; RUN:   --exported-symbol=_ZTV1B 2>&1 | FileCheck %s --check-prefix=REMARK
 ; RUN: llvm-dis %t5.0.4.opt.bc -o - | FileCheck %s --check-prefix=CHECK-IR1
 ; RUN: llvm-dis %t5.1.4.opt.bc -o - | FileCheck %s --check-prefix=CHECK-IR2
+
+; END INTEL_CUSTOMIZATION
 
 ; We should devirt call to _ZN1A1nEi once in importing module and once
 ; in original (exporting) module.

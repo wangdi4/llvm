@@ -49,7 +49,7 @@ define i32 @main(i32 %argc, i8** %argv) {
 declare i1 @llvm.type.test(i8*, metadata)
 declare void @llvm.assume(i1)
 
-define linkonce_odr hidden zeroext i1 @_ZN7Derived3fooEi(%class.Derived* %this, i32 %a) {
+define internal default zeroext i1 @_ZN7Derived3fooEi(%class.Derived* %this, i32 %a) {
   ret i1 true
 }
 
