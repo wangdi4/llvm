@@ -902,13 +902,8 @@ declare void @__kmpc_proxy_task_completed_ooo(i8*)
 ; CHECK: ; Function Attrs: convergent nounwind
 ; CHECK-NEXT: declare void @__kmpc_flush(%struct.ident_t*)
 
-<<<<<<< HEAD
-; CHECK: Function Attrs: nounwind
-; CHECK-NEXT: declare i32 @__kmpc_global_thread_num(%struct.ident_t* nocapture readonly) ;INTEL
-=======
 ; CHECK: ; Function Attrs: nounwind
-; CHECK-NEXT: declare i32 @__kmpc_global_thread_num(%struct.ident_t*)
->>>>>>> 90eaedda9b8ef46e2c0c1b8bce33e98a3adbb68c
+; CHECK-NEXT: declare i32 @__kmpc_global_thread_num(%struct.ident_t* nocapture readonly) ;INTEL
 
 ; CHECK: ; Function Attrs: nounwind
 ; CHECK-NEXT: declare void @__kmpc_fork_call(%struct.ident_t*, i32, void (i32*, i32*, ...)*, ...)
@@ -970,39 +965,22 @@ declare void @__kmpc_proxy_task_completed_ooo(i8*)
 ; CHECK: ; Function Attrs: convergent nounwind
 ; CHECK-NEXT: declare void @__kmpc_end_ordered(%struct.ident_t*, i32)
 
-<<<<<<< HEAD
 ; INTEL_CUSTOMIZATION
-; CHECK: Function Attrs: nofree nounwind
+; CHECK: ; Function Attrs: nofree nounwind
 ; CHECK-NEXT: declare void @__kmpc_for_static_init_4(%struct.ident_t* nocapture readonly, i32, i32, i32* nocapture, i32* nocapture, i32* nocapture, i32* nocapture, i32, i32)
 
-; CHECK: Function Attrs: nofree nounwind
+; CHECK: ; Function Attrs: nofree nounwind
 ; CHECK-NEXT: declare void @__kmpc_for_static_init_4u(%struct.ident_t* nocapture readonly, i32, i32, i32* nocapture, i32* nocapture, i32* nocapture, i32* nocapture, i32, i32)
 
-; CHECK: Function Attrs: nofree nounwind
+; CHECK: ; Function Attrs: nofree nounwind
 ; CHECK-NEXT: declare void @__kmpc_for_static_init_8(%struct.ident_t* nocapture readonly, i32, i32, i32* nocapture, i64* nocapture, i64* nocapture, i64* nocapture, i64, i64)
 
-; CHECK: Function Attrs: nofree nounwind
+; CHECK: ; Function Attrs: nofree nounwind
 ; CHECK-NEXT: declare void @__kmpc_for_static_init_8u(%struct.ident_t* nocapture readonly, i32, i32, i32* nocapture, i64* nocapture, i64* nocapture, i64* nocapture, i64, i64)
 
-; CHECK: Function Attrs: nofree nounwind
+; CHECK: ; Function Attrs: nofree nounwind
 ; CHECK-NEXT: declare void @__kmpc_for_static_fini(%struct.ident_t* nocapture readonly, i32)
 ; end INTEL_CUSTOMIZATION
-=======
-; CHECK: ; Function Attrs: nounwind
-; CHECK-NEXT: declare void @__kmpc_for_static_init_4(%struct.ident_t*, i32, i32, i32*, i32*, i32*, i32*, i32, i32)
-
-; CHECK: ; Function Attrs: nounwind
-; CHECK-NEXT: declare void @__kmpc_for_static_init_4u(%struct.ident_t*, i32, i32, i32*, i32*, i32*, i32*, i32, i32)
-
-; CHECK: ; Function Attrs: nounwind
-; CHECK-NEXT: declare void @__kmpc_for_static_init_8(%struct.ident_t*, i32, i32, i32*, i64*, i64*, i64*, i64, i64)
-
-; CHECK: ; Function Attrs: nounwind
-; CHECK-NEXT: declare void @__kmpc_for_static_init_8u(%struct.ident_t*, i32, i32, i32*, i64*, i64*, i64*, i64, i64)
-
-; CHECK: ; Function Attrs: nounwind
-; CHECK-NEXT: declare void @__kmpc_for_static_fini(%struct.ident_t*, i32)
->>>>>>> 90eaedda9b8ef46e2c0c1b8bce33e98a3adbb68c
 
 ; CHECK: ; Function Attrs: nounwind
 ; CHECK-NEXT: declare void @__kmpc_team_static_init_4(%struct.ident_t*, i32, i32*, i32*, i32*, i32*, i32, i32)
