@@ -513,9 +513,6 @@ bool HIRAosToSoa::Analyzer::isCandidate() {
   // LoopNests.back()'s level is the level where a new copy
   // loop will be added. Thus, the level, the read refs
   // will be hoisted to be copied.
-  // Giving LoopNests.back() currently is not working for imagick
-  // due to dependency between q[] and p[] are not removed
-  // from imagick.
   DDGraph DDG = DDA.getGraph(LoopNests.back());
   if (!areAllMemRefsReadOnly(DDG, RefsToCopy))
     return false;

@@ -4344,19 +4344,14 @@ DDTest::~DDTest() {
   WorkCE.clear();
 }
 
-bool DDTest::queryAAIndep(const RegDDRef *SrcDDRef, const RegDDRef *DstDDRef) {
+bool DDTest::queryAAIndep(const RegDDRef *SrcDDRef, const RegDDRef *DstDDRef,
+                          unsigned LoopLevel) {
   assert(SrcDDRef->isMemRef() && DstDDRef->isMemRef() &&
          "Both should be mem refs");
 
   if (SrcDDRef == DstDDRef) {
     return false;
   }
-
-  // Alias analysis only reasons about a pair of contemporary SSA values. In
-  // order to use its results to break dependencies across a loop, we must
-  // prove that the values are invariant for that loop.
-  bool InvariantBase = SrcDDRef->getBaseCE()->isProperLinear() &&
-                       DstDDRef->getBaseCE()->isProperLinear();
 
   // Note that we do not check that the indexing is also invariant because
   // RegDDRef::getMemoryLocation guarantees that a precise (i.e., known size)
@@ -4366,13 +4361,68 @@ bool DDTest::queryAAIndep(const RegDDRef *SrcDDRef, const RegDDRef *DstDDRef) {
   MemoryLocation SrcLoc = SrcDDRef->getMemoryLocation();
   MemoryLocation DstLoc = DstDDRef->getMemoryLocation();
 
-  DEBUG_AA(dbgs() << "call queryAAIndep():\n");
+  // Alias analysis only reasons about a pair of contemporary SSA values. In
+  // order to use its results to break dependencies across a loop, (that is,
+  // involving non-contemporary pairs of values,) we must know additional
+  // properties about the two memory footprints. If we can't show that it is
+  // safe to use the normal "alias" semantics, then we must resort to
+  // "loopCarriedAlias" semantics, which will provide less precise results.
+  bool RequiresLoopCarriedAA = true;
+  if (SrcDDRef->isStructurallyInvariantAtLevel(LoopLevel, false) ||
+      DstDDRef->isStructurallyInvariantAtLevel(LoopLevel, false)) {
+    // If we can prove that either memory footprint is completely loop
+    // invariant, then "alias" semantics are sufficient. For example, consider
+    // the references to A and B below:
+    //
+    //     n = ...
+    //     do i1:
+    //       A = call()
+    //       A[f(i1)] = ... + B[n]
+    //
+    // Both the base pointer and indexing for the A reference vary. However,
+    // &B[n] is completely invariant w.r.t. the i1 loop. Because of this,
+    // we know that any possible dependence would imply aliasing (between
+    // contemporary SSA values) within one iteration of i1, meaning that
+    // "alias" semantics cannot yield "NoAlias". It follows that "isNoAlias"
+    // conclusively precludes any possible dependence.
+    RequiresLoopCarriedAA = false;
+  } else if (SrcDDRef->getBaseCE()->isLinearAtLevel(LoopLevel) ||
+             DstDDRef->getBaseCE()->isLinearAtLevel(LoopLevel)) {
+    // Alternatively, we can show that at least one base pointer is invariant
+    // and query alias analysis with "unknown" access size. Consider the
+    // example below, which borrows array slice notation from Fortran to depict
+    // that the size of the access is unknown:
+    //
+    //     do i1:
+    //       A = call()
+    //       A[i1:] = ... + B[i1+1:]
+    //
+    // Both the base pointer and indexing for the A reference vary again.
+    // However, because the base pointer B is not varying and we have unknown
+    // size footprints, any possible dependence would still imply aliasing
+    // within at least one i1 loop iteration. (Note that if the A footprint
+    // were single element, e.g., "A[i1]", then this would not be the case.)
+    RequiresLoopCarriedAA = false;
+
+    // We don't need to explicitly check that the locations are UnknownSize.
+    // This should always be the case since RegDDRef::getMemoryLocation only
+    // returns precise sizes for fully region-invariant pointers, and we have
+    // already checked that's not the case.
+    assert(!SrcLoc.Size.isPrecise() &&
+           "Unexpected precise size from getMemoryLocation()");
+    assert(!DstLoc.Size.isPrecise() &&
+           "Unexpected precise size from getMemoryLocation()");
+  }
+
+  DEBUG_AA(dbgs() << "call queryAAIndep() with respect to loop level "
+                  << LoopLevel << ":\n");
   DEBUG_AA(SrcDDRef->dump());
   DEBUG_AA(dbgs() << "\n");
   DEBUG_AA(DstDDRef->dump());
   DEBUG_AA(dbgs() << "\nR: ");
 
-  if (VaryingBaseHandling == VaryingBaseMode::QueryAlias || InvariantBase) {
+  if (VaryingBaseHandling == VaryingBaseMode::QueryAlias ||
+      !RequiresLoopCarriedAA) {
     if (AAR.isNoAlias(SrcLoc, DstLoc)) {
       DEBUG_AA(dbgs() << "No Alias\n\n");
       return true;
@@ -4479,6 +4529,9 @@ std::unique_ptr<Dependences> DDTest::depends(const DDRef *SrcDDRef,
   const RegDDRef *SrcRegDDRef = dyn_cast<RegDDRef>(SrcDDRef);
   const RegDDRef *DstRegDDRef = dyn_cast<RegDDRef>(DstDDRef);
 
+  // Set loop nesting levels, NoCommonNest flag
+  establishNestingLevels(SrcDDRef, DstDDRef, ForFusion);
+
   // If both are memory refs
   bool TestingMemRefs = SrcRegDDRef && SrcRegDDRef->isMemRef();
 
@@ -4491,9 +4544,26 @@ std::unique_ptr<Dependences> DDTest::depends(const DDRef *SrcDDRef,
       return nullptr;
     }
 
+    // If we're refining a result for an inner loop, determine the level of
+    // this inner loop. (Otherwise, we're effectively concerned with the
+    // outermost loop.) Conservatively, assume level 1 when running for fusion.
+    unsigned RefiningLevel = 1;
+    if (!ForDDGBuild) {
+      // Look for the outermost level that we're testing. For example, if the
+      // DV is (=, *, *), then we want to compute that we're refining level 2.
+      for (; RefiningLevel <= CommonLevels; ++RefiningLevel) {
+        auto Direction = InputDV[RefiningLevel - 1];
+        if (Direction != DVKind::EQ) {
+          break;
+        }
+      }
+      assert(InputDV.isTestingForInnermostLoop(RefiningLevel) &&
+             "Unexpected refinement level");
+    }
+
     // Inquire disam util to get INDEP based on type/scope based analysis.
     LLVM_DEBUG(dbgs() << "AA query: ");
-    if (queryAAIndep(SrcRegDDRef, DstRegDDRef)) {
+    if (queryAAIndep(SrcRegDDRef, DstRegDDRef, RefiningLevel)) {
       LLVM_DEBUG(dbgs() << "no alias\n");
       return nullptr;
     }
@@ -4503,9 +4573,6 @@ std::unique_ptr<Dependences> DDTest::depends(const DDRef *SrcDDRef,
     EqualBaseAndShape =
         DDRefUtils::haveEqualBaseAndShape(SrcRegDDRef, DstRegDDRef, true);
   }
-
-  // Set loop nesting levels, NoCommonNest flag
-  establishNestingLevels(SrcDDRef, DstDDRef, ForFusion);
 
   LLVM_DEBUG(dbgs() << "\ncommon nesting levels = " << CommonLevels << "\n");
   LLVM_DEBUG(dbgs() << "\nmaximum nesting levels = " << MaxLevels << "\n");
@@ -4520,6 +4587,14 @@ std::unique_ptr<Dependences> DDTest::depends(const DDRef *SrcDDRef,
   if (NoCommonNest && !ForFusion && (SrcLevels == 0 || DstLevels == 0)) {
     Result.setDirection(1, DVKind::EQ);
   }
+
+  // Earlier we tried to break the entire dependence using alias analysis, but
+  // were not able to say anything conclusive. However, alias analysis may be
+  // able to at least tell us that there's no dependence at some inner loop
+  // level. If this is the case, it will update the direction vector so that
+  // the inner level (and levels within) have "NONE" directions.
+  if (TestingMemRefs)
+    refineAAIndep(Result, SrcRegDDRef, DstRegDDRef);
 
   ++TotalArrayPairs;
   WorkCE.clear();
@@ -5253,6 +5328,29 @@ void DDTest::adjustForAllAssumedDeps(Dependences &Result) {
   }
 }
 
+void DDTest::refineAAIndep(Dependences &Result, const RegDDRef *SrcRegDDRef,
+                           const RegDDRef *DstRegDDRef) {
+  // As an optimization, don't attempt to refine in the common case where the
+  // bases are known to be the same. Refinement is not possible in this case.
+  if (SrcRegDDRef->getBaseValue() == DstRegDDRef->getBaseValue())
+    return;
+
+  bool BrokeDep = false;
+  // We don't re-examine the outermost level. If there was no aliasing there
+  // then depends() would have concluded no dependence already.
+  for (unsigned InnerLevel = 2, MaxLevel = Result.getLevels();
+       InnerLevel <= MaxLevel; ++InnerLevel) {
+    DVKind Direction = Result.getDirection(InnerLevel);
+    if (Direction != DVKind::NONE) {
+      // If we broke a dependence at an outer level, it applies to all inner
+      // levels.
+      BrokeDep = BrokeDep || queryAAIndep(SrcRegDDRef, DstRegDDRef, InnerLevel);
+      if (BrokeDep)
+        Result.setDirection(InnerLevel, DVKind::NONE);
+    }
+  }
+}
+
 void DDTest::setDVForPeelFirstAndReversed(DirectionVector &ForwardDV,
                                           DirectionVector &BackwardDV,
                                           const Dependences &Result,
@@ -5738,6 +5836,12 @@ bool DirectionVector::isTestingForInnermostLoop(
 bool DirectionVector::isIndepFromLevel(unsigned Level) const {
 
   assert(CanonExprUtils::isValidLoopLevel(Level) && "incorrect Level");
+
+  // A DVKind::NONE at Level indicates no loop carried nor loop independent
+  // dependence.
+  unsigned LevelDir = (*this)[Level - 1];
+  if (LevelDir == DVKind::NONE)
+    return true;
 
   // DVKind::LT:  001
   // DVKind::GT : 100

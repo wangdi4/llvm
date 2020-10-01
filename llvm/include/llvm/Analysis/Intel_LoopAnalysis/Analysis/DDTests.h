@@ -350,8 +350,12 @@ class DDTest {
                                      unsigned MaxLevel) const;
 
   /// \brief Query LLVM Alias Analysis to check if there is no aliasing between
-  /// \p SrcDDRef and \p DstDDref (ex. due to TBAA or AliasScopes)
-  bool queryAAIndep(const RegDDRef *SrcDDRef, const RegDDRef *DstDDRef);
+  /// \p SrcDDRef and \p DstDDref (ex. due to TBAA or AliasScopes). A \p
+  /// LoopLevel of interest may be specified, in which case the query will try
+  /// to prove no aliasing specifically within that loop. Note that no aliasing
+  /// for level N implies no aliasing for level N+1, but not for level N-1.
+  bool queryAAIndep(const RegDDRef *SrcDDRef, const RegDDRef *DstDDRef,
+                    unsigned LoopLevel);
 
   /// Set DV for various cases.
   /// PeelFirst && Reversed
@@ -385,6 +389,11 @@ class DDTest {
 
   void adjustDV(Dependences &Result, bool SameBase, const RegDDRef *SrcRegDDRef,
                 const RegDDRef *DstRegDDRef);
+
+  /// Attempt to to break dependencies at inner loop levels by querying alias
+  /// analysis.
+  void refineAAIndep(Dependences &Result, const RegDDRef *SrcRegDDRef,
+                     const RegDDRef *DstRegDDRef);
 
   /// When IVDEP directive is present for a level, DV can be adjusted
   /// SameBase indicates if the base pointer of src/dst DD_REF are the same

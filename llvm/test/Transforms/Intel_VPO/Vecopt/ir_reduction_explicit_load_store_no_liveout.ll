@@ -5,7 +5,7 @@
 ; the reduction is not live-out of the loop.
 ; TODO: LinkedValues are not itemized due to unpredictable order (they are kept in a set).
 
-; RUN: opt -VPlanDriver -vplan-print-after-vpentity-instrs -vplan-entities-dump -S -vplan-print-terminator-inst < %s 2>&1 | FileCheck %s
+; RUN: opt -vplan-enable-soa=false -VPlanDriver -vplan-print-after-vpentity-instrs -vplan-entities-dump -S -vplan-print-terminator-inst < %s 2>&1 | FileCheck %s
 
 define float @load_store_reduction_add(float* nocapture %a) {
 ; Check that reduction is imported as VPReduction.

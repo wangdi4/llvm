@@ -2640,6 +2640,15 @@ void HIRParser::parse(HLLoop *HLoop) {
     }
   }
 
+  unsigned MaxTC;
+  if (HLoop->getPragmaBasedMaximumTripCount(MaxTC)) {
+    auto CurMaxTC = HLoop->getMaxTripCountEstimate();
+
+    if (!CurMaxTC || (MaxTC < CurMaxTC)) {
+      HLoop->setMaxTripCountEstimate(MaxTC);
+    }
+  }
+
   if (IsUnknown) {
     // Initialize Stride to 0 for unknown loops.
     auto ZeroRef = getDDRefUtils().createConstDDRef(IVType, 0);
