@@ -859,9 +859,17 @@ PreservedAnalyses WholeProgramDevirtPass::run(Module &M,
   auto LookupDomTree = [&FAM](Function &F) -> DominatorTree & {
     return FAM.getResult<DominatorTreeAnalysis>(F);
   };
+<<<<<<< HEAD
                                                                     // INTEL
   auto WPInfo = AM.getResult<WholeProgramAnalysis>(M);              // INTEL
                                                                     // INTEL
+=======
+  if (UseCommandLine) {
+    if (DevirtModule::runForTesting(M, AARGetter, OREGetter, LookupDomTree))
+      return PreservedAnalyses::all();
+    return PreservedAnalyses::none();
+  }
+>>>>>>> 460dda071e091df3b5584f21954c9209e7334c50
   if (!DevirtModule(M, AARGetter, OREGetter, LookupDomTree, ExportSummary,
                     ImportSummary, WPInfo.isWholeProgramSafe())     // INTEL
            .run())
