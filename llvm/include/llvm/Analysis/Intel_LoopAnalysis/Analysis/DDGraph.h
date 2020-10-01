@@ -163,6 +163,7 @@ private:
   class DDGraphFilter {
     unsigned FirstChildNum;
     unsigned LastChildNum;
+    unsigned LoopNestLevel = 0;
 
     template <typename NodeTy> void init(const NodeTy *Node) {
       FirstChildNum = Node->getFirstChild()->getMinTopSortNum();
@@ -177,6 +178,7 @@ private:
 
       if (const HLLoop *Loop = dyn_cast<HLLoop>(Node)) {
         init(Loop);
+        LoopNestLevel = Loop->getNestingLevel();
       } else {
         const HLRegion *Region = cast<HLRegion>(Node);
         init(Region);
@@ -192,7 +194,15 @@ private:
       }
 
       unsigned Num = ParentNode->getTopSortNum();
-      return (Num >= FirstChildNum && Num <= LastChildNum);
+      bool InChildRange = (Num >= FirstChildNum && Num <= LastChildNum);
+      if (!InChildRange)
+        return false;
+
+      // Filter out edges carried outside the Node in question.
+      if (LoopNestLevel > Edge->getDV().getLastLevel())
+        return false;
+
+      return true;
     }
   };
 
