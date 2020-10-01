@@ -168,7 +168,9 @@ static cl::opt<bool> EnableUnrollAndJam("enable-unroll-and-jam",
                                         cl::init(false), cl::Hidden,
                                         cl::desc("Enable Unroll And Jam Pass"));
 
-<<<<<<< HEAD
+static cl::opt<bool> EnableLoopFlatten("enable-loop-flatten", cl::init(false),
+                                       cl::Hidden,
+                                       cl::desc("Enable the LoopFlatten Pass"));
 #if INTEL_COLLAB
 enum { InvokeParoptBeforeInliner = 1, InvokeParoptAfterInliner };
 static cl::opt<unsigned> RunVPOOpt("vpoopt", cl::init(InvokeParoptAfterInliner),
@@ -333,11 +335,6 @@ static cl::opt<bool> EnableArgNoAliasProp(
     "enable-arg-noalias-prop", cl::init(true), cl::Hidden, cl::ZeroOrMore,
     cl::desc("Enable noalias propagation for function arguments."));
 #endif // INTEL_CUSTOMIZATION
-=======
-static cl::opt<bool> EnableLoopFlatten("enable-loop-flatten", cl::init(false),
-                                       cl::Hidden,
-                                       cl::desc("Enable the LoopFlatten Pass"));
->>>>>>> d53b4bee0ccd408cfe6e592540858046244e74ce
 
 static cl::opt<bool>
     EnablePrepareForThinLTO("prepare-for-thinlto", cl::init(false), cl::Hidden,
