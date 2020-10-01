@@ -1,7 +1,7 @@
 // RUN: %clang_cc1 -fsycl -fsycl-is-device -triple spir64 -internal-isystem %S/Inputs -fsyntax-only -Wsycl-strict -sycl-std=2020 -verify %s -DSPIR64
 // RUN: %clang_cc1 -fsycl -fsycl-is-device -triple spir -internal-isystem %S/Inputs -fsyntax-only -Wsycl-strict -sycl-std=2020 -verify %s -DSPIR32
 
-#include "Inputs/sycl.hpp"
+#include "sycl.hpp"
 class Foo;
 
 using namespace cl::sycl;
