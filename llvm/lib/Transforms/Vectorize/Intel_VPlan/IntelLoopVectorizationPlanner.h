@@ -52,6 +52,7 @@ class VPlanCostModel;
 extern bool PrintSVAResults;
 extern bool PrintAfterCallVecDecisions;
 extern bool LoopMassagingEnabled;
+extern bool EnableSOAAnalysis;
 
 /// LoopVectorizationPlanner - builds and optimizes the Vectorization Plans
 /// which record the decisions how to vectorize the given loop.

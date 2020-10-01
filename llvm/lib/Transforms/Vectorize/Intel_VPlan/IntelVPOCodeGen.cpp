@@ -15,7 +15,6 @@
 
 #include "IntelVPOCodeGen.h"
 #include "IntelLoopVectorizationLegality.h"
-#include "IntelVPSOAAnalysis.h"
 #include "IntelVPlan.h"
 #include "IntelVPlanCallVecDecisions.h"
 #include "IntelVPlanUtils.h"
@@ -1195,7 +1194,7 @@ void VPOCodeGen::vectorizeInstruction(VPInstruction *VPInst) {
     return;
   }
   case VPInstruction::AllocatePrivate: {
-    assert(!EnableSOAAnalysis &&
+    assert(!Plan->isSOAAnalysisEnabled() &&
            "SOA-aware codegen is currently not supported.");
     vectorizeAllocatePrivate(cast<VPAllocatePrivate>(VPInst));
     return;

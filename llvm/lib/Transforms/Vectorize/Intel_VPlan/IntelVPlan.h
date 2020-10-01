@@ -2731,6 +2731,9 @@ private:
   //      itself is very weak in HIR CG.
   bool DisableActiveLaneInstructions = false;
 
+  /// Enable SOA-analysis flag.
+  bool EnableSOAAnalysis = false;
+
   /// Holds the name of the VPlan, for printing.
   std::string Name;
 
@@ -2812,6 +2815,15 @@ public:
   bool areActiveLaneInstructionsDisabled() {
     return DisableActiveLaneInstructions;
   }
+
+  /// Disable SOA-analysis.
+  void disableSOAAnalysis() { EnableSOAAnalysis = false; }
+
+  /// Enable SOA-analysis.
+  void enableSOAAnalysis() { EnableSOAAnalysis = true; }
+
+  /// Return \true if SOA-analysis is enabled.
+  bool isSOAAnalysisEnabled() const { return EnableSOAAnalysis; }
 
   const DataLayout *getDataLayout() const { return Externals.getDataLayout(); }
 

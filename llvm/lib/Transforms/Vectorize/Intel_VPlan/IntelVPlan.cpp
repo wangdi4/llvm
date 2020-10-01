@@ -709,7 +709,7 @@ void VPlan::execute(VPTransformState *State) {
 
 #if INTEL_CUSTOMIZATION
 void VPlan::executeHIR(VPOCodeGenHIR *CG) {
-  assert(!EnableSOAAnalysis &&
+  assert(!isSOAAnalysisEnabled() &&
          "SOA Analysis and Codegen is not enabled along the HIR path.");
   ReversePostOrderTraversal<VPBasicBlock *> RPOT(getEntryBlock());
   const VPLoop *VLoop = CG->getVPLoop();
@@ -1139,6 +1139,10 @@ std::unique_ptr<VPlan> VPlan::clone(VPAnalysesFactory &VPAF,
   if (areActiveLaneInstructionsDisabled())
     ClonedVPlan->disableActiveLaneInstructions();
 
+  // Enable SOA-analysis if it was enabled in the original VPlan.
+  if (isSOAAnalysisEnabled())
+    ClonedVPlan->enableSOAAnalysis();
+
   // Set SCEV to Cloned Plan
   ClonedVPlan->setVPSE(VPAF.createVPSE());
 
@@ -1167,12 +1171,12 @@ std::unique_ptr<VPlan> VPlan::clone(VPAnalysesFactory &VPAF,
     ClonedVPlan->getVPlanDA()->compute(
         ClonedVPlan.get(), CandidateLoop, VPLInfo, *ClonedVPlan->getDT(),
         *ClonedVPlan->getPDT(), false /*Not in LCSSA form*/);
-    VPSOAAnalysis VPSOAA(*this, *CandidateLoop);
-    SmallPtrSet<VPInstruction *, 32> SOAVars;
-    VPSOAA.doSOAAnalysis(SOAVars);
-
-    if (EnableSOAAnalysis)
+    if (ClonedVPlan->isSOAAnalysisEnabled()) {
+      VPSOAAnalysis VPSOAA(*this, *CandidateLoop);
+      SmallPtrSet<VPInstruction *, 32> SOAVars;
+      VPSOAA.doSOAAnalysis(SOAVars);
       ClonedVPlan->getVPlanDA()->recomputeShapes(SOAVars);
+    }
   } else {
     auto ClonedVPlanDA = std::make_unique<VPlanDivergenceAnalysis>();
     ClonedVPlan->setVPlanDA(std::move(ClonedVPlanDA));
