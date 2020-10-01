@@ -217,7 +217,13 @@ _pi_context::getFreeSlotInExistingOrNewPool(ze_event_pool_handle_t &ZePool,
 
     ze_event_pool_desc_t ZeEventPoolDesc = {};
     ZeEventPoolDesc.count = MaxNumEventsPerPool;
-    ZeEventPoolDesc.flags = ZE_EVENT_POOL_FLAG_KERNEL_TIMESTAMP;
+
+    // Make all events visible on the host.
+    // TODO: events that are used only on device side APIs can be optimized
+    // to not be from the host-visible pool.
+    //
+    ZeEventPoolDesc.flags =
+        ZE_EVENT_POOL_FLAG_HOST_VISIBLE | ZE_EVENT_POOL_FLAG_KERNEL_TIMESTAMP;
 
     ze_device_handle_t ZeDevice = Device->ZeDevice;
     if (ze_result_t ZeRes = zeEventPoolCreate(ZeContext, &ZeEventPoolDesc, 1,
