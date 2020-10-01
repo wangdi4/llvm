@@ -459,6 +459,7 @@ class AndersensAAResult : public AAResultBase<AndersensAAResult>,
 
 public:
   AndersensAAResult(AndersensAAResult &&Arg);
+  ~AndersensAAResult();
 
   enum AndersenSetResult {
     Complete,                // All targets have the same type
