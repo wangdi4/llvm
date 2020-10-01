@@ -1747,13 +1747,9 @@ protected: // INTEL
   /// Context. If Context is nullptr, then the found predicate is true
   /// everywhere.
   bool isImpliedCond(ICmpInst::Predicate Pred, const SCEV *LHS, const SCEV *RHS,
-<<<<<<< HEAD
-                     const Value *FoundCondValue, bool Inverse, // INTEL
-                     const ICmpInst *PredContext = nullptr);    // INTEL
-=======
                      const Value *FoundCondValue, bool Inverse,
-                     const Instruction *Context = nullptr);
->>>>>>> 69acdfe075fa8eb18781f88f4d0cd1ea40fa6e48
+                     const Instruction *Context = nullptr,   // INTEL
+                     const ICmpInst *PredContext = nullptr); // INTEL
 
   /// Test whether the condition described by Pred, LHS, and RHS is true
   /// whenever the condition described by FoundPred, FoundLHS, FoundRHS is
@@ -1761,14 +1757,10 @@ protected: // INTEL
   /// true everywhere.
   bool isImpliedCond(ICmpInst::Predicate Pred, const SCEV *LHS, const SCEV *RHS,
                      ICmpInst::Predicate FoundPred, const SCEV *FoundLHS,
-<<<<<<< HEAD
-                     const SCEV *FoundRHS,                  // INTEL
+                     const SCEV *FoundRHS,
+                     const Instruction *Context = nullptr,        // INTEL
                      const ICmpInst *PredContext = nullptr,       // INTEL
                      const ICmpInst *FoundPredContext = nullptr); // INTEL
-=======
-                     const SCEV *FoundRHS,
-                     const Instruction *Context = nullptr);
->>>>>>> 69acdfe075fa8eb18781f88f4d0cd1ea40fa6e48
 
   /// Test whether the condition described by Pred, LHS, and RHS is true
   /// whenever the condition described by Pred, FoundLHS, and FoundRHS is
