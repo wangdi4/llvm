@@ -7638,6 +7638,13 @@ public:
       // The base is the 'this' pointer. The content of the pointer is going
       // to be the base of the field being mapped.
       BP = CGF.LoadCXXThisAddress();
+#if INTEL_COLLAB
+    } else if (CGF.CGM.getLangOpts().OpenMPLateOutline && OASE &&
+               isa<CXXThisExpr>(OASE->getBase()->IgnoreParenImpCasts())) {
+      BP = Address(
+             CGF.EmitScalarExpr(OASE->getBase()),
+             CGF.getContext().getTypeAlignInChars(OASE->getBase()->getType()));
+#endif  // INTEL_COLLAB
     } else if ((AE && isa<CXXThisExpr>(AE->getBase()->IgnoreParenImpCasts())) ||
                (OASE &&
                 isa<CXXThisExpr>(OASE->getBase()->IgnoreParenImpCasts()))) {
@@ -7774,6 +7781,13 @@ public:
           LB = Address(CGF.EmitScalarExpr(OAShE->getBase()),
                        CGF.getContext().getTypeAlignInChars(
                            OAShE->getBase()->getType()));
+#if INTEL_COLLAB
+        } else if (CGF.CGM.getLangOpts().OpenMPLateOutline && OASE &&
+                   isa<CXXThisExpr>(OASE->getBase()->IgnoreParenImpCasts())) {
+          LB = Address(CGF.EmitScalarExpr(OASE->getBase()),
+                       CGF.getContext().getTypeAlignInChars(
+                           OASE->getBase()->getType()));
+#endif  // INTEL_COLLAB
         } else {
           LB = CGF.EmitOMPSharedLValue(I->getAssociatedExpression())
                    .getAddress(CGF);
