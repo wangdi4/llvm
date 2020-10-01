@@ -6639,6 +6639,10 @@ bool VPOParoptTransform::sinkSIMDDirectives(WRegionNode *W) {
 // !0 = distinct !{}
 // !1 = distinct !{!1, !2}
 // !2 = !{!"llvm.loop.parallel_accesses", !0}
+//
+#if INTEL_CUSTOMIZATION
+// Also attach loop-level llvm.loop.vectorize.ivdep_loop metadata here.
+#endif  // INTEL_CUSTOMIZATION
 bool VPOParoptTransform::genParallelAccessMetadata(WRegionNode *W) {
   if (!W->getIsOmpLoop() || W->getIsSections() || isa<WRNDistributeNode>(W))
     return false;
@@ -6668,6 +6672,18 @@ bool VPOParoptTransform::genParallelAccessMetadata(WRegionNode *W) {
 
   LLVMContext &C = F->getContext();
   Loop *L = W->getWRNLoopInfo().getLoop();
+  bool Modified = false;
+
+#if INTEL_CUSTOMIZATION
+  // Add llvm.loop.vectorize.ivdep_loop metadata to the loop.
+  // This metadata is attached to the loop as per the LLVM
+  // addStringMetadataToLoop/findStringMetadataForLoop interfaces. It indicates
+  // that the loop carries no dependences through memory.
+  if (!findStringMetadataForLoop(L, "llvm.loop.vectorize.ivdep_loop")) {
+    addStringMetadataToLoop(L, "llvm.loop.vectorize.ivdep_loop");
+    Modified = true;
+  }
+#endif  // INTEL_CUSTOMIZATION
 
   // Add access group metadata to all memory r/w instructions in the loop.
   MDNode *AG = nullptr;
@@ -6691,7 +6707,7 @@ bool VPOParoptTransform::genParallelAccessMetadata(WRegionNode *W) {
         I.setMetadata(LLVMContext::MD_access_group, AG);
     }
   if (!AG)
-    return false;
+    return Modified;
 
   // Now add parallel access metadata to the loop. If loop already has loop
   // metadata, then it need to be retained.
@@ -6708,8 +6724,9 @@ bool VPOParoptTransform::genParallelAccessMetadata(WRegionNode *W) {
   MDNode *NewID = MDNode::get(C, MDs);
   NewID->replaceOperandWith(0, NewID);
   L->setLoopID(NewID);
+  Modified = true;
 
-  return true;
+  return Modified;
 }
 
 void VPOParoptTransform::simplifyLoopPHINodes(

@@ -1,5 +1,9 @@
-; RUN: opt -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -simplifycfg -S %s | FileCheck %s
-; RUN: opt -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt,function(simplify-cfg)' -S %s | FileCheck %s
+; RUN: opt -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -simplifycfg -S %s | FileCheck --check-prefixes=CHECK,CHECKPA %s
+; RUN: opt -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt,function(simplify-cfg)' -S %s | FileCheck --check-prefixes=CHECK,CHECKPA %s
+; INTEL_CUSTOMIZATION
+; RUN: opt -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -simplifycfg -S %s | FileCheck --check-prefixes=CHECK,CHECKIV %s
+; RUN: opt -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt,function(simplify-cfg)' -S %s | FileCheck --check-prefixes=CHECK,CHECKIV %s
+; end INTEL_CUSTOMIZATION
 ;
 ; This test checks that paropt pass adds parallel access metadata to loops
 ; with non-monotonic property.
@@ -77,29 +81,60 @@
 ; CHECK: br i1 %{{.+}}, label %{{.+}}, label %{{.+}}, !llvm.loop ![[ID6:[0-9]+]]
 ; CHECK: call void @llvm.directive.region.exit(token [[T6]]) [ "DIR.OMP.END.SIMD"() ]
 ;
-; CHECK: ![[AG1]] = distinct !{}
-; CHECK: ![[ID1]] = distinct !{![[ID1]]{{.*}}, ![[PA1:[0-9]+]]}
-; CHECK: ![[PA1]] = !{!"llvm.loop.parallel_accesses", ![[AG1]]}
+; INTEL_CUSTOMIZATION
+; The section below checks the metadata attached to the loops. The combination
+; of CHECK and CHECKPA prefixes check the parallel access metadata, while the
+; CHECK and CHECKIV prefixes check for the ivdep loop marking.
+; end INTEL_CUSTOMIZATION
 ;
-; CHECK: ![[AG2]] = distinct !{}
-; CHECK: ![[ID2]] = distinct !{![[ID2]]{{.*}}, ![[PA2:[0-9]+]]}
-; CHECK: ![[PA2]] = !{!"llvm.loop.parallel_accesses", ![[AG2]]}
+; CHECK:     ![[AG1]] = distinct !{}
+; CHECKPA-DAG: ![[PA1:[0-9]+]] = !{!"llvm.loop.parallel_accesses", ![[AG1]]}
+; CHECKPA-DAG: ![[ID1]] = distinct !{![[ID1]]{{.*}}, ![[PA1]]{{[,\}]}}
 ;
-; CHECK: ![[AG3]] = distinct !{}
-; CHECK: ![[ID3]] = distinct !{![[ID3]]{{.*}}, ![[PA3:[0-9]+]]}
-; CHECK: ![[PA3]] = !{!"llvm.loop.parallel_accesses", ![[AG3]]}
+; INTEL_CUSTOMIZATION
+; CHECKIV-DAG: ![[IV1:[0-9]+]] = !{!"llvm.loop.vectorize.ivdep_loop", i32 0}
+; CHECKIV-DAG: ![[ID1]] = distinct !{![[ID1]]{{.*}}, ![[IV1]]{{[,\}]}}
+; end INTEL_CUSTOMIZATION
 ;
-; CHECK: ![[AG4]] = distinct !{}
-; CHECK: ![[ID4]] = distinct !{![[ID4]]{{.*}}, ![[PA4:[0-9]+]]}
-; CHECK: ![[PA4]] = !{!"llvm.loop.parallel_accesses", ![[AG4]]}
+; CHECK:     ![[AG2]] = distinct !{}
+; CHECKPA-DAG: ![[PA2:[0-9]+]] = !{!"llvm.loop.parallel_accesses", ![[AG2]]}
+; CHECKPA-DAG: ![[ID2]] = distinct !{![[ID2]]{{.*}}, ![[PA2]]{{[,\}]}}
 ;
-; CHECK: ![[AG5]] = distinct !{}
-; CHECK: ![[ID5]] = distinct !{![[ID5]]{{.*}}, ![[PA5:[0-9]+]]}
-; CHECK: ![[PA5]] = !{!"llvm.loop.parallel_accesses", ![[AG5]]}
+; INTEL_CUSTOMIZATION
+; CHECKIV-DAG: ![[ID2]] = distinct !{![[ID2]]{{.*}}, ![[IV1]]{{[,\}]}}
+; end INTEL_CUSTOMIZATION
 ;
-; CHECK: ![[AG6]] = distinct !{}
-; CHECK: ![[ID6]] = distinct !{![[ID6]]{{.*}}, ![[PA6:[0-9]+]]}
-; CHECK: ![[PA6]] = !{!"llvm.loop.parallel_accesses", ![[AG6]]}
+; CHECK:     ![[AG3]] = distinct !{}
+; CHECKPA-DAG: ![[PA3:[0-9]+]] = !{!"llvm.loop.parallel_accesses", ![[AG3]]}
+; CHECKPA-DAG: ![[ID3]] = distinct !{![[ID3]]{{.*}}, ![[PA3]]{{[,\}]}}
+;
+; INTEL_CUSTOMIZATION
+; CHECKIV-DAG: ![[ID3]] = distinct !{![[ID3]]{{.*}}, ![[IV1]]{{[,\}]}}
+; end INTEL_CUSTOMIZATION
+;
+; CHECK:     ![[AG4]] = distinct !{}
+; CHECKPA-DAG: ![[PA4:[0-9]+]] = !{!"llvm.loop.parallel_accesses", ![[AG4]]}
+; CHECKPA-DAG: ![[ID4]] = distinct !{![[ID4]]{{.*}}, ![[PA4]]{{[,\}]}}
+;
+; INTEL_CUSTOMIZATION
+; CHECKIV-DAG: ![[ID4]] = distinct !{![[ID4]]{{.*}}, ![[IV1]]{{[,\}]}}
+; end INTEL_CUSTOMIZATION
+;
+; CHECK:     ![[AG5]] = distinct !{}
+; CHECKPA-DAG: ![[PA5:[0-9]+]] = !{!"llvm.loop.parallel_accesses", ![[AG5]]}
+; CHECKPA-DAG: ![[ID5]] = distinct !{![[ID5]]{{.*}}, ![[PA5]]{{[,\}]}}
+;
+; INTEL_CUSTOMIZATION
+; CHECKIV-DAG: ![[ID5]] = distinct !{![[ID5]]{{.*}}, ![[IV1]]{{[,\}]}}
+; end INTEL_CUSTOMIZATION
+;
+; CHECK:     ![[AG6]] = distinct !{}
+; CHECKPA-DAG: ![[PA6:[0-9]+]] = !{!"llvm.loop.parallel_accesses", ![[AG6]]}
+; CHECKPA-DAG: ![[ID6]] = distinct !{![[ID6]]{{.*}}, ![[PA6]]{{[,\}]}}
+;
+; INTEL_CUSTOMIZATION
+; CHECKIV-DAG: ![[ID6]] = distinct !{![[ID6]]{{.*}}, ![[IV1]]{{[,\}]}}
+; end INTEL_CUSTOMIZATION
 ;
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
