@@ -161,12 +161,8 @@ MODULE_PASS("strip-dead-prototypes", StripDeadPrototypesPass())
 MODULE_PASS("strip-debug-declare", StripDebugDeclarePass())
 MODULE_PASS("strip-nondebug", StripNonDebugSymbolsPass())
 MODULE_PASS("synthetic-counts-propagation", SyntheticCountsPropagation())
-<<<<<<< HEAD
 MODULE_PASS("tilemvinlmarker", TileMVInlMarkerPass()) // INTEL
-MODULE_PASS("wholeprogramdevirt", WholeProgramDevirtPass(nullptr, nullptr))
-=======
 MODULE_PASS("wholeprogramdevirt", WholeProgramDevirtPass())
->>>>>>> 460dda071e091df3b5584f21954c9209e7334c50
 MODULE_PASS("verify", VerifierPass())
 MODULE_PASS("dfsan", DataFlowSanitizerPass())
 MODULE_PASS("asan-module", ModuleAddressSanitizerPass(/*CompileKernel=*/false, false, true, false))
