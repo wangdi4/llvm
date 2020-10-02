@@ -7575,11 +7575,25 @@ bool VPOParoptTransform::genLoopSchedulingCode(
   wrnUpdateSSAPreprocess(L, ValueToLiveinMap, LiveOutVals, ECs);
 
 #if INTEL_CUSTOMIZATION
-  // Try to find loop upper bound and if known add trip count information to the
-  // loop as metadata.
+  // Try to find average and maximum trip counts for the loop. If loop has
+  // static or dynamic schedule and known chunk then both average and maximum
+  // trip counts will be equal to the chunk value.
+  Optional<APInt> MaxTC, AvgTC;
+  if (W->canHaveSchedule() && (SchedKind == WRNScheduleStatic ||
+                               SchedKind == WRNScheduleOrderedStatic ||
+                               SchedKind == WRNScheduleDynamic ||
+                               SchedKind == WRNScheduleOrderedDynamic))
+    if (auto *Chunk =
+            dyn_cast_or_null<ConstantInt>(W->getSchedule().getChunkExpr()))
+      if (!Chunk->isZero() && !Chunk->isOne()) {
+        MaxTC = Chunk->getValue();
+        AvgTC = Chunk->getValue();
+      }
+
+  // Try to find loop's upper bound to get maximum trip count if it is not known
+  // yet.
   // TODO: add support for collapsed loops with more than one normalized UB.
-  if (!findStringMetadataForLoop(L, "llvm.loop.intel.loopcount_maximum") &&
-      W->getWRNLoopInfo().getNormUBSize() == 1) {
+  if (!MaxTC && W->getWRNLoopInfo().getNormUBSize() == 1) {
     if (auto *UB = dyn_cast<AllocaInst>(W->getWRNLoopInfo().getNormUB(0))) {
       // Walk UB uses trying to find single store that initializes UB.
       StoreInst *SingleStore = nullptr;
@@ -7608,13 +7622,20 @@ bool VPOParoptTransform::genLoopSchedulingCode(
       // If we have found single store check what is being stored. If it is a
       // constant integer then trip count is known.
       if (SingleStore)
-        if (auto *CI = dyn_cast<ConstantInt>(SingleStore->getValueOperand())) {
-          APInt MaxTC = CI->getValue() + 1u;
-          addStringMetadataToLoop(L, "llvm.loop.intel.loopcount_maximum",
-                                  MaxTC.getZExtValue());
-        }
+        if (auto *CI = dyn_cast<ConstantInt>(SingleStore->getValueOperand()))
+          MaxTC = CI->getValue() + 1u;
     }
   }
+
+  if (MaxTC &&
+      !findStringMetadataForLoop(L, "llvm.loop.intel.loopcount_maximum"))
+    addStringMetadataToLoop(L, "llvm.loop.intel.loopcount_maximum",
+                            MaxTC->getZExtValue());
+
+  if (AvgTC &&
+      !findStringMetadataForLoop(L, "llvm.loop.intel.loopcount_average"))
+    addStringMetadataToLoop(L, "llvm.loop.intel.loopcount_average",
+                            AvgTC->getZExtValue());
 #endif // INTEL_CUSTOMIZATION
 
   //
