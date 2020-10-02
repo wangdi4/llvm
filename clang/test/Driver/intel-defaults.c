@@ -1,8 +1,6 @@
 // default behavior with --intel
 // RUN: %clang -### -c --intel %s 2>&1 | FileCheck -check-prefixes=CHECK-INTEL,CHECK-INTEL-LIN %s
 // RUN: %clang_cl -### -c --intel %s 2>&1 | FileCheck -check-prefixes=CHECK-INTEL,CHECK-INTEL-WIN %s
-// RUN: %clang -### -c --dpcpp %s 2>&1 | FileCheck -check-prefix CHECK-INTEL %s
-// RUN: %clang_cl -### -c --dpcpp %s 2>&1 | FileCheck -check-prefixes=CHECK-INTEL,CHECK-INTEL-WIN %s
 // CHECK-INTEL: "-fveclib=SVML"
 // CHECK-INTEL-NOT: "-relaxed-aliasing"
 // CHECK-INTEL-WIN: "-ffunction-sections"
