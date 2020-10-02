@@ -919,7 +919,7 @@ bool ArrayTransposeImpl::parseUnoptimizedSCEVExprs(
   std::function<bool(const SCEV *, int64_t)> ParseScaledAddRecExpr;
   std::function<bool(const SCEV *, int64_t)> ParseScaledExpr;
 
-  // Returns true if "SC" is terminal or "SExt (terminal)".
+  // Returns true if "SC" is terminal or "SExt (terminal)" / "ZExt (terminal)".
   auto CheckTerminal = [&](const SCEV *SC) {
     // Allowing base pointer only at top level expression tree.
     if (SC == Base)
@@ -928,6 +928,9 @@ bool ArrayTransposeImpl::parseUnoptimizedSCEVExprs(
       return true;
     auto SignExt = dyn_cast<SCEVSignExtendExpr>(SC);
     if (SignExt && isa<SCEVUnknown>(SignExt->getOperand()))
+      return true;
+    auto ZeroExt = dyn_cast<SCEVZeroExtendExpr>(SC);
+    if (ZeroExt && isa<SCEVUnknown>(ZeroExt->getOperand()))
       return true;
     return false;
   };
