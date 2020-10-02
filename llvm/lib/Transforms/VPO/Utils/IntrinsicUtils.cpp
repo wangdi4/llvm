@@ -183,22 +183,24 @@ CallInst *VPOUtils::genMemcpy(Value *D, Value *S, const DataLayout &DL,
                               unsigned Align, Instruction *InsertPt) {
   IRBuilder<> MemcpyBuilder(InsertPt);
 
-  Value *Dest, *Src, *Size;
-
   // The first two arguments of the memcpy expects the i8* operands.
   // The instruction bitcast is introduced if the incoming src or dest
   // operand in not in i8 type.
-  if (D->getType() !=
-      Type::getInt8PtrTy(InsertPt->getContext())) {
-    Dest = MemcpyBuilder.CreatePointerCast(D, MemcpyBuilder.getInt8PtrTy());
-    Src = MemcpyBuilder.CreatePointerCast(S, MemcpyBuilder.getInt8PtrTy());
-  }
-  else {
-    Dest = D;
-    Src = S;
-  }
+  Value *Dest = D;
+  Type *NewDestTy = MemcpyBuilder.getInt8PtrTy(
+      cast<PointerType>(D->getType())->getAddressSpace());
+  if (D->getType() != NewDestTy)
+    Dest = MemcpyBuilder.CreatePointerCast(D, NewDestTy);
+
+  Value *Src = S;
+  Type *NewSrcTy = MemcpyBuilder.getInt8PtrTy(
+      cast<PointerType>(S->getType())->getAddressSpace());
+  if (S->getType() != NewSrcTy)
+    Src = MemcpyBuilder.CreatePointerCast(S, NewSrcTy);
+
   // For 32/64 bit architecture, the size and alignment should be
   // set accordingly.
+  Value *Size = nullptr;
   if (DL.getIntPtrType(MemcpyBuilder.getInt8PtrTy())->getIntegerBitWidth() ==
       64)
     Size = MemcpyBuilder.getInt64(
