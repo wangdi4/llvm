@@ -72,7 +72,7 @@ attributes #2 = { "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-
 !1 = !{i32 0, i32 64768, i32 11346413, !"_Z5lbm_1v", i32 7, i32 0, i32 0}
 !2 = !{i32 1, !"wchar_size", i32 4}
 !3 = !{i32 7, !"PIC Level", i32 2}
-!4 = !{!"Intel(R) oneAPI DPC++ Compiler Pro 2021.1 (YYYY.x.0.MMDD)"}
+!4 = !{!"clang version 10.0.0"}
 !5 = !{!6, !6, i64 0}
 !6 = !{!"int", !7, i64 0}
 !7 = !{!"omnipotent char", !8, i64 0}

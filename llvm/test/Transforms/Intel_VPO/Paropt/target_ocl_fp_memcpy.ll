@@ -99,4 +99,4 @@ attributes #1 = { nounwind }
 !1 = !{i32 1, !"wchar_size", i32 4}
 !2 = !{i32 7, !"PIC Level", i32 2}
 !3 = !{}
-!4 = !{!"Intel(R) oneAPI DPC++ Compiler Pro 2021.1 (YYYY.x.0.MMDD)"}
+!4 = !{!"clang version 10.0.0"}
