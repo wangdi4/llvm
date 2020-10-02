@@ -53,8 +53,10 @@ VPlanScalarEvolutionLLVM::asConstStepLinear(VPlanSCEV *Expr) const {
 
 Optional<VPConstStepInduction>
 VPlanScalarEvolutionLLVM::asConstStepInduction(VPlanSCEV *Expr) const {
-  const SCEV *ScevExpr = toSCEV(Expr);
+  if (!Expr)
+    return None;
 
+  const SCEV *ScevExpr = toSCEV(Expr);
   if (!isa<SCEVAddRecExpr>(ScevExpr))
     return None;
 

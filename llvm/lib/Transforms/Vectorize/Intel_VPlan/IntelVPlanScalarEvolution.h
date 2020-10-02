@@ -46,6 +46,13 @@ public:
   virtual ~VPlanScalarEvolution() {}
 
   /// Compute VPlanSCEV expression for value \p V.
+  /// NOTE: Implementations of this method rely on IR-based ScalarEvolution.
+  ///       This means that the method cannot be used after underlying IR is
+  ///       modified. That is, this method cannot be used in VPO CodeGen.
+  /// NOTE: Clients should always prefer using VPLoadStoreInst::getAddressSCEV()
+  ///       method. getAddressSCEV() is safe to use even in CodeGen, and it is
+  ///       potentially more powerful (AddressSCEV can be set even for values
+  ///       without underlying IR).
   virtual VPlanSCEV *getVPlanSCEV(const VPValue &V) = 0;
 
   /// Return (LHS - RHS).
