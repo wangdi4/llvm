@@ -1,3 +1,8 @@
+# IF INTEL_CUSTOMIZATION
+# This test case has been marked as unsupported for OCL compiler and Windows
+# until the issue with CMPLRLLVM-10268 is fixed.
+# UNSUPPORTED: intel_opencl && i686-pc-windows
+# END INTEL_CUSTOMIZATION
 # REQUIRES: x86
 # RUN: llvm-mc -filetype=obj -triple=x86_64-apple-darwin %s -o %t.o
 # RUN: %lld -lSystem %t.o -o %t
