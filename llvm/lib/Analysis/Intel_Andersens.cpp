@@ -3395,7 +3395,11 @@ void AndersensAAResult::OptimizeConstraints() {
   for (unsigned i = 0; i < GraphNodes.size(); ++i) {
     Node *N = &GraphNodes[i];
     if (FindNode(i) == i) {
+      if (N->PointsTo)
+        delete N->PointsTo;
       N->PointsTo = new SparseBitVector<>;
+      if (N->PointedToBy)
+        delete N->PointedToBy;
       N->PointedToBy = new SparseBitVector<>;
       // Reset our labels
     }
@@ -3427,6 +3431,29 @@ void AndersensAAResult::OptimizeConstraints() {
   HCD();
   SDTActive = true;
 
+  for (unsigned I = 0, E = GraphNodes.size(); I != E; ++I) {
+    Node *N = &GraphNodes[I];
+    if (N->PredEdges) {
+      delete N->PredEdges;
+      N->PredEdges = nullptr;
+    }
+    if (N->ImplicitPredEdges) {
+      delete N->ImplicitPredEdges;
+      N->ImplicitPredEdges = nullptr;
+    }
+    if (N->PointsTo) {
+      delete N->PointsTo;
+      N->PointsTo = nullptr;
+    }
+    if (N->PointedToBy) {
+      delete N->PointedToBy;
+      N->PointedToBy = nullptr;
+    }
+    if (N->Edges) {
+      delete N->Edges;
+      N->Edges = nullptr;
+    }
+  }
   // No longer any need for the upper half of GraphNodes (for ref nodes).
   GraphNodes.erase(GraphNodes.begin() + FirstRefNode, GraphNodes.end());
 
@@ -3991,7 +4018,9 @@ void AndersensAAResult::SolveConstraints() {
   for (unsigned i = 0; i < GraphNodes.size(); ++i) {
     Node *N = &GraphNodes[i];
     delete N->OldPointsTo;
+    N->OldPointsTo = nullptr;
     delete N->Edges;
+    N->Edges = nullptr;
   }
   SDTActive = false;
   SDT.clear();
@@ -4174,6 +4203,14 @@ void AndersensAAResult::printValueNode(const Value *V)
 
 }
 
+AndersensAAResult::~AndersensAAResult() {
+  for (unsigned i = 0, e = GraphNodes.size(); i != e; ++i) {
+    Node *N = &GraphNodes[i];
+    if (N->PointsTo)
+      delete N->PointsTo;
+  }
+  GraphNodes.clear();
+}
 
 //===----------------------------------------------------------------------===//
 //                               Debugging Output
@@ -6754,6 +6791,22 @@ void AndersensAAResult::PerformEscAnal(Module &M) {
       ProcessOpaqueNode(NodeIdx);
   }
   MarkEscaped();
+
+  for (unsigned I = 0, E = GraphNodes.size(); I != E; ++I) {
+    Node *N = &GraphNodes[I];
+    if (N->InEdges) {
+      delete N->InEdges;
+      N->InEdges = nullptr;
+    }
+    if (N->OutEdges) {
+      delete N->OutEdges;
+      N->OutEdges = nullptr;
+    }
+    if (N->RevPointsTo) {
+      delete N->RevPointsTo;
+      N->RevPointsTo = nullptr;
+    }
+  }
 }
 
 // Returns true if the value "V" is "__acrt_iob_func(1)"
