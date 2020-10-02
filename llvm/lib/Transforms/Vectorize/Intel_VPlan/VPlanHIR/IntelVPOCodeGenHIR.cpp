@@ -635,7 +635,7 @@ void HandledCheck::visit(HLDDNode *Node) {
       // not profitable specifically for non-AVX512 targets. Check JIRA :
       // CMPLRLLVM-11468.
       if (TrivialVectorIntrinsic && ID == Intrinsic::fabs &&
-          !VPlanAssumeMaskedFabsProfitable && !CG->targetHasAVX512())
+          !VPlanAssumeMaskedFabsProfitable && !CG->targetHasIntelAVX512())
         TrivialVectorIntrinsic = false;
       if (isa<HLIf>(Inst->getParent()) &&
           (VF > 1 && !TrivialVectorIntrinsic &&
@@ -4442,9 +4442,9 @@ void VPOCodeGenHIR::createAndMapLoopEntityRefs(unsigned VF) {
   // TODO
 }
 
-bool VPOCodeGenHIR::targetHasAVX512() const {
+bool VPOCodeGenHIR::targetHasIntelAVX512() const {
   return TTI->isAdvancedOptEnabled(
-      TargetTransformInfo::AdvancedOptLevel::AO_TargetHasAVX512);
+      TargetTransformInfo::AdvancedOptLevel::AO_TargetHasIntelAVX512);
 }
 
 void VPOCodeGenHIR::widenNode(const VPInstruction *VPInst, RegDDRef *Mask,

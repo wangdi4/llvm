@@ -93,9 +93,10 @@ public:
 } // namespace
 
 bool HIRNontemporalMarking::run() {
-  if (DisablePass || !(
-      TTI.isAdvancedOptEnabled(TargetTransformInfo::AO_TargetHasAVX512) ||
-      TTI.isAdvancedOptEnabled(TargetTransformInfo::AO_TargetHasIntelAVX2))) {
+  if (DisablePass ||
+      !(TTI.isAdvancedOptEnabled(
+            TargetTransformInfo::AO_TargetHasIntelAVX512) ||
+        TTI.isAdvancedOptEnabled(TargetTransformInfo::AO_TargetHasIntelAVX2))) {
     return false;
   }
 

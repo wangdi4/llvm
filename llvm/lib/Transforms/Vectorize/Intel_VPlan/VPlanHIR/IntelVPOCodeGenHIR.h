@@ -487,7 +487,7 @@ public:
 
   // Utility to check if target being compiled for has AVX512 Intel
   // optimizations.
-  bool targetHasAVX512() const;
+  bool targetHasIntelAVX512() const;
 
   void setUniformControlFlowSeen() {
     // Search loops do not go through predication currently and code generation
