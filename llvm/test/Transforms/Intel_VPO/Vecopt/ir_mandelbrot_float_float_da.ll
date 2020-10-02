@@ -3,6 +3,9 @@
 ; REQUIRES: asserts
 ; RUN: opt -vplan-print-terminator-inst=false -vplan-enable-soa=false -S %s -VPlanDriver -vplan-dump-da 2>&1 -disable-output | FileCheck %s
 
+; The run line below used to crash before CMPLRLLVM-22366 was fixed.
+; RUN: opt -S %s -VPlanDriver -vplan-dump-da -vplan-enable-all-zero-bypass-loops=0 -disable-output
+
 ; For VPValue-based CG, loop private variables and their corresponding users are marked as divergent by DA.
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"

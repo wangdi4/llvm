@@ -264,12 +264,12 @@ VPlanPeelingAnalysis::selectBestDynamicPeelingVariant(int VF) {
 void VPlanPeelingAnalysis::collectCandidateMemrefs(VPlan &Plan) {
   for (auto &VPBB : Plan)
     for (auto &VPInst : VPBB) {
-      auto Opcode = VPInst.getOpcode();
-      if (Opcode != Instruction::Load && Opcode != Instruction::Store)
+      auto *LS = dyn_cast<VPLoadStoreInst>(&VPInst);
+      if (!LS)
         continue;
 
-      auto *Pointer = getLoadStorePointerOperand(&VPInst);
-      auto *Expr = VPSE->getVPlanSCEV(*Pointer);
+      auto *Pointer = LS->getPointerOperand();
+      auto *Expr = LS->getAddressSCEV();
       Optional<VPConstStepInduction> Ind = VPSE->asConstStepInduction(Expr);
 
       // Skip if access address is not an induction variable.
@@ -379,8 +379,7 @@ Align VPlanAlignmentAnalysis::getAlignmentUnitStride(
 
   Align AlignFromIR = Memref.getAlignment();
 
-  auto Expr = VPSE->getVPlanSCEV(*getLoadStorePointerOperand(&Memref));
-  auto Ind = VPSE->asConstStepInduction(Expr);
+  auto Ind = VPSE->asConstStepInduction(Memref.getAddressSCEV());
   if (!Ind)
     return AlignFromIR;
 
