@@ -2092,7 +2092,7 @@ bool VPOParoptTransform::paroptTransforms() {
           Changed |= genFirstPrivatizationCode(W);
           // Changed |= genDestructorCode(W);
           if (!W->getNowait())
-            Changed |= genBarrier(W, false);
+            Changed |= genBarrier(W, false, isTargetSPIRV());
           RemoveDirectives = true;
         }
         break;
