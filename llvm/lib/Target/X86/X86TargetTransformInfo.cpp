@@ -4682,15 +4682,15 @@ bool X86TTIImpl::isAdvancedOptEnabled(TTI::AdvancedOptLevel AO) const {
     // be the case so we test in each case below rather than doing an early
     // return.
     switch(AO) {
-    case TTI::AdvancedOptLevel::AO_TargetHasSSE42:
+    case TTI::AdvancedOptLevel::AO_TargetHasIntelSSE42:
       return IntelTargetCheck && ST->hasSSE42();
-    case TTI::AdvancedOptLevel::AO_TargetHasAVX:
+    case TTI::AdvancedOptLevel::AO_TargetHasIntelAVX:
       return IntelTargetCheck && ST->hasAVX();
     case TTI::AdvancedOptLevel::AO_TargetHasIntelAVX2:
       return IntelTargetCheck && ST->hasAVX2();
-    case TTI::AdvancedOptLevel::AO_TargetHasAVX2:
+    case TTI::AdvancedOptLevel::AO_TargetHasGenericAVX2:
       return ST->hasAVX2();
-    case TTI::AdvancedOptLevel::AO_TargetHasAVX512:
+    case TTI::AdvancedOptLevel::AO_TargetHasIntelAVX512:
       return IntelTargetCheck && ST->hasAVX512();
     default:
       return false;

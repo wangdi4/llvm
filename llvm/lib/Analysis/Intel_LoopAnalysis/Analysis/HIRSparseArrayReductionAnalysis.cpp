@@ -644,7 +644,7 @@ void HIRSparseArrayReductionAnalysis::validateAndCreateSparseArrayReduction(
   // platforms.
   HLNode *ParentNode =
       TTI.isAdvancedOptEnabled(
-          TargetTransformInfo::AdvancedOptLevel::AO_TargetHasAVX512)
+          TargetTransformInfo::AdvancedOptLevel::AO_TargetHasIntelAVX512)
           ? StoreNode->getLexicalParentLoop()
           : StoreNode->getParent();
 
