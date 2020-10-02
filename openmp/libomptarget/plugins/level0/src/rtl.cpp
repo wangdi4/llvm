@@ -1499,9 +1499,21 @@ __tgt_target_table *__tgt_rtl_load_binary(int32_t DeviceId,
       0, // flags
       name,
     };
-    CALL_ZE_RET_NULL(zeKernelCreate, mainModule, &kernelDesc, &kernels[i]);
+    ze_result_t rc = ZE_RESULT_ERROR_UNKNOWN;
+    CALL_ZE_RC(rc, zeKernelCreate, mainModule, &kernelDesc, &kernels[i]);
+    if (rc != ZE_RESULT_SUCCESS) {
+      // If a kernel was deleted by optimizations (e.g. DCE), then
+      // zeCreateKernel will fail. We expect that such a kernel
+      // will never be actually invoked.
+      IDP("Warning: Failed to create kernel %s\n", name);
+      kernels[i] = nullptr;
+    }
     entries[i].addr = &kernels[i];
     entries[i].name = name;
+
+    // Do not try to query information for deleted kernels.
+    if (!kernels[i])
+      continue;
 
     // Retrieve kernel group size info.
     // L0 does not have API for accessing kernel's sub group size, so it is
@@ -1512,7 +1524,6 @@ __tgt_target_table *__tgt_rtl_load_binary(int32_t DeviceId,
     auto &subGroupSizes = computeProperties.subGroupSizes;
     auto numSubGroupSizes = computeProperties.numSubGroupSizes;
     ze_kernel_properties_t kernelProperties;
-    uint32_t rc;
     CALL_ZE(rc, zeKernelGetProperties, kernels[i], &kernelProperties);
     if (DeviceInfo->ForcedKernelWidth > 0) {
       DeviceInfo->KernelProperties[DeviceId][kernels[i]].Width =
@@ -2157,6 +2168,10 @@ static int32_t runTargetTeamRegion(
   std::unique_lock<std::mutex> kernelLock(DeviceInfo->Mutexes[DeviceId]);
 
   ze_kernel_handle_t kernel = *((ze_kernel_handle_t *)TgtEntryPtr);
+  if (!kernel) {
+    REPORT("Failed to invoke deleted kernel.\n");
+    return OFFLOAD_FAIL;
+  }
   std::string tmName("Kernel#");
   size_t kernelNameSize = 0;
   CALL_ZE_RET_FAIL(zeKernelGetName, kernel, &kernelNameSize, nullptr);
