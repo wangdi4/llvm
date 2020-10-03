@@ -2,9 +2,9 @@
 
 ; Test to check VPlan unroller for an auto-vectorized loop with SafeReduction.
 
-; RUN: opt -S < %s -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -VPlanDriverHIR -vplan-force-vf=4 -vplan-force-uf=3 -vplan-print-after-unroll -disable-output 2>&1 | FileCheck %s
-; RUN: opt -S < %s -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -VPlanDriverHIR -vplan-force-vf=4 -vplan-force-uf=3 -enable-vp-value-codegen-hir=0 -print-after=VPlanDriverHIR -disable-output 2>&1 | FileCheck %s --check-prefix=CGCHECK
-; RUN: opt -S < %s -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -VPlanDriverHIR -vplan-force-vf=4 -vplan-force-uf=3 -enable-vp-value-codegen-hir -print-after=VPlanDriverHIR -disable-output 2>&1 | FileCheck %s --check-prefix=CGCHECK
+; RUN: opt -vplan-print-terminator-inst=false -S < %s -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -VPlanDriverHIR -vplan-force-vf=4 -vplan-force-uf=3 -vplan-print-after-unroll -disable-output 2>&1 | FileCheck %s
+; RUN: opt -vplan-print-terminator-inst=false -S < %s -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -VPlanDriverHIR -vplan-force-vf=4 -vplan-force-uf=3 -enable-vp-value-codegen-hir=0 -print-after=VPlanDriverHIR -disable-output 2>&1 | FileCheck %s --check-prefix=CGCHECK
+; RUN: opt -vplan-print-terminator-inst=false -S < %s -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -VPlanDriverHIR -vplan-force-vf=4 -vplan-force-uf=3 -enable-vp-value-codegen-hir -print-after=VPlanDriverHIR -disable-output 2>&1 | FileCheck %s --check-prefix=CGCHECK
 
 ; int foo(int *a, int n) {
 ;   int acc = 0;

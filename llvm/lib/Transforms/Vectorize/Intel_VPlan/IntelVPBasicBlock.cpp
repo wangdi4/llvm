@@ -22,7 +22,7 @@ using namespace llvm;
 using namespace llvm::vpo;
 
 // TODO: remove this flag after updating all tests.
-bool PrintTerminatorInst = false;
+bool PrintTerminatorInst = true;
 static cl::opt<bool, true> PrintTerminatorInstOpt(
     "vplan-print-terminator-inst", cl::location(PrintTerminatorInst),
     cl::Hidden, cl::desc("Print terminator instructions in VPlan dumps."));
