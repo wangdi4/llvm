@@ -1644,6 +1644,12 @@ public:
   void setSyncScopeID(SyncScope::ID S) { SSID = S; }
   SyncScope::ID getSyncScopeID() const { return SSID; }
 
+  void setAddressSCEV(VPlanSCEV *Expr) {
+    assert(!AddressSCEV && "AddressSCEV has been set already");
+    AddressSCEV = Expr;
+  }
+  VPlanSCEV *getAddressSCEV() const { return AddressSCEV; }
+
   bool isSimple() const { return !isAtomic() && !isVolatile(); }
 
   MDNode *getMetadata(unsigned KindID) const {
@@ -1734,6 +1740,10 @@ public:
     Cloned->setOrdering(getOrdering());
     Cloned->setVolatile(isVolatile());
     Cloned->setSyncScopeID(getSyncScopeID());
+    // AddressSCEV cannot be propagated to the Cloned VPlan. VPlanSCEV may refer
+    // to VPInstructions, therefore it cannot be used in a different VPlan.
+    // AddressSCEVs in the cloned VPlan are recomputed after a new VPSE instance
+    // is assigned to the cloned VPlan.
     return Cloned;
   }
 
@@ -1743,6 +1753,7 @@ private:
   AtomicOrdering Ordering = AtomicOrdering::NotAtomic;
   bool IsVolatile = false;
   SyncScope::ID SSID = SyncScope::SingleThread;
+  VPlanSCEV *AddressSCEV = nullptr; //< VPlanSCEV for pointer operand
 };
 
 /// Concrete class to represent copy instruction semantics in VPlan constructed
@@ -2786,9 +2797,7 @@ public:
     VPlanDA = std::move(VPDA);
   }
 
-  void setVPSE(std::unique_ptr<VPlanScalarEvolution> A) {
-    VPSE = std::move(A);
-  }
+  void setVPSE(std::unique_ptr<VPlanScalarEvolution> A);
 
   void setVPVT(std::unique_ptr<VPlanValueTracking> A) {
     VPVT = std::move(A);

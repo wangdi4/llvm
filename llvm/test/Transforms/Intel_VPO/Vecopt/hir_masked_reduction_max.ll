@@ -18,7 +18,7 @@
 ;       @llvm.directive.region.exit(%entry.region); [ DIR.VPO.END.AUTO.VEC() ]
 ; END REGION
 
-; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -VPlanDriverHIR -disable-output -vplan-print-after-vpentity-instrs < %s 2>&1 | FileCheck %s
+; RUN: opt -vplan-print-terminator-inst=false -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -VPlanDriverHIR -disable-output -vplan-print-after-vpentity-instrs < %s 2>&1 | FileCheck %s
 
 ; Check that reduction is imported and lowered into corresponding VPInstructions.
 

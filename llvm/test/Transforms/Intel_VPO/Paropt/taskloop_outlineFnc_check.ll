@@ -185,4 +185,4 @@ attributes #1 = { nounwind }
 
 !0 = !{i32 1, !"NumRegisterParameters", i32 0}
 !1 = !{i32 1, !"wchar_size", i32 4}
-!2 = !{!"Intel(R) oneAPI DPC++ Compiler 2021.1 (YYYY.x.0.MMDD)"}
+!2 = !{!"clang version 10.0.0"}
