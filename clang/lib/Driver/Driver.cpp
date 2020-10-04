@@ -201,7 +201,8 @@ void Driver::ParseDriverMode(StringRef ProgramName,
 
 void Driver::setDriverModeFromOption(StringRef Opt) {
 #if INTEL_CUSTOMIZATION
-  if (Opt == getOpts().getOption(options::OPT__intel).getPrefixedName()) {
+  if (Opt == getOpts().getOption(options::OPT__intel).getPrefixedName() ||
+      Opt == getOpts().getOption(options::OPT__dpcpp).getPrefixedName()) {
     IntelMode = true;
     return;
   }
@@ -562,6 +563,9 @@ void Driver::addIntelArgs(DerivedArgList &DAL, const InputArgList &Args,
     if (IsCLMode() && isIntelLTO && !Args.hasArg(options::OPT_fuse_ld_EQ) &&
         !Args.hasArg(options::OPT_c, options::OPT_S))
       addClaim(options::OPT_fuse_ld_EQ, "lld");
+    // -fveclib=SVML default.
+    if (!Args.hasArg(options::OPT_fveclib))
+      addClaim(options::OPT_fveclib, "SVML");
     // -Wno-c++11-narrowing is default for Windows
     if (IsCLMode() && !Args.hasArg(options::OPT_Wcxx11_narrowing,
                                    options::OPT_Wno_cxx11_narrowing))
@@ -569,16 +573,6 @@ void Driver::addIntelArgs(DerivedArgList &DAL, const InputArgList &Args,
     if (!IsCLMode())
       addClaim(options::OPT_fheinous_gnu_extensions);
   }
-  // Make SVML the default for dpcpp and --intel.
-  // FIXME: This is temporary, as moving forward --intel should be the
-  // default for dpcpp compilations.  We cannot do this right now due to a
-  // problem with testing (use of dpcpp on Windows, causing link problems with
-  // Intel specific libs)
-  if (IsIntelMode() || Args.hasArg(options::OPT__dpcpp))
-    // -fveclib=SVML default.
-    if (!Args.hasArg(options::OPT_fveclib))
-      addClaim(options::OPT_fveclib, "SVML");
-
   // Any -debug options will be 'replaced' with -g equivalents to simplify
   // logic later in the driver.
   if (Arg *A = Args.getLastArg(options::OPT_intel_debug_Group,
@@ -677,10 +671,8 @@ DerivedArgList *Driver::TranslateInputArgs(const InputArgList &Args) const {
         continue;
       }
 #if INTEL_CUSTOMIZATION
-      if ((IsIntelMode() || Args.hasArg(options::OPT__dpcpp)) &&
-          (Value == "m")) {
+      if (IsIntelMode() && (Value == "m"))
         DAL->AddJoinedArg(0, Opts.getOption(options::OPT_l), "imf");
-      }
 #endif //INTEL_CUSTOMIZATION
     }
 #if INTEL_CUSTOMIZATION

@@ -703,8 +703,9 @@ void tools::addIntelOptimizationArgs(const ToolChain &TC,
                                       options::OPT__SLASH_Qx))
     addMultiVersionFlag(*A, options::OPT__SLASH_Qx);
 
-  // Handle --intel defaults
-  if (TC.getDriver().IsIntelMode()) {
+  // Handle --intel defaults.  Do not add for SYCL device (DPC++)
+  if (TC.getDriver().IsIntelMode() &&
+      !(TC.getTriple().getEnvironment() == llvm::Triple::SYCLDevice)) {
     if (!Args.hasArg(options::OPT_ffreestanding, options::OPT_i_no_use_libirc))
       addllvmOption("-intel-libirc-allowed");
     bool AddLoopOpt = true;

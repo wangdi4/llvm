@@ -6373,7 +6373,7 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
                           options::OPT_fno_pack_struct, false)) {
     CmdArgs.push_back("-fpack-struct=1");
 #if INTEL_CUSTOMIZATION
-  } else if (C.getDriver().IsIntelMode() && C.getDriver().IsCLMode())
+  } else if (D.IsIntelMode() && D.IsCLMode() && !IsSYCL)
     // For the Intel compiler, /Zp16 is the default
     CmdArgs.push_back("-fpack-struct=16");
 
@@ -6468,7 +6468,8 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
   bool EnableVec = shouldEnableVectorizerAtOLevel(Args, false);
 #if INTEL_CUSTOMIZATION
   // Do not enable vectorization for SPIR-V
-  if (JA.isDeviceOffloading(Action::OFK_OpenMP) &&
+  if ((JA.isDeviceOffloading(Action::OFK_OpenMP) ||
+       JA.isDeviceOffloading(Action::OFK_SYCL)) &&
       getToolChain().getTriple().isSPIR())
     EnableVec = false;
 #endif // INTEL_CUSTOMIZATION
@@ -6484,7 +6485,8 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
   bool EnableSLPVec = shouldEnableVectorizerAtOLevel(Args, true);
 #if INTEL_CUSTOMIZATION
   // Do not enable vectorization for SPIR-V
-  if (JA.isDeviceOffloading(Action::OFK_OpenMP) &&
+  if ((JA.isDeviceOffloading(Action::OFK_OpenMP) ||
+       JA.isDeviceOffloading(Action::OFK_SYCL)) &&
       getToolChain().getTriple().isSPIR())
     EnableSLPVec = false;
 #endif // INTEL_CUSTOMIZATION
