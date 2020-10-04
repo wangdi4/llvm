@@ -1710,12 +1710,19 @@ __tgt_target_table *__tgt_rtl_load_binary(int32_t device_id,
     }
 #endif  // _WIN32
     CALL_CL_RVRC(kernels[i], clCreateKernel, status, linked_program, name);
-    if (status != 0) {
-      IDP("Error: Failed to create kernel %s, %d\n", name, status);
-      return NULL;
+    if (status != CL_SUCCESS) {
+      // If a kernel was deleted by optimizations (e.g. DCE), then
+      // clCreateKernel will fail. We expect that such a kernel
+      // will never be actually invoked.
+      IDP("Warning: Failed to create kernel %s, %d\n", name, status);
+      kernels[i] = nullptr;
     }
     entries[i].addr = &kernels[i];
     entries[i].name = name;
+
+    // Do not try to query information for deleted kernels.
+    if (!kernels[i])
+      continue;
 
     // Retrieve kernel group size info.
     size_t kernel_simd_width = 1;
@@ -2598,6 +2605,10 @@ static inline int32_t run_target_team_nd_region(
 
   cl_kernel *kernel = static_cast<cl_kernel *>(tgt_entry_ptr);
 
+  if (!*kernel) {
+    REPORT("Failed to invoke deleted kernel.\n");
+    return OFFLOAD_FAIL;
+  }
 #if INTEL_INTERNAL_BUILD
   // TODO: kernels using to much SLM may limit the number of
   //       work groups running simultaneously on a sub slice.
