@@ -1632,7 +1632,13 @@ Compilation *Driver::BuildCompilation(ArrayRef<const char *> ArgList) {
     llvm::Triple T(TargetTriple);
     // FIXME: defaults to spir64, should probably have a way to set spir
     // possibly new -sycl-target option
-    T.setArch(llvm::Triple::spir64);
+#if INTEL_CUSTOMIZATION
+    if (llvm::Triple(llvm::sys::getProcessTriple()).getArch() ==
+        llvm::Triple::x86)
+      T.setArch(llvm::Triple::spir);
+    else
+      T.setArch(llvm::Triple::spir64);
+#endif // INTEL_CUSTOMIZATION
     T.setVendor(llvm::Triple::UnknownVendor);
     T.setOS(llvm::Triple(llvm::sys::getProcessTriple()).getOS());
     T.setEnvironment(llvm::Triple::SYCLDevice);
