@@ -1283,8 +1283,7 @@ int target(int64_t DeviceId, void *HostPtr, int32_t ArgNum, void **ArgBases,
      TargetTable->EntriesBegin[TM->Index].name, DPxPTR(TgtEntryPtr), TM->Index);
 
 #if INTEL_COLLAB
-  Ret = Device.manifest_data_for_region(
-      TargetTable->EntriesBegin[TM->Index].addr);
+  Ret = Device.manifest_data_for_region(TgtEntryPtr);
 
   if (Ret != OFFLOAD_SUCCESS) {
     DP("Data manifestation failed.\n");
