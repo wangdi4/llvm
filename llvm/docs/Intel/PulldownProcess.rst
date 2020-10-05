@@ -395,7 +395,7 @@ the normal branch promotion process, e.g.
 
      $ ics mk xmain-promo-ws xmain head -git
      $ ics merge xmain-cand head
-     $ alloy run -file xmain_checkin_pulldown -ref_comp ws -notify
+     $ alloy run -file xmain_checkin_pulldown -notify
      <Request gatekeeper approval>
      $ ics merge -push
 
