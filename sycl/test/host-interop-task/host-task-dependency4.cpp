@@ -1,6 +1,7 @@
 // RUN: %clangxx -fsycl -fsycl-targets=%sycl_triple %s -o %t.out
 
 <<<<<<< HEAD
+<<<<<<< HEAD
 // RUN: %CPU_RUN_PLACEHOLDER %t.out
 // RUN: %GPU_RUN_PLACEHOLDER %t.out
 // RUN: %ACC_RUN_PLACEHOLDER %t.out
@@ -9,6 +10,11 @@
 // RUNx: %GPU_RUN_PLACEHOLDER %t.out
 // RUNx: %ACC_RUN_PLACEHOLDER %t.out
 >>>>>>> 972628b8b308c7a37d074abeb586bbf50d100512
+=======
+// RUN: %CPU_RUN_PLACEHOLDER %t.out
+// RUN: %GPU_RUN_PLACEHOLDER %t.out
+// RUN: %ACC_RUN_PLACEHOLDER %t.out
+>>>>>>> 4c5b34cdd6dfdab447fde5ecd2e03b8f41aefacb
 
 #include <CL/sycl.hpp>
 
