@@ -542,97 +542,67 @@ bool HLInst::isAutoVecDirective() const {
   return isDirective(DIR_VPO_AUTO_VEC);
 }
 
-HLInst *HLInst::doConstantFolding() {
+std::pair<bool, HLInst *> HLInst::doConstantFolding() {
+  bool Folded = false;
 
-  if (!isa<BinaryOperator>(Inst)) {
-    return nullptr;
+  if (isa<BinaryOperator>(Inst)) {
+    RegDDRef *RHS, *LHS, *Result;
+    LHS = getOperandDDRef(1);
+    RHS = getOperandDDRef(2);
+    Result = nullptr;
+
+    unsigned OpC = Inst->getOpcode();
+
+    if (OpC == Instruction::Mul || OpC == Instruction::FMul) {
+      if (RHS->isZero() || LHS->isOne()) {
+        Result = RHS;
+      }
+      if (LHS->isZero() || RHS->isOne()) {
+        Result = LHS;
+      }
+    }
+
+    if (OpC == Instruction::Add || OpC == Instruction::FAdd) {
+      if (RHS->isZero()) {
+        Result = LHS;
+      }
+      if (LHS->isZero()) {
+        Result = RHS;
+      }
+    }
+    if (OpC == Instruction::Sub || OpC == Instruction::FSub) {
+      if (RHS->isZero()) {
+        Result = LHS;
+      }
+    }
+
+    // TODO: fold certain logical operators
+    // if (OpC == Instruction::Xor || OpC == Instruction::Or) {
+    // if (OpC == Instruction::And) {
+
+    if (!Result) {
+      return std::make_pair(Folded, nullptr);
+    }
+    Folded = true;
+
+    // Remove self assignments that may occur due to folding
+    if (DDRefUtils::areEqual(getLvalDDRef(), Result)) {
+      HLNodeUtils::remove(this);
+      return std::make_pair(Folded, nullptr);
+    }
+
+    RegDDRef *NewRval = removeOperandDDRef(getOperandNum(Result));
+
+    HLInst *NewInst =
+        NewRval->isMemRef()
+            ? getHLNodeUtils().createLoad(NewRval, "", removeLvalDDRef())
+            : getHLNodeUtils().createCopyInst(NewRval, "", removeLvalDDRef());
+
+    HLNodeUtils::replace(this, NewInst);
+    return std::make_pair(Folded, NewInst);
   }
 
-  RegDDRef *RHS, *LHS, *Result;
-  LHS = getOperandDDRef(1);
-  RHS = getOperandDDRef(2);
-  Result = nullptr;
-
-  unsigned OpC = Inst->getOpcode();
-
-  if (OpC == Instruction::Mul) {
-    if (RHS->isZero() || LHS->isOne()) {
-      Result = RHS;
-    }
-    if (LHS->isZero() || RHS->isOne()) {
-      Result = LHS;
-    }
-  }
-
-  if (OpC == Instruction::FMul) {
-    if (RHS->isZero() || LHS->isOne()) {
-      Result = RHS;
-    }
-    if (LHS->isZero() || RHS->isOne()) {
-      Result = LHS;
-    }
-    // TODO: Handle in followup changeset.
-    // if (LHS->isNMinusne()) {
-    //   return
-    //   getHLNodeUtils().createFNeg(removeOperandDDRef(getOperandNum(RHS)), "",
-    //   removeLvalDDRef(), nullptr,
-    //                                      FastMathFlags::getFast());
-    // }
-    // if (RHS->isMinusOne()) {
-    //   return
-    //   getHLNodeUtils().createFNeg(removeOperandDDRef(getOperandNum(LHS)), "",
-    //   removeLvalDDRef(), nullptr,
-    //                                      FastMathFlags::getFast());
-    // }
-  }
-
-  if (OpC == Instruction::Add) {
-    if (RHS->isZero()) {
-      Result = LHS;
-    }
-    if (LHS->isZero()) {
-      Result = RHS;
-    }
-  }
-
-  if (OpC == Instruction::FAdd) {
-    if (RHS->isZero()) {
-      Result = LHS;
-    }
-    if (LHS->isZero()) {
-      Result = RHS;
-    }
-  }
-
-  if (OpC == Instruction::Sub || OpC == Instruction::FSub) {
-    if (RHS->isZero()) {
-      Result = LHS;
-    }
-  }
-
-  // TODO: fold certain logical operators
-  // if (OpC == Instruction::Xor || OpC == Instruction::Or) {
-  // if (OpC == Instruction::And) {
-
-  if (!Result) {
-    return nullptr;
-  }
-
-  // Remove self assignments that may occur due to folding
-  if (DDRefUtils::areEqual(getLvalDDRef(), Result)) {
-    HLNodeUtils::remove(this);
-    return nullptr;
-  }
-
-  RegDDRef *NewRval = removeOperandDDRef(getOperandNum(Result));
-
-  HLInst *NewInst =
-      NewRval->isMemRef()
-          ? getHLNodeUtils().createLoad(NewRval, "", removeLvalDDRef())
-          : getHLNodeUtils().createCopyInst(NewRval, "", removeLvalDDRef());
-
-  HLNodeUtils::replace(this, NewInst);
-  return NewInst;
+  return std::make_pair(Folded, nullptr);
 }
 
 bool HLInst::isValidReductionOpCode(unsigned OpCode) {

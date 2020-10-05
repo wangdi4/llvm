@@ -171,6 +171,11 @@ static cl::opt<bool>
                          cl::desc("Cost model will assume DD independence for "
                                   "all memrefs in the unroll loopnest"));
 
+static cl::opt<bool> ForceConstantPropagation(
+    "hir-complete-unroll-force-constprop", cl::init(false), cl::Hidden,
+    cl::desc(
+        "Force Constant Propagation in HIR Complete Unroll for all loops"));
+
 // External interface
 namespace llvm {
 namespace loopopt {
@@ -2986,8 +2991,7 @@ void HIRCompleteUnroll::transformLoops() {
 
     doUnroll(Loop);
 
-    if (IsPreVec && HasParentLoop) {
-      HIRTransformUtils::doConstantArraySubstitution(ParentNode);
+    if ((IsPreVec && HasParentLoop) || ForceConstantPropagation) {
       HIRTransformUtils::doConstantPropagation(ParentNode);
     }
 

@@ -344,9 +344,9 @@ public:
   /// directive.
   bool isAutoVecDirective() const;
 
-  /// If the instruction can be constant folded, return equivalent instruction,
-  /// otherwise return nullptr
-  HLInst *doConstantFolding();
+  /// Returns true if instruction was folded, along with the new instruction.
+  /// If the instruction is null, it folded into a self-assignment (no-op).
+  std::pair<bool, HLInst*> doConstantFolding();
 
   /// Checks if the Opcode is a reduction and returns it in \p OpCode.
   bool isReductionOp(unsigned *OpCode = nullptr) const;
