@@ -2622,6 +2622,23 @@ static void RenderFloatingPointOptions(const ToolChain &TC, const Driver &D,
   StringRef FPContract = "";
   bool StrictFPModel = false;
 
+#if INTEL_CUSTOMIZATION
+  // In Intel mode, the default settings should be equivalent to fp-model fast
+  if (D.IsIntelMode()) {
+    HonorINFs = false;
+    HonorNaNs = false;
+    AssociativeMath = true;
+    ReciprocalMath = true;
+    SignedZeros = false;
+    TrappingMath = false;
+    RoundingFPMath = false;
+    MathErrno = false;
+    DenormalFPMath = llvm::DenormalMode::getPreserveSign();
+    DenormalFP32Math = llvm::DenormalMode::getPreserveSign();
+    FPContract = "fast";
+  }
+#endif // INTEL_CUSTOMIZATION
+
 
   if (const Arg *A = Args.getLastArg(options::OPT_flimited_precision_EQ)) {
     CmdArgs.push_back("-mlimit-float-precision");
@@ -2684,6 +2701,10 @@ static void RenderFloatingPointOptions(const ToolChain &TC, const Driver &D,
         optID = options::OPT_ffast_math;
         FPModel = Val;
         FPContract = "fast";
+#if INTEL_CUSTOMIZATION // This should be upstreamed.
+        DenormalFPMath = llvm::DenormalMode::getPreserveSign();
+        DenormalFP32Math = llvm::DenormalMode::getPreserveSign();
+#endif // INTEL_CUSTOMIZATION
       } else if (Val.equals("precise")) {
         optID = options::OPT_ffp_contract;
         FPModel = Val;
