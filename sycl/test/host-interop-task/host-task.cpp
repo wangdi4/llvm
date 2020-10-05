@@ -10,13 +10,10 @@
 // RUN: %CPU_RUN_PLACEHOLDER %t.out 3
 // RUN: %GPU_RUN_PLACEHOLDER %t.out 3
 // RUN: %ACC_RUN_PLACEHOLDER %t.out 3
-<<<<<<< HEAD
-=======
 
 // RUNx: %CPU_RUN_PLACEHOLDER %t.out 4
 // RUNx: %GPU_RUN_PLACEHOLDER %t.out 4
 // RUNx: %ACC_RUN_PLACEHOLDER %t.out 4
->>>>>>> 376d8ee3429eb40c7396aeb56cce030eadd28db6
 
 #include <CL/sycl.hpp>
 #include <chrono>
@@ -84,78 +81,6 @@ void test2() {
   }
 
   Q.wait_and_throw();
-<<<<<<< HEAD
-}
-
-// Host-task depending on another host-task via both buffers and
-// handler::depends_on() should not hang
-void test3() {
-  queue Q(EH);
-
-  static constexpr size_t BufferSize = 10 * 1024;
-
-  buffer<int, 1> B0{range<1>{BufferSize}};
-  buffer<int, 1> B1{range<1>{BufferSize}};
-  buffer<int, 1> B2{range<1>{BufferSize}};
-  buffer<int, 1> B3{range<1>{BufferSize}};
-  buffer<int, 1> B4{range<1>{BufferSize}};
-  buffer<int, 1> B5{range<1>{BufferSize}};
-  buffer<int, 1> B6{range<1>{BufferSize}};
-  buffer<int, 1> B7{range<1>{BufferSize}};
-  buffer<int, 1> B8{range<1>{BufferSize}};
-  buffer<int, 1> B9{range<1>{BufferSize}};
-
-  std::vector<event> Deps;
-
-  static constexpr size_t Count = 10;
-
-  auto Start = std::chrono::steady_clock::now();
-  for (size_t Idx = 0; Idx < Count; ++Idx) {
-    event E = Q.submit([&](handler &CGH) {
-      CGH.depends_on(Deps);
-
-      std::cout << "Submit: " << Idx << std::endl;
-
-      auto Acc0 = B0.get_access<mode::read_write, target::host_buffer>(CGH);
-      auto Acc1 = B1.get_access<mode::read_write, target::host_buffer>(CGH);
-      auto Acc2 = B2.get_access<mode::read_write, target::host_buffer>(CGH);
-      auto Acc3 = B3.get_access<mode::read_write, target::host_buffer>(CGH);
-      auto Acc4 = B4.get_access<mode::read_write, target::host_buffer>(CGH);
-      auto Acc5 = B5.get_access<mode::read_write, target::host_buffer>(CGH);
-      auto Acc6 = B6.get_access<mode::read_write, target::host_buffer>(CGH);
-      auto Acc7 = B7.get_access<mode::read_write, target::host_buffer>(CGH);
-      auto Acc8 = B8.get_access<mode::read_write, target::host_buffer>(CGH);
-      auto Acc9 = B9.get_access<mode::read_write, target::host_buffer>(CGH);
-
-      CGH.codeplay_host_task([=] {
-        uint64_t X = 0;
-
-        X ^= reinterpret_cast<uint64_t>(&Acc0[Idx + 0]);
-        X ^= reinterpret_cast<uint64_t>(&Acc1[Idx + 1]);
-        X ^= reinterpret_cast<uint64_t>(&Acc2[Idx + 2]);
-        X ^= reinterpret_cast<uint64_t>(&Acc3[Idx + 3]);
-        X ^= reinterpret_cast<uint64_t>(&Acc4[Idx + 4]);
-        X ^= reinterpret_cast<uint64_t>(&Acc5[Idx + 5]);
-        X ^= reinterpret_cast<uint64_t>(&Acc6[Idx + 6]);
-        X ^= reinterpret_cast<uint64_t>(&Acc7[Idx + 7]);
-        X ^= reinterpret_cast<uint64_t>(&Acc8[Idx + 8]);
-        X ^= reinterpret_cast<uint64_t>(&Acc9[Idx + 9]);
-      });
-    });
-
-    Deps = {E};
-  }
-
-  Q.wait_and_throw();
-  auto End = std::chrono::steady_clock::now();
-
-  using namespace std::chrono_literals;
-  constexpr auto Threshold = 2s;
-
-  assert(End - Start < Threshold && "Host tasks were waiting for too long");
-}
-
-=======
 }
 
 // Host-task depending on another host-task via both buffers and
@@ -289,7 +214,6 @@ void test4() {
   Q.wait_and_throw();
 }
 
->>>>>>> 376d8ee3429eb40c7396aeb56cce030eadd28db6
 int main(int Argc, const char *Argv[]) {
   if (Argc < 2)
     return 1;
@@ -306,12 +230,9 @@ int main(int Argc, const char *Argv[]) {
   case 3:
     test3();
     break;
-<<<<<<< HEAD
-=======
   case 4:
     test4();
     break;
->>>>>>> 376d8ee3429eb40c7396aeb56cce030eadd28db6
   default:
     return 1;
   }
