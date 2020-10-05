@@ -380,6 +380,60 @@ void RegDDRef::print(formatted_raw_ostream &OS, bool Detailed) const {
 #endif
 }
 
+void RegDDRef::printWithBlobDDRefs(formatted_raw_ostream &OS,
+                               unsigned Depth) const {
+#if !INTEL_PRODUCT_RELEASE
+  const HLDDNode *ParentNode = getHLDDNode();
+  auto Indent = [&]() {
+    if (ParentNode)
+      ParentNode->indent(OS, Depth);
+  };
+
+  bool IsZttDDRef = false;
+  Indent();
+
+  const HLLoop *ParentLoop = dyn_cast<HLLoop>(ParentNode);
+  if (ParentLoop) {
+    OS << "| ";
+
+    IsZttDDRef = ParentLoop->isZttOperandDDRef(this);
+  }
+
+  if (IsZttDDRef) {
+    OS << "<ZTT-REG> ";
+  } else {
+    bool IsFake = false;
+    bool IsLval = false;
+
+    if (ParentNode) {
+      IsFake = isFake();
+      IsLval = isLval();
+    }
+
+    OS << "<" << (IsFake ? "FAKE-" : "") << (IsLval ? "LVAL" : "RVAL")
+       << "-REG> ";
+  }
+
+  print(OS, true);
+
+  OS << "\n";
+
+  for (auto B = blob_begin(), BE = blob_end(); B != BE; ++B) {
+    Indent();
+    if (ParentLoop) {
+      OS << "| ";
+    }
+
+    // Add extra indentation for blob ddrefs.
+    OS.indent(3);
+
+    OS << "<BLOB> ";
+    (*B)->print(OS, true);
+    OS << "\n";
+  }
+#endif
+}
+
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 void RegDDRef::dumpDims(bool Detailed) const {
   formatted_raw_ostream OS(dbgs());
