@@ -338,9 +338,9 @@ Pulldown Planning
 -----------------
 The pulldown coordinator is expected to periodically merge ``xmain-web`` changes
 back to ``xmain``. Usually that should be done bi-weekly, however all pulldowns
-must be aligned with the ``xmain`` release schedule (see 'Upcoming Releases and
-Deliveries' paragraph at `DPCPP Compiler Deliverables <https://wiki.ith.intel.com/display/DPCPP/Status+Wiki+for+DPCPP+Compiler+Deliverables>`_
-page). Per agreement with the process team pulldowns are expected to be
+must be aligned with the ``xmain`` release schedule (see
+`DPCPP release schedule <https://wiki.ith.intel.com/display/DPCPP/DPCPP+release+schedule>`_).
+Per agreement with the process team pulldowns are expected to be
 completed not later than one week before the code cutoff in ``xmain``. Therefore
 pulldown coordinator should carefully plan when to start the pulldown keeping in
 mind that ``xmain-cand`` stabilization usually requires running full alloy
