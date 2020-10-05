@@ -5259,10 +5259,9 @@ bool X86TargetLowering::getTgtMemIntrinsic(IntrinsicInfo &Info,
 
   const IntrinsicData* IntrData = getIntrinsicWithChain(Intrinsic);
   if (!IntrData) {
-<<<<<<< HEAD
+    switch (Intrinsic) {
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_AVX_MEMADVISE
-    switch (Intrinsic) {
     case Intrinsic::x86_avx2_vmovadvisew_load_128:
     case Intrinsic::x86_avx2_vmovadvisew_load_256:
     case Intrinsic::x86_avx512_vmovadvisew_load_128:
@@ -5287,18 +5286,8 @@ bool X86TargetLowering::getTgtMemIntrinsic(IntrinsicInfo &Info,
       Info.flags |= MachineMemOperand::MOStore;
       return true;
     }
-    default:
-      break;
-    }
 #endif // INTEL_FEATURE_ISA_AVX_MEMADVISE
 #endif // INTEL_CUSTOMIZATION
-    return false;
-  }
-
-  Info.flags = MachineMemOperand::MONone;
-  Info.offset = 0;
-=======
-    switch (Intrinsic) {
     case Intrinsic::x86_aesenc128kl:
     case Intrinsic::x86_aesdec128kl:
       Info.opc = ISD::INTRINSIC_W_CHAIN;
@@ -5334,7 +5323,6 @@ bool X86TargetLowering::getTgtMemIntrinsic(IntrinsicInfo &Info,
     }
     return false;
   }
->>>>>>> a7e45ea30d4c9c3f66f44f0e69e31eac3a22db42
 
   switch (IntrData->Type) {
   case TRUNCATE_TO_MEM_VI8:
