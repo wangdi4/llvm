@@ -1,11 +1,6 @@
 // RUN: %clang_cc1 -triple x86_64-unknown-linux-gnu -fopenmp \
 // RUN:  -fintel-compatibility -fopenmp-late-outline \
 // RUN:  -fopenmp-version=50 -fopenmp-targets=spir64 \
-// RUN:  -emit-llvm %s -o - | FileCheck %s --check-prefixes=HOST,ALL
-
-// RUN: %clang_cc1 -triple x86_64-unknown-linux-gnu -fopenmp \
-// RUN:  -fintel-compatibility -fopenmp-late-outline \
-// RUN:  -fopenmp-version=50 -fopenmp-targets=spir64 \
 // RUN:  -emit-llvm-bc %s -o %t-host.bc
 //
 // RUN: %clang_cc1 -triple spir64 -fopenmp \
@@ -14,8 +9,21 @@
 // RUN:  -fopenmp-host-ir-file-path %t-host.bc %s -emit-llvm -o - | \
 // RUN:  FileCheck %s --check-prefixes=TARG,ALL
 
+// RUN: %clang_cc1 -triple x86_64-pc-windows-msvc19.15.26732 -fopenmp \
+// RUN:  -fintel-compatibility -fopenmp-late-outline \
+// RUN:  -fopenmp-version=50 -fopenmp-targets=spir64 \
+// RUN:  -emit-llvm-bc %s -o %t-host_win.bc
+//
+// RUN: %clang_cc1 -triple spir64 -fopenmp \
+// RUN:  -aux-triple x86_64-pc-windows-msvc \
+// RUN:  -fintel-compatibility -fopenmp-late-outline \
+// RUN:  -fopenmp-version=50 -fopenmp-targets=spir64 -fopenmp-is-device \
+// RUN:  -fopenmp-host-ir-file-path %t-host_win.bc %s -emit-llvm -o - | \
+// RUN:  FileCheck %s --check-prefixes=TARG-WIN,ALL
+
 #define N 100
 
+//ALL-LABEL: main
 int main()
 {
   int b = 0;
@@ -35,4 +43,20 @@ int main()
   }
   //ALL: "DIR.OMP.END.TARGET"()
   return 0;
+}
+
+//ALL-LABEL: test_update
+void test_update() {
+  float counter_N0{};
+  //ALL: "DIR.OMP.TARGET"()
+  #pragma omp target map(tofrom: counter_N0)
+  #pragma omp simd
+  for (int i0 = 0 ; i0 < 10 ; i0++ )
+  {
+    //ALL-NOT: load atomic
+    //ALL-NOT: cmpxchg
+    #pragma omp atomic update
+    counter_N0 = counter_N0 +  1. ;
+  }
+  //ALL: "DIR.OMP.END.TARGET"()
 }
