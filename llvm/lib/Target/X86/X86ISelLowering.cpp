@@ -32000,7 +32000,6 @@ const char *X86TargetLowering::getTargetNodeName(unsigned Opcode) const {
   NODE_NAME_CASE(ENQCMD)
   NODE_NAME_CASE(ENQCMDS)
   NODE_NAME_CASE(VP2INTERSECT)
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_ULI
   NODE_NAME_CASE(TESTUI)
@@ -32032,7 +32031,6 @@ const char *X86TargetLowering::getTargetNodeName(unsigned Opcode) const {
 #endif // INTEL_FEATURE_ISA_AVX_COMPRESS
   NODE_NAME_CASE(MPSADBW)
 #endif // INTEL_CUSTOMIZATION
-=======
   NODE_NAME_CASE(AESENC128KL)
   NODE_NAME_CASE(AESDEC128KL)
   NODE_NAME_CASE(AESENC256KL)
@@ -32041,7 +32039,6 @@ const char *X86TargetLowering::getTargetNodeName(unsigned Opcode) const {
   NODE_NAME_CASE(AESDECWIDE128KL)
   NODE_NAME_CASE(AESENCWIDE256KL)
   NODE_NAME_CASE(AESDECWIDE256KL)
->>>>>>> adccc0bfa301005367d6b89a3aacc07ef0166e64
   }
   return nullptr;
 #undef NODE_NAME_CASE

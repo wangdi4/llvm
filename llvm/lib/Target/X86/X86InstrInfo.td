@@ -336,14 +336,12 @@ def X86enqcmd : SDNode<"X86ISD::ENQCMD", SDT_X86ENQCMD,
 def X86enqcmds : SDNode<"X86ISD::ENQCMDS", SDT_X86ENQCMD,
                        [SDNPHasChain, SDNPSideEffect]>;
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_ULI
 def X86testui : SDNode<"X86ISD::TESTUI",
                        SDTypeProfile<1, 0, [SDTCisVT<0, i32>]>, [SDNPHasChain]>;
 #endif // INTEL_FEATURE_ISA_ULI
 #endif // INTEL_CUSTOMIZATION
-=======
 def X86aesenc128kl : SDNode<"X86ISD::AESENC128KL", SDT_X86AESENCDECKL,
                             [SDNPHasChain, SDNPSideEffect]>;
 def X86aesdec128kl : SDNode<"X86ISD::AESDEC128KL", SDT_X86AESENCDECKL,
@@ -352,7 +350,6 @@ def X86aesenc256kl : SDNode<"X86ISD::AESENC256KL", SDT_X86AESENCDECKL,
                             [SDNPHasChain, SDNPSideEffect]>;
 def X86aesdec256kl : SDNode<"X86ISD::AESDEC256KL", SDT_X86AESENCDECKL,
                             [SDNPHasChain, SDNPSideEffect]>;
->>>>>>> adccc0bfa301005367d6b89a3aacc07ef0166e64
 
 //===----------------------------------------------------------------------===//
 // X86 Operand Definitions.
