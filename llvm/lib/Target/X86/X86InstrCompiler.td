@@ -934,7 +934,7 @@ def MWAITX :
     I<0, Pseudo, (outs),
       (ins GR32:$ecx, GR32:$eax, GR32:$ebx),
       "mwaitx",
-      [(X86mwaitx GR32:$ecx, GR32:$eax, GR32:$ebx)]>;
+      [(int_x86_mwaitx GR32:$ecx, GR32:$eax, GR32:$ebx)]>;
 }
 
 
