@@ -26712,6 +26712,7 @@ static SDValue LowerINTRINSIC_W_CHAIN(SDValue Op, const X86Subtarget &Subtarget,
       return DAG.getNode(ISD::MERGE_VALUES, dl, Op->getVTList(), SetCC,
                          Operation.getValue(1));
     }
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_ULI
     case Intrinsic::x86_testui: {
@@ -26787,6 +26788,8 @@ static SDValue LowerINTRINSIC_W_CHAIN(SDValue Op, const X86Subtarget &Subtarget,
                             XMM0, XMM1, XMM2, XMM4, XMM5, XMM6, Chain});
       }
     }
+=======
+>>>>>>> 39fc4a0b0af69772ee360b5f729b1ec453217793
     case Intrinsic::x86_aesenc128kl:
     case Intrinsic::x86_aesdec128kl:
     case Intrinsic::x86_aesenc256kl:
