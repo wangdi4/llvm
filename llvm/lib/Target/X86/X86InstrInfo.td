@@ -336,13 +336,17 @@ def X86testui : SDNode<"X86ISD::TESTUI",
 #endif // INTEL_FEATURE_ISA_ULI
 #endif // INTEL_CUSTOMIZATION
 def X86aesenc128kl : SDNode<"X86ISD::AESENC128KL", SDT_X86AESENCDECKL,
-                            [SDNPHasChain, SDNPSideEffect]>;
+                            [SDNPHasChain, SDNPMayLoad, SDNPSideEffect,
+                             SDNPMemOperand]>;
 def X86aesdec128kl : SDNode<"X86ISD::AESDEC128KL", SDT_X86AESENCDECKL,
-                            [SDNPHasChain, SDNPSideEffect]>;
+                            [SDNPHasChain, SDNPMayLoad, SDNPSideEffect,
+                             SDNPMemOperand]>;
 def X86aesenc256kl : SDNode<"X86ISD::AESENC256KL", SDT_X86AESENCDECKL,
-                            [SDNPHasChain, SDNPSideEffect]>;
+                            [SDNPHasChain, SDNPMayLoad, SDNPSideEffect,
+                             SDNPMemOperand]>;
 def X86aesdec256kl : SDNode<"X86ISD::AESDEC256KL", SDT_X86AESENCDECKL,
-                            [SDNPHasChain, SDNPSideEffect]>;
+                            [SDNPHasChain, SDNPMayLoad, SDNPSideEffect,
+                             SDNPMemOperand]>;
 
 //===----------------------------------------------------------------------===//
 // X86 Operand Definitions.
