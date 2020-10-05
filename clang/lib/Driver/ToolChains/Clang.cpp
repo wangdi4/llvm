@@ -5239,6 +5239,13 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
   types::ID InputType = Input.getType();
   if (D.IsCLMode())
     AddClangCLArgs(Args, InputType, CmdArgs, &DebugInfoKind, &EmitCodeView);
+#if INTEL_CUSTOMIZATION
+  // for OpenMP with /Qiopenmp /Qopenmp-targets=spir64, /LD is not supported.
+  Arg *LDArg = Args.getLastArg(options::OPT__SLASH_LD);
+  if (D.IsCLMode() && LDArg && IsOpenMPDevice && Triple.isSPIR())
+    D.Diag(diag::err_drv_openmp_targets_spir64_unsupported_opt)
+        << LDArg->getAsString(Args);
+#endif // INTEL_CUSTOMIZATION
 
   DwarfFissionKind DwarfFission;
   RenderDebugOptions(TC, D, RawTriple, Args, EmitCodeView, CmdArgs,
