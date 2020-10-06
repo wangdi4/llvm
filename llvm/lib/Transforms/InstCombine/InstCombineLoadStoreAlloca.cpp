@@ -558,9 +558,9 @@ static Instruction *combineLoadToOperationType(InstCombinerImpl &IC,
   if (LI.getPointerOperand()->isSwiftError())
     return nullptr;
 
-  Type *Ty = LI.getType();
   const DataLayout &DL = IC.getDataLayout();
 
+<<<<<<< HEAD
   // Try to canonicalize loads which are only ever stored to operate over
   // integers instead of any other type. We only do this when the loaded type
   // is sized and has a size exactly the same as its store size and the store
@@ -621,6 +621,8 @@ static Instruction *combineLoadToOperationType(InstCombinerImpl &IC,
     }
   }
 
+=======
+>>>>>>> e00f189d392dd9bf95f6a98f05f2d341d06cd65c
   // Fold away bit casts of the loaded value by loading the desired type.
   // We can do this for BitCastInsts as well as casts from and to pointer types,
   // as long as those are noops (i.e., the source or dest type have the same
