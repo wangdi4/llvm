@@ -744,55 +744,6 @@ for.end:
   ret void
 }
 
-<<<<<<< HEAD
-define void @sqrt_f64_intrinsic(double* nocapture %varray) {
-; CHECK-LABEL: @sqrt_f64_intrinsic(
-; CHECK:    [[TMP5:%.*]] = call <4 x double> @llvm.sqrt.v4f64(<4 x double> [[TMP4:%.*]]) ;INTEL
-; CHECK:    ret void
-;
-entry:
-  br label %for.body
-
-for.body:
-  %iv = phi i64 [ 0, %entry ], [ %iv.next, %for.body ]
-  %tmp = trunc i64 %iv to i32
-  %conv = sitofp i32 %tmp to double
-  %call = tail call double @llvm.sqrt.f64(double %conv)
-  %arrayidx = getelementptr inbounds double, double* %varray, i64 %iv
-  store double %call, double* %arrayidx, align 4
-  %iv.next = add nuw nsw i64 %iv, 1
-  %exitcond = icmp eq i64 %iv.next, 1000
-  br i1 %exitcond, label %for.end, label %for.body
-
-for.end:
-  ret void
-}
-
-define void @sqrt_f32_intrinsic(float* nocapture %varray) {
-; CHECK-LABEL: @sqrt_f32_intrinsic(
-; CHECK:    [[TMP5:%.*]] = call <4 x float> @llvm.sqrt.v4f32(<4 x float> [[TMP4:%.*]]) ;INTEL
-; CHECK:    ret void
-;
-entry:
-  br label %for.body
-
-for.body:
-  %iv = phi i64 [ 0, %entry ], [ %iv.next, %for.body ]
-  %tmp = trunc i64 %iv to i32
-  %conv = sitofp i32 %tmp to float
-  %call = tail call float @llvm.sqrt.f32(float %conv)
-  %arrayidx = getelementptr inbounds float, float* %varray, i64 %iv
-  store float %call, float* %arrayidx, align 4
-  %iv.next = add nuw nsw i64 %iv, 1
-  %exitcond = icmp eq i64 %iv.next, 1000
-  br i1 %exitcond, label %for.end, label %for.body
-
-for.end:
-  ret void
-}
-
-=======
->>>>>>> 89e8a8b223b2e20bb63e930ddb78cb80a3ed45a2
 define void @exp2_f64(double* nocapture %varray) {
 ; CHECK-LABEL: @exp2_f64(
 ; CHECK:    [[TMP5:%.*]] = call <4 x double> @__svml_exp24(<4 x double> [[TMP4:%.*]])
