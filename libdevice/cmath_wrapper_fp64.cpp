@@ -138,16 +138,14 @@ double asinh(double x) { return __devicelib_asinh(x); }
 DEVICE_EXTERN_C
 double atanh(double x) { return __devicelib_atanh(x); }
 
-<<<<<<< HEAD
+DEVICE_EXTERN_C
+double scalbn(double x, int exp) { return __devicelib_scalbn(x, exp); }
+
 #if INTEL_COLLAB
 #if OMP_LIBDEVICE
 #pragma omp end declare target
 #endif  // OMP_LIBDEVICE
 #endif  // INTEL_COLLAB
-=======
-DEVICE_EXTERN_C
-double scalbn(double x, int exp) { return __devicelib_scalbn(x, exp); }
->>>>>>> e438bc814959ce49cd7985b1ea4f9137804b6358
 
 #if defined(_WIN32)
 #include <math.h>
