@@ -74,6 +74,10 @@
 // RUN: %clang_cc1 %s -E -dM -ffinite-math-only -fintel-compatibility -o - \
 // RUN:   | FileCheck -match-full-lines %s --check-prefix=CHECK-INTEL-FINITE-MATH-ONLY
 // CHECK-INTEL-FINITE-MATH-ONLY: #define __FINITE_MATH_ONLY__ 0
+//
+// RUN: %clang_cc1 %s -E -dM -ffinite-math-only -fsycl -o - \
+// RUN:   | FileCheck -match-full-lines %s --check-prefix=CHECK-INTEL-FINITE-MATH-ONLY-SYCL
+// CHECK-INTEL-FINITE-MATH-ONLY-SYCL: #define __FINITE_MATH_ONLY__ 0
 // end INTEL_CUSTOMIZATION
 //
 // RUN: %clang %s -E -dM -fno-finite-math-only -o - \
