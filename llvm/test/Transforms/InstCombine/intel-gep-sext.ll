@@ -79,10 +79,11 @@ bb2:
 ;
 define void @test3(i32* %p, i32 %x) {
 ; CHECK-LABEL: @test3
-; FIXME: We do not want this transform.
-; CHECK:        shl
+; CHECK:        trunc
 ; CHECK-NEXT:   add
-; CHECK-NEXT:   ashr
+; CHECK-NEXT:   sext
+; CHECK-NOT:    shl
+; CHECK-NOT:    ashr
   %addr_begin = getelementptr i32, i32* %p, i64 40
   %val_fixed = call i64 @get_global_id(i32 0)
   %trunc = trunc i64 %val_fixed to i32
