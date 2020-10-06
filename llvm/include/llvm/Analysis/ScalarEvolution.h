@@ -1157,7 +1157,20 @@ public:
       const SCEV *S, const Loop *L,
       SmallPtrSetImpl<const SCEVPredicate *> &Preds);
 
+<<<<<<< HEAD
 protected: // INTEL
+=======
+  /// Compute \p LHS - \p RHS and returns the result as an APInt if it is a
+  /// constant, and None if it isn't.
+  ///
+  /// This is intended to be a cheaper version of getMinusSCEV.  We can be
+  /// frugal here since we just bail out of actually constructing and
+  /// canonicalizing an expression in the cases where the result isn't going
+  /// to be a constant.
+  Optional<APInt> computeConstantDifference(const SCEV *LHS, const SCEV *RHS);
+
+private:
+>>>>>>> a3caf7f6102dc863425f9714b099af58397f0cd2
   /// A CallbackVH to arrange for ScalarEvolution to be notified whenever a
   /// Value is deleted.
   class SCEVCallbackVH final : public CallbackVH {
@@ -1892,6 +1905,7 @@ protected: // INTEL
   bool splitBinaryAdd(const SCEV *Expr, const SCEV *&L, const SCEV *&R,
                       SCEV::NoWrapFlags &Flags);
 
+<<<<<<< HEAD
   /// Compute \p LHS - \p RHS and returns the result as an APInt if it is a
   /// constant, and None if it isn't.
   ///
@@ -1907,6 +1921,8 @@ public:
 private:
 #endif // INTEL_CUSTOMIZATION
 
+=======
+>>>>>>> a3caf7f6102dc863425f9714b099af58397f0cd2
   /// Drop memoized information computed for S.
   void forgetMemoizedResults(const SCEV *S);
 
