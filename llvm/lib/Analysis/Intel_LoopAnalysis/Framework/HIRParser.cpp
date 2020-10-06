@@ -2769,7 +2769,6 @@ void HIRParser::parse(HLIf *If, HLLoop *HLoop) {
   setCurNode(If);
 
   auto SrcBB = HIRC.getSrcBBlock(If);
-  assert(SrcBB && "Could not find If's src basic block!");
 
   auto BeginPredIter = If->pred_begin();
   auto LoopTerm = cast<BranchInst>(SrcBB->getTerminator());
@@ -2869,7 +2868,6 @@ void HIRParser::parse(HLSwitch *Switch) {
   setCurNode(Switch);
 
   auto SrcBB = HIRC.getSrcBBlock(Switch);
-  assert(SrcBB && "Could not find If's src basic block!");
 
   // For some reason switch case values cannot be accessed using the const
   // object.
