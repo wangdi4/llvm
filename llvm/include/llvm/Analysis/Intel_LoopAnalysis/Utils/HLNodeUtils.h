@@ -419,18 +419,18 @@ private:
   /// Returns the outermost parent of Node1 which is safe to be used for
   /// checking domination. We move up through constant trip count loops. Last
   /// parent indicates the path used to reach to the parent.
-  static const HLNode *getOutermostSafeParent(const HLNode *Node1,
-                                              const HLNode *Node2,
-                                              bool PostDomination,
-                                              HIRLoopStatistics *HLS,
-                                              const HLNode **LastParent1);
+  static const HLNode *
+  getOutermostSafeParent(const HLNode *Node1, const HLNode *Node2,
+                         bool PostDomination, HIRLoopStatistics *HLS,
+                         const HLNode **LastParent1,
+                         SmallVectorImpl<const HLLoop *> &Parent1LoopsWithZtt);
 
   /// Internally used by domination utility to get to the commona dominating
   /// parent. Last parent indicates the path used to reach to the parent.
-  static const HLNode *
-  getCommonDominatingParent(const HLNode *Parent1, const HLNode *LastParent1,
-                            const HLNode *Node2, bool PostDomination,
-                            HIRLoopStatistics *HLS, const HLNode **LastParent2);
+  static const HLNode *getCommonDominatingParent(
+      const HLNode *Parent1, const HLNode *LastParent1, const HLNode *Node2,
+      bool PostDomination, HIRLoopStatistics *HLS, const HLNode **LastParent2,
+      SmallVectorImpl<const HLLoop *> &Parent1LoopsWithZtt);
 
   /// Implements domination/post-domination functionality.
   static bool dominatesImpl(const HLNode *Node1, const HLNode *Node2,
