@@ -128,6 +128,11 @@ namespace {
       }
       UseLibcall = !C.getTargetInfo().hasBuiltinAtomic(
           AtomicSizeInBits, C.toBits(lvalue.getAlignment()));
+#if INTEL_COLLAB
+     // SPIR translator doesn't support atomic load/cmpxchg yet.
+     if (!UseLibcall && C.getTargetInfo().getTriple().isSPIR())
+       UseLibcall = true;
+#endif // INTEL_COLLAB
     }
 
     QualType getAtomicType() const { return AtomicTy; }
