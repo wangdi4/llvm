@@ -8,6 +8,7 @@
 
 #include "llvm/DebugInfo/DWARF/DWARFDebugRnglists.h"
 #include "llvm/BinaryFormat/Dwarf.h"
+#include "llvm/DebugInfo/DWARF/DWARFFormValue.h"
 #include "llvm/DebugInfo/DWARF/DWARFUnit.h"
 #include "llvm/Support/Errc.h"
 #include "llvm/Support/Error.h"
@@ -89,16 +90,17 @@ Error RangeListEntry::extract(DWARFDataExtractor Data, uint64_t *OffsetPtr) {
 
 DWARFAddressRangesVector DWARFDebugRnglist::getAbsoluteRanges(
     llvm::Optional<object::SectionedAddress> BaseAddr, DWARFUnit &U) const {
-  return getAbsoluteRanges(BaseAddr, [&](uint32_t Index) {
-    return U.getAddrOffsetSectionItem(Index);
-  });
+  return getAbsoluteRanges(
+      BaseAddr, U.getAddressByteSize(),
+      [&](uint32_t Index) { return U.getAddrOffsetSectionItem(Index); });
 }
 
 DWARFAddressRangesVector DWARFDebugRnglist::getAbsoluteRanges(
-    Optional<object::SectionedAddress> BaseAddr,
+    Optional<object::SectionedAddress> BaseAddr, uint8_t AddressByteSize,
     function_ref<Optional<object::SectionedAddress>(uint32_t)>
         LookupPooledAddress) const {
   DWARFAddressRangesVector Res;
+  uint64_t Tombstone = dwarf::computeTombstoneAddress(AddressByteSize);
   for (const RangeListEntry &RLE : Entries) {
     if (RLE.EntryKind == dwarf::DW_RLE_end_of_list)
       break;
@@ -121,8 +123,12 @@ DWARFAddressRangesVector DWARFDebugRnglist::getAbsoluteRanges(
     switch (RLE.EntryKind) {
     case dwarf::DW_RLE_offset_pair:
       E.LowPC = RLE.Value0;
+      if (E.LowPC == Tombstone)
+        continue;
       E.HighPC = RLE.Value1;
       if (BaseAddr) {
+        if (BaseAddr->Address == Tombstone)
+          continue;
         E.LowPC += BaseAddr->Address;
         E.HighPC += BaseAddr->Address;
       }
@@ -149,6 +155,8 @@ DWARFAddressRangesVector DWARFDebugRnglist::getAbsoluteRanges(
       // so we should not run into any here.
       llvm_unreachable("Unsupported range list encoding");
     }
+    if (E.LowPC == Tombstone)
+      continue;
     Res.push_back(E);
   }
   return Res;
@@ -181,6 +189,8 @@ void RangeListEntry::dump(
       OS << ": ";
   }
 
+  uint64_t Tombstone = dwarf::computeTombstoneAddress(AddrSize);
+
   switch (EntryKind) {
   case dwarf::DW_RLE_end_of_list:
     OS << (DumpOpts.Verbose ? "" : "<End of list>");
@@ -192,7 +202,7 @@ void RangeListEntry::dump(
       CurrentBase = Value0;
     if (!DumpOpts.Verbose)
       return;
-    OS << format(" 0x%*.*" PRIx64, AddrSize * 2, AddrSize * 2, Value0);
+    DWARFFormValue::dumpAddress(OS << ' ', AddrSize, Value0);
     break;
   }
   case dwarf::DW_RLE_base_address:
@@ -200,7 +210,7 @@ void RangeListEntry::dump(
     CurrentBase = Value0;
     if (!DumpOpts.Verbose)
       return;
-    OS << format(" 0x%*.*" PRIx64, AddrSize * 2, AddrSize * 2, Value0);
+    DWARFFormValue::dumpAddress(OS << ' ', AddrSize, Value0);
     break;
   case dwarf::DW_RLE_start_length:
     PrintRawEntry(OS, *this, AddrSize, DumpOpts);
@@ -208,8 +218,11 @@ void RangeListEntry::dump(
     break;
   case dwarf::DW_RLE_offset_pair:
     PrintRawEntry(OS, *this, AddrSize, DumpOpts);
-    DWARFAddressRange(Value0 + CurrentBase, Value1 + CurrentBase)
-        .dump(OS, AddrSize, DumpOpts);
+    if (CurrentBase != Tombstone)
+      DWARFAddressRange(Value0 + CurrentBase, Value1 + CurrentBase)
+          .dump(OS, AddrSize, DumpOpts);
+    else
+      OS << "dead code";
     break;
   case dwarf::DW_RLE_start_end:
     DWARFAddressRange(Value0, Value1).dump(OS, AddrSize, DumpOpts);

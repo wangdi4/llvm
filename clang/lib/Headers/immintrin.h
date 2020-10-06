@@ -934,13 +934,8 @@ _storebe_i64(void * __P, long long __D) {
 /* end INTEL_FEATURE_ISA_AMX_TILE2 */
 
 #if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
-    defined(__KL__)
+    defined(__KL__) || defined(__WIDEKL__)
 #include <keylockerintrin.h>
-#endif
-
-#if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
-    defined(__WIDEKL__)
-#include <keylocker_wide_intrin.h>
 #endif
 
 #if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \

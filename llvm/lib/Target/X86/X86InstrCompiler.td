@@ -903,10 +903,9 @@ def LCMPXCHG16B_SAVE_RBX :
 // This pseudo must be used when the frame uses RBX as
 // the base pointer.
 // cf comment for LCMPXCHG8B_SAVE_EBX.
-let Defs = [ECX, EAX, EBX, EFLAGS], Uses = [ECX, EAX, EBX],
+let Defs = [EBX], Uses = [ECX, EAX, EBX],
     Predicates = [HasMWAITX], SchedRW = [WriteSystem],
-    isCodeGenOnly = 1, isPseudo = 1, Constraints = "$ebx_save = $dst",
-    usesCustomInserter = 1 in {
+    isCodeGenOnly = 1, isPseudo = 1, Constraints = "$ebx_save = $dst" in {
 def MWAITX_SAVE_EBX :
     I<0, Pseudo, (outs GR32:$dst),
       (ins GR32:$ebx_input, GR32:$ebx_save),
@@ -914,10 +913,9 @@ def MWAITX_SAVE_EBX :
       []>;
 }
 // Same as MWAITX_SAVE_EBX but for the case where RBX is the base pointer.
-let Defs = [ECX, EAX, EBX, EFLAGS], Uses = [ECX, EAX, EBX],
+let Defs = [EBX], Uses = [ECX, EAX, EBX],
     Predicates = [HasMWAITX], SchedRW = [WriteSystem],
-    isCodeGenOnly = 1, isPseudo = 1, Constraints = "$rbx_save = $dst",
-    usesCustomInserter = 1 in {
+    isCodeGenOnly = 1, isPseudo = 1, Constraints = "$rbx_save = $dst" in {
 def MWAITX_SAVE_RBX :
     I<0, Pseudo, (outs GR64:$dst),
       (ins GR32:$ebx_input, GR64:$rbx_save),
@@ -926,13 +924,11 @@ def MWAITX_SAVE_RBX :
 }
 
 // Pseudo mwaitx instruction to use for custom insertion.
-let Defs = [ECX, EAX, EBX, EFLAGS], Uses = [ECX, EAX, EBX],
-    Predicates = [HasMWAITX], SchedRW = [WriteSystem],
+let Predicates = [HasMWAITX], SchedRW = [WriteSystem],
     isCodeGenOnly = 1, isPseudo = 1,
     usesCustomInserter = 1 in {
 def MWAITX :
-    I<0, Pseudo, (outs),
-      (ins GR32:$ecx, GR32:$eax, GR32:$ebx),
+    I<0, Pseudo, (outs), (ins GR32:$ecx, GR32:$eax, GR32:$ebx),
       "mwaitx",
       [(int_x86_mwaitx GR32:$ecx, GR32:$eax, GR32:$ebx)]>;
 }
