@@ -24,13 +24,9 @@
 ; RUN:     --check-prefix=CHECK-O3 --check-prefix=CHECK-EP-Peephole
 
 ; CHECK-O: Starting llvm::Module pass manager run.
-<<<<<<< HEAD
-; CHECK-O-NEXT: Starting llvm::Module pass manager run.
 ; CHECK-O-NEXT: Running pass: InlineReportSetupPass   ;INTEL
 ; CHECK-O-NEXT: Running pass: XmainOptLevelAnalysisInit  ;INTEL
 ; CHECK-O-NEXT: Running analysis: XmainOptLevelAnalysis  ;INTEL
-=======
->>>>>>> 2c94d88e076990a7b533578a392a150d4b9b0fa8
 ; CHECK-O-NEXT: Running pass: GlobalDCEPass
 ; INTEL_CUSTOMIZATION
 ; CHECK-O-NEXT: Running pass: RequireAnalysisPass<{{.*}}WholeProgramAnalysis
@@ -151,11 +147,7 @@
 ; CHECK-O2-NEXT: Running pass: SimplifyCFGPass
 ; CHECK-O2-NEXT: Running pass: EliminateAvailableExternallyPass
 ; CHECK-O2-NEXT: Running pass: GlobalDCEPass
-<<<<<<< HEAD
 ; CHECK-O2-NEXT: Running pass: InlineReportEmitterPass          ;INTEL
-; CHECK-O-NEXT: Finished llvm::Module pass manager run.
-=======
->>>>>>> 2c94d88e076990a7b533578a392a150d4b9b0fa8
 ; CHECK-O-NEXT: Running pass: PrintModulePass
 
 ; Make sure we get the IR back out without changes when we print the module.

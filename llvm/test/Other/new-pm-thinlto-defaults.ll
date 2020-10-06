@@ -52,11 +52,7 @@
 ; CHECK-EP-PIPELINE-START-NEXT: Running pass: NoOpModulePass
 ; CHECK-DIS-NEXT: Running analysis: InnerAnalysisManagerProxy
 ; CHECK-DIS-NEXT: Running pass: AddDiscriminatorsPass
-<<<<<<< HEAD
-; CHECK-O-NEXT: Starting llvm::Module pass manager run.
 ; CHECK-O-NEXT: Running pass: InlineReportSetupPass          ;INTEL
-=======
->>>>>>> 2c94d88e076990a7b533578a392a150d4b9b0fa8
 ; CHECK-POSTLINK-O-NEXT: Running pass: PGOIndirectCallPromotion
 ; CHECK-POSTLINK-O-NEXT: Running analysis: ProfileSummaryAnalysis
 ; CHECK-POSTLINK-O-NEXT: Running analysis: InnerAnalysisManagerProxy
@@ -252,12 +248,7 @@
 ; CHECK-POSTLINK-O-NEXT: Running pass: CGProfilePass
 ; CHECK-POSTLINK-O-NEXT: Running pass: GlobalDCEPass
 ; CHECK-POSTLINK-O-NEXT: Running pass: ConstantMergePass
-<<<<<<< HEAD
 ; CHECK-POSTLINK-O-NEXT: Running pass: InlineReportEmitterPass                             ;INTEL
-; CHECK-POSTLINK-O-NEXT: Finished llvm::Module pass manager run.
-; CHECK-O-NEXT: Finished llvm::Module pass manager run.
-=======
->>>>>>> 2c94d88e076990a7b533578a392a150d4b9b0fa8
 ; CHECK-PRELINK-O-NEXT: Running pass: NameAnonGlobalPass
 ; CHECK-O-NEXT: Running pass: PrintModulePass
 

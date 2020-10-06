@@ -15,7 +15,6 @@
 
 ; Basic orientation checks.
 ; CHECK:      Starting llvm::Module pass manager run.
-; CHECK-NEXT: Starting llvm::Module pass manager run.
 ; CHECK-NEXT: Running pass: InlineReportSetupPass
 ; CHECK-NEXT: Running pass: XmainOptLevelAnalysisInit
 ; CHECK-NEXT: Running analysis: XmainOptLevelAnalysis
