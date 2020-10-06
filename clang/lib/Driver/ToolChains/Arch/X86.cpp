@@ -59,6 +59,7 @@ std::string getCPUForIntel(StringRef Arch, const llvm::Triple &Triple,
                           "icelake-client")
               .CasesLower("icelake-server", "icelake_server", "icelake-server")
               .CaseLower("cascadelake", "cascadelake")
+              .CaseLower("cooperlake", "cooperlake")
               .CaseLower("tigerlake", "tigerlake")
               .CasesLower("sapphirerapids", "sapphire-rapids",
                           "sapphire_rapids", "sapphirerapids")
