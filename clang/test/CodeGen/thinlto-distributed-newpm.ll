@@ -29,7 +29,6 @@
 ; CHECK-O: Running pass: LowerTypeTestsPass
 ; CHECK-O: Invalidating analysis: InnerAnalysisManagerProxy
 ; CHECK-O: Running pass: ForceFunctionAttrsPass
-; CHECK-O: Starting {{.*}}Module pass manager run.
 ; CHECK-O: Running pass: PGOIndirectCallPromotion
 ; CHECK-O: Running analysis: ProfileSummaryAnalysis
 ; CHECK-O: Running analysis: InnerAnalysisManagerProxy
@@ -155,8 +154,6 @@
 ; CHECK-O: Invalidating analysis: DemandedBitsAnalysis on main
 ; CHECK-O: Invalidating analysis: PostDominatorTreeAnalysis on main
 ; CHECK-O: Invalidating analysis: CallGraphAnalysis
-; CHECK-O: Finished {{.*}}Module pass manager run.
-; CHECK-O: Starting {{.*}}Module pass manager run.
 ; CHECK-O: Running pass: GlobalOptPass
 ; CHECK-O: Running pass: GlobalDCEPass
 ; CHECK-O: Running pass: EliminateAvailableExternallyPass
@@ -210,7 +207,6 @@
 ; CHECK-O: Running pass: CGProfilePass
 ; CHECK-O: Running pass: GlobalDCEPass
 ; CHECK-O: Running pass: ConstantMergePass
-; CHECK-O: Finished {{.*}}Module pass manager run.
 ; CHECK-O: Finished {{.*}}Module pass manager run.
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
