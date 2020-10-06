@@ -2114,6 +2114,7 @@ X86TargetLowering::X86TargetLowering(const X86TargetMachine &TM,
 
   // We have target-specific dag combine patterns for the following nodes:
   setTargetDAGCombine(ISD::VECTOR_SHUFFLE);
+  setTargetDAGCombine(ISD::BUILD_VECTOR); // INTEL
   setTargetDAGCombine(ISD::SCALAR_TO_VECTOR);
   setTargetDAGCombine(ISD::INSERT_VECTOR_ELT);
   setTargetDAGCombine(ISD::EXTRACT_VECTOR_ELT);
@@ -52176,6 +52177,45 @@ static SDValue combineExtractSubvector(SDNode *N, SelectionDAG &DAG,
   return SDValue();
 }
 
+#if INTEL_CUSTOMIZATION
+// If this is a splat of a setcc on an avx512 target, broadcast the operands
+// and use a vector setcc.
+static SDValue combineBUILD_VECTOR(SDNode *N, SelectionDAG &DAG,
+                                   TargetLowering::DAGCombinerInfo &DCI,
+                                   const X86Subtarget &Subtarget) {
+  if (!DCI.isBeforeLegalize())
+    return SDValue();
+
+  if (!Subtarget.hasAVX512())
+    return SDValue();
+
+  SDValue Splat = cast<BuildVectorSDNode>(N)->getSplatValue();
+  if (!Splat)
+    return SDValue();
+
+  if (Splat.getOpcode() != ISD::SETCC)
+    return SDValue();
+
+  SDValue LHS = Splat.getOperand(0);
+  SDValue RHS = Splat.getOperand(1);
+  SDValue CC = Splat.getOperand(2);
+
+  // Look for constants on RHS.
+  // FIXME: Support non-constant?
+  if (!isa<ConstantSDNode>(RHS))
+    return SDValue();
+
+  EVT VT = N->getValueType(0);
+  SDLoc dl(N);
+  EVT VecVT = EVT::getVectorVT(*DAG.getContext(), LHS.getValueType(),
+                               VT.getVectorNumElements());
+  LHS = DAG.getSplatBuildVector(VecVT, dl, LHS);
+  RHS = DAG.getSplatBuildVector(VecVT, dl, RHS);
+
+  return DAG.getNode(ISD::SETCC, dl, VT, LHS, RHS, CC);
+}
+#endif // INTEL_CUSTOMIZATION
+
 static SDValue combineScalarToVector(SDNode *N, SelectionDAG &DAG) {
   EVT VT = N->getValueType(0);
   SDValue Src = N->getOperand(0);
@@ -52649,6 +52689,9 @@ SDValue X86TargetLowering::PerformDAGCombine(SDNode *N,
   SelectionDAG &DAG = DCI.DAG;
   switch (N->getOpcode()) {
   default: break;
+#if INTEL_CUSTOMIZATION
+  case ISD::BUILD_VECTOR: return combineBUILD_VECTOR(N, DAG, DCI, Subtarget);
+#endif // INTEL_CUSTOMIZATION
   case ISD::SCALAR_TO_VECTOR:
     return combineScalarToVector(N, DAG);
   case ISD::EXTRACT_VECTOR_ELT:
