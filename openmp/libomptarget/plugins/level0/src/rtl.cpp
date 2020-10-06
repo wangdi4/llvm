@@ -2428,8 +2428,11 @@ void *RTLDeviceInfoTy::getVarDeviceAddr(
                    FuncGblEntries[DeviceId].Modules[0], Name, &TgtSize,
                    &TgtAddr);
   if (Size != TgtSize) {
-    DP("Error: requested size %zu does not match %zu\n", Size, TgtSize);
+    DP("Warning: requested size %zu does not match %zu\n", Size, TgtSize);
+#if 0
+    // FIXME: when L0 reports correct size.
     return nullptr;
+#endif
   }
   DP("Global variable lookup succeeded.\n");
   return TgtAddr;
