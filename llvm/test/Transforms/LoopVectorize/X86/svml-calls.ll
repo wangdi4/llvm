@@ -40,8 +40,6 @@ declare float @llvm.log10.f32(float) #0
 
 declare double @sqrt(double) #0
 declare float @sqrtf(float) #0
-declare double @llvm.sqrt.f64(double) #0
-declare float @llvm.sqrt.f32(float) #0
 
 declare double @exp2(double) #0
 declare float @exp2f(float) #0
@@ -746,6 +744,7 @@ for.end:
   ret void
 }
 
+<<<<<<< HEAD
 define void @sqrt_f64_intrinsic(double* nocapture %varray) {
 ; CHECK-LABEL: @sqrt_f64_intrinsic(
 ; CHECK:    [[TMP5:%.*]] = call <4 x double> @llvm.sqrt.v4f64(<4 x double> [[TMP4:%.*]]) ;INTEL
@@ -792,6 +791,8 @@ for.end:
   ret void
 }
 
+=======
+>>>>>>> 89e8a8b223b2e20bb63e930ddb78cb80a3ed45a2
 define void @exp2_f64(double* nocapture %varray) {
 ; CHECK-LABEL: @exp2_f64(
 ; CHECK:    [[TMP5:%.*]] = call <4 x double> @__svml_exp24(<4 x double> [[TMP4:%.*]])
