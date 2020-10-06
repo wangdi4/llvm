@@ -101,23 +101,37 @@ struct SlidingWindowSum {
   /// The sum's opcode, which should either be FAdd or FSub for now.
   unsigned Opcode;
 
-  /// The load for the sum terms.
-  const RegDDRef *TermLoad;
+  /// The load for the sum terms. This may be an operand of \ref Inst or an
+  /// operand of a cast used by \ref Inst.
+  RegDDRef *TermLoad;
 
-  /// The operand index for the sum term load.
+  /// The operand index for the sum term within \ref Inst.
   unsigned TermLoadIdx;
 
+  /// This flag is set when there is a cast (\ref TermLoad is not an operand of
+  /// \ref Inst) and that cast has no uses other than \ref Inst (so it can be
+  /// removed when \ref Inst is).
+  bool CanRemoveCastInst;
+
   /// Constructs a SlidingWindowSum given values for its fields.
-  SlidingWindowSum(HLInst *Inst, unsigned Opcode, const RegDDRef *TermLoad,
-                   unsigned TermLoadIdx)
-      : Inst{Inst}, Opcode{Opcode}, TermLoad{TermLoad}, TermLoadIdx{
-                                                          TermLoadIdx} {
+  SlidingWindowSum(HLInst *Inst, unsigned Opcode, RegDDRef *TermLoad,
+                   unsigned TermLoadIdx, bool CanRemoveCastInst)
+      : Inst{Inst}, Opcode{Opcode}, TermLoad{TermLoad},
+        TermLoadIdx{TermLoadIdx}, CanRemoveCastInst{CanRemoveCastInst} {
     assert(Inst);
     assert(Opcode == Instruction::FAdd || Opcode == Instruction::FSub);
     assert(TermLoad);
     assert(Inst->getLLVMInstruction()->getOpcode() == Opcode);
-    assert(TermLoad->getHLDDNode() == Inst);
-    assert(Inst->getOperandDDRef(TermLoadIdx) == TermLoad);
+    assert(TermLoad->isMemRef());
+    if (TermLoad->getHLDDNode() == Inst) {
+      assert(Inst->getOperandDDRef(TermLoadIdx) == TermLoad);
+      assert(!CanRemoveCastInst);
+    } else {
+      assert(
+        cast<HLInst>(TermLoad->getHLDDNode())->getLLVMInstruction()->isCast());
+      assert(DDRefUtils::areEqual(TermLoad->getHLDDNode()->getLvalDDRef(),
+                                  Inst->getOperandDDRef(TermLoadIdx)));
+    }
   }
 };
 
@@ -195,6 +209,25 @@ static bool isEligibleLoopNest(const HLLoop *InnerLoop,
 static bool isIVCoeffOne(const CanonExpr *Expr, unsigned Level) {
   return Expr->getIVConstCoeff(Level) == 1 &&
          Expr->getIVBlobCoeff(Level) == InvalidBlobIndex;
+}
+
+/// Searches for a single incoming flow edge to \p Ref in \p DDG. The source of
+/// that edge is returned if found and if it is a RegDDRef; otherwise, if there
+/// are no incoming flow edges or multiple incoming flow edges, nullptr is
+/// returned.
+static const RegDDRef *getSingleDef(const RegDDRef *Ref, const DDGraph &DDG) {
+  const RegDDRef *SingleDef = nullptr;
+  for (const DDEdge *const Edge : DDG.incoming(Ref)) {
+    if (Edge->isFlow()) {
+      if (SingleDef)
+        return nullptr;
+
+      // This can be a cast as the sources of flow edges are always RegDDRefs.
+      SingleDef = cast<RegDDRef>(Edge->getSrc());
+    }
+  }
+
+  return SingleDef;
 }
 
 /// Determines whether \p TermLoad has an access pattern that is eligible for
@@ -347,10 +380,34 @@ findSlidingWindowSums(HLLoop *InnerLoop, HIRDDAnalysis &HDDA,
       continue;
     }
 
-    // Check that the sum terms have the right access pattern.
+    // Locate the term load. If the sum inst doesn't involve a memref directly,
+    // look for a cast used in the sum inst.
     const unsigned TermLoadIdx =
-      SumInst->getOperandDDRef(1)->isTerminalRef() ? 2 : 1;
-    const RegDDRef *const TermLoad = SumInst->getOperandDDRef(TermLoadIdx);
+      DDRefUtils::areEqual(SumInst->getLvalDDRef(), SumInst->getOperandDDRef(1))
+        ? 2
+        : 1;
+    const RegDDRef *TermLoad = SumInst->getOperandDDRef(TermLoadIdx);
+    const DDGraph &InnerDDG  = HDDA.getGraph(InnerLoop);
+    if (TermLoad->isTerminalRef()) {
+      const RegDDRef *const TermDef = getSingleDef(TermLoad, InnerDDG);
+      if (!TermDef) {
+        LLVM_DEBUG(dbgs() << "  Sum terms don't have direct in-loop def\n\n");
+        continue;
+      }
+      const auto *const DefInst = dyn_cast<HLInst>(TermDef->getHLDDNode());
+      if (!DefInst) {
+        LLVM_DEBUG(dbgs() << "  Sum term def is not an HLInst?\n\n");
+        continue;
+      }
+      if (!DefInst->getLLVMInstruction()->isCast()) {
+        LLVM_DEBUG(dbgs() << "  Sum term def is not a cast\n\n");
+        continue;
+      }
+
+      TermLoad = DefInst->getRvalDDRef();
+    }
+
+    // Check that the sum terms have the right access pattern.
     HLLoop *OuterLoop              = NewSums ? NewSums->OuterLoop : nullptr;
     if (!isEligibleTermLoad(TermLoad, InnerLoop, HDDA, OuterLoop))
       continue;
@@ -386,11 +443,28 @@ findSlidingWindowSums(HLLoop *InnerLoop, HIRDDAnalysis &HDDA,
 
     LLVM_DEBUG(dbgs() << "  Sum is eligible for optimization\n\n");
 
+    // If there is a cast involved, check whether it can be safely deleted once
+    // the sum is transformed.
+    bool CanRemoveCastInst = false;
+    if (TermLoad->getHLDDNode() != SumInst) {
+      const RegDDRef *const CastTemp = TermLoad->getHLDDNode()->getLvalDDRef();
+      if (!InnerLoop->isLiveOut(CastTemp->getSymbase())) {
+        CanRemoveCastInst = true;
+        for (const DDEdge *const Edge : InnerDDG.outgoing(CastTemp)) {
+          if (Edge->isFlow() && Edge->getSink()->getHLDDNode() != SumInst) {
+            CanRemoveCastInst = false;
+            break;
+          }
+        }
+      }
+    }
+
     // Collect the sum.
     if (!NewSums)
       NewSums.emplace(InnerLoop, OuterLoop, OutermostSumLoop);
     NewSums->Sums.emplace_back(const_cast<HLInst *>(SumInst), SumOpcode,
-                               TermLoad, TermLoadIdx);
+                               const_cast<RegDDRef *>(TermLoad), TermLoadIdx,
+                               CanRemoveCastInst);
   }
 
   // Add these new sums to the list if there are any.
@@ -517,7 +591,8 @@ static void transformLoopWindowSums(const LoopSlidingWindowSums &LoopSums) {
     // |   (%B)[i1] = %sum.final;
     // + END LOOP
     HLInst *const WSumInit = HNU.createCopyInst(
-      DDRU.createNullDDRef(Sum.TermLoad->getDestType()), "swr.wsum");
+      DDRU.createNullDDRef(Sum.Inst->getLvalDDRef()->getDestType()),
+      "swr.wsum");
     HLNodeUtils::insertAsLastPreheaderNode(LoopSums.OuterLoop, WSumInit);
     const RegDDRef *const WSum = WSumInit->getLvalDDRef();
     LoopSums.OuterLoop->addLiveInTemp(WSum);
@@ -548,12 +623,28 @@ static void transformLoopWindowSums(const LoopSlidingWindowSums &LoopSums) {
     // |
     // |   (%B)[i1] = %sum.final;
     // + END LOOP
+    HLInst *const TermCast = (Sum.TermLoad->getHLDDNode() == Sum.Inst)
+                               ? nullptr
+                               : cast<HLInst>(Sum.TermLoad->getHLDDNode());
+    const RegDDRef *FirstIterCastTemp = nullptr;
+    RegDDRef *FirstIterTermLoad;
+    if (TermCast) {
+      HLInst *const FirstIterCast = TermCast->clone();
+      HNU.createAndReplaceTemp(FirstIterCast->getLvalDDRef(), "swr.initcast");
+      FirstIterTermLoad = FirstIterCast->getRvalDDRef();
+      HLNodeUtils::insertAsLastChild(FirstIterLoop, FirstIterCast);
+      FirstIterCastTemp = FirstIterCast->getLvalDDRef();
+    }
     const unsigned PrevSumIdx  = (Sum.TermLoadIdx == 1) ? 2 : 1;
     HLInst *const FirstIterSum = Sum.Inst->clone();
     FirstIterSum->setOperandDDRef(WSum->clone(), 0);
     FirstIterSum->setOperandDDRef(WSum->clone(), PrevSumIdx);
-    FirstIterSum->getOperandDDRef(Sum.TermLoadIdx)
-      ->replaceIVByConstant(OuterLevel, 0);
+    if (FirstIterCastTemp)
+      FirstIterSum->setOperandDDRef(FirstIterCastTemp->clone(),
+                                    Sum.TermLoadIdx);
+    else
+      FirstIterTermLoad = FirstIterSum->getOperandDDRef(Sum.TermLoadIdx);
+    FirstIterTermLoad->replaceIVByConstant(OuterLevel, 0);
     HLNodeUtils::insertAsLastChild(FirstIterLoop, FirstIterSum);
     for (HLLoop *Loop = FirstIterLoop; Loop != LoopSums.OuterLoop;
          Loop         = Loop->getParentLoop()) {
@@ -592,16 +683,28 @@ static void transformLoopWindowSums(const LoopSlidingWindowSums &LoopSums) {
     // |
     // |   (%B)[i1] = %sum.final;
     // + END LOOP
+    const RegDDRef *StartCastTemp = nullptr;
+    RegDDRef *PrevStart;
+    if (TermCast) {
+      HLInst *const StartCast = TermCast->clone();
+      HNU.createAndReplaceTemp(StartCast->getLvalDDRef(), "swr.startcast");
+      HLNodeUtils::insertAsLastElseChild(FirstIterIf, StartCast);
+      StartCastTemp = StartCast->getLvalDDRef();
+      PrevStart     = StartCast->getRvalDDRef();
+    } else {
+      PrevStart = Sum.TermLoad->clone();
+    }
     const unsigned InverseOpcode =
       (Sum.Opcode == Instruction::FAdd) ? Instruction::FSub : Instruction::FAdd;
-    RegDDRef *const PrevStart = Sum.TermLoad->clone();
     const unsigned InnerLevel = LoopSums.InnerLoop->getNestingLevel();
     PrevStart->replaceIVByConstant(InnerLevel, 0);
     PrevStart->shift(OuterLevel, -1);
     const auto *const SumInstBinOp =
       cast<BinaryOperator>(Sum.Inst->getLLVMInstruction());
-    HLInst *const RemoveStartInst = HNU.createBinaryHLInst(
-      InverseOpcode, WSum->clone(), PrevStart, "", WSum->clone(), SumInstBinOp);
+    HLInst *const RemoveStartInst =
+      HNU.createBinaryHLInst(InverseOpcode, WSum->clone(),
+                             StartCastTemp ? StartCastTemp->clone() : PrevStart,
+                             "", WSum->clone(), SumInstBinOp);
     HLNodeUtils::insertAsLastElseChild(FirstIterIf, RemoveStartInst);
 
     // Add the second update operation, which adds the end of the current
@@ -636,13 +739,24 @@ static void transformLoopWindowSums(const LoopSlidingWindowSums &LoopSums) {
     // |
     // |   (%B)[i1] = %sum.final;
     // + END LOOP
-    RegDDRef *const CurEnd = Sum.TermLoad->clone();
+    const RegDDRef *EndCastTemp = nullptr;
+    RegDDRef *CurEnd;
+    if (TermCast) {
+      HLInst *const EndCast = TermCast->clone();
+      HNU.createAndReplaceTemp(EndCast->getLvalDDRef(), "swr.endcast");
+      HLNodeUtils::insertAsLastElseChild(FirstIterIf, EndCast);
+      EndCastTemp = EndCast->getLvalDDRef();
+      CurEnd      = EndCast->getRvalDDRef();
+    } else {
+      CurEnd = Sum.TermLoad->clone();
+    }
     DDRefUtils::replaceIVByCanonExpr(
         CurEnd, InnerLevel,
         LoopSums.InnerLoop->getUpperDDRef()->getSingleCanonExpr(),
         LoopSums.InnerLoop->hasSignedIV());
     HLInst *const AddEndInst = HNU.createBinaryHLInst(
-      Sum.Opcode, WSum->clone(), CurEnd, "", WSum->clone(), SumInstBinOp);
+      Sum.Opcode, WSum->clone(), EndCastTemp ? EndCastTemp->clone() : CurEnd,
+      "", WSum->clone(), SumInstBinOp);
     HLNodeUtils::insertAsLastElseChild(FirstIterIf, AddEndInst);
     CurEnd->makeConsistent(LoopSums.InnerLoop->getUpperDDRef(), InnerLevel - 1);
 
@@ -726,6 +840,10 @@ static void transformLoopWindowSums(const LoopSlidingWindowSums &LoopSums) {
       Loop->removeLiveOutTemp(OrigSum->getSymbase());
     }
     HLNodeUtils::remove(Sum.Inst);
+    if (Sum.CanRemoveCastInst) {
+      assert(TermCast);
+      HLNodeUtils::remove(TermCast);
+    }
   }
 
 #if INTEL_INTERNAL_BUILD
