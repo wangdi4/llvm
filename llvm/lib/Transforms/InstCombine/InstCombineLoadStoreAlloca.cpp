@@ -560,69 +560,6 @@ static Instruction *combineLoadToOperationType(InstCombinerImpl &IC,
 
   const DataLayout &DL = IC.getDataLayout();
 
-<<<<<<< HEAD
-  // Try to canonicalize loads which are only ever stored to operate over
-  // integers instead of any other type. We only do this when the loaded type
-  // is sized and has a size exactly the same as its store size and the store
-  // size is a legal integer type.
-  // Do not perform canonicalization if minmax pattern is found (to avoid
-  // infinite loop).
-  Type *Dummy;
-  if (!Ty->isIntegerTy() && Ty->isSized() && !isa<ScalableVectorType>(Ty) &&
-      DL.isLegalInteger(DL.getTypeStoreSizeInBits(Ty)) &&
-      DL.typeSizeEqualsStoreSize(Ty) && !DL.isNonIntegralPointerType(Ty) &&
-      !isMinMaxWithLoads(InstCombiner::peekThroughBitcast(
-                             LI.getPointerOperand(), /*OneUseOnly=*/true),
-                         Dummy)) {
-    if (all_of(LI.users(), [&LI](User *U) {
-          auto *SI = dyn_cast<StoreInst>(U);
-          return SI && SI->getPointerOperand() != &LI &&
-                 !SI->getPointerOperand()->isSwiftError();
-        })) {
-#if INTEL_CUSTOMIZATION
-      // For DTRANS and other optimizations that require the type info to be
-      // intact, we want to delay modifying some load/store sequences that
-      // convert a pointer to a structure type into an integer type in some
-      // cases to avoid ambiguous data types during DTrans analysis.
-      // Specifically, when the store is to the first field of a structure type,
-      // we inhibit the conversion because the first field can also be accessed
-      // directly from a pointer to the structure. This conversion could lead to
-      // ambiguous types for the access because it can also introduce a generic
-      // pointer type accessing the first field element. For now, we will only
-      // consider the case where the store is to this field. In the future, it
-      // may be useful to consider the case where the load is for the first
-      // field as well.
-      if (!IC.allowTypeLoweringOpts() && Ty->isPointerTy() &&
-          Ty->getPointerElementType()->isStructTy())
-        if (!all_of(LI.users(), [](User *U) {
-              // We know all the uses are StoreInst from the above condition.
-              // Check whether these are element 0 members.
-              auto *SI = cast<StoreInst>(U);
-              if (auto *GEP =
-                      dyn_cast<GetElementPtrInst>(SI->getPointerOperand()))
-                return !GEP->hasAllZeroIndices();
-              return true;
-            }))
-          return nullptr;
-#endif // INTEL_CUSTOMIZATION
-
-      LoadInst *NewLoad = IC.combineLoadToNewType(
-          LI, Type::getIntNTy(LI.getContext(), DL.getTypeStoreSizeInBits(Ty)));
-      // Replace all the stores with stores of the newly loaded value.
-      for (auto UI = LI.user_begin(), UE = LI.user_end(); UI != UE;) {
-        auto *SI = cast<StoreInst>(*UI++);
-        IC.Builder.SetInsertPoint(SI);
-        combineStoreToNewValue(IC, *SI, NewLoad);
-        IC.eraseInstFromFunction(*SI);
-      }
-      assert(LI.use_empty() && "Failed to remove all users of the load!");
-      // Return the old load so the combiner can delete it safely.
-      return &LI;
-    }
-  }
-
-=======
->>>>>>> e00f189d392dd9bf95f6a98f05f2d341d06cd65c
   // Fold away bit casts of the loaded value by loading the desired type.
   // We can do this for BitCastInsts as well as casts from and to pointer types,
   // as long as those are noops (i.e., the source or dest type have the same
