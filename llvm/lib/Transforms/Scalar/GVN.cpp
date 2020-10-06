@@ -1436,7 +1436,6 @@ bool GVN::PerformLoadPRE(LoadInst *LI, AvailValInBlkVect &ValuesPerBlock,
   if (NumUnavailablePreds != 1)
       return false;
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   // This check is needed to handle a case where a null pointer value is
   // initialized by a non-ANSI compliant pointer store.
@@ -1450,7 +1449,7 @@ bool GVN::PerformLoadPRE(LoadInst *LI, AvailValInBlkVect &ValuesPerBlock,
           if (C->isNullValue())
             return false;
 #endif // INTEL_CUSTOMIZATION
-=======
+
   // Now we know where we will insert load. We must ensure that it is safe
   // to speculatively execute the load at that points.
   if (MustEnsureSafetyOfSpeculativeExecution) {
@@ -1461,7 +1460,6 @@ bool GVN::PerformLoadPRE(LoadInst *LI, AvailValInBlkVect &ValuesPerBlock,
       if (!isSafeToSpeculativelyExecute(LI, PL.first->getTerminator(), DT))
         return false;
   }
->>>>>>> b9888980132e5511e85d4172a46e02475957298b
 
   // Split critical edges, and update the unavailable predecessors accordingly.
   for (BasicBlock *OrigPred : CriticalEdgePred) {
