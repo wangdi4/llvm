@@ -149,9 +149,16 @@ double __devicelib_asinh(double x) { return __spirv_ocl_asinh(x); }
 DEVICE_EXTERN_C
 double __devicelib_atanh(double x) { return __spirv_ocl_atanh(x); }
 
+<<<<<<< HEAD
 #if INTEL_COLLAB
 #if OMP_LIBDEVICE
 #pragma omp end declare target
 #endif  // OMP_LIBDEVICE
 #endif  // INTEL_COLLAB
+=======
+DEVICE_EXTERN_C
+double __devicelib_scalbn(double x, int exp) {
+  return __spirv_ocl_ldexp(x, exp);
+}
+>>>>>>> e438bc814959ce49cd7985b1ea4f9137804b6358
 #endif // __SPIR__

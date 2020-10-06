@@ -138,11 +138,16 @@ double asinh(double x) { return __devicelib_asinh(x); }
 DEVICE_EXTERN_C
 double atanh(double x) { return __devicelib_atanh(x); }
 
+<<<<<<< HEAD
 #if INTEL_COLLAB
 #if OMP_LIBDEVICE
 #pragma omp end declare target
 #endif  // OMP_LIBDEVICE
 #endif  // INTEL_COLLAB
+=======
+DEVICE_EXTERN_C
+double scalbn(double x, int exp) { return __devicelib_scalbn(x, exp); }
+>>>>>>> e438bc814959ce49cd7985b1ea4f9137804b6358
 
 #if defined(_WIN32)
 #include <math.h>
@@ -195,6 +200,47 @@ short _Dtest(double *px) { // categorize *px
     ret = (ps->_Sh[_D0] & _DMASK) == 0 ? _DENORM : _FINITE;
 
   return ret;
+}
+
+// Returns _FP_LT, _FP_GT or _FP_EQ based on the ordering
+// relationship between x and y.
+DEVICE_EXTERN_C
+int _dpcomp(double x, double y) {
+  int res = 0;
+  if (_Dtest(&x) == _NANCODE || _Dtest(&y) == _NANCODE) {
+    // '0' means unordered.
+    return res;
+  }
+
+  if (x < y)
+    res |= _FP_LT;
+  else if (x > y)
+    res |= _FP_GT;
+  else
+    res |= _FP_EQ;
+
+  return res;
+}
+
+// Returns 0, if the sign bit is not set, and non-zero otherwise.
+DEVICE_EXTERN_C
+int _dsign(double x) { return DSIGN(x); }
+
+// fpclassify() equivalent with a pointer argument.
+DEVICE_EXTERN_C
+short _dtest(double *px) {
+  switch (_Dtest(px)) {
+  case _DENORM:
+    return FP_SUBNORMAL;
+  case _FINITE:
+    return FP_NORMAL;
+  case _INFCODE:
+    return FP_INFINITE;
+  case _NANCODE:
+    return FP_NAN;
+  }
+
+  return FP_ZERO;
 }
 
 DEVICE_EXTERN_C
