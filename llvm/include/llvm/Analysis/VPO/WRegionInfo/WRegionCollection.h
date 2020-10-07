@@ -222,6 +222,7 @@ public:
     AM.getResult<WRegionCollectionAnalysis>(F).print(OS);
     return PreservedAnalyses::all();
   }
+  static bool isRequired() { return true; }
 };
 
 } // End namespace llvm

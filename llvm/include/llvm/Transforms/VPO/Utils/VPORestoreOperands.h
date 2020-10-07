@@ -53,6 +53,7 @@ public:
   PreservedAnalyses run(Function &F, FunctionAnalysisManager &AM);
 
   bool runImpl(Function &F);
+  static bool isRequired() { return true; }
 };
 
 namespace vpo {

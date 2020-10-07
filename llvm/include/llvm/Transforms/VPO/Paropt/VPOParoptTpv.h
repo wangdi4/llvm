@@ -25,6 +25,7 @@ namespace llvm {
 class VPOParoptTpvLegacyPass : public PassInfoMixin<VPOParoptTpvLegacyPass> {
 public:
   PreservedAnalyses run(Module &M, ModuleAnalysisManager &AM);
+  static bool isRequired() { return true; }
 };
 
 } // end namespace llvm
