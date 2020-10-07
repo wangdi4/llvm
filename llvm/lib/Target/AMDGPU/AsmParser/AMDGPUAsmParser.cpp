@@ -1190,6 +1190,10 @@ public:
     return AMDGPU::isGFX9(getSTI());
   }
 
+  bool isGFX9Plus() const {
+    return AMDGPU::isGFX9Plus(getSTI());
+  }
+
   bool isGFX10() const {
     return AMDGPU::isGFX10(getSTI());
   }
@@ -3878,8 +3882,10 @@ bool AMDGPUAsmParser::MatchAndEmitInstruction(SMLoc IDLoc, unsigned &Opcode,
   switch (Result) {
   default: break;
   case Match_MissingFeature:
-    // FIXME: this case should be analyzed and error message corrected.
-    return Error(IDLoc, "instruction not supported on this GPU");
+    // It has been verified that the specified instruction
+    // mnemonic is valid. A match was found but it requires
+    // features which are not supported on this GPU.
+    return Error(IDLoc, "operands are not valid for this GPU or mode");
 
   case Match_InvalidOperand: {
     SMLoc ErrorLoc = IDLoc;
@@ -4699,7 +4705,7 @@ bool AMDGPUAsmParser::subtargetHasRegister(const MCRegisterInfo &MRI,
   for (MCRegAliasIterator R(AMDGPU::TTMP12_TTMP13_TTMP14_TTMP15, &MRI, true);
        R.isValid(); ++R) {
     if (*R == RegNo)
-      return isGFX9() || isGFX10();
+      return isGFX9Plus();
   }
 
   // GFX10 has 2 more SGPRs 104 and 105.
