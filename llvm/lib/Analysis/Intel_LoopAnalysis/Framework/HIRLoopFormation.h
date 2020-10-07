@@ -105,8 +105,11 @@ private:
 
   /// Moves children of IfParent to loop's preheader/postexit if they are
   /// valid, else returns false.
-  static bool populatedPreheaderPostexitNodes(HLLoop *HLoop, HLIf *IfParent,
-                                              bool PredicateInversion);
+  /// Sets \p HasPostSiblingLoop to true if there exists at least one sibling
+  /// loop after this one.
+  bool populatedPreheaderPostexitNodes(HLLoop *HLoop, HLIf *IfParent,
+                                       bool PredicateInversion,
+                                       bool &HasPostSiblingLoop);
 
   /// Sets the parent if node of the loop as its ztt.
   void setZtt(HLLoop *HLoop);
@@ -143,8 +146,7 @@ public:
 
   /// Extracts \p IfParent which has been recognized as the legal Ztt of \p
   /// HLoop from the IR and sets it as the Ztt.
-  static bool setRecognizedZtt(HLLoop *HLoop, HLIf *IfParent,
-                               bool PredicateInversion);
+  bool setRecognizedZtt(HLLoop *HLoop, HLIf *IfParent, bool PredicateInversion);
 
   /// Reattaches loop label and bottom test back to this loop.
   void reattachLoopLabelAndBottomTest(HLLoop *Loop);
