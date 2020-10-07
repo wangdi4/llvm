@@ -1,4 +1,4 @@
-; RUN: opt < %s -switch-to-offload=true -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -debug-only=code-extractor -S 2>&1 | FileCheck %s
+; RUN: opt < %s -switch-to-offload=true -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -S 2>&1 | FileCheck %s
 ; CHECK: define{{.*}}Z3foov
 ; CHECK: codeRepl:
 ; CHECK: %y1 = alloca

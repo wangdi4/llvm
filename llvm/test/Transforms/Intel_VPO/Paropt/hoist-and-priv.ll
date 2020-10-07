@@ -1,4 +1,4 @@
-; RUN: opt < %s -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -debug-only=code-extractor -S 2>&1 | FileCheck %s
+; RUN: opt < %s -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -S 2>&1 | FileCheck %s
 
 ; CHECK: define{{.*}}split
 ; CHECK:  %Array.i = alloca [2050 x i32], align 16
