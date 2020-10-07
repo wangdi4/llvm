@@ -153,7 +153,10 @@ DEVICE_EXTERN_C
 double __devicelib_scalbn(double x, int exp) {
   return __spirv_ocl_ldexp(x, exp);
 }
+<<<<<<< HEAD
 
+=======
+>>>>>>> 7be434496c6bf4e48aee8da7c29468e3cb328a8c
 #if INTEL_COLLAB
 #if OMP_LIBDEVICE
 #pragma omp end declare target
