@@ -137,12 +137,7 @@ double asinh(double x) { return __devicelib_asinh(x); }
 
 DEVICE_EXTERN_C
 double atanh(double x) { return __devicelib_atanh(x); }
-<<<<<<< HEAD
 
-DEVICE_EXTERN_C
-double scalbn(double x, int exp) { return __devicelib_scalbn(x, exp); }
-
-=======
 #if INTEL_CUSTOMIZATION
 #if 0
 // Disable scalbn() wrapper, since it triggers
@@ -151,7 +146,6 @@ DEVICE_EXTERN_C
 double scalbn(double x, int exp) { return __devicelib_scalbn(x, exp); }
 #endif // 0
 #endif // INTEL_CUSTOMIZATION
->>>>>>> 7be434496c6bf4e48aee8da7c29468e3cb328a8c
 #if INTEL_COLLAB
 #if OMP_LIBDEVICE
 #pragma omp end declare target
