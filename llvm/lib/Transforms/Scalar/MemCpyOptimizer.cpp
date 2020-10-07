@@ -21,11 +21,8 @@
 #include "llvm/Analysis/AliasAnalysis.h"
 #include "llvm/Analysis/AssumptionCache.h"
 #include "llvm/Analysis/GlobalsModRef.h"
-<<<<<<< HEAD
 #include "llvm/Analysis/Intel_Andersens.h"          // INTEL
-=======
 #include "llvm/Analysis/Loads.h"
->>>>>>> 616f5450480214d40dd69a5f5f0f10b41bd4b3e2
 #include "llvm/Analysis/MemoryDependenceAnalysis.h"
 #include "llvm/Analysis/MemoryLocation.h"
 #include "llvm/Analysis/MemorySSA.h"
