@@ -10857,34 +10857,19 @@ bool ScalarEvolution::isBasicBlockEntryGuardedByCond(const BasicBlock *BB,
 
   // Try to prove (Pred, LHS, RHS) using isImpliedCond.
   auto ProveViaCond = [&](const Value *Condition, bool Inverse) {
-<<<<<<< HEAD
-    const Instruction *Context = &BB->front();
-    if (isImpliedCond(Pred, LHS, RHS, Condition, Inverse, Context, // INTEL
-                      PredContext))                                // INTEL
+    if (isImpliedCond(Pred, LHS, RHS, Condition, Inverse, PredContext)) // INTEL
       return true;
     if (ProvingStrictComparison) {
       if (!ProvedNonStrictComparison)
 #if INTEL_CUSTOMIZATION
-        ProvedNonStrictComparison =
-            isImpliedCond(NonStrictPredicate, LHS, RHS, Condition, Inverse,
-                          Context, PredContext);
+        ProvedNonStrictComparison = isImpliedCond(
+            NonStrictPredicate, LHS, RHS, Condition, Inverse, PredContext);
 #endif // INTEL_CUSTOMIZATION
       if (!ProvedNonEquality)
 #if INTEL_CUSTOMIZATION
         ProvedNonEquality = isImpliedCond(ICmpInst::ICMP_NE, LHS, RHS,
-                                          Condition, Inverse, Context, PredContext);
+                                          Condition, Inverse, PredContext);
 #endif // INTEL_CUSTOMIZATION
-=======
-    if (isImpliedCond(Pred, LHS, RHS, Condition, Inverse))
-      return true;
-    if (ProvingStrictComparison) {
-      if (!ProvedNonStrictComparison)
-        ProvedNonStrictComparison =
-            isImpliedCond(NonStrictPredicate, LHS, RHS, Condition, Inverse);
-      if (!ProvedNonEquality)
-        ProvedNonEquality =
-            isImpliedCond(ICmpInst::ICMP_NE, LHS, RHS, Condition, Inverse);
->>>>>>> bbb0ee6e34db1d8e00367ea03ee1972d1131d1e0
       if (ProvedNonStrictComparison && ProvedNonEquality)
         return true;
     }
@@ -10954,13 +10939,8 @@ bool ScalarEvolution::isLoopEntryGuardedByCond(const Loop *L,
 
 bool ScalarEvolution::isImpliedCond(ICmpInst::Predicate Pred, const SCEV *LHS,
                                     const SCEV *RHS,
-<<<<<<< HEAD
                                     const Value *FoundCondValue, bool Inverse,
-                                    const Instruction *Context,    // INTEL
                                     const ICmpInst *PredContext) { // INTEL
-=======
-                                    const Value *FoundCondValue, bool Inverse) {
->>>>>>> bbb0ee6e34db1d8e00367ea03ee1972d1131d1e0
   if (!PendingLoopPredicates.insert(FoundCondValue).second)
     return false;
 
@@ -10994,26 +10974,16 @@ bool ScalarEvolution::isImpliedCond(ICmpInst::Predicate Pred, const SCEV *LHS,
   const SCEV *FoundLHS = getSCEV(ICI->getOperand(0));
   const SCEV *FoundRHS = getSCEV(ICI->getOperand(1));
 
-<<<<<<< HEAD
   return isImpliedCond(Pred, LHS, RHS, FoundPred, FoundLHS, FoundRHS, // INTEL
-                       Context, PredContext, ICI);                    // INTEL
-=======
-  return isImpliedCond(Pred, LHS, RHS, FoundPred, FoundLHS, FoundRHS);
->>>>>>> bbb0ee6e34db1d8e00367ea03ee1972d1131d1e0
+                       PredContext, ICI);                             // INTEL
 }
 
 bool ScalarEvolution::isImpliedCond(ICmpInst::Predicate Pred, const SCEV *LHS,
                                     const SCEV *RHS,
                                     ICmpInst::Predicate FoundPred,
-<<<<<<< HEAD
                                     const SCEV *FoundLHS, const SCEV *FoundRHS,
-                                    const Instruction *Context,         // INTEL
                                     const ICmpInst *PredContext,        // INTEL
                                     const ICmpInst *FoundPredContext) { // INTEL
-=======
-                                    const SCEV *FoundLHS,
-                                    const SCEV *FoundRHS) {
->>>>>>> bbb0ee6e34db1d8e00367ea03ee1972d1131d1e0
   // Balance the types.
   if (getTypeSizeInBits(LHS->getType()) <
       getTypeSizeInBits(FoundLHS->getType())) {
@@ -11618,19 +11588,12 @@ bool ScalarEvolution::isImpliedCondOperands(ICmpInst::Predicate Pred,
   if (isImpliedCondOperandsViaNoOverflow(Pred, LHS, RHS, FoundLHS, FoundRHS))
     return true;
 
-<<<<<<< HEAD
-  if (isImpliedCondOperandsViaAddRecStart(Pred, LHS, RHS, FoundLHS, FoundRHS,
-                                          Context))
-    return true;
-
 #if INTEL_CUSTOMIZATION
   if (isImpliedCondOperandsViaConstantDifference(*this, Pred, LHS, RHS,
                                                  FoundLHS, FoundRHS))
     return true;
 #endif // INTEL_CUSTOMIZATION
 
-=======
->>>>>>> bbb0ee6e34db1d8e00367ea03ee1972d1131d1e0
   return isImpliedCondOperandsHelper(Pred, LHS, RHS,
                                      FoundLHS, FoundRHS) ||
          // ~x < ~y --> x > y
