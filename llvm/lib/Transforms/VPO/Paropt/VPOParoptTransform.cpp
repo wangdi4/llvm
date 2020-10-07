@@ -1699,6 +1699,7 @@ bool VPOParoptTransform::paroptTransforms() {
           }
           Changed |= clearLaunderIntrinBeforeRegion(W);
           Changed |= sinkSIMDDirectives(W);
+          Changed |= genParallelAccessMetadata(W);
           RemoveDirectives = true;
 
           LLVM_DEBUG(dbgs()<<"\n Parallel W-Region::"<<*W->getEntryBBlock());
@@ -1945,6 +1946,7 @@ bool VPOParoptTransform::paroptTransforms() {
             Changed |= genLastPrivatizationCode(W, LoopExitBB);
             Changed |= genReductionCode(W);
             Changed |= sinkSIMDDirectives(W);
+            Changed |= genParallelAccessMetadata(W);
           }
           // keep SIMD directives; will be processed by the Vectorizer
           RemoveDirectives = false;
@@ -2064,6 +2066,7 @@ bool VPOParoptTransform::paroptTransforms() {
               Changed |= genBarrier(W, false);
           }
           Changed |= sinkSIMDDirectives(W);
+          Changed |= genParallelAccessMetadata(W);
           RemoveDirectives = true;
         }
         break;
@@ -6321,6 +6324,100 @@ bool VPOParoptTransform::sinkSIMDDirectives(WRegionNode *W) {
 
   W->resetBBSetIfChanged(Changed); // Clear BBSet if transformed
   return Changed;
+}
+
+// Add llvm.loop.parallel_accesses metadata to loops with non-monotonic
+// property. This metadata refers to one or more access group metadata nodes
+// (see llvm.access.group) attached to memory access instructions in a loop. It
+// indicates that no loop-carried memory dependence exists between it and other
+// instructions in the loop with this metadata (see detailed description at
+// https://llvm.org/docs/LangRef.html#llvm-loop-parallel-accesses-metadata).
+//
+// loop:
+//   ...
+//   %val = load float, float* %ptr1, !llvm.access.group !0
+//   ...
+//   store float %val, float* %ptr2, !llvm.access.group !0
+//   ...
+//   br i1 %cond, label %end, label %loop, !llvm.loop !1
+//
+// end:
+// ...
+//
+// !0 = distinct !{}
+// !1 = distinct !{!1, !2}
+// !2 = !{!"llvm.loop.parallel_accesses", !0}
+bool VPOParoptTransform::genParallelAccessMetadata(WRegionNode *W) {
+  if (!W->getIsOmpLoop() || W->getIsSections() || isa<WRNDistributeNode>(W))
+    return false;
+
+  // Check if this loop can have parallel access metadata.
+  if (W->getLoopOrder() != WRNLoopOrderConcurrent) {
+    // With presence of 'safelen' loop-carried dependences are possible.
+    if (isa<WRNVecLoopNode>(W) && W->getSafelen())
+      return false;
+
+    if (W->canHaveSchedule()) {
+      // OpenMP 5.0, 2.9.2 Worksharing-Loop Construct, Description
+      // If the static schedule kind is specified or if the ordered clause is
+      // specified, and if the nonmonotonic modifier is not specified, the
+      // effect is as if the monotonic modifier is specified. Otherwise, unless
+      // the monotonic modifier is specified, the effect is as if the
+      // nonmonotonic modifier is specified.
+      const auto &Sched = W->getSchedule();
+      bool IsMonotonic = W->getOrdered() >= 0 || Sched.getIsSchedMonotonic() ||
+                         ((Sched.getKind() == WRNScheduleStatic ||
+                           Sched.getKind() == WRNScheduleOrderedStatic) &&
+                          !Sched.getIsSchedNonmonotonic());
+      if (IsMonotonic)
+        return false;
+    }
+  }
+
+  LLVMContext &C = F->getContext();
+  Loop *L = W->getWRNLoopInfo().getLoop();
+
+  // Add access group metadata to all memory r/w instructions in the loop.
+  MDNode *AG = nullptr;
+  for (BasicBlock *BB : L->blocks())
+    for (Instruction &I : *BB) {
+      if (!I.mayReadOrWriteMemory())
+        continue;
+
+      if (!AG)
+        AG = MDNode::getDistinct(C, {});
+
+      if (MDNode *MD = I.getMetadata(LLVMContext::MD_access_group)) {
+        // Existing access groups need to be retained for nested parallel loops.
+        SmallVector<Metadata *, 8u> AGs{AG};
+        if (MD->getNumOperands())
+          copy(MD->operands(), std::back_inserter(AGs));
+        else
+          AGs.push_back(MD);
+        I.setMetadata(LLVMContext::MD_access_group, MDNode::get(C, AGs));
+      } else
+        I.setMetadata(LLVMContext::MD_access_group, AG);
+    }
+  if (!AG)
+    return false;
+
+  // Now add parallel access metadata to the loop. If loop already has loop
+  // metadata, then it need to be retained.
+  SmallVector<Metadata *, 8u> MDs(1u);
+  if (MDNode *ID = L->getLoopID())
+    std::copy(std::next(ID->op_begin()), ID->op_end(), std::back_inserter(MDs));
+
+  // Add parallel access metadata with the access group that was created for
+  // this loop.
+  MDs.push_back(
+      MDNode::get(C, {MDString::get(C, "llvm.loop.parallel_accesses"), AG}));
+
+  // And add new metadata to the loop.
+  MDNode *NewID = MDNode::get(C, MDs);
+  NewID->replaceOperandWith(0, NewID);
+  L->setLoopID(NewID);
+
+  return true;
 }
 
 void VPOParoptTransform::simplifyLoopPHINodes(
