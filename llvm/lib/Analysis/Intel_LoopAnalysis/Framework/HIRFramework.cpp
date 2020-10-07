@@ -225,7 +225,9 @@ void HIRFramework::processDeferredZtts() {
       continue;
     }
 
-    HIRLoopFormation::setRecognizedZtt(Lp, Ztt, false);
+    if (!PhaseLoopFormation->setRecognizedZtt(Lp, Ztt, false)) {
+      continue;
+    }
 
     // If ztt was successfuly recognized, it moved from (LoopLevel-1) to
     // LoopLevel so we will need to update level of non-linear blobs.

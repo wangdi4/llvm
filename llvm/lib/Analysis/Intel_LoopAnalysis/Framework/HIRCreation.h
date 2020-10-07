@@ -62,13 +62,13 @@ class HIRCreation {
   HLRegion *CurRegion;
 
   /// HLLabel map to be used by later passes.
-  SmallDenseMap<const BasicBlock *, HLLabel *, 64> Labels;
+  DenseMap<const BasicBlock *, HLLabel *> Labels;
 
   /// HLGotos vector to be used by later passes.
   SmallVector<HLGoto *, 64> Gotos;
 
   /// HLIfs map to be used by later passes.
-  SmallDenseMap<HLIf *, const BasicBlock *, 32> Ifs;
+  DenseMap<HLIf *, const BasicBlock *> Ifs;
 
   /// HLSwitches map to be used by later passes.
   SmallDenseMap<HLSwitch *, const BasicBlock *, 8> Switches;
@@ -113,12 +113,16 @@ public:
   /// Creates HLRegions out of IRRegions.
   void run(HLContainerTy &Regions);
 
-  /// Returns the src bblock associated with this if. Returns null if it
-  /// fails to find one.
+  /// Returns the src bblock associated with this if. Asserts if it cannot be
+  /// found.
   const BasicBlock *getSrcBBlock(HLIf *If) const;
 
-  /// Returns the src bblock associated with this switch. Returns null if
-  /// it fails to find one.
+  /// Sets the src bblock for \p If. This should only be done for new ifs
+  /// created by the framework.
+  void setSrcBBlock(HLIf *If, const BasicBlock *SrcBB);
+
+  /// Returns the src bblock associated with this switch. Asserts if it cannot
+  /// be found.
   const BasicBlock *getSrcBBlock(HLSwitch *Switch) const;
 };
 

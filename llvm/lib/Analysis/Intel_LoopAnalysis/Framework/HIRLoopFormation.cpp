@@ -296,7 +296,8 @@ void HIRLoopFormation::setIVType(HLLoop *HLoop, const SCEV *BECount) const {
 }
 
 bool HIRLoopFormation::populatedPreheaderPostexitNodes(
-    HLLoop *HLoop, HLIf *IfParent, bool PredicateInversion) {
+    HLLoop *HLoop, HLIf *IfParent, bool PredicateInversion,
+    bool &HasPostSiblingLoop) {
 
   auto PreBegIt =
       !PredicateInversion ? IfParent->then_begin() : IfParent->else_begin();
@@ -307,13 +308,39 @@ bool HIRLoopFormation::populatedPreheaderPostexitNodes(
       !PredicateInversion ? IfParent->then_end() : IfParent->else_end();
 
   bool HasPreheader = (PreBegIt != PreEndIt);
-  bool HasPostexit = (PostBegIt != PostEndIt);
 
-  if ((HasPreheader &&
-       !HLNodeUtils::validPreheaderPostexitNodes(PreBegIt, PreEndIt)) ||
-      (HasPostexit &&
-       !HLNodeUtils::validPreheaderPostexitNodes(PostBegIt, PostEndIt))) {
+  if (HasPreheader &&
+      !HLNodeUtils::validPreheaderPostexitNodes(PreBegIt, PreEndIt)) {
     return false;
+  }
+
+  bool HasPostexit = (PostBegIt != PostEndIt);
+  for (auto It = PostBegIt; It != PostEndIt; ++It) {
+    auto *Node = &*It;
+
+    if (!isa<HLInst>(Node)) {
+      // Loop may not be formed for the sibling so look for loop header label
+      // instead.
+      if (auto *Label = dyn_cast<HLLabel>(Node)) {
+        if (LI.isLoopHeader(Label->getSrcBBlock())) {
+          HasPostSiblingLoop = true;
+          // Use the postexit nodes as next loop's preheader because
+          // instructions are more likely to have been hoisted than sinked in
+          // the incoming IR.
+          HasPostexit = false;
+          break;
+        }
+      }
+
+      // This could happen for deferred ZTT candidates.
+      if (isa<HLLoop>(Node)) {
+        HasPostSiblingLoop = true;
+        HasPostexit = false;
+        break;
+      }
+
+      return false;
+    }
   }
 
   if (HasPreheader) {
@@ -329,20 +356,34 @@ bool HIRLoopFormation::populatedPreheaderPostexitNodes(
 
 bool HIRLoopFormation::setRecognizedZtt(HLLoop *HLoop, HLIf *IfParent,
                                         bool PredicateInversion) {
+  bool HasPostSiblingLoop = false;
+
   // This function returns false if the condition is acting like a ztt but
   // cannot be set as one due to presence of non-HLInst nodes so we need to
   // bail out.
-  if (!populatedPreheaderPostexitNodes(HLoop, IfParent, PredicateInversion)) {
+  if (!populatedPreheaderPostexitNodes(HLoop, IfParent, PredicateInversion,
+                                       HasPostSiblingLoop)) {
     return false;
   }
 
   // IfParent should only contain the loop now.
-  assert(((!PredicateInversion && (IfParent->getNumThenChildren() == 1)) ||
+  assert(HasPostSiblingLoop ||
+         ((!PredicateInversion && (IfParent->getNumThenChildren() == 1)) ||
           (PredicateInversion && (IfParent->getNumElseChildren() == 1))) &&
-         "Something went wrong during ztt recognition!");
+             "Something went wrong during ztt recognition!");
 
   HLNodeUtils::moveBefore(IfParent, HLoop);
-  HLNodeUtils::remove(IfParent);
+
+  if (HasPostSiblingLoop) {
+    // If we have a sibling loop, use the cloned if as the Ztt.
+    auto *IfParentClone = IfParent->cloneEmpty();
+    // Set src block for the new if so parser can use it.
+    HIRCr.setSrcBBlock(IfParentClone, HIRCr.getSrcBBlock(IfParent));
+    IfParent = IfParentClone;
+
+  } else {
+    HLNodeUtils::remove(IfParent);
+  }
 
   HLoop->setZtt(IfParent);
 

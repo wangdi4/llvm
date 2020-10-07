@@ -5,8 +5,6 @@
 ; Dump Before
 
 ; CHECK: BEGIN REGION { }
-; CHECK: if (%n > 0)
-; CHECK: {
 ; CHECK:   + DO i1 = 0, sext.i32.i64(%n) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 100>
 ; CHECK:   |   + DO i2 = 0, 3, 1   <DO_LOOP>
 ; CHECK:   |   |   (@A)[0][i1][i2] = 5;
@@ -18,7 +16,6 @@
 ; CHECK:   |   |   (@A)[0][i1][i2] = 10;
 ; CHECK:   |   + END LOOP
 ; CHECK:   + END LOOP
-; CHECK: }
 ; CHECK: ret ;
 ; CHECK: END REGION
 
@@ -26,14 +23,14 @@
 ; Dump After
 
 ; CHECK: BEGIN REGION { modified }
-; CHECK: if (%n > 0)
-; CHECK: {
+
+; CHECK-NOT: DO
+
 ; CHECK:   + DO i1 = 0, sext.i32.i64(%n) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 100>
 ; CHECK:   |   + DO i2 = 0, 3, 1   <DO_LOOP>
 ; CHECK:   |   |   (@A)[0][i1][i2] = 10;
 ; CHECK:   |   + END LOOP
 ; CHECK:   + END LOOP
-; CHECK: }
 ; CHECK: ret ;
 ; CHECK: END REGION
 
