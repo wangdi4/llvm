@@ -89,9 +89,50 @@ static bool checkCombinerOp(Value *CombinerV,
   return false;
 }
 
-static bool isSupportedInstructionType(Type *Ty) {
+/// Return \p true if \p Ty or any of the member-type of \p Ty is a scalable
+/// type.
+static bool isOrHasScalableTy(Type *Ty) {
+  if (isa<ScalableVectorType>(Ty))
+    return true;
+
+  if (auto *CastTy = dyn_cast<PointerType>(Ty))
+    return isOrHasScalableTy(CastTy->getElementType());
+
+  if (auto *CastTy = dyn_cast<VectorType>(Ty))
+    return isOrHasScalableTy(CastTy->getElementType());
+
+  if (auto *CastTy = dyn_cast<ArrayType>(Ty))
+    return isOrHasScalableTy(CastTy->getElementType());
+
+  if (auto *StructTy = dyn_cast<StructType>(Ty))
+    return any_of(StructTy->elements(),
+                  [&](Type *ElemTy) { return isOrHasScalableTy(ElemTy); });
+
+  return false;
+}
+
+static bool isSupportedInstructionType(const Instruction &I) {
+
+  Type *Ty = I.getType();
+
+  if (isOrHasScalableTy(Ty)) {
+    // For debug builds, assert that the incoming IR does not have scalable
+    // vector type.
+    assert(false && "VPlan does not support IR with ScalableVectorType.");
+    // For release builds, just bail out.
+    return false;
+  }
+
   auto *VecTy = dyn_cast<VectorType>(Ty);
-  return !VecTy || VecTy->getElementType()->isSingleValueType();
+  if (!VecTy)
+    return true;
+
+  bool InstrOperandsAreNonScalableType =
+      all_of(I.operands(),
+             [](const Value *V) { return !isOrHasScalableTy(V->getType()); });
+
+  return VecTy->getElementType()->isSingleValueType() &&
+         InstrOperandsAreNonScalableType;
 }
 
 /// Check that the instruction has outside loop users and is not an identified
@@ -531,7 +572,7 @@ bool VPOVectorizationLegality::canVectorize(DominatorTree &DT,
   for (BasicBlock *BB : TheLoop->blocks()) {
     // Scan the instructions in the block and look for hazards.
     for (Instruction &I : *BB) {
-      if (!isSupportedInstructionType(I.getType()))
+      if (!isSupportedInstructionType(I))
         return false;
       if (auto *Phi = dyn_cast<PHINode>(&I)) {
 
