@@ -3981,16 +3981,16 @@ bool DDTest::propagateDistance(const CanonExpr *&Src, const CanonExpr *&Dst,
 
   // a_k = 0
   NewSrc->removeIV(CurLoopLevel);
-  LLVM_DEBUG(dbgs() << "\t\tnew Src is "; Src->dump());
-  LLVM_DEBUG(dbgs() << "\n\tDst is "; Dst->dump());
 
+  LLVM_DEBUG(dbgs() << "\n\tDst is "; Dst->dump());
   // a_k' = a_k' - a_k
   NewDst->addIV(CurLoopLevel, Index, 0 - Coeff);
-  LLVM_DEBUG(dbgs() << "\t\tnew Dst is "; Dst->dump());
 
   NewDst->getIVCoeff(CurLoopLevel, &Index, &Coeff);
   if (Coeff == 0)
     Consistent = false;
+  LLVM_DEBUG(dbgs() << "\t\tnew Src is "; NewSrc->dump());
+  LLVM_DEBUG(dbgs() << "\t\tnew Dst is "; NewDst->dump());
   Src = NewSrc;
   Dst = NewDst;
   return true;
@@ -4001,11 +4001,13 @@ bool DDTest::propagateDistance(const CanonExpr *&Src, const CanonExpr *&Dst,
 // Return true if some simplification occurs.
 // If the simplification isn't exact (that is, if it is conservative
 // in terms f dependence), set consistent to false.
-bool DDTest::propagateLine(const CanonExpr *&Src, const CanonExpr *&Dst,
+bool DDTest::propagateLine(const CanonExpr *&OrigSrc, const CanonExpr *&OrigDst,
                            Constraint &CurConstraint, bool &Consistent) {
   const HLLoop *CurLoop = CurConstraint.getAssociatedLoop();
   if (!CurLoop)
     return false;
+  const CanonExpr *Src = OrigSrc;
+  const CanonExpr *Dst = OrigDst;
   unsigned CurLoopLevel = CurLoop->getNestingLevel();
   const CanonExpr *A = CurConstraint.getA();
   const CanonExpr *B = CurConstraint.getB();
@@ -4134,8 +4136,9 @@ bool DDTest::propagateLine(const CanonExpr *&Src, const CanonExpr *&Dst,
     if (Coeff != 0)
       Consistent = false;
   }
-  Src = NewSrc;
-  Dst = NewDst;
+  
+  OrigSrc = NewSrc;
+  OrigDst = NewDst;
   LLVM_DEBUG(dbgs() << "\n\tnew Src = "; Src->dump();
              dbgs() << "\n\tnew Dst = "; Dst->dump(););
   return true;
@@ -4144,11 +4147,14 @@ bool DDTest::propagateLine(const CanonExpr *&Src, const CanonExpr *&Dst,
 // Attempt to propagate a point
 // constraint into a subscript pair (Src and Dst).
 // Return true if some simplification occurs.
-bool DDTest::propagatePoint(const CanonExpr *&Src, const CanonExpr *&Dst,
+bool DDTest::propagatePoint(const CanonExpr *&OrigSrc,
+                            const CanonExpr *&OrigDst,
                             Constraint &CurConstraint) {
   const HLLoop *CurLoop = CurConstraint.getAssociatedLoop();
   if (!CurLoop)
     return false;
+  const CanonExpr *Src = OrigSrc;
+  const CanonExpr *Dst = OrigDst;
   unsigned CurLoopLevel = CurLoop->getNestingLevel();
   CanonExpr *NewDst = Dst->clone();
   push(NewDst);
@@ -4188,6 +4194,9 @@ bool DDTest::propagatePoint(const CanonExpr *&Src, const CanonExpr *&Dst,
   // a_k' = 0
   NewDst->removeIV(CurLoopLevel);
   LLVM_DEBUG(dbgs() << "\t\tnew Dst is "; NewDst->dump(););
+
+  OrigSrc = NewSrc;
+  OrigDst = NewDst;
   return true;
 }
 
