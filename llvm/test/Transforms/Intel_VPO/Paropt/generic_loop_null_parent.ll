@@ -1,9 +1,8 @@
 ; RUN: opt < %s -vpo-cfg-restructuring -vpo-paropt-prepare -S | FileCheck %s
 ; RUN: opt < %s -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare)'  -S | FileCheck %s
 
-; XFAIL: *
-
-; This test checks assertion is raised if there is no parent region for "loop" construct.
+; This test checks the "loop" construct is mapped to "simd" after prepare pass,
+; if binding region is not defined.
 
 ; int aaa[1000];
 ; void foo() {
@@ -59,6 +58,7 @@ for.body:                                         ; preds = %for.cond
   store i32 99, i32* %.omp.ub, align 4, !tbaa !2
 
 ; CHECK-NOT: call token @llvm.directive.region.entry() [ "DIR.OMP.GENERICLOOP"(), {{.*}}
+; CHECK: call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), {{.*}}
 
   %6 = call token @llvm.directive.region.entry() [ "DIR.OMP.GENERICLOOP"(), "QUAL.OMP.FIRSTPRIVATE"(i32* %.omp.lb), "QUAL.OMP.NORMALIZED.IV"(i32* %.omp.iv), "QUAL.OMP.NORMALIZED.UB"(i32* %.omp.ub), "QUAL.OMP.PRIVATE"(i32* %j), "QUAL.OMP.SHARED"(i32* %i), "QUAL.OMP.SHARED"([1000 x i32]* @aaa) ]
   %7 = load i32, i32* %.omp.lb, align 4, !tbaa !2

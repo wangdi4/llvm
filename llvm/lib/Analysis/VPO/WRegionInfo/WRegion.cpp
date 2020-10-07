@@ -882,7 +882,7 @@ WRNGenericLoopNode::WRNGenericLoopNode(BasicBlock *BB, LoopInfo *Li)
 //   BIND=thread    ==> change to DIR_OMP_SIMD
 //
 // If BIND is absent, then we should look at the immediate parent WRN:
-//   Parent=nullptr            ==> assert; BIND clause must be present
+//   Parent=nullptr            ==> DIR_OMP_SIMD
 //   Parent=Parallel           ==> DIR_OMP_LOOP
 //   Parent=Teams              ==> DIR_OMP_DISTRIBUTE_PARLOOP
 //   Parent=Distribute||Target ==> DIR_OMP_PARALLEL_LOOP
@@ -907,9 +907,9 @@ bool WRNGenericLoopNode::mapLoopScheme() {
     // Now it's mapped to for/simd if it's in parallel region or omp for loop.
     WRegionNode *Parent = getParent();
     if (Parent == nullptr) {
-      llvm_unreachable(
-          "Bind clause must be present if no parent directive exists");
-      Mapped = false;
+      LLVM_DEBUG(dbgs() << "GenericLoop's parent WRN is nullptr\n");
+      MappedDir = DIR_OMP_SIMD;
+      Mapped = true;
     } else {
       LLVM_DEBUG(dbgs() << "GenericLoop's parent WRN: " << Parent->getName()
                         << "\n");
