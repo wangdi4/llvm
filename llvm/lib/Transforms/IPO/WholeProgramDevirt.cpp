@@ -878,16 +878,6 @@ PreservedAnalyses WholeProgramDevirtPass::run(Module &M,
   auto LookupDomTree = [&FAM](Function &F) -> DominatorTree & {
     return FAM.getResult<DominatorTreeAnalysis>(F);
   };
-<<<<<<< HEAD
-  if (UseCommandLine) {
-    if (DevirtModule::runForTesting(M, AARGetter, OREGetter, LookupDomTree))
-      return PreservedAnalyses::all();
-    return PreservedAnalyses::none();
-  }
-                                                                    // INTEL
-  auto WPInfo = AM.getResult<WholeProgramAnalysis>(M);              // INTEL
-                                                                    // INTEL
-=======
 
 #if INTEL_CUSTOMIZATION
   auto WPInfo = AM.getResult<WholeProgramAnalysis>(M);
@@ -895,7 +885,12 @@ PreservedAnalyses WholeProgramDevirtPass::run(Module &M,
     return FAM.getResult<TargetLibraryAnalysis>(F);
   };
 
->>>>>>> 11496a71f5a4793c892908254c98daa2a28a7508
+  if (UseCommandLine) {
+    if (DevirtModule::runForTesting(M, AARGetter, OREGetter, LookupDomTree, GetTLI))
+      return PreservedAnalyses::all();
+    return PreservedAnalyses::none();
+  }
+
   if (!DevirtModule(M, AARGetter, OREGetter, LookupDomTree, ExportSummary,
                     ImportSummary, WPInfo.isWholeProgramSafe(), GetTLI)
            .run())
