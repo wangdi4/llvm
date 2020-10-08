@@ -54,13 +54,13 @@ define i32 @main(i32 %argc, i8** %argv) local_unnamed_addr #3 personality i8* bi
   %call = invoke zeroext i1 %fptr(%class.Base* %obj, i32 %argc)
           to label %invoke.cont unwind label %lpad
 
-; CHECK-LABEL: BBDevirt__ZN7Derived3fooEi_0_0:
+; CHECK-LABEL: BBDevirt__ZN7Derived3fooEi:
 ; CHECK: invoke zeroext i1 bitcast (i1 (%class.Derived*, i32)* @_ZN7Derived3fooEi to i1 (%class.Base*, i32)*)(%class.Base* %obj, i32 %argc)
-; CHECK:  to label %MergeBB_0_0 unwind label %lpad, !_Intel.Devirt.Call
+; CHECK:  to label %MergeBB unwind label %lpad, !_Intel.Devirt.Call
 
-; CHECK-LABEL: BBDevirt__ZN8Derived23fooEi_0_0:
+; CHECK-LABEL: BBDevirt__ZN8Derived23fooEi:
 ; CHECK: invoke zeroext i1 bitcast (i1 (%class.Derived2*, i32)* @_ZN8Derived23fooEi to i1 (%class.Base*, i32)*)(%class.Base* %obj, i32 %argc)
-; CHECK: to label %MergeBB_0_0 unwind label %lpad, !_Intel.Devirt.Call
+; CHECK: to label %MergeBB unwind label %lpad, !_Intel.Devirt.Call
 
 invoke.cont:
   ret i32 0

@@ -8524,6 +8524,7 @@ void SPIRVTranslator::ConstructJob(Compilation &C, const JobAction &JA,
     // to CMPLRLLVM-21950. This option should removed when the Jira is
     // resolved, and replaced with just "-spirv-ext=+all"
     TranslatorArgs.push_back("-spirv-ext=+all,-SPV_INTEL_fpga_buffer_location");
+    TranslatorArgs.push_back("-spirv-allow-unknown-intrinsics");
   }
 #endif // INTEL_CUSTOMIZATION
   for (auto I : Inputs) {

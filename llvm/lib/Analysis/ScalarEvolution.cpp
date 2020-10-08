@@ -12135,11 +12135,6 @@ ScalarEvolution::howManyLessThans(const SCEV *LHS, const SCEV *RHS,
 
   ICmpInst::Predicate Cond = IsSigned ? ICmpInst::ICMP_SLT
                                       : ICmpInst::ICMP_ULT;
-#if INTEL_CUSTOMIZATION
-  // Used when stride is 1.
-  ICmpInst::Predicate AltCond =
-      IsSigned ? ICmpInst::ICMP_SLE : ICmpInst::ICMP_ULE;
-#endif // INTEL_CUSTOMIZATION
   const SCEV *Start = IV->getStart();
   const SCEV *End = RHS;
   // When the RHS is not invariant, we do not know the end bound of the loop and
@@ -12169,19 +12164,17 @@ ScalarEvolution::howManyLessThans(const SCEV *LHS, const SCEV *RHS,
   const SCEV *BECount;
 #if INTEL_CUSTOMIZATION
   if (isLoopEntryGuardedByCond(L, Cond, getMinusSCEV(Start, Stride), RHS,
-                               ExitCond) ||
-      // getMinusSCEV(Start, Stride) in the call above may create add without
-      // any nowrap flags which makes the analysis conservative. We can try
-      // 'exact' match when stride is 1.
-      (Stride->isOne() && isLoopEntryGuardedByCond(L, AltCond, Start, RHS,
-                                                   ExitCond)))
+                               ExitCond))
 #endif // INTEL_CUSTOMIZATION
     BECount = BECountIfBackedgeTaken;
   else {
     // If we know that RHS >= Start in the context of loop, then we know that
     // max(RHS, Start) = RHS at this point.
     if (isLoopEntryGuardedByCond(
-            L, IsSigned ? ICmpInst::ICMP_SGE : ICmpInst::ICMP_UGE, RHS, Start))
+#if INTEL_CUSTOMIZATION
+            L, IsSigned ? ICmpInst::ICMP_SGE : ICmpInst::ICMP_UGE, RHS, Start,
+            ExitCond))
+#endif // INTEL_CUSTOMIZATION
       End = RHS;
     else
       End = IsSigned ? getSMaxExpr(RHS, Start) : getUMaxExpr(RHS, Start);
