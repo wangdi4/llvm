@@ -12,7 +12,7 @@ void ivdep1(IV_S* sp)
   //CHECK-NEXT: NULL
   //CHECK-NEXT: MemberExpr{{.*}}arr1
   //CHECK: DeclRefExpr{{.*}}'sp' 'IV_S *'
-  [[intelfpga::ivdep(sp->arr1)]]
+  [[intel::ivdep(sp->arr1)]]
   for (int i=0;i<32;++i) {}
 }
 
@@ -25,7 +25,7 @@ template <typename T>
 void tivdep(T* tsp)
 {
   int i;
-  [[intelfpga::ivdep(tsp->arr1)]]
+  [[intel::ivdep(tsp->arr1)]]
   for (int i=0;i<32;++i) {}
 }
 
@@ -37,7 +37,7 @@ void tivdep(T* tsp)
 template <int item>
 void t2ivdep(int i) {
   IV_S *lsp = &ivs[item];
-  [[intelfpga::ivdep(lsp->arr1)]]
+  [[intel::ivdep(lsp->arr1)]]
   for (int i=0;i<32;++i) {}
 }
 
@@ -47,27 +47,27 @@ void foo_ivdep()
   int myArray[40];
   //CHECK: AttributedStmt
   //CHECK-NEXT: SYCLIntelFPGAIVDepAttr{{.*}}0
-  [[intelfpga::ivdep()]]
+  [[intel::ivdep()]]
   for (int i=0;i<32;++i) {}
 
   //CHECK: AttributedStmt
   //CHECK-NEXT: SYCLIntelFPGAIVDepAttr{{.*}}
   //CHECK-NEXT: IntegerLiteral{{.*}}4
-  [[intelfpga::ivdep(4)]]
+  [[intel::ivdep(4)]]
   for (int i=0;i<32;++i) {}
 
   //CHECK: AttributedStmt
   //CHECK-NEXT: SYCLIntelFPGAIVDepAttr{{.*}}
   //CHECK-NEXT: NULL
   //CHECK-NEXT: DeclRefExpr{{.*}}myArray
-  [[intelfpga::ivdep(myArray)]]
+  [[intel::ivdep(myArray)]]
   for (int i=0;i<32;++i) {}
 
   //CHECK: AttributedStmt
   //CHECK-NEXT: SYCLIntelFPGAIVDepAttr{{.*}}
   //CHECK-NEXT: IntegerLiteral{{.*}}4
   //CHECK-NEXT: DeclRefExpr{{.*}}myArray
-  [[intelfpga::ivdep(myArray,4)]]
+  [[intel::ivdep(myArray,4)]]
   for (int i=0;i<32;++i) {}
 
   //CHECK: AttributedStmt
@@ -78,8 +78,8 @@ void foo_ivdep()
   //CHECK-NEXT: NULL
   //CHECK-NEXT: DeclRefExpr{{.*}}dArray
   double dArray[42];
-  [[intelfpga::ivdep(myArray,4)]]
-  [[intelfpga::ivdep(dArray)]]
+  [[intel::ivdep(myArray,4)]]
+  [[intel::ivdep(dArray)]]
   for (int i=0;i<32;++i) {}
 
   IV_S* p;
@@ -87,113 +87,113 @@ void foo_ivdep()
   t2ivdep<4>(0);
 
   //okay now
-  [[intelfpga::ivdep(4)]]
-  [[intelfpga::ivdep(myArray,8)]]
+  [[intel::ivdep(4)]]
+  [[intel::ivdep(myArray,8)]]
   for (int i=0;i<32;++i) {}
 
-  [[intelfpga::ivdep()]] // expected-note {{previous attribute is here}}
-  [[intelfpga::ivdep()]] // expected-warning {{ignoring redundant Intel FPGA loop attribute 'ivdep': safelen INF >= safelen INF}}
-  for (int i=0;i<32;++i) {}
-
-  //expected-error@+1{{duplicate argument to 'ivdep'. attribute requires one or both of a safelen and array}}
-  [[intelfpga::ivdep(4,8)]]
+  [[intel::ivdep()]] // expected-note {{previous attribute is here}}
+  [[intel::ivdep()]] // expected-warning {{ignoring redundant Intel FPGA loop attribute 'ivdep': safelen INF >= safelen INF}}
   for (int i=0;i<32;++i) {}
 
   //expected-error@+1{{duplicate argument to 'ivdep'. attribute requires one or both of a safelen and array}}
-  [[intelfpga::ivdep(myArray, myArray)]]
+  [[intel::ivdep(4,8)]]
+  for (int i=0;i<32;++i) {}
+
+  //expected-error@+1{{duplicate argument to 'ivdep'. attribute requires one or both of a safelen and array}}
+  [[intel::ivdep(myArray, myArray)]]
   for (int i=0;i<32;++i) {}
 
   //expected-error@+1{{use of undeclared identifier 'typo_array'}}
-  [[intelfpga::ivdep(typo_array)]]
+  [[intel::ivdep(typo_array)]]
   for (int i=0;i<32;++i) {}
 
   IV_S *mysp = &ivs[5];
   //expected-error@+1{{no member named 'lala'}}
-  [[intelfpga::ivdep(mysp->lala)]]
+  [[intel::ivdep(mysp->lala)]]
   for (int i=0;i<32;++i) {}
 
-  [[intelfpga::ivdep(4)]] // expected-warning {{ignoring redundant Intel FPGA loop attribute 'ivdep': safelen 8 >= safelen 4}}
-  [[intelfpga::ivdep(8)]] // expected-note {{previous attribute is here}}
+  [[intel::ivdep(4)]] // expected-warning {{ignoring redundant Intel FPGA loop attribute 'ivdep': safelen 8 >= safelen 4}}
+  [[intel::ivdep(8)]] // expected-note {{previous attribute is here}}
   for (int i=0;i<32;++i) {}
 
-  [[intelfpga::ivdep(4)]] // expected-note {{previous attribute is here}}
-  [[intelfpga::ivdep(2)]] // expected-warning {{ignoring redundant Intel FPGA loop attribute 'ivdep': safelen 4 >= safelen 2}}
+  [[intel::ivdep(4)]] // expected-note {{previous attribute is here}}
+  [[intel::ivdep(2)]] // expected-warning {{ignoring redundant Intel FPGA loop attribute 'ivdep': safelen 4 >= safelen 2}}
   for (int i=0;i<32;++i) {}
 
-  [[intelfpga::ivdep(4)]] // expected-note {{previous attribute is here}}
-  [[intelfpga::ivdep(4)]] // expected-warning {{ignoring redundant Intel FPGA loop attribute 'ivdep': safelen 4 >= safelen 4}}
+  [[intel::ivdep(4)]] // expected-note {{previous attribute is here}}
+  [[intel::ivdep(4)]] // expected-warning {{ignoring redundant Intel FPGA loop attribute 'ivdep': safelen 4 >= safelen 4}}
   for (int i=0;i<32;++i) {}
 
-  [[intelfpga::ivdep(8)]] // expected-warning {{ignoring redundant Intel FPGA loop attribute 'ivdep': safelen INF >= safelen 8}}
-  [[intelfpga::ivdep()]]  // expected-note {{previous attribute is here}}
+  [[intel::ivdep(8)]] // expected-warning {{ignoring redundant Intel FPGA loop attribute 'ivdep': safelen INF >= safelen 8}}
+  [[intel::ivdep()]]  // expected-note {{previous attribute is here}}
   for (int i=0;i<32;++i) {}
 
-  [[intelfpga::ivdep()]] // expected-note {{previous attribute is here}}
-  [[intelfpga::ivdep(8)]] // expected-warning {{ignoring redundant Intel FPGA loop attribute 'ivdep': safelen INF >= safelen 8}}
+  [[intel::ivdep()]] // expected-note {{previous attribute is here}}
+  [[intel::ivdep(8)]] // expected-warning {{ignoring redundant Intel FPGA loop attribute 'ivdep': safelen INF >= safelen 8}}
   for (int i=0;i<32;++i) {}
 
   //expected-warning@+3 {{ignoring redundant Intel FPGA loop attribute 'ivdep': safelen INF >= safelen 4}}
   //expected-note@+1 {{previous attribute is here}}
-  [[intelfpga::ivdep()]]
-  [[intelfpga::ivdep(myArray, 4)]]
+  [[intel::ivdep()]]
+  [[intel::ivdep(myArray, 4)]]
   for (int i=0;i<32;++i) {}
 
   //expected-warning@+2 {{ignoring redundant Intel FPGA loop attribute 'ivdep': safelen INF >= safelen 4}}
   //expected-note@+2 {{previous attribute is here}}
-  [[intelfpga::ivdep(myArray, 4)]]
-  [[intelfpga::ivdep()]]
+  [[intel::ivdep(myArray, 4)]]
+  [[intel::ivdep()]]
   for (int i=0;i<32;++i) {}
 
   //expected-warning@+3 {{ignoring redundant Intel FPGA loop attribute 'ivdep': safelen 8 >= safelen 4}}
   //expected-note@+1 {{previous attribute is here}}
-  [[intelfpga::ivdep(8)]]
-  [[intelfpga::ivdep(myArray, 4)]]
+  [[intel::ivdep(8)]]
+  [[intel::ivdep(myArray, 4)]]
   for (int i=0;i<32;++i) {}
 
   //expected-warning@+2 {{ignoring redundant Intel FPGA loop attribute 'ivdep': safelen 8 >= safelen 4}}
   //expected-note@+2 {{previous attribute is here}}
-  [[intelfpga::ivdep(myArray, 4)]]
-  [[intelfpga::ivdep(8)]]
+  [[intel::ivdep(myArray, 4)]]
+  [[intel::ivdep(8)]]
   for (int i=0;i<32;++i) {}
 
   //expected-warning@+2 {{ignoring redundant Intel FPGA loop attribute 'ivdep': safelen 8 >= safelen 8}}
   //expected-note@+2 {{previous attribute is here}}
-  [[intelfpga::ivdep(myArray, 8)]]
-  [[intelfpga::ivdep(8)]]
+  [[intel::ivdep(myArray, 8)]]
+  [[intel::ivdep(8)]]
   for (int i=0;i<32;++i) {}
 
   //expected-warning@+3 {{ignoring redundant Intel FPGA loop attribute 'ivdep': safelen 8 >= safelen 4}}
   //expected-note@+1 {{previous attribute is here}}
-  [[intelfpga::ivdep(8)]]
-  [[intelfpga::ivdep(myArray, 4)]]
+  [[intel::ivdep(8)]]
+  [[intel::ivdep(myArray, 4)]]
   for (int i=0;i<32;++i) {}
 
-  [[intelfpga::ivdep(myArray, 6)]]
-  [[intelfpga::ivdep(4)]] // not redundant directive since  m > n
+  [[intel::ivdep(myArray, 6)]]
+  [[intel::ivdep(4)]] // not redundant directive since  m > n
   for (int i=0;i<32;++i) {}
 
-  [[intelfpga::ivdep(4)]] // not redundant directive since  m > n
-  [[intelfpga::ivdep(myArray, 6)]]
+  [[intel::ivdep(4)]] // not redundant directive since  m > n
+  [[intel::ivdep(myArray, 6)]]
   for (int i=0;i<32;++i) {}
 
   int myArray2[24];
   //expected-warning@+1 {{ignoring redundant Intel FPGA loop attribute 'ivdep': safelen 8 >= safelen 4}}
-  [[intelfpga::ivdep(myArray, 4)]]
-  [[intelfpga::ivdep(myArray2, 16)]]  // this one not redundant
-  [[intelfpga::ivdep(8)]]
+  [[intel::ivdep(myArray, 4)]]
+  [[intel::ivdep(myArray2, 16)]]  // this one not redundant
+  [[intel::ivdep(8)]]
   //expected-note@-1 {{previous attribute is here}}
   for (int i=0;i<32;++i) {}
 
   //expected-warning@+3 {{ignoring redundant Intel FPGA loop attribute 'ivdep': safelen INF >= safelen INF}}
   //expected-note@+1 {{previous attribute is here}}
-  [[intelfpga::ivdep()]]
-  [[intelfpga::ivdep(myArray)]]
+  [[intel::ivdep()]]
+  [[intel::ivdep(myArray)]]
   for (int i=0;i<32;++i) {}
 
   //expected-warning@+2 {{ignoring redundant Intel FPGA loop attribute 'ivdep': safelen INF >= safelen INF}}
   //expected-note@+2 {{previous attribute is here}}
-  [[intelfpga::ivdep(myArray)]]
-  [[intelfpga::ivdep()]]
+  [[intel::ivdep(myArray)]]
+  [[intel::ivdep()]]
   for (int i=0;i<32;++i) {}
 
   //expected-warning@+6{{ignoring redundant Intel FPGA loop attribute 'ivdep': safelen INF >= safelen INF}}
@@ -202,10 +202,10 @@ void foo_ivdep()
   //expected-note@+4 {{previous attribute is here}}
   //expected-warning@+5 {{ignoring redundant Intel FPGA loop attribute 'ivdep': safelen INF >= safelen 16}}
   //expected-note@+2 {{previous attribute is here}}
-  [[intelfpga::ivdep(myArray)]]
-  [[intelfpga::ivdep()]]
-  [[intelfpga::ivdep(8)]]
-  [[intelfpga::ivdep(myArray, 16)]]
+  [[intel::ivdep(myArray)]]
+  [[intel::ivdep()]]
+  [[intel::ivdep(8)]]
+  [[intel::ivdep(myArray, 16)]]
   for (int i=0;i<32;++i) {}
 
 }
@@ -225,7 +225,7 @@ int do_stuff(int N) {
   // CHECK-NEXT: SubstNonTypeTemplateParmExpr{{.*}} 'int'
   // CHECK-NEXT: NonTypeTemplateParmDecl{{.*}} referenced 'int' depth 0 index 0 LEN
   // CHECK-NEXT: IntegerLiteral{{.*}}5
-  [[intelfpga::ivdep(LEN)]]
+  [[intel::ivdep(LEN)]]
   for (int i = 0; i < N; ++i) {
     temp += i;
   }
@@ -246,6 +246,6 @@ void test(long* buffer1)
   //CHECK-NEXT: WhileStmt
   //CHECK-NEXT: ImplicitCastExpr{{.*}}'bool' <IntegralToBoolean>
   //CHECK_NEXT: IntegerLiteral{{.*}} 1
-  [[intelfpga::ivdep(buffer1)]]
+  [[intel::ivdep(buffer1)]]
   while (1) { }
 }
