@@ -163,49 +163,49 @@ attributes #6 = { uwtable "correctly-rounded-divide-sqrt-fp-math"="false" "disab
 ; CHECK:       %0 = bitcast i1 (%class.Base*, i32)* %tmp2 to i8*
 ; CHECK-NEXT:  %1 = bitcast i1 (%class.Derived*, i32)* @_ZN7Derived3fooEi to i8*
 ; CHECK-NEXT:  %2 = icmp eq i8* %0, %1
-; CHECK-NEXT:  br i1 %2, label %BBDevirt__ZN7Derived3fooEi_0_0, label %ElseDevirt__ZN7Derived3fooEi_0_0
+; CHECK-NEXT:  br i1 %2, label %BBDevirt__ZN7Derived3fooEi, label %ElseDevirt__ZN7Derived3fooEi
 
 ; The address is the same as @_ZN7Derived3fooEi, call it and go to the
 ; merge basic block.
-; CHECK-LABEL: BBDevirt__ZN7Derived3fooEi_0_0:
+; CHECK-LABEL: BBDevirt__ZN7Derived3fooEi:
 ; CHECK:        %3 = tail call zeroext i1 bitcast (i1 (%class.Derived*, i32)* @_ZN7Derived3fooEi to i1 (%class.Base*, i32)*)(%class.Base* %.4, i32 %argc)
-; CHECK-NEXT:   br label %MergeBB_0_0
+; CHECK-NEXT:   br label %MergeBB
 
 ; This part checks if the address of the virtual function is the same as
 ; @_ZN7Derived23fooEi, if so, jump to the basic block with the call, else jump
 ; to the default case.
-; CHECK-LABEL: ElseDevirt__ZN7Derived3fooEi_0_0:
+; CHECK-LABEL: ElseDevirt__ZN7Derived3fooEi:
 ; CHECK:        %4 = bitcast i1 (%class.Derived2*, i32)* @_ZN8Derived23fooEi to i8*
 ; CHECK-NEXT:   %5 = icmp eq i8* %0, %4
-; CHECK-NEXT:   br i1 %5, label %BBDevirt__ZN8Derived23fooEi_0_0, label %DefaultBB_0_0
+; CHECK-NEXT:   br i1 %5, label %BBDevirt__ZN8Derived23fooEi, label %DefaultBB
 
 ; The address is the same as @_ZN8Derived23fooEi, call it and go to the
 ; merge basic block
-; CHECK-LABEL: BBDevirt__ZN8Derived23fooEi_0_0:
+; CHECK-LABEL: BBDevirt__ZN8Derived23fooEi:
 ; CHECK:        %6 = tail call zeroext i1 bitcast (i1 (%class.Derived2*, i32)* @_ZN8Derived23fooEi to i1 (%class.Base*, i32)*)(%class.Base* %.4, i32 %argc)
-; CHECK-NEXT:   br label %MergeBB_0_0
+; CHECK-NEXT:   br label %MergeBB
 
 ; Check that the comparison with @_ZN8Derived23fooEi isn't generated again.
-; CHECK-NOT: ElseDevirt__ZN8Derived23fooEi_0_0:
+; CHECK-NOT: ElseDevirt__ZN8Derived23fooEi:
 ; CHECK-NOT:  %7 = bitcast i1 (%class.Derived2*, i32)* @_ZN8Derived23fooEi to i8*
 ; CHECK-NOT:  %8 = icmp eq i8* %0, %7
-; CHECK-NOT:  br i1 %8, label %BBDevirt__ZN8Derived23fooEi_0_01, label %DefaultBB_0_0
+; CHECK-NOT:  br i1 %8, label %BBDevirt__ZN8Derived23fooEi, label %DefaultBB
 
 ; Check that a second call the @_ZN8Derived23fooEi isn't generated.
-; CHECK-NOT: BBDevirt__ZN8Derived23fooEi_0_01:
+; CHECK-NOT: BBDevirt__ZN8Derived23fooEi:
 ; CHECK-NOT:  %9 = tail call zeroext i1 bitcast (i1 (%class.Derived2*, i32)* @_ZN8Derived23fooEi to i1 (%class.Base*, i32)*)(%class.Base* %.4, i32 %argc), !_Intel.Devirt.Call !14
-; CHECK-NOT:  br label %MergeBB_0_0
+; CHECK-NOT:  br label %MergeBB
 
 ; This is the fail safe case. In case the address doesn't match any of the
 ; functions, then call the function stored in %7
-; CHECK-LABEL: DefaultBB_0_0:
+; CHECK-LABEL: DefaultBB:
 ; CHECK-NEXT:   %7 = tail call zeroext i1 %tmp2(%class.Base* %.4, i32 %argc)
-; CHECK-NEXT:   br label %MergeBB_0_0
+; CHECK-NEXT:   br label %MergeBB
 
 ; We need to collect back the result and generate the PhiNode, this the merge
 ; basic block
-; CHECK-LABEL: MergeBB_0_0:
-; CHECK-NEXT:   %8 = phi i1 [ %3, %BBDevirt__ZN7Derived3fooEi_0_0 ], [ %6, %BBDevirt__ZN8Derived23fooEi_0_0 ], [ %7, %DefaultBB_0_0 ]
+; CHECK-LABEL: MergeBB:
+; CHECK-NEXT:   %8 = phi i1 [ %3, %BBDevirt__ZN7Derived3fooEi ], [ %6, %BBDevirt__ZN8Derived23fooEi ], [ %7, %DefaultBB ]
 ; CHECK-NEXT:   br label %9
 
 ; Now check that the users were replaced correctly
