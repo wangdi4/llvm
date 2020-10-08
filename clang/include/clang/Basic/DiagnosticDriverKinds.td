@@ -273,6 +273,7 @@ def err_drv_expecting_fopenmp_with_fopenmp_targets : Error<
   "The option -fopenmp-targets must be used in conjunction with a -fopenmp option compatible with offloading, please use -fopenmp=libomp or -fopenmp=libiomp5.">;
 #if INTEL_CUSTOMIZATION
 def err_drv_fopenmp_targets_requires_fiopenmp : Error<"The use of '-fopenmp-targets=spir64' requires '-fiopenmp'.">;
+def err_drv_openmp_targets_spir64_unsupported_opt : Error<"The use of '%0' is not supported with '/Qiopenmp /Qopenmp-targets=spir64'.">;
 #endif // INTEL_CUSTOMIZATION
 def err_drv_expecting_fsycl_with_sycl_opt : Error<
   "The option %0 must be used in conjunction with -fsycl to enable offloading.">;
