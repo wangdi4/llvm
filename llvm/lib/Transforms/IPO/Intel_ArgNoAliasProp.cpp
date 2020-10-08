@@ -68,6 +68,20 @@ bool NoAliasProp::propagateNoAliasToArgs(Function &F) {
   AAResults &AA = AAGetter(F);
   DominatorTree &DT = DTGetter(F);
 
+  // Make a pass of the Function's uses in order to look through ConstantExpr
+  // cast uses. The AbstractCallSite constructor can do this for cases where
+  // the ConstantExpr has a single use, but doing it for the constructor allows
+  // ConstantExpr use which themselves have multiple uses to be handled.
+  SmallVector<Use *, 4> FuncUses;
+  for (Use &U : F.uses()) {
+    ConstantExpr *CE = dyn_cast<ConstantExpr>(U.getUser());
+    if (CE && !CE->hasOneUse() && CE->isCast())
+      for (Use &CEUse : CE->uses())
+        FuncUses.push_back(&CEUse);
+    else
+      FuncUses.push_back(&U);
+  }
+
   // Check all function's call sites to see what values are passed to the
   // pointer arguments. We check if actual value that is passed to the call
   //  - is derived from a noalias pointer
@@ -77,8 +91,8 @@ bool NoAliasProp::propagateNoAliasToArgs(Function &F) {
   // function argument.
   // TODO: we may consider cloning functions if noalias can be added for some
   // call sites but not all.
-  for (Use &U : F.uses()) {
-    AbstractCallSite CS(&U);
+  for (Use *U : FuncUses) {
+    AbstractCallSite CS(U);
 
     // Must be a direct or a callback call.
     if (!CS || !(CS.isDirectCall() || CS.isCallbackCall()))

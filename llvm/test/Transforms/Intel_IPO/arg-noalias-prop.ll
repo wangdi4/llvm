@@ -38,6 +38,22 @@ define i32 @func4() {
   ret i32 %X
 }
 
+define void @func5(i32* noalias %A, i32* noalias %B, i1 %cond) {
+entry:
+  br i1 %cond, label %if, label %else
+
+if:
+  tail call void (i32, void (i8*, ...)*, ...) @broker(i32 2, void (i8*, ...)* bitcast (void (i8*, i32*, i32*)* @callback to void (i8*, ...)*), i32* %A, i32* %B)
+  br label %done
+
+else:
+  tail call void (i32, void (i8*, ...)*, ...) @broker(i32 2, void (i8*, ...)* bitcast (void (i8*, i32*, i32*)* @callback to void (i8*, ...)*), i32* %B, i32* %A)
+  br label %done
+
+done:
+  ret void
+}
+
 declare noalias i8* @malloc(i64)
 
 declare void @free(i8* nocapture)
