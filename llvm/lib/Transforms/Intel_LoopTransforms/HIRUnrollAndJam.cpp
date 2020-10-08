@@ -1421,19 +1421,12 @@ static void unrollLoopRecursive(HLLoop *OrigLoop, HLLoop *NewLoop,
   if (!IsTopLoop) {
     UHelper.setCurOrigLoop(OrigLoop->getParentLoop());
 
-    // Unroll preheader/postexit for non top level loops.
+    // Unroll preheader for non top level loops.
     if (OrigLoop->hasPreheader()) {
       createUnrolledNodeRange(OrigLoop->getFirstPreheaderNode(),
                               OrigLoop->getLastPreheaderNode(), NodeRange,
                               UHelper);
       HLNodeUtils::insertAsFirstPreheaderNodes(NewLoop, &NodeRange);
-    }
-
-    if (OrigLoop->hasPostexit()) {
-      createUnrolledNodeRange(OrigLoop->getFirstPostexitNode(),
-                              OrigLoop->getLastPostexitNode(), NodeRange,
-                              UHelper);
-      HLNodeUtils::insertAsFirstPostexitNodes(NewLoop, &NodeRange);
     }
 
     // Opt reports for inner loops in unroll & jam mode are moved here.
@@ -1492,6 +1485,15 @@ static void unrollLoopRecursive(HLLoop *OrigLoop, HLLoop *NewLoop,
   // Top level loop's liveins/liveouts do not change.
   if (!IsTopLoop) {
     UHelper.addRenamedTempsAsLiveinLiveout(NewLoop);
+
+    // Unroll postexit for non top level loops.
+    if (OrigLoop->hasPostexit()) {
+      createUnrolledNodeRange(OrigLoop->getFirstPostexitNode(),
+                              OrigLoop->getLastPostexitNode(), NodeRange,
+                              UHelper);
+      HLNodeUtils::insertAsFirstPostexitNodes(NewLoop, &NodeRange);
+    }
+
   }
 }
 
