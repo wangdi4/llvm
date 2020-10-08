@@ -1006,7 +1006,13 @@ static void InitializePredefinedMacros(const TargetInfo &TI,
   // to 1, then several math library function calls will be renamed to
   // names that do not exist within the Intel math libraries. These
   // functions would instead by resolved by slower routines within libm.a.
-  if ((LangOpts.FastMath || LangOpts.FiniteMathOnly) && !LangOpts.IntelCompat)
+  // CMPLRLLVM-23432 - Since -fintel-compatibility flag is not passed for
+  // SYCL compilations, LangOpts.IntelCompat was not set in this case.
+  // As a result,__FINITE_MATH_ONLY__ was defined and errors were thrown
+  // due to incompatibility with Intel headers. To avoid this, the condition
+  // was expanded to include SYCL compilations as well.
+  if ((LangOpts.FastMath || LangOpts.FiniteMathOnly) &&
+      !LangOpts.IntelCompat && !LangOpts.SYCL)
     Builder.defineMacro("__FINITE_MATH_ONLY__", "1");
   else
     Builder.defineMacro("__FINITE_MATH_ONLY__", "0");
