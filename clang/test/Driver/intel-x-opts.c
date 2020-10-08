@@ -191,6 +191,12 @@
 // RUN:  | FileCheck -check-prefixes=XCASCADELAKE,ADV_OPT %s
 // XCASCADELAKE: "-target-cpu" "cascadelake"
 
+// RUN: %clang -### -c -xCOOPERLAKE %s 2>&1 \
+// RUN:  | FileCheck -check-prefixes=XCOOPERLAKE,ADV_OPT %s
+// RUN: %clang_cl -### -c /QxCOOPERLAKE %s 2>&1 \
+// RUN:  | FileCheck -check-prefixes=XCOOPERLAKE,ADV_OPT %s
+// XCOOPERLAKE: "-target-cpu" "cooperlake"
+
 // RUN: %clang -### -c -xTIGERLAKE %s 2>&1 \
 // RUN:  | FileCheck -check-prefixes=XTIGERLAKE,ADV_OPT %s
 // RUN: %clang_cl -### -c /QxTIGERLAKE %s 2>&1 \
