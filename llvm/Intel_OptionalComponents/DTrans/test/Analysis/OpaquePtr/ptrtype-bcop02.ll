@@ -41,6 +41,9 @@ define internal void @test01() {
 
 ; Helper function. Nothing of interest to check.
 define internal void @foo(i8* %in) !dtrans_type !5 {
+  ; Need to use the value to establish the callsite parameter as getting used
+  ; as the type.
+  %val = load i8, i8* %in
   ret void
 }
 
