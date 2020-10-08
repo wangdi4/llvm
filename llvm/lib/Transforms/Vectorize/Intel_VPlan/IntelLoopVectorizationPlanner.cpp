@@ -317,7 +317,8 @@ unsigned LoopVectorizationPlanner::buildInitialVPlans(LLVMContext *Context,
       VPSOAAnalysis VPSOAA(*Plan.get(), *CandidateLoop);
       SmallPtrSet<VPInstruction *, 32> SOAVars;
       VPSOAA.doSOAAnalysis(SOAVars);
-      Plan->getVPlanDA()->recomputeShapes(SOAVars);
+      Plan->getVPlanDA()->recomputeShapes(SOAVars,
+                                          true /*EnableVerifyAndPrintDA*/);
     }
 
     // TODO: Insert initial run of SVA here for any new users before CM & CG.
