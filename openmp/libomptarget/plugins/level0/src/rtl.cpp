@@ -1101,7 +1101,8 @@ static void closeRTL() {
   }
   if (DeviceInfo->Flags.EnableProfile)
     DeviceInfo->ProfileEvents.deinit();
-  CALL_ZE_EXIT_FAIL(zeContextDestroy, DeviceInfo->Context);
+  if (DeviceInfo->Context)
+    CALL_ZE_EXIT_FAIL(zeContextDestroy, DeviceInfo->Context);
   delete[] DeviceInfo->Mutexes;
   delete[] DeviceInfo->DataMutexes;
   IDP("Closed RTL successfully\n");
