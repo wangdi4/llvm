@@ -16,6 +16,7 @@
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRSafeReductionAnalysis.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRSparseArrayReductionAnalysis.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/DDRefUtils.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Utils/HIRInvalidationUtils.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/HLNodeUtils.h"
 #include "llvm/Analysis/VPO/Utils/VPOAnalysisUtils.h"
 #include "llvm/IR/Function.h"
@@ -546,7 +547,7 @@ bool HLInst::isAutoVecDirective() const {
   return isDirective(DIR_VPO_AUTO_VEC);
 }
 
-std::pair<bool, HLInst *> HLInst::doConstantFolding() {
+std::pair<bool, HLInst *> HLInst::doConstantFolding(bool Invalidate) {
   bool Folded = false;
 
   if (isa<BinaryOperator>(Inst)) {
@@ -588,6 +589,11 @@ std::pair<bool, HLInst *> HLInst::doConstantFolding() {
       return std::make_pair(Folded, nullptr);
     }
     Folded = true;
+
+    // Check to see if invalidation required
+    if (Invalidate) {
+      HIRInvalidationUtils::invalidateParentLoopBodyOrRegion<HIRLoopStatistics>(this);
+    }
 
     // Remove self assignments that may occur due to folding
     if (DDRefUtils::areEqual(getLvalDDRef(), Result)) {

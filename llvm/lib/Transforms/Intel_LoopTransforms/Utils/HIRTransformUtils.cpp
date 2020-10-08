@@ -1235,7 +1235,15 @@ private:
   unsigned NumPropagated;
   unsigned NumFolded;
   unsigned NumConstGlobalLoads;
+
+  // Node passed in by caller
   const HLNode *OriginNode;
+
+  // Current HLNode that is invalidated when changed
+  HLNode *CurrLoopOrRegion;
+
+  // Set of Nodes that have already been invalidated
+  SmallPtrSet<HLNode *, 32> InvalidatedNodes;
 
   // Map of blobindex to RvalRef. The Ref is used to check domination
   // when we find a propagation candidate
@@ -1252,6 +1260,26 @@ private:
   // Propagate constant values to any blobs in the Ref
   void propagateConstUse(RegDDRef *Ref);
 
+  // Return true if CurrLoopOrRegion needs to be invalidated.
+  bool checkInvalidated() { return InvalidatedNodes.count(CurrLoopOrRegion); }
+
+  // If needed, invalidates CurrLoopOrRegion and marks it
+  void doInvalidate() {
+    if (InvalidatedNodes.count(CurrLoopOrRegion)) {
+      return;
+    }
+
+    InvalidatedNodes.insert(CurrLoopOrRegion);
+
+    if (auto *Loop = dyn_cast<HLLoop>(CurrLoopOrRegion)) {
+      HIRInvalidationUtils::invalidateBody<HIRLoopStatistics>(Loop);
+    } else if (auto *Region = dyn_cast<HLRegion>(CurrLoopOrRegion)) {
+      HIRInvalidationUtils::invalidateNonLoopRegion<HIRLoopStatistics>(Region);
+    } else {
+      llvm_unreachable("Non Loop/Region encountered!");
+    }
+  }
+
   // Try to delete constant definitions that have not been invalidated,
   // meaning they have all been legally propagated. Do this only for the
   // Node that was called by the visitor.
@@ -1265,6 +1293,7 @@ private:
       if (!DefRef) { // Invalidated when a use does not postdominate
         continue;
       }
+      doInvalidate();
       HLNodeUtils::remove(DefRef->getHLDDNode());
     }
   }
@@ -1272,7 +1301,17 @@ private:
 public:
   ConstantPropagater(HLNode *Node)
       : NumPropagated(0), NumFolded(0), NumConstGlobalLoads(0),
-        OriginNode(Node) {}
+        OriginNode(Node) {
+    if (isa<HLLoop>(Node) || isa<HLRegion>(Node)) {
+      CurrLoopOrRegion = Node;
+    } else if (HLLoop *ParentLoop = Node->getParentLoop()) {
+      CurrLoopOrRegion = ParentLoop;
+    } else if (HLRegion *ParentRegion = Node->getParentRegion()) {
+      CurrLoopOrRegion = ParentRegion;
+    } else {
+      llvm_unreachable("Expect region or node at top level!");
+    }
+  }
 
   bool isChanged() const {
     return (NumPropagated > 0 || NumFolded > 0 || NumConstGlobalLoads > 0);
@@ -1283,6 +1322,7 @@ public:
   void postVisit(HLNode *Node) {}
 
   void visit(HLLoop *Loop) {
+    CurrLoopOrRegion = Loop;
 
     if (IndexToRefMap.empty()) {
       return;
@@ -1350,6 +1390,11 @@ public:
     }
 
     cleanupDefs(Loop);
+
+    CurrLoopOrRegion = Loop->getParentLoop();
+    if (!CurrLoopOrRegion) {
+      CurrLoopOrRegion = Loop->getParentRegion();
+    }
   }
 
   HLInst *visit(HLDDNode *Node) {
@@ -1403,8 +1448,14 @@ void ConstantPropagater::removeConstPropIndex(unsigned Index, HLInst *Curr) {
   assert(Curr && "Constant Def Inst must be valid!\n");
 
   auto *Ref = IndexToRefMap[Index];
-  if (Ref && HLNodeUtils::strictlyPostDominates(Curr, Ref->getHLDDNode())) {
-    HLNodeUtils::remove(Ref->getHLDDNode());
+  if (!Ref) {
+    return;
+  }
+
+  auto RefParentNode = Ref->getHLDDNode();
+  if (HLNodeUtils::strictlyPostDominates(Curr, RefParentNode)) {
+    doInvalidate();
+    HLNodeUtils::remove(RefParentNode);
   }
 
   IndexToRefMap.erase(Index);
@@ -1444,12 +1495,14 @@ bool ConstantPropagater::doConstFolding(HLInst *Inst) {
     return false;
   }
 
-  // Try to fold instruction. Returnval of <true, nullptr> means self-assignment
-  // which we remove if encountered
-
+  bool NeedsInvalidation = !checkInvalidated();
   bool Folded;
   HLInst *FoldedInst;
-  std::tie(Folded, FoldedInst) = Inst->doConstantFolding();
+  std::tie(Folded, FoldedInst) = Inst->doConstantFolding(NeedsInvalidation);
+
+  // Returnval of <true, nullptr> means self-assignment which
+  // is removed if encountered
+
   if (Folded) {
     NumFolded++;
   }
@@ -1471,8 +1524,8 @@ bool ConstantPropagater::doConstFolding(HLInst *Inst) {
 
 void ConstantPropagater::propagateConstUse(RegDDRef *Ref) {
   bool IsLvalTerminalRef = false;
-  // Bailout for Lval Selfblobs and skip any Lval TerminalRefs defined as const
 
+  // Bailout for Lval Selfblobs and skip any Lval TerminalRefs defined as const
   if (Ref->isLval()) {
     if (Ref->isSelfBlob()) {
       return;
