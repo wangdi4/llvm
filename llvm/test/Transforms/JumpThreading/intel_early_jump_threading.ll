@@ -1,8 +1,9 @@
-; RUN: opt -S -O2 < %s | FileCheck %s
+; RUN: opt -S -O2 < %s | FileCheck %s --check-prefix=DEFAULT
+; RUN: opt -S -O2 -sycl-opt < %s | FileCheck %s --check-prefix=SYCLOPT
 ;
-; This test is based on the following C code. The optimizer should jump thread
-; through the block containing the call to f2 rather than convert the
-; conditional branches to selects.
+; This test is based on the following C code. If sycl-opt is disabled, the
+; optimizer should jump thread through the block containing the call to f2
+; rather than convert the conditional branches to selects.
 ; 
 ; int f1(int v)
 ; {
@@ -18,13 +19,18 @@
 ;   return v;
 ; }
 ;
-; CHECK-LABEL: f1
-; CHECK-NOT: select
-; CHECK: call void @f2
-; CHECK-NOT: select
-; CHECK: call void @f2
-; CHECK-NOT: select
+; DEFAULT-LABEL: f1
+; DEFAULT-NOT: select
+; DEFAULT: call void @f2
+; DEFAULT-NOT: select
+; DEFAULT: call void @f2
+; DEFAULT-NOT: select
 ;
+; SYCLOPT-LABEL: f1
+; SYCLOPT: select
+; SYCLOPT: call void @f2
+; SYCLOPT: select
+
 target triple = "x86_64-unknown-linux-gnu"
 
 define i32 @f1(i32 %v) nounwind {
