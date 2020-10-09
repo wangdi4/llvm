@@ -931,6 +931,7 @@ ANNOTATION(pragma_inline)
 ANNOTATION(pragma_blockloop)
 ANNOTATION(pragma_loop_count)
 ANNOTATION(pragma_loop_count_end)
+ANNOTATION(pragma_prefetch)
 #endif // INTEL_CUSTOMIZATION
 
 // Annotations for loop pragma directives #pragma clang loop ...

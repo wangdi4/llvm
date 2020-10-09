@@ -492,6 +492,16 @@ public:
     CodeGenFunction &CGF;
     llvm::CallInst *CallEntry = nullptr;
   };
+
+  class IntelPrefetchExprHandler {
+  public:
+    IntelPrefetchExprHandler(CodeGenFunction &CGF,
+                             ArrayRef<const Attr *> Attrs);
+    ~IntelPrefetchExprHandler();
+  private:
+    CodeGenFunction &CGF;
+    SmallVector<llvm::CallInst *, 1> CallEntries;
+  };
 #endif // INTEL_CUSTOMIZATION
 
   /// RAII for correct setting/restoring of CapturedStmtInfo.

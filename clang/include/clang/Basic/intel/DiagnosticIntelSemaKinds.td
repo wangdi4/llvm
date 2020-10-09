@@ -96,6 +96,12 @@ def warn_redundant_ivdep_pragma : Warning<
   InGroup<Pragmas>;
 def note_overriding_ivdep_pragma_is_specified_here : Note<
   "overriding ivdep pragma is specified here">;
+def warn_prefetch_hint_out_of_range : Warning<
+  "hint value, %0, must be between %1 and %2, inclusive">,
+  InGroup<Pragmas>;
+def warn_prefetch_distance_greater_than_zero : Warning<
+  "distance value must be greater than zero">,
+  InGroup<Pragmas>;
 }
 
 def warn_ovl_diff_return_type : Warning<

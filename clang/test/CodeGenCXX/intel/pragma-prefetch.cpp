@@ -1,0 +1,215 @@
+// RUN: %clang_cc1 -emit-llvm -o - -fintel-compatibility \
+// RUN: -fintel-pragma-prefetch -triple x86_64-unknown-linux-gnu %s \
+// RUN: | FileCheck %s
+//
+// Verify uses of #pragma prefetch
+//
+void func(int foo1[], int foo2[], int foo3[], int foo4[]) {
+// CHECK: DIR.PRAGMA.PREFETCH_LOOP
+// CHECK-SAME: "QUAL.PRAGMA.ATTRIB"(i32 1)
+// CHECK: "DIR.PRAGMA.END.PREFETCH_LOOP"
+#pragma prefetch
+  for (int i = 1; i < 100; i++) {
+  }
+
+// CHECK: DIR.PRAGMA.PREFETCH_LOOP
+// CHECK-SAME: "QUAL.PRAGMA.ATTRIB"(i32 0)
+// CHECK: "DIR.PRAGMA.END.PREFETCH_LOOP"
+#pragma noprefetch
+  for (int i = 1; i < 100; i++) {
+  }
+
+// CHECK: DIR.PRAGMA.PREFETCH_LOOP
+// CHECK-SAME: "QUAL.PRAGMA.ATTRIB"(i32 1)
+// CHECK-SAME: "QUAL.PRAGMA.HINT"(i32 3)
+// CHECK: "DIR.PRAGMA.END.PREFETCH_LOOP"
+#pragma prefetch *:3
+  for (int i = 1; i < 100; i++) {
+  }
+
+// CHECK: DIR.PRAGMA.PREFETCH_LOOP
+// CHECK-SAME: "QUAL.PRAGMA.ATTRIB"(i32 1)
+// CHECK-SAME: "QUAL.PRAGMA.HINT"(i32 3)
+// CHECK-SAME: "QUAL.PRAGMA.DISTANCE"(i32 10)
+// CHECK: "DIR.PRAGMA.END.PREFETCH_LOOP"
+#pragma prefetch *:3:10
+  for (int i = 1; i < 100; i++) {
+  }
+
+// CHECK: DIR.PRAGMA.PREFETCH_LOOP
+// CHECK-SAME: "QUAL.PRAGMA.ATTRIB"(i32 0)
+// CHECK-SAME: "QUAL.PRAGMA.VAR"(i32** %foo1.addr)
+// CHECK-SAME: "QUAL.PRAGMA.VAR"(i32** %foo2.addr)
+// CHECK: "DIR.PRAGMA.END.PREFETCH_LOOP"
+#pragma noprefetch foo1, foo2
+  for (int i = 1; i < 100; i++) {
+  }
+
+// CHECK: DIR.PRAGMA.PREFETCH_LOOP
+// CHECK-SAME: "QUAL.PRAGMA.ATTRIB"(i32 1)
+// CHECK-SAME: "QUAL.PRAGMA.VAR"(i32** %foo1.addr)
+// CHECK: "DIR.PRAGMA.END.PREFETCH_LOOP"
+#pragma prefetch foo1
+  for (int i = 1; i < 100; i++) {
+  }
+
+// CHECK: DIR.PRAGMA.PREFETCH_LOOP
+// CHECK-SAME: "QUAL.PRAGMA.ATTRIB"(i32 1)
+// CHECK-SAME: "QUAL.PRAGMA.VAR"(i32** %foo1.addr)
+// CHECK-SAME: "QUAL.PRAGMA.HINT"(i32 2)
+// CHECK: "DIR.PRAGMA.END.PREFETCH_LOOP"
+#pragma prefetch foo1:2
+  for (int i = 1; i < 100; i++) {
+  }
+
+// CHECK: DIR.PRAGMA.PREFETCH_LOOP
+// CHECK-SAME: "QUAL.PRAGMA.ATTRIB"(i32 1)
+// CHECK-SAME: "QUAL.PRAGMA.VAR"(i32** %foo1.addr)
+// CHECK-SAME: "QUAL.PRAGMA.HINT"(i32 2)
+// CHECK-SAME: "QUAL.PRAGMA.DISTANCE"(i32 3)
+// CHECK: "DIR.PRAGMA.END.PREFETCH_LOOP"
+#pragma prefetch foo1:2:3
+  for (int i = 1; i < 100; i++) {
+  }
+
+// CHECK: DIR.PRAGMA.PREFETCH_LOOP
+// CHECK-SAME: "QUAL.PRAGMA.ATTRIB"(i32 1)
+// CHECK-SAME: "QUAL.PRAGMA.VAR"(i32** %foo1.addr)
+// CHECK-SAME: "QUAL.PRAGMA.HINT"(i32 2)
+// CHECK-SAME: "QUAL.PRAGMA.DISTANCE"(i32 3)
+// CHECK-SAME: "QUAL.PRAGMA.VAR"(i32** %foo2.addr)
+// CHECK: "DIR.PRAGMA.END.PREFETCH_LOOP"
+#pragma prefetch foo1:2:3, foo2
+  for (int i = 1; i < 100; i++) {
+  }
+
+// CHECK: DIR.PRAGMA.PREFETCH_LOOP
+// CHECK-SAME: "QUAL.PRAGMA.ATTRIB"(i32 1)
+// CHECK-SAME: "QUAL.PRAGMA.VAR"(i32** %foo1.addr)
+// CHECK-SAME: "QUAL.PRAGMA.HINT"(i32 2)
+// CHECK-SAME: "QUAL.PRAGMA.DISTANCE"(i32 3)
+// CHECK-SAME: "QUAL.PRAGMA.VAR"(i32** %foo2.addr)
+// CHECK-SAME: "QUAL.PRAGMA.HINT"(i32 1)
+// CHECK: "DIR.PRAGMA.END.PREFETCH_LOOP"
+#pragma prefetch foo1:2:3, foo2, foo3:1
+  for (int i = 1; i < 100; i++) {
+  }
+
+// CHECK: DIR.PRAGMA.PREFETCH_LOOP
+// CHECK-SAME: "QUAL.PRAGMA.ATTRIB"(i32 1)
+// CHECK-SAME: "QUAL.PRAGMA.VAR"(i32** %foo1.addr)
+// CHECK-SAME: "QUAL.PRAGMA.HINT"(i32 2)
+// CHECK-SAME: "QUAL.PRAGMA.DISTANCE"(i32 3)
+// CHECK: DIR.PRAGMA.PREFETCH_LOOP
+// CHECK-SAME: "QUAL.PRAGMA.ATTRIB"(i32 1)
+// CHECK-SAME: "QUAL.PRAGMA.VAR"(i32** %foo2.addr)
+// CHECK: DIR.PRAGMA.PREFETCH_LOOP
+// CHECK-SAME: "QUAL.PRAGMA.ATTRIB"(i32 1)
+// CHECK-SAME: "QUAL.PRAGMA.VAR"(i32** %foo3.addr)
+// CHECK-SAME: "QUAL.PRAGMA.HINT"(i32 1)
+// CHECK-SAME: "QUAL.PRAGMA.DISTANCE"(i32 512)
+// CHECK: DIR.PRAGMA.PREFETCH_LOOP
+// CHECK-SAME: "QUAL.PRAGMA.ATTRIB"(i32 0)
+// CHECK-SAME: "QUAL.PRAGMA.VAR"(i32** %foo4.addr)
+// CHECK: "DIR.PRAGMA.END.PREFETCH_LOOP"
+// CHECK: "DIR.PRAGMA.END.PREFETCH_LOOP"
+// CHECK: "DIR.PRAGMA.END.PREFETCH_LOOP"
+// CHECK: "DIR.PRAGMA.END.PREFETCH_LOOP"
+#pragma prefetch foo1:2:3
+#pragma prefetch foo2
+#pragma prefetch foo3:1:512
+#pragma noprefetch foo4
+  for (int i = 1; i < 100; i++) {
+  }
+
+// CHECK: DIR.PRAGMA.PREFETCH_LOOP
+// CHECK-SAME: "QUAL.PRAGMA.ATTRIB"(i32 0)
+// CHECK-SAME: "QUAL.PRAGMA.VAR"(i32** %foo4.addr)
+// CHECK-SAME: "QUAL.PRAGMA.VAR"([100 x float]* %foo5)
+// CHECK-SAME: "QUAL.PRAGMA.VAR"([100 x float]* %foo6)
+// CHECK: DIR.PRAGMA.PREFETCH_LOOP
+// CHECK-SAME: "QUAL.PRAGMA.ATTRIB"(i32 1)
+// CHECK-SAME: "QUAL.PRAGMA.VAR"(i32** %foo1.addr)
+// CHECK-SAME: "QUAL.PRAGMA.HINT"(i32 1)
+// CHECK-SAME: "QUAL.PRAGMA.DISTANCE"(i32 99)
+// CHECK: DIR.PRAGMA.PREFETCH_LOOP
+// CHECK-SAME: "QUAL.PRAGMA.ATTRIB"(i32 1)
+// CHECK-SAME: "QUAL.PRAGMA.VAR"(i32** %foo2.addr)
+// CHECK: DIR.PRAGMA.PREFETCH_LOOP
+// CHECK-SAME: "QUAL.PRAGMA.ATTRIB"(i32 1)
+// CHECK-SAME: "QUAL.PRAGMA.VAR"(i32** %foo3.addr)
+// CHECK-SAME: "QUAL.PRAGMA.HINT"(i32 3)
+// CHECK-SAME: "QUAL.PRAGMA.DISTANCE"(i32 50)
+// CHECK: "DIR.PRAGMA.END.PREFETCH_LOOP"
+// CHECK: "DIR.PRAGMA.END.PREFETCH_LOOP"
+// CHECK: "DIR.PRAGMA.END.PREFETCH_LOOP"
+// CHECK: "DIR.PRAGMA.END.PREFETCH_LOOP"
+  float foo5[100];
+  float foo6[100];
+#pragma noprefetch foo4, foo5, foo6
+#pragma prefetch foo1:1:99
+#pragma prefetch foo2
+#pragma prefetch foo3:3:50
+  for (int i = 1; i < 100; i++) {
+  }
+
+// CHECK: DIR.PRAGMA.PREFETCH_LOOP
+// CHECK-SAME: "QUAL.PRAGMA.ATTRIB"(i32 1)
+// CHECK-SAME: "QUAL.PRAGMA.VAR"([100 x float]* %foo6)
+// CHECK-SAME: "QUAL.PRAGMA.VAR"([100 x float]* %foo5)
+// CHECK-SAME: "QUAL.PRAGMA.VAR"(i32** %foo4.addr)
+// CHECK-SAME: "QUAL.PRAGMA.VAR"(i32** %foo3.addr)
+// CHECK-SAME: "QUAL.PRAGMA.VAR"(i32** %foo2.addr)
+// CHECK-SAME: "QUAL.PRAGMA.VAR"(i32** %foo1.addr)
+// CHECK: "DIR.PRAGMA.END.PREFETCH_LOOP"
+#pragma prefetch foo6, foo5, foo4, foo3, foo2, foo1
+  for (int i = 1; i < 100; i++) {
+  }
+
+// CHECK: DIR.PRAGMA.PREFETCH_LOOP
+// CHECK-SAME: "QUAL.PRAGMA.ATTRIB"(i32 1)
+// CHECK-SAME: "QUAL.PRAGMA.VAR"(i32* %j)
+// CHECK-SAME: "QUAL.PRAGMA.HINT"(i32 1)
+// CHECK-SAME: "QUAL.PRAGMA.DISTANCE"(i32 10)
+// CHECK-SAME: "QUAL.PRAGMA.VAR"(i32* %k)
+// CHECK-SAME: "QUAL.PRAGMA.HINT"(i32 2)
+// CHECK-SAME: "QUAL.PRAGMA.DISTANCE"(i32 99)
+// CHECK-SAME: "QUAL.PRAGMA.VAR"(i32* %ptridx)
+// CHECK-SAME: "QUAL.PRAGMA.VAR"(%struct.foo* %bar3)
+// CHECK: "DIR.PRAGMA.END.PREFETCH_LOOP"
+  int index = 1;
+  struct foo {
+    int j;
+    int k;
+  } bar1, bar2, bar3;
+#pragma prefetch bar1.j:1:10, bar2.k:2:99, foo1[index], bar3
+  for (int i = 1; i < 100; i++) {
+  }
+
+  int p = 1;
+  int *ptr = &p;
+  int **pptr = &ptr;
+// CHECK: [[LD1:%[0-9]*]] = load i32**, i32*** %pptr, align 8
+// CHECK: DIR.PRAGMA.PREFETCH_LOOP
+// CHECK-SAME: "QUAL.PRAGMA.ATTRIB"(i32 0)
+// CHECK-SAME: "QUAL.PRAGMA.VAR"(i32** [[LD1]])
+// CHECK-NEXT: [[LD2:%[0-9]*]] = load i32**, i32*** %pptr, align 8
+// CHECK: DIR.PRAGMA.PREFETCH_LOOP
+// CHECK-SAME: "QUAL.PRAGMA.ATTRIB"(i32 1)
+// CHECK-SAME: "QUAL.PRAGMA.VAR"(i32** [[LD2]])
+// CHECK-SAME: "QUAL.PRAGMA.HINT"(i32 1)
+// CHECK-NEXT: [[LD3:%[0-9]*]] = load i32**, i32*** %pptr, align 8
+// CHECK: DIR.PRAGMA.PREFETCH_LOOP
+// CHECK-SAME: "QUAL.PRAGMA.ATTRIB"(i32 1)
+// CHECK-SAME: "QUAL.PRAGMA.VAR"(i32** [[LD3]])
+// CHECK-SAME: "QUAL.PRAGMA.HINT"(i32 2)
+// CHECK-SAME: "QUAL.PRAGMA.DISTANCE"(i32 10)
+// CUECK: "DIR.PRAGMA.END.PREFETCH_LOOP"
+// CHECK: "DIR.PRAGMA.END.PREFETCH_LOOP"
+// CHECK: "DIR.PRAGMA.END.PREFETCH_LOOP"
+#pragma noprefetch (*pptr)
+#pragma prefetch (*pptr):1
+#pragma prefetch (*pptr):2:10
+  for (int i = 1; i < 100; i++) {
+  }
+}

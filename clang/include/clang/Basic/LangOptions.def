@@ -250,6 +250,8 @@ LANGOPT(UseAutoOpenCLAddrSpaceForOpenMP, 1, 0,
     " - map LangAS::Default to target AS 4.")
 LANGOPT(OpenMPUseSingleElemArrayFuncs , 1, 0,
     "Use single element function for private arrays")
+LANGOPT(IntelPragmaPrefetch, 1, 0,
+    "Enable Intel compatible #pragma prefetch")
 #endif // INTEL_COLLAB
 #if INTEL_CUSTOMIZATION
 LANGOPT(OpenMPLateOutlineTarget, 1, 1, "Outline OpenMP target construct in the back end")
