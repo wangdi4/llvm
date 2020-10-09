@@ -1036,7 +1036,16 @@ private:
     for (auto &Arg : Call->args()) {
       if (Arg == ValueToInfer) {
         auto P = getArgumentType(Call, Idx);
-        if (P.first && P.second) {
+        if (!P.first) {
+          // The argument is not used, or not a type of interest. Just use the
+          // existing known types for the parameter to avoid it being marked as
+          // unhandled. TODO: see if there is a better way to determine when a
+          // type cannot be inferred.
+          ValueTypeInfo *ArgInfo = PTA.getOrCreateValueTypeInfo(Arg.getUser(), 0);
+          for (auto *DType : ArgInfo->getPointerTypeAliasSet(ValueTypeInfo::VAT_Use))
+            if (auto *PtrTy = dyn_cast<DTransPointerType>(DType))
+              addInferredType(ValueToInfer, PtrTy);
+        } else if (P.second) {
           // Add the type, and continue to the next argument, rather than
           // exiting the loop, in case the ValueToInfer occurs multiple times.
           addInferredType(ValueToInfer, P.second);
@@ -1732,6 +1741,14 @@ private:
       DType = MDReader.getDTransTypeFromMD(Call);
     else if (Target)
       DType = MDReader.getDTransTypeFromMD(Target);
+
+    // There is no need to add the type on the call parameter, if the callee
+    // is known not to use the argument.
+    if (Target && !Target->isDeclaration() && Idx < Target->arg_size()) {
+      Argument *TargetArg = Target->getArg(Idx);
+      if (TargetArg->user_empty())
+        return { false, nullptr };
+    }
 
     if (!DType) {
       // Try to get a FunctionType from the ValueTypeInfo of the call. Give up
