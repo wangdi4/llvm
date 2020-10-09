@@ -39,13 +39,19 @@ define void @var_tripcount(i32* %ip, i32 %n, i32* %x) local_unnamed_addr {
 ; CHECK-NEXT:    [[MM_VECTORGEP:%.*]] = getelementptr inbounds i32, <2 x i32*> [[BROADCAST_SPLAT]], <2 x i64> [[VEC_PHI]]
 ; CHECK-NEXT:    [[MM_VECTORGEP_EXTRACT_1_:%.*]] = extractelement <2 x i32*> [[MM_VECTORGEP]], i32 1
 ; CHECK-NEXT:    [[MM_VECTORGEP_EXTRACT_0_:%.*]] = extractelement <2 x i32*> [[MM_VECTORGEP]], i32 0
+<<<<<<< HEAD
 ; CHECK-NEXT:    call void @llvm.lifetime.start.p0i32(i64 -1, i32* [[VAL_LOC_VEC_BASE_ADDR_EXTRACT_0_]])
 ; CHECK-NEXT:    call void @llvm.lifetime.start.p0i32(i64 -1, i32* [[VAL_LOC_VEC_BASE_ADDR_EXTRACT_1_]])
+=======
+; CHECK-NEXT:    [[TMP0:%.*]] = bitcast <2 x i32>* [[VAL_LOC_VEC]] to i8*
+; CHECK-NEXT:    call void @llvm.lifetime.start.p0i8(i64 -1, i8* [[TMP0]])
+>>>>>>> ff6e884ec751609279b9fdd46f77a583af998661
 ; CHECK-NEXT:    [[VAL_I:%.*]] = load i32, i32* [[MM_VECTORGEP_EXTRACT_0_]], align 4
 ; CHECK-NEXT:    store i32 [[VAL_I]], i32* [[VAL_LOC_VEC_BASE_ADDR_EXTRACT_0_]], align 4
 ; CHECK-NEXT:    [[VAL_I3:%.*]] = load i32, i32* [[MM_VECTORGEP_EXTRACT_1_]], align 4
 ; CHECK-NEXT:    store i32 [[VAL_I3]], i32* [[VAL_LOC_VEC_BASE_ADDR_EXTRACT_1_]], align 4
 ; CHECK-NEXT:    [[WIDE_LOAD:%.*]] = load <2 x i32>, <2 x i32>* [[VAL_LOC_VEC]], align 4
+<<<<<<< HEAD
 ; CHECK-NEXT:    call void @llvm.lifetime.end.p0i32(i64 -1, i32* [[VAL_LOC_VEC_BASE_ADDR_EXTRACT_0_]])
 ; CHECK-NEXT:    call void @llvm.lifetime.end.p0i32(i64 -1, i32* [[VAL_LOC_VEC_BASE_ADDR_EXTRACT_1_]])
 ; CHECK-NEXT:    [[TMP0:%.*]] = bitcast i32* [[MM_VECTORGEP_EXTRACT_0_]] to <2 x i32>*
@@ -55,6 +61,16 @@ define void @var_tripcount(i32* %ip, i32 %n, i32* %x) local_unnamed_addr {
 ; CHECK-NEXT:    [[TMP3]] = add i64 [[UNI_PHI]], 2
 ; CHECK-NEXT:    [[TMP4:%.*]] = icmp eq i64 [[TMP3]], [[N_VEC]]
 ; CHECK-NEXT:    br i1 [[TMP4]], label [[VPLANNEDBB:%.*]], label [[VECTOR_BODY]], [[LOOP0:!llvm.loop !.*]]
+=======
+; CHECK-NEXT:    call void @llvm.lifetime.end.p0i8(i64 -1, i8* [[TMP0]])
+; CHECK-NEXT:    [[TMP1:%.*]] = bitcast i32* [[MM_VECTORGEP_EXTRACT_0_]] to <2 x i32>*
+; CHECK-NEXT:    store <2 x i32> [[WIDE_LOAD]], <2 x i32>* [[TMP1]], align 4
+; CHECK-NEXT:    [[TMP2]] = add nuw nsw <2 x i64> [[VEC_PHI]], <i64 2, i64 2>
+; CHECK-NEXT:    [[TMP3]] = add nuw nsw i64 [[UNI_PHI1]], 2
+; CHECK-NEXT:    [[TMP4]] = add i64 [[UNI_PHI]], 2
+; CHECK-NEXT:    [[TMP5:%.*]] = icmp eq i64 [[TMP4]], [[N_VEC]]
+; CHECK-NEXT:    br i1 [[TMP5]], label [[VPLANNEDBB:%.*]], label [[VECTOR_BODY]], [[LOOP0:!llvm.loop !.*]]
+>>>>>>> ff6e884ec751609279b9fdd46f77a583af998661
 ; CHECK:       VPlannedBB:
 ; CHECK-NEXT:    [[TMP5:%.*]] = mul i64 1, [[N_VEC]]
 ; CHECK-NEXT:    [[TMP6:%.*]] = add i64 0, [[TMP5]]

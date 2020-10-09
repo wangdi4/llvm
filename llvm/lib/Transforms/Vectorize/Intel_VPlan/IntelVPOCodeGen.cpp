@@ -992,6 +992,21 @@ void VPOCodeGen::vectorizeInstruction(VPInstruction *VPInst) {
     assert(VPCall->getVFForScenario() == VF &&
            "Cannot find call vectorization scenario for VF.");
 
+    // Handle lifetime_start/end intrinsics operating on private-memory.
+    // We use the following mechanism to handle the intrinsic:
+    // If the array-private is widened (AOS/SOA) and not serialized, do not
+    // serialize the intrinsic. Just use the widened-alloca pointer, i.e., its
+    // cast'ed version ( correct casting is handled in then vectorizeCast
+    // function), and pass it to the intrinsic. Along with this, if the first
+    // argument in the original call is not -1 (used to denote variable-size),
+    // compute the size of the widened copy and pass it to the intrinsic.
+    // If the array-private is not widened, and serialized, just bypass this
+    // block and serialize this call.
+    if (VPCall->isLifetimeStartOrEndIntrinsic()) {
+      vectorizeLifetimeStartEndIntrinsic(VPCall);
+      return;
+    }
+
     switch (VPCall->getVectorizationScenario()) {
     case VPCallInstruction::CallVecScenariosTy::DoNotWiden: {
       // Currently only kernel convergent uniform calls and uniform calls
@@ -1563,14 +1578,45 @@ void VPOCodeGen::vectorizeCast(
         std::is_same<CastInstTy, BitCastInst>::value ||
             std::is_same<CastInstTy, AddrSpaceCastInst>::value,
         VPInstruction>::type *VPInst) {
-  // TODO: Update code to handle loop privates.
-  Value *VecOp = getVectorValue(VPInst->getOperand(0));
-  Type *VecTy = getVPInstVectorType(VPInst->getType(), VF);
 
-  if (std::is_same<CastInstTy, BitCastInst>::value)
-    VPWidenMap[VPInst] = Builder.CreateBitCast(VecOp, VecTy);
+  bool IsScalarized = false;
+  Value *WidenedOp = nullptr;
+  Type *WidenedTy = nullptr;
+  Value *WidenedCast = nullptr;
+  bool IsBitCastInst = std::is_same<CastInstTy, BitCastInst>::value;
+  bool IsNonSerializedAllocaPointer = LoopPrivateVPWidenMap.count(
+      VPInst->getOperand(0)); // Is this AOS-widened ptr,
+                              // TODO: Add SOA-pointer check here.
+  bool IsOnlyUsedInLifetimeIntrinsics =
+      all_of(VPInst->users(),
+             [&](VPValue *V) { // All users of this cast should be the
+                               // lifetime_start and lifetime_end intrinsics.
+               if (auto *VPCall = dyn_cast<VPCallInstruction>(V))
+                 return VPCall->isLifetimeStartOrEndIntrinsic();
+               return false;
+             });
+
+  // If the pointer is a bitcast and is exclusively used in
+  // lifetime_start/end intrinsics, use the correct operands.
+  if (IsBitCastInst && IsNonSerializedAllocaPointer &&
+      IsOnlyUsedInLifetimeIntrinsics) {
+    WidenedOp = LoopPrivateVPWidenMap[VPInst->getOperand(0)];
+    WidenedTy = VPInst->getType();
+    IsScalarized = true;
+  } else {
+    WidenedOp = getVectorValue(VPInst->getOperand(0));
+    WidenedTy = getVPInstVectorType(VPInst->getType(), VF);
+  }
+
+  // Create the widened-cast instruction.
+  WidenedCast =
+      Builder.CreateCast(static_cast<Instruction::CastOps>(VPInst->getOpcode()),
+                         WidenedOp, WidenedTy);
+
+  if (IsScalarized)
+    VPScalarMap[VPInst][0] = WidenedCast;
   else
-    VPWidenMap[VPInst] = Builder.CreateAddrSpaceCast(VecOp, VecTy);
+    VPWidenMap[VPInst] = WidenedCast;
 }
 
 void VPOCodeGen::vectorizeOpenCLSinCos(VPCallInstruction *VPCall,
@@ -2919,6 +2965,35 @@ Value *VPOCodeGen::getVectorValue(VPValue *V) {
   VPWidenMap[V] = Widened;
 
   return Widened;
+}
+
+// Widen or Serialize lifetime_start/end intrinsic call.
+void VPOCodeGen::vectorizeLifetimeStartEndIntrinsic(VPCallInstruction *VPCall) {
+  // If this is a private, determine if the call can be widened with the widened
+  // pointer, else serialie.
+  if (VPValue *PrivPtr = const_cast<VPValue *>(
+          getVPValuePrivateMemoryPtr(VPCall->getOperand(1)))) {
+    if (LoopPrivateVPWidenMap.count(PrivPtr)) {
+      AllocaInst *AI = cast<AllocaInst>(LoopPrivateVPWidenMap[PrivPtr]);
+      ConstantInt *Size = Builder.getInt64(-1);
+      if (!cast<VPConstantInt>(VPCall->getOperand(0))->isMinusOne()) {
+        const DataLayout &DL =
+            OrigLoop->getHeader()->getModule()->getDataLayout();
+        Size =
+            Builder.getInt64(AI->getAllocationSizeInBits(DL).getValue() >> 3);
+      }
+      SmallVector<Value *, 3> ScalarArgs = {
+          Size, getScalarValue(VPCall->getOperand(1), 0),
+          getScalarValue(VPCall->getOperand(2), 0)};
+      auto *ScalarInstrinsic = generateSerialInstruction(VPCall, ScalarArgs);
+      VPScalarMap[VPCall][0] = ScalarInstrinsic;
+      return;
+    }
+  }
+
+  // This call is either not operating on privates, or is not vectorizable. So,
+  // serialize.
+  serializeWithPredication(VPCall);
 }
 
 Value *VPOCodeGen::getScalarValue(VPValue *V, unsigned Lane) {

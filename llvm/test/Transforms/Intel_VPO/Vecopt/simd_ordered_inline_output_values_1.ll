@@ -39,8 +39,13 @@ define void @var_tripcount(i32* %ip, i32 %n, i32* %x) local_unnamed_addr {
 ; CHECK-NEXT:    [[MM_VECTORGEP:%.*]] = getelementptr inbounds i32, <2 x i32*> [[BROADCAST_SPLAT]], <2 x i64> [[VEC_PHI]]
 ; CHECK-NEXT:    [[MM_VECTORGEP_EXTRACT_1_:%.*]] = extractelement <2 x i32*> [[MM_VECTORGEP]], i32 1
 ; CHECK-NEXT:    [[MM_VECTORGEP_EXTRACT_0_:%.*]] = extractelement <2 x i32*> [[MM_VECTORGEP]], i32 0
+<<<<<<< HEAD
 ; CHECK-NEXT:    call void @llvm.lifetime.start.p0i32(i64 -1, i32* [[VAL_LOC_VEC_BASE_ADDR_EXTRACT_0_]])
 ; CHECK-NEXT:    call void @llvm.lifetime.start.p0i32(i64 -1, i32* [[VAL_LOC_VEC_BASE_ADDR_EXTRACT_1_]])
+=======
+; CHECK-NEXT:    [[TMP0:%.*]] = bitcast <2 x i32>* [[VAL_LOC_VEC]] to i8*
+; CHECK-NEXT:    call void @llvm.lifetime.start.p0i8(i64 -1, i8* [[TMP0]])
+>>>>>>> ff6e884ec751609279b9fdd46f77a583af998661
 ; CHECK-NEXT:    [[VAL_I:%.*]] = load i32, i32* [[MM_VECTORGEP_EXTRACT_0_]], align 4
 ; CHECK-NEXT:    store i32 [[VAL_I]], i32* [[VAL_LOC_VEC_BASE_ADDR_EXTRACT_0_]], align 4
 ; CHECK-NEXT:    [[VAL_I4:%.*]] = load i32, i32* [[MM_VECTORGEP_EXTRACT_1_]], align 4
@@ -48,8 +53,12 @@ define void @var_tripcount(i32* %ip, i32 %n, i32* %x) local_unnamed_addr {
 ; CHECK-NEXT:    [[WIDE_LOAD:%.*]] = load <2 x i32>, <2 x i32>* [[VAL_LOC_VEC]], align 4
 ; CHECK-NEXT:    [[WIDE_LOAD_EXTRACT_1_:%.*]] = extractelement <2 x i32> [[WIDE_LOAD]], i32 1
 ; CHECK-NEXT:    [[WIDE_LOAD_EXTRACT_0_:%.*]] = extractelement <2 x i32> [[WIDE_LOAD]], i32 0
+<<<<<<< HEAD
 ; CHECK-NEXT:    call void @llvm.lifetime.end.p0i32(i64 -1, i32* [[VAL_LOC_VEC_BASE_ADDR_EXTRACT_0_]])
 ; CHECK-NEXT:    call void @llvm.lifetime.end.p0i32(i64 -1, i32* [[VAL_LOC_VEC_BASE_ADDR_EXTRACT_1_]])
+=======
+; CHECK-NEXT:    call void @llvm.lifetime.end.p0i8(i64 -1, i8* [[TMP0]])
+>>>>>>> ff6e884ec751609279b9fdd46f77a583af998661
 ; CHECK-NEXT:    store i32 [[WIDE_LOAD_EXTRACT_0_]], i32* [[MM_VECTORGEP_EXTRACT_0_]], align 4
 ; CHECK-NEXT:    store i32 [[WIDE_LOAD_EXTRACT_1_]], i32* [[MM_VECTORGEP_EXTRACT_1_]], align 4
 ; CHECK-NEXT:    [[TMP0]] = add nuw nsw <2 x i64> [[VEC_PHI]], <i64 2, i64 2>
