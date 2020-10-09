@@ -311,17 +311,17 @@ bool HIRSafeReductionAnalysis::isValidSR(const RegDDRef *LRef,
       // a safe reduction depends on the client's interpretation.
       return false;
     }
-    bool IsMinMax = (ReductionOpCode == Instruction::Select);
-    // In case of min/max reduction, make sure both uses belong to the same
-    // 'select' operation
-    if (IsMinMax) {
+    bool IsSelectMinMax = isa<SelectInst>((*SinkInst)->getLLVMInstruction());
+    // In case of select min/max reduction, make sure both uses belong to the
+    // same 'select' operation
+    if (IsSelectMinMax) {
       if (!UseNode) {
         UseNode = SinkNode;
       } else {
         return (UseNode == SinkNode);
       }
     }
-    if (!DDUtils::maxUsesInLoop(LRef, Loop, DDG, IsMinMax ? 2 : 1)) {
+    if (!DDUtils::maxUsesInLoop(LRef, Loop, DDG, IsSelectMinMax ? 2 : 1)) {
       return false;
     }
   }
@@ -503,8 +503,9 @@ bool HIRSafeReductionAnalysis::findFirstRedStmt(
 
         if (Inst == SrcInst) {
           const RegDDRef *LRef = Inst->getLvalDDRef();
-          if (DDUtils::maxUsesInLoop(LRef, Loop, DDG,
-                                     Inst->isMinOrMax() ? 2 : 1)) {
+          if (DDUtils::maxUsesInLoop(
+                  LRef, Loop, DDG,
+                  isa<SelectInst>(Inst->getLLVMInstruction()) ? 2 : 1)) {
             *SingleStmtReduction = true;
             *FirstRvalSB = DDRefSrc->getSymbase();
             return POTENTIAL_REDUCTION;

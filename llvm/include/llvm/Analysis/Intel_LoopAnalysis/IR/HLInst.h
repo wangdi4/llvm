@@ -349,6 +349,7 @@ public:
   std::pair<bool, HLInst*> doConstantFolding();
 
   /// Checks if the Opcode is a reduction and returns it in \p OpCode.
+  /// Select Opcode is returned for min/max intrinsics.
   bool isReductionOp(unsigned *OpCode = nullptr) const;
 
   /// Checks if instruction is a min.

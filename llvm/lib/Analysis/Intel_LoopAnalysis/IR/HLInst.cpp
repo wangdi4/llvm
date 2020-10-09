@@ -41,6 +41,10 @@ static cl::opt<bool>
                        cl::init(false), cl::Hidden,
                        cl::desc("print safe reduction unsafe algebra"));
 
+static cl::opt<bool> CheckIntrinsicSafeReduction(
+    "hir-safe-reduction-analysis-check-intrinsic", cl::init(false), cl::Hidden,
+    cl::desc("Check safe reduction for intrinsic calls"));
+
 void HLInst::initialize() {
   /// This call is to get around calling virtual functions in the constructor.
   unsigned NumOp = getNumOperandsInternal();
@@ -638,19 +642,32 @@ bool HLInst::isReductionOp(unsigned *OpCode) const {
 
     return isValidReductionOpCode(OpC);
 
-  } else if (isa<SelectInst>(LLVMInst)) {
+  } else if (isMinOrMax()) {
 
     if (OpCode) {
       *OpCode = Instruction::Select;
     }
 
-    return isMinOrMax();
+    return true;
   }
 
   return false;
 }
 
 bool HLInst::checkMinMax(bool IsMin, bool IsMax) const {
+  Intrinsic::ID Id;
+
+  if (CheckIntrinsicSafeReduction && isIntrinCall(Id)) {
+    if (IsMin && (Id == Intrinsic::minnum || Id == Intrinsic::minimum)) {
+      return true;
+    }
+
+    if (IsMax && (Id == Intrinsic::maxnum || Id == Intrinsic::maximum)) {
+      return true;
+    }
+
+    return false;
+  }
 
   if (!isa<SelectInst>(Inst)) {
     return false;

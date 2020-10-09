@@ -987,12 +987,10 @@ private:
 
   void fillData() {
     if (LinkedCurrent != LinkedEnd) {
-      unsigned Opcode = 0;
-      (*LinkedCurrent)->isReductionOp(&Opcode);
-      // Only select is expected here.
-      assert(Opcode == Instruction::Select && "expected reduction");
+      assert(isa<SelectInst>((*LinkedCurrent)->getLLVMInstruction()) &&
+             "expected select instruction");
       Descriptor.fillReductionKinds(
-          (*LinkedCurrent)->getLvalDDRef()->getDestType(), Opcode,
+          (*LinkedCurrent)->getLvalDDRef()->getDestType(), Instruction::Select,
           (*LinkedCurrent)->getPredicate(), (*LinkedCurrent)->isMax());
       Descriptor.HLInst = *LinkedCurrent;
       if (Descriptor.HLInst != MainInst)
