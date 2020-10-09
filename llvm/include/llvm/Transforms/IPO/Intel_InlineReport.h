@@ -266,7 +266,7 @@ public:
     ActiveCallee = Call->getCalledFunction();
     // New call sites can be added from inlining even if they are not a
     // cloned from the inlined callee.
-    ActiveIRCS = addNewCallSite(Call->getCaller(), Call, M);
+    ActiveIRCS = addNewCallSite(Call);
     ActiveInlineInstruction = Call;
     ActiveOriginalCalls.clear();
     ActiveInlinedCalls.clear();
@@ -289,7 +289,7 @@ public:
   void setDead(Function *F) {
     if (!isClassicIREnabled())
       return;
-    InlineReportFunctionMap::const_iterator MapIt = IRFunctionMap.find(F);
+    auto MapIt = IRFunctionMap.find(F);
     assert(MapIt != IRFunctionMap.end());
     InlineReportFunction *INR = MapIt->second;
     INR->setDead(true);
@@ -347,8 +347,7 @@ public:
   // eliminated as dead code.
   void removeCallSiteReference(Instruction &I) {
     if (ActiveInlineInstruction != &I) {
-      InlineReportInstructionCallSiteMap::const_iterator MapIt;
-      MapIt = IRInstructionCallSiteMap.find(&I);
+      auto MapIt = IRInstructionCallSiteMap.find(&I);
       if (MapIt != IRInstructionCallSiteMap.end()) {
         InlineReportCallSite *IRCS = MapIt->second;
         IRInstructionCallSiteMap.erase(MapIt);
@@ -364,8 +363,7 @@ public:
   // Indicate that the Function 'F' has been eliminated as a dead static
   // function.
   void removeFunctionReference(Function &F) {
-    InlineReportFunctionMap::iterator MapIt;
-    MapIt = IRFunctionMap.find(&F);
+    auto MapIt = IRFunctionMap.find(&F);
     if (MapIt != IRFunctionMap.end()) {
       InlineReportFunction *IRF = MapIt->second;
       setDead(&F);
@@ -422,7 +420,7 @@ private:
   class InlineReportCallback : public CallbackVH {
     InlineReport *IR;
     void deleted() override {
-      assert(IR != nullptr);
+      assert(IR);
       if (isa<Instruction>(getValPtr())) {
         /// \brief Indicate in the inline report that the call site
         /// corresponding to the Value has been deleted
@@ -446,14 +444,14 @@ private:
   SmallVector<InlineReportCallback *, 16> IRCallbackVector;
 
   // \brief Create an InlineReportFunction to represent F
-  InlineReportFunction *addFunction(Function *F, Module *M);
+  InlineReportFunction *addFunction(Function *F);
 
   // \brief Create an InlineReportCallSite to represent Call
-  InlineReportCallSite *addCallSite(Function *F, CallBase *Call, Module *M);
+  InlineReportCallSite *addCallSite(CallBase *Call);
 
   // \brief Create an InlineReportCallSite to represent Call, if one does
   // not already exist
-  InlineReportCallSite *addNewCallSite(Function *F, CallBase *Call, Module *M);
+  InlineReportCallSite *addNewCallSite(CallBase *Call);
 
 #ifndef NDEBUG
   /// \brief Run some simple consistency checking on 'F', e.g.
@@ -468,7 +466,7 @@ private:
   /// \brief Ensure that the inline report for this routine reflects the
   /// changes thatr have been made to that routine since the last call to
   /// Inliner::runOnSCC()
-  void makeCurrent(Module *M, Function *F);
+  void makeCurrent(Function *F);
 
   /// \brief Indicate that the inline reports may need to be made current
   /// with InlineReport::makeCurrent() before they are changed to indicate
