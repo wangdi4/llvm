@@ -368,8 +368,11 @@ void DebugInfoPass::addDebugCallsToFunction(Function* pFunc, const FunctionConte
     // * Insert function exit builtins before returns
     //
     for (auto &BB : *pFunc) {
-        for (auto &I : BB) {
-            auto pInst = &I;
+        for (BasicBlock::iterator II =
+                 BasicBlock::iterator(BB.getFirstNonPHI()), E = BB.end();
+             II != E; II++) {
+            Instruction *pInst = &*II;
+
             // To insert stoppoints:
             // - Find the current C line for this instruction
             // - If the line was found and it's greater ( greater because we don't want
