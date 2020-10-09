@@ -422,39 +422,29 @@ bool IRChangePrinter::same(const std::string &Before,
                            const std::string &After) {
   return Before == After;
 }
-#endif //!defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
 
 PrintIRInstrumentation::~PrintIRInstrumentation() {
-#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
   assert(ModuleDescStack.empty() && "ModuleDescStack is not empty at exit");
-#endif //!defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
 }
 
 void PrintIRInstrumentation::pushModuleDesc(StringRef PassID, Any IR) {
-#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
   assert(StoreModuleDesc);
   const Module *M = nullptr;
   std::string Extra;
   if (auto UnwrappedModule = unwrapModule(IR))
     std::tie(M, Extra) = UnwrappedModule.getValue();
   ModuleDescStack.emplace_back(M, Extra, PassID);
-#endif //!defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
 }
 
 PrintIRInstrumentation::PrintModuleDesc
 PrintIRInstrumentation::popModuleDesc(StringRef PassID) {
-#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
   assert(!ModuleDescStack.empty() && "empty ModuleDescStack");
-#endif //!defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
   PrintModuleDesc ModuleDesc = ModuleDescStack.pop_back_val();
-#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
   assert(std::get<2>(ModuleDesc).equals(PassID) && "malformed ModuleDescStack");
-#endif //!defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
   return ModuleDesc;
 }
 
 void PrintIRInstrumentation::printBeforePass(StringRef PassID, Any IR) {
-#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
   if (PassID.startswith("PassManager<") || PassID.contains("PassAdaptor<"))
     return;
 
@@ -470,12 +460,10 @@ void PrintIRInstrumentation::printBeforePass(StringRef PassID, Any IR) {
 
   SmallString<20> Banner = formatv("*** IR Dump Before {0} ***", PassID);
   unwrapAndPrint(dbgs(), IR, Banner, llvm::forcePrintModuleIR());
-#endif //!defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
   return;
 }
 
 void PrintIRInstrumentation::printAfterPass(StringRef PassID, Any IR) {
-#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
   if (PassID.startswith("PassManager<") || PassID.contains("PassAdaptor<"))
     return;
 
@@ -487,11 +475,9 @@ void PrintIRInstrumentation::printAfterPass(StringRef PassID, Any IR) {
 
   SmallString<20> Banner = formatv("*** IR Dump After {0} ***", PassID);
   unwrapAndPrint(dbgs(), IR, Banner, llvm::forcePrintModuleIR());
-#endif //!defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
 }
 
 void PrintIRInstrumentation::printAfterPassInvalidated(StringRef PassID) {
-#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
   if (!StoreModuleDesc || !llvm::shouldPrintAfterPass(PassID))
     return;
 
@@ -510,12 +496,10 @@ void PrintIRInstrumentation::printAfterPassInvalidated(StringRef PassID) {
   SmallString<20> Banner =
       formatv("*** IR Dump After {0} *** invalidated: ", PassID);
   printIR(dbgs(), M, Banner, Extra);
-#endif //!defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
 }
 
 void PrintIRInstrumentation::registerCallbacks(
     PassInstrumentationCallbacks &PIC) {
-#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
   // BeforePass callback is not just for printing, it also saves a Module
   // for later use in AfterPassInvalidated.
   StoreModuleDesc = llvm::forcePrintModuleIR() && llvm::shouldPrintAfterPass();
@@ -533,8 +517,36 @@ void PrintIRInstrumentation::registerCallbacks(
           this->printAfterPassInvalidated(P);
         });
   }
-#endif //!defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
 }
+#else //!defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
+template <typename IRUnitT> ChangePrinter<IRUnitT>::~ChangePrinter<IRUnitT>() {}
+IRChangePrinter::IRChangePrinter() : Out(dbgs()) {}
+IRChangePrinter::~IRChangePrinter() {}
+void IRChangePrinter::registerCallbacks(PassInstrumentationCallbacks &) {}
+void IRChangePrinter::handleInitialIR(Any) {}
+void IRChangePrinter::generateIRRepresentation(Any, StringRef, std::string &) {}
+void IRChangePrinter::omitAfter(StringRef PassID, std::string &) {}
+void IRChangePrinter::handleAfter(StringRef PassID, std::string &,
+                                  const std::string &, const std::string &,
+                                  Any) {}
+void IRChangePrinter::handleInvalidated(StringRef) {}
+void IRChangePrinter::handleFiltered(StringRef, std::string &) {}
+void IRChangePrinter::handleIgnored(StringRef, std::string &) {}
+bool IRChangePrinter::same(const std::string &, const std::string &) {
+  return true;
+}
+PrintIRInstrumentation::~PrintIRInstrumentation() {}
+void PrintIRInstrumentation::pushModuleDesc(StringRef, Any) {}
+PrintIRInstrumentation::PrintModuleDesc
+PrintIRInstrumentation::popModuleDesc(StringRef) {
+  return {};
+}
+void PrintIRInstrumentation::printBeforePass(StringRef, Any) {}
+void PrintIRInstrumentation::printAfterPass(StringRef, Any) {}
+void PrintIRInstrumentation::printAfterPassInvalidated(StringRef) {}
+void PrintIRInstrumentation::registerCallbacks(PassInstrumentationCallbacks &) {
+}
+#endif //!defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
 
 void OptNoneInstrumentation::registerCallbacks(
     PassInstrumentationCallbacks &PIC) {
@@ -554,9 +566,9 @@ bool OptNoneInstrumentation::skip(StringRef PassID, Any IR) {
   return !(F && F->hasOptNone());
 }
 
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
 void PrintPassInstrumentation::registerCallbacks(
     PassInstrumentationCallbacks &PIC) {
-#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
   if (!DebugLogging)
     return;
 
@@ -586,8 +598,11 @@ void PrintPassInstrumentation::registerCallbacks(
     dbgs() << "Running analysis: " << PassID << " on ";
     unwrapAndPrint(dbgs(), IR, "", false, true);
   });
-#endif //!defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
 }
+#else //!defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
+void PrintPassInstrumentation::registerCallbacks(
+    PassInstrumentationCallbacks &) {}
+#endif //!defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
 
 PreservedCFGCheckerInstrumentation::CFG::CFG(const Function *F,
                                              bool TrackBBLifetime) {
@@ -630,6 +645,7 @@ static void printBBName(raw_ostream &out, const BasicBlock *BB) {
   out << "unnamed_" << FuncOrderBlockNum << "<" << BB << ">";
 }
 
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
 void PreservedCFGCheckerInstrumentation::CFG::printDiff(raw_ostream &out,
                                                         const CFG &Before,
                                                         const CFG &After) {
@@ -700,6 +716,13 @@ void PreservedCFGCheckerInstrumentation::CFG::printDiff(raw_ostream &out,
     out << "\n";
   }
 }
+#else //!defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
+void PreservedCFGCheckerInstrumentation::CFG::printDiff(raw_ostream &,
+                                                        const CFG &,
+                                                        const CFG &) {
+  // TODO: Implement the comparison but do not print the actual diff?
+}
+#endif //!defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
 
 void PreservedCFGCheckerInstrumentation::registerCallbacks(
     PassInstrumentationCallbacks &PIC) {
@@ -746,10 +769,8 @@ void PreservedCFGCheckerInstrumentation::registerCallbacks(
 
 void StandardInstrumentations::registerCallbacks(
     PassInstrumentationCallbacks &PIC) {
-#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
   PrintIR.registerCallbacks(PIC);
   PrintPass.registerCallbacks(PIC);
-#endif //!defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
   TimePasses.registerCallbacks(PIC);
   OptNone.registerCallbacks(PIC);
   PreservedCFGChecker.registerCallbacks(PIC);
