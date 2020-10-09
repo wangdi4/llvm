@@ -2,8 +2,8 @@
 ; RUN: opt -whole-program-assume -dtrans-safetyanalyzer -dtrans-print-types -disable-output %s 2>&1 | FileCheck %s
 ; RUN: opt -whole-program-assume -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types -disable-output %s 2>&1 | FileCheck %s
 
-; Test that calls that return pointers to aggregate types that match the
-; expected type do not cause safety flags to be set.
+; Test that calls that have pointers to aggregate types passed and returned do
+; not cause safety flags to be set when they are used as the expected types.
 
 %struct.test01 = type { i32, i32 }
 define %struct.test01* @test01(%struct.test01* %pStruct, i64 %idx) !dtrans_type !2 {
@@ -15,6 +15,8 @@ define void @test01c() {
   %mem = call i8* @malloc(i64 40)
   %head = bitcast i8* %mem to %struct.test01*
   %elem = call %struct.test01* @test01(%struct.test01* %head, i64 3)
+  %fieldAddr = getelementptr %struct.test01, %struct.test01* %head, i64 0, i32 1
+  store i32 0, i32* %fieldAddr
   ret void
 }
 ; CHECK-LABEL: DTRANS_StructInfo:

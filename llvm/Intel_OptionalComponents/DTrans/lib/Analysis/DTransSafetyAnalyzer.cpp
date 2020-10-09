@@ -1729,12 +1729,22 @@ public:
 
     // If the call returns a type of interest, then we need to analyze the
     // return value for safety bits that need to be set
+    Function *F = dtrans::getCalledFunction(Call);
+    bool IsFnLocal =
+        F ? (!F->isDeclaration() && !F->hasDLLExportStorageClass()) : false;
+    bool IsIndirect = Call.isIndirectCall();
+    LibFunc TheLibFunc = NotLibFunc;
+    bool IsLibFunc = false;
+    if (F && F->hasName())
+      IsLibFunc =
+          TLI.getLibFunc(F->getName(), TheLibFunc) && TLI.has(TheLibFunc);
+    bool IsInvoke = isa<InvokeInst>(&Call);
     if (!Call.getType()->isVoidTy()) {
       ValueTypeInfo *Info = PTA.getValueTypeInfo(&Call);
       if (Info && Info->canAliasToAggregatePointer()) {
-        if (isa<InvokeInst>(&Call))
+        if (IsInvoke)
           setAllAliasedTypeSafetyData(Info, dtrans::HasCppHandling,
-            "Type returned by invoke call", &Call);
+                                      "Type returned by invoke call", &Call);
 
         // If the value was declared as returning an 'i8*', then check that it
         // does not get used as an aggregate type. This is only done for i8*
@@ -1743,27 +1753,19 @@ public:
         // value. Other type mismatches should be detected when the value gets
         // used.
         if (PTA.getDominantType(*Info, ValueTypeInfo::VAT_Decl) ==
-          getDTransI8PtrType() &&
-          AllocKind == dtrans::AK_NotAlloc)
+                getDTransI8PtrType() &&
+            AllocKind == dtrans::AK_NotAlloc)
           setAllAliasedTypeSafetyData(
-            Info, dtrans::BadCasting,
-            "i8* type returned by call used as aggregate pointer type",
-            &Call);
+              Info, dtrans::BadCasting,
+              "i8* type returned by call used as aggregate pointer type",
+              &Call);
 
         // Types returned by non-local functions should be treated as
         // system objects since we cannot transform them.
-        Function *F = dtrans::getCalledFunction(Call);
-        bool IsFnLocal =
-          F ? (!F->isDeclaration() && !F->hasDLLExportStorageClass()) : false;
-        LibFunc TheLibFunc = NotLibFunc;
-        bool IsLibFunc = false;
-        if (F && F->hasName())
-          IsLibFunc = TLI.getLibFunc(F->getName(), TheLibFunc);
-        if ((!IsFnLocal || (IsLibFunc && TLI.has(TheLibFunc))) &&
-          AllocKind == dtrans::AK_NotAlloc)
+        if ((!IsFnLocal || IsLibFunc) && AllocKind == dtrans::AK_NotAlloc)
           setAllAliasedTypeSafetyData(Info, dtrans::SystemObject,
-            "Type returned by non-local function",
-            &Call);
+                                      "Type returned by non-local function",
+                                      &Call);
       }
     }
 
@@ -1777,9 +1779,224 @@ public:
     if (SpecialArguments.size() == Call.arg_size())
       return;
 
-    // TODO: Check whether argument types are compatible with the expected type
-    // for the arguments that were not classified as special arguments, and
-    // that no field member addresses are passed.
+    DTransType *TargetType = nullptr;
+    if (F) {
+      if (TM.isSimpleType(F->getValueType()))
+        TargetType = TM.getOrCreateSimpleType(F->getValueType());
+      else
+        TargetType = MDReader.getDTransTypeFromMD(F);
+    } else {
+      // An indirect call should have metadata info to define the expected type
+      // of the call.
+      TargetType = MDReader.getDTransTypeFromMD(&Call);
+    }
+    DTransFunctionType *FuncExpectedDTransTy =
+        dyn_cast_or_null<DTransFunctionType>(TargetType);
+
+    size_t CallArgCnt = Call.arg_size();
+    for (unsigned ArgNum = 0; ArgNum < CallArgCnt; ++ArgNum) {
+      Value *Param = Call.getArgOperand(ArgNum);
+      if (SpecialArguments.count(Param))
+        continue;
+
+      // The pointer type analyzer should have collected value type info for all
+      // parameters that are types of interest. If there is no info, then it
+      // must not be a parameter of interest.
+      ValueTypeInfo *ParamInfo = PTA.getValueTypeInfo(Param);
+      if (!ParamInfo)
+        continue;
+
+      // Perform checks that are the same regardless of whether the function is
+      // locally defined or external.
+      if (isValueTypeInfoUnhandled(*ParamInfo)) {
+        DTInfo.setUnhandledPtrType(&Call);
+        setAllAliasedTypeSafetyData(ParamInfo, dtrans::UnhandledUse,
+                                    "PointerTypeAnalyzer could not resolve all "
+                                    "potential types for pointer",
+                                    &Call);
+      }
+
+      if (ParamInfo->pointsToSomeElement())
+        for (auto &PointeePair :
+             ParamInfo->getElementPointeeSet(ValueTypeInfo::VAT_Use)) {
+
+          dtrans::TypeInfo *ParentTI =
+              DTInfo.getOrCreateTypeInfo(PointeePair.first);
+          if (auto *ParentStInfo = dyn_cast<StructInfo>(ParentTI)) {
+            // The collection should only have elements of type PLK_Field here.
+            // Any uses of PLK_Offset are for calls to memfuncs, which are
+            // processed by visiting intrinsic calls.
+            assert(PointeePair.second.getKind() ==
+                       ValueTypeInfo::PointeeLoc::PLK_Field &&
+                   "Unexpected use of non-field offset");
+            size_t Idx = PointeePair.second.getElementNum();
+            ParentStInfo->getField(Idx).setAddressTaken();
+            setBaseTypeInfoSafetyData(
+                PointeePair.first, dtrans::FieldAddressTaken,
+                "Address of member passed to function", &Call);
+          }
+        }
+
+      // We need to know the signature of the called function in order the check
+      // for functions that take i8* parameter types.
+      if (!FuncExpectedDTransTy) {
+        setAllAliasedTypeSafetyData(
+            ParamInfo, dtrans::UnhandledUse,
+            "Unable to determine expected type for function", &Call);
+        continue;
+      }
+
+      // Try to get the expected argument type to determine whether the function
+      // takes that pointer as an i8*.
+      DTransType *ArgExpectedDTransTy = nullptr;
+      bool IsVarArgParam = ArgNum >= FuncExpectedDTransTy->getNumArgs();
+      if (!IsVarArgParam) {
+        ArgExpectedDTransTy = FuncExpectedDTransTy->getArgType(ArgNum);
+        if (!ArgExpectedDTransTy) {
+          setAllAliasedTypeSafetyData(
+              ParamInfo, dtrans::UnhandledUse,
+              "Unable to determine expected type for function argument", &Call);
+          continue;
+        }
+      }
+
+      if (!ParamInfo->canAliasToAggregatePointer()) {
+        if (!IsVarArgParam && ArgExpectedDTransTy == getDTransI8PtrType()) {
+          // TODO: The caller did not see any aliased types, but the i8* could
+          // be passed to multiple functions and used as different types for
+          // each them. Add checks to detect an unsafe use, such as if the
+          // following, if the functions used %p as different structure types.
+          //   call void @use_test01a(i8* %p) ; uses %p as %struct.foo
+          //   call void @use_test01b(i8* %p) ; uses %p as %struct.bar
+          // For now we will not set any safety data here because the original
+          // LocalPointerAnalyzer did not mark these cases as unsafe.
+        }
+        continue;
+      }
+
+      // If we reach here, we know that some aggregate pointer type is
+      // involved in the parameter that needs to be checked for safety.
+
+      // Mark HasCppHandling on any aggregate pointer passed via InvokeInst.
+      if (IsInvoke)
+        setAllAliasedTypeSafetyData(ParamInfo, dtrans::HasCppHandling,
+                                    "Type returned by invoke call", &Call);
+
+      if (IsVarArgParam) {
+        // TODO: Add checking of whether the argument is used in the called
+        // function with a type that is compatible with the passed value to make
+        // this less conservative.
+        setAllAliasedTypeSafetyData(
+            ParamInfo, dtrans::UnhandledUse,
+            "Type passed in vararg parameter to function", &Call);
+        continue;
+      }
+
+      if (IsFnLocal && !IsLibFunc) {
+        // Any argument in the VarArgs should have been processed above.
+        // Check whether the callee uses the argument, if it doesn't there is no
+        // need for the remaining safety flag checks.
+        assert(ArgNum < F->arg_size() && "Unexpected operand");
+        Argument *TargetArg = F->getArg(ArgNum);
+        if (TargetArg->user_empty()) {
+          DEBUG_WITH_TYPE_P(FNFilter, SAFETY_VERBOSE,
+                            dbgs() << "Ignoring unused argument #" << ArgNum
+                                   << " in call: " << Call << "\n");
+          continue;
+        }
+
+        // If the argument is a pointer-sized int, then mark the element as
+        // AddressTaken because the analysis of the callee would have treated
+        // the argument as a scalar.
+        llvm::Type *ArgType = F->getArg(ArgNum)->getType();
+        if (ArgType == getLLVMPtrSizedIntType()) {
+          setAllAliasedTypeSafetyData(
+              ParamInfo, dtrans::AddressTaken,
+              "Type passed to pointer-sized int argument of local function",
+              &Call);
+          continue;
+        }
+
+        // Check whether the parameter type matches the expected argument type.
+        // The PtrTypeAnalyzer will have populated the ArgInfo with the type
+        // declared in the signature of the called function, so if we can
+        // resolve a unique usage type for the parameter, then the parameter
+        // matches the expected type.
+        if (ArgExpectedDTransTy == getDTransI8PtrType()) {
+          // TODO: Check whether the i8* argument usage type in the callee match
+          // the dominant type of the parameter because in those cases there is
+          // no need to set the MismatchedArgUse safety flag.
+          DEBUG_WITH_TYPE_P(
+              FNFilter, SAFETY_VERBOSE,
+              dbgs() << "Argument that aliases aggregate used as i8* for arg#"
+                     << ArgNum << "\n");
+          setAllAliasedTypeSafetyData(
+              ParamInfo, dtrans::MismatchedArgUse,
+              "Type passed to i8* argument of local function", &Call);
+
+          // The safety data also needs to be set on the types aliases within
+          // the callee, because the ValueTypeInfo for the parameter only knows
+          // about the types aliases of the caller.
+          Value *TargetArg = F->getArg(ArgNum);
+          ValueTypeInfo *ArgInfo = PTA.getValueTypeInfo(TargetArg);
+          assert(ArgInfo &&
+                 "Expected pointer type analyzer to analyze pointer");
+          setAllAliasedTypeSafetyData(
+              ArgInfo, dtrans::MismatchedArgUse,
+              "Type passed to i8* argument of local function", &Call);
+          continue;
+        }
+
+        DTransType *DomTy = PTA.getDominantAggregateUsageType(*ParamInfo);
+        if (DomTy)
+          continue;
+
+        setAllAliasedTypeSafetyData(ParamInfo, dtrans::BadCasting,
+                                    "Incorrect type passed to local function",
+                                    &Call);
+
+        // End of processing of values passed to locally defined functions.
+        continue;
+      }
+
+      // Process indirect and external calls.
+      DTransType *DomTy = PTA.getDominantAggregateUsageType(*ParamInfo);
+      if (!DomTy) {
+        setAllAliasedTypeSafetyData(
+            ParamInfo, dtrans::BadCasting,
+            "Ambiguous type passed to indirect function", &Call);
+      }
+
+      if (IsIndirect) {
+        // TODO: Improve handling of parameters passed to indirect calls.
+        // "Address Taken" is only necessary when one of the following is met:
+        // - There is an address taken externally defined function that
+        //   matches the signature of the call.
+        // - There is another type that is structurally compatible with the
+        //   parameter type used for the call.
+        //   Example:
+        //      %struct.test01a = type { i32, i32 }
+        //      %struct.test01b = type { i32, i32 }
+        //    Passing a pointer to %struct.test01a
+        // For now, conservatively set AddressTaken for any indirect call.
+        setAllAliasedTypeSafetyData(ParamInfo, dtrans::AddressTaken,
+                                    "Type passed to indirect function call",
+                                    &Call);
+        continue;
+      }
+
+      // Process external calls.
+      // TODO: We need type information about the parameters to external
+      // calls.
+      // Also, special handling will be needed for i8* types that point to the
+      // address an array that starts a structure.
+      //   %struct.net = type { [200 x i8], i64, ... }
+      // A call that takes "getelementptr %struct.net, %struct.net, i64 0, i32
+      // 0, i32 0" needs special handling to only mark the type with "Field
+      // Address Taken" and not "Address taken"
+      setAllAliasedTypeSafetyData(ParamInfo, dtrans::UnhandledUse,
+                                  "Type passed to non-local function", &Call);
+    }
   }
 
   // For an allocation call, we want to check that the value produced does not
@@ -1971,7 +2188,10 @@ public:
     // returned, and start the checks for whether it is safe for the expected
     // type to be returned.
     ValueTypeInfo *Info = PTA.getValueTypeInfo(RetVal);
-    if (Info && isValueTypeInfoUnhandled(*Info)) {
+    if (!Info)
+      return;
+
+    if (isValueTypeInfoUnhandled(*Info)) {
       DTInfo.setUnhandledPtrType(RetVal);
       setAllAliasedAndPointeeTypeSafetyData(
           Info, dtrans::UnhandledUse,
@@ -1979,17 +2199,13 @@ public:
       return;
     }
 
+    // Nothing more necessary if there are no types associated with the return value.
+    if (Info->empty())
+      return;
+
     if (!ExpectedRetDTransTy) {
       setAllAliasedTypeSafetyData(Info, dtrans::UnhandledUse,
                                   "Return of unknown type", &I);
-      return;
-    }
-
-    if (!Info || Info->empty()) {
-      setAllAliasedAndPointeeTypeSafetyData(
-          Info, dtrans::UnhandledUse,
-          "PointerTypeAnalyzer failed to collect type for return instruction",
-          &I);
       return;
     }
 
@@ -2018,10 +2234,15 @@ public:
         }
       }
 
-      if (MismatchedType)
+      if (MismatchedType) {
         setAllAliasedAndPointeeTypeSafetyData(
-            Info, dtrans::BadCasting, "Return of field using mismatched type",
-            &I);
+          Info, dtrans::BadCasting, "Return of field using mismatched type",
+          &I);
+        // We also need to set the expected type with the safety flag because it
+        // did not match the field type.
+        setBaseTypeInfoSafetyData(ExpectedRetDTransTy, dtrans::BadCasting,
+          "Return value type did not match this type", &I);
+      }
     }
 
     if (Info->canAliasToAggregatePointer()) {
@@ -2037,11 +2258,11 @@ public:
       // applied because the caller will treating the returned pointer as just a
       // generic pointer, rather than the actual type.
       if (ExpectedRetDTransTy == getDTransI8PtrType() ||
-          ExpectedRetDTransTy == getDTransPtrSizedIntType())
+          ExpectedRetDTransTy == getDTransPtrSizedIntType()) {
         setAllAliasedTypeSafetyData(
             Info, dtrans::AddressTaken,
             "Return of aggregate pointer as a generic type", &I);
-
+      }
       // If a pointer to an aggregate type is being returned as a type that is
       // different than the expected type, we will treat it as BadCasting.
       // TODO: There is the special case where a pointer to an aggregate is
@@ -2049,10 +2270,14 @@ public:
       // FieldAddressTaken in the future, which may be less conservative,
       // because of differences in how the safety conditions cascade and
       // propagate.
-      else if (PtrDomTy != ExpectedRetDTransTy)
+      else if (PtrDomTy != ExpectedRetDTransTy) {
         setAllAliasedAndPointeeTypeSafetyData(
             Info, dtrans::BadCasting,
             "Return of aggregate type that does not match expected type", &I);
+        setBaseTypeInfoSafetyData(ExpectedRetDTransTy, dtrans::BadCasting,
+                                  "Return value type did not match this type",
+                                  &I);
+      }
     }
   }
 
