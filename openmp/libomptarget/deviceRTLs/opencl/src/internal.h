@@ -111,23 +111,23 @@ INLINE void __kmp_release_lock(int *lock) {
 INLINE void __kmp_init_local(kmp_local_state_t *local_state) {
   atomic_init(&local_state->work_barrier.count, 0);
   atomic_init(&local_state->work_barrier.go, 0);
-  local_state->spmd_num_threads = 0xffff;
+  local_state->spmd_num_threads = 0;
 }
 
 /// Access local data
 INLINE kmp_local_state_t *__kmp_get_local_state() {
-  return &LOCALS[__kmp_get_group_id()];
+  return &__omp_spirv_local_data[__kmp_get_group_id()];
 }
 
 /// Access thread data
 INLINE kmp_thread_state_t *__kmp_get_thread_state() {
-  return &THREADS[__kmp_get_group_id()];
+  return &__omp_spirv_thread_data[__kmp_get_group_id()];
 }
 
 /// Initialize all team data
 INLINE void __kmp_init_locals() {
   for (int i = 0; i < KMP_MAX_NUM_GROUPS; ++i)
-    __kmp_init_local(&LOCALS[i]);
+    __kmp_init_local(&__omp_spirv_local_data[i]);
 }
 
 /// Initialize work barrier

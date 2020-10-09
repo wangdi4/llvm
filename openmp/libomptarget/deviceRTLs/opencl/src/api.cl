@@ -62,20 +62,25 @@ EXTERN int omp_get_team_size(int level) {
 }
 
 EXTERN int omp_get_thread_num(void) {
-  if (GLOBAL.assume_simple_spmd_mode)
+  if (__omp_spirv_global_data.assume_simple_spmd_mode)
     return __kmp_get_local_id();
 
   return __kmp_get_omp_thread_id(__kmp_is_spmd_mode());
 }
 
 EXTERN int omp_get_num_threads(void) {
-  if (GLOBAL.assume_simple_spmd_mode) {
+  if (__omp_spirv_global_data.assume_simple_spmd_mode) {
     // We are using team data for the cases that are not supposed to use team
     // data. Target regions that use too many teams and push different
     // num_threads each may produce incorrect results.
     int spmd_num_threads =
-        LOCALS[__kmp_get_group_id() % KMP_MAX_NUM_GROUPS].spmd_num_threads;
-    return OP_MIN(__kmp_get_local_size(), spmd_num_threads, 0);
+        __omp_spirv_local_data[__kmp_get_group_id() % KMP_MAX_NUM_GROUPS]
+        .spmd_num_threads;
+    if (spmd_num_threads > 0)
+      // was set by __kmpc_spmd_push_num_threads
+      return OP_MIN(__kmp_get_local_size(), spmd_num_threads, 0);
+    else
+      return __kmp_get_local_size();
   }
 
   return __kmp_get_num_omp_threads(__kmp_is_spmd_mode());
@@ -86,7 +91,7 @@ EXTERN void omp_set_num_threads(int num_threads) {
 }
 
 EXTERN int omp_get_max_threads(void) {
-  if (GLOBAL.assume_simple_spmd_mode) {
+  if (__omp_spirv_global_data.assume_simple_spmd_mode) {
     // Distinguish sequential/parallel region
     return omp_get_num_threads() > 1 ? 1 : omp_get_thread_limit();
   }
@@ -100,7 +105,7 @@ EXTERN int omp_get_max_threads(void) {
 }
 
 EXTERN int omp_in_parallel(void) {
-  if (GLOBAL.assume_simple_spmd_mode)
+  if (__omp_spirv_global_data.assume_simple_spmd_mode)
     return 1;
 
   int level = __kmp_get_local_state()->parallel_level[__kmp_get_local_id()];
@@ -112,8 +117,8 @@ EXTERN int omp_get_thread_limit(void) {
 }
 
 EXTERN int omp_get_device_num(void) {
-  if (GLOBAL.program_data.initialized) {
-    return GLOBAL.program_data.device_num;
+  if (__omp_spirv_program_data.initialized) {
+    return __omp_spirv_program_data.device_num;
   } else {
     KMP_UNSUPPORTED("omp_get_device_num()");
     return KMP_UNSPECIFIED;
@@ -121,8 +126,8 @@ EXTERN int omp_get_device_num(void) {
 }
 
 EXTERN int omp_get_num_devices(void) {
-  if (GLOBAL.program_data.initialized) {
-    return GLOBAL.program_data.num_devices;
+  if (__omp_spirv_program_data.initialized) {
+    return __omp_spirv_program_data.num_devices;
   } else {
     KMP_UNSUPPORTED("omp_get_num_devices()");
     return KMP_UNSPECIFIED;
@@ -130,7 +135,7 @@ EXTERN int omp_get_num_devices(void) {
 }
 
 EXTERN int omp_get_num_procs(void) {
-  if (GLOBAL.assume_simple_spmd_mode || __kmp_is_spmd_mode())
+  if (__omp_spirv_global_data.assume_simple_spmd_mode || __kmp_is_spmd_mode())
     return __kmp_get_local_size();
   return __kmp_get_num_workers();
 }
@@ -180,7 +185,7 @@ EXTERN int omp_pause_resource_all(omp_pause_resource_t kind) {
 EXTERN void kmp_global_barrier_init(void) {
 // TODO: decide default implementation based on performance
 #ifdef KMP_GLOBAL_BARRIER_DISSEM
-  __kmp_barrier_dissem_init(&GLOBAL.g_barrier);
+  __kmp_barrier_dissem_init(&__omp_spirv_global_data.g_barrier);
 #else
   // nothing to be done
 #endif
@@ -190,9 +195,9 @@ EXTERN void kmp_global_barrier_init(void) {
 EXTERN void kmp_global_barrier(void) {
 // TODO: decide default implementation based on performance
 #ifdef KMP_GLOBAL_BARRIER_DISSEM
-  __kmp_barrier_dissem(&GLOBAL.g_barrier);
+  __kmp_barrier_dissem(&__omp_spirv_global_data.g_barrier);
 #else
-  __kmp_barrier_counting(&GLOBAL.g_barrier);
+  __kmp_barrier_counting(&__omp_spirv_global_data.g_barrier);
 #endif
 }
 

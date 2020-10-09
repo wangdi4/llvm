@@ -191,13 +191,14 @@ EXTERN void __kmpc_push_num_threads(ident_t *loc, int tid, int num_threads) {
 
 /// Push num threads in SPMD kernel
 EXTERN void __kmpc_spmd_push_num_threads(int num_threads) {
-  LOCALS[__kmp_get_group_id() % KMP_MAX_NUM_GROUPS].spmd_num_threads =
-      num_threads;
+  __omp_spirv_local_data[__kmp_get_group_id() % KMP_MAX_NUM_GROUPS]
+      .spmd_num_threads = num_threads;
 }
 
 /// Pop num threads in SPMD kernel
 EXTERN void __kmpc_spmd_pop_num_threads(void) {
-  LOCALS[__kmp_get_group_id() % KMP_MAX_NUM_GROUPS].spmd_num_threads = 0xffff;
+  __omp_spirv_local_data[__kmp_get_group_id() % KMP_MAX_NUM_GROUPS]
+      .spmd_num_threads = 0;
 }
 
 /// Push simd limit -- not sure if we need this

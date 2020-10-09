@@ -653,6 +653,9 @@ public:
   /// then the lookup falls back to non-OpenMP specific lookup on the device.
   void *getOffloadVarDeviceAddr(
       int32_t DeviceId, const char *Name, size_t Size);
+
+  /// Initialize program data on device
+  int32_t initProgramData(int32_t DeviceId);
 };
 
 #ifdef _WIN32
@@ -896,43 +899,31 @@ static std::string getDeviceRTLPath(const char *basename) {
   return rtl_path;
 }
 
-/// Invoke kernel to initialize program data.
+/// Initialize program data.
 /// TODO: consider moving allocation of static buffers in device RTL to here
 ///       as it requires device information.
-static int32_t initProgram(int32_t deviceId) {
-  int32_t rc;
+int32_t RTLDeviceInfoTy::initProgramData(int32_t deviceId) {
   ProgramData hostData = {
-    1,                              // Initialized
-    (int32_t)DeviceInfo->numDevices, // Number of devices
-    deviceId                        // Device ID
+    1,                   // Initialized
+    (int32_t)numDevices, // Number of devices
+    deviceId             // Device ID
   };
-  auto context = DeviceInfo->CTX[deviceId];
-  auto queue = DeviceInfo->Queues[deviceId];
-  auto program = DeviceInfo->FuncGblEntries[deviceId].Program;
-  cl_mem devData;
-  CALL_CL_RVRC(devData, clCreateBuffer, rc, context, CL_MEM_READ_ONLY,
-               sizeof(hostData), nullptr);
-  if (rc != CL_SUCCESS) {
-    IDP("Failed to initialize program\n");
-    return OFFLOAD_FAIL;
+
+  if (!clGetDeviceGlobalVariablePointerINTELFn) {
+    IDP("Warning: cannot initialize program data on device.\n");
+    return OFFLOAD_SUCCESS;
   }
-  CALL_CL_RET_FAIL(clEnqueueWriteBuffer, queue, devData, true, 0,
-                   sizeof(hostData), &hostData, 0, nullptr, nullptr);
-  cl_kernel initPgm;
-  CALL_CL_RVRC(initPgm, clCreateKernel, rc, program, "__kmpc_init_program");
-  if (rc != CL_SUCCESS) {
-    IDP("Failed to initialize program\n");
-    return OFFLOAD_FAIL;
+
+  void *dataPtr = getVarDeviceAddr(deviceId, "__omp_spirv_program_data",
+                                   sizeof(hostData));
+  if (!dataPtr) {
+    IDP("Warning: cannot find program data location on device.\n");
+    return OFFLOAD_SUCCESS;
   }
-  size_t globalWork = 1;
-  size_t localWork = 1;
-  cl_event event;
-  CALL_CL_RET_FAIL(clSetKernelArg, initPgm, 0, sizeof(devData), &devData);
-  CALL_CL_RET_FAIL(clEnqueueNDRangeKernel, queue, initPgm, 1, nullptr,
-                   &globalWork, &localWork, 0, nullptr, &event);
-  CALL_CL_RET_FAIL(clWaitForEvents, 1, &event);
-  CALL_CL_RET_FAIL(clReleaseMemObject, devData);
-  CALL_CL_RET_FAIL(clReleaseKernel, initPgm);
+
+  CALL_CL_RET_FAIL(clEnqueueSVMMemcpy, Queues[deviceId], CL_TRUE, dataPtr,
+                   &hostData, sizeof(hostData), 0, nullptr, nullptr);
+
   return OFFLOAD_SUCCESS;
 }
 
@@ -1777,7 +1768,7 @@ __tgt_target_table *__tgt_rtl_load_binary(int32_t device_id,
   for (uint32_t i = 0; i < programs.size(); i++) {
     CALL_CL_EXIT_FAIL(clReleaseProgram, programs[i]);
   }
-  if (initProgram(device_id) != OFFLOAD_SUCCESS)
+  if (DeviceInfo->initProgramData(device_id) != OFFLOAD_SUCCESS)
     return nullptr;
   __tgt_target_table &table = DeviceInfo->FuncGblEntries[device_id].Table;
   table.EntriesBegin = &(entries[0]);
