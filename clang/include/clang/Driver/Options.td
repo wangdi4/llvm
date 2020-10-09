@@ -1945,6 +1945,11 @@ def fopenmp_version_EQ : Joined<["-"], "fopenmp-version=">, Group<f_Group>,
 def fopenmp_EQ : Joined<["-"], "fopenmp=">, Group<f_Group>, Flags<[DpcppUnsupported, ProEnabled]>;
 def qopenmp_threadprivate_EQ: Joined<["-"], "qopenmp-threadprivate=">, Flags<[DpcppUnsupported, ProEnabled]>,
   HelpText<"Choose which threadprivate implementation to use: compat or legacy.">;
+def fintel_pragma_prefetch : Flag<["-"],
+  "fintel-pragma-prefetch">, Group<f_Group>,
+  Flags<[CC1Option, NoArgumentUnused]>;
+def fno_intel_pragma_prefetch : Flag<["-"],
+  "fno-intel-pragma-prefetch">;
 #endif // INTEL_CUSTOMIZATION
 def fopenmp_use_tls : Flag<["-"], "fopenmp-use-tls">, Group<f_Group>,
   Flags<[NoArgumentUnused, HelpHidden]>;

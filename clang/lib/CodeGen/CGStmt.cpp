@@ -869,6 +869,63 @@ CodeGenFunction::IntelBlockLoopExprHandler::~IntelBlockLoopExprHandler() {
   }
 }
 
+/// Handle #pragma prefetch
+CodeGenFunction::IntelPrefetchExprHandler::IntelPrefetchExprHandler(
+    CodeGenFunction &CGF, ArrayRef<const Attr *> Attrs)
+    : CGF(CGF) {
+  for (const auto AI : Attrs) {
+    // Ignore other loop attributes
+    if (const IntelPrefetchAttr *IPA = dyn_cast<IntelPrefetchAttr>(AI)) {
+      SmallVector<llvm::OperandBundleDef, 8> OpBundles;
+      OpBundles.push_back(llvm::OperandBundleDef("DIR.PRAGMA.PREFETCH_LOOP",
+                                                 ArrayRef<llvm::Value *>{}));
+
+      bool IsNoPrefetchLoop = (IPA->getSemanticSpelling() ==
+                               IntelPrefetchAttr::Pragma_noprefetch);
+      llvm::IntegerType *Int32Ty = CGF.CGM.Int32Ty;
+      OpBundles.push_back(llvm::OperandBundleDef(
+          "QUAL.PRAGMA.ATTRIB",
+           llvm::ConstantInt::get(Int32Ty, IsNoPrefetchLoop ? 0 : 1)));
+      bool HintSeen = false;
+      for (const auto *PrefetchExpr : IPA->prefetchExprs()) {
+        SmallVector<llvm::Value *, 4> BundleValues;
+        if (const IntegerLiteral *IL = dyn_cast<IntegerLiteral>(PrefetchExpr)) {
+          llvm::IntegerType *Int32Ty = CGF.CGM.Int32Ty;
+          const llvm::APInt &V = IL->getValue();
+          if (HintSeen) {
+            OpBundles.push_back(llvm::OperandBundleDef(
+                "QUAL.PRAGMA.DISTANCE", llvm::ConstantInt::get(Int32Ty, V)));
+          } else {
+            OpBundles.push_back(llvm::OperandBundleDef(
+                "QUAL.PRAGMA.HINT", llvm::ConstantInt::get(Int32Ty, V)));
+            HintSeen = true;
+          }
+        } else {
+          BundleValues.push_back(CGF.EmitLValue(PrefetchExpr).getPointer(CGF));
+          OpBundles.push_back(llvm::OperandBundleDef("QUAL.PRAGMA.VAR",
+                              BundleValues));
+          HintSeen = false;
+        }
+      }
+      CallEntries.push_back(CGF.Builder.CreateCall(
+          CGF.CGM.getIntrinsic(llvm::Intrinsic::directive_region_entry), {},
+          OpBundles));
+    }
+  }
+}
+
+CodeGenFunction::IntelPrefetchExprHandler::~IntelPrefetchExprHandler() {
+
+  for(auto *Call : CallEntries) {
+    SmallVector<llvm::OperandBundleDef, 1> OpBundles{
+      llvm::OperandBundleDef("DIR.PRAGMA.END.PREFETCH_LOOP",
+                           ArrayRef<llvm::Value *>{})};
+
+    CGF.Builder.CreateCall(
+        CGF.CGM.getIntrinsic(llvm::Intrinsic::directive_region_exit),
+        SmallVector<llvm::Value *, 1>{Call}, OpBundles);
+  }
+}
 #endif // INTEL_CUSTOMIZATION
 
 void CodeGenFunction::EmitAttributedStmt(const AttributedStmt &S) {
@@ -882,6 +939,7 @@ void CodeGenFunction::EmitAttributedStmt(const AttributedStmt &S) {
 #if INTEL_CUSTOMIZATION
   IntelPragmaInlineState PS(*this, S.getAttrs());
   DistributePointHandler DPH(*this, S.getSubStmt(), S.getAttrs());
+  IntelPrefetchExprHandler IPH(*this, S.getAttrs());
   IntelBlockLoopExprHandler IBLH(*this, S.getAttrs());
   IntelFPGALoopFuseHandler ILFH(*this, S.getAttrs());
 #endif // INTEL_CUSTOMIZATION

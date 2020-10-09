@@ -413,6 +413,10 @@ Retry:
   case tok::annot_pragma_loop_fuse:
     ProhibitAttributes(Attrs);
     return HandlePragmaLoopFuse();
+
+  case tok::annot_pragma_prefetch:
+    ProhibitAttributes(Attrs);
+    return ParsePragmaPrefetch(Stmts, StmtCtx, TrailingElseLoc, Attrs);
 #endif // INTEL_CUSTOMIZATION
 
   case tok::annot_pragma_openmp:

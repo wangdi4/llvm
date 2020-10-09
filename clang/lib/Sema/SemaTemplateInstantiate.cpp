@@ -1091,6 +1091,8 @@ namespace {
 #if INTEL_CUSTOMIZATION
     const IntelBlockLoopAttr *
     TransformIntelBlockLoopAttr(const IntelBlockLoopAttr *BL);
+    const IntelPrefetchAttr *
+    TransformIntelPrefetchAttr(const IntelPrefetchAttr *IPA);
 #endif // INTEL_CUSTOMIZATION
 
     ExprResult TransformPredefinedExpr(PredefinedExpr *E);
@@ -1626,6 +1628,29 @@ const IntelBlockLoopAttr *TemplateInstantiator::TransformIntelBlockLoopAttr(
 
   getSema().CheckIntelBlockLoopAttribute(NewBL);
   return NewBL;
+}
+
+const IntelPrefetchAttr *
+TemplateInstantiator::TransformIntelPrefetchAttr(const IntelPrefetchAttr *IPA) {
+  SmallVector<Expr *, 2> TransformedPrefetchExprs;
+  bool NeedNewAttr = false;
+  for (Expr *PE : IPA->prefetchExprs()) {
+    Expr *TExpr = getDerived().TransformExpr(PE).get();
+    if (PE != TExpr)
+      NeedNewAttr = true;
+    TransformedPrefetchExprs.push_back(TExpr);
+  }
+  const IntelPrefetchAttr *NewPA = nullptr;
+  if (NeedNewAttr) {
+    // Create new IntelPrefetchAttr with expressions in place of the
+    // non-type template parameter.
+    NewPA = IntelPrefetchAttr::CreateImplicit(
+        getSema().Context, TransformedPrefetchExprs.data(),
+        TransformedPrefetchExprs.size(), IPA->getRange());
+  } else {
+    NewPA = IPA;
+  }
+  return NewPA;
 }
 #endif // INTEL_CUSTOMIZATION
 
