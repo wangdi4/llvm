@@ -36525,7 +36525,7 @@ static bool matchBinaryShuffle(MVT MaskVT, ArrayRef<int> Mask,
     }
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_FP16
-    if (isTargetShuffleEquivalent(Mask, {8, 1, 2, 3, 4, 5, 6, 7}) &&
+    if (isTargetShuffleEquivalent(MaskVT, Mask, {8, 1, 2, 3, 4, 5, 6, 7}) &&
         Subtarget.hasFP16()) {
       Shuffle = X86ISD::MOVSH;
       SrcVT = DstVT = MVT::v8f16;
