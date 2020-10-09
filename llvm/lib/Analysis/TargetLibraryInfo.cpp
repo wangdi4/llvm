@@ -943,10 +943,7 @@ static void initialize(TargetLibraryInfoImpl &TLI, const Triple &T,
     TLI.setUnavailable(LibFunc_msvc_std_numpunct_do_thousands_sep);
     TLI.setUnavailable(LibFunc_msvc_std_numpunct_do_truename);
     TLI.setUnavailable(LibFunc_msvc_std_numpunct_scalar_deleting_dtor);
-    // CMPLRLLVM-22470: This libfunc is disabled on purpose to prevent
-    // achieving whole program for 523.xalancbmk in Windows. This libfunc will
-    // be enabled when the issue in CMPLRLLVM-22470 is solved.
-    // TLI.setUnavailable(LibFunc_msvc_std_numpunct_use_facet);
+    TLI.setUnavailable(LibFunc_msvc_std_numpunct_use_facet);
     TLI.setUnavailable(LibFunc_msvc_std_num_put_use_facet);
     TLI.setUnavailable(LibFunc_msvc_std_runtime_error_ctor);
     TLI.setUnavailable(LibFunc_msvc_std_runtime_error_char_ctor);
@@ -2312,12 +2309,9 @@ case LibFunc_msvc_std_num_put_do_put_ulong:
             FTy.getParamType(0)->isPointerTy() &&
             FTy.getParamType(1)->isIntegerTy());
 
-  // CMPLRLLVM-23243: This libfunc is disabled on purpose to prevent achieving
-  // whole program for 523.xalancbmk in Windows. This libfunc will be enabled
-  // when the issue in CMPLRLLVM-23243 is solved.
-  // case LibFunc_msvc_std_numpunct_use_facet:
-  //  return (NumParams == 1 && FTy.getReturnType()->isPointerTy() &&
-  //          FTy.getParamType(0)->isPointerTy());
+  case LibFunc_msvc_std_numpunct_use_facet:
+    return (NumParams == 1 && FTy.getReturnType()->isPointerTy() &&
+            FTy.getParamType(0)->isPointerTy());
 
   case LibFunc_msvc_std_num_put_use_facet:
     return (NumParams == 1 && FTy.getReturnType()->isPointerTy() &&

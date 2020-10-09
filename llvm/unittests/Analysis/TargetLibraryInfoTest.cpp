@@ -480,10 +480,7 @@ TEST_F(TargetLibraryInfoTest, ValidProto) {
       "declare %struct* @\"??Y?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@std@@QEAAAEAV01@D@Z\"(%struct*, i8)\n"
       "declare %struct* @\"??$use_facet@V?$codecvt@DDU_Mbstatet@@@std@@@std@@YAAEBV?$codecvt@DDU_Mbstatet@@@0@AEBVlocale@0@@Z\"(%struct*)\n"
       "declare %struct* @\"??$use_facet@V?$ctype@D@std@@@std@@YAAEBV?$ctype@D@0@AEBVlocale@0@@Z\"(%struct*)\n"
-      // CMPLRLLVM-23243: This libfunc is disabled on purpose to prevent
-      // achieving whole program for 523.xalancbmk in Windows. This libfunc
-      // will be enabled when the issue in CMPLRLLVM-23243 is solved.
-      // "declare %struct* @\"??$use_facet@V?$numpunct@D@std@@@std@@YAAEBV?$numpunct@D@0@AEBVlocale@0@@Z\"(%struct*)\n"
+      "declare %struct* @\"??$use_facet@V?$numpunct@D@std@@@std@@YAAEBV?$numpunct@D@0@AEBVlocale@0@@Z\"(%struct*)\n"
       "declare %struct* @\"??$use_facet@V?$num_get@DV?$istreambuf_iterator@DU?$char_traits@D@std@@@std@@@std@@@std@@YAAEBV?$num_get@DV?$istreambuf_iterator@DU?$char_traits@D@std@@@std@@@0@AEBVlocale@0@@Z\"(%struct*)\n"
       "declare %struct* @\"??$use_facet@V?$num_put@DV?$ostreambuf_iterator@DU?$char_traits@D@std@@@std@@@std@@@std@@YAAEBV?$num_put@DV?$ostreambuf_iterator@DU?$char_traits@D@std@@@std@@@0@AEBVlocale@0@@Z\"(%struct*)\n"
       "declare i32 @\"??$_Immortalize_impl@V_Iostream_error_category@std@@@std@@YAHPEAX0PEAPEAX@Z\"(i8*, i8*, i8*)\n"

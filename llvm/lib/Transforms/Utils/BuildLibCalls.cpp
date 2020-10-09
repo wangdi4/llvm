@@ -1089,10 +1089,7 @@ bool llvm::inferLibFuncAttributes(Function &F, const TargetLibraryInfo &TLI) {
     return Changed;
   case LibFunc_msvc_std_numpunct_do_falsename:
   case LibFunc_msvc_std_numpunct_do_grouping:
-  // CMPLRLLVM-23243: This libfunc is disabled on purpose to prevent
-  // achieving whole program for 523.xalancbmk in Windows. This libfunc will
-  // be enabled when the issue in CMPLRLLVM-23243 is solved.
-  // case LibFunc_msvc_std_numpunct_use_facet:
+  case LibFunc_msvc_std_numpunct_use_facet:
   case LibFunc_msvc_std_numpunct_do_truename:
   case LibFunc_msvc_std_num_put_do_put_bool:
   case LibFunc_msvc_std_num_put_do_put_double:
