@@ -988,13 +988,8 @@ void PassManagerBuilder::populateModulePassManager(
   addInstructionCombiningPass(MPM);
 #endif // INTEL_CUSTOMIZATION
   addExtensionsToPM(EP_Peephole, MPM);
-<<<<<<< HEAD
-  if (EarlyJumpThreading)                         // INTEL
-    MPM.add(createJumpThreadingPass(/*FreezeSelectCond*/ false));
-=======
-  if (EarlyJumpThreading && !SYCLOptimizationMode) // INTEL
-    MPM.add(createJumpThreadingPass(-1, false));   // INTEL
->>>>>>> 0b375ca4939d9d2cfcb927195cd8adcca332eaa3
+  if (EarlyJumpThreading && !SYCLOptimizationMode)                // INTEL
+    MPM.add(createJumpThreadingPass(/*FreezeSelectCond*/ false)); // INTEL
   MPM.add(createCFGSimplificationPass()); // Clean up after IPCP & DAE
 
   // For SamplePGO in ThinLTO compile phase, we do not want to do indirect
