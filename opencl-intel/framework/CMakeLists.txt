@@ -128,11 +128,13 @@ file (READ ${OCL_SOURCE_DIR}/cmake/cl_config.in cl_config)
 file (WRITE ${OCL_BINARY_DIR}/lib/${OUTPUT_EMU_SUFF}/cl.cfg ${cl_config})
 file (APPEND ${OCL_BINARY_DIR}/lib/${OUTPUT_EMU_SUFF}/cl.cfg "CL_CONFIG_DEVICES = fpga-emu")
 
-install (CODE
-    "
-    file(COPY ${OCL_BINARY_DIR}/lib/${OUTPUT_EMU_SUFF}/cl.cfg
-         DESTINATION ${CMAKE_INSTALL_PREFIX}/lib/${OUTPUT_EMU_SUFF})
-    " COMPONENT ocl-config)
+if (NOT (WIN32 AND "${OUTPUT_ARCH_SUFF}" STREQUAL "x86"))
+    install (CODE
+        "
+        file(COPY ${OCL_BINARY_DIR}/lib/${OUTPUT_EMU_SUFF}/cl.cfg
+             DESTINATION ${CMAKE_INSTALL_PREFIX}/lib/${OUTPUT_EMU_SUFF})
+        " COMPONENT ocl-config)
+endif()
 
 install (CODE
     "

@@ -239,37 +239,38 @@ function (install_to)
     endif()
 
     set (output ${ARG_DESTINATION})
+    if (NOT ("${OUTPUT_ARCH_SUFF}" STREQUAL "x86" AND "${output}" STREQUAL "lib/${OUTPUT_EMU_SUFF}"))
+        foreach (name ${install_namelist})
+            if (TARGET ${name})
+                if (ARG_COMPONENT)
+                    set(component "${ARG_COMPONENT}")
+                else()
+                    set(component "ocl-${name}")
+                endif(ARG_COMPONENT)
 
-    foreach (name ${install_namelist})
-        if (TARGET ${name})
-            if (ARG_COMPONENT)
-                set(component "${ARG_COMPONENT}")
-            else()
-                set(component "ocl-${name}")
-            endif(ARG_COMPONENT)
-
-            install (TARGETS ${name}
-                     RUNTIME DESTINATION ${output} COMPONENT ${component}
-                     LIBRARY DESTINATION ${output} COMPONENT ${component}
-                     ARCHIVE DESTINATION ${output} COMPONENT ${component})
-        else ()
-            # name is a directory or a file
-
-            if (ARG_COMPONENT)
-                set(component "${ARG_COMPONENT}")
+                install (TARGETS ${name}
+                         RUNTIME DESTINATION ${output} COMPONENT ${component}
+                         LIBRARY DESTINATION ${output} COMPONENT ${component}
+                         ARCHIVE DESTINATION ${output} COMPONENT ${component})
             else ()
-                set(component "ocl-Unspecified")
-            endif ()
+                # name is a directory or a file
 
-            if (IS_DIRECTORY ${name})
-                install (DIRECTORY ${name}
-                         DESTINATION ${output}
-                         COMPONENT ${component})
-            else ()
-                install (FILES ${name}
-                         DESTINATION ${output}
-                         COMPONENT ${component})
-            endif ()
-        endif()
-    endforeach (name)
+                if (ARG_COMPONENT)
+                    set(component "${ARG_COMPONENT}")
+                else ()
+                    set(component "ocl-Unspecified")
+                endif ()
+
+                if (IS_DIRECTORY ${name})
+                    install (DIRECTORY ${name}
+                             DESTINATION ${output}
+                             COMPONENT ${component})
+                else ()
+                    install (FILES ${name}
+                             DESTINATION ${output}
+                             COMPONENT ${component})
+                endif ()
+            endif()
+        endforeach (name)
+    endif()
 endfunction (install_to)
