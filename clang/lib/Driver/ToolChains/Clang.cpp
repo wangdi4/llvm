@@ -4479,6 +4479,9 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
               Twine("-fms-compatibility-version=") + LowestMSVCSupported));
         }
       }
+      // TODO: We are adding -disable-lifetime-markers as a short term
+      // solution (CMPLRLLVM-23037/CMPLRLLVM-23038)
+      CmdArgs.push_back("-disable-lifetime-markers");
     }
 #endif // INTEL_CUSTOMIZATION
   }
