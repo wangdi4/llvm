@@ -287,7 +287,7 @@ bool TraceByteParser::parseAttribute(traceback::Attribute Att,
     default:
       AttSize = getAttributeSize(Att);
       break;
-    case traceback::TB_AT_TextBegin:
+    case traceback::TB_AT_CodeBegin:
     case traceback::TB_AT_RoutineBegin:
       AttSize = PointerSize;
       break;
@@ -350,18 +350,18 @@ void TraceByteParser::parseModule() {
   // Minor version.
   if (!parseAttribute(traceback::TB_AT_MinorV))
     return;
-  // Size of .trace section.
-  if (!parseAttribute(traceback::TB_AT_TraceSize))
+  // Module size.
+  if (!parseAttribute(traceback::TB_AT_ModuleSize))
     return;
-  // Begin of .trace section.
-  if (!parseAttribute(traceback::TB_AT_TextBegin))
+  // Lowest PC covered by this module.
+  if (!parseAttribute(traceback::TB_AT_CodeBegin))
     return;
   // Number of files
   if (!parseAttribute(traceback::TB_AT_NumOfFiles))
     return;
   unsigned NumOfFiles = takeBytesAsInt32(getBytes());
-  // Size of .text section.
-  if (!parseAttribute(traceback::TB_AT_TextSize))
+  // Code size.
+  if (!parseAttribute(traceback::TB_AT_CodeSize))
     return;
   // Module name.
   if (!parseNamePossibleWithEntry(traceback::TB_AT_ModuleName))

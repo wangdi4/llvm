@@ -2,11 +2,11 @@
 ; RUN: llc -O0 -mtriple x86_64-linux-gnu %s --filetype=obj -o %t1.o
 ; RUN: llvm-objdump --full-contents --section=.trace  %t1.o | FileCheck --check-prefixes=CONTENT %s
 ; CONTENT-LABEL: Contents of section .trace:
-; CONTENT-NEXT: 0000 0a020000 43000000 00000000 00000000  ....C...........
+; CONTENT-NEXT: 0000 0a020000 41000000 00000000 00000000  ....A...........
 ; CONTENT-NEXT: 0010 01000000 0b000000 00001100 74726163  ............trac
 ; CONTENT-NEXT: 0020 65626163 6b2d6261 7369632e 63000000  eback-basic.c...
 ; CONTENT-NEXT: 0030 0c000400 00000000 00000000 6d61696e  ............main
-; CONTENT-NEXT: 0040 89c000                               ...
+; CONTENT-NEXT: 0040 80                                   .
 
 ; To regenerate the test file traceback-basic.ll
 ; clang -traceback -S -emit-llvm traceback-basic.c

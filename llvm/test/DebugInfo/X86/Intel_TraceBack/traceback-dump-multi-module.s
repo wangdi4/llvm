@@ -12,8 +12,8 @@
     .byte    10                              # TB_TAG_Module
     .short    2                              # TB_AT_MajorV
     .byte     0                              # TB_AT_MinorV
-    .long     0                              # TB_AT_TraceSize
-    .quad     0                              # TB_AT_TextBegin
+    .long     0                              # TB_AT_ModuleSize
+    .quad     0                              # TB_AT_CodeBegin
     .long     1                              # TB_AT_NumOfFiles
     .long     0                              # TB_AT_TextSize
     .short    0                              # TB_AT_NameLength
@@ -25,8 +25,8 @@
     .byte    10                              # TB_TAG_Module
     .short    2                              # TB_AT_MajorV
     .byte     0                              # TB_AT_MinorV
-    .long     0                              # TB_AT_TraceSize
-    .quad     0                              # TB_AT_TextBegin
+    .long     0                              # TB_AT_ModuleSize
+    .quad     0                              # TB_AT_CodeBegin
     .long     1                              # TB_AT_NumOfFiles
     .long     0                              # TB_AT_TextSize
     .short    0                              # TB_AT_NameLength
