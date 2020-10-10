@@ -57,12 +57,10 @@ private:
 private:
   /// The file in which the previous subprogram is contained.
   const DIFile *PrevFile = nullptr;
-  /// The begin symbol of preivous machine function.
-  const MCSymbol *PrevFnSym = nullptr;
   /// Map a file to a unsigned integer.
   DenseMap<const DIFile *, unsigned> FileToIndex;
-  /// The modules used to store all debug info in .trace section
-  iplist<TraceModule> DebugModules;
+  /// The module used to store all debug info in .trace section
+  std::unique_ptr<TraceModule> DebugModule;
 };
 
 } // end namespace llvm

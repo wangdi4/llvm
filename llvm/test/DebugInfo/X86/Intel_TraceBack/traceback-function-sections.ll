@@ -3,12 +3,11 @@
 ; Check the program does not crash when emitting obj file.
 ; RUN: llc --filetype=obj -function-sections -O0 -mtriple x86_64-linux-gnu %s -o %t1
 
-; Check a separate module is generated for each subsection.
+; Check the code length(the size of .text  + the size of .text's subsections).
 ; RUN: llc -function-sections -O0 -mtriple x86_64-linux-gnu %s -o %t2
 ; RUN: FileCheck < %t2 %s
 
-; CHECK-COUNT-1:  .section    .trace,"a",@progbits
-; CHECK-COUNT-3:  .byte    10                      # TB_TAG_Module
+; CHECK:    .long    ((.Lfunc_end0-.Lfunc_begin0)+(.Lfunc_end1-.Lfunc_begin1))+(.Lfunc_end2-.Lfunc_begin2) # TB_AT_TextSize
 
 ; To regenerate the test file traceback-function-sections.ll
 ; clang -traceback -S -emit-llvm traceback-function-sections.c
