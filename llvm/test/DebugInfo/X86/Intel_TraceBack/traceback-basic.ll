@@ -36,9 +36,9 @@
 ; Check the records about ranges have correct format.
 ; RUN: FileCheck < %t1 %s --check-prefixes=RANGE
 ; RUN: FileCheck < %t3 %s --check-prefixes=RANGE
-; RANGE: .long .{{.*}}-.{{.*}}       # TB_AT_ModuleSize
-; RANGE: .long .{{.*}}-{{.*}}        # TB_AT_CodeSize
-; RANGE: .long (.{{.*}}-{{.*}})-1    # TB_AT_PC4
+; RANGE: .long .{{.*}}-.{{.*}}       # TB_AT_TraceSize
+; RANGE: .long .{{.*}}-.{{.*}}       # TB_AT_TextSize
+; RANGE: .long (.{{.*}}-.{{.*}})-1   # TB_AT_PC4
 
 ; Check the version of .trace format.
 ; RUN: FileCheck < %t1 %s --check-prefixes=VERSION

@@ -215,8 +215,8 @@ void TraceModule::emit(MCStreamer &OS) const {
   assert(TraceSection && "Unexpected control flow!");
   if (!TraceSection->getBeginSymbol())
     TraceSection->setBeginSymbol(Context.createTempSymbol("sec_begin", true));
-  MCSymbol *ModuleBegin = Context.createTempSymbol("module_begin", true);
-  MCSymbol *ModuleEnd = Context.createTempSymbol("module_end", true);
+  MCSymbol *TraceBegin = TraceSection->getBeginSymbol();
+  MCSymbol *TraceEnd = TraceSection->getEndSymbol(Context);
 
   // Set alignment for .trace section, 8-byte align for x86_64 and 4-byte align
   // for ia32
@@ -224,23 +224,25 @@ void TraceModule::emit(MCStreamer &OS) const {
 
   // Switch to .trace for writing
   OS.SwitchSection(TraceSection);
-  OS.emitLabel(ModuleBegin);
   emitTag(OS, getTag());
   // Format version
   emitIntAttribute(OS, traceback::TB_AT_MajorV, getMajorID());
   emitIntAttribute(OS, traceback::TB_AT_MinorV, getMinorID());
-  // Module size
-  emitRangeAttribute(OS, traceback::TB_AT_ModuleSize, ModuleBegin, ModuleEnd);
-  // Code begin
-  MCSymbol *CodeBegin = Children.front().front().getBegin();
-  emitReferenceAttribute(OS, traceback::TB_AT_CodeBegin, CodeBegin,
-                         PointerSize);
+  // .trace section size
+  emitRangeAttribute(OS, traceback::TB_AT_TraceSize, TraceBegin, TraceEnd);
+  // Base PC of .text section
+  // Don't use getBeginSymbol() for .text section here, the begin symbol is
+  // the section's name to ELF while it is empty by default to COFF/MachO. The
+  // begin symbol is emitted in MCStreamer::SwitchSection when a section
+  // begins and here we already lost the chance to set and emit it.
+  emitReferenceAttribute(OS, traceback::TB_AT_TextBegin,
+                         Children.front().front().getBegin(), PointerSize);
   // File count
   emitIntAttribute(OS, traceback::TB_AT_NumOfFiles, IndexToFile.size());
-  // Code size
-  emitRangeAttribute(OS, traceback::TB_AT_CodeSize, CodeBegin,
-                     Children.back().back().getEnd());
+  // .text section size
+  emitTextSizeAttribute(OS);
   // Module name
+  // Module name is always empty in ICC's implementation.
   emitIntAttribute(OS, traceback::TB_AT_NameLength, getName().size());
   if (getName().size())
     emitNameAttribute(OS, traceback::TB_AT_ModuleName, getName());
@@ -255,14 +257,71 @@ void TraceModule::emit(MCStreamer &OS) const {
 
   emitChildren(OS);
 
-  // Emit a label at the end of this module.
-  assert(ModuleEnd && "End label should not be null");
-  OS.emitLabel(ModuleEnd);
+  // Emit a label at the end of .trace function, which is used to determine the
+  // size of the section
+  assert(TraceEnd && "End label should not be null");
+  OS.emitLabel(TraceEnd);
 }
 
 void TraceModule::removeEmptyFile() {
   if (!Children.empty() && Children.back().empty())
     Children.pop_back();
+}
+
+static bool isInSameSection(const MCSymbol *LHS, const MCSymbol *RHS) {
+  assert(LHS && RHS);
+  return &(LHS->getSection()) == &(RHS->getSection());
+}
+
+static const MCExpr *createSub(const MCSymbol *Hi, const MCSymbol *Low,
+                               MCContext &Context) {
+  return MCBinaryExpr::createSub(MCSymbolRefExpr::create(Hi, Context),
+                                 MCSymbolRefExpr::create(Low, Context),
+                                 Context);
+}
+
+void TraceModule::emitTextSizeAttribute(MCStreamer &OS) const {
+  MCSymbol *FirstRoutineBegin = Children.front().front().getBegin();
+  MCSymbol *LastRoutineEnd = Children.back().back().getEnd();
+
+  if (isInSameSection(FirstRoutineBegin, LastRoutineEnd)) {
+    // There is only one .text section.
+    emitRangeAttribute(OS, traceback::TB_AT_TextSize, FirstRoutineBegin,
+                       LastRoutineEnd);
+    return;
+  }
+  // The routines are in different sections (.text and its subsections), e.g,
+  // when -function-sections is enabled. So we need to add up the size of them
+  // to get the code length.
+  SmallVector<const MCExpr *, 4> Ranges;
+  MCContext &Context = OS.getContext();
+  MCSymbol *SecBegin = FirstRoutineBegin;
+  MCSymbol *SecEnd = Children.front().front().getBegin();
+  // Gather the sizes of sections.
+  for (const auto &File : Children) {
+    for (const auto &Routine : File) {
+      MCSymbol *End = Routine.getEnd();
+      if (isInSameSection(SecBegin, End)) {
+        SecEnd = End;
+        continue;
+      }
+      assert(isInSameSection(SecBegin, SecEnd));
+      Ranges.push_back(createSub(SecEnd, SecBegin, Context));
+      SecBegin = Routine.getBegin();
+      SecEnd = End;
+    }
+  }
+  Ranges.push_back(createSub(SecEnd, SecBegin, Context));
+  assert(Ranges.size() > 1);
+
+  // Add up all the sizes to get the code length.
+  const MCExpr *TextSize = Ranges[0];
+  for (unsigned I = 1; I != Ranges.size(); ++I)
+    TextSize = MCBinaryExpr::createAdd(TextSize, Ranges[I], Context);
+
+  OS.AddComment(traceback::getAttributeString(traceback::TB_AT_TextSize));
+  OS.emitValue(TextSize,
+               traceback::getAttributeSize(traceback::TB_AT_TextSize));
 }
 
 void TraceModule::addFile(const std::string &Name, unsigned Index) {
@@ -273,17 +332,12 @@ void TraceModule::addFile(const std::string &Name, unsigned Index) {
 }
 
 void TraceModule::addRoutine(const std::string &Name, unsigned Line,
-                             MCSymbol *Begin, bool HasPrologue) {
+                             MCSymbol *Begin) {
   assert(!IsEnded && "The module is ended!");
   assert(getLastFile() && "No file is added!");
 
   // Add a new routine
   getLastFile()->push_back(new TraceRoutine(PointerSize, Name, Line, Begin));
-
-  // Add a initial line record only if the prologue is not null.
-  if (HasPrologue)
-    getLastRoutine()->push_back(
-        new TraceLine(getLastLineNoInModuleOrZero(), Line, Begin));
 }
 
 void TraceModule::addLine(unsigned Line, MCSymbol *Begin) {
@@ -291,7 +345,15 @@ void TraceModule::addLine(unsigned Line, MCSymbol *Begin) {
   assert(getLastRoutine() && "No routine is added!");
   assert(!getLastRoutine()->getEnd() && "The routine is ended!");
 
-  getLastRoutine()->push_back(
+  auto *LastRoutine = getLastRoutine();
+
+  // Add a initial line record only if the prologue is not null.
+  auto *RoutineBegin = LastRoutine->getBegin();
+  if (LastRoutine->empty() && Begin != RoutineBegin)
+    LastRoutine->push_back(new TraceLine(getLastLineNoInModuleOrZero(),
+                                         LastRoutine->getLine(), RoutineBegin));
+
+  LastRoutine->push_back(
       new TraceLine(getLastLineNoInModuleOrZero(), Line, Begin));
 }
 
@@ -337,10 +399,6 @@ void TraceModule::endModule() {
       File.setIndex(IndexToFile[OldIndex]->getIndex());
     }
   }
-
-  IndexToFile.clear();
-  for (const auto &File : Children)
-    IndexToFile.insert({File.getIndex(), &File});
 
   IsEnded = true;
 }
