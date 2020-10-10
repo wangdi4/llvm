@@ -50,12 +50,12 @@ char ChannelPipeTransformation::ID = 0;
 OCL_INITIALIZE_PASS_BEGIN(ChannelPipeTransformation,
                           "channel-pipe-transformation",
                           "Transform Intel FPGA channels into OpenCL 2.0 pipes",
-                          false, true)
+                          false, false)
 OCL_INITIALIZE_PASS_DEPENDENCY(BuiltinLibInfo)
 OCL_INITIALIZE_PASS_END(ChannelPipeTransformation,
                         "channel-pipe-transformation",
                         "Transform Intel FPGA channels into OpenCL 2.0 pipes",
-                        false, true)
+                        false, false)
 }
 
 #define DEBUG_TYPE "channel-pipe-transformation"
@@ -825,6 +825,7 @@ static void replaceGlobalChannelUses(Module &M, Type *ChannelTy,
 }
 
 ChannelPipeTransformation::ChannelPipeTransformation() : ModulePass(ID) {
+  initializeChannelPipeTransformationPass(*llvm::PassRegistry::getPassRegistry());
 }
 
 bool ChannelPipeTransformation::runOnModule(Module &M) {

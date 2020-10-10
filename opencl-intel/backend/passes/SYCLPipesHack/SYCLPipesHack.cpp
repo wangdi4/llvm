@@ -42,11 +42,11 @@ namespace intel {
 char SYCLPipesHack::ID = 0;
 OCL_INITIALIZE_PASS_BEGIN(SYCLPipesHack, "sycl-pipes-hack",
                     "Hack SYCL pipe objects and wire them to OpenCL pipes",
-                    false, true)
+                    false, false)
 OCL_INITIALIZE_PASS_DEPENDENCY(BuiltinLibInfo)
 OCL_INITIALIZE_PASS_END(SYCLPipesHack, "sycl-pipes-hack",
                     "Hack SYCL pipe objects and wire them to OpenCL pipes",
-                    false, true)
+                    false, false)
 
 static void findPipeStorageGlobals(Module *M,
                                    SmallVectorImpl<GlobalVariable *> &StorageVars) {
@@ -108,7 +108,9 @@ static void getSYCLPipeMetadata(GlobalVariable *StorageVar,
               (int) Capacity->getSExtValue(), "" };
 }
 
-SYCLPipesHack::SYCLPipesHack() : ModulePass(ID) {}
+SYCLPipesHack::SYCLPipesHack() : ModulePass(ID) {
+  initializeSYCLPipesHackPass(*llvm::PassRegistry::getPassRegistry());
+}
 
 bool SYCLPipesHack::runOnModule(Module &M) {
   BuiltinLibInfo &BLI = getAnalysis<BuiltinLibInfo>();
