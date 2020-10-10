@@ -78,13 +78,6 @@ const Target *AsmCompiler::getTarget(const std::string &TripleName) {
   if (!TheTarget)
     throw Exceptions::CompilerException("Unable to get Target");
 
-  if (!TheTarget->hasMCAsmParser()) {
-    llvm::InitializeAllAsmParsers();
-    TheTarget = TargetRegistry::lookupTarget(TripleName, Err);
-    if (!TheTarget)
-      throw Exceptions::CompilerException(
-          "Unable to get Target with MCAsmParser");
-  }
   return TheTarget;
 }
 
