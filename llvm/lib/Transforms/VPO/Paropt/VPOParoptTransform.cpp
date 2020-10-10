@@ -1550,14 +1550,13 @@ bool VPOParoptTransform::paroptTransforms() {
 
             RemoveDirectives = true;
           } else {
-            if (isa<WRNTeamsNode>(W))
-              Changed |= genPrivatizationCode(W);
             // TODO: enabling firstprivatization requires more optimizations
             //       to avoid performance tanking.
             // Changed |= genFirstPrivatizationCode(W);
             if (SkipTargetCodeGenForParallelRegion)
               RemoveDirectives = true;
             else {
+              Changed |= genPrivatizationCode(W);
               Changed |= genReductionCode(W);
 
               // The directive gets removed, when processing the target region,
