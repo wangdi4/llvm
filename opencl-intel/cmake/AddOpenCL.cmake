@@ -138,25 +138,21 @@ function(add_opencl_library name)
 
     # Deals with pdb on Windows
     if (WIN32 AND ARG_SHARED)
-        file (TO_NATIVE_PATH ${OCL_OUTPUT_LIBRARY_DIR}/${name}_stripped.pdb PDB_NAME)
+        file (TO_NATIVE_PATH ${OCL_OUTPUT_LIBRARY_DIR}/${name}.pdb PDB_NAME)
         set_target_properties (${name} PROPERTIES
-            # The /DEBUG flag is required in order to create stripped pdbs.
-            LINK_FLAGS_RELEASE "/PDBSTRIPPED:${PDB_NAME} /DEBUG"
-            LINK_FLAGS_DEBUG "/PDBSTRIPPED:${PDB_NAME}")
+            # The /DEBUG flag is required in order to create pdbs.
+            LINK_FLAGS_RELEASE "${LINK_FLAGS_RELEASE} /DEBUG /PDB:${PDB_NAME}"
+            LINK_FLAGS_DEBUG "${LINK_FLAGS_DEBUG} /PDB:${PDB_NAME}")
 
-        foreach (path ${ARG_INSTALL_PATH})
-            install_to (${OCL_OUTPUT_LIBRARY_DIR}/${name}_stripped.pdb
-                        DESTINATION lib/${path}
-                        COMPONENT ocl-${name})
-        endforeach (path)
-
-        if (INSTALL_PDBS)
+        GET_ICS_BUILD_TYPE( ICS_BUILD_TYPE )
+        # Disable PDB installation in release build
+        if (NOT ICS_BUILD_TYPE STREQUAL "release")
             foreach (path ${ARG_INSTALL_PATH})
                 install_to (${OCL_OUTPUT_LIBRARY_DIR}/${name}.pdb
                             DESTINATION lib/${path}
                             COMPONENT ocl-${name})
             endforeach (path)
-        endif (INSTALL_PDBS)
+        endif ()
     endif (WIN32 AND ARG_SHARED)
 
     foreach (path ${ARG_INSTALL_PATH})
