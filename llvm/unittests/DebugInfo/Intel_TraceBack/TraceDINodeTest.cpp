@@ -145,8 +145,8 @@ TEST(TraceDINodeTest, TraceModule) {
   EXPECT_FALSE(Module.getLastLineNo());
   Module.addFile("file0", 1);
   EXPECT_FALSE(Module.getLastLineNo());
-  Module.addRoutine("routine0", 1U, Ctx.createTempSymbol("routine0_beg", false),
-                    false);
+  Module.addRoutine("routine0", 1U,
+                    Ctx.createTempSymbol("routine0_beg", false));
   EXPECT_FALSE(Module.getLastLineNo());
   Module.addLine(2U, nullptr);
   EXPECT_EQ(Module.getLastLineNo(), 2U);
@@ -155,8 +155,8 @@ TEST(TraceDINodeTest, TraceModule) {
   Module.endRoutine(Ctx.createTempSymbol("routine0_end", false));
 
   // Check the empty routine is removed.
-  Module.addRoutine("routine1", 4U, Ctx.createTempSymbol("routine1_beg", false),
-                    false);
+  Module.addRoutine("routine1", 4U,
+                    Ctx.createTempSymbol("routine1_beg", false));
   Module.endRoutine(Ctx.createTempSymbol("routine1_end", false));
   EXPECT_EQ(Module.back().back().getName(), "routine0");
 
@@ -172,21 +172,21 @@ TEST(TraceDINodeTest, TraceModule) {
   TraceModule Module2(8U, 200U, "com");
   Module2.addFile("file0", 1);
   Module2.addRoutine("routine0", 1U,
-                     Ctx.createTempSymbol("routine0_beg", false), false);
+                     Ctx.createTempSymbol("routine0_beg", false));
   Module2.addLine(3U, nullptr);
   Module2.addFile("file3", 4);
   Module2.addRoutine("routine1", 1U,
-                     Ctx.createTempSymbol("routine1_beg", false), false);
+                     Ctx.createTempSymbol("routine1_beg", false));
   Module2.addLine(4U, nullptr);
   Module2.endRoutine(Ctx.createTempSymbol("routine1_end", false));
   Module2.addFile("file2", 3);
   Module2.addRoutine("routine2", 1U,
-                     Ctx.createTempSymbol("routine2_beg", false), false);
+                     Ctx.createTempSymbol("routine2_beg", false));
   Module2.addLine(5U, nullptr);
   Module2.endRoutine(Ctx.createTempSymbol("routine2_end", false));
   Module2.addFile("file0", 1);
   Module2.addRoutine("routine3", 1U,
-                     Ctx.createTempSymbol("routine3_beg", false), false);
+                     Ctx.createTempSymbol("routine3_beg", false));
   Module2.addLine(6U, nullptr);
 
   std::vector<unsigned> OldIndices;

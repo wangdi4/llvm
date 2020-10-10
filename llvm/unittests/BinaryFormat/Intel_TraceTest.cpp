@@ -39,13 +39,12 @@ TEST(TraceTest, getAttributeString) {
   // A couple of valid attributes.
   EXPECT_EQ(StringRef("TB_AT_MajorV"), getAttributeString(TB_AT_MajorV));
   EXPECT_EQ(StringRef("TB_AT_MinorV"), getAttributeString(TB_AT_MinorV));
-  EXPECT_EQ(StringRef("TB_AT_ModuleSize"),
-            getAttributeString(TB_AT_ModuleSize));
-  EXPECT_EQ(StringRef("TB_AT_CodeBegin"), getAttributeString(TB_AT_CodeBegin));
+  EXPECT_EQ(StringRef("TB_AT_TraceSize"), getAttributeString(TB_AT_TraceSize));
+  EXPECT_EQ(StringRef("TB_AT_TextBegin"), getAttributeString(TB_AT_TextBegin));
   EXPECT_EQ(StringRef("TB_AT_NumOfFiles"),
             getAttributeString(TB_AT_NumOfFiles));
   EXPECT_EQ(StringRef("TB_AT_FileIdx"), getAttributeString(TB_AT_FileIdx));
-  EXPECT_EQ(StringRef("TB_AT_CodeSize"), getAttributeString(TB_AT_CodeSize));
+  EXPECT_EQ(StringRef("TB_AT_TextSize"), getAttributeString(TB_AT_TextSize));
   EXPECT_EQ(StringRef("TB_AT_NameLength"),
             getAttributeString(TB_AT_NameLength));
   EXPECT_EQ(StringRef("TB_AT_ModuleName"),
@@ -115,11 +114,11 @@ TEST(TraceTest, getAttributeSize) {
   // A couple of valid attributes.
   EXPECT_EQ(2U, getAttributeSize(TB_AT_MajorV));
   EXPECT_EQ(1U, getAttributeSize(TB_AT_MinorV));
-  EXPECT_EQ(4U, getAttributeSize(TB_AT_ModuleSize));
-  EXPECT_EQ(0U, getAttributeSize(TB_AT_CodeBegin));
+  EXPECT_EQ(4U, getAttributeSize(TB_AT_TraceSize));
+  EXPECT_EQ(0U, getAttributeSize(TB_AT_TextBegin));
   EXPECT_EQ(4U, getAttributeSize(TB_AT_NumOfFiles));
   EXPECT_EQ(4U, getAttributeSize(TB_AT_FileIdx));
-  EXPECT_EQ(4U, getAttributeSize(TB_AT_CodeSize));
+  EXPECT_EQ(4U, getAttributeSize(TB_AT_TextSize));
   EXPECT_EQ(2U, getAttributeSize(TB_AT_NameLength));
   EXPECT_EQ(0U, getAttributeSize(TB_AT_ModuleName));
   EXPECT_EQ(0U, getAttributeSize(TB_AT_FileName));
