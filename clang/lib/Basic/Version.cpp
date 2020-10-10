@@ -85,15 +85,8 @@ std::string getClangToolFullVersion(StringRef ToolName) {
   std::string buf;
   llvm::raw_string_ostream OS(buf);
 #if INTEL_CUSTOMIZATION
-  static int ExecAddr;
-  SmallString<128> ClangBinPath = llvm::sys::path::parent_path(
-      llvm::sys::fs::getMainExecutable("clang", (void *)&ExecAddr));
-  OS << ClangBinPath << "/" << "compiler-pro-auth";
-  std::string suffix;
-  if (llvm::sys::fs::exists(OS.str().data()))
-    suffix = " Pro";
   OS.str().erase();
-  OS << getDPCPPProductName() << suffix << " " << getDPCPPVersionString()
+  OS << getDPCPPProductName() << " " << getDPCPPVersionString()
      << " (" << getICXVersionString() << ")";
 #endif // INTEL_CUSTOMIZATION
   return OS.str();

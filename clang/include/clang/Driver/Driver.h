@@ -188,9 +188,6 @@ public:
 #if INTEL_CUSTOMIZATION
   /// Whether the driver should follow Intel compiler behavior.
   bool IsIntelMode() const { return IntelMode; }
-
-  /// Whether the driver has Intel Compiler Pro behavior.
-  bool IsIntelPro() const { return IntelPro; }
 #endif // INTEL_CUSTOMIZATION
 
   /// Only print tool bindings, don't build any jobs.
