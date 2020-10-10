@@ -199,7 +199,8 @@ namespace intel{
     for (inst_iterator ii = inst_begin(pNewF), ie = inst_end(pNewF); ii != ie;
          ++ii) {
       CallInst *pCall = dyn_cast<CallInst>(&*ii);
-      if (!pCall) {
+      // ignore calls of inline assembly code
+      if (!pCall || pCall->isInlineAsm()) {
         continue;
       }
       // Call instruction
