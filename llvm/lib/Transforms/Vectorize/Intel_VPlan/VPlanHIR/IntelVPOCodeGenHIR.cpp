@@ -2140,8 +2140,10 @@ void VPOCodeGenHIR::widenInterleavedAccess(const HLInst *INode, RegDDRef *Mask,
         OptRptStats.MaskedVLSStores += Grp->size();
       else
         OptRptStats.UnmaskedVLSStores += Grp->size();
+      assert(GrpStartInst && "Group start instruction pointer should not be null");
       RegDDRef *WStorePtrRef = widenRef(GrpStartInst->getOperandDDRef(0),
                                         getVF() * InterleaveFactor, true);
+      assert(WStorePtrRef && "Wide store reference should not be null pointer");
       WideInst = createInterleavedStore(StoreValRefs, WStorePtrRef,
                                         InterleaveFactor, Mask);
       SmallVector<const RegDDRef *, 4> MemDDRefVec;
