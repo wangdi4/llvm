@@ -28,12 +28,6 @@ using namespace llvm;
 TraceBackDebug::TraceBackDebug(AsmPrinter *A) : DebugHandlerBase(A) {
   assert(Asm->TM.getTargetTriple().isX86() &&
          "traceback is only supported on x86");
-  // Module name(always empty) and format version (always 2.00) in ICC's current
-  // implementation. Unlike DWARF, we only want to support the latest version of
-  // traceback. So the version info is used to debug only for developers.
-  DebugModule =
-      std::make_unique<TraceModule>(Asm->getPointerSize(), /*Version=*/200,
-                                    /*Name=*/std::string());
 }
 
 void TraceBackDebug::addLineInfo(const MachineInstr *MI) {
@@ -41,7 +35,7 @@ void TraceBackDebug::addLineInfo(const MachineInstr *MI) {
   DebugHandlerBase::beginInstruction(MI);
   MCSymbol *Begin = getLabelBeforeInsn(MI);
   unsigned Line = MI->getDebugLoc().getLine();
-  DebugModule->addLine(Line, Begin);
+  DebugModules.back().addLine(Line, Begin);
 }
 
 // Get the filename(excluding the path to it).
@@ -51,8 +45,30 @@ static std::string getFilename(const DIFile *File) {
   return (Pos == std::string::npos) ? PathName : PathName.substr(Pos + 1);
 }
 
+// Returns true if machine function has prologue.
+static bool hasPrologue(const MachineFunction &MF) {
+  // The first non-meta and non-frame setup instruction marks the end of the
+  // prologue, so we can check the first instruction to determine whether a
+  // function has a prologue.
+  for (const auto &MBB : MF)
+    for (const auto &MI : MBB) {
+      if (MI.isMetaInstruction() || MI.getFlag(MachineInstr::FrameSetup))
+        return true;
+      else
+        return false;
+    }
+  return false;
+}
+
+static bool isInSameSection(const MCSymbol *LHS, const MCSymbol *RHS) {
+  if (!LHS || !RHS)
+    return false;
+  return &(LHS->getSection()) == &(RHS->getSection());
+}
+
 void TraceBackDebug::beginFunctionImpl(const MachineFunction *MF) {
-  const DISubprogram *SP = MF->getFunction().getSubprogram();
+  const Function &F = MF->getFunction();
+  const DISubprogram *SP = F.getSubprogram();
   const DIFile *File = SP->getFile();
 
   if (FileToIndex.find(File) == FileToIndex.end()) {
@@ -63,23 +79,31 @@ void TraceBackDebug::beginFunctionImpl(const MachineFunction *MF) {
     FileToIndex.insert({File, FileToIndex.size()});
   }
 
-  if (File != PrevFile) {
-    // Add a new file to debug module.
-    DebugModule->addFile(getFilename(File), FileToIndex[File]);
+  MCSymbol *Begin = Asm->getSymbol(&F);
+  if (!isInSameSection(Begin, PrevFnSym)) {
+    // Add a new module.
+    DebugModules.push_back(new TraceModule(Asm->getPointerSize()));
   }
 
-  // Add a new routine to debug module.
+  if (File != PrevFile || DebugModules.back().empty()) {
+    // Add a new file to debug module.
+    DebugModules.back().addFile(getFilename(File), FileToIndex[File]);
+  }
+
   unsigned Line = SP->getScopeLine(); // Start line of the function.
   const std::string &RoutineName = SP->getName().str();
-  MCSymbol *Begin = Asm->getFunctionBegin();
   assert(Begin && Begin->isDefined() && "Expect defined begin label");
-  DebugModule->addRoutine(RoutineName, Line, Begin);
+  DebugModules.back().addRoutine(RoutineName, Line, Begin, hasPrologue(*MF));
 }
 
 void TraceBackDebug::endFunctionImpl(const MachineFunction *MF) {
   MCSymbol *End = Asm->getFunctionEnd();
   assert(End && End->isDefined() && "Expect defined end label");
-  DebugModule->endRoutine(End);
+  DebugModules.back().endRoutine(End);
+
+  // Track the begin symbol of the previous machine function.
+  // It is used to check if a new section starts in beginFunctionImpl.
+  PrevFnSym = Asm->getFunctionBegin();
 
   // Track the file where the previous subprogram is contained.
   // It is used to check if a new file starts in beginFunctionImpl.
@@ -113,7 +137,7 @@ void TraceBackDebug::beginInstruction(const MachineInstr *MI) {
   // - If source line doesn't change.
   if (!doesEmitDebugInfo(MI) || MI->isMetaInstruction() ||
       MI->getFlag(MachineInstr::FrameSetup) || !isUsableDebugLoc(DL) ||
-      DebugModule->getLastLineNo() == DL.getLine()) {
+      DebugModules.back().getLastLineNo() == DL.getLine()) {
     DebugHandlerBase::beginInstruction(MI);
     return;
   }
@@ -122,6 +146,8 @@ void TraceBackDebug::beginInstruction(const MachineInstr *MI) {
 }
 
 void TraceBackDebug::endModule() {
-  DebugModule->endModule();
-  DebugModule->emit(*(Asm->OutStreamer));
+  for (auto &Module : DebugModules) {
+    Module.endModule();
+    Module.emit(*(Asm->OutStreamer));
+  }
 }
