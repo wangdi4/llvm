@@ -486,3 +486,19 @@ function (add_ocl_unittest_artifacts )
     file(COPY ${filename} DESTINATION ${dest_dir})
   endforeach(filename)
 endfunction()
+
+# Get ICS build type: debug | prod | release
+# TODO: support self-build type detection
+# Usage: GET_ICS_BUILD_TYPE(result)
+function (GET_ICS_BUILD_TYPE result)
+  # INTEL_PRODUCT_RELEASE for release build
+  if (CMAKE_C_FLAGS MATCHES "-DINTEL_PRODUCT_RELEASE=1")
+    set(${result} "release" PARENT_SCOPE)
+  else ()
+    if (${CMAKE_BUILD_TYPE} MATCHES "Debug")
+      set(${result} "debug" PARENT_SCOPE)
+    else ()
+      set(${result} "prod" PARENT_SCOPE)
+    endif ()
+  endif ()
+endfunction()
