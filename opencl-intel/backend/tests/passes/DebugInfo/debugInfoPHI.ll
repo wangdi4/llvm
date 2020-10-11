@@ -61,7 +61,7 @@ return:                                           ; preds = %if.end, %if.then
   %retval.0 = phi i32 addrspace(4)* [ %4, %if.then ], [ %5, %if.end ], !dbg !23
 
 ; CHECK:  %retval.0 = phi i32 addrspace(4)* [ %{{.*}}, %if.then ], [ %{{.*}}, %if.end ], !dbg !23
-; CHECK-NEXT:  call void @__opencl_dbg_stoppoint(i64 {{.*}}, i64 %_Z13get_global_idj0, i64 %_Z13get_global_idj1, i64 %_Z13get_global_idj2)
+; CHECK-NEXT:  call void @__opencl_dbg_stoppoint(i64 {{.*}}, i64 %{{.*}}, i64 %{{.*}}, i64 %{{.*}})
 
   ret i32 addrspace(4)* %retval.0, !dbg !23
 }
