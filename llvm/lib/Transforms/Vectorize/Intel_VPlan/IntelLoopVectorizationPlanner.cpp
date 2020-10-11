@@ -68,6 +68,10 @@ static cl::opt<bool> EnableAllZeroBypassLoops(
     "vplan-enable-all-zero-bypass-loops", cl::init(false), cl::Hidden,
     cl::desc("Enable all-zero bypass insertion for loops."));
 
+static cl::opt<bool>
+    EnableAllLiveOuts("vplan-enable-all-liveouts", cl::init(false),
+                           cl::Hidden, cl::desc("Enable all liveouts, including private."));
+
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 static cl::list<unsigned> VPlanCostModelPrintAnalysisForVF(
     "vplan-cost-model-print-analysis-for-vf", cl::Hidden, cl::CommaSeparated,
@@ -767,11 +771,31 @@ bool LoopVectorizationPlanner::canProcessVPlan(const VPlan &Plan) {
             return false;
           }))
         continue;
-      LLVM_DEBUG(dbgs() << "LVP: Unrecognized phi found.\n" << Phi);
+      LLVM_DEBUG(dbgs() << "LVP: Unrecognized phi found.\n" << Phi << "\n");
       return false;
     }
+  if (!canProcessLoopBody(Plan, *VPLp))
+    return false;
 
   // All safety checks passed.
+  return true;
+}
+
+bool LoopVectorizationPlanner::canProcessLoopBody(const VPlan &Plan,
+                                                  const VPLoop &Loop) const {
+  // Check for live out values that are not inductions/reductions.
+  // Their processing is not ready yet.
+  if (EnableAllLiveOuts)
+    return true;
+  const VPLoopEntityList *LE = Plan.getLoopEntities(&Loop);
+  for (auto *BB : Loop.blocks())
+    for (VPInstruction &Inst : *BB)
+      if (Loop.isLiveOut(&Inst) && !LE->getReduction(&Inst) &&
+          !LE->getInduction(&Inst)) {
+        LLVM_DEBUG(dbgs() << "LVP: Unsupported liveout found.\n"
+                          << Inst << "\n");
+        return false;
+      }
   return true;
 }
 

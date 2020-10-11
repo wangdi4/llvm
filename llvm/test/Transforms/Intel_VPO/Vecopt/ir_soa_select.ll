@@ -1,5 +1,5 @@
-; RUN: opt -S -VPlanDriver %s | FileCheck %s
-; RUN: opt -S -passes="vplan-driver" %s | FileCheck %s
+; RUN: opt -S -VPlanDriver -vplan-enable-all-liveouts %s | FileCheck %s
+; RUN: opt -S -passes="vplan-driver" -vplan-enable-all-liveouts %s | FileCheck %s
 
 ; CHECK-LABEL: simd_loop
 ; CHECK: %[[CmpRes:.*]] = icmp sgt <4 x i32> %{{.*}}, zeroinitializer
