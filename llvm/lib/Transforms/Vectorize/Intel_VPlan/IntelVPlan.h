@@ -2174,6 +2174,9 @@ public:
     setOperand(0, NewVal);
   }
 
+  // This is function added to have a consistent interface with
+  // VPReductionInit, for an easier templatization of some code.
+  bool usesStartValue() const {return true;}
 
 protected:
   // Clones VPinductionInit.

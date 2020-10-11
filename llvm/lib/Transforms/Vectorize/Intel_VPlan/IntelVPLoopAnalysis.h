@@ -436,7 +436,7 @@ public:
                      getRawPointer<VPInduction>);
   }
 
-  VPIndexReduction *getMinMaxIndex(const VPReduction *Red) {
+  VPIndexReduction *getMinMaxIndex(const VPReduction *Red) const {
     MinMaxIndexTy::const_iterator It = MinMaxIndexes.find(Red);
     if (It != MinMaxIndexes.end())
       return It->second;

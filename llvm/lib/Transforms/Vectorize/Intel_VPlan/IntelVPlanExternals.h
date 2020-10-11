@@ -441,6 +441,9 @@ private:
     LiveOut->setName(Name + Twine(Id));
     return LiveOut;
   }
+  template <class InitTy, class FinalTy>
+  void addInOutValues(InitTy *Init, FinalTy *Final, VPExternalUse *ExtUse,
+                      bool ExtUseAdded, VPValue *StartV);
 };
 
 } // namespace vpo
