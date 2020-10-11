@@ -734,6 +734,18 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     return false;
   }
 
+  // TODO: use product solution for checking IR generated from OpenMP
+  // offloading, instead of the hack (checking the global variable name).
+  bool CompilationUtils::generatedFromOMP(const Module &M) {
+    // If IR is generated from OpenMP offloading code, it has spirv source
+    // metadata (OpenCL CPP), and a global variable named as
+    // __omp_offloading_entries_table.
+    if (generatedFromOCLCPP(M) &&
+        M.getGlobalVariable("__omp_offloading_entries_table"))
+      return true;
+    return false;
+  }
+
   bool CompilationUtils::generatedFromSPIRV(const Module &M) {
     /*
     Example of the metadata

@@ -619,6 +619,9 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     /// from "!spirv.Source" named metadata
     static bool generatedFromOCLCPP(const Module &M);
 
+    /// generatedFromOMP - check that IR was generated from OpenMP
+    static bool generatedFromOMP(const Module &M);
+
     /// generatedFromSPIRV - check that IR was generated from SPIRV
     static bool generatedFromSPIRV(const Module &M);
 

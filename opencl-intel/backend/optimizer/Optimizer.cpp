@@ -157,6 +157,7 @@ llvm::ModulePass *createAddImplicitArgsPass();
 llvm::ModulePass *createOclFunctionAttrsPass();
 llvm::ModulePass *createOclSyncFunctionAttrsPass();
 llvm::ModulePass *createInternalizeNonKernelFuncPass();
+llvm::ModulePass *createExternalizeGlobalVariablesPass();
 llvm::ModulePass *createInternalizeGlobalVariablesPass();
 llvm::ModulePass *createGenericAddressStaticResolutionPass();
 llvm::ModulePass *createGenericAddressDynamicResolutionPass();
@@ -475,7 +476,7 @@ static void populatePassesPostFailCheck(
     const intel::OptimizerConfig *pConfig,
     std::vector<std::string> &UndefinedExternals, bool isOcl20,
     bool isFpgaEmulator, bool isEyeQEmulator, bool UnrollLoops,
-    bool EnableInferAS, bool UseVplan, bool IsSYCL,
+    bool EnableInferAS, bool UseVplan, bool IsSYCL, bool IsOMP,
     TStringToVFState &kernelVFStates) {
   bool isProfiling = pConfig->GetProfilingFlag();
   bool HasGatherScatter = pConfig->GetCpuId().HasGatherScatter();
@@ -758,6 +759,15 @@ static void populatePassesPostFailCheck(
   // assumption: should run after WI function resolving
   PM.add(createUndifinedExternalFunctionsPass(UndefinedExternals));
 
+  // Externalize globals if IR is generated from OpenMP offloading. Now we
+  // cannot get address of globals with internal/private linkage from LLJIT
+  // (by design), but it's necessary by OpenMP to pass address of declare
+  // target variables to the underlying OpenCL Runtime via
+  // clSetKernelExecInfo. So we have to externalize globals for IR generated
+  // from OpenMP.
+  if (IsOMP)
+    PM.add(createExternalizeGlobalVariablesPass());
+
   if (!pRtlModuleList.empty()) {
     // Inline BI function
     const char *CPUPrefix = pConfig->GetCpuId().GetCPUPrefix();
@@ -909,6 +919,7 @@ Optimizer::Optimizer(llvm::Module *pModule,
   bool UseVplan = EnableVPlanVecForOpenCL ||
                       (EnableDefaultVecForOpenCL && IsSYCL);
 
+  bool IsOMP = CompilationUtils::generatedFromOMP(*pModule);
   // Add passes which will run unconditionally
   populatePassesPreFailCheck(m_PreFailCheckPM, pModule, m_pRtlModuleList,
                              OptLevel, pConfig, isOcl20, m_IsFpgaEmulator,
@@ -916,11 +927,10 @@ Optimizer::Optimizer(llvm::Module *pModule,
 
   // Add passes which will be run only if hasFunctionPtrCalls() and
   // hasRecursion() will return false
-  populatePassesPostFailCheck(m_PostFailCheckPM, pModule, m_pRtlModuleList,
-                              OptLevel, pConfig, m_undefinedExternalFunctions,
-                              isOcl20, m_IsFpgaEmulator, m_IsEyeQEmulator,
-                              UnrollLoops, EnableInferAS, UseVplan, IsSYCL,
-                              m_kernelToVFState);
+  populatePassesPostFailCheck(
+      m_PostFailCheckPM, pModule, m_pRtlModuleList, OptLevel, pConfig,
+      m_undefinedExternalFunctions, isOcl20, m_IsFpgaEmulator, m_IsEyeQEmulator,
+      UnrollLoops, EnableInferAS, UseVplan, IsSYCL, IsOMP, m_kernelToVFState);
 }
 
 void Optimizer::Optimize() {

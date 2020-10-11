@@ -62,6 +62,7 @@ void initializePreventDivCrashesPass(llvm::PassRegistry&);
 void initializeBuiltinCallToInstPass(llvm::PassRegistry&);
 void initializeInstToFuncCallPass(llvm::PassRegistry&);
 void initializeInternalizeNonKernelFuncPass(llvm::PassRegistry&);
+void initializeExternalizeGlobalVariablesPass(llvm::PassRegistry &);
 void initializeInternalizeGlobalVariablesPass(llvm::PassRegistry&);
 void initializeAddImplicitArgsPass(llvm::PassRegistry&);
 void initializeOclFunctionAttrsPass(llvm::PassRegistry&);

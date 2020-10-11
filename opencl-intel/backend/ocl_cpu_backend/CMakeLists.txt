@@ -248,6 +248,7 @@ set( BACKEND_PASSES
     InfiniteLoopCreator
     InstToFuncCall
     InternalizeNonKernelFunc
+    ExternalizeGlobalVariables
     InternalizeGlobalVariables
     GenericAddressResolution
     LocalBuffers

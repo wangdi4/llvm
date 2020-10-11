@@ -21,6 +21,7 @@ set(OCL_BE_PASSES
     RemoveAtExit
     DebugInfoPass
     DetectRecursion
+    ExternalizeGlobalVariables
     GenericAddressResolution
     HandleVPlanMask
     ImplicitArgsAnalysis
