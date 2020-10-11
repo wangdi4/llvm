@@ -74,6 +74,10 @@ static cl::opt<bool, true> LoopMassagingEnabledOpt(
     cl::Hidden,
     cl::desc("Enable loop massaging in VPlan (Multiple to Singular Exit)"));
 
+static cl::opt<bool>
+    EnableAllLiveOuts("vplan-enable-all-liveouts", cl::init(false),
+                           cl::Hidden, cl::desc("Enable all liveouts, including private."));
+
 static LoopVPlanDumpControl LCSSADumpControl("lcssa", "LCSSA transformation");
 static LoopVPlanDumpControl LoopCFUDumpControl("loop-cfu",
                                                "LoopCFU transformation");
@@ -902,11 +906,31 @@ bool LoopVectorizationPlanner::canProcessVPlan(const VPlan &Plan) {
         !LE->getPrivate(&Phi)) {
       // Non-entity phi. No other PHIs are expected in loop header since we are
       // working on plain CFG before any transforms.
-      LLVM_DEBUG(dbgs() << "LVP: Unrecognized phi found.\n" << Phi);
+      LLVM_DEBUG(dbgs() << "LVP: Unrecognized phi found.\n" << Phi << "\n");
       return false;
     }
+  if (!canProcessLoopBody(Plan, *VPLp))
+    return false;
 
   // All safety checks passed.
+  return true;
+}
+
+bool LoopVectorizationPlanner::canProcessLoopBody(const VPlan &Plan,
+                                                  const VPLoop &Loop) const {
+  // Check for live out values that are not inductions/reductions.
+  // Their processing is not ready yet.
+  if (EnableAllLiveOuts)
+    return true;
+  const VPLoopEntityList *LE = Plan.getLoopEntities(&Loop);
+  for (auto *BB : Loop.blocks())
+    for (VPInstruction &Inst : *BB)
+      if (Loop.isLiveOut(&Inst) && !LE->getReduction(&Inst) &&
+          !LE->getInduction(&Inst)) {
+        LLVM_DEBUG(dbgs() << "LVP: Unsupported liveout found.\n"
+                          << Inst << "\n");
+        return false;
+      }
   return true;
 }
 
