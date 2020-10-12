@@ -1748,11 +1748,8 @@ protected: // INTEL
   /// everywhere.
   bool isImpliedCond(ICmpInst::Predicate Pred, const SCEV *LHS, const SCEV *RHS,
                      const Value *FoundCondValue, bool Inverse,
-<<<<<<< HEAD
+                     const Instruction *Context = nullptr,   // INTEL
                      const ICmpInst *PredContext = nullptr); // INTEL
-=======
-                     const Instruction *Context = nullptr);
->>>>>>> a5ef2e0a1e3bf5a76b0c170ca7791564ab1a8375
 
   /// Test whether the condition described by Pred, LHS, and RHS is true
   /// whenever the condition described by FoundPred, FoundLHS, FoundRHS is
@@ -1761,12 +1758,9 @@ protected: // INTEL
   bool isImpliedCond(ICmpInst::Predicate Pred, const SCEV *LHS, const SCEV *RHS,
                      ICmpInst::Predicate FoundPred, const SCEV *FoundLHS,
                      const SCEV *FoundRHS,
-<<<<<<< HEAD
+                     const Instruction *Context = nullptr,        // INTEL
                      const ICmpInst *PredContext = nullptr,       // INTEL
                      const ICmpInst *FoundPredContext = nullptr); // INTEL
-=======
-                     const Instruction *Context = nullptr);
->>>>>>> a5ef2e0a1e3bf5a76b0c170ca7791564ab1a8375
 
   /// Test whether the condition described by Pred, LHS, and RHS is true
   /// whenever the condition described by Pred, FoundLHS, and FoundRHS is
