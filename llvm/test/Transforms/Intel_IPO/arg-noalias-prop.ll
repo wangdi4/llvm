@@ -54,6 +54,31 @@ done:
   ret void
 }
 
+define i32 @func6() {
+entry:
+  %P1 = tail call noalias i8* @malloc(i64 4)
+  %P2 = tail call noalias i8* @malloc(i64 4)
+  %A = bitcast i8* %P1 to i32*
+  %B = bitcast i8* %P2 to i32*
+  store i32 2, i32* %B
+  store i32 3, i32* %B
+  br label %body
+
+body:
+  %X = phi i32* [ %A, %entry ], [ %Y, %body ]
+  %Y = phi i32* [ %B, %entry ], [ %X, %body ]
+  call void @callback(i8* null, i32* %X, i32* %Y)
+  %val = load i32, i32* %X
+  %cond = icmp ne i32 %val, 0
+  br i1 %cond, label %exit, label %body
+
+exit:
+  tail call void @free(i8* %P1)
+  tail call void @free(i8* %P2)
+  %fval = load i32, i32* %A
+  ret i32 %fval
+}
+
 declare noalias i8* @malloc(i64)
 
 declare void @free(i8* nocapture)

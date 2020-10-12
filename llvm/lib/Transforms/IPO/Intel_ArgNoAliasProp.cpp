@@ -22,6 +22,7 @@
 #include "llvm/Analysis/CallGraph.h"
 #include "llvm/Analysis/GlobalsModRef.h"
 #include "llvm/Analysis/Intel_Andersens.h"
+#include "llvm/Analysis/ValueTracking.h"
 #include "llvm/IR/AbstractCallSite.h"
 #include "llvm/IR/Dominators.h"
 #include "llvm/InitializePasses.h"
@@ -106,21 +107,29 @@ bool NoAliasProp::propagateNoAliasToArgs(Function &F) {
       if (Value *PV = CS.getCallArgOperand(*P.first)) {
         Value *Origin = PV->stripPointerCasts();
 
-        // So far we are checking for aliasing only the following values that
-        // are passed to the call
-        //  - Function arguments with noalias attribute
-        //  - Function calls that return noalias pointer
-        //  - Alloca instructions
-        NoAlias = isNoAliasArgument(Origin) || isNoAliasCall(Origin) ||
-                  isa<AllocaInst>(Origin);
+        // Returns true if the Value is both derived from a function-local
+        // noalias pointer and not captured before the call site.
+        auto IsLocalAndUncaptured = [&DT, &CS](const Value *V) -> bool {
+          if (!isIdentifiedFunctionLocal(V))
+            return false;
 
-        if (NoAlias)
-          // Pointer that is passed to the call should not be captured because
-          // otherwise we cannot guarantee that it does not alias with any other
-          // pointer value that is used inside the function.
-          NoAlias = !PointerMayBeCapturedBefore(PV, /*ReturnCaptures=*/true,
-                                                /*StoreCaptures=*/true,
-                                                CS.getInstruction(), &DT);
+          return !PointerMayBeCapturedBefore(V, /*ReturnCaptures=*/true,
+                                             /*StoreCaptures=*/ true,
+                                             CS.getInstruction(), &DT);
+        };
+
+        // Returns true if the Value is derived exclusively from local objects
+        // which have not escaped. For example, the Value may be a PHI choosing
+        // between multiple allocas.
+        auto IsDerivedFromUncaptured =
+            [&IsLocalAndUncaptured](Value *V) -> bool {
+          SmallVector<const Value *, 4> Pointers;
+          getUnderlyingObjects(V, Pointers);
+
+          return all_of(Pointers, IsLocalAndUncaptured);
+        };
+
+        NoAlias = IsDerivedFromUncaptured(Origin);
 
         if (NoAlias)
           // Actual argument should not alias with any other pointer values that
