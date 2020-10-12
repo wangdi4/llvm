@@ -38,6 +38,8 @@ private Intel repositories.
 Automated Merge Tool
 ====================
 
+Merge process
+--------------------
 We have a constantly running automated tool that polls xmain, sycl and llvm.org
 for new change sets and merges them into ``xmain-web`` and ``sycl-web`` branches
 one at a time. For each change set, the tool attempts to automatically merge the
@@ -71,6 +73,28 @@ developers and the merge tool.
    the build, the tool will again halt the merge process and notify developers
    as it would for a normal build breakage. Upon a successful build, the merge
    tool automatically clears the contents of ``build.status``.
+
+Checking merge tool progress
+--------------------
+The merge process differs between ``sycl-web`` and ``xmain-web`` branches, but
+the risk of forgetting to reset merge/build status remains the same. This
+affects the backlog growth. To reduce the number of such situations, the
+coordinator(s) can use these BKMs to to control that the pulldown process is in
+progress:
+
+#. ``sycl-web``: New commits are not merged to this branch until the merge tool
+   faces a conflict there (it is done in order to reduce the number of merge
+   commits). Therefore, to get the latest status of the merge process the
+   developer can check the `sycl-web/status tag
+   <https://github.com/otcshare/llvm/releases/tag/sycl-web%2Fstatus>`_
+#. ``xmain-web``: New commits are merged to branch, the automation reports about
+   the failures. To know the current status, the developer can do the following:
+
+    .. code-block:: bash
+
+     # run in the xmain-web root directory
+     git pull
+     git show --status
 
 .. _resolving-conflicts:
 
@@ -213,7 +237,18 @@ But in any case, pulldown coordinators and the developer identified by the
 pulldown heuristic as related to the conflict should be added as reviewers to
 the resolution patch. Gerrit will then send an email which serves as a
 notification indicating that conflict resolution has already been uploaded
-for review.
+for review. The coordinator can use the following format to push their change
+to Gerrit with the required list of reviewers (the email list is used):
+
+.. code-block:: bash
+
+   git push origin HEAD:refs/for/xmain-web%r=coordinator_a@intel.com,r=coordinator_b@intel.com
+
+   # The useful "alias" function to simplify git push command:
+   function gerrit() { git push origin HEAD:refs/for/"$@"; }
+   # So the first command can be rewritten as:
+   gerrit xmain-web%r=coordinator_a@intel.com,r=coordinator_b@intel.com
+
 
 .. _xmain-web-stabilization:
 

@@ -4,7 +4,7 @@
 ; The test checks the situation when value of main reduciton in minmax+index idiom is unused after loop.
 ; In this case, we should generate a correct assignment to the incoming variable.
 ; CHECK-LABEL: IR Dump After VPlan Vectorization Driver HIR
-; CHECK:             BEGIN REGION { modified }
+; CHECK:              BEGIN REGION { modified }
 ; CHECK-NEXT:              %tgu = (zext.i32.i64(%n) + -1)/u4;
 ; CHECK-NEXT:              if (0 <u 4 * %tgu)
 ; CHECK-NEXT:              {
@@ -15,9 +15,8 @@
 ; CHECK-NEXT:                 |   %red.var1 = (%.vec > %red.var) ? i1 + <i64 0, i64 1, i64 2, i64 3> + 1 : %red.var1;
 ; CHECK-NEXT:                 |   %red.var = (%.vec > %red.var) ? %.vec : %red.var;
 ; CHECK-NEXT:                 + END LOOP
-; The %vec.reduce below should be replaced by %max.018 as %max.018 used in the scalar remainder.
-; CHECK-NEXT:                    %vec.reduce = @llvm.experimental.vector.reduce.smax.v4i64(%red.var);
-; CHECK-NEXT:                    %idx.blend = (%vec.reduce == %red.var) ? %red.var1 : <i64 9223372036854775807, i64 9223372036854775807, i64 9223372036854775807, i64 9223372036854775807>;
+; CHECK-NEXT:                    %max.018 = @llvm.experimental.vector.reduce.smax.v4i64(%red.var);
+; CHECK-NEXT:                    %idx.blend = (%max.018 == %red.var) ? %red.var1 : <i64 9223372036854775807, i64 9223372036854775807, i64 9223372036854775807, i64 9223372036854775807>;
 ; CHECK-NEXT:                    %indmax.017 = @llvm.experimental.vector.reduce.smin.v4i64(%idx.blend);
 ; CHECK-NEXT:              }
 ; CHECK:                   + DO i1 = 4 * %tgu, zext.i32.i64(%n) + -2, 1   <DO_LOOP>  <MAX_TC_EST = 3> <nounroll> <novectorize> <max_trip_count = 3>
