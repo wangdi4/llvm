@@ -129,7 +129,7 @@ static cl::opt<unsigned>
                                  "unroll factor factored in"));
 
 static cl::opt<unsigned> MaxLoopCost(
-    "hir-general-unroll-max-loop-cost", cl::init(40), cl::Hidden,
+    "hir-general-unroll-max-loop-cost", cl::init(45), cl::Hidden,
     cl::desc("Max allowed cost of the original loop which is to be unrolled"));
 
 static cl::opt<bool> DisableSwitchGeneration(
@@ -554,8 +554,15 @@ bool HIRGeneralUnroll::isProfitable(const HLLoop *Loop, bool HasEnablingPragma,
                                     unsigned *UnrollFactor) const {
 
   if (!HasEnablingPragma) {
-    bool IsMultiExit = (Loop->getNumExits() > 1);
+    unsigned NumExits = Loop->getNumExits();
 
+    if (NumExits > 2) {
+      LLVM_DEBUG(dbgs() << "Skipping unroll of loop with too many exits as it "
+                           "is likely unprofitable!\n");
+      return false;
+    }
+
+    bool IsMultiExit = (NumExits > 1);
     // 32bit platform seems to be more sensitive to register pressure/code size.
     // Unrolling too many loops leads to regression in the same benchmark which
     // is improved on 64-bit platform.
