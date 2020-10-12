@@ -2897,7 +2897,8 @@ static void handleWeakImportAttr(Sema &S, Decl *D, const ParsedAttr &AL) {
 static bool checkValidSYCLSpelling(Sema &S, const ParsedAttr &Attr) {
   if (S.getLangOpts().SYCLIsDevice) {
     if (!Attr.isCXX11Attribute() || !Attr.hasScope() || !Attr.getScopeName() ||
-        !Attr.getScopeName()->isStr("intelfpga")) {
+        !(Attr.getScopeName()->isStr("intel") ||
+          Attr.getScopeName()->isStr("intelfpga"))) {
       S.Diag(Attr.getLoc(), diag::warn_unknown_attribute_ignored) << Attr;
       return true;
     }
@@ -6135,10 +6136,16 @@ static void handleIntelFPGAPumpAttr(Sema &S, Decl *D, const ParsedAttr &Attr) {
         S.Context, IntelFPGAMemoryAttr::Default));
 
   if (Attr.getKind() == ParsedAttr::AT_IntelFPGADoublePump &&
+#if INTEL_CUSTOMIZATION
+      Attr.getSyntax() != AttributeCommonInfo::AS_GNU &&
+#endif // INTEL_CUSTOMIZATION
       checkDeprecatedSYCLAttributeSpelling(S, Attr))
     S.Diag(Attr.getLoc(), diag::note_spelling_suggestion)
         << "'intel::doublepump'";
   else if (Attr.getKind() == ParsedAttr::AT_IntelFPGASinglePump &&
+#if INTEL_CUSTOMIZATION
+           Attr.getSyntax() != AttributeCommonInfo::AS_GNU &&
+#endif // INTEL_CUSTOMIZATION
            checkDeprecatedSYCLAttributeSpelling(S, Attr))
     S.Diag(Attr.getLoc(), diag::note_spelling_suggestion)
         << "'intel::singlepump'";
@@ -6184,7 +6191,12 @@ static void handleIntelFPGAMemoryAttr(Sema &S, Decl *D,
     if (MA->isImplicit())
       D->dropAttr<IntelFPGAMemoryAttr>();
 
+#if INTEL_CUSTOMIZATION
+  if (AL.getSyntax() != AttributeCommonInfo::AS_GNU &&
+      checkDeprecatedSYCLAttributeSpelling(S, AL))
+#else
   if (checkDeprecatedSYCLAttributeSpelling(S, AL))
+#endif // INTEL_CUSTOMIZATION
     S.Diag(AL.getLoc(), diag::note_spelling_suggestion)
         << "'intel::fpga_memory'";
 
@@ -6248,7 +6260,12 @@ static void handleIntelFPGARegisterAttr(Sema &S, Decl *D,
   if (checkIntelFPGARegisterAttrCompatibility(S, D, Attr))
     return;
 
+#if INTEL_CUSTOMIZATION
+  if (Attr.getSyntax() != AttributeCommonInfo::AS_GNU &&
+      checkDeprecatedSYCLAttributeSpelling(S, Attr))
+#else
   if (checkDeprecatedSYCLAttributeSpelling(S, Attr))
+#endif // INTEL_CUSTOMIZATION
     S.Diag(Attr.getLoc(), diag::note_spelling_suggestion)
         << "'intel::fpga_register'";
 
@@ -6275,10 +6292,16 @@ static void handleOneConstantPowerTwoValueAttr(Sema &S, Decl *D,
     return;
 
   if (Attr.getKind() == ParsedAttr::AT_IntelFPGABankWidth &&
+#if INTEL_CUSTOMIZATION
+      Attr.getSyntax() != AttributeCommonInfo::AS_GNU &&
+#endif // INTEL_CUSTOMIZATION
       checkDeprecatedSYCLAttributeSpelling(S, Attr))
     S.Diag(Attr.getLoc(), diag::note_spelling_suggestion)
         << "'intel::bankwidth'";
   else if (Attr.getKind() == ParsedAttr::AT_IntelFPGANumBanks &&
+#if INTEL_CUSTOMIZATION
+           Attr.getSyntax() != AttributeCommonInfo::AS_GNU &&
+#endif // INTEL_CUSTOMIZATION
            checkDeprecatedSYCLAttributeSpelling(S, Attr))
     S.Diag(Attr.getLoc(), diag::note_spelling_suggestion)
         << "'intel::numbanks'";
@@ -6305,7 +6328,12 @@ static void handleIntelFPGASimpleDualPortAttr(Sema &S, Decl *D,
     D->addAttr(IntelFPGAMemoryAttr::CreateImplicit(
         S.Context, IntelFPGAMemoryAttr::Default));
 
+#if INTEL_CUSTOMIZATION
+  if (AL.getSyntax() != AttributeCommonInfo::AS_GNU &&
+      checkDeprecatedSYCLAttributeSpelling(S, AL))
+#else
   if (checkDeprecatedSYCLAttributeSpelling(S, AL))
+#endif // INTEL_CUSTOMIZATION
     S.Diag(AL.getLoc(), diag::note_spelling_suggestion)
         << "'intel::simple_dual_port'";
 
@@ -6327,7 +6355,12 @@ static void handleIntelFPGAMaxReplicatesAttr(Sema &S, Decl *D,
   if (checkAttrMutualExclusion<IntelFPGARegisterAttr>(S, D, Attr))
     return;
 
+#if INTEL_CUSTOMIZATION
+  if (Attr.getSyntax() != AttributeCommonInfo::AS_GNU &&
+      checkDeprecatedSYCLAttributeSpelling(S, Attr))
+#else
   if (checkDeprecatedSYCLAttributeSpelling(S, Attr))
+#endif // INTEL_CUSTOMIZATION
     S.Diag(Attr.getLoc(), diag::note_spelling_suggestion)
         << "'intel::max_replicates'";
 
@@ -6371,7 +6404,12 @@ static void handleIntelFPGAMergeAttr(Sema &S, Decl *D, const ParsedAttr &AL) {
     D->addAttr(IntelFPGAMemoryAttr::CreateImplicit(
         S.Context, IntelFPGAMemoryAttr::Default));
 
+#if INTEL_CUSTOMIZATION
+  if (AL.getSyntax() != AttributeCommonInfo::AS_GNU &&
+      checkDeprecatedSYCLAttributeSpelling(S, AL))
+#else
   if (checkDeprecatedSYCLAttributeSpelling(S, AL))
+#endif // INTEL_CUSTOMIZATION
     S.Diag(AL.getLoc(), diag::note_spelling_suggestion) << "'intel::merge'";
 
   D->addAttr(::new (S.Context)
@@ -6406,7 +6444,12 @@ static void handleIntelFPGABankBitsAttr(Sema &S, Decl *D,
     Args.push_back(Attr.getArgAsExpr(I));
   }
 
+#if INTEL_CUSTOMIZATION
+  if (Attr.getSyntax() != AttributeCommonInfo::AS_GNU &&
+      checkDeprecatedSYCLAttributeSpelling(S, Attr))
+#else
   if (checkDeprecatedSYCLAttributeSpelling(S, Attr))
+#endif // INTEL_CUSTOMIZATION
     S.Diag(Attr.getLoc(), diag::note_spelling_suggestion)
         << "'intel::bank_bits'";
 
@@ -6488,7 +6531,12 @@ static void handleIntelFPGAPrivateCopiesAttr(Sema &S, Decl *D,
   if (checkAttrMutualExclusion<IntelFPGARegisterAttr>(S, D, Attr))
     return;
 
+#if INTEL_CUSTOMIZATION
+  if (Attr.getSyntax() != AttributeCommonInfo::AS_GNU &&
+      checkDeprecatedSYCLAttributeSpelling(S, Attr))
+#else
   if (checkDeprecatedSYCLAttributeSpelling(S, Attr))
+#endif // INTEL_CUSTOMIZATION
     S.Diag(Attr.getLoc(), diag::note_spelling_suggestion)
         << "'intel::private_copies'";
 
@@ -6515,7 +6563,12 @@ static void handleIntelFPGAForcePow2DepthAttr(Sema &S, Decl *D,
     D->addAttr(IntelFPGAMemoryAttr::CreateImplicit(
         S.Context, IntelFPGAMemoryAttr::Default));
 
+#if INTEL_CUSTOMIZATION
+  if (Attr.getSyntax() != AttributeCommonInfo::AS_GNU &&
+      checkDeprecatedSYCLAttributeSpelling(S, Attr))
+#else
   if (checkDeprecatedSYCLAttributeSpelling(S, Attr))
+#endif // INTEL_CUSTOMIZATION
     S.Diag(Attr.getLoc(), diag::note_spelling_suggestion)
         << "'intel::force_pow2_depth'";
 

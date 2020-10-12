@@ -157,8 +157,13 @@ static Attr *handleIntelFPGALoopAttr(Sema &S, const ParsedAttr &A) {
     }
   }
 
-  if (A.getKind() == ParsedAttr::AT_SYCLIntelFPGAII &&
-      checkDeprecatedSYCLLoopAttributeSpelling(S, A)) {
+#if INTEL_CUSTOMIZATION
+  if (A.getSyntax() == AttributeCommonInfo::AS_Pragma)
+    return S.BuildSYCLIntelFPGALoopAttr<FPGALoopAttrT>(A, A.getArgAsExpr(3));
+  else
+#endif // INTEL_CUSTOMIZATION
+      if (A.getKind() == ParsedAttr::AT_SYCLIntelFPGAII &&
+          checkDeprecatedSYCLLoopAttributeSpelling(S, A)) {
     S.Diag(A.getLoc(), diag::note_spelling_suggestion) << "'intel::ii'";
   } else if (A.getKind() == ParsedAttr::AT_SYCLIntelFPGAMaxConcurrency &&
              checkDeprecatedSYCLLoopAttributeSpelling(S, A)) {
@@ -182,12 +187,6 @@ static Attr *handleIntelFPGALoopAttr(Sema &S, const ParsedAttr &A) {
         << "'intel::loop_coalesce'";
   }
 
-#if INTEL_CUSTOMIZATION
-  if (A.getSyntax() == AttributeCommonInfo::AS_Pragma)
-    return S.BuildSYCLIntelFPGALoopAttr<FPGALoopAttrT>(
-        A, A.getArgAsExpr(3));
-  else
-#endif // INTEL_CUSTOMIZATION
   return S.BuildSYCLIntelFPGALoopAttr<FPGALoopAttrT>(
       A, A.getNumArgs() ? A.getArgAsExpr(0) : nullptr);
 }
@@ -209,7 +208,12 @@ Attr *handleIntelFPGALoopAttr<SYCLIntelFPGADisableLoopPipeliningAttr>(
     return nullptr;
   }
 
+#if INTEL_CUSTOMIZATION
+  if (A.getSyntax() != AttributeCommonInfo::AS_Pragma &&
+      checkDeprecatedSYCLLoopAttributeSpelling(S, A))
+#else
   if (checkDeprecatedSYCLLoopAttributeSpelling(S, A))
+#endif // INTEL_CUSTOMIZATION
     S.Diag(A.getLoc(), diag::note_spelling_suggestion)
         << "'intel::disable_loop_pipelining'";
 
