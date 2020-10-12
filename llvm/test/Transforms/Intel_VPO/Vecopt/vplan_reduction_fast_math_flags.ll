@@ -14,7 +14,7 @@
 ; CHECK-NEXT:    end of details
 
 ; Checks for finalization intrinsic in generated code
-; CHECK: [[VEC_REDUCE:%.*]] = call fast float @llvm.experimental.vector.reduce.v2.fadd.f32.v8f32(float {{.*}}, <8 x float> {{.*}})
+; CHECK: [[VEC_REDUCE:%.*]] = call fast float @llvm.vector.reduce.fadd.v8f32(float {{.*}}, <8 x float> {{.*}})
 
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"

@@ -19,7 +19,7 @@
 ; CHECK-NEXT:  call void @llvm.masked.store.v4i32.p0v4i32(<4 x i32> [[WIDE_LOAD]], <4 x i32>* [[PRIVATE_MEM]], i32 16, <4 x i1> [[TMP3]])
 ; CHECK-NEXT:  [[PREDPHI]] = select <4 x i1> [[TMP3]], <4 x i32> [[WIDE_LOAD]], <4 x i32> [[VEC_PHI]]
 ; CHECK:     VPlannedBB:
-; CHECK-NEXT:  [[TMP9:%.*]] = call i32 @llvm.experimental.vector.reduce.smin.v4i32(<4 x i32> [[PREDPHI]])
+; CHECK-NEXT:  [[TMP9:%.*]] = call i32 @llvm.vector.reduce.smin.v4i32(<4 x i32> [[PREDPHI]])
 ; CHECK-NEXT:  store i32 [[TMP9]], i32* [[MIN]]
 ;
 

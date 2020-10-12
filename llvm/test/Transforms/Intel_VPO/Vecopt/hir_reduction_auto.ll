@@ -23,13 +23,13 @@
 ; CHECK:           |   %red.var = %.vec  +  %red.var;
 ; CHECK:           + END LOOP
 
-; CHECK:           %sum.07 = @llvm.experimental.vector.reduce.add.v8i32(%red.var);
+; CHECK:           %sum.07 = @llvm.vector.reduce.add.v8i32(%red.var);
 ; CHECK:           END REGION
 
 ; CHECK: loop
 ; CHECK: [[WIDE_ADD:%.*]] = add <8 x i32>
 ; CHECK: afterloop
-; CHECK: call i32 @llvm.experimental.vector.reduce.add.v8i32(<8 x i32> [[WIDE_ADD]])
+; CHECK: call i32 @llvm.vector.reduce.add.v8i32(<8 x i32> [[WIDE_ADD]])
 ; CHECK-NOT: add i32
 source_filename = "t1.c"
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"

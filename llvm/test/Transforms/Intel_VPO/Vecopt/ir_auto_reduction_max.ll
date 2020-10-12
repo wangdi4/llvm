@@ -23,7 +23,7 @@ define i32 @foo(i32* nocapture readonly %A, i32 %N) {
 ; CHECK:       [[TMP2:%.*]] = icmp sgt <4 x i32> [[WIDE_MASKED_GATHER:%.*]], [[VEC_PHI1]]
 ; CHECK:       [[TMP3]] = select <4 x i1> [[TMP2]], <4 x i32> [[WIDE_MASKED_GATHER]], <4 x i32> [[VEC_PHI1]]
 ; CHECK:       VPlannedBB:
-; CHECK:       [[TMP6:%.*]] = call i32 @llvm.experimental.vector.reduce.smax.v4i32(<4 x i32> [[TMP3]])
+; CHECK:       [[TMP6:%.*]] = call i32 @llvm.vector.reduce.smax.v4i32(<4 x i32> [[TMP3]])
 ; CHECK:       scalar.ph:
 ; CHECK:       [[BC_MERGE_REDUCTION:%.*]] = phi i32 [ [[TMP0]], [[FOR_BODY_PH:%.*]] ], [ [[TMP6]], [[MIDDLE_BLOCK:%.*]] ]
 ;

@@ -989,9 +989,9 @@ Instruction *InstCombinerImpl::visitCallInst(CallInst &CI) {
       return replaceInstUsesWith(CI, V);
     return nullptr;
 #if INTEL_CUSTOMIZATION
-  case Intrinsic::experimental_vector_reduce_and:
-  case Intrinsic::experimental_vector_reduce_or:
-  case Intrinsic::experimental_vector_reduce_xor: {
+  case Intrinsic::vector_reduce_and:
+  case Intrinsic::vector_reduce_or:
+  case Intrinsic::vector_reduce_xor: {
     // Pull sign/zero extend through vector reduce intrinsics to reduce
     // the maximum vector size needed.
     Value *X;

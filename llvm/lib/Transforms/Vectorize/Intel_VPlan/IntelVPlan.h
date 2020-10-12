@@ -2469,32 +2469,32 @@ public:
     switch (BinOpcode) {
     case Instruction::Add:
     case Instruction::Sub:
-      return Intrinsic::experimental_vector_reduce_add;
+      return Intrinsic::vector_reduce_add;
     case Instruction::FAdd:
     case Instruction::FSub:
-      return Intrinsic::experimental_vector_reduce_v2_fadd;
+      return Intrinsic::vector_reduce_fadd;
     case Instruction::Mul:
-      return Intrinsic::experimental_vector_reduce_mul;
+      return Intrinsic::vector_reduce_mul;
     case Instruction::FMul:
-      return Intrinsic::experimental_vector_reduce_v2_fmul;
+      return Intrinsic::vector_reduce_fmul;
     case Instruction::And:
-      return Intrinsic::experimental_vector_reduce_and;
+      return Intrinsic::vector_reduce_and;
     case Instruction::Or:
-      return Intrinsic::experimental_vector_reduce_or;
+      return Intrinsic::vector_reduce_or;
     case Instruction::Xor:
-      return Intrinsic::experimental_vector_reduce_xor;
+      return Intrinsic::vector_reduce_xor;
     case VPInstruction::UMin:
-      return Intrinsic::experimental_vector_reduce_umin;
+      return Intrinsic::vector_reduce_umin;
     case VPInstruction::SMin:
-      return Intrinsic::experimental_vector_reduce_smin;
+      return Intrinsic::vector_reduce_smin;
     case VPInstruction::UMax:
-      return Intrinsic::experimental_vector_reduce_umax;
+      return Intrinsic::vector_reduce_umax;
     case VPInstruction::SMax:
-      return Intrinsic::experimental_vector_reduce_smax;
+      return Intrinsic::vector_reduce_smax;
     case VPInstruction::FMax:
-      return Intrinsic::experimental_vector_reduce_fmax;
+      return Intrinsic::vector_reduce_fmax;
     case VPInstruction::FMin:
-      return Intrinsic::experimental_vector_reduce_fmin;
+      return Intrinsic::vector_reduce_fmin;
     default:
       llvm_unreachable("Vector reduction opcode not supported.");
     }

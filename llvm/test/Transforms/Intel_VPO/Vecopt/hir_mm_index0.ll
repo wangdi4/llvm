@@ -61,9 +61,9 @@
 ;CGCHECK-NEXT:           |   %red.var1 = (%.vec > %red.var) ? i1 + <i32 0, i32 1, i32 2, i32 3> : %red.var1;
 ;CGCHECK-NEXT:           |   %red.var = (%.vec > %red.var) ? %.vec : %red.var;
 ;CGCHECK-NEXT:           + END LOOP
-;CGCHECK:                %best.023 = @llvm.experimental.vector.reduce.smax.v4i32(%red.var);
+;CGCHECK:                %best.023 = @llvm.vector.reduce.smax.v4i32(%red.var);
 ;CGCHECK-NEXT:           %idx.blend = (%best.023 == %red.var) ? %red.var1 : <i32 2147483647, i32 2147483647, i32 2147483647, i32 2147483647>;
-;CGCHECK-NEXT:           %tmp.024 = @llvm.experimental.vector.reduce.smin.v4i32(%idx.blend);
+;CGCHECK-NEXT:           %tmp.024 = @llvm.vector.reduce.smin.v4i32(%idx.blend);
 ;CGCHECK-NEXT:        }
 ;CGCHECK:           + DO i1 = 4 * %tgu, %m + -1, 1   <DO_LOOP>  <MAX_TC_EST = 3> <nounroll> <novectorize> <max_trip_count = 3>
 ;CGCHECK-NEXT:        |   %0 = (%ordering)[i1];

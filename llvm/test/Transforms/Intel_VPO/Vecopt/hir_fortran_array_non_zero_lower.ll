@@ -19,7 +19,7 @@
 ; CHECK-NEXT:           %red.var = %.vec  +  %red.var;
 ; CHECK-NEXT:           %.vec = (<2 x double>*)(@mod1_mp_weight_)[0:0:4112([1 x [257 x [2 x double]]]*:0)][1:%"foo_$NG_fetch":4112([1 x [257 x [2 x double]]]:1)][0:<i64 0, i64 1> + 3:16([257 x [2 x double]]:257)][0:0:8([2 x double]:2)];
 ; CHECK-NEXT:           %red.var = %.vec  +  %red.var;
-; CHECK-NEXT:           %add10 = @llvm.experimental.vector.reduce.v2.fadd.f64.v2f64(%add10,  %red.var);
+; CHECK-NEXT:           %add10 = @llvm.vector.reduce.fadd.v2f64(%add10,  %red.var);
 ; CHECK-NEXT:     END REGION
 
 

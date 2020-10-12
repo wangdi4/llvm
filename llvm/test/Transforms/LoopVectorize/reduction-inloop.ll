@@ -1053,26 +1053,14 @@ define i8 @reduction_and_trunc(i8* noalias nocapture %A) {
 ; CHECK-NEXT:    br label [[VECTOR_BODY:%.*]]
 ; CHECK:       vector.body:
 ; CHECK-NEXT:    [[INDEX:%.*]] = phi i32 [ 0, [[VECTOR_PH]] ], [ [[INDEX_NEXT:%.*]], [[VECTOR_BODY]] ]
-<<<<<<< HEAD
 ; CHECK-NEXT:    [[VEC_PHI:%.*]] = phi i32 [ 255, [[VECTOR_PH]] ], [ [[TMP5:%.*]], [[VECTOR_BODY]] ]
 ; CHECK-NEXT:    [[TMP0:%.*]] = sext i32 [[INDEX]] to i64
 ; CHECK-NEXT:    [[TMP1:%.*]] = getelementptr inbounds i8, i8* [[A:%.*]], i64 [[TMP0]]
 ; CHECK-NEXT:    [[TMP2:%.*]] = bitcast i8* [[TMP1]] to <4 x i8>*
 ; CHECK-NEXT:    [[WIDE_LOAD:%.*]] = load <4 x i8>, <4 x i8>* [[TMP2]], align 4
-; CHECK-NEXT:    [[TMP3:%.*]] = call i8 @llvm.experimental.vector.reduce.and.v4i8(<4 x i8> [[WIDE_LOAD]])
+; CHECK-NEXT:    [[TMP3:%.*]] = call i8 @llvm.vector.reduce.and.v4i8(<4 x i8> [[WIDE_LOAD]])
 ; CHECK-NEXT:    [[TMP4:%.*]] = zext i8 [[TMP3]] to i32
 ; CHECK-NEXT:    [[TMP5]] = and i32 [[VEC_PHI]], [[TMP4]]
-=======
-; CHECK-NEXT:    [[VEC_PHI:%.*]] = phi i32 [ 255, [[VECTOR_PH]] ], [ [[TMP6:%.*]], [[VECTOR_BODY]] ]
-; CHECK-NEXT:    [[TMP0:%.*]] = and i32 [[VEC_PHI]], 255
-; CHECK-NEXT:    [[TMP1:%.*]] = sext i32 [[INDEX]] to i64
-; CHECK-NEXT:    [[TMP2:%.*]] = getelementptr inbounds i8, i8* [[A:%.*]], i64 [[TMP1]]
-; CHECK-NEXT:    [[TMP3:%.*]] = bitcast i8* [[TMP2]] to <4 x i8>*
-; CHECK-NEXT:    [[WIDE_LOAD:%.*]] = load <4 x i8>, <4 x i8>* [[TMP3]], align 4
-; CHECK-NEXT:    [[TMP4:%.*]] = zext <4 x i8> [[WIDE_LOAD]] to <4 x i32>
-; CHECK-NEXT:    [[TMP5:%.*]] = call i32 @llvm.vector.reduce.and.v4i32(<4 x i32> [[TMP4]])
-; CHECK-NEXT:    [[TMP6]] = and i32 [[TMP5]], [[TMP0]]
->>>>>>> 322d0afd875df66b36e4810a2b95c20a8f22ab9b
 ; CHECK-NEXT:    [[INDEX_NEXT]] = add i32 [[INDEX]], 4
 ; CHECK-NEXT:    [[TMP6:%.*]] = icmp eq i32 [[INDEX_NEXT]], 256
 ; CHECK-NEXT:    br i1 [[TMP6]], label [[MIDDLE_BLOCK:%.*]], label [[VECTOR_BODY]], !llvm.loop !38

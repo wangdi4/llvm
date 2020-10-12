@@ -39,7 +39,7 @@
 ; VEC-HIR-NEXT: <36:11>            |     %.vec7 = select fast i1 undef, <4 x float> undef, <4 x float> undef, !dbg !32
 ; VEC-HIR-NEXT: <37:11>            |     store <4 x float> undef, <4 x float>* undef, align 16, !dbg !29
 ; VEC-HIR-NEXT: <25:8>             + END LOOP
-; VEC-HIR-NEXT: <38:8>                  %vec.reduce = call i32 @llvm.experimental.vector.reduce.add.v4i32(<4 x i32> undef), !dbg !29
+; VEC-HIR-NEXT: <38:8>                  %vec.reduce = call i32 @llvm.vector.reduce.add.v4i32(<4 x i32> undef), !dbg !29
 ; VEC-HIR-NEXT: <0>          END REGION
 
 

@@ -3432,52 +3432,52 @@ void VPOCodeGen::vectorizeReductionFinal(VPReductionFinal *RedFinal) {
   // TODO: Need meaningful processing for Acc for FP reductions, and NoNan
   // parameter.
   switch (Intrin) {
-  case Intrinsic::experimental_vector_reduce_v2_fadd:
+  case Intrinsic::vector_reduce_fadd:
     assert(Acc && "Expected initial value");
     Ret = Builder.CreateFAddReduce(Acc, VecValue);
     Acc = nullptr;
     break;
-  case Intrinsic::experimental_vector_reduce_v2_fmul:
+  case Intrinsic::vector_reduce_fmul:
     assert(Acc && "Expected initial value");
     Ret = Builder.CreateFMulReduce(Acc, VecValue);
     Acc = nullptr;
     break;
-  case Intrinsic::experimental_vector_reduce_add:
+  case Intrinsic::vector_reduce_add:
     Ret = Builder.CreateAddReduce(VecValue);
     break;
-  case Intrinsic::experimental_vector_reduce_mul:
+  case Intrinsic::vector_reduce_mul:
     Ret = Builder.CreateMulReduce(VecValue);
     break;
-  case Intrinsic::experimental_vector_reduce_and:
+  case Intrinsic::vector_reduce_and:
     Ret = Builder.CreateAndReduce(VecValue);
     break;
-  case Intrinsic::experimental_vector_reduce_or:
+  case Intrinsic::vector_reduce_or:
     Ret = Builder.CreateOrReduce(VecValue);
     break;
-  case Intrinsic::experimental_vector_reduce_xor:
+  case Intrinsic::vector_reduce_xor:
     Ret = Builder.CreateXorReduce(VecValue);
     break;
-  case Intrinsic::experimental_vector_reduce_umax:
+  case Intrinsic::vector_reduce_umax:
     assert(!Acc && "Unexpected initial value");
     Ret = Builder.CreateIntMaxReduce(VecValue, false);
     break;
-  case Intrinsic::experimental_vector_reduce_smax:
+  case Intrinsic::vector_reduce_smax:
     assert(!Acc && "Unexpected initial value");
     Ret = Builder.CreateIntMaxReduce(VecValue, true);
     break;
-  case Intrinsic::experimental_vector_reduce_umin:
+  case Intrinsic::vector_reduce_umin:
     assert(!Acc && "Unexpected initial value");
     Ret = Builder.CreateIntMinReduce(VecValue, false);
     break;
-  case Intrinsic::experimental_vector_reduce_smin:
+  case Intrinsic::vector_reduce_smin:
     assert(!Acc && "Unexpected initial value");
     Ret = Builder.CreateIntMinReduce(VecValue, true);
     break;
-  case Intrinsic::experimental_vector_reduce_fmax:
+  case Intrinsic::vector_reduce_fmax:
     assert(!Acc && "Unexpected initial value");
     Ret = Builder.CreateFPMaxReduce(VecValue, /*NoNan*/ false);
     break;
-  case Intrinsic::experimental_vector_reduce_fmin:
+  case Intrinsic::vector_reduce_fmin:
     assert(!Acc && "Unexpected initial value");
     Ret = Builder.CreateFPMinReduce(VecValue, /*NoNaN*/ false);
     break;

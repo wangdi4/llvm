@@ -42,7 +42,7 @@
 ; CHECK-NEXT:    |   %red.var = %select;
 ; CHECK-NEXT:    + END LOOP
 
-; CHECK:         %tsum.015 = @llvm.experimental.vector.reduce.v2.fadd.f32.v4f32(%tsum.015,  %red.var);
+; CHECK:         %tsum.015 = @llvm.vector.reduce.fadd.v4f32(%tsum.015,  %red.var);
 ; CHECK-NEXT: }
 
 ; VPValue based CG checks for HIR
@@ -62,7 +62,7 @@
 ; VPCHECK-NEXT:  |   %red.var = %select;
 ; VPCHECK-NEXT:  + END LOOP
 
-; VPCHECK-NEXT:  %tsum.015 = @llvm.experimental.vector.reduce.v2.fadd.f32.v4f32(%tsum.015,  %red.var);
+; VPCHECK-NEXT:  %tsum.015 = @llvm.vector.reduce.fadd.v4f32(%tsum.015,  %red.var);
 ; VPCHECK-NEXT: }
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"

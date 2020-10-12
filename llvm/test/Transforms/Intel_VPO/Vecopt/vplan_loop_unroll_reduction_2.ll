@@ -111,7 +111,7 @@ define dso_local i32 @_Z3fooPii(i32* nocapture readonly %a, i32 %n) local_unname
 ; CHECK-NEXT:    br i1 [[TMP11]], label [[VPLANNEDBB0:%.*]], label [[VECTOR_BODY0]], !llvm.loop !0
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  VPlannedBB:
-; CHECK-NEXT:    [[TMP12:%.*]] = call i32 @llvm.experimental.vector.reduce.add.v2i32(<2 x i32> [[TMP7]])
+; CHECK-NEXT:    [[TMP12:%.*]] = call i32 @llvm.vector.reduce.add.v2i32(<2 x i32> [[TMP7]])
 ; CHECK-NEXT:    [[TMP13:%.*]] = mul i64 1, [[N_VEC0]]
 ; CHECK-NEXT:    [[TMP14:%.*]] = add i64 0, [[TMP13]]
 ; CHECK-NEXT:    br label [[MIDDLE_BLOCK0:%.*]]

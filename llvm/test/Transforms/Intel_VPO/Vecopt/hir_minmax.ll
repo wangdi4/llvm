@@ -60,7 +60,7 @@ define dso_local i64 @getmax(i64* noalias nocapture readonly %larr) local_unname
 ; CHECK-NEXT:          |   %.vec1 = %.vec  *  3;
 ; CHECK-NEXT:          |   %red.var = (%red.var > %.vec1 + 2) ? %red.var : %.vec1 + 2;
 ; CHECK-NEXT:          + END LOOP
-; CHECK-NEXT:             %max.012 = @llvm.experimental.vector.reduce.smax.v4i64(%red.var);
+; CHECK-NEXT:             %max.012 = @llvm.vector.reduce.smax.v4i64(%red.var);
 ; CHECK-NEXT:  END REGION
 ;
 entry:
@@ -141,7 +141,7 @@ define dso_local i64 @getmin(i64* noalias nocapture readonly %larr) local_unname
 ; CHECK-NEXT:          |   %red.var = (%red.var > %.vec1 + 2) ? %.vec1 + 2 : %red.var;
 ; CHECK-NEXT:          |   %inc.vec = i1 + <i64 0, i64 1, i64 2, i64 3>  +  1
 ; CHECK-NEXT:          + END LOOP
-; CHECK-NEXT:             %min.012 = @llvm.experimental.vector.reduce.smin.v4i64(%red.var);
+; CHECK-NEXT:             %min.012 = @llvm.vector.reduce.smin.v4i64(%red.var);
 ; CHECK:               %inc = extractelement %inc.vec,  3
 ; CHECK-NEXT:  END REGION
 ;
