@@ -4270,6 +4270,7 @@ const SCEV *ScalarEvolution::getUMinFromMismatchedTypes(
       MaxType = getWiderType(MaxType, S->getType());
     else
       MaxType = S->getType();
+  assert(MaxType && "Failed to find maximum type!");
 
   // Extend all ops to max type.
   SmallVector<const SCEV *, 2> PromotedOps;
