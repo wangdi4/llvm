@@ -979,6 +979,8 @@ cl_dev_err_code ProgramService::GetGlobalVariableTotalSize( cl_dev_program IN pr
 {
     CpuInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("GetGlobalVariableTotalSize enter"));
 
+    assert(nullptr != size && "size expected to be a valid pointer");
+
     // Return error if program was not built yet.
     TProgramEntry* pEntry = reinterpret_cast<TProgramEntry*>(prog);
     if( nullptr == pEntry )

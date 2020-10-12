@@ -432,11 +432,17 @@ cl_err_code DeviceProgram::GetBuildInfo(cl_program_build_info clParamName, size_
 
     case CL_PROGRAM_BUILD_GLOBAL_VARIABLE_TOTAL_SIZE:
         {
-            if (sizeof(size_t) > uiParamValueSize)
+            cl_dev_err_code clDevErr = CL_DEV_SUCCESS;
+            if (nullptr != pParamValue && sizeof(size_t) > uiParamValueSize)
             {
                 return CL_INVALID_VALUE;
             }
-            cl_dev_err_code clDevErr = m_pDevice->GetDeviceAgent()->clDevGetGlobalVariableTotalSize(m_programHandle, (size_t*)pParamValue);
+            if (nullptr != pParamValue)
+            {
+                clDevErr =
+                  m_pDevice->GetDeviceAgent()->clDevGetGlobalVariableTotalSize(
+                      m_programHandle, (size_t *)pParamValue);
+            }
             if CL_DEV_FAILED(clDevErr)
             {
                 if (CL_DEV_INVALID_PROGRAM == clDevErr)
