@@ -6270,10 +6270,6 @@ static void handleOneConstantPowerTwoValueAttr(Sema &S, Decl *D,
   if (checkAttrMutualExclusion<IntelFPGARegisterAttr>(S, D, Attr))
     return;
 
-<<<<<<< HEAD
-  S.AddOneConstantPowerTwoValueAttr<AttrType>(
-      D, Attr, Attr.getArgAsExpr(0));
-=======
   if (Attr.getKind() == ParsedAttr::AT_IntelFPGABankWidth &&
       checkDeprecatedSYCLAttributeSpelling(S, Attr))
     S.Diag(Attr.getLoc(), diag::note_spelling_suggestion)
@@ -6283,8 +6279,8 @@ static void handleOneConstantPowerTwoValueAttr(Sema &S, Decl *D,
     S.Diag(Attr.getLoc(), diag::note_spelling_suggestion)
         << "'intel::numbanks'";
 
-  S.AddOneConstantPowerTwoValueAttr<AttrType>(D, Attr, Attr.getArgAsExpr(0));
->>>>>>> 5949228db82d25fd4130c4a532227bb3e57cb45b
+  S.AddOneConstantPowerTwoValueAttr<AttrType>(
+      D, Attr, Attr.getArgAsExpr(0));
 }
 
 static void handleIntelFPGASimpleDualPortAttr(Sema &S, Decl *D,
@@ -6488,17 +6484,12 @@ static void handleIntelFPGAPrivateCopiesAttr(Sema &S, Decl *D,
   if (checkAttrMutualExclusion<IntelFPGARegisterAttr>(S, D, Attr))
     return;
 
-<<<<<<< HEAD
-  S.AddOneConstantValueAttr<IntelFPGAPrivateCopiesAttr>(D, Attr,
-                                                        Attr.getArgAsExpr(0));
-=======
   if (checkDeprecatedSYCLAttributeSpelling(S, Attr))
     S.Diag(Attr.getLoc(), diag::note_spelling_suggestion)
         << "'intel::private_copies'";
 
   S.AddOneConstantValueAttr<IntelFPGAPrivateCopiesAttr>(
       D, Attr, Attr.getArgAsExpr(0));
->>>>>>> 5949228db82d25fd4130c4a532227bb3e57cb45b
 }
 
 static void handleIntelFPGAForcePow2DepthAttr(Sema &S, Decl *D,

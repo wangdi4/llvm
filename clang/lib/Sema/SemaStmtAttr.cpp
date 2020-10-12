@@ -157,14 +157,6 @@ static Attr *handleIntelFPGALoopAttr(Sema &S, const ParsedAttr &A) {
     }
   }
 
-<<<<<<< HEAD
-#if INTEL_CUSTOMIZATION
-  if (A.getSyntax() == AttributeCommonInfo::AS_Pragma)
-    return S.BuildSYCLIntelFPGALoopAttr<FPGALoopAttrT>(
-        A, A.getArgAsExpr(3));
-  else
-#endif // INTEL_CUSTOMIZATION
-=======
   if (A.getKind() == ParsedAttr::AT_SYCLIntelFPGAII &&
       checkDeprecatedSYCLLoopAttributeSpelling(S, A)) {
     S.Diag(A.getLoc(), diag::note_spelling_suggestion) << "'intel::ii'";
@@ -190,7 +182,12 @@ static Attr *handleIntelFPGALoopAttr(Sema &S, const ParsedAttr &A) {
         << "'intel::loop_coalesce'";
   }
 
->>>>>>> 5949228db82d25fd4130c4a532227bb3e57cb45b
+#if INTEL_CUSTOMIZATION
+  if (A.getSyntax() == AttributeCommonInfo::AS_Pragma)
+    return S.BuildSYCLIntelFPGALoopAttr<FPGALoopAttrT>(
+        A, A.getArgAsExpr(3));
+  else
+#endif // INTEL_CUSTOMIZATION
   return S.BuildSYCLIntelFPGALoopAttr<FPGALoopAttrT>(
       A, A.getNumArgs() ? A.getArgAsExpr(0) : nullptr);
 }

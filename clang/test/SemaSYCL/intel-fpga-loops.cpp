@@ -13,28 +13,17 @@ void foo() {
 
   int arr[10];
   // expected-error@+1 {{intelfpga loop attributes must be applied to for, while, or do statements}}
-<<<<<<< HEAD
-  [[intelfpga::ivdep(arr)]] int e[10];
- // expected-error@+1 {{intelfpga loop attributes must be applied to for, while, or do statements}}
-  [[intelfpga::disable_loop_pipelining]] int g[10];
-=======
   [[intel::ivdep(arr)]] int e[10];
   // expected-error@+1 {{intelfpga loop attributes must be applied to for, while, or do statements}}
   [[intel::ivdep(arr, 2)]] int f[10];
 
   // expected-error@+1 {{intelfpga loop attributes must be applied to for, while, or do statements}}
   [[intel::disable_loop_pipelining]] int g[10];
->>>>>>> 5949228db82d25fd4130c4a532227bb3e57cb45b
   // expected-error@+1 {{intelfpga loop attributes must be applied to for, while, or do statements}}
   [[intel::loop_coalesce(2)]] int h[10];
   // expected-error@+1 {{intelfpga loop attributes must be applied to for, while, or do statements}}
   [[intel::max_interleaving(4)]] int i[10];
   // expected-error@+1 {{intelfpga loop attributes must be applied to for, while, or do statements}}
-<<<<<<< HEAD
-  [[intelfpga::speculated_iterations(6)]] int j[10];
-  // expected-error@+1 {{intelfpga loop attributes must be applied to for, while, or do statements}}
-  [[intelfpga::ivdep(arr, 2)]] int f[10];
-=======
   [[intel::speculated_iterations(6)]] int j[10];
 }
 
@@ -75,7 +64,6 @@ void foo_deprecated() {
   // expected-note@+1 {{did you mean to use 'intel::speculated_iterations' instead?}}
   [[intelfpga::speculated_iterations(6)]] for (int i = 0; i != 10; ++i)
       a[i] = 0;
->>>>>>> 5949228db82d25fd4130c4a532227bb3e57cb45b
 }
 
 // Test for incorrect number of arguments for Intel FPGA loop attributes
@@ -159,17 +147,11 @@ void goo() {
   [[intel::ivdep("test123")]] for (int i = 0; i != 10; ++i)
       a[i] = 0;
   // expected-error@+1 {{'ii' attribute requires an integer constant}}
-<<<<<<< HEAD
-  [[intelfpga::ii("test123")]]
-  for (int i = 0; i != 10; ++i)
-    a[i] = 0;
-=======
   [[intel::ii("test123")]] for (int i = 0; i != 10; ++i)
       a[i] = 0;
   // expected-error@+1 {{'max_concurrency' attribute requires an integer constant}}
   [[intel::max_concurrency("test123")]] for (int i = 0; i != 10; ++i)
       a[i] = 0;
->>>>>>> 5949228db82d25fd4130c4a532227bb3e57cb45b
   // expected-error@+1 {{'loop_coalesce' attribute requires an integer constant}}
   [[intel::loop_coalesce("test123")]] for (int i = 0; i != 10; ++i)
       a[i] = 0;
@@ -179,10 +161,6 @@ void goo() {
   // expected-error@+1 {{'speculated_iterations' attribute requires an integer constant}}
   [[intel::speculated_iterations("test123")]] for (int i = 0; i != 10; ++i)
       a[i] = 0;
-  // expected-error@+1 {{'max_concurrency' attribute requires an integer constant}}
-  [[intelfpga::max_concurrency("test123")]]
-  for (int i = 0; i != 10; ++i)
-    a[i] = 0;
   // expected-error@+1 {{unknown argument to 'ivdep'. Expected integer or array variable}}
   [[intel::ivdep("test123")]] for (int i = 0; i != 10; ++i)
       a[i] = 0;
