@@ -921,6 +921,9 @@ public:
   /// then the lookup falls back to non-OpenMP specific lookup on the device.
   void *getOffloadVarDeviceAddr(
       int32_t DeviceId, const char *Name, size_t Size);
+
+  /// Initialize program data on device
+  int32_t initProgramData(int32_t DeviceId);
 };
 
 /// Libomptarget-defined handler and argument.
@@ -1136,64 +1139,31 @@ static int32_t copyData(int32_t DeviceId, void *Dest, void *Src, size_t Size,
 }
 
 /// Initialize module data
-static int32_t initModule(int32_t DeviceId) {
+int32_t RTLDeviceInfoTy::initProgramData(int32_t DeviceId) {
   // Prepare host data to copy
   ModuleDataTy hostData = {
-    1,                               // Initialized
-    (int32_t)DeviceInfo->NumDevices, // Number of devices
-    DeviceId                         // Device ID
+    1,                   // Initialized
+    (int32_t)NumDevices, // Number of devices
+    DeviceId             // Device ID
   };
 
-  // Prepare device data location
-  auto context = DeviceInfo->Context;
-  void *deviceData = nullptr;
+  // Look up program data location on device
+  void *dataPtr = getVarDeviceAddr(DeviceId, "__omp_spirv_program_data",
+                  sizeof(hostData));
+  if (!dataPtr) {
+    IDP("Warning: cannot find module data location on device.\n");
+    return OFFLOAD_SUCCESS;
+  }
 
-  std::unique_lock<std::mutex> kernelLock(DeviceInfo->Mutexes[DeviceId]);
-
-  if (DeviceInfo->Flags.UseMemoryPool)
-    deviceData = DeviceInfo->PagePools[DeviceId].allocate(sizeof(hostData));
-
-  if (!deviceData)
-    deviceData = __tgt_rtl_data_alloc_explicit(
-        DeviceId, sizeof(hostData), DeviceInfo->TargetAllocKind);
-
-  // Prepare kernel to initialize data
-  ze_kernel_desc_t kernelDesc = {
-    ZE_STRUCTURE_TYPE_KERNEL_DESC,
-    nullptr, // extension
-    0, // flags
-    "__kmpc_init_program"
-  };
-  auto module = DeviceInfo->FuncGblEntries[DeviceId].Modules[0];
-  ze_kernel_handle_t initKernel;
-  CALL_ZE_RET_FAIL(zeKernelCreate, module, &kernelDesc, &initKernel);
-  CALL_ZE_RET_FAIL(zeKernelSetArgumentValue, initKernel, 0, sizeof(deviceData),
-                   &deviceData);
-  ze_group_count_t groupCounts = {1, 1, 1};
-  CALL_ZE_RET_FAIL(zeKernelSetGroupSize, initKernel, 1, 1, 1);
-
-  // Copy data
-  int32_t rc = copyData(DeviceId, deviceData, &hostData, sizeof(hostData),
-                        kernelLock);
-  if (rc != OFFLOAD_SUCCESS)
-    return OFFLOAD_FAIL;
-
-  // Invoke the kernel
-  auto cmdList = DeviceInfo->getCmdList(DeviceId);
-  auto cmdQueue = DeviceInfo->getCmdQueue(DeviceId);
-  CALL_ZE_RET_FAIL(zeCommandListAppendLaunchKernel, cmdList, initKernel,
-                   &groupCounts, nullptr, 0, nullptr);
-  CALL_ZE_RET_FAIL(zeCommandListAppendBarrier, cmdList, nullptr, 0, nullptr);
+  auto cmdList = getCmdList(DeviceId);
+  auto cmdQueue = getCmdQueue(DeviceId);
+  CALL_ZE_RET_FAIL(zeCommandListAppendMemoryCopy, cmdList, dataPtr, &hostData,
+                   sizeof(hostData), nullptr, 0, nullptr);
   CALL_ZE_RET_FAIL(zeCommandListClose, cmdList);
   CALL_ZE_RET_FAIL(zeCommandQueueExecuteCommandLists, cmdQueue, 1, &cmdList,
                    nullptr);
   CALL_ZE_RET_FAIL(zeCommandQueueSynchronize, cmdQueue, UINT64_MAX);
   CALL_ZE_RET_FAIL(zeCommandListReset, cmdList);
-  CALL_ZE_RET_FAIL(zeKernelDestroy, initKernel);
-  if (!DeviceInfo->Flags.UseMemoryPool) {
-    MEMSTAT_UPDATE(DeviceId, context, 0, deviceData);
-    CALL_ZE_RET_FAIL(zeMemFree, context, deviceData);
-  }
 
   return OFFLOAD_SUCCESS;
 }
@@ -1564,7 +1534,7 @@ __tgt_target_table *__tgt_rtl_load_binary(int32_t DeviceId,
     // TODO: show kernel information
   }
 
-  if (initModule(DeviceId) != OFFLOAD_SUCCESS)
+  if (DeviceInfo->initProgramData(DeviceId) != OFFLOAD_SUCCESS)
     return nullptr;
   __tgt_target_table &table = DeviceInfo->FuncGblEntries[DeviceId].Table;
   table.EntriesBegin = &(entries.data()[0]);
