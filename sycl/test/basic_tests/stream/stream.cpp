@@ -1,7 +1,4 @@
-<<<<<<< HEAD
 
-=======
->>>>>>> d73cab4dc04b1484ac8df704f98d68eb6ac79ef0
 // RUN: %clangxx -fsycl -fsycl-targets=%sycl_triple %s -o %t.out
 // RUN: env SYCL_DEVICE_TYPE=HOST %t.out | FileCheck %s
 // RUN: %CPU_RUN_PLACEHOLDER %t.out %CPU_CHECK_PLACEHOLDER
