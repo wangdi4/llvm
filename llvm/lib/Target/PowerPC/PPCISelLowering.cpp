@@ -11040,6 +11040,10 @@ void PPCTargetLowering::ReplaceNodeResults(SDNode *N,
       Results.push_back(Lowered);
     return;
   }
+  case ISD::FSHL:
+  case ISD::FSHR:
+    // Don't handle funnel shifts here.
+    return;
   case ISD::BITCAST:
     // Don't handle bitcast here.
     return;
@@ -16076,8 +16080,9 @@ bool PPCTargetLowering::decomposeMulByConstant(LLVMContext &Context, EVT VT,
     Imm >>= Shift;
     if (isInt<16>(Imm))
       return false;
-    if (isPowerOf2_64(Imm + 1) || isPowerOf2_64(Imm - 1) ||
-        isPowerOf2_64(1 - Imm) || isPowerOf2_64(-1 - Imm))
+    uint64_t UImm = static_cast<uint64_t>(Imm);
+    if (isPowerOf2_64(UImm + 1) || isPowerOf2_64(UImm - 1) ||
+        isPowerOf2_64(1 - UImm) || isPowerOf2_64(-1 - UImm))
       return true;
   }
   return false;
