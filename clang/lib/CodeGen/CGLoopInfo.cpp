@@ -595,6 +595,11 @@ MDNode *LoopInfo::createMetadata(
                           ConstantAsMetadata::get(ConstantInt::get(
                               llvm::Type::getInt1Ty(Ctx), true))}));
   }
+   if (Attrs.VectorizeAlignedEnable) {
+    LLVMContext &Ctx = Header->getContext();
+    Metadata *Vals[] = {MDString::get(Ctx, "llvm.loop.intel.vector.aligned")};
+    LoopProperties.push_back(MDNode::get(Ctx, Vals));
+  }
   // Setting loop_count count
   if (Attrs.LoopCount.size() > 0) {
     LLVMContext &Ctx = Header->getContext();
@@ -715,8 +720,9 @@ LoopAttributes::LoopAttributes(bool IsParallel)
       MinIIAtTargetFmaxEnable(false),
       ForceHyperoptEnable(LoopAttributes::Unspecified),
       FusionEnable(LoopAttributes::Unspecified), IVDepLoop(false),
-      IVDepBack(false), VectorizeAlwaysEnable(false), LoopCountMin(0),
-      LoopCountMax(0), LoopCountAvg(0),
+      IVDepBack(false), VectorizeAlwaysEnable(false),
+      VectorizeAlignedEnable(false), LoopCountMin(0), LoopCountMax(0),
+      LoopCountAvg(0),
 #endif // INTEL_CUSTOMIZATION
       UnrollEnable(LoopAttributes::Unspecified),
       UnrollAndJamEnable(LoopAttributes::Unspecified),
@@ -745,6 +751,7 @@ void LoopAttributes::clear() {
   IVDepLoop = false;
   IVDepBack = false;
   VectorizeAlwaysEnable = false;
+  VectorizeAlignedEnable = false;
   LoopCount.clear();
   LoopCountMin = 0;
   LoopCountMax = 0;
@@ -797,6 +804,7 @@ LoopInfo::LoopInfo(BasicBlock *Header, const LoopAttributes &Attrs,
       !Attrs.IVDepHLSIntelEnable && !Attrs.IVDepLoop && !Attrs.IVDepBack &&
       Attrs.FusionEnable == LoopAttributes::Unspecified &&
       !Attrs.VectorizeAlwaysEnable && Attrs.LoopCount.size() == 0 &&
+      !Attrs.VectorizeAlignedEnable &&
       Attrs.LoopCountMin == 0 && Attrs.LoopCountMax == 0 &&
       Attrs.LoopCountAvg == 0 &&
 #endif // INTEL_CUSTOMIZATION
@@ -1006,6 +1014,7 @@ void LoopInfoStack::push(BasicBlock *Header, clang::ASTContext &Ctx,
       case LoopHintAttr::IIAtLeast:
       case LoopHintAttr::MinIIAtFmax:
       case LoopHintAttr::VectorizeAlways:
+      case LoopHintAttr::VectorizeAligned:
       case LoopHintAttr::LoopCount:
       case LoopHintAttr::LoopCountMax:
       case LoopHintAttr::LoopCountMin:
@@ -1067,6 +1076,9 @@ void LoopInfoStack::push(BasicBlock *Header, clang::ASTContext &Ctx,
       case LoopHintAttr::VectorizeAlways:
         setVectorizeAlwaysEnable();
         break;
+      case LoopHintAttr::VectorizeAligned:
+        setVectorizeAlignedEnable();
+        break;
       case LoopHintAttr::IIAtMost:
       case LoopHintAttr::IIAtLeast:
       case LoopHintAttr::LoopCount:
@@ -1104,6 +1116,7 @@ void LoopInfoStack::push(BasicBlock *Header, clang::ASTContext &Ctx,
       case LoopHintAttr::ForceHyperopt:
       case LoopHintAttr::Fusion:
       case LoopHintAttr::VectorizeAlways:
+      case LoopHintAttr::VectorizeAligned:
       case LoopHintAttr::LoopCount:
       case LoopHintAttr::LoopCountMin:
       case LoopHintAttr::LoopCountMax:
@@ -1145,6 +1158,7 @@ void LoopInfoStack::push(BasicBlock *Header, clang::ASTContext &Ctx,
       case LoopHintAttr::IVDepBack:
       case LoopHintAttr::IVDepHLSIntel:
       case LoopHintAttr::VectorizeAlways:
+      case LoopHintAttr::VectorizeAligned:
       case LoopHintAttr::LoopCount:
       case LoopHintAttr::LoopCountMin:
       case LoopHintAttr::LoopCountMax:
@@ -1211,6 +1225,7 @@ void LoopInfoStack::push(BasicBlock *Header, clang::ASTContext &Ctx,
       case LoopHintAttr::IVDepBack:
       case LoopHintAttr::IVDepHLSIntel:
       case LoopHintAttr::VectorizeAlways:
+      case LoopHintAttr::VectorizeAligned:
 #endif // INTEL_CUSTOMIZATION
       case LoopHintAttr::Unroll:
       case LoopHintAttr::UnrollAndJam:
@@ -1249,6 +1264,7 @@ void LoopInfoStack::push(BasicBlock *Header, clang::ASTContext &Ctx,
       case LoopHintAttr::IVDepBack:
       case LoopHintAttr::IVDepHLSIntel:
       case LoopHintAttr::VectorizeAlways:
+      case LoopHintAttr::VectorizeAligned:
       case LoopHintAttr::LoopCount:
       case LoopHintAttr::LoopCountMax:
       case LoopHintAttr::LoopCountMin:

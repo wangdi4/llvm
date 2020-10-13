@@ -3937,7 +3937,7 @@ def LoopHint : Attr {
                            "min_ii_at_target_fmax",
                            "force_hyperopt",
                            "distribute_point", "fusion",
-                           "novector", "always",
+                           "novector", "always", "aligned",
                            "loop_count", "max", "min", "avg"],
 // end INTEL_CUSTOMIZATION
                           ["Vectorize", "VectorizeWidth", "Interleave", "InterleaveCount",
@@ -3950,7 +3950,7 @@ def LoopHint : Attr {
                            "IVDepHLS", "IVDepHLSIntel",
                            "IIAtMost", "IIAtLeast", "MinIIAtFmax",
                            "ForceHyperopt", "Distribute", "Fusion", "Vectorize",
-                           "VectorizeAlways", "LoopCount",
+                           "VectorizeAlways", "VectorizeAligned", "LoopCount",
                            "LoopCountMax", "LoopCountMin","LoopCountAvg"]>,
 // end INTEL_CUSTOMIZATION
               EnumArgument<"State", "LoopHintState",
@@ -3978,6 +3978,7 @@ def LoopHint : Attr {
     case VectorizePredicate: return "vectorize_predicate";
 // INTEL_CUSTOMIZATION
     case VectorizeAlways: return "vectorize_always";
+    case VectorizeAligned: return "vectorize_aligned";
     case LoopCount: return "loop_count";
     case LoopCountMin: return "loop_count min";
     case LoopCountMax: return "loop_count max";

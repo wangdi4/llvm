@@ -703,7 +703,11 @@ Syntax:
 
 ``pragma vector`` with no other keyword will do nothing.
 
-Currently we only support ``pragma vector`` with no keywords or with 'always'.
+Currently we only support ``pragma vector``, ``pragma vector always`` and
+``pragma vector aligned``.
+When the 'aligned' keyword is used, it indicates to the compiler that the loop
+should be vectorized using aligned data movement instructions for all array
+references inside the loop.
 
 Example:
 
@@ -713,6 +717,8 @@ Example:
     #pragma vector
     for(int j=lb; j<ub; j++) { a[j]=a[j]+b[j]; }
     #pragma vector always
+    for(int j=lb; j<ub; j++) { a[j]=a[j]+b[j]; }
+    #pragma vector aligned
     for(int j=lb; j<ub; j++) { a[j]=a[j]+b[j]; }
   }
 
@@ -724,23 +730,27 @@ AST:
 
 .. code-block:: text
 
-  AttributedStmt 0xed8d0f0 <<invalid sloc>, line:3:46>
-  | |-LoopHintAttr 0xed8d0c8 <line:2:11> Implicit vector Vectorize Enable
+  AttributedStmt 0x2d888a36e48 <line:2:11, line:3:46>
+  | |-LoopHintAttr 0x2d888a36e08 <line:2:11> Implicit vector Vectorize Enable
   | | |-<<<NULL>>>
   | | `-<<<NULL>>>
   | `-ForStmt 0xed8d090 <line:3:3, col:46>
 
-  AttributedStmt 0xed8d628 <<invalid sloc>, line:5:46>
-  |-LoopHintAttr 0xed8d5d8 <line:4:11> Implicit vector Vectorize Enable
-  | |-<<<NULL>>>
-  | `-<<<NULL>>>
-  |-LoopHintAttr 0xed8d600 <col:11> Implicit vector VectorizeAlways Enable
+  AttributedStmt 0x2d888a372c8 <line:4:11, line:5:46>
+  |-LoopHintAttr 0x2d888a37288 <line:4:11> Implicit vector VectorizeAlways Enable
   | |-<<<NULL>>>
   | `-<<<NULL>>>
   `-ForStmt 0xed8d5a0 <line:5:3, col:46>
 
-Note than ``#pragma vector always`` will be represented as two LoopHint
-attributes.
+  AttributedStmt 0x2d888a37748 <line:6:11, line:7:46>
+  |-LoopHintAttr 0x2d888a37708 <line:6:11> Implicit vector VectorizeAligned Enable
+  | |-<<<NULL>>>
+  | `-<<<NULL>>>
+
+
+Note that ``#pragma vector always`` and ``#pragma vector aligned`` are
+represented as two LoopHint attributes.
+
 
 IR:
 
@@ -750,11 +760,15 @@ IR:
 
 .. code-block:: llvm
 
-  br label %for.cond, !llvm.loop !3
+  br label %for.cond6, !llvm.loop !2
+  br label %for.cond20, !llvm.loop !5
 
-  !3 = distinct !{!3, !4, !5}
-  !4 = !{!"llvm.loop.vectorize.ignore_profitability"}
-  !5 = !{!"llvm.loop.vectorize.enable", i1 true}
+  !2 = distinct !{!2, !3, !4}
+  !3 = !{!"llvm.loop.vectorize.ignore_profitability"}
+  !4 = !{!"llvm.loop.vectorize.enable", i1 true}
+  !5 = distinct !{!5, !6}
+  !6 = !{!"llvm.loop.intel.vector.aligned"}
+
   }];
   let UserContent = [{
 Accept #pragma vector - indicates a loop should be vectorized according to the
