@@ -35,3 +35,8 @@
 // RUN:  | FileCheck -check-prefix=LIBGCC_S %s
 // LIBGCC_S: "-lgcc_s"
 // LIBGCC_S-NOT: "--as-needed" "-lgcc_s" "--no-as-needed"
+
+// -traceback for Windows requires -incremental:no
+// RUN: %clang_cl -### -traceback -target x86_64-windows-msvc %s 2>&1 \
+// RUN:  | FileCheck --check-prefix TRACEBACK_LINK %s
+// TRACEBACK_LINK: "-incremental:no"
