@@ -55,6 +55,10 @@ static bool isPtrToPtr(const DTransType *Ty) {
   return Ty->isPointerTy() && Ty->getPointerElementType()->isPointerTy();
 }
 
+// Type used for callback function for reporting additional details in the debug
+// trace messages when setting safety flags.
+using SafetyInfoReportCB = std::function<void()>;
+
 // This class is responsible for analyzing the LLVM IR using information
 // collected by the PtrTypeAnalyzer class to mark the DTrans safety bits on the
 // TypeInfo objects managed by the DTransSafetyInfo class. This will also
@@ -1799,6 +1803,16 @@ public:
       if (SpecialArguments.count(Param))
         continue;
 
+      // Callback method to report specific parameter that is triggering the
+      // safety flag. This callback will be invoked when a safety flag is being
+      // set, and debug trace filtering is enabled for the function being
+      // analyzed.
+      auto DumpCallback = [Param, ArgNum]() {
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+        dbgs() << "  Arg#" << ArgNum << ": " << *Param << "\n";
+#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+      };
+
       // The pointer type analyzer should have collected value type info for all
       // parameters that are types of interest. If there is no info, then it
       // must not be a parameter of interest.
@@ -1813,7 +1827,7 @@ public:
         setAllAliasedTypeSafetyData(ParamInfo, dtrans::UnhandledUse,
                                     "PointerTypeAnalyzer could not resolve all "
                                     "potential types for pointer",
-                                    &Call);
+                                    &Call, DumpCallback);
       }
 
       if (ParamInfo->pointsToSomeElement())
@@ -1833,7 +1847,7 @@ public:
             ParentStInfo->getField(Idx).setAddressTaken();
             setBaseTypeInfoSafetyData(
                 PointeePair.first, dtrans::FieldAddressTaken,
-                "Address of member passed to function", &Call);
+                "Address of member passed to function", &Call, DumpCallback);
           }
         }
 
@@ -1842,7 +1856,8 @@ public:
       if (!FuncExpectedDTransTy) {
         setAllAliasedTypeSafetyData(
             ParamInfo, dtrans::UnhandledUse,
-            "Unable to determine expected type for function", &Call);
+            "Unable to determine expected type for function", &Call,
+            DumpCallback);
         continue;
       }
 
@@ -1855,7 +1870,8 @@ public:
         if (!ArgExpectedDTransTy) {
           setAllAliasedTypeSafetyData(
               ParamInfo, dtrans::UnhandledUse,
-              "Unable to determine expected type for function argument", &Call);
+              "Unable to determine expected type for function argument", &Call,
+              DumpCallback);
           continue;
         }
       }
@@ -1880,7 +1896,8 @@ public:
       // Mark HasCppHandling on any aggregate pointer passed via InvokeInst.
       if (IsInvoke)
         setAllAliasedTypeSafetyData(ParamInfo, dtrans::HasCppHandling,
-                                    "Type returned by invoke call", &Call);
+                                    "Type passed to invoke call", &Call,
+                                    DumpCallback);
 
       if (IsVarArgParam) {
         // TODO: Add checking of whether the argument is used in the called
@@ -1888,7 +1905,7 @@ public:
         // this less conservative.
         setAllAliasedTypeSafetyData(
             ParamInfo, dtrans::UnhandledUse,
-            "Type passed in vararg parameter to function", &Call);
+            "Type passed in vararg parameter to function", &Call, DumpCallback);
         continue;
       }
 
@@ -1913,7 +1930,7 @@ public:
           setAllAliasedTypeSafetyData(
               ParamInfo, dtrans::AddressTaken,
               "Type passed to pointer-sized int argument of local function",
-              &Call);
+              &Call, DumpCallback);
           continue;
         }
 
@@ -1926,13 +1943,10 @@ public:
           // TODO: Check whether the i8* argument usage type in the callee match
           // the dominant type of the parameter because in those cases there is
           // no need to set the MismatchedArgUse safety flag.
-          DEBUG_WITH_TYPE_P(
-              FNFilter, SAFETY_VERBOSE,
-              dbgs() << "Argument that aliases aggregate used as i8* for arg#"
-                     << ArgNum << "\n");
           setAllAliasedTypeSafetyData(
               ParamInfo, dtrans::MismatchedArgUse,
-              "Type passed to i8* argument of local function", &Call);
+              "Type passed to i8* argument of local function", &Call,
+              DumpCallback);
 
           // The safety data also needs to be set on the types aliases within
           // the callee, because the ValueTypeInfo for the parameter only knows
@@ -1943,7 +1957,8 @@ public:
                  "Expected pointer type analyzer to analyze pointer");
           setAllAliasedTypeSafetyData(
               ArgInfo, dtrans::MismatchedArgUse,
-              "Type passed to i8* argument of local function", &Call);
+              "Type passed to i8* argument of local function", &Call,
+              DumpCallback);
           continue;
         }
 
@@ -1953,7 +1968,7 @@ public:
 
         setAllAliasedTypeSafetyData(ParamInfo, dtrans::BadCasting,
                                     "Incorrect type passed to local function",
-                                    &Call);
+                                    &Call, DumpCallback);
 
         // End of processing of values passed to locally defined functions.
         continue;
@@ -1964,7 +1979,8 @@ public:
       if (!DomTy) {
         setAllAliasedTypeSafetyData(
             ParamInfo, dtrans::BadCasting,
-            "Ambiguous type passed to indirect function", &Call);
+            "Ambiguous type passed to indirect or non-local function", &Call,
+            DumpCallback);
       }
 
       if (IsIndirect) {
@@ -1981,7 +1997,7 @@ public:
         // For now, conservatively set AddressTaken for any indirect call.
         setAllAliasedTypeSafetyData(ParamInfo, dtrans::AddressTaken,
                                     "Type passed to indirect function call",
-                                    &Call);
+                                    &Call, DumpCallback);
         continue;
       }
 
@@ -1995,7 +2011,8 @@ public:
       // 0, i32 0" needs special handling to only mark the type with "Field
       // Address Taken" and not "Address taken"
       setAllAliasedTypeSafetyData(ParamInfo, dtrans::UnhandledUse,
-                                  "Type passed to non-local function", &Call);
+                                  "Type passed to non-local function", &Call,
+                                  DumpCallback);
     }
   }
 
@@ -2573,7 +2590,8 @@ private:
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   void printSafetyDataDebugMessage(dtrans::SafetyData Data, StringRef Reason,
-                                   Value *V, ValueTypeInfo *Info) {
+                                   Value *V, ValueTypeInfo *Info,
+                                   SafetyInfoReportCB Callback) {
     DEBUG_WITH_TYPE_P(FNFilter, SAFETY_VERBOSE, {
       if (!Reason.empty()) {
         dbgs() << "dtrans-safety: " << getSafetyDataName(Data) << " -- "
@@ -2588,6 +2606,8 @@ private:
             dbgs() << "  [" << F->getName() << "] ";
           dbgs() << *V << "\n";
         }
+        if (Callback)
+          Callback();
         if (Info)
           Info->print(dbgs(), /*Combined=*/false, "    ");
       }
@@ -2598,35 +2618,64 @@ private:
   // This function will identify the aggregate type corresponding to 'Ty',
   // allowing for levels of pointer indirection, and set the SafetyData on the
   // type. Nested and referenced types within the aggregate may also be set
-  // based on the pointer-carried and cascading safety data rules. 'Reason' and
-  // 'V' are optional parameters that provide for debug traces.
+  // based on the pointer-carried and cascading safety data rules.
+  // 'Reason' and 'V' are optional parameters (i.e. may be empty or nullptr)
+  // that provide information for the debug traces.
+  // 'Callback' is an optional callback function that can be used to report
+  // additional information about the safety check than just the reason and
+  // value. For example, a safety flag set on a parameter of a call may have a
+  // callback function to additionally report the argument and argument
+  // position. This function will only be called when the debug traces are
+  // enabled for the function being analyzed.
+  // TODO: Combine 'Reason', 'V' and 'Callback' into single class that can
+  // be passed around, and more easily customized for information dumped based
+  // on context.
   void setBaseTypeInfoSafetyData(DTransType *Ty, dtrans::SafetyData Data,
-                                 StringRef Reason, Value *V) {
+                                 StringRef Reason, Value *V,
+                                 SafetyInfoReportCB Callback = nullptr) {
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-    printSafetyDataDebugMessage(Data, Reason, V, nullptr);
+    printSafetyDataDebugMessage(Data, Reason, V, nullptr, Callback);
 #endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
     setBaseTypeInfoSafetyDataImpl(Ty, Data, isCascadingSafetyCondition(Data),
                                   isPointerCarriedSafetyCondition(Data));
   }
 
   // Set the safety data on all the aliased types of 'PtrInfo'
-  // 'Reason' and 'V' are optional parameters that provide for debug traces.
+  // 'Reason' and 'V' are optional parameters (i.e. may be empty or nullptr)
+  // that provide information for the debug traces.
+  // 'Callback' is an optional callback function that can be used to report
+  // additional information about the safety check than just the reason and
+  // value. For example, a safety flag set on a parameter of a call, may have a
+  // callback function to additionally report the argument and argument
+  // position. This function will only be called when the debug traces are
+  // enabled for the function being analyzed.
   void setAllAliasedTypeSafetyData(ValueTypeInfo *PtrInfo,
                                    dtrans::SafetyData Data, StringRef Reason,
-                                   Value *V) {
+                                   Value *V,
+                                   SafetyInfoReportCB Callback = nullptr) {
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-    printSafetyDataDebugMessage(Data, Reason, V, PtrInfo);
+    printSafetyDataDebugMessage(Data, Reason, V, PtrInfo, Callback);
 #endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
     setAliasedOrPointeeTypeSafetyDataImpl(PtrInfo, Data, /*Aliases=*/true,
                                           /*Pointees=*/false);
   }
 
-  // 'Reason' and 'V' are optional parameters that provide for debug traces.
-  void setAllElementPointeeSafetyData(ValueTypeInfo *PtrInfo,
-                                      dtrans::SafetyData Data, StringRef Reason,
-                                      Value *V) {
+  // Set the safety data for only the aggregate types referenced in the
+  // ElementPointees list of 'PtrInfo'.
+  //
+  // 'Reason' and 'V' are optional parameters (i.e. may be empty or nullptr)
+  // that provide information for the debug traces.
+  // 'Callback' is an optional callback function that can be used to report
+  // additional information about the safety check than just the reason and
+  // value. For example, a safety flag set on a parameter of a call, may have a
+  // callback function to additionally report the argument and argument
+  // position. This function will only be called when the debug traces are
+  // enabled for the function being analyzed.
+  void setAllElementPointeeSafetyData(
+      ValueTypeInfo *PtrInfo, dtrans::SafetyData Data, StringRef Reason,
+      Value *V, SafetyInfoReportCB Callback = nullptr) {
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-    printSafetyDataDebugMessage(Data, Reason, V, PtrInfo);
+    printSafetyDataDebugMessage(Data, Reason, V, PtrInfo, Callback);
 #endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
     setAliasedOrPointeeTypeSafetyDataImpl(PtrInfo, Data, /*Aliases=*/false,
                                           /*Pointees=*/true);
@@ -2645,11 +2694,11 @@ private:
   //
   // This routine will set the safety information set on both %struct.B and
   // %struct.A
-  void setAllAliasedAndPointeeTypeSafetyData(ValueTypeInfo *PtrInfo,
-                                             dtrans::SafetyData Data,
-                                             const char *Reason, Value *V) {
+  void setAllAliasedAndPointeeTypeSafetyData(
+      ValueTypeInfo *PtrInfo, dtrans::SafetyData Data, const char *Reason,
+      Value *V, SafetyInfoReportCB Callback = nullptr) {
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-    printSafetyDataDebugMessage(Data, Reason, V, PtrInfo);
+    printSafetyDataDebugMessage(Data, Reason, V, PtrInfo, nullptr);
 #endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
     setAliasedOrPointeeTypeSafetyDataImpl(PtrInfo, Data, /*Aliases=*/true,
                                           /*Pointees=*/true);
