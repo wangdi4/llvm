@@ -829,20 +829,34 @@ public:
       return;
     }
 
+    // Callback method for when a safety flag is set to report the ValueTypeInfo
+    // object for the value and store operands of the StoreInst.
+    auto DumpCallback = [ValInfo, PtrInfo]() {
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+      dbgs() << "  Value op info:\n";
+      if (ValInfo)
+        ValInfo->print(dbgs(), /*CombinedTypes=*/false, "    ");
+      dbgs() << "  Ptr op info:\n";
+      if (PtrInfo)
+        PtrInfo->print(dbgs(), /*CombinedTypes=*/false, "    ");
+#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+    };
+
     // Check that the address of a structure field is not being stored to
     // memory. This is done up front, so that we can return as soon as
     // analyzing any element pointees of the pointer operand.
     if (ValInfo && ValInfo->pointsToSomeElement())
       for (auto &PointeePair :
            ValInfo->getElementPointeeSet(ValueTypeInfo::VAT_Use)) {
-        setBaseTypeInfoSafetyData(PointeePair.first, dtrans::FieldAddressTaken,
-                                  "Address of member stored to memory", &I);
-
         dtrans::TypeInfo *ParentTI =
             DTInfo.getOrCreateTypeInfo(PointeePair.first);
-        if (auto *ParentStInfo = dyn_cast<dtrans::StructInfo>(ParentTI))
+        if (auto *ParentStInfo = dyn_cast<dtrans::StructInfo>(ParentTI)) {
+          setBaseTypeInfoSafetyData(
+              PointeePair.first, dtrans::FieldAddressTaken,
+              "Address of member stored to memory", &I, DumpCallback);
           ParentStInfo->getField(PointeePair.second.getElementNum())
               .setAddressTaken();
+        }
       }
 
     if (PtrInfo->pointsToSomeElement()) {
@@ -863,7 +877,7 @@ public:
            PtrInfo->getPointerTypeAliasSet(ValueTypeInfo::VAT_Use))
         if (!isPtrToPtr(AliasTy))
           setBaseTypeInfoSafetyData(AliasTy, dtrans::VolatileData,
-                                    "volatile store", &I);
+                                    "volatile store", &I, DumpCallback);
 
     DTransType *PtrDomTy = PTA.getDominantAggregateUsageType(*PtrInfo);
     DTransType *ValTy = getLoadStoreValueType(*Val, ValInfo, /*IsLoad=*/false);
@@ -880,18 +894,21 @@ public:
       if ((ValInfo && ValInfo->canAliasToDirectAggregatePointer()) ||
           PtrInfo->canAliasToDirectAggregatePointer()) {
         setAllAliasedTypeSafetyData(PtrInfo, dtrans::UnsafePointerStore,
-                                    "Cannot resolve type of value stored", &I);
+                                    "Cannot resolve type of value stored", &I,
+                                    DumpCallback);
         if (ValInfo)
           setAllAliasedTypeSafetyData(ValInfo, dtrans::UnsafePointerStore,
                                       "Cannot resolve type of value stored",
-                                      &I);
+                                      &I, DumpCallback);
       }
 
       setAllAliasedTypeSafetyData(PtrInfo, dtrans::BadCasting,
-                                  "Cannot resolve type of value stored", &I);
+                                  "Cannot resolve type of value stored", &I,
+                                  DumpCallback);
       if (ValInfo)
         setAllAliasedTypeSafetyData(ValInfo, dtrans::BadCasting,
-                                    "Cannot resolve type of value stored", &I);
+                                    "Cannot resolve type of value stored", &I,
+                                    DumpCallback);
       return;
     }
 
@@ -963,7 +980,7 @@ public:
                  PtrDomTy->getPointerElementType()->getLLVMType() ==
                      ValOpType) {
         setBaseTypeInfoSafetyData(ValTy, dtrans::WholeStructureReference,
-                                  "store of structure type", &I);
+                                  "store of structure type", &I, DumpCallback);
         IsWholeStructureWrite = true;
       }
       // It's not a whole structure store, check for compatibility with element
@@ -1011,10 +1028,10 @@ public:
       // we may have an Unsafe Pointer Store.
       markUnsafePointerStore(nullptr, ValInfo, PtrInfo, &I);
       setAllAliasedTypeSafetyData(PtrInfo, dtrans::BadCasting, BadcastReason,
-                                  &I);
+                                  &I, DumpCallback);
       if (ValInfo)
         setAllAliasedTypeSafetyData(ValInfo, dtrans::BadCasting, BadcastReason,
-                                    &I);
+                                    &I, DumpCallback);
       return;
     }
 
