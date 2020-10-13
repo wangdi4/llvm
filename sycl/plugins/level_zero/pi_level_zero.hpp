@@ -295,6 +295,7 @@ struct _pi_queue : _pi_object {
   // from a pi_queue API call.  No other mutexes/locking should be
   // needed/used for the queue data structures.
   std::mutex PiQueueMutex;
+<<<<<<< HEAD
 
   // Open command list field for batching commands into this queue.
   ze_command_list_handle_t ZeOpenCommandList = {nullptr};
@@ -308,6 +309,8 @@ struct _pi_queue : _pi_object {
   // a queue specific basis. And by putting it in the queue itself, this
   // is thread safe because of the locking of the queue that occurs.
   pi_uint32 QueueBatchSize = {0};
+=======
+>>>>>>> 0d1cb936d23328e0ded8eb0dce466405d3e2514c
 
   // Map of all Command lists created with their associated Fence used for
   // tracking when the command list is available for use again.
@@ -324,12 +327,15 @@ struct _pi_queue : _pi_object {
   pi_result resetCommandListFenceEntry(ze_command_list_handle_t ZeCommandList,
                                        bool MakeAvailable);
 
+<<<<<<< HEAD
   // Attach a command list to this queue and allow it to remain open
   // and used for further batching.  It may be executed immediately,
   // or it may be left open for other future command to be batched into.
   pi_result batchCommandList(ze_command_list_handle_t ZeCommandList,
                              ze_fence_handle_t ZeFence);
 
+=======
+>>>>>>> 0d1cb936d23328e0ded8eb0dce466405d3e2514c
   // Attach a command list to this queue, close, and execute it.
   // Note that this command list cannot be appended to after this.
   // The "IsBlocking" tells if the wait for completion is requested.
