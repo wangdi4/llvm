@@ -117,7 +117,9 @@ bool VPlanPragmaOmpOrderedSimdExtractImpl::runImpl(Module &M, DomT DT,
     FunctionsToProcess.push_back(&F);
   }
 
-  for (auto *F : FunctionsToProcess) {
+  for (unsigned FnIdx = 0, FnEnd = FunctionsToProcess.size(); FnIdx < FnEnd;
+       FnIdx++) {
+    Function *F = FunctionsToProcess[FnIdx];
     DominatorTree *DomTree = DT(*F);
     vpo::WRegionInfo *WRInfo = WRI(*F);
     WRInfo->buildWRGraph();
@@ -127,7 +129,9 @@ bool VPlanPragmaOmpOrderedSimdExtractImpl::runImpl(Module &M, DomT DT,
     // not any nested ordered simd regions inside the vector loop.
     OrderedSimdWRegionVisitor Visitor(WRNOrderedSimdList);
     WRegionUtils::forwardVisit(Visitor, WRInfo->getWRGraph());
-    for (auto *OrderedSimdNode : WRNOrderedSimdList) {
+    for (unsigned OrderIdx = 0, OrderEnd = WRNOrderedSimdList.size();
+         OrderIdx != OrderEnd; OrderIdx++) {
+      auto *OrderedSimdNode = WRNOrderedSimdList[OrderIdx];
       assert(isa<WRNOrderedNode>(OrderedSimdNode) &&
              "Ordered node is expected.");
       SmallVector<BasicBlock *, 2> OrderedSimdBlocks;
@@ -156,8 +160,35 @@ bool VPlanPragmaOmpOrderedSimdExtractImpl::runImpl(Module &M, DomT DT,
         continue;
       }
 
+      // Check whether the name of the newly created function has a mangled name
+      // and remove it.
+      StringRef OldFuncName = NewFunc->getName();
+      if (OldFuncName.startswith("_ZGV") &&
+          NewFunc->hasFnAttribute("vector-variants")) {
+        size_t UnderscoreIdx = OldFuncName.find('_', 1);
+        assert((UnderscoreIdx != StringRef::npos) && "Underscore is expected!");
+        StringRef UnMangledName = OldFuncName.substr(UnderscoreIdx + 1);
+        // Add a enumerator at the end of the function since a function might
+        // have multiple ordered regions.
+        std::string NewFuncName;
+        if (isdigit(static_cast<unsigned char>(UnMangledName[0])))
+          NewFuncName = std::string("_Z") + UnMangledName.str() +
+                        std::string("_") + std::to_string(FnIdx + OrderIdx);
+        else
+          NewFuncName = UnMangledName.str() + std::string("_") +
+                        std::to_string(FnIdx + OrderIdx);
+        NewFunc->setName(NewFuncName);
+      }
+
       // Prepare the new function for inlining.
+      if (NewFunc->hasFnAttribute(Attribute::NoInline))
+        NewFunc->removeFnAttr(Attribute::NoInline);
       NewFunc->addFnAttr(Attribute::AlwaysInline);
+      // Remove vector-variants attributes to prevent call vectorization of the
+      // function that code extractor emits.
+      if (NewFunc->hasFnAttribute("vector-variants"))
+        NewFunc->removeAttribute(AttributeList::FunctionIndex,
+                                 "vector-variants");
     }
   }
   return true; // LLVM IR has been modified
