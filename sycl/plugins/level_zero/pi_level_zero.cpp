@@ -457,7 +457,6 @@ static const pi_uint32 ZeCommandListBatchSize = [] {
 
 // Retrieve an available command list to be used in a PI call
 // Caller must hold a lock on the Queue passed in.
-<<<<<<< HEAD
 pi_result _pi_device::getAvailableCommandList(
     pi_queue Queue, ze_command_list_handle_t *ZeCommandList,
     ze_fence_handle_t *ZeFence, bool AllowBatching) {
@@ -478,12 +477,6 @@ pi_result _pi_device::getAvailableCommandList(
       return Res;
   }
 
-=======
-pi_result
-_pi_device::getAvailableCommandList(pi_queue Queue,
-                                    ze_command_list_handle_t *ZeCommandList,
-                                    ze_fence_handle_t *ZeFence) {
->>>>>>> 0d1cb936d23328e0ded8eb0dce466405d3e2514c
   // Create/Reuse the command list, because in Level Zero commands are added to
   // the command lists, and later are then added to the command queue.
   // Each command list is paired with an associated fence to track when the
@@ -1844,13 +1837,10 @@ pi_result piQueueFinish(pi_queue Queue) {
   // Lock automatically releases when this goes out of scope.
   std::lock_guard<std::mutex> lock(Queue->PiQueueMutex);
 
-<<<<<<< HEAD
   // execute any command list that may still be open.
   if (auto Res = Queue->executeOpenCommandList())
     return Res;
 
-=======
->>>>>>> 0d1cb936d23328e0ded8eb0dce466405d3e2514c
   ZE_CALL(zeCommandQueueSynchronize(Queue->ZeCommandQueue, UINT32_MAX));
   return PI_SUCCESS;
 }
