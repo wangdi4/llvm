@@ -881,15 +881,12 @@ void Sema::InstantiateAttrs(const MultiLevelTemplateArgumentList &TemplateArgs,
             dyn_cast<SYCLIntelNumSimdWorkItemsAttr>(TmplAttr)) {
       instantiateIntelSYCLFunctionAttr<SYCLIntelNumSimdWorkItemsAttr>(
           *this, TemplateArgs, SYCLIntelNumSimdWorkItems, New);
-<<<<<<< HEAD
       continue;
     }
     if (const auto *SYCLIntelSchedulerTargetFmaxMhz =
             dyn_cast<SYCLIntelSchedulerTargetFmaxMhzAttr>(TmplAttr)) {
       instantiateIntelSYCLFunctionAttr<SYCLIntelSchedulerTargetFmaxMhzAttr>(
           *this, TemplateArgs, SYCLIntelSchedulerTargetFmaxMhz, New);
-=======
->>>>>>> b6200fef86407e4d479880f63282fd7b8ed83df1
       continue;
     }
     // Existing DLL attribute on the instantiation takes precedence.

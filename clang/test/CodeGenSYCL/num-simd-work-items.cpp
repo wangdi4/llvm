@@ -11,12 +11,6 @@ public:
   [[intel::num_simd_work_items(SIZE)]] void operator()() const {}
 };
 
-template <int SIZE>
-class Functor {
-public:
-  [[intelfpga::num_simd_work_items(SIZE)]] void operator()() const {}
-};
-
 template <typename name, typename Func>
 __attribute__((sycl_kernel)) void kernel(const Func &kernelFunc) {
   kernelFunc();

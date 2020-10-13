@@ -1234,12 +1234,8 @@ def SYCLIntelKernelArgsRestrict : InheritableAttr {
 }
 
 def SYCLIntelNumSimdWorkItems : InheritableAttr {
-<<<<<<< HEAD
   let Spellings = [CXX11<"intelfpga","num_simd_work_items">,
                    CXX11<"intel","num_simd_work_items">];
-=======
-  let Spellings = [CXX11<"intelfpga","num_simd_work_items">];
->>>>>>> b6200fef86407e4d479880f63282fd7b8ed83df1
   let Args = [ExprArgument<"Value">];
   let LangOpts = [SYCLIsDevice, SYCLIsHost];
   let Subjects = SubjectList<[Function], ErrorDiag>;
