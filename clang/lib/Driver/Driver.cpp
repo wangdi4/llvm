@@ -150,7 +150,7 @@ Driver::Driver(StringRef ClangExecutable, StringRef TargetTriple,
       CheckInputsExist(true), GenReproducer(false),
 #if INTEL_CUSTOMIZATION
       SuppressMissingInputWarning(false), IntelPrintOptions(false),
-      IntelMode(false), IntelPro(false) {
+      IntelMode(false) {
 #endif // INTEL_CUSTOMIZATION
   // Provide a sane fallback if no VFS is specified.
   if (!this->VFS)
@@ -191,11 +191,6 @@ void Driver::ParseDriverMode(StringRef ProgramName,
     const StringRef Arg = ArgPtr;
     setDriverModeFromOption(Arg);
   }
-#if INTEL_CUSTOMIZATION
-  // Setup Compiler Pro mode.  We do a file exists check to enable Pro mode
-  if (llvm::sys::fs::exists(InstalledDir + "/compiler-pro-auth"))
-    IntelPro = true;
-#endif // INTEL_CUSTOMIZATION
 }
 
 void Driver::setDriverModeFromOption(StringRef Opt) {
@@ -254,8 +249,7 @@ InputArgList Driver::ParseArgStrings(ArrayRef<const char *> ArgStrings,
 #if INTEL_CUSTOMIZATION
     if (A->getOption().hasFlag(options::Unsupported) ||
         (A->getOption().hasFlag(options::DpcppUnsupported) &&
-         Args.hasArg(options::OPT__dpcpp)) || (!IsIntelPro() &&
-         IsIntelMode() && A->getOption().hasFlag(options::ProEnabled))) {
+         Args.hasArg(options::OPT__dpcpp))) {
 #endif // INTEL_CUSTOMIZATION
       unsigned DiagID;
       auto ArgString = A->getAsString(Args);
@@ -263,7 +257,6 @@ InputArgList Driver::ParseArgStrings(ArrayRef<const char *> ArgStrings,
 #if INTEL_CUSTOMIZATION
       // Do not suggest an alternative with DPC++ unsupported options
       if (A->getOption().hasFlag(options::DpcppUnsupported) ||
-          A->getOption().hasFlag(options::ProEnabled) ||
           getOpts().findNearest(
 #endif // INTEL_CUSTOMIZATION
             ArgString, Nearest, IncludedFlagsBitmask,
@@ -1580,8 +1573,6 @@ Compilation *Driver::BuildCompilation(ArrayRef<const char *> ArgList) {
   }
   // Update the Driver Title to something more fitting
   std::string Title("Intel(R) oneAPI DPC++/C++ Compiler");
-  if (IsIntelPro())
-    Title += " Pro";
   setTitle(Title);
 #endif // INTEL_CUSTOMIZATION
 
@@ -2123,8 +2114,6 @@ void Driver::PrintHelp(const llvm::opt::ArgList &Args) const {
     ExcludedFlagsBitmask |= options::DpcppUnsupported;
     ExcludedFlagsBitmask |= options::DpcppHidden;
   }
-  if (!IsIntelPro() && IsIntelMode())
-    ExcludedFlagsBitmask |= options::ProEnabled;
 #endif // INTEL_CUSTOMIZATION
 
   if (IsFlangMode())
