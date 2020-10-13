@@ -6,7 +6,11 @@ template <int SIZE>
 class KernelFunctor {
 public:
   // expected-error@+1{{'num_simd_work_items' attribute requires a positive integral compile time constant expression}}
+<<<<<<< HEAD
   [[intel::num_simd_work_items(SIZE)]] void operator()() {}
+=======
+  [[intelfpga::num_simd_work_items(SIZE)]] void operator()() {}
+>>>>>>> b6200fef86407e4d479880f63282fd7b8ed83df1
 };
 
 int main() {

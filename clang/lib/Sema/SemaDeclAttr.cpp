@@ -3890,6 +3890,7 @@ static void handleSYCLNumSimdWorkItemsAttr(Sema &S, Decl *D,         // INTEL
   if (D->getAttr<SYCLIntelNumSimdWorkItemsAttr>())
     S.Diag(Attr.getLoc(), diag::warn_duplicate_attribute) << Attr;
 
+<<<<<<< HEAD
   if (checkDeprecatedSYCLAttributeSpelling(S, Attr))
     S.Diag(Attr.getLoc(), diag::note_spelling_suggestion)
         << "'intel::num_simd_work_items'";
@@ -3932,6 +3933,10 @@ static void handleSchedulerTargetFmaxMhzAttr(Sema &S, Decl *D,
         << "'intel::scheduler_target_fmax_mhz'";
 
   S.addSYCLIntelSchedulerTargetFmaxMhzAttr(D, AL, E);
+=======
+  S.addIntelSYCLSingleArgFunctionAttr<SYCLIntelNumSimdWorkItemsAttr>(D, Attr,
+                                                                     E);
+>>>>>>> b6200fef86407e4d479880f63282fd7b8ed83df1
 }
 
 // Handles max_global_work_dim.
