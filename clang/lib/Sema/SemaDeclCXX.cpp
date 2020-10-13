@@ -6095,7 +6095,8 @@ void Sema::checkClassLevelDLLAttribute(CXXRecordDecl *Class) {
   Attr *ClassAttr = getDLLAttr(Class);
 
   // MSVC inherits DLL attributes to partial class template specializations.
-  if (Context.getTargetInfo().getCXXABI().isMicrosoft() && !ClassAttr) {
+  if ((Context.getTargetInfo().getCXXABI().isMicrosoft() || 
+       Context.getTargetInfo().getTriple().isWindowsItaniumEnvironment()) && !ClassAttr) {
     if (auto *Spec = dyn_cast<ClassTemplatePartialSpecializationDecl>(Class)) {
       if (Attr *TemplateAttr =
               getDLLAttr(Spec->getSpecializedTemplate()->getTemplatedDecl())) {
@@ -6115,7 +6116,8 @@ void Sema::checkClassLevelDLLAttribute(CXXRecordDecl *Class) {
     return;
   }
 
-  if (Context.getTargetInfo().getCXXABI().isMicrosoft() &&
+  if ((Context.getTargetInfo().getCXXABI().isMicrosoft() || 
+       Context.getTargetInfo().getTriple().isWindowsItaniumEnvironment()) &&
       !ClassAttr->isInherited()) {
     // Diagnose dll attributes on members of class with dll attribute.
     for (Decl *Member : Class->decls()) {
