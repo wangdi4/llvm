@@ -547,6 +547,12 @@ void PrintIRInstrumentation::printAfterPass(StringRef, Any) {}
 void PrintIRInstrumentation::printAfterPassInvalidated(StringRef) {}
 void PrintIRInstrumentation::registerCallbacks(PassInstrumentationCallbacks &) {
 }
+// Return true when this is a pass for which changes should be ignored
+bool isIgnored(StringRef PassID) {
+  return isSpecialPass(PassID,
+                       {"PassManager", "PassAdaptor", "AnalysisManagerProxy"});
+}
+
 #endif //!defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
 
 void OptNoneInstrumentation::registerCallbacks(
