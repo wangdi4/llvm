@@ -196,8 +196,7 @@ constexpr FeatureBitset FeaturesICLServer =
 constexpr FeatureBitset FeaturesTigerlake =
     FeaturesICLClient | FeatureAVX512VP2INTERSECT | FeatureMOVDIR64B |
     FeatureMOVDIRI | FeatureSHSTK | FeatureKL | FeatureWIDEKL;
-<<<<<<< HEAD
-static constexpr FeatureBitset FeaturesSapphireRapids =
+constexpr FeatureBitset FeaturesSapphireRapids =
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_AVX_VNNI
   FeatureAVXVNNI |
@@ -212,9 +211,6 @@ static constexpr FeatureBitset FeaturesSapphireRapids =
   FeatureULI |
 #endif // INTEL_FEATURE_ISA_ULI
 #endif // INTEL_CUSTOMIZATION
-=======
-constexpr FeatureBitset FeaturesSapphireRapids =
->>>>>>> a8682554c6662ce01853d0069afb6c5b4ef8ab55
     FeaturesICLServer | FeatureAMX_TILE | FeatureAMX_INT8 | FeatureAMX_BF16 |
     FeatureAVX512BF16 | FeatureAVX512VP2INTERSECT | FeatureCLDEMOTE |
     FeatureENQCMD | FeatureMOVDIR64B | FeatureMOVDIRI | FeaturePTWRITE |
