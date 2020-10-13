@@ -1004,7 +1004,7 @@ void tools::gnutools::Linker::ConstructJob(Compilation &C, const JobAction &JA,
         WantPthread = true;
 
 #if INTEL_CUSTOMIZATION
-      // Use of -mkl implies pthread
+      // Use of -mmkl implies pthread
       if (Args.hasArg(options::OPT_mkl_EQ))
         WantPthread = true;
       // -stdlib=libc++ implies pthread

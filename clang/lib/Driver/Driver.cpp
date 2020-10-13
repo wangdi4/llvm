@@ -6562,7 +6562,7 @@ InputInfo Driver::BuildJobsForActionNoCache(
           C.getInputArgs().hasArg(options::OPT_fsycl_link_EQ));
 #if INTEL_CUSTOMIZATION
       // We create list files for unbundling when using -foffload-static-lib.
-      // This is also true for -mkl and -daal, as they imply additional
+      // This is also true for -mmkl and -daal, as they imply additional
       // fat static libraries.
       if (((C.getInputArgs().hasArg(options::OPT_mkl_EQ) &&
             C.getInputArgs().hasArg(options::OPT_static)) ||

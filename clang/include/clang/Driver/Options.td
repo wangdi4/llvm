@@ -426,11 +426,11 @@ def ipp : Flag<["-"], "ipp">, Alias<ipp_EQ>, AliasArgs<["common"]>;
 def ipp_link_EQ : Joined<["-"], "ipp-link=">, Flags<[DriverOption]>,
   Values<"static,dynamic,shared">,
   HelpText<"Link Intel(R) IPP libraries in requested manner">;
-def mkl_EQ : Joined<["-"], "mkl=">,
+def mkl_EQ : Joined<["-"], "mmkl=">,
   Values<"parallel,sequential,cluster">,
   HelpText<"Link commonly used Intel(R) Math Kernel Library (Intel(R) MKL) "
   "and bring in the associated headers">;
-def mkl : Flag<["-"], "mkl">, Alias<mkl_EQ>, AliasArgs<["parallel"]>;
+def mmkl : Flag<["-"], "mmkl">, Alias<mkl_EQ>, AliasArgs<["parallel"]>;
 def tbb : Flag<["-"], "tbb">,
   HelpText<"Link Intel(R) Threading Building Blocks (Intel(R) TBB) libraries "
   "and bring in the associated headers">;
@@ -3834,8 +3834,8 @@ def mhreset : Flag<["-"], "mhreset">, Group<m_x86_Features_Group>;
 def mno_hreset : Flag<["-"], "mno-hreset">, Group<m_x86_Features_Group>;
 #endif // INTEL_FEATURE_ISA_HRESET
 #endif // INTEL_CUSTOMIZATION
-def mkeylocker : Flag<["-"], "mkeylocker">, Group<m_x86_Features_Group>;
-def mno_keylocker : Flag<["-"], "mno-keylocker">, Group<m_x86_Features_Group>;
+def mkl : Flag<["-"], "mkl">, Group<m_x86_Features_Group>;
+def mno_kl : Flag<["-"], "mno-kl">, Group<m_x86_Features_Group>;
 def mwidekl : Flag<["-"], "mwidekl">, Group<m_x86_Features_Group>;
 def mno_widekl : Flag<["-"], "mno-widekl">, Group<m_x86_Features_Group>;
 def mlwp : Flag<["-"], "mlwp">, Group<m_x86_Features_Group>;
