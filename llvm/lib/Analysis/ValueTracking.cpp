@@ -446,8 +446,7 @@ static void computeKnownBitsMul(const Value *Op0, const Value *Op1, bool NSW,
       bool isKnownNegativeOp0 = Known2.isNegative();
       // The product of two numbers with the same sign is non-negative.
       isKnownNonNegative = (isKnownNegativeOp1 && isKnownNegativeOp0) ||
-<<<<<<< HEAD
-        (isKnownNonNegativeOp1 && isKnownNonNegativeOp0);
+                           (isKnownNonNegativeOp1 && isKnownNonNegativeOp0);
 #if INTEL_CUSTOMIZATION
       if (!isKnownNonNegative) {
         // The product of (n * (n - 1)) or (n * (n + 1)) is always
@@ -495,9 +494,6 @@ static void computeKnownBitsMul(const Value *Op0, const Value *Op1, bool NSW,
         }
       }
 #endif // INTEL_CUSTOMIZATION
-=======
-                           (isKnownNonNegativeOp1 && isKnownNonNegativeOp0);
->>>>>>> 9431f8ad2e033b3c7629ff74fe41d7c42a9554f8
       // The product of a negative number and a non-negative number is either
       // negative or zero.
       if (!isKnownNonNegative)
