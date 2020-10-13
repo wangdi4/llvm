@@ -50,6 +50,15 @@ private:
     Plan->markBackedgeUniformityForced();
   };
 
+protected:
+  /// Check whether everything in the loop body is supported at the moment.
+  /// We can have some unimplemented things and it's better to gracefully
+  /// bailout in such cases than assert or generate incorrect code.
+  bool canProcessLoopBody(const VPlan &Plan,
+                          const VPLoop &Loop) const override {
+    return true;
+  }
+
 public:
   LoopVectorizationPlannerHIR(WRNVecLoopNode *WRL, HLLoop *Lp,
                               const TargetLibraryInfo *TLI,
