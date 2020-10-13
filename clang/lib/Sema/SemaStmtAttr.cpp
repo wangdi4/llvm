@@ -1248,7 +1248,6 @@ CheckForIncompatibleAttributes(Sema &S,
     }
   }
 
-<<<<<<< HEAD
   // C++20 [dcl.attr.likelihood]p1 The attribute-token likely shall not appear
   // in an attribute-specifier-seq that contains the attribute-token unlikely.
   const LikelyAttr *Likely = nullptr;
@@ -1274,8 +1273,6 @@ CheckForIncompatibleAttributes(Sema &S,
       Unlikely = Attr;
     }
   }
-=======
->>>>>>> 2df3a55e85e8f3e8b49d1585969cda722e200deb
 }
 
 template <typename LoopAttrT>
