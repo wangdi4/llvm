@@ -10,6 +10,7 @@
 #include <detail/config.hpp>
 #include <detail/device_impl.hpp>
 #include <detail/force_device.hpp>
+#include <detail/global_handler.hpp>
 #include <detail/platform_impl.hpp>
 #include <detail/platform_info.hpp>
 #include <detail/force_device.hpp>    // INTEL
@@ -18,6 +19,7 @@
 #include <cstring>
 #include <regex>
 #include <string>
+#include <vector>
 
 __SYCL_INLINE_NAMESPACE(cl) {
 namespace sycl {
@@ -33,12 +35,13 @@ PlatformImplPtr platform_impl::getHostPlatformImpl() {
 
 PlatformImplPtr platform_impl::getOrMakePlatformImpl(RT::PiPlatform PiPlatform,
                                                      const plugin &Plugin) {
-  static std::vector<PlatformImplPtr> PlatformCache;
-  static std::mutex PlatformMapMutex;
-
   PlatformImplPtr Result;
   {
-    const std::lock_guard<std::mutex> Guard(PlatformMapMutex);
+    const std::lock_guard<std::mutex> Guard(
+        GlobalHandler::instance().getPlatformMapMutex());
+
+    std::vector<PlatformImplPtr> &PlatformCache =
+        GlobalHandler::instance().getPlatformCache();
 
     // If we've already seen this platform, return the impl
     for (const auto &PlatImpl : PlatformCache) {
@@ -324,7 +327,7 @@ platform_impl::get_devices(info::device_type DeviceType) const {
   if (is_host() || DeviceType == info::device_type::host)
     return Res;
 
-  pi_uint32 NumDevices;
+  pi_uint32 NumDevices = 0;
   const detail::plugin &Plugin = getPlugin();
   Plugin.call<PiApiKind::piDevicesGet>(
       MPlatform, pi::cast<RT::PiDeviceType>(DeviceType), 0,

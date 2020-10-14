@@ -17,10 +17,14 @@
 #include <detail/device_impl.hpp>
 #include <detail/filter_selector_impl.hpp>
 #include <detail/force_device.hpp>
+<<<<<<< HEAD
 #ifdef INTEL_CUSTOMIZATION
 #include <detail/config.hpp>
 #endif // INTEL_CUSTOMIZATION
 
+=======
+#include <detail/global_handler.hpp>
+>>>>>>> bb4ce6188ef507d3d974b528e6ebd438db274fdf
 // 4.6.1 Device selection class
 
 #include <algorithm>
@@ -269,9 +273,8 @@ int filter_selector::operator()(const device &Dev) const {
 void filter_selector::reset() const { impl->reset(); }
 
 device filter_selector::select_device() const {
-  static std::mutex FilterMutex;
-
-  std::lock_guard<std::mutex> Guard(FilterMutex);
+  std::lock_guard<std::mutex> Guard(
+      sycl::detail::GlobalHandler::instance().getFilterMutex());
 
   device Result = device_selector::select_device();
 
