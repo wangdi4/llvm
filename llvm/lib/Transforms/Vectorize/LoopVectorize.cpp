@@ -3966,7 +3966,7 @@ void InnerLoopVectorizer::fixReduction(PHINode *Phi) {
   } else {
     // Handle other reduction kinds:
     Constant *Iden = RecurrenceDescriptor::getRecurrenceIdentity(
-        RK, VecTy->getScalarType());
+        RK, MinMaxKind, VecTy->getScalarType());
     if (VF == 1 || IsInLoopReductionPhi) {
       Identity = Iden;
       // This vector is the Identity vector where the first element is the
@@ -4013,8 +4013,9 @@ void InnerLoopVectorizer::fixReduction(PHINode *Phi) {
 
   // If tail is folded by masking, the vector value to leave the loop should be
   // a Select choosing between the vectorized LoopExitInst and vectorized Phi,
-  // instead of the former.
-  if (Cost->foldTailByMasking()) {
+  // instead of the former. For an inloop reduction the reduction will already
+  // be predicated, and does not need to be handled here.
+  if (Cost->foldTailByMasking() && !IsInLoopReductionPhi) {
     for (unsigned Part = 0; Part < UF; ++Part) {
       Value *VecLoopExitInst =
           VectorLoopValueMap.getVectorValue(LoopExitInst, Part);
@@ -6912,12 +6913,6 @@ void LoopVectorizationCostModel::collectValuesToIgnore() {
 }
 
 void LoopVectorizationCostModel::collectInLoopReductions() {
-  // For the moment, without predicated reduction instructions, we do not
-  // support inloop reductions whilst folding the tail, and hence in those cases
-  // all reductions are currently out of the loop.
-  if (foldTailByMasking())
-    return;
-
   for (auto &Reduction : Legal->getReductionVars()) {
     PHINode *Phi = Reduction.first;
     RecurrenceDescriptor &RdxDesc = Reduction.second;
@@ -7280,6 +7275,11 @@ VPValue *VPRecipeBuilder::createBlockInMask(BasicBlock *BB, VPlanPtr &Plan) {
     if (!CM.blockNeedsPredication(BB))
       return BlockMaskCache[BB] = BlockMask; // Loop incoming mask is all-one.
 
+    // Create the block in mask as the first non-phi instruction in the block.
+    VPBuilder::InsertPointGuard Guard(Builder);
+    auto NewInsertionPoint = Builder.getInsertBlock()->getFirstNonPhi();
+    Builder.setInsertPoint(Builder.getInsertBlock(), NewInsertionPoint);
+
     // Introduce the early-exit compare IV <= BTC to form header block mask.
     // This is used instead of IV < TC because TC may wrap, unlike BTC.
     // Start by constructing the desired canonical IV.
@@ -7288,7 +7288,7 @@ VPValue *VPRecipeBuilder::createBlockInMask(BasicBlock *BB, VPlanPtr &Plan) {
       IV = Plan->getVPValue(Legal->getPrimaryInduction());
     else {
       auto IVRecipe = new VPWidenCanonicalIVRecipe();
-      Builder.getInsertBlock()->appendRecipe(IVRecipe);
+      Builder.getInsertBlock()->insert(IVRecipe, NewInsertionPoint);
       IV = IVRecipe->getVPValue();
     }
     VPValue *BTC = Plan->getOrCreateBackedgeTakenCount();
@@ -7851,8 +7851,8 @@ VPlanPtr LoopVectorizationPlanner::buildVPlanWithVPRecipes(
     Builder.setInsertPoint(VPBB);
     auto *Cond = RecipeBuilder.createBlockInMask(OrigLoop->getHeader(), Plan);
     for (auto &Reduction : Legal->getReductionVars()) {
-      assert(!CM.isInLoopReduction(Reduction.first) &&
-             "Didn't expect inloop tail folded reduction yet!");
+      if (CM.isInLoopReduction(Reduction.first))
+        continue;
       VPValue *Phi = Plan->getVPValue(Reduction.first);
       VPValue *Red = Plan->getVPValue(Reduction.second.getLoopExitInstr());
       Builder.createNaryOp(Instruction::Select, {Cond, Red, Phi});
@@ -7944,8 +7944,11 @@ void LoopVectorizationPlanner::adjustRecipesForInLoopReductions(
           R->getOperand(FirstOpId) == Chain ? FirstOpId + 1 : FirstOpId;
       VPValue *VecOp = Plan->getVPValue(R->getOperand(VecOpId));
 
+      auto *CondOp = CM.foldTailByMasking()
+                         ? RecipeBuilder.createBlockInMask(R->getParent(), Plan)
+                         : nullptr;
       VPReductionRecipe *RedRecipe = new VPReductionRecipe(
-          &RdxDesc, R, ChainOp, VecOp, Legal->hasFunNoNaNAttr(), TTI);
+          &RdxDesc, R, ChainOp, VecOp, CondOp, Legal->hasFunNoNaNAttr(), TTI);
       WidenRecipe->getParent()->insert(RedRecipe, WidenRecipe->getIterator());
       WidenRecipe->eraseFromParent();
 
@@ -8065,8 +8068,18 @@ void VPInterleaveRecipe::execute(VPTransformState &State) {
 void VPReductionRecipe::execute(VPTransformState &State) {
   assert(!State.Instance && "Reduction being replicated.");
   for (unsigned Part = 0; Part < State.UF; ++Part) {
-    unsigned Kind = RdxDesc->getRecurrenceKind();
+    RecurrenceDescriptor::RecurrenceKind Kind = RdxDesc->getRecurrenceKind();
     Value *NewVecOp = State.get(VecOp, Part);
+    if (CondOp) {
+      Value *NewCond = State.get(CondOp, Part);
+      VectorType *VecTy = cast<VectorType>(NewVecOp->getType());
+      Constant *Iden = RecurrenceDescriptor::getRecurrenceIdentity(
+          Kind, RdxDesc->getMinMaxRecurrenceKind(), VecTy->getElementType());
+      Constant *IdenVec =
+          ConstantVector::getSplat(VecTy->getElementCount(), Iden);
+      Value *Select = State.Builder.CreateSelect(NewCond, NewVecOp, IdenVec);
+      NewVecOp = Select;
+    }
     Value *NewRed =
         createTargetReduction(State.Builder, TTI, *RdxDesc, NewVecOp, NoNaN);
     Value *PrevInChain = State.get(ChainOp, Part);

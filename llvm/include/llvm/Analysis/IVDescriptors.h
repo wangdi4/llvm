@@ -230,7 +230,8 @@ public:
 
 #if !INTEL_CUSTOMIZATION
   /// Returns identity corresponding to the RecurrenceKind.
-  static Constant *getRecurrenceIdentity(RecurrenceKind K, Type *Tp);
+  static Constant *getRecurrenceIdentity(RecurrenceKind K,
+                                         MinMaxRecurrenceKind MK, Type *Tp);
 
   /// Returns the opcode of binary operation corresponding to the
   /// RecurrenceKind.

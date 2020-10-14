@@ -766,6 +766,7 @@ Constant *RecurrenceDescriptorData::getRecurrenceIdentity(RecurrenceKind K,
                                                           Type *Tp) {
 #else
 Constant *RecurrenceDescriptor::getRecurrenceIdentity(RecurrenceKind K,
+                                                      MinMaxRecurrenceKind MK,
                                                       Type *Tp) {
 #endif
   switch (K) {
@@ -786,6 +787,26 @@ Constant *RecurrenceDescriptor::getRecurrenceIdentity(RecurrenceKind K,
   case RK_FloatAdd:
     // Adding zero to a number does not change it.
     return ConstantFP::get(Tp, 0.0L);
+  case RK_IntegerMinMax:
+  case RK_FloatMinMax:
+    switch (MK) {
+    case MRK_UIntMin:
+      return ConstantInt::get(Tp, -1);
+    case MRK_UIntMax:
+      return ConstantInt::get(Tp, 0);
+    case MRK_SIntMin:
+      return ConstantInt::get(
+          Tp, APInt::getSignedMaxValue(Tp->getIntegerBitWidth()));
+    case MRK_SIntMax:
+      return ConstantInt::get(
+          Tp, APInt::getSignedMinValue(Tp->getIntegerBitWidth()));
+    case MRK_FloatMin:
+      return ConstantFP::getInfinity(Tp, true);
+    case MRK_FloatMax:
+      return ConstantFP::getInfinity(Tp, false);
+    default:
+      llvm_unreachable("Unknown recurrence kind");
+    }
   default:
     llvm_unreachable("Unknown recurrence kind");
   }
