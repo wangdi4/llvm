@@ -5227,15 +5227,10 @@ public:
   ExprResult ActOnUniqueStableNameExpr(SourceLocation OpLoc,
                                        SourceLocation LParen,
                                        SourceLocation RParen, Expr *E);
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   bool CheckIntelBlockLoopAttribute(const IntelBlockLoopAttr *BLA);
   bool CheckLoopHintExpr(Expr *E, SourceLocation Loc, bool AllowZero = false);
 #endif // INTEL_CUSTOMIZATION
-=======
-
-  bool CheckLoopHintExpr(Expr *E, SourceLocation Loc);
->>>>>>> 0d1183ee548741dc7bae735e0e408da7eb827c85
 
   ExprResult ActOnNumericConstant(const Token &Tok, Scope *UDLScope = nullptr);
   ExprResult ActOnCharacterConstant(const Token &Tok,
