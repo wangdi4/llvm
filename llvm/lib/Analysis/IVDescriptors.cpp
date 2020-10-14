@@ -762,8 +762,8 @@ bool RecurrenceDescriptor::isFirstOrderRecurrence(
 /// This function returns the identity element (or neutral element) for
 /// the operation K.
 #if INTEL_CUSTOMIZATION
-Constant *RecurrenceDescriptorData::getRecurrenceIdentity(RecurrenceKind K,
-                                                          Type *Tp) {
+Constant *RecurrenceDescriptorData::getRecurrenceIdentity(
+    RecurrenceKind K, MinMaxRecurrenceKind MK, Type *Tp) {
 #else
 Constant *RecurrenceDescriptor::getRecurrenceIdentity(RecurrenceKind K,
                                                       MinMaxRecurrenceKind MK,

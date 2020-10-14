@@ -388,8 +388,9 @@ VPValue *VPLoopEntityList::getReductionIdentity(const VPReduction *Red) const {
   case RecurrenceKind::RK_IntegerAnd:
   case RecurrenceKind::RK_FloatMult:
   case RecurrenceKind::RK_FloatAdd: {
-    Constant *C = VPReduction::getRecurrenceIdentity(Red->getRecurrenceKind(),
-                                                     Red->getRecurrenceType());
+    Constant *C = VPReduction::getRecurrenceIdentity(
+        Red->getRecurrenceKind(), Red->getMinMaxRecurrenceKind(),
+        Red->getRecurrenceType());
     return Plan.getVPConstant(C);
   }
   case RecurrenceKind::RK_IntegerMinMax:

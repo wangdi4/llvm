@@ -85,7 +85,8 @@ public:
   bool isSigned() const { return IsSigned; }
 
   /// Returns identity corresponding to the RecurrenceKind.
-  static Constant *getRecurrenceIdentity(RecurrenceKind K, Type *Tp);
+  static Constant *getRecurrenceIdentity(RecurrenceKind K,
+                                         MinMaxRecurrenceKind MK, Type *Tp);
 
   /// Returns the opcode of binary operation corresponding to the
   /// RecurrenceKind.
