@@ -5,7 +5,7 @@
 ;; constant computed is propagated to its use.
 
 
-; RUN: opt -S -VPlanDriver -vplan-force-vf=2 %s | FileCheck %s
+; RUN: opt -S -VPlanDriver -vplan-force-vf=2 -vplan-enable-all-liveouts %s | FileCheck %s
 ; CHECK:      vector.body:
 ; CHECK:        [[VEC_PHI:%.*]] = phi <2 x i64> [ <i64 0, i64 1>, %vector.ph ], [ [[VEC_PHI_NEXT:%.*]], %vector.body ]
 ; CHECK-NEXT:   [[ADD1:%.*]] = add <2 x i64> %vec.phi, <i64 1, i64 1>

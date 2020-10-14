@@ -171,6 +171,11 @@ protected:
   /// Create VPLiveIn/VPLiveOut lists for VPEntities.
   virtual void createLiveInOutLists(VPlan &Plan);
 
+  /// Check whether everything in the loop body is supported at the moment.
+  /// We can have some unimplemented things and it's better to gracefully
+  /// bailout in such cases than assert or generate incorrect code.
+  virtual bool canProcessLoopBody(const VPlan &Plan, const VPLoop &Loop) const;
+
   /// WRegion info of the loop we evaluate. It can be null.
   WRNVecLoopNode *WRLp;
 
