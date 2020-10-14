@@ -1365,7 +1365,17 @@ namespace intel {
         }
         Value *pRetVal = pRetInst->getOperand(0);
         Instruction *pNextInst;
-        if (Instruction *pInst = dyn_cast<Instruction>(pRetVal)) {
+        Instruction *pInst = dyn_cast<Instruction>(pRetVal);
+        CallInst *callInst = dyn_cast<CallInst>(pRetVal);
+        Function *func = nullptr;
+        if (callInst != nullptr)
+          func = callInst->getCalledFunction();
+        // If there is uniform work group builtin, we need to store return value in
+        // the special buffer.
+        using namespace Intel::OpenCL::DeviceBackend;
+        if ((pInst != nullptr) && !(func != nullptr &&
+           CompilationUtils::isWorkGroupBuiltin(func->getName().str()) &&
+           CompilationUtils::isWorkGroupUniform(func->getName().str()))) {
           //Find next instruction so we can create new instruction before it
           pNextInst = &*(++BasicBlock::iterator(pInst));
           if ( isa<PHINode>(pNextInst) ) {
