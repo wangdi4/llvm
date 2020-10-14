@@ -2989,7 +2989,12 @@ void Sema::CheckSYCLKernelCall(FunctionDecl *KernelFunc, SourceRange CallLoc,
   // Emit diagnostics for SYCL device kernels only
   if (LangOpts.SYCLIsDevice)
     KernelNameTypeVisitor.Visit(KernelNameType);
+<<<<<<< HEAD
   Visitor.VisitRecordBases(KernelObj, FieldChecker, UnionChecker, DecompMarker);
+=======
+  Visitor.VisitRecordBases(KernelObj, FieldChecker, UnionChecker,
+                           ArgsSizeChecker);
+>>>>>>> 26d399cbd48f88c5a3b4141f0e85cc1bd8b93fbc
   Visitor.VisitRecordFields(KernelObj, FieldChecker, UnionChecker,
                             DecompMarker);
   // ArgSizeChecker needs to happen after DecompMarker has completed, since it
