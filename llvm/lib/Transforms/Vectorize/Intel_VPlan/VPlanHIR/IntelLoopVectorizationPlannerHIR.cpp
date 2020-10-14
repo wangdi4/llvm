@@ -33,6 +33,10 @@ static cl::opt<bool> ForceLinearizationHIR("vplan-force-linearization-hir",
                                            cl::init(false), cl::Hidden,
                                            cl::desc("Force CFG linearization"));
 
+static cl::opt<bool>
+    EnableInMemoryEntities("vplan-enable-inmemory-entities", cl::init(false),
+                           cl::Hidden, cl::desc("Enable in memory entities."));
+
 bool LoopVectorizationPlannerHIR::executeBestPlan(VPOCodeGenHIR *CG, unsigned UF) {
   assert(BestVF != 1 && "Non-vectorized loop should be handled elsewhere!");
   VPlan *Plan = getVPlanForVF(BestVF);
@@ -104,4 +108,17 @@ std::shared_ptr<VPlan> LoopVectorizationPlannerHIR::buildInitialVPlan(
   Plan->disableActiveLaneInstructions();
 
   return SharedPlan;
+}
+
+bool LoopVectorizationPlannerHIR::canProcessLoopBody(const VPlan &Plan,
+                                                     const VPLoop &Loop) const {
+  if (EnableInMemoryEntities)
+    return true;
+
+  // HIR-CG is not setup to deal with instructions related to in-memory entities
+  // such as VPAllocatePrivate. Check and bail out for any in-memory entities.
+  // Walking the VPlan instructions will not work as this check is done before
+  // we insert entity related instructions.
+  const VPLoopEntityList *LE = Plan.getLoopEntities(&Loop);
+  return !LE->hasInMemoryEntity();
 }

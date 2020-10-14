@@ -478,6 +478,16 @@ public:
   /// initial value and value coming from loop latch.
   bool isReductionPhi(const VPPHINode* VPhi) const;
 
+  bool hasInMemoryEntity() const {
+    for (auto &It : MemoryDescriptors)
+      // Return true if we have an entity with a memory descriptor
+      // that cannot be registerized.
+      if (!It.second.get()->canRegisterize())
+        return true;
+
+    return false;
+  }
+
 private:
   VPlan &Plan;
   VPLoop &Loop;
