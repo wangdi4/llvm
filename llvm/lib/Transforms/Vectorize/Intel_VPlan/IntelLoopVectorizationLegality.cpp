@@ -91,22 +91,35 @@ static bool checkCombinerOp(Value *CombinerV,
 
 /// Return \p true if \p Ty or any of the member-type of \p Ty is a scalable
 /// type.
-static bool isOrHasScalableTy(Type *Ty) {
-  if (isa<ScalableVectorType>(Ty))
-    return true;
+static bool isOrHasScalableTy(Type *InTy) {
+  SetVector<Type *> WL;
+  DenseSet<Type *> AnalyzedTypes;
+  WL.insert(InTy);
 
-  if (auto *CastTy = dyn_cast<PointerType>(Ty))
-    return isOrHasScalableTy(CastTy->getElementType());
+  while (!WL.empty()) {
+    Type *Ty = WL.pop_back_val();
 
-  if (auto *CastTy = dyn_cast<VectorType>(Ty))
-    return isOrHasScalableTy(CastTy->getElementType());
+    if (AnalyzedTypes.count(Ty))
+      continue;
 
-  if (auto *CastTy = dyn_cast<ArrayType>(Ty))
-    return isOrHasScalableTy(CastTy->getElementType());
+    if (isa<ScalableVectorType>(Ty))
+      return true;
 
-  if (auto *StructTy = dyn_cast<StructType>(Ty))
-    return any_of(StructTy->elements(),
-                  [&](Type *ElemTy) { return isOrHasScalableTy(ElemTy); });
+    if (auto *CastTy = dyn_cast<PointerType>(Ty))
+      WL.insert(CastTy->getElementType());
+
+    if (auto *CastTy = dyn_cast<VectorType>(Ty))
+      WL.insert(CastTy->getElementType());
+
+    if (auto *CastTy = dyn_cast<ArrayType>(Ty))
+      WL.insert(CastTy->getElementType());
+
+    if (auto *StructTy = dyn_cast<StructType>(Ty))
+      for (auto *ElemTy : StructTy->elements())
+        WL.insert(ElemTy);
+
+    AnalyzedTypes.insert(Ty);
+  }
 
   return false;
 }

@@ -1451,11 +1451,11 @@ static bool canEvaluateSExtd(Value *V, Type *Ty) {
 
 #if INTEL_CUSTOMIZATION
 /// Check if the Value is Phi or Trunc.
-static bool isPhiOrTrunc(Value *V) {
+static bool isPhiOrTrunc(const Value *V) {
   return isa<PHINode>(V) || isa<TruncInst>(V);
 }
 /// Check if the instruction CI has one Load/Store user.
-static bool hasOneLoadStoreUser(GetElementPtrInst *CI) {
+static bool hasOneLoadStoreUser(const GetElementPtrInst *CI) {
   if (!CI->hasOneUse())
     return false;
   auto *I = CI->user_back();
@@ -1469,7 +1469,7 @@ static bool hasOneLoadStoreUser(GetElementPtrInst *CI) {
   return false;
 }
 /// Check if the instruction CI has one GEP+Load/Store user.
-static bool hasOneGEPLoadStoreUser(Instruction &CI) {
+static bool hasOneGEPLoadStoreUser(const Instruction &CI) {
   if (!CI.hasOneUse())
     return false;
   auto *GEP = dyn_cast<GetElementPtrInst>(CI.user_back());
@@ -1480,7 +1480,7 @@ static bool hasOneGEPLoadStoreUser(Instruction &CI) {
   return false;
 }
 /// Check if the function is SPIRV kernel/function.
-static bool isSPIRFunction(Function *F) {
+static bool isSPIRFunction(const Function *F) {
   auto CC = F->getCallingConv();
   return CC == CallingConv::SPIR_KERNEL || CC == CallingConv::SPIR_FUNC;
 }
@@ -1498,28 +1498,37 @@ Instruction *InstCombinerImpl::visitSExt(SExtInst &CI) {
   Value *Src = CI.getOperand(0);
   Type *SrcTy = Src->getType(), *DestTy = CI.getType();
 
+#if INTEL_CUSTOMIZATION
+  // Avoid some sext transforms if CI has a GEP + Load/Store user,
+  // to avoid negatively impacting vectorizer's unit-stride analysis.
+  // Look for something that resembles A[SExt(loop_index + ...)].
+  // Loop_index here can be real 32bit loop index (from PHI) or
+  // OpenCL ID truncated to 32bit (if needed, use stricter check than
+  // isPhiOrTrunc().
+  // Also avoid transformations if code is to be dumped into SPIRV IR.
+  // Thus let a backend to decide after it reads it back.
+  auto AvoidSExtTransform = [](const SExtInst &CI, const Value *Op) -> bool {
+    if (isSPIRFunction(CI.getFunction()))
+      return true;
+    auto *Src = dyn_cast<Instruction>(Op);
+    return Src && (Src->getOpcode() == Instruction::Add &&
+                   (isPhiOrTrunc(Src->getOperand(0)) ||
+                    isPhiOrTrunc(Src->getOperand(1))) &&
+                   hasOneGEPLoadStoreUser(CI));
+  };
+#endif // INTEL_CUSTOMIZATION
+
   // If we know that the value being extended is positive, we can use a zext
   // instead.
   KnownBits Known = computeKnownBits(Src, 0, &CI);
-  if (Known.isNonNegative())
-#if INTEL_CUSTOMIZATION
-    // Avoid turning into zext if CI has a GEP + Load/Store user,
-    // to avoid negatively impacting vectorizer's unit-stride analysis.
-    // Look for something that resembles A[SExt(loop_index + ...)].
-    // Loop_index here can be real 32bit loop index (from PHI) or
-    // OpenCL ID truncated to 32bit (if needed, use stricter check than
-    // isPhiOrTrunc().
-    if (Instruction *ISrc = dyn_cast<Instruction>(Src))
-      if (!(isSPIRFunction(CI.getFunction()) ||
-            (ISrc->getOpcode() == Instruction::Add &&
-             (isPhiOrTrunc(ISrc->getOperand(0)) ||
-              isPhiOrTrunc(ISrc->getOperand(1)))   &&
-             hasOneGEPLoadStoreUser(CI))))
-#endif // INTEL_CUSTOMIZATION
-        return CastInst::Create(Instruction::ZExt, Src, DestTy);
+  if (Known.isNonNegative() && !AvoidSExtTransform(CI, Src)) // INTEL
+    return CastInst::Create(Instruction::ZExt, Src, DestTy);
 
   // Try to extend the entire expression tree to the wide destination type.
-  if (shouldChangeType(SrcTy, DestTy) && canEvaluateSExtd(Src, DestTy)) {
+#if INTEL_CUSTOMIZATION
+  if (shouldChangeType(SrcTy, DestTy) && canEvaluateSExtd(Src, DestTy) &&
+      !AvoidSExtTransform(CI, Src)) {
+#endif // INTEL_CUSTOMIZATION
     // Okay, we can transform this!  Insert the new expression now.
     LLVM_DEBUG(
         dbgs() << "ICE: EvaluateInDifferentType converting expression type"

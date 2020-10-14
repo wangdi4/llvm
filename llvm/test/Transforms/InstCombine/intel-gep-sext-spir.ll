@@ -32,8 +32,44 @@ define spir_func void @test2(i32* %p, i32 %index) {
   ret void
 }
 
+
+define spir_kernel void @test3(i32* %p) {
+; CHECK-LABEL: @test3
+; CHECK:        trunc
+; CHECK-NEXT:   add
+; CHECK-NEXT:   sext
+; CHECK-NOT:    shl
+; CHECK-NOT:    ashr
+%addr_begin = getelementptr i32, i32* %p, i64 40
+%addr_fixed = getelementptr i32, i32* %addr_begin, i64 48
+%addr_cast = bitcast i32* %addr_fixed to i64*
+%val_fixed = load i64, i64* %addr_cast
+%trunc = trunc i64 %val_fixed to i32
+%add = add nuw nsw i32 %trunc, 1
+%addr = getelementptr i32, i32* %addr_begin, i32 %add
+%val = load i32, i32* %addr
+call void @use(i32 %val)
+ret void
+}
+
+define spir_func void @test4(i32* %p) {
+; CHECK-LABEL: @test4
+; CHECK:        trunc
+; CHECK-NEXT:   add
+; CHECK-NEXT:   sext
+; CHECK-NOT:    shl
+; CHECK-NOT:    ashr
+%addr_begin = getelementptr i32, i32* %p, i64 40
+%addr_fixed = getelementptr i32, i32* %addr_begin, i64 48
+%addr_cast = bitcast i32* %addr_fixed to i64*
+%val_fixed = load i64, i64* %addr_cast
+%trunc = trunc i64 %val_fixed to i32
+%add = add nuw nsw i32 %trunc, 1
+%addr = getelementptr i32, i32* %addr_begin, i32 %add
+%val = load i32, i32* %addr
+call void @use(i32 %val)
+ret void
+}
+
 ;;  !range !0
 !0 = !{i32 0, i32 2147483647}
-
-
-
