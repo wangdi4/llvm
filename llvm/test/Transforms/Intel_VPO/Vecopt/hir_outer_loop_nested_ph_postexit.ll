@@ -41,11 +41,11 @@ define dso_local i64 @_Z3foollPlPA101_fb(i64 %n, i64 %m, i64* nocapture %ub, [10
 ; CHECK-LABEL:  VPlan after importing plain CFG:
 ; CHECK-NEXT:  External Defs Start:
 ; CHECK-DAG:     [[VP0:%.*]] = {%ret.021}
-; CHECK-DAG:     [[VP1:%.*]] = {%n + -1}
+; CHECK-DAG:     [[VP1:%.*]] = {%m + -1}
 ; CHECK-DAG:     [[VP2:%.*]] = {%a}
-; CHECK-DAG:     [[VP3:%.*]] = {%ub}
-; CHECK-DAG:     [[VP4:%.*]] = {%m}
-; CHECK-DAG:     [[VP5:%.*]] = {%m + -1}
+; CHECK-DAG:     [[VP3:%.*]] = {%n + -1}
+; CHECK-DAG:     [[VP4:%.*]] = {%ub}
+; CHECK-DAG:     [[VP5:%.*]] = {%m}
 ; CHECK-NEXT:  External Defs End:
 ; CHECK-NEXT:    [[BB0:BB[0-9]+]]: # preds:
 ; CHECK-NEXT:     br [[BB1:BB[0-9]+]]
@@ -77,23 +77,29 @@ define dso_local i64 @_Z3foollPlPA101_fb(i64 %n, i64 %m, i64* nocapture %ub, [10
 ; CHECK-NEXT:     i64 [[VP19:%.*]] = add i64 [[VP10]] i64 [[VP18]]
 ; CHECK-NEXT:     i64 [[VP20:%.*]] = add i64 [[VP19]] i64 2
 ; CHECK-NEXT:     i64 [[VP15]] = add i64 [[VP14]] i64 1
-; CHECK-NEXT:     i1 [[VP21:%.*]] = icmp sle i64 [[VP15]] i64 [[VP5]]
+; CHECK-NEXT:     i1 [[VP21:%.*]] = icmp sle i64 [[VP15]] i64 [[VP1]]
 ; CHECK-NEXT:     br i1 [[VP21]], [[BB5]], [[BB3]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB3]]: # preds: [[BB5]]
-; CHECK-NEXT:     i64 [[VP22:%.*]] = phi  [ i64 [[VP6]], [[BB5]] ]
 ; CHECK-NEXT:     i64 [[VP7]] = hir-copy i64 [[VP20]] , OriginPhiId: -1
-; CHECK-NEXT:     i64 [[VP23:%.*]] = hir-copy i64 [[M0:%.*]] , OriginPhiId: -1
-; CHECK-NEXT:     i64 [[VP24:%.*]] = hir-copy i64 [[VP22]] , OriginPhiId: -1
+; CHECK-NEXT:     i64 [[VP22:%.*]] = hir-copy i64 [[M0:%.*]] , OriginPhiId: -1
+; CHECK-NEXT:     i64 [[VP23:%.*]] = hir-copy i64 [[VP6]] , OriginPhiId: -1
 ; CHECK-NEXT:     i64 [[VP9]] = add i64 [[VP8]] i64 1
-; CHECK-NEXT:     i1 [[VP25:%.*]] = icmp sle i64 [[VP9]] i64 [[VP1]]
-; CHECK-NEXT:     br i1 [[VP25]], [[BB2]], [[BB6:BB[0-9]+]]
+; CHECK-NEXT:     i1 [[VP24:%.*]] = icmp sle i64 [[VP9]] i64 [[VP3]]
+; CHECK-NEXT:     br i1 [[VP24]], [[BB2]], [[BB6:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB6]]: # preds: [[BB3]]
 ; CHECK-NEXT:     br [[BB7:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB7]]: # preds: [[BB6]]
 ; CHECK-NEXT:     br <External Block>
+; CHECK-EMPTY:
+; CHECK-NEXT:  External Uses:
+; CHECK-NEXT:  Id: 0   i64 [[VP11]] -> [[VP25:%.*]] = {%.omp.iv.0.out}
+; CHECK-EMPTY:
+; CHECK-NEXT:  Id: 1   i64 [[VP22]] -> [[VP26:%.*]] = {%inc.lcssa25}
+; CHECK-EMPTY:
+; CHECK-NEXT:  Id: 2   i64 [[VP23]] -> [[VP27:%.*]] = {%ret.021.out}
 ;
 entry:
   %i = alloca i64
