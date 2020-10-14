@@ -39,9 +39,6 @@ def DpcppUnsupported : OptionFlag;
 
 // DpcppHidden - This option is does not show help for DPC++
 def DpcppHidden : OptionFlag;
-
-// ProEnabled - This option is enabled for the Intel Compiler Pro
-def ProEnabled : OptionFlag;
 #endif // INTEL_CUSTOMIZATION
 
 // Ignored - The option is unsupported, and the driver will silently ignore it.
@@ -627,12 +624,12 @@ def Xcuda_fatbinary : Separate<["-"], "Xcuda-fatbinary">, Flags<[DpcppUnsupporte
   HelpText<"Pass <arg> to fatbinary invocation">, MetaVarName<"<arg>">;
 def Xcuda_ptxas : Separate<["-"], "Xcuda-ptxas">, Flags<[DpcppUnsupported]>,
   HelpText<"Pass <arg> to the ptxas assembler">, MetaVarName<"<arg>">;
-def Xopenmp_target : Separate<["-"], "Xopenmp-target">, Flags<[DpcppUnsupported, ProEnabled]>,
+#endif // INTEL_CUSTOMIZATION
+def Xopenmp_target : Separate<["-"], "Xopenmp-target">,
   HelpText<"Pass <arg> to the target offloading toolchain.">, MetaVarName<"<arg>">;
-def Xopenmp_target_EQ : JoinedAndSeparate<["-"], "Xopenmp-target=">, Flags<[DpcppUnsupported, ProEnabled]>,
+def Xopenmp_target_EQ : JoinedAndSeparate<["-"], "Xopenmp-target=">,
   HelpText<"Pass <arg> to the target offloading toolchain identified by <triple>.">,
   MetaVarName<"<triple> <arg>">;
-#endif // INTEL_CUSTOMIZATION
 def Xsycl_backend : Separate<["-"], "Xsycl-target-backend">,
   HelpText<"Pass <arg> to the SYCL based target backend.">, MetaVarName<"<arg>">, Flags<[CoreOption]>;
 def Xsycl_backend_EQ : JoinedAndSeparate<["-"], "Xsycl-target-backend=">,
@@ -1933,16 +1930,14 @@ def fobjc_sender_dependent_dispatch : Flag<["-"], "fobjc-sender-dependent-dispat
 def foffload_static_lib_EQ : CommaJoined<["-"], "foffload-static-lib=">, Flags<[DriverOption, CoreOption]>, Group<offload_lib_Group>;
 def foffload_whole_static_lib_EQ : CommaJoined<["-"], "foffload-whole-static-lib=">, Flags<[DriverOption, CoreOption]>, Group<offload_lib_Group>;
 def fomit_frame_pointer : Flag<["-"], "fomit-frame-pointer">, Group<f_Group>;
-#if INTEL_CUSTOMIZATION
-def fopenmp : Flag<["-"], "fopenmp">, Group<f_Group>,
-  Flags<[CC1Option, NoArgumentUnused, DpcppUnsupported, ProEnabled]>,
+def fopenmp : Flag<["-"], "fopenmp">, Group<f_Group>, Flags<[CC1Option, NoArgumentUnused]>,
   HelpText<"Parse OpenMP pragmas and generate parallel code.">;
-def fno_openmp : Flag<["-"], "fno-openmp">, Group<f_Group>, Flags<[NoArgumentUnused, DpcppUnsupported, ProEnabled]>;
-def fopenmp_version_EQ : Joined<["-"], "fopenmp-version=">, Group<f_Group>,
-  Flags<[CC1Option, NoArgumentUnused, DpcppUnsupported, ProEnabled]>,
+def fno_openmp : Flag<["-"], "fno-openmp">, Group<f_Group>, Flags<[NoArgumentUnused]>;
+#if INTEL_CUSTOMIZATION
+def fopenmp_version_EQ : Joined<["-"], "fopenmp-version=">, Group<f_Group>, Flags<[CC1Option, NoArgumentUnused]>,
   HelpText<"Choose which OpenMP version to link with.">;
-def fopenmp_EQ : Joined<["-"], "fopenmp=">, Group<f_Group>, Flags<[DpcppUnsupported, ProEnabled]>;
-def qopenmp_threadprivate_EQ: Joined<["-"], "qopenmp-threadprivate=">, Flags<[DpcppUnsupported, ProEnabled]>,
+def fopenmp_EQ : Joined<["-"], "fopenmp=">, Group<f_Group>;
+def qopenmp_threadprivate_EQ: Joined<["-"], "qopenmp-threadprivate=">,
   HelpText<"Choose which threadprivate implementation to use: compat or legacy.">;
 def fintel_pragma_prefetch : Flag<["-"],
   "fintel-pragma-prefetch">, Group<f_Group>,
@@ -1963,33 +1958,33 @@ def fopenmp_use_single_elem_array_funcs : Flag<["-"],
 def fno_openmp_use_single_elem_array_funcs : Flag<["-"],
   "fno-openmp-use-single-elem-array-funcs">;
 // end INTEL_COLLAB
-def fopenmp_targets_EQ : CommaJoined<["-"], "fopenmp-targets=">, Flags<[DriverOption, CC1Option, DpcppUnsupported, ProEnabled]>,
+def fopenmp_targets_EQ : CommaJoined<["-"], "fopenmp-targets=">, Flags<[DriverOption, CC1Option]>,
   HelpText<"Specify comma-separated list of triples OpenMP offloading targets to be supported">;
 def fopenmp_relocatable_target : Flag<["-"], "fopenmp-relocatable-target">,
   Group<f_Group>, Flags<[CC1Option, NoArgumentUnused, HelpHidden]>;
 def fnoopenmp_relocatable_target : Flag<["-"], "fnoopenmp-relocatable-target">,
   Group<f_Group>, Flags<[CC1Option, NoArgumentUnused, HelpHidden]>;
-def fopenmp_simd : Flag<["-"], "fopenmp-simd">, Group<f_Group>, Flags<[CC1Option, NoArgumentUnused, DpcppUnsupported, ProEnabled]>,
+def fopenmp_simd : Flag<["-"], "fopenmp-simd">, Group<f_Group>, Flags<[CC1Option, NoArgumentUnused]>,
   HelpText<"Emit OpenMP code only for SIMD-based constructs.">;
 #if INTEL_CUSTOMIZATION
-def fiopenmp_simd : Flag<["-"], "fiopenmp-simd">, Group<f_Group>, Flags<[CC1Option, NoArgumentUnused, DpcppUnsupported, ProEnabled]>;
-def fno_iopenmp_simd : Flag<["-"], "fno-iopenmp-simd">, Group<f_Group>, Flags<[NoArgumentUnused, DpcppUnsupported, ProEnabled]>;
+def fiopenmp_simd : Flag<["-"], "fiopenmp-simd">, Group<f_Group>, Flags<[CC1Option, NoArgumentUnused]>;
+def fno_iopenmp_simd : Flag<["-"], "fno-iopenmp-simd">, Group<f_Group>, Flags<[NoArgumentUnused]>;
 def fopenmp_stable_file_id : Flag<["-"], "fopenmp-stable-file-id">,
     Group<f_Group>, Flags<[CC1Option, NoArgumentUnused, CoreOption, HelpHidden]>;
-def fopenmp_device_lib_EQ : CommaJoined<["-"], "fopenmp-device-lib=">, Flags<[DriverOption, CoreOption, DpcppUnsupported]>,
+def fopenmp_device_lib_EQ : CommaJoined<["-"], "fopenmp-device-lib=">, Flags<[DriverOption, CoreOption]>,
   Values<"libc, libm-fp32, libm-fp64, all">, HelpText<"Control inclusion of "
   "device libraries into device binary linkage. Valid arguments "
   "are libc, libm-fp32, libm-fp64, all">;
-def fno_openmp_device_lib_EQ : CommaJoined<["-"], "fno-openmp-device-lib=">, Flags<[DriverOption, CoreOption, DpcppUnsupported]>,
+def fno_openmp_device_lib_EQ : CommaJoined<["-"], "fno-openmp-device-lib=">, Flags<[DriverOption, CoreOption]>,
   Values<"libc, libm-fp32, libm-fp64, all">, HelpText<"Control exclusion of "
   "device libraries from device binary linkage. Valid arguments "
   "are libc, libm-fp32, libm-fp64, all">;
-def fiopenmp_offload : Flag<["-"], "fiopenmp-offload">, Flags<[DriverOption, DpcppUnsupported]>, Group<f_Group>;
-def fno_iopenmp_offload : Flag<["-"], "fno-iopenmp-offload">, Flags<[DriverOption, DpcppUnsupported]>, Group<f_Group>;
+def fiopenmp_offload : Flag<["-"], "fiopenmp-offload">, Flags<[DriverOption]>, Group<f_Group>;
+def fno_iopenmp_offload : Flag<["-"], "fno-iopenmp-offload">, Flags<[DriverOption]>, Group<f_Group>;
 #endif // INTEL_CUSTOMIZATION
 def fopenmp_enable_irbuilder : Flag<["-"], "fopenmp-enable-irbuilder">, Group<f_Group>, Flags<[CC1Option, NoArgumentUnused, HelpHidden]>,
   HelpText<"Use the experimental OpenMP-IR-Builder codegen path.">;
-def fno_openmp_simd : Flag<["-"], "fno-openmp-simd">, Group<f_Group>, Flags<[CC1Option, NoArgumentUnused, DpcppUnsupported, ProEnabled]>;
+def fno_openmp_simd : Flag<["-"], "fno-openmp-simd">, Group<f_Group>, Flags<[CC1Option, NoArgumentUnused]>;
 def fopenmp_cuda_mode : Flag<["-"], "fopenmp-cuda-mode">, Group<f_Group>,
   Flags<[CC1Option, NoArgumentUnused, HelpHidden]>;
 def fno_openmp_cuda_mode : Flag<["-"], "fno-openmp-cuda-mode">, Group<f_Group>,
@@ -2009,26 +2004,22 @@ def fopenmp_optimistic_collapse : Flag<["-"], "fopenmp-optimistic-collapse">, Gr
 def fno_openmp_optimistic_collapse : Flag<["-"], "fno-openmp-optimistic-collapse">, Group<f_Group>,
   Flags<[NoArgumentUnused, HelpHidden]>;
 // INTEL_COLLAB
-#if INTEL_CUSTOMIZATION
-def fiopenmp : Flag<["-"], "fiopenmp">, Group<f_Group>, Flags<[NoArgumentUnused, DpcppUnsupported, ProEnabled]>;
-def fno_iopenmp : Flag<["-"], "fno-iopenmp">, Group<f_Group>, Flags<[NoArgumentUnused, DpcppUnsupported, ProEnabled]>;
-#endif // INTEL_CUSTOMIZATION
+def fiopenmp : Flag<["-"], "fiopenmp">, Group<f_Group>, Flags<[NoArgumentUnused]>;
+def fno_iopenmp : Flag<["-"], "fno-iopenmp">, Group<f_Group>, Flags<[NoArgumentUnused]>;
 // end INTEL_COLLAB
 #if INTEL_CUSTOMIZATION
-def static_openmp: Flag<["-"], "static-openmp">, Flags<[DpcppUnsupported, ProEnabled]>,
+def static_openmp: Flag<["-"], "static-openmp">,
   HelpText<"Use the static host OpenMP runtime while linking.">;
 def qopenmp_simd: Flag<["-"], "qopenmp-simd">, Alias<fiopenmp_simd>,
-  Flags<[DpcppUnsupported, ProEnabled]>, HelpText<"Emit OpenMP code only for SIMD-based "
-  "constructs.">;
-def qno_openmp_simd: Flag<["-"], "qno-openmp-simd">, Alias<fno_iopenmp_simd>,
-  Flags<[DpcppUnsupported, ProEnabled]>;
-def qno_openmp : Flag<["-"], "qno-openmp">, Group<f_Group>, Flags<[NoArgumentUnused, DpcppUnsupported, ProEnabled]>, Alias<fno_iopenmp>, HelpText<"Disable OpenMP support">;
-def qopenmp: Flag<["-"], "qopenmp">, Alias<fiopenmp>, Flags<[DpcppUnsupported, ProEnabled]>,
+  HelpText<"Emit OpenMP code only for SIMD-based constructs.">;
+def qno_openmp_simd: Flag<["-"], "qno-openmp-simd">, Alias<fno_iopenmp_simd>;
+def qno_openmp : Flag<["-"], "qno-openmp">, Group<f_Group>, Flags<[NoArgumentUnused]>, Alias<fno_iopenmp>, HelpText<"Disable OpenMP support">;
+def qopenmp: Flag<["-"], "qopenmp">, Alias<fiopenmp>,
   HelpText<"Parse OpenMP pragmas and generate parallel code.">;
-def qopenmp_stubs : Flag<["-"], "qopenmp-stubs">, Flags<[DpcppUnsupported, ProEnabled]>,
+def qopenmp_stubs : Flag<["-"], "qopenmp-stubs">,
   HelpText<"enables the user to compile OpenMP programs in sequential mode. "
   "The OpenMP directives are ignored and a stub OpenMP library is linked.">;
-def qopenmp_link_EQ : Joined<["-"], "qopenmp-link=">, Flags<[DpcppUnsupported, ProEnabled]>,
+def qopenmp_link_EQ : Joined<["-"], "qopenmp-link=">,
   HelpText<"Choose whether to link with the static or dynamic OpenMP "
   "libraries. Default is dynamic.">;
 #endif // INTEL_CUSTOMIZATION
@@ -5259,13 +5250,6 @@ def cl_ignored_Group : OptionGroup<"<clang-cl ignored options>">,
 class CLFlag<string name> : Option<["/", "-"], name, KIND_FLAG>,
   Group<cl_Group>, Flags<[CLOption, DriverOption]>;
 
-#if INTEL_CUSTOMIZATION
-// For Windows, The only DPC++ unsupported options are OpenMP options, so
-// we are making an assumption for Pro enabling.
-class CLFlagNoDpcpp<string name> : Option<["/", "-"], name, KIND_FLAG>,
-  Group<cl_Group>, Flags<[CLOption, DriverOption, DpcppUnsupported, ProEnabled]>;
-#endif // INTEL_CUSTOMIZATION
-
 class CLCompileFlag<string name> : Option<["/", "-"], name, KIND_FLAG>,
   Group<cl_compile_Group>, Flags<[CLOption, DriverOption]>;
 
@@ -5294,12 +5278,6 @@ class CLRemainingArgsJoined<string name> : Option<["/", "-"], name,
 #if INTEL_CUSTOMIZATION
 class CLCommaJoined<string name> : Option<["/", "-"], name, KIND_COMMAJOINED>,
   Group<cl_Group>, Flags<[CLOption, DriverOption]>;
-
-class CLCommaJoinedNoDpcpp<string name> : Option<["/", "-"], name, KIND_COMMAJOINED>,
-  Group<cl_Group>, Flags<[CLOption, DriverOption, DpcppUnsupported, ProEnabled]>;
-
-class CLJoinedNoDpcpp<string name> : Option<["/", "-"], name, KIND_JOINED>,
-  Group<cl_Group>, Flags<[CLOption, DriverOption, DpcppUnsupported, ProEnabled]>;
 #endif // INTEL_CUSTOMIZATION
 
 // Aliases:
@@ -5495,24 +5473,24 @@ def _SLASH_Qkeep_static_consts_ : CLFlag<"Qkeep-static-consts-">,
   "allocation of variables that are not referenced in the source">;
 def _SLASH_Qno_builtin_ : CLJoined<"Qno-builtin-">, Alias<fno_builtin_>,
   HelpText<"Disable implicit builtin knowledge of a specific function">;
-def _SLASH_Qopenmp : CLFlagNoDpcpp<"Qopenmp">, Alias<fiopenmp>,
+def _SLASH_Qopenmp : CLFlag<"Qopenmp">, Alias<fiopenmp>,
   HelpText<"Parse OpenMP pragmas and generate parallel code.">;
-def _SLASH_QopenmpP : CLFlagNoDpcpp<"QopenmpP">, Alias<fiopenmp>,
+def _SLASH_QopenmpP : CLFlag<"QopenmpP">, Alias<fiopenmp>,
   HelpText<"Parse OpenMP pragmas and generate parallel code.">;
-def _SLASH_Qopenmp_ : CLFlagNoDpcpp<"Qopenmp-">, Alias<fno_iopenmp>,
+def _SLASH_Qopenmp_ : CLFlag<"Qopenmp-">, Alias<fno_iopenmp>,
   HelpText<"Disable OpenMP support">;
-def _SLASH_QopenmpP_ : CLFlagNoDpcpp<"QopenmpP-">, Alias<fno_iopenmp>,
+def _SLASH_QopenmpP_ : CLFlag<"QopenmpP-">, Alias<fno_iopenmp>,
   HelpText<"Disable OpenMP support">;
-def _SLASH_QopenmpS : CLFlagNoDpcpp<"QopenmpS">, Alias<qopenmp_stubs>;
-def _SLASH_Qopenmp_stubs : CLFlagNoDpcpp<"Qopenmp-stubs">, Alias<qopenmp_stubs>,
+def _SLASH_QopenmpS : CLFlag<"QopenmpS">, Alias<qopenmp_stubs>;
+def _SLASH_Qopenmp_stubs : CLFlag<"Qopenmp-stubs">, Alias<qopenmp_stubs>,
   HelpText<"Enables the user to compile OpenMP programs in seqential mode. "
   "The OpenMP directives are ignored and a stub OpenMP library is linked.">;
 def _SLASH_Qiopenmp : CLFlag<"Qiopenmp">, Alias<fiopenmp>;
-def _SLASH_Qopenmp_simd : CLFlagNoDpcpp<"Qopenmp-simd">, Alias<fiopenmp_simd>,
+def _SLASH_Qopenmp_simd : CLFlag<"Qopenmp-simd">, Alias<fiopenmp_simd>,
   HelpText<"Emit OpenMP code only for SIMD-based constructs.">;
-def _SLASH_Qopenmp_simd_ : CLFlagNoDpcpp<"Qopenmp-simd-">, Alias<fno_iopenmp_simd>;
-def _SLASH_Qiopenmp_offload : CLFlagNoDpcpp<"Qiopenmp-offload">, Alias<fiopenmp_offload>;
-def _SLASH_Qiopenmp_offload_ : CLFlagNoDpcpp<"Qiopenmp-offload-">, Alias<fno_iopenmp_offload>;
+def _SLASH_Qopenmp_simd_ : CLFlag<"Qopenmp-simd-">, Alias<fno_iopenmp_simd>;
+def _SLASH_Qiopenmp_offload : CLFlag<"Qiopenmp-offload">, Alias<fiopenmp_offload>;
+def _SLASH_Qiopenmp_offload_ : CLFlag<"Qiopenmp-offload-">, Alias<fno_iopenmp_offload>;
 def _SLASH_Qpc : CLJoined<"Qpc">, Alias<pc>, HelpText<"Initialize X87 "
   "floating point precision to single, double or double extended.  Valid "
   "values of 32, 64, and 80.">;
@@ -5539,20 +5517,20 @@ def _SLASH_QMMD : CLFlag<"QMMD">, Alias<MMD>, HelpText<"Write a depfile "
   "containing user headers.">;
 def _SLASH_QMF : CLJoinedOrSeparate<"QMF">, Alias<MF>, HelpText<"Write depfile "
   "output from -MMD, -MD, -MM, or -M to <file>">, MetaVarName<"<file>">;
-def _SLASH_Qiopenmp_simd : CLFlagNoDpcpp<"Qiopenmp-simd">, Alias<fiopenmp_simd>;
-def _SLASH_Qopenmp_targets_EQ : CLCommaJoinedNoDpcpp<"Qopenmp-targets=">,
+def _SLASH_Qiopenmp_simd : CLFlag<"Qiopenmp-simd">, Alias<fiopenmp_simd>;
+def _SLASH_Qopenmp_targets_EQ : CLCommaJoined<"Qopenmp-targets=">,
   Alias<fopenmp_targets_EQ>;
-def _SLASH_Qopenmp_targets_COL : CLCommaJoinedNoDpcpp<"Qopenmp-targets:">,
+def _SLASH_Qopenmp_targets_COL : CLCommaJoined<"Qopenmp-targets:">,
   Alias<fopenmp_targets_EQ>, HelpText<"Specify comma-separated list of triples"
   " OpenMP offloading targets to be supported">;
-def _SLASH_Qopenmp_version_EQ : CLJoinedNoDpcpp<"Qopenmp-version=">,
+def _SLASH_Qopenmp_version_EQ : CLJoined<"Qopenmp-version=">,
   Alias<fopenmp_version_EQ>;
-def _SLASH_Qopenmp_version_COL : CLJoinedNoDpcpp<"Qopenmp-version:">,
+def _SLASH_Qopenmp_version_COL : CLJoined<"Qopenmp-version:">,
   Alias<fopenmp_version_EQ>, HelpText<"Choose which OpenMP version to"
   " link with.">;
-def _SLASH_Qopenmp_threadprivate_EQ : CLJoinedNoDpcpp<"Qopenmp-threadprivate=">,
+def _SLASH_Qopenmp_threadprivate_EQ : CLJoined<"Qopenmp-threadprivate=">,
   Alias<qopenmp_threadprivate_EQ>;
-def _SLASH_Qopenmp_threadprivate_COL : CLJoinedNoDpcpp<"Qopenmp-threadprivate:">,
+def _SLASH_Qopenmp_threadprivate_COL : CLJoined<"Qopenmp-threadprivate:">,
   HelpText<"Choose which threadprivate implementation to use: compat or legacy.">,
   Alias<qopenmp_threadprivate_EQ>;
 def _SLASH_Qopt_jump_tables : CLFlag<"Qopt-jump-tables">,
@@ -5811,11 +5789,11 @@ def _SLASH_Zs : CLFlag<"Zs">, HelpText<"Syntax-check only">,
 #if INTEL_CUSTOMIZATION
 def _SLASH_ZI : CLFlag<"ZI">, Alias<_SLASH_Z7>, HelpText<"Like /Z7">;
 #endif // INTEL_CUSTOMIZATION
-def _SLASH_openmp_ : CLFlagNoDpcpp<"openmp-">,
+def _SLASH_openmp_ : CLFlag<"openmp-">,
   HelpText<"Disable OpenMP support">, Alias<fno_openmp>;
-def _SLASH_openmp : CLFlagNoDpcpp<"openmp">, HelpText<"Enable OpenMP support">,
+def _SLASH_openmp : CLFlag<"openmp">, HelpText<"Enable OpenMP support">,
   Alias<fopenmp>;
-def _SLASH_openmp_experimental : CLFlagNoDpcpp<"openmp:experimental">,
+def _SLASH_openmp_experimental : CLFlag<"openmp:experimental">,
   HelpText<"Enable OpenMP support with experimental SIMD support">,
   Alias<fopenmp>;
 def _SLASH_tune : CLCompileJoined<"tune:">,
