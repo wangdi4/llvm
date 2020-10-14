@@ -1935,7 +1935,7 @@ Align VPOCodeGen::getAlignmentForGatherScatter(const VPInstruction *VPInst) {
 
   const DataLayout &DL = OrigLoop->getHeader()->getModule()->getDataLayout();
   Type *EltTy = VectorTy->getElementType();
-  assert(DL.getTypeSizeInBits(EltTy).isByteSized() &&
+  assert(DL.getTypeSizeInBits(EltTy).isKnownMultipleOf(8) &&
          "Only types with multiples of 8 bits are supported.");
   Align EltAlignment(DL.getTypeSizeInBits(EltTy).getFixedSize() / 8);
 
