@@ -1216,16 +1216,7 @@ bool HIRTransformUtils::doIdentityMatrixSubstitution(
           Ref->getDDRefUtils().createConstOneDDRef(Ref->getDestType());
     }
 
-    auto *Inst = cast<HLInst>(Ref->getHLDDNode());
-    // Replace loadinst with copyinst
-    if (isa<LoadInst>(Inst->getLLVMInstruction())) {
-      auto *LvalRef = Inst->removeLvalDDRef();
-      auto *CopyInst = Loop->getHLNodeUtils().createCopyInst(
-          ConstantRef, "identity", LvalRef);
-      HLNodeUtils::replace(Inst, CopyInst);
-    } else {
-      Ref->getHLDDNode()->replaceOperandDDRef(Ref, ConstantRef);
-    }
+    replaceOperand(Ref, ConstantRef);
   }
   return true;
 }
@@ -1627,4 +1618,77 @@ void HIRTransformUtils::setSelfBlobDDRef(RegDDRef *Ref, BlobTy Blob,
       Ref->setSymbase(GenericRvalSymbase);
     }
   }
+}
+
+HLDDNode *HIRTransformUtils::replaceOperand(RegDDRef *OldRef,
+                                            RegDDRef *NewRef) {
+  assert(OldRef && "OldRef is null!");
+  assert(NewRef && "NewRef is null!");
+  auto *Node = OldRef->getHLDDNode();
+  auto *HInst = dyn_cast<HLInst>(Node);
+
+  assert((!NewRef->isMemRef() || !isa<HLLoop>(Node)) &&
+         "Memref is not a valid operand of loop!");
+
+  if (!HInst) {
+    Node->replaceOperandDDRef(OldRef, NewRef);
+    return Node;
+  }
+
+  auto &HNU = Node->getHLNodeUtils();
+  RegDDRef *OtherRef = nullptr;
+  const Instruction *LLVMInst = HInst->getLLVMInstruction();
+
+  // Replacing memref by non-memref.
+  // We possibly need to replace load/store by copy.
+  if (OldRef->isMemRef() && !NewRef->isMemRef()) {
+
+    if (isa<StoreInst>(LLVMInst) && OldRef->isLval()) {
+      OtherRef = Node->removeOperandDDRef(1);
+      auto *NewNode = OtherRef->isMemRef()
+                          ? HNU.createLoad(OtherRef, "ld", NewRef)
+                          : HNU.createCopyInst(OtherRef, "cp", NewRef);
+      HLNodeUtils::replace(Node, NewNode);
+      return NewNode;
+    }
+
+    if (isa<LoadInst>(LLVMInst)) {
+      OtherRef = Node->removeOperandDDRef(0u);
+      auto *NewNode = HNU.createCopyInst(NewRef, "cp", OtherRef);
+      HLNodeUtils::replace(Node, NewNode);
+      return NewNode;
+    }
+
+  }
+  // Replacing non-memref by memref in copy/gep/load inst. We need to replace it
+  // by load/store.
+  else if (!OldRef->isMemRef() && NewRef->isMemRef()) {
+
+    if (HInst->isCopyInst() || isa<GetElementPtrInst>(LLVMInst) ||
+        isa<LoadInst>(LLVMInst)) {
+      bool ReplacingLval = OldRef->isLval();
+
+      OtherRef = ReplacingLval ? Node->removeOperandDDRef(1)
+                               : Node->removeOperandDDRef(0u);
+
+      auto *NewNode = ReplacingLval ? HNU.createStore(OtherRef, "st", NewRef)
+                                    : HNU.createLoad(NewRef, "ld", OtherRef);
+      HLNodeUtils::replace(Node, NewNode);
+      return NewNode;
+    }
+  }
+  // Replacing AddressOf ref by terminal ref, change gep to copy.
+  else if (isa<GetElementPtrInst>(LLVMInst) && OldRef->isAddressOf() &&
+           NewRef->isTerminalRef()) {
+    assert(NewRef->isNull() && "Unexpected pointer terminal ref!");
+
+    OtherRef = Node->removeOperandDDRef(0u);
+    auto *NewNode = HNU.createCopyInst(NewRef, "cp", OtherRef);
+    HLNodeUtils::replace(Node, NewNode);
+    return NewNode;
+  }
+
+  Node->replaceOperandDDRef(OldRef, NewRef);
+
+  return Node;
 }

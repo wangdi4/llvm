@@ -458,7 +458,7 @@ bool ScalarExpansion::isScalarExpansionCandidate(const DDRef *Ref) const {
 
   bool IsMemRef = RegRef->isMemRef();
 
-  if (IsMemRef && HasDistributePoint && RegRef->getNumDimensions() == 1) {
+  if (IsMemRef && HasDistributePoint && RegRef->isSingleDimension()) {
     auto BaseCE = RegRef->getBaseCE();
     return !BaseCE->isNonLinear() && RegRef->getDimensionIndex(1)->isZero();
   }

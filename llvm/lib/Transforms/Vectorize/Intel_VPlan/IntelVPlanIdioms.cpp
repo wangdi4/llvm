@@ -227,7 +227,7 @@ VPlanIdioms::isStrEqSearchLoop(const VPBasicBlock *Block,
           LLVM_DEBUG(dbgs() << "        HLInst "; HInst->dump();
                      dbgs() << " is unmasked, thus it's unsafe.\n");
           return VPlanIdioms::Unsafe;
-        } else if (RvalRef->getNumDimensions() != 1) {
+        } else if (!RvalRef->isSingleDimension()) {
           LLVM_DEBUG(dbgs() << "        RvalRef "; RvalRef->dump();
                      dbgs() << "  has multiple dimensions which is not "
                                "supported by current CG.\n");
@@ -459,7 +459,7 @@ bool VPlanIdioms::isSafeExitBlockForSearchLoop(const VPBasicBlock *Block) {
       const RegDDRef *RvalRef = HInst->getRvalDDRef();
       if (!LvalRef || !RvalRef ||
           (!LvalRef->isTerminalRef() || RvalRef->isNonLinear() ||
-           RvalRef->getNumDimensions() != 1)) {
+           !RvalRef->isSingleDimension())) {
         LLVM_DEBUG(dbgs() << "      HLInst "; HInst->dump();
                    dbgs() << " is not supported by CG.\n");
         return false;

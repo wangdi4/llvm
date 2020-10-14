@@ -57,6 +57,7 @@
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/HIRInvalidationUtils.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/HLNodeVisitor.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRTransformPass.h"
+#include "llvm/Transforms/Intel_LoopTransforms/Utils/HIRTransformUtils.h"
 
 #include "llvm/InitializePasses.h"
 #include "llvm/Support/CommandLine.h"
@@ -451,60 +452,6 @@ void HoistSinkSet::filterHoistableOrSinkable(const HLIf *If,
   removeNonHoistableOrSinkable(ElseRefs, *this, If, DDG);
 }
 
-/// Replaces an operand \p Ref of \p Node with a non-memory ref \p NewRef and
-/// returns the updated node which may be different from \p Node if node
-/// replacement was needed.
-///
-/// While most HIR instructions can accept memref or temp operands
-/// interchangeably, LoadInsts and StoreInsts are special and replacing certain
-/// of their operands are required to be memrefs and replacing them directly can
-/// break them. This function detects these cases and replaces these
-/// instructions completely in order to avoid this issue. When this happens,
-/// \p Node will be invalidated and the new node should be accessed via the
-/// return value of this function instead. However, the operand DDRefs besides
-/// \p Ref will be transferred and should remain valid.
-static HLDDNode *replaceOperandWithNonMemoryRef(HLDDNode *Node, RegDDRef *Ref,
-                                                RegDDRef *NewRef) {
-  assert(!NewRef->isMemRef());
-
-  // If this node is not an HLInst, it's safe to just use replaceOperandDDRef.
-  auto *const Inst = dyn_cast<HLInst>(Node);
-  if (!Inst) {
-    Node->replaceOperandDDRef(Ref, NewRef);
-    return Node;
-  }
-
-  // If this is a store inst and we're replacing the Lval ref, it needs to be
-  // replaced with a load or copy inst depending on what the Rval is.
-  HLNodeUtils &HNU                  = Inst->getHLNodeUtils();
-  const Instruction *const LLVMInst = Inst->getLLVMInstruction();
-  if (isa<StoreInst>(LLVMInst) && Ref->isLval()) {
-    RegDDRef *const Rval = Inst->removeRvalDDRef();
-    if (Rval->isMemRef()) {
-      HLInst *const NewLoad = HNU.createLoad(Rval, "", NewRef);
-      HLNodeUtils::replace(Inst, NewLoad);
-      return NewLoad;
-    } else {
-      HLInst *const NewCopy = HNU.createCopyInst(Rval, "", NewRef);
-      HLNodeUtils::replace(Inst, NewCopy);
-      return NewCopy;
-    }
-  }
-
-  // If this is a load inst and we're replacing the Rval ref, it needs to be
-  // replaced with a copy.
-  if (isa<LoadInst>(LLVMInst) && Ref->isRval()) {
-    RegDDRef *const Lval  = Inst->removeLvalDDRef();
-    HLInst *const NewCopy = HNU.createCopyInst(NewRef, "", Lval);
-    HLNodeUtils::replace(Inst, NewCopy);
-    return NewCopy;
-  }
-
-  // Otherwise, it's safe to just use replaceOperandDDRef.
-  Inst->replaceOperandDDRef(Ref, NewRef);
-  return Inst;
-}
-
 /// Inserts a bitcast if needed to convert between the type of \p Ref and the
 /// hoist/sink type \p HSType. A new Lval/Rval ref with the correct type is
 /// returned.
@@ -528,7 +475,7 @@ static RegDDRef *insertBitcastIfNeeded(RegDDRef *Ref, Type *HSType) {
     // %newref = ...;
     if (Ref->isMemRef()) {
       RegDDRef *const NewRef = HNU.createTemp(Ref->getDestType());
-      RefNode = replaceOperandWithNonMemoryRef(RefNode, Ref, NewRef);
+      RefNode = HIRTransformUtils::replaceOperand(Ref, NewRef);
       Ref     = NewRef;
     }
 
@@ -559,8 +506,7 @@ static RegDDRef *insertBitcastIfNeeded(RegDDRef *Ref, Type *HSType) {
     //
     // %cldst.cast = bitcast.double.i64(%newref);
     // ... = %cldst.cast;
-    replaceOperandWithNonMemoryRef(RefNode, Ref,
-                                   Bitcast->getLvalDDRef()->clone());
+    HIRTransformUtils::replaceOperand(Ref, Bitcast->getLvalDDRef()->clone());
 
     return NewRef;
   }
@@ -616,13 +562,11 @@ void HoistSinkSet::hoistOrSinkFrom(HLIf *If) {
   // (%B)[i1] = %cldst.sunk;
   for (RegDDRef *Ref : ThenRefs) {
     Ref = insertBitcastIfNeeded(Ref, HoistedOrSunk->getDestType());
-    replaceOperandWithNonMemoryRef(Ref->getHLDDNode(), Ref,
-                                   HoistedOrSunk->clone());
+    HIRTransformUtils::replaceOperand(Ref, HoistedOrSunk->clone());
   }
   for (RegDDRef *Ref : ElseRefs) {
     Ref = insertBitcastIfNeeded(Ref, HoistedOrSunk->getDestType());
-    replaceOperandWithNonMemoryRef(Ref->getHLDDNode(), Ref,
-                                   HoistedOrSunk->clone());
+    HIRTransformUtils::replaceOperand(Ref, HoistedOrSunk->clone());
   }
 }
 
