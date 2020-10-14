@@ -550,6 +550,10 @@ void visualstudio::Linker::ConstructJob(Compilation &C, const JobAction &JA,
       }
     }
   }
+#if INTEL_CUSTOMIZATION
+  if (Args.hasArg(options::OPT_traceback))
+    CmdArgs.push_back(Args.MakeArgString("-incremental:no"));
+#endif // INTEL_CUSTOMIZATION
 
   Args.AddAllArgValues(CmdArgs, options::OPT__SLASH_link);
 
