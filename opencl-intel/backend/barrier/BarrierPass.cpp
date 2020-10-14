@@ -645,8 +645,6 @@ namespace intel {
 
   void Barrier::fixAllocaValues(Function & F) {
     DIBuilder DIB(*F.getParent(), /*AllowUnresolved*/ false);
-    uint64_t Addr[] = {llvm::dwarf::DW_OP_deref};
-    DIExpression *Expr = DIB.createExpression(Addr);
     const DataLayout &DL = F.getParent()->getDataLayout();
     Instruction *AddrInsertBefore = &*F.getEntryBlock().begin();
 
@@ -721,9 +719,13 @@ namespace intel {
         Builder.CreateStore(AddrInSpecialBuffer, AddrAI);
         LoadInst *LI = Builder.CreateLoad(AddrAI);
         if (m_isNativeDBG && DI) {
-          const DebugLoc *DB = &DI->getDebugLoc();
-          DIB.insertDbgValueIntrinsic(LI, DI->getVariable(), Expr, DB->get(),
-                                      InsertBefore);
+          DILocalVariable *Variable = DI->getVariable();
+          DIExpression *Expression =
+            DIExpression::prepend(DI->getExpression(),
+                                  DIExpression::DerefBefore);
+          const DILocation *Location = DI->getDebugLoc().get();
+          Instruction *Insert = AddrAI->getNextNode();
+          DIB.insertDeclare(AddrAI, Variable, Expression, Location, Insert);
         }
         for (Instruction *UI : BBUser.second) {
           if (!isa<DbgDeclareInst>(UI))
