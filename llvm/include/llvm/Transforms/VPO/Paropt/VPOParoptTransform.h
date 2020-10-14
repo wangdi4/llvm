@@ -1705,6 +1705,10 @@ private:
   /// we have to be able to update the region's entry/exit blocks.
   bool sinkSIMDDirectives(WRegionNode *W);
 
+  /// Add parallel access metadata to memory r/w instructions in the given
+  /// OpenMP loop region \p W.
+  bool genParallelAccessMetadata(WRegionNode *W);
+
   /// Transform the given OMP loop into the loop as follows.
   ///         do {
   ///             %omp.iv = phi(%omp.lb, %omp.inc)

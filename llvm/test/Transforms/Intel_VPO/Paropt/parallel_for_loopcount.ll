@@ -68,7 +68,7 @@
 ; CHECK:   br label %[[BAR_DISPATCH_HEADER]]
 ; CHECK: }
 
-; CHECK: [[FOO_LOOP_MD]] = distinct !{[[FOO_LOOP_MD]], !{{[0-9]+}}, [[FOO_LOOP_CM:![0-9]+]]}
+; CHECK: [[FOO_LOOP_MD]] = distinct !{[[FOO_LOOP_MD]], !{{[0-9]+}}, [[FOO_LOOP_CM:![0-9]+]], !{{[0-9]+}}}
 ; CHECK: [[FOO_LOOP_CM]] = !{!"llvm.loop.intel.loopcount_maximum", i32 1000}
 ;
 ; CHECK: [[BAR_LOOP_MD]] = distinct !{[[BAR_LOOP_MD]], !{{[0-9]+}}, [[BAR_LOOP_CM:![0-9]+]], [[BAR_LOOP_CA:![0-9]+]]}

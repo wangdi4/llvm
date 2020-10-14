@@ -1131,15 +1131,22 @@ bool VPOParoptTransform::genTargetOffloadingCode(WRegionNode *W) {
       Builder.CreateStore(Call, OffloadError);
 
       Builder.SetInsertPoint(NewCall);
+      LLVMContext &C = F->getContext();
       LoadInst *LastLoad = Builder.CreateLoad(OffloadError);
-      ConstantInt *ValueZero =
-          ConstantInt::getSigned(Type::getInt32Ty(F->getContext()), 0);
+      ConstantInt *ValueZero = ConstantInt::getSigned(Type::getInt32Ty(C), 0);
       Value *ErrorCompare = Builder.CreateICmpNE(LastLoad, ValueZero);
       Instruction *Term = SplitBlockAndInsertIfThen(ErrorCompare, NewCall,
                                                     false, nullptr, DT, LI);
       Term->getParent()->setName("omp_offload.failed");
       LastLoad->getParent()->getTerminator()->getSuccessor(1)->setName(
           "omp_offload.cont");
+
+      // Host fallback code should be run with 1 thread. Set thread_limit to 1
+      // with __kmpc_push_num_teams(LOC, /*tid*/ 0,
+      //                            /*default num_teams*/ 0, /*num_threads*/ 1)
+      ConstantInt *ValueOne = ConstantInt::getSigned(Type::getInt32Ty(C), 1);
+      VPOParoptUtils::genKmpcPushNumTeams(W, IdentTy, ValueZero, ValueZero,
+                                          ValueOne, Term);
       NewCall->removeFromParent();
       NewCall->insertBefore(Term->getParent()->getTerminator());
     } else if (isa<WRNTargetDataNode>(W)) {
