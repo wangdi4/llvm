@@ -508,6 +508,7 @@ static Attr *handleLoopHintAttr(Sema &S, Stmt *St, const ParsedAttr &A,
     Option = llvm::StringSwitch<LoopHintAttr::OptionType>(
                  OptionLoc->Ident->getName())
                  .Case("always", LoopHintAttr::VectorizeAlways)
+                 .Case("aligned", LoopHintAttr::VectorizeAligned)
                  .Default(LoopHintAttr::Vectorize);
     SetHints(Option, LoopHintAttr::Enable);
   } else if (PragmaName == "loop_count") {
@@ -952,6 +953,7 @@ CheckForIncompatibleAttributes(Sema &S,
                    {nullptr, nullptr}, // ForceHyperopt
                    {nullptr, nullptr}, // Fusion
                    {nullptr, nullptr}, // VectorAlways
+                   {nullptr, nullptr}, // VectorAligned
                    {nullptr, nullptr}, // LoopCount
                    {nullptr, nullptr}, // LoopCountMin
                    {nullptr, nullptr}, // LoopCountMax
@@ -982,6 +984,7 @@ CheckForIncompatibleAttributes(Sema &S,
       ForceHyperopt,
       Fusion,
       VectorAlways,
+      VectorAligned,
       LoopCount,
       LoopCountMin,
       LoopCountMax,
@@ -1020,6 +1023,9 @@ CheckForIncompatibleAttributes(Sema &S,
       break;
     case LoopHintAttr::VectorizeAlways:
       Category = VectorAlways;
+      break;
+    case LoopHintAttr::VectorizeAligned:
+      Category = VectorAligned;
       break;
     case LoopHintAttr::LoopCount:
       Category = LoopCount;
@@ -1121,6 +1127,7 @@ CheckForIncompatibleAttributes(Sema &S,
                Option == LoopHintAttr::IIAtLeast ||
                Option == LoopHintAttr::MinIIAtFmax ||
                Option == LoopHintAttr::VectorizeAlways ||
+               Option == LoopHintAttr::VectorizeAligned ||
                Option == LoopHintAttr::LoopCount ||
                Option == LoopHintAttr::LoopCountMin ||
                Option == LoopHintAttr::LoopCountMax ||
@@ -1197,6 +1204,7 @@ CheckForIncompatibleAttributes(Sema &S,
     }
   }
 
+<<<<<<< HEAD
   // C++20 [dcl.attr.likelihood]p1 The attribute-token likely shall not appear
   // in an attribute-specifier-seq that contains the attribute-token unlikely.
   const LikelyAttr *Likely = nullptr;
@@ -1222,6 +1230,8 @@ CheckForIncompatibleAttributes(Sema &S,
       Unlikely = Attr;
     }
   }
+=======
+>>>>>>> 2df3a55e85e8f3e8b49d1585969cda722e200deb
 }
 
 template <typename LoopAttrT>
