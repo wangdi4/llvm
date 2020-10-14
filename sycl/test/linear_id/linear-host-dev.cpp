@@ -40,6 +40,7 @@ int main(int argc, char *argv[]) {
       out << item.get_linear_id() << cl::sycl::endl;
     });
   });
+  q.wait();
 #else
   // Run simple loop for this test to pass on devices where output can
   // appear in a different order
