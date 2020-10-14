@@ -410,6 +410,7 @@ namespace llvm {
 
     // Bit field extract.
     BEXTR,
+    BEXTRI,
 
     // Zero High Bits Starting with Specified Bit Position.
     BZHI,
