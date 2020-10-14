@@ -3,6 +3,7 @@
 // RUN: %clang -march=i386 -m32 -E -dM %s -o - 2>&1 \
 // RUN:     -target i386-unknown-linux \
 // RUN:   | FileCheck -match-full-lines %s -check-prefix=CHECK_I386_M32
+// CHECK_I386_M32: #define __LAHF_SAHF__ 1
 // CHECK_I386_M32: #define __i386 1
 // CHECK_I386_M32: #define __i386__ 1
 // CHECK_I386_M32: #define __tune_i386__ 1
@@ -541,6 +542,7 @@
 // CHECK_CORE_AVX2_M32: #define __F16C__ 1
 // CHECK_CORE_AVX2_M32: #define __FMA__ 1
 // CHECK_CORE_AVX2_M32: #define __INVPCID__ 1
+// CHECK_CORE_AVX2_M32: #define __LAHF_SAHF__ 1
 // CHECK_CORE_AVX2_M32: #define __LZCNT__ 1
 // CHECK_CORE_AVX2_M32: #define __MMX__ 1
 // CHECK_CORE_AVX2_M32: #define __MOVBE__ 1
@@ -572,6 +574,7 @@
 // CHECK_CORE_AVX2_M64: #define __F16C__ 1
 // CHECK_CORE_AVX2_M64: #define __FMA__ 1
 // CHECK_CORE_AVX2_M64: #define __INVPCID__ 1
+// CHECK_CORE_AVX2_M64: #define __LAHF_SAHF__ 1
 // CHECK_CORE_AVX2_M64: #define __LZCNT__ 1
 // CHECK_CORE_AVX2_M64: #define __MMX__ 1
 // CHECK_CORE_AVX2_M64: #define __MOVBE__ 1
@@ -607,6 +610,7 @@
 // CHECK_BROADWELL_M32: #define __F16C__ 1
 // CHECK_BROADWELL_M32: #define __FMA__ 1
 // CHECK_BROADWELL_M32: #define __INVPCID__ 1
+// CHECK_BROADWELL_M32: #define __LAHF_SAHF__ 1
 // CHECK_BROADWELL_M32: #define __LZCNT__ 1
 // CHECK_BROADWELL_M32: #define __MMX__ 1
 // CHECK_BROADWELL_M32: #define __MOVBE__ 1
@@ -641,6 +645,7 @@
 // CHECK_BROADWELL_M64: #define __F16C__ 1
 // CHECK_BROADWELL_M64: #define __FMA__ 1
 // CHECK_BROADWELL_M64: #define __INVPCID__ 1
+// CHECK_BROADWELL_M64: #define __LAHF_SAHF__ 1
 // CHECK_BROADWELL_M64: #define __LZCNT__ 1
 // CHECK_BROADWELL_M64: #define __MMX__ 1
 // CHECK_BROADWELL_M64: #define __MOVBE__ 1
@@ -2584,6 +2589,7 @@
 // RUN:   | FileCheck -match-full-lines %s -check-prefix=CHECK_AMDFAM10_M32
 // CHECK_AMDFAM10_M32: #define __3dNOW_A__ 1
 // CHECK_AMDFAM10_M32: #define __3dNOW__ 1
+// CHECK_AMDFAM10_M32: #define __LAHF_SAHF__ 1
 // CHECK_AMDFAM10_M32: #define __LZCNT__ 1
 // CHECK_AMDFAM10_M32: #define __MMX__ 1
 // CHECK_AMDFAM10_M32: #define __POPCNT__ 1
@@ -2607,6 +2613,7 @@
 // CHECK_AMDFAM10_M64: #define __3dNOW_A__ 1
 // CHECK_AMDFAM10_M64: #define __3dNOW__ 1
 // CHECK_AMDFAM10_M64: #define __GCC_HAVE_SYNC_COMPARE_AND_SWAP_16 1
+// CHECK_AMDFAM10_M64: #define __LAHF_SAHF__ 1
 // CHECK_AMDFAM10_M64: #define __LZCNT__ 1
 // CHECK_AMDFAM10_M64: #define __MMX__ 1
 // CHECK_AMDFAM10_M64: #define __POPCNT__ 1
@@ -2631,6 +2638,7 @@
 // RUN:   | FileCheck -match-full-lines %s -check-prefix=CHECK_BTVER1_M32
 // CHECK_BTVER1_M32-NOT: #define __3dNOW_A__ 1
 // CHECK_BTVER1_M32-NOT: #define __3dNOW__ 1
+// CHECK_BTVER1_M32: #define __LAHF_SAHF__ 1
 // CHECK_BTVER1_M32: #define __LZCNT__ 1
 // CHECK_BTVER1_M32: #define __MMX__ 1
 // CHECK_BTVER1_M32: #define __POPCNT__ 1
@@ -2653,6 +2661,7 @@
 // RUN:   | FileCheck -match-full-lines %s -check-prefix=CHECK_BTVER1_M64
 // CHECK_BTVER1_M64-NOT: #define __3dNOW_A__ 1
 // CHECK_BTVER1_M64-NOT: #define __3dNOW__ 1
+// CHECK_BTVER1_M64: #define __LAHF_SAHF__ 1
 // CHECK_BTVER1_M64: #define __LZCNT__ 1
 // CHECK_BTVER1_M64: #define __MMX__ 1
 // CHECK_BTVER1_M64: #define __POPCNT__ 1
@@ -3092,6 +3101,7 @@
 // CHECK_ZNVER1_M64-NOT: #define __FMA4__ 1
 // CHECK_ZNVER1_M64: #define __FMA__ 1
 // CHECK_ZNVER1_M64: #define __FSGSBASE__ 1
+// CHECK_ZNVER1_M64: #define __LAHF_SAHF__ 1
 // CHECK_ZNVER1_M64: #define __LZCNT__ 1
 // CHECK_ZNVER1_M64: #define __MMX__ 1
 // CHECK_ZNVER1_M64: #define __MOVBE__ 1
@@ -3142,6 +3152,7 @@
 // CHECK_ZNVER2_M32-NOT: #define __FMA4__ 1
 // CHECK_ZNVER2_M32: #define __FMA__ 1
 // CHECK_ZNVER2_M32: #define __FSGSBASE__ 1
+// CHECK_ZNVER2_M32: #define __LAHF_SAHF__ 1
 // CHECK_ZNVER2_M32: #define __LZCNT__ 1
 // CHECK_ZNVER2_M32: #define __MMX__ 1
 // CHECK_ZNVER2_M32: #define __PCLMUL__ 1
@@ -3191,6 +3202,7 @@
 // CHECK_ZNVER2_M64-NOT: #define __FMA4__ 1
 // CHECK_ZNVER2_M64: #define __FMA__ 1
 // CHECK_ZNVER2_M64: #define __FSGSBASE__ 1
+// CHECK_ZNVER2_M64: #define __LAHF_SAHF__ 1
 // CHECK_ZNVER2_M64: #define __LZCNT__ 1
 // CHECK_ZNVER2_M64: #define __MMX__ 1
 // CHECK_ZNVER2_M64: #define __PCLMUL__ 1
