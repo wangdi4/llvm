@@ -3291,7 +3291,11 @@ pi_result piEventGetProfilingInfo(pi_event Event, pi_profiling_info ParamName,
     // HW timestamps.
     //
     if (ContextEndTime <= ContextStartTime) {
+<<<<<<< HEAD
       pi_device Device = Event->Context->Devices[0];
+=======
+      pi_device Device = Event->Context->Device;
+>>>>>>> a081cce8733f9863b6b7d59ed21673e74c50227c
       const uint64_t TimestampMaxValue =
           (1LL << Device->ZeDeviceProperties.kernelTimestampValidBits) - 1;
       ContextEndTime += TimestampMaxValue - ContextStartTime;
