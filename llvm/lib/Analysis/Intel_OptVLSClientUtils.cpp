@@ -128,6 +128,7 @@ OVLSConverter::genLLVMIR(IRBuilder<> &Builder,
                          ShuffleVectorInst *InterleavingShuffleInst,
                          Value *Addr, Type *ElemTy, unsigned Alignment) {
   DenseMap<uint64_t, Value *> InstMap;
+  unsigned AddrSpace = Addr->getType()->getPointerAddressSpace();
   // Only used when a shuffle instruction needs to be generated for an
   // OVLSMemref.
   DenseMap<const OVLSMemref *, Value *> MemrefShuffleMap;
@@ -137,7 +138,7 @@ OVLSConverter::genLLVMIR(IRBuilder<> &Builder,
       OVLSType Ty = OInst->getType();
       unsigned TySize = Ty.getSize() / 8;
       VectorType *VecTy = FixedVectorType::get(ElemTy, Ty.getNumElements());
-      Type *BasePtrTy = VecTy->getPointerTo();
+      Type *BasePtrTy = VecTy->getPointerTo(AddrSpace);
       Value *VecBasePtr = Builder.CreateBitCast(Addr, BasePtrTy);
 
       // Create GEP instruction
@@ -230,7 +231,7 @@ OVLSConverter::genLLVMIR(IRBuilder<> &Builder,
       OVLSType Ty = OInst->getType();
       unsigned TySize = Ty.getSize() / 8;
       VectorType *VecTy = FixedVectorType::get(ElemTy, Ty.getNumElements());
-      Type *BasePtrTy = VecTy->getPointerTo();
+      Type *BasePtrTy = VecTy->getPointerTo(AddrSpace);
       Value *VecBasePtr = Builder.CreateBitCast(Addr, BasePtrTy);
 
       // Create GEP instruction
