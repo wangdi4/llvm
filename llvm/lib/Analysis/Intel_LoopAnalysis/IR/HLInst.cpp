@@ -16,7 +16,6 @@
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRSafeReductionAnalysis.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRSparseArrayReductionAnalysis.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/DDRefUtils.h"
-#include "llvm/Analysis/Intel_LoopAnalysis/Utils/HIRInvalidationUtils.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/HLNodeUtils.h"
 #include "llvm/Analysis/VPO/Utils/VPOAnalysisUtils.h"
 #include "llvm/IR/Function.h"
@@ -534,74 +533,6 @@ bool HLInst::isDirective(int DirectiveID) const {
 
 bool HLInst::isAutoVecDirective() const {
   return isDirective(DIR_VPO_AUTO_VEC);
-}
-
-std::pair<bool, HLInst *> HLInst::doConstantFolding(bool Invalidate) {
-  bool Folded = false;
-
-  if (isa<BinaryOperator>(Inst)) {
-    RegDDRef *RHS, *LHS, *Result;
-    LHS = getOperandDDRef(1);
-    RHS = getOperandDDRef(2);
-    Result = nullptr;
-
-    unsigned OpC = Inst->getOpcode();
-
-    if (OpC == Instruction::Mul || OpC == Instruction::FMul) {
-      if (RHS->isZero() || LHS->isOne()) {
-        Result = RHS;
-      }
-      if (LHS->isZero() || RHS->isOne()) {
-        Result = LHS;
-      }
-    }
-
-    if (OpC == Instruction::Add || OpC == Instruction::FAdd) {
-      if (RHS->isZero()) {
-        Result = LHS;
-      }
-      if (LHS->isZero()) {
-        Result = RHS;
-      }
-    }
-    if (OpC == Instruction::Sub || OpC == Instruction::FSub) {
-      if (RHS->isZero()) {
-        Result = LHS;
-      }
-    }
-
-    // TODO: fold certain logical operators
-    // if (OpC == Instruction::Xor || OpC == Instruction::Or) {
-    // if (OpC == Instruction::And) {
-
-    if (!Result) {
-      return std::make_pair(Folded, nullptr);
-    }
-    Folded = true;
-
-    // Check to see if invalidation required
-    if (Invalidate) {
-      HIRInvalidationUtils::invalidateParentLoopBodyOrRegion<HIRLoopStatistics>(this);
-    }
-
-    // Remove self assignments that may occur due to folding
-    if (DDRefUtils::areEqual(getLvalDDRef(), Result)) {
-      HLNodeUtils::remove(this);
-      return std::make_pair(Folded, nullptr);
-    }
-
-    RegDDRef *NewRval = removeOperandDDRef(Result);
-
-    HLInst *NewInst =
-        NewRval->isMemRef()
-            ? getHLNodeUtils().createLoad(NewRval, "", removeLvalDDRef())
-            : getHLNodeUtils().createCopyInst(NewRval, "", removeLvalDDRef());
-
-    HLNodeUtils::replace(this, NewInst);
-    return std::make_pair(Folded, NewInst);
-  }
-
-  return std::make_pair(Folded, nullptr);
 }
 
 bool HLInst::isValidReductionOpCode(unsigned OpCode) {

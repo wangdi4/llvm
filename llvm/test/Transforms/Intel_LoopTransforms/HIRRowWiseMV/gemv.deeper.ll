@@ -64,19 +64,15 @@ target triple = "x86_64-unknown-linux-gnu"
 ; CHECK:       |   |   {
 ; CHECK:       |   |   case 1:
 ; CHECK:       |   |      + DO i3 = 0, 127, 1   <DO_LOOP>
-; CHECK:       |   |      |   %Aijbj = (%As)[8192 * i1 + 128 * i2 + i3]  *  -1.000000e+00;
+; CHECK:       |   |      |   %Aijbj = - (%As)[8192 * i1 + 128 * i2 + i3];
 ; CHECK:       |   |      |   %sum = %sum  +  %Aijbj;
 ; CHECK:       |   |      + END LOOP
 ; CHECK:       |   |      break;
 ; CHECK:       |   |   case 2:
-; CHECK:       |   |      + DO i3 = 0, 127, 1   <DO_LOOP>
-; CHECK:       |   |      |   %Aijbj = (%As)[8192 * i1 + 128 * i2 + i3]  *  0.000000e+00;
-; CHECK:       |   |      |   %sum = %sum  +  %Aijbj;
-; CHECK:       |   |      + END LOOP
-; CHECK:       |   |      break;
+; CHECK-NEXT:  |   |      break;
 ; CHECK:       |   |   case 3:
 ; CHECK:       |   |      + DO i3 = 0, 127, 1   <DO_LOOP>
-; CHECK:       |   |      |   %Aijbj = (%As)[8192 * i1 + 128 * i2 + i3]  *  1.000000e+00;
+; CHECK:       |   |      |   %Aijbj = (%As)[8192 * i1 + 128 * i2 + i3];
 ; CHECK:       |   |      |   %sum = %sum  +  %Aijbj;
 ; CHECK:       |   |      + END LOOP
 ; CHECK:       |   |      break;

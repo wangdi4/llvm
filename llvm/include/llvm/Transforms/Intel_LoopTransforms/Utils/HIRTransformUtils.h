@@ -343,6 +343,12 @@ public:
   /// Also substitutes constant global refs with equivalent constants.
   static bool doConstantPropagation(HLNode *Node);
 
+  /// Returns true if instruction was folded, along with the new instruction.
+  /// If the instruction is null, it folded into a self-assignment (no-op).
+  /// \p Invalidate indicates that we need to invalidate the parent loop/region
+  static std::pair<bool, HLInst*> constantFoldInst(HLInst *Inst, bool Invalidate);
+
+
   /// Conduct Array Scalarization for all memrefs provided in a set of symbases.
   ///
   /// A typical transformation looks like-

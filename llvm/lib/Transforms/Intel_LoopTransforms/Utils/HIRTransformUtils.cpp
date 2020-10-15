@@ -15,12 +15,14 @@
 
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/HIRTransformUtils.h"
 
+#include "llvm/Analysis/ConstantFolding.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/IR/HLNodeMapper.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/DDRefGatherer.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/ForEach.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/HIRInvalidationUtils.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/HLNodeIterator.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/HLNodeUtils.h"
+#include "llvm/IR/Instructions.h"
 
 #include "HIRArrayScalarization.h"
 #include "HIRDeadStoreElimination.h"
@@ -1244,7 +1246,7 @@ private:
   // Erase an index from the Map
   void removeConstPropIndex(unsigned Index, HLInst *Curr = nullptr);
 
-  bool doConstFolding(HLInst *Inst);
+  bool constantFold(HLInst *Inst);
 
   // Propagate constant values to any blobs in the Ref
   void propagateConstUse(RegDDRef *Ref);
@@ -1386,33 +1388,25 @@ public:
     }
   }
 
-  HLInst *visit(HLDDNode *Node) {
+  HLDDNode *visit(HLDDNode *Node) {
+    HLDDNode *ReplacedNode = nullptr;
     for (RegDDRef *Ref :
          make_range(Node->op_ddref_begin(), Node->op_ddref_end())) {
       propagateConstUse(Ref);
+
       // Try to replace constant global array
       if (auto ConstantRef = Ref->simplifyConstArray()) {
         NumConstGlobalLoads++;
-        Node->replaceOperandDDRef(Ref, ConstantRef);
-        // Replace the load with a copyinst
-        if (auto *Inst = dyn_cast<HLInst>(Node)) {
-          if (isa<LoadInst>(Inst->getLLVMInstruction())) {
-            HLInst *CopyInst = Inst->getHLNodeUtils().createCopyInst(
-                Inst->removeRvalDDRef(), "GlobConstRepl",
-                Inst->removeLvalDDRef());
-            HLNodeUtils::replace(Inst, CopyInst);
-            LLVM_DEBUG(dbgs() << "Replaced const global array load\n";);
-            return CopyInst;
-          }
-        }
+        LLVM_DEBUG(dbgs() << "Replaced const global array load\n";);
+        ReplacedNode = HIRTransformUtils::replaceOperand(Ref, ConstantRef);
       }
     }
-    return nullptr;
+    return ReplacedNode;
   }
 
   void visit(HLInst *Inst) {
 
-    if (HLInst *CopyInst = visit(cast<HLDDNode>(Inst))) {
+    if (HLInst *CopyInst = cast_or_null<HLInst>(visit(cast<HLDDNode>(Inst)))) {
       Inst = CopyInst;
     }
 
@@ -1429,7 +1423,7 @@ public:
         }
       }
     }
-    doConstFolding(Inst);
+    constantFold(Inst);
   }
 }; // end ConstantPropagater
 
@@ -1466,7 +1460,7 @@ void ConstantPropagater::addConstPropDef(RegDDRef *LRef, RegDDRef *RRef) {
 
 // Attempts to fold the instruction, and also checks if the rval,
 // folded or not, is a candidate for future progation.
-bool ConstantPropagater::doConstFolding(HLInst *Inst) {
+bool ConstantPropagater::constantFold(HLInst *Inst) {
   auto isRefConst = [](RegDDRef *Ref) { return Ref->isFoldableConstant(); };
   bool HasConstTerm = std::any_of(Inst->rval_op_ddref_begin(),
                                   Inst->rval_op_ddref_end(), isRefConst);
@@ -1487,7 +1481,8 @@ bool ConstantPropagater::doConstFolding(HLInst *Inst) {
   bool NeedsInvalidation = !checkInvalidated();
   bool Folded;
   HLInst *FoldedInst;
-  std::tie(Folded, FoldedInst) = Inst->doConstantFolding(NeedsInvalidation);
+  std::tie(Folded, FoldedInst) =
+      HIRTransformUtils::constantFoldInst(Inst, NeedsInvalidation);
 
   // Returnval of <true, nullptr> means self-assignment which
   // is removed if encountered
@@ -1570,6 +1565,127 @@ bool HIRTransformUtils::doConstantPropagation(HLNode *Node) {
   HLNodeUtils::visit(CP, Node);
   LLVM_DEBUG(dbgs() << "After constprop\n"; Node->dump(););
   return CP.isChanged();
+}
+
+std::pair<bool, HLInst *> HIRTransformUtils::constantFoldInst(HLInst *Inst,
+                                                              bool Invalidate) {
+  bool LLVMConstFolded = false;
+  const Instruction *LLVMInst = Inst->getLLVMInstruction();
+  bool IsFastFP = isa<FPMathOperator>(LLVMInst) ? LLVMInst->isFast() : false;
+
+  if (isa<BinaryOperator>(LLVMInst)) {
+    RegDDRef *RHS, *LHS, *Result;
+    LHS = Inst->getOperandDDRef(1);
+    RHS = Inst->getOperandDDRef(2);
+    Result = nullptr;
+    bool Negate = false;
+    unsigned OpC = LLVMInst->getOpcode();
+
+    ConstantFP *ConstR, *ConstL;
+    Constant *ConstResult;
+    // Use LLVM Framework to compute new equivalent constant ref
+    if (RHS->isFPConstant(&ConstR) && LHS->isFPConstant(&ConstL)) {
+      ConstResult = ConstantFoldBinaryOpOperands(
+          OpC, ConstL, ConstR, Inst->getHLNodeUtils().getDataLayout());
+      if (ConstResult) {
+        Result = RHS->getDDRefUtils().createConstDDRef(ConstResult);
+        LLVMConstFolded = true;
+      }
+    }
+
+    if (!LLVMConstFolded) {
+      // Fold without creating a new ref
+      switch (OpC) {
+      case Instruction::Add:
+        if (RHS->isZero()) {
+          Result = LHS;
+        } else if (LHS->isZero()) {
+          Result = RHS;
+        }
+        break;
+      case Instruction::FAdd:
+        if (RHS->isZero()) {
+          Result = LHS;
+        }else if (LHS->isZero()) {
+          Result = RHS;
+        }
+        break;
+      case Instruction::Sub:
+        if (RHS->isZero()) {
+          Result = LHS;
+        }
+        break;
+      case Instruction::FSub:
+        if (RHS->isZero()) {
+          Result = LHS;
+        }
+        break;
+      case Instruction::FMul:
+        if (!IsFastFP) {
+          break;
+        }
+        if (RHS->isZero() || LHS->isOne()) {
+          Result = RHS;
+        } else if (LHS->isZero() || RHS->isOne()) {
+          Result = LHS;
+        } else {
+          if (LHS->isMinusOne()) {
+            Result = RHS;
+          } else if (RHS->isMinusOne()) {
+            Result = LHS;
+          }
+          Negate = true;
+        }
+        break;
+
+      case Instruction::Mul:
+        if (RHS->isZero() || LHS->isOne()) {
+          Result = RHS;
+        } else if (LHS->isZero() || RHS->isOne()) {
+          Result = LHS;
+        }
+        break;
+      }
+    }
+
+    if (!Result) {
+      return std::make_pair(false, nullptr);
+    }
+
+    // Check to see if invalidation required
+    if (Invalidate) {
+      HIRInvalidationUtils::invalidateParentLoopBodyOrRegion<HIRLoopStatistics>(
+          Inst);
+    }
+
+    // Remove self assignments that may occur due to folding
+    if (DDRefUtils::areEqual(Inst->getLvalDDRef(), Result)) {
+      HLNodeUtils::remove(Inst);
+      return std::make_pair(true, nullptr);
+    }
+
+    if (Negate) {
+      HLInst *FNeg = Inst->getHLNodeUtils().createFNeg(
+          Inst->removeOperandDDRef(Result), "", Inst->removeLvalDDRef(),
+          nullptr, FastMathFlags::getFast());
+      HLNodeUtils::replace(Inst, FNeg);
+      return std::make_pair(true, FNeg);
+    }
+
+    RegDDRef *NewRval =
+        (LLVMConstFolded) ? Result : Inst->removeOperandDDRef(Result);
+
+    HLInst *NewInst = NewRval->isMemRef()
+                          ? Inst->getHLNodeUtils().createLoad(
+                                NewRval, "", Inst->removeLvalDDRef())
+                          : Inst->getHLNodeUtils().createCopyInst(
+                                NewRval, "", Inst->removeLvalDDRef());
+
+    HLNodeUtils::replace(Inst, NewInst);
+    return std::make_pair(true, NewInst);
+  }
+
+  return std::make_pair(true, nullptr);
 }
 
 bool HIRTransformUtils::doScalarization(HIRFramework &HIRF, HIRDDAnalysis &HDDA,
