@@ -314,6 +314,7 @@ phases::ID Driver::getFinalPhase(const DerivedArgList &DAL,
   // -{E,EP,P,M,MM} only run the preprocessor.
   if (CCCIsCPP() || (PhaseArg = DAL.getLastArg(options::OPT_E)) ||
       (PhaseArg = DAL.getLastArg(options::OPT__SLASH_EP)) ||
+      (PhaseArg = DAL.getLastArg(options::OPT_EP)) || // INTEL
       (PhaseArg = DAL.getLastArg(options::OPT_M, options::OPT_MM)) ||
       (PhaseArg = DAL.getLastArg(options::OPT__SLASH_P))) {
     FinalPhase = phases::Preprocess;
@@ -5302,7 +5303,7 @@ void Driver::handleArguments(Compilation &C, DerivedArgList &Args,
       else if (InitialPhase == phases::Compile &&
                (Args.getLastArg(options::OPT__SLASH_EP,
                                 options::OPT__SLASH_P) ||
-                Args.getLastArg(options::OPT_E) ||
+                Args.getLastArg(options::OPT_E, options::OPT_EP) || // INTEL
                 Args.getLastArg(options::OPT_M, options::OPT_MM)) &&
                getPreprocessedType(InputType) == types::TY_INVALID)
         Diag(clang::diag::warn_drv_preprocessed_input_file_unused)

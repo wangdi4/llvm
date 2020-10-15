@@ -5338,11 +5338,9 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
   Args.AddLastArg(CmdArgs, options::OPT_print_ivar_layout);
 
 #if INTEL_CUSTOMIZATION
-  // EP should expand to -E -P.
-  if (Args.hasArg(options::OPT_EP)) {
-    CmdArgs.push_back("-E");
+  // -EP should expand to -E -P.
+  if (Args.hasArg(options::OPT_EP))
     CmdArgs.push_back("-P");
-  }
 #endif // INTEL_CUSTOMIZATION
   if (D.CCLogDiagnostics && !D.CCGenDiagnostics) {
     CmdArgs.push_back("-diagnostic-log-file");
