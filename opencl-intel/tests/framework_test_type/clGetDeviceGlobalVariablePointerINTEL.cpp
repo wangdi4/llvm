@@ -33,7 +33,7 @@ protected:
     m_options = "-cl-std=CL2.0";
     if (GetParam()) {
       m_options += " -g -cl-opt-disable";
-#ifdef _WIN32
+#if defined _WIN32 && (defined _M_X64 || defined __x86_64__)
       ASSERT_TRUE(SETENV("CL_CONFIG_USE_NATIVE_DEBUGGER", "1"));
 #endif
     }
@@ -114,18 +114,6 @@ protected:
     err = clBuildProgram(program, 1, &m_device, m_options.c_str(), nullptr,
                          nullptr);
     ASSERT_NO_FATAL_FAILURE(CheckBuildError(program, err));
-
-    if (CL_SUCCESS != err) {
-      size_t logSize = 0;
-      err = clGetProgramBuildInfo(program, m_device, CL_PROGRAM_BUILD_LOG, 0,
-                                  nullptr, &logSize);
-      ASSERT_OCL_SUCCESS(err, "clGetProgramBuildInfo");
-      std::string log("", logSize);
-      err = clGetProgramBuildInfo(program, m_device, CL_PROGRAM_BUILD_LOG,
-                                  logSize, &log[0], nullptr);
-      ASSERT_OCL_SUCCESS(err, "clGetProgramBuildInfo");
-      FAIL() << log << "\n";
-    }
 
     // Check after building program
     err = m_clGetDeviceGlobalVariablePointerINTEL(m_device, program, gvName,
