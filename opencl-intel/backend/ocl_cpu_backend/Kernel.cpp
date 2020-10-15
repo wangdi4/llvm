@@ -617,6 +617,24 @@ void Kernel::DebugPrintUniformKernelArgs(const cl_uniform_kernel_args *A,
                    ".byte 0x64, 0x67, 0x90 \n"\
                    "pop %rbx               \n")
 
+#if defined(_WIN32)
+typedef struct {
+  const void *pKernelUniformArgs;
+  const size_t *pGroupID;
+  void *pRuntimeHandle;
+  IKernelJITContainer::JIT_PTR *kernel;
+  LPVOID primaryFiber;
+} FIBERDATA;
+
+// Routine function for CreateFiberEx Win32 API
+static void WINAPI CreateFiberExRoutineFunc(LPVOID params) {
+  FIBERDATA *fiberData = static_cast<FIBERDATA *>(params);
+  fiberData->kernel(fiberData->pKernelUniformArgs, fiberData->pGroupID,
+                    fiberData->pRuntimeHandle);
+  SwitchToFiber(fiberData->primaryFiber);
+}
+#endif
+
 cl_dev_err_code Kernel::RunGroup(const void *pKernelUniformArgs,
                                  const size_t *pGroupID,
                                  void *pRuntimeHandle) const {
@@ -666,19 +684,6 @@ cl_dev_err_code Kernel::RunGroup(const void *pKernelUniformArgs,
   else {
     bool isUniform = (pGroupID[0] != pKernelUniformImplicitArgs->WGCount[0] - 1);
 #if defined(_WIN32)
-    typedef struct {
-      const void *pKernelUniformArgs;
-      const size_t *pGroupID;
-      void *pRuntimeHandle;
-      IKernelJITContainer::JIT_PTR *kernel;
-      LPVOID primaryFiber;
-    } FIBERDATA;
-    auto runGroup = [](LPVOID params) {
-      FIBERDATA *fiberData = static_cast<FIBERDATA *>(params);
-      fiberData->kernel(fiberData->pKernelUniformArgs, fiberData->pGroupID,
-                        fiberData->pRuntimeHandle);
-      SwitchToFiber(fiberData->primaryFiber);
-    };
     LPVOID primaryFiber = nullptr, fiber = nullptr;
     primaryFiber = ConvertThreadToFiber(nullptr);
     assert(primaryFiber && "ConvertThreadToFiber error!");
@@ -686,7 +691,7 @@ cl_dev_err_code Kernel::RunGroup(const void *pKernelUniformArgs,
                            primaryFiber};
     fiber = CreateFiberEx(pKernelUniformImplicitArgs->stackSize,
                           pKernelUniformImplicitArgs->stackSize,
-                          0, runGroup, &fiberData);
+                          0, CreateFiberExRoutineFunc, &fiberData);
     assert(fiber && "CreateFiberEx error!");
     SwitchToFiber(fiber);
     DeleteFiber(fiber);
