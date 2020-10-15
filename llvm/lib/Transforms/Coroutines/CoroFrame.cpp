@@ -625,7 +625,22 @@ static StructType *buildFrameType(Function &F, coro::Shape &Shape,
 // We use a pointer use visitor to discover if there are any writes into an
 // alloca that dominates CoroBegin. If that is the case, insertSpills will copy
 // the value from the alloca into the coroutine frame spill slot corresponding
-// to that alloca.
+// to that alloca. We also collect any alias pointing to the alloca created
+// before CoroBegin but used after CoroBegin. These alias will be recreated
+// after CoroBegin from the frame address so that latter references are
+// pointing to the frame instead of the stack.
+// Note: We are repurposing PtrUseVisitor's isEscaped() to mean whether the
+// pointer is potentially written into.
+// TODO: If the pointer is really escaped, we are in big trouble because we
+// will be escaping a pointer to a stack address that would no longer exist
+// soon. However most escape analysis isn't good enough to precisely tell,
+// so we are assuming that if a pointer is escaped that it's written into.
+// TODO: Another potential issue is if we are creating an alias through
+// a function call, e.g:
+//   %a = AllocaInst ...
+//   %b = call @computeAddress(... %a)
+// If %b is an alias of %a and will be used after CoroBegin, this will be broken
+// and there is nothing we can do about it.
 namespace {
 struct AllocaUseVisitor : PtrUseVisitor<AllocaUseVisitor> {
   using Base = PtrUseVisitor<AllocaUseVisitor>;
@@ -633,49 +648,83 @@ struct AllocaUseVisitor : PtrUseVisitor<AllocaUseVisitor> {
                    const CoroBeginInst &CB)
       : PtrUseVisitor(DL), DT(DT), CoroBegin(CB) {}
 
-  // We are only interested in uses that dominate coro.begin.
+  // We are only interested in uses that's not dominated by coro.begin.
   void visit(Instruction &I) {
-    if (DT.dominates(&I, &CoroBegin))
+    if (!DT.dominates(&CoroBegin, &I))
       Base::visit(I);
   }
   // We need to provide this overload as PtrUseVisitor uses a pointer based
   // visiting function.
   void visit(Instruction *I) { return visit(*I); }
 
-  void visitLoadInst(LoadInst &) {} // Good. Nothing to do.
+  // We cannot handle PHI node and SelectInst because they could be selecting
+  // between two addresses that point to different Allocas.
+  void visitPHINode(PHINode &I) {
+    assert(!usedAfterCoroBegin(I) &&
+           "Unable to handle PHI node of aliases created before CoroBegin but "
+           "used after CoroBegin");
+  }
+
+  void visitSelectInst(SelectInst &I) {
+    assert(!usedAfterCoroBegin(I) &&
+           "Unable to handle Select of aliases created before CoroBegin but "
+           "used after CoroBegin");
+  }
+
+  void visitLoadInst(LoadInst &) {}
 
   // If the use is an operand, the pointer escaped and anything can write into
   // that memory. If the use is the pointer, we are definitely writing into the
   // alloca and therefore we need to copy.
-  void visitStoreInst(StoreInst &SI) { PI.setAborted(&SI); }
+  void visitStoreInst(StoreInst &SI) { PI.setEscaped(&SI); }
 
-  // Any other instruction that is not filtered out by PtrUseVisitor, will
-  // result in the copy.
-  void visitInstruction(Instruction &I) { PI.setAborted(&I); }
+  // All mem intrinsics modify the data.
+  void visitMemIntrinsic(MemIntrinsic &MI) { PI.setEscaped(&MI); }
+
+  void visitBitCastInst(BitCastInst &BC) {
+    Base::visitBitCastInst(BC);
+    handleAlias(BC);
+  }
+
+  void visitAddrSpaceCastInst(AddrSpaceCastInst &ASC) {
+    Base::visitAddrSpaceCastInst(ASC);
+    handleAlias(ASC);
+  }
+
+  void visitGetElementPtrInst(GetElementPtrInst &GEPI) {
+    // The base visitor will adjust Offset accordingly.
+    Base::visitGetElementPtrInst(GEPI);
+    handleAlias(GEPI);
+  }
+
+  const SmallVector<std::pair<Instruction *, APInt>, 1> &getAliases() const {
+    return Aliases;
+  }
 
 private:
   const DominatorTree &DT;
   const CoroBeginInst &CoroBegin;
+  // All alias to the original AllocaInst, and are used after CoroBegin.
+  // Each entry contains the instruction and the offset in the original Alloca.
+  SmallVector<std::pair<Instruction *, APInt>, 1> Aliases{};
+
+  bool usedAfterCoroBegin(Instruction &I) {
+    for (auto &U : I.uses())
+      if (DT.dominates(&CoroBegin, U))
+        return true;
+    return false;
+  }
+
+  void handleAlias(Instruction &I) {
+    if (!usedAfterCoroBegin(I))
+      return;
+
+    assert(IsOffsetKnown && "Can only handle alias with known offset created "
+                            "before CoroBegin and used after");
+    Aliases.emplace_back(&I, Offset);
+  }
 };
 } // namespace
-static bool mightWriteIntoAllocaPtr(AllocaInst &A, const DominatorTree &DT,
-                                    const CoroBeginInst &CB) {
-  const DataLayout &DL = A.getModule()->getDataLayout();
-  AllocaUseVisitor Visitor(DL, DT, CB);
-  auto PtrI = Visitor.visitPtr(A);
-  if (PtrI.isEscaped() || PtrI.isAborted()) {
-    auto *PointerEscapingInstr = PtrI.getEscapingInst()
-                                     ? PtrI.getEscapingInst()
-                                     : PtrI.getAbortingInst();
-    if (PointerEscapingInstr) {
-      LLVM_DEBUG(
-          dbgs() << "AllocaInst copy was triggered by instruction: "
-                 << *PointerEscapingInstr << "\n");
-    }
-    return true;
-  }
-  return false;
-}
 
 // We need to make room to insert a spill after initial PHIs, but before
 // catchswitch instruction. Placing it before violates the requirement that
@@ -821,33 +870,34 @@ static Instruction *insertSpills(const SpillInfo &Spills, coro::Shape &Shape) {
           Arg->getParent()->removeParamAttr(Arg->getArgNo(),
                                             Attribute::NoCapture);
 
-        } else if (auto *II = dyn_cast<InvokeInst>(CurrentValue)) {
-          // If we are spilling the result of the invoke instruction, split the
-          // normal edge and insert the spill in the new block.
-          auto NewBB = SplitEdge(II->getParent(), II->getNormalDest());
-          InsertPt = NewBB->getTerminator();
-        } else if (isa<PHINode>(CurrentValue)) {
-          // Skip the PHINodes and EH pads instructions.
-          BasicBlock *DefBlock = cast<Instruction>(E.def())->getParent();
-          if (auto *CSI = dyn_cast<CatchSwitchInst>(DefBlock->getTerminator()))
-            InsertPt = splitBeforeCatchSwitch(CSI);
-          else
-            InsertPt = &*DefBlock->getFirstInsertionPt();
         } else if (auto CSI = dyn_cast<AnyCoroSuspendInst>(CurrentValue)) {
           // Don't spill immediately after a suspend; splitting assumes
           // that the suspend will be followed by a branch.
           InsertPt = CSI->getParent()->getSingleSuccessor()->getFirstNonPHI();
         } else {
-          auto *I = cast<Instruction>(E.def());
-          assert(!I->isTerminator() && "unexpected terminator");
-          // For all other values, the spill is placed immediately after
-          // the definition.
-          if (DT.dominates(CB, I)) {
-            InsertPt = I->getNextNode();
-          } else {
-            // Unless, it is not dominated by CoroBegin, then it will be
+          auto *I = cast<Instruction>(CurrentValue);
+          if (!DT.dominates(CB, I)) {
+            // If it is not dominated by CoroBegin, then spill should be
             // inserted immediately after CoroFrame is computed.
             InsertPt = FramePtr->getNextNode();
+          } else if (auto *II = dyn_cast<InvokeInst>(I)) {
+            // If we are spilling the result of the invoke instruction, split
+            // the normal edge and insert the spill in the new block.
+            auto *NewBB = SplitEdge(II->getParent(), II->getNormalDest());
+            InsertPt = NewBB->getTerminator();
+          } else if (isa<PHINode>(I)) {
+            // Skip the PHINodes and EH pads instructions.
+            BasicBlock *DefBlock = I->getParent();
+            if (auto *CSI =
+                    dyn_cast<CatchSwitchInst>(DefBlock->getTerminator()))
+              InsertPt = splitBeforeCatchSwitch(CSI);
+            else
+              InsertPt = &*DefBlock->getFirstInsertionPt();
+          } else {
+            assert(!I->isTerminator() && "unexpected terminator");
+            // For all other values, the spill is placed immediately after
+            // the definition.
+            InsertPt = I->getNextNode();
           }
         }
 
@@ -955,7 +1005,11 @@ static Instruction *insertSpills(const SpillInfo &Spills, coro::Shape &Shape) {
 
     for (auto &P : Allocas) {
       AllocaInst *const A = P.first;
-      if (mightWriteIntoAllocaPtr(*A, DT, *CB)) {
+      AllocaUseVisitor Visitor(A->getModule()->getDataLayout(), DT, *CB);
+      auto PtrI = Visitor.visitPtr(*A);
+      assert(!PtrI.isAborted());
+      if (PtrI.isEscaped()) {
+        // isEscaped really means potentially modified before CoroBegin.
         if (A->isArrayAllocation())
           report_fatal_error(
               "Coroutines cannot handle copying of array allocas yet");
@@ -963,6 +1017,20 @@ static Instruction *insertSpills(const SpillInfo &Spills, coro::Shape &Shape) {
         auto *G = GetFramePointer(P.second, A);
         auto *Value = Builder.CreateLoad(A->getAllocatedType(), A);
         Builder.CreateStore(Value, G);
+      }
+      // For each alias to Alloca created before CoroBegin but used after
+      // CoroBegin, we recreate them after CoroBegin by appplying the offset
+      // to the pointer in the frame.
+      for (const auto &Alias : Visitor.getAliases()) {
+        auto *FramePtr = GetFramePointer(P.second, A);
+        auto *FramePtrRaw =
+            Builder.CreateBitCast(FramePtr, Type::getInt8PtrTy(C));
+        auto *AliasPtr = Builder.CreateGEP(
+            FramePtrRaw, ConstantInt::get(Type::getInt64Ty(C), Alias.second));
+        auto *AliasPtrTyped =
+            Builder.CreateBitCast(AliasPtr, Alias.first->getType());
+        Alias.first->replaceUsesWithIf(
+            AliasPtrTyped, [&](Use &U) { return DT.dominates(CB, U); });
       }
     }
   }
@@ -984,15 +1052,14 @@ static void setUnwindEdgeTo(Instruction *TI, BasicBlock *Succ) {
 // Replaces all uses of OldPred with the NewPred block in all PHINodes in a
 // block.
 static void updatePhiNodes(BasicBlock *DestBB, BasicBlock *OldPred,
-                           BasicBlock *NewPred,
-                           PHINode *LandingPadReplacement) {
+                           BasicBlock *NewPred, PHINode *Until = nullptr) {
   unsigned BBIdx = 0;
   for (BasicBlock::iterator I = DestBB->begin(); isa<PHINode>(I); ++I) {
     PHINode *PN = cast<PHINode>(I);
 
     // We manually update the LandingPadReplacement PHINode and it is the last
     // PHI Node. So, if we find it, we are done.
-    if (LandingPadReplacement == PN)
+    if (Until == PN)
       break;
 
     // Reuse the previous value of BBIdx if it lines up.  In cases where we
@@ -1041,6 +1108,102 @@ static BasicBlock *ehAwareSplitEdge(BasicBlock *BB, BasicBlock *Succ,
   return NewBB;
 }
 
+// Moves the values in the PHIs in SuccBB that correspong to PredBB into a new
+// PHI in InsertedBB.
+static void movePHIValuesToInsertedBlock(BasicBlock *SuccBB,
+                                         BasicBlock *InsertedBB,
+                                         BasicBlock *PredBB,
+                                         PHINode *UntilPHI = nullptr) {
+  auto *PN = cast<PHINode>(&SuccBB->front());
+  do {
+    int Index = PN->getBasicBlockIndex(InsertedBB);
+    Value *V = PN->getIncomingValue(Index);
+    PHINode *InputV = PHINode::Create(
+        V->getType(), 1, V->getName() + Twine(".") + SuccBB->getName(),
+        &InsertedBB->front());
+    InputV->addIncoming(V, PredBB);
+    PN->setIncomingValue(Index, InputV);
+    PN = dyn_cast<PHINode>(PN->getNextNode());
+  } while (PN != UntilPHI);
+}
+
+// Rewrites the PHI Nodes in a cleanuppad.
+static void rewritePHIsForCleanupPad(BasicBlock *CleanupPadBB,
+                                     CleanupPadInst *CleanupPad) {
+  // For every incoming edge to a CleanupPad we will create a new block holding
+  // all incoming values in single-value PHI nodes. We will then create another
+  // block to act as a dispather (as all unwind edges for related EH blocks
+  // must be the same).
+  //
+  // cleanuppad:
+  //    %2 = phi i32[%0, %catchswitch], [%1, %catch.1]
+  //    %3 = cleanuppad within none []
+  //
+  // It will create:
+  //
+  // cleanuppad.corodispatch
+  //    %2 = phi i8[0, %catchswitch], [1, %catch.1]
+  //    %3 = cleanuppad within none []
+  //    switch i8 % 2, label %unreachable
+  //            [i8 0, label %cleanuppad.from.catchswitch
+  //             i8 1, label %cleanuppad.from.catch.1]
+  // cleanuppad.from.catchswitch:
+  //    %4 = phi i32 [%0, %catchswitch]
+  //    br %label cleanuppad
+  // cleanuppad.from.catch.1:
+  //    %6 = phi i32 [%1, %catch.1]
+  //    br %label cleanuppad
+  // cleanuppad:
+  //    %8 = phi i32 [%4, %cleanuppad.from.catchswitch],
+  //                 [%6, %cleanuppad.from.catch.1]
+
+  // Unreachable BB, in case switching on an invalid value in the dispatcher.
+  auto *UnreachBB = BasicBlock::Create(
+      CleanupPadBB->getContext(), "unreachable", CleanupPadBB->getParent());
+  IRBuilder<> Builder(UnreachBB);
+  Builder.CreateUnreachable();
+
+  // Create a new cleanuppad which will be the dispatcher.
+  auto *NewCleanupPadBB =
+      BasicBlock::Create(CleanupPadBB->getContext(),
+                         CleanupPadBB->getName() + Twine(".corodispatch"),
+                         CleanupPadBB->getParent(), CleanupPadBB);
+  Builder.SetInsertPoint(NewCleanupPadBB);
+  auto *SwitchType = Builder.getInt8Ty();
+  auto *SetDispatchValuePN =
+      Builder.CreatePHI(SwitchType, pred_size(CleanupPadBB));
+  CleanupPad->removeFromParent();
+  CleanupPad->insertAfter(SetDispatchValuePN);
+  auto *SwitchOnDispatch = Builder.CreateSwitch(SetDispatchValuePN, UnreachBB,
+                                                pred_size(CleanupPadBB));
+
+  int SwitchIndex = 0;
+  SmallVector<BasicBlock *, 8> Preds(pred_begin(CleanupPadBB),
+                                     pred_end(CleanupPadBB));
+  for (BasicBlock *Pred : Preds) {
+    // Create a new cleanuppad and move the PHI values to there.
+    auto *CaseBB = BasicBlock::Create(CleanupPadBB->getContext(),
+                                      CleanupPadBB->getName() +
+                                          Twine(".from.") + Pred->getName(),
+                                      CleanupPadBB->getParent(), CleanupPadBB);
+    updatePhiNodes(CleanupPadBB, Pred, CaseBB);
+    CaseBB->setName(CleanupPadBB->getName() + Twine(".from.") +
+                    Pred->getName());
+    Builder.SetInsertPoint(CaseBB);
+    Builder.CreateBr(CleanupPadBB);
+    movePHIValuesToInsertedBlock(CleanupPadBB, CaseBB, NewCleanupPadBB);
+
+    // Update this Pred to the new unwind point.
+    setUnwindEdgeTo(Pred->getTerminator(), NewCleanupPadBB);
+
+    // Setup the switch in the dispatcher.
+    auto *SwitchConstant = ConstantInt::get(SwitchType, SwitchIndex);
+    SetDispatchValuePN->addIncoming(SwitchConstant, Pred);
+    SwitchOnDispatch->addCase(SwitchConstant, CaseBB);
+    SwitchIndex++;
+  }
+}
+
 static void rewritePHIs(BasicBlock &BB) {
   // For every incoming edge we will create a block holding all
   // incoming values in a single PHI nodes.
@@ -1063,6 +1226,24 @@ static void rewritePHIs(BasicBlock &BB) {
   // TODO: Simplify PHINodes in the basic block to remove duplicate
   // predecessors.
 
+  // Special case for CleanupPad: all EH blocks must have the same unwind edge
+  // so we need to create an additional "dispatcher" block.
+  if (auto *CleanupPad =
+          dyn_cast_or_null<CleanupPadInst>(BB.getFirstNonPHI())) {
+    SmallVector<BasicBlock *, 8> Preds(pred_begin(&BB), pred_end(&BB));
+    for (BasicBlock *Pred : Preds) {
+      if (CatchSwitchInst *CS =
+              dyn_cast<CatchSwitchInst>(Pred->getTerminator())) {
+        // CleanupPad with a CatchSwitch predecessor: therefore this is an
+        // unwind destination that needs to be handle specially.
+        (void) CS;
+        assert(CS->getUnwindDest() == &BB);
+        rewritePHIsForCleanupPad(&BB, CleanupPad);
+        return;
+      }
+    }
+  }
+
   LandingPadInst *LandingPad = nullptr;
   PHINode *ReplPHI = nullptr;
   if ((LandingPad = dyn_cast_or_null<LandingPadInst>(BB.getFirstNonPHI()))) {
@@ -1080,18 +1261,10 @@ static void rewritePHIs(BasicBlock &BB) {
   for (BasicBlock *Pred : Preds) {
     auto *IncomingBB = ehAwareSplitEdge(Pred, &BB, LandingPad, ReplPHI);
     IncomingBB->setName(BB.getName() + Twine(".from.") + Pred->getName());
-    auto *PN = cast<PHINode>(&BB.front());
-    do {
-      int Index = PN->getBasicBlockIndex(IncomingBB);
-      Value *V = PN->getIncomingValue(Index);
-      PHINode *InputV = PHINode::Create(
-          V->getType(), 1, V->getName() + Twine(".") + BB.getName(),
-          &IncomingBB->front());
-      InputV->addIncoming(V, Pred);
-      PN->setIncomingValue(Index, InputV);
-      PN = dyn_cast<PHINode>(PN->getNextNode());
-    } while (PN != ReplPHI); // ReplPHI is either null or the PHI that replaced
-                             // the landing pad.
+
+    // Stop the moving of values at ReplPHI, as this is either null or the PHI
+    // that replaced the landing pad.
+    movePHIValuesToInsertedBlock(&BB, IncomingBB, Pred, ReplPHI);
   }
 
   if (LandingPad) {

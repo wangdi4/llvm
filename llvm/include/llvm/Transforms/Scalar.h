@@ -39,13 +39,6 @@ FunctionPass *createSCCPPass();
 
 //===----------------------------------------------------------------------===//
 //
-// DeadInstElimination - This pass quickly removes trivially dead instructions
-// without modifying the CFG of the function.  It is a FunctionPass.
-//
-Pass *createDeadInstEliminationPass();
-
-//===----------------------------------------------------------------------===//
-//
 // RedundantDbgInstElimination - This pass removes redundant dbg intrinsics
 // without modifying the CFG of the function.  It is a FunctionPass.
 //
@@ -263,8 +256,9 @@ FunctionPass *createForcedCMOVGenerationPass();
 //===----------------------------------------------------------------------===//
 //
 // JumpThreading - Thread control through mult-pred/multi-succ blocks where some
-// preds always go to some succ. Thresholds other than minus one override the
-// internal BB duplication default threshold.
+// preds always go to some succ. If FreezeSelectCond is true, unfold the
+// condition of a select that unfolds to branch. Thresholds other than minus one
+// override the internal BB duplication default threshold.
 //
 
 // AllowCFGSimps is an Intel-specific argument that specifies whether the jump
@@ -273,7 +267,8 @@ FunctionPass *createForcedCMOVGenerationPass();
 // possible CFG simplifications, so when running jump threading before
 // CFGSimplification, we want it to do jump threading and nothing else.
 //
-FunctionPass *createJumpThreadingPass(int Threshold = -1,
+FunctionPass *createJumpThreadingPass(bool FreezeSelectCond = false,
+                                      int Threshold = -1,
                                       bool AllowCFGSimps = true);
 // NonLTOGlobalOptimizerPass is a pass which pormotes the non escaped block
 // scope global variables into the registers.
@@ -324,7 +319,6 @@ FunctionPass *createNontemporalStoreWrapperPass();
 // VPOParoptTpv - Supports the thread private legacy mode.
 ModulePass *createVPOParoptTpvPass();
 #endif // INTEL_COLLAB
-
 
 //===----------------------------------------------------------------------===//
 //
@@ -421,6 +415,13 @@ Pass *createLoopDeletionPass();
 // ConstantHoisting - This pass prepares a function for expensive constants.
 //
 FunctionPass *createConstantHoistingPass();
+
+//===----------------------------------------------------------------------===//
+//
+// ConstraintElimination - This pass eliminates conditions based on found
+//                         constraints.
+//
+FunctionPass *createConstraintEliminationPass();
 
 //===----------------------------------------------------------------------===//
 //

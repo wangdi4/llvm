@@ -6,9 +6,15 @@
 
 define %0* @f1() local_unnamed_addr {
 ; INTEL_CUSTOMIZATION
-; ANY-LABEL: @f1(
-; ANY-NEXT:  bb:
-; OLDPM-NEXT: ret %0* undef
+; update_test_checks is using hardcoded block names, which are different due
+; slightly different code in JumpThreading.
+
+; OLDPM-LABEL: @f1(
+; OLDPM-NEXT:  bb6:
+; OLDPM-NEXT:    ret %0* undef
+;
+; NEWPM-LABEL: @f1(
+; NEWPM-NEXT:  bb:
 ; NEWPM-NEXT:    br label [[BB3:%.*]]
 ; NEWPM:       bb3:
 ; NEWPM-NEXT:    [[I1:%.*]] = phi %0* [ [[I5:%.*]], [[BB3]] ], [ undef, [[BB:%.*]] ]

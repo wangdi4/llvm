@@ -284,6 +284,7 @@ DPCPPKernelWGLoopCreatorLegacyPass::getFunctionData(Function *F,
 
   BasicBlock *SingleRetBB =
       getAnalysis<UnifyFunctionExitNodes>(*F).getReturnBlock();
+  assert(SingleRetBB && "Expect a valid ret block");
   return cast<ReturnInst>(SingleRetBB->getTerminator());
 }
 

@@ -32,6 +32,7 @@
 #include "llvm/Analysis/AssumptionCache.h"
 #include "llvm/Analysis/CodeMetrics.h"
 #include "llvm/Analysis/InstructionSimplify.h"
+#include "llvm/Analysis/LazyBlockFrequencyInfo.h"
 #include "llvm/Analysis/LegacyDivergenceAnalysis.h"
 #include "llvm/Analysis/Intel_Andersens.h"                      // INTEL
 #include "llvm/Analysis/Intel_OptReport/LoopOptReportBuilder.h" // INTEL
@@ -227,6 +228,10 @@ namespace {
     /// loop preheaders be inserted into the CFG.
     ///
     void getAnalysisUsage(AnalysisUsage &AU) const override {
+      // Lazy BFI and BPI are marked as preserved here so Loop Unswitching
+      // can remain part of the same loop pass as LICM
+      AU.addPreserved<LazyBlockFrequencyInfoPass>();
+      AU.addPreserved<LazyBranchProbabilityInfoPass>();
       AU.addRequired<AssumptionCacheTracker>();
       AU.addRequired<TargetTransformInfoWrapperPass>();
       AU.addRequired<OptReportOptionsPass>(); // INTEL
@@ -925,7 +930,7 @@ static bool isLoopHandledByLoopOpt(Loop *Lp, LoopInfo *LI,
   if (!LatchBr)
     return false;
 
-  bool IsOuterLoop = !Lp->empty();
+  bool IsOuterLoop = !Lp->isInnermost();
 
   // Outer loop may not be rotated yet so this cannot be checked.
   if (!IsOuterLoop) {
@@ -1037,11 +1042,11 @@ static bool mayAffectPerfectLoopnest(LoopInfo *LI, Loop *CurLoop,
 
   // We need to get the innermost loop for the block as the same bblock
   // may be traversed for outer loops as well.
-  Loop *CondLp = CurLoop->empty() ? CurLoop : LI->getLoopFor(BB);
+  Loop *CondLp = CurLoop->isInnermost() ? CurLoop : LI->getLoopFor(BB);
 
   // Check if this loopnest looks like a perfect loopnest.
 
-  if (!CondLp->empty()) {
+  if (!CondLp->isInnermost()) {
     // Check whether the condition being hoisted looks like inner loop's ztt.
     auto &SubLoops = CondLp->getSubLoops();
 

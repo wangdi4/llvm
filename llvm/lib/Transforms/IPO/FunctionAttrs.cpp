@@ -1360,14 +1360,6 @@ static bool inferAttrsFromFunctionBodies(const SCCNodeSet &SCCNodes) {
   return AI.run(SCCNodes);
 }
 
-static bool setDoesNotRecurse(Function &F) {
-  if (F.doesNotRecurse())
-    return false;
-  F.setDoesNotRecurse();
-  ++NumNoRecurse;
-  return true;
-}
-
 static bool addNoRecurseAttrs(const SCCNodeSet &SCCNodes) {
   // Try and identify functions that do not recurse.
 
@@ -1394,7 +1386,9 @@ static bool addNoRecurseAttrs(const SCCNodeSet &SCCNodes) {
   // Every call was to a non-recursive function other than this function, and
   // we have no indirect recursion as the SCC size is one. This function cannot
   // recurse.
-  return setDoesNotRecurse(*F);
+  F->setDoesNotRecurse();
+  ++NumNoRecurse;
+  return true;
 }
 
 template <typename AARGetterT>
@@ -1540,9 +1534,11 @@ static bool runImpl(CallGraphSCC &SCC, AARGetterT AARGetter, // INTEL
     // when whole-program-safe is true.
     if (F->getName() == "main" && F->use_empty()) {
       if (WPA && WPA->getResult().isWholeProgramSafe()) {
-        Changed |= setDoesNotRecurse(*F);
+        F->setDoesNotRecurse();
+        ++NumNoRecurse;
+        Changed |= true;
       }
-  }
+    }
 #endif // INTEL_CUSTOMIZATION
 
     SCCNodes.insert(F);
@@ -1623,7 +1619,9 @@ static bool addNoRecurseAttrsTopDown(Function &F) {
     if (!CB || !CB->getParent()->getParent()->doesNotRecurse())
       return false;
   }
-  return setDoesNotRecurse(F);
+  F.setDoesNotRecurse();
+  ++NumNoRecurse;
+  return true;
 }
 
 static bool deduceFunctionAttributeInRPO(Module &M, CallGraph &CG) {

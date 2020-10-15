@@ -905,7 +905,7 @@ computeLikelySuccessors(const BasicBlock *BB, Loop *L,
 
 static unsigned maxLoopDepth(Loop *L) {
   unsigned MaxDepth = 0;
-  if (L->empty())
+  if (L->isInnermost())
     return L->getLoopDepth();
   for (auto *SubLoop : *L) {
     unsigned Depth = maxLoopDepth(SubLoop);

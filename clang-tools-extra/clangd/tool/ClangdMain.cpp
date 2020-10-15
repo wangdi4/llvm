@@ -484,9 +484,9 @@ public:
     // Still require "/" in body to mimic file scheme, as we want lengths of an
     // equivalent URI in both schemes to be the same.
     if (!Body.startswith("/"))
-      return llvm::make_error<llvm::StringError>(
-          "Expect URI body to be an absolute path starting with '/': " + Body,
-          llvm::inconvertibleErrorCode());
+      return error(
+          "Expect URI body to be an absolute path starting with '/': {0}",
+          Body);
     Body = Body.ltrim('/');
     llvm::SmallVector<char, 16> Path(Body.begin(), Body.end());
     path::native(Path);
@@ -497,11 +497,9 @@ public:
   llvm::Expected<URI>
   uriFromAbsolutePath(llvm::StringRef AbsolutePath) const override {
     llvm::StringRef Body = AbsolutePath;
-    if (!Body.consume_front(TestScheme::TestDir)) {
-      return llvm::make_error<llvm::StringError>(
-          "Path " + AbsolutePath + " doesn't start with root " + TestDir,
-          llvm::inconvertibleErrorCode());
-    }
+    if (!Body.consume_front(TestScheme::TestDir))
+      return error("Path {0} doesn't start with root {1}", AbsolutePath,
+                   TestDir);
 
     return URI("test", /*Authority=*/"",
                llvm::sys::path::convert_to_slash(Body));
@@ -763,35 +761,6 @@ clangd accepts flags on the commandline, and in the CLANGD_FLAGS environment var
     Opts.ConfigProvider = Config.get();
   }
 
-  // Initialize and run ClangdLSPServer.
-  // Change stdin to binary to not lose \r\n on windows.
-  llvm::sys::ChangeStdinToBinary();
-
-  std::unique_ptr<Transport> TransportLayer;
-  if (getenv("CLANGD_AS_XPC_SERVICE")) {
-#if CLANGD_BUILD_XPC
-    log("Starting LSP over XPC service");
-    TransportLayer = newXPCTransport();
-#else
-    llvm::errs() << "This clangd binary wasn't built with XPC support.\n";
-    return (int)ErrorResultCode::CantRunAsXPCService;
-#endif
-  } else {
-    log("Starting LSP over stdin/stdout");
-    TransportLayer = newJSONTransport(
-        stdin, llvm::outs(),
-        InputMirrorStream ? InputMirrorStream.getPointer() : nullptr,
-        PrettyPrint, InputStyle);
-  }
-  if (!PathMappingsArg.empty()) {
-    auto Mappings = parsePathMappings(PathMappingsArg);
-    if (!Mappings) {
-      elog("Invalid -path-mappings: {0}", Mappings.takeError());
-      return 1;
-    }
-    TransportLayer = createPathMappingTransport(std::move(TransportLayer),
-                                                std::move(*Mappings));
-  }
   // Create an empty clang-tidy option.
   std::mutex ClangTidyOptMu;
   std::unique_ptr<tidy::ClangTidyOptionsProvider>
@@ -818,9 +787,9 @@ clangd accepts flags on the commandline, and in the CLANGD_FLAGS environment var
       return Opts;
     };
   }
+  Opts.AsyncPreambleBuilds = AsyncPreamble;
   Opts.SuggestMissingIncludes = SuggestMissingIncludes;
   Opts.QueryDriverGlobs = std::move(QueryDriverGlobs);
-
   Opts.TweakFilter = [&](const Tweak &T) {
     if (T.hidden() && !HiddenFeatures)
       return false;
@@ -836,7 +805,34 @@ clangd accepts flags on the commandline, and in the CLANGD_FLAGS environment var
   // Shall we allow to customize the file limit?
   RenameOpts.AllowCrossFile = CrossFileRename;
 
-  Opts.AsyncPreambleBuilds = AsyncPreamble;
+  // Initialize and run ClangdLSPServer.
+  // Change stdin to binary to not lose \r\n on windows.
+  llvm::sys::ChangeStdinToBinary();
+  std::unique_ptr<Transport> TransportLayer;
+  if (getenv("CLANGD_AS_XPC_SERVICE")) {
+#if CLANGD_BUILD_XPC
+    log("Starting LSP over XPC service");
+    TransportLayer = newXPCTransport();
+#else
+    llvm::errs() << "This clangd binary wasn't built with XPC support.\n";
+    return (int)ErrorResultCode::CantRunAsXPCService;
+#endif
+  } else {
+    log("Starting LSP over stdin/stdout");
+    TransportLayer = newJSONTransport(
+        stdin, llvm::outs(),
+        InputMirrorStream ? InputMirrorStream.getPointer() : nullptr,
+        PrettyPrint, InputStyle);
+  }
+  if (!PathMappingsArg.empty()) {
+    auto Mappings = parsePathMappings(PathMappingsArg);
+    if (!Mappings) {
+      elog("Invalid -path-mappings: {0}", Mappings.takeError());
+      return 1;
+    }
+    TransportLayer = createPathMappingTransport(std::move(TransportLayer),
+                                                std::move(*Mappings));
+  }
 
   ClangdLSPServer LSPServer(
       *TransportLayer, TFS, CCOpts, RenameOpts, CompileCommandsDirPath,

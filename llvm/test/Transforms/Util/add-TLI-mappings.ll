@@ -14,7 +14,10 @@ target triple = "x86_64-unknown-linux-gnu"
 ; end INTEL_CUSTOMIZATION
 ; SVML-SAME:          i8* bitcast (<2 x double> (<2 x double>)* @__svml_sin2 to i8*),
 ; SVML-SAME:          i8* bitcast (<4 x double> (<4 x double>)* @__svml_sin4 to i8*),
-; SVML-SAME:          i8* bitcast (<8 x double> (<8 x double>)* @__svml_sin8 to i8*)
+; SVML-SAME:          i8* bitcast (<8 x double> (<8 x double>)* @__svml_sin8 to i8*),
+; SVML-SAME:          i8* bitcast (<4 x float> (<4 x float>)* @__svml_log10f4 to i8*),
+; SVML-SAME:          i8* bitcast (<8 x float> (<8 x float>)* @__svml_log10f8 to i8*),
+; SVML-SAME:          i8* bitcast (<16 x float> (<16 x float>)* @__svml_log10f16 to i8*)
 ; MASSV-SAME:       [2 x i8*] [
 ; MASSV-SAME:         i8* bitcast (<2 x double> (<2 x double>)* @__sind2_massv to i8*),
 ; MASSV-SAME:         i8* bitcast (<4 x float> (<4 x float>)* @__log10f4_massv to i8*)

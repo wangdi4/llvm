@@ -74,6 +74,14 @@ static cl::opt<unsigned>
     MaxFixpointIterations("attributor-max-iterations", cl::Hidden,
                           cl::desc("Maximal number of fixpoint iterations."),
                           cl::init(32));
+
+static cl::opt<unsigned, true> MaxInitializationChainLengthX(
+    "attributor-max-initialization-chain-length", cl::Hidden,
+    cl::desc(
+        "Maximal number of chained initializations (to avoid stack overflows)"),
+    cl::location(MaxInitializationChainLength), cl::init(1024));
+unsigned llvm::MaxInitializationChainLength;
+
 static cl::opt<bool> VerifyMaxFixpointIterations(
     "attributor-max-iterations-verify", cl::Hidden,
     cl::desc("Verify that max-iterations is a tight bound for a fixpoint"),
@@ -133,11 +141,11 @@ static cl::opt<bool> PrintDependencies("attributor-print-dep", cl::Hidden,
 /// Logic operators for the change status enum class.
 ///
 ///{
-ChangeStatus llvm::operator|(ChangeStatus l, ChangeStatus r) {
-  return l == ChangeStatus::CHANGED ? l : r;
+ChangeStatus llvm::operator|(ChangeStatus L, ChangeStatus R) {
+  return L == ChangeStatus::CHANGED ? L : R;
 }
-ChangeStatus llvm::operator&(ChangeStatus l, ChangeStatus r) {
-  return l == ChangeStatus::UNCHANGED ? l : r;
+ChangeStatus llvm::operator&(ChangeStatus L, ChangeStatus R) {
+  return L == ChangeStatus::UNCHANGED ? L : R;
 }
 ///}
 
@@ -190,7 +198,7 @@ Argument *IRPosition::getAssociatedArgument() const {
 
   // Not an Argument and no argument number means this is not a call site
   // argument, thus we cannot find a callback argument to return.
-  int ArgNo = getArgNo();
+  int ArgNo = getCallSiteArgNo();
   if (ArgNo < 0)
     return nullptr;
 
@@ -318,6 +326,13 @@ const IRPosition
 SubsumingPositionIterator::SubsumingPositionIterator(const IRPosition &IRP) {
   IRPositions.emplace_back(IRP);
 
+  // Helper to determine if operand bundles on a call site are benin or
+  // potentially problematic. We handle only llvm.assume for now.
+  auto CanIgnoreOperandBundles = [](const CallBase &CB) {
+    return (isa<IntrinsicInst>(CB) &&
+            cast<IntrinsicInst>(CB).getIntrinsicID() == Intrinsic ::assume);
+  };
+
   const auto *CB = dyn_cast<CallBase>(&IRP.getAnchorValue());
   switch (IRP.getPositionKind()) {
   case IRPosition::IRP_INVALID:
@@ -332,7 +347,7 @@ SubsumingPositionIterator::SubsumingPositionIterator(const IRPosition &IRP) {
     assert(CB && "Expected call site!");
     // TODO: We need to look at the operand bundles similar to the redirection
     //       in CallBase.
-    if (!CB->hasOperandBundles())
+    if (!CB->hasOperandBundles() || CanIgnoreOperandBundles(*CB))
       if (const Function *Callee = CB->getCalledFunction())
         IRPositions.emplace_back(IRPosition::function(*Callee));
     return;
@@ -340,7 +355,7 @@ SubsumingPositionIterator::SubsumingPositionIterator(const IRPosition &IRP) {
     assert(CB && "Expected call site!");
     // TODO: We need to look at the operand bundles similar to the redirection
     //       in CallBase.
-    if (!CB->hasOperandBundles()) {
+    if (!CB->hasOperandBundles() || CanIgnoreOperandBundles(*CB)) {
       if (const Function *Callee = CB->getCalledFunction()) {
         IRPositions.emplace_back(IRPosition::returned(*Callee));
         IRPositions.emplace_back(IRPosition::function(*Callee));
@@ -357,16 +372,16 @@ SubsumingPositionIterator::SubsumingPositionIterator(const IRPosition &IRP) {
     IRPositions.emplace_back(IRPosition::callsite_function(*CB));
     return;
   case IRPosition::IRP_CALL_SITE_ARGUMENT: {
-    int ArgNo = IRP.getArgNo();
-    assert(CB && ArgNo >= 0 && "Expected call site!");
+    assert(CB && "Expected call site!");
     // TODO: We need to look at the operand bundles similar to the redirection
     //       in CallBase.
-    if (!CB->hasOperandBundles()) {
+    if (!CB->hasOperandBundles() || CanIgnoreOperandBundles(*CB)) {
       const Function *Callee = CB->getCalledFunction();
-      if (Callee && Callee->arg_size() > unsigned(ArgNo))
-        IRPositions.emplace_back(IRPosition::argument(*Callee->getArg(ArgNo)));
-      if (Callee)
+      if (Callee) {
+        if (Argument *Arg = IRP.getAssociatedArgument())
+          IRPositions.emplace_back(IRPosition::argument(*Arg));
         IRPositions.emplace_back(IRPosition::function(*Callee));
+    }
     }
     IRPositions.emplace_back(IRPosition::value(IRP.getAssociatedValue()));
     return;
@@ -504,7 +519,7 @@ void IRPosition::verify() {
            "Expected call base argument operand for a 'call site argument' "
            "position");
     assert(cast<CallBase>(U->getUser())->getArgOperandNo(U) ==
-               unsigned(getArgNo()) &&
+               unsigned(getCallSiteArgNo()) &&
            "Argument number mismatch!");
     assert(U->get() == &getAssociatedValue() && "Associated value mismatch!");
     return;
@@ -1307,7 +1322,25 @@ ChangeStatus Attributor::cleanupIR() {
     CGUpdater.removeFunction(*Fn);
   }
 
+  if (!ToBeChangedUses.empty())
+    ManifestChange = ChangeStatus::CHANGED;
+
+  if (!ToBeChangedToUnreachableInsts.empty())
+    ManifestChange = ChangeStatus::CHANGED;
+
   if (!ToBeDeletedFunctions.empty())
+    ManifestChange = ChangeStatus::CHANGED;
+
+  if (!ToBeDeletedBlocks.empty())
+    ManifestChange = ChangeStatus::CHANGED;
+
+  if (!ToBeDeletedInsts.empty())
+    ManifestChange = ChangeStatus::CHANGED;
+
+  if (!InvokeWithDeadSuccessor.empty())
+    ManifestChange = ChangeStatus::CHANGED;
+
+  if (!DeadInsts.empty())
     ManifestChange = ChangeStatus::CHANGED;
 
   NumFnDeleted += ToBeDeletedFunctions.size();
@@ -1432,7 +1465,7 @@ static void createShallowWrapper(Function &F) {
   BasicBlock *EntryBB = BasicBlock::Create(Ctx, "entry", Wrapper);
 
   SmallVector<Value *, 8> Args;
-  auto FArgIt = F.arg_begin();
+  Argument *FArgIt = F.arg_begin();
   for (Argument &Arg : Wrapper->args()) {
     Args.push_back(&Arg);
     Arg.setName((FArgIt++)->getName());
@@ -1464,9 +1497,8 @@ static Function *internalizeFunction(Function &F) {
   FunctionType *FnTy = F.getFunctionType();
 
   // create a copy of the current function
-  Function *Copied =
-      Function::Create(FnTy, GlobalValue::PrivateLinkage, F.getAddressSpace(),
-                       F.getName() + ".internalized");
+  Function *Copied = Function::Create(FnTy, F.getLinkage(), F.getAddressSpace(),
+                                      F.getName() + ".internalized");
   ValueToValueMapTy VMap;
   auto *NewFArgIt = Copied->arg_begin();
   for (auto &Arg : F.args()) {
@@ -1478,6 +1510,11 @@ static Function *internalizeFunction(Function &F) {
 
   // Copy the body of the original function to the new one
   CloneFunctionInto(Copied, &F, VMap, /* ModuleLevelChanges */ false, Returns);
+
+  // Set the linakage and visibility late as CloneFunctionInto has some implicit
+  // requirements.
+  Copied->setVisibility(GlobalValue::DefaultVisibility);
+  Copied->setLinkage(GlobalValue::PrivateLinkage);
 
   // Copy metadata
   SmallVector<std::pair<unsigned, MDNode *>, 1> MDs;
@@ -1756,8 +1793,8 @@ ChangeStatus Attributor::rewriteFunctionSignatures(
     assert(Success && "Assumed call site replacement to succeed!");
 
     // Rewire the arguments.
-    auto OldFnArgIt = OldFn->arg_begin();
-    auto NewFnArgIt = NewFn->arg_begin();
+    Argument *OldFnArgIt = OldFn->arg_begin();
+    Argument *NewFnArgIt = NewFn->arg_begin();
     for (unsigned OldArgNum = 0; OldArgNum < ARIs.size();
          ++OldArgNum, ++OldFnArgIt) {
       if (const std::unique_ptr<ArgumentReplacementInfo> &ARI =
@@ -2153,7 +2190,8 @@ raw_ostream &llvm::operator<<(raw_ostream &OS, IRPosition::Kind AP) {
 raw_ostream &llvm::operator<<(raw_ostream &OS, const IRPosition &Pos) {
   const Value &AV = Pos.getAssociatedValue();
   return OS << "{" << Pos.getPositionKind() << ":" << AV.getName() << " ["
-            << Pos.getAnchorValue().getName() << "@" << Pos.getArgNo() << "]}";
+            << Pos.getAnchorValue().getName() << "@" << Pos.getCallSiteArgNo()
+            << "]}";
 }
 
 raw_ostream &llvm::operator<<(raw_ostream &OS, const IntegerRangeState &S) {

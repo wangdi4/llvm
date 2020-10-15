@@ -177,6 +177,8 @@ TEST(VPBasicBlockTest, getPlan) {
   }
 }
 
+#if INTEL_CUSTOMIZATION
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 TEST(VPBasicBlockTest, print) {
   VPInstruction *I1 = new VPInstruction(Instruction::Add, {});
   VPInstruction *I2 = new VPInstruction(Instruction::Sub, {I1});
@@ -246,6 +248,8 @@ compound=true
     EXPECT_EQ("vp<%2> = mul vp<%1> vp<%0>", I4Dump);
   }
 }
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
+#endif // INTEL_CUSTOMIZATION
 
 } // namespace
 } // namespace llvm

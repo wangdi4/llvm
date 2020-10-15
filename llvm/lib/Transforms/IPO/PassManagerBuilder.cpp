@@ -394,6 +394,11 @@ cl::opt<bool> EnableMatrix(
     "enable-matrix", cl::init(false), cl::Hidden,
     cl::desc("Enable lowering of the matrix intrinsics"));
 
+cl::opt<bool> EnableConstraintElimination(
+    "enable-constraint-elimination", cl::init(false), cl::Hidden,
+    cl::desc(
+        "Enable pass to eliminate conditions based on linear constraints."));
+
 cl::opt<AttributorRunOption> AttributorRun(
     "attributor-enable", cl::Hidden, cl::init(AttributorRunOption::NONE),
     cl::desc("Enable the attributor inter-procedural deduction pass."),
@@ -702,6 +707,9 @@ void PassManagerBuilder::addFunctionSimplificationPasses(
     }
   }
 
+  if (EnableConstraintElimination)
+    MPM.add(createConstraintEliminationPass());
+
   if (OptLevel > 1) {
     // Speculative execution if the target has divergent branches; otherwise nop.
     MPM.add(createSpeculativeExecutionIfHasBranchDivergencePass());
@@ -986,8 +994,8 @@ void PassManagerBuilder::populateModulePassManager(
   addInstructionCombiningPass(MPM);
 #endif // INTEL_CUSTOMIZATION
   addExtensionsToPM(EP_Peephole, MPM);
-  if (EarlyJumpThreading && !SYCLOptimizationMode) // INTEL
-    MPM.add(createJumpThreadingPass(-1, false));   // INTEL
+  if (EarlyJumpThreading && !SYCLOptimizationMode)                // INTEL
+    MPM.add(createJumpThreadingPass(/*FreezeSelectCond*/ false)); // INTEL
   MPM.add(createCFGSimplificationPass()); // Clean up after IPCP & DAE
 
   // For SamplePGO in ThinLTO compile phase, we do not want to do indirect
@@ -1276,10 +1284,13 @@ void PassManagerBuilder::populateModulePassManager(
       // better to convert to more optimized IR using more aggressive simplify
       // CFG options. The extra sinking transform can create larger basic
       // blocks, so do this before SLP vectorization.
+      // FIXME: study whether hoisting and/or sinking of common instructions should
+      // be delayed until after SLP vectorizer.
       MPM.add(createCFGSimplificationPass(SimplifyCFGOptions()
                                               .forwardSwitchCondToPhi(true)
                                               .convertSwitchToLookupTable(true)
                                               .needCanonicalLoops(false)
+                                              .hoistCommonInsts(true)
                                               .sinkCommonInsts(true)));
 
       if (SLPVectorize) {
@@ -1744,7 +1755,7 @@ void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
   // The IPO passes may leave cruft around.  Clean up after them.
   addInstructionCombiningPass(PM);  // INTEL
   addExtensionsToPM(EP_Peephole, PM);
-  PM.add(createJumpThreadingPass());
+  PM.add(createJumpThreadingPass(/*FreezeSelectCond*/ true));
 
   // Break up allocas
   PM.add(createSROAPass());
@@ -1874,7 +1885,7 @@ void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
   addInstructionCombiningPass(PM);  // INTEL
   addExtensionsToPM(EP_Peephole, PM);
 
-  PM.add(createJumpThreadingPass());
+  PM.add(createJumpThreadingPass(/*FreezeSelectCond*/ true));
 
 #if INTEL_CUSTOMIZATION
   PM.add(createForcedCMOVGenerationPass()); // To help CMOV generation

@@ -117,7 +117,7 @@ namespace {
 
     unsigned maxLoopDepth(Loop * L) {
       unsigned MaxDepth = 0;
-      if (L->empty())
+      if (L->isInnermost())
         return 1;
       for (auto *SubLoop : *L) {
         unsigned Depth = maxLoopDepth(SubLoop);

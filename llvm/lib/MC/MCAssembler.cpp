@@ -768,6 +768,8 @@ void MCAssembler::writeSectionData(raw_ostream &OS, const MCSection *Sec,
         assert((cast<MCFillFragment>(F).getValue() == 0) &&
                "Invalid fill in virtual section!");
         break;
+      case MCFragment::FT_Org:
+        break;
       }
     }
 

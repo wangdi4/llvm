@@ -68,6 +68,17 @@ bool link(ArrayRef<const char *> args, bool canExitEarly, raw_ostream &stdoutOS,
   lld::stdoutOS = &stdoutOS;
   lld::stderrOS = &stderrOS;
 
+  errorHandler().cleanupCallback = []() {
+    freeArena();
+    ObjFile::instances.clear();
+    PDBInputFile::instances.clear();
+    ImportFile::instances.clear();
+    BitcodeFile::instances.clear();
+    memset(MergeChunk::instances, 0, sizeof(MergeChunk::instances));
+    TpiSource::clear();
+    OutputSection::clear();
+  };
+
   errorHandler().logName = args::getFilenameWithoutExe(args[0]);
   errorHandler().errorLimitExceededMsg =
       "too many errors emitted, stopping now"
@@ -85,20 +96,10 @@ bool link(ArrayRef<const char *> args, bool canExitEarly, raw_ostream &stdoutOS,
   if (canExitEarly)
     exitLld(errorCount() ? 1 : 0);
 
-#if INTEL_CUSTOMIZATION
-  // CMPLRLLVM-10208: This part here is for destroying the global data
-  // if the user doesn't need it (e.g. testing system).
-  cleanIntelLld();
-#endif // INTEL_CUSTOMIZATION
-
-  freeArena();
-  ObjFile::instances.clear();
-  ImportFile::instances.clear();
-  BitcodeFile::instances.clear();
-  memset(MergeChunk::instances, 0, sizeof(MergeChunk::instances));
-  TpiSource::clear();
-
-  return !errorCount();
+  bool ret = errorCount() == 0;
+  if (!canExitEarly)
+    errorHandler().reset();
+  return ret;
 }
 
 // Parse options of the form "old;new".
@@ -1403,6 +1404,7 @@ void LinkerDriver::link(ArrayRef<const char *> argsArr) {
   v.push_back("lld-link (LLVM option parsing)");
   for (auto *arg : args.filtered(OPT_mllvm))
     v.push_back(arg->getValue());
+  cl::ResetAllOptionOccurrences();
   cl::ParseCommandLineOptions(v.size(), v.data());
 
   // Handle /errorlimit early, because error() depends on it.
@@ -1468,14 +1470,6 @@ void LinkerDriver::link(ArrayRef<const char *> argsArr) {
     else
       fatal("no input files");
   }
-
-#if INTEL_CUSTOMIZATION
-  if (args.hasArg(OPT_intel_debug_mem))
-    errorHandler().intelDebugMem = true;
-
-  if (args.hasArg(OPT_intel_embedded_linker))
-    errorHandler().intelEmbeddedLinker = true;
-#endif // INTEL_CUSTOMIZATION
 
   // Construct search path list.
   searchPaths.push_back("");

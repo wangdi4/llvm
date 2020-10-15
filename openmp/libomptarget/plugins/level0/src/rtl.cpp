@@ -31,6 +31,7 @@
 #include <unistd.h>
 #include <dlfcn.h>
 #endif // !_WIN32
+
 #include "omptargetplugin.h"
 #include "omptarget-tools.h"
 #include "rtl-trace.h"

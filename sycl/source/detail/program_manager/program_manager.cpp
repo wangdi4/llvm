@@ -229,18 +229,19 @@ getOrBuild(KernelProgramCache &KPCache, KeyT &&CacheKey, AcquireFT &&Acquire,
   }
 }
 
+// TODO replace this with a new PI API function
 static bool isDeviceBinaryTypeSupported(const context &C,
                                         RT::PiDeviceBinaryType Format) {
+  // All formats except PI_DEVICE_BINARY_TYPE_SPIRV are supported.
+  if (Format != PI_DEVICE_BINARY_TYPE_SPIRV)
+    return true;
+
   const backend ContextBackend =
       detail::getSyclObjImpl(C)->getPlugin().getBackend();
 
   // The CUDA backend cannot use SPIR-V
-  if (ContextBackend == backend::cuda && Format == PI_DEVICE_BINARY_TYPE_SPIRV)
+  if (ContextBackend == backend::cuda)
     return false;
-
-  // All formats except PI_DEVICE_BINARY_TYPE_SPIRV are supported.
-  if (Format != PI_DEVICE_BINARY_TYPE_SPIRV)
-    return true;
 
 #if INTEL_CUSTOMIZATION
   // TODO: can we just query piDeviceGetInfo(PI_DEVICE_INFO_COMPILER_AVAILABLE)?
@@ -257,9 +258,14 @@ static bool isDeviceBinaryTypeSupported(const context &C,
   }
 
   // OpenCL 2.1 and greater require clCreateProgramWithIL
-  if ((ContextBackend == backend::opencl) &&
-      C.get_platform().get_info<info::platform::version>() >= "2.1")
-    return true;
+  if (ContextBackend == backend::opencl) {
+    std::string ver = C.get_platform().get_info<info::platform::version>();
+    if (ver.find("OpenCL 1.0") == std::string::npos &&
+        ver.find("OpenCL 1.1") == std::string::npos &&
+        ver.find("OpenCL 1.2") == std::string::npos &&
+        ver.find("OpenCL 2.0") == std::string::npos)
+      return true;
+  }
 
   for (const device &D : Devices) {
     // We need cl_khr_il_program extension to be present
@@ -805,11 +811,11 @@ ProgramManager::ProgramPtr ProgramManager::build(
     LinkOpts = LinkOptions.c_str();
   }
 
-  // TODO: Because online linking isn't implemented yet on Level Zero, the
-  // compiler always links against the fallback device libraries.  Once
-  // online linking is supported on all backends, we should remove the line
-  // below and also change the compiler, so it no longer links the fallback
-  // code unconditionally.
+  // TODO: Currently, online linking isn't implemented yet on Level Zero.
+  // To enable device libraries and unify the behaviors on all backends,
+  // online linking is disabled temporarily, all fallback device libraries
+  // will be linked offline. When Level Zero supports online linking, we need
+  // to remove the line of code below and switch back to online linking.
   LinkDeviceLibs = false;
 
   // TODO: this is a temporary workaround for GPU tests for ESIMD compiler.

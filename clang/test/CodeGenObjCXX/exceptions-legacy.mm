@@ -64,6 +64,10 @@ void test1(id obj, bool *failed) {
 // CHECK:      invoke void @_Z3foov()
 
 // ;INTEL 4 lines from here moved down verbatim
+//   Catch handler.  Reload of 'failed' address is unnecessary. ;INTEL
+// CHECK:      [[T0:%.*]] = load i8*, i8**                      ;INTEL
+// CHECK-NEXT: store i8 1, i8* [[T0]],                          ;INTEL
+// CHECK-NEXT: br label                                         ;INTEL
 
 //   Leave the @try.
 // CHECK:      call void @objc_exception_try_exit([[BUF_T]]* nonnull [[BUF]])
@@ -75,8 +79,3 @@ void test1(id obj, bool *failed) {
 // CHECK-NEXT:    cleanup
 // CHECK-NEXT: call void @objc_exception_try_exit([[BUF_T]]* nonnull [[BUF]])
 // CHECK-NEXT: resume
-
-//   Catch handler.  Reload of 'failed' address is unnecessary. ;INTEL
-// CHECK:      [[T0:%.*]] = load i8*, i8**                      ;INTEL
-// CHECK-NEXT: store i8 1, i8* [[T0]],                          ;INTEL
-// CHECK-NEXT: br label                                         ;INTEL

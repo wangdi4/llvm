@@ -848,13 +848,14 @@ PreservedAnalyses VPlanDriverPass::run(Function &F,
   auto TTI = &AM.getResult<TargetIRAnalysis>(F);
   auto TLI = &AM.getResult<TargetLibraryAnalysis>(F);
   auto WR = &AM.getResult<WRegionInfoAnalysis>(F);
+  auto BFI = &AM.getResult<BlockFrequencyAnalysis>(F);
   MemorySSA *MSSA = EnableMSSALoopDependency
                         ? &AM.getResult<MemorySSAAnalysis>(F).getMSSA()
                         : nullptr;
   auto &LAM = AM.getResult<LoopAnalysisManagerFunctionProxy>(F).getManager();
   auto GetLAA = [&](Loop &L) -> const LoopAccessInfo & {
     LoopStandardAnalysisResults AR = {*AA, *AC,  *DT,  *LI,
-                                      *SE, *TLI, *TTI, MSSA};
+                                      *SE, *TLI, *TTI, BFI, MSSA};
     return LAM.getResult<LoopAccessAnalysis>(L, AR);
   };
 
@@ -1278,7 +1279,7 @@ bool VPlanDriverImpl::isVPlanCandidate<llvm::Loop>(Function &Fn, Loop *Lp) {
 bool VPlanDriverImpl::isVPlanCandidate(Function &Fn, Loop *Lp) {
 #endif
   // Only consider inner loops
-  if (!Lp->empty())
+  if (!Lp->isInnermost())
     return false;
 
   PredicatedScalarEvolution PSE(*SE, *Lp);

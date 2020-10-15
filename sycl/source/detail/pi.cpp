@@ -210,11 +210,11 @@ std::shared_ptr<plugin> GlobalPlugin;
 
 // Find the plugin at the appropriate location and return the location.
 bool findPlugins(vector_class<std::pair<std::string, backend>> &PluginNames) {
-  // TODO: Based on final design discussions, change the location where the
-  // plugin must be searched; how to identify the plugins etc. Currently the
-  // search is done for libpi_opencl.so/pi_opencl.dll file in LD_LIBRARY_PATH
-  // env only.
-  //
+// TODO: Based on final design discussions, change the location where the
+// plugin must be searched; how to identify the plugins etc. Currently the
+// search is done for libpi_opencl.so/pi_opencl.dll file in LD_LIBRARY_PATH
+// env only.
+//
   device_filter_list *FilterList = SYCLConfig<SYCL_DEVICE_FILTER>::get();
   if (!FilterList) {
     PluginNames.emplace_back(OPENCL_PLUGIN_NAME, backend::opencl);

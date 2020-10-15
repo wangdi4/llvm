@@ -23,6 +23,7 @@ add_llvm_unittest_with_input_files(AnalysisTests
   CaptureTrackingTest.cpp
   CFGTest.cpp
   CGSCCPassManagerTest.cpp
+  ConstraintSystemTest.cpp
   DDGTest.cpp
   DivergenceAnalysisTest.cpp
   DomTreeUpdaterTest.cpp
@@ -31,6 +32,7 @@ add_llvm_unittest_with_input_files(AnalysisTests
 # INTEL_CUSTOMIZATION
   Intel_VectorVariantTest.cpp
 # end INTEL_CUSTOMIZATION
+  IRSimilarityIdentifierTest.cpp
   IVDescriptorsTest.cpp
   LazyCallGraphTest.cpp
   LoadsTest.cpp

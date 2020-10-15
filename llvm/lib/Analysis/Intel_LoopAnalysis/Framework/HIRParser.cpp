@@ -489,14 +489,13 @@ bool HIRParser::replaceTempBlob(unsigned BlobIndex, unsigned TempIndex,
 
   auto Blob = getBlob(BlobIndex);
 
-  Value *ReplaceByValue = ConstantBlob ? ConstantBlob->getValue()
-                                       : cast<SCEVUnknown>(ByBlob)->getValue();
+  auto ReplaceByValue = ConstantBlob ? ConstantBlob : ByBlob;
 
-  ValueToValueMap Map;
+  ValueToSCEVMapTy Map;
   Map.insert(
       std::make_pair(cast<SCEVUnknown>(TempBlob)->getValue(), ReplaceByValue));
 
-  auto NewBlob = SCEVParameterRewriter::rewrite(Blob, ScopedSE, Map, true);
+  auto NewBlob = SCEVParameterRewriter::rewrite(Blob, ScopedSE, Map);
 
   if (Blob == NewBlob) {
     NewBlobIndex = BlobIndex;
