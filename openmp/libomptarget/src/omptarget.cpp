@@ -399,8 +399,20 @@ int targetDataBegin(DeviceTy &Device, int32_t arg_num, void **args_base,
 #endif // INTEL_COLLAB
         if (IsNew || (arg_types[i] & OMP_TGT_MAPTYPE_ALWAYS)) {
           copy = true;
+#if INTEL_COLLAB
+        // The same patch is being committed to llorg:
+        // https://reviews.llvm.org/D89597
+        // When pulling down from llorg into xmain, INTEL_COLLAB should be
+        // removed.
+        } else if ((arg_types[i] & OMP_TGT_MAPTYPE_MEMBER_OF) &&
+                   !(arg_types[i] & OMP_TGT_MAPTYPE_PTR_AND_OBJ)) {
+          // Copy data only if the "parent" struct has RefCount==1.
+          // If this is a PTR_AND_OBJ entry, the OBJ is not part of the struct,
+          // so exclude it from this check.
+#else // INTEL_COLLAB
         } else if (arg_types[i] & OMP_TGT_MAPTYPE_MEMBER_OF) {
           // Copy data only if the "parent" struct has RefCount==1.
+#endif // INTEL_COLLAB
           int32_t parent_idx = getParentIndex(arg_types[i]);
           uint64_t parent_rc = Device.getMapEntryRefCnt(args[parent_idx]);
           assert(parent_rc > 0 && "parent struct not found");
