@@ -1524,10 +1524,45 @@ Instruction *InstCombinerImpl::visitSExt(SExtInst &CI) {
   if (Known.isNonNegative() && !AvoidSExtTransform(CI, Src)) // INTEL
     return CastInst::Create(Instruction::ZExt, Src, DestTy);
 
+#if INTEL_CUSTOMIZATION
+  // Check if sext is used in address computations. Looking for the following
+  // pattern: ((type*) A)[sext(V * C1 + C2)]
+  auto IsUsedInAddressCompute = [](SExtInst *SXI) {
+    // First check if we have the following pattern sext(V * C1 + C2)
+    if (!match(SXI->getOperand(0),
+               m_CombineOr(
+                   m_Add(m_Mul(m_Value(), m_ConstantInt()), m_ConstantInt()),
+                   m_Or(m_Mul(m_Value(), m_ConstantInt()), m_ConstantInt()))))
+      return false;
+
+    // Now check that all sext users are optionally bitcasted GEPs that are
+    // used as address value in loads and stores.
+    if (!all_of(SXI->uses(), [](const Use &SXIU) {
+          if (auto *GEP = dyn_cast<GetElementPtrInst>(SXIU.getUser()))
+            return all_of(GEP->uses(), [](const Use &GEPU) {
+              auto IsLoadOrStore = [](const Use &U) {
+                if (isa<LoadInst>(U.getUser()))
+                  return true;
+                if (auto *SI = dyn_cast<StoreInst>(U.getUser()))
+                  return SI->getPointerOperand() == U;
+                return false;
+              };
+              if (auto *BCI = dyn_cast<BitCastInst>(GEPU.getUser()))
+                return all_of(BCI->uses(), IsLoadOrStore);
+              return IsLoadOrStore(GEPU);
+            });
+          return false;
+        }))
+      return false;
+    return true;
+  };
+#endif // INTEL_CUSTOMIZATION
+
   // Try to extend the entire expression tree to the wide destination type.
 #if INTEL_CUSTOMIZATION
   if (shouldChangeType(SrcTy, DestTy) && canEvaluateSExtd(Src, DestTy) &&
-      !AvoidSExtTransform(CI, Src)) {
+      !AvoidSExtTransform(CI, Src) &&
+      !(preserveAddrCompute() && IsUsedInAddressCompute(&CI))) {
 #endif // INTEL_CUSTOMIZATION
     // Okay, we can transform this!  Insert the new expression now.
     LLVM_DEBUG(

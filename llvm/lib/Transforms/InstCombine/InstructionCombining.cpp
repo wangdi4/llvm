@@ -163,6 +163,11 @@ static cl::opt<unsigned> LimitMaxIterations(
 static cl::opt<bool>
 DisableTypeLoweringOpts("disable-type-lowering-opts",
                         cl::desc("Disable type lowering optimizations"));
+
+static cl::opt<bool>
+    PreserveAddrComputations("instcombine-preserve-addr-compute",
+                             cl::desc("Preserve address computations"),
+                             cl::ReallyHidden, cl::init(false));
 #endif // INTEL_CUSTOMIZATION
 
 static cl::opt<unsigned> InfiniteLoopDetectionThreshold(
@@ -4071,12 +4076,14 @@ static bool combineInstructionsOverFunction(
     DominatorTree &DT, OptimizationRemarkEmitter &ORE, BlockFrequencyInfo *BFI,
 #if INTEL_CUSTOMIZATION
     ProfileSummaryInfo *PSI, unsigned MaxIterations, bool TypeLoweringOpts,
-    LoopInfo *LI) {
+    bool PreserveAddrCompute, LoopInfo *LI) {
 #endif // INTEL_CUSTOMIZATION
   auto &DL = F.getParent()->getDataLayout();
   MaxIterations = std::min(MaxIterations, LimitMaxIterations.getValue());
   if (DisableTypeLoweringOpts)      // INTEL
     TypeLoweringOpts = false;       // INTEL
+  if (PreserveAddrComputations)     // INTEL
+    PreserveAddrCompute = true;     // INTEL
 
   /// Builder - This is an IRBuilder that automatically inserts new
   /// instructions into the worklist when they are created.
@@ -4119,8 +4126,9 @@ static bool combineInstructionsOverFunction(
     MadeIRChange |= prepareICWorklistFromFunction(F, DL, &TLI, Worklist);
 
 #if INTEL_CUSTOMIZATION
-    InstCombinerImpl IC(Worklist, Builder, F.hasMinSize(), TypeLoweringOpts, AA,
-                        AC, TLI, TTI, DT, ORE, BFI, PSI, DL, LI);
+    InstCombinerImpl IC(Worklist, Builder, F.hasMinSize(), TypeLoweringOpts,
+                        PreserveAddrCompute, AA, AC, TLI, TTI, DT, ORE, BFI,
+                        PSI, DL, LI);
 #endif // INTEL_CUSTOMIZATION
     IC.MaxArraySizeForCombine = MaxArraySize;
 
@@ -4134,14 +4142,17 @@ static bool combineInstructionsOverFunction(
 }
 
 #if INTEL_CUSTOMIZATION
-InstCombinePass::InstCombinePass(bool TypeLoweringOpts)
+InstCombinePass::InstCombinePass(bool TypeLoweringOpts,
+                                 bool PreserveAddrCompute)
     : TypeLoweringOpts(TypeLoweringOpts),
+      PreserveAddrCompute(PreserveAddrCompute),
       MaxIterations(LimitMaxIterations) {}
 
 InstCombinePass::InstCombinePass(bool TypeLoweringOpts,
+                                 bool PreserveAddrCompute,
                                  unsigned MaxIterations)
     : TypeLoweringOpts(TypeLoweringOpts),
-      MaxIterations(MaxIterations) {}
+      PreserveAddrCompute(PreserveAddrCompute), MaxIterations(MaxIterations) {}
 #endif // INTEL_CUSTOMIZATION
 
 PreservedAnalyses InstCombinePass::run(Function &F,
@@ -4164,7 +4175,8 @@ PreservedAnalyses InstCombinePass::run(Function &F,
   if (!combineInstructionsOverFunction(F, Worklist, AA, AC, TLI, TTI, // INTEL
                                        DT, ORE, BFI, PSI,             // INTEL
                                        MaxIterations,                 // INTEL
-                                       TypeLoweringOpts, LI))         // INTEL
+                                       TypeLoweringOpts,              // INTEL
+                                       PreserveAddrCompute, LI))      // INTEL
     // No changes, all analyses are preserved.
     return PreservedAnalyses::all();
 
@@ -4222,21 +4234,30 @@ bool InstructionCombiningPass::runOnFunction(Function &F) {
   return combineInstructionsOverFunction(F, Worklist, AA, AC, TLI, TTI, // INTEL
                                          DT, ORE, BFI, PSI,             // INTEL
                                          MaxIterations,                 // INTEL
-                                         TypeLoweringOpts, LI);         // INTEL
+                                         TypeLoweringOpts,              // INTEL
+                                         PreserveAddrCompute, LI);      // INTEL
 }
 
 char InstructionCombiningPass::ID = 0;
 
-InstructionCombiningPass::InstructionCombiningPass(bool TypeLoweringOpts)  // INTEL
-    : FunctionPass(ID), TypeLoweringOpts(TypeLoweringOpts),                // INTEL
+#if INTEL_CUSTOMIZATION
+InstructionCombiningPass::InstructionCombiningPass(bool TypeLoweringOpts,
+                                                   bool PreserveAddrCompute)
+    : FunctionPass(ID), TypeLoweringOpts(TypeLoweringOpts),
+      PreserveAddrCompute(PreserveAddrCompute),
+#endif // INTEL_CUSTOMIZATION
       MaxIterations(InstCombineDefaultMaxIterations) {
   initializeInstructionCombiningPassPass(*PassRegistry::getPassRegistry());
 }
 
-InstructionCombiningPass::InstructionCombiningPass(bool TypeLoweringOpts,  // INTEL
-                                                   unsigned MaxIterations) // INTEL
-    : FunctionPass(ID), TypeLoweringOpts(TypeLoweringOpts),                // INTEL
-      MaxIterations(MaxIterations) {   // INTEL
+#if INTEL_CUSTOMIZATION
+InstructionCombiningPass::InstructionCombiningPass(bool TypeLoweringOpts,
+                                                   bool PreserveAddrCompute,
+                                                   unsigned MaxIterations)
+    : FunctionPass(ID), TypeLoweringOpts(TypeLoweringOpts),
+      PreserveAddrCompute(PreserveAddrCompute),
+#endif // INTEL_CUSTOMIZATION
+      MaxIterations(MaxIterations) {
   initializeInstructionCombiningPassPass(*PassRegistry::getPassRegistry());
 }
 
@@ -4265,13 +4286,16 @@ void LLVMInitializeInstCombine(LLVMPassRegistryRef R) {
 }
 
 #if INTEL_CUSTOMIZATION
-FunctionPass *llvm::createInstructionCombiningPass(bool TypeLoweringOpts) {
-  return new InstructionCombiningPass(TypeLoweringOpts);
+FunctionPass *llvm::createInstructionCombiningPass(bool TypeLoweringOpts,
+                                                   bool PreserveAddrCompute) {
+  return new InstructionCombiningPass(TypeLoweringOpts, PreserveAddrCompute);
 }
 
 FunctionPass *llvm::createInstructionCombiningPass(bool TypeLoweringOpts,
+                                                   bool PreserveAddrCompute,
                                                    unsigned MaxIterations) {
-  return new InstructionCombiningPass(TypeLoweringOpts, MaxIterations);
+  return new InstructionCombiningPass(TypeLoweringOpts, PreserveAddrCompute,
+                                      MaxIterations);
 }
 #endif // INTEL_CUSTOMIZATION
 

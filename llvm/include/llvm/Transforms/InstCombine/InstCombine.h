@@ -25,14 +25,16 @@ namespace llvm {
 class InstCombinePass : public PassInfoMixin<InstCombinePass> {
   InstCombineWorklist Worklist;
   const bool TypeLoweringOpts; // INTEL
+  const bool PreserveAddrCompute; // INTEL
   const unsigned MaxIterations;
 
 public:
   static StringRef name() { return "InstCombinePass"; }
 
 #if INTEL_CUSTOMIZATION
-  explicit InstCombinePass(bool TypeLoweringOpts = true);
-  explicit InstCombinePass(bool TypeLoweringOpts,
+  explicit InstCombinePass(bool TypeLoweringOpts = true,
+                           bool PreserveAddrCompute = false);
+  explicit InstCombinePass(bool TypeLoweringOpts, bool PreserveAddrCompute,
                            unsigned MaxIterations);
 #endif // INTEL_CUSTOMIZATION
 
@@ -46,14 +48,16 @@ public:
 class InstructionCombiningPass : public FunctionPass {
   InstCombineWorklist Worklist;
   const bool TypeLoweringOpts; // INTEL
+  const bool PreserveAddrCompute; // INTEL
   const unsigned MaxIterations;
 
 public:
   static char ID; // Pass identification, replacement for typeid
 
 #if INTEL_CUSTOMIZATION
-  InstructionCombiningPass(bool TypeLoweringOpts = true);
-  InstructionCombiningPass(bool TypeLoweringOpts,
+  InstructionCombiningPass(bool TypeLoweringOpts = true,
+                           bool PreserveAddrCompute = false);
+  InstructionCombiningPass(bool TypeLoweringOpts, bool PreserveAddrCompute,
                            unsigned MaxInterations);
 #endif // INTEL_CUSTOMIZATION
 
@@ -74,8 +78,10 @@ public:
 //    %Z = add int 2, %X
 //
 #if INTEL_CUSTOMIZATION
-FunctionPass *createInstructionCombiningPass(bool TypeLoweringOpts = true);
+FunctionPass *createInstructionCombiningPass(bool TypeLoweringOpts = true,
+                                             bool PreserveAddrCompute = false);
 FunctionPass *createInstructionCombiningPass(bool TypeLoweringOpts,
+                                             bool PreserveAddrCompute,
                                              unsigned MaxIterations);
 #endif // INTEL_CUSTOMIZATION
 }
