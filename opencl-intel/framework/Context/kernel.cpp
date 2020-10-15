@@ -955,6 +955,9 @@ cl_err_code Kernel::SetKernelArg(cl_uint uiIndex, size_t szSize,
 
     Context*           pContext      = m_pContext.GetPtr();
 
+    // reset USM argument at uiIndex.
+    m_usmArgs.erase(uiIndex);
+
     if ( clArg.IsBuffer() )
     {
         // memory object
@@ -993,7 +996,7 @@ cl_err_code Kernel::SetKernelArg(cl_uint uiIndex, size_t szSize,
                 const SharedPtr<USMBuffer>& usmBuf =
                     pContext->GetUSMBufferContainingAddr(
                     const_cast<void*>(pValue));
-                m_usmArgs.push_back(usmBuf.GetPtr());
+                m_usmArgs[uiIndex] = usmBuf.GetPtr();
                 SharedPtr<SharedPointerArg> usmPtrArg;
                 if (nullptr != usmBuf.GetPtr())
                     usmPtrArg = BufferPointerArg::Allocate(usmBuf.GetPtr(),

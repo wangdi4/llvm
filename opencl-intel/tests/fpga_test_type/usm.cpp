@@ -280,7 +280,8 @@ protected:
     err = clReleaseKernel(kernel);
     ASSERT_EQ(err, CL_SUCCESS) << "clReleaseKernel failed";
 
-    m_clMemFreeINTEL(context, foo);
+    err = m_clMemFreeINTEL(context, foo);
+    ASSERT_EQ(err, CL_SUCCESS) << "clMemFreeINTEL failed";
   }
 
 protected:
@@ -355,7 +356,8 @@ TEST_P(UsmTest, sameDevice) {
                                      nullptr);
     ASSERT_EQ(err, CL_SUCCESS) << "clEnqueueMigrateMemINTEL failed";
 
-    m_clMemFreeINTEL(context, buffer);
+    err = m_clMemFreeINTEL(context, buffer);
+    ASSERT_EQ(err, CL_SUCCESS) << "clMemFreeINTEL failed";
   }
 }
 
@@ -401,7 +403,8 @@ TEST_P(UsmTest, crossDevice) {
         << "clEnqueueMigrateMemINTEL should return CL_INVALID_VALUE";
   }
 
-  m_clMemFreeINTEL(context, buffer);
+  err = m_clMemFreeINTEL(context, buffer);
+  ASSERT_EQ(err, CL_SUCCESS) << "clMemFreeINTEL failed";
 }
 
 /// FPGA doesn't support system USM, so access to system buffer is not
@@ -431,6 +434,77 @@ TEST_P(UsmTest, system) {
         << "clEnqueueMigrateMemINTEL should return CL_INVALID_VALUE";
   }
   delete[] buffer;
+}
+
+/// FPGA supports host USM allocation.
+TEST_P(UsmTest, host) {
+  for (cl_device_id device : devices()) {
+    cl_context context = createContext(device);
+    ASSERT_NE(nullptr, context) << "createContext failed";
+
+    cl_command_queue queue = createCommandQueue(context, device);
+    ASSERT_NE(queue, nullptr) << "createCommandQueue failed";
+
+    cl_int err;
+    size_t size = 256;
+    cl_uint alignment = 0;
+    void *buffer =
+        m_clHostMemAllocINTEL(context, nullptr, size, alignment, &err);
+    ASSERT_EQ(err, CL_SUCCESS) << "clHostMemAllocINTEL failed";
+    ASSERT_NE(buffer, nullptr) << "invalid buffer";
+
+    ASSERT_NO_FATAL_FAILURE(TestCommands(device, context, queue, buffer, size,
+                                         /*shouldSucceed*/ true));
+    ASSERT_NO_FATAL_FAILURE(TestMemcpy(device, context, queue, buffer, size,
+                                       /*shouldSucceed*/ true));
+
+    err = m_clMemFreeINTEL(context, buffer);
+    ASSERT_EQ(err, CL_SUCCESS) << "clMemFreeINTEL failed";
+  }
+}
+
+/// FPGA supports host USM allocation.
+/// Test multiple alloc and free [CMPLRLLVM-22817].
+TEST_P(UsmTest, hostAllocFree) {
+  for (cl_device_id device : devices()) {
+    cl_context context = createContext(device);
+    ASSERT_NE(nullptr, context) << "createContext failed";
+
+    cl_command_queue queue = createCommandQueue(context, device);
+    ASSERT_NE(queue, nullptr) << "createCommandQueue failed";
+
+    cl_int err;
+    size_t size = 256;
+    cl_uint alignment = 0;
+    size_t gdim = 1;
+    size_t ldim = 1;
+
+    const char *source[] = {"kernel void test(global char *buffer){}"};
+    cl_program program;
+    cl_kernel kernel;
+    ASSERT_NO_FATAL_FAILURE(
+        BuildKernel(context, device, source, 1, "test", program, kernel));
+
+    for (int i = 0; i < 10; i++) {
+      void *buffer = m_clSharedMemAllocINTEL(context, device, nullptr, size,
+                                             alignment, &err);
+      ASSERT_EQ(err, CL_SUCCESS) << "clSharedMemAllocINTEL failed";
+      ASSERT_NE(buffer, nullptr) << "invalid buffer";
+
+      // kernel arg
+      err = m_clSetKernelArgMemPointerINTEL(kernel, 0, buffer);
+      ASSERT_EQ(err, CL_SUCCESS) << "clSetKernelArgMemPointerINTEL failed";
+      err = clEnqueueNDRangeKernel(queue, kernel, 1, nullptr, &gdim, &ldim, 0,
+                                   nullptr, nullptr);
+      ASSERT_EQ(err, CL_SUCCESS) << "clEnqueueNDRangeKernel should succeed";
+
+      err = clFinish(queue);
+      ASSERT_EQ(err, CL_SUCCESS) << "clFinish failed";
+
+      err = m_clMemFreeINTEL(context, buffer);
+      ASSERT_EQ(err, CL_SUCCESS) << "clMemFreeINTEL failed";
+    }
+  }
 }
 
 INSTANTIATE_TEST_CASE_P(UsmTests, UsmTest, ::testing::Values(1, 2, 3, 10), );
