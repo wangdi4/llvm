@@ -1286,6 +1286,7 @@ void PassManagerBuilder::populateModulePassManager(
         addInstructionCombiningPass(MPM); // INTEL
       }
 
+<<<<<<< HEAD
     // Cleanup after loop vectorization, etc. Simplification passes like CVP and
     // GVN, loop transforms, and others have already run, so it's now better to
     // convert to more optimized IR using more aggressive simplify CFG options.
@@ -1302,6 +1303,24 @@ void PassManagerBuilder::populateModulePassManager(
 
     if (SLPVectorize) {
       MPM.add(createSLPVectorizerPass()); // Vectorize parallel scalar chains.
+=======
+      // Cleanup after loop vectorization, etc. Simplification passes like CVP
+      // and GVN, loop transforms, and others have already run, so it's now
+      // better to convert to more optimized IR using more aggressive simplify
+      // CFG options. The extra sinking transform can create larger basic
+      // blocks, so do this before SLP vectorization.
+      // FIXME: study whether hoisting and/or sinking of common instructions should
+      // be delayed until after SLP vectorizer.
+      MPM.add(createCFGSimplificationPass(SimplifyCFGOptions()
+                                              .forwardSwitchCondToPhi(true)
+                                              .convertSwitchToLookupTable(true)
+                                              .needCanonicalLoops(false)
+                                              .hoistCommonInsts(true)
+                                              .sinkCommonInsts(true)));
+
+      if (SLPVectorize) {
+        MPM.add(createSLPVectorizerPass()); // Vectorize parallel scalar chains.
+>>>>>>> 47665e3491d55c13e72e1303ee3bcb323e1d0d4d
 #if INTEL_CUSTOMIZATION
         if (EnableLoadCoalescing)
           MPM.add(createLoadCoalescingPass());

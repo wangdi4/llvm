@@ -2982,13 +2982,18 @@ void Sema::CheckSYCLKernelCall(FunctionDecl *KernelFunc, SourceRange CallLoc,
   SyclKernelArgsSizeChecker ArgsSizeChecker(*this, Args[0]->getExprLoc());
 
   KernelObjVisitor Visitor{*this};
-  SYCLKernelNameTypeVisitor KernelNameTypeVisitor(*this, Args[0]->getExprLoc());
+  SYCLKernelNameTypeVisitor KernelTypeVisitor(*this, Args[0]->getExprLoc());
 
   DiagnosingSYCLKernel = true;
 
   // Emit diagnostics for SYCL device kernels only
   if (LangOpts.SYCLIsDevice)
+<<<<<<< HEAD
     KernelNameTypeVisitor.Visit(KernelNameType);
+=======
+    KernelTypeVisitor.Visit(KernelNameType);
+  DiagnosingSYCLKernel = true;
+>>>>>>> 47665e3491d55c13e72e1303ee3bcb323e1d0d4d
   Visitor.VisitRecordBases(KernelObj, FieldChecker, UnionChecker, DecompMarker);
   Visitor.VisitRecordFields(KernelObj, FieldChecker, UnionChecker,
                             DecompMarker);
@@ -3003,7 +3008,7 @@ void Sema::CheckSYCLKernelCall(FunctionDecl *KernelFunc, SourceRange CallLoc,
   DiagnosingSYCLKernel = false;
   // Set the kernel function as invalid, if any of the checkers fail validation.
   if (!FieldChecker.isValid() || !UnionChecker.isValid() ||
-      !KernelNameTypeVisitor.isValid())
+      !KernelTypeVisitor.isValid())
     KernelFunc->setInvalidDecl();
 }
 

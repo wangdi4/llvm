@@ -1349,6 +1349,7 @@ static void rewritePHIs(BasicBlock &BB) {
         (void)CS; // INTEL
         // CleanupPad with a CatchSwitch predecessor: therefore this is an
         // unwind destination that needs to be handle specially.
+        (void) CS;
         assert(CS->getUnwindDest() == &BB);
         rewritePHIsForCleanupPad(&BB, CleanupPad);
         return;

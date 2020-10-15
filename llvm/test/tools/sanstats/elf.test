@@ -1,3 +1,7 @@
+# INTEL_CUSTOMIZATION
+# Disable this test until we can replace homegrown printf.EXE
+# XFAIL: windows-msvc
+# END_INTEL_CUSTOMIZATION
 # RUN: yaml2obj %s -o %t1.o
 # RUN: yaml2obj %s -o %t2.o
 

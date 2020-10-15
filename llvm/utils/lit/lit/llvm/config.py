@@ -20,6 +20,7 @@ class LLVMConfig(object):
         self.use_lit_shell = False
         # Tweak PATH for Win32 to decide to use bash.exe or not.
         if sys.platform == 'win32':
+<<<<<<< HEAD
             # For tests that require Windows to run.
             features.add('system-windows')
 
@@ -27,6 +28,21 @@ class LLVMConfig(object):
             path = self.lit_config.getToolsPath(config.lit_tools_dir,
                                                 config.environment['PATH'],
                                                 ['cmp.exe', 'grep.exe', 'sed.exe'])
+=======
+            # Seek necessary tools in directories and set to $PATH.
+            path = None
+            lit_tools_dir = getattr(config, 'lit_tools_dir', None)
+            required_tools = ['cmp.exe', 'grep.exe', 'sed.exe', 'diff.exe', 'echo.exe']
+            if lit_tools_dir:
+                path = self.lit_config.getToolsPath(lit_tools_dir,
+                                                    config.environment['PATH'],
+                                                    required_tools)
+# INTEL_CUSTOMIZATION
+# Comment this out this new feature until we are ready for it at Intel.
+#            if path is None:
+#                path = self._find_git_windows_unix_tools(required_tools)
+# end INTEL_CUSTOMIZATION
+>>>>>>> 47665e3491d55c13e72e1303ee3bcb323e1d0d4d
             if path is not None:
                 self.with_environment('PATH', path, append_path=True)
             # Many tools behave strangely if these environment variables aren't set.

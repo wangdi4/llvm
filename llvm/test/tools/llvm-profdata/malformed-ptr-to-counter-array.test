@@ -1,3 +1,7 @@
+// INTEL_CUSTOMIZATION
+// Disable this test until we can replace homegrown printf.EXE
+// XFAIL: windows-msvc
+// END_INTEL_CUSTOMIZATION
 // Header
 //
 // INSTR_PROF_RAW_HEADER(uint64_t, Magic, __llvm_profile_get_magic())

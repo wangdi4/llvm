@@ -2370,6 +2370,26 @@ Decl *Parser::ParseDeclarationAfterDeclaratorAndAttributes(
       }
 
       PreferredType.enterVariableInit(Tok.getLocation(), ThisDecl);
+
+      Sema::FPFeaturesStateRAII FPO(Actions);
+      if (auto VD = dyn_cast_or_null<VarDecl>(ThisDecl))
+        if (!VD->isInvalidDecl()) {
+          // If variable requires constant initialization, set constant
+          // rounding mode.
+          if (VD->isFileVarDecl() || VD->isConstexpr() ||
+              (!getLangOpts().CPlusPlus && VD->isStaticLocal())) {
+            if (Actions.getCurFPFeatures().getRoundingMode() ==
+                llvm::RoundingMode::Dynamic) {
+              // If constant rounding mode is 'dynamic', it means that a command
+              // line option line like `-ffpmodel=strict` is in effect. Set
+              // constant rounding to default in this case.
+              FPOptions NewFPO = Actions.getCurFPFeatures();
+              NewFPO.setRoundingMode(llvm::RoundingMode::NearestTiesToEven);
+              Actions.setCurFPFeatures(NewFPO);
+            }
+          }
+        }
+
       ExprResult Init = ParseInitializer();
 
       // If this is the only decl in (possibly) range based for statement,
