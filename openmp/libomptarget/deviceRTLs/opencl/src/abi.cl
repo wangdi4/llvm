@@ -166,9 +166,19 @@ EXTERN void __kmpc_end_master() {
   // nothing to be done
 }
 
+EXTERN int __kmpc_single(ident_t *loc, int gtid) {
+  // This is a conforming implementation.
+  return __kmpc_master();
+}
+
+EXTERN void __kmpc_end_single(ident_t *loc, int gtid) {
+  // nothing to be done
+}
+
 EXTERN uint __kmpc_global_thread_num(void *loc) {
   return 0;
 }
+
 
 ///
 /// Support for generic/hierarchical target region
