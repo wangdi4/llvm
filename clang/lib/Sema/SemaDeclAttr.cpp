@@ -6144,7 +6144,11 @@ static void handleIntelFPGAPumpAttr(Sema &S, Decl *D, const ParsedAttr &Attr) {
         << "'intel::doublepump'";
   else if (Attr.getKind() == ParsedAttr::AT_IntelFPGASinglePump &&
 #if INTEL_CUSTOMIZATION
+<<<<<<< HEAD
            Attr.getSyntax() != AttributeCommonInfo::AS_GNU &&
+=======
+      Attr.getSyntax() != AttributeCommonInfo::AS_GNU &&
+>>>>>>> 3993bce50d0ff8d0147d075f69afa756bfc4194d
 #endif // INTEL_CUSTOMIZATION
            checkDeprecatedSYCLAttributeSpelling(S, Attr))
     S.Diag(Attr.getLoc(), diag::note_spelling_suggestion)
@@ -6300,14 +6304,22 @@ static void handleOneConstantPowerTwoValueAttr(Sema &S, Decl *D,
         << "'intel::bankwidth'";
   else if (Attr.getKind() == ParsedAttr::AT_IntelFPGANumBanks &&
 #if INTEL_CUSTOMIZATION
+<<<<<<< HEAD
            Attr.getSyntax() != AttributeCommonInfo::AS_GNU &&
+=======
+      Attr.getSyntax() != AttributeCommonInfo::AS_GNU &&
+>>>>>>> 3993bce50d0ff8d0147d075f69afa756bfc4194d
 #endif // INTEL_CUSTOMIZATION
            checkDeprecatedSYCLAttributeSpelling(S, Attr))
     S.Diag(Attr.getLoc(), diag::note_spelling_suggestion)
         << "'intel::numbanks'";
 
+<<<<<<< HEAD
   S.AddOneConstantPowerTwoValueAttr<AttrType>(
       D, Attr, Attr.getArgAsExpr(0));
+=======
+  S.AddOneConstantPowerTwoValueAttr<AttrType>(D, Attr, Attr.getArgAsExpr(0));
+>>>>>>> 3993bce50d0ff8d0147d075f69afa756bfc4194d
 }
 
 static void handleIntelFPGASimpleDualPortAttr(Sema &S, Decl *D,
