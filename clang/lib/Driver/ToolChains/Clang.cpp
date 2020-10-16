@@ -5643,6 +5643,10 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
   }
 
 #if INTEL_CUSTOMIZATION
+  // Setting -disable-cpudispatch-ifuncs as default for xmain Linux
+  if (D.IsIntelMode() && !(D.IsCLMode()))
+    CmdArgs.push_back("-disable-cpudispatch-ifuncs");
+
   if (Args.hasFlag(options::OPT_fiopenmp_simd, options::OPT_fno_iopenmp_simd,
                    false)) {
     // FIXME: Add better interactions with -fopenmp-simd.

@@ -153,3 +153,9 @@
 // Behavior with /fstack-limit-register=<arg> option
 // RUN: %clang -### %s -c -fstack-limit-register=et 2>&1 | FileCheck %s --check-prefix=CHECK-FSTACK-LIMIT-REGISTER
 // CHECK-FSTACK-LIMIT-REGISTER: "-fstack-limit-register=et"
+
+// Setting -disable-cpudispatch-ifuncs as default with --intel
+// RUN: %clang -### %s -c --intel 2>&1 | FileCheck %s --check-prefix=CHECK-DISABLE-CPUDISPATCH-IFUNCS
+// RUN: %clang_cl -### %s -c --intel 2>&1 | FileCheck %s --check-prefix=CHECK-DISABLE-CPUDISPATCH-IFUNCS-WIN
+// CHECK-DISABLE-CPUDISPATCH-IFUNCS: "-disable-cpudispatch-ifuncs"
+// CHECK-DISABLE-CPUDISPATCH-IFUNCS-WIN-NOT: "-disable-cpudispatch-ifuncs"
