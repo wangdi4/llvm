@@ -144,7 +144,14 @@ public:
   VPValue(const VPValue &) = delete;
   VPValue &operator=(const VPValue &) = delete;
 
-  virtual ~VPValue() {}
+  virtual ~VPValue() {
+    // TODO: VPExternalUses need to be redesigned. They use operands and thus
+    // part of def-use chains but they are not explicitly represented in VPlan
+    // CFG. Change the assert below after addressing this issue.
+    assert((getNumUsers() == 0 || hasOnlyExternalUses()) &&
+           "VPValue being deleted should not have any users.");
+  }
+
   // FIXME: To be replaced by a proper VPType.
   Type *getType() const { return BaseTy; }
 
@@ -217,6 +224,12 @@ public:
     return std::any_of(Users.begin(), Users.end(), [](const VPUser *U) {
              return isa<VPExternalUse>(U);
            });
+  }
+
+  /// Helper utility to identify if all users of this VPValue are VPExternalUse.
+  bool hasOnlyExternalUses() const {
+    return llvm::all_of(users(),
+                        [](const VPUser *U) { return isa<VPExternalUse>(U); });
   }
 
   /// Replace all uses of this with \p NewVal if a ShouldReplace condition is
@@ -354,6 +367,14 @@ public:
     if (It != op_end())
       return std::distance(op_begin(), It);
     return -1;
+  }
+
+  /// This drops all operand uses from this instruction, which is an essential
+  /// step in breaking cyclic dependences between references when they are to be
+  /// deleted.
+  void dropAllReferences() {
+    while (getNumOperands())
+      removeOperand(0);
   }
 
   typedef SmallVectorImpl<VPValue *>::iterator operand_iterator;

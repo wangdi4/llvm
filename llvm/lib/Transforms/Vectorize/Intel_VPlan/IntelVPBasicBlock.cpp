@@ -63,7 +63,7 @@ void ilist_traits<VPInstruction>::transferNodesFromList(ilist_traits &FromList,
 
 void ilist_traits<VPInstruction>::deleteNode(VPInstruction *VPInst) {
   assert(!VPInst->getParent() && "VPInstruction is still in a block!");
-  getListOwner<VPBasicBlock, VPInstruction>(this)->eraseInstruction(VPInst);
+  delete VPInst;
 }
 
 void VPBlockUtils::insertBlockBefore(VPBasicBlock *NewBB,
@@ -255,6 +255,8 @@ VPBasicBlock::VPBasicBlock(const Twine &Name, VPlan *Plan)
   setName(Name);
 }
 
+VPBasicBlock::~VPBasicBlock() { dropAllReferences(); }
+
 void VPBasicBlock::dropTerminatorIfExists() {
   if (!empty() && isa<VPBranchInst>(std::prev(end())))
     eraseInstruction(getTerminator());
@@ -424,8 +426,7 @@ void VPBasicBlock::moveConditionalEOBTo(VPBasicBlock *ToBB) {
 void VPBasicBlock::eraseInstruction(VPInstruction *Instruction) {
   // We need to remove all instruction operands before erasing the
   // VPInstruction. Else this breaks the use-def chains.
-  while (Instruction->getNumOperands())
-    Instruction->removeOperand(0);
+  Instruction->dropAllReferences();
 
   removeInstruction(Instruction);
 
@@ -433,6 +434,11 @@ void VPBasicBlock::eraseInstruction(VPInstruction *Instruction) {
     CurVPlan->addUnlinkedVPInst(Instruction);
   else
     delete Instruction;
+}
+
+void VPBasicBlock::dropAllReferences() {
+  for (auto &Inst : *this)
+    Inst.dropAllReferences();
 }
 
 void VPBasicBlock::execute(VPTransformState *State) {
