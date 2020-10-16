@@ -162,13 +162,8 @@ static Attr *handleIntelFPGALoopAttr(Sema &S, const ParsedAttr &A) {
     return S.BuildSYCLIntelFPGALoopAttr<FPGALoopAttrT>(A, A.getArgAsExpr(3));
   else
 #endif // INTEL_CUSTOMIZATION
-<<<<<<< HEAD
-      if (A.getKind() == ParsedAttr::AT_SYCLIntelFPGAII &&
-          checkDeprecatedSYCLLoopAttributeSpelling(S, A)) {
-=======
   if (A.getKind() == ParsedAttr::AT_SYCLIntelFPGAII &&
       checkDeprecatedSYCLLoopAttributeSpelling(S, A)) {
->>>>>>> 3993bce50d0ff8d0147d075f69afa756bfc4194d
     S.Diag(A.getLoc(), diag::note_spelling_suggestion) << "'intel::ii'";
   } else if (A.getKind() == ParsedAttr::AT_SYCLIntelFPGAMaxConcurrency &&
              checkDeprecatedSYCLLoopAttributeSpelling(S, A)) {
