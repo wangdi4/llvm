@@ -1034,10 +1034,13 @@ void VecCloneImpl::updateScalarMemRefsWithVector(
             if (isa<LoadInst>(User)) {
               TypesAreCompatible =
                   typesAreCompatibleForLoad(VecGep->getType(), User->getType());
+            } else if (auto *Store = dyn_cast<StoreInst>(User)) {
+              TypesAreCompatible = typesAreCompatibleForLoad(
+                  VecGep->getType(), Store->getValueOperand()->getType());
             }
 
-            if ((isa<LoadInst>(User) && TypesAreCompatible) ||
-                isa<StoreInst>(User)) {
+            if ((isa<LoadInst>(User) || isa<StoreInst>(User)) &&
+                TypesAreCompatible) {
               // If the user is a load/store and the dereferencing is legal,
               // then just modify the load/store operand to use the gep.
               User->setOperand(I, VecGep);
