@@ -1692,7 +1692,8 @@ cl_err_code NDRangeKernelCommand::Init()
     }
 
     // Check USM access.
-    for (USMBuffer *buf : m_pKernel->GetUsmArgs()) {
+    for (auto &IndexUSMBuffer : m_pKernel->GetUsmArgs()) {
+        USMBuffer *buf = IndexUSMBuffer.second;
         if (nullptr != buf) {
             cl_device_id bufDeviceId = buf->GetDevice();
             if (!crossSharedCaps && bufDeviceId &&
