@@ -81,7 +81,7 @@ link_directories(${CMAKE_CURRENT_BINARY_DIR}/lib${LLVM_LIBDIR_SUFFIX}
         )
 file(GLOB TARGET_SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/main.cpp)
 
-set(AOCL_IOC64_PROJECT_NAME aocl-ioc64)
+set(AOCL_IOC64_PROJECT_NAME ioc64)
 
 add_llvm_tool(${AOCL_IOC64_PROJECT_NAME} ${TARGET_SOURCES} CUSTOM_WIN_VER)
 
@@ -122,3 +122,15 @@ set(__chain_dep ${manifest_file})
 add_custom_target(deploy-${AOCL_IOC64_PROJECT_NAME}
         DEPENDS ${AOCL_IOC64_PROJECT_NAME} ${manifest_list}
         )
+
+# The following copy operation is only to avoid regression during this loading of PSG drop
+# and QA update. It will be removed after PSG drop and QA change are landed.
+if(WIN32)
+    set(exeExt ".exe")
+endif(WIN32)
+
+install (CODE
+    "
+    configure_file(${CMAKE_INSTALL_PREFIX}/bin/${AOCL_IOC64_PROJECT_NAME}${exeExt}
+                   ${CMAKE_INSTALL_PREFIX}/bin/aocl-ioc64${exeExt} COPYONLY)
+    " COMPONENT ioc64)
