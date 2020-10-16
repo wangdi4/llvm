@@ -567,15 +567,6 @@ namespace intel {
         m_BBToNearestDominatorSyncBB[BB] = findNearestDominatorSyncBB(DT, BB);
     }
 
-    // FIXME IsSingleUserBB and it related code should be removed.
-    // Currently a variable's new llvm.dbg.value intrinsic is correct after
-    // removing IsSingleUserBB, however, a few debugger_test_type tests fail
-    // because register is killed if the variable has only one use, making it
-    // optimized-out at a later breakpoint.
-    // DBG_VALUE renamable $rdx, $noreg, !"v", !DIExpression(DW_OP_deref)
-    // MOV32mi killed renamable $rdx
-    bool IsSingleUserBB = (BBs.size() == 1);
-
     // Map from user BB to its bound dominator that value loaded from AddrAI in
     // the dominator will be reused in the user BB.
     TBasicBlockToBasicBlock BBBindToDominator;
@@ -593,19 +584,11 @@ namespace intel {
         continue;
       // If Dominator is DIBB's predecessor, we shouldn't bind BB to Dominator
       // so that AI's debug scope is within DIBB.
-      if (DIBB && isPotentiallyReachable(Dominator, DIBB) && !IsSingleUserBB)
+      if (DIBB && isPotentiallyReachable(Dominator, DIBB))
         continue;
 
       BBBindToDominator[BB] = Dominator;
       BBBindToNearestSyncDominator.insert(BB);
-    }
-
-    if (IsSingleUserBB) {
-      BasicBlock *BB = UIs[0]->getParent();
-      if (BBBindToNearestSyncDominator.count(BB)) {
-        if (BasicBlock *Pred = BB->getUniquePredecessor())
-          BBBindToDominator[BB] = Pred;
-      }
     }
 
     for (BasicBlock *BB : BBs) {
