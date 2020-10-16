@@ -50,9 +50,12 @@ define hidden i32* @i64(i8* %arg, i32* %arg10) {
 ; PTR32_IDX64-NEXT:    %tmp = phi i32 [ 0, %bb ], [ %tmp18, %bb17 ]
 ; PTR32_IDX64-NEXT:    --> {0,+,2}<%bb11> U: [0,-1) S: [-2147483648,2147483647) Exits: <<Unknown>> LoopDispositions: { %bb11: Computable }
 ; PTR32_IDX64-NEXT:    %tmp12 = getelementptr i8, i8* %arg, i64 ptrtoint ([0 x i8]* @global to i64)
-; PTR32_IDX64-NEXT:    --> (@global + %arg) U: [0,8589934591) S: full-set Exits: (@global + %arg) LoopDispositions: { %bb11: Invariant }
+; INTEL_CUSTOMIZATION
+; Added <nuw> flags
+; PTR32_IDX64-NEXT:    --> (@global + %arg)<nuw> U: [0,8589934591) S: full-set Exits: (@global + %arg)<nuw> LoopDispositions: { %bb11: Invariant }
 ; PTR32_IDX64-NEXT:    %tmp13 = bitcast i8* %tmp12 to i32*
-; PTR32_IDX64-NEXT:    --> (@global + %arg) U: [0,8589934591) S: full-set Exits: (@global + %arg) LoopDispositions: { %bb11: Invariant }
+; PTR32_IDX64-NEXT:    --> (@global + %arg)<nuw> U: [0,8589934591) S: full-set Exits: (@global + %arg)<nuw> LoopDispositions: { %bb11: Invariant }
+; END INTEL_CUSTOMIZATION
 ; PTR32_IDX64-NEXT:    %tmp14 = load i32, i32* %tmp13, align 4
 ; PTR32_IDX64-NEXT:    --> %tmp14 U: full-set S: full-set Exits: <<Unknown>> LoopDispositions: { %bb11: Variant }
 ; PTR32_IDX64-NEXT:    %tmp18 = add i32 %tmp, 2
@@ -207,9 +210,12 @@ define hidden i32* @i64_to_i128(i8* %arg, i32* %arg10) {
 ; PTR32_IDX64-NEXT:    %tmp = phi i32 [ 0, %bb ], [ %tmp18, %bb17 ]
 ; PTR32_IDX64-NEXT:    --> {0,+,2}<%bb11> U: [0,-1) S: [-2147483648,2147483647) Exits: <<Unknown>> LoopDispositions: { %bb11: Computable }
 ; PTR32_IDX64-NEXT:    %tmp12 = getelementptr i8, i8* %arg, i128 ptrtoint ([0 x i8]* @global to i128)
-; PTR32_IDX64-NEXT:    --> (@global + %arg) U: [0,8589934591) S: full-set Exits: (@global + %arg) LoopDispositions: { %bb11: Invariant }
+; INTEL_CUSTOMIZATION
+; Added <nuw> flags
+; PTR32_IDX64-NEXT:    --> (@global + %arg)<nuw> U: [0,8589934591) S: full-set Exits: (@global + %arg)<nuw> LoopDispositions: { %bb11: Invariant }
 ; PTR32_IDX64-NEXT:    %tmp13 = bitcast i8* %tmp12 to i32*
-; PTR32_IDX64-NEXT:    --> (@global + %arg) U: [0,8589934591) S: full-set Exits: (@global + %arg) LoopDispositions: { %bb11: Invariant }
+; PTR32_IDX64-NEXT:    --> (@global + %arg)<nuw> U: [0,8589934591) S: full-set Exits: (@global + %arg)<nuw> LoopDispositions: { %bb11: Invariant }
+; END INTEL_CUSTOMIZATION
 ; PTR32_IDX64-NEXT:    %tmp14 = load i32, i32* %tmp13, align 4
 ; PTR32_IDX64-NEXT:    --> %tmp14 U: full-set S: full-set Exits: <<Unknown>> LoopDispositions: { %bb11: Variant }
 ; PTR32_IDX64-NEXT:    %tmp18 = add i32 %tmp, 2

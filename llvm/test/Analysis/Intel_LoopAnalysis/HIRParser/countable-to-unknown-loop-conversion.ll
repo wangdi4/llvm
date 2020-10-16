@@ -8,7 +8,7 @@
 ; CHECK: |   %zz.040.out = &((%zz.040)[0]);
 ; CHECK: |   %umax = (&((%scevgep42)[-1 * i1 + -1 * %1 + %3 + -1]) >u &((%R)[i1 + sext.i32.i64(%1) + sext.i32.i64(%indvars.iv)])) ? &((%scevgep42)[-1 * i1 + -1 * %1 + %3 + -1]) : &((%R)[i1 + sext.i32.i64(%1) + sext.i32.i64(%indvars.iv)]);
 ; CHECK: |   %umax48 = bitcast.double*.i8*(&((%umax)[0]));
-; CHECK: |   %scevgep5051 = ptrtoint.i8*.i64(&((%umax48)[-8 * sext.i32.i64(%indvars.iv) + -1 * %R49 + -1]));
+; CHECK: |   %scevgep5051 = ptrtoint.i8*.i64(&((%umax48)[-1 * %R + -8 * sext.i32.i64(%indvars.iv) + -1]));
 ; CHECK: |   %sub3 = %3  +  -1 * i1 + -1 * %1 + -1;
 ; CHECK: |   if (i1 + sext.i32.i64(%1) > 0)
 ; CHECK: |   {
