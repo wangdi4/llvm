@@ -15,9 +15,19 @@ if (libdevice IN_LIST LLVM_ENABLE_PROJECTS AND
   set(LLVM_HAS_LIBSYCLDEVICE TRUE)
   list(APPEND LIBDEVICE_TEST_DEPENDS libsycldevice)
 endif()
+# INTEL_COLLAB
+if (libdevice IN_LIST LLVM_ENABLE_PROJECTS AND
+    openmp IN_LIST LLVM_ENABLE_PROJECTS)
+  set(LLVM_HAS_LIBOMPDEVICE TRUE)
+  list(APPEND LIBDEVICE_TEST_DEPENDS libompdevice)
+endif()
+# end INTEL_COLLAB
 
 llvm_canonicalize_cmake_booleans(
   LLVM_HAS_LIBSYCLDEVICE
+# INTEL_COLLAB
+  LLVM_HAS_LIBOMPDEVICE
+# end INTEL_COLLAB
   )
 
 configure_lit_site_cfg(
@@ -39,6 +49,9 @@ add_custom_target(libdevice-test-depends DEPENDS ${LIBDEVICE_TEST_DEPENDS})
 set_target_properties(libdevice-test-depends PROPERTIES FOLDER "Tests")
 
 if(LLVM_BUILD_TOOLS AND
+# INTEL_COLLAB
+   LLVM_HAS_LIBOMPDEVICE AND
+# end INTEL_COLLAB
    LLVM_HAS_LIBSYCLDEVICE)
   set(exclude_from_check_all "")
 else()

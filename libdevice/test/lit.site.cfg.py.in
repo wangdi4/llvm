@@ -14,6 +14,9 @@ config.has_libsycldevice = "@LLVM_HAS_LIBSYCLDEVICE@"
 # is merged into xmain.
 config.lit_tools_dir = path(r"@LLVM_LIT_TOOLS_DIR@")
 # end INTEL_CUSTOMIZATION
+# INTEL_COLLAB
+config.has_libompdevice = "@LLVM_HAS_LIBOMPDEVICE@"
+# end INTEL_COLLAB
 
 import sys
 
