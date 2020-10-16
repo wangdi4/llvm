@@ -289,7 +289,11 @@ typedef struct kmp_global_state {
 typedef int kmp_critical_name[8];
 
 typedef struct ident {
-  char bytes[24];
+  int reserved_1;
+  int flags;
+  int reserved_2;
+  int reserved_3;
+  const char *psource;
 } ident_t;
 
 
@@ -664,6 +668,9 @@ EXTERN void __kmpc_end_critical(kmp_critical_name *);
 
 EXTERN int __kmpc_master();
 EXTERN void __kmpc_end_master();
+
+EXTERN int __kmpc_single(ident_t *loc, int gtid);
+EXTERN void __kmpc_end_single(ident_t *loc, int gtid);
 
 /// Check if the current work item belongs to the master sub group
 EXTERN int __kmpc_master_sub_group();
