@@ -643,12 +643,7 @@ static pi_result copyModule(ze_context_handle_t ZeContext,
 
 static bool setEnvVar(const char *var, const char *value);
 
-<<<<<<< HEAD
 static pi_result populateDeviceCacheIfNeeded(pi_platform Platform);
-=======
-static pi_result getOrCreatePlatform(ze_driver_handle_t ZeDriver,
-                                     pi_platform *Platform);
->>>>>>> 78294e4fb399bf1672f7aa993e58aed8ea3df73b
 
 // Forward declarations for mock implementations of Level Zero APIs that
 // do not yet work in the driver.
