@@ -217,9 +217,9 @@ define dso_local i32 @x264_pixel_satd_16x16(i8* nocapture readonly %pix1, i32 %i
 ; 8WIDE-NEXT:    [[TMP76:%.*]] = add <8 x i32> [[TMP67]], [[TMP75]]
 ; 8WIDE-NEXT:    [[TMP77:%.*]] = sub <8 x i32> [[TMP67]], [[TMP75]]
 ; 8WIDE-NEXT:    [[TMP78:%.*]] = select <8 x i1> <i1 true, i1 true, i1 false, i1 false, i1 true, i1 false, i1 false, i1 false>, <8 x i32> [[TMP76]], <8 x i32> [[TMP77]]
-; 8WIDE-NEXT:    [[TMP79:%.*]] = add <8 x i32> [[TMP78]], [[TMP32]]
-; 8WIDE-NEXT:    [[TMP80:%.*]] = sub <8 x i32> [[TMP78]], [[TMP32]]
-; 8WIDE-NEXT:    [[TMP81:%.*]] = select <8 x i1> <i1 true, i1 false, i1 false, i1 true, i1 true, i1 false, i1 false, i1 true>, <8 x i32> [[TMP79]], <8 x i32> [[TMP80]]
+; 8WIDE-NEXT:    [[TMP79:%.*]] = sub <8 x i32> [[TMP78]], [[TMP32]]
+; 8WIDE-NEXT:    [[TMP80:%.*]] = add <8 x i32> [[TMP78]], [[TMP32]]
+; 8WIDE-NEXT:    [[TMP81:%.*]] = select <8 x i1> <i1 true, i1 false, i1 false, i1 true, i1 true, i1 false, i1 false, i1 true>, <8 x i32> [[TMP80]], <8 x i32> [[TMP79]]
 ; 8WIDE-NEXT:    [[TMP82:%.*]] = bitcast i32* [[ARRAYIDX1043]] to <8 x i32>*
 ; 8WIDE-NEXT:    store <8 x i32> [[TMP81]], <8 x i32>* [[TMP82]], align 4
 ; 8WIDE-NEXT:    [[NEXTIVLOOP_1247]] = add nuw nsw i64 [[I1_I64_0]], 1

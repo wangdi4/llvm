@@ -3391,7 +3391,7 @@ void BoUpSLP::generatePSLPCode(SmallVectorImpl<Value *> &VL,
       IRHS = BinaryOperator::Create(RightBinOpcode, OperandPair.first,
                                     OperandPair.second, IName);
 
-      IRHS->insertAfter(I);
+      IRHS->insertBefore(I);
 
       // Be optimistic and set "no overflow" flags for padded instruction. Doing
       // so is safe for two reasons: 1) Results of padded instructions are not
@@ -3455,12 +3455,14 @@ void BoUpSLP::generatePSLPCode(SmallVectorImpl<Value *> &VL,
     VL[i] = SelectI;
   }
 
-  // Update UserTE operands. This is ugly, but I don't see a better way of doing
-  // this in the current design.
-  DenseMap<Value *, Value *> RemapMap;
-  for (int i = 0, e = VL.size(); i != e; ++i)
-    RemapMap[OrigVL[i]] = VL[i];
-  UserTreeIdx.UserTE->remapOperands(RemapMap);
+  if (UserTreeIdx.UserTE) {
+    // Update UserTE operands. This is ugly, but I don't see a better way of
+    // doing this in the current design.
+    DenseMap<Value *, Value *> RemapMap;
+    for (int i = 0, e = VL.size(); i != e; ++i)
+      RemapMap[OrigVL[i]] = VL[i];
+    UserTreeIdx.UserTE->remapOperands(RemapMap);
+  }
 }
 #endif // INTEL_CUSTOMIZATION
 
@@ -5120,29 +5122,24 @@ void BoUpSLP::buildTree_rec(ArrayRef<Value *> VL_, unsigned Depth,
   }
   assert(!BuildingMultiNode && "This should be unreachable.");
 
-  // If we are forming a Multi-Node, then ignore different opcodes.
-  // After Multi-Node formation the instructions will get reordered.
-  // There is also a check for compatible opcodes later on.
-  if (!EnableMultiNodeSLP || !BuildingMultiNode) {
-    if (DoPSLP && S.IsPSLPCandidate) {
-      // PSLP: Create isomorphism.
-      generatePSLPCode(VL, UserTreeIdx); // NOTE: Updates VL[].
-      // Update S, after VL update.
-      S = getSameOpcode(VL);
-      assert(S.getOpcode() == Instruction::Select &&
-             S.isAltShuffle() == false && "Broken generatePSLPCode()");
-      // Update VL0.
-      VL0 = cast<Instruction>(VL[0]);
-      // Clear and replay schedule.
-      rebuildBSStateUntil(VectorizableTree.size(), Bundle);
-      Bundle = BS.tryScheduleBundle(VL, this, S);
-      assert(Bundle && "We expect VL to schedule OK.");
-    }
-    if (!S.getOpcode()) {
-      LLVM_DEBUG(dbgs() << "SLP: Gathering due to O. \n");
-      newTreeEntry(VL, None, S, UserTreeIdx);
-      return;
-    }
+  if (DoPSLP && S.IsPSLPCandidate) {
+    // PSLP: Create isomorphism.
+    generatePSLPCode(VL, UserTreeIdx); // NOTE: Updates VL[].
+    // Update S, after VL update.
+    S = getSameOpcode(VL);
+    assert(S.getOpcode() == Instruction::Select && S.isAltShuffle() == false &&
+           "Broken generatePSLPCode()");
+    // Update VL0.
+    VL0 = cast<Instruction>(VL[0]);
+    // Clear and replay schedule.
+    rebuildBSStateUntil(VectorizableTree.size(), Bundle);
+    Bundle = BS.tryScheduleBundle(VL, this, S);
+    assert(Bundle && "We expect VL to schedule OK.");
+  }
+  if (!S.getOpcode()) {
+    LLVM_DEBUG(dbgs() << "SLP: Gathering due to O. \n");
+    newTreeEntry(VL, None, S, UserTreeIdx);
+    return;
   }
 #endif // INTEL_CUSTOMIZATION
 
