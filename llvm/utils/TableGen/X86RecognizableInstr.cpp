@@ -587,6 +587,14 @@ void RecognizableInstr::emitInstructionSpecifier() {
     HANDLE_OPERAND(roRegister)
     HANDLE_OPERAND(vvvvRegister)
     break;
+  case X86Local::MRMDestMemImm8:
+    // Operand 1 is a memory operand.
+    // Operand 2 is an immediate.
+    assert(numPhysicalOperands <= 2 &&
+           "Unexpected number of operands for MRMDestMemImm8");
+    HANDLE_OPERAND(memory);
+    HANDLE_OPTIONAL(immediate);
+    break;
 #endif
   case X86Local::MRMDestMem:
   case X86Local::MRMDestMemFSIB:
@@ -867,6 +875,7 @@ void RecognizableInstr::emitDecodePath(DisassemblerTables &tables) const {
   case X86Local::MRMSrcMemCC:
   case X86Local::MRMXmCC:
   case X86Local::MRMXm:
+  case X86Local::MRMDestMemImm8: // INTEL
     filter = std::make_unique<ModFilter>(false);
     break;
   case X86Local::MRM0r: case X86Local::MRM1r:

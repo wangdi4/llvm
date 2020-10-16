@@ -5273,6 +5273,8 @@ bool X86TargetLowering::getTgtMemIntrinsic(IntrinsicInfo &Info,
       Info.flags |= MachineMemOperand::MOLoad;
       return true;
     }
+    case Intrinsic::x86_avx2_vmemadvise_128:
+    case Intrinsic::x86_avx2_vmemadvise_256:
     case Intrinsic::x86_avx2_vmovadvisew_store_128:
     case Intrinsic::x86_avx2_vmovadvisew_store_256:
     case Intrinsic::x86_avx512_vmovadvisew_store_128:

@@ -2314,6 +2314,14 @@ let TargetPrefix = "x86" in {  // All intrinsics start with "llvm.x86.".
               GCCBuiltin<"__builtin_ia32_vmovadvisew_store_256">,
               Intrinsic<[], [llvm_ptr_ty, llvm_v8i32_ty, llvm_i8_ty],
                         [IntrArgMemOnly, ImmArg<ArgIndex<2>>]>;
+  def int_x86_avx2_vmemadvise_128 :
+              GCCBuiltin<"__builtin_ia32_vmemadvise_128">,
+              Intrinsic<[], [llvm_ptr_ty, llvm_i8_ty],
+                        [IntrArgMemOnly, ImmArg<ArgIndex<1>>]>;
+  def int_x86_avx2_vmemadvise_256 :
+              GCCBuiltin<"__builtin_ia32_vmemadvise_256">,
+              Intrinsic<[], [llvm_ptr_ty, llvm_i8_ty],
+                        [IntrArgMemOnly, ImmArg<ArgIndex<1>>]>;
 #endif // INTEL_FEATURE_ISA_AVX_MEMADVISE
 #endif // INTEL_CUSTOMIZATION
 }

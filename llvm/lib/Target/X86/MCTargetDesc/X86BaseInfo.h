@@ -647,6 +647,11 @@ namespace X86II {
     ///
 
 #if INTEL_CUSTOMIZATION
+    /// MRMDestMemImm8 - This form is used for instructions that use the Mod/RM
+    /// byte to specify a destination which in this case is memory and operand 2
+    /// is a 8-bit immediate.
+    MRMDestMemImm8 = 16,
+
     /// MRMDestReg4VOp3 - This form is used for instructions that use the Mod/RM
     /// byte to specify a destination which in this case is register and operand
     /// 3 with VEX.VVVV and do not load from memory.
@@ -1159,6 +1164,7 @@ namespace X86II {
     case X86II::MRMDestMem:
     case X86II::MRMDestMemFSIB:
 #if INTEL_CUSTOMIZATION
+    case X86II::MRMDestMemImm8:
     case X86II::MRMDestMem4VOp2FSIB:
     case X86II::MRMDestMem4VOp3:
 #endif // INTEL_CUSTOMIZATION
