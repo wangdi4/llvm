@@ -897,11 +897,6 @@ static void parseClangOption(StringRef opt, const Twine &msg) {
   raw_string_ostream os(err);
 
   const char *argv[] = {config->progName.data(), opt.data()};
-#if INTEL_CUSTOMIZATION
-  // CMPLRLLVM-CMPLRLLVM-23292: The following command resets the options passed
-  // to clang every time parseClangOption is called.
-  // cl::ResetAllOptionOccurrences();
-#endif // INTEL_CUSTOMIZATION
   if (cl::ParseCommandLineOptions(2, argv, "", &os))
     return;
   os.flush();
@@ -1115,6 +1110,8 @@ static void readConfigs(opt::InputArgList &args) {
     else
       error(errPrefix + toString(pat.takeError()));
   }
+
+  cl::ResetAllOptionOccurrences();
 
   // Parse LTO options.
   if (auto *arg = args.getLastArg(OPT_plugin_opt_mcpu_eq))
