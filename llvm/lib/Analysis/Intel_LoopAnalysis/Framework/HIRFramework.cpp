@@ -459,7 +459,7 @@ struct HIRFramework::MaxTripCountEstimator final : public HLNodeVisitorBase {
   void visit(HLDDNode *Node);
 
   void visit(RegDDRef *Ref, HLDDNode *Node);
-  void visit(CanonExpr *CE, unsigned NumElements, HLDDNode *Node);
+  void visit(CanonExpr *CE, uint64_t NumElements, HLDDNode *Node);
 };
 
 void HIRFramework::MaxTripCountEstimator::visit(HLLoop *Lp) {
@@ -533,7 +533,7 @@ void HIRFramework::MaxTripCountEstimator::visit(RegDDRef *Ref, HLDDNode *Node) {
   auto BaseVal =
       BaseCE->getBlobUtils().getTempBlobValue(BaseCE->getSingleBlobIndex());
 
-  auto NumElements = HIRF->PhaseParser->getPointerDimensionSize(BaseVal);
+  auto NumElements = HIRParser::getPossibleMaxPointerDimensionSize(BaseVal);
 
   if (NumElements) {
     visit(HighestCE, NumElements, Node);
@@ -545,7 +545,7 @@ bool isInRange(int64_t Val, int64_t LowerBound, int64_t UpperBound) {
 }
 
 void HIRFramework::MaxTripCountEstimator::visit(CanonExpr *CE,
-                                                unsigned NumElements,
+                                                uint64_t NumElements,
                                                 HLDDNode *Node) {
 
   // We cannot estimate the iteration space of the IV with a varying blob.
