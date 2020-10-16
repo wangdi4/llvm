@@ -1682,8 +1682,9 @@ private:
   ///     ...
   ///     <EndInst>
   ///   }
-  static bool genCriticalLoopForSPIR(Instruction *BeginInst,
-                                     Instruction *EndInst,
+  static bool genCriticalLoopForSPIR(WRegionNode *W,
+                                     CallInst *BeginCritical,
+                                     CallInst *EndCritical,
                                      DominatorTree *DT,
                                      LoopInfo *LI);
 

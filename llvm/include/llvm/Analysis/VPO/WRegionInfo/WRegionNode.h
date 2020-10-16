@@ -537,6 +537,7 @@ public:
   friend class WRegionUtils;
   friend class WRegionCollection;  //temporary
   friend class VPOParoptTransform;
+  friend class VPOParoptUtils;
 
   // WRegionNodes are destroyed in bulk using WRegionUtils::destroyAll()
   virtual ~WRegionNode() {
