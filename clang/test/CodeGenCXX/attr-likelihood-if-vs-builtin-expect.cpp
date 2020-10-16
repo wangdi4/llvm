@@ -59,16 +59,9 @@ void au(int &i) {
 void ob1(int &i) {
   // CHECK-LABEL: define{{.*}}ob1
   // CHECK: br {{.*}}false{{$}}
-<<<<<<< HEAD
-  // INTEL_CUSTOMIZATION
-  // CHECK: br {{.*}}lor.end{{$}}
-  // CHECK: {{.*}} !prof !2
-  // END INTEL_CUSTOMIZATION
-=======
   // CHECK: br {{.*}}rhs{{$}}
   // CHECK: br {{.*}}end{{$}}
   // CHECK: br {{.*}} !prof !6
->>>>>>> 551caec4a8af79483823e2940d40afb4c1df5da1
   if (__builtin_expect(a() || b() || a(), 1)) {
     i = 0;
   } else {
@@ -80,13 +73,7 @@ void ol(int &i) {
   // CHECK-LABEL: define{{.*}}ol
   // CHECK: br {{.*}}false{{$}}
   // CHECK: br {{.*}}false2{{$}}
-<<<<<<< HEAD
-  // INTEL_CUSTOMIZATION
-  // CHECK: {{.*}} !prof !2
-  // END INTEL_CUSTOMIZATION
-=======
   // CHECK: br {{.*}} !prof !6
->>>>>>> 551caec4a8af79483823e2940d40afb4c1df5da1
   if (a() || b() || c()) [[likely]] {
     i = 0;
   } else {
@@ -96,17 +83,9 @@ void ol(int &i) {
 
 void ob0(int &i) {
   // CHECK-LABEL: define{{.*}}ob0
-<<<<<<< HEAD
-  // CHECK: br {{.*}} !prof !8
-  // CHECK: br {{.*}} !prof !8
-  // INTEL_CUSTOMIZATION
-  // CHECK: {{.*}} !prof !8
-  // END INTEL_CUSTOMIZATION
-=======
   // CHECK: br {{.*}} !prof !10
   // CHECK: br {{.*}} !prof !10
   // CHECK: br {{.*}} !prof !10
->>>>>>> 551caec4a8af79483823e2940d40afb4c1df5da1
   if (__builtin_expect(a() || b() || c(), 0)) {
     i = 0;
   } else {
@@ -116,17 +95,9 @@ void ob0(int &i) {
 
 void ou(int &i) {
   // CHECK-LABEL: define{{.*}}ou
-<<<<<<< HEAD
-  // CHECK: br {{.*}} !prof !8
-  // CHECK: br {{.*}} !prof !8
-  // INTEL_CUSTOMIZATION
-  // CHECK: {{.*}} !prof !8
-  // END INTEL_CUSTOMIZATION
-=======
   // CHECK: br {{.*}} !prof !10
   // CHECK: br {{.*}} !prof !10
   // CHECK: br {{.*}} !prof !10
->>>>>>> 551caec4a8af79483823e2940d40afb4c1df5da1
   if (a() || b() || c()) [[unlikely]] {
     i = 0;
   } else {
@@ -136,13 +107,7 @@ void ou(int &i) {
 
 void nb1(int &i) {
   // CHECK-LABEL: define{{.*}}nb1
-<<<<<<< HEAD
-  // INTEL_CUSTOMIZATION
-  // CHECK: select{{.*}} !prof !8
-  // END INTEL_CUSTOMIZATION
-=======
   // CHECK: br {{.*}} !prof !6
->>>>>>> 551caec4a8af79483823e2940d40afb4c1df5da1
   if (__builtin_expect(!a(), 1)) {
     ++i;
   } else {
@@ -152,15 +117,8 @@ void nb1(int &i) {
 
 void nl(int &i) {
   // CHECK-LABEL: define{{.*}}nl
-<<<<<<< HEAD
-  // INTEL_CUSTOMIZATION
-  // CHECK: select{{.*}} !prof !8
-  // END INTEL_CUSTOMIZATION
-  if (!a()) [[likely]] {
-=======
   // CHECK: br {{.*}} !prof !6
   if (bool d = !a()) [[likely]] {
->>>>>>> 551caec4a8af79483823e2940d40afb4c1df5da1
     ++i;
   } else {
     --i;
@@ -169,13 +127,7 @@ void nl(int &i) {
 
 void nb0(int &i) {
   // CHECK-LABEL: define{{.*}}nb0
-<<<<<<< HEAD
-  // INTEL_CUSTOMIZATION
-  // CHECK: select{{.*}} !prof !2
-  // END INTEL_CUSTOMIZATION
-=======
   // CHECK: br {{.*}} !prof !10
->>>>>>> 551caec4a8af79483823e2940d40afb4c1df5da1
   if (__builtin_expect(!a(), 0)) {
     ++i;
   } else {
@@ -185,15 +137,8 @@ void nb0(int &i) {
 
 void nu(int &i) {
   // CHECK-LABEL: define{{.*}}nu
-<<<<<<< HEAD
-  // INTEL_CUSTOMIZATION
-  // CHECK: select{{.*}} !prof !2
-  // END INTEL_CUSTOMIZATION
-  if (!a()) [[unlikely]] {
-=======
   // CHECK: br {{.*}} !prof !10
   if (bool d = !a()) [[unlikely]] {
->>>>>>> 551caec4a8af79483823e2940d40afb4c1df5da1
     ++i;
   } else {
     --i;
@@ -204,13 +149,7 @@ void tb1(int &i) {
   // CHECK-LABEL: define{{.*}}tb1
   // INTEL_CUSTOMIZATION
   // CHECK: br {{.*}}end{{$}}
-<<<<<<< HEAD
-  // CHECK: br {{.*}}else, !prof !2
-  // CHECK: br {{.*}}else, !prof !2
-  // END INTEL_CUSTOMIZATION
-=======
   // CHECK: br {{.*}} !prof !6
->>>>>>> 551caec4a8af79483823e2940d40afb4c1df5da1
   if (__builtin_expect(a() ? b() : c(), 1)) {
     ++i;
   } else {
@@ -222,13 +161,7 @@ void tl(int &i) {
   // CHECK-LABEL: define{{.*}}tl
   // INTEL_CUSTOMIZATION
   // CHECK: br {{.*}}end{{$}}
-<<<<<<< HEAD
-  // CHECK: br {{.*}}else, !prof !2
-  // CHECK: br {{.*}}else, !prof !2
-  // END INTEL_CUSTOMIZATION
-=======
   // CHECK: br {{.*}} !prof !6
->>>>>>> 551caec4a8af79483823e2940d40afb4c1df5da1
   if (bool d = a() ? b() : c()) [[likely]] {
     ++i;
   } else {
@@ -252,14 +185,8 @@ void tb0(int &i) {
   // CHECK-LABEL: define{{.*}}tb0
   // INTEL_CUSTOMIZATION
   // CHECK: br {{.*}}end{{$}}
-<<<<<<< HEAD
-  // CHECK: br {{.*}}else, !prof !8
-  // CHECK: br {{.*}}else, !prof !8
-  // END INTEL_CUSTOMIZATION
-=======
   // CHECK: br {{.*}}end{{$}}
   // CHECK: br {{.*}} !prof !10
->>>>>>> 551caec4a8af79483823e2940d40afb4c1df5da1
   if (__builtin_expect(a() ? b() : c(), 0)) {
     ++i;
   } else {
@@ -271,13 +198,7 @@ void tu(int &i) {
   // CHECK-LABEL: define{{.*}}tu
   // INTEL_CUSTOMIZATION
   // CHECK: br {{.*}}end{{$}}
-<<<<<<< HEAD
-  // CHECK: br {{.*}}else, !prof !8
-  // CHECK: br {{.*}}else, !prof !8
-  // END INTEL_CUSTOMIZATION
-=======
   // CHECK: br {{.*}} !prof !10
->>>>>>> 551caec4a8af79483823e2940d40afb4c1df5da1
   if (bool d = a() ? b() : c()) [[unlikely]] {
     ++i;
   } else {
