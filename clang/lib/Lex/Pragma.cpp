@@ -1539,13 +1539,6 @@ public:
     }
 
     // Output the message.
-#if INTEL_CUSTOMIZATION
-    // CQ#366856: In icc compatibility mode, don't print diagnostic
-    // information, just output the message.
-    if (PP.getLangOpts().IntelCompat)
-      llvm::outs() << MessageString << "\n";
-    else
-#endif // INTEL_CUSTOMIZATION
     PP.Diag(MessageLoc, (Kind == PPCallbacks::PMK_Error)
                           ? diag::err_pragma_message
                           : diag::warn_pragma_message) << MessageString;
