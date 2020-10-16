@@ -620,6 +620,7 @@ constexpr FeatureBitset ImpliedFeaturesXOP = FeatureFMA4;
 constexpr FeatureBitset ImpliedFeaturesAMX_TILE = {};
 constexpr FeatureBitset ImpliedFeaturesAMX_BF16 = FeatureAMX_TILE;
 constexpr FeatureBitset ImpliedFeaturesAMX_INT8 = FeatureAMX_TILE;
+constexpr FeatureBitset ImpliedFeaturesHRESET = {};
 
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_ULI

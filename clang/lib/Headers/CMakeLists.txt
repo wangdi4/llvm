@@ -299,6 +299,7 @@ set(files
   fmaintrin.h
   fxsrintrin.h
   gfniintrin.h
+  hresetintrin.h
   htmintrin.h
   htmxlintrin.h
   ia32intrin.h
@@ -364,6 +365,7 @@ set(files
   wmmintrin.h
   __wmmintrin_aes.h
   __wmmintrin_pclmul.h
+  x86gprintrin.h
   x86intrin.h
   xmmintrin.h
   xopintrin.h

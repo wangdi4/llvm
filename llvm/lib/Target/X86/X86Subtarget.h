@@ -519,6 +519,9 @@ class X86Subtarget final : public X86GenSubtargetInfo {
   /// Processor support key locker wide instructions
   bool HasWIDEKL = false;
 
+  /// Processor supports HRESET instruction
+  bool HasHRESET = false;
+
   /// Processor supports SERIALIZE instruction
   bool HasSERIALIZE = false;
 
@@ -905,6 +908,7 @@ public:
 #endif // INTEL_CUSTOMIZATION
   bool hasKL() const { return HasKL; }
   bool hasWIDEKL() const { return HasWIDEKL; }
+  bool hasHRESET() const { return HasHRESET; }
   bool hasSERIALIZE() const { return HasSERIALIZE; }
   bool hasTSXLDTRK() const { return HasTSXLDTRK; }
   bool useRetpolineIndirectCalls() const { return UseRetpolineIndirectCalls; }

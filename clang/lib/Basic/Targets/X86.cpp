@@ -353,6 +353,7 @@ bool X86TargetInfo::handleTargetFeatures(std::vector<std::string> &Features,
       HasINVPCID = true;
     } else if (Feature == "+enqcmd") {
       HasENQCMD = true;
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_ULI
     } else if (Feature == "+uli") {
@@ -362,6 +363,10 @@ bool X86TargetInfo::handleTargetFeatures(std::vector<std::string> &Features,
     } else if (Feature == "+hreset") {
       HasHRESET = true;
 #endif // INTEL_FEATURE_ISA_HRESET
+=======
+    } else if (Feature == "+hreset") {
+      HasHRESET = true;
+>>>>>>> 412cdcf2edf2344632e01d5f71da4bbd9838ab7d
     } else if (Feature == "+amx-bf16") {
       HasAMXBF16 = true;
     } else if (Feature == "+amx-int8") {
@@ -924,6 +929,7 @@ void X86TargetInfo::getTargetDefines(const LangOptions &Opts,
     Builder.defineMacro("__INVPCID__");
   if (HasENQCMD)
     Builder.defineMacro("__ENQCMD__");
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_ULI
   if (HasULI)
@@ -935,6 +941,10 @@ void X86TargetInfo::getTargetDefines(const LangOptions &Opts,
     Builder.defineMacro("__HRESET__");
   Builder.defineMacro("__HRESET_SUPPORTED__");
 #endif // INTEL_FEATURE_ISA_HRESET
+=======
+  if (HasHRESET)
+    Builder.defineMacro("__HRESET__");
+>>>>>>> 412cdcf2edf2344632e01d5f71da4bbd9838ab7d
   if (HasAMXTILE)
     Builder.defineMacro("__AMXTILE__");
   if (HasAMXINT8)
@@ -1294,11 +1304,15 @@ bool X86TargetInfo::isValidFeatureName(StringRef Name) const {
       .Case("fsgsbase", true)
       .Case("fxsr", true)
       .Case("gfni", true)
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_HRESET
       .Case("hreset", true)
 #endif // INTEL_FEATURE_ISA_HRESET
 #endif // INTEL_CUSTOMIZATION
+=======
+      .Case("hreset", true)
+>>>>>>> 412cdcf2edf2344632e01d5f71da4bbd9838ab7d
       .Case("invpcid", true)
       .Case("kl", true)
       .Case("widekl", true)
@@ -1511,11 +1525,15 @@ bool X86TargetInfo::hasFeature(StringRef Feature) const {
       .Case("fsgsbase", HasFSGSBASE)
       .Case("fxsr", HasFXSR)
       .Case("gfni", HasGFNI)
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_HRESET
       .Case("hreset", HasHRESET)
 #endif // INTEL_FEATURE_ISA_HRESET
 #endif // INTEL_CUSTOMIZATION
+=======
+      .Case("hreset", HasHRESET)
+>>>>>>> 412cdcf2edf2344632e01d5f71da4bbd9838ab7d
       .Case("invpcid", HasINVPCID)
       .Case("kl", HasKL)
       .Case("widekl", HasWIDEKL)

@@ -1167,6 +1167,7 @@ def HasAMXMEMADVISE    : Predicate<"Subtarget->hasAMXMEMADVISE()">;
 #endif // INTEL_CUSTOMIZATION
 def HasKL        : Predicate<"Subtarget->hasKL()">;
 def HasWIDEKL    : Predicate<"Subtarget->hasWIDEKL()">;
+def HasHRESET    : Predicate<"Subtarget->hasHRESET()">;
 def HasSERIALIZE : Predicate<"Subtarget->hasSERIALIZE()">;
 def HasTSXLDTRK  : Predicate<"Subtarget->hasTSXLDTRK()">;
 def HasAMXTILE   : Predicate<"Subtarget->hasAMXTILE()">;
@@ -3152,6 +3153,13 @@ let Uses = [EAX] in
                    Requires<[HasHRESET]>, TAXS;
 #endif // INTEL_FEATURE_ISA_HRESET
 #endif // INTEL_CUSTOMIZATION
+
+//===----------------------------------------------------------------------===//
+// HRESET Instruction
+//
+let Uses = [EAX], SchedRW = [WriteSystem] in
+  def HRESET : Ii8<0xF0, MRM_C0, (outs), (ins i32u8imm:$imm), "hreset\t$imm", []>,
+                   Requires<[HasHRESET]>, TAXS;
 
 //===----------------------------------------------------------------------===//
 // SERIALIZE Instruction

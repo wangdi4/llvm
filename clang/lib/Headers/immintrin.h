@@ -10,11 +10,16 @@
 #ifndef __IMMINTRIN_H
 #define __IMMINTRIN_H
 
+<<<<<<< HEAD
 /* INTEL_CUSTOMIZATION */
 #include <ia32intrin.h>
 /* end INTEL_CUSTOMIZATION */
 
 /* INTEL_CUSTOMIZATION */
+=======
+#include <x86gprintrin.h>
+
+>>>>>>> 412cdcf2edf2344632e01d5f71da4bbd9838ab7d
 #if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
     defined(__MMX__) || defined(__M_INTRINSIC_PROMOTE__)
 /* end INTEL_CUSTOMIZATION */
