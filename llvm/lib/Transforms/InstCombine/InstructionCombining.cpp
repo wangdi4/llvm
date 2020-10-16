@@ -2012,6 +2012,30 @@ static Instruction *foldSelectGEP(GetElementPtrInst &GEP,
   return SelectInst::Create(Cond, NewTrueC, NewFalseC, "", nullptr, Sel);
 }
 
+#if INTEL_CUSTOMIZATION
+/// Try to replace splat index to scalar index.
+static Instruction *simplifySplatGEPIndex(GetElementPtrInst &GEP,
+                                          InstCombiner::BuilderTy &Builder) {
+  unsigned E = GEP.getNumOperands();
+  if (!GEP.getOperand(E - 1)->getType()->isVectorTy())
+    return nullptr;
+
+  bool Changed = false;
+  for (unsigned I = 0; I != E - 1; ++I) {
+    Value *Op = GEP.getOperand(I);
+    Value *SplatValue = getSplatValue(Op);
+    if (!SplatValue)
+      continue;
+
+    // Simplify the operand.
+    GEP.setOperand(I, SplatValue);
+    Changed = true;
+  }
+
+  return Changed ? &GEP : nullptr;
+}
+#endif
+
 Instruction *InstCombinerImpl::visitGetElementPtrInst(GetElementPtrInst &GEP) {
   SmallVector<Value*, 8> Ops(GEP.op_begin(), GEP.op_end());
   Type *GEPType = GEP.getType();
@@ -2091,6 +2115,12 @@ Instruction *InstCombinerImpl::visitGetElementPtrInst(GetElementPtrInst &GEP) {
   // when folding selects over GEPs in InstCombineSelect.cpp.
   if (!allowTypeLoweringOpts())
     return nullptr;
+
+  if (getTargetTransformInfo().isAdvancedOptEnabled(
+      TargetTransformInfo::AdvancedOptLevel::AO_TargetHasIntelSSE42))
+    if (auto SimplifiedGEP = simplifySplatGEPIndex(GEP, Builder))
+      return SimplifiedGEP;
+
 #endif // INTEL_CUSTOMIZATION
 
   // Check to see if the inputs to the PHI node are getelementptr instructions.
