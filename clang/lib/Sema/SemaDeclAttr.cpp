@@ -6103,7 +6103,7 @@ static void handleIntelFPGAPumpAttr(Sema &S, Decl *D, const ParsedAttr &Attr) {
         << "'intel::doublepump'";
   else if (Attr.getKind() == ParsedAttr::AT_IntelFPGASinglePump &&
 #if INTEL_CUSTOMIZATION
-      Attr.getSyntax() != AttributeCommonInfo::AS_GNU &&
+           Attr.getSyntax() != AttributeCommonInfo::AS_GNU &&
 #endif // INTEL_CUSTOMIZATION
            checkDeprecatedSYCLAttributeSpelling(S, Attr))
     S.Diag(Attr.getLoc(), diag::note_spelling_suggestion)
@@ -6259,7 +6259,7 @@ static void handleOneConstantPowerTwoValueAttr(Sema &S, Decl *D,
         << "'intel::bankwidth'";
   else if (Attr.getKind() == ParsedAttr::AT_IntelFPGANumBanks &&
 #if INTEL_CUSTOMIZATION
-      Attr.getSyntax() != AttributeCommonInfo::AS_GNU &&
+           Attr.getSyntax() != AttributeCommonInfo::AS_GNU &&
 #endif // INTEL_CUSTOMIZATION
            checkDeprecatedSYCLAttributeSpelling(S, Attr))
     S.Diag(Attr.getLoc(), diag::note_spelling_suggestion)
