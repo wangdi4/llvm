@@ -1235,8 +1235,9 @@ bool RegDDRef::replaceTempBlobByConstant(unsigned OldIndex, int64_t Constant) {
   }
 
   assert(Replaced && "Inconsistent DDRef found!");
+  (void)Replaced;
   makeConsistent();
-  return Replaced;
+  return true;
 }
 
 bool RegDDRef::replaceTempBlob(unsigned OldIndex, unsigned NewIndex,
@@ -1285,8 +1286,9 @@ bool RegDDRef::replaceTempBlob(unsigned OldIndex, unsigned NewIndex,
 
   auto BRef = getBlobDDRef(OldIndex);
   assert(Replaced && BRef && "Inconsistent DDRef found!\n");
+  (void)Replaced;
   BRef->replaceBlob(NewIndex);
-  return Replaced;
+  return true;
 }
 
 bool RegDDRef::replaceTempBlobs(

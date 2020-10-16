@@ -309,6 +309,12 @@ public:
     return getCanonExprUtils().getTypeSizeInBytes(getDestType());
   }
 
+  // Returns source type size. User is responsible for checking that the type is
+  // sized.
+  uint64_t getSrcTypeSizeInBytes() const {
+    return getCanonExprUtils().getTypeSizeInBytes(getSrcType());
+  }
+
   // Returns true if the ref is AddressOf ref whose element type is sized.
   bool isAddressOfSizedType() const {
     if (!isAddressOf()) {

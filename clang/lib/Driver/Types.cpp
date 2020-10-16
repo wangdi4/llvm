@@ -349,6 +349,7 @@ types::getCompilationPhases(const clang::driver::Driver &Driver,
   // compilation is not an option.
   // -S runs the compiler in Assembly listing mode.
   if (Driver.CCCIsCPP() || DAL.getLastArg(options::OPT_E) ||
+      DAL.getLastArg(options::OPT_EP) || // INTEL
       DAL.getLastArg(options::OPT__SLASH_EP) ||
       DAL.getLastArg(options::OPT_M, options::OPT_MM) ||
       DAL.getLastArg(options::OPT__SLASH_P))

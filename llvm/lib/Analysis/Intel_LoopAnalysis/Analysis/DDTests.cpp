@@ -4448,6 +4448,60 @@ bool DDTest::queryAAIndep(const RegDDRef *SrcDDRef, const RegDDRef *DstDDRef,
   return false;
 }
 
+// The function check if there could be a dependence between two mem refs
+// with same base and shape, but different destination type sizes.
+static bool mayIntersectDueToTypeCast(const RegDDRef *Ref1,
+                                      const RegDDRef *Ref2) {
+  assert(Ref1->isMemRef() && Ref2->isMemRef() && "Memref expected");
+
+  if (Ref1->isFake() || Ref2->isFake())
+    return false;
+
+  if (!Ref1->getBitCastDestType() && !Ref2->getBitCastDestType())
+    return false;
+
+  uint64_t Size1Dst = Ref1->getDestTypeSizeInBytes();
+  uint64_t Size1Src =
+      Ref1->getSrcType()->isSized() ? Ref1->getSrcTypeSizeInBytes() : 0;
+  uint64_t Size2Dst = Ref2->getDestTypeSizeInBytes();
+  uint64_t Size2Src =
+      Ref2->getSrcType()->isSized() ? Ref2->getSrcTypeSizeInBytes() : 0;
+
+  // Only proceed if casting changes type size
+  if ((Size1Src == Size1Dst) && (Size2Src == Size2Dst))
+    return false;
+
+  int64_t Distance;
+  if (!DDRefUtils::getConstByteDistance(Ref1, Ref2, &Distance)) {
+    // If distance is unknown go conservative.
+    // TODO: add more logic to recognize special cases like:
+    //     for(i=0;i<n;i++)
+    //       a[i] = ...;
+    //       ...  = (i32*a)[n+1];
+    return true;
+  } else {
+    if (Distance <= 0) {
+      // Handles this case-
+      //
+      // %A is i8* type
+      // SrcDDRef - (i16*)(%A)[0]
+      // DstDDRef - (%A)[1]
+      //
+      if ((uint64_t)(-Distance) < Size1Dst)
+        return true;
+    } else if ((uint64_t)Distance < Size2Dst) {
+      // Handles this case-
+      //
+      // %A is i8* type
+      // SrcDDRef - (%A)[1]
+      // DstDDRef - (i16*)(%A)[0]
+      //
+      return true;
+    }
+  }
+  return false;
+}
+
 // depends:
 // Returns nullptr if there is no dependence.
 // Otherwise, return a Dependence with as many details as possible.
@@ -4785,6 +4839,11 @@ std::unique_ptr<Dependences> DDTest::depends(const DDRef *SrcDDRef,
       }
     }
   }
+
+  // same base subscripts with different types could cause a dependency
+  if (TestingMemRefs && EqualBaseAndShape &&
+      mayIntersectDueToTypeCast(SrcRegDDRef, DstRegDDRef))
+    return std::make_unique<Dependences>(Result);
 
   LLVM_DEBUG(dbgs() << "    Separable = ");
   LLVM_DEBUG(dumpSmallBitVector(Separable));

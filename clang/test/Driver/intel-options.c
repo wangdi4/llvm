@@ -362,7 +362,8 @@
 // Behavior with EP option
 // RUN: %clang -### -c -EP %s 2>&1 | FileCheck -check-prefix CHECK-EP %s
 // RUN: %clang_cl -### -c /EP %s 2>&1 | FileCheck -check-prefix CHECK-EP %s
-// CHECK-EP: "-E" "-P"
+// CHECK-EP-NOT: "-emit-obj"
+// CHECK-EP: "-E"{{.*}}"-P"
 
 // Behavior with fiopenmp-simd/Qiopenmp-simd option
 // RUN: %clang -### -c -fiopenmp-simd %s 2>&1 | FileCheck -check-prefix CHECK-QIOPENMP-SIMD %s
