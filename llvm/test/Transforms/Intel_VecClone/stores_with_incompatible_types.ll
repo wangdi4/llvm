@@ -3,8 +3,7 @@
 ; Test to verify that VecClone does not emit invalid stores with incompatible
 ; types during updateScalarMemRefsWithVector.
 
-; TODO: Remove -disable-verify after fix.
-; RUN: opt -vec-clone -S -disable-verify < %s | FileCheck %s
+; RUN: opt -vec-clone -S < %s | FileCheck %s
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
@@ -24,8 +23,8 @@ define dso_local void @foo(float* nocapture %p) local_unnamed_addr #0 {
 ; CHECK-NEXT:  simd.loop:
 ; CHECK-NEXT:    [[INDEX0:%.*]] = phi i32 [ 0, [[SIMD_BEGIN_REGION0]] ], [ [[INDVAR0:%.*]], [[SIMD_LOOP_EXIT0:%.*]] ]
 ; CHECK-NEXT:    [[VEC_P_CAST_GEP0:%.*]] = getelementptr float*, float** [[VEC_P_CAST0]], i32 [[INDEX0]]
-; FIXME: The store below is invalid. Types are not compatible.
-; CHECK-NEXT:    store float 0.000000e+00, float** [[VEC_P_CAST_GEP0]], align 4
+; CHECK-NEXT:    [[VEC_P_ELEM0:%.*]] = load float*, float** [[VEC_P_CAST_GEP0]], align 8
+; CHECK-NEXT:    store float 0.000000e+00, float* [[VEC_P_ELEM0]], align 4
 ; CHECK-NEXT:    br label [[SIMD_LOOP_EXIT0]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  simd.loop.exit:
