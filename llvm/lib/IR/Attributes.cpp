@@ -1954,10 +1954,6 @@ adjustCallerStackProbeSize(Function &Caller, const Function &Callee) {
   }
 }
 
-#if INTEL_CUSTOMIZATION
-// This has been cherry picked from community and the customization should be
-// removed when it gets pulled down.
-
 /// If the inlined function defines a min legal vector width, then ensure
 /// the calling function has the same or larger min legal vector width. If the
 /// caller has the attribute, but the callee doesn't, we need to remove the
@@ -1985,7 +1981,6 @@ adjustMinLegalVectorWidth(Function &Caller, const Function &Callee) {
     }
   }
 }
-#endif // INTEL_CUSTOMIZATION
 
 /// If the inlined function has null_pointer_is_valid attribute,
 /// set this attribute in the caller post inlining.
