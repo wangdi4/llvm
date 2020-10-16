@@ -5399,9 +5399,43 @@ bool VPOParoptTransform::genLinearCodeForVecLoop(WRegionNode *W,
       InitBuilder.CreateStore(LoadOrig, NewLinearVar);   //                (3)
     }
 
-    // Insert the final copy-out from the private copies to the original.
-    LoadInst *FiniLoad = FiniBuilder.CreateLoad(NewVTy, NewLinearVar); //  (5)
-    FiniBuilder.CreateStore(FiniLoad, Orig); //                            (6)
+    // Check if Linear.IV is a live-out.
+    bool IsLiveOut = false;
+    for (User *U : Orig->users()) {
+      IntrinsicInst *II = dyn_cast<IntrinsicInst>(U);
+      if (II && II->getIntrinsicID() == Intrinsic::directive_region_entry)
+        continue;
+      else if (auto *SI = dyn_cast<StoreInst>(U)) {
+        // Linear.IV is in use if it is a ValueOperand of a store
+        if (Orig == SI->getValueOperand()) {
+          IsLiveOut = true;
+          break;
+        }
+      }
+      else if (auto *BI = dyn_cast<BitCastInst>(U)) {
+        // When Linear.IV is in use of a bitcast instruction, be conservative,
+        // we count and check the number of users of the bicast instruction.
+        for (User *U : BI->users())
+          if (isa<Instruction>(U)) {
+            IsLiveOut = true;
+            break;
+          }
+        if (IsLiveOut)
+          break;
+      }
+      else {
+        IsLiveOut = true;
+        break;
+      }
+    }
+
+    // Insert the final copy-out from the private copies to the original if
+    // it is a live-out.
+    if (IsLiveOut) {
+      LLVM_DEBUG(dbgs() << *Orig << ": is a linear live-out value. " << "\n");
+      LoadInst *FiniLoad = FiniBuilder.CreateLoad(NewVTy, NewLinearVar); // (5)
+      FiniBuilder.CreateStore(FiniLoad, Orig); //                           (6)
+    }
 
     LLVM_DEBUG(dbgs() << __FUNCTION__ << ": handled '" << *Orig << "'\n");
   }
