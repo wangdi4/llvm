@@ -2988,12 +2988,7 @@ void Sema::CheckSYCLKernelCall(FunctionDecl *KernelFunc, SourceRange CallLoc,
 
   // Emit diagnostics for SYCL device kernels only
   if (LangOpts.SYCLIsDevice)
-<<<<<<< HEAD
-    KernelNameTypeVisitor.Visit(KernelNameType);
-=======
     KernelTypeVisitor.Visit(KernelNameType);
-  DiagnosingSYCLKernel = true;
->>>>>>> 47665e3491d55c13e72e1303ee3bcb323e1d0d4d
   Visitor.VisitRecordBases(KernelObj, FieldChecker, UnionChecker, DecompMarker);
   Visitor.VisitRecordFields(KernelObj, FieldChecker, UnionChecker,
                             DecompMarker);

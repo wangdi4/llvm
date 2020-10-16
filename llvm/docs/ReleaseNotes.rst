@@ -63,13 +63,10 @@ Changes to the LLVM IR
 * Added the ``byref`` attribute to better represent argument passing
   for the `amdgpu_kernel` calling convention.
 
-<<<<<<< HEAD
 * The ``llvm.experimental.vector.reduce`` family of intrinsics have been renamed
   to drop the "experimental" from the name, reflecting their now fully supported
   status in the IR.
 
-=======
->>>>>>> 47665e3491d55c13e72e1303ee3bcb323e1d0d4d
 Changes to building LLVM
 ------------------------
 
