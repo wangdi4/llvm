@@ -4711,39 +4711,50 @@ void HIRParser::parseMetadata(const Instruction *Inst, CanonExpr *CE) {
   CE->setDebugLoc(Inst->getDebugLoc());
 }
 
-unsigned HIRParser::getPointerDimensionSize(const Value *Ptr) const {
-  if (!Ptr->getType()->isPointerTy()) {
-    return 0;
-  }
+uint64_t HIRParser::getPossibleMaxPointerDimensionSize(const Value *Ptr) {
+  assert(Ptr->getType()->isPointerTy() && "Pointer type expected!");
 
-  // Trace back as far as possible, until we hit a GEP whose result type is an
-  // array type.
-  while (Ptr) {
-    if (auto Phi = dyn_cast<PHINode>(Ptr)) {
-      if (Phi->getNumIncomingValues() == 1) {
-        Ptr = Phi->getIncomingValue(0);
+  uint64_t MaxSize = 0;
+  SmallVector<const Value *, 16> Worklist;
+  SmallPtrSet<const Value *, 24> VisitedInsts;
 
-      } else if (RI.isHeaderPhi(Phi)) {
-        Ptr = getHeaderPhiInitVal(Phi);
+  Worklist.push_back(Ptr);
 
-      } else {
-        // Give up on merge phis.
-        return 0;
+  // Trace back as far as possible to reach GEPs whose result type is an
+  // array type and take the max possible size.
+  while (!Worklist.empty()) {
+    auto *Val = Worklist.pop_back_val();
+
+    if (!VisitedInsts.insert(Val).second) {
+      continue;
+    }
+
+    if (auto Phi = dyn_cast<PHINode>(Val)) {
+      for (auto &Op : Phi->operands()) {
+        Worklist.push_back(Op);
       }
-    } else if (auto GEPOp = dyn_cast<GEPOperator>(Ptr)) {
+
+    } else if (auto GEPOp = dyn_cast<GEPOperator>(Val)) {
+
       if (GEPOp->getNumOperands() == 2) {
-        Ptr = GEPOp->getPointerOperand();
+        Worklist.push_back(GEPOp->getPointerOperand());
+
       } else {
-        auto *ArrTy = dyn_cast<ArrayType>(GEPOp->getSourceElementType());
-        return ArrTy ? ArrTy->getArrayNumElements() : 0;
+        // Skip the last index to get the innermost array type being indexed.
+        SmallVector<Value *, 4> Indices(GEPOp->idx_begin(),
+                                        GEPOp->idx_end() - 1);
+
+        auto *IndexedTy = GetElementPtrInst::getIndexedType(
+            GEPOp->getSourceElementType(), Indices);
+
+        if (auto *ArrTy = dyn_cast<ArrayType>(IndexedTy)) {
+          MaxSize = std::max(MaxSize, ArrTy->getNumElements());
+        }
       }
-    } else {
-      // Give up on other value types.
-      return 0;
     }
   }
 
-  return 0;
+  return MaxSize;
 }
 
 Optional<HIRParser::DelinearizedCoeffBlobIndex>

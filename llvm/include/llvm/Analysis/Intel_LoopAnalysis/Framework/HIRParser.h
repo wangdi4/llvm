@@ -682,13 +682,17 @@ class HIRParser {
   }
 
   // Tries to trace back a pointer type instruction to the array type from which
-  // it was created. This can happen if the base originated from an alloca.
+  // it was created and returns the max array size encountered.
+  //
+  // This can happen if the base originated from an alloca.
   //
   // For example, if \p Ptr is %1 in the example below we will return [12 x i8].
   //
   // %1 = getelementptr inbounds [12 x i8], [12 x i8]* %tmpbuf.i, i32 0, i32 0
-  // Returns number of elements in outer dimension.
-  unsigned getPointerDimensionSize(const Value *Ptr) const;
+  // Returns number of elements in the last indexed dimension.
+  //
+  // Returns 0 if no information is found.
+  static uint64_t getPossibleMaxPointerDimensionSize(const Value *Ptr);
 
   /// Returns HLNodeUtils object.
   HLNodeUtils &getHLNodeUtils() { return HNU; }
