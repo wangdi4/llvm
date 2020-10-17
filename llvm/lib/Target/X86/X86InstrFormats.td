@@ -249,13 +249,7 @@ class T8XS : T8 { Prefix OpPrefix = XS; }
 class TAPS : TA { Prefix OpPrefix = PS; }
 class TAPD : TA { Prefix OpPrefix = PD; }
 class TAXD : TA { Prefix OpPrefix = XD; }
-<<<<<<< HEAD
-#if INTEL_CUSTOMIZATION
 class TAXS : TA { Prefix OpPrefix = XS; }
-#endif // INTEL_CUSTOMIZATION
-=======
-class TAXS : TA { Prefix OpPrefix = XS; }
->>>>>>> 412cdcf2edf2344632e01d5f71da4bbd9838ab7d
 class VEX    { Encoding OpEnc = EncVEX; }
 class VEX_W    { bit HasVEX_W = 1; }
 class VEX_WIG  { bit IgnoresVEX_W = 1; }

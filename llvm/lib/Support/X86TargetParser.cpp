@@ -210,9 +210,6 @@ constexpr FeatureBitset FeaturesSapphireRapids =
 #if INTEL_FEATURE_ISA_AVX_VNNI
   FeatureAVXVNNI |
 #endif // INTEL_FEATURE_ISA_AVX_VNNI
-#if INTEL_FEATURE_ISA_HRESET
-  FeatureHRESET |
-#endif // INTEL_FEATURE_ISA_HRESET
 #if INTEL_FEATURE_ISA_FP16
   FeatureAVX512FP16 |
 #endif // INTEL_FEATURE_ISA_FP16
@@ -251,9 +248,7 @@ static constexpr FeatureBitset FeaturesAnonymousCPU2 =
 #if INTEL_FEATURE_ISA_AVX_VNNI
     FeatureAVXVNNI |
 #endif // INTEL_FEATURE_ISA_AVX_VNNI
-#if INTEL_FEATURE_ISA_HRESET
     FeatureHRESET |
-#endif // INTEL_FEATURE_ISA_HRESET
     FeatureKL |
     FeatureSSE2; // To avoid dangling OR.
 #if INTEL_FEATURE_CPU_ADL
@@ -626,9 +621,6 @@ constexpr FeatureBitset ImpliedFeaturesHRESET = {};
 #if INTEL_FEATURE_ISA_ULI
 static constexpr FeatureBitset ImpliedFeaturesULI = {};
 #endif // INTEL_FEATURE_ISA_ULI
-#if INTEL_FEATURE_ISA_HRESET
-static constexpr FeatureBitset ImpliedFeaturesHRESET = {};
-#endif // INTEL_FEATURE_ISA_HRESET
 #if INTEL_FEATURE_ISA_AVX_VNNI
 static constexpr FeatureBitset ImpliedFeaturesAVXVNNI = FeatureAVX2;
 #endif // INTEL_FEATURE_ISA_AVX_VNNI

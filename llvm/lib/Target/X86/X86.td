@@ -475,10 +475,6 @@ def FeatureENQCMD : SubtargetFeature<"enqcmd", "HasENQCMD", "true",
 def FeatureULI : SubtargetFeature<"uli", "HasULI", "true",
                                   "Has ULI Instructions">;
 #endif // INTEL_FEATURE_ISA_ULI
-#if INTEL_FEATURE_ISA_HRESET
-def FeatureHRESET : SubtargetFeature<"hreset", "HasHRESET", "true",
-                                      "Has hreset instruction">;
-#endif // INTEL_FEATURE_ISA_HRESET
 #endif // INTEL_CUSTOMIZATION
 def FeatureKL  : SubtargetFeature<"kl", "HasKL", "true",
                                   "Support Key Locker kl Instructions",
@@ -1008,9 +1004,6 @@ def ProcessorFeatures {
 #if INTEL_FEATURE_ISA_AVX_VNNI
                                                   FeatureAVXVNNI,
 #endif // INTEL_FEATURE_ISA_AVX_VNNI
-#if INTEL_FEATURE_ISA_HRESET
-                                                  FeatureHRESET,
-#endif // INTEL_FEATURE_ISA_HRESET
 #endif // INTEL_CUSTOMIZATION
                                                   FeatureTSXLDTRK,
                                                   FeatureENQCMD,
@@ -1125,9 +1118,7 @@ def ProcessorFeatures {
 #endif // INTEL_FEATURE_ISA_AVX_VNNI
     FeaturePKU,
     FeaturePCONFIG,
-#if INTEL_FEATURE_ISA_HRESET
     FeatureHRESET,
-#endif // INTEL_FEATURE_ISA_HRESET
     FeatureCLDEMOTE,
     FeatureMOVDIRI,
     FeatureMOVDIR64B,

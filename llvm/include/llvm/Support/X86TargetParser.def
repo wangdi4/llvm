@@ -187,14 +187,11 @@ X86_FEATURE       (XSAVE,           "xsave")
 X86_FEATURE       (XSAVEC,          "xsavec")
 X86_FEATURE       (XSAVEOPT,        "xsaveopt")
 X86_FEATURE       (XSAVES,          "xsaves")
-<<<<<<< HEAD
+X86_FEATURE       (HRESET,          "hreset")
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_AVX_VNNI
 X86_FEATURE       (AVXVNNI,         "avxvnni")
 #endif // INTEL_FEATURE_ISA_AVX_VNNI
-#if INTEL_FEATURE_ISA_HRESET
-X86_FEATURE       (HRESET,          "hreset")
-#endif // INTEL_FEATURE_ISA_HRESET
 #if INTEL_FEATURE_ISA_FP16
 X86_FEATURE       (AVX512FP16,      "avx512fp16")
 #endif // INTEL_FEATURE_ISA_FP16
@@ -279,9 +276,6 @@ X86_FEATURE       (AMX_BF8,          "amx-bf8")
 X86_FEATURE       (AMX_MEMADVISE,    "amx-memadvise")
 #endif // INTEL_FEATURE_ISA_AMX_MEMADVISE
 #endif // INTEL_CUSTOMIZATION
-=======
-X86_FEATURE       (HRESET,          "hreset")
->>>>>>> 412cdcf2edf2344632e01d5f71da4bbd9838ab7d
 // These features aren't really CPU features, but the frontend can set them.
 X86_FEATURE       (RETPOLINE_EXTERNAL_THUNK,    "retpoline-external-thunk")
 X86_FEATURE       (RETPOLINE_INDIRECT_BRANCHES, "retpoline-indirect-branches")

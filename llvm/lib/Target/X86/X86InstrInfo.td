@@ -1109,9 +1109,6 @@ def HasENQCMD    : Predicate<"Subtarget->hasENQCMD()">;
 #if INTEL_FEATURE_ISA_ULI
 def HasULI : Predicate<"Subtarget->hasULI()">;
 #endif // INTEL_FEATURE_ISA_ULI
-#if INTEL_FEATURE_ISA_HRESET
-def HasHRESET : Predicate<"Subtarget->hasHRESET()">;
-#endif // INTEL_FEATURE_ISA_HRESET
 #if INTEL_FEATURE_ISA_AMX_FUTURE
 def HasAMXELEMENT   : Predicate<"Subtarget->hasAMXELEMENT()">;
 def HasAMXREDUCE    : Predicate<"Subtarget->hasAMXREDUCE()">;
@@ -3143,15 +3140,6 @@ let Predicates = [HasULI, In64BitMode] in {
                    [(set EFLAGS, (X86testui))]>, XS;
 }
 #endif // INTEL_FEATURE_ISA_ULI
-
-#if INTEL_FEATURE_ISA_HRESET
-//===----------------------------------------------------------------------===//
-// HRESET Instruction
-//
-let Uses = [EAX] in
-  def HRESET : Ii8<0xF0, MRM_C0, (outs), (ins i32u8imm:$imm), "hreset\t$imm", []>,
-                   Requires<[HasHRESET]>, TAXS;
-#endif // INTEL_FEATURE_ISA_HRESET
 #endif // INTEL_CUSTOMIZATION
 
 //===----------------------------------------------------------------------===//

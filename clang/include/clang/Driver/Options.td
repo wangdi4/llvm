@@ -3828,17 +3828,8 @@ def minvpcid : Flag<["-"], "minvpcid">, Group<m_x86_Features_Group>;
 def mno_invpcid : Flag<["-"], "mno-invpcid">, Group<m_x86_Features_Group>;
 def mgfni : Flag<["-"], "mgfni">, Group<m_x86_Features_Group>;
 def mno_gfni : Flag<["-"], "mno-gfni">, Group<m_x86_Features_Group>;
-<<<<<<< HEAD
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_HRESET
 def mhreset : Flag<["-"], "mhreset">, Group<m_x86_Features_Group>;
 def mno_hreset : Flag<["-"], "mno-hreset">, Group<m_x86_Features_Group>;
-#endif // INTEL_FEATURE_ISA_HRESET
-#endif // INTEL_CUSTOMIZATION
-=======
-def mhreset : Flag<["-"], "mhreset">, Group<m_x86_Features_Group>;
-def mno_hreset : Flag<["-"], "mno-hreset">, Group<m_x86_Features_Group>;
->>>>>>> 412cdcf2edf2344632e01d5f71da4bbd9838ab7d
 def mkl : Flag<["-"], "mkl">, Group<m_x86_Features_Group>;
 def mno_kl : Flag<["-"], "mno-kl">, Group<m_x86_Features_Group>;
 def mwidekl : Flag<["-"], "mwidekl">, Group<m_x86_Features_Group>;

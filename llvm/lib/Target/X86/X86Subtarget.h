@@ -419,10 +419,6 @@ class X86Subtarget final : public X86GenSubtargetInfo {
 #if INTEL_FEATURE_ISA_ULI
   bool HasULI = false;
 #endif // INTEL_FEATURE_ISA_ULI
-#if INTEL_FEATURE_ISA_HRESET
-  /// Processor supports HRESET instruction
-  bool HasHRESET = false;
-#endif // INTEL_FEATURE_ISA_HRESET
 
 #if INTEL_FEATURE_ISA_AMX_BF8
   bool HasAMXBF8 = false;
@@ -902,9 +898,6 @@ public:
 #if INTEL_FEATURE_ISA_ULI
   bool hasULI() const { return HasULI; }
 #endif // INTEL_FEATURE_ISA_ULI
-#if INTEL_FEATURE_ISA_HRESET
-  bool hasHRESET() const { return HasHRESET; }
-#endif // INTEL_FEATURE_ISA_HRESET
 #endif // INTEL_CUSTOMIZATION
   bool hasKL() const { return HasKL; }
   bool hasWIDEKL() const { return HasWIDEKL; }

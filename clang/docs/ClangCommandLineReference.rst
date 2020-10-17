@@ -3327,18 +3327,13 @@ X86
 
 .. option:: -mgfni, -mno-gfni
 
-<<<<<<< HEAD
-.. INTEL_CUSTOMIZATION
-.. INTEL_FEATURE_ISA_HRESET
 .. option:: -mhreset, -mno-hreset
-.. end INTEL_FEATURE_ISA_HRESET
+
+.. INTEL_CUSTOMIZATION
 .. INTEL_FEATURE_ICECODE
 .. option:: -micecode
 .. end INTEL_FEATURE_ICECODE
 .. end INTEL_CUSTOMIZATION
-=======
-.. option:: -mhreset, -mno-hreset
->>>>>>> 412cdcf2edf2344632e01d5f71da4bbd9838ab7d
 
 .. option:: -minvpcid, -mno-invpcid
 

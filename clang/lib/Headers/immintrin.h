@@ -10,16 +10,9 @@
 #ifndef __IMMINTRIN_H
 #define __IMMINTRIN_H
 
-<<<<<<< HEAD
-/* INTEL_CUSTOMIZATION */
-#include <ia32intrin.h>
-/* end INTEL_CUSTOMIZATION */
-
-/* INTEL_CUSTOMIZATION */
-=======
 #include <x86gprintrin.h>
 
->>>>>>> 412cdcf2edf2344632e01d5f71da4bbd9838ab7d
+/* INTEL_CUSTOMIZATION */
 #if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
     defined(__MMX__) || defined(__M_INTRINSIC_PROMOTE__)
 /* end INTEL_CUSTOMIZATION */
@@ -808,15 +801,6 @@ _storebe_i64(void * __P, long long __D) {
 #endif
 #endif
 /* end INTEL_FEATURE_ISA_ULI */
-
-/* INTEL_FEATURE_ISA_HRESET */
-#if defined(__HRESET_SUPPORTED__)
-#if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
-    defined(__HRESET__) || defined(__M_INTRINSIC_PROMOTE__)
-#include <hresetintrin.h>
-#endif
-#endif
-/* end INTEL_FEATURE_ISA_HRESET */
 
 /* INTEL_FEATURE_ISA_AMX_BF8 */
 #if defined(__AMX_BF8_SUPPORTED__)
