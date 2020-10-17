@@ -319,12 +319,12 @@ static bool hasValidParentLoopBounds(const HLLoop *PostDominatingLoop,
                     PostDominatingLoop = PostDominatingLoop->getParentLoop(),
                     PrevLoop = PrevLoop->getParentLoop()) {
 
-    if (!PrevLoop->isDo() || !PostDominatingLoop->isDo()) {
-      return false;
-    }
-
     if (!Ref->hasIV(LoopLevel)) {
       continue;
+    }
+
+    if (!PrevLoop->isDo() || !PostDominatingLoop->isDo()) {
+      return false;
     }
 
     auto *PDLoopUpperRef = PostDominatingLoop->getUpperDDRef();
