@@ -592,3 +592,14 @@
 /// -fmax-errors alias
 // RUN: %clang -### -fmax-errors=256 -c %s 2>&1 | FileCheck -check-prefix=CHECK-MAX-ERRORS %s
 // CHECK-MAX-ERRORS: "-ferror-limit" "256"
+
+// -qopt-assume-no-loop-carried-dep
+// RUN: %clang -### -qopt-assume-no-loop-carried-dep -c %s 2>&1 \
+// RUN:  | FileCheck -check-prefix=CHECK-LOOP-CARRIED-DEP1 %s
+// RUN: %clang -### -qopt-assume-no-loop-carried-dep=1 -c %s 2>&1 \
+// RUN:  | FileCheck -check-prefix=CHECK-LOOP-CARRIED-DEP1 %s
+// RUN: %clang_cl -### /Qopt-assume-no-loop-carried-dep:1 -c %s 2>&1 \
+// RUN:  | FileCheck -check-prefix=CHECK-LOOP-CARRIED-DEP1 %s
+// RUN: %clang_cl -### /Qopt-assume-no-loop-carried-dep -c %s 2>&1 \
+// RUN:  | FileCheck -check-prefix=CHECK-LOOP-CARRIED-DEP1 %s
+// CHECK-LOOP-CARRIED-DEP1: "-mllvm" "-hir-dd-test-assume-no-loop-carried-dep=1"
