@@ -3871,6 +3871,13 @@ def Z_reserved_lib_cckext : Flag<["-"], "Z-reserved-lib-cckext">,
 
 #if INTEL_CUSTOMIZATION
 // -q Intel options
+def qopt_assume_no_loop_carried_dep_EQ : Joined<["-"], "qopt-assume-no-loop-carried-dep=">, Values<"0,1,2">, Flags<[DriverOption]>, HelpText<"Set a level of "
+  "performance tuning for loops.  0 - The compiler does not assume there is "
+  "loop-carried dependencies (default).  1 - Assume there are no loop-carried "
+  "dependencies for innermost loops.  2 - Assume there are no loop-carried "
+  "dependencies for all loop levels.">;
+def qopt_assume_no_loop_carried_dep : Flag<["-"], "qopt-assume-no-loop-carried-dep">,
+  Alias<qopt_assume_no_loop_carried_dep_EQ>, AliasArgs<["1"]>;
 def qopt_jump_tables : Flag<["-"], "qopt-jump-tables">,Alias<fjump_tables>,
   HelpText<"Control the generation of jump tables">;
 def qno_opt_jump_tables : Flag<["-"], "qno-opt-jump-tables">,Alias<fno_jump_tables>,
@@ -5476,6 +5483,15 @@ def _SLASH_Qopenmp_threadprivate_COL : CLJoined<"Qopenmp-threadprivate:">,
   Alias<qopenmp_threadprivate_EQ>;
 def _SLASH_Qopt_jump_tables : CLFlag<"Qopt-jump-tables">,
   Alias<fjump_tables>, HelpText<"Control the generation of jump tables">;
+def : CLJoined<"Qopt-assume-no-loop-carried-dep:">,
+  Alias<qopt_assume_no_loop_carried_dep_EQ>, HelpText<"Set a level of "
+  "performance tuning for loops.  0 - The compiler does not assume there is "
+  "loop-carried dependencies (default).  1 - Assume there are no loop-carried "
+  "dependencies for innermost loops.  2 - Assume there are no loop-carried "
+  "dependencies for all loop levels.">;
+def : CLJoined<"Qopt-assume-no-loop-carried-dep=">, Alias<qopt_assume_no_loop_carried_dep_EQ>;
+def : CLFlag<"Qopt-assume-no-loop-carried-dep">,
+  Alias<qopt_assume_no_loop_carried_dep_EQ>, AliasArgs<["1"]>;
 def _SLASH_Qopt_jump_tables_ : CLFlag<"Qopt-jump-tables-">,
   Alias<fno_jump_tables>, HelpText<"Do not use jump tables for lowering switches">;
 def _SLASH_Qopt_matmul : CLFlag<"Qopt-matmul">, Alias<qopt_matmul>,
