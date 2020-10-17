@@ -466,6 +466,23 @@ unsigned HIRGeneralUnroll::computeUnrollFactor(const HLLoop *HLoop,
   }
 
   unsigned SelfCost = HLR.getSelfLoopResource(HLoop).getTotalCost();
+  unsigned NumExits = HLoop->getNumExits();
+
+  bool IsInnerLoop =
+      ((HLoop->getNestingLevel() > 1) || (HLoop->getLLVMLoopDepth() > 1));
+
+  // Add cost of loop exits for inner loops with liveouts.
+  // Number of exits complicate the CFG by adding additional edges. If there are
+  // values liveout these exits, it will make life difficult for register
+  // allocation.
+  if (IsInnerLoop && HLoop->hasLiveOutTemps()) {
+    // Normal exit is ignored for DO loops but accounted for unknown loops
+    // because its explicit backedge is cloned.
+    SelfCost += (HLoop->isUnknown()) ? NumExits : (NumExits - 1);
+  }
+
+  LLVM_DEBUG(dbgs() << "Computed loop body cost of unroll candidate to be: "
+                    << SelfCost << "\n");
 
   if (SelfCost > MaxLoopCost) {
     if (HasEnablingPragma) {
@@ -483,8 +500,8 @@ unsigned HIRGeneralUnroll::computeUnrollFactor(const HLLoop *HLoop,
     if (HasEnablingPragma) {
       return 2;
     } else {
-      LLVM_DEBUG(dbgs() << "Skipping unroll of loop as unrolled loop body cost "
-                           "exceeds threshold!\n");
+      LLVM_DEBUG(dbgs() << "Skipping unroll of loop as smallest unrolled loop "
+                           "body cost exceeds threshold!\n");
       return 0;
     }
   }
@@ -510,7 +527,7 @@ unsigned HIRGeneralUnroll::computeUnrollFactor(const HLLoop *HLoop,
   // Multi-exit loops have a higher chance of having a low trip count as they
   // can take early exits. We may cause degradations in those cases by
   // increasing code size. Unroll factor of 2 is the safest bet.
-  UnrollFactor = (HLoop->getNumExits() > 1) ? 2 : MaxUnrollFactor;
+  UnrollFactor = (NumExits > 1) ? 2 : MaxUnrollFactor;
 
   while ((UnrollFactor * SelfCost) > MaxUnrolledLoopCost) {
     UnrollFactor /= 2;
@@ -555,12 +572,6 @@ bool HIRGeneralUnroll::isProfitable(const HLLoop *Loop, bool HasEnablingPragma,
 
   if (!HasEnablingPragma) {
     unsigned NumExits = Loop->getNumExits();
-
-    if (NumExits > 2) {
-      LLVM_DEBUG(dbgs() << "Skipping unroll of loop with too many exits as it "
-                           "is likely unprofitable!\n");
-      return false;
-    }
 
     bool IsMultiExit = (NumExits > 1);
     // 32bit platform seems to be more sensitive to register pressure/code size.
