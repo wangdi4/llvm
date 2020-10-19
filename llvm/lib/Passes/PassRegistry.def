@@ -154,13 +154,9 @@ MODULE_PASS("rpo-function-attrs", ReversePostOrderFunctionAttrsPass())
 MODULE_PASS("sample-profile", SampleProfileLoaderPass())
 #if INTEL_CUSTOMIZATION
 MODULE_PASS("scc-oz-module-inliner",
-<<<<<<< HEAD
   buildInlinerPipeline(OptimizationLevel::Oz, ThinLTOPhase::None, nullptr, DebugLogging))
 #endif // INTEL_CUSTOMIZATION
-=======
-  buildInlinerPipeline(OptimizationLevel::Oz, ThinLTOPhase::None, DebugLogging))
 MODULE_PASS("loop-extract-single", LoopExtractorPass(1))
->>>>>>> 518ec05a104a237b6ccae20e1e84c2b462fc3ca1
 MODULE_PASS("oz-module-optimizer",
   buildModuleOptimizationPipeline(OptimizationLevel::Oz, DebugLogging, /*LTOPreLink*/false))
 MODULE_PASS("strip", StripSymbolsPass())
