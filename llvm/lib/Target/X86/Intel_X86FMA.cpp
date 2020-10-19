@@ -750,6 +750,10 @@ private:
                                const SmallVectorImpl<MachineOperand> &MOs,
                                const DebugLoc &DL);
 
+  MachineInstr *genInstruction(unsigned Opcode,
+                               const SmallVectorImpl<MachineOperand> &MOs,
+                               const DebugLoc &DL);
+
   /// Generates a machine operand for the given FMA term \p Term.
   /// The parameter \p InsertPointMI gives the insertion point for any
   /// additional machine instructions that may need to be generated.
@@ -1151,6 +1155,20 @@ X86GlobalFMA::genInstruction(unsigned Opcode, unsigned DstReg,
   return NewMI;
 }
 
+MachineInstr *
+X86GlobalFMA::genInstruction(unsigned Opcode,
+                             const SmallVectorImpl<MachineOperand> &MOs,
+                             const DebugLoc &DL) {
+  const MCInstrDesc &MCID = TII->get(Opcode);
+  MachineInstr *NewMI = MF->CreateMachineInstr(MCID, DL, false);
+  MachineInstrBuilder MIB(*MF, NewMI);
+
+  for (auto &MO : MOs)
+    MIB.add(MO);
+
+  return NewMI;
+}
+
 MachineOperand
 X86GlobalFMA::generateMachineOperandForFMATerm(FMATerm *Term,
                                                MachineInstr *InsertPointMI) {
@@ -1386,8 +1404,20 @@ void X86GlobalFMA::generateOutputIR(FMAExpr &Expr, const FMADag &Dag) {
                               << *MI);
     MBB.erase(MI);
   };
-  for (auto *MI : Expr.getConsumedMIs())
+  for (auto *MI : Expr.getConsumedMIs()) {
+    // Set DBG_VALUE MI's first operand to noreg.
+    if (MI->isDebugValue()) {
+      SmallVector<MachineOperand, 3> MOs;
+      const DebugLoc &DL = MI->getDebugLoc();
+      MachineOperand Noreg = MachineOperand::CreateReg(Register(), false);
+      MOs.push_back(Noreg);
+      for (unsigned i = 1; i < MI->getNumOperands(); i++)
+        MOs.push_back(MI->getOperand(i));
+      MachineInstr *NewMI = genInstruction(MI->getOpcode(), MOs, DL);
+      MBB.insert(MI, NewMI);
+    }
     DeleteMI(MI);
+  }
   DeleteMI(MI);
 }
 
