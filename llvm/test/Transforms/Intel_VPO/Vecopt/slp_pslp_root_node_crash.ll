@@ -7,8 +7,7 @@
 ; PSLP then added padding and updates vectorization tree entries
 ; that are users of current tree entry. But because it is the tree root it does
 ; not have any users down the tree. It crashed due to failure to check that fact.
-; FIXME:
-; RUN opt < %s -slp-vectorizer -enable-intel-advanced-opts -mtriple=x86_64-unknown-linux-gnu -mcpu=skylake-avx512 -S | FileCheck %s -check-prefix=INTADV
+; RUN: opt < %s -slp-vectorizer -enable-intel-advanced-opts -mtriple=x86_64-unknown-linux-gnu -mcpu=skylake-avx512 -S | FileCheck %s -check-prefix=INTADV
 
 ; This run line is not strictly necessary to reproduce the original issue.
 ; But it actually demonstrates difference in behavior with disabled intel-advanced-opts.
@@ -19,6 +18,53 @@
 
 ; Function Attrs: nofree norecurse nounwind uwtable
 define dso_local i32 @foo(i32 %t1, i32 %t4) local_unnamed_addr {
+; INTADV-LABEL: @foo(
+; INTADV-NEXT:  entry:
+; INTADV-NEXT:    [[GEPLOAD:%.*]] = load i32, i32* @e, align 4
+; INTADV-NEXT:    [[C_PROMOTED:%.*]] = load i32, i32* @c, align 4
+; INTADV-NEXT:    [[I1:%.*]] = add i32 [[C_PROMOTED]], [[T1:%.*]]
+; INTADV-NEXT:    [[DOTNEG300:%.*]] = xor i32 [[I1]], -1
+; INTADV-NEXT:    [[I2:%.*]] = add i32 [[I1]], 1
+; INTADV-NEXT:    [[I10:%.*]] = sub i32 50, undef
+; INTADV-NEXT:    [[I11:%.*]] = or i32 [[I10]], undef
+; INTADV-NEXT:    [[DOTNEG301:%.*]] = shl i32 [[DOTNEG300]], 3
+; INTADV-NEXT:    [[I12:%.*]] = mul i32 [[DOTNEG301]], [[T4:%.*]]
+; INTADV-NEXT:    [[I13:%.*]] = add i32 [[GEPLOAD]], [[I12]]
+; INTADV-NEXT:    [[I14:%.*]] = sub i32 50, [[I13]]
+; INTADV-NEXT:    [[I15:%.*]] = or i32 [[I14]], [[I11]]
+; INTADV-NEXT:    [[DOTNEG303:%.*]] = sub i32 undef, [[GEPLOAD]]
+; INTADV-NEXT:    [[DOTNEG304:%.*]] = sub i32 [[DOTNEG303]], [[I12]]
+; INTADV-NEXT:    [[I16:%.*]] = add i32 [[DOTNEG304]], 50
+; INTADV-NEXT:    [[DOTNEG305_NEG:%.*]] = shl i32 [[I1]], 1
+; INTADV-NEXT:    [[DOTNEG312_NEG:%.*]] = shl i32 [[I1]], 2
+; INTADV-NEXT:    [[TMP0:%.*]] = insertelement <4 x i32> undef, i32 [[I2]], i32 0
+; INTADV-NEXT:    [[TMP1:%.*]] = insertelement <4 x i32> [[TMP0]], i32 [[DOTNEG312_NEG]], i32 1
+; INTADV-NEXT:    [[TMP2:%.*]] = insertelement <4 x i32> [[TMP1]], i32 [[I2]], i32 2
+; INTADV-NEXT:    [[TMP3:%.*]] = insertelement <4 x i32> [[TMP2]], i32 [[DOTNEG305_NEG]], i32 3
+; INTADV-NEXT:    [[TMP4:%.*]] = mul <4 x i32> [[TMP3]], <i32 5, i32 4, i32 3, i32 2>
+; INTADV-NEXT:    [[TMP5:%.*]] = add <4 x i32> [[TMP3]], <i32 5, i32 4, i32 3, i32 2>
+; INTADV-NEXT:    [[TMP6:%.*]] = shufflevector <4 x i32> [[TMP4]], <4 x i32> [[TMP5]], <4 x i32> <i32 0, i32 5, i32 2, i32 7>
+; INTADV-NEXT:    [[TMP7:%.*]] = insertelement <4 x i32> undef, i32 [[GEPLOAD]], i32 0
+; INTADV-NEXT:    [[TMP8:%.*]] = insertelement <4 x i32> [[TMP7]], i32 [[GEPLOAD]], i32 1
+; INTADV-NEXT:    [[TMP9:%.*]] = insertelement <4 x i32> [[TMP8]], i32 [[GEPLOAD]], i32 2
+; INTADV-NEXT:    [[TMP10:%.*]] = insertelement <4 x i32> [[TMP9]], i32 [[GEPLOAD]], i32 3
+; INTADV-NEXT:    [[TMP11:%.*]] = sub <4 x i32> <i32 50, i32 50, i32 50, i32 50>, [[TMP10]]
+; INTADV-NEXT:    [[TMP12:%.*]] = insertelement <4 x i32> undef, i32 [[I12]], i32 0
+; INTADV-NEXT:    [[TMP13:%.*]] = insertelement <4 x i32> [[TMP12]], i32 [[I12]], i32 1
+; INTADV-NEXT:    [[TMP14:%.*]] = insertelement <4 x i32> [[TMP13]], i32 [[I12]], i32 2
+; INTADV-NEXT:    [[TMP15:%.*]] = insertelement <4 x i32> [[TMP14]], i32 [[I12]], i32 3
+; INTADV-NEXT:    [[TMP16:%.*]] = sub <4 x i32> [[TMP11]], [[TMP15]]
+; INTADV-NEXT:    [[TMP17:%.*]] = add <4 x i32> [[TMP16]], [[TMP6]]
+; INTADV-NEXT:    [[TMP18:%.*]] = call i32 @llvm.experimental.vector.reduce.or.v4i32(<4 x i32> [[TMP17]])
+; INTADV-NEXT:    [[TMP19:%.*]] = or i32 [[TMP18]], [[I16]]
+; INTADV-NEXT:    [[OP_EXTRA:%.*]] = or i32 [[TMP19]], [[I15]]
+; INTADV-NEXT:    [[DOTNEG319:%.*]] = mul i32 [[I2]], 6
+; INTADV-NEXT:    [[DOTNEG320:%.*]] = sub i32 [[DOTNEG319]], [[GEPLOAD]]
+; INTADV-NEXT:    [[DOTNEG321:%.*]] = sub i32 [[DOTNEG320]], [[I12]]
+; INTADV-NEXT:    [[I26:%.*]] = add i32 [[DOTNEG321]], 50
+; INTADV-NEXT:    [[I27:%.*]] = or i32 [[I26]], [[OP_EXTRA]]
+; INTADV-NEXT:    ret i32 [[I27]]
+;
 ; CHECK-LABEL: @foo(
 ; CHECK-NEXT:  entry:
 ; CHECK-NEXT:    [[GEPLOAD:%.*]] = load i32, i32* @e, align 4
