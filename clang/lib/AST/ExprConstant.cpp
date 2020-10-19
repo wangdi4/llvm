@@ -3031,7 +3031,7 @@ static bool HandleSizeof(EvalInfo &Info, SourceLocation Loc,
 #if INTEL_CUSTOMIZATION
   if (Type->isArbPrecIntType()) {
     auto SizeAndAlign = Info.Ctx.getTypeInfoInChars(Type);
-    Size = SizeAndAlign.first.alignTo(SizeAndAlign.second);
+    Size = SizeAndAlign.Width.alignTo(SizeAndAlign.Align);
   }
 #endif // INTEL_CUSTOMIZATION
   return true;

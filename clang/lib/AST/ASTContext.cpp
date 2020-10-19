@@ -1824,20 +1824,15 @@ static getConstantArrayInfoInChars(const ASTContext &Context,
   assert((Size == 0 || static_cast<uint64_t>(EltInfo.Width.getQuantity()) <=
               (uint64_t)(-1)/Size) &&
          "Overflow in array type char size evaluation");
-<<<<<<< HEAD
-  uint64_t Width = EltInfo.first.getQuantity() * Size;
+  uint64_t Width = EltInfo.Width.getQuantity() * Size;
 #if INTEL_CUSTOMIZATION
   if (CAT->getElementType()->isArbPrecIntType() &&
       !llvm::isPowerOf2_64(Context.getTypeSize(CAT->getElementType())))
-    Width = llvm::alignTo(EltInfo.first.getQuantity(),
-                          EltInfo.second.getQuantity()) *
+    Width = llvm::alignTo(EltInfo.Width.getQuantity(),
+                          EltInfo.Align.getQuantity()) *
             Size;
 #endif // INTEL_CUSTOMIZATION
-  unsigned Align = EltInfo.second.getQuantity();
-=======
-  uint64_t Width = EltInfo.Width.getQuantity() * Size;
   unsigned Align = EltInfo.Align.getQuantity();
->>>>>>> 101309fe048e66873cfd972c47c4b7e7f2b99f41
   if (!Context.getTargetInfo().getCXXABI().isMicrosoft() ||
       Context.getTargetInfo().getPointerWidth(0) == 64)
     Width = llvm::alignTo(Width, Align);
@@ -1850,21 +1845,16 @@ TypeInfoChars ASTContext::getTypeInfoInChars(const Type *T) const {
   if (const auto *CAT = dyn_cast<ConstantArrayType>(T))
     return getConstantArrayInfoInChars(*this, CAT);
   TypeInfo Info = getTypeInfo(T);
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   // toCharUnitsFromBits always rounds down and is depended on, but
   // AP-Int size needs to be the next size up.
-  return std::make_pair(toCharUnitsFromBits(Info.Width) +
+  return TypeInfoChars(toCharUnitsFromBits(Info.Width) +
                             (Info.Width % getCharWidth() == 0
                                  ? CharUnits::Zero()
                                  : CharUnits::One()),
 #endif // INTEL_CUSTOMIZATION
-                        toCharUnitsFromBits(Info.Align));
-=======
-  return TypeInfoChars(toCharUnitsFromBits(Info.Width),
                        toCharUnitsFromBits(Info.Align),
                        Info.AlignIsRequired);
->>>>>>> 101309fe048e66873cfd972c47c4b7e7f2b99f41
 }
 
 TypeInfoChars ASTContext::getTypeInfoInChars(QualType T) const {
