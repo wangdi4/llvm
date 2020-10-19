@@ -706,6 +706,16 @@ void tools::addIntelOptimizationArgs(const ToolChain &TC,
             options::OPT_qno_opt_multiple_gather_scatter_by_shuffles))
       addllvmOption("-vplan-vls-level=never");
   }
+  if (const Arg *A =
+          Args.getLastArg(options::OPT_qopt_assume_no_loop_carried_dep_EQ)) {
+    StringRef LoopCarriedVal = A->getValue();
+    if (LoopCarriedVal == "1" || LoopCarriedVal == "2") {
+      addllvmOption(Args.MakeArgString(
+          Twine("-hir-dd-test-assume-no-loop-carried-dep=") + LoopCarriedVal));
+    } else if (LoopCarriedVal != "0")
+      TC.getDriver().Diag(diag::err_drv_invalid_argument_to_option)
+          << LoopCarriedVal << A->getOption().getName();
+  }
 
   RenderOptReportOptions(TC, IsLink, Args, CmdArgs);
   auto addMultiVersionFlag = [&](const Arg &OptArg, OptSpecifier Opt) {

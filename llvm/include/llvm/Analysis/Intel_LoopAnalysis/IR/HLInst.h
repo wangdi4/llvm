@@ -346,7 +346,8 @@ public:
 
   /// Returns true if instruction was folded, along with the new instruction.
   /// If the instruction is null, it folded into a self-assignment (no-op).
-  std::pair<bool, HLInst*> doConstantFolding();
+  /// \p Invalidate indicates that we need to invalidate the parent loop/region
+  std::pair<bool, HLInst*> doConstantFolding(bool Invalidate);
 
   /// Checks if the Opcode is a reduction and returns it in \p OpCode.
   /// Select Opcode is returned for min/max intrinsics.
