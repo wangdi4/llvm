@@ -4,11 +4,6 @@
 ; Provide legal integer types.
 target datalayout = "n8:16:32:64"
 
-; INTEL - we have sext due to change in behavior
-; CHECK-NOT: sext
-; CHECK: sext i32 %count to i64
-; CHECK-NOT: sext
-; CHECK: sext i16 %N to i64
 ; CHECK-NOT: sext
 
 define i64 @test(i64* nocapture %first, i32 %count) nounwind readonly {
@@ -17,7 +12,10 @@ define i64 @test(i64* nocapture %first, i32 %count) nounwind readonly {
 ; CHECK-NEXT:    [[T0:%.*]] = icmp sgt i32 [[COUNT:%.*]], 0
 ; CHECK-NEXT:    br i1 [[T0]], label [[BB_NPH:%.*]], label [[BB2:%.*]]
 ; CHECK:       bb.nph:
-; CHECK-NEXT:    [[WIDE_TRIP_COUNT:%.*]] = zext i32 [[COUNT]] to i64
+; INTEL_CUSTOMIZATION
+; We have sext instead of zext here
+; CHECK-NEXT:    [[WIDE_TRIP_COUNT:%.*]] = sext i32 [[COUNT]] to i64
+; END INTEL_CUSTOMIZATION
 ; CHECK-NEXT:    br label [[BB:%.*]]
 ; CHECK:       bb:
 ; CHECK-NEXT:    [[INDVARS_IV:%.*]] = phi i64 [ [[INDVARS_IV_NEXT:%.*]], [[BB1:%.*]] ], [ 0, [[BB_NPH]] ]
@@ -75,7 +73,10 @@ define void @foo(i16 signext %N, i32* nocapture %P) nounwind {
 ; CHECK-NEXT:    [[T0:%.*]] = icmp sgt i16 [[N:%.*]], 0
 ; CHECK-NEXT:    br i1 [[T0]], label [[BB_NPH:%.*]], label [[RETURN:%.*]]
 ; CHECK:       bb.nph:
-; CHECK-NEXT:    [[WIDE_TRIP_COUNT:%.*]] = zext i16 [[N]] to i64
+; INTEL_CUSTOMIZATION
+; We have sext instead of zext here
+; CHECK-NEXT:    [[WIDE_TRIP_COUNT:%.*]] = sext i16 [[N]] to i64
+; END INTEL_CUSTOMIZATION
 ; CHECK-NEXT:    br label [[BB:%.*]]
 ; CHECK:       bb:
 ; CHECK-NEXT:    [[INDVARS_IV:%.*]] = phi i64 [ [[INDVARS_IV_NEXT:%.*]], [[BB1:%.*]] ], [ 0, [[BB_NPH]] ]
