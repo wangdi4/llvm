@@ -72,6 +72,10 @@ HLLoop::HLLoop(HLNodeUtils &HNU, const Loop *LLVMLoop)
   // We also don't erase the opt report from LoopID. We only do that
   // at the HIRCodeGen stage, if needed.
   setOptReport(LoopOptReport::findOptReportInLoopID(LLVMLoop->getLoopID()));
+
+  // Drop any "llvm.loop.parallel_accesses" metadata. This metadata is not yet
+  // used or preserved by HIR transformations.
+  removeLoopMetadata("llvm.loop.parallel_accesses");
 }
 
 // IsInnermost flag is initialized to true, please refer to the header file.
