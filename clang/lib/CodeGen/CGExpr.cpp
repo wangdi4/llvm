@@ -4958,6 +4958,8 @@ LValue CodeGenFunction::EmitCastLValue(const CastExpr *E) {
   case CK_ARCExtendBlockObject:
   case CK_CopyAndAutoreleaseBlockObject:
   case CK_IntToOCLSampler:
+  case CK_FloatingToFixedPoint:
+  case CK_FixedPointToFloating:
   case CK_FixedPointCast:
   case CK_FixedPointToBoolean:
   case CK_FixedPointToIntegral:
