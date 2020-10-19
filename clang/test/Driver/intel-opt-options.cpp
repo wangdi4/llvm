@@ -165,3 +165,8 @@
 // RUN: %clang_cl -### %s -c --intel 2>&1 | FileCheck %s --check-prefix=CHECK-DISABLE-CPUDISPATCH-IFUNCS-WIN
 // CHECK-DISABLE-CPUDISPATCH-IFUNCS: "-disable-cpudispatch-ifuncs"
 // CHECK-DISABLE-CPUDISPATCH-IFUNCS-WIN-NOT: "-disable-cpudispatch-ifuncs"
+
+// Check for -target-feature with -xHOST
+// RUN: %clang -### %s -c -xHOST 2>&1 | FileCheck %s --check-prefix=CHECK-XHOST
+// RUN: %clang_cl -### %s -c /QxHOST 2>&1 | FileCheck %s --check-prefix=CHECK-XHOST
+// CHECK-XHOST: "-cc1"{{.*}}"-target-cpu"{{.*}}"-target-feature"
