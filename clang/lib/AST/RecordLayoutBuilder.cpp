@@ -1841,10 +1841,11 @@ void ItaniumRecordLayoutBuilder::LayoutField(const FieldDecl *D,
 
   auto setDeclInfo = [&](bool IsIncompleteArrayType) {
     auto TI = Context.getTypeInfoInChars(D->getType());
-    FieldAlign = TI.second;
+    FieldAlign = TI.Align;
     // Flexible array members don't have any size, but they have to be
     // aligned appropriately for their element type.
     EffectiveFieldSize = FieldSize =
+<<<<<<< HEAD
         IsIncompleteArrayType ? CharUnits::Zero()
 #if INTEL_CUSTOMIZATION
             // toCharUnitsFromBits always rounds down and is depended on, but
@@ -1858,6 +1859,10 @@ void ItaniumRecordLayoutBuilder::LayoutField(const FieldDecl *D,
                     : CharUnits::One()));
 #endif // INTEL_CUSTOMIZATION
     AlignIsRequired = Context.getTypeInfo(D->getType()).AlignIsRequired;
+=======
+        IsIncompleteArrayType ? CharUnits::Zero() : TI.Width;
+    AlignIsRequired = TI.AlignIsRequired;
+>>>>>>> 101309fe048e66873cfd972c47c4b7e7f2b99f41
   };
 
   if (D->getType()->isIncompleteArrayType()) {
@@ -2590,15 +2595,18 @@ MicrosoftRecordLayoutBuilder::getAdjustedElementInfo(
     const FieldDecl *FD) {
   // Get the alignment of the field type's natural alignment, ignore any
   // alignment attributes.
-  ElementInfo Info;
-  std::tie(Info.Size, Info.Alignment) =
+  auto TInfo =
       Context.getTypeInfoInChars(FD->getType()->getUnqualifiedDesugaredType());
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   // Arbitrary precision integer sizes require extra room to llvm::alloca due to
   // their strange offset.  Thus, we need to include this in the layout size.
   if (FD->getType()->isArbPrecIntType())
     Info.Size = Info.Size.alignTo(Info.Alignment);
 #endif // INTEL_CUSTOMIZATION
+=======
+  ElementInfo Info{TInfo.Width, TInfo.Align};
+>>>>>>> 101309fe048e66873cfd972c47c4b7e7f2b99f41
   // Respect align attributes on the field.
   CharUnits FieldRequiredAlignment =
       Context.toCharUnitsFromBits(FD->getMaxAlignment());
