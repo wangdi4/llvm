@@ -491,7 +491,7 @@ bool TBBTaskExecutor::LoadTBBLibrary()
     // The loading on tbb.dll was delayed,
     // Need to load manually before default dll is loaded
 
-    std::string tbbPath("tbb");
+    std::string tbbPath("tbb12");
 
 #ifdef _DEBUG
     tbbPath += "_debug";
