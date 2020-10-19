@@ -155,6 +155,12 @@ static cl::opt<std::string> PrintDiagFunc(
     cl::desc("Print Diag why " OPT_DESC " did not happen for the function."));
 #endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 
+// Never delinearize memrefs. Used for debugging.
+static cl::opt<bool> ForceStopDelinearization(
+    OPT_SWITCH "-no-delinear", cl::init(false), cl::Hidden,
+    cl::desc("Unconditionally disable delinearization in " OPT_DESC
+             " pass"));
+
 // If this check is disabled, blocking is applied to non-constant TC or to
 // constant trip count not large enough above the threshold.
 static cl::opt<bool> EnableLoopBlockingNonConstTC(
@@ -1402,6 +1408,32 @@ HLLoop *tryKAndRWithFixedStripmineSizes(
   return nullptr;
 }
 
+// LoopDepth are at most 2.
+// Blocking inner loops doesn't help, because many mem refs are
+// already unit-strided.
+// Blocking outer loop only doesn't help, because it is
+// mere strip-mining.
+bool isTrivialAntiPattern(const MemRefGatherer::VectorTy &Refs,
+                          unsigned InnermostLevel,
+                          unsigned ConsecutiveDepth) {
+  if (ConsecutiveDepth > 2) return false;
+
+  int Count = 0;
+  for (auto Ref : Refs) {
+    unsigned Index = InvalidBlobIndex;
+    int64_t Coeff = 0;
+
+    Ref->getDimensionIndex(1)->
+      getIVCoeff(InnermostLevel, &Index, &Coeff);
+
+    if (Index == InvalidBlobIndex && Coeff == 1) {
+      Count++;
+    }
+  }
+
+  return Count / ((float)Refs.size()) >= 0.4;
+}
+
 // Returns the outermost loop where blocking will be applied
 // in the range of [outermost, InnermostLoop]
 HLLoop *findLoopNestToBlock(HIRFramework &HIRF, HIRDDAnalysis &DDA,
@@ -1467,7 +1499,8 @@ HLLoop *findLoopNestToBlock(HIRFramework &HIRF, HIRDDAnalysis &DDA,
   // Quite a special casing, but without exact information about
   // tripcount, we need a hack.
   RefAnalyzer::RefAnalysisResult RefKind =
-      RefAnalyzer::analyzeRefs(Refs, !Is32Bit || IsLikelySmall);
+      RefAnalyzer::analyzeRefs(Refs,
+                !ForceStopDelinearization && (!Is32Bit || IsLikelySmall));
 
   // If any Ref is a non-linear, give up here.
   if (RefAnalyzer::hasNonLinear(RefKind)) {
@@ -1487,6 +1520,12 @@ HLLoop *findLoopNestToBlock(HIRFramework &HIRF, HIRDDAnalysis &DDA,
   unsigned ConsecutiveDepth =
       calcConsecutiveDepthOverTCThreshold(LoopNestTC, AdjustedHighestAncestor);
   LLVM_DEBUG(dbgs() << "ConsecutiveDepth: " << ConsecutiveDepth << "\n");
+
+  if (isTrivialAntiPattern(Refs, InnermostLoop->getNestingLevel(),
+                           ConsecutiveDepth)) {
+    LLVM_DEBUG(dbgs() << "Trivial anti-pattern\n");
+    return nullptr;
+  }
 
   // Uniq refs for the purpose of memory footprint analysis.
   // For now, we won't do any memory footprint analysis.
