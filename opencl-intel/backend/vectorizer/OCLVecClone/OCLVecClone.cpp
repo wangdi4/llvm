@@ -31,16 +31,18 @@
 ///
 /// 3. Updates the metadata that later passes use.
 // ===--------------------------------------------------------------------=== //
+#include "OCLVecClone.h"
+
 #include "CompilationUtils.h"
 #include "InitializePasses.h"
 #include "LoopUtils/LoopUtils.h"
 #include "MetadataAPI.h"
 #include "NameMangleAPI.h"
 #include "OCLPrepareKernelForVecClone.h"
-#include "OCLVecClone.h"
 
 #include "llvm/ADT/DepthFirstIterator.h"
 #include "llvm/ADT/GraphTraits.h"
+#include "llvm/ADT/Twine.h"
 #include "llvm/Analysis/TargetTransformInfo.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/InstIterator.h"
@@ -49,16 +51,45 @@
 #include "llvm/IR/LegacyPassManager.h"
 #include "llvm/IR/PatternMatch.h"
 #include "llvm/InitializePasses.h"
+#include "llvm/Support/Threading.h"
 
+#include <mutex>
 #include <string>
 
 #define DEBUG_TYPE "OCLVecClone"
 #define SV_NAME "ocl-vecclone"
 #define SV_NAME1 "ocl-reqd-sub-group-size"
 
+#define SG_BLOCK_READ_PREFIX "intel_sub_group_block_read"
+#define SG_BLOCK_WRITE_PREFIX "intel_sub_group_block_write"
+#define KERNEL_CALL_ONCE "kernel-call-once"
+#define PRIM_TYPE(prim_type_enum)                                              \
+  (new reflection::PrimitiveType(prim_type_enum))
+#define PRIM_POINTER_TYPE(pointee_type, attrs)                                 \
+  (new reflection::PointerType(                                                \
+      PRIM_TYPE(pointee_type),                                                 \
+      std::vector<reflection::TypeAttributeEnum> attrs))
+#define CONST_GLOBAL_PTR(pointee_type)                                         \
+  PRIM_POINTER_TYPE(pointee_type,                                              \
+                    ({reflection::ATTR_GLOBAL, reflection::ATTR_CONST}))
+#define GLOBAL_PTR(pointee_type)                                               \
+  PRIM_POINTER_TYPE(pointee_type, ({reflection::ATTR_GLOBAL}))
+#define VECTOR_TYPE(element_type, len)                                         \
+  (new reflection::VectorType(element_type, len))
+#define INT2_TYPE VECTOR_TYPE(PRIM_TYPE(reflection::PRIMITIVE_INT), 2)
+
 using namespace llvm;
 using namespace Intel::MetadataAPI;
 using namespace PatternMatch;
+
+// Static container storing all the vector info entries.
+// Each entry would be a tuple of three strings:
+// 1. scalar variant name
+// 2. "kernel-call-once" | ""
+// 3. mangled vector variant name
+static std::vector<std::tuple<std::string, std::string, std::string>> g_VecInfo;
+// Guardian flag to make sure g_VecInfo is initialized only once.
+static llvm::once_flag initVecInfoOnce;
 
 static cl::opt<std::string> ReqdSubGroupSizes("reqd-sub-group-size", cl::init(""),
                                         cl::Hidden,
@@ -416,6 +447,153 @@ static bool TIDFitsInInt32(const CallInst *CI) {
   return false;
 }
 
+static reflection::TypeVector
+widenParameters(reflection::TypeVector scalar_params, unsigned int vf) {
+  reflection::TypeVector vector_params;
+  for (auto param : scalar_params) {
+    if (auto *vec_param = reflection::dyn_cast<reflection::VectorType>(param)) {
+      int widen_len = vec_param->getLength() * vf;
+      vector_params.emplace_back(
+          VECTOR_TYPE(vec_param->getScalarType(), widen_len));
+    } else {
+      vector_params.emplace_back(VECTOR_TYPE(param, vf));
+    }
+  }
+
+  return vector_params;
+}
+
+static void
+pushSGBlockBuiltinDivergentVectInfo(const Twine &basename, unsigned int len,
+                                    unsigned int vf,
+                                    reflection::TypeVector scalar_params) {
+  // Get mangled name of scalar variant
+  reflection::FunctionDescriptor scalar_func{
+      (basename + (len == 1 ? "" : Twine(len))).str(), scalar_params,
+      reflection::width::SCALAR};
+  std::string scalar_mangle_name = mangle(scalar_func);
+
+  // Get mangled name of vector variant
+  reflection::TypeVector vector_params = widenParameters(scalar_params, vf);
+  size_t v_num = vector_params.size();
+  // Add mask param
+  auto *mask = VECTOR_TYPE(PRIM_TYPE(reflection::PRIMITIVE_UINT), vf);
+  vector_params.push_back(mask);
+  reflection::FunctionDescriptor vector_func{
+      (basename + Twine(len) + "_" + Twine(vf)).str(), vector_params,
+      reflection::width::NONE};
+  std::string vector_mangle_name = mangle(vector_func);
+
+  // Get vector variant string repr
+  VectorVariant variant{VectorVariant::ISAClass::XMM,
+                        true,
+                        vf,
+                        std::vector<VectorKind>(v_num, VectorKind::vector()),
+                        "",
+                        vector_mangle_name};
+  std::string variant_repr = variant.toString();
+
+  g_VecInfo.push_back({scalar_mangle_name, KERNEL_CALL_ONCE, variant_repr});
+}
+
+static void pushSGBlockBuiltinDivergentVectInfo(
+    StringRef type_suffix, reflection::TypePrimitiveEnum type,
+    std::vector<unsigned int> lens, std::vector<unsigned int> vfs) {
+  for (unsigned int len : lens) {
+    for (unsigned int vf : vfs) {
+      // sub_group_block_read(const __global T*)
+      pushSGBlockBuiltinDivergentVectInfo(SG_BLOCK_READ_PREFIX + type_suffix,
+                                          len, vf, {CONST_GLOBAL_PTR(type)});
+      // sub_group_block_read(readonly image2d_t, int2)
+      pushSGBlockBuiltinDivergentVectInfo(
+          SG_BLOCK_READ_PREFIX + type_suffix, len, vf,
+          {PRIM_TYPE(reflection::PRIMITIVE_IMAGE_2D_RO_T), INT2_TYPE});
+      // sub_group_block_read(readwrite image2d_t, int2)
+      pushSGBlockBuiltinDivergentVectInfo(
+          SG_BLOCK_READ_PREFIX + type_suffix, len, vf,
+          {PRIM_TYPE(reflection::PRIMITIVE_IMAGE_2D_RW_T), INT2_TYPE});
+
+      if (len == 1) {
+        // sub_group_block_write(__global T*, T)
+        pushSGBlockBuiltinDivergentVectInfo(
+            SG_BLOCK_WRITE_PREFIX + type_suffix, len, vf,
+            {GLOBAL_PTR(type), PRIM_TYPE(type)});
+        // sub_group_block_write(writeonly image2d_t, int2, T)
+        pushSGBlockBuiltinDivergentVectInfo(
+            SG_BLOCK_WRITE_PREFIX + type_suffix, len, vf,
+            {PRIM_TYPE(reflection::PRIMITIVE_IMAGE_2D_WO_T), INT2_TYPE,
+             PRIM_TYPE(type)});
+        // sub_group_block_write(readwrite image2d_t, int2, T)
+        pushSGBlockBuiltinDivergentVectInfo(
+            SG_BLOCK_WRITE_PREFIX + type_suffix, len, vf,
+            {PRIM_TYPE(reflection::PRIMITIVE_IMAGE_2D_RW_T), INT2_TYPE,
+             PRIM_TYPE(type)});
+      } else {
+        // sub_group_block_write(__global T*, T<len>)
+        pushSGBlockBuiltinDivergentVectInfo(
+            SG_BLOCK_WRITE_PREFIX + type_suffix, len, vf,
+            {GLOBAL_PTR(type), VECTOR_TYPE(PRIM_TYPE(type), len)});
+        // sub_group_block_write(writeonly image2d_t, int2, T<len>)
+        pushSGBlockBuiltinDivergentVectInfo(
+            SG_BLOCK_WRITE_PREFIX + type_suffix, len, vf,
+            {PRIM_TYPE(reflection::PRIMITIVE_IMAGE_2D_WO_T), INT2_TYPE,
+             VECTOR_TYPE(PRIM_TYPE(type), len)});
+        // sub_group_block_write(readwrite image2d_t, int2, T<len>)
+        pushSGBlockBuiltinDivergentVectInfo(
+            SG_BLOCK_WRITE_PREFIX + type_suffix, len, vf,
+            {PRIM_TYPE(reflection::PRIMITIVE_IMAGE_2D_RW_T), INT2_TYPE,
+             VECTOR_TYPE(PRIM_TYPE(type), len)});
+      }
+    }
+  }
+}
+
+static void initializeVectInfo() {
+  // Load Table-Gen'erated VectInfo.gen
+  const static std::tuple<const char *, const char *, const char *> infos[] = {
+    #include "VectInfo.gen"
+  };
+  g_VecInfo.insert(g_VecInfo.end(), std::begin(infos), std::end(infos));
+
+  // Add extra vector info for 'sub_group_ballot'
+  g_VecInfo.push_back({"intel_sub_group_ballot", KERNEL_CALL_ONCE,
+                       "_ZGVbM4v_(intel_sub_group_ballot_vf4)"});
+  g_VecInfo.push_back({"intel_sub_group_ballot", KERNEL_CALL_ONCE,
+                       "_ZGVbM8v_(intel_sub_group_ballot_vf8)"});
+  g_VecInfo.push_back({"intel_sub_group_ballot", KERNEL_CALL_ONCE,
+                       "_ZGVbM16v_(intel_sub_group_ballot_vf16)"});
+
+  // Add extra vector info for 'sub_group_block_read*', 'sub_group_block_write*'
+  std::vector<std::tuple<std::string, reflection::TypePrimitiveEnum,
+                         std::vector<unsigned int>, std::vector<unsigned int>>>
+      entries{
+          {"",
+           reflection::PRIMITIVE_UINT,
+           {1, 2, 4, 8},
+           {4, 8, 16, 32, 64}},
+          {"_uc",
+           reflection::PRIMITIVE_UCHAR,
+           {1, 2, 4, 8, 16},
+           {4, 8, 16, 32, 64}},
+          {"_us",
+           reflection::PRIMITIVE_USHORT,
+           {1, 2, 4, 8},
+           {4, 8, 16, 32, 64}},
+          {"_ui",
+           reflection::PRIMITIVE_UINT,
+           {1, 2, 4, 8},
+           {4, 8, 16, 32, 64}},
+          {"_ul",
+           reflection::PRIMITIVE_ULONG,
+           {1, 2, 4, 8},
+           {4, 8, 16, 32, 64}},
+      };
+  for (auto &entry : entries) {
+    pushSGBlockBuiltinDivergentVectInfo(std::get<0>(entry), std::get<1>(entry),
+                                        std::get<2>(entry), std::get<3>(entry));
+  }
+}
+
 void OCLVecCloneImpl::handleLanguageSpecifics(Function &F, PHINode *Phi,
                                               Function *Clone,
                                               BasicBlock *EntryBlock) {
@@ -510,12 +688,8 @@ void OCLVecCloneImpl::handleLanguageSpecifics(Function &F, PHINode *Phi,
 
   updateMetadata(F, Clone, VecDim, CanUniteWorkgroups);
 
-  const static std::tuple<const char *, const char *, const char *> VecInfo[] = {
-    #include "VectInfo.gen"
-    {"intel_sub_group_ballot", "kernel-call-once", "_ZGVbM4v_(intel_sub_group_ballot_vf4)"},
-    {"intel_sub_group_ballot", "kernel-call-once", "_ZGVbM8v_(intel_sub_group_ballot_vf8)"},
-    {"intel_sub_group_ballot", "kernel-call-once", "_ZGVbM16v_(intel_sub_group_ballot_vf16)"},
-  };
+  // Load all vector info into g_VecInfo, at most once.
+  llvm::call_once(initVecInfoOnce, initializeVectInfo);
 
   for (auto &Inst : instructions(Clone)) {
     auto *Call = dyn_cast<CallInst>(&Inst);
@@ -532,9 +706,12 @@ void OCLVecCloneImpl::handleLanguageSpecifics(Function &F, PHINode *Phi,
     // May be more than one entry, e.g. mask/unmasked (although currently that's
     // not the case).
     auto MatchingVariants = make_filter_range(
-        VecInfo,
-        [FnName, VF](const std::tuple<const char *, const char *, const char *> &Info) -> bool {
-          return std::get<0>(Info) == FnName && VectorVariant(std::get<2>(Info)).getVlen() == VF;
+        g_VecInfo,
+        [FnName,
+         VF](const std::tuple<std::string, std::string, std::string> &Info)
+            -> bool {
+          return std::get<0>(Info) == FnName &&
+                 VectorVariant(std::get<2>(Info)).getVlen() == VF;
         });
 
     if (MatchingVariants.begin() == MatchingVariants.end())
@@ -563,7 +740,7 @@ void OCLVecCloneImpl::handleLanguageSpecifics(Function &F, PHINode *Phi,
         NotHasMask = false;
       else
         HasMask = false;
-      if (strcmp(std::get<1>(Variant), "kernel-call-once") != 0)
+      if (std::get<1>(Variant) != KERNEL_CALL_ONCE)
         KernelCallOnce = false;
     }
 

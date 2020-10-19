@@ -84,18 +84,22 @@ Attrs = [OVERLOADABLE] in {
 
   let Types = broadcast_extended_types in {
     def sub_group_broadcast_extended : OclBuiltin<"sub_group_broadcast", (outs gentype:$ret), (ins gentype:$src, uint:$sub_group_local_id), [], [], 1, 0>;
+    def sub_group_broadcast_assume_uniform_extended : OclBuiltin<"sub_group_broadcast", (outs gentype:$ret), (ins gentype:$src, u32gentype:$sub_group_local_ids), [], [], 1, 0>;
   }
 
   let Types = VFType<broadcast_extended_types, "_avx">.Tout in {
     def sub_group_broadcast_extended_avx : OclBuiltin<"sub_group_broadcast", (outs gentype:$ret), (ins gentype:$src, uint:$sub_group_local_id, v4u32:$vec_mask), [], [], 1, 0>;
+    def sub_group_broadcast_assume_uniform_extended_avx : OclBuiltin<"sub_group_broadcast", (outs gentype:$ret), (ins gentype:$src, u32gentype:$sub_group_local_ids, v4u32:$vec_mask), [], [], 1, 0>;
   }
 
   let Types = VFType<broadcast_extended_types, "_avx2">.Tout in {
     def sub_group_broadcast_extended_avx2 : OclBuiltin<"sub_group_broadcast", (outs gentype:$ret), (ins gentype:$src, uint:$sub_group_local_id, v8u32:$vec_mask), [], [], 1, 0>;
+    def sub_group_broadcast_assume_uniform_extended_avx2 : OclBuiltin<"sub_group_broadcast", (outs gentype:$ret), (ins gentype:$src, u32gentype:$sub_group_local_ids, v8u32:$vec_mask), [], [], 1, 0>;
   }
 
   let Types = VFType<broadcast_extended_types, "_avx512">.Tout in {
     def sub_group_broadcast_extended_avx512 : OclBuiltin<"sub_group_broadcast", (outs gentype:$ret), (ins gentype:$src, uint:$sub_group_local_id, v16u32:$vec_mask), [], [], 1, 0>;
+    def sub_group_broadcast_assume_uniform_extended_avx512 : OclBuiltin<"sub_group_broadcast", (outs gentype:$ret), (ins gentype:$src, u32gentype:$sub_group_local_ids, v16u32:$vec_mask), [], [], 1, 0>;
   }
 
   let Types = [ v4i32, v8i32, v16i32, v32i32, v64i32,
@@ -105,6 +109,7 @@ Attrs = [OVERLOADABLE] in {
                 v4f32, v8f32, v16f32, v32f32, v64f32,
                 v4f64, v8f64, v16f64, v32f64, v64f64 ] in {
     def sub_group_broadcast_vec : OclBuiltin<"sub_group_broadcast", (outs gentype:$ret), (ins gentype:$src, uint:$sub_group_local_id, u32gentype:$vec_mask), [], [], 1, 0>;
+    def sub_group_broadcast_assume_uniform_vec : OclBuiltin<"sub_group_broadcast", (outs gentype:$ret), (ins gentype:$src, u32gentype:$sub_group_local_ids, u32gentype:$vec_mask), [], [], 1, 0>;
     foreach func = ["reduce", "scan_inclusive", "scan_exclusive"] in {
       foreach op = ["add", "min", "max"] in {
         def sub_group_#func#_#op#_vec : OclBuiltin<"sub_group_"#func#_#op, (outs gentype:$ret), (ins gentype:$src, u32gentype:$vec_mask), [], [], 1, 0>;
@@ -118,6 +123,7 @@ Attrs = [OVERLOADABLE] in {
                v32i8, v32u8, v32i16, v32u16,
                v64i8, v64u8, v64i16, v64u16] in {
     def sub_group_broadcast_vec_cs : OclBuiltin<"intel_sub_group_broadcast", (outs gentype:$ret), (ins gentype:$src, uint:$sub_group_local_id, u32gentype:$vec_mask), [], [], 1, 0>;
+    def sub_group_broadcast_assume_uniform_vec_cs : OclBuiltin<"intel_sub_group_broadcast", (outs gentype:$ret), (ins gentype:$src, u32gentype:$sub_group_local_ids, u32gentype:$vec_mask), [], [], 1, 0>;
     foreach func = ["reduce", "scan_inclusive", "scan_exclusive"] in {
       foreach op = ["add", "min", "max"] in {
         def sub_group_#func#_#op#_vec_cs : OclBuiltin<"intel_sub_group_"#func#_#op, (outs gentype:$ret), (ins gentype:$src, u32gentype:$vec_mask), [], [], 1, 0>;
@@ -710,7 +716,11 @@ let Types = [v1i32] in {
   def sub_group_any_vect_info : VectInfo<[], sub_group_any, sub_group_any_vec, sub_group_any_vec, sub_group_any_vec, sub_group_any_vec, sub_group_any_vec>;
 }
 let Types = [ v1i32, v1u32, v1i64, v1u64, v1f32, v1f64 ] in {
-  def sub_group_broadcast_vect_info  : VectInfo<[], sub_group_broadcast, sub_group_broadcast_vec, sub_group_broadcast_vec, sub_group_broadcast_vec>;
+  let HandleAlias = 0 in {
+    def sub_group_broadcast_vect_info : VectInfo<[], sub_group_broadcast, sub_group_broadcast_vec, sub_group_broadcast_vec, sub_group_broadcast_vec>;
+    def sub_group_broadcast_assume_uniform_vect_info : VectInfo<[], sub_group_broadcast, sub_group_broadcast_assume_uniform_vec, sub_group_broadcast_assume_uniform_vec, sub_group_broadcast_assume_uniform_vec>;
+  }
+
   foreach func = ["reduce", "scan_inclusive", "scan_exclusive"] in {
     foreach op = ["add", "min", "max"] in {
       defvar vec_variant = !cast<OclBuiltin>("sub_group_"#func#_#op#"_vec");
@@ -720,7 +730,11 @@ let Types = [ v1i32, v1u32, v1i64, v1u64, v1f32, v1f64 ] in {
 }
 
 let Types = [v1i8, v1u8, v1i16, v1u16] in {
-   def sub_group_broadcast_cs_vect_info  : VectInfo<[], sub_group_broadcast_cs, sub_group_broadcast_vec_cs, sub_group_broadcast_vec_cs, sub_group_broadcast_vec_cs>;
+  let HandleAlias = 0 in {
+    def sub_group_broadcast_cs_vect_info : VectInfo<[], sub_group_broadcast_cs, sub_group_broadcast_vec_cs, sub_group_broadcast_vec_cs, sub_group_broadcast_vec_cs>;
+    def sub_group_broadcast_assume_uniform_cs_vect_info : VectInfo<[], sub_group_broadcast_cs, sub_group_broadcast_assume_uniform_vec_cs, sub_group_broadcast_assume_uniform_vec_cs, sub_group_broadcast_assume_uniform_vec_cs>;
+  }
+
   foreach func = ["reduce", "scan_inclusive", "scan_exclusive"] in {
     foreach op = ["add", "min", "max"] in {
       defvar vec_variant = !cast<OclBuiltin>("sub_group_"#func#_#op#"_vec_cs");
@@ -735,6 +749,7 @@ let Types = [v2i8, v2u8, v2i16, v2u16, v2i32, v2u32, v2i64, v2u64, v2f32, v2f64,
              v8i8, v8u8, v8i16, v8u16, v8i32, v8u32, v8i64, v8u64, v8f32, v8f64,
              v16i8, v16u8, v16i16, v16u16, v16i32, v16u32, v16i64, v16u64, v16f32, v16f64] in {
 def sub_group_broadcast_extended_vect_info : VectInfo<[], sub_group_broadcast_extended, sub_group_broadcast_extended_avx, sub_group_broadcast_extended_avx2, sub_group_broadcast_extended_avx512>;
+def sub_group_broadcast_assume_uniform_extended_vect_info : VectInfo<[], sub_group_broadcast_assume_uniform_extended, sub_group_broadcast_assume_uniform_extended_avx, sub_group_broadcast_assume_uniform_extended_avx2, sub_group_broadcast_assume_uniform_extended_avx512>;
 }
 let Types = [v1i32, v1u32, v1i64, v1u64, v1f32, v1f64, v1i8, v1u8, v1i16, v1u16,
              v2i32, v4i32, v8i32, v16i32, v3i32,
