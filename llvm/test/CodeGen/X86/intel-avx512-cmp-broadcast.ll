@@ -4,10 +4,11 @@
 define <16 x i1> @v16i16(i16 %a) {
 ; CHECK-LABEL: v16i16:
 ; CHECK:       # %bb.0: # %entry
-; CHECK-NEXT:    vpbroadcastw %edi, %ymm0
-; CHECK-NEXT:    vptestnmw %ymm0, %ymm0, %k0
+; CHECK-NEXT:    xorl %eax, %eax
+; CHECK-NEXT:    cmpw $1, %di
+; CHECK-NEXT:    sbbl %eax, %eax
+; CHECK-NEXT:    kmovd %eax, %k0
 ; CHECK-NEXT:    vpmovm2b %k0, %xmm0
-; CHECK-NEXT:    vzeroupper
 ; CHECK-NEXT:    retq
 entry:
   %0 = icmp eq i16 %a, 0
@@ -78,8 +79,10 @@ entry:
 define <32 x i1> @v32i16(i16 %a) {
 ; CHECK-LABEL: v32i16:
 ; CHECK:       # %bb.0: # %entry
-; CHECK-NEXT:    vpbroadcastw %edi, %zmm0
-; CHECK-NEXT:    vptestnmw %zmm0, %zmm0, %k0
+; CHECK-NEXT:    xorl %eax, %eax
+; CHECK-NEXT:    cmpw $1, %di
+; CHECK-NEXT:    sbbl %eax, %eax
+; CHECK-NEXT:    kmovd %eax, %k0
 ; CHECK-NEXT:    vpmovm2b %k0, %ymm0
 ; CHECK-NEXT:    retq
 entry:
@@ -148,9 +151,10 @@ entry:
 define <64 x i1> @v64i16(i16 %a) {
 ; CHECK-LABEL: v64i16:
 ; CHECK:       # %bb.0: # %entry
-; CHECK-NEXT:    vpbroadcastw %edi, %zmm0
-; CHECK-NEXT:    vptestnmw %zmm0, %zmm0, %k0
-; CHECK-NEXT:    kunpckdq %k0, %k0, %k0
+; CHECK-NEXT:    xorl %eax, %eax
+; CHECK-NEXT:    cmpw $1, %di
+; CHECK-NEXT:    sbbq %rax, %rax
+; CHECK-NEXT:    kmovq %rax, %k0
 ; CHECK-NEXT:    vpmovm2b %k0, %zmm0
 ; CHECK-NEXT:    retq
 entry:
@@ -163,9 +167,10 @@ entry:
 define <64 x i1> @v64i16_and(i16 %a) {
 ; CHECK-LABEL: v64i16_and:
 ; CHECK:       # %bb.0: # %entry
-; CHECK-NEXT:    vpbroadcastw %edi, %zmm0
-; CHECK-NEXT:    vptestnmw %zmm0, %zmm0, %k0
-; CHECK-NEXT:    kunpckdq %k0, %k0, %k0
+; CHECK-NEXT:    xorl %eax, %eax
+; CHECK-NEXT:    cmpw $1, %di
+; CHECK-NEXT:    sbbq %rax, %rax
+; CHECK-NEXT:    kmovq %rax, %k0
 ; CHECK-NEXT:    movabsq $6148914691236517205, %rax # imm = 0x5555555555555555
 ; CHECK-NEXT:    kmovq %rax, %k1
 ; CHECK-NEXT:    kandq %k1, %k0, %k0
@@ -185,8 +190,10 @@ define <64 x i1> @v64i16_bcst(i16 %a, <64 x i16>* %m) {
 ; CHECK-NEXT:    vpbroadcastw %edi, %zmm0
 ; CHECK-NEXT:    vmovdqa64 %zmm0, 64(%rsi)
 ; CHECK-NEXT:    vmovdqa64 %zmm0, (%rsi)
-; CHECK-NEXT:    vptestnmw %zmm0, %zmm0, %k0
-; CHECK-NEXT:    kunpckdq %k0, %k0, %k0
+; CHECK-NEXT:    xorl %eax, %eax
+; CHECK-NEXT:    cmpw $1, %di
+; CHECK-NEXT:    sbbq %rax, %rax
+; CHECK-NEXT:    kmovq %rax, %k0
 ; CHECK-NEXT:    vpmovm2b %k0, %zmm0
 ; CHECK-NEXT:    retq
 entry:
@@ -205,8 +212,10 @@ define <64 x i1> @v64i16_and_bcst(i16 %a, <64 x i16>* %m) {
 ; CHECK-NEXT:    vpbroadcastw %edi, %zmm0
 ; CHECK-NEXT:    vmovdqa64 %zmm0, 64(%rsi)
 ; CHECK-NEXT:    vmovdqa64 %zmm0, (%rsi)
-; CHECK-NEXT:    vptestnmw %zmm0, %zmm0, %k0
-; CHECK-NEXT:    kunpckdq %k0, %k0, %k0
+; CHECK-NEXT:    xorl %eax, %eax
+; CHECK-NEXT:    cmpw $1, %di
+; CHECK-NEXT:    sbbq %rax, %rax
+; CHECK-NEXT:    kmovq %rax, %k0
 ; CHECK-NEXT:    movabsq $6148914691236517205, %rax # imm = 0x5555555555555555
 ; CHECK-NEXT:    kmovq %rax, %k1
 ; CHECK-NEXT:    kandq %k1, %k0, %k0
@@ -226,9 +235,11 @@ entry:
 define <4 x i1> @v4i32(i32 %a) {
 ; CHECK-LABEL: v4i32:
 ; CHECK:       # %bb.0: # %entry
-; CHECK-NEXT:    vpbroadcastd %edi, %xmm0
-; CHECK-NEXT:    vpxor %xmm1, %xmm1, %xmm1
-; CHECK-NEXT:    vpcmpeqd %xmm1, %xmm0, %xmm0
+; CHECK-NEXT:    xorl %eax, %eax
+; CHECK-NEXT:    cmpl $1, %edi
+; CHECK-NEXT:    sbbl %eax, %eax
+; CHECK-NEXT:    kmovd %eax, %k0
+; CHECK-NEXT:    vpmovm2d %k0, %xmm0
 ; CHECK-NEXT:    retq
 entry:
   %0 = icmp eq i32 %a, 0
@@ -296,10 +307,11 @@ entry:
 define <8 x i1> @v8i32(i32 %a) {
 ; CHECK-LABEL: v8i32:
 ; CHECK:       # %bb.0: # %entry
-; CHECK-NEXT:    vpbroadcastd %edi, %ymm0
-; CHECK-NEXT:    vptestnmd %ymm0, %ymm0, %k0
+; CHECK-NEXT:    xorl %eax, %eax
+; CHECK-NEXT:    cmpl $1, %edi
+; CHECK-NEXT:    sbbl %eax, %eax
+; CHECK-NEXT:    kmovd %eax, %k0
 ; CHECK-NEXT:    vpmovm2w %k0, %xmm0
-; CHECK-NEXT:    vzeroupper
 ; CHECK-NEXT:    retq
 entry:
   %0 = icmp eq i32 %a, 0
@@ -370,10 +382,11 @@ entry:
 define <16 x i1> @v16i32(i32 %a) {
 ; CHECK-LABEL: v16i32:
 ; CHECK:       # %bb.0: # %entry
-; CHECK-NEXT:    vpbroadcastd %edi, %zmm0
-; CHECK-NEXT:    vptestnmd %zmm0, %zmm0, %k0
+; CHECK-NEXT:    xorl %eax, %eax
+; CHECK-NEXT:    cmpl $1, %edi
+; CHECK-NEXT:    sbbl %eax, %eax
+; CHECK-NEXT:    kmovd %eax, %k0
 ; CHECK-NEXT:    vpmovm2b %k0, %xmm0
-; CHECK-NEXT:    vzeroupper
 ; CHECK-NEXT:    retq
 entry:
   %0 = icmp eq i32 %a, 0
@@ -444,9 +457,10 @@ entry:
 define <32 x i1> @v32i32(i32 %a) {
 ; CHECK-LABEL: v32i32:
 ; CHECK:       # %bb.0: # %entry
-; CHECK-NEXT:    vpbroadcastd %edi, %zmm0
-; CHECK-NEXT:    vptestnmd %zmm0, %zmm0, %k0
-; CHECK-NEXT:    kunpckwd %k0, %k0, %k0
+; CHECK-NEXT:    xorl %eax, %eax
+; CHECK-NEXT:    cmpl $1, %edi
+; CHECK-NEXT:    sbbl %eax, %eax
+; CHECK-NEXT:    kmovd %eax, %k0
 ; CHECK-NEXT:    vpmovm2b %k0, %ymm0
 ; CHECK-NEXT:    retq
 entry:
@@ -459,9 +473,10 @@ entry:
 define <32 x i1> @v32i32_and(i32 %a) {
 ; CHECK-LABEL: v32i32_and:
 ; CHECK:       # %bb.0: # %entry
-; CHECK-NEXT:    vpbroadcastd %edi, %zmm0
-; CHECK-NEXT:    vptestnmd %zmm0, %zmm0, %k0
-; CHECK-NEXT:    kunpckwd %k0, %k0, %k0
+; CHECK-NEXT:    xorl %eax, %eax
+; CHECK-NEXT:    cmpl $1, %edi
+; CHECK-NEXT:    sbbl %eax, %eax
+; CHECK-NEXT:    kmovd %eax, %k0
 ; CHECK-NEXT:    vpmovm2b %k0, %ymm0
 ; CHECK-NEXT:    retq
 entry:
@@ -478,8 +493,10 @@ define <32 x i1> @v32i32_bcst(i32 %a, <32 x i32>* %m) {
 ; CHECK-NEXT:    vpbroadcastd %edi, %zmm0
 ; CHECK-NEXT:    vmovdqa64 %zmm0, 64(%rsi)
 ; CHECK-NEXT:    vmovdqa64 %zmm0, (%rsi)
-; CHECK-NEXT:    vptestnmd %zmm0, %zmm0, %k0
-; CHECK-NEXT:    kunpckwd %k0, %k0, %k0
+; CHECK-NEXT:    xorl %eax, %eax
+; CHECK-NEXT:    cmpl $1, %edi
+; CHECK-NEXT:    sbbl %eax, %eax
+; CHECK-NEXT:    kmovd %eax, %k0
 ; CHECK-NEXT:    vpmovm2b %k0, %ymm0
 ; CHECK-NEXT:    retq
 entry:
@@ -498,8 +515,10 @@ define <32 x i1> @v32i32_and_bcst(i32 %a, <32 x i32>* %m) {
 ; CHECK-NEXT:    vpbroadcastd %edi, %zmm0
 ; CHECK-NEXT:    vmovdqa64 %zmm0, 64(%rsi)
 ; CHECK-NEXT:    vmovdqa64 %zmm0, (%rsi)
-; CHECK-NEXT:    vptestnmd %zmm0, %zmm0, %k0
-; CHECK-NEXT:    kunpckwd %k0, %k0, %k0
+; CHECK-NEXT:    xorl %eax, %eax
+; CHECK-NEXT:    cmpl $1, %edi
+; CHECK-NEXT:    sbbl %eax, %eax
+; CHECK-NEXT:    kmovd %eax, %k0
 ; CHECK-NEXT:    movl $1431655765, %eax # imm = 0x55555555
 ; CHECK-NEXT:    kmovd %eax, %k1
 ; CHECK-NEXT:    kandd %k1, %k0, %k0
@@ -519,10 +538,10 @@ entry:
 define <64 x i1> @v64i32(i32 %a) {
 ; CHECK-LABEL: v64i32:
 ; CHECK:       # %bb.0: # %entry
-; CHECK-NEXT:    vpbroadcastd %edi, %zmm0
-; CHECK-NEXT:    vptestnmd %zmm0, %zmm0, %k0
-; CHECK-NEXT:    kunpckwd %k0, %k0, %k0
-; CHECK-NEXT:    kunpckdq %k0, %k0, %k0
+; CHECK-NEXT:    xorl %eax, %eax
+; CHECK-NEXT:    cmpl $1, %edi
+; CHECK-NEXT:    sbbq %rax, %rax
+; CHECK-NEXT:    kmovq %rax, %k0
 ; CHECK-NEXT:    vpmovm2b %k0, %zmm0
 ; CHECK-NEXT:    retq
 entry:
@@ -535,10 +554,10 @@ entry:
 define <64 x i1> @v64i32_and(i32 %a) {
 ; CHECK-LABEL: v64i32_and:
 ; CHECK:       # %bb.0: # %entry
-; CHECK-NEXT:    vpbroadcastd %edi, %zmm0
-; CHECK-NEXT:    vptestnmd %zmm0, %zmm0, %k0
-; CHECK-NEXT:    kunpckwd %k0, %k0, %k0
-; CHECK-NEXT:    kunpckdq %k0, %k0, %k0
+; CHECK-NEXT:    xorl %eax, %eax
+; CHECK-NEXT:    cmpl $1, %edi
+; CHECK-NEXT:    sbbq %rax, %rax
+; CHECK-NEXT:    kmovq %rax, %k0
 ; CHECK-NEXT:    movabsq $6148914691236517205, %rax # imm = 0x5555555555555555
 ; CHECK-NEXT:    kmovq %rax, %k1
 ; CHECK-NEXT:    kandq %k1, %k0, %k0
@@ -560,9 +579,10 @@ define <64 x i1> @v64i32_bcst(i32 %a, <64 x i32>* %m) {
 ; CHECK-NEXT:    vmovdqa64 %zmm0, 128(%rsi)
 ; CHECK-NEXT:    vmovdqa64 %zmm0, 64(%rsi)
 ; CHECK-NEXT:    vmovdqa64 %zmm0, (%rsi)
-; CHECK-NEXT:    vptestnmd %zmm0, %zmm0, %k0
-; CHECK-NEXT:    kunpckwd %k0, %k0, %k0
-; CHECK-NEXT:    kunpckdq %k0, %k0, %k0
+; CHECK-NEXT:    xorl %eax, %eax
+; CHECK-NEXT:    cmpl $1, %edi
+; CHECK-NEXT:    sbbq %rax, %rax
+; CHECK-NEXT:    kmovq %rax, %k0
 ; CHECK-NEXT:    vpmovm2b %k0, %zmm0
 ; CHECK-NEXT:    retq
 entry:
@@ -583,9 +603,10 @@ define <64 x i1> @v64i32_and_bcst(i32 %a, <64 x i32>* %m) {
 ; CHECK-NEXT:    vmovdqa64 %zmm0, 128(%rsi)
 ; CHECK-NEXT:    vmovdqa64 %zmm0, 64(%rsi)
 ; CHECK-NEXT:    vmovdqa64 %zmm0, (%rsi)
-; CHECK-NEXT:    vptestnmd %zmm0, %zmm0, %k0
-; CHECK-NEXT:    kunpckwd %k0, %k0, %k0
-; CHECK-NEXT:    kunpckdq %k0, %k0, %k0
+; CHECK-NEXT:    xorl %eax, %eax
+; CHECK-NEXT:    cmpl $1, %edi
+; CHECK-NEXT:    sbbq %rax, %rax
+; CHECK-NEXT:    kmovq %rax, %k0
 ; CHECK-NEXT:    movabsq $6148914691236517205, %rax # imm = 0x5555555555555555
 ; CHECK-NEXT:    kmovq %rax, %k1
 ; CHECK-NEXT:    kandq %k1, %k0, %k0
@@ -605,9 +626,11 @@ entry:
 define <2 x i1> @v2i64(i64 %a) {
 ; CHECK-LABEL: v2i64:
 ; CHECK:       # %bb.0: # %entry
-; CHECK-NEXT:    vpbroadcastq %rdi, %xmm0
-; CHECK-NEXT:    vpxor %xmm1, %xmm1, %xmm1
-; CHECK-NEXT:    vpcmpeqq %xmm1, %xmm0, %xmm0
+; CHECK-NEXT:    xorl %eax, %eax
+; CHECK-NEXT:    cmpq $1, %rdi
+; CHECK-NEXT:    sbbl %eax, %eax
+; CHECK-NEXT:    kmovd %eax, %k0
+; CHECK-NEXT:    vpmovm2q %k0, %xmm0
 ; CHECK-NEXT:    retq
 entry:
   %0 = icmp eq i64 %a, 0
@@ -675,10 +698,11 @@ entry:
 define <4 x i1> @v4i64(i64 %a) {
 ; CHECK-LABEL: v4i64:
 ; CHECK:       # %bb.0: # %entry
-; CHECK-NEXT:    vpbroadcastq %rdi, %ymm0
-; CHECK-NEXT:    vptestnmq %ymm0, %ymm0, %k0
+; CHECK-NEXT:    xorl %eax, %eax
+; CHECK-NEXT:    cmpq $1, %rdi
+; CHECK-NEXT:    sbbl %eax, %eax
+; CHECK-NEXT:    kmovd %eax, %k0
 ; CHECK-NEXT:    vpmovm2d %k0, %xmm0
-; CHECK-NEXT:    vzeroupper
 ; CHECK-NEXT:    retq
 entry:
   %0 = icmp eq i64 %a, 0
@@ -749,10 +773,11 @@ entry:
 define <8 x i1> @v8i64(i64 %a) {
 ; CHECK-LABEL: v8i64:
 ; CHECK:       # %bb.0: # %entry
-; CHECK-NEXT:    vpbroadcastq %rdi, %zmm0
-; CHECK-NEXT:    vptestnmq %zmm0, %zmm0, %k0
+; CHECK-NEXT:    xorl %eax, %eax
+; CHECK-NEXT:    cmpq $1, %rdi
+; CHECK-NEXT:    sbbl %eax, %eax
+; CHECK-NEXT:    kmovd %eax, %k0
 ; CHECK-NEXT:    vpmovm2w %k0, %xmm0
-; CHECK-NEXT:    vzeroupper
 ; CHECK-NEXT:    retq
 entry:
   %0 = icmp eq i64 %a, 0
@@ -823,11 +848,11 @@ entry:
 define <16 x i1> @v16i64(i64 %a) {
 ; CHECK-LABEL: v16i64:
 ; CHECK:       # %bb.0: # %entry
-; CHECK-NEXT:    vpbroadcastq %rdi, %zmm0
-; CHECK-NEXT:    vptestnmq %zmm0, %zmm0, %k0
-; CHECK-NEXT:    kunpckbw %k0, %k0, %k0
+; CHECK-NEXT:    xorl %eax, %eax
+; CHECK-NEXT:    cmpq $1, %rdi
+; CHECK-NEXT:    sbbl %eax, %eax
+; CHECK-NEXT:    kmovd %eax, %k0
 ; CHECK-NEXT:    vpmovm2b %k0, %xmm0
-; CHECK-NEXT:    vzeroupper
 ; CHECK-NEXT:    retq
 entry:
   %0 = icmp eq i64 %a, 0
@@ -839,14 +864,14 @@ entry:
 define <16 x i1> @v16i64_and(i64 %a) {
 ; CHECK-LABEL: v16i64_and:
 ; CHECK:       # %bb.0: # %entry
-; CHECK-NEXT:    vpbroadcastq %rdi, %zmm0
-; CHECK-NEXT:    vptestnmq %zmm0, %zmm0, %k0
-; CHECK-NEXT:    kunpckbw %k0, %k0, %k0
+; CHECK-NEXT:    xorl %eax, %eax
+; CHECK-NEXT:    cmpq $1, %rdi
+; CHECK-NEXT:    sbbl %eax, %eax
+; CHECK-NEXT:    kmovd %eax, %k0
 ; CHECK-NEXT:    movw $21845, %ax # imm = 0x5555
 ; CHECK-NEXT:    kmovd %eax, %k1
 ; CHECK-NEXT:    kandw %k1, %k0, %k0
 ; CHECK-NEXT:    vpmovm2b %k0, %xmm0
-; CHECK-NEXT:    vzeroupper
 ; CHECK-NEXT:    retq
 entry:
   %0 = icmp eq i64 %a, 0
@@ -862,8 +887,10 @@ define <16 x i1> @v16i64_bcst(i64 %a, <16 x i64>* %m) {
 ; CHECK-NEXT:    vpbroadcastq %rdi, %zmm0
 ; CHECK-NEXT:    vmovdqa64 %zmm0, 64(%rsi)
 ; CHECK-NEXT:    vmovdqa64 %zmm0, (%rsi)
-; CHECK-NEXT:    vptestnmq %zmm0, %zmm0, %k0
-; CHECK-NEXT:    kunpckbw %k0, %k0, %k0
+; CHECK-NEXT:    xorl %eax, %eax
+; CHECK-NEXT:    cmpq $1, %rdi
+; CHECK-NEXT:    sbbl %eax, %eax
+; CHECK-NEXT:    kmovd %eax, %k0
 ; CHECK-NEXT:    vpmovm2b %k0, %xmm0
 ; CHECK-NEXT:    vzeroupper
 ; CHECK-NEXT:    retq
@@ -883,8 +910,10 @@ define <16 x i1> @v16i64_and_bcst(i64 %a, <16 x i64>* %m) {
 ; CHECK-NEXT:    vpbroadcastq %rdi, %zmm0
 ; CHECK-NEXT:    vmovdqa64 %zmm0, 64(%rsi)
 ; CHECK-NEXT:    vmovdqa64 %zmm0, (%rsi)
-; CHECK-NEXT:    vptestnmq %zmm0, %zmm0, %k0
-; CHECK-NEXT:    kunpckbw %k0, %k0, %k0
+; CHECK-NEXT:    xorl %eax, %eax
+; CHECK-NEXT:    cmpq $1, %rdi
+; CHECK-NEXT:    sbbl %eax, %eax
+; CHECK-NEXT:    kmovd %eax, %k0
 ; CHECK-NEXT:    movw $21845, %ax # imm = 0x5555
 ; CHECK-NEXT:    kmovd %eax, %k1
 ; CHECK-NEXT:    kandw %k1, %k0, %k0

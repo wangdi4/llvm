@@ -52375,12 +52375,29 @@ static SDValue combineExtractSubvector(SDNode *N, SelectionDAG &DAG,
 }
 
 #if INTEL_CUSTOMIZATION
-// If this is a splat of a setcc on an avx512 target, broadcast the operands
-// and use a vector setcc.
+// On AVX512 targets, the pattern (splat (setcc X, C)) can be lowered in 2 ways:
+// 1) Lowering to (cmov 0, 0xffff, (sub X, C)). This eventualy becomes 1-2 MOVs,
+// 1 CMP, 1 CMOV, and 1 KMOV. The instruction sequence is a little bit longer
+// than the other approach, but exhibits good performance in backend execution.
+// 2) Lowering to (setcc (splat X), (splat C)). This generates 1 VPBROADCAST, 1
+// VPCMP. It has less instruction, but has worse latency and more ports.
+// broadcast the operands and use a vector setcc.
+// Testing shows 1 is usually better than 2, especialls in tight vector loops.
+// But 2 can also be beneficial in certain situations. This function identify
+// the (splat (setcc X, C)) pattern, and examine it's context to determine how
+// to do with it. 1 is used by default, but we'll do 2 if:
+// * The result of the VPBROADCAST instruction is needed by other computations
+// so the instruction already exists and can be reused. In this case the only
+// thing we adds is a single VPCMP instruction.
+// * Or the result of the pattern is used and only used by an AND. This AND can
+// be folded to the VPCMP generated later.
+// * The type of the operands must fit into vector registers so the job can be
+// done by a single VPCMP instruction. If the type is too wide we'll need
+// another expensive KUNPCK.
 static SDValue combineBUILD_VECTOR(SDNode *N, SelectionDAG &DAG,
                                    TargetLowering::DAGCombinerInfo &DCI,
                                    const X86Subtarget &Subtarget) {
-  if (!DCI.isBeforeLegalize())
+  if (!DCI.isBeforeLegalizeOps())
     return SDValue();
 
   if (!Subtarget.hasAVX512())
@@ -52406,9 +52423,27 @@ static SDValue combineBUILD_VECTOR(SDNode *N, SelectionDAG &DAG,
   SDLoc dl(N);
   EVT VecVT = EVT::getVectorVT(*DAG.getContext(), LHS.getValueType(),
                                VT.getVectorNumElements());
-  LHS = DAG.getSplatBuildVector(VecVT, dl, LHS);
-  RHS = DAG.getSplatBuildVector(VecVT, dl, RHS);
+  EVT ResultVT =
+      EVT::getVectorVT(*DAG.getContext(), MVT::i1, VT.getVectorNumElements());
+  const TargetLowering &TLI = DAG.getTargetLoweringInfo();
 
+  // Make sure only one instruction is needed to do the compare and produce the
+  // result. Extra AVX512 instructions can lead to worse performance than the
+  // default lowering to CMOV.
+  if (!(TLI.isTypeLegal(VecVT) && TLI.isTypeLegal(ResultVT) &&
+        TLI.isCondCodeLegal(cast<CondCodeSDNode>(CC)->get(),
+                            VecVT.getSimpleVT())))
+    return SDValue();
+
+  LHS = DAG.getSplatBuildVector(VecVT, dl, LHS);
+  // Search for an existing broadcast node, or a foldable AND node.
+  if (LHS->use_empty() &&
+      !(N->hasOneUse() && N->use_begin()->getOpcode() == ISD::AND))
+    return SDValue();
+
+  // Transform to (setcc (splat X), (splat C)), as we've inferred it's likely to
+  // be profitable.
+  RHS = DAG.getSplatBuildVector(VecVT, dl, RHS);
   return DAG.getNode(ISD::SETCC, dl, VT, LHS, RHS, CC);
 }
 #endif // INTEL_CUSTOMIZATION
