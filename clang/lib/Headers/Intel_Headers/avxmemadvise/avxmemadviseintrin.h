@@ -41,5 +41,10 @@
 #define _mm256_vmovadvisew_store_epi8(A, B, I) \
    __builtin_ia32_vmovadvisew_store_256((__v8si *)(A), (__v8si)(B), (I))
 
+#define _mm_vmemadvise_epi8(A, I) \
+   __builtin_ia32_vmemadvise_128((__v16qi *)(A), (I))
+
+#define _mm256_vmemadvise_epi8(A, I) \
+   __builtin_ia32_vmemadvise_256((__v32qi *)(A), (I))
 #endif /* __x86_64__ */
 #endif /* __AVXMEMADVISEINTRIN_H */
