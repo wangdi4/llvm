@@ -23,10 +23,11 @@
 #include "OCLPassSupport.h"
 #include "InitializePasses.h"
 
+#include "llvm/Analysis/VectorUtils.h"
 #include "llvm/IR/InstIterator.h"
-#include "llvm/Support/CommandLine.h"
 #include "llvm/IR/Intrinsics.h"
 #include "llvm/IR/IRBuilder.h"
+#include "llvm/Support/CommandLine.h"
 #include "llvm/Support/TypeSize.h"
 
 static const int __logs_vals[] = {-1, 0, 1, -1, 2, -1, -1, -1, 3, -1, -1, -1, -1, -1, -1, -1, 4};
@@ -1662,6 +1663,7 @@ void PacketizeFunction::packetizeInstruction(CallInst *CI)
   const char * vectorFuncName;
   bool isMangled = Mangler::isMangledCall(scalarFuncName);
   const Function *LibFunc;
+  Module *M = m_currFunc->getParent();
 
   // Handle packetization of load/store ops
   if (Mangler::isMangledLoad(scalarFuncName) ||
@@ -1682,7 +1684,7 @@ void PacketizeFunction::packetizeInstruction(CallInst *CI)
           args.push_back(CI->getArgOperand(2));
           VCMEntry * newEntry = allocateNewVCMEntry();
           newEntry->isScalarRemoved = false;
-          Instruction* unMaskedPrefetch = VectorizerUtils::createFunctionCall(m_currFunc->getParent(),
+          Instruction* unMaskedPrefetch = VectorizerUtils::createFunctionCall(M,
               Mangler::demangle(scalarFuncName), CI->getType(), args, SmallVector<Attribute::AttrKind, 4>(), CI);
           m_VCM.insert(std::pair<Value *, VCMEntry *>(unMaskedPrefetch, newEntry));
           m_removedInsts.insert(CI);
@@ -1715,19 +1717,18 @@ void PacketizeFunction::packetizeInstruction(CallInst *CI)
     return packetizeMemoryOperand(MO);
   }
 
-  V_ASSERT(CI->getCalledFunction() &&
-           "Unexpected indirect function invocation");
-  if (CI->getCalledFunction()->isIntrinsic() &&
-      CI->getCalledFunction()->getIntrinsicID() == Intrinsic::memset &&
-      m_soaAllocaAnalysis->isSoaAllocaScalarRelated(CI)) {
-    packetizedMemsetSoaAllocaDerivedInst(CI);
+  V_ASSERT(origFunc && "Unexpected indirect function invocation");
+  if (origFunc->isIntrinsic() &&
+      origFunc->getIntrinsicID() == Intrinsic::memset) {
+    if (m_soaAllocaAnalysis->isSoaAllocaScalarRelated(CI))
+      packetizedMemsetSoaAllocaDerivedInst(CI);
     return;
   }
 
   // First remove any name-mangling (for example, masking), from the function name
   if (isMangled) {
     scalarFuncName = Mangler::demangle(scalarFuncName);
-    scalarFunc = m_currFunc->getParent()->getFunction(scalarFuncName);
+    scalarFunc = M->getFunction(scalarFuncName);
     (void)scalarFunc;
     V_ASSERT(scalarFunc && "Could not find function which was masked, but still exist");
   }
@@ -1741,12 +1742,37 @@ void PacketizeFunction::packetizeInstruction(CallInst *CI)
     V_PRINT(packetizer, "\t\t\tDetected synchronization function call.\n");
     // if sync function was mangled - remangle it
     scalarFuncName = origFuncName;
-    scalarFunc = origFunc;
     isMangled = false;
     // "cheat" the function to use the scalar function as the packetized function
     vectorFuncName = scalarFuncName.c_str();
-    LibFunc = m_currFunc->getParent()->getFunction(scalarFuncName);
+    LibFunc = M->getFunction(scalarFuncName);
     V_ASSERT(LibFunc && "sync function is called, but not defined in module");
+  } else if (origFunc->isIntrinsic()) {
+    Intrinsic::ID ID = origFunc->getIntrinsicID();
+    if (!isTriviallyVectorizable(ID)) {
+      V_STAT(m_noVectorFuncCtr++;
+      Scalarize_Function_Call++;)
+      return duplicateNonPacketizableInst(CI);
+    }
+
+    // If the vector intrinsic has scalar operand, and the operand isn't
+    // uniform, then serialize it.
+    for (auto Arg : enumerate(CI->arg_operands())) {
+      if (hasVectorInstrinsicScalarOpd(ID, Arg.index()) &&
+          m_depAnalysis->whichDepend(Arg.value()) != WIAnalysis::UNIFORM) {
+        V_STAT(m_noVectorFuncCtr++;
+        Scalarize_Function_Call++;)
+        return duplicateNonPacketizableInst(CI);
+      }
+    }
+
+    Type *ScalarType = origFunc->getReturnType();
+    V_ASSERT(!ScalarType->isVoidTy() && "Expected non-void function");
+    V_ASSERT(!ScalarType->isVectorTy() &&
+             "Instruction should be scalarized first");
+    SmallVector<Type *, 1> DeclTy{
+        FixedVectorType::get(ScalarType, m_packetWidth)};
+    LibFunc = Intrinsic::getDeclaration(M, ID, DeclTy);
   } else {
     // Look for the function in the builtin functions hash
     unsigned vecWidth = 0;
@@ -1762,8 +1788,8 @@ void PacketizeFunction::packetizeInstruction(CallInst *CI)
       "): "<<Instruction::getOpcodeName(CI->getOpcode()) <<
       " Could not find vectorized version for the function:" <<origFuncName<<
       "\n");
-      V_STAT(m_noVectorFuncCtr++;)
-      Scalarize_Function_Call++; // statistics
+      V_STAT(m_noVectorFuncCtr++;
+      Scalarize_Function_Call++;) // statistics
       return duplicateNonPacketizableInst(CI);
     }
 
@@ -1781,8 +1807,8 @@ void PacketizeFunction::packetizeInstruction(CallInst *CI)
       Instruction::getOpcodeName(CI->getOpcode()) <<
       " Could not find vectorized version for the function in runtime module:"
       << origFuncName << "\n");
-      V_STAT(m_noVectorFuncCtr++;)
-      Scalarize_Function_Call++; // statistics
+      V_STAT(m_noVectorFuncCtr++;
+      Scalarize_Function_Call++;) // statistics
       return duplicateNonPacketizableInst(CI);
     }
   }
@@ -1791,22 +1817,30 @@ void PacketizeFunction::packetizeInstruction(CallInst *CI)
   // TODO:: need better interface for knowing whether function is masked than is mangled
   // TODO:: is it the way we want to support masked calls ?
   // currently we have only the DX calls and this works for them.
-  bool hasNoSideEffects = m_rtServices->hasNoSideEffect(scalarFuncName);
-  bool isVPlanStyleMasking = m_rtServices->needsVPlanStyleMask(scalarFuncName);
-  std::string vectorFuncNameStr = LibFunc->getName().str();
-  bool isMaskedFunctionCall = m_rtServices->isMaskedFunctionCall(vectorFuncNameStr);
-  if (!hasNoSideEffects && isMangled && !isMaskedFunctionCall) {
-    V_PRINT(vectorizer_stat, "<<<<NoVectorFuncCtr("<<__FILE__<<":"<<__LINE__<<"): "<<Instruction::getOpcodeName(CI->getOpcode()) <<" Vectorized version for the function has side effects:" <<origFuncName<<"\n");
-    V_STAT(m_noVectorFuncCtr++;)
-    Scalarize_Function_Call++; // statistics
-    return duplicateNonPacketizableInst(CI);
+  bool isVPlanStyleMasking = false;
+  bool isMaskedFunctionCall = false;
+  if (!origFunc->isIntrinsic()) {
+    bool hasNoSideEffects = m_rtServices->hasNoSideEffect(scalarFuncName);
+    isVPlanStyleMasking = m_rtServices->needsVPlanStyleMask(scalarFuncName);
+    std::string vectorFuncNameStr = LibFunc->getName().str();
+    isMaskedFunctionCall = m_rtServices->isMaskedFunctionCall(vectorFuncNameStr);
+    if (!hasNoSideEffects && isMangled && !isMaskedFunctionCall) {
+      V_PRINT(vectorizer_stat,
+          "<<<<NoVectorFuncCtr(" << __FILE__ << ':' << __LINE__ << "): "
+          << Instruction::getOpcodeName(CI->getOpcode())
+          <<" Vectorized version for the function has side effects:"
+          << origFuncName << '\n');
+      V_STAT(m_noVectorFuncCtr++;
+      Scalarize_Function_Call++;) // statistics
+      return duplicateNonPacketizableInst(CI);
+    }
   }
 
   std::vector<Value *> newArgs;
   if (!obtainNewCallArgs(CI, LibFunc, isMangled, isMaskedFunctionCall, isVPlanStyleMasking, newArgs)) {
     V_PRINT(vectorizer_stat, "<<<<NoVectorFuncCtr("<<__FILE__<<":"<<__LINE__<<"): "<<Instruction::getOpcodeName(CI->getOpcode()) <<" Failed to convert args to vectorized function:" <<origFuncName<<"\n");
-    V_STAT(m_noVectorFuncCtr++;)
-    Scalarize_Function_Call++; // statistics
+    V_STAT(m_noVectorFuncCtr++;
+    Scalarize_Function_Call++;) // statistics
     return duplicateNonPacketizableInst(CI);
   }
 
@@ -1824,7 +1858,7 @@ void PacketizeFunction::packetizeInstruction(CallInst *CI)
                                       oldFnType->isVarArg());
 
   // Find (or create) declaration for newly called function
-  FunctionCallee vectFunctionConst = m_currFunc->getParent()->getOrInsertFunction(
+  FunctionCallee vectFunctionConst = M->getOrInsertFunction(
       LibFunc->getName(), newFnType, LibFunc->getAttributes());
 
   V_ASSERT(vectFunctionConst && "failed generating function in current module");
@@ -1842,8 +1876,8 @@ void PacketizeFunction::packetizeInstruction(CallInst *CI)
   if (!handleCallReturn(CI, newCall)) {
     m_removedInsts.insert(newCall);
     V_PRINT(vectorizer_stat, "<<<<NoVectorFuncCtr("<<__FILE__<<":"<<__LINE__<<"): "<<Instruction::getOpcodeName(CI->getOpcode()) <<" Failed to convert return value to vectorized function:" <<origFuncName<<"\n");
-    V_STAT(m_noVectorFuncCtr++;)
-    Scalarize_Function_Call++; // statistics
+    V_STAT(m_noVectorFuncCtr++;
+    Scalarize_Function_Call++;) // statistics
     return duplicateNonPacketizableInst(CI);
   }
 
@@ -3377,4 +3411,3 @@ extern "C" {
     return new intel::PacketizeFunction(CpuId.GetCPU(), vectorizationDimension);
   }
 }
-
