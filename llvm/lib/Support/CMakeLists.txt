@@ -149,6 +149,7 @@ set (SUPPORT_SOURCES
   MathExtras.cpp
   MemAlloc.cpp
   MemoryBuffer.cpp
+  MemoryBufferRef.cpp
   MD5.cpp
   NativeFormatting.cpp
   OptimizedStructLayout.cpp
