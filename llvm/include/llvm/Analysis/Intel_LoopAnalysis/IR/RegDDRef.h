@@ -369,7 +369,7 @@ public:
   // Returns true if the reference really represents a pointer value equal
   // to the BaseCE: &((%b)[0]).
   bool isSelfAddressOf() const {
-    return isAddressOf() && (getNumDimensions() == 1) &&
+    return isAddressOf() && isSingleDimension() &&
            getSingleCanonExpr()->isZero() && getDimensionLower(1)->isZero() &&
            getTrailingStructOffsets(1).empty() && !getBitCastDestType();
   }
@@ -642,8 +642,8 @@ public:
     return const_cast<RegDDRef *>(this)->getSingleCanonExpr();
   }
 
-  /// Returns true if this DDRef has only one canon expr.
-  bool isSingleCanonExpr() const { return (getNumDimensions() == 1); }
+  /// Returns true if this DDRef has only one dimension.
+  bool isSingleDimension() const { return (getNumDimensions() == 1); }
 
   /// Updates the only Canon Expr of this RegDDRef
   void setSingleCanonExpr(CanonExpr *CE) {
@@ -729,7 +729,7 @@ public:
   /// Else returns true for cases like DDRef - 2*i and M+N.
   bool isTerminalRef() const override {
     if (!hasGEPInfo()) {
-      assert(isSingleCanonExpr() &&
+      assert(isSingleDimension() &&
              "Terminal ref has more than one dimension!");
       return true;
     }

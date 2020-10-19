@@ -509,6 +509,8 @@ void HLInst::verify() const {
   } else if (isa<LoadInst>(Inst)) {
     assert(getRvalDDRef()->isMemRef() &&
            "Rval of load instruction is not a memref!");
+    assert(getLvalDDRef()->isTerminalRef() &&
+           "Lval of load instruction is not a terminal ref!");
 
   } else if (isa<StoreInst>(Inst)) {
     assert(getLvalDDRef()->isMemRef() &&
@@ -517,6 +519,8 @@ void HLInst::verify() const {
   } else if (isa<GetElementPtrInst>(Inst)) {
     assert(getRvalDDRef()->isAddressOf() &&
            "Rval of GEP instruction is not an AddressOf ref!");
+    assert(getLvalDDRef()->isTerminalRef() &&
+           "Lval of GEP instruction is not a terminal ref!");
 
   } else if (isCopyInst()) {
     assert(getLvalDDRef()->isTerminalRef() &&
@@ -601,7 +605,7 @@ std::pair<bool, HLInst *> HLInst::doConstantFolding(bool Invalidate) {
       return std::make_pair(Folded, nullptr);
     }
 
-    RegDDRef *NewRval = removeOperandDDRef(getOperandNum(Result));
+    RegDDRef *NewRval = removeOperandDDRef(Result);
 
     HLInst *NewInst =
         NewRval->isMemRef()

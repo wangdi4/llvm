@@ -36,7 +36,6 @@ using namespace llvm::loopopt;
 using namespace llvm::loopopt::arrayscalarization;
 
 const StringRef ArrayScalarizeTempName = "array-scalarize";
-const StringRef CopyName = "copy";
 
 STATISTIC(HIRArrayScalarizationGroupsPromoted,
           "Number of HIR Array-Scalarization Group(s) Promoted");
@@ -175,44 +174,8 @@ void ArrayScalarizationMemRefGroup::replaceRefWithTmp(HLLoop *Lp, RegDDRef *Ref,
                                                       RegDDRef *TmpRef) {
   assert(TmpRef && "Expect tmp be a valid ptr");
   assert(Ref && "Expect ref be a valid ptr");
-  HLNodeUtils &HNU = Lp->getHLNodeUtils();
-  HLDDNode *DDNode = Ref->getHLDDNode();
-  RegDDRef *TmpRefClone = TmpRef->clone();
 
-  HLInst *HInst = dyn_cast<HLInst>(DDNode);
-  // Handle HLInst* special cases: LoadInst and StoreInst
-  if (HInst) {
-    const Instruction *LLVMInst = HInst->getLLVMInstruction();
-    HLInst *CopyInst = nullptr;
-    RegDDRef *OtherRef = nullptr;
-
-    // StoreInst: replace with a LoadInst or CopyInst depending on the rval.
-    if (isa<StoreInst>(LLVMInst) && Ref->isLval()) {
-      OtherRef = DDNode->removeOperandDDRef(1);
-      if (OtherRef->isMemRef()) {
-        auto LInst = HNU.createLoad(OtherRef, CopyName, TmpRefClone);
-        HLNodeUtils::replace(DDNode, LInst);
-      } else {
-        CopyInst = HNU.createCopyInst(OtherRef, CopyName, TmpRefClone);
-        HLNodeUtils::replace(DDNode, CopyInst);
-      }
-    }
-    // LoadInst: replace with a CopyInst
-    else if (isa<LoadInst>(LLVMInst)) {
-      OtherRef = DDNode->removeOperandDDRef(0);
-      CopyInst = HNU.createCopyInst(TmpRefClone, CopyName, OtherRef);
-      HLNodeUtils::replace(DDNode, CopyInst);
-    }
-    // Neither a Load nor a Store in HLInst*: do regular replacement
-    else {
-      DDNode->replaceOperandDDRef(Ref, TmpRefClone);
-    }
-
-  }
-  // All other cases: do regular replacement
-  else {
-    DDNode->replaceOperandDDRef(Ref, TmpRefClone);
-  }
+  HIRTransformUtils::replaceOperand(Ref, TmpRef->clone());
 }
 
 // handle only groups of {W, R+}

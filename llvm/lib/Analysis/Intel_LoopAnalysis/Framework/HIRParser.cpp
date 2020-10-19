@@ -4914,7 +4914,7 @@ bool HIRParser::delinearizeRefs(ArrayRef<const loopopt::RegDDRef *> GepRefs,
   // Collect all IV strides from refs.
   for (auto &Ref : GepRefs) {
     assert(!Ref->isTerminalRef() && "Expected non-terminal refs only");
-    assert(Ref->getNumDimensions() == 1 && "Expected single dimension refs");
+    assert(Ref->isSingleDimension() && "Expected single dimension refs");
 
     Type *DimType = Ref->getBaseCE()->getDestType();
     if (DimType->getPointerElementType()->isAggregateType() ||

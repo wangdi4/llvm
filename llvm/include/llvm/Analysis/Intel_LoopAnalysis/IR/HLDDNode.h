@@ -398,6 +398,9 @@ public:
   /// Removes and returns the DDRef associated with the Nth operand (starting
   /// with 0).
   RegDDRef *removeOperandDDRef(unsigned OperandNum);
+  RegDDRef *removeOperandDDRef(RegDDRef *OpRef) {
+    return removeOperandDDRef(getOperandNum(OpRef));
+  }
 
   /// Returns the operand number of \p OpRef.
   unsigned getOperandNum(RegDDRef *OpRef) const;

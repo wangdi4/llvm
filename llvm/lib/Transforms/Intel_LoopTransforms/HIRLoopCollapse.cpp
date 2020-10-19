@@ -439,15 +439,6 @@ unsigned HIRLoopCollapse::getNumCollapsableLevels(RegDDRef *GEPRef) {
   // Note that references to variable length arrays are linearized into one
   // dimension and handled in getLevelsOfIVPattern(), not here.
 
-  // Check the index of the lowest dimension and bail out early if it is not
-  // valid. Index of other dimensions is checked inside the loop later.
-  CanonExpr *LowestIndexCE = GEPRef->getDimensionIndex(1);
-  unsigned Level = UINT_MAX;
-  if (!LowestIndexCE->isStandAloneIV(true, &Level) ||
-      (Level != InnermostLevel)) {
-    return 0;
-  }
-
   unsigned NewNumCollapsableLevels =
       std::min(GEPRef->getNumDimensions(), NumCollapsableLoops);
 
@@ -459,17 +450,31 @@ unsigned HIRLoopCollapse::getNumCollapsableLevels(RegDDRef *GEPRef) {
 
     // This dimension is collapse-able with the lower dimension if-
     // 1) It is contiguous with the lower dimension, and
-    // 2) The index of both dimensions is a standalone IV, and
-    // 3) The trip count of inner loop matches the number of elements in the
+    // 2) The index of inner dimension is a standalone IV, and
+    // 3) The index of outer dimension has outer standalone IV, and
+    // 4) The trip count of inner loop matches the number of elements in the
     // lower dimension.
 
-    bool Collapsable =
-        !GEPRef->hasTrailingStructOffsets(Idx) &&
-        UBTCArry[InnerLoopLevel].isConstant() &&
-        GEPRef->getDimensionIndex(Idx)->isStandAloneIV(true, &Level) &&
-        (Level == InnerLoopLevel - 1) &&
-        (UBTCArry[InnerLoopLevel].getTripCount() ==
-         GEPRef->getNumDimensionElements(Idx - 1));
+    unsigned IVBlob;
+    int64_t IVCoeff;
+
+    auto *OuterIdxCE = GEPRef->getDimensionIndex(Idx);
+    OuterIdxCE->getIVCoeff(InnerLoopLevel - 1, &IVBlob, &IVCoeff);
+
+    bool OuterDimCollapsible = !GEPRef->hasTrailingStructOffsets(Idx) &&
+                               IVBlob == InvalidBlobIndex && IVCoeff == 1 &&
+                               OuterIdxCE->getDenominator() == 1;
+
+    unsigned InnerDimIVLevel = UINT_MAX;
+    bool InnerDimCollapsible =
+        GEPRef->getDimensionIndex(Idx - 1)->isStandAloneIV(true,
+                                                           &InnerDimIVLevel) &&
+        (InnerDimIVLevel == InnerLoopLevel);
+
+    bool Collapsable = OuterDimCollapsible && InnerDimCollapsible &&
+                       UBTCArry[InnerLoopLevel].isConstant() &&
+                       (UBTCArry[InnerLoopLevel].getTripCount() ==
+                        GEPRef->getNumDimensionElements(Idx - 1));
 
     if (!Collapsable) {
       break;

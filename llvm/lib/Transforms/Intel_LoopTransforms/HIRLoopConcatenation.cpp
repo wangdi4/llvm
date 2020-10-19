@@ -564,7 +564,7 @@ bool HIRLoopConcatenation::isValidFunctionArgumentLoad(HLInst *HInst) const {
 
   auto RvalRef = HInst->getRvalDDRef();
 
-  if (RvalRef->getNumDimensions() != 1) {
+  if (!RvalRef->isSingleDimension()) {
     return false;
   }
 

@@ -101,7 +101,7 @@ void CollectMemRefs::visit(HLDDNode *Node) {
       continue;
     }
 
-    if (!Ref->isSingleCanonExpr()) {
+    if (!Ref->isSingleDimension()) {
       CanDeleteCandidateInst = false;
       continue;
     }

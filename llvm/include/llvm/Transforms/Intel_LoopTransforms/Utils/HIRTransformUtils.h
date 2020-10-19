@@ -381,6 +381,13 @@ public:
   /// It is user's responisbility.
   static void setSelfBlobDDRef(RegDDRef *Ref, BlobTy Blob,
                                unsigned BlobIndex);
+
+  /// Replaces \p OldRef in its HLDDNode by \p NewRef. It returns the node where
+  /// the replacement was performed. This may be different than the original
+  /// node if creating a new one was necessary for replacement. Old node will be
+  /// replaced by the new one in this case. Note: This utility does not
+  /// invalidate analyses.
+  static HLDDNode *replaceOperand(RegDDRef *OldRef, RegDDRef *NewRef);
 };
 
 } // End namespace loopopt

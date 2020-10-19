@@ -364,7 +364,7 @@ static MVCandidate checkCandidateDDRef(const RegDDRef *Ref, const HLLoop *Lp,
 
   // For now, the ref is required to have a single CanonExpr.
   // Update the transformation to handle multi-dimensional refs if needed.
-  if (!Ref->isSingleCanonExpr()) {
+  if (!Ref->isSingleDimension()) {
     LLVM_DEBUG(dbgs() << "  Ref has multile CanonExprs\n");
     return {};
   }

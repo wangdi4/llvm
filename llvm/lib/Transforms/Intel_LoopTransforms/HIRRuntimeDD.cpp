@@ -726,7 +726,7 @@ tryDelinearization(const HLLoop *Loop, const HLLoop *InnermostLoop,
 
     // Bail out if any ref has more than one dimension.
     if (std::any_of(Group.begin(), Group.end(), [](const RegDDRef *Ref) {
-          return !Ref->isSingleCanonExpr();
+          return !Ref->isSingleDimension();
         })) {
 
       if (IsAlreadySorted(I)) {

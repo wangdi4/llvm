@@ -785,7 +785,7 @@ public:
       // Bail out if any ref has more than one dimension.
       // TODO: fold this logic into the util.
       if (std::any_of(Refs.begin(), Refs.end(), [](const RegDDRef *Ref) {
-            return !Ref->isSingleCanonExpr();
+            return !Ref->isSingleDimension();
           })) {
         return NON_SIV;
       }
