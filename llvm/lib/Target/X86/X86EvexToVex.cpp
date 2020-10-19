@@ -156,6 +156,7 @@ static bool performCustomAdjustments(MachineInstr &MI, unsigned NewOpc, // INTEL
   unsigned Opc = MI.getOpcode();
   switch (Opc) {
 #if INTEL_CUSTOMIZATION
+    // FIXME: Adding other AVX512 instructions here to prevent EVEX to VEX.
 #if INTEL_FEATURE_ISA_AVX_VNNI
   case X86::VPDPBUSDSZ256m:
   case X86::VPDPBUSDSZ256r:
@@ -175,6 +176,9 @@ static bool performCustomAdjustments(MachineInstr &MI, unsigned NewOpc, // INTEL
   case X86::VPDPWSSDZ128r:
     // These can only VEX convert if AVXVNNI is enabled.
     return ST->hasAVXVNNI();
+  case X86::VMEMADVISEZ256mr:
+  case X86::VMEMADVISEZ128mr:
+    return ST->hasAVXMEMADVISE();
 #endif // INTEL_FEATURE_ISA_AVX_VNNI
 #endif // INTEL_CUSTOMIZATION
   case X86::VALIGNDZ128rri:

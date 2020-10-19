@@ -8293,7 +8293,7 @@ defm VMOVADVISEW256 : VMOVADVISEW_mr<"vmovadvisew", VR256, i256mem,
                                      SchedWriteFMoveLS.YMM>, VEX_L;
 
 multiclass VMEMADVISE_mi {
-  let Predicates  = [HasAVXMEMADVISE, In64BitMode] in {
+  let Predicates  = [HasAVXMEMADVISE, NoVLX_Or_NoMEMADVISE, In64BitMode] in {
       def mr  : Ii8<0x71, MRMDestMemImm8, (outs),
                     (ins i128mem:$dst, u8imm:$src),
                     "vmemadvise{x}\t{$src, $dst|$dst, $src}",
