@@ -429,9 +429,8 @@ _pi_queue::resetCommandListFenceEntry(ze_command_list_handle_t ZeCommandList,
   ZE_CALL(zeFenceReset(this->ZeCommandListFenceMap[ZeCommandList]));
   ZE_CALL(zeCommandListReset(ZeCommandList));
   if (MakeAvailable) {
-    this->Device->ZeCommandListCacheMutex.lock();
+    std::lock_guard<std::mutex> lock(this->Device->ZeCommandListCacheMutex);
     this->Device->ZeCommandListCache.push_back(ZeCommandList);
-    this->Device->ZeCommandListCacheMutex.unlock();
   }
 
   return PI_SUCCESS;
@@ -490,21 +489,25 @@ pi_result _pi_device::getAvailableCommandList(
   // Initally, we need to check if a command list has already been created
   // on this device that is available for use. If so, then reuse that
   // Level-Zero Command List and Fence for this PI call.
-  if (Queue->Device->ZeCommandListCache.size() > 0) {
-    Queue->Device->ZeCommandListCacheMutex.lock();
-    *ZeCommandList = Queue->Device->ZeCommandListCache.front();
-    *ZeFence = Queue->ZeCommandListFenceMap[*ZeCommandList];
-    if (*ZeFence == nullptr) {
-      // If there is a command list available on this device, but no fence yet
-      // associated, then we must create a fence/list reference for this Queue.
-      // Can happen if two Queues reuse a device which did not have the
-      // resources freed.
-      ZE_CALL(zeFenceCreate(Queue->ZeCommandQueue, &ZeFenceDesc, ZeFence));
-      Queue->ZeCommandListFenceMap[*ZeCommandList] = *ZeFence;
+  {
+    // Make sure to acquire the lock before checking the size, or there
+    // will be a race condition.
+    std::lock_guard<std::mutex> lock(Queue->Device->ZeCommandListCacheMutex);
+
+    if (Queue->Device->ZeCommandListCache.size() > 0) {
+      *ZeCommandList = Queue->Device->ZeCommandListCache.front();
+      *ZeFence = Queue->ZeCommandListFenceMap[*ZeCommandList];
+      if (*ZeFence == nullptr) {
+        // If there is a command list available on this device, but no
+        // fence yet associated, then we must create a fence/list
+        // reference for this Queue. This can happen if two Queues reuse
+        // a device which did not have the resources freed.
+        ZE_CALL(zeFenceCreate(Queue->ZeCommandQueue, &ZeFenceDesc, ZeFence));
+        Queue->ZeCommandListFenceMap[*ZeCommandList] = *ZeFence;
+      }
+      Queue->Device->ZeCommandListCache.pop_front();
+      return PI_SUCCESS;
     }
-    Queue->Device->ZeCommandListCache.pop_front();
-    Queue->Device->ZeCommandListCacheMutex.unlock();
-    return PI_SUCCESS;
   }
 
   // If there are no available command lists in the cache, then we check for
@@ -1936,34 +1939,50 @@ pi_result piMemBufferCreate(pi_context Context, pi_mem_flags Flags, size_t Size,
   assert(RetMem);
 
   void *Ptr;
+  ze_device_handle_t ZeDevice = Context->Devices[0]->ZeDevice;
 
-  ze_device_mem_alloc_desc_t ZeDeviceMemDesc = {};
-  ZeDeviceMemDesc.flags = 0;
-  ZeDeviceMemDesc.ordinal = 0;
+  // We treat integrated devices (physical memory shared with the CPU)
+  // differently from discrete devices (those with distinct memories).
+  // For integrated devices, allocating the buffer in host shared memory
+  // enables automatic access from the device, and makes copying
+  // unnecessary in the map/unmap operations. This improves performance.
+  bool DeviceIsIntegrated = Context->Devices.size() == 1 &&
+                            Context->Devices[0]->ZeDeviceProperties.flags &
+                                ZE_DEVICE_PROPERTY_FLAG_INTEGRATED;
 
-  if (Context->Devices.size() == 1) {
-    ZE_CALL(zeMemAllocDevice(Context->ZeContext, &ZeDeviceMemDesc, Size,
-                             1, // TODO: alignment
-                             Context->Devices[0]->ZeDevice, &Ptr));
+  if (DeviceIsIntegrated) {
+    ze_host_mem_alloc_desc_t ZeDesc = {};
+    ZeDesc.flags = 0;
+
+    ZE_CALL(zeMemAllocHost(Context->ZeContext, &ZeDesc, Size, 1, &Ptr));
+
   } else {
-    ze_host_mem_alloc_desc_t ZeHostMemDesc = {};
-    ZeHostMemDesc.flags = 0;
-    ZE_CALL(zeMemAllocShared(Context->ZeContext, &ZeDeviceMemDesc,
-                             &ZeHostMemDesc, Size,
-                             1,       // TODO: alignment
-                             nullptr, // not bound to any device
-                             &Ptr));
+    ze_device_mem_alloc_desc_t ZeDesc = {};
+    ZeDesc.flags = 0;
+    ZeDesc.ordinal = 0;
+
+    ZE_CALL(
+        zeMemAllocDevice(Context->ZeContext, &ZeDesc, Size, 1, ZeDevice, &Ptr));
   }
+  if (HostPtr) {
+    if ((Flags & PI_MEM_FLAGS_HOST_PTR_USE) != 0 ||
+        (Flags & PI_MEM_FLAGS_HOST_PTR_COPY) != 0) {
+      // Initialize the buffer with user data
+      if (DeviceIsIntegrated) {
+        // Do a host to host copy
+        memcpy(Ptr, HostPtr, Size);
+      } else {
 
-  if ((Flags & PI_MEM_FLAGS_HOST_PTR_USE) != 0 ||
-      (Flags & PI_MEM_FLAGS_HOST_PTR_COPY) != 0) {
-    // Initialize the buffer synchronously with immediate offload
-    ZE_CALL(zeCommandListAppendMemoryCopy(Context->ZeCommandListInit, Ptr,
-                                          HostPtr, Size, nullptr, 0, nullptr));
-  } else if (Flags == 0 || (Flags == PI_MEM_FLAGS_ACCESS_RW)) {
-    // Nothing more to do.
-  } else {
-    die("piMemBufferCreate: not implemented");
+        // Initialize the buffer synchronously with immediate offload
+        ZE_CALL(zeCommandListAppendMemoryCopy(Context->ZeCommandListInit, Ptr,
+                                              HostPtr, Size, nullptr, 0,
+                                              nullptr));
+      }
+    } else if (Flags == 0 || (Flags == PI_MEM_FLAGS_ACCESS_RW)) {
+      // Nothing more to do.
+    } else {
+      die("piMemBufferCreate: not implemented");
+    }
   }
 
   auto HostPtrOrNull =
@@ -1971,7 +1990,8 @@ pi_result piMemBufferCreate(pi_context Context, pi_mem_flags Flags, size_t Size,
   try {
     *RetMem = new _pi_buffer(
         Context, pi_cast<char *>(Ptr) /* Level Zero Memory Handle */,
-        HostPtrOrNull);
+        HostPtrOrNull, nullptr, 0, 0,
+        DeviceIsIntegrated /* Flag indicating allocation in host memory */);
   } catch (const std::bad_alloc &) {
     return PI_OUT_OF_HOST_MEMORY;
   } catch (...) {
@@ -3364,6 +3384,38 @@ pi_result piEventGetProfilingInfo(pi_event Event, pi_profiling_info ParamName,
   return PI_SUCCESS;
 }
 
+// Recycle the command list associated with this event.
+static void recycleEventCommandList(pi_event Event) {
+  // The implementation of this is slightly tricky.  The same event
+  // can be referred to by multiple threads, so it is possible to
+  // have a race condition between the read of ZeCommandList and
+  // it being reset to nullptr in another thread.
+  // But, since the ZeCommandList is uniquely associated with the queue
+  // for the event, we use the locking that we already have to do on the
+  // queue to also serve as the thread safety mechanism for the
+  // Event's ZeCommandList.
+  auto Queue = Event->Queue;
+
+  // Lock automatically releases when this goes out of scope.
+  std::lock_guard<std::mutex> lock(Queue->PiQueueMutex);
+
+  auto EventCommandList = Event->ZeCommandList;
+
+  if (EventCommandList) {
+    // Event has been signaled: If the fence for the associated command list
+    // is signalled, then reset the fence and command list and add them to the
+    // available list for reuse in PI calls.
+    if (Queue->RefCount > 0) {
+      ze_result_t ZeResult = ZE_CALL_NOCHECK(
+          zeFenceQueryStatus(Queue->ZeCommandListFenceMap[EventCommandList]));
+      if (ZeResult == ZE_RESULT_SUCCESS) {
+        Queue->resetCommandListFenceEntry(EventCommandList, true);
+        Event->ZeCommandList = nullptr;
+      }
+    }
+  }
+}
+
 pi_result piEventsWait(pi_uint32 NumEvents, const pi_event *EventList) {
 
   if (NumEvents && !EventList) {
@@ -3390,26 +3442,7 @@ pi_result piEventsWait(pi_uint32 NumEvents, const pi_event *EventList) {
 
     // NOTE: we are destroying associated command lists here to free
     // resources sooner in case RT is not calling piEventRelease soon enough.
-    if (EventList[I]->ZeCommandList) {
-      // Event has been signaled: If the fence for the associated command list
-      // is signalled, then reset the fence and command list and add them to the
-      // available list for reuse in PI calls.
-      auto Queue = EventList[I]->Queue;
-
-      // Lock automatically releases when this goes out of scope.
-      std::lock_guard<std::mutex> lock(Queue->PiQueueMutex);
-
-      if (Queue->RefCount > 0) {
-        ze_result_t ZeResult = ZE_CALL_NOCHECK(zeFenceQueryStatus(
-            EventList[I]
-                ->Queue->ZeCommandListFenceMap[EventList[I]->ZeCommandList]));
-        if (ZeResult == ZE_RESULT_SUCCESS) {
-          EventList[I]->Queue->resetCommandListFenceEntry(
-              EventList[I]->ZeCommandList, true);
-          EventList[I]->ZeCommandList = nullptr;
-        }
-      }
-    }
+    recycleEventCommandList(EventList[I]);
   }
   return PI_SUCCESS;
 }
@@ -3436,24 +3469,8 @@ pi_result piEventRetain(pi_event Event) {
 pi_result piEventRelease(pi_event Event) {
   assert(Event);
   if (--(Event->RefCount) == 0) {
-    if (Event->ZeCommandList) {
-      // If the fence associated with this command list has signalled, then
-      // Reset the Command List Used in this event and put it back on the
-      // available list.
-      auto Queue = Event->Queue;
+    recycleEventCommandList(Event);
 
-      // Lock automatically releases when this goes out of scope.
-      std::lock_guard<std::mutex> lock(Queue->PiQueueMutex);
-
-      if (Queue->RefCount > 0) {
-        ze_result_t ZeResult = ZE_CALL_NOCHECK(zeFenceQueryStatus(
-            Event->Queue->ZeCommandListFenceMap[Event->ZeCommandList]));
-        if (ZeResult == ZE_RESULT_SUCCESS) {
-          Event->Queue->resetCommandListFenceEntry(Event->ZeCommandList, true);
-        }
-      }
-      Event->ZeCommandList = nullptr;
-    }
     if (Event->CommandType == PI_COMMAND_TYPE_MEM_BUFFER_UNMAP &&
         Event->CommandData) {
       // Free the memory allocated in the piEnqueueMemBufferMap.
@@ -4061,17 +4078,11 @@ piEnqueueMemBufferMap(pi_queue Queue, pi_mem Buffer, pi_bool BlockingMap,
   assert(Buffer);
   assert(Queue);
 
-  // Lock automatically releases when this goes out of scope.
-  std::lock_guard<std::mutex> lock(Queue->PiQueueMutex);
-
-  // Get a new command list to be used on this call
+  // For discrete devices we don't need a commandlist
   ze_command_list_handle_t ZeCommandList = nullptr;
   ze_fence_handle_t ZeFence = nullptr;
-  if (auto Res = Queue->Device->getAvailableCommandList(Queue, &ZeCommandList,
-                                                        &ZeFence))
-    return Res;
-
   ze_event_handle_t ZeEvent = nullptr;
+
   if (Event) {
     auto Res = piEventCreate(Queue->Context, Event);
     if (Res != PI_SUCCESS)
@@ -4084,38 +4095,63 @@ piEnqueueMemBufferMap(pi_queue Queue, pi_mem Buffer, pi_bool BlockingMap,
     ZeEvent = (*Event)->ZeEvent;
   }
 
+  // TODO: Level Zero is missing the memory "mapping" capabilities, so we are
+  // left to doing new memory allocation and a copy (read) on discrete devices.
+  // On integrated devices  we have allocated the buffer in host memory
+  // so no actions are needed here except for synchronizing on incoming events
+  // and doing a host-to-host copy if a host pointer had been supplied
+  // during buffer creation.
+  //
+  // TODO: for discrete, check if the input buffer is already allocated
+  // in shared memory and thus is accessible from the host as is.
+  // Can we get SYCL RT to predict/allocate in shared memory
+  // from the beginning?
+  //
+  // On integrated devices the buffer has been allocated in host memory.
+  if (Buffer->OnHost) {
+    // Wait on incoming events before doing the copy
+    piEventsWait(NumEventsInWaitList, EventWaitList);
+    if (Buffer->MapHostPtr) {
+      *RetMap = Buffer->MapHostPtr + Offset;
+      memcpy(*RetMap, pi_cast<char *>(Buffer->getZeHandle()) + Offset, Size);
+    } else {
+      *RetMap = pi_cast<char *>(Buffer->getZeHandle()) + Offset;
+    }
+
+    // Signal this event
+    ZE_CALL(zeEventHostSignal(ZeEvent));
+
+    return Buffer->addMapping(*RetMap, Offset, Size);
+  }
+
+  // Lock automatically releases when this goes out of scope.
+  std::lock_guard<std::mutex> lock(Queue->PiQueueMutex);
+
+  // For discrete devices we need a command list
+  if (auto Res = Queue->Device->getAvailableCommandList(Queue, &ZeCommandList,
+                                                        &ZeFence))
+    return Res;
+
+  // Set the commandlist in the event
+  if (Event) {
+    (*Event)->ZeCommandList = ZeCommandList;
+  }
+
   ze_event_handle_t *ZeEventWaitList =
       _pi_event::createZeEventList(NumEventsInWaitList, EventWaitList);
 
-  ZE_CALL(zeCommandListAppendWaitOnEvents(ZeCommandList, NumEventsInWaitList,
-                                          ZeEventWaitList));
-
-  // TODO: Level Zero is missing the memory "mapping" capabilities, so we are
-  // left to doing new memory allocation and a copy (read).
-  // See https://gitlab.devtools.intel.com/one-api/level_zero/issues/293. // INTEL
-  //
-  // TODO: check if the input buffer is already allocated in shared
-  // memory and thus is accessible from the host as is. Can we get SYCL RT
-  // to predict/allocate in shared memory from the beginning?
   if (Buffer->MapHostPtr) {
-    // NOTE: borrowing below semantics from OpenCL as SYCL RT relies on it.
-    // It is also better for performance.
-    //
-    // "If the buffer object is created with CL_MEM_USE_HOST_PTR set in
-    // mem_flags, the following will be true:
-    // - The host_ptr specified in clCreateBuffer is guaranteed to contain the
-    //   latest bits in the region being mapped when the clEnqueueMapBuffer
-    //   command has completed.
-    // - The pointer value returned by clEnqueueMapBuffer will be derived from
-    //   the host_ptr specified when the buffer object is created."
     *RetMap = Buffer->MapHostPtr + Offset;
   } else {
     ze_host_mem_alloc_desc_t ZeDesc = {};
     ZeDesc.flags = 0;
-    ZE_CALL(zeMemAllocHost(Queue->Context->ZeContext, &ZeDesc, Size,
-                           1, // TODO: alignment
-                           RetMap));
+
+    ZE_CALL(
+        zeMemAllocHost(Queue->Context->ZeContext, &ZeDesc, Size, 1, RetMap));
   }
+
+  ZE_CALL(zeCommandListAppendWaitOnEvents(ZeCommandList, NumEventsInWaitList,
+                                          ZeEventWaitList));
 
   ZE_CALL(zeCommandListAppendMemoryCopy(
       ZeCommandList, *RetMap, pi_cast<char *>(Buffer->getZeHandle()) + Offset,
@@ -4134,15 +4170,10 @@ pi_result piEnqueueMemUnmap(pi_queue Queue, pi_mem MemObj, void *MappedPtr,
                             const pi_event *EventWaitList, pi_event *Event) {
   assert(Queue);
 
-  // Lock automatically releases when this goes out of scope.
-  std::lock_guard<std::mutex> lock(Queue->PiQueueMutex);
-
-  // Get a new command list to be used on this call
+  // Integrated devices don't need a command list.
+  // If discrete we will get a commandlist later.
   ze_command_list_handle_t ZeCommandList = nullptr;
   ze_fence_handle_t ZeFence = nullptr;
-  if (auto Res = Queue->Device->getAvailableCommandList(Queue, &ZeCommandList,
-                                                        &ZeFence))
-    return Res;
 
   // TODO: handle the case when user does not care to follow the event
   // of unmap completion.
@@ -4161,6 +4192,46 @@ pi_result piEnqueueMemUnmap(pi_queue Queue, pi_mem MemObj, void *MappedPtr,
     ZeEvent = (*Event)->ZeEvent;
   }
 
+  _pi_mem::Mapping MapInfo = {};
+  if (pi_result Res = MemObj->removeMapping(MappedPtr, MapInfo))
+    return Res;
+
+  // NOTE: we still have to free the host memory allocated/returned by
+  // piEnqueueMemBufferMap, but can only do so after the above copy
+  // is completed. Instead of waiting for It here (blocking), we shall
+  // do so in piEventRelease called for the pi_event tracking the unmap.
+  // In the case of an integrated device, the map operation does not allocate
+  // any memory, so there is nothing to free. This is indicated by a nullptr.
+  if (Event)
+    (*Event)->CommandData =
+        (MemObj->OnHost ? nullptr : (MemObj->MapHostPtr ? nullptr : MappedPtr));
+
+  // On integrated devices the buffer is allocated in host memory.
+  if (MemObj->OnHost) {
+    // Wait on incoming events before doing the copy
+    piEventsWait(NumEventsInWaitList, EventWaitList);
+    if (MemObj->MapHostPtr)
+      memcpy(pi_cast<char *>(MemObj->getZeHandle()) + MapInfo.Offset, MappedPtr,
+             MapInfo.Size);
+
+    // Signal this event
+    ZE_CALL(zeEventHostSignal(ZeEvent));
+
+    return PI_SUCCESS;
+  }
+
+  // Lock automatically releases when this goes out of scope.
+  std::lock_guard<std::mutex> lock(Queue->PiQueueMutex);
+
+  if (auto Res = Queue->Device->getAvailableCommandList(Queue, &ZeCommandList,
+                                                        &ZeFence))
+    return Res;
+
+  // Set the commandlist in the event
+  if (Event) {
+    (*Event)->ZeCommandList = ZeCommandList;
+  }
+
   ze_event_handle_t *ZeEventWaitList =
       _pi_event::createZeEventList(NumEventsInWaitList, EventWaitList);
 
@@ -4169,24 +4240,13 @@ pi_result piEnqueueMemUnmap(pi_queue Queue, pi_mem MemObj, void *MappedPtr,
 
   // TODO: Level Zero is missing the memory "mapping" capabilities, so we are
   // left to doing copy (write back to the device).
-  // See https://gitlab.devtools.intel.com/one-api/level_zero/issues/293. // INTEL
   //
   // NOTE: Keep this in sync with the implementation of
   // piEnqueueMemBufferMap/piEnqueueMemImageMap.
-  _pi_mem::Mapping MapInfo = {};
-  if (pi_result Res = MemObj->removeMapping(MappedPtr, MapInfo))
-    return Res;
 
   ZE_CALL(zeCommandListAppendMemoryCopy(
       ZeCommandList, pi_cast<char *>(MemObj->getZeHandle()) + MapInfo.Offset,
       MappedPtr, MapInfo.Size, ZeEvent, 0, nullptr));
-
-  // NOTE: we still have to free the host memory allocated/returned by
-  // piEnqueueMemBufferMap, but can only do so after the above copy
-  // is completed. Instead of waiting for It here (blocking), we shall
-  // do so in piEventRelease called for the pi_event tracking the unmap.
-  if (Event)
-    (*Event)->CommandData = MemObj->MapHostPtr ? nullptr : MappedPtr;
 
   // Execute command list asynchronously, as the event will be used
   // to track down its completion.

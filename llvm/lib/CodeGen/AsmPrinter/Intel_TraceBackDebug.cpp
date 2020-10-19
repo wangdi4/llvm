@@ -28,12 +28,6 @@ using namespace llvm;
 TraceBackDebug::TraceBackDebug(AsmPrinter *A) : DebugHandlerBase(A) {
   assert(Asm->TM.getTargetTriple().isX86() &&
          "traceback is only supported on x86");
-  // Module name(always empty) and format version (always 2.00) in ICC's current
-  // implementation. Unlike DWARF, we only want to support the latest version of
-  // traceback. So the version info is used to debug only for developers.
-  DebugModule =
-      std::make_unique<TraceModule>(Asm->getPointerSize(), /*Version=*/200,
-                                    /*Name=*/std::string());
 }
 
 void TraceBackDebug::addLineInfo(const MachineInstr *MI) {
@@ -41,7 +35,16 @@ void TraceBackDebug::addLineInfo(const MachineInstr *MI) {
   DebugHandlerBase::beginInstruction(MI);
   MCSymbol *Begin = getLabelBeforeInsn(MI);
   unsigned Line = MI->getDebugLoc().getLine();
-  DebugModule->addLine(Line, Begin);
+  DebugModules.back().addLine(Line, Begin);
+}
+
+void TraceBackDebug::addInitialLineInfo(const MachineInstr *MI) {
+  DebugHandlerBase::beginInstruction(MI);
+  const Function &F = MI->getMF()->getFunction();
+  const DISubprogram *SP = F.getSubprogram();
+  unsigned Line = SP->getScopeLine(); // Start line of the function.
+  MCSymbol *Begin = Asm->getSymbol(&F);
+  DebugModules.back().addLine(Line, Begin);
 }
 
 // Get the filename(excluding the path to it).
@@ -51,8 +54,15 @@ static std::string getFilename(const DIFile *File) {
   return (Pos == std::string::npos) ? PathName : PathName.substr(Pos + 1);
 }
 
+static bool isInSameSection(const MCSymbol *LHS, const MCSymbol *RHS) {
+  if (!LHS || !RHS)
+    return false;
+  return &(LHS->getSection()) == &(RHS->getSection());
+}
+
 void TraceBackDebug::beginFunctionImpl(const MachineFunction *MF) {
-  const DISubprogram *SP = MF->getFunction().getSubprogram();
+  const Function &F = MF->getFunction();
+  const DISubprogram *SP = F.getSubprogram();
   const DIFile *File = SP->getFile();
 
   if (FileToIndex.find(File) == FileToIndex.end()) {
@@ -63,23 +73,31 @@ void TraceBackDebug::beginFunctionImpl(const MachineFunction *MF) {
     FileToIndex.insert({File, FileToIndex.size()});
   }
 
-  if (File != PrevFile) {
-    // Add a new file to debug module.
-    DebugModule->addFile(getFilename(File), FileToIndex[File]);
+  MCSymbol *Begin = Asm->getSymbol(&F);
+  if (!isInSameSection(Begin, PrevFnSym)) {
+    // Add a new module.
+    DebugModules.push_back(new TraceModule(Asm->getPointerSize()));
   }
 
-  // Add a new routine to debug module.
+  if (File != PrevFile || DebugModules.back().empty()) {
+    // Add a new file to debug module.
+    DebugModules.back().addFile(getFilename(File), FileToIndex[File]);
+  }
+
   unsigned Line = SP->getScopeLine(); // Start line of the function.
   const std::string &RoutineName = SP->getName().str();
-  MCSymbol *Begin = Asm->getFunctionBegin();
   assert(Begin && Begin->isDefined() && "Expect defined begin label");
-  DebugModule->addRoutine(RoutineName, Line, Begin);
+  DebugModules.back().addRoutine(RoutineName, Line, Begin);
 }
 
 void TraceBackDebug::endFunctionImpl(const MachineFunction *MF) {
   MCSymbol *End = Asm->getFunctionEnd();
   assert(End && End->isDefined() && "Expect defined end label");
-  DebugModule->endRoutine(End);
+  DebugModules.back().endRoutine(End);
+
+  // Track the begin symbol of the previous machine function.
+  // It is used to check if a new section starts in beginFunctionImpl.
+  PrevFnSym = Asm->getFunctionBegin();
 
   // Track the file where the previous subprogram is contained.
   // It is used to check if a new file starts in beginFunctionImpl.
@@ -106,15 +124,49 @@ void TraceBackDebug::beginInstruction(const MachineInstr *MI) {
   const DebugLoc &DL = MI->getDebugLoc();
   // We won't add a line record for the instruction when
   // - If no need to emit debug info.
-  // - If this is a meta-instruction, such as DBG_VALUE and CFI locations.
+  // - If this is a meta-instruction, such as DBG_VALUE and CFI locations
+  //   so it doesn't produce any executable instruction.
+  if (!doesEmitDebugInfo(MI) || MI->isMetaInstruction()) {
+    DebugHandlerBase::beginInstruction(MI);
+    return;
+  }
+
+  // We won't add a line record for the instruction when
   // - If the instruction is part of the function frame setup code, do not
   //   emit any line record, as there is no correspondence with any user code.
   // - If we don't have a usable location.
   // - If source line doesn't change.
-  if (!doesEmitDebugInfo(MI) || MI->isMetaInstruction() ||
-      MI->getFlag(MachineInstr::FrameSetup) || !isUsableDebugLoc(DL) ||
-      DebugModule->getLastLineNo() == DL.getLine()) {
-    DebugHandlerBase::beginInstruction(MI);
+  //
+  // except when the current routine is empty.
+  //
+  // The explanation for this exception is:
+  // For the records in .trace section, libirc assumes that the first record's
+  // address is same as the function and accumulates delta PC to get the address
+  // of the latters, e.g
+  //
+  // \code
+  //  main:
+  //  .L0:
+  //    xorl    %eax, %eax
+  //    movl    $0, -4(%rsp)
+  //  .L1:
+  //    subl    $1, %eax
+  //  .L2
+  //    addl    $1, %eax
+  //    retq
+  // \endcode
+  //
+  // If there was no record for instructions between .L0 and .L1 emitted, the
+  // address of subl would be assumed to be same as main, which was obviously
+  // wrong.
+  // The address of addl could be calculated as main+.L2-.L0, so it's fine not
+  // to emit records for subl.
+  if (MI->getFlag(MachineInstr::FrameSetup) || !isUsableDebugLoc(DL) ||
+      DebugModules.back().getLastLineNo() == DL.getLine()) {
+    if (DebugModules.back().isLastRoutineEmpty())
+      addInitialLineInfo(MI);
+    else
+      DebugHandlerBase::beginInstruction(MI);
     return;
   }
 
@@ -122,6 +174,8 @@ void TraceBackDebug::beginInstruction(const MachineInstr *MI) {
 }
 
 void TraceBackDebug::endModule() {
-  DebugModule->endModule();
-  DebugModule->emit(*(Asm->OutStreamer));
+  for (auto &Module : DebugModules) {
+    Module.endModule();
+    Module.emit(*(Asm->OutStreamer));
+  }
 }

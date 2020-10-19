@@ -8291,6 +8291,25 @@ defm VMOVADVISEW256 : VMOVADVISEW_mr<"vmovadvisew", VR256, i256mem,
                                      int_x86_avx2_vmovadvisew_load_256,
                                      int_x86_avx2_vmovadvisew_store_256,
                                      SchedWriteFMoveLS.YMM>, VEX_L;
+
+multiclass VMEMADVISE_mi {
+  let Predicates  = [HasAVXMEMADVISE, In64BitMode] in {
+      def mr  : Ii8<0x71, MRMDestMemImm8, (outs),
+                    (ins i128mem:$dst, u8imm:$src),
+                    "vmemadvise{x}\t{$src, $dst|$dst, $src}",
+                    [(int_x86_avx2_vmemadvise_128 addr:$dst, timm:$src)]>,
+                    Sched<[SchedWriteFMoveLS.XMM.MR]>,
+                    NotMemoryFoldable, XD, VEX;
+      def Ymr : Ii8<0x71, MRMDestMemImm8, (outs),
+                    (ins i256mem:$dst, u8imm:$src),
+                    "vmemadvise{y}\t{$src, $dst|$dst, $src}",
+                    [(int_x86_avx2_vmemadvise_256 addr:$dst, timm:$src)]>,
+                    Sched<[SchedWriteFMoveLS.YMM.MR]>,
+                    NotMemoryFoldable, XD, VEX, VEX_L;
+  }
+}
+
+defm VMEMADVISE : VMEMADVISE_mi;
 #endif // INTEL_FEATURE_ISA_AVX_MEMADVISE
 
 #if INTEL_FEATURE_ISA_AVX_COMPRESS

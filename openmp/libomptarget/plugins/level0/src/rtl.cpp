@@ -2458,7 +2458,6 @@ bool RTLDeviceInfoTy::loadOffloadTable(int32_t DeviceId, size_t NumEntries) {
     IDP("Warning: number of entries in host and device "
        "offload tables mismatch (%zu != %zu).\n",
        NumEntries, DeviceNumEntries);
-    return false;
   }
 
   const char *OffloadTableVarName = "__omp_offloading_entries_table";

@@ -12,7 +12,7 @@ subr1:                                  # @subr1
 .Lfunc_end1:
 
 # CHECK-LABEL: .trace contents:
-#      CHECK: 00000008: 00 00 00 00 00 00 00 00  # TB_AT_TextBegin
+#      CHECK: 00000008: 00 00 00 00 00 00 00 00  # TB_AT_CodeBegin
 # CHECK-NEXT:           (relocation: .text)
 #      CHECK: 00000026: 00 00 00 00 00 00 00 00  # TB_AT_RoutineBegin
 # CHECK-NEXT:           (relocation: .text)
@@ -27,10 +27,10 @@ subr1:                                  # @subr1
     .byte    10                              # TB_TAG_Module
     .short   2                               # TB_AT_MajorV
     .byte    0                               # TB_AT_MinorV
-    .long    .Lsec_end0-.trace               # TB_AT_TraceSize
-    .quad    .Lfunc_begin0                   # TB_AT_TextBegin
+    .long    .Lsec_end0-.trace               # TB_AT_ModuleSize
+    .quad    .Lfunc_begin0                   # TB_AT_CodeBegin
     .long    1                               # TB_AT_NumOfFiles
-    .long    .Lfunc_end1-.Lfunc_begin0       # TB_AT_TextSize
+    .long    .Lfunc_end1-.Lfunc_begin0       # TB_AT_CodeSize
     .short    0                              # TB_AT_NameLength
     .short    6                              # TB_AT_NameLength
     .ascii    "temp.c"                       # TB_AT_FileName
