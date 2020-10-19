@@ -1,4 +1,8 @@
+<<<<<<< HEAD
 ; RUN: opt -debugify -loop-extract -intel-codeextractor-debug=false -S < %s | FileCheck %s ;INTEL
+=======
+; RUN: opt -debugify -loop-simplify -loop-extract -S < %s | FileCheck %s
+>>>>>>> 518ec05a104a237b6ccae20e1e84c2b462fc3ca1
 
 ; This tests 2 cases:
 ; 1. loop1 should be extracted into a function, without extracting %v1 alloca.

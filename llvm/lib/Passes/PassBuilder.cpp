@@ -123,6 +123,7 @@
 #include "llvm/Transforms/IPO/Intel_QsortRecognizer.h" // INTEL
 #include "llvm/Transforms/IPO/Intel_TileMVInlMarker.h" // INTEL
 #include "llvm/Transforms/IPO/Internalize.h"
+#include "llvm/Transforms/IPO/LoopExtractor.h"
 #include "llvm/Transforms/IPO/LowerTypeTests.h"
 #include "llvm/Transforms/IPO/MergeFunctions.h"
 #include "llvm/Transforms/IPO/OpenMPOpt.h"
