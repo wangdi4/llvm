@@ -822,6 +822,7 @@ static void populatePassesPostFailCheck(
   if (OptLevel > 0 && !isFpgaEmulator && !isEyeQEmulator) {
     PM.add(llvm::createLICMPass());      // Hoist loop invariants
     PM.add(llvm::createLoopIdiomPass()); // Transform simple loops to non-loop form, e.g. memcpy
+    PM.add(createLoopDeletionPass()); // Delete dead loops
   }
 
   // PrepareKernelArgsPass must run in debugging mode as well
