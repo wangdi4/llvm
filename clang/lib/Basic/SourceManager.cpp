@@ -143,21 +143,8 @@ ContentCache::getBufferPointer(DiagnosticsEngine &Diag, FileManager &FM,
   // Clang (including elsewhere in this file!) use 'unsigned' to represent file
   // offsets, line numbers, string literal lengths, and so on, and fail
   // miserably on large source files.
-<<<<<<< HEAD
-#if INTEL_CUSTOMIZATION
-  if ((unsigned)ContentsEntry->getSize() >= std::numeric_limits<unsigned>::max()) {
-#endif // INTEL_CUSTOMIZATION
-    // We can't make a memory buffer of the required size, so just make a small
-    // one. We should never hit a situation where we've already parsed to a
-    // later offset of the file, so it shouldn't matter that the buffer is
-    // smaller than the file.
-    Buffer.setPointer(
-        llvm::MemoryBuffer::getMemBuffer("", ContentsEntry->getName())
-            .release());
-=======
-  if ((uint64_t)ContentsEntry->getSize() >=
+  if ((unsigned)ContentsEntry->getSize() >= // INTEL
       std::numeric_limits<unsigned>::max()) {
->>>>>>> d758f79e5d381bd4f5122193a9538d89c907c812
     if (Diag.isDiagnosticInFlight())
       Diag.SetDelayedDiagnostic(diag::err_file_too_large,
                                 ContentsEntry->getName());
