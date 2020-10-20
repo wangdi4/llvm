@@ -187,7 +187,8 @@ public:
       : Analyzer(Analyzer), CombineUseAndDecl(CombineUseAndDecl) {}
 
   // Dump the list of input parameter types detected for the function.
-  void emitFunctionAnnot(const Function *F, formatted_raw_ostream &OS) {
+  void emitFunctionAnnot(const Function *F,
+                         formatted_raw_ostream &OS) override {
     // We don't have information for parameters of function declarations.
     if (F->isDeclaration())
       return;
@@ -212,7 +213,7 @@ public:
 
   // For pointers and values of interest, print the type information determined
   // for Value \p CV
-  void printInfoComment(const Value &CV, formatted_raw_ostream &OS) {
+  void printInfoComment(const Value &CV, formatted_raw_ostream &OS) override {
     std::function<void(formatted_raw_ostream &, ConstantExpr *)>
         PrintConstantExpr =
             [&PrintConstantExpr, this](formatted_raw_ostream &OS,
