@@ -702,14 +702,16 @@ bool HLInst::checkMinMax(bool IsMin, bool IsMax) const {
     // min pattern: x >(=) y ? y : x    max pattern: x >(=) y ? x : y
     if ((!OneAndThree && IsMin) || (OneAndThree && IsMax)) {
       if (Pred == PredicateTy::ICMP_SGE || Pred == PredicateTy::ICMP_SGT ||
-          Pred == PredicateTy::FCMP_OGE || Pred == PredicateTy::FCMP_OGT) {
+          Pred == PredicateTy::FCMP_OGE || Pred == PredicateTy::FCMP_OGT ||
+          Pred == PredicateTy::ICMP_UGE || Pred == PredicateTy::ICMP_UGT) {
         return true;
       }
     }
     // min pattern: x <(=) y ? x : y    max pattern: x <(=) y ? y : x
     if ((OneAndThree && IsMin) || (!OneAndThree && IsMax)) {
       if (Pred == PredicateTy::ICMP_SLE || Pred == PredicateTy::ICMP_SLT ||
-          Pred == PredicateTy::FCMP_OLE || Pred == PredicateTy::FCMP_OLT) {
+          Pred == PredicateTy::FCMP_OLE || Pred == PredicateTy::FCMP_OLT ||
+          Pred == PredicateTy::ICMP_ULE || Pred == PredicateTy::ICMP_ULT) {
         return true;
       }
     }
