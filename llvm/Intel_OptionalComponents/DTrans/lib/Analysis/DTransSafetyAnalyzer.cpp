@@ -514,6 +514,23 @@ public:
           }
         }
       }
+
+      // A runtime dependent index of an array cannot be guaranteed to be within
+      // the bounds. When DTransOutOfBoundsOK is not set, we are explicitly
+      // asserting that the access cannot go out of bounds.
+      if (DTransOutOfBoundsOK)
+        for (auto &PointeePair : Pointees) {
+          if (PointeePair.second.getKind() ==
+              ValueTypeInfo::PointeeLoc::PLK_UnknownOffset) {
+            setBaseTypeInfoSafetyData(PointeePair.first,
+                                      dtrans::BadPtrManipulation,
+                                      "Runtime dependent offset", GEP);
+            for (auto &ElementOfPair : PointeePair.second.getElementOf())
+              setBaseTypeInfoSafetyData(ElementOfPair.first,
+                                        dtrans::BadPtrManipulation,
+                                        "Runtime dependent offset", GEP);
+          }
+        }
     }
   }
 
@@ -849,18 +866,8 @@ public:
     // memory. This is done up front, so that we can return as soon as
     // analyzing any element pointees of the pointer operand.
     if (ValInfo && ValInfo->pointsToSomeElement())
-      for (auto &PointeePair :
-           ValInfo->getElementPointeeSet(ValueTypeInfo::VAT_Use)) {
-        dtrans::TypeInfo *ParentTI =
-            DTInfo.getOrCreateTypeInfo(PointeePair.first);
-        if (auto *ParentStInfo = dyn_cast<dtrans::StructInfo>(ParentTI)) {
-          setBaseTypeInfoSafetyData(
-              PointeePair.first, dtrans::FieldAddressTaken,
-              "Address of member stored to memory", &I, DumpCallback);
-          ParentStInfo->getField(PointeePair.second.getElementNum())
-              .setAddressTaken();
-        }
-      }
+      markFieldAddressTaken(ValInfo, "Address of member stored to memory", &I,
+                            DumpCallback);
 
     if (PtrInfo->pointsToSomeElement()) {
       analyzeElementLoadOrStore(I, *PtrInfo, ValInfo);
@@ -1464,6 +1471,54 @@ public:
           "Incompatible type for field load/store", SI);
   }
 
+  // Process the ElementPointees of 'Info' to mark FieldAddressTaken on the
+  // StructInfo and FieldInfo objects. For ElementPointees that are an
+  // ArrayType, this also needs to consider the case that element zero of the
+  // structure may also be the address of a field within a structure when the
+  // array is a member of a structure.
+  // Note, when DTransOutOfBoundsOK is off, all runtime dependent indices of an
+  // array are considered to be element zero, rather than BadPtrManipulation.
+  void markFieldAddressTaken(ValueTypeInfo *Info, StringRef Reason, Value *V,
+                             SafetyInfoReportCB Callback = nullptr) {
+    auto MarkStructField = [this, &Reason, &V, &Callback](TypeInfo *TI,
+                                                          size_t FieldNum) {
+      assert(isa<dtrans::StructInfo>(TI) && "Expected struct type info*");
+
+      auto *ParentStInfo = cast<dtrans::StructInfo>(TI);
+      setBaseTypeInfoSafetyData(TI->getDTransType(), dtrans::FieldAddressTaken,
+                                Reason, V, Callback);
+      ParentStInfo->getField(FieldNum).setAddressTaken();
+    };
+
+    for (auto &PointeePair :
+         Info->getElementPointeeSet(ValueTypeInfo::VAT_Use)) {
+      TypeInfo *ParentTI = DTInfo.getOrCreateTypeInfo(PointeePair.first);
+      if (auto *ParentStInfo = dyn_cast<dtrans::StructInfo>(ParentTI)) {
+        MarkStructField(ParentStInfo, PointeePair.second.getElementNum());
+        continue;
+      }
+
+      // Handle array types. An array indexed by the zeroth element, requires
+      // marking a structure field as "Field address taken" when the array is an
+      // element of the structure.
+      auto &ElementOfTypes = PointeePair.second.getElementOf();
+      if ((PointeePair.second.isField() &&
+           PointeePair.second.getElementNum() == 0) ||
+          (!DTransOutOfBoundsOK && PointeePair.second.isUnknownOffset()))
+        for (auto &ElementOfPair : ElementOfTypes) {
+          dtrans::TypeInfo *ElementOfTI =
+              DTInfo.getOrCreateTypeInfo(ElementOfPair.first);
+          if (auto *ElementStInfo = dyn_cast<dtrans::StructInfo>(ElementOfTI)) {
+            MarkStructField(ElementStInfo, ElementOfPair.second);
+            // We only mark field address taken on the closest structure that
+            // contains the array, so stop walking the ElementOf list once one
+            // is found.
+            break;
+          }
+        }
+    }
+  }
+
   void collectReadInfo(Instruction &I, dtrans::StructInfo *StInfo,
                        size_t FieldNum, bool DescendIntoNested) {
     if (DescendIntoNested) {
@@ -1850,26 +1905,8 @@ public:
       }
 
       if (ParamInfo->pointsToSomeElement())
-        for (auto &PointeePair :
-             ParamInfo->getElementPointeeSet(ValueTypeInfo::VAT_Use)) {
-
-          dtrans::TypeInfo *ParentTI =
-              DTInfo.getOrCreateTypeInfo(PointeePair.first);
-          if (auto *ParentStInfo = dyn_cast<StructInfo>(ParentTI)) {
-            // The collection should only have elements of type PLK_Field
-            // here. Any uses of PLK_ByteOffset are for calls to memfuncs,
-            // which are processed by visiting intrinsic calls.
-            // PLK_UnknownOffset should not be set on a structure type,
-            // currently.
-            assert(PointeePair.second.isField() &&
-                   "Unexpected use of non-field offset");
-            size_t Idx = PointeePair.second.getElementNum();
-            ParentStInfo->getField(Idx).setAddressTaken();
-            setBaseTypeInfoSafetyData(
-                PointeePair.first, dtrans::FieldAddressTaken,
-                "Address of member passed to function", &Call, DumpCallback);
-          }
-        }
+        markFieldAddressTaken(ParamInfo, "Address of member passed to function",
+                              &Call, DumpCallback);
 
       // We need to know the signature of the called function in order the check
       // for functions that take i8* parameter types.
@@ -1982,6 +2019,10 @@ public:
           continue;
         }
 
+        // If the Dominant type was identified, and the function didn't take an
+        // i8*, then it is safe because the dominant type is formed as a union
+        // of the type the parameter is used as within the calling function and
+        // the type that function is declared as taking.
         DTransType *DomTy = PTA.getDominantAggregateUsageType(*ParamInfo);
         if (DomTy)
           continue;
