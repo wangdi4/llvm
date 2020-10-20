@@ -189,6 +189,8 @@ bool ClangFECompilerParseSPIRVTask::isSPIRVSupported(std::string &error) const {
     case spv::CapabilityVectorVariantsINTEL:
       // Optimization hints
     case spv::CapabilityOptimizationHintsINTEL:
+      // Unstructured loop control
+    case spv::CapabilityUnstructuredLoopControlsINTEL:
       break;
     case spv::CapabilityInt64Atomics:
       if (m_sDeviceInfo.bIsFPGAEmu) {
@@ -202,7 +204,6 @@ bool ClangFECompilerParseSPIRVTask::isSPIRVSupported(std::string &error) const {
     case spv::CapabilityFPGALoopControlsINTEL:
     case spv::CapabilityFPGARegINTEL:
     case spv::CapabilityBlockingPipesINTEL:
-    case spv::CapabilityUnstructuredLoopControlsINTEL:
     case spv::CapabilityKernelAttributesINTEL:
     case spv::CapabilityFPGAKernelAttributesINTEL:
     case spv::CapabilityArbitraryPrecisionFixedPointINTEL:
