@@ -885,15 +885,9 @@ TargetCXXABI::Kind ASTContext::getCXXABIKind() const {
 }
 
 CXXABI *ASTContext::createCXXABI(const TargetInfo &T) {
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   // CQ#379144 Intel TBAA.
-  switch (T.getCXXABI().getKind()) {
-=======
-  if (!LangOpts.CPlusPlus) return nullptr;
-
   switch (getCXXABIKind()) {
->>>>>>> 683b308c07bf827255fe1403056413f790e03729
   case TargetCXXABI::Fuchsia:
   case TargetCXXABI::GenericARM: // Same as Itanium at this level
   case TargetCXXABI::iOS:
