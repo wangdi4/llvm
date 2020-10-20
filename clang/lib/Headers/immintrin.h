@@ -13,6 +13,8 @@
 #include <x86gprintrin.h>
 
 /* INTEL_CUSTOMIZATION */
+#include <ia32intrin.h>
+
 #if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
     defined(__MMX__) || defined(__M_INTRINSIC_PROMOTE__)
 /* end INTEL_CUSTOMIZATION */
