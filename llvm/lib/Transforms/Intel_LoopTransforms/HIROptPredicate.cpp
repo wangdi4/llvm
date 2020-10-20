@@ -822,6 +822,59 @@ void HIROptPredicate::CandidateLookup::visitIfOrSwitch(NodeTy *Node) {
   Pass.Candidates.emplace_back(Node, Level, PUC);
 }
 
+// Function implements "less" predicate for a pair of HLNodes.
+// The order is expected to be [HLIfs..., HLSwitches...]. No other node kinds
+// are expected.
+static bool conditionalHLNodeLess(const HLNode *A, const HLNode *B) {
+  // The node may be one of two kinds here: HLIf or HLSwitch.
+  auto GetKind = [](const HLNode *Node) {
+    if (isa<HLIf>(Node))
+      return 0;
+
+    assert(isa<HLSwitch>(Node) &&
+           "Unexpected node kind: should be either HLIf or HLSwitch.");
+    return 1;
+  };
+
+  unsigned KindA = GetKind(A);
+  unsigned KindB = GetKind(B);
+  if (KindA != KindB) {
+    return KindA < KindB;
+  }
+
+  // Equal kind of nodes
+
+  if (KindA == 0 &&
+      HLNodeUtils::areEqualConditions(cast<HLIf>(A), cast<HLIf>(B))) {
+    return false;
+  }
+
+  if (KindA == 1 &&
+      HLNodeUtils::areEqualConditions(cast<HLSwitch>(A), cast<HLSwitch>(B))) {
+    return false;
+  }
+
+  return A->getNumber() < B->getNumber();
+}
+
+static unsigned countMaxEqualConditions(ArrayRef<const HLNode *> In) {
+  unsigned Count = 0;
+
+  for (auto I = In.begin(), E = In.end(); I != E;) {
+    auto FoundI = std::adjacent_find(I, E, conditionalHLNodeLess);
+    if (FoundI != E) {
+      ++FoundI;
+    }
+
+    unsigned NumPreds = std::distance(I, FoundI);
+    Count = std::max(Count, NumPreds);
+
+    I = FoundI;
+  }
+
+  return Count;
+}
+
 void HIROptPredicate::CandidateLookup::visit(HLLoop *Loop) {
   SkipNode = Loop;
 
@@ -832,7 +885,23 @@ void HIROptPredicate::CandidateLookup::visit(HLLoop *Loop) {
   // child.
   if (!DisableCostModel && !Loop->isInnermost() &&
       Loop->getNumChildren() != 1) {
-    TransformCurrentLoop = false;
+
+    SmallVector<const HLNode *, 8> ChildNodes;
+    auto ConditionalNodes =
+        make_filter_range(make_range(Loop->child_begin(), Loop->child_end()),
+                          [](const HLNode &Node) {
+                            return isa<HLIf>(Node) || isa<HLSwitch>(Node);
+                          });
+
+    std::transform(ConditionalNodes.begin(), ConditionalNodes.end(),
+                   std::back_inserter(ChildNodes),
+                   [](const HLNode &Node) { return &Node; });
+
+    std::sort(ChildNodes.begin(), ChildNodes.end(), conditionalHLNodeLess);
+
+    if (countMaxEqualConditions(ChildNodes) < 3) {
+      TransformCurrentLoop = false;
+    }
   }
 
   if (Loop->isSIMD()) {

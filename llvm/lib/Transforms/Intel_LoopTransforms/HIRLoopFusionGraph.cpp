@@ -789,12 +789,6 @@ void FuseGraph::updateNeighbors(FuseEdgeHeap &Heap, unsigned NodeV,
 
 void FuseGraph::collapse(FuseEdgeHeap &Heap, unsigned NodeV,
                          const CollapseRangeTy &CollapseRange) {
-  SmallVector<unsigned, 8> CollapseRangeVector(CollapseRange.begin(),
-                                               CollapseRange.end());
-
-  // Sort nodes from collapse range in the lexical order.
-  std::sort(CollapseRangeVector.begin(), CollapseRangeVector.end());
-
   FuseNode &FNodeV = Vertex[NodeV];
 
 #ifndef NDEBUG
@@ -802,7 +796,7 @@ void FuseGraph::collapse(FuseEdgeHeap &Heap, unsigned NodeV,
   LLVM_DEBUG(dbgs() << NodeV << ":");
   LLVM_DEBUG(FNodeV.print(dbgs()));
   LLVM_DEBUG(dbgs() << " <-- ");
-  for (unsigned NodeX : CollapseRangeVector) {
+  for (unsigned NodeX : CollapseRange) {
     if (NodeX == NodeV) {
       continue;
     }
@@ -814,7 +808,7 @@ void FuseGraph::collapse(FuseEdgeHeap &Heap, unsigned NodeV,
   LLVM_DEBUG(dbgs() << "\n");
 #endif
 
-  for (unsigned NodeX : CollapseRangeVector) {
+  for (unsigned NodeX : CollapseRange) {
     if (NodeX == NodeV) {
       continue;
     }
@@ -1191,43 +1185,37 @@ void FuseGraph::weightedFusion() {
       continue;
     }
 
-    SmallSetVector<unsigned, 8> Worklist;
-    SmallDenseSet<unsigned> WorklistEver;
-
     CollapseRangeTy CollapseRange;
 
-    for (unsigned NodeX : Successors[NodeV]) {
-      if (PathFrom[NodeX].count(NodeW)) {
-        Worklist.insert(NodeX);
-      }
-    }
+    BitVector Visited(Vertex.size());
 
-    if (Worklist.empty()) {
+    auto &PathFromNodeV = PathFrom[NodeV];
+    std::function<void(unsigned)> FindNodesFromVTo = [&](unsigned Node) {
+      Visited.set(Node);
+      // Note: predecessors may require lexical pre-sorting to make final
+      // collapsed node stable w.r.t. order between internal nodes.
+      for (unsigned NodeX : Predecessors[Node]) {
+        if (PathFromNodeV.count(NodeX) && !Visited.test(NodeX)) {
+          FindNodesFromVTo(NodeX);
+        }
+      }
+      CollapseRange.insert(Node);
+    };
+
+    FindNodesFromVTo(NodeW);
+
+    // Nothing to collapse. Heap edges between collapsed edges may be stale.
+    if (CollapseRange.size() == 1) {
+      // Or maybe it has one neighbor edge.
       if (!Neighbors[NodeV].count(NodeW)) {
         continue;
       }
 
-      Worklist.insert(NodeW); // (NodeV, NodeW) undirected
+      CollapseRange.clear();
+      CollapseRange.insert(NodeV);
+      CollapseRange.insert(NodeW); // (NodeV, NodeW) undirected
     }
 
-    WorklistEver.insert(Worklist.begin(), Worklist.end());
-
-    while (!Worklist.empty()) {
-      unsigned NodeX = Worklist.pop_back_val();
-
-      CollapseRange.insert(NodeX);
-
-      if (NodeX != NodeW) {
-        for (unsigned NodeY : Successors[NodeX]) {
-          if (PathFrom[NodeY].count(NodeW) && !WorklistEver.count(NodeY)) {
-            Worklist.insert(NodeY);
-            WorklistEver.insert(NodeY);
-          }
-        }
-      }
-    }
-
-    CollapseRange.insert(NodeV);
     collapse(Heap, NodeV, CollapseRange);
 
     DEBUG_FG(dbgs() << "Fuse graph debug:\n");
