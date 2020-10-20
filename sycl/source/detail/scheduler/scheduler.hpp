@@ -448,6 +448,10 @@ public:
 
   Scheduler();
   ~Scheduler();
+<<<<<<< HEAD
+=======
+  static Scheduler instance;
+>>>>>>> e6877610e82c793bfcc0c179a25359aeb4bd2717
 
 protected:
   /// Provides exclusive access to std::shared_timed_mutex object with deadlock
