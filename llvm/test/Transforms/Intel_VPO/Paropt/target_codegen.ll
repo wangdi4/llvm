@@ -38,7 +38,7 @@ target device_triples = "x86_64-pc-linux-gnu"
 define dso_local void @foo() #0 {
 entry:
 ; Host code should try offload and fall back to host in casse of offload failure.
-; CHECK-HST: call i32 @__tgt_target(i64 -1, i8* [[ID]],
+; CHECK-HST: call i32 @__tgt_target(i64 %{{.*}}, i8* [[ID]],
 ; CHECK-HST: call void @[[OUTLINEDTARGET]]()
   %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(), "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 0) ]
   call void @llvm.directive.region.exit(token %0) [ "DIR.OMP.END.TARGET"() ]

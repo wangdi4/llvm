@@ -706,8 +706,7 @@ CallInst *VPOParoptUtils::genTgtCall(StringRef FnName, Value *DeviceID,
 
   // First parm: "int64_t device_id"
   if (DeviceID == nullptr)
-    // user did not specify device; default is -1
-    DeviceID = ConstantInt::get(Int64Ty, -1);
+    DeviceID = Builder.CreateZExt(genOmpGetDefaultDevice(InsertPt), Int64Ty);
   else {
     assert(!DeviceID->getType()->isPointerTy() &&
            "DeviceID should not be a pointer");
@@ -1069,6 +1068,20 @@ CallInst *VPOParoptUtils::genOmpGetNumDevices(Instruction *InsertPt) {
 
   CallInst *Call = genEmptyCall(M, "omp_get_num_devices", Int32Ty, InsertPt);
   return Call;
+}
+
+// Generate a call to
+//   int omp_get_default_device()
+CallInst* VPOParoptUtils::genOmpGetDefaultDevice(Instruction* InsertPt) {
+    BasicBlock* B = InsertPt->getParent();
+    Function* F = B->getParent();
+    Module* M = F->getParent();
+    LLVMContext& C = F->getContext();
+
+    Type* Int32Ty = Type::getInt32Ty(C); // return type
+
+    CallInst* Call = genEmptyCall(M, "omp_get_default_device", Int32Ty, InsertPt);
+    return Call;
 }
 
 // Generate a call to
