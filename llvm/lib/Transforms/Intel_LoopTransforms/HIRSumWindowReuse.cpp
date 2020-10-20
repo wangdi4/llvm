@@ -375,7 +375,7 @@ findSlidingWindowSums(HLLoop *InnerLoop, HIRDDAnalysis &HDDA,
     }
 
     // The sum must not be conditional.
-    if (!HLNodeUtils::postDominates(SumInst, InnerLoop->getFirstChild())) {
+    if (Reduction.Conditional) {
       LLVM_DEBUG(dbgs() << "  Conditional reduction not supported\n\n");
       continue;
     }

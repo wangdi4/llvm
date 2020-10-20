@@ -1,17 +1,18 @@
-; RUN: opt < %s -hir-ssa-deconstruction -hir-temp-cleanup -analyze  -hir-safe-reduction-analysis -hir-safe-reduction-analysis-print-op | FileCheck %s
-; RUN: opt < %s -passes="hir-ssa-deconstruction,hir-temp-cleanup,print<hir-safe-reduction-analysis>" -hir-safe-reduction-analysis-print-op -disable-output 2>&1 | FileCheck %s
+; RUN: opt < %s -hir-ssa-deconstruction -hir-temp-cleanup -analyze  -hir-safe-reduction-analysis | FileCheck %s
+; RUN: opt < %s -passes="hir-ssa-deconstruction,hir-temp-cleanup,print<hir-safe-reduction-analysis>" -disable-output 2>&1 | FileCheck %s
 
-; CHECK:   %sub = [[VAR:%q.[0-9]+]]  -  (@a)[0][i1]; <Safe Reduction> Red Op: [[REDOP:[0-9]+]]
-; CHECK:   [[VAR]] = %sub  +  (@b)[0][i1]; <Safe Reduction> Red Op: [[REDOP]]
+; CHECK:   <Safe Reduction> Red Op: fadd <Has Unsafe Algebra- Yes> <Conditional- No>
+; CHECK:   %sub = [[VAR:%q.[0-9]+]]  -  (@a)[0][i1]; <Safe Reduction>
+; CHECK:   [[VAR]] = %sub  +  (@b)[0][i1]; <Safe Reduction>
 
 ; Check if a safe reduction chain is recognized q = q + (@b - @a) 
 ; when - and + operators are present. Reduction operation is set to the operation found
-; in the last instruction of a chain. For this example, RedOp: 14 is FAdd.
+; in the last instruction of a chain.
 
 ;      BEGIN REGION { }
 ;            + DO i1 = 0, 99, 1   <DO_LOOP>
-;            |  %sub = %q.010  -  (@a)[0][i1]; <Safe Reduction> Red Op: 14
-;            |  %q.010 = %sub  +  (@b)[0][i1]; <Safe Reduction> Red Op: 14
+;            |  %sub = %q.010  -  (@a)[0][i1]; <Safe Reduction> Red Op: fadd
+;            |  %q.010 = %sub  +  (@b)[0][i1]; <Safe Reduction> Red Op: fadd
 ;            + END LOOP
 ;      END REGION
 
