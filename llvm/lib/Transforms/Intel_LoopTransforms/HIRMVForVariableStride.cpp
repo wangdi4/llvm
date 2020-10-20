@@ -458,8 +458,7 @@ bool HIRMVForVariableStride::MVTransformer::transformLoop(
 
   // Extract ztt explicitly to give the same order of checks regardless of the
   // existence of preheader/postexit
-  OuterLoopToMV->extractZtt();
-  OuterLoopToMV->extractPreheaderAndPostexit();
+  OuterLoopToMV->extractZttPreheaderAndPostexit();
 
   // Multiversioned loop is not the innermost loop
   if (OuterLoopToMV != InnermostLoop)

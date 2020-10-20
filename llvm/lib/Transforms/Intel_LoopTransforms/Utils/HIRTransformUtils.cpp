@@ -477,11 +477,9 @@ HLLoop *HIRTransformUtils::setupPeelMainAndRemainderLoops(
     OrigLoop->extractZtt();
     // TODO: Profiling info for peel loop?
   } else {
-    // Extract Ztt and add it outside the loop.
-    OrigLoop->extractZtt();
 
-    // Extract preheader and postexit.
-    OrigLoop->extractPreheaderAndPostexit();
+    // Extract Ztt, preheader, and postexit.
+    OrigLoop->extractZttPreheaderAndPostexit();
   }
 
   HLIf *RuntimeCheck = nullptr;

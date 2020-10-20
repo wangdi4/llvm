@@ -999,11 +999,6 @@ void HLLoop::extractPostexit() {
   HLNodeUtils::moveAfter(this, post_begin(), post_end());
 }
 
-void HLLoop::extractPreheaderAndPostexit() {
-  extractPreheader();
-  extractPostexit();
-}
-
 void HLLoop::removePreheader() { HLNodeUtils::remove(pre_begin(), pre_end()); }
 
 void HLLoop::removePostexit() { HLNodeUtils::remove(post_begin(), post_end()); }
@@ -1823,8 +1818,7 @@ HLLoop *HLLoop::peelFirstIteration(bool UpdateMainLoop) {
 
   // Extract Ztt, preheader and postexit from this loop before cloning it so
   // that the peel loop doesn't include them.
-  extractZtt();
-  extractPreheaderAndPostexit();
+  extractZttPreheaderAndPostexit();
 
   HLLoop *PeelLoop = clone();
   HLNodeUtils::insertBefore(this, PeelLoop);
@@ -2012,8 +2006,7 @@ HLLoop *HLLoop::generatePeelLoop(const RegDDRef *PeelArrayRef, unsigned VF) {
 
   // Extract Ztt, preheader and postexit from this loop before cloning it so
   // that the peel loop doesn't include them.
-  extractZtt();
-  extractPreheaderAndPostexit();
+  extractZttPreheaderAndPostexit();
 
   undefInitializeUnconditionalLiveoutTemps();
 

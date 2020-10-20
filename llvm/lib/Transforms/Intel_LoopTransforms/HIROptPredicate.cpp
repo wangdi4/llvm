@@ -1144,8 +1144,7 @@ bool HIROptPredicate::processOptPredicate(bool &HasMultiexitLoop) {
     HIRInvalidationUtils::invalidateParentLoopBodyOrRegion(TargetLoop);
 
     // TODO: check if candidate is defined in preheader
-    TargetLoop->extractZtt();
-    TargetLoop->extractPreheaderAndPostexit();
+    TargetLoop->extractZttPreheaderAndPostexit();
 
     // TransformLoop and its clones.
     transformCandidate(TargetLoop, Candidate);

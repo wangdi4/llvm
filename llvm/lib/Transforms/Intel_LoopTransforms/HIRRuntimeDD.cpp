@@ -1453,8 +1453,7 @@ void HIRRuntimeDD::generateHLNodes(LoopContext &Context,
                                    const TargetLibraryInfo &TLI) {
   (void)TLI;
 
-  Context.Loop->extractZtt();
-  Context.Loop->extractPreheaderAndPostexit();
+  Context.Loop->extractZttPreheaderAndPostexit();
 
   // The HIR structure will be the following:
   //
