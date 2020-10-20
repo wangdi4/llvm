@@ -1088,6 +1088,21 @@ static ArrayType *getArrayFromPointerCast(Constant *ConstPtr) {
   PointerType *ArrPtr = dyn_cast<PointerType>(TempRetConst->getType());
   return dyn_cast<ArrayType>(ArrPtr->getElementType());
 }
+
+// Return true if the input Value is BitCastOperator, or if it is a GEPOperator
+// and the pointer operand is a BitCast, else return false. In other words, the
+// pointer is casted from one type to another type and then it is accessed with
+// a GEP.
+static bool isValueCasted(Value *V) {
+  if (!V)
+    return false;
+
+  Value *TempVal = V;
+  if (GEPOperator *GEPOp = dyn_cast<GEPOperator>(V))
+    TempVal = GEPOp->getPointerOperand();
+
+  return isa<BitCastOperator>(TempVal);
+}
 #endif // INTEL_CUSTOMIZATION
 
 // Handle getelementptr instructions.  If all operands are constants then we
@@ -1306,7 +1321,7 @@ void SCCPSolver::handleCallArguments(CallBase &CB) {
           // the argument and the array that has been casted.
           if (PointerType *VPtr = dyn_cast<PointerType>(V->getType())) {
             ArrayType *ArrTy = getArrayFromPointerCast(C);
-            if (ArrTy &&
+            if (ArrTy && isValueCasted(V) &&
                 ArrTy->getArrayElementType() != VPtr->getElementType()) {
               markOverdefined(&A);
               continue;
