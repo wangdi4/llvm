@@ -1210,14 +1210,9 @@ void CodeGenAction::ExecuteAction() {
       TheModule->setTargetTriple(TargetOpts.Triple);
     }
 
-<<<<<<< HEAD
 #if !INTEL_PRODUCT_RELEASE
-    EmbedBitcode(TheModule.get(), CodeGenOpts,
-                 MainFile->getMemBufferRef());
-#endif // !INTEL_PRODUCT_RELEASE
-=======
     EmbedBitcode(TheModule.get(), CodeGenOpts, *MainFile);
->>>>>>> dde4e0318c4cd2054ed241bf248fdddb8d1973e3
+#endif // !INTEL_PRODUCT_RELEASE
 
     LLVMContext &Ctx = TheModule->getContext();
     Ctx.setInlineAsmDiagnosticHandler(BitcodeInlineAsmDiagHandler,
