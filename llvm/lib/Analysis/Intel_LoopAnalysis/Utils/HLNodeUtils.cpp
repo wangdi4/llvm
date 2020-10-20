@@ -2879,7 +2879,7 @@ const HLNode *HLNodeUtils::getOutermostSafeParent(
 
     auto *Loop = dyn_cast<HLLoop>(Parent);
 
-    if (!Loop || !Loop->isDo()) {
+    if (!Loop || Loop->isMultiExit()) {
       break;
     }
 

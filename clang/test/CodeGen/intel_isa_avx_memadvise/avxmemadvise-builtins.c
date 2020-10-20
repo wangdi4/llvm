@@ -5,13 +5,13 @@
 __m128i test_mm_vmovadvisew_load_epi8(char const *a) {
   // CHECK-LABEL: test_mm_vmovadvisew_load_epi8
   // CHECK: call <4 x i32> @llvm.x86.avx2.vmovadvisew.load.128(i8* %{{.*}}, i8 16)
-  return _mm128_vmovadvisew_load_epi8(a, 16);
+  return _mm_vmovadvisew_load_epi8(a, 16);
 }
 
 void test_mm_vmovadvisew_store_epi8(char *a, __m128i m) {
   // CHECK-LABEL: test_mm_vmovadvisew_store_epi8
   // CHECK: call void @llvm.x86.avx2.vmovadvisew.store.128(i8* %{{.*}}, <4 x i32> %{{.*}}, i8 16)
-  _mm128_vmovadvisew_store_epi8(a, m, 16);
+  _mm_vmovadvisew_store_epi8(a, m, 16);
 }
 
 __m256i test_mm256_vmovadvisew_load_epi8(char const *a) {
