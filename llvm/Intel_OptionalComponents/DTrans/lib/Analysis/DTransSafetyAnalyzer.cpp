@@ -578,7 +578,7 @@ public:
         if (!SrcInfo || !SrcInfo->canAliasToAggregatePointer()) {
           setAllAliasedTypeSafetyData(
               Info, dtrans::UnsafePtrMerge,
-            "Merge of conflicting types during integer merge", I);
+              "Merge of conflicting types during integer merge", I);
           return;
         }
       }
@@ -898,8 +898,8 @@ public:
                                     DumpCallback);
         if (ValInfo)
           setAllAliasedTypeSafetyData(ValInfo, dtrans::UnsafePointerStore,
-                                      "Cannot resolve type of value stored",
-                                      &I, DumpCallback);
+                                      "Cannot resolve type of value stored", &I,
+                                      DumpCallback);
       }
 
       setAllAliasedTypeSafetyData(PtrInfo, dtrans::BadCasting,
@@ -1015,10 +1015,10 @@ public:
         BadcastReason =
             "Dominant type of value pointer being stored not resolved";
       } else if (!ValTy->isPointerTy() &&
-            hasIncompatibleAggregateDecl(ValTy->getPointerElementType(),
-                                         ValInfo)) {
-          IsMismatched = true;
-          BadcastReason = "Incompatible type for ptr-to-ptr store";
+                 hasIncompatibleAggregateDecl(ValTy->getPointerElementType(),
+                                              ValInfo)) {
+        IsMismatched = true;
+        BadcastReason = "Incompatible type for ptr-to-ptr store";
       }
     }
 
@@ -2210,7 +2210,7 @@ public:
 
       if (isa<DTransStructType>(BaseTy))
         setBaseTypeInfoSafetyData(BaseTy, dtrans::WholeStructureReference,
-          "return of structure type", &I);
+                                  "return of structure type", &I);
     }
 
     // If the value is not a type of interest, then it will not affect any
@@ -2233,7 +2233,8 @@ public:
       return;
     }
 
-    // Nothing more necessary if there are no types associated with the return value.
+    // Nothing more necessary if there are no types associated with the return
+    // value.
     if (Info->empty())
       return;
 
@@ -2270,12 +2271,13 @@ public:
 
       if (MismatchedType) {
         setAllAliasedAndPointeeTypeSafetyData(
-          Info, dtrans::BadCasting, "Return of field using mismatched type",
-          &I);
+            Info, dtrans::BadCasting, "Return of field using mismatched type",
+            &I);
         // We also need to set the expected type with the safety flag because it
         // did not match the field type.
         setBaseTypeInfoSafetyData(ExpectedRetDTransTy, dtrans::BadCasting,
-          "Return value type did not match this type", &I);
+                                  "Return value type did not match this type",
+                                  &I);
       }
     }
 
@@ -2688,9 +2690,10 @@ private:
   // callback function to additionally report the argument and argument
   // position. This function will only be called when the debug traces are
   // enabled for the function being analyzed.
-  void setAllElementPointeeSafetyData(
-      ValueTypeInfo *PtrInfo, dtrans::SafetyData Data, StringRef Reason,
-      Value *V, SafetyInfoReportCB Callback = nullptr) {
+  void setAllElementPointeeSafetyData(ValueTypeInfo *PtrInfo,
+                                      dtrans::SafetyData Data, StringRef Reason,
+                                      Value *V,
+                                      SafetyInfoReportCB Callback = nullptr) {
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
     printSafetyDataDebugMessage(Data, Reason, V, PtrInfo, Callback);
 #endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)

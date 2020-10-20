@@ -1042,8 +1042,10 @@ private:
           // existing known types for the parameter to avoid it being marked as
           // unhandled. TODO: see if there is a better way to determine when a
           // type cannot be inferred.
-          ValueTypeInfo *ArgInfo = PTA.getOrCreateValueTypeInfo(Arg.getUser(), 0);
-          for (auto *DType : ArgInfo->getPointerTypeAliasSet(ValueTypeInfo::VAT_Use))
+          ValueTypeInfo *ArgInfo =
+              PTA.getOrCreateValueTypeInfo(Arg.getUser(), 0);
+          for (auto *DType :
+               ArgInfo->getPointerTypeAliasSet(ValueTypeInfo::VAT_Use))
             if (auto *PtrTy = dyn_cast<DTransPointerType>(DType))
               addInferredType(ValueToInfer, PtrTy);
         } else if (P.second) {
@@ -1748,7 +1750,7 @@ private:
     if (Target && !Target->isDeclaration() && Idx < Target->arg_size()) {
       Argument *TargetArg = Target->getArg(Idx);
       if (TargetArg->user_empty())
-        return { false, nullptr };
+        return {false, nullptr};
     }
 
     if (!DType) {
