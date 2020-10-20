@@ -455,13 +455,13 @@ public:
     if (GEPInfo->pointsToSomeElement()) {
       // Check the uses of this GEP element. If it is used by anything other
       // than casts, loads, and stores.
-      std::function<bool(Value *)> hasNonCastLoadStoreUses =
-          [&hasNonCastLoadStoreUses](Value *V) {
+      std::function<bool(Value *)> HasNonCastLoadStoreUses =
+          [&HasNonCastLoadStoreUses](Value *V) {
             for (auto *U : V->users()) {
               if (isa<LoadInst>(U) || isa<StoreInst>(U))
                 continue;
               if (isa<CastInst>(U)) {
-                if (hasNonCastLoadStoreUses(U))
+                if (HasNonCastLoadStoreUses(U))
                   return true;
                 continue;
               }
@@ -483,26 +483,29 @@ public:
             Info->getElementPointeeSet(ValueTypeInfo::VAT_Use).begin(),
             Info->getElementPointeeSet(ValueTypeInfo::VAT_Use).end(),
             [](const ValueTypeInfo::TypeAndPointeeLocPair &PointeePair) {
-              return PointeePair.second.getKind() ==
-                     ValueTypeInfo::PointeeLoc::PLK_Offset;
+              return !PointeePair.second.isField();
             });
       };
 
+      auto &Pointees = GEPInfo->getElementPointeeSet(ValueTypeInfo::VAT_Use);
       if (HasNonFieldAddress(GEPInfo)) {
-        // The pointer type analyzer should only have set a non-field offset
-        // for the case of a GEP that is passed to a memset and the offset
-        // does not correspond to a field boundary.
-        assert(valueOnlyUsedForMemset(GEP) &&
-               "Non-field accesses expected to only occur for memset operand");
-      } else if (hasNonCastLoadStoreUses(GEP)) {
-        auto &Pointees = GEPInfo->getElementPointeeSet(ValueTypeInfo::VAT_Use);
+#if !defined(NDEBUG)
+        for (auto &PointeePair : Pointees) {
+          // The pointer type analyzer should only have set a non-field byte
+          // offset for the case of a GEP that is passed to a memset and the
+          // offset does not correspond to a field boundary.
+          if (PointeePair.second.isByteOffset())
+            assert(
+                valueOnlyUsedForMemset(GEP) &&
+                "Non-field accesses expected to only occur for memset operand");
+        }
+#endif // !defined(NDEBUG)
+      } else if (HasNonCastLoadStoreUses(GEP)) {
+        // Set GEPs for fields of structures that are used for something other
+        // than a Load/Store as ComplexUse.
         for (auto &PointeePair : Pointees) {
           DTransType *ParentTy = PointeePair.first;
-          if (ParentTy->isStructTy()) {
-            assert(PointeePair.second.getKind() !=
-                       ValueTypeInfo::PointeeLoc::PLK_Offset &&
-                   "Unexpected use of invalid element");
-
+          if (ParentTy->isStructTy() && PointeePair.second.isField()) {
             auto *ParentStInfo =
                 cast<dtrans::StructInfo>(DTInfo.getOrCreateTypeInfo(ParentTy));
             dtrans::FieldInfo &FI =
@@ -1080,8 +1083,7 @@ public:
         setBaseTypeInfoSafetyData(ParentTy, dtrans::VolatileData,
                                   "Marked as volatile", &I);
 
-      if (PointeePair.second.getKind() !=
-          ValueTypeInfo::PointeeLoc::PLK_Field) {
+      if (PointeePair.second.isByteOffset()) {
         // A GEP that indexes a location that is not a field boundary should
         // only be allowed for access to the padding bytes for a memfunc
         // intrinsic, and not a load/store instruction.
@@ -1854,11 +1856,12 @@ public:
           dtrans::TypeInfo *ParentTI =
               DTInfo.getOrCreateTypeInfo(PointeePair.first);
           if (auto *ParentStInfo = dyn_cast<StructInfo>(ParentTI)) {
-            // The collection should only have elements of type PLK_Field here.
-            // Any uses of PLK_Offset are for calls to memfuncs, which are
-            // processed by visiting intrinsic calls.
-            assert(PointeePair.second.getKind() ==
-                       ValueTypeInfo::PointeeLoc::PLK_Field &&
+            // The collection should only have elements of type PLK_Field
+            // here. Any uses of PLK_ByteOffset are for calls to memfuncs,
+            // which are processed by visiting intrinsic calls.
+            // PLK_UnknownOffset should not be set on a structure type,
+            // currently.
+            assert(PointeePair.second.isField() &&
                    "Unexpected use of non-field offset");
             size_t Idx = PointeePair.second.getElementNum();
             ParentStInfo->getField(Idx).setAddressTaken();
@@ -2252,8 +2255,7 @@ public:
         dtrans::TypeInfo *ParentTI =
             DTInfo.getOrCreateTypeInfo(PointeePair.first);
         if (auto *ParentStInfo = dyn_cast<StructInfo>(ParentTI)) {
-          assert(PointeePair.second.getKind() ==
-                     ValueTypeInfo::PointeeLoc::PLK_Field &&
+          assert(PointeePair.second.isField() &&
                  "Unexpected use of non-field offset");
           size_t Idx = PointeePair.second.getElementNum();
           setBaseTypeInfoSafetyData(PointeePair.first,
