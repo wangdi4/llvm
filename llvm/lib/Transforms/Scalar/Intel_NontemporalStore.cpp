@@ -39,12 +39,13 @@
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/Analysis/ScalarEvolution.h"
 #include "llvm/Analysis/ScalarEvolutionExpressions.h"
-#include "llvm/InitializePasses.h"
 #include "llvm/IR/Dominators.h"
 #include "llvm/IR/IRBuilder.h"
+#include "llvm/InitializePasses.h"
 #include "llvm/Pass.h"
 #include "llvm/Transforms/Scalar.h"
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
+#include "llvm/Transforms/Utils/LoopUtils.h"
 #include "llvm/Transforms/Utils/ScalarEvolutionExpander.h"
 
 using namespace llvm;
@@ -370,9 +371,26 @@ bool NontemporalStore::hasConflictingLoads(StoreInst &SI, const Loop *L) {
   assert(SI.getOrdering() == AtomicOrdering::NotAtomic &&
       "Atomics cannot be underaligned.");
 
+  // Try to determine if loop-carried dependences are possible. In
+  // general we need to rule out loop-independent dependences too, but this
+  // becomes easier if we can reason only about a single IV value.
+  bool NoLoopCarriedDeps =
+      findStringMetadataForLoop(L, "llvm.loop.vectorize.ivdep_loop").hasValue();
+  LLVM_DEBUG(if (NoLoopCarriedDeps) dbgs() << "  (has ivdep_loop) ");
+
   // SE.getSmallConstantTripCount would seem to be what we want here, but it
   // returns 0 for unknown reasons. Use getBackedgeTakenCount instead.
   auto TripCount = dyn_cast<SCEVConstant>(SE.getBackedgeTakenCount(L));
+
+  if (NoLoopCarriedDeps) {
+    // If we have no loop-carried deps then we can query AA with a precise
+    // size; the dependence would be within a particular iteration. To do this,
+    // override/set the trip count used for our MemoryLocation sizes to 1.
+    auto *AddRec = dyn_cast<SCEVAddRecExpr>(SE.getSCEV(SI.getPointerOperand()));
+    assert(AddRec && "hasConflictingLoads assumes an AddRec Ptr");
+    Type *TCType = AddRec->getStepRecurrence(SE)->getType();
+    TripCount = dyn_cast<SCEVConstant>(SE.getOne(TCType));
+  }
 
   // Get the location that we store. Adjust it for the range of the array that
   // we could be storing, as well as the size of the type we are storing.
@@ -403,12 +421,54 @@ bool NontemporalStore::hasConflictingLoads(StoreInst &SI, const Loop *L) {
       // check for aliasing in the entire object.
       auto ILoc = MemoryLocation::getOrNone(&Inst);
       LocationSize QuerySize = LocationSize::beforeOrAfterPointer();
-      if (ILoc && TripCount) {
+      if (ILoc) {
         const SCEV *QuerySCEV = SE.getSCEV(const_cast<Value*>(ILoc->Ptr));
-        if (auto AddRec = dyn_cast<SCEVAddRecExpr>(QuerySCEV)) {
-          if (auto Inc = dyn_cast<SCEVConstant>(AddRec->getStepRecurrence(SE))) {
-            QuerySize = LocationSize::upperBound(
-              (Inc->getAPInt() * TripCount->getAPInt()).getZExtValue());
+        if (TripCount)
+          if (auto AddRec = dyn_cast<SCEVAddRecExpr>(QuerySCEV)) {
+            if (auto Inc =
+                    dyn_cast<SCEVConstant>(AddRec->getStepRecurrence(SE))) {
+              QuerySize = LocationSize::upperBound(
+                  (Inc->getAPInt() * TripCount->getAPInt()).getZExtValue());
+            }
+          }
+
+        // Try to prove simple inequality using SCEV. This is similar to what
+        // SCEVAA would do if enabled, and is only helpful because SCEV can do
+        // GEP/indexing simplifications that BasicAA cannot. We want to prove
+        // that Diff > Loc.Size. (SI and Inst can be flipped depending on which
+        // pointer happens to be greater.)
+        // +                +
+        // |                |
+        // ----- Diff ----->|
+        // |-->Loc.Size     |-------> QuerySize
+        // SI               Inst
+        //
+        // TODO: we should try to leverage SCEV's 'isKnownPredicate' here. For
+        // example, the test below requires Diff to be constant and
+        // isKnownPredicate may not.
+        if (Loc.Size.hasValue()) {
+          const SCEVConstant *Diff = dyn_cast<SCEVConstant>(
+              SE.getMinusSCEV(QuerySCEV, SE.getSCEV(SI.getPointerOperand())));
+          unsigned LesserPtrFootprint = Loc.Size.getValue();
+
+          if (Diff && SE.isKnownNegative(Diff)) {
+            // It happens SI's pointer is greater. Flip if we know a size.
+            if (QuerySize.hasValue()) {
+              Diff = dyn_cast<SCEVConstant>(SE.getNegativeSCEV(Diff));
+              LesserPtrFootprint = QuerySize.getValue();
+            } else {
+              // Can't proceed with this test.
+              Diff = nullptr;
+            }
+          }
+
+          if (Diff) {
+            uint64_t Distance = Diff->getAPInt().getZExtValue();
+            // Because we're reasoning about byte addresses and not indicies
+            // inequality is not enough; we must ensure that there's no
+            // overlap.
+            if (Distance > LesserPtrFootprint)
+              continue;
           }
         }
       }
