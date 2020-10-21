@@ -437,8 +437,12 @@ void llvm::PointerMayBeCaptured(const Value *V, CaptureTracker *Tracker,
   // All uses examined.
 }
 
+#if INTEL_CUSTOMIZATION
+// Intel: added PtrCaptureMaxUses and DL parameters.
 bool llvm::isNonEscapingLocalObject(
-    const Value *V, SmallDenseMap<const Value *, bool, 8> *IsCapturedCache) {
+    const Value *V, unsigned PtrCaptureMaxUses, const DataLayout &DL,
+    SmallDenseMap<const Value *, bool, 8> *IsCapturedCache) {
+#endif // INTEL_CUSTOMIZATION
   SmallDenseMap<const Value *, bool, 8>::iterator CacheIt;
   if (IsCapturedCache) {
     bool Inserted;
@@ -455,7 +459,11 @@ bool llvm::isNonEscapingLocalObject(
     // PointerMayBeCaptured doesn't have any special analysis for the
     // StoreCaptures=false case; if it did, our callers could be refined to be
     // more precise.
-    auto Ret = !PointerMayBeCaptured(V, false, /*StoreCaptures=*/true);
+#if INTEL_CUSTOMIZATION
+    auto Ret = !PointerMayBeCaptured(V, false, /*StoreCaptures=*/true,
+                                     /*IgnoreNoAliasArgStCaptures=*/false,
+                                     PtrCaptureMaxUses);
+#endif // INTEL_CUSTOMIZATION
     if (IsCapturedCache)
       CacheIt->second = Ret;
     return Ret;
@@ -469,7 +477,11 @@ bool llvm::isNonEscapingLocalObject(
       // Note even if the argument is marked nocapture, we still need to check
       // for copies made inside the function. The nocapture attribute only
       // specifies that there are no copies made that outlive the function.
-      auto Ret = !PointerMayBeCaptured(V, false, /*StoreCaptures=*/true);
+#if INTEL_CUSTOMIZATION
+      auto Ret = !PointerMayBeCaptured(V, false, /*StoreCaptures=*/true,
+                                       /*IgnoreNoAliasArgStCaptures=*/false,
+                                       PtrCaptureMaxUses);
+#endif // INTEL_CUSTOMIZATION
       if (IsCapturedCache)
         CacheIt->second = Ret;
       return Ret;

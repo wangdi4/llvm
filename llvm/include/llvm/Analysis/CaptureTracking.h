@@ -104,6 +104,8 @@ namespace llvm {
   /// escapes from the function.
   bool isNonEscapingLocalObject(
       const Value *V,
+      unsigned PtrCaptureMaxUses, // INTEL
+      const DataLayout &DL,       // INTEL
       SmallDenseMap<const Value *, bool, 8> *IsCapturedCache = nullptr);
 } // end namespace llvm
 
