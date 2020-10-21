@@ -2014,7 +2014,16 @@ RValue CodeGenFunction::EmitBuiltinExpr(const GlobalDecl GD, unsigned BuiltinID,
                                                Result.Val.getFloat()));
   }
 
+<<<<<<< HEAD
   CurrentBuiltinIDRAII CB(*this, BuiltinID); // INTEL
+=======
+  // If the builtin has been declared explicitly with an assembler label,
+  // disable the specialized emitting below. Ideally we should communicate the
+  // rename in IR, or at least avoid generating the intrinsic calls that are
+  // likely to get lowered to the renamed library functions.
+  const unsigned BuiltinIDIfNoAsmLabel =
+      FD->hasAttr<AsmLabelAttr>() ? 0 : BuiltinID;
+>>>>>>> 5a338599fbaa805587227779bde0a9986cb4646d
 
   // There are LLVM math intrinsics/instructions corresponding to math library
   // functions except the LLVM op will never set errno while the math library
@@ -2022,7 +2031,7 @@ RValue CodeGenFunction::EmitBuiltinExpr(const GlobalDecl GD, unsigned BuiltinID,
   // twins. Thus, we can transform math library and builtin calls to their
   // LLVM counterparts if the call is marked 'const' (known to never set errno).
   if (FD->hasAttr<ConstAttr>()) {
-    switch (BuiltinID) {
+    switch (BuiltinIDIfNoAsmLabel) {
     case Builtin::BIceil:
     case Builtin::BIceilf:
     case Builtin::BIceill:
@@ -2299,7 +2308,7 @@ RValue CodeGenFunction::EmitBuiltinExpr(const GlobalDecl GD, unsigned BuiltinID,
     }
   }
 
-  switch (BuiltinID) {
+  switch (BuiltinIDIfNoAsmLabel) {
   default: break;
   case Builtin::BI__builtin___CFStringMakeConstantString:
   case Builtin::BI__builtin___NSStringMakeConstantString:
