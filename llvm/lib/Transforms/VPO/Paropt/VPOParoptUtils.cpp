@@ -3807,6 +3807,40 @@ CallInst *VPOParoptUtils::genCall(StringRef FnName, Type *ReturnTy,
 //                                |   call @foo(QNCA* %dv)
 //                                | }
 //                                |
+// -------------------------------+--------------------------------------------
+//           Before               |      After
+// -------------------------------+--------------------------------------------
+//   CPTR = type {i64}            |  CPTR = type {i64}
+//   ..                           |  ...
+//                                |
+//                               (5) %a.new = alloca CPTR
+//   "USE.DEVICE.PTR:CPTR"        |
+//                   (CPTR* %a)   |
+//                                |
+//                                | if (__tgt_is_device_available(...) {
+//                                |   %a.cast = bitcast CPTR* %a to i8**
+//                                |   %a.val = load i8*, i8** %a.cast
+//                                |   ...
+//                             <noop> %a.val.cast = bitcast i8* %a.val to i8*
+//                                |   store i8* %a.val.cast, i8** <a_gep>
+//                                |   ...
+//                                |   __tgt_data_begin(...)
+//                             <noop> %a.gep.cast = bitcast i8** <a_gep>
+//                                |                 to i8**
+//                                |
+//                               (3)  %a.updated = load i8*, i32** %a.gep.cast
+//                               (9)  %a.new.cast = bitcast CPTR* %a.new to i8**
+//                              (10)  store %a.updated, %a.new.cast
+//                                |
+//   call @foo(CPTR* %a)         (4)  call @foo_gpu(CPTR* %a.new)
+//                                |
+//                                |   __tgt_data_end(...)
+//                                | } else {
+//                                |   call @foo(CPTR* %a)
+//                                | }
+//                                |
+// Note that the noop instructions are here for reference. They are elided by
+// IRBuilder.
 #endif // INTEL_CUSTOMIZATION
 CallInst *VPOParoptUtils::genVariantCall(CallInst *BaseCall,
                                          StringRef VariantName,
@@ -3894,22 +3928,29 @@ CallInst *VPOParoptUtils::genVariantCall(CallInst *BaseCall,
       Value *Buffer =
           VCBuilder.CreateLoad(TgtBufferAddr, OrigName + ".buffer"); // (1), (3)
 #if INTEL_CUSTOMIZATION
-      if (Item->getIsF90DopeVector()) {
+      if (Item->getIsF90DopeVector() || Item->getIsCptr()) {
         const DataLayout &DL = M->getDataLayout();
         Type *OrigElemType = Item->getOrigElemType();
         Instruction *AllocaInsertPt =
             VPOParoptUtils::getInsertionPtForAllocas(W, F);
         unsigned Alignment = DL.getABITypeAlignment(OrigElemType);
-        Value *NewV =
-            genPrivatizationAlloca(OrigElemType, /*NumElements=*/nullptr,
-                                   MaybeAlign(Alignment), AllocaInsertPt,
-                                   /*IsTargetSpirv=*/false, ".new"); // (5)
-        VPOUtils::genMemcpy(NewV, HostPtr, DL, Alignment,
-                            &*VCBuilder.GetInsertPoint()); //           (6)
-        auto *Zero = VCBuilder.getInt32(0);
-        auto *Addr0GEP = VCBuilder.CreateInBoundsGEP(
-            NewV, {Zero, Zero}, NewV->getName() + ".addr0"); //         (7)
-        VCBuilder.CreateStore(Buffer, Addr0GEP); //                     (8)
+        Value *NewV = genPrivatizationAlloca(
+            OrigElemType, /*NumElements=*/nullptr, MaybeAlign(Alignment),
+            AllocaInsertPt,
+            /*IsTargetSpirv=*/false, OrigName + ".new"); //             (5)
+        if (Item->getIsF90DopeVector()) {
+          VPOUtils::genMemcpy(NewV, HostPtr, DL, Alignment,
+                              &*VCBuilder.GetInsertPoint()); //         (6)
+          auto *Zero = VCBuilder.getInt32(0);
+          auto *Addr0GEP = VCBuilder.CreateInBoundsGEP(
+              NewV, {Zero, Zero}, NewV->getName() + ".addr0"); //       (7)
+          VCBuilder.CreateStore(Buffer, Addr0GEP); //                   (8)
+        } else if (Item->getIsCptr()) {
+          PointerType *Int8PtrPtrTy = VCBuilder.getInt8PtrTy()->getPointerTo();
+          auto *NewVCast = VCBuilder.CreateBitOrPointerCast(
+              NewV, Int8PtrPtrTy, NewV->getName() + ".cast"); //        (9)
+          VCBuilder.CreateStore(Buffer, NewVCast); //                   (10)
+        }
         Buffer = NewV;
       }
 #endif // INTEL_CUSTOMIZATION
