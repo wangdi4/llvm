@@ -17,11 +17,17 @@ define i32 @test1() nounwind readnone {
 ; CHECK-NEXT:    %i.03 = phi i32 [ 0, %entry ], [ %inc, %for.body ]
 ; CHECK-NEXT:    --> {0,+,1}<nuw><nsw><%for.body> U: [0,50) S: [0,50) Exits: 49 LoopDispositions: { %for.body: Computable }
 ; CHECK-NEXT:    %arrayidx = getelementptr inbounds [50 x i32], [50 x i32]* @arr1, i32 0, i32 %i.03
-; CHECK-NEXT:    --> {@arr1,+,4}<nsw><%for.body> U: [0,-3) S: [-2147483648,2147483645) Exits: (196 + @arr1) LoopDispositions: { %for.body: Computable }
+; INTEL_CUSTOMIZATION
+; Added <nuw> flags.
+; CHECK-NEXT:    --> {@arr1,+,4}<nuw><nsw><%for.body> U: [0,-3) S: [-2147483648,2147483645) Exits: (196 + @arr1) LoopDispositions: { %for.body: Computable }
+; END INTEL_CUSTOMIZATION
 ; CHECK-NEXT:    %0 = load i32, i32* %arrayidx, align 4
 ; CHECK-NEXT:    --> %0 U: full-set S: full-set Exits: 50 LoopDispositions: { %for.body: Variant }
 ; CHECK-NEXT:    %arrayidx1 = getelementptr inbounds [50 x i32], [50 x i32]* @arr2, i32 0, i32 %i.03
-; CHECK-NEXT:    --> {@arr2,+,4}<nsw><%for.body> U: [0,-3) S: [-2147483648,2147483645) Exits: (196 + @arr2) LoopDispositions: { %for.body: Computable }
+; INTEL_CUSTOMIZATION
+; Added <nuw> flags.
+; CHECK-NEXT:    --> {@arr2,+,4}<nuw><nsw><%for.body> U: [0,-3) S: [-2147483648,2147483645) Exits: (196 + @arr2) LoopDispositions: { %for.body: Computable }
+; END INTEL_CUSTOMIZATION
 ; CHECK-NEXT:    %1 = load i32, i32* %arrayidx1, align 4
 ; CHECK-NEXT:    --> %1 U: full-set S: full-set Exits: 0 LoopDispositions: { %for.body: Variant }
 ; CHECK-NEXT:    %add = add i32 %0, %sum.04
