@@ -83,28 +83,10 @@ define i1 @trunc_v6i32_v6i1(<6 x i32>) {
 ; AVX:       # %bb.0:
 ; AVX-NEXT:    vpshufb {{.*#+}} ymm0 = ymm0[0,1,4,5,8,9,12,13,u,u,u,u,u,u,u,u,16,17,20,21,24,25,28,29,u,u,u,u,u,u,u,u]
 ; AVX-NEXT:    vpermq {{.*#+}} ymm0 = ymm0[0,2,2,3]
-; AVX-NEXT:    vmovd %xmm0, %eax
-; AVX-NEXT:    andb $1, %al
-; AVX-NEXT:    vpextrw $1, %xmm0, %ecx
-; AVX-NEXT:    andb $1, %cl
-; AVX-NEXT:    addb %cl, %cl
-; AVX-NEXT:    orb %al, %cl
-; AVX-NEXT:    vpextrw $2, %xmm0, %eax
-; AVX-NEXT:    andb $1, %al
-; AVX-NEXT:    shlb $2, %al
-; AVX-NEXT:    orb %cl, %al
-; AVX-NEXT:    vpextrw $3, %xmm0, %ecx
-; AVX-NEXT:    andb $1, %cl
-; AVX-NEXT:    shlb $3, %cl
-; AVX-NEXT:    orb %al, %cl
-; AVX-NEXT:    vpextrw $4, %xmm0, %eax
-; AVX-NEXT:    andb $1, %al
-; AVX-NEXT:    shlb $4, %al
-; AVX-NEXT:    orb %cl, %al
-; AVX-NEXT:    vpextrw $5, %xmm0, %ecx
-; AVX-NEXT:    shlb $5, %cl
-; AVX-NEXT:    orb %al, %cl
-; AVX-NEXT:    testb $63, %cl
+; AVX-NEXT:    vpsllw $15, %xmm0, %xmm0
+; AVX-NEXT:    vpacksswb %xmm0, %xmm0, %xmm0
+; AVX-NEXT:    vpmovmskb %xmm0, %eax
+; AVX-NEXT:    testb $63, %al
 ; AVX-NEXT:    setne %al
 ; AVX-NEXT:    vzeroupper
 ; AVX-NEXT:    retq
