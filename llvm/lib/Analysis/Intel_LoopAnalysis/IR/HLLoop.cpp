@@ -1048,12 +1048,12 @@ void HLLoop::removePreheader() { HLNodeUtils::remove(pre_begin(), pre_end()); }
 
 void HLLoop::removePostexit() { HLNodeUtils::remove(post_begin(), post_end()); }
 
-static void demoteBlobs(RegDDRef *Ref, unsigned Level) {
+static void promoteBlobs(RegDDRef *Ref, unsigned Level, int Increment) {
   if (Ref->isSelfBlob()) {
     unsigned DefLevel = Ref->getSingleCanonExpr()->getDefinedAtLevel();
 
     if (DefLevel != NonLinearLevel && DefLevel >= Level) {
-      Ref->getSingleCanonExpr()->setDefinedAtLevel(DefLevel - 1);
+      Ref->getSingleCanonExpr()->setDefinedAtLevel(DefLevel + Increment);
     }
 
   } else {
@@ -1061,7 +1061,7 @@ static void demoteBlobs(RegDDRef *Ref, unsigned Level) {
       auto BlobLevel = BRef->getDefinedAtLevel();
 
       if (BlobLevel != NonLinearLevel && BlobLevel >= Level) {
-        BRef->setDefinedAtLevel(BlobLevel - 1);
+        BRef->setDefinedAtLevel(BlobLevel + Increment);
       }
     }
   }
@@ -1097,7 +1097,7 @@ static unsigned demoteRef(RegDDRef *Ref, const HLLoop *ReplaceLp,
     // When we replace outer loop by first iteration, the definition level
     // of blobs defined inside this loop reduces by 1.
     // The use of these blobs in inner loop refs need to be updated.
-    demoteBlobs(Ref, Level);
+    promoteBlobs(Ref, Level, -1);
 
     // When IV is substituted in inner loop, temps in merged ref need to be
     // marked as livein to that loop.
@@ -2242,4 +2242,12 @@ void HLLoop::dividePragmaBasedTripCount(unsigned Factor) {
   if (getPragmaBasedAverageTripCount(TC)) {
     setPragmaBasedAverageTripCount(TC / Factor);
   }
+}
+
+void HLLoop::promoteNestingLevel(unsigned StartLevel) {
+  ForEach<RegDDRef>::visitRange(child_begin(), child_end(), [&](RegDDRef *Ref) {
+    Ref->promoteIVs(StartLevel);
+    promoteBlobs(Ref, StartLevel, 1);
+    Ref->makeConsistent({}, StartLevel + 1);
+  });
 }

@@ -744,10 +744,12 @@ public:
   /// Iterator version of shift.
   void shift(iv_iterator IVI, int64_t Val);
 
-  /// Demotes the nesting level of all canon expr IVs starting from \p
+  /// Promotes/Demotes the nesting level of all canon expr IVs starting from \p
   /// StartLevel.
   /// E.g.
+  /// i1 -> i2, i2 -> i3, ...
   /// i2 -> i1, i3 -> i2, ...
+  void promoteIVs(unsigned StartLevel);
   void demoteIVs(unsigned StartLevel);
 
   /// Populates Indices with all the blobs contained in the CanonExpr

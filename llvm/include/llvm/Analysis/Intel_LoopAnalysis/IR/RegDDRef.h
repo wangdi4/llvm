@@ -1140,6 +1140,7 @@ public:
   /// i2 -> i1, i3 -> i2, ...
   ///
   /// See Also: CanonExpr::demoteIVs();
+  void promoteIVs(unsigned StartLevel);
   void demoteIVs(unsigned StartLevel);
 
   /// Does constant folding for the ref if it is a global const.
