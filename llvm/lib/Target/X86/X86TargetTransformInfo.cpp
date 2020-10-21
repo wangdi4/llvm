@@ -3501,9 +3501,21 @@ int X86TTIImpl::getArithmeticReductionCost(unsigned Opcode, VectorType *ValTy,
   if (IsPairwise)
     return BaseT::getArithmeticReductionCost(Opcode, ValTy, IsPairwise, CostKind);
 
+#if INTEL_CUSTOMIZATION
+  // If it is llvm.experimental.vector.reduce.or/and.vNi1, it can be replaced to
+  // integer bitcast+cmp.
+  if (getTLI()->getTargetMachine().Options.IntelAdvancedOptim &&
+      ValTy->getElementType() == Type::getInt1Ty(ValTy->getContext()) &&
+      ValTy->getNumElements() > 1 &&
+      ((ST->is64Bit() && ValTy->getNumElements() <= 64) ||
+       ValTy->getNumElements() <= 32) &&
+      (Opcode == Instruction::And || Opcode == Instruction::Or)) {
+    return 2;
+  }
+#endif // INTEL_CUSTOMIZATION
+
   // We use the Intel Architecture Code Analyzer(IACA) to measure the throughput
   // and make it as the cost.
-
   static const CostTblEntry SLMCostTblNoPairWise[] = {
     { ISD::FADD,  MVT::v2f64,   3 },
     { ISD::ADD,   MVT::v2i64,   5 },
