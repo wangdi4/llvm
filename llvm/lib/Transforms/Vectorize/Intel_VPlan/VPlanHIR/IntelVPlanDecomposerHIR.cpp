@@ -1899,7 +1899,7 @@ void VPDecomposerHIR::fixExternalUses() {
       // Could not find any post-dominating operands for VPExternalUse. This can
       // happen for search loops and for live-out symbases without any uses
       // inside the loop. Check JIRA : CMPLRLLVM-21456.
-      return;
+      continue;
     }
 
     // Cache the post-dominating operand to be used after clearing operand list.
