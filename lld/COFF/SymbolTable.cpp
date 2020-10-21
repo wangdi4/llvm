@@ -390,7 +390,7 @@ void SymbolTable::reportUnresolvable() {
   for (auto &i : symMap) {
     Symbol *sym = i.second;
     auto *undef = dyn_cast<Undefined>(sym);
-    if (!undef)
+    if (!undef || sym->deferUndefined)
       continue;
     if (undef->getWeakAlias())
       continue;
@@ -490,6 +490,7 @@ std::pair<Symbol *, bool> SymbolTable::insert(StringRef name) {
     sym = reinterpret_cast<Symbol *>(make<SymbolUnion>());
     sym->isUsedInRegularObj = false;
     sym->pendingArchiveLoad = false;
+    sym->canInline = true;
     inserted = true;
   }
   return {sym, inserted};
