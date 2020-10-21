@@ -879,15 +879,16 @@ ASTContext::getCanonicalTemplateTemplateParmDecl(
   return CanonTTP;
 }
 
-TargetCXXABI::Kind ASTContext::getCXXABIKind() const {
-  auto Kind = getTargetInfo().getCXXABI().getKind();
-  return getLangOpts().CXXABI.getValueOr(Kind);
-}
-
 CXXABI *ASTContext::createCXXABI(const TargetInfo &T) {
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   // CQ#379144 Intel TBAA.
   switch (getCXXABIKind()) {
+=======
+  if (!LangOpts.CPlusPlus) return nullptr;
+
+  switch (T.getCXXABI().getKind()) {
+>>>>>>> 79829a47040512fe54001db839ac59146ca55aec
   case TargetCXXABI::Fuchsia:
   case TargetCXXABI::GenericARM: // Same as Itanium at this level
   case TargetCXXABI::iOS:
