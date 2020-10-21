@@ -45681,6 +45681,128 @@ static SDValue combineScalarAndWithMaskSetcc(SDNode *N, SelectionDAG &DAG,
   return DAG.getBitcast(VT, Concat);
 }
 
+#if INTEL_CUSTOMIZATION
+// Check if BitwiseSrc has the following pair:
+// and? (bitcast (src, iN), imm)
+static bool matchAndBitcastPair(SDValue BitwiseSrc, SelectionDAG &DAG,
+                                SDValue &Bitcast, uint64_t &AndMask,
+                                const X86Subtarget &Subtarget) {
+  Bitcast = BitwiseSrc;
+
+  if (BitwiseSrc.getOpcode() == ISD::AND) {
+    int Index = -1;
+    SDValue And = BitwiseSrc;
+
+    // KORTEST need for CPU flags.
+    if (!Subtarget.hasDQI() || !Subtarget.hasBWI())
+      return false;
+
+    if (!And.hasOneUse())
+      return false;
+
+    for (int i = 0; i < 2; ++i) {
+      if (isa<ConstantSDNode>(And.getOperand(i))) {
+        Index = i;
+        AndMask = And.getConstantOperandVal(i);
+        break;
+      }
+    }
+
+    if (Index == -1)
+      return false;
+
+    Bitcast = And.getOperand(1 - Index);
+  }
+
+  if (Bitcast.getOpcode() != ISD::BITCAST || !Bitcast.hasOneUse())
+    return false;
+
+  EVT BCSrcVT = Bitcast->getOperand(0).getValueType();
+  if (!BCSrcVT.isVector() || BCSrcVT.getVectorElementType() != MVT::i1)
+    return false;
+
+  return true;
+}
+
+// Generate 'and' node with vectorized mask.
+static SDValue GenAndMask(SDValue Bitcast, SelectionDAG &DAG,
+                          uint64_t AndMask) {
+  SDValue Src = Bitcast->getOperand(0);
+  EVT SrcVT = Src.getValueType();
+  SDLoc dl(Bitcast);
+
+  unsigned SrcVecNum = SrcVT.getVectorNumElements();
+  assert(SrcVecNum <= 64 && "Illegal SrcVecNum!!");
+
+  SmallVector<SDValue, 16> MaskVec;
+  for (unsigned i = 0; i < SrcVecNum; ++i) {
+    MaskVec.push_back(DAG.getConstant(AndMask & 0x1 ? true : false, dl,
+                                          MVT::i8));
+    AndMask >>= 1;
+  }
+
+  return DAG.getNode(ISD::AND, dl, SrcVT, Src,
+                     DAG.getBuildVector(SrcVT, dl, MaskVec));
+}
+
+// Try to transform
+// "bitwise (and? (bitcast (srcA, iN), imm0)), (and? (bitcast (srcB, iN),
+// imm1))" to "bitcast (bitwise (and? (srcA, <N x i1>(imm0))), (and? (srcB, <N x
+// i1>(imm1)))), iN". The target code has less instructions and it can be
+// transformed to KORTEST on AVX512.
+static SDValue combineBitwiseBitcastPair(SDNode *Bitwise, SelectionDAG &DAG,
+                                         const X86Subtarget &Subtarget) {
+
+  if (!DAG.getTarget().Options.IntelAdvancedOptim)
+    return SDValue();
+
+  if (Bitwise->getOpcode() != ISD::AND && Bitwise->getOpcode() != ISD::XOR &&
+      Bitwise->getOpcode() != ISD::OR)
+    return SDValue();
+
+  EVT BitwiseTy = Bitwise->getValueType(0);
+  if (BitwiseTy.isVector())
+    return SDValue();
+
+  const TargetLowering &TLI = DAG.getTargetLoweringInfo();
+  if (!TLI.isTypeLegal(BitwiseTy))
+    return SDValue();
+
+  if (BitwiseTy.getSizeInBits() > 64)
+    return SDValue();
+
+  SDValue LHSBitcast;
+  uint64_t LHSMask = UINT64_MAX;
+  if (!matchAndBitcastPair(Bitwise->getOperand(0), DAG, LHSBitcast, LHSMask,
+                           Subtarget))
+    return SDValue();
+
+  SDValue RHSBitcast;
+  uint64_t RHSMask = UINT64_MAX;
+  if (!matchAndBitcastPair(Bitwise->getOperand(1), DAG, RHSBitcast, RHSMask,
+                           Subtarget))
+    return SDValue();
+
+  if (LHSBitcast.getValueType() != RHSBitcast.getValueType())
+    return SDValue();
+
+  SDValue LHSNode = LHSBitcast.getOperand(0);
+  if (LHSMask != UINT64_MAX)
+    LHSNode = GenAndMask(LHSBitcast, DAG, LHSMask);
+
+  SDValue RHSNode = RHSBitcast.getOperand(0);
+  if (RHSMask != UINT64_MAX)
+    RHSNode = GenAndMask(RHSBitcast, DAG, RHSMask);
+
+  SDLoc dl(Bitwise);
+  SDValue NewBitwise = DAG.getNode(
+      Bitwise->getOpcode(), dl, LHSNode.getValueType(), LHSNode, RHSNode);
+
+  return DAG.getNode(ISD::BITCAST, dl, Bitwise->getValueType(0), NewBitwise);
+}
+
+#endif // INTEL_CUSTOMIZATION
+
 static SDValue combineAnd(SDNode *N, SelectionDAG &DAG,
                           TargetLowering::DAGCombinerInfo &DCI,
                           const X86Subtarget &Subtarget) {
@@ -45740,6 +45862,11 @@ static SDValue combineAnd(SDNode *N, SelectionDAG &DAG,
 
   if (SDValue R = combineBitOpWithMOVMSK(N, DAG))
     return R;
+
+#if INTEL_CUSTOMIZATION
+  if (SDValue R = combineBitwiseBitcastPair(N, DAG, Subtarget))
+    return R;
+#endif // INTEL_CUSTOMIZATION
 
   if (DCI.isBeforeLegalizeOps())
     return SDValue();
@@ -46108,6 +46235,11 @@ static SDValue combineOr(SDNode *N, SelectionDAG &DAG,
 
   if (SDValue R = combineBitOpWithMOVMSK(N, DAG))
     return R;
+
+#if INTEL_CUSTOMIZATION
+  if (SDValue R = combineBitwiseBitcastPair(N, DAG, Subtarget))
+    return R;
+#endif // INTEL_CUSTOMIZATION
 
   if (DCI.isBeforeLegalizeOps())
     return SDValue();
@@ -48593,6 +48725,11 @@ static SDValue combineXor(SDNode *N, SelectionDAG &DAG,
 
   if (SDValue R = combineBitOpWithMOVMSK(N, DAG))
     return R;
+
+#if INTEL_CUSTOMIZATION
+  if (SDValue R = combineBitwiseBitcastPair(N, DAG, Subtarget))
+    return R;
+#endif // INTEL_CUSTOMIZATION
 
   if (DCI.isBeforeLegalizeOps())
     return SDValue();

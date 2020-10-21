@@ -97,7 +97,7 @@ exit:
 }
 
 ; Check metadata for remarks from vectorized IR
-; CHECK: [[FOO_LOOP_MD]] = distinct !{[[FOO_LOOP_MD]], [[FOO_OPTRPT:![^,]+]]{{.*}}}
+; CHECK: [[FOO_LOOP_MD:!.*]] = distinct !{[[FOO_LOOP_MD]], [[FOO_OPTRPT:![^,]+]]{{.*}}}
 ; CHECK: [[FOO_OPTRPT]] = distinct !{!"llvm.loop.optreport", [[FOO_OPTRPT_INTEL:!.*]]}
 ; CHECK-NEXT: [[FOO_OPTRPT_INTEL]] = distinct !{!"intel.loop.optreport", [[REMARKS:!.*]]}
 ; CHECK-NEXT: [[REMARKS]] = !{!"intel.optreport.remarks", [[R1:!.*]], [[R2:!.*]]}

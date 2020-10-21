@@ -42,7 +42,8 @@
 #define __SYCL_ID_QUERIES_FIT_IN_INT__ 0
 #endif
 
-#if __SYCL_ID_QUERIES_FIT_IN_INT__ && __has_builtin(__builtin_assume)
+#if __SYCL_ID_QUERIES_FIT_IN_INT__ && __has_builtin(__builtin_assume) &&       \
+    !__SYCL_EXPLICIT_SIMD__
 #define __SYCL_ASSUME_INT(x) __builtin_assume((x) <= INT_MAX)
 #else
 #define __SYCL_ASSUME_INT(x)

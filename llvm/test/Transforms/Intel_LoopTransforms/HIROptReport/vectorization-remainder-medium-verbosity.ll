@@ -33,11 +33,11 @@
 ; CHECK: [[M5]] = !{!"intel.optreport.remark", !"vectorization support: vector length %s", {{.*}}}
 ; CHECK: [[M6:!.*]] = distinct !{[[M6]]{{.*}}[[M7:!.*]]{{.*}}}
 ; CHECK: [[M7]] = distinct !{!"llvm.loop.optreport", [[M8:!.*]]}
-; CHECK: [[M8]] = distinct !{!"intel.loop.optreport", [[M9:!.*]], [[M11:!.*]]}
-; CHECK: [[M9]] = !{!"intel.optreport.origin", [[M10:!.*]]}
-; CHECK: [[M10]] = !{!"intel.optreport.remark", !"Remainder loop for vectorization"}
-; CHECK: [[M11]] = !{!"intel.optreport.remarks", [[M12:!.*]]}
-; CHECK: [[M12]] = !{!"intel.optreport.remark", !"remainder loop was not vectorized: %s ", {{.*}}}
+; CHECK: [[M8]] = distinct !{!"intel.loop.optreport", [[M10:!.*]], [[M12:!.*]]}
+; CHECK: [[M10]] = !{!"intel.optreport.origin", [[M11:!.*]]}
+; CHECK: [[M11]] = !{!"intel.optreport.remark", !"Remainder loop for vectorization"}
+; CHECK: [[M12]] = !{!"intel.optreport.remarks", [[M13:!.*]]}
+; CHECK: [[M13]] = !{!"intel.optreport.remark", !"remainder loop was not vectorized: %s ", {{.*}}}
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
