@@ -274,6 +274,10 @@ public:
 #if !INTEL_CUSTOMIZATION
   RecurrenceKind getRecurrenceKind() const { return Kind; }
 
+  unsigned getRecurrenceBinOp() const {
+    return getRecurrenceBinOp(getRecurrenceKind());
+  }
+
   MinMaxRecurrenceKind getMinMaxRecurrenceKind() const { return MinMaxKind; }
 
   FastMathFlags getFastMathFlags() const { return FMF; }
@@ -311,8 +315,12 @@ public:
 
 #if !INTEL_CUSTOMIZATION
   /// Returns true if all source operands of the recurrence are SExtInsts.
+<<<<<<< HEAD
   bool isSigned() const{ return IsSigned; }
 #endif
+=======
+  bool isSigned() const { return IsSigned; }
+>>>>>>> 13ec3dd66fe4e8d2990da58e1416c881402dc48e
 
   /// Attempts to find a chain of operations from Phi to LoopExitInst that can
   /// be treated as a set of reductions instructions for in-loop reductions.
