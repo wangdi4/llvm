@@ -2014,16 +2014,14 @@ RValue CodeGenFunction::EmitBuiltinExpr(const GlobalDecl GD, unsigned BuiltinID,
                                                Result.Val.getFloat()));
   }
 
-<<<<<<< HEAD
   CurrentBuiltinIDRAII CB(*this, BuiltinID); // INTEL
-=======
+
   // If the builtin has been declared explicitly with an assembler label,
   // disable the specialized emitting below. Ideally we should communicate the
   // rename in IR, or at least avoid generating the intrinsic calls that are
   // likely to get lowered to the renamed library functions.
   const unsigned BuiltinIDIfNoAsmLabel =
       FD->hasAttr<AsmLabelAttr>() ? 0 : BuiltinID;
->>>>>>> 5a338599fbaa805587227779bde0a9986cb4646d
 
   // There are LLVM math intrinsics/instructions corresponding to math library
   // functions except the LLVM op will never set errno while the math library
