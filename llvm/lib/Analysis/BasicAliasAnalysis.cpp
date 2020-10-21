@@ -162,6 +162,7 @@ static bool isEscapeArgDereference(const Value *V) {
 }
 #endif // INTEL_CUSTOMIZATION
 
+<<<<<<< HEAD
 /// Returns true if the pointer is to a function-local object that never
 /// escapes from the function.
 static bool isNonEscapingLocalObject(
@@ -216,6 +217,8 @@ static bool isNonEscapingLocalObject(
   return false;
 }
 
+=======
+>>>>>>> 224fd6ff48e26840f11f870faf2bde124dc2d261
 /// Returns true if the pointer is one which would have been considered an
 /// escape by isNonEscapingLocalObject.
 static bool isEscapeSource(const Value *V) {
