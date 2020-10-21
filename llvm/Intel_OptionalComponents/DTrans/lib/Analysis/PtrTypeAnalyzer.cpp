@@ -187,7 +187,8 @@ public:
       : Analyzer(Analyzer), CombineUseAndDecl(CombineUseAndDecl) {}
 
   // Dump the list of input parameter types detected for the function.
-  void emitFunctionAnnot(const Function *F, formatted_raw_ostream &OS) {
+  void emitFunctionAnnot(const Function *F,
+                         formatted_raw_ostream &OS) override {
     // We don't have information for parameters of function declarations.
     if (F->isDeclaration())
       return;
@@ -212,7 +213,7 @@ public:
 
   // For pointers and values of interest, print the type information determined
   // for Value \p CV
-  void printInfoComment(const Value &CV, formatted_raw_ostream &OS) {
+  void printInfoComment(const Value &CV, formatted_raw_ostream &OS) override {
     std::function<void(formatted_raw_ostream &, ConstantExpr *)>
         PrintConstantExpr =
             [&PrintConstantExpr, this](formatted_raw_ostream &OS,
@@ -1041,8 +1042,10 @@ private:
           // existing known types for the parameter to avoid it being marked as
           // unhandled. TODO: see if there is a better way to determine when a
           // type cannot be inferred.
-          ValueTypeInfo *ArgInfo = PTA.getOrCreateValueTypeInfo(Arg.getUser(), 0);
-          for (auto *DType : ArgInfo->getPointerTypeAliasSet(ValueTypeInfo::VAT_Use))
+          ValueTypeInfo *ArgInfo =
+              PTA.getOrCreateValueTypeInfo(Arg.getUser(), 0);
+          for (auto *DType :
+               ArgInfo->getPointerTypeAliasSet(ValueTypeInfo::VAT_Use))
             if (auto *PtrTy = dyn_cast<DTransPointerType>(DType))
               addInferredType(ValueToInfer, PtrTy);
         } else if (P.second) {
@@ -1747,7 +1750,7 @@ private:
     if (Target && !Target->isDeclaration() && Idx < Target->arg_size()) {
       Argument *TargetArg = Target->getArg(Idx);
       if (TargetArg->user_empty())
-        return { false, nullptr };
+        return {false, nullptr};
     }
 
     if (!DType) {
@@ -1849,9 +1852,9 @@ private:
       return Agg;
     };
 
-    auto ProcessIndexedElement = [&GetGEPIndexedType, this, &GEP,
-                                  ResultInfo](DTransType *Ty,
-                                              SmallVector<Value *, 4> &GepOps) {
+    auto ProcessIndexedElement = [&GetGEPIndexedType, this, &GEP, ResultInfo](
+                                     DTransType *Ty,
+                                     SmallVectorImpl<Value *> &GepOps) {
       // Need to compute indexed type based on GEP indices
       // Case 1: Structure
       //  - 2 operands, type is field member type
@@ -1912,9 +1915,8 @@ private:
           ResultInfo->addElementPointee(ValueTypeInfo::VAT_Decl, IndexedTy,
                                         ElemNum);
         } else {
-          // TODO: LocalPointerAnalyzer treats this as an element pointee at
-          // index 0 when DTransOutOfBoundsOk = false for some reason, but not
-          // when DTransOutOfBounds = true. Mimic this behavior.
+          ResultInfo->addElementPointeeUnknownOffset(ValueTypeInfo::VAT_Decl,
+                                                     IndexedTy);
         }
         return true;
       }
@@ -2578,13 +2580,7 @@ private:
       // but %z is just being updated to be the pointee type from %x.
       if (DerefLevel == DerefType::DT_SameType)
         for (auto PointeePair : SrcInfo->getElementPointeeSet(Kind))
-          if (PointeePair.second.getKind() ==
-              ValueTypeInfo::PointeeLoc::PLK_Field)
-            LocalChanged |= DestInfo->addElementPointee(
-                Kind, PointeePair.first, PointeePair.second.getElementNum());
-          else
-            LocalChanged |= DestInfo->addElementPointeeByOffset(
-                Kind, PointeePair.first, PointeePair.second.getByteOffset());
+          LocalChanged |= DestInfo->addElementPointee(Kind, PointeePair);
 
       return LocalChanged;
     };
@@ -2773,14 +2769,26 @@ bool ValueTypeInfo::addElementPointee(ValueAnalysisType Kind,
 bool ValueTypeInfo::addElementPointeeByOffset(ValueAnalysisType Kind,
                                               dtrans::DTransType *BaseTy,
                                               size_t ByteOffset) {
-  PointeeLoc Loc(PointeeLoc::PLK_Offset, ByteOffset);
+  PointeeLoc Loc(PointeeLoc::PLK_ByteOffset, ByteOffset);
   bool Changed = addElementPointeeImpl(Kind, BaseTy, Loc);
   return Changed;
 }
 
+bool ValueTypeInfo::addElementPointeeUnknownOffset(ValueAnalysisType Kind,
+                                                   dtrans::DTransType *BaseTy) {
+  PointeeLoc Loc(PointeeLoc::PLK_UnknownOffset, 0);
+  bool Changed = addElementPointeeImpl(Kind, BaseTy, Loc);
+  return Changed;
+}
+
+bool ValueTypeInfo::addElementPointee(ValueAnalysisType Kind,
+                                      const TypeAndPointeeLocPair &Pointee) {
+  return addElementPointeeImpl(Kind, Pointee.first, Pointee.second);
+}
+
 bool ValueTypeInfo::addElementPointeeImpl(ValueAnalysisType Kind,
                                           dtrans::DTransType *BaseTy,
-                                          PointeeLoc &Loc) {
+                                          const PointeeLoc &Loc) {
   bool Changed = ElementPointees[Kind].insert({BaseTy, Loc}).second;
   if (Changed) {
     DEBUG_WITH_TYPE_P(FNFilter, VERBOSE_TRACE, {
@@ -2788,10 +2796,17 @@ bool ValueTypeInfo::addElementPointeeImpl(ValueAnalysisType Kind,
              << ": ";
       printValue(dbgs(), V);
       dbgs() << " -- " << *BaseTy << " @ ";
-      if (Loc.getKind() == PointeeLoc::PLK_Field)
+      switch (Loc.getKind()) {
+      case PointeeLoc::PLK_Field:
         dbgs() << Loc.getElementNum() << "\n";
-      else
+        break;
+      case PointeeLoc::PLK_ByteOffset:
         dbgs() << "ByteOffset=" << Loc.getByteOffset() << ")\n";
+        break;
+      case PointeeLoc::PLK_UnknownOffset:
+        dbgs() << "UnknownOffset\n";
+        break;
+      }
     });
 
     if (Kind == VAT_Decl)
@@ -2906,11 +2921,19 @@ void ValueTypeInfo::print(raw_ostream &OS, bool Combined,
     else
       OutputStream << *PointeePair.first;
     OutputStream << " @ ";
-    if (PointeePair.second.getKind() == PointeeLoc::PLK_Field)
+    switch (PointeePair.second.getKind()) {
+    case PointeeLoc::PLK_Field:
       OutputStream << PointeePair.second.getElementNum();
-    else
+      break;
+    case PointeeLoc::PLK_ByteOffset:
       OutputStream << "not-field ByteOffset: "
                    << PointeePair.second.getByteOffset();
+      break;
+    case PointeeLoc::PLK_UnknownOffset:
+      OutputStream << "UnknownOffset";
+      break;
+    }
+
     OutputStream.flush();
     return OutputVal;
   };

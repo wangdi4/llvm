@@ -4505,6 +4505,10 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
       // TODO: We are adding -disable-lifetime-markers as a short term
       // solution (CMPLRLLVM-23037/CMPLRLLVM-23038)
       CmdArgs.push_back("-disable-lifetime-markers");
+      // SPIR-V target requires LLVM BC emission, which cannot
+      // be done if any Intel proprietary optimization kicks in,
+      // so we have to disable all proprietary optimizations.
+      CmdArgs.push_back("-disable-intel-proprietary-opts");
     }
 #endif // INTEL_CUSTOMIZATION
   }

@@ -87,13 +87,18 @@ public:
     LPIS_CompletelyAnalyzed // Type has been resolved.
   };
 
-  // Used to describe the field or byte offset into an array or structure. When
-  // the element pointee address starts on a field boundary, PLK_Field will be
-  // used. For the rare cases where an byte offset does not start on a field
-  // boundary (when address is passed into a memory intrinsic call), PLK_Offset
-  // will be used.
+  // Used to describe the field or byte offset into an array or structure.
   struct PointeeLoc {
-    enum PointeeLocKind { PLK_Field, PLK_Offset };
+    enum PointeeLocKind {
+      PLK_Field,      // Element pointee starts on a known field number or array
+                      // element.
+      PLK_ByteOffset, // Element pointee starts on a known byte offset into the
+                      // element that is not a field or array element boundary.
+                      // This is only used for the case where the GEP is used as
+                      // in input the MemIntrinsic.
+      PLK_UnknownOffset // Element pointee offset that is not known, such as a
+                        // runtime dependent value.
+    };
     PointeeLocKind Kind;
     union {
       size_t ElementNum;
@@ -107,6 +112,10 @@ public:
         Loc.ByteOffset = Val;
     }
     PointeeLocKind getKind() const { return Kind; }
+    bool isField() const { return Kind == PLK_Field; }
+    bool isByteOffset() const { return Kind == PLK_ByteOffset; }
+    bool isUnknownOffset() const { return Kind == PLK_UnknownOffset; }
+
     size_t getElementNum() const { return Loc.ElementNum; }
     size_t getByteOffset() const { return Loc.ByteOffset; }
   };
@@ -152,8 +161,8 @@ public:
   bool addElementPointee(ValueAnalysisType Kind, dtrans::DTransType *BaseTy,
                          size_t ElemIdx);
 
-  // This function is used to capture that a value is the address on some
-  // location that does not being a field boundary within an aggregate type.
+  // This function is used to capture that a value is the address of some
+  // location that does not begin on a field boundary within an aggregate type.
   //
   // @param Kind        - Indicates whether this modification is for the
   //                      'declared' type set or the 'usage' type set. An item
@@ -166,6 +175,26 @@ public:
   //                      addition. Otherwise false.
   bool addElementPointeeByOffset(ValueAnalysisType Kind,
                                  dtrans::DTransType *BaseTy, size_t ByteOffset);
+
+  // This function is used to capture that a value is the address of some
+  // field within an aggregate type, but the offset cannot be resolved as a
+  // known compile time constant. This should only apply to accesses into arrays
+  // or byte flattened GEPs.
+  //
+  // @param Kind        - Indicates whether this modification is for the
+  //                      'declared' type set or the 'usage' type set. An item
+  //                      added as a 'declared' type will also be inserted into
+  //                      the 'usage' type set, but an object added as a 'usage'
+  //                      type will only go to the 'usage' type set.
+  // @param BaseTy      - Aggregate type that an address is being obtained for.
+  // @return            - 'true' if the sets changed as a result of the
+  //                      addition. Otherwise false.
+  bool addElementPointeeUnknownOffset(ValueAnalysisType Kind,
+                                      dtrans::DTransType *BaseTy);
+
+  // Copy an existing element pointee pair to this object.
+  bool addElementPointee(ValueAnalysisType Kind,
+                         const TypeAndPointeeLocPair &Pointee);
 
   // Retrieve the (declared or usage type) alias set for iterating.
   PointerTypeAliasSetRef getPointerTypeAliasSet(ValueAnalysisType Kind) {
@@ -255,7 +284,7 @@ public:
 private:
   // Internal implementation for updating the ElementPointees set.
   bool addElementPointeeImpl(ValueAnalysisType Kind, dtrans::DTransType *BaseTy,
-                             PointeeLoc &Loc);
+                             const PointeeLoc &Loc);
 
   // The value object this type information is for.
   Value *V = nullptr;
