@@ -26,16 +26,6 @@
 ; RUN:     -enable-andersen=false -loopopt=0 -O2 -enable-lv %s 2>&1 \
 ; END INTEL CUSTOMIZATION
 ; RUN:     | FileCheck %s --check-prefix=CHECK-O2 --check-prefix=PGOUSE
-<<<<<<< HEAD
-; RUN: opt -enable-new-pm=0 -disable-output -disable-verify -debug-pass=Structure \
-; RUN:     -pgo-kind=pgo-instr-use-pipeline -profile-file='%t.profdata' \
-; RUN:     -hot-cold-split \
-; INTEL CUSTOMIZATION
-; RUN:     -enable-andersen=false -loopopt=0 -O2 -enable-lv %s 2>&1 \
-; END INTEL CUSTOMIZATION
-; RUN:     | FileCheck %s --check-prefix=CHECK-O2 --check-prefix=PGOUSE --check-prefix=SPLIT
-=======
->>>>>>> 273c299d5d649a0222fbde03c9a41e41913751b4
 ;
 ; In the first pipeline there should just be a function pass manager, no other
 ; pass managers.
