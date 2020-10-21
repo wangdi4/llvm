@@ -92,6 +92,10 @@ public:
   /// RecurrenceKind.
   static unsigned getRecurrenceBinOp(RecurrenceKind Kind);
 
+  unsigned getRecurrenceBinOp() const {
+    return getRecurrenceBinOp(getRecurrenceKind());
+  }
+
   /// Returns true if the recurrence kind is an integer kind.
   static bool isIntegerRecurrenceKind(RecurrenceKind Kind);
 
@@ -315,12 +319,8 @@ public:
 
 #if !INTEL_CUSTOMIZATION
   /// Returns true if all source operands of the recurrence are SExtInsts.
-<<<<<<< HEAD
-  bool isSigned() const{ return IsSigned; }
-#endif
-=======
   bool isSigned() const { return IsSigned; }
->>>>>>> 13ec3dd66fe4e8d2990da58e1416c881402dc48e
+#endif
 
   /// Attempts to find a chain of operations from Phi to LoopExitInst that can
   /// be treated as a set of reductions instructions for in-loop reductions.
