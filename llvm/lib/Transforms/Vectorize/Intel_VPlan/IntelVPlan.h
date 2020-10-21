@@ -1961,8 +1961,9 @@ public:
   void setShouldBeSerialized() {
     assert(VecScenario == CallVecScenarios::Undefined &&
            "Inconsistent scenario update.");
-    assert(!isKernelCallOnce() &&
-           "Calls with kernel-call-once attributes cannot be serialized.");
+    if (isKernelCallOnce())
+      report_fatal_error(
+          "Calls with kernel-call-once attributes cannot be serialized.");
     VecScenario = CallVecScenarios::Serialization;
   }
   // Scenario 2 : Vectorization using vector library functions (like SVML).

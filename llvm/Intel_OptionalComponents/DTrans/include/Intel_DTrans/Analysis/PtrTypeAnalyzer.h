@@ -21,6 +21,7 @@
 #define INTEL_DTRANS_ANALYSIS_PTRYPEANALYZER_H
 
 #include "llvm//ADT/SmallPtrSet.h"
+#include "llvm/ADT/SmallVector.h"
 #include <functional>
 #include <memory>
 #include <set>
@@ -105,12 +106,38 @@ public:
       size_t ByteOffset;
     } Loc;
 
+    // For tracking GEPs used to access nested elements, we need to track
+    // additional information to identify the parent type of the element being
+    // accessed. This information provides a chain of types that lead to this
+    // element pointee. Currently, this is only done when the final index
+    // element of the GEP is an array element. This information is needed for
+    // the safety analyzer to handle cases where an array nested within a
+    // structure results in a safety flag that could impact the safety of the
+    // structure type. Examples are when the element index is runtime dependent,
+    // and therefore could be out of bounds; or when the array element has the
+    // same address as the structure field member containing the array.
+    using PointeePairType = std::pair<DTransType *, size_t>;
+    using ElementOfType = SmallVector<PointeePairType, 1>;
+    using ElementOfTypeImpl = SmallVectorImpl<PointeePairType>;
+    ElementOfType ElementOf;
+
     PointeeLoc(PointeeLocKind Kind, size_t Val) : Kind(Kind) {
       if (Kind == PLK_Field)
         Loc.ElementNum = Val;
       else
         Loc.ByteOffset = Val;
     }
+
+    // Constructor that also populates the ElementOf vector.
+    PointeeLoc(PointeeLocKind Kind, size_t Val,
+               ElementOfTypeImpl &ElementOfTypes)
+        : Kind(Kind), ElementOf(ElementOfTypes.begin(), ElementOfTypes.end()) {
+      if (Kind == PLK_Field)
+        Loc.ElementNum = Val;
+      else
+        Loc.ByteOffset = Val;
+    }
+
     PointeeLocKind getKind() const { return Kind; }
     bool isField() const { return Kind == PLK_Field; }
     bool isByteOffset() const { return Kind == PLK_ByteOffset; }
@@ -118,6 +145,7 @@ public:
 
     size_t getElementNum() const { return Loc.ElementNum; }
     size_t getByteOffset() const { return Loc.ByteOffset; }
+    const ElementOfTypeImpl &getElementOf() const { return ElementOf; }
   };
 
   // Track the aggregate type, and the offset into the type.
@@ -161,6 +189,10 @@ public:
   bool addElementPointee(ValueAnalysisType Kind, dtrans::DTransType *BaseTy,
                          size_t ElemIdx);
 
+  bool addElementPointee(ValueAnalysisType Kind, dtrans::DTransType *BaseTy,
+                         size_t ElemIdx,
+                         PointeeLoc::ElementOfTypeImpl &ElementOf);
+
   // This function is used to capture that a value is the address of some
   // location that does not begin on a field boundary within an aggregate type.
   //
@@ -175,6 +207,10 @@ public:
   //                      addition. Otherwise false.
   bool addElementPointeeByOffset(ValueAnalysisType Kind,
                                  dtrans::DTransType *BaseTy, size_t ByteOffset);
+
+  bool addElementPointeeByOffset(ValueAnalysisType Kind,
+                                 dtrans::DTransType *BaseTy, size_t ByteOffset,
+                                 PointeeLoc::ElementOfTypeImpl &ElementOfTypes);
 
   // This function is used to capture that a value is the address of some
   // field within an aggregate type, but the offset cannot be resolved as a
@@ -191,6 +227,11 @@ public:
   //                      addition. Otherwise false.
   bool addElementPointeeUnknownOffset(ValueAnalysisType Kind,
                                       dtrans::DTransType *BaseTy);
+
+  bool
+  addElementPointeeUnknownOffset(ValueAnalysisType Kind,
+                                 dtrans::DTransType *BaseTy,
+                                 PointeeLoc::ElementOfTypeImpl &ElementOfTypes);
 
   // Copy an existing element pointee pair to this object.
   bool addElementPointee(ValueAnalysisType Kind,

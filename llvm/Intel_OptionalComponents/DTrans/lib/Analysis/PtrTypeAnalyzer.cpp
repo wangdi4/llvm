@@ -1906,17 +1906,73 @@ private:
         DTransType *PtrToElemTy = TM.getOrCreatePointerType(ElemTy);
         ResultInfo->addTypeAlias(ValueTypeInfo::VAT_Decl, PtrToElemTy);
 
+        // If the GEP is accessing an array that is nested within another type,
+        // collect the path to the array element.
+        auto CollectElementPointeePath =
+            [&GetGEPIndexedType](
+                DTransType *AggTy, SmallVectorImpl<Value *> &ArrayGepOps,
+                SmallVectorImpl<ValueTypeInfo::PointeeLoc::PointeePairType>
+                    &ElementOf) {
+              if (ArrayGepOps.size() > 1) {
+                SmallVector<Value *, 4> Ops(ArrayGepOps.begin(),
+                                            ArrayGepOps.end());
+                while (Ops.size() > 1) {
+                  // Get the index value for field accessed
+                  size_t Idx = 0;
+                  auto *ConstIdx = dyn_cast<ConstantInt>(Ops.back());
+                  if (ConstIdx)
+                    Idx = ConstIdx->getLimitedValue();
+
+                  // Determine the parent type of the field.
+                  Ops.pop_back();
+                  dtrans::DTransType *IndexedTy = GetGEPIndexedType(AggTy, Ops);
+                  ElementOf.push_back({IndexedTy, Idx});
+                }
+              }
+            };
+
         // Access is to an element of the structure, update element pointee
         // info.
         Value *LastArg = GEP.getOperand(GEP.getNumOperands() - 1);
         auto *ConstIdx = dyn_cast<ConstantInt>(LastArg);
         if (ConstIdx) {
           uint64_t ElemNum = ConstIdx->getLimitedValue();
-          ResultInfo->addElementPointee(ValueTypeInfo::VAT_Decl, IndexedTy,
-                                        ElemNum);
+          if (GepOps.size() > 1 && ElemNum == 0) {
+            // An array with a zero index is also the address of the element
+            // that contains the array. Add all the zero-offset indexed elements
+            // to the ElementOf field for the pointee.
+            SmallVector<ValueTypeInfo::PointeeLoc::PointeePairType, 4>
+                ElementOf;
+            CollectElementPointeePath(Ty, GepOps, ElementOf);
+            assert(!ElementOf.empty() && "Unexpected empty list for GEP chain");
+
+            // Count the number of trailing zeros in the GEP index list.
+            size_t ZeroCount = 0;
+            size_t MaxIndex = GepOps.size() - 1;
+            for (size_t IndexNum = MaxIndex; IndexNum > 1; --IndexNum) {
+              auto *ConstIdx = dyn_cast<ConstantInt>(GepOps[IndexNum]);
+              if (ConstIdx && ConstIdx->isZero()) {
+                ZeroCount++;
+                continue;
+              }
+              break;
+            }
+            // Extract 1 or more elements from the ElementOf set to pass into
+            // the addElementPointee call.
+            SmallVector<ValueTypeInfo::PointeeLoc::PointeePairType, 4>
+                ZeroOffsetElementOf(ElementOf.begin(),
+                                    ElementOf.begin() + 1 + ZeroCount);
+            ResultInfo->addElementPointee(ValueTypeInfo::VAT_Decl, IndexedTy,
+                                          ElemNum, ZeroOffsetElementOf);
+          } else {
+            ResultInfo->addElementPointee(ValueTypeInfo::VAT_Decl, IndexedTy,
+                                          ElemNum);
+          }
         } else {
+          SmallVector<ValueTypeInfo::PointeeLoc::PointeePairType, 4> ElementOf;
+          CollectElementPointeePath(Ty, GepOps, ElementOf);
           ResultInfo->addElementPointeeUnknownOffset(ValueTypeInfo::VAT_Decl,
-                                                     IndexedTy);
+                                                     IndexedTy, ElementOf);
         }
         return true;
       }
@@ -2766,6 +2822,14 @@ bool ValueTypeInfo::addElementPointee(ValueAnalysisType Kind,
   return Changed;
 }
 
+bool ValueTypeInfo::addElementPointee(
+    ValueAnalysisType Kind, dtrans::DTransType *BaseTy, size_t ElemIdx,
+    PointeeLoc::ElementOfTypeImpl &ElementOfTypes) {
+  PointeeLoc Loc(PointeeLoc::PLK_Field, ElemIdx, ElementOfTypes);
+  bool Changed = addElementPointeeImpl(Kind, BaseTy, Loc);
+  return Changed;
+}
+
 bool ValueTypeInfo::addElementPointeeByOffset(ValueAnalysisType Kind,
                                               dtrans::DTransType *BaseTy,
                                               size_t ByteOffset) {
@@ -2774,9 +2838,25 @@ bool ValueTypeInfo::addElementPointeeByOffset(ValueAnalysisType Kind,
   return Changed;
 }
 
+bool ValueTypeInfo::addElementPointeeByOffset(
+    ValueAnalysisType Kind, dtrans::DTransType *BaseTy, size_t ByteOffset,
+    PointeeLoc::ElementOfTypeImpl &ElementOfTypes) {
+  PointeeLoc Loc(PointeeLoc::PLK_ByteOffset, ByteOffset, ElementOfTypes);
+  bool Changed = addElementPointeeImpl(Kind, BaseTy, Loc);
+  return Changed;
+}
+
 bool ValueTypeInfo::addElementPointeeUnknownOffset(ValueAnalysisType Kind,
                                                    dtrans::DTransType *BaseTy) {
   PointeeLoc Loc(PointeeLoc::PLK_UnknownOffset, 0);
+  bool Changed = addElementPointeeImpl(Kind, BaseTy, Loc);
+  return Changed;
+}
+
+bool ValueTypeInfo::addElementPointeeUnknownOffset(
+    ValueAnalysisType Kind, dtrans::DTransType *BaseTy,
+    PointeeLoc::ElementOfTypeImpl &ElementOfTypes) {
+  PointeeLoc Loc(PointeeLoc::PLK_UnknownOffset, 0, ElementOfTypes);
   bool Changed = addElementPointeeImpl(Kind, BaseTy, Loc);
   return Changed;
 }
@@ -2932,6 +3012,15 @@ void ValueTypeInfo::print(raw_ostream &OS, bool Combined,
     case PointeeLoc::PLK_UnknownOffset:
       OutputStream << "UnknownOffset";
       break;
+    }
+
+    if (!PointeePair.second.ElementOf.empty()) {
+      OutputStream << " ElementOf: ";
+      const char *Sep = "";
+      for (auto &T : PointeePair.second.ElementOf) {
+        OutputStream << Sep << *T.first << "@" << T.second;
+        Sep = ", ";
+      }
     }
 
     OutputStream.flush();
