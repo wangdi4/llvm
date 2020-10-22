@@ -10,7 +10,7 @@
 ; <5:10>             |   %1 = (@C)[0][i1];
 ; <6:10>             |   %mul3 = %1  *  %0;
 ; <8:10>             |   (@A)[0][i1] = %mul3;
-; <9:11>             |   %2 = 42  >>  4;
+; <9:11>             |   %2 = 42  >>  %t;
 ; <10:11>            |   %fp.cmp = %mul3 > %1;
 ; <13:11>            |   %red.phi = zext.i1.i32(%fp.cmp) + %2  +  %red.phi; <Safe Reduction>
 ; <14:11>            |   %fp.select = (%mul3 > %1) ? %mul3 : %1;
@@ -132,8 +132,8 @@ loop.body:                               ; predggs = %omp.inner.for.body, %DIR.O
 ; VPLAN-IR-NEXT:        <0x{{.*}}> = !{<0x{{.*}}>, <0x{{.*}}>, i64 0}
 ; VPLAN-IR-NEXT:      end of details
 
-  %2 = ashr exact i32 42, 4, !dbg !41
-; VPLAN-IR:          i32 [[VP14:%.*]] = ashr i32 42 i32 4
+  %2 = ashr exact i32 42, %t, !dbg !41
+; VPLAN-IR:          i32 [[VP14:%.*]] = ashr i32 42 i32 %t
 ; VPLAN-IR-NEXT:      DbgLoc: lit_test.c:11:5
 ; VPLAN-IR-NEXT:      OperatorFlags -
 ; VPLAN-IR-NEXT:        FMF: 0, NSW: 0, NUW: 0, Exact: 1
