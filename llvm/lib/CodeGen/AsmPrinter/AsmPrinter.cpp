@@ -376,15 +376,9 @@ bool AsmPrinter::doInitialization(Module &M) {
                             DbgTimerName, DbgTimerDescription, nullptr,
                             nullptr);
     }
-<<<<<<< HEAD
 
     if ((!EmitCodeView && !TraceBackFlag) || M.getDwarfVersion()) {
-      DD = new DwarfDebug(this, &M);
-      DD->beginModule();
-=======
-    if (!EmitCodeView || M.getDwarfVersion()) {
       DD = new DwarfDebug(this);
->>>>>>> ac2def2d8d8c9aa6f96f0c869a5b988ae602385a
       Handlers.emplace_back(std::unique_ptr<DwarfDebug>(DD), DbgTimerName,
                             DbgTimerDescription, DWARFGroupName,
                             DWARFGroupDescription);
@@ -1303,13 +1297,7 @@ void AsmPrinter::emitFunctionBody() {
   // Emit target-specific gunk before the function body.
   emitFunctionBodyStart();
 
-<<<<<<< HEAD
-  bool ShouldPrintDebugScopes = MMI->hasDebugInfo();
-
   if (isVerbose() || needsBinaryOptReport()) { // INTEL
-=======
-  if (isVerbose()) {
->>>>>>> ac2def2d8d8c9aa6f96f0c869a5b988ae602385a
     // Get MachineDominatorTree or compute it on the fly if it's unavailable
     MDT = getAnalysisIfAvailable<MachineDominatorTree>();
     if (!MDT) {
