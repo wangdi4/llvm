@@ -3,7 +3,7 @@
 ; by VPValue-based code generator.
 
 ; REQUIRES: asserts
-; RUN: opt -vplan-print-terminator-inst=false < %s -VPlanDriver -vplan-force-vf=4 -vplan-dump-da -S 2>&1 | FileCheck %s
+; RUN: opt < %s -VPlanDriver -vplan-force-vf=4 -vplan-dump-da -S 2>&1 | FileCheck %s
 
 define void @reverse(i32* %src, i32* %dest) {
 ; CHECK:       Printing Divergence info for Loop at depth 1 containing: [[BB0:BB[0-9]+]]<header><latch><exiting>
@@ -19,11 +19,14 @@ define void @reverse(i32* %src, i32* %dest) {
 ; CHECK-NEXT:  Divergent: [Shape: Unit Stride, Stride: i64 1] i64 [[VP_INDVARS_IV_NEXT]] = add i64 [[VP_INDVARS_IV]] i64 [[VP_INDVARS_IV_IND_INIT_STEP:%.*]]
 ; CHECK-NEXT:  Uniform: [Shape: Uniform] i64 [[VP_VECTOR_LOOP_IV_NEXT]] = add i64 [[VP_VECTOR_LOOP_IV]] i64 [[VP_VF:%.*]]
 ; CHECK-NEXT:  Uniform: [Shape: Uniform] i1 [[VP_VECTOR_LOOP_EXITCOND:%.*]] = icmp ne i64 [[VP_VECTOR_LOOP_IV_NEXT]] i64 [[VP_VECTOR_TRIP_COUNT:%.*]]
+; CHECK-NEXT:  Uniform: [Shape: Uniform] br i1 [[VP_VECTOR_LOOP_EXITCOND]], [[BB0]], [[BB2:BB[0-9]+]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:  Basic Block: [[BB2:BB[0-9]+]]
+; CHECK-NEXT:  Basic Block: [[BB2]]
 ; CHECK-NEXT:  Uniform: [Shape: Uniform] i64 [[VP_INDVARS_IV_IND_FINAL:%.*]] = induction-final{add} i64 live-in0 i64 1
+; CHECK-NEXT:  Uniform: [Shape: Uniform] br [[BB3:BB[0-9]+]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:  Basic Block: [[BB3:BB[0-9]+]]
+; CHECK-NEXT:  Basic Block: [[BB3]]
+; CHECK-NEXT:  Uniform: [Shape: Uniform] br <External Block>
 ;
 ; CHECK:  define void @reverse(i32* [[SRC0]], i32* [[DEST0]]) {
 ; CHECK-NEXT:  entry:
@@ -52,7 +55,7 @@ define void @reverse(i32* %src, i32* %dest) {
 ; CHECK-NEXT:    [[TMP6]] = add nuw nsw i64 [[UNI_PHI10]], 4
 ; CHECK-NEXT:    [[TMP7]] = add i64 [[UNI_PHI0]], 4
 ; CHECK-NEXT:    [[TMP8:%.*]] = icmp ne i64 [[TMP7]], 1024
-; CHECK-NEXT:    br i1 [[TMP8]], label [[VECTOR_BODY0]], label [[VPLANNEDBB0:%.*]]
+; CHECK-NEXT:    br i1 [[TMP8]], label [[VECTOR_BODY0]], label [[VPLANNEDBB0:%.*]], !llvm.loop !0
 ;
 entry:
   %entry.region = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"() ]

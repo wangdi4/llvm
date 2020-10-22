@@ -5,7 +5,7 @@
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
-; RUN: opt -vplan-print-terminator-inst=false -VPlanDriver -vplan-build-stress-only-innermost -loopopt=0 \
+; RUN: opt -VPlanDriver -vplan-build-stress-only-innermost -loopopt=0 \
 ; RUN: -vpo-vplan-build-stress-test -vplan-dump-da -disable-output \
 ; RUN: %s 2>&1 | FileCheck %s
 
@@ -18,16 +18,20 @@ define void @test_uniform_edge_to_divergent_block() {
 ; CHECK-NEXT:  Basic Block: [[BB0]]
 ; CHECK-NEXT:  Uniform: [Shape: Uniform] i64 [[VP_VECTOR_LOOP_IV:%.*]] = phi  [ i64 0, [[BB2:BB[0-9]+]] ],  [ i64 [[VP_VECTOR_LOOP_IV_NEXT:%.*]], [[BB1]] ]
 ; CHECK-NEXT:  Divergent: [Shape: Random] double [[VP_IV:%.*]] = phi  [ double [[VP_IV_IND_INIT:%.*]], [[BB2]] ],  [ double [[VP_IV_NEXT:%.*]], [[BB1]] ]
+; CHECK-NEXT:  Uniform: [Shape: Uniform] br [[BB1]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Basic Block: [[BB1]]
 ; CHECK-NEXT:  Divergent: [Shape: Random] double [[VP_IV_NEXT]] = fadd double [[VP_IV]] double [[VP_IV_IND_INIT_STEP:%.*]]
 ; CHECK-NEXT:  Uniform: [Shape: Uniform] i64 [[VP_VECTOR_LOOP_IV_NEXT]] = add i64 [[VP_VECTOR_LOOP_IV]] i64 [[VP_VF:%.*]]
 ; CHECK-NEXT:  Uniform: [Shape: Uniform] i1 [[VP_VECTOR_LOOP_EXITCOND:%.*]] = icmp eq i64 [[VP_VECTOR_LOOP_IV_NEXT]] i64 [[VP_VECTOR_TRIP_COUNT:%.*]]
+; CHECK-NEXT:  Uniform: [Shape: Uniform] br i1 [[VP_VECTOR_LOOP_EXITCOND]], [[BB3:BB[0-9]+]], [[BB0]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:  Basic Block: [[BB3:BB[0-9]+]]
+; CHECK-NEXT:  Basic Block: [[BB3]]
 ; CHECK-NEXT:  Uniform: [Shape: Uniform] double [[VP_IV_IND_FINAL:%.*]] = induction-final{fadd} double live-in0 double 1.000000e+00
+; CHECK-NEXT:  Uniform: [Shape: Uniform] br [[BB4:BB[0-9]+]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:  Basic Block: [[BB4:BB[0-9]+]]
+; CHECK-NEXT:  Basic Block: [[BB4]]
+; CHECK-NEXT:  Uniform: [Shape: Uniform] br <External Block>
 ;
 entry:
   br label %for.body
