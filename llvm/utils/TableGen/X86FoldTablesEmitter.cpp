@@ -227,23 +227,6 @@ static inline unsigned int getRegOperandSize(const Record *RegRec) {
 // Return the size of the memory operand
 static inline unsigned getMemOperandSize(const Record *MemRec) {
   if (MemRec->isSubClassOf("Operand")) {
-<<<<<<< HEAD
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_FP16
-    // Intrinsic memory instructions use ssmem/sdmem/shmem.
-    if (IntrinsicSensitive &&
-        (MemRec->getName() == "sdmem" || MemRec->getName() == "ssmem" ||
-         MemRec->getName() == "shmem"))
-#else // INTEL_FEATURE_ISA_FP16
-    // Intrinsic memory instructions use ssmem/sdmem.
-    if (IntrinsicSensitive &&
-        (MemRec->getName() == "sdmem" || MemRec->getName() == "ssmem"))
-#endif // INTEL_FEATURE_ISA_FP16
-#endif // INTEL_CUSTOMIZATION
-      return 128;
-
-=======
->>>>>>> 8f7b6a904fab1a0490c6b7cdf182d219f90c5cd4
     StringRef Name =
         MemRec->getValueAsDef("ParserMatchClass")->getValueAsString("Name");
     if (Name == "Mem8")
