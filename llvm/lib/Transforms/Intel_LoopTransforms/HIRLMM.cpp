@@ -516,6 +516,7 @@ bool HIRLMM::doLoopMemoryMotion(HLLoop *Lp) {
   }
 
   doTransform(Lp);
+
   return true;
 }
 
@@ -741,7 +742,7 @@ void HIRLMM::doTransform(HLLoop *Lp) {
     assert(Group.isProfitable() && "Legal group should be profitable!");
 
     // LLVM_DEBUG(Group.print(true); dbgs() << "Before LIMM on a Group\n";
-    // Lp->dump(););
+    //           Lp->dump(););
     doLIMMRef(Lp, Group, TempRefSet);
     ++NumLIMM;
     // LLVM_DEBUG(dbgs() << "After LIMM on a Group\n"; Lp->dump(););
@@ -1121,13 +1122,13 @@ void HIRLMM::doLIMMRef(HLLoop *Lp, MemRefGroup &Group,
   LoopOptReportBuilder &LORBuilder =
       Lp->getHLNodeUtils().getHIRFramework().getLORBuilder();
 
-  HLLoop *OuterLp = getOuterLoopCandidateForSingleLoad(Lp, FirstRef, Group);
-
   if (hoistedLoadsUsingExistingTemp(Lp, Group, TempRefSet, LORBuilder) ||
       sinkedStoresUsingExistingTemp(Lp, FirstRef, Group, TempRefSet,
                                     LORBuilder)) {
     return;
   }
+
+  HLLoop *OuterLp = getOuterLoopCandidateForSingleLoad(Lp, FirstRef, Group);
 
   // ### Promote LIMM for the Group ###
 
@@ -1172,7 +1173,7 @@ void HIRLMM::doLIMMRef(HLLoop *Lp, MemRefGroup &Group,
 
   // LMM process each Ref in Group
   for (auto *Ref : Group) {
-    handleInLoopMemRef(Lp, Ref, TmpDDRef, IsLoadOnly);
+    handleInLoopMemRef(OuterLp->getNestingLevel(), Ref, TmpDDRef, IsLoadOnly);
   }
 
   // Debug: Examine the Loop AFTER transformation
@@ -1187,14 +1188,14 @@ void HIRLMM::doLIMMRef(HLLoop *Lp, MemRefGroup &Group,
 //
 // All Others: do regular replacement
 //
-void HIRLMM::handleInLoopMemRef(HLLoop *Lp, RegDDRef *Ref, RegDDRef *TmpRef,
+void HIRLMM::handleInLoopMemRef(unsigned Level, RegDDRef *Ref, RegDDRef *TmpRef,
                                 bool IsLoadOnly) {
   // Debug: Examine the Loop Before processing
   // LLVM_DEBUG(Lp->dump(););
   RegDDRef *TmpRefClone = TmpRef->clone();
 
   if (IsLoadOnly) {
-    setLinear(TmpRefClone, LoopLevel);
+    setLinear(TmpRefClone, Level);
   }
 
   HIRTransformUtils::replaceOperand(Ref, TmpRefClone);
