@@ -1722,6 +1722,8 @@ void PacketizeFunction::packetizeInstruction(CallInst *CI)
       origFunc->getIntrinsicID() == Intrinsic::memset) {
     if (m_soaAllocaAnalysis->isSoaAllocaScalarRelated(CI))
       packetizedMemsetSoaAllocaDerivedInst(CI);
+    else
+      duplicateNonPacketizableInst(CI);
     return;
   }
 
@@ -1755,7 +1757,7 @@ void PacketizeFunction::packetizeInstruction(CallInst *CI)
       return duplicateNonPacketizableInst(CI);
     }
 
-    // If the vector intrinsic has scalar operand, and the operand isn't
+    // If the vector intrinsic has a scalar operand, and the operand isn't
     // uniform, then serialize it.
     for (auto Arg : enumerate(CI->arg_operands())) {
       if (hasVectorInstrinsicScalarOpd(ID, Arg.index()) &&
