@@ -1780,7 +1780,9 @@ protected: // INTEL
                                   const SCEV *RHS,
                                   ICmpInst::Predicate FoundPred,
                                   const SCEV *FoundLHS, const SCEV *FoundRHS,
-                                  const Instruction *Context);
+                                  const Instruction *Context,        // INTEL
+                                  const ICmpInst *PredContext,       // INTEL
+                                  const ICmpInst *FoundPredCOntext); // INTEL
 
   /// Test whether the condition described by Pred, LHS, and RHS is true
   /// whenever the condition described by FoundPred, FoundLHS, FoundRHS is
