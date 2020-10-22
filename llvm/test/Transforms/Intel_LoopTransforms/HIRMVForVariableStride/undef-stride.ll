@@ -40,10 +40,9 @@
 ; CHECK:               |   goto bb3;
 ; CHECK:               |   bb37_then:
 ; CHECK:               |   %"bcint_$NBCT[]11_fetch" = (@"bcint_$NBCT")[0][i1];
-; CHECK:               |   %int_sext23 = 4294967296 * %indvars.iv.out + -4294967296  >>  32;
-; CHECK:               |   
+; CHECK:               |
 ; CHECK:               |   + DO i2 = 0, 2, 1   <DO_LOOP>
-; CHECK:               |   |   (%"bcint_$BC")[i2 + 2][%"bcint_$NBCT[]11_fetch"] = (null)[i2 + 1][%int_sext23];
+; CHECK:               |   |   (%"bcint_$BC")[i2 + 2][%"bcint_$NBCT[]11_fetch"] = (null)[i2 + 1][(4294967296 * %indvars.iv.out + -4294967296)/u4294967296];
 ; CHECK:               |   + END LOOP
 ; CHECK:               |   
 ; CHECK:               |   bb3:
@@ -65,10 +64,9 @@
 ; CHECK:              |   goto bb3;
 ; CHECK:              |   bb37_then:
 ; CHECK:              |   %"bcint_$NBCT[]11_fetch" = (@"bcint_$NBCT")[0][i1];
-; CHECK:              |   %int_sext23 = 4294967296 * %indvars.iv.out + -4294967296  >>  32;
-; CHECK:              |   
+; CHECK:              |
 ; CHECK:              |   + DO i2 = 0, 2, 1   <DO_LOOP>
-; CHECK:              |   |   (%"bcint_$BC")[i2 + 2][%"bcint_$NBCT[]11_fetch"] = (null)[i2 + 1][%int_sext23];
+; CHECK:              |   |   (%"bcint_$BC")[i2 + 2][%"bcint_$NBCT[]11_fetch"] = (null)[i2 + 1][(4294967296 * %indvars.iv.out + -4294967296)/u4294967296];
 ; CHECK:              |   + END LOOP
 ; CHECK:              |   
 ; CHECK:              |   bb3:
