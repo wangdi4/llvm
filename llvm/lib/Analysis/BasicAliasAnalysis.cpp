@@ -2268,22 +2268,13 @@ AliasResult BasicAAResult::aliasCheck(const Value *V1, LocationSize V1Size,
 
   // FIXME: This isn't aggressively handling alias(GEP, PHI) for example: if the
   // GEP can't simplify, we don't even look at the PHI cases.
-<<<<<<< HEAD
-  if (!isa<AddressOperator>(V1) && isa<AddressOperator>(V2)) { // INTEL
-    std::swap(V1, V2);
-    std::swap(V1Size, V2Size);
-    std::swap(O1, O2);
-    std::swap(V1AAInfo, V2AAInfo);
-  }
   if (const AddressOperator *GV1 = dyn_cast<AddressOperator>(V1)) { // INTEL
-=======
-  if (const GEPOperator *GV1 = dyn_cast<GEPOperator>(V1)) {
->>>>>>> 6de8d7f1adc82504f2167131e40d3cceec6a6fac
     AliasResult Result =
         aliasGEP(GV1, V1Size, V1AAInfo, V2, V2Size, V2AAInfo, O1, O2, AAQI);
     if (Result != MayAlias)
       return AAQI.updateResult(Locs, Result);
-  } else if (const GEPOperator *GV2 = dyn_cast<GEPOperator>(V2)) {
+  } else if (const AddressOperator *GV2 =     // INTEL
+             dyn_cast<AddressOperator>(V2)) { // INTEL
     AliasResult Result =
         aliasGEP(GV2, V2Size, V2AAInfo, V1, V1Size, V1AAInfo, O2, O1, AAQI);
     if (Result != MayAlias)
@@ -2302,7 +2293,6 @@ AliasResult BasicAAResult::aliasCheck(const Value *V1, LocationSize V1Size,
       return AAQI.updateResult(Locs, Result);
   }
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   if (AAQI.NeedLoopCarried) {
     // For loopCarriedAlias we'll stop analysis here. Rather than return
@@ -2318,14 +2308,6 @@ AliasResult BasicAAResult::aliasCheck(const Value *V1, LocationSize V1Size,
   }
 #endif // INTEL_CUSTOMIZATION
 
-  if (isa<SelectInst>(V2) && !isa<SelectInst>(V1)) {
-    std::swap(V1, V2);
-    std::swap(O1, O2);
-    std::swap(V1Size, V2Size);
-    std::swap(V1AAInfo, V2AAInfo);
-  }
-=======
->>>>>>> 6de8d7f1adc82504f2167131e40d3cceec6a6fac
   if (const SelectInst *S1 = dyn_cast<SelectInst>(V1)) {
     AliasResult Result =
         aliasSelect(S1, V1Size, V1AAInfo, V2, V2Size, V2AAInfo, O2, AAQI);
