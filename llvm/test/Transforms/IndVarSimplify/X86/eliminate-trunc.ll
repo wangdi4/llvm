@@ -474,14 +474,10 @@ define void @test_10(i32 %n) {
 ; CHECK-NEXT:    [[TMP1:%.*]] = zext i32 [[TMP0]] to i64
 ; CHECK-NEXT:    [[TMP2:%.*]] = icmp ult i64 [[TMP1]], 90
 ; CHECK-NEXT:    [[UMIN:%.*]] = select i1 [[TMP2]], i64 [[TMP1]], i64 90
-<<<<<<< HEAD
 ; INTEL_CUSTOMIZATION
 ; Adding nuw nsw
 ; CHECK-NEXT:    [[TMP3:%.*]] = add nuw nsw i64 [[UMIN]], -99
 ; end INTEL_CUSTOMIZATION
-=======
-; CHECK-NEXT:    [[TMP3:%.*]] = add nuw nsw i64 [[UMIN]], -99
->>>>>>> 32b72c3165bf65cca2e8e6197b59eb4c4b60392a
 ; CHECK-NEXT:    br label [[LOOP:%.*]]
 ; CHECK:       loop:
 ; CHECK-NEXT:    [[IV:%.*]] = phi i64 [ -100, [[ENTRY:%.*]] ], [ [[IV_NEXT:%.*]], [[LOOP]] ]
