@@ -805,13 +805,19 @@ define noalias i32* @test17(i32* nocapture readonly %a, i32 %c) {
 ; CHECK:       while.body.preheader:
 ; CHECK-NEXT:    [[TMP1:%.*]] = sext i32 [[C]] to i64
 ; CHECK-NEXT:    [[TMP2:%.*]] = shl nsw i64 [[TMP1]], 2
-; CHECK-NEXT:    [[TMP3:%.*]] = add i64 [[TMP2]], -4
+; INTEL_CUSTOMIZATION
+; Added nsw flags
+; CHECK-NEXT:    [[TMP3:%.*]] = add nsw i64 [[TMP2]], -4
+; END_INTEL_CUSTOMIZATION
 ; CHECK-NEXT:    [[TMP4:%.*]] = add nsw i32 [[C]], -1
 ; CHECK-NEXT:    [[TMP5:%.*]] = zext i32 [[TMP4]] to i64
 ; CHECK-NEXT:    [[TMP6:%.*]] = shl nuw nsw i64 [[TMP5]], 2
 ; CHECK-NEXT:    [[TMP7:%.*]] = sub i64 [[TMP3]], [[TMP6]]
 ; CHECK-NEXT:    [[SCEVGEP:%.*]] = getelementptr i8, i8* [[CALL]], i64 [[TMP7]]
-; CHECK-NEXT:    [[TMP8:%.*]] = add i64 [[TMP1]], -1
+; INTEL_CUSTOMIZATION
+; Added nsw flags
+; CHECK-NEXT:    [[TMP8:%.*]] = add nsw i64 [[TMP1]], -1
+; END_INTEL_CUSTOMIZATION
 ; CHECK-NEXT:    [[TMP9:%.*]] = sub i64 [[TMP8]], [[TMP5]]
 ; CHECK-NEXT:    [[SCEVGEP1:%.*]] = getelementptr i32, i32* [[A:%.*]], i64 [[TMP9]]
 ; CHECK-NEXT:    [[SCEVGEP12:%.*]] = bitcast i32* [[SCEVGEP1]] to i8*
