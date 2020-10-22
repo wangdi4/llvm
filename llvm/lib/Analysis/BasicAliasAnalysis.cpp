@@ -2086,8 +2086,9 @@ static const Value* getArgumentBasePtr(const Value* U, const DataLayout &DL) {
 /// Provides a bunch of ad-hoc rules to disambiguate in common cases, such as
 /// array references.
 AliasResult BasicAAResult::aliasCheck(const Value *V1, LocationSize V1Size,
-                                      AAMDNodes V1AAInfo, const Value *V2,
-                                      LocationSize V2Size, AAMDNodes V2AAInfo,
+                                      const AAMDNodes &V1AAInfo,
+                                      const Value *V2, LocationSize V2Size,
+                                      const AAMDNodes &V2AAInfo,
                                       AAQueryInfo &AAQI, const Value *O1,
                                       const Value *O2) {
   // If either of the memory references is empty, it doesn't matter what the
@@ -2267,6 +2268,7 @@ AliasResult BasicAAResult::aliasCheck(const Value *V1, LocationSize V1Size,
 
   // FIXME: This isn't aggressively handling alias(GEP, PHI) for example: if the
   // GEP can't simplify, we don't even look at the PHI cases.
+<<<<<<< HEAD
   if (!isa<AddressOperator>(V1) && isa<AddressOperator>(V2)) { // INTEL
     std::swap(V1, V2);
     std::swap(V1Size, V2Size);
@@ -2274,25 +2276,33 @@ AliasResult BasicAAResult::aliasCheck(const Value *V1, LocationSize V1Size,
     std::swap(V1AAInfo, V2AAInfo);
   }
   if (const AddressOperator *GV1 = dyn_cast<AddressOperator>(V1)) { // INTEL
+=======
+  if (const GEPOperator *GV1 = dyn_cast<GEPOperator>(V1)) {
+>>>>>>> 6de8d7f1adc82504f2167131e40d3cceec6a6fac
     AliasResult Result =
         aliasGEP(GV1, V1Size, V1AAInfo, V2, V2Size, V2AAInfo, O1, O2, AAQI);
     if (Result != MayAlias)
       return AAQI.updateResult(Locs, Result);
+  } else if (const GEPOperator *GV2 = dyn_cast<GEPOperator>(V2)) {
+    AliasResult Result =
+        aliasGEP(GV2, V2Size, V2AAInfo, V1, V1Size, V1AAInfo, O2, O1, AAQI);
+    if (Result != MayAlias)
+      return AAQI.updateResult(Locs, Result);
   }
 
-  if (isa<PHINode>(V2) && !isa<PHINode>(V1)) {
-    std::swap(V1, V2);
-    std::swap(O1, O2);
-    std::swap(V1Size, V2Size);
-    std::swap(V1AAInfo, V2AAInfo);
-  }
   if (const PHINode *PN = dyn_cast<PHINode>(V1)) {
     AliasResult Result =
         aliasPHI(PN, V1Size, V1AAInfo, V2, V2Size, V2AAInfo, O2, AAQI);
     if (Result != MayAlias)
       return AAQI.updateResult(Locs, Result);
+  } else if (const PHINode *PN = dyn_cast<PHINode>(V2)) {
+    AliasResult Result =
+        aliasPHI(PN, V2Size, V2AAInfo, V1, V1Size, V1AAInfo, O1, AAQI);
+    if (Result != MayAlias)
+      return AAQI.updateResult(Locs, Result);
   }
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   if (AAQI.NeedLoopCarried) {
     // For loopCarriedAlias we'll stop analysis here. Rather than return
@@ -2314,9 +2324,16 @@ AliasResult BasicAAResult::aliasCheck(const Value *V1, LocationSize V1Size,
     std::swap(V1Size, V2Size);
     std::swap(V1AAInfo, V2AAInfo);
   }
+=======
+>>>>>>> 6de8d7f1adc82504f2167131e40d3cceec6a6fac
   if (const SelectInst *S1 = dyn_cast<SelectInst>(V1)) {
     AliasResult Result =
         aliasSelect(S1, V1Size, V1AAInfo, V2, V2Size, V2AAInfo, O2, AAQI);
+    if (Result != MayAlias)
+      return AAQI.updateResult(Locs, Result);
+  } else if (const SelectInst *S2 = dyn_cast<SelectInst>(V2)) {
+    AliasResult Result =
+        aliasSelect(S2, V2Size, V2AAInfo, V1, V1Size, V1AAInfo, O1, AAQI);
     if (Result != MayAlias)
       return AAQI.updateResult(Locs, Result);
   }
