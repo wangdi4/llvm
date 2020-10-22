@@ -1558,6 +1558,7 @@ bool VPOParoptTransform::paroptTransforms() {
             else {
               Changed |= genPrivatizationCode(W);
               Changed |= genReductionCode(W);
+              Changed |= genDestructorCode(W);
 
               // The directive gets removed, when processing the target region,
               // do not remove it here, since guardSideEffects needs the
@@ -1652,6 +1653,7 @@ bool VPOParoptTransform::paroptTransforms() {
               Changed |= genLastPrivatizationCode(W, IfLastIterBB);
               Changed |= genFirstPrivatizationCode(W);
               Changed |= genReductionCode(W);
+              Changed |= genDestructorCode(W);
             }
           } else {
 #if INTEL_CUSTOMIZATION
@@ -1813,6 +1815,7 @@ bool VPOParoptTransform::paroptTransforms() {
           Changed |= genPrivatizationCode(W);
           Changed |= genFirstPrivatizationCode(W);
           Changed |= captureAndAddCollectedNonPointerValuesToSharedClause(W);
+          Changed |= genDestructorCode(W);
           Changed |= genTargetOffloadingCode(W);
           Changed |= clearLaunderIntrinBeforeRegion(W);
           RemoveDirectives = true;
@@ -7255,9 +7258,14 @@ bool VPOParoptTransform::genPrivatizationCode(WRegionNode *W) {
         Value *ReplacementVal = getClauseItemReplacementValue(PrivI, InsertPt);
         genPrivatizationReplacement(W, Orig, ReplacementVal);
 
-        if (auto *Ctor = PrivI->getConstructor())
+        if (auto *Ctor = PrivI->getConstructor()) {
+          Instruction *CtorInsertPt = dyn_cast<Instruction>(NewPrivInst);
+          // NewPrivInst might be at module level. e.g. 'target private (x)'.
+          if (!CtorInsertPt)
+            CtorInsertPt = InsertPt;
           genPrivatizationInitOrFini(PrivI, Ctor, FK_Ctor, NewPrivInst, nullptr,
-                                     cast<Instruction>(NewPrivInst), DT);
+                                     CtorInsertPt, DT);
+        }
 
 #if INTEL_CUSTOMIZATION
         if (!ForTask && PrivI->getIsF90DopeVector())
