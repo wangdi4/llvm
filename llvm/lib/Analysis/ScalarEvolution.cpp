@@ -3575,6 +3575,16 @@ ScalarEvolution::findExistingSCEVInCache(int SCEVType,
       UniqueSCEVs.FindNodeOrInsertPos(ID, IP), std::move(ID), IP);
 }
 
+const SCEV *ScalarEvolution::getAbsExpr(const SCEV *Op, bool IsNSW) {
+  SCEV::NoWrapFlags Flags = IsNSW ? SCEV::FlagNSW : SCEV::FlagAnyWrap;
+  return getSMaxExpr(Op, getNegativeSCEV(Op, Flags));
+}
+
+const SCEV *ScalarEvolution::getSignumExpr(const SCEV *Op) {
+  Type *Ty = Op->getType();
+  return getSMinExpr(getSMaxExpr(Op, getMinusOne(Ty)), getOne(Ty));
+}
+
 const SCEV *ScalarEvolution::getMinMaxExpr(unsigned Kind,
                                            SmallVectorImpl<const SCEV *> &Ops) {
   assert(!Ops.empty() && "Cannot get empty (u|s)(min|max)!");
@@ -4076,8 +4086,7 @@ const SCEV *ScalarEvolution::getNegativeSCEV(const SCEV *V,
 
   Type *Ty = V->getType();
   Ty = getEffectiveSCEVType(Ty);
-  return getMulExpr(
-      V, getConstant(cast<ConstantInt>(Constant::getAllOnesValue(Ty))), Flags);
+  return getMulExpr(V, getMinusOne(Ty), Flags);
 }
 
 /// If Expr computes ~A, return A else return nullptr
@@ -4121,9 +4130,7 @@ const SCEV *ScalarEvolution::getNotSCEV(const SCEV *V) {
 
   Type *Ty = V->getType();
   Ty = getEffectiveSCEVType(Ty);
-  const SCEV *AllOnes =
-                   getConstant(cast<ConstantInt>(Constant::getAllOnesValue(Ty)));
-  return getMinusSCEV(AllOnes, V);
+  return getMinusSCEV(getMinusOne(Ty), V);
 }
 
 const SCEV *ScalarEvolution::getMinusSCEV(const SCEV *LHS, const SCEV *RHS,
@@ -4601,6 +4608,7 @@ struct BinaryOp {
   Value *RHS;
   bool IsNSW = false;
   bool IsNUW = false;
+  bool IsExact = false;
 
   /// Op is set if this BinaryOp corresponds to a concrete LLVM instruction or
   /// constant expression.
@@ -4613,11 +4621,14 @@ struct BinaryOp {
       IsNSW = OBO->hasNoSignedWrap();
       IsNUW = OBO->hasNoUnsignedWrap();
     }
+    if (auto *PEO = dyn_cast<PossiblyExactOperator>(Op))
+      IsExact = PEO->isExact();
   }
 
   explicit BinaryOp(unsigned Opcode, Value *LHS, Value *RHS, bool IsNSW = false,
-                    bool IsNUW = false)
-      : Opcode(Opcode), LHS(LHS), RHS(RHS), IsNSW(IsNSW), IsNUW(IsNUW) {}
+                    bool IsNUW = false, bool IsExact = false)
+      : Opcode(Opcode), LHS(LHS), RHS(RHS), IsNSW(IsNSW), IsNUW(IsNUW),
+        IsExact(IsExact) {}
 };
 
 } // end anonymous namespace
@@ -7167,6 +7178,15 @@ const SCEV *ScalarEvolution::createSCEV(Value *V) {
           }
         }
       }
+      if (BO->IsExact) {
+        // Given exact arithmetic in-bounds right-shift by a constant,
+        // we can lower it into:  (abs(x) EXACT/u (1<<C)) * signum(x)
+        const SCEV *X = getSCEV(BO->LHS);
+        const SCEV *AbsX = getAbsExpr(X, /*IsNSW=*/false);
+        APInt Mult = APInt::getOneBitSet(BitWidth, AShrAmt);
+        const SCEV *Div = getUDivExactExpr(AbsX, getConstant(Mult));
+        return getMulExpr(Div, getSignumExpr(X), SCEV::FlagNSW);
+      }
       break;
     }
     }
@@ -7267,14 +7287,10 @@ const SCEV *ScalarEvolution::createSCEV(Value *V) {
 
     if (auto *II = dyn_cast<IntrinsicInst>(U)) {
       switch (II->getIntrinsicID()) {
-      case Intrinsic::abs: {
-        const SCEV *Op = getSCEV(II->getArgOperand(0));
-        SCEV::NoWrapFlags Flags =
-            cast<ConstantInt>(II->getArgOperand(1))->isOne()
-                ? SCEV::FlagNSW
-                : SCEV::FlagAnyWrap;
-        return getSMaxExpr(Op, getNegativeSCEV(Op, Flags));
-      }
+      case Intrinsic::abs:
+        return getAbsExpr(
+            getSCEV(II->getArgOperand(0)),
+            /*IsNSW=*/cast<ConstantInt>(II->getArgOperand(1))->isOne());
       case Intrinsic::umax:
         return getUMaxExpr(getSCEV(II->getArgOperand(0)),
                            getSCEV(II->getArgOperand(1)));
