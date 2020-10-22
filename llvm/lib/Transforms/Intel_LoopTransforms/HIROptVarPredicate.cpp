@@ -620,8 +620,7 @@ void HIROptVarPredicate::splitLoop(
   HIRInvalidationUtils::invalidateBounds(Loop);
   HIRInvalidationUtils::invalidateBody(Loop);
 
-  Loop->extractZtt();
-  Loop->extractPreheaderAndPostexit();
+  Loop->extractZttPreheaderAndPostexit();
 
   // Process HLIfs inside the loops.
 

@@ -572,8 +572,7 @@ void CGVisitor::preprocess(HLRegion *Reg) {
 
   // Extract ztt, preheader and postexit.
   for (auto &I : Loops) {
-    I->extractZtt();
-    I->extractPreheaderAndPostexit();
+    I->extractZttPreheaderAndPostexit();
   }
 }
 

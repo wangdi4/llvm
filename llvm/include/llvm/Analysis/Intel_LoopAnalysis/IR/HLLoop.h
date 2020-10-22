@@ -599,7 +599,20 @@ public:
 
   /// Moves preheader nodes before the loop and postexit nodes after the
   /// loop. Ztt is extracted first, if present.
-  void extractPreheaderAndPostexit();
+  void extractPreheaderAndPostexit() {
+    extractPreheader();
+    extractPostexit();
+  }
+
+  /// Extracts any ZTT, preheader nodes, and postexit nodes that are present in
+  /// this loop.
+  ///
+  /// This is similar to \ref extractPreheaderAndPostexit, but extracts the
+  /// loop's ZTT even if no preheader or postexit nodes are present.
+  void extractZttPreheaderAndPostexit() {
+    extractZtt();
+    extractPreheaderAndPostexit();
+  }
 
   /// Removes loop postexit nodes.
   void removePostexit();
