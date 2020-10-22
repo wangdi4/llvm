@@ -281,7 +281,10 @@ define void @pr46786_c26_char(i8* %arg, i8* %arg1, i8* %arg2) {
 ; X32-NEXT:    %i9 = ptrtoint i8* %i7 to i64
 ; X32-NEXT:    --> %i9 U: [0,4294967296) S: [-4294967296,4294967296) Exits: <<Unknown>> LoopDispositions: { %bb6: Variant }
 ; X32-NEXT:    %i10 = sub i64 %i9, %i4
-; X32-NEXT:    --> ((-1 * %i4)<nsw> + %i9) U: [-4294967295,4294967296) S: [-8589934591,8589934592) Exits: <<Unknown>> LoopDispositions: { %bb6: Variant }
+; INTEL_CUSTOMIZATION
+; Added <nsw> falgs.
+; X32-NEXT:    --> ((-1 * %i4)<nsw> + %i9)<nsw> U: [-4294967295,4294967296) S: [-8589934591,8589934592) Exits: <<Unknown>> LoopDispositions: { %bb6: Variant }
+; END INTEL_CUSTOMIZATION
 ; X32-NEXT:    %i11 = getelementptr inbounds i8, i8* %arg2, i64 %i10
 ; X32-NEXT:    --> ((trunc i64 %i9 to i32) + (-1 * (trunc i64 %i4 to i32)) + %arg2) U: full-set S: full-set Exits: <<Unknown>> LoopDispositions: { %bb6: Variant }
 ; X32-NEXT:    %i12 = load i8, i8* %i11, align 1
@@ -368,11 +371,14 @@ define void @pr46786_c26_int(i32* %arg, i32* %arg1, i32* %arg2) {
 ; X32-NEXT:    %i9 = ptrtoint i32* %i7 to i64
 ; X32-NEXT:    --> %i9 U: [0,4294967296) S: [-4294967296,4294967296) Exits: <<Unknown>> LoopDispositions: { %bb6: Variant }
 ; X32-NEXT:    %i10 = sub i64 %i9, %i4
-; X32-NEXT:    --> ((-1 * %i4)<nsw> + %i9) U: [-4294967295,4294967296) S: [-8589934591,8589934592) Exits: <<Unknown>> LoopDispositions: { %bb6: Variant }
+; INTEL_CUSTOMIZATION
+; Added <nsw> falgs.
+; X32-NEXT:    --> ((-1 * %i4)<nsw> + %i9)<nsw> U: [-4294967295,4294967296) S: [-8589934591,8589934592) Exits: <<Unknown>> LoopDispositions: { %bb6: Variant }
 ; X32-NEXT:    %i11 = ashr exact i64 %i10, 2
-; X32-NEXT:    --> (((((-1 * %i4)<nsw> + %i9) smax ((-1 * %i9)<nsw> + %i4)) /u 4) * (1 smin (-1 smax ((-1 * %i4)<nsw> + %i9))))<nsw> U: [-4611686018427387903,4611686018427387904) S: [-4611686018427387903,4611686018427387904) Exits: <<Unknown>> LoopDispositions: { %bb6: Variant }
+; X32-NEXT:    --> (((((-1 * %i4)<nsw> + %i9)<nsw> smax ((-1 * %i9)<nsw> + %i4)<nsw>) /u 4) * (1 smin (-1 smax ((-1 * %i4)<nsw> + %i9)<nsw>)))<nsw> U: [-4611686018427387903,4611686018427387904) S: [-4611686018427387903,4611686018427387904) Exits: <<Unknown>> LoopDispositions: { %bb6: Variant }
 ; X32-NEXT:    %i12 = getelementptr inbounds i32, i32* %arg2, i64 %i11
-; X32-NEXT:    --> ((4 * (trunc i64 (((((-1 * %i4)<nsw> + %i9) smax ((-1 * %i9)<nsw> + %i4)) /u 4) * (1 smin (-1 smax ((-1 * %i4)<nsw> + %i9))))<nsw> to i32))<nsw> + %arg2)<nsw> U: full-set S: full-set Exits: <<Unknown>> LoopDispositions: { %bb6: Variant }
+; X32-NEXT:    --> ((4 * (trunc i64 (((((-1 * %i4)<nsw> + %i9)<nsw> smax ((-1 * %i9)<nsw> + %i4)<nsw>) /u 4) * (1 smin (-1 smax ((-1 * %i4)<nsw> + %i9)<nsw>)))<nsw> to i32))<nsw> + %arg2)<nsw> U: full-set S: full-set Exits: <<Unknown>> LoopDispositions: { %bb6: Variant }
+; END INTEL_CUSTOMIZATION
 ; X32-NEXT:    %i13 = load i32, i32* %i12, align 4
 ; X32-NEXT:    --> %i13 U: full-set S: full-set Exits: <<Unknown>> LoopDispositions: { %bb6: Variant }
 ; X32-NEXT:    %i14 = add nsw i32 %i13, %i8
