@@ -1505,20 +1505,14 @@ AliasResult BasicAAResult::aliasGEP(const AddressOperator *GEP1, // INTEL
         aliasCheck(UnderlyingV1, LocationSize::unknown(), AAMDNodes(),
                    UnderlyingV2, LocationSize::unknown(), AAMDNodes(), AAQI);
 
-<<<<<<< HEAD
-    // Check for geps of non-aliasing underlying pointers where the offsets are
-    // identical.
-    if ((BaseAlias == MayAlias) && V1Size == V2Size &&                        // INTEL
-        DecompGEP1.Base == UnderlyingV1 && DecompGEP2.Base == UnderlyingV2) { // INTEL
-      // Do the base pointers alias assuming type and size.
-=======
     // For GEPs with identical sizes and offsets, we can preserve the size
     // and AAInfo when performing the alias check on the underlying objects.
     if (BaseAlias == MayAlias && V1Size == V2Size &&
+        DecompGEP1.Base == UnderlyingV1 && // INTEL
+        DecompGEP2.Base == UnderlyingV2 && // INTEL
         GEP1BaseOffset == GEP2BaseOffset &&
         DecompGEP1.VarIndices == DecompGEP2.VarIndices &&
         !GEP1MaxLookupReached && !GEP2MaxLookupReached) {
->>>>>>> 9d2b8300b768715bb3e0e151de37136f29b29590
       AliasResult PreciseBaseAlias = aliasCheck(
           UnderlyingV1, V1Size, V1AAInfo, UnderlyingV2, V2Size, V2AAInfo, AAQI);
       if (PreciseBaseAlias == NoAlias)
