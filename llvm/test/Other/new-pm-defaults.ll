@@ -222,7 +222,11 @@
 ; CHECK-O23SZ-NEXT: Running pass: CorrelatedValuePropagationPass
 ; CHECK-O23SZ-NEXT: Invalidating analysis: LazyValueAnalysis
 ; CHECK-O23SZ-NEXT: Running pass: DSEPass
+<<<<<<< HEAD
 ; Running analysis: PostDominatorTreeAnalysis  ;INTEL PostDom has moved, cannot make check work
+=======
+; CHECK-O23SZ-NEXT: Running analysis: PostDominatorTreeAnalysis
+>>>>>>> 51ff04567b2f8d06b2062bd3ed72eab2e93e4466
 ; CHECK-O23SZ-NEXT: Starting llvm::Function pass manager run.
 ; CHECK-O23SZ-NEXT: Running pass: LoopSimplifyPass
 ; CHECK-O23SZ-NEXT: Running pass: LCSSAPass
