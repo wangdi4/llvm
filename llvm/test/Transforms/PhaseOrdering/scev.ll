@@ -1,5 +1,10 @@
+<<<<<<< HEAD
 ; INTEL - Disabling loopopt as it affects pass pipeline.
 ; RUN: opt -O3 -loopopt=0 -S -analyze -scalar-evolution < %s | FileCheck %s
+=======
+; RUN: opt -O3 -S -analyze -scalar-evolution < %s -enable-new-pm=0 | FileCheck %s
+; RUN: opt -passes='default<O3>,print<scalar-evolution>' -S < %s 2>&1 | FileCheck %s
+>>>>>>> dd32cd4c0d66664691e5fdcd550bca0b03398d44
 ;
 ; This file contains phase ordering tests for scalar evolution.
 ; Test that the standard passes don't obfuscate the IR so scalar evolution can't

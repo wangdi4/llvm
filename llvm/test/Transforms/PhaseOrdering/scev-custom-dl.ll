@@ -1,5 +1,10 @@
+<<<<<<< HEAD
 ; RUN: opt -O3 -S -analyze -scalar-evolution -loopopt=0 < %s | FileCheck %s
 ; INTEL: disabled loopopt as it significantly changes the pass pipeline.
+=======
+; RUN: opt -O3 -S -analyze -scalar-evolution < %s -enable-new-pm=0 | FileCheck %s
+; RUN: opt -passes='default<O3>,print<scalar-evolution>' -S < %s 2>&1 | FileCheck %s
+>>>>>>> dd32cd4c0d66664691e5fdcd550bca0b03398d44
 
 target datalayout = "e-m:m-p:40:64:64:32-i32:32-i16:16-i8:8-n32"
 
