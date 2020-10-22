@@ -1076,26 +1076,47 @@ Instruction *VecCloneImpl::generateStrideForParameter(Function *Clone,
                                                       Instruction *ParmUser,
                                                       int Stride,
                                                       PHINode *Phi) {
-  // Value returned as the last instruction needed to update the users of the
-  // old parameter reference.
-  Instruction *StrideInst = nullptr;
+  // For linear values, a mul/add sequence is needed to generate the correct
+  // value. i.e., val = linear_var * stride + loop_index;
+  Instruction *Mul = nullptr;
+  Instruction *PhiCast = nullptr;
+  if (Arg->getType()->isPointerTy())
+    Mul = BinaryOperator::CreateMul(
+        ConstantInt::get(Type::getInt32Ty(Clone->getContext()), Stride), Phi,
+        "stride.mul");
+  else {
+    // The instruction might involve redefinition of the parameter. For
+    // example, a load from the parameter's associated alloca or a cast. In this
+    // case, we emit the stride based on the type of ParmUser. In any other
+    // case, we use the type of the arguments.
+    Value *Val =
+        isa<LoadInst>(ParmUser) ? cast<Value>(ParmUser) : cast<Value>(Arg);
+    if (Val->getType() != Phi->getType()) {
+      PhiCast = CastInst::Create(
+          CastInst::getCastOpcode(Phi, false, Val->getType(), false), Phi,
+          Val->getType(), "phi.cast");
 
-  Constant *StrideConst =
-      ConstantInt::get(Type::getInt32Ty(Clone->getContext()), Stride);
+      if (isa<LoadInst>(ParmUser))
+        PhiCast->insertAfter(ParmUser);
+      else
+        PhiCast->insertBefore(ParmUser);
+    }
 
-  Instruction *Mul = BinaryOperator::CreateMul(StrideConst, Phi, "stride.mul");
-
-  // Insert the stride related instructions after the user if the instruction
-  // involves a redefinition of the parameter. For example, a load from the
-  // parameter's associated alloca or a cast. For these situations, we want to
-  // apply the stride to this SSA temp. For other instructions, e.g., add, the
-  // instruction computing the stride must be inserted before the user.
-
-  if (!isa<UnaryInstruction>(ParmUser)) {
-    Mul->insertBefore(ParmUser);
-  } else {
-    Mul->insertAfter(ParmUser);
+    Mul = BinaryOperator::CreateMul(
+        GeneralUtils::getConstantValue(Val->getType(), Clone->getContext(),
+                                       Stride),
+        PhiCast ? PhiCast : Phi, "stride.mul");
   }
+
+  // Insert the stride related instructions after the user if the
+  // instruction involves a redefinition of the parameter. For these
+  // situations, we want to apply the stride to this SSA temp. For other
+  // instructions, e.g., add, the instruction computing the stride must be
+  // inserted before the user.
+  if (isa<LoadInst>(ParmUser))
+    Mul->insertAfter(PhiCast ? PhiCast : ParmUser);
+  else
+    Mul->insertBefore(ParmUser);
 
   if (Arg->getType()->isPointerTy()) {
 
@@ -1123,58 +1144,27 @@ Instruction *VecCloneImpl::generateStrideForParameter(Function *Clone,
     // Mul is always generated as i32 since it is calculated using the i32 loop
     // phi that is inserted by this pass. No cast on Mul is necessary because
     // gep can use a base address of one type with an index of another type.
-    GetElementPtrInst *LinearParmGep =
-        GetElementPtrInst::Create(ParmPtrType->getElementType(),
-                                  BaseAddr, Mul, RefName + ".gep");
+    GetElementPtrInst *LinearParmGep = GetElementPtrInst::Create(
+        ParmPtrType->getElementType(), BaseAddr, Mul, RefName + ".gep");
 
     LinearParmGep->insertAfter(Mul);
-    StrideInst = LinearParmGep;
-  } else {
-    // For linear values, a mul/add sequence is needed to generate the correct
-    // value. i.e., val = linear_var * stride + loop_index;
-    //
-    // Also, Mul above is generated as i32 because the phi type is always i32.
-    // However, ParmUser may be another integer type, so we must convert i32 to
-    // i8/i16/i64 when the user is not i32.
-
-    // TODO: Need to be able to deal with induction variables that are converted
-    // to floating point types. Assert for now.
-    if (ParmUser->getType()->isFloatTy()) {
-      llvm_unreachable("Expected integer type for induction variable");
-    }
-
-    if (ParmUser->getType()->getIntegerBitWidth() !=
-        Mul->getType()->getIntegerBitWidth()) {
-
-      Instruction *MulConv =
-              CastInst::CreateIntegerCast(Mul, ParmUser->getType(), true,
-                                          "stride.cast");
-      MulConv->insertAfter(Mul);
-      Mul = MulConv;
-    }
-
-    // Generate the instruction that computes the stride.
-    BinaryOperator *Add;
-    StringRef TempName = "stride.add";
-    if (isa<UnaryInstruction>(ParmUser)) {
-      // The user of the parameter is an instruction that results in a
-      // redefinition of it. e.g., a load from an alloca (no Mem2Reg) or a cast
-      // instruction. In either case, the stride needs to be applied to this
-      // temp.
-      Add = BinaryOperator::CreateAdd(ParmUser, Mul, TempName);
-    } else {
-      // Otherwise, the user is an instruction that does not redefine the temp,
-      // such as an add instruction. For these cases, the stride must be
-      // computed before the user and the reference to the parameter must be
-      // replaced with this instruction.
-      Add = BinaryOperator::CreateAdd(Arg, Mul, TempName);
-    }
-
-    Add->insertAfter(Mul);
-    StrideInst = Add;
+    return LinearParmGep;
   }
-
-  return StrideInst;
+  BinaryOperator *Add = nullptr;
+  // The user of the parameter is an instruction that results in a
+  // redefinition of it. e.g., a load from an alloca (no Mem2Reg) or a cast
+  // instruction. In either case, the stride needs to be applied to this
+  // temp. Otherwise, the user is an instruction that does not redefine the
+  // temp, such as an add instruction. For these cases, the stride must be
+  // computed before the user and the reference to the parameter must be
+  // replaced with this instruction.
+  Value *Val =
+      isa<LoadInst>(ParmUser) ? cast<Value>(ParmUser) : cast<Value>(Arg);
+  assert(!Val->getType()->isFloatingPointTy() &&
+         "The value should not be floating point!");
+  Add = BinaryOperator::CreateAdd(Val, Mul, "stride.add");
+  Add->insertAfter(Mul);
+  return Add;
 }
 
 void VecCloneImpl::updateLinearReferences(Function *Clone, Function &F,
@@ -1322,7 +1312,7 @@ void VecCloneImpl::updateLinearReferences(Function *Clone, Function &F,
       SmallVector<Instruction*, 4> InstsToUpdate;
       Value *ParmUser;
 
-      if (isa<UnaryInstruction>(UserIt->first)) {
+      if (isa<LoadInst>(UserIt->first)) {
         // Case 1
         ParmUser = UserIt->first;
         User::user_iterator StrideUserIt = ParmUser->user_begin();
