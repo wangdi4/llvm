@@ -2380,3 +2380,43 @@ void HIRRegionIdentification::print(raw_ostream &OS) const {
     OS << "\n";
   }
 }
+
+const Value *HIRRegionIdentification::getHeaderPhiOperand(const PHINode *Phi,
+                                                          bool IsInit) const {
+  assert(isHeaderPhi(Phi) && "Phi is not a header phi!");
+  assert((Phi->getNumIncomingValues() == 2) &&
+         "Unexpected number of header phi predecessors!");
+
+  auto *Lp = LI.getLoopFor(Phi->getParent());
+  auto *LatchBlock = Lp->getLoopLatch();
+
+  auto *IncomingBlock = Phi->getIncomingBlock(0);
+
+  if (IncomingBlock == LatchBlock) {
+    return IsInit ? Phi->getIncomingValue(1) : Phi->getIncomingValue(0);
+  } else {
+    return IsInit ? Phi->getIncomingValue(0) : Phi->getIncomingValue(1);
+  }
+}
+
+bool HIRRegionIdentification::hasNonGEPAccess(
+    const PHINode *AddRecPtrPhi) const {
+  assert(isHeaderPhi(AddRecPtrPhi) && "AddRecPtrPhi is not a header phi!");
+  assert(isa<PointerType>(AddRecPtrPhi->getType()) &&
+         "Pointer type phi expected!");
+
+  auto Inst = cast<Instruction>(getHeaderPhiUpdateVal(AddRecPtrPhi));
+
+  // Trace pointers starting from PhiUpdateInst until we reach AddRecPhi.
+  while (Inst != AddRecPtrPhi) {
+    if (auto GEPInst = dyn_cast<GEPOrSubsOperator>(Inst)) {
+      Inst = cast<Instruction>(GEPInst->getPointerOperand());
+    } else {
+      // Some other kind of instruction is involved, probably a bitcast
+      // instruction.
+      return true;
+    }
+  }
+
+  return false;
+}

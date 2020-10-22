@@ -76,6 +76,45 @@ void HIRSCCFormationWrapperPass::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.addRequiredTransitive<HIRRegionIdentificationWrapperPass>();
 }
 
+// Returns constant stride of affine AddRec if available, else return 0.
+// Handles two cases-
+// 1) Stride is constant.
+// 2) Stride is constant multiplied by something.
+static int64_t getStride(const SCEVAddRecExpr *AddRec) {
+  assert(AddRec->isAffine() && "Affine AddRec expected!");
+
+  auto *Stride = AddRec->getOperand(1);
+
+  if (auto *Const = dyn_cast<SCEVConstant>(Stride)) {
+    return Const->getAPInt().getSExtValue();
+  }
+
+  if (auto *Mul = dyn_cast<SCEVMulExpr>(Stride)) {
+    if (auto *Const = dyn_cast<SCEVConstant>(Mul->getOperand(0))) {
+      return Const->getAPInt().getSExtValue();
+    }
+  }
+
+  return 0;
+}
+
+bool HIRSCCFormation::hasUnconventionalAccess(
+    const PHINode *Phi, const SCEVAddRecExpr *AddRec) const {
+  int64_t ConstStride = getStride(AddRec);
+
+  auto &DL = Phi->getModule()->getDataLayout();
+  uint64_t PtrElemSize =
+      DL.getTypeAllocSize(Phi->getType()->getPointerElementType());
+
+  // Return conservative answer if constant stride is not available or not
+  // evenly divisible by ptr element size.
+  if ((ConstStride == 0) || (ConstStride % (int64_t)PtrElemSize != 0)) {
+    return RI.hasNonGEPAccess(Phi);
+  }
+
+  return false;
+}
+
 bool HIRSCCFormation::isConsideredLinear(const NodeTy *Node) const {
 
   if (!ScopedSE.isSCEVable(Node->getType())) {
@@ -95,9 +134,12 @@ bool HIRSCCFormation::isConsideredLinear(const NodeTy *Node) const {
 
   auto Phi = dyn_cast<PHINode>(Node);
 
-  // Header phis can be handled by the parser.
-  if (!Phi || RI.isHeaderPhi(Phi)) {
+  if (!Phi) {
     return true;
+  }
+
+  if (RI.isHeaderPhi(Phi)) {
+    return !hasUnconventionalAccess(Phi, AddRecSCEV);
   }
 
   // Check if there is a type mismatch in the primary element type for pointer

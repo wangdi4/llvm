@@ -2888,53 +2888,9 @@ unsigned HIRParser::getPointerElementSize(Type *Ty) const {
   return ElTy->isSized() ? getCanonExprUtils().getTypeSizeInBytes(ElTy) : 0;
 }
 
-const Value *HIRParser::getHeaderPhiOperand(const PHINode *Phi,
-                                            bool IsInit) const {
-  assert(RI.isHeaderPhi(Phi) && "Phi is not a header phi!");
-  assert((Phi->getNumIncomingValues() == 2) &&
-         "Unexpected number of header phi predecessors!");
-
-  auto *Lp = LI.getLoopFor(Phi->getParent());
-  auto *LatchBlock = Lp->getLoopLatch();
-
-  auto *IncomingBlock = Phi->getIncomingBlock(0);
-
-  if (IncomingBlock == LatchBlock) {
-    return IsInit ? Phi->getIncomingValue(1) : Phi->getIncomingValue(0);
-  } else {
-    return IsInit ? Phi->getIncomingValue(0) : Phi->getIncomingValue(1);
-  }
-}
-
-const Value *HIRParser::getHeaderPhiInitVal(const PHINode *Phi) const {
-  return getHeaderPhiOperand(Phi, true);
-}
-
-const Value *HIRParser::getHeaderPhiUpdateVal(const PHINode *Phi) const {
-  return getHeaderPhiOperand(Phi, false);
-}
-
-static bool hasNonGEPAccess(const Instruction *AddRecPhi,
-                            const Instruction *PhiUpdateInst) {
-  auto Inst = PhiUpdateInst;
-
-  // Trace pointers starting from PhiUpdateInst until we reach AddRecPhi.
-  while (Inst != AddRecPhi) {
-    if (auto GEPInst = dyn_cast<GEPOrSubsOperator>(Inst)) {
-      Inst = cast<Instruction>(GEPInst->getPointerOperand());
-    } else {
-      // Some other kind of instruction is involved, probably a bitcast
-      // instruction.
-      return true;
-    }
-  }
-
-  return false;
-}
-
 CanonExpr *HIRParser::createHeaderPhiIndexCE(const PHINode *Phi,
                                              unsigned Level) {
-  auto UpdateVal = getHeaderPhiUpdateVal(Phi);
+  auto UpdateVal = RI.getHeaderPhiUpdateVal(Phi);
 
   auto PhiSCEV = ScopedSE.getSCEV(const_cast<PHINode *>(Phi));
   auto UpdateSCEV = ScopedSE.getSCEV(const_cast<Value *>(UpdateVal));
@@ -2982,8 +2938,7 @@ CanonExpr *HIRParser::createHeaderPhiIndexCE(const PHINode *Phi,
 
   // Bail out if element size does not divide stride evenly and Phi has an
   // unusual access pattern.
-  if ((IndexCE->getDenominator() != 1) &&
-      hasNonGEPAccess(Phi, cast<Instruction>(UpdateVal))) {
+  if ((IndexCE->getDenominator() != 1) && RI.hasNonGEPAccess(Phi)) {
     return nullptr;
   }
 
@@ -3915,7 +3870,7 @@ RegDDRef *HIRParser::createPhiBaseGEPDDRef(const PHINode *BasePhi,
     // Technically, it is possible for the initial val of phi (first iteration
     // of loop) to not be 'inbounds' and the rest to be inbounds but not sure if
     // it is even possible to generate such IR from the frontend.
-    auto *UpdateVal = getHeaderPhiUpdateVal(BasePhi);
+    auto *UpdateVal = RI.getHeaderPhiUpdateVal(BasePhi);
 
     if (auto *GEPInst = dyn_cast<GetElementPtrInst>(UpdateVal)) {
       IsInBounds = GEPInst->isInBounds();
@@ -3950,7 +3905,7 @@ RegDDRef *HIRParser::createPhiBaseGEPDDRef(const PHINode *BasePhi,
     auto SC = ScopedSE.getSCEV(const_cast<PHINode *>(CurBasePhi));
 
     if (auto RecSCEV = dyn_cast<SCEVAddRecExpr>(SC)) {
-      const Value *PhiInitVal = getHeaderPhiInitVal(CurBasePhi);
+      const Value *PhiInitVal = RI.getHeaderPhiInitVal(CurBasePhi);
 
       if (RecSCEV->isAffine() &&
           (BaseVal = getValidPhiBaseVal(PhiInitVal, &InitGEPOp))) {
@@ -4730,7 +4685,7 @@ unsigned HIRParser::getPointerDimensionSize(const Value *Ptr) const {
         Ptr = Phi->getIncomingValue(0);
 
       } else if (RI.isHeaderPhi(Phi)) {
-        Ptr = getHeaderPhiInitVal(Phi);
+        Ptr = RI.getHeaderPhiInitVal(Phi);
 
       } else {
         // Give up on merge phis.
