@@ -135,6 +135,7 @@ bool expandReductions(Function &F, const TargetTransformInfo *TTI) {
       }
       break;
     }
+<<<<<<< HEAD
     case Intrinsic::vector_reduce_add:
     case Intrinsic::vector_reduce_mul:
     case Intrinsic::vector_reduce_and:
@@ -144,6 +145,53 @@ bool expandReductions(Function &F, const TargetTransformInfo *TTI) {
     case Intrinsic::vector_reduce_smin:
     case Intrinsic::vector_reduce_umax:
     case Intrinsic::vector_reduce_umin: {
+=======
+
+#if INTEL_CUSTOMIZATION
+    case Intrinsic::experimental_vector_reduce_and:
+    case Intrinsic::experimental_vector_reduce_or: {
+      Value *Vec = II->getArgOperand(0);
+      // Transform reduce.or/reduce.and to bitcast+icmp when the scalar type
+      // is i1:
+      // %out = reduce.or/and(<vN x i1> %in)
+      // ==>
+      // %iN = bitcast <vN x i1> %in to iN
+      // %out = icmp.ne/eq %iN, 0/-1
+      if (TTI->isAdvancedOptEnabled(
+              TargetTransformInfo::AdvancedOptLevel::AO_TargetHasIntelSSE42)) {
+        auto VecTy = cast<FixedVectorType>(Vec->getType());
+        Type *ScalarTy = VecTy->getElementType();
+
+        if (ScalarTy->isIntegerTy() && ScalarTy->getIntegerBitWidth() == 1) {
+          unsigned BitWidth = VecTy->getNumElements();
+          Value *BitCast = Builder.CreateBitCast(
+              Vec, Type::getIntNTy(II->getContext(), BitWidth));
+
+          ICmpInst::Predicate Pred =
+              ID == Intrinsic::experimental_vector_reduce_or
+                  ? ICmpInst::ICMP_NE
+                  : ICmpInst::ICMP_EQ;
+
+          Value *CmpValue =
+              ID == Intrinsic::experimental_vector_reduce_or
+                  ? Constant::getNullValue(BitCast->getType())
+                  : Constant::getAllOnesValue(BitCast->getType());
+
+          Rdx = Builder.CreateICmp(Pred, BitCast, CmpValue);
+          break;
+        }
+      }
+    }
+    LLVM_FALLTHROUGH;
+#endif // INTEL_CUSTOMIZATION
+    case Intrinsic::experimental_vector_reduce_add:
+    case Intrinsic::experimental_vector_reduce_mul:
+    case Intrinsic::experimental_vector_reduce_xor:
+    case Intrinsic::experimental_vector_reduce_smax:
+    case Intrinsic::experimental_vector_reduce_smin:
+    case Intrinsic::experimental_vector_reduce_umax:
+    case Intrinsic::experimental_vector_reduce_umin: {
+>>>>>>> 8cc92b43a36311ea543185d96b152c835a35e216
       Value *Vec = II->getArgOperand(0);
       if (!isPowerOf2_32(
               cast<FixedVectorType>(Vec->getType())->getNumElements()))
