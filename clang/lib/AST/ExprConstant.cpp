@@ -7447,7 +7447,6 @@ public:
     bool HasQualifier = false;
 
     CallRef Call;
-    bool EvaluatedArgs = false;
 
     // Extract function decl and 'this' pointer from the callee.
     if (CalleeType->isSpecificBuiltinType(BuiltinType::BoundMember)) {
@@ -7506,7 +7505,6 @@ public:
         if (!EvaluateArgs(isa<CXXMethodDecl>(FD) ? Args.slice(1) : Args, Call,
                           Info, FD, /*RightToLeft=*/true))
           return false;
-        EvaluatedArgs = true;
       }
 
       // Overloaded operator calls to member functions are represented as normal
