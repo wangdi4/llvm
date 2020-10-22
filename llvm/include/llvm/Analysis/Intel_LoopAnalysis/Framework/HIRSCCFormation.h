@@ -212,6 +212,11 @@ private:
   /// Forms SCCs for non-linear loop header phis in the regions.
   void runImpl();
 
+  /// Returns true if AddRec phi has unconventional access (through bitcast, for
+  /// example).
+  bool hasUnconventionalAccess(const PHINode *Phi,
+                               const SCEVAddRecExpr *AddRec) const;
+
 public:
   HIRSCCFormation(LoopInfo &LI, DominatorTree &DT, HIRRegionIdentification &RI);
   HIRSCCFormation(const HIRSCCFormation &) = delete;
