@@ -232,6 +232,14 @@ public:
       return;
     }
 
+    // The local linkage check should guarantee a unique and definitive
+    // initializer.
+    assert((GV.hasUniqueInitializer() && GV.hasDefinitiveInitializer()) &&
+           "Expected initializer");
+    Constant *Initializer = GV.getInitializer();
+    bool HasInitializer = !isa<ConstantAggregateZero>(Initializer) &&
+                          !isa<UndefValue>(Initializer);
+
     // Look at the information set by the PtrTypeAnalyzer for the variable.
     // There generally should only be a single declared type. We need to rely on
     // the PtrTypeAnalyzer rather than looking at the type returned by
@@ -259,28 +267,37 @@ public:
         // TODO: The following is similar to the handling of "alloca"
         // instructions, so it may be good to unify the code in the future.
         DTransType *UnitTy = getArrayUnitType(ArTy);
-        if (UnitTy->isPointerTy())
+        if (UnitTy->isPointerTy()) {
           setBaseTypeInfoSafetyData(UnitTy, dtrans::GlobalPtr,
                                     "Global array of pointers to type defined",
                                     &GV);
-        else if (UnitTy->isVectorTy())
+        } else if (UnitTy->isVectorTy()) {
           setBaseTypeInfoSafetyData(AliasTy, dtrans::UnhandledUse,
                                     "Global array of vector type defined", &GV);
-        else
+        } else {
           setBaseTypeInfoSafetyData(AliasTy, dtrans::GlobalInstance,
                                     "Global array of type defined", &GV);
+          if (HasInitializer)
+            setBaseTypeInfoSafetyData(AliasTy, dtrans::HasInitializerList,
+                                      "dtrans-safety: Has initializer list",
+                                      &GV);
+        }
         continue;
       }
 
-      if (ElemTy->isPointerTy())
+      if (ElemTy->isPointerTy()) {
         setBaseTypeInfoSafetyData(AliasTy, dtrans::GlobalPtr,
                                   "Pointer allocated", &GV);
-      else if (ElemTy->isVectorTy())
+      } else if (ElemTy->isVectorTy()) {
         setBaseTypeInfoSafetyData(AliasTy, dtrans::UnhandledUse,
                                   "Vector allocated", &GV);
-      else
+      } else {
         setBaseTypeInfoSafetyData(AliasTy, dtrans::GlobalInstance,
                                   "Instance allocated", &GV);
+        if (HasInitializer)
+          setBaseTypeInfoSafetyData(AliasTy, dtrans::HasInitializerList,
+                                    "dtrans-safety: Has initializer list", &GV);
+      }
     }
 
     // TODO: Analyze the initializer values for constant values or incompatible
