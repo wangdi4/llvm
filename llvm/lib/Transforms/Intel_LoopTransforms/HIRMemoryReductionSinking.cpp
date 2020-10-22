@@ -442,7 +442,7 @@ void HIRMemoryReductionSinking::sinkInvariantReductions(HLLoop *Lp) {
       auto *NewStoreRval = RednTemp->clone();
       NewStoreRval->getSingleCanonExpr()->addBlob(TempIndex, 1);
       StoreInst->setOperandDDRef(NewStoreRval, 1);
-      NewStoreRval->makeConsistent({RednTemp, LoadTemp});
+      NewStoreRval->makeConsistent({RednTemp, LoadTemp}, Level - 1);
     }
 
     auto *TmpRednInst = HNU.createBinaryHLInst(
