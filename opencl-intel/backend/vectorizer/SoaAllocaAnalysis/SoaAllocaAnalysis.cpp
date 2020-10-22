@@ -14,6 +14,7 @@
 
 #include "SoaAllocaAnalysis.h"
 #include "Mangler.h"
+#include "VectorizerUtils.h"
 
 #include "InitializePasses.h"
 #include "OCLPassSupport.h"
@@ -168,8 +169,14 @@ OCL_INITIALIZE_PASS(SoaAllocaAnalysis, "SoaAllocaAnalysis", "SoaAllocaAnalysis p
         // Only Bitcast of alloca instruction is supported.
         if (!isVectorBasedType && BC->getOperand(0) == pAI) {
           for(const User *U : BC->users()) {
-            // Only CastInst with users that are only memset are supported.
-            if(!isSupportedMemset(dyn_cast<CallInst>(U))) {
+            // Only CastInst with users that are memset or llvm intrinsics
+            // declared in isSafeIntrinsic are supported.
+            const CallInst *CI = dyn_cast<CallInst>(U);
+            Function *CalledFunc;
+            if (!CI || !(CalledFunc = CI->getCalledFunction()) ||
+                !CalledFunc || !CalledFunc->isIntrinsic() ||
+                (!VectorizerUtils::isSafeIntrinsic(CalledFunc->getIntrinsicID())
+                 && !isSupportedMemset(CI))) {
               V_PRINT(soa_alloca_stat, "SoaAllocaAnalysis: alloca with unsupported bitcast usage (" << *usage << ")\n");
               return false;
             }
@@ -184,6 +191,13 @@ OCL_INITIALIZE_PASS(SoaAllocaAnalysis, "SoaAllocaAnalysis", "SoaAllocaAnalysis p
         if (const CallInst *pCall = dyn_cast<CallInst>(usage)) {
           Function *pCalledFunc = pCall->getCalledFunction();
           V_ASSERT(pCalledFunc && "Unexpected indirect function invocation");
+          if (pCalledFunc->isIntrinsic()) {
+            if (VectorizerUtils::isSafeIntrinsic(pCalledFunc->getIntrinsicID()) ||
+                isSupportedMemset(pCall))
+              continue;
+            return false;
+          }
+
           StringRef CalledFuncName = pCalledFunc->getName();
           if (Mangler::isMangledLoad(std::string(CalledFuncName))) {
             // Load is allowed instructions that does not result in a pointer,
@@ -199,10 +213,6 @@ OCL_INITIALIZE_PASS(SoaAllocaAnalysis, "SoaAllocaAnalysis", "SoaAllocaAnalysis p
             // so only need to continue checking other usages.
             continue;
           }
-          else if(isSupportedMemset(pCall)) {
-            //Theis is a case where memset is used on SOA-Alloca without Bitcast
-            continue;
-          }
         }
         // Reaching here means we have usage of unsupported instruction,
         // so no need to continue checking usages, return
@@ -216,18 +226,15 @@ OCL_INITIALIZE_PASS(SoaAllocaAnalysis, "SoaAllocaAnalysis", "SoaAllocaAnalysis p
   }
 
   bool SoaAllocaAnalysis::isSupportedMemset(const CallInst *CI) {
-    if (!CI) {
-      return false;
-    }
+    V_ASSERT(CI && "CI cannot be null");
     V_ASSERT(CI->getCalledFunction() &&
              "Unexpected indirect function invocation");
-    if (!CI->getCalledFunction()->isIntrinsic() ||
-        CI->getCalledFunction()->getIntrinsicID() != Intrinsic::memset) {
-      V_PRINT(soa_alloca_stat, "SoaAllocaAnalysis: alloca with unsupported CallInst usage (" << CI << ")\n");
-      //It is not a call to memset, so it is not supported.
-      return false;
-    }
-    //V_ASSERT(CI->getNumArgOperands() == 5 && "llvm.memset function does not take 5 arguments!");
+
+    Function *CalledFunc = CI->getCalledFunction();
+    if (!CalledFunc->isIntrinsic() ||
+        CalledFunc->getIntrinsicID() != Intrinsic::memset)
+      return  false;
+
     V_ASSERT(CI->getType()->isVoidTy() && "llvm.memset function does not return void!");
     // Need to check that value to set is constant (cannot support non-uniform set value to SOA-Alloca)
     if(!isa<Constant>(CI->getArgOperand(1))) {

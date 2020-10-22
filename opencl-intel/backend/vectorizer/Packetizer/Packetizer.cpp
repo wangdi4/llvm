@@ -743,6 +743,7 @@ void PacketizeFunction::duplicateNonPacketizableInst(Instruction *I)
 {
   V_PRINT(packetizer, "\t\tNon-Packetizable Instruction\n");
   Instruction *duplicateInsts[MAX_PACKET_WIDTH] = {nullptr};
+  SmallVector<Instruction *, 32> BitCastsToInsert;
 
   // Clone instruction
   cloneNonPacketizableInst(I, &duplicateInsts[0]);
@@ -765,7 +766,29 @@ void PacketizeFunction::duplicateNonPacketizableInst(Instruction *I)
       fixSoaAllocaLoadStoreOperands(I, op, &multiOperands[0]);
     }
     // Set scalar operand into cloned scalar instruction
-    if (isa<CallInst>(I)) {
+    if (CallInst *CI = dyn_cast<CallInst>(I)) {
+
+      // For some llvm intrinsics, such as llvm.lifetime.start, we need to cast
+      // the pointer argument to exact i8* type.
+      Function *CalledFunc = CI->getCalledFunction();
+      if (CalledFunc->isIntrinsic() &&
+          VectorizerUtils::isSafeIntrinsic(CalledFunc->getIntrinsicID())) {
+        if (PointerType *PtrTy =
+                dyn_cast<PointerType>(multiOperands[0]->getType())) {
+          Type *NewPtrTy = CalledFunc->getArg(op)->getType();
+          V_ASSERT(isa<PointerType>(NewPtrTy) &&
+                   "The argument isn't a pointer, "
+                   "but the value to replace with is a pointer");
+          // Create BitCast if the two pointers are of different types.
+          if (PtrTy != NewPtrTy)
+            for (unsigned i = 0; i < m_packetWidth; i++) {
+              BitCastInst *BC = new BitCastInst(multiOperands[i], NewPtrTy);
+              multiOperands[i] = BC;
+              BitCastsToInsert.push_back(BC);
+            }
+        }
+      }
+
       for (unsigned i = 0; i < m_packetWidth; i++) {
         V_ASSERT(cast<CallInst>(duplicateInsts[i])->getArgOperand(op)->getType() == multiOperands[i]->getType() &&
           "original operand type is different than new operand type");
@@ -782,6 +805,10 @@ void PacketizeFunction::duplicateNonPacketizableInst(Instruction *I)
   }
   // Add new value/s to VCM
   createVCMEntryWithMultiScalarValues(I, duplicateInsts);
+
+  for (Instruction *BC : BitCastsToInsert)
+    BC->insertBefore(I);
+
   // Add new instructions into function
   for (unsigned duplicates = 0; duplicates < m_packetWidth; duplicates++) {
     duplicateInsts[duplicates]->insertBefore(I);
