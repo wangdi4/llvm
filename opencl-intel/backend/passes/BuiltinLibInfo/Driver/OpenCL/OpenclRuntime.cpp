@@ -349,6 +349,7 @@ bool OpenclRuntime::isSafeLLVMIntrinsic(const std::string &func_name) const {
   if (0 == func_name.compare("llvm.dbg.value")) return true;
   if (0 == func_name.compare("llvm.dbg.label")) return true;
   if (0 == func_name.compare("llvm.dbg.address")) return true;
+  if (0 == func_name.compare("llvm.assume")) return true;
   return false;
 }
 
