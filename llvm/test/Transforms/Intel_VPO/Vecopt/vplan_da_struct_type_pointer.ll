@@ -2,8 +2,8 @@
 ; Test to check that DA marks StructType pointer GEPs with appropriate shape.
 
 ; REQUIRES: asserts
-; RUN: opt -vplan-print-terminator-inst=false < %s -VPlanDriver -vplan-dump-da -vplan-force-vf=4 -S 2>&1 | FileCheck %s
-; RUN: opt -vplan-print-terminator-inst=false < %s -passes="vplan-driver" -vplan-dump-da -vplan-force-vf=4 -S 2>&1 | FileCheck %s
+; RUN: opt < %s -VPlanDriver -vplan-dump-da -vplan-force-vf=4 -S 2>&1 | FileCheck %s
+; RUN: opt < %s -passes="vplan-driver" -vplan-dump-da -vplan-force-vf=4 -S 2>&1 | FileCheck %s
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
@@ -28,9 +28,14 @@ define dso_local void @foo(%struct.S* nocapture %SArr) local_unnamed_addr {
 ; CHECK-NEXT:  Divergent: [Shape: Unit Stride, Stride: i64 1] i64 [[VP_INDVARS_IV_NEXT]] = add i64 [[VP_INDVARS_IV]] i64 [[VP_INDVARS_IV_IND_INIT_STEP:%.*]]
 ; CHECK-NEXT:  Uniform: [Shape: Uniform] i64 [[VP_VECTOR_LOOP_IV_NEXT]] = add i64 [[VP_VECTOR_LOOP_IV]] i64 [[VP_VF:%.*]]
 ; CHECK-NEXT:  Uniform: [Shape: Uniform] i1 [[VP_VECTOR_LOOP_EXITCOND:%.*]] = icmp eq i64 [[VP_VECTOR_LOOP_IV_NEXT]] i64 [[VP_VECTOR_TRIP_COUNT:%.*]]
+; CHECK-NEXT:  Uniform: [Shape: Uniform] br i1 [[VP_VECTOR_LOOP_EXITCOND]], [[BB2:BB[0-9]+]], [[BB0]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:  Basic Block: [[BB2:BB[0-9]+]]
+; CHECK-NEXT:  Basic Block: [[BB2]]
 ; CHECK-NEXT:  Uniform: [Shape: Uniform] i64 [[VP_INDVARS_IV_IND_FINAL:%.*]] = induction-final{add} i64 live-in0 i64 1
+; CHECK-NEXT:  Uniform: [Shape: Uniform] br [[BB3:BB[0-9]+]]
+; CHECK-EMPTY:
+; CHECK-NEXT:  Basic Block: [[BB3]]
+; CHECK-NEXT:  Uniform: [Shape: Uniform] br <External Block>
 ;
 ; For sanity ensure that scatters are generated for non-uniform stores to StructType
 ; CHECK-LABEL: vector.body:
