@@ -4782,10 +4782,8 @@ Value *VPOParoptTransform::getArrSecReductionItemReplacementValue(
   //   %x.new.minus.offset.addr = alloca i32*                           ; (2)
   //   store %x.new.minus.offset, %x.new.minus.offset.addr              ; (3)
   //
-  const DataLayout &DL = InsertPt->getModule()->getDataLayout();
-  AllocaInst *NewMinusOffsetAddr = Builder.CreateAlloca(
-      PointerType::get(ArrSecInfo.getElementType(), DL.getAllocaAddrSpace()),
-      nullptr, NewMinusOffset->getName() + ".addr");       //             (2)
+  AllocaInst *NewMinusOffsetAddr = Builder.CreateAlloca( //               (2)
+      NewMinusOffset->getType(), nullptr, NewMinusOffset->getName() + ".addr");
   Builder.CreateStore(NewMinusOffset, NewMinusOffsetAddr); //             (3)
 
   return NewMinusOffsetAddr;
