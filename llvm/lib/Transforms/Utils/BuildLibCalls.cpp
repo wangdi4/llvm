@@ -192,6 +192,16 @@ bool llvm::inferLibFuncAttributes(Function &F, const TargetLibraryInfo &TLI) {
 
   bool Changed = false;
 
+#if INTEL_CUSTOMIZATION
+  // CMPLRLLVM-23978:
+  // SPIR target can't have unreachable code. SYCL library functions that
+  // would normally have the "noreturn" attribute should be left with the
+  // default attributes. We check only SYCL supported library functions below.
+  bool IsSpirFunc =
+      StringRef(F.getParent()->getTargetTriple()).contains("sycldevice") &&
+      F.getCallingConv() == CallingConv::SPIR_FUNC;
+#endif // INTEL_CUSTOMIZATION
+
   if(!isLibFreeFunction(&F, TheLibFunc) && !isReallocLikeFn(&F,  &TLI))
     Changed |= setDoesNotFreeMemory(F);
 
@@ -1105,7 +1115,8 @@ bool llvm::inferLibFuncAttributes(Function &F, const TargetLibraryInfo &TLI) {
 
 #if INTEL_CUSTOMIZATION
   case LibFunc_assert_fail:
-    Changed |= setDoesNotReturn(F);
+    if (!IsSpirFunc)
+      Changed |= setDoesNotReturn(F);
     Changed |= setDoesNotThrow(F);
     return Changed;
   case LibFunc_clang_call_terminate:
@@ -1734,7 +1745,8 @@ bool llvm::inferLibFuncAttributes(Function &F, const TargetLibraryInfo &TLI) {
   case LibFunc_ZStrsIcSt11char_traitsIcEERSt13basic_istreamIT_T0_ES6_RS3_:
     return Changed;
   case LibFunc_abort:
-    Changed |= setDoesNotReturn(F);
+    if (!IsSpirFunc)
+      Changed |= setDoesNotReturn(F);
     return Changed;
   case LibFunc_acrt_iob_func:
     Changed |= setDoesNotThrow(F);
@@ -1809,7 +1821,8 @@ bool llvm::inferLibFuncAttributes(Function &F, const TargetLibraryInfo &TLI) {
     Changed |= setDoesNotThrow(F);
     return Changed;
   case LibFunc_error:
-    Changed |= setDoesNotReturn(F);
+    if (!IsSpirFunc)
+      Changed |= setDoesNotReturn(F);
     return Changed;
   case LibFunc_execl:
     Changed |= setDoesNotThrow(F);
