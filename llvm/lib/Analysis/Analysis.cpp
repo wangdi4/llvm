@@ -69,7 +69,7 @@ void llvm::initializeAnalysis(PassRegistry &Registry) {
   initializeSNodeAnalysisPass(Registry);
   initializeStdContainerAAWrapperPassPass(Registry);
 #endif // INTEL_CUSTOMIZATION
-  initializeModuleDebugInfoPrinterPass(Registry);
+  initializeModuleDebugInfoLegacyPrinterPass(Registry);
   initializeModuleSummaryIndexWrapperPassPass(Registry);
   initializeMustExecutePrinterPass(Registry);
   initializeMustBeExecutedContextPrinterPass(Registry);
