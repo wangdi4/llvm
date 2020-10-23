@@ -103,7 +103,8 @@ enum InteropPropertyTy : int32_t {
   INTEROP_CONTEXT =  INTEROP_PLATFORM_HANDLE,
   INTEROP_DRIVER_HANDLE =  INTEROP_PLATFORM_HANDLE,
   INTEROP_DEVICE_HANDLE,
-  INTEROP_PLUGIN_INTERFACE
+  INTEROP_PLUGIN_INTERFACE,
+  INTEROP_CONTEXT_HANDLE
 };
 
 enum InteropPluginInterfaceTy : int32_t {
@@ -121,6 +122,8 @@ struct __tgt_interop_obj {
   void *platform_handle; // Opaque handle:  For opencl  cl_context,
                          //for level0  ze_driver_handle_t
   void *device_handle; // Opaque handle:  For level0 ze_device_handle_t.
+                       // Not valid for opencl
+  void *context_handle; // Opaque handle:  For level0 ze_context_handle_t.
                        // Not valid for opencl
   int32_t plugin_interface; // Plugin selector
 };

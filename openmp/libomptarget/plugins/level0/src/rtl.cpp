@@ -2368,6 +2368,12 @@ EXTERN void *__tgt_rtl_get_device_handle(int32_t DeviceId) {
   return (void *)device;
 }
 
+EXTERN void *__tgt_rtl_get_context_handle() {
+  auto context = DeviceInfo->Context;
+  return (void *)context;
+}
+
+
 EXTERN void *__tgt_rtl_create_buffer(int32_t DeviceId, void *TgtPtr) {
   return TgtPtr;
 }

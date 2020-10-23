@@ -813,6 +813,12 @@ void *DeviceTy::get_device_handle() {
   return RTL->get_device_handle(RTLDeviceID);
 }
 
+void *DeviceTy::get_context_handle() {
+  if (!RTL->get_context_handle)
+    return nullptr;
+  return RTL->get_context_handle();
+}
+
 void *DeviceTy::data_alloc_managed(int64_t Size) {
   if (RTL->data_alloc_managed)
     return RTL->data_alloc_managed(RTLDeviceID, Size);
