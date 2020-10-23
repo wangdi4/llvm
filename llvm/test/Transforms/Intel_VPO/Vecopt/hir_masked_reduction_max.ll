@@ -18,7 +18,7 @@
 ;       @llvm.directive.region.exit(%entry.region); [ DIR.VPO.END.AUTO.VEC() ]
 ; END REGION
 
-; RUN: opt -vplan-print-terminator-inst=false -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -VPlanDriverHIR -disable-output -vplan-print-after-vpentity-instrs < %s 2>&1 | FileCheck %s
+; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -VPlanDriverHIR -disable-output -vplan-print-after-vpentity-instrs < %s 2>&1 | FileCheck %s
 
 ; Check that reduction is imported and lowered into corresponding VPInstructions.
 
@@ -38,53 +38,44 @@ define dso_local float @ifmax1(i32 %N) local_unnamed_addr #0 {
 ; CHECK-DAG:     [[VP2:%.*]] = {sext.i32.i64(%N) + -1}
 ; CHECK-DAG:     [[VP3:%.*]] = {@B}
 ; CHECK-NEXT:  External Defs End:
-; CHECK-NEXT:    [[BB0:BB[0-9]+]]:
-; CHECK-NEXT:     <Empty Block>
-; CHECK-NEXT:    SUCCESSORS(1):[[BB1:BB[0-9]+]]
-; CHECK-NEXT:    no PREDECESSORS
+; CHECK-NEXT:    [[BB0:BB[0-9]+]]: # preds:
+; CHECK-NEXT:     br [[BB1:BB[0-9]+]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB1]]:
+; CHECK-NEXT:    [[BB1]]: # preds: [[BB0]]
 ; CHECK-NEXT:     float [[VP__RED_INIT:%.*]] = reduction-init float [[TMAX_0150:%.*]]
 ; CHECK-NEXT:     i64 [[VP__IND_INIT:%.*]] = induction-init{add} i64 0 i64 1
 ; CHECK-NEXT:     i64 [[VP__IND_INIT_STEP:%.*]] = induction-init-step{add} i64 1
-; CHECK-NEXT:    SUCCESSORS(1):[[BB2:BB[0-9]+]]
-; CHECK-NEXT:    PREDECESSORS(1): [[BB0]]
+; CHECK-NEXT:     br [[BB2:BB[0-9]+]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB2]]:
-; CHECK-NEXT:     float [[VP4:%.*]] = phi  [ float [[VP__RED_INIT]], [[BB1]] ],  [ float [[VP5:%.*]], [[BB3:BB[0-9]+]] ]
+; CHECK-NEXT:    [[BB2]]: # preds: [[BB1]], [[BB3:BB[0-9]+]]
+; CHECK-NEXT:     float [[VP4:%.*]] = phi  [ float [[VP__RED_INIT]], [[BB1]] ],  [ float [[VP5:%.*]], [[BB3]] ]
 ; CHECK-NEXT:     i64 [[VP6:%.*]] = phi  [ i64 [[VP__IND_INIT]], [[BB1]] ],  [ i64 [[VP7:%.*]], [[BB3]] ]
-; CHECK-NEXT:     float* [[VP8:%.*]] = subscript inbounds [1000 x float]* @B i64 0 i64 [[VP6]]
-; CHECK-NEXT:     float [[VP9:%.*]] = load float* [[VP8]]
-; CHECK-NEXT:     i1 [[VP10:%.*]] = fcmp ogt float [[VP9]] float 0.000000e+00
-; CHECK-NEXT:    SUCCESSORS(2):[[BB4:BB[0-9]+]](i1 [[VP10]]), [[BB3]](!i1 [[VP10]])
-; CHECK-NEXT:    PREDECESSORS(2): [[BB1]] [[BB3]]
+; CHECK-NEXT:     float* [[VP_SUBSCRIPT:%.*]] = subscript inbounds [1000 x float]* @B i64 0 i64 [[VP6]]
+; CHECK-NEXT:     float [[VP_LOAD:%.*]] = load float* [[VP_SUBSCRIPT]]
+; CHECK-NEXT:     i1 [[VP8:%.*]] = fcmp ogt float [[VP_LOAD]] float 0.000000e+00
+; CHECK-NEXT:     br i1 [[VP8]], [[BB4:BB[0-9]+]], [[BB3]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:      [[BB4]]:
-; CHECK-NEXT:       float [[VP11:%.*]] = phi  [ float [[VP4]], [[BB2]] ]
-; CHECK-NEXT:       float* [[VP12:%.*]] = subscript inbounds [1000 x float]* @C i64 0 i64 [[VP6]]
-; CHECK-NEXT:       float [[VP13:%.*]] = load float* [[VP12]]
-; CHECK-NEXT:       i1 [[VP14:%.*]] = fcmp ogt float [[VP13]] float [[VP11]]
-; CHECK-NEXT:       float [[VP15:%.*]] = select i1 [[VP14]] float [[VP13]] float [[VP11]]
-; CHECK-NEXT:      SUCCESSORS(1):[[BB3]]
-; CHECK-NEXT:      PREDECESSORS(1): [[BB2]]
+; CHECK-NEXT:      [[BB4]]: # preds: [[BB2]]
+; CHECK-NEXT:       float [[VP9:%.*]] = phi  [ float [[VP4]], [[BB2]] ]
+; CHECK-NEXT:       float* [[VP_SUBSCRIPT_1:%.*]] = subscript inbounds [1000 x float]* @C i64 0 i64 [[VP6]]
+; CHECK-NEXT:       float [[VP_LOAD_1:%.*]] = load float* [[VP_SUBSCRIPT_1]]
+; CHECK-NEXT:       i1 [[VP10:%.*]] = fcmp ogt float [[VP_LOAD_1]] float [[VP9]]
+; CHECK-NEXT:       float [[VP11:%.*]] = select i1 [[VP10]] float [[VP_LOAD_1]] float [[VP9]]
+; CHECK-NEXT:       br [[BB3]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB3]]:
-; CHECK-NEXT:     float [[VP5]] = phi  [ float [[VP15]], [[BB4]] ],  [ float [[VP4]], [[BB2]] ]
+; CHECK-NEXT:    [[BB3]]: # preds: [[BB4]], [[BB2]]
+; CHECK-NEXT:     float [[VP5]] = phi  [ float [[VP11]], [[BB4]] ],  [ float [[VP4]], [[BB2]] ]
 ; CHECK-NEXT:     i64 [[VP7]] = add i64 [[VP6]] i64 [[VP__IND_INIT_STEP]]
-; CHECK-NEXT:     i1 [[VP16:%.*]] = icmp sle i64 [[VP7]] i64 [[VP2]]
-; CHECK-NEXT:    SUCCESSORS(2):[[BB2]](i1 [[VP16]]), [[BB5:BB[0-9]+]](!i1 [[VP16]])
-; CHECK-NEXT:    PREDECESSORS(2): [[BB4]] [[BB2]]
+; CHECK-NEXT:     i1 [[VP12:%.*]] = icmp sle i64 [[VP7]] i64 [[VP2]]
+; CHECK-NEXT:     br i1 [[VP12]], [[BB2]], [[BB5:BB[0-9]+]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB5]]:
+; CHECK-NEXT:    [[BB5]]: # preds: [[BB3]]
 ; CHECK-NEXT:     float [[VP__RED_FINAL:%.*]] = reduction-final{fmax} float [[VP5]]
 ; CHECK-NEXT:     i64 [[VP__IND_FINAL:%.*]] = induction-final{add} i64 0 i64 1
-; CHECK-NEXT:    SUCCESSORS(1):[[BB6:BB[0-9]+]]
-; CHECK-NEXT:    PREDECESSORS(1): [[BB3]]
+; CHECK-NEXT:     br [[BB6:BB[0-9]+]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB6]]:
-; CHECK-NEXT:     <Empty Block>
-; CHECK-NEXT:    no SUCCESSORS
-; CHECK-NEXT:    PREDECESSORS(1): [[BB5]]
+; CHECK-NEXT:    [[BB6]]: # preds: [[BB5]]
+; CHECK-NEXT:     br <External Block>
 ;
 entry:
   %cmp14 = icmp sgt i32 %N, 0
