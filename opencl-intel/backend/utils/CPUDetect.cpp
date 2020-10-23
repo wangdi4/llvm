@@ -15,79 +15,12 @@
 #include "CPUDetect.h"
 #if defined(_WIN32)
 #include <intrin.h>
+#else
+#include "cpuid.h"
 #endif
 
 #include <assert.h>
 #include <string.h>
-
-#if !defined(_WIN32)
-struct CPUID_PARAMS {
-    unsigned long long   m_rax;
-    unsigned long long   m_rbx;
-    unsigned long long   m_rcx;
-    unsigned long long   m_rdx;
-} __attribute__ ((packed));
-
-#if !defined(_M_X64) && !defined(__LP64__)
-// we have a inline assembler implementation for non windows 32 bit platforms
-#define SAVE_EBX     "mov  %%ebx, %%edi\n\r"
-#define RESTORE_EBX  "xchg %%edi, %%ebx\n\r"
-typedef unsigned int UINT32;
-
-extern "C" void  hw_cpuid(CPUID_PARAMS *params)
-{
-    UINT32 type = (UINT32)params->m_rax;
-    UINT32 eax, ebx, ecx, edx;
-
-    // Android NDK 32-bit compiler ignores clobbered registers
-    // list, hence, i am preserving here the %ebx register
-    // which might be used by the compiler
-    __asm__ __volatile__(SAVE_EBX
-			 "cpuid\n\r"
-			 RESTORE_EBX
-			 : "=a" (eax),
-			   "=D" (ebx),
-			   "=c" (ecx),
-			   "=d" (edx)
-                         : "a" (type));
-
-    params->m_rax = eax;
-    params->m_rbx = ebx;
-    params->m_rcx = ecx;
-    params->m_rdx = edx;
-}
-#else
-    extern "C" void hw_cpuid( struct CPUID_PARAMS *);
-#endif
-
-//------------------------------------------------------------------------------
-// void ASM_FUNCTION cpuid( int cpuid_info[4], UINT32 type);
-//------------------------------------------------------------------------------
-
-#define __cpuid( p_cpuid_info, type )                                          \
-{                                                                              \
-    struct CPUID_PARAMS __cpuid_params;                                        \
-    __cpuid_params.m_rax = type;                                               \
-    hw_cpuid( &__cpuid_params);                                                \
-                                                                               \
-    (p_cpuid_info)[0] = (unsigned int)__cpuid_params.m_rax;                    \
-    (p_cpuid_info)[1] = (unsigned int)__cpuid_params.m_rbx;                    \
-    (p_cpuid_info)[2] = (unsigned int)__cpuid_params.m_rcx;                    \
-    (p_cpuid_info)[3] = (unsigned int)__cpuid_params.m_rdx;                    \
-}
-#define __cpuidex( p_cpuid_info, type, rcxVal )                                \
-{                                                                              \
-    struct CPUID_PARAMS __cpuid_params;                                        \
-    __cpuid_params.m_rax = type;                                               \
-    __cpuid_params.m_rcx = rcxVal;                                               \
-    hw_cpuid( &__cpuid_params);                                                \
-                                                                               \
-    (p_cpuid_info)[0] = (unsigned int)__cpuid_params.m_rax;                    \
-    (p_cpuid_info)[1] = (unsigned int)__cpuid_params.m_rbx;                    \
-    (p_cpuid_info)[2] = (unsigned int)__cpuid_params.m_rcx;                    \
-    (p_cpuid_info)[3] = (unsigned int)__cpuid_params.m_rdx;                    \
-}
-#endif
 
 #if defined(_M_X64) || defined(__LP64__)
 
@@ -131,7 +64,12 @@ CPUDetect::CPUDetect(void)
     int viCPUInfo[4] = {-1, -1, -1, -1};
     int XCRInfo[2] = {0, 0};
 
+#ifdef _WIN32
     __cpuid(viCPUInfo, 1);
+#else
+    __get_cpuid(1, (unsigned*)&viCPUInfo[0], (unsigned*)&viCPUInfo[1],
+                (unsigned*)&viCPUInfo[2], (unsigned*)&viCPUInfo[3]);
+#endif
 
     unsigned int uiCPUFeatures = 0;
     ECPU CPU = DEVICE_INVALID;
@@ -200,7 +138,12 @@ CPUDetect::CPUDetect(void)
                 }
                 // AVX2 support
                 viCPUInfo[0] = viCPUInfo[1] = viCPUInfo[2] = viCPUInfo[3] =-1;
+#ifdef _WIN32
                 __cpuidex(viCPUInfo, 7, 0); //eax=7, ecx=0
+#else
+                __cpuid_count(7, 0, viCPUInfo[0], viCPUInfo[1], viCPUInfo[2],
+                              viCPUInfo[3]);
+#endif
                 if ((viCPUInfo[1] & 0x20) == 0x20) // EBX.AVX2[bit 5]
                 {
                     uiCPUFeatures |= CFS_AVX2;
