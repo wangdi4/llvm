@@ -30,7 +30,7 @@ entry:
 ; CHECK-NOT: call void @llvm.directive.region.exit(token %{{[0-9]+}}) {{.*}}
 
 DIR.OMP.PARALLEL.1:                               ; preds = %entry
-  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.PARALLEL"(), "QUAL.OMP.PRIVATE"(i32* %x) ], !dbg !11
+  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.PARALLEL"(), "QUAL.OMP.PRIVATE"(i32* %x) ], !dbg !12
 ; CHECK: call void {{.*}} @__kmpc_fork_call
   br label %DIR.OMP.PARALLEL.11, !dbg !12
 
@@ -44,7 +44,7 @@ DIR.OMP.PARALLEL.11:                              ; preds = %DIR.OMP.PARALLEL.1
   br label %DIR.OMP.END.PARALLEL.3, !dbg !11
 
 DIR.OMP.END.PARALLEL.3:                           ; preds = %DIR.OMP.PARALLEL.11
-  call void @llvm.directive.region.exit(token %0) [ "DIR.OMP.END.PARALLEL"() ], !dbg !11
+  call void @llvm.directive.region.exit(token %0) [ "DIR.OMP.END.PARALLEL"() ], !dbg !12
   br label %DIR.OMP.END.PARALLEL.2, !dbg !18
 
 DIR.OMP.END.PARALLEL.2:                           ; preds = %DIR.OMP.END.PARALLEL.3
@@ -87,8 +87,8 @@ attributes #3 = { "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-
 !12 = !DILocation(line: 6, column: 9, scope: !13)
 !13 = distinct !DILexicalBlock(scope: !8, file: !1, line: 5, column: 3)
 ; CHECK: [[SUB:![0-9]+]] = distinct !DISubprogram(name: "foo{{.*}}PARALLEL
-; CHECK: [[VAR]] = !DILocalVariable(name: "x", scope: [[LB1:![0-9]+]],
-; CHECK: [[LB1]] = {{.*}}!DILexicalBlock(scope: [[SUB]]
+; CHECK: [[LB1:![0-9]+]] = distinct !DILexicalBlock(scope: [[SUB]], file: !1, line: 5, column: 3)
+; CHECK: [[VAR]] = !DILocalVariable(name: "x", scope: [[LB1]],
 !14 = !DILocalVariable(name: "x", scope: !13, file: !1, line: 6, type: !15)
 !15 = !DIBasicType(name: "int", size: 32, encoding: DW_ATE_signed)
 !16 = !DILocation(line: 7, column: 25, scope: !13)

@@ -40997,6 +40997,38 @@ static SDValue combineBitcast(SDNode *N, SelectionDAG &DAG,
       N0 = DAG.getBitcast(MVT::i8, N0);
       return DAG.getNode(ISD::TRUNCATE, dl, VT, N0);
     }
+
+#if INTEL_CUSTOMIZATION
+    // If this is a bitcast between a MVT::vNi1 and an illegal integer
+    // type, widen both sides to avoid a trip through memory.
+    if (VT.isScalarInteger() && SrcVT.isVector() &&
+        SrcVT.getVectorElementType() == MVT::i1 &&
+        !isPowerOf2_32(VT.getScalarSizeInBits()) &&
+        DAG.getTarget().Options.IntelAdvancedOptim) {
+      const TargetLowering &TLI = DAG.getTargetLoweringInfo();
+      EVT WidenVT = TLI.getTypeToTransformTo(*DAG.getContext(), VT);
+
+      if (WidenVT != VT &&
+          WidenVT.getScalarSizeInBits() > VT.getScalarSizeInBits()) {
+        unsigned VecNum = SrcVT.getVectorNumElements();
+        unsigned NVecNum = WidenVT.getScalarSizeInBits();
+        EVT SVT = SrcVT.getVectorElementType();
+
+        SmallVector<SDValue, 4> Ops(NVecNum, DAG.getUNDEF(SVT));
+        for (unsigned i = 0; i < VecNum; ++i) {
+          SDValue Idx = DAG.getIntPtrConstant(i, dl);
+          Ops[i] = DAG.getNode(ISD::EXTRACT_VECTOR_ELT, dl, SVT, N0, Idx);
+        }
+
+        EVT NVecTy = EVT::getVectorVT(*DAG.getContext(), MVT::i1, NVecNum);
+        N0 = DAG.getBuildVector(NVecTy, dl, Ops);
+
+        N0 = DAG.getBitcast(EVT::getIntegerVT(*DAG.getContext(), NVecNum), N0);
+        return DAG.getNode(ISD::TRUNCATE, dl, VT, N0);
+      }
+    }
+#endif // INTEL_CUSTOMIZATION
+
   } else {
     // If we're bitcasting from iX to vXi1, see if the integer originally
     // began as a vXi1 and whether we can remove the bitcast entirely.
