@@ -1217,6 +1217,7 @@ static void formGroups(const MemrefDistanceMapVector &AdjMrfSetVec,
     OVLSGroup *CurrGrp =
         new OVLSGroup(AdjMemrefSetIt->first, VectorLength, AccessKind);
     int64_t GrpFirstMDist = 0;
+    int64_t GrpLastMDist = 0;
     assert(AdjMemrefSetIt->second == 0 &&
            "Zero distance between first Memref and itself is expected");
 
@@ -1229,11 +1230,6 @@ static void formGroups(const MemrefDistanceMapVector &AdjMrfSetVec,
 
       int64_t Dist = AdjMemrefSetIt->second;
 
-      // Adjust distance if the new memref precedes all the previously seen
-      // memrefs.
-      if (Dist < GrpFirstMDist)
-        GrpFirstMDist = Dist;
-
       // FIXME: We assume that the first memory reference in AdjMemrefSet is the
       //        best InsertPoint to form a new group. Here we only check if it
       //        is legal to group Memref with InsertPoint, but do not try to
@@ -1243,6 +1239,7 @@ static void formGroups(const MemrefDistanceMapVector &AdjMrfSetVec,
       // If it is not safe to insert the memref to the group, or if the group
       // capacity has been exceeded, then we create a new group.
       if (!CurrGrp->isSafeToInsert(*Memref) ||
+          (GrpLastMDist - Dist + ElemSize) > VectorLength ||
           (Dist - GrpFirstMDist + ElemSize) > VectorLength) {
         // Sort memrefs in the group using their offsets.
         sort(*CurrGrp, [](OVLSMemref *LHS, OVLSMemref *RHS) {
@@ -1251,9 +1248,13 @@ static void formGroups(const MemrefDistanceMapVector &AdjMrfSetVec,
         OVLSGrps.push_back(CurrGrp);
         CurrGrp = new OVLSGroup(Memref, VectorLength, AccessKind);
 
-        // Reset GrpFirstMDist
+        // Reset range information for the new group.
         GrpFirstMDist = Dist;
+        GrpLastMDist = Dist;
       }
+
+      GrpFirstMDist = std::min(GrpFirstMDist, Dist);
+      GrpLastMDist = std::min(GrpLastMDist, Dist);
 
       CurrGrp->insert(Memref);
       if (MemrefToGroupMap)

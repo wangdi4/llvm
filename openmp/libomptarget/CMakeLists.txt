@@ -69,37 +69,41 @@ if (INTEL_CUSTOMIZATION)
     else()
       set(LIBOMP_LIB_NAME iomp5 libiomp5)
     endif()
-    set(LIBOMP_LIB_LOC ${LIBOMPTARGET_OPENMP_TARGET_RTL_FOLDER})
 
     if ((NOT LIBOMPTARGET_OPENMP_TARGET_RTL_FOLDER) OR
         (NOT EXISTS ${LIBOMPTARGET_OPENMP_TARGET_RTL_FOLDER}))
-      if("${CMAKE_SIZEOF_VOID_P}" STREQUAL "4")
+      if ("${CMAKE_SIZEOF_VOID_P}" STREQUAL "4")
         if (WIN32)
-          set(LIBOMP_LIB_LOC
+          set(LIBOMPTARGET_OPENMP_TARGET_RTL_FOLDER
             "${IL0_PREBUILT_COMPONENTS_PREFIX}/compiler/lib/ia32_win")
         else()
-          set(LIBOMP_LIB_LOC
+          set(LIBOMPTARGET_OPENMP_TARGET_RTL_FOLDER
             "${IL0_PREBUILT_COMPONENTS_PREFIX}/compiler/lib/ia32_lin")
         endif()
       else()
         if (WIN32)
-          set(LIBOMP_LIB_LOC
+          set(LIBOMPTARGET_OPENMP_TARGET_RTL_FOLDER
             "${IL0_PREBUILT_COMPONENTS_PREFIX}/compiler/lib/intel64_win")
         else()
-          set(LIBOMP_LIB_LOC
+          set(LIBOMPTARGET_OPENMP_TARGET_RTL_FOLDER
             "${IL0_PREBUILT_COMPONENTS_PREFIX}/compiler/lib/intel64_lin")
         endif()
       endif()
     endif()
 
-    set(LIBOMPTARGET_OPENMP_TARGET_RTL_FOLDER ${LIBOMP_LIB_LOC} CACHE STRING
-        "Path to folder containing libiomp5 library" FORCE)
+    message(STATUS "Looking for OMP library (${LIBOMP_LIB_NAME}) in "
+      "${LIBOMPTARGET_OPENMP_TARGET_RTL_FOLDER}")
 
-    message(STATUS "Looking for OMP library (${LIBOMP_LIB_NAME}) in \
-                    ${LIBOMPTARGET_OPENMP_TARGET_RTL_FOLDER}")
+    if (NOT LIBOMP_LIB OR NOT EXISTS ${LIBOMP_LIB})
+      # Force cache reset, if the search path has been updated.
+      # This will let find_library() try a new path instead of
+      # taking non-existent LIBOMP_LIB path from the cache.
+      set(LIBOMP_LIB
+        "LIBOMP_LIB-NOTFOUND" CACHE FILEPATH "Path to libiomp5 library" FORCE)
+    endif()
     find_library(LIBOMP_LIB NAMES ${LIBOMP_LIB_NAME}
-                 PATHS "${LIBOMPTARGET_OPENMP_TARGET_RTL_FOLDER}"
-                 NO_DEFAULT_PATH)
+      PATHS "${LIBOMPTARGET_OPENMP_TARGET_RTL_FOLDER}"
+      NO_DEFAULT_PATH)
 
     if (NOT LIBOMP_LIB)
       message(FATAL_ERROR "OMP library required for libomptarget is not found.")
@@ -117,23 +121,24 @@ if (INTEL_CUSTOMIZATION)
       "${LIBOMP_LIB}" ${CMAKE_CURRENT_BINARY_DIR}
       COMMENT "Copying ${LIBOMP_LIB} to ${CMAKE_CURRENT_BINARY_DIR}")
 
-    set(LIBOMP_HEADER_LOC ${LIBOMPTARGET_OPENMP_TARGET_HEADER_FOLDER})
-
     if ((NOT LIBOMPTARGET_OPENMP_TARGET_HEADER_FOLDER) OR
         (NOT EXISTS ${LIBOMPTARGET_OPENMP_TARGET_HEADER_FOLDER}))
-      set(LIBOMP_HEADER_LOC
+      set(LIBOMPTARGET_OPENMP_TARGET_HEADER_FOLDER
         "${IL0_PREBUILT_COMPONENTS_PREFIX}/compiler/include")
     endif()
 
-    set(LIBOMPTARGET_OPENMP_TARGET_HEADER_FOLDER
-        ${LIBOMP_HEADER_LOC} CACHE STRING
-        "Path to folder containing omp.h" FORCE)
-
-    message(STATUS "Looking for omp.h in \
-                    ${LIBOMPTARGET_OPENMP_TARGET_HEADER_FOLDER}")
+    message(STATUS "Looking for omp.h in "
+      "${LIBOMPTARGET_OPENMP_TARGET_HEADER_FOLDER}")
+    if (NOT LIBOMP_OMP_H_FILE OR NOT EXISTS ${LIBOMP_OMP_H_FILE})
+      # Force cache reset, if the search path has been updated.
+      # This will let find_file() try a new path instead of
+      # taking non-existent LIBOMP_OMP_H_FILE path from the cache.
+      set(LIBOMP_OMP_H_FILE
+        "LIBOMP_OMP_H_FILE-NOTFOUND" CACHE FILEPATH "Path to omp.h" FORCE)
+    endif()
     find_file(LIBOMP_OMP_H_FILE "omp.h"
-              PATHS ${LIBOMPTARGET_OPENMP_TARGET_HEADER_FOLDER}
-              NO_DEFAULT_PATH)
+      PATHS ${LIBOMPTARGET_OPENMP_TARGET_HEADER_FOLDER}
+      NO_DEFAULT_PATH)
     if (NOT LIBOMP_OMP_H_FILE)
       message(FATAL_ERROR "omp.h required for libomptarget is not found.")
     endif()
