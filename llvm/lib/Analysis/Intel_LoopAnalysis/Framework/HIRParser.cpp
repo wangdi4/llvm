@@ -1392,7 +1392,7 @@ void HIRParser::printBlob(raw_ostream &OS, BlobTy Blob) const {
   if (isa<SCEVConstant>(Blob)) {
     OS << *Blob;
 
-  } else if (auto CastSCEV = dyn_cast<SCEVCastExpr>(Blob)) {
+  } else if (auto CastSCEV = dyn_cast<SCEVIntegralCastExpr>(Blob)) {
     auto SrcType = CastSCEV->getOperand()->getType();
     auto DstType = CastSCEV->getType();
 
@@ -2178,7 +2178,7 @@ bool HIRParser::parseRecursive(const SCEV *SC, CanonExpr *CE, unsigned Level,
     parseBlob(SC, CE, Level);
     return true;
 
-  } else if (auto CastSCEV = dyn_cast<SCEVCastExpr>(SC)) {
+  } else if (auto CastSCEV = dyn_cast<SCEVIntegralCastExpr>(SC)) {
 
     bool IsTrunc = isa<SCEVTruncateExpr>(CastSCEV);
     auto *OpTy = CastSCEV->getOperand()->getType();
@@ -2272,7 +2272,7 @@ public:
 
   bool follow(const SCEV *SC) {
 
-    auto CastSC = dyn_cast<SCEVCastExpr>(SC);
+    auto CastSC = dyn_cast<SCEVIntegralCastExpr>(SC);
 
     if (!CastSC) {
       return true;
@@ -2338,7 +2338,7 @@ bool HIRParser::isCastedFromLoopIVType(const CastInst *CI,
   // We should ignore casts on constants like trunc.i64.i8(256) which get
   // simplified to constants like 'i8 0'. Casts on constants are not expected in
   // HIR.
-  if (isa<SCEVCastExpr>(SC) || isa<SCEVConstant>(SC)) {
+  if (isa<SCEVIntegralCastExpr>(SC) || isa<SCEVConstant>(SC)) {
     return false;
   }
 
@@ -3344,7 +3344,7 @@ HIRParser::GEPChain::GEPChain(const HIRParser &Parser,
     if ((!Subs && !NextSubs) ||
         (Subs && NextSubs && Subs->getRank() == NextSubs->getRank())) {
       auto *HighestIndex = Parser.ScopedSE.getSCEV(GEPOp->getIndex(0));
-      auto CastSCEV = dyn_cast<SCEVCastExpr>(HighestIndex);
+      auto CastSCEV = dyn_cast<SCEVIntegralCastExpr>(HighestIndex);
       if (CastSCEV && isa<SCEVAddRecExpr>(CastSCEV->getOperand())) {
         break;
       }
