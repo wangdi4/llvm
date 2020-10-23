@@ -14,6 +14,8 @@
 /// Check explicit linking under -device-math-lib:
 // RUN:   %clang -ccc-print-phases -fiopenmp -target x86_64-unknown-linux-gnu -fopenmp-targets=spir64 -fopenmp-device-lib=libm-fp32,libm-fp64 %s 2>&1 \
 // RUN:   | FileCheck -check-prefix=CHK-PHASES %s
+// RUN:   %clang -ccc-print-phases -fiopenmp -target x86_64-unknown-linux-gnu -fopenmp-targets=spir64="-DFOO" -fopenmp-device-lib=libm-fp32,libm-fp64 %s 2>&1 \
+// RUN:   | FileCheck -check-prefix=CHK-PHASES %s
 
 // CHK-PHASES: 0: input, "[[INPUT:.+\.c]]", c, (host-openmp)
 // CHK-PHASES: 1: preprocessor, {0}, cpp-output, (host-openmp)
