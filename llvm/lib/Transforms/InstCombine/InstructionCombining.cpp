@@ -2275,9 +2275,15 @@ Instruction *InstCombinerImpl::visitGetElementPtrInst(GetElementPtrInst &GEP) {
             // -- have to recreate %src & %gep
             // put NewSrc at same location as %src
             Builder.SetInsertPoint(cast<Instruction>(PtrOp));
-            auto *NewSrc = cast<GetElementPtrInst>(
-                Builder.CreateGEP(GEPEltType, SO0, GO1, Src->getName()));
-            NewSrc->setIsInBounds(Src->isInBounds());
+#if INTEL_CUSTOMIZATION
+            auto *NewSrc =
+                Src->isInBounds()
+                    ? Builder.CreateInBoundsGEP(GEPEltType, SO0, GO1,
+                                                Src->getName())
+                    :
+
+                    Builder.CreateGEP(GEPEltType, SO0, GO1, Src->getName());
+#endif // INTEL_CUSTOMIZATION
             auto *NewGEP = GetElementPtrInst::Create(GEPEltType, NewSrc, {SO1});
             NewGEP->setIsInBounds(GEP.isInBounds());
             return NewGEP;
