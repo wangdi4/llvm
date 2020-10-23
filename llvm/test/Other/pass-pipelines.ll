@@ -29,6 +29,9 @@
 ; RUN: opt -enable-new-pm=0 -disable-output -disable-verify -debug-pass=Structure \
 ; RUN:     -pgo-kind=pgo-instr-use-pipeline -profile-file='%t.profdata' \
 ; RUN:     -hot-cold-split \
+; INTEL CUSTOMIZATION
+; RUN:     -enable-andersen=false -loopopt=0 -enable-lv \
+; END INTEL CUSTOMIZATION
 ; RUN:     -O2 %s 2>&1 \
 ; RUN:     | FileCheck %s --check-prefix=CHECK-O2 --check-prefix=PGOUSE --check-prefix=SPLIT
 ;
