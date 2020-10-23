@@ -201,8 +201,11 @@ namespace intel {
     assert(Root && "Invalid function.");
 
     if (Root->isDeclaration()) {
-      Root = FindFunctionDef(Root, Modules);
-      if (!Root) {
+      Function *Def = FindFunctionDef(Root, Modules);
+      if (Def)
+        Root = Def;
+      else {
+        UsedFunctions.insert(Root);
         return;
       }
     }
