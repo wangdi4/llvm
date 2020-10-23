@@ -160,6 +160,10 @@ VPlanCallVecDecisions::matchVectorVariant(const VPCallInstruction *VPCall,
   VecVariantStringValue.split(Variants, ",");
   SmallVector<std::pair<VectorVariant, unsigned>, 4> CandidateFunctions;
   for (unsigned I = 0; I < Variants.size(); ++I) {
+
+    // Check if the called function name is contained in vector-variant string.
+    assert(Variants[I].contains(VPCall->getCalledFunction()->getName()));
+
     VectorVariant Variant(Variants[I]);
     VectorVariant::ISAClass VariantIsaClass = Variant.getISA();
     LLVM_DEBUG(dbgs() << "Variant ISA Class: "
