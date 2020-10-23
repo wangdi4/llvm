@@ -501,6 +501,7 @@ PipelineTuningOptions::PipelineTuningOptions() {
 }
 
 extern cl::opt<bool> EnableConstraintElimination;
+extern cl::opt<bool> EnableHotColdSplit;
 extern cl::opt<bool> EnableOrderFileInstrumentation;
 
 extern cl::opt<bool> FlattenedProfileUsed;
@@ -1600,7 +1601,7 @@ ModulePassManager PassBuilder::buildModuleOptimizationPipeline(
   // Split out cold code. Splitting is done late to avoid hiding context from
   // other optimizations and inadvertently regressing performance. The tradeoff
   // is that this has a higher code size cost than splitting early.
-  if (!LTOPreLink)
+  if (EnableHotColdSplit && !LTOPreLink)
     MPM.addPass(HotColdSplittingPass());
 
   // LoopSink pass sinks instructions hoisted by LICM, which serves as a
@@ -2213,7 +2214,8 @@ PassBuilder::buildLTODefaultPipeline(OptimizationLevel Level, bool DebugLogging,
 
   // Enable splitting late in the FullLTO post-link pipeline. This is done in
   // the same stage in the old pass manager (\ref addLateLTOOptimizationPasses).
-  MPM.addPass(HotColdSplittingPass());
+  if (EnableHotColdSplit)
+    MPM.addPass(HotColdSplittingPass());
 
   // Add late LTO optimization passes.
   // Delete basic blocks, which optimization passes may have killed.
