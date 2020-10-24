@@ -229,7 +229,7 @@ private:
   bool canSinkSingleStore(HLLoop *Lp, RegDDRef *FirstRef, MemRefGroup &Group,
                           SmallSet<unsigned, 32> &TempRefSet) const;
 
-  void handleInLoopMemRef(HLLoop *Lp, RegDDRef *Ref, RegDDRef *TmpDDRef,
+  void handleInLoopMemRef(unsigned Level, RegDDRef *Ref, RegDDRef *TmpDDRef,
                           bool IsLoadOnly);
 
   bool hoistedLoadsUsingExistingTemp(HLLoop *Lp, MemRefGroup &Group,
