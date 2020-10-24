@@ -170,6 +170,7 @@ bool clTracingFunctionsEnabledCheckTest();
 bool clTracingArgumentsChangedCheckTest();
 bool clTracingFunctionsDisabledCheckTest();
 void globalVariableSizeQueryTest();
+void UniformWorkGroupTest();
 #ifndef _WIN32
 bool cl_device_local_mem_size_unlimited_stack_test();
 bool TbbSetMaxThreads(int NumThreads);

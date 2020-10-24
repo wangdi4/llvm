@@ -644,6 +644,11 @@ TEST(FrameworkTestType, Test_globalVariableQueryTest)
     globalVariableSizeQueryTest();
 }
 
+TEST(FrameworkTestType, Test_UniformWorkGroupTest)
+{
+    UniformWorkGroupTest();
+}
+
 CommandLineOption<std::string> deviceOption("--device_type");
 
 // To run individual tests, use the --gtest_filter=<pattern> command-line
