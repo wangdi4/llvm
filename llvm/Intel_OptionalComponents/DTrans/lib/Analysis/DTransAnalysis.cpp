@@ -6430,7 +6430,8 @@ public:
       AnnotatedWriter(LocalPointerAnalyzer &LPA) : LPA(LPA) {}
 
       // Output the types pointer parameters are used as within the function.
-      void emitFunctionAnnot(const Function *F, formatted_raw_ostream &OS) {
+      void emitFunctionAnnot(const Function *F,
+                             formatted_raw_ostream &OS) override {
         // We don't have LPA information for parameters of function
         // declarations.
         if (F->isDeclaration())
@@ -6446,7 +6447,8 @@ public:
       }
 
       // Output the LPA information about the value object
-      void printInfoComment(const Value &CV, formatted_raw_ostream &OS) {
+      void printInfoComment(const Value &CV,
+                            formatted_raw_ostream &OS) override {
         Value *V = const_cast<Value *>(&CV);
         emitLPA(V, OS);
       }

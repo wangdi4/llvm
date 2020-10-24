@@ -97,6 +97,7 @@ public:
   Loop *getMainLoop() const { return NewLoop; }
   Loop *getOrigLoop() const { return OrigLoop; }
   unsigned getVF() const { return VF; }
+  unsigned getUF() const { return UF; }
   bool getNeedRemainderLoop() const { return false; }
   Loop *getRemainderLoop() const { return nullptr; }
 

@@ -25,3 +25,15 @@ void test_mm256_vmovadvisew_store_epi8(char *a, __m256i m) {
   // CHECK: call void @llvm.x86.avx2.vmovadvisew.store.256(i8* %{{.*}}, <8 x i32> %{{.*}}, i8 16)
   _mm256_vmovadvisew_store_epi8(a, m, 16);
 }
+
+void test_mm_vmemadvise_epi8(char *a) {
+  // CHECK-LABEL: test_mm_vmemadvise_epi8
+  // CHECK: call void @llvm.x86.avx2.vmemadvise.128(i8* %{{.*}}, i8 16)
+  _mm_vmemadvise_epi8(a, 16);
+}
+
+void test_mm256_vmemadvise_epi8(char *a) {
+  // CHECK-LABEL: test_mm256_vmemadvise_epi8
+  // CHECK: call void @llvm.x86.avx2.vmemadvise.256(i8* %{{.*}}, i8 16)
+  _mm256_vmemadvise_epi8(a, 16);
+}

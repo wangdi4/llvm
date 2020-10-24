@@ -36,8 +36,6 @@ entry:
   %i.ascast = addrspacecast i32* %i to i32 addrspace(4)*
   %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(), "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 0), "QUAL.OMP.PRIVATE"(i32 addrspace(4)* %.omp.iv.ascast), "QUAL.OMP.PRIVATE"(i32 addrspace(4)* %.omp.ub.ascast), "QUAL.OMP.PRIVATE"(i32 addrspace(4)* %i.ascast), "QUAL.OMP.PRIVATE"(i32 addrspace(4)* %tmp.ascast) ]
 ; Private copy of %i.ascast for the TARGET construct
-; CHECK: @i.ascast.priv.__global = internal addrspace(1) global i32 0
-
 
   store i32 9, i32 addrspace(4)* %.omp.ub.ascast, align 4
   %1 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.NORMALIZED.IV"(i32 addrspace(4)* %.omp.iv.ascast), "QUAL.OMP.NORMALIZED.UB"(i32 addrspace(4)* %.omp.ub.ascast), "QUAL.OMP.LINEAR:IV"(i32 addrspace(4)* %i.ascast, i32 1) ]
@@ -80,10 +78,6 @@ omp.inner.for.end:                                ; preds = %omp.inner.for.cond
 
 omp.loop.exit:                                    ; preds = %omp.inner.for.end
   call void @llvm.directive.region.exit(token %1) [ "DIR.OMP.END.SIMD"() ]
-; Check for final copyout for LINEAR:IV for %i.ascast on the SIMD region.
-; CHECK: [[I_VAL:%[^ ]+]]  = load i32, i32* %i.ascast.linear.iv, align 4
-; CHECK: store i32 [[I_VAL]], i32 addrspace(1)* @i.ascast.priv.__global, align 4
-
   call void @llvm.directive.region.exit(token %0) [ "DIR.OMP.END.TARGET"() ]
   ret void
 }

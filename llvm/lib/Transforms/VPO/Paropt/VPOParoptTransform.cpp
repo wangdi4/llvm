@@ -1558,6 +1558,7 @@ bool VPOParoptTransform::paroptTransforms() {
             else {
               Changed |= genPrivatizationCode(W);
               Changed |= genReductionCode(W);
+              Changed |= genDestructorCode(W);
 
               // The directive gets removed, when processing the target region,
               // do not remove it here, since guardSideEffects needs the
@@ -1652,6 +1653,7 @@ bool VPOParoptTransform::paroptTransforms() {
               Changed |= genLastPrivatizationCode(W, IfLastIterBB);
               Changed |= genFirstPrivatizationCode(W);
               Changed |= genReductionCode(W);
+              Changed |= genDestructorCode(W);
             }
           } else {
 #if INTEL_CUSTOMIZATION
@@ -1813,6 +1815,7 @@ bool VPOParoptTransform::paroptTransforms() {
           Changed |= genPrivatizationCode(W);
           Changed |= genFirstPrivatizationCode(W);
           Changed |= captureAndAddCollectedNonPointerValuesToSharedClause(W);
+          Changed |= genDestructorCode(W);
           Changed |= genTargetOffloadingCode(W);
           Changed |= clearLaunderIntrinBeforeRegion(W);
           RemoveDirectives = true;
@@ -5458,9 +5461,43 @@ bool VPOParoptTransform::genLinearCodeForVecLoop(WRegionNode *W,
       InitBuilder.CreateStore(LoadOrig, NewLinearVar);   //                (3)
     }
 
-    // Insert the final copy-out from the private copies to the original.
-    LoadInst *FiniLoad = FiniBuilder.CreateLoad(NewVTy, NewLinearVar); //  (5)
-    FiniBuilder.CreateStore(FiniLoad, Orig); //                            (6)
+    // Check if Linear.IV is a live-out.
+    bool IsLiveOut = false;
+    for (User *U : Orig->users()) {
+      IntrinsicInst *II = dyn_cast<IntrinsicInst>(U);
+      if (II && II->getIntrinsicID() == Intrinsic::directive_region_entry)
+        continue;
+      else if (auto *SI = dyn_cast<StoreInst>(U)) {
+        // Linear.IV is in use if it is a ValueOperand of a store
+        if (Orig == SI->getValueOperand()) {
+          IsLiveOut = true;
+          break;
+        }
+      }
+      else if (auto *BI = dyn_cast<BitCastInst>(U)) {
+        // When Linear.IV is in use of a bitcast instruction, be conservative,
+        // we count and check the number of users of the bicast instruction.
+        for (User *U : BI->users())
+          if (isa<Instruction>(U)) {
+            IsLiveOut = true;
+            break;
+          }
+        if (IsLiveOut)
+          break;
+      }
+      else {
+        IsLiveOut = true;
+        break;
+      }
+    }
+
+    // Insert the final copy-out from the private copies to the original if
+    // it is a live-out.
+    if (IsLiveOut) {
+      LLVM_DEBUG(dbgs() << *Orig << ": is a linear live-out value. " << "\n");
+      LoadInst *FiniLoad = FiniBuilder.CreateLoad(NewVTy, NewLinearVar); // (5)
+      FiniBuilder.CreateStore(FiniLoad, Orig); //                           (6)
+    }
 
     LLVM_DEBUG(dbgs() << __FUNCTION__ << ": handled '" << *Orig << "'\n");
   }
@@ -7221,9 +7258,14 @@ bool VPOParoptTransform::genPrivatizationCode(WRegionNode *W) {
         Value *ReplacementVal = getClauseItemReplacementValue(PrivI, InsertPt);
         genPrivatizationReplacement(W, Orig, ReplacementVal);
 
-        if (auto *Ctor = PrivI->getConstructor())
+        if (auto *Ctor = PrivI->getConstructor()) {
+          Instruction *CtorInsertPt = dyn_cast<Instruction>(NewPrivInst);
+          // NewPrivInst might be at module level. e.g. 'target private (x)'.
+          if (!CtorInsertPt)
+            CtorInsertPt = InsertPt;
           genPrivatizationInitOrFini(PrivI, Ctor, FK_Ctor, NewPrivInst, nullptr,
-                                     cast<Instruction>(NewPrivInst), DT);
+                                     CtorInsertPt, DT);
+        }
 
 #if INTEL_CUSTOMIZATION
         if (!ForTask && PrivI->getIsF90DopeVector())

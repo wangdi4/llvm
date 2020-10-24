@@ -4569,6 +4569,54 @@ bool llvm::isSafeToSpeculativelyExecute(const Value *V,
     auto *CI = cast<const CallInst>(Inst);
     const Function *Callee = CI->getCalledFunction();
 
+#if INTEL_CUSTOMIZATION
+    // Prohibit speculated calls of @llvm.pow if there is an argument
+    // dependency on the condition which covers the call.
+    //
+    // entry:
+    //   %cmp = fcmp fast olt double %value, 0.000000e+00
+    //   br i1 %cmp, label %cond.end, label %cond.false
+    // cond.false:
+    //   %0 = call fast double @llvm.pow.f64(double %value, double %gamma)
+    //   br label %cond.end
+    // cond.end:
+    //   %cond = phi fast double [ %0, %cond.false ], [ %value, %entry ]
+    //
+    // In this example PHI in the last line should not be simplified because
+    // fcmp and call instructions depend on the same %value operand.
+    if (Callee && Callee->isIntrinsic() &&
+        Callee->getIntrinsicID() == llvm::Intrinsic::pow) {
+
+      const BasicBlock *BB = CI->getParent();
+      if (const BasicBlock *Pred = BB->getSinglePredecessor()) {
+
+        const Instruction *T = Pred->getTerminator();
+        if (const BranchInst *BI = dyn_cast<BranchInst>(T)) {
+
+          if (BI->isConditional()) {
+            const Value *Cond = BI->getCondition();
+
+            if (const CmpInst *Inst = dyn_cast<CmpInst>(Cond)) {
+
+              Value *Op = Inst->getOperand(0);
+              Value *CIOp = CI->getOperand(0);
+              if (Op == CIOp)
+                return false;
+
+              if (LoadInst *LI = dyn_cast<LoadInst>(CIOp)) {
+
+                Value *LoadOp = LI->getOperand(0);
+                if (LoadInst *LI = dyn_cast<LoadInst>(Op))
+                  if (LI->getOperand(0) == LoadOp)
+                    return false;
+              }
+            }
+          }
+        }
+      }
+    }
+#endif // INTEL_CUSTOMIZATION
+
     // The called function could have undefined behavior or side-effects, even
     // if marked readnone nounwind.
     return Callee && Callee->isSpeculatable();

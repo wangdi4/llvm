@@ -2116,7 +2116,8 @@ RegDDRef *RegDDRef::simplifyConstArray() {
 
   Constant *Val =
       ConstantFoldLoadThroughGEPIndices(GV->getInitializer(), Indices);
-  if (!Val) {
+  // TODO: add support for constant GEP exprs.
+  if (!Val || isa<GEPOperator>(Val)) {
     return nullptr;
   }
 

@@ -455,13 +455,13 @@ public:
     if (GEPInfo->pointsToSomeElement()) {
       // Check the uses of this GEP element. If it is used by anything other
       // than casts, loads, and stores.
-      std::function<bool(Value *)> hasNonCastLoadStoreUses =
-          [&hasNonCastLoadStoreUses](Value *V) {
+      std::function<bool(Value *)> HasNonCastLoadStoreUses =
+          [&HasNonCastLoadStoreUses](Value *V) {
             for (auto *U : V->users()) {
               if (isa<LoadInst>(U) || isa<StoreInst>(U))
                 continue;
               if (isa<CastInst>(U)) {
-                if (hasNonCastLoadStoreUses(U))
+                if (HasNonCastLoadStoreUses(U))
                   return true;
                 continue;
               }
@@ -483,26 +483,29 @@ public:
             Info->getElementPointeeSet(ValueTypeInfo::VAT_Use).begin(),
             Info->getElementPointeeSet(ValueTypeInfo::VAT_Use).end(),
             [](const ValueTypeInfo::TypeAndPointeeLocPair &PointeePair) {
-              return PointeePair.second.getKind() ==
-                     ValueTypeInfo::PointeeLoc::PLK_Offset;
+              return !PointeePair.second.isField();
             });
       };
 
+      auto &Pointees = GEPInfo->getElementPointeeSet(ValueTypeInfo::VAT_Use);
       if (HasNonFieldAddress(GEPInfo)) {
-        // The pointer type analyzer should only have set a non-field offset
-        // for the case of a GEP that is passed to a memset and the offset
-        // does not correspond to a field boundary.
-        assert(valueOnlyUsedForMemset(GEP) &&
-               "Non-field accesses expected to only occur for memset operand");
-      } else if (hasNonCastLoadStoreUses(GEP)) {
-        auto &Pointees = GEPInfo->getElementPointeeSet(ValueTypeInfo::VAT_Use);
+#if !defined(NDEBUG)
+        for (auto &PointeePair : Pointees) {
+          // The pointer type analyzer should only have set a non-field byte
+          // offset for the case of a GEP that is passed to a memset and the
+          // offset does not correspond to a field boundary.
+          if (PointeePair.second.isByteOffset())
+            assert(
+                valueOnlyUsedForMemset(GEP) &&
+                "Non-field accesses expected to only occur for memset operand");
+        }
+#endif // !defined(NDEBUG)
+      } else if (HasNonCastLoadStoreUses(GEP)) {
+        // Set GEPs for fields of structures that are used for something other
+        // than a Load/Store as ComplexUse.
         for (auto &PointeePair : Pointees) {
           DTransType *ParentTy = PointeePair.first;
-          if (ParentTy->isStructTy()) {
-            assert(PointeePair.second.getKind() !=
-                       ValueTypeInfo::PointeeLoc::PLK_Offset &&
-                   "Unexpected use of invalid element");
-
+          if (ParentTy->isStructTy() && PointeePair.second.isField()) {
             auto *ParentStInfo =
                 cast<dtrans::StructInfo>(DTInfo.getOrCreateTypeInfo(ParentTy));
             dtrans::FieldInfo &FI =
@@ -511,6 +514,23 @@ public:
           }
         }
       }
+
+      // A runtime dependent index of an array cannot be guaranteed to be within
+      // the bounds. When DTransOutOfBoundsOK is not set, we are explicitly
+      // asserting that the access cannot go out of bounds.
+      if (DTransOutOfBoundsOK)
+        for (auto &PointeePair : Pointees) {
+          if (PointeePair.second.getKind() ==
+              ValueTypeInfo::PointeeLoc::PLK_UnknownOffset) {
+            setBaseTypeInfoSafetyData(PointeePair.first,
+                                      dtrans::BadPtrManipulation,
+                                      "Runtime dependent offset", GEP);
+            for (auto &ElementOfPair : PointeePair.second.getElementOf())
+              setBaseTypeInfoSafetyData(ElementOfPair.first,
+                                        dtrans::BadPtrManipulation,
+                                        "Runtime dependent offset", GEP);
+          }
+        }
     }
   }
 
@@ -578,7 +598,7 @@ public:
         if (!SrcInfo || !SrcInfo->canAliasToAggregatePointer()) {
           setAllAliasedTypeSafetyData(
               Info, dtrans::UnsafePtrMerge,
-            "Merge of conflicting types during integer merge", I);
+              "Merge of conflicting types during integer merge", I);
           return;
         }
       }
@@ -846,18 +866,8 @@ public:
     // memory. This is done up front, so that we can return as soon as
     // analyzing any element pointees of the pointer operand.
     if (ValInfo && ValInfo->pointsToSomeElement())
-      for (auto &PointeePair :
-           ValInfo->getElementPointeeSet(ValueTypeInfo::VAT_Use)) {
-        dtrans::TypeInfo *ParentTI =
-            DTInfo.getOrCreateTypeInfo(PointeePair.first);
-        if (auto *ParentStInfo = dyn_cast<dtrans::StructInfo>(ParentTI)) {
-          setBaseTypeInfoSafetyData(
-              PointeePair.first, dtrans::FieldAddressTaken,
-              "Address of member stored to memory", &I, DumpCallback);
-          ParentStInfo->getField(PointeePair.second.getElementNum())
-              .setAddressTaken();
-        }
-      }
+      markFieldAddressTaken(ValInfo, "Address of member stored to memory", &I,
+                            DumpCallback);
 
     if (PtrInfo->pointsToSomeElement()) {
       analyzeElementLoadOrStore(I, *PtrInfo, ValInfo);
@@ -898,8 +908,8 @@ public:
                                     DumpCallback);
         if (ValInfo)
           setAllAliasedTypeSafetyData(ValInfo, dtrans::UnsafePointerStore,
-                                      "Cannot resolve type of value stored",
-                                      &I, DumpCallback);
+                                      "Cannot resolve type of value stored", &I,
+                                      DumpCallback);
       }
 
       setAllAliasedTypeSafetyData(PtrInfo, dtrans::BadCasting,
@@ -1015,10 +1025,10 @@ public:
         BadcastReason =
             "Dominant type of value pointer being stored not resolved";
       } else if (!ValTy->isPointerTy() &&
-            hasIncompatibleAggregateDecl(ValTy->getPointerElementType(),
-                                         ValInfo)) {
-          IsMismatched = true;
-          BadcastReason = "Incompatible type for ptr-to-ptr store";
+                 hasIncompatibleAggregateDecl(ValTy->getPointerElementType(),
+                                              ValInfo)) {
+        IsMismatched = true;
+        BadcastReason = "Incompatible type for ptr-to-ptr store";
       }
     }
 
@@ -1080,8 +1090,7 @@ public:
         setBaseTypeInfoSafetyData(ParentTy, dtrans::VolatileData,
                                   "Marked as volatile", &I);
 
-      if (PointeePair.second.getKind() !=
-          ValueTypeInfo::PointeeLoc::PLK_Field) {
+      if (PointeePair.second.isByteOffset()) {
         // A GEP that indexes a location that is not a field boundary should
         // only be allowed for access to the padding bytes for a memfunc
         // intrinsic, and not a load/store instruction.
@@ -1460,6 +1469,54 @@ public:
       setAllAliasedAndPointeeTypeSafetyData(
           StorePtrInfo, dtrans::UnsafePointerStore,
           "Incompatible type for field load/store", SI);
+  }
+
+  // Process the ElementPointees of 'Info' to mark FieldAddressTaken on the
+  // StructInfo and FieldInfo objects. For ElementPointees that are an
+  // ArrayType, this also needs to consider the case that element zero of the
+  // structure may also be the address of a field within a structure when the
+  // array is a member of a structure.
+  // Note, when DTransOutOfBoundsOK is off, all runtime dependent indices of an
+  // array are considered to be element zero, rather than BadPtrManipulation.
+  void markFieldAddressTaken(ValueTypeInfo *Info, StringRef Reason, Value *V,
+                             SafetyInfoReportCB Callback = nullptr) {
+    auto MarkStructField = [this, &Reason, &V, &Callback](TypeInfo *TI,
+                                                          size_t FieldNum) {
+      assert(isa<dtrans::StructInfo>(TI) && "Expected struct type info*");
+
+      auto *ParentStInfo = cast<dtrans::StructInfo>(TI);
+      setBaseTypeInfoSafetyData(TI->getDTransType(), dtrans::FieldAddressTaken,
+                                Reason, V, Callback);
+      ParentStInfo->getField(FieldNum).setAddressTaken();
+    };
+
+    for (auto &PointeePair :
+         Info->getElementPointeeSet(ValueTypeInfo::VAT_Use)) {
+      TypeInfo *ParentTI = DTInfo.getOrCreateTypeInfo(PointeePair.first);
+      if (auto *ParentStInfo = dyn_cast<dtrans::StructInfo>(ParentTI)) {
+        MarkStructField(ParentStInfo, PointeePair.second.getElementNum());
+        continue;
+      }
+
+      // Handle array types. An array indexed by the zeroth element, requires
+      // marking a structure field as "Field address taken" when the array is an
+      // element of the structure.
+      auto &ElementOfTypes = PointeePair.second.getElementOf();
+      if ((PointeePair.second.isField() &&
+           PointeePair.second.getElementNum() == 0) ||
+          (!DTransOutOfBoundsOK && PointeePair.second.isUnknownOffset()))
+        for (auto &ElementOfPair : ElementOfTypes) {
+          dtrans::TypeInfo *ElementOfTI =
+              DTInfo.getOrCreateTypeInfo(ElementOfPair.first);
+          if (auto *ElementStInfo = dyn_cast<dtrans::StructInfo>(ElementOfTI)) {
+            MarkStructField(ElementStInfo, ElementOfPair.second);
+            // We only mark field address taken on the closest structure that
+            // contains the array, so stop walking the ElementOf list once one
+            // is found.
+            break;
+          }
+        }
+    }
   }
 
   void collectReadInfo(Instruction &I, dtrans::StructInfo *StInfo,
@@ -1848,25 +1905,8 @@ public:
       }
 
       if (ParamInfo->pointsToSomeElement())
-        for (auto &PointeePair :
-             ParamInfo->getElementPointeeSet(ValueTypeInfo::VAT_Use)) {
-
-          dtrans::TypeInfo *ParentTI =
-              DTInfo.getOrCreateTypeInfo(PointeePair.first);
-          if (auto *ParentStInfo = dyn_cast<StructInfo>(ParentTI)) {
-            // The collection should only have elements of type PLK_Field here.
-            // Any uses of PLK_Offset are for calls to memfuncs, which are
-            // processed by visiting intrinsic calls.
-            assert(PointeePair.second.getKind() ==
-                       ValueTypeInfo::PointeeLoc::PLK_Field &&
-                   "Unexpected use of non-field offset");
-            size_t Idx = PointeePair.second.getElementNum();
-            ParentStInfo->getField(Idx).setAddressTaken();
-            setBaseTypeInfoSafetyData(
-                PointeePair.first, dtrans::FieldAddressTaken,
-                "Address of member passed to function", &Call, DumpCallback);
-          }
-        }
+        markFieldAddressTaken(ParamInfo, "Address of member passed to function",
+                              &Call, DumpCallback);
 
       // We need to know the signature of the called function in order the check
       // for functions that take i8* parameter types.
@@ -1979,6 +2019,10 @@ public:
           continue;
         }
 
+        // If the Dominant type was identified, and the function didn't take an
+        // i8*, then it is safe because the dominant type is formed as a union
+        // of the type the parameter is used as within the calling function and
+        // the type that function is declared as taking.
         DTransType *DomTy = PTA.getDominantAggregateUsageType(*ParamInfo);
         if (DomTy)
           continue;
@@ -2210,7 +2254,7 @@ public:
 
       if (isa<DTransStructType>(BaseTy))
         setBaseTypeInfoSafetyData(BaseTy, dtrans::WholeStructureReference,
-          "return of structure type", &I);
+                                  "return of structure type", &I);
     }
 
     // If the value is not a type of interest, then it will not affect any
@@ -2233,7 +2277,8 @@ public:
       return;
     }
 
-    // Nothing more necessary if there are no types associated with the return value.
+    // Nothing more necessary if there are no types associated with the return
+    // value.
     if (Info->empty())
       return;
 
@@ -2251,8 +2296,7 @@ public:
         dtrans::TypeInfo *ParentTI =
             DTInfo.getOrCreateTypeInfo(PointeePair.first);
         if (auto *ParentStInfo = dyn_cast<StructInfo>(ParentTI)) {
-          assert(PointeePair.second.getKind() ==
-                     ValueTypeInfo::PointeeLoc::PLK_Field &&
+          assert(PointeePair.second.isField() &&
                  "Unexpected use of non-field offset");
           size_t Idx = PointeePair.second.getElementNum();
           setBaseTypeInfoSafetyData(PointeePair.first,
@@ -2270,12 +2314,13 @@ public:
 
       if (MismatchedType) {
         setAllAliasedAndPointeeTypeSafetyData(
-          Info, dtrans::BadCasting, "Return of field using mismatched type",
-          &I);
+            Info, dtrans::BadCasting, "Return of field using mismatched type",
+            &I);
         // We also need to set the expected type with the safety flag because it
         // did not match the field type.
         setBaseTypeInfoSafetyData(ExpectedRetDTransTy, dtrans::BadCasting,
-          "Return value type did not match this type", &I);
+                                  "Return value type did not match this type",
+                                  &I);
       }
     }
 
@@ -2688,9 +2733,10 @@ private:
   // callback function to additionally report the argument and argument
   // position. This function will only be called when the debug traces are
   // enabled for the function being analyzed.
-  void setAllElementPointeeSafetyData(
-      ValueTypeInfo *PtrInfo, dtrans::SafetyData Data, StringRef Reason,
-      Value *V, SafetyInfoReportCB Callback = nullptr) {
+  void setAllElementPointeeSafetyData(ValueTypeInfo *PtrInfo,
+                                      dtrans::SafetyData Data, StringRef Reason,
+                                      Value *V,
+                                      SafetyInfoReportCB Callback = nullptr) {
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
     printSafetyDataDebugMessage(Data, Reason, V, PtrInfo, Callback);
 #endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)

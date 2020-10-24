@@ -814,6 +814,10 @@ void HIRAosToSoa::TransformAosToSoa::rewrite() {
   CopyOuterLoop->clearLiveOutTemp();
   CopyOuterLoop->addLiveInTemp(CopyOuterLoop->getUpperDDRef());
   CopyOuterLoop->addLiveInTemp(CopyInnerLoop->getUpperDDRef());
+  for (auto *ZttRef : make_range(CopyOuterLoop->ztt_ddref_begin(),
+                                 CopyOuterLoop->ztt_ddref_end())) {
+    CopyOuterLoop->addLiveInTemp(ZttRef);
+  }
   CopyOuterLoop->addLiveInTemp(AllocaSymbase);
   CopyOuterLoop->addLiveInTemp(RefsToCopy);
 

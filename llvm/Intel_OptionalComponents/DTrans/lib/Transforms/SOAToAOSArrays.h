@@ -1016,7 +1016,7 @@ public:
     };
 
     // Return true if "AI" is passed to "_CxxThrowException" call.
-    auto IsAllocaUsedByEHLib = [this, &IsLibFunction](const AllocaInst *AI) {
+    auto IsAllocaUsedByEHLib = [&IsLibFunction](const AllocaInst *AI) {
       bool PassedToEHCall = false;
       for (auto *UI : AI->users()) {
         auto *CB = dyn_cast<CallBase>(UI);
