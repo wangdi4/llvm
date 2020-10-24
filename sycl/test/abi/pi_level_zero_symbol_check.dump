@@ -107,3 +107,4 @@ piextUSMFree
 piextUSMGetMemAllocInfo
 piextUSMHostAlloc
 piextUSMSharedAlloc
+_ZNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEE6appendEPKc
