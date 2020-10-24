@@ -58,7 +58,7 @@ private:
   /// @return true if this call was handled by the resolver
   virtual bool TargetSpecificResolve(CallInst* caller) = 0;
 
-  virtual bool isBitMask(const VectorType& vecType) const { return false; }
+  virtual bool isBitMask(const FixedVectorType& vecType) const { return false; }
 
   /// @brief Resolve a call-site
   /// @param caller Instruction to resolve

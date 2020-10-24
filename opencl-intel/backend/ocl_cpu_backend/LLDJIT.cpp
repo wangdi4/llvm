@@ -181,7 +181,8 @@ void LLDJIT::dllExportGlobalVariables(llvm::Module *M) {
   for (auto &GV : M->globals()) {
     unsigned AS = GV.getAddressSpace();
     if ((IS_ADDR_SPACE_GLOBAL(AS) || IS_ADDR_SPACE_CONSTANT(AS)) &&
-        !GV.hasInternalLinkage() && !GV.hasDLLImportStorageClass())
+        !GV.hasInternalLinkage() && !GV.hasDLLImportStorageClass() &&
+        !GV.hasPrivateLinkage())
       GV.setDLLStorageClass(GlobalValue::DLLExportStorageClass);
   }
 }

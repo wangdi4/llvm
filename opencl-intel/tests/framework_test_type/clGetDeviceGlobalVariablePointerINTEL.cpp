@@ -535,4 +535,30 @@ TEST_P(GVPointerExtensionTest, crossProgramsIndirectAccess) {
   EXPECT_OCL_SUCCESS(err, "clReleaseProgram");
 }
 
+// Local arrays are global variables with private linkage and should not be
+// queryable by clGetDeviceGlobalVariablePointerINTEL.
+TEST_P(GVPointerExtensionTest, singleProgramLocalArray) {
+  // Build program
+  const char *source = "kernel void test(global int* p) {\n"
+                       "  int dim2Arr[2] = {1, 2};\n"
+                       "}";
+  cl_int err;
+  cl_program program =
+      clCreateProgramWithSource(m_context, 1, &source, nullptr, &err);
+  ASSERT_OCL_SUCCESS(err, "clCreateProgramWithSource");
+  err = clBuildProgram(program, 1, &m_device, m_options.c_str(), nullptr,
+                       nullptr);
+  ASSERT_NO_FATAL_FAILURE(CheckBuildError(program, err));
+
+  // Get global variable pointer
+  void *gvPtr;
+  err = m_clGetDeviceGlobalVariablePointerINTEL(m_device, program, "dim2Arr",
+                                                nullptr, &gvPtr);
+  EXPECT_EQ(CL_INVALID_ARG_VALUE, err)
+      << "clGetDeviceGlobalVariablePointerINTEL must return "
+         "CL_INVALID_ARG_VALUE if global_variable_name is local array";
+  err = clReleaseProgram(program);
+  EXPECT_OCL_SUCCESS(err, "clReleaseProgram");
+}
+
 INSTANTIATE_TEST_CASE_P(GV, GVPointerExtensionTest, ::testing::Bool(), );
