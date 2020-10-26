@@ -1,6 +1,6 @@
 ; REQUIRES: asserts
 ; RUN: opt -switch-to-offload -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -debug-only=WRegionUtils,vpo-paropt-transform -vpo-paropt-opt-scalar-fp=false -S < %s 2>&1 | FileCheck %s
-; RUN: opt -switch-to-offload < %s -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt' -debug-only=WRegionUtils,vpo-paropt-transform -vpo-paropt-opt-scalar-fp=false -S 2>&1 | FileCheck %s
+; RUN: opt -switch-to-offload < %s -aa-pipeline=basic-aa -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt' -debug-only=WRegionUtils,vpo-paropt-transform -vpo-paropt-opt-scalar-fp=false -S 2>&1 | FileCheck %s
 
 ; Test src:
 
@@ -30,7 +30,7 @@
 ; CHECK: captureAndAddCollectedNonPointerValuesToSharedClause: Added implicit shared/map(to) clause for: 'i64 addrspace(4)* [[SIZE_ADDR:%[^ ]+]]'
 
 ; Check that the captured VLA size is used in the target region for allocation of the private VLA.
-; CHECK: define weak dso_local spir_kernel void @__omp_offloading{{.*}}main{{.*}}(i64 addrspace(1)* [[SIZE_ADDR]], i32 addrspace(1)* %{{.*}}, i64 addrspace(1)* %{{.*}})
+; CHECK: define weak dso_local spir_kernel void @__omp_offloading{{.*}}main{{.*}}(i64 addrspace(1)* noalias [[SIZE_ADDR]], i32 addrspace(1)* %{{.*}}, i64 addrspace(1)* %{{.*}})
 ; CHECK: [[SIZE_VAL:%[^ ]+]] = load i64, i64 addrspace(1)* [[SIZE_ADDR]], align 8
 ; CHECK: %{{.*}} = alloca i32, i64 [[SIZE_VAL]], align 1
 

@@ -39,7 +39,7 @@
 ; }
 ; -- vecadd.cpp ---------------------------------------------------------------
 ;
-; CHECK: define {{.*}}void @__omp_offloading_{{.*}}vecaddv{{.*}}([100 x float] addrspace(1)* %v1.ascast, [100 x float] addrspace(1)* %v2.ascast, [100 x float] addrspace(1)* %v3.ascast, i32 addrspace(1)* %.omp.lb.ascast, i32 addrspace(1)* %.omp.ub.ascast, i32 addrspace(1)* %i.ascast) {{.*}} !dbg [[OFFLOAD:![0-9]+]] {
+; CHECK: define {{.*}}void @__omp_offloading_{{.*}}vecaddv{{.*}}([100 x float] addrspace(1)* %v1.ascast, [100 x float] addrspace(1)* %v2.ascast, [100 x float] addrspace(1)* noalias %v3.ascast, i32 addrspace(1)* %.omp.lb.ascast, i32 addrspace(1)* %.omp.ub.ascast, i32 addrspace(1)* %i.ascast) {{.*}} !dbg [[OFFLOAD:![0-9]+]] {
 ; CHECK-DAG: call void @llvm.dbg.value(metadata [100 x float] addrspace(1)* [[V1_STORAGE:%v1.ascast]], metadata [[V1_DIVAR:![0-9]+]], metadata !DIExpression(DW_OP_deref)), !dbg [[L36C17:![0-9]+]]
 ; CHECK-DAG: call void @llvm.dbg.value(metadata [100 x float] addrspace(1)* [[V2_STORAGE:%v2.ascast]], metadata [[V2_DIVAR:![0-9]+]], metadata !DIExpression(DW_OP_deref)), !dbg [[L36C24:![0-9]+]]
 ; CHECK-DAG: call void @llvm.dbg.value(metadata [100 x float] addrspace(1)* [[V3_STORAGE:%v3.ascast]], metadata [[V3_DIVAR:![0-9]+]], metadata !DIExpression(DW_OP_deref)), !dbg [[L36C10:![0-9]+]]

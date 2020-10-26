@@ -1,5 +1,5 @@
 ; RUN: opt < %s -vpo-paropt -S | FileCheck %s
-; RUN: opt < %s -passes='vpo-paropt' -S | FileCheck %s
+; RUN: opt < %s -aa-pipeline=basic-aa -passes='vpo-paropt' -S | FileCheck %s
 ;
 ; Check that duplicate values in target entry's map bundles are renamed before
 ; outlining. That would guarantee that each map clause's base pointer always
@@ -29,7 +29,7 @@
 ; CHECK:   [[YY1:%.*]] = getelementptr inbounds i32, i32* [[YY0]], i32 0
 ; CHECK:   call void [[OUTLINED:@__omp_offloading_.*]](i32* [[YY0]], i32* [[YY1]], i32* [[ZZ0]])
 ;
-; CHECK:   define internal void [[OUTLINED]](i32* %{{.*}}, i32* %{{.*}}, i32* %{{.*}})
+; CHECK:   define internal void [[OUTLINED]](i32* %{{.*}}, i32* %{{.*}}, i32* noalias %{{.*}})
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
