@@ -14,7 +14,7 @@
 ;   foo(host_ptr);
 ; }
 
-; BUFFPTR: [[BUFFER:%[a-zA-Z._0-9]+]] = call i8* @__tgt_create_buffer(i64 -1, i8* [[PTR:%[a-zA-Z._0-9]]])
+; BUFFPTR: [[BUFFER:%[a-zA-Z._0-9]+]] = call i8* @__tgt_create_buffer(i64 %{{.*}}, i8* [[PTR:%[a-zA-Z._0-9]]])
 ; BUFFPTR: store i8* [[BUFFER]], i8** [[TGT_BUFFER:%[a-zA-Z._0-9]+]]
 
 ; Check that the host pointer casted from float* to i8* is not directly used in the call:

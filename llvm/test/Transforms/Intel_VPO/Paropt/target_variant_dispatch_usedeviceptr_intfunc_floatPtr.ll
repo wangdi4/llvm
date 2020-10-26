@@ -28,9 +28,9 @@
 ; instead of creating a load from them (like in
 ; target_variant_dispatch_usedeviceptr_intfunc_floatStarStar.ll).
 ; BUFFPTR-DAG:[[BCAST:[^ ]+]] = bitcast float* %b_cpu to i8*
-; BUFFPTR: [[B_TGT:%[^ ]+]] = call i8* @__tgt_create_buffer(i64 -1, i8* [[BCAST]])
+; BUFFPTR: [[B_TGT:%[^ ]+]] = call i8* @__tgt_create_buffer(i64 %{{.*}}, i8* [[BCAST]])
 ; BUFFPTR: store i8* [[B_TGT]], i8** [[B_TGT_ADDR:%[^ ]+]], align 8
-; BUFFPTR: [[A_TGT:%[^ ]+]] = call i8* @__tgt_create_buffer(i64 -1, i8* bitcast (float* @a_cpu to i8*))
+; BUFFPTR: [[A_TGT:%[^ ]+]] = call i8* @__tgt_create_buffer(i64 %{{.*}}, i8* bitcast (float* @a_cpu to i8*))
 ; BUFFPTR: store i8* [[A_TGT]], i8** [[A_TGT_ADDR:%[^ ]+]], align 8
 ; BUFFPTR: variant.call:
 ; BUFFPTR: [[A_TGT_ADDR_LOAD:%[^ ]+]] = load i8*, i8** [[A_TGT_ADDR]], align 8
@@ -44,7 +44,7 @@
 ; are obtained using a tgt_target_data_begin call. The map-type should be TGT_PARAM | TGT_RETURN_PARAM (96).
 ; RAWPTR: @.offload_maptypes = private unnamed_addr constant [2 x i64] [i64 96, i64 96]
 ; RAWPTR: [[A_GEP:%[^ ]+]] = getelementptr inbounds [2 x i8*], [2 x i8*]* %.offload_baseptrs, i32 0, i32 0
-; RAWPTR: store i8* bitcast (float* @a_cpu to i8*), i8** %0, align 8
+; RAWPTR: store i8* bitcast (float* @a_cpu to i8*), i8** [[A_GEP]], align 8
 ; RAWPTR: [[B_CAST:%[^ ]+]] = bitcast float* %b_cpu to i8*
 ; RAWPTR: [[B_GEP:%[^ ]+]] = getelementptr inbounds [2 x i8*], [2 x i8*]* %.offload_baseptrs, i32 0, i32 1
 ; RAWPTR: store i8* [[B_CAST]], i8** [[B_GEP]], align 8

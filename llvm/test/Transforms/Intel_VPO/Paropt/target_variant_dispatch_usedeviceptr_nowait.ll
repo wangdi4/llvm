@@ -65,8 +65,8 @@
 
 ; 2a. Create the InteropObj
 ;
-; BUFFCHECK: [[INTEROPOBJ:%[a-zA-Z._0-9]+]] = call i8* @__tgt_create_interop_obj(i64 -1, i8 1, i8* [[ASYNCOBJ]])
-; NOBUFFCHECK: [[INTEROPOBJ:%[a-zA-Z._0-9]+]] = call i8* @__tgt_create_interop_obj(i64 -1, i8 1, i8* [[ASYNCOBJ]])
+; BUFFCHECK: [[INTEROPOBJ:%[a-zA-Z._0-9]+]] = call i8* @__tgt_create_interop_obj(i64 %{{.*}}, i8 1, i8* [[ASYNCOBJ]])
+; NOBUFFCHECK: [[INTEROPOBJ:%[a-zA-Z._0-9]+]] = call i8* @__tgt_create_interop_obj(i64 %{{.*}}, i8 1, i8* [[ASYNCOBJ]])
 
 ; 2b. The InteropObj becomes the last argument of the call to foo_gpu
 ;

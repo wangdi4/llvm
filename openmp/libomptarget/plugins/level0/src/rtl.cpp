@@ -1103,10 +1103,12 @@ static void closeRTL() {
       DeviceInfo->unloadOffloadTable(i);
     MEMSTAT_PRINT(i);
   }
+#ifndef _WIN32
   if (DeviceInfo->Flags.EnableProfile)
     DeviceInfo->ProfileEvents.deinit();
   if (DeviceInfo->Context)
     CALL_ZE_EXIT_FAIL(zeContextDestroy, DeviceInfo->Context);
+#endif // !defined(_WIN32)
   delete[] DeviceInfo->Mutexes;
   delete[] DeviceInfo->DataMutexes;
   IDP("Closed RTL successfully\n");
