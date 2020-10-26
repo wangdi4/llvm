@@ -11,8 +11,8 @@
 #define XSTR(x)    VERSTR(x)
 
 #define XMAIN_VERSION_NUMBER   "202110"
-#define XMAIN_VERSION_STRING   "8.0"
-#define XMAIN_VERSION_MINOR     8
+#define XMAIN_VERSION_STRING   "10.0"
+#define XMAIN_VERSION_MINOR     10
 #define XMAIN_VERSION_UPDATE    0
 
 #ifndef BUILD_DATE_STAMP
