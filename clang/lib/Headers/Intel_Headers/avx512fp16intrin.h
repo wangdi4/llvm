@@ -571,6 +571,25 @@ _mm512_maskz_max_ph(__mmask32 __U, __m512h __A, __m512h __B) {
                                    (__v32hf)_mm512_max_round_ph((A), (B), (R)), \
                                    (__v32hf)_mm512_setzero_ph());
 
+static __inline__ __m512h __DEFAULT_FN_ATTRS512
+_mm512_conj_pch(__m512h __A) {
+  return (__m512h)_mm512_xor_ps((__m512)__A, _mm512_set1_ps(-0.0f));
+}
+
+static __inline__ __m512h __DEFAULT_FN_ATTRS512
+_mm512_mask_conj_pch(__m512h __W, __mmask16 __U, __m512h __A) {
+  return (__m512h)__builtin_ia32_selectps_512((__mmask16)__U,
+                                             (__v16sf)_mm512_conj_pch(__A),
+                                             (__v16sf)__W);
+}
+
+static __inline__ __m512h __DEFAULT_FN_ATTRS512
+_mm512_maskz_conj_pch(__mmask16 __U, __m512h __A) {
+  return (__m512h)__builtin_ia32_selectps_512((__mmask16)__U,
+                                              (__v16sf)_mm512_conj_pch(__A),
+                                              (__v16sf)_mm512_setzero_ps());
+}
+
 static __inline__ __m128h __DEFAULT_FN_ATTRS128
 _mm_add_sh(__m128h __A, __m128h __B) {
   __A[0] += __B[0];

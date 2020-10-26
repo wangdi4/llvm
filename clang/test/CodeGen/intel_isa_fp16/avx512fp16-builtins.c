@@ -680,6 +680,48 @@ __m512h test_mm512_maskz_max_round_ph(__mmask32 __U, __m512h __A, __m512h __B) {
   return _mm512_maskz_max_round_ph(__U,__A,__B,_MM_FROUND_NO_EXC);
 }
 
+__m512h test_mm512_conj_pch(__m512h __A) {
+  // CHECK-LABEL: @test_mm512_conj_pch
+  // CHECK:  %{{.*}} = bitcast <32 x half> %{{.*}} to <16 x float>
+  // CHECK:  %{{.*}} = bitcast <16 x float> %{{.*}} to <16 x i32>
+  // CHECK:  %{{.*}} = bitcast <16 x float> %{{.*}} to <16 x i32>
+  // CHECK:  %{{.*}} = xor <16 x i32> %{{.*}}, %{{.*}}
+  // CHECK:  %{{.*}} = bitcast <16 x i32> %{{.*}} to <16 x float>
+  // CHECK:  %{{.*}} = bitcast <16 x float> %{{.*}} to <32 x half>
+  return _mm512_conj_pch(__A);
+}
+
+__m512h test_mm512_mask_conj_pch(__m512h __W, __mmask32 __U, __m512h __A) {
+  // CHECK-LABEL: @test_mm512_mask_conj_pch
+  // CHECK:  %{{.*}} = trunc i32 %{{.*}} to i16
+  // CHECK:  %{{.*}} = bitcast <32 x half> %{{.*}} to <16 x float>
+  // CHECK:  %{{.*}} = bitcast <16 x float> %{{.*}} to <16 x i32>
+  // CHECK:  %{{.*}} = bitcast <16 x float> %{{.*}} to <16 x i32>
+  // CHECK:  %{{.*}} = xor <16 x i32> %{{.*}}, %{{.*}}
+  // CHECK:  %{{.*}} = bitcast <16 x i32> %{{.*}} to <16 x float>
+  // CHECK:  %{{.*}} = bitcast <16 x float> %{{.*}} to <32 x half>
+  // CHECK:  %{{.*}} = bitcast <32 x half> %{{.*}} to <16 x float>
+  // CHECK:  %{{.*}} = bitcast i16 %{{.*}} to <16 x i1>
+  // CHECK:  %{{.*}} = select <16 x i1> %{{.*}}, <16 x float> %{{.*}}, <16 x float> %{{.*}}
+  // CHECK:  %{{.*}} = bitcast <16 x float> %{{.*}} to <32 x half>
+  return _mm512_mask_conj_pch(__W, __U, __A);
+}
+
+__m512h test_mm512_maskz_conj_pch(__mmask32 __U, __m512h __A) {
+  // CHECK-LABEL: @test_mm512_maskz_conj_pch
+  // CHECK:  %{{.*}} = trunc i32 %{{.*}} to i16
+  // CHECK:  %{{.*}} = bitcast <32 x half> %{{.*}} to <16 x float>
+  // CHECK:  %{{.*}} = bitcast <16 x float> %{{.*}} to <16 x i32>
+  // CHECK:  %{{.*}} = bitcast <16 x float> %{{.*}} to <16 x i32>
+  // CHECK:  %{{.*}} = xor <16 x i32> %{{.*}}, %{{.*}}
+  // CHECK:  %{{.*}} = bitcast <16 x i32> %{{.*}} to <16 x float>
+  // CHECK:  %{{.*}} = bitcast <16 x float> %{{.*}} to <32 x half>
+  // CHECK:  %{{.*}} = bitcast i16 %{{.*}} to <16 x i1>
+  // CHECK:  %{{.*}} = select <16 x i1> %{{.*}}, <16 x float> %{{.*}}, <16 x float> %{{.*}}
+  // CHECK:  %{{.*}} = bitcast <16 x float> %{{.*}} to <32 x half>
+  return _mm512_maskz_conj_pch(__U, __A);
+}
+
 __m128h test_mm_add_round_sh(__m128h __A, __m128h __B) {
   // CHECK-LABEL: @test_mm_add_round_sh
   // CHECK: @llvm.x86.avx512fp16.mask.add.sh.round
