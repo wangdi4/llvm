@@ -106,11 +106,6 @@ bool HIRNontemporalMarking::run() {
   if (HIRF.getDataLayout().getPointerSizeInBits(0) != 64)
     return false;
 
-  // CMPLRLLVM-21614: Disable this transformation on OpenMP code for the time
-  // being.
-  if (vpo::VPOAnalysisUtils::mayHaveOpenmpDirective(HIRF.getFunction()))
-    return false;
-
   HLNodeUtils &HNU = HIRF.getHLNodeUtils();
   SmallVector<HLLoop *, 8> Loops;
   HNU.gatherInnermostLoops(Loops);
