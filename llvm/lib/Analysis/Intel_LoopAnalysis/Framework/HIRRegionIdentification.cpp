@@ -1276,12 +1276,18 @@ static bool isLoopCountMetadata(MDNode *Node) {
   return Str && Str->getString().startswith("llvm.loop.intel.loopcount");
 }
 
+static bool isParallelAccessMetadata(MDNode *Node) {
+  MDString *Str = getStringMetadata(Node);
+
+  return Str && Str->getString().equals("llvm.loop.parallel_accesses");
+}
+
 static bool isSupportedMetadata(MDNode *Node) {
 
   if (isDebugMetadata(Node) || isUnrollMetadata(Node) ||
       isDistributeMetadata(Node) || isVectorizeMetadata(Node) ||
       isLoopCountMetadata(Node) || LoopOptReport::isOptReportMetadata(Node) ||
-      isFusionMetadata(Node)) {
+      isFusionMetadata(Node) || isParallelAccessMetadata(Node)) {
     return true;
   }
 

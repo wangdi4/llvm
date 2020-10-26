@@ -247,6 +247,7 @@ struct DeviceTy {
   int32_t release_offload_queue(void *);
   void *get_platform_handle();
   void *get_device_handle();
+  void *get_context_handle();
   void *data_alloc_managed(int64_t Size);
   int32_t data_delete_managed(void *Ptr);
   int32_t is_managed_ptr(void *Ptr);

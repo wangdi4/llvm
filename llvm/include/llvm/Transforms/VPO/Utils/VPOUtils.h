@@ -183,6 +183,8 @@ public:
   /// Given a single-entry and single-exit region represented by BBSet,
   /// generate the code: `if(Cond) BBSet; else ClonedBBSet;`. Where
   /// ClonedBBSet is the cloned region of BBSet.
+  /// The output parameter \p VMap is a value map between the original
+  /// and the cloned instructions and blocks.
   ///
   /// Client needs to recompute Loop information if needed and may need to
   /// recompute WRegion information as well depending on what the cloned
@@ -191,6 +193,7 @@ public:
   static void singleRegionMultiVersioning(BasicBlock *EntryBB,
                                           BasicBlock *ExitBB,
                                           SmallVectorImpl<BasicBlock *> &BBSet,
+                                          ValueToValueMapTy &VMap,
                                           Value *Cond,
                                           DominatorTree *DT = nullptr);
 

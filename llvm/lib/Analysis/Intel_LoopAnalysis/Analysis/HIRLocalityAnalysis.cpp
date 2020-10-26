@@ -513,6 +513,7 @@ void HIRLoopLocality::initTripCountByLevel(
 
   for (auto Loop : Loops) {
     uint64_t TripCnt = 0;
+    unsigned PragmaTripCnt;
 
     if (Loop->isConstTripLoop(&TripCnt)) {
       // In some cases, the loop reports an absurdly high trip count that causes
@@ -521,6 +522,12 @@ void HIRLoopLocality::initTripCountByLevel(
       TripCnt = std::min(TripCnt, (uint64_t)1 << 32);
 
       TripCountByLevel[Loop->getNestingLevel() - 1] = TripCnt;
+    } else if (Loop->getPragmaBasedAverageTripCount(PragmaTripCnt) ||
+               Loop->getPragmaBasedMaximumTripCount(PragmaTripCnt)) {
+      // Prioritize a pragma-based average or max estimate, in that order. Note
+      // that PragmaTripCnt is uint32_t, so we effectively have the same
+      // headroom for avoiding overflow.
+      TripCountByLevel[Loop->getNestingLevel() - 1] = PragmaTripCnt;
     } else if ((TripCnt = Loop->getMaxTripCountEstimate())) {
       // Clamp max trip count to SymbolicConstTC if based on estimate.
       TripCountByLevel[Loop->getNestingLevel() - 1] =

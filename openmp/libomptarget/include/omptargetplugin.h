@@ -263,6 +263,10 @@ void *__tgt_rtl_get_platform_handle(int32_t ID);
 EXTERN
 void *__tgt_rtl_get_device_handle(int32_t ID);
 
+// Creates an opaque handle to the  context handle.
+EXTERN
+void *__tgt_rtl_get_context_handle();
+
 // Allocate a managed memory object.
 EXTERN void *__tgt_rtl_data_alloc_managed(int32_t ID, int64_t Size);
 
