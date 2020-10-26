@@ -387,7 +387,8 @@ void CPUProgramBuilder::JitProcessing(
     auto LLJIT =
         m_compiler.CreateLLJIT(module, std::move(targetMachine), objCache);
     llvm::orc::IRCompileLayer::NotifyCompiledFunction notifyCompiled =
-        [&](llvm::orc::VModuleKey K, llvm::orc::ThreadSafeModule TSM) -> void {
+        [&](llvm::orc::MaterializationResponsibility &R,
+            llvm::orc::ThreadSafeModule TSM) -> void {
       program->SetModule(std::move(TSM));
     };
     LLJIT->getIRCompileLayer().setNotifyCompiled(std::move(notifyCompiled));
