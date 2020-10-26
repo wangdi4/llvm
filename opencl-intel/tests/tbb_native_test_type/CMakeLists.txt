@@ -20,8 +20,8 @@ add_ocl_unittest(${TARGET}
 if (WIN32)
     # This is a fix due to a bug in CMake, Does not add the flag /DEBUG to the linker flags in Release mode.
     # The /DEBUG flag is required in order to create stripped pdbs.
-    set_target_properties(${TARGET} PROPERTIES LINK_FLAGS_DEBUG	        "${LINK_FLAGS_DEBUG} tbbmalloc_debug.lib tbb_debug${TBB_BINARIES_POSTFIX}.lib /DELAYLOAD:tbb_debug${TBB_BINARIES_POSTFIX}.dll")
-    set_target_properties(${TARGET} PROPERTIES LINK_FLAGS_RELEASE	"${LINK_FLAGS_RELEASE} tbbmalloc.lib tbb${TBB_BINARIES_POSTFIX}.lib /DELAYLOAD:tbb${TBB_BINARIES_POSTFIX}.dll /DEBUG")
+    set_target_properties(${TARGET} PROPERTIES LINK_FLAGS_DEBUG	        "${LINK_FLAGS_DEBUG} tbbmalloc_debug.lib tbb12_debug${TBB_BINARIES_POSTFIX}.lib /DELAYLOAD:tbb12_debug${TBB_BINARIES_POSTFIX}.dll")
+    set_target_properties(${TARGET} PROPERTIES LINK_FLAGS_RELEASE	"${LINK_FLAGS_RELEASE} tbbmalloc.lib tbb12${TBB_BINARIES_POSTFIX}.lib /DELAYLOAD:tbb12${TBB_BINARIES_POSTFIX}.dll /DEBUG")
     list(APPEND LINK_LIBS delayimp.lib)
 else (WIN32)
     if ( ${CMAKE_BUILD_TYPE} STREQUAL "Debug" )

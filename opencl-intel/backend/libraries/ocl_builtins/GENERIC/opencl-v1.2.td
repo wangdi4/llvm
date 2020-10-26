@@ -1440,6 +1440,19 @@ let Types = [v1u32, v2u32, v3u32, v4u32, v8u32, v16u32, v32u32, v64u32],
   def urem          : OclBuiltin<"urem",      (outs gentype:$ret), (ins gentype:$x, gentype:$y), [], [], 0, 1>;
 }
 
+let KernelCallOnce = 0 in {
+  let Types = [v1i32] in {
+    foreach bi = ["idiv", "irem"] in {
+      def intel_#bi : VectInfo<[], !cast<OclBuiltin>(bi), !cast<OclBuiltin>(bi), !cast<OclBuiltin>(bi), !cast<OclBuiltin>(bi), !cast<OclBuiltin>(bi), !cast<OclBuiltin>(bi)>;
+    }
+  }
+  let Types = [v1u32] in {
+    foreach bi = ["udiv", "urem"] in {
+      def intel_#bi : VectInfo<[], !cast<OclBuiltin>(bi), !cast<OclBuiltin>(bi), !cast<OclBuiltin>(bi), !cast<OclBuiltin>(bi), !cast<OclBuiltin>(bi), !cast<OclBuiltin>(bi)>;
+    }
+  }
+}
+
 ///////////////////////////////////////////////////////////////////////////////
 // OpenCL 1.2 rev 15, Table 6.18
 // Async copy built-ins

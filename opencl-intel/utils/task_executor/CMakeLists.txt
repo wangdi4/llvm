@@ -97,14 +97,14 @@ if (WIN32)
     get_target_property(LK_FLAGS_DEBUG ${TARGET_NAME} LINK_FLAGS_DEBUG)
     get_target_property(LK_FLAGS_RELEASE ${TARGET_NAME} LINK_FLAGS_RELEASE)
     set_target_properties (${TARGET_NAME} PROPERTIES
-        LINK_FLAGS_DEBUG "${LK_FLAGS_DEBUG} tbbmalloc_debug.lib tbb_debug${TBB_BINARIES_POSTFIX}.lib /DELAYLOAD:tbbmalloc_debug.dll /DELAYLOAD:tbb_debug${TBB_BINARIES_POSTFIX}.dll"
-        LINK_FLAGS_RELEASE "${LK_FLAGS_RELEASE} tbbmalloc.lib tbb${TBB_BINARIES_POSTFIX}.lib /DELAYLOAD:tbbmalloc.dll  /DELAYLOAD:tbb${TBB_BINARIES_POSTFIX}.dll")
+        LINK_FLAGS_DEBUG "${LK_FLAGS_DEBUG} tbbmalloc_debug.lib tbb12_debug${TBB_BINARIES_POSTFIX}.lib /DELAYLOAD:tbbmalloc_debug.dll /DELAYLOAD:tbb12_debug${TBB_BINARIES_POSTFIX}.dll"
+        LINK_FLAGS_RELEASE "${LK_FLAGS_RELEASE} tbbmalloc.lib tbb12${TBB_BINARIES_POSTFIX}.lib /DELAYLOAD:tbbmalloc.dll  /DELAYLOAD:tbb12${TBB_BINARIES_POSTFIX}.dll")
 
     get_target_property(LK_FLAGS_DEBUG ${TARGET_NAME_EMU} LINK_FLAGS_DEBUG)
     get_target_property(LK_FLAGS_RELEASE ${TARGET_NAME_EMU} LINK_FLAGS_RELEASE)
     set_target_properties (${TARGET_NAME_EMU} PROPERTIES
-        LINK_FLAGS_DEBUG "${LK_FLAGS_DEBUG} tbbmalloc_debug.lib tbb_debug${TBB_BINARIES_POSTFIX}.lib /DELAYLOAD:tbbmalloc_debug.dll /DELAYLOAD:tbb_debug${TBB_BINARIES_POSTFIX}.dll"
-        LINK_FLAGS_RELEASE "${LK_FLAGS_RELEASE} tbbmalloc.lib tbb${TBB_BINARIES_POSTFIX}.lib /DELAYLOAD:tbbmalloc.dll  /DELAYLOAD:tbb${TBB_BINARIES_POSTFIX}.dll")
+        LINK_FLAGS_DEBUG "${LK_FLAGS_DEBUG} tbbmalloc_debug.lib tbb12_debug${TBB_BINARIES_POSTFIX}.lib /DELAYLOAD:tbbmalloc_debug.dll /DELAYLOAD:tbb12_debug${TBB_BINARIES_POSTFIX}.dll"
+        LINK_FLAGS_RELEASE "${LK_FLAGS_RELEASE} tbbmalloc.lib tbb12${TBB_BINARIES_POSTFIX}.lib /DELAYLOAD:tbbmalloc.dll  /DELAYLOAD:tbb12${TBB_BINARIES_POSTFIX}.dll")
 else ()
     SET_LINUX_EXPORTS_FILE (${TARGET_NAME} task_executor_linux_exports.txt)
     SET_LINUX_EXPORTS_FILE (${TARGET_NAME_EMU} task_executor_linux_exports.txt)
