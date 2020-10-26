@@ -1,5 +1,5 @@
-; RUN: opt < %s  -switch-to-offload -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -vpo-paropt-spirv-target-has-eu-fusion=false -S | FileCheck %s
-; RUN: opt < %s -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt'  -switch-to-offload -vpo-paropt-spirv-target-has-eu-fusion=false -S  | FileCheck %s
+; RUN: opt < %s  -switch-to-offload -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-paropt-spirv-target-has-eu-fusion=true -S | FileCheck %s
+; RUN: opt < %s -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare)'  -switch-to-offload -vpo-paropt-spirv-target-has-eu-fusion=true -S  | FileCheck %s
 
 ; Original code:
 ; void test() {
@@ -11,23 +11,57 @@
 ; }
 
 ; Check that critical loop was generated:
+; CHECK: [[SGID:%[a-zA-Z._0-9]+]] = call spir_func i32 @_Z16get_sub_group_idv()
+; CHECK: [[SGIDPARITY:%[a-zA-Z._0-9]+]] = trunc i32 [[SGID]] to i1
+; CHECK: br i1 [[SGIDPARITY]], label %[[ODDBRANCH:[a-zA-Z._0-9]+]], label %[[EVENBRANCH:[a-zA-Z._0-9]+]]
+
+; CHECK: [[ODDBRANCH]]:
 ; CHECK: call{{.*}}__kmpc_critical
-; CHECK: [[SGS:%[a-zA-Z._0-9]+]] = call{{.*}}get_sub_group_size
-; CHECK: br label %[[HEADERBB:[a-zA-Z._0-9]+]]
-; CHECK: [[HEADERBB]]:
-; CHECK: [[PHI:%[a-zA-Z._0-9]+]] = phi i32 [ 0, %{{[a-zA-Z._0-9]+}} ], [ [[INC:%[a-zA-Z._0-9]+]], %[[INCBB:[a-zA-Z._0-9]+]] ]
-; CHECK: [[EXITPRED:%[a-zA-Z._0-9]+]] = icmp uge i32 [[PHI]], [[SGS]]
-; CHECK: br i1 [[EXITPRED]], label %[[JUMPTOEXITBB:[a-zA-Z._0-9]+]], label %[[CHECKBB:[a-zA-Z._0-9]+]]
-; CHECK: [[JUMPTOEXITBB]]:
-; CHECK: br label %[[EXITBB:[a-zA-Z._0-9]+]]
-; CHECK: [[CHECKBB]]:
-; CHECK: [[SGLI:%[a-zA-Z._0-9]+]] = call{{.*}}get_sub_group_local_id
-; CHECK: [[SKIPPRED:%[a-zA-Z._0-9]+]] = icmp ne i32 [[PHI]], [[SGLI]]
-; CHECK: br i1 [[SKIPPRED]], label %[[JUMPTOINCBB:[a-zA-Z._0-9]+]]
-; CHECK: [[EXITBB]]:
+; CHECK: [[SGS1:%[a-zA-Z._0-9]+]] = call{{.*}}get_sub_group_size
+; CHECK: br label %[[HEADERBB1:[a-zA-Z._0-9]+]]
+; CHECK: [[HEADERBB1]]:
+; CHECK: [[PHI1:%[a-zA-Z._0-9]+]] = phi i32 [ 0, %{{[a-zA-Z._0-9]+}} ], [ [[INC1:%[a-zA-Z._0-9]+]], %[[INCBB1:[a-zA-Z._0-9]+]] ]
+; CHECK: [[EXITPRED1:%[a-zA-Z._0-9]+]] = icmp uge i32 [[PHI1]], [[SGS1]]
+; CHECK: br i1 [[EXITPRED1]], label %[[JUMPTOEXITBB1:[a-zA-Z._0-9]+]], label %[[CHECKBB1:[a-zA-Z._0-9]+]]
+; CHECK: [[JUMPTOEXITBB1]]:
+; CHECK: br label %[[EXITBB1:[a-zA-Z._0-9]+]]
+; CHECK: [[CHECKBB1]]:
+; CHECK: [[SGLI1:%[a-zA-Z._0-9]+]] = call{{.*}}get_sub_group_local_id
+; CHECK: [[SKIPPRED1:%[a-zA-Z._0-9]+]] = icmp ne i32 [[PHI1]], [[SGLI1]]
+; CHECK: br i1 [[SKIPPRED1]], label %[[JUMPTOINCBB1:[a-zA-Z._0-9]+]],
+; CHECK: [[JUMPTOINCBB1]]:
+; CHECK: br label %[[INCBB1]]
+; CHECK: [[INCBB1]]:
+; CHECK: [[INC1]] = add{{.*}}[[PHI1]], 1
+; CHECK: br label %[[HEADERBB1]]
+; CHECK: [[EXITBB1]]:
 ; CHECK: call{{.*}}__kmpc_end_critical
-; CHECK: [[JUMPTOINCBB]]:
-; CHECK: br label %[[INCBB]]
+; CHECK: br label %[[MERGEBB:[a-zA-Z._0-9]+]]
+
+; CHECK: [[EVENBRANCH]]:
+; CHECK: call{{.*}}__kmpc_critical
+; CHECK: [[SGS2:%[a-zA-Z._0-9]+]] = call{{.*}}get_sub_group_size
+; CHECK: br label %[[HEADERBB2:[a-zA-Z._0-9]+]]
+; CHECK: [[HEADERBB2]]:
+; CHECK: [[PHI2:%[a-zA-Z._0-9]+]] = phi i32 [ 0, %{{[a-zA-Z._0-9]+}} ], [ [[INC2:%[a-zA-Z._0-9]+]], %[[INCBB2:[a-zA-Z._0-9]+]] ]
+; CHECK: [[EXITPRED2:%[a-zA-Z._0-9]+]] = icmp uge i32 [[PHI2]], [[SGS2]]
+; CHECK: br i1 [[EXITPRED2]], label %[[JUMPTOEXITBB2:[a-zA-Z._0-9]+]], label %[[CHECKBB2:[a-zA-Z._0-9]+]]
+; CHECK: [[JUMPTOEXITBB2]]:
+; CHECK: br label %[[EXITBB2:[a-zA-Z._0-9]+]]
+; CHECK: [[CHECKBB2]]:
+; CHECK: [[SGLI2:%[a-zA-Z._0-9]+]] = call{{.*}}get_sub_group_local_id
+; CHECK: [[SKIPPRED2:%[a-zA-Z._0-9]+]] = icmp ne i32 [[PHI2]], [[SGLI2]]
+; CHECK: br i1 [[SKIPPRED2]], label %[[JUMPTOINCBB2:[a-zA-Z._0-9]+]],
+; CHECK: [[JUMPTOINCBB2]]:
+; CHECK: br label %[[INCBB2]]
+; CHECK: [[INCBB2]]:
+; CHECK: [[INC2]] = add{{.*}}[[PHI2]], 1
+; CHECK: br label %[[HEADERBB2]]
+; CHECK: [[EXITBB2]]:
+; CHECK: call{{.*}}__kmpc_end_critical
+; CHECK: br label %[[MERGEBB]]
+
+; CHECK: [[MERGEBB]]:
 
 target datalayout = "e-i64:64-v16:16-v24:32-v32:32-v48:64-v96:128-v192:256-v256:256-v512:512-v1024:1024"
 target triple = "spir64"

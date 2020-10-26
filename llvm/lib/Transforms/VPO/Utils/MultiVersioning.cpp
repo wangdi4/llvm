@@ -211,6 +211,7 @@ void VPOUtils::singleRegionMultiVersioning(
   BasicBlock *EntryBB,
   BasicBlock *ExitBB,
   SmallVectorImpl<BasicBlock*> &BBSet,
+  ValueToValueMapTy &VMap,
   Value *Cond,
   DominatorTree *DT
 )
@@ -238,7 +239,6 @@ void VPOUtils::singleRegionMultiVersioning(
 
   // 3) Clone BBSet into the same function F.
   //
-  ValueToValueMapTy VMap;
   VPOSmallVectorBB ClonedBBSet;
   Function* F = EntryBB->getParent();
 
