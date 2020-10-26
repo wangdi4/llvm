@@ -1076,8 +1076,8 @@ static bool ParseCodeGenArgs(CodeGenOptions &Opts, ArgList &Args, InputKind IK,
   Opts.ControlFlowGuardNoChecks = Args.hasArg(OPT_cfguard_no_checks);
   Opts.ControlFlowGuard = Args.hasArg(OPT_cfguard);
 
-  Opts.EmitGcovArcs = Args.hasArg(OPT_femit_coverage_data);
-  Opts.EmitGcovNotes = Args.hasArg(OPT_femit_coverage_notes);
+  Opts.EmitGcovNotes = Args.hasArg(OPT_ftest_coverage);
+  Opts.EmitGcovArcs = Args.hasArg(OPT_fprofile_arcs);
   if (Opts.EmitGcovArcs || Opts.EmitGcovNotes) {
     Opts.CoverageDataFile =
         std::string(Args.getLastArgValue(OPT_coverage_data_file));
@@ -1194,18 +1194,13 @@ static bool ParseCodeGenArgs(CodeGenOptions &Opts, ArgList &Args, InputKind IK,
     }
   }
 
-  if (const Arg *A = Args.getLastArg(OPT_compress_debug_sections,
-                                     OPT_compress_debug_sections_EQ)) {
-    if (A->getOption().getID() == OPT_compress_debug_sections) {
-      Opts.setCompressDebugSections(llvm::DebugCompressionType::Z);
-    } else {
-      auto DCT = llvm::StringSwitch<llvm::DebugCompressionType>(A->getValue())
-                     .Case("none", llvm::DebugCompressionType::None)
-                     .Case("zlib", llvm::DebugCompressionType::Z)
-                     .Case("zlib-gnu", llvm::DebugCompressionType::GNU)
-                     .Default(llvm::DebugCompressionType::None);
-      Opts.setCompressDebugSections(DCT);
-    }
+  if (const Arg *A = Args.getLastArg(OPT_compress_debug_sections_EQ)) {
+    auto DCT = llvm::StringSwitch<llvm::DebugCompressionType>(A->getValue())
+                   .Case("none", llvm::DebugCompressionType::None)
+                   .Case("zlib", llvm::DebugCompressionType::Z)
+                   .Case("zlib-gnu", llvm::DebugCompressionType::GNU)
+                   .Default(llvm::DebugCompressionType::None);
+    Opts.setCompressDebugSections(DCT);
   }
 
   Opts.RelaxELFRelocations = Args.hasArg(OPT_mrelax_relocations);

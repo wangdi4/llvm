@@ -869,9 +869,9 @@ static void addPGOAndCoverageFlags(const ToolChain &TC, Compilation &C,
                       Args.hasArg(options::OPT_coverage);
   bool EmitCovData = TC.needsGCovInstrumentation(Args);
   if (EmitCovNotes)
-    CmdArgs.push_back("-femit-coverage-notes");
+    CmdArgs.push_back("-ftest-coverage");
   if (EmitCovData)
-    CmdArgs.push_back("-femit-coverage-data");
+    CmdArgs.push_back("-fprofile-arcs");
 
   if (Args.hasFlag(options::OPT_fcoverage_mapping,
                    options::OPT_fno_coverage_mapping, false)) {
@@ -1064,18 +1064,10 @@ static void RenderDebugInfoCompressionArgs(const ArgList &Args,
                                            ArgStringList &CmdArgs,
                                            const Driver &D,
                                            const ToolChain &TC) {
-  const Arg *A = Args.getLastArg(options::OPT_gz, options::OPT_gz_EQ);
+  const Arg *A = Args.getLastArg(options::OPT_gz_EQ);
   if (!A)
     return;
   if (checkDebugInfoOption(A, Args, D, TC)) {
-    if (A->getOption().getID() == options::OPT_gz) {
-      if (llvm::zlib::isAvailable())
-        CmdArgs.push_back("--compress-debug-sections");
-      else
-        D.Diag(diag::warn_debug_compression_unavailable);
-      return;
-    }
-
     StringRef Value = A->getValue();
     if (Value == "none") {
       CmdArgs.push_back("--compress-debug-sections=none");
