@@ -377,8 +377,8 @@ void visualstudio::Linker::ConstructJob(Compilation &C, const JobAction &JA,
     else { // INTEL
       CmdArgs.push_back("-defaultlib:libcmt");
       CmdArgs.push_back("-defaultlib:libmmt"); // INTEL
-      CmdArgs.push_back("-defaultlib:oldnames");
     }  // INTEL
+    CmdArgs.push_back("-defaultlib:oldnames");
   }
 
   if (!C.getDriver().IsCLMode() && !Args.hasArg(options::OPT_nostdlib) &&
