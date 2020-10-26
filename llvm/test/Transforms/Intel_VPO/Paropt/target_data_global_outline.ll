@@ -22,9 +22,9 @@
 ; CHECK-DAG: %[[CAST1_2:.+]] = bitcast {{.*}} %[[A1]] to i8*
 ; CHECK-DAG: store i8* %[[CAST1_2]]
 ; Verify that the descriptor for 'a' is passed to __tgt_target_data_begin
-; CHECK-DAG: call void @__tgt_target_data_begin(i64 -1, i32 1, {{.*}}@[[SIZE1]]{{.*}}@[[MAPTYPE1]]
+; CHECK-DAG: call void @__tgt_target_data_begin(i64 %{{.*}}, i32 1, {{.*}}@[[SIZE1]]{{.*}}@[[MAPTYPE1]]
 ; Verify that the descriptor for 'a' is passed to __tgt_target_data_begin
-; CHECK-DAG: call void @__tgt_target_data_end(i64 -1, i32 1, {{.*}}@[[SIZE1]]{{.*}}@[[MAPTYPE1]]
+; CHECK-DAG: call void @__tgt_target_data_end(i64 %{{.*}}, i32 1, {{.*}}@[[SIZE1]]{{.*}}@[[MAPTYPE1]]
 
 ; ModuleID = 'target_data_outlining.cpp'
 source_filename = "target_data_outlining.cpp"

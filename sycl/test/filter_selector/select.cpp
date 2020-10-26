@@ -1,8 +1,11 @@
 // RUN: %clangxx -fsycl -fsycl-targets=%sycl_triple %s -o %t1.out
 // RUN: env SYCL_DEVICE_TYPE=HOST %t1.out
-// RUN: %CPU_RUN_PLACEHOLDER %t1.out
-// RUN: %GPU_RUN_PLACEHOLDER %t1.out
-// RUN: %ACC_RUN_PLACEHOLDER %t1.out
+// RUN: env SYCL_ENABLE_HOST_DEVICE=1 %CPU_RUN_PLACEHOLDER %t1.out
+// RUN: env SYCL_ENABLE_HOST_DEVICE=1 %GPU_RUN_PLACEHOLDER %t1.out
+// RUN: env SYCL_ENABLE_HOST_DEVICE=1 %ACC_RUN_PLACEHOLDER %t1.out
+// INTEL_CUStOMIZATION: set SYCL_ENABLE_HOST_DEVICE because the test expects
+// that all devices returned by `sycl::device::get_devices` are selectable
+// using id in sycl::filter_selector.
 
 //==------------------- select.cpp - filter_selector test ------------------==//
 //

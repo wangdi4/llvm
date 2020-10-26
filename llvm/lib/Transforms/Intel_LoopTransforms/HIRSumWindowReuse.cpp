@@ -375,7 +375,7 @@ findSlidingWindowSums(HLLoop *InnerLoop, HIRDDAnalysis &HDDA,
     }
 
     // The sum must not be conditional.
-    if (!HLNodeUtils::postDominates(SumInst, InnerLoop->getFirstChild())) {
+    if (Reduction.Conditional) {
       LLVM_DEBUG(dbgs() << "  Conditional reduction not supported\n\n");
       continue;
     }
@@ -495,8 +495,7 @@ static void transformLoopWindowSums(const LoopSlidingWindowSums &LoopSums) {
   // |
   // |   (%B)[i1] = %sum.final;
   // + END LOOP
-  LoopSums.InnerLoop->extractZtt();
-  LoopSums.InnerLoop->extractPreheaderAndPostexit();
+  LoopSums.InnerLoop->extractZttPreheaderAndPostexit();
 
   // Create an HLIf after the inner loop that will determine whether it's the
   // first outer loop iteration or not:

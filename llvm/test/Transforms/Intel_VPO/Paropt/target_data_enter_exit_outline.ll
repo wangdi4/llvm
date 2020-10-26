@@ -25,7 +25,7 @@
 ; CHECK-DAG: %[[CAST1_2:.+]] = bitcast i32* %[[GEP1]] to i8*
 ; CHECK-DAG: store i8* %[[CAST1_2]]
 ; Verify that the descriptor for 'a' is passed to __tgt_target_data_begin
-; CHECK-DAG: call void @__tgt_target_data_begin(i64 -1, i32 1, {{.*}}@[[SIZE2]]{{.*}}@[[MAPTYPE2]]
+; CHECK-DAG: call void @__tgt_target_data_begin(i64 %{{.*}}, i32 1, {{.*}}@[[SIZE2]]{{.*}}@[[MAPTYPE2]]
 
 ; Verify that the descriptor for 'a' is passed to __tgt_target_data_exit
 ; CHECK-DAG: %[[GEP2:.+]] = {{.*}}getelementptr {{.*}} @a, i64 0, i64 9
@@ -34,7 +34,7 @@
 ; CHECK-DAG: store i8* %[[CAST2_1]]
 ; CHECK-DAG: %[[CAST2_2:.+]] = bitcast i32* %[[GEP2]] to i8*
 ; CHECK-DAG: store i8* %[[CAST2_2]]
-; CHECK-DAG: call void @__tgt_target_data_end(i64 -1, i32 1, {{.*}}@[[SIZE1]]{{.*}}@[[MAPTYPE1]]
+; CHECK-DAG: call void @__tgt_target_data_end(i64 %{{.*}}, i32 1, {{.*}}@[[SIZE1]]{{.*}}@[[MAPTYPE1]]
 
 ; ModuleID = 'target_data_outlining.cpp'
 source_filename = "target_data_outlining.cpp"

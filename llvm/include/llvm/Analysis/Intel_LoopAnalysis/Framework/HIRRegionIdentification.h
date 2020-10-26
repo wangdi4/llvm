@@ -180,6 +180,10 @@ private:
 
   void runImpl(Function &F);
 
+  /// Returns either the inital or update operand of header phi corresponding to
+  /// the passed in boolean argument.
+  const Value *getHeaderPhiOperand(const PHINode *Phi, bool IsInit) const;
+
 public:
   HIRRegionIdentification(Function &F, LoopInfo &LI, DominatorTree &DT,
                           PostDominatorTree &PDT, AssumptionCache &AC,
@@ -223,6 +227,22 @@ public:
 
   /// Returns true if Phi occurs in the header of a loop.
   bool isHeaderPhi(const PHINode *Phi) const;
+
+  /// Returns the header phi operand which corresponds to the initial value of
+  /// phi (value coming from outside the loop).
+  const Value *getHeaderPhiInitVal(const PHINode *Phi) const {
+    return getHeaderPhiOperand(Phi, true);
+  }
+
+  /// Returns the header phi operand which corresponds to phi update (value
+  /// coming from loop's backedge).
+  const Value *getHeaderPhiUpdateVal(const PHINode *Phi) const {
+    return getHeaderPhiOperand(Phi, false);
+  }
+
+  /// Returns true if the \p AddRecPtrPhi has unconventional access pattern
+  /// (through a bitcast, for example).
+  bool hasNonGEPAccess(const PHINode *AddRecPtrPhi) const;
 
   /// Returns true if \p BB can be reached from any of the \p FromBBs before
   /// hitting any \p EndBBs and without going through any backedges.

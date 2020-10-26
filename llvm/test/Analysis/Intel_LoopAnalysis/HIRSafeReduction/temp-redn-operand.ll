@@ -10,6 +10,7 @@
 ; + END LOOP
 
 ; CHECK: + DO i1 = 0, 79, 1   <DO_LOOP>
+; CHECK: |   <Safe Reduction> Red Op: fadd <Has Unsafe Algebra- Yes> <Conditional- No>
 ; CHECK: |   %t2.09 = %mul  +  %t2.09; <Safe Reduction>
 ; CHECK: + END LOOP
 

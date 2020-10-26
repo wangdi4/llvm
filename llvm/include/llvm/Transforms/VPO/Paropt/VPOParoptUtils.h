@@ -1348,6 +1348,12 @@ public:
 
   /// Generate a call to
   /// \code
+  ///   int omp_get_default_device()
+  /// \endcode
+  static CallInst *genOmpGetDefaultDevice(Instruction *InsertPt);
+
+  /// Generate a call to
+  /// \code
   ///   int omp_get_num_devices()
   /// \endcode
   static CallInst *genOmpGetNumDevices(Instruction *InsertPt);

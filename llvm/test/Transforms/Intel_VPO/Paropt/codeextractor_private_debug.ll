@@ -9,15 +9,13 @@
 ; CHECK: define{{.*}} void @__omp_offloading_{{.*}} !dbg [[WREGION:![0-9]+]] {
 ; CHECK:   %b.ascast.priv = alloca i64
 ; CHECK:   call void @llvm.dbg.declare(metadata i64* %b.ascast.priv, metadata [[B:![0-9]+]], metadata !DIExpression())
-; CHECK:   call void @llvm.dbg.declare(metadata i32 addrspace(1)* @a.ascast.priv.__global, metadata [[A:![0-9]+]], metadata !DIExpression())
+; CHECK-NOT: call void @llvm.dbg.declare({{.*}}@a.ascast.priv.__global
 ; CHECK:   store i32 42, i32 addrspace(1)* @a.ascast.priv.__global, align 4
 ; CHECK:   store i64 42, i64* %b.ascast.priv, align 4
 ; CHECK: }
 ;
 ; CHECK: [[WREGION]] = distinct !DISubprogram(name: "foo.DIR.OMP.TARGET{{.*}}",
 ; CHECK: [[B]] = !DILocalVariable(name: "b",
-; CHECK-SAME: scope: [[WREGION]]
-; CHECK: [[A]] = !DILocalVariable(name: "a",
 ; CHECK-SAME: scope: [[WREGION]]
 
 ; ModuleID = 'foo.cpp'

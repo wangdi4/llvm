@@ -456,6 +456,7 @@ public:
   void insertMarker() {
     // Create a marker call at the start of the region.  The values generated
     // from clauses must be inserted before this point.
+    ApplyDebugLocation DL (CGF, Directive.getBeginLoc());
     MarkerInstruction = CGF.Builder.CreateCall(RegionEntryDirective, {});
   }
   static bool isFirstDirectiveInSet(const OMPExecutableDirective &S,

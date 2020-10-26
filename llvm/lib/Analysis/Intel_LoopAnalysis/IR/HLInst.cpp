@@ -32,16 +32,6 @@ static cl::opt<bool>
     ShowLLVMInst("hir-details-llvm-inst", cl::init(false), cl::Hidden,
                  cl::desc("Show LLVM instructions instead of dummy HLInst"));
 
-static cl::opt<bool>
-    PrintSafeReductionOp("hir-safe-reduction-analysis-print-op",
-                         cl::init(false), cl::Hidden,
-                         cl::desc("print reduction operation"));
-
-static cl::opt<bool>
-    PrintUnsafeAlgebra("hir-safe-reduction-analysis-print-unsafe-algebra",
-                       cl::init(false), cl::Hidden,
-                       cl::desc("print safe reduction unsafe algebra"));
-
 static cl::opt<bool> CheckIntrinsicSafeReduction(
     "hir-safe-reduction-analysis-check-intrinsic", cl::init(false), cl::Hidden,
     cl::desc("Check safe reduction for intrinsic calls"));
@@ -331,7 +321,7 @@ void HLInst::print(formatted_raw_ostream &OS, unsigned Depth,
   }
 
   printDistributePoint(OS);
-  printReductionInfo(OS);
+  printReductionInfo(OS, Detailed);
 
   OS << "\n";
 
@@ -339,21 +329,16 @@ void HLInst::print(formatted_raw_ostream &OS, unsigned Depth,
 #endif // !INTEL_PRODUCT_RELEASE
 }
 
-void HLInst::printReductionInfo(formatted_raw_ostream &OS) const {
+void HLInst::printReductionInfo(formatted_raw_ostream &OS,
+                                bool Detailed) const {
   HIRSafeReductionAnalysis *SRA = this->getHLNodeUtils()
                                       .getHIRFramework()
                                       .getHIRAnalysisProvider()
                                       .get<HIRSafeReductionAnalysis>();
-  bool HasUnsafeAlgebra = false;
-  if (SRA && SRA->isSafeReduction(this, nullptr, &HasUnsafeAlgebra)) {
-    OS << " <Safe Reduction>";
-    if (PrintSafeReductionOp) {
-      OS << " Red Op: " << (SRA->getSafeRedInfo(this))->OpCode;
-    }
-
-    if (PrintUnsafeAlgebra) {
-      StringRef Msg = HasUnsafeAlgebra ? " Yes" : " No";
-      OS << " <Has Unsafe Algebra-" << Msg << ">";
+  if (SRA) {
+    if (const SafeRedInfo *const RedInfo = SRA->getSafeRedInfo(this)) {
+      OS << " ";
+      RedInfo->printMarkings(OS, Detailed);
     }
   }
 

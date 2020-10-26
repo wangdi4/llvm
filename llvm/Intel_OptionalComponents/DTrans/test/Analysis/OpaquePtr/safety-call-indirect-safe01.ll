@@ -28,7 +28,7 @@ define i32 @main() {
 
 ; CHECK-LABEL: DTRANS_StructInfo:
 ; CHECK: Name: struct.test01a
-; CHECK: Safety data: Global instance | Address taken{{ *$}}
+; CHECK: Safety data: Global instance | Has initializer list | Address taken{{ *$}}
 
 
 !1 = !{i32 0, i32 0}  ; i32

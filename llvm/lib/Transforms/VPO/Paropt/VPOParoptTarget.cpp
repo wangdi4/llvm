@@ -3414,7 +3414,9 @@ bool VPOParoptTransform::genTargetVariantDispatchCode(WRegionNode *W) {
   // Default device num is -1
   Value *DeviceNum = W->getDevice();
   if (DeviceNum == nullptr) {
-    DeviceNum = ConstantInt::get(Int64Ty, -1);
+    DeviceNum =
+        Builder.CreateZExt(VPOParoptUtils::genOmpGetDefaultDevice(InsertPt),
+                           Int64Ty);
   }
 
   // Emit call to check for device availability:

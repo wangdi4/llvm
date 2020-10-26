@@ -1361,6 +1361,11 @@ if(INTEL_CUSTOMIZATION)
         CMAKE_EXE_LINKER_FLAGS CMAKE_MODULE_LINKER_FLAGS
         CMAKE_SHARED_LINKER_FLAGS)
 
+      # Permit relocations in read-only segments:
+      intel_add_sdl_linker_flag("-Wl,-z,notext" ZNOTEXT
+        CMAKE_EXE_LINKER_FLAGS CMAKE_MODULE_LINKER_FLAGS
+        CMAKE_SHARED_LINKER_FLAGS)
+
       # Position Independent Executable (PIE) (strongly recommended):
       if(CMAKE_VERSION VERSION_GREATER 3.13)
         # If CMake is at least 3.14, then setting target property

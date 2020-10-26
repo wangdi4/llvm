@@ -187,10 +187,7 @@ private:
                  const CanonExpr *SplitPoint, bool ShouldInvertCondition,
                  SmallVectorImpl<HLLoop *> *OutLoops);
 
-  BlobTy castBlob(BlobTy Blob, Type *DesiredType, bool IsSigned,
-                  unsigned &BlobIndex);
-
-  void makeBlobsTypeConsistent(BlobTy &BlobA, BlobTy &BlobB, bool IsSigned);
+  BlobTy castBlob(BlobTy Blob, Type *DesiredType, bool IsSigned);
 
   void updateLoopUpperBound(HLLoop *Loop, BlobTy UpperBlob,
                             BlobTy SplitPointBlob, bool IsSigned);
@@ -468,43 +465,20 @@ static void removeThenElseChildren(HLIf *If, HLContainerTy *ThenContainer,
 }
 
 BlobTy HIROptVarPredicate::castBlob(BlobTy Blob, Type *DesiredType,
-                                    bool IsSigned, unsigned &BlobIndex) {
+                                    bool IsSigned) {
   if (Blob->getType() == DesiredType) {
     return Blob;
   }
 
   return BU.createCastBlob(Blob, IsSigned, DesiredType,
-                           !isa<SCEVConstant>(Blob), &BlobIndex);
-}
-
-void HIROptVarPredicate::makeBlobsTypeConsistent(BlobTy &BlobA, BlobTy &BlobB,
-                                                 bool IsSigned) {
-  Type *TypeA = BlobA->getType();
-  Type *TypeB = BlobB->getType();
-
-  if (TypeA == TypeB) {
-    return;
-  }
-
-  Type *BiggerType = TypeB;
-
-  if (TypeA->getPrimitiveSizeInBits() > TypeB->getPrimitiveSizeInBits()) {
-    std::swap(BlobA, BlobB);
-    BiggerType = TypeA;
-  }
-
-  unsigned BlobIndex;
-  if (IsSigned) {
-    BlobA = BU.createSignExtendBlob(BlobA, BiggerType, true, &BlobIndex);
-  } else {
-    BlobA = BU.createZeroExtendBlob(BlobA, BiggerType, true, &BlobIndex);
-  }
+                           !isa<SCEVConstant>(Blob));
 }
 
 void HIROptVarPredicate::updateLoopUpperBound(HLLoop *Loop, BlobTy UpperBlob,
                                               BlobTy SplitPointBlob,
                                               bool IsSigned) {
-  makeBlobsTypeConsistent(UpperBlob, SplitPointBlob, IsSigned);
+  // Cast split point to an IV type, to use in loop bounds.
+  SplitPointBlob = castBlob(SplitPointBlob, Loop->getIVType(), IsSigned);
 
   unsigned MinBlobIndex;
   BlobTy MinBlob;
@@ -519,15 +493,14 @@ void HIROptVarPredicate::updateLoopUpperBound(HLLoop *Loop, BlobTy UpperBlob,
                                 &MinBlobIndex);
   }
 
-  MinBlob = castBlob(MinBlob, Loop->getIVType(), IsSigned, MinBlobIndex);
-
   HIRTransformUtils::setSelfBlobDDRef(Loop->getUpperDDRef(), MinBlob, MinBlobIndex);
 }
 
 void HIROptVarPredicate::updateLoopLowerBound(HLLoop *Loop, BlobTy LowerBlob,
                                               BlobTy SplitPointBlob,
                                               bool IsSigned) {
-  makeBlobsTypeConsistent(LowerBlob, SplitPointBlob, IsSigned);
+  // Cast split point to an IV type, to use in loop bounds.
+  SplitPointBlob = castBlob(SplitPointBlob, Loop->getIVType(), IsSigned);
 
   unsigned MaxBlobIndex;
   BlobTy MaxBlob;
@@ -541,8 +514,6 @@ void HIROptVarPredicate::updateLoopLowerBound(HLLoop *Loop, BlobTy LowerBlob,
     MaxBlob = BU.createUMaxBlob(SplitPointBlob, LowerBlob, !BlobsAreConst,
                                 &MaxBlobIndex);
   }
-
-  MaxBlob = castBlob(MaxBlob, Loop->getIVType(), IsSigned, MaxBlobIndex);
 
   HIRTransformUtils::setSelfBlobDDRef(Loop->getLowerDDRef(), MaxBlob, MaxBlobIndex);
 }
@@ -620,8 +591,7 @@ void HIROptVarPredicate::splitLoop(
   HIRInvalidationUtils::invalidateBounds(Loop);
   HIRInvalidationUtils::invalidateBody(Loop);
 
-  Loop->extractZtt();
-  Loop->extractPreheaderAndPostexit();
+  Loop->extractZttPreheaderAndPostexit();
 
   // Process HLIfs inside the loops.
 
@@ -685,6 +655,7 @@ void HIROptVarPredicate::splitLoop(
   BlobTy SplitPointBlob = SplitPtIsConst
                               ? BU.createBlob(Val, SplitPoint->getDestType())
                               : BU.getBlob(SplitPoint->getSingleBlobIndex());
+
   // %UB
   BlobTy UpperBlob = UpperCE->isIntConstant(&Val)
                          ? BU.createBlob(Val, UpperCE->getDestType())

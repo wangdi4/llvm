@@ -420,18 +420,6 @@ class HIRParser {
   /// Returns the pointer operand of the base GEP.
   const Value *getBaseGEPPointerOperand(const GEPOrSubsOperator *GEPOp) const;
 
-  /// Returns either the inital or update operand of header phi corresponding to
-  /// the passed in boolean argument.
-  const Value *getHeaderPhiOperand(const PHINode *Phi, bool IsInit) const;
-
-  /// Returns the header phi operand which corresponds to the initiala value of
-  /// phi (value coming from outside the loop).
-  const Value *getHeaderPhiInitVal(const PHINode *Phi) const;
-
-  /// Returns the header phi operand which corresponds to phi update (value
-  /// coming from loop's backedge).
-  const Value *getHeaderPhiUpdateVal(const PHINode *Phi) const;
-
   /// Creates a canon expr which represents the index of header phi.
   CanonExpr *createHeaderPhiIndexCE(const PHINode *Phi, unsigned Level);
 
