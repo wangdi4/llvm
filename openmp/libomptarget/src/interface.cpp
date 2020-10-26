@@ -691,10 +691,14 @@ EXTERN void *__tgt_create_interop_obj(
   obj->async_handler = &__tgt_offload_proxy_task_complete_ooo;
   obj->queue = Device.create_offload_queue(is_async);
   obj->platform_handle = Device.get_platform_handle();
-  if (plugin == INTEROP_PLUGIN_LEVEL0)
+  if (plugin == INTEROP_PLUGIN_LEVEL0) {
      obj->device_handle = Device.get_device_handle();
-  else
+     obj->context_handle = Device.get_context_handle();
+  }
+  else {
      obj->device_handle = NULL;
+     obj->context_handle = NULL;
+  }
   obj->plugin_interface = plugin;
 
   return obj;
@@ -778,6 +782,9 @@ EXTERN int __tgt_get_interop_property(
     break;
   case INTEROP_PLUGIN_INTERFACE:
     *property_value = (void *)&interop->plugin_interface;
+    break;
+  case INTEROP_CONTEXT_HANDLE:
+    *property_value = interop->context_handle;
     break;
   default:
     DP("Invalid interop property name " PRId32 "\n");

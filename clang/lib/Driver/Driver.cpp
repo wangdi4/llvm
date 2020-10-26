@@ -480,7 +480,7 @@ void Driver::addIntelOMPDeviceLibs(const ToolChain &TC, Driver::InputList &Input
   bool addOmpLibs = false;
   if (Arg *A = Args.getLastArg(options::OPT_fopenmp_targets_EQ)) {
     for (const StringRef &Val : A->getValues())
-      if (Val == "spir64")
+      if (Val.startswith("spir64"))
         addOmpLibs = true;
   }
   StringRef OMPLibLoc(Args.MakeArgString(TC.getDriver().Dir + "/../lib"));
