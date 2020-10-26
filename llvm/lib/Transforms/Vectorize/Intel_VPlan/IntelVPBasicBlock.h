@@ -17,8 +17,6 @@
 #include "llvm/ADT/simple_ilist.h"
 #include "llvm/Analysis/LoopInfoImpl.h"
 
-extern bool PrintTerminatorInst;
-
 namespace llvm {
 
 namespace vpo {

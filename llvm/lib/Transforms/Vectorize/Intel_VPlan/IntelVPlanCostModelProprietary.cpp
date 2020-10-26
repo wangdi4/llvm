@@ -992,8 +992,7 @@ void VPlanCostModelProprietary::printForVPBasicBlock(
   ProcessedOVLSGroups.clear();
 
   for (const VPInstruction &VPInst : *VPBB)
-    if (PrintTerminatorInst || !isa<VPBranchInst>(VPInst))
-      printForVPInstruction(OS, &VPInst);
+    printForVPInstruction(OS, &VPInst);
 }
 
 void VPlanCostModelProprietary::print(
