@@ -366,6 +366,20 @@ private:
       AMT.updateBasePointerInsts(CopyElemInsts, getNumArrays(),
                                  NewElement->getPointerTo(0));
 
+      // Generate Store instructions early for each element except the CurrElem
+      // only when member functions need to be combined (i.e CopyElemInsts is
+      // true). The original StoreInst is used for the CurrElem.
+      ArrayMethodTransformation::ClonedElemStoreMapTy ClonedElemStoreMap;
+      if (CopyElemInsts) {
+        unsigned Off = -1U;
+        for (auto *Elem : elements()) {
+          ++Off;
+          if (Elem == CurrElem)
+            continue;
+          AMT.earlyCloneElemStoreInst(Off, ClonedElemStoreMap);
+        }
+      }
+
       bool UpdateUnique = true;
       unsigned Off = -1U;
       unsigned CurrOff = 0U;
@@ -383,7 +397,8 @@ private:
               OrigToCopy, UpdateUnique, getNumArrays(),
               Elem /*Type related to copies*/,
               AppendMethodElemParamOffset +
-                  Off /* Offset in argument list of new element*/);
+                  Off /* Offset in argument list of new element*/,
+              ClonedElemStoreMap, Off);
           AMT.gepRAUW(true /*Do copy*/, OrigToCopy,
                       Off /*Elem's offset in NewElement*/,
                       NewElement->getPointerTo(0));
