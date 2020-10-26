@@ -718,6 +718,7 @@ bool LoopVectorizationLegality::canVectorizeInstrs() {
       //   * Are debug info intrinsics.
       //   * Have a mapping to an IR intrinsic.
       //   * Have a vector version available.
+      //   * Are not glibc sincos. //INTEL
       auto *CI = dyn_cast<CallInst>(&I);
 
       if (CI && !getVectorIntrinsicIDForCall(CI, TLI) &&
@@ -768,6 +769,20 @@ bool LoopVectorizationLegality::canVectorizeInstrs() {
             }
           }
       }
+
+#if INTEL_CUSTOMIZATION
+      // Glibc sincos calls can cause memory dependencies since results are
+      // written through pointer operands.
+      LibFunc LibF;
+      if (CI && TLI->getLibFunc(*CI, LibF)) {
+        if (LibF == LibFunc_sincos || LibF == LibFunc_sincosf) {
+          reportVectorizationFailure("Found a call to glibc sincos call",
+                                     "call instruction cannot be vectorized",
+                                     "CantVectorizeLibcall", ORE, TheLoop, CI);
+          return false;
+        }
+      }
+#endif // INTEL_CUSTOMIZATION
 
       // Check that the instruction return type is vectorizable.
       // Also, we can't vectorize extractelement instructions.

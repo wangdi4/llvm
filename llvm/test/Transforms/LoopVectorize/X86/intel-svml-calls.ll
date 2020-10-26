@@ -160,12 +160,9 @@ for.end:
 }
 
 ; sincos calls need special treatment, and shouldn't be vectorized by Loop
-; Vectorizer for the time being
+; Vectorizer for the time being.
 define void @sincos_f32(float* nocapture %varray) {
-; CHECK-LABEL: @sincos_f32(
-; CHECK: call {{.*}} @sincosf
-; CHECK: call {{.*}} @sincosf
-; CHECK: call {{.*}} @sincosf
+; CHECK-NOT: <4 x float
 ; CHECK: call {{.*}} @sincosf
 ;
 entry:
@@ -182,9 +179,11 @@ for.body:                                         ; preds = %for.body, %entry
   %indvars.iv = phi i64 [ 0, %entry ], [ %indvars.iv.next, %for.body ]
   %2 = trunc i64 %indvars.iv to i32
   %conv = sitofp i32 %2 to float
-  call void @sincosf(float %conv, float* nonnull %sinval, float* nonnull %cosval)
-  %3 = load float, float* %sinval, align 4
-  %4 = load float, float* %cosval, align 4
+  %sinval.iv = getelementptr inbounds float, float* %sinval, i64 %indvars.iv
+  %cosval.iv = getelementptr inbounds float, float* %cosval, i64 %indvars.iv
+  call void @sincosf(float %conv, float* nonnull %sinval.iv, float* nonnull %cosval.iv)
+  %3 = load float, float* %sinval.iv, align 4
+  %4 = load float, float* %cosval.iv, align 4
   %add = fadd float %3, %4
   %ptridx = getelementptr inbounds float, float* %varray, i64 %indvars.iv
   store float %add, float* %ptridx, align 4
@@ -195,9 +194,39 @@ for.body:                                         ; preds = %for.body, %entry
 
 define void @sincos_f64(double* nocapture %varray) {
 ; CHECK-LABEL: @sincos_f64(
+; CHECK-NOT: <4 x float
 ; CHECK: call {{.*}} @sincos
-; CHECK: call {{.*}} @sincos
-; CHECK: call {{.*}} @sincos
+;
+entry:
+  %sinval = alloca double, align 8
+  %cosval = alloca double, align 8
+  %0 = bitcast double* %sinval to i8*
+  %1 = bitcast double* %cosval to i8*
+  br label %for.body
+
+for.cond.cleanup:                                 ; preds = %for.body
+  ret void
+
+for.body:                                         ; preds = %for.body, %entry
+  %indvars.iv = phi i64 [ 0, %entry ], [ %indvars.iv.next, %for.body ]
+  %2 = trunc i64 %indvars.iv to i32
+  %conv = sitofp i32 %2 to double
+  %sinval.iv = getelementptr inbounds double, double* %sinval, i64 %indvars.iv
+  %cosval.iv = getelementptr inbounds double, double* %cosval, i64 %indvars.iv
+  call void @sincos(double %conv, double* nonnull %sinval.iv, double* nonnull %cosval.iv)
+  %3 = load double, double* %sinval.iv, align 8
+  %4 = load double, double* %cosval.iv, align 8
+  %add = fadd double %3, %4
+  %ptridx = getelementptr inbounds double, double* %varray, i64 %indvars.iv
+  store double %add, double* %ptridx, align 8
+  %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
+  %exitcond = icmp eq i64 %indvars.iv.next, 1000
+  br i1 %exitcond, label %for.cond.cleanup, label %for.body
+}
+
+define void @sincos_uniform_pointers(double* nocapture %varray) {
+; CHECK-LABEL: @sincos_uniform_pointers(
+; CHECK-NOT: <4 x float
 ; CHECK: call {{.*}} @sincos
 ;
 entry:
