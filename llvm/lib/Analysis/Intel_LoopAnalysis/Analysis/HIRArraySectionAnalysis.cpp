@@ -103,9 +103,20 @@ void ArraySectionInfo::print(raw_ostream &OS) const {
   }
   OS << ") ";
 
-  for (auto Pair : reverse(zip(Lowers, Uppers))) {
+  for (auto Triplet : reverse(zip(Lowers, Uppers, Indices))) {
     OS << "[";
-    auto *LCE = std::get<0>(Pair);
+
+    auto &IndicesVec = std::get<2>(Triplet);
+    for (auto IndexI : enumerate(IndicesVec)) {
+      IndexI.value()->print(OS, false);
+      if (IndexI.index() != IndicesVec.size() - 1) {
+        OS << ",";
+      }
+    }
+
+    OS << ":";
+
+    auto *LCE = std::get<0>(Triplet);
     if (LCE) {
       LCE->print(OS, false);
     } else {
@@ -114,7 +125,7 @@ void ArraySectionInfo::print(raw_ostream &OS) const {
 
     OS << ":";
 
-    auto *UCE = std::get<1>(Pair);
+    auto *UCE = std::get<1>(Triplet);
     if (UCE) {
       UCE->print(OS, false);
     } else {
@@ -137,7 +148,34 @@ ArraySectionInfo ArraySectionInfo::clone() const {
   std::transform(Uppers.begin(), Uppers.end(),
                  std::back_inserter(CloneInfo.Uppers), CloneCE);
 
+  CloneInfo.Indices.resize(getNumDimensions());
+  for (auto IndArray : zip(Indices, CloneInfo.Indices)) {
+    std::transform(std::get<0>(IndArray).begin(), std::get<0>(IndArray).end(),
+                   std::back_inserter(std::get<1>(IndArray)), CloneCE);
+  }
+
   return CloneInfo;
+}
+
+bool ArraySectionInfo::equals(const ArraySectionInfo &Info) const {
+  if (getNumDimensions() != Info.getNumDimensions()) {
+    return false;
+  }
+
+  auto CompareCEs = [](ArrayRef<CanonExpr *> A, ArrayRef<CanonExpr *> B) {
+    for (auto Pair : zip(A, B)) {
+      if (!CanonExprUtils::areEqual(std::get<0>(Pair), std::get<1>(Pair))) {
+        return false;
+      }
+    }
+    return true;
+  };
+
+  if (!CompareCEs(Lowers, Info.Lowers) || !CompareCEs(Uppers, Info.Uppers)) {
+    return false;
+  }
+
+  return true;
 }
 
 static bool replaceIVsByBound(CanonExpr *CE, unsigned Level,
@@ -161,6 +199,50 @@ static bool replaceIVsByBound(CanonExpr *CE, unsigned Level,
   return CanonExprUtils::replaceIVByCanonExpr(
       CE, Level, IsLowerCE ? Lp->getLowerCanonExpr() : Lp->getUpperCanonExpr(),
       Lp->hasSignedIV(), true);
+}
+
+static std::pair<CanonExpr *, CanonExpr *>
+computeMinMaxSection(ArrayRef<const RegDDRef *> Group, unsigned OuterLoopLevel,
+                     unsigned DimNum) {
+  auto MinMax = std::minmax_element(Group.begin(), Group.end(),
+                                    [&](const RegDDRef *A, const RegDDRef *B) {
+                                      auto *ACE = A->getDimensionIndex(DimNum);
+                                      auto *BCE = B->getDimensionIndex(DimNum);
+
+                                      return CanonExprUtils::compare(ACE, BCE);
+                                    });
+
+  const RegDDRef *MinRef = *MinMax.first;
+  const RegDDRef *MaxRef = *MinMax.second;
+
+  auto MinCE =
+      std::unique_ptr<CanonExpr>(MinRef->getDimensionIndex(DimNum)->clone());
+  auto MaxCE =
+      std::unique_ptr<CanonExpr>(MaxRef->getDimensionIndex(DimNum)->clone());
+
+  if (!replaceIVsByBound(MinCE.get(), OuterLoopLevel,
+                         MinRef->getLexicalParentLoop(), true)) {
+    MinCE.reset();
+  }
+
+  if (!replaceIVsByBound(MaxCE.get(), OuterLoopLevel,
+                         MaxRef->getLexicalParentLoop(), false)) {
+    MaxCE.reset();
+  }
+
+  return {MinCE.release(), MaxCE.release()};
+}
+
+template <typename T> static void uniqueCEs(SmallVectorImpl<T> &CEs) {
+  std::sort(CEs.begin(), CEs.end(), [](const CanonExpr *A, const CanonExpr *B) {
+    return CanonExprUtils::compare(A, B);
+  });
+
+  CEs.erase(std::unique(CEs.begin(), CEs.end(),
+                        [](const CanonExpr *A, const CanonExpr *B) {
+                          return CanonExprUtils::areEqual(A, B);
+                        }),
+            CEs.end());
 }
 
 static ArraySectionInfo
@@ -191,38 +273,27 @@ computeSectionsFromGroup(ArrayRef<const RegDDRef *> Group,
     };
 
     // If there are non-linear CEs return conservative result.
-    if (!std::all_of(Group.begin(), Group.end(), IsDimLinearAtLevel)) {
+    if (std::all_of(Group.begin(), Group.end(), IsDimLinearAtLevel)) {
+      std::tie(Info.lowers()[I], Info.uppers()[I]) =
+          computeMinMaxSection(Group, OuterLoopLevel, I + 1);
+    } else {
       Info.lowers()[I] = nullptr;
       Info.uppers()[I] = nullptr;
-      continue;
     }
 
-    auto MinMax = std::minmax_element(
-        Group.begin(), Group.end(), [&](const RegDDRef *A, const RegDDRef *B) {
-          auto *ACE = A->getDimensionIndex(I + 1);
-          auto *BCE = B->getDimensionIndex(I + 1);
+    // Capture all indices of the dimension.
+    SmallVector<const CanonExpr *, 8> Indices;
+    std::transform(
+        Group.begin(), Group.end(), std::back_inserter(Indices),
+        [I](const RegDDRef *Ref) { return Ref->getDimensionIndex(I + 1); });
 
-          return CanonExprUtils::compare(ACE, BCE);
-        });
+    // Keep only unique indices.
+    uniqueCEs(Indices);
 
-    const RegDDRef *MinRef = *MinMax.first;
-    const RegDDRef *MaxRef = *MinMax.second;
-
-    CanonExpr *MinCE = MinRef->getDimensionIndex(I + 1)->clone();
-    CanonExpr *MaxCE = MaxRef->getDimensionIndex(I + 1)->clone();
-
-    if (!replaceIVsByBound(MinCE, OuterLoopLevel,
-                           MinRef->getLexicalParentLoop(), true)) {
-      MinCE = nullptr;
-    }
-
-    if (!replaceIVsByBound(MaxCE, OuterLoopLevel,
-                           MaxRef->getLexicalParentLoop(), false)) {
-      MaxCE = nullptr;
-    }
-
-    Info.lowers()[I] = MinCE;
-    Info.uppers()[I] = MaxCE;
+    // Clone result into the Section info.
+    std::transform(Indices.begin(), Indices.end(),
+                   std::back_inserter(Info.indices(I)),
+                   [](const CanonExpr *CE) { return CE->clone(); });
   }
 
   return Info;
@@ -267,19 +338,21 @@ static void replaceIVInSection(ArraySectionInfo &Info, const HLLoop *Loop) {
 // section in OutResult will be replaced with the new one, covering both ranges
 // (ex. [0, 100]).
 // 3. Any IVs of the \p Loop in InResult will be replaced by the Loop bounds.
-static void mergeResult(ArraySectionAnalysisResult &OutResult,
-                        const ArraySectionAnalysisResult &InResult,
-                        const HLLoop *Loop) {
+void ArraySectionAnalysisResult::merge(
+    const ArraySectionAnalysisResult &InResult, const HLLoop *Loop) {
   for (unsigned BaseIndex : InResult.knownBaseIndices()) {
     ArraySectionInfo InSectionClone = InResult.get(BaseIndex)->clone();
-    replaceIVInSection(InSectionClone, Loop);
 
-    auto *OutSection = OutResult.get(BaseIndex);
+    if (Loop) {
+      replaceIVInSection(InSectionClone, Loop);
+    }
+
+    auto *OutSection = get(BaseIndex);
 
     // If no section for BaseIndex exist in OutResult then just use
     // InSectionClone.
     if (!OutSection) {
-      OutResult.create(BaseIndex) = std::move(InSectionClone);
+      create(BaseIndex) = std::move(InSectionClone);
       continue;
     }
 
@@ -326,6 +399,10 @@ static void mergeResult(ArraySectionAnalysisResult &OutResult,
       } else {
         UCE1 = nullptr;
       }
+
+      auto &InIndices = InSectionClone.indices(I);
+      OutSection->indices(I).append(InIndices.begin(), InIndices.end());
+      uniqueCEs(OutSection->indices(I));
     }
   }
 }
@@ -337,7 +414,7 @@ mergeResults(ArraySectionAnalysisResult &OutResult,
              ArrayRef<const ArraySectionAnalysisResult *> InnerLoopResults,
              const HLLoop *Loop) {
   for (auto *InnerResult : InnerLoopResults) {
-    mergeResult(OutResult, *InnerResult, Loop);
+    OutResult.merge(*InnerResult, Loop);
   }
 }
 
@@ -402,7 +479,8 @@ HIRArraySectionAnalysis::getOrCompute(const HLLoop *Loop) {
 
   // Group loop references.
   DDRefGrouping::RefGroupVecTy<const RegDDRef *> Groups;
-  groupRefs(Refs, Groups);
+  DDRefIndexGrouping IndexGrouping;
+  IndexGrouping.group(Groups, Refs);
 
   auto Result = std::make_unique<ArraySectionAnalysisResult>();
   for (auto &Group : Groups) {

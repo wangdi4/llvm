@@ -33,10 +33,8 @@ namespace llvm {
 namespace loopopt {
 
 class DDRefGrouping {
-
 public:
   template <typename RefTy> using RefGroupTy = SmallVector<RefTy, 8>;
-
   template <typename RefTy>
   using RefGroupVecTy = std::vector<RefGroupTy<RefTy>>;
 
@@ -124,23 +122,17 @@ public:
 
 // Ref Grouping by basePtr is being used many places including
 // runtime DD and loop blocking
-class RefGrouper {
+class DDRefIndexGrouping {
 public:
-  typedef DDRefGrouping::RefGroupVecTy<RegDDRef *> RefGroupVecTy;
-  typedef DDRefGrouping::RefGroupTy<RegDDRef *> RefGroupTy;
-  typedef DenseMap<RegDDRef *, unsigned> RefToGroupIDTy;
+  typedef DenseMap<const RegDDRef *, unsigned> RefToIndexTy;
 
-public:
-  RefGrouper(ArrayRef<RegDDRef *> Refs, RefGroupVecTy& Groups):
-    Groups(Groups) { groupByBasePtr(Refs); }
+  RefToIndexTy &getIndex() { return RefGroupIndex; }
 
-  RefToGroupIDTy &getRefGroupIndex() { return RefGroupIndex; }
+  template <typename OutGroup, typename InVec>
+  void group(OutGroup &Groups, InVec Refs) {
+    DenseMap<unsigned , unsigned> GroupIndex;
 
-private:
-  void groupByBasePtr(ArrayRef<RegDDRef *> Refs) {
-
-    DenseMap<unsigned, unsigned> GroupIndex;
-    for (RegDDRef *Ref : Refs) {
+    for (auto Ref : Refs) {
       unsigned &GroupNo = GroupIndex[Ref->getBasePtrBlobIndex()];
       if (GroupNo == 0) {
         GroupNo = GroupIndex.size();
@@ -162,8 +154,8 @@ private:
   }
 #endif
 
-  RefGroupVecTy& Groups;
-  RefToGroupIDTy RefGroupIndex;
+private:
+  RefToIndexTy RefGroupIndex;
 };
 
 }

@@ -838,7 +838,7 @@ static bool isStarEdge(const DDEdge &Edge) {
 
 RuntimeDDResult HIRRuntimeDD::processDDGToGroupPairs(
     const HLLoop *Loop, MemRefGatherer::VectorTy &Refs,
-    DenseMap<RegDDRef *, unsigned> &RefGroupIndex,
+    DenseMap<const RegDDRef *, unsigned> &RefGroupIndex,
     SmallSetVector<std::pair<unsigned, unsigned>, ExpectedNumberOfTests> &Tests)
     const {
   DDGraph DDG = DDA.getGraph(Loop);
@@ -974,10 +974,11 @@ RuntimeDDResult HIRRuntimeDD::computeTests(HLLoop *Loop, LoopContext &Context) {
 
   // Populate reference groups split by base blob index.
   // Populate a reference-to-group-number map.
-  RefGrouper Grouping(Refs, Groups);
+  DDRefIndexGrouping Grouping;
+  Grouping.group(Groups, Refs);
 
   SmallSetVector<std::pair<unsigned, unsigned>, ExpectedNumberOfTests> Tests;
-  Ret = processDDGToGroupPairs(Loop, Refs, Grouping.getRefGroupIndex(), Tests);
+  Ret = processDDGToGroupPairs(Loop, Refs, Grouping.getIndex(), Tests);
   if (Ret != OK) {
     return Ret;
   }
