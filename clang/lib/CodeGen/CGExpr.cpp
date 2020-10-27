@@ -72,6 +72,10 @@ Address CodeGenFunction::CreateTempAllocaWithoutCast(llvm::Type *Ty,
                                                      llvm::Value *ArraySize) {
   auto Alloca = CreateTempAlloca(Ty, Name, ArraySize);
   Alloca->setAlignment(Align.getAsAlign());
+#if INTEL_COLLAB
+  if (CapturedStmtInfo && !ArraySize)
+    CapturedStmtInfo->recordValueDefinition(Alloca);
+#endif // INTEL_COLLAB
   return Address(Alloca, Align);
 }
 
@@ -81,7 +85,13 @@ Address CodeGenFunction::CreateTempAlloca(llvm::Type *Ty, CharUnits Align,
                                           const Twine &Name,
                                           llvm::Value *ArraySize,
                                           Address *AllocaAddr) {
+#if INTEL_COLLAB
+  llvm::AllocaInst *AllocInst = CreateTempAlloca(Ty, Name, ArraySize);
+  AllocInst->setAlignment(Align.getAsAlign());
+  Address Alloca = Address(AllocInst, Align);
+#else
   auto Alloca = CreateTempAllocaWithoutCast(Ty, Align, Name, ArraySize);
+#endif
   if (AllocaAddr)
     *AllocaAddr = Alloca;
   llvm::Value *V = Alloca.getPointer();
