@@ -644,7 +644,7 @@ TEST(FrameworkTestType, Test_globalVariableQueryTest)
     globalVariableSizeQueryTest();
 }
 
-TEST(FrameworkTestType, Test_UniformWorkGroupTest)
+TEST(FrameworkTestType, DISABLED_Test_UniformWorkGroupTest)
 {
     UniformWorkGroupTest();
 }
