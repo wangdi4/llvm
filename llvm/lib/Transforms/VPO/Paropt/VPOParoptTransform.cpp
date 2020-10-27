@@ -100,6 +100,10 @@ static cl::opt<bool> OptimizeScalarFirstprivate(
     "vpo-paropt-opt-scalar-fp", cl::Hidden, cl::init(true),
     cl::desc("Pass scalar firstprivates as literals."));
 
+static cl::opt<bool> EmitSPIRVBuiltins(
+    "vpo-paropt-emit-spirv-builtins", cl::Hidden, cl::init(false),
+    cl::desc("Emit SPIR-V builtin calls to compute loop bounds for SIMD."));
+
 static cl::opt<bool> AllowDistributeDimension(
     "vpo-paropt-allow-distribute-dimension",
      cl::Hidden, cl::init(true),
@@ -328,12 +332,30 @@ void VPOParoptTransform::genOCLDistParLoopBoundUpdateCode(
   unsigned DimNum = NumLoops - Idx - 1;
   DimNum += W->getWRNLoopInfo().getNDRangeStartDim();
   initArgArray(&Arg, DimNum);
+
   // get_num_groups() returns a value of type size_t by specification,
   // and the return value is greater than 0.
-  CallInst *NumGroupsCall =
-      VPOParoptUtils::genOCLGenericCall("_Z14get_num_groupsj",
-                                        GeneralUtils::getSizeTTy(F),
-                                        Arg, CallsInsertPt);
+  CallInst *NumGroupsCall;
+  if (EmitSPIRVBuiltins) {
+    std::string fname;
+    SmallVector<Value *, 1> Arg;
+    switch (Idx) {
+    case 0: fname = "_Z29__spirv_NumWorkgroups_xv";
+      break;
+    case 1: fname = "_Z29__spirv_NumWorkgroups_yv";
+      break;
+    case 2: fname = "_Z29__spirv_NumWorkgroups_zv";
+      break;
+    default:
+      llvm_unreachable("Invalid dimentional index ");
+    }
+    NumGroupsCall = VPOParoptUtils::genOCLGenericCall(fname,
+      GeneralUtils::getSizeTTy(F), Arg, CallsInsertPt);
+  } else {
+    NumGroupsCall = VPOParoptUtils::genOCLGenericCall("_Z14get_num_groupsj",
+      GeneralUtils::getSizeTTy(F), Arg, CallsInsertPt);
+  }
+
   Value *LB = Builder.CreateLoad(LowerBnd);
   Value *UB = Builder.CreateLoad(UpperBnd);
   // LB and UB have the type of the canonical induction variable.
@@ -365,10 +387,27 @@ void VPOParoptTransform::genOCLDistParLoopBoundUpdateCode(
 
   // get_group_id returns a value of type size_t by specification,
   // and the return value is non-negative.
-  CallInst *GroupIdCall =
-      VPOParoptUtils::genOCLGenericCall("_Z12get_group_idj",
-                                        GeneralUtils::getSizeTTy(F),
-                                        Arg, CallsInsertPt);
+  CallInst *GroupIdCall;
+  if (EmitSPIRVBuiltins) {
+    std::string fname;
+    SmallVector<Value *, 1> Arg;
+    switch (Idx) {
+    case 0: fname = "_Z21__spirv_WorkgroupId_xv";
+      break;
+    case 1: fname = "_Z21__spirv_WorkgroupId_yv";
+      break;
+    case 2: fname = "_Z21__spirv_WorkgroupId_zv";
+      break;
+    default:
+        llvm_unreachable("Invalid dimentional index ");
+    }
+    GroupIdCall = VPOParoptUtils::genOCLGenericCall(fname,
+      GeneralUtils::getSizeTTy(F), Arg, CallsInsertPt);
+  } else {
+    GroupIdCall = VPOParoptUtils::genOCLGenericCall("_Z12get_group_idj",
+      GeneralUtils::getSizeTTy(F), Arg, CallsInsertPt);
+  }
+
   Value *GroupId = Builder.CreateZExtOrTrunc(GroupIdCall, ItSpaceType);
 
   // Compute new_team_lb
@@ -569,10 +608,27 @@ void VPOParoptTransform::genOCLLoopBoundUpdateCode(WRegionNode *W, unsigned Idx,
 
   if (!VPOParoptUtils::useSPMDMode(W)) {
     Value *Chunk = nullptr;
-    CallInst *LocalSize =
-        VPOParoptUtils::genOCLGenericCall("_Z14get_local_sizej",
-                                          GeneralUtils::getSizeTTy(F),
-                                          Arg, CallsInsertPt);
+
+    CallInst *LocalSize;
+    if (EmitSPIRVBuiltins) {
+      std::string fname;
+      SmallVector<Value *, 1> Arg;
+      switch (Idx) {
+      case 0: fname = "_Z22__spirv_WorkgroupSize_xv";
+        break;
+      case 1: fname = "_Z22__spirv_WorkgroupSize_yv";
+        break;
+      case 2: fname = "_Z22__spirv_WorkgroupSize_zv";
+        break;
+      default:
+        llvm_unreachable("Invalid dimentional index ");
+      }
+      LocalSize = VPOParoptUtils::genOCLGenericCall(fname,
+                         GeneralUtils::getSizeTTy(F), Arg, CallsInsertPt);
+    } else {
+      LocalSize = VPOParoptUtils::genOCLGenericCall("_Z14get_local_sizej",
+        GeneralUtils::getSizeTTy(F), Arg, CallsInsertPt);
+    }
 
     Value *NumThreads = Builder.CreateSExtOrTrunc(LocalSize, LBType);
     if (SchedKind == WRNScheduleStaticEven) {
@@ -604,10 +660,26 @@ void VPOParoptTransform::genOCLLoopBoundUpdateCode(WRegionNode *W, unsigned Idx,
       Builder.CreateStore(SchedStrideVal, SchedStride);
     }
 
-    CallInst *LocalId =
-        VPOParoptUtils::genOCLGenericCall("_Z12get_local_idj",
-                                          GeneralUtils::getSizeTTy(F),
-                                          Arg, CallsInsertPt);
+    CallInst *LocalId;
+    if (EmitSPIRVBuiltins) {
+      std::string fname;
+      SmallVector<Value *, 1> Arg;
+      switch (Idx) {
+        case 0: fname = "_Z27__spirv_LocalInvocationId_xv";
+          break;
+        case 1: fname = "_Z27__spirv_LocalInvocationId_yv";
+          break;
+        case 2: fname = "_Z27__spirv_LocalInvocationId_zv";
+          break;
+        default:
+          llvm_unreachable("Invalid dimentional index ");
+      }
+      LocalId = VPOParoptUtils::genOCLGenericCall(fname,
+                   GeneralUtils::getSizeTTy(F), Arg, CallsInsertPt);
+    }
+    else
+     LocalId = VPOParoptUtils::genOCLGenericCall("_Z12get_local_idj",
+                  GeneralUtils::getSizeTTy(F), Arg, CallsInsertPt);
 
     Value *LocalIdCasted = Builder.CreateSExtOrTrunc(LocalId, LBType);
 
@@ -640,10 +712,28 @@ void VPOParoptTransform::genOCLLoopBoundUpdateCode(WRegionNode *W, unsigned Idx,
   } else {
     // Use SPMD mode by setting lower and upper bound to get_global_id().
     // This will let each WI execute just one iteration of the loop.
-    CallInst *GlobalId =
-      VPOParoptUtils::genOCLGenericCall("_Z13get_global_idj",
-                                        GeneralUtils::getSizeTTy(F),
-                                        Arg, CallsInsertPt);
+    CallInst *GlobalId;
+
+    if (EmitSPIRVBuiltins) {
+      std::string fname;
+      SmallVector<Value *, 1> Arg;
+      switch (Idx) {
+      case 0: fname = "_Z28__spirv_GlobalInvocationId_xv";
+        break;
+      case 1: fname = "_Z28__spirv_GlobalInvocationId_yv";
+        break;
+      case 2: fname = "_Z28__spirv_GlobalInvocationId_zv";
+        break;
+      default:
+        llvm_unreachable("Invalid dimentional index ");
+      }
+      GlobalId = VPOParoptUtils::genOCLGenericCall(fname,
+        GeneralUtils::getSizeTTy(F), Arg, CallsInsertPt);
+    } else {
+      GlobalId = VPOParoptUtils::genOCLGenericCall("_Z13get_global_idj",
+        GeneralUtils::getSizeTTy(F), Arg, CallsInsertPt);
+    }
+
     Value *GlobalIdCasted = Builder.CreateSExtOrTrunc(GlobalId, LBType);
     Builder.CreateStore(GlobalIdCasted, LowerBnd);
     NewUB = GlobalIdCasted;

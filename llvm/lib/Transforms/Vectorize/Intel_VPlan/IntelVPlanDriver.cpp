@@ -808,7 +808,10 @@ void VPlanDriver::getAnalysisUsage(AnalysisUsage &AU) const {
 }
 
 bool VPlanDriver::runOnFunction(Function &Fn) {
-  if (skipFunction(Fn))
+
+  bool isOmpSimdKernel = (Fn.getMetadata("omp_simd_kernel") != nullptr);
+
+  if (skipFunction(Fn) && !isOmpSimdKernel)
     return false;
 
   auto SE = &getAnalysis<ScalarEvolutionWrapperPass>().getSE();
