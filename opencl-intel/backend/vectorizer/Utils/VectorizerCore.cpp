@@ -214,7 +214,7 @@ bool VectorizerCore::runOnFunction(Function &F) {
     fpm1.add(createScalarizer(m_pConfig->GetCpuId()));
 
     // Register mergereturn
-    FunctionPass *mergeReturn = new UnifyFunctionExitNodes();
+    FunctionPass *mergeReturn = new UnifyFunctionExitNodesLegacyPass();
     fpm1.add(mergeReturn);
 
     // Register phiCanon
