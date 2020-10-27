@@ -128,6 +128,7 @@ set (SUPPORT_SOURCES
   FoldingSet.cpp
   FormattedStream.cpp
   FormatVariadic.cpp
+  GenericDomTree.cpp
   GlobPattern.cpp
   GraphWriter.cpp
   Hashing.cpp
