@@ -3506,6 +3506,9 @@ bool VPOParoptTransform::genTargetVariantDispatchCode(WRegionNode *W) {
         Builder.CreateZExt(VPOParoptUtils::genOmpGetDefaultDevice(InsertPt),
                            Int64Ty);
   }
+  assert(!DeviceNum->getType()->isPointerTy() &&
+        "DeviceID should not be a pointer");
+  DeviceNum = VPOParoptUtils::encodeSubdevice(W, InsertPt, DeviceNum);
 
   // Emit call to check for device availability:
   //

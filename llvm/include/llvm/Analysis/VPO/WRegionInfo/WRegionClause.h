@@ -1182,9 +1182,9 @@ class SubdeviceItem
     void setLength(EXPR Len)    { Length = Len;  }
     void setStride(EXPR Str)    { Stride = Str;  }
 
-    EXPR setLevel()     const   { return Level;  }
+    EXPR getLevel()     const   { return Level;  }
     EXPR getStart()     const   { return Start;  }
-    EXPR getLevel()     const   { return Length; }
+    EXPR getLength()    const   { return Length; }
     EXPR getStride()    const   { return Stride; }
     void print(formatted_raw_ostream &OS, bool PrintType=true) const {
         OS << "SUBDEVICE(" << Level << ", " << Start << ", " << Length << ", "
