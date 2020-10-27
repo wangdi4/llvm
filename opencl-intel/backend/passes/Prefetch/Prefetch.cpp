@@ -592,9 +592,8 @@ bool Prefetch::detectReferencesForPrefetch(Function &F) {
 
     // insert to the list BBs dominated by this one
     DomTreeNode *Node = DT->getNode(BB);
-    for (DomTreeNode::iterator CI = Node->begin(), CE = Node->end();
-         CI != CE; ++CI) {
-      domBB.push_back((*CI)->getBlock());
+    for (auto &&CI : Node->children()) {
+      domBB.push_back(CI->getBlock());
     }
 
     // prefetch only inside loops
