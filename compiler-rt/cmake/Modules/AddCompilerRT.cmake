@@ -396,14 +396,18 @@ set(COMPILER_RT_GTEST_CFLAGS
 )
 
 # Mocking support.
-set(COMPILER_RT_GMOCK_PATH ${LLVM_MAIN_SRC_DIR}/utils/unittest/googlemock)
-set(COMPILER_RT_GMOCK_SOURCE ${COMPILER_RT_GMOCK_PATH}/src/gmock-all.cc)
-set(COMPILER_RT_GMOCK_CFLAGS
-  -DGTEST_NO_LLVM_SUPPORT=1
-  -DGTEST_HAS_RTTI=0
-  -I${COMPILER_RT_GMOCK_PATH}/include
-  -I${COMPILER_RT_GMOCK_PATH}
-)
+# gmock-all.cc uses some new c++ features and can not be compiled by gcc-4.8.5
+# libraries. Disable it temporarily.
+if(NOT INTEL_CUSTOMIZATION)
+  set(COMPILER_RT_GMOCK_PATH ${LLVM_MAIN_SRC_DIR}/utils/unittest/googlemock)
+  set(COMPILER_RT_GMOCK_SOURCE ${COMPILER_RT_GMOCK_PATH}/src/gmock-all.cc)
+  set(COMPILER_RT_GMOCK_CFLAGS
+    -DGTEST_NO_LLVM_SUPPORT=1
+    -DGTEST_HAS_RTTI=0
+    -I${COMPILER_RT_GMOCK_PATH}/include
+    -I${COMPILER_RT_GMOCK_PATH}
+  )
+endif()
 
 append_list_if(COMPILER_RT_DEBUG -DSANITIZER_DEBUG=1 COMPILER_RT_UNITTEST_CFLAGS)
 append_list_if(COMPILER_RT_HAS_WCOVERED_SWITCH_DEFAULT_FLAG -Wno-covered-switch-default COMPILER_RT_UNITTEST_CFLAGS)
