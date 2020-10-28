@@ -1973,17 +1973,18 @@ public:
                                     "Type passed to invoke call", &Call,
                                     DumpCallback);
 
-      if (IsVarArgParam) {
-        // TODO: Add checking of whether the argument is used in the called
-        // function with a type that is compatible with the passed value to make
-        // this less conservative.
-        setAllAliasedTypeSafetyData(
-            ParamInfo, dtrans::UnhandledUse,
-            "Type passed in vararg parameter to function", &Call, DumpCallback);
-        continue;
-      }
-
       if (IsFnLocal && !IsLibFunc) {
+        if (IsVarArgParam) {
+          // TODO: Add checking of whether the argument is used in the called
+          // function with a type that is compatible with the passed value to
+          // make this less conservative.
+          setAllAliasedTypeSafetyData(
+              ParamInfo, dtrans::UnhandledUse,
+              "Type passed in vararg parameter to function", &Call,
+              DumpCallback);
+          continue;
+        }
+
         // Any argument in the VarArgs should have been processed above.
         // Check whether the callee uses the argument, if it doesn't there is no
         // need for the remaining safety flag checks.
@@ -1991,8 +1992,9 @@ public:
         Argument *TargetArg = F->getArg(ArgNum);
         if (TargetArg->user_empty()) {
           DEBUG_WITH_TYPE_P(FNFilter, SAFETY_VERBOSE,
-                            dbgs() << "Ignoring unused argument #" << ArgNum
-                                   << " in call: " << Call << "\n");
+                            dbgs()
+                                << "dtrans-safety: Ignoring unused argument #"
+                                << ArgNum << " in call: " << Call << "\n");
           continue;
         }
 
@@ -2079,16 +2081,86 @@ public:
         continue;
       }
 
-      // Process external calls.
-      // TODO: We need type information about the parameters to external
-      // calls.
-      // Also, special handling will be needed for i8* types that point to the
-      // address an array that starts a structure.
-      //   %struct.net = type { [200 x i8], i64, ... }
-      // A call that takes "getelementptr %struct.net, %struct.net, i64 0, i32
-      // 0, i32 0" needs special handling to only mark the type with "Field
-      // Address Taken" and not "Address taken"
-      setAllAliasedTypeSafetyData(ParamInfo, dtrans::UnhandledUse,
+      if (IsLibFunc) {
+        // Special handling is needed for i8* parameter types when the address
+        // is the first field of a structure, and the field type is an array of
+        // i8 elements. The address of 1st array element is also the address of
+        // the structure.
+        //   %struct.net = type { [200 x i8], i64, ... }
+        //
+        // A call made with the following parameter needs to be handled:
+        //   getelementptr %struct.net, %struct.net, i64 0, i32 0, i32 0
+        //
+        // The structure will have been marked as "Field address taken" above,
+        // we need to avoid also marking the structure type as "Address taken"
+        // when the call is just using the i8 array. We allow this when passing
+        // the pointer to LibFuncs that we know are using the parameters as a
+        // i8* type.
+
+        // Return 'true' if the LibFunc is safe to call with a parameter that
+        // aliases a structure type which starts with an array of i8 elements in
+        // a VarArg parameter. For non-VarArg parameters we should know the
+        // expected type for the parameter, but we would not know this for the
+        // VarArg parameters, so this function is used to treat some calls as
+        // safe.
+        auto IsSafeVarArgLibFunc = [](LibFunc TheLibFunc) {
+          switch (TheLibFunc) {
+          default:
+            break;
+          case LibFunc_dunder_isoc99_fscanf:
+          case LibFunc_dunder_isoc99_scanf:
+          case LibFunc_dunder_isoc99_sscanf:
+          case LibFunc_fprintf:
+          case LibFunc_fscanf:
+          case LibFunc_printf:
+          case LibFunc_scanf:
+          case LibFunc_snprintf:
+          case LibFunc_sscanf:
+          case LibFunc_sprintf:
+          case LibFunc_vfprintf:
+          case LibFunc_vprintf:
+            // NOTE: This is not a complete set of routines that may be safe.
+            // Rather, it is just a set of routines that are important at the
+            // moment.
+            return true;
+          }
+
+          return false;
+        };
+
+        if (((IsVarArgParam && IsSafeVarArgLibFunc(TheLibFunc)) ||
+             ArgExpectedDTransTy == getDTransI8PtrType()) &&
+            PTA.isElementZeroAccess(DomTy, getDTransI8PtrType())) {
+          DEBUG_WITH_TYPE_P(
+              FNFilter, SAFETY_VERBOSE,
+              dbgs()
+                  << "dtrans-safety: Allowing pointer passed to LibFunc: Arg# "
+                  << ArgNum << ": " << Call << "\n");
+          continue;
+        }
+      }
+
+      // There is no way to analyze the type a VarArg parameter may get used as
+      // when the function definition is not available. Mark it as AddressTaken.
+      if (IsVarArgParam) {
+        setAllAliasedTypeSafetyData(
+            ParamInfo, dtrans::AddressTaken,
+            "Type passed as VarArg parameter to non-local function", &Call,
+            DumpCallback);
+        continue;
+      }
+
+      // An aggregate type that escapes to the called function needs to be
+      // marked with a safety flag. If we know the function is a library
+      // function that expected a pointer to an aggregate type then we treat the
+      // type as being a "System object".
+      if (IsLibFunc && ArgExpectedDTransTy &&
+          isTypeOfInterest(ArgExpectedDTransTy))
+        setAllAliasedTypeSafetyData(ParamInfo, dtrans::SystemObject,
+                                    "Type passed to LibFunc", &Call,
+                                    DumpCallback);
+
+      setAllAliasedTypeSafetyData(ParamInfo, dtrans::AddressTaken,
                                   "Type passed to non-local function", &Call,
                                   DumpCallback);
     }
