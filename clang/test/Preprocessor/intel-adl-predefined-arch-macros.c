@@ -20,7 +20,7 @@
 // CHECK_ADL_M32: #define __GFNI__ 1
 // CHECK_ADL_M32: #define __HRESET__ 1
 // CHECK_ADL_M32: #define __INVPCID__ 1
-// CHECK_ADL_M32: #define __KEYLOCKER__ 1
+// CHECK_ADL_M32: #define __KL__ 1
 // CHECK_ADL_M32: #define __LZCNT__ 1
 // CHECK_ADL_M32: #define __MMX__ 1
 // CHECK_ADL_M32: #define __MOVBE__ 1
@@ -79,7 +79,7 @@
 // CHECK_ADL_M64: #define __GFNI__ 1
 // CHECK_ADL_M64: #define __HRESET__ 1
 // CHECK_ADL_M64: #define __INVPCID__ 1
-// CHECK_ADL_M64: #define __KEYLOCKER__ 1
+// CHECK_ADL_M64: #define __KL__ 1
 // CHECK_ADL_M64: #define __LZCNT__ 1
 // CHECK_ADL_M64: #define __MMX__ 1
 // CHECK_ADL_M64: #define __MOVBE__ 1
