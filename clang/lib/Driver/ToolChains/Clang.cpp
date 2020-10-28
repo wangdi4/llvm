@@ -4132,6 +4132,17 @@ static void RenderUnrollOptions(const Driver &D, const ArgList &Args,
 }
 #endif // INTEL_CUSTOMIZATION
 
+/// Check whether the given input tree contains any wrapper actions
+static bool ContainsWrapperAction(const Action *A) {
+  if (isa<OffloadWrapperJobAction>(A))
+    return true;
+  for (const auto &AI : A->inputs())
+    if (ContainsWrapperAction(AI))
+      return true;
+
+  return false;
+}
+
 void Clang::ConstructJob(Compilation &C, const JobAction &JA,
                          const InputInfo &Output, const InputInfoList &Inputs,
                          const ArgList &Args, const char *LinkingOutput) const {
@@ -4605,8 +4616,12 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
       return;
     }
 
+    bool SkipO =
+        Args.hasArg(options::OPT_fsycl_link_EQ) && ContainsWrapperAction(&JA);
+    const Arg *A = Args.getLastArg(options::OPT_O_Group);
     // Manually translate -O4 to -O3; let clang reject others.
-    if (const Arg *A = Args.getLastArg(options::OPT_O_Group)) {
+    // When compiling a wrapped binary, do not optimize.
+    if (!SkipO && A) {
       if (A->getOption().matches(options::OPT_O4) ||
           (A->getOption().matches(options::OPT_Ofast) && D.IsIntelMode())) {
         CmdArgs.push_back("-O3");
