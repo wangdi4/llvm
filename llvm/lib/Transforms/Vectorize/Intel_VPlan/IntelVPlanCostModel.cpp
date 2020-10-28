@@ -696,8 +696,7 @@ void VPlanCostModel::printForVPBasicBlock(raw_ostream &OS,
   OS << "Analyzing VPBasicBlock " << VPBB->getName() << ", total cost: " <<
     getCostNumberString(getCost(VPBB)) << '\n';
   for (const VPInstruction &VPInst : *VPBB)
-    if (PrintTerminatorInst || !isa<VPBranchInst>(VPInst))
-      printForVPInstruction(OS, &VPInst);
+    printForVPInstruction(OS, &VPInst);
 }
 
 void VPlanCostModel::print(raw_ostream &OS, const std::string &Header) {

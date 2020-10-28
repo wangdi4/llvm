@@ -774,8 +774,6 @@ void VPlanDivergenceAnalysis::print(raw_ostream &OS, const VPLoop *VPLp) {
   for (VPBasicBlock *VPBB : RPOT) {
     OS << "Basic Block: " << VPBB->getName() << "\n";
     for (auto &VPInst : *VPBB) {
-      if (!PrintTerminatorInst && isa<VPBranchInst>(VPInst))
-        continue;
       if (isDivergent(VPInst))
         OS << "Divergent: ";
       else
