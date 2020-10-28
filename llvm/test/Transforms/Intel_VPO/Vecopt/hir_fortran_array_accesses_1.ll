@@ -8,18 +8,18 @@
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
-define void @interp_(double* noalias nocapture readonly %"interp_$Z", i32* noalias nocapture readonly %"interp_$M", double* noalias %"interp_$U", i32* noalias %"interp_$N") local_unnamed_addr {
+define void @interp1(double* noalias nocapture readonly %"interp_$Z", i32* noalias nocapture readonly %"interp_$M", double* noalias %"interp_$U", i32* noalias %"interp_$N") local_unnamed_addr {
 ; VPLAN-IR-LABEL:  VPlan after importing plain CFG:
 ; VPLAN-IR-NEXT:  External Defs Start:
-; VPLAN-IR-DAG:     [[VP0:%.*]] = {%"interp_$Z"}
-; VPLAN-IR-DAG:     [[VP1:%.*]] = {i1 + 1}
-; VPLAN-IR-DAG:     [[VP2:%.*]] = {8 * (sext.i32.i64(%"interp_$M5") * sext.i32.i64(%"interp_$M5"))}
-; VPLAN-IR-DAG:     [[VP3:%.*]] = {8 * (sext.i32.i64(%"interp_$N6") * sext.i32.i64(%"interp_$N6"))}
-; VPLAN-IR-DAG:     [[VP4:%.*]] = {i2 + 1}
-; VPLAN-IR-DAG:     [[VP5:%.*]] = {8 * sext.i32.i64(%"interp_$N6")}
-; VPLAN-IR-DAG:     [[VP6:%.*]] = {%"interp_$U"}
-; VPLAN-IR-DAG:     [[VP7:%.*]] = {8 * sext.i32.i64(%"interp_$M5")}
-; VPLAN-IR-DAG:     [[VP8:%.*]] = {2 * i2 + 3}
+; VPLAN-IR-DAG:     [[VP0:%.*]] = {8 * (sext.i32.i64(%"interp_$M5") * sext.i32.i64(%"interp_$M5"))}
+; VPLAN-IR-DAG:     [[VP1:%.*]] = {%"interp_$Z"}
+; VPLAN-IR-DAG:     [[VP2:%.*]] = {8 * (sext.i32.i64(%"interp_$N6") * sext.i32.i64(%"interp_$N6"))}
+; VPLAN-IR-DAG:     [[VP3:%.*]] = {8 * sext.i32.i64(%"interp_$N6")}
+; VPLAN-IR-DAG:     [[VP4:%.*]] = {i1 + 1}
+; VPLAN-IR-DAG:     [[VP5:%.*]] = {2 * i2 + 3}
+; VPLAN-IR-DAG:     [[VP6:%.*]] = {8 * sext.i32.i64(%"interp_$M5")}
+; VPLAN-IR-DAG:     [[VP7:%.*]] = {%"interp_$U"}
+; VPLAN-IR-DAG:     [[VP8:%.*]] = {i2 + 1}
 ; VPLAN-IR-DAG:     [[VP9:%.*]] = {2 * i1 + 3}
 ; VPLAN-IR-NEXT:  External Defs End:
 ; VPLAN-IR-NEXT:    [[BB0:BB[0-9]+]]: # preds:
@@ -32,15 +32,15 @@ define void @interp_(double* noalias nocapture readonly %"interp_$Z", i32* noali
 ; VPLAN-IR-NEXT:     i64 [[VP10:%.*]] = phi  [ i64 0, [[BB1]] ],  [ i64 [[VP11:%.*]], [[BB2]] ]
 ; VPLAN-IR-NEXT:     i64 [[VP12:%.*]] = mul i64 2 i64 [[VP10]]
 ; VPLAN-IR-NEXT:     i64 [[VP13:%.*]] = add i64 [[VP12]] i64 2
-; VPLAN-IR-NEXT:     double* [[VP_SUBSCRIPT:%.*]] = subscript inbounds double* %"interp_$U" {i64 1 : i64 [[VP9]] : i64 [[VP3]] : double*} {i64 1 : i64 [[VP8]] : i64 [[VP5]] : double*} {i64 0 : i64 [[VP13]] : i64 8 : double*}
+; VPLAN-IR-NEXT:     double* [[VP_SUBSCRIPT:%.*]] = subscript inbounds double* %"interp_$U" {i64 1 : i64 [[VP9]] : i64 [[VP2]] : double*} {i64 1 : i64 [[VP5]] : i64 [[VP3]] : double*} {i64 0 : i64 [[VP13]] : i64 8 : double*}
 ; VPLAN-IR-NEXT:     double [[VP_LOAD:%.*]] = load double* [[VP_SUBSCRIPT]]
 ; VPLAN-IR-NEXT:     i64 [[VP14:%.*]] = add i64 [[VP10]] i64 1
-; VPLAN-IR-NEXT:     double* [[VP_SUBSCRIPT_1:%.*]] = subscript inbounds double* %"interp_$Z" {i64 0 : i64 [[VP1]] : i64 [[VP2]] : double*} {i64 0 : i64 [[VP4]] : i64 [[VP7]] : double*} {i64 0 : i64 [[VP14]] : i64 8 : double*}
+; VPLAN-IR-NEXT:     double* [[VP_SUBSCRIPT_1:%.*]] = subscript inbounds double* %"interp_$Z" {i64 0 : i64 [[VP4]] : i64 [[VP0]] : double*} {i64 0 : i64 [[VP8]] : i64 [[VP6]] : double*} {i64 0 : i64 [[VP14]] : i64 8 : double*}
 ; VPLAN-IR-NEXT:     double [[VP_LOAD_1:%.*]] = load double* [[VP_SUBSCRIPT_1]]
 ; VPLAN-IR-NEXT:     double [[VP15:%.*]] = fadd double [[VP_LOAD]] double [[VP_LOAD_1]]
 ; VPLAN-IR-NEXT:     i64 [[VP16:%.*]] = mul i64 2 i64 [[VP10]]
 ; VPLAN-IR-NEXT:     i64 [[VP17:%.*]] = add i64 [[VP16]] i64 2
-; VPLAN-IR-NEXT:     double* [[VP_SUBSCRIPT_2:%.*]] = subscript inbounds double* %"interp_$U" {i64 1 : i64 [[VP9]] : i64 [[VP3]] : double*} {i64 1 : i64 [[VP8]] : i64 [[VP5]] : double*} {i64 0 : i64 [[VP17]] : i64 8 : double*}
+; VPLAN-IR-NEXT:     double* [[VP_SUBSCRIPT_2:%.*]] = subscript inbounds double* %"interp_$U" {i64 1 : i64 [[VP9]] : i64 [[VP2]] : double*} {i64 1 : i64 [[VP5]] : i64 [[VP3]] : double*} {i64 0 : i64 [[VP17]] : i64 8 : double*}
 ; VPLAN-IR-NEXT:     store double [[VP15]] double* [[VP_SUBSCRIPT_2]]
 ; VPLAN-IR-NEXT:     i64 [[VP11]] = add i64 [[VP10]] i64 1
 ; VPLAN-IR-NEXT:     i1 [[VP18:%.*]] = icmp sle i64 [[VP11]] i64 1023
@@ -51,103 +51,38 @@ define void @interp_(double* noalias nocapture readonly %"interp_$Z", i32* noali
 ; VPLAN-IR-EMPTY:
 ; VPLAN-IR-NEXT:    [[BB4]]: # preds: [[BB3]]
 ; VPLAN-IR-NEXT:     br <External Block>
-; VPLAN-IR-EMPTY:
-; VPLAN-IR-NEXT:  VPlan after importing plain CFG:
-; VPLAN-IR-NEXT:  External Defs Start:
-; VPLAN-IR-DAG:     [[VP19:%.*]] = {%"interp_$Z"}
-; VPLAN-IR-DAG:     [[VP20:%.*]] = {2 * i2 + 3}
-; VPLAN-IR-DAG:     [[VP21:%.*]] = {2 * i1 + 3}
-; VPLAN-IR-DAG:     [[VP22:%.*]] = {8 * (sext.i32.i64(%"interp_$N6") * sext.i32.i64(%"interp_$N6"))}
-; VPLAN-IR-DAG:     [[VP23:%.*]] = {%"interp_$U"}
-; VPLAN-IR-DAG:     [[VP24:%.*]] = {i2 + 1}
-; VPLAN-IR-DAG:     [[VP25:%.*]] = {8 * sext.i32.i64(%"interp_$N6")}
-; VPLAN-IR-DAG:     [[VP26:%.*]] = {8 * (sext.i32.i64(%"interp_$M5") * sext.i32.i64(%"interp_$M5"))}
-; VPLAN-IR-DAG:     [[VP27:%.*]] = {i1 + 1}
-; VPLAN-IR-DAG:     [[VP28:%.*]] = {8 * sext.i32.i64(%"interp_$M5")}
-; VPLAN-IR-NEXT:  External Defs End:
-; VPLAN-IR-NEXT:    [[BB5:BB[0-9]+]]: # preds:
-; VPLAN-IR-NEXT:     br [[BB6:BB[0-9]+]]
-; VPLAN-IR-EMPTY:
-; VPLAN-IR-NEXT:    [[BB6]]: # preds: [[BB5]]
-; VPLAN-IR-NEXT:     br [[BB7:BB[0-9]+]]
-; VPLAN-IR-EMPTY:
-; VPLAN-IR-NEXT:    [[BB7]]: # preds: [[BB6]], [[BB7]]
-; VPLAN-IR-NEXT:     i64 [[VP29:%.*]] = phi  [ i64 0, [[BB6]] ],  [ i64 [[VP30:%.*]], [[BB7]] ]
-; VPLAN-IR-NEXT:     i64 [[VP31:%.*]] = mul i64 2 i64 [[VP29]]
-; VPLAN-IR-NEXT:     i64 [[VP32:%.*]] = add i64 [[VP31]] i64 1
-; VPLAN-IR-NEXT:     double* [[VP_SUBSCRIPT_3:%.*]] = subscript inbounds double* %"interp_$U" {i64 1 : i64 [[VP21]] : i64 [[VP22]] : double*} {i64 1 : i64 [[VP20]] : i64 [[VP25]] : double*} {i64 0 : i64 [[VP32]] : i64 8 : double*}
-; VPLAN-IR-NEXT:     double [[VP_LOAD_4:%.*]] = load double* [[VP_SUBSCRIPT_3]]
-; VPLAN-IR-NEXT:     double* [[VP_SUBSCRIPT_4:%.*]] = subscript inbounds double* %"interp_$Z" {i64 0 : i64 [[VP27]] : i64 [[VP26]] : double*} {i64 0 : i64 [[VP24]] : i64 [[VP28]] : double*} {i64 0 : i64 [[VP29]] : i64 8 : double*}
-; VPLAN-IR-NEXT:     double [[VP_LOAD_3:%.*]] = load double* [[VP_SUBSCRIPT_4]]
-; VPLAN-IR-NEXT:     i64 [[VP39:%.*]] = add i64 [[VP29]] i64 1
-; VPLAN-IR-NEXT:     double* [[VP_SUBSCRIPT_5:%.*]] = subscript inbounds double* %"interp_$Z" {i64 0 : i64 [[VP27]] : i64 [[VP26]] : double*} {i64 0 : i64 [[VP24]] : i64 [[VP28]] : double*} {i64 0 : i64 [[VP39]] : i64 8 : double*}
-; VPLAN-IR-NEXT:     double [[VP_LOAD_2:%.*]] = load double* [[VP_SUBSCRIPT_5]]
-; VPLAN-IR-NEXT:     double [[VP33:%.*]] = fadd double [[VP_LOAD_3]] double [[VP_LOAD_2]]
-; VPLAN-IR-NEXT:     double [[VP38:%.*]] = fmul double [[VP33]] double 5.000000e-01
-; VPLAN-IR-NEXT:     double [[VP34:%.*]] = fadd double [[VP_LOAD_4]] double [[VP38]]
-; VPLAN-IR-NEXT:     i64 [[VP35:%.*]] = mul i64 2 i64 [[VP29]]
-; VPLAN-IR-NEXT:     i64 [[VP36:%.*]] = add i64 [[VP35]] i64 1
-; VPLAN-IR-NEXT:     double* [[VP_SUBSCRIPT_6:%.*]] = subscript inbounds double* %"interp_$U" {i64 1 : i64 [[VP21]] : i64 [[VP22]] : double*} {i64 1 : i64 [[VP20]] : i64 [[VP25]] : double*} {i64 0 : i64 [[VP36]] : i64 8 : double*}
-; VPLAN-IR-NEXT:     store double [[VP34]] double* [[VP_SUBSCRIPT_6]]
-; VPLAN-IR-NEXT:     i64 [[VP30]] = add i64 [[VP29]] i64 1
-; VPLAN-IR-NEXT:     i1 [[VP37:%.*]] = icmp sle i64 [[VP30]] i64 1023
-; VPLAN-IR-NEXT:     br i1 [[VP37]], [[BB7]], [[BB8:BB[0-9]+]]
-; VPLAN-IR-EMPTY:
-; VPLAN-IR-NEXT:    [[BB8]]: # preds: [[BB7]]
-; VPLAN-IR-NEXT:     br [[BB9:BB[0-9]+]]
-; VPLAN-IR-EMPTY:
-; VPLAN-IR-NEXT:    [[BB9]]: # preds: [[BB8]]
-; VPLAN-IR-NEXT:     br <External Block>
 ;
 ; MIXED-CG-LABEL:  *** IR Dump After VPlan Vectorization Driver HIR ***
-; MIXED-CG:         BEGIN REGION { modified }
-; MIXED-CG-NEXT:          + DO i1 = 0, zext.i32.i64(%"interp_$M5") + -3, 1   <DO_LOOP>
-; MIXED-CG-NEXT:          |   + DO i2 = 0, zext.i32.i64(%"interp_$M5") + -3, 1   <DO_LOOP>
-; MIXED-CG-NEXT:          |   |   + DO i3 = 0, 1023, 2   <DO_LOOP> <novectorize>
-; MIXED-CG-NEXT:          |   |   |   %.vec = (<2 x double>*)(%"interp_$U")[2 * i1 + 3][2 * i2 + 3][2 * i3 + <i64 0, i64 2> + 2];
-; MIXED-CG-NEXT:          |   |   |   %.vec5 = (<2 x double>*)(%"interp_$Z")[i1 + 1][i2 + 1][i3 + 1];
-; MIXED-CG-NEXT:          |   |   |   %add86.vec = %.vec  +  %.vec5;
-; MIXED-CG-NEXT:          |   |   |   (<2 x double>*)(%"interp_$U")[2 * i1 + 3][2 * i2 + 3][2 * i3 + <i64 0, i64 2> + 2] = %add86.vec;
-; MIXED-CG-NEXT:          |   |   + END LOOP
-; MIXED-CG-NEXT:          |   |
-; MIXED-CG-NEXT:          |   |
-; MIXED-CG-NEXT:          |   |   + DO i3 = 0, 1023, 2   <DO_LOOP> <novectorize>
-; MIXED-CG-NEXT:          |   |   |   %.vec6 = (<2 x double>*)(%"interp_$U")[2 * i1 + 3][2 * i2 + 3][2 * i3 + <i64 0, i64 2> + 1];
-; MIXED-CG-NEXT:          |   |   |   %.vec7 = (<2 x double>*)(%"interp_$Z")[i1 + 1][i2 + 1][i3];
-; MIXED-CG-NEXT:          |   |   |   %.vec8 = (<2 x double>*)(%"interp_$Z")[i1 + 1][i2 + 1][i3 + 1];
-; MIXED-CG-NEXT:          |   |   |   %add162.vec = %.vec7  +  %.vec8;
-; MIXED-CG-NEXT:          |   |   |   %mul163.vec = %add162.vec  *  5.000000e-01;
-; MIXED-CG-NEXT:          |   |   |   %add164.vec = %.vec6  +  %mul163.vec;
-; MIXED-CG-NEXT:          |   |   |   (<2 x double>*)(%"interp_$U")[2 * i1 + 3][2 * i2 + 3][2 * i3 + <i64 0, i64 2> + 1] = %add164.vec;
-; MIXED-CG-NEXT:          |   |   + END LOOP
-; MIXED-CG-NEXT:          |   + END LOOP
-; MIXED-CG-NEXT:          + END LOOP
-; MIXED-CG-NEXT:    END REGION
+; MIXED-CG-NEXT:  Function: interp1
+; MIXED-CG-EMPTY:
+; MIXED-CG-NEXT:  <0>          BEGIN REGION { modified }
+; MIXED-CG-NEXT:  <50>               + DO i1 = 0, zext.i32.i64(%"interp_$M5") + -3, 1   <DO_LOOP>
+; MIXED-CG-NEXT:  <51>               |   + DO i2 = 0, zext.i32.i64(%"interp_$M5") + -3, 1   <DO_LOOP>
+; MIXED-CG-NEXT:  <55>               |   |   + DO i3 = 0, 1023, 2   <DO_LOOP> <novectorize>
+; MIXED-CG-NEXT:  <56>               |   |   |   [[DOTVEC0:%.*]] = (<2 x double>*)(%"interp_$U")[2 * i1 + 3][2 * i2 + 3][2 * i3 + <i64 0, i64 2> + 2]
+; MIXED-CG-NEXT:  <57>               |   |   |   [[DOTVEC30:%.*]] = (<2 x double>*)(%"interp_$Z")[i1 + 1][i2 + 1][i3 + 1]
+; MIXED-CG-NEXT:  <58>               |   |   |   [[ADD86_VEC0:%.*]] = [[DOTVEC0]]  +  [[DOTVEC30]]
+; MIXED-CG-NEXT:  <59>               |   |   |   (<2 x double>*)(%"interp_$U")[2 * i1 + 3][2 * i2 + 3][2 * i3 + <i64 0, i64 2> + 2] = [[ADD86_VEC0]]
+; MIXED-CG-NEXT:  <55>               |   |   + END LOOP
+; MIXED-CG-NEXT:  <51>               |   + END LOOP
+; MIXED-CG-NEXT:  <50>               + END LOOP
+; MIXED-CG-NEXT:  <0>          END REGION
 ;
 ; VPVALUE-CG-LABEL:  *** IR Dump After VPlan Vectorization Driver HIR ***
-; VPVALUE-CG:          BEGIN REGION { modified }
-; VPVALUE-CG-NEXT:           + DO i1 = 0, zext.i32.i64(%"interp_$M5") + -3, 1   <DO_LOOP>
-; VPVALUE-CG-NEXT:           |   + DO i2 = 0, zext.i32.i64(%"interp_$M5") + -3, 1   <DO_LOOP>
-; VPVALUE-CG-NEXT:           |   |   + DO i3 = 0, 1023, 2   <DO_LOOP> <novectorize>
-; VPVALUE-CG-NEXT:           |   |   |   %.vec = (<2 x double>*)(%"interp_$U")[2 * i1 + 3][2 * i2 + 3][2 * i3 + 2 * <i64 0, i64 1> + 2];
-; VPVALUE-CG-NEXT:           |   |   |   %.vec5 = (<2 x double>*)(%"interp_$Z")[i1 + 1][i2 + 1][i3 + 1];
-; VPVALUE-CG-NEXT:           |   |   |   %.vec6 = %.vec  +  %.vec5;
-; VPVALUE-CG-NEXT:           |   |   |   (<2 x double>*)(%"interp_$U")[2 * i1 + 3][2 * i2 + 3][2 * i3 + 2 * <i64 0, i64 1> + 2] = %.vec6;
-; VPVALUE-CG-NEXT:           |   |   + END LOOP
-; VPVALUE-CG-NEXT:           |   |
-; VPVALUE-CG-NEXT:           |   |
-; VPVALUE-CG-NEXT:           |   |   + DO i3 = 0, 1023, 2   <DO_LOOP> <novectorize>
-; VPVALUE-CG-NEXT:           |   |   |   %.vec7 = (<2 x double>*)(%"interp_$U")[2 * i1 + 3][2 * i2 + 3][2 * i3 + 2 * <i64 0, i64 1> + 1];
-; VPVALUE-CG-NEXT:           |   |   |   %.vec8 = (<2 x double>*)(%"interp_$Z")[i1 + 1][i2 + 1][i3];
-; VPVALUE-CG-NEXT:           |   |   |   %.vec9 = (<2 x double>*)(%"interp_$Z")[i1 + 1][i2 + 1][i3 + 1];
-; VPVALUE-CG-NEXT:           |   |   |   %.vec10 = %.vec8  +  %.vec9;
-; VPVALUE-CG-NEXT:           |   |   |   %.vec11 = %.vec10  *  5.000000e-01;
-; VPVALUE-CG-NEXT:           |   |   |   %.vec12 = %.vec7  +  %.vec11;
-; VPVALUE-CG-NEXT:           |   |   |   (<2 x double>*)(%"interp_$U")[2 * i1 + 3][2 * i2 + 3][2 * i3 + 2 * <i64 0, i64 1> + 1] = %.vec12;
-; VPVALUE-CG-NEXT:           |   |   + END LOOP
-; VPVALUE-CG-NEXT:           |   + END LOOP
-; VPVALUE-CG-NEXT:           + END LOOP
-; VPVALUE-CG-NEXT:     END REGION
+; VPVALUE-CG-NEXT:  Function: interp1
+; VPVALUE-CG-EMPTY:
+; VPVALUE-CG-NEXT:  <0>          BEGIN REGION { modified }
+; VPVALUE-CG-NEXT:  <50>               + DO i1 = 0, zext.i32.i64(%"interp_$M5") + -3, 1   <DO_LOOP>
+; VPVALUE-CG-NEXT:  <51>               |   + DO i2 = 0, zext.i32.i64(%"interp_$M5") + -3, 1   <DO_LOOP>
+; VPVALUE-CG-NEXT:  <55>               |   |   + DO i3 = 0, 1023, 2   <DO_LOOP> <novectorize>
+; VPVALUE-CG-NEXT:  <56>               |   |   |   [[DOTVEC0:%.*]] = (<2 x double>*)(%"interp_$U")[2 * i1 + 3][2 * i2 + 3][2 * i3 + 2 * <i64 0, i64 1> + 2]
+; VPVALUE-CG-NEXT:  <57>               |   |   |   [[DOTVEC30:%.*]] = (<2 x double>*)(%"interp_$Z")[i1 + 1][i2 + 1][i3 + 1]
+; VPVALUE-CG-NEXT:  <58>               |   |   |   [[DOTVEC40:%.*]] = [[DOTVEC0]]  +  [[DOTVEC30]]
+; VPVALUE-CG-NEXT:  <59>               |   |   |   (<2 x double>*)(%"interp_$U")[2 * i1 + 3][2 * i2 + 3][2 * i3 + 2 * <i64 0, i64 1> + 2] = [[DOTVEC40]]
+; VPVALUE-CG-NEXT:  <55>               |   |   + END LOOP
+; VPVALUE-CG-NEXT:  <51>               |   + END LOOP
+; VPVALUE-CG-NEXT:  <50>               + END LOOP
+; VPVALUE-CG-NEXT:  <0>          END REGION
 ;
 alloca:
   %"interp_$M5" = load i32, i32* %"interp_$M", align 4
@@ -202,34 +137,176 @@ bb16:                                             ; preds = %bb16, %bb16.prehead
   store double %add86, double* %10, align 8
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, 1026
-  br i1 %exitcond, label %bb43.preheader, label %bb16
+  br i1 %exitcond, label %bb44, label %bb16
 
-bb43.preheader:                                   ; preds = %bb16
+bb44:                                             ; preds = %bb16
+  %indvars.iv.next285 = add nuw nsw i64 %indvars.iv284, 1
+  %exitcond291 = icmp eq i64 %indvars.iv.next285, %wide.trip.count282.le
+  br i1 %exitcond291, label %bb3, label %bb16.preheader
+
+bb3:                                              ; preds = %bb44
+  %indvars.iv.next293 = add nuw nsw i64 %indvars.iv292, 1
+  %exitcond299 = icmp eq i64 %indvars.iv.next293, %wide.trip.count282.le.le
+  br i1 %exitcond299, label %bb77.loopexit, label %bb12.preheader
+
+bb77.loopexit:                                    ; preds = %bb3
+  br label %bb77
+
+bb77:                                             ; preds = %bb77.loopexit, %alloca
+  ret void
+}
+
+define void @interp2(double* noalias nocapture readonly %"interp_$Z", i32* noalias nocapture readonly %"interp_$M", double* noalias %"interp_$U", i32* noalias %"interp_$N") local_unnamed_addr {
+; VPLAN-IR-LABEL:  VPlan after importing plain CFG:
+; VPLAN-IR-NEXT:  External Defs Start:
+; VPLAN-IR-DAG:     [[VP0:%.*]] = {8 * (sext.i32.i64(%"interp_$M5") * sext.i32.i64(%"interp_$M5"))}
+; VPLAN-IR-DAG:     [[VP1:%.*]] = {%"interp_$U"}
+; VPLAN-IR-DAG:     [[VP2:%.*]] = {2 * i2 + 3}
+; VPLAN-IR-DAG:     [[VP3:%.*]] = {i1 + 1}
+; VPLAN-IR-DAG:     [[VP4:%.*]] = {8 * sext.i32.i64(%"interp_$M5")}
+; VPLAN-IR-DAG:     [[VP5:%.*]] = {%"interp_$Z"}
+; VPLAN-IR-DAG:     [[VP6:%.*]] = {2 * i1 + 3}
+; VPLAN-IR-DAG:     [[VP7:%.*]] = {8 * sext.i32.i64(%"interp_$N6")}
+; VPLAN-IR-DAG:     [[VP8:%.*]] = {i2 + 1}
+; VPLAN-IR-DAG:     [[VP9:%.*]] = {8 * (sext.i32.i64(%"interp_$N6") * sext.i32.i64(%"interp_$N6"))}
+; VPLAN-IR-NEXT:  External Defs End:
+; VPLAN-IR-NEXT:    [[BB0:BB[0-9]+]]: # preds:
+; VPLAN-IR-NEXT:     br [[BB1:BB[0-9]+]]
+; VPLAN-IR-EMPTY:
+; VPLAN-IR-NEXT:    [[BB1]]: # preds: [[BB0]]
+; VPLAN-IR-NEXT:     br [[BB2:BB[0-9]+]]
+; VPLAN-IR-EMPTY:
+; VPLAN-IR-NEXT:    [[BB2]]: # preds: [[BB1]], [[BB2]]
+; VPLAN-IR-NEXT:     i64 [[VP10:%.*]] = phi  [ i64 0, [[BB1]] ],  [ i64 [[VP11:%.*]], [[BB2]] ]
+; VPLAN-IR-NEXT:     i64 [[VP12:%.*]] = mul i64 2 i64 [[VP10]]
+; VPLAN-IR-NEXT:     i64 [[VP13:%.*]] = add i64 [[VP12]] i64 1
+; VPLAN-IR-NEXT:     double* [[VP_SUBSCRIPT:%.*]] = subscript inbounds double* %"interp_$U" {i64 1 : i64 [[VP6]] : i64 [[VP9]] : double*} {i64 1 : i64 [[VP2]] : i64 [[VP7]] : double*} {i64 0 : i64 [[VP13]] : i64 8 : double*}
+; VPLAN-IR-NEXT:     double [[VP_LOAD:%.*]] = load double* [[VP_SUBSCRIPT]]
+; VPLAN-IR-NEXT:     double* [[VP_SUBSCRIPT_1:%.*]] = subscript inbounds double* %"interp_$Z" {i64 0 : i64 [[VP3]] : i64 [[VP0]] : double*} {i64 0 : i64 [[VP8]] : i64 [[VP4]] : double*} {i64 0 : i64 [[VP10]] : i64 8 : double*}
+; VPLAN-IR-NEXT:     double [[VP_LOAD_1:%.*]] = load double* [[VP_SUBSCRIPT_1]]
+; VPLAN-IR-NEXT:     i64 [[VP14:%.*]] = add i64 [[VP10]] i64 1
+; VPLAN-IR-NEXT:     double* [[VP_SUBSCRIPT_2:%.*]] = subscript inbounds double* %"interp_$Z" {i64 0 : i64 [[VP3]] : i64 [[VP0]] : double*} {i64 0 : i64 [[VP8]] : i64 [[VP4]] : double*} {i64 0 : i64 [[VP14]] : i64 8 : double*}
+; VPLAN-IR-NEXT:     double [[VP_LOAD_2:%.*]] = load double* [[VP_SUBSCRIPT_2]]
+; VPLAN-IR-NEXT:     double [[VP15:%.*]] = fadd double [[VP_LOAD_1]] double [[VP_LOAD_2]]
+; VPLAN-IR-NEXT:     double [[VP16:%.*]] = fmul double [[VP15]] double 5.000000e-01
+; VPLAN-IR-NEXT:     double [[VP17:%.*]] = fadd double [[VP_LOAD]] double [[VP16]]
+; VPLAN-IR-NEXT:     i64 [[VP18:%.*]] = mul i64 2 i64 [[VP10]]
+; VPLAN-IR-NEXT:     i64 [[VP19:%.*]] = add i64 [[VP18]] i64 1
+; VPLAN-IR-NEXT:     double* [[VP_SUBSCRIPT_3:%.*]] = subscript inbounds double* %"interp_$U" {i64 1 : i64 [[VP6]] : i64 [[VP9]] : double*} {i64 1 : i64 [[VP2]] : i64 [[VP7]] : double*} {i64 0 : i64 [[VP19]] : i64 8 : double*}
+; VPLAN-IR-NEXT:     store double [[VP17]] double* [[VP_SUBSCRIPT_3]]
+; VPLAN-IR-NEXT:     i64 [[VP11]] = add i64 [[VP10]] i64 1
+; VPLAN-IR-NEXT:     i1 [[VP20:%.*]] = icmp sle i64 [[VP11]] i64 1023
+; VPLAN-IR-NEXT:     br i1 [[VP20]], [[BB2]], [[BB3:BB[0-9]+]]
+; VPLAN-IR-EMPTY:
+; VPLAN-IR-NEXT:    [[BB3]]: # preds: [[BB2]]
+; VPLAN-IR-NEXT:     br [[BB4:BB[0-9]+]]
+; VPLAN-IR-EMPTY:
+; VPLAN-IR-NEXT:    [[BB4]]: # preds: [[BB3]]
+; VPLAN-IR-NEXT:     br <External Block>
+;
+; MIXED-CG-LABEL:  *** IR Dump After VPlan Vectorization Driver HIR ***
+; MIXED-CG-NEXT:  Function: interp2
+; MIXED-CG-EMPTY:
+; MIXED-CG-NEXT:  <0>          BEGIN REGION { modified }
+; MIXED-CG-NEXT:  <63>               + DO i1 = 0, zext.i32.i64(%"interp_$M5") + -3, 1   <DO_LOOP>
+; MIXED-CG-NEXT:  <64>               |   + DO i2 = 0, zext.i32.i64(%"interp_$M5") + -3, 1   <DO_LOOP>
+; MIXED-CG-NEXT:  <68>               |   |   + DO i3 = 0, 1023, 2   <DO_LOOP> <novectorize>
+; MIXED-CG-NEXT:  <69>               |   |   |   [[DOTVEC0:%.*]] = (<2 x double>*)(%"interp_$U")[2 * i1 + 3][2 * i2 + 3][2 * i3 + <i64 0, i64 2> + 1]
+; MIXED-CG-NEXT:  <70>               |   |   |   [[DOTVEC30:%.*]] = (<2 x double>*)(%"interp_$Z")[i1 + 1][i2 + 1][i3]
+; MIXED-CG-NEXT:  <71>               |   |   |   [[DOTVEC40:%.*]] = (<2 x double>*)(%"interp_$Z")[i1 + 1][i2 + 1][i3 + 1]
+; MIXED-CG-NEXT:  <72>               |   |   |   [[ADD162_VEC0:%.*]] = [[DOTVEC30]]  +  [[DOTVEC40]]
+; MIXED-CG-NEXT:  <73>               |   |   |   [[MUL163_VEC0:%.*]] = [[ADD162_VEC0]]  *  5.000000e-01
+; MIXED-CG-NEXT:  <74>               |   |   |   [[ADD164_VEC0:%.*]] = [[DOTVEC0]]  +  [[MUL163_VEC0]]
+; MIXED-CG-NEXT:  <75>               |   |   |   (<2 x double>*)(%"interp_$U")[2 * i1 + 3][2 * i2 + 3][2 * i3 + <i64 0, i64 2> + 1] = [[ADD164_VEC0]]
+; MIXED-CG-NEXT:  <68>               |   |   + END LOOP
+; MIXED-CG-NEXT:  <64>               |   + END LOOP
+; MIXED-CG-NEXT:  <63>               + END LOOP
+; MIXED-CG-NEXT:  <0>          END REGION
+;
+; VPVALUE-CG-LABEL:  *** IR Dump After VPlan Vectorization Driver HIR ***
+; VPVALUE-CG-NEXT:  Function: interp2
+; VPVALUE-CG-EMPTY:
+; VPVALUE-CG-NEXT:  <0>          BEGIN REGION { modified }
+; VPVALUE-CG-NEXT:  <63>               + DO i1 = 0, zext.i32.i64(%"interp_$M5") + -3, 1   <DO_LOOP>
+; VPVALUE-CG-NEXT:  <64>               |   + DO i2 = 0, zext.i32.i64(%"interp_$M5") + -3, 1   <DO_LOOP>
+; VPVALUE-CG-NEXT:  <68>               |   |   + DO i3 = 0, 1023, 2   <DO_LOOP> <novectorize>
+; VPVALUE-CG-NEXT:  <69>               |   |   |   [[DOTVEC0:%.*]] = (<2 x double>*)(%"interp_$U")[2 * i1 + 3][2 * i2 + 3][2 * i3 + 2 * <i64 0, i64 1> + 1]
+; VPVALUE-CG-NEXT:  <70>               |   |   |   [[DOTVEC30:%.*]] = (<2 x double>*)(%"interp_$Z")[i1 + 1][i2 + 1][i3]
+; VPVALUE-CG-NEXT:  <71>               |   |   |   [[DOTVEC40:%.*]] = (<2 x double>*)(%"interp_$Z")[i1 + 1][i2 + 1][i3 + 1]
+; VPVALUE-CG-NEXT:  <72>               |   |   |   [[DOTVEC50:%.*]] = [[DOTVEC30]]  +  [[DOTVEC40]]
+; VPVALUE-CG-NEXT:  <73>               |   |   |   [[DOTVEC60:%.*]] = [[DOTVEC50]]  *  5.000000e-01
+; VPVALUE-CG-NEXT:  <74>               |   |   |   [[DOTVEC70:%.*]] = [[DOTVEC0]]  +  [[DOTVEC60]]
+; VPVALUE-CG-NEXT:  <75>               |   |   |   (<2 x double>*)(%"interp_$U")[2 * i1 + 3][2 * i2 + 3][2 * i3 + 2 * <i64 0, i64 1> + 1] = [[DOTVEC70]]
+; VPVALUE-CG-NEXT:  <68>               |   |   + END LOOP
+; VPVALUE-CG-NEXT:  <64>               |   + END LOOP
+; VPVALUE-CG-NEXT:  <63>               + END LOOP
+; VPVALUE-CG-NEXT:  <0>          END REGION
+;
+alloca:
+  %"interp_$M5" = load i32, i32* %"interp_$M", align 4
+  %"interp_$N6" = load i32, i32* %"interp_$N", align 4
+  %int_sext = sext i32 %"interp_$N6" to i64
+  %mul = shl nsw i64 %int_sext, 3
+  %mul41 = mul nsw i64 %mul, %int_sext
+  %int_sext49 = sext i32 %"interp_$M5" to i64
+  %mul50 = shl nsw i64 %int_sext49, 3
+  %mul54 = mul nsw i64 %mul50, %int_sext49
+  %rel = icmp slt i32 %"interp_$M5", 3
+  br i1 %rel, label %bb77, label %bb8.preheader
+
+bb8.preheader:                                    ; preds = %alloca
+  %wide.trip.count = zext i32 %"interp_$M5" to i64
+  %wide.trip.count282 = zext i32 %"interp_$M5" to i64
+  %wide.trip.count282.le = zext i32 %"interp_$M5" to i64
+  %wide.trip.count282.le.le = zext i32 %"interp_$M5" to i64
+  br label %bb12.preheader
+
+bb12.preheader:                                   ; preds = %bb8.preheader, %bb3
+  %indvars.iv292 = phi i64 [ 2, %bb8.preheader ], [ %indvars.iv.next293, %bb3 ]
+  %indvars.iv292.tr = trunc i64 %indvars.iv292 to i32
+  %0 = shl i32 %indvars.iv292.tr, 1
+  %1 = add i32 %0, -1
+  %int_sext75 = sext i32 %1 to i64
+  %2 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %mul41, double* %"interp_$U", i64 %int_sext75)
+  %3 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %mul54, double* %"interp_$Z", i64 %indvars.iv292)
+  br label %bb16.preheader
+
+bb16.preheader:                                   ; preds = %bb12.preheader, %bb44
+  %indvars.iv284 = phi i64 [ 2, %bb12.preheader ], [ %indvars.iv.next285, %bb44 ]
+  %indvars.iv284.tr = trunc i64 %indvars.iv284 to i32
+  %4 = shl i32 %indvars.iv284.tr, 1
+  %5 = add i32 %4, -1
+  %int_sext70 = sext i32 %5 to i64
+  %6 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %mul, double* %2, i64 %int_sext70)
+  %7 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %mul50, double* %3, i64 %indvars.iv284)
+  br label %bb43.preheader
+
+bb43.preheader:                                   ; preds = %bb16.preheader
   %indvars.iv284.tr301 = trunc i64 %indvars.iv284 to i32
-  %14 = shl i32 %indvars.iv284.tr301, 1
-  %15 = add i32 %14, -1
-  %int_sext136 = sext i32 %15 to i64
-  %16 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %mul, double* nonnull %2, i64 %int_sext136)
-  %17 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %mul50, double* nonnull %3, i64 %indvars.iv284)
+  %8 = shl i32 %indvars.iv284.tr301, 1
+  %9 = add i32 %8, -1
+  %int_sext136 = sext i32 %9 to i64
+  %10 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %mul, double* nonnull %2, i64 %int_sext136)
+  %11 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %mul50, double* nonnull %3, i64 %indvars.iv284)
   br label %bb43
 
 bb43:                                             ; preds = %bb43, %bb43.preheader
   %indvars.iv277 = phi i64 [ 2, %bb43.preheader ], [ %indvars.iv.next278, %bb43 ]
   %indvars.iv277.tr = trunc i64 %indvars.iv277 to i32
-  %18 = shl i32 %indvars.iv277.tr, 1
-  %19 = add i32 %18, -2
-  %int_sext131 = sext i32 %19 to i64
-  %20 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* %16, i64 %int_sext131)
-  %21 = load double, double* %20, align 8
-  %22 = add nsw i64 %indvars.iv277, -1
-  %23 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* %17, i64 %22)
-  %24 = load double, double* %23, align 8
-  %25 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* %17, i64 %indvars.iv277)
-  %26 = load double, double* %25, align 8
-  %add162 = fadd double %24, %26
+  %12 = shl i32 %indvars.iv277.tr, 1
+  %13 = add i32 %12, -2
+  %int_sext131 = sext i32 %13 to i64
+  %14 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* %10, i64 %int_sext131)
+  %15 = load double, double* %14, align 8
+  %16 = add nsw i64 %indvars.iv277, -1
+  %17 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* %11, i64 %16)
+  %18 = load double, double* %17, align 8
+  %19 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* %11, i64 %indvars.iv277)
+  %20 = load double, double* %19, align 8
+  %add162 = fadd double %18, %20
   %mul163 = fmul double %add162, 5.000000e-01
-  %add164 = fadd double %21, %mul163
-  store double %add164, double* %20, align 8
+  %add164 = fadd double %15, %mul163
+  store double %add164, double* %14, align 8
   %indvars.iv.next278 = add nuw nsw i64 %indvars.iv277, 1
   %exitcond283 = icmp eq i64 %indvars.iv.next278, 1026
   br i1 %exitcond283, label %bb44, label %bb43
