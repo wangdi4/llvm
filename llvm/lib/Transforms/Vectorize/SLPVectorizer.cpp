@@ -5380,10 +5380,6 @@ void BoUpSLP::buildTree_rec(ArrayRef<Value *> VL_, unsigned Depth,
             findRootOrder(CurrentOrder);
             ++NumOpsWantToKeepOrder[CurrentOrder];
           }
-#if INTEL_CUSTOMIZATION
-          // Use the split-load support in codegen for the consecutive loads.
-          VectorizableTree.back()->SplitLoadGroups.emplace_back(0, VL.size());
-#endif // INTEL_CUSTOMIZATION
           return;
         }
       }
@@ -7206,23 +7202,15 @@ Value *BoUpSLP::vectorizeTree(TreeEntry *E) {
       return V;
     }
     case Instruction::Load: {
-#if INTEL_CUSTOMIZATION
-      // We encapsulate the load code generation code in a lambda function so
-      // that we can call it for each of the split loads.
-      auto createVecLoad = [&](TreeEntry *E, Value *VL0, VectorType *VecTy) {
-#endif // INTEL_CUSTOMIZATION
       // Loads are inserted at the head of the tree because we don't want to
       // sink them all the way down past store instructions.
+#if INTEL_CUSTOMIZATION
+      if (E->SplitLoadGroups.empty()) {
+#endif // INTEL_CUSTOMIZATION
       bool IsReorder = E->updateStateIfReorder();
       if (IsReorder)
         VL0 = E->getMainOp();
-#if INTEL_CUSTOMIZATION
-      // Split-loads need both vector loads and shuffles. We should emit them
-      // one by one in a sequence. So don't touch the insertion point again as
-      // it has already been set at the beginning.
-#else
       setInsertPointAfterBundle(E);
-#endif // INTEL_CUSTOMIZATION
       LoadInst *LI = cast<LoadInst>(VL0);
       unsigned AS = LI->getPointerAddressSpace();
 
@@ -7243,34 +7231,51 @@ Value *BoUpSLP::vectorizeTree(TreeEntry *E) {
         inversePermutation(E->ReorderIndices, Mask);
         V = Builder.CreateShuffleVector(V, Mask, "reorder_shuffle");
       }
-#if INTEL_CUSTOMIZATION
-      // Reuse shuffling is handled outside of the lambda.
-#else
       if (NeedToShuffleReuses) {
         // TODO: Merge this shuffle with the ReorderShuffleMask.
         V = Builder.CreateShuffleVector(V, E->ReuseShuffleIndices, "shuffle");
       }
-#endif // INTEL_CUSTOMIZATION
       E->VectorizedValue = V;
       ++NumVectorInstructions;
       return V;
 #if INTEL_CUSTOMIZATION
+      }
+
+      assert(E->ReorderIndices.empty() && "Unsupported split-load case.");
+
+      auto createVecLoad = [&](TreeEntry *E, Value *VL0, VectorType *VecLdTy) {
+        auto *LI = cast<LoadInst>(VL0);
+        unsigned AS = LI->getPointerAddressSpace();
+
+        Value *VecPtr = Builder.CreateBitCast(LI->getPointerOperand(),
+                                              VecLdTy->getPointerTo(AS));
+
+        // The pointer operand uses an in-tree scalar so we add the new
+        // BitCast to ExternalUses list to make sure that an extract will be
+        // generated in the future.
+        Value *PO = LI->getPointerOperand();
+        if (getTreeEntry(PO))
+          ExternalUses.push_back(ExternalUser(PO, cast<User>(VecPtr), 0));
+
+        LI = Builder.CreateAlignedLoad(VecLdTy, VecPtr, LI->getAlign());
+        Value *V = propagateMetadata(LI, E->Scalars);
+        ++NumVectorInstructions;
+        return V;
       };
 
-      // Set insertion point once. This is done outside of 'createLoad' lambda.
       setInsertPointAfterBundle(E);
 
       std::list<Value *> WorkList;
       // Go through all split-load groups and emit the vector loads.
       for (const auto &Group : E->SplitLoadGroups) {
         assert(Group.second > 1 && isPowerOf2_32(Group.second) && "Bad Group");
-        VectorType *VecTy = FixedVectorType::get(ScalarTy, Group.second);
+        VectorType *VecLdTy = FixedVectorType::get(ScalarTy, Group.second);
         Value *L0;
         if (E->SplitLoadPtrOrder.empty())
           L0 = E->Scalars[Group.first];
         else
           L0 = E->Scalars[E->SplitLoadPtrOrder[Group.first]];
-        Value *VecLoad = createVecLoad(E, L0, VecTy);
+        Value *VecLoad = createVecLoad(E, L0, VecLdTy);
         WorkList.push_front(VecLoad);
       }
 
