@@ -3412,6 +3412,8 @@ X86
 .. end INTEL_FEATURE_ISA_ULI
 .. end INTEL_CUSTOMIZATION
 
+.. option:: -muintr, -mno-uintr
+
 .. option:: -mvaes, -mno-vaes
 
 .. option:: -mvpclmulqdq, -mno-vpclmulqdq

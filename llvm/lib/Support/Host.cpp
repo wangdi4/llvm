@@ -1493,12 +1493,7 @@ bool sys::getHostCPUFeatures(StringMap<bool> &Features) {
   Features["movdir64b"]       = HasLeaf7 && ((ECX >> 28) & 1);
   Features["enqcmd"]          = HasLeaf7 && ((ECX >> 29) & 1);
 
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_ULI
-  Features["uli"]             = HasLeaf7 && ((EDX >> 5) & 1);
-#endif // INTEL_FEATURE_ISA_ULI
-#endif // INTEL_CUSTOMIZATION
-
+  Features["uintr"]           = HasLeaf7 && ((EDX >> 5) & 1);
   Features["avx512vp2intersect"] =
       HasLeaf7 && ((EDX >> 8) & 1) && HasAVX512Save;
   Features["serialize"]       = HasLeaf7 && ((EDX >> 14) & 1);

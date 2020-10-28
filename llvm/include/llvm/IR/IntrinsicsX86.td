@@ -5438,24 +5438,6 @@ let TargetPrefix = "x86" in {
 }
 
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_ULI
-//===----------------------------------------------------------------------===//
-// ULI - User Level Interrupt
-
-let TargetPrefix = "x86" in {
-  def int_x86_uiret : GCCBuiltin<"__builtin_ia32_uiret">,
-              Intrinsic<[], [], []>;
-  def int_x86_clui : GCCBuiltin<"__builtin_ia32_clui">,
-              Intrinsic<[], [], []>;
-  def int_x86_stui : GCCBuiltin<"__builtin_ia32_stui">,
-              Intrinsic<[], [], []>;
-  def int_x86_testui : GCCBuiltin<"__builtin_ia32_testui">,
-              Intrinsic<[llvm_i8_ty], [], []>;
-  def int_x86_senduipi : GCCBuiltin<"__builtin_ia32_senduipi">,
-              Intrinsic<[], [llvm_i64_ty], []>;
-}
-#endif // INTEL_FEATURE_ISA_ULI
-
 #if INTEL_FEATURE_ISA_FP16
 // avx512_fp16: vaddph
 let TargetPrefix = "x86" in {
@@ -6920,3 +6902,16 @@ let TargetPrefix = "x86" in {
 #endif // INTEL_FEATURE_ISA_AMX_MEMADVISE
 
 #endif // INTEL_CUSTOMIZATION
+//===----------------------------------------------------------------------===//
+// UINTR - User Level Interrupt
+
+let TargetPrefix = "x86" in {
+  def int_x86_clui : GCCBuiltin<"__builtin_ia32_clui">,
+              Intrinsic<[], [], []>;
+  def int_x86_stui : GCCBuiltin<"__builtin_ia32_stui">,
+              Intrinsic<[], [], []>;
+  def int_x86_testui : GCCBuiltin<"__builtin_ia32_testui">,
+              Intrinsic<[llvm_i8_ty], [], []>;
+  def int_x86_senduipi : GCCBuiltin<"__builtin_ia32_senduipi">,
+              Intrinsic<[], [llvm_i64_ty], []>;
+}

@@ -3889,12 +3889,8 @@ def mtbm : Flag<["-"], "mtbm">, Group<m_x86_Features_Group>;
 def mno_tbm : Flag<["-"], "mno-tbm">, Group<m_x86_Features_Group>;
 def mtsxldtrk : Flag<["-"], "mtsxldtrk">, Group<m_x86_Features_Group>;
 def mno_tsxldtrk : Flag<["-"], "mno-tsxldtrk">, Group<m_x86_Features_Group>;
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_ULI
-def muli : Flag<["-"], "muli">, Group<m_x86_Features_Group>;
-def mno_uli : Flag<["-"], "mno-uli">, Group<m_x86_Features_Group>;
-#endif // INTEL_FEATURE_ISA_ULI
-#endif // INTEL_CUSTOMIZATION
+def muintr : Flag<["-"], "muintr">, Group<m_x86_Features_Group>;
+def mno_uintr : Flag<["-"], "mno-uintr">, Group<m_x86_Features_Group>;
 def mvaes : Flag<["-"], "mvaes">, Group<m_x86_Features_Group>;
 def mno_vaes : Flag<["-"], "mno-vaes">, Group<m_x86_Features_Group>;
 def mvpclmulqdq : Flag<["-"], "mvpclmulqdq">, Group<m_x86_Features_Group>;
