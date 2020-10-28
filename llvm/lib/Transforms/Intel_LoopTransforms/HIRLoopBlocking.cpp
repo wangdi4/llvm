@@ -158,8 +158,7 @@ static cl::opt<std::string> PrintDiagFunc(
 // Never delinearize memrefs. Used for debugging.
 static cl::opt<bool> ForceStopDelinearization(
     OPT_SWITCH "-no-delinear", cl::init(false), cl::Hidden,
-    cl::desc("Unconditionally disable delinearization in " OPT_DESC
-             " pass"));
+    cl::desc("Unconditionally disable delinearization in " OPT_DESC " pass"));
 
 // If this check is disabled, blocking is applied to non-constant TC or to
 // constant trip count not large enough above the threshold.
@@ -328,6 +327,23 @@ inline void markAsToStripmine(const HLLoop *LoopToStripmine,
   LoopMap[LoopToStripmine] = STRIPMINE_CAND_VAL;
 }
 
+// Utility that gets child loop for Loop Blocking LoopNests. Most are perfect
+// loops, except By-strip loops might have loop boundary condition
+const HLLoop *getChildLoop(const HLLoop *Loop, const LoopMapTy &LoopMap) {
+  if (isNonByStripLoop(Loop, LoopMap)) {
+    Loop = dyn_cast<HLLoop>(Loop->getFirstChild());
+  } else {
+    if (Loop->getNumChildren() == 1) {
+      Loop = dyn_cast<HLLoop>(Loop->getFirstChild());
+    } else if (Loop->getNumChildren() == 2) {
+      Loop = dyn_cast<HLLoop>(Loop->getLastChild());
+    } else {
+      llvm_unreachable("Unexpected Loop with more than 2 children!");
+    }
+  }
+  return Loop;
+}
+
 // Based on experiments on skx performance machines with
 // -O3 -xCORE-AVX512 -Ofast -mfpmath=sse -march=core-avx512
 // In most cases, block size (i.e. stripmine size for stripmine() utility)
@@ -364,26 +380,21 @@ void adjustBlockSize(const LoopNestTCTy &LoopNestTC, LoopMapTy &LoopToBS) {
   }
 }
 
-// This util is used to calculate the correct loop permutation after
-// stripmine for interchange with pragma. All blocked loops have by-strip
-// loops as parents. We place the bystrip loops where the pragma is declared.
+// Return the by-strip loop for loopnest that has been stripmined using the
+// relative offset specified by pragma. Relative offset ignores other bystrip
+// loops. The found bystrip loop is placed where the pragma is declared.
 const HLLoop *getByStripLoopatOffsetLevel(const HLLoop *Loop,
                                           const LoopMapTy &LoopMap,
                                           unsigned Level) {
-  const HLLoop *TargetLp = Loop;
-  const HLLoop *ParentLp = TargetLp->getParentLoop();
-  unsigned Offset = 1;
-
-  while (Offset < Level) {
-    ParentLp = TargetLp;
-    TargetLp = cast<HLLoop>(TargetLp->getFirstChild());
-    if (isNonByStripLoop(TargetLp, LoopMap)) {
-      Offset++;
+  while (Level > 1) {
+    Loop = getChildLoop(Loop, LoopMap);
+    if (isNonByStripLoop(Loop, LoopMap)) {
+      Level--;
     }
   }
 
-  assert(isBlockedLoop(TargetLp, LoopMap) && "Expected loop to be blocked!\n");
-  return ParentLp;
+  assert(isBlockedLoop(Loop, LoopMap) && "Expected loop to be blocked!\n");
+  return Loop->getParentLoop();
 }
 
 // Check the entire loopnest starting from the innermost loop for pragmas
@@ -418,14 +429,19 @@ HLLoop *getLoopBlockingPragma(HLLoop *InnermostLoop,
 
     OutermostPragmaLoop = Loop;
 
-    // Replace PragmaLevel == -1 with proper levels for all nested loops
     RegDDRef *NoLevelFactor = nullptr;
-    for (auto &Info : make_range(PragmaInfo.begin(), PragmaInfo.end())) {
+    for (auto &Info : PragmaInfo) {
       if (Info.first != -1) {
         LoopToPragma[Loop].push_back(std::make_pair(Info.first, Info.second));
       } else {
-        // Assume Pragmalevel == -1 can only occur once per Loop
-        assert(NoLevelFactor == nullptr &&
+        // Bailout if no_blockloop pragma is found
+        int64_t IntFactor;
+        if (Info.second->isIntConstant(&IntFactor) && IntFactor == 0) {
+          return nullptr;
+        }
+        // Pragmalevel == -1 means no level was specified, and can only
+        // occur once per Loop
+        assert(!NoLevelFactor &&
                "Multiple pragmas without levels not supported\n");
         NoLevelFactor = Info.second;
       }
@@ -590,29 +606,27 @@ void populatePragmaPermutation(
   // Process Loop Pragmas from outermost to innermost. Pragmas are still
   // attached to blocked loops. When blocked loop is found, pull up all by-strip
   // loops from pragma, then set itself to get correct ordering
-  for (const HLLoop *Lp = Outermost; Lp;
-       Lp = dyn_cast<HLLoop>(Lp->getFirstChild())) {
+  for (const HLLoop *Lp = Outermost; Lp; Lp = getChildLoop(Lp, LoopMap)) {
     if (isNonByStripLoop(Lp, LoopMap)) {
       // Use pragma to assign permutations to all by-strip loops
       auto It = LoopToPragma.find(Lp);
       if (It != LoopToPragma.end()) {
         for (auto &Pair : It->second) {
+          int Offset = Pair.first;
           const HLLoop *ByStripLoop =
-              getByStripLoopatOffsetLevel(Lp, LoopMap, Pair.first);
+              getByStripLoopatOffsetLevel(Lp, LoopMap, Offset);
           LoopPermutation[Front++] = ByStripLoop;
         }
       }
-
       LoopPermutation[Front++] = Lp;
     }
   }
 
   LLVM_DEBUG(dbgs() << "\n";);
   LLVM_DEBUG(dbgs() << "LoopPermutation Res\n");
-  for (auto &P : LoopPermutation) {
-    LLVM_DEBUG(dbgs() << P->getNestingLevel() << " ";);
-    (void)P;
-  }
+  LLVM_DEBUG(
+      for (auto &P
+           : LoopPermutation) { dbgs() << P->getNestingLevel() << " "; });
   LLVM_DEBUG(dbgs() << "\n";);
 }
 
@@ -1414,17 +1428,16 @@ HLLoop *tryKAndRWithFixedStripmineSizes(
 // Blocking outer loop only doesn't help, because it is
 // mere strip-mining.
 bool isTrivialAntiPattern(const MemRefGatherer::VectorTy &Refs,
-                          unsigned InnermostLevel,
-                          unsigned ConsecutiveDepth) {
-  if (ConsecutiveDepth > 2) return false;
+                          unsigned InnermostLevel, unsigned ConsecutiveDepth) {
+  if (ConsecutiveDepth > 2)
+    return false;
 
   int Count = 0;
   for (auto Ref : Refs) {
     unsigned Index = InvalidBlobIndex;
     int64_t Coeff = 0;
 
-    Ref->getDimensionIndex(1)->
-      getIVCoeff(InnermostLevel, &Index, &Coeff);
+    Ref->getDimensionIndex(1)->getIVCoeff(InnermostLevel, &Index, &Coeff);
 
     if (Index == InvalidBlobIndex && Coeff == 1) {
       Count++;
@@ -1498,9 +1511,8 @@ HLLoop *findLoopNestToBlock(HIRFramework &HIRF, HIRDDAnalysis &DDA,
   // coremark-pro/core. BitWidth was either 16 or 32.
   // Quite a special casing, but without exact information about
   // tripcount, we need a hack.
-  RefAnalyzer::RefAnalysisResult RefKind =
-      RefAnalyzer::analyzeRefs(Refs,
-                !ForceStopDelinearization && (!Is32Bit || IsLikelySmall));
+  RefAnalyzer::RefAnalysisResult RefKind = RefAnalyzer::analyzeRefs(
+      Refs, !ForceStopDelinearization && (!Is32Bit || IsLikelySmall));
 
   // If any Ref is a non-linear, give up here.
   if (RefAnalyzer::hasNonLinear(RefKind)) {
@@ -1687,6 +1699,7 @@ HLLoop *setupPragmaBlocking(HIRDDAnalysis &DDA, HIRSafeReductionAnalysis &SRA,
 
   // Bailout if blocking would result in more than max loop nest level
   if ((LoopMap.size() + InnermostLoop->getNestingLevel()) > MaxLoopNestLevel) {
+    LLVM_DEBUG(dbgs() << "No Blocking! MaxLevels exceeded!\n");
     return nullptr;
   }
 
