@@ -108,7 +108,7 @@ public:
 
 protected:
   size_t common_array[dimensions];
-  ALWAYS_INLINE void check_dimension(int dimension) const {
+  __SYCL_ALWAYS_INLINE void check_dimension(int dimension) const {
 #ifndef NDEBUG // INTEL
 #ifndef __SYCL_DEVICE_ONLY__
     if (dimension >= dimensions || dimension < 0) {
