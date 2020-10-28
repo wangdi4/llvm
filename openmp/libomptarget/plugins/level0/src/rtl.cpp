@@ -116,6 +116,8 @@ static std::vector<MemStatTy> MemStats;
 #define MEMSTAT_PRINT(DeviceId)
 #endif // INTEL_INTERNAL_BUILD
 
+static void *allocDataExplicit(int32_t DeviceId, int64_t Size, int32_t Kind);
+
 ///
 /// Page pool for small memory allocation.
 /// It maintains buckets of page list for each supported memory size in the
@@ -218,8 +220,7 @@ public:
       return mem;
     }
     // Bucket is empty or all pages in the bucket are full
-    void *base = __tgt_rtl_data_alloc_explicit(
-        DeviceId, LEVEL0_PAGE_SIZE, TargetAllocKind);
+    void *base = allocDataExplicit(DeviceId, LEVEL0_PAGE_SIZE, TargetAllocKind);
     IDP(
        "New allocation from page pool: base = " DPxMOD ", size = %" PRIu32 "\n",
        DPxPTR(base), LEVEL0_PAGE_SIZE);
@@ -650,7 +651,9 @@ public:
   std::vector<std::map<ze_kernel_handle_t, KernelPropertiesTy>>
       KernelProperties;
   std::vector<std::vector<void *>> OwnedMemory; // Memory owned by the plugin
-  std::vector<std::set<void *>> ImplicitArgs;
+  std::vector<std::set<void *>> ImplicitArgsDevice;
+  std::vector<std::set<void *>> ImplicitArgsHost;
+  std::vector<std::set<void *>> ImplicitArgsShared;
   std::vector<bool> Initialized;
   std::mutex *Mutexes;
   std::mutex *DataMutexes; // For internal data
@@ -924,6 +927,12 @@ public:
 
   /// Initialize program data on device
   int32_t initProgramData(int32_t DeviceId);
+
+  /// Add implicit arguments
+  void addImplicitArgs(int32_t DeviceId, void *Ptr, int32_t Kind);
+
+  /// Remove implicit argumnets
+  void removeImplicitArgs(int32_t DeviceId, void *Ptr);
 };
 
 /// Libomptarget-defined handler and argument.
@@ -1140,6 +1149,47 @@ static int32_t copyData(int32_t DeviceId, void *Dest, void *Src, size_t Size,
   return OFFLOAD_SUCCESS;
 }
 
+/// Allocate data explicitly
+static void *allocDataExplicit(int32_t DeviceId, int64_t Size, int32_t Kind) {
+  void *mem = nullptr;
+  ze_device_mem_alloc_desc_t deviceDesc = {
+    ZE_STRUCTURE_TYPE_DEVICE_MEM_ALLOC_DESC,
+    nullptr, // extension
+    0, // flags
+    0 // ordinal, TODO: when do we use non-zero ordinal?
+  };
+  ze_host_mem_alloc_desc_t hostDesc = {
+    ZE_STRUCTURE_TYPE_HOST_MEM_ALLOC_DESC,
+    nullptr, // extension
+    0 // flags
+  };
+  auto device = DeviceInfo->Devices[DeviceId];
+  auto context = DeviceInfo->Context;
+
+  switch (Kind) {
+  case TARGET_ALLOC_DEVICE:
+    CALL_ZE_RET_NULL(zeMemAllocDevice, context, &deviceDesc, Size,
+                     LEVEL0_ALIGNMENT, device, &mem);
+    IDP("Allocated a device memory object " DPxMOD "\n", DPxPTR(mem));
+    break;
+  case TARGET_ALLOC_HOST:
+    CALL_ZE_RET_NULL(zeMemAllocHost, context, &hostDesc, Size,
+                     LEVEL0_ALIGNMENT, &mem);
+    IDP("Allocated a host memory object " DPxMOD "\n", DPxPTR(mem));
+    break;
+  case TARGET_ALLOC_SHARED:
+    CALL_ZE_RET_NULL(zeMemAllocShared, context, &deviceDesc, &hostDesc,
+                     Size, LEVEL0_ALIGNMENT, device, &mem);
+    IDP("Allocated a shared memory object " DPxMOD "\n", DPxPTR(mem));
+    break;
+  default:
+    FATAL_ERROR("Invalid target data allocation kind");
+  }
+
+  MEMSTAT_UPDATE(DeviceId, context, Size, mem);
+  return mem;
+}
+
 /// Initialize module data
 int32_t RTLDeviceInfoTy::initProgramData(int32_t DeviceId) {
   // Prepare host data to copy
@@ -1168,6 +1218,27 @@ int32_t RTLDeviceInfoTy::initProgramData(int32_t DeviceId) {
   CALL_ZE_RET_FAIL(zeCommandListReset, cmdList);
 
   return OFFLOAD_SUCCESS;
+}
+
+/// Add implicit arguments
+void RTLDeviceInfoTy::addImplicitArgs(
+    int32_t DeviceId, void *Ptr, int32_t Kind) {
+  if (Kind == TARGET_ALLOC_DEVICE)
+    ImplicitArgsDevice[DeviceId].insert(Ptr);
+  else if (Kind == TARGET_ALLOC_HOST)
+    ImplicitArgsHost[DeviceId].insert(Ptr);
+  else
+    ImplicitArgsShared[DeviceId].insert(Ptr);
+}
+
+/// Remove implicit arguments
+void RTLDeviceInfoTy::removeImplicitArgs(int32_t DeviceId, void *Ptr) {
+  if (ImplicitArgsDevice[DeviceId].erase(Ptr) > 0)
+    return;
+  if (ImplicitArgsHost[DeviceId].erase(Ptr) > 0)
+    return;
+  if (ImplicitArgsShared[DeviceId].erase(Ptr) > 0)
+    return;
 }
 
 static void dumpImageToFile(
@@ -1290,7 +1361,9 @@ int32_t __tgt_rtl_number_of_devices() {
   DeviceInfo->FuncGblEntries.resize(DeviceInfo->NumDevices);
   DeviceInfo->KernelProperties.resize(DeviceInfo->NumDevices);
   DeviceInfo->OwnedMemory.resize(DeviceInfo->NumDevices);
-  DeviceInfo->ImplicitArgs.resize(DeviceInfo->NumDevices);
+  DeviceInfo->ImplicitArgsDevice.resize(DeviceInfo->NumDevices);
+  DeviceInfo->ImplicitArgsHost.resize(DeviceInfo->NumDevices);
+  DeviceInfo->ImplicitArgsShared.resize(DeviceInfo->NumDevices);
   DeviceInfo->Initialized.resize(DeviceInfo->NumDevices);
   DeviceInfo->Mutexes = new std::mutex[DeviceInfo->NumDevices];
   DeviceInfo->DataMutexes = new std::mutex[DeviceInfo->NumDevices];
@@ -1575,14 +1648,14 @@ static void *allocData(int32_t DeviceId, int64_t Size, void *HstPtr,
        "from memory pool for host ptr " DPxMOD "\n",
        DPxPTR(mem), DPxPTR(base), size, DPxPTR(HstPtr));
     if (IsImplicitArg)
-      DeviceInfo->ImplicitArgs[DeviceId].insert(mem);
+      DeviceInfo->addImplicitArgs(DeviceId, mem, DeviceInfo->TargetAllocKind);
+
     return mem;
   }
 
   // We use shared USM to avoid overheads coming from explicit data copy to
   // device memory.
-  base = __tgt_rtl_data_alloc_explicit(
-      DeviceId, size, DeviceInfo->TargetAllocKind);
+  base = allocDataExplicit(DeviceId, size, DeviceInfo->TargetAllocKind);
   mem = (void *)((intptr_t)base + offset);
 
   if (DebugLevel > 0) {
@@ -1596,7 +1669,7 @@ static void *allocData(int32_t DeviceId, int64_t Size, void *HstPtr,
        actualSize, DPxPTR(HstPtr));
   }
   if (IsImplicitArg)
-    DeviceInfo->ImplicitArgs[DeviceId].insert(mem);
+    DeviceInfo->addImplicitArgs(DeviceId, mem, DeviceInfo->TargetAllocKind);
 
   return mem;
 }
@@ -1653,42 +1726,11 @@ EXTERN int32_t __tgt_rtl_is_managed_ptr(int32_t DeviceId, void *Ptr) {
 
 EXTERN void *__tgt_rtl_data_alloc_explicit(
     int32_t DeviceId, int64_t Size, int32_t Kind) {
-  void *mem = nullptr;
-  ze_device_mem_alloc_desc_t deviceDesc = {
-    ZE_STRUCTURE_TYPE_DEVICE_MEM_ALLOC_DESC,
-    nullptr, // extension
-    0, // flags
-    0 // ordinal, TODO: when do we use non-zero ordinal?
-  };
-  ze_host_mem_alloc_desc_t hostDesc = {
-    ZE_STRUCTURE_TYPE_HOST_MEM_ALLOC_DESC,
-    nullptr, // extension
-    0 // flags
-  };
-  auto device = DeviceInfo->Devices[DeviceId];
-  auto context = DeviceInfo->Context;
-
-  switch (Kind) {
-  case TARGET_ALLOC_DEVICE:
-    CALL_ZE_RET_NULL(zeMemAllocDevice, context, &deviceDesc, Size,
-                     LEVEL0_ALIGNMENT, device, &mem);
-    IDP("Allocated a device memory object " DPxMOD "\n", DPxPTR(mem));
-    break;
-  case TARGET_ALLOC_HOST:
-    CALL_ZE_RET_NULL(zeMemAllocHost, context, &hostDesc, Size,
-                     LEVEL0_ALIGNMENT, &mem);
-    IDP("Allocated a host memory object " DPxMOD "\n", DPxPTR(mem));
-    break;
-  case TARGET_ALLOC_SHARED:
-    CALL_ZE_RET_NULL(zeMemAllocShared, context, &deviceDesc, &hostDesc,
-                     Size, LEVEL0_ALIGNMENT, device, &mem);
-    IDP("Allocated a shared memory object " DPxMOD "\n", DPxPTR(mem));
-    break;
-  default:
-    FATAL_ERROR("Invalid target data allocation kind");
+  void *mem = allocDataExplicit(DeviceId, Size, Kind);
+  if (mem) {
+    std::unique_lock<std::mutex>(DeviceInfo->DataMutexes[DeviceId]);
+    DeviceInfo->addImplicitArgs(DeviceId, mem, Kind);
   }
-
-  MEMSTAT_UPDATE(DeviceId, context, Size, mem);
   return mem;
 }
 
@@ -1873,7 +1915,7 @@ EXTERN int32_t __tgt_rtl_data_delete(int32_t DeviceId, void *TgtPtr) {
   auto context = DeviceInfo->Context;
 
   mutex.lock();
-  DeviceInfo->ImplicitArgs[DeviceId].erase(TgtPtr);
+  DeviceInfo->removeImplicitArgs(DeviceId, TgtPtr);
   mutex.unlock();
 
   if (DeviceInfo->Flags.UseMemoryPool) {
@@ -2170,16 +2212,20 @@ static int32_t runTargetTeamRegion(
   }
 
   // Set attributes
-  bool indirectAccess =
-      DeviceInfo->KernelProperties[DeviceId][kernel].RequiresIndirectAccess ||
-      !DeviceInfo->ImplicitArgs[DeviceId].empty();
-  if (indirectAccess) {
-    ze_kernel_indirect_access_flags_t flags =
-        DeviceInfo->TargetAllocKind == TARGET_ALLOC_SHARED
-        ? ZE_KERNEL_INDIRECT_ACCESS_FLAG_SHARED
-        : ZE_KERNEL_INDIRECT_ACCESS_FLAG_DEVICE;
-    CALL_ZE_RET_FAIL(zeKernelSetIndirectAccess, kernel, flags);
-  }
+  ze_kernel_indirect_access_flags_t flags = 0;
+  if (DeviceInfo->KernelProperties[DeviceId][kernel].RequiresIndirectAccess)
+    flags |= DeviceInfo->TargetAllocKind == TARGET_ALLOC_SHARED
+             ? ZE_KERNEL_INDIRECT_ACCESS_FLAG_SHARED
+             : ZE_KERNEL_INDIRECT_ACCESS_FLAG_DEVICE;
+  if (!DeviceInfo->ImplicitArgsDevice[DeviceId].empty())
+    flags |= ZE_KERNEL_INDIRECT_ACCESS_FLAG_DEVICE;
+  if (!DeviceInfo->ImplicitArgsHost[DeviceId].empty())
+    flags |= ZE_KERNEL_INDIRECT_ACCESS_FLAG_HOST;
+  if (!DeviceInfo->ImplicitArgsShared[DeviceId].empty())
+    flags |= ZE_KERNEL_INDIRECT_ACCESS_FLAG_SHARED;
+
+  CALL_ZE_RET_FAIL(zeKernelSetIndirectAccess, kernel, flags);
+  IDP("Setting indirect access flags " DPxMOD "\n", DPxPTR(flags));
 
   // Decide group sizes and counts
   uint32_t groupSizes[3];
