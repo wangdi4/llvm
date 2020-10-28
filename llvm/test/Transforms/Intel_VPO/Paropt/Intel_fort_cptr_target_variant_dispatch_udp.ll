@@ -1,8 +1,6 @@
 ; INTEL_CUSTOMIZATION
 ; RUN: opt -vpo-cfg-restructuring -vpo-paropt-prepare -S < %s | FileCheck %s
 ; RUN: opt < %s -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare)' -S | FileCheck %s
-; RUN: not opt -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-paropt-use-raw-dev-ptr=false -S < %s 2>&1 | FileCheck %s -check-prefix=NOTSUPPORTED
-; RUN: not opt < %s -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare)' -vpo-paropt-use-raw-dev-ptr=false -S 2>&1 | FileCheck %s -check-prefix=NOTSUPPORTED
 
 ; Test src:
 ; module submodule
@@ -57,9 +55,6 @@
 ; !    !$omp end target data
 ;
 ; end program
-
-; Check that we emit an error for the unsupported usage of -vpo-paropt-use-raw-dev-ptr=false
-; NOTSUPPORTED: 'vpo-paropt-use-raw-dev-ptr=false' is not supported with use_device_ptr clause on Fortran assumed-shape arrays/cptrs.
 
 ; Check that the map-type of the use_device_ptr operand is 96 (TGT_PARAM | TGT_RETURN_PARAM):
 ; CHECK: @.offload_maptypes = private unnamed_addr constant [1 x i64] [i64 96]

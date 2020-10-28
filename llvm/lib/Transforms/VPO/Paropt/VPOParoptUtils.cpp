@@ -1727,16 +1727,15 @@ CallInst *VPOParoptUtils::genKmpcTaskAlloc(WRegionNode *W, StructType *IdentTy,
 // Generate a call to create an AsyncObj for TARGET VARIANT DISPATCH NOWAIT
 // The object is actually a repurposed task thunk (kmp_task_t) described
 // elsewhere. The call created looks like this:
-//    i8* @__kmpc_omp_task_alloc(loc,                     // (IdentTy*)
-//                               0,                       // (i32) unused
-//                               0x10,                    // (i32) Proxy flag
-//                               sizeof(AsyncObjTy),      // (size_t)
-//                               sizeof(UseDevicePtrsTy), // (size_t)
-//                               null);                   // (i8*) unused
+//    i8* @__kmpc_omp_task_alloc(loc,                // (IdentTy*)
+//                               0,                  // (i32) unused
+//                               0x10,               // (i32) Proxy flag
+//                               sizeof(AsyncObjTy), // (size_t)
+//                               0,               // (size_t) sizeof(shareds_t)
+//                               null);           // (i8*) unused
 CallInst *VPOParoptUtils::genKmpcTaskAllocForAsyncObj(WRegionNode *W,
                                                       StructType *IdentTy,
                                                       int AsyncObjTySize,
-                                                      int UseDevicePtrsTySize,
                                                       Instruction *InsertPt) {
 
   IRBuilder<> Builder(InsertPt);
@@ -1752,7 +1751,7 @@ CallInst *VPOParoptUtils::genKmpcTaskAllocForAsyncObj(WRegionNode *W,
 
   CallInst *TaskAllocCall = genKmpcTaskAllocImpl(
       W, IdentTy, ValueZero, ProxyFlag, ValueAsyncObjTySize,
-      UseDevicePtrsTySize, NullPtr, InsertPt, false);
+      /*KmpSharedTySz=*/0, NullPtr, InsertPt, false);
 
   return TaskAllocCall;
 }
