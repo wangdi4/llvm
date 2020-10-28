@@ -2463,6 +2463,10 @@ static bool FoldCondBranchOnPHI(BranchInst *BI, const DataLayout &DL,
 static bool FoldPHIEntries(PHINode *PN, const TargetTransformInfo &TTI,
                            const DataLayout &DL) {
   BasicBlock *BB = PN->getParent();
+  const Function *Fn = BB->getParent();
+  if (Fn && Fn->hasFnAttribute(Attribute::OptForFuzzing))
+    return false;
+
   bool Changed = false;
 
   // This could be a multiple entry PHI node. Try to fold each pair of entries
@@ -6945,7 +6949,8 @@ static BasicBlock *allPredecessorsComeFromSameSource(BasicBlock *BB) {
 
 bool SimplifyCFGOpt::simplifyCondBranch(BranchInst *BI, IRBuilder<> &Builder) {
   BasicBlock *BB = BI->getParent();
-  if (!Options.SimplifyCondBranch)
+  const Function *Fn = BB->getParent();
+  if (Fn && Fn->hasFnAttribute(Attribute::OptForFuzzing))
     return false;
 
   // Conditional branch
@@ -7175,8 +7180,7 @@ bool SimplifyCFGOpt::simplifyOnce(BasicBlock *BB) {
 #if INTEL_CUSTOMIZATION
   // If there is a PHI node in this basic block, and we can
   // eliminate some of its entries, do so now.
-  if (Options.FoldTwoEntryPHINode) {
-    if (auto *PN = dyn_cast<PHINode>(BB->begin()))
+  if (auto *PN = dyn_cast<PHINode>(BB->begin()))
     // FoldPHIEntries is an Intel customized generalized version of the LLVM
     // open source routine called FoldTwoEntryPHINode(that folds a two-entry
     // phinode into "select") which is capable of handling any number
@@ -7187,8 +7191,7 @@ bool SimplifyCFGOpt::simplifyOnce(BasicBlock *BB) {
     // To keep xmain as clean as possible we got rid of the FoldTwoEntryPHINode,
     // therefore, there might be conflicts during code merge. If resolving
     // conflicts becomes too cumbersome, we can try something different.
-      Changed |= FoldPHIEntries(PN, TTI, DL);
-  }
+    Changed |= FoldPHIEntries(PN, TTI, DL);
 #endif //INTEL_CUSTOMIZATION
 
   Instruction *Terminator = BB->getTerminator();
