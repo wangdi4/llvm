@@ -210,9 +210,11 @@
 ; CHECK-O23SZ-NEXT: Running pass: CorrelatedValuePropagationPass
 ; CHECK-O23SZ-NEXT: Invalidating analysis: LazyValueAnalysis
 ; CHECK-O-NEXT: Running pass: ADCEPass
-; CHECK-O-NEXT: Running analysis: PostDominatorTreeAnalysis
+; INTEL_CUSTOMIZATION
+; s/CHECK-O-NEXT/CHECK-O1-NEXT/ on the next line.
+; CHECK-O1-NEXT: Running analysis: PostDominatorTreeAnalysis
+; END_INTEL_CUSTOMIZATION
 ; CHECK-O23SZ-NEXT: Running pass: DSEPass
-; Running analysis: PostDominatorTreeAnalysis  ;INTEL PostDom has moved, cannot make check work
 ; CHECK-O23SZ-NEXT: Starting llvm::Function pass manager run.
 ; CHECK-O23SZ-NEXT: Running pass: LoopSimplifyPass
 ; CHECK-O23SZ-NEXT: Running pass: LCSSAPass
@@ -228,7 +230,7 @@
 ; CHECK-O-NEXT: Finished llvm::Module pass manager run.
 ; CHECK-O-NEXT: Running pass: GlobalOptPass
 ; CHECK-O-NEXT: Running pass: GlobalDCEPass
-; CHECK-O-NEXT: Running pass: CleanupFakeLoadsPass{{.*}} ;INTEL
+; CHECK-O-NEXT: Running pass: CleanupFakeLoadsPass{{.*}}                                 ;INTEL
 ; CHECK-O2-LTO-NOT: Running pass: EliminateAvailableExternallyPass
 ; CHECK-O: Running pass: ReversePostOrderFunctionAttrsPass
 ; CHECK-O-NEXT: Running pass: RequireAnalysisPass<{{.*}}AndersensAA                      ;INTEL
