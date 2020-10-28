@@ -100,6 +100,7 @@ MODULE_PASS("soatoaos-struct-methods-transform",                 // INTEL
 MODULE_PASS("dtrans-annotator-cleaner", dtrans::AnnotatorCleanerPass()) // INTEL
 #endif // INTEL_INCLUDE_DTRANS
 MODULE_PASS("elim-avail-extern", EliminateAvailableExternallyPass())
+MODULE_PASS("extract-blocks", BlockExtractorPass())
 MODULE_PASS("forceattrs", ForceFunctionAttrsPass())
 MODULE_PASS("function-import", FunctionImportPass())
 MODULE_PASS("function-splitting", FunctionSplittingPass()) // INTEL
