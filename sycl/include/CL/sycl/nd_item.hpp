@@ -42,13 +42,13 @@ public:
 
   id<dimensions> get_global_id() const { return globalItem.get_id(); }
 
-  size_t ALWAYS_INLINE get_global_id(int dimension) const {
+  size_t __SYCL_ALWAYS_INLINE get_global_id(int dimension) const {
     size_t Id = globalItem.get_id(dimension);
     __SYCL_ASSUME_INT(Id);
     return Id;
   }
 
-  size_t ALWAYS_INLINE get_global_linear_id() const {
+  size_t __SYCL_ALWAYS_INLINE get_global_linear_id() const {
     size_t Id = globalItem.get_linear_id();
     __SYCL_ASSUME_INT(Id);
     return Id;
@@ -56,7 +56,7 @@ public:
 
   id<dimensions> get_local_id() const { return localItem.get_id(); }
 
-  size_t ALWAYS_INLINE get_local_id(int dimension) const {
+  size_t __SYCL_ALWAYS_INLINE get_local_id(int dimension) const {
     size_t Id = localItem.get_id(dimension);
     __SYCL_ASSUME_INT(Id);
     return Id;
@@ -72,13 +72,13 @@ public:
 
   ONEAPI::sub_group get_sub_group() const { return ONEAPI::sub_group(); }
 
-  size_t ALWAYS_INLINE get_group(int dimension) const {
+  size_t __SYCL_ALWAYS_INLINE get_group(int dimension) const {
     size_t Size = Group[dimension];
     __SYCL_ASSUME_INT(Size);
     return Size;
   }
 
-  size_t ALWAYS_INLINE get_group_linear_id() const {
+  size_t __SYCL_ALWAYS_INLINE get_group_linear_id() const {
     size_t Id = Group.get_linear_id();
     __SYCL_ASSUME_INT(Id);
     return Id;
@@ -88,7 +88,7 @@ public:
     return Group.get_global_range() / Group.get_local_range();
   }
 
-  size_t ALWAYS_INLINE get_group_range(int dimension) const {
+  size_t __SYCL_ALWAYS_INLINE get_group_range(int dimension) const {
     size_t Range =
         Group.get_global_range(dimension) / Group.get_local_range(dimension);
     __SYCL_ASSUME_INT(Range);
