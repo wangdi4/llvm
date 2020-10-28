@@ -1102,6 +1102,31 @@ static bool isValueCasted(Value *V) {
 
   return isa<BitCastOperator>(TempVal);
 }
+
+// Return true if the type of the input Constant doesn't match with the type
+// of the input Value, but both types matches after the casting is removed
+// from the Constant.
+static bool isStripPointerCastNeeded(Constant *ConstPtr, Value *V) {
+  if (!ConstPtr || !V)
+    return false;
+
+  auto ValTy = V->getType();
+  auto ConstTy = ConstPtr->getType();
+  if (ValTy == ConstTy)
+    return false;
+
+  // CMPLRLLVM-22930: If the constant is casted from an array to a pointer,
+  // then we need to collect the actual array and check if the types matches.
+  if (auto *VPtrType = dyn_cast<PointerType>(ValTy)) {
+     auto *ElemType = VPtrType->getElementType();
+     if (ArrayType *ArrTy = getArrayFromPointerCast(ConstPtr))
+       return ArrTy == ElemType;
+  }
+
+  // TODO: We might want to handle other cast cases in the future.
+
+  return false;
+}
 #endif // INTEL_CUSTOMIZATION
 
 // Handle getelementptr instructions.  If all operands are constants then we
@@ -1704,15 +1729,10 @@ static bool tryToReplaceWithConstant(SCCPSolver &Solver, Value *V) {
   assert(Const && "Constant is nullptr here!");
 
 #if INTEL_CUSTOMIZATION
-  // CMPLRLLVM-22930: If the constant is casted from an array to a pointer,
-  // then we need to collect the actual array to generate to apply the
-  // transformation.
-  if (auto *VPtrType = dyn_cast<PointerType>(V->getType())) {
-    auto *ElemType = VPtrType->getElementType();
-    if (ArrayType *ArrTy = getArrayFromPointerCast(Const))
-      if (ArrTy == ElemType)
-        Const = Const->stripPointerCasts();
-  }
+  // CMPLRLLVM-240614: Check if the pointer cast needs to be removed from the
+  // Constant Const in order to apply the transformation
+  if (isStripPointerCastNeeded(Const, V))
+    Const = Const->stripPointerCasts();
 #endif // INTEL_CUSTOMIZATION
 
   // Replacing `musttail` instructions with constant breaks `musttail` invariant
