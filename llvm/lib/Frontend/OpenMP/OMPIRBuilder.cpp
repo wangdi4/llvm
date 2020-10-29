@@ -16,6 +16,7 @@
 
 #include "llvm/ADT/StringRef.h"
 #include "llvm/ADT/StringSwitch.h"
+#include "llvm/ADT/Triple.h"
 #include "llvm/IR/CFG.h"
 #include "llvm/IR/DebugInfo.h"
 #include "llvm/IR/IRBuilder.h"
@@ -240,6 +241,14 @@ static unsigned getPointerAddressSpace(Module &M) {
   return 0;
 }
 #endif // INTEL_COLLAB
+
+Type *OpenMPIRBuilder::getLanemaskType() {
+  LLVMContext &Ctx = M.getContext();
+  Triple triple(M.getTargetTriple());
+
+  // This test is adequate until deviceRTL has finer grained lane widths
+  return triple.isAMDGCN() ? Type::getInt64Ty(Ctx) : Type::getInt32Ty(Ctx);
+}
 
 Constant *OpenMPIRBuilder::getOrCreateSrcLocStr(StringRef LocStr) {
   Constant *&SrcLocStr = SrcLocStrMap[LocStr];
