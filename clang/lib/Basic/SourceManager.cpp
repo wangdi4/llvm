@@ -1200,10 +1200,10 @@ unsigned SourceManager::getColumnNumber(FileID FID, unsigned FilePos,
   const char *Buf = MemBuf->getBufferStart();
   // See if we just calculated the line number for this FilePos and can use
   // that to lookup the start of the line instead of searching for it.
-  if (LastLineNoFileIDQuery == FID &&
-      LastLineNoContentCache->SourceLineCache != nullptr &&
-      LastLineNoResult < LastLineNoContentCache->NumLines) {
-    unsigned *SourceLineCache = LastLineNoContentCache->SourceLineCache;
+  if (LastLineNoFileIDQuery == FID && LastLineNoContentCache->SourceLineCache &&
+      LastLineNoResult < LastLineNoContentCache->SourceLineCache.size()) {
+    const unsigned *SourceLineCache =
+        LastLineNoContentCache->SourceLineCache.begin();
     unsigned LineStart = SourceLineCache[LastLineNoResult - 1];
     unsigned LineEnd = SourceLineCache[LastLineNoResult];
     if (FilePos >= LineStart && FilePos < LineEnd) {
@@ -1260,20 +1260,8 @@ unsigned SourceManager::getPresumedColumnNumber(SourceLocation Loc,
 #include <emmintrin.h>
 #endif
 
-static LLVM_ATTRIBUTE_NOINLINE void
-ComputeLineNumbers(DiagnosticsEngine &Diag, ContentCache *FI,
-                   llvm::BumpPtrAllocator &Alloc,
-                   const SourceManager &SM, bool &Invalid);
-static void ComputeLineNumbers(DiagnosticsEngine &Diag, ContentCache *FI,
-                               llvm::BumpPtrAllocator &Alloc,
-                               const SourceManager &SM, bool &Invalid) {
-  // Note that calling 'getBuffer()' may lazily page in the file.
-  llvm::Optional<llvm::MemoryBufferRef> Buffer =
-      FI->getBufferOrNone(Diag, SM.getFileManager(), SourceLocation());
-  Invalid = !Buffer;
-  if (Invalid)
-    return;
-
+LineOffsetMapping LineOffsetMapping::get(llvm::MemoryBufferRef Buffer,
+                                         llvm::BumpPtrAllocator &Alloc) {
   // Find the file offsets of all of the *physical* source lines.  This does
   // not look at trigraphs, escaped newlines, or anything else tricky.
   SmallVector<unsigned, 256> LineOffsets;
@@ -1281,8 +1269,8 @@ static void ComputeLineNumbers(DiagnosticsEngine &Diag, ContentCache *FI,
   // Line #1 starts at char 0.
   LineOffsets.push_back(0);
 
-  const unsigned char *Buf = (const unsigned char *)Buffer->getBufferStart();
-  const unsigned char *End = (const unsigned char *)Buffer->getBufferEnd();
+  const unsigned char *Buf = (const unsigned char *)Buffer.getBufferStart();
+  const unsigned char *End = (const unsigned char *)Buffer.getBufferEnd();
   const std::size_t BufLen = End - Buf;
   unsigned I = 0;
   while (I < BufLen) {
@@ -1297,10 +1285,14 @@ static void ComputeLineNumbers(DiagnosticsEngine &Diag, ContentCache *FI,
     ++I;
   }
 
-  // Copy the offsets into the FileInfo structure.
-  FI->NumLines = LineOffsets.size();
-  FI->SourceLineCache = Alloc.Allocate<unsigned>(LineOffsets.size());
-  std::copy(LineOffsets.begin(), LineOffsets.end(), FI->SourceLineCache);
+  return LineOffsetMapping(LineOffsets, Alloc);
+}
+
+LineOffsetMapping::LineOffsetMapping(ArrayRef<unsigned> LineOffsets,
+                                     llvm::BumpPtrAllocator &Alloc)
+    : Storage(Alloc.Allocate<unsigned>(LineOffsets.size() + 1)) {
+  Storage[0] = LineOffsets.size();
+  std::copy(LineOffsets.begin(), LineOffsets.end(), Storage + 1);
 }
 
 /// getLineNumber - Given a SourceLocation, return the spelling line number
@@ -1315,7 +1307,7 @@ unsigned SourceManager::getLineNumber(FileID FID, unsigned FilePos,
     return 1;
   }
 
-  ContentCache *Content;
+  const ContentCache *Content;
   if (LastLineNoFileIDQuery == FID)
     Content = LastLineNoContentCache;
   else {
@@ -1327,26 +1319,29 @@ unsigned SourceManager::getLineNumber(FileID FID, unsigned FilePos,
       return 1;
     }
 
-    Content = const_cast<ContentCache *>(&Entry.getFile().getContentCache());
+    Content = &Entry.getFile().getContentCache();
   }
 
   // If this is the first use of line information for this buffer, compute the
   /// SourceLineCache for it on demand.
   if (!Content->SourceLineCache) {
-    bool MyInvalid = false;
-    ComputeLineNumbers(Diag, Content, ContentCacheAlloc, *this, MyInvalid);
+    llvm::Optional<llvm::MemoryBufferRef> Buffer =
+        Content->getBufferOrNone(Diag, getFileManager(), SourceLocation());
     if (Invalid)
-      *Invalid = MyInvalid;
-    if (MyInvalid)
+      *Invalid = !Buffer;
+    if (!Buffer)
       return 1;
+
+    Content->SourceLineCache =
+        LineOffsetMapping::get(*Buffer, ContentCacheAlloc);
   } else if (Invalid)
     *Invalid = false;
 
   // Okay, we know we have a line number table.  Do a binary search to find the
   // line number that this character position lands on.
-  unsigned *SourceLineCache = Content->SourceLineCache;
-  unsigned *SourceLineCacheStart = SourceLineCache;
-  unsigned *SourceLineCacheEnd = SourceLineCache + Content->NumLines;
+  const unsigned *SourceLineCache = Content->SourceLineCache.begin();
+  const unsigned *SourceLineCacheStart = SourceLineCache;
+  const unsigned *SourceLineCacheEnd = Content->SourceLineCache.end();
 
   unsigned QueriedFilePos = FilePos+1;
 
@@ -1385,13 +1380,13 @@ unsigned SourceManager::getLineNumber(FileID FID, unsigned FilePos,
         }
       }
     } else {
-      if (LastLineNoResult < Content->NumLines)
+      if (LastLineNoResult < Content->SourceLineCache.size())
         SourceLineCacheEnd = SourceLineCache+LastLineNoResult+1;
     }
   }
 
-  unsigned *Pos
-    = std::lower_bound(SourceLineCache, SourceLineCacheEnd, QueriedFilePos);
+  const unsigned *Pos =
+      std::lower_bound(SourceLineCache, SourceLineCacheEnd, QueriedFilePos);
   unsigned LineNo = Pos-SourceLineCacheStart;
 
   LastLineNoFileIDQuery = FID;
@@ -1676,24 +1671,19 @@ SourceLocation SourceManager::translateLineCol(FileID FID,
   if (Line == 1 && Col == 1)
     return FileLoc;
 
-  ContentCache *Content =
-      const_cast<ContentCache *>(&Entry.getFile().getContentCache());
+  const ContentCache *Content = &Entry.getFile().getContentCache();
 
   // If this is the first use of line information for this buffer, compute the
   // SourceLineCache for it on demand.
-  if (!Content->SourceLineCache) {
-    bool MyInvalid = false;
-    ComputeLineNumbers(Diag, Content, ContentCacheAlloc, *this, MyInvalid);
-    if (MyInvalid)
-      return SourceLocation();
-  }
-
   llvm::Optional<llvm::MemoryBufferRef> Buffer =
       Content->getBufferOrNone(Diag, getFileManager());
   if (!Buffer)
     return SourceLocation();
+  if (!Content->SourceLineCache)
+    Content->SourceLineCache =
+        LineOffsetMapping::get(*Buffer, ContentCacheAlloc);
 
-  if (Line > Content->NumLines) {
+  if (Line > Content->SourceLineCache.size()) {
     unsigned Size = Buffer->getBufferSize();
     if (Size > 0)
       --Size;
@@ -2105,7 +2095,7 @@ void SourceManager::PrintStats() const {
   unsigned NumLineNumsComputed = 0;
   unsigned NumFileBytesMapped = 0;
   for (fileinfo_iterator I = fileinfo_begin(), E = fileinfo_end(); I != E; ++I){
-    NumLineNumsComputed += I->second->SourceLineCache != nullptr;
+    NumLineNumsComputed += bool(I->second->SourceLineCache);
     NumFileBytesMapped  += I->second->getSizeBytesMapped();
   }
   unsigned NumMacroArgsComputed = MacroArgsCacheMap.size();
