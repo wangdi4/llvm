@@ -518,8 +518,9 @@ static void printOptReportRemark(const Loop *Lp, const Twine &Remark) {
   LLVM_DEBUG(Lp->getHeader()->printAsOperand(dbgs(), false));
 
   if (const DebugLoc Loc = Lp->getStartLoc()) {
-    LLVM_DEBUG(dbgs() << " at "
-                      << "(" << Loc.getLine() << "," << Loc.getCol() << ")");
+    LLVM_DEBUG(dbgs() << " at ";
+               Loc.print(dbgs());
+    );
   }
 
   LLVM_DEBUG(dbgs() << ": " << Remark << "\n");
