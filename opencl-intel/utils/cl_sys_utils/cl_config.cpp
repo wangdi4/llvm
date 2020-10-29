@@ -48,6 +48,11 @@ cl_ulong BasicCLConfigWrapper::ParseStringToSize(const std::string& userStr) con
     std::string integerStr;
     std::string units;
 
+    // Check if value is negative.
+    auto pos = userStr.find_first_not_of(' ');
+    if (pos != std::string::npos && userStr[pos] == '-')
+        return 0;
+
     // parse the first part: the integer
     std::istringstream iss(userStr);
     iss >> integer;
@@ -64,16 +69,16 @@ cl_ulong BasicCLConfigWrapper::ParseStringToSize(const std::string& userStr) con
     units = userStr.substr(integerStr.size());
 
     // convert to bytes
-    // accepted units are: "GB", "MB", "KB", "B"
-    if (units == "GB")
+    // accepted units are: "GB", "G", "MB", "M", "KB", "K", "B"
+    if (units == "GB" || units == "G")
     {
         integer = integer << 30;
     }
-    else if (units == "MB")
+    else if (units == "MB" || units == "M")
     {
         integer = integer << 20;
     }
-    else if (units == "KB")
+    else if (units == "KB" || units == "K")
     {
         integer = integer << 10;
     }
