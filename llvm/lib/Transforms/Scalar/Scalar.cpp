@@ -110,7 +110,7 @@ void llvm::initializeScalarOpts(PassRegistry &Registry) {
   initializeSROALegacyPassPass(Registry);
   initializeSROALegacyCGSCCAdaptorPassPass(Registry); // INTEL
   initializeCFGSimplifyPassPass(Registry);
-  initializeStructurizeCFGPass(Registry);
+  initializeStructurizeCFGLegacyPassPass(Registry);
   initializeSimpleLoopUnswitchLegacyPassPass(Registry);
   initializeSinkingLegacyPassPass(Registry);
   initializeTailCallElimPass(Registry);
