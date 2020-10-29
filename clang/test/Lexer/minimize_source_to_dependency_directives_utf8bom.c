@@ -1,6 +1,6 @@
 // INTEL_CUSTOMIZATION
 // Disable this test until we can replace homegrown printf.EXE
-// XFAIL: system-windows
+// UNSUPPORTED: system-windows
 // END_INTEL_CUSTOMIZATION
 // Test UTF8 BOM at start of file
 // RUN: printf '\xef\xbb\xbf' > %t.c

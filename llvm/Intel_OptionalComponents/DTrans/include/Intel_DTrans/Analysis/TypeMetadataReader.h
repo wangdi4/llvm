@@ -98,6 +98,9 @@ private:
   // means that the lifetime of the DTransTypeManager must exceed the lifetime
   // of calls to this class.
   DenseMap<MDNode *, dtrans::DTransType *> MDToDTransTypeMap;
+
+  // Map of external symbol name to MDNode that describes the type.
+  StringMap<MDNode *> SymbolNameToMDNodeMap;
 };
 
 #if !INTEL_PRODUCT_RELEASE

@@ -1,6 +1,6 @@
 // INTEL_CUSTOMIZATION
 // Disable this test until we can replace homegrown printf.EXE
-// XFAIL: windows-msvc
+// UNSUPPORTED: windows-msvc
 // END_INTEL_CUSTOMIZATION
 // Test that we use the Windows tokenizer for clang-cl response files. The
 // trailing backslash before the space should be interpreted as a literal

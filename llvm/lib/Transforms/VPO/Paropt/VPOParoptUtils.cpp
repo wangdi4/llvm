@@ -568,7 +568,7 @@ CallInst *VPOParoptUtils::genTgtTargetDataBegin(WRegionNode *W, int NumArgs,
          "Expected a WRNTargetDataNode or WRNTargetEnterDataNode"
                                         "or WRNTargetVariantNode");
   Value *DeviceID = W->getDevice();
-  CallInst *Call= genTgtCall("__tgt_target_data_begin", DeviceID, NumArgs,
+  CallInst *Call= genTgtCall("__tgt_target_data_begin", W, DeviceID, NumArgs,
                              ArgsBase, Args, ArgsSize, ArgsMaptype, InsertPt);
   return Call;
 }
@@ -591,7 +591,7 @@ CallInst *VPOParoptUtils::genTgtTargetDataEnd(WRegionNode *W, int NumArgs,
                                        "or WRNTargetVariantNode");
 
   Value *DeviceID = W->getDevice();
-  CallInst *Call= genTgtCall("__tgt_target_data_end", DeviceID, NumArgs,
+  CallInst *Call= genTgtCall("__tgt_target_data_end", W, DeviceID, NumArgs,
                              ArgsBase, Args, ArgsSize, ArgsMaptype, InsertPt);
   return Call;
 }
@@ -610,7 +610,7 @@ CallInst *VPOParoptUtils::genTgtTargetDataUpdate(WRegionNode *W, int NumArgs,
                                                  Instruction *InsertPt) {
   assert(isa<WRNTargetUpdateNode>(W) && "Expected a WRNTargetUpdateNode");
   Value *DeviceID = W->getDevice();
-  CallInst *Call= genTgtCall("__tgt_target_data_update", DeviceID, NumArgs,
+  CallInst *Call= genTgtCall("__tgt_target_data_update", W, DeviceID, NumArgs,
                              ArgsBase, Args, ArgsSize, ArgsMaptype, InsertPt);
   return Call;
 }
@@ -630,7 +630,7 @@ CallInst *VPOParoptUtils::genTgtTarget(WRegionNode *W, Value *HostAddr,
                                        Instruction *InsertPt) {
   assert(isa<WRNTargetNode>(W) && "Expected a WRNTargetNode");
   Value *DeviceID = W->getDevice();
-  CallInst *Call= genTgtCall("__tgt_target", DeviceID, NumArgs, ArgsBase,
+  CallInst *Call= genTgtCall("__tgt_target", W, DeviceID, NumArgs, ArgsBase,
                              Args, ArgsSize, ArgsMaptype, InsertPt, HostAddr);
   return Call;
 }
@@ -665,10 +665,93 @@ CallInst *VPOParoptUtils::genTgtTargetTeams(WRegionNode *W, Value *HostAddr,
          "SPMD mode cannot be used with num_teams.");
 
   Value *ThreadLimitPtr = W->getThreadLimit();
-  CallInst *Call= genTgtCall("__tgt_target_teams", DeviceID, NumArgs,
+  CallInst *Call= genTgtCall("__tgt_target_teams", W, DeviceID, NumArgs,
                              ArgsBase, Args, ArgsSize, ArgsMaptype, InsertPt,
                              HostAddr, NumTeamsPtr, ThreadLimitPtr);
   return Call;
+}
+
+Value* VPOParoptUtils::encodeSubdevice (WRegionNode* W, Instruction* InsertPt,
+                                        Value* DeviceID) {
+  IRBuilder<> Builder(InsertPt);
+  BasicBlock* B = InsertPt->getParent();
+  Function* F = B->getParent();
+  LLVMContext& C = F->getContext();
+
+  Type* Int64Ty = Type::getInt64Ty(C);
+  DeviceID = Builder.CreateZExtOrBitCast(DeviceID, Int64Ty);
+
+  assert(W->canHaveSubdevice() &&
+      "W must support subdevice, since it supports Device");
+  SubdeviceClause& Subdevice = W->getSubdevice();
+  if (Subdevice.empty())
+    return DeviceID;
+  assert(Subdevice.size()==1 && "There should be only 1 Subdevice clause");
+  SubdeviceItem* SubdeviceI = Subdevice.front();
+  const ConstantInt* CIDevice = dyn_cast<ConstantInt>(DeviceID);
+  Value* Stride = SubdeviceI->getStride();
+  const ConstantInt* CIStride = dyn_cast<ConstantInt>(Stride);
+  Value* Length = SubdeviceI->getLength();
+  const ConstantInt* CILength = dyn_cast<ConstantInt>(Length);
+  Value* Start = SubdeviceI->getStart();
+  const ConstantInt* CIStart = dyn_cast<ConstantInt>(Start);
+  Value* Level = SubdeviceI->getLevel();
+  const ConstantInt* CILevel = dyn_cast<ConstantInt>(Level);
+  if (!CIDevice || !CIStride || !CILength || !CIStart || !CILevel)
+    // TODO: support non-constant cases
+    return DeviceID;
+  // Device Num uses the least significant 32 bits of DeviceID
+  uint64_t UIDevice = CIDevice->getZExtValue();
+
+  uint64_t Mask = (~(~(0ull) << 8));
+
+  // Stride is 8 bits and is encoded between bits 39..32 of DeviceID
+  uint64_t UIStride = CIStride->getZExtValue();
+  LLVM_DEBUG(dbgs() << "Subdevice encoding : Stride before shift: "
+                    << llvm::format_hex(UIStride, 18, true) << "\n");
+  UIStride &= Mask;
+  UIStride <<= 32;
+  LLVM_DEBUG(dbgs() << "Subdevice encoding : Stride after shift: "
+                    << llvm::format_hex(UIStride, 18, true) << "\n");
+
+  // Length is 8 bits and is encoded between bits 47..40 of DeviceID
+  uint64_t UILength = CILength->getZExtValue();
+  LLVM_DEBUG(dbgs() << "Subdevice encoding : Length before shift: "
+                    << llvm::format_hex(UILength, 18, true) << "\n");
+  UILength &= Mask;
+  UILength <<= 40;
+  LLVM_DEBUG(dbgs() << "Subdevice encoding : Length after shift: "
+                    << llvm::format_hex(UILength, 18, true) << "\n");
+
+  // Start is 8 bits and is encoded between bits 55..48 of DeviceID
+  uint64_t UIStart = CIStart->getZExtValue();
+  LLVM_DEBUG(dbgs() << "Subdevice encoding : Start before shift: "
+                    << llvm::format_hex(UIStart, 18, true) << "\n");
+  UIStart &= Mask;
+  UIStart <<= 48;
+  LLVM_DEBUG(dbgs() << "Subdevice encoding : Start after shift: "
+                    << llvm::format_hex(UIStart, 18, true) << "\n");
+
+  // Level is 2 bits and is encoded between bits 57..56 of DeviceID
+  uint64_t UILevel = CILevel->getZExtValue();
+  LLVM_DEBUG(dbgs() << "Subdevice encoding : Level before shift: "
+                    << llvm::format_hex(UILevel, 18, true) << "\n");
+  Mask = (~(~(0ull) << 2));
+  UILevel &= Mask;
+  UILevel <<= 56;
+  LLVM_DEBUG(dbgs() << "Subdevice encoding : Level after shift: "
+                    << llvm::format_hex(UILevel, 18, true) << "\n");
+
+  // MSB is set to 1 if Subdevice clause exists
+  uint64_t MSB = 1ull << 63;
+  LLVM_DEBUG(dbgs() << "DeviceID before Subdevice encoding: "
+                    << llvm::format_hex(UIDevice, 18, true) << "\n");
+  uint64_t UIDeviceID = MSB | UILevel | UIStart | UILength | UIStride
+                        | UIDevice;
+  LLVM_DEBUG(dbgs() << "DeviceID after Subdevice encoding: "
+                    << llvm::format_hex(UIDeviceID, 18, true) << "\n");
+  DeviceID = ConstantInt::get(Int64Ty, UIDeviceID);
+  return DeviceID;
 }
 
 /// \brief Base routine to create one of these libomptarget calls:
@@ -689,11 +772,12 @@ CallInst *VPOParoptUtils::genTgtTargetTeams(WRegionNode *W, Value *HostAddr,
 ///   int64_t* args_size,   // array of sizes (bytes) of each mapped datum
 ///   int64_t* args_maptype // array of map attributes for each mapping
 /// \endcode
-CallInst *VPOParoptUtils::genTgtCall(StringRef FnName, Value *DeviceID,
-                                     int NumArgsCount, Value *ArgsBase,
-                                     Value *Args, Value *ArgsSize,
-                                     Value *ArgsMaptype, Instruction *InsertPt,
-                                     Value *HostAddr, Value *NumTeamsPtr,
+CallInst *VPOParoptUtils::genTgtCall(StringRef FnName, WRegionNode* W,
+                                     Value *DeviceID, int NumArgsCount,
+                                     Value *ArgsBase, Value *Args,
+                                     Value *ArgsSize, Value *ArgsMaptype,
+                                     Instruction *InsertPt, Value *HostAddr,
+                                     Value *NumTeamsPtr,
                                      Value *ThreadLimitPtr) {
   IRBuilder<> Builder(InsertPt);
   BasicBlock *B = InsertPt->getParent();
@@ -713,8 +797,8 @@ CallInst *VPOParoptUtils::genTgtCall(StringRef FnName, Value *DeviceID,
     DeviceID = Builder.CreateZExt(genOmpGetDefaultDevice(InsertPt), Int64Ty);
   else {
     assert(!DeviceID->getType()->isPointerTy() &&
-           "DeviceID should not be a pointer");
-    DeviceID = Builder.CreateSExtOrBitCast(DeviceID, Int64Ty);
+          "DeviceID should not be a pointer");
+    DeviceID = encodeSubdevice(W, InsertPt, DeviceID);
   }
 
   SmallVector<Value *, 9> FnArgs    = { DeviceID };
@@ -3807,6 +3891,40 @@ CallInst *VPOParoptUtils::genCall(StringRef FnName, Type *ReturnTy,
 //                                |   call @foo(QNCA* %dv)
 //                                | }
 //                                |
+// -------------------------------+--------------------------------------------
+//           Before               |      After
+// -------------------------------+--------------------------------------------
+//   CPTR = type {i64}            |  CPTR = type {i64}
+//   ..                           |  ...
+//                                |
+//                               (5) %a.new = alloca CPTR
+//   "USE.DEVICE.PTR:CPTR"        |
+//                   (CPTR* %a)   |
+//                                |
+//                                | if (__tgt_is_device_available(...) {
+//                                |   %a.cast = bitcast CPTR* %a to i8**
+//                                |   %a.val = load i8*, i8** %a.cast
+//                                |   ...
+//                             <noop> %a.val.cast = bitcast i8* %a.val to i8*
+//                                |   store i8* %a.val.cast, i8** <a_gep>
+//                                |   ...
+//                                |   __tgt_data_begin(...)
+//                             <noop> %a.gep.cast = bitcast i8** <a_gep>
+//                                |                 to i8**
+//                                |
+//                               (3)  %a.updated = load i8*, i32** %a.gep.cast
+//                               (9)  %a.new.cast = bitcast CPTR* %a.new to i8**
+//                              (10)  store %a.updated, %a.new.cast
+//                                |
+//   call @foo(CPTR* %a)         (4)  call @foo_gpu(CPTR* %a.new)
+//                                |
+//                                |   __tgt_data_end(...)
+//                                | } else {
+//                                |   call @foo(CPTR* %a)
+//                                | }
+//                                |
+// Note that the noop instructions are here for reference. They are elided by
+// IRBuilder.
 #endif // INTEL_CUSTOMIZATION
 CallInst *VPOParoptUtils::genVariantCall(CallInst *BaseCall,
                                          StringRef VariantName,
@@ -3894,22 +4012,29 @@ CallInst *VPOParoptUtils::genVariantCall(CallInst *BaseCall,
       Value *Buffer =
           VCBuilder.CreateLoad(TgtBufferAddr, OrigName + ".buffer"); // (1), (3)
 #if INTEL_CUSTOMIZATION
-      if (Item->getIsF90DopeVector()) {
+      if (Item->getIsF90DopeVector() || Item->getIsCptr()) {
         const DataLayout &DL = M->getDataLayout();
         Type *OrigElemType = Item->getOrigElemType();
         Instruction *AllocaInsertPt =
             VPOParoptUtils::getInsertionPtForAllocas(W, F);
         unsigned Alignment = DL.getABITypeAlignment(OrigElemType);
-        Value *NewV =
-            genPrivatizationAlloca(OrigElemType, /*NumElements=*/nullptr,
-                                   MaybeAlign(Alignment), AllocaInsertPt,
-                                   /*IsTargetSpirv=*/false, ".new"); // (5)
-        VPOUtils::genMemcpy(NewV, HostPtr, DL, Alignment,
-                            &*VCBuilder.GetInsertPoint()); //           (6)
-        auto *Zero = VCBuilder.getInt32(0);
-        auto *Addr0GEP = VCBuilder.CreateInBoundsGEP(
-            NewV, {Zero, Zero}, NewV->getName() + ".addr0"); //         (7)
-        VCBuilder.CreateStore(Buffer, Addr0GEP); //                     (8)
+        Value *NewV = genPrivatizationAlloca(
+            OrigElemType, /*NumElements=*/nullptr, MaybeAlign(Alignment),
+            AllocaInsertPt,
+            /*IsTargetSpirv=*/false, OrigName + ".new"); //             (5)
+        if (Item->getIsF90DopeVector()) {
+          VPOUtils::genMemcpy(NewV, HostPtr, DL, Alignment,
+                              &*VCBuilder.GetInsertPoint()); //         (6)
+          auto *Zero = VCBuilder.getInt32(0);
+          auto *Addr0GEP = VCBuilder.CreateInBoundsGEP(
+              NewV, {Zero, Zero}, NewV->getName() + ".addr0"); //       (7)
+          VCBuilder.CreateStore(Buffer, Addr0GEP); //                   (8)
+        } else if (Item->getIsCptr()) {
+          PointerType *Int8PtrPtrTy = VCBuilder.getInt8PtrTy()->getPointerTo();
+          auto *NewVCast = VCBuilder.CreateBitOrPointerCast(
+              NewV, Int8PtrPtrTy, NewV->getName() + ".cast"); //        (9)
+          VCBuilder.CreateStore(Buffer, NewVCast); //                   (10)
+        }
         Buffer = NewV;
       }
 #endif // INTEL_CUSTOMIZATION

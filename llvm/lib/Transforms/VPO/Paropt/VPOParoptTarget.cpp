@@ -1708,6 +1708,18 @@ bool VPOParoptTransform::addMapForUseDevicePtr(WRegionNode *W,
       MappedVal = LoadBuilder.CreateLoad(
           cast<PointerType>(Addr0GEP->getType())->getPointerElementType(),
           Addr0GEP, Addr0GEP->getName() + ".load");
+    } else if (UDPI->getIsCptr()) {
+      // CPTR type is of form: "%cptr = type { i64 }". So, for "cptr*" operands,
+      // we need to cast them to i8** before creating a load to be mapped, like:
+      //   load i8*, i8** (bitcast cptr* %p to i8**)
+      PointerType *Int8PtrTy = LoadBuilder.getInt8PtrTy();
+      PointerType *Int8PtrPtrTy = Int8PtrTy->getPointerTo();
+
+      auto *PtrPtrCast = LoadBuilder.CreateBitOrPointerCast(
+          UDP, Int8PtrPtrTy, UDP->getName() + ".cast");
+
+      MappedVal = LoadBuilder.CreateLoad(Int8PtrTy, PtrPtrCast,
+                                         UDP->getName() + ".val");
     }
 #endif // INTEL_CUSTOMIZATION
     MapAggrTy *MapAggr = new MapAggrTy(MappedVal, MappedVal, MapSize, MapType);
@@ -1751,6 +1763,23 @@ bool VPOParoptTransform::addMapForUseDevicePtr(WRegionNode *W,
 ///                                       |
 ///                                      (5) store i32* %a.load, i32** %a
 ///                                       |
+#if INTEL_CUSTOMIZATION
+///
+/// (C)
+/// --------------------------------------+------------------------------------
+///         Before                        |      After
+/// --------------------------------------+------------------------------------
+///                                      (6) %a.cast1 = bitcast cptr* %a to i8**
+///                                      (2) %a.load = load i*, i8** %a.cast1
+///                                       |
+/// "IS.DEVICE.PTR:CPTR" (cptr* %a)       | "IS_DEVICE_PTR:CPTR(cptr* %a)
+///                                      (3) "MAP"(i8* %a.load, PARAM|LITERAL)
+///                                      (4) "PRIVATE(i32** %a)
+///                                       |
+///                                      (7) %a.cast2 = bitcast cptr* %a to i8**
+///                                      (5) store i8* %a.load, i8** %a
+///                                       |
+#endif // INTEL_CUSTOMIZATION
 /// \endcode
 /// Note that (1), (3) and (4) are not added to the IR, just the data structures
 /// in \p W.
@@ -1779,25 +1808,31 @@ bool VPOParoptTransform::addMapAndPrivateForIsDevicePtr(WRegionNode *W) {
   };
 
   bool Changed = false;
-  bool SeenPtrToPtrOperands = false;
+  bool SeenOperandsWithModifiers = false;
 
-  auto addMapIfNotPtrToPtr = [&](IsDevicePtrItem *IDPI) {
+  auto addMapIfNoModifier = [&](IsDevicePtrItem *IDPI) {
     if (IDPI->getIsPointerToPointer()) {
-      SeenPtrToPtrOperands = true;
+      SeenOperandsWithModifiers = true;
       return;
     }
+#if INTEL_CUSTOMIZATION
+    if (IDPI->getIsCptr()) {
+      SeenOperandsWithModifiers = true;
+      return;
+    }
+#endif // INTEL_CUSTOMIZATION
     Value *IDP = IDPI->getOrig();
     addMapForValue(IDP); //                                             (1)
-    LLVM_DEBUG(dbgs() << "addMapIfNotPtrToPtr: Converted 'is_device_ptr(";
-               IDP->printAsOperand(dbgs()); dbgs() << ")' to 'map(";
+    LLVM_DEBUG(dbgs() << "addMapIfNoModifiers: Converted 'IS_DEVICE_PTR(";
+               IDP->dump(); dbgs() << ")' to 'MAP(";
                IDP->printAsOperand(dbgs());
                dbgs() << ", TGT_PARAM | TGT_LITERAL)'.\n");
     Changed = true;
   };
 
   // (A) First, handle all "IS_DEVICE_PTR" clauses without PTR_TO_PTR modifiers.
-  std::for_each(IDPC.items().begin(), IDPC.items().end(), addMapIfNotPtrToPtr);
-  if (!SeenPtrToPtrOperands)
+  std::for_each(IDPC.items().begin(), IDPC.items().end(), addMapIfNoModifier);
+  if (!SeenOperandsWithModifiers)
     return Changed;
 
   // (B) Handle clauses with PTR_TO_PTR modifiers next.
@@ -1817,25 +1852,49 @@ bool VPOParoptTransform::addMapAndPrivateForIsDevicePtr(WRegionNode *W) {
   IRBuilder<> StoreBuilder(StoreBB->getTerminator());
   PrivateClause &PC = W->getPriv();
 
+  auto addMapAndPrivateForIDP = [&addMapForValue, &PC, &LoadBuilder,
+                                 &StoreBuilder](
+                                    IsDevicePtrItem *IDPI, Type *LoadedValType,
+                                    Value *LoadSrc, Value *StoreDst) {
+    Value *IDP = IDPI->getOrig();
+    Value *IDPLoad = LoadBuilder.CreateLoad(LoadedValType, LoadSrc, //  (2)
+                                            IDP->getName() + ".load");
+    addMapForValue(IDPLoad); //                                         (3)
+    PC.add(IDP); //                                                     (4)
+    StoreBuilder.CreateStore(IDPLoad, StoreDst); //                     (5)
+    LLVM_DEBUG(dbgs() << "addMapAndPrivateForIDP: Converted 'IS_DEVICE_PTR:";
+               IDPI->dump(); dbgs() << "' to 'MAP(";
+               IDPLoad->printAsOperand(dbgs());
+               dbgs() << ", TGT_PARAM | TGT_LITERAL) PRIVATE(";
+               IDP->printAsOperand(dbgs()); dbgs() << ")'.\n");
+    return true;
+  };
+
   for (IsDevicePtrItem *IDPI : IDPC.items()) {
     Value *IDP = IDPI->getOrig();
+#if INTEL_CUSTOMIZATION
+    if (IDPI->getIsCptr()) {
+      unsigned AddrSpace =
+          cast<PointerType>(IDP->getType())->getAddressSpace();
+      PointerType *Int8PtrTy = LoadBuilder.getInt8PtrTy(AddrSpace);
+      PointerType *Int8PtrPtrTy = Int8PtrTy->getPointerTo(AddrSpace);
+
+      Value *LoadSrc = LoadBuilder.CreateBitOrPointerCast(
+          IDP, Int8PtrPtrTy, IDP->getName() + ".cast"); //              (6)
+      Value *StoreDst = StoreBuilder.CreateBitOrPointerCast(
+          IDP, Int8PtrPtrTy, IDP->getName() + ".cast"); //              (7)
+
+      Changed |= addMapAndPrivateForIDP(IDPI, Int8PtrTy, LoadSrc, StoreDst);
+      continue;
+    }
+
+#endif // INTEL_CUSTOMIZATION
     if (!IDPI->getIsPointerToPointer()) // Already handled above
       continue;
 
-    Value *IDPLoad = LoadBuilder.CreateLoad(
-        cast<PointerType>(IDP->getType())->getPointerElementType(), IDP,
-        IDP->getName() + ".load"); //                                   (2)
-    addMapForValue(IDPLoad); //                                         (3)
-    PC.add(IDP); //                                                     (4)
-    StoreBuilder.CreateStore(IDPLoad, IDP); //                          (5)
-
-    LLVM_DEBUG(dbgs() << __FUNCTION__
-                      << ": Converted 'is_device_ptr:ptr_to_ptr(";
-               IDP->printAsOperand(dbgs()); dbgs() << ")' to 'map(";
-               IDPLoad->printAsOperand(dbgs());
-               dbgs() << ", TGT_PARAM | TGT_LITERAL) private(";
-               IDP->printAsOperand(dbgs()); dbgs() << ")'.\n");
-    Changed = true;
+    Changed |= addMapAndPrivateForIDP(
+        IDPI, cast<PointerType>(IDP->getType())->getPointerElementType(), IDP,
+        IDP);
   }
   return Changed;
 }
@@ -1907,6 +1966,27 @@ bool VPOParoptTransform::addMapAndPrivateForIsDevicePtr(WRegionNode *W) {
 //     call @outlined.funtion(...DV* %udp.new)                       ; (6)
 //   call void @__tgt_target_data_end()
 //
+// Case 4: Type of %udp is cptr* (Fortran C_PTR), and it's marked as CPTR:
+// Before:
+//   %udp.gep = getelementptr(%offload.baseptrs...)                  ; (1)
+//   ...
+//   call void @__tgt_target_data_begin(...%offload.baseptrs...)
+//     call @outlined.funtion(...cptr* %udp)  ; TgtDataOutlinedFunctionCall
+//   call void @__tgt_target_data_end()
+//
+// After:
+//   $udp.new = alloca cptr                                          ; (2)
+//   ...
+//   %udp.gep = getelementptr(%offload.baseptrs...)                  ; (1)
+//   ...
+//   call void @__tgt_target_data_begin(...%offload.baseptrs...)
+//     %udp.gep.cast = cast i8** %udp.gep to i8**           ;elided  ; (3)
+//     %udp.updated.val = load i8*, i8** %udp.gep.cast               ; (4)
+//     %udp.new.cast = bitcast %udp.new to i8**                      ; (9)
+//     store i8* %udp.updated.val, i8** %udp.new.cast                ; (5)
+//     call @outlined.funtion(...cptr* %udp.new)                     ; (6)
+//   call void @__tgt_target_data_end()
+//
 #endif // INTEL_CUSTOMIZATION
 void VPOParoptTransform::useUpdatedUseDevicePtrsInTgtDataRegion(
     WRegionNode *W, Instruction *TgtDataOutlinedFunctionCall) {
@@ -1955,6 +2035,14 @@ void VPOParoptTransform::useUpdatedUseDevicePtrsInTgtDataRegion(
       auto *Addr0GEP = Builder.CreateInBoundsGEP(NewV, {Zero, Zero}, //     (8)
                                                  NewV->getName() + ".addr0");
       Builder.CreateStore(UpdatedUDPVal, Addr0GEP); //                      (5)
+    } else if (UDPI->getIsCptr()) {
+      NewV = genPrivatizationAlloca(OrigV, OrigElemTy, AllocaInsertPt,
+                                    ".new"); //                             (2)
+      PointerType *Int8PtrPtrTy = Builder.getInt8PtrTy()->getPointerTo();
+      auto *NewVCast = Builder.CreateBitOrPointerCast(
+          NewV, Int8PtrPtrTy, NewV->getName() + ".cast"); //                (9)
+
+      Builder.CreateStore(UpdatedUDPVal, NewVCast); //                      (5)
     }
 #endif // INTEL_CUSTOMIZATION
 
@@ -3418,6 +3506,9 @@ bool VPOParoptTransform::genTargetVariantDispatchCode(WRegionNode *W) {
         Builder.CreateZExt(VPOParoptUtils::genOmpGetDefaultDevice(InsertPt),
                            Int64Ty);
   }
+  assert(!DeviceNum->getType()->isPointerTy() &&
+        "DeviceID should not be a pointer");
+  DeviceNum = VPOParoptUtils::encodeSubdevice(W, InsertPt, DeviceNum);
 
   // Emit call to check for device availability:
   //
@@ -3442,11 +3533,11 @@ bool VPOParoptTransform::genTargetVariantDispatchCode(WRegionNode *W) {
 #if INTEL_CUSTOMIZATION
     if (std::any_of(UDPtrClause.items().begin(), UDPtrClause.items().end(),
                     [](UseDevicePtrItem *UDPI) {
-                      return UDPI->getIsF90DopeVector();
+                      return UDPI->getIsF90DopeVector() || UDPI->getIsCptr();
                     })) {
       std::string Msg =
           "'vpo-paropt-use-raw-dev-ptr=false' is not supported with "
-          "use_device_ptr clause on Fortran assumed-shape arrays.";
+          "use_device_ptr clause on Fortran assumed-shape arrays/cptrs.";
       F->getContext().diagnose(DiagnosticInfoUnsupported(*F, Msg));
     }
 
