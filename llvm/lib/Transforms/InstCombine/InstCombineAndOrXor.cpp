@@ -2058,17 +2058,18 @@ static Instruction *matchFunnelShift(Instruction &Or, InstCombinerImpl &IC) {
   // Match the shift amount operands for a funnel shift pattern. This always
   // matches a subtraction on the R operand.
   auto matchShiftAmount = [&](Value *L, Value *R, unsigned Width) -> Value * {
-#if INTEL_CUSTOMIZATION
-    // CMPLRLLVM-23976: On x86, increasing fsh recognition doesn't seem to
-    // give any benefits, only regressions.
-#if 0
     // Check for constant shift amounts that sum to the bitwidth.
+#if INTEL_CUSTOMIZATION
+    // CMPLRLLVM-23976: fsh recognition has some
+    // unplanned effects on loop cost modeling. Only allow vec cases for now.
+    if (L->getType()->isVectorTy() || R->getType()->isVectorTy())
+    {
+    // Indent-left for easier merge. Code below is identical to llorg.
+#endif // INTEL_CUSTOMIZATION
     const APInt *LI, *RI;
     if (match(L, m_APIntAllowUndef(LI)) && match(R, m_APIntAllowUndef(RI)))
       if (LI->ult(Width) && RI->ult(Width) && (*LI + *RI) == Width)
         return ConstantInt::get(L->getType(), *LI);
-#endif
-#endif // INTEL_CUSTOMIZATION
 
     Constant *LC, *RC;
     if (match(L, m_Constant(LC)) && match(R, m_Constant(RC)) &&
@@ -2086,6 +2087,10 @@ static Instruction *matchFunnelShift(Instruction &Or, InstCombinerImpl &IC) {
       KnownBits KnownL = IC.computeKnownBits(L, /*Depth*/ 0, &Or);
       return KnownL.getMaxValue().ult(Width) ? L : nullptr;
     }
+#if INTEL_CUSTOMIZATION
+    // Don't indent above.
+    }
+#endif // INTEL_CUSTOMIZATION
 
     // For non-constant cases, the following patterns currently only work for
     // rotation patterns.
