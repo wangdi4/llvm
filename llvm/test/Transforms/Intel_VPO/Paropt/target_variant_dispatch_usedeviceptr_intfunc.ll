@@ -1,7 +1,5 @@
-; RUN: opt -vpo-paropt-prepare -S -vpo-paropt-use-raw-dev-ptr=false -vpo-paropt-use-interop=false < %s | FileCheck %s -check-prefix=BUFFPTR
-; RUN: opt < %s -passes='function(vpo-paropt-prepare)' -S -vpo-paropt-use-raw-dev-ptr=false -vpo-paropt-use-interop=false | FileCheck %s -check-prefix=BUFFPTR
-; RUN: opt -vpo-paropt-prepare -vpo-paropt-use-interop=false -S < %s | FileCheck %s -check-prefix=RAWPTR
-; RUN: opt < %s -passes='function(vpo-paropt-prepare)' -vpo-paropt-use-interop=false -S | FileCheck %s -check-prefix=RAWPTR
+; RUN: opt -vpo-paropt-prepare -vpo-paropt-use-interop=false -S < %s | FileCheck %s
+; RUN: opt < %s -passes='function(vpo-paropt-prepare)' -vpo-paropt-use-interop=false -S | FileCheck %s
 
 ; Test for TARGET VARIANT DISPATCH construct with a USE_DEVICE_PTR clause
 
@@ -19,78 +17,7 @@
 ;      rrr = foo(a_cpu, b_cpu, 77777);
 ;   return rrr;
 ; }
-;
-; Expected IR: when (default)  -vpo-paropt-use-raw-dev-ptr=false
-;
-;   %call1 = call i32 @__tgt_is_device_available(i64 %{{.*}}, i8* null)
-;   %available = icmp ne i32 %call1, 0
-;   ...
-;   br i1 %available, label %if.device.available.create.buffers,
-;                     label %end.if.device.available.create.buffers
-;
-; if.device.available.create.buffers:
-;   ...
-;   %buffer4 = call i8* @__tgt_create_buffer(i64 %{{.*}}, i8* %hostPtr3)
-;   ...
-;   %isNull5 = icmp eq i8* %buffer4, null
-;   br i1 %isNull5, label %begin.check.buffer, label %if.ptr.not.null6
-;
-; if.ptr.not.null6:
-;   ...
-;   %buffer = call i8* @__tgt_create_buffer(i64 %{{.*}}, i8* %hostPtr)
-;   ...
-;
-; begin.check.buffer:
-;   %dispatch = load i1, i1* %dispatch.flag
-;   %notDispatch = xor i1 %dispatch, true
-;   br i1 %notDispatch, label %check.unused.buffer, label %end.check.buffer
-;
-; check.unused.buffer:
-;   %buffer7 = load i8*, i8** %tgt.buffer
-;   %notNull = icmp ne i8* %buffer7, null
-;   br i1 %notNull, label %free.unused.buffer, label %check.unused.buffer8
-;
-; free.unused.buffer:
-;   %4 = call i32 @__tgt_release_buffer(i64 %{{.*}}, i8* %buffer7)
-;   br label %check.unused.buffer8
-;
-; check.unused.buffer8:
-;   %buffer9 = load i8*, i8** %tgt.buffer2
-;   %notNull10 = icmp ne i8* %buffer9, null
-;   br i1 %notNull10, label %free.unused.buffer11, label %end.check.unused.buffer
-;
-; free.unused.buffer11:
-;   %5 = call i32 @__tgt_release_buffer(i64 %{{.*}}, i8* %buffer9)
-;   br label %end.check.unused.buffer
-;
-; end.check.unused.buffer:
-;   br label %end.check.buffer
-;
-; end.check.buffer:
-;   br label %end.if.device.available.create.buffers
-;
-; end.if.device.available.create.buffers:
-;   %dispatch12 = load i1, i1* %dispatch.flag
-;   br i1 %dispatch12, label %variant.call, label %base.call
-;
-; variant.call:
-;   %buffer13 = load i8*, i8** %tgt.buffer
-;   %buffer14 = load i8*, i8** %tgt.buffer2
-;   %variant = call i32 @foo_gpu(i8* %buffer13, i8* %buffer14, i32 77777)
-;   %buffer15 = load i8*, i8** %tgt.buffer
-;   %6 = call i32 @__tgt_release_buffer(i64 %{{.*}}, i8* %buffer15)
-;   %buffer16 = load i8*, i8** %tgt.buffer2
-;   %7 = call i32 @__tgt_release_buffer(i64 %{{.*}}, i8* %buffer16)
-;   br label %if.end
-;
-; base.call:
-;   %call = call i32 @foo(i8* %2, i8* %3, i32 77777) #3
-;   br label %if.end
-;
-; if.end:
-;   %callphi = phi i32 [ %variant, %variant.call ], [ %call, %base.call ]
-; ...
-;
+
 ; Expected IR: when -vpo-paropt-use-raw-dev-ptr=true
 ;  %call1 = call i32 @__tgt_is_device_available(i64 %{{.*}}, i8* null)
 ;  %dispatch = icmp ne i32 %call1, 0
@@ -121,60 +48,25 @@
 ;....
 
 ;Is device ready?
-; BUFFPTR: call i32 @__tgt_is_device_available(i64 %{{.*}}
-;
-;Create target buffers for both host pointers
-; Check that loads from @a_cpu and %b_cpu are used in tgt_create_buffer call,
-; BUFFPTR-DAG: [[HOSTPTR1:%hostPtr[^ ]*]] = load i8*, i8** %b_cpu
-; BUFFPTR: %{{[^ ]+}} = call i8* @__tgt_create_buffer(i64 %{{.*}}, i8* [[HOSTPTR1]])
-; BUFFPTR-DAG: [[HOSTPTR2:%hostPtr[^ ]*]] = load i8*, i8** @a_cpu
-; BUFFPTR: %{{[^ ]+}} = call i8* @__tgt_create_buffer(i64 %{{.*}}, i8* [[HOSTPTR2]])
-;
-;Code to clean up target buffers in case some are not created
-; BUFFPTR: call i32 @__tgt_release_buffer(i64 %{{.*}}, i8*
-; BUFFPTR: call i32 @__tgt_release_buffer(i64 %{{.*}}, i8*
-;
-;Load and check the dispatch flag
-; BUFFPTR: [[DISPATCH:%[a-zA-Z._0-9]+]] = load i1
-; BUFFPTR-NEXT: br i1 [[DISPATCH]], label %[[VARIANTLBL:[a-zA-Z._0-9]+]], label %[[BASELBL:[a-zA-Z._0-9]+]]
-;
-;Variant Call: load 2 tgt buffers before call, and release them afterwards
-; BUFFPTR: [[VARIANTLBL]]:
-; BUFFPTR-DAG: [[BUFF1:%[a-zA-Z._0-9]+]] = load i8*
-; BUFFPTR-DAG: [[BUFF2:%[a-zA-Z._0-9]+]] = load i8*
-; BUFFPTR: [[VARIANT:%[a-zA-Z._0-9]+]] = call i32 @foo_gpu(i8* [[BUFF1]], i8* [[BUFF2]]
-; BUFFPTR: call i32 @__tgt_release_buffer(i64 %{{.*}}, i8*
-; BUFFPTR: call i32 @__tgt_release_buffer(i64 %{{.*}}, i8*
-;
-;Base Call:
-; BUFFPTR-DAG: [[BASELBL]]:
-; BUFFPTR-NEXT: [[BASE:%[a-zA-Z._0-9]+]] = call i32 @foo(i8*
-;
-;Check phi:
-; BUFFPTR: phi i32 [ [[VARIANT]], %[[VARIANTLBL]] ], [ [[BASE]], %[[BASELBL]] ]
-;
-; when -vpo-paropt-use-raw-dev-ptr=true
-;
-;Is device ready?
-; RAWPTR: call i32 @__tgt_is_device_available(i64 %{{.*}}
-; RAWPTR-NEXT: [[DISPATCH:%[a-zA-Z._0-9]+]] = icmp ne
-; RAWPTR-NEXT: br i1 [[DISPATCH]], label %[[VARIANTLBL:[a-zA-Z._0-9]+]], label %[[BASELBL:[a-zA-Z._0-9]+]]
+; CHECK: call i32 @__tgt_is_device_available(i64 %{{.*}}
+; CHECK-NEXT: [[DISPATCH:%[a-zA-Z._0-9]+]] = icmp ne
+; CHECK-NEXT: br i1 [[DISPATCH]], label %[[VARIANTLBL:[a-zA-Z._0-9]+]], label %[[BASELBL:[a-zA-Z._0-9]+]]
 ;
 ;Variant Call
-; RAWPTR: [[VARIANTLBL]]:
-; RAWPTR: call void @__tgt_target_data_begin({{.+}})
-; RAWPTR-DAG: [[ARG1:%[a-zA-Z._0-9]+]] = load i8*, i8**
-; RAWPTR-DAG: [[ARG2:%[a-zA-Z._0-9]+]] = load i8*, i8**
-; RAWPTR: [[VARIANT:%[a-zA-Z._0-9]+]] = call i32 @foo_gpu(i8* [[ARG1]], i8* [[ARG2]]
-; RAWPTR: call void @__tgt_target_data_end({{.+}})
+; CHECK: [[VARIANTLBL]]:
+; CHECK: call void @__tgt_target_data_begin({{.+}})
+; CHECK-DAG: [[ARG1:%[a-zA-Z._0-9]+]] = load i8*, i8**
+; CHECK-DAG: [[ARG2:%[a-zA-Z._0-9]+]] = load i8*, i8**
+; CHECK: [[VARIANT:%[a-zA-Z._0-9]+]] = call i32 @foo_gpu(i8* [[ARG1]], i8* [[ARG2]]
+; CHECK: call void @__tgt_target_data_end({{.+}})
 ;
 ;Base Call:
-; RAWPTR: [[BASELBL]]:
-; RAWPTR: [[BASE:%[a-zA-Z._0-9]+]] = call i32 @foo(i8*
+; CHECK: [[BASELBL]]:
+; CHECK: [[BASE:%[a-zA-Z._0-9]+]] = call i32 @foo(i8*
 ;
 ;Check phi:
-; RAWPTR: phi i32 [ [[VARIANT]], %[[VARIANTLBL]] ], [ [[BASE]], %[[BASELBL]] ]
-;
+; CHECK: phi i32 [ [[VARIANT]], %[[VARIANTLBL]] ], [ [[BASE]], %[[BASELBL]] ]
+
 ; ModuleID = 'target_variant_dispatch_usedeviceptr_intfunc.c'
 source_filename = "target_variant_dispatch_usedeviceptr_intfunc.c"
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"

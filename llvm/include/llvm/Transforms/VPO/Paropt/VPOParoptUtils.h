@@ -1068,7 +1068,6 @@ public:
   static CallInst *genKmpcTaskAllocForAsyncObj(WRegionNode *W,
                                                StructType *IdentTy,
                                                int AsyncObjTySize,
-                                               int UseDevicePtrsTySize,
                                                Instruction *InsertPt);
 
   /// Generate a call to `__kmpc_taskloop`. Example:
