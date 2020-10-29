@@ -496,6 +496,7 @@ FUNCTION_PASS("hir-sum-window-reuse", loopopt::HIRSumWindowReusePass())
 FUNCTION_PASS("hir-non-zero-sinking-for-perfect-loopnest", loopopt::HIRNonZeroSinkingForPerfectLoopnestPass())
 FUNCTION_PASS("hir-identity-matrix-substitution", loopopt::HIRIdentityMatrixSubstitutionPass())
 FUNCTION_PASS("hir-arrayscalarization-test-launcher", loopopt::HIRArrayScalarizationTestLauncherPass())
+FUNCTION_PASS("vpo-paropt-shared-privatization", VPOParoptSharedPrivatizationPass())
 
 #endif // INTEL_CUSTOMIZATION
 #if INTEL_COLLAB

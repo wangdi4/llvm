@@ -168,6 +168,8 @@ public:
   /// Create a map between the BasicBlocks and the corresponding
   /// innermost WRegionNodes owning the blocks.
   void initializeBlocksToRegionsMap(BBToWRNMapTy &BBToWRNMap);
+  /// Privatize shared items in the work region.
+  bool privatizeSharedItems();
 #endif  // INTEL_CUSTOMIZATION
 
 private:

@@ -334,6 +334,10 @@ static cl::opt<bool>
 static cl::opt<bool> EnableArgNoAliasProp(
     "enable-arg-noalias-prop", cl::init(true), cl::Hidden, cl::ZeroOrMore,
     cl::desc("Enable noalias propagation for function arguments."));
+
+static cl::opt<bool> EnableVPOParoptSharedPrivatization(
+    "enable-vpo-paropt-shared-privatization", cl::init(true), cl::Hidden,
+    cl::ZeroOrMore, cl::desc("Enable VPO Paropt Shared Privatization pass."));
 #endif // INTEL_CUSTOMIZATION
 
 static cl::opt<bool>
@@ -1958,6 +1962,11 @@ void PassManagerBuilder::addVPOPasses(legacy::PassManagerBase &PM, bool RunVec,
     // VPOParoptOptimizeDataSharing does not modify CFG,
     // and keeps the basic blocks with directive calls
     // consistent.
+    if (OptLevel > 2 && EnableVPOParoptSharedPrivatization)
+      // Shared privatization pass should be combined with the argument
+      // promotion pass (to do a cleanup) which currently runs only at O3,
+      // therefore it is limited to O3 as well.
+      PM.add(createVPOParoptSharedPrivatizationPass());
 #endif  // INTEL_CUSTOMIZATION
     PM.add(createVPOParoptPass(RunVPOParopt));
 #if INTEL_CUSTOMIZATION
