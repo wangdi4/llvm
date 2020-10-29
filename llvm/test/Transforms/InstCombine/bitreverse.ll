@@ -17,7 +17,12 @@ target datalayout = "e-p:32:32:32-i1:8:8-i8:8:8-i16:16:16-i32:32:32-i64:32:64-f3
 define i8 @rev8(i8 %v) {
 ; CHECK-LABEL: @rev8(
 ; CHECK-NEXT:  entry:
-; CHECK-NEXT:    [[OR:%.*]] = call i8 @llvm.fshl.i8(i8 [[V:%.*]], i8 [[V]], i8 4)
+; INTEL_CUSTOMIZATION
+; CMPLRLLVM-23976: suppress scalar fshl matching
+; CHECK-NEXT:    [[SHR4:%.*]] = lshr i8 [[V:%.*]], 4
+; CHECK-NEXT:    [[SHL7:%.*]] = shl i8 [[V]], 4
+; CHECK-NEXT:    [[OR:%.*]] = or i8 [[SHR4]], [[SHL7]]
+; end INTEL_CUSTOMIZATION
 ; CHECK-NEXT:    [[SHR4_1:%.*]] = lshr i8 [[OR]], 2
 ; CHECK-NEXT:    [[AND_1:%.*]] = and i8 [[SHR4_1]], 51
 ; CHECK-NEXT:    [[SHL7_1:%.*]] = shl i8 [[OR]], 2
