@@ -512,6 +512,12 @@ public:
     return NestingLevel;
   }
 
+  /// Returns loop depth of the underlying LLVM loop if it exists, otherwise
+  /// returns 0. This can be useful for cost-modelling.
+  unsigned getLLVMLoopDepth() const {
+    return OrigLoop ? OrigLoop->getLoopDepth() : 0;
+  }
+
   /// Returns true if this is the innermost loop in the loop nest.
   bool isInnermost() const { return IsInnermost; }
 
