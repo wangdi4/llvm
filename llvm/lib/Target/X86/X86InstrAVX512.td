@@ -3235,6 +3235,17 @@ let Predicates = [HasBWI] in {
                VEX, XD, VEX_W;
 }
 
+#if INTEL_CUSTOMIZATION
+let isCodeGenOnly = 1, isPseudo = 1 in {
+  let Predicates = [HasDQI, IntelAdvOpt] in
+    def KMOVBki : I<0, Pseudo, (outs VK8:$dst), (ins i8imm :$src), "",
+                    [(set VK8:$dst, (bitconvert (i8 imm:$src)))]>;
+  let Predicates = [HasAVX512, IntelAdvOpt] in
+    def KMOVWki : I<0, Pseudo, (outs VK16:$dst), (ins i16imm :$src), "",
+                    [(set VK16:$dst, (bitconvert (i16 imm:$src)))]>;
+}
+#endif // INTEL_CUSTOMIZATION
+
 // GR from/to mask register
 def : Pat<(v16i1 (bitconvert (i16 GR16:$src))),
           (COPY_TO_REGCLASS (i32 (INSERT_SUBREG (IMPLICIT_DEF), GR16:$src, sub_16bit)), VK16)>;
@@ -14520,7 +14531,7 @@ multiclass avx512_vmovadvisew_packed<string OpcodeStr, X86VectorVTInfo _,
 
 multiclass avx512_vmovadvisew_packed_all<string OpcodeStr>{
   let Predicates = [HasAVX512MEMADVISE, In64BitMode] in
-    defm Z512 : avx512_vmovadvisew_packed<OpcodeStr, v16i32_info,
+    defm Z    : avx512_vmovadvisew_packed<OpcodeStr, v16i32_info,
                                           int_x86_avx512_vmovadvisew_load_512,
                                           int_x86_avx512_vmovadvisew_store_512,
                                           SchedWriteFMoveLS.ZMM>, EVEX_V512;
@@ -14537,6 +14548,32 @@ multiclass avx512_vmovadvisew_packed_all<string OpcodeStr>{
 }
 
 defm VMOVADVISEW : avx512_vmovadvisew_packed_all<"vmovadvisew">;
+
+multiclass avx512_vmemadvise_all {
+  let Predicates  = [HasAVX512MEMADVISE, In64BitMode] in
+      def Zmr  : Ii8<0x71, MRMDestMemImm8, (outs),
+                    (ins i512mem:$dst, u8imm:$src),
+                    "vmemadvise{z}\t{$src, $dst|$dst, $src}",
+                    [(int_x86_avx512_vmemadvise_512 addr:$dst, timm:$src)]>,
+                    Sched<[SchedWriteFMoveLS.ZMM.MR]>,
+                    NotMemoryFoldable, XD, EVEX, EVEX_V512;
+  let Predicates = [HasAVX512MEMADVISE, HasVLX, In64BitMode] in {
+      def Z256mr : Ii8<0x71, MRMDestMemImm8, (outs),
+                    (ins i256mem:$dst, u8imm:$src),
+                    "vmemadvise{y}\t{$src, $dst|$dst, $src}",
+                    [(int_x86_avx512_vmemadvise_256 addr:$dst, timm:$src)]>,
+                    Sched<[SchedWriteFMoveLS.YMM.MR]>,
+                    NotMemoryFoldable, XD, EVEX, EVEX_V256, ExplicitEVEXPrefix;
+      def Z128mr : Ii8<0x71, MRMDestMemImm8, (outs),
+                    (ins i128mem:$dst, u8imm:$src),
+                    "vmemadvise{x}\t{$src, $dst|$dst, $src}",
+                    [(int_x86_avx512_vmemadvise_128 addr:$dst, timm:$src)]>,
+                    Sched<[SchedWriteFMoveLS.XMM.MR]>,
+                    NotMemoryFoldable, XD, EVEX, EVEX_V128, ExplicitEVEXPrefix;
+  }
+}
+
+defm VMEMADVISE : avx512_vmemadvise_all;
 #endif // INTEL_FEATURE_ISA_AVX_MEMADVISE
 
 #if INTEL_FEATURE_ISA_AVX_MPSADBW

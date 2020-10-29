@@ -47,5 +47,13 @@
 #define _mm512_vmovadvisew_storee_epi8(A, B, I) \
    __builtin_ia32_vmovadvisew_storee_512((__v16si *)(A), (__v16si)(B), (I))
 
+#define _mm_vmemadvise_epi8(A, I) \
+   __builtin_ia32_vmemadvise_avx512_128((__v16qi *)(A), (I))
+
+#define _mm256_vmemadvise_epi8(A, I) \
+   __builtin_ia32_vmemadvise_avx512_256((__v32qi *)(A), (I))
+
+#define _mm512_vmemadvise_epi8(A, I) \
+   __builtin_ia32_vmemadvise_avx512_512((__v64qi *)(A), (I))
 #endif /* __x86_64__ */
 #endif /* __AVX512MEMADVISEINTRIN_H */

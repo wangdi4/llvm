@@ -90,10 +90,10 @@ define dso_local i1 @test_mask(<6 x float>* %in_ptr) {
 ; X64-NEXT:    vmovsldup {{.*#+}} ymm1 = ymm0[0,0,2,2,4,4,6,6]
 ; X64-NEXT:    vxorps %xmm2, %xmm2, %xmm2
 ; X64-NEXT:    movb $63, %al
-; X64-NEXT:    kmovd %eax, %k1
+; X64-NEXT:    kmovb %eax, %k1
 ; X64-NEXT:    vcmpltps %zmm1, %zmm2, %k0 {%k1}
 ; X64-NEXT:    movb $42, %al
-; X64-NEXT:    kmovd %eax, %k1
+; X64-NEXT:    kmovb %eax, %k1
 ; X64-NEXT:    vcmpltps %zmm0, %zmm2, %k1 {%k1}
 ; X64-NEXT:    kortestb %k1, %k0
 ; X64-NEXT:    sete %al
@@ -107,10 +107,10 @@ define dso_local i1 @test_mask(<6 x float>* %in_ptr) {
 ; X86-NEXT:    vmovsldup {{.*#+}} ymm1 = ymm0[0,0,2,2,4,4,6,6]
 ; X86-NEXT:    vxorps %xmm2, %xmm2, %xmm2
 ; X86-NEXT:    movb $63, %al
-; X86-NEXT:    kmovd %eax, %k1
+; X86-NEXT:    kmovb %eax, %k1
 ; X86-NEXT:    vcmpltps %zmm1, %zmm2, %k0 {%k1}
 ; X86-NEXT:    movb $42, %al
-; X86-NEXT:    kmovd %eax, %k1
+; X86-NEXT:    kmovb %eax, %k1
 ; X86-NEXT:    vcmpltps %zmm0, %zmm2, %k1 {%k1}
 ; X86-NEXT:    kortestb %k1, %k0
 ; X86-NEXT:    sete %al
@@ -129,4 +129,30 @@ entry:
   %icmp1 = icmp eq i8 %bitcast1, 0
   %ret = and i1 %icmp0, %icmp1
   ret i1 %ret
+}
+
+define <8 x i1> @test_pseudo_kmovb() {
+; CHECK-LABEL: test_pseudo_kmovb:
+; CHECK:       # %bb.0:
+; CHECK-NEXT:    movb $3, %al
+; CHECK-NEXT:    kmovb %eax, %k0
+; CHECK-NEXT:    vpmovm2w %k0, %zmm0
+; CHECK-NEXT:    # kill: def $xmm0 killed $xmm0 killed $zmm0
+; CHECK-NEXT:    vzeroupper
+; CHECK-NEXT:    ret{{[l|q]}}
+  %1 = bitcast i8 3 to <8 x i1>
+  ret <8 x i1> %1
+}
+
+define <16 x i1> @test_pseudo_kmovw() {
+; CHECK-LABEL: test_pseudo_kmovw:
+; CHECK:       # %bb.0:
+; CHECK-NEXT:    movw $7, %ax
+; CHECK-NEXT:    kmovw %eax, %k0
+; CHECK-NEXT:    vpmovm2b %k0, %zmm0
+; CHECK-NEXT:    # kill: def $xmm0 killed $xmm0 killed $zmm0
+; CHECK-NEXT:    vzeroupper
+; CHECK-NEXT:    ret{{[l|q]}}
+  %1 = bitcast i16 7 to <16 x i1>
+  ret <16 x i1> %1
 }

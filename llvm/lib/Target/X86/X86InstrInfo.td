@@ -975,6 +975,7 @@ def NoVLX        : Predicate<"!Subtarget->hasVLX()">;
 def NoVLX_Or_NoBWI : Predicate<"!Subtarget->hasVLX() || !Subtarget->hasBWI()">;
 def NoVLX_Or_NoDQI : Predicate<"!Subtarget->hasVLX() || !Subtarget->hasDQI()">;
 #if INTEL_CUSTOMIZATION
+def IntelAdvOpt    : Predicate<"TM.Options.IntelAdvancedOptim">;
 #if INTEL_FEATURE_ISA_AVX_COMPRESS
 def NoVLX_Or_NoVBMI2 : Predicate<"!Subtarget->hasVLX() || !Subtarget->hasVBMI2()">;
 def NoVLX_Or_NoCDI   : Predicate<"!Subtarget->hasVLX() || !Subtarget->hasCDI()">;
@@ -1033,6 +1034,7 @@ def HasAVXCOMPRESS   : Predicate<"Subtarget->hasAVXCOMPRESS()">;
 #if INTEL_FEATURE_ISA_AVX_MEMADVISE
 def HasAVXMEMADVISE   : Predicate<"Subtarget->hasAVXMEMADVISE()">;
 def HasAVX512MEMADVISE   : Predicate<"Subtarget->hasAVX512MEMADVISE()">;
+def NoVLX_Or_NoMEMADVISE : Predicate<"!Subtarget->hasVLX() || !Subtarget->hasAVX512MEMADVISE()">;
 #endif // INTEL_FEATURE_ISA_AVX_MEMADVISE
 #if INTEL_FEATURE_ISA_AVX_MPSADBW
 def HasAVX512MPSADBW   : Predicate<"Subtarget->hasAVX512MPSADBW()">;

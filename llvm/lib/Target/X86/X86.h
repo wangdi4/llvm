@@ -63,6 +63,7 @@ FunctionPass *createX86GlobalFMAPass();
 FunctionPass *createFeatureInitPass();
 FunctionPass *createIVSplitLegacyPass();
 FunctionPass *createX86SplitVectorValueTypePass();
+FunctionPass *createX86PRAExpandPseudoPass();
 #endif // INTEL_CUSTOMIZATION
 
 /// Return a pass that selectively replaces certain instructions (like add,
@@ -162,6 +163,7 @@ void initializeX86SplitVectorValueTypePass(PassRegistry &); // INTEL
 void initializeX86CiscizationHelperPassPass(PassRegistry &); // INTEL
 void initializeX86FeatureInitPassPass(PassRegistry&); // INTEL
 void initializeX86GlobalFMAPass(PassRegistry&); // INTEL
+void initializeX86PRAExpandPseudoPassPass(PassRegistry &); // INTEL
 void initializeEvexToVexInstPassPass(PassRegistry &);
 void initializeFixupBWInstPassPass(PassRegistry &);
 void initializeFixupLEAPassPass(PassRegistry &);

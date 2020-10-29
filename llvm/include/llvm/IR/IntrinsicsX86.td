@@ -6218,6 +6218,18 @@ let TargetPrefix = "x86" in {
               GCCBuiltin<"__builtin_ia32_vmovadvisew_storee_512">,
               Intrinsic<[], [llvm_ptr_ty, llvm_v16i32_ty, llvm_i8_ty],
                         [IntrArgMemOnly, ImmArg<ArgIndex<2>>]>;
+  def int_x86_avx512_vmemadvise_128 :
+              GCCBuiltin<"__builtin_ia32_vmemadvise_avx512_128">,
+              Intrinsic<[], [llvm_ptr_ty, llvm_i8_ty],
+                        [IntrArgMemOnly, ImmArg<ArgIndex<1>>]>;
+  def int_x86_avx512_vmemadvise_256 :
+              GCCBuiltin<"__builtin_ia32_vmemadvise_avx512_256">,
+              Intrinsic<[], [llvm_ptr_ty, llvm_i8_ty],
+                        [IntrArgMemOnly, ImmArg<ArgIndex<1>>]>;
+  def int_x86_avx512_vmemadvise_512 :
+              GCCBuiltin<"__builtin_ia32_vmemadvise_avx512_512">,
+              Intrinsic<[], [llvm_ptr_ty, llvm_i8_ty],
+                        [IntrArgMemOnly, ImmArg<ArgIndex<1>>]>;
 }
 #endif // INTEL_FEATURE_ISA_AVX_MEMADVISE
 #endif // INTEL_CUSTOMIZATION
