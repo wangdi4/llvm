@@ -365,6 +365,7 @@ namespace {
       (void) llvm::createHIRLoopConcatenationPass();
       (void) llvm::createHIRArrayTransposePass();
       (void) llvm::createHIRAosToSoaPass();
+      (void) llvm::createHIRInterLoopBlockingPass();
       (void) llvm::createHIRLoopFusionPass();
       (void) llvm::createHIRDummyTransformationPass();
       (void) llvm::createHIRCodeGenWrapperPass();

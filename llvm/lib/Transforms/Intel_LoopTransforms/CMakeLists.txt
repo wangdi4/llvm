@@ -38,6 +38,7 @@ add_llvm_component_library(LLVMIntel_LoopTransforms
         HIRLoopConcatenation.cpp
         HIRArrayTranspose.cpp
         HIRAosToSoa.cpp
+        HIRInterLoopBlocking.cpp
         Utils/HIRTransformUtils.cpp
         HIRLoopFusion.cpp
         HIRLoopFusionGraph.cpp
