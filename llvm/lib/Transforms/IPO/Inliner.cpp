@@ -1186,7 +1186,9 @@ PreservedAnalyses InlinerPass::run(LazyCallGraph::SCC &InitialC,
       unsigned RecursiveCallCountOld = 0;
       if (&Caller == &Callee)
         RecursiveCallCountOld = recursiveCallCount(Caller);
-      InlineResult IR = InlineFunction(*CB, IFI, &Report, MDReport);
+      InlineResult IR =
+          InlineFunction(*CB, IFI, &Report, MDReport,
+                         &FAM.getResult<AAManager>(*CB->getCaller()));
 #endif // INTEL_CUSTOMIZATION
 
       if (!IR.isSuccess()) {
