@@ -1381,39 +1381,40 @@ protected: // INTEL
     /// never have more than one computable exit.
     SmallVector<ExitNotTakenInfo, 1> ExitNotTaken;
 
-    /// The pointer part of \c MaxAndComplete is an expression indicating the
-    /// least maximum backedge-taken count of the loop that is known, or a
-    /// SCEVCouldNotCompute. This expression is only valid if the predicates
-    /// associated with all loop exits are true.
-    ///
-    /// The integer part of \c MaxAndComplete is a boolean indicating if \c
-    /// ExitNotTaken has an element for every exiting block in the loop.
-    PointerIntPair<const SCEV *, 1> MaxAndComplete;
+    /// Expression indicating the least maximum backedge-taken count of the loop
+    /// that is known, or a SCEVCouldNotCompute. This expression is only valid
+    /// if the redicates associated with all loop exits are true.
+    const SCEV *ConstantMax;
+
+    /// Indicating if \c ExitNotTaken has an element for every exiting block in
+    /// the loop.
+    bool IsComplete;
 
     /// True iff the backedge is taken either exactly Max or zero times.
     bool MaxOrZero = false;
 
-    /// \name Helper projection functions on \c MaxAndComplete.
+    /// \name Helper projection functions on \c ConstantMaxAndComplete.
     /// @{
-    bool isComplete() const { return MaxAndComplete.getInt(); }
-    const SCEV *getMax() const { return MaxAndComplete.getPointer(); }
+    bool isComplete() const { return IsComplete; }
+    const SCEV *getConstantMax() const { return ConstantMax; }
     /// @}
 
   public:
-    BackedgeTakenInfo() : MaxAndComplete(nullptr, 0) {}
+    BackedgeTakenInfo() : ConstantMax(nullptr), IsComplete(false) {}
     BackedgeTakenInfo(BackedgeTakenInfo &&) = default;
     BackedgeTakenInfo &operator=(BackedgeTakenInfo &&) = default;
 
     using EdgeExitInfo = std::pair<BasicBlock *, ExitLimit>;
 
     /// Initialize BackedgeTakenInfo from a list of exact exit counts.
-    BackedgeTakenInfo(ArrayRef<EdgeExitInfo> ExitCounts, bool Complete,
-                      const SCEV *MaxCount, bool MaxOrZero);
+    BackedgeTakenInfo(ArrayRef<EdgeExitInfo> ExitCounts, bool IsComplete,
+                      const SCEV *ConstantMax, bool MaxOrZero);
 
     /// Test whether this BackedgeTakenInfo contains any computed information,
     /// or whether it's all SCEVCouldNotCompute values.
     bool hasAnyInfo() const {
-      return !ExitNotTaken.empty() || !isa<SCEVCouldNotCompute>(getMax());
+      return !ExitNotTaken.empty() ||
+             !isa<SCEVCouldNotCompute>(getConstantMax());
     }
 
     /// Test whether this BackedgeTakenInfo contains complete information.
