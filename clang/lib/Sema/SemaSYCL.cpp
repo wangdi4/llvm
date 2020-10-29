@@ -2836,14 +2836,19 @@ class SYCLKernelNameTypeVisitor
       public ConstTemplateArgumentVisitor<SYCLKernelNameTypeVisitor> {
   Sema &S;
   SourceLocation KernelInvocationFuncLoc;
+  QualType KernelNameType; // INTEL
   using InnerTypeVisitor = TypeVisitor<SYCLKernelNameTypeVisitor>;
   using InnerTAVisitor =
       ConstTemplateArgumentVisitor<SYCLKernelNameTypeVisitor>;
   bool IsInvalid = false;
 
 public:
-  SYCLKernelNameTypeVisitor(Sema &S, SourceLocation KernelInvocationFuncLoc)
-      : S(S), KernelInvocationFuncLoc(KernelInvocationFuncLoc) {}
+#if INTEL_CUSTOMIZATION
+  SYCLKernelNameTypeVisitor(Sema &S, SourceLocation KernelInvocationFuncLoc,
+                            QualType KernelNameType)
+      : S(S), KernelInvocationFuncLoc(KernelInvocationFuncLoc),
+        KernelNameType(KernelNameType) {}
+#endif // INTEL_CUSTOMIZATION
 
   bool isValid() { return !IsInvalid; }
 
@@ -2876,6 +2881,9 @@ public:
     if (!ED->isScoped() && !ED->isFixed()) {
       S.Diag(KernelInvocationFuncLoc, diag::err_sycl_kernel_incorrectly_named)
           << /* Unscoped enum requires fixed underlying type */ 2;
+#if INTEL_CUSTOMIZATION
+      S.Diag(KernelInvocationFuncLoc, diag::note_kernel_name) << KernelNameType;
+#endif // INTEL_CUSTOMIZATION
       S.Diag(ED->getSourceRange().getBegin(), diag::note_entity_declared_at)
           << ED;
       IsInvalid = true;
@@ -2895,12 +2903,20 @@ public:
       if (KernelNameIsMissing) {
         S.Diag(KernelInvocationFuncLoc, diag::err_sycl_kernel_incorrectly_named)
             << /* kernel name is missing */ 0;
+#if INTEL_CUSTOMIZATION
+        S.Diag(KernelInvocationFuncLoc, diag::note_kernel_name)
+            << KernelNameType;
+#endif // INTEL_CUSTOMIZATION
         IsInvalid = true;
       } else {
         if (Tag->isCompleteDefinition()) {
           S.Diag(KernelInvocationFuncLoc,
                  diag::err_sycl_kernel_incorrectly_named)
               << /* kernel name is not globally-visible */ 1;
+#if INTEL_CUSTOMIZATION
+          S.Diag(KernelInvocationFuncLoc, diag::note_kernel_name)
+              << KernelNameType;
+#endif // INTEL_CUSTOMIZATION
           IsInvalid = true;
         } else
           S.Diag(KernelInvocationFuncLoc, diag::warn_sycl_implicit_decl);
@@ -2979,7 +2995,10 @@ void Sema::CheckSYCLKernelCall(FunctionDecl *KernelFunc, SourceRange CallLoc,
   SyclKernelArgsSizeChecker ArgsSizeChecker(*this, Args[0]->getExprLoc());
 
   KernelObjVisitor Visitor{*this};
-  SYCLKernelNameTypeVisitor KernelTypeVisitor(*this, Args[0]->getExprLoc());
+#if INTEL_CUSTOMIZATION
+  SYCLKernelNameTypeVisitor KernelTypeVisitor(*this, Args[0]->getExprLoc(),
+                                              KernelNameType);
+#endif // INTEL_CUSTOMIZATION
 
   DiagnosingSYCLKernel = true;
 
@@ -3343,8 +3362,11 @@ static void emitWithoutAnonNamespaces(llvm::raw_ostream &OS, StringRef Source) {
 }
 
 // Emits a forward declaration
+#if INTEL_CUSTOMIZATION
 void SYCLIntegrationHeader::emitFwdDecl(raw_ostream &O, const Decl *D,
-                                        SourceLocation KernelLocation) {
+                                        SourceLocation KernelLocation,
+                                        QualType KernelName) {
+#endif // INTEL_CUSTOMIZATION
   // wrap the declaration into namespaces if needed
   unsigned NamespaceCnt = 0;
   std::string NSStr = "";
@@ -3360,6 +3382,9 @@ void SYCLIntegrationHeader::emitFwdDecl(raw_ostream &O, const Decl *D,
     if (NS->isStdNamespace()) {
       Diag.Report(KernelLocation, diag::err_sycl_kernel_incorrectly_named)
           << /* name cannot be a type in the std namespace */ 3;
+#if INTEL_CUSTOMIZATION
+      Diag.Report(KernelLocation, diag::note_kernel_name) << KernelName;
+#endif // INTEL_CUSTOMIZATION
       return;
     }
 
@@ -3436,9 +3461,11 @@ void SYCLIntegrationHeader::emitFwdDecl(raw_ostream &O, const Decl *D,
 //   template <typename T> class MyTmplClass;
 //   template <typename T1, unsigned int N, typename ...T2> class SimpleVadd;
 //
+#if INTEL_CUSTOMIZATION
 void SYCLIntegrationHeader::emitForwardClassDecls(
     raw_ostream &O, QualType T, SourceLocation KernelLocation,
-    llvm::SmallPtrSetImpl<const void *> &Printed) {
+    llvm::SmallPtrSetImpl<const void *> &Printed, QualType KernelName) {
+#endif // INTEL_CUSTOMIZATION
 
   // peel off the pointer types and get the class/struct type:
   for (; T->isPointerType(); T = T->getPointeeType())
@@ -3446,10 +3473,13 @@ void SYCLIntegrationHeader::emitForwardClassDecls(
   const CXXRecordDecl *RD = T->getAsCXXRecordDecl();
 
   if (!RD) {
-    if (T->isNullPtrType())
+#if INTEL_CUSTOMIZATION
+    if (T->isNullPtrType()) {
       Diag.Report(KernelLocation, diag::err_sycl_kernel_incorrectly_named)
           << /* name cannot be a type in the std namespace */ 3;
-
+      Diag.Report(KernelLocation, diag::note_kernel_name) << KernelName;
+    }
+#endif // INTEL_CUSTOMIZATION
     return;
   }
 
@@ -3473,9 +3503,11 @@ void SYCLIntegrationHeader::emitForwardClassDecls(
         // Handle Kernel Name Type templated using enum type and value.
         if (const auto *ET = T->getAs<EnumType>()) {
           const EnumDecl *ED = ET->getDecl();
-            emitFwdDecl(O, ED, KernelLocation);
+          emitFwdDecl(O, ED, KernelLocation, KernelName); // INTEL
         } else if (Arg.getKind() == TemplateArgument::ArgKind::Type)
-          emitForwardClassDecls(O, T, KernelLocation, Printed);
+#if INTEL_CUSTOMIZATION
+          emitForwardClassDecls(O, T, KernelLocation, Printed, KernelName);
+#endif // INTEL_CUSTOMIZATION
         break;
       }
       case TemplateArgument::ArgKind::Pack: {
@@ -3483,7 +3515,10 @@ void SYCLIntegrationHeader::emitForwardClassDecls(
 
         for (const auto &T : Pack) {
           if (T.getKind() == TemplateArgument::ArgKind::Type) {
-            emitForwardClassDecls(O, T.getAsType(), KernelLocation, Printed);
+#if INTEL_CUSTOMIZATION
+            emitForwardClassDecls(O, T.getAsType(), KernelLocation, Printed,
+                                  KernelName);
+#endif // INTEL_CUSTOMIZATION
           }
         }
         break;
@@ -3532,12 +3567,12 @@ void SYCLIntegrationHeader::emitForwardClassDecls(
             QualType T = TemplateParam->getType();
             if (const auto *ET = T->getAs<EnumType>()) {
               const EnumDecl *ED = ET->getDecl();
-                emitFwdDecl(O, ED, KernelLocation);
+              emitFwdDecl(O, ED, KernelLocation, KernelName); // INTEL
             }
           }
         }
         if (Printed.insert(TD).second) {
-          emitFwdDecl(O, TD, KernelLocation);
+          emitFwdDecl(O, TD, KernelLocation, KernelName); // INTEL
         }
         break;
       }
@@ -3551,12 +3586,12 @@ void SYCLIntegrationHeader::emitForwardClassDecls(
     assert(CTD && "template declaration must be available");
 
     if (Printed.insert(CTD).second) {
-      emitFwdDecl(O, CTD, KernelLocation);
+      emitFwdDecl(O, CTD, KernelLocation, KernelName); // INTEL
     }
   } else if (Printed.insert(RD).second) {
     // emit forward declarations for "leaf" classes in the template parameter
     // tree;
-    emitFwdDecl(O, RD, KernelLocation);
+    emitFwdDecl(O, RD, KernelLocation, KernelName); // INTEL
   }
 }
 
@@ -3724,7 +3759,10 @@ void SYCLIntegrationHeader::emit(raw_ostream &O) {
 
     llvm::SmallPtrSet<const void *, 4> Printed;
     for (const KernelDesc &K : KernelDescs) {
-      emitForwardClassDecls(O, K.NameType, K.KernelLocation, Printed);
+#if INTEL_CUSTOMIZATION
+      emitForwardClassDecls(O, K.NameType, K.KernelLocation, Printed,
+                            K.NameType);
+#endif // INTEL_CUSTOMIZATION
     }
   }
   O << "\n";
