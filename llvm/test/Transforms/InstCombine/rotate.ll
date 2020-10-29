@@ -11,7 +11,7 @@ target datalayout = "e-p:32:32:32-i1:8:8-i8:8:8-i16:16:16-i32:32:32-i64:32:64-f3
 define i32 @rotl_i32_constant(i32 %x) {
 ; CHECK-LABEL: @rotl_i32_constant(
 ; INTEL_CUSTOMIZATION
-; CMPLRLLVM-23976: Recognize fsh only for pow2 shift with negated operand.
+; CMPLRLLVM-23976: Suppress fshl recognition for scalar non-pow2 cases.
 ; CHECK-NEXT:    [[SHL:%.*]] = shl i32 [[X:%.*]], 11
 ; CHECK-NEXT:    [[SHR:%.*]] = lshr i32 [[X]], 21
 ; CHECK-NEXT:    [[R:%.*]] = or i32 [[SHR]], [[SHL]]
@@ -73,11 +73,7 @@ define i88 @rotl_i88_constant_commute(i88 %x) {
 
 define <2 x i16> @rotl_v2i16_constant_splat(<2 x i16> %x) {
 ; CHECK-LABEL: @rotl_v2i16_constant_splat(
-; INTEL_CUSTOMIZATION
-; CHECK-NEXT:    [[SHL:%.*]] = shl <2 x i16> [[X:%.*]], <i16 1, i16 1>
-; CHECK-NEXT:    [[SHR:%.*]] = lshr <2 x i16> [[X]], <i16 15, i16 15>
-; CHECK-NEXT:    [[R:%.*]] = or <2 x i16> [[SHL]], [[SHR]]
-; end INTEL_CUSTOMIZATION
+; CHECK-NEXT:    [[R:%.*]] = call <2 x i16> @llvm.fshl.v2i16(<2 x i16> [[X:%.*]], <2 x i16> [[X]], <2 x i16> <i16 1, i16 1>)
 ; CHECK-NEXT:    ret <2 x i16> [[R]]
 ;
   %shl = shl <2 x i16> %x, <i16 1, i16 1>
@@ -112,11 +108,7 @@ define <2 x i16> @rotl_v2i16_constant_splat_undef1(<2 x i16> %x) {
 
 define <2 x i17> @rotr_v2i17_constant_splat(<2 x i17> %x) {
 ; CHECK-LABEL: @rotr_v2i17_constant_splat(
-; INTEL_CUSTOMIZATION
-; CHECK-NEXT:    [[SHL:%.*]] = shl <2 x i17> [[X:%.*]], <i17 12, i17 12>
-; CHECK-NEXT:    [[SHR:%.*]] = lshr <2 x i17> [[X]], <i17 5, i17 5>
-; CHECK-NEXT:    [[R:%.*]] = or <2 x i17> [[SHR]], [[SHL]]
-; end INTEL_CUSTOMIZATION
+; CHECK-NEXT:    [[R:%.*]] = call <2 x i17> @llvm.fshl.v2i17(<2 x i17> [[X:%.*]], <2 x i17> [[X]], <2 x i17> <i17 12, i17 12>)
 ; CHECK-NEXT:    ret <2 x i17> [[R]]
 ;
   %shl = shl <2 x i17> %x, <i17 12, i17 12>
@@ -695,8 +687,14 @@ define i9 @rotateleft_9_neg_mask_wide_amount_commute(i9 %v, i33 %shamt) {
 
 define i64 @rotl_sub_mask(i64 %0, i64 %1) {
 ; CHECK-LABEL: @rotl_sub_mask(
-; CHECK-NEXT:    [[TMP3:%.*]] = call i64 @llvm.fshl.i64(i64 [[TMP0:%.*]], i64 [[TMP0]], i64 [[TMP1:%.*]])
-; CHECK-NEXT:    ret i64 [[TMP3]]
+; INTEL_CUSTOMIZATION
+; CHECK-NEXT:    [[TMP3:%.*]] = and i64 [[TMP1:%.*]], 63
+; CHECK-NEXT:    [[TMP4:%.*]] = shl i64 [[TMP0:%.*]], [[TMP3]]
+; CHECK-NEXT:    [[TMP5:%.*]] = sub nuw nsw i64 64, [[TMP3]]
+; CHECK-NEXT:    [[TMP6:%.*]] = lshr i64 [[TMP0]], [[TMP5]]
+; CHECK-NEXT:    [[TMP7:%.*]] = or i64 [[TMP6]], [[TMP4]]
+; CHECK-NEXT:    ret i64 [[TMP7]]
+; end INTEL_CUSTOMIZATION
 ;
   %3 = and i64 %1, 63
   %4 = shl i64 %0, %3
@@ -710,8 +708,14 @@ define i64 @rotl_sub_mask(i64 %0, i64 %1) {
 
 define i64 @rotr_sub_mask(i64 %0, i64 %1) {
 ; CHECK-LABEL: @rotr_sub_mask(
-; CHECK-NEXT:    [[TMP3:%.*]] = call i64 @llvm.fshr.i64(i64 [[TMP0:%.*]], i64 [[TMP0]], i64 [[TMP1:%.*]])
-; CHECK-NEXT:    ret i64 [[TMP3]]
+; INTEL_CUSTOMIZATION
+; CHECK-NEXT:    [[TMP3:%.*]] = and i64 [[TMP1:%.*]], 63
+; CHECK-NEXT:    [[TMP4:%.*]] = lshr i64 [[TMP0:%.*]], [[TMP3]]
+; CHECK-NEXT:    [[TMP5:%.*]] = sub nuw nsw i64 64, [[TMP3]]
+; CHECK-NEXT:    [[TMP6:%.*]] = shl i64 [[TMP0]], [[TMP5]]
+; CHECK-NEXT:    [[TMP7:%.*]] = or i64 [[TMP6]], [[TMP4]]
+; CHECK-NEXT:    ret i64 [[TMP7]]
+; end INTEL_CUSTOMIZATION
 ;
   %3 = and i64 %1, 63
   %4 = lshr i64 %0, %3

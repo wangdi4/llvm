@@ -48,7 +48,7 @@ define <2 x i64> @concat_bswap32_unary_split_vector(<2 x i64> %a0) {
 define i64 @concat_bswap32_unary_flip(i64 %a0) {
 ; CHECK-LABEL: @concat_bswap32_unary_flip(
 ; INTEL_CUSTOMIZATION
-; CMPLRLLVM-23976: Recognize fsh only for pow2 shift with negated operand.
+; CMPLRLLVM-23976: Suppress fshl recognition for scalar non-pow2 cases.
 ; CHECK-NEXT:    [[TMP1:%.*]] = lshr i64 [[A0:%.*]], 32
 ; CHECK-NEXT:    [[TMP2:%.*]] = shl i64 [[A0]], 32
 ; CHECK-NEXT:    [[TMP3:%.*]] = or i64 [[TMP1]], [[TMP2]]
@@ -70,15 +70,10 @@ define i64 @concat_bswap32_unary_flip(i64 %a0) {
 
 define <2 x i64> @concat_bswap32_unary_flip_vector(<2 x i64> %a0) {
 ; CHECK-LABEL: @concat_bswap32_unary_flip_vector(
-; INTEL_CUSTOMIZATION
-; CHECK-NEXT:    [[TMP1:%.*]] = lshr <2 x i64> [[A0:%.*]], <i64 32, i64 32>
-; CHECK-NEXT:    [[TMP2:%.*]] = shl <2 x i64> [[A0]], <i64 32, i64 32>
-; CHECK-NEXT:    [[TMP3:%.*]] = or <2 x i64> [[TMP1]], [[TMP2]]
-; CHECK-NEXT:    [[TMP4:%.*]] = call <2 x i64> @llvm.bswap.v2i64(<2 x i64> [[TMP3]])
-; CHECK-NEXT:    ret <2 x i64> [[TMP4]]
-; end INTEL_CUSTOMIZATION
+; CHECK-NEXT:    [[TMP1:%.*]] = call <2 x i64> @llvm.fshl.v2i64(<2 x i64> [[A0:%.*]], <2 x i64> [[A0]], <2 x i64> <i64 32, i64 32>)
+; CHECK-NEXT:    [[TMP2:%.*]] = call <2 x i64> @llvm.bswap.v2i64(<2 x i64> [[TMP1]])
+; CHECK-NEXT:    ret <2 x i64> [[TMP2]]
 ;
-
   %1 = lshr <2 x i64> %a0, <i64 32, i64 32>
   %2 = trunc <2 x i64> %1 to <2 x i32>
   %3 = trunc <2 x i64> %a0 to <2 x i32>
@@ -190,13 +185,9 @@ define i64 @concat_bitreverse32_unary_flip(i64 %a0) {
 
 define <2 x i64> @concat_bitreverse32_unary_flip_vector(<2 x i64> %a0) {
 ; CHECK-LABEL: @concat_bitreverse32_unary_flip_vector(
-; INTEL_CUSTOMIZATION
-; CHECK-NEXT:    [[TMP1:%.*]] = lshr <2 x i64> [[A0:%.*]], <i64 32, i64 32>
-; CHECK-NEXT:    [[TMP2:%.*]] = shl <2 x i64> [[A0]], <i64 32, i64 32>
-; CHECK-NEXT:    [[TMP3:%.*]] = or <2 x i64> [[TMP1]], [[TMP2]]
-; CHECK-NEXT:    [[TMP4:%.*]] = call <2 x i64> @llvm.bitreverse.v2i64(<2 x i64> [[TMP3]])
-; CHECK-NEXT:    ret <2 x i64> [[TMP4]]
-; end INTEL_CUSTOMIZATION
+; CHECK-NEXT:    [[TMP1:%.*]] = call <2 x i64> @llvm.fshl.v2i64(<2 x i64> [[A0:%.*]], <2 x i64> [[A0]], <2 x i64> <i64 32, i64 32>)
+; CHECK-NEXT:    [[TMP2:%.*]] = call <2 x i64> @llvm.bitreverse.v2i64(<2 x i64> [[TMP1]])
+; CHECK-NEXT:    ret <2 x i64> [[TMP2]]
 ;
   %1 = lshr <2 x i64> %a0, <i64 32, i64 32>
   %2 = trunc <2 x i64> %1 to <2 x i32>
