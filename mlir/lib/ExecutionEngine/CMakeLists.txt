@@ -25,6 +25,7 @@ add_mlir_library(MLIRExecutionEngine
 
   LINK_COMPONENTS
   Core
+  Coroutines
   ExecutionEngine
   Object
   OrcJIT
