@@ -54,11 +54,11 @@ public:
   enum VectorLibrary {
     NoLibrary,  // Don't use any vector library.
     Accelerate, // Use the Accelerate framework.
+    LIBMVEC,    // GLIBC vector math library.
     MASSV,      // IBM MASS vector library.
     SVML,       // Intel short vector math library.
     Libmvec     // Glibc vector math library.
   };
-
 
   enum ObjCDispatchMethodKind {
     Legacy = 0,
