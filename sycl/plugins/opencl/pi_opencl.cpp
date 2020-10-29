@@ -50,11 +50,11 @@ template <class To, class From> To cast(From value) {
 
 // Names of USM functions that are queried from OpenCL
 CONSTFIX char clHostMemAllocName[] = "clHostMemAllocINTEL";
-CONSTFIX char clCreateBufferWithPropertiesName[] =
-    "clCreateBufferWithPropertiesINTEL";
 CONSTFIX char clDeviceMemAllocName[] = "clDeviceMemAllocINTEL";
 CONSTFIX char clSharedMemAllocName[] = "clSharedMemAllocINTEL";
 CONSTFIX char clMemFreeName[] = "clMemFreeINTEL";
+CONSTFIX char clCreateBufferWithPropertiesName[] =
+    "clCreateBufferWithPropertiesINTEL";
 CONSTFIX char clSetKernelArgMemPointerName[] = "clSetKernelArgMemPointerINTEL";
 CONSTFIX char clEnqueueMemsetName[] = "clEnqueueMemsetINTEL";
 CONSTFIX char clEnqueueMemcpyName[] = "clEnqueueMemcpyINTEL";
@@ -519,7 +519,7 @@ pi_result piextContextCreateWithNativeHandle(pi_native_handle nativeHandle,
 
 pi_result piMemBufferCreate(pi_context context, pi_mem_flags flags, size_t size,
                             void *host_ptr, pi_mem *ret_mem,
-                            const cl_mem_properties_intel *properties) {
+                            const pi_mem_properties *properties) {
   pi_result ret_err = PI_INVALID_OPERATION;
   clCreateBufferWithPropertiesINTEL_fn FuncPtr = nullptr;
 
@@ -529,16 +529,14 @@ pi_result piMemBufferCreate(pi_context context, pi_mem_flags flags, size_t size,
                                     clCreateBufferWithPropertiesINTEL_fn>(
         context, &FuncPtr);
 
-  if (FuncPtr) {
+  if (FuncPtr)
     *ret_mem = cast<pi_mem>(FuncPtr(cast<cl_context>(context), properties,
                                     cast<cl_mem_flags>(flags), size, host_ptr,
                                     cast<cl_int *>(&ret_err)));
-  } else {
+  else
     *ret_mem = cast<pi_mem>(clCreateBuffer(cast<cl_context>(context),
                                            cast<cl_mem_flags>(flags), size,
                                            host_ptr, cast<cl_int *>(&ret_err)));
-  }
-
   return ret_err;
 }
 
