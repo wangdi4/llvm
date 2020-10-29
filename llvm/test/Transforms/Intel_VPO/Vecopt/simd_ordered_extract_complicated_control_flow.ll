@@ -27,10 +27,11 @@ define void @var_tripcount(i32* %ip, i32 %n, i32* %x) local_unnamed_addr {
 ; CHECK-NEXT:    [[VAL:%.*]] = load i32, i32* [[X:%.*]], align 4
 ; CHECK-NEXT:    br label [[CODEREPL:%.*]]
 ; CHECK:       codeRepl:
-; CHECK-NEXT:    call void @llvm.lifetime.start.p0i32(i64 -1, i32* [[PHI_RES_LOC]])
+; CHECK-NEXT:    [[LT_CAST:%.*]] = bitcast i32* [[PHI_RES_LOC]] to i8*
+; CHECK-NEXT:    call void @llvm.lifetime.start.p0i8(i64 -1, i8* [[LT_CAST]])
 ; CHECK-NEXT:    call void @var_tripcount.ordered.simd.region(i32 [[VAL]], i32* [[ARRAYIDX]], i32 [[N]], i32* [[PHI_RES_LOC]])
 ; CHECK-NEXT:    [[PHI_RES_RELOAD:%.*]] = load i32, i32* [[PHI_RES_LOC]], align 4
-; CHECK-NEXT:    call void @llvm.lifetime.end.p0i32(i64 -1, i32* [[PHI_RES_LOC]])
+; CHECK-NEXT:    call void @llvm.lifetime.end.p0i8(i64 -1, i8* [[LT_CAST]])
 ; CHECK-NEXT:    br label [[LATCH]]
 ; CHECK:       latch:
 ; CHECK-NEXT:    store i32 [[PHI_RES_RELOAD]], i32* [[X]], align 4
