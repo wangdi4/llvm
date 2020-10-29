@@ -21,17 +21,18 @@
 
 /// -fintelfpga -fsycl-link tests
 // RUN:  touch %t.o
-// RUN:  %clangxx -### -target x86_64-unknown-linux-gnu -fsycl -fintelfpga -fno-sycl-device-lib=all -fsycl-link %t.o -o libfoo.a 2>&1 \
+// RUN:  %clangxx -### -target x86_64-unknown-linux-gnu -fsycl -fno-sycl-device-lib=all -fintelfpga -fsycl-link %t.o -o libfoo.a 2>&1 \
 // RUN:  | FileCheck -check-prefixes=CHK-FPGA-LINK,CHK-FPGA-EARLY %s
 // RUN:  %clangxx -### -O2 -target x86_64-unknown-linux-gnu -fsycl  -fno-sycl-device-lib=all -fintelfpga -fsycl-link=early %t.o -o libfoo.a 2>&1 \
 // RUN:  | FileCheck -check-prefixes=CHK-FPGA-LINK,CHK-FPGA-EARLY %s
-// RUN:  %clangxx -### -target x86_64-unknown-linux-gnu -fsycl -fintelfpga -fno-sycl-device-lib=all -fsycl-link=image %t.o -o libfoo.a 2>&1 \
+// RUN:  %clangxx -### -target x86_64-unknown-linux-gnu -fsycl -fno-sycl-device-lib=all -fintelfpga  -fsycl-link=image %t.o -o libfoo.a 2>&1 \
 // RUN:  | FileCheck -check-prefixes=CHK-FPGA-LINK,CHK-FPGA-IMAGE %s
 // CHK-FPGA-LINK-NOT: clang-offload-bundler{{.*}} "-check-section"
 // CHK-FPGA-LINK: clang-offload-bundler{{.*}} "-type=o" "-targets=sycl-spir64_fpga-unknown-unknown-sycldevice" "-inputs=[[INPUT:.+\.o]]" "-outputs=[[OUTPUT1:.+\.o]]" "-unbundle"
 // CHK-FPGA-LINK-NOT: clang-offload-bundler{{.*}}
 // CHK-FPGA-LINK: llvm-link{{.*}} "[[OUTPUT1]]" "-o" "[[OUTPUT2_1:.+\.bc]]"
 // CHK-FPGA-LINK: sycl-post-link{{.*}} "-ir-output-only" "-spec-const=default" "-o" "[[OUTPUT2:.+\.bc]]" "[[OUTPUT2_1]]"
+// INTEL
 // CHK-FPGA-LINK: llvm-spirv{{.*}} "-o" "[[OUTPUT3:.+\.spv]]" "-spirv-max-version=1.1" "-spirv-debug-info-version=legacy" "-spirv-ext=+all,-SPV_INTEL_usm_storage_classes" "[[OUTPUT2]]"
 // CHK-FPGA-EARLY: aoc{{.*}} "-o" "[[OUTPUT4:.+\.aocr]]" "[[OUTPUT3]]" "-sycl" "-rtl"
 // CHK-FPGA-IMAGE: aoc{{.*}} "-o" "[[OUTPUT5:.+\.aocx]]" "[[OUTPUT3]]" "-sycl"
@@ -64,6 +65,7 @@
 // CHK-FPGA-LINK-WIN-NOT: clang-offload-bundler{{.*}}
 // CHK-FPGA-LINK-WIN: llvm-link{{.*}} "[[OUTPUT1]]" "-o" "[[OUTPUT2_1:.+\.bc]]"
 // CHK-FPGA-LINK-WIN: sycl-post-link{{.*}} "-ir-output-only" "-spec-const=default" "-o" "[[OUTPUT2:.+\.bc]]" "[[OUTPUT2_1]]"
+// INTEL
 // CHK-FPGA-LINK-WIN: llvm-spirv{{.*}} "-o" "[[OUTPUT3:.+\.spv]]" "-spirv-max-version=1.1" "-spirv-debug-info-version=legacy" "-spirv-ext=+all,-SPV_INTEL_usm_storage_classes" "[[OUTPUT2]]"
 // CHK-FPGA-LINK-WIN: aoc{{.*}} "-o" "[[OUTPUT5:.+\.aocr]]" "[[OUTPUT3]]" "-sycl" "-rtl"
 // CHK-FPGA-LINK-WIN: clang-offload-wrapper{{.*}} "-o=[[WRAPOUT:.+\.bc]]" {{.*}} "-kind=sycl"
@@ -122,6 +124,7 @@
 // CHK-FPGA: clang-offload-bundler{{.*}} "-type=o" "-targets=host-x86_64-unknown-linux-gnu,sycl-spir64_fpga-unknown-unknown-sycldevice" {{.*}} "-outputs=[[FINALLINK2:.+\.o]],[[OUTPUT1:.+\.o]]" "-unbundle"
 // CHK-FPGA: llvm-no-spir-kernel{{.*}} "[[OUTPUT1]]" "-o" "[[OUTPUT3:.+\.o]]"
 // CHK-FPGA: llvm-link{{.*}} "[[OUTPUT3]]" "-o" "[[OUTPUT4:.+\.bc]]"
+// INTEL
 // CHK-FPGA: llvm-spirv{{.*}} "-o" "[[OUTPUT5:.+\.spv]]" "-spirv-max-version=1.1" "-spirv-debug-info-version=legacy" "-spirv-ext=+all,-SPV_INTEL_usm_storage_classes" "[[OUTPUT4]]"
 // CHK-FPGA: clang-offload-wrapper{{.*}} "-o=[[OUTPUT6:.+\.bc]]" "-host=x86_64-unknown-linux-gnu" "-target=spir64_fpga" "-kind=sycl" "[[OUTPUT5]]"
 // CHK-FPGA: llc{{.*}} "-filetype=obj" "-o" "[[FINALLINK3:.+\.o]]" "[[OUTPUT6]]"
