@@ -65,298 +65,359 @@
 // CHECK: encoding: [0x62,0x63,0x7e,0x48,0x10,0x72,0x80,0x7b]
                vmovadvisew  $123, -8192(%rdx), %zmm30
 
-// CHECK:      vmovadvisew  $123, 268435456(%rbp,%r14,8), %xmm22
+// CHECK:      {evex} vmovadvisew  $123, 268435456(%rbp,%r14,8), %xmm22
 // CHECK: encoding: [0x62,0xa3,0x7e,0x08,0x10,0xb4,0xf5,0x00,0x00,0x00,0x10,0x7b]
-               vmovadvisew  $123, 268435456(%rbp,%r14,8), %xmm22
+               {evex} vmovadvisew  $123, 268435456(%rbp,%r14,8), %xmm22
 
-// CHECK:      vmovadvisew  $123, 268435456(%rbp,%r14,8), %xmm12
+// CHECK:      {evex} vmovadvisew  $123, 268435456(%rbp,%r14,8), %xmm12
 // CHECK: encoding: [0x62,0x33,0x7e,0x08,0x10,0xa4,0xf5,0x00,0x00,0x00,0x10,0x7b]
                {evex} vmovadvisew  $123, 268435456(%rbp,%r14,8), %xmm12
 
-// CHECK:      vmovadvisew  $123, 291(%r8,%rax,4), %xmm22
+// CHECK:      {evex} vmovadvisew  $123, 291(%r8,%rax,4), %xmm22
 // CHECK: encoding: [0x62,0xc3,0x7e,0x08,0x10,0xb4,0x80,0x23,0x01,0x00,0x00,0x7b]
-               vmovadvisew  $123, 291(%r8,%rax,4), %xmm22
+               {evex} vmovadvisew  $123, 291(%r8,%rax,4), %xmm22
 
-// CHECK:      vmovadvisew  $123, (%rip), %xmm22
+// CHECK:      {evex} vmovadvisew  $123, (%rip), %xmm22
 // CHECK: encoding: [0x62,0xe3,0x7e,0x08,0x10,0x35,0x00,0x00,0x00,0x00,0x7b]
-               vmovadvisew  $123, (%rip), %xmm22
+               {evex} vmovadvisew  $123, (%rip), %xmm22
 
-// CHECK:      vmovadvisew  $123, -512(,%rbp,2), %xmm22
+// CHECK:      {evex} vmovadvisew  $123, -512(,%rbp,2), %xmm22
 // CHECK: encoding: [0x62,0xe3,0x7e,0x08,0x10,0x34,0x6d,0x00,0xfe,0xff,0xff,0x7b]
-               vmovadvisew  $123, -512(,%rbp,2), %xmm22
+               {evex} vmovadvisew  $123, -512(,%rbp,2), %xmm22
 
-// CHECK:      vmovadvisew  $123, 268435456(%rbp,%r14,8), %ymm12
+// CHECK:      {evex} vmovadvisew  $123, 268435456(%rbp,%r14,8), %ymm12
 // CHECK: encoding: [0x62,0x33,0x7e,0x28,0x10,0xa4,0xf5,0x00,0x00,0x00,0x10,0x7b]
                {evex} vmovadvisew  $123, 268435456(%rbp,%r14,8), %ymm12
 
-// CHECK:      vmovadvisew  $123, 268435456(%rbp,%r14,8), %ymm22
+// CHECK:      {evex} vmovadvisew  $123, 268435456(%rbp,%r14,8), %ymm22
 // CHECK: encoding: [0x62,0xa3,0x7e,0x28,0x10,0xb4,0xf5,0x00,0x00,0x00,0x10,0x7b]
-               vmovadvisew  $123, 268435456(%rbp,%r14,8), %ymm22
+               {evex} vmovadvisew  $123, 268435456(%rbp,%r14,8), %ymm22
 
-// CHECK:      vmovadvisew  $123, 291(%r8,%rax,4), %ymm22
+// CHECK:      {evex} vmovadvisew  $123, 291(%r8,%rax,4), %ymm22
 // CHECK: encoding: [0x62,0xc3,0x7e,0x28,0x10,0xb4,0x80,0x23,0x01,0x00,0x00,0x7b]
-               vmovadvisew  $123, 291(%r8,%rax,4), %ymm22
+               {evex} vmovadvisew  $123, 291(%r8,%rax,4), %ymm22
 
-// CHECK:      vmovadvisew  $123, (%rip), %ymm22
+// CHECK:      {evex} vmovadvisew  $123, (%rip), %ymm22
 // CHECK: encoding: [0x62,0xe3,0x7e,0x28,0x10,0x35,0x00,0x00,0x00,0x00,0x7b]
-               vmovadvisew  $123, (%rip), %ymm22
+               {evex} vmovadvisew  $123, (%rip), %ymm22
 
-// CHECK:      vmovadvisew  $123, -1024(,%rbp,2), %ymm22
+// CHECK:      {evex} vmovadvisew  $123, -1024(,%rbp,2), %ymm22
 // CHECK: encoding: [0x62,0xe3,0x7e,0x28,0x10,0x34,0x6d,0x00,0xfc,0xff,0xff,0x7b]
-               vmovadvisew  $123, -1024(,%rbp,2), %ymm22
+               {evex} vmovadvisew  $123, -1024(,%rbp,2), %ymm22
 
-// CHECK:      vmovadvisew  $123, %xmm22, 268435456(%rbp,%r14,8)
+// CHECK:      {evex} vmovadvisew  $123, %xmm22, 268435456(%rbp,%r14,8)
 // CHECK: encoding: [0x62,0xa3,0x7e,0x08,0x11,0xb4,0xf5,0x00,0x00,0x00,0x10,0x7b]
-               vmovadvisew  $123, %xmm22, 268435456(%rbp,%r14,8)
+               {evex} vmovadvisew  $123, %xmm22, 268435456(%rbp,%r14,8)
 
-// CHECK:      vmovadvisew  $123, %xmm22, 291(%r8,%rax,4)
+// CHECK:      {evex} vmovadvisew  $123, %xmm22, 291(%r8,%rax,4)
 // CHECK: encoding: [0x62,0xc3,0x7e,0x08,0x11,0xb4,0x80,0x23,0x01,0x00,0x00,0x7b]
-               vmovadvisew  $123, %xmm22, 291(%r8,%rax,4)
+               {evex} vmovadvisew  $123, %xmm22, 291(%r8,%rax,4)
 
-// CHECK:      vmovadvisew  $123, %xmm22, (%rip)
+// CHECK:      {evex} vmovadvisew  $123, %xmm22, (%rip)
 // CHECK: encoding: [0x62,0xe3,0x7e,0x08,0x11,0x35,0x00,0x00,0x00,0x00,0x7b]
-               vmovadvisew  $123, %xmm22, (%rip)
+               {evex} vmovadvisew  $123, %xmm22, (%rip)
 
-// CHECK:      vmovadvisew  $123, %xmm22, -512(,%rbp,2)
+// CHECK:      {evex} vmovadvisew  $123, %xmm22, -512(,%rbp,2)
 // CHECK: encoding: [0x62,0xe3,0x7e,0x08,0x11,0x34,0x6d,0x00,0xfe,0xff,0xff,0x7b]
-               vmovadvisew  $123, %xmm22, -512(,%rbp,2)
+               {evex} vmovadvisew  $123, %xmm22, -512(,%rbp,2)
 
-// CHECK:      vmovadvisew  $123, %ymm22, 268435456(%rbp,%r14,8)
+// CHECK:      {evex} vmovadvisew  $123, %ymm22, 268435456(%rbp,%r14,8)
 // CHECK: encoding: [0x62,0xa3,0x7e,0x28,0x11,0xb4,0xf5,0x00,0x00,0x00,0x10,0x7b]
-               vmovadvisew  $123, %ymm22, 268435456(%rbp,%r14,8)
+               {evex} vmovadvisew  $123, %ymm22, 268435456(%rbp,%r14,8)
 
-// CHECK:      vmovadvisew  $123, %ymm22, 291(%r8,%rax,4)
+// CHECK:      {evex} vmovadvisew  $123, %ymm22, 291(%r8,%rax,4)
 // CHECK: encoding: [0x62,0xc3,0x7e,0x28,0x11,0xb4,0x80,0x23,0x01,0x00,0x00,0x7b]
-               vmovadvisew  $123, %ymm22, 291(%r8,%rax,4)
+               {evex} vmovadvisew  $123, %ymm22, 291(%r8,%rax,4)
 
-// CHECK:      vmovadvisew  $123, %ymm22, (%rip)
+// CHECK:      {evex} vmovadvisew  $123, %ymm22, (%rip)
 // CHECK: encoding: [0x62,0xe3,0x7e,0x28,0x11,0x35,0x00,0x00,0x00,0x00,0x7b]
-               vmovadvisew  $123, %ymm22, (%rip)
+               {evex} vmovadvisew  $123, %ymm22, (%rip)
 
-// CHECK:      vmovadvisew  $123, %ymm22, -1024(,%rbp,2)
+// CHECK:      {evex} vmovadvisew  $123, %ymm22, -1024(,%rbp,2)
 // CHECK: encoding: [0x62,0xe3,0x7e,0x28,0x11,0x34,0x6d,0x00,0xfc,0xff,0xff,0x7b]
-               vmovadvisew  $123, %ymm22, -1024(,%rbp,2)
+               {evex} vmovadvisew  $123, %ymm22, -1024(,%rbp,2)
 
-// CHECK:      vmovadvisew  $123, 268435456(%rbp,%r14,8), %xmm22
+// CHECK:      {evex} vmovadvisew  $123, 268435456(%rbp,%r14,8), %xmm22
 // CHECK: encoding: [0x62,0xa3,0x7e,0x08,0x10,0xb4,0xf5,0x00,0x00,0x00,0x10,0x7b]
-               vmovadvisew  $123, 268435456(%rbp,%r14,8), %xmm22
+               {evex} vmovadvisew  $123, 268435456(%rbp,%r14,8), %xmm22
 
-// CHECK:      vmovadvisew  $123, 291(%r8,%rax,4), %xmm22
+// CHECK:      {evex} vmovadvisew  $123, 291(%r8,%rax,4), %xmm22
 // CHECK: encoding: [0x62,0xc3,0x7e,0x08,0x10,0xb4,0x80,0x23,0x01,0x00,0x00,0x7b]
-               vmovadvisew  $123, 291(%r8,%rax,4), %xmm22
+               {evex} vmovadvisew  $123, 291(%r8,%rax,4), %xmm22
 
-// CHECK:      vmovadvisew  $123, (%rip), %xmm22
+// CHECK:      {evex} vmovadvisew  $123, (%rip), %xmm22
 // CHECK: encoding: [0x62,0xe3,0x7e,0x08,0x10,0x35,0x00,0x00,0x00,0x00,0x7b]
-               vmovadvisew  $123, (%rip), %xmm22
+               {evex} vmovadvisew  $123, (%rip), %xmm22
 
-// CHECK:      vmovadvisew  $123, -512(,%rbp,2), %xmm22
+// CHECK:      {evex} vmovadvisew  $123, -512(,%rbp,2), %xmm22
 // CHECK: encoding: [0x62,0xe3,0x7e,0x08,0x10,0x34,0x6d,0x00,0xfe,0xff,0xff,0x7b]
-               vmovadvisew  $123, -512(,%rbp,2), %xmm22
+               {evex} vmovadvisew  $123, -512(,%rbp,2), %xmm22
 
-// CHECK:      vmovadvisew  $123, 268435456(%rbp,%r14,8), %ymm22
+// CHECK:      {evex} vmovadvisew  $123, 268435456(%rbp,%r14,8), %ymm22
 // CHECK: encoding: [0x62,0xa3,0x7e,0x28,0x10,0xb4,0xf5,0x00,0x00,0x00,0x10,0x7b]
-               vmovadvisew  $123, 268435456(%rbp,%r14,8), %ymm22
+               {evex} vmovadvisew  $123, 268435456(%rbp,%r14,8), %ymm22
 
-// CHECK:      vmovadvisew  $123, 291(%r8,%rax,4), %ymm22
+// CHECK:      {evex} vmovadvisew  $123, 291(%r8,%rax,4), %ymm22
 // CHECK: encoding: [0x62,0xc3,0x7e,0x28,0x10,0xb4,0x80,0x23,0x01,0x00,0x00,0x7b]
-               vmovadvisew  $123, 291(%r8,%rax,4), %ymm22
+               {evex} vmovadvisew  $123, 291(%r8,%rax,4), %ymm22
 
-// CHECK:      vmovadvisew  $123, (%rip), %ymm22
+// CHECK:      {evex} vmovadvisew  $123, (%rip), %ymm22
 // CHECK: encoding: [0x62,0xe3,0x7e,0x28,0x10,0x35,0x00,0x00,0x00,0x00,0x7b]
-               vmovadvisew  $123, (%rip), %ymm22
+               {evex} vmovadvisew  $123, (%rip), %ymm22
 
-// CHECK:      vmovadvisew  $123, -1024(,%rbp,2), %ymm22
+// CHECK:      {evex} vmovadvisew  $123, -1024(,%rbp,2), %ymm22
 // CHECK: encoding: [0x62,0xe3,0x7e,0x28,0x10,0x34,0x6d,0x00,0xfc,0xff,0xff,0x7b]
-               vmovadvisew  $123, -1024(,%rbp,2), %ymm22
+               {evex} vmovadvisew  $123, -1024(,%rbp,2), %ymm22
 
-// CHECK:      vmovadvisew  $123, %xmm22, 268435456(%rbp,%r14,8)
+// CHECK:      {evex} vmovadvisew  $123, %xmm22, 268435456(%rbp,%r14,8)
 // CHECK: encoding: [0x62,0xa3,0x7e,0x08,0x11,0xb4,0xf5,0x00,0x00,0x00,0x10,0x7b]
-               vmovadvisew  $123, %xmm22, 268435456(%rbp,%r14,8)
+               {evex} vmovadvisew  $123, %xmm22, 268435456(%rbp,%r14,8)
 
-// CHECK:      vmovadvisew  $123, %xmm22, 291(%r8,%rax,4)
+// CHECK:      {evex} vmovadvisew  $123, %xmm22, 291(%r8,%rax,4)
 // CHECK: encoding: [0x62,0xc3,0x7e,0x08,0x11,0xb4,0x80,0x23,0x01,0x00,0x00,0x7b]
-               vmovadvisew  $123, %xmm22, 291(%r8,%rax,4)
+               {evex} vmovadvisew  $123, %xmm22, 291(%r8,%rax,4)
 
-// CHECK:      vmovadvisew  $123, %xmm22, (%rip)
+// CHECK:      {evex} vmovadvisew  $123, %xmm22, (%rip)
 // CHECK: encoding: [0x62,0xe3,0x7e,0x08,0x11,0x35,0x00,0x00,0x00,0x00,0x7b]
-               vmovadvisew  $123, %xmm22, (%rip)
+               {evex} vmovadvisew  $123, %xmm22, (%rip)
 
-// CHECK:      vmovadvisew  $123, %xmm22, -512(,%rbp,2)
+// CHECK:      {evex} vmovadvisew  $123, %xmm22, -512(,%rbp,2)
 // CHECK: encoding: [0x62,0xe3,0x7e,0x08,0x11,0x34,0x6d,0x00,0xfe,0xff,0xff,0x7b]
-               vmovadvisew  $123, %xmm22, -512(,%rbp,2)
+               {evex} vmovadvisew  $123, %xmm22, -512(,%rbp,2)
 
-// CHECK:      vmovadvisew  $123, %ymm22, 268435456(%rbp,%r14,8)
+// CHECK:      {evex} vmovadvisew  $123, %ymm22, 268435456(%rbp,%r14,8)
 // CHECK: encoding: [0x62,0xa3,0x7e,0x28,0x11,0xb4,0xf5,0x00,0x00,0x00,0x10,0x7b]
-               vmovadvisew  $123, %ymm22, 268435456(%rbp,%r14,8)
+               {evex} vmovadvisew  $123, %ymm22, 268435456(%rbp,%r14,8)
 
-// CHECK:      vmovadvisew  $123, %ymm22, 291(%r8,%rax,4)
+// CHECK:      {evex} vmovadvisew  $123, %ymm22, 291(%r8,%rax,4)
 // CHECK: encoding: [0x62,0xc3,0x7e,0x28,0x11,0xb4,0x80,0x23,0x01,0x00,0x00,0x7b]
-               vmovadvisew  $123, %ymm22, 291(%r8,%rax,4)
+               {evex} vmovadvisew  $123, %ymm22, 291(%r8,%rax,4)
 
-// CHECK:      vmovadvisew  $123, %ymm22, (%rip)
+// CHECK:      {evex} vmovadvisew  $123, %ymm22, (%rip)
 // CHECK: encoding: [0x62,0xe3,0x7e,0x28,0x11,0x35,0x00,0x00,0x00,0x00,0x7b]
-               vmovadvisew  $123, %ymm22, (%rip)
+               {evex} vmovadvisew  $123, %ymm22, (%rip)
 
-// CHECK:      vmovadvisew  $123, %ymm22, -1024(,%rbp,2)
+// CHECK:      {evex} vmovadvisew  $123, %ymm22, -1024(,%rbp,2)
 // CHECK: encoding: [0x62,0xe3,0x7e,0x28,0x11,0x34,0x6d,0x00,0xfc,0xff,0xff,0x7b]
-               vmovadvisew  $123, %ymm22, -1024(,%rbp,2)
+               {evex} vmovadvisew  $123, %ymm22, -1024(,%rbp,2)
 
-// CHECK:      vmovadvisew  $123, 268435456(%rbp,%r14,8), %xmm22
+// CHECK:      {evex} vmovadvisew  $123, 268435456(%rbp,%r14,8), %xmm22
 // CHECK: encoding: [0x62,0xa3,0x7e,0x08,0x10,0xb4,0xf5,0x00,0x00,0x00,0x10,0x7b]
-               vmovadvisew  $123, 268435456(%rbp,%r14,8), %xmm22
+               {evex} vmovadvisew  $123, 268435456(%rbp,%r14,8), %xmm22
 
-// CHECK:      vmovadvisew  $123, 291(%r8,%rax,4), %xmm22
+// CHECK:      {evex} vmovadvisew  $123, 291(%r8,%rax,4), %xmm22
 // CHECK: encoding: [0x62,0xc3,0x7e,0x08,0x10,0xb4,0x80,0x23,0x01,0x00,0x00,0x7b]
-               vmovadvisew  $123, 291(%r8,%rax,4), %xmm22
+               {evex} vmovadvisew  $123, 291(%r8,%rax,4), %xmm22
 
-// CHECK:      vmovadvisew  $123, (%rip), %xmm22
+// CHECK:      {evex} vmovadvisew  $123, (%rip), %xmm22
 // CHECK: encoding: [0x62,0xe3,0x7e,0x08,0x10,0x35,0x00,0x00,0x00,0x00,0x7b]
-               vmovadvisew  $123, (%rip), %xmm22
+               {evex} vmovadvisew  $123, (%rip), %xmm22
 
-// CHECK:      vmovadvisew  $123, -512(,%rbp,2), %xmm22
+// CHECK:      {evex} vmovadvisew  $123, -512(,%rbp,2), %xmm22
 // CHECK: encoding: [0x62,0xe3,0x7e,0x08,0x10,0x34,0x6d,0x00,0xfe,0xff,0xff,0x7b]
-               vmovadvisew  $123, -512(,%rbp,2), %xmm22
+               {evex} vmovadvisew  $123, -512(,%rbp,2), %xmm22
 
-// CHECK:      vmovadvisew  $123, 268435456(%rbp,%r14,8), %ymm22
+// CHECK:      {evex} vmovadvisew  $123, 268435456(%rbp,%r14,8), %ymm22
 // CHECK: encoding: [0x62,0xa3,0x7e,0x28,0x10,0xb4,0xf5,0x00,0x00,0x00,0x10,0x7b]
-               vmovadvisew  $123, 268435456(%rbp,%r14,8), %ymm22
+               {evex} vmovadvisew  $123, 268435456(%rbp,%r14,8), %ymm22
 
-// CHECK:      vmovadvisew  $123, 291(%r8,%rax,4), %ymm22
+// CHECK:      {evex} vmovadvisew  $123, 291(%r8,%rax,4), %ymm22
 // CHECK: encoding: [0x62,0xc3,0x7e,0x28,0x10,0xb4,0x80,0x23,0x01,0x00,0x00,0x7b]
-               vmovadvisew  $123, 291(%r8,%rax,4), %ymm22
+               {evex} vmovadvisew  $123, 291(%r8,%rax,4), %ymm22
 
-// CHECK:      vmovadvisew  $123, (%rip), %ymm22
+// CHECK:      {evex} vmovadvisew  $123, (%rip), %ymm22
 // CHECK: encoding: [0x62,0xe3,0x7e,0x28,0x10,0x35,0x00,0x00,0x00,0x00,0x7b]
-               vmovadvisew  $123, (%rip), %ymm22
+               {evex} vmovadvisew  $123, (%rip), %ymm22
 
-// CHECK:      vmovadvisew  $123, -1024(,%rbp,2), %ymm22
+// CHECK:      {evex} vmovadvisew  $123, -1024(,%rbp,2), %ymm22
 // CHECK: encoding: [0x62,0xe3,0x7e,0x28,0x10,0x34,0x6d,0x00,0xfc,0xff,0xff,0x7b]
-               vmovadvisew  $123, -1024(,%rbp,2), %ymm22
+               {evex} vmovadvisew  $123, -1024(,%rbp,2), %ymm22
 
-// CHECK:      vmovadvisew  $123, %xmm22, 268435456(%rbp,%r14,8)
+// CHECK:      {evex} vmovadvisew  $123, %xmm22, 268435456(%rbp,%r14,8)
 // CHECK: encoding: [0x62,0xa3,0x7e,0x08,0x11,0xb4,0xf5,0x00,0x00,0x00,0x10,0x7b]
-               vmovadvisew  $123, %xmm22, 268435456(%rbp,%r14,8)
+               {evex} vmovadvisew  $123, %xmm22, 268435456(%rbp,%r14,8)
 
-// CHECK:      vmovadvisew  $123, %xmm22, 291(%r8,%rax,4)
+// CHECK:      {evex} vmovadvisew  $123, %xmm22, 291(%r8,%rax,4)
 // CHECK: encoding: [0x62,0xc3,0x7e,0x08,0x11,0xb4,0x80,0x23,0x01,0x00,0x00,0x7b]
-               vmovadvisew  $123, %xmm22, 291(%r8,%rax,4)
+               {evex} vmovadvisew  $123, %xmm22, 291(%r8,%rax,4)
 
-// CHECK:      vmovadvisew  $123, %xmm22, (%rip)
+// CHECK:      {evex} vmovadvisew  $123, %xmm22, (%rip)
 // CHECK: encoding: [0x62,0xe3,0x7e,0x08,0x11,0x35,0x00,0x00,0x00,0x00,0x7b]
-               vmovadvisew  $123, %xmm22, (%rip)
+               {evex} vmovadvisew  $123, %xmm22, (%rip)
 
-// CHECK:      vmovadvisew  $123, %xmm22, -512(,%rbp,2)
+// CHECK:      {evex} vmovadvisew  $123, %xmm22, -512(,%rbp,2)
 // CHECK: encoding: [0x62,0xe3,0x7e,0x08,0x11,0x34,0x6d,0x00,0xfe,0xff,0xff,0x7b]
-               vmovadvisew  $123, %xmm22, -512(,%rbp,2)
+               {evex} vmovadvisew  $123, %xmm22, -512(,%rbp,2)
 
-// CHECK:      vmovadvisew  $123, %ymm22, 268435456(%rbp,%r14,8)
+// CHECK:      {evex} vmovadvisew  $123, %ymm22, 268435456(%rbp,%r14,8)
 // CHECK: encoding: [0x62,0xa3,0x7e,0x28,0x11,0xb4,0xf5,0x00,0x00,0x00,0x10,0x7b]
-               vmovadvisew  $123, %ymm22, 268435456(%rbp,%r14,8)
+               {evex} vmovadvisew  $123, %ymm22, 268435456(%rbp,%r14,8)
 
-// CHECK:      vmovadvisew  $123, %ymm22, 291(%r8,%rax,4)
+// CHECK:      {evex} vmovadvisew  $123, %ymm22, 291(%r8,%rax,4)
 // CHECK: encoding: [0x62,0xc3,0x7e,0x28,0x11,0xb4,0x80,0x23,0x01,0x00,0x00,0x7b]
-               vmovadvisew  $123, %ymm22, 291(%r8,%rax,4)
+               {evex} vmovadvisew  $123, %ymm22, 291(%r8,%rax,4)
 
-// CHECK:      vmovadvisew  $123, %ymm22, (%rip)
+// CHECK:      {evex} vmovadvisew  $123, %ymm22, (%rip)
 // CHECK: encoding: [0x62,0xe3,0x7e,0x28,0x11,0x35,0x00,0x00,0x00,0x00,0x7b]
-               vmovadvisew  $123, %ymm22, (%rip)
+               {evex} vmovadvisew  $123, %ymm22, (%rip)
 
-// CHECK:      vmovadvisew  $123, %ymm22, -1024(,%rbp,2)
+// CHECK:      {evex} vmovadvisew  $123, %ymm22, -1024(,%rbp,2)
 // CHECK: encoding: [0x62,0xe3,0x7e,0x28,0x11,0x34,0x6d,0x00,0xfc,0xff,0xff,0x7b]
-               vmovadvisew  $123, %ymm22, -1024(,%rbp,2)
+               {evex} vmovadvisew  $123, %ymm22, -1024(,%rbp,2)
 
-// CHECK:      vmovadvisew  $123, 268435456(%rbp,%r14,8), %xmm22
+// CHECK:      {evex} vmovadvisew  $123, 268435456(%rbp,%r14,8), %xmm22
 // CHECK: encoding: [0x62,0xa3,0x7e,0x08,0x10,0xb4,0xf5,0x00,0x00,0x00,0x10,0x7b]
-               vmovadvisew  $123, 268435456(%rbp,%r14,8), %xmm22
+               {evex} vmovadvisew  $123, 268435456(%rbp,%r14,8), %xmm22
 
-// CHECK:      vmovadvisew  $123, 291(%r8,%rax,4), %xmm22
+// CHECK:      {evex} vmovadvisew  $123, 291(%r8,%rax,4), %xmm22
 // CHECK: encoding: [0x62,0xc3,0x7e,0x08,0x10,0xb4,0x80,0x23,0x01,0x00,0x00,0x7b]
-               vmovadvisew  $123, 291(%r8,%rax,4), %xmm22
+               {evex} vmovadvisew  $123, 291(%r8,%rax,4), %xmm22
 
-// CHECK:      vmovadvisew  $123, (%rip), %xmm22
+// CHECK:      {evex} vmovadvisew  $123, (%rip), %xmm22
 // CHECK: encoding: [0x62,0xe3,0x7e,0x08,0x10,0x35,0x00,0x00,0x00,0x00,0x7b]
-               vmovadvisew  $123, (%rip), %xmm22
+               {evex} vmovadvisew  $123, (%rip), %xmm22
 
-// CHECK:      vmovadvisew  $123, -512(,%rbp,2), %xmm22
+// CHECK:      {evex} vmovadvisew  $123, -512(,%rbp,2), %xmm22
 // CHECK: encoding: [0x62,0xe3,0x7e,0x08,0x10,0x34,0x6d,0x00,0xfe,0xff,0xff,0x7b]
-               vmovadvisew  $123, -512(,%rbp,2), %xmm22
+               {evex} vmovadvisew  $123, -512(,%rbp,2), %xmm22
 
-// CHECK:      vmovadvisew  $123, 268435456(%rbp,%r14,8), %ymm22
+// CHECK:      {evex} vmovadvisew  $123, 268435456(%rbp,%r14,8), %ymm22
 // CHECK: encoding: [0x62,0xa3,0x7e,0x28,0x10,0xb4,0xf5,0x00,0x00,0x00,0x10,0x7b]
-               vmovadvisew  $123, 268435456(%rbp,%r14,8), %ymm22
+               {evex} vmovadvisew  $123, 268435456(%rbp,%r14,8), %ymm22
 
-// CHECK:      vmovadvisew  $123, 291(%r8,%rax,4), %ymm22
+// CHECK:      {evex} vmovadvisew  $123, 291(%r8,%rax,4), %ymm22
 // CHECK: encoding: [0x62,0xc3,0x7e,0x28,0x10,0xb4,0x80,0x23,0x01,0x00,0x00,0x7b]
-               vmovadvisew  $123, 291(%r8,%rax,4), %ymm22
+               {evex} vmovadvisew  $123, 291(%r8,%rax,4), %ymm22
 
-// CHECK:      vmovadvisew  $123, (%rip), %ymm22
+// CHECK:      {evex} vmovadvisew  $123, (%rip), %ymm22
 // CHECK: encoding: [0x62,0xe3,0x7e,0x28,0x10,0x35,0x00,0x00,0x00,0x00,0x7b]
-               vmovadvisew  $123, (%rip), %ymm22
+               {evex} vmovadvisew  $123, (%rip), %ymm22
 
-// CHECK:      vmovadvisew  $123, -1024(,%rbp,2), %ymm22
+// CHECK:      {evex} vmovadvisew  $123, -1024(,%rbp,2), %ymm22
 // CHECK: encoding: [0x62,0xe3,0x7e,0x28,0x10,0x34,0x6d,0x00,0xfc,0xff,0xff,0x7b]
-               vmovadvisew  $123, -1024(,%rbp,2), %ymm22
+               {evex} vmovadvisew  $123, -1024(,%rbp,2), %ymm22
 
-// CHECK:      vmovadvisew  $123, %xmm22, 268435456(%rbp,%r14,8)
+// CHECK:      {evex} vmovadvisew  $123, %xmm22, 268435456(%rbp,%r14,8)
 // CHECK: encoding: [0x62,0xa3,0x7e,0x08,0x11,0xb4,0xf5,0x00,0x00,0x00,0x10,0x7b]
-               vmovadvisew  $123, %xmm22, 268435456(%rbp,%r14,8)
+               {evex} vmovadvisew  $123, %xmm22, 268435456(%rbp,%r14,8)
 
-// CHECK:      vmovadvisew  $123, %xmm22, 291(%r8,%rax,4)
+// CHECK:      {evex} vmovadvisew  $123, %xmm22, 291(%r8,%rax,4)
 // CHECK: encoding: [0x62,0xc3,0x7e,0x08,0x11,0xb4,0x80,0x23,0x01,0x00,0x00,0x7b]
-               vmovadvisew  $123, %xmm22, 291(%r8,%rax,4)
+               {evex} vmovadvisew  $123, %xmm22, 291(%r8,%rax,4)
 
-// CHECK:      vmovadvisew  $123, %xmm22, (%rip)
+// CHECK:      {evex} vmovadvisew  $123, %xmm22, (%rip)
 // CHECK: encoding: [0x62,0xe3,0x7e,0x08,0x11,0x35,0x00,0x00,0x00,0x00,0x7b]
-               vmovadvisew  $123, %xmm22, (%rip)
+               {evex} vmovadvisew  $123, %xmm22, (%rip)
 
-// CHECK:      vmovadvisew  $123, %xmm22, -512(,%rbp,2)
+// CHECK:      {evex} vmovadvisew  $123, %xmm22, -512(,%rbp,2)
 // CHECK: encoding: [0x62,0xe3,0x7e,0x08,0x11,0x34,0x6d,0x00,0xfe,0xff,0xff,0x7b]
-               vmovadvisew  $123, %xmm22, -512(,%rbp,2)
+               {evex} vmovadvisew  $123, %xmm22, -512(,%rbp,2)
 
-// CHECK:      vmovadvisew  $123, %ymm22, 268435456(%rbp,%r14,8)
+// CHECK:      {evex} vmovadvisew  $123, %ymm22, 268435456(%rbp,%r14,8)
 // CHECK: encoding: [0x62,0xa3,0x7e,0x28,0x11,0xb4,0xf5,0x00,0x00,0x00,0x10,0x7b]
-               vmovadvisew  $123, %ymm22, 268435456(%rbp,%r14,8)
+               {evex} vmovadvisew  $123, %ymm22, 268435456(%rbp,%r14,8)
 
-// CHECK:      vmovadvisew  $123, %ymm22, 291(%r8,%rax,4)
+// CHECK:      {evex} vmovadvisew  $123, %ymm22, 291(%r8,%rax,4)
 // CHECK: encoding: [0x62,0xc3,0x7e,0x28,0x11,0xb4,0x80,0x23,0x01,0x00,0x00,0x7b]
-               vmovadvisew  $123, %ymm22, 291(%r8,%rax,4)
+               {evex} vmovadvisew  $123, %ymm22, 291(%r8,%rax,4)
 
-// CHECK:      vmovadvisew  $123, %ymm22, (%rip)
+// CHECK:      {evex} vmovadvisew  $123, %ymm22, (%rip)
 // CHECK: encoding: [0x62,0xe3,0x7e,0x28,0x11,0x35,0x00,0x00,0x00,0x00,0x7b]
-               vmovadvisew  $123, %ymm22, (%rip)
+               {evex} vmovadvisew  $123, %ymm22, (%rip)
 
-// CHECK:      vmovadvisew  $123, %ymm22, -1024(,%rbp,2)
+// CHECK:      {evex} vmovadvisew  $123, %ymm22, -1024(,%rbp,2)
 // CHECK: encoding: [0x62,0xe3,0x7e,0x28,0x11,0x34,0x6d,0x00,0xfc,0xff,0xff,0x7b]
-               vmovadvisew  $123, %ymm22, -1024(,%rbp,2)
+               {evex} vmovadvisew  $123, %ymm22, -1024(,%rbp,2)
 
-// CHECK:      vmovadvisew  $123, 268435456(%rbp,%r14,8), %xmm30
+// CHECK:      {evex} vmovadvisew  $123, 268435456(%rbp,%r14,8), %xmm30
 // CHECK: encoding: [0x62,0x23,0x7e,0x08,0x10,0xb4,0xf5,0x00,0x00,0x00,0x10,0x7b]
-               vmovadvisew  $123, 268435456(%rbp,%r14,8), %xmm30
+               {evex} vmovadvisew  $123, 268435456(%rbp,%r14,8), %xmm30
 
-// CHECK:      vmovadvisew  $123, (%r9), %xmm30
+// CHECK:      {evex} vmovadvisew  $123, (%r9), %xmm30
 // CHECK: encoding: [0x62,0x43,0x7e,0x08,0x10,0x31,0x7b]
-               vmovadvisew  $123, (%r9), %xmm30
+               {evex} vmovadvisew  $123, (%r9), %xmm30
 
-// CHECK:      vmovadvisew  $123, 268435456(%rbp,%r14,8), %ymm30
+// CHECK:      {evex} vmovadvisew  $123, 268435456(%rbp,%r14,8), %ymm30
 // CHECK: encoding: [0x62,0x23,0x7e,0x28,0x10,0xb4,0xf5,0x00,0x00,0x00,0x10,0x7b]
-               vmovadvisew  $123, 268435456(%rbp,%r14,8), %ymm30
+               {evex} vmovadvisew  $123, 268435456(%rbp,%r14,8), %ymm30
 
-// CHECK:      vmovadvisew  $123, (%r9), %ymm30
+// CHECK:      {evex} vmovadvisew  $123, (%r9), %ymm30
 // CHECK: encoding: [0x62,0x43,0x7e,0x28,0x10,0x31,0x7b]
-               vmovadvisew  $123, (%r9), %ymm30
+               {evex} vmovadvisew  $123, (%r9), %ymm30
 
-// CHECK:      vmovadvisew  $123, %xmm30, 268435456(%rbp,%r14,8)
+// CHECK:      {evex} vmovadvisew  $123, %xmm30, 268435456(%rbp,%r14,8)
 // CHECK: encoding: [0x62,0x23,0x7e,0x08,0x11,0xb4,0xf5,0x00,0x00,0x00,0x10,0x7b]
-               vmovadvisew  $123, %xmm30, 268435456(%rbp,%r14,8)
+               {evex} vmovadvisew  $123, %xmm30, 268435456(%rbp,%r14,8)
 
-// CHECK:      vmovadvisew  $123, %xmm30, (%r9)
+// CHECK:      {evex} vmovadvisew  $123, %xmm30, (%r9)
 // CHECK: encoding: [0x62,0x43,0x7e,0x08,0x11,0x31,0x7b]
-               vmovadvisew  $123, %xmm30, (%r9)
+               {evex} vmovadvisew  $123, %xmm30, (%r9)
 
-// CHECK:      vmovadvisew  $123, %ymm30, 268435456(%rbp,%r14,8)
+// CHECK:      {evex} vmovadvisew  $123, %ymm30, 268435456(%rbp,%r14,8)
 // CHECK: encoding: [0x62,0x23,0x7e,0x28,0x11,0xb4,0xf5,0x00,0x00,0x00,0x10,0x7b]
-               vmovadvisew  $123, %ymm30, 268435456(%rbp,%r14,8)
+               {evex} vmovadvisew  $123, %ymm30, 268435456(%rbp,%r14,8)
 
-// CHECK:      vmovadvisew  $123, %ymm30, (%r9)
+// CHECK:      {evex} vmovadvisew  $123, %ymm30, (%r9)
 // CHECK: encoding: [0x62,0x43,0x7e,0x28,0x11,0x31,0x7b]
-               vmovadvisew  $123, %ymm30, (%r9)
+               {evex} vmovadvisew  $123, %ymm30, (%r9)
+
+// CHECK:      vmemadvisez  $123, 268435456(%rbp,%r14,8)
+// CHECK: encoding: [0x62,0xb1,0x7f,0x48,0x71,0x84,0xf5,0x00,0x00,0x00,0x10,0x7b]
+               vmemadvisez  $123, 268435456(%rbp,%r14,8)
+
+// CHECK:      vmemadvisez  $123, 291(%r8,%rax,4)
+// CHECK: encoding: [0x62,0xd1,0x7f,0x48,0x71,0x84,0x80,0x23,0x01,0x00,0x00,0x7b]
+               vmemadvisez  $123, 291(%r8,%rax,4)
+
+// CHECK:      vmemadvisez  $123, (%rip)
+// CHECK: encoding: [0x62,0xf1,0x7f,0x48,0x71,0x05,0x00,0x00,0x00,0x00,0x7b]
+               vmemadvisez  $123, (%rip)
+
+// CHECK:      vmemadvisez  $123, -2048(,%rbp,2)
+// CHECK: encoding: [0x62,0xf1,0x7f,0x48,0x71,0x04,0x6d,0x00,0xf8,0xff,0xff,0x7b]
+               vmemadvisez  $123, -2048(,%rbp,2)
+
+// CHECK:      vmemadvisez  $123, 8128(%rcx)
+// CHECK: encoding: [0x62,0xf1,0x7f,0x48,0x71,0x41,0x7f,0x7b]
+               vmemadvisez  $123, 8128(%rcx)
+
+// CHECK:      vmemadvisez  $123, -8192(%rdx)
+// CHECK: encoding: [0x62,0xf1,0x7f,0x48,0x71,0x42,0x80,0x7b]
+               vmemadvisez  $123, -8192(%rdx)
+
+// CHECK:      {evex} vmemadvisex  $123, 268435456(%rbp,%r14,8)
+// CHECK: encoding: [0x62,0xb1,0x7f,0x08,0x71,0x84,0xf5,0x00,0x00,0x00,0x10,0x7b]
+               {evex} vmemadvisex  $123, 268435456(%rbp,%r14,8)
+
+// CHECK:      {evex} vmemadvisex  $123, 291(%r8,%rax,4)
+// CHECK: encoding: [0x62,0xd1,0x7f,0x08,0x71,0x84,0x80,0x23,0x01,0x00,0x00,0x7b]
+               {evex} vmemadvisex  $123, 291(%r8,%rax,4)
+
+// CHECK:      {evex} vmemadvisex  $123, (%rip)
+// CHECK: encoding: [0x62,0xf1,0x7f,0x08,0x71,0x05,0x00,0x00,0x00,0x00,0x7b]
+               {evex} vmemadvisex  $123, (%rip)
+
+// CHECK:      {evex} vmemadvisex  $123, -512(,%rbp,2)
+// CHECK: encoding: [0x62,0xf1,0x7f,0x08,0x71,0x04,0x6d,0x00,0xfe,0xff,0xff,0x7b]
+               {evex} vmemadvisex  $123, -512(,%rbp,2)
+
+// CHECK:      {evex} vmemadvisex  $123, 2032(%rcx)
+// CHECK: encoding: [0x62,0xf1,0x7f,0x08,0x71,0x41,0x7f,0x7b]
+               {evex} vmemadvisex  $123, 2032(%rcx)
+
+// CHECK:      {evex} vmemadvisex  $123, -2048(%rdx)
+// CHECK: encoding: [0x62,0xf1,0x7f,0x08,0x71,0x42,0x80,0x7b]
+               {evex} vmemadvisex  $123, -2048(%rdx)
+
+// CHECK:      {evex} vmemadvisey  $123, -1024(,%rbp,2)
+// CHECK: encoding: [0x62,0xf1,0x7f,0x28,0x71,0x04,0x6d,0x00,0xfc,0xff,0xff,0x7b]
+               {evex} vmemadvisey  $123, -1024(,%rbp,2)
+
+// CHECK:      {evex} vmemadvisey  $123, 4064(%rcx)
+// CHECK: encoding: [0x62,0xf1,0x7f,0x28,0x71,0x41,0x7f,0x7b]
+               {evex} vmemadvisey  $123, 4064(%rcx)
+
+// CHECK:      {evex} vmemadvisey  $123, -4096(%rdx)
+// CHECK: encoding: [0x62,0xf1,0x7f,0x28,0x71,0x42,0x80,0x7b]
+               {evex} vmemadvisey  $123, -4096(%rdx)
+

@@ -115,6 +115,12 @@ bool LoopVectorizationPlannerHIR::canProcessLoopBody(const VPlan &Plan,
   if (EnableInMemoryEntities)
     return true;
 
+  // TODO: Privates are not being imported from HIRLegality to VPEntities, hence
+  // below checks for in-memory entities will not capture OMP SIMD private
+  // construct. Remove this check after importing is implemented.
+  if (HIRLegality->getPrivates().size() > 0)
+    return false;
+
   // HIR-CG is not setup to deal with instructions related to in-memory entities
   // such as VPAllocatePrivate. Check and bail out for any in-memory entities.
   // Walking the VPlan instructions will not work as this check is done before

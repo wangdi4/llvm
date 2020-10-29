@@ -37,3 +37,21 @@ void test_mm512_vmovadvisew_storee_epi8(char *a, __m512i m) {
   // CHECK: call void @llvm.x86.avx512.vmovadvisew.store.512(i8* %{{.*}}, <16 x i32> %{{.*}}, i8 16)
   _mm512_vmovadvisew_storee_epi8(a, m, 16);
 }
+
+void test_mm_vmemadvise_epi8(char *a) {
+  // CHECK-LABEL: test_mm_vmemadvise_epi8
+  // CHECK: call void @llvm.x86.avx512.vmemadvise.128(i8* %{{.*}}, i8 16)
+  _mm_vmemadvise_epi8(a, 16);
+}
+
+void test_mm256_vmemadvise_epi8(char *a) {
+  // CHECK-LABEL: test_mm256_vmemadvise_epi8
+  // CHECK: call void @llvm.x86.avx512.vmemadvise.256(i8* %{{.*}}, i8 16)
+  _mm256_vmemadvise_epi8(a, 16);
+}
+
+void test_mm512_vmemadvise_epi8(char *a) {
+  // CHECK-LABEL: test_mm512_vmemadvise_epi8
+  // CHECK: call void @llvm.x86.avx512.vmemadvise.512(i8* %{{.*}}, i8 16)
+  _mm512_vmemadvise_epi8(a, 16);
+}

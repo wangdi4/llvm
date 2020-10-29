@@ -1252,6 +1252,21 @@ public:
                                      Value *ArgsSize, Value *ArgsMaptype,
                                      Instruction *InsertPt);
 
+  /// if Subdevice clause exists, this routine encodes Subdevice info into
+  /// DeviceID else, it returns DeviceID (cast to i64) without Subdevice
+  /// encoding.
+  /// The encoding is as follows:
+  /// Device encoding (MSB=63, LSB=0)
+  /// 63..63: Has subdevice
+  /// 62..58: Reserved
+  /// 57..56: Subdevice level
+  /// 55..48: Subdevice ID start
+  /// 47..40: Subdevice ID count
+  /// 39..32: Subdevice ID stride
+  /// 31..00: Device ID
+  static Value *encodeSubdevice (WRegionNode* W, Instruction* InsertPt,
+                                 Value* DeviceID);
+
   /// Base routine to create `libomptarget` calls. Creates one of these calls:
   /// \code
   ///   void    __tgt_target_data_begin( int64_t device_id, <common>)
@@ -1270,10 +1285,11 @@ public:
   ///   int64_t* args_size,   // array of sizes (bytes) of each mapped datum
   ///   int32_t* args_maptype // array of map attributes for each mapping
   /// \endcode
-  static CallInst *genTgtCall(StringRef FnName, Value *DeviceIDPtr,
-                              int NumArgsCount, Value *ArgsBase, Value *Args,
-                              Value *ArgsSize, Value *ArgsMaptype,
-                              Instruction *InsertPt, Value *HostAddr = nullptr,
+  static CallInst *genTgtCall(StringRef FnName, WRegionNode *W,
+                              Value *DeviceIDPtr, int NumArgsCount,
+                              Value *ArgsBase, Value *Args,Value *ArgsSize,
+                              Value *ArgsMaptype, Instruction *InsertPt,
+                              Value *HostAddr = nullptr,
                               Value *NumTeamsPtr = nullptr,
                               Value *ThreadLimitPtr = nullptr);
 

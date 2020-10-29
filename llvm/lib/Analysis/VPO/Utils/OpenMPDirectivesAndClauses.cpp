@@ -27,7 +27,8 @@ using namespace llvm::vpo;
 ClauseSpecifier::ClauseSpecifier(StringRef Name)
     : FullName(Name), IsArraySection(false), IsByRef(false), IsNonPod(false),
 #if INTEL_CUSTOMIZATION
-      IsF90DopeVector(false), IsWILocal(false), IsAllocatable(false),
+      IsF90DopeVector(false), IsCptr(false), IsWILocal(false),
+      IsAllocatable(false),
 #endif // INTEL_CUSTOMIZATION
       IsAggregate(false), IsPointer(false), IsPointerToPointer(false),
       IsScalar(false), IsAlways(false), IsClose(false), IsPresent(false),
@@ -125,6 +126,8 @@ ClauseSpecifier::ClauseSpecifier(StringRef Name)
 #if INTEL_CUSTOMIZATION
         else if (ModSubString[i] == "F90_DV")
           setIsF90DopeVector();
+        else if (ModSubString[i] == "CPTR")
+          setIsCptr();
         else if (ModSubString[i] == "WILOCAL")
           setIsWILocal();
 #endif // INTEL_CUSTOMIZATION

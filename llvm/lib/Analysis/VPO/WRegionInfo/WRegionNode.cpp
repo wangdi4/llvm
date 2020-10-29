@@ -159,6 +159,12 @@ void WRegionNode::finalize(Instruction *ExitDir, DominatorTree *DT) {
       if (UDPI->getIsF90DopeVector())
         continue;
 
+      // For use_device_ptr:cptr(cptr* %p), the map needs to be on a load like:
+      //   %p.val = load i8*, (bitcast cptr* %p to i8**)
+      // This map will be created in VPOParoptTransform::addMapForUseDevicePtr()
+      if (UDPI->getIsCptr())
+        continue;
+
 #endif // INTEL_CUSTOMIZATION
       Value *Orig = UDPI->getOrig();
       MapItem *MapI = WRegionUtils::wrnSeenAsMap(this, Orig);
@@ -865,6 +871,7 @@ void WRegionNode::extractQualOpndList(const Use *Args, unsigned NumArgs,
       C.back()->setHOrig(CurrentBundleDDRefs[I]);
     if (ClauseInfo.getIsF90DopeVector())
       C.back()->setIsF90DopeVector(true);
+    C.back()->setIsCptr(ClauseInfo.getIsCptr());
     C.back()->setIsWILocal(ClauseInfo.getIsWILocal());
 #endif // INTEL_CUSTOMIZATION
   }
