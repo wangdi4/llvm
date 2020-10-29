@@ -13,13 +13,9 @@ define void @test01(%"class._ZTSSt9exception.std::exception"* %in) !dtrans_type 
 }
 declare void @_ZNSt9exceptionD1Ev(%"class._ZTSSt9exception.std::exception"*)
 
-; TODO: This should be marked as: Address taken | System object | Has vtable
-;       But, because we don't have information for external functions yet, it
-;       currently gets marked as "Unhandled use"
-
 ; CHECK-LABEL: DTRANS_StructInfo:
 ; CHECK: Name: class._ZTSSt9exception.std::exception
-; CHECK: Safety data: Has vtable | Unhandled use{{ *$}}
+; CHECK: Safety data: Address taken | System object | Has vtable{{ *$}}
 
 
 !1 = !{!"F", i1 true, i32 0, !2}  ; i32 (...)
@@ -30,5 +26,7 @@ declare void @_ZNSt9exceptionD1Ev(%"class._ZTSSt9exception.std::exception"*)
 !6 = !{!7, i32 1}  ; %"class._ZTSSt9exception.std::exception"*
 !7 = !{!"R", %"class._ZTSSt9exception.std::exception" zeroinitializer, i32 0}  ; %"class._ZTSSt9exception.std::exception"
 !8 = !{!"S", %"class._ZTSSt9exception.std::exception" zeroinitializer, i32 1, !3} ; { i32 (...)** }
+!9 = !{!"_ZNSt9exceptionD1Ev", !4}
 
 !dtrans_types = !{!8}
+!dtrans_decl_types = !{!9}
