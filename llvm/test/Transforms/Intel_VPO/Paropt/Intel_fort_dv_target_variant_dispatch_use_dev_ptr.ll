@@ -1,8 +1,6 @@
 ; INTEL_CUSTOMIZATION
 ; RUN: opt -vpo-paropt-prepare -S < %s | FileCheck %s
 ; RUN: opt < %s -passes='function(vpo-paropt-prepare)' -S | FileCheck %s
-; RUN: not opt -vpo-paropt-prepare -vpo-paropt-use-raw-dev-ptr=false -S < %s 2>&1 | FileCheck %s -check-prefix=NOTSUPPORTED
-; RUN: not opt < %s -passes='function(vpo-paropt-prepare)' -vpo-paropt-use-raw-dev-ptr=false -S 2>&1 | FileCheck %s -check-prefix=NOTSUPPORTED
 
 ; Test src:
 
@@ -50,10 +48,6 @@
 ; !    end if
 ;
 ; end program
-
-; Check that we emit an error for the unsupported usage of -vpo-paropt-use-raw-dev-ptr=false
-; when there is an F90_DV in a use_device_ptr clause on a variant dispatch.
-; NOTSUPPORTED: 'vpo-paropt-use-raw-dev-ptr=false' is not supported with use_device_ptr clause on Fortran assumed-shape arrays/cptrs.
 
 ; Check that the map-type used for the target data calls for the variant region is
 ; TGT_PARAM | TGT_RETURN_PARAM (96):
