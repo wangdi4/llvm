@@ -319,8 +319,8 @@ function( add_ocl_library OUTPUT_FILE_VAR PRECOMPILED_OUTPUT_FILE_VAR CLANG_COMP
     # link OpenCL library (adding also BI IR for vectorizer)
     add_custom_command (OUTPUT ${BUILTINS_OUTPUT_DIR}/${OUTPUT_FILE}
       COMMENT "Linking ${BUILTINS_OUTPUT_DIR}/${OUTPUT_FILE}"
-      COMMAND ${LLVM_LINK} ${LLVM_LINK_PARAMS} -o ${BUILTINS_OUTPUT_DIR}/${OUTPUT_FILE} ${TMP_FILES} ${CL_BUILTIN_SOURCE_DIR}/${TARGET_DIR}/${ARCH}_vectorizer.ll ${CL_BUILTIN_SOURCE_DIR}/GENERIC/ll_intrinsics.ll
-      DEPENDS ${LLVM_LINK} ${TMP_FILES} ${CL_BUILTIN_SOURCE_DIR}/${TARGET_DIR}/${ARCH}_vectorizer.ll ${CL_BUILTIN_SOURCE_DIR}/GENERIC/ll_intrinsics.ll
+      COMMAND ${LLVM_LINK} ${LLVM_LINK_PARAMS} -o ${BUILTINS_OUTPUT_DIR}/${OUTPUT_FILE} ${TMP_FILES} ${CL_BUILTIN_SOURCE_DIR}/${TARGET_DIR}/${ARCH}_vectorizer.ll ${CL_BUILTIN_SOURCE_DIR}/GENERIC/ll_intrinsics.ll ${CL_BUILTIN_SOURCE_DIR}/GENERIC/sub_group_block_assume_uniform.ll
+      DEPENDS ${LLVM_LINK} ${TMP_FILES} ${CL_BUILTIN_SOURCE_DIR}/${TARGET_DIR}/${ARCH}_vectorizer.ll ${CL_BUILTIN_SOURCE_DIR}/GENERIC/ll_intrinsics.ll ${CL_BUILTIN_SOURCE_DIR}/GENERIC/sub_group_block_assume_uniform.ll
       VERBATIM
       )
   endif()
