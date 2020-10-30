@@ -130,6 +130,9 @@ public:
   /// Whether there is a fallthrough statement in this function.
   bool HasFallthroughStmt : 1;
 
+  /// Whether this function uses constrained floating point intrinsics
+  bool UsesFPIntrin : 1;
+
   /// Whether we make reference to a declaration that could be
   /// unavailable.
   bool HasPotentialAvailabilityViolations : 1;
@@ -372,7 +375,8 @@ public:
       : Kind(SK_Function), HasBranchProtectedScope(false),
         HasBranchIntoScope(false), HasIndirectGoto(false),
         HasDroppedStmt(false), HasOMPDeclareReductionCombiner(false),
-        HasFallthroughStmt(false), HasPotentialAvailabilityViolations(false),
+        HasFallthroughStmt(false), UsesFPIntrin(false),
+        HasPotentialAvailabilityViolations(false),
         ObjCShouldCallSuper(false), ObjCIsDesignatedInit(false),
         ObjCWarnForNoDesignatedInitChain(false), ObjCIsSecondaryInit(false),
         ObjCWarnForNoInitDelegation(false), NeedsCoroutineSuspends(true),
@@ -432,6 +436,10 @@ public:
 
   void setHasFallthroughStmt() {
     HasFallthroughStmt = true;
+  }
+
+  void setUsesFPIntrin() {
+    UsesFPIntrin = true;
   }
 
   void setHasCXXTry(SourceLocation TryLoc) {
