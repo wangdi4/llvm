@@ -61,6 +61,8 @@ protected:
   /// The legality analysis.
   VPOVectorizationLegality *Legal;
 
+  ScalarEvolution *SE;
+
   // Holds instructions from the original loop that we predicated. Such
   // instructions reside in their own conditioned VPBasicBlock and represent
   // an optimization opportunity for sinking their scalarized operands thus
@@ -85,7 +87,8 @@ protected:
 public:
   VPlanHCFGBuilder(Loop *Lp, LoopInfo *LI, const DataLayout &DL,
                    const WRNVecLoopNode *WRL, VPlan *Plan,
-                   VPOVectorizationLegality *Legal);
+                   VPOVectorizationLegality *Legal,
+                   ScalarEvolution *SE = nullptr);
 
   virtual ~VPlanHCFGBuilder();
 
