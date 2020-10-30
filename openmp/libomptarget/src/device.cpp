@@ -858,6 +858,20 @@ int32_t DeviceTy::get_data_alloc_info(
   else
     return OFFLOAD_FAIL;
 }
+
+int32_t DeviceTy::pushSubDevice(int64_t ID) {
+  if (RTL->push_subdevice)
+    return RTL->push_subdevice(ID);
+  else
+    return OFFLOAD_SUCCESS;
+}
+
+int32_t DeviceTy::popSubDevice(void) {
+  if (RTL->pop_subdevice)
+    return RTL->pop_subdevice();
+  else
+    return OFFLOAD_SUCCESS;
+}
 #endif // INTEL_COLLAB
 
 // Whether data can be copied to DstDevice directly

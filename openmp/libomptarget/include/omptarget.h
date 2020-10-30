@@ -133,6 +133,10 @@ struct __tgt_memory_info {
   uintptr_t Offset; // Offset from base address
   size_t Size;      // Allocation Size from Base + Offset
 };
+
+// MSB=63, LSB=0
+#define EXTRACT_BITS(I64, HIGH, LOW)                                           \
+  (((uint64_t)I64) >> (LOW)) & (((uint64_t)1 << ((HIGH) - (LOW) + 1)) - 1)
 #endif // INTEL_COLLAB
 
 /// This struct is a record of an entry point or global. For a function
