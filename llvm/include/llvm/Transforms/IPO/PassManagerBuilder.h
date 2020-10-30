@@ -241,9 +241,6 @@ private:
   void addLoopOptCleanupPasses(legacy::PassManagerBase &PM) const;
   void addLoopOptAndAssociatedVPOPasses(legacy::PassManagerBase &PM,
                                         bool IsLTO) const;
-
-public:
-  llvm::InlineReportBuilder *getMDInlineReport() const;
 #endif // INTEL_CUSTOMIZATION
 
 public:

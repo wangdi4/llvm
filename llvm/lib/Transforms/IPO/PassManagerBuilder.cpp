@@ -2044,12 +2044,6 @@ bool PassManagerBuilder::isLoopOptEnabled() const {
   return false;
 }
 
-llvm::InlineReportBuilder *PassManagerBuilder::getMDInlineReport() const {
-  if (!Inliner)
-    return nullptr;
-  return &(static_cast<LegacyInlinerBase *>(Inliner)->getMDReport());
-}
-
 void PassManagerBuilder::addLoopOptCleanupPasses(
     legacy::PassManagerBase &PM) const {
   // This pass removes the old (unreachable) code which has been replaced by a

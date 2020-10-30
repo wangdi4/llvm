@@ -371,6 +371,9 @@ void setMDReasonNotInlined(CallBase *Call, const InlineCost &IC,
 // Set of functions which set inlined reason to call site
 void setMDReasonIsInlined(CallBase *Call, InlineReason Reason);
 void setMDReasonIsInlined(CallBase *Call, const InlineCost &IC);
-} // namespace llvm
 
+/// Get the single, active metadata-based inlining report.
+InlineReportBuilder *getMDInlineReport();
+
+} // namespace llvm
 #endif // LLVM_TRANSFORMS_IPO_INTEL_MDINLINEREPORT_H

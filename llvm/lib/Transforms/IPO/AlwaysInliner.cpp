@@ -37,8 +37,10 @@ using namespace InlineReportTypes; // INTEL
 extern cl::opt<unsigned> IntelInlineReportLevel;
 
 AlwaysInlinerPass::AlwaysInlinerPass(bool InsertLifetime)
-    : InsertLifetime(InsertLifetime), Report(IntelInlineReportLevel),
-      MDReport(IntelInlineReportLevel){}
+    : InsertLifetime(InsertLifetime) {
+  Report = getInlineReport();
+  MDReport = getMDInlineReport();
+}
 #endif // INTEL_CUSTOMIZATION
 
 PreservedAnalyses AlwaysInlinerPass::run(Module &M,
@@ -78,7 +80,7 @@ PreservedAnalyses AlwaysInlinerPass::run(Module &M,
                         IC, false, DEBUG_TYPE); // INTEL
 
         InlineResult Res =
-            InlineFunction(*CB, IFI, &getReport(), &getMDReport(), // INTEL
+            InlineFunction(*CB, IFI, getReport(), getMDReport(),   // INTEL
                            /*CalleeAAR=*/nullptr, InsertLifetime); // INTEL
         assert(Res.isSuccess() && "unexpected failure to inline");
         (void)Res;
@@ -113,7 +115,7 @@ PreservedAnalyses AlwaysInlinerPass::run(Module &M,
       M.getFunctionList().erase(F);
   }
 #if INTEL_CUSTOMIZATION
-  getReport().print(/*IsAlwaysInline=*/true);
+  getReport()->print(/*IsAlwaysInline=*/true);
 #endif // INTEL_CUSTOMIZATION
 
   return Changed ? PreservedAnalyses::none() : PreservedAnalyses::all();
@@ -148,7 +150,7 @@ public:
   bool doFinalization(CallGraph &CG) override {
 #if INTEL_CUSTOMIZATION
     bool ReturnValue = removeDeadFunctions(CG, /*AlwaysInlineOnly=*/true);
-    getReport().print(/*IsAlwaysInline=*/true);
+    getReport()->print(/*IsAlwaysInline=*/true);
     return ReturnValue;
 #endif // INTEL_CUSTOMIZATION
   }
