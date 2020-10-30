@@ -83,7 +83,7 @@ static constexpr const int CallSiteMDSize = CSMDIR_Last;
 // This class is needed to store Callback vector for functions and instructions
 // of the current SCC during succeeding optimizations to keep inlining report
 // consistent.
-class InlineReportBuilder : public CallGraphReport {
+class InlineReportBuilder {
   // InlineFunction() fills this in with callsites which we are cloning from
   // the callee.  This is used only for inline report.
   SmallVector<Value *, 20> ActiveOriginalCalls;
@@ -171,6 +171,9 @@ public:
   // The level of the inline report
   void setLevel(unsigned L) { Level = L; }
 
+  // Replace 'OldFunction' with 'NewFunction'.
+  void replaceFunctionWithFunction(Function *OldFunction,
+                                   Function *NewFunction);
 private:
   /// \brief The Level is specified by the option -inline-report=N.
   /// See llvm/lib/Transforms/IPO/Inliner.cpp for details on Level.
@@ -238,8 +241,6 @@ private:
 
   SmallVector<InliningReportCallback *, 16> IRCallbackVector;
 
-  void replaceFunctionWithFunction(Function *OldFunction,
-                                   Function *NewFunction) override;
 public:
   // Add callback for function or instruction.
   void addCallback(Value *V, MDNode *MDIR) {

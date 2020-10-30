@@ -793,7 +793,6 @@ bool LegacyInlinerBase::inlineCalls(CallGraphSCC &SCC) {
   auto GetAssumptionCache = [&](Function &F) -> AssumptionCache & {
     return ACT->getAssumptionCache(F);
   };
-  CG.registerCGReport(MDReport); // INTEL
   bool rv = inlineCallsImpl(     // INTEL
       SCC, CG, GetAssumptionCache, PSI, GetTLI, InsertLifetime,
       [&](CallBase &CB) { return getInlineCost(CB); }, LegacyAARGetter(*this),
@@ -969,8 +968,6 @@ PreservedAnalyses InlinerPass::run(LazyCallGraph::SCC &InitialC,
   ProfileSummaryInfo *PSI = MAMProxy.getCachedResult<ProfileSummaryAnalysis>(M);
   WholeProgramInfo *WPI                                         // INTEL
       = MAMProxy.getCachedResult<WholeProgramAnalysis>(M);      // INTEL
-  CG.registerCGReport(Report);   // INTEL
-  CG.registerCGReport(MDReport); // INTEL
 
   FunctionAnalysisManager &FAM =
       AM.getResult<FunctionAnalysisManagerCGSCCProxy>(InitialC, CG)
@@ -993,7 +990,7 @@ PreservedAnalyses InlinerPass::run(LazyCallGraph::SCC &InitialC,
   MDReport->beginSCC(CG, InitialC);
   InlineParams Params = getInlineParams();
   if (Params.PrepareForLTO.getValueOr(false))
-    collectDtransFuncs(CG.getModule());
+    collectDtransFuncs(M);
 #endif // INTEL_CUSTOMIZATION
 
   // We use a single common worklist for calls across the entire SCC. We
