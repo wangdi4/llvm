@@ -245,7 +245,7 @@ Function *CLWGLoopBoundaries::createLoopBoundariesFunctionDcl() {
   FunctionType *fType =
     FunctionType::get(retTy, argTypes, false);
   Function *condFunc =
-    Function::Create(fType, m_F->getLinkage(), EEFuncName, m_M);
+    Function::Create(fType, GlobalValue::PrivateLinkage, EEFuncName, m_M);
   return condFunc;
 }
 
