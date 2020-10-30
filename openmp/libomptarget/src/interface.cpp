@@ -616,26 +616,17 @@ EXTERN char *__tgt_get_device_rtl_name(
 
 EXTERN void __tgt_offload_proxy_task_complete_ooo(void *interop_obj) {
 
-// The 1st 3 fields of this structure is same as kmp_task_t defined in omp.h
-// The last field is private and it is used to represent number
-// of buffers for async variant offload.
+// This structure is same as kmp_task_t defined in omp.h
 typedef struct {
-  void *shareds;   // pointer to block of pointers to shared vars
+  void *shareds;   // not used
   void * routine;  // not used
   int part_id;     // not used
-  int num_buffers;
 }async_t;
 
   DP("Call to __tgt_offload_proxy_task_complete_ooo interop obj " DPxMOD "\n",
       DPxPTR(interop_obj));
   __tgt_interop_obj *tgt_interop_obj = (__tgt_interop_obj *) interop_obj;
   async_t *async_obj =  (async_t *) tgt_interop_obj->async_obj;
-  int64_t device_num = tgt_interop_obj->device_id;
-  int num_buffers = async_obj->num_buffers;
-  void **device_buffers = (void **) async_obj->shareds;
-  for (int i=0; i<num_buffers; ++i) {
-    __tgt_release_buffer(device_num, device_buffers[i]);
-  }
 
   __tgt_release_interop_obj(interop_obj);
 
