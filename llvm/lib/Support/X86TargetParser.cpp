@@ -222,6 +222,9 @@ constexpr FeatureBitset FeaturesSapphireRapids =
     FeatureENQCMD | FeatureMOVDIR64B | FeatureMOVDIRI | FeaturePTWRITE |
     FeatureSERIALIZE | FeatureSHSTK | FeatureTSXLDTRK | FeatureUINTR |
     FeatureWAITPKG;
+constexpr FeatureBitset FeaturesAlderlake =
+    FeaturesSkylakeClient | FeatureCLDEMOTE | FeatureHRESET | FeaturePTWRITE |
+    FeatureSERIALIZE | FeatureWAITPKG;
 
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_CPU_RKL
@@ -414,6 +417,8 @@ constexpr ProcInfo Processors[] = {
 #endif // INTEL_CUSTOMIZATION
   // Sapphire Rapids microarchitecture based processors.
   { {"sapphirerapids"}, CK_SapphireRapids, FEATURE_AVX512VP2INTERSECT, FeaturesSapphireRapids },
+  // Alderlake microarchitecture based processors.
+  { {"alderlake"}, CK_Alderlake, FEATURE_AVX2, FeaturesAlderlake },
   // Knights Landing processor.
   { {"knl"}, CK_KNL, FEATURE_AVX512F, FeaturesKNL },
   // Knights Mill processor.
