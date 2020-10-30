@@ -421,6 +421,8 @@ OptReportDiag OptReportDiag::Diags[] = {
     // Remarks for reasons of generated gather/scatter instructions.
     {15567, "Gathers are generated due to non-unit stride index of the corresponding loads."},
     {15568, "Scatters are generated due to non-unit stride index of the corresponding stores."},
+    {15569, "Compiler has chosen to target XMM/YMM vector. Try using "
+            "-mprefer-vector-width=512 to override."},
 
     {25045, "Fused Loops: %s"},
     {25046, "Loop lost in Fusion"},

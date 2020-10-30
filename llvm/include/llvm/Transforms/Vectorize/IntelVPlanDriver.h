@@ -109,7 +109,8 @@ protected:
 #else
   template <class VPOCodeGenType>
 #endif //INTEL_CUSTOMIZATION
-  void addOptReportRemarks(VPlanOptReportBuilder &VPORBuilder,
+  void addOptReportRemarks(WRNVecLoopNode *WRLp,
+                           VPlanOptReportBuilder &VPORBuilder,
                            VPOCodeGenType *VCodeGen);
 
 protected:
