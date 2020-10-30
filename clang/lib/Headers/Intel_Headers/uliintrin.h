@@ -35,12 +35,6 @@ _stui (void)
   __builtin_ia32_stui();
 }
 
-static __inline__ unsigned char __DEFAULT_FN_ATTRS
-_testui (void)
-{
-  return __builtin_ia32_testui();
-}
-
 static __inline__ void __DEFAULT_FN_ATTRS
 _senduipi (unsigned long long __a)
 {

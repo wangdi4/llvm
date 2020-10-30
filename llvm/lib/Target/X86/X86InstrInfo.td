@@ -320,12 +320,6 @@ def X86testui : SDNode<"X86ISD::TESTUI",
                        SDTypeProfile<1, 0, [SDTCisVT<0, i32>]>,
                        [SDNPHasChain, SDNPSideEffect]>;
 
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_ULI
-def X86testui : SDNode<"X86ISD::TESTUI",
-                       SDTypeProfile<1, 0, [SDTCisVT<0, i32>]>, [SDNPHasChain]>;
-#endif // INTEL_FEATURE_ISA_ULI
-#endif // INTEL_CUSTOMIZATION
 def X86aesenc128kl : SDNode<"X86ISD::AESENC128KL", SDT_X86AESENCDECKL,
                             [SDNPHasChain, SDNPMayLoad, SDNPSideEffect,
                              SDNPMemOperand]>;
@@ -3124,29 +3118,6 @@ let SchedRW = [WriteLoad] in {
 
 def : InstAlias<"clzero\t{%eax|eax}", (CLZERO32r)>, Requires<[Not64BitMode]>;
 def : InstAlias<"clzero\t{%rax|rax}", (CLZERO64r)>, Requires<[In64BitMode]>;
-
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_ULI
-//===----------------------------------------------------------------------===//
-// ULI Instructions
-//
-let Predicates = [HasULI, In64BitMode] in {
-  def UIRET : I<0x01, MRM_EC, (outs), (ins), "uiret",
-               [(int_x86_uiret)]>, XS;
-  def CLUI : I<0x01, MRM_EE, (outs), (ins), "clui",
-               [(int_x86_clui)]>, XS;
-  def STUI : I<0x01, MRM_EF, (outs), (ins), "stui",
-               [(int_x86_stui)]>, XS;
-
-  def SENDUIPI : I<0xC7, MRM6r, (outs), (ins GR64:$arg), "senduipi\t$arg",
-                   [(int_x86_senduipi GR64:$arg)]>, XS;
-
-  let Defs = [EFLAGS] in
-    def TESTUI : I<0x01, MRM_ED, (outs), (ins), "testui",
-                   [(set EFLAGS, (X86testui))]>, XS;
-}
-#endif // INTEL_FEATURE_ISA_ULI
-#endif // INTEL_CUSTOMIZATION
 
 //===----------------------------------------------------------------------===//
 // HRESET Instruction
