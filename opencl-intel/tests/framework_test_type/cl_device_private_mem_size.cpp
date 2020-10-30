@@ -10,7 +10,7 @@
 
 extern cl_device_type gDeviceType;
 
-cl_ulong trySetPrivateMemSize(cl_ulong size)
+cl_ulong trySetPrivateMemSize(cl_ulong size, std::string unit = "")
 {
 #ifdef _WIN32
     printf("NOTE:\nDue to some strange behaviour of env variables on Windows\n");
@@ -18,7 +18,15 @@ cl_ulong trySetPrivateMemSize(cl_ulong size)
             "CL_CONFIG_CPU_FORCE_PRIVATE_MEM_SIZE from shell\n");
     printf("\tIn CI system it is done by .pm runner (framework_test_type.pm)\n");
 #endif
-    std::string str = std::to_string(size) + "B";
+    std::string str;
+    if (unit.empty() || unit == "B")
+      str = std::to_string(size) + "B";
+    else if (unit == "K" || unit == "KB")
+      str = std::to_string(size/1000) + "K";
+    else if (unit == "M" || unit == "MB")
+      str = std::to_string(size/1000000) + "M";
+    else
+      return 0;
     // set env variable to change the default value of private mem size
     if (!SETENV("CL_CONFIG_CPU_FORCE_PRIVATE_MEM_SIZE", str.c_str()))
     {
@@ -78,7 +86,7 @@ bool cl_device_private_mem_size_test()
     bool enabledVectorizer = vectorizerMode(true);
     EXIT_IF_FAILED(CheckCondition("vectorizerMode", enabledVectorizer == true));
 
-    cl_ulong expectedPrivateMemSize = trySetPrivateMemSize(STACK_SIZE);
+    cl_ulong expectedPrivateMemSize = trySetPrivateMemSize(STACK_SIZE, "K");
     EXIT_IF_FAILED(CheckCondition("trySetPrivateMemSize", expectedPrivateMemSize != 0));
 
     return cl_device_private_mem_size_test_body(expectedPrivateMemSize, programSources);
@@ -135,7 +143,7 @@ bool cl_device_private_mem_size_test_without_vectorizer()
     bool disabledVectorizer = vectorizerMode(false);
     EXIT_IF_FAILED(CheckCondition("vectorizerMode", disabledVectorizer == true));
 
-    cl_ulong expectedPrivateMemSize = trySetPrivateMemSize(STACK_SIZE);
+    cl_ulong expectedPrivateMemSize = trySetPrivateMemSize(STACK_SIZE, "M");
     EXIT_IF_FAILED(CheckCondition("trySetPrivateMemSize", expectedPrivateMemSize != 0));
 
     bool res =  cl_device_private_mem_size_test_body(expectedPrivateMemSize, programSources);

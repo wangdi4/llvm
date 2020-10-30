@@ -29,6 +29,10 @@
 # Intel(R) CPU Runtime for OpenCL(TM) Applications Configuration file
 # =======================================================================
 #
+# Notes:
+# -----------
+# For size with units, accepted units are: "GB", "G", "MB", "M", "KB", "K", "B"
+#
 # Parameters:
 # -----------
 # CL_CONFIG_LOG_FILE [string] - set the full path of the log file
