@@ -765,8 +765,7 @@ Optional<FileEntryRef> HeaderSearch::LookupFile(
 
   // This is the header that MSVC's header search would have found.
   ModuleMap::KnownHeader MSSuggestedModule;
-  const FileEntry *MSFE_FE = nullptr;
-  StringRef MSFE_Name;
+  Optional<FileEntryRef> MSFE;
 
 #if INTEL_CUSTOMIZATION
   // CQ#366531 - if the last processed include was quoted, reset CurDir.
@@ -848,8 +847,7 @@ Optional<FileEntryRef> HeaderSearch::LookupFile(
         if (Diags.isIgnored(diag::ext_pp_include_search_ms, IncludeLoc)) {
           return FE;
         } else {
-          MSFE_FE = &FE->getFileEntry();
-          MSFE_Name = FE->getName();
+          MSFE = FE;
           if (SuggestedModule) {
             MSSuggestedModule = *SuggestedModule;
             *SuggestedModule = ModuleMap::KnownHeader();
@@ -861,8 +859,6 @@ Optional<FileEntryRef> HeaderSearch::LookupFile(
     }
   }
 
-  Optional<FileEntryRef> MSFE(MSFE_FE ? FileEntryRef(MSFE_Name, *MSFE_FE)
-                                      : Optional<FileEntryRef>());
 #if !INTEL_CUSTOMIZATION
   // This code is disabled due to modifications introduced in
   // ec229b227e55012e78bef1605d73e9da4ab37a7f
