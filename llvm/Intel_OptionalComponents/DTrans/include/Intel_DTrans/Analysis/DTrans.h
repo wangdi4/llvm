@@ -110,8 +110,9 @@ public:
   FieldInfo(AbstractType Ty)
       : Ty(Ty), Read(false), Written(false), UnusedValue(true),
         ComplexUse(false), AddressTaken(false), MismatchedElementAccess(false),
-        SVKind(SVK_Complete), SVIAKind(SVK_Incomplete), SAFKind(SAFK_Top),
-        SingleAllocFunction(nullptr), RWState(RWK_Top), Frequency(0) {}
+        NonGEPAccess(false), SVKind(SVK_Complete), SVIAKind(SVK_Incomplete),
+        SAFKind(SAFK_Top), SingleAllocFunction(nullptr), RWState(RWK_Top),
+        Frequency(0) {}
 
   llvm::Type *getLLVMType() const { return Ty.getLLVMType(); }
   DTransType *getDTransType() const { return Ty.getDTransType(); }
@@ -123,6 +124,7 @@ public:
   bool hasComplexUse() const { return ComplexUse; }
   bool isAddressTaken() const { return AddressTaken; }
   bool isMismatchedElementAccess() const { return MismatchedElementAccess; }
+  bool hasNonGEPAccess() const { return NonGEPAccess; }
   bool isNoValue() const {
     return SVKind == SVK_Complete && ConstantValues.empty();
   }
@@ -164,6 +166,7 @@ public:
   void setComplexUse(bool b) { ComplexUse = b; }
   void setAddressTaken() { AddressTaken = true; }
   void setMismatchedElementAccess() { MismatchedElementAccess = true; }
+  void setNonGEPAccess() { NonGEPAccess = true; }
   void setSingleAllocFunction(llvm::Function *F) {
     assert((SAFKind == SAFK_Top) && "Expecting lattice at top");
     SAFKind = SAFK_Single;
@@ -307,6 +310,24 @@ private:
   // Tracks whether this field triggered the mismatched element access safety
   // check on the structure.
   bool MismatchedElementAccess;
+
+  // Indicates that a Load/Store instruction accessing the field was not based
+  // on a GEP instruction to obtain the address. This can occur when a pointer
+  // to the structure is used directly to access the zeroth element of the
+  // structure.
+  // For example:
+  //   %struct.list_elem = type { %struct.arc*, %struct.list_elem* }
+  //   %1510 = bitcast i8* %1506 to %struct.arc**
+  //   store %struct.arc* %1505, %struct.arc** %1510
+  //
+  // If %1506 was resolved as being %struct.list_elem*, the store is writing
+  // a field within the structure.
+  //
+  // The transformations that delete or reorder fields within a structure work
+  // by rewriting the GEP instructions that obtain the address of the fields,
+  // and currently do not support modifying an access to the field that does
+  // not involve a GEP.
+  bool NonGEPAccess;
 
   SingleValueKind SVKind;
   llvm::SetVector<llvm::Constant *> ConstantValues;

@@ -723,6 +723,9 @@ void dtrans::FieldInfo::print(raw_ostream &OS,
   if (isMismatchedElementAccess())
     OS << " MismatchedElementAccess";
 
+  if (hasNonGEPAccess())
+    OS << " NonGEPAccess";
+
   if (isPaddedField())
     OS << (isCleanPaddedField() ? "" : " Dirty") << " PaddedField";
 

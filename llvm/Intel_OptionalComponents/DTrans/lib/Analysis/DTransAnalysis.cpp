@@ -8072,6 +8072,10 @@ private:
         }
 
         if (ParentTy->isStructTy()) {
+          // If the element pointee was added as a result of a bitcast from the
+          // structure type to the type of element zero, then the
+          // EleemntZeroAliasSet will be non-empty.
+          bool HasNonGEPAccess = !PtrInfo.getElementZeroAliasSet().empty();
           auto *ParentStInfo =
               cast<dtrans::StructInfo>(DTInfo.getOrCreateTypeInfo(ParentTy));
           assert((!PointeePair.first->isStructTy() ||
@@ -8082,6 +8086,8 @@ private:
           dtrans::FieldInfo &FI = ParentStInfo->getField(ElementNum);
           if (IsLoad) {
             FI.setRead(I);
+            if (HasNonGEPAccess)
+              FI.setNonGEPAccess();
             DTBCA.analyzeLoad(FI, I);
             if (!identifyUnusedValue(cast<LoadInst>(I)))
               FI.setValueUnused(false);
@@ -8139,6 +8145,8 @@ private:
               FI.setBottomAllocFunction();
             }
             FI.setWritten(I);
+            if (HasNonGEPAccess)
+              FI.setNonGEPAccess();
             accumulateFrequency(FI, I);
             Value *V = cast<StoreInst>(&I)->getValueOperand();
             Instruction *II = dyn_cast<Instruction>(V);
