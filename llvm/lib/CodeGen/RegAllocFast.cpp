@@ -213,9 +213,6 @@ namespace {
 
     bool allocateInstruction(MachineInstr &MI); //INTEL
     void handleDebugValue(MachineInstr &MI);
-#ifndef NDEBUG
-    bool verifyRegStateMapping(const LiveReg &LR) const;
-#endif
     bool usePhysReg(MachineInstr &MI, MCPhysReg PhysReg);
     bool definePhysReg(MachineInstr &MI, MCPhysReg PhysReg);
     bool displacePhysReg(MachineInstr &MI, MCPhysReg PhysReg);
@@ -1381,17 +1378,6 @@ void RegAllocFast::handleDebugValue(MachineInstr &MI) {
   // that future spills of Reg will have DBG_VALUEs.
   LiveDbgValueMap[Reg].push_back(&MI);
 }
-
-#ifndef NDEBUG
-bool RegAllocFast::verifyRegStateMapping(const LiveReg &LR) const {
-  for (MCRegUnitIterator UI(LR.PhysReg, TRI); UI.isValid(); ++UI) {
-    if (RegUnitStates[*UI] != LR.VirtReg)
-      return false;
-  }
-
-  return true;
-}
-#endif
 
 bool RegAllocFast::allocateBasicBlock(MachineBasicBlock &MBB) { // INTEL
   bool HasVirtualRegs = false;  // INTEL
