@@ -236,6 +236,17 @@ public:
     return I->second;
   }
 
+#if INTEL_CUSTOMIZATION
+// CMPLRLLVM-24178 and 23633:
+// MS forward_list is not TBAA compatible, and self-build has TBAA
+// enabled. Isolate list node access from list container head.
+#if defined(_WIN32) && defined(__clang__)
+#define NOINLINEW32 __attribute__((noinline))
+#else
+#define NOINLINEW32
+#endif
+#endif
+
   /// If a load has multiple candidates associated (i.e. different
   /// stores), it means that it could be forwarding from multiple stores
   /// depending on control flow.  Remove these candidates.
@@ -255,7 +266,7 @@ public:
   ///
   /// LAA will perform dependence analysis here because there are two
   /// *different* pointers involved in the same alias set (&A[i] and &A[i+1]).
-  void removeDependencesFromMultipleStores(
+  NOINLINEW32 void removeDependencesFromMultipleStores( // INTEL
       std::forward_list<StoreToLoadForwardingCandidate> &Candidates) {
     // If Store is nullptr it means that we have multiple stores forwarding to
     // this store.
