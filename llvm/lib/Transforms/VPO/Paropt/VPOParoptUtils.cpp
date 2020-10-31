@@ -4269,53 +4269,261 @@ bool VPOParoptUtils::genKmpcCriticalSectionImpl(WRegionNode *W,
   return true;
 }
 
-// Wrap lane-by-lane loop around BeginInst and EndInst:
-//   __kmpc_critical();
-//   for (int id = 0; id < get_sub_group_size(); ++id) {
-//     if (id != get_sub_group_local_id())
-//       continue;
-//     <BeginInst>
-//     ...
-//     <EndInst>
-//   }
-//   __kmpc_end_critical();
-//
-// BeginInst is the next instruction after BeginCritical.
-// EndInst is the previous instruction before EndCritical.
-//
-// Under some controls this method also generates two identical
-// branches for even and odd sub-groups:
-//   if (get_sub_group_id() & 1) {
-//     __kmpc_critical();
-//     for (int id = 0; id < get_sub_group_size(); ++id) {
-//       if (id != get_sub_group_local_id())
-//         continue;
-//       <BeginInst>
-//       ...
-//       <EndInst>
-//     }
-//     __kmpc_end_critical();
-//   } else {
-//     __kmpc_critical();
-//     for (int id = 0; id < get_sub_group_size(); ++id) {
-//       if (id != get_sub_group_local_id())
-//         continue;
-//       <BeginInst>
-//       ...
-//       <EndInst>
-//     }
-//     __kmpc_end_critical();
-//   }
-//
-// This helps resolve dead-lock in case two sub-groups are executed
-// in lock step mode, e.g. on devices with EU fusion.
-// __kmpc_critical lock setup will dead-lock on such devices, unless
-// we explicitly execute the lock-unlock sequence of blocks for each
-// fused sub-group separately.
-//
-// TODO: since the odd and even branches are identical, we need
-//       to do something to avoid merging them into one sequence
-//       by further optimizations.
+// Generate lane-by-lane loop around BeginInst and EndInst.
+bool VPOParoptUtils::genCriticalLoopForSPIRHelper(Instruction *BeginInst,
+                                                  Instruction *EndInst,
+                                                  DominatorTree *DT,
+                                                  LoopInfo *LI) {
+  Module *M = BeginInst->getModule();
+  // It does not matter, but usually BeginInst is the next node
+  // after @__kmpc_critical call, and EndInst is @__kmpc_end_critical
+  // call.
+  BasicBlock *PreheaderBB = BeginInst->getParent();
+  BasicBlock *LoopIncBB = EndInst->getParent();
+  assert(PreheaderBB != LoopIncBB &&
+         "Begin and end instructions must be in different blocks.");
+  // Assertion below will trigger on critical regions with
+  // early exits, e.g.:
+  //   #pragma omp critical
+  //     exit(1);
+  // These are not supported for SPIR targets.
+  assert((!DT ||
+          (DT->getNode(PreheaderBB) && DT->getNode(LoopIncBB) &&
+           DT->dominates(BeginInst->getParent(), EndInst->getParent()))) &&
+         "Malformed critical region.");
+  BasicBlock *HeaderBB = SplitBlock(PreheaderBB, BeginInst, DT, LI);
+  BasicBlock *LoopExitBB = SplitBlock(LoopIncBB, EndInst, DT, LI);
+
+  // The current CFG:
+  // PreheaderBB:
+  //   call spir_func void @__kmpc_critical
+  //   br label %HeaderBB
+  //
+  // HeaderBB:
+  //   ...
+  //
+  // LoopIncBB:
+  //   ...
+  //   br label %LoopExitBB
+  //
+  // LoopExitBB:
+  //   call spir_func void @__kmpc_end_critical
+
+
+  // PreheaderBB:
+  //   call spir_func void @__kmpc_critical
+  //   %0 = call spir_func i32 @_Z18get_sub_group_size
+  //   br label %HeaderBB
+  IRBuilder<> PreheaderBuilder(PreheaderBB->getTerminator());
+  Type *IVTy = PreheaderBuilder.getInt32Ty();
+  ConstantInt *ZeroVal = PreheaderBuilder.getInt32(0);
+  ConstantInt *OneVal = PreheaderBuilder.getInt32(1);
+  CallInst *SGSize = genCall(M, "_Z18get_sub_group_sizev", IVTy, {},
+                             &*PreheaderBuilder.GetInsertPoint());
+  setFuncCallingConv(SGSize, true);
+
+  // HeaderBB:
+  //   %simdlane.id = phi i32 [ 0, %PreheaderBB ]
+  //   %exit.pred = icmp uge i32 %simdlane.id, %0
+  //   ...
+  IRBuilder<> HeaderBuilder(&HeaderBB->front());
+  PHINode *IVPHI = HeaderBuilder.CreatePHI(IVTy, 2, "simdlane.id");
+  IVPHI->addIncoming(ZeroVal, PreheaderBB);
+  Value *ExitPred = HeaderBuilder.CreateICmpUGE(IVPHI, SGSize, "exit.pred");
+
+  // PreheaderBB:
+  //   call spir_func void @__kmpc_critical
+  //   %0 = call spir_func i32 @_Z18get_sub_group_size
+  //   br label %HeaderBB
+  //
+  // HeaderBB:
+  //   %simdlane.id = phi i32 [ 0, %PreheaderBB ]
+  //   %exit.pred = icmp uge i32 %simdlane.id, %0
+  //   br i1 %exit.pred, label %JumpToExitBB, label %LoopBody
+  //
+  // JumpToExitBB:
+  //   br label %LoopExitBB
+  //
+  // LoopBody:
+  //   ...
+  //
+  // LoopIncBB:
+  //   ...
+  //   br label %LoopExitBB
+  //
+  // LoopExitBB:
+  //   call spir_func void @__kmpc_end_critical
+  Instruction *SplitPt = &*HeaderBuilder.GetInsertPoint();
+  Instruction *ThenTerm =
+      SplitBlockAndInsertIfThen(ExitPred, SplitPt,
+                                /*Unreachable=*/false,
+                                /*BranchWeights=*/nullptr,
+                                DT, LI);
+  BasicBlock *JumpToExitBB = ThenTerm->getParent();
+  ThenTerm->setSuccessor(0, LoopExitBB);
+  if (DT)
+    DT->changeImmediateDominator(LoopExitBB, HeaderBB);
+
+  BasicBlock *LoopBodyBB = SplitPt->getParent();
+  Instruction *LoopBodyInsertPt = &LoopBodyBB->front();
+  // LoopBody:
+  //   %1 = call spir_func i32 @_Z22get_sub_group_local_id
+  //   %skip.pred = icmp ne i32 %simdlane.id, %1
+  //   ...
+  CallInst *SGLocalId =
+      genCall(M, "_Z22get_sub_group_local_idv", IVTy, {}, LoopBodyInsertPt);
+  setFuncCallingConv(SGLocalId, true);
+  Value *SkipPred = new ICmpInst(LoopBodyInsertPt, ICmpInst::ICMP_NE,
+                                 IVPHI, SGLocalId, "skip.pred");
+
+  // PreheaderBB:
+  //   call spir_func void @__kmpc_critical
+  //   %0 = call spir_func i32 @_Z18get_sub_group_size
+  //   br label %HeaderBB
+  //
+  // HeaderBB:
+  //   %simdlane.id = phi i32 [ 0, %PreheaderBB ]
+  //   %exit.pred = icmp uge i32 %simdlane.id, %0
+  //   br i1 %exit.pred, label %JumpToExitBB, label %LoopBody
+  //
+  // JumpToExitBB:
+  //   br label %LoopExitBB
+  //
+  // LoopBody:
+  //   %1 = call spir_func i32 @_Z22get_sub_group_local_id
+  //   %skip.pred = icmp ne i32 %simdlane.id, %1
+  //   br i1 %skip.pred, label %JumpToIncBB, label %CritBody
+  //
+  // JumpToIncBB:
+  //   br label %LoopIncBB
+  //
+  // CritBody:
+  //   ...
+  //
+  // LoopIncBB:
+  //   ...
+  //   br label %LoopExitBB
+  //
+  // LoopExitBB:
+  //   call spir_func void @__kmpc_end_critical
+  ThenTerm = SplitBlockAndInsertIfThen(SkipPred, LoopBodyInsertPt,
+                                       /*Unreachable=*/false,
+                                       /*BranchWeights=*/nullptr,
+                                       DT, LI);
+  ThenTerm->setSuccessor(0, LoopIncBB);
+  if (DT)
+    DT->changeImmediateDominator(LoopIncBB, LoopBodyBB);
+
+  // PreheaderBB:
+  //   call spir_func void @__kmpc_critical
+  //   %0 = call spir_func i32 @_Z18get_sub_group_size
+  //   br label %HeaderBB
+  //
+  // HeaderBB:
+  //   %simdlane.id = phi i32 [ 0, PreheaderBB ], [ %2, %LoopIncBB ]
+  //   %exit.pred = icmp uge i32 %simdlane.id, %0
+  //   br i1 %exit.pred, label %JumpToExitBB, label %LoopBody
+  //
+  // JumpToExitBB:
+  //   br label %LoopExitBB
+  //
+  // LoopBody:
+  //   %1 = call spir_func i32 @_Z22get_sub_group_local_id
+  //   %skip.pred = icmp ne i32 %simdlane.id, %1
+  //   br i1 %skip.pred, label %JumpToIncBB, label %CritBody
+  //
+  // JumpToIncBB:
+  //   br label %LoopIncBB
+  //
+  // CritBody:
+  //   ...
+  //
+  // LoopIncBB:
+  //   ...
+  //   %2 = add nuw nsw i32 %simdlane.id, 1
+  //   br label %HeaderBB
+  //
+  // LoopExitBB:
+  //   call spir_func void @__kmpc_end_critical
+  IRBuilder<> IncBuilder(LoopIncBB->getTerminator());
+  Value *Increment =
+      IncBuilder.CreateAdd(IVPHI, OneVal, "simdlane.id.inc", true, true);
+  IVPHI->addIncoming(Increment, LoopIncBB);
+  assert(LoopIncBB->getTerminator()->getNumSuccessors() == 1 &&
+         "Unexpected number of successors for LoopIncBB.");
+  LoopIncBB->getTerminator()->setSuccessor(0, HeaderBB);
+  // JumpToExitBB is now the only predecessor of LoopExitBB,
+  // and also its immediate dominator.
+  if (DT)
+    DT->changeImmediateDominator(LoopExitBB, JumpToExitBB);
+
+#ifndef NDEBUG
+  // Verify DominatorTree before proceeding further.
+  assert((!DT || DT->verify()) && "DominatorTree is invalid.");
+#endif  // NDEBUG
+
+  if (!LI)
+    return true;
+
+  // Keep loops structure for the current region valid,
+  // otherwise, the loop rotation for the loop associated
+  // with this region may fail later.
+
+  // Collect blocks for the newly created loop.
+  SmallVector<BasicBlock *, 32> WorkList{HeaderBB};
+  SmallPtrSet<BasicBlock *, 32> Visited;
+  Loop *ParentLoop = LI->getLoopFor(LoopExitBB);
+  SmallPtrSet<Loop *, 4> NewChildren;
+  while (!WorkList.empty()) {
+    BasicBlock *BB = WorkList.pop_back_val();
+    Visited.insert(BB);
+
+    // Collect the "top-most" loops that are fully contained
+    // within the blocks wrapped into the critical loop.
+    // These loops must become children of the critical loop.
+    Loop *BBLoop = LI->getLoopFor(BB);
+    if (BBLoop && BBLoop->getParentLoop() == ParentLoop)
+      NewChildren.insert(BBLoop);
+
+    // If the assertion triggers, this probably means we
+    // escaped the critical section somehow.
+    assert(BB->getTerminator()->getNumSuccessors() > 0 &&
+           "Block inside critical section has zero successors.");
+    for (auto *SBB : successors(BB))
+      if (SBB != JumpToExitBB && Visited.count(SBB) == 0)
+        WorkList.push_back(SBB);
+  }
+
+  Loop *NewLoop = LI->AllocateLoop();
+  if (ParentLoop) {
+    // The new loop must become a parent for all NewChildren loops,
+    // and the new loop's parent is the ParentLoop.
+    ParentLoop->addChildLoop(NewLoop);
+    for (auto *L : NewChildren)
+      NewLoop->addChildLoop(ParentLoop->removeChildLoop(L));
+  } else {
+    // The new loop must become a top level loop, and all NewChildren
+    // loops must be its children (i.e. they must be removed from
+    // the set of top level loops).
+    LI->addTopLevelLoop(NewLoop);
+
+    for (auto *L : NewChildren) {
+      auto *NewChild = LI->removeLoop(llvm::find(*LI, L));
+      NewLoop->addChildLoop(NewChild);
+    }
+  }
+
+  for (auto *BB : Visited) {
+    NewLoop->addBlockEntry(BB);
+    if (LI->getLoopFor(BB) == ParentLoop)
+      LI->changeLoopFor(BB, NewLoop);
+  }
+  NewLoop->moveToHeader(HeaderBB);
+
+  return true;
+}
+
+// Generate the serialization loop for code inside a critical section.
 bool VPOParoptUtils::genCriticalLoopForSPIR(WRegionNode *W,
                                             CallInst *BeginCritical,
                                             CallInst *EndCritical,
@@ -4352,8 +4560,11 @@ bool VPOParoptUtils::genCriticalLoopForSPIR(WRegionNode *W,
     setFuncCallingConv(SGId, true);
     Value *Cond = CondBuilder.CreateTrunc(
         SGId, CondBuilder.getInt1Ty(), "sub_group_id_parity");
+    // TODO: since the odd and even branches are identical, we need
+    //       to do something to avoid merging them into one sequence
+    //       by further optimizations.
     VPOUtils::singleRegionMultiVersioning(
-        BeginCriticalBB, EndCriticalBB, BBSet, VMap, Cond, DT);
+        BeginCriticalBB, EndCriticalBB, BBSet, VMap, Cond, DT, LI);
 
     CallInst *NewBeginCritical = cast<CallInst>(VMap[BeginCritical]);
     CallInst *NewEndCritical = cast<CallInst>(VMap[EndCritical]);
@@ -4369,193 +4580,24 @@ bool VPOParoptUtils::genCriticalLoopForSPIR(WRegionNode *W,
     assert(BeginInst && "No instructions after __kmpc_critical.");
     Instruction *EndInst = Regions[I].second;
 
-    // It does not matter, but usually BeginInst is the next node
-    // after @__kmpc_critical call, and EndInst is @__kmpc_end_critical
-    // call.
-    BasicBlock *PreheaderBB = BeginInst->getParent();
-    BasicBlock *LoopIncBB = EndInst->getParent();
-    assert(PreheaderBB != LoopIncBB &&
-           "Begin and end instructions must be in different blocks.");
-    // Assertion below will trigger on critical regions with
-    // early exits, e.g.:
-    //   #pragma omp critical
-    //     exit(1);
-    // These are not supported for SPIR targets.
-    assert((!DT ||
-            (DT->getNode(PreheaderBB) && DT->getNode(LoopIncBB) &&
-             DT->dominates(BeginInst->getParent(), EndInst->getParent()))) &&
-           "Malformed critical region.");
-    BasicBlock *HeaderBB = SplitBlock(PreheaderBB, BeginInst, DT, LI);
-    BasicBlock *LoopExitBB = SplitBlock(LoopIncBB, EndInst, DT, LI);
-
-    // The current CFG:
-    // PreheaderBB:
-    //   call spir_func void @__kmpc_critical
-    //   br label %HeaderBB
-    //
-    // HeaderBB:
-    //   ...
-    //
-    // LoopIncBB:
-    //   ...
-    //   br label %LoopExitBB
-    //
-    // LoopExitBB:
-    //   call spir_func void @__kmpc_end_critical
-
-
-    // PreheaderBB:
-    //   call spir_func void @__kmpc_critical
-    //   %0 = call spir_func i32 @_Z18get_sub_group_size
-    //   br label %HeaderBB
-    IRBuilder<> PreheaderBuilder(PreheaderBB->getTerminator());
-    Type *IVTy = PreheaderBuilder.getInt32Ty();
-    ConstantInt *ZeroVal = PreheaderBuilder.getInt32(0);
-    ConstantInt *OneVal = PreheaderBuilder.getInt32(1);
-    CallInst *SGSize = genCall(M, "_Z18get_sub_group_sizev", IVTy, {},
-                               &*PreheaderBuilder.GetInsertPoint());
-    setFuncCallingConv(SGSize, true);
-
-    // HeaderBB:
-    //   %simdlane.id = phi i32 [ 0, %PreheaderBB ]
-    //   %exit.pred = icmp uge i32 %simdlane.id, %0
-    //   ...
-    IRBuilder<> HeaderBuilder(&HeaderBB->front());
-    PHINode *IVPHI = HeaderBuilder.CreatePHI(IVTy, 2, "simdlane.id");
-    IVPHI->addIncoming(ZeroVal, PreheaderBB);
-    Value *ExitPred = HeaderBuilder.CreateICmpUGE(IVPHI, SGSize, "exit.pred");
-
-    // PreheaderBB:
-    //   call spir_func void @__kmpc_critical
-    //   %0 = call spir_func i32 @_Z18get_sub_group_size
-    //   br label %HeaderBB
-    //
-    // HeaderBB:
-    //   %simdlane.id = phi i32 [ 0, %PreheaderBB ]
-    //   %exit.pred = icmp uge i32 %simdlane.id, %0
-    //   br i1 %exit.pred, label %JumpToExitBB, label %LoopBody
-    //
-    // JumpToExitBB:
-    //   br label %LoopExitBB
-    //
-    // LoopBody:
-    //   ...
-    //
-    // LoopIncBB:
-    //   ...
-    //   br label %LoopExitBB
-    //
-    // LoopExitBB:
-    //   call spir_func void @__kmpc_end_critical
-    Instruction *SplitPt = &*HeaderBuilder.GetInsertPoint();
-    Instruction *ThenTerm =
-        SplitBlockAndInsertIfThen(ExitPred, SplitPt,
-                                  /*Unreachable=*/false,
-                                  /*BranchWeights=*/nullptr,
-                                  DT, LI);
-    BasicBlock *JumpToExitBB = ThenTerm->getParent();
-    ThenTerm->setSuccessor(0, LoopExitBB);
-    if (DT)
-      DT->changeImmediateDominator(LoopExitBB, HeaderBB);
-
-    BasicBlock *LoopBodyBB = SplitPt->getParent();
-    Instruction *LoopBodyInsertPt = &LoopBodyBB->front();
-    // LoopBody:
-    //   %1 = call spir_func i32 @_Z22get_sub_group_local_id
-    //   %skip.pred = icmp ne i32 %simdlane.id, %1
-    //   ...
-    CallInst *SGLocalId =
-        genCall(M, "_Z22get_sub_group_local_idv", IVTy, {}, LoopBodyInsertPt);
-    setFuncCallingConv(SGLocalId, true);
-    Value *SkipPred = new ICmpInst(LoopBodyInsertPt, ICmpInst::ICMP_NE,
-                                   IVPHI, SGLocalId, "skip.pred");
-
-    // PreheaderBB:
-    //   call spir_func void @__kmpc_critical
-    //   %0 = call spir_func i32 @_Z18get_sub_group_size
-    //   br label %HeaderBB
-    //
-    // HeaderBB:
-    //   %simdlane.id = phi i32 [ 0, %PreheaderBB ]
-    //   %exit.pred = icmp uge i32 %simdlane.id, %0
-    //   br i1 %exit.pred, label %JumpToExitBB, label %LoopBody
-    //
-    // JumpToExitBB:
-    //   br label %LoopExitBB
-    //
-    // LoopBody:
-    //   %1 = call spir_func i32 @_Z22get_sub_group_local_id
-    //   %skip.pred = icmp ne i32 %simdlane.id, %1
-    //   br i1 %skip.pred, label %JumpToIncBB, label %CritBody
-    //
-    // JumpToIncBB:
-    //   br label %LoopIncBB
-    //
-    // CritBody:
-    //   ...
-    //
-    // LoopIncBB:
-    //   ...
-    //   br label %LoopExitBB
-    //
-    // LoopExitBB:
-    //   call spir_func void @__kmpc_end_critical
-    ThenTerm = SplitBlockAndInsertIfThen(SkipPred, LoopBodyInsertPt,
-                                         /*Unreachable=*/false,
-                                         /*BranchWeights=*/nullptr,
-                                         DT, LI);
-    ThenTerm->setSuccessor(0, LoopIncBB);
-    if (DT)
-      DT->changeImmediateDominator(LoopIncBB, LoopBodyBB);
-
-    // PreheaderBB:
-    //   call spir_func void @__kmpc_critical
-    //   %0 = call spir_func i32 @_Z18get_sub_group_size
-    //   br label %HeaderBB
-    //
-    // HeaderBB:
-    //   %simdlane.id = phi i32 [ 0, PreheaderBB ], [ %2, %LoopIncBB ]
-    //   %exit.pred = icmp uge i32 %simdlane.id, %0
-    //   br i1 %exit.pred, label %JumpToExitBB, label %LoopBody
-    //
-    // JumpToExitBB:
-    //   br label %LoopExitBB
-    //
-    // LoopBody:
-    //   %1 = call spir_func i32 @_Z22get_sub_group_local_id
-    //   %skip.pred = icmp ne i32 %simdlane.id, %1
-    //   br i1 %skip.pred, label %JumpToIncBB, label %CritBody
-    //
-    // JumpToIncBB:
-    //   br label %LoopIncBB
-    //
-    // CritBody:
-    //   ...
-    //
-    // LoopIncBB:
-    //   ...
-    //   %2 = add nuw nsw i32 %simdlane.id, 1
-    //   br label %HeaderBB
-    //
-    // LoopExitBB:
-    //   call spir_func void @__kmpc_end_critical
-    IRBuilder<> IncBuilder(LoopIncBB->getTerminator());
-    Value *Increment =
-        IncBuilder.CreateAdd(IVPHI, OneVal, "simdlane.id.inc", true, true);
-    IVPHI->addIncoming(Increment, LoopIncBB);
-    assert(LoopIncBB->getTerminator()->getNumSuccessors() == 1 &&
-           "Unexpected number of successors for LoopIncBB.");
-    LoopIncBB->getTerminator()->setSuccessor(0, HeaderBB);
-    // JumpToExitBB is now the only predecessor of LoopExitBB,
-    // and also its immediate dominator.
-    if (DT)
-      DT->changeImmediateDominator(LoopExitBB, JumpToExitBB);
+    VPOParoptUtils::genCriticalLoopForSPIRHelper(BeginInst, EndInst, DT, LI);
+  }
 
 #ifndef NDEBUG
-    // Verify DominatorTree before proceeding further.
-    assert((!DT || DT->verify()) && "DominatorTree is invalid.");
+#if 0
+  // CodeExtractor does not preserve LoopInfo, so verification may fail.
+  // For example:
+  //   #pragma omp target parallel for
+  //     for (...) {}
+  //   #pragma omp target parallel for
+  //     for (...) {}
+  // The LoopInfo will invalid after the first target region is outlined.
+  //
+  // FIXME: pass LoopInfo to CodeExtractor and update it there.
+  if (LI && DT)
+    LI->verify(*DT);
+#endif
 #endif  // NDEBUG
-  }
 
   return true;
 }
