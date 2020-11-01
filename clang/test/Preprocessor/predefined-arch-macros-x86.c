@@ -32,7 +32,9 @@
 // RUN: FileCheck %s --check-prefix=X86_64_V3 < %t.txt
 
 // X86_64_V3:      #define __AVX2__ 1
-// X86_64_V3-NEXT: #define __AVX__ 1
+// INTEL_CUSTOMIZATION
+// X86_64_V3:      #define __AVX__ 1
+// end INTEL_CUSTOMIZATION
 // X86_64_V3:      #define __BMI2__ 1
 // X86_64_V3-NEXT: #define __BMI__ 1
 // X86_64_V3:      #define __F16C__ 1
@@ -48,7 +50,9 @@
 
 // X86_64_V4:      #define __AVX512BW__ 1
 // X86_64_V4-NEXT: #define __AVX512CD__ 1
-// X86_64_V4-NEXT: #define __AVX512DQ__ 1
+// INTEL_CUSTOMIZATION
+// X86_64_V4:      #define __AVX512DQ__ 1
 // X86_64_V4-NEXT: #define __AVX512F__ 1
-// X86_64_V4-NEXT: #define __AVX512VL__ 1
+// X86_64_V4:      #define __AVX512VL__ 1
+// end INTEL_CUSTOMIZATION
 // X86_64_V4-NOT:  #define __AVX512{{.*}}

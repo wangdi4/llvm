@@ -354,10 +354,6 @@ bool X86TargetInfo::handleTargetFeatures(std::vector<std::string> &Features,
     } else if (Feature == "+enqcmd") {
       HasENQCMD = true;
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_ULI
-    } else if (Feature == "+uli") {
-      HasULI = true;
-#endif // INTEL_FEATURE_ISA_ULI
     } else if (Feature == "+hreset") {
       HasHRESET = true;
     } else if (Feature == "+amx-bf16") {
@@ -656,11 +652,6 @@ void X86TargetInfo::getTargetDefines(const LangOptions &Opts,
   case CK_IcelakeServer:
   case CK_Tigerlake:
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_CPU_ADL
-  case CK_Alderlake:
-#endif // INTEL_FEATURE_CPU_ADL
-#endif // INTEL_CUSTOMIZATION
-#if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_CPU_RKL
   case CK_Rocketlake:
 #endif // INTEL_FEATURE_CPU_RKL
@@ -929,11 +920,6 @@ void X86TargetInfo::getTargetDefines(const LangOptions &Opts,
   if (HasENQCMD)
     Builder.defineMacro("__ENQCMD__");
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_ULI
-  if (HasULI)
-    Builder.defineMacro("__ULI__");
-  Builder.defineMacro("__ULI_SUPPORTED__");
-#endif // INTEL_FEATURE_ISA_ULI
   if (HasHRESET)
     Builder.defineMacro("__HRESET__");
   if (HasAMXTILE)
@@ -1849,12 +1835,6 @@ Optional<unsigned> X86TargetInfo::getCPUCacheLineSize() const {
     case CK_Goldmont:
     case CK_GoldmontPlus:
     case CK_Tremont:
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_CPU_ADL
-    case CK_Alderlake:
-#endif // INTEL_FEATURE_CPU_ADL
-#endif // INTEL_CUSTOMIZATION
-
     case CK_Westmere:
     case CK_SandyBridge:
     case CK_IvyBridge:

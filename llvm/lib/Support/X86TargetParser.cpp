@@ -213,18 +213,12 @@ constexpr FeatureBitset FeaturesSapphireRapids =
 #if INTEL_FEATURE_ISA_FP16
   FeatureAVX512FP16 |
 #endif // INTEL_FEATURE_ISA_FP16
-#if INTEL_FEATURE_ISA_ULI
-  FeatureULI |
-#endif // INTEL_FEATURE_ISA_ULI
 #endif // INTEL_CUSTOMIZATION
     FeaturesICLServer | FeatureAMX_TILE | FeatureAMX_INT8 | FeatureAMX_BF16 |
     FeatureAVX512BF16 | FeatureAVX512VP2INTERSECT | FeatureCLDEMOTE |
     FeatureENQCMD | FeatureMOVDIR64B | FeatureMOVDIRI | FeaturePTWRITE |
     FeatureSERIALIZE | FeatureSHSTK | FeatureTSXLDTRK | FeatureUINTR |
     FeatureWAITPKG;
-constexpr FeatureBitset FeaturesAlderlake =
-    FeaturesSkylakeClient | FeatureCLDEMOTE | FeatureHRESET | FeaturePTWRITE |
-    FeatureSERIALIZE | FeatureWAITPKG;
 
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_CPU_RKL
@@ -264,6 +258,10 @@ static constexpr FeatureBitset FeaturesAlderlake =
     FeatureINVPCID | FeatureLZCNT | FeaturePCONFIG | FeaturePKU |
     FeatureSERIALIZE | FeatureSHSTK | FeatureVAES | FeatureVPCLMULQDQ |
     FeatureWAITPKG;
+#else // INTEL_FEATURE_CPU_ADL
+constexpr FeatureBitset FeaturesAlderlake =
+    FeaturesSkylakeClient | FeatureCLDEMOTE | FeatureHRESET | FeaturePTWRITE |
+    FeatureSERIALIZE | FeatureWAITPKG;
 #endif // INTEL_FEATURE_CPU_ADL
 #endif // INTEL_CUSTOMIZATION
 
@@ -367,11 +365,6 @@ constexpr ProcInfo Processors[] = {
   { {"goldmont"}, CK_Goldmont, FEATURE_SSE4_2, FeaturesGoldmont },
   { {"goldmont-plus"}, CK_GoldmontPlus, FEATURE_SSE4_2, FeaturesGoldmontPlus },
   { {"tremont"}, CK_Tremont, FEATURE_SSE4_2, FeaturesTremont },
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_CPU_ADL
-  { {"alderlake"}, CK_Alderlake, ~0U, FeaturesAlderlake },
-#endif // INTEL_FEATURE_CPU_ADL
-#endif // INTEL_CUSTOMIZATION
   // Nehalem microarchitecture based processors.
   { {"nehalem"}, CK_Nehalem, FEATURE_SSE4_2, FeaturesNehalem },
   { {"corei7"}, CK_Nehalem, FEATURE_SSE4_2, FeaturesNehalem },
@@ -629,9 +622,6 @@ constexpr FeatureBitset ImpliedFeaturesAMX_INT8 = FeatureAMX_TILE;
 constexpr FeatureBitset ImpliedFeaturesHRESET = {};
 
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_ULI
-static constexpr FeatureBitset ImpliedFeaturesULI = {};
-#endif // INTEL_FEATURE_ISA_ULI
 #if INTEL_FEATURE_ISA_AVX_VNNI
 static constexpr FeatureBitset ImpliedFeaturesAVXVNNI = FeatureAVX2;
 #endif // INTEL_FEATURE_ISA_AVX_VNNI

@@ -1850,7 +1850,9 @@
 // CHECK_ADL_M32: #define __ADX__ 1
 // CHECK_ADL_M32: #define __AES__ 1
 // CHECK_ADL_M32: #define __AVX2__ 1
-// CHECK_ADL_M32-NOT: AVX512
+// if INTEL_CUSTOMIZATION
+// CHECK_ADL_M32-NOT: __AVX512F__ 1
+// end INTEL_CUSTOMIZATION
 // CHECK_ADL_M32: #define __AVX__ 1
 // CHECK_ADL_M32: #define __BMI2__ 1
 // CHECK_ADL_M32: #define __BMI__ 1
@@ -1890,7 +1892,9 @@
 // CHECK_ADL_M64: #define __ADX__ 1
 // CHECK_ADL_M64: #define __AES__ 1
 // CHECK_ADL_M64: #define __AVX2__ 1
-// CHECK_ADL_M64-NOT: AVX512
+// if INTEL_CUSTOMIZATION
+// CHECK_ADL_M64-NOT: __AVX512F__ 1
+// end INTEL_CUSTOMIZATION
 // CHECK_ADL_M64: #define __AVX__ 1
 // CHECK_ADL_M64: #define __BMI2__ 1
 // CHECK_ADL_M64: #define __BMI__ 1

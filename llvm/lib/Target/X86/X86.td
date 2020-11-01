@@ -470,12 +470,6 @@ def FeatureWAITPKG  : SubtargetFeature<"waitpkg", "HasWAITPKG", "true",
                                       "Wait and pause enhancements">;
 def FeatureENQCMD : SubtargetFeature<"enqcmd", "HasENQCMD", "true",
                                      "Has ENQCMD instructions">;
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_ULI
-def FeatureULI : SubtargetFeature<"uli", "HasULI", "true",
-                                  "Has ULI Instructions">;
-#endif // INTEL_FEATURE_ISA_ULI
-#endif // INTEL_CUSTOMIZATION
 def FeatureKL  : SubtargetFeature<"kl", "HasKL", "true",
                                   "Support Key Locker kl Instructions",
                                   [FeatureSSE2]>;
@@ -1000,9 +994,6 @@ def ProcessorFeatures {
 #if INTEL_FEATURE_ISA_FP16
                                                   FeatureFP16,
 #endif // INTEL_FEATURE_ISA_FP16
-#if INTEL_FEATURE_ISA_ULI
-                                                  FeatureULI,
-#endif // INTEL_FEATURE_ISA_ULI
 #if INTEL_FEATURE_ISA_AVX_VNNI
                                                   FeatureAVXVNNI,
 #endif // INTEL_FEATURE_ISA_AVX_VNNI

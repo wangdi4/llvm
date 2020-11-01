@@ -26738,20 +26738,6 @@ static SDValue LowerINTRINSIC_W_CHAIN(SDValue Op, const X86Subtarget &Subtarget,
       return DAG.getNode(ISD::MERGE_VALUES, dl, Op->getVTList(), SetCC,
                          Operation.getValue(1));
     }
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_ULI
-    case Intrinsic::x86_testui: {
-      SDLoc dl(Op);
-      SDValue Chain = Op.getOperand(0);
-      SDVTList VTs = DAG.getVTList(MVT::i32, MVT::Other);
-      SDValue Operation = DAG.getNode(X86ISD::TESTUI, dl, VTs, Chain);
-      SDValue SetCC = getSETCC(X86::COND_B, Operation.getValue(0), dl, DAG);
-      SDValue Result = DAG.getNode(ISD::ZERO_EXTEND, dl, MVT::i8, SetCC);
-      return DAG.getNode(ISD::MERGE_VALUES, dl, Op->getVTList(), Result,
-                         Operation.getValue(1));
-    }
-#endif // INTEL_FEATURE_ISA_ULI
-#endif // INTEL_CUSTOMIZATION
     case Intrinsic::x86_aesenc128kl:
     case Intrinsic::x86_aesdec128kl:
     case Intrinsic::x86_aesenc256kl:
@@ -31955,11 +31941,6 @@ const char *X86TargetLowering::getTargetNodeName(unsigned Opcode) const {
   NODE_NAME_CASE(ENQCMD)
   NODE_NAME_CASE(ENQCMDS)
   NODE_NAME_CASE(VP2INTERSECT)
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_ULI
-  NODE_NAME_CASE(TESTUI)
-#endif // INTEL_FEATURE_ISA_ULI
-#endif // INTEL_CUSTOMIZATION
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_AVX512_DOTPROD_PHPS
   NODE_NAME_CASE(VDPPHPS)

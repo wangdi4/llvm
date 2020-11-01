@@ -416,10 +416,6 @@ class X86Subtarget final : public X86GenSubtargetInfo {
   bool HasPCONFIG = false;
 
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_ULI
-  bool HasULI = false;
-#endif // INTEL_FEATURE_ISA_ULI
-
 #if INTEL_FEATURE_ISA_AMX_BF8
   bool HasAMXBF8 = false;
 #endif // INTEL_FEATURE_ISA_AMX_BF8
@@ -897,11 +893,6 @@ public:
 #endif // INTEL_CUSTOMIZATION
   bool hasINVPCID() const { return HasINVPCID; }
   bool hasENQCMD() const { return HasENQCMD; }
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_ULI
-  bool hasULI() const { return HasULI; }
-#endif // INTEL_FEATURE_ISA_ULI
-#endif // INTEL_CUSTOMIZATION
   bool hasKL() const { return HasKL; }
   bool hasWIDEKL() const { return HasWIDEKL; }
   bool hasHRESET() const { return HasHRESET; }

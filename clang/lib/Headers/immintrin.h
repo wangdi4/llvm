@@ -795,15 +795,6 @@ _storebe_i64(void * __P, long long __D) {
 
 /* INTEL_CUSTOMIZATION */
 
-/* INTEL_FEATURE_ISA_ULI */
-#if defined(__ULI_SUPPORTED__)
-#if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
-    defined(__ULI__) || defined(__M_INTRINSIC_PROMOTE__)
-#include <uliintrin.h>
-#endif
-#endif
-/* end INTEL_FEATURE_ISA_ULI */
-
 /* INTEL_FEATURE_ISA_AMX_BF8 */
 #if defined(__AMX_BF8_SUPPORTED__)
 #if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \

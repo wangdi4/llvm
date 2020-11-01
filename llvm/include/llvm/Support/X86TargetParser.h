@@ -86,11 +86,6 @@ enum CPUKind {
   CK_Goldmont,
   CK_GoldmontPlus,
   CK_Tremont,
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_CPU_ADL
-  CK_Alderlake,
-#endif // INTEL_FEATURE_CPU_ADL
-#endif // INTEL_CUSTOMIZATION
   CK_Nehalem,
   CK_Westmere,
   CK_SandyBridge,
