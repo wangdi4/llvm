@@ -721,6 +721,10 @@ public:
   /// DDRef is connected to a HLDDNode.
   bool isFakeRval() const;
 
+  /// Returns true if Ref executed under a mask. This function assumes that the
+  /// DDRef is connected to a HLDDNode.
+  bool isMasked() const;
+
   /// This method checks if the DDRef is
   /// not a memory reference or a pointer reference
   /// Returns false for:
