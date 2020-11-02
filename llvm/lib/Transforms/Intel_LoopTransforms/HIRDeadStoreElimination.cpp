@@ -613,8 +613,9 @@ bool HIRDeadStoreElimination::run(HLRegion &Region, HLLoop *Lp, bool IsRegion) {
     // is no load interleaving between these two stores.
     for (unsigned Index = 0; Index != RefGroup.size(); ++Index) {
       auto *PostDomRef = RefGroup[Index];
-      // skip any load or fake ref:
-      if (!PostDomRef->isLval() || PostDomRef->isFake()) {
+      // Skip any load/fake/masked ref.
+      if (!PostDomRef->isLval() || PostDomRef->isFake() ||
+          PostDomRef->isMasked()) {
         continue;
       }
 

@@ -736,6 +736,14 @@ bool RegDDRef::isFakeRval() const {
   return HNode->isFakeRval(this);
 }
 
+bool RegDDRef::isMasked() const {
+  auto HNode = getHLDDNode();
+
+  assert(HNode && "DDRef is not attached to any node!");
+
+  return HNode->getMaskDDRef();
+}
+
 bool RegDDRef::isStructurallyInvariantAtLevel(unsigned LoopLevel,
                                               bool IgnoreInnerIVs) const {
 

@@ -101,6 +101,14 @@ static cl::opt<unsigned> LoopTripThreshold(
     cl::desc("Don't unroll if trip count of any loop is bigger than this "
              "threshold. 0 means default threshold."));
 
+// Keep trip count threshold for multi-exit loops relatively low because
+// unrolling increases CFG complexity especially when loop has liveouts.
+static cl::opt<unsigned> MultiExitLoopTripThreshold(
+    "hir-complete-unroll-multi-exit-loop-trip-threshold", cl::init(16),
+    cl::Hidden,
+    cl::desc("Don't unroll if multi-exit loop trip count is bigger than this "
+             "threshold."));
+
 const unsigned O2LoopnestTripThreshold = 100;
 const unsigned O3LoopnestTripThreshold = 100;
 
@@ -206,6 +214,8 @@ HIRCompleteUnroll::HIRCompleteUnroll(HIRFramework &HIRF, DominatorTree &DT,
   if (OptLevel == 0) {
     OptLevel = CommandLineOptLevel;
   }
+
+  Limits.MultiExitLoopTripThreshold = MultiExitLoopTripThreshold;
 
   if (OptLevel <= 2) {
     Limits.LoopTripThreshold =
@@ -2632,8 +2642,8 @@ void HIRCompleteUnroll::refineCandidates() {
 bool HIRCompleteUnroll::isApplicable(const HLLoop *Loop) const {
 
   // Throttle multi-exit/unknown loops.
-  if (!Loop->isDo()) {
-    LLVM_DEBUG(dbgs() << "Skipping complete unroll of non-DO loop!\n");
+  if (Loop->isUnknown()) {
+    LLVM_DEBUG(dbgs() << "Skipping complete unroll of non-countable loop!\n");
     return false;
   }
 
@@ -2722,9 +2732,12 @@ HIRCompleteUnroll::computeAvgTripCount(const HLLoop *Loop) {
 
   int64_t UpperVal = 0;
 
+  bool IsMultiExit = Loop->getNumExits() > 1;
+
   if (UpperCE->isIntConstant(&UpperVal)) {
     int64_t TC = UpperVal + 1;
-    if (TC > Limits.LoopTripThreshold) {
+    if (TC > (IsMultiExit ? Limits.MultiExitLoopTripThreshold
+                          : Limits.LoopTripThreshold)) {
       TC = -1;
     }
 
@@ -2808,7 +2821,8 @@ HIRCompleteUnroll::computeAvgTripCount(const HLLoop *Loop) {
     AvgTripCnt = ((MinUpper + MaxUpper) / 2) + 1;
   }
 
-  if (AvgTripCnt > Limits.LoopTripThreshold) {
+  if (AvgTripCnt > (IsMultiExit ? Limits.MultiExitLoopTripThreshold
+                                : Limits.LoopTripThreshold)) {
     AvgTripCnt = -1;
   }
 
