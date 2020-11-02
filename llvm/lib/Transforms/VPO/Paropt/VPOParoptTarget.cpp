@@ -2045,9 +2045,19 @@ void VPOParoptTransform::useUpdatedUseDevicePtrsInTgtDataRegion(
     TgtDataOutlinedFunctionCall->replaceUsesOfWith(OrigV, NewV); //         (6)
 
     LLVM_DEBUG(
-        dbgs() << __FUNCTION__ << ": Replaced references to use_device_ptr '";
-        OrigV->printAsOperand(dbgs()); dbgs() << "', with '";
-        NewV->printAsOperand(dbgs()); dbgs() << "' in tgt_data region.\n");
+        if (llvm::is_contained(TgtDataOutlinedFunctionCall->operands(), NewV)) {
+          dbgs() << __FUNCTION__ << ": Replaced references to use_device_ptr '";
+          OrigV->printAsOperand(dbgs());
+          dbgs() << "', with '";
+          NewV->printAsOperand(dbgs());
+          dbgs() << "' in region.\n";
+        } else {
+          dbgs() << __FUNCTION__ << ": Privatized use_device_ptr operand '";
+          OrigV->printAsOperand(dbgs());
+          dbgs() << "', as: '";
+          NewV->printAsOperand(dbgs());
+          dbgs() << "'. But no uses of the original were replaced.\n";
+        });
   }
 }
 
@@ -2419,6 +2429,14 @@ bool VPOParoptTransform::clearLaunderIntrinBeforeRegion(WRegionNode *W) {
     }
   }
 
+  if (W->canHaveUseDevicePtr()) {
+    UseDevicePtrClause const &UDPClause = W->getUseDevicePtr();
+    for (UseDevicePtrItem *UDPI : UDPClause.items()) {
+      NewV = removeLaunderIntrinsic(UDPI->getOrig(), true);
+      UDPI->setOrig(NewV);
+    }
+  }
+
   if (W->canHaveMap()) {
     MapClause const &MpClause = W->getMap();
     for (MapItem *MapI : MpClause.items()) {
@@ -2621,9 +2639,10 @@ bool VPOParoptTransform::genGlobalPrivatizationLaunderIntrin(
     }
   }
 #endif // INTEL_CUSTOMIZATION
-  if (W->canHaveIsDevicePtr()) {
-    IsDevicePtrClause &IsDevPtrClause = W->getIsDevicePtr();
-    for (IsDevicePtrItem *Item : IsDevPtrClause.items()) {
+
+  if (W->canHaveUseDevicePtr()) {
+    UseDevicePtrClause &UseDevPtrClause = W->getUseDevicePtr();
+    for (UseDevicePtrItem *Item : UseDevPtrClause.items()) {
       VNew = createRenamedValueForGlobalsAndConstExprs(Item->getOrig());
       Item->setOrig(VNew);
     }
