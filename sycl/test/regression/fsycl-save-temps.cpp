@@ -20,7 +20,3 @@ int main() {
   });
   return 0;
 }
-
-// TODO: fail is flaky on Windows both for OpenCL and Level Zero.
-// Enable when fixed.
-// UNSUPPORTED: system-windows
