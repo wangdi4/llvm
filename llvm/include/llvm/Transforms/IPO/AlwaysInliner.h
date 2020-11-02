@@ -32,16 +32,16 @@ class AlwaysInlinerPass : public PassInfoMixin<AlwaysInlinerPass> {
   bool InsertLifetime;
 
   // INTEL The inline report
-  InlineReport Report; // INTEL
-  InlineReportBuilder MDReport; // INTEL
+  InlineReport *Report; // INTEL
+  InlineReportBuilder *MDReport; // INTEL
 
 public:
   AlwaysInlinerPass(bool InsertLifetime = true);
 
   PreservedAnalyses run(Module &M, ModuleAnalysisManager &);
 
-  InlineReport& getReport() { return Report; } // INTEL
-  InlineReportBuilder& getMDReport() { return MDReport; } // INTEL
+  InlineReport* getReport() { return Report; } // INTEL
+  InlineReportBuilder* getMDReport() { return MDReport; } // INTEL
   static bool isRequired() { return true; }
 };
 

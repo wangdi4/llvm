@@ -22,6 +22,7 @@
 #include "llvm/ADT/iterator_range.h"
 #include "llvm/IR/InstIterator.h"
 #include "llvm/IR/IntrinsicInst.h"
+#include "llvm/Support/CommandLine.h"
 
 using namespace llvm;
 using namespace MDInliningReport;
@@ -646,3 +647,12 @@ void InlineReportBuilder::replaceFunctionWithFunction(Function *OldFunction,
   addCallback(NewFunction, OldFIR);
 }
 
+extern cl::opt<unsigned> IntelInlineReportLevel;
+
+InlineReportBuilder *llvm::getMDInlineReport() {
+  static llvm::InlineReportBuilder *SavedInlineReportBuilder = nullptr;
+  if (!SavedInlineReportBuilder)
+    SavedInlineReportBuilder
+        = new llvm::InlineReportBuilder(IntelInlineReportLevel);
+  return SavedInlineReportBuilder;
+}

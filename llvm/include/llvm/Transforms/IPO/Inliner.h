@@ -66,8 +66,8 @@ struct LegacyInlinerBase : public CallGraphSCCPass {
   /// deal with that subset of the functions.
   bool removeDeadFunctions(CallGraph &CG, bool AlwaysInlineOnly = false);
 
-  InlineReport& getReport() { return Report; } // INTEL
-  InlineReportBuilder& getMDReport() { return MDReport; } // INTEL
+  InlineReport* getReport() { return Report; } // INTEL
+  InlineReportBuilder* getMDReport() { return MDReport; } // INTEL
 
   /// This function performs the main work of the pass.  The default of
   /// Inlinter::runOnSCC() calls skipSCC() before calling this method, but
@@ -80,8 +80,8 @@ private:
   bool InsertLifetime = true;
 
   // INTEL The inline report
-  InlineReport Report; // INTEL
-  InlineReportBuilder MDReport; // INTEL
+  InlineReport *Report; // INTEL
+  InlineReportBuilder *MDReport; // INTEL
 
 protected:
 #if INTEL_CUSTOMIZATION
@@ -122,7 +122,7 @@ public:
   PreservedAnalyses run(LazyCallGraph::SCC &C, CGSCCAnalysisManager &AM,
                         LazyCallGraph &CG, CGSCCUpdateResult &UR);
 
-  InlineReport& getReport() { return Report; } // INTEL
+  InlineReport *getReport() { return Report; } // INTEL
   InlineReportBuilder *getMDReport() { return MDReport; } // INTEL
 private:
   InlineAdvisor &getAdvisor(const ModuleAnalysisManagerCGSCCProxy::Result &MAM,
@@ -131,7 +131,7 @@ private:
   Optional<DefaultInlineAdvisor> OwnedDefaultAdvisor;
 
   // INTEL The inline report
-  InlineReport Report; // INTEL
+  InlineReport *Report; // INTEL
   InlineReportBuilder *MDReport; // INTEL
 };
 
