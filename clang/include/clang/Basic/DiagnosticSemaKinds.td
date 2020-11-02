@@ -11139,8 +11139,12 @@ def err_sycl_kernel_incorrectly_named : Error<
   "kernel %select{name is missing"
   "|needs to have a globally-visible name"
   "|name is invalid. Unscoped enum requires fixed underlying type"
-  "|name cannot be a type in the \"std\" namespace"
+// #if INTEL_CUSTOMIZATION
+// INTEL_CUSTOMIZATION comments should be removed once patch is upstreamed to intel/llvm
+  "|name cannot be or contain a type in the \"std\" namespace"
   "}0">;
+def note_kernel_name: Note<"Invalid kernel name is %0">;
+// #endif INTEL_CUSTOMIZATION
 def err_sycl_kernel_not_function_object
     : Error<"kernel parameter must be a lambda or function object">;
 def err_sycl_restrict : Error<
