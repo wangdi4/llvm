@@ -38,7 +38,6 @@ exit:
 ; sure they aren't marked as post-inc users.
 ;
 ; CHECK-LABEL: IV Users for loop %test1.loop
-; INTEL - SCEV improvements prove stronger NoWrap flags
 ; CHECK-NO-LCSSA: %sext.us = {0,+,(16777216 + (-16777216 * %sub.us)<nuw><nsw>)<nuw><nsw>,+,33554432}<%test1.loop> (post-inc with loop %test1.loop) in    %f = ashr i32 %sext.us, 24
 define i32 @test1(i1 %cond) {
 entry:
