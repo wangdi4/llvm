@@ -1,8 +1,7 @@
-// RUN: %clang_cc1 -fsycl -fsycl-is-device -fsycl-int-header=%t.h -fsyntax-only -Wno-sycl-2017-compat -verify %s
-// RUN: %clang_cc1 -fsycl -fsycl-is-device -fsycl-int-header=%t.h -fsycl-unnamed-lambda -fsyntax-only -Wno-sycl-2017-compat -verify %s
-
 // INTEL_CUSTOMIZATION comments should be removed once patch is upstreamed to intel/llvm.
 
+// RUN: %clang_cc1 -fsycl -fsycl-is-device -fsyntax-only -Wno-sycl-2017-compat -verify %s
+// RUN: %clang_cc1 -fsycl -fsycl-is-device -fsycl-unnamed-lambda -fsyntax-only -Wno-sycl-2017-compat -verify %s
 #include "Inputs/sycl.hpp"
 
 #ifdef __SYCL_UNNAMED_LAMBDA__
@@ -68,7 +67,7 @@ public:
     // expected-error@Inputs/sycl.hpp:220 {{kernel needs to have a globally-visible name}}
     // INTEL_CUSTOMIZATION
     // expected-note@Inputs/sycl.hpp:220 {{Invalid kernel name is 'MyWrapper::InvalidKernelName0'}}
-    // expected-note@32 {{InvalidKernelName0 declared here}}
+    // expected-note@31 {{InvalidKernelName0 declared here}}
     // end INTEL_CUSTOMIZATION
     // expected-note@+3{{in instantiation of function template specialization}}
 #endif
@@ -80,7 +79,7 @@ public:
     // expected-error@Inputs/sycl.hpp:220 {{kernel needs to have a globally-visible name}}
     // INTEL_CUSTOMIZATION
     // expected-note@Inputs/sycl.hpp:220 {{Invalid kernel name is 'namespace1::KernelName<MyWrapper::InvalidKernelName3>'}}
-    // expected-note@33 {{InvalidKernelName3 declared here}}
+    // expected-note@32 {{InvalidKernelName3 declared here}}
     // end INTEL_CUSTOMIZATION
     // expected-note@+3{{in instantiation of function template specialization}}
 #endif
@@ -95,8 +94,9 @@ public:
 
 #ifndef __SYCL_UNNAMED_LAMBDA__
     // INTEL_CUSTOMIZATION
-    // expected-error@+5 {{kernel name cannot be or contain a type in the "std" namespace}}
-    // expected-note@+4 {{Invalid kernel name is 'std::max_align_t'}}
+    // expected-error@Inputs/sycl.hpp:220 {{kernel name cannot be or contain a type in the "std" namespace}}
+    // expected-note@Inputs/sycl.hpp:220 {{Invalid kernel name is 'std::max_align_t'}}
+    // expected-note@+4{{in instantiation of function template specialization}}
     // end INTEL_CUSTOMIZATION
 #endif
     q.submit([&](cl::sycl::handler &h) {
@@ -108,7 +108,7 @@ public:
     // expected-error@Inputs/sycl.hpp:220 {{kernel needs to have a globally-visible name}}
     // INTEL_CUSTOMIZATION
     // expected-note@Inputs/sycl.hpp:220 {{Invalid kernel name is 'MyWrapper::InvalidKernelName4'}}
-    // expected-note@34 {{InvalidKernelName4 declared here}}
+    // expected-note@33 {{InvalidKernelName4 declared here}}
     // end INTEL_CUSTOMIZATION
     // expected-note@+3{{in instantiation of function template specialization}}
 #endif
@@ -121,7 +121,7 @@ public:
     // expected-error@Inputs/sycl.hpp:220 {{kernel needs to have a globally-visible name}}
     // INTEL_CUSTOMIZATION
     // expected-note@Inputs/sycl.hpp:220 {{Invalid kernel name is 'namespace1::KernelName<MyWrapper::InvalidKernelName5>'}}
-    // expected-note@35 {{InvalidKernelName5 declared here}}
+    // expected-note@34 {{InvalidKernelName5 declared here}}
     // end INTEL_CUSTOMIZATION
     // expected-note@+3{{in instantiation of function template specialization}}
 #endif
@@ -133,7 +133,7 @@ public:
 #ifndef __SYCL_UNNAMED_LAMBDA__
     // expected-error@Inputs/sycl.hpp:220 {{kernel needs to have a globally-visible name}}
     // expected-note@Inputs/sycl.hpp:220 {{Invalid kernel name is 'Templated_kernel_name2<Templated_kernel_name<InvalidKernelName1>>'}}
-    // expected-note@49 {{InvalidKernelName1 declared here}}
+    // expected-note@48 {{InvalidKernelName1 declared here}}
     // expected-note@+3{{in instantiation of function template specialization}}
 #endif
     q.submit([&](cl::sycl::handler &h) {

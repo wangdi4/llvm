@@ -2841,9 +2841,14 @@ class SYCLKernelNameTypeVisitor
   SourceLocation KernelInvocationFuncLoc;
   QualType KernelNameType; // INTEL
   using InnerTypeVisitor = TypeVisitor<SYCLKernelNameTypeVisitor>;
-  using InnerTAVisitor =
+  using InnerTemplArgVisitor =
       ConstTemplateArgumentVisitor<SYCLKernelNameTypeVisitor>;
   bool IsInvalid = false;
+
+  void VisitTemplateArgs(ArrayRef<TemplateArgument> Args) {
+    for (auto &A : Args)
+      Visit(A);
+  }
 
 public:
 #if INTEL_CUSTOMIZATION
@@ -2859,15 +2864,19 @@ public:
     if (T.isNull())
       return;
     const CXXRecordDecl *RD = T->getAsCXXRecordDecl();
-    if (!RD)
+    if (!RD) {
+      if (T->isNullPtrType()) {
+        S.Diag(KernelInvocationFuncLoc, diag::err_sycl_kernel_incorrectly_named)
+            << /* kernel name cannot be a type in the std namespace */ 3;
+        IsInvalid = true;
+      }
       return;
+    }
     // If KernelNameType has template args visit each template arg via
     // ConstTemplateArgumentVisitor
     if (const auto *TSD = dyn_cast<ClassTemplateSpecializationDecl>(RD)) {
-      const TemplateArgumentList &Args = TSD->getTemplateArgs();
-      for (unsigned I = 0; I < Args.size(); I++) {
-        Visit(Args[I]);
-      }
+      ArrayRef<TemplateArgument> Args = TSD->getTemplateArgs().asArray();
+      VisitTemplateArgs(Args);
     } else {
       InnerTypeVisitor::Visit(T.getTypePtr());
     }
@@ -2876,7 +2885,7 @@ public:
   void Visit(const TemplateArgument &TA) {
     if (TA.isNull())
       return;
-    InnerTAVisitor::Visit(TA);
+    InnerTemplArgVisitor::Visit(TA);
   }
 
   void VisitEnumType(const EnumType *T) {
@@ -2900,18 +2909,32 @@ public:
   void VisitTagDecl(const TagDecl *Tag) {
     bool UnnamedLambdaEnabled =
         S.getASTContext().getLangOpts().SYCLUnnamedLambda;
-    if (!Tag->getDeclContext()->isTranslationUnit() &&
-        !isa<NamespaceDecl>(Tag->getDeclContext()) && !UnnamedLambdaEnabled) {
-      const bool KernelNameIsMissing = Tag->getName().empty();
-      if (KernelNameIsMissing) {
+    const DeclContext *DeclCtx = Tag->getDeclContext();
+    if (DeclCtx && !UnnamedLambdaEnabled) {
+      auto *NameSpace = dyn_cast_or_null<NamespaceDecl>(DeclCtx);
+      if (NameSpace && NameSpace->isStdNamespace()) {
         S.Diag(KernelInvocationFuncLoc, diag::err_sycl_kernel_incorrectly_named)
-            << /* kernel name is missing */ 0;
+            << /* kernel name cannot be a type in the std namespace */ 3;
 #if INTEL_CUSTOMIZATION
         S.Diag(KernelInvocationFuncLoc, diag::note_kernel_name)
             << KernelNameType;
 #endif // INTEL_CUSTOMIZATION
         IsInvalid = true;
-      } else {
+        return;
+      }
+      if (!DeclCtx->isTranslationUnit() && !isa<NamespaceDecl>(DeclCtx)) {
+        const bool KernelNameIsMissing = Tag->getName().empty();
+        if (KernelNameIsMissing) {
+          S.Diag(KernelInvocationFuncLoc,
+                 diag::err_sycl_kernel_incorrectly_named)
+              << /* kernel name is missing */ 0;
+#if INTEL_CUSTOMIZATION
+        S.Diag(KernelInvocationFuncLoc, diag::note_kernel_name)
+            << KernelNameType;
+#endif // INTEL_CUSTOMIZATION
+          IsInvalid = true;
+          return;
+        }
         if (Tag->isCompleteDefinition()) {
           S.Diag(KernelInvocationFuncLoc,
                  diag::err_sycl_kernel_incorrectly_named)
@@ -2923,7 +2946,6 @@ public:
           IsInvalid = true;
         } else
           S.Diag(KernelInvocationFuncLoc, diag::warn_sycl_implicit_decl);
-
         S.Diag(Tag->getSourceRange().getBegin(), diag::note_previous_decl)
             << Tag->getName();
       }
@@ -2953,6 +2975,10 @@ public:
         if (const EnumType *ET = TemplateParam->getType()->getAs<EnumType>())
           VisitEnumType(ET);
     }
+  }
+
+  void VisitPackTemplateArgument(const TemplateArgument &TA) {
+    VisitTemplateArgs(TA.getPackAsArray());
   }
 };
 
@@ -3367,15 +3393,6 @@ void SYCLIntegrationHeader::emitFwdDecl(raw_ostream &O, const Decl *D,
       break;
     }
 
-    if (NS->isStdNamespace()) {
-      Diag.Report(KernelLocation, diag::err_sycl_kernel_incorrectly_named)
-          << /* name cannot be a type in the std namespace */ 3;
-#if INTEL_CUSTOMIZATION
-      Diag.Report(KernelLocation, diag::note_kernel_name) << KernelName;
-#endif // INTEL_CUSTOMIZATION
-      return;
-    }
-
     ++NamespaceCnt;
     const StringRef NSInlinePrefix = NS->isInline() ? "inline " : "";
     NSStr.insert(
@@ -3461,13 +3478,6 @@ void SYCLIntegrationHeader::emitForwardClassDecls(
   const CXXRecordDecl *RD = T->getAsCXXRecordDecl();
 
   if (!RD) {
-#if INTEL_CUSTOMIZATION
-    if (T->isNullPtrType()) {
-      Diag.Report(KernelLocation, diag::err_sycl_kernel_incorrectly_named)
-          << /* name cannot be a type in the std namespace */ 3;
-      Diag.Report(KernelLocation, diag::note_kernel_name) << KernelName;
-    }
-#endif // INTEL_CUSTOMIZATION
     return;
   }
 
