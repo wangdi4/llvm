@@ -43,6 +43,8 @@ VERS1.0 {
     __tgt_rtl_data_alloc_explicit;
     __tgt_rtl_init_ompt;
     __tgt_rtl_get_data_alloc_info;
+    __tgt_rtl_push_subdevice;
+    __tgt_rtl_pop_subdevice;
 # end INTEL_COLLAB
   local:
     *;

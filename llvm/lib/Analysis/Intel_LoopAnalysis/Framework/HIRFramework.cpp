@@ -111,6 +111,9 @@ HIRFramework HIRFrameworkAnalysis::run(Function &F,
           [&]() { return AM.getCachedResult<HIRSafeReductionAnalysisPass>(F); },
           [&]() {
             return AM.getCachedResult<HIRSparseArrayReductionAnalysisPass>(F);
+          },
+          [&]() {
+            return AM.getCachedResult<HIRArraySectionAnalysisPass>(F);
           }));
 }
 
@@ -196,6 +199,11 @@ bool HIRFrameworkWrapperPass::runOnFunction(Function &F) {
             auto *Wrapper = getAnalysisIfAvailable<
                 HIRSparseArrayReductionAnalysisWrapperPass>();
             return Wrapper ? &Wrapper->getHSAR() : nullptr;
+          },
+          [&]() {
+            auto *Wrapper =
+                getAnalysisIfAvailable<HIRArraySectionAnalysisWrapperPass>();
+            return Wrapper ? &Wrapper->getASA() : nullptr;
           })));
   return false;
 }
@@ -284,8 +292,8 @@ static void cleanupRefLowerBounds(HLRegion &Reg) {
   Gatherer::VectorTy Refs;
   Gatherer::gather(&Reg, Refs);
 
-  RefGrouper::RefGroupVecTy Groups;
-  RefGrouper BasePtrGroups(Refs, Groups);
+  DDRefGrouping::RefGroupVecTy<RegDDRef *> Groups;
+  DDRefIndexGrouping().group(Groups, Refs);
 
   // Each group has references with the same base.
   for (auto &Group : Groups) {

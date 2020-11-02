@@ -254,6 +254,8 @@ struct DeviceTy {
   int32_t managed_memory_supported();
   void *data_alloc_explicit(int64_t Size, int32_t Kind);
   int32_t get_data_alloc_info(int32_t NumPtrs, void *Ptrs, void *Infos);
+  int32_t pushSubDevice(int64_t ID);
+  int32_t popSubDevice(void);
 #endif // INTEL_COLLAB
 
   /// Synchronize device/queue/event based on \p AsyncInfoPtr and return

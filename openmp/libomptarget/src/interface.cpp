@@ -122,6 +122,11 @@ EXTERN void __tgt_target_data_begin_mapper(int64_t device_id, int32_t arg_num,
     void **args_base, void **args, int64_t *arg_sizes, int64_t *arg_types,
     void **arg_mappers) {
   if (IsOffloadDisabled()) return;
+#if INTEL_COLLAB
+  int64_t encodedId = device_id;
+  if (encodedId < 0 && encodedId != OFFLOAD_DEVICE_DEFAULT)
+    device_id = EXTRACT_BITS(encodedId, 31, 0);
+#endif // INTEL_COLLAB
 
   DP("Entering data begin region for device %" PRId64 " with %d mappings\n",
       device_id, arg_num);
@@ -129,6 +134,9 @@ EXTERN void __tgt_target_data_begin_mapper(int64_t device_id, int32_t arg_num,
   // No devices available?
   if (device_id == OFFLOAD_DEVICE_DEFAULT) {
     device_id = omp_get_default_device();
+#if INTEL_COLLAB
+    encodedId = device_id;
+#endif // INTEL_COLLAB
     DP("Use default device id %" PRId64 "\n", device_id);
   }
 
@@ -138,9 +146,6 @@ EXTERN void __tgt_target_data_begin_mapper(int64_t device_id, int32_t arg_num,
     return;
   }
 
-#if INTEL_COLLAB
-  OMPT_TRACE(targetDataEnterBegin(device_id));
-#endif // INTEL_COLLAB
   DeviceTy &Device = Devices[device_id];
 
 #ifdef OMPTARGET_DEBUG
@@ -151,11 +156,18 @@ EXTERN void __tgt_target_data_begin_mapper(int64_t device_id, int32_t arg_num,
   }
 #endif
 
+#if INTEL_COLLAB
+  if (encodedId != device_id)
+    Devices[device_id].pushSubDevice(encodedId);
+  OMPT_TRACE(targetDataEnterBegin(device_id));
+#endif // INTEL_COLLAB
   int rc = targetDataBegin(Device, arg_num, args_base, args, arg_sizes,
                            arg_types, arg_mappers, nullptr);
   HandleTargetOutcome(rc == OFFLOAD_SUCCESS);
 #if INTEL_COLLAB
   OMPT_TRACE(targetDataEnterEnd(device_id));
+  if (encodedId != device_id)
+    Devices[device_id].popSubDevice();
 #endif // INTEL_COLLAB
 }
 
@@ -195,10 +207,18 @@ EXTERN void __tgt_target_data_end_mapper(int64_t device_id, int32_t arg_num,
     void **arg_mappers) {
   if (IsOffloadDisabled()) return;
   DP("Entering data end region with %d mappings\n", arg_num);
+#if INTEL_COLLAB
+  int64_t encodedId = device_id;
+  if (encodedId < 0 && encodedId != OFFLOAD_DEVICE_DEFAULT)
+    device_id = EXTRACT_BITS(encodedId, 31, 0);
+#endif // INTEL_COLLAB
 
   // No devices available?
   if (device_id == OFFLOAD_DEVICE_DEFAULT) {
     device_id = omp_get_default_device();
+#if INTEL_COLLAB
+    encodedId = device_id;
+#endif // INTEL_COLLAB
   }
 
   RTLsMtx->lock();
@@ -226,6 +246,8 @@ EXTERN void __tgt_target_data_end_mapper(int64_t device_id, int32_t arg_num,
 #endif
 
 #if INTEL_COLLAB
+  if (encodedId != device_id)
+    Devices[device_id].pushSubDevice(encodedId);
   OMPT_TRACE(targetDataExitBegin(device_id));
 #endif // INTEL_COLLAB
   int rc = targetDataEnd(Device, arg_num, args_base, args, arg_sizes, arg_types,
@@ -233,6 +255,8 @@ EXTERN void __tgt_target_data_end_mapper(int64_t device_id, int32_t arg_num,
   HandleTargetOutcome(rc == OFFLOAD_SUCCESS);
 #if INTEL_COLLAB
   OMPT_TRACE(targetDataExitEnd(device_id));
+  if (encodedId != device_id)
+    Devices[device_id].popSubDevice();
 #endif // INTEL_COLLAB
 }
 
@@ -269,10 +293,18 @@ EXTERN void __tgt_target_data_update_mapper(int64_t device_id, int32_t arg_num,
     void **arg_mappers) {
   if (IsOffloadDisabled()) return;
   DP("Entering data update with %d mappings\n", arg_num);
+#if INTEL_COLLAB
+  int64_t encodedId = device_id;
+  if (encodedId < 0 && encodedId != OFFLOAD_DEVICE_DEFAULT)
+    device_id = EXTRACT_BITS(encodedId, 31, 0);
+#endif // INTEL_COLLAB
 
   // No devices available?
   if (device_id == OFFLOAD_DEVICE_DEFAULT) {
     device_id = omp_get_default_device();
+#if INTEL_COLLAB
+    encodedId = device_id;
+#endif // INTEL_COLLAB
   }
 
   if (CheckDeviceAndCtors(device_id) != OFFLOAD_SUCCESS) {
@@ -282,6 +314,8 @@ EXTERN void __tgt_target_data_update_mapper(int64_t device_id, int32_t arg_num,
   }
 
 #if INTEL_COLLAB
+  if (encodedId != device_id)
+    Devices[device_id].pushSubDevice(encodedId);
   OMPT_TRACE(targetDataUpdateBegin(device_id));
 #endif // INTEL_COLLAB
   DeviceTy& Device = Devices[device_id];
@@ -290,6 +324,8 @@ EXTERN void __tgt_target_data_update_mapper(int64_t device_id, int32_t arg_num,
   HandleTargetOutcome(rc == OFFLOAD_SUCCESS);
 #if INTEL_COLLAB
   OMPT_TRACE(targetDataUpdateEnd(device_id));
+  if (encodedId != device_id)
+    Devices[device_id].popSubDevice();
 #endif // INTEL_COLLAB
 }
 
@@ -325,11 +361,20 @@ EXTERN int __tgt_target_mapper(int64_t device_id, void *host_ptr,
     int32_t arg_num, void **args_base, void **args, int64_t *arg_sizes,
     int64_t *arg_types, void **arg_mappers) {
   if (IsOffloadDisabled()) return OFFLOAD_FAIL;
+#if INTEL_COLLAB
+  int64_t encodedId = device_id;
+  // Extract root device ID
+  if (encodedId < 0 && encodedId != OFFLOAD_DEVICE_DEFAULT)
+    device_id = EXTRACT_BITS(encodedId, 31, 0);
+#endif // INTEL_COLLAB
   DP("Entering target region with entry point " DPxMOD " and device Id %"
       PRId64 "\n", DPxPTR(host_ptr), device_id);
 
   if (device_id == OFFLOAD_DEVICE_DEFAULT) {
     device_id = omp_get_default_device();
+#if INTEL_COLLAB
+    encodedId = device_id;
+#endif // INTEL_COLLAB
   }
 
   if (CheckDeviceAndCtors(device_id) != OFFLOAD_SUCCESS) {
@@ -347,6 +392,9 @@ EXTERN int __tgt_target_mapper(int64_t device_id, void *host_ptr,
 #endif
 
 #if INTEL_COLLAB
+  // Push device encoding
+  if (encodedId != device_id)
+    Devices[device_id].pushSubDevice(encodedId);
   OMPT_TRACE(targetBegin(device_id));
 #endif // INTEL_COLLAB
   int rc = target(device_id, host_ptr, arg_num, args_base, args, arg_sizes,
@@ -354,6 +402,8 @@ EXTERN int __tgt_target_mapper(int64_t device_id, void *host_ptr,
   HandleTargetOutcome(rc == OFFLOAD_SUCCESS);
 #if INTEL_COLLAB
   OMPT_TRACE(targetEnd(device_id));
+  if (encodedId != device_id)
+    Devices[device_id].popSubDevice();
 #endif // INTEL_COLLAB
   return rc;
 }
@@ -391,11 +441,20 @@ EXTERN int __tgt_target_teams_mapper(int64_t device_id, void *host_ptr,
     int32_t arg_num, void **args_base, void **args, int64_t *arg_sizes,
     int64_t *arg_types, void **arg_mappers, int32_t team_num, int32_t thread_limit) {
   if (IsOffloadDisabled()) return OFFLOAD_FAIL;
+#if INTEL_COLLAB
+  int64_t encodedId = device_id;
+  // Extract root device ID
+  if (encodedId < 0 && encodedId != OFFLOAD_DEVICE_DEFAULT)
+    device_id = EXTRACT_BITS(encodedId, 31, 0);
+#endif // INTEL_COLLAB
   DP("Entering target region with entry point " DPxMOD " and device Id %"
       PRId64 "\n", DPxPTR(host_ptr), device_id);
 
   if (device_id == OFFLOAD_DEVICE_DEFAULT) {
     device_id = omp_get_default_device();
+#if INTEL_COLLAB
+    encodedId = device_id;
+#endif // INTEL_COLLAB
   }
 
   if (CheckDeviceAndCtors(device_id) != OFFLOAD_SUCCESS) {
@@ -413,6 +472,9 @@ EXTERN int __tgt_target_teams_mapper(int64_t device_id, void *host_ptr,
 #endif
 
 #if INTEL_COLLAB
+  // Push device encoding
+  if (encodedId != device_id)
+    Devices[device_id].pushSubDevice(encodedId);
   OMPT_TRACE(targetBegin(device_id));
 #endif // INTEL_COLLAB
   int rc = target(device_id, host_ptr, arg_num, args_base, args, arg_sizes,
@@ -420,6 +482,8 @@ EXTERN int __tgt_target_teams_mapper(int64_t device_id, void *host_ptr,
   HandleTargetOutcome(rc == OFFLOAD_SUCCESS);
 #if INTEL_COLLAB
   OMPT_TRACE(targetEnd(device_id));
+  if (encodedId != device_id)
+    Devices[device_id].popSubDevice();
 #endif // INTEL_COLLAB
 
   return rc;
@@ -635,6 +699,12 @@ typedef struct {
 
 EXTERN void *__tgt_create_interop_obj(
     int64_t device_id, bool is_async, void *async_obj) {
+  // Use root device ID if subdevice was requested
+  // TODO: Add subdevice support when a single queue can handle multiple
+  //       sub-devices
+  if (device_id < 0 && device_id != OFFLOAD_DEVICE_DEFAULT)
+    device_id = EXTRACT_BITS(device_id, 31, 0);
+
   DP("Call to __tgt_create_interop_obj with device_id %" PRId64 ", is_async %s"
      ", async_obj " DPxMOD "\n", device_id, is_async ? "true" : "false",
      DPxPTR(async_obj));

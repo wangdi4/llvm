@@ -289,6 +289,19 @@ TRACE_FN_DEF(zeDeviceGetComputeProperties)(
   return rc;
 }
 
+TRACE_FN_DEF(zeDeviceGetSubDevices)(
+    ze_device_handle_t hDevice,
+    uint32_t *pCount,
+    ze_device_handle_t *phSubdevices) {
+  auto rc = zeDeviceGetSubDevices(hDevice, pCount, phSubdevices);
+  TRACE_FN_ARG_BEGIN();
+  TRACE_FN_ARG_PTR(hDevice);
+  TRACE_FN_ARG_PTR(pCount);
+  TRACE_FN_ARG_PTR(phSubdevices);
+  TRACE_FN_ARG_END();
+  return rc;
+}
+
 TRACE_FN_DEF(zeDriverGet)(
     uint32_t *pCount,
     ze_driver_handle_t *phDrivers) {
@@ -327,6 +340,17 @@ TRACE_FN_DEF(zeEventHostReset)(
   auto rc = zeEventHostReset(hEvent);
   TRACE_FN_ARG_BEGIN();
   TRACE_FN_ARG_PTR(hEvent);
+  TRACE_FN_ARG_END();
+  return rc;
+}
+
+TRACE_FN_DEF(zeEventHostSynchronize)(
+    ze_event_handle_t hEvent,
+    uint64_t timeout) {
+  auto rc = zeEventHostSynchronize(hEvent, timeout);
+  TRACE_FN_ARG_BEGIN();
+  TRACE_FN_ARG_PTR(hEvent);
+  TRACE_FN_ARG(timeout, "%" PRIu64);
   TRACE_FN_ARG_END();
   return rc;
 }
