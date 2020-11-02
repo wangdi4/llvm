@@ -481,6 +481,9 @@ private:
   InlineReportCallSite *getCallSite(CallBase *Call);
 };
 
+/// Get the single, active classic inlining report.
+InlineReport *getInlineReport();
+
 } // namespace llvm
 
 #endif

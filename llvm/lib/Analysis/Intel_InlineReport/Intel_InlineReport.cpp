@@ -15,6 +15,7 @@
 
 #include "llvm/IR/IntrinsicInst.h"
 #include "llvm/IR/Module.h"
+#include "llvm/Support/CommandLine.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Transforms/IPO/Inliner.h"
 #include "llvm/Transforms/IPO/Utils/Intel_IPOUtils.h"
@@ -733,3 +734,14 @@ InlineReport::~InlineReport(void) {
   for (FI = IRFunctionMap.begin(), FE = IRFunctionMap.end(); FI != FE; ++FI)
     delete FI->second;
 }
+
+extern cl::opt<unsigned> IntelInlineReportLevel; // INTEL
+
+InlineReport *llvm::getInlineReport() {
+  static llvm::InlineReport *SavedInlineReport = nullptr;
+  if (!SavedInlineReport)
+    SavedInlineReport = new llvm::InlineReport(IntelInlineReportLevel);
+  return SavedInlineReport;
+}
+
+
