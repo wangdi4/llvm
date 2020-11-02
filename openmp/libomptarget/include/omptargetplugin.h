@@ -282,6 +282,12 @@ EXTERN void __tgt_rtl_init_ompt(void *OmptGlobal);
 // Get target memory allocation information
 EXTERN int32_t __tgt_rtl_get_data_alloc_info(
     int32_t ID, int32_t NumPtrs, void *Ptrs, void *Info);
+
+// Push subdevice encoding
+EXTERN int32_t __tgt_rtl_push_subdevice(int64_t ID);
+
+// Pop subdevice encoding
+EXTERN int32_t __tgt_rtl_pop_subdevice(void);
 #endif // INTEL_COLLAB
 #ifdef __cplusplus
 }

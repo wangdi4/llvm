@@ -20,15 +20,15 @@
 
 ; CHECK: BEGIN REGION { }
 ; CHECK:    + DO i1 = 0, %m + -1, 1   <DO_LOOP>
-; CHECK:    %p: (DEF) [0:20]
-; CHECK:    %q: (USE) [0:19][0:19]
+; CHECK-DAG:%p: (DEF) [i2,i2 + 1,i2 + 11,i2 + 12:0:20]
+; CHECK-DAG:%q: (USE) [i2,i2 + 11:0:19][i2,i2 + 11:0:19]
 ; CHECK:    |   + DO i2 = 0, 9, 1   <DO_LOOP>
-; CHECK:    |   %p: (DEF) [0:10]
-; CHECK:    |   %q: (USE) [0:9][0:9]
+; CHECK-DAG:    %p: (DEF) [i2,i2 + 1:0:10]
+; CHECK-DAG:    %q: (USE) [i2:0:9][i2:0:9]
 ; CHECK:    |   + END LOOP
 ; CHECK:    |   + DO i2 = 0, 8, 1   <DO_LOOP>
-; CHECK:    |   %p: (DEF) [11:20]
-; CHECK:    |   %q: (USE) [11:19][11:19]
+; CHECK-DAG:    %p: (DEF) [i2 + 11,i2 + 12:11:20]
+; CHECK-DAG:    %q: (USE) [i2 + 11:11:19][i2 + 11:11:19]
 ; CHECK:    |   + END LOOP
 ; CHECK:    + END LOOP
 ; CHECK: END REGION

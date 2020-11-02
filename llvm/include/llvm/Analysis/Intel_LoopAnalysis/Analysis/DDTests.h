@@ -104,6 +104,12 @@ struct DirectionVector : public std::array<DVKind, MaxLoopNestLevel> {
   // Print the entire DirectionVector
   void print(raw_ostream &OS, bool ShowLevelDetail = false) const;
 
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+  LLVM_DUMP_METHOD void dump() const {
+    print(dbgs(), false);
+  }
+#endif
+
   /// Is  DV all ( = = = .. =)?
   bool isEQ() const;
 
@@ -152,6 +158,12 @@ struct DirectionVector : public std::array<DVKind, MaxLoopNestLevel> {
 struct DistanceVector : public std::array<DistTy, MaxLoopNestLevel> {
   // Print DistVec from level 1 to Level
   void print(raw_ostream &OS, unsigned Level) const;
+
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+  LLVM_DUMP_METHOD void dump() const {
+    print(dbgs(), MaxLoopNestLevel);
+  }
+#endif
 
   // Set as all 0
   void setZero();

@@ -185,7 +185,7 @@ private:
 
   RuntimeDDResult processDDGToGroupPairs(
       const HLLoop *Loop, MemRefGatherer::VectorTy &Refs,
-      DenseMap<RegDDRef *, unsigned> &RefGroupIndex,
+      DenseMap<const RegDDRef *, unsigned> &RefGroupIndex,
       SmallSetVector<std::pair<unsigned, unsigned>, ExpectedNumberOfTests>
           &Tests) const;
 
