@@ -1161,8 +1161,12 @@ private:
           if (ElemZeroTy && ElemZeroTy.getValue().second->isPointerTy())
             InferredValTy = ElemZeroTy.getValue().second;
         }
-        addInferredType(ValOp, InferredValTy);
-        addInferredType(PtrOp, DType);
+        // The only time we would need to infer the value operand type is for a
+        // pointer value. Only add the type inferred if is a pointer value.
+        if (InferredValTy->isPointerTy()) {
+          addInferredType(ValOp, InferredValTy);
+          addInferredType(PtrOp, DType);
+        }
       }
   }
 
@@ -1188,8 +1192,40 @@ private:
         ValueTypeInfo *PtrOpInfo = analyzeValue(PtrOp);
         for (auto *DType :
              PtrOpInfo->getPointerTypeAliasSet(ValueTypeInfo::VAT_Use))
-          if (auto *PtrTy = dyn_cast<DTransPointerType>(DType))
-            addInferredType(PTI, PtrTy->getPointerElementType());
+          if (auto *PtrTy = dyn_cast<DTransPointerType>(DType)) {
+            // The original type of a PtrToInt instruction is expected to be a
+            // pointer type, so the storage location should be a
+            // pointer-to-pointer type. If that is the case, then add the
+            // pointer's element type to the inference set. If the stored
+            // location is not a pointer-to-pointer, but rather a pointer to an
+            // aggregate type, then the store is writing the first field within
+            // the aggregate.
+            //
+            // Case 1: Store a pointer to an allocated structure
+            //   %struct.test03 = type { i32, i32 }
+            //   %pps = alloca %struct.test03*
+            //   %tmp = bitcast %struct.test03** %pps to i64*
+            //   %alloc = call i8* @malloc(i64 %size)
+            //   %pti = ptrtoint i8* %alloc to i64
+            //   store i64 %pti, i64* %tmp
+            //
+            // Case 2: Store to the first field within a structure
+            //   %struct.test04 = type { i32*, i32* }
+            //   %ps = alloca %struct.test04
+            //   %tmp = bitcast %struct.test04* %ps to i64*
+            //   %alloc = call i8* @malloc(i64 %size)
+            //   %pti = ptrtoint i8* %alloc to i64
+            //   store i64 %pti, i64* %tmp
+            //
+            DTransType *ElemTy = PtrTy->getPointerElementType();
+            if (ElemTy->isPointerTy()) {
+              addInferredType(PTI, PtrTy->getPointerElementType());
+            } else if (ElemTy->isAggregateType()) {
+              auto ElemZeroTy = PTA.getElementZeroType(ElemTy);
+              if (ElemZeroTy && ElemZeroTy.getValue().second->isPointerTy())
+                addInferredType(PTI, ElemZeroTy.getValue().second);
+            }
+          }
       }
     }
 
