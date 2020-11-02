@@ -2054,6 +2054,11 @@ EXTERN void *__tgt_rtl_data_alloc_explicit(
     FATAL_ERROR("Invalid target data allocation kind");
   }
 
+  // Add it to implicit arguments
+  mutex.lock();
+  DeviceInfo->ImplicitArgs[device_id][0].insert(mem);
+  mutex.unlock();
+
   return mem;
 }
 #endif // INTEL_CUSTOMIZATION

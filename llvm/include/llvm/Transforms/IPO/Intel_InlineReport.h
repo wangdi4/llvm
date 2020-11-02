@@ -16,7 +16,6 @@
 #define LLVM_TRANSFORMS_IPO_INTEL_INLINEREPORT_H
 
 #include "llvm/ADT/MapVector.h"
-#include "llvm/Analysis/Intel_CallGraphReport.h"
 #include "llvm/Analysis/CallGraphSCCPass.h"
 #include "llvm/Analysis/InlineCost.h"
 #include "llvm/Analysis/LazyCallGraph.h"
@@ -246,7 +245,7 @@ typedef std::map<Instruction *, InlineReportCallSite *>
 ///
 /// \brief The inlining report
 ///
-class InlineReport : public CallGraphReport {
+class InlineReport {
 public:
   explicit InlineReport(unsigned MyLevel)
       : Level(MyLevel), ActiveInlineInstruction(nullptr),
@@ -321,7 +320,7 @@ public:
   void setReasonIsInlined(CallBase *Call, const InlineCost &IC);
 
   void replaceFunctionWithFunction(Function *OldFunction,
-                                   Function *NewFunction) override;
+                                   Function *NewFunction);
 
   /// Add a pair of old and new call sites.  The 'NewCall' is a clone of
   /// the 'OldCall' produced by InlineFunction().
@@ -480,6 +479,9 @@ private:
 
   InlineReportCallSite *getCallSite(CallBase *Call);
 };
+
+/// Get the single, active classic inlining report.
+InlineReport *getInlineReport();
 
 } // namespace llvm
 

@@ -440,9 +440,11 @@ private:
                                   : nullptr;
   }
 
+#if INTEL_CUSTOMIZATION
   /// Emits a forward declaration for given declaration.
-  void emitFwdDecl(raw_ostream &O, const Decl *D,
-                   SourceLocation KernelLocation);
+  void emitFwdDecl(raw_ostream &O, const Decl *D, SourceLocation KernelLocation,
+                   QualType KernelName);
+#endif // INTEL_CUSTOMIZATION
 
   /// Emits forward declarations of classes and template classes on which
   /// declaration of given type depends. See example in the comments for the
@@ -456,9 +458,14 @@ private:
   ///     diagnostic messages if kernel name is missing
   /// \param Emitted
   ///     a set of declarations forward declrations has been emitted for already
+#if INTEL_CUSTOMIZATION
+  /// \param KernelName
+  ///     type of kernel currently being processed
   void emitForwardClassDecls(raw_ostream &O, QualType T,
                              SourceLocation KernelLocation,
-                             llvm::SmallPtrSetImpl<const void *> &Emitted);
+                             llvm::SmallPtrSetImpl<const void *> &Emitted,
+                             QualType KernelName);
+#endif // INTEL_CUSTOMIZATION
 
 private:
   /// Keeps invocation descriptors for each kernel invocation started by

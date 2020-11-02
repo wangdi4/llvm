@@ -15,6 +15,7 @@
 
 #include "llvm/IR/IntrinsicInst.h"
 #include "llvm/IR/Module.h"
+#include "llvm/Support/CommandLine.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Transforms/IPO/Inliner.h"
 #include "llvm/Transforms/IPO/Utils/Intel_IPOUtils.h"
@@ -329,6 +330,8 @@ void InlineReport::beginSCC(CallGraph &CG, CallGraphSCC &SCC) {
   M = &CG.getModule();
   for (CallGraphNode *Node : SCC) {
     Function *F = Node->getFunction();
+    if (!F)
+      continue;
     beginFunction(F);
   }
 }
@@ -336,7 +339,8 @@ void InlineReport::beginSCC(CallGraph &CG, CallGraphSCC &SCC) {
 void InlineReport::beginSCC(LazyCallGraph &CG, LazyCallGraph::SCC &SCC) {
   if (!isClassicIREnabled())
     return;
-  M = &CG.getModule();
+  LazyCallGraph::Node &LCGN = *(SCC.begin());
+  M = LCGN.getFunction().getParent();
   for (auto &Node : SCC) {
     Function &F = Node.getFunction();
     beginFunction(&F);
@@ -698,6 +702,8 @@ void InlineReport::makeAllNotCurrent(void) {
 
 void InlineReport::replaceFunctionWithFunction(Function *OldFunction,
                                                Function *NewFunction) {
+  if (!isClassicIREnabled())
+    return;
   if (OldFunction == NewFunction)
     return;
   auto IrfIt = IRFunctionMap.find(OldFunction);
@@ -733,3 +739,14 @@ InlineReport::~InlineReport(void) {
   for (FI = IRFunctionMap.begin(), FE = IRFunctionMap.end(); FI != FE; ++FI)
     delete FI->second;
 }
+
+extern cl::opt<unsigned> IntelInlineReportLevel;
+
+InlineReport *llvm::getInlineReport() {
+  static llvm::InlineReport *SavedInlineReport = nullptr;
+  if (!SavedInlineReport)
+    SavedInlineReport = new llvm::InlineReport(IntelInlineReportLevel);
+  return SavedInlineReport;
+}
+
+

@@ -1,5 +1,7 @@
 // RUN: %clang_cc1 -fsycl -fsycl-is-device -fsycl-int-header=%t.h -fsyntax-only -Wno-sycl-2017-compat -verify %s
 
+// INTEL_CUSTOMIZATION comments should be removed once patch is upstreamed to intel/llvm.
+
 // expected-error@Inputs/sycl.hpp:220 2{{kernel name is invalid. Unscoped enum requires fixed underlying type}}
 #include "Inputs/sycl.hpp"
 
@@ -69,11 +71,17 @@ int main() {
   });
 
   q.submit([&](cl::sycl::handler &cgh) {
+    // INTEL_CUSTOMIZATION
+    // expected-note@Inputs/sycl.hpp:220 {{Invalid kernel name is 'dummy_functor_2<val_3>'}}
+    // end INTEL_CUSTOMIZATION
     // expected-note@+1{{in instantiation of function template specialization}}
     cgh.single_task(f2);
   });
 
   q.submit([&](cl::sycl::handler &cgh) {
+    // INTEL_CUSTOMIZATION
+    // expected-note@Inputs/sycl.hpp:220 {{Invalid kernel name is 'templated_functor<dummy_functor_2>'}}
+    // end INTEL_CUSTOMIZATION
     // expected-note@+1{{in instantiation of function template specialization}}
     cgh.single_task(f5);
   });

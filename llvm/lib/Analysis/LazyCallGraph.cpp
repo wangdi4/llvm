@@ -154,7 +154,7 @@ static bool isKnownLibFunction(Function &F, TargetLibraryInfo &TLI) {
 }
 
 LazyCallGraph::LazyCallGraph(
-    Module &M, function_ref<TargetLibraryInfo &(Function &)> GetTLI) : M(M) { // INTEL
+    Module &M, function_ref<TargetLibraryInfo &(Function &)> GetTLI) {
   LLVM_DEBUG(dbgs() << "Building CG for module: " << M.getModuleIdentifier()
                     << "\n");
   for (Function &F : M) {
@@ -207,7 +207,7 @@ LazyCallGraph::LazyCallGraph(
 }
 
 LazyCallGraph::LazyCallGraph(LazyCallGraph &&G)
-    : M(G.M), BPA(std::move(G.BPA)), NodeMap(std::move(G.NodeMap)), // INTEL
+    : BPA(std::move(G.BPA)), NodeMap(std::move(G.NodeMap)),
       EntryEdges(std::move(G.EntryEdges)), SCCBPA(std::move(G.SCCBPA)),
       SCCMap(std::move(G.SCCMap)),
       LibFunctions(std::move(G.LibFunctions)) {
