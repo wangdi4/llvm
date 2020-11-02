@@ -68,11 +68,18 @@
 ; CHECK: [[MAP_GEP:%[^ ]+]] = getelementptr inbounds [1 x i8*], [1 x i8*]* %.offload_baseptrs{{[^ ,]*}}, i32 0, i32 0
 ; CHECK: store i8* [[ORIG_VAL]], i8** [[MAP_GEP]], align 8
 
-; Check that the variant function is called with an updated value for the c_yp
+; Check that the outlined function for variant region is called with an updated value for the c_yp
 ; CHECK: [[UPDATED_VAL:%[^ ]+]] = load i8*, i8** [[MAP_GEP]], align 8
 ; CHECK: [[NEWV_CAST:%[^ ]+]] = bitcast %"ISO_C_BINDING$.btC_PTR"* [[NEWV]] to i8**
 ; CHECK: store i8* [[UPDATED_VAL:%[^ ]+]], i8** [[NEWV_CAST]], align 8
-; CHECK: call void bitcast (void (float*, %"ISO_C_BINDING$.btC_PTR"*)* @submodule_mp_work_gpu_ to void (%"ISO_C_BINDING$.btC_PTR"*, i8*)*)(%"ISO_C_BINDING$.btC_PTR"* [[NEWV]], i8* %{{[^ ,]+}})
+; CHECK: call void @[[VARIANT_WRAPPER:[^ ]*work_gpu_.wrapper[^ (]*]](%"ISO_C_BINDING$.btC_PTR"* [[NEWV]])
+
+
+; Check that variant function is called in the variant wrapper.
+; CHECK: define internal void @[[VARIANT_WRAPPER]](%"ISO_C_BINDING$.btC_PTR"* [[NEWV_PASSED:%[^ ,]+]])
+; CHECK: [[INTEROP:%[^ ]+]] = call i8* @__tgt_create_interop_obj(i64 0, i8 0, i8* null)
+; CHECK: call void bitcast (void (float*, %"ISO_C_BINDING$.btC_PTR"*)* @submodule_mp_work_gpu_ to void (%"ISO_C_BINDING$.btC_PTR"*, i8*)*)(%"ISO_C_BINDING$.btC_PTR"* [[NEWV_PASSED]], i8* [[INTEROP]])
+; CHECK: %0 = call i32 @__tgt_release_interop_obj(i8* [[INTEROP]])
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"

@@ -22,32 +22,44 @@
 ;
 ;   %available = call i32 @__tgt_is_device_available(i32 %0, i8* null)
 ;   %dispatch = icmp ne i32 %available, 0
+;   br label %dispatch.check
+;
+; dispatch.check:
 ;   br i1 %dispatch, label %if.then, label %if.else
 ;
 ; if.then:
-;   %variant = call i32 @foo_gpu(i32 %1)
+;   call void @main.foo_gpu.wrapper(i32* %rrr)
 ;   br label %if.end
 ;
 ; if.else:
-;   %call = call i32 @foo(i32 %1)
+;   %2 = load i32, i32* @dnum
+;   %call = call i32 @foo(i32 %2)
 ;   br label %if.end
+; ...
 ;
-; if.end:
-;   %callphi = phi i32 [ %variant, %if.then ], [ %call, %if.else ]
-;   store i32 %callphi, i32* %rrr, align 4
+; define internal void @main.foo_gpu.wrapper(i32* %rrr) {
+;   %0 = load i32, i32* @dnum
+;   %variant = call i32 @foo_gpu(i32 %0)
+;   store i32 %variant, i32* %rrr
+; }
+;
 
 ; CHECK: [[AVAIL:%[a-zA-Z._0-9]+]] = call i32 @__tgt_is_device_available
 ; CHECK-NEXT: [[DISPATCH:%[a-zA-Z._0-9]+]] = icmp ne i32 [[AVAIL]], 0
-; CHECK-NEXT: br i1 [[DISPATCH]], label %[[IFTHEN:[a-zA-Z._0-9]+]], label %[[IFELSE:[a-zA-Z._0-9]+]]
+; CHECK: br i1 [[DISPATCH]], label %[[IFTHEN:[a-zA-Z._0-9]+]], label %[[IFELSE:[a-zA-Z._0-9]+]]
 
 ; CHECK-DAG: [[IFTHEN]]:
-; CHECK-NEXT: [[VARIANT:%[a-zA-Z._0-9]+]] = call i32 @foo_gpu
+; CHECK-NEXT: call void @[[VARIANT_WRAPPER:[^ ,]*foo_gpu.wrapper[^ ,)]*]](i32* %rrr)
 
 ; CHECK-DAG: [[IFELSE]]:
-; CHECK-NEXT: [[BASE:%[a-zA-Z._0-9]+]] = call i32 @foo
+; CHECK: [[BASE_ARG:%[^ ]+]] = load i32, i32* @dnum
+; CHECK: [[BASE:%[a-zA-Z._0-9]+]] = call i32 @foo(i32 [[BASE_ARG]])
+; CHECK-NEXT: store i32 [[BASE]], i32* %rrr
 
-; CHECK: phi i32 [ [[VARIANT]], %[[IFTHEN]] ], [ [[BASE]], %[[IFELSE]] ]
-
+; CHECK-DAG: define internal void @[[VARIANT_WRAPPER]](i32* %rrr)
+; CHECK: [[ARG:%[^ ]+]] = load i32, i32* @dnum
+; CHECK: [[VARIANT:%[^ ]+]] = call i32 @foo_gpu(i32 [[ARG]])
+; CHECK: store i32 [[VARIANT]], i32* %rrr
 
 ; ModuleID = 'target_variant_dispatch_device_intfunc.c'
 source_filename = "target_variant_dispatch_device_intfunc.c"

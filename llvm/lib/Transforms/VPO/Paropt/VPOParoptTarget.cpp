@@ -1989,7 +1989,7 @@ void VPOParoptTransform::useUpdatedUseDevicePtrsInTgtDataRegion(
   assert(W && "Null WRegionNode.");
   assert(TgtDataOutlinedFunctionCall && "Null outlined function call.");
 
-  if (!W->canHaveUseDevicePtr() || !isa<WRNTargetDataNode>(W))
+  if (!W->canHaveUseDevicePtr())
     return;
 
   UseDevicePtrClause &UDPC = W->getUseDevicePtr();
@@ -2830,6 +2830,8 @@ StringRef getVariantName(CallInst *BaseCall, StringRef &MatchConstruct,
                          StringRef &MatchArch) {
   assert(BaseCall && "BaseCall is null");
   Function *BaseFunc = BaseCall->getCalledFunction();
+  if (!BaseFunc)
+    return "";
 
   StringRef VariantAttributeString =
       BaseFunc->getFnAttribute("openmp-variant").getValueAsString();
@@ -3089,23 +3091,27 @@ static Value *createInteropObj(WRegionNode *W, Value *DeviceNum,
 /// \endcode
 ///
 /// IR:
+///    define internal void @foo_gpu.wrapper(<args>) {
+///      ...
+///      %interop = call i8* @__tgt_create_interop_obj(...)                (7)
+///      %variant = call i32 @foo_gpu(<args>);                             (8)
+///      call i32 @__tgt_release_interop_obj(%interop)                     (9)
+///      ...
+///    }
+///
 ///    %0 = load i32, i32* @dnum, align 4
 ///    %1 = sext i32 %0 to i64
 ///    %call = call i32 @__tgt_is_device_available(i64 %0, i8* null)       (1)
 ///    %dispatch = icmp ne i32 %call1, 0                                   (2)
 ///    br i1 %dispatch, label %variant.call, label %base.call              (3)
 ///
-///  variant.call:
-///    %variant = call i32 @foo_gpu(<args>)                                (4)
+///  variant.call:                                                         (4)
+///    call @foo_gpu.wrapper(<args>)                                       (5)
 ///    br label %if.end
 ///
-///  base.call:
-///    %call = call i32 @foo(<args>)                                       (5)
+///  base.call:                                                            (6)
+///    %call = call i32 @foo(<args>)
 ///    br label %if.end
-///
-///  if.end:
-///    %callphi = phi i32 [%variant, %variant.call], [%call, %base.call]   (6)
-///    ; replace all other uses of %call with %callphi
 ///
 ///
 /// Case 2. With use_device_ptr clause:
@@ -3129,6 +3135,12 @@ static Value *createInteropObj(WRegionNode *W, Value *DeviceNum,
 ///   @.offload_maptypes = ... [96, 96] // TGT_PARAM | TGT_RETURN_PARAM
 ///   @.offload_sizes = ... [0, 0]
 ///   ...
+///   define internal void @foo_gpu.wrapper(i8* %a, i8* %b) {
+///     ...
+///     %variant = call i32 @foo_gpu(%a, %b);                              (8)
+///     ...
+///   }
+///   ...
 ///   %a.map.gep = getelementptr(%offload_baseptrs, 0, 0)
 ///   %b.map.gep = getelementptr(%offload_baseptrs, 0, 1)
 ///   store i8* %a, i8** %a.map.gep
@@ -3136,15 +3148,18 @@ static Value *createInteropObj(WRegionNode *W, Value *DeviceNum,
 ///
 ///   call void @__tgt_target_data_begin(..., @.offload_sizes,
 ///                                           @.offload_maptypes)
-///   %a_tgtuff = load i8*, i8** %a.map.gep
-///   %b_tgtuff = load i8*, i8** %a.map.gep
+///   %a_updated = load i8*, i8** %a.map.gep
+///   %b_updated = load i8*, i8** %a.map.gep
 ///
-///   foo_gpu(a_tgtBuff, b_tgtBuff);
+///   call foo_gpu.wrapper(%a_updated, %b_updated);                        (5)
 ///   call void @__tgt_target_data_end(...)
 /// \endcode
 ///
 /// Task (A) is done here in VPOParoptTransform::genTargetVariantDispatchCode()
-/// Task (B) is done in VPOParoptUtils::genVariantCall()
+/// Task (B) is done in useUpdatedUseDevicePtrsInTgtDataRegion()
+// See the header comment of useUpdatedUseDevicePtrsInTgtDataRegion() for
+// examples of the replacement of use_device_ptr operands with a private version
+// containing the device value.
 bool VPOParoptTransform::genTargetVariantDispatchCode(WRegionNode *W) {
   LLVM_DEBUG(
       dbgs() << "\nEnter VPOParoptTransform::genTargetVariantDispatchCode\n");
@@ -3174,19 +3189,31 @@ bool VPOParoptTransform::genTargetVariantDispatchCode(WRegionNode *W) {
       break;
   }
 
+  auto emitRemark = [&](const StringRef &Message) {
+    OptimizationRemarkMissed R("openmp", "Region", W->getEntryDirective());
+    R << ore::NV("Construct", W->getName()) << Message;
+    ORE.emit(R);
+  };
+
   assert(BaseCall && "Base call not found in Target Variant Dispatch");
-  if (!BaseCall)
+  if (!BaseCall) {
+    emitRemark(" Could not find a valid function call in the region");
     return false;
+  }
 
   if (VariantName.empty()) {
     LLVM_DEBUG(dbgs() << __FUNCTION__ << ": Variant function not found\n");
+    emitRemark(" Could not find a matching variant function");
     return false;
   }
   LLVM_DEBUG(dbgs() << __FUNCTION__ << ": Found variant function name: "
                     << VariantName << "\n");
 
   // Initialize types and constants
-  Instruction *InsertPt = BaseCall;
+  BasicBlock *BranchBB = createEmptyPrivInitBB(W);
+  BasicBlock *EndVariantsBB = createEmptyPrivFiniBB(W);
+
+  Instruction *InsertPt = BranchBB->getTerminator();
   IRBuilder<> Builder(InsertPt);
   IntegerType *Int32Ty = Builder.getInt32Ty();
   IntegerType *Int64Ty = Builder.getInt64Ty();
@@ -3194,13 +3221,12 @@ bool VPOParoptTransform::genTargetVariantDispatchCode(WRegionNode *W) {
   ConstantInt *ValueZero = ConstantInt::get(Int32Ty, 0);
   ConstantPointerNull *NullPtr = ConstantPointerNull::get(Int8PtrTy);
 
-  // Default device num is -1
   Value *DeviceNum = W->getDevice();
-  if (DeviceNum == nullptr) {
+  if (!DeviceNum)
     DeviceNum =
         Builder.CreateZExt(VPOParoptUtils::genOmpGetDefaultDevice(InsertPt),
                            Int64Ty);
-  }
+
   assert(!DeviceNum->getType()->isPointerTy() &&
         "DeviceID should not be a pointer");
   DeviceNum = VPOParoptUtils::encodeSubdevice(W, InsertPt, DeviceNum);
@@ -3216,34 +3242,32 @@ bool VPOParoptTransform::genTargetVariantDispatchCode(WRegionNode *W) {
   Value *DeviceType = NullPtr;
   CallInst *IsDeviceAvailable =
       VPOParoptUtils::genTgtIsDeviceAvailable(DeviceNum, DeviceType, InsertPt);
-  IsDeviceAvailable->setName("call");
+  IsDeviceAvailable->setName("call"); //                                    (1)
   Value *Available = // the dispatch condition
-      Builder.CreateICmpNE(IsDeviceAvailable, ValueZero, "available");
+      Builder.CreateICmpNE(IsDeviceAvailable, ValueZero, "available"); //   (2)
   Available->setName("dispatch");
 
   UseDevicePtrClause &UDPtrClause = W->getUseDevicePtr();
 
-  // Here, Builder insertion point is "InsertPt"
   // Emit dispatch code:
   //
   //   br i1 %dispatch, label %variant.call, label %base.call               (3)
   //
-  // variant.call:
+  // variant.call:                                                          (4)
   //   < call to target_data_begin, and maps to get device pointers >       (A)
-  //   %variant = call i32 @foo_gpu(<args>)                               (4,B)
+  //   call void @foo_gpu.wrapper(<args>)                               (5) (B)
   //   < call to target_data_end() >                                        (A)
-  //   br label %if.end                                              (ThenTerm)
+  //   br label %if.end
   //
-  // base.call:
-  //   %call = call i32 @foo(<args>)                                        (5)
-  //   br label %if.end                                              (ElseTerm)
+  // base.call:                                                             (6)
+  //   %call = call i32 @foo(<args>)
+  //   br label %if.end
   //
-  // if.end:
-  //   %callphi = phi i32 [%variant, %variant.call], [%call, %base.call]    (6)
-
-  Instruction *ThenTerm, *ElseTerm;
-  VPOParoptUtils::buildCFGForIfClause(Available, ThenTerm, ElseTerm, InsertPt,
-                                      DT); // (3)
+  ValueToValueMapTy VMap;
+  SmallVector<BasicBlock *, 32> BBSet;
+  VPOUtils::singleRegionMultiVersioning(BranchBB->getSingleSuccessor(),
+                                        EndVariantsBB, BBSet, VMap, Available,
+                                        DT); //                     (3) (4) (6)
 
   // Create the interop object for
   // (1) Asynchronous case (i.e., NOWAIT is present), or
@@ -3253,87 +3277,67 @@ bool VPOParoptTransform::genTargetVariantDispatchCode(WRegionNode *W) {
   //     TODO: remove the old implementation when the new one if fully tested.
   Value *InteropObj = nullptr;
   if (UseInterop || W->getNowait())
-    InteropObj = createInteropObj(W, DeviceNum, IdentTy, ThenTerm);
+    InteropObj = createInteropObj(W, DeviceNum, IdentTy, BaseCall); //      (7)
 
-  // Create and insert Variant call before ThenTerm
-  ThenTerm->getParent()->setName("variant.call");
   bool IsVoidType = (BaseCall->getType() == Builder.getVoidTy());
-  CallInst *VariantCall = nullptr;
-  if (!UDPtrClause.empty()) {
-    Builder.SetInsertPoint(ThenTerm);
-    TgDataInfo Info;
-    Info.NumberOfPtrs = UDPtrClause.size();
-    bool hasRuntimeEvaluationCaptureSize = false;
-    SmallVector<Constant *, 16> ConstSizes;
-    SmallVector<uint64_t, 16> MapTypes;
-
-    (void) addMapForUseDevicePtr(W, ThenTerm);
-
-    genTgtInformationForPtrs(W, nullptr, ConstSizes, MapTypes,
-                                 hasRuntimeEvaluationCaptureSize);
-
-    InsertPt = ThenTerm;
-    CallInst *DummyCall = nullptr;
-    genOffloadArraysInit(W, &Info, DummyCall, InsertPt, ConstSizes,
-                        MapTypes, hasRuntimeEvaluationCaptureSize);
-
-    genOffloadArraysArgument(&Info, InsertPt);
-    (void) VPOParoptUtils::genTgtTargetDataBegin(
-        W, Info.NumberOfPtrs, Info.ResBaseDataPtrs, Info.ResDataPtrs,
-        Info.ResDataSizes, Info.ResDataMapTypes, InsertPt);
-    for (UseDevicePtrItem *Item : UDPtrClause.items()) {
-      MapItem *MapI = Item->getInMap();
-      assert(MapI && "No map found for use-device-ptr item.");
-      Instruction *BasePtrGEP = MapI->getBasePtrGEPForOrig();
-      assert(BasePtrGEP && "No GEP found for base-ptr of Map item's orig.");
-      Value *OrigV = Item->getOrig();
-      Value *GepCast = Builder.CreateBitOrPointerCast(
-        BasePtrGEP, MapI->getOrig()->getType()->getPointerTo(),
-        OrigV->getName() + ".cast");
-      Item->setNew(GepCast);
-    }
-    VariantCall =
-            VPOParoptUtils::genVariantCall(BaseCall, VariantName,
-                                           InteropObj, InsertPt, W);
-    VPOParoptUtils::genTgtTargetDataEnd(
-        W, Info.NumberOfPtrs, Info.ResBaseDataPtrs, Info.ResDataPtrs,
-        Info.ResDataSizes, Info.ResDataMapTypes, InsertPt);
-  } else
-    VariantCall = VPOParoptUtils::genVariantCall(
-        BaseCall, VariantName, InteropObj, ThenTerm, W); // (4,B)
+  CallInst *VariantCall = VPOParoptUtils::genVariantCall(
+      BaseCall, VariantName, InteropObj, BaseCall, W); //                   (8)
   if (!IsVoidType)
     VariantCall->setName("variant");
-
 
   // Release the interop object for synchronous execution (no NOWAIT clause).
   // Don't do this for the asynchronous case; the async_handler will do it.
   if (InteropObj != nullptr && W->getNowait() == false)
-    VPOParoptUtils::genTgtReleaseInteropObj(InteropObj, ThenTerm);
+    VPOParoptUtils::genTgtReleaseInteropObj(InteropObj, BaseCall); //       (9)
 
-  // Move BaseCall to before ElseTerm
-  ElseTerm->getParent()->setName("base.call");
-  InsertPt = BaseCall->getNextNode(); // insert PHI before this point later
-  assert(InsertPt && "Corrupt IR: BaseCall cannot be last instruction in BB");
-  BaseCall->moveBefore(ElseTerm);                                        // (5)
+  BaseCall->replaceAllUsesWith(VariantCall);
+  assert(BaseCall->use_empty());
+  BaseCall->eraseFromParent();
 
-  // If BaseCall has users, then insert a PHI before InsertPt
-  // and replace all uses of BaseCall with PHI
-  if (BaseCall->getNumUses() > 0) {
-    Builder.SetInsertPoint(InsertPt);
-    PHINode *Phi = Builder.CreatePHI(BaseCall->getType(), 2, "callphi"); // (6)
-    Phi->addIncoming(VariantCall, ThenTerm->getParent());
-    Phi->addIncoming(BaseCall, ElseTerm->getParent());
-    for (User *U : BaseCall->users())
-      if (Instruction *UI = dyn_cast<Instruction>(U))
-        if (UI != Phi) // don't replace in Phi
-          UI->replaceUsesOfWith(BaseCall, Phi);
-  }
+  Function *WrapperFn = VPOParoptUtils::genOutlineFunction(
+      *W, DT, AC, makeArrayRef(BBSet), (VariantName + ".wrapper").str()); // (5)
+  CallInst *VariantWrapperCall = cast<CallInst>(WrapperFn->user_back());
 
-  LLVM_DEBUG(
-      dbgs() << "\nExit VPOParoptTransform::genTargetVariantDispatchCode\n");
+  auto finalizeAndReturn = [&W] {
+    LLVM_DEBUG(
+        dbgs() << "\nExit VPOParoptTransform::genTargetVariantDispatchCode\n");
+    W->resetBBSet(); // Invalidate BBSet after transformations
+    return true;
+  };
 
-  W->resetBBSet(); // Invalidate BBSet after transformations
-  return true;
+  if (UDPtrClause.empty())
+    return finalizeAndReturn();
+
+  Builder.SetInsertPoint(VariantWrapperCall);
+  TgDataInfo Info;
+  Info.NumberOfPtrs = UDPtrClause.size();
+  bool hasRuntimeEvaluationCaptureSize = false;
+  SmallVector<Constant *, 16> ConstSizes;
+  SmallVector<uint64_t, 16> MapTypes;
+
+  (void)addMapForUseDevicePtr(W, VariantWrapperCall);
+
+  genTgtInformationForPtrs(W, nullptr, ConstSizes, MapTypes,
+                           hasRuntimeEvaluationCaptureSize);
+
+  CallInst *DummyCall = nullptr;
+  genOffloadArraysInit(W, &Info, DummyCall, VariantWrapperCall, ConstSizes,
+                       MapTypes, hasRuntimeEvaluationCaptureSize);
+
+  genOffloadArraysArgument(&Info, VariantWrapperCall);
+
+  (void)VPOParoptUtils::genTgtTargetDataBegin(
+      W, Info.NumberOfPtrs, Info.ResBaseDataPtrs, Info.ResDataPtrs,
+      Info.ResDataSizes, Info.ResDataMapTypes, VariantWrapperCall); //      (A)
+
+  CallInst *TgtDataEndCall = VPOParoptUtils::genTgtTargetDataEnd( //        (A)
+      W, Info.NumberOfPtrs, Info.ResBaseDataPtrs, Info.ResDataPtrs,
+      Info.ResDataSizes, Info.ResDataMapTypes, VariantWrapperCall);
+  TgtDataEndCall->moveAfter(VariantWrapperCall);
+
+  useUpdatedUseDevicePtrsInTgtDataRegion(W, VariantWrapperCall); //         (B)
+
+  return finalizeAndReturn();
 }
 
 // Set SIMD widening width for the target region based

@@ -1451,6 +1451,7 @@ bool VPOParoptTransform::paroptTransforms() {
     F->getContext().diagnose(DI);
   };
 
+  SmallPtrSet<WRegionNode *, 4> RegionsNeedingDummyBranchInsertion;
   //
   // Walk through W-Region list, the outlining / lowering is performed from
   // inner to outer
@@ -1897,8 +1898,13 @@ bool VPOParoptTransform::paroptTransforms() {
         // it is codegen'ed during the Prepare phase of the HOST compilation
         if (Mode & ParPrepare) {
           debugPrintHeader(W, Mode);
-          if (!hasOffloadCompilation()) // for host only
+          if (!hasOffloadCompilation()) { // for host only
+            // The purpose is to generate place holder for global use_device_ptr
+            // operands.
+            Changed |= genGlobalPrivatizationLaunderIntrin(W);
             Changed |= genTargetVariantDispatchCode(W);
+            Changed |= clearLaunderIntrinBeforeRegion(W);
+          }
           RemoveDirectives = true;
         }
         break;
@@ -2232,7 +2238,7 @@ bool VPOParoptTransform::paroptTransforms() {
   if (!isTargetCSA())
 #endif  // INTEL_FEATURE_CSA
 #endif  // INTEL_CUSTOMIZATION
-      RoutineChanged |= addBranchToEndDirective(W);
+      RegionsNeedingDummyBranchInsertion.insert(W);
 
     if (Changed) { // Code transformations happened for this WRN
       RoutineChanged = true;
@@ -2243,6 +2249,10 @@ bool VPOParoptTransform::paroptTransforms() {
       LLVM_DEBUG(dbgs() << "   === WRN #" << W->getNumber()
                         << " NOT transformed.\n\n");
   }
+
+  for (auto *W : WRegionList)
+    if (RegionsNeedingDummyBranchInsertion.count(W))
+      RoutineChanged |= addBranchToEndDirective(W);
 
   WRegionList.clear();
   return RoutineChanged;

@@ -1529,9 +1529,7 @@ public:
   /// Given a call \p BaseCall, create another call with name \p VariantName
   /// using the same arguments from \p BaseCall. Both functions are expected
   /// to have identical signatures.
-  /// \p W is a TargetVariant WRN. If present, replace each call argument that
-  /// is a host pointer (listed in the use_device_ptr clause) with its
-  /// corresponding target buffer.
+  /// \p W is a TargetVariant WRN.
   static CallInst *genVariantCall(CallInst *BaseCall, StringRef VariantName,
                                   Value *InteropObj, Instruction *InsertPt,
                                   WRegionNode *W = nullptr,
@@ -1543,10 +1541,14 @@ public:
                                 Instruction *InsertPt = nullptr,
                                 bool IsVarArg = false);
 
-  // Creates new Function and outlines \p W region into it.
-  // \p DT DominatorTree is updated accordingly.
-  static Function *genOutlineFunction(const WRegionNode &W, DominatorTree *DT,
-                                      AssumptionCache *AC);
+  /// Creates new Function and outlines \p W region into it.
+  /// \p DT DominatorTree is updated accordingly. If \p BBsToExtractIn is
+  /// provided, only the BasicBlocks it contains are outlined, instead of the
+  /// full body of \p W.
+  static Function *genOutlineFunction(
+      const WRegionNode &W, DominatorTree *DT, AssumptionCache *AC,
+      llvm::Optional<ArrayRef<BasicBlock *>> BBsToExtractIn = llvm::None,
+      std::string Suffix = "");
 
   // If there is a SPIRV builtin performing horizontal reduction for the given
   // reduction operation, this method will insert code with a call
