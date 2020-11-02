@@ -79,6 +79,8 @@
 #include "llvm/Support/FormatVariadic.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Transforms/IPO.h"
+#include "llvm/Transforms/IPO/Intel_InlineReport.h"      // INTEL
+#include "llvm/Transforms/IPO/Intel_MDInlineReport.h"    // INTEL
 #include <algorithm>
 #include <cassert>
 #include <cstdint>
@@ -1221,10 +1223,10 @@ PreservedAnalyses ArgumentPromotionPass::run(LazyCallGraph::SCC &C,
         continue;
       LocalChange = true;
 
-      // INTEL Argument promotion is replacing F with NF.
-      // INTEL We need to update all of the call graph reports to reflect
-      // INTEL this.
-      CG.replaceFunctionWithFunctionInCGReports(&OldF, NewF); // INTEL
+#if INTEL_CUSTOMIZATION
+      getInlineReport()->replaceFunctionWithFunction(&OldF, NewF);
+      getMDInlineReport()->replaceFunctionWithFunction(&OldF, NewF);
+#endif // INTEL_CUSTOMIZATION
 
       // Directly substitute the functions in the call graph. Note that this
       // requires the old function to be completely dead and completely
@@ -1339,7 +1341,10 @@ bool ArgPromotion::runOnSCC(CallGraphSCC &SCC) {
         // INTEL Argument promotion is replacing F with NF.
         // INTEL We need to update all of the call graph reports to reflect
         // INTEL this.
-        CG.replaceFunctionWithFunctionInCGReports(OldF, NewF); // INTEL
+#if INTEL_CUSTOMIZATION
+        getInlineReport()->replaceFunctionWithFunction(OldF, NewF);
+        getMDInlineReport()->replaceFunctionWithFunction(OldF, NewF);
+#endif // INTEL_CUSTOMIZATION
 
         // Update the call graph for the newly promoted function.
         CallGraphNode *NewNode = CG.getOrInsertFunction(NewF);

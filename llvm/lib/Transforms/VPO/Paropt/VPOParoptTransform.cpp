@@ -4338,13 +4338,11 @@ bool VPOParoptTransform::genAlignedCode(WRegionNode *W) {
       }
 
       // According to the specification 'alignmnent' value is optional and when
-      // it is not provided FE sets 'alignment' to 0. In such case, according to
-      // specification, we can use an "implementation-defined default alignments
-      // for SIMD instructions on the target platforms", but I am not sure that
-      // TTI currently provides such information.
+      // it is not provided FE sets 'alignment' to 0. If this is the case, set
+      // alignment to be equal to the size of the largest vector register.
       int Align = AI->getAlign();
       if (!Align)
-        continue;
+        Align = TTI->getRegisterBitWidth(true) / 8;
 
       // Generate llvm.assume call for the specified value.
       IRBuilder<> Builder(GetAlignedBlock()->getTerminator());

@@ -419,8 +419,8 @@ void InlineReportBuilder::beginFunction(Function *F) {
 void InlineReportBuilder::beginSCC(CallGraph &CG, CallGraphSCC &SCC) {
   if (!isMDIREnabled())
     return;
-  Module &M = CG.getModule();
-  NamedMDNode *ModuleInlineReport = M.getNamedMetadata(ModuleTag);
+  Module *M = &CG.getModule();
+  NamedMDNode *ModuleInlineReport = M->getNamedMetadata(ModuleTag);
   if (!ModuleInlineReport || ModuleInlineReport->getNumOperands() == 0)
     return;
   for (CallGraphNode *Node : SCC) {
@@ -434,12 +434,15 @@ void InlineReportBuilder::beginSCC(CallGraph &CG, CallGraphSCC &SCC) {
 void InlineReportBuilder::beginSCC(LazyCallGraph &CG, LazyCallGraph::SCC &SCC) {
   if (!isMDIREnabled())
     return;
-  Module &M = CG.getModule();
-  NamedMDNode *ModuleInlineReport = M.getNamedMetadata(ModuleTag);
+  LazyCallGraph::Node &LCGN = *(SCC.begin());
+  Module *M = LCGN.getFunction().getParent();
+  NamedMDNode *ModuleInlineReport = M->getNamedMetadata(ModuleTag);
   if (!ModuleInlineReport || ModuleInlineReport->getNumOperands() == 0)
     return;
-  for (auto &Node : SCC)
-    beginFunction(&(Node.getFunction()));
+  for (auto &Node : SCC) {
+    Function *F = &Node.getFunction();
+    beginFunction(F);
+  }
 }
 
 // Function set dead
