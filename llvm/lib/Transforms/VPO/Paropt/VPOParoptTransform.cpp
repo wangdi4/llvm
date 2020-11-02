@@ -4411,7 +4411,10 @@ bool VPOParoptTransform::genNontemporalCode(WRegionNode *W) {
       Use *U = WorkList.pop_back_val();
       User *Usr = U->getUser();
 
-      if (isa<StoreInst>(Usr) || isa<LoadInst>(Usr)) {
+      // Check if the nontemporal address is passed as a pointer argument to a
+      // store or load instruction.
+      if ((isa<StoreInst>(Usr) && U->getOperandNo() == 1) ||
+          isa<LoadInst>(Usr)) {
         // Attach !nontemporal metadata to the instruction.
         Instruction *Mrf = cast<Instruction>(Usr);
         if (!NtmpMD) {
