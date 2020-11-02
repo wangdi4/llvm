@@ -2405,11 +2405,6 @@ const SCEV *ScalarEvolution::getAddExpr(SmallVectorImpl<const SCEV *> &Ops,
   // Sort by complexity, this groups all similar expression types together.
   GroupByComplexity(Ops, &LI, DT);
 
-#if !INTEL_CUSTOMIZATION
-  // INTEL: We do this after constant folding.
-  Flags = StrengthenNoWrapFlags(this, scAddExpr, Ops, Flags);
-#endif // !INTEL_CUSTOMIZATION
-
   // If there are any constants, fold them together.
   unsigned Idx = 0;
   if (const SCEVConstant *LHSC = dyn_cast<SCEVConstant>(Ops[0])) {
@@ -2432,9 +2427,7 @@ const SCEV *ScalarEvolution::getAddExpr(SmallVectorImpl<const SCEV *> &Ops,
     if (Ops.size() == 1) return Ops[0];
   }
 
-  // INTEL: We do this after constant folding; it's easier to strengthen a
-  // INTEL: smaller expression.
-  Flags = StrengthenNoWrapFlags(this, scAddExpr, Ops, Flags); // INTEL
+  Flags = StrengthenNoWrapFlags(this, scAddExpr, Ops, Flags);
 
   // Limit recursion calls depth.
   if (Depth > MaxArithDepth || hasHugeExpression(Ops))
