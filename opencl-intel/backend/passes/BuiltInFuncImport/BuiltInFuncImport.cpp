@@ -188,9 +188,11 @@ namespace intel {
       return;
     }
 
-    if (auto GV = dyn_cast<GlobalVariable>(Op))
+    if (auto GV = dyn_cast<GlobalVariable>(Op)) {
+      UsedGlobals.insert(GV);
       if (auto G = FindGlobalDef(GV, Modules))
         UsedGlobals.insert(G);
+    }
   }
 
   void BIImport::ExploreUses(Function *Root,
@@ -202,9 +204,10 @@ namespace intel {
 
     if (Root->isDeclaration()) {
       Function *Def = FindFunctionDef(Root, Modules);
-      if (Def)
+      if (Def) {
+        UsedFunctions.insert(Root);
         Root = Def;
-      else {
+      } else {
         UsedFunctions.insert(Root);
         return;
       }
