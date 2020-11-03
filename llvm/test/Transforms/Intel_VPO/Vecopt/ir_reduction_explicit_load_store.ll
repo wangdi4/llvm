@@ -23,7 +23,7 @@ define float @load_store_reduction_add(float* nocapture %a) {
 ; CHECK-NEXT:    [[TMP6:%.*]] = icmp eq i64 [[TMP5]], 1000
 ; CHECK-NEXT:    br i1 [[TMP6]], label %[[VPLANNEDBB:.*]], label [[VECTOR_BODY]]
 ; CHECK:       [[VPLANNEDBB]]:
-; CHECK-NEXT:    [[TMP7:%.*]] = call float @llvm.experimental.vector.reduce.v2.fadd.f32.v8f32(float [[X_PROMOTED:%.*]], <8 x float> [[TMP1]])
+; CHECK-NEXT:    [[TMP7:%.*]] = call float @llvm.vector.reduce.fadd.v8f32(float [[X_PROMOTED:%.*]], <8 x float> [[TMP1]])
 ; CHECK-NEXT:    store float [[TMP7]], float* [[X:%.*]], align 1
 ; CHECK-NEXT:    br label [[MIDDLE_BLOCK:%.*]]
 ;

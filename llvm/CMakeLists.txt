@@ -932,11 +932,6 @@ if(INTEL_CUSTOMIZATION)
            ${LLVM_INTELFEATURE_PREFIX}_ISA_FP16)
 # end INTEL_FEATURE_ISA_FP16
 
-# INTEL_FEATURE_ISA_HRESET
-      list(APPEND features_enabled_by_default
-           ${LLVM_INTELFEATURE_PREFIX}_ISA_HRESET)
-# end INTEL_FEATURE_ISA_HRESET
-
 # INTEL_FEATURE_ISA_AMX
       list(APPEND features_enabled_by_default
            ${LLVM_INTELFEATURE_PREFIX}_ISA_AMX)
@@ -1021,11 +1016,6 @@ if(INTEL_CUSTOMIZATION)
       list(APPEND features_enabled_by_default
            ${LLVM_INTELFEATURE_PREFIX}_ISA_AMX_TRANSPOSE)
 # end INTEL_FEATURE_ISA_AMX_TRANSPOSE
-
-# INTEL_FEATURE_ISA_KEYLOCKER
-      list(APPEND features_enabled_by_default
-           ${LLVM_INTELFEATURE_PREFIX}_ISA_KEYLOCKER)
-# end INTEL_FEATURE_ISA_KEYLOCKER
 
 # INTEL_FEATURE_CPU_ADL
 list(APPEND features_enabled_by_default
@@ -1250,6 +1240,11 @@ configure_file(
   ${LLVM_INCLUDE_DIR}/llvm/Config/Targets.def
   )
 
+# They are not referenced. See set_output_directory().
+set( CMAKE_RUNTIME_OUTPUT_DIRECTORY ${LLVM_BINARY_DIR}/bin )
+set( CMAKE_LIBRARY_OUTPUT_DIRECTORY ${LLVM_BINARY_DIR}/lib${LLVM_LIBDIR_SUFFIX} )
+set( CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${LLVM_BINARY_DIR}/lib${LLVM_LIBDIR_SUFFIX} )
+
 # For up-to-date instructions for installing the Tensorflow dependency, refer to
 # the bot setup script: https://github.com/google/ml-compiler-opt/blob/master/buildbot/buildbot_init.sh
 # In this case, the latest C API library is available for download from
@@ -1258,17 +1253,11 @@ configure_file(
 # LLVM_HAVE_TF_API, through llvm-config.h, so that a user of the LLVM library may
 # also leverage the dependency.
 set(TENSORFLOW_C_LIB_PATH "" CACHE PATH "Path to TensorFlow C library install")
-find_library(tensorflow_c_api tensorflow PATHS ${TENSORFLOW_C_LIB_PATH}/lib)
-
-if (tensorflow_c_api)
+if (TENSORFLOW_C_LIB_PATH)
+  find_library(tensorflow_c_api tensorflow PATHS ${TENSORFLOW_C_LIB_PATH}/lib NO_DEFAULT_PATH REQUIRED)
   set(LLVM_HAVE_TF_API "ON" CACHE BOOL "Full Tensorflow API available")
   include_directories(${TENSORFLOW_C_LIB_PATH}/include)
 endif()
-
-# They are not referenced. See set_output_directory().
-set( CMAKE_RUNTIME_OUTPUT_DIRECTORY ${LLVM_BINARY_DIR}/bin )
-set( CMAKE_LIBRARY_OUTPUT_DIRECTORY ${LLVM_BINARY_DIR}/lib${LLVM_LIBDIR_SUFFIX} )
-set( CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${LLVM_BINARY_DIR}/lib${LLVM_LIBDIR_SUFFIX} )
 
 # For up-to-date instructions for installing the Tensorflow dependency, refer to
 # the bot setup script: https://github.com/google/ml-compiler-opt/blob/master/buildbot/buildbot_init.sh

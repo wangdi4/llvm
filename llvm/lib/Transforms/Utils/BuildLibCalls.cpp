@@ -109,14 +109,18 @@ static bool setOnlyReadsMemory(Function &F, unsigned ArgNo) {
   return true;
 }
 
-static bool setRetAndArgsNoUndef(Function &F) {
-  bool Changed = false;
+static bool setRetNoUndef(Function &F) {
   if (!F.getReturnType()->isVoidTy() &&
       !F.hasAttribute(AttributeList::ReturnIndex, Attribute::NoUndef)) {
     F.addAttribute(AttributeList::ReturnIndex, Attribute::NoUndef);
     ++NumNoUndef;
-    Changed = true;
+    return true;
   }
+  return false;
+}
+
+static bool setArgsNoUndef(Function &F) {
+  bool Changed = false;
   for (unsigned ArgNo = 0; ArgNo < F.arg_size(); ++ArgNo) {
     if (!F.hasParamAttribute(ArgNo, Attribute::NoUndef)) {
       F.addParamAttr(ArgNo, Attribute::NoUndef);
@@ -125,6 +129,10 @@ static bool setRetAndArgsNoUndef(Function &F) {
     }
   }
   return Changed;
+}
+
+static bool setRetAndArgsNoUndef(Function &F) {
+  return setRetNoUndef(F) | setArgsNoUndef(F);
 }
 
 static bool setRetNonNull(Function &F) {
@@ -355,6 +363,7 @@ bool llvm::inferLibFuncAttributes(Function &F, const TargetLibraryInfo &TLI) {
     Changed |= setOnlyReadsMemory(F, 0);
     return Changed;
   case LibFunc_malloc:
+    Changed |= setRetNoUndef(F);
     Changed |= setDoesNotThrow(F);
     Changed |= setRetDoesNotAlias(F);
     return Changed;
@@ -422,15 +431,20 @@ bool llvm::inferLibFuncAttributes(Function &F, const TargetLibraryInfo &TLI) {
     Changed |= setDoesNotCapture(F, 0);
     return Changed;
   case LibFunc_realloc:
+    Changed |= setRetNoUndef(F);
     Changed |= setDoesNotThrow(F);
     Changed |= setRetDoesNotAlias(F);
     Changed |= setDoesNotCapture(F, 0);
     return Changed;
+  case LibFunc_reallocf:
+    Changed |= setRetNoUndef(F);
+    return Changed;
+  case LibFunc_read:
 #if INTEL_CUSTOMIZATION
-  // NOTE: The libfunc read is an alias to _read in Windows (LibFunc_under_read)
+  // NOTE: The libfunc read is an alias to _read in Windows
+  // (LibFunc_under_read)
   case LibFunc_under_read:
 #endif // INTEL_CUSTOMIZATION
-  case LibFunc_read:
     // May throw; "read" is a valid pthread cancellation point.
     Changed |= setRetAndArgsNoUndef(F);
     Changed |= setDoesNotCapture(F, 1);
@@ -471,6 +485,7 @@ bool llvm::inferLibFuncAttributes(Function &F, const TargetLibraryInfo &TLI) {
     Changed |= setOnlyReadsMemory(F, 1);
     return Changed;
   case LibFunc_aligned_alloc:
+    Changed |= setRetNoUndef(F);
     Changed |= setDoesNotThrow(F);
     Changed |= setRetDoesNotAlias(F);
     return Changed;
@@ -498,6 +513,7 @@ bool llvm::inferLibFuncAttributes(Function &F, const TargetLibraryInfo &TLI) {
     return Changed;
 #endif // INTEL_CUSTOMIZATION
   case LibFunc_calloc:
+    Changed |= setRetNoUndef(F);
     Changed |= setDoesNotThrow(F);
     Changed |= setRetDoesNotAlias(F);
     return Changed;
@@ -556,6 +572,7 @@ bool llvm::inferLibFuncAttributes(Function &F, const TargetLibraryInfo &TLI) {
     Changed |= setDoesNotCapture(F, 0);
     return Changed;
   case LibFunc_free:
+    Changed |= setArgsNoUndef(F);
     Changed |= setDoesNotThrow(F);
     Changed |= setDoesNotCapture(F, 0);
     return Changed;
@@ -781,6 +798,7 @@ bool llvm::inferLibFuncAttributes(Function &F, const TargetLibraryInfo &TLI) {
     Changed |= setOnlyReadsMemory(F, 1);
     return Changed;
   case LibFunc_valloc:
+    Changed |= setRetNoUndef(F);
     Changed |= setDoesNotThrow(F);
     Changed |= setRetDoesNotAlias(F);
     return Changed;
@@ -959,6 +977,7 @@ bool llvm::inferLibFuncAttributes(Function &F, const TargetLibraryInfo &TLI) {
   case LibFunc_msvc_new_array_int: // new[](unsigned int)
   case LibFunc_msvc_new_array_longlong: // new[](unsigned long long)
     // Operator new always returns a nonnull noalias pointer
+    Changed |= setRetNoUndef(F);
     Changed |= setRetNonNull(F);
     Changed |= setRetDoesNotAlias(F);
     return Changed;
@@ -2621,6 +2640,15 @@ Value *llvm::emitMemCpyChk(Value *Dst, Value *Src, Value *Len, Value *ObjSize,
           dyn_cast<Function>(MemCpy.getCallee()->stripPointerCasts()))
     CI->setCallingConv(F->getCallingConv());
   return CI;
+}
+
+Value *llvm::emitMemPCpy(Value *Dst, Value *Src, Value *Len, IRBuilderBase &B,
+                         const DataLayout &DL, const TargetLibraryInfo *TLI) {
+  LLVMContext &Context = B.GetInsertBlock()->getContext();
+  return emitLibCall(
+      LibFunc_mempcpy, B.getInt8PtrTy(),
+      {B.getInt8PtrTy(), B.getInt8PtrTy(), DL.getIntPtrType(Context)},
+      {Dst, Src, Len}, B, TLI);
 }
 
 Value *llvm::emitMemChr(Value *Ptr, Value *Val, Value *Len, IRBuilderBase &B,

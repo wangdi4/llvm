@@ -55,7 +55,7 @@ define dso_local i32 @foo(i32 %t1, i32 %t4) local_unnamed_addr {
 ; INTADV-NEXT:    [[TMP15:%.*]] = insertelement <4 x i32> [[TMP14]], i32 [[I12]], i32 3
 ; INTADV-NEXT:    [[TMP16:%.*]] = sub <4 x i32> [[TMP11]], [[TMP15]]
 ; INTADV-NEXT:    [[TMP17:%.*]] = add <4 x i32> [[TMP16]], [[TMP6]]
-; INTADV-NEXT:    [[TMP18:%.*]] = call i32 @llvm.experimental.vector.reduce.or.v4i32(<4 x i32> [[TMP17]])
+; INTADV-NEXT:    [[TMP18:%.*]] = call i32 @llvm.vector.reduce.or.v4i32(<4 x i32> [[TMP17]])
 ; INTADV-NEXT:    [[TMP19:%.*]] = or i32 [[TMP18]], [[I16]]
 ; INTADV-NEXT:    [[OP_EXTRA:%.*]] = or i32 [[TMP19]], [[I15]]
 ; INTADV-NEXT:    [[DOTNEG319:%.*]] = mul i32 [[I2]], 6
@@ -106,7 +106,7 @@ define dso_local i32 @foo(i32 %t1, i32 %t4) local_unnamed_addr {
 ; CHECK-NEXT:    [[TMP16:%.*]] = insertelement <4 x i32> [[TMP15]], i32 [[I12]], i32 3
 ; CHECK-NEXT:    [[TMP17:%.*]] = sub <4 x i32> [[TMP12]], [[TMP16]]
 ; CHECK-NEXT:    [[TMP18:%.*]] = add <4 x i32> [[TMP17]], <i32 50, i32 50, i32 50, i32 50>
-; CHECK-NEXT:    [[TMP19:%.*]] = call i32 @llvm.experimental.vector.reduce.or.v4i32(<4 x i32> [[TMP18]])
+; CHECK-NEXT:    [[TMP19:%.*]] = call i32 @llvm.vector.reduce.or.v4i32(<4 x i32> [[TMP18]])
 ; CHECK-NEXT:    [[TMP20:%.*]] = or i32 [[TMP19]], [[I18]]
 ; CHECK-NEXT:    [[TMP21:%.*]] = or i32 [[TMP20]], [[I16]]
 ; CHECK-NEXT:    [[OP_EXTRA:%.*]] = or i32 [[TMP21]], [[I15]]

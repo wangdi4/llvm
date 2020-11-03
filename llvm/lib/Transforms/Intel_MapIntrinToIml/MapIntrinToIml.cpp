@@ -235,8 +235,9 @@ void MapIntrinToImlImpl::createImfAttributeList(Instruction *I,
 static Type *legalizeArgumentOrReturnType(Type *T, unsigned LogicalVL,
                                           unsigned TargetVL) {
   if (VectorType *VecTy = dyn_cast<VectorType>(T)) {
-    return VectorType::get(VecTy->getElementType(),
-                           (VecTy->getElementCount() / LogicalVL) * TargetVL);
+    return VectorType::get(
+        VecTy->getElementType(),
+        (VecTy->getElementCount().divideCoefficientBy(LogicalVL)) * TargetVL);
   }
 
   assert(T->isStructTy() &&
@@ -247,9 +248,9 @@ static Type *legalizeArgumentOrReturnType(Type *T, unsigned LogicalVL,
     assert(StructElementTy->isVectorTy() &&
            "Expect all elements in struct to be vectors");
     VectorType *VecTy = cast<VectorType>(StructElementTy);
-    NewStructElementTypes.push_back(
-        VectorType::get(VecTy->getElementType(),
-                        (VecTy->getElementCount() / LogicalVL) * TargetVL));
+    NewStructElementTypes.push_back(VectorType::get(
+        VecTy->getElementType(),
+        (VecTy->getElementCount().divideCoefficientBy(LogicalVL)) * TargetVL));
   }
 
   return StructType::get(T->getContext(), NewStructElementTypes);

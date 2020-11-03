@@ -10,11 +10,11 @@
 #ifndef __IMMINTRIN_H
 #define __IMMINTRIN_H
 
-/* INTEL_CUSTOMIZATION */
-#include <ia32intrin.h>
-/* end INTEL_CUSTOMIZATION */
+#include <x86gprintrin.h>
 
 /* INTEL_CUSTOMIZATION */
+#include <ia32intrin.h>
+
 #if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
     defined(__MMX__) || defined(__M_INTRINSIC_PROMOTE__)
 /* end INTEL_CUSTOMIZATION */
@@ -804,15 +804,6 @@ _storebe_i64(void * __P, long long __D) {
 #endif
 /* end INTEL_FEATURE_ISA_ULI */
 
-/* INTEL_FEATURE_ISA_HRESET */
-#if defined(__HRESET_SUPPORTED__)
-#if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
-    defined(__HRESET__) || defined(__M_INTRINSIC_PROMOTE__)
-#include <hresetintrin.h>
-#endif
-#endif
-/* end INTEL_FEATURE_ISA_HRESET */
-
 /* INTEL_FEATURE_ISA_AMX_BF8 */
 #if defined(__AMX_BF8_SUPPORTED__)
 #if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
@@ -933,15 +924,10 @@ _storebe_i64(void * __P, long long __D) {
 #endif
 /* end INTEL_FEATURE_ISA_AMX_TILE2 */
 
-/* INTEL_FEATURE_ISA_KEYLOCKER */
-#if defined(__KEYLOCKER_SUPPORTED__)
 #if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
-    defined(__KEYLOCKER__) || defined(__M_INTRINSIC_PROMOTE__)
+    defined(__KL__) || defined(__WIDEKL__)
 #include <keylockerintrin.h>
 #endif
-#endif
-/* end INTEL_FEATURE_ISA_KEYLOCKER */
-/* end INTEL_CUSTOMIZATION */
 
 #if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
     defined(__AMXTILE__) || defined(__AMXINT8__) || defined(__AMXBF16__)

@@ -1249,6 +1249,16 @@ def int_ppc_vsx_xxinsertw :
 def int_ppc_vsx_xvtlsbb :
       PowerPC_VSX_Intrinsic<"xvtlsbb", [llvm_i32_ty],
                             [llvm_v16i8_ty, llvm_i32_ty], [IntrNoMem]>;
+def int_ppc_vsx_xvtdivdp :
+      PowerPC_VSX_Intrinsic<"xvtdivdp", [llvm_i32_ty],
+                            [llvm_v2f64_ty, llvm_v2f64_ty], [IntrNoMem]>;
+def int_ppc_vsx_xvtdivsp :
+      PowerPC_VSX_Intrinsic<"xvtdivsp", [llvm_i32_ty],
+                            [llvm_v4f32_ty, llvm_v4f32_ty], [IntrNoMem]>;
+def int_ppc_vsx_xvtsqrtdp :
+      PowerPC_VSX_Intrinsic<"xvtsqrtdp", [llvm_i32_ty], [llvm_v2f64_ty], [IntrNoMem]>;
+def int_ppc_vsx_xvtsqrtsp :
+      PowerPC_VSX_Intrinsic<"xvtsqrtsp", [llvm_i32_ty], [llvm_v4f32_ty], [IntrNoMem]>;
 def int_ppc_vsx_xxeval :
       PowerPC_VSX_Intrinsic<"xxeval", [llvm_v2i64_ty],
                            [llvm_v2i64_ty, llvm_v2i64_ty,
@@ -1354,3 +1364,32 @@ def int_ppc_setrnd : GCCBuiltin<"__builtin_setrnd">,
       Intrinsic<[llvm_double_ty], [llvm_i32_ty], []>;
 
 }
+
+let TargetPrefix = "ppc" in {
+  def int_ppc_mma_assemble_acc :
+        Intrinsic<[llvm_v512i1_ty],
+                  [llvm_v16i8_ty, llvm_v16i8_ty, llvm_v16i8_ty, llvm_v16i8_ty],
+                  [IntrNoMem]>;
+
+  def int_ppc_mma_disassemble_acc :
+        Intrinsic<[llvm_v16i8_ty, llvm_v16i8_ty, llvm_v16i8_ty, llvm_v16i8_ty],
+                  [llvm_v512i1_ty], [IntrNoMem]>;
+
+  def int_ppc_mma_assemble_pair :
+        Intrinsic<[llvm_v256i1_ty],
+                  [llvm_v16i8_ty, llvm_v16i8_ty], [IntrNoMem]>;
+
+  def int_ppc_mma_disassemble_pair :
+        Intrinsic<[llvm_v16i8_ty, llvm_v16i8_ty],
+                  [llvm_v256i1_ty], [IntrNoMem]>;
+
+  def int_ppc_mma_xxmtacc :
+        Intrinsic<[llvm_v512i1_ty], [llvm_v512i1_ty], [IntrNoMem]>;
+
+  def int_ppc_mma_xxmfacc :
+        Intrinsic<[llvm_v512i1_ty], [llvm_v512i1_ty], [IntrNoMem]>;
+
+  def int_ppc_mma_xxsetaccz :
+        Intrinsic<[llvm_v512i1_ty], [], [IntrNoMem]>;
+}
+

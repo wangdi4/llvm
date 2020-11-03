@@ -95,6 +95,7 @@ enum NodeType : unsigned {
 
   // Predicated instructions with the result of inactive lanes provided by the
   // last operand.
+  FABS_MERGE_PASSTHRU,
   FCEIL_MERGE_PASSTHRU,
   FFLOOR_MERGE_PASSTHRU,
   FNEARBYINT_MERGE_PASSTHRU,
@@ -105,6 +106,8 @@ enum NodeType : unsigned {
   FROUNDEVEN_MERGE_PASSTHRU,
   FSQRT_MERGE_PASSTHRU,
   FTRUNC_MERGE_PASSTHRU,
+  FP_ROUND_MERGE_PASSTHRU,
+  FP_EXTEND_MERGE_PASSTHRU,
   UINT_TO_FP_MERGE_PASSTHRU,
   SINT_TO_FP_MERGE_PASSTHRU,
   FCVTZU_MERGE_PASSTHRU,
@@ -221,6 +224,10 @@ enum NodeType : unsigned {
   // Vector rounding halving addition
   SRHADD,
   URHADD,
+
+  // Absolute difference
+  UABD,
+  SABD,
 
   // Vector across-lanes min/max
   // Only the lower result lane is defined.

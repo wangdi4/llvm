@@ -42,7 +42,7 @@
 ; CHECK-NEXT:                |   BB5.40:
 ; CHECK-NEXT:                |   %red.var = %phi.temp1;
 ; CHECK-NEXT:                + END LOOP
-; CHECK:                     %tsum.015 = @llvm.experimental.vector.reduce.v2.fadd.f32.v4f32(%tsum.015,  %red.var);
+; CHECK:                     %tsum.015 = @llvm.vector.reduce.fadd.v4f32(%tsum.015,  %red.var);
 
 ; Checks for VPValue based code generation.
 ; VPCHECK:                   %red.var = 0.000000e+00;
@@ -70,7 +70,7 @@
 ; VPCHECK-NEXT:              |   BB5.42:
 ; VPCHECK-NEXT:              |   %red.var = %phi.temp1;
 ; VPCHECK-NEXT:              + END LOOP
-; VPCHECK-NEXT:              %tsum.015 = @llvm.experimental.vector.reduce.v2.fadd.f32.v4f32(%tsum.015,  %red.var);
+; VPCHECK-NEXT:              %tsum.015 = @llvm.vector.reduce.fadd.v4f32(%tsum.015,  %red.var);
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"

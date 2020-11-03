@@ -15,7 +15,7 @@ define double @foo(double* nocapture readonly %darr) #0 {
 ; CHECK:      [[DOTVEC10:%.*]] = [[DOTVEC0]]  *  2.000000e+00; <fast>
 ; CHECK:      [[RED_VAR0]] = [[DOTVEC10]]  +  [[RED_VAR0]]; <fast>
 ; CHECK:    END LOOP
-; CHECK:      [[SUM_060:%.*]] = @llvm.experimental.vector.reduce.v2.fadd.f64.v4f64([[SUM_060]],  [[RED_VAR0]])
+; CHECK:      [[SUM_060:%.*]] = @llvm.vector.reduce.fadd.v4f64([[SUM_060]],  [[RED_VAR0]])
 ;
 entry:
   br label %for.body

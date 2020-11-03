@@ -1205,16 +1205,6 @@ public:
                         llvm::AttributeList ExtraAttrs = llvm::AttributeList(),
                         bool Local = false, bool AssumeConvergent = false);
 
-  /// Create or return a runtime function declaration with the specified type
-  /// and name. This will automatically add the convergent attribute to the
-  /// function declaration.
-  llvm::FunctionCallee CreateConvergentRuntimeFunction(
-      llvm::FunctionType *Ty, StringRef Name,
-      llvm::AttributeList ExtraAttrs = llvm::AttributeList(),
-      bool Local = false) {
-    return CreateRuntimeFunction(Ty, Name, ExtraAttrs, Local, true);
-  }
-
 #if INTEL_CUSTOMIZATION
   llvm::FunctionCallee
   CreateSVMLFunction(llvm::FunctionType *Ty, StringRef Name,

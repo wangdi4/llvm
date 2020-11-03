@@ -906,6 +906,17 @@ static void addPGOAndCoverageFlags(const ToolChain &TC, Compilation &C,
     CmdArgs.push_back(Args.MakeArgString(Twine("-fprofile-filter-files=" + v)));
   }
 
+  if (const auto *A = Args.getLastArg(options::OPT_fprofile_update_EQ)) {
+    StringRef Val = A->getValue();
+    if (Val == "atomic" || Val == "prefer-atomic")
+      CmdArgs.push_back("-fprofile-update=atomic");
+    else if (Val != "single")
+      D.Diag(diag::err_drv_unsupported_option_argument)
+          << A->getOption().getName() << Val;
+  } else if (TC.getSanitizerArgs().needsTsanRt()) {
+    CmdArgs.push_back("-fprofile-update=atomic");
+  }
+
   // Leave -fprofile-dir= an unused argument unless .gcda emission is
   // enabled. To be polite, with '-fprofile-arcs -fno-profile-arcs' consider
   // the flag used. There is no -fno-profile-dir, so the user has no
@@ -1272,7 +1283,11 @@ void Clang::AddPreprocessingOptions(Compilation &C, const JobAction &JA,
     if (YcArg && JA.getKind() >= Action::PrecompileJobClass &&
         JA.getKind() <= Action::AssembleJobClass) {
       CmdArgs.push_back(Args.MakeArgString("-building-pch-with-obj"));
-      CmdArgs.push_back(Args.MakeArgString("-fpch-instantiate-templates"));
+      // -fpch-instantiate-templates is the default when creating
+      // precomp using /Yc
+      if (Args.hasFlag(options::OPT_fpch_instantiate_templates,
+                       options::OPT_fno_pch_instantiate_templates, true))
+        CmdArgs.push_back(Args.MakeArgString("-fpch-instantiate-templates"));
     }
     if (YcArg || YuArg) {
       StringRef ThroughHeader = YcArg ? YcArg->getValue() : YuArg->getValue();
@@ -4813,9 +4828,9 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
         II.getInputArg().renderAsInput(Args, CmdArgs);
     }
 
-    C.addCommand(
-        std::make_unique<Command>(JA, *this, ResponseFileSupport::AtFileUTF8(),
-                                  D.getClangProgramPath(), CmdArgs, Inputs));
+    C.addCommand(std::make_unique<Command>(
+        JA, *this, ResponseFileSupport::AtFileUTF8(), D.getClangProgramPath(),
+        CmdArgs, Inputs, Output));
     return;
   }
 
@@ -5428,8 +5443,9 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
     }
   }
 
+  bool HasDefaultDataSections = Triple.isOSBinFormatXCOFF();
   if (Args.hasFlag(options::OPT_fdata_sections, options::OPT_fno_data_sections,
-                   UseSeparateSections)) {
+                   UseSeparateSections || HasDefaultDataSections)) {
     CmdArgs.push_back("-fdata-sections");
   }
 
@@ -5549,6 +5565,9 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
   if (Args.hasFlag(options::OPT_ffixed_point, options::OPT_fno_fixed_point,
                    /*Default=*/false))
     Args.AddLastArg(CmdArgs, options::OPT_ffixed_point);
+
+  if (Arg *A = Args.getLastArg(options::OPT_fcxx_abi_EQ))
+    A->render(Args, CmdArgs);
 
   // Handle -{std, ansi, trigraphs} -- take the last of -{std, ansi}
   // (-ansi is equivalent to -std=c89 or -std=c++98).
@@ -5848,6 +5867,14 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
     }
   }
 
+  if (const Arg *A = Args.getLastArg(options::OPT_mignore_xcoff_visibility)) {
+    if (Triple.isOSAIX())
+      CmdArgs.push_back("-mignore-xcoff-visibility");
+    else
+      D.Diag(diag::err_drv_unsupported_opt_for_target)
+          << A->getAsString(Args) << TripleStr;
+  }
+
   Args.AddLastArg(CmdArgs, options::OPT_fvisibility_inlines_hidden);
   Args.AddLastArg(CmdArgs, options::OPT_fvisibility_inlines_hidden_static_local_var,
                            options::OPT_fno_visibility_inlines_hidden_static_local_var);
@@ -6115,9 +6142,14 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
   // Forward -sycl-std option to -cc1
   Args.AddLastArg(CmdArgs, options::OPT_sycl_std_EQ);
 
-  if (IsHIP && Args.hasFlag(options::OPT_fhip_new_launch_api,
-                            options::OPT_fno_hip_new_launch_api, true))
-    CmdArgs.push_back("-fhip-new-launch-api");
+  if (IsHIP) {
+    if (Args.hasFlag(options::OPT_fhip_new_launch_api,
+                     options::OPT_fno_hip_new_launch_api, true))
+      CmdArgs.push_back("-fhip-new-launch-api");
+    if (Args.hasFlag(options::OPT_fgpu_allow_device_init,
+                     options::OPT_fno_gpu_allow_device_init, false))
+      CmdArgs.push_back("-fgpu-allow-device-init");
+  }
 
   if (Arg *A = Args.getLastArg(options::OPT_fcf_protection_EQ)) {
     CmdArgs.push_back(
@@ -7218,20 +7250,23 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
         getCLFallback()->GetCommand(C, JA, Output, Inputs, Args, LinkingOutput);
     C.addCommand(std::make_unique<FallbackCommand>(
         JA, *this, ResponseFileSupport::AtFileUTF8(), Exec, CmdArgs, Inputs,
-        std::move(CLCommand)));
+        Output, std::move(CLCommand)));
   } else if (Args.hasArg(options::OPT__SLASH_fallback) &&
              isa<PrecompileJobAction>(JA)) {
     // In /fallback builds, run the main compilation even if the pch generation
     // fails, so that the main compilation's fallback to cl.exe runs.
     C.addCommand(std::make_unique<ForceSuccessCommand>(
-        JA, *this, ResponseFileSupport::AtFileUTF8(), Exec, CmdArgs, Inputs));
+        JA, *this, ResponseFileSupport::AtFileUTF8(), Exec, CmdArgs, Inputs,
+        Output));
   } else if (D.CC1Main && !D.CCGenDiagnostics) {
     // Invoke the CC1 directly in this process
-    C.addCommand(std::make_unique<CC1Command>(
-        JA, *this, ResponseFileSupport::AtFileUTF8(), Exec, CmdArgs, Inputs));
+    C.addCommand(std::make_unique<CC1Command>(JA, *this,
+                                              ResponseFileSupport::AtFileUTF8(),
+                                              Exec, CmdArgs, Inputs, Output));
   } else {
-    C.addCommand(std::make_unique<Command>(
-        JA, *this, ResponseFileSupport::AtFileUTF8(), Exec, CmdArgs, Inputs));
+    C.addCommand(std::make_unique<Command>(JA, *this,
+                                           ResponseFileSupport::AtFileUTF8(),
+                                           Exec, CmdArgs, Inputs, Output));
   }
 
   // Make the compile command echo its inputs for /showFilenames.
@@ -8089,8 +8124,9 @@ void ClangAs::ConstructJob(Compilation &C, const JobAction &JA,
   CmdArgs.push_back(Input.getFilename());
 
   const char *Exec = getToolChain().getDriver().getClangProgramPath();
-  C.addCommand(std::make_unique<Command>(
-      JA, *this, ResponseFileSupport::AtFileUTF8(), Exec, CmdArgs, Inputs));
+  C.addCommand(std::make_unique<Command>(JA, *this,
+                                         ResponseFileSupport::AtFileUTF8(),
+                                         Exec, CmdArgs, Inputs, Output));
 }
 
 // Begin OffloadBundler
@@ -8201,7 +8237,7 @@ void OffloadBundler::ConstructJob(Compilation &C, const JobAction &JA,
   C.addCommand(std::make_unique<Command>(
       JA, *this, ResponseFileSupport::None(),
       TCArgs.MakeArgString(getToolChain().GetProgramPath(getShortName())),
-      CmdArgs, None));
+      CmdArgs, None, Output));
 }
 
 void OffloadBundler::ConstructJobMultipleOutputs(
@@ -8338,7 +8374,7 @@ void OffloadBundler::ConstructJobMultipleOutputs(
   C.addCommand(std::make_unique<Command>(
       JA, *this, ResponseFileSupport::None(),
       TCArgs.MakeArgString(getToolChain().GetProgramPath(getShortName())),
-      CmdArgs, None));
+      CmdArgs, None, Outputs));
 }
 
 // Begin OffloadWrapper
@@ -8580,6 +8616,9 @@ void SPIRVTranslator::ConstructJob(Compilation &C, const JobAction &JA,
       TCArgs.hasArg(options::OPT_fsycl_device_only)) {
     TranslatorArgs.push_back("-spirv-max-version=1.1");
     TranslatorArgs.push_back("-spirv-debug-info-version=legacy");
+    // Prevent crash in the translator if input IR contains DIExpression
+    // operations which don't have mapping to OpenCL.DebugInfo.100 spec.
+    TranslatorArgs.push_back("-spirv-allow-extra-diexpressions");
     if (C.getArgs().hasArg(options::OPT_fsycl_esimd))
       TranslatorArgs.push_back("-spirv-allow-unknown-intrinsics");
 
@@ -8779,7 +8818,7 @@ void SYCLPostLink::ConstructJob(Compilation &C, const JobAction &JA,
   C.addCommand(std::make_unique<Command>(
       JA, *this, ResponseFileSupport::None(),
       TCArgs.MakeArgString(getToolChain().GetProgramPath(getShortName())),
-      CmdArgs, Inputs));
+      CmdArgs, Inputs, Output));
 }
 
 // Transforms the abstract representation (JA + Inputs + Outputs) of a file

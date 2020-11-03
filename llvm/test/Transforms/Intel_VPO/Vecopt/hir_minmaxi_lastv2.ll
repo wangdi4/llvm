@@ -15,9 +15,9 @@
 ; CHECK-NEXT:                 |   %red.var1 = (%.vec > %red.var) ? i1 + <i64 0, i64 1, i64 2, i64 3> + 1 : %red.var1;
 ; CHECK-NEXT:                 |   %red.var = (%.vec > %red.var) ? %.vec : %red.var;
 ; CHECK-NEXT:                 + END LOOP
-; CHECK-NEXT:                    %max.018 = @llvm.experimental.vector.reduce.smax.v4i64(%red.var);
+; CHECK-NEXT:                    %max.018 = @llvm.vector.reduce.smax.v4i64(%red.var);
 ; CHECK-NEXT:                    %idx.blend = (%max.018 == %red.var) ? %red.var1 : <i64 9223372036854775807, i64 9223372036854775807, i64 9223372036854775807, i64 9223372036854775807>;
-; CHECK-NEXT:                    %indmax.017 = @llvm.experimental.vector.reduce.smin.v4i64(%idx.blend);
+; CHECK-NEXT:                    %indmax.017 = @llvm.vector.reduce.smin.v4i64(%idx.blend);
 ; CHECK-NEXT:              }
 ; CHECK:                   + DO i1 = 4 * %tgu, zext.i32.i64(%n) + -2, 1   <DO_LOOP>  <MAX_TC_EST = 3> <nounroll> <novectorize> <max_trip_count = 3>
 ; CHECK-NEXT:              |   %1 = (%x)[i1 + 1];

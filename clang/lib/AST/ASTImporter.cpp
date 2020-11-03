@@ -7541,6 +7541,7 @@ ExpectedStmt ASTNodeImporter::VisitCXXUnresolvedConstructExpr(
   Error Err = Error::success();
   auto ToLParenLoc = importChecked(Err, E->getLParenLoc());
   auto ToRParenLoc = importChecked(Err, E->getRParenLoc());
+  auto ToType = importChecked(Err, E->getType());
   auto ToTypeSourceInfo = importChecked(Err, E->getTypeSourceInfo());
   if (Err)
     return std::move(Err);
@@ -7551,7 +7552,7 @@ ExpectedStmt ASTNodeImporter::VisitCXXUnresolvedConstructExpr(
     return std::move(Err);
 
   return CXXUnresolvedConstructExpr::Create(
-      Importer.getToContext(), ToTypeSourceInfo, ToLParenLoc,
+      Importer.getToContext(), ToType, ToTypeSourceInfo, ToLParenLoc,
       llvm::makeArrayRef(ToArgs), ToRParenLoc);
 }
 
@@ -8099,9 +8100,15 @@ Expected<Attr *> ASTImporter::Import(const Attr *FromAttr) {
       else
         return ToTOrErr.takeError();
     }
-    To->setInherited(From->isInherited());
-    To->setPackExpansion(From->isPackExpansion());
-    To->setImplicit(From->isImplicit());
+    ToAttr = To;
+    break;
+  }
+  case attr::Format: {
+    const auto *From = cast<FormatAttr>(FromAttr);
+    FormatAttr *To;
+    IdentifierInfo *ToAttrType = Import(From->getType());
+    To = FormatAttr::Create(ToContext, ToAttrType, From->getFormatIdx(),
+                            From->getFirstArg(), ToRange, From->getSyntax());
     ToAttr = To;
     break;
   }
@@ -8112,8 +8119,15 @@ Expected<Attr *> ASTImporter::Import(const Attr *FromAttr) {
     ToAttr->setRange(ToRange);
     break;
   }
+
   assert(ToAttr && "Attribute should be created.");
-  
+  if (const auto *InheritableFromAttr = dyn_cast<InheritableAttr>(FromAttr))
+    cast<InheritableAttr>(ToAttr)->setInherited(
+        InheritableFromAttr->isInherited());
+  ToAttr->setAttributeSpellingListIndex(
+      FromAttr->getAttributeSpellingListIndex());
+  ToAttr->setPackExpansion(FromAttr->isPackExpansion());
+  ToAttr->setImplicit(FromAttr->isImplicit());
   return ToAttr;
 }
 
@@ -8688,12 +8702,10 @@ Expected<FileID> ASTImporter::Import(FileID FromID, bool IsBuiltin) {
 
     if (ToID.isInvalid() || IsBuiltin) {
       // FIXME: We want to re-use the existing MemoryBuffer!
-      bool Invalid = true;
-      const llvm::MemoryBuffer *FromBuf =
-          Cache->getBuffer(FromContext.getDiagnostics(),
-                           FromSM.getFileManager(), SourceLocation{}, &Invalid);
-      if (!FromBuf || Invalid)
-        // FIXME: Use a new error kind?
+      llvm::Optional<llvm::MemoryBufferRef> FromBuf =
+          Cache->getBufferOrNone(FromContext.getDiagnostics(),
+                                 FromSM.getFileManager(), SourceLocation{});
+      if (!FromBuf)
         return llvm::make_error<ImportError>(ImportError::Unknown);
 
       std::unique_ptr<llvm::MemoryBuffer> ToBuf =

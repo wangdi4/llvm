@@ -10,93 +10,118 @@
 set -ex
 
 BUILDER="${1}"
+MONOREPO_ROOT="$(git rev-parse --show-toplevel)"
+BUILD_DIR="${MONOREPO_ROOT}/build/${BUILDER}"
 
 args=()
 args+=("-DLLVM_ENABLE_PROJECTS=libcxx;libunwind;libcxxabi")
 args+=("-DLIBCXX_CXX_ABI=libcxxabi")
 
 case "${BUILDER}" in
-x86_64-ubuntu-cxx03)
-    export CC=clang
-    export CXX=clang++
-    args+=("-DLLVM_LIT_ARGS=-sv --show-unsupported --param=std=c++03")
-;;
-x86_64-ubuntu-cxx11)
-    export CC=clang
-    export CXX=clang++
-    args+=("-DLLVM_LIT_ARGS=-sv --show-unsupported --param=std=c++11")
-;;
-x86_64-ubuntu-cxx14)
-    export CC=clang
-    export CXX=clang++
-    args+=("-DLLVM_LIT_ARGS=-sv --show-unsupported --param=std=c++14")
-;;
-x86_64-ubuntu-cxx17)
-    export CC=clang
-    export CXX=clang++
-    args+=("-DLLVM_LIT_ARGS=-sv --show-unsupported --param=std=c++17")
-;;
-x86_64-ubuntu-cxx2a)
-    export CC=clang
-    export CXX=clang++
-    args+=("-DLLVM_LIT_ARGS=-sv --show-unsupported --param=std=c++2a")
-;;
-x86_64-ubuntu-noexceptions)
+generic-cxx03)
     export CC=clang
     export CXX=clang++
     args+=("-DLLVM_LIT_ARGS=-sv --show-unsupported")
-    args+=("-DLIBCXX_ENABLE_EXCEPTIONS=OFF")
-    args+=("-DLIBCXXABI_ENABLE_EXCEPTIONS=OFF")
+    args+=("-C${MONOREPO_ROOT}/libcxx/cmake/caches/Generic-cxx03.cmake")
 ;;
-x86_64-ubuntu-32bit)
+generic-cxx11)
     export CC=clang
     export CXX=clang++
     args+=("-DLLVM_LIT_ARGS=-sv --show-unsupported")
-    args+=("-DLLVM_BUILD_32_BITS=ON")
+    args+=("-C${MONOREPO_ROOT}/libcxx/cmake/caches/Generic-cxx11.cmake")
 ;;
-x86_64-ubuntu-gcc)
+generic-cxx14)
+    export CC=clang
+    export CXX=clang++
+    args+=("-DLLVM_LIT_ARGS=-sv --show-unsupported")
+    args+=("-C${MONOREPO_ROOT}/libcxx/cmake/caches/Generic-cxx14.cmake")
+;;
+generic-cxx17)
+    export CC=clang
+    export CXX=clang++
+    args+=("-DLLVM_LIT_ARGS=-sv --show-unsupported")
+    args+=("-C${MONOREPO_ROOT}/libcxx/cmake/caches/Generic-cxx17.cmake")
+;;
+generic-cxx2a)
+    export CC=clang
+    export CXX=clang++
+    args+=("-DLLVM_LIT_ARGS=-sv --show-unsupported")
+    args+=("-C${MONOREPO_ROOT}/libcxx/cmake/caches/Generic-cxx2a.cmake")
+;;
+generic-noexceptions)
+    export CC=clang
+    export CXX=clang++
+    args+=("-DLLVM_LIT_ARGS=-sv --show-unsupported")
+    args+=("-C${MONOREPO_ROOT}/libcxx/cmake/caches/Generic-noexceptions.cmake")
+;;
+generic-32bit)
+    export CC=clang
+    export CXX=clang++
+    args+=("-DLLVM_LIT_ARGS=-sv --show-unsupported")
+    args+=("-C${MONOREPO_ROOT}/libcxx/cmake/caches/Generic-32bits.cmake")
+;;
+generic-gcc)
     export CC=gcc
     export CXX=g++
-    args+=("-DLLVM_LIT_ARGS=-sv --show-unsupported")
+    # FIXME: Re-enable experimental testing on GCC. GCC cares about the order
+    #        in which we link -lc++experimental, which causes issues.
+    args+=("-DLLVM_LIT_ARGS=-sv --show-unsupported --param enable_experimental=False")
 ;;
-x86_64-ubuntu-asan)
+generic-asan)
     export CC=clang
     export CXX=clang++
-    args+=("-DLLVM_USE_SANITIZER=Address")
     args+=("-DLLVM_LIT_ARGS=-sv --show-unsupported")
+    args+=("-C${MONOREPO_ROOT}/libcxx/cmake/caches/Generic-asan.cmake")
 ;;
-x86_64-ubuntu-msan)
+generic-msan)
     export CC=clang
     export CXX=clang++
-    args+=("-DLLVM_USE_SANITIZER=MemoryWithOrigins")
     args+=("-DLLVM_LIT_ARGS=-sv --show-unsupported")
+    args+=("-C${MONOREPO_ROOT}/libcxx/cmake/caches/Generic-msan.cmake")
 ;;
-x86_64-ubuntu-tsan)
+generic-tsan)
     export CC=clang
     export CXX=clang++
-    args+=("-DLLVM_USE_SANITIZER=Thread")
     args+=("-DLLVM_LIT_ARGS=-sv --show-unsupported")
+    args+=("-C${MONOREPO_ROOT}/libcxx/cmake/caches/Generic-tsan.cmake")
 ;;
-x86_64-ubuntu-ubsan)
+generic-ubsan)
     export CC=clang
     export CXX=clang++
-    args+=("-DLLVM_USE_SANITIZER=Undefined")
-    args+=("-DLIBCXX_ABI_UNSTABLE=ON")
     args+=("-DLLVM_LIT_ARGS=-sv --show-unsupported")
+    args+=("-C${MONOREPO_ROOT}/libcxx/cmake/caches/Generic-ubsan.cmake")
 ;;
-x86_64-ubuntu-with_llvm_unwinder)
+generic-with_llvm_unwinder)
     export CC=clang
     export CXX=clang++
     args+=("-DLLVM_LIT_ARGS=-sv --show-unsupported")
     args+=("-DLIBCXXABI_USE_LLVM_UNWINDER=ON")
 ;;
-x86_64-ubuntu-singlethreaded)
+generic-singlethreaded)
     export CC=clang
     export CXX=clang++
     args+=("-DLLVM_LIT_ARGS=-sv --show-unsupported")
-    args+=("-DLIBCXX_ENABLE_THREADS=OFF")
-    args+=("-DLIBCXXABI_ENABLE_THREADS=OFF")
-    args+=("-DLIBCXX_ENABLE_MONOTONIC_CLOCK=OFF")
+    args+=("-C${MONOREPO_ROOT}/libcxx/cmake/caches/Generic-singlethreaded.cmake")
+;;
+generic-nodebug)
+    export CC=clang
+    export CXX=clang++
+    args+=("-DLLVM_LIT_ARGS=-sv --show-unsupported")
+    args+=("-C${MONOREPO_ROOT}/libcxx/cmake/caches/Generic-nodebug.cmake")
+;;
+x86_64-apple-system)
+    export CC=clang
+    export CXX=clang++
+    args+=("-DLLVM_LIT_ARGS=-sv --show-unsupported")
+    args+=("-C${MONOREPO_ROOT}/libcxx/cmake/caches/Apple.cmake")
+;;
+x86_64-apple-system-noexceptions)
+    export CC=clang
+    export CXX=clang++
+    args+=("-DLLVM_LIT_ARGS=-sv --show-unsupported")
+    args+=("-C${MONOREPO_ROOT}/libcxx/cmake/caches/Apple.cmake")
+    args+=("-DLIBCXX_ENABLE_EXCEPTIONS=OFF")
+    args+=("-DLIBCXXABI_ENABLE_EXCEPTIONS=OFF")
 ;;
 *)
     echo "${BUILDER} is not a known configuration"
@@ -104,13 +129,9 @@ x86_64-ubuntu-singlethreaded)
 ;;
 esac
 
-UMBRELLA_ROOT="$(git rev-parse --show-toplevel)"
-LLVM_ROOT="${UMBRELLA_ROOT}/llvm"
-BUILD_DIR="${UMBRELLA_ROOT}/build/${BUILDER}"
-
 echo "--- Generating CMake"
 rm -rf "${BUILD_DIR}"
-cmake -S "${LLVM_ROOT}" -B "${BUILD_DIR}" -GNinja -DCMAKE_BUILD_TYPE=RelWithDebInfo "${args[@]}"
+cmake -S "${MONOREPO_ROOT}/llvm" -B "${BUILD_DIR}" -GNinja -DCMAKE_BUILD_TYPE=RelWithDebInfo "${args[@]}"
 
 echo "--- Building libc++ and libc++abi"
 ninja -C "${BUILD_DIR}" check-cxx-deps cxxabi
@@ -121,5 +142,5 @@ ninja -C "${BUILD_DIR}" check-cxx
 echo "+++ Running the libc++abi tests"
 ninja -C "${BUILD_DIR}" check-cxxabi
 
-echo "+++ Running the libc++ benchmarks"
-ninja -C "${BUILD_DIR}" check-cxx-benchmarks
+# echo "+++ Running the libc++ benchmarks"
+# ninja -C "${BUILD_DIR}" check-cxx-benchmarks

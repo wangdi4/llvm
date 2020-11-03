@@ -952,6 +952,13 @@ struct CodeAction {
   /// The diagnostics that this code action resolves.
   llvm::Optional<std::vector<Diagnostic>> diagnostics;
 
+  /// Marks this as a preferred action. Preferred actions are used by the
+  /// `auto fix` command and can be targeted by keybindings.
+  /// A quick fix should be marked preferred if it properly addresses the
+  /// underlying error. A refactoring should be marked preferred if it is the
+  /// most reasonable choice of actions to take.
+  bool isPreferred = false;
+
   /// The workspace edit this code action performs.
   llvm::Optional<WorkspaceEdit> edit;
 
@@ -1008,6 +1015,14 @@ struct SymbolInformation {
 
   /// The name of the symbol containing this symbol.
   std::string containerName;
+
+  /// The score that clangd calculates to rank the returned symbols.
+  /// This excludes the fuzzy-matching score between `name` and the query.
+  /// (Specifically, the last ::-separated component).
+  /// This can be used to re-rank results as the user types, using client-side
+  /// fuzzy-matching (that score should be multiplied with this one).
+  /// This is a clangd extension, set only for workspace/symbol responses.
+  llvm::Optional<float> score;
 };
 llvm::json::Value toJSON(const SymbolInformation &);
 llvm::raw_ostream &operator<<(llvm::raw_ostream &, const SymbolInformation &);
@@ -1168,11 +1183,11 @@ struct CompletionItem {
   /// Indicates if this item is deprecated.
   bool deprecated = false;
 
-  /// This is Clangd extension.
-  /// The score that Clangd calculates to rank completion items. This score can
-  /// be used to adjust the ranking on the client side.
-  /// NOTE: This excludes fuzzy matching score which is typically calculated on
-  /// the client side.
+  /// The score that clangd calculates to rank the returned completions.
+  /// This excludes the fuzzy-match between `filterText` and the partial word.
+  /// This can be used to re-rank results as the user types, using client-side
+  /// fuzzy-matching (that score should be multiplied with this one).
+  /// This is a clangd extension.
   float score = 0.f;
 
   // TODO: Add custom commitCharacters for some of the completion items. For

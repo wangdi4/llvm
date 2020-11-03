@@ -3414,7 +3414,7 @@ class OffloadingActionBuilder final {
 
       // If we have a fat binary, add it to the list.
       if (CudaFatBinary) {
-        AddTopLevel(CudaFatBinary, CudaArch::UNKNOWN);
+        AddTopLevel(CudaFatBinary, CudaArch::UNUSED);
         CudaDeviceActions.clear();
         CudaFatBinary = nullptr;
         return;
@@ -3687,6 +3687,7 @@ class OffloadingActionBuilder final {
           parseTargetID(getHIPOffloadTargetTriple(), IdStr, &Features);
       if (!ArchStr) {
         C.getDriver().Diag(clang::diag::err_drv_bad_target_id) << IdStr;
+        C.setContainsError();
         return StringRef();
       }
       auto CanId = getCanonicalTargetID(ArchStr.getValue(), Features);
@@ -4167,6 +4168,16 @@ class OffloadingActionBuilder final {
           for (auto SDA : SYCLDeviceActions)
             SYCLLinkBinaryList.push_back(SDA);
           if (WrapDeviceOnlyBinary) {
+            // If used without -fintelfpga, -fsycl-link is used to wrap device
+            // objects for future host link. Device libraries should be linked
+            // by default to resolve any undefined reference.
+            if (!Args.hasArg(options::OPT_fintelfpga)) {
+              const auto *TC = ToolChains.front();
+              addSYCLDeviceLibs(TC, SYCLLinkBinaryList, true,
+                                C.getDefaultToolChain()
+                                    .getTriple()
+                                    .isWindowsMSVCEnvironment());
+            }
             // -fsycl-link behavior does the following to the unbundled device
             // binaries:
             //   1) Link them together using llvm-link
@@ -6551,7 +6562,7 @@ InputInfo Driver::BuildJobsForActionNoCache(
           C.getInputArgs().hasArg(options::OPT_fsycl_link_EQ));
 #if INTEL_CUSTOMIZATION
       // We create list files for unbundling when using -foffload-static-lib.
-      // This is also true for -mkl and -daal, as they imply additional
+      // This is also true for -mmkl and -daal, as they imply additional
       // fat static libraries.
       if (((C.getInputArgs().hasArg(options::OPT_mkl_EQ) &&
             C.getInputArgs().hasArg(options::OPT_static)) ||
@@ -6783,6 +6794,17 @@ static const char *MakeCLOutputFilename(const ArgList &Args, StringRef ArgValue,
   return Args.MakeArgString(Filename.c_str());
 }
 
+static bool HasPreprocessOutput(const Action &JA) {
+  if (isa<PreprocessJobAction>(JA))
+    return true;
+  if (isa<OffloadAction>(JA) && isa<PreprocessJobAction>(JA.getInputs()[0]))
+    return true;
+  if (isa<OffloadBundlingJobAction>(JA) &&
+      HasPreprocessOutput(*(JA.getInputs()[0])))
+    return true;
+  return false;
+}
+
 const char *Driver::GetNamedOutputPath(Compilation &C, const JobAction &JA,
                                        const char *BaseInput,
                                        StringRef BoundArch, bool AtTopLevel,
@@ -6809,8 +6831,9 @@ const char *Driver::GetNamedOutputPath(Compilation &C, const JobAction &JA,
   }
 
   // Default to writing to stdout?
-  if (AtTopLevel && !CCGenDiagnostics && isa<PreprocessJobAction>(JA))
+  if (AtTopLevel && !CCGenDiagnostics && HasPreprocessOutput(JA)) {
     return "-";
+  }
 
   // Is this the assembly listing for /FA?
   if (JA.getType() == types::TY_PP_Asm &&

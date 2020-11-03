@@ -144,12 +144,6 @@ class LLVM_LIBRARY_VISIBILITY X86TargetInfo : public TargetInfo {
 #if INTEL_FEATURE_ISA_ULI
   bool HasULI = false;
 #endif // INTEL_FEATURE_ISA_ULI
-#if INTEL_FEATURE_ISA_KEYLOCKER
-  bool HasKeyLocker = false;
-#endif // INTEL_FEATURE_ISA_KEYLOCKER
-#if INTEL_FEATURE_ISA_HRESET
-  bool HasHRESET = false;
-#endif // INTEL_FEATURE_ISA_HRESET
 #if INTEL_FEATURE_ISA_AMX_BF8
   bool HasAMXBF8 = false;
 #endif // INTEL_FEATURE_ISA_AMX_BF8
@@ -225,6 +219,9 @@ class LLVM_LIBRARY_VISIBILITY X86TargetInfo : public TargetInfo {
   bool HasAVX512MPSADBW = false;
 #endif // INTEL_FEATURE_ISA_AVX_MPSADBW
 #endif // INTEL_CUSTOMIZATION
+  bool HasKL = false;      // For key locker
+  bool HasWIDEKL = false; // For wide key locker
+  bool HasHRESET = false;
   bool HasAMXTILE = false;
   bool HasAMXINT8 = false;
   bool HasAMXBF16 = false;
@@ -410,7 +407,7 @@ public:
     // Allow 32-bit only CPUs regardless of 64-bit mode unlike isValidCPUName.
     // NOTE: gcc rejects 32-bit mtune CPUs in 64-bit mode. But being lenient
     // since mtune was ignored by clang for so long.
-    return llvm::X86::parseArchX86(Name) != llvm::X86::CK_None;
+    return llvm::X86::parseTuneCPU(Name) != llvm::X86::CK_None;
   }
 
   void fillValidCPUList(SmallVectorImpl<StringRef> &Values) const override;

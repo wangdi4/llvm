@@ -9,6 +9,7 @@
 #include "IRModules.h"
 #include "PybindUtils.h"
 
+#include "mlir-c/Bindings/Python/Interop.h"
 #include "mlir-c/Registration.h"
 #include "mlir-c/StandardAttributes.h"
 #include "mlir-c/StandardTypes.h"
@@ -453,6 +454,17 @@ PyMlirContext::~PyMlirContext() {
   mlirContextDestroy(context);
 }
 
+py::object PyMlirContext::getCapsule() {
+  return py::reinterpret_steal<py::object>(mlirPythonContextToCapsule(get()));
+}
+
+py::object PyMlirContext::createFromCapsule(py::object capsule) {
+  MlirContext rawContext = mlirPythonCapsuleToContext(capsule.ptr());
+  if (mlirContextIsNull(rawContext))
+    throw py::error_already_set();
+  return forContext(rawContext).releaseObject();
+}
+
 PyMlirContext *PyMlirContext::createNewContextForInit() {
   MlirContext context = mlirContextCreate();
   mlirRegisterAllDialects(context);
@@ -484,6 +496,8 @@ PyMlirContext::LiveContextMap &PyMlirContext::getLiveContexts() {
 size_t PyMlirContext::getLiveCount() { return getLiveContexts().size(); }
 
 size_t PyMlirContext::getLiveOperationCount() { return liveOperations.size(); }
+
+size_t PyMlirContext::getLiveModuleCount() { return liveModules.size(); }
 
 py::object PyMlirContext::createOperation(
     std::string name, PyLocation location,
@@ -570,15 +584,53 @@ py::object PyMlirContext::createOperation(
 // PyModule
 //------------------------------------------------------------------------------
 
-PyModuleRef PyModule::create(PyMlirContextRef contextRef, MlirModule module) {
-  PyModule *unownedModule = new PyModule(std::move(contextRef), module);
-  // Note that the default return value policy on cast is automatic_reference,
-  // which does not take ownership (delete will not be called).
-  // Just be explicit.
-  py::object pyRef =
-      py::cast(unownedModule, py::return_value_policy::take_ownership);
-  unownedModule->handle = pyRef;
-  return PyModuleRef(unownedModule, std::move(pyRef));
+PyModule::PyModule(PyMlirContextRef contextRef, MlirModule module)
+    : BaseContextObject(std::move(contextRef)), module(module) {}
+
+PyModule::~PyModule() {
+  py::gil_scoped_acquire acquire;
+  auto &liveModules = getContext()->liveModules;
+  assert(liveModules.count(module.ptr) == 1 &&
+         "destroying module not in live map");
+  liveModules.erase(module.ptr);
+  mlirModuleDestroy(module);
+}
+
+PyModuleRef PyModule::forModule(MlirModule module) {
+  MlirContext context = mlirModuleGetContext(module);
+  PyMlirContextRef contextRef = PyMlirContext::forContext(context);
+
+  py::gil_scoped_acquire acquire;
+  auto &liveModules = contextRef->liveModules;
+  auto it = liveModules.find(module.ptr);
+  if (it == liveModules.end()) {
+    // Create.
+    PyModule *unownedModule = new PyModule(std::move(contextRef), module);
+    // Note that the default return value policy on cast is automatic_reference,
+    // which does not take ownership (delete will not be called).
+    // Just be explicit.
+    py::object pyRef =
+        py::cast(unownedModule, py::return_value_policy::take_ownership);
+    unownedModule->handle = pyRef;
+    liveModules[module.ptr] =
+        std::make_pair(unownedModule->handle, unownedModule);
+    return PyModuleRef(unownedModule, std::move(pyRef));
+  }
+  // Use existing.
+  PyModule *existing = it->second.second;
+  py::object pyRef = py::reinterpret_borrow<py::object>(it->second.first);
+  return PyModuleRef(existing, std::move(pyRef));
+}
+
+py::object PyModule::createFromCapsule(py::object capsule) {
+  MlirModule rawModule = mlirPythonCapsuleToModule(capsule.ptr());
+  if (mlirModuleIsNull(rawModule))
+    throw py::error_already_set();
+  return forModule(rawModule).releaseObject();
+}
+
+py::object PyModule::getCapsule() {
+  return py::reinterpret_steal<py::object>(mlirPythonModuleToCapsule(get()));
 }
 
 //------------------------------------------------------------------------------
@@ -724,6 +776,106 @@ public:
 
   /// Implemented by derived classes to add methods to the Python subclass.
   static void bindDerived(ClassTy &m) {}
+};
+
+/// Float Point Attribute subclass - FloatAttr.
+class PyFloatAttribute : public PyConcreteAttribute<PyFloatAttribute> {
+public:
+  static constexpr IsAFunctionTy isaFunction = mlirAttributeIsAFloat;
+  static constexpr const char *pyClassName = "FloatAttr";
+  using PyConcreteAttribute::PyConcreteAttribute;
+
+  static void bindDerived(ClassTy &c) {
+    c.def_static(
+        "get",
+        // TODO: Make the location optional and create a default location.
+        [](PyType &type, double value, PyLocation &loc) {
+          MlirAttribute attr =
+              mlirFloatAttrDoubleGetChecked(type.type, value, loc.loc);
+          // TODO: Rework error reporting once diagnostic engine is exposed
+          // in C API.
+          if (mlirAttributeIsNull(attr)) {
+            throw SetPyError(PyExc_ValueError,
+                             llvm::Twine("invalid '") +
+                                 py::repr(py::cast(type)).cast<std::string>() +
+                                 "' and expected floating point type.");
+          }
+          return PyFloatAttribute(type.getContext(), attr);
+        },
+        py::arg("type"), py::arg("value"), py::arg("loc"),
+        "Gets an uniqued float point attribute associated to a type");
+    c.def_static(
+        "get_f32",
+        [](PyMlirContext &context, double value) {
+          MlirAttribute attr = mlirFloatAttrDoubleGet(
+              context.get(), mlirF32TypeGet(context.get()), value);
+          return PyFloatAttribute(context.getRef(), attr);
+        },
+        py::arg("context"), py::arg("value"),
+        "Gets an uniqued float point attribute associated to a f32 type");
+    c.def_static(
+        "get_f64",
+        [](PyMlirContext &context, double value) {
+          MlirAttribute attr = mlirFloatAttrDoubleGet(
+              context.get(), mlirF64TypeGet(context.get()), value);
+          return PyFloatAttribute(context.getRef(), attr);
+        },
+        py::arg("context"), py::arg("value"),
+        "Gets an uniqued float point attribute associated to a f64 type");
+    c.def_property_readonly(
+        "value",
+        [](PyFloatAttribute &self) {
+          return mlirFloatAttrGetValueDouble(self.attr);
+        },
+        "Returns the value of the float point attribute");
+  }
+};
+
+/// Integer Attribute subclass - IntegerAttr.
+class PyIntegerAttribute : public PyConcreteAttribute<PyIntegerAttribute> {
+public:
+  static constexpr IsAFunctionTy isaFunction = mlirAttributeIsAInteger;
+  static constexpr const char *pyClassName = "IntegerAttr";
+  using PyConcreteAttribute::PyConcreteAttribute;
+
+  static void bindDerived(ClassTy &c) {
+    c.def_static(
+        "get",
+        [](PyType &type, int64_t value) {
+          MlirAttribute attr = mlirIntegerAttrGet(type.type, value);
+          return PyIntegerAttribute(type.getContext(), attr);
+        },
+        py::arg("type"), py::arg("value"),
+        "Gets an uniqued integer attribute associated to a type");
+    c.def_property_readonly(
+        "value",
+        [](PyIntegerAttribute &self) {
+          return mlirIntegerAttrGetValueInt(self.attr);
+        },
+        "Returns the value of the integer attribute");
+  }
+};
+
+/// Bool Attribute subclass - BoolAttr.
+class PyBoolAttribute : public PyConcreteAttribute<PyBoolAttribute> {
+public:
+  static constexpr IsAFunctionTy isaFunction = mlirAttributeIsABool;
+  static constexpr const char *pyClassName = "BoolAttr";
+  using PyConcreteAttribute::PyConcreteAttribute;
+
+  static void bindDerived(ClassTy &c) {
+    c.def_static(
+        "get",
+        [](PyMlirContext &context, bool value) {
+          MlirAttribute attr = mlirBoolAttrGet(context.get(), value);
+          return PyBoolAttribute(context.getRef(), attr);
+        },
+        py::arg("context"), py::arg("value"), "Gets an uniqued bool attribute");
+    c.def_property_readonly(
+        "value",
+        [](PyBoolAttribute &self) { return mlirBoolAttrGetValue(self.attr); },
+        "Returns the value of the bool attribute");
+  }
 };
 
 class PyStringAttribute : public PyConcreteAttribute<PyStringAttribute> {
@@ -1278,6 +1430,56 @@ public:
   }
 };
 
+/// Function type.
+class PyFunctionType : public PyConcreteType<PyFunctionType> {
+public:
+  static constexpr IsAFunctionTy isaFunction = mlirTypeIsAFunction;
+  static constexpr const char *pyClassName = "FunctionType";
+  using PyConcreteType::PyConcreteType;
+
+  static void bindDerived(ClassTy &c) {
+    c.def_static(
+        "get",
+        [](PyMlirContext &context, std::vector<PyType> inputs,
+           std::vector<PyType> results) {
+          SmallVector<MlirType, 4> inputsRaw(inputs.begin(), inputs.end());
+          SmallVector<MlirType, 4> resultsRaw(results.begin(), results.end());
+          MlirType t = mlirFunctionTypeGet(context.get(), inputsRaw.size(),
+                                           inputsRaw.data(), resultsRaw.size(),
+                                           resultsRaw.data());
+          return PyFunctionType(context.getRef(), t);
+        },
+        py::arg("context"), py::arg("inputs"), py::arg("results"),
+        "Gets a FunctionType from a list of input and result types");
+    c.def_property_readonly(
+        "inputs",
+        [](PyFunctionType &self) {
+          MlirType t = self.type;
+          auto contextRef = self.getContext();
+          py::list types;
+          for (intptr_t i = 0, e = mlirFunctionTypeGetNumInputs(self.type);
+               i < e; ++i) {
+            types.append(PyType(contextRef, mlirFunctionTypeGetInput(t, i)));
+          }
+          return types;
+        },
+        "Returns the list of input types in the FunctionType.");
+    c.def_property_readonly(
+        "results",
+        [](PyFunctionType &self) {
+          MlirType t = self.type;
+          auto contextRef = self.getContext();
+          py::list types;
+          for (intptr_t i = 0, e = mlirFunctionTypeGetNumResults(self.type);
+               i < e; ++i) {
+            types.append(PyType(contextRef, mlirFunctionTypeGetResult(t, i)));
+          }
+          return types;
+        },
+        "Returns the list of result types in the FunctionType.");
+  }
+};
+
 } // namespace
 
 //------------------------------------------------------------------------------
@@ -1295,6 +1497,10 @@ void mlir::python::populateIRSubmodule(py::module &m) {
              return ref.releaseObject();
            })
       .def("_get_live_operation_count", &PyMlirContext::getLiveOperationCount)
+      .def("_get_live_module_count", &PyMlirContext::getLiveModuleCount)
+      .def_property_readonly(MLIR_PYTHON_CAPI_PTR_ATTR,
+                             &PyMlirContext::getCapsule)
+      .def(MLIR_PYTHON_CAPI_FACTORY_ATTR, &PyMlirContext::createFromCapsule)
       .def_property(
           "allow_unregistered_dialects",
           [](PyMlirContext &self) -> bool {
@@ -1320,9 +1526,16 @@ void mlir::python::populateIRSubmodule(py::module &m) {
                   PyExc_ValueError,
                   "Unable to parse module assembly (see diagnostics)");
             }
-            return PyModule::create(self.getRef(), module).releaseObject();
+            return PyModule::forModule(module).releaseObject();
           },
           kContextParseDocstring)
+      .def(
+          "create_module",
+          [](PyMlirContext &self, PyLocation &loc) {
+            MlirModule module = mlirModuleCreateEmpty(loc.loc);
+            return PyModule::forModule(module).releaseObject();
+          },
+          py::arg("loc"), "Creates an empty module")
       .def(
           "parse_attr",
           [](PyMlirContext &self, std::string attrSpec) {
@@ -1369,15 +1582,26 @@ void mlir::python::populateIRSubmodule(py::module &m) {
           kContextGetFileLocationDocstring, py::arg("filename"),
           py::arg("line"), py::arg("col"));
 
-  py::class_<PyLocation>(m, "Location").def("__repr__", [](PyLocation &self) {
-    PyPrintAccumulator printAccum;
-    mlirLocationPrint(self.loc, printAccum.getCallback(),
-                      printAccum.getUserData());
-    return printAccum.join();
-  });
+  py::class_<PyLocation>(m, "Location")
+      .def_property_readonly(
+          "context",
+          [](PyLocation &self) { return self.getContext().getObject(); },
+          "Context that owns the Location")
+      .def("__repr__", [](PyLocation &self) {
+        PyPrintAccumulator printAccum;
+        mlirLocationPrint(self.loc, printAccum.getCallback(),
+                          printAccum.getUserData());
+        return printAccum.join();
+      });
 
   // Mapping of Module
   py::class_<PyModule>(m, "Module")
+      .def_property_readonly(MLIR_PYTHON_CAPI_PTR_ATTR, &PyModule::getCapsule)
+      .def(MLIR_PYTHON_CAPI_FACTORY_ATTR, &PyModule::createFromCapsule)
+      .def_property_readonly(
+          "context",
+          [](PyModule &self) { return self.getContext().getObject(); },
+          "Context that created the Module")
       .def_property_readonly(
           "operation",
           [](PyModule &self) {
@@ -1406,6 +1630,10 @@ void mlir::python::populateIRSubmodule(py::module &m) {
 
   // Mapping of Operation.
   py::class_<PyOperation>(m, "Operation")
+      .def_property_readonly(
+          "context",
+          [](PyOperation &self) { return self.getContext().getObject(); },
+          "Context that owns the Operation")
       .def_property_readonly(
           "regions",
           [](PyOperation &self) { return PyRegionList(self.getRef()); })
@@ -1487,6 +1715,10 @@ void mlir::python::populateIRSubmodule(py::module &m) {
 
   // Mapping of Type.
   py::class_<PyAttribute>(m, "Attribute")
+      .def_property_readonly(
+          "context",
+          [](PyAttribute &self) { return self.getContext().getObject(); },
+          "Context that owns the Attribute")
       .def(
           "get_named",
           [](PyAttribute &self, std::string name) {
@@ -1560,10 +1792,16 @@ void mlir::python::populateIRSubmodule(py::module &m) {
           "The underlying generic attribute of the NamedAttribute binding");
 
   // Standard attribute bindings.
+  PyFloatAttribute::bind(m);
+  PyIntegerAttribute::bind(m);
+  PyBoolAttribute::bind(m);
   PyStringAttribute::bind(m);
 
   // Mapping of Type.
   py::class_<PyType>(m, "Type")
+      .def_property_readonly(
+          "context", [](PyType &self) { return self.getContext().getObject(); },
+          "Context that owns the Type")
       .def("__eq__",
            [](PyType &self, py::object &other) {
              try {
@@ -1613,6 +1851,7 @@ void mlir::python::populateIRSubmodule(py::module &m) {
   PyMemRefType::bind(m);
   PyUnrankedMemRefType::bind(m);
   PyTupleType::bind(m);
+  PyFunctionType::bind(m);
 
   // Container bindings.
   PyBlockIterator::bind(m);

@@ -24,6 +24,7 @@ subdirectories =
  ARM
  AVR
  BPF
+ CSKY
  Hexagon
 ; INTEL_CUSTOMIZATION
 ; INTEL_FEATURE_CSA

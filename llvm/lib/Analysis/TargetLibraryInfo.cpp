@@ -1366,6 +1366,7 @@ bool TargetLibraryInfoImpl::isValidProtoForLibFunc(const FunctionType &FTy,
     return (NumParams >= 2 && FTy.getParamType(1)->isPointerTy());
 
   case LibFunc_memcpy_chk:
+  case LibFunc_mempcpy_chk:
   case LibFunc_memmove_chk:
     --NumParams;
     if (!IsSizeTTy(FTy.getParamType(NumParams)))

@@ -523,6 +523,7 @@ static void initTargetOptions(DiagnosticsEngine &Diags,
   Options.EnableMachineFunctionSplitter = CodeGenOpts.SplitMachineFunctions;
   Options.FunctionSections = CodeGenOpts.FunctionSections;
   Options.DataSections = CodeGenOpts.DataSections;
+  Options.IgnoreXCOFFVisibility = CodeGenOpts.IgnoreXCOFFVisibility;
   Options.UniqueSectionNames = CodeGenOpts.UniqueSectionNames;
   Options.UniqueBasicBlockSectionNames =
       CodeGenOpts.UniqueBasicBlockSectionNames;
@@ -576,7 +577,7 @@ static Optional<GCOVOptions> getGCOVOptions(const CodeGenOptions &CodeGenOpts,
   Options.NoRedZone = CodeGenOpts.DisableRedZone;
   Options.Filter = CodeGenOpts.ProfileFilterFiles;
   Options.Exclude = CodeGenOpts.ProfileExcludeFiles;
-  Options.Atomic = LangOpts.Sanitize.has(SanitizerKind::Thread);
+  Options.Atomic = CodeGenOpts.AtomicProfileUpdate;
   return Options;
 }
 
@@ -588,10 +589,7 @@ getInstrProfOptions(const CodeGenOptions &CodeGenOpts,
   InstrProfOptions Options;
   Options.NoRedZone = CodeGenOpts.DisableRedZone;
   Options.InstrProfileOutput = CodeGenOpts.InstrProfileOutput;
-
-  // TODO: Surface the option to emit atomic profile counter increments at
-  // the driver level.
-  Options.Atomic = LangOpts.Sanitize.has(SanitizerKind::Thread);
+  Options.Atomic = CodeGenOpts.AtomicProfileUpdate;
   return Options;
 }
 
@@ -1119,6 +1117,16 @@ static void addSanitizersAtO0(ModulePassManager &MPM,
     ASanPass(SanitizerKind::KernelAddress, /*CompileKernel=*/true);
   }
 
+  if (LangOpts.Sanitize.has(SanitizerKind::HWAddress)) {
+    bool Recover = CodeGenOpts.SanitizeRecover.has(SanitizerKind::HWAddress);
+    MPM.addPass(HWAddressSanitizerPass(
+        /*CompileKernel=*/false, Recover));
+  }
+  if (LangOpts.Sanitize.has(SanitizerKind::KernelHWAddress)) {
+    MPM.addPass(HWAddressSanitizerPass(
+        /*CompileKernel=*/true, /*Recover=*/true));
+  }
+
   if (LangOpts.Sanitize.has(SanitizerKind::Memory)) {
     bool Recover = CodeGenOpts.SanitizeRecover.has(SanitizerKind::Memory);
     int TrackOrigins = CodeGenOpts.SanitizeMemoryTrackOrigins;
@@ -1264,6 +1272,9 @@ void EmitAssemblyHelper::EmitAssemblyWithNewPassManager(
   PB.registerLoopAnalyses(LAM);
   PB.crossRegisterProxies(LAM, FAM, CGAM, MAM);
 
+  if (TM)
+    TM->registerPassBuilderCallbacks(PB, CodeGenOpts.DebugPassManager);
+
   ModulePassManager MPM(CodeGenOpts.DebugPassManager);
 
   if (!CodeGenOpts.DisableLLVMPasses) {
@@ -1395,6 +1406,28 @@ void EmitAssemblyHelper::EmitAssemblyWithNewPassManager(
                       /*CompileKernel=*/false, Recover, UseAfterScope)));
             });
       }
+
+      if (LangOpts.Sanitize.has(SanitizerKind::HWAddress)) {
+        bool Recover =
+            CodeGenOpts.SanitizeRecover.has(SanitizerKind::HWAddress);
+        PB.registerOptimizerLastEPCallback(
+            [Recover](ModulePassManager &MPM,
+                      PassBuilder::OptimizationLevel Level) {
+              MPM.addPass(HWAddressSanitizerPass(
+                  /*CompileKernel=*/false, Recover));
+            });
+      }
+      if (LangOpts.Sanitize.has(SanitizerKind::KernelHWAddress)) {
+        bool Recover =
+            CodeGenOpts.SanitizeRecover.has(SanitizerKind::KernelHWAddress);
+        PB.registerOptimizerLastEPCallback(
+            [Recover](ModulePassManager &MPM,
+                      PassBuilder::OptimizationLevel Level) {
+              MPM.addPass(HWAddressSanitizerPass(
+                  /*CompileKernel=*/true, Recover));
+            });
+      }
+
       if (Optional<GCOVOptions> Options = getGCOVOptions(CodeGenOpts, LangOpts))
         PB.registerPipelineStartEPCallback([Options](ModulePassManager &MPM) {
           MPM.addPass(GCOVProfilerPass(*Options));
@@ -1429,16 +1462,6 @@ void EmitAssemblyHelper::EmitAssemblyWithNewPassManager(
     if (CodeGenOpts.MemProf) {
       MPM.addPass(createModuleToFunctionPassAdaptor(MemProfilerPass()));
       MPM.addPass(ModuleMemProfilerPass());
-    }
-
-    if (LangOpts.Sanitize.has(SanitizerKind::HWAddress)) {
-      bool Recover = CodeGenOpts.SanitizeRecover.has(SanitizerKind::HWAddress);
-      MPM.addPass(HWAddressSanitizerPass(
-          /*CompileKernel=*/false, Recover));
-    }
-    if (LangOpts.Sanitize.has(SanitizerKind::KernelHWAddress)) {
-      MPM.addPass(HWAddressSanitizerPass(
-          /*CompileKernel=*/true, /*Recover=*/true));
     }
 
     if (CodeGenOpts.OptimizationLevel == 0) {

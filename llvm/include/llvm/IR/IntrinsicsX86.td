@@ -5385,13 +5385,11 @@ let TargetPrefix = "x86" in {
               Intrinsic<[], [], []>;
 }
 
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_KEYLOCKER
 //===----------------------------------------------------------------------===//
-// KeyLocker
+// Key Locker
 let TargetPrefix = "x86" in {
   def int_x86_loadiwkey : GCCBuiltin<"__builtin_ia32_loadiwkey">,
-      Intrinsic<[], [llvm_i32_ty, llvm_v2i64_ty, llvm_v2i64_ty, llvm_v2i64_ty],
+      Intrinsic<[], [llvm_v2i64_ty, llvm_v2i64_ty, llvm_v2i64_ty, llvm_i32_ty],
                 []>;
   def int_x86_encodekey128 :
       Intrinsic<[llvm_i32_ty, llvm_v2i64_ty, llvm_v2i64_ty,
@@ -5438,8 +5436,8 @@ let TargetPrefix = "x86" in {
                  llvm_v2i64_ty, llvm_v2i64_ty, llvm_v2i64_ty,
                  llvm_v2i64_ty, llvm_v2i64_ty, llvm_v2i64_ty], []>;
 }
-#endif // INTEL_FEATURE_ISA_KEYLOCKER
 
+#if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_ULI
 //===----------------------------------------------------------------------===//
 // ULI - User Level Interrupt
@@ -6265,23 +6263,36 @@ let TargetPrefix = "x86" in {
   def int_x86_tilerelease : GCCBuiltin<"__builtin_ia32_tilerelease">,
               Intrinsic<[], [], []>;
   def int_x86_tilezero : GCCBuiltin<"__builtin_ia32_tilezero">,
-              Intrinsic<[], [llvm_i8_ty], []>;
+              Intrinsic<[], [llvm_i8_ty], [ImmArg<ArgIndex<0>>]>;
   def int_x86_tileloadd64 : GCCBuiltin<"__builtin_ia32_tileloadd64">,
-              Intrinsic<[], [llvm_i8_ty, llvm_ptr_ty, llvm_i64_ty], []>;
+              Intrinsic<[], [llvm_i8_ty, llvm_ptr_ty, llvm_i64_ty],
+                        [ImmArg<ArgIndex<0>>]>;
   def int_x86_tileloaddt164 : GCCBuiltin<"__builtin_ia32_tileloaddt164">,
-              Intrinsic<[], [llvm_i8_ty, llvm_ptr_ty, llvm_i64_ty], []>;
+              Intrinsic<[], [llvm_i8_ty, llvm_ptr_ty, llvm_i64_ty],
+                        [ImmArg<ArgIndex<0>>]>;
   def int_x86_tilestored64 : GCCBuiltin<"__builtin_ia32_tilestored64">,
-              Intrinsic<[], [llvm_i8_ty, llvm_ptr_ty, llvm_i64_ty], []>;
+              Intrinsic<[], [llvm_i8_ty, llvm_ptr_ty, llvm_i64_ty],
+                        [ImmArg<ArgIndex<0>>]>;
   def int_x86_tdpbssd : GCCBuiltin<"__builtin_ia32_tdpbssd">,
-              Intrinsic<[], [llvm_i8_ty, llvm_i8_ty, llvm_i8_ty], []>;
+              Intrinsic<[], [llvm_i8_ty, llvm_i8_ty, llvm_i8_ty],
+                        [ImmArg<ArgIndex<0>>, ImmArg<ArgIndex<1>>,
+                         ImmArg<ArgIndex<2>>]>;
   def int_x86_tdpbsud : GCCBuiltin<"__builtin_ia32_tdpbsud">,
-              Intrinsic<[], [llvm_i8_ty, llvm_i8_ty, llvm_i8_ty], []>;
+              Intrinsic<[], [llvm_i8_ty, llvm_i8_ty, llvm_i8_ty],
+                        [ImmArg<ArgIndex<0>>, ImmArg<ArgIndex<1>>,
+                         ImmArg<ArgIndex<2>>]>;
   def int_x86_tdpbusd : GCCBuiltin<"__builtin_ia32_tdpbusd">,
-              Intrinsic<[], [llvm_i8_ty, llvm_i8_ty, llvm_i8_ty], []>;
+              Intrinsic<[], [llvm_i8_ty, llvm_i8_ty, llvm_i8_ty],
+                        [ImmArg<ArgIndex<0>>, ImmArg<ArgIndex<1>>,
+                         ImmArg<ArgIndex<2>>]>;
   def int_x86_tdpbuud : GCCBuiltin<"__builtin_ia32_tdpbuud">,
-              Intrinsic<[], [llvm_i8_ty, llvm_i8_ty, llvm_i8_ty], []>;
+              Intrinsic<[], [llvm_i8_ty, llvm_i8_ty, llvm_i8_ty],
+                        [ImmArg<ArgIndex<0>>, ImmArg<ArgIndex<1>>,
+                         ImmArg<ArgIndex<2>>]>;
   def int_x86_tdpbf16ps : GCCBuiltin<"__builtin_ia32_tdpbf16ps">,
-              Intrinsic<[], [llvm_i8_ty, llvm_i8_ty, llvm_i8_ty], []>;
+              Intrinsic<[], [llvm_i8_ty, llvm_i8_ty, llvm_i8_ty],
+                        [ImmArg<ArgIndex<0>>, ImmArg<ArgIndex<1>>,
+                         ImmArg<ArgIndex<2>>]>;
 }
 
 #if INTEL_CUSTOMIZATION

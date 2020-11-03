@@ -93,6 +93,7 @@ public:
                    WRegionInfoGetter,
                std::function<TargetLibraryInfo &(Function &F)> TLIGetter,
                unsigned OptLevel);
+  static bool isRequired() { return true; }
 
 private:
   // Paropt mode.

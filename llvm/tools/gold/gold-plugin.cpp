@@ -875,7 +875,7 @@ static std::unique_ptr<LTO> createLTO(IndexWriteCallback OnIndexWrite,
   ThinBackend Backend;
 
   Conf.CPU = options::mcpu;
-  Conf.Options = codegen::InitTargetOptionsFromCodeGenFlags();
+  Conf.Options = codegen::InitTargetOptionsFromCodeGenFlags(Triple());
 
 #if INTEL_CUSTOMIZATION
   Conf.Options.IntelAdvancedOptim = options::AdvOptim;

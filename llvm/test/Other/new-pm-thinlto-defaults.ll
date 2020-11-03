@@ -48,12 +48,10 @@
 ; RUN:     | FileCheck %s --check-prefixes=CHECK-O,CHECK-O2,CHECK-O23SZ,CHECK-POSTLINK-O,%llvmcheckext,CHECK-POSTLINK-O2
 ;
 ; CHECK-O: Starting llvm::Module pass manager run.
-; CHECK-O-NEXT: Starting llvm::Module pass manager run.
 ; CHECK-O-NEXT: Running pass: ForceFunctionAttrsPass
 ; CHECK-EP-PIPELINE-START-NEXT: Running pass: NoOpModulePass
 ; CHECK-DIS-NEXT: Running analysis: InnerAnalysisManagerProxy
 ; CHECK-DIS-NEXT: Running pass: AddDiscriminatorsPass
-; CHECK-O-NEXT: Starting llvm::Module pass manager run.
 ; CHECK-O-NEXT: Running pass: InlineReportSetupPass          ;INTEL
 ; CHECK-POSTLINK-O-NEXT: Running pass: PGOIndirectCallPromotion
 ; CHECK-POSTLINK-O-NEXT: Running analysis: ProfileSummaryAnalysis
@@ -198,9 +196,7 @@
 ; CHECK-O-NEXT: Finished llvm::Function pass manager run.
 ; CHECK-O-NEXT: Finished CGSCC pass manager run.
 ; CHECK-O-NEXT: Finished llvm::Module pass manager run.
-; CHECK-O-NEXT: Finished llvm::Module pass manager run.
 ; CHECK-PRELINK-O-NEXT: Running pass: GlobalOptPass
-; CHECK-POSTLINK-O-NEXT: Starting llvm::Module pass manager run.
 ; CHECK-POSTLINK-O-NEXT: Running pass: GlobalOptPass
 ; CHECK-POSTLINK-O-NEXT: Running pass: GlobalDCEPass
 ; CHECK-POSTLINK-O-NEXT: Running pass: CleanupFakeLoadsPass{{.*}}                               ;INTEL
@@ -253,8 +249,6 @@
 ; CHECK-POSTLINK-O-NEXT: Running pass: GlobalDCEPass
 ; CHECK-POSTLINK-O-NEXT: Running pass: ConstantMergePass
 ; CHECK-POSTLINK-O-NEXT: Running pass: InlineReportEmitterPass                             ;INTEL
-; CHECK-POSTLINK-O-NEXT: Finished llvm::Module pass manager run.
-; CHECK-O-NEXT: Finished llvm::Module pass manager run.
 ; CHECK-PRELINK-O-NEXT: Running pass: NameAnonGlobalPass
 ; CHECK-O-NEXT: Running pass: PrintModulePass
 

@@ -91,7 +91,7 @@ define float @load_store_reduction_add(float* nocapture %a) {
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  VPlannedBB:
 ; CHECK-NEXT:    [[WIDE_LOAD30:%.*]] = load <8 x float>, <8 x float>* [[X_VEC0]], align 1
-; CHECK-NEXT:    [[TMP6:%.*]] = call float @llvm.experimental.vector.reduce.v2.fadd.f32.v8f32(float [[X_PROMOTED0]], <8 x float> [[WIDE_LOAD30]])
+; CHECK-NEXT:    [[TMP6:%.*]] = call float @llvm.vector.reduce.fadd.v8f32(float [[X_PROMOTED0]], <8 x float> [[WIDE_LOAD30]])
 ; CHECK-NEXT:    store float [[TMP6]], float* [[X0]], align 1
 ; CHECK-NEXT:    br label [[MIDDLE_BLOCK0:%.*]]
 ;

@@ -170,7 +170,7 @@ define void @foo(float* noalias nocapture %arr, i32 %n1) {
 ; CHECK-NEXT:  <69>               |   [[BB3]].69:
 ; CHECK-NEXT:  <70>               |   [[RED_VAR0]] = [[PHI_TEMP50]]  +  [[PHI_TEMP0]]
 ; CHECK-NEXT:  <36>               + END LOOP
-; CHECK-NEXT:  <71>                  [[VEC_REDUCE0:%.*]] = @llvm.experimental.vector.reduce.v2.fadd.f32.v4f32([[RED_PHI0]],  [[RED_VAR0]])
+; CHECK-NEXT:  <71>                  [[VEC_REDUCE0:%.*]] = @llvm.vector.reduce.fadd.v4f32([[RED_PHI0]],  [[RED_VAR0]])
 ; CHECK-NEXT:  <0>          END REGION
 ;
 ; MIXED-LABEL:  *** IR Dump After VPlan Vectorization Driver HIR ***
@@ -220,7 +220,7 @@ define void @foo(float* noalias nocapture %arr, i32 %n1) {
 ; MIXED-NEXT:  <71>               |   [[BB2]].71:
 ; MIXED-NEXT:  <72>               |   [[RED_VAR0]] = [[PHI_TEMP30]]  +  [[PHI_TEMP0]]
 ; MIXED-NEXT:  <36>               + END LOOP
-; MIXED-NEXT:  <73>                  [[VEC_REDUCE0:%.*]] = @llvm.experimental.vector.reduce.v2.fadd.f32.v4f32([[RED_PHI0:%.*]],  [[RED_VAR0]])
+; MIXED-NEXT:  <73>                  [[VEC_REDUCE0:%.*]] = @llvm.vector.reduce.fadd.v4f32([[RED_PHI0:%.*]],  [[RED_VAR0]])
 ; MIXED-NEXT:  <0>          END REGION
 ;
 

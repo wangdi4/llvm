@@ -1085,9 +1085,10 @@ void AsmPrinter::emitFrameAlloc(const MachineInstr &MI) {
                              MCConstantExpr::create(FrameOffset, OutContext));
 }
 
-/// Returns the BB metadata to be emitted in the bb_addr_map section for a given
-/// basic block. This can be used to capture more precise profile information.
-/// We use the last 3 bits (LSBs) to ecnode the following information:
+/// Returns the BB metadata to be emitted in the .llvm_bb_addr_map section for a
+/// given basic block. This can be used to capture more precise profile
+/// information. We use the last 3 bits (LSBs) to ecnode the following
+/// information:
 ///  * (1): set if return block (ret or tail call).
 ///  * (2): set if ends with a tail call.
 ///  * (3): set if exception handling (EH) landing pad.
@@ -1102,7 +1103,7 @@ static unsigned getBBAddrMapMetadata(const MachineBasicBlock &MBB) {
 void AsmPrinter::emitBBAddrMapSection(const MachineFunction &MF) {
   MCSection *BBAddrMapSection =
       getObjFileLowering().getBBAddrMapSection(*MF.getSection());
-  assert(BBAddrMapSection && ".bb_addr_map section is not initialized.");
+  assert(BBAddrMapSection && ".llvm_bb_addr_map section is not initialized.");
 
   const MCSymbol *FunctionSymbol = getFunctionBegin();
 
@@ -1946,10 +1947,11 @@ bool AsmPrinter::doFinalization(Module &M) {
   return false;
 }
 
-MCSymbol *AsmPrinter::getCurExceptionSym() {
-  if (!CurExceptionSym)
-    CurExceptionSym = createTempSymbol("exception");
-  return CurExceptionSym;
+MCSymbol *AsmPrinter::getMBBExceptionSym(const MachineBasicBlock &MBB) {
+  auto Res = MBBSectionExceptionSyms.try_emplace(MBB.getSectionIDNum());
+  if (Res.second)
+    Res.first->second = createTempSymbol("exception");
+  return Res.first->second;
 }
 
 void AsmPrinter::SetupMachineFunction(MachineFunction &MF) {
@@ -1976,7 +1978,7 @@ void AsmPrinter::SetupMachineFunction(MachineFunction &MF) {
   CurrentFnBegin = nullptr;
   CurrentSectionBeginSym = nullptr;
   MBBSectionRanges.clear();
-  CurExceptionSym = nullptr;
+  MBBSectionExceptionSyms.clear();
   bool NeedsLocalForSize = MAI->needsLocalForSize();
   if (F.hasFnAttribute("patchable-function-entry") ||
       F.hasFnAttribute("function-instrument") ||
@@ -3235,6 +3237,16 @@ void AsmPrinter::emitBasicBlockStart(const MachineBasicBlock &MBB) {
   if (Alignment != Align(1))
     emitAlignment(Alignment);
 
+  // Switch to a new section if this basic block must begin a section. The
+  // entry block is always placed in the function section and is handled
+  // separately.
+  if (MBB.isBeginSection() && !MBB.pred_empty()) {
+    OutStreamer->SwitchSection(
+        getObjFileLowering().getSectionForMachineBasicBlock(MF->getFunction(),
+                                                            MBB, TM));
+    CurrentSectionBeginSym = MBB.getSymbol();
+  }
+
   // If the block has its address taken, emit any labels that were used to
   // reference the block.  It is possible that there is more than one label
   // here, because multiple LLVM BB's may have been RAUW'd to this block after
@@ -3265,6 +3277,7 @@ void AsmPrinter::emitBasicBlockStart(const MachineBasicBlock &MBB) {
     emitBasicBlockLoopComments(MBB, MLI, *this);
   }
 
+  // Print the main label for the block.
   if (MBB.pred_empty() ||
       (!MF->hasBBLabels() && isBlockOnlyReachableByFallthrough(&MBB) &&
        !MBB.isEHFuncletEntry() && !MBB.hasLabelMustBeEmitted())) {
@@ -3274,24 +3287,17 @@ void AsmPrinter::emitBasicBlockStart(const MachineBasicBlock &MBB) {
                                   false);
     }
   } else {
-    if (isVerbose() && MBB.hasLabelMustBeEmitted()) {
+    if (isVerbose() && MBB.hasLabelMustBeEmitted())
       OutStreamer->AddComment("Label of block must be emitted");
-    }
-    auto *BBSymbol = MBB.getSymbol();
-    // Switch to a new section if this basic block must begin a section.
-    if (MBB.isBeginSection()) {
-      OutStreamer->SwitchSection(
-          getObjFileLowering().getSectionForMachineBasicBlock(MF->getFunction(),
-                                                              MBB, TM));
-      CurrentSectionBeginSym = BBSymbol;
-    }
-    OutStreamer->emitLabel(BBSymbol);
-    // With BB sections, each basic block must handle CFI information on its own
-    // if it begins a section.
-    if (MBB.isBeginSection())
-      for (const HandlerInfo &HI : Handlers)
-        HI.Handler->beginBasicBlock(MBB);
+    OutStreamer->emitLabel(MBB.getSymbol());
   }
+
+  // With BB sections, each basic block must handle CFI information on its own
+  // if it begins a section (Entry block is handled separately by
+  // AsmPrinterHandler::beginFunction).
+  if (MBB.isBeginSection() && !MBB.pred_empty())
+    for (const HandlerInfo &HI : Handlers)
+      HI.Handler->beginBasicBlock(MBB);
 }
 
 void AsmPrinter::emitBasicBlockEnd(const MachineBasicBlock &MBB) {

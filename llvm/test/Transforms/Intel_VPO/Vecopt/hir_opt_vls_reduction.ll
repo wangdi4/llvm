@@ -31,7 +31,7 @@
 ; CHECK-NEXT:       |   %.vec = %vls.shuf + %vls.shuf1  +  %.copy;
 ; CHECK-NEXT:       |   %red.var = %.vec  +  %vls.shuf2;
 ; CHECK-NEXT:       + END LOOP
-; CHECK:            %sum.022 = @llvm.experimental.vector.reduce.add.v4i32(%red.var);
+; CHECK:            %sum.022 = @llvm.vector.reduce.add.v4i32(%red.var);
 
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"

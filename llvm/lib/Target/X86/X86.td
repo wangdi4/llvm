@@ -471,20 +471,19 @@ def FeatureWAITPKG  : SubtargetFeature<"waitpkg", "HasWAITPKG", "true",
 def FeatureENQCMD : SubtargetFeature<"enqcmd", "HasENQCMD", "true",
                                      "Has ENQCMD instructions">;
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_KEYLOCKER
-def FeatureKeyLocker  : SubtargetFeature<"keylocker", "HasKeyLocker", "true",
-                                         "Support KeyLocker Instructions",
-                                         [FeatureSSE2]>;
-#endif // INTEL_FEATURE_ISA_KEYLOCKER
 #if INTEL_FEATURE_ISA_ULI
 def FeatureULI : SubtargetFeature<"uli", "HasULI", "true",
                                   "Has ULI Instructions">;
 #endif // INTEL_FEATURE_ISA_ULI
-#if INTEL_FEATURE_ISA_HRESET
+#endif // INTEL_CUSTOMIZATION
+def FeatureKL  : SubtargetFeature<"kl", "HasKL", "true",
+                                  "Support Key Locker kl Instructions",
+                                  [FeatureSSE2]>;
+def FeatureWIDEKL  : SubtargetFeature<"widekl", "HasWIDEKL", "true",
+                                      "Support Key Locker wide Instructions",
+                                      [FeatureKL]>;
 def FeatureHRESET : SubtargetFeature<"hreset", "HasHRESET", "true",
                                       "Has hreset instruction">;
-#endif // INTEL_FEATURE_ISA_HRESET
-#endif // INTEL_CUSTOMIZATION
 def FeatureSERIALIZE : SubtargetFeature<"serialize", "HasSERIALIZE", "true",
                                         "Has serialize instruction">;
 def FeatureTSXLDTRK : SubtargetFeature<"tsxldtrk", "HasTSXLDTRK", "true",
@@ -763,18 +762,27 @@ include "X86SchedSkylakeServer.td"
 //===----------------------------------------------------------------------===//
 
 def ProcessorFeatures {
+  // x86-64 and x86-64-v[234]
+  list<SubtargetFeature> X86_64V1Features = [
+    FeatureX87, FeatureCMPXCHG8B, FeatureCMOV, FeatureMMX, FeatureSSE2,
+    FeatureFXSR, FeatureNOPL, Feature64Bit
+  ];
+  list<SubtargetFeature> X86_64V2Features = !listconcat(
+      X86_64V1Features,
+      [FeatureCMPXCHG16B, FeatureLAHFSAHF, FeaturePOPCNT, FeatureSSE42]);
+  list<SubtargetFeature> X86_64V3Features = !listconcat(X86_64V2Features, [
+    FeatureAVX2, FeatureBMI, FeatureBMI2, FeatureF16C, FeatureFMA, FeatureLZCNT,
+    FeatureMOVBE, FeatureXSAVE
+  ]);
+  list<SubtargetFeature> X86_64V4Features = !listconcat(X86_64V3Features, [
+    FeatureBWI,
+    FeatureCDI,
+    FeatureDQI,
+    FeatureVLX,
+  ]);
+
   // Nehalem
-  list<SubtargetFeature> NHMFeatures = [FeatureX87,
-                                        FeatureCMPXCHG8B,
-                                        FeatureCMOV,
-                                        FeatureMMX,
-                                        FeatureSSE42,
-                                        FeatureFXSR,
-                                        FeatureNOPL,
-                                        Feature64Bit,
-                                        FeatureCMPXCHG16B,
-                                        FeaturePOPCNT,
-                                        FeatureLAHFSAHF];
+  list<SubtargetFeature> NHMFeatures = X86_64V2Features;
   list<SubtargetFeature> NHMTuning = [FeatureMacroFusion,
                                       FeatureInsertVZEROUPPER];
 
@@ -969,11 +977,7 @@ def ProcessorFeatures {
 
   //Tigerlake
   list<SubtargetFeature> TGLAdditionalFeatures = [FeatureVP2INTERSECT,
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_KEYLOCKER
-                                                  FeatureKeyLocker,
-#endif // INTEL_FEATURE_ISA_KEYLOCKER
-#endif // INTEL_CUSTOMIZATION
+                                                  FeatureKL,
                                                   FeatureMOVDIRI,
                                                   FeatureMOVDIR64B,
                                                   FeatureSHSTK];
@@ -1000,9 +1004,6 @@ def ProcessorFeatures {
 #if INTEL_FEATURE_ISA_AVX_VNNI
                                                   FeatureAVXVNNI,
 #endif // INTEL_FEATURE_ISA_AVX_VNNI
-#if INTEL_FEATURE_ISA_HRESET
-                                                  FeatureHRESET,
-#endif // INTEL_FEATURE_ISA_HRESET
 #endif // INTEL_CUSTOMIZATION
                                                   FeatureTSXLDTRK,
                                                   FeatureENQCMD,
@@ -1099,9 +1100,7 @@ def ProcessorFeatures {
     FeaturePCONFIG,
     FeatureWBNOINVD,
     FeatureSHSTK,
-#if INTEL_FEATURE_ISA_KEYLOCKER
-    FeatureKeyLocker,
-#endif // INTEL_FEATURE_ISA_KEYLOCKER
+    FeatureKL,
     FeatureINVPCID,
     FeatureADX,
     FeatureAVX,
@@ -1119,9 +1118,7 @@ def ProcessorFeatures {
 #endif // INTEL_FEATURE_ISA_AVX_VNNI
     FeaturePKU,
     FeaturePCONFIG,
-#if INTEL_FEATURE_ISA_HRESET
     FeatureHRESET,
-#endif // INTEL_FEATURE_ISA_HRESET
     FeatureCLDEMOTE,
     FeatureMOVDIRI,
     FeatureMOVDIR64B,
@@ -1663,16 +1660,7 @@ def : Proc<"c3-2",            [FeatureX87, FeatureCMPXCHG8B, FeatureMMX,
 // covers a huge swath of x86 processors. If there are specific scheduling
 // knobs which need to be tuned differently for AMD chips, we might consider
 // forming a common base for them.
-def : ProcModel<"x86-64", SandyBridgeModel, [
-  FeatureX87,
-  FeatureCMPXCHG8B,
-  FeatureCMOV,
-  FeatureMMX,
-  FeatureSSE2,
-  FeatureFXSR,
-  FeatureNOPL,
-  Feature64Bit,
-],
+def : ProcModel<"x86-64", SandyBridgeModel, ProcessorFeatures.X86_64V1Features,
 [
   FeatureSlow3OpsLEA,
   FeatureSlowDivide64,
@@ -1680,6 +1668,16 @@ def : ProcModel<"x86-64", SandyBridgeModel, [
   FeatureMacroFusion,
   FeatureInsertVZEROUPPER
 ]>;
+
+// x86-64 micro-architecture levels.
+def : ProcModel<"x86-64-v2", SandyBridgeModel, ProcessorFeatures.X86_64V2Features,
+                ProcessorFeatures.SNBTuning>;
+// Close to Haswell.
+def : ProcModel<"x86-64-v3", HaswellModel, ProcessorFeatures.X86_64V3Features,
+                ProcessorFeatures.HSWTuning>;
+// Close to the AVX-512 level implemented by Xeon Scalable Processors.
+def : ProcModel<"x86-64-v4", HaswellModel, ProcessorFeatures.X86_64V4Features,
+                ProcessorFeatures.SKXTuning>;
 
 //===----------------------------------------------------------------------===//
 // Calling Conventions

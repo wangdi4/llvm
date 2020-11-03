@@ -39,7 +39,7 @@ enum ClangFlags {
   Ignored = (1 << 16),
 #if INTEL_CUSTOMIZATION
   DpcppUnsupported = (1 << 17),
-  DpcppHidden = (1 << 18)
+  DpcppHidden = (1 << 18),
 #endif // INTEL_CUSTOMIZATION
 };
 

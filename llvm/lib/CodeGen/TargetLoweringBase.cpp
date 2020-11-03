@@ -651,7 +651,7 @@ void TargetLoweringBase::initActions() {
             std::end(TargetDAGCombineArray), 0);
 
   for (MVT VT : MVT::fp_valuetypes()) {
-    MVT IntVT = MVT::getIntegerVT(VT.getSizeInBits().getFixedSize());
+    MVT IntVT = MVT::getIntegerVT(VT.getFixedSizeInBits());
     if (IntVT.isValid()) {
       setOperationAction(ISD::ATOMIC_SWAP, VT, Promote);
       AddPromotedToType(ISD::ATOMIC_SWAP, VT, IntVT);
@@ -716,6 +716,8 @@ void TargetLoweringBase::initActions() {
     setOperationAction(ISD::ADDCARRY, VT, Expand);
     setOperationAction(ISD::SUBCARRY, VT, Expand);
     setOperationAction(ISD::SETCCCARRY, VT, Expand);
+    setOperationAction(ISD::SADDO_CARRY, VT, Expand);
+    setOperationAction(ISD::SSUBO_CARRY, VT, Expand);
 
     // ADDC/ADDE/SUBC/SUBE default to expand.
     setOperationAction(ISD::ADDC, VT, Expand);
@@ -872,9 +874,7 @@ TargetLoweringBase::getTypeConversion(LLVMContext &Context, EVT VT) const {
            "Promote may not follow Expand or Promote");
 
     if (LA == TypeSplitVector)
-      return LegalizeKind(LA,
-                          EVT::getVectorVT(Context, SVT.getVectorElementType(),
-                                           SVT.getVectorElementCount() / 2));
+      return LegalizeKind(LA, EVT(SVT).getHalfNumVectorElementsVT(Context));
     if (LA == TypeScalarizeVector)
       return LegalizeKind(LA, SVT.getVectorElementType());
     return LegalizeKind(LA, NVT);
@@ -905,7 +905,7 @@ TargetLoweringBase::getTypeConversion(LLVMContext &Context, EVT VT) const {
   EVT EltVT = VT.getVectorElementType();
 
   // Vectors with only one element are always scalarized.
-  if (NumElts == 1)
+  if (NumElts.isScalar())
     return LegalizeKind(TypeScalarizeVector, EltVT);
 
   if (VT.getVectorElementCount() == ElementCount::getScalable(1))
@@ -918,7 +918,7 @@ TargetLoweringBase::getTypeConversion(LLVMContext &Context, EVT VT) const {
     // Vectors with a number of elements that is not a power of two are always
     // widened, for example <3 x i8> -> <4 x i8>.
     if (!VT.isPow2VectorType()) {
-      NumElts = NumElts.NextPowerOf2();
+      NumElts = NumElts.coefficientNextPowerOf2();
       EVT NVT = EVT::getVectorVT(Context, EltVT, NumElts);
       return LegalizeKind(TypeWidenVector, NVT);
     }
@@ -930,7 +930,7 @@ TargetLoweringBase::getTypeConversion(LLVMContext &Context, EVT VT) const {
     //  <4 x i140> -> <2 x i140>
     if (LK.first == TypeExpandInteger)
       return LegalizeKind(TypeSplitVector,
-                          EVT::getVectorVT(Context, EltVT, NumElts / 2));
+                          VT.getHalfNumVectorElementsVT(Context));
 
     // Promote the integer element types until a legal vector type is found
     // or until the element integer type is too big. If a legal type was not
@@ -967,7 +967,7 @@ TargetLoweringBase::getTypeConversion(LLVMContext &Context, EVT VT) const {
   // If there is no wider legal type, split the vector.
   while (true) {
     // Round up to the next power of 2.
-    NumElts = NumElts.NextPowerOf2();
+    NumElts = NumElts.coefficientNextPowerOf2();
 
     // If there is no simple vector type with this many elements then there
     // cannot be a larger legal vector type.  Note that this assumes that
@@ -990,7 +990,8 @@ TargetLoweringBase::getTypeConversion(LLVMContext &Context, EVT VT) const {
   }
 
   // Vectors with illegal element types are expanded.
-  EVT NVT = EVT::getVectorVT(Context, EltVT, VT.getVectorElementCount() / 2);
+  EVT NVT = EVT::getVectorVT(Context, EltVT,
+                             VT.getVectorElementCount().divideCoefficientBy(2));
   return LegalizeKind(TypeSplitVector, NVT);
 }
 
@@ -1023,7 +1024,7 @@ static unsigned getVectorTypeBreakdownMVT(MVT VT, MVT &IntermediateVT,
   // scalar.
   while (EC.getKnownMinValue() > 1 &&
          !TLI->isTypeLegal(MVT::getVectorVT(EltTy, EC))) {
-    EC /= 2;
+    EC = EC.divideCoefficientBy(2);
     NumVectorRegs <<= 1;
   }
 
@@ -1529,7 +1530,7 @@ unsigned TargetLoweringBase::getVectorTypeBreakdown(LLVMContext &Context, EVT VT
   // end with a scalar if the target doesn't support vectors.
   while (EltCnt.getKnownMinValue() > 1 &&
          !isTypeLegal(EVT::getVectorVT(Context, EltTy, EltCnt))) {
-    EltCnt /= 2;
+    EltCnt = EltCnt.divideCoefficientBy(2);
     NumVectorRegs <<= 1;
   }
 
@@ -1547,7 +1548,7 @@ unsigned TargetLoweringBase::getVectorTypeBreakdown(LLVMContext &Context, EVT VT
     TypeSize NewVTSize = NewVT.getSizeInBits();
     // Convert sizes such as i33 to i64.
     if (!isPowerOf2_32(NewVTSize.getKnownMinSize()))
-      NewVTSize = NewVTSize.NextPowerOf2();
+      NewVTSize = NewVTSize.coefficientNextPowerOf2();
     return NumVectorRegs*(NewVTSize/DestVT.getSizeInBits());
   }
 

@@ -25,7 +25,7 @@ target triple = "x86_64-unknown-linux-gnu"
 ; CHECK-NEXT: + DO i1
 ; CHECK-NOT: + DO i2
 ; CHECK: + END LOOP
-; CHECK-NEXT: %i_sum.027 = @llvm.experimental.vector.reduce.add
+; CHECK-NEXT: %i_sum.027 = @llvm.vector.reduce.add
 
 ; Function Attrs: norecurse nounwind readonly uwtable
 define dso_local i32 @name(i8* nocapture readonly %pix1, i32 %i_stride_pix1, i8* nocapture readonly %pix2, i32 %i_stride_pix2) local_unnamed_addr #0 {

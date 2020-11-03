@@ -10,7 +10,6 @@
 #include "ClangdServer.h"
 #include "CodeComplete.h"
 #include "Compiler.h"
-#include "CompletionModel.h"
 #include "Matchers.h"
 #include "Protocol.h"
 #include "Quality.h"
@@ -112,8 +111,6 @@ CodeCompleteResult completions(const TestTU &TU, Position Point,
 
   MockFS FS;
   auto Inputs = TU.inputs(FS);
-  Inputs.Opts.BuildRecoveryAST = true;
-  Inputs.Opts.PreserveRecoveryASTType = true;
   IgnoreDiagnostics Diags;
   auto CI = buildCompilerInvocation(Inputs, Diags);
   if (!CI) {
@@ -163,14 +160,38 @@ Symbol withReferences(int N, Symbol S) {
   return S;
 }
 
-TEST(DecisionForestRuntime, SanityTest) {
-  using Example = clangd::Example;
-  using clangd::Evaluate;
-  Example E1;
-  E1.setContextKind(ContextKind::CCC_ArrowMemberAccess);
-  Example E2;
-  E2.setContextKind(ContextKind::CCC_SymbolOrNewName);
-  EXPECT_GT(Evaluate(E1), Evaluate(E2));
+TEST(DecisionForestRankingModel, NameMatchSanityTest) {
+  clangd::CodeCompleteOptions Opts;
+  Opts.RankingModel = CodeCompleteOptions::DecisionForest;
+  auto Results = completions(
+      R"cpp(
+struct MemberAccess {
+  int ABG();
+  int AlphaBetaGamma();
+};
+int func() { MemberAccess().ABG^ }
+)cpp",
+      /*IndexSymbols=*/{}, Opts);
+  EXPECT_THAT(Results.Completions,
+              ElementsAre(Named("ABG"), Named("AlphaBetaGamma")));
+}
+
+TEST(DecisionForestRankingModel, ReferencesAffectRanking) {
+  clangd::CodeCompleteOptions Opts;
+  Opts.RankingModel = CodeCompleteOptions::DecisionForest;
+  constexpr int NumReferences = 100000;
+  EXPECT_THAT(
+      completions("int main() { clang^ }",
+                  {ns("clangA"), withReferences(NumReferences, func("clangD"))},
+                  Opts)
+          .Completions,
+      ElementsAre(Named("clangD"), Named("clangA")));
+  EXPECT_THAT(
+      completions("int main() { clang^ }",
+                  {withReferences(NumReferences, ns("clangA")), func("clangD")},
+                  Opts)
+          .Completions,
+      ElementsAre(Named("clangA"), Named("clangD")));
 }
 
 TEST(CompletionTest, Limit) {
@@ -1077,8 +1098,6 @@ SignatureHelp signatures(llvm::StringRef Text, Position Point,
   MockFS FS;
   auto Inputs = TU.inputs(FS);
   Inputs.Index = Index.get();
-  Inputs.Opts.BuildRecoveryAST = true;
-  Inputs.Opts.PreserveRecoveryASTType = true;
   IgnoreDiagnostics Diags;
   auto CI = buildCompilerInvocation(Inputs, Diags);
   if (!CI) {

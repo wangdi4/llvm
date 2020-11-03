@@ -697,6 +697,13 @@ public:
                                 const SCEV *LHS, const SCEV *RHS, // INTEL
                                 ICmpInst *PredContext = nullptr); // INTEL
 
+  /// Test whether entry to the basic block is protected by a conditional
+  /// between LHS and RHS.
+  bool isBasicBlockEntryGuardedByCond(const BasicBlock *BB,
+                                      ICmpInst::Predicate Pred, const SCEV *LHS,
+                                      const SCEV *RHS,                  // INTEL
+                                      ICmpInst *PredContext = nullptr); // INTEL
+
   /// Test whether the backedge of the loop is protected by a conditional
   /// between LHS and RHS.  This is used to eliminate casts.
   bool isLoopBackedgeGuardedByCond(const Loop *L, ICmpInst::Predicate Pred,
@@ -945,6 +952,11 @@ public:
   bool isKnownPredicate(ICmpInst::Predicate Pred, const SCEV *LHS,
                         const SCEV *RHS);
 
+  /// Test if the given expression is known to satisfy the condition described
+  /// by Pred, LHS, and RHS in the given Context.
+  bool isKnownPredicateAt(ICmpInst::Predicate Pred, const SCEV *LHS,
+                        const SCEV *RHS, const Instruction *Context);
+
   /// Test if the condition described by Pred, LHS, RHS is known to be true on
   /// every iteration of the loop of the recurrency LHS.
   bool isKnownOnEveryIteration(ICmpInst::Predicate Pred,
@@ -1145,6 +1157,20 @@ public:
       const SCEV *S, const Loop *L,
       SmallPtrSetImpl<const SCEVPredicate *> &Preds);
 
+  /// Compute \p LHS - \p RHS and returns the result as an APInt if it is a
+  /// constant, and None if it isn't.
+  ///
+  /// This is intended to be a cheaper version of getMinusSCEV.  We can be
+  /// frugal here since we just bail out of actually constructing and
+  /// canonicalizing an expression in the cases where the result isn't going
+  /// to be a constant.
+#if INTEL_CUSTOMIZATION
+  // INTEL: Added extra parameter.
+  Optional<APInt> computeConstantDifference(const SCEV *LHS, const SCEV *RHS,
+                                            bool *SignedOverflow = nullptr);
+#endif // INTEL_CUSTOMIZATION
+
+private:
 protected: // INTEL
   /// A CallbackVH to arrange for ScalarEvolution to be notified whenever a
   /// Value is deleted.
@@ -1731,26 +1757,33 @@ protected: // INTEL
   getPredecessorWithUniqueSuccessorForBB(const BasicBlock *BB) const;
 
   /// Test whether the condition described by Pred, LHS, and RHS is true
-  /// whenever the given FoundCondValue value evaluates to true.
+  /// whenever the given FoundCondValue value evaluates to true in given
+  /// Context. If Context is nullptr, then the found predicate is true
+  /// everywhere.
   bool isImpliedCond(ICmpInst::Predicate Pred, const SCEV *LHS, const SCEV *RHS,
-                     const Value *FoundCondValue, bool Inverse, // INTEL
-                     const ICmpInst *PredContext = nullptr);    // INTEL
+                     const Value *FoundCondValue, bool Inverse,
+                     const Instruction *Context = nullptr,   // INTEL
+                     const ICmpInst *PredContext = nullptr); // INTEL
 
   /// Test whether the condition described by Pred, LHS, and RHS is true
   /// whenever the condition described by FoundPred, FoundLHS, FoundRHS is
-  /// true.
+  /// true in given Context. If Context is nullptr, then the found predicate is
+  /// true everywhere.
   bool isImpliedCond(ICmpInst::Predicate Pred, const SCEV *LHS, const SCEV *RHS,
                      ICmpInst::Predicate FoundPred, const SCEV *FoundLHS,
-                     const SCEV *FoundRHS,                  // INTEL
+                     const SCEV *FoundRHS,
+                     const Instruction *Context = nullptr,        // INTEL
                      const ICmpInst *PredContext = nullptr,       // INTEL
                      const ICmpInst *FoundPredContext = nullptr); // INTEL
 
   /// Test whether the condition described by Pred, LHS, and RHS is true
   /// whenever the condition described by Pred, FoundLHS, and FoundRHS is
-  /// true.
+  /// true in given Context. If Context is nullptr, then the found predicate is
+  /// true everywhere.
   bool isImpliedCondOperands(ICmpInst::Predicate Pred, const SCEV *LHS,
                              const SCEV *RHS, const SCEV *FoundLHS,
-                             const SCEV *FoundRHS);
+                             const SCEV *FoundRHS,
+                             const Instruction *Context = nullptr);
 
   /// Test whether the condition described by Pred, LHS, and RHS is true
   /// whenever the condition described by Pred, FoundLHS, and FoundRHS is
@@ -1796,6 +1829,18 @@ protected: // INTEL
                                           const SCEV *LHS, const SCEV *RHS,
                                           const SCEV *FoundLHS,
                                           const SCEV *FoundRHS);
+
+  /// Test whether the condition described by Pred, LHS, and RHS is true
+  /// whenever the condition described by Pred, FoundLHS, and FoundRHS is
+  /// true.
+  ///
+  /// This routine tries to weaken the known condition basing on fact that
+  /// FoundLHS is an AddRec.
+  bool isImpliedCondOperandsViaAddRecStart(ICmpInst::Predicate Pred,
+                                           const SCEV *LHS, const SCEV *RHS,
+                                           const SCEV *FoundLHS,
+                                           const SCEV *FoundRHS,
+                                           const Instruction *Context);
 
   /// Test whether the condition described by Pred, LHS, and RHS is true
   /// whenever the condition described by Pred, FoundLHS, and FoundRHS is
@@ -1860,21 +1905,6 @@ protected: // INTEL
   /// Try to match the Expr as "(L + R)<Flags>".
   bool splitBinaryAdd(const SCEV *Expr, const SCEV *&L, const SCEV *&R,
                       SCEV::NoWrapFlags &Flags);
-
-  /// Compute \p LHS - \p RHS and returns the result as an APInt if it is a
-  /// constant, and None if it isn't.
-  ///
-  /// This is intended to be a cheaper version of getMinusSCEV.  We can be
-  /// frugal here since we just bail out of actually constructing and
-  /// canonicalizing an expression in the cases where the result isn't going
-  /// to be a constant.
-#if INTEL_CUSTOMIZATION
-public:
-  Optional<APInt> computeConstantDifference(const SCEV *LHS, const SCEV *RHS,
-                                            bool *SignedOverflow = nullptr);
-
-private:
-#endif // INTEL_CUSTOMIZATION
 
   /// Drop memoized information computed for S.
   void forgetMemoizedResults(const SCEV *S);

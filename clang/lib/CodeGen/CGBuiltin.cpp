@@ -840,10 +840,10 @@ static llvm::Value *EmitX86BitTestIntrinsic(CodeGenFunction &CGF,
   AsmOS << "bt";
   if (Action)
     AsmOS << Action;
-  AsmOS << SizeSuffix << " $2, ($1)\n\tsetc ${0:b}";
+  AsmOS << SizeSuffix << " $2, ($1)";
 
   // Build the constraints. FIXME: We should support immediates when possible.
-  std::string Constraints = "=r,r,r,~{cc},~{memory}";
+  std::string Constraints = "={@ccc},r,r,~{cc},~{memory}";
   std::string MachineClobbers = CGF.getTarget().getClobbers();
   if (!MachineClobbers.empty()) {
     Constraints += ',';
@@ -4282,11 +4282,13 @@ RValue CodeGenFunction::EmitBuiltinExpr(const GlobalDecl GD, unsigned BuiltinID,
   case Builtin::BI_abnormal_termination:
     return RValue::get(EmitSEHAbnormalTermination());
   case Builtin::BI_setjmpex:
-    if (getTarget().getTriple().isOSMSVCRT())
+    if (getTarget().getTriple().isOSMSVCRT() && E->getNumArgs() == 1 &&
+        E->getArg(0)->getType()->isPointerType())
       return EmitMSVCRTSetJmp(*this, MSVCSetJmpKind::_setjmpex, E);
     break;
   case Builtin::BI_setjmp:
-    if (getTarget().getTriple().isOSMSVCRT()) {
+    if (getTarget().getTriple().isOSMSVCRT() && E->getNumArgs() == 1 &&
+        E->getArg(0)->getType()->isPointerType()) {
       if (getTarget().getTriple().getArch() == llvm::Triple::x86)
         return EmitMSVCRTSetJmp(*this, MSVCSetJmpKind::_setjmp3, E);
       else if (getTarget().getTriple().getArch() == llvm::Triple::aarch64)
@@ -6221,7 +6223,7 @@ Value *CodeGenFunction::EmitCommonNeonBuiltinExpr(
     if (BuiltinID == NEON::BI__builtin_neon_splatq_lane_v)
       NumElements = NumElements * 2;
     if (BuiltinID == NEON::BI__builtin_neon_splat_laneq_v)
-      NumElements = NumElements / 2;
+      NumElements = NumElements.divideCoefficientBy(2);
 
     Ops[0] = Builder.CreateBitCast(Ops[0], VTy);
     return EmitNeonSplat(Ops[0], cast<ConstantInt>(Ops[1]), NumElements);
@@ -9881,8 +9883,7 @@ Value *CodeGenFunction::EmitAArch64SVEBuiltinExpr(unsigned BuiltinID,
   case SVE::BI__builtin_sve_svtbl2_f64: {
     SVETypeFlags TF(Builtin->TypeModifier);
     auto VTy = cast<llvm::VectorType>(getSVEType(TF));
-    auto TupleTy = llvm::VectorType::get(VTy->getElementType(),
-                                         VTy->getElementCount() * 2);
+    auto TupleTy = llvm::VectorType::getDoubleElementsVectorType(VTy);
     Function *FExtr =
         CGM.getIntrinsic(Intrinsic::aarch64_sve_tuple_get, {VTy, TupleTy});
     Value *V0 = Builder.CreateCall(FExtr, {Ops[0], Builder.getInt32(0)});
@@ -15129,6 +15130,56 @@ Value *CodeGenFunction::EmitX86BuiltinExpr(unsigned BuiltinID,
     // Ops 0 and 1 are swapped.
     return EmitX86FunnelShift(*this, Ops[1], Ops[0], Ops[2], true);
 
+  // Reductions
+  case X86::BI__builtin_ia32_reduce_add_d512:
+  case X86::BI__builtin_ia32_reduce_add_q512: {
+    Function *F =
+        CGM.getIntrinsic(Intrinsic::vector_reduce_add, Ops[0]->getType());
+    return Builder.CreateCall(F, {Ops[0]});
+  }
+  case X86::BI__builtin_ia32_reduce_and_d512:
+  case X86::BI__builtin_ia32_reduce_and_q512: {
+    Function *F =
+        CGM.getIntrinsic(Intrinsic::vector_reduce_and, Ops[0]->getType());
+    return Builder.CreateCall(F, {Ops[0]});
+  }
+  case X86::BI__builtin_ia32_reduce_mul_d512:
+  case X86::BI__builtin_ia32_reduce_mul_q512: {
+    Function *F =
+        CGM.getIntrinsic(Intrinsic::vector_reduce_mul, Ops[0]->getType());
+    return Builder.CreateCall(F, {Ops[0]});
+  }
+  case X86::BI__builtin_ia32_reduce_or_d512:
+  case X86::BI__builtin_ia32_reduce_or_q512: {
+    Function *F =
+        CGM.getIntrinsic(Intrinsic::vector_reduce_or, Ops[0]->getType());
+    return Builder.CreateCall(F, {Ops[0]});
+  }
+  case X86::BI__builtin_ia32_reduce_smax_d512:
+  case X86::BI__builtin_ia32_reduce_smax_q512: {
+    Function *F =
+        CGM.getIntrinsic(Intrinsic::vector_reduce_smax, Ops[0]->getType());
+    return Builder.CreateCall(F, {Ops[0]});
+  }
+  case X86::BI__builtin_ia32_reduce_smin_d512:
+  case X86::BI__builtin_ia32_reduce_smin_q512: {
+    Function *F =
+        CGM.getIntrinsic(Intrinsic::vector_reduce_smin, Ops[0]->getType());
+    return Builder.CreateCall(F, {Ops[0]});
+  }
+  case X86::BI__builtin_ia32_reduce_umax_d512:
+  case X86::BI__builtin_ia32_reduce_umax_q512: {
+    Function *F =
+        CGM.getIntrinsic(Intrinsic::vector_reduce_umax, Ops[0]->getType());
+    return Builder.CreateCall(F, {Ops[0]});
+  }
+  case X86::BI__builtin_ia32_reduce_umin_d512:
+  case X86::BI__builtin_ia32_reduce_umin_q512: {
+    Function *F =
+        CGM.getIntrinsic(Intrinsic::vector_reduce_umin, Ops[0]->getType());
+    return Builder.CreateCall(F, {Ops[0]});
+  }
+
   // 3DNow!
   case X86::BI__builtin_ia32_pswapdsf:
   case X86::BI__builtin_ia32_pswapdsi: {
@@ -15794,97 +15845,102 @@ Value *CodeGenFunction::EmitX86BuiltinExpr(unsigned BuiltinID,
   case X86::BI__builtin_ia32_psubusb128:
   case X86::BI__builtin_ia32_psubusw128:
     return EmitX86BinaryIntrinsic(*this, Ops, Intrinsic::usub_sat);
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_KEYLOCKER
-  case X86::BI__builtin_ia32_encodekey128:
-  case X86::BI__builtin_ia32_encodekey256:
-  case X86::BI__builtin_ia32_aesenc128kl:
-  case X86::BI__builtin_ia32_aesdec128kl:
-  case X86::BI__builtin_ia32_aesenc256kl:
-  case X86::BI__builtin_ia32_aesdec256kl:
-  case X86::BI__builtin_ia32_aesencwide128kl:
-  case X86::BI__builtin_ia32_aesdecwide128kl:
-  case X86::BI__builtin_ia32_aesencwide256kl:
-  case X86::BI__builtin_ia32_aesdecwide256kl: {
-    int FirstReturnOp;
-    int ResultCount;
-    SmallVector<Value*, 9> InOps;
-    unsigned ID;
+  case X86::BI__builtin_ia32_encodekey128_u32: {
+    Intrinsic::ID IID = Intrinsic::x86_encodekey128;
 
-    switch (BuiltinID) {
-    default: llvm_unreachable("Unsupported intrinsic!");
-    case X86::BI__builtin_ia32_encodekey128:
-      ID = Intrinsic::x86_encodekey128;
-      InOps = {Ops[0], Ops[1]};
-      FirstReturnOp = 2;
-      ResultCount = 6;
-      break;
-    case X86::BI__builtin_ia32_encodekey256:
-      ID = Intrinsic::x86_encodekey256;
-      InOps = {Ops[0], Ops[1], Ops[2]};
-      FirstReturnOp = 3;
-      ResultCount = 7;
-      break;
-    case X86::BI__builtin_ia32_aesenc128kl:
-    case X86::BI__builtin_ia32_aesdec128kl:
-    case X86::BI__builtin_ia32_aesenc256kl:
-    case X86::BI__builtin_ia32_aesdec256kl: {
-      InOps = {Ops[1], Ops[2]};
-      FirstReturnOp = 0;
-      ResultCount = 1;
-      switch (BuiltinID) {
-      case X86::BI__builtin_ia32_aesenc128kl:
-        ID = Intrinsic::x86_aesenc128kl;
-        break;
-      case X86::BI__builtin_ia32_aesdec128kl:
-        ID = Intrinsic::x86_aesdec128kl;
-        break;
-      case X86::BI__builtin_ia32_aesenc256kl:
-        ID = Intrinsic::x86_aesenc256kl;
-        break;
-      case X86::BI__builtin_ia32_aesdec256kl:
-        ID = Intrinsic::x86_aesdec256kl;
-        break;
-      }
-      break;
-    }
-    case X86::BI__builtin_ia32_aesencwide128kl:
-    case X86::BI__builtin_ia32_aesdecwide128kl:
-    case X86::BI__builtin_ia32_aesencwide256kl:
-    case X86::BI__builtin_ia32_aesdecwide256kl: {
-      InOps = {Ops[0], Ops[9], Ops[10], Ops[11], Ops[12], Ops[13],
-               Ops[14], Ops[15], Ops[16]};
-      FirstReturnOp = 1;
-      ResultCount = 8;
-      switch (BuiltinID) {
-      case X86::BI__builtin_ia32_aesencwide128kl:
-        ID = Intrinsic::x86_aesencwide128kl;
-        break;
-      case X86::BI__builtin_ia32_aesdecwide128kl:
-        ID = Intrinsic::x86_aesdecwide128kl;
-        break;
-      case X86::BI__builtin_ia32_aesencwide256kl:
-        ID = Intrinsic::x86_aesencwide256kl;
-        break;
-      case X86::BI__builtin_ia32_aesdecwide256kl:
-        ID = Intrinsic::x86_aesdecwide256kl;
-        break;
-      }
-      break;
-    }
-    }
+    Value *Call = Builder.CreateCall(CGM.getIntrinsic(IID), {Ops[0], Ops[1]});
 
-    Value *Call = Builder.CreateCall(CGM.getIntrinsic(ID), InOps);
-
-    for (int i = 0; i < ResultCount; ++i) {
-      Builder.CreateDefaultAlignedStore(Builder.CreateExtractValue(Call, i + 1),
-                                        Ops[FirstReturnOp + i]);
+    for (int i = 0; i < 6; ++i) {
+      Value *Extract = Builder.CreateExtractValue(Call, i + 1);
+      Value *Ptr = Builder.CreateConstGEP1_32(Ops[2], i * 16);
+      Ptr = Builder.CreateBitCast(
+          Ptr, llvm::PointerType::getUnqual(Extract->getType()));
+      Builder.CreateAlignedStore(Extract, Ptr, Align(1));
     }
 
     return Builder.CreateExtractValue(Call, 0);
   }
-#endif  // INTEL_FEATURE_ISA_KEYLOCKER
-#endif  // INTEL_CUSTOMIZATION
+  case X86::BI__builtin_ia32_encodekey256_u32: {
+    Intrinsic::ID IID = Intrinsic::x86_encodekey256;
+
+    Value *Call =
+        Builder.CreateCall(CGM.getIntrinsic(IID), {Ops[0], Ops[1], Ops[2]});
+
+    for (int i = 0; i < 7; ++i) {
+      Value *Extract = Builder.CreateExtractValue(Call, i + 1);
+      Value *Ptr = Builder.CreateConstGEP1_32(Ops[3], i * 16);
+      Ptr = Builder.CreateBitCast(
+          Ptr, llvm::PointerType::getUnqual(Extract->getType()));
+      Builder.CreateAlignedStore(Extract, Ptr, Align(1));
+    }
+
+    return Builder.CreateExtractValue(Call, 0);
+  }
+  case X86::BI__builtin_ia32_aesenc128kl_u8:
+  case X86::BI__builtin_ia32_aesdec128kl_u8:
+  case X86::BI__builtin_ia32_aesenc256kl_u8:
+  case X86::BI__builtin_ia32_aesdec256kl_u8: {
+    Intrinsic::ID IID;
+    switch (BuiltinID) {
+    default: llvm_unreachable("Unexpected builtin");
+    case X86::BI__builtin_ia32_aesenc128kl_u8:
+      IID = Intrinsic::x86_aesenc128kl;
+      break;
+    case X86::BI__builtin_ia32_aesdec128kl_u8:
+      IID = Intrinsic::x86_aesdec128kl;
+      break;
+    case X86::BI__builtin_ia32_aesenc256kl_u8:
+      IID = Intrinsic::x86_aesenc256kl;
+      break;
+    case X86::BI__builtin_ia32_aesdec256kl_u8:
+      IID = Intrinsic::x86_aesdec256kl;
+      break;
+    }
+
+    Value *Call = Builder.CreateCall(CGM.getIntrinsic(IID), {Ops[1], Ops[2]});
+
+    Builder.CreateDefaultAlignedStore(Builder.CreateExtractValue(Call, 1),
+                                      Ops[0]);
+
+    return Builder.CreateExtractValue(Call, 0);
+  }
+  case X86::BI__builtin_ia32_aesencwide128kl_u8:
+  case X86::BI__builtin_ia32_aesdecwide128kl_u8:
+  case X86::BI__builtin_ia32_aesencwide256kl_u8:
+  case X86::BI__builtin_ia32_aesdecwide256kl_u8: {
+    Intrinsic::ID IID;
+    switch (BuiltinID) {
+    case X86::BI__builtin_ia32_aesencwide128kl_u8:
+      IID = Intrinsic::x86_aesencwide128kl;
+      break;
+    case X86::BI__builtin_ia32_aesdecwide128kl_u8:
+      IID = Intrinsic::x86_aesdecwide128kl;
+      break;
+    case X86::BI__builtin_ia32_aesencwide256kl_u8:
+      IID = Intrinsic::x86_aesencwide256kl;
+      break;
+    case X86::BI__builtin_ia32_aesdecwide256kl_u8:
+      IID = Intrinsic::x86_aesdecwide256kl;
+      break;
+    }
+
+    Value *InOps[9];
+    InOps[0] = Ops[2];
+    for (int i = 0; i != 8; ++i) {
+      Value *Ptr = Builder.CreateConstGEP1_32(Ops[1], i);
+      InOps[i + 1] = Builder.CreateAlignedLoad(Ptr, Align(16));
+    }
+
+    Value *Call = Builder.CreateCall(CGM.getIntrinsic(IID), InOps);
+
+    for (int i = 0; i != 8; ++i) {
+      Value *Extract = Builder.CreateExtractValue(Call, i + 1);
+      Value *Ptr = Builder.CreateConstGEP1_32(Ops[0], i);
+      Builder.CreateAlignedStore(Extract, Ptr, Align(16));
+    }
+
+    return Builder.CreateExtractValue(Call, 0);
+  }
   }
 }
 
@@ -18476,6 +18532,13 @@ Value *CodeGenFunction::EmitWebAssemblyBuiltinExpr(unsigned BuiltinID,
     Value *RHS = EmitScalarExpr(E->getArg(1));
     Function *Callee = CGM.getIntrinsic(Intrinsic::wasm_avgr_unsigned,
                                         ConvertType(E->getType()));
+    return Builder.CreateCall(Callee, {LHS, RHS});
+  }
+  case WebAssembly::BI__builtin_wasm_q15mulr_saturate_s_i8x16: {
+    Value *LHS = EmitScalarExpr(E->getArg(0));
+    Value *RHS = EmitScalarExpr(E->getArg(1));
+    Function *Callee =
+        CGM.getIntrinsic(Intrinsic::wasm_q15mulr_saturate_signed);
     return Builder.CreateCall(Callee, {LHS, RHS});
   }
   case WebAssembly::BI__builtin_wasm_bitselect: {

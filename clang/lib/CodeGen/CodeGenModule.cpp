@@ -83,19 +83,14 @@ static llvm::cl::opt<bool> LimitedCoverage(
 static const char AnnotationSection[] = "llvm.metadata";
 
 static CGCXXABI *createCXXABI(CodeGenModule &CGM) {
-  switch (CGM.getTarget().getCXXABI().getKind()) {
-  case TargetCXXABI::Fuchsia:
-  case TargetCXXABI::GenericAArch64:
-  case TargetCXXABI::GenericARM:
-  case TargetCXXABI::iOS:
-  case TargetCXXABI::iOS64:
-  case TargetCXXABI::WatchOS:
-  case TargetCXXABI::GenericMIPS:
-  case TargetCXXABI::GenericItanium:
-  case TargetCXXABI::WebAssembly:
-  case TargetCXXABI::XL:
+  switch (CGM.getContext().getCXXABIKind()) {
+#define ITANIUM_CXXABI(Name, Str) case TargetCXXABI::Name:
+#define CXXABI(Name, Str)
+#include "clang/Basic/TargetCXXABI.def"
     return CreateItaniumCXXABI(CGM);
-  case TargetCXXABI::Microsoft:
+#define MICROSOFT_CXXABI(Name, Str) case TargetCXXABI::Name:
+#define CXXABI(Name, Str)
+#include "clang/Basic/TargetCXXABI.def"
     return CreateMicrosoftCXXABI(CGM);
   }
 
@@ -4464,7 +4459,10 @@ LangAS CodeGenModule::getStringLiteralAddressSpace() const {
     //   const char *getLiteral() n{
     //     return "AB";
     //   }
-    return LangAS::opencl_private;
+    // Use global address space to avoid illegal casts from constant to generic.
+    // Private address space is not used here because in SPIR-V global values
+    // cannot have private address space.
+    return LangAS::opencl_global;
   if (auto AS = getTarget().getConstantAddressSpace())
     return AS.getValue();
   return LangAS::Default;
@@ -5025,7 +5023,12 @@ void CodeGenModule::EmitGlobalVarDefinition(const VarDecl *D,
         // Shadow variables and their properties must be registered with CUDA
         // runtime. Skip Extern global variables, which will be registered in
         // the TU where they are defined.
-        if (!D->hasExternalStorage())
+        //
+        // Don't register a C++17 inline variable. The local symbol can be
+        // discarded and referencing a discarded local symbol from outside the
+        // comdat (__cuda_register_globals) is disallowed by the ELF spec.
+        // TODO: Reject __device__ constexpr and __device__ inline in Sema.
+        if (!D->hasExternalStorage() && !D->isInline())
           getCUDARuntime().registerDeviceVar(D, *GV, !D->hasDefinition(),
                                              D->hasAttr<CUDAConstantAttr>());
       } else if (D->hasAttr<CUDASharedAttr>()) {

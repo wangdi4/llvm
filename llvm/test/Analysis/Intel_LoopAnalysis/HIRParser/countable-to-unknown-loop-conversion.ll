@@ -3,7 +3,6 @@
 
 ; Verify that the countable inner loop is converted to unknown loop when parsing for the upper bound fails.
 
-
 ; CHECK: + DO i1 = 0, sext.i32.i64(%2) + -1 * sext.i32.i64(%1) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 4294967295>
 ; CHECK: |   %zz.040.out = &((%zz.040)[0]);
 ; CHECK: |   %umax = (&((%scevgep42)[-1 * i1 + -1 * %1 + %3 + -1]) >u &((%R)[i1 + sext.i32.i64(%1) + sext.i32.i64(%indvars.iv)])) ? &((%scevgep42)[-1 * i1 + -1 * %1 + %3 + -1]) : &((%R)[i1 + sext.i32.i64(%1) + sext.i32.i64(%indvars.iv)]);
@@ -28,7 +27,6 @@
 ; CHECK: |   }
 ; CHECK: |   %indvars.iv = -1 * i1 + -1 * %1 + %3 + -2;
 ; CHECK: + END LOOP
-
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"

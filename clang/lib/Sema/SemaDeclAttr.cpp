@@ -2629,6 +2629,11 @@ static void handleVisibilityAttr(Sema &S, Decl *D, const ParsedAttr &AL,
     D->addAttr(newAttr);
 }
 
+static void handleObjCNonRuntimeProtocolAttr(Sema &S, Decl *D,
+                                             const ParsedAttr &AL) {
+  handleSimpleAttribute<ObjCNonRuntimeProtocolAttr>(S, D, AL);
+}
+
 static void handleObjCDirectAttr(Sema &S, Decl *D, const ParsedAttr &AL) {
   // objc_direct cannot be set on methods declared in the context of a protocol
   if (isa<ObjCProtocolDecl>(D->getDeclContext())) {
@@ -3891,6 +3896,42 @@ static void handleSYCLNumSimdWorkItemsAttr(Sema &S, Decl *D,         // INTEL
 
   S.addIntelSYCLSingleArgFunctionAttr<SYCLIntelNumSimdWorkItemsAttr>(D, Attr,
                                                                      E);
+}
+
+// Add scheduler_target_fmax_mhz
+void Sema::addSYCLIntelSchedulerTargetFmaxMhzAttr(
+    Decl *D, const AttributeCommonInfo &Attr, Expr *E) {
+  assert(E && "Attribute must have an argument.");
+
+  SYCLIntelSchedulerTargetFmaxMhzAttr TmpAttr(Context, Attr, E);
+  if (!E->isValueDependent()) {
+    ExprResult ResultExpr;
+    if (checkRangedIntegralArgument<SYCLIntelSchedulerTargetFmaxMhzAttr>(
+            E, &TmpAttr, ResultExpr))
+      return;
+    E = ResultExpr.get();
+  }
+
+  D->addAttr(::new (Context)
+                 SYCLIntelSchedulerTargetFmaxMhzAttr(Context, Attr, E));
+}
+
+// Handle scheduler_target_fmax_mhz
+static void handleSchedulerTargetFmaxMhzAttr(Sema &S, Decl *D,
+                                             const ParsedAttr &AL) {
+  if (D->isInvalidDecl())
+    return;
+
+  Expr *E = AL.getArgAsExpr(0);
+
+  if (D->getAttr<SYCLIntelSchedulerTargetFmaxMhzAttr>())
+    S.Diag(AL.getLoc(), diag::warn_duplicate_attribute) << AL;
+
+  if (checkDeprecatedSYCLAttributeSpelling(S, AL))
+    S.Diag(AL.getLoc(), diag::note_spelling_suggestion)
+        << "'intel::scheduler_target_fmax_mhz'";
+
+  S.addSYCLIntelSchedulerTargetFmaxMhzAttr(D, AL, E);
 }
 
 // Handles max_global_work_dim.
@@ -8327,14 +8368,16 @@ DLLExportAttr *Sema::mergeDLLExportAttr(Decl *D,
 
 static void handleDLLAttr(Sema &S, Decl *D, const ParsedAttr &A) {
   if (isa<ClassTemplatePartialSpecializationDecl>(D) &&
-      S.Context.getTargetInfo().getCXXABI().isMicrosoft()) {
+      (S.Context.getTargetInfo().getCXXABI().isMicrosoft() ||
+       S.Context.getTargetInfo().getTriple().isWindowsItaniumEnvironment())) {
     S.Diag(A.getRange().getBegin(), diag::warn_attribute_ignored) << A;
     return;
   }
 
   if (const auto *FD = dyn_cast<FunctionDecl>(D)) {
     if (FD->isInlined() && A.getKind() == ParsedAttr::AT_DLLImport &&
-        !S.Context.getTargetInfo().getCXXABI().isMicrosoft()) {
+        !(S.Context.getTargetInfo().getCXXABI().isMicrosoft() ||
+          S.Context.getTargetInfo().getTriple().isWindowsItaniumEnvironment())) {
       // MinGW doesn't allow dllimport on inline functions.
       S.Diag(A.getRange().getBegin(), diag::warn_attribute_ignored_on_inline)
           << A;
@@ -8343,7 +8386,8 @@ static void handleDLLAttr(Sema &S, Decl *D, const ParsedAttr &A) {
   }
 
   if (const auto *MD = dyn_cast<CXXMethodDecl>(D)) {
-    if (S.Context.getTargetInfo().getCXXABI().isMicrosoft() &&
+    if ((S.Context.getTargetInfo().getCXXABI().isMicrosoft() ||
+         S.Context.getTargetInfo().getTriple().isWindowsItaniumEnvironment()) &&
         MD->getParent()->isLambda()) {
       S.Diag(A.getRange().getBegin(), diag::err_attribute_dll_lambda) << A;
       return;
@@ -9264,6 +9308,9 @@ static void ProcessDeclAttribute(Sema &S, Scope *scope, Decl *D,
   case ParsedAttr::AT_SYCLIntelNumSimdWorkItems:
     handleSYCLNumSimdWorkItemsAttr(S, D, AL); // INTEL
     break;
+  case ParsedAttr::AT_SYCLIntelSchedulerTargetFmaxMhz:
+    handleSchedulerTargetFmaxMhzAttr(S, D, AL);
+    break;
   case ParsedAttr::AT_SYCLIntelMaxGlobalWorkDim:
     handleSYCLMaxGlobalWorkDimAttr(S, D, AL); // INTEL
     break;
@@ -9309,6 +9356,9 @@ static void ProcessDeclAttribute(Sema &S, Scope *scope, Decl *D,
     break;
   case ParsedAttr::AT_ObjCDirect:
     handleObjCDirectAttr(S, D, AL);
+    break;
+  case ParsedAttr::AT_ObjCNonRuntimeProtocol:
+    handleObjCNonRuntimeProtocolAttr(S, D, AL);
     break;
   case ParsedAttr::AT_ObjCDirectMembers:
     handleObjCDirectMembersAttr(S, D, AL);
@@ -9827,10 +9877,8 @@ void Sema::ProcessDeclAttributeList(Scope *S, Decl *D,
       }
 #endif // INTEL_CUSTOMIZATION
     } else if (const auto *A = D->getAttr<IntelReqdSubGroupSizeAttr>()) {
-      if (!getLangOpts().SYCLIsDevice) {
-        Diag(D->getLocation(), diag::err_opencl_kernel_attr) << A;
-        D->setInvalidDecl();
-      }
+      Diag(D->getLocation(), diag::err_opencl_kernel_attr) << A;
+      D->setInvalidDecl();
     } else if (!D->hasAttr<CUDAGlobalAttr>()) {
       if (const auto *A = D->getAttr<AMDGPUFlatWorkGroupSizeAttr>()) {
         Diag(D->getLocation(), diag::err_attribute_wrong_decl_type)

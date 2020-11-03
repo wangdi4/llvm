@@ -36,7 +36,7 @@
 ; CHECK-NEXT:      |   %.vec4 = %.vec2  +  %.vec3;
 ; CHECK-NEXT:      |   %red.var = %.vec4  +  %mul.vec;
 ; CHECK-NEXT:      + END LOOP
-; CHECK:           %sum.021 = @llvm.experimental.vector.reduce.v2.fadd.f32.v4f32(%sum.021,  %red.var);
+; CHECK:           %sum.021 = @llvm.vector.reduce.fadd.v4f32(%sum.021,  %red.var);
 
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"

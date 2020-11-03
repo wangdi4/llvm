@@ -31,7 +31,7 @@
 // X86-SAME: athlon, athlon-tbird, athlon-xp, athlon-mp, athlon-4, k8, athlon64,
 // X86-SAME: athlon-fx, opteron, k8-sse3, athlon64-sse3, opteron-sse3, amdfam10,
 // X86-SAME: barcelona, btver1, btver2, bdver1, bdver2, bdver3, bdver4, znver1, znver2,
-// X86-SAME: x86-64, geode
+// X86-SAME: x86-64, x86-64-v2, x86-64-v3, x86-64-v4, geode{{$}}
 
 // RUN: not %clang_cc1 -triple x86_64--- -target-cpu not-a-cpu -fsyntax-only %s 2>&1 | FileCheck %s --check-prefix X86_64
 // X86_64: error: unknown target CPU 'not-a-cpu'
@@ -41,7 +41,8 @@
 // X86_64-SAME: core-avx2, broadwell, common-avx512, skylake, skylake-avx512, skx, cascadelake, cooperlake, cannonlake, ;INTEL
 // X86_64-SAME: icelake-client, icelake-server, tigerlake, sapphirerapids, knl, knm, k8, athlon64, athlon-fx, opteron, k8-sse3,
 // X86_64-SAME: athlon64-sse3, opteron-sse3, amdfam10, barcelona, btver1,
-// X86_64-SAME: btver2, bdver1, bdver2, bdver3, bdver4, znver1, znver2, x86-64
+// X86_64-SAME: btver2, bdver1, bdver2, bdver3, bdver4, znver1, znver2,
+// X86_64-SAME: x86-64, x86-64-v2, x86-64-v3, x86-64-v4{{$}}
 
 // RUN: not %clang_cc1 -triple i386--- -tune-cpu not-a-cpu -fsyntax-only %s 2>&1 | FileCheck %s --check-prefix TUNE_X86
 // TUNE_X86: error: unknown target CPU 'not-a-cpu'
@@ -55,7 +56,7 @@
 // TUNE_X86-SAME: athlon, athlon-tbird, athlon-xp, athlon-mp, athlon-4, k8, athlon64,
 // TUNE_X86-SAME: athlon-fx, opteron, k8-sse3, athlon64-sse3, opteron-sse3, amdfam10,
 // TUNE_X86-SAME: barcelona, btver1, btver2, bdver1, bdver2, bdver3, bdver4, znver1, znver2,
-// TUNE_X86-SAME: x86-64, geode
+// TUNE_X86-SAME: x86-64, geode{{$}}
 
 // RUN: not %clang_cc1 -triple x86_64--- -tune-cpu not-a-cpu -fsyntax-only %s 2>&1 | FileCheck %s --check-prefix TUNE_X86_64
 // TUNE_X86_64: error: unknown target CPU 'not-a-cpu'
@@ -69,7 +70,7 @@
 // TUNE_X86_64-SAME: athlon, athlon-tbird, athlon-xp, athlon-mp, athlon-4, k8, athlon64,
 // TUNE_X86_64-SAME: athlon-fx, opteron, k8-sse3, athlon64-sse3, opteron-sse3, amdfam10,
 // TUNE_X86_64-SAME: barcelona, btver1, btver2, bdver1, bdver2, bdver3, bdver4, znver1, znver2,
-// TUNE_X86_64-SAME: x86-64, geode
+// TUNE_X86_64-SAME: x86-64, geode{{$}}
 
 // RUN: not %clang_cc1 -triple nvptx--- -target-cpu not-a-cpu -fsyntax-only %s 2>&1 | FileCheck %s --check-prefix NVPTX
 // NVPTX: error: unknown target CPU 'not-a-cpu'
@@ -86,11 +87,11 @@
 
 // RUN: not %clang_cc1 -triple amdgcn--- -target-cpu not-a-cpu -fsyntax-only %s 2>&1 | FileCheck %s --check-prefix AMDGCN
 // AMDGCN: error: unknown target CPU 'not-a-cpu'
-// AMDGCN: note: valid target CPU values are: gfx600, tahiti, gfx601, hainan,
-// AMDGCN-SAME: oland, pitcairn, verde, gfx700, kaveri, gfx701, hawaii, gfx702,
-// AMDGCN-SAME: gfx703, kabini, mullins, gfx704, bonaire, gfx801, carrizo, 
+// AMDGCN: note: valid target CPU values are: gfx600, tahiti, gfx601, pitcairn, verde,
+// AMDGCN-SAME: gfx602, hainan, oland, gfx700, kaveri, gfx701, hawaii, gfx702,
+// AMDGCN-SAME: gfx703, kabini, mullins, gfx704, bonaire, gfx705, gfx801, carrizo, 
 // AMDGCN-SAME: gfx802, iceland, tonga, gfx803, fiji, polaris10, polaris11,
-// AMDGCN-SAME: gfx810, stoney, gfx900, gfx902
+// AMDGCN-SAME: gfx805, tongapro, gfx810, stoney, gfx900, gfx902
 
 // RUN: not %clang_cc1 -triple wasm64--- -target-cpu not-a-cpu -fsyntax-only %s 2>&1 | FileCheck %s --check-prefix WEBASM
 // WEBASM: error: unknown target CPU 'not-a-cpu'
@@ -197,8 +198,8 @@
 
 // RUN: not %clang_cc1 -triple riscv32 -target-cpu not-a-cpu -fsyntax-only %s 2>&1 | FileCheck %s --check-prefix RISCV32
 // RISCV32: error: unknown target CPU 'not-a-cpu'
-// RISCV32: note: valid target CPU values are: generic-rv32, rocket-rv32, bullet-rv32, sifive-e31
+// RISCV32: note: valid target CPU values are: generic-rv32, rocket-rv32, sifive-7-rv32, sifive-e31, sifive-e76
 
 // RUN: not %clang_cc1 -triple riscv64 -target-cpu not-a-cpu -fsyntax-only %s 2>&1 | FileCheck %s --check-prefix RISCV64
 // RISCV64: error: unknown target CPU 'not-a-cpu'
-// RISCV64: note: valid target CPU values are: generic-rv64, rocket-rv64, bullet-rv64, sifive-u54
+// RISCV64: note: valid target CPU values are: generic-rv64, rocket-rv64, sifive-7-rv64, sifive-u54, sifive-u74

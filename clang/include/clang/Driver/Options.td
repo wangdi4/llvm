@@ -426,11 +426,11 @@ def ipp : Flag<["-"], "ipp">, Alias<ipp_EQ>, AliasArgs<["common"]>;
 def ipp_link_EQ : Joined<["-"], "ipp-link=">, Flags<[DriverOption]>,
   Values<"static,dynamic,shared">,
   HelpText<"Link Intel(R) IPP libraries in requested manner">;
-def mkl_EQ : Joined<["-"], "mkl=">,
+def mkl_EQ : Joined<["-"], "mmkl=">,
   Values<"parallel,sequential,cluster">,
   HelpText<"Link commonly used Intel(R) Math Kernel Library (Intel(R) MKL) "
   "and bring in the associated headers">;
-def mkl : Flag<["-"], "mkl">, Alias<mkl_EQ>, AliasArgs<["parallel"]>;
+def mmkl : Flag<["-"], "mmkl">, Alias<mkl_EQ>, AliasArgs<["parallel"]>;
 def tbb : Flag<["-"], "tbb">,
   HelpText<"Link Intel(R) Threading Building Blocks (Intel(R) TBB) libraries "
   "and bring in the associated headers">;
@@ -595,6 +595,7 @@ def Wno_nonportable_cfstrings : Joined<["-"], "Wno-nonportable-cfstrings">, Grou
   Flags<[CC1Option]>;
 def Wnonportable_cfstrings : Joined<["-"], "Wnonportable-cfstrings">, Group<W_Group>,
   Flags<[CC1Option]>;
+def Wno_sycl_strict : Joined<["-"], "Wno-sycl-strict">, Group<W_Group>, HelpText<"Disable warnings which enforce strict SYCL language compatibility.">;
 def Wp_COMMA : CommaJoined<["-"], "Wp,">,
   HelpText<"Pass the comma separated arguments in <arg> to the preprocessor">,
   MetaVarName<"<arg>">, Group<Preprocessor_Group>;
@@ -691,7 +692,7 @@ def cl_mad_enable : Flag<["-"], "cl-mad-enable">, Group<opencl_Group>, Flags<[CC
 def cl_no_signed_zeros : Flag<["-"], "cl-no-signed-zeros">, Group<opencl_Group>, Flags<[CC1Option]>,
   HelpText<"OpenCL only. Allow use of less precise no signed zeros computations in the generated binary.">;
 def cl_std_EQ : Joined<["-"], "cl-std=">, Group<opencl_Group>, Flags<[CC1Option]>,
-  HelpText<"OpenCL language standard to compile for.">, Values<"cl,CL,cl1.1,CL1.1,cl1.2,CL1.2,cl2.0,CL2.0,clc++,CLC++">;
+  HelpText<"OpenCL language standard to compile for.">, Values<"cl,CL,cl1.1,CL1.1,cl1.2,CL1.2,cl2.0,CL2.0,cl3.0,CL3.0,clc++,CLC++">;
 def cl_denorms_are_zero : Flag<["-"], "cl-denorms-are-zero">, Group<opencl_Group>,
   HelpText<"OpenCL only. Allow denormals to be flushed to zero.">;
 def cl_fp32_correctly_rounded_divide_sqrt : Flag<["-"], "cl-fp32-correctly-rounded-divide-sqrt">, Group<opencl_Group>, Flags<[CC1Option]>,
@@ -802,6 +803,9 @@ defm gpu_allow_device_init : OptInFFlag<"gpu-allow-device-init",
 def gpu_max_threads_per_block_EQ : Joined<["--"], "gpu-max-threads-per-block=">,
   Flags<[CC1Option]>,
   HelpText<"Default max threads per block for kernel launch bounds for HIP">;
+def gpu_instrument_lib_EQ : Joined<["--"], "gpu-instrument-lib=">,
+  HelpText<"Instrument device library for HIP, which is a LLVM bitcode containing "
+  "__cyg_profile_func_enter and __cyg_profile_func_exit">;
 def libomptarget_nvptx_path_EQ : Joined<["--"], "libomptarget-nvptx-path=">, Group<i_Group>,
   HelpText<"Path to libomptarget-nvptx libraries">;
 def dD : Flag<["-"], "dD">, Group<d_Group>, Flags<[CC1Option]>,
@@ -1002,6 +1006,9 @@ def fprofile_filter_files_EQ : Joined<["-"], "fprofile-filter-files=">,
 def fprofile_exclude_files_EQ : Joined<["-"], "fprofile-exclude-files=">,
     Group<f_Group>, Flags<[CC1Option, CoreOption]>,
     HelpText<"Instrument only functions from files where names don't match all the regexes separated by a semi-colon">;
+def fprofile_update_EQ : Joined<["-"], "fprofile-update=">,
+    Group<f_Group>, Flags<[CC1Option, CoreOption]>, Values<"atomic,prefer-atomic,single">,
+    MetaVarName<"<method>">, HelpText<"Set update method of profile counters (atomic,prefer-atomic,single)">;
 def forder_file_instrumentation : Flag<["-"], "forder-file-instrumentation">,
     Group<f_Group>, Flags<[CC1Option, CoreOption]>,
     HelpText<"Generate instrumented code to collect order file into default.profraw file (overridden by '=' form of option or LLVM_PROFILE_FILE env var)">;
@@ -1019,7 +1026,8 @@ def fclang_abi_compat_EQ : Joined<["-"], "fclang-abi-compat=">, Group<f_clang_Gr
   Flags<[CC1Option]>, MetaVarName<"<version>">, Values<"<major>.<minor>,latest">,
   HelpText<"Attempt to match the ABI of Clang <version>">;
 def fclasspath_EQ : Joined<["-"], "fclasspath=">, Group<f_Group>;
-defm color_diagnostics : OptInFFlag<"color-diagnostics", "Enable", "Disable", " colors in diagnostics", [CoreOption]>;
+defm color_diagnostics : OptInFFlag<"color-diagnostics", "Enable", "Disable", " colors in diagnostics",
+  [CoreOption, FlangOption]>;
 def fdiagnostics_color : Flag<["-"], "fdiagnostics-color">, Group<f_Group>,
   Flags<[CoreOption, DriverOption]>;
 def fdiagnostics_color_EQ : Joined<["-"], "fdiagnostics-color=">, Group<f_Group>;
@@ -1538,6 +1546,10 @@ def fno_experimental_relative_cxx_abi_vtables : Flag<["-"], "fno-experimental-re
   Group<f_Group>, Flags<[CC1Option]>,
   HelpText<"Do not use the experimental C++ class ABI for classes with virtual tables">;
 
+def fcxx_abi_EQ : Joined<["-"], "fc++-abi=">,
+                  Group<f_clang_Group>, Flags<[CC1Option]>,
+                  HelpText<"C++ ABI to use. This will override the target C++ ABI.">;
+
 def flat__namespace : Flag<["-"], "flat_namespace">;
 def flax_vector_conversions_EQ : Joined<["-"], "flax-vector-conversions=">, Group<f_Group>,
   HelpText<"Enable implicit vector bit-casts">, Values<"none,integer,all">, Flags<[CC1Option]>;
@@ -1664,11 +1676,11 @@ def fno_pch_validate_input_files_content:
   Group<f_Group>, Flags<[DriverOption]>;
 def fpch_instantiate_templates:
   Flag <["-"], "fpch-instantiate-templates">,
-  Group<f_Group>, Flags<[CC1Option]>,
+  Group<f_Group>, Flags<[CC1Option, CoreOption]>,
   HelpText<"Instantiate templates already while building a PCH">;
 def fno_pch_instantiate_templates:
   Flag <["-"], "fno-pch-instantiate-templates">,
-  Group<f_Group>, Flags<[CC1Option]>;
+  Group<f_Group>, Flags<[CC1Option, CoreOption]>;
 defm pch_codegen: OptInFFlag<"pch-codegen", "Generate ", "Do not generate ",
   "code for uses of this PCH that assumes an explicit object file will be built for the PCH">;
 defm pch_debuginfo: OptInFFlag<"pch-debuginfo", "Generate ", "Do not generate ",
@@ -2773,9 +2785,15 @@ def mno_neg_immediates: Flag<["-"], "mno-neg-immediates">, Group<m_arm_Features_
 def mcmse : Flag<["-"], "mcmse">, Group<m_arm_Features_Group>,
   Flags<[DriverOption,CC1Option]>,
   HelpText<"Allow use of CMSE (Armv8-M Security Extensions)">;
-def ForceAAPCSBitfieldLoad : Flag<["-"], "fAAPCSBitfieldLoad">, Group<m_arm_Features_Group>,
+def ForceAAPCSBitfieldLoad : Flag<["-"], "faapcs-bitfield-load">, Group<m_arm_Features_Group>,
   Flags<[DriverOption,CC1Option]>,
   HelpText<"Follows the AAPCS standard that all volatile bit-field write generates at least one load. (ARM only).">;
+def ForceNoAAPCSBitfieldWidth : Flag<["-"], "fno-aapcs-bitfield-width">, Group<m_arm_Features_Group>,
+  Flags<[DriverOption,CC1Option]>,
+  HelpText<"Do not follow the AAPCS standard requirement that volatile bit-field width is dictated by the field container type. (ARM only).">;
+def AAPCSBitfieldWidth : Flag<["-"], "faapcs-bitfield-width">, Group<m_arm_Features_Group>,
+  Flags<[DriverOption,CC1Option]>,
+  HelpText<"Follow the AAPCS standard requirement stating that volatile bit-field width is dictated by the field container type. (ARM only).">;
 
 def mgeneral_regs_only : Flag<["-"], "mgeneral-regs-only">, Group<m_aarch64_Features_Group>,
   HelpText<"Generate code which only uses the general purpose registers (AArch64 only)">;
@@ -2837,16 +2855,11 @@ def mexec_model_EQ : Joined<["-"], "mexec-model=">, Group<m_wasm_Features_Driver
                      Values<"command,reactor">,
                      HelpText<"Execution model (WebAssembly only)">;
 
-def mamdgpu_debugger_abi : Joined<["-"], "mamdgpu-debugger-abi=">,
-  Flags<[HelpHidden]>,
-  Group<m_Group>,
-  HelpText<"Generate additional code for specified <version> of debugger ABI (AMDGPU only)">,
-  MetaVarName<"<version>">;
+def mcode_object_v3_legacy : Flag<["-"], "mcode-object-v3">, Group<m_Group>,
+  HelpText<"Legacy option to specify code object v3 (AMDGPU only)">;
+def mno_code_object_v3_legacy : Flag<["-"], "mno-code-object-v3">, Group<m_Group>,
+  HelpText<"Legacy option to specify code object v2 (AMDGPU only)">;
 
-def mcode_object_v3 : Flag<["-"], "mcode-object-v3">, Group<m_amdgpu_Features_Group>,
-  HelpText<"Enable code object v3 (AMDGPU only)">;
-def mno_code_object_v3 : Flag<["-"], "mno-code-object-v3">, Group<m_amdgpu_Features_Group>,
-  HelpText<"Disable code object v3 (AMDGPU only)">;
 def mxnack : Flag<["-"], "mxnack">, Group<m_amdgpu_Features_Group>,
   HelpText<"Enable XNACK (AMDGPU only)">;
 def mno_xnack : Flag<["-"], "mno-xnack">, Group<m_amdgpu_Features_Group>,
@@ -2948,6 +2961,9 @@ defm zvector : OptInFFlag<"zvector", "Enable System z vector language extension"
 def mzvector : Flag<["-"], "mzvector">, Alias<fzvector>;
 def mno_zvector : Flag<["-"], "mno-zvector">, Alias<fno_zvector>;
 
+def mignore_xcoff_visibility : Flag<["-"], "mignore-xcoff-visibility">, Group<m_Group>,
+HelpText<"Not emit the visibility attribute for asm in AIX OS or give all symbols 'unspecified' visibility in XCOFF object file">,
+  Flags<[CC1Option]>;
 def mbackchain : Flag<["-"], "mbackchain">, Group<m_Group>, Flags<[DriverOption,CC1Option]>,
   HelpText<"Link stack frames through backchain on System Z">;
 def mno_backchain : Flag<["-"], "mno-backchain">, Group<m_Group>, Flags<[DriverOption,CC1Option]>;
@@ -3817,16 +3833,12 @@ def minvpcid : Flag<["-"], "minvpcid">, Group<m_x86_Features_Group>;
 def mno_invpcid : Flag<["-"], "mno-invpcid">, Group<m_x86_Features_Group>;
 def mgfni : Flag<["-"], "mgfni">, Group<m_x86_Features_Group>;
 def mno_gfni : Flag<["-"], "mno-gfni">, Group<m_x86_Features_Group>;
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_HRESET
 def mhreset : Flag<["-"], "mhreset">, Group<m_x86_Features_Group>;
 def mno_hreset : Flag<["-"], "mno-hreset">, Group<m_x86_Features_Group>;
-#endif // INTEL_FEATURE_ISA_HRESET
-#if INTEL_FEATURE_ISA_KEYLOCKER
-def mkeylocker : Flag<["-"], "mkeylocker">, Group<m_x86_Features_Group>;
-def mno_keylocker : Flag<["-"], "mno-keylocker">, Group<m_x86_Features_Group>;
-#endif // INTEL_FEATURE_ISA_KEYLOCKER
-#endif // INTEL_CUSTOMIZATION
+def mkl : Flag<["-"], "mkl">, Group<m_x86_Features_Group>;
+def mno_kl : Flag<["-"], "mno-kl">, Group<m_x86_Features_Group>;
+def mwidekl : Flag<["-"], "mwidekl">, Group<m_x86_Features_Group>;
+def mno_widekl : Flag<["-"], "mno-widekl">, Group<m_x86_Features_Group>;
 def mlwp : Flag<["-"], "mlwp">, Group<m_x86_Features_Group>;
 def mno_lwp : Flag<["-"], "mno-lwp">, Group<m_x86_Features_Group>;
 def mlzcnt : Flag<["-"], "mlzcnt">, Group<m_x86_Features_Group>;

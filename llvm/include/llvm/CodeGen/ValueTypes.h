@@ -214,9 +214,7 @@ namespace llvm {
     }
 
     /// Return true if the bit size is a multiple of 8.
-    bool isByteSized() const {
-      return getSizeInBits().isByteSized();
-    }
+    bool isByteSized() const { return getSizeInBits().isKnownMultipleOf(8); }
 
     /// Return true if the size is a power-of-two number of bytes.
     bool isRound() const {
@@ -348,6 +346,12 @@ namespace llvm {
       return getExtendedSizeInBits();
     }
 
+    /// Return the size of the specified fixed width value type in bits. The
+    /// function will assert if the type is scalable.
+    uint64_t getFixedSizeInBits() const {
+      return getSizeInBits().getFixedSize();
+    }
+
     uint64_t getScalarSizeInBits() const {
       return getScalarType().getSizeInBits().getFixedSize();
     }
@@ -414,7 +418,16 @@ namespace llvm {
       EVT EltVT = getVectorElementType();
       auto EltCnt = getVectorElementCount();
       assert(EltCnt.isKnownEven() && "Splitting vector, but not in half!");
-      return EVT::getVectorVT(Context, EltVT, EltCnt / 2);
+      return EVT::getVectorVT(Context, EltVT, EltCnt.divideCoefficientBy(2));
+    }
+
+    // Return a VT for a vector type with the same element type but
+    // double the number of elements. The type returned may be an
+    // extended type.
+    EVT getDoubleNumVectorElementsVT(LLVMContext &Context) const {
+      EVT EltVT = getVectorElementType();
+      auto EltCnt = getVectorElementCount();
+      return EVT::getVectorVT(Context, EltVT, EltCnt * 2);
     }
 
     /// Returns true if the given vector is a power of 2.

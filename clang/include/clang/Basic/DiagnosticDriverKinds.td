@@ -264,6 +264,7 @@ def err_drv_optimization_remark_format : Error<
 def err_drv_no_neon_modifier : Error<"[no]neon is not accepted as modifier, please use [no]simd instead">;
 def err_drv_invalid_omp_target : Error<"OpenMP target is invalid: '%0'">;
 def err_drv_invalid_sycl_target : Error<"SYCL target is invalid: '%0'">;
+def err_drv_incompatible_omp_arch : Error<"OpenMP target architecture '%0' pointer size is incompatible with host '%1'">;
 def err_drv_option_conflict : Error<"The option %0 conflicts with %1">;
 def err_drv_omp_host_ir_file_not_found : Error<
   "The provided host compiler IR file '%0' is required to generate code for OpenMP target regions but cannot be found.">;
@@ -556,4 +557,6 @@ def err_drv_invalid_object_mode : Error<"OBJECT_MODE setting %0 is not recognize
 
 def err_drv_invalid_sve_vector_bits : Error<
   "'-msve-vector-bits' is not supported without SVE enabled">;
+
+def err_invalid_cxx_abi : Error<"Invalid C++ ABI name '%0'">;
 }

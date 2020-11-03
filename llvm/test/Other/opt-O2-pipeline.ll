@@ -1,4 +1,4 @@
-; RUN: opt -enable-new-pm=0 -mtriple=x86_64-- -O2 -debug-pass=Structure < %s -o /dev/null 2>&1 | FileCheck --check-prefixes=CHECK,%llvmcheckext %s 
+; RUN: opt -enable-new-pm=0 -mtriple=x86_64-- -O2 -debug-pass=Structure < %s -o /dev/null 2>&1 | FileCheck --check-prefixes=CHECK,%llvmcheckext %s
 
 ; INTEL CUSTOMIZATION: This test fails in xmain.  JR CMPLRS-49716
 ; XFAIL: *
@@ -26,7 +26,7 @@
 ; CHECK-NEXT: Target Library Information
 ; CHECK-NEXT: Target Transform Information
 ;             Target Pass Configuration
-; CHECK:      Type-Based Alias Analysis 
+; CHECK:      Type-Based Alias Analysis
 ; CHECK-NEXT: Scoped NoAlias Alias Analysis
 ; CHECK-NEXT: Assumption Cache Tracker
 ; CHECK-NEXT: Profile summary info
@@ -138,6 +138,8 @@
 ; CHECK-NEXT:           Recognize loop idioms
 ; CHECK-NEXT:           Delete dead loops
 ; CHECK-NEXT:           Unroll loops
+; CHECK-NEXT:         SROA
+; CHECK-NEXT:         Function Alias Analysis Results
 ; CHECK-NEXT:         MergedLoadStoreMotion
 ; CHECK-NEXT:         Phi Values Analysis
 ; CHECK-NEXT:         Function Alias Analysis Results

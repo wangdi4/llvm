@@ -56,12 +56,6 @@ intel_add_file(INTEL_HEADERS
   Intel_Headers/uliintrin.h
   )
 # end INTEL_FEATURE_ISA_ULI
-# INTEL_FEATURE_ISA_HRESET
-intel_add_file(INTEL_HEADERS
-  FEATURE ${LLVM_INTELFEATURE_PREFIX}_ISA_HRESET
-  Intel_Headers/hresetintrin.h
-  )
-# end INTEL_FEATURE_ISA_HRESET
 # INTEL_FEATURE_ISA_AMX_BF8
 intel_add_file(INTEL_HEADERS
   FEATURE ${LLVM_INTELFEATURE_PREFIX}_ISA_AMX_BF8
@@ -141,12 +135,6 @@ intel_add_file(INTEL_HEADERS
   )
 # end INTEL_FEATURE_ISA_AMX_TILE2
 
-# INTEL_FEATURE_ISA_KEYLOCKER
-intel_add_file(INTEL_HEADERS
-  FEATURE ${LLVM_INTELFEATURE_PREFIX}_ISA_KEYLOCKER
-  Intel_Headers/keylockerintrin.h
-  )
-# end INTEL_FEATURE_ISA_KEYLOCKER
 # INTEL_FEATURE_ISA_FP16
 intel_add_file(INTEL_HEADERS
   FEATURE ${LLVM_INTELFEATURE_PREFIX}_ISA_FP16
@@ -287,6 +275,7 @@ set(files
   __clang_cuda_math_forward_declares.h
   __clang_cuda_runtime_wrapper.h
   __clang_hip_libdevice_declares.h
+  __clang_hip_cmath.h
   __clang_hip_math.h
   __clang_hip_runtime_wrapper.h
   cetintrin.h
@@ -304,6 +293,7 @@ set(files
   fmaintrin.h
   fxsrintrin.h
   gfniintrin.h
+  hresetintrin.h
   htmintrin.h
   htmxlintrin.h
   ia32intrin.h
@@ -312,6 +302,7 @@ set(files
   inttypes.h
   invpcidintrin.h
   iso646.h
+  keylockerintrin.h
   limits.h
   lwpintrin.h
   lzcntintrin.h
@@ -368,6 +359,7 @@ set(files
   wmmintrin.h
   __wmmintrin_aes.h
   __wmmintrin_pclmul.h
+  x86gprintrin.h
   x86intrin.h
   xmmintrin.h
   xopintrin.h

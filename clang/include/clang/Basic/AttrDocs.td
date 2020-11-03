@@ -75,7 +75,7 @@ relative ordering of values is important. For example:
   __attribute__((init_priority(200))) SomeType Obj1;
   __attribute__((init_priority(101))) SomeType Obj2;
 
-``Obj1`` will be initialized *before* ``Obj2`` despite the usual order of
+``Obj2`` will be initialized *before* ``Obj1`` despite the usual order of
 initialization being the opposite.
 
 This attribute is only supported for C++ and Objective-C++ and is ignored in
@@ -2220,6 +2220,28 @@ range of [0, 3]. A kernel with max_global_work_dim(0) must be invoked with a
 have arguments of (1, 1, 1).
 If ``intel::max_global_work_dim`` is applied to a function called from a
 device kernel, the attribute is ignored and it is not propagated to a kernel.
+  }];
+}
+
+def SYCLIntelSchedulerTargetFmaxMhzAttrDocs : Documentation {
+  let Category = DocCatFunction;
+  let Heading = "intel::scheduler_target_fmax_mhz";
+  let Content = [{
+Applies to a device function/lambda function. Indicates that the kernel should
+be pipelined so as to achieve the specified target clock frequency (Fmax) of N
+MHz. The argument N may be a template parameter. This attribute should be
+ignored for the FPGA emulator device.
+
+``[[intel::scheduler_target_fmax_mhz(N)]]``
+Valid values of N are integers in the range [0, 1048576]. The upper limit,
+although too high to be a realistic value for frequency, is chosen to be future
+proof. The FPGA backend emits a diagnostic message if the passed value is
+unachievable by the device.
+
+This attribute enables communication of the desired maximum frequency of the
+device operation, guiding the FPGA backend to insert the appropriate number of
+registers to break-up the combinational logic circuit, and thereby controlling
+the length of the longest combinational path.
   }];
 }
 
@@ -5144,6 +5166,22 @@ methods defined in the block are considered to be declared as direct unless
 they have been previously declared as non-direct in any interface of the class.
 This includes the implicit method definitions introduced by synthesized
 properties, including auto-synthesized properties.
+  }];
+}
+
+def ObjCNonRuntimeProtocolDocs : Documentation {
+  let Category = DocCatDecl;
+  let Content = [{
+The ``objc_non_runtime_protocol`` attribute can be used to mark that an
+Objective-C protocol is only used during static type-checking and doesn't need
+to be represented dynamically. This avoids several small code-size and run-time
+overheads associated with handling the protocol's metadata. A non-runtime
+protocol cannot be used as the operand of a ``@protocol`` expression, and
+dynamic attempts to find it with ``objc_getProtocol`` will fail.
+
+If a non-runtime protocol inherits from any ordinary protocols, classes and
+derived protocols that declare conformance to the non-runtime protocol will
+dynamically list their conformance to those bare protocols.
   }];
 }
 

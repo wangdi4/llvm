@@ -1630,35 +1630,35 @@ static HLInst *createVectorReduce(const VPReductionFinal *RedFinal,
   SmallVector<RegDDRef *, 2> Ops;
 
   switch (VecRedIntrin) {
-  case Intrinsic::experimental_vector_reduce_v2_fadd:
-  case Intrinsic::experimental_vector_reduce_v2_fmul:
+  case Intrinsic::vector_reduce_fadd:
+  case Intrinsic::vector_reduce_fmul:
     assert(Acc && "Expected initial value");
     assert(!isa<VectorType>(Acc->getDestType()) &&
            "Accumulator for FP reduction is not scalar.");
-    Tys.insert(Tys.end(), {Acc->getDestType(), VecType});
+    Tys.insert(Tys.end(), {VecType});
     Ops.insert(Ops.end(), {Acc, VecRef});
     Acc = nullptr;
     break;
-  case Intrinsic::experimental_vector_reduce_add:
-  case Intrinsic::experimental_vector_reduce_mul:
-  case Intrinsic::experimental_vector_reduce_and:
-  case Intrinsic::experimental_vector_reduce_or:
-  case Intrinsic::experimental_vector_reduce_xor:
+  case Intrinsic::vector_reduce_add:
+  case Intrinsic::vector_reduce_mul:
+  case Intrinsic::vector_reduce_and:
+  case Intrinsic::vector_reduce_or:
+  case Intrinsic::vector_reduce_xor:
     Tys.insert(Tys.end(), {VecType});
     Ops.insert(Ops.end(), {VecRef});
     break;
-  case Intrinsic::experimental_vector_reduce_umax:
-  case Intrinsic::experimental_vector_reduce_smax:
-  case Intrinsic::experimental_vector_reduce_umin:
-  case Intrinsic::experimental_vector_reduce_smin:
+  case Intrinsic::vector_reduce_umax:
+  case Intrinsic::vector_reduce_smax:
+  case Intrinsic::vector_reduce_umin:
+  case Intrinsic::vector_reduce_smin:
     assert(!Acc && "Unexpected initial value");
     // Since we use generic IRBuilder::CreateCall interface in HIR, signedness
     // does not need to be explicitly specified.
     Tys.insert(Tys.end(), {VecType});
     Ops.insert(Ops.end(), {VecRef});
     break;
-  case Intrinsic::experimental_vector_reduce_fmax:
-  case Intrinsic::experimental_vector_reduce_fmin:
+  case Intrinsic::vector_reduce_fmax:
+  case Intrinsic::vector_reduce_fmin:
     assert(!Acc && "Unexpected initial value");
     // TODO: Need processing to determine NoNaN.
     return HLNodeUtilities.createFPMinMaxVectorReduce(

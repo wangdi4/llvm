@@ -2284,6 +2284,7 @@ Decl *Parser::ParseDeclarationAfterDeclaratorAndAttributes(
 
   // Inform the current actions module that we just parsed this declarator.
   Decl *ThisDecl = nullptr;
+  Decl *OuterDecl = nullptr;
   switch (TemplateInfo.Kind) {
   case ParsedTemplateInfo::NonTemplate:
     ThisDecl = Actions.ActOnDeclarator(getCurScope(), D);
@@ -2294,10 +2295,12 @@ Decl *Parser::ParseDeclarationAfterDeclaratorAndAttributes(
     ThisDecl = Actions.ActOnTemplateDeclarator(getCurScope(),
                                                *TemplateInfo.TemplateParams,
                                                D);
-    if (VarTemplateDecl *VT = dyn_cast_or_null<VarTemplateDecl>(ThisDecl))
+    if (VarTemplateDecl *VT = dyn_cast_or_null<VarTemplateDecl>(ThisDecl)) {
       // Re-direct this decl to refer to the templated decl so that we can
       // initialize it.
       ThisDecl = VT->getTemplatedDecl();
+      OuterDecl = VT;
+    }
     break;
   }
   case ParsedTemplateInfo::ExplicitInstantiation: {
@@ -2502,8 +2505,7 @@ Decl *Parser::ParseDeclarationAfterDeclaratorAndAttributes(
   }
 
   Actions.FinalizeDeclaration(ThisDecl);
-
-  return ThisDecl;
+  return OuterDecl ? OuterDecl : ThisDecl;
 }
 
 /// ParseSpecifierQualifierList
@@ -4249,8 +4251,13 @@ void Parser::ParseStructDeclaration(
     DeclaratorInfo.D.setCommaLoc(CommaLoc);
 
     // Attributes are only allowed here on successive declarators.
-    if (!FirstDeclarator)
+    if (!FirstDeclarator) {
+      // However, this does not apply for [[]] attributes (which could show up
+      // before or after the __attribute__ attributes).
+      DiagnoseAndSkipCXX11Attributes();
       MaybeParseGNUAttributes(DeclaratorInfo.D);
+      DiagnoseAndSkipCXX11Attributes();
+    }
 
     /// struct-declarator: declarator
     /// struct-declarator: declarator[opt] ':' constant-expression

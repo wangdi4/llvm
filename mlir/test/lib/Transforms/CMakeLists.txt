@@ -16,6 +16,8 @@ add_mlir_library(MLIRTestTransforms
   TestGpuMemoryPromotion.cpp
   TestGpuParallelLoopMapping.cpp
   TestInlining.cpp
+  TestLinalgCodegenStrategy.cpp
+  TestLinalgFusionTransforms.cpp
   TestLinalgHoisting.cpp
   TestLinalgTransforms.cpp
   TestLiveness.cpp
@@ -38,12 +40,12 @@ add_mlir_library(MLIRTestTransforms
   MLIRStandardOpsIncGen
 
   LINK_LIBS PUBLIC
-  MLIRAffineOps
+  MLIRAffine
   MLIRAnalysis
   MLIREDSC
   MLIRGPU
   MLIRGPUToGPURuntimeTransforms
-  MLIRLinalgOps
+  MLIRLinalg
   MLIRLinalgTransforms
   MLIRNVVMIR
   MLIRSCF

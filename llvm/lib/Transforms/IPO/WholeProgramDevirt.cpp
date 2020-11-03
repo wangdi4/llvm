@@ -885,6 +885,12 @@ PreservedAnalyses WholeProgramDevirtPass::run(Module &M,
     return FAM.getResult<TargetLibraryAnalysis>(F);
   };
 
+  if (UseCommandLine) {
+    if (DevirtModule::runForTesting(M, AARGetter, OREGetter, LookupDomTree, GetTLI))
+      return PreservedAnalyses::all();
+    return PreservedAnalyses::none();
+  }
+
   if (!DevirtModule(M, AARGetter, OREGetter, LookupDomTree, ExportSummary,
                     ImportSummary, WPInfo.isWholeProgramSafe(), GetTLI)
            .run())

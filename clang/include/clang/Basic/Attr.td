@@ -1243,6 +1243,25 @@ def SYCLIntelNumSimdWorkItems : InheritableAttr {
   let PragmaAttributeSupport = 0;
 }
 
+def SYCLIntelSchedulerTargetFmaxMhz : InheritableAttr {
+  let Spellings = [CXX11<"intelfpga","scheduler_target_fmax_mhz">,
+                   CXX11<"intel","scheduler_target_fmax_mhz">];
+  let Args = [ExprArgument<"Value">];
+  let LangOpts = [SYCLIsDevice, SYCLIsHost];
+  let Subjects = SubjectList<[Function], ErrorDiag>;
+  let Documentation = [SYCLIntelSchedulerTargetFmaxMhzAttrDocs];
+  let PragmaAttributeSupport = 0;
+  let AdditionalMembers = [{
+    static unsigned getMinValue() {
+      return 0;
+    }
+    static unsigned getMaxValue() {
+      return 1048576;
+    }
+  }];
+
+}
+
 def SYCLIntelMaxWorkGroupSize : InheritableAttr {
   let Spellings = [CXX11<"intelfpga","max_work_group_size">,
                    CXX11<"intel","max_work_group_size">];
@@ -1983,7 +2002,7 @@ def IntelFPGABankWidth : Attr {
   let Args = [ExprArgument<"Value">];
   let Subjects = SubjectList<[IntelFPGAConstVar, IntelFPGALocalStaticSlaveMemVar,
                               Field], ErrorDiag>;
-  let LangOpts = [SYCLIsDevice, SYCLIsHost, OpenCL, HLS];  // INTEL
+  let LangOpts = [SYCLIsDevice, SYCLIsHost, OpenCL, HLS]; // INTEL
   let Documentation = [IntelFPGABankWidthAttrDocs];
   let AdditionalMembers = [{
     static unsigned getMinValue() {
@@ -2038,7 +2057,7 @@ def IntelFPGAMerge : Attr {
   let Args = [StringArgument<"Name">, StringArgument<"Direction">];
   let Subjects = SubjectList<[IntelFPGAConstVar, IntelFPGALocalOrStaticVar,
                               Field], ErrorDiag>;
-  let LangOpts = [SYCLIsDevice, SYCLIsHost, OpenCL, HLS];      // INTEL
+  let LangOpts = [SYCLIsDevice, SYCLIsHost, OpenCL, HLS]; // INTEL
   let Documentation = [IntelFPGAMergeAttrDocs];
 }
 
@@ -2610,6 +2629,13 @@ def ObjCDirectMembers : Attr {
   let Subjects = SubjectList<[ObjCImpl, ObjCInterface, ObjCCategory], ErrorDiag>;
   let LangOpts = [ObjC];
   let Documentation = [ObjCDirectMembersDocs];
+}
+
+def ObjCNonRuntimeProtocol : Attr {
+  let Spellings = [Clang<"objc_non_runtime_protocol">];
+  let Subjects = SubjectList<[ObjCProtocol], ErrorDiag>;
+  let LangOpts = [ObjC];
+  let Documentation = [ObjCNonRuntimeProtocolDocs];
 }
 
 def ObjCRuntimeName : Attr {

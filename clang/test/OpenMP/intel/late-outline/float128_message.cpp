@@ -8,14 +8,6 @@
 // RUN:  -fopenmp-late-outline  -fopenmp-targets=spir64 %s \
 // RUN: -fopenmp-is-device -fopenmp-host-ir-file-path %t-host.bc -fsyntax-only
 
-// RUN: %clang_cc1 -triple x86_64-unknown-linux-gnu -fopenmp \
-// RUN:  -fintel-compatibility -fopenmp-late-outline -fopenmp-targets=spir \
-// RUN:  -emit-llvm-bc %s -o %t-host.bc
-// RUN: %clang_cc1 -verify -triple spir64 -fopenmp \
-// RUN:  -aux-triple x86_64-unknown-linux-gnu -fintel-compatibility \
-// RUN:  -fopenmp-late-outline  -fopenmp-targets=spir %s \
-// RUN: -fopenmp-is-device -fopenmp-host-ir-file-path %t-host.bc -fsyntax-only
-
 #define floatDef __float128
 // expected-note@+1 3{{'f' defined here}}
 floatDef foo(floatDef f) {

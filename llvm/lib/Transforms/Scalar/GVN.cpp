@@ -1294,7 +1294,6 @@ bool GVN::PerformLoadPRE(LoadInst *LI, AvailValInBlkVect &ValuesPerBlock,
   // backwards through predecessors if needed.
   BasicBlock *LoadBB = LI->getParent();
   BasicBlock *TmpBB = LoadBB;
-  bool IsSafeToSpeculativelyExecute = isSafeToSpeculativelyExecute(LI);
 
   // Check that there is no implicit control flow instructions above our load in
   // its block. If there is an instruction that doesn't always pass the
@@ -1311,8 +1310,9 @@ bool GVN::PerformLoadPRE(LoadInst *LI, AvailValInBlkVect &ValuesPerBlock,
   // because if the index is out of bounds we should deoptimize rather than
   // access the array.
   // Check that there is no guard in this block above our instruction.
-  if (!IsSafeToSpeculativelyExecute && ICF->isDominatedByICFIFromSameBlock(LI))
-    return false;
+  bool MustEnsureSafetyOfSpeculativeExecution =
+      ICF->isDominatedByICFIFromSameBlock(LI);
+
   while (TmpBB->getSinglePredecessor()) {
     TmpBB = TmpBB->getSinglePredecessor();
     if (TmpBB == LoadBB) // Infinite (unreachable) loop.
@@ -1329,8 +1329,8 @@ bool GVN::PerformLoadPRE(LoadInst *LI, AvailValInBlkVect &ValuesPerBlock,
       return false;
 
     // Check that there is no implicit control flow in a block above.
-    if (!IsSafeToSpeculativelyExecute && ICF->hasICF(TmpBB))
-      return false;
+    MustEnsureSafetyOfSpeculativeExecution =
+        MustEnsureSafetyOfSpeculativeExecution || ICF->hasICF(TmpBB);
   }
 
   assert(TmpBB);
@@ -1449,6 +1449,17 @@ bool GVN::PerformLoadPRE(LoadInst *LI, AvailValInBlkVect &ValuesPerBlock,
           if (C->isNullValue())
             return false;
 #endif // INTEL_CUSTOMIZATION
+
+  // Now we know where we will insert load. We must ensure that it is safe
+  // to speculatively execute the load at that points.
+  if (MustEnsureSafetyOfSpeculativeExecution) {
+    if (CriticalEdgePred.size())
+      if (!isSafeToSpeculativelyExecute(LI, LoadBB->getFirstNonPHI(), DT))
+        return false;
+    for (auto &PL : PredLoads)
+      if (!isSafeToSpeculativelyExecute(LI, PL.first->getTerminator(), DT))
+        return false;
+  }
 
   // Split critical edges, and update the unavailable predecessors accordingly.
   for (BasicBlock *OrigPred : CriticalEdgePred) {

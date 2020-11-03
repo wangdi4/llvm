@@ -27,7 +27,7 @@
 ; CHECK-NEXT:            %.vec = (<4 x i64>*)(%nsbgepcopy)[40];
 ; CHECK-NEXT:            %red.var = %red.var  +  %.vec;
 ; CHECK-NEXT:         END LOOP
-; CHECK-NEXT:         %n.09 = @llvm.experimental.vector.reduce.add.v4i32(%red.var);
+; CHECK-NEXT:         %n.09 = @llvm.vector.reduce.add.v4i32(%red.var);
 ;
 %"class.std::vector" = type { %"struct.std::_Vector_base" }
 %"struct.std::_Vector_base" = type { %"struct.std::_Vector_base<std::set<unsigned int, std::less<unsigned int>, std::allocator<unsigned int>>, std::allocator<std::set<unsigned int, std::less<unsigned int>, std::allocator<unsigned int>>>>::_Vector_impl" }

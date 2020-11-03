@@ -501,6 +501,12 @@ static void instantiateOMPDeclareVariantAttr(
                                                          New->getLocation());
         if (!SubstFD)
           return;
+        QualType NewType = S.Context.mergeFunctionTypes(
+            SubstFD->getType(), FD->getType(),
+            /* OfBlockPointer */ false,
+            /* Unqualified */ false, /* AllowCXX */ true);
+        if (NewType.isNull())
+          return;
         S.InstantiateFunctionDefinition(
             New->getLocation(), SubstFD, /* Recursive */ true,
             /* DefinitionRequired */ false, /* AtEndOfTU */ false);
@@ -875,6 +881,12 @@ void Sema::InstantiateAttrs(const MultiLevelTemplateArgumentList &TemplateArgs,
             dyn_cast<SYCLIntelNumSimdWorkItemsAttr>(TmplAttr)) {
       instantiateIntelSYCLFunctionAttr<SYCLIntelNumSimdWorkItemsAttr>(
           *this, TemplateArgs, SYCLIntelNumSimdWorkItems, New);
+      continue;
+    }
+    if (const auto *SYCLIntelSchedulerTargetFmaxMhz =
+            dyn_cast<SYCLIntelSchedulerTargetFmaxMhzAttr>(TmplAttr)) {
+      instantiateIntelSYCLFunctionAttr<SYCLIntelSchedulerTargetFmaxMhzAttr>(
+          *this, TemplateArgs, SYCLIntelSchedulerTargetFmaxMhz, New);
       continue;
     }
     // Existing DLL attribute on the instantiation takes precedence.
@@ -3865,11 +3877,11 @@ Decl *TemplateDeclInstantiator::VisitVarTemplateSpecializationDecl(
     return nullptr;
 
   return VisitVarTemplateSpecializationDecl(
-      InstVarTemplate, D, InsertPos, VarTemplateArgsInfo, Converted, PrevDecl);
+      InstVarTemplate, D, VarTemplateArgsInfo, Converted, PrevDecl);
 }
 
 Decl *TemplateDeclInstantiator::VisitVarTemplateSpecializationDecl(
-    VarTemplateDecl *VarTemplate, VarDecl *D, void *InsertPos,
+    VarTemplateDecl *VarTemplate, VarDecl *D,
     const TemplateArgumentListInfo &TemplateArgsInfo,
     ArrayRef<TemplateArgument> Converted,
     VarTemplateSpecializationDecl *PrevDecl) {
@@ -3892,8 +3904,11 @@ Decl *TemplateDeclInstantiator::VisitVarTemplateSpecializationDecl(
       SemaRef.Context, Owner, D->getInnerLocStart(), D->getLocation(),
       VarTemplate, DI->getType(), DI, D->getStorageClass(), Converted);
   Var->setTemplateArgsInfo(TemplateArgsInfo);
-  if (InsertPos)
+  if (!PrevDecl) {
+    void *InsertPos = nullptr;
+    VarTemplate->findSpecialization(Converted, InsertPos);
     VarTemplate->AddSpecialization(Var, InsertPos);
+  }
 
   if (SemaRef.getLangOpts().OpenCL)
     SemaRef.deduceOpenCLAddressSpace(Var);
@@ -5102,7 +5117,7 @@ VarTemplateSpecializationDecl *Sema::BuildVarTemplateInstantiation(
     const TemplateArgumentList &TemplateArgList,
     const TemplateArgumentListInfo &TemplateArgsInfo,
     SmallVectorImpl<TemplateArgument> &Converted,
-    SourceLocation PointOfInstantiation, void *InsertPos,
+    SourceLocation PointOfInstantiation,
     LateInstantiatedAttrVec *LateAttrs,
     LocalInstantiationScope *StartingScope) {
   if (FromVar->isInvalidDecl())
@@ -5141,7 +5156,7 @@ VarTemplateSpecializationDecl *Sema::BuildVarTemplateInstantiation(
 
   return cast_or_null<VarTemplateSpecializationDecl>(
       Instantiator.VisitVarTemplateSpecializationDecl(
-          VarTemplate, FromVar, InsertPos, TemplateArgsInfo, Converted));
+          VarTemplate, FromVar, TemplateArgsInfo, Converted));
 }
 
 /// Instantiates a variable template specialization by completing it
@@ -5576,8 +5591,8 @@ void Sema::InstantiateVariableDefinition(SourceLocation PointOfInstantiation,
     TemplateDeclInstantiator Instantiator(*this, Var->getDeclContext(),
                                           TemplateArgs);
     Var = cast_or_null<VarDecl>(Instantiator.VisitVarTemplateSpecializationDecl(
-        VarSpec->getSpecializedTemplate(), Def, nullptr,
-        VarSpec->getTemplateArgsInfo(), VarSpec->getTemplateArgs().asArray()));
+        VarSpec->getSpecializedTemplate(), Def, VarSpec->getTemplateArgsInfo(),
+        VarSpec->getTemplateArgs().asArray(), VarSpec));
     if (Var) {
       llvm::PointerUnion<VarTemplateDecl *,
                          VarTemplatePartialSpecializationDecl *> PatternPtr =
@@ -5586,12 +5601,6 @@ void Sema::InstantiateVariableDefinition(SourceLocation PointOfInstantiation,
           PatternPtr.dyn_cast<VarTemplatePartialSpecializationDecl *>())
         cast<VarTemplateSpecializationDecl>(Var)->setInstantiationOf(
             Partial, &VarSpec->getTemplateInstantiationArgs());
-
-      // Merge the definition with the declaration.
-      LookupResult R(*this, Var->getDeclName(), Var->getLocation(),
-                     LookupOrdinaryName, forRedeclarationInCurContext());
-      R.addDecl(OldVar);
-      MergeVarDecl(Var, R);
 
       // Attach the initializer.
       InstantiateVariableInitializer(Var, Def, TemplateArgs);

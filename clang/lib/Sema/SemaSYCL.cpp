@@ -537,6 +537,9 @@ public:
       if (auto *A = FD->getAttr<SYCLIntelNumSimdWorkItemsAttr>())
         Attrs.insert(A);
 
+      if (auto *A = FD->getAttr<SYCLIntelSchedulerTargetFmaxMhzAttr>())
+        Attrs.insert(A);
+
       if (auto *A = FD->getAttr<SYCLIntelMaxWorkGroupSizeAttr>())
         Attrs.insert(A);
 
@@ -3005,7 +3008,6 @@ void Sema::CheckSYCLKernelCall(FunctionDecl *KernelFunc, SourceRange CallLoc,
   // Emit diagnostics for SYCL device kernels only
   if (LangOpts.SYCLIsDevice)
     KernelTypeVisitor.Visit(KernelNameType);
-  DiagnosingSYCLKernel = true;
   Visitor.VisitRecordBases(KernelObj, FieldChecker, UnionChecker, DecompMarker);
   Visitor.VisitRecordFields(KernelObj, FieldChecker, UnionChecker,
                             DecompMarker);
@@ -3202,6 +3204,7 @@ void Sema::MarkDevice(void) {
         }
         case attr::Kind::SYCLIntelKernelArgsRestrict:
         case attr::Kind::SYCLIntelNumSimdWorkItems:
+        case attr::Kind::SYCLIntelSchedulerTargetFmaxMhz:
         case attr::Kind::SYCLIntelMaxGlobalWorkDim:
         case attr::Kind::SYCLIntelNoGlobalWorkOffset:
         case attr::Kind::SYCLSimd: {

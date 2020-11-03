@@ -14,11 +14,13 @@
 #include <CL/sycl/detail/cl.h>
 #include <CL/sycl/detail/kernel_desc.hpp>
 #include <CL/sycl/detail/memory_manager.hpp>
+#include <CL/sycl/program.hpp>
 #include <CL/sycl/sampler.hpp>
 #include <detail/context_impl.hpp>
 #include <detail/event_impl.hpp>
 #include <detail/kernel_impl.hpp>
 #include <detail/kernel_info.hpp>
+#include <detail/program_impl.hpp>
 #include <detail/program_manager/program_manager.hpp>
 #include <detail/queue_impl.hpp>
 #include <detail/sampler_impl.hpp>
@@ -1611,8 +1613,9 @@ static void adjustNDRangePerKernel(NDRDescT &NDR, RT::PiKernel Kernel,
   assert(NDR.NumWorkGroups[0] != 0 && NDR.LocalSize[0] == 0);
   // TODO might be good to cache this info together with the kernel info to
   // avoid get_kernel_work_group_info on every kernel run
-  range<3> WGSize = get_kernel_work_group_info<
-      range<3>, cl::sycl::info::kernel_work_group::compile_work_group_size>::
+  range<3> WGSize = get_kernel_device_specific_info<
+      range<3>,
+      cl::sycl::info::kernel_device_specific::compile_work_group_size>::
       get(Kernel, DeviceImpl.getHandleRef(), DeviceImpl.getPlugin());
 
   if (WGSize[0] == 0) {

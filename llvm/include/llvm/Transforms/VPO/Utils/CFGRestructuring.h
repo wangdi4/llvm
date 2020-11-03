@@ -44,6 +44,8 @@ public:
   PreservedAnalyses run(Function &F, FunctionAnalysisManager &AM);
 
   bool runImpl(Function &F, DominatorTree *DT, LoopInfo *LI);
+
+  static bool isRequired() { return true; }
 };
 } // end namespace llvm
 

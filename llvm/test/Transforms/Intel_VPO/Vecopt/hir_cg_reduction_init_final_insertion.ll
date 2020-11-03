@@ -41,7 +41,7 @@
 ; CHECK-NEXT:           |   |   |   %red.var = %.vec  +  %red.var;
 ; CHECK-NEXT:           |   |   + END LOOP
 ; CHECK-NEXT:           |   + END LOOP
-; CHECK-NEXT:           |      %sum.135 = @llvm.experimental.vector.reduce.add.v4i32(%red.var);
+; CHECK-NEXT:           |      %sum.135 = @llvm.vector.reduce.add.v4i32(%red.var);
 ; CHECK-NEXT:           |      %sum.039 = %sum.135;
 ; CHECK-NEXT:           |
 ; CHECK-NEXT:           |   %div13 = %X.addr.036  /  2;

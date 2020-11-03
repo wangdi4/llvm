@@ -446,11 +446,10 @@ public:
 
   static MemObjRecord *getMemObjRecord(const Requirement *const Req);
 
-protected:
   Scheduler();
   ~Scheduler();
-  static Scheduler instance;
 
+protected:
   /// Provides exclusive access to std::shared_timed_mutex object with deadlock
   /// avoidance
   ///
@@ -631,7 +630,7 @@ protected:
       AfterAddHostAcc,
       Size
     };
-    std::array<bool, PrintOptions::Size> MPrintOptionsArray;
+    std::array<bool, PrintOptions::Size> MPrintOptionsArray{false};
   };
 
   /// Graph Processor provides interfaces for enqueueing commands and their

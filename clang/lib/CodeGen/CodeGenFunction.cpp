@@ -43,6 +43,7 @@
 #include "llvm/IR/MDBuilder.h"
 #include "llvm/IR/Operator.h"
 #include "llvm/Support/CRC.h"
+#include "llvm/Transforms/Scalar/LowerExpectIntrinsic.h"
 #include "llvm/Transforms/Utils/PromoteMemToReg.h"
 #include "llvm/Analysis/OptimizationRemarkEmitter.h" // INTEL
 using namespace clang;
@@ -710,6 +711,17 @@ void CodeGenFunction::EmitOpenCLKernelMetadata(const FunctionDecl *FD,
     llvm::Metadata *AttrMDArgs[] = {llvm::ConstantAsMetadata::get(
         Builder.getInt32(ArgVal->getSExtValue()))};
     Fn->setMetadata("num_simd_work_items",
+                    llvm::MDNode::get(Context, AttrMDArgs));
+  }
+
+  if (const SYCLIntelSchedulerTargetFmaxMhzAttr *A =
+          FD->getAttr<SYCLIntelSchedulerTargetFmaxMhzAttr>()) {
+    Optional<llvm::APSInt> ArgVal =
+        A->getValue()->getIntegerConstantExpr(FD->getASTContext());
+    assert(ArgVal.hasValue() && "Not an integer constant expression");
+    llvm::Metadata *AttrMDArgs[] = {llvm::ConstantAsMetadata::get(
+        Builder.getInt32(ArgVal->getSExtValue()))};
+    Fn->setMetadata("scheduler_target_fmax_mhz",
                     llvm::MDNode::get(Context, AttrMDArgs));
   }
 
@@ -1780,15 +1792,30 @@ bool CodeGenFunction::ConstantFoldsToSimpleInteger(const Expr *Cond,
   return true;
 }
 
+static Optional<std::pair<uint32_t, uint32_t>>
+getLikelihoodWeights(Stmt::Likelihood LH) {
+  switch (LH) {
+  case Stmt::LH_Unlikely:
+    return std::pair<uint32_t, uint32_t>(llvm::UnlikelyBranchWeight,
+                                         llvm::LikelyBranchWeight);
+  case Stmt::LH_None:
+    return None;
+  case Stmt::LH_Likely:
+    return std::pair<uint32_t, uint32_t>(llvm::LikelyBranchWeight,
+                                         llvm::UnlikelyBranchWeight);
+  }
+  llvm_unreachable("Unknown Likelihood");
+}
+
 /// EmitBranchOnBoolExpr - Emit a branch on a boolean condition (e.g. for an if
 /// statement) to the specified blocks.  Based on the condition, this might try
 /// to simplify the codegen of the conditional based on the branch.
-/// \param Weights The weights determined by the likelihood attributes.
+/// \param LH The value of the likelihood attribute on the True branch.
 void CodeGenFunction::EmitBranchOnBoolExpr(const Expr *Cond,
                                            llvm::BasicBlock *TrueBlock,
                                            llvm::BasicBlock *FalseBlock,
                                            uint64_t TrueCount,
-                                           llvm::MDNode *Weights) {
+                                           Stmt::Likelihood LH) {
   Cond = Cond->IgnoreParens();
 
   if (const BinaryOperator *CondBOp = dyn_cast<BinaryOperator>(Cond)) {
@@ -1803,7 +1830,7 @@ void CodeGenFunction::EmitBranchOnBoolExpr(const Expr *Cond,
         // br(1 && X) -> br(X).
         incrementProfileCounter(CondBOp);
         return EmitBranchOnBoolExpr(CondBOp->getRHS(), TrueBlock, FalseBlock,
-                                    TrueCount, Weights);
+                                    TrueCount, LH);
       }
 
       // If we have "X && 1", simplify the code to use an uncond branch.
@@ -1812,7 +1839,7 @@ void CodeGenFunction::EmitBranchOnBoolExpr(const Expr *Cond,
           ConstantBool) {
         // br(X && 1) -> br(X).
         return EmitBranchOnBoolExpr(CondBOp->getLHS(), TrueBlock, FalseBlock,
-                                    TrueCount, Weights);
+                                    TrueCount, LH);
       }
 
       // Emit the LHS as a conditional.  If the LHS conditional is false, we
@@ -1825,8 +1852,11 @@ void CodeGenFunction::EmitBranchOnBoolExpr(const Expr *Cond,
       ConditionalEvaluation eval(*this);
       {
         ApplyDebugLocation DL(*this, Cond);
+        // Propagate the likelihood attribute like __builtin_expect
+        // __builtin_expect(X && Y, 1) -> X and Y are likely
+        // __builtin_expect(X && Y, 0) -> only Y is unlikely
         EmitBranchOnBoolExpr(CondBOp->getLHS(), LHSTrue, FalseBlock, RHSCount,
-                             Weights);
+                             LH == Stmt::LH_Unlikely ? Stmt::LH_None : LH);
         EmitBlock(LHSTrue);
       }
 
@@ -1836,7 +1866,7 @@ void CodeGenFunction::EmitBranchOnBoolExpr(const Expr *Cond,
       // Any temporaries created here are conditional.
       eval.begin(*this);
       EmitBranchOnBoolExpr(CondBOp->getRHS(), TrueBlock, FalseBlock, TrueCount,
-                           Weights);
+                           LH);
       eval.end(*this);
 
       return;
@@ -1851,7 +1881,7 @@ void CodeGenFunction::EmitBranchOnBoolExpr(const Expr *Cond,
         // br(0 || X) -> br(X).
         incrementProfileCounter(CondBOp);
         return EmitBranchOnBoolExpr(CondBOp->getRHS(), TrueBlock, FalseBlock,
-                                    TrueCount, Weights);
+                                    TrueCount, LH);
       }
 
       // If we have "X || 0", simplify the code to use an uncond branch.
@@ -1860,7 +1890,7 @@ void CodeGenFunction::EmitBranchOnBoolExpr(const Expr *Cond,
           !ConstantBool) {
         // br(X || 0) -> br(X).
         return EmitBranchOnBoolExpr(CondBOp->getLHS(), TrueBlock, FalseBlock,
-                                    TrueCount, Weights);
+                                    TrueCount, LH);
       }
 
       // Emit the LHS as a conditional.  If the LHS conditional is true, we
@@ -1875,9 +1905,12 @@ void CodeGenFunction::EmitBranchOnBoolExpr(const Expr *Cond,
 
       ConditionalEvaluation eval(*this);
       {
+        // Propagate the likelihood attribute like __builtin_expect
+        // __builtin_expect(X || Y, 1) -> only Y is likely
+        // __builtin_expect(X || Y, 0) -> both X and Y are unlikely
         ApplyDebugLocation DL(*this, Cond);
         EmitBranchOnBoolExpr(CondBOp->getLHS(), TrueBlock, LHSFalse, LHSCount,
-                             Weights);
+                             LH == Stmt::LH_Likely ? Stmt::LH_None : LH);
         EmitBlock(LHSFalse);
       }
 
@@ -1887,7 +1920,7 @@ void CodeGenFunction::EmitBranchOnBoolExpr(const Expr *Cond,
       // Any temporaries created here are conditional.
       eval.begin(*this);
       EmitBranchOnBoolExpr(CondBOp->getRHS(), TrueBlock, FalseBlock, RHSCount,
-                           Weights);
+                           LH);
 
       eval.end(*this);
 
@@ -1900,9 +1933,11 @@ void CodeGenFunction::EmitBranchOnBoolExpr(const Expr *Cond,
     if (CondUOp->getOpcode() == UO_LNot) {
       // Negate the count.
       uint64_t FalseCount = getCurrentProfileCount() - TrueCount;
+      // The values of the enum are chosen to make this negation possible.
+      LH = static_cast<Stmt::Likelihood>(-LH);
       // Negate the condition and swap the destination blocks.
       return EmitBranchOnBoolExpr(CondUOp->getSubExpr(), FalseBlock, TrueBlock,
-                                  FalseCount, Weights);
+                                  FalseCount, LH);
     }
   }
 
@@ -1911,9 +1946,11 @@ void CodeGenFunction::EmitBranchOnBoolExpr(const Expr *Cond,
     llvm::BasicBlock *LHSBlock = createBasicBlock("cond.true");
     llvm::BasicBlock *RHSBlock = createBasicBlock("cond.false");
 
+    // The ConditionalOperator itself has no likelihood information for its
+    // true and false branches. This matches the behavior of __builtin_expect.
     ConditionalEvaluation cond(*this);
     EmitBranchOnBoolExpr(CondOp->getCond(), LHSBlock, RHSBlock,
-                         getProfileCount(CondOp), Weights);
+                         getProfileCount(CondOp), Stmt::LH_None);
 
     // When computing PGO branch weights, we only know the overall count for
     // the true block. This code is essentially doing tail duplication of the
@@ -1933,14 +1970,14 @@ void CodeGenFunction::EmitBranchOnBoolExpr(const Expr *Cond,
     {
       ApplyDebugLocation DL(*this, Cond);
       EmitBranchOnBoolExpr(CondOp->getLHS(), TrueBlock, FalseBlock,
-                           LHSScaledTrueCount, Weights);
+                           LHSScaledTrueCount, LH);
     }
     cond.end(*this);
 
     cond.begin(*this);
     EmitBlock(RHSBlock);
     EmitBranchOnBoolExpr(CondOp->getRHS(), TrueBlock, FalseBlock,
-                         TrueCount - LHSScaledTrueCount, Weights);
+                         TrueCount - LHSScaledTrueCount, LH);
     cond.end(*this);
 
     return;
@@ -1969,8 +2006,12 @@ void CodeGenFunction::EmitBranchOnBoolExpr(const Expr *Cond,
     }
   }
 
-  // Create branch weights based on the number of times we get here and the
-  // number of times the condition should be true.
+  llvm::MDNode *Weights = nullptr;
+  Optional<std::pair<uint32_t, uint32_t>> LHW = getLikelihoodWeights(LH);
+  if (LHW) {
+    llvm::MDBuilder MDHelper(CGM.getLLVMContext());
+    Weights = MDHelper.createBranchWeights(LHW->first, LHW->second);
+  }
   if (!Weights) {
     uint64_t CurrentCount = std::max(getCurrentProfileCount(), TrueCount);
     Weights = createProfileWeights(TrueCount, CurrentCount - TrueCount);

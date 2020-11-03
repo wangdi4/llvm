@@ -2076,8 +2076,7 @@ SDValue SelectionDAG::CreateStackTemporary(EVT VT1, EVT VT2) {
 }
 
 SDValue SelectionDAG::FoldSetCC(EVT VT, SDValue N1, SDValue N2,
-                                ISD::CondCode Cond, const SDLoc &dl, // INTEL
-                                const SDNodeFlags Flags) { // INTEL
+                                ISD::CondCode Cond, const SDLoc &dl) {
   EVT OpVT = N1.getValueType();
 
   // These setcc operations always fold.
@@ -2207,7 +2206,7 @@ SDValue SelectionDAG::FoldSetCC(EVT VT, SDValue N1, SDValue N2,
     ISD::CondCode SwappedCond = ISD::getSetCCSwappedOperands(Cond);
     if (!TLI->isCondCodeLegal(SwappedCond, OpVT.getSimpleVT()))
       return SDValue();
-    return getSetCC(dl, VT, N2, N1, SwappedCond, Flags);
+    return getSetCC(dl, VT, N2, N1, SwappedCond);
   } else if ((N2CFP && N2CFP->getValueAPF().isNaN()) ||
              (OpVT.isFloatingPoint() && (N1.isUndef() || N2.isUndef()))) {
     // If an operand is known to be a nan (or undef that could be a nan), we can
@@ -2237,6 +2236,10 @@ SDValue SelectionDAG::FoldSetCC(EVT VT, SDValue N1, SDValue N2,
 /// SimplifyMultipleUseDemandedBits and not generate any new nodes.
 SDValue SelectionDAG::GetDemandedBits(SDValue V, const APInt &DemandedBits) {
   EVT VT = V.getValueType();
+
+  if (VT.isScalableVector())
+    return SDValue();
+
   APInt DemandedElts = VT.isVector()
                            ? APInt::getAllOnesValue(VT.getVectorNumElements())
                            : APInt(1, 1);
@@ -2329,6 +2332,9 @@ bool SelectionDAG::isSplatValue(SDValue V, const APInt &DemandedElts,
   // vector types.
   switch (V.getOpcode()) {
   case ISD::SPLAT_VECTOR:
+    UndefElts = V.getOperand(0).isUndef()
+                    ? APInt::getAllOnesValue(DemandedElts.getBitWidth())
+                    : APInt(DemandedElts.getBitWidth(), 0);
     return true;
   case ISD::ADD:
   case ISD::SUB:
@@ -4393,11 +4399,16 @@ static SDValue foldCONCAT_VECTORS(const SDLoc &DL, EVT VT,
   for (SDValue Op : Elts)
     SVT = (SVT.bitsLT(Op.getValueType()) ? Op.getValueType() : SVT);
 
-  if (SVT.bitsGT(VT.getScalarType()))
-    for (SDValue &Op : Elts)
-      Op = DAG.getTargetLoweringInfo().isZExtFree(Op.getValueType(), SVT)
-               ? DAG.getZExtOrTrunc(Op, DL, SVT)
-               : DAG.getSExtOrTrunc(Op, DL, SVT);
+  if (SVT.bitsGT(VT.getScalarType())) {
+    for (SDValue &Op : Elts) {
+      if (Op.isUndef())
+        Op = DAG.getUNDEF(SVT);
+      else
+        Op = DAG.getTargetLoweringInfo().isZExtFree(Op.getValueType(), SVT)
+                 ? DAG.getZExtOrTrunc(Op, DL, SVT)
+                 : DAG.getSExtOrTrunc(Op, DL, SVT);
+    }
+  }
 
   SDValue V = DAG.getBuildVector(VT, DL, Elts);
   NewSDValueDbgMsg(V, "New node fold concat vectors: ", &DAG);
@@ -4631,8 +4642,8 @@ SDValue SelectionDAG::getNode(unsigned Opcode, const SDLoc &DL, EVT VT,
            Operand.getValueType().isFloatingPoint() && "Invalid FP cast!");
     if (Operand.getValueType() == VT) return Operand;  // noop conversion.
     assert((!VT.isVector() ||
-            VT.getVectorNumElements() ==
-            Operand.getValueType().getVectorNumElements()) &&
+            VT.getVectorElementCount() ==
+            Operand.getValueType().getVectorElementCount()) &&
            "Vector element count mismatch!");
     assert(Operand.getValueType().bitsLT(VT) &&
            "Invalid fpext node, dst < src!");
@@ -5741,8 +5752,7 @@ SDValue SelectionDAG::getNode(unsigned Opcode, const SDLoc &DL, EVT VT,
                                   N1.getValueType().getVectorElementCount()) &&
            "SETCC vector element counts must match!");
     // Use FoldSetCC to simplify SETCC's.
-    if (SDValue V = FoldSetCC(VT, N1, N2, cast<CondCodeSDNode>(N3)->get(), DL, // INTEL
-                              Flags)) // INTEL
+    if (SDValue V = FoldSetCC(VT, N1, N2, cast<CondCodeSDNode>(N3)->get(), DL))
       return V;
     // Vector constant folding.
     SDValue Ops[] = {N1, N2, N3};
@@ -7182,7 +7192,8 @@ SDValue SelectionDAG::getTruncStore(SDValue Chain, const SDLoc &dl, SDValue Val,
 
   MachineFunction &MF = getMachineFunction();
   MachineMemOperand *MMO = MF.getMachineMemOperand(
-      PtrInfo, MMOFlags, SVT.getStoreSize(), Alignment, AAInfo);
+      PtrInfo, MMOFlags, MemoryLocation::getSizeOrUnknown(SVT.getStoreSize()),
+      Alignment, AAInfo);
   return getTruncStore(Chain, dl, Val, Ptr, SVT, MMO);
 }
 
@@ -7203,7 +7214,7 @@ SDValue SelectionDAG::getTruncStore(SDValue Chain, const SDLoc &dl, SDValue Val,
   assert(VT.isVector() == SVT.isVector() &&
          "Cannot use trunc store to convert to or from a vector!");
   assert((!VT.isVector() ||
-          VT.getVectorNumElements() == SVT.getVectorNumElements()) &&
+          VT.getVectorElementCount() == SVT.getVectorElementCount()) &&
          "Cannot use trunc store to change the number of vector elements!");
 
   SDVTList VTs = getVTList(MVT::Other);
@@ -7521,6 +7532,11 @@ SDValue SelectionDAG::simplifyFPBinop(unsigned Opcode, SDValue X, SDValue Y,
   if (Opcode == ISD::FMUL || Opcode == ISD::FDIV)
     if (YC->getValueAPF().isExactlyValue(1.0))
       return X;
+
+  // X * 0.0 --> 0.0
+  if (Opcode == ISD::FMUL && Flags.hasNoNaNs() && Flags.hasNoSignedZeros())
+    if (YC->getValueAPF().isZero())
+      return getConstantFP(0.0, SDLoc(Y), Y.getValueType());
 
   return SDValue();
 }
@@ -8770,21 +8786,31 @@ namespace {
 
 } // end anonymous namespace
 
-void SelectionDAG::updateDivergence(SDNode * N)
-{
-  if (TLI->isSDNodeAlwaysUniform(N))
-    return;
-  bool IsDivergent = TLI->isSDNodeSourceOfDivergence(N, FLI, DA);
+bool SelectionDAG::calculateDivergence(SDNode *N) {
+  if (TLI->isSDNodeAlwaysUniform(N)) {
+    assert(!TLI->isSDNodeSourceOfDivergence(N, FLI, DA) &&
+           "Conflicting divergence information!");
+    return false;
+  }
+  if (TLI->isSDNodeSourceOfDivergence(N, FLI, DA))
+    return true;
   for (auto &Op : N->ops()) {
-    if (Op.Val.getValueType() != MVT::Other)
-      IsDivergent |= Op.getNode()->isDivergent();
+    if (Op.Val.getValueType() != MVT::Other && Op.getNode()->isDivergent())
+      return true;
   }
-  if (N->SDNodeBits.IsDivergent != IsDivergent) {
-    N->SDNodeBits.IsDivergent = IsDivergent;
-    for (auto U : N->uses()) {
-      updateDivergence(U);
+  return false;
+}
+
+void SelectionDAG::updateDivergence(SDNode *N) {
+  SmallVector<SDNode *, 16> Worklist(1, N);
+  do {
+    N = Worklist.pop_back_val();
+    bool IsDivergent = calculateDivergence(N);
+    if (N->SDNodeBits.IsDivergent != IsDivergent) {
+      N->SDNodeBits.IsDivergent = IsDivergent;
+      Worklist.insert(Worklist.end(), N->use_begin(), N->use_end());
     }
-  }
+  } while (!Worklist.empty());
 }
 
 void SelectionDAG::CreateTopologicalOrder(std::vector<SDNode *> &Order) {
@@ -8810,26 +8836,9 @@ void SelectionDAG::CreateTopologicalOrder(std::vector<SDNode *> &Order) {
 void SelectionDAG::VerifyDAGDiverence() {
   std::vector<SDNode *> TopoOrder;
   CreateTopologicalOrder(TopoOrder);
-  const TargetLowering &TLI = getTargetLoweringInfo();
-  DenseMap<const SDNode *, bool> DivergenceMap;
-  for (auto &N : allnodes()) {
-    DivergenceMap[&N] = false;
-  }
-  for (auto N : TopoOrder) {
-    bool IsDivergent = DivergenceMap[N];
-    bool IsSDNodeDivergent = TLI.isSDNodeSourceOfDivergence(N, FLI, DA);
-    for (auto &Op : N->ops()) {
-      if (Op.Val.getValueType() != MVT::Other)
-        IsSDNodeDivergent |= DivergenceMap[Op.getNode()];
-    }
-    if (!IsDivergent && IsSDNodeDivergent && !TLI.isSDNodeAlwaysUniform(N)) {
-      DivergenceMap[N] = true;
-    }
-  }
-  for (auto &N : allnodes()) {
-    (void)N;
-    assert(DivergenceMap[&N] == N.isDivergent() &&
-           "Divergence bit inconsistency detected\n");
+  for (auto *N : TopoOrder) {
+    assert(calculateDivergence(N) == N->isDivergent() &&
+           "Divergence bit inconsistency detected");
   }
 }
 #endif
@@ -10015,13 +10024,14 @@ void SelectionDAG::createOperands(SDNode *Node, ArrayRef<SDValue> Vals) {
     Ops[I].setUser(Node);
     Ops[I].setInitial(Vals[I]);
     if (Ops[I].Val.getValueType() != MVT::Other) // Skip Chain. It does not carry divergence.
-      IsDivergent = IsDivergent || Ops[I].getNode()->isDivergent();
+      IsDivergent |= Ops[I].getNode()->isDivergent();
   }
   Node->NumOperands = Vals.size();
   Node->OperandList = Ops;
-  IsDivergent |= TLI->isSDNodeSourceOfDivergence(Node, FLI, DA);
-  if (!TLI->isSDNodeAlwaysUniform(Node))
+  if (!TLI->isSDNodeAlwaysUniform(Node)) {
+    IsDivergent |= TLI->isSDNodeSourceOfDivergence(Node, FLI, DA);
     Node->SDNodeBits.IsDivergent = IsDivergent;
+  }
   checkForCycles(Node);
 }
 

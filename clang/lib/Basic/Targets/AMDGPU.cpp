@@ -227,6 +227,7 @@ bool AMDGPUTargetInfo::initFeatureMap(
       Features["gfx9-insts"] = true;
       LLVM_FALLTHROUGH;
     case GK_GFX810:
+    case GK_GFX805:
     case GK_GFX803:
     case GK_GFX802:
     case GK_GFX801:
@@ -235,6 +236,7 @@ bool AMDGPUTargetInfo::initFeatureMap(
       Features["dpp"] = true;
       Features["s-memrealtime"] = true;
       LLVM_FALLTHROUGH;
+    case GK_GFX705:
     case GK_GFX704:
     case GK_GFX703:
     case GK_GFX702:
@@ -243,6 +245,7 @@ bool AMDGPUTargetInfo::initFeatureMap(
       Features["ci-insts"] = true;
       Features["flat-address-space"] = true;
       LLVM_FALLTHROUGH;
+    case GK_GFX602:
     case GK_GFX601:
     case GK_GFX600:
       break;
@@ -315,6 +318,7 @@ AMDGPUTargetInfo::AMDGPUTargetInfo(const llvm::Triple &Triple,
 
   HasLegalHalfType = true;
   HasFloat16 = true;
+  WavefrontSize = GPUFeatures & llvm::AMDGPU::FEATURE_WAVE32 ? 32 : 64;
 
   // Set pointer width and alignment for target address space 0.
   PointerWidth = PointerAlign = DataLayout->getPointerSizeInBits();
@@ -387,6 +391,8 @@ void AMDGPUTargetInfo::getTargetDefines(const LangOptions &Opts,
     Builder.defineMacro("__HAS_FP64__");
   if (hasFastFMA())
     Builder.defineMacro("FP_FAST_FMA");
+
+  Builder.defineMacro("__AMDGCN_WAVEFRONT_SIZE", Twine(WavefrontSize));
 }
 
 void AMDGPUTargetInfo::setAuxTarget(const TargetInfo *Aux) {

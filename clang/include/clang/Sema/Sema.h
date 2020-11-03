@@ -3459,6 +3459,8 @@ public:
   bool CanPerformAggregateInitializationForOverloadResolution(
       const InitializedEntity &Entity, InitListExpr *From);
 
+  bool IsStringInit(Expr *Init, const ArrayType *AT);
+
   bool CanPerformCopyInitialization(const InitializedEntity &Entity,
                                     ExprResult Init);
   ExprResult PerformCopyInitialization(const InitializedEntity &Entity,
@@ -9486,7 +9488,7 @@ public:
       const TemplateArgumentList &TemplateArgList,
       const TemplateArgumentListInfo &TemplateArgsInfo,
       SmallVectorImpl<TemplateArgument> &Converted,
-      SourceLocation PointOfInstantiation, void *InsertPos,
+      SourceLocation PointOfInstantiation,
       LateInstantiatedAttrVec *LateAttrs = nullptr,
       LocalInstantiationScope *StartingScope = nullptr);
   VarTemplateSpecializationDecl *CompleteVarTemplateSpecializationDecl(
@@ -10224,6 +10226,11 @@ public:
   bool checkNSReturnsRetainedReturnType(SourceLocation loc, QualType type);
   bool checkAllowedSYCLInitializer(VarDecl *VD,
                                    bool CheckValueDependent = false);
+
+  // Adds a scheduler_target_fmax_mhz attribute to a particular declaration.
+  void addSYCLIntelSchedulerTargetFmaxMhzAttr(Decl *D,
+                                              const AttributeCommonInfo &CI,
+                                              Expr *E);
 
   //===--------------------------------------------------------------------===//
   // C++ Coroutines TS
