@@ -13,16 +13,16 @@ define i32 @zext_vXi32() {
 ;
 ; X86_64-AVX2-LABEL: 'zext_vXi32'
 ; X86_64-AVX2-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %V3i64 = zext <3 x i32> undef to <3 x i64>
-; X86_64-AVX2-NEXT:  Cost Model: Found an estimated cost of 19 for instruction: %V7i64 = zext <7 x i32> undef to <7 x i64>
-; X86_64-AVX2-NEXT:  Cost Model: Found an estimated cost of 26 for instruction: %V9i64 = zext <9 x i32> undef to <9 x i64>
-; X86_64-AVX2-NEXT:  Cost Model: Found an estimated cost of 98 for instruction: %V33i64 = zext <33 x i32> undef to <33 x i64>
+; X86_64-AVX2-NEXT:  Cost Model: Found an estimated cost of 22 for instruction: %V7i64 = zext <7 x i32> undef to <7 x i64>
+; X86_64-AVX2-NEXT:  Cost Model: Found an estimated cost of 27 for instruction: %V9i64 = zext <9 x i32> undef to <9 x i64>
+; X86_64-AVX2-NEXT:  Cost Model: Found an estimated cost of 99 for instruction: %V33i64 = zext <33 x i32> undef to <33 x i64>
 ; X86_64-AVX2-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: ret i32 undef
 ;
 ; X86_64-AVX512-VL-BW-LABEL: 'zext_vXi32'
 ; X86_64-AVX512-VL-BW-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %V3i64 = zext <3 x i32> undef to <3 x i64>
 ; X86_64-AVX512-VL-BW-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %V7i64 = zext <7 x i32> undef to <7 x i64>
-; X86_64-AVX512-VL-BW-NEXT:  Cost Model: Found an estimated cost of 30 for instruction: %V9i64 = zext <9 x i32> undef to <9 x i64>
-; X86_64-AVX512-VL-BW-NEXT:  Cost Model: Found an estimated cost of 114 for instruction: %V33i64 = zext <33 x i32> undef to <33 x i64>
+; X86_64-AVX512-VL-BW-NEXT:  Cost Model: Found an estimated cost of 29 for instruction: %V9i64 = zext <9 x i32> undef to <9 x i64>
+; X86_64-AVX512-VL-BW-NEXT:  Cost Model: Found an estimated cost of 107 for instruction: %V33i64 = zext <33 x i32> undef to <33 x i64>
 ; X86_64-AVX512-VL-BW-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: ret i32 undef
 ;
   %V3i64 = zext <3 x i32> undef to <3 x i64>
@@ -48,28 +48,28 @@ define i32 @zext_vXi16() {
 ;
 ; X86_64-AVX2-LABEL: 'zext_vXi16'
 ; X86_64-AVX2-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %V3i64 = zext <3 x i16> undef to <3 x i64>
-; X86_64-AVX2-NEXT:  Cost Model: Found an estimated cost of 26 for instruction: %V7i64 = zext <7 x i16> undef to <7 x i64>
-; X86_64-AVX2-NEXT:  Cost Model: Found an estimated cost of 35 for instruction: %V9i64 = zext <9 x i16> undef to <9 x i64>
-; X86_64-AVX2-NEXT:  Cost Model: Found an estimated cost of 131 for instruction: %V33i64 = zext <33 x i16> undef to <33 x i64>
-; X86_64-AVX2-NEXT:  Cost Model: Found an estimated cost of 236 for instruction: %V63i64 = zext <63 x i16> undef to <63 x i64>
+; X86_64-AVX2-NEXT:  Cost Model: Found an estimated cost of 29 for instruction: %V7i64 = zext <7 x i16> undef to <7 x i64>
+; X86_64-AVX2-NEXT:  Cost Model: Found an estimated cost of 36 for instruction: %V9i64 = zext <9 x i16> undef to <9 x i64>
+; X86_64-AVX2-NEXT:  Cost Model: Found an estimated cost of 132 for instruction: %V33i64 = zext <33 x i16> undef to <33 x i64>
+; X86_64-AVX2-NEXT:  Cost Model: Found an estimated cost of 253 for instruction: %V63i64 = zext <63 x i16> undef to <63 x i64>
 ; X86_64-AVX2-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %V3i32 = zext <3 x i16> undef to <3 x i32>
 ; X86_64-AVX2-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %V7i32 = zext <7 x i16> undef to <7 x i32>
 ; X86_64-AVX2-NEXT:  Cost Model: Found an estimated cost of 3 for instruction: %V9i32 = zext <9 x i16> undef to <9 x i32>
-; X86_64-AVX2-NEXT:  Cost Model: Found an estimated cost of 123 for instruction: %V33i32 = zext <33 x i16> undef to <33 x i32>
-; X86_64-AVX2-NEXT:  Cost Model: Found an estimated cost of 228 for instruction: %V63i32 = zext <63 x i16> undef to <63 x i32>
+; X86_64-AVX2-NEXT:  Cost Model: Found an estimated cost of 124 for instruction: %V33i32 = zext <33 x i16> undef to <33 x i32>
+; X86_64-AVX2-NEXT:  Cost Model: Found an estimated cost of 237 for instruction: %V63i32 = zext <63 x i16> undef to <63 x i32>
 ; X86_64-AVX2-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: ret i32 undef
 ;
 ; X86_64-AVX512-VL-BW-LABEL: 'zext_vXi16'
 ; X86_64-AVX512-VL-BW-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %V3i64 = zext <3 x i16> undef to <3 x i64>
 ; X86_64-AVX512-VL-BW-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %V7i64 = zext <7 x i16> undef to <7 x i64>
-; X86_64-AVX512-VL-BW-NEXT:  Cost Model: Found an estimated cost of 39 for instruction: %V9i64 = zext <9 x i16> undef to <9 x i64>
-; X86_64-AVX512-VL-BW-NEXT:  Cost Model: Found an estimated cost of 147 for instruction: %V33i64 = zext <33 x i16> undef to <33 x i64>
-; X86_64-AVX512-VL-BW-NEXT:  Cost Model: Found an estimated cost of 260 for instruction: %V63i64 = zext <63 x i16> undef to <63 x i64>
+; X86_64-AVX512-VL-BW-NEXT:  Cost Model: Found an estimated cost of 38 for instruction: %V9i64 = zext <9 x i16> undef to <9 x i64>
+; X86_64-AVX512-VL-BW-NEXT:  Cost Model: Found an estimated cost of 140 for instruction: %V33i64 = zext <33 x i16> undef to <33 x i64>
+; X86_64-AVX512-VL-BW-NEXT:  Cost Model: Found an estimated cost of 269 for instruction: %V63i64 = zext <63 x i16> undef to <63 x i64>
 ; X86_64-AVX512-VL-BW-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %V3i32 = zext <3 x i16> undef to <3 x i32>
 ; X86_64-AVX512-VL-BW-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %V7i32 = zext <7 x i16> undef to <7 x i32>
 ; X86_64-AVX512-VL-BW-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %V9i32 = zext <9 x i16> undef to <9 x i32>
-; X86_64-AVX512-VL-BW-NEXT:  Cost Model: Found an estimated cost of 135 for instruction: %V33i32 = zext <33 x i16> undef to <33 x i32>
-; X86_64-AVX512-VL-BW-NEXT:  Cost Model: Found an estimated cost of 248 for instruction: %V63i32 = zext <63 x i16> undef to <63 x i32>
+; X86_64-AVX512-VL-BW-NEXT:  Cost Model: Found an estimated cost of 132 for instruction: %V33i32 = zext <33 x i16> undef to <33 x i32>
+; X86_64-AVX512-VL-BW-NEXT:  Cost Model: Found an estimated cost of 253 for instruction: %V63i32 = zext <63 x i16> undef to <63 x i32>
 ; X86_64-AVX512-VL-BW-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: ret i32 undef
 ;
   %V3i64 = zext <3 x i16> undef to <3 x i64>
@@ -110,44 +110,44 @@ define i32 @zext_vXi8() {
 ;
 ; X86_64-AVX2-LABEL: 'zext_vXi8'
 ; X86_64-AVX2-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %V3i64 = zext <3 x i8> undef to <3 x i64>
-; X86_64-AVX2-NEXT:  Cost Model: Found an estimated cost of 26 for instruction: %V7i64 = zext <7 x i8> undef to <7 x i64>
-; X86_64-AVX2-NEXT:  Cost Model: Found an estimated cost of 35 for instruction: %V9i64 = zext <9 x i8> undef to <9 x i64>
-; X86_64-AVX2-NEXT:  Cost Model: Found an estimated cost of 131 for instruction: %V33i64 = zext <33 x i8> undef to <33 x i64>
-; X86_64-AVX2-NEXT:  Cost Model: Found an estimated cost of 236 for instruction: %V63i64 = zext <63 x i8> undef to <63 x i64>
-; X86_64-AVX2-NEXT:  Cost Model: Found an estimated cost of 266 for instruction: %V67i64 = zext <67 x i8> undef to <67 x i64>
+; X86_64-AVX2-NEXT:  Cost Model: Found an estimated cost of 29 for instruction: %V7i64 = zext <7 x i8> undef to <7 x i64>
+; X86_64-AVX2-NEXT:  Cost Model: Found an estimated cost of 36 for instruction: %V9i64 = zext <9 x i8> undef to <9 x i64>
+; X86_64-AVX2-NEXT:  Cost Model: Found an estimated cost of 132 for instruction: %V33i64 = zext <33 x i8> undef to <33 x i64>
+; X86_64-AVX2-NEXT:  Cost Model: Found an estimated cost of 253 for instruction: %V63i64 = zext <63 x i8> undef to <63 x i64>
+; X86_64-AVX2-NEXT:  Cost Model: Found an estimated cost of 269 for instruction: %V67i64 = zext <67 x i8> undef to <67 x i64>
 ; X86_64-AVX2-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %V3i32 = zext <3 x i8> undef to <3 x i32>
 ; X86_64-AVX2-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %V7i32 = zext <7 x i8> undef to <7 x i32>
 ; X86_64-AVX2-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %V9i32 = zext <9 x i8> undef to <9 x i32>
-; X86_64-AVX2-NEXT:  Cost Model: Found an estimated cost of 123 for instruction: %V33i32 = zext <33 x i8> undef to <33 x i32>
-; X86_64-AVX2-NEXT:  Cost Model: Found an estimated cost of 228 for instruction: %V63i32 = zext <63 x i8> undef to <63 x i32>
-; X86_64-AVX2-NEXT:  Cost Model: Found an estimated cost of 249 for instruction: %V67i32 = zext <67 x i8> undef to <67 x i32>
+; X86_64-AVX2-NEXT:  Cost Model: Found an estimated cost of 124 for instruction: %V33i32 = zext <33 x i8> undef to <33 x i32>
+; X86_64-AVX2-NEXT:  Cost Model: Found an estimated cost of 237 for instruction: %V63i32 = zext <63 x i8> undef to <63 x i32>
+; X86_64-AVX2-NEXT:  Cost Model: Found an estimated cost of 250 for instruction: %V67i32 = zext <67 x i8> undef to <67 x i32>
 ; X86_64-AVX2-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %V3i16 = zext <3 x i8> undef to <3 x i16>
 ; X86_64-AVX2-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %V7i16 = zext <7 x i8> undef to <7 x i16>
 ; X86_64-AVX2-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %V9i16 = zext <9 x i8> undef to <9 x i16>
-; X86_64-AVX2-NEXT:  Cost Model: Found an estimated cost of 119 for instruction: %V33i16 = zext <33 x i8> undef to <33 x i16>
-; X86_64-AVX2-NEXT:  Cost Model: Found an estimated cost of 224 for instruction: %V63i16 = zext <63 x i8> undef to <63 x i16>
-; X86_64-AVX2-NEXT:  Cost Model: Found an estimated cost of 241 for instruction: %V67i16 = zext <67 x i8> undef to <67 x i16>
+; X86_64-AVX2-NEXT:  Cost Model: Found an estimated cost of 120 for instruction: %V33i16 = zext <33 x i8> undef to <33 x i16>
+; X86_64-AVX2-NEXT:  Cost Model: Found an estimated cost of 229 for instruction: %V63i16 = zext <63 x i8> undef to <63 x i16>
+; X86_64-AVX2-NEXT:  Cost Model: Found an estimated cost of 242 for instruction: %V67i16 = zext <67 x i8> undef to <67 x i16>
 ; X86_64-AVX2-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: ret i32 undef
 ;
 ; X86_64-AVX512-VL-BW-LABEL: 'zext_vXi8'
 ; X86_64-AVX512-VL-BW-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %V3i64 = zext <3 x i8> undef to <3 x i64>
 ; X86_64-AVX512-VL-BW-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %V7i64 = zext <7 x i8> undef to <7 x i64>
-; X86_64-AVX512-VL-BW-NEXT:  Cost Model: Found an estimated cost of 39 for instruction: %V9i64 = zext <9 x i8> undef to <9 x i64>
-; X86_64-AVX512-VL-BW-NEXT:  Cost Model: Found an estimated cost of 147 for instruction: %V33i64 = zext <33 x i8> undef to <33 x i64>
-; X86_64-AVX512-VL-BW-NEXT:  Cost Model: Found an estimated cost of 260 for instruction: %V63i64 = zext <63 x i8> undef to <63 x i64>
-; X86_64-AVX512-VL-BW-NEXT:  Cost Model: Found an estimated cost of 298 for instruction: %V67i64 = zext <67 x i8> undef to <67 x i64>
+; X86_64-AVX512-VL-BW-NEXT:  Cost Model: Found an estimated cost of 38 for instruction: %V9i64 = zext <9 x i8> undef to <9 x i64>
+; X86_64-AVX512-VL-BW-NEXT:  Cost Model: Found an estimated cost of 140 for instruction: %V33i64 = zext <33 x i8> undef to <33 x i64>
+; X86_64-AVX512-VL-BW-NEXT:  Cost Model: Found an estimated cost of 269 for instruction: %V63i64 = zext <63 x i8> undef to <63 x i64>
+; X86_64-AVX512-VL-BW-NEXT:  Cost Model: Found an estimated cost of 285 for instruction: %V67i64 = zext <67 x i8> undef to <67 x i64>
 ; X86_64-AVX512-VL-BW-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %V3i32 = zext <3 x i8> undef to <3 x i32>
 ; X86_64-AVX512-VL-BW-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %V7i32 = zext <7 x i8> undef to <7 x i32>
 ; X86_64-AVX512-VL-BW-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %V9i32 = zext <9 x i8> undef to <9 x i32>
-; X86_64-AVX512-VL-BW-NEXT:  Cost Model: Found an estimated cost of 135 for instruction: %V33i32 = zext <33 x i8> undef to <33 x i32>
-; X86_64-AVX512-VL-BW-NEXT:  Cost Model: Found an estimated cost of 248 for instruction: %V63i32 = zext <63 x i8> undef to <63 x i32>
-; X86_64-AVX512-VL-BW-NEXT:  Cost Model: Found an estimated cost of 273 for instruction: %V67i32 = zext <67 x i8> undef to <67 x i32>
+; X86_64-AVX512-VL-BW-NEXT:  Cost Model: Found an estimated cost of 132 for instruction: %V33i32 = zext <33 x i8> undef to <33 x i32>
+; X86_64-AVX512-VL-BW-NEXT:  Cost Model: Found an estimated cost of 253 for instruction: %V63i32 = zext <63 x i8> undef to <63 x i32>
+; X86_64-AVX512-VL-BW-NEXT:  Cost Model: Found an estimated cost of 266 for instruction: %V67i32 = zext <67 x i8> undef to <67 x i32>
 ; X86_64-AVX512-VL-BW-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %V3i16 = zext <3 x i8> undef to <3 x i16>
 ; X86_64-AVX512-VL-BW-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %V7i16 = zext <7 x i8> undef to <7 x i16>
 ; X86_64-AVX512-VL-BW-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %V9i16 = zext <9 x i8> undef to <9 x i16>
-; X86_64-AVX512-VL-BW-NEXT:  Cost Model: Found an estimated cost of 129 for instruction: %V33i16 = zext <33 x i8> undef to <33 x i16>
-; X86_64-AVX512-VL-BW-NEXT:  Cost Model: Found an estimated cost of 242 for instruction: %V63i16 = zext <63 x i8> undef to <63 x i16>
-; X86_64-AVX512-VL-BW-NEXT:  Cost Model: Found an estimated cost of 261 for instruction: %V67i16 = zext <67 x i8> undef to <67 x i16>
+; X86_64-AVX512-VL-BW-NEXT:  Cost Model: Found an estimated cost of 128 for instruction: %V33i16 = zext <33 x i8> undef to <33 x i16>
+; X86_64-AVX512-VL-BW-NEXT:  Cost Model: Found an estimated cost of 245 for instruction: %V63i16 = zext <63 x i8> undef to <63 x i16>
+; X86_64-AVX512-VL-BW-NEXT:  Cost Model: Found an estimated cost of 258 for instruction: %V67i16 = zext <67 x i8> undef to <67 x i16>
 ; X86_64-AVX512-VL-BW-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: ret i32 undef
 ;
   %V3i64 = zext <3 x i8> undef to <3 x i64>
@@ -204,23 +204,23 @@ define i32 @zext_vXi1() {
 ;
 ; X86_64-AVX2-LABEL: 'zext_vXi1'
 ; X86_64-AVX2-NEXT:  Cost Model: Found an estimated cost of 3 for instruction: %V3i64 = zext <3 x i1> undef to <3 x i64>
-; X86_64-AVX2-NEXT:  Cost Model: Found an estimated cost of 26 for instruction: %V7i64 = zext <7 x i1> undef to <7 x i64>
-; X86_64-AVX2-NEXT:  Cost Model: Found an estimated cost of 35 for instruction: %V9i64 = zext <9 x i1> undef to <9 x i64>
-; X86_64-AVX2-NEXT:  Cost Model: Found an estimated cost of 131 for instruction: %V33i64 = zext <33 x i1> undef to <33 x i64>
-; X86_64-AVX2-NEXT:  Cost Model: Found an estimated cost of 236 for instruction: %V63i64 = zext <63 x i1> undef to <63 x i64>
-; X86_64-AVX2-NEXT:  Cost Model: Found an estimated cost of 266 for instruction: %V67i64 = zext <67 x i1> undef to <67 x i64>
+; X86_64-AVX2-NEXT:  Cost Model: Found an estimated cost of 29 for instruction: %V7i64 = zext <7 x i1> undef to <7 x i64>
+; X86_64-AVX2-NEXT:  Cost Model: Found an estimated cost of 36 for instruction: %V9i64 = zext <9 x i1> undef to <9 x i64>
+; X86_64-AVX2-NEXT:  Cost Model: Found an estimated cost of 132 for instruction: %V33i64 = zext <33 x i1> undef to <33 x i64>
+; X86_64-AVX2-NEXT:  Cost Model: Found an estimated cost of 253 for instruction: %V63i64 = zext <63 x i1> undef to <63 x i64>
+; X86_64-AVX2-NEXT:  Cost Model: Found an estimated cost of 269 for instruction: %V67i64 = zext <67 x i1> undef to <67 x i64>
 ; X86_64-AVX2-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %V3i32 = zext <3 x i1> undef to <3 x i32>
 ; X86_64-AVX2-NEXT:  Cost Model: Found an estimated cost of 3 for instruction: %V7i32 = zext <7 x i1> undef to <7 x i32>
-; X86_64-AVX2-NEXT:  Cost Model: Found an estimated cost of 33 for instruction: %V9i32 = zext <9 x i1> undef to <9 x i32>
-; X86_64-AVX2-NEXT:  Cost Model: Found an estimated cost of 123 for instruction: %V33i32 = zext <33 x i1> undef to <33 x i32>
-; X86_64-AVX2-NEXT:  Cost Model: Found an estimated cost of 228 for instruction: %V63i32 = zext <63 x i1> undef to <63 x i32>
-; X86_64-AVX2-NEXT:  Cost Model: Found an estimated cost of 249 for instruction: %V67i32 = zext <67 x i1> undef to <67 x i32>
+; X86_64-AVX2-NEXT:  Cost Model: Found an estimated cost of 34 for instruction: %V9i32 = zext <9 x i1> undef to <9 x i32>
+; X86_64-AVX2-NEXT:  Cost Model: Found an estimated cost of 124 for instruction: %V33i32 = zext <33 x i1> undef to <33 x i32>
+; X86_64-AVX2-NEXT:  Cost Model: Found an estimated cost of 237 for instruction: %V63i32 = zext <63 x i1> undef to <63 x i32>
+; X86_64-AVX2-NEXT:  Cost Model: Found an estimated cost of 250 for instruction: %V67i32 = zext <67 x i1> undef to <67 x i32>
 ; X86_64-AVX2-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %V3i16 = zext <3 x i1> undef to <3 x i16>
 ; X86_64-AVX2-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %V7i16 = zext <7 x i1> undef to <7 x i16>
 ; X86_64-AVX2-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %V9i16 = zext <9 x i1> undef to <9 x i16>
-; X86_64-AVX2-NEXT:  Cost Model: Found an estimated cost of 119 for instruction: %V33i16 = zext <33 x i1> undef to <33 x i16>
-; X86_64-AVX2-NEXT:  Cost Model: Found an estimated cost of 224 for instruction: %V63i16 = zext <63 x i1> undef to <63 x i16>
-; X86_64-AVX2-NEXT:  Cost Model: Found an estimated cost of 241 for instruction: %V67i16 = zext <67 x i1> undef to <67 x i16>
+; X86_64-AVX2-NEXT:  Cost Model: Found an estimated cost of 120 for instruction: %V33i16 = zext <33 x i1> undef to <33 x i16>
+; X86_64-AVX2-NEXT:  Cost Model: Found an estimated cost of 229 for instruction: %V63i16 = zext <63 x i1> undef to <63 x i16>
+; X86_64-AVX2-NEXT:  Cost Model: Found an estimated cost of 242 for instruction: %V67i16 = zext <67 x i1> undef to <67 x i16>
 ; X86_64-AVX2-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %V3i8 = zext <3 x i1> undef to <3 x i8>
 ; X86_64-AVX2-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %V7i8 = zext <7 x i1> undef to <7 x i8>
 ; X86_64-AVX2-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %V9i8 = zext <9 x i1> undef to <9 x i8>
@@ -232,28 +232,28 @@ define i32 @zext_vXi1() {
 ; X86_64-AVX512-VL-BW-LABEL: 'zext_vXi1'
 ; X86_64-AVX512-VL-BW-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %V3i64 = zext <3 x i1> undef to <3 x i64>
 ; X86_64-AVX512-VL-BW-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %V7i64 = zext <7 x i1> undef to <7 x i64>
-; X86_64-AVX512-VL-BW-NEXT:  Cost Model: Found an estimated cost of 39 for instruction: %V9i64 = zext <9 x i1> undef to <9 x i64>
-; X86_64-AVX512-VL-BW-NEXT:  Cost Model: Found an estimated cost of 147 for instruction: %V33i64 = zext <33 x i1> undef to <33 x i64>
-; X86_64-AVX512-VL-BW-NEXT:  Cost Model: Found an estimated cost of 260 for instruction: %V63i64 = zext <63 x i1> undef to <63 x i64>
-; X86_64-AVX512-VL-BW-NEXT:  Cost Model: Found an estimated cost of 298 for instruction: %V67i64 = zext <67 x i1> undef to <67 x i64>
+; X86_64-AVX512-VL-BW-NEXT:  Cost Model: Found an estimated cost of 38 for instruction: %V9i64 = zext <9 x i1> undef to <9 x i64>
+; X86_64-AVX512-VL-BW-NEXT:  Cost Model: Found an estimated cost of 140 for instruction: %V33i64 = zext <33 x i1> undef to <33 x i64>
+; X86_64-AVX512-VL-BW-NEXT:  Cost Model: Found an estimated cost of 269 for instruction: %V63i64 = zext <63 x i1> undef to <63 x i64>
+; X86_64-AVX512-VL-BW-NEXT:  Cost Model: Found an estimated cost of 285 for instruction: %V67i64 = zext <67 x i1> undef to <67 x i64>
 ; X86_64-AVX512-VL-BW-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %V3i32 = zext <3 x i1> undef to <3 x i32>
 ; X86_64-AVX512-VL-BW-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %V7i32 = zext <7 x i1> undef to <7 x i32>
 ; X86_64-AVX512-VL-BW-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %V9i32 = zext <9 x i1> undef to <9 x i32>
-; X86_64-AVX512-VL-BW-NEXT:  Cost Model: Found an estimated cost of 135 for instruction: %V33i32 = zext <33 x i1> undef to <33 x i32>
-; X86_64-AVX512-VL-BW-NEXT:  Cost Model: Found an estimated cost of 248 for instruction: %V63i32 = zext <63 x i1> undef to <63 x i32>
-; X86_64-AVX512-VL-BW-NEXT:  Cost Model: Found an estimated cost of 273 for instruction: %V67i32 = zext <67 x i1> undef to <67 x i32>
+; X86_64-AVX512-VL-BW-NEXT:  Cost Model: Found an estimated cost of 132 for instruction: %V33i32 = zext <33 x i1> undef to <33 x i32>
+; X86_64-AVX512-VL-BW-NEXT:  Cost Model: Found an estimated cost of 253 for instruction: %V63i32 = zext <63 x i1> undef to <63 x i32>
+; X86_64-AVX512-VL-BW-NEXT:  Cost Model: Found an estimated cost of 266 for instruction: %V67i32 = zext <67 x i1> undef to <67 x i32>
 ; X86_64-AVX512-VL-BW-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %V3i16 = zext <3 x i1> undef to <3 x i16>
 ; X86_64-AVX512-VL-BW-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %V7i16 = zext <7 x i1> undef to <7 x i16>
 ; X86_64-AVX512-VL-BW-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %V9i16 = zext <9 x i1> undef to <9 x i16>
-; X86_64-AVX512-VL-BW-NEXT:  Cost Model: Found an estimated cost of 129 for instruction: %V33i16 = zext <33 x i1> undef to <33 x i16>
-; X86_64-AVX512-VL-BW-NEXT:  Cost Model: Found an estimated cost of 242 for instruction: %V63i16 = zext <63 x i1> undef to <63 x i16>
-; X86_64-AVX512-VL-BW-NEXT:  Cost Model: Found an estimated cost of 261 for instruction: %V67i16 = zext <67 x i1> undef to <67 x i16>
+; X86_64-AVX512-VL-BW-NEXT:  Cost Model: Found an estimated cost of 128 for instruction: %V33i16 = zext <33 x i1> undef to <33 x i16>
+; X86_64-AVX512-VL-BW-NEXT:  Cost Model: Found an estimated cost of 245 for instruction: %V63i16 = zext <63 x i1> undef to <63 x i16>
+; X86_64-AVX512-VL-BW-NEXT:  Cost Model: Found an estimated cost of 258 for instruction: %V67i16 = zext <67 x i1> undef to <67 x i16>
 ; X86_64-AVX512-VL-BW-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %V3i8 = zext <3 x i1> undef to <3 x i8>
 ; X86_64-AVX512-VL-BW-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %V7i8 = zext <7 x i1> undef to <7 x i8>
 ; X86_64-AVX512-VL-BW-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %V9i8 = zext <9 x i1> undef to <9 x i8>
 ; X86_64-AVX512-VL-BW-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %V33i8 = zext <33 x i1> undef to <33 x i8>
 ; X86_64-AVX512-VL-BW-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %V63i8 = zext <63 x i1> undef to <63 x i8>
-; X86_64-AVX512-VL-BW-NEXT:  Cost Model: Found an estimated cost of 255 for instruction: %V67i8 = zext <67 x i1> undef to <67 x i8>
+; X86_64-AVX512-VL-BW-NEXT:  Cost Model: Found an estimated cost of 254 for instruction: %V67i8 = zext <67 x i1> undef to <67 x i8>
 ; X86_64-AVX512-VL-BW-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: ret i32 undef
 ;
   %V3i64 = zext <3 x i1> undef to <3 x i64>
