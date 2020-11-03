@@ -41,12 +41,12 @@ public:
   // The source file is given by 'M'.  The line and column info by 'Dloc'
   explicit InlineReportCallSite(InlineReportFunction *IRCallee, bool IsInlined,
                                 InlineReportTypes::InlineReason Reason,
-                                Module *Module, DebugLoc *DLoc, Instruction *I,
+                                Module *Module, DebugLoc *DLoc, CallBase *CB,
                                 bool SuppressPrint = false)
       : IRCallee(IRCallee), IsInlined(IsInlined), Reason(Reason),
         InlineCost(-1), OuterInlineCost(-1), InlineThreshold(-1),
         EarlyExitInlineCost(INT_MAX), EarlyExitInlineThreshold(INT_MAX),
-        Call(I), M(Module), SuppressPrint(SuppressPrint) {
+        Call(CB), M(Module), SuppressPrint(SuppressPrint) {
     Line = DLoc && DLoc->get() ? DLoc->getLine() : 0;
     Col = DLoc && DLoc->get() ? DLoc->getCol() : 0;
     Children.clear();
@@ -59,7 +59,7 @@ public:
   // \brief Return a clone of *this, but do not copy its children, and
   // use the IIMap to get a new value for the 'Call'.
   InlineReportCallSite *cloneBase(const ValueToValueMapTy &IIMap,
-                                  Instruction *ActiveInlineInstruction);
+                                  CallBase *ActiveInlineCallBase);
 
   InlineReportFunction *getIRCallee() const { return IRCallee; }
   InlineReportTypes::InlineReason getReason() const { return Reason; }
@@ -107,8 +107,8 @@ public:
   void setEarlyExitInlineThreshold(int EEThreshold) {
     EarlyExitInlineThreshold = EEThreshold;
   }
-  Instruction *getCall() const { return Call; }
-  void setCall(Instruction *Call) { this->Call = Call; }
+  CallBase *getCall() const { return Call; }
+  void setCall(CallBase *Call) { this->Call = Call; }
   void addChild(InlineReportCallSite *IRCS) { Children.push_back(IRCS); }
 
   /// \brief Print the info in the inlining instance for the inling report
@@ -118,7 +118,7 @@ public:
 
   /// \brief Load the call represented by '*this' and all of its descendant
   /// calls into the map 'Lmap'.
-  void loadCallsToMap(std::map<Instruction *, bool> &LMap);
+  void loadCallsToMap(std::map<CallBase *, bool> &LMap);
 
 private:
   InlineReportFunction *IRCallee;
@@ -130,7 +130,7 @@ private:
   int EarlyExitInlineCost;
   int EarlyExitInlineThreshold;
   InlineReportCallSiteVector Children;
-  Instruction *Call;
+  CallBase *Call;
   ///
   /// \brief Used to get the file name when we print the report
   Module *M;
@@ -146,8 +146,7 @@ private:
   void printOuterCostAndThreshold(void);
   void printCalleeNameModuleLineCol(unsigned Level);
   // \brief Return a pointer to a copy of Base with an empty Children vector
-  InlineReportCallSite *copyBase(const InlineReportCallSite &Base,
-                                 Instruction *NI);
+  InlineReportCallSite *copyBase(CallBase *CB);
 };
 
 ///
@@ -239,8 +238,8 @@ private:
 
 typedef MapVector<Function *, InlineReportFunction *> InlineReportFunctionMap;
 typedef std::vector<InlineReportFunction *> InlineReportFunctionVector;
-typedef std::map<Instruction *, InlineReportCallSite *>
-    InlineReportInstructionCallSiteMap;
+typedef std::map<CallBase *, InlineReportCallSite *>
+    InlineReportCallBaseCallSiteMap;
 
 ///
 /// \brief The inlining report
@@ -248,7 +247,7 @@ typedef std::map<Instruction *, InlineReportCallSite *>
 class InlineReport {
 public:
   explicit InlineReport(unsigned MyLevel)
-      : Level(MyLevel), ActiveInlineInstruction(nullptr),
+      : Level(MyLevel), ActiveInlineCallBase(nullptr),
         ActiveCallee(nullptr), ActiveIRCS(nullptr), M(nullptr) {};
   virtual ~InlineReport(void);
 
@@ -266,7 +265,7 @@ public:
     // New call sites can be added from inlining even if they are not a
     // cloned from the inlined callee.
     ActiveIRCS = addNewCallSite(Call);
-    ActiveInlineInstruction = Call;
+    ActiveInlineCallBase = Call;
     ActiveOriginalCalls.clear();
     ActiveInlinedCalls.clear();
   }
@@ -274,7 +273,7 @@ public:
   void endUpdate() {
     ActiveCallee = nullptr;
     ActiveIRCS = nullptr;
-    ActiveInlineInstruction = nullptr;
+    ActiveInlineCallBase = nullptr;
     ActiveOriginalCalls.clear();
     ActiveInlinedCalls.clear();
   }
@@ -342,20 +341,20 @@ public:
       }
   }
 
-  // Indicate that the CallSite whose Instruction is 'I' has been
+  // Indicate that the CallSite whose CallBase is 'CB' has been
   // eliminated as dead code.
-  void removeCallSiteReference(Instruction &I) {
-    if (ActiveInlineInstruction != &I) {
-      auto MapIt = IRInstructionCallSiteMap.find(&I);
-      if (MapIt != IRInstructionCallSiteMap.end()) {
+  void removeCallSiteReference(CallBase &CB) {
+    if (ActiveInlineCallBase != &CB) {
+      auto MapIt = IRCallBaseCallSiteMap.find(&CB);
+      if (MapIt != IRCallBaseCallSiteMap.end()) {
         InlineReportCallSite *IRCS = MapIt->second;
-        IRInstructionCallSiteMap.erase(MapIt);
+        IRCallBaseCallSiteMap.erase(MapIt);
         IRCS->setReason(InlineReportTypes::NinlrDeleted);
       }
     }
     // If necessary, remove any reference in the ActiveInlinedCalls
     for (unsigned II = 0, E = ActiveInlinedCalls.size(); II < E; ++II)
-      if (ActiveInlinedCalls[II] == &I)
+      if (ActiveInlinedCalls[II] == &CB)
         ActiveInlinedCalls[II] = nullptr;
   }
 
@@ -377,8 +376,8 @@ private:
   /// See llvm/lib/Transforms/IPO/Inliner.cpp for details on Level.
   unsigned Level;
 
-  // \brief The instruction for the call site currently being inlined
-  Instruction *ActiveInlineInstruction;
+  // \brief The CallBase for the call site currently being inlined
+  CallBase *ActiveInlineCallBase;
 
   // \brief The Callee currently being inlined
   Function *ActiveCallee;
@@ -400,8 +399,8 @@ private:
   /// \brief A mapping from Functions to InlineReportFunctions
   InlineReportFunctionMap IRFunctionMap;
 
-  /// \brief A mapping from Instructions to InlineReportCallSites
-  InlineReportInstructionCallSiteMap IRInstructionCallSiteMap;
+  /// \brief A mapping from CallBases to InlineReportCallSites
+  InlineReportCallBaseCallSiteMap IRCallBaseCallSiteMap;
 
   /// \brief A vector of InlineReportFunctions of Functions that have
   /// been eliminated by dead static function elimination
@@ -420,11 +419,11 @@ private:
     InlineReport *IR;
     void deleted() override {
       assert(IR);
-      if (isa<Instruction>(getValPtr())) {
+      if (isa<CallBase>(getValPtr())) {
         /// \brief Indicate in the inline report that the call site
         /// corresponding to the Value has been deleted
-        Instruction *I = cast<Instruction>(getValPtr());
-        IR->removeCallSiteReference(*I);
+        auto CB = cast<CallBase>(getValPtr());
+        IR->removeCallSiteReference(*CB);
       } else if (isa<Function>(getValPtr())) {
         /// \brief Indicate in the inline report that the function
         /// corresponding to the Value has been deleted
