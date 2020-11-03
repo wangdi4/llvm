@@ -533,8 +533,9 @@ void FuseGraph::initPathInfo(FuseEdgeHeap &Heap) {
 }
 
 void FuseGraph::updateSlice(unsigned NodeX, NodeMapTy &LocalPathFrom,
-                            NodeSetTy &NewPathSources, NodeSetTy &NewPathSinks,
-                            NodeMapTy &Preds) {
+                            const NodeMapTy &LocalPathTo,
+                            const NodeSetTy &NewPathSources,
+                            const NodeSetTy &NewPathSinks) {
   // - NodeX is the vertex being collapsed
   // - LocalPathFrom is the set that is being updated
   // - NewPathSources is the set of vertices that can reach NodeX
@@ -559,7 +560,12 @@ void FuseGraph::updateSlice(unsigned NodeX, NodeMapTy &LocalPathFrom,
     unsigned NodeW = Worklist.pop_back_val();
 
     // For each connected node.
-    for (unsigned NodeY : Preds[NodeW]) {
+    auto PredWI = LocalPathTo.find(NodeW);
+    if (PredWI == LocalPathTo.end()) {
+      continue;
+    }
+
+    for (unsigned NodeY : PredWI->second) {
       if (!NewPathSources.count(NodeY)) {
         continue;
       }
@@ -585,6 +591,9 @@ void FuseGraph::updateSlice(unsigned NodeX, NodeMapTy &LocalPathFrom,
 void FuseGraph::updateBothWays(unsigned NodeV, unsigned NodeX,
                                NodeMapTy &LocalPathFrom,
                                NodeMapTy &LocalPathTo) {
+  // Note (*) mark in this function below.
+  // updateSlice() is merely used to optimally update LocalPathFrom and
+  // LocalPathTo sets, however the marked lines does the same but in O(V^2).
   NodeSetTy NewPathSinks;
   NodeSetTy NewPathSources;
 
@@ -608,17 +617,20 @@ void FuseGraph::updateBothWays(unsigned NodeV, unsigned NodeX,
   LocalPathToNodeV.insert(NewPathSources.begin(), NewPathSources.end());
   for (unsigned Node : NewPathSources) {
     LocalPathFrom[Node].insert(NodeV);
+    // (*) LocalPathFrom[Node].insert(NewPathSinks.begin(), NewPathSinks.end());
   }
 
   // Add X as an origin for each node in NewPathSinks.
   LocalPathFromNodeX.insert(NewPathSinks.begin(), NewPathSinks.end());
   for (unsigned Node : NewPathSinks) {
     LocalPathTo[Node].insert(NodeX);
+    // (*) LocalPathTo[Node].insert(NewPathSources.begin(),
+    // NewPathSources.end());
   }
 
   // Update PathFrom and PathTo sets.
-  updateSlice(NodeX, LocalPathFrom, NewPathSources, NewPathSinks, Predecessors);
-  updateSlice(NodeV, LocalPathTo, NewPathSinks, NewPathSources, Successors);
+  updateSlice(NodeX, LocalPathFrom, LocalPathTo, NewPathSources, NewPathSinks);
+  updateSlice(NodeV, LocalPathTo, LocalPathFrom, NewPathSinks, NewPathSources);
 }
 
 void FuseGraph::updatePathInfo(unsigned NodeV, unsigned NodeX) {
