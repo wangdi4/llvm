@@ -8823,15 +8823,29 @@ Function *VPOParoptTransform::finalizeExtractedMTFunction(WRegionNode *W,
 
   genThreadedEntryFormalParmList(W, ParamsTy);
 
+  // This is a map between new function's parameter index to the attribute set
+  // that need to be applied to the parameter after finalizing the new function.
+  // Parameter attributes are copied from the old function.
+  DenseMap<unsigned, AttributeSet> Param2Attrs;
+
+  unsigned int FnParmNo = 0;
   unsigned int TidParmNo = 0;
   for (auto ArgTyI = FnTy->param_begin(), ArgTyE = FnTy->param_end();
        ArgTyI != ArgTyE; ++ArgTyI) {
 
     // Matching formal argument and actual argument for Thread ID
-    if (!IsTidArg || TidParmNo != TidArgNo)
+    if (!IsTidArg || TidParmNo != TidArgNo) {
+      Param2Attrs[ParamsTy.size()] =
+          Fn->getAttributes().getParamAttributes(FnParmNo);
       ParamsTy.push_back(*ArgTyI);
+    }
+
+    // Remove parameter attributes from the old function.
+    Fn->removeParamAttrs(FnParmNo,
+                         Fn->getAttributes().getParamAttributes(FnParmNo));
 
     ++TidParmNo;
+    ++FnParmNo;
   }
 
   Type *RetTy = FnTy->getReturnType();
@@ -8841,6 +8855,11 @@ Function *VPOParoptTransform::finalizeExtractedMTFunction(WRegionNode *W,
   Function *NFn = Function::Create(NFnTy, Fn->getLinkage());
 
   NFn->copyAttributesFrom(Fn);
+
+  // Propagate old parameter attributes to the new function.
+  for (auto &P : Param2Attrs)
+    NFn->addParamAttrs(P.first, P.second);
+
   if (W->getWRegionKindID() == WRegionNode::WRNTaskloop ||
       W->getWRegionKindID() == WRegionNode::WRNTask)
     NFn->addFnAttr("task-mt-func", "true");
