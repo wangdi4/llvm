@@ -256,7 +256,20 @@ overlapsWithAnotherGroup(HIRLoopLocality::RefGroupTy &RefGroup,
     return Size;
   };
 
+  auto GetRefGroupTopSortNumRange = [](HIRLoopLocality::RefGroupTy &Group) {
+    std::pair<unsigned, unsigned> TopSortNumRange = {UINT_MAX, 0};
+
+    for (auto *Ref : Group) {
+      unsigned TopSortNum = Ref->getHLDDNode()->getTopSortNum();
+      TopSortNumRange.first = std::min(TopSortNumRange.first, TopSortNum);
+      TopSortNumRange.second = std::max(TopSortNumRange.second, TopSortNum);
+    }
+    return TopSortNumRange;
+  };
+
   uint64_t RefSize = GetMaxRefSize(RefGroup);
+  std::pair<unsigned, unsigned> RefGroupTopSortNumRange =
+      GetRefGroupTopSortNumRange(RefGroup);
 
   for (auto &TmpRefGroup : EqualityGroups) {
     auto *CurRef = TmpRefGroup.front();
@@ -266,6 +279,14 @@ overlapsWithAnotherGroup(HIRLoopLocality::RefGroupTy &RefGroup,
     }
 
     if (CurRef->getSymbase() != FirstRef->getSymbase()) {
+      continue;
+    }
+
+    std::pair<unsigned, unsigned> TmpGroupTopSortNumRange =
+        GetRefGroupTopSortNumRange(TmpRefGroup);
+
+    if (RefGroupTopSortNumRange.first > TmpGroupTopSortNumRange.second ||
+        RefGroupTopSortNumRange.second < TmpGroupTopSortNumRange.first) {
       continue;
     }
 
