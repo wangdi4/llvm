@@ -3478,6 +3478,10 @@ BasicBlock *VPOParoptTransform::createEmptyPrivFiniBB(WRegionNode *W,
   // update code at the exit block of the loop.
   if (HonorZTT && W->getIsOmpLoop())
     if (BasicBlock *ZttBlock = W->getWRNLoopInfo().getZTTBB()) {
+      // FIXME: some prior transformations (e.g. reduction-via-critical
+      //        for SPIR-V target) may introduce non-linear code outside
+      //        the ZTT and before the exit block, so the loop below
+      //        may not find the right block always.
       while (distance(pred_begin(ExitBlock), pred_end(ExitBlock)) == 1)
         ExitBlock = *pred_begin(ExitBlock);
       assert(distance(pred_begin(ExitBlock), pred_end(ExitBlock)) == 2 &&
@@ -5979,8 +5983,10 @@ bool VPOParoptTransform::genDestructorCode(WRegionNode *W) {
 
   LLVM_DEBUG(dbgs() << "\nEnter VPOParoptTransform::genDestructorCode\n");
 
-  // Create a BB before ExitBB in which to insert dtor calls
-  BasicBlock *NewBB = createEmptyPrivFiniBB(W);
+  // Create a BB before ExitBB in which to insert dtor calls.
+  // FIXME: the destructors must be called outside of ZTT check,
+  //        since the constructors are called before ZTT.
+  BasicBlock *NewBB = createEmptyPrivFiniBB(W, !isTargetSPIRV());
   Instruction* InsertBeforePt = NewBB->getTerminator();
 
   // Destructors for privates

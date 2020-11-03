@@ -1684,19 +1684,75 @@ private:
                     Instruction *AtomicEndInst, GlobalVariable *LockVar,
                     DominatorTree *DT, LoopInfo *LI, bool IsTargetSPIRV);
 
-  /// Generates lane-by-lane execution loop for code inside a critical
-  /// section (guarded with __kmpc_critical/__kmpc_end_critical calls).
-  /// \p BeginInst and \p EndInst identify a piece of code that needs
-  /// to be wrapped into the loop. \p BeginInst must dominate \p EndInst,
-  /// and \p EndInst must post-dominate \p BeginInst.
-  /// The generated loop looks like this:
+
+  /// Wrap lane-by-lane loop around \p BeginInst and \p EndInst:
   ///   for (int id = 0; id < get_sub_group_size(); ++id) {
   ///     if (id != get_sub_group_local_id())
   ///       continue;
   ///     <BeginInst>
   ///     ...
-  ///     <EndInst>
   ///   }
+  ///   <EndInst>
+  /// This is a helper method for generating the serialization loop
+  /// for OpenMP critical execution. \p DT and \p LI are updated
+  /// accordingly.
+  static bool genCriticalLoopForSPIRHelper(Instruction *BeginInst,
+                                           Instruction *EndInst,
+                                           DominatorTree *DT,
+                                           LoopInfo *LI);
+
+  /// Generates lane-by-lane execution loop for code inside a critical
+  /// section (guarded with __kmpc_critical/__kmpc_end_critical calls).
+  /// \p BeginCritical and \p EndCritical identify a piece of code that needs
+  /// to be wrapped into the loop. \p BeginCritical must dominate
+  /// \p EndCritical, and \p EndCritical must post-dominate \p BeginCritical.
+  /// \p DT and \p LI are updated accordingly.
+  /// Exit blocks of region \p W may be modified due to blocks splitting.
+  ///
+  /// The generated loop looks like this:
+  ///   <BeginCritical>
+  ///   for (int id = 0; id < get_sub_group_size(); ++id) {
+  ///     if (id != get_sub_group_local_id())
+  ///       continue;
+  ///     <LoopBeginInst>
+  ///     ...
+  ///     <LoopEndInst>
+  ///   }
+  ///   <EndCritical>
+  ///
+  /// Legend:
+  ///   LoopBeginInst is the next instruction after \p BeginCritical.
+  ///   LoopEndInst is the previous instruction before \p EndCritical.
+  ///
+  /// Under some controls this method also generates two identical
+  /// branches for even and odd sub-groups:
+  ///   if (get_sub_group_id() & 1) {
+  ///     <BeginCritical>
+  ///     for (int id = 0; id < get_sub_group_size(); ++id) {
+  ///       if (id != get_sub_group_local_id())
+  ///         continue;
+  ///       <LoopBeginInst>
+  ///       ...
+  ///       <LoopEndInst>
+  ///     }
+  ///     <EndCritical>
+  ///   } else {
+  ///     <BeginCritical>
+  ///     for (int id = 0; id < get_sub_group_size(); ++id) {
+  ///       if (id != get_sub_group_local_id())
+  ///         continue;
+  ///       <LoopBeginInst>
+  ///       ...
+  ///       <LoopEndInst>
+  ///     }
+  ///     <EndCritical>
+  ///   }
+  ///
+  /// This helps resolve dead-lock in case two sub-groups are executed
+  /// in lock step mode, e.g. on devices with EU fusion.
+  /// __kmpc_critical lock setup will dead-lock on such devices, unless
+  /// we explicitly execute the lock-unlock sequence of blocks for each
+  /// fused sub-group separately.
   static bool genCriticalLoopForSPIR(WRegionNode *W,
                                      CallInst *BeginCritical,
                                      CallInst *EndCritical,
