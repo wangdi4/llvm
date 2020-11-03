@@ -1,6 +1,6 @@
 ; Inline report
-; RUN: opt < %s -inline -dtrans-inline-heuristics -inline-threshold=10 -inline-for-array-struct-arg-min-uses=12 -inline-for-array-struct-arg-min-caller-args=3 -inline-report=7 -S 2>&1 | FileCheck --check-prefix=CHECK-OLD %s
-; RUN: opt < %s -passes='cgscc(inline)' -dtrans-inline-heuristics -inline-report=7 -inline-threshold=10 -inline-for-array-struct-arg-min-uses=12 -inline-for-array-struct-arg-min-caller-args=3 -S 2>&1 | FileCheck --check-prefix=CHECK-NEW %s
+; RUN: opt < %s -inline -dtrans-inline-heuristics -inline-threshold=10 -inline-for-array-struct-arg-min-uses=12 -inline-for-array-struct-arg-min-caller-args=3 -inline-report=7 -S 2>&1 | FileCheck --check-prefix=CHECK-CL %s
+; RUN: opt < %s -passes='cgscc(inline)' -dtrans-inline-heuristics -inline-report=7 -inline-threshold=10 -inline-for-array-struct-arg-min-uses=12 -inline-for-array-struct-arg-min-caller-args=3 -S 2>&1 | FileCheck --check-prefix=CHECK-CL %s
 ; Inline report via metadata
 ; RUN: opt -inlinereportsetup -inline-report=134 < %s -S | opt -inline -inline-report=134 -dtrans-inline-heuristics -inline-threshold=10 -inline-for-array-struct-arg-min-uses=12 -inline-for-array-struct-arg-min-caller-args=3 -S | opt -inlinereportemitter -inline-report=134 -S 2>&1 | FileCheck %s --check-prefix=CHECK-MD
 ; RUN: opt -passes='inlinereportsetup' -inline-report=134 < %s -S | opt -passes='cgscc(inline)' -inline-report=134 -dtrans-inline-heuristics -inline-threshold=10 -inline-for-array-struct-arg-min-uses=12 -inline-for-array-struct-arg-min-caller-args=3 -S | opt -passes='inlinereportemitter' -inline-report=134 -S 2>&1 | FileCheck %s --check-prefix=CHECK-MD
@@ -19,23 +19,11 @@
 ; CHECK-MD: call i32 @foo
 ; CHECK-MD: call i32 @foo
 
-; Old pass manager checks
-
-; CHECK-OLD: COMPILE FUNC: foo
-; CHECK-OLD: COMPILE FUNC: bar
-; CHECK-OLD: foo{{.*}}Inlining is not profitable
-; CHECK-OLD: foo{{.*}}Inlining is not profitable
-; CHECK-OLD: call i32 @foo
-; CHECK-OLD: call i32 @foo
-
-; New pass manager checks
-
-; CHECK-NEW: call i32 @foo
-; CHECK-NEW: call i32 @foo
-; CHECK-NEW: COMPILE FUNC: foo
-; CHECK-NEW: COMPILE FUNC: bar
-; CHECK-NEW: foo{{.*}}Inlining is not profitable
-; CHECK-NEW: foo{{.*}}Inlining is not profitable
+; CHECK-CL: call i32 @foo
+; CHECK-CL: COMPILE FUNC: foo
+; CHECK-CL: COMPILE FUNC: bar
+; CHECK-CL: foo{{.*}}Inlining is not profitable
+; CHECK-CL: foo{{.*}}Inlining is not profitable
 
 %struct.MYBOX = type { [3 x i32], [3 x float] }
 

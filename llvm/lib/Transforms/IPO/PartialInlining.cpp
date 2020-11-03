@@ -50,6 +50,8 @@
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Transforms/IPO.h"
+#include "llvm/Transforms/IPO/Intel_InlineReport.h"     // INTEL
+#include "llvm/Transforms/IPO/Intel_MDInlineReport.h"   // INTEL
 #include "llvm/Transforms/Utils/Cloning.h"
 #include "llvm/Transforms/Utils/CodeExtractor.h"
 #include "llvm/Transforms/Utils/ValueMapper.h"
@@ -177,7 +179,12 @@ static cl::opt<bool> ForceRunLTOPartialInline(
 static cl::opt<bool> ForceEnableSpecialCasesPartialInline(
     "force-enable-special-cases-partial-inline", cl::init(false), cl::Hidden,
     cl::desc("Force partial inliner to handle special cases"));
-#endif
+
+static cl::opt<bool> ForceInlineReportAfterPartialInline(
+    "force-print-inline-report-after-partial-inline", cl::init(false),
+    cl::Hidden,
+    cl::desc("Force printing of the inlining report after partial inlining"));
+#endif // INTEL_CUSTOMIZATION
 
 namespace {
 
@@ -1130,6 +1137,8 @@ PartialInlinerImpl::FunctionCloner::FunctionCloner(
   // Clone the function, so that we can hack away on it.
   ValueToValueMapTy VMap;
   ClonedFunc = CloneFunction(F, VMap);
+  getInlineReport()->initFunctionForPartialInlining(F); // INTEL
+  getInlineReport()->cloneFunction(F, ClonedFunc, VMap); // INTEL
 
   ClonedOI->ReturnBlock = cast<BasicBlock>(VMap[OI->ReturnBlock]);
   ClonedOI->NonReturnBlock = cast<BasicBlock>(VMap[OI->NonReturnBlock]);
@@ -1142,6 +1151,7 @@ PartialInlinerImpl::FunctionCloner::FunctionCloner(
   }
   // Go ahead and update all uses to the duplicate, so that we can just
   // use the inliner functionality when we're done hacking.
+  getInlineReport()->replaceAllUsesWith(F, ClonedFunc); // INTEL
   F->replaceAllUsesWith(ClonedFunc);
 }
 
@@ -1156,6 +1166,8 @@ PartialInlinerImpl::FunctionCloner::FunctionCloner(
   // Clone the function, so that we can hack away on it.
   ValueToValueMapTy VMap;
   ClonedFunc = CloneFunction(F, VMap);
+  getInlineReport()->initFunctionForPartialInlining(F); // INTEL
+  getInlineReport()->cloneFunction(F, ClonedFunc, VMap); // INTEL
 
   // Go through all Outline Candidate Regions and update all BasicBlock
   // information.
@@ -1176,6 +1188,7 @@ PartialInlinerImpl::FunctionCloner::FunctionCloner(
   }
   // Go ahead and update all uses to the duplicate, so that we can just
   // use the inliner functionality when we're done hacking.
+  getInlineReport()->replaceAllUsesWith(F, ClonedFunc); // INTEL
   F->replaceAllUsesWith(ClonedFunc);
 }
 
@@ -1325,6 +1338,7 @@ bool PartialInlinerImpl::FunctionCloner::doMultiRegionFunctionOutlining() {
         OutlinedFunc->setCallingConv(CallingConv::Cold);
         OCS->setCallingConv(CallingConv::Cold);
       }
+      getInlineReport()->doOutlining(ClonedFunc, OutlinedFunc, OCS); // INTEL
     } else
       ORE.emit([&]() {
         return OptimizationRemarkMissed(DEBUG_TYPE, "ExtractFailed",
@@ -1386,6 +1400,8 @@ PartialInlinerImpl::FunctionCloner::doSingleRegionFunctionOutlining() {
             ->getParent();
     assert(OutliningCallBB->getParent() == ClonedFunc);
     OutlinedFunctions.push_back(std::make_pair(OutlinedFunc, OutliningCallBB));
+    getInlineReport()->doOutlining(ClonedFunc, OutlinedFunc,   // INTEL
+        PartialInlinerImpl::getOneCallSiteTo(OutlinedFunc));   // INTEL
   } else
     ORE.emit([&]() {
       return OptimizationRemarkMissed(DEBUG_TYPE, "ExtractFailed",
@@ -1400,6 +1416,7 @@ PartialInlinerImpl::FunctionCloner::doSingleRegionFunctionOutlining() {
 PartialInlinerImpl::FunctionCloner::~FunctionCloner() {
   // Ditch the duplicate, since we're done with it, and rewrite all remaining
   // users (function pointers, etc.) back to the original function.
+  getInlineReport()->replaceAllUsesWith(ClonedFunc, OrigFunc); // INTEL
   ClonedFunc->replaceAllUsesWith(OrigFunc);
   ClonedFunc->eraseFromParent();
   if (!IsFunctionInlined) {
@@ -1690,12 +1707,20 @@ bool PartialInlinerImpl::tryPartialInline(FunctionCloner &Cloner) {
     InlineFunctionInfo IFI(nullptr, GetAssumptionCache, &PSI);
     // We can only forward varargs when we outlined a single region, else we
     // bail on vararg functions.
-    if (!InlineFunction(*CB, IFI, nullptr, nullptr, nullptr, true, // INTEL
-                        (Cloner.ClonedOI ? Cloner.OutlinedFunctions.back().first
-                                         : nullptr))
-             .isSuccess())
+#if INTEL_CUSTOMIZATION
+    getInlineReport()->beginUpdate(CB);
+    getInlineReport()->setReasonIsInlined(CB, InlrPreferPartialInline);
+    InlineResult IRR = InlineFunction(*CB, IFI, nullptr, true,
+        (Cloner.ClonedOI ? Cloner.OutlinedFunctions.back().first : nullptr));
+    if (!IRR.isSuccess()) {
+      InlineReason Reason = IRR.getIntelInlReason();
+      getInlineReport()->setReasonNotInlined(CB, Reason);
+      getInlineReport()->endUpdate();
       continue;
-
+    }
+    getInlineReport()->inlineCallSite();
+    getInlineReport()->endUpdate();
+#endif // INTEL_CUSTOMIZATION
     CallerORE.emit(OR);
 
     // Now update the entry count:
@@ -1768,7 +1793,11 @@ bool PartialInlinerImpl::run(Module &M) {
       Worklist.push_back(Result.second);
     Changed |= Result.first;
   }
-
+#if INTEL_CUSTOMIZATION
+  if (ForceInlineReportAfterPartialInline)
+    getInlineReport()->testAndPrint(/*Inliner=*/nullptr,
+                                    /*IsAlwaysInline=*/false);
+#endif // INTEL_CUSTOMIZATION
   return Changed;
 }
 

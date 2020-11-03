@@ -1,4 +1,4 @@
-; RUN: opt -inline -inline-report=0x7 < %s -S 2>&1 | FileCheck --check-prefixes=CHECK-OLD,CHECK-CODE-AFTER %s
+; RUN: opt -inline -inline-report=0x7 < %s -S 2>&1 | FileCheck --check-prefixes=CHECK-OLD,CHECK-CODE-BEFORE %s
 ; RUN: opt -passes='cgscc(inline)' -inline-report=0x7 < %s -S 2>&1 | FileCheck --check-prefixes=CHECK-OLD,CHECK-CODE-BEFORE %s
 ; RUN: opt -inlinereportsetup -inline-report=0x86 < %s -S | opt -inline -inline-report=0x86 -S | opt -inlinereportemitter -inline-report=0x86 -S 2>&1 | FileCheck --check-prefixes=CHECK-NEW,CHECK-CODE-AFTER  %s
 ; RUN: opt -passes='inlinereportsetup' -inline-report=0x86 < %s -S | opt -passes='cgscc(inline)' -inline-report=0x86 -S | opt -passes='inlinereportemitter' -inline-report=0x86 -S 2>&1 | FileCheck --check-prefixes=CHECK-NEW,CHECK-CODE-AFTER %s

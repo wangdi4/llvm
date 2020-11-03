@@ -1,6 +1,6 @@
 ; Inline report
-; RUN: opt < %s -inline -dtrans-inline-heuristics -inline-threshold=10 -inline-for-array-struct-arg-min-uses=12 -pre-lto-inline-cost -inline-report=7 -S 2>&1 | FileCheck --check-prefix=CHECK-OLD %s
-; RUN: opt < %s -inline -dtrans-inline-heuristics -inline-threshold=10 -inline-for-array-struct-arg-min-uses=12 -inline-for-array-struct-arg-min-caller-args=2 -inline-report=7 -S 2>&1 | FileCheck --check-prefix=CHECK-OLD %s
+; RUN: opt < %s -inline -dtrans-inline-heuristics -inline-threshold=10 -inline-for-array-struct-arg-min-uses=12 -pre-lto-inline-cost -inline-report=7 -S 2>&1 | FileCheck --check-prefix=CHECK-NEW %s
+; RUN: opt < %s -inline -dtrans-inline-heuristics -inline-threshold=10 -inline-for-array-struct-arg-min-uses=12 -inline-for-array-struct-arg-min-caller-args=2 -inline-report=7 -S 2>&1 | FileCheck --check-prefix=CHECK-NEW %s
 ; RUN: opt < %s -passes='cgscc(inline)' -dtrans-inline-heuristics -inline-report=7 -inline-threshold=10 -inline-for-array-struct-arg-min-uses=12 -pre-lto-inline-cost -S 2>&1 | FileCheck --check-prefix=CHECK-NEW %s
 ; RUN: opt < %s -passes='cgscc(inline)' -dtrans-inline-heuristics -inline-report=7 -inline-threshold=10 -inline-for-array-struct-arg-min-uses=12 -inline-for-array-struct-arg-min-caller-args=2 -S 2>&1 | FileCheck --check-prefix=CHECK-NEW %s
 ; Inline report via metadata

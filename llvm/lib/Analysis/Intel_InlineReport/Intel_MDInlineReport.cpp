@@ -416,10 +416,10 @@ void InlineReportBuilder::beginFunction(Function *F) {
 
 // The main goal of beginSCC() and beginFunction() routines is to fill in the
 // list of callbacks which is stored in InlineReportBuilder object.
-void InlineReportBuilder::beginSCC(CallGraph &CG, CallGraphSCC &SCC) {
+void InlineReportBuilder::beginSCC(CallGraphSCC &SCC) {
   if (!isMDIREnabled())
     return;
-  Module *M = &CG.getModule();
+  Module *M = &SCC.getCallGraph().getModule();
   NamedMDNode *ModuleInlineReport = M->getNamedMetadata(ModuleTag);
   if (!ModuleInlineReport || ModuleInlineReport->getNumOperands() == 0)
     return;
@@ -431,7 +431,7 @@ void InlineReportBuilder::beginSCC(CallGraph &CG, CallGraphSCC &SCC) {
   }
 }
 
-void InlineReportBuilder::beginSCC(LazyCallGraph &CG, LazyCallGraph::SCC &SCC) {
+void InlineReportBuilder::beginSCC(LazyCallGraph::SCC &SCC) {
   if (!isMDIREnabled())
     return;
   LazyCallGraph::Node &LCGN = *(SCC.begin());

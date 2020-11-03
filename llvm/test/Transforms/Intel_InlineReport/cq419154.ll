@@ -1,5 +1,5 @@
 ; Inline report
-; RUN: opt -inline -inline-report=0x7f -inline-for-xmain=false -inline-threshold=-1000 < %s -S 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-OLD
+; RUN: opt -inline -inline-report=0x7f -inline-for-xmain=false -inline-threshold=-1000 < %s -S 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-NEW
 ; RUN: opt -passes='cgscc(inline)' -inline-report=0x7f -inline-for-xmain=false -inline-threshold=-1000 < %s -S 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-NEW
 ; Inline report via metadata
 ; RUN: opt -inlinereportsetup -inline-report=0xfe < %s -S | opt -inline -inline-report=0xfe -inline-for-xmain=false -inline-threshold=-1000 -S | opt -inlinereportemitter -inline-report=0xfe -inline-threshold=-1000 -S 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-OLD
