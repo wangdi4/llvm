@@ -94,9 +94,9 @@ if.end:
 !3 = !{!"branch_weights", i32 700, i32 5000 }
 
 
-; CHECK: !1 = !{!"branch_weights", i32 12000, i32 600}
-; CHECK: !2 = !{!"branch_weights", i32 12000, i32 0}
-; CHECK: !3 = !{!"branch_weights", i32 0, i32 600}
-; CHECK: !5 = !{!"branch_weights", i32 5000, i32 700}
-; CHECK: !6 = !{!"branch_weights", i32 0, i32 5000}
-; CHECK: !7 = !{!"branch_weights", i32 700, i32 0}
+; CHECK: !1 = !{!"branch_weights", i64 12000, i64 600}
+; CHECK: !2 = !{!"branch_weights", i64 12000, i64 0}
+; CHECK: !3 = !{!"branch_weights", i64 0, i64 600}
+; CHECK: !5 = !{!"branch_weights", i64 5000, i64 700}
+; CHECK: !6 = !{!"branch_weights", i64 0, i64 5000}
+; CHECK: !7 = !{!"branch_weights", i64 700, i64 0}

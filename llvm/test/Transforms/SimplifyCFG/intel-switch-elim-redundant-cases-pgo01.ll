@@ -55,4 +55,4 @@ sw.epilog:
 ; CHECK:    i32 3, label %sw.bb.2
 ; CHECK:    i32 2, label %sw.bb.1
 ; CHECK:  ], !prof !1
-; CHECK: !1 = !{!"branch_weights", i32 845, i32 105, i32 50}
+; CHECK: !1 = !{!"branch_weights", i64 845, i64 105, i64 50}
