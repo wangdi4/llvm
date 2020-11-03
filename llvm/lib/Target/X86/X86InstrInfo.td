@@ -3343,11 +3343,10 @@ include "X86InstrKL.td"
 
 // AMX instructions
 #if INTEL_CUSTOMIZATION
+include "X86InstrAMX.td"
 #if INTEL_FEATURE_ISA_AMX
 // FIXME merge with X86InstrAMX.td
 include "Intel_X86InstrAMX.td"
-#else // INTEL_FEATURE_ISA_AMX
-include "X86InstrAMX.td"
 #endif // INTEL_FEATURE_ISA_AMX
 #endif // INTEL_CUSTOMIZATION
 

@@ -249,7 +249,7 @@ static constexpr FeatureBitset FeaturesAnonymousCPU2 =
     FeatureAVXVNNI |
 #endif // INTEL_FEATURE_ISA_AVX_VNNI
     FeatureHRESET |
-    FeatureKL |
+    FeatureKL | FeatureWIDEKL |
     FeatureSSE2; // To avoid dangling OR.
 #if INTEL_FEATURE_CPU_ADL
 // TODO: set feature of RAO-INT when it's ready
