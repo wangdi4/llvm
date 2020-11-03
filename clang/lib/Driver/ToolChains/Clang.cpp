@@ -5224,11 +5224,9 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
     else
       D.Diag(diag::err_drv_unsupported_opt_for_target)
           << A->getAsString(Args) << TripleStr;
-#if INTEL_CUSTOMIZATION
-  } else if (D.IsIntelMode() && IsOpenMPDevice && Triple.isSPIR())
-    // -mlong-double-64 is set for spir64 offload
-    CmdArgs.push_back("-mlong-double-64");
+  }
 
+#if INTEL_CUSTOMIZATION
   if (Args.hasFlag(options::OPT__SLASH_Qlong_double,
                    options::OPT__SLASH_Qlong_double_, false))
     CmdArgs.push_back("-fintel-long-double-size=80");
