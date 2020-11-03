@@ -113,9 +113,9 @@
 ;CHECK: br i1
 ;CHECK-SAME: !prof ![[PROF_LOOP_REMAINDER]]
 
-;CHECK-DAG: ![[PROF_LOOP_UNROLLED]] = !{!"branch_weights", i64 5, i64 1}
+;CHECK-DAG: ![[PROF_LOOP_UNROLLED]] = !{!"branch_weights", i32 5, i32 1}
 ;CHECK-DAG: ![[PROF_SWITCH_UNROLLED]] = !{!"branch_weights", i32 0, i32 2, i32 3}
-;CHECK-DAG: ![[PROF_LOOP_REMAINDER]] = !{!"branch_weights", i64 1, i64 1}
+;CHECK-DAG: ![[PROF_LOOP_REMAINDER]] = !{!"branch_weights", i32 1, i32 1}
 ;CHECK-DAG: ![[PROF_SWITCH_REMAINDER]] = !{!"branch_weights", i32 0, i32 1, i32 1}
 
 
@@ -228,17 +228,17 @@ attributes #2 = { noinline }
 !27 = !{i32 999999, i64 1, i32 4}
 !28 = !{!"icx (ICX) dev.8.x.0"}
 !29 = !{!"function_entry_count", i64 1}
-!30 = !{!"branch_weights", i64 11, i64 1}
+!30 = !{!"branch_weights", i32 11, i32 1}
 !31 = !{!32, !33, i64 0}
 !32 = !{!"array@_ZTSA20_d", !33, i64 0}
 !33 = !{!"double", !34, i64 0}
 !34 = !{!"omnipotent char", !35, i64 0}
 !35 = !{!"Simple C/C++ TBAA"}
-!36 = !{!"branch_weights", i64 0, i64 4, i64 7}
+!36 = !{!"branch_weights", i32 0, i32 4, i32 7}
 !37 = !{!"intel_profx", i64 4}
 !38 = !{!"intel_profx", i64 7}
 !39 = !{!"intel_profx", i64 0}
-!40 = !{!"branch_weights", i64 1, i64 11}
+!40 = !{!"branch_weights", i32 1, i32 11}
 !41 = distinct !{!41, !42}
 !42 = !{!"llvm.loop.unroll.count", i32 2}
 !43 = !{!"intel_profx", i64 1}

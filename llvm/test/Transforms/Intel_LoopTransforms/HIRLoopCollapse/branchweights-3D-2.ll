@@ -77,11 +77,11 @@
 ;CHECK: br i1
 ;CHECK-SAME: !prof ![[PROF_META_NEW2:[0-9]+]]
 
-;CHECK: ![[PROF_META_LP3]] = !{!"branch_weights", i64 [[LP3_EXIT:[0-9]+]], i64 [[LP3_BACKEDGE:[0-9]+]]}
-;CHECK: ![[PROF_META_LP2]] = !{!"branch_weights", i64 [[LP2_EXIT:[0-9]+]], i64 [[LP2_BACKEDGE:[0-9]+]]}
-;CHECK: ![[PROF_META_LP1]] = !{!"branch_weights", i64 [[LP1_EXIT:[0-9]+]], i64 [[LP1_BACKEDGE:[0-9]+]]}
-;CHECK: ![[PROF_META_NEW1]] = !{!"branch_weights", i64 [[LP3_BACKEDGE]], i64 [[LP2_EXIT]]}
-;CHECK: ![[PROF_META_NEW2]] = !{!"branch_weights", i64 [[LP1_BACKEDGE]], i64 [[LP1_EXIT]]}
+;CHECK: ![[PROF_META_LP3]] = !{!"branch_weights", i32 [[LP3_EXIT:[0-9]+]], i32 [[LP3_BACKEDGE:[0-9]+]]}
+;CHECK: ![[PROF_META_LP2]] = !{!"branch_weights", i32 [[LP2_EXIT:[0-9]+]], i32 [[LP2_BACKEDGE:[0-9]+]]}
+;CHECK: ![[PROF_META_LP1]] = !{!"branch_weights", i32 [[LP1_EXIT:[0-9]+]], i32 [[LP1_BACKEDGE:[0-9]+]]}
+;CHECK: ![[PROF_META_NEW1]] = !{!"branch_weights", i32 [[LP3_BACKEDGE]], i32 [[LP2_EXIT]]}
+;CHECK: ![[PROF_META_NEW2]] = !{!"branch_weights", i32 [[LP1_BACKEDGE]], i32 [[LP1_EXIT]]}
 
 ; ModuleID = 'lc.c'
 source_filename = "lc.c"
@@ -228,9 +228,9 @@ attributes #5 = { cold }
 !35 = !{!"omnipotent char", !36, i64 0}
 !36 = !{!"Simple C/C++ TBAA"}
 !37 = !{!32, !34, i64 0}
-!38 = !{!"branch_weights", i64 225, i64 3375}
-!39 = !{!"branch_weights", i64 15, i64 225}
-!40 = !{!"branch_weights", i64 1, i64 15}
+!38 = !{!"branch_weights", i32 225, i32 3375}
+!39 = !{!"branch_weights", i32 15, i32 225}
+!40 = !{!"branch_weights", i32 1, i32 15}
 !41 = !{!42, !42, i64 0}
 !42 = !{!"pointer@_ZTSP8_IO_FILE", !35, i64 0}
 !43 = !{!"intel_profx", i64 1}
