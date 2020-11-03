@@ -122,48 +122,50 @@ bool tryParsePipelineText(PassBuilder &PB, StringRef PipelineText) {
 
 /// If one of the EPPipeline command line options was given, register callbacks
 /// for parsing and inserting the given pipeline
-static void registerEPCallbacks(PassBuilder &PB, bool VerifyEachPass,
-                                bool DebugLogging) {
+static void registerEPCallbacks(PassBuilder &PB, bool DebugLogging) {
   if (tryParsePipelineText<FunctionPassManager>(PB, PeepholeEPPipeline))
-    PB.registerPeepholeEPCallback([&PB, VerifyEachPass, DebugLogging](
-        FunctionPassManager &PM, PassBuilder::OptimizationLevel Level) {
-      (void) PB.parsePassPipeline(PM, PeepholeEPPipeline, VerifyEachPass,
-                                  DebugLogging);
-    });
+    PB.registerPeepholeEPCallback(
+        [&PB, DebugLogging](FunctionPassManager &PM,
+                            PassBuilder::OptimizationLevel Level) {
+          (void)PB.parsePassPipeline(PM, PeepholeEPPipeline, DebugLogging);
+        });
   if (tryParsePipelineText<LoopPassManager>(PB,
                                             LateLoopOptimizationsEPPipeline))
     PB.registerLateLoopOptimizationsEPCallback(
-        [&PB, VerifyEachPass, DebugLogging](
-            LoopPassManager &PM, PassBuilder::OptimizationLevel Level) {
-          (void) PB.parsePassPipeline(PM, LateLoopOptimizationsEPPipeline,
-                                      VerifyEachPass, DebugLogging);
+        [&PB, DebugLogging](LoopPassManager &PM,
+                            PassBuilder::OptimizationLevel Level) {
+          (void)PB.parsePassPipeline(PM, LateLoopOptimizationsEPPipeline,
+                                     DebugLogging);
         });
   if (tryParsePipelineText<LoopPassManager>(PB, LoopOptimizerEndEPPipeline))
-    PB.registerLoopOptimizerEndEPCallback([&PB, VerifyEachPass, DebugLogging](
-        LoopPassManager &PM, PassBuilder::OptimizationLevel Level) {
-      (void) PB.parsePassPipeline(PM, LoopOptimizerEndEPPipeline, VerifyEachPass,
-                                  DebugLogging);
-    });
+    PB.registerLoopOptimizerEndEPCallback(
+        [&PB, DebugLogging](LoopPassManager &PM,
+                            PassBuilder::OptimizationLevel Level) {
+          (void)PB.parsePassPipeline(PM, LoopOptimizerEndEPPipeline,
+                                     DebugLogging);
+        });
   if (tryParsePipelineText<FunctionPassManager>(PB,
                                                 ScalarOptimizerLateEPPipeline))
     PB.registerScalarOptimizerLateEPCallback(
-        [&PB, VerifyEachPass, DebugLogging](
-            FunctionPassManager &PM, PassBuilder::OptimizationLevel Level) {
-          (void) PB.parsePassPipeline(PM, ScalarOptimizerLateEPPipeline,
-                                      VerifyEachPass, DebugLogging);
+        [&PB, DebugLogging](FunctionPassManager &PM,
+                            PassBuilder::OptimizationLevel Level) {
+          (void)PB.parsePassPipeline(PM, ScalarOptimizerLateEPPipeline,
+                                     DebugLogging);
         });
   if (tryParsePipelineText<CGSCCPassManager>(PB, CGSCCOptimizerLateEPPipeline))
-    PB.registerCGSCCOptimizerLateEPCallback([&PB, VerifyEachPass, DebugLogging](
-        CGSCCPassManager &PM, PassBuilder::OptimizationLevel Level) {
-      (void) PB.parsePassPipeline(PM, CGSCCOptimizerLateEPPipeline, VerifyEachPass,
-                                  DebugLogging);
-    });
+    PB.registerCGSCCOptimizerLateEPCallback(
+        [&PB, DebugLogging](CGSCCPassManager &PM,
+                            PassBuilder::OptimizationLevel Level) {
+          (void)PB.parsePassPipeline(PM, CGSCCOptimizerLateEPPipeline,
+                                     DebugLogging);
+        });
   if (tryParsePipelineText<FunctionPassManager>(PB, VectorizerStartEPPipeline))
-    PB.registerVectorizerStartEPCallback([&PB, VerifyEachPass, DebugLogging](
-        FunctionPassManager &PM, PassBuilder::OptimizationLevel Level) {
-      (void) PB.parsePassPipeline(PM, VectorizerStartEPPipeline, VerifyEachPass,
-                                  DebugLogging);
-    });
+    PB.registerVectorizerStartEPCallback(
+        [&PB, DebugLogging](FunctionPassManager &PM,
+                            PassBuilder::OptimizationLevel Level) {
+          (void)PB.parsePassPipeline(PM, VectorizerStartEPPipeline,
+                                     DebugLogging);
+        });
 }
 
 #ifdef LINK_POLLY_INTO_TOOLS
@@ -180,8 +182,6 @@ bool llvm::runPassPipeline(StringRef Arg0, Module &M, TargetMachine *TM,
                            bool ShouldPreserveAssemblyUseListOrder,
                            bool ShouldPreserveBitcodeUseListOrder,
                            bool EmitSummaryIndex, bool EmitModuleHash) {
-  bool VerifyEachPass = VK == VK_VerifyEachPass;
-
   Optional<PGOOptions> P;
   switch (PGOKindFlag) {
     case InstrGen:
@@ -202,7 +202,7 @@ bool llvm::runPassPipeline(StringRef Arg0, Module &M, TargetMachine *TM,
         P = None;
   }
   PassBuilder PB(TM, PipelineTuningOptions(), P);
-  registerEPCallbacks(PB, VerifyEachPass, DebugPM);
+  registerEPCallbacks(PB, DebugPM);
 
 #ifdef LINK_POLLY_INTO_TOOLS
   polly::RegisterPollyPasses(PB);
@@ -235,7 +235,7 @@ bool llvm::runPassPipeline(StringRef Arg0, Module &M, TargetMachine *TM,
   if (VK > VK_NoVerifier)
     MPM.addPass(VerifierPass());
 
-  if (!PB.parsePassPipeline(MPM, PassPipeline, VerifyEachPass, DebugPM)) {
+  if (!PB.parsePassPipeline(MPM, PassPipeline, DebugPM)) {
     errs() << Arg0 << ": unable to parse pass pipeline description.\n";
     return false;
   }

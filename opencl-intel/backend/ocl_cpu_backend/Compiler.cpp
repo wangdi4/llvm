@@ -46,12 +46,12 @@ static codegen::RegisterCodeGenFlags CGF;
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
-TargetOptions ExternInitTargetOptionsFromCodeGenFlags() {
+TargetOptions ExternInitTargetOptionsFromCodeGenFlags(llvm::Triple ModuleTriple) {
 #ifdef _WIN32
     // We only link to LLD on Windows
     return lld::initTargetOptionsFromCodeGenFlags();
 #else
-    return codegen::InitTargetOptionsFromCodeGenFlags();
+    return codegen::InitTargetOptionsFromCodeGenFlags(ModuleTriple);
 #endif
 }
 
@@ -422,7 +422,8 @@ llvm::TargetMachine* Compiler::GetTargetMachine(
 
   // FP_CONTRACT defined in module
   // Exclude FMA instructions when FP_CONTRACT is disabled
-  llvm::TargetOptions TargetOpts = ExternInitTargetOptionsFromCodeGenFlags();
+  llvm::TargetOptions TargetOpts =
+      ExternInitTargetOptionsFromCodeGenFlags(ModuleTriple);
   if (pModule->getNamedMetadata("opencl.enable.FP_CONTRACT")) {
     TargetOpts.AllowFPOpFusion = llvm::FPOpFusion::Fast;
   } else {
