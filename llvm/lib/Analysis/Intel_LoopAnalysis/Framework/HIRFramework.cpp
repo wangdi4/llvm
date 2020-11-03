@@ -293,7 +293,7 @@ static void cleanupRefLowerBounds(HLRegion &Reg) {
   Gatherer::gather(&Reg, Refs);
 
   DDRefGrouping::RefGroupVecTy<RegDDRef *> Groups;
-  DDRefIndexGrouping().group(Groups, Refs);
+  DDRefIndexGrouping(Groups, Refs);
 
   // Each group has references with the same base.
   for (auto &Group : Groups) {

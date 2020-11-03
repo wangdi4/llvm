@@ -126,10 +126,16 @@ class DDRefIndexGrouping {
 public:
   typedef DenseMap<const RegDDRef *, unsigned> RefToIndexTy;
 
+  template <typename OutGroup, typename InVec>
+  DDRefIndexGrouping(OutGroup &Groups, InVec Refs) {
+    groupByBasePtr(Groups, Refs);
+  }
+
   RefToIndexTy &getIndex() { return RefGroupIndex; }
 
+private:
   template <typename OutGroup, typename InVec>
-  void group(OutGroup &Groups, InVec Refs) {
+  void groupByBasePtr(OutGroup &Groups, InVec Refs) {
     DenseMap<unsigned , unsigned> GroupIndex;
 
     for (auto Ref : Refs) {
@@ -154,7 +160,6 @@ public:
   }
 #endif
 
-private:
   RefToIndexTy RefGroupIndex;
 };
 
