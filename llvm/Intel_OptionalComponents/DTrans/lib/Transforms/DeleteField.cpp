@@ -154,7 +154,7 @@ ModulePass *llvm::createDTransDeleteFieldWrapperPass() {
 
 static bool canDeleteField(dtrans::FieldInfo &FI) {
   return (!FI.isRead() || FI.isValueUnused()) && !FI.hasComplexUse() &&
-         !FI.getLLVMType()->isAggregateType();
+         !FI.hasNonGEPAccess() && !FI.getLLVMType()->isAggregateType();
 }
 
 // Return false if there is any constraint in the parent structure

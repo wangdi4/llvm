@@ -18,7 +18,7 @@ define i32 @main() {
 entry:
   %call = tail call noalias i8* @calloc(i64 10, i64 48)
   %0 = bitcast i8* %call to %struct.test01*
-  %i = bitcast i8* %call to i32*
+  %i = getelementptr %struct.test01, %struct.test01* %0, i64 0, i32 0
   store i32 10, i32* %i, align 8
   %call1 = tail call noalias i8* @calloc(i64 10, i64 48)
   %1 = bitcast i8* %call1 to %struct.test02*
