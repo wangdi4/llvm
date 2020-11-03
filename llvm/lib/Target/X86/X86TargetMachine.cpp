@@ -93,6 +93,7 @@ extern "C" LLVM_EXTERNAL_VISIBILITY void LLVMInitializeX86Target() {
 #if INTEL_CUSTOMIZATION
   initializeX86GlobalFMAPass(PR);
   initializeGenerateLEAPassPass(PR);
+  initializeX86Gather2LoadPermutePassPass(PR);
   initializeX86FeatureInitPassPass(PR);
 #endif // INTEL_CUSTOMIZATION
 }
@@ -441,6 +442,12 @@ void X86PassConfig::addIRPasses() {
       addPass(createCFGuardCheckPass());
     }
   }
+
+#if INTEL_CUSTOMIZATION
+  if (TM->getOptLevel() > CodeGenOpt::None && TM->Options.IntelAdvancedOptim) {
+    addPass(createX86Gather2LoadPermutePass());
+  }
+#endif // INTEL_CUSTOMIZATION
 }
 
 bool X86PassConfig::addInstSelector() {

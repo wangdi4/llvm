@@ -437,6 +437,26 @@ bool TargetTransformInfo::isLegalMaskedGather(Type *DataType,
 bool TargetTransformInfo::shouldScalarizeMaskedGather(CallInst *CI) const {
   return TTIImpl->shouldScalarizeMaskedGather(CI);
 }
+bool TargetTransformInfo::shouldOptGatherToLoadPermute(
+    Type *ArrayElemTy, uint32_t ArrayNum, uint32_t GatherNum,
+    uint32_t *WidenNum) const {
+  return TTIImpl->shouldOptGatherToLoadPermute(ArrayElemTy, ArrayNum, GatherNum,
+                                               WidenNum);
+}
+bool TargetTransformInfo::isLegalToTransformGather2PermuteLoad(
+    const IntrinsicInst *II, Type *&ArrayElemTy, unsigned &ArrayNum,
+    unsigned &GatherNum, unsigned &WidenNum) const {
+  return TTIImpl->isLegalToTransformGather2PermuteLoad(
+      II, ArrayElemTy, ArrayNum, GatherNum, WidenNum);
+}
+bool TargetTransformInfo::isLegalToTransformGather2PermuteLoad(
+    Intrinsic::ID ID, Type *DataTy, const Value *Ptr, bool VariableMask,
+    bool UndefPassThru, Type *&ArrayElemTy, unsigned &ArrayNum,
+    unsigned &GatherNum, unsigned &WidenNum) const {
+  return TTIImpl->isLegalToTransformGather2PermuteLoad(
+      ID, DataTy, Ptr, VariableMask, UndefPassThru, ArrayElemTy, ArrayNum,
+      GatherNum, WidenNum);
+}
 #endif // INTEL_CUSTOMIZATION
 bool TargetTransformInfo::isLegalMaskedScatter(Type *DataType,
                                                Align Alignment) const {
@@ -863,9 +883,12 @@ int TargetTransformInfo::getMaskedMemoryOpCost(
 
 int TargetTransformInfo::getGatherScatterOpCost(
     unsigned Opcode, Type *DataTy, const Value *Ptr, bool VariableMask,
-    Align Alignment, TTI::TargetCostKind CostKind, const Instruction *I) const {
+    Align Alignment, TTI::TargetCostKind CostKind, // INTEL
+    const Instruction *I, // INTEL
+    bool UndefPassThru) const { // INTEL
   int Cost = TTIImpl->getGatherScatterOpCost(Opcode, DataTy, Ptr, VariableMask,
-                                             Alignment, CostKind, I);
+                                             Alignment, CostKind, I, // INTEL
+                                             UndefPassThru); // INTEL
   assert(Cost >= 0 && "TTI should not produce negative costs!");
   return Cost;
 }

@@ -14,9 +14,9 @@ define dso_local <6 x float> @Array2x_Gather6x_AllOneMask(i32* nocapture readonl
 ; X86-AVX512-VL-DQ-NEXT:    movl {{[0-9]+}}(%esp), %ecx
 ; X86-AVX512-VL-DQ-NEXT:    movb $63, %dl
 ; X86-AVX512-VL-DQ-NEXT:    kmovb %edx, %k1
-; X86-AVX512-VL-DQ-NEXT:    vmovdqu32 (%ecx), %ymm1 {%k1} {z}
-; X86-AVX512-VL-DQ-NEXT:    vxorps %xmm0, %xmm0, %xmm0
-; X86-AVX512-VL-DQ-NEXT:    vgatherdps (%eax,%ymm1,4), %ymm0 {%k1}
+; X86-AVX512-VL-DQ-NEXT:    vmovdqu32 (%ecx), %ymm0 {%k1} {z}
+; X86-AVX512-VL-DQ-NEXT:    vmovq {{.*#+}} xmm1 = mem[0],zero
+; X86-AVX512-VL-DQ-NEXT:    vpermd %ymm1, %ymm0, %ymm0
 ; X86-AVX512-VL-DQ-NEXT:    retl
 entry:
   %bc = bitcast i32* %index_ptr to <6 x i32>*
@@ -33,11 +33,11 @@ define dso_local <2 x float> @Array2x_Gather2x_AllOneMask(i32* nocapture readonl
 ; X86-AVX512-VL-DQ:       # %bb.0: # %entry
 ; X86-AVX512-VL-DQ-NEXT:    movl {{[0-9]+}}(%esp), %eax
 ; X86-AVX512-VL-DQ-NEXT:    movl {{[0-9]+}}(%esp), %ecx
+; X86-AVX512-VL-DQ-NEXT:    vmovsd {{.*#+}} xmm0 = mem[0],zero
 ; X86-AVX512-VL-DQ-NEXT:    vmovsd {{.*#+}} xmm1 = mem[0],zero
-; X86-AVX512-VL-DQ-NEXT:    movb $3, %cl
-; X86-AVX512-VL-DQ-NEXT:    kmovb %ecx, %k1
-; X86-AVX512-VL-DQ-NEXT:    vxorps %xmm0, %xmm0, %xmm0
-; X86-AVX512-VL-DQ-NEXT:    vgatherdps (%eax,%xmm1,4), %xmm0 {%k1}
+; X86-AVX512-VL-DQ-NEXT:    vpermps %ymm0, %ymm1, %ymm0
+; X86-AVX512-VL-DQ-NEXT:    # kill: def $xmm0 killed $xmm0 killed $ymm0
+; X86-AVX512-VL-DQ-NEXT:    vzeroupper
 ; X86-AVX512-VL-DQ-NEXT:    retl
 entry:
   %bc = bitcast i32* %index_ptr to <2 x i32>*
@@ -53,10 +53,9 @@ define dso_local <8 x float> @Array2x_Gather8x_AllOneMask(i32* nocapture readonl
 ; X86-AVX512-VL-DQ:       # %bb.0: # %entry
 ; X86-AVX512-VL-DQ-NEXT:    movl {{[0-9]+}}(%esp), %eax
 ; X86-AVX512-VL-DQ-NEXT:    movl {{[0-9]+}}(%esp), %ecx
-; X86-AVX512-VL-DQ-NEXT:    vmovups (%ecx), %ymm1
-; X86-AVX512-VL-DQ-NEXT:    kxnorw %k0, %k0, %k1
-; X86-AVX512-VL-DQ-NEXT:    vxorps %xmm0, %xmm0, %xmm0
-; X86-AVX512-VL-DQ-NEXT:    vgatherdps (%eax,%ymm1,4), %ymm0 {%k1}
+; X86-AVX512-VL-DQ-NEXT:    vmovups (%ecx), %ymm0
+; X86-AVX512-VL-DQ-NEXT:    vmovsd {{.*#+}} xmm1 = mem[0],zero
+; X86-AVX512-VL-DQ-NEXT:    vpermps %ymm1, %ymm0, %ymm0
 ; X86-AVX512-VL-DQ-NEXT:    retl
 entry:
   %bc = bitcast i32* %index_ptr to <8 x i32>*
@@ -102,9 +101,9 @@ define dso_local <6 x float> @Array6x_Gather6x_AllOneMask(i32* nocapture readonl
 ; X86-AVX512-VL-DQ-NEXT:    movl {{[0-9]+}}(%esp), %ecx
 ; X86-AVX512-VL-DQ-NEXT:    movb $63, %dl
 ; X86-AVX512-VL-DQ-NEXT:    kmovb %edx, %k1
-; X86-AVX512-VL-DQ-NEXT:    vmovdqu32 (%ecx), %ymm1 {%k1} {z}
-; X86-AVX512-VL-DQ-NEXT:    vxorps %xmm0, %xmm0, %xmm0
-; X86-AVX512-VL-DQ-NEXT:    vgatherdps (%eax,%ymm1,4), %ymm0 {%k1}
+; X86-AVX512-VL-DQ-NEXT:    vmovdqu32 (%ecx), %ymm0 {%k1} {z}
+; X86-AVX512-VL-DQ-NEXT:    vmovups (%eax), %ymm1 {%k1} {z}
+; X86-AVX512-VL-DQ-NEXT:    vpermd %ymm1, %ymm0, %ymm0
 ; X86-AVX512-VL-DQ-NEXT:    retl
 entry:
   %bc = bitcast i32* %index_ptr to <6 x i32>*
@@ -121,11 +120,13 @@ define dso_local <2 x float> @Array6x_Gather2x_AllOneMask(i32* nocapture readonl
 ; X86-AVX512-VL-DQ:       # %bb.0: # %entry
 ; X86-AVX512-VL-DQ-NEXT:    movl {{[0-9]+}}(%esp), %eax
 ; X86-AVX512-VL-DQ-NEXT:    movl {{[0-9]+}}(%esp), %ecx
+; X86-AVX512-VL-DQ-NEXT:    movb $63, %dl
+; X86-AVX512-VL-DQ-NEXT:    kmovb %edx, %k1
+; X86-AVX512-VL-DQ-NEXT:    vmovups (%ecx), %ymm0 {%k1} {z}
 ; X86-AVX512-VL-DQ-NEXT:    vmovsd {{.*#+}} xmm1 = mem[0],zero
-; X86-AVX512-VL-DQ-NEXT:    movb $3, %cl
-; X86-AVX512-VL-DQ-NEXT:    kmovb %ecx, %k1
-; X86-AVX512-VL-DQ-NEXT:    vxorps %xmm0, %xmm0, %xmm0
-; X86-AVX512-VL-DQ-NEXT:    vgatherdps (%eax,%xmm1,4), %xmm0 {%k1}
+; X86-AVX512-VL-DQ-NEXT:    vpermps %ymm0, %ymm1, %ymm0
+; X86-AVX512-VL-DQ-NEXT:    # kill: def $xmm0 killed $xmm0 killed $ymm0
+; X86-AVX512-VL-DQ-NEXT:    vzeroupper
 ; X86-AVX512-VL-DQ-NEXT:    retl
 entry:
   %bc = bitcast i32* %index_ptr to <2 x i32>*
@@ -141,10 +142,11 @@ define dso_local <8 x float> @Array6x_Gather8x_AllOneMask(i32* nocapture readonl
 ; X86-AVX512-VL-DQ:       # %bb.0: # %entry
 ; X86-AVX512-VL-DQ-NEXT:    movl {{[0-9]+}}(%esp), %eax
 ; X86-AVX512-VL-DQ-NEXT:    movl {{[0-9]+}}(%esp), %ecx
-; X86-AVX512-VL-DQ-NEXT:    vmovups (%ecx), %ymm1
-; X86-AVX512-VL-DQ-NEXT:    kxnorw %k0, %k0, %k1
-; X86-AVX512-VL-DQ-NEXT:    vxorps %xmm0, %xmm0, %xmm0
-; X86-AVX512-VL-DQ-NEXT:    vgatherdps (%eax,%ymm1,4), %ymm0 {%k1}
+; X86-AVX512-VL-DQ-NEXT:    vmovups (%ecx), %ymm0
+; X86-AVX512-VL-DQ-NEXT:    movb $63, %cl
+; X86-AVX512-VL-DQ-NEXT:    kmovb %ecx, %k1
+; X86-AVX512-VL-DQ-NEXT:    vmovups (%eax), %ymm1 {%k1} {z}
+; X86-AVX512-VL-DQ-NEXT:    vpermps %ymm1, %ymm0, %ymm0
 ; X86-AVX512-VL-DQ-NEXT:    retl
 entry:
   %bc = bitcast i32* %index_ptr to <8 x i32>*
@@ -191,9 +193,8 @@ define dso_local <6 x float> @Array8x_Gather6x_AllOneMask(i32* nocapture readonl
 ; X86-AVX512-VL-DQ-NEXT:    movl {{[0-9]+}}(%esp), %ecx
 ; X86-AVX512-VL-DQ-NEXT:    movb $63, %dl
 ; X86-AVX512-VL-DQ-NEXT:    kmovb %edx, %k1
-; X86-AVX512-VL-DQ-NEXT:    vmovdqu32 (%ecx), %ymm1 {%k1} {z}
-; X86-AVX512-VL-DQ-NEXT:    vxorps %xmm0, %xmm0, %xmm0
-; X86-AVX512-VL-DQ-NEXT:    vgatherdps (%eax,%ymm1,4), %ymm0 {%k1}
+; X86-AVX512-VL-DQ-NEXT:    vmovdqu32 (%ecx), %ymm0 {%k1} {z}
+; X86-AVX512-VL-DQ-NEXT:    vpermd (%eax), %ymm0, %ymm0
 ; X86-AVX512-VL-DQ-NEXT:    retl
 entry:
   %bc = bitcast i32* %index_ptr to <6 x i32>*
@@ -210,11 +211,10 @@ define dso_local <2 x float> @Array8x_Gather2x_AllOneMask(i32* nocapture readonl
 ; X86-AVX512-VL-DQ:       # %bb.0: # %entry
 ; X86-AVX512-VL-DQ-NEXT:    movl {{[0-9]+}}(%esp), %eax
 ; X86-AVX512-VL-DQ-NEXT:    movl {{[0-9]+}}(%esp), %ecx
-; X86-AVX512-VL-DQ-NEXT:    vmovsd {{.*#+}} xmm1 = mem[0],zero
-; X86-AVX512-VL-DQ-NEXT:    movb $3, %cl
-; X86-AVX512-VL-DQ-NEXT:    kmovb %ecx, %k1
-; X86-AVX512-VL-DQ-NEXT:    vxorps %xmm0, %xmm0, %xmm0
-; X86-AVX512-VL-DQ-NEXT:    vgatherdps (%eax,%xmm1,4), %xmm0 {%k1}
+; X86-AVX512-VL-DQ-NEXT:    vmovsd {{.*#+}} xmm0 = mem[0],zero
+; X86-AVX512-VL-DQ-NEXT:    vpermps (%eax), %ymm0, %ymm0
+; X86-AVX512-VL-DQ-NEXT:    # kill: def $xmm0 killed $xmm0 killed $ymm0
+; X86-AVX512-VL-DQ-NEXT:    vzeroupper
 ; X86-AVX512-VL-DQ-NEXT:    retl
 entry:
   %bc = bitcast i32* %index_ptr to <2 x i32>*
@@ -230,10 +230,8 @@ define dso_local <8 x float> @Array8x_Gather8x_AllOneMask(i32* nocapture readonl
 ; X86-AVX512-VL-DQ:       # %bb.0: # %entry
 ; X86-AVX512-VL-DQ-NEXT:    movl {{[0-9]+}}(%esp), %eax
 ; X86-AVX512-VL-DQ-NEXT:    movl {{[0-9]+}}(%esp), %ecx
-; X86-AVX512-VL-DQ-NEXT:    vmovups (%ecx), %ymm1
-; X86-AVX512-VL-DQ-NEXT:    kxnorw %k0, %k0, %k1
-; X86-AVX512-VL-DQ-NEXT:    vxorps %xmm0, %xmm0, %xmm0
-; X86-AVX512-VL-DQ-NEXT:    vgatherdps (%eax,%ymm1,4), %ymm0 {%k1}
+; X86-AVX512-VL-DQ-NEXT:    vmovups (%ecx), %ymm0
+; X86-AVX512-VL-DQ-NEXT:    vpermps (%eax), %ymm0, %ymm0
 ; X86-AVX512-VL-DQ-NEXT:    retl
 entry:
   %bc = bitcast i32* %index_ptr to <8 x i32>*
@@ -279,11 +277,9 @@ define dso_local <6 x float> @Array2x_Gather6x(i32* nocapture readonly %index_pt
 ; X86-AVX512-VL-DQ-NEXT:    movl {{[0-9]+}}(%esp), %ecx
 ; X86-AVX512-VL-DQ-NEXT:    movb $63, %dl
 ; X86-AVX512-VL-DQ-NEXT:    kmovb %edx, %k1
-; X86-AVX512-VL-DQ-NEXT:    vmovdqu32 (%ecx), %ymm1 {%k1} {z}
-; X86-AVX512-VL-DQ-NEXT:    vxorps %xmm0, %xmm0, %xmm0
-; X86-AVX512-VL-DQ-NEXT:    movb $62, %cl
-; X86-AVX512-VL-DQ-NEXT:    kmovb %ecx, %k1
-; X86-AVX512-VL-DQ-NEXT:    vgatherdps (%eax,%ymm1,4), %ymm0 {%k1}
+; X86-AVX512-VL-DQ-NEXT:    vmovdqu32 (%ecx), %ymm0 {%k1} {z}
+; X86-AVX512-VL-DQ-NEXT:    vmovq {{.*#+}} xmm1 = mem[0],zero
+; X86-AVX512-VL-DQ-NEXT:    vpermd %ymm1, %ymm0, %ymm0
 ; X86-AVX512-VL-DQ-NEXT:    retl
 entry:
   %bc = bitcast i32* %index_ptr to <6 x i32>*
@@ -300,11 +296,11 @@ define dso_local <2 x float> @Array2x_Gather2x(i32* nocapture readonly %index_pt
 ; X86-AVX512-VL-DQ:       # %bb.0: # %entry
 ; X86-AVX512-VL-DQ-NEXT:    movl {{[0-9]+}}(%esp), %eax
 ; X86-AVX512-VL-DQ-NEXT:    movl {{[0-9]+}}(%esp), %ecx
+; X86-AVX512-VL-DQ-NEXT:    vmovsd {{.*#+}} xmm0 = mem[0],zero
 ; X86-AVX512-VL-DQ-NEXT:    vmovsd {{.*#+}} xmm1 = mem[0],zero
-; X86-AVX512-VL-DQ-NEXT:    movb $2, %cl
-; X86-AVX512-VL-DQ-NEXT:    kmovb %ecx, %k1
-; X86-AVX512-VL-DQ-NEXT:    vxorps %xmm0, %xmm0, %xmm0
-; X86-AVX512-VL-DQ-NEXT:    vgatherdps (%eax,%xmm1,4), %xmm0 {%k1}
+; X86-AVX512-VL-DQ-NEXT:    vpermps %ymm0, %ymm1, %ymm0
+; X86-AVX512-VL-DQ-NEXT:    # kill: def $xmm0 killed $xmm0 killed $ymm0
+; X86-AVX512-VL-DQ-NEXT:    vzeroupper
 ; X86-AVX512-VL-DQ-NEXT:    retl
 entry:
   %bc = bitcast i32* %index_ptr to <2 x i32>*
@@ -320,11 +316,9 @@ define dso_local <8 x float> @Array2x_Gather8x(i32* nocapture readonly %index_pt
 ; X86-AVX512-VL-DQ:       # %bb.0: # %entry
 ; X86-AVX512-VL-DQ-NEXT:    movl {{[0-9]+}}(%esp), %eax
 ; X86-AVX512-VL-DQ-NEXT:    movl {{[0-9]+}}(%esp), %ecx
-; X86-AVX512-VL-DQ-NEXT:    vmovups (%ecx), %ymm1
-; X86-AVX512-VL-DQ-NEXT:    vxorps %xmm0, %xmm0, %xmm0
-; X86-AVX512-VL-DQ-NEXT:    movb $-2, %cl
-; X86-AVX512-VL-DQ-NEXT:    kmovb %ecx, %k1
-; X86-AVX512-VL-DQ-NEXT:    vgatherdps (%eax,%ymm1,4), %ymm0 {%k1}
+; X86-AVX512-VL-DQ-NEXT:    vmovups (%ecx), %ymm0
+; X86-AVX512-VL-DQ-NEXT:    vmovsd {{.*#+}} xmm1 = mem[0],zero
+; X86-AVX512-VL-DQ-NEXT:    vpermps %ymm1, %ymm0, %ymm0
 ; X86-AVX512-VL-DQ-NEXT:    retl
 entry:
   %bc = bitcast i32* %index_ptr to <8 x i32>*
@@ -371,11 +365,9 @@ define dso_local <6 x float> @Array6x_Gather6x(i32* nocapture readonly %index_pt
 ; X86-AVX512-VL-DQ-NEXT:    movl {{[0-9]+}}(%esp), %ecx
 ; X86-AVX512-VL-DQ-NEXT:    movb $63, %dl
 ; X86-AVX512-VL-DQ-NEXT:    kmovb %edx, %k1
-; X86-AVX512-VL-DQ-NEXT:    vmovdqu32 (%ecx), %ymm1 {%k1} {z}
-; X86-AVX512-VL-DQ-NEXT:    vxorps %xmm0, %xmm0, %xmm0
-; X86-AVX512-VL-DQ-NEXT:    movb $62, %cl
-; X86-AVX512-VL-DQ-NEXT:    kmovb %ecx, %k1
-; X86-AVX512-VL-DQ-NEXT:    vgatherdps (%eax,%ymm1,4), %ymm0 {%k1}
+; X86-AVX512-VL-DQ-NEXT:    vmovdqu32 (%ecx), %ymm0 {%k1} {z}
+; X86-AVX512-VL-DQ-NEXT:    vmovups (%eax), %ymm1 {%k1} {z}
+; X86-AVX512-VL-DQ-NEXT:    vpermd %ymm1, %ymm0, %ymm0
 ; X86-AVX512-VL-DQ-NEXT:    retl
 entry:
   %bc = bitcast i32* %index_ptr to <6 x i32>*
@@ -392,11 +384,13 @@ define dso_local <2 x float> @Array6x_Gather2x(i32* nocapture readonly %index_pt
 ; X86-AVX512-VL-DQ:       # %bb.0: # %entry
 ; X86-AVX512-VL-DQ-NEXT:    movl {{[0-9]+}}(%esp), %eax
 ; X86-AVX512-VL-DQ-NEXT:    movl {{[0-9]+}}(%esp), %ecx
+; X86-AVX512-VL-DQ-NEXT:    movb $63, %dl
+; X86-AVX512-VL-DQ-NEXT:    kmovb %edx, %k1
+; X86-AVX512-VL-DQ-NEXT:    vmovups (%ecx), %ymm0 {%k1} {z}
 ; X86-AVX512-VL-DQ-NEXT:    vmovsd {{.*#+}} xmm1 = mem[0],zero
-; X86-AVX512-VL-DQ-NEXT:    movb $2, %cl
-; X86-AVX512-VL-DQ-NEXT:    kmovb %ecx, %k1
-; X86-AVX512-VL-DQ-NEXT:    vxorps %xmm0, %xmm0, %xmm0
-; X86-AVX512-VL-DQ-NEXT:    vgatherdps (%eax,%xmm1,4), %xmm0 {%k1}
+; X86-AVX512-VL-DQ-NEXT:    vpermps %ymm0, %ymm1, %ymm0
+; X86-AVX512-VL-DQ-NEXT:    # kill: def $xmm0 killed $xmm0 killed $ymm0
+; X86-AVX512-VL-DQ-NEXT:    vzeroupper
 ; X86-AVX512-VL-DQ-NEXT:    retl
 entry:
   %bc = bitcast i32* %index_ptr to <2 x i32>*
@@ -412,11 +406,11 @@ define dso_local <8 x float> @Array6x_Gather8x(i32* nocapture readonly %index_pt
 ; X86-AVX512-VL-DQ:       # %bb.0: # %entry
 ; X86-AVX512-VL-DQ-NEXT:    movl {{[0-9]+}}(%esp), %eax
 ; X86-AVX512-VL-DQ-NEXT:    movl {{[0-9]+}}(%esp), %ecx
-; X86-AVX512-VL-DQ-NEXT:    vmovups (%ecx), %ymm1
-; X86-AVX512-VL-DQ-NEXT:    vxorps %xmm0, %xmm0, %xmm0
-; X86-AVX512-VL-DQ-NEXT:    movb $-2, %cl
+; X86-AVX512-VL-DQ-NEXT:    vmovups (%ecx), %ymm0
+; X86-AVX512-VL-DQ-NEXT:    movb $63, %cl
 ; X86-AVX512-VL-DQ-NEXT:    kmovb %ecx, %k1
-; X86-AVX512-VL-DQ-NEXT:    vgatherdps (%eax,%ymm1,4), %ymm0 {%k1}
+; X86-AVX512-VL-DQ-NEXT:    vmovups (%eax), %ymm1 {%k1} {z}
+; X86-AVX512-VL-DQ-NEXT:    vpermps %ymm1, %ymm0, %ymm0
 ; X86-AVX512-VL-DQ-NEXT:    retl
 entry:
   %bc = bitcast i32* %index_ptr to <8 x i32>*
@@ -463,11 +457,8 @@ define dso_local <6 x float> @Array8x_Gather6x(i32* nocapture readonly %index_pt
 ; X86-AVX512-VL-DQ-NEXT:    movl {{[0-9]+}}(%esp), %ecx
 ; X86-AVX512-VL-DQ-NEXT:    movb $63, %dl
 ; X86-AVX512-VL-DQ-NEXT:    kmovb %edx, %k1
-; X86-AVX512-VL-DQ-NEXT:    vmovdqu32 (%ecx), %ymm1 {%k1} {z}
-; X86-AVX512-VL-DQ-NEXT:    vxorps %xmm0, %xmm0, %xmm0
-; X86-AVX512-VL-DQ-NEXT:    movb $62, %cl
-; X86-AVX512-VL-DQ-NEXT:    kmovb %ecx, %k1
-; X86-AVX512-VL-DQ-NEXT:    vgatherdps (%eax,%ymm1,4), %ymm0 {%k1}
+; X86-AVX512-VL-DQ-NEXT:    vmovdqu32 (%ecx), %ymm0 {%k1} {z}
+; X86-AVX512-VL-DQ-NEXT:    vpermd (%eax), %ymm0, %ymm0
 ; X86-AVX512-VL-DQ-NEXT:    retl
 entry:
   %bc = bitcast i32* %index_ptr to <6 x i32>*
@@ -484,11 +475,10 @@ define dso_local <2 x float> @Array8x_Gather2x(i32* nocapture readonly %index_pt
 ; X86-AVX512-VL-DQ:       # %bb.0: # %entry
 ; X86-AVX512-VL-DQ-NEXT:    movl {{[0-9]+}}(%esp), %eax
 ; X86-AVX512-VL-DQ-NEXT:    movl {{[0-9]+}}(%esp), %ecx
-; X86-AVX512-VL-DQ-NEXT:    vmovsd {{.*#+}} xmm1 = mem[0],zero
-; X86-AVX512-VL-DQ-NEXT:    movb $2, %cl
-; X86-AVX512-VL-DQ-NEXT:    kmovb %ecx, %k1
-; X86-AVX512-VL-DQ-NEXT:    vxorps %xmm0, %xmm0, %xmm0
-; X86-AVX512-VL-DQ-NEXT:    vgatherdps (%eax,%xmm1,4), %xmm0 {%k1}
+; X86-AVX512-VL-DQ-NEXT:    vmovsd {{.*#+}} xmm0 = mem[0],zero
+; X86-AVX512-VL-DQ-NEXT:    vpermps (%eax), %ymm0, %ymm0
+; X86-AVX512-VL-DQ-NEXT:    # kill: def $xmm0 killed $xmm0 killed $ymm0
+; X86-AVX512-VL-DQ-NEXT:    vzeroupper
 ; X86-AVX512-VL-DQ-NEXT:    retl
 entry:
   %bc = bitcast i32* %index_ptr to <2 x i32>*
@@ -504,11 +494,8 @@ define dso_local <8 x float> @Array8x_Gather8x(i32* nocapture readonly %index_pt
 ; X86-AVX512-VL-DQ:       # %bb.0: # %entry
 ; X86-AVX512-VL-DQ-NEXT:    movl {{[0-9]+}}(%esp), %eax
 ; X86-AVX512-VL-DQ-NEXT:    movl {{[0-9]+}}(%esp), %ecx
-; X86-AVX512-VL-DQ-NEXT:    vmovups (%ecx), %ymm1
-; X86-AVX512-VL-DQ-NEXT:    vxorps %xmm0, %xmm0, %xmm0
-; X86-AVX512-VL-DQ-NEXT:    movb $-2, %cl
-; X86-AVX512-VL-DQ-NEXT:    kmovb %ecx, %k1
-; X86-AVX512-VL-DQ-NEXT:    vgatherdps (%eax,%ymm1,4), %ymm0 {%k1}
+; X86-AVX512-VL-DQ-NEXT:    vmovups (%ecx), %ymm0
+; X86-AVX512-VL-DQ-NEXT:    vpermps (%eax), %ymm0, %ymm0
 ; X86-AVX512-VL-DQ-NEXT:    retl
 entry:
   %bc = bitcast i32* %index_ptr to <8 x i32>*

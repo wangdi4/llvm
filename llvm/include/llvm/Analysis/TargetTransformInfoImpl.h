@@ -239,6 +239,27 @@ public:
         DL->getValueOrABITypeAlignment(MaybeAlign(AlignmentInt), LoadTy);
     return !isLegalMaskedGather(LoadTy, Alignment);
   }
+
+  bool shouldOptGatherToLoadPermute(Type *ArrayElemTy, uint32_t ArrayNum,
+                                    uint32_t GatherNum,
+                                    uint32_t *WidenNum = nullptr) const {
+    return false;
+  }
+
+  bool isLegalToTransformGather2PermuteLoad(const IntrinsicInst *II,
+                                            Type *&ArrayElemTy,
+                                            unsigned &ArrayNum,
+                                            unsigned &GatherNum,
+                                            unsigned &WidenNum) const {
+    return false;
+  }
+
+  bool isLegalToTransformGather2PermuteLoad(
+      Intrinsic::ID ID, Type *DataTy, const Value *Ptr, bool VariableMask,
+      bool UndefPassThru, Type *&ArrayElemTy, unsigned &ArrayNum,
+      unsigned &GatherNum, unsigned &WidenNum) const {
+    return false;
+  }
 #endif // INTEL_CUSTOMIZATION
 
   bool isLegalMaskedCompressStore(Type *DataType) { return false; }
@@ -513,7 +534,8 @@ public:
   unsigned getGatherScatterOpCost(unsigned Opcode, Type *DataTy,
                                   const Value *Ptr, bool VariableMask,
                                   Align Alignment, TTI::TargetCostKind CostKind,
-                                  const Instruction *I = nullptr) {
+                                  const Instruction *I = nullptr, // INTEL
+                                  bool UndefPassThru = false) {   // INTEL
     return 1;
   }
 

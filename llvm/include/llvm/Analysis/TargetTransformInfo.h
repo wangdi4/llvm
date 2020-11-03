@@ -659,6 +659,18 @@ public:
   bool isLegalMaskedGather(Type *DataType, Align Alignment) const;
 #if INTEL_CUSTOMIZATION
   bool shouldScalarizeMaskedGather(CallInst *CI) const;
+  bool shouldOptGatherToLoadPermute(Type *ArrayElemTy, uint32_t ArrayNum,
+                                    uint32_t GatherNum,
+                                    uint32_t *WidenNum) const;
+  bool isLegalToTransformGather2PermuteLoad(const IntrinsicInst *II,
+                                            Type *&ArrayElemTy,
+                                            unsigned &ArrayNum,
+                                            unsigned &GatherNum,
+                                            unsigned &WidenNum) const;
+  bool isLegalToTransformGather2PermuteLoad(
+      Intrinsic::ID ID, Type *DataTy, const Value *Ptr, bool VariableMask,
+      bool UndefPassThru, Type *&ArrayElemTy, unsigned &ArrayNum,
+      unsigned &GatherNum, unsigned &WidenNum) const;
 #endif // INTEL_CUSTOMIZATION
   /// Return true if the target supports masked compress store.
   bool isLegalMaskedCompressStore(Type *DataType) const;
@@ -1133,7 +1145,8 @@ public:
   int getGatherScatterOpCost(
       unsigned Opcode, Type *DataTy, const Value *Ptr, bool VariableMask,
       Align Alignment, TTI::TargetCostKind CostKind = TTI::TCK_RecipThroughput,
-      const Instruction *I = nullptr) const;
+      const Instruction *I = nullptr, bool UndefPassThru = false) const; // INTEL
+
 #if INTEL_CUSTOMIZATION
   /// \return The cost of Gather or Scatter operation
   /// \p Opcode - is a type of memory access Load or Store
@@ -1486,7 +1499,19 @@ public:
   virtual bool isLegalMaskedScatter(Type *DataType, Align Alignment) = 0;
   virtual bool isLegalMaskedGather(Type *DataType, Align Alignment) = 0;
 #if INTEL_CUSTOMIZATION
-  virtual bool shouldScalarizeMaskedGather(CallInst *CI)= 0;
+  virtual bool shouldScalarizeMaskedGather(CallInst *CI) = 0;
+  virtual bool shouldOptGatherToLoadPermute(Type *ArrayElemTy,
+                                            uint32_t ArrayNum,
+                                            uint32_t GatherNum,
+                                            uint32_t *WidenNum) const = 0;
+  virtual bool isLegalToTransformGather2PermuteLoad(
+      const IntrinsicInst *II, Type *&ArrayElemTy, unsigned &ArrayNum,
+      unsigned &GatherNum, unsigned &WidenNum) const = 0;
+
+  virtual bool isLegalToTransformGather2PermuteLoad(
+      Intrinsic::ID ID, Type *DataTy, const Value *Ptr, bool VariableMask,
+      bool UndefPassThru, Type *&ArrayElemTy, unsigned &ArrayNum,
+      unsigned &GatherNum, unsigned &WidenNum) const = 0;
 #endif // INTEL_CUSTOMIZATION
   virtual bool isLegalMaskedCompressStore(Type *DataType) = 0;
   virtual bool isLegalMaskedExpandLoad(Type *DataType) = 0;
@@ -1608,7 +1633,9 @@ public:
                                      const Value *Ptr, bool VariableMask,
                                      Align Alignment,
                                      TTI::TargetCostKind CostKind,
-                                     const Instruction *I = nullptr) = 0;
+                                     const Instruction *I = nullptr,  // INTEL
+                                     bool UndefPassThru = false) = 0; // INTEL
+
 
   virtual int getInterleavedMemoryOpCost(
       unsigned Opcode, Type *VecTy, unsigned Factor, ArrayRef<unsigned> Indices,
@@ -1850,7 +1877,29 @@ public:
 #if INTEL_CUSTOMIZATION
   bool shouldScalarizeMaskedGather(CallInst *CI) override {
     return Impl.shouldScalarizeMaskedGather(CI);
-}
+  }
+  bool shouldOptGatherToLoadPermute(Type *ArrayElemTy, uint32_t ArrayNum,
+                                    uint32_t GatherNum,
+                                    uint32_t *WidenNum) const override {
+    return Impl.shouldOptGatherToLoadPermute(ArrayElemTy, ArrayNum, GatherNum,
+                                             WidenNum);
+  }
+  bool isLegalToTransformGather2PermuteLoad(const IntrinsicInst *II,
+                                            Type *&ArrayElemTy,
+                                            unsigned &ArrayNum,
+                                            unsigned &GatherNum,
+                                            unsigned &WidenNum) const override {
+    return Impl.isLegalToTransformGather2PermuteLoad(II, ArrayElemTy, ArrayNum,
+                                                     GatherNum, WidenNum);
+  }
+  bool isLegalToTransformGather2PermuteLoad(
+      Intrinsic::ID ID, Type *DataTy, const Value *Ptr, bool VariableMask,
+      bool UndefPassThru, Type *&ArrayElemTy, unsigned &ArrayNum,
+      unsigned &GatherNum, unsigned &WidenNum) const override {
+    return Impl.isLegalToTransformGather2PermuteLoad(
+        ID, DataTy, Ptr, VariableMask, UndefPassThru, ArrayElemTy, ArrayNum,
+        GatherNum, WidenNum);
+  }
 #endif // INTEL_CUSTOMIZATION
   bool isLegalMaskedCompressStore(Type *DataType) override {
     return Impl.isLegalMaskedCompressStore(DataType);
@@ -2078,9 +2127,11 @@ public:
   int getGatherScatterOpCost(unsigned Opcode, Type *DataTy, const Value *Ptr,
                              bool VariableMask, Align Alignment,
                              TTI::TargetCostKind CostKind,
-                             const Instruction *I = nullptr) override {
+                             const Instruction *I = nullptr, // INTEL
+                             bool UndefPassThru = false) override { // INTEL
     return Impl.getGatherScatterOpCost(Opcode, DataTy, Ptr, VariableMask,
-                                       Alignment, CostKind, I);
+                                       Alignment, CostKind, I, // INTEL
+                                       UndefPassThru); // INTEL
   }
 #if INTEL_CUSTOMIZATION
   int getGatherScatterOpCost(unsigned Opcode, Type *DataTy, unsigned IndexSize,
