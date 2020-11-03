@@ -3102,6 +3102,8 @@ static bool foldFcmpLadder(BranchInst *BI) {
   SmallVector<LadderCompare, 5> Compares;
   BranchInst *CurrBI = BI;
   BasicBlock *SameTrueBlock = CurrBI->getSuccessor(0);
+  // Blender has 4 sets of 3 compares.
+  const unsigned BlenderNumCmp = 12;
 
   while (CurrBI) {
     FCmpInst *FCmpI = nullptr;
@@ -3125,14 +3127,22 @@ static bool foldFcmpLadder(BranchInst *BI) {
                         ? FCmpI->getOperand(1)
                         : FCmpI->getOperand(0);
     Compares.push_back(LadderCompare{Smaller, Larger, FCmpI});
-    CurrBI = dyn_cast<BranchInst>(CurrBI->getSuccessor(1)->getTerminator());
+
+    // Catch loops.
+    auto *NextBlock =
+        dyn_cast<BranchInst>(CurrBI->getSuccessor(1)->getTerminator());
+    if (CurrBI == NextBlock || Compares.size() > BlenderNumCmp) {
+      LLVM_DEBUG(dbgs() << "Loop, or excessive compares\n");
+      return false;
+    }
+
+    CurrBI = NextBlock;
   }
 
   LLVM_DEBUG(if (Compares.size()) dbgs()
              << "Number of blocks: " << Compares.size() << "\n");
 
-  // blender specific
-  if (Compares.size() != 12)
+  if (Compares.size() != BlenderNumCmp)
     return false;
 
   // PART 2:
