@@ -233,27 +233,31 @@ FunctionPass *llvm::createHIRDeadStoreEliminationPass() {
 // A[i+1] = .
 // A[i]   = .
 static bool
-overlapsWithAnotherGroup(HIRLoopLocality::RefGroupTy &RefGroup,
+overlapsWithAnotherGroup(HIRDDAnalysis &HDDA,
+                         HIRLoopLocality::RefGroupTy &RefGroup,
                          HIRLoopLocality::RefGroupVecTy &EqualityGroups) {
   auto *FirstRef = RefGroup.front();
 
-  // Can happen for fake refs with opqaue types.
-  if (!FirstRef->getDestType()->isSized()) {
-    return true;
-  }
-
   // A[0] and (i32*)A[0] are put in the same group. We need to take the max size
-  // to check overlap correctly.
+  // to check overlap correctly and also return the memref with largest size.
   auto GetMaxRefSize = [](HIRLoopLocality::RefGroupTy &Group) {
     uint64_t Size = 0;
+    const RegDDRef *MaxRef = nullptr;
+
     for (auto *Ref : Group) {
-      uint64_t RefSize = Ref->getDestTypeSizeInBytes();
-      if (RefSize > Size) {
+      // Can happen for fake refs with opaque destination types.
+      uint64_t RefSize = Ref->getDestType()->isSized()
+                             ? Ref->getDestTypeSizeInBytes()
+                             : UINT64_MAX;
+      // Use >= here to avoid case when RefSize is 0 and MaxRef can be nullptr.
+      if (RefSize >= Size) {
         Size = RefSize;
+        MaxRef = Ref;
       }
     }
 
-    return Size;
+    std::pair<uint64_t, const RegDDRef *> MaxRefSizePair = {Size, MaxRef};
+    return MaxRefSizePair;
   };
 
   auto GetRefGroupTopSortNumRange = [](HIRLoopLocality::RefGroupTy &Group) {
@@ -267,9 +271,14 @@ overlapsWithAnotherGroup(HIRLoopLocality::RefGroupTy &RefGroup,
     return TopSortNumRange;
   };
 
-  uint64_t RefSize = GetMaxRefSize(RefGroup);
-  std::pair<unsigned, unsigned> RefGroupTopSortNumRange =
-      GetRefGroupTopSortNumRange(RefGroup);
+  uint64_t MaxRefSize;
+  const RegDDRef *MaxRef = nullptr;
+
+  std::tie(MaxRefSize, MaxRef) = GetMaxRefSize(RefGroup);
+
+  unsigned MinTopSortNum;
+  unsigned MaxTopSortNum;
+  std::tie(MinTopSortNum, MaxTopSortNum) = GetRefGroupTopSortNumRange(RefGroup);
 
   for (auto &TmpRefGroup : EqualityGroups) {
     auto *CurRef = TmpRefGroup.front();
@@ -282,17 +291,24 @@ overlapsWithAnotherGroup(HIRLoopLocality::RefGroupTy &RefGroup,
       continue;
     }
 
-    std::pair<unsigned, unsigned> TmpGroupTopSortNumRange =
+    unsigned TmpMinTopSortNum;
+    unsigned TmpMaxTopSortNum;
+    std::tie(TmpMinTopSortNum, TmpMaxTopSortNum) =
         GetRefGroupTopSortNumRange(TmpRefGroup);
 
-    if (RefGroupTopSortNumRange.first > TmpGroupTopSortNumRange.second ||
-        RefGroupTopSortNumRange.second < TmpGroupTopSortNumRange.first) {
+    if (MinTopSortNum > TmpMaxTopSortNum || MaxTopSortNum < TmpMinTopSortNum) {
       continue;
     }
 
+    uint64_t CurMaxRefSize;
+    const RegDDRef *CurMaxRef = nullptr;
+    std::tie(CurMaxRefSize, CurMaxRef) = GetMaxRefSize(TmpRefGroup);
     int64_t Distance;
 
     if (!DDRefUtils::getConstByteDistance(FirstRef, CurRef, &Distance)) {
+      if (!HDDA.doRefsAlias(MaxRef, CurMaxRef)) {
+        continue;
+      }
       return true;
     }
 
@@ -303,11 +319,11 @@ overlapsWithAnotherGroup(HIRLoopLocality::RefGroupTy &RefGroup,
       // FirstRef - (i16*)(%A)[0]
       // CurRef - (%A)[1]
       //
-      if ((uint64_t)(-Distance) < RefSize) {
+      if ((uint64_t)(-Distance) < MaxRefSize) {
         return true;
       }
 
-    } else if ((uint64_t)Distance < GetMaxRefSize(TmpRefGroup)) {
+    } else if ((uint64_t)Distance < CurMaxRefSize) {
       // Handles this case-
       //
       // %A is i8* type
@@ -610,7 +626,7 @@ bool HIRDeadStoreElimination::run(HLRegion &Region, HLLoop *Lp, bool IsRegion) {
     }
 
     if (!UniqueGroupSymbases.count(Ref->getSymbase())) {
-      if (overlapsWithAnotherGroup(RefGroup, EqualityGroups)) {
+      if (overlapsWithAnotherGroup(HDDA, RefGroup, EqualityGroups)) {
         continue;
       }
     }
