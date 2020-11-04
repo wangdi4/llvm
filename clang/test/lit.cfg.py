@@ -1,6 +1,7 @@
 # -*- Python -*-
 
 import os
+import sys
 import platform
 import re
 import subprocess
