@@ -34,8 +34,11 @@ declare !callback !0 void @broker(i32, void (i8*, ...)*, ...)
 !0 = !{!1}
 !1 = !{i64 1, i64 -1, i1 true}
 
-; Check that the GEP in @callback was removed
-; CHECK-NOT: %dummy = getelementptr [1000 x %TestStruct], [1000 x %TestStruct]* %Arr, i64 0, i64 0
+; Check that @globArray was casted correctly and %Arr was replaced with
+; %bc_const in the GEP %dummy
+; CHECK: define internal void @callback(i8* %ID, [1000 x %TestStruct]* %Arr) {
+; CHECK: %bc_const = bitcast %TestStruct* getelementptr inbounds ([1000 x %TestStruct], [1000 x %TestStruct]* @globArray, i64 0, i64 0) to [1000 x %TestStruct]*
+; CHECK: %dummy = getelementptr [1000 x %TestStruct], [1000 x %TestStruct]* %bc_const, i64 0, i64 0
 
 ; Check that the parameter in the call site for @callback was updated with the
 ; correct type
