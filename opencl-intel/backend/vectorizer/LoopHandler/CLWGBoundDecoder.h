@@ -58,7 +58,7 @@ public:
   ///@brief returns true if this is an work group boundaries function name.
   ///@parma name - name to query.
   ///@retruns as above.
-  static bool isWGBoundFunction(std::string& name);
+  static bool isWGBoundFunction(const std::string& name);
 };
 } // namespace
 

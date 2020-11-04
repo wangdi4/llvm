@@ -23,7 +23,7 @@ std::string CLWGBoundDecoder::encodeWGBound(std::string &funcName) {
 }
 
 
-bool CLWGBoundDecoder::isWGBoundFunction(std::string& name) {
+bool CLWGBoundDecoder::isWGBoundFunction(const std::string& name) {
   using namespace Intel::OpenCL::DeviceBackend;
   return name.find(CompilationUtils::WG_BOUND_PREFIX) != std::string::npos;
 }

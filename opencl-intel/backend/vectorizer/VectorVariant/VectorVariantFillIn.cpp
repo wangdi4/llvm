@@ -61,6 +61,7 @@ bool VectorVariantFillIn::runOnModule(Module &M) {
 
   bool Modified = false;
   std::set<CallInst *> InstToRemove;
+  std::set<GlobalVariable *> UpdatedGV;
 
   for (auto &Fn : M) {
     if (Fn.hasFnAttribute("vector_function_ptrs")) {
@@ -85,7 +86,7 @@ bool VectorVariantFillIn::runOnModule(Module &M) {
 
         // Update global variable initializer.
         GlobalVariable *GV = M.getGlobalVariable(VarName);
-        if (GV && GV->hasInitializer()) {
+        if (GV && GV->hasInitializer() && !UpdatedGV.count(GV)) {
           SmallVector<Constant *, 2> Init;
           for (auto Variant : Variants) {
             Function *F = M.getFunction(Variant);
@@ -117,10 +118,15 @@ bool VectorVariantFillIn::runOnModule(Module &M) {
 
           GV->replaceAllUsesWith(GGV);
 
+          Constant *Initializer = GV->getInitializer();
+          GV->setInitializer(nullptr);
+          Initializer->destroyConstant();
+
           std::string Name = GV->getName().str();
           GV->eraseFromParent();
           GGV->setName(Name);
 
+          UpdatedGV.insert(GGV);
           Modified = true;
         }
 
