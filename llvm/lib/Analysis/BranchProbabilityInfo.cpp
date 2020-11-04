@@ -1261,6 +1261,7 @@ bool BranchProbabilityInfo::calcInvokeHeuristics(const BasicBlock *BB) {
 
 void BranchProbabilityInfo::releaseMemory() {
   Probs.clear();
+  MaxSuccIdx.clear();
   Handles.clear();
 }
 
@@ -1366,6 +1367,9 @@ void BranchProbabilityInfo::setEdgeProbability(const BasicBlock *Src,
   LLVM_DEBUG(dbgs() << "set edge " << Src->getName() << " -> "
                     << IndexInSuccessors << " successor probability to " << Prob
                     << "\n");
+
+  unsigned &SuccIdx = MaxSuccIdx[Src];
+  SuccIdx = std::max(SuccIdx, IndexInSuccessors);
 }
 
 /// Set the edge probability for all edges at once.
@@ -1403,11 +1407,18 @@ BranchProbabilityInfo::printEdgeProbability(raw_ostream &OS,
 }
 
 void BranchProbabilityInfo::eraseBlock(const BasicBlock *BB) {
-  for (const_succ_iterator I = succ_begin(BB), E = succ_end(BB); I != E; ++I) {
-    auto MapI = Probs.find(std::make_pair(BB, I.getSuccessorIndex()));
+  // Note that we cannot use successors of BB because the terminator of BB may
+  // have changed when eraseBlock is called as a BasicBlockCallbackVH callback.
+  auto It = MaxSuccIdx.find(BB);
+  if (It == MaxSuccIdx.end())
+    return;
+
+  for (unsigned I = 0, E = It->second; I <= E; ++I) {
+    auto MapI = Probs.find(std::make_pair(BB, I));
     if (MapI != Probs.end())
       Probs.erase(MapI);
   }
+  MaxSuccIdx.erase(BB);
 }
 
 void BranchProbabilityInfo::calculate(const Function &F, const LoopInfo &LI,
