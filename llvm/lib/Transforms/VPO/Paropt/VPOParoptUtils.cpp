@@ -5328,6 +5328,68 @@ uint64_t VPOParoptUtils::getMinInt(Type *Ty, bool IsUnsigned) {
 }
 #endif // if 0
 
+// Break edges from "Src" BasicBlock to "Dst" BasicBlock. e.g.
+//---------------------------------------+-------------------------------------
+//        Before                         |  After
+//---------------------------------------+-------------------------------------
+// src:     ; no predecessors            | src:     ; no predecessors
+//   ...                                 |   ...
+//   br label %dst                       | unreachable             ; (1)
+//                                       |
+//                                       |
+// dst:     ; preds: %src, %other, ...   | dst:     ; preds: %other, ...
+//                                       |
+//   %p1 = phi i8 [0, %src ],            |  %p1 = phi i8           ; (2)
+//                [1, %other], ...       |                [1, %other], ...
+//                                       |
+//---------------------------------------+-------------------------------------
+//        Before                         |  After
+//---------------------------------------+-------------------------------------
+// src:     ; no predecessors            | src:     ; no predecessors
+//   ...                                 |   ...
+//   br i1 %x, label %dst, label %y      |   br label %y           ; (3)
+//                                       |
+// dst:     ; preds: %src, %other, ...   | dst:     ; preds: %other, ...
+//   ...                                 |   ...
+//                                       |
+static void BreakEdge(BasicBlock *Src, BasicBlock *Dst, DominatorTree *DT) {
+  LLVM_DEBUG(dbgs() << __FUNCTION__ << ": Breaking edge %" << Src->getName()
+                    << " -> %" << Dst->getName() << "\n");
+  IRBuilder<> Builder(Src->getContext());
+  auto RemoveEdgeFromConditionalBranch = [&](Instruction *I) {
+    auto *Branch = dyn_cast<BranchInst>(I);
+    if (!Branch || Branch->isUnconditional())
+      return false;
+    Builder.SetInsertPoint(Src);
+
+    BasicBlock *OtherSuccessor = Branch->getSuccessor(0) == Dst
+                                     ? Branch->getSuccessor(1)
+                                     : Branch->getSuccessor(0);
+    Instruction *NewBranch = Builder.CreateBr(OtherSuccessor); //    (3)
+    NewBranch->setDebugLoc(Branch->getDebugLoc());
+    Branch->eraseFromParent();
+    return true;
+  };
+
+  Instruction *Terminator = Src->getTerminator();
+  if (!RemoveEdgeFromConditionalBranch(Terminator)) {
+    Terminator->eraseFromParent();
+    Builder.SetInsertPoint(Src);
+    Builder.CreateUnreachable(); //                                  (1)
+  }
+
+  // Fix any phis at the inside/outside join.
+  for (PHINode &PN : Dst->phis())
+    if (PN.getBasicBlockIndex(Src) >= 0) {
+      LLVM_DEBUG(dbgs() << __FUNCTION__ << ": Updating PHI: " << PN << "\n");
+      PN.removeIncomingValue(Src); //                                  (2)
+      LLVM_DEBUG(dbgs() << __FUNCTION__ << ": Updated PHI: " << PN << "\n");
+    }
+
+  // Fix the dom tree after breaking the edge.
+  DT->deleteEdge(Src, Dst);
+}
+
 // If the region exits to BB, which is also reachable from outside the region,
 // and the exit is through an EH pad, the exit path is undefined. We can make
 // the exit edge unreachable, and exclude BB from the region.
@@ -5351,21 +5413,7 @@ static void BreakEHToBlock(BasicBlock *BB,
         if (DomBB->isEHPad() && (BBSet.find(DomBB) != BBSet.end())) {
           LLVM_DEBUG(dbgs() << "Found EH pad at " << DomBB->getName()
                             << " dominates " << PredBB->getName() << "\n");
-          LLVM_DEBUG(dbgs() << "Breaking edge between " << PredBB->getName()
-                            << " and " << BB->getName() << "\n");
-          IRBuilder<> Builder(PredBB->getContext());
-          PredBB->getTerminator()->eraseFromParent();
-          Builder.SetInsertPoint(PredBB);
-          Builder.CreateUnreachable();
-
-          // Fix any phis at the inside/outside join.
-          for (PHINode &PN : BB->phis())
-            if (PN.getBasicBlockIndex(PredBB))
-              PN.removeIncomingValue(PredBB);
-
-          // Fix the dom tree after breaking the edge.
-          DT->deleteEdge(PredBB, BB);
-
+          BreakEdge(PredBB, BB, DT);
           // Stop searching.
           break;
         }
@@ -5391,7 +5439,22 @@ static void BreakEHToBlock(BasicBlock *BB,
   }
 }
 
-// After inlining, there may be an exception-path that leads
+// If BB has a predecessor that is not in BBSet, but it is unreachable from
+// function entry, then remove that predecessor and break the branch from that
+// predecessor to BB.
+static void RemoveDeadPredecessors(BasicBlock *BB, DominatorTree *DT) {
+  // Copy the preds as we will be breaking edges.
+  SmallVector<BasicBlock *, 4> PredCopy(predecessors(BB));
+  for (auto *PredBB : PredCopy) {
+    if (DT->isReachableFromEntry(DT->getNode(PredBB)))
+      continue;
+    LLVM_DEBUG(dbgs() << PredBB->getName() << " is unreachable from entry.\n");
+
+    BreakEdge(PredBB, BB, DT);
+  }
+}
+
+// (1) After inlining, there may be an exception-path that leads
 // outside the region to a shared handler.
 //
 // invoke throw, unreachable, lpad
@@ -5425,7 +5488,11 @@ static void BreakEHToBlock(BasicBlock *BB,
 // lpad_loop_exit.
 // The shared block can then be removed from the region set.
 // The non-OMP path is unaffected.
-static void FixEHEscapes(ArrayRef<BasicBlock *> &BBVec,
+//
+// (2) Also, if there is any block in BBVec, which has predecessors that are
+// unreachable from entry, then remove branches from those predecessors to the
+// block.
+static void FixEHEscapesAndDeadPredecessors(ArrayRef<BasicBlock *> &BBVec,
                          SmallVectorImpl<BasicBlock *> &OutputVec,
                          DominatorTree *DT) {
   SmallSet<BasicBlock *, 4> DeleteSet;
@@ -5438,8 +5505,6 @@ static void FixEHEscapes(ArrayRef<BasicBlock *> &BBVec,
       break;
     }
   }
-  if (!EHFound)
-    return;
 
   // Use a better search structure.
   SmallSet<BasicBlock *, 8> BBSet;
@@ -5452,15 +5517,23 @@ static void FixEHEscapes(ArrayRef<BasicBlock *> &BBVec,
     if (BB == *(BBVec.begin()))
       continue;
 
+    bool SeenOutOfSetPredecessors = false;
     for (auto *PredBB : predecessors(BB)) {
       if (BBSet.find(PredBB) == BBSet.end()) {
         LLVM_DEBUG(dbgs() << "Found set block " << BB->getName()
                           << " with non-set pred " << PredBB->getName()
                           << "\n");
         // Try to break the edge from the region to the block.
-        BreakEHToBlock(BB, BBSet, DeleteSet, DT);
+        if (EHFound)
+          BreakEHToBlock(BB, BBSet, DeleteSet, DT);
+        SeenOutOfSetPredecessors = true;
       }
     }
+
+    // If BB isn't already marked for removal, unlink it from dead
+    // predecessors.
+    if (SeenOutOfSetPredecessors && DeleteSet.find(BB) == DeleteSet.end())
+      RemoveDeadPredecessors(BB, DT);
   }
 
   if (!DeleteSet.empty()) {
@@ -5516,13 +5589,13 @@ Function *VPOParoptUtils::genOutlineFunction(const WRegionNode &W,
     }
   }
 
-  // Fix "escaping" EH edges that go outside the region. More details
-  // in FixEHEscapes() above.
+  // Fix "escaping" EH edges that go outside the region, and dead predecessors.
+  // More details in FixEHEscapesAndDeadPredecessors() above.
   // If a fix was made, the new set of region blocks is copied to FixedBlocks.
   // We avoid mutating the actual region set.
   SmallVector<BasicBlock *, 16> FixedBlocks;
   auto ExtractArray = makeArrayRef(W.bbset_begin(), W.bbset_end());
-  FixEHEscapes(ExtractArray, FixedBlocks, DT);
+  FixEHEscapesAndDeadPredecessors(ExtractArray, FixedBlocks, DT);
   if (!FixedBlocks.empty())
     ExtractArray = makeArrayRef(FixedBlocks);
 

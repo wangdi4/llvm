@@ -479,8 +479,7 @@ HIRArraySectionAnalysis::getOrCompute(const HLLoop *Loop) {
 
   // Group loop references.
   DDRefGrouping::RefGroupVecTy<const RegDDRef *> Groups;
-  DDRefIndexGrouping IndexGrouping;
-  IndexGrouping.group(Groups, Refs);
+  DDRefIndexGrouping(Groups, Refs);
 
   auto Result = std::make_unique<ArraySectionAnalysisResult>();
   for (auto &Group : Groups) {

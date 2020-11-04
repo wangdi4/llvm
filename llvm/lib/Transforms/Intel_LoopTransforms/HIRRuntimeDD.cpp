@@ -974,8 +974,7 @@ RuntimeDDResult HIRRuntimeDD::computeTests(HLLoop *Loop, LoopContext &Context) {
 
   // Populate reference groups split by base blob index.
   // Populate a reference-to-group-number map.
-  DDRefIndexGrouping Grouping;
-  Grouping.group(Groups, Refs);
+  DDRefIndexGrouping Grouping(Groups, Refs);
 
   SmallSetVector<std::pair<unsigned, unsigned>, ExpectedNumberOfTests> Tests;
   Ret = processDDGToGroupPairs(Loop, Refs, Grouping.getIndex(), Tests);

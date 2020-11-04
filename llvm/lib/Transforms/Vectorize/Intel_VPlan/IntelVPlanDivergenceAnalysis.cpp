@@ -157,7 +157,8 @@ static void assertOperandsDefined(const VPInstruction &I,
                                   VPlanDivergenceAnalysis *DA) {
   assert(none_of(I.operands(),
                  [=](VPValue *Op) {
-                   return DA->getVectorShape(Op).isUndefined();
+                   return !isa<VPBasicBlock>(Op) &&
+                          DA->getVectorShape(Op).isUndefined();
                  }) &&
          "Undefined shape not expected!");
 }
@@ -1593,7 +1594,8 @@ void VPlanDivergenceAnalysis::compute(VPlan *P, VPLoop *CandidateLoop,
 // Dominator/Post-Dominator tree, etc. are unchanged from the previous
 // invocation of the \p compute method.
 void VPlanDivergenceAnalysis::recomputeShapes(
-    SmallPtrSetImpl<VPInstruction *> &Seeds) {
+    SmallPtrSetImpl<VPInstruction *> &Seeds,
+    bool EnableFullDAVerificationAndPrint) {
 
   assert(!DARecomputationDisabled &&
          "DA should not be computed for this Cloned VPlan!");
@@ -1606,10 +1608,11 @@ void VPlanDivergenceAnalysis::recomputeShapes(
 
   // Compute the shapes of the VPAllocatePrivate seed-instructions and push
   // their users to the Worklist.
-  for (auto *Priv : Seeds) {
-    auto Shape = computeVectorShape(Priv);
-    updateVectorShape(Priv, Shape);
-    pushUsers(*Priv);
+  for (auto *Inst : Seeds) {
+    assertOperandsDefined(*Inst, this);
+    auto Shape = computeVectorShape(Inst);
+    updateVectorShape(Inst, Shape);
+    pushUsers(*Inst);
   }
 
   // Compute the shapes of instructions.
@@ -1619,13 +1622,13 @@ void VPlanDivergenceAnalysis::recomputeShapes(
 
   // We verify the shapes of the instructions 'always' in the debug-build and if
   // the command-line switch is enabled.
-  if (VPlanVerifyDA)
+  if (EnableFullDAVerificationAndPrint && VPlanVerifyDA)
     verifyVectorShapes();
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-  if (DumpDA)
+  if (EnableFullDAVerificationAndPrint && DumpDA)
     print(dbgs(), RegionLoop);
-  if (DumpPlanDA)
+  if (EnableFullDAVerificationAndPrint && DumpPlanDA)
     print(dbgs());
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 }
