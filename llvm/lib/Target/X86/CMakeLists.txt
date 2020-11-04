@@ -29,6 +29,7 @@ set(sources
   Intel_X86FeatureInitCall.cpp        # INTEL
   Intel_X86GenerateLEA.cpp        # INTEL
   Intel_X86PRAExpandPseudo.cpp    # INTEL
+  Intel_X86Gather2LoadPermute.cpp # INTEL
   X86AsmPrinter.cpp
   X86AvoidTrailingCall.cpp
   X86CallFrameOptimization.cpp

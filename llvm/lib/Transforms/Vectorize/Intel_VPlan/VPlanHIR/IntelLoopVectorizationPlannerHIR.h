@@ -42,9 +42,10 @@ private:
 
   HIRVectorizationLegality *HIRLegality;
 
-  std::shared_ptr<VPlan> buildInitialVPlan(unsigned StartRangeVF,
-                                           unsigned &EndRangeVF,
-                                           VPExternalValues &Ext) override;
+  std::shared_ptr<VPlan>
+  buildInitialVPlan(unsigned StartRangeVF, unsigned &EndRangeVF,
+                    VPExternalValues &Ext,
+                    ScalarEvolution *SE = nullptr) override;
 
   void emitVecSpecifics(VPlan *Plan) override {
     Plan->markBackedgeUniformityForced();

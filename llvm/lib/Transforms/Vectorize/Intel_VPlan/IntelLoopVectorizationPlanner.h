@@ -76,7 +76,8 @@ public:
   /// Build initial VPlans according to the information gathered by Legal
   /// when it checked if it is legal to vectorize this loop.
   /// Returns the number of VPlans built, zero if failed.
-  unsigned buildInitialVPlans(LLVMContext *Context, const DataLayout *DL);
+  unsigned buildInitialVPlans(LLVMContext *Context, const DataLayout *DL,
+                              ScalarEvolution *SE = nullptr);
 
   /// On VPlan construction, each instruction marked for predication by Legal
   /// gets its own basic block guarded by an if-then. This initial planning
@@ -159,7 +160,8 @@ protected:
   // class.
   virtual std::shared_ptr<VPlan> buildInitialVPlan(unsigned StartRangeVF,
                                                    unsigned &EndRangeVF,
-                                                   VPExternalValues &Ext);
+                                                   VPExternalValues &Ext,
+                                                   ScalarEvolution *SE = nullptr);
 
   /// Transform to emit explict uniform Vector loop iv.
   virtual void emitVecSpecifics(VPlan *Plan);

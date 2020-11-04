@@ -647,7 +647,7 @@ void VPlanHCFGBuilderHIR::populateVPLoopMetadata(VPLoopInfo *VPLInfo) {
     TripCountTy TripCount;
     if (HLoop->isConstTripLoop(&TripCount)) {
       VPL->setKnownTripCount(TripCount);
-      return;
+      continue;
     }
 
     TripCountInfo TCInfo;

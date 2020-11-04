@@ -152,7 +152,7 @@ public:
   int getGatherScatterOpCost(unsigned Opcode, Type *DataTy, const Value *Ptr,
                              bool VariableMask, Align Alignment,
                              TTI::TargetCostKind CostKind,
-                             const Instruction *I);
+                             const Instruction *I, bool UndefPassThru); // INTEL
 #if INTEL_CUSTOMIZATION
   int getGatherScatterOpCost(unsigned Opcode, Type *DataTy, unsigned IndexSize,
                              bool VariableMask, unsigned Alignment,
@@ -229,6 +229,18 @@ public:
   bool isLegalMaskedGather(Type *DataType, Align Alignment);
 #if INTEL_CUSTOMIZATION
   bool shouldScalarizeMaskedGather(CallInst *CI);
+  bool shouldOptGatherToLoadPermute(Type *ArrayElemTy, uint32_t ArrayNum,
+                                    uint32_t GatherNum,
+                                    uint32_t *WidenNum) const;
+  bool isLegalToTransformGather2PermuteLoad(const IntrinsicInst *II,
+                                            Type *&ArrayElemTy,
+                                            unsigned &ArrayNum,
+                                            unsigned &GatherNum,
+                                            unsigned &WidenNum) const;
+  bool isLegalToTransformGather2PermuteLoad(
+      Intrinsic::ID ID, Type *DataTy, const Value *Ptr, bool VariableMask,
+      bool UndefPassThru, Type *&ArrayElemTy, unsigned &ArrayNum,
+      unsigned &GatherNum, unsigned &WidenNum) const;
 #endif // INTEL_CUSTOMIZATION
   bool isLegalMaskedScatter(Type *DataType, Align Alignment);
   bool isLegalMaskedExpandLoad(Type *DataType);

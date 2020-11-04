@@ -47,8 +47,9 @@ static LoopVPlanDumpControl PlainCFGDumpControl("plain-cfg",
 
 VPlanHCFGBuilder::VPlanHCFGBuilder(Loop *Lp, LoopInfo *LI, const DataLayout &DL,
                                    const WRNVecLoopNode *WRL, VPlan *Plan,
-                                   VPOVectorizationLegality *Legal)
-    : TheLoop(Lp), LI(LI), WRLp(WRL), Plan(Plan), Legal(Legal) {
+                                   VPOVectorizationLegality *Legal,
+                                   ScalarEvolution *SE)
+  : TheLoop(Lp), LI(LI), WRLp(WRL), Plan(Plan), Legal(Legal), SE(SE) {
   // TODO: Turn Verifier pointer into an object when Patch #3 of Patch Series
   // #1 lands into VPO and VPlanHCFGBuilderBase is removed.
   Verifier = std::make_unique<VPlanVerifier>(Lp, DL);
@@ -102,11 +103,12 @@ static TripCountInfo readIRLoopMetadata(Loop *Lp) {
     auto ExtractValue = [S, MD](auto &TCInfoField, StringRef MetadataName,
                                 StringRef ReadableString) -> void {
       (void)ReadableString;
-      if (S->getString().equals(MetadataName))
+      if (S->getString().equals(MetadataName)) {
         TCInfoField =
             mdconst::extract<ConstantInt>(MD->getOperand(1))->getZExtValue();
-      LLVM_DEBUG(dbgs() << ReadableString << " trip count is " << TCInfoField
-                        << " set by pragma loop count.\n";);
+        LLVM_DEBUG(dbgs() << ReadableString << " trip count is " << TCInfoField
+                          << " set by pragma loop count.\n";);
+      }
     };
     ExtractValue(TCInfo.MaxTripCount, "llvm.loop.intel.loopcount_maximum",
                  "Max");
@@ -128,6 +130,13 @@ void VPlanHCFGBuilder::populateVPLoopMetadata(VPLoopInfo *VPLInfo) {
     Loop *Lp = LI->getLoopFor(Latch);
     assert(Lp &&
            "VPLoopLatch does not correspond to Latch, massaging happened?");
+    assert(SE && "SCEV has not been calculated.");
+    if (auto KnownTC = SE->getSmallConstantMaxTripCount(Lp)) {
+      VPL->setKnownTripCount(KnownTC);
+      LLVM_DEBUG(dbgs() << "The trip count for loop " << Lp->getLoopDepth()
+                        << " is " << KnownTC << "\n";);
+      continue;
+    }
     TripCountInfo TCInfo = readIRLoopMetadata(Lp);
     TCInfo.calculateEstimatedTripCount();
     VPL->setTripCountInfo(TCInfo);

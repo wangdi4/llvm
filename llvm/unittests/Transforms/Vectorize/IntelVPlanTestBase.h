@@ -79,7 +79,8 @@ protected:
 
     auto Plan = std::make_unique<VPlan>(*Externals);
     VPlanHCFGBuilder HCFGBuilder(LI->getLoopFor(LoopHeader), LI.get(), *DL,
-                                 nullptr /*WRLp */, Plan.get(), Legal.get());
+                                 nullptr /*WRLp */, Plan.get(), Legal.get(),
+                                 SE.get());
     HCFGBuilder.buildHierarchicalCFG();
     Plan->setVPSE(
         std::make_unique<VPlanScalarEvolutionLLVM>(*SE, *LI->begin()));

@@ -139,6 +139,10 @@ FunctionPass *createX86InsertPrefetchPass();
 /// Return a pass that generate LEA instructions for removing redundant address
 /// recalculations by Optimize LEA optimization.
 FunctionPass *createX86GenerateLEAs();
+
+/// Return a pass that generate load + permute for gather instruciton.
+FunctionPass *createX86Gather2LoadPermutePass();
+
 #endif // INTEL_CUSTOMIZATION
 
 /// This pass insert wait instruction after X87 instructions which could raise
@@ -186,6 +190,7 @@ void initializeX86SpeculativeLoadHardeningPassPass(PassRegistry &);
 void initializeX86SpeculativeExecutionSideEffectSuppressionPass(PassRegistry &);
 #if INTEL_CUSTOMIZATION
 void initializeGenerateLEAPassPass(PassRegistry &);
+void initializeX86Gather2LoadPermutePassPass(PassRegistry &);
 #endif // INTEL_CUSTOMIZATION
 
 namespace X86AS {
