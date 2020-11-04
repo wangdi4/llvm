@@ -1,13 +1,10 @@
-; XFAIL: *
-; Test to verify correctness of PHI node placement and fixing by HIR decomposer. There can be some inaccuracies
-; in HIR's DDG edge information. To accommdate this we allow NULL for incoming values of PHI nodes in HCFG.
-; However such PHI nodes are invalid and will not pass HCFG verification, hence they need to be replaced and
-; removed.
+; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-loop-rematerialize -hir-dd-analysis -analyze -hir-dd-analysis-verify=Region < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-loop-rematerialize,print<hir-dd-analysis>" -aa-pipeline="basic-aa" -hir-dd-analysis-verify=Region < %s 2>&1 | FileCheck %s
 
-; Incoming HIR -
+; Check that invalidation after loop rematerialization happened. No spurious dd-edge remains.
+
+; Resulting HIR -
 ; <0>          BEGIN REGION { }
-; <43>               @llvm.intel.directive(!2);
-; <44>               @llvm.intel.directive(!3);
 ; <42>
 ; <42>               + DO i1 = 0, 19, 1   <DO_LOOP>
 ; <2>                |   %0 = (@b)[0][0];
@@ -23,23 +20,21 @@
 ; <21>               |   (@a)[0][i1] = %0 + %1 + %2 + %3 + %4 + %5 + %6 + %7 + %8 + %9;
 ; <42>               + END LOOP
 ; <42>
-; <46>               @llvm.intel.directive(!4);
-; <45>               @llvm.intel.directive(!3);
 ; <41>               ret ;
 ; <0>          END REGION
 
-; For this example, DDG incorrectly reports that there are 2 reaching definitions for %0, %1 ... %9 leading to
-; insertion of unnecessary PHI nodes in HCFG. We replace and remove such PHI nodes in fixPhiNodes().
+; 3:21 %1 --> %1 FLOW (=) (0)
+; 17:21 %8 --> %8 FLOW (=) (0)
+; 19:21 %9 --> %9 FLOW (=) (0)
+; 15:21 %7 --> %7 FLOW (=) (0)
+; 7:21 %3 --> %3 FLOW (=) (0)
+; 2:21 %0 --> %0 FLOW (=) (0)
+; 11:21 %5 --> %5 FLOW (=) (0)
+; 5:21 %2 --> %2 FLOW (=) (0)
+; 13:21 %6 --> %6 FLOW (=) (0)
+; 9:21 %4 --> %4 FLOW (=) (0)
 
-; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-last-value-computation -hir-loop-rematerialize -hir-vec-dir-insert -VPlanDriverHIR -vplan-print-after-plain-cfg -debug-only=vplan-decomposer < %s 2>&1 | FileCheck %s
-; REQUIRES: asserts
-
-; Check that 9 invalid PHI nodes are replaced and removed
-; CHECK-COUNT-9: VPDecomp fixPhiNodes : The fixed PHI node will be replaced and removed
-; CHECK-LABEL: VPlan after importing plain CFG
-; CHECK: phi
-; CHECK-NOT: phi
-
+; CHECK-COUNT-10: FLOW (=) (0)
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
