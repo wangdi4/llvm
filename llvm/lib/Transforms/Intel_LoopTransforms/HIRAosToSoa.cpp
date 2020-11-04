@@ -89,7 +89,7 @@ static cl::opt<int> NumberOfTrailingOffsets(
     cl::Hidden, cl::desc("Number of trailing offsets " OPT_DESC " handles"));
 
 static cl::opt<bool>
-    AllocConverted(OPT_SWITCH "-alloc-converted", cl::init(true), cl::Hidden,
+    AllocConverted(OPT_SWITCH "-alloc-converted", cl::init(false), cl::Hidden,
                    cl::desc(OPT_DESC " allocated converted value"));
 
 namespace {
