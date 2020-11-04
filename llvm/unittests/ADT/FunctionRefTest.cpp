@@ -54,12 +54,10 @@ std::string returns(function_ref<double()> F) { return "number"; }
 std::string returns(function_ref<StringRef()> F) { return "string"; }
 
 TEST(FunctionRefTest, SFINAE) {
-#if INTEL_CUSTOMIZATION
   // Use STREQ instead of just EQ.
-  EXPECT_STREQ("not a function", returns("boo!"));
-  EXPECT_STREQ("number", returns([] { return 42; }));
-  EXPECT_STREQ("string", returns([] { return "hello"; }));
-#endif // INTEL_CUSTOMIZATION
+  EXPECT_EQ("not a function", returns("boo!"));
+  EXPECT_EQ("number", returns([] { return 42; }));
+  EXPECT_EQ("string", returns([] { return "hello"; }));
 }
 
 } // namespace
