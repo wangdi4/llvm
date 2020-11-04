@@ -71,7 +71,7 @@ static void HandleTargetOutcome(bool success) {
           for (const auto &Device : Devices)
             dumpTargetPointerMappings(Device);
         else
-          FAILURE_MESSAGE("run with env LIBOMPTARGET_INFO>1 to dump host-target"
+          FAILURE_MESSAGE("run with env LIBOMPTARGET_INFO>1 to dump host-target "
                           "pointer maps\n");
 
         FATAL_MESSAGE0(1, "failure of target construct while offloading is mandatory");
@@ -121,7 +121,8 @@ EXTERN void __tgt_target_data_begin_nowait(int64_t device_id, int32_t arg_num,
 EXTERN void __tgt_target_data_begin_mapper(int64_t device_id, int32_t arg_num,
                                            void **args_base, void **args,
                                            int64_t *arg_sizes,
-                                           int64_t *arg_types, void **arg_names,
+                                           int64_t *arg_types,
+                                           map_var_info_t *arg_names,
                                            void **arg_mappers) {
   if (IsOffloadDisabled()) return;
 #if INTEL_COLLAB
@@ -153,8 +154,9 @@ EXTERN void __tgt_target_data_begin_mapper(int64_t device_id, int32_t arg_num,
 #ifdef OMPTARGET_DEBUG
   for (int i = 0; i < arg_num; ++i) {
     DP("Entry %2d: Base=" DPxMOD ", Begin=" DPxMOD ", Size=%" PRId64
-       ", Type=0x%" PRIx64 "\n",
-       i, DPxPTR(args_base[i]), DPxPTR(args[i]), arg_sizes[i], arg_types[i]);
+       ", Type=0x%" PRIx64 ", Name=%s\n",
+       i, DPxPTR(args_base[i]), DPxPTR(args[i]), arg_sizes[i], arg_types[i],
+       (arg_names) ? getNameFromMapping(arg_names[i]).c_str() : "(null)");
   }
 #endif
 
@@ -164,7 +166,7 @@ EXTERN void __tgt_target_data_begin_mapper(int64_t device_id, int32_t arg_num,
   OMPT_TRACE(targetDataEnterBegin(device_id));
 #endif // INTEL_COLLAB
   int rc = targetDataBegin(Device, arg_num, args_base, args, arg_sizes,
-                           arg_types, arg_mappers, nullptr);
+                           arg_types, arg_names, arg_mappers, nullptr);
   HandleTargetOutcome(rc == OFFLOAD_SUCCESS);
 #if INTEL_COLLAB
   OMPT_TRACE(targetDataEnterEnd(device_id));
@@ -175,7 +177,7 @@ EXTERN void __tgt_target_data_begin_mapper(int64_t device_id, int32_t arg_num,
 
 EXTERN void __tgt_target_data_begin_nowait_mapper(
     int64_t device_id, int32_t arg_num, void **args_base, void **args,
-    int64_t *arg_sizes, int64_t *arg_types, void **arg_names,
+    int64_t *arg_sizes, int64_t *arg_types, map_var_info_t *arg_names,
     void **arg_mappers, int32_t depNum, void *depList, int32_t noAliasDepNum,
     void *noAliasDepList) {
   if (depNum + noAliasDepNum > 0)
@@ -208,7 +210,8 @@ EXTERN void __tgt_target_data_end_nowait(int64_t device_id, int32_t arg_num,
 EXTERN void __tgt_target_data_end_mapper(int64_t device_id, int32_t arg_num,
                                          void **args_base, void **args,
                                          int64_t *arg_sizes, int64_t *arg_types,
-                                         void **arg_names, void **arg_mappers) {
+                                         map_var_info_t *arg_names,
+                                         void **arg_mappers) {
   if (IsOffloadDisabled()) return;
   DP("Entering data end region with %d mappings\n", arg_num);
 #if INTEL_COLLAB
@@ -244,8 +247,9 @@ EXTERN void __tgt_target_data_end_mapper(int64_t device_id, int32_t arg_num,
 #ifdef OMPTARGET_DEBUG
   for (int i=0; i<arg_num; ++i) {
     DP("Entry %2d: Base=" DPxMOD ", Begin=" DPxMOD ", Size=%" PRId64
-        ", Type=0x%" PRIx64 "\n", i, DPxPTR(args_base[i]), DPxPTR(args[i]),
-        arg_sizes[i], arg_types[i]);
+       ", Type=0x%" PRIx64 ", Name=%s\n",
+       i, DPxPTR(args_base[i]), DPxPTR(args[i]), arg_sizes[i], arg_types[i],
+       (arg_names) ? getNameFromMapping(arg_names[i]).c_str() : "(null)");
   }
 #endif
 
@@ -255,7 +259,7 @@ EXTERN void __tgt_target_data_end_mapper(int64_t device_id, int32_t arg_num,
   OMPT_TRACE(targetDataExitBegin(device_id));
 #endif // INTEL_COLLAB
   int rc = targetDataEnd(Device, arg_num, args_base, args, arg_sizes, arg_types,
-                         arg_mappers, nullptr);
+                         arg_names, arg_mappers, nullptr);
   HandleTargetOutcome(rc == OFFLOAD_SUCCESS);
 #if INTEL_COLLAB
   OMPT_TRACE(targetDataExitEnd(device_id));
@@ -266,7 +270,7 @@ EXTERN void __tgt_target_data_end_mapper(int64_t device_id, int32_t arg_num,
 
 EXTERN void __tgt_target_data_end_nowait_mapper(
     int64_t device_id, int32_t arg_num, void **args_base, void **args,
-    int64_t *arg_sizes, int64_t *arg_types, void **arg_names,
+    int64_t *arg_sizes, int64_t *arg_types, map_var_info_t *arg_names,
     void **arg_mappers, int32_t depNum, void *depList, int32_t noAliasDepNum,
     void *noAliasDepList) {
   if (depNum + noAliasDepNum > 0)
@@ -297,7 +301,7 @@ EXTERN void __tgt_target_data_update_mapper(int64_t device_id, int32_t arg_num,
                                             void **args_base, void **args,
                                             int64_t *arg_sizes,
                                             int64_t *arg_types,
-                                            void **arg_names,
+                                            map_var_info_t *arg_names,
                                             void **arg_mappers) {
   if (IsOffloadDisabled()) return;
   DP("Entering data update with %d mappings\n", arg_num);
@@ -327,8 +331,8 @@ EXTERN void __tgt_target_data_update_mapper(int64_t device_id, int32_t arg_num,
   OMPT_TRACE(targetDataUpdateBegin(device_id));
 #endif // INTEL_COLLAB
   DeviceTy& Device = Devices[device_id];
-  int rc = target_data_update(Device, arg_num, args_base,
-      args, arg_sizes, arg_types, arg_mappers);
+  int rc = target_data_update(Device, arg_num, args_base, args, arg_sizes,
+                              arg_types, arg_names, arg_mappers);
   HandleTargetOutcome(rc == OFFLOAD_SUCCESS);
 #if INTEL_COLLAB
   OMPT_TRACE(targetDataUpdateEnd(device_id));
@@ -339,7 +343,7 @@ EXTERN void __tgt_target_data_update_mapper(int64_t device_id, int32_t arg_num,
 
 EXTERN void __tgt_target_data_update_nowait_mapper(
     int64_t device_id, int32_t arg_num, void **args_base, void **args,
-    int64_t *arg_sizes, int64_t *arg_types, void **arg_names,
+    int64_t *arg_sizes, int64_t *arg_types, map_var_info_t *arg_names,
     void **arg_mappers, int32_t depNum, void *depList, int32_t noAliasDepNum,
     void *noAliasDepList) {
   if (depNum + noAliasDepNum > 0)
@@ -369,7 +373,7 @@ EXTERN int __tgt_target_nowait(int64_t device_id, void *host_ptr,
 EXTERN int __tgt_target_mapper(int64_t device_id, void *host_ptr,
                                int32_t arg_num, void **args_base, void **args,
                                int64_t *arg_sizes, int64_t *arg_types,
-                               void **arg_names, void **arg_mappers) {
+                               map_var_info_t *arg_names, void **arg_mappers) {
   if (IsOffloadDisabled()) return OFFLOAD_FAIL;
 #if INTEL_COLLAB
   int64_t encodedId = device_id;
@@ -396,8 +400,9 @@ EXTERN int __tgt_target_mapper(int64_t device_id, void *host_ptr,
 #ifdef OMPTARGET_DEBUG
   for (int i=0; i<arg_num; ++i) {
     DP("Entry %2d: Base=" DPxMOD ", Begin=" DPxMOD ", Size=%" PRId64
-        ", Type=0x%" PRIx64 "\n", i, DPxPTR(args_base[i]), DPxPTR(args[i]),
-        arg_sizes[i], arg_types[i]);
+       ", Type=0x%" PRIx64 ", Name=%s\n",
+       i, DPxPTR(args_base[i]), DPxPTR(args[i]), arg_sizes[i], arg_types[i],
+       (arg_names) ? getNameFromMapping(arg_names[i]).c_str() : "(null)");
   }
 #endif
 
@@ -408,7 +413,7 @@ EXTERN int __tgt_target_mapper(int64_t device_id, void *host_ptr,
   OMPT_TRACE(targetBegin(device_id));
 #endif // INTEL_COLLAB
   int rc = target(device_id, host_ptr, arg_num, args_base, args, arg_sizes,
-      arg_types, arg_mappers, 0, 0, false /*team*/);
+                  arg_types, arg_names, arg_mappers, 0, 0, false /*team*/);
   HandleTargetOutcome(rc == OFFLOAD_SUCCESS);
 #if INTEL_COLLAB
   OMPT_TRACE(targetEnd(device_id));
@@ -418,13 +423,12 @@ EXTERN int __tgt_target_mapper(int64_t device_id, void *host_ptr,
   return rc;
 }
 
-EXTERN int __tgt_target_nowait_mapper(int64_t device_id, void *host_ptr,
-                                      int32_t arg_num, void **args_base,
-                                      void **args, int64_t *arg_sizes,
-                                      int64_t *arg_types, void **arg_names,
-                                      void **arg_mappers, int32_t depNum,
-                                      void *depList, int32_t noAliasDepNum,
-                                      void *noAliasDepList) {
+EXTERN int
+__tgt_target_nowait_mapper(int64_t device_id, void *host_ptr, int32_t arg_num,
+                           void **args_base, void **args, int64_t *arg_sizes,
+                           int64_t *arg_types, map_var_info_t *arg_names,
+                           void **arg_mappers, int32_t depNum, void *depList,
+                           int32_t noAliasDepNum, void *noAliasDepList) {
   if (depNum + noAliasDepNum > 0)
     __kmpc_omp_taskwait(NULL, __kmpc_global_thread_num(NULL));
 
@@ -455,7 +459,8 @@ EXTERN int __tgt_target_teams_nowait(int64_t device_id, void *host_ptr,
 EXTERN int __tgt_target_teams_mapper(int64_t device_id, void *host_ptr,
                                      int32_t arg_num, void **args_base,
                                      void **args, int64_t *arg_sizes,
-                                     int64_t *arg_types, void **arg_names,
+                                     int64_t *arg_types,
+                                     map_var_info_t *arg_names,
                                      void **arg_mappers, int32_t team_num,
                                      int32_t thread_limit) {
   if (IsOffloadDisabled()) return OFFLOAD_FAIL;
@@ -484,8 +489,9 @@ EXTERN int __tgt_target_teams_mapper(int64_t device_id, void *host_ptr,
 #ifdef OMPTARGET_DEBUG
   for (int i=0; i<arg_num; ++i) {
     DP("Entry %2d: Base=" DPxMOD ", Begin=" DPxMOD ", Size=%" PRId64
-        ", Type=0x%" PRIx64 "\n", i, DPxPTR(args_base[i]), DPxPTR(args[i]),
-        arg_sizes[i], arg_types[i]);
+       ", Type=0x%" PRIx64 ", Name=%s\n",
+       i, DPxPTR(args_base[i]), DPxPTR(args[i]), arg_sizes[i], arg_types[i],
+       (arg_names) ? getNameFromMapping(arg_names[i]).c_str() : "(null)");
   }
 #endif
 
@@ -496,7 +502,8 @@ EXTERN int __tgt_target_teams_mapper(int64_t device_id, void *host_ptr,
   OMPT_TRACE(targetBegin(device_id));
 #endif // INTEL_COLLAB
   int rc = target(device_id, host_ptr, arg_num, args_base, args, arg_sizes,
-      arg_types, arg_mappers, team_num, thread_limit, true /*team*/);
+                  arg_types, arg_names, arg_mappers, team_num, thread_limit,
+                  true /*team*/);
   HandleTargetOutcome(rc == OFFLOAD_SUCCESS);
 #if INTEL_COLLAB
   OMPT_TRACE(targetEnd(device_id));
@@ -509,9 +516,10 @@ EXTERN int __tgt_target_teams_mapper(int64_t device_id, void *host_ptr,
 
 EXTERN int __tgt_target_teams_nowait_mapper(
     int64_t device_id, void *host_ptr, int32_t arg_num, void **args_base,
-    void **args, int64_t *arg_sizes, int64_t *arg_types, void **arg_names,
-    void **arg_mappers, int32_t team_num, int32_t thread_limit, int32_t depNum,
-    void *depList, int32_t noAliasDepNum, void *noAliasDepList) {
+    void **args, int64_t *arg_sizes, int64_t *arg_types,
+    map_var_info_t *arg_names, void **arg_mappers, int32_t team_num,
+    int32_t thread_limit, int32_t depNum, void *depList, int32_t noAliasDepNum,
+    void *noAliasDepList) {
   if (depNum + noAliasDepNum > 0)
     __kmpc_omp_taskwait(NULL, __kmpc_global_thread_num(NULL));
 
