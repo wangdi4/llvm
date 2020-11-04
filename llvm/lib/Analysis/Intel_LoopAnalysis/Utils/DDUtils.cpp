@@ -1115,7 +1115,7 @@ void CollectDDInfoForPermute<
     }
   }
 
-  DVs.push_back(make_pair(DV, BasePtrBlobIndex));
+  DVs.push_back(std::make_pair(DV, BasePtrBlobIndex));
 }
 } // namespace
 

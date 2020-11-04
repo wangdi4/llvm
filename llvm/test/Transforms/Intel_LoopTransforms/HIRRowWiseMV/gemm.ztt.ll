@@ -85,23 +85,22 @@ target triple = "x86_64-unknown-linux-gnu"
 ; CHECK:       |   |   |   case 1:
 ; CHECK:       |   |   |         %sum.L3 = %sum.L2
 ; CHECK:       |   |   |      + DO i4 = 0, %K + -1, 1   <DO_LOOP>
-; CHECK:       |   |   |      |   %AikBkj = -1.000000e+00  *  (%B)[(%M * %K) * i1 + i2 + %M * i4];
+; CHECK:       |   |   |      |   %AikBkj = - (%B)[(%M * %K) * i1 + i2 + %M * i4];
 ; CHECK:       |   |   |      |   %sum.L3 = %sum.L3  +  %AikBkj;
 ; CHECK:       |   |   |      + END LOOP
 ; CHECK:       |   |   |         %sum.L2 = %sum.L3
 ; CHECK:       |   |   |      break;
 ; CHECK:       |   |   |   case 2:
+; CHECK:       |   |   |      if (%K > 0)
+; CHECK:       |   |   |      {
 ; CHECK:       |   |   |         %sum.L3 = %sum.L2
-; CHECK:       |   |   |      + DO i4 = 0, %K + -1, 1   <DO_LOOP>
-; CHECK:       |   |   |      |   %AikBkj = 0.000000e+00  *  (%B)[(%M * %K) * i1 + i2 + %M * i4];
-; CHECK:       |   |   |      |   %sum.L3 = %sum.L3  +  %AikBkj;
-; CHECK:       |   |   |      + END LOOP
 ; CHECK:       |   |   |         %sum.L2 = %sum.L3
+; CHECK:       |   |   |      }
 ; CHECK:       |   |   |      break;
 ; CHECK:       |   |   |   case 3:
 ; CHECK:       |   |   |         %sum.L3 = %sum.L2
 ; CHECK:       |   |   |      + DO i4 = 0, %K + -1, 1   <DO_LOOP>
-; CHECK:       |   |   |      |   %AikBkj = 1.000000e+00  *  (%B)[(%M * %K) * i1 + i2 + %M * i4];
+; CHECK:       |   |   |      |   %AikBkj = (%B)[(%M * %K) * i1 + i2 + %M * i4];
 ; CHECK:       |   |   |      |   %sum.L3 = %sum.L3  +  %AikBkj;
 ; CHECK:       |   |   |      + END LOOP
 ; CHECK:       |   |   |         %sum.L2 = %sum.L3

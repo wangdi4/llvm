@@ -1,4 +1,4 @@
-// INTEL_FEATURE_ISA_AMX //===------------*- tablegen -*-------------------===//
+//===---------------------*- tablegen -*-----------------------------------===//
 //===- Intel_X86InstrAMX.td - AMX Instruction Set Extension -*- tablegen -*===//
 //
 //      Copyright (c) 2018-2019 Intel Corporation.

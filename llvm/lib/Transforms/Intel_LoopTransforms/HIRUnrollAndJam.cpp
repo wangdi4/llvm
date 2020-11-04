@@ -318,7 +318,7 @@ bool LegalityChecker::isLegalToPermute(const DirectionVector &DV,
   // innermost loop so we check whether swapping the corresponding DV elements
   // yields a legal DV.
 
-  unsigned LastLevel = DV.getLastLevel();
+  unsigned LastLevel = DV.size();
 
   DVKind LoopLevelDV = DV[LoopLevel - 1];
   DVKind InnermostDV = DV[LastLevel - 1];

@@ -36,6 +36,7 @@
 #define LLVM_ANALYSIS_DDTEST_H
 
 #include "llvm/ADT/SmallBitVector.h"
+#include "llvm/ADT/SmallVector.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/IR/CanonExpr.h"
 #include "llvm/Analysis/ScalarEvolution.h"
 #include "llvm/Analysis/ScalarEvolutionExpressions.h"
@@ -44,8 +45,6 @@
 #include "llvm/IR/Operator.h"
 #include "llvm/Pass.h"
 #include "llvm/Support/Debug.h"
-
-#include <array>
 
 namespace llvm {
 
@@ -96,12 +95,9 @@ inline const DVKind &operator|=(DVKind &Lhs, DVKind Rhs) {
   return Lhs = Lhs | Rhs;
 }
 
-struct DirectionVector : public std::array<DVKind, MaxLoopNestLevel> {
-  // Print DV from level 1 to Level
-  void print(raw_ostream &OS, unsigned Level,
-             bool ShowLevelDetail = false) const;
+struct DirectionVector : public SmallVector<DVKind, MaxLoopNestLevel> {
 
-  // Print the entire DirectionVector
+  // Print the DirectionVector
   void print(raw_ostream &OS, bool ShowLevelDetail = false) const;
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
@@ -140,33 +136,26 @@ struct DirectionVector : public std::array<DVKind, MaxLoopNestLevel> {
   ///  DV in this form (= = *)
   bool isTestingForInnermostLoop(unsigned InnermostLoopLevel) const;
 
-  // Returns last level in DV .e.g.  (= = =) return 3
-  unsigned getLastLevel() const;
-
   // Fill in input direction vector for demand driven DD
   // startLevel, toLevel
   // e.g. DV.initInput(3,3)
-  // will fill in (= = *)
+  // will resize to 3 and fill in (= = *)
   // which is testing for innermost loop only
+  // The size is reset to the maximum level; the expectation is that
+  // DDTest::depends will determine the proper length of the DV and resize it.
   void setAsInput(const unsigned int StartLevel = 1,
                   const unsigned int EndLevel = MaxLoopNestLevel);
-
-  // Construct all 0
-  void setZero();
 };
 
-struct DistanceVector : public std::array<DistTy, MaxLoopNestLevel> {
-  // Print DistVec from level 1 to Level
-  void print(raw_ostream &OS, unsigned Level) const;
+struct DistanceVector : public SmallVector<DistTy, MaxLoopNestLevel> {
+  // Print DistVec
+  void print(raw_ostream &OS) const;
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   LLVM_DUMP_METHOD void dump() const {
-    print(dbgs(), MaxLoopNestLevel);
+    print(dbgs());
   }
 #endif
-
-  // Set as all 0
-  void setZero();
 };
 
 /// Dependence - This class represents a dependence between two memory
@@ -397,7 +386,7 @@ class DDTest {
                               const DirectionVector &BackwardDV,
                               const Dependences &Result,
                               DistanceVector &ForwardDistV,
-                              DistanceVector &BackwardDistV, unsigned Levels);
+                              DistanceVector &BackwardDistV);
 
   void adjustDV(Dependences &Result, bool SameBase, const RegDDRef *SrcRegDDRef,
                 const RegDDRef *DstRegDDRef);
