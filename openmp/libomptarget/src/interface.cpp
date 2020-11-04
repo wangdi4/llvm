@@ -103,8 +103,8 @@ EXTERN void __tgt_unregister_lib(__tgt_bin_desc *desc) {
 /// and passes the data to the device.
 EXTERN void __tgt_target_data_begin(int64_t device_id, int32_t arg_num,
     void **args_base, void **args, int64_t *arg_sizes, int64_t *arg_types) {
-  __tgt_target_data_begin_mapper(device_id, arg_num, args_base, args,
-      arg_sizes, arg_types, nullptr);
+  __tgt_target_data_begin_mapper(device_id, arg_num, args_base, args, arg_sizes,
+                                 arg_types, nullptr, nullptr);
 }
 
 EXTERN void __tgt_target_data_begin_nowait(int64_t device_id, int32_t arg_num,
@@ -114,13 +114,15 @@ EXTERN void __tgt_target_data_begin_nowait(int64_t device_id, int32_t arg_num,
   if (depNum + noAliasDepNum > 0)
     __kmpc_omp_taskwait(NULL, __kmpc_global_thread_num(NULL));
 
-  __tgt_target_data_begin_mapper(device_id, arg_num, args_base, args,
-      arg_sizes, arg_types, nullptr);
+  __tgt_target_data_begin_mapper(device_id, arg_num, args_base, args, arg_sizes,
+                                 arg_types, nullptr, nullptr);
 }
 
 EXTERN void __tgt_target_data_begin_mapper(int64_t device_id, int32_t arg_num,
-    void **args_base, void **args, int64_t *arg_sizes, int64_t *arg_types,
-    void **arg_mappers) {
+                                           void **args_base, void **args,
+                                           int64_t *arg_sizes,
+                                           int64_t *arg_types, void **arg_names,
+                                           void **arg_mappers) {
   if (IsOffloadDisabled()) return;
 #if INTEL_COLLAB
   int64_t encodedId = device_id;
@@ -171,15 +173,16 @@ EXTERN void __tgt_target_data_begin_mapper(int64_t device_id, int32_t arg_num,
 #endif // INTEL_COLLAB
 }
 
-EXTERN void __tgt_target_data_begin_nowait_mapper(int64_t device_id,
-    int32_t arg_num, void **args_base, void **args, int64_t *arg_sizes,
-    int64_t *arg_types, void **arg_mappers, int32_t depNum, void *depList,
-    int32_t noAliasDepNum, void *noAliasDepList) {
+EXTERN void __tgt_target_data_begin_nowait_mapper(
+    int64_t device_id, int32_t arg_num, void **args_base, void **args,
+    int64_t *arg_sizes, int64_t *arg_types, void **arg_names,
+    void **arg_mappers, int32_t depNum, void *depList, int32_t noAliasDepNum,
+    void *noAliasDepList) {
   if (depNum + noAliasDepNum > 0)
     __kmpc_omp_taskwait(NULL, __kmpc_global_thread_num(NULL));
 
-  __tgt_target_data_begin_mapper(device_id, arg_num, args_base, args,
-      arg_sizes, arg_types, arg_mappers);
+  __tgt_target_data_begin_mapper(device_id, arg_num, args_base, args, arg_sizes,
+                                 arg_types, arg_names, arg_mappers);
 }
 
 /// passes data from the target, releases target memory and destroys
@@ -188,7 +191,7 @@ EXTERN void __tgt_target_data_begin_nowait_mapper(int64_t device_id,
 EXTERN void __tgt_target_data_end(int64_t device_id, int32_t arg_num,
     void **args_base, void **args, int64_t *arg_sizes, int64_t *arg_types) {
   __tgt_target_data_end_mapper(device_id, arg_num, args_base, args, arg_sizes,
-      arg_types, nullptr);
+                               arg_types, nullptr, nullptr);
 }
 
 EXTERN void __tgt_target_data_end_nowait(int64_t device_id, int32_t arg_num,
@@ -199,12 +202,13 @@ EXTERN void __tgt_target_data_end_nowait(int64_t device_id, int32_t arg_num,
     __kmpc_omp_taskwait(NULL, __kmpc_global_thread_num(NULL));
 
   __tgt_target_data_end_mapper(device_id, arg_num, args_base, args, arg_sizes,
-      arg_types, nullptr);
+                               arg_types, nullptr, nullptr);
 }
 
 EXTERN void __tgt_target_data_end_mapper(int64_t device_id, int32_t arg_num,
-    void **args_base, void **args, int64_t *arg_sizes, int64_t *arg_types,
-    void **arg_mappers) {
+                                         void **args_base, void **args,
+                                         int64_t *arg_sizes, int64_t *arg_types,
+                                         void **arg_names, void **arg_mappers) {
   if (IsOffloadDisabled()) return;
   DP("Entering data end region with %d mappings\n", arg_num);
 #if INTEL_COLLAB
@@ -260,21 +264,22 @@ EXTERN void __tgt_target_data_end_mapper(int64_t device_id, int32_t arg_num,
 #endif // INTEL_COLLAB
 }
 
-EXTERN void __tgt_target_data_end_nowait_mapper(int64_t device_id,
-    int32_t arg_num, void **args_base, void **args, int64_t *arg_sizes,
-    int64_t *arg_types, void **arg_mappers, int32_t depNum, void *depList,
-    int32_t noAliasDepNum, void *noAliasDepList) {
+EXTERN void __tgt_target_data_end_nowait_mapper(
+    int64_t device_id, int32_t arg_num, void **args_base, void **args,
+    int64_t *arg_sizes, int64_t *arg_types, void **arg_names,
+    void **arg_mappers, int32_t depNum, void *depList, int32_t noAliasDepNum,
+    void *noAliasDepList) {
   if (depNum + noAliasDepNum > 0)
     __kmpc_omp_taskwait(NULL, __kmpc_global_thread_num(NULL));
 
   __tgt_target_data_end_mapper(device_id, arg_num, args_base, args, arg_sizes,
-      arg_types, arg_mappers);
+                               arg_types, arg_names, arg_mappers);
 }
 
 EXTERN void __tgt_target_data_update(int64_t device_id, int32_t arg_num,
     void **args_base, void **args, int64_t *arg_sizes, int64_t *arg_types) {
   __tgt_target_data_update_mapper(device_id, arg_num, args_base, args,
-      arg_sizes, arg_types, nullptr);
+                                  arg_sizes, arg_types, nullptr, nullptr);
 }
 
 EXTERN void __tgt_target_data_update_nowait(int64_t device_id, int32_t arg_num,
@@ -285,12 +290,15 @@ EXTERN void __tgt_target_data_update_nowait(int64_t device_id, int32_t arg_num,
     __kmpc_omp_taskwait(NULL, __kmpc_global_thread_num(NULL));
 
   __tgt_target_data_update_mapper(device_id, arg_num, args_base, args,
-      arg_sizes, arg_types, nullptr);
+                                  arg_sizes, arg_types, nullptr, nullptr);
 }
 
 EXTERN void __tgt_target_data_update_mapper(int64_t device_id, int32_t arg_num,
-    void **args_base, void **args, int64_t *arg_sizes, int64_t *arg_types,
-    void **arg_mappers) {
+                                            void **args_base, void **args,
+                                            int64_t *arg_sizes,
+                                            int64_t *arg_types,
+                                            void **arg_names,
+                                            void **arg_mappers) {
   if (IsOffloadDisabled()) return;
   DP("Entering data update with %d mappings\n", arg_num);
 #if INTEL_COLLAB
@@ -329,21 +337,22 @@ EXTERN void __tgt_target_data_update_mapper(int64_t device_id, int32_t arg_num,
 #endif // INTEL_COLLAB
 }
 
-EXTERN void __tgt_target_data_update_nowait_mapper(int64_t device_id,
-    int32_t arg_num, void **args_base, void **args, int64_t *arg_sizes,
-    int64_t *arg_types, void **arg_mappers, int32_t depNum, void *depList,
-    int32_t noAliasDepNum, void *noAliasDepList) {
+EXTERN void __tgt_target_data_update_nowait_mapper(
+    int64_t device_id, int32_t arg_num, void **args_base, void **args,
+    int64_t *arg_sizes, int64_t *arg_types, void **arg_names,
+    void **arg_mappers, int32_t depNum, void *depList, int32_t noAliasDepNum,
+    void *noAliasDepList) {
   if (depNum + noAliasDepNum > 0)
     __kmpc_omp_taskwait(NULL, __kmpc_global_thread_num(NULL));
 
   __tgt_target_data_update_mapper(device_id, arg_num, args_base, args,
-      arg_sizes, arg_types, arg_mappers);
+                                  arg_sizes, arg_types, arg_names, arg_mappers);
 }
 
 EXTERN int __tgt_target(int64_t device_id, void *host_ptr, int32_t arg_num,
     void **args_base, void **args, int64_t *arg_sizes, int64_t *arg_types) {
   return __tgt_target_mapper(device_id, host_ptr, arg_num, args_base, args,
-      arg_sizes, arg_types, nullptr);
+                             arg_sizes, arg_types, nullptr, nullptr);
 }
 
 EXTERN int __tgt_target_nowait(int64_t device_id, void *host_ptr,
@@ -354,12 +363,13 @@ EXTERN int __tgt_target_nowait(int64_t device_id, void *host_ptr,
     __kmpc_omp_taskwait(NULL, __kmpc_global_thread_num(NULL));
 
   return __tgt_target_mapper(device_id, host_ptr, arg_num, args_base, args,
-      arg_sizes, arg_types, nullptr);
+                             arg_sizes, arg_types, nullptr, nullptr);
 }
 
 EXTERN int __tgt_target_mapper(int64_t device_id, void *host_ptr,
-    int32_t arg_num, void **args_base, void **args, int64_t *arg_sizes,
-    int64_t *arg_types, void **arg_mappers) {
+                               int32_t arg_num, void **args_base, void **args,
+                               int64_t *arg_sizes, int64_t *arg_types,
+                               void **arg_names, void **arg_mappers) {
   if (IsOffloadDisabled()) return OFFLOAD_FAIL;
 #if INTEL_COLLAB
   int64_t encodedId = device_id;
@@ -409,21 +419,25 @@ EXTERN int __tgt_target_mapper(int64_t device_id, void *host_ptr,
 }
 
 EXTERN int __tgt_target_nowait_mapper(int64_t device_id, void *host_ptr,
-    int32_t arg_num, void **args_base, void **args, int64_t *arg_sizes,
-    int64_t *arg_types, void **arg_mappers, int32_t depNum, void *depList,
-    int32_t noAliasDepNum, void *noAliasDepList) {
+                                      int32_t arg_num, void **args_base,
+                                      void **args, int64_t *arg_sizes,
+                                      int64_t *arg_types, void **arg_names,
+                                      void **arg_mappers, int32_t depNum,
+                                      void *depList, int32_t noAliasDepNum,
+                                      void *noAliasDepList) {
   if (depNum + noAliasDepNum > 0)
     __kmpc_omp_taskwait(NULL, __kmpc_global_thread_num(NULL));
 
   return __tgt_target_mapper(device_id, host_ptr, arg_num, args_base, args,
-      arg_sizes, arg_types, arg_mappers);
+                             arg_sizes, arg_types, arg_names, arg_mappers);
 }
 
 EXTERN int __tgt_target_teams(int64_t device_id, void *host_ptr,
     int32_t arg_num, void **args_base, void **args, int64_t *arg_sizes,
     int64_t *arg_types, int32_t team_num, int32_t thread_limit) {
   return __tgt_target_teams_mapper(device_id, host_ptr, arg_num, args_base,
-      args, arg_sizes, arg_types, nullptr, team_num, thread_limit);
+                                   args, arg_sizes, arg_types, nullptr, nullptr,
+                                   team_num, thread_limit);
 }
 
 EXTERN int __tgt_target_teams_nowait(int64_t device_id, void *host_ptr,
@@ -434,12 +448,16 @@ EXTERN int __tgt_target_teams_nowait(int64_t device_id, void *host_ptr,
     __kmpc_omp_taskwait(NULL, __kmpc_global_thread_num(NULL));
 
   return __tgt_target_teams_mapper(device_id, host_ptr, arg_num, args_base,
-      args, arg_sizes, arg_types, nullptr, team_num, thread_limit);
+                                   args, arg_sizes, arg_types, nullptr, nullptr,
+                                   team_num, thread_limit);
 }
 
 EXTERN int __tgt_target_teams_mapper(int64_t device_id, void *host_ptr,
-    int32_t arg_num, void **args_base, void **args, int64_t *arg_sizes,
-    int64_t *arg_types, void **arg_mappers, int32_t team_num, int32_t thread_limit) {
+                                     int32_t arg_num, void **args_base,
+                                     void **args, int64_t *arg_sizes,
+                                     int64_t *arg_types, void **arg_names,
+                                     void **arg_mappers, int32_t team_num,
+                                     int32_t thread_limit) {
   if (IsOffloadDisabled()) return OFFLOAD_FAIL;
 #if INTEL_COLLAB
   int64_t encodedId = device_id;
@@ -489,16 +507,17 @@ EXTERN int __tgt_target_teams_mapper(int64_t device_id, void *host_ptr,
   return rc;
 }
 
-EXTERN int __tgt_target_teams_nowait_mapper(int64_t device_id, void *host_ptr,
-    int32_t arg_num, void **args_base, void **args, int64_t *arg_sizes,
-    int64_t *arg_types, void **arg_mappers, int32_t team_num,
-    int32_t thread_limit, int32_t depNum, void *depList, int32_t noAliasDepNum,
-    void *noAliasDepList) {
+EXTERN int __tgt_target_teams_nowait_mapper(
+    int64_t device_id, void *host_ptr, int32_t arg_num, void **args_base,
+    void **args, int64_t *arg_sizes, int64_t *arg_types, void **arg_names,
+    void **arg_mappers, int32_t team_num, int32_t thread_limit, int32_t depNum,
+    void *depList, int32_t noAliasDepNum, void *noAliasDepList) {
   if (depNum + noAliasDepNum > 0)
     __kmpc_omp_taskwait(NULL, __kmpc_global_thread_num(NULL));
 
   return __tgt_target_teams_mapper(device_id, host_ptr, arg_num, args_base,
-      args, arg_sizes, arg_types, arg_mappers, team_num, thread_limit);
+                                   args, arg_sizes, arg_types, arg_names,
+                                   arg_mappers, team_num, thread_limit);
 }
 
 // Get the current number of components for a user-defined mapper.
