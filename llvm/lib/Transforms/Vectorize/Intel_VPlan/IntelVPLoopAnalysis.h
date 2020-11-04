@@ -789,6 +789,8 @@ private:
 
   VPInstruction *getInductionLoopExitInstr(const VPInduction *Induction) const;
 
+  std::pair<const VPInduction *, bool> getLoopInduction() const;
+
   /// Return true if live out value of the induction \p Ind is calculated on the
   /// penultimate iteration of the loop.
   bool isInductionLastValPreInc(const VPInduction *Ind) const;
@@ -806,6 +808,21 @@ private:
   // Insert VPInstructions related to VPPrivates.
   void insertPrivateVPInstructions(VPBuilder &Builder, VPBasicBlock *Preheader,
                                    VPBasicBlock *PostExit);
+
+  // Each update/store in the chain from the outer vectorized loop header to
+  // liveout instruction is accompanied by the assignment/store of the loop
+  // induction to an additional variable. Each phi in this chain is accompanied
+  // by the phi for that additional variable. The variable keeps the index of
+  // the iteration at which the value was assigned. In SSA form, the explicit
+  // assignments are unneeded and only phis with loop-induction operands from
+  // corresponding blocks are inserted.
+  // That is done for the last value calculation: after the loop, we find the
+  // maximum index and extract the vector element from the same position where
+  // that maximum index resides.
+  void insertConditionalLastPrivateInst(VPPrivate &Private, VPBuilder &Builder,
+                                        VPBasicBlock *Preheader,
+                                        VPBasicBlock *PostExit,
+                                        VPValue *PrivateMem, VPValue *AI);
 
   // Mapping function that returns the underlying raw pointer.
   template <typename EntityType>
@@ -867,6 +884,10 @@ public:
     Alias = Optional<DescrAlias>(NewAlias);
     HasAlias = true;
   }
+
+  // Return true if \p Val is used in the \p Loop or in its
+  // preheader, not in lifetimestart/end.
+  static bool hasRealUserInLoop(VPValue *Val, const VPLoop *Loop);
 
 protected:
   VPValue *findMemoryUses(VPValue *Start, const VPLoop *Loop);
@@ -1150,12 +1171,20 @@ public:
   void setIsLast(bool IsLastPriv) { IsLast = IsLastPriv; }
   void setIsExplicit(bool IsExplicitVal) { IsExplicit = IsExplicitVal; }
   void setIsMemOnly(bool IsMem) { setValidMemOnly(IsMem); }
+  void setExitInst(VPInstruction *EI) { ExitInst = EI; }
   void addAlias(VPValue *Alias, VPInstruction *I) { PtrAliases[Alias] = I; }
   void setCtor(Function *CtorFn) { Ctor = CtorFn; }
   void setDtor(Function *DtorFn) { Dtor = DtorFn; }
   void setCopyAssign(Function *CopyAssignFn) { CopyAssign = CopyAssignFn; }
 
 private:
+  /// Set fields to define PrivateKind for the imported private.
+  /// Sometimes it can differ from one that was set by user. E.g. the
+  /// "conditional" modifier can be set on the private that assigned in both
+  /// branches of an IF statement. But those assignments can be merged into one
+  /// select instruction.
+  void updateKind(const VPLoop *Loop);
+
   VPValue *AllocaInst = nullptr;
   VPInstruction *ExitInst = nullptr;
   // These are Pointer-aliases. Each Loop-private memory descriptor can have

@@ -3808,6 +3808,13 @@ void VPOCodeGenHIR::widenLoopEntityInst(const VPInstruction *VPInst) {
     // Loop PH or Exit.
     HLNodeUtils::insertAfter(MainLoop, PrivExtract);
     addVPValueScalRefMapping(VPInst, PrivExtract->getLvalDDRef(), 0 /*Lane*/);
+
+    return;
+  }
+
+  case VPInstruction::PrivateFinalCond:
+  case VPInstruction::PrivateFinalCondMem: {
+    // TODO: Add codegen for unconditional private finalization
     return;
   }
 
@@ -4152,6 +4159,8 @@ void VPOCodeGenHIR::generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
   case VPInstruction::AllocatePrivate:
   case VPInstruction::PrivateFinalUncond:
   case VPInstruction::PrivateFinalUncondMem:
+  case VPInstruction::PrivateFinalCondMem:
+  case VPInstruction::PrivateFinalCond:
     widenLoopEntityInst(VPInst);
     return;
 

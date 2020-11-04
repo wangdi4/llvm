@@ -378,6 +378,10 @@ const char *VPInstruction::getOpcodeName(unsigned Opcode) {
     return "vls-insert";
   case VPInstruction::InvSCEVWrapper:
     return "inv-scev-wrapper";
+  case VPInstruction::PrivateFinalCond:
+    return "private-final-c";
+  case VPInstruction::PrivateFinalCondMem:
+    return "private-final-c-mem";
 #endif
   default:
     return Instruction::getOpcodeName(Opcode);

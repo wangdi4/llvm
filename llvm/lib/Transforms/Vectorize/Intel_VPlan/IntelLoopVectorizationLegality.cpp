@@ -382,13 +382,26 @@ void VPOVectorizationLegality::collectPostExitLoopDescrAliases() {
         continue;
       LLVM_DEBUG(dbgs() << "VPOLegal: StoreInst: "; I.dump());
       Value *StorePtrOp = cast<StoreInst>(&I)->getPointerOperand();
-      if (Privates.count(StorePtrOp)) {
-        std::unique_ptr<PrivDescrTy> &Descr = Privates.find(StorePtrOp)->second;
+      if (!Privates.count(StorePtrOp))
+        continue;
 
-        LLVM_DEBUG(dbgs() << "Found an alias for a SIMD descriptor ref ";
-                   StorePtrOp->dump());
-        Descr->addAlias(&I, std::make_unique<DescrValueTy>(&I));
+      std::unique_ptr<PrivDescrTy> &Descr = Privates.find(StorePtrOp)->second;
+      const Instruction *StoreOp =
+          dyn_cast<Instruction>(cast<StoreInst>(&I)->getValueOperand());
+      if (!StoreOp)
+        continue;
+      if (!TheLoop->contains(StoreOp)) {
+        auto *Phi = dyn_cast<PHINode>(StoreOp);
+        if (!Phi) // non-lcssa?
+          continue;
+        StoreOp = getLiveOutPhiOperand(Phi);
+        if (!StoreOp)
+          continue;
       }
+      LLVM_DEBUG(dbgs() << "Found an alias for a SIMD descriptor ref ";
+                 StoreOp->dump());
+      Descr->addAlias(StoreOp, std::make_unique<DescrValueTy>(
+                                    const_cast<Instruction *>(StoreOp)));
     }
   }
 }
@@ -658,8 +671,11 @@ bool VPOVectorizationLegality::canVectorize(DominatorTree &DT,
             continue;
           if (isUsedInReductionScheme(Phi, ExplicitReductions))
             continue;
+          if (checkAndAddAliasForSimdLastPrivate(Phi))
+            continue;
+
           LLVM_DEBUG(dbgs() << "LV: PHI value could not be identified as"
-                            << " an induction or reduction \n");
+                            << " an induction or reduction." << *Phi << "\n");
           return false;
         }
 
@@ -684,6 +700,9 @@ bool VPOVectorizationLegality::canVectorize(DominatorTree &DT,
           addInductionPhi(Phi, ID, AllowedExit);
           continue;
         }
+
+        if (checkAndAddAliasForSimdLastPrivate(Phi))
+          continue;
 
         LLVM_DEBUG(dbgs() << "LV: Found an unidentified PHI." << *Phi << "\n");
         return false;
@@ -724,6 +743,108 @@ bool VPOVectorizationLegality::canVectorize(DominatorTree &DT,
     return false;
   }
   return true;
+}
+
+bool VPOVectorizationLegality::isLiveOut(const Instruction *I) const {
+  if (!TheLoop->contains(I))
+    return false;
+  return (llvm::any_of(I->users(), [this](const User *U) {
+    return !TheLoop->contains(cast<Instruction>(U));
+  }));
+}
+
+const Instruction *
+VPOVectorizationLegality::getLiveOutPhiOperand(const PHINode *Phi) const {
+  if (isLiveOut(Phi))
+    return Phi;
+  auto Iter = llvm::find_if(Phi->operands(), [&](const Value *Oper) {
+    if (const Instruction *I = dyn_cast<Instruction>(Oper))
+      return isLiveOut(I);
+    return false;
+  });
+  return Iter == Phi->op_end() ? nullptr : cast<Instruction>(*Iter);
+}
+
+// The routine can be called for two cases of phi, when one is in the loop
+// header or for liveout phi.
+//
+// We detect two potential cases for private aliases here.
+//
+// 1) %LoopPreheader:
+//        %alias = load %private
+//        ...
+//    %LoopHeader:
+//        %priv_phi = phi [%alias, %LoopPreheader], ...
+//
+// 2) %LoopPreheader:
+//        ...
+//    %LoopHeader:
+//        %priv_phi = phi [%some_const, %LoopPreheader], [%liveout_phi, %Latch]
+//        ...
+//    %Body:
+//        %priv = something
+//        ...
+//    %Latch (or any other block)
+//        %liveout_phi = phi [%priv_phi, %LoopHeader], [%priv, %Body]
+//        ...
+//    %LoopExit:
+//        %lcssa_phi = phi [%liveout_phi, %Latch]
+//        store %lcssa.phi, %private
+//
+// In the first case, if the load from private is used in the phi then phi is
+// alias for private.
+// In the second case, we can have a check for both phis, from loop header and
+// liveout phi from latch. The loop header phi is checked when the check in the
+// first case does not work, e.g. the incoming value is constant.
+//
+// No other data dependency checks are done because we do this for simd loops
+// only.
+bool VPOVectorizationLegality::checkAndAddAliasForSimdLastPrivate(
+    const PHINode *Phi) {
+  if (!IsSimdLoop)
+    return false;
+  bool IsHeaderPhi = Phi->getParent() == TheLoop->getHeader();
+  const Instruction *LiveOut = Phi;
+  if (IsHeaderPhi) {
+    const BasicBlock *PreheaderBB = TheLoop->getLoopPreheader();
+    const Value *PHIncomingVal = Phi->getIncomingValueForBlock(PreheaderBB);
+    LiveOut = getLiveOutPhiOperand(Phi);
+    if (!LiveOut)
+      return false;
+    if (auto *Priv = findPrivateOrAlias(PHIncomingVal)) {
+      updatePrivateExitInst(Priv, LiveOut);
+      return true;
+    }
+    if (!isa<PHINode>(LiveOut))
+      return false;
+  } else if (!isLiveOut(Phi))
+    return false;
+
+  // Liveout [phi] not in loop header.
+  if (auto Priv = findPrivateOrAlias(LiveOut)) {
+    updatePrivateExitInst(Priv, LiveOut);
+    return true;
+  }
+  return false;
+}
+
+PrivDescr<Value>*
+VPOVectorizationLegality::findPrivateOrAlias(const Value *Candidate) const {
+  if (Privates.count(Candidate))
+    return Privates.find(Candidate)->second.get();
+  for (auto Priv : privates())
+    if (Priv->findAlias(Candidate))
+      return const_cast<PrivDescrTy*>(Priv);
+  return nullptr;
+}
+
+void VPOVectorizationLegality::updatePrivateExitInst(PrivDescrTy *Priv,
+                                                     const Instruction *ExitI) {
+  if (!Priv->getUpdateInstructions().empty()) {
+    assert(ExitI == Priv->getUpdateInstructions()[0] &&
+           "second liveout for private");
+  }
+  Priv->addUpdateInstruction(ExitI);
 }
 
 void VPOVectorizationLegality::addInductionPhi(
