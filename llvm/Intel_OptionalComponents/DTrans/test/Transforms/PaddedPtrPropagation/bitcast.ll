@@ -26,10 +26,9 @@
 
 define float* @foo(i32* %p) {
 entry:
-    %0 = tail call i32* @llvm.ptr.annotation.p0i32(i32* %p, i8* getelementptr inbounds ([15 x i8], [15 x i8]* @0, i64 0, i64 0), i8* getelementptr inbounds ([10 x i8], [10 x i8]* @.str, i64 0, i64 0), i32 2)
+    %0 = tail call i32* @llvm.ptr.annotation.p0i32(i32* %p, i8* getelementptr inbounds ([15 x i8], [15 x i8]* @0, i64 0, i64 0), i8* getelementptr inbounds ([10 x i8], [10 x i8]* @.str, i64 0, i64 0), i32 2, i8* null)
     %1 = bitcast i32* %0 to float*
     ret float* %1
 }
 
-declare i32* @llvm.ptr.annotation.p0i32(i32*, i8*, i8*, i32)
-declare float* @llvm.ptr.annotation.p0f32(float*, i8*, i8*, i32)
+declare i32* @llvm.ptr.annotation.p0i32(i32*, i8*, i8*, i32, i8*)

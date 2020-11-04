@@ -14,7 +14,7 @@
 ;CHECK-NEXT:   Arguments' Padding:
 ;CHECK-NEXT:     i32* %P : -1
 ;CHECK-NEXT:   Value paddings:
-;CHECK-NEXT:     %0 = tail call i32* @llvm.ptr.annotation.p0i32(i32* %call, i8* getelementptr inbounds ([16 x i8], [16 x i8]* @0, i64 0, i64 0), i8* getelementptr inbounds ([14 x i8], [14 x i8]* @.str, i64 0, i64 0), i32 2) :: 32
+;CHECK-NEXT:     %0 = tail call i32* @llvm.ptr.annotation.p0i32(i32* %call, i8* getelementptr inbounds ([16 x i8], [16 x i8]* @0, i64 0, i64 0), i8* getelementptr inbounds ([14 x i8], [14 x i8]* @.str, i64 0, i64 0), i32 2, i8* null) :: 32
 ;CHECK:      ==== END OF INITIAL FUNCTION SET ====
 
 ;CHECK:      ==== TRANSFORMED FUNCTION SET ====
@@ -25,7 +25,7 @@
 ;CHECK-NEXT:     i32* %P : -1
 ;CHECK-NEXT:   Value paddings:
 ;CHECK-DAG:      %call = tail call i32* @foo(i32* %P) :: 32
-;CHECK-DAG:      %0 = tail call i32* @llvm.ptr.annotation.p0i32(i32* %call, i8* getelementptr inbounds ([16 x i8], [16 x i8]* @0, i64 0, i64 0), i8* getelementptr inbounds ([14 x i8], [14 x i8]* @.str, i64 0, i64 0), i32 2) :: 32
+;CHECK-DAG:      %0 = tail call i32* @llvm.ptr.annotation.p0i32(i32* %call, i8* getelementptr inbounds ([16 x i8], [16 x i8]* @0, i64 0, i64 0), i8* getelementptr inbounds ([14 x i8], [14 x i8]* @.str, i64 0, i64 0), i32 2, i8* null) :: 32
 ;CHECK:      ==== END OF TRANSFORMED FUNCTION SET ====
 
 @0 = private constant [16 x i8] c"padded 32 bytes\00"
@@ -34,11 +34,11 @@
 define i32* @foo(i32* %P) {
 entry:
   %call = tail call i32* @foo(i32* %P)
-  %0 = tail call i32* @llvm.ptr.annotation.p0i32(i32* %call, i8* getelementptr ([16 x i8], [16 x i8]* @0, i64 0, i64 0), i8* getelementptr ([14 x i8], [14 x i8]* @.str, i64 0, i64 0), i32 2)
+  %0 = tail call i32* @llvm.ptr.annotation.p0i32(i32* %call, i8* getelementptr ([16 x i8], [16 x i8]* @0, i64 0, i64 0), i8* getelementptr ([14 x i8], [14 x i8]* @.str, i64 0, i64 0), i32 2, i8* null)
   ret i32* %0
 }
 
-declare i32* @llvm.ptr.annotation.p0i32(i32*, i8*, i8*, i32)
+declare i32* @llvm.ptr.annotation.p0i32(i32*, i8*, i8*, i32, i8*)
 
 
 

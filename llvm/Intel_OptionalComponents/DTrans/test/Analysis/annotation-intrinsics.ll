@@ -17,7 +17,7 @@ define dso_local i32 @test01() {
   %field1 = getelementptr inbounds %struct.test01, %struct.test01* %ptr, i64 0, i32 1
   %t1 = call i32* @llvm.ptr.annotation.p0i32(i32* %field1,
     i8* getelementptr inbounds ([25 x i8], [25 x i8]* @__DTransAOSToSOAIndexFieldName, i32 0, i32 0),
-    i8* getelementptr inbounds ([13 x i8], [13 x i8]* @__FileAnnot, i32 0, i32 0), i32 0)
+    i8* getelementptr inbounds ([13 x i8], [13 x i8]* @__FileAnnot, i32 0, i32 0), i32 0, i8* null)
 
   ret i32 0
 }
@@ -35,7 +35,7 @@ define dso_local %struct.test02b* @test02() {
   %ptr_i8 = bitcast %struct.test02a* %ptr to i8*
   %annot = call i8* @llvm.ptr.annotation.p0i8(i8* %ptr_i8,
     i8* getelementptr inbounds ([25 x i8], [25 x i8]* @__DTransAOSToSOAIndexFieldName, i32 0, i32 0),
-    i8* getelementptr inbounds ([13 x i8], [13 x i8]* @__FileAnnot, i32 0, i32 0), i32 0)
+    i8* getelementptr inbounds ([13 x i8], [13 x i8]* @__FileAnnot, i32 0, i32 0), i32 0, i8* null)
 
   ; This should trigger a bad bitcast on %struct.test02a because %annot should
   ; have acquired the type information carried by %ptr_i8.
@@ -59,7 +59,7 @@ define dso_local i32 @test03() {
   %ptr_i8 = bitcast %struct.test03* %ptr to i8*
   call void @llvm.var.annotation(i8* %ptr_i8,
     i8* getelementptr inbounds ([25 x i8], [25 x i8]* @__DTransAOSToSOAIndexFieldName, i32 0, i32 0),
-    i8* getelementptr inbounds ([13 x i8], [13 x i8]* @__FileAnnot, i32 0, i32 0), i32 0)
+    i8* getelementptr inbounds ([13 x i8], [13 x i8]* @__FileAnnot, i32 0, i32 0), i32 0, i8* null)
 
   ret i32 0
 }
@@ -67,6 +67,6 @@ define dso_local i32 @test03() {
 ; CHECK: Safety data:
 ; CHECK-NOT: Unhandled use
 
-declare i32* @llvm.ptr.annotation.p0i32(i32*, i8*, i8*, i32)
-declare i8* @llvm.ptr.annotation.p0i8(i8*, i8*, i8*, i32)
-declare void @llvm.var.annotation(i8*, i8*, i8*, i32)
+declare i32* @llvm.ptr.annotation.p0i32(i32*, i8*, i8*, i32, i8*)
+declare i8* @llvm.ptr.annotation.p0i8(i8*, i8*, i8*, i32, i8*)
+declare void @llvm.var.annotation(i8*, i8*, i8*, i32, i8*)

@@ -65,7 +65,7 @@ if.then:
   unreachable
 
 if.end:
-  %2 = tail call i32* @llvm.ptr.annotation.p0i32(i32* null, i8* getelementptr ([16 x i8], [16 x i8]* @0, i64 0, i64 0), i8* getelementptr ([13 x i8], [13 x i8]* @.str, i64 0, i64 0), i32 6)
+  %2 = tail call i32* @llvm.ptr.annotation.p0i32(i32* null, i8* getelementptr ([16 x i8], [16 x i8]* @0, i64 0, i64 0), i8* getelementptr ([13 x i8], [13 x i8]* @.str, i64 0, i64 0), i32 6, i8* null)
   ret i32* %2
 }
 
@@ -90,7 +90,7 @@ try.cont:
 
 declare i8* @__cxa_allocate_exception(i64)
 declare void @__cxa_throw(i8*, i8*, i8*)
-declare i32* @llvm.ptr.annotation.p0i32(i32*, i8*, i8*, i32)
+declare i32* @llvm.ptr.annotation.p0i32(i32*, i8*, i8*, i32, i8*)
 declare i8* @__cxa_begin_catch(i8*)
 declare void @__cxa_end_catch()
 declare i32 @__gxx_personality_v0(...)
