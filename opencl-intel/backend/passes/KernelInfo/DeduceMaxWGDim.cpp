@@ -57,7 +57,7 @@ namespace intel {
     }
 
     // No point in saying that kernel needs 3D
-    if (MaxDim == 2)
+    if (MaxDim >= 2)
       return false;
 
     KernelInternalMetadataAPI(&F).MaxWGDimensions.set(MaxDim + 1);
