@@ -48,7 +48,7 @@ L2:
   %bjp = getelementptr inbounds double, double* %b, i32 %j
   %bj = load double, double* %bjp
   %Aijbj = fmul fast double %Aij, %bj
-  %sum.next = fadd double %sum.L2, %Aijbj
+  %sum.next = fadd fast double %sum.L2, %Aijbj
   %j.next = add nuw nsw i32 %j, 1
   %L2.cond = icmp eq i32 %j.next, 128
   br i1 %L2.cond, label %L2.exit, label %L2

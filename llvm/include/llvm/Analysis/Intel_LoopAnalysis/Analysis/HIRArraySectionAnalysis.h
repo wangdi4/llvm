@@ -45,6 +45,7 @@ private:
   SmallVector<CanonExpr *, 4> Lowers;
   SmallVector<CanonExpr *, 4> Uppers;
 
+  // Keep all unique index expressions per dimension.
   SmallVector<SmallVector<CanonExpr *, 1>, 4> Indices;
 
 public:

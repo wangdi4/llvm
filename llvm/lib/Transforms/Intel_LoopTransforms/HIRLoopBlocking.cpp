@@ -1546,7 +1546,7 @@ HLLoop *findLoopNestToBlock(HIRFramework &HIRF, HIRDDAnalysis &DDA,
 
     // Grouping Refs for memory foot print and for stencil
     DDRefGrouping::RefGroupVecTy<RegDDRef *> Groups;
-    DDRefIndexGrouping().group(Groups, Refs);
+    DDRefIndexGrouping(Groups, Refs);
 
     // Try stencil pattern + fixed stripmine sizes.
     StencilChecker StencilProfitability(Groups, InnermostLoop, Func);

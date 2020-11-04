@@ -272,7 +272,7 @@ bool VPlanDriverImpl::processLoop(Loop *Lp, Function &Fn,
   LoopVectorizationPlanner LVP(WRLp, Lp, LI, TLI, TTI, DL, DT, &LVL, &VLSA);
 
 #if INTEL_CUSTOMIZATION
-  if (!LVP.buildInitialVPlans(&Fn.getContext(), DL)) {
+  if (!LVP.buildInitialVPlans(&Fn.getContext(), DL, &SE)) {
     LLVM_DEBUG(dbgs() << "VD: Not vectorizing: No VPlans constructed.\n");
     return false;
   }

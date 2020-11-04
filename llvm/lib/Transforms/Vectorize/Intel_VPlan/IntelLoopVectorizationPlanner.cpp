@@ -201,7 +201,8 @@ static unsigned getSafelen(const WRNVecLoopNode *WRLp) {
 #endif // INTEL_CUSTOMIZATION
 
 unsigned LoopVectorizationPlanner::buildInitialVPlans(LLVMContext *Context,
-                                                      const DataLayout *DL) {
+                                                      const DataLayout *DL,
+                                                      ScalarEvolution *SE) {
   ++VPlanOrderNumber;
   unsigned MinVF, MaxVF;
   unsigned ForcedVF = getForcedVF(WRLp);
@@ -277,7 +278,7 @@ unsigned LoopVectorizationPlanner::buildInitialVPlans(LLVMContext *Context,
   for (; StartRangeVF < EndRangeVF; ++i) {
     // TODO: revisit when we build multiple VPlans.
     std::shared_ptr<VPlan> Plan =
-        buildInitialVPlan(StartRangeVF, EndRangeVF, *Externals);
+        buildInitialVPlan(StartRangeVF, EndRangeVF, *Externals, SE);
 
     // Check legality of VPlan before proceeding with other transforms/analyses.
     if (!canProcessVPlan(*Plan.get())) {
@@ -317,7 +318,8 @@ unsigned LoopVectorizationPlanner::buildInitialVPlans(LLVMContext *Context,
       VPSOAAnalysis VPSOAA(*Plan.get(), *CandidateLoop);
       SmallPtrSet<VPInstruction *, 32> SOAVars;
       VPSOAA.doSOAAnalysis(SOAVars);
-      Plan->getVPlanDA()->recomputeShapes(SOAVars);
+      Plan->getVPlanDA()->recomputeShapes(SOAVars,
+                                          true /*EnableVerifyAndPrintDA*/);
     }
 
     // TODO: Insert initial run of SVA here for any new users before CM & CG.
@@ -659,7 +661,8 @@ LoopVectorizationPlanner::getTypesWidthRangeInBits() const {
 }
 
 std::shared_ptr<VPlan> LoopVectorizationPlanner::buildInitialVPlan(
-    unsigned StartRangeVF, unsigned &EndRangeVF, VPExternalValues &Ext) {
+    unsigned StartRangeVF, unsigned &EndRangeVF, VPExternalValues &Ext,
+    ScalarEvolution *SE) {
   // Create new empty VPlan
   std::shared_ptr<VPlan> SharedPlan = std::make_shared<VPlan>(Ext);
   VPlan *Plan = SharedPlan.get();
@@ -669,7 +672,7 @@ std::shared_ptr<VPlan> LoopVectorizationPlanner::buildInitialVPlan(
     Plan->enableSOAAnalysis();
 
   // Build hierarchical CFG
-  VPlanHCFGBuilder HCFGBuilder(TheLoop, LI, *DL, WRLp, Plan, Legal);
+  VPlanHCFGBuilder HCFGBuilder(TheLoop, LI, *DL, WRLp, Plan, Legal, SE);
   HCFGBuilder.buildHierarchicalCFG();
 
   return SharedPlan;

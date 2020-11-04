@@ -4490,6 +4490,16 @@ int X86TTIImpl::getGSScalarCost(unsigned Opcode, Type *PtrTy, Type *SrcVTy,
 
   return MemoryOpCost + MaskUnpackCost + InsertExtractCost;
 }
+
+static unsigned getLoadPermuteCost(Type *ArrayElemTy, unsigned ArrayNum,
+                                   unsigned GatherNum, unsigned WidenNum) {
+  if (WidenNum == 8 && ArrayElemTy->getScalarSizeInBits() == 32)
+    // Base cost is load + permute.
+    // When use a mask register, increase the cost.
+    return isPowerOf2_32(ArrayNum) ? 2 : 3;
+
+  llvm_unreachable("Unreachable!\n");
+}
 #endif // INTEL_CUSTOMIZATION
 
 /// Calculate the cost of Gather / Scatter operation
@@ -4497,7 +4507,8 @@ int X86TTIImpl::getGatherScatterOpCost(unsigned Opcode, Type *SrcVTy,
                                        const Value *Ptr, bool VariableMask,
                                        Align Alignment,
                                        TTI::TargetCostKind CostKind,
-                                       const Instruction *I = nullptr) {
+                                       const Instruction *I = nullptr, // INTEL
+                                       bool UndefPassThru = false) { // INTEL
 
   if (CostKind != TTI::TCK_RecipThroughput)
     return 1;
@@ -4530,6 +4541,23 @@ int X86TTIImpl::getGatherScatterOpCost(unsigned Opcode, Type *SrcVTy,
   if (Scalarize)
     return getGSScalarCost(Opcode, FixedVectorType::get(PtrTy, VF), SrcVTy,
                            VariableMask, Alignment, AddressSpace);
+
+  Type *ArrayElemTy = nullptr;
+  unsigned ArrayNum = 0;
+  unsigned GatherNum = 0;
+  unsigned WidenNum = 0;
+
+  const IntrinsicInst *II = dyn_cast_or_null<IntrinsicInst>(I);
+  if (II && isLegalToTransformGather2PermuteLoad(II, ArrayElemTy, ArrayNum,
+                                                 GatherNum, WidenNum))
+    return getLoadPermuteCost(ArrayElemTy, ArrayNum, GatherNum, WidenNum);
+
+  if (Opcode == Instruction::Load &&
+      isLegalToTransformGather2PermuteLoad(
+          Intrinsic::masked_gather, SrcVTy, Ptr, VariableMask, UndefPassThru,
+          ArrayElemTy, ArrayNum, GatherNum, WidenNum))
+    return getLoadPermuteCost(ArrayElemTy, ArrayNum, GatherNum, WidenNum);
+
 #endif // INTEL_CUSTOMIZATION
 
   return getGSVectorCost(Opcode, SrcVTy, Ptr, Alignment, AddressSpace);
@@ -4565,6 +4593,16 @@ int X86TTIImpl::getGatherScatterOpCost(unsigned Opcode, Type *SrcVTy,
   if (Scalarize)
     return getGSScalarCost(Opcode, FixedVectorType::get(PtrTy, VF), SrcVTy,
                            VariableMask, Align(Alignment), AddressSpace);
+
+  Type *ArrayElemTy = nullptr;
+  unsigned ArrayNum = 0;
+  unsigned GatherNum = 0;
+  unsigned WidenNum = 0;
+
+  const IntrinsicInst *II = dyn_cast_or_null<IntrinsicInst>(I);
+  if (II && isLegalToTransformGather2PermuteLoad(II, ArrayElemTy, ArrayNum,
+    GatherNum, WidenNum))
+    return getLoadPermuteCost(ArrayElemTy, ArrayNum, GatherNum, WidenNum);
 
   return getGSVectorCost(Opcode, SrcVTy, IndexSize, Align(Alignment), AddressSpace);
 }
@@ -4831,6 +4869,128 @@ bool X86TTIImpl::shouldScalarizeMaskedGather(CallInst *CI) {
     unsigned IntWidth = ScalarTy->getIntegerBitWidth();
     return !(IntWidth == 32 || IntWidth == 64);
   }
+  return true;
+}
+
+/// Check if we need transform gather to load and permute.
+bool X86TTIImpl::shouldOptGatherToLoadPermute(Type *ArrayElemTy,
+                                              uint32_t ArrayNum,
+                                              uint32_t GatherNum,
+                                              uint32_t *WidenNum) const {
+
+  const TargetMachine &TM = getTLI()->getTargetMachine();
+  if (!TM.Options.IntelAdvancedOptim)
+    return false;
+
+  if (!ST || !ST->hasVLX())
+    return false;
+
+  // Only handle fixed size integer/float array.
+  if (ArrayNum == 0 || ArrayElemTy->isAggregateType())
+    return false;
+
+  // Check if array size is bigger than max simd register size.
+  if (ArrayElemTy->getScalarSizeInBits() * ArrayNum > getRegisterBitWidth(true))
+    return false;
+
+  // Check if gather size is bigger than max simd register size.
+  if (ArrayElemTy->getScalarSizeInBits() * GatherNum >
+      getRegisterBitWidth(true))
+    return false;
+
+  if (ArrayElemTy->isIntegerTy(32)) {
+    if (ArrayNum <= 8) {
+      if (WidenNum)
+        *WidenNum = 8;
+      return true;
+    }
+  } else if (ArrayElemTy->isFloatTy()) {
+    if (ArrayNum <= 8) {
+      if (WidenNum)
+        *WidenNum = 8;
+      return true;
+    }
+  }
+
+  return false;
+}
+
+bool X86TTIImpl::isLegalToTransformGather2PermuteLoad(
+    Intrinsic::ID ID, Type *DataTy, const Value *Ptrs, bool VariableMask,
+    bool UndefPassThru, Type *&ArrayEleTy, unsigned &ArrayNum,
+    unsigned &GatherNum, unsigned &WidenNum) const {
+
+  if (ID != Intrinsic::masked_gather)
+    return false;
+
+  if (VariableMask || !UndefPassThru)
+    return false;
+
+  if (!isa<FixedVectorType>(DataTy))
+    return false;
+
+  auto *GEP = dyn_cast<GetElementPtrInst>(Ptrs);
+  if (!GEP || !GEP->isInBounds())
+    return false;
+
+  // Check if last index is vector type.
+  unsigned GEPNumOper = GEP->getNumOperands();
+  Value *LastIndex = GEP->getOperand(GEPNumOper - 1);
+  if (!LastIndex->getType()->isVectorTy())
+    return false;
+
+  // Check if other operands are all scalar type.
+  for (unsigned i = 0; i != GEPNumOper - 1; ++i) {
+    Value *GEPIdx = GEP->getOperand(i);
+    if (GEPIdx->getType()->isVectorTy())
+      return false;
+  }
+
+  GatherNum = cast<FixedVectorType>(DataTy)->getNumElements();
+
+  // Check if it is an array type.
+  SmallVector<Value *, 4> Ops(GEP->idx_begin(), GEP->idx_end() - 1);
+  Type *IndexedTy =
+      GetElementPtrInst::getIndexedType(GEP->getSourceElementType(), Ops);
+  auto *IndexedArrayTy = dyn_cast<ArrayType>(IndexedTy);
+  if (!IndexedArrayTy)
+    return false;
+
+  ArrayNum = IndexedArrayTy->getArrayNumElements();
+  ArrayEleTy = IndexedArrayTy->getElementType();
+
+  if (!shouldOptGatherToLoadPermute(ArrayEleTy, ArrayNum, GatherNum, &WidenNum))
+    return false;
+
+  return true;
+}
+
+bool X86TTIImpl::isLegalToTransformGather2PermuteLoad(
+    const IntrinsicInst *II, Type *&ArrayEleTy, unsigned &ArrayNum,
+    unsigned &GatherNum, unsigned &WidenNum) const {
+  if (II->getIntrinsicID() != Intrinsic::masked_gather)
+    return false;
+
+  Value *Ptrs = II->getArgOperand(0);
+  Value *Mask = II->getArgOperand(2);
+  Value *PassThru = II->getArgOperand(3);
+
+  // Only handle contant mask.
+  if (!isConstantIntVector(Mask))
+    return false;
+
+  // Dead code?
+  if (cast<Constant>(Mask)->isNullValue())
+    return false;
+
+  if (!isa<UndefValue>(PassThru))
+    return false;
+
+  if (!isLegalToTransformGather2PermuteLoad(
+          Intrinsic::masked_gather, II->getType(), Ptrs, false, true,
+          ArrayEleTy, ArrayNum, GatherNum, WidenNum))
+    return false;
+
   return true;
 }
 #endif // INTEL_CUSTOMIZATION
