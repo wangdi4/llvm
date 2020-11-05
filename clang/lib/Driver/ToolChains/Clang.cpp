@@ -5985,6 +5985,14 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
   }
 #endif // INTEL_COLLAB
 
+#if INTEL_CUSTOMIZATION
+  bool StubsOverride = false;
+  if (Arg *A = Args.getLastArg(options::OPT_qopenmp_stubs,
+      options::OPT_fopenmp, options::OPT_fopenmp_EQ, options::OPT_fiopenmp))
+    if (A->getOption().matches(options::OPT_qopenmp_stubs))
+      StubsOverride = true;
+#endif // INTEL_CUSTOMIZATION
+
   // Forward flags for OpenMP. We don't do this if the current action is an
   // device offloading action other than OpenMP.
 #if INTEL_COLLAB
@@ -5995,6 +6003,7 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
   if (Args.hasFlag(options::OPT_fopenmp, options::OPT_fopenmp_EQ,
                    options::OPT_fno_openmp, false) &&
 #endif // INTEL_COLLAB
+      !StubsOverride && // INTEL
       (JA.isDeviceOffloading(Action::OFK_None) ||
        JA.isDeviceOffloading(Action::OFK_OpenMP))) {
     switch (D.getOpenMPRuntime(Args)) {
