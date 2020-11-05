@@ -777,6 +777,7 @@ getIntelProcessorTypeAndSubtype(unsigned Family, unsigned Model,
       *Type = X86::INTEL_GOLDMONT_PLUS;
       break;
     case 0x86:
+      CPU = "tremont";
       *Type = X86::INTEL_TREMONT;
       break;
 #if INTEL_CUSTOMIZATION
@@ -788,11 +789,11 @@ getIntelProcessorTypeAndSubtype(unsigned Family, unsigned Model,
 #endif // INTEL_FEATURE_CPU_ADL
 #endif // INTEL_CUSTOMIZATION
 
+    // Xeon Phi (Knights Landing + Knights Mill):
     case 0x57:
-      CPU = "tremont";
+      CPU = "knl";
       *Type = X86::INTEL_KNL;
       break;
-
     case 0x85:
       CPU = "knm";
       *Type = X86::INTEL_KNM;
