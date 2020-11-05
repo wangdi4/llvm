@@ -1004,9 +1004,8 @@ void MemRefGroup::printTmpVec(bool NewLine) {
 #endif
 
 HIRScalarReplArray::HIRScalarReplArray(HIRFramework &HIRF, HIRDDAnalysis &HDDA,
-                                       HIRLoopLocality &HLA,
                                        HIRLoopStatistics &HLS)
-    : HIRF(HIRF), HDDA(HDDA), HLA(HLA), HLS(HLS), HNU(HIRF.getHLNodeUtils()),
+    : HIRF(HIRF), HDDA(HDDA), HLS(HLS), HNU(HIRF.getHLNodeUtils()),
       DDRU(HIRF.getDDRefUtils()), CEU(HIRF.getCanonExprUtils()) {
 
   // TODO: set platform specific thresholds.
@@ -1419,7 +1418,6 @@ HIRScalarReplArrayPass::run(llvm::Function &F,
                             llvm::FunctionAnalysisManager &AM) {
   HIRScalarReplArray(AM.getResult<HIRFrameworkAnalysis>(F),
                      AM.getResult<HIRDDAnalysisPass>(F),
-                     AM.getResult<HIRLoopLocalityAnalysis>(F),
                      AM.getResult<HIRLoopStatisticsAnalysis>(F))
       .run();
 
@@ -1439,7 +1437,6 @@ public:
     AU.addRequiredTransitive<HIRFrameworkWrapperPass>();
     AU.addRequiredTransitive<HIRDDAnalysisWrapperPass>();
     AU.addRequiredTransitive<HIRLoopStatisticsWrapperPass>();
-    AU.addRequiredTransitive<HIRLoopLocalityWrapperPass>();
     AU.setPreservesAll();
   }
 
@@ -1451,7 +1448,6 @@ public:
     return HIRScalarReplArray(
                getAnalysis<HIRFrameworkWrapperPass>().getHIR(),
                getAnalysis<HIRDDAnalysisWrapperPass>().getDDA(),
-               getAnalysis<HIRLoopLocalityWrapperPass>().getHLL(),
                getAnalysis<HIRLoopStatisticsWrapperPass>().getHLS())
         .run();
   }
@@ -1463,7 +1459,6 @@ INITIALIZE_PASS_BEGIN(HIRScalarReplArrayLegacyPass, "hir-scalarrepl-array",
 INITIALIZE_PASS_DEPENDENCY(HIRFrameworkWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(HIRDDAnalysisWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(HIRLoopStatisticsWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(HIRLoopLocalityWrapperPass)
 INITIALIZE_PASS_END(HIRScalarReplArrayLegacyPass, "hir-scalarrepl-array",
                     "HIR Scalar Replacement of Array ", false, false)
 
