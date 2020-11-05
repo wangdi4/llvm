@@ -3058,9 +3058,6 @@ int X86TTIImpl::getTypeBasedIntrinsicInstrCost(
 
 int X86TTIImpl::getIntrinsicInstrCost(const IntrinsicCostAttributes &ICA,
                                       TTI::TargetCostKind CostKind) {
-  if (CostKind != TTI::TCK_RecipThroughput)
-    return BaseT::getIntrinsicInstrCost(ICA, CostKind);
-
   if (ICA.isTypeBasedOnly())
     return getTypeBasedIntrinsicInstrCost(ICA, CostKind);
 
