@@ -317,7 +317,6 @@ def OMPC_Notinbranch : Clause<"notinbranch"> {}
 def OMP_ThreadPrivate : Directive<"threadprivate"> {}
 def OMP_Parallel : Directive<"parallel"> {
   let allowedClauses = [
-    VersionedClause<OMPC_Default>,
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_CSA
     VersionedClause<OMPC_dataflow>,
