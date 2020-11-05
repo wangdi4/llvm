@@ -1,6 +1,5 @@
 ; RUN: opt < %s -inline -function-attrs -reassociate -S | FileCheck %s
 
-; CHECK-NOT: func1
 ; CHECK-LABEL: @main ;INTEL
 ; CHECK-NEXT: ret void
 
