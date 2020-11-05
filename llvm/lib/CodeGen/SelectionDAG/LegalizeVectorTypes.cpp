@@ -2156,27 +2156,9 @@ SDValue DAGTypeLegalizer::SplitVecOp_VECREDUCE(SDNode *N, unsigned OpNo) {
   EVT LoOpVT, HiOpVT;
   std::tie(LoOpVT, HiOpVT) = DAG.GetSplitDestVTs(VecVT);
 
-  unsigned CombineOpc = 0;
-  switch (N->getOpcode()) {
-  case ISD::VECREDUCE_FADD: CombineOpc = ISD::FADD; break;
-  case ISD::VECREDUCE_FMUL: CombineOpc = ISD::FMUL; break;
-  case ISD::VECREDUCE_ADD:  CombineOpc = ISD::ADD; break;
-  case ISD::VECREDUCE_MUL:  CombineOpc = ISD::MUL; break;
-  case ISD::VECREDUCE_AND:  CombineOpc = ISD::AND; break;
-  case ISD::VECREDUCE_OR:   CombineOpc = ISD::OR; break;
-  case ISD::VECREDUCE_XOR:  CombineOpc = ISD::XOR; break;
-  case ISD::VECREDUCE_SMAX: CombineOpc = ISD::SMAX; break;
-  case ISD::VECREDUCE_SMIN: CombineOpc = ISD::SMIN; break;
-  case ISD::VECREDUCE_UMAX: CombineOpc = ISD::UMAX; break;
-  case ISD::VECREDUCE_UMIN: CombineOpc = ISD::UMIN; break;
-  case ISD::VECREDUCE_FMAX: CombineOpc = ISD::FMAXNUM; break;
-  case ISD::VECREDUCE_FMIN: CombineOpc = ISD::FMINNUM; break;
-  default:
-    llvm_unreachable("Unexpected reduce ISD node");
-  }
-
   // Use the appropriate scalar instruction on the split subvectors before
   // reducing the now partially reduced smaller vector.
+  unsigned CombineOpc = ISD::getVecReduceBaseOpcode(N->getOpcode());
   SDValue Partial = DAG.getNode(CombineOpc, dl, LoOpVT, Lo, Hi, N->getFlags());
   return DAG.getNode(N->getOpcode(), dl, ResVT, Partial, N->getFlags());
 }
@@ -4812,7 +4794,7 @@ SDValue DAGTypeLegalizer::WidenVecOp_VECREDUCE(SDNode *N) {
         APInt::getSignedMaxValue(ElemVT.getSizeInBits()), dl, ElemVT);
     break;
   case ISD::VECREDUCE_FADD:
-    NeutralElem = DAG.getConstantFP(0.0, dl, ElemVT);
+    NeutralElem = DAG.getConstantFP(-0.0, dl, ElemVT);
     break;
   case ISD::VECREDUCE_FMUL:
     NeutralElem = DAG.getConstantFP(1.0, dl, ElemVT);
