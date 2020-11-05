@@ -4701,7 +4701,7 @@ static unsigned calcReducedICmpSize(Value *Op, const DataLayout &DL) {
     unsigned OrigSize = Op->getType()->getIntegerBitWidth();
 
     // Make sure the shift is less than the width so we have some bits left.
-    if (C->getZExtValue() >= OrigSize)
+    if (C->getValue().uge(OrigSize))
       return 0;
 
     unsigned ShiftRemainder = OrigSize - C->getZExtValue();

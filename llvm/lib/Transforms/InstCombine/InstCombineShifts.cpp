@@ -978,7 +978,8 @@ Instruction *InstCombinerImpl::visitShl(BinaryOperator &I) {
     }
 
     const APInt *ShOp1;
-    if (match(Op0, m_Exact(m_Shr(m_Value(X), m_APInt(ShOp1))))) {
+    if (match(Op0, m_Exact(m_Shr(m_Value(X), m_APInt(ShOp1)))) &&
+        ShOp1->ult(BitWidth)) {
       unsigned ShrAmt = ShOp1->getZExtValue();
       if (ShrAmt < ShAmt) {
         // If C1 < C2: (X >>?,exact C1) << C2 --> X << (C2 - C1)
@@ -998,7 +999,8 @@ Instruction *InstCombinerImpl::visitShl(BinaryOperator &I) {
       }
     }
 
-    if (match(Op0, m_OneUse(m_Shr(m_Value(X), m_APInt(ShOp1))))) {
+    if (match(Op0, m_OneUse(m_Shr(m_Value(X), m_APInt(ShOp1)))) &&
+        ShOp1->ult(BitWidth)) {
       unsigned ShrAmt = ShOp1->getZExtValue();
       if (ShrAmt < ShAmt) {
         // If C1 < C2: (X >>? C1) << C2 --> X << (C2 - C1) & (-1 << C2)
@@ -1023,7 +1025,7 @@ Instruction *InstCombinerImpl::visitShl(BinaryOperator &I) {
       }
     }
 
-    if (match(Op0, m_Shl(m_Value(X), m_APInt(ShOp1)))) {
+    if (match(Op0, m_Shl(m_Value(X), m_APInt(ShOp1))) && ShOp1->ult(BitWidth)) {
       unsigned AmtSum = ShAmt + ShOp1->getZExtValue();
       // Oversized shifts are simplified to zero in InstSimplify.
       if (AmtSum < BitWidth)
