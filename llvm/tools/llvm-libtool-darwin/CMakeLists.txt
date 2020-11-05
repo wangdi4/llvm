@@ -1,6 +1,6 @@
 set(LLVM_LINK_COMPONENTS
   BinaryFormat
-  Core # INTEL
+  Core
   Object
   Support
   TextAPI
