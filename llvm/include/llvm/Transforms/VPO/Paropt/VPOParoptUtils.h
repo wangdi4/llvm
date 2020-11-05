@@ -1264,7 +1264,8 @@ public:
   /// 39..32: Subdevice ID stride
   /// 31..00: Device ID
   static Value *encodeSubdevice (WRegionNode* W, Instruction* InsertPt,
-                                 Value* DeviceID);
+                                 Value* DeviceID,
+                                 SubdeviceItem* SubdeviceI = nullptr);
 
   /// Base routine to create `libomptarget` calls. Creates one of these calls:
   /// \code
@@ -1286,11 +1287,12 @@ public:
   /// \endcode
   static CallInst *genTgtCall(StringRef FnName, WRegionNode *W,
                               Value *DeviceIDPtr, int NumArgsCount,
-                              Value *ArgsBase, Value *Args,Value *ArgsSize,
+                              Value *ArgsBase, Value *Args, Value *ArgsSize,
                               Value *ArgsMaptype, Instruction *InsertPt,
                               Value *HostAddr = nullptr,
                               Value *NumTeamsPtr = nullptr,
-                              Value *ThreadLimitPtr = nullptr);
+                              Value *ThreadLimitPtr = nullptr,
+                              SubdeviceItem *SubdeviceI = nullptr);
 
   /// Generate tgt_push_code_location call which pushes source code location
   /// and the pointer to the tgt_target*() function.

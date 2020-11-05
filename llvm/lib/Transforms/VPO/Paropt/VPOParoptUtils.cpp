@@ -658,8 +658,13 @@ CallInst *VPOParoptUtils::genTgtTargetTeams(WRegionNode *W, Value *HostAddr,
   WRegionNode *WTarget = W->getParent();
   assert(isa<WRNTargetNode>(WTarget) && "Expected parent to be WRNTargetNode");
 
-  Value *DeviceID       = WTarget->getDevice();
-  Value *NumTeamsPtr    = W->getNumTeams();
+  Value *DeviceID            = WTarget->getDevice();
+  SubdeviceClause& Subdevice = WTarget->getSubdevice();
+  SubdeviceItem* SubdeviceI  = nullptr;
+  if (Subdevice.size() != 0)
+    SubdeviceI  = Subdevice.front();
+
+  Value *NumTeamsPtr = W->getNumTeams();
 
   assert((!useSPMDMode(W) || !NumTeamsPtr) &&
          "SPMD mode cannot be used with num_teams.");
@@ -667,12 +672,14 @@ CallInst *VPOParoptUtils::genTgtTargetTeams(WRegionNode *W, Value *HostAddr,
   Value *ThreadLimitPtr = W->getThreadLimit();
   CallInst *Call= genTgtCall("__tgt_target_teams", W, DeviceID, NumArgs,
                              ArgsBase, Args, ArgsSize, ArgsMaptype, InsertPt,
-                             HostAddr, NumTeamsPtr, ThreadLimitPtr);
+                             HostAddr, NumTeamsPtr, ThreadLimitPtr,
+                             SubdeviceI);
   return Call;
 }
 
 Value* VPOParoptUtils::encodeSubdevice (WRegionNode* W, Instruction* InsertPt,
-                                        Value* DeviceID) {
+                                        Value* DeviceID,
+                                        SubdeviceItem* SubdeviceI) {
   IRBuilder<> Builder(InsertPt);
   BasicBlock* B = InsertPt->getParent();
   Function* F = B->getParent();
@@ -681,13 +688,18 @@ Value* VPOParoptUtils::encodeSubdevice (WRegionNode* W, Instruction* InsertPt,
   Type* Int64Ty = Type::getInt64Ty(C);
   DeviceID = Builder.CreateZExtOrBitCast(DeviceID, Int64Ty);
 
-  assert(W->canHaveSubdevice() &&
-      "W must support subdevice, since it supports Device");
-  SubdeviceClause& Subdevice = W->getSubdevice();
-  if (Subdevice.empty())
-    return DeviceID;
-  assert(Subdevice.size()==1 && "There should be only 1 Subdevice clause");
-  SubdeviceItem* SubdeviceI = Subdevice.front();
+  if(SubdeviceI == nullptr) {
+    if (isa<WRNTeamsNode>(W))
+      return DeviceID;
+    assert(W->canHaveSubdevice() &&
+        "W must support subdevice, since it supports Device");
+    SubdeviceClause& Subdevice = W->getSubdevice();
+    if (Subdevice.empty())
+      return DeviceID;
+    assert(Subdevice.size()==1 && "There should be only 1 Subdevice clause");
+    SubdeviceI = Subdevice.front();
+  }
+
   const ConstantInt* CIDevice = dyn_cast<ConstantInt>(DeviceID);
   Value* Stride = SubdeviceI->getStride();
   const ConstantInt* CIStride = dyn_cast<ConstantInt>(Stride);
@@ -773,12 +785,13 @@ Value* VPOParoptUtils::encodeSubdevice (WRegionNode* W, Instruction* InsertPt,
 ///   int64_t* args_maptype // array of map attributes for each mapping
 /// \endcode
 CallInst *VPOParoptUtils::genTgtCall(StringRef FnName, WRegionNode* W,
-                                     Value *DeviceID, int NumArgsCount,
-                                     Value *ArgsBase, Value *Args,
-                                     Value *ArgsSize, Value *ArgsMaptype,
-                                     Instruction *InsertPt, Value *HostAddr,
-                                     Value *NumTeamsPtr,
-                                     Value *ThreadLimitPtr) {
+                                     Value *DeviceID,
+                                     int NumArgsCount, Value *ArgsBase,
+                                     Value *Args, Value *ArgsSize,
+                                     Value *ArgsMaptype, Instruction *InsertPt,
+                                     Value *HostAddr, Value *NumTeamsPtr,
+                                     Value *ThreadLimitPtr,
+                                     SubdeviceItem* SubdeviceI) {
   IRBuilder<> Builder(InsertPt);
   BasicBlock *B = InsertPt->getParent();
   Function *F = B->getParent();
@@ -798,7 +811,7 @@ CallInst *VPOParoptUtils::genTgtCall(StringRef FnName, WRegionNode* W,
   else {
     assert(!DeviceID->getType()->isPointerTy() &&
           "DeviceID should not be a pointer");
-    DeviceID = encodeSubdevice(W, InsertPt, DeviceID);
+    DeviceID = encodeSubdevice(W, InsertPt, DeviceID, SubdeviceI);
   }
 
   SmallVector<Value *, 9> FnArgs    = { DeviceID };
