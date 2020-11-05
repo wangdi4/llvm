@@ -175,7 +175,7 @@ public:
   void replaceFunctionWithFunction(Function *OldFunction,
                                    Function *NewFunction);
 private:
-  /// \brief The Level is specified by the option -inline-report=N.
+  /// The Level is specified by the option -inline-report=N.
   /// See llvm/lib/Transforms/IPO/Inliner.cpp for details on Level.
   unsigned Level;
   // Call instruction which is considered on the current inlining step.
@@ -186,14 +186,14 @@ private:
   Function *CurrentCallee;
 
   ///
-  /// \brief CallbackVM for Instructions and Functions in the InlineReport
+  /// CallbackVM for Instructions and Functions in the InlineReport
   ///
   class InliningReportCallback : public CallbackVH {
     InlineReportBuilder *IRB;
     MDNode *MDIR;
     void deleted() override {
       if (isa<Instruction>(getValPtr())) {
-        /// \brief Indicate in the inline report that the call site
+        /// Indicate in the inline report that the call site
         /// corresponding to the Value has been deleted
         Instruction *I = cast<Instruction>(getValPtr());
         if (IRB) {
@@ -217,7 +217,7 @@ private:
             }
         }
       } else if (isa<Function>(getValPtr())) {
-        /// \brief Indicate in the inline report that the function
+        /// Indicate in the inline report that the function
         /// corresponding to the Value has been deleted
         if (MDIR) {
           if (auto *FIR = dyn_cast<MDTuple>(MDIR)) {
@@ -267,7 +267,7 @@ public:
     return llvm::getOpStr(Report->getOperand(1), "name: ");
   }
 
-  /// brief Get and set SuppressPrint
+  /// Get and set SuppressPrint
   bool getSuppressPrint(void) const { return SuppressPrint; }
   void setSuppressPrint(bool V) { SuppressPrint = V; }
 };
