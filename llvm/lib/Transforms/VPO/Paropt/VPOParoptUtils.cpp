@@ -3800,131 +3800,6 @@ CallInst *VPOParoptUtils::genCall(StringRef FnName, Type *ReturnTy,
 
 // Create a variant version of BaseCall using  the same arguments.
 // The base and variant functions must have identical signatures.
-// If a use_device_ptr clause is present, the call arguments are changed to use
-// the updated value of the clause operand.
-//
-// In the following examples of pseudo-code for target variant dispatch
-// code-gen, this function emits (1), (2), (3) and (4).
-//
-// If there is no PTR_TO_PTR modifier, the incoming IR won't have a
-// load from the use_device_ptr operand, but we still need to generate
-// that load to get the updated value of the operand to be used in the
-// variant call.
-//
-// -------------------------------+--------------------------------------------
-//           Before               |      After
-// -------------------------------+--------------------------------------------
-//   "USE.DEVICE.PTR" (i32* %a)   |
-//                                |
-//                                | if (__tgt_is_device_available(...) {
-//                                |   ...
-//                                |   %a.cast = bitcast i32* %a to i8*
-//                                |   store i8* %a.cast, i8** <a_gep>
-//                                |   ...
-//                                |   __tgt_data_begin(...)
-//                                |   %a.gep.cast = bitcast i8** <a_gep>
-//                                |                 to i32**
-//                                |
-//                               (1)  %a.buffer = load i32*, i32** %a.gep.cast
-//   call @foo(i32* %a)          (2)  call @foo_gpu(i32* %a.buffer)
-//                                |
-//                                |   __tgt_data_end(...)
-//                                | } else {
-//                                |   call @foo(i32* %a)
-//                                | }
-//
-// -------------------------------+--------------------------------------------
-//           Before               |      After
-// -------------------------------+--------------------------------------------
-//   "USE.DEVICE.PTR:PTR_TO_PTR"  |
-//                   (i32** %a)   |
-//                                |
-//   %a.val = load i32*, i32** %a | %a.val = load i32*, i32** %a
-//                                |
-//                                | if (__tgt_is_device_available(...) {
-//                                |   %a.load = load i32*, i32** %a
-//                                |   ...
-//                                |   %a.cast = bitcast i32* %a.load to i8*
-//                                |   store i8* %a.cast, i8** <a_gep>
-//                                |   ...
-//                                |   __tgt_data_begin(...)
-//                                |   %a.gep.cast = bitcast i8** <a_gep>
-//                                |                 to i32**
-//                                |
-//                               (3)  %a.buffer = load i32*, i32** %a.gep.cast
-//   call @foo(i32* %a.val)      (4)  call @foo_gpu(i32* %a.buffer)
-//                                |
-//                                |   __tgt_data_end(...)
-//                                | } else {
-//                                |   call @foo(i32* %a.val)
-//                                | }
-//                                |
-#if INTEL_CUSTOMIZATION
-// -------------------------------+--------------------------------------------
-//           Before               |      After
-// -------------------------------+--------------------------------------------
-//                               (5) %dv.new = alloca QNCA
-//   "USE.DEVICE.PTR:F90_DV"      |
-//                   (QNCA* %dv)  |
-//                                |
-//                                | if (__tgt_is_device_available(...) {
-//                                |   %a.addr = gep (%dv, 0, 0)
-//                                |   %a = load i32*, i32** %a.addr
-//                                |   ...
-//                                |   %a.cast = bitcast i32* %a to i8*
-//                                |   store i8* %a.cast, i8** <a_gep>
-//                                |   ...
-//                                |   __tgt_data_begin(...)
-//                                |   %a.gep.cast = bitcast i8** <a_gep>
-//                                |                 to i32**
-//                                |
-//                               (3)  %a.updated = load i32*, i32** %a.gep.cast
-//                               (6)  memcpy(%dv.new, %dv, sizeof(QNCA)
-//                               (7)  %a.addr.new = gep(%dv.new, 0, 0)
-//                               (8)  store %a.updated, %a.addr.new
-//                                |
-//   call @foo(QNCA* %dv)        (4)  call @foo_gpu(QNCA* %dv.new)
-//                                |
-//                                |   __tgt_data_end(...)
-//                                | } else {
-//                                |   call @foo(QNCA* %dv)
-//                                | }
-//                                |
-// -------------------------------+--------------------------------------------
-//           Before               |      After
-// -------------------------------+--------------------------------------------
-//   CPTR = type {i64}            |  CPTR = type {i64}
-//   ..                           |  ...
-//                                |
-//                               (5) %a.new = alloca CPTR
-//   "USE.DEVICE.PTR:CPTR"        |
-//                   (CPTR* %a)   |
-//                                |
-//                                | if (__tgt_is_device_available(...) {
-//                                |   %a.cast = bitcast CPTR* %a to i8**
-//                                |   %a.val = load i8*, i8** %a.cast
-//                                |   ...
-//                             <noop> %a.val.cast = bitcast i8* %a.val to i8*
-//                                |   store i8* %a.val.cast, i8** <a_gep>
-//                                |   ...
-//                                |   __tgt_data_begin(...)
-//                             <noop> %a.gep.cast = bitcast i8** <a_gep>
-//                                |                 to i8**
-//                                |
-//                               (3)  %a.updated = load i8*, i32** %a.gep.cast
-//                               (9)  %a.new.cast = bitcast CPTR* %a.new to i8**
-//                              (10)  store %a.updated, %a.new.cast
-//                                |
-//   call @foo(CPTR* %a)         (4)  call @foo_gpu(CPTR* %a.new)
-//                                |
-//                                |   __tgt_data_end(...)
-//                                | } else {
-//                                |   call @foo(CPTR* %a)
-//                                | }
-//                                |
-// Note that the noop instructions are here for reference. They are elided by
-// IRBuilder.
-#endif // INTEL_CUSTOMIZATION
 CallInst *VPOParoptUtils::genVariantCall(CallInst *BaseCall,
                                          StringRef VariantName,
                                          Value *InteropObj,
@@ -3961,109 +3836,11 @@ CallInst *VPOParoptUtils::genVariantCall(CallInst *BaseCall,
       // we need to update FnArgTypes accordingly.
       FnArgTypes.push_back(Int8PtrTy);
   }
-  CallInst *VariantCall =
-      genCall(M, VariantName, ReturnTy, FnArgs, FnArgTypes, InsertPt, IsTail,
-              IsVarArg, /*AllowMismatchingPointerArgs=*/true,
-              /*EmitErrorOnFnTypeMismatch=*/true); //                   (2), (4)
 
-  // Replace each VariantCall argument that is a load from a HostPtr listed
-  // on the use_device_ptr clause with a load from the corresponding
-  // TgtBufferAddr.
-  if (!W)
-    return VariantCall;
-
-  assert(isa<WRNTargetVariantNode>(W) && "Expected a Target Variant WRN");
-  UseDevicePtrClause &UDPtrClause = W->getUseDevicePtr();
-  if (UDPtrClause.empty())
-    return VariantCall;
-
-  IRBuilder<> VCBuilder(VariantCall);
-  for (UseDevicePtrItem *Item : UDPtrClause.items()) {
-    Value *HostPtr = Item->getOrig();
-    Value *TgtBufferAddr = Item->getNew();
-    bool IsPointerToPointer = Item->getIsPointerToPointer();
-
-    for (Value *Arg : FnArgs) {
-      if (!IsPointerToPointer && HostPtr != Arg &&
-          HostPtr != Arg->stripPointerCasts())
-        continue;
-
-      if (IsPointerToPointer) {
-        LoadInst *Load = dyn_cast<LoadInst>(Arg);
-        if (!Load)
-          // Support cases like:
-          //   %5 = load %struct.S*, %struct.S** %a, align 8
-          //   %6 = bitcast %struct.S* %5 to i8*
-          //   call void @func_offload(i8* %6)
-          //
-          // Note that the host pointer's element type is %struct.S*,
-          // while the argument type is i8*.
-          Load = dyn_cast<LoadInst>(Arg->stripPointerCasts());
-
-        if (!Load)
-          continue;
-
-        if (Load->getPointerOperand() != HostPtr)
-          continue;
-      }
-
-      StringRef OrigName = HostPtr->getName();
-      Value *Buffer =
-          VCBuilder.CreateLoad(TgtBufferAddr, OrigName + ".buffer"); // (1), (3)
-#if INTEL_CUSTOMIZATION
-      if (Item->getIsF90DopeVector() || Item->getIsCptr()) {
-        const DataLayout &DL = M->getDataLayout();
-        Type *OrigElemType = Item->getOrigElemType();
-        Instruction *AllocaInsertPt =
-            VPOParoptUtils::getInsertionPtForAllocas(W, F);
-        unsigned Alignment = DL.getABITypeAlignment(OrigElemType);
-        Value *NewV = genPrivatizationAlloca(
-            OrigElemType, /*NumElements=*/nullptr, MaybeAlign(Alignment),
-            AllocaInsertPt,
-            /*IsTargetSpirv=*/false, OrigName + ".new"); //             (5)
-        if (Item->getIsF90DopeVector()) {
-          VPOUtils::genMemcpy(NewV, HostPtr, DL, Alignment,
-                              &*VCBuilder.GetInsertPoint()); //         (6)
-          auto *Zero = VCBuilder.getInt32(0);
-          auto *Addr0GEP = VCBuilder.CreateInBoundsGEP(
-              NewV, {Zero, Zero}, NewV->getName() + ".addr0"); //       (7)
-          VCBuilder.CreateStore(Buffer, Addr0GEP); //                   (8)
-        } else if (Item->getIsCptr()) {
-          PointerType *Int8PtrPtrTy = VCBuilder.getInt8PtrTy()->getPointerTo();
-          auto *NewVCast = VCBuilder.CreateBitOrPointerCast(
-              NewV, Int8PtrPtrTy, NewV->getName() + ".cast"); //        (9)
-          VCBuilder.CreateStore(Buffer, NewVCast); //                   (10)
-        }
-        Buffer = NewV;
-      }
-#endif // INTEL_CUSTOMIZATION
-
-      // HostPtr       type is:  SomeType** if ptr_to_ptr is present
-      //                         SomeType*  otherwise
-      // Arg           type is:  SomeType*
-      // TgtBufferAddr type is:  void**
-      // Buffer        type is:  void*
-      //
-      // To replace 'Arg' with 'Buffer' in the variant call,
-      // we must cast Buffer from void* to SomeType*
-      // Example (SomeType==float):
-      //    %buffer = load i8*, i8** %tgt.buffer
-      //    %buffer.cast = bitcast i8* %buffer23 to float*
-      //    call void @foo_gpu(..., float* %buffer.cast,... )
-      Type *HostPtrTy = HostPtr->getType();
-      assert(HostPtrTy->isPointerTy() &&
-             "HostPtrTy expected to be pointer type");
-      assert((!IsPointerToPointer ||
-              HostPtrTy->getPointerElementType()->isPointerTy()) &&
-             "HostPtr element type expected to be pointer type");
-      (void)HostPtrTy;
-      Value *BufferCast = VCBuilder.CreateBitCast(Buffer, Arg->getType());
-      BufferCast->setName(OrigName + ".buffer.cast");
-      VariantCall->replaceUsesOfWith(Arg, BufferCast);
-      break;
-    }
-  }
-  return VariantCall;
+  return genCall(M, VariantName, ReturnTy, FnArgs, FnArgTypes, InsertPt, IsTail,
+                 IsVarArg,
+                 /*AllowMismatchingPointerArgs=*/true,
+                 /*EmitErrorOnFnTypeMismatch=*/true);
 }
 
 // Creates a call with no parameters
@@ -5548,9 +5325,9 @@ static void FixEHEscapesAndDeadPredecessors(ArrayRef<BasicBlock *> &BBVec,
   }
 }
 
-Function *VPOParoptUtils::genOutlineFunction(const WRegionNode &W,
-                                             DominatorTree *DT,
-                                             AssumptionCache *AC) {
+Function *VPOParoptUtils::genOutlineFunction(
+    const WRegionNode &W, DominatorTree *DT, AssumptionCache *AC,
+    llvm::Optional<ArrayRef<BasicBlock *>> BBsToExtractIn, std::string Suffix) {
 #if 0
   LLVM_DEBUG(dbgs() << __FUNCTION__ << ": WRN BBSet {\n";
            formatted_raw_ostream OS(dbgs());
@@ -5594,7 +5371,8 @@ Function *VPOParoptUtils::genOutlineFunction(const WRegionNode &W,
   // If a fix was made, the new set of region blocks is copied to FixedBlocks.
   // We avoid mutating the actual region set.
   SmallVector<BasicBlock *, 16> FixedBlocks;
-  auto ExtractArray = makeArrayRef(W.bbset_begin(), W.bbset_end());
+  auto ExtractArray =
+      BBsToExtractIn.getValueOr(makeArrayRef(W.bbset_begin(), W.bbset_end()));
   FixEHEscapesAndDeadPredecessors(ExtractArray, FixedBlocks, DT);
   if (!FixedBlocks.empty())
     ExtractArray = makeArrayRef(FixedBlocks);
@@ -5606,18 +5384,21 @@ Function *VPOParoptUtils::genOutlineFunction(const WRegionNode &W,
                    /* AssumptionCache */ AC,
                    /* AllowVarArgs */ false,
                    /* AllowAlloca */ true,
-                   /* Suffix */ "",
+                   /* Suffix */ Suffix,
                    /* AllowEHTypeID */ true,
                    IsTarget ? &TgtClauseArgs : nullptr);
   CE.setDeclLoc(W.getEntryDirective()->getDebugLoc());
   assert(CE.isEligible() && "Region is not eligible for extraction.");
 
-  // Remove the use of the entry directive in the exit directive, so that it
-  // isn't considered a live-out, in case the end directive is unreachable,
-  // and won't be in the outlined function.
-  // "llvm::ConstantTokenNone::get(C)" isn't supported by -debugify
-  W.getEntryDirective()->replaceAllUsesWith(llvm::UndefValue::get(
-      Type::getTokenTy(W.getEntryDirective()->getModule()->getContext())));
+  if (!BBsToExtractIn ||
+      (llvm::is_contained(BBsToExtractIn.getValue(), W.getExitBBlock()) !=
+       llvm::is_contained(BBsToExtractIn.getValue(), W.getEntryBBlock())))
+    // Remove the use of the entry directive in the exit directive, so that it
+    // isn't considered a live-out, in case the end directive is unreachable,
+    // and won't be in the outlined function.
+    // "llvm::ConstantTokenNone::get(C)" isn't supported by -debugify
+    W.getEntryDirective()->replaceAllUsesWith(llvm::UndefValue::get(
+        Type::getTokenTy(W.getEntryDirective()->getModule()->getContext())));
 
   CodeExtractorAnalysisCache CEAC(*W.getEntryBBlock()->getParent());
   auto *NewFunction = CE.extractCodeRegion(CEAC, /* hoistAlloca */ true);

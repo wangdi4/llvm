@@ -13,8 +13,13 @@
 ; }
 
 ; CHECK: call void @__tgt_target_data_begin({{.+}})
-; CHECK-DAG: call void @foo_gpu({{.+}})
+; CHECK: call void @[[VARIANT_WRAPPER:[^ ]*foo_gpu.wrapper[^ (]*]](float** %host_ptr.new)
 ; CHECK: call void @__tgt_target_data_end({{.+}})
+
+; CHECK: define internal void @[[VARIANT_WRAPPER]](float** [[HOST_PTR:%[^, )]+]])
+; CHECK: [[LOAD:%[^ ]+]] = load float*, float** [[HOST_PTR]]
+; CHECK: [[ARG:%[^ ]+]] = bitcast float* [[LOAD]] to i8*
+; CHECK: call void @foo_gpu(i8* [[ARG]])
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"

@@ -26,18 +26,31 @@
 ; tgt_target_data_begin call. The map-type should be TGT_PARAM | TGT_RETURN_PARAM (96).
 
 ; CHECK: @.offload_maptypes = private unnamed_addr constant [2 x i64] [i64 96, i64 96]
+
+; Check for the maps used to get device pointers for a and b
+; CHECK: [[A:%[^ ]+]] = bitcast i8* bitcast (float* @a_cpu to i8*) to float*
+; CHECK: [[A_CAST:%[^ ]+]] = bitcast float* [[A]] to i8*
 ; CHECK: [[A_GEP:%[^ ]+]] = getelementptr inbounds [2 x i8*], [2 x i8*]* %.offload_baseptrs, i32 0, i32 0
-; CHECK: store i8* bitcast (float* @a_cpu to i8*), i8** [[A_GEP]], align 8
+; CHECK: store i8* [[A_CAST]], i8** [[A_GEP]], align 8
 ; CHECK: [[B_CAST:%[^ ]+]] = bitcast float* %b_cpu to i8*
 ; CHECK: [[B_GEP:%[^ ]+]] = getelementptr inbounds [2 x i8*], [2 x i8*]* %.offload_baseptrs, i32 0, i32 1
 ; CHECK: store i8* [[B_CAST]], i8** [[B_GEP]], align 8
 ; CHECK: call void @__tgt_target_data_begin({{.*}})
+
+; Check that updated values for a and b are passed to the outlined region
+; created around the variant function
 ; CHECK: [[A_GEP_CAST:%[^ ]+]] = bitcast i8** [[A_GEP]] to float**
-; CHECK: [[B_GEP_CAST:%[^ ]+]] = bitcast i8** [[B_GEP]] to float**
 ; CHECK: [[A_UPDATED:%[^ ]+]] = load float*, float** [[A_GEP_CAST]], align 8
+; CHECK: [[B_GEP_CAST:%[^ ]+]] = bitcast i8** [[B_GEP]] to float**
 ; CHECK: [[B_UPDATED:%[^ ]+]] = load float*, float** [[B_GEP_CAST]], align 8
-; CHECK: call i32 @foo_gpu(float* [[A_UPDATED]], float* [[B_UPDATED]], i32 77777)
+; CHECK: call void @[[VARIANT_WRAPPER:[^ ]*foo_gpu.wrapper[^ (]*]](float* [[A_UPDATED]], float* [[B_UPDATED]], i32* %rrr)
 ; CHECK: call void @__tgt_target_data_end({{.*}})
+
+; Check that variant function is called in the variant wrapper.
+; CHECK-DAG: define internal void @[[VARIANT_WRAPPER]](float* [[A1:%a_cpu[^, ]*]], float* [[B1:%b_cpu[^ ,]*]], i32* %rrr)
+; CHECK: [[RET_VAL:%[^ ]+]] = call i32 @foo_gpu(float* [[A1]], float* [[B1]], i32 77777)
+; CHECK: store i32 [[RET_VAL]], i32* %rrr
+
 
 source_filename = "target_variant_dispatch_usedeviceptr_intfunc_floatStar.c"
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"

@@ -30,42 +30,45 @@
 ;  call void @__tgt_target_data_begin(i64 %{{.*}}, i32 2, i8** %10, i8** %11, i64* getelementptr inbounds ([2 x i64], [2 x i64]* @.offload_sizes, i32 0, i32 0), i64* getelementptr inbounds ([2 x i64], [2 x i64]* @.offload_maptypes, i32 0, i32 0))
 ;  %a_cpu.buffer.cast = load i8*, i8** %6, align 8
 ;  %b_cpu.buffer.cast = load i8*, i8** %8, align 8
-;  %variant = call i32 @foo_gpu(i8* %a_cpu.buffer.cast, i8* %b_cpu.buffer.cast, i32 77777)
+;  %variant = call i32 @main.foo_gpu.wrapper(i8* %a_cpu.buffer.cast, i8* %b_cpu.buffer.cast, i32 77777)
 ;  call void @__tgt_target_data_end(i64 %{{.*}}, i32 2, i8** %10, i8** %11, i64* getelementptr inbounds ([2 x i64], [2 x i64]* @.offload_sizes, i32 0, i32 0), i64* getelementptr inbounds ([2 x i64], [2 x i64]* @.offload_maptypes, i32 0, i32 0))
 ;  br label %if.end
 ;
 ;base.call:                                        ; preds = %DIR.OMP.TARGET.VARIANT.DISPATCH.2
-;  %call = call i32 @foo(i8* %4, i8* %5, i32 77777) #4
+;  %4 = load i8*, i8** %a_cpu, align 8
+;  %5 = load i8*, i8** %b_cpu, align 8
+;  %call.clone = call i32 @foo(i8* %4, i8* %5, i32 77777)
+;  store i32 %call.clone, i32* %rrr, align 4
 ;  br label %if.end
 ;
-;if.end:                                           ; preds = %base.call, %variant.call
-;  %callphi = phi i32 [ %variant, %variant.call ], [ %call, %base.call ]
-;  store i32 %callphi, i32* %rrr, align 4, !tbaa !8
-;  br label %DIR.OMP.END.TARGET.VARIANT.DISPATCH.3
-;
-;DIR.OMP.END.TARGET.VARIANT.DISPATCH.3:            ; preds = %if.end
-;  br label %DIR.OMP.END.TARGET.VARIANT.DISPATCH.4
 ;....
+; define internal void @main.foo_gpu.wrapper(i8** %a_cpu, i8** %b_cpu, i32* %rrr) {
+;   %0 = load i8*, i8** %a_cpu, align 8
+;   %1 = load i8*, i8** %b_cpu, align 8
+;   %variant = call i32 @foo_gpu(i8* %0, i8* %1, i32 77777)
+;   store i32 %variant, i32* %rrr, align 4
+; }
 
 ;Is device ready?
 ; CHECK: call i32 @__tgt_is_device_available(i64 %{{.*}}
 ; CHECK-NEXT: [[DISPATCH:%[a-zA-Z._0-9]+]] = icmp ne
-; CHECK-NEXT: br i1 [[DISPATCH]], label %[[VARIANTLBL:[a-zA-Z._0-9]+]], label %[[BASELBL:[a-zA-Z._0-9]+]]
+; CHECK: br i1 [[DISPATCH]], label %[[VARIANTLBL:[a-zA-Z._0-9]+]], label %[[BASELBL:[a-zA-Z._0-9]+]]
 ;
 ;Variant Call
 ; CHECK: [[VARIANTLBL]]:
 ; CHECK: call void @__tgt_target_data_begin({{.+}})
-; CHECK-DAG: [[ARG1:%[a-zA-Z._0-9]+]] = load i8*, i8**
-; CHECK-DAG: [[ARG2:%[a-zA-Z._0-9]+]] = load i8*, i8**
-; CHECK: [[VARIANT:%[a-zA-Z._0-9]+]] = call i32 @foo_gpu(i8* [[ARG1]], i8* [[ARG2]]
+; CHECK: call void @[[VARIANT_WRAPPER:[^ ]*foo_gpu.wrapper[^ (]*]](i8** %a_cpu.new, i8** %b_cpu.new, i32* %rrr)
 ; CHECK: call void @__tgt_target_data_end({{.+}})
-;
+
 ;Base Call:
 ; CHECK: [[BASELBL]]:
 ; CHECK: [[BASE:%[a-zA-Z._0-9]+]] = call i32 @foo(i8*
 ;
-;Check phi:
-; CHECK: phi i32 [ [[VARIANT]], %[[VARIANTLBL]] ], [ [[BASE]], %[[BASELBL]] ]
+;Variant Wrapper:
+; CHECK-DAG: define internal void @[[VARIANT_WRAPPER]](i8** [[A:%[^ ,]+]], i8** [[B:%[^ ]+]], i32* %rrr)
+; CHECK-DAG: [[ARG1:%[a-zA-Z._0-9]+]] = load i8*, i8** [[A]]
+; CHECK-DAG: [[ARG2:%[a-zA-Z._0-9]+]] = load i8*, i8** [[B]]
+; CHECK: [[VARIANT:%[a-zA-Z._0-9]+]] = call i32 @foo_gpu(i8* [[ARG1]], i8* [[ARG2]]
 
 ; ModuleID = 'target_variant_dispatch_usedeviceptr_intfunc.c'
 source_filename = "target_variant_dispatch_usedeviceptr_intfunc.c"

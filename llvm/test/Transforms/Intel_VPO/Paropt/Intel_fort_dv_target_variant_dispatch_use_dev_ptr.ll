@@ -54,8 +54,9 @@
 ; CHECK: @.offload_maptypes = private unnamed_addr constant [1 x i64] [i64 96]
 
 ; Check that the return-param map is created for the addr0 pointer of the dope vector.
-; CHECK: variant.call:
-; CHECK: [[ADDR0:%[^ ]+]] = load i32*, i32** getelementptr inbounds (%"QNCA_a0$i32*$rank1$.1", %"QNCA_a0$i32*$rank1$.1"* @"main_$Y", i32 0, i32 0)
+; CHECK: [[Y_CAST:%[^ ]+]] = bitcast i8* bitcast (%"QNCA_a0$i32*$rank1$.1"* @"main_$Y" to i8*) to %"QNCA_a0$i32*$rank1$.1"*
+; CHECK: [[ADDR0_GEP:%[^ ]+]] = getelementptr inbounds %"QNCA_a0$i32*$rank1$.1", %"QNCA_a0$i32*$rank1$.1"* %"main_$Y", i32 0, i32 0
+; CHECK: [[ADDR0:%[^ ]+]] = load i32*, i32** %"main_$Y.addr0", align 8
 ; CHECK: [[ADDR0_CAST:%[^ ]+]] = bitcast i32* [[ADDR0]] to i8*
 ; CHECK: [[MAP_BASEPTR_STRUCT_GEP:%[^ ]+]] = getelementptr inbounds [1 x i8*], [1 x i8*]* %.offload_baseptrs, i32 0, i32 0
 ; CHECK: store i8* [[ADDR0_CAST]], i8** [[MAP_BASEPTR_STRUCT_GEP]], align 8
@@ -66,14 +67,18 @@
 ; CHECK: [[DEV_PTR_GEP_CAST:%[^ ]+]] = bitcast i8** [[MAP_BASEPTR_STRUCT_GEP]] to i32**
 ; CHECK: [[DEV_PTR:%[^ ]+]] = load i32*, i32** [[DEV_PTR_GEP_CAST]], align 8
 ; CHECK: [[NEW_DV_CAST:%[^ ]+]] = bitcast %"QNCA_a0$i32*$rank1$.1"* [[NEW_DV:%[^, ]+]] to i8*
-; CHECK: call void @llvm.memcpy.p0i8.p0i8.i64(i8* align 8 [[NEW_DV_CAST]], i8* align 8 bitcast (%"QNCA_a0$i32*$rank1$.1"* @"main_$Y" to i8*), i64 72, i1 false)
+; CHECK: [[ORIG_DV_CAST:%[^ ]+]] = bitcast %"QNCA_a0$i32*$rank1$.1"* [[Y_CAST]] to i8*
+; CHECK: call void @llvm.memcpy.p0i8.p0i8.i64(i8* align 8 [[NEW_DV_CAST]], i8* align 8 [[ORIG_DV_CAST]], i64 72, i1 false)
 ; CHECK: [[NEW_DV_ADDR0_GEP:%[^ ]+]] = getelementptr inbounds %"QNCA_a0$i32*$rank1$.1", %"QNCA_a0$i32*$rank1$.1"* [[NEW_DV]], i32 0, i32 0
 ; CHECK: store i32* [[DEV_PTR]], i32** [[NEW_DV_ADDR0_GEP]], align 8
-
-; CHECK: [[NEW_DV_CAST1:%[^ ]+]] = bitcast %"QNCA_a0$i32*$rank1$.1"* [[NEW_DV]] to %"QNCA_a0$i32*$rank1$"*
-; CHECK: call void bitcast (void (%"QNCA_a0$i32*$rank1$.0"*, %"ISO_C_BINDING$.btC_PTR"*)* @submodule_mp_work_gpu_ to void (%"QNCA_a0$i32*$rank1$"*, i8*)*)(%"QNCA_a0$i32*$rank1$"* [[NEW_DV_CAST1]], i8* %{{[^ ,]+}})
-
+; CHECK: call void @[[VARIANT_WRAPPER:[^ ]*work_gpu_.wrapper[^ (]*]](%"QNCA_a0$i32*$rank1$.1"* %"main_$Y.new")
 ; CHECK: call void @__tgt_target_data_end({{.*}})
+
+; Check that variant function is called in the variant wrapper.
+; CHECK: define internal void @[[VARIANT_WRAPPER]](%"QNCA_a0$i32*$rank1$.1"* [[Y:%[^ ,(]+]])
+; CHECK: [[Y_CAST:%[^ ]+]] = bitcast %"QNCA_a0$i32*$rank1$.1"* [[Y]] to %"QNCA_a0$i32*$rank1$"*
+; CHECK: call void bitcast (void (%"QNCA_a0$i32*$rank1$.0"*, %"ISO_C_BINDING$.btC_PTR"*)* @submodule_mp_work_gpu_ to void (%"QNCA_a0$i32*$rank1$"*, i8*)*)(%"QNCA_a0$i32*$rank1$"* [[Y_CAST]], i8* %{{[^ ,]+}})
+
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"

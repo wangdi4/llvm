@@ -2001,6 +2001,9 @@ bool WRegionNode::needsOutlining() const {
   case WRNTeams:
   case WRNTarget:
   case WRNTargetData:
+  // NOTE: WRNTargetVariant was intentionally excluded from this list as
+  // it involves multi-versioning of the region, and only the part
+  // guarded by the (is_device_available()) is outlined.
     return true;
   }
   return false;
