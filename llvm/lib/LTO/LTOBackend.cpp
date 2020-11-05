@@ -380,8 +380,7 @@ bool opt(const Config &Conf, TargetMachine *TM, unsigned Task, Module &Mod,
           dbgs() << "Post-(Thin)LTO merge bitcode embedding was requested, but "
                     "command line arguments are not available");
     llvm::EmbedBitcodeInModule(Mod, llvm::MemoryBufferRef(),
-                               /*EmbedBitcode*/ true,
-                               /*EmbedMarker*/ false,
+                               /*EmbedBitcode*/ true, /*EmbedCmdline*/ true,
                                /*Cmdline*/ CmdArgs);
   }
 #endif // !INTEL_PRODUCT_RELEASE
@@ -407,7 +406,7 @@ void codegen(const Config &Conf, TargetMachine *TM, AddStreamFn AddStream,
   if (::EmbedBitcode == LTOBitcodeEmbedding::EmbedOptimized) // INTEL
     llvm::EmbedBitcodeInModule(Mod, llvm::MemoryBufferRef(),
                                /*EmbedBitcode*/ true,
-                               /*EmbedMarker*/ false,
+                               /*EmbedCmdline*/ false,
                                /*CmdArgs*/ std::vector<uint8_t>());
 #endif // !INTEL_PRODUCT_RELEASE
 
