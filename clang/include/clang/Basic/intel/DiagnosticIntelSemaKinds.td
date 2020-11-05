@@ -102,6 +102,9 @@ def warn_prefetch_hint_out_of_range : Warning<
 def warn_prefetch_distance_greater_than_zero : Warning<
   "distance value must be greater than zero">,
   InGroup<Pragmas>;
+def warn_intel_compat_feature : Warning<
+  "Intel compatibility feature [%0] %select{used|possible}1">,
+  InGroup<Pragmas>;
 }
 
 def warn_ovl_diff_return_type : Warning<

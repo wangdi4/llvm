@@ -5086,6 +5086,10 @@ def header_base_path : JoinedOrSeparate<["-"], "header-base-path">,
 // CMPLRLLVM-9854: X87 default precision options
 def mx87_precision : Joined<["-"], "mx87-precision=">,
   HelpText<"Initialize X87 floating point precision to single, double or double extended">;
+def fintel_compatibility_used : Flag<["-"], "fintel-compatibility-used">,
+  HelpText<"Emit a diagnostic when an Intel compatibility feature is enabled and is used">;
+def fintel_compatibility_unused : Flag<["-"], "fintel-compatibility-unused">,
+  HelpText<"Emit a diagnostic when an Intel compatibility feature is disabled and could have been used">;
 // endif INTEL_CUSTOMIZATION
 def fdefault_calling_conv_EQ : Joined<["-"], "fdefault-calling-conv=">,
   HelpText<"Set default calling convention">, Values<"cdecl,fastcall,stdcall,vectorcall,regcall">;
