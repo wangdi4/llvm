@@ -1434,6 +1434,9 @@ bool VPOParoptTransform::paroptTransforms() {
     assignParallelDimensions();
   }
 
+  if ((Mode & OmpPar) && (Mode & ParTrans))
+    RoutineChanged |= addRangeMetadataToOmpCalls();
+
   Type *Int32Ty = Type::getInt32Ty(C);
 
   if (NeedTID)
@@ -11567,5 +11570,131 @@ bool VPOParoptTransform::fixupKnownNDRange(WRegionNode *W) const {
   WTarget->resetUncollapsedNDRangeDimensions();
 
   return true;
+}
+
+bool VPOParoptTransform::addRangeMetadataToOmpCalls() const {
+  // Set of function's blocks outside of any work region. Initially it contains
+  // all function's block, but we'll be removing work region's blocks from it
+  // while processing them.
+  SmallPtrSet<BasicBlock *, 8u> OrphanBlocks;
+  for (BasicBlock &BB : *F)
+    OrphanBlocks.insert(&BB);
+
+  auto GetConstantValue = [](Value *V) -> Optional<APInt> {
+    if (auto *CI = dyn_cast_or_null<ConstantInt>(V))
+      return CI->getValue();
+    return None;
+  };
+
+  auto GetParentValue = [](WRegionNode *W,
+                           SmallDenseMap<WRegionNode *, Optional<APInt>> &Map)
+      -> Optional<APInt> {
+    if (WRegionNode *PW = W->getParent())
+      return Map[PW];
+    return None;
+  };
+
+  // Propagate number of teams and threads from outer regions to inner.
+  SmallDenseMap<WRegionNode *, Optional<APInt>> W2NumTeams;
+  SmallDenseMap<WRegionNode *, Optional<APInt>> W2NumThreads;
+  for (WRegionNode *W : reverse(WRegionList)) {
+    W->populateBBSet();
+
+    // Update set of blocks which do not belong to any work region.
+    for (BasicBlock *BB : W->blocks())
+      OrphanBlocks.erase(BB);
+
+    // The number of teams and threads can be changed by teams, parallel and
+    // target constructs. Other work regions inherit values from the parent
+    // region.
+    if (W->getIsTeams()) {
+      W2NumTeams[W] = GetConstantValue(W->getNumTeams());
+      W2NumThreads[W] = GetConstantValue(W->getThreadLimit());
+      continue;
+    }
+    if (W->getIsPar()) {
+      W2NumTeams[W] = GetParentValue(W, W2NumTeams);
+      W2NumThreads[W] = GetConstantValue(W->getNumThreads());
+      continue;
+    }
+    if (W->getIsTarget()) {
+      W2NumTeams[W] = None;
+      W2NumThreads[W] = None;
+      continue;
+    }
+    W2NumTeams[W] = GetParentValue(W, W2NumTeams);
+    W2NumThreads[W] = GetParentValue(W, W2NumThreads);
+  }
+
+  // Adds [Lo, Hi) range metadata to the given call instruction. If upper
+  // bound is not specified then max positive value of the call's result type
+  // is used.
+  auto AddRangeMD = [](CallBase *Call, int64_t Lo, Optional<APInt> Hi) {
+    auto *Ty = cast<IntegerType>(Call->getType());
+    APInt Max = Hi ? *Hi : APInt::getSignedMaxValue(Ty->getBitWidth());
+    MDNode *RangeMD =
+        MDBuilder(Call->getContext())
+            .createRange(ConstantInt::get(Ty, Lo), ConstantInt::get(Ty, Max));
+    Call->setMetadata(LLVMContext::MD_range, RangeMD);
+  };
+
+  // Annotate OpenMP API calls in the given basic block using provided number of
+  // teams and threads in the block.
+  auto AnnotateCalls = [this, &AddRangeMD](BasicBlock *BB,
+                                           Optional<APInt> NumTeams,
+                                           Optional<APInt> NumThreads) {
+    bool Changed = false;
+    for (Instruction &I : *BB) {
+      auto *Call = dyn_cast<CallBase>(&I);
+      if (!Call || Call->getMetadata(LLVMContext::MD_range))
+        continue;
+
+      Function *Callee = Call->getCalledFunction();
+      if (!Callee)
+        continue;
+
+      LibFunc TheLibFunc;
+      if (!TLI->getLibFunc(*Callee, TheLibFunc) || !TLI->has(TheLibFunc))
+        continue;
+
+      switch (TheLibFunc) {
+      case LibFunc_omp_get_num_teams:
+        AddRangeMD(Call, 1, NumTeams ? *NumTeams + 1u : Optional<APInt>{None});
+        Changed = true;
+        break;
+      case LibFunc_omp_get_team_num:
+        AddRangeMD(Call, 0, NumTeams);
+        Changed = true;
+        break;
+      case LibFunc_omp_get_num_threads:
+        AddRangeMD(Call, 1,
+                   NumThreads ? *NumThreads + 1u : Optional<APInt>{None});
+        Changed = true;
+        break;
+      case LibFunc_omp_get_thread_num:
+        AddRangeMD(Call, 0, NumThreads);
+        Changed = true;
+        break;
+      default:
+        break;
+      }
+    }
+    return Changed;
+  };
+
+  // Walk work regions inner to outer and annotate OpenMP calls in work region's
+  // blocks.
+  bool Changed = false;
+  for (WRegionNode *W : WRegionList) {
+    for (BasicBlock *BB : W->blocks())
+      Changed |= AnnotateCalls(BB, W2NumTeams[W], W2NumThreads[W]);
+    W->resetBBSet();
+  }
+
+  // And finally annotate calls in function's blocks outside of any work region.
+  for (BasicBlock *BB : OrphanBlocks)
+    Changed |= AnnotateCalls(BB, None, None);
+
+  return Changed;
 }
 #endif // INTEL_COLLAB
