@@ -56,12 +56,16 @@ public:
   InlineReportCallSite(const InlineReportCallSite &) = delete;
   void operator=(const InlineReportCallSite &) = delete;
 
+  // \brief Return a pointer to a copy of Base with an empty Children vector
+  InlineReportCallSite *copyBase(CallBase *CB);
   // \brief Return a clone of *this, but do not copy its children, and
   // use the IIMap to get a new value for the 'Call'.
   InlineReportCallSite *cloneBase(const ValueToValueMapTy &IIMap,
                                   CallBase *ActiveInlineCallBase);
 
   InlineReportFunction *getIRCallee() const { return IRCallee; }
+  void setIRCallee(InlineReportFunction *IRF) { IRCallee = IRF; }
+
   InlineReportTypes::InlineReason getReason() const { return Reason; }
   void setReason(InlineReportTypes::InlineReason MyReason) {
     Reason = MyReason;
@@ -76,7 +80,7 @@ public:
   /// \brief Return the vector of InlineReportCallSites which represent
   /// the calls made from the section of inlined code represented by
   /// this InlineReportCallSite.
-  const InlineReportCallSiteVector &getChildren() { return Children; }
+  InlineReportCallSiteVector &getChildren() { return Children; }
 
   /// \brief Inlining is inhibited if the inline cost is greater than
   /// the threshold.
@@ -120,6 +124,23 @@ public:
   /// calls into the map 'Lmap'.
   void loadCallsToMap(std::map<CallBase *, bool> &LMap);
 
+  /// \brief Clone the callsites recursively in and under 'IRCSV' using 'VMap'
+  /// and place the clones under 'NewIRCS'.
+  void cloneCallSites(InlineReportCallSiteVector &IRCSV,
+                      ValueToValueMapTy &VMap, InlineReportCallSite *NewIRCS);
+
+  /// \brief Move the callsites of 'OldIRF' to 'NewIRF'.
+  void move(InlineReportFunction *OldIRF, InlineReportFunction *NewIRF);
+
+  /// \brief Move the callsites of 'OldIRCS' to 'NewIRCS'.
+  void move(InlineReportCallSite *OldIRCS, InlineReportCallSite *NewIRCS);
+
+  /// \brief Move the callsite recursively in and under 'IRCSV' and attach
+  /// them to 'NewIRCS' if they appear in 'OutFCBSet'.
+  void moveOutlinedChildren(InlineReportCallSiteVector &IRCSV,
+                            SmallPtrSetImpl<InlineReportCallSite*> &OutFCBSet,
+                            InlineReportCallSite *NewIRCS);
+
 private:
   InlineReportFunction *IRCallee;
   bool IsInlined;
@@ -145,8 +166,10 @@ private:
   void printCostAndThreshold(unsigned Level);
   void printOuterCostAndThreshold(void);
   void printCalleeNameModuleLineCol(unsigned Level);
-  // \brief Return a pointer to a copy of Base with an empty Children vector
-  InlineReportCallSite *copyBase(CallBase *CB);
+
+  /// Search 'OldIRCSV' for 'this' and if it is found, move it to 'NewIRCSV'.
+  void moveCalls(InlineReportCallSiteVector &OldIRCSV,
+                 InlineReportCallSiteVector &NewIRCSV);
 };
 
 ///
@@ -164,7 +187,7 @@ public:
   /// \brief A vector of InlineReportCallSites representing the top-level
   /// call sites in a function (i.e. those which appear in the source code
   /// of the function).
-  const InlineReportCallSiteVector &getCallSites() { return CallSites; }
+  InlineReportCallSiteVector &getCallSites() { return CallSites; }
 
   /// \brief Add an InlineReportCallSite to the list of top-level calls for
   /// this function.
@@ -225,6 +248,15 @@ public:
 
   void print(unsigned Level) const;
 
+  /// \brief Populate 'OutFIRCSSet' with the InlineReportCallSites corresponding
+  /// to the CallBases in 'OutFCBSet'
+  void findOutlinedIRCSes(SmallPtrSetImpl<CallBase*> &OutFCBSet,
+                          SmallPtrSetImpl<InlineReportCallSite*> &OutFIRCSSet);
+
+  /// \brief Move the InlineReportCallSites 'OutFCBSet' under 'NewIRF'.
+  void moveOutlinedCallSites(InlineReportFunction *NewIRF,
+                             SmallPtrSetImpl<InlineReportCallSite*> &OutFCBSet);
+
 private:
   bool IsDead;
   bool IsCurrent;
@@ -248,19 +280,22 @@ class InlineReport {
 public:
   explicit InlineReport(unsigned MyLevel)
       : Level(MyLevel), ActiveInlineCallBase(nullptr),
-        ActiveCallee(nullptr), ActiveIRCS(nullptr), M(nullptr) {};
+        ActiveCallee(nullptr), ActiveIRCS(nullptr), ActiveInliner(nullptr),
+        ActiveInlinerIsAlwaysInline(false), IsAlreadyPrinted(false),
+        M(nullptr) {};
   virtual ~InlineReport(void);
 
   // \brief Indicate that we have begun inlining functions in the current
   // SCC of the CG.
-  void beginSCC(CallGraph &CG, CallGraphSCC &SCC);
-  void beginSCC(LazyCallGraph &CG, LazyCallGraph::SCC &SCC);
-  void beginFunction(Function *F);
+  void beginSCC(CallGraphSCC &SCC, void *Inliner, bool IsAlwaysInline);
+  void beginSCC(LazyCallGraph::SCC &SCC, void *Inliner, bool IsAlwaysInline);
 
   // \brief Indicate that we are done inlining functions in the current SCC.
   void endSCC();
 
   void beginUpdate(CallBase *Call) {
+    if (!isClassicIREnabled())
+      return;
     ActiveCallee = Call->getCalledFunction();
     // New call sites can be added from inlining even if they are not a
     // cloned from the inlined callee.
@@ -271,6 +306,8 @@ public:
   }
 
   void endUpdate() {
+    if (!isClassicIREnabled())
+      return;
     ActiveCallee = nullptr;
     ActiveIRCS = nullptr;
     ActiveInlineCallBase = nullptr;
@@ -297,6 +334,13 @@ public:
   /// 'IsAlwaysInline' is 'true' if this is a report from the always inliner.
   void print(bool IsAlwaysInline) const;
 
+  /// Test if the current inline report has been printed, and if not, print it.
+  void testAndPrint(void *Inliner, bool IsAlwaysInline);
+
+  /// If a new 'Inliner' has been invoked, dump the inlining report for the
+  /// previous inliner and update 'IsAlwaysInline' for the new one.
+  void printIfNewInliner(void *Inliner, bool IsAlwaysInline);
+
   /// \brief Check if report has data
   bool isEmpty() { return IRFunctionMap.empty(); }
 
@@ -321,9 +365,29 @@ public:
   void replaceFunctionWithFunction(Function *OldFunction,
                                    Function *NewFunction);
 
+  /// Clone 'OldFunction' into 'New Function', using 'VMap' to get
+  /// the mapping from old to new callsites.
+  void cloneFunction(Function *OldFunction, Function *NewFunction,
+                     ValueToValueMapTy &VMap);
+
+  /// Replace all uses of 'OldFunction' with 'NewFunction' in the
+  /// inlining report.
+  void replaceAllUsesWith(Function *OldFunction, Function *NewFunction);
+
+  /// Ensure that 'F' and all Functions that call it directly are in the
+  /// inlining report. These are the Functions that will participate in
+  /// the partial inlining.
+  void initFunctionForPartialInlining(Function *F);
+
+  /// Record that outling of 'OldF' (original function) into 'OutF'
+  /// (extracted or splinter function). 'OldF' calls 'OutF' via 'OutCB'.
+  void doOutlining(Function *OldF, Function *OutF, CallBase *OutCB);
+
   /// Add a pair of old and new call sites.  The 'NewCall' is a clone of
   /// the 'OldCall' produced by InlineFunction().
   void addActiveCallSitePair(Value *OldCall, Value *NewCall) {
+    if (!isClassicIREnabled())
+      return;
     ActiveOriginalCalls.push_back(OldCall);
     ActiveInlinedCalls.push_back(NewCall);
     addCallback(NewCall);
@@ -333,6 +397,8 @@ public:
   /// This needs to happen if we manually replace an active inlined
   /// call during InlineFunction().
   void updateActiveCallSiteTarget(Value *OldCall, Value *NewCall) {
+    if (!isClassicIREnabled())
+      return;
     for (unsigned I = 0; I < ActiveInlinedCalls.size(); ++I)
       if (ActiveInlinedCalls[I] == OldCall) {
         ActiveInlinedCalls[I] = NewCall;
@@ -344,6 +410,8 @@ public:
   // Indicate that the CallSite whose CallBase is 'CB' has been
   // eliminated as dead code.
   void removeCallSiteReference(CallBase &CB) {
+    if (!isClassicIREnabled())
+      return;
     if (ActiveInlineCallBase != &CB) {
       auto MapIt = IRCallBaseCallSiteMap.find(&CB);
       if (MapIt != IRCallBaseCallSiteMap.end()) {
@@ -361,6 +429,8 @@ public:
   // Indicate that the Function 'F' has been eliminated as a dead static
   // function.
   void removeFunctionReference(Function &F) {
+    if (!isClassicIREnabled())
+      return;
     auto MapIt = IRFunctionMap.find(&F);
     if (MapIt != IRFunctionMap.end()) {
       InlineReportFunction *IRF = MapIt->second;
@@ -369,6 +439,13 @@ public:
       IRFunctionMap.erase(MapIt);
       IRDeadFunctionVector.push_back(IRF);
     }
+  }
+
+  // Create or update the exiting representation of 'F'.
+  void initFunction(Function *F) {
+    if (!isClassicIREnabled())
+      return;
+    addFunction(F, true /*MakeNewCurrent */);
   }
 
 private:
@@ -384,6 +461,15 @@ private:
 
   // \brief The InlineReportCallSite* of the CallSite currently being inlined
   InlineReportCallSite *ActiveIRCS;
+
+  // Pointer to the current inliner. Used to tell when it changes.
+  void *ActiveInliner;
+
+  // 'true' if the current inliner is AlwaysInline.
+  bool ActiveInlinerIsAlwaysInline;
+
+  // 'true' if the current inline report is already printed.
+  bool IsAlreadyPrinted;
 
   /// InlineFunction() fills this in with callsites that were cloned from
   /// the callee.  This is used only for inline report.
@@ -406,11 +492,21 @@ private:
   /// been eliminated by dead static function elimination
   InlineReportFunctionVector IRDeadFunctionVector;
 
+  /// Ensure that a current version of 'F' is in the inlining report.
+  void beginFunction(Function *F);
+
   /// \brief Clone the vector of InlineReportCallSites for NewCallSite
   /// using the mapping of old calls to new calls IIMap
-  void cloneChildren(const InlineReportCallSiteVector &OldCallSiteVector,
+  void cloneChildren(InlineReportCallSiteVector &OldCallSiteVector,
                      InlineReportCallSite *NewCallSite,
                      ValueToValueMapTy &IIMap);
+
+  /// Clone the call sites recursively in and under 'IRCSV' within
+  /// 'OldIRCS' using 'VMap', placing them under 'NewIRCS'.
+  void cloneCallSites(InlineReportCallSiteVector &IRCSV,
+                      ValueToValueMapTy &VMap,
+                      InlineReportCallSite *OldIRCS,
+                      InlineReportCallSite *NewIRCS);
 
   ///
   /// \brief CallbackVM for Instructions and Functions in the InlineReport
@@ -442,7 +538,8 @@ private:
   SmallVector<InlineReportCallback *, 16> IRCallbackVector;
 
   // \brief Create an InlineReportFunction to represent F
-  InlineReportFunction *addFunction(Function *F);
+  // If 'MakeNewCurrent', make the newly created InlineReportFunction current.
+  InlineReportFunction *addFunction(Function *F, bool MakeNewCurrent = false);
 
   // \brief Create an InlineReportCallSite to represent Call
   InlineReportCallSite *addCallSite(CallBase *Call);
@@ -477,6 +574,12 @@ private:
   }
 
   InlineReportCallSite *getCallSite(CallBase *Call);
+
+  // Create a new InlineReportCallSite which corresponds to the 'VMap'ped
+  // version of 'IRCS', insert it into the 'IRCallBaseCallSiteMap', and
+  // create a callback for it.
+  InlineReportCallSite *copyAndSetup(InlineReportCallSite *IRCS,
+                                     ValueToValueMapTy &VMap);
 };
 
 /// Get the single, active classic inlining report.

@@ -1,5 +1,5 @@
 ; Inline report
-; RUN: opt -wholeprogramanalysis -whole-program-assume-read -instcombine -inline -lto-inline-cost -inline-report=7 -forced-inline-opt-level=3  -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 < %s -S 2>&1 |FileCheck %s --check-prefixes=CHECK,CHECK-AFTER
+; RUN: opt -wholeprogramanalysis -whole-program-assume-read -instcombine -inline -lto-inline-cost -inline-report=7 -forced-inline-opt-level=3  -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 < %s -S 2>&1 |FileCheck %s --check-prefixes=CHECK,CHECK-BEFORE
 ; RUN: opt -passes='require<wholeprogram>,function(instcombine),cgscc(inline)' -whole-program-assume-read -lto-inline-cost -inline-report=7 -forced-inline-opt-level=3  -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 < %s -S 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-BEFORE
 ; Inline report via metadata
 ; RUN: opt -instcombine -inlinereportsetup -inline-report=0x86 < %s -S | opt -wholeprogramanalysis -whole-program-assume-read -inline -lto-inline-cost -inline-report=0x86 -forced-inline-opt-level=3  -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -S | opt -inlinereportemitter -inline-report=0x86 -S 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-AFTER

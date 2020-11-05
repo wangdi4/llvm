@@ -467,6 +467,7 @@ inlineCallsImpl(CallGraphSCC &SCC, CallGraph &CG,
                 ImportedFunctionsInliningStatistics &ImportedFunctionsStats,
                 InliningLoopInfoCache *ILIC,  // INTEL
                 WholeProgramInfo *WPI,        // INTEL
+                LegacyInlinerBase *LIB,       // INTEL
                 InlineReport *IR,             // INTEL
                 InlineReportBuilder *MDIR) {  // INTEL
   SmallPtrSet<Function *, 8> SCCFunctions;
@@ -488,11 +489,6 @@ inlineCallsImpl(CallGraphSCC &SCC, CallGraph &CG,
   // infinite inlining in some obscure cases.  To represent this, we use an
   // index into the InlineHistory vector.
   SmallVector<std::pair<Function *, int>, 8> InlineHistory;
-
-#if INTEL_CUSTOMIZATION
-  IR->beginSCC(CG, SCC);
-  MDIR->beginSCC(CG, SCC);
-#endif // INTEL_CUSTOMIZATION
 
   for (CallGraphNode *Node : SCC) {
     Function *F = Node->getFunction();
@@ -533,10 +529,8 @@ inlineCallsImpl(CallGraphSCC &SCC, CallGraph &CG,
   LLVM_DEBUG(dbgs() << ": " << CallSites.size() << " call sites.\n");
 
   // If there are no calls in this function, exit early.
-  if (CallSites.empty()) { // INTEL
-    IR->endSCC(); // INTEL
+  if (CallSites.empty())
     return false;
-  } // INTEL
 
   // Now that we have all of the call sites, move the ones to functions in the
   // current SCC to the end of the list.
@@ -779,7 +773,6 @@ inlineCallsImpl(CallGraphSCC &SCC, CallGraph &CG,
       LocalChange = true;
     }
   } while (LocalChange);
-  IR->endSCC(); // INTEL
   return Changed;
 }
 
@@ -802,7 +795,8 @@ bool LegacyInlinerBase::inlineCalls(CallGraphSCC &SCC) {
   bool rv = inlineCallsImpl(     // INTEL
       SCC, CG, GetAssumptionCache, PSI, GetTLI, InsertLifetime,
       [&](CallBase &CB) { return getInlineCost(CB); }, LegacyAARGetter(*this),
-      ImportedFunctionsStats, ILIC, WPI, getReport(), getMDReport()); // INTEL
+      ImportedFunctionsStats, ILIC, WPI, this, getReport(), // INTEL
+      getMDReport());                                       // INTEL
   delete ILIC;    // INTEL
   ILIC = nullptr; // INTEL
   return rv;      // INTEL
@@ -814,11 +808,7 @@ bool LegacyInlinerBase::doFinalization(CallGraph &CG) {
   if (InlinerFunctionImportStats != InlinerFunctionImportStatsOpts::No)
     ImportedFunctionsStats.dump(InlinerFunctionImportStats ==
                                 InlinerFunctionImportStatsOpts::Verbose);
-#if INTEL_CUSTOMIZATION
-  bool ReturnValue = removeDeadFunctions(CG);
-  getReport()->print(/*IsAlwaysInline=*/false);
-  return ReturnValue;
-#endif // INTEL_CUSTOMIZATION
+  return removeDeadFunctions(CG);
 }
 
 /// Remove dead functions that are not included in DNR (Do Not Remove) list.
@@ -933,10 +923,7 @@ InlinerPass::~InlinerPass() {
     ImportedFunctionsStats->dump(InlinerFunctionImportStats ==
                                  InlinerFunctionImportStatsOpts::Verbose);
   }
-#if INTEL_CUSTOMIZATION
-  if (!Report->isEmpty())
-    Report->print(/*IsAlwaysInline=*/false);
-#endif  // INTEL_CUSTOMIZATION
+  getReport()->testAndPrint(this, /*IsAlwaysInline=*/false);
 }
 
 InlineAdvisor &
@@ -992,8 +979,8 @@ PreservedAnalyses InlinerPass::run(LazyCallGraph::SCC &InitialC,
   }
 
 #if INTEL_CUSTOMIZATION
-  Report->beginSCC(CG, InitialC);
-  MDReport->beginSCC(CG, InitialC);
+  Report->beginSCC(InitialC, this, /*IsAlwaysInline=*/false);
+  MDReport->beginSCC(InitialC);
   InlineParams Params = getInlineParams();
   if (Params.PrepareForLTO.getValueOr(false))
     collectDtransFuncs(M);

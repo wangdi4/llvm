@@ -1,4 +1,4 @@
-; RUN: opt -inline  -dtrans-inline-heuristics=false -pre-lto-inline-cost=false -inline-report=7 < %s -S 2>&1 | FileCheck --check-prefix=CHECK-OLD %s
+; RUN: opt -inline  -dtrans-inline-heuristics=false -pre-lto-inline-cost=false -inline-report=7 < %s -S 2>&1 | FileCheck --check-prefix=CHECK-NEW %s
 ; RUN: opt -passes='cgscc(inline)'  -dtrans-inline-heuristics=false -pre-lto-inline-cost=false -inline-report=7 < %s -S 2>&1 | FileCheck --check-prefix=CHECK-NEW %s
 ; RUN: opt -inlinereportsetup -inline-report=0x86 < %s -S | opt -inline  -dtrans-inline-heuristics=false -pre-lto-inline-cost=false -inline-report=0x86 -S | opt -inlinereportemitter -inline-report=0x86 -S 2>&1 | FileCheck --check-prefix=CHECK-OLD %s
 ; RUN: opt -inlinereportsetup -inline-report=0x86 < %s -S | opt -passes='cgscc(inline)' -dtrans-inline-heuristics=false -pre-lto-inline-cost=false -inline-report=0x86 -S | opt -inlinereportemitter -inline-report=0x86 -S 2>&1 | FileCheck --check-prefix=CHECK-OLD %s

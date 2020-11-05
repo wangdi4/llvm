@@ -40,6 +40,7 @@ InlineReportCallSite::~InlineReportCallSite(void) {
 InlineReportCallSite *InlineReportCallSite::copyBase(CallBase *CB) {
   InlineReportCallSite *NewCS = new InlineReportCallSite(IRCallee, IsInlined,
       Reason, M, nullptr, CB);
+  NewCS->Reason = Reason;
   NewCS->InlineCost = InlineCost;
   NewCS->OuterInlineCost = OuterInlineCost;
   NewCS->InlineThreshold = InlineThreshold;
@@ -251,7 +252,8 @@ InlineReportFunction::~InlineReportFunction(void) {
 // Member functions for class InlineReport
 //
 
-InlineReportFunction *InlineReport::addFunction(Function *F) {
+InlineReportFunction *InlineReport::addFunction(Function *F,
+                                                bool MakeNewCurrent) {
   if (!isClassicIREnabled())
     return nullptr;
   if (!F)
@@ -278,7 +280,105 @@ InlineReportFunction *InlineReport::addFunction(Function *F) {
   IRF->setLinkageChar(F);
   IRF->setLanguageChar(F);
   addCallback(F);
+  if (MakeNewCurrent)
+    makeCurrent(F);
   return IRF;
+}
+
+static void addOutlinedIRCSes(InlineReportCallSiteVector &IRCSV,
+    SmallVectorImpl<InlineReportCallSite *> &EnclosingIRCSes,
+    SmallPtrSetImpl<CallBase *> &OutFCBSet,
+    SmallPtrSetImpl<InlineReportCallSite *> &OutFIRCSSet) {
+  for (InlineReportCallSite *IRCS : IRCSV) {
+    if (IRCS->getCall() && OutFCBSet.count(cast<CallBase>(IRCS->getCall()))) {
+      OutFIRCSSet.insert(IRCS);
+      for (InlineReportCallSite *IRCSX : EnclosingIRCSes)
+        OutFIRCSSet.insert(IRCSX);
+    }
+    EnclosingIRCSes.push_back(IRCS);
+    addOutlinedIRCSes(IRCS->getChildren(), EnclosingIRCSes, OutFCBSet,
+        OutFIRCSSet);
+    EnclosingIRCSes.pop_back();
+  }
+}
+
+void InlineReportFunction::findOutlinedIRCSes(
+    SmallPtrSetImpl<CallBase *> &OutFCBSet,
+    SmallPtrSetImpl<InlineReportCallSite *> &OutFIRCSSet) {
+  SmallVector<InlineReportCallSite *, 4> EnclosingIRCSes;
+  addOutlinedIRCSes(getCallSites(), EnclosingIRCSes, OutFCBSet, OutFIRCSSet);
+}
+
+void InlineReportCallSite::moveOutlinedChildren(
+    InlineReportCallSiteVector &IRCSV,
+    SmallPtrSetImpl<InlineReportCallSite*> &OutFCBSet,
+    InlineReportCallSite *NewIRCS) {
+  for (InlineReportCallSite *IRCS : IRCSV) {
+    if (OutFCBSet.count(IRCS)) {
+      if (IRCS->getCall()) {
+        IRCS->move(this, NewIRCS);
+      } else {
+        InlineReportCallSite *NewIRCSX = IRCS->copyBase(nullptr);
+        NewIRCS->addChild(NewIRCSX);
+        IRCS->moveOutlinedChildren(IRCS->getChildren(), OutFCBSet, NewIRCSX);
+      }
+    }
+  }
+}
+
+void InlineReportFunction::moveOutlinedCallSites(InlineReportFunction *NewIRF,
+    SmallPtrSetImpl<InlineReportCallSite*> &OutFCBSet) {
+  for (InlineReportCallSite *IRCS : getCallSites()) {
+    if (OutFCBSet.count(IRCS))
+      if (IRCS->getCall()) {
+        IRCS->move(this, NewIRF);
+      } else {
+        InlineReportCallSite *NewIRCS = IRCS->copyBase(nullptr);
+        NewIRF->addCallSite(NewIRCS);
+        IRCS->moveOutlinedChildren(IRCS->getChildren(), OutFCBSet, NewIRCS);
+    }
+  }
+}
+
+void InlineReportCallSite::moveCalls(InlineReportCallSiteVector &OldIRCSV,
+                                     InlineReportCallSiteVector &NewIRCSV) {
+  for (auto I = OldIRCSV.begin(), E = OldIRCSV.end(); I != E; ++I) {
+    if (*I == this) {
+      OldIRCSV.erase(I);
+      NewIRCSV.push_back(this);
+      return;
+    }
+  }
+}
+
+void InlineReportCallSite::move(InlineReportFunction *OldIRF,
+                                InlineReportFunction *NewIRF) {
+  moveCalls(OldIRF->getCallSites(), NewIRF->getCallSites());
+}
+
+void InlineReportCallSite::move(InlineReportCallSite *OldIRCS,
+                                InlineReportCallSite *NewIRCS) {
+  moveCalls(OldIRCS->getChildren(), NewIRCS->getChildren());
+}
+
+void InlineReport::doOutlining(Function *OldF, Function *OutF,
+                               CallBase *OutCB) {
+  if (!isClassicIREnabled())
+    return;
+  auto MapIt = IRFunctionMap.find(OldF);
+  assert(MapIt != IRFunctionMap.end());
+  InlineReportFunction *OldIRF = MapIt->second;
+  InlineReportFunction *OutIRF = addFunction(OutF);
+  SmallPtrSet<CallBase *, 4> OutFCBSet;
+  SmallPtrSet<InlineReportCallSite *, 4> OutFIRCSSet;
+  for (auto &I : instructions(OutF))
+    if (auto CB = dyn_cast<CallBase>(&I))
+      OutFCBSet.insert(CB);
+  OldIRF->findOutlinedIRCSes(OutFCBSet, OutFIRCSSet);
+  OldIRF->moveOutlinedCallSites(OutIRF, OutFIRCSSet);
+  addCallSite(OutCB);
+  setReasonNotInlined(OutCB, NinlrPreferPartialInline);
+  addCallback(OutCB);
 }
 
 InlineReportCallSite *InlineReport::addCallSite(CallBase *Call) {
@@ -321,10 +421,23 @@ InlineReportCallSite *InlineReport::addNewCallSite(CallBase *Call) {
   return addCallSite(Call);
 }
 
-void InlineReport::beginSCC(CallGraph &CG, CallGraphSCC &SCC) {
+void InlineReport::printIfNewInliner(void *Inliner,
+                                      bool IsAlwaysInline) {
+  if (Inliner != ActiveInliner) {
+    if (ActiveInliner)
+      testAndPrint(ActiveInliner, ActiveInlinerIsAlwaysInline);
+    ActiveInliner = Inliner;
+    ActiveInlinerIsAlwaysInline = IsAlwaysInline;
+    IsAlreadyPrinted = false;
+  }
+}
+
+void InlineReport::beginSCC(CallGraphSCC &SCC, void *Inliner,
+                            bool IsAlwaysInline) {
   if (!isClassicIREnabled())
     return;
-  M = &CG.getModule();
+  printIfNewInliner(Inliner, IsAlwaysInline);
+  M = &SCC.getCallGraph().getModule();
   for (CallGraphNode *Node : SCC) {
     Function *F = Node->getFunction();
     if (!F)
@@ -333,9 +446,11 @@ void InlineReport::beginSCC(CallGraph &CG, CallGraphSCC &SCC) {
   }
 }
 
-void InlineReport::beginSCC(LazyCallGraph &CG, LazyCallGraph::SCC &SCC) {
+void InlineReport::beginSCC(LazyCallGraph::SCC &SCC, void *Inliner,
+                            bool IsAlwaysInline) {
   if (!isClassicIREnabled())
     return;
+  printIfNewInliner(Inliner, IsAlwaysInline);
   LazyCallGraph::Node &LCGN = *(SCC.begin());
   M = LCGN.getFunction().getParent();
   for (auto &Node : SCC) {
@@ -384,7 +499,7 @@ void InlineReport::endSCC(void) {
 }
 
 void InlineReport::cloneChildren(
-    const InlineReportCallSiteVector &OldCallSiteVector,
+    InlineReportCallSiteVector &OldCallSiteVector,
     InlineReportCallSite *NewCallSite, ValueToValueMapTy &IIMap) {
   assert(NewCallSite->getChildren().empty());
   for (unsigned I = 0, E = OldCallSiteVector.size(); I < E; ++I) {
@@ -598,6 +713,13 @@ void InlineReport::print(bool IsAlwaysInline) const {
   llvm::errs() << "---- End Inlining Report ------\n";
 }
 
+void InlineReport::testAndPrint(void *Inliner, bool IsAlwaysInline) {
+  if (IsAlreadyPrinted || Inliner != ActiveInliner)
+    return;
+  print(IsAlwaysInline);
+  IsAlreadyPrinted = true;
+}
+
 void InlineReportCallSite::loadCallsToMap(std::map<CallBase *, bool> &LMap) {
   CallBase *CB = getCall();
   if (CB)
@@ -694,6 +816,34 @@ void InlineReport::makeAllNotCurrent(void) {
   }
 }
 
+void InlineReport::replaceAllUsesWith(Function *OldFunction,
+                                      Function *NewFunction) {
+  //
+  // NOTE: This should be called before replaceAllUsesWith() in Value.cpp,
+  // because it uses the 'users' list to find the users of 'OldFunction'.
+  //
+  if (!isClassicIREnabled())
+    return;
+  auto MapIt = IRFunctionMap.find(NewFunction);
+  assert(MapIt != IRFunctionMap.end());
+  InlineReportFunction *IRFNew = MapIt->second;
+  for (auto U : OldFunction->users()) {
+    if (auto CB = dyn_cast<CallBase>(U)) {
+      InlineReportCallSite *IRCS = getCallSite(CB);
+      IRCS->setIRCallee(IRFNew);
+    }
+  }
+}
+
+void InlineReport::initFunctionForPartialInlining(Function *F) {
+  if (!isClassicIREnabled())
+    return;
+  initFunction(F);
+  for (auto U : F->users())
+    if (auto CB = dyn_cast<CallBase>(U))
+      initFunction(CB->getCaller());
+}
+
 void InlineReport::replaceFunctionWithFunction(Function *OldFunction,
                                                Function *NewFunction) {
   if (!isClassicIREnabled())
@@ -708,10 +858,51 @@ void InlineReport::replaceFunctionWithFunction(Function *OldFunction,
   (void) count;
   assert(count == 1);
   IRFunctionMap.insert(std::make_pair(NewFunction, IRF));
+  replaceAllUsesWith(OldFunction, NewFunction);
   IRF->setLinkageChar(NewFunction);
   IRF->setLanguageChar(NewFunction);
   IRF->setName(std::string(NewFunction->getName()));
   addCallback(NewFunction);
+}
+
+InlineReportCallSite *InlineReport::copyAndSetup(InlineReportCallSite *IRCS,
+                                                 ValueToValueMapTy &VMap) {
+  InlineReportCallSite *NewIRCS = IRCS->copyBase(nullptr);
+  if (Instruction *I = IRCS->getCall()) {
+    if (CallBase *CB = dyn_cast_or_null<CallBase>(VMap[I])) {
+      NewIRCS->setCall(CB);
+      IRCallBaseCallSiteMap.insert(std::make_pair(CB, NewIRCS));
+      addCallback(CB);
+    }
+  }
+  return NewIRCS;
+}
+
+void InlineReport::cloneCallSites(InlineReportCallSiteVector &IRCSV,
+                                  ValueToValueMapTy &VMap,
+                                  InlineReportCallSite *OldIRCS,
+                                  InlineReportCallSite *NewIRCS) {
+  for (InlineReportCallSite *IRCS : IRCSV) {
+    InlineReportCallSite *ChildIRCS = copyAndSetup(IRCS, VMap);
+    NewIRCS->addChild(ChildIRCS);
+    cloneCallSites(ChildIRCS->getChildren(), VMap, IRCS, ChildIRCS);
+  }
+}
+
+void InlineReport::cloneFunction(Function *OldFunction,
+                                 Function *NewFunction,
+                                 ValueToValueMapTy &VMap) {
+  if (!isClassicIREnabled())
+    return;
+  auto MapIt = IRFunctionMap.find(OldFunction);
+  assert(MapIt != IRFunctionMap.end());
+  InlineReportFunction *OldIRF = MapIt->second;
+  InlineReportFunction *NewIRF = addFunction(NewFunction);
+  for (InlineReportCallSite *IRCS : OldIRF->getCallSites()) {
+    InlineReportCallSite *NewIRCS = copyAndSetup(IRCS, VMap);
+    NewIRF->addCallSite(NewIRCS);
+    cloneCallSites(IRCS->getChildren(), VMap, IRCS, NewIRCS);
+  }
 }
 
 InlineReportCallSite *InlineReport::getCallSite(CallBase *Call) {

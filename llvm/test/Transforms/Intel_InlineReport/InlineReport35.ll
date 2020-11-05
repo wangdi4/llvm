@@ -1,5 +1,5 @@
 ; Inline report
-; RUN: opt < %s -dtrans-inline-heuristics -inline -inline-report=7 -S 2>&1 | FileCheck --check-prefixes=CHECK,CHECK-OLD %s
+; RUN: opt < %s -dtrans-inline-heuristics -inline -inline-report=7 -S 2>&1 | FileCheck --check-prefixes=CHECK,CHECK-NEW %s
 ; RUN: opt < %s -dtrans-inline-heuristics -passes='cgscc(inline)' -inline-report=7 -S 2>&1 | FileCheck --check-prefixes=CHECK,CHECK-NEW %s
 ; Inline report via metadata
 ; RUN: opt -inlinereportsetup -inline-report=134 < %s -S | opt -inline -inline-report=134 -dtrans-inline-heuristics -S | opt -inlinereportemitter -inline-report=134 -S 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-OLD

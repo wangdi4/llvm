@@ -1,6 +1,6 @@
 ; Inline report
-; RUN: opt -inline -inline-report=7 -dtrans-inline-heuristics -pre-lto-inline-cost < %s -S 2>&1 | FileCheck --check-prefix=CHECK-OLD %s
-; RUN: opt -passes='cgscc(inline)' -inline-report=7 -dtrans-inline-heuristics -pre-lto-inline-cost < %s -S 2>&1 | FileCheck --check-prefix=CHECK-NEW %s
+; RUN: opt -inline -inline-report=7 -dtrans-inline-heuristics -pre-lto-inline-cost < %s -S 2>&1 | FileCheck --check-prefix=CHECK-CL %s
+; RUN: opt -passes='cgscc(inline)' -inline-report=7 -dtrans-inline-heuristics -pre-lto-inline-cost < %s -S 2>&1 | FileCheck --check-prefix=CHECK-CL %s
 ; Inline report via metadata
 ; RUN: opt -inlinereportsetup -inline-report=134 < %s -S | opt -inline -inline-report=134 -dtrans-inline-heuristics -pre-lto-inline-cost -S | opt -inlinereportemitter -inline-report=134 -S 2>&1 | FileCheck %s --check-prefix=CHECK-MD
 ; RUN: opt -passes='inlinereportsetup' -inline-report=134 < %s -S | opt -passes='cgscc(inline)' -inline-report=134 -dtrans-inline-heuristics -pre-lto-inline-cost -S | opt -passes='inlinereportemitter' -inline-report=134 -S 2>&1 | FileCheck %s --check-prefix=CHECK-MD
@@ -12,14 +12,10 @@
 ; CHECK-MD: COMPILE FUNC: _ZN12cMessageHeap11removeFirstEv
 ; CHECK-MD: _ZN12cMessageHeap7shiftupEi{{.*}}Inline decision is delayed until link time
 ; CHECK-MD: COMPILE FUNC: _ZN12cMessageHeap7shiftupEi
-; CHECK-OLD: COMPILE FUNC: _ZN12cMessageHeap7shiftupEi
-; CHECK-OLD: COMPILE FUNC: _ZN12cMessageHeap11removeFirstEv
-; CHECK-OLD: _ZN12cMessageHeap7shiftupEi{{.*}}Inline decision is delayed until link time
-; CHECK-OLD: call void @_ZN12cMessageHeap7shiftupEi
-; CHECK-NEW: call void @_ZN12cMessageHeap7shiftupEi
-; CHECK-NEW: COMPILE FUNC: _ZN12cMessageHeap7shiftupEi
-; CHECK-NEW: COMPILE FUNC: _ZN12cMessageHeap11removeFirstEv
-; CHECK-NEW: _ZN12cMessageHeap7shiftupEi{{.*}}Inline decision is delayed until link time
+; CHECK-CL: call void @_ZN12cMessageHeap7shiftupEi
+; CHECK-CL: COMPILE FUNC: _ZN12cMessageHeap7shiftupEi
+; CHECK-CL: COMPILE FUNC: _ZN12cMessageHeap11removeFirstEv
+; CHECK-CL: _ZN12cMessageHeap7shiftupEi{{.*}}Inline decision is delayed until link time
 
 %class.cNamedObject = type <{ %class.cObject, i8*, i16, i16, [4 x i8] }>
 %class.cMessageHeap = type { %class.cOwnedObject.base, %class.cMessage**, i32, i32, i64 }

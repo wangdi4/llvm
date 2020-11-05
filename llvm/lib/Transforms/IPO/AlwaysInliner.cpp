@@ -121,10 +121,6 @@ PreservedAnalyses AlwaysInlinerPass::run(Module &M,
     for (Function *F : InlinedFunctions)
       M.getFunctionList().erase(F);
   }
-#if INTEL_CUSTOMIZATION
-  getReport()->print(/*IsAlwaysInline=*/true);
-#endif // INTEL_CUSTOMIZATION
-
   return Changed ? PreservedAnalyses::none() : PreservedAnalyses::all();
 }
 
@@ -146,8 +142,22 @@ public:
     initializeAlwaysInlinerLegacyPassPass(*PassRegistry::getPassRegistry());
   }
 
+#if INTEL_CUSTOMIZATION
+  ~AlwaysInlinerLegacyPass() {
+    getReport()->testAndPrint(this, /*IsAlwaysInline=*/true);
+  }
+#endif // INTEL_CUSTOMIZATION
+
   /// Main run interface method.  We override here to avoid calling skipSCC().
-  bool runOnSCC(CallGraphSCC &SCC) override { return inlineCalls(SCC); }
+#if INTEL_CUSTOMIZATION
+  bool runOnSCC(CallGraphSCC &SCC) override {
+    getInlineReport()->beginSCC(SCC, this, /*IsAlwaysInline=*/true);
+    getMDInlineReport()->beginSCC(SCC);
+    bool RV = inlineCalls(SCC);
+    getInlineReport()->endSCC();
+    return RV;
+  }
+#endif // INTEL_CUSTOMIZATION
 
   static char ID; // Pass identification, replacement for typeid
 
@@ -155,11 +165,7 @@ public:
 
   using llvm::Pass::doFinalization;
   bool doFinalization(CallGraph &CG) override {
-#if INTEL_CUSTOMIZATION
-    bool ReturnValue = removeDeadFunctions(CG, /*AlwaysInlineOnly=*/true);
-    getReport()->print(/*IsAlwaysInline=*/true);
-    return ReturnValue;
-#endif // INTEL_CUSTOMIZATION
+  return removeDeadFunctions(CG, /*AlwaysInlineOnly=*/true);
   }
 };
 
