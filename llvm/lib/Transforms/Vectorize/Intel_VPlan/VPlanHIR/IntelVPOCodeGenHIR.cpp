@@ -294,6 +294,10 @@ public:
   RegDDRef *visitUMinExpr(const SCEVUMinExpr *Expr);
   RegDDRef *visitUnknown(const SCEVUnknown *Expr);
   RegDDRef *visitCouldNotCompute(const SCEVCouldNotCompute *Expr);
+
+  RegDDRef *visitPtrToIntExpr(const SCEVPtrToIntExpr*) {
+    llvm_unreachable("not implemented");
+  }
 };
 
 RegDDRef *NestedBlobCG::codegenCoeff(Constant *Const) {

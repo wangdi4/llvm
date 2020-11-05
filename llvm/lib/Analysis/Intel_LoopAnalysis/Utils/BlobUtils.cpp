@@ -445,6 +445,9 @@ public:
   void visitConstant(const SCEVConstant *Constant) {}
 
   void visitUnknown(const SCEVUnknown *Unknown) {}
+  void visitPtrToIntExpr(const SCEVPtrToIntExpr*) {
+    llvm_unreachable("not implemented");
+  }
 
   void visitTruncateExpr(const SCEVTruncateExpr *Trunc) {
     auto Op = Trunc->getOperand();

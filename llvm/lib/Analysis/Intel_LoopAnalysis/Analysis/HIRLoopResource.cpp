@@ -185,6 +185,9 @@ struct LoopResourceInfo::LoopResourceVisitor::BlobCostEvaluator
 
     visit(TruncBlob->getOperand());
   }
+  void visitPtrToIntExpr(const SCEVPtrToIntExpr*) {
+    llvm_unreachable("not implemented");
+  }
 
   void visitZeroExtendExpr(const SCEVZeroExtendExpr *ZExtBlob) {
     unsigned Cost = LRV.getNormalizedCost(LRV.TTI.getCastInstrCost(
