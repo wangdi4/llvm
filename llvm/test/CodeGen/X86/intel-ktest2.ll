@@ -27,27 +27,24 @@ define <8 x i1> @test_pseudo_kmovb_spill() {
 ; X86:       # %bb.0:
 ; X86-NEXT:    pushl %ebx
 ; X86-NEXT:    .cfi_def_cfa_offset 8
-; X86-NEXT:    pushl %esi
-; X86-NEXT:    .cfi_def_cfa_offset 12
-; X86-NEXT:    pushl %eax
+; X86-NEXT:    subl $8, %esp
 ; X86-NEXT:    .cfi_def_cfa_offset 16
-; X86-NEXT:    .cfi_offset %esi, -12
 ; X86-NEXT:    .cfi_offset %ebx, -8
 ; X86-NEXT:    #APP
 ; X86-NEXT:    #NO_APP
-; X86-NEXT:    movl %eax, (%esp) # 4-byte Spill
-; X86-NEXT:    movb $3, %al
-; X86-NEXT:    # implicit-def: $esi
-; X86-NEXT:    movb %al, %sil
-; X86-NEXT:    movl (%esp), %eax # 4-byte Reload
-; X86-NEXT:    kmovb %esi, %k0
+; X86-NEXT:    movl %eax, {{[-0-9]+}}(%e{{[sb]}}p) # 4-byte Spill
+; X86-NEXT:    movl %ecx, (%esp) # 4-byte Spill
+; X86-NEXT:    movb $3, %cl
+; X86-NEXT:    # implicit-def: $eax
+; X86-NEXT:    movb %cl, %al
+; X86-NEXT:    movl (%esp), %ecx # 4-byte Reload
+; X86-NEXT:    kmovb %eax, %k0
+; X86-NEXT:    movl {{[-0-9]+}}(%e{{[sb]}}p), %eax # 4-byte Reload
 ; X86-NEXT:    #APP
 ; X86-NEXT:    #NO_APP
 ; X86-NEXT:    vpmovm2w %k0, %zmm0
 ; X86-NEXT:    # kill: def $xmm0 killed $xmm0 killed $zmm0
-; X86-NEXT:    addl $4, %esp
-; X86-NEXT:    .cfi_def_cfa_offset 12
-; X86-NEXT:    popl %esi
+; X86-NEXT:    addl $8, %esp
 ; X86-NEXT:    .cfi_def_cfa_offset 8
 ; X86-NEXT:    popl %ebx
 ; X86-NEXT:    .cfi_def_cfa_offset 4
