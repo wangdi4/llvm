@@ -57,7 +57,8 @@ public:
         bool IsKMOVB = Opcode == X86::KMOVBki;
         Register Sub = MRI.createVirtualRegister(IsKMOVB ? &X86::GR8RegClass
                                                          : &X86::GR16RegClass);
-        Register GR32 = MRI.createVirtualRegister(&X86::GR32RegClass);
+        Register GR32 = MRI.createVirtualRegister(
+            STI->is64Bit() ? &X86::GR32RegClass : &X86::GR32_ABCDRegClass);
         Register UDef = MRI.createVirtualRegister(&X86::GR32RegClass);
         BuildMI(MBB, MI, DL, TII->get(IsKMOVB ? X86::MOV8ri : X86::MOV16ri),
                 Sub)

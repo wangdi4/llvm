@@ -85,7 +85,7 @@ InlineReportCallSite::cloneBase(const ValueToValueMapTy &IIMap,
 }
 
 ///
-/// \brief Print a simple message
+/// Print a simple message.
 ///
 /// message: The message being printed
 /// indentCount: The number of indentations before printing the message
@@ -112,7 +112,7 @@ static void printSimpleMessage(const char *Message, unsigned IndentCount,
 }
 
 ///
-/// \brief Print the inlining cost and threshold values
+/// Print the inlining cost and threshold values
 ///
 void InlineReportCallSite::printCostAndThreshold(unsigned Level) {
   llvm::errs() << " (" << getInlineCost();
@@ -133,7 +133,7 @@ void InlineReportCallSite::printCostAndThreshold(unsigned Level) {
 }
 
 ///
-/// \brief Print the outer inlining cost and threshold values
+/// Print the outer inlining cost and threshold values
 ///
 void InlineReportCallSite::printOuterCostAndThreshold(void) {
   llvm::errs() << " (" << getOuterInlineCost() << ">" << getInlineCost() << ">"
@@ -141,7 +141,7 @@ void InlineReportCallSite::printOuterCostAndThreshold(void) {
 }
 
 ///
-/// \brief Print the linkage info for a function 'F' as a single letter,
+/// Print the linkage info for a function 'F' as a single letter,
 /// if the 'Level' specifies InlineReportOptions::Linkage.
 /// For an explanation of the meaning of these letters,
 /// see Intel_InlineReport.h.
@@ -153,7 +153,7 @@ static void printFunctionLinkage(unsigned Level, InlineReportFunction *IRF) {
 }
 
 ///
-/// \brief Print the source language for a function 'F' as a single letter,
+/// Print the source language for a function 'F' as a single letter,
 /// if the 'Level' specifies InlineReportOptions::Language.
 /// For an explanation of the meaning of these letters,
 /// see Intel_InlineReport.h.
@@ -165,7 +165,7 @@ static void printFunctionLanguage(unsigned Level, InlineReportFunction *IRF) {
 }
 
 ///
-/// \brief Print optionally the callee linkage and language, and then the
+/// Print optionally the callee linkage and language, and then the
 /// callee name, and if non-zero, the line and column number of the call site
 ///
 void InlineReportCallSite::printCalleeNameModuleLineCol(unsigned Level) {
@@ -181,7 +181,7 @@ void InlineReportCallSite::printCalleeNameModuleLineCol(unsigned Level) {
 }
 
 ///
-/// \brief Print a representation of the inlining instance.
+/// Print a representation of the inlining instance.
 ///
 /// indentCount: The number of indentations to print
 /// level: The level N from '-inline-report=N'
@@ -648,7 +648,7 @@ void InlineReport::setReasonNotInlined(CallBase *Call, const InlineCost &IC,
 }
 
 ///
-/// \brief Print the callsites in the 'Vector'
+/// Print the callsites in the 'Vector'.
 ///
 /// indentCount: The number of indentations to print
 /// level: The level N from '-inline-report=N'
