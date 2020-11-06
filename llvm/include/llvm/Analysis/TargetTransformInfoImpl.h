@@ -512,6 +512,7 @@ public:
   }
 
   unsigned getCmpSelInstrCost(unsigned Opcode, Type *ValTy, Type *CondTy,
+                              CmpInst::Predicate VecPred,
                               TTI::TargetCostKind CostKind,
                               const Instruction *I) const {
     return 1;
@@ -1011,12 +1012,14 @@ public:
     case Instruction::Select: {
       Type *CondTy = U->getOperand(0)->getType();
       return TargetTTI->getCmpSelInstrCost(Opcode, U->getType(), CondTy,
+                                           CmpInst::BAD_ICMP_PREDICATE,
                                            CostKind, I);
     }
     case Instruction::ICmp:
     case Instruction::FCmp: {
       Type *ValTy = U->getOperand(0)->getType();
       return TargetTTI->getCmpSelInstrCost(Opcode, ValTy, U->getType(),
+                                           cast<CmpInst>(U)->getPredicate(),
                                            CostKind, I);
     }
     case Instruction::InsertElement: {
