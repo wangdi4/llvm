@@ -2,16 +2,10 @@
 
 ; Verify that we are able to handle a GEP index which has a different size (32 bits) than the base pointer (64 bits).
 
-; CHECK: + UNKNOWN LOOP i1
-; CHECK: |   <i1 = 0>
-; CHECK: |   loop:
-; CHECK: |   %ptr.int = ptrtoint.i8*.i64(&((%1)[i1 + 1]));
-; CHECK: |   if (trunc.i64.i2(%ptr.int) != 0)
-; CHECK: |   {
-; CHECK: |      <i1 = i1 + 1>
-; CHECK: |      goto loop;
-; CHECK: |   }
+; CHECK: + DO i1 = 0, zext.i2.i64((-1 + (-1 * trunc.i64.i2(ptrtoint.i8*.i64(%1))))), 1   <DO_LOOP>  <MAX_TC_EST = 4>
+; CHECK: |   %ptr.inc = &((%1)[i1 + 1]);
 ; CHECK: + END LOOP
+
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
@@ -30,6 +24,7 @@ loop:                                      ; preds = %loop, %entry
   br i1 %cmp, label %exit, label %loop
 
 exit:                                     ; preds = %loop
+  %ptr.lcssa = phi i8* [ %ptr.inc, %loop ]
   ret void
 }
 

@@ -445,9 +445,6 @@ public:
   void visitConstant(const SCEVConstant *Constant) {}
 
   void visitUnknown(const SCEVUnknown *Unknown) {}
-  void visitPtrToIntExpr(const SCEVPtrToIntExpr*) {
-    llvm_unreachable("not implemented");
-  }
 
   void visitTruncateExpr(const SCEVTruncateExpr *Trunc) {
     auto Op = Trunc->getOperand();
@@ -475,6 +472,17 @@ public:
     auto Op = SExt->getOperand();
     if (!TTI ||
         (TTI->getCastInstrCost(Instruction::SExt, SExt->getType(),
+                               Op->getType(), TTI::CastContextHint::None) !=
+         TargetTransformInfo::TargetCostConstants::TCC_Free)) {
+      ++NumOperations;
+    }
+    visit(Op);
+  }
+
+  void visitPtrToIntExpr(const SCEVPtrToIntExpr* PtrToInt) {
+    auto Op = PtrToInt->getOperand();
+    if (!TTI ||
+        (TTI->getCastInstrCost(Instruction::PtrToInt, PtrToInt->getType(),
                                Op->getType(), TTI::CastContextHint::None) !=
          TargetTransformInfo::TargetCostConstants::TCC_Free)) {
       ++NumOperations;

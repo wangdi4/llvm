@@ -1392,7 +1392,7 @@ void HIRParser::printBlob(raw_ostream &OS, BlobTy Blob) const {
   if (isa<SCEVConstant>(Blob)) {
     OS << *Blob;
 
-  } else if (auto CastSCEV = dyn_cast<SCEVIntegralCastExpr>(Blob)) {
+  } else if (auto CastSCEV = dyn_cast<SCEVCastExpr>(Blob)) {
     auto SrcType = CastSCEV->getOperand()->getType();
     auto DstType = CastSCEV->getType();
 
@@ -1402,8 +1402,10 @@ void HIRParser::printBlob(raw_ostream &OS, BlobTy Blob) const {
       OS << "sext.";
     } else if (isa<SCEVTruncateExpr>(CastSCEV)) {
       OS << "trunc.";
+    } else if (isa<SCEVPtrToIntExpr>(CastSCEV)) {
+      OS << "ptrtoint.";
     } else {
-      llvm_unreachable("Unexptected casting operation!");
+      llvm_unreachable("Unexpected casting operation!");
     }
 
     OS << *SrcType << "." << *DstType << "(";
@@ -2235,7 +2237,7 @@ bool HIRParser::parseRecursive(const SCEV *SC, CanonExpr *CE, unsigned Level,
   } else if (auto RecSCEV = dyn_cast<SCEVAddRecExpr>(SC)) {
     return parseAddRec(RecSCEV, CE, Level, IndicateFailure);
 
-  } else if (isa<SCEVMinMaxExpr>(SC)) {
+  } else if (isa<SCEVMinMaxExpr>(SC) || isa<SCEVPtrToIntExpr>(SC)) {
     // TODO: extend DDRef representation to handle min/max.
     return parseBlob(SC, CE, Level, 0, IndicateFailure);
   }

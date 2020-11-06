@@ -185,10 +185,6 @@ struct LoopResourceInfo::LoopResourceVisitor::BlobCostEvaluator
 
     visit(TruncBlob->getOperand());
   }
-  void visitPtrToIntExpr(const SCEVPtrToIntExpr*) {
-    llvm_unreachable("not implemented");
-  }
-
   void visitZeroExtendExpr(const SCEVZeroExtendExpr *ZExtBlob) {
     unsigned Cost = LRV.getNormalizedCost(LRV.TTI.getCastInstrCost(
         Instruction::ZExt, ZExtBlob->getType(),
@@ -206,6 +202,16 @@ struct LoopResourceInfo::LoopResourceVisitor::BlobCostEvaluator
 
     visit(SExtBlob->getOperand());
   }
+
+  void visitPtrToIntExpr(const SCEVPtrToIntExpr* PtrToIntBlob) {
+    unsigned Cost = LRV.getNormalizedCost(LRV.TTI.getCastInstrCost(
+        Instruction::PtrToInt, PtrToIntBlob->getType(),
+        PtrToIntBlob->getOperand()->getType(), TTI::CastContextHint::None));
+    LRV.SelfLRI->addIntOps(Cost);
+
+    visit(PtrToIntBlob->getOperand());
+  }
+
 
   void visitNAryExpr(const SCEVNAryExpr *NAryExpr) {
     for (unsigned I = 0, E = NAryExpr->getNumOperands(); I < E; ++I) {
