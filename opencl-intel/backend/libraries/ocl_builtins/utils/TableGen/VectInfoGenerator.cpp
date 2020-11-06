@@ -37,9 +37,14 @@ std::vector<VectorKind> VectEntry::vectorKindEncode;
 
 OclBuiltinDB *VectInfo::builtinDB = nullptr;
 
-VectorVariant getVectorVariant(unsigned int V, const std::string &Alias) {
-  return VectorVariant{VectEntry::isaClass,         VectEntry::isMasked, V,
-                       VectEntry::vectorKindEncode, VectEntry::baseName, Alias};
+VectorVariant getVectorVariant(unsigned int V, const std::string &BaseName,
+                               const std::string &Alias) {
+  return VectorVariant{VectEntry::isaClass,
+                       VectEntry::isMasked,
+                       V,
+                       VectEntry::vectorKindEncode,
+                       BaseName,
+                       Alias};
 }
 
 template <class T>
@@ -131,7 +136,10 @@ std::ostream &operator<<(std::ostream &output, const VectEntry &Ent) {
     } else {
       output << "\",\"";
     }
-    output << getVectorVariant((unsigned)2 << i, Ent.funcNames[i]).toString()
+    reflection::FunctionDescriptor Fdesc = ::demangle(Ent.funcNames[i].c_str());
+    std::string BaseName = Fdesc.isNull() ? Ent.funcNames[i] : Fdesc.name;
+    output << getVectorVariant((unsigned)2 << i, BaseName, Ent.funcNames[i])
+                  .toString()
            << "\"},\n";
   }
   return output;
@@ -351,10 +359,12 @@ void VectInfoGenerator::run(raw_ostream &os) {
 
         std::string fname((*funcIt)->getName());
         size_t m = funcNames.size();
+        reflection::FunctionDescriptor Fdesc = ::demangle(fname.c_str());
+        std::string BaseName = Fdesc.isNull() ? fname : Fdesc.name;
 
         // for vector variant
         if (m > 0) {
-          auto variant = getVectorVariant((unsigned)2 << m, fname);
+          auto variant = getVectorVariant((unsigned)2 << m, BaseName, fname);
           auto *characteristicType = calcCharacteristicType(**origIt, variant);
 
           if (isVPlanMaskedFunctionVectorVariant(**funcIt, variant,
