@@ -98,6 +98,7 @@ define void @test_descale_or(i32* %src, i64 %in) {
   %gep.bc = bitcast i8* %gep to i32*
   %val = load i32, i32* %gep.bc
   call void @use(i32 %val)
+  call void @use64(i64 %chop)
   ret void
 }
 
