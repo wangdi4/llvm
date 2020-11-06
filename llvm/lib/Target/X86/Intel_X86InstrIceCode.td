@@ -188,5 +188,10 @@ let Predicates = [InIceCodeMode] in {
     def CMODEMOVcc : Ii8<0x40, MRMSrcRegCC, (outs GR64:$dst), (ins GR64:$src1, GR64:$src2, i32u4imm:$cond),
                          "cmodemov\t{$cond, $src2, $dst|$dst, $src2, $cond}",
                          [(set GR64:$dst, (int_x86_icecode_cmodemov GR64:$src1, GR64:$src2, (i32 timm:$cond)))]>, XS;
+
+  let Uses = [RAX], OpMap = TB in {
+    def LOAD_TICKLE_GPA : I<0x01, MRM_CA, (outs), (ins), "load_tickle_gpa", []>;
+    def STORE_TICKLE_GPA : I<0x01, MRM_CB, (outs), (ins), "store_tickle_gpa", []>;
+  }
 }
 // end INTEL_FEATURE_ICECODE
