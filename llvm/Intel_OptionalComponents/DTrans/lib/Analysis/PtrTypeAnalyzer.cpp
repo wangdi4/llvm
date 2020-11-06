@@ -1973,10 +1973,10 @@ private:
         auto *ConstIdx = dyn_cast<ConstantInt>(LastArg);
         if (ConstIdx) {
           uint64_t ElemNum = ConstIdx->getLimitedValue();
-          if (GepOps.size() > 1 && ElemNum == 0) {
-            // An array with a zero index is also the address of the element
-            // that contains the array. Add all the zero-offset indexed elements
-            // to the ElementOf field for the pointee.
+          if (GepOps.size() > 1) {
+            // Capture the GEP chain because an array nested within a structure
+            // could trigger a safety condition on the structure type. For
+            // example, the address could be passed to a memset call.
             SmallVector<ValueTypeInfo::PointeeLoc::PointeePairType, 4>
                 ElementOf;
             CollectElementPointeePath(Ty, GepOps, ElementOf);
