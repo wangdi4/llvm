@@ -19,9 +19,6 @@
 #include <cstdlib>
 
 EXTERN int omp_get_num_devices(void) {
-#if INTEL_COLLAB
-  return __tgt_get_num_devices();
-#else // INTEL_COLLAB
   RTLsMtx->lock();
   size_t Devices_size = Devices.size();
   RTLsMtx->unlock();
@@ -29,7 +26,6 @@ EXTERN int omp_get_num_devices(void) {
   DP("Call to omp_get_num_devices returning %zd\n", Devices_size);
 
   return Devices_size;
-#endif // INTEL_COLLAB
 }
 
 EXTERN int omp_get_initial_device(void) {
