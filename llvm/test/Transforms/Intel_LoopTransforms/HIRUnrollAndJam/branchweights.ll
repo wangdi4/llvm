@@ -48,9 +48,9 @@
 ;CHECK: br i1
 ;CHECK-SAME: !prof ![[PROF_OUTER_REMAINDER]]
 
-;CHECK-DAG: ![[PROF_OUTER_UROLLED]] = !{!"branch_weights", i32 4, i32 1}
+;CHECK-DAG: ![[PROF_OUTER_UROLLED]] = !{!"branch_weights", i64 4, i64 1}
 ;CHECK-DAG: ![[PROF_INNER_JAMMED]] = !{!"branch_weights", i32 40, i32 4}
-;CHECK-DAG: ![[PROF_OUTER_REMAINDER]] = !{!"branch_weights", i32 1, i32 1}
+;CHECK-DAG: ![[PROF_OUTER_REMAINDER]] = !{!"branch_weights", i64 1, i64 1}
 ;CHECK-DAG: ![[PROF_INNER_REMAINDER]] = !{!"branch_weights", i32 9, i32 1}
 
 ; Note - PROF_INNER_REMAINDER is calculated as follows:
@@ -154,15 +154,15 @@ attributes #1 = { noinline }
 !27 = !{i32 999999, i64 1, i32 4}
 !28 = !{!"icx (ICX) dev.8.x.0"}
 !29 = !{!"function_entry_count", i64 1}
-!30 = !{!"branch_weights", i32 9, i32 1}
+!30 = !{!"branch_weights", i64 9, i64 1}
 !31 = !{!32, !34, i64 0}
 !32 = !{!"array@_ZTSA10_A10_i", !33, i64 0}
 !33 = !{!"array@_ZTSA10_i", !34, i64 0}
 !34 = !{!"int", !35, i64 0}
 !35 = !{!"omnipotent char", !36, i64 0}
 !36 = !{!"Simple C/C++ TBAA"}
-!37 = !{!"branch_weights", i32 9, i32 81}
-!38 = !{!"branch_weights", i32 1, i32 9}
+!37 = !{!"branch_weights", i64 9, i64 81}
+!38 = !{!"branch_weights", i64 1, i64 9}
 !39 = distinct !{!39, !40}
 !40 = !{!"llvm.loop.unroll_and_jam.count", i32 2}
 !41 = !{!"intel_profx", i64 1}

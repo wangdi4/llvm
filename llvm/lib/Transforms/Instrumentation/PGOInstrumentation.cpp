@@ -117,6 +117,7 @@
 #include <cstdint>
 #include <memory>
 #include <numeric>
+#include <stdint.h>
 #include <string>
 #include <unordered_map>
 #include <utility>
@@ -1868,7 +1869,7 @@ void llvm::setProfMetadata(Module *M, Instruction *TI,
   MDBuilder MDB(M->getContext());
   assert(MaxCount > 0 && "Bad max count");
   uint64_t Scale = calculateCountScale(MaxCount);
-  SmallVector<unsigned, 4> Weights;
+  SmallVector<uint64_t, 4> Weights;
   for (const auto &ECI : EdgeCounts)
     Weights.push_back(scaleBranchCount(ECI, Scale));
 
