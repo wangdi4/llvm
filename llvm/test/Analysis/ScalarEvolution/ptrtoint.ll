@@ -411,12 +411,12 @@ define void @pr46786_c26_char(i8* %arg, i8* %arg1, i8* %arg2) {
 ; X32-NEXT:    %i8 = load i8, i8* %i7, align 1
 ; X32-NEXT:    --> %i8 U: full-set S: full-set Exits: <<Unknown>> LoopDispositions: { %bb6: Variant }
 ; X32-NEXT:    %i9 = ptrtoint i8* %i7 to i64
-; X32-NEXT:    --> {(zext i32 (ptrtoint i8* %arg to i32) to i64),+,1}<nuw><%bb6> U: [0,8589934590) S: [0,8589934590) Exits: ((zext i8* (-1 + (-1 * %arg) + %arg1) to i64) + (zext i32 (ptrtoint i8* %arg to i32) to i64)) LoopDispositions: { %bb6: Computable }
-; X32-NEXT:    %i10 = sub i64 %i9, %i4
 ; INTEL_CUSTOMIZATION
-; Added <nsw> falgs.
-; X32-NEXT:    --> {0,+,1}<nw><%bb6> U: [0,4294967295) S: [0,4294967295) Exits: (zext i8* (-1 + (-1 * %arg) + %arg1) to i64) LoopDispositions: { %bb6: Computable }
+; Added <nuw><nsw> flags.
+; X32-NEXT:    --> {(zext i32 (ptrtoint i8* %arg to i32) to i64),+,1}<nuw><%bb6> U: [0,8589934590) S: [0,8589934590) Exits: ((zext i8* (-1 + (-1 * %arg) + %arg1) to i64) + (zext i32 (ptrtoint i8* %arg to i32) to i64))<nuw><nsw> LoopDispositions: { %bb6: Computable }
 ; END INTEL_CUSTOMIZATION
+; X32-NEXT:    %i10 = sub i64 %i9, %i4
+; X32-NEXT:    --> {0,+,1}<nw><%bb6> U: [0,4294967295) S: [0,4294967295) Exits: (zext i8* (-1 + (-1 * %arg) + %arg1) to i64) LoopDispositions: { %bb6: Computable }
 ; X32-NEXT:    %i11 = getelementptr inbounds i8, i8* %arg2, i64 %i10
 ; X32-NEXT:    --> {%arg2,+,1}<%bb6> U: full-set S: full-set Exits: (-1 + (-1 * %arg) + %arg1 + %arg2) LoopDispositions: { %bb6: Computable }
 ; X32-NEXT:    %i12 = load i8, i8* %i11, align 1
@@ -501,15 +501,18 @@ define void @pr46786_c26_int(i32* %arg, i32* %arg1, i32* %arg2) {
 ; X32-NEXT:    %i8 = load i32, i32* %i7, align 4
 ; X32-NEXT:    --> %i8 U: full-set S: full-set Exits: <<Unknown>> LoopDispositions: { %bb6: Variant }
 ; X32-NEXT:    %i9 = ptrtoint i32* %i7 to i64
-; X32-NEXT:    --> {(zext i32 (ptrtoint i32* %arg to i32) to i64),+,4}<nuw><%bb6> U: [0,8589934588) S: [0,8589934588) Exits: ((zext i32 (ptrtoint i32* %arg to i32) to i64) + (4 * ((zext i32* (-4 + (-1 * %arg) + %arg1) to i64) /u 4))<nuw><nsw>) LoopDispositions: { %bb6: Computable }
-; X32-NEXT:    %i10 = sub i64 %i9, %i4
 ; INTEL_CUSTOMIZATION
-; Added <nsw> falgs.
+; Added <nuw><nsw> flags.
+; X32-NEXT:    --> {(zext i32 (ptrtoint i32* %arg to i32) to i64),+,4}<nuw><%bb6> U: [0,8589934588) S: [0,8589934588) Exits: ((zext i32 (ptrtoint i32* %arg to i32) to i64) + (4 * ((zext i32* (-4 + (-1 * %arg) + %arg1) to i64) /u 4))<nuw><nsw>)<nuw><nsw> LoopDispositions: { %bb6: Computable }
+; END INTEL_CUSTOMIZATION
+; X32-NEXT:    %i10 = sub i64 %i9, %i4
 ; X32-NEXT:    --> {0,+,4}<nw><%bb6> U: [0,4294967293) S: [0,4294967293) Exits: (4 * ((zext i32* (-4 + (-1 * %arg) + %arg1) to i64) /u 4))<nuw><nsw> LoopDispositions: { %bb6: Computable }
 ; X32-NEXT:    %i11 = ashr exact i64 %i10, 2
 ; X32-NEXT:    --> ({0,+,1}<nw><%bb6> * (1 smin {0,+,4}<nuw><nsw><%bb6>))<nuw><nsw> U: [0,1073741824) S: [0,1073741824) Exits: (((zext i32* (-4 + (-1 * %arg) + %arg1) to i64) /u 4) * (1 smin (4 * ((zext i32* (-4 + (-1 * %arg) + %arg1) to i64) /u 4))<nuw><nsw>))<nuw><nsw> LoopDispositions: { %bb6: Computable }
 ; X32-NEXT:    %i12 = getelementptr inbounds i32, i32* %arg2, i64 %i11
-; X32-NEXT:    --> (((trunc i64 (1 smin {0,+,4}<nuw><nsw><%bb6>) to i32) * {0,+,4}<%bb6>) + %arg2)<nsw> U: full-set S: full-set Exits: ((4 * (trunc i64 (1 smin (4 * ((zext i32* (-4 + (-1 * %arg) + %arg1) to i64) /u 4))<nuw><nsw>) to i32) * ((-4 + (-1 * %arg) + %arg1) /u 4)) + %arg2)<nsw> LoopDispositions: { %bb6: Computable }
+; INTEL_CUSTOMIZATION
+; Added <nuw> flags.
+; X32-NEXT:    --> (((trunc i64 (1 smin {0,+,4}<nuw><nsw><%bb6>) to i32) * {0,+,4}<%bb6>) + %arg2)<nsw> U: full-set S: full-set Exits: ((4 * (trunc i64 (1 smin (4 * ((zext i32* (-4 + (-1 * %arg) + %arg1) to i64) /u 4))<nuw><nsw>) to i32) * ((-4 + (-1 * %arg) + %arg1) /u 4))<nuw> + %arg2)<nsw> LoopDispositions: { %bb6: Computable }
 ; END INTEL_CUSTOMIZATION
 ; X32-NEXT:    %i13 = load i32, i32* %i12, align 4
 ; X32-NEXT:    --> %i13 U: full-set S: full-set Exits: <<Unknown>> LoopDispositions: { %bb6: Variant }
