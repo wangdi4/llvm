@@ -2139,12 +2139,11 @@ static bool tryToReplaceGlobalWithStoredOnceValue(GlobalValue *GV,
   if (!LoadStoredGV)
     return false;
   Value *LoadPtr = LoadStoredGV->getPointerOperand();
-  if (!LoadPtr->hasNUses(1))
-    return false;
+  // BitCast is not mandatory. Allow BitCast only if it has single use.
   auto *BC = dyn_cast<BitCastOperator>(LoadPtr);
-  if (!BC)
-    return false;
-  auto *StoredGV = dyn_cast<GlobalVariable>(BC->getOperand(0));
+  if (BC && BC->hasOneUse())
+    LoadPtr = BC->getOperand(0);
+  auto *StoredGV = dyn_cast<GlobalVariable>(LoadPtr);
   if (!StoredGV)
     return false;
 
@@ -2153,7 +2152,7 @@ static bool tryToReplaceGlobalWithStoredOnceValue(GlobalValue *GV,
     return false;
   // Make sure other global variable is not modified.
   for (auto *U : StoredGV->users()) {
-    if (U == LoadPtr)
+    if (U == BC)
       continue;
     if (!isa<LoadInst>(U))
       return false;
