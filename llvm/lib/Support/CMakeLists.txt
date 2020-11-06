@@ -242,6 +242,17 @@ if (LLVM_LIBCXX_USED AND NOT SYCL_USE_LIBCXX)
   set_property(TARGET LLVMSupport_stdcpp
                PROPERTY LLVM_SYSTEM_LIBS "${system_libs}")
 endif()
+if (WIN32)
+  if (${CMAKE_BUILD_TYPE} MATCHES Debug)
+    set(_STL_FLAG "/MDd")
+  else()
+    set(_STL_FLAG "/MD")
+  endif()
+  add_llvm_component_library(LLVMSupport_dyn ${SUPPORT_SOURCES}
+                             STDLIB "${_STL_FLAG}")
+  set_property(TARGET LLVMSupport_dyn
+               PROPERTY LLVM_SYSTEM_LIBS "${system_libs}")
+endif()
 #end INTEL_CUSTOMIZATION
 
 set(llvm_system_libs ${system_libs})

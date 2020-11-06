@@ -77,6 +77,35 @@ if (LLVM_LIBCXX_USED AND NOT SYCL_USE_LIBCXX)
     PRIVATE googletest googlemock
   )
 endif()
+if (WIN32)
+  if (${CMAKE_BUILD_TYPE} MATCHES Debug)
+    set(_STL_LIB "/MDd")
+  else()
+    set(_STL_LIB "/MD")
+  endif()
+  add_llvm_library(gtest_dyn
+    googletest/src/gtest-all.cc
+    googlemock/src/gmock-all.cc
+
+    LINK_LIBS
+    ${LIBS}
+
+    LINK_COMPONENTS
+    Support_dyn # Depends on llvm::raw_ostream
+
+    # This is a library meant only for the build tree.
+    BUILDTREE_ONLY
+
+    STDLIB
+    ${_STL_LIB}
+  )
+
+  target_include_directories(gtest_dyn
+    PUBLIC googletest/include googlemock/include
+    PRIVATE googletest googlemock
+  )
+  target_compile_definitions(gtest_dyn PUBLIC -D_SILENCE_TR1_NAMESPACE_DEPRECATION_WARNING)
+endif()
 # end INTEL_CUSTOMIZATION
 # The googletest and googlemock sources don't presently use the 'override'
 # keyword, which leads to lots of warnings from -Wsuggest-override. Disable
@@ -124,4 +153,10 @@ if (LLVM_LIBCXX_USED AND NOT SYCL_USE_LIBCXX)
   gtest_remove_dylib_from_link_interface(gtest_stdcpp)
   gtest_remove_dylib_from_link_interface(gtest_main_stdcpp)
 endif()
+
+if (WIN32)
+  gtest_remove_dylib_from_link_interface(gtest_dyn)
+  gtest_remove_dylib_from_link_interface(gtest_main_dyn)
+endif()
 # end INTEL_CUSTOMIZATION
+

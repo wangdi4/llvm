@@ -662,13 +662,43 @@ function(llvm_add_library name)
   # INTEL_CUSTOMIZATION
   #if it forced - override with provided value
   if (ARG_STDLIB)
-    check_cxx_compiler_flag("-stdlib=lib${ARG_STDLIB}"
-                            CXX_COMPILER_SUPPORTS_STDLIB)
-    if (CXX_COMPILER_SUPPORTS_STDLIB)
-      set_property(TARGET ${name} APPEND_STRING PROPERTY
-                   COMPILE_FLAGS " -stdlib=lib${ARG_STDLIB}")
-      set_property(TARGET ${name} APPEND_STRING PROPERTY
-                   LINK_FLAGS " -l${ARG_STDLIB}")
+    if (WIN32)
+      check_cxx_compiler_flag("${ARG_STDLIB}" CXX_COMPILER_SUPPORTS_STL_FLAG)
+      if (CXX_COMPILER_SUPPORTS_STL_FLAG)
+        foreach(flag_var
+            CMAKE_CXX_FLAGS CMAKE_CXX_FLAGS_DEBUG CMAKE_CXX_FLAGS_RELEASE
+            CMAKE_CXX_FLAGS_MINSIZEREL CMAKE_CXX_FLAGS_RELWITHDEBINFO
+            CMAKE_C_FLAGS CMAKE_C_FLAGS_DEBUG CMAKE_C_FLAGS_RELEASE
+            CMAKE_C_FLAGS_MINSIZEREL CMAKE_C_FLAGS_RELWITHDEBINFO)
+          string(REGEX REPLACE "/MTd" "" ${flag_var} "${${flag_var}}")
+          string(REGEX REPLACE "/MT" "" ${flag_var} "${${flag_var}}")
+          set(${flag_var} "${${flag_var}}" CACHE STRING "" FORCE)
+        endforeach()
+        set_property(TARGET ${name} APPEND_STRING PROPERTY
+                    COMPILE_FLAGS " ${ARG_STDLIB}")
+      endif()
+    else()
+      check_cxx_compiler_flag("-stdlib=lib${ARG_STDLIB}"
+                              CXX_COMPILER_SUPPORTS_STDLIB)
+      if (CXX_COMPILER_SUPPORTS_STDLIB)
+        set_property(TARGET ${name} APPEND_STRING PROPERTY
+                    COMPILE_FLAGS " -stdlib=lib${ARG_STDLIB}")
+        set_property(TARGET ${name} APPEND_STRING PROPERTY
+                    LINK_FLAGS " -l${ARG_STDLIB}")
+      endif()
+    endif()
+  else()
+    # LLVM sets /MT or /MD options globally, and there's no way to change it
+    # for a single target. As a workaround, remove /MT flag for every target
+    # and set it manually.
+    if (WIN32)
+      if (CMAKE_BUILD_PATH MATCHES "Debug")
+        set_property(TARGET ${name} APPEND_STRING PROPERTY
+                    COMPILE_FLAGS " /MTd")
+      else()
+        set_property(TARGET ${name} APPEND_STRING PROPERTY
+                    COMPILE_FLAGS " /MT")
+      endif()
     endif()
   endif()
   # end INTEL_CUSTOMIZATION
@@ -1449,6 +1479,18 @@ function(add_unittest test_suite test_name)
     target_link_libraries(${test_name} PRIVATE gtest_main_stdcpp gtest_stdcpp stdc++ ${LLVM_PTHREAD_LIB})
     set_property(TARGET ${test_name} APPEND_STRING PROPERTY
                  COMPILE_FLAGS " -stdlib=libstdc++")
+  elseif (WIN32 AND NOT (${IS_SYCL_TEST} STREQUAL "-1"))
+    list(APPEND LLVM_LINK_COMPONENTS Support_dyn) # gtest needs it for raw_ostream
+    add_llvm_executable(${test_name} IGNORE_EXTERNALIZE_DEBUGINFO NO_INSTALL_RPATH ${ARGN})
+    set(outdir ${CMAKE_CURRENT_BINARY_DIR}/${CMAKE_CFG_INTDIR})
+    set_output_directory(${test_name} BINARY_DIR ${outdir} LIBRARY_DIR ${outdir})
+    target_link_libraries(${test_name} PRIVATE gtest_main_dyn gtest_dyn ${LLVM_PTHREAD_LIB})
+    foreach(flag_var
+        CMAKE_CXX_FLAGS CMAKE_CXX_FLAGS_DEBUG CMAKE_CXX_FLAGS_RELEASE
+        CMAKE_CXX_FLAGS_MINSIZEREL CMAKE_CXX_FLAGS_RELWITHDEBINFO)
+      string(REGEX REPLACE "/MT" "/MD" ${flag_var} "${${flag_var}}")
+      set(${flag_var} "${${flag_var}}" CACHE STRING "" FORCE)
+    endforeach()
   else()
     list(APPEND LLVM_LINK_COMPONENTS Support) # gtest needs it for raw_ostream
     add_llvm_executable(${test_name} IGNORE_EXTERNALIZE_DEBUGINFO NO_INSTALL_RPATH ${ARGN})
