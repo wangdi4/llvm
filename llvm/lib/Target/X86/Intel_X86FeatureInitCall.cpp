@@ -77,7 +77,8 @@ public:
         auto Itr =
             std::find_if(std::begin(TargetFeatures), std::end(TargetFeatures),
                          [&](StringRef A) { return A == S; });
-        TargetFeatures.erase(Itr);
+        if (Itr != std::end(TargetFeatures))
+          TargetFeatures.erase(Itr);
       }
     }
     return true;

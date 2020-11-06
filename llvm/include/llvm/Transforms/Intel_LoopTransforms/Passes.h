@@ -150,6 +150,9 @@ FunctionPass *createHIRArrayTransposePass();
 /// Creates pass that performs Aos To Soa.
 FunctionPass *createHIRAosToSoaPass();
 
+/// Creates pass that performs inter-loopnest-tiling.
+FunctionPass *createHIRInterLoopBlockingPass();
+
 /// Creates pass that fuses loops.
 FunctionPass *createHIRLoopFusionPass();
 
