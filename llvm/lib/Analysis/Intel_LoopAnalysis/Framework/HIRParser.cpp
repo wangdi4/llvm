@@ -4077,13 +4077,9 @@ static bool hasLvalRvalBlobMismatch(const HLInst *HInst,
          RefIt != E; ++RefIt) {
       auto *Ref = *RefIt;
 
-      // Call insts with 'returned' attribute can have AddressOf Refs.
-      // Ideally, we should only check the ref for parameter with 'returned'
-      // attribute but it is not straightforward to get its operand number so we
-      // check all the refs.
-      assert((isa<CallInst>(HInst->getLLVMInstruction()) ||
-              Ref->isTerminalRef()) &&
-             "unexpected rval ref for non self blob lval!");
+      // Call insts with 'returned' attribute and ptrtoint inst can have
+      // AddressOf Refs.
+      assert(!Ref->isMemRef() && "unexpected rval ref for non self blob lval!");
 
       if (Ref->usesTempBlob(BlobIndex)) {
         FoundBlob = true;
