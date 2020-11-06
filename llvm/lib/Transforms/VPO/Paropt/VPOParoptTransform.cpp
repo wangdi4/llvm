@@ -1388,16 +1388,14 @@ bool VPOParoptTransform::paroptTransforms() {
   }
 #endif  // INTEL_FEATURE_CSA
 
-  // Early preprocessing for outlined work regions that regularizes loops,
-  // privatizes shared items and generates aliasing information. This need
-  // to be done early before outlining because outlining damages aliasing
-  // information.
+  // Early preprocessing for outlined work regions that regularizes loops
+  // and generates aliasing information. This need to be done early before
+  // outlining because outlining damages aliasing information.
   if ((Mode & OmpPar) && (Mode & ParTrans))
     for (auto *W : WRegionList) {
       switch (W->getWRegionKindID()) {
       case WRegionNode::WRNTeams:
       case WRegionNode::WRNParallel:
-        RoutineChanged |= privatizeSharedItems(W);
         if (!isTargetSPIRV())
           improveAliasForOutlinedFunc(W);
         break;
@@ -1405,7 +1403,6 @@ bool VPOParoptTransform::paroptTransforms() {
       case WRegionNode::WRNParallelLoop:
       case WRegionNode::WRNDistributeParLoop:
         RoutineChanged |= regularizeOMPLoop(W, false);
-        RoutineChanged |= privatizeSharedItems(W);
         improveAliasForOutlinedFunc(W);
         break;
       case WRegionNode::WRNTask:
@@ -1433,6 +1430,9 @@ bool VPOParoptTransform::paroptTransforms() {
       propagateSPIRVSIMDWidth();
     assignParallelDimensions();
   }
+
+  if ((Mode & OmpPar) && (Mode & ParTrans))
+    RoutineChanged |= addRangeMetadataToOmpCalls();
 
   Type *Int32Ty = Type::getInt32Ty(C);
 
@@ -10194,177 +10194,6 @@ void VPOParoptTransform::improveAliasForOutlinedFunc(WRegionNode *W) {
   VPOUtils::genAliasSet(makeArrayRef(W->bbset_begin(), W->bbset_end()), AA,
                         &(F->getParent()->getDataLayout()));
 }
-
-bool VPOParoptTransform::privatizeSharedItems(WRegionNode *W) {
-  // This transformation should be combined with the argument promotion pass (to
-  // do a cleanup) which currently runs only at O3, therefore we limit it to O3
-  // as well.
-  if (OptLevel < 3 || !W->canHaveShared())
-    return false;
-
-  W->populateBBSet();
-
-  LLVM_DEBUG(dbgs() << "\nEnter VPOParoptTransform::privatizeSharedItems: "
-                    << W->getName() << "\n");
-
-  // Returns true if all given users are either load instructions or bitcasts
-  // that are used by the loads.
-  auto allUsersAreLoads = [W](ArrayRef<Instruction *> Users) {
-    SmallVector<Instruction *, 8u> Worklist{Users.begin(), Users.end()};
-    while (!Worklist.empty()) {
-      Instruction *I = Worklist.pop_back_val();
-      if (isa<BitCastInst>(I) || isa<GetElementPtrInst>(I)) {
-        WRegionUtils::findUsersInRegion(W, I, &Worklist, true);
-        continue;
-      }
-      if (!isa<LoadInst>(I))
-        return false;
-    }
-    return true;
-  };
-
-#ifndef NDEBUG
-  auto reportSkipped = [](Value *V, const Twine &Msg) {
-    dbgs() << "skipping '" << V->getName() << "' - " << Msg << "\n";
-  };
-#endif // NDEBUG
-
-  auto IsPrivatizationCandidate = [&](AllocaInst *AI) {
-    // Do not attempt to promote arrays or structures.
-    if (AI->isArrayAllocation() ||
-        !AI->getType()->getElementType()->isSingleValueType()) {
-      LLVM_DEBUG(reportSkipped(AI, "not a single value type"));
-      return false;
-    }
-    Optional<uint64_t> Size =
-        AI->getAllocationSizeInBits(F->getParent()->getDataLayout());
-    if (!Size) {
-      LLVM_DEBUG(reportSkipped(AI, "unknown size"));
-      return false;
-    }
-
-    // Check if item's memory is modified inside the region. If not then it
-    // should be safe to privatize it.
-    MemoryLocation Loc{AI, LocationSize::precise(*Size)};
-    if (any_of(W->blocks(), [&](const BasicBlock *BB) {
-          if (BB == W->getEntryBBlock() || BB == W->getExitBBlock())
-            return false;
-          if (!AA->canBasicBlockModify(*BB, Loc))
-            return false;
-          LLVM_DEBUG(reportSkipped(AI, "is modified in " + BB->getName()));
-          return true;
-        }))
-      return false;
-    return true;
-  };
-
-  // Find "shared" candidates that can be privatized.
-  using ItemData = std::pair<AllocaInst *, SmallVector<Instruction *, 8>>;
-  SmallVector<ItemData, 8> ToPrivatize;
-  for (SharedItem *I : W->getShared().items()) {
-    if (auto *AI = dyn_cast<AllocaInst>(I->getOrig())) {
-      if (!IsPrivatizationCandidate(AI))
-      continue;
-
-      SmallVector<Instruction *, 8> Users;
-      if (!WRegionUtils::findUsersInRegion(W, AI, &Users, true)) {
-        LLVM_DEBUG(reportSkipped(AI, "no users in the region"));
-        continue;
-      }
-
-      // Check if item has no users other than loads or bitcasts/GEPs + loads.
-      if (!allUsersAreLoads(Users)) {
-        LLVM_DEBUG(reportSkipped(AI, "address escapes"));
-        continue;
-      }
-
-      ToPrivatize.emplace_back(AI, std::move(Users));
-      continue;
-    }
-
-    // Check if shared item is a bitcasted alloca instruction that can be
-    // privatized. If so move bitcast into the work region and change shared
-    // item to alloca instruction.
-    if (auto *BCI = dyn_cast<BitCastInst>(I->getOrig()))
-      if (auto *AI = dyn_cast<AllocaInst>(BCI->getOperand(0))) {
-
-        // TODO: If the BC's region is nested, we cannot make the alloca
-        // live-into the inner region without fixing up all the outer
-        // regions with map and/or explicit shared. Just disable for now.
-        if (W->getParent() && W->needsOutlining())
-          continue;
-
-        if (!IsPrivatizationCandidate(AI))
-          continue;
-
-        SmallVector<Instruction *, 8> Users;
-        if (!WRegionUtils::findUsersInRegion(W, BCI, &Users)) {
-          LLVM_DEBUG(reportSkipped(BCI, "no users in the region"));
-          continue;
-        }
-
-        if (!allUsersAreLoads(BCI)) {
-          LLVM_DEBUG(reportSkipped(BCI, "address escapes"));
-          continue;
-        }
-
-        // Change shared value to alloca instruction.
-        auto *EntryDir = cast<IntrinsicInst>(W->getEntryDirective());
-        EntryDir->replaceUsesOfWith(BCI, AI);
-        I->setOrig(AI);
-
-        // And move bitcast into the region.
-        auto *NewBCI = cast<BitCastInst>(BCI->clone());
-        NewBCI->insertAfter(EntryDir);
-
-        for (auto *User : Users)
-          User->replaceUsesOfWith(BCI, NewBCI);
-
-        // Add alloca to the provatization list. Bitcast is the only user of
-        // alloca inside the region.
-        ToPrivatize.emplace_back(AI, SmallVector<Instruction *, 1>({NewBCI}));
-        continue;
-      }
-
-    LLVM_DEBUG(reportSkipped(I->getOrig(), "not an local pointer"));
-  }
-
-  // Clear blocks.
-  W->resetBBSet();
-
-  if (ToPrivatize.empty())
-    return false;
-
-  // Create separate block for alloca and load/store instructions.
-  BasicBlock *EntryBB = W->getEntryBBlock();
-  BasicBlock *NewBB = SplitBlock(EntryBB, EntryBB->getTerminator(), DT, LI);
-  Instruction *InsPt = NewBB->getTerminator();
-  Instruction *AllocaInsPt =
-      VPOParoptUtils::getInsertionPtForAllocas(W, F, /*OutsideRegion=*/false);
-
-  // Create private instances for variables collected earlier.
-  for (ItemData &P : ToPrivatize) {
-    AllocaInst *AI = P.first;
-
-    LLVM_DEBUG(dbgs() << "privatizing '" << AI->getName() << "'\n");
-
-    // Allocate space for the private copy.
-    auto *NewAI = cast<AllocaInst>(AI->clone());
-    NewAI->setName(AI->getName() + ".fp");
-    NewAI->insertBefore(AllocaInsPt);
-
-    // Copy variable value from the original location to the private instance.
-    new StoreInst(
-        new LoadInst(AI->getAllocatedType(), AI, AI->getName() + ".v", InsPt),
-        NewAI, InsPt);
-
-    // And replace all uses of the original variable in the region with the
-    // private one.
-    for (auto *User : P.second)
-      User->replaceUsesOfWith(AI, NewAI);
-  }
-  return true;
-}
 #endif  // INTEL_CUSTOMIZATION
 
 template <typename Range>
@@ -11567,5 +11396,131 @@ bool VPOParoptTransform::fixupKnownNDRange(WRegionNode *W) const {
   WTarget->resetUncollapsedNDRangeDimensions();
 
   return true;
+}
+
+bool VPOParoptTransform::addRangeMetadataToOmpCalls() const {
+  // Set of function's blocks outside of any work region. Initially it contains
+  // all function's block, but we'll be removing work region's blocks from it
+  // while processing them.
+  SmallPtrSet<BasicBlock *, 8u> OrphanBlocks;
+  for (BasicBlock &BB : *F)
+    OrphanBlocks.insert(&BB);
+
+  auto GetConstantValue = [](Value *V) -> Optional<APInt> {
+    if (auto *CI = dyn_cast_or_null<ConstantInt>(V))
+      return CI->getValue();
+    return None;
+  };
+
+  auto GetParentValue = [](WRegionNode *W,
+                           SmallDenseMap<WRegionNode *, Optional<APInt>> &Map)
+      -> Optional<APInt> {
+    if (WRegionNode *PW = W->getParent())
+      return Map[PW];
+    return None;
+  };
+
+  // Propagate number of teams and threads from outer regions to inner.
+  SmallDenseMap<WRegionNode *, Optional<APInt>> W2NumTeams;
+  SmallDenseMap<WRegionNode *, Optional<APInt>> W2NumThreads;
+  for (WRegionNode *W : reverse(WRegionList)) {
+    W->populateBBSet();
+
+    // Update set of blocks which do not belong to any work region.
+    for (BasicBlock *BB : W->blocks())
+      OrphanBlocks.erase(BB);
+
+    // The number of teams and threads can be changed by teams, parallel and
+    // target constructs. Other work regions inherit values from the parent
+    // region.
+    if (W->getIsTeams()) {
+      W2NumTeams[W] = GetConstantValue(W->getNumTeams());
+      W2NumThreads[W] = GetConstantValue(W->getThreadLimit());
+      continue;
+    }
+    if (W->getIsPar()) {
+      W2NumTeams[W] = GetParentValue(W, W2NumTeams);
+      W2NumThreads[W] = GetConstantValue(W->getNumThreads());
+      continue;
+    }
+    if (W->getIsTarget()) {
+      W2NumTeams[W] = None;
+      W2NumThreads[W] = None;
+      continue;
+    }
+    W2NumTeams[W] = GetParentValue(W, W2NumTeams);
+    W2NumThreads[W] = GetParentValue(W, W2NumThreads);
+  }
+
+  // Adds [Lo, Hi) range metadata to the given call instruction. If upper
+  // bound is not specified then max positive value of the call's result type
+  // is used.
+  auto AddRangeMD = [](CallBase *Call, int64_t Lo, Optional<APInt> Hi) {
+    auto *Ty = cast<IntegerType>(Call->getType());
+    APInt Max = Hi ? *Hi : APInt::getSignedMaxValue(Ty->getBitWidth());
+    MDNode *RangeMD =
+        MDBuilder(Call->getContext())
+            .createRange(ConstantInt::get(Ty, Lo), ConstantInt::get(Ty, Max));
+    Call->setMetadata(LLVMContext::MD_range, RangeMD);
+  };
+
+  // Annotate OpenMP API calls in the given basic block using provided number of
+  // teams and threads in the block.
+  auto AnnotateCalls = [this, &AddRangeMD](BasicBlock *BB,
+                                           Optional<APInt> NumTeams,
+                                           Optional<APInt> NumThreads) {
+    bool Changed = false;
+    for (Instruction &I : *BB) {
+      auto *Call = dyn_cast<CallBase>(&I);
+      if (!Call || Call->getMetadata(LLVMContext::MD_range))
+        continue;
+
+      Function *Callee = Call->getCalledFunction();
+      if (!Callee)
+        continue;
+
+      LibFunc TheLibFunc;
+      if (!TLI->getLibFunc(*Callee, TheLibFunc) || !TLI->has(TheLibFunc))
+        continue;
+
+      switch (TheLibFunc) {
+      case LibFunc_omp_get_num_teams:
+        AddRangeMD(Call, 1, NumTeams ? *NumTeams + 1u : Optional<APInt>{None});
+        Changed = true;
+        break;
+      case LibFunc_omp_get_team_num:
+        AddRangeMD(Call, 0, NumTeams);
+        Changed = true;
+        break;
+      case LibFunc_omp_get_num_threads:
+        AddRangeMD(Call, 1,
+                   NumThreads ? *NumThreads + 1u : Optional<APInt>{None});
+        Changed = true;
+        break;
+      case LibFunc_omp_get_thread_num:
+        AddRangeMD(Call, 0, NumThreads);
+        Changed = true;
+        break;
+      default:
+        break;
+      }
+    }
+    return Changed;
+  };
+
+  // Walk work regions inner to outer and annotate OpenMP calls in work region's
+  // blocks.
+  bool Changed = false;
+  for (WRegionNode *W : WRegionList) {
+    for (BasicBlock *BB : W->blocks())
+      Changed |= AnnotateCalls(BB, W2NumTeams[W], W2NumThreads[W]);
+    W->resetBBSet();
+  }
+
+  // And finally annotate calls in function's blocks outside of any work region.
+  for (BasicBlock *BB : OrphanBlocks)
+    Changed |= AnnotateCalls(BB, None, None);
+
+  return Changed;
 }
 #endif // INTEL_COLLAB

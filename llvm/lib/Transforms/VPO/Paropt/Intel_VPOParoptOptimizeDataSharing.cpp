@@ -13,23 +13,23 @@
 /// This file implements optimization pass that transforms OpenMP clauses
 /// to optimize shared data accesses across threads.
 ///
-/// The data sharing optimization is supposed to modify OpenMP clauses
-/// for some items to optimize the amount of accesses to shared memory.
-/// For example,
-///   #pragma omp parallel for shared(c)
-///   for (int i = 0; i < 100; ++i)
-///     a[i] = i * c;
+/// 1. Optimize address space for PRIVATE/FIRSTPRIVATE variables for SPIR-V
+/// targets.
 ///
-/// The scalar 'c' will be shared by default, so multiple threads will access
-/// the same shared memory. It may also be hard for the optimizer to prove
-/// that it is legal to hoist 'c' load from the loop. We can make 'c'
-/// firstprivate, which will make the code easier to optimize and reduce
-/// number of times 'c' is read within the loop. Such an optimization
-/// is safe, if we can prove that a pointer to 'c' cannot be passed
-/// into the region in any other form (e.g. via capturing it in another
-/// variable).
+/// If the optimization proves that PRIVATE/FIRSTPRIVATE item can be made WI
+/// private, it adds "WILOCAL" modifier for the PRIVATE/FIRSTPRIVATE clause
+/// specifying this item. VPOParoptTransform will use the modifier
+/// to choose the optimal address space for the item.
 ///
-/// This is just one example of things we can do in this optimization.
+/// 2. Optimize REDUCTION clauses on TEAMS regions for SPIR-V targets.
+///
+/// If all reads/writes from/to the reduction variable on the TEAMS region
+/// are done within regions enclosed into the TEAMS region, and all such
+/// regions (or their ancestors also enclosed into the TEAMS region)
+/// have the same variable in their reduction clauses, then we can make
+/// the variables SHARED for the TEAMS region. This means that the descendant
+/// regions (if any) will access the original reduction item during
+/// the reduction updates.
 //===----------------------------------------------------------------------===//
 
 #include "llvm/Analysis/OptimizationRemarkEmitter.h"

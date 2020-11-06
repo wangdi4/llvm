@@ -13,6 +13,7 @@ intel_add_file(INTEL_SOURCE_FILES_TO_BUILD
   ../Intel_VPO/Vecopt/VPODirectiveCleanup.cpp
   Paropt/Intel_VPOParoptFortranUtils.cpp
   Paropt/Intel_VPOParoptOptimizeDataSharing.cpp
+  Paropt/Intel_VPOParoptSharedPrivatization.cpp
   )
 
 # INTEL_FEATURE_CSA

@@ -168,6 +168,8 @@ public:
   /// Create a map between the BasicBlocks and the corresponding
   /// innermost WRegionNodes owning the blocks.
   void initializeBlocksToRegionsMap(BBToWRNMapTy &BBToWRNMap);
+  /// Privatize shared items in the work region.
+  bool privatizeSharedItems();
 #endif  // INTEL_CUSTOMIZATION
 
 private:
@@ -2116,6 +2118,11 @@ private:
   /// ND-range dimensions for OpenMP loop regions. It also sets
   /// NDRangeDistributeDim for target regions, when needed.
   void assignParallelDimensions() const;
+
+  /// Add range metadata to OpenMP API calls inside the current function for
+  /// which result's range is known - omp_get_num_threads, omp_get_thread_num,
+  /// omp_get_num_teams, omp_get_team_num.
+  bool addRangeMetadataToOmpCalls() const;
 };
 
 } /// namespace vpo

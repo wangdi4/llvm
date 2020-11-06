@@ -423,6 +423,7 @@ namespace {
       (void) llvm::createCSAGraphSplitterPass();
   #endif  // INTEL_FEATURE_CSA
       (void) llvm::createVPOParoptOptimizeDataSharingPass();
+      (void) llvm::createVPOParoptSharedPrivatizationPass();
   #endif // INTEL_CUSTOMIZATION
 
   #if INTEL_COLLAB
