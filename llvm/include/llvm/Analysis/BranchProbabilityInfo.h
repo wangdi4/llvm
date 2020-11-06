@@ -223,7 +223,6 @@ private:
     void deleted() override {
       assert(BPI != nullptr);
       BPI->eraseBlock(cast<BasicBlock>(getValPtr()));
-      BPI->Handles.erase(*this);
     }
 
   public:
