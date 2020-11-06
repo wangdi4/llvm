@@ -312,3 +312,11 @@
 // CHECK: portout24
 // CHECK: encoding: [0xf2,0xab]
           portout24
+
+// CHECK: load_tickle_gpa
+// CHECK: encoding: [0x0f,0x01,0xca]
+          load_tickle_gpa
+
+// CHECK: store_tickle_gpa
+// CHECK: encoding: [0x0f,0x01,0xcb]
+          store_tickle_gpa
