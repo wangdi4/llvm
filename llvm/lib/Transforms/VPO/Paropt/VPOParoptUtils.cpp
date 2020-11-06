@@ -4567,6 +4567,7 @@ CallInst *VPOParoptUtils::genCopyAssignCall(Function *Cp, Value *D, Value *S,
 
   CallInst *Call = genCall(Cp, {D,S}, {DTy, STy}, nullptr);
   Call->insertBefore(InsertBeforePt);
+  Call->setDebugLoc(InsertBeforePt->getDebugLoc());
   LLVM_DEBUG(dbgs() << "COPY ASSIGN: " << *Call << "\n");
   return Call;
 }
