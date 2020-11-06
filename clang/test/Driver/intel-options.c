@@ -612,3 +612,24 @@
 // RUN: %clang_cl -### /Qopt-assume-no-loop-carried-dep -c %s 2>&1 \
 // RUN:  | FileCheck -check-prefix=CHECK-LOOP-CARRIED-DEP1 %s
 // CHECK-LOOP-CARRIED-DEP1: "-mllvm" "-hir-dd-test-assume-no-loop-carried-dep=1"
+
+// -parallel-source-info
+// RUN: %clang -### -parallel-source-info -c %s 2>&1 \
+// RUN:  | FileCheck -check-prefix=PARALLEL_SOURCE_INFO1 %s
+// RUN: %clang -### -parallel-source-info=1 -c %s 2>&1 \
+// RUN:  | FileCheck -check-prefix=PARALLEL_SOURCE_INFO1 %s
+// RUN: %clang_cl -### /Qparallel-source-info -c %s 2>&1 \
+// RUN:  | FileCheck -check-prefix=PARALLEL_SOURCE_INFO1 %s
+// RUN: %clang_cl -### /Qparallel-source-info:1 -c %s 2>&1 \
+// RUN:  | FileCheck -check-prefix=PARALLEL_SOURCE_INFO1 %s
+// RUN: %clang -### -parallel-source-info=2 -c %s 2>&1 \
+// RUN:  | FileCheck -check-prefix=PARALLEL_SOURCE_INFO2 %s
+// RUN: %clang_cl -### /Qparallel-source-info:2 -c %s 2>&1 \
+// RUN:  | FileCheck -check-prefix=PARALLEL_SOURCE_INFO2 %s
+// RUN: %clang -### -no-parallel-source-info -c %s 2>&1 \
+// RUN:  | FileCheck -check-prefix=PARALLEL_SOURCE_INFO0 %s
+// RUN: %clang_cl -### /Qparallel-source-info- -c %s 2>&1 \
+// RUN:  | FileCheck -check-prefix=PARALLEL_SOURCE_INFO0 %s
+// PARALLEL_SOURCE_INFO0: "-mllvm" "-parallel-source-info=0"
+// PARALLEL_SOURCE_INFO1: "-mllvm" "-parallel-source-info=1"
+// PARALLEL_SOURCE_INFO2: "-mllvm" "-parallel-source-info=2"
