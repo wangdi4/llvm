@@ -36,11 +36,13 @@
 // RUN: %clang -### -fsycl-device-only -c -emit-llvm %s 2>&1 | FileCheck %s --check-prefix=COMBINED
 // RUN: %clangxx -### -fsycl-device-only %s 2>&1 | FileCheck %s --check-prefix=DEFAULT
 // RUN: %clang_cl -### -fsycl-device-only %s 2>&1 | FileCheck %s --check-prefix=DEFAULT
+// RUN: %clangxx -### -fsycl-device-only -fsycl-unnamed-lambda %s 2>&1 | FileCheck %s --check-prefix=CHECK-LAMBDA
+// RUN: %clang_cl -### -fsycl-device-only -fsycl-unnamed-lambda %s 2>&1 | FileCheck %s --check-prefix=CHECK-LAMBDA
 
 // INTEL_CUSTOMIZATION
 // For 32-bit host compilers (xmainx86oclwin) the spir target defaults to
 // "spir" but for 64-bit compilers it is "spir64".
-// DEFAULT: "-triple" "spir{{(64)?}}-unknown-{{.*}}-sycldevice{{.*}}" "-fsycl-is-device"{{.*}} "-emit-llvm-bc"
+// DEFAULT: "-triple" "spir{{(64)?}}-unknown-{{.*}}-sycldevice{{.*}}" "-fsycl-is-device"{{.*}} "-sycl-std=2020"{{.*}} "-emit-llvm-bc"
 // DEFAULT: "-internal-isystem" "{{.*}}bin{{[/\\]+}}..{{[/\\]+}}include{{[/\\]+}}sycl"
 // DEFAULT: "-internal-isystem" "{{.*lib.*clang.*include}}"
 // DEFAULT: "-std=c++17"
@@ -55,6 +57,7 @@
 // COMBINED: "-triple" "spir{{(64)?}}-unknown-{{.*}}-sycldevice"{{.*}} "-fsycl-is-device"{{.*}} "-emit-llvm-bc"
 // TEXTUAL: "-triple" "spir{{(64)?}}-unknown-{{.*}}-sycldevice{{.*}}" "-fsycl-is-device"{{.*}} "-emit-llvm"
 // end INTEL_CUSTOMIZATION
+// CHECK-LAMBDA: "-fsycl-unnamed-lambda"
 
 /// -fsycl-device-only triple checks
 // RUN: %clang -fsycl-device-only -target x86_64-unknown-linux-gnu -### %s 2>&1 \
