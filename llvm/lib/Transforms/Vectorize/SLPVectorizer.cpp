@@ -6211,9 +6211,9 @@ int BoUpSLP::getEntryCost(TreeEntry *E) {
     case Instruction::ICmp:
     case Instruction::Select: {
       // Calculate the cost of this instruction.
-      int ScalarEltCost =
-          TTI->getCmpSelInstrCost(E->getOpcode(), ScalarTy, Builder.getInt1Ty(),
-                                  CmpInst::BAD_ICMP_PREDICATE, CostKind, VL0);
+      int ScalarEltCost = TTI->getCmpSelInstrCost(E->getOpcode(), ScalarTy,
+                                                  Builder.getInt1Ty(),
+                                                  CostKind, VL0);
       if (NeedToShuffleReuses) {
         ReuseShuffleCost -= (ReuseShuffleNumbers - VL.size()) * ScalarEltCost;
       }
@@ -6236,9 +6236,9 @@ int BoUpSLP::getEntryCost(TreeEntry *E) {
         assert(ScalarCost >= 0 && "Too much cost reduction");
       }
 #endif // INTEL_CUSTOMIZATION
-      int VecCost =
-          TTI->getCmpSelInstrCost(E->getOpcode(), VecTy, MaskTy,
-                                  CmpInst::BAD_ICMP_PREDICATE, CostKind, VL0);
+      int VecCost = TTI->getCmpSelInstrCost(E->getOpcode(), VecTy, MaskTy,
+                                            CostKind, VL0);
+
       // Check if it is possible and profitable to use min/max for selects in
       // VL.
       //
@@ -6250,9 +6250,8 @@ int BoUpSLP::getEntryCost(TreeEntry *E) {
         // If the selects are the only uses of the compares, they will be dead
         // and we can adjust the cost by removing their cost.
         if (IntrinsicAndUse.second)
-          IntrinsicCost -=
-              TTI->getCmpSelInstrCost(Instruction::ICmp, VecTy, MaskTy,
-                                      CmpInst::BAD_ICMP_PREDICATE, CostKind);
+          IntrinsicCost -= TTI->getCmpSelInstrCost(Instruction::ICmp, VecTy,
+                                                   MaskTy, CostKind);
         VecCost = std::min(VecCost, IntrinsicCost);
       }
       return ReuseShuffleCost + VecCost - ScalarCost;
