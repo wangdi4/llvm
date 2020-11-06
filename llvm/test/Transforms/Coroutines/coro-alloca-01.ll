@@ -47,9 +47,12 @@ suspend:
 ; CHECK:         %y.reload.addr = getelementptr inbounds %f.Frame, %f.Frame* %FramePtr, i32 0, i32 3
 ; CHECK:         %x.alias = bitcast i64* %x.reload.addr to i32*
 ; CHECK:         %y.alias = bitcast i64* %y.reload.addr to i32*
-; CHECK:         %alias_phi = select i1 %n, i32* %x.alias, i32* %y.alias
+; INTEL_CUSTOMIZATION
+; Allow more freedom in value naming.
+; CHECK:         [[ALIAS_PHI:%.*]] = select i1 %n, i32* %x.alias, i32* %y.alias
 ; CHECK:         %alias_phi.spill.addr = getelementptr inbounds %f.Frame, %f.Frame* %FramePtr, i32 0, i32 4
-; CHECK:         store i32* %alias_phi, i32** %alias_phi.spill.addr, align 8
+; CHECK:         store i32* [[ALIAS_PHI]], i32** %alias_phi.spill.addr, align 8
+; END INTEL_CUSTOMIZATION
 
 declare i8* @llvm.coro.free(token, i8*)
 declare i32 @llvm.coro.size.i32()
