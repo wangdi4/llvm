@@ -766,75 +766,72 @@ bool isLegalToInterchange(const LoopMapTy &StripmineCandidateMap,
   return true;
 }
 
-class RefAnalyzer {
-public:
-  enum RefAnalysisResult {
-    RESULT_START = 0,
-    OK, // de-linearized SIV form
-    NON_LINEAR,
-    NON_SIV,
-  };
-
-  static bool hasNonLinear(RefAnalysisResult Res) { return Res == NON_LINEAR; }
-  static bool isSIV(RefAnalysisResult Res) { return Res == OK; }
-
-  static RefAnalysisResult analyzeRefs(SmallVectorImpl<RegDDRef *> &Refs,
-                                       bool ReplaceRefs = true) {
-    if (std::any_of(Refs.begin(), Refs.end(),
-                    [](const RegDDRef *Ref) { return Ref->isNonLinear(); })) {
-      return NON_LINEAR;
-    }
-
-    bool IsNonSIV = false;
-    for (auto *Ref : Refs) {
-      for (auto *CE : make_range(Ref->canon_begin(), Ref->canon_end())) {
-        if (CE->numIVs() > 1 || CE->numBlobs() > 0 || CE->hasIVBlobCoeffs()) {
-          IsNonSIV = true;
-          break;
-        }
-      }
-
-      if (IsNonSIV) {
-        break;
+static RefAnalysisResult analyzeRefs(SmallVectorImpl<RegDDRef *> &Refs,
+                                     HLLoop *Loop, bool ReplaceRefs = true) {
+  bool HasNonLinear = false;
+  for (const auto Ref : make_range(Refs.begin(), Refs.end())) {
+    unsigned SB = Ref->getSymbase();
+    if (Ref->isNonLinear()) {
+      HasNonLinear = true;
+      // Allow blocking for nonlinear rvals
+      // Later check if these refs match heuristics (i.e. bwavs %mod)
+      if (Loop->isLiveIn(SB) || Loop->isLiveOut(SB) || Ref->isLval()) {
+        LLVM_DEBUG(dbgs() << "Found Nonlinear refs:\n";);
+        return NON_LINEAR;
       }
     }
-
-    if (IsNonSIV) {
-      // Try the second chance with delinearization.
-
-      // Bail out if any ref has more than one dimension.
-      // TODO: fold this logic into the util.
-      if (std::any_of(Refs.begin(), Refs.end(), [](const RegDDRef *Ref) {
-            return !Ref->isSingleDimension();
-          })) {
-        return NON_SIV;
-      }
-
-      SmallVector<RegDDRef *, 8> DelinearizedRefs;
-      SmallVector<BlobTy, MaxLoopNestLevel> GroupSizes;
-      if (!DDRefUtils::delinearizeRefs(Refs, DelinearizedRefs, &GroupSizes)) {
-        return NON_SIV;
-      }
-
-      assert(DelinearizedRefs.size() == Refs.size());
-      LLVM_DEBUG_DELINEAR(dbgs() << "Delinearized refs:\n";
-                          for (auto Pair
-                               : zip(Refs, DelinearizedRefs)) {
-                            std::get<0>(Pair)->dump();
-                            dbgs() << " -> ";
-                            std::get<1>(Pair)->dump();
-                            dbgs() << "\n";
-                          });
-
-      if (ReplaceRefs) {
-        std::copy(DelinearizedRefs.begin(), DelinearizedRefs.end(),
-                  Refs.begin());
-      }
-    }
-
-    return OK;
   }
-};
+
+  if (HasNonLinear) {
+    return NON_LINEAR_READ_ONLY;
+  }
+
+  bool IsNonSIV = false;
+  for (auto *Ref : Refs) {
+    if (std::any_of(Ref->canon_begin(), Ref->canon_end(),
+                    [](const CanonExpr *CE) {
+                      return (CE->numIVs() > 1 || CE->numBlobs() > 0 ||
+                              CE->hasIVBlobCoeffs());
+                    })) {
+      IsNonSIV = true;
+      break;
+    }
+  }
+
+  if (IsNonSIV) {
+    // Try the second chance with delinearization.
+
+    // Bail out if any ref has more than one dimension.
+    // TODO: fold this logic into the util.
+    if (std::any_of(Refs.begin(), Refs.end(), [](const RegDDRef *Ref) {
+          return !Ref->isSingleDimension();
+        })) {
+      return NON_SIV;
+    }
+
+    SmallVector<RegDDRef *, 8> DelinearizedRefs;
+    SmallVector<BlobTy, MaxLoopNestLevel> GroupSizes;
+    if (!DDRefUtils::delinearizeRefs(Refs, DelinearizedRefs, &GroupSizes)) {
+      return NON_SIV;
+    }
+
+    assert(DelinearizedRefs.size() == Refs.size());
+    LLVM_DEBUG_DELINEAR(dbgs() << "Delinearized refs:\n";
+                        for (auto Pair
+                             : zip(Refs, DelinearizedRefs)) {
+                          std::get<0>(Pair)->dump();
+                          dbgs() << " -> ";
+                          std::get<1>(Pair)->dump();
+                          dbgs() << "\n";
+                        });
+
+    if (ReplaceRefs) {
+      std::copy(DelinearizedRefs.begin(), DelinearizedRefs.end(), Refs.begin());
+    }
+  }
+
+  return SIV;
+}
 
 // Checks if the innermost loop body has a certain stencil pattern.
 // Checks
@@ -1511,11 +1508,14 @@ HLLoop *findLoopNestToBlock(HIRFramework &HIRF, HIRDDAnalysis &DDA,
   // coremark-pro/core. BitWidth was either 16 or 32.
   // Quite a special casing, but without exact information about
   // tripcount, we need a hack.
-  RefAnalyzer::RefAnalysisResult RefKind = RefAnalyzer::analyzeRefs(
-      Refs, !ForceStopDelinearization && (!Is32Bit || IsLikelySmall));
+
+  bool DelinearizeRefs =
+      !ForceStopDelinearization && (!Is32Bit || IsLikelySmall);
+
+  RefAnalysisResult RefKind = analyzeRefs(Refs, InnermostLoop, DelinearizeRefs);
 
   // If any Ref is a non-linear, give up here.
-  if (RefAnalyzer::hasNonLinear(RefKind)) {
+  if (RefKind == RefAnalysisResult::NON_LINEAR) {
     printDiag(NON_LINEAR_REFS, Func);
     return nullptr;
   }
@@ -1539,22 +1539,24 @@ HLLoop *findLoopNestToBlock(HIRFramework &HIRF, HIRDDAnalysis &DDA,
     return nullptr;
   }
 
+  // Default to use K&R + fixed stripmine sizes
+  // All linear refs and LoopTC above minimum threshold for blocked loops.
+  HLLoop *ValidOutermost = tryKAndRWithFixedStripmineSizes(
+      Refs, LoopNestTC, InnermostLoop, AdjustedHighestAncestor,
+      ConsecutiveDepth, DDA, SRA, Func, LoopMap);
+
+  if (ValidOutermost) {
+    printDiag(SUCCESS_NON_SIV_OR_NON_ADVANCED, Func, AdjustedHighestAncestor,
+              "SUCCESS");
+    return ValidOutermost;
+  } else {
+    printDiag(NO_KANDR, Func, AdjustedHighestAncestor);
+  }
+
   // Uniq refs for the purpose of memory footprint analysis.
   // For now, we won't do any memory footprint analysis.
-  if (!CommandLineBlockSize && RefAnalyzer::isSIV(RefKind) &&
+  if (!CommandLineBlockSize && (RefKind == RefAnalysisResult::SIV) &&
       (!OldVersion || Advanced)) {
-
-    // Try K&R as default.
-    HLLoop *ValidOutermost = tryKAndRWithFixedStripmineSizes(
-        Refs, LoopNestTC, InnermostLoop, AdjustedHighestAncestor,
-        ConsecutiveDepth, DDA, SRA, Func, LoopMap);
-
-    if (ValidOutermost) {
-      printDiag(SUCCESS_BASIC_SIV, Func, AdjustedHighestAncestor, "SUCCESS");
-      return ValidOutermost;
-    } else {
-      printDiag(NO_KANDR, Func, AdjustedHighestAncestor);
-    }
 
     // Grouping Refs for memory foot print and for stencil
     DDRefGrouping::RefGroupVecTy<RegDDRef *> Groups;
@@ -1580,23 +1582,6 @@ HLLoop *findLoopNestToBlock(HIRFramework &HIRF, HIRDDAnalysis &DDA,
 
     printDiag(NO_STENCIL_LOOP, Func, AdjustedHighestAncestor,
               "Summary: No Blocking in this loop nest 2");
-
-  } else {
-    // NON-SIV case - blocking with default size
-
-    // Try K&R + fixed stripmine sizes
-    // Just use existing logic for now to avoid regression
-    HLLoop *ValidOutermost = tryKAndRWithFixedStripmineSizes(
-        Refs, LoopNestTC, InnermostLoop, AdjustedHighestAncestor,
-        ConsecutiveDepth, DDA, SRA, Func, LoopMap);
-
-    if (ValidOutermost) {
-      printDiag(SUCCESS_NON_SIV_OR_NON_ADVANCED, Func, AdjustedHighestAncestor,
-                "SUCCESS");
-      return ValidOutermost;
-    } else {
-      printDiag(NO_KANDR, Func, AdjustedHighestAncestor);
-    }
   }
 
   printDiag(NO_PROFITABLE_BLOCKING_FOUND, Func, InnermostLoop,

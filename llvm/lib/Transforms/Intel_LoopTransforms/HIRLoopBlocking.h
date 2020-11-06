@@ -83,6 +83,14 @@ inline std::array<std::string, NUM_DIAGS> createDiagMap() {
   return Map;
 }
 
+enum RefAnalysisResult {
+  RESULT_START = 0,
+  SIV, // de-linearized SIV form
+  NON_LINEAR_READ_ONLY,
+  NON_LINEAR,
+  NON_SIV,
+};
+
 // Mapping from a loop to its kind. Used for/during actual transformantion.
 // For a loop to be strimined, (will become unit-strided), holds stripmine size.
 // For a by-strip loop, holds BY_STRIP_LOOP_VAL, which is zero.
