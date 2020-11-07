@@ -4081,16 +4081,18 @@ unsigned X86AsmParser::checkTargetMatchPredicate(MCInst &Inst) {
       (MCID.TSFlags & X86II::EncodingMask) != X86II::VEX)
     return Match_Unsupported;
 
-#if INTEL_CUSTOMIZATION
   // These instructions are only available with {vex}, {vex2} or {vex3} prefix
+  if (MCID.TSFlags & X86II::ExplicitVEXPrefix &&
+      (ForcedVEXEncoding != VEXEncoding_VEX &&
+       ForcedVEXEncoding != VEXEncoding_VEX2 &&
+       ForcedVEXEncoding != VEXEncoding_VEX3))
+    return Match_Unsupported;
+
+#if INTEL_CUSTOMIZATION
+  // These instructions are only available with {evex} prefix
   if (MCID.TSFlags & X86II::ExplicitEVEXPrefix &&
       ForcedVEXEncoding != VEXEncoding_EVEX)
     return Match_Unsupported;
-
-  if (MCID.TSFlags & X86II::ExplicitVEXPrefix &&
-      (ForcedVEXEncoding != VEXEncoding_VEX &&
-       ForcedVEXEncoding != VEXEncoding_VEX3))
-        return Match_Unsupported;
 #endif // INTEL_CUSTOMIZATION
 
   // These instructions match ambiguously with their VEX encoded counterparts

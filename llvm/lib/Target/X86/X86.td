@@ -184,13 +184,9 @@ def FeaturePKU   : SubtargetFeature<"pku", "HasPKU", "true",
 def FeatureVNNI    : SubtargetFeature<"avx512vnni", "HasVNNI", "true",
                           "Enable AVX-512 Vector Neural Network Instructions",
                                       [FeatureAVX512]>;
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_AVX_VNNI
 def FeatureAVXVNNI    : SubtargetFeature<"avxvnni", "HasAVXVNNI", "true",
                            "Support AVX_VNNI encoding",
                                       [FeatureAVX2]>;
-#endif // INTEL_FEATURE_ISA_AVX_VNNI
-#endif // INTEL_CUSTOMIZATION
 def FeatureBF16    : SubtargetFeature<"avx512bf16", "HasBF16", "true",
                            "Support bfloat16 floating point",
                                       [FeatureBWI]>;
@@ -994,10 +990,8 @@ def ProcessorFeatures {
 #if INTEL_FEATURE_ISA_FP16
                                                   FeatureFP16,
 #endif // INTEL_FEATURE_ISA_FP16
-#if INTEL_FEATURE_ISA_AVX_VNNI
-                                                  FeatureAVXVNNI,
-#endif // INTEL_FEATURE_ISA_AVX_VNNI
 #endif // INTEL_CUSTOMIZATION
+                                                  FeatureAVXVNNI,
                                                   FeatureTSXLDTRK,
                                                   FeatureENQCMD,
                                                   FeatureSHSTK,
@@ -1010,7 +1004,8 @@ def ProcessorFeatures {
     !listconcat(ICXFeatures, SPRAdditionalFeatures);
 
   // Alderlake
-  list<SubtargetFeature> ADLAdditionalFeatures = [FeatureCLDEMOTE,
+  list<SubtargetFeature> ADLAdditionalFeatures = [FeatureAVXVNNI,
+                                                  FeatureCLDEMOTE,
                                                   FeatureHRESET,
                                                   FeaturePTWRITE,
                                                   FeatureSERIALIZE,
@@ -1117,9 +1112,7 @@ def ProcessorFeatures {
     FeatureBMI2,
     FeatureLZCNT,
     // TODO: set feature of RAO-INT when it's ready
-#if INTEL_FEATURE_ISA_AVX_VNNI
     FeatureAVXVNNI,
-#endif // INTEL_FEATURE_ISA_AVX_VNNI
     FeaturePKU,
     FeaturePCONFIG,
     FeatureHRESET,

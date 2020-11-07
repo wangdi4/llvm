@@ -3319,6 +3319,8 @@ X86
 
 .. option:: -mavx512vpopcntdq, -mno-avx512vpopcntdq
 
+.. option:: -mavxvnni, -mno-avxvnni
+
 .. option:: -mbmi, -mno-bmi
 
 .. option:: -mbmi2, -mno-bmi2

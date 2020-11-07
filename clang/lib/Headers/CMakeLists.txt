@@ -133,12 +133,6 @@ intel_add_file(INTEL_HEADERS
   Intel_Headers/avx512vlfp16intrin.h
   )
 # end INTEL_FEATURE_ISA_FP16
-# INTEL_FEATURE_ISA_AVX_VNNI
-intel_add_file(INTEL_HEADERS
-  FEATURE ${LLVM_INTELFEATURE_PREFIX}_ISA_AVX_VNNI
-  Intel_Headers/avxvnni/avxvnniintrin.h
-  )
-# end INTEL_FEATURE_ISA_AVX_VNNI
 # INTEL_FEATURE_ISA_AVX512_DOTPROD_INT8
 intel_add_file(INTEL_HEADERS
   FEATURE ${LLVM_INTELFEATURE_PREFIX}_ISA_AVX512_DOTPROD_INT8
@@ -251,6 +245,7 @@ set(files
   avx512vnniintrin.h
   avx512vlvnniintrin.h
   avxintrin.h
+  avxvnniintrin.h
   bmi2intrin.h
   bmiintrin.h
   __clang_cuda_builtin_vars.h

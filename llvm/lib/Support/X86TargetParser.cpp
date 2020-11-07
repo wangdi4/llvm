@@ -207,9 +207,6 @@ constexpr FeatureBitset FeaturesTigerlake =
     FeatureMOVDIRI | FeatureSHSTK | FeatureKL | FeatureWIDEKL;
 constexpr FeatureBitset FeaturesSapphireRapids =
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_AVX_VNNI
-  FeatureAVXVNNI |
-#endif // INTEL_FEATURE_ISA_AVX_VNNI
 #if INTEL_FEATURE_ISA_FP16
   FeatureAVX512FP16 |
 #endif // INTEL_FEATURE_ISA_FP16
@@ -218,8 +215,7 @@ constexpr FeatureBitset FeaturesSapphireRapids =
     FeatureAVX512BF16 | FeatureAVX512VP2INTERSECT | FeatureCLDEMOTE |
     FeatureENQCMD | FeatureMOVDIR64B | FeatureMOVDIRI | FeaturePTWRITE |
     FeatureSERIALIZE | FeatureSHSTK | FeatureTSXLDTRK | FeatureUINTR |
-    FeatureWAITPKG;
-
+    FeatureWAITPKG | FeatureAVXVNNI;
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_CPU_RKL
 static constexpr FeatureBitset FeaturesRocketlake = FeaturesICLClient;
@@ -243,15 +239,13 @@ constexpr FeatureBitset FeaturesTremont =
 
 #if INTEL_CUSTOMIZATION
 static constexpr FeatureBitset FeaturesAnonymousCPU2 =
-#if INTEL_FEATURE_ISA_AVX_VNNI
     FeatureAVXVNNI |
-#endif // INTEL_FEATURE_ISA_AVX_VNNI
     FeatureHRESET |
     FeatureKL | FeatureWIDEKL |
     FeatureSSE2; // To avoid dangling OR.
 #if INTEL_FEATURE_CPU_ADL
 // TODO: set feature of RAO-INT when it's ready
-static constexpr FeatureBitset FeaturesAlderlake =
+constexpr FeatureBitset FeaturesAlderlake =
     FeaturesTremont | FeaturesAnonymousCPU2 | FeatureADX | FeatureAVX |
     FeatureAVX2 | FeatureBMI | FeatureBMI2 | FeatureCLDEMOTE |
     FeatureMOVDIR64B | FeatureMOVDIRI | FeatureF16C | FeatureFMA |
@@ -261,7 +255,7 @@ static constexpr FeatureBitset FeaturesAlderlake =
 #else // INTEL_FEATURE_CPU_ADL
 constexpr FeatureBitset FeaturesAlderlake =
     FeaturesSkylakeClient | FeatureCLDEMOTE | FeatureHRESET | FeaturePTWRITE |
-    FeatureSERIALIZE | FeatureWAITPKG;
+    FeatureSERIALIZE | FeatureWAITPKG | FeatureAVXVNNI;
 #endif // INTEL_FEATURE_CPU_ADL
 #endif // INTEL_CUSTOMIZATION
 
@@ -622,9 +616,6 @@ constexpr FeatureBitset ImpliedFeaturesAMX_INT8 = FeatureAMX_TILE;
 constexpr FeatureBitset ImpliedFeaturesHRESET = {};
 
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_AVX_VNNI
-static constexpr FeatureBitset ImpliedFeaturesAVXVNNI = FeatureAVX2;
-#endif // INTEL_FEATURE_ISA_AVX_VNNI
 #if INTEL_FEATURE_ISA_AVX_IFMA
 static constexpr FeatureBitset ImpliedFeaturesAVXIFMA = FeatureAVX2;
 #endif // INTEL_FEATURE_ISA_AVX_IFMA
@@ -718,6 +709,9 @@ static constexpr FeatureBitset ImpliedFeaturesAMX_MEMADVISE = FeatureAMX_TILE;
 // Key Locker Features
 constexpr FeatureBitset ImpliedFeaturesKL = FeatureSSE2;
 constexpr FeatureBitset ImpliedFeaturesWIDEKL = FeatureKL;
+
+// AVXVNNI Features
+constexpr FeatureBitset ImpliedFeaturesAVXVNNI = FeatureAVX2;
 
 constexpr FeatureInfo FeatureInfos[X86::CPU_FEATURE_MAX] = {
 #define X86_FEATURE(ENUM, STR) {{STR}, ImpliedFeatures##ENUM},

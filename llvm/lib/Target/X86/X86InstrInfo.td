@@ -986,10 +986,6 @@ def HasBF16      : Predicate<"Subtarget->hasBF16()">;
 def HasAVXBF16   : Predicate<"Subtarget->hasAVXBF16()">;
 def NoVLX_Or_NoBF16 : Predicate<"!Subtarget->hasVLX() || !Subtarget->hasBF16()">;
 #endif // INTEL_FEATURE_ISA_AVX_BF16
-#if INTEL_FEATURE_ISA_AVX_VNNI
-def HasAVXVNNI : Predicate <"Subtarget->hasAVXVNNI()">;
-def NoVLX_Or_NoVNNI : Predicate<"!Subtarget->hasVLX() || !Subtarget->hasVNNI()">;
-#endif // INTEL_FEATURE_ISA_AVX_VNNI
 #endif // INTEL_CUSTOMIZATION
 
 #if INTEL_CUSTOMIZATION
@@ -1035,6 +1031,8 @@ def HasAVX512MPSADBW   : Predicate<"Subtarget->hasAVX512MPSADBW()">;
 def NoVLX_Or_NoMPSADBW : Predicate<"!Subtarget->hasVLX() || !Subtarget->hasAVX512MPSADBW()">;
 #endif // INTEL_FEATURE_ISA_AVX_MPSADBW
 #endif // INTEL_CUSTOMIZATION
+def HasAVXVNNI : Predicate <"Subtarget->hasAVXVNNI()">;
+def NoVLX_Or_NoVNNI : Predicate<"!Subtarget->hasVLX() || !Subtarget->hasVNNI()">;
 
 def HasBITALG    : Predicate<"Subtarget->hasBITALG()">;
 def HasPOPCNT    : Predicate<"Subtarget->hasPOPCNT()">;

@@ -1977,44 +1977,6 @@ let TargetPrefix = "x86" in {  // All intrinsics start with "llvm.x86.".
                          llvm_v16i32_ty], [IntrNoMem]>;
 
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_AVX_VNNI
-  //vnni must vex-encoding
-  def int_x86_avx_vpdpbusd_128 :
-              GCCBuiltin<"__builtin_ia32_vpdpbusdvex128">,
-              Intrinsic<[llvm_v4i32_ty], [llvm_v4i32_ty, llvm_v4i32_ty,
-                         llvm_v4i32_ty], [IntrNoMem]>;
-  def int_x86_avx_vpdpbusd_256 :
-              GCCBuiltin<"__builtin_ia32_vpdpbusdvex256">,
-              Intrinsic<[llvm_v8i32_ty], [llvm_v8i32_ty, llvm_v8i32_ty,
-                         llvm_v8i32_ty], [IntrNoMem]>;
-
-  def int_x86_avx_vpdpbusds_128 :
-              GCCBuiltin<"__builtin_ia32_vpdpbusdsvex128">,
-              Intrinsic<[llvm_v4i32_ty], [llvm_v4i32_ty, llvm_v4i32_ty,
-                         llvm_v4i32_ty], [IntrNoMem]>;
-  def int_x86_avx_vpdpbusds_256 :
-              GCCBuiltin<"__builtin_ia32_vpdpbusdsvex256">,
-              Intrinsic<[llvm_v8i32_ty], [llvm_v8i32_ty, llvm_v8i32_ty,
-                         llvm_v8i32_ty], [IntrNoMem]>;
-
-  def int_x86_avx_vpdpwssd_128 :
-              GCCBuiltin<"__builtin_ia32_vpdpwssdvex128">,
-              Intrinsic<[llvm_v4i32_ty], [llvm_v4i32_ty, llvm_v4i32_ty,
-                         llvm_v4i32_ty], [IntrNoMem]>;
-  def int_x86_avx_vpdpwssd_256 :
-              GCCBuiltin<"__builtin_ia32_vpdpwssdvex256">,
-              Intrinsic<[llvm_v8i32_ty], [llvm_v8i32_ty, llvm_v8i32_ty,
-                         llvm_v8i32_ty], [IntrNoMem]>;
-
-  def int_x86_avx_vpdpwssds_128 :
-              GCCBuiltin<"__builtin_ia32_vpdpwssdsvex128">,
-              Intrinsic<[llvm_v4i32_ty], [llvm_v4i32_ty, llvm_v4i32_ty,
-                         llvm_v4i32_ty], [IntrNoMem]>;
-  def int_x86_avx_vpdpwssds_256 :
-              GCCBuiltin<"__builtin_ia32_vpdpwssdsvex256">,
-              Intrinsic<[llvm_v8i32_ty], [llvm_v8i32_ty, llvm_v8i32_ty,
-                         llvm_v8i32_ty], [IntrNoMem]>;
-#endif // INTEL_FEATURE_ISA_AVX_VNNI
 #if INTEL_FEATURE_ISA_AVX512_DOTPROD_PHPS
   def int_x86_avx512_mask_vdpphps_128
       : GCCBuiltin<"__builtin_ia32_vdpphps128_mask">,

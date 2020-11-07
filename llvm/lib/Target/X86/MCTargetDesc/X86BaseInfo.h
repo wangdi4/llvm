@@ -1011,12 +1011,12 @@ namespace X86II {
 
     // NOTRACK prefix
     NoTrackShift = EVEX_RCShift + 1,
-    NOTRACK = 1ULL << NoTrackShift,  // INTEL
+    NOTRACK = 1ULL << NoTrackShift,
 
-#if INTEL_CUSTOMIZATION
     // Force VEX encoding
     ExplicitVEXShift = NoTrackShift + 1,
     ExplicitVEXPrefix = 1ULL << ExplicitVEXShift,
+#if INTEL_CUSTOMIZATION
 
     // Force EVEX encoding
     ExplicitEVEXShift = ExplicitVEXShift + 1,
