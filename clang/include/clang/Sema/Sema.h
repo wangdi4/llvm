@@ -3436,6 +3436,9 @@ public:
   SpeculativeLoadHardeningAttr *
   mergeSpeculativeLoadHardeningAttr(Decl *D,
                                     const SpeculativeLoadHardeningAttr &AL);
+  PreferDSPAttr *mergePreferDSPAttr(Decl *D, const PreferDSPAttr &AL);
+  PreferSoftLogicAttr *mergePreferSoftLogicAttr(Decl *D,
+                                                const PreferSoftLogicAttr &AL);
   SwiftNameAttr *mergeSwiftNameAttr(Decl *D, const SwiftNameAttr &SNA,
                                     StringRef Name);
   OptimizeNoneAttr *mergeOptimizeNoneAttr(Decl *D,
