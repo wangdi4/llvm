@@ -876,10 +876,6 @@ EXTERN void __tgt_push_code_location(const char *location, void *codeptr_ra) {
 }
 
 EXTERN int __tgt_get_num_devices(void) {
-  RTLsMtx->lock();
-  size_t Devices_size = Devices.size();
-  RTLsMtx->unlock();
-  DP("Call to omp_get_num_devices returning %zd\n", Devices_size);
-  return Devices_size;
+  return omp_get_num_devices();
 }
 #endif // INTEL_COLLAB
