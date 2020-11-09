@@ -564,68 +564,6 @@ EXTERN bool __tgt_is_device_available(int64_t device_num, void *device_type) {
   return (device_num >= 0 && device_num < omp_get_num_devices());
 }
 
-// Find device pointer from the given host pointer and create a buffer object
-EXTERN void *__tgt_create_buffer(int64_t device_num, void *host_ptr) {
-  DP("Call to __tgt_create_buffer with host_ptr " DPxMOD ", "
-      "device_num %" PRId64 "\n", DPxPTR(host_ptr), device_num);
-
-  if (IsOffloadDisabled())
-    return NULL;
-
-  if (device_num == OFFLOAD_DEVICE_DEFAULT) {
-    device_num = omp_get_default_device();
-  }
-
-  if (CheckDeviceAndCtors(device_num) != OFFLOAD_SUCCESS) {
-    DP("Failed to get device %" PRId64 " ready\n", device_num);
-    HandleTargetOutcome(false);
-    return NULL;
-  }
-
-  if (!host_ptr) {
-    DP("Call to __tgt_create_buffer with invalid host_ptr\n");
-    HandleTargetOutcome(false);
-    return NULL;
-  }
-
-  DeviceTy &Device = Devices[device_num];
-  void *ret = Device.create_buffer(host_ptr);
-  if (!ret) {
-    DP("Call to __tgt_create_buffer with no associated device_ptr\n");
-    HandleTargetOutcome(false);
-  }
-  DP("__tgt_create_buffer returns " DPxMOD "\n", DPxPTR(ret));
-
-  return ret;
-}
-
-// Release the device buffer
-EXTERN int __tgt_release_buffer(int64_t device_num, void *device_buffer) {
-  DP("Call to __tgt_release_buffer with device_buffer " DPxMOD ", "
-      "device_num %" PRId64 "\n", DPxPTR(device_buffer), device_num);
-
-  if (IsOffloadDisabled())
-    return OFFLOAD_FAIL;
-
-  if (device_num == OFFLOAD_DEVICE_DEFAULT) {
-    device_num = omp_get_default_device();
-  }
-
-  if (CheckDeviceAndCtors(device_num) != OFFLOAD_SUCCESS) {
-    DP("Failed to get device %" PRId64 " ready\n", device_num);
-    HandleTargetOutcome(false);
-    return OFFLOAD_FAIL;
-  }
-
-  if (!device_buffer) {
-    DP("Call to __tgt_release_buffer with invalid device_buffer\n");
-    return OFFLOAD_FAIL;
-  }
-
-  DeviceTy &Device = Devices[device_num];
-  return Device.release_buffer(device_buffer);
-}
-
 EXTERN char *__tgt_get_device_name(
     int64_t device_num, char *buffer, size_t buffer_max_size) {
   DP("Call to __tgt_get_device_name with device_num %" PRId64 " and "

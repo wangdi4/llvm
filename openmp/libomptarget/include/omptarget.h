@@ -446,10 +446,6 @@ void __kmpc_push_target_tripcount(int64_t device_id, uint64_t loop_tripcount);
 #if INTEL_COLLAB
 EXTERN
 bool __tgt_is_device_available(int64_t device_num, void *device_type);
-EXTERN
-void *__tgt_create_buffer(int64_t device_num, void *host_ptr);
-EXTERN
-int __tgt_release_buffer(int64_t device_num, void *tgt_buffer);
 
 // Returns implementation defined device name for the given device number,
 // using provided Buffer. Buffer must be able to hold at least BufferMaxSize

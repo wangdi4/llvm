@@ -658,24 +658,6 @@ int32_t DeviceTy::manifest_data_for_region(void *TgtEntryPtr) {
   return RC;
 }
 
-void *DeviceTy::create_buffer(void *HstPtr) {
-  void *rc = NULL;
-  DataMapMtx.lock();
-  rc = getTgtPtrBegin(HstPtr, 1);
-  if (rc != NULL && RTL->create_buffer)
-    rc = RTL->create_buffer(RTLDeviceID, rc);
-  else
-    rc = NULL;
-  DataMapMtx.unlock();
-  return rc;
-}
-
-int32_t DeviceTy::release_buffer(void *TgtBuffer) {
-  if (RTL->release_buffer)
-    return RTL->release_buffer(TgtBuffer);
-  return OFFLOAD_SUCCESS;
-}
-
 char *DeviceTy::get_device_name(char *Buffer, size_t BufferMaxSize) {
   assert(Buffer && "Buffer cannot be nullptr.");
   assert(BufferMaxSize > 0 && "BufferMaxSize cannot be zero.");
