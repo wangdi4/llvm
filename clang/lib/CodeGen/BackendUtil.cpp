@@ -698,7 +698,7 @@ void EmitAssemblyHelper::CreatePasses(legacy::PassManager &MPM,
   if (LangOpts.Coroutines)
     addCoroutinePassesToExtensionPoints(PMBuilder);
 
-  if (CodeGenOpts.MemProf) {
+  if (!CodeGenOpts.MemoryProfileOutput.empty()) {
     PMBuilder.addExtension(PassManagerBuilder::EP_OptimizerLast,
                            addMemProfilerPasses);
     PMBuilder.addExtension(PassManagerBuilder::EP_EnabledOnOptLevel0,
@@ -1469,7 +1469,7 @@ void EmitAssemblyHelper::EmitAssemblyWithNewPassManager(
     if (CodeGenOpts.UniqueInternalLinkageNames)
       MPM.addPass(UniqueInternalLinkageNamesPass());
 
-    if (CodeGenOpts.MemProf) {
+    if (!CodeGenOpts.MemoryProfileOutput.empty()) {
       MPM.addPass(createModuleToFunctionPassAdaptor(MemProfilerPass()));
       MPM.addPass(ModuleMemProfilerPass());
     }

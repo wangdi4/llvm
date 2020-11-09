@@ -4775,9 +4775,12 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
   if (Args.hasArg(options::OPT_fopenmp_stable_file_id))
     CmdArgs.push_back("-fopenmp-stable-file-id");
 #endif // INTEL_CUSTOMIZATION
-  if (Args.hasFlag(options::OPT_fmemory_profile,
-                   options::OPT_fno_memory_profile, false))
-    Args.AddLastArg(CmdArgs, options::OPT_fmemory_profile);
+  auto *MemProfArg = Args.getLastArg(options::OPT_fmemory_profile,
+                                     options::OPT_fmemory_profile_EQ,
+                                     options::OPT_fno_memory_profile);
+  if (MemProfArg &&
+      !MemProfArg->getOption().matches(options::OPT_fno_memory_profile))
+    MemProfArg->render(Args, CmdArgs);
 
   // Embed-bitcode option.
   // Only white-listed flags below are allowed to be embedded.
