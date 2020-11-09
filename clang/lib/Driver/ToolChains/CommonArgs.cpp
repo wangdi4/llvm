@@ -801,6 +801,16 @@ void tools::addIntelOptimizationArgs(const ToolChain &TC,
                                       options::OPT__SLASH_Qx))
     addMultiVersionFlag(*A, options::OPT__SLASH_Qx);
 
+  // -parallel-source-info
+  if (Arg *A = Args.getLastArg(options::OPT_parallel_source_info_EQ)) {
+    StringRef Val = A->getValue();
+    if (Val == "0" || Val == "1" || Val == "2")
+      addllvmOption(Args.MakeArgString(Twine("-parallel-source-info=") + Val));
+    else
+      TC.getDriver().Diag(diag::err_drv_invalid_argument_to_option) << Val
+          << A->getOption().getName();
+  }
+
   // Handle --intel defaults.  Do not add for SYCL device (DPC++)
   if (TC.getDriver().IsIntelMode() &&
       !(TC.getTriple().getEnvironment() == llvm::Triple::SYCLDevice)) {

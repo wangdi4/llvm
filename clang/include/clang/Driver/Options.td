@@ -3224,6 +3224,15 @@ def pc : Joined<["-"], "pc">, Flags<[NoXarchOption]>;
 def : Joined<["-"], "pc=">, Alias<pc>, HelpText<"Initialize X87 floating "
   "point precision to single, double or double extendedSet FPU precision. "
   "Valid values of 32, 64 and 80">;
+def parallel_source_info_EQ : Joined<["-"], "parallel-source-info=">,
+  Values<"0,1,2">, Flags<[NoXarchOption]>, HelpText<"Emit source location "
+  "information for parallel code generation with OpenMP and "
+  "auto-parallelization.">;
+def : Flag<["-"], "parallel-source-info">, Alias<parallel_source_info_EQ>,
+  AliasArgs<["1"]>;
+def : Flag<["-"], "no-parallel-source-info">, Alias<parallel_source_info_EQ>,
+  AliasArgs<["0"]>, HelpText<"Disable emission of source location information "
+  "for parallel code generation.">;
 #endif // INTEL_CUSTOMIZATION
 def pagezero__size : JoinedOrSeparate<["-"], "pagezero_size">;
 def pass_exit_codes : Flag<["-", "--"], "pass-exit-codes">, Flags<[Unsupported]>;
@@ -5512,6 +5521,16 @@ def _SLASH_Qopenmp_simd : CLFlag<"Qopenmp-simd">, Alias<fiopenmp_simd>,
 def _SLASH_Qopenmp_simd_ : CLFlag<"Qopenmp-simd-">, Alias<fno_iopenmp_simd>;
 def _SLASH_Qiopenmp_offload : CLFlag<"Qiopenmp-offload">, Alias<fiopenmp_offload>;
 def _SLASH_Qiopenmp_offload_ : CLFlag<"Qiopenmp-offload-">, Alias<fno_iopenmp_offload>;
+def : CLJoined<"Qparallel-source-info=">,
+  Values<"0,1,2">, Alias<parallel_source_info_EQ>, HelpText<"Emit source "
+  "location information for parallel code generation with OpenMP and "
+  "auto-parallelization.">;
+def : CLJoined<"Qparallel-source-info:">, Alias<parallel_source_info_EQ>;
+def : CLFlag<"Qparallel-source-info">, Alias<parallel_source_info_EQ>,
+  AliasArgs<["1"]>;
+def : CLFlag<"Qparallel-source-info-">, Alias<parallel_source_info_EQ>,
+  AliasArgs<["0"]>, HelpText<"Disable emission of source location information "
+  "for parallel code generation.">;
 def _SLASH_Qpc : CLJoined<"Qpc">, Alias<pc>, HelpText<"Initialize X87 "
   "floating point precision to single, double or double extended.  Valid "
   "values of 32, 64, and 80.">;
