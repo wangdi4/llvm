@@ -48,8 +48,8 @@
 ;CHECK: br i1
 ;CHECK-SAME: !prof ![[PROF_META_R]]
 
-;CHECK-DAG: ![[PROF_META_B]] = !{!"branch_weights", i64 5, i64 1}
-;CHECK-DAG: ![[PROF_META_R]] = !{!"branch_weights", i64 1, i64 1}
+;CHECK-DAG: ![[PROF_META_B]] = !{!"branch_weights", i32 5, i32 1}
+;CHECK-DAG: ![[PROF_META_R]] = !{!"branch_weights", i32 1, i32 1}
 
 ; ModuleID = 'mm3-pragma.c'
 source_filename = "mm3-pragma.c"

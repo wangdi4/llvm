@@ -1,7 +1,7 @@
 ; RUN: opt < %s -simplifycfg -S | FileCheck %s
 ;
 ; CHECK:  %call = call i32 @_Z3foov(), !prof !1
-; CHECK: !1 = !{!"branch_weights", i64 7}
+; CHECK: !1 = !{!"branch_weights", i32 7}
 
 ; invoke with 2-edge !prof branch_weights, is changed to a call.
 ; The call should only have 1 edge in its branch_weights.

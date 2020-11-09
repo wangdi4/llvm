@@ -43,10 +43,10 @@
 ;CHECK: br i1
 ;CHECK-SAME: !prof ![[PROF_META_NEW:[0-9]+]]
 
-;CHECK: ![[PROF_META_LP3]] = !{!"branch_weights", i64 [[LP3_EXIT:[0-9]+]], i64 [[LP3_BACKEDGE:[0-9]+]]}
-;CHECK: ![[PROF_META_LP2]] = !{!"branch_weights", i64 [[LP2_EXIT:[0-9]+]], i64 [[LP2_BACKEDGE:[0-9]+]]}
-;CHECK: ![[PROF_META_LP1]] = !{!"branch_weights", i64 [[LP1_EXIT:[0-9]+]], i64 [[LP1_BACKEDGE:[0-9]+]]}
-;CHECK: ![[PROF_META_NEW]] = !{!"branch_weights", i64 [[LP3_BACKEDGE]], i64 [[LP1_EXIT]]}
+;CHECK: ![[PROF_META_LP3]] = !{!"branch_weights", i32 [[LP3_EXIT:[0-9]+]], i32 [[LP3_BACKEDGE:[0-9]+]]}
+;CHECK: ![[PROF_META_LP2]] = !{!"branch_weights", i32 [[LP2_EXIT:[0-9]+]], i32 [[LP2_BACKEDGE:[0-9]+]]}
+;CHECK: ![[PROF_META_LP1]] = !{!"branch_weights", i32 [[LP1_EXIT:[0-9]+]], i32 [[LP1_BACKEDGE:[0-9]+]]}
+;CHECK: ![[PROF_META_NEW]] = !{!"branch_weights", i32 [[LP3_BACKEDGE]], i32 [[LP1_EXIT]]}
 
 ; ModuleID = 'mm2.c'
 source_filename = "mm2.c"
@@ -155,9 +155,9 @@ attributes #4 = { cold }
 !34 = !{!"int", !35, i64 0}
 !35 = !{!"omnipotent char", !36, i64 0}
 !36 = !{!"Simple C/C++ TBAA"}
-!37 = !{!"branch_weights", i64 100, i64 1000}
-!38 = !{!"branch_weights", i64 10, i64 100}
-!39 = !{!"branch_weights", i64 1, i64 10}
-!40 = !{!41, !41, i64 0}
+!37 = !{!"branch_weights", i32 100, i32 1000}
+!38 = !{!"branch_weights", i32 10, i32 100}
+!39 = !{!"branch_weights", i32 1, i32 10}
+!40 = !{!41, !41, i32 0}
 !41 = !{!"pointer@_ZTSP8_IO_FILE", !35, i64 0}
 !42 = !{!"intel_profx", i64 9}
