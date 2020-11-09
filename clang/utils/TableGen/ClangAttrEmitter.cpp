@@ -4518,6 +4518,7 @@ void EmitClangIntelCustImpl(RecordKeeper &Records, raw_ostream &OS) {
     SmallString<2048> HelpItems;
     SmallString<2048> DefaultStateInits;
     SmallString<2048> UserDocs;
+    SmallString<2028> CompatOptNames;
     int Count = 0;
     for (const auto *Doc : I.second) {
       StringRef ItemName = Doc->getName();
@@ -4536,6 +4537,11 @@ void EmitClangIntelCustImpl(RecordKeeper &Records, raw_ostream &OS) {
       SwitchCases += "\", ";
       SwitchCases += std::to_string(Count);
       SwitchCases += ")\n";
+      CompatOptNames += "  case ";
+      CompatOptNames += std::to_string(Count);
+      CompatOptNames += " : return \"";
+      CompatOptNames += ItemName;
+      CompatOptNames += "\";\n";
       HelpItems += "\n    \"  ";
       HelpItems += ItemName;
       HelpItems += "\\n\"";
@@ -4577,8 +4583,30 @@ void EmitClangIntelCustImpl(RecordKeeper &Records, raw_ostream &OS) {
     OS << "StringRef help" << OptionName << "() const {\n";
     OS << "  return \"Valid values for " << OptionName << ":\\n\"";
     OS << HelpItems << ";\n}\n";
+    // To convert from enum value to string value.
+    OS << "StringRef fromEnum" << EnumName << "(int C) const {\n";
+    OS << "  switch (C) {\n";
+    OS << CompatOptNames << "  default: return \"none\";\n";
+    OS << "  }\n";
+    OS << "}\n";
+    // isIntelCompat() function with single argument: feature
     OS << "bool is" << OptionName << "(int C) const {\n  return " << StateName
        << "[C];\n}\n";
+    // isIntelCompat() function with additional args: source line and diags
+    OS << "bool is" << OptionName << "(int C, SourceLocation Loc,";
+    OS << " DiagnosticsEngine *DE) const {\n";
+    OS << "  bool CustomEnabled = " << StateName << "[C];\n";
+    OS << "  StringRef CompatOptName = fromEnum" << EnumName << "(C);\n";
+
+    OS << "  if (CustomEnabled && ShowIntelCompatUsed) {\n";
+    OS << "    DE->Report(Loc, diag::warn_intel_compat_feature)";
+    OS << " << CompatOptName << false;\n";
+    OS << "  } else if (!CustomEnabled && ShowIntelCompatUnused) {\n";
+    OS << "    DE->Report(Loc, diag::warn_intel_compat_feature)";
+    OS << " << CompatOptName << true;\n";
+    OS << "  }\n";
+    OS << "  return CustomEnabled;\n";
+    OS << "}\n";
     OS << "int fromString" << EnumName << "(StringRef S) const {\n";
     OS << "  return llvm::StringSwitch<int>(S)\n";
     OS << SwitchCases << "    .Default(-1);\n";

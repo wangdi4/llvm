@@ -2833,6 +2833,8 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
     }
   }
 
+  Opts.ShowIntelCompatUsed = Args.hasArg(OPT_fintel_compatibility_used);
+  Opts.ShowIntelCompatUnused = Args.hasArg(OPT_fintel_compatibility_unused);
   Opts.OpenMPThreadPrivateLegacy =
       Args.hasArg(OPT_fopenmp_threadprivate_legacy);
   Opts.IntelDriverTempfileName =
