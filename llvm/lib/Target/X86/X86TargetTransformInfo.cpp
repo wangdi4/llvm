@@ -2671,6 +2671,8 @@ int X86TTIImpl::getTypeBasedIntrinsicInstrCost(
     { ISD::USUBSAT,    MVT::v16i16,  1 },
     { ISD::USUBSAT,    MVT::v32i8,   1 },
     { ISD::USUBSAT,    MVT::v8i32,   2 }, // pmaxud + psubd
+    { ISD::FMAXNUM,    MVT::v8f32,   3 }, // MAXPS + CMPUNORDPS + BLENDVPS
+    { ISD::FMAXNUM,    MVT::v4f64,   3 }, // MAXPD + CMPUNORDPD + BLENDVPD
     { ISD::FSQRT,      MVT::f32,     7 }, // Haswell from http://www.agner.org/
     { ISD::FSQRT,      MVT::v4f32,   7 }, // Haswell from http://www.agner.org/
     { ISD::FSQRT,      MVT::v8f32,  14 }, // Haswell from http://www.agner.org/
@@ -2724,10 +2726,10 @@ int X86TTIImpl::getTypeBasedIntrinsicInstrCost(
     { ISD::USUBSAT,    MVT::v16i16,  4 }, // 2 x 128-bit Op + extract/insert
     { ISD::USUBSAT,    MVT::v32i8,   4 }, // 2 x 128-bit Op + extract/insert
     { ISD::USUBSAT,    MVT::v8i32,   6 }, // 2 x 128-bit Op + extract/insert
-    { ISD::FMAXNUM,    MVT::f32,     3 },
+    { ISD::FMAXNUM,    MVT::f32,     3 }, // MAXPS + CMPUNORDPS + BLENDVPS
     { ISD::FMAXNUM,    MVT::v4f32,   3 },
     { ISD::FMAXNUM,    MVT::v8f32,   5 },
-    { ISD::FMAXNUM,    MVT::f64,     3 },
+    { ISD::FMAXNUM,    MVT::f64,     3 }, // MAXPD + CMPUNORDPD + BLENDVPD
     { ISD::FMAXNUM,    MVT::v2f64,   3 },
     { ISD::FMAXNUM,    MVT::v4f64,   5 },
     { ISD::FSQRT,      MVT::f32,    14 }, // SNB from http://www.agner.org/
