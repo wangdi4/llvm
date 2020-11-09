@@ -125,7 +125,7 @@ static bool CheckStats () {
 
   while (getline(testRes, str).good()) {
     if (str.length() > 0 && *str.begin() == '!' &&
-        str.find("Vectorizer.CanVect")
+        str.find("InstCounter.CanVect")
           != string::npos) {
       res = true;
       break;
@@ -163,7 +163,7 @@ bool cl_GenStats() {
 
   bool res = true;
 
-  if (!SETENV("VOLCANO_STATS", "Vectorizer") ||
+  if (!SETENV("VOLCANO_STATS", "InstCounter") ||
       !SETENV("VOLCANO_IR_FILE_BASE_NAME", "StatFile")) {
     printf ("ERROR: GenStat: Can't set stat environment variables. Test FAILED\n");
     return false;

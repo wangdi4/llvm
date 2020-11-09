@@ -94,7 +94,7 @@ namespace intel {
     bool hasAVX512() const;
 
     // Estimate the number of iterations each loop runs.
-    void estimateIterations(Function &F, DenseMap<Loop*, int> &IterMap) const;
+    void estimateIterations(DenseMap<Loop*, int> &IterMap) const;
 
     // Estimate the "straight-line" probability of each block being executed.
     // That is, loops are not taken into account, and backedges are considered
@@ -122,8 +122,7 @@ namespace intel {
     int estimateBinOp(BinaryOperator *I);
 
     // Helper for estimateBinOp
-    int getOpWidth(FixedVectorType* VecType,
-          int Float, int Double, int LongInt, int ShortInt) const;
+    unsigned getOpWidth(FixedVectorType* VecType) const;
 
     // Estimate the relative cost of a call.
     // Some calls are expensive, some are cheap... how do we know which are which?
@@ -148,7 +147,7 @@ namespace intel {
 
     // All multiplications need to be rounded up, and
     // for positive integers, ceil(x/y) = (x + y - 1) / y.
-    static inline float ceil_div(int x, int y)
+    static inline unsigned ceil_div(unsigned x, unsigned y)
     {
       return (x + y - 1) / y;
     }
