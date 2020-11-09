@@ -500,7 +500,7 @@ bool ScalarExpansion::findDepInst(const RegDDRef *RVal,
 bool ScalarExpansion::isSafeToRecompute(
     const RegDDRef *SrcRef, unsigned ChunkIdx,
     const SymbaseLoopSetTy &SymbaseLoopSet,
-    const SparseBitVector<> &ModifiedSymbases, const HLInst *&DepInst) {
+    const SparseBitVector<> &ModifiedBases, const HLInst *&DepInst) {
   assert(SrcRef->isLval() && "SrcRef is expected to be LVal");
 
   const HLInst *Inst = cast<HLInst>(SrcRef->getHLDDNode());
@@ -508,7 +508,7 @@ bool ScalarExpansion::isSafeToRecompute(
   auto CheckRVal = [&](const RegDDRef *RVal) -> bool {
     unsigned SB = RVal->getSymbase();
 
-    if (ModifiedSymbases.test(SB)) {
+    if (RVal->isMemRef() && ModifiedBases.test(RVal->getBasePtrBlobIndex())) {
       return false;
     }
 
@@ -523,7 +523,7 @@ bool ScalarExpansion::isSafeToRecompute(
       return Ret ||
              (findDepInst(RVal, DepInst) &&
               isSafeToRecompute(DepInst->getLvalDDRef(), ChunkIdx,
-                                SymbaseLoopSet, ModifiedSymbases, DepInst));
+                                SymbaseLoopSet, ModifiedBases, DepInst));
     }
 
     for (auto &Blob : make_range(RVal->blob_begin(), RVal->blob_end())) {
@@ -585,7 +585,7 @@ void ScalarExpansion::analyze(ArrayRef<HLDDNodeList> Chunks) {
   SmallVector<Gatherer::VectorTy, 8> RefGroups;
   RefGroups.reserve(Chunks.size());
 
-  SparseBitVector<> ModifiedSymbases;
+  SparseBitVector<> ModifiedBases;
 
   for (auto &HLNodeList : Chunks) {
     RefGroups.emplace_back();
@@ -597,7 +597,7 @@ void ScalarExpansion::analyze(ArrayRef<HLDDNodeList> Chunks) {
 
     std::for_each(CurGroup.begin(), CurGroup.end(), [&](const DDRef *Ref) {
       if (Ref->isLval() && !Ref->isTerminalRef()) {
-        ModifiedSymbases.set(Ref->getSymbase());
+        ModifiedBases.set(cast<RegDDRef>(Ref)->getBasePtrBlobIndex());
       }
     });
   }
@@ -648,7 +648,7 @@ void ScalarExpansion::analyze(ArrayRef<HLDDNodeList> Chunks) {
 
           const HLInst *DepInst = nullptr;
           Cand.SafeToRecompute &= isSafeToRecompute(
-              SrcRegRef, J, SymbaseLoopSet, ModifiedSymbases, DepInst);
+              SrcRegRef, J, SymbaseLoopSet, ModifiedBases, DepInst);
 
           if (Cand.SrcRefs.empty() || Cand.SrcRefs.back() != SrcRegRef) {
             Cand.SrcRefs.push_back(SrcRegRef);
