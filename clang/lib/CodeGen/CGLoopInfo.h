@@ -225,6 +225,9 @@ struct LoopAttributes {
 
   /// Value for llvm.loop.pipeline.iicount metadata.
   unsigned PipelineInitiationInterval;
+
+  /// Value for whether the loop is required to make progress.
+  bool MustProgress;
 };
 
 /// Information used when generating a structured loop.
@@ -360,7 +363,7 @@ public:
   void push(llvm::BasicBlock *Header, clang::ASTContext &Ctx,
             const clang::CodeGenOptions &CGOpts,
             llvm::ArrayRef<const Attr *> Attrs, const llvm::DebugLoc &StartLoc,
-            const llvm::DebugLoc &EndLoc);
+            const llvm::DebugLoc &EndLoc, bool MustProgress = false);
 
   /// End the current loop.
   void pop();
@@ -580,6 +583,9 @@ public:
   void setPipelineInitiationInterval(unsigned C) {
     StagedAttrs.PipelineInitiationInterval = C;
   }
+
+  /// Set no progress for the next loop pushed.
+  void setMustProgress(bool P) { StagedAttrs.MustProgress = P; }
 
 private:
   /// Returns true if there is LoopInfo on the stack.
