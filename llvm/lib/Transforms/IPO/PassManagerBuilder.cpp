@@ -1835,6 +1835,7 @@ void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
   if (EnableLoopFlatten)
     PM.add(createLoopFlattenPass());
 
+
 #if INTEL_CUSTOMIZATION
   // HIR complete unroll pass replaces LLVM's simple loop unroll pass.
   if (!isLoopOptEnabled())
@@ -1842,8 +1843,10 @@ void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
                                     DisableUnrollLoops, // Unroll small loops
                                     ForgetAllSCEVInLoopUnroll));
   addLoopOptAndAssociatedVPOPasses(PM, true);
-  if (EnableLV)
+  if (EnableLV) {
+    PM.add(createLoopDistributePass());
     PM.add(createLoopVectorizePass(true, !LoopVectorize));
+  }
 #endif  // INTEL_CUSTOMIZATION
 
   // The vectorizer may have significantly shortened a loop body; unroll again.
