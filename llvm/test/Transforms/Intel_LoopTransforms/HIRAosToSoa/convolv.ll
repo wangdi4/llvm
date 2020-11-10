@@ -18,19 +18,16 @@
 
 ; CHECK: DO i2 =
 ; CHECK: DO i3 =
-; CHECK:  = uitofp.i16.double
 ; CHECK:     [[ALLOC_0]]
-; CHECK:  = uitofp.i16.double
 ; CHECK:     [[ALLOC_1]]
-; CHECK:  = uitofp.i16.double
 ; CHECK:     [[ALLOC_2]]
 
 ; CHECK: DO i2 =
 ; CHECK: DO i3 =
 ; CHECK: DO i4 =
-; CHECK:  = ([[ALLOC_0]])[i2 + %add13 * i3 + i4];
-; CHECK:  = ([[ALLOC_1]])[i2 + %add13 * i3 + i4];
-; CHECK:  = ([[ALLOC_2]])[i2 + %add13 * i3 + i4];
+; CHECK:  = uitofp.i16.double(([[ALLOC_0]])[i2 + %add13 * i3 + i4]);
+; CHECK:  = uitofp.i16.double(([[ALLOC_1]])[i2 + %add13 * i3 + i4]);
+; CHECK:  = uitofp.i16.double(([[ALLOC_2]])[i2 + %add13 * i3 + i4]);
 ; CHECK: END LOOP
 ; CHECK: END LOOP
 ; CHECK: END LOOP
@@ -38,7 +35,7 @@
 ; CHECK: @llvm.stackrestore(&(([[ADDR]])[0]));
 ; CHECK: END LOOP
 
-; DEFATLEV: <BLOB> LINEAR double* %alloca{def@1}
+; DEFATLEV: <BLOB> LINEAR i16* %alloca{def@1}
 
 
 ; *** IR Dump Before HIR AOS to SOA ***
@@ -110,12 +107,9 @@
 ;                     {
 ;              |      + DO i2 = 0, %3 + -1, 1   <DO_LOOP>         // copy loop
 ;              |      |   + DO i3 = 0, %add13 + -1, 1   <DO_LOOP>
-;              |      |   |   %tmp = uitofp.i16.double((%p)[(-1 + %1 + %0) * i2 + i3].0);
-;              |      |   |   (%alloca)[%add13 * i2 + i3] = %tmp;
-;              |      |   |   %tmp18 = uitofp.i16.double((%p)[(-1 + %1 + %0) * i2 + i3].1);
-;              |      |   |   (%alloca14)[%add13 * i2 + i3] = %tmp18;
-;              |      |   |   %tmp19 = uitofp.i16.double((%p)[(-1 + %1 + %0) * i2 + i3].2);
-;              |      |   |   (%alloca15)[%add13 * i2 + i3] = %tmp19;
+;              |      |   |   (%alloca)[%add13 * i2 + i3] = (%p)[(-1 + %1 + %0) * i2 + i3].0;
+;              |      |   |   (%alloca14)[%add13 * i2 + i3] = (%p)[(-1 + %1 + %0) * i2 + i3].1;
+;              |      |   |   (%alloca15)[%add13 * i2 + i3] = (%p)[(-1 + %1 + %0) * i2 + i3].2;
 ;              |      |   + END LOOP
 ;              |      + END LOOP
 ;                     }
@@ -140,13 +134,13 @@
 ;              |      |   |   + DO i4 = 0, %1 + -1, 1   <DO_LOOP>
 ;                                 // Main loop replacement
 ;              |      |   |   |   %5 = (%4)[%1 * i3 + -1 * i4 + ((-1 + %3) * %1)];
-;              |      |   |   |   %conv27 = (%alloca)[i2 + %add13 * i3 + i4];
+;              |      |   |   |   %conv27 = uitofp.i16.double((%alloca)[i2 + %add13 * i3 + i4]);
 ;              |      |   |   |   %mul28 = %5  *  %conv27;
 ;              |      |   |   |   %result.sroa.0.1156 = %result.sroa.0.1156  +  %mul28;
-;              |      |   |   |   %conv48 = (%alloca14)[i2 + %add13 * i3 + i4];
+;              |      |   |   |   %conv48 = uitofp.i16.double((%alloca14)[i2 + %add13 * i3 + i4]);
 ;              |      |   |   |   %mul49 = %5  *  %conv48;
 ;              |      |   |   |   %result.sroa.6.1155 = %result.sroa.6.1155  +  %mul49;
-;              |      |   |   |   %conv69 = (%alloca15)[i2 + %add13 * i3 + i4];
+;              |      |   |   |   %conv69 = uitofp.i16.double((%alloca15)[i2 + %add13 * i3 + i4]);
 ;              |      |   |   |   %mul70 = %5  *  %conv69;
 ;              |      |   |   |   %result.sroa.9.1154 = %result.sroa.9.1154  +  %mul70;
 ;              |      |   |   + END LOOP
