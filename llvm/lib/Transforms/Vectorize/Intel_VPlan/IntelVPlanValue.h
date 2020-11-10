@@ -598,6 +598,7 @@ private:
   friend class VPExternalValues;
   friend class VPOCodeGen;
   friend class VPOCodeGenHIR;
+  friend class VPDecomposerHIR;
 
   // Hold the DDRef or IV information related to this external use.
   std::unique_ptr<VPOperandHIR> HIROperand;
