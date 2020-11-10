@@ -3184,7 +3184,7 @@ RegDDRef *VPOCodeGenHIR::getMemoryRef(const VPLoadStoreInst *VPLdSt,
 
   RegDDRef *PtrRef;
   if (NeedScalarRef)
-    PtrRef = getOrCreateScalarRef(VPPtr);
+    PtrRef = getOrCreateScalarRef(VPPtr, 0 /*LaneID*/);
   else
     PtrRef = widenRef(VPPtr, getVF());
 
@@ -3329,18 +3329,20 @@ RegDDRef *VPOCodeGenHIR::generateLoopInductionRef(Type *RefDestTy) {
   return NewRef;
 }
 
-RegDDRef *VPOCodeGenHIR::getOrCreateScalarRef(const VPValue *VPVal) {
+RegDDRef *VPOCodeGenHIR::getOrCreateScalarRef(const VPValue *VPVal,
+                                              unsigned ScalarLaneID) {
   RegDDRef *ScalarRef = nullptr;
-  unsigned Lane = 0;
-  if ((ScalarRef = getScalRefForVPVal(VPVal, Lane)))
+  if ((ScalarRef = getScalRefForVPVal(VPVal, ScalarLaneID)))
     return ScalarRef->clone();
 
   if (isa<VPExternalDef>(VPVal) || isa<VPConstant>(VPVal))
     return getUniformScalarRef(VPVal);
 
+  assert(ScalarLaneID < getVF() && "Invalid lane ID.");
   RegDDRef *WideRef = widenRef(VPVal, getVF());
+  std::string Name = "extract." + Twine(ScalarLaneID).str() + ".";
   HLInst *ExtractInst = HLNodeUtilities.createExtractElementInst(
-      WideRef->clone(), (unsigned)Lane, "uni.idx");
+      WideRef->clone(), (unsigned)ScalarLaneID, Name);
   addInstUnmasked(ExtractInst);
   ScalarRef = ExtractInst->getLvalDDRef();
   return ScalarRef->clone();
@@ -3594,7 +3596,7 @@ void VPOCodeGenHIR::widenUnmaskedUniformStoreImpl(
   RegDDRef *ValRef = nullptr;
   if (!Plan->getVPlanDA()->isDivergent(*ValOp))
     // Value being stored is uniform - use lane 0 value as the value to store.
-    ValRef = getOrCreateScalarRef(ValOp);
+    ValRef = getOrCreateScalarRef(ValOp, 0 /*LaneID*/);
   else {
     const VPPHINode *VPPhi = dyn_cast<VPPHINode>(ValOp);
     if (VPPhi && MainLoopIVInsts.count(VPPhi)) {
@@ -3606,11 +3608,9 @@ void VPOCodeGenHIR::widenUnmaskedUniformStoreImpl(
       CE->addConstant(getVF() - 1, false /* IsMathAdd */);
       ValRef = DDRefUtilities.createScalarRegDDRef(GenericRvalSymbase, CE);
     } else {
-      ValRef = widenRef(ValOp, getVF());
-      auto Extract =
-          HLNodeUtilities.createExtractElementInst(ValRef, getVF() - 1, "last");
-      addInstUnmasked(Extract);
-      ValRef = Extract->getLvalDDRef()->clone();
+      // Value being stored is divergent non loop IV - use last lane value as
+      // the value to store.
+      ValRef = getOrCreateScalarRef(ValOp, getVF() - 1);
     }
   }
 
@@ -3695,12 +3695,13 @@ void VPOCodeGenHIR::widenLoadStoreImpl(const VPLoadStoreInst *VPLoadStore,
 }
 
 void VPOCodeGenHIR::generateHIRForSubscript(const VPSubscriptInst *VPSubscript,
-                                            RegDDRef *Mask, bool Widen) {
+                                            RegDDRef *Mask, bool Widen,
+                                            unsigned ScalarLaneID) {
   auto RefDestTy = VPSubscript->getType();
   auto ResultRefTy = getResultRefTy(RefDestTy, VF, Widen);
 
-  RegDDRef *PointerRef =
-      getOrCreateRefForVPVal(VPSubscript->getPointerOperand(), Widen);
+  RegDDRef *PointerRef = getOrCreateRefForVPVal(
+      VPSubscript->getPointerOperand(), Widen, ScalarLaneID);
   // Base canon expression needs to be a self blob.
   if (!PointerRef->isSelfBlob()) {
     auto *CopyInst = HLNodeUtilities.createCopyInst(PointerRef, "nsbgepcopy");
@@ -3716,17 +3717,20 @@ void VPOCodeGenHIR::generateHIRForSubscript(const VPSubscriptInst *VPSubscript,
 
   // Utility to specially handle lower/stride fields of a subscript. We ensure
   // that loop invariant lower/stride are kept scalar even in vectorized memref.
-  auto generateLowerOrStride = [this](VPValue *V, bool Widen) {
+  auto generateLowerOrStride = [this](VPValue *V, bool Widen,
+                                      unsigned ScalarLaneID) {
     if (!Plan->getVPlanDA()->isDivergent(*V))
-      return getOrCreateRefForVPVal(V, false /*always scalar*/);
-    return getOrCreateRefForVPVal(V, Widen);
+      return getOrCreateRefForVPVal(V, false /*always scalar*/, 0 /*LaneID*/);
+    return getOrCreateRefForVPVal(V, Widen, ScalarLaneID);
   };
 
   for (int Dim = VPSubscript->getNumDimensions() - 1; Dim >= 0; --Dim) {
-    RegDDRef *Lower = generateLowerOrStride(VPSubscript->getLower(Dim), Widen);
+    RegDDRef *Lower =
+        generateLowerOrStride(VPSubscript->getLower(Dim), Widen, ScalarLaneID);
     RegDDRef *Stride =
-        generateLowerOrStride(VPSubscript->getStride(Dim), Widen);
-    RegDDRef *Idx = getOrCreateRefForVPVal(VPSubscript->getIndex(Dim), Widen);
+        generateLowerOrStride(VPSubscript->getStride(Dim), Widen, ScalarLaneID);
+    RegDDRef *Idx =
+        getOrCreateRefForVPVal(VPSubscript->getIndex(Dim), Widen, ScalarLaneID);
     AuxRefs.insert(AuxRefs.end(), {Idx, Lower, Stride});
     ArrayRef<unsigned> StructOffsets = VPSubscript->getStructOffsets(Dim);
     Type *DimTy = VPSubscript->getDimensionType(Dim);
@@ -3735,14 +3739,15 @@ void VPOCodeGenHIR::generateHIRForSubscript(const VPSubscriptInst *VPSubscript,
                          Stride->getSingleCanonExpr(), DimTy);
   }
 
-  makeConsistentAndAddToMap(NewRef, VPSubscript, AuxRefs, Widen);
+  makeConsistentAndAddToMap(NewRef, VPSubscript, AuxRefs, Widen, ScalarLaneID);
   LLVM_DEBUG(dbgs() << "[VPOCGHIR] NewMemRef: "; NewRef->dump(1));
 }
 
 void VPOCodeGenHIR::generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
                                 const OVLSGroup *Grp, int64_t InterleaveFactor,
                                 int64_t InterleaveIndex,
-                                const HLInst *GrpStartInst, bool Widen) {
+                                const HLInst *GrpStartInst, bool Widen,
+                                unsigned ScalarLaneID) {
   assert((Widen || isOpcodeForScalarInst(VPInst->getOpcode())) &&
          "Unxpected instruction for scalar constructs");
 
@@ -3782,7 +3787,8 @@ void VPOCodeGenHIR::generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
                        InterleaveFactor, InterleaveIndex);
     return;
   case VPInstruction::Subscript:
-    generateHIRForSubscript(cast<VPSubscriptInst>(VPInst), Mask, Widen);
+    generateHIRForSubscript(cast<VPSubscriptInst>(VPInst), Mask, Widen,
+                            ScalarLaneID);
     return;
   case VPInstruction::ReductionInit:
   case VPInstruction::ReductionFinal:
@@ -3817,8 +3823,8 @@ void VPOCodeGenHIR::generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
     if (Widen)
       Ref = widenRef(Operand, getVF());
     else {
-      // Obtain the scalar ref for lane 0 if one exists already
-      if ((Ref = getScalRefForVPVal(Operand, 0)))
+      // Obtain the scalar ref for lane ScalarLaneID if one exists already
+      if ((Ref = getScalRefForVPVal(Operand, ScalarLaneID)))
         Ref = Ref->clone();
       else if (isa<VPExternalDef>(Operand) || isa<VPConstant>(Operand))
         // Creation of a scalar ref for externaldefs/constants does not require
@@ -3875,7 +3881,7 @@ void VPOCodeGenHIR::generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
         CanonExprUtilities.canAdd(CE1, CE2)) {
       SmallVector<const RegDDRef *, 2> AuxRefs = {RefOp0->clone(), RefOp1};
       CanonExprUtilities.add(CE1, CE2);
-      makeConsistentAndAddToMap(RefOp0, VPInst, AuxRefs, Widen);
+      makeConsistentAndAddToMap(RefOp0, VPInst, AuxRefs, Widen, ScalarLaneID);
       return;
     }
 
@@ -3915,7 +3921,7 @@ void VPOCodeGenHIR::generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
 
         CE1->setDenominator(CI->getSExtValue());
         CE1->setDivisionType(VPInst->getOpcode() == Instruction::SDiv);
-        makeConsistentAndAddToMap(RefOp0, VPInst, AuxRefs, Widen);
+        makeConsistentAndAddToMap(RefOp0, VPInst, AuxRefs, Widen, ScalarLaneID);
         return;
       }
     }
@@ -3957,7 +3963,8 @@ void VPOCodeGenHIR::generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
         SmallVector<const RegDDRef *, 2> AuxRefs = {ResultRef->clone()};
         int64_t ConstVal = CI->getSExtValue();
         if (NonConstCE->multiplyByConstant(ConstVal)) {
-          makeConsistentAndAddToMap(ResultRef, VPInst, AuxRefs, Widen);
+          makeConsistentAndAddToMap(ResultRef, VPInst, AuxRefs, Widen,
+                                    ScalarLaneID);
           return;
         }
       }
@@ -4104,13 +4111,13 @@ void VPOCodeGenHIR::generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
           CE->setSrcType(ResultRefTy);
           CE->setDestType(ResultRefTy);
         }
-        makeConsistentAndAddToMap(RefOp0, VPInst, AuxRefs, Widen);
+        makeConsistentAndAddToMap(RefOp0, VPInst, AuxRefs, Widen, ScalarLaneID);
         return;
       }
 
       CE->setDestType(ResultRefTy);
       CE->setExtType(VPInst->getOpcode() == Instruction::SExt);
-      makeConsistentAndAddToMap(RefOp0, VPInst, AuxRefs, Widen);
+      makeConsistentAndAddToMap(RefOp0, VPInst, AuxRefs, Widen, ScalarLaneID);
       return;
     }
 
@@ -4140,7 +4147,7 @@ void VPOCodeGenHIR::generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
     if (VPInst->getOpcode() == Instruction::BitCast && RefOp0->isAddressOf()) {
       SmallVector<const RegDDRef *, 1> AuxRefs = {RefOp0->clone()};
       RefOp0->setBitCastDestType(ResultRefTy);
-      makeConsistentAndAddToMap(RefOp0, VPInst, AuxRefs, Widen);
+      makeConsistentAndAddToMap(RefOp0, VPInst, AuxRefs, Widen, ScalarLaneID);
       return;
     }
 
@@ -4182,7 +4189,7 @@ void VPOCodeGenHIR::generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
 
     // If we have a single operand GEP, we can simply reuse RefOp0
     if (VPInst->getNumOperands() == 1) {
-      makeConsistentAndAddToMap(RefOp0, VPInst, AuxRefs, Widen);
+      makeConsistentAndAddToMap(RefOp0, VPInst, AuxRefs, Widen, ScalarLaneID);
       return;
     }
 
@@ -4304,7 +4311,7 @@ void VPOCodeGenHIR::widenNodeImpl(const VPInstruction *VPInst, RegDDRef *Mask,
   // Generate wide constructs for all VPInstuctions. This will be changed later
   // to use SVA information.
   generateHIR(VPInst, Mask, Grp, InterleaveFactor, InterleaveIndex,
-              GrpStartInst, true /* Widen */);
+              GrpStartInst, true /*Widen*/);
 
   // Generate a scalar instruction for strided/uniform GEPs/subscripts. This is
   // needed to avoid generating extractelement instructions for unit strided
@@ -4314,16 +4321,16 @@ void VPOCodeGenHIR::widenNodeImpl(const VPInstruction *VPInst, RegDDRef *Mask,
     if (Plan->getVPlanDA()->getVectorShape(VPInst).hasKnownStride() ||
         !Plan->getVPlanDA()->isDivergent(*VPInst))
       generateHIR(VPInst, Mask, Grp, InterleaveFactor, InterleaveIndex,
-                  GrpStartInst, false /* Widen */);
+                  GrpStartInst, false /*Widen*/, 0 /*LaneID*/);
     return;
   }
 
-  // Generate a scalar value for some opcodes to avoid making references
-  // non-linear. This is made possible due to support for folding such opcodes.
-  // This will be changed later to use SVA information.
+  // Generate a scalar value corresponding to lane 0 for some opcodes to avoid
+  // making references non-linear. This is made possible due to support for
+  // folding such opcodes. This will be changed later to use SVA information.
   if (isOpcodeForScalarInst(VPInst->getOpcode()))
     generateHIR(VPInst, Mask, Grp, InterleaveFactor, InterleaveIndex,
-                GrpStartInst, false /* Widen */);
+                GrpStartInst, false /*Widen*/, 0 /*LaneID*/);
 }
 
 void VPOCodeGenHIR::createAndMapLoopEntityRefs(unsigned VF) {

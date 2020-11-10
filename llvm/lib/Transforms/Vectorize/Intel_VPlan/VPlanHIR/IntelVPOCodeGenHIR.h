@@ -329,6 +329,7 @@ public:
     if (It == VPValScalRefMap.end())
       return nullptr;
 
+    assert(Lane < getVF() && "Invalid lane ID.");
     auto SVMap = It->second;
     auto Itr = SVMap.find(Lane);
     if (Itr == SVMap.end())
@@ -461,6 +462,8 @@ public:
   // lane 0. This is used to handle uniform memory accesses. If the pointer
   // operand of the load/store instruction is unit strided(stride of 1/-1), the
   // ref returned is properly adjusted to enable wide load/store.
+  // TODO: Do we need this function to generate scalar memrefs for other lanes
+  // during serialization?
   RegDDRef *getMemoryRef(const VPLoadStoreInst *VPLdSt,
                          bool Lane0Value = false);
 
@@ -775,25 +778,25 @@ private:
   // \p Widen.
   void makeConsistentAndAddToMap(RegDDRef *Ref, const VPInstruction *VPInst,
                                  SmallVectorImpl<const RegDDRef *> &AuxRefs,
-                                 bool Widen) {
+                                 bool Widen, unsigned ScalarLaneID) {
     // Use AuxRefs if it is not empty to make Ref consistent
     if (!AuxRefs.empty())
       Ref->makeConsistent(AuxRefs, OrigLoop->getNestingLevel());
     if (Widen)
       addVPValueWideRefMapping(VPInst, Ref);
     else
-      addVPValueScalRefMapping(VPInst, Ref, 0);
+      addVPValueScalRefMapping(VPInst, Ref, ScalarLaneID);
   }
 
   // Implementation of generating needed HIR constructs for the given
   // VPInstruction. We generate new RegDDRefs or HLInsts that correspond to
   // the given VPInstruction. Widen parameter is used to specify if we are
   // generating VF wide constructs. If Widen is false, we generate scalar
-  // constructs for lane 0.
+  // constructs for lane given in ScalarLaneID.
   void generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
                    const OVLSGroup *Group, int64_t InterleaveFactor,
                    int64_t InterleaveIndex, const HLInst *GrpStartInst,
-                   bool Widen);
+                   bool Widen, unsigned ScalarLaneID = -1);
 
   // Wrapper used to call generateHIR appropriately based on nature of given
   // VPInstruction.
@@ -835,7 +838,8 @@ private:
 
   // Implementation of codegen for subscript instruction.
   void generateHIRForSubscript(const VPSubscriptInst *VPSubscript,
-                               RegDDRef *Mask, bool Widen);
+                               RegDDRef *Mask, bool Widen,
+                               unsigned ScalarLaneID);
 
   // Implementation of widening of VPLoopEntity specific instructions. Some
   // notes on opcodes supported so far -
@@ -891,16 +895,19 @@ private:
   RegDDRef *getUniformScalarRef(const VPValue *VPVal);
 
   // Get scalar version of RegDDRef that represents the VPValue \p VPVal for
-  // lane 0 from VPValScalRefMap. If not found in the map,  we can obtain the
-  // scalar ref using getUniformScalarRef for external definitions and
-  // constants. For others, we create an extract element instruction for lane 0
-  // from the wide reference and return the result of the extract.
-  RegDDRef *getOrCreateScalarRef(const VPValue *VPVal);
+  // lane \p ScalarLaneID from VPValScalRefMap. If not found in the map,  we can
+  // obtain the scalar ref using getUniformScalarRef for external definitions
+  // and constants. For others, we create an extract element instruction for
+  // lane ScalarLaneID from the wide reference and return the result of the
+  // extract.
+  RegDDRef *getOrCreateScalarRef(const VPValue *VPVal, unsigned ScalarLaneID);
 
   // Wrapper utility method to obtain RegDDRef corresponding to given VPValue
   // based on the Widen boolean.
-  RegDDRef *getOrCreateRefForVPVal(const VPValue *VPVal, bool Widen) {
-    return Widen ? widenRef(VPVal, getVF()) : getOrCreateScalarRef(VPVal);
+  RegDDRef *getOrCreateRefForVPVal(const VPValue *VPVal, bool Widen,
+                                   unsigned ScalarLaneID) {
+    return Widen ? widenRef(VPVal, getVF())
+                 : getOrCreateScalarRef(VPVal, ScalarLaneID);
   }
 
   // For Generate PaddedCounter < 250 and insert it into the vector of runtime

@@ -24,8 +24,8 @@ define dso_local void @foo(i64* nocapture %larr) local_unnamed_addr #0 {
 ; CHECK:       + DO i1 = 0, 99, 4   <DO_LOOP> <novectorize>
 ; CHECK-NEXT:  |   %.vec = ptrtoint.<4 x i64*>.<4 x i64>(&((<4 x i64*>)(%larr)[i1 + <i64 0, i64 1, i64 2, i64 3>]));
 ; CHECK-NEXT:  |   %.vec1 = inttoptr.<4 x i64>.<4 x i64*>(%.vec + 8);
-; CHECK-NEXT:  |   %uni.idx = extractelement %.vec1,  0;
-; CHECK-NEXT:  |   (<4 x i64>*)(%uni.idx)[0] = i1 + <i64 0, i64 1, i64 2, i64 3>;
+; CHECK-NEXT:  |   %extract.0. = extractelement %.vec1,  0;
+; CHECK-NEXT:  |   (<4 x i64>*)(%extract.0.)[0] = i1 + <i64 0, i64 1, i64 2, i64 3>;
 ; CHECK-NEXT:  + END LOOP
 ;
 ; CHECK:  *** IR Dump After SROA ***
