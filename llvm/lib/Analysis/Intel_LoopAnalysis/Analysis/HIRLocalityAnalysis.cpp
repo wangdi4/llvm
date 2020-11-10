@@ -725,7 +725,17 @@ unsigned HIRLoopLocality::getTemporalLocalityImpl(
          ++RefIt) {
       auto *CurRef = *RefIt;
 
-      if (IgnoreConditionalRefs && !isa<HLLoop>(CurRef->getParent())) {
+      bool IsConditional = !isa<HLLoop>(CurRef->getParent());
+
+      // Consider reuse when only one of the refs is conditional-
+      // DO
+      //   = A[i+1]
+      //   if ()
+      //     A[i]
+      // END DO
+      //
+      // TODO: Consider load/store and top sort number relationship.
+      if (IgnoreConditionalRefs && IsPrevConditional && IsConditional) {
         continue;
       }
 
@@ -736,13 +746,12 @@ unsigned HIRLoopLocality::getTemporalLocalityImpl(
 
       // Since we are not uniquing refs, we can encounter multiple identical
       // refs.
-      if (!IsPrevConditional && NeedReuse &&
-          !DDRefUtils::areEqual(PrevRef, CurRef) &&
+      if (NeedReuse && !DDRefUtils::areEqual(PrevRef, CurRef) &&
           isTemporalMatch(PrevRef, CurRef, Level, ReuseThreshold)) {
         ++NumTemporal;
       }
 
-      IsPrevConditional = false;
+      IsPrevConditional = IsConditional;
       PrevRef = CurRef;
     }
   }
