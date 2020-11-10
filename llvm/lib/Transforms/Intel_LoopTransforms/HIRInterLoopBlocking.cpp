@@ -99,6 +99,14 @@ static cl::opt<std::string>
     FilterFunc(OPT_SWITCH "-filter-func", cl::ReallyHidden,
                cl::desc("Run " OPT_DESC " only on the specified function."));
 
+static cl::opt<std::string> RewriteFilterFunc(
+    OPT_SWITCH "-rewrite-filter-func", cl::ReallyHidden,
+    cl::desc("If given, only to this function, " OPT_DESC " is applied."));
+
+static cl::opt<bool> DisableTransform("disable-rewrite-" OPT_SWITCH,
+                                      cl::init(false), cl::Hidden,
+                                      cl::desc("Only check " OPT_DESC "."));
+
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 static cl::opt<bool> PrintInfo(OPT_SWITCH "-print-info", cl::init(false),
                                cl::Hidden,
@@ -1416,6 +1424,281 @@ private:
   unsigned OutermostLoopLevel;
 };
 
+typedef std::pair<HLLoop *, SmallVector<DimInfoTy, 4>> LoopAndDimInfoTy;
+typedef std::vector<LoopAndDimInfoTy> LoopToDimInfoTy;
+typedef std::map<const HLLoop *, RegDDRef *> LoopToRefTy;
+typedef std::map<const HLLoop *, const RegDDRef *> LoopToConstRefTy;
+
+// Collects a candidate set of spatial loops by
+// applying profitablity and legality checks.
+// Visitor is employed to collect a candidate sequence through
+// profitability and legaltiy criteria.
+// When an undesirable loop is encountered, the collection process stops.
+// Tansformation will be tried with good candidates so far.
+//
+// Notice that it needs to do profitablity check another round.
+// After the first round of profirtablity checker, optVarPred util is called.
+// The second round of profitablity check is applied to the new HL structure
+// resulted from optVarPred. The HL structure is new object (i.e. new pointer)
+// thus previous information, such as innermost loop, is no longer relevant.
+// If only legality checks are applied, and profitablity checks are not,
+// the visitor may pick up a sequence, [FirstSpatialLoop, LastSpatialLoop],
+// which is legal but not profitable.
+class ProfitablityAndLegalityChecker : public ProfitabilityChecker {
+  typedef SmallVector<HLLoop *, 8> LoopSetTy;
+  typedef DDRefGatherer<RegDDRef, MemRefs> MemRefGatherer;
+
+public:
+  ProfitablityAndLegalityChecker(HIRFramework &HIRF,
+                                 HIRArraySectionAnalysis &HASA,
+                                 HIRDDAnalysis &DDA, HLLoop *OutermostLoop,
+                                 StringRef FuncName)
+      : ProfitabilityChecker(HIRF, HASA, DDA, FuncName),
+        OutermostLoop(OutermostLoop), FoundGoodCand(false) {}
+
+  bool run() {
+    HLNodeUtils::visit(*this, OutermostLoop);
+
+    return FoundGoodCand;
+  }
+
+  bool checkStructure(HLLoop *Loop) {
+    if (!Loop->isInnermost()) {
+      // Simply recurse into.
+      return false;
+    }
+
+    if (Loop->getNestingLevel() == 1) {
+      reset();
+      return false;
+    }
+
+    // TODO: do a double check
+    if (Loop->isUnknown()) {
+      stopAndWork(1, nullptr);
+      SkipNode = Loop;
+      return false;
+    }
+
+    if (!isCleanCut(LastSpatialLoop, Loop)) {
+      bailOut();
+      return false;
+    }
+
+    return true;
+  }
+
+  bool analyzeLegality(HLLoop *Loop) {
+
+    // Update DDG to be used for the legality checker.
+    DDGraph DDG;
+    HLLoop *LCA = nullptr;
+    if (!FirstSpatialLoop) {
+      DDG = DDA.getGraph(Loop);
+    } else {
+
+      LCA = HLNodeUtils::getLowestCommonAncestorLoop(FirstSpatialLoop, Loop);
+
+      if (!LCA) {
+        SkipNode = Loop;
+        reset();
+        return false;
+      }
+
+      DDG = DDA.getGraph(LCA);
+    }
+
+    SmallVector<DimInfoTy, 4> DimInfos;
+    InnermostLoopAnalyzer IA(Loop, OutermostLoop->getNestingLevel(), DimInfos,
+                             BaseIndexToLowersAndStrides, Func);
+
+    const RegDDRef *RepRef =
+        IA.couldBeAMember(DefinedBasePtr, ReadOnlyBasePtr, DDG, {LCA});
+
+    if (!RepRef) {
+      printMarker("Fail: ", {Loop});
+
+      // Legality check failed with the current loop.
+      // The current loop cannot make a candidate, so stop here.
+      // See if the candidates so far without the current loop
+      // look good.
+      stopAndWork(20, Loop);
+
+      SkipNode = Loop;
+      return false;
+    }
+
+    // update structural information.
+    LastSpatialLoop = Loop;
+    if (!FirstSpatialLoop) {
+      FirstSpatialLoop = Loop;
+    } else {
+      // TODO: this check might not needed to be in this else-part.
+      //       Explore the further clean-up after transformation is enabled.
+      if (PrevLCA && PrevLCA != LCA) {
+        // Fail and no transformation
+        // In theory, [FirstSpatialLoop, previous LastSpatialLoop] could
+        // be a valid candidate. But, we don't care about that, but just
+        // stop here.
+        bailOut();
+        return false;
+      } else {
+        PrevLCA = LCA;
+      }
+    }
+
+    // This innermost loop is conforming.
+    InnermostLoopToDimInfos.emplace_back(Loop, DimInfos);
+    InnermostLoopToRepRef[Loop] = RepRef;
+
+    printMarker("Passed: ", {Loop});
+    printMarker("RepRef before move: ", {RepRef});
+    printMarker("RepRef after move: ", {InnermostLoopToRepRef[Loop]});
+
+    return true;
+  }
+
+  void visit(HLLoop *Loop) {
+    markVisited(Loop);
+
+    if (!checkStructure(Loop)) {
+      return;
+    }
+
+    // Do profitablity check by adding the current loop.
+    if (!analyzeProfitablity(Loop)) {
+      // Profitablitly check failed with the current loop.
+      // See if the candidates so far without current loop
+      // look good.
+      stopAndWork(10, Loop);
+      SkipNode = Loop;
+      return;
+    }
+
+    // Do legality check by adding the current loop.
+    analyzeLegality(Loop);
+
+    // Adding the current loop to the exisiting candidates
+    // were both profitable and legal.
+    // The candidate set was extended by dding the current loop
+    // at this point.
+
+    // Innermost loop's body is already scanned by InnermostLoopAnalyzer.
+    SkipNode = Loop;
+  }
+
+  void visit(HLIf *HIf) { CheckerVisitor::visit(HIf); }
+  void visit(HLInst *HInst) { CheckerVisitor::visit(HInst); }
+  void visit(HLNode *Node) { CheckerVisitor::visit(Node); }
+
+private:
+  void reset() {
+
+    ProfitabilityChecker::reset();
+
+    // TODO: Also, DefinedBasePtrOutsideSpatialLp need to track HLInst, HLIf
+    //       outside spatial loops.
+    DefinedBasePtr.clear();
+    ReadOnlyBasePtr.clear();
+    BaseIndexToLowersAndStrides.clear();
+    InnermostLoopToDimInfos.clear();
+    InnermostLoopToRepRef.clear();
+    OutermostLoop = nullptr;
+    FoundGoodCand = false;
+  }
+
+  // Returns true if [FirstSpatialLoop, LastSpatialLoop] can make
+  // a good (i.e. legal and profitable) candidate to apply a inter-loop
+  // blocking.
+  bool stopAndWork(int CallSiteLoc, const HLLoop *StopLoop = nullptr) override {
+
+    if (!postCheck(StopLoop)) {
+
+      LLVM_DEBUG(dbgs() << "Fail @ postLigalityCheck\n");
+
+      bailOut();
+
+      FoundGoodCand = false;
+      return false;
+    }
+
+    // Passed postCheck(), thus a legit candidate.
+    printMarker("Transformation will be done on\n FirstSpatialLoop: ",
+                {FirstSpatialLoop});
+    printMarker("LastSpatialLoop: ", {LastSpatialLoop});
+    printMarker("Input Loop: ", {PrevLCA});
+    LLVM_DEBUG(PrevLCA->dump());
+    LLVM_DEBUG_PROFIT_REPORT(dbgs() << "Legal\n");
+
+    bailOut();
+
+    FoundGoodCand = true;
+    return true;
+  }
+
+  // Contains the checks that can be done after
+  // traversals through the current Loop. (i.e. StopLoop)
+  // Contains both legality and profitablity checks.
+  bool postCheck(const HLLoop *StopLoop) const {
+
+    // We don't work on a single spatial loopnest.
+    if (!FirstSpatialLoop || FirstSpatialLoop == LastSpatialLoop) {
+      return false;
+    }
+
+    // State in term of profitablity, should be SECONDHALF.
+    // Otherwise, it is not profitable
+    if (State != SECONDHALF) {
+      return false;
+    }
+
+    // I/O calls are supposedly removed by OptVarPred by now.
+    if (hasIOCall()) {
+      return false;
+    }
+
+    // Structural check.
+    if (!isCleanCut(LastSpatialLoop, StopLoop)) {
+      return false;
+    }
+
+    // Legality check: check if any of ReadOnlyBasePtr is
+    // in DefinedBasePtr.
+    if (llvm::any_of(ReadOnlyBasePtr, [this](unsigned BasePtrIndex) {
+          return this->DefinedBasePtr.count(BasePtrIndex);
+        })) {
+      return false;
+    }
+
+    return true;
+  }
+
+  LoopToDimInfoTy getInnermostLoopToDimInfos() {
+    return InnermostLoopToDimInfos;
+  }
+
+  LoopToConstRefTy getInnermostLoopToRepRef() { return InnermostLoopToRepRef; }
+
+private:
+  // OutermostLoop should be the same with PrevLCP.
+  HLLoop *OutermostLoop;
+  bool FoundGoodCand;
+
+  // BasePtrIndicies of defined(written) and read-only memrefs.
+  // Captured as states over multiple loop nests (so multiple innermost loops).
+  // Used in legality checks.
+  BasePtrIndexSetTy DefinedBasePtr;
+  BasePtrIndexSetTy ReadOnlyBasePtr;
+  BaseIndexToLowersAndStridesTy BaseIndexToLowersAndStrides;
+
+  LoopToDimInfoTy InnermostLoopToDimInfos;
+  LoopToConstRefTy InnermostLoopToRepRef;
+};
+
+bool isOptVarPredNeeded(const ProfitabilityChecker &PC) {
+  return PC.hasIOCall();
+}
+
 // Main driver for HIRInterLoopBlocking.
 bool driver(HIRFramework &HIRF, HIRArraySectionAnalysis &HASA,
             HIRDDAnalysis &DDA, StringRef FuncName) {
@@ -1429,9 +1712,11 @@ bool driver(HIRFramework &HIRF, HIRArraySectionAnalysis &HASA,
 
   ProfitabilityChecker PC(HIRF, HASA, DDA, FuncName);
 
-  bool IsProfitable = PC.isProfitable();
+  // Looks profitable if true. Actual profitablity
+  // can be decided after optVarPred.
+  bool CouldBeProfitable = PC.isProfitable();
 
-  if (!IsProfitable) {
+  if (!CouldBeProfitable) {
     LLVM_DEBUG(dbgs() << "NOT Profitable\n");
     return false;
   }
@@ -1442,7 +1727,53 @@ bool driver(HIRFramework &HIRF, HIRArraySectionAnalysis &HASA,
 
   LLVM_DEBUG(dbgs() << PC.getOutermostLoop()->getNumber() << "\n";);
 
-  return true;
+  if (!isOptVarPredNeeded(PC)) {
+    // Needed to lit-test cases
+    LLVM_DEBUG(PC.getOutermostLoop()->dump());
+    bool FoundLegalAndProfitableCand =
+        ProfitablityAndLegalityChecker(HIRF, HASA, DDA, PC.getOutermostLoop(),
+                                       FuncName)
+            .run();
+
+    return FoundLegalAndProfitableCand;
+  }
+
+  SmallVector<HLLoop *, 3> OutLoops;
+  SmallPtrSet<HLNode *, 3> NodesToInvalidate;
+  bool OptPred = HIRTransformUtils::doOptVarPredicate(
+      PC.getOutermostLoop(), OutLoops, NodesToInvalidate);
+
+  LLVM_DEBUG(dbgs() << " OptPred: " << OptPred << "\n");
+  LLVM_DEBUG(dbgs() << "OutLoops: " << OutLoops.size() << "\n";
+             for (auto L
+                  : OutLoops) {
+               dbgs() << "L: \n";
+               L->dump();
+             });
+
+  if (!OptPred) {
+    // I/O but no pred, just bail-out
+    return false;
+  }
+
+  // invalidate after OptVarPred, because up-to-date DDGs are needed.
+  for (HLNode *Node : NodesToInvalidate) {
+    if (HLLoop *Loop = dyn_cast<HLLoop>(Node)) {
+      assert(Loop->isAttached() && "Every invalidated loop should be attached");
+      HIRInvalidationUtils::invalidateBody(Loop);
+    } else {
+      HIRInvalidationUtils::invalidateNonLoopRegion(cast<HLRegion>(Node));
+    }
+    HLNodeUtils::removeRedundantNodes(Node, false);
+  }
+
+  // Heuristic: try to work only on OutLoops.back()
+  bool FoundLegalAndProfitableCand =
+      ProfitablityAndLegalityChecker(HIRF, HASA, DDA,
+                                     OutLoops[OutLoops.size() - 1], FuncName)
+          .run();
+
+  return FoundLegalAndProfitableCand;
 }
 } // namespace
 
