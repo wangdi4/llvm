@@ -577,20 +577,20 @@ void Linux::AddClangSystemIncludeArgs(const ArgList &DriverArgs,
 
 #if INTEL_CUSTOMIZATION
   // Add Intel performance library headers
-  if (DriverArgs.hasArg(clang::driver::options::OPT_mkl_EQ)) {
+  if (DriverArgs.hasArg(clang::driver::options::OPT_qmkl_EQ)) {
     addSystemInclude(DriverArgs, CC1Args,
                      ToolChain::GetMKLIncludePathExtra(DriverArgs));
     addSystemInclude(DriverArgs, CC1Args,
                      ToolChain::GetMKLIncludePath(DriverArgs));
   }
-  if (DriverArgs.hasArg(clang::driver::options::OPT_ipp_EQ))
+  if (DriverArgs.hasArg(clang::driver::options::OPT_qipp_EQ))
     addSystemInclude(DriverArgs, CC1Args,
                      ToolChain::GetIPPIncludePath(DriverArgs));
-  if (DriverArgs.hasArg(clang::driver::options::OPT_tbb) ||
-      DriverArgs.hasArg(clang::driver::options::OPT_daal_EQ))
+  if (DriverArgs.hasArg(clang::driver::options::OPT_qtbb) ||
+      DriverArgs.hasArg(clang::driver::options::OPT_qdaal_EQ))
     addSystemInclude(DriverArgs, CC1Args,
                      ToolChain::GetTBBIncludePath(DriverArgs));
-  if (DriverArgs.hasArg(clang::driver::options::OPT_daal_EQ))
+  if (DriverArgs.hasArg(clang::driver::options::OPT_qdaal_EQ))
     addSystemInclude(DriverArgs, CC1Args,
                      ToolChain::GetDAALIncludePath(DriverArgs));
 #endif // INTEL_CUSTOMIZATION

@@ -1064,7 +1064,7 @@ static std::string getIPPBasePath(const ArgList &Args,
                                   const std::string DriverDir) {
   const char * IPPRoot = getenv("IPPROOT");
   bool IsCrypto = false;
-  if (const Arg *A = Args.getLastArg(options::OPT_ipp_EQ)) {
+  if (const Arg *A = Args.getLastArg(options::OPT_qipp_EQ)) {
     if (A->getValue() == StringRef("crypto") ||
         A->getValue() == StringRef("nonpic_crypto")) {
       IsCrypto = true;
@@ -1097,7 +1097,7 @@ std::string ToolChain::GetIPPIncludePath(const ArgList &Args) const {
 void ToolChain::AddIPPLibPath(const ArgList &Args, ArgStringList &CmdArgs,
                               std::string Opt) const {
   bool IsNonPIC = false;
-  if (const Arg *A = Args.getLastArg(options::OPT_ipp_EQ))
+  if (const Arg *A = Args.getLastArg(options::OPT_qipp_EQ))
     if (A->getValue() == StringRef("nonpic_crypto") ||
         A->getValue() == StringRef("nonpic"))
       IsNonPIC = true;
@@ -1107,7 +1107,7 @@ void ToolChain::AddIPPLibPath(const ArgList &Args, ArgStringList &CmdArgs,
     llvm::sys::path::append(P, "lib/intel64");
   else
     llvm::sys::path::append(P, "lib/ia32");
-  const Arg *IL = Args.getLastArg(options::OPT_ipp_link_EQ);
+  const Arg *IL = Args.getLastArg(options::OPT_qipp_link_EQ);
   if (IsNonPIC && (!IL || (IL->getValue() == StringRef("static"))))
     llvm::sys::path::append(P, "nonpic");
   CmdArgs.push_back(Args.MakeArgString(P));
@@ -1231,7 +1231,7 @@ void ToolChain::AddDAALLibPath(const ArgList &Args, ArgStringList &CmdArgs,
 
 void ToolChain::AddIPPLibArgs(const ArgList &Args, ArgStringList &CmdArgs,
                               std::string Prefix) const {
-  if (const Arg *A = Args.getLastArg(options::OPT_ipp_EQ)) {
+  if (const Arg *A = Args.getLastArg(options::OPT_qipp_EQ)) {
     SmallVector<StringRef, 8> IPPLibs;
     if (A->getValue() == StringRef("crypto") ||
         A->getValue() == StringRef("nonpic_crypto"))
@@ -1258,7 +1258,7 @@ void ToolChain::AddIPPLibArgs(const ArgList &Args, ArgStringList &CmdArgs,
 
 void ToolChain::AddMKLLibArgs(const ArgList &Args, ArgStringList &CmdArgs,
                               std::string Prefix) const {
-  if (const Arg *A = Args.getLastArg(options::OPT_mkl_EQ)) {
+  if (const Arg *A = Args.getLastArg(options::OPT_qmkl_EQ)) {
     // MKL Cluster library additions not supported for DPC++
     // MKL Parallel not supported with OpenMP and DPC++
     if (Args.hasArg(options::OPT__dpcpp) &&
@@ -1279,7 +1279,7 @@ void ToolChain::AddMKLLibArgs(const ArgList &Args, ArgStringList &CmdArgs,
     };
     MKLLibs.push_back(Args.MakeArgString(addMKLExt("mkl_intel", getTriple())));
     if (A->getValue() == StringRef("parallel")) {
-      if (Args.hasArg(options::OPT_tbb, options::OPT__dpcpp))
+      if (Args.hasArg(options::OPT_qtbb, options::OPT__dpcpp))
         // Use TBB when -tbb or DPC++
         MKLLibs.push_back("mkl_tbb_thread");
       else
@@ -1315,7 +1315,7 @@ void ToolChain::AddTBBLibArgs(const ArgList &Args, ArgStringList &CmdArgs,
 
 void ToolChain::AddDAALLibArgs(const ArgList &Args, ArgStringList &CmdArgs,
                               std::string Prefix) const {
-  if (const Arg *A = Args.getLastArg(options::OPT_daal_EQ)) {
+  if (const Arg *A = Args.getLastArg(options::OPT_qdaal_EQ)) {
     SmallVector<StringRef, 4> DAALLibs;
     DAALLibs.push_back("onedal_core");
     if (A->getValue() == StringRef("parallel"))

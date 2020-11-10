@@ -821,7 +821,7 @@ bool tools::addOpenMPRuntime(ArgStringList &CmdArgs, const ToolChain &TC,
     }
   }
   bool addOpenMPLib = false;
-  if (Arg *A = Args.getLastArg(options::OPT_mkl_EQ)) {
+  if (Arg *A = Args.getLastArg(options::OPT_qmkl_EQ)) {
     if (A->getValue() == StringRef("parallel"))
       addOpenMPLib = true;
   }
