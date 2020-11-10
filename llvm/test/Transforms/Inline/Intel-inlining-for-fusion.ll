@@ -39,11 +39,8 @@
 
 ; Check for new pass manager with old inline report
 
-; CHECK-NEW: COMPILE FUNC: baz
-; CHECK-NEW-NOT: INLINE{{.*}}foo{{.*}}Callee has multiple callsites with loops that could be fused
-; CHECK-NEW-NOT: INLINE{{.*}}foo{{.*}}Callee has multiple callsites with loops that could be fused
-
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
+
 ; CHECK-NEW: COMPILE FUNC: bar
 ; CHECK-NEW-NEXT: INLINE{{.*}}foo{{.*}}Callee has multiple callsites with loops that could be fused
 ; CHECK-NEW-NEXT: INLINE{{.*}}foo{{.*}}Callee has multiple callsites with loops that could be fused
@@ -53,6 +50,10 @@ target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 ; CHECK-NEW-NEXT: INLINE{{.*}}foo{{.*}}Callee has multiple callsites with loops that could be fused
 ; CHECK-NEW-NEXT: INLINE{{.*}}foo{{.*}}Callee has multiple callsites with loops that could be fused
 ; CHECK-NEW-NEXT: INLINE{{.*}}foo{{.*}}Callee has multiple callsites with loops that could be fused
+
+; CHECK-NEW: COMPILE FUNC: baz
+; CHECK-NEW-NOT: INLINE{{.*}}foo{{.*}}Callee has multiple callsites with loops that could be fused
+; CHECK-NEW-NOT: INLINE{{.*}}foo{{.*}}Callee has multiple callsites with loops that could be fused
 
 ; Check that the IR has calls only in @baz when we are done. All calls to
 ; @foo in @bar will be inlined out. (In the LATE case, the IR is dumped

@@ -36,15 +36,15 @@
 
 ; CHECK-NEW-NOT: call{{.*}} _ZN12cMessageHeap7shiftupEi
 ; CHECK-NEW: COMPILE FUNC: _ZN12cMessageHeap7shiftupEi
-; CHECK-NEW: COMPILE FUNC: _ZN12cMessageHeap12removeFirst5Ev
-; CHECK-NEW: INLINE: _ZN12cMessageHeap7shiftupEi
-; CHECK-NEW: COMPILE FUNC: _ZN12cMessageHeap12removeFirst4Ev
-; CHECK-NEW: INLINE: _ZN12cMessageHeap7shiftupEi
-; CHECK-NEW: COMPILE FUNC: _ZN12cMessageHeap12removeFirst3Ev
+; CHECK-NEW: COMPILE FUNC: _ZN12cMessageHeap12removeFirst1Ev
 ; CHECK-NEW: INLINE: _ZN12cMessageHeap7shiftupEi
 ; CHECK-NEW: COMPILE FUNC: _ZN12cMessageHeap12removeFirst2Ev
 ; CHECK-NEW: INLINE: _ZN12cMessageHeap7shiftupEi
-; CHECK-NEW: COMPILE FUNC: _ZN12cMessageHeap12removeFirst1Ev
+; CHECK-NEW: COMPILE FUNC: _ZN12cMessageHeap12removeFirst3Ev
+; CHECK-NEW: INLINE: _ZN12cMessageHeap7shiftupEi
+; CHECK-NEW: COMPILE FUNC: _ZN12cMessageHeap12removeFirst4Ev
+; CHECK-NEW: INLINE: _ZN12cMessageHeap7shiftupEi
+; CHECK-NEW: COMPILE FUNC: _ZN12cMessageHeap12removeFirst5Ev
 ; CHECK-NEW: INLINE: _ZN12cMessageHeap7shiftupEi
 
 %class.cNamedObject = type <{ %class.cObject, i8*, i16, i16, [4 x i8] }>
