@@ -59,7 +59,9 @@ int DebugLevel = 0;
 
 #define CL_MEM_ALLOC_FLAGS_INTEL        0x4195
 
+#define CL_KERNEL_EXEC_INFO_INDIRECT_HOST_ACCESS_INTEL      0x4200
 #define CL_KERNEL_EXEC_INFO_INDIRECT_DEVICE_ACCESS_INTEL    0x4201
+#define CL_KERNEL_EXEC_INFO_INDIRECT_SHARED_ACCESS_INTEL    0x4202
 #define CL_KERNEL_EXEC_INFO_USM_PTRS_INTEL                  0x4203
 
 typedef cl_uint cl_mem_info_intel;
@@ -2716,6 +2718,9 @@ static inline int32_t run_target_team_nd_region(
   }
 
 #if INTEL_CUSTOMIZATION
+  bool hasUSMArgDevice = false;
+  bool hasUSMArgHost = false;
+  bool hasUSMArgShared = false;
   if (DeviceInfo->clGetMemAllocInfoINTELFn) {
     // Reserve space for USM pointers.
     implicit_usm_args.reserve(num_implicit_args);
@@ -2740,11 +2745,16 @@ static inline int32_t run_target_team_nd_region(
                          // SVM pointers (e.g. returned by clSVMAlloc)
                          // are classified as CL_MEM_TYPE_UNKNOWN_INTEL.
                          // We cannot allocate any other pointer type now.
-                         if (type == CL_MEM_TYPE_DEVICE_INTEL) {
-                           implicit_usm_args.push_back(ptr);
-                           return true;
-                         }
-                         return false;
+                         if (type == CL_MEM_TYPE_HOST_INTEL)
+                           hasUSMArgHost = true;
+                         else if (type == CL_MEM_TYPE_DEVICE_INTEL)
+                           hasUSMArgDevice = true;
+                         else if (type == CL_MEM_TYPE_SHARED_INTEL)
+                           hasUSMArgShared = true;
+                         else
+                           return false;
+                         implicit_usm_args.push_back(ptr);
+                         return true;
                        }),
         implicit_args.end());
   }
@@ -2770,9 +2780,18 @@ static inline int32_t run_target_team_nd_region(
     // Mark the kernel as supporting indirect USM accesses, otherwise,
     // clEnqueueNDRangeKernel call below will fail.
     cl_bool KernelSupportsUSM = CL_TRUE;
-    CALL_CL_RET_FAIL(clSetKernelExecInfo, *kernel,
-                     CL_KERNEL_EXEC_INFO_INDIRECT_DEVICE_ACCESS_INTEL,
-                     sizeof(cl_bool), &KernelSupportsUSM);
+    if (hasUSMArgHost)
+      CALL_CL_RET_FAIL(clSetKernelExecInfo, *kernel,
+                       CL_KERNEL_EXEC_INFO_INDIRECT_HOST_ACCESS_INTEL,
+                       sizeof(cl_bool), &KernelSupportsUSM);
+    if (hasUSMArgDevice)
+      CALL_CL_RET_FAIL(clSetKernelExecInfo, *kernel,
+                       CL_KERNEL_EXEC_INFO_INDIRECT_DEVICE_ACCESS_INTEL,
+                       sizeof(cl_bool), &KernelSupportsUSM);
+    if (hasUSMArgShared)
+      CALL_CL_RET_FAIL(clSetKernelExecInfo, *kernel,
+                       CL_KERNEL_EXEC_INFO_INDIRECT_SHARED_ACCESS_INTEL,
+                       sizeof(cl_bool), &KernelSupportsUSM);
   }
 #endif  // INTEL_CUSTOMIZATION
 
