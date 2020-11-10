@@ -1985,3 +1985,129 @@ bool dtrans::traceNonConstantValue(Value *InVal, uint64_t ElementSize,
 
   return Verified;
 }
+
+// Helper to analyze a pointer-to-member usage to determine if only a
+// specific subset of the structure fields of \p StructTy, starting from \p
+// FieldNum and extending by \p AccessSize bytes of the structure are
+// touched.
+//
+// Return 'true' if it can be resolved to precisely match one or more
+// adjacent fields starting with the field number identified in the 'LPI'.
+// If so, also updated the RegionDesc to set the starting index into
+// 'FirstField' and the ending index of affected fields into 'LastField'.
+// Otherwise, return 'false'.
+static bool analyzeStructFieldAccess(const DataLayout &DL, StructType *StructTy,
+                                     size_t FieldNum, uint64_t PrePadBytes,
+                                     uint64_t AccessSize,
+                                     dtrans::MemfuncRegion *RegionDesc) {
+  uint64_t TypeSize = DL.getTypeAllocSize(StructTy);
+
+  // If the size is larger than the base structure size, then the write
+  // exceeds the bounds of a single structure, and it's an unsupported
+  // use.
+  if (AccessSize > TypeSize)
+    return false;
+
+  // Try to identify the range of fields being accessed based on the
+  // layout of the structure.
+  auto FieldTypes = StructTy->elements();
+  auto *SL = DL.getStructLayout(StructTy);
+  uint64_t FieldOffset = SL->getElementOffset(FieldNum);
+  uint64_t AccessStart = FieldOffset - PrePadBytes;
+  uint64_t AccessEnd = AccessStart + AccessSize - 1;
+
+  // Check that the access stays within the memory region of the structure,
+  // and is not just padding bytes between the fields.
+  if (AccessEnd > TypeSize || AccessEnd < FieldOffset)
+    return false;
+
+  unsigned int LF = SL->getElementContainingOffset(AccessEnd);
+
+  // Check if the last field was completely covered. If not, we do not
+  // support it. It could be safe, but could complicate transforms that need
+  // to work with nested structures.
+  uint64_t LastFieldStart = SL->getElementOffset(LF);
+  uint64_t LastFieldSize = DL.getTypeStoreSize(FieldTypes[LF]);
+  if (AccessEnd < (LastFieldStart + LastFieldSize - 1))
+    return false;
+
+  uint64_t PostPadBytes = AccessEnd - (LastFieldStart + LastFieldSize - 1);
+  RegionDesc->PrePadBytes = PrePadBytes;
+  RegionDesc->FirstField = FieldNum;
+  RegionDesc->LastField = LF;
+  RegionDesc->PostPadBytes = PostPadBytes;
+  if (!(FieldNum == 0 && LF == (StructTy->getNumElements() - 1)))
+    RegionDesc->IsCompleteAggregate = false;
+  else
+    RegionDesc->IsCompleteAggregate = true;
+  return true;
+}
+
+bool dtrans::analyzePartialStructUse(const DataLayout &DL, StructType *StructTy,
+                                     size_t FieldNum, uint64_t PrePadBytes,
+                                     const Value *AccessSizeVal,
+                                     dtrans::MemfuncRegion *RegionDesc) {
+  if (!StructTy)
+    return false;
+
+  if (!AccessSizeVal)
+    return false;
+
+  auto *AccessSizeCI = dyn_cast<ConstantInt>(AccessSizeVal);
+  if (!AccessSizeCI)
+    return false;
+
+  uint64_t AccessSize = AccessSizeCI->getLimitedValue();
+  assert(FieldNum < StructTy->getNumElements());
+
+  return analyzeStructFieldAccess(DL, StructTy, FieldNum, PrePadBytes,
+                                  AccessSize, RegionDesc);
+}
+
+// Return true if the input size (SetSize) partially accesses the inner
+// structures in StructTy. For example:
+//
+//   %class.outer = type { %"class.inner1" }
+//   %class.inner1 = type { %"class.inner2", %"class.inner2" }
+//   %class.inner2 = type { %class.TestClass, i64, i64 }
+//   %class.TestClass = type { i64, i64, i64 }
+//
+//   %tmp1 = bitcast %class.outer* %VAR1 to i8*
+//   %tmp2 = bitcast %class.outer* %VAR2 to i8*
+//
+//   call void @llvm.memcpy(i8* nonnull align 8 dereferenceable(32) %tmp1,
+//                          i8* nonnull align 8 dereferenceable(32) %tmp2,
+//                          i64 32, i1 false)
+//
+// In the example above, the memcpy is just copying the first 32 bytes from
+// %tmp2 to %tmp1. This means that it is copying the fields 0 and 1 from the
+// %class.inner2, which can be reached by traversing the 0 element from
+// %class.outer. This memcpy can be considered as a partial access.
+bool dtrans::analyzePartialAccessNestedStructures(const DataLayout &DL,
+                                                  StructType *StructTy,
+                                                  Value *SetSize) {
+  if (!StructTy || !SetSize)
+    return false;
+
+  uint64_t InputSize = 0;
+  if (auto *Const = dyn_cast<ConstantInt>(SetSize))
+    InputSize = Const->getZExtValue();
+  else
+    return false;
+
+  if (InputSize == 0)
+    return false;
+
+  StructType *CurrStruct = StructTy;
+  while (CurrStruct) {
+    dtrans::MemfuncRegion RegionDesc;
+
+    if (analyzeStructFieldAccess(DL, CurrStruct, 0 /* FieldNum */,
+                                 0 /* PrePadBytes */, InputSize, &RegionDesc))
+      return RegionDesc.PostPadBytes == 0;
+
+    CurrStruct = dyn_cast<StructType>(CurrStruct->getElementType(0));
+  }
+
+  return false;
+}

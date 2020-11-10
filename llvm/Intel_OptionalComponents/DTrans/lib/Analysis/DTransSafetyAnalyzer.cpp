@@ -2288,21 +2288,318 @@ public:
     default:
       break;
 
-      // The following intrinsics do not affect the safety checks of
-      // the DTrans analysis for any of their arguments.
     case Intrinsic::dbg_declare:
     case Intrinsic::dbg_value:
     case Intrinsic::lifetime_end:
     case Intrinsic::lifetime_start:
     case Intrinsic::ptr_annotation:
     case Intrinsic::var_annotation:
+      // These intrinsics do not affect the safety checks of
+      // the DTrans analysis for any of their arguments.
       return;
 
-      // TODO: Check memset/memcpy/memmove routines
+    case Intrinsic::memset:
+      analyzeMemset(I);
+      return;
+
+    case Intrinsic::memcpy:
+    case Intrinsic::memmove:
+      // TODO: Check memcpy/memmove routines
+      break;
     }
 
-    // TODO: mark all others with unhandled use on the arguments to the
-    // intrinsic call.
+    // Mark all other intrinsic calls with UnhandledUse for the arguments that
+    // are types of interest.
+    for (Value *Arg : I.arg_operands()) {
+      ValueTypeInfo *Info = PTA.getValueTypeInfo(Arg);
+      if (!Info)
+        continue;
+      setAllAliasedAndPointeeTypeSafetyData(Info, dtrans::UnhandledUse,
+                                            "Value passed to intrinsic", &I);
+    }
+  }
+
+  // Check the destination of a call to memset for safety.
+  //
+  // A safe call is one where it can be resolved that the operand to the
+  // memset meets the following conditions:
+  //   - The operand does not affect an aggregate data type.
+  //  or
+  //   - If the operand is not a pointer to a field within an aggregate, then
+  //     the size must be a multiple of the aggregate object's size, or if the
+  //     size is smaller than the aggregate type and a specific subset of fields
+  //     is set, the memfunc partial write safety bit will be set.
+  //   - If the operand is a pointer to a field within an aggregate, then
+  //     the size operand must cover the size of one or more fields, in which
+  //     case the memfunc partial write safety bit will be set on the containing
+  //     structure.
+  //  or
+  //  - The size operand is 0.
+  //
+  // A necessary precursor for most of these rules is that the operand type
+  // is able to be resolved to a unique dominant type for the pointer.
+  //
+  // For a safe call, the field information tracking of the aggregate type
+  // will be updated to indicate the field is written to.
+  void analyzeMemset(Instruction &I) {
+    DEBUG_WITH_TYPE_P(FNFilter, SAFETY_VERBOSE,
+                      dbgs()
+                          << "dtrans: Analyzing memset call: ["
+                          << I.getFunction()->getName() << "] " << I << "\n");
+    MemSetInst &Inst = cast<MemSetInst>(I);
+    auto *DestArg = Inst.getRawDest();
+    Value *SetSize = Inst.getLength();
+
+    // A memset of 0 bytes will not affect the safety of any data structure.
+    if (dtrans::isValueEqualToSize(SetSize, 0))
+      return;
+
+    ValueTypeInfo *DstInfo = PTA.getValueTypeInfo(DestArg);
+    assert(DstInfo &&
+           "PointerTypeAnalyzer should have collected info for pointer");
+    if (!DstInfo->canAliasToAggregatePointer() &&
+        !DstInfo->pointsToSomeElement())
+      return;
+
+    if (DstInfo->pointsToSomeElement()) {
+      DTransStructType *StructTy = nullptr;
+      size_t FieldNum = 0;
+      uint64_t PrePadBytes = 0;
+
+      // Try to collect a structure type, field and any padding bytes being
+      // written for the ElementPointees of DstInfo.
+      if (isSimpleStructureMember(DstInfo, &StructTy, &FieldNum,
+                                  &PrePadBytes)) {
+
+        // Check the structure, and mark any safety flags needed.
+        dtrans::MemfuncRegion RegionDesc;
+        if (analyzeMemfuncStructureMemberParam(
+                I, StructTy, FieldNum, PrePadBytes, SetSize, RegionDesc))
+          createMemsetCallInfo(I, StructTy, RegionDesc);
+
+        return;
+      }
+
+      // The element pointee was not able to be analyzed.
+
+      // If the PointeePair is for an array element, propagate the safety data
+      // to any structures the array is a part of.
+      auto SetSafetyDataOnElementPointees = [this](ValueTypeInfo *PtrInfo,
+                                                   dtrans::SafetyData Data,
+                                                   StringRef Reason,
+                                                   Instruction *I) {
+        auto &ElementPointees =
+            PtrInfo->getElementPointeeSet(ValueTypeInfo::VAT_Use);
+        for (auto PointeePair : ElementPointees)
+          if (isa<DTransArrayType>(PointeePair.first)) {
+            auto &ElementOfTypes = PointeePair.second.getElementOf();
+            for (auto &ElementOfPair : ElementOfTypes)
+              if (auto *StTy = dyn_cast<DTransStructType>(ElementOfPair.first))
+                setBaseTypeInfoSafetyData(StTy, Data, Reason, I);
+          }
+      };
+
+      SafetyData Data;
+      StringRef Reason;
+      auto &ElementPointees =
+          DstInfo->getElementPointeeSet(ValueTypeInfo::VAT_Use);
+      if (ElementPointees.size() != 1) {
+        Data = dtrans::AmbiguousPointerTarget;
+        Reason = "memset with multiple element pointees";
+      } else {
+        Data = dtrans::BadMemFuncSize;
+        Reason = "memset with array, invalid offset or size";
+      }
+      setAllElementPointeeSafetyData(DstInfo, Data, Reason, &I);
+      SetSafetyDataOnElementPointees(DstInfo, Data, Reason, &I);
+
+      return;
+    }
+
+    // No need to check types that do not involve aggregates or that are only
+    // for pointer-to-pointer types.
+    if (!DstInfo->canAliasToDirectAggregatePointer())
+      return;
+
+    auto DestParentTy = PTA.getDominantAggregateUsageType(*DstInfo);
+    if (!DestParentTy || !DestParentTy->isPointerTy()) {
+      setAllAliasedTypeSafetyData(DstInfo, dtrans::AmbiguousPointerTarget,
+                                  "memset could not identify dominant type",
+                                  &I);
+      return;
+    }
+
+    auto *DestPointeeTy = DestParentTy->getPointerElementType();
+    uint64_t ElementSize = DL.getTypeAllocSize(DestPointeeTy->getLLVMType());
+    if (dtrans::isValueMultipleOfSize(SetSize, ElementSize)) {
+      TypeInfo *ParentTI = DTInfo.getTypeInfo(DestPointeeTy);
+      markAllFieldsWritten(ParentTI, I);
+      dtrans::MemfuncRegion RegionDesc;
+      RegionDesc.IsCompleteAggregate = true;
+      createMemsetCallInfo(I, DestPointeeTy, RegionDesc);
+      return;
+    }
+
+    // Check for the case where a portion of a structure is being set, starting
+    // from field number zero.
+    if (auto *StructTy = dyn_cast<DTransStructType>(DestPointeeTy)) {
+      dtrans::MemfuncRegion RegionDesc;
+      if (analyzeMemfuncStructureMemberParam(I, StructTy, /*FieldNum=*/0,
+                                             /*PrePadBytes=*/0, SetSize,
+                                             RegionDesc)) {
+
+        createMemsetCallInfo(I, StructTy, RegionDesc);
+        return;
+      }
+    }
+
+    setAllAliasedAndPointeeTypeSafetyData(
+        DstInfo, dtrans::BadMemFuncSize,
+        "memset could not match size to aggregate type", &I);
+  }
+
+  // Helper function for retrieving information when the \p ValueTypeInfo
+  // argument refers to a pointer to some element within an aggregate type. This
+  // function checks that the pointer to member is a referencing a single member
+  // from a single structure. If so, it returns 'true'. Otherwise, return
+  // 'false'. When returning 'true', the following output parameters are set:
+  //
+  // \p StructTy    - The structure type in the \p StructTy.
+  // \p FieldNum    - Field number of the first complete field that may be
+  //                  accessed.
+  // \p PrePadBytes - Number of padding bytes prior to \p FieldNum
+  //                  accessed.
+  bool isSimpleStructureMember(ValueTypeInfo *Info, DTransStructType **StructTy,
+                               size_t *FieldNum, uint64_t *PrePadBytes) {
+    assert(Info->pointsToSomeElement() && "Expected pointer to an element");
+
+    auto &ElementPointees = Info->getElementPointeeSet(ValueTypeInfo::VAT_Use);
+    if (ElementPointees.size() != 1)
+      return false;
+
+    auto &PointeePair = *(ElementPointees.begin());
+    if (PointeePair.second.isUnknownOffset())
+      return false;
+
+    // Check whether the address is to a location that is not the start of a
+    // field. In this case, we need to identify the first field that follows the
+    // offset, and the number of bytes to reach it.
+    DTransType *Ty = PointeePair.first;
+    if (PointeePair.second.isByteOffset()) {
+      if (auto *StTy = dyn_cast<DTransStructType>(Ty)) {
+        llvm::StructType *LLVMStTy =
+            cast<llvm::StructType>(StTy->getLLVMType());
+        const StructLayout *SL = DL.getStructLayout(LLVMStTy);
+        uint64_t AccessOffset = PointeePair.second.getByteOffset();
+        if (AccessOffset < SL->getSizeInBytes()) {
+          uint64_t Elem = SL->getElementContainingOffset(AccessOffset);
+          uint64_t FieldStart = SL->getElementOffset(Elem);
+
+          // getElementContainingOffset returns the field member prior to any
+          // pad bytes if the offset falls into a padding region.
+          if (AccessOffset > FieldStart) {
+            // Make sure the offset is beyond the end of the prior field member.
+            uint64_t FieldSize =
+                DL.getTypeStoreSize(LLVMStTy->getElementType(Elem));
+            if (AccessOffset < FieldStart + FieldSize)
+              return false;
+
+            // Advance to the next field, if possible.
+            ++Elem;
+            if (Elem == LLVMStTy->getNumElements())
+              return false;
+
+            FieldStart = SL->getElementOffset(Elem);
+          }
+          *StructTy = StTy;
+          *FieldNum = Elem;
+          *PrePadBytes = FieldStart - AccessOffset;
+          return true;
+        }
+      }
+      return false;
+    }
+
+    // If the element is an array type, it's possible that the address is for a
+    // structure field that is the first element of an aggregate structure. For
+    // example:
+    //
+    //   %struct.network = type { [200 x i8], [200 x i8], i64 }
+    //   call void @llvm.memset.p0i8.i64(i8* getelementptr(
+    //        %struct.network, %struct.network* @net, i64 0, i32 0, i64 0),
+    //       i8 0, i64 408, i1 false)
+    //
+    // The analysis will later use the size parameter for the call to determine
+    // whether this call is only writing to the array element, or to multiple
+    // elements of the structure.
+    if (isa<DTransArrayType>(Ty)) {
+      auto &ElementOfTypes = PointeePair.second.getElementOf();
+      if (ElementOfTypes.empty())
+        return false;
+
+      if (PointeePair.second.isField() &&
+          PointeePair.second.getElementNum() == 0)
+        for (auto &ElementOfPair : ElementOfTypes) {
+          if (auto *StTy = dyn_cast<DTransStructType>(ElementOfPair.first)) {
+            *StructTy = StTy;
+            *FieldNum = ElementOfPair.second;
+            *PrePadBytes = 0;
+            return true;
+          }
+        }
+
+      return false;
+    }
+
+    // It's not a special case. Just get the type and field number if it's a
+    // structure field.
+    if (auto *StTy = dyn_cast<DTransStructType>(PointeePair.first)) {
+      assert(PointeePair.second.isField() && "Expected structure field access");
+      *StructTy = StTy;
+      *FieldNum = PointeePair.second.getElementNum();
+      *PrePadBytes = 0;
+      return true;
+    }
+
+    return false;
+  }
+
+  // Analyze a structure pointer that is passed to memfunc call, possibly using
+  // a pointer to one of the fields within the structure to determine which
+  // fields are modified, and whether it is a safe usage. Return 'true' if safe
+  // usage, and populate the \p RegionDesc with the results.
+  bool analyzeMemfuncStructureMemberParam(Instruction &I,
+                                          DTransStructType *StructTy,
+                                          size_t FieldNum, uint64_t PrePadBytes,
+                                          Value *SetSize,
+                                          dtrans::MemfuncRegion &RegionDesc) {
+    auto *ParentTI = DTInfo.getTypeInfo(StructTy);
+    llvm::StructType *LLVMTy = cast<llvm::StructType>(StructTy->getLLVMType());
+
+    // Try to determine if a set of fields in a structure is being written.
+    if (analyzePartialStructUse(DL, LLVMTy, FieldNum, PrePadBytes, SetSize,
+                                &RegionDesc)) {
+      // If not all members of the structure were set, mark it as a partial
+      // write.
+      if (!RegionDesc.IsCompleteAggregate) {
+        setBaseTypeInfoSafetyData(
+            StructTy, dtrans::MemFuncPartialWrite,
+            "size covers subset of fields of the structures", &I);
+      }
+
+      markStructFieldsWritten(ParentTI, RegionDesc.FirstField,
+                              RegionDesc.LastField, I);
+      return true;
+    }
+
+    // TODO: Add checks for cases that can be marked with
+    // MemFuncNestedStructsPartialWrite instead of BadMemFuncSize.
+
+    // The size could not be matched to the fields of the structure.
+    setBaseTypeInfoSafetyData(StructTy, dtrans::BadMemFuncSize,
+                              "size does not equal member field type(s) size",
+                              &I);
+    return false;
   }
 
   // For ReturnInst, we need to perform the following checks:
@@ -2688,14 +2985,16 @@ private:
   // the bounds of a structure. This is strictly not allowed in C/C++, but
   // is allowed under the definition of LLVM IR.
   bool isCascadingSafetyCondition(dtrans::SafetyData Data) {
-    if (dtrans::DTransOutOfBoundsOK)
-      return true;
 
     switch (Data) {
-      // We can add additional cases here to reduce the conservative behavior
-      // as needs dictate.
     case dtrans::FieldAddressTaken:
     case dtrans::HasZeroSizedArray:
+      // We can add additional cases here to reduce the conservative behavior
+      // as needs dictate. These cases should not cascade to nested elements,
+      // unless we are allowing that the address of one field can be used to
+      // access a disjoint field.
+      if (dtrans::DTransOutOfBoundsOK)
+        return true;
       return false;
 
     case dtrans::AddressTaken:
@@ -2720,7 +3019,6 @@ private:
     case dtrans::HasVTable:
     case dtrans::LocalInstance:
     case dtrans::LocalPtr:
-    case dtrans::MemFuncPartialWrite:
     case dtrans::MismatchedArgUse:
     case dtrans::MismatchedElementAccess:
     case dtrans::NestedStruct:
@@ -2734,6 +3032,12 @@ private:
     case dtrans::UnsafePointerStorePending:
     case dtrans::VolatileData:
       return true;
+
+    case dtrans::MemFuncPartialWrite:
+      // A partial write to a one structure does not imply contained structures
+      // are also partially written. Those contained structures should be marked
+      // on a case by case basis.
+      return false;
     }
 
     llvm_unreachable("Fully covered switch isn't fully covered?");
@@ -2962,6 +3266,58 @@ private:
     else if (isa<dtrans::ArrayInfo>(TI))
       MaybePropagateSafetyCondition(BaseTy->getArrayElementType(), Data,
                                     IsCascading, IsPointerCarried);
+  }
+
+  // Mark all the fields of the type, and fields of aggregates the type contains
+  // as written.
+  void markAllFieldsWritten(dtrans::TypeInfo *TI, Instruction &I) {
+    if (TI == nullptr)
+      return;
+
+    if (!TI->getLLVMType()->isAggregateType()) {
+      return;
+    }
+
+    if (auto *StInfo = dyn_cast<dtrans::StructInfo>(TI)) {
+      for (auto &FI : StInfo->getFields()) {
+        FI.setWritten(I);
+        // TODO: Update frequency count for field info
+        auto *ComponentTI = DTInfo.getTypeInfo(FI.getDTransType());
+        markAllFieldsWritten(ComponentTI, I);
+      }
+    } else if (auto *AInfo = dyn_cast<dtrans::ArrayInfo>(TI)) {
+      auto *ComponentTI = AInfo->getElementDTransInfo();
+      markAllFieldsWritten(ComponentTI, I);
+    }
+  }
+
+  // A specialized form of the MarkAllFieldsWritten that is used to mark a
+  // subset of fields of a structure type as written. Any contained aggregates
+  // within the subset are marked as completely written.
+  void markStructFieldsWritten(dtrans::TypeInfo *TI, unsigned int FirstField,
+                               unsigned int LastField, Instruction &I) {
+    assert(TI && TI->getLLVMType()->isStructTy() &&
+           "markStructFieldsWritten requires Structure type");
+
+    auto *StInfo = cast<dtrans::StructInfo>(TI);
+    assert(LastField >= FirstField && LastField < StInfo->getNumFields() &&
+           "markStructFieldsWritten with invalid field index");
+
+    for (unsigned int Idx = FirstField; Idx <= LastField; ++Idx) {
+      auto &FI = StInfo->getField(Idx);
+      FI.setWritten(I);
+      // TODO: Update frequency count for field info
+      auto *ComponentTI = DTInfo.getTypeInfo(FI.getDTransType());
+      markAllFieldsWritten(ComponentTI, I);
+    }
+  }
+
+  // Create a MemfuncCallInfo object that will store the details about a safe
+  // memset call.
+  void createMemsetCallInfo(Instruction &I, DTransType *ElemTy,
+                            dtrans::MemfuncRegion &RegionDesc) {
+    // TODO: create the MemfuncCallInfo when that class support DTransType
+    // objects.
   }
 
   // Return 'true' if the DTransType is something that may require safety data

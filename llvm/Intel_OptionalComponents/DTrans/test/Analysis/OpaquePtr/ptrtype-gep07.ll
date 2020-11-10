@@ -4,10 +4,7 @@
 ; RUN: opt -disable-output -whole-program-assume -passes=dtrans-ptrtypeanalyzertest -dtrans-print-pta-results < %s 2>&1 | FileCheck %s --check-prefix=CHECK --check-prefix=CHECK-CUR
 
 ; Test pointer type recovery on getelementptr instructions involving the
-; address of an array element for an array contained within structure. In
-; this case, the address does not also match the address of the
-; structure element, so no extra information needs to be stored with the
-; "Element pointee".
+; address of an array element for an array contained within structure.
 
 ; Lines marked with CHECK-CUR are tests for the current form of IR.
 ; Lines marked with CHECK-FUT are placeholders for check lines that will
@@ -25,10 +22,6 @@ define i8 @test01()  {
   ret i8 %val
 }
 
-; Cases where the indexed element is not an unknown offset or the same
-; address as the parent container, do not require extra information to
-; be stores in the "Element pointee".
-
 ; CHECK-LABEL: i8 @test01
 ; CHECK-CUR:  %array_elem_addr = getelementptr %struct.test01a, %struct.test01a* @var01a, i64 0, i32 2, i32 1, i64 3
 ; CHECK-FUT:  %array_elem_addr = getelementptr %struct.test01a, p0 @var01a, i64 0, i32 2, i32 1, i64 3
@@ -36,7 +29,7 @@ define i8 @test01()  {
 ; CHECK-NEXT: Aliased types:
 ; CHECK-NEXT:   i8*{{ *$}}
 ; CHECK-NEXT: Element pointees:
-; CHECK-NEXT:   [10 x i8] @ 3{{ *$}}
+; CHECK-NEXT:   [10 x i8] @ 3 ElementOf: %struct.test01b@1{{ *$}}
 
 
 !1 = !{i64 0, i32 0}  ; i64
