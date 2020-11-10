@@ -2077,36 +2077,6 @@ void *__tgt_rtl_data_alloc_base(int32_t device_id, int64_t size, void *hst_ptr,
   return tgt_rtl_data_alloc_template(device_id, size, hst_ptr, hst_base, 0);
 }
 
-// Create a buffer from the given SVM pointer.
-EXTERN
-void *__tgt_rtl_create_buffer(int32_t device_id, void *tgt_ptr) {
-  if (DeviceInfo->Buffers[device_id].count(tgt_ptr) == 0) {
-    IDP("Error: Cannot create buffer from unknown device pointer " DPxMOD "\n",
-       DPxPTR(tgt_ptr));
-    return nullptr;
-  }
-  cl_int rc;
-  int64_t size = DeviceInfo->Buffers[device_id][tgt_ptr].Size;
-  cl_mem ret = nullptr;
-  CALL_CL_RVRC(ret, clCreateBuffer, rc, DeviceInfo->CTX[device_id],
-               CL_MEM_USE_HOST_PTR, size, tgt_ptr);
-  if (rc != CL_SUCCESS) {
-    IDP("Error: Failed to create a buffer from a SVM pointer " DPxMOD "\n",
-       DPxPTR(tgt_ptr));
-    return nullptr;
-  }
-  IDP("Created a buffer " DPxMOD " from a SVM pointer " DPxMOD "\n",
-     DPxPTR(ret), DPxPTR(tgt_ptr));
-  return ret;
-}
-
-// Release the buffer
-EXTERN
-int32_t __tgt_rtl_release_buffer(void *tgt_buffer) {
-  CALL_CL_RET_FAIL(clReleaseMemObject, (cl_mem)tgt_buffer);
-  return OFFLOAD_SUCCESS;
-}
-
 // Allocation was initiated by user (omp_target_alloc)
 EXTERN
 void *__tgt_rtl_data_alloc_user(int32_t device_id, int64_t size,

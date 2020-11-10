@@ -62,9 +62,7 @@ struct RTLInfoTy {
                                                void **, size_t);
   typedef void *(data_alloc_base_ty)(int32_t, int64_t, void *, void *);
   typedef void *(data_alloc_user_ty)(int32_t, int64_t, void *);
-  typedef void *(create_buffer_ty)(int32_t, void *);
   typedef char *(get_device_name_ty)(int32_t, char *, size_t);
-  typedef int32_t(release_buffer_ty)(void *);
   typedef int32_t(run_team_nd_region_ty)(int32_t, void *, void **, ptrdiff_t *,
                                          int32_t, int32_t, int32_t, void *);
   typedef int32_t(run_team_nd_region_nowait_ty)(int32_t, void *, void **,
@@ -132,9 +130,7 @@ struct RTLInfoTy {
   manifest_data_for_region_ty *manifest_data_for_region = nullptr;
   data_alloc_base_ty *data_alloc_base = nullptr;
   data_alloc_user_ty *data_alloc_user = nullptr;
-  create_buffer_ty *create_buffer = nullptr;
   get_device_name_ty *get_device_name = nullptr;
-  release_buffer_ty *release_buffer = nullptr;
   run_team_nd_region_ty *run_team_nd_region = nullptr;
   run_team_nd_region_nowait_ty *run_team_nd_region_nowait = nullptr;
   run_region_nowait_ty *run_region_nowait = nullptr;
@@ -200,9 +196,7 @@ struct RTLInfoTy {
     manifest_data_for_region = r.manifest_data_for_region;
     data_alloc_base = r.data_alloc_base;
     data_alloc_user = r.data_alloc_user;
-    create_buffer = r.create_buffer;
     get_device_name = r.get_device_name;
-    release_buffer = r.release_buffer;
     run_team_nd_region = r.run_team_nd_region;
     run_team_nd_region_nowait = r.run_team_nd_region_nowait;
     run_region_nowait = r.run_region_nowait;

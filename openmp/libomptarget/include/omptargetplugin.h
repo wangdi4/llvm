@@ -204,14 +204,6 @@ void *__tgt_rtl_data_alloc_user(int32_t ID, int64_t Size, void *HostPtr);
 EXTERN void *__tgt_rtl_data_alloc_explicit(
     int32_t ID, int64_t Size, int32_t Kind);
 
-// Create a device-specific buffer object from the given device pointer
-EXTERN
-void *__tgt_rtl_create_buffer(int32_t ID, void *TgtPtr);
-
-// Release a device-specific buffer
-EXTERN
-int32_t __tgt_rtl_release_buffer(void *TgtBuffer);
-
 // Returns implementation defined device name for the given device number,
 // using provided Buffer. Buffer must be able to hold at least BufferMaxSize
 // characters. Returns nullptr, if device name cannot be acquired, otherwise,
