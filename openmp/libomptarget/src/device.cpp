@@ -245,7 +245,7 @@ void *DeviceTy::getOrAllocTgtPtr(void *HstPtrBegin, void *HstPtrBase,
 #if INTEL_COLLAB
   } else if (((RTLs->RequiresFlags & OMP_REQ_UNIFIED_SHARED_MEMORY &&
                    !managed_memory_supported()) ||
-             is_managed_ptr(HstPtrBegin)) &&
+             is_device_accessible_ptr(HstPtrBegin)) &&
 #else // INTEL_COLLAB
   } else if ((RTLs->RequiresFlags & OMP_REQ_UNIFIED_SHARED_MEMORY) &&
 #endif // INTEL_COLLAB
@@ -333,7 +333,7 @@ void *DeviceTy::getTgtPtrBegin(void *HstPtrBegin, int64_t Size, bool &IsLast,
 #if INTEL_COLLAB
   } else if ((RTLs->RequiresFlags & OMP_REQ_UNIFIED_SHARED_MEMORY &&
                   !managed_memory_supported()) ||
-             is_managed_ptr(HstPtrBegin)) {
+             is_device_accessible_ptr(HstPtrBegin)) {
 #else  // INTEL_COLLAB
   } else if (RTLs->RequiresFlags & OMP_REQ_UNIFIED_SHARED_MEMORY) {
 #endif // INTEL_COLLAB
@@ -369,7 +369,7 @@ int DeviceTy::deallocTgtPtr(void *HstPtrBegin, int64_t Size, bool ForceDelete,
 #if INTEL_COLLAB
   if (((RTLs->RequiresFlags & OMP_REQ_UNIFIED_SHARED_MEMORY &&
             !managed_memory_supported()) ||
-       is_managed_ptr(HstPtrBegin)) && !HasCloseModifier)
+       is_device_accessible_ptr(HstPtrBegin)) && !HasCloseModifier)
 #else  // INTEL_COLLAB
   if (RTLs->RequiresFlags & OMP_REQ_UNIFIED_SHARED_MEMORY && !HasCloseModifier)
 #endif // INTEL_COLLAB
@@ -815,15 +815,15 @@ int32_t DeviceTy::data_delete_managed(void *Ptr) {
     return OFFLOAD_FAIL;
 }
 
-int32_t DeviceTy::is_managed_ptr(void *Ptr) {
-  if (RTL->is_managed_ptr)
-    return RTL->is_managed_ptr(RTLDeviceID, Ptr);
+int32_t DeviceTy::is_device_accessible_ptr(void *Ptr) {
+  if (RTL->is_device_accessible_ptr)
+    return RTL->is_device_accessible_ptr(RTLDeviceID, Ptr);
   else
     return 0;
 }
 
 int32_t DeviceTy::managed_memory_supported() {
-  return RTL->is_managed_ptr != nullptr;
+  return RTL->is_device_accessible_ptr != nullptr;
 }
 
 void *DeviceTy::data_alloc_explicit(int64_t Size, int32_t Kind) {

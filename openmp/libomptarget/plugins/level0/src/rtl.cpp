@@ -1948,7 +1948,7 @@ EXTERN int32_t __tgt_rtl_data_delete_managed(int32_t DeviceId, void *Ptr) {
   return __tgt_rtl_data_delete(DeviceId, Ptr);
 }
 
-EXTERN int32_t __tgt_rtl_is_managed_ptr(int32_t DeviceId, void *Ptr) {
+EXTERN int32_t __tgt_rtl_is_device_accessible_ptr(int32_t DeviceId, void *Ptr) {
   ze_memory_allocation_properties_t properties = {
     ZE_STRUCTURE_TYPE_MEMORY_ALLOCATION_PROPERTIES,
     nullptr, // extension
@@ -1965,9 +1965,9 @@ EXTERN int32_t __tgt_rtl_is_managed_ptr(int32_t DeviceId, void *Ptr) {
     return 0;
   CALL_ZE_RET_ZERO(zeMemGetAllocProperties, context, Ptr, &properties,
                    nullptr);
-  int32_t ret = (properties.type == ZE_MEMORY_TYPE_HOST ||
-                 properties.type == ZE_MEMORY_TYPE_SHARED);
-  IDP("Ptr " DPxMOD " is %sa managed memory pointer.\n", DPxPTR(Ptr),
+  int32_t ret = properties.type != ZE_MEMORY_TYPE_UNKNOWN;
+
+  IDP("Ptr " DPxMOD " is %sa device accessible memory pointer.\n", DPxPTR(Ptr),
      ret ? "" : "not ");
   return ret;
 }

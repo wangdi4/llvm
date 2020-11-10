@@ -248,7 +248,7 @@ struct DeviceTy {
   void *get_context_handle();
   void *data_alloc_managed(int64_t Size);
   int32_t data_delete_managed(void *Ptr);
-  int32_t is_managed_ptr(void *Ptr);
+  int32_t is_device_accessible_ptr(void *Ptr);
   int32_t managed_memory_supported();
   void *data_alloc_explicit(int64_t Size, int32_t Kind);
   int32_t get_data_alloc_info(int32_t NumPtrs, void *Ptrs, void *Infos);

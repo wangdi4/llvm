@@ -80,7 +80,7 @@ struct RTLInfoTy {
   typedef int32_t(release_offload_queue_ty)(int32_t, void *);
   typedef void *(data_alloc_managed_ty)(int32_t, int64_t);
   typedef int32_t(data_delete_managed_ty)(int32_t, void *);
-  typedef int32_t(is_managed_ptr_ty)(int32_t, void *);
+  typedef int32_t(is_device_accessible_ptr_ty)(int32_t, void *);
   typedef void *(data_alloc_explicit_ty)(int32_t, int64_t, int32_t);
   typedef void (init_ompt_ty)(void *);
   typedef int32_t(get_data_alloc_info_ty)(int32_t, int32_t, void *, void *);
@@ -142,7 +142,7 @@ struct RTLInfoTy {
   release_offload_queue_ty *release_offload_queue = nullptr;
   data_alloc_managed_ty *data_alloc_managed = nullptr;
   data_delete_managed_ty *data_delete_managed = nullptr;
-  is_managed_ptr_ty *is_managed_ptr = nullptr;
+  is_device_accessible_ptr_ty *is_device_accessible_ptr = nullptr;
   data_alloc_explicit_ty *data_alloc_explicit = nullptr;
   init_ompt_ty *init_ompt = nullptr;
   get_data_alloc_info_ty *get_data_alloc_info = nullptr;
@@ -208,7 +208,7 @@ struct RTLInfoTy {
     release_offload_queue = r.release_offload_queue;
     data_alloc_managed = r.data_alloc_managed;
     data_delete_managed = r.data_delete_managed;
-    is_managed_ptr = r.is_managed_ptr;
+    is_device_accessible_ptr = r.is_device_accessible_ptr;
     data_alloc_explicit = r.data_alloc_explicit;
     init_ompt = r.init_ompt;
     get_data_alloc_info = r.get_data_alloc_info;
