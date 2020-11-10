@@ -31,6 +31,8 @@ define dso_local i32 @MAIN__() local_unnamed_addr #0 {
 ; CHECK-PINIT-X87-NEXT:    xorl %eax, %eax
 ; CHECK-PINIT-X87-NEXT:    addq $40, %rsp
 ; CHECK-PINIT-X87-NEXT:    retq
+; CHECK-PINIT-X87-NEXT:    .seh_handlerdata
+; CHECK-PINIT-X87-NEXT:    .text
 ; CHECK-PINIT-X87-NEXT:    .seh_endproc
 ;
 ; CHECK-PINIT-CMOV-LABEL: MAIN__:
@@ -44,6 +46,8 @@ define dso_local i32 @MAIN__() local_unnamed_addr #0 {
 ; CHECK-PINIT-CMOV-NEXT:    xorl %eax, %eax
 ; CHECK-PINIT-CMOV-NEXT:    addq $40, %rsp
 ; CHECK-PINIT-CMOV-NEXT:    retq
+; CHECK-PINIT-CMOV-NEXT:    .seh_handlerdata
+; CHECK-PINIT-CMOV-NEXT:    .text
 ; CHECK-PINIT-CMOV-NEXT:    .seh_endproc
 ;
 ; CHECK-PINIT-MMX-LABEL: MAIN__:
@@ -57,6 +61,8 @@ define dso_local i32 @MAIN__() local_unnamed_addr #0 {
 ; CHECK-PINIT-MMX-NEXT:    xorl %eax, %eax
 ; CHECK-PINIT-MMX-NEXT:    addq $40, %rsp
 ; CHECK-PINIT-MMX-NEXT:    retq
+; CHECK-PINIT-MMX-NEXT:    .seh_handlerdata
+; CHECK-PINIT-MMX-NEXT:    .text
 ; CHECK-PINIT-MMX-NEXT:    .seh_endproc
 ;
 ; CHECK-PINIT-SSE-LABEL: MAIN__:
@@ -70,6 +76,8 @@ define dso_local i32 @MAIN__() local_unnamed_addr #0 {
 ; CHECK-PINIT-SSE-NEXT:    xorl %eax, %eax
 ; CHECK-PINIT-SSE-NEXT:    addq $40, %rsp
 ; CHECK-PINIT-SSE-NEXT:    retq
+; CHECK-PINIT-SSE-NEXT:    .seh_handlerdata
+; CHECK-PINIT-SSE-NEXT:    .text
 ; CHECK-PINIT-SSE-NEXT:    .seh_endproc
 ;
 ; CHECK-PINIT-SSE2-LABEL: MAIN__:
@@ -83,6 +91,8 @@ define dso_local i32 @MAIN__() local_unnamed_addr #0 {
 ; CHECK-PINIT-SSE2-NEXT:    xorl %eax, %eax
 ; CHECK-PINIT-SSE2-NEXT:    addq $40, %rsp
 ; CHECK-PINIT-SSE2-NEXT:    retq
+; CHECK-PINIT-SSE2-NEXT:    .seh_handlerdata
+; CHECK-PINIT-SSE2-NEXT:    .text
 ; CHECK-PINIT-SSE2-NEXT:    .seh_endproc
 ;
 ; CHECK-PINIT-AVX-LABEL: MAIN__:
@@ -96,6 +106,8 @@ define dso_local i32 @MAIN__() local_unnamed_addr #0 {
 ; CHECK-PINIT-AVX-NEXT:    xorl %eax, %eax
 ; CHECK-PINIT-AVX-NEXT:    addq $40, %rsp
 ; CHECK-PINIT-AVX-NEXT:    retq
+; CHECK-PINIT-AVX-NEXT:    .seh_handlerdata
+; CHECK-PINIT-AVX-NEXT:    .text
 ; CHECK-PINIT-AVX-NEXT:    .seh_endproc
 ;
 ; CHECK-PINIT-AVX512-LABEL: MAIN__:
@@ -109,6 +121,8 @@ define dso_local i32 @MAIN__() local_unnamed_addr #0 {
 ; CHECK-PINIT-AVX512-NEXT:    xorl %eax, %eax
 ; CHECK-PINIT-AVX512-NEXT:    addq $40, %rsp
 ; CHECK-PINIT-AVX512-NEXT:    retq
+; CHECK-PINIT-AVX512-NEXT:    .seh_handlerdata
+; CHECK-PINIT-AVX512-NEXT:    .text
 ; CHECK-PINIT-AVX512-NEXT:    .seh_endproc
 ;
 ; CHECK-PINIT-MIX-LABEL: MAIN__:
@@ -122,6 +136,8 @@ define dso_local i32 @MAIN__() local_unnamed_addr #0 {
 ; CHECK-PINIT-MIX-NEXT:    xorl %eax, %eax
 ; CHECK-PINIT-MIX-NEXT:    addq $40, %rsp
 ; CHECK-PINIT-MIX-NEXT:    retq
+; CHECK-PINIT-MIX-NEXT:    .seh_handlerdata
+; CHECK-PINIT-MIX-NEXT:    .text
 ; CHECK-PINIT-MIX-NEXT:    .seh_endproc
   ret i32 0
 }
@@ -143,6 +159,8 @@ define dso_local i32 @main() local_unnamed_addr #0 {
 ; CHECK-PINIT-X87-NEXT:    xorl %eax, %eax
 ; CHECK-PINIT-X87-NEXT:    addq $40, %rsp
 ; CHECK-PINIT-X87-NEXT:    retq
+; CHECK-PINIT-X87-NEXT:    .seh_handlerdata
+; CHECK-PINIT-X87-NEXT:    .text
 ; CHECK-PINIT-X87-NEXT:    .seh_endproc
 ;
 ; CHECK-PINIT-CMOV-LABEL: main:
@@ -156,6 +174,8 @@ define dso_local i32 @main() local_unnamed_addr #0 {
 ; CHECK-PINIT-CMOV-NEXT:    xorl %eax, %eax
 ; CHECK-PINIT-CMOV-NEXT:    addq $40, %rsp
 ; CHECK-PINIT-CMOV-NEXT:    retq
+; CHECK-PINIT-CMOV-NEXT:    .seh_handlerdata
+; CHECK-PINIT-CMOV-NEXT:    .text
 ; CHECK-PINIT-CMOV-NEXT:    .seh_endproc
 ;
 ; CHECK-PINIT-MMX-LABEL: main:
@@ -169,6 +189,8 @@ define dso_local i32 @main() local_unnamed_addr #0 {
 ; CHECK-PINIT-MMX-NEXT:    xorl %eax, %eax
 ; CHECK-PINIT-MMX-NEXT:    addq $40, %rsp
 ; CHECK-PINIT-MMX-NEXT:    retq
+; CHECK-PINIT-MMX-NEXT:    .seh_handlerdata
+; CHECK-PINIT-MMX-NEXT:    .text
 ; CHECK-PINIT-MMX-NEXT:    .seh_endproc
 ;
 ; CHECK-PINIT-SSE-LABEL: main:
@@ -182,6 +204,8 @@ define dso_local i32 @main() local_unnamed_addr #0 {
 ; CHECK-PINIT-SSE-NEXT:    xorl %eax, %eax
 ; CHECK-PINIT-SSE-NEXT:    addq $40, %rsp
 ; CHECK-PINIT-SSE-NEXT:    retq
+; CHECK-PINIT-SSE-NEXT:    .seh_handlerdata
+; CHECK-PINIT-SSE-NEXT:    .text
 ; CHECK-PINIT-SSE-NEXT:    .seh_endproc
 ;
 ; CHECK-PINIT-SSE2-LABEL: main:
@@ -195,6 +219,8 @@ define dso_local i32 @main() local_unnamed_addr #0 {
 ; CHECK-PINIT-SSE2-NEXT:    xorl %eax, %eax
 ; CHECK-PINIT-SSE2-NEXT:    addq $40, %rsp
 ; CHECK-PINIT-SSE2-NEXT:    retq
+; CHECK-PINIT-SSE2-NEXT:    .seh_handlerdata
+; CHECK-PINIT-SSE2-NEXT:    .text
 ; CHECK-PINIT-SSE2-NEXT:    .seh_endproc
 ;
 ; CHECK-PINIT-AVX-LABEL: main:
@@ -208,6 +234,8 @@ define dso_local i32 @main() local_unnamed_addr #0 {
 ; CHECK-PINIT-AVX-NEXT:    xorl %eax, %eax
 ; CHECK-PINIT-AVX-NEXT:    addq $40, %rsp
 ; CHECK-PINIT-AVX-NEXT:    retq
+; CHECK-PINIT-AVX-NEXT:    .seh_handlerdata
+; CHECK-PINIT-AVX-NEXT:    .text
 ; CHECK-PINIT-AVX-NEXT:    .seh_endproc
 ;
 ; CHECK-PINIT-AVX512-LABEL: main:
@@ -221,6 +249,8 @@ define dso_local i32 @main() local_unnamed_addr #0 {
 ; CHECK-PINIT-AVX512-NEXT:    xorl %eax, %eax
 ; CHECK-PINIT-AVX512-NEXT:    addq $40, %rsp
 ; CHECK-PINIT-AVX512-NEXT:    retq
+; CHECK-PINIT-AVX512-NEXT:    .seh_handlerdata
+; CHECK-PINIT-AVX512-NEXT:    .text
 ; CHECK-PINIT-AVX512-NEXT:    .seh_endproc
 ;
 ; CHECK-PINIT-MIX-LABEL: main:
@@ -234,6 +264,8 @@ define dso_local i32 @main() local_unnamed_addr #0 {
 ; CHECK-PINIT-MIX-NEXT:    xorl %eax, %eax
 ; CHECK-PINIT-MIX-NEXT:    addq $40, %rsp
 ; CHECK-PINIT-MIX-NEXT:    retq
+; CHECK-PINIT-MIX-NEXT:    .seh_handlerdata
+; CHECK-PINIT-MIX-NEXT:    .text
 ; CHECK-PINIT-MIX-NEXT:    .seh_endproc
   ret i32 0
 }
@@ -255,6 +287,8 @@ define dso_local i32 @wmain() local_unnamed_addr #0 {
 ; CHECK-PINIT-X87-NEXT:    xorl %eax, %eax
 ; CHECK-PINIT-X87-NEXT:    addq $40, %rsp
 ; CHECK-PINIT-X87-NEXT:    retq
+; CHECK-PINIT-X87-NEXT:    .seh_handlerdata
+; CHECK-PINIT-X87-NEXT:    .text
 ; CHECK-PINIT-X87-NEXT:    .seh_endproc
 ;
 ; CHECK-PINIT-CMOV-LABEL: wmain:
@@ -268,6 +302,8 @@ define dso_local i32 @wmain() local_unnamed_addr #0 {
 ; CHECK-PINIT-CMOV-NEXT:    xorl %eax, %eax
 ; CHECK-PINIT-CMOV-NEXT:    addq $40, %rsp
 ; CHECK-PINIT-CMOV-NEXT:    retq
+; CHECK-PINIT-CMOV-NEXT:    .seh_handlerdata
+; CHECK-PINIT-CMOV-NEXT:    .text
 ; CHECK-PINIT-CMOV-NEXT:    .seh_endproc
 ;
 ; CHECK-PINIT-MMX-LABEL: wmain:
@@ -281,6 +317,8 @@ define dso_local i32 @wmain() local_unnamed_addr #0 {
 ; CHECK-PINIT-MMX-NEXT:    xorl %eax, %eax
 ; CHECK-PINIT-MMX-NEXT:    addq $40, %rsp
 ; CHECK-PINIT-MMX-NEXT:    retq
+; CHECK-PINIT-MMX-NEXT:    .seh_handlerdata
+; CHECK-PINIT-MMX-NEXT:    .text
 ; CHECK-PINIT-MMX-NEXT:    .seh_endproc
 ;
 ; CHECK-PINIT-SSE-LABEL: wmain:
@@ -294,6 +332,8 @@ define dso_local i32 @wmain() local_unnamed_addr #0 {
 ; CHECK-PINIT-SSE-NEXT:    xorl %eax, %eax
 ; CHECK-PINIT-SSE-NEXT:    addq $40, %rsp
 ; CHECK-PINIT-SSE-NEXT:    retq
+; CHECK-PINIT-SSE-NEXT:    .seh_handlerdata
+; CHECK-PINIT-SSE-NEXT:    .text
 ; CHECK-PINIT-SSE-NEXT:    .seh_endproc
 ;
 ; CHECK-PINIT-SSE2-LABEL: wmain:
@@ -307,6 +347,8 @@ define dso_local i32 @wmain() local_unnamed_addr #0 {
 ; CHECK-PINIT-SSE2-NEXT:    xorl %eax, %eax
 ; CHECK-PINIT-SSE2-NEXT:    addq $40, %rsp
 ; CHECK-PINIT-SSE2-NEXT:    retq
+; CHECK-PINIT-SSE2-NEXT:    .seh_handlerdata
+; CHECK-PINIT-SSE2-NEXT:    .text
 ; CHECK-PINIT-SSE2-NEXT:    .seh_endproc
 ;
 ; CHECK-PINIT-AVX-LABEL: wmain:
@@ -320,6 +362,8 @@ define dso_local i32 @wmain() local_unnamed_addr #0 {
 ; CHECK-PINIT-AVX-NEXT:    xorl %eax, %eax
 ; CHECK-PINIT-AVX-NEXT:    addq $40, %rsp
 ; CHECK-PINIT-AVX-NEXT:    retq
+; CHECK-PINIT-AVX-NEXT:    .seh_handlerdata
+; CHECK-PINIT-AVX-NEXT:    .text
 ; CHECK-PINIT-AVX-NEXT:    .seh_endproc
 ;
 ; CHECK-PINIT-AVX512-LABEL: wmain:
@@ -333,6 +377,8 @@ define dso_local i32 @wmain() local_unnamed_addr #0 {
 ; CHECK-PINIT-AVX512-NEXT:    xorl %eax, %eax
 ; CHECK-PINIT-AVX512-NEXT:    addq $40, %rsp
 ; CHECK-PINIT-AVX512-NEXT:    retq
+; CHECK-PINIT-AVX512-NEXT:    .seh_handlerdata
+; CHECK-PINIT-AVX512-NEXT:    .text
 ; CHECK-PINIT-AVX512-NEXT:    .seh_endproc
 ;
 ; CHECK-PINIT-MIX-LABEL: wmain:
@@ -346,6 +392,8 @@ define dso_local i32 @wmain() local_unnamed_addr #0 {
 ; CHECK-PINIT-MIX-NEXT:    xorl %eax, %eax
 ; CHECK-PINIT-MIX-NEXT:    addq $40, %rsp
 ; CHECK-PINIT-MIX-NEXT:    retq
+; CHECK-PINIT-MIX-NEXT:    .seh_handlerdata
+; CHECK-PINIT-MIX-NEXT:    .text
 ; CHECK-PINIT-MIX-NEXT:    .seh_endproc
   ret i32 0
 }
@@ -367,6 +415,8 @@ define dso_local i32 @WinMain() local_unnamed_addr #0 {
 ; CHECK-PINIT-X87-NEXT:    xorl %eax, %eax
 ; CHECK-PINIT-X87-NEXT:    addq $40, %rsp
 ; CHECK-PINIT-X87-NEXT:    retq
+; CHECK-PINIT-X87-NEXT:    .seh_handlerdata
+; CHECK-PINIT-X87-NEXT:    .text
 ; CHECK-PINIT-X87-NEXT:    .seh_endproc
 ;
 ; CHECK-PINIT-CMOV-LABEL: WinMain:
@@ -380,6 +430,8 @@ define dso_local i32 @WinMain() local_unnamed_addr #0 {
 ; CHECK-PINIT-CMOV-NEXT:    xorl %eax, %eax
 ; CHECK-PINIT-CMOV-NEXT:    addq $40, %rsp
 ; CHECK-PINIT-CMOV-NEXT:    retq
+; CHECK-PINIT-CMOV-NEXT:    .seh_handlerdata
+; CHECK-PINIT-CMOV-NEXT:    .text
 ; CHECK-PINIT-CMOV-NEXT:    .seh_endproc
 ;
 ; CHECK-PINIT-MMX-LABEL: WinMain:
@@ -393,6 +445,8 @@ define dso_local i32 @WinMain() local_unnamed_addr #0 {
 ; CHECK-PINIT-MMX-NEXT:    xorl %eax, %eax
 ; CHECK-PINIT-MMX-NEXT:    addq $40, %rsp
 ; CHECK-PINIT-MMX-NEXT:    retq
+; CHECK-PINIT-MMX-NEXT:    .seh_handlerdata
+; CHECK-PINIT-MMX-NEXT:    .text
 ; CHECK-PINIT-MMX-NEXT:    .seh_endproc
 ;
 ; CHECK-PINIT-SSE-LABEL: WinMain:
@@ -406,6 +460,8 @@ define dso_local i32 @WinMain() local_unnamed_addr #0 {
 ; CHECK-PINIT-SSE-NEXT:    xorl %eax, %eax
 ; CHECK-PINIT-SSE-NEXT:    addq $40, %rsp
 ; CHECK-PINIT-SSE-NEXT:    retq
+; CHECK-PINIT-SSE-NEXT:    .seh_handlerdata
+; CHECK-PINIT-SSE-NEXT:    .text
 ; CHECK-PINIT-SSE-NEXT:    .seh_endproc
 ;
 ; CHECK-PINIT-SSE2-LABEL: WinMain:
@@ -419,6 +475,8 @@ define dso_local i32 @WinMain() local_unnamed_addr #0 {
 ; CHECK-PINIT-SSE2-NEXT:    xorl %eax, %eax
 ; CHECK-PINIT-SSE2-NEXT:    addq $40, %rsp
 ; CHECK-PINIT-SSE2-NEXT:    retq
+; CHECK-PINIT-SSE2-NEXT:    .seh_handlerdata
+; CHECK-PINIT-SSE2-NEXT:    .text
 ; CHECK-PINIT-SSE2-NEXT:    .seh_endproc
 ;
 ; CHECK-PINIT-AVX-LABEL: WinMain:
@@ -432,6 +490,8 @@ define dso_local i32 @WinMain() local_unnamed_addr #0 {
 ; CHECK-PINIT-AVX-NEXT:    xorl %eax, %eax
 ; CHECK-PINIT-AVX-NEXT:    addq $40, %rsp
 ; CHECK-PINIT-AVX-NEXT:    retq
+; CHECK-PINIT-AVX-NEXT:    .seh_handlerdata
+; CHECK-PINIT-AVX-NEXT:    .text
 ; CHECK-PINIT-AVX-NEXT:    .seh_endproc
 ;
 ; CHECK-PINIT-AVX512-LABEL: WinMain:
@@ -445,6 +505,8 @@ define dso_local i32 @WinMain() local_unnamed_addr #0 {
 ; CHECK-PINIT-AVX512-NEXT:    xorl %eax, %eax
 ; CHECK-PINIT-AVX512-NEXT:    addq $40, %rsp
 ; CHECK-PINIT-AVX512-NEXT:    retq
+; CHECK-PINIT-AVX512-NEXT:    .seh_handlerdata
+; CHECK-PINIT-AVX512-NEXT:    .text
 ; CHECK-PINIT-AVX512-NEXT:    .seh_endproc
 ;
 ; CHECK-PINIT-MIX-LABEL: WinMain:
@@ -458,6 +520,8 @@ define dso_local i32 @WinMain() local_unnamed_addr #0 {
 ; CHECK-PINIT-MIX-NEXT:    xorl %eax, %eax
 ; CHECK-PINIT-MIX-NEXT:    addq $40, %rsp
 ; CHECK-PINIT-MIX-NEXT:    retq
+; CHECK-PINIT-MIX-NEXT:    .seh_handlerdata
+; CHECK-PINIT-MIX-NEXT:    .text
 ; CHECK-PINIT-MIX-NEXT:    .seh_endproc
   ret i32 0
 }
@@ -479,6 +543,8 @@ define dso_local i32 @wWinMain() local_unnamed_addr #0 {
 ; CHECK-PINIT-X87-NEXT:    xorl %eax, %eax
 ; CHECK-PINIT-X87-NEXT:    addq $40, %rsp
 ; CHECK-PINIT-X87-NEXT:    retq
+; CHECK-PINIT-X87-NEXT:    .seh_handlerdata
+; CHECK-PINIT-X87-NEXT:    .text
 ; CHECK-PINIT-X87-NEXT:    .seh_endproc
 ;
 ; CHECK-PINIT-CMOV-LABEL: wWinMain:
@@ -492,6 +558,8 @@ define dso_local i32 @wWinMain() local_unnamed_addr #0 {
 ; CHECK-PINIT-CMOV-NEXT:    xorl %eax, %eax
 ; CHECK-PINIT-CMOV-NEXT:    addq $40, %rsp
 ; CHECK-PINIT-CMOV-NEXT:    retq
+; CHECK-PINIT-CMOV-NEXT:    .seh_handlerdata
+; CHECK-PINIT-CMOV-NEXT:    .text
 ; CHECK-PINIT-CMOV-NEXT:    .seh_endproc
 ;
 ; CHECK-PINIT-MMX-LABEL: wWinMain:
@@ -505,6 +573,8 @@ define dso_local i32 @wWinMain() local_unnamed_addr #0 {
 ; CHECK-PINIT-MMX-NEXT:    xorl %eax, %eax
 ; CHECK-PINIT-MMX-NEXT:    addq $40, %rsp
 ; CHECK-PINIT-MMX-NEXT:    retq
+; CHECK-PINIT-MMX-NEXT:    .seh_handlerdata
+; CHECK-PINIT-MMX-NEXT:    .text
 ; CHECK-PINIT-MMX-NEXT:    .seh_endproc
 ;
 ; CHECK-PINIT-SSE-LABEL: wWinMain:
@@ -518,6 +588,8 @@ define dso_local i32 @wWinMain() local_unnamed_addr #0 {
 ; CHECK-PINIT-SSE-NEXT:    xorl %eax, %eax
 ; CHECK-PINIT-SSE-NEXT:    addq $40, %rsp
 ; CHECK-PINIT-SSE-NEXT:    retq
+; CHECK-PINIT-SSE-NEXT:    .seh_handlerdata
+; CHECK-PINIT-SSE-NEXT:    .text
 ; CHECK-PINIT-SSE-NEXT:    .seh_endproc
 ;
 ; CHECK-PINIT-SSE2-LABEL: wWinMain:
@@ -531,6 +603,8 @@ define dso_local i32 @wWinMain() local_unnamed_addr #0 {
 ; CHECK-PINIT-SSE2-NEXT:    xorl %eax, %eax
 ; CHECK-PINIT-SSE2-NEXT:    addq $40, %rsp
 ; CHECK-PINIT-SSE2-NEXT:    retq
+; CHECK-PINIT-SSE2-NEXT:    .seh_handlerdata
+; CHECK-PINIT-SSE2-NEXT:    .text
 ; CHECK-PINIT-SSE2-NEXT:    .seh_endproc
 ;
 ; CHECK-PINIT-AVX-LABEL: wWinMain:
@@ -544,6 +618,8 @@ define dso_local i32 @wWinMain() local_unnamed_addr #0 {
 ; CHECK-PINIT-AVX-NEXT:    xorl %eax, %eax
 ; CHECK-PINIT-AVX-NEXT:    addq $40, %rsp
 ; CHECK-PINIT-AVX-NEXT:    retq
+; CHECK-PINIT-AVX-NEXT:    .seh_handlerdata
+; CHECK-PINIT-AVX-NEXT:    .text
 ; CHECK-PINIT-AVX-NEXT:    .seh_endproc
 ;
 ; CHECK-PINIT-AVX512-LABEL: wWinMain:
@@ -557,6 +633,8 @@ define dso_local i32 @wWinMain() local_unnamed_addr #0 {
 ; CHECK-PINIT-AVX512-NEXT:    xorl %eax, %eax
 ; CHECK-PINIT-AVX512-NEXT:    addq $40, %rsp
 ; CHECK-PINIT-AVX512-NEXT:    retq
+; CHECK-PINIT-AVX512-NEXT:    .seh_handlerdata
+; CHECK-PINIT-AVX512-NEXT:    .text
 ; CHECK-PINIT-AVX512-NEXT:    .seh_endproc
 ;
 ; CHECK-PINIT-MIX-LABEL: wWinMain:
@@ -570,6 +648,8 @@ define dso_local i32 @wWinMain() local_unnamed_addr #0 {
 ; CHECK-PINIT-MIX-NEXT:    xorl %eax, %eax
 ; CHECK-PINIT-MIX-NEXT:    addq $40, %rsp
 ; CHECK-PINIT-MIX-NEXT:    retq
+; CHECK-PINIT-MIX-NEXT:    .seh_handlerdata
+; CHECK-PINIT-MIX-NEXT:    .text
 ; CHECK-PINIT-MIX-NEXT:    .seh_endproc
   ret i32 0
 }
