@@ -420,6 +420,7 @@ bool VPlanScalVecAnalysis::computeSpecialInstruction(
   case VPInstruction::Subscript:
   case VPInstruction::Blend:
   case VPInstruction::HIRCopy:
+  case VPInstruction::ConstStepVector:
   case VPInstruction::Abs: {
     // VPlan-specific instructions that don't need special processing in SVA.
     return false;
