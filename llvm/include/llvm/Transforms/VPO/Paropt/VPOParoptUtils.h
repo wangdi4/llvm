@@ -1251,6 +1251,34 @@ public:
                                      Value *ArgsSize, Value *ArgsMaptype,
                                      Instruction *InsertPt);
 
+  /// This utility encodes the constant parameters of subdevice in
+  /// \p ConstantDeviceID. \p ConstantDeviceID is both an input and an output,
+  /// it encodes a new \p Param everytime this function is called.
+  /// Encoding Steps:
+  /// 1) Create \p Mask based on \p MaskSize:
+  ///      \p Mask = (~(~(0ull) << \p MaskSize))
+  /// 2) AND \p Mask and \p Param : \p Param &= \p Mask;
+  /// 3) Shift the constant \p Param : \p Param <<= \p Shift;
+  /// 4) encode \p param to \p ConstantDeviceID:
+  ///       \p ConstantDeviceID |= \p Param;
+  static void encodeSubdeviceConstants(const ConstantInt* Param,
+                                      uint64_t& ConstantDeviceID,
+                                      int Shift, uint64_t MaskSize);
+
+  /// This utility inserts into the IR the code needed to encode the
+  /// non-constant subdevice parameters.
+  /// Generated IR :
+  /// 1) % 20 = zext i32 %1 to i64 // Zero extend \p Param
+  /// 2) % 21 = and i64 % 20, 255  // And Zero extended \p Param with \p Mask
+  /// 3) % 22 = shl i64 % 21, 32   // Shift left Masked \p Param
+  ///
+  /// This utility returns the manipulated \p Param, needed for extra IR
+  /// generation at the Caller.
+  static Value* genEncodingSubdeviceNonConstants(Instruction* InsertPt,
+                                                        Value* Param,
+                                                        int Shift,
+                                                        uint64_t Mask);
+
   /// if Subdevice clause exists, this routine encodes Subdevice info into
   /// DeviceID else, it returns DeviceID (cast to i64) without Subdevice
   /// encoding.
@@ -1263,6 +1291,11 @@ public:
   /// 47..40: Subdevice ID count
   /// 39..32: Subdevice ID stride
   /// 31..00: Device ID
+  ///
+  /// If \p W is TEAMS then subdevice clause is obtained from its parent TARGET
+  /// and passed in to this function as \p SubdeviceI. For all other cases of
+  /// \p W, \p SubdeviceI is null and the subdevice clause is obtained directly
+  /// from \p W.
   static Value *encodeSubdevice (WRegionNode* W, Instruction* InsertPt,
                                  Value* DeviceID,
                                  SubdeviceItem* SubdeviceI = nullptr);
