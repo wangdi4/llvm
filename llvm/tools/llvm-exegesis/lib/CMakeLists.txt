@@ -43,6 +43,9 @@ add_library(LLVMExegesis
   Target.cpp
   UopsBenchmarkRunner.cpp
   )
+# INTEL_CUSTOMIZATION
+set_msvc_crt_flags(LLVMExegesis)
+# end INTEL_CUSTOMIZATION
 
 llvm_update_compile_flags(LLVMExegesis)
 llvm_map_components_to_libnames(libs
