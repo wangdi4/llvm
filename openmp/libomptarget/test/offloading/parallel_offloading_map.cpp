@@ -6,10 +6,16 @@
 
 #include <cassert>
 #include <iostream>
+#if INTEL_CUSTOMIZATION
+#include <omp.h>
+#endif // INTEL_CUSTOMIZATION
 
 int main(int argc, char *argv[]) {
   constexpr const int num_threads = 64, N = 128;
   int array[num_threads] = {0};
+#if INTEL_CUSTOMIZATION
+  omp_set_max_active_levels(2);
+#endif // INTEL_CUSTOMIZATION
 
 #pragma omp parallel for
   for (int i = 0; i < num_threads; ++i) {
