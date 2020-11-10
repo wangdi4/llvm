@@ -794,10 +794,13 @@ public:
 
   Instruction *SimplifyAnyMemTransfer(AnyMemTransferInst *MI);
 #if INTEL_CUSTOMIZATION
+  unsigned int GenFieldsForStruct(MemIntrinsic *MI, StructType *STy,
+                                  Value *StrippedSrc, Value *StrippedDest,
+                                  unsigned Index);
   void GenStructFieldsCopyFromMemcpy(MemIntrinsic *MI);
   bool ReduceICmpSizeIfPossible(ICmpInst &ICI, Value *Op0, Value *Op1,
                                 unsigned Size);
-#endif
+#endif // INTEL_CUSTOMIZATION
   Instruction *SimplifyAnyMemSet(AnyMemSetInst *MI);
 
   Value *EvaluateInDifferentType(Value *V, Type *Ty, bool isSigned);
