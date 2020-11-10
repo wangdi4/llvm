@@ -4672,12 +4672,14 @@ void CGOpenMPRuntimeGPU::processRequiresDirective(
       case CudaArch::GFX906:
       case CudaArch::GFX908:
       case CudaArch::GFX909:
+      case CudaArch::GFX90c:
       case CudaArch::GFX1010:
       case CudaArch::GFX1011:
       case CudaArch::GFX1012:
       case CudaArch::GFX1030:
       case CudaArch::GFX1031:
       case CudaArch::GFX1032:
+      case CudaArch::GFX1033:
       case CudaArch::UNUSED:
       case CudaArch::UNKNOWN:
         break;
@@ -4738,12 +4740,14 @@ static std::pair<unsigned, unsigned> getSMsBlocksPerSM(CodeGenModule &CGM) {
   case CudaArch::GFX906:
   case CudaArch::GFX908:
   case CudaArch::GFX909:
+  case CudaArch::GFX90c:
   case CudaArch::GFX1010:
   case CudaArch::GFX1011:
   case CudaArch::GFX1012:
   case CudaArch::GFX1030:
   case CudaArch::GFX1031:
   case CudaArch::GFX1032:
+  case CudaArch::GFX1033:
   case CudaArch::UNUSED:
   case CudaArch::UNKNOWN:
     break;
