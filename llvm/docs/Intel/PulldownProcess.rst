@@ -160,12 +160,6 @@ Conflict Resolution Steps
    original review (created by the automation, but possibly a different patch
    set if changes were needed) as the last one.
 
-#. Update status files, e.g. (if build isn't broken):
-
-   .. code-block:: bash
-
-     $ sh $ICS_WSDIR/pulldown/reset-status.sh
-
 Conflict Resolution BKMs
 ------------------------
 The following git commands are often useful for understanding the cause of the
