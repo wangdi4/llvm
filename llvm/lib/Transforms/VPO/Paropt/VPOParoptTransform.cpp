@@ -4397,6 +4397,8 @@ bool VPOParoptTransform::genNontemporalCode(WRegionNode *W) {
 
     auto growWorkList = [W, &WorkList, &VisitedSet](Value *V) {
       for (Use *U = &V->user_begin().getUse(); U; U = U->getNext()) {
+        if (!isa<Instruction>(U->getUser()))
+          continue;
         Instruction *I = cast<Instruction>(U->getUser());
         if (VisitedSet.contains(U) || !W->contains(I->getParent()))
           continue;
