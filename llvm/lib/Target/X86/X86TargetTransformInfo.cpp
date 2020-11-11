@@ -4898,14 +4898,16 @@ bool X86TTIImpl::shouldOptGatherToLoadPermute(Type *ArrayElemTy,
       getRegisterBitWidth(true))
     return false;
 
+  // Only enable 256-bit load and permute currently, will enable 512-bit
+  // load and permute when see the potential gain.
   if (ArrayElemTy->isIntegerTy(32)) {
-    if (ArrayNum <= 8) {
+    if (ArrayNum <= 8 && GatherNum <= 8) {
       if (WidenNum)
         *WidenNum = 8;
       return true;
     }
   } else if (ArrayElemTy->isFloatTy()) {
-    if (ArrayNum <= 8) {
+    if (ArrayNum <= 8 && GatherNum <= 8) {
       if (WidenNum)
         *WidenNum = 8;
       return true;
