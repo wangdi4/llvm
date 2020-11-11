@@ -4829,21 +4829,13 @@ void BoUpSLP::buildTreeMultiNode_rec(const InstructionsState &S,
   // skipped leaf is a good permutation, while the one in the trunk is a bad
   // one, then the good leaf is not visited at all.
   // Disabling the 'alreadyInTrunk()' condition should fix this but I am not
-  // sure it is safe to remvoe it.
+  // sure it is safe to remove it.
   if (BuildTreeOrderReverse && DoPSLP) {
-    for (int i = 1; i >= 0; --i) {
-//      UserTreeIdx.EdgeIdx = i;
-//      UserTreeIdx.OpDirection = std::move(OpDirs[i]);
-      // Continue the recursion: try to grow the Multi-Node.
-      buildTree_rec(Operands[i], NextDepth, {NewTE, static_cast<unsigned>(i), OpDirs[i]});
-    }
+    buildTree_rec(Operands[1], NextDepth, {NewTE, 1, OpDirs[1]});
+    buildTree_rec(Operands[0], NextDepth, {NewTE, 0, OpDirs[0]});
   } else {
-    for (unsigned i = 0; i < 2; ++i) {
-//      UserTreeIdx.EdgeIdx = i;
-//      UserTreeIdx.OpDirection = std::move(OpDirs[i]);
-      // Continue the recursion: try to grow the Multi-Node.
-      buildTree_rec(Operands[i], NextDepth, {NewTE, i, OpDirs[i]});
-    }
+    buildTree_rec(Operands[0], NextDepth, {NewTE, 0, OpDirs[0]});
+    buildTree_rec(Operands[1], NextDepth, {NewTE, 1, OpDirs[1]});
   }
 }
 
@@ -5568,8 +5560,11 @@ void BoUpSLP::buildTree_rec(ArrayRef<Value *> VL_, unsigned Depth,
       }
       TE->setOperand(0, Left);
       TE->setOperand(1, Right);
-      buildTree_rec(Left, Depth + 1, {TE, 0, OpDirLeft});   // INTEL
-      buildTree_rec(Right, Depth + 1, {TE, 1, OpDirRight}); // INTEL
+
+#if INTEL_CUSTOMIZATION
+      buildTree_rec(TE->getOperand(0), Depth + 1, {TE, 0, OpDirLeft});
+      buildTree_rec(TE->getOperand(1), Depth + 1, {TE, 1, OpDirRight});
+#endif // INTEL_CUSTOMIZATION
       return;
     }
     case Instruction::Select:
@@ -5884,8 +5879,8 @@ void BoUpSLP::buildTree_rec(ArrayRef<Value *> VL_, unsigned Depth,
                                        OpDirRight, *this);
         TE->setOperand(0, Left);
         TE->setOperand(1, Right);
-        buildTree_rec(Left, Depth + 1, {TE, 0, OpDirLeft});
-        buildTree_rec(Right, Depth + 1, {TE, 1, OpDirRight});
+        buildTree_rec(TE->getOperand(0), Depth + 1, {TE, 0, OpDirLeft});
+        buildTree_rec(TE->getOperand(1), Depth + 1, {TE, 1, OpDirRight});
         return;
       }
 #endif // INTEL_CUSTOMIZATION
