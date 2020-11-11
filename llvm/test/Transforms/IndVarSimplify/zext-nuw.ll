@@ -20,7 +20,7 @@ define void @_Z3fn1v() {
 ; CHECK-NEXT:    [[TMP2:%.*]] = zext i32 [[TMP1]] to i64
 ; CHECK-NEXT:    [[TMP3:%.*]] = add nuw nsw i64 [[TMP2]], 1
 ; CHECK-NEXT:    [[TMP4:%.*]] = sext i8 [[J_SROA_0_0_COPYLOAD]] to i64
-; CHECK-NEXT:    [[TMP5:%.*]] = mul i64 [[TMP3]], [[TMP4]]
+; CHECK-NEXT:    [[TMP5:%.*]] = mul{{( nuw| nsw)?}} i64 [[TMP3]], [[TMP4]] ;INTEL
 ; CHECK-NEXT:    br label [[DOTPREHEADER4:%.*]]
 ; CHECK:       .preheader4:
 ; CHECK-NEXT:    [[K_09:%.*]] = phi i8* [ undef, [[DOTPREHEADER4_LR_PH]] ], [ [[X25:%.*]], [[X22:%.*]] ]
