@@ -992,6 +992,13 @@ void VPOCodeGen::vectorizeInstruction(VPInstruction *VPInst) {
     assert(VPCall->getVFForScenario() == VF &&
            "Cannot find call vectorization scenario for VF.");
 
+    // TODO: Update the following assertion when we implement function pointers
+    // for OpenMP.
+    assert(!VPCall->isIntelIndirectCall() ||
+           VPCall->getVectorizationScenario() ==
+                   VPCallInstruction::CallVecScenariosTy::VectorVariant &&
+               "Intel indirect call should have vector-variants!");
+
     // Handle lifetime_start/end intrinsics operating on private-memory.
     // We use the following mechanism to handle the intrinsic:
     // If the array-private is widened (AOS/SOA) and not serialized, do not
