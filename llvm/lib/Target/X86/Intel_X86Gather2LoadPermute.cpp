@@ -72,7 +72,7 @@ class X86Gather2LoadPermutePass : public FunctionPass {
   const TargetTransformInfo *TTI = nullptr;
 
   void genMask(Constant *&PreShuffleMask, Constant *&PostShuffleMask,
-               Constant *&LoadShuffleMask, unsigned GatherNum, unsigned LoadNum,
+               Constant *&LoadShuffleMask, unsigned GatherNum, uint64_t LoadNum,
                unsigned WidenNum, IRBuilder<> &Builder) {
     SmallVector<Constant *, 8> PreShuffleMaskVec;
     SmallVector<Constant *, 8> PostShuffleMaskVec;
@@ -119,7 +119,7 @@ class X86Gather2LoadPermutePass : public FunctionPass {
     Value *Ptrs = II->getArgOperand(0);
     Value *Alignment = II->getArgOperand(1);
 
-    unsigned ArrayNum = 0;
+    uint64_t ArrayNum = 0;
     unsigned GatherNum = 0;
     unsigned WidenNum = 0;
     Type *ArrayEleTy = nullptr;

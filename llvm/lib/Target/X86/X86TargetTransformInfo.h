@@ -229,17 +229,17 @@ public:
   bool isLegalMaskedGather(Type *DataType, Align Alignment);
 #if INTEL_CUSTOMIZATION
   bool shouldScalarizeMaskedGather(CallInst *CI);
-  bool shouldOptGatherToLoadPermute(Type *ArrayElemTy, uint32_t ArrayNum,
+  bool shouldOptGatherToLoadPermute(Type *ArrayElemTy, uint64_t ArrayNum,
                                     uint32_t GatherNum,
                                     uint32_t *WidenNum) const;
   bool isLegalToTransformGather2PermuteLoad(const IntrinsicInst *II,
                                             Type *&ArrayElemTy,
-                                            unsigned &ArrayNum,
+                                            uint64_t &ArrayNum,
                                             unsigned &GatherNum,
                                             unsigned &WidenNum) const;
   bool isLegalToTransformGather2PermuteLoad(
       Intrinsic::ID ID, Type *DataTy, const Value *Ptr, bool VariableMask,
-      bool UndefPassThru, Type *&ArrayElemTy, unsigned &ArrayNum,
+      bool UndefPassThru, Type *&ArrayElemTy, uint64_t &ArrayNum,
       unsigned &GatherNum, unsigned &WidenNum) const;
 #endif // INTEL_CUSTOMIZATION
   bool isLegalMaskedScatter(Type *DataType, Align Alignment);

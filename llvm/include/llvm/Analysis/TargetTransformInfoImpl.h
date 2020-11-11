@@ -240,7 +240,7 @@ public:
     return !isLegalMaskedGather(LoadTy, Alignment);
   }
 
-  bool shouldOptGatherToLoadPermute(Type *ArrayElemTy, uint32_t ArrayNum,
+  bool shouldOptGatherToLoadPermute(Type *ArrayElemTy, uint64_t ArrayNum,
                                     uint32_t GatherNum,
                                     uint32_t *WidenNum = nullptr) const {
     return false;
@@ -248,7 +248,7 @@ public:
 
   bool isLegalToTransformGather2PermuteLoad(const IntrinsicInst *II,
                                             Type *&ArrayElemTy,
-                                            unsigned &ArrayNum,
+                                            uint64_t &ArrayNum,
                                             unsigned &GatherNum,
                                             unsigned &WidenNum) const {
     return false;
@@ -256,7 +256,7 @@ public:
 
   bool isLegalToTransformGather2PermuteLoad(
       Intrinsic::ID ID, Type *DataTy, const Value *Ptr, bool VariableMask,
-      bool UndefPassThru, Type *&ArrayElemTy, unsigned &ArrayNum,
+      bool UndefPassThru, Type *&ArrayElemTy, uint64_t &ArrayNum,
       unsigned &GatherNum, unsigned &WidenNum) const {
     return false;
   }

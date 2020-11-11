@@ -4491,7 +4491,7 @@ int X86TTIImpl::getGSScalarCost(unsigned Opcode, Type *PtrTy, Type *SrcVTy,
   return MemoryOpCost + MaskUnpackCost + InsertExtractCost;
 }
 
-static unsigned getLoadPermuteCost(Type *ArrayElemTy, unsigned ArrayNum,
+static unsigned getLoadPermuteCost(Type *ArrayElemTy, uint64_t ArrayNum,
                                    unsigned GatherNum, unsigned WidenNum) {
   if (WidenNum == 8 && ArrayElemTy->getScalarSizeInBits() == 32)
     // Base cost is load + permute.
@@ -4543,7 +4543,7 @@ int X86TTIImpl::getGatherScatterOpCost(unsigned Opcode, Type *SrcVTy,
                            VariableMask, Alignment, AddressSpace);
 
   Type *ArrayElemTy = nullptr;
-  unsigned ArrayNum = 0;
+  uint64_t ArrayNum = 0;
   unsigned GatherNum = 0;
   unsigned WidenNum = 0;
 
@@ -4595,7 +4595,7 @@ int X86TTIImpl::getGatherScatterOpCost(unsigned Opcode, Type *SrcVTy,
                            VariableMask, Align(Alignment), AddressSpace);
 
   Type *ArrayElemTy = nullptr;
-  unsigned ArrayNum = 0;
+  uint64_t ArrayNum = 0;
   unsigned GatherNum = 0;
   unsigned WidenNum = 0;
 
@@ -4874,7 +4874,7 @@ bool X86TTIImpl::shouldScalarizeMaskedGather(CallInst *CI) {
 
 /// Check if we need transform gather to load and permute.
 bool X86TTIImpl::shouldOptGatherToLoadPermute(Type *ArrayElemTy,
-                                              uint32_t ArrayNum,
+                                              uint64_t ArrayNum,
                                               uint32_t GatherNum,
                                               uint32_t *WidenNum) const {
 
@@ -4919,7 +4919,7 @@ bool X86TTIImpl::shouldOptGatherToLoadPermute(Type *ArrayElemTy,
 
 bool X86TTIImpl::isLegalToTransformGather2PermuteLoad(
     Intrinsic::ID ID, Type *DataTy, const Value *Ptrs, bool VariableMask,
-    bool UndefPassThru, Type *&ArrayEleTy, unsigned &ArrayNum,
+    bool UndefPassThru, Type *&ArrayEleTy, uint64_t &ArrayNum,
     unsigned &GatherNum, unsigned &WidenNum) const {
 
   if (ID != Intrinsic::masked_gather)
@@ -4968,7 +4968,7 @@ bool X86TTIImpl::isLegalToTransformGather2PermuteLoad(
 }
 
 bool X86TTIImpl::isLegalToTransformGather2PermuteLoad(
-    const IntrinsicInst *II, Type *&ArrayEleTy, unsigned &ArrayNum,
+    const IntrinsicInst *II, Type *&ArrayEleTy, uint64_t &ArrayNum,
     unsigned &GatherNum, unsigned &WidenNum) const {
   if (II->getIntrinsicID() != Intrinsic::masked_gather)
     return false;
