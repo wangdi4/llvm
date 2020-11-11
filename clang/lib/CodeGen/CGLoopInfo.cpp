@@ -693,6 +693,12 @@ MDNode *LoopInfo::createMetadata(
     LoopProperties.push_back(MDNode::get(Ctx, Vals));
   }
 
+  // nofusion attribute corresponds to 'llvm.loop.fusion.disable' metadata
+  if (Attrs.SYCLNofusionEnable) {
+    Metadata *Vals[] = {MDString::get(Ctx, "llvm.loop.fusion.disable")};
+    LoopProperties.push_back(MDNode::get(Ctx, Vals));
+  }
+
   if (Attrs.SYCLSpeculatedIterationsEnable) {
     Metadata *Vals[] = {
         MDString::get(Ctx, "llvm.loop.intel.speculated.iterations.count"),
@@ -731,7 +737,7 @@ LoopAttributes::LoopAttributes(bool IsParallel)
       SYCLSpeculatedIterationsNIterations(0), UnrollCount(0),
       UnrollAndJamCount(0), DistributeEnable(LoopAttributes::Unspecified),
       PipelineDisabled(false), PipelineInitiationInterval(0),
-      MustProgress(false) {}
+      SYCLNofusionEnable(false), MustProgress(false) {}
 
 void LoopAttributes::clear() {
   IsParallel = false;
@@ -777,6 +783,7 @@ void LoopAttributes::clear() {
   DistributeEnable = LoopAttributes::Unspecified;
   PipelineDisabled = false;
   PipelineInitiationInterval = 0;
+  SYCLNofusionEnable = false;
   MustProgress = false;
 }
 
@@ -823,7 +830,7 @@ LoopInfo::LoopInfo(BasicBlock *Header, const LoopAttributes &Attrs,
       Attrs.UnrollEnable == LoopAttributes::Unspecified &&
       Attrs.UnrollAndJamEnable == LoopAttributes::Unspecified &&
       Attrs.DistributeEnable == LoopAttributes::Unspecified && !StartLoc &&
-      !EndLoc && !Attrs.MustProgress)
+      Attrs.SYCLNofusionEnable == false && !EndLoc && !Attrs.MustProgress)
     return;
 
   TempLoopID = MDNode::getTemporary(Header->getContext(), None);
@@ -1298,6 +1305,8 @@ void LoopInfoStack::push(BasicBlock *Header, clang::ASTContext &Ctx,
   // For attribute speculated_iterations:
   // n - 'llvm.loop.intel.speculated.iterations.count, i32 n' metadata will be
   // emitted
+  // For attribute nofusion:
+  // 'llvm.loop.fusion.disable' metadata will be emitted
   for (const auto *Attr : Attrs) {
     const SYCLIntelFPGAIVDepAttr *IntelFPGAIVDep =
       dyn_cast<SYCLIntelFPGAIVDepAttr>(Attr);
@@ -1315,10 +1324,13 @@ void LoopInfoStack::push(BasicBlock *Header, clang::ASTContext &Ctx,
         dyn_cast<SYCLIntelFPGAMaxInterleavingAttr>(Attr);
     const SYCLIntelFPGASpeculatedIterationsAttr *IntelFPGASpeculatedIterations =
         dyn_cast<SYCLIntelFPGASpeculatedIterationsAttr>(Attr);
+    const SYCLIntelFPGANofusionAttr *IntelFPGANofusion =
+        dyn_cast<SYCLIntelFPGANofusionAttr>(Attr);
 
     if (!IntelFPGAIVDep && !IntelFPGAII && !IntelFPGAMaxConcurrency &&
         !IntelFPGALoopCoalesce && !IntelFPGADisableLoopPipelining &&
-        !IntelFPGAMaxInterleaving && !IntelFPGASpeculatedIterations)
+        !IntelFPGAMaxInterleaving && !IntelFPGASpeculatedIterations &&
+        !IntelFPGANofusion)
       continue;
 
     if (IntelFPGAIVDep)
@@ -1363,6 +1375,9 @@ void LoopInfoStack::push(BasicBlock *Header, clang::ASTContext &Ctx,
               ->getIntegerConstantExpr(Ctx)
               ->getSExtValue());
     }
+
+    if (IntelFPGANofusion)
+      setSYCLNofusionEnable();
   }
 
   setMustProgress(MustProgress);
