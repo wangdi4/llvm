@@ -237,6 +237,7 @@ class T_MAP6PS : T_MAP6 { Prefix OpPrefix = PS; }
 class T_MAP6PD : T_MAP6 { Prefix OpPrefix = PD; }
 class T_MAP6XS : T_MAP6 { Prefix OpPrefix = XS; }
 class T_MAP6XD : T_MAP6 { Prefix OpPrefix = XD; }
+class OBXD   { Prefix OpPrefix = XD; }
 #endif // INTEL_CUSTOMIZATION
 class OBXS   { Prefix OpPrefix = XS; }
 class PS   : TB { Prefix OpPrefix = PS; }

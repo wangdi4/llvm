@@ -73,6 +73,10 @@ void test_icecode() {
 // CHECK: call i64 @llvm.x86.icecode.creg.read.64(i32 %{{.*}})
 // CHECK: call i32 @llvm.x86.icecode.fscp.read.32(i32 %{{.*}})
 // CHECK: call i64 @llvm.x86.icecode.fscp.read.64(i32 %{{.*}})
+// CHECK: call i32 @llvm.x86.icecode.creg.xchg.mt.32(i32 %{{.*}}, i32 %{{.*}})
+// CHECK: call i64 @llvm.x86.icecode.creg.xchg.mt.64(i32 %{{.*}}, i64 %{{.*}})
+// CHECK: call i32 @llvm.x86.icecode.creg.read.mt.32(i32 %{{.*}})
+// CHECK: call i64 @llvm.x86.icecode.creg.read.mt.64(i32 %{{.*}})
 // CHECK: call i8 @llvm.x86.icecode.portin.8(i64 %{{.*}})
 // CHECK: call i16 @llvm.x86.icecode.portin.16(i64 %{{.*}})
 // CHECK: call i32 @llvm.x86.icecode.portin.32(i64 %{{.*}})
@@ -107,6 +111,10 @@ void test_icecode() {
   _ce_creg_read64(reg);
   _ce_fscp_read32(reg);
   _ce_fscp_read64(reg);
+  _ce_creg_xchg_mt32(reg, data32);
+  _ce_creg_xchg_mt64(reg, data64);
+  _ce_creg_read_mt32(reg);
+  _ce_creg_read_mt64(reg);
   _ce_portin8(data64);
   _ce_portin16(data64);
   _ce_portin32(data64);
