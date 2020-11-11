@@ -257,7 +257,7 @@ const CanonExpr *DDTest::getCoeff(const CanonExpr *CE, unsigned int IVNum,
       CE->getSrcType(), CE->getDestType(), CE->isSExt());
 
   unsigned int IVFound = 0;
-  assert(CanonExprUtils::isValidLoopLevel(IVNum) && "IVnum not within range");
+  assert(CanonExpr::isValidLoopLevel(IVNum) && "IVnum not within range");
 
   for (auto CurIVPair = CE->iv_begin(), E = CE->iv_end(); CurIVPair != E;
        ++CurIVPair) {
@@ -5860,7 +5860,7 @@ bool DirectionVector::isTestingForInnermostLoop(
 /// In this example, isDVIndepFromLevel(&DV, 2) return true
 bool DirectionVector::isIndepFromLevel(unsigned Level) const {
 
-  assert(CanonExprUtils::isValidLoopLevel(Level) && "incorrect Level");
+  assert(CanonExpr::isValidLoopLevel(Level) && "incorrect Level");
 
   // If the Level is beyond the DV's common levels return true.
   if (Level > size())

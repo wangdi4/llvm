@@ -878,7 +878,7 @@ bool FuseGraph::isLegalDependency(const DDEdge &Edge,
   std::pair<unsigned, unsigned> MinMaxLevel =
       std::minmax(DstRef->getNodeLevel(), SrcRef->getNodeLevel());
 
-  assert(CanonExprUtils::isValidLoopLevel(CommonLevel));
+  assert(CanonExpr::isValidLoopLevel(CommonLevel));
 
   // Special handle case when SrcRef or DstRef is in preheader or postexit.
   if (CommonLevel > MinMaxLevel.first) {
@@ -928,7 +928,7 @@ bool FuseGraph::isLegalDependency(const DDEdge &Edge,
             (DstInst && DstInst->isInPostexit()));
   }
 
-  assert(CanonExprUtils::isValidLoopLevel(MinMaxLevel.second));
+  assert(CanonExpr::isValidLoopLevel(MinMaxLevel.second));
 
   auto RefinedDep =
       refineDependency(SrcRef, DstRef, CommonLevel, MinMaxLevel.second);

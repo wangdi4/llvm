@@ -231,7 +231,7 @@ void RegDDRef::updateCEDefLevel(CanonExpr *CE, unsigned NestingLevel) {
 
   auto MaxLevel = findMaxTempBlobLevel(BlobIndices);
 
-  if (getCanonExprUtils().hasNonLinearSemantics(MaxLevel, NestingLevel)) {
+  if (CanonExpr::hasNonLinearSemantics(MaxLevel, NestingLevel)) {
     CE->setNonLinear();
   } else {
     CE->setDefinedAtLevel(MaxLevel);
@@ -247,7 +247,7 @@ void RegDDRef::updateDefLevel(unsigned Level) {
 }
 
 void RegDDRef::updateDefLevelInternal(unsigned NewLevel) {
-  assert(CanonExprUtils::isValidLinearDefLevel(NewLevel) &&
+  assert(CanonExpr::isValidLinearDefLevel(NewLevel) &&
          "Invalid nesting level.");
 
   // Update attached blob DDRefs' def level first.
@@ -258,8 +258,7 @@ void RegDDRef::updateDefLevelInternal(unsigned NewLevel) {
       continue;
     }
 
-    if (getCanonExprUtils().hasNonLinearSemantics(CE->getDefinedAtLevel(),
-                                                  NewLevel)) {
+    if (CanonExpr::hasNonLinearSemantics(CE->getDefinedAtLevel(), NewLevel)) {
       (*It)->setNonLinear();
     }
   }
@@ -1396,7 +1395,7 @@ void RegDDRef::makeConsistent(ArrayRef<const RegDDRef *> AuxRefs,
     NewLevel = getNodeLevel();
   }
 
-  assert(CanonExprUtils::isValidLinearDefLevel(NewLevel) &&
+  assert(CanonExpr::isValidLinearDefLevel(NewLevel) &&
          "Invalid nesting level.");
 
   // Refine Defined At Level, when DefLeve returned from
@@ -1437,7 +1436,7 @@ void RegDDRef::makeConsistent(ArrayRef<const RegDDRef *> AuxRefs,
 
         DefLevel = RefineDefLevel(AuxRef, DefLevel, Index);
 
-        if (CanonExprUtils::hasNonLinearSemantics(DefLevel, NewLevel)) {
+        if (CanonExpr::hasNonLinearSemantics(DefLevel, NewLevel)) {
           BRef->setNonLinear();
         } else {
           BRef->setDefinedAtLevel(DefLevel);
@@ -1464,7 +1463,7 @@ void RegDDRef::makeConsistent(ArrayRef<const RegDDRef *> AuxRefs,
 
         CanonExpr *CE = getSingleCanonExpr();
 
-        if (CanonExprUtils::hasNonLinearSemantics(DefLevel, NewLevel)) {
+        if (CanonExpr::hasNonLinearSemantics(DefLevel, NewLevel)) {
           CE->setNonLinear();
         } else {
           CE->setDefinedAtLevel(DefLevel);

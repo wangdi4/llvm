@@ -269,7 +269,7 @@ HLLoop *HLNode::getOutermostParentLoop() const {
 }
 
 HLLoop *HLNode::getParentLoopAtLevel(unsigned Level) const {
-  assert(CanonExprUtils::isValidLoopLevel(Level) && "Invalid loop level!");
+  assert(CanonExpr::isValidLoopLevel(Level) && "Invalid loop level!");
   assert((getNodeLevel() >= Level) && "Invalid level w.r.t this node!");
 
   const HLLoop *ParLoop = dyn_cast<HLLoop>(this);

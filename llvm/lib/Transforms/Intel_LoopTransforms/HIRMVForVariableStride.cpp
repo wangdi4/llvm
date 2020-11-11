@@ -373,7 +373,7 @@ HLLoop *HIRMVForVariableStride::MVTransformer::calcOutermostLoopToMV(
       MaxDefAtLevel = DefAtLevel;
   }
 
-  assert(CanonExprUtils::isValidLoopLevel(MaxDefAtLevel + 1));
+  assert(CanonExpr::isValidLoopLevel(MaxDefAtLevel + 1));
 
   // Get the lowest level of the loop it can go
   HLLoop *OuterLoopToMV = LoopStructure.getValidLowestAncestor(InnermostLoop);

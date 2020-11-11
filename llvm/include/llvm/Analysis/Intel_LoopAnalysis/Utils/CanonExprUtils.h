@@ -222,27 +222,6 @@ public:
   /// Result = -CE
   static CanonExpr *cloneAndNegate(const CanonExpr *CE);
 
-  /// Returns true if the Loop level is in a valid range from
-  /// [1, MaxLoopNestLevel].
-  static bool isValidLoopLevel(unsigned Level) {
-    return (Level > 0 && Level <= MaxLoopNestLevel);
-  }
-
-  /// Returns true if DefLevel is a valid DefinedAtLevel for any CanonExpr.
-  static bool isValidDefLevel(unsigned DefLevel) {
-    return (DefLevel <= NonLinearLevel);
-  }
-
-  /// Returns true if DefLevel is a valid DefinedAtLevel for a linear CanonExpr.
-  static bool isValidLinearDefLevel(unsigned DefLevel) {
-    return (DefLevel <= MaxLoopNestLevel);
-  }
-
-  /// Returns true if this CE should be considered non-linear given DefLevel and
-  /// NestingLevel. DefLevel is the definition level of a blob contained in the
-  /// CE. NestingLevel is the level where the CE is attached to HIR.
-  static bool hasNonLinearSemantics(unsigned DefLevel, unsigned NestingLevel);
-
   /// Returns true if IV in \p CE1 at the loop \p Level by the \p CE2.
   static bool canReplaceIVByCanonExpr(const CanonExpr *CE1, unsigned Level,
                                       const CanonExpr *CE2,

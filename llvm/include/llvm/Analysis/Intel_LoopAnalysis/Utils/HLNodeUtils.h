@@ -144,7 +144,7 @@ private:
       checkHLLoopTy<T>();
       bool IsLevelVisit = (VL == VisitKind::Level);
       (void)IsLevelVisit;
-      assert((!IsLevelVisit || CanonExprUtils::isValidLoopLevel(Level)) &&
+      assert((!IsLevelVisit || CanonExpr::isValidLoopLevel(Level)) &&
              " Level is out of range.");
     }
 
@@ -1427,8 +1427,7 @@ public:
     (void)Loop;
     assert((!Loop || !Loop->isInnermost()) &&
            " Gathering loops inside innermost loop.");
-    assert(CanonExprUtils::isValidLoopLevel(Level) &&
-           " Level is out of range.");
+    assert(CanonExpr::isValidLoopLevel(Level) && " Level is out of range.");
     LoopLevelVisitor<T, VisitKind::Level> LoopVisit(Loops, Level);
     visit(LoopVisit, Node);
   }
