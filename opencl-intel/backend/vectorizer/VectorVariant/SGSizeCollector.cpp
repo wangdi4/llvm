@@ -10,6 +10,7 @@
 
 #include "SGSizeCollector.h"
 
+#include "LoopHandler/CLWGBoundDecoder.h"
 #include "MetadataAPI.h"
 #include "llvm/ADT/DepthFirstIterator.h"
 #include "llvm/Analysis/CallGraph.h"
@@ -88,7 +89,9 @@ bool SGSizeCollectorImpl::runImpl(Module &M) {
       for (auto It = df_begin(Node); It != df_end(Node);) {
 
         Function *Fn = It->getFunction();
-        if (!Fn || Fn->isIntrinsic() || Fn->isDeclaration()) {
+        if (!Fn || Fn->isIntrinsic() || Fn->isDeclaration() ||
+            CLWGBoundDecoder::isWGBoundFunction(Fn->getName().str())) {
+
           It = It.skipChildren();
           continue;
         }

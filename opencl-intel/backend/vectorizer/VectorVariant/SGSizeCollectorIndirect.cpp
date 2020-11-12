@@ -154,7 +154,7 @@ bool SGSizeCollectorIndirectImpl::runImpl(Module &M) {
       Function *F = Call.getCalledFunction();
 
       // We are interested in indirect calls only.
-      if (!F || !F->getName().startswith("__intel_indirect_call_"))
+      if (!F || !F->getName().startswith("__intel_indirect_call"))
         continue;
 
       AttributeList Attrs = Call.getAttributes();
@@ -174,7 +174,8 @@ bool SGSizeCollectorIndirectImpl::runImpl(Module &M) {
       // Update attributes.
       Attrs = Attrs.addAttribute(
           M.getContext(), AttributeList::FunctionIndex, "vector-variants",
-          GenerateVectorVariants("XXX", FuncTy->getNumParams()));
+          GenerateVectorVariants("__intel_indirect_call_XXX",
+                                 FuncTy->getNumParams()));
       Call.setAttributes(Attrs);
 
       Modified = true;
