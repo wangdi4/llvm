@@ -5906,6 +5906,15 @@ static bool ReduceLoopStrength(Loop *L, IVUsers &IU, ScalarEvolution &SE,
       auto DbgDIExpr = std::get<DIExpression *>(D);
       if (!isa<UndefValue>(DbgValue->getVariableLocation()))
         continue;
+#if INTEL_CUSTOMIZATION
+      // Phi cleanup may have deleted the values and SCEVs in DbgValues.
+      // Make sure the SCEV is valid before using it.
+      // Note: the community may revert all this code to resolve
+      // https://bugs.llvm.org/show_bug.cgi?id=48166
+      // This customization can then be removed.
+      if (!SE.isValid(DbgValueSCEV))
+        continue;
+#endif // INTEL_CUSTOMIZATION
       for (PHINode &Phi : L->getHeader()->phis()) {
         if (DbgValueType != Phi.getType())
           continue;
