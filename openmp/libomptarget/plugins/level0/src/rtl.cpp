@@ -804,7 +804,7 @@ public:
     // Target device type
     if (char *env = readEnvVar("LIBOMPTARGET_DEVICETYPE")) {
       std::string value(env);
-      if (value == "GPU" || value == "gpu")
+      if (value == "GPU" || value == "gpu" || value == "")
         DeviceType = ZE_DEVICE_TYPE_GPU;
       else
         WARNING("Invalid LIBOMPTARGET_DEVICETYPE=%s\n", env);

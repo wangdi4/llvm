@@ -496,7 +496,7 @@ public:
     DeviceType = CL_DEVICE_TYPE_GPU;
     if (env = readEnvVar("LIBOMPTARGET_DEVICETYPE")) {
       std::string value(env);
-      if (value == "GPU" || value == "gpu")
+      if (value == "GPU" || value == "gpu" || value == "")
         DeviceType = CL_DEVICE_TYPE_GPU;
       else if (value == "CPU" || value == "cpu")
         DeviceType = CL_DEVICE_TYPE_CPU;
