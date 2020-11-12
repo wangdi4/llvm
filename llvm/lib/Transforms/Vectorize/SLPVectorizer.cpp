@@ -124,7 +124,7 @@ static cl::opt<int>
 // value higher than this, it can still trigger vectorization. This happens in
 // SLPVectorizer lit tests such as call.ll.
 #define FORBIDEN_TINY_TREE 666666
-static cl::opt<bool> PSLPEnabled("pslp", cl::init(true), cl::Hidden,
+static cl::opt<bool> PSLPEnabled("pslp", cl::init(false), cl::Hidden,
                                  cl::desc("Enable Padded SLP"));
 
 static cl::opt<bool>
@@ -2005,6 +2005,13 @@ private:
   /// Used for path steering. The key is the TreeEntry.Scalars[0] and the value
   /// is the operand to follow, where 0 means left and 1 right operand.
   DenseMap<Value *, int> PreferredOperandMap;
+
+  bool VisitRightOperandFirst(const Value *V) const {
+    if (!EnablePathSteering)
+      return false;
+    auto It = PreferredOperandMap.find(V);
+    return It != PreferredOperandMap.end() && It->second == 1;
+  }
 #endif // INTEL_CUSTOMIZATION
 
   /// Checks if all users of \p I are the part of the vectorization tree.
@@ -4278,11 +4285,7 @@ int BoUpSLP::getBestOperand(OpVec &BestOps, OperandData *LHSOp, int RHSLane,
           OrigRHSOperand->getOperandNum() == 1 &&
           // Check signs.
           isNegativePathSignForFrontier(RHSOperand) ==
-              isNegativePathSignForFrontier(OrigRHSOperand) &&
-          // If we have different opcodes we need PSLP
-          (RHSOperand->getFrontier()->getOpcode() ==
-               LHSOp->getFrontier()->getOpcode() ||
-           DoPSLP))
+              isNegativePathSignForFrontier(OrigRHSOperand))
         FrontierOperandToSwapWith = OrigRHSOperand;
       else // If not, then skip this candidate and look for another.
         continue;
@@ -4836,7 +4839,7 @@ void BoUpSLP::buildTreeMultiNode_rec(const InstructionsState &S,
   // one, then the good leaf is not visited at all.
   // Disabling the 'alreadyInTrunk()' condition should fix this but I am not
   // sure it is safe to remove it.
-  if (BuildTreeOrderReverse && DoPSLP) {
+  if (BuildTreeOrderReverse) {
     buildTree_rec(Operands[1], NextDepth, {NewTE, 1, OpDirs[1]});
     buildTree_rec(Operands[0], NextDepth, {NewTE, 0, OpDirs[0]});
   } else {
@@ -5057,7 +5060,12 @@ void BoUpSLP::buildTree_rec(ArrayRef<Value *> VL_, unsigned Depth,
   } else {
     LLVM_DEBUG(dbgs() << "SLP: Shuffle for reused scalars.\n");
 #if INTEL_CUSTOMIZATION
-    if (DoPSLP || NumUniqueScalarValues <= 1 ||
+    // When we are building MultiNode it is important to not compress
+    // initial scalars even if there are duplicates because MN leaf
+    // operands must have same width as trunk nodes.
+    // MultiNode reordering may change original set of scalars so that
+    // all scalar operands may even become unique.
+    if (BuildingMultiNode || NumUniqueScalarValues <= 1 ||
         !llvm::isPowerOf2_32(NumUniqueScalarValues)) {
       LLVM_DEBUG(dbgs() << "SLP: Scalar used twice in bundle.\n");
       newTreeEntry(VL, None /*not vectorized*/, S, UserTreeIdx);
@@ -5617,18 +5625,10 @@ void BoUpSLP::buildTree_rec(ArrayRef<Value *> VL_, unsigned Depth,
           reorderInputsAccordingToOpcode(VL, Left, Right, *DL, *SE, OpDirLeft,
                                          OpDirRight, *this);
 
-        auto SelectRightOperand = [this](Value *V) {
-          auto it = PreferredOperandMap.find(V);
-          if (it != PreferredOperandMap.end()) {
-            return it->second == 1;
-          }
-          return false;
-        };
-
         TE->setOperand(0, Left);
         TE->setOperand(1, Right);
         // Path steering.
-        if (EnablePathSteering && SelectRightOperand(VL[0])) {
+        if (VisitRightOperandFirst(VL[0])) {
           buildTree_rec(TE->getOperand(1), Depth + 1, {TE, 1, OpDirRight});
           buildTree_rec(TE->getOperand(0), Depth + 1, {TE, 0, OpDirLeft});
         } else {
@@ -5889,8 +5889,13 @@ void BoUpSLP::buildTree_rec(ArrayRef<Value *> VL_, unsigned Depth,
                                        OpDirRight, *this);
         TE->setOperand(0, Left);
         TE->setOperand(1, Right);
-        buildTree_rec(TE->getOperand(0), Depth + 1, {TE, 0, OpDirLeft});
-        buildTree_rec(TE->getOperand(1), Depth + 1, {TE, 1, OpDirRight});
+        if (VisitRightOperandFirst(VL[0])) {
+          buildTree_rec(TE->getOperand(1), Depth + 1, {TE, 1, OpDirRight});
+          buildTree_rec(TE->getOperand(0), Depth + 1, {TE, 0, OpDirLeft});
+        } else {
+          buildTree_rec(TE->getOperand(0), Depth + 1, {TE, 0, OpDirLeft});
+          buildTree_rec(TE->getOperand(1), Depth + 1, {TE, 1, OpDirRight});
+        }
         return;
       }
 #endif // INTEL_CUSTOMIZATION

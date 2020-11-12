@@ -661,6 +661,14 @@ struct SubDeviceEventTy {
 typedef std::vector<std::vector<ze_device_handle_t>> SubDeviceListsTy;
 typedef std::vector<std::vector<int32_t>> SubDeviceIdsTy;
 
+/// Device modes for multi-tile devices
+enum DeviceMode {
+  DEVICE_MODE_TOP = 0,  // Use only top-level devices with subdevice clause
+  DEVICE_MODE_SUB,      // Use only tiles
+  DEVICE_MODE_SUBSUB,   // Use only c-slices
+  DEVICE_MODE_ALL       // Use all
+};
+
 /// Device information
 class RTLDeviceInfoTy {
   /// Type of the device version of the offload table.
@@ -722,6 +730,7 @@ public:
   int32_t TargetAllocKind = TARGET_ALLOC_SHARED;
   uint32_t SubscriptionRate = 4;
   uint32_t ForcedKernelWidth = 0;
+  int32_t DeviceMode = DEVICE_MODE_TOP;
 #if INTEL_INTERNAL_BUILD
   uint32_t ForcedLocalSizes[3] = {0, 0, 0};
   uint32_t ForcedGlobalSizes[3] = {0, 0, 0};
@@ -841,6 +850,29 @@ public:
       env = readEnvVar("LIBOMPTARGET_LEVEL0_USE_DRIVER_GROUP_SIZES");
       if (env && (env[0] == 'T' || env[0] == 't' || env[0] == '1')) {
         Flags.UseDriverGroupSizes = 1;
+      }
+    }
+
+    // Device mode
+    if (char *env = readEnvVar("LIBOMPTARGET_DEVICES")) {
+      std::string value(env);
+      if (value == "DEVICE" || value == "device") {
+        IDP("Device mode is %s -- using top-level devices with subdevice "
+            "clause support\n", value.c_str());
+        DeviceMode = DEVICE_MODE_TOP;
+      } else if (value == "SUBDEVICE" || value == "subdevice") {
+        IDP("Device mode is %s -- using 1st-level sub-devices\n",
+            value.c_str());
+        DeviceMode = DEVICE_MODE_SUB;
+      } else if (value == "SUBSUBDEVICE" || value == "subsubdevice") {
+        IDP("Device mode is %s -- using 2nd-level sub-devices\n",
+            value.c_str());
+        DeviceMode = DEVICE_MODE_SUBSUB;
+      } else if (value == "ALL" || value == "all") {
+        IDP("Device mode is %s -- using all sub-devices\n", value.c_str());
+        DeviceMode = DEVICE_MODE_ALL;
+      } else {
+        IDP("Unknown device mode %s\n", value.c_str());
       }
     }
 
@@ -1162,7 +1194,8 @@ static void closeRTL() {
     }
     for (auto module : DeviceInfo->FuncGblEntries[i].Modules)
       CALL_ZE_EXIT_FAIL(zeModuleDestroy, module);
-    if (DeviceInfo->NumDevices > DeviceInfo->NumRootDevices &&
+    if (DeviceInfo->DeviceMode == DEVICE_MODE_TOP &&
+        DeviceInfo->NumDevices > DeviceInfo->NumRootDevices &&
         i < DeviceInfo->NumRootDevices) {
       auto &subDeviceEvent = DeviceInfo->SubDeviceEvents[i];
       for (auto event : subDeviceEvent.Events)
@@ -1475,6 +1508,8 @@ int32_t __tgt_rtl_number_of_devices() {
   CALL_ZE_RET_ZERO(zeDriverGet, &numDrivers, driverHandles.data());
   IDP("Found %" PRIu32 " driver(s)!\n", numDrivers);
 
+  auto deviceMode = DeviceInfo->DeviceMode;
+
   for (uint32_t i = 0; i < numDrivers; i++) {
     // Check available devices
     uint32_t numDevices = 0;
@@ -1499,10 +1534,12 @@ int32_t __tgt_rtl_number_of_devices() {
       CALL_ZE_RET_ZERO(zeDeviceGetComputeProperties, device,
                        &computeProperties);
 
-      DeviceInfo->Devices.push_back(device);
-      DeviceInfo->DeviceProperties.push_back(properties);
-      DeviceInfo->ComputeProperties.push_back(computeProperties);
-      DeviceInfo->DeviceIdStr.push_back(std::to_string(i));
+      if (deviceMode == DEVICE_MODE_TOP || deviceMode == DEVICE_MODE_ALL) {
+        DeviceInfo->Devices.push_back(device);
+        DeviceInfo->DeviceProperties.push_back(properties);
+        DeviceInfo->ComputeProperties.push_back(computeProperties);
+        DeviceInfo->DeviceIdStr.push_back(std::to_string(i));
+      }
 
       // Find subdevices, add them to the device list, mark where thye are.
       // Collect lists of subdevice handles first.
@@ -1519,6 +1556,10 @@ int32_t __tgt_rtl_number_of_devices() {
       for (size_t j = 0; j < subDeviceLists.size(); j++) {
         subDeviceIds.emplace_back(std::vector<int32_t>());
         for (size_t k = 0; k < subDeviceLists[j].size(); k++) {
+          if (deviceMode == DEVICE_MODE_SUB && j != 0 ||
+              deviceMode == DEVICE_MODE_SUBSUB && j != 1)
+            continue;
+          // All other cases require these internal data.
           auto subDevice = subDeviceLists[j][k];
           subDeviceIds.back().push_back(DeviceInfo->Devices.size());
           DeviceInfo->Devices.push_back(subDevice);
@@ -1575,12 +1616,25 @@ int32_t __tgt_rtl_number_of_devices() {
   }
 #endif // _WIN32
 
-  return DeviceInfo->NumRootDevices;
+  if (deviceMode == DEVICE_MODE_TOP) {
+    IDP("Returning %" PRIu32 " top-level devices\n",
+        DeviceInfo->NumRootDevices);
+    return DeviceInfo->NumRootDevices;
+  } else {
+    // Just keep empty internal ID mapping in this case.
+    DeviceInfo->SubDeviceIds.clear();
+    DeviceInfo->SubDeviceIds.resize(DeviceInfo->NumDevices);
+    IDP("Returning %" PRIu32 " devices including sub-devices\n",
+        DeviceInfo->NumDevices);
+    return DeviceInfo->NumDevices;
+  }
 }
 
 EXTERN
 int32_t __tgt_rtl_init_device(int32_t DeviceId) {
-  if (DeviceId < 0 || (uint32_t)DeviceId >= DeviceInfo->NumRootDevices) {
+  if (DeviceId < 0 || DeviceId >= (int32_t)DeviceInfo->NumDevices ||
+      DeviceInfo->DeviceMode == DEVICE_MODE_TOP &&
+          DeviceId >= (int32_t)DeviceInfo->NumRootDevices) {
     IDP("Bad device ID %" PRId32 "\n", DeviceId);
     return OFFLOAD_FAIL;
   }

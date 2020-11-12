@@ -677,93 +677,120 @@ CallInst *VPOParoptUtils::genTgtTargetTeams(WRegionNode *W, Value *HostAddr,
   return Call;
 }
 
-Value* VPOParoptUtils::encodeSubdevice (WRegionNode* W, Instruction* InsertPt,
-                                        Value* DeviceID,
-                                        SubdeviceItem* SubdeviceI) {
-  IRBuilder<> Builder(InsertPt);
-  BasicBlock* B = InsertPt->getParent();
-  Function* F = B->getParent();
-  LLVMContext& C = F->getContext();
+void VPOParoptUtils::encodeSubdeviceConstants(const ConstantInt *Param,
+                                             uint64_t &ConstantDeviceID,
+                                             int Shift, uint64_t MaskSize) {
+  uint64_t Mask = (~(~(0ull) << MaskSize));
+  uint64_t UIParam = Param->getZExtValue();
+  LLVM_DEBUG(dbgs() << "before shift: " << llvm::format_hex(UIParam, 18, true)
+                    << ", ");
+  UIParam &= Mask;
+  UIParam <<= Shift;
+  LLVM_DEBUG(dbgs() << "after shift: " << llvm::format_hex(UIParam, 18, true)
+                    << "\n");
+  ConstantDeviceID |= UIParam;
+}
 
-  Type* Int64Ty = Type::getInt64Ty(C);
+Value *VPOParoptUtils::genEncodingSubdeviceNonConstants(Instruction *InsertPt,
+                                                        Value *Param,
+                                                        int Shift,
+                                                        uint64_t MaskSize) {
+  IRBuilder<> Builder(InsertPt);
+  Type *Int64Ty = Builder.getInt64Ty();
+
+  LLVM_DEBUG(dbgs() << "is not constant.\n");
+  uint64_t Mask = (~(~(0ull) << MaskSize));
+  Param = Builder.CreateZExt(Param, Int64Ty);
+  Param = Builder.CreateAnd(Param, Mask);
+  Param = Builder.CreateShl(Param, Shift);
+  return Param;
+}
+
+Value *VPOParoptUtils::encodeSubdevice(WRegionNode *W, Instruction *InsertPt,
+                                       Value *DeviceID,
+                                       SubdeviceItem *SubdeviceI) {
+  IRBuilder<> Builder(InsertPt);
+  Type *Int64Ty = Builder.getInt64Ty();
+
   DeviceID = Builder.CreateZExtOrBitCast(DeviceID, Int64Ty);
 
-  if(SubdeviceI == nullptr) {
+  if (SubdeviceI == nullptr) {
     if (isa<WRNTeamsNode>(W))
       return DeviceID;
     assert(W->canHaveSubdevice() &&
-        "W must support subdevice, since it supports Device");
-    SubdeviceClause& Subdevice = W->getSubdevice();
+           "W must support subdevice, since it supports Device");
+    SubdeviceClause &Subdevice = W->getSubdevice();
     if (Subdevice.empty())
       return DeviceID;
-    assert(Subdevice.size()==1 && "There should be only 1 Subdevice clause");
+    assert(Subdevice.size() == 1 && "There should be only 1 Subdevice clause");
     SubdeviceI = Subdevice.front();
   }
 
-  const ConstantInt* CIDevice = dyn_cast<ConstantInt>(DeviceID);
-  Value* Stride = SubdeviceI->getStride();
-  const ConstantInt* CIStride = dyn_cast<ConstantInt>(Stride);
-  Value* Length = SubdeviceI->getLength();
-  const ConstantInt* CILength = dyn_cast<ConstantInt>(Length);
-  Value* Start = SubdeviceI->getStart();
-  const ConstantInt* CIStart = dyn_cast<ConstantInt>(Start);
-  Value* Level = SubdeviceI->getLevel();
-  const ConstantInt* CILevel = dyn_cast<ConstantInt>(Level);
-  if (!CIDevice || !CIStride || !CILength || !CIStart || !CILevel)
-    // TODO: support non-constant cases
-    return DeviceID;
-  // Device Num uses the least significant 32 bits of DeviceID
-  uint64_t UIDevice = CIDevice->getZExtValue();
+  const ConstantInt *CIDevice = dyn_cast<ConstantInt>(DeviceID);
+  Value *Stride = SubdeviceI->getStride();
+  const ConstantInt *CIStride = dyn_cast<ConstantInt>(Stride);
+  Value *Length = SubdeviceI->getLength();
+  const ConstantInt *CILength = dyn_cast<ConstantInt>(Length);
+  Value *Start = SubdeviceI->getStart();
+  const ConstantInt *CIStart = dyn_cast<ConstantInt>(Start);
+  Value *Level = SubdeviceI->getLevel();
+  const ConstantInt *CILevel = dyn_cast<ConstantInt>(Level);
 
-  uint64_t Mask = (~(~(0ull) << 8));
-
-  // Stride is 8 bits and is encoded between bits 39..32 of DeviceID
-  uint64_t UIStride = CIStride->getZExtValue();
-  LLVM_DEBUG(dbgs() << "Subdevice encoding : Stride before shift: "
-                    << llvm::format_hex(UIStride, 18, true) << "\n");
-  UIStride &= Mask;
-  UIStride <<= 32;
-  LLVM_DEBUG(dbgs() << "Subdevice encoding : Stride after shift: "
-                    << llvm::format_hex(UIStride, 18, true) << "\n");
-
-  // Length is 8 bits and is encoded between bits 47..40 of DeviceID
-  uint64_t UILength = CILength->getZExtValue();
-  LLVM_DEBUG(dbgs() << "Subdevice encoding : Length before shift: "
-                    << llvm::format_hex(UILength, 18, true) << "\n");
-  UILength &= Mask;
-  UILength <<= 40;
-  LLVM_DEBUG(dbgs() << "Subdevice encoding : Length after shift: "
-                    << llvm::format_hex(UILength, 18, true) << "\n");
-
-  // Start is 8 bits and is encoded between bits 55..48 of DeviceID
-  uint64_t UIStart = CIStart->getZExtValue();
-  LLVM_DEBUG(dbgs() << "Subdevice encoding : Start before shift: "
-                    << llvm::format_hex(UIStart, 18, true) << "\n");
-  UIStart &= Mask;
-  UIStart <<= 48;
-  LLVM_DEBUG(dbgs() << "Subdevice encoding : Start after shift: "
-                    << llvm::format_hex(UIStart, 18, true) << "\n");
-
-  // Level is 2 bits and is encoded between bits 57..56 of DeviceID
-  uint64_t UILevel = CILevel->getZExtValue();
-  LLVM_DEBUG(dbgs() << "Subdevice encoding : Level before shift: "
-                    << llvm::format_hex(UILevel, 18, true) << "\n");
-  Mask = (~(~(0ull) << 2));
-  UILevel &= Mask;
-  UILevel <<= 56;
-  LLVM_DEBUG(dbgs() << "Subdevice encoding : Level after shift: "
-                    << llvm::format_hex(UILevel, 18, true) << "\n");
+  assert(CILevel && "Subdevice Level must be Constant");
 
   // MSB is set to 1 if Subdevice clause exists
-  uint64_t MSB = 1ull << 63;
-  LLVM_DEBUG(dbgs() << "DeviceID before Subdevice encoding: "
-                    << llvm::format_hex(UIDevice, 18, true) << "\n");
-  uint64_t UIDeviceID = MSB | UILevel | UIStart | UILength | UIStride
-                        | UIDevice;
-  LLVM_DEBUG(dbgs() << "DeviceID after Subdevice encoding: "
-                    << llvm::format_hex(UIDeviceID, 18, true) << "\n");
-  DeviceID = ConstantInt::get(Int64Ty, UIDeviceID);
-  return DeviceID;
+  uint64_t ConstantDeviceID = 1ull << 63;
+
+  // Device Num uses the least significant 32 bits of DeviceID
+  LLVM_DEBUG(dbgs() << "Subdevice encoding : Device ");
+  if (CIDevice)
+    encodeSubdeviceConstants(CIDevice, ConstantDeviceID, 0, 32);
+  else
+    DeviceID = genEncodingSubdeviceNonConstants(InsertPt, DeviceID, 0, 32);
+
+  // Level is 2 bits and is encoded between bits 57..56 of DeviceID
+  LLVM_DEBUG(dbgs() << "Subdevice encoding : Level  ");
+  encodeSubdeviceConstants(CILevel, ConstantDeviceID, 56, 2);
+
+  // Start is 8 bits and is encoded between bits 55..48 of DeviceID
+  LLVM_DEBUG(dbgs() << "Subdevice encoding : Start  ");
+  if (CIStart)
+    encodeSubdeviceConstants(CIStart, ConstantDeviceID, 48, 8);
+  else
+    Start = genEncodingSubdeviceNonConstants(InsertPt, Start, 48, 8);
+
+  // Length is 8 bits and is encoded between bits 47..40 of DeviceID
+  LLVM_DEBUG(dbgs() << "Subdevice encoding : Length ");
+  if (CILength)
+    encodeSubdeviceConstants(CILength, ConstantDeviceID, 40, 8);
+  else
+    Length = genEncodingSubdeviceNonConstants(InsertPt, Length, 40, 8);
+
+  // Stride is 8 bits and is encoded between bits 39..32 of DeviceID
+  LLVM_DEBUG(dbgs() << "Subdevice encoding : Stride ");
+  if (CIStride)
+    encodeSubdeviceConstants(CIStride, ConstantDeviceID, 32, 8);
+  else
+    Stride = genEncodingSubdeviceNonConstants(InsertPt, Stride, 32, 8);
+
+  Value* Encoding = ConstantInt::get(Int64Ty, ConstantDeviceID);
+  if (CIDevice && CIStride && CILength && CIStart) {
+    // All fields are constants; no runtime IR needed
+    LLVM_DEBUG(dbgs() << "DeviceID after Subdevice encoding: "
+                      << llvm::format_hex(ConstantDeviceID, 18, true) << "\n");
+    return Encoding;
+  }
+
+  // Emit IR to OR in the nonconstant fields
+  if (!CIDevice)
+    Encoding = Builder.CreateOr(DeviceID, Encoding);
+  if (!CIStride)
+    Encoding = Builder.CreateOr(Stride, Encoding);
+  if (!CILength)
+    Encoding = Builder.CreateOr(Length, Encoding);
+  if (!CIStart)
+    Encoding = Builder.CreateOr(Start, Encoding);
+  return Encoding;
 }
 
 /// \brief Base routine to create one of these libomptarget calls:
@@ -808,11 +835,8 @@ CallInst *VPOParoptUtils::genTgtCall(StringRef FnName, WRegionNode* W,
   // First parm: "int64_t device_id"
   if (DeviceID == nullptr)
     DeviceID = Builder.CreateZExt(genOmpGetDefaultDevice(InsertPt), Int64Ty);
-  else {
-    assert(!DeviceID->getType()->isPointerTy() &&
-          "DeviceID should not be a pointer");
-    DeviceID = encodeSubdevice(W, InsertPt, DeviceID, SubdeviceI);
-  }
+
+  DeviceID = encodeSubdevice(W, InsertPt, DeviceID, SubdeviceI);
 
   SmallVector<Value *, 9> FnArgs    = { DeviceID };
   SmallVector<Type *, 9> FnArgTypes = {Int64Ty};
