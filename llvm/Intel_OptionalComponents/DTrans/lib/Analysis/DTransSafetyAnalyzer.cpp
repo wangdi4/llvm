@@ -2299,13 +2299,13 @@ public:
       return;
 
     case Intrinsic::memset:
-      analyzeMemset(I);
+      analyzeMemset(*(cast<MemSetInst>(&I)));
       return;
 
     case Intrinsic::memcpy:
     case Intrinsic::memmove:
-      // TODO: Check memcpy/memmove routines
-      break;
+      analyzeMemcpyOrMemmove(*(cast<MemTransferInst>(&I)));
+      return;
     }
 
     // Mark all other intrinsic calls with UnhandledUse for the arguments that
@@ -2341,14 +2341,13 @@ public:
   //
   // For a safe call, the field information tracking of the aggregate type
   // will be updated to indicate the field is written to.
-  void analyzeMemset(Instruction &I) {
+  void analyzeMemset(MemSetInst &I) {
     DEBUG_WITH_TYPE_P(FNFilter, SAFETY_VERBOSE,
                       dbgs()
                           << "dtrans: Analyzing memset call: ["
                           << I.getFunction()->getName() << "] " << I << "\n");
-    MemSetInst &Inst = cast<MemSetInst>(I);
-    auto *DestArg = Inst.getRawDest();
-    Value *SetSize = Inst.getLength();
+    Value *DestArg = I.getRawDest();
+    Value *SetSize = I.getLength();
 
     // A memset of 0 bytes will not affect the safety of any data structure.
     if (dtrans::isValueEqualToSize(SetSize, 0))
@@ -2456,6 +2455,284 @@ public:
     setAllAliasedAndPointeeTypeSafetyData(
         DstInfo, dtrans::BadMemFuncSize,
         "memset could not match size to aggregate type", &I);
+  }
+
+  // Check the source and destination pointer parameters of a call to memcpy or
+  // memmove call for safety.
+  //
+  // A safe call is one where it can be resolved that the operands to the
+  // call meets one of the following conditions:
+  //   - Neither operand affects an aggregate data type.
+  //
+  //   - For pointers to fields within an aggregate type, a subset of fields may
+  //   be copied from the source to the destination, provided that both the
+  //   source and destination fields are members of same aggregate type, and
+  //   start on the same field number.
+  //
+  //   - For pointers that point to an aggregate type, both source and
+  //   destination must be of the same type, and the size parameter must be a
+  //   multiple of the aggregate size.
+  //
+  //   - For cases where one pointer is a field within aggregate type A and
+  //   the other is a pointer to aggregate type B, a copy will be permitted
+  //   when the field type is aggregate type B and the size parameter is the
+  //   exact size of the field.
+  //
+  void analyzeMemcpyOrMemmove(MemTransferInst &I) {
+    DEBUG_WITH_TYPE_P(FNFilter, SAFETY_VERBOSE,
+                      dbgs()
+                          << "dtrans: Analyzing memcpy/memmove call: ["
+                          << I.getFunction()->getName() << "] " << I << "\n");
+
+    Value *SetSize = I.getLength();
+    MemfuncCallInfo::MemfuncKind Kind = isa<MemCpyInst>(&I)
+                                            ? MemfuncCallInfo::MK_Memcpy
+                                            : MemfuncCallInfo::MK_Memmove;
+
+    auto *DestArg = I.getRawDest();
+    auto *SrcArg = I.getRawSource();
+    ValueTypeInfo *DstInfo = PTA.getValueTypeInfo(DestArg);
+    ValueTypeInfo *SrcInfo = PTA.getValueTypeInfo(SrcArg);
+    assert(DstInfo && SrcInfo &&
+           "PointerTypeAnalyzer should have collected info for pointers");
+
+    bool DstOfInterest =
+        DstInfo->canAliasToAggregatePointer() || DstInfo->pointsToSomeElement();
+    bool SrcOfInterest =
+        SrcInfo->canAliasToAggregatePointer() || SrcInfo->pointsToSomeElement();
+    if (!DstOfInterest && !SrcOfInterest)
+      return;
+
+    // Do not support copy between type that is tracked to an aggregate and one
+    // that isn't.
+    if (!DstOfInterest || !SrcOfInterest) {
+      setAllAliasedAndPointeeTypeSafetyData(
+          DstInfo, dtrans::BadMemFuncManipulation,
+          "memcpy/memmove - src and dest must both be of interest", &I);
+      setAllAliasedAndPointeeTypeSafetyData(
+          SrcInfo, dtrans::BadMemFuncManipulation,
+          "memcpy/memmove - src and dest must both be of interest", &I);
+      return;
+    }
+
+    bool DstPtrToMember = DstInfo->pointsToSomeElement();
+    bool SrcPtrToMember = SrcInfo->pointsToSomeElement();
+    if (DstPtrToMember || SrcPtrToMember) {
+
+      // Helper function for handling propagation when ValueTypeInfo has an
+      // element pointee type. If the PointeePair is an array element, this
+      // supports propagating the safety data to a structure which the array is
+      // an element of, when DTransOutOfBoundsOK is enabled. If
+      // DTransOutOfBouundsOK is not enabled, then it is assumed that any
+      // safety conditions on the array only affect the array, and not any
+      // structures it may be part of.
+      auto SetSafetyDataOnElementPointees = [this](ValueTypeInfo *PtrInfo,
+                                                   dtrans::SafetyData Data,
+                                                   StringRef Reason,
+                                                   Instruction *I) {
+        auto &ElementPointees =
+            PtrInfo->getElementPointeeSet(ValueTypeInfo::VAT_Use);
+        for (auto PointeePair : ElementPointees) {
+          setBaseTypeInfoSafetyData(PointeePair.first, Data, Reason, I);
+          if (DTransOutOfBoundsOK && isa<DTransArrayType>(PointeePair.first)) {
+            auto &ElementOfTypes = PointeePair.second.getElementOf();
+            for (auto &ElementOfPair : ElementOfTypes)
+              if (auto *StTy = dyn_cast<DTransStructType>(ElementOfPair.first))
+                setBaseTypeInfoSafetyData(StTy, Data, Reason, I);
+          }
+        }
+      };
+
+      // It is possible that one of the pointers is not an element pointee.
+      //
+      // For example:
+      //   %struct.test01a = type { i32, i32, i32, i32, i32 }
+      //   %struct.test01b = type { i32, %struct.test01a }
+      //
+      // Copy field 1 of %struct.test01b, which is of type %struct.test01a to a
+      // pointer that points to a value of type %struct.test01a should be
+      // permitted.
+      //
+      if (!(DstPtrToMember && SrcPtrToMember)) {
+        // TODO: Add support for the case where one parameter is an element
+        // pointee that is a structure type, and the other is a pointer to a
+        // structure that is not an element pointee, as long as both pointers
+        // represent the same type. For now, mark it as BadMemFuncManipulation.
+        SafetyData Data = dtrans::BadMemFuncManipulation;
+        StringRef Reason =
+            "memcpy/memmove - Element pointee and non-Element pointee";
+        setAllAliasedAndPointeeTypeSafetyData(DstInfo, Data, Reason, &I);
+        setAllAliasedAndPointeeTypeSafetyData(SrcInfo, Data, Reason, &I);
+        SetSafetyDataOnElementPointees(DstInfo, Data, Reason, &I);
+        SetSafetyDataOnElementPointees(SrcInfo, Data, Reason, &I);
+        return;
+      }
+
+      // Handle the case where both pointers are element pointees.
+      // In this case, require that they are both members of the same type and
+      // point to the same field number.
+      size_t DstPointeeCount =
+          DstInfo->getElementPointeeSet(ValueTypeInfo::VAT_Use).size();
+      size_t SrcPointeeCount =
+          SrcInfo->getElementPointeeSet(ValueTypeInfo::VAT_Use).size();
+      if (DstPointeeCount != 1 || SrcPointeeCount != 1) {
+        StringRef AmbigMsg = "memcpy/memmove - multiple element pointees";
+        StringRef BadManipMsg = "memcpy/memmove - src/dest not supported";
+        if (DstPointeeCount != 1) {
+          SetSafetyDataOnElementPointees(
+              DstInfo, dtrans::AmbiguousPointerTarget, AmbigMsg, &I);
+          SetSafetyDataOnElementPointees(
+              SrcInfo, dtrans::BadMemFuncManipulation, BadManipMsg, &I);
+        } else {
+          SetSafetyDataOnElementPointees(
+              SrcInfo, dtrans::AmbiguousPointerTarget, AmbigMsg, &I);
+          SetSafetyDataOnElementPointees(
+              DstInfo, dtrans::BadMemFuncManipulation, BadManipMsg, &I);
+        }
+        return;
+      }
+
+      DTransStructType *DstStructTy = nullptr;
+      size_t DstFieldNum = 0;
+      uint64_t DstPrePadBytes = 0;
+      bool DstSimple = isSimpleStructureMember(DstInfo, &DstStructTy,
+                                               &DstFieldNum, &DstPrePadBytes);
+      if (!DstSimple) {
+        SetSafetyDataOnElementPointees(
+            DstInfo, dtrans::BadMemFuncSize,
+            "memcpy/memmove - array, invalid offset or size", &I);
+        SetSafetyDataOnElementPointees(
+            SrcInfo, dtrans::BadMemFuncManipulation,
+            "memcpy/memmove - dest was not supported", &I);
+        return;
+      }
+
+      DTransStructType *SrcStructTy = nullptr;
+      size_t SrcFieldNum = 0;
+      uint64_t SrcPrePadBytes = 0;
+      bool SrcSimple = isSimpleStructureMember(SrcInfo, &SrcStructTy,
+                                               &SrcFieldNum, &SrcPrePadBytes);
+      if (!SrcSimple) {
+        SetSafetyDataOnElementPointees(DstInfo, dtrans::BadMemFuncManipulation,
+                                       "memcpy/memmove - src was not supported",
+                                       &I);
+        SetSafetyDataOnElementPointees(
+            SrcInfo, dtrans::BadMemFuncSize,
+            "memcpy/memmove - array, invalid offset or size", &I);
+        return;
+      }
+
+      // Copying values from one structure type to another, or from one set of
+      // fields to a different set of fields is not supported because the
+      // complications this would cause for the transformations. Such as, if one
+      // structure had fields deleted because they were write-only, but the
+      // other structure didn't have the fields deleted.
+      if (!(DstStructTy == SrcStructTy && DstFieldNum == SrcFieldNum &&
+            DstPrePadBytes == SrcPrePadBytes)) {
+        SafetyData Data = dtrans::BadMemFuncManipulation;
+        StringRef Reason =
+            "memcpy/memmove - non-identical src and dest element pointees";
+        SetSafetyDataOnElementPointees(DstInfo, Data, Reason, &I);
+        SetSafetyDataOnElementPointees(SrcInfo, Data, Reason, &I);
+        return;
+      }
+
+      // Identify the set of fields affected.
+      dtrans::MemfuncRegion RegionDesc;
+      if (!analyzeMemfuncStructureMemberParam(I, DstStructTy, DstFieldNum,
+                                              DstPrePadBytes, SetSize,
+                                              RegionDesc)) {
+        SetSafetyDataOnElementPointees(
+            DstInfo, dtrans::BadMemFuncSize,
+            "memcpy/memmove - unsupport array, or invalid offset/size", &I);
+        return;
+      }
+
+      // The call is safe for the ElementPointee.
+      createMemcpyOrMemmoveCallInfo(I, DstStructTy, Kind,
+                                    /*RegionDescDest=*/RegionDesc,
+                                    /*RegionDescSrc=*/RegionDesc);
+
+      // NOTE: For memcpy/memmove, we do not mark the "Read" property in the
+      // FieldInfo objects. This is to allow for field deletion to identify the
+      // field as potentially unneeded.
+
+      // TODO: For ModRef information of the field, we add the function to the
+      // "Readers" list in the FieldInfo to record that the field may be
+      // referenced.
+      return;
+    }
+
+    // Start of handling the case where both parameters are pointers to
+    // aggregate types.
+
+    // No need to check types that do not involve aggregates or that are only
+    // using pointer-to-pointer types.
+    if (!(DstInfo->canAliasToDirectAggregatePointer() ||
+          SrcInfo->canAliasToDirectAggregatePointer()))
+      return;
+
+    auto DestParentTy = PTA.getDominantAggregateUsageType(*DstInfo);
+    auto SrcParentTy = PTA.getDominantAggregateUsageType(*SrcInfo);
+    if (!DestParentTy || !DestParentTy->isPointerTy() || !SrcParentTy ||
+        !SrcParentTy->isPointerTy()) {
+      SafetyData Data = dtrans::AmbiguousPointerTarget;
+      StringRef Reason = "memcpy/memmove - unidentified type for src or dest";
+      setAllAliasedTypeSafetyData(DstInfo, Data, Reason, &I);
+      setAllAliasedTypeSafetyData(SrcInfo, Data, Reason, &I);
+      return;
+    }
+
+    if (DestParentTy != SrcParentTy) {
+      SafetyData Data = dtrans::BadMemFuncManipulation;
+      StringRef Reason = "memcpy/memmove - different types for src and dest";
+      setAllAliasedTypeSafetyData(DstInfo, Data, Reason, &I);
+      setAllAliasedTypeSafetyData(SrcInfo, Data, Reason, &I);
+      return;
+    }
+
+    auto *DestPointeeTy = DestParentTy->getPointerElementType();
+    uint64_t ElementSize = DL.getTypeAllocSize(DestPointeeTy->getLLVMType());
+    if (dtrans::isValueMultipleOfSize(SetSize, ElementSize)) {
+      TypeInfo *ParentTI = DTInfo.getTypeInfo(DestPointeeTy);
+      // The call is safe, and is using the entire structure
+      markAllFieldsWritten(ParentTI, I);
+      dtrans::MemfuncRegion RegionDesc;
+      RegionDesc.IsCompleteAggregate = true;
+      createMemcpyOrMemmoveCallInfo(I, DestPointeeTy, Kind,
+                                    /*RegionDescDest=*/RegionDesc,
+                                    /*RegionDescSrc=*/RegionDesc);
+      // TODO: For ModRef information of the field, we add the function to the
+      // "Readers" list in the FieldInfo to record that the field may be
+      // referenced.
+      return;
+    }
+
+    // Check for the case where a portion of a structure is being set, starting
+    // from field number zero.
+    if (auto *StructTy = dyn_cast<DTransStructType>(DestPointeeTy)) {
+      dtrans::MemfuncRegion RegionDesc;
+      if (analyzeMemfuncStructureMemberParam(I, StructTy, /*FieldNum=*/0,
+                                             /*PrePadBytes=*/0, SetSize,
+                                             RegionDesc)) {
+        // The call is safe, and affects the region described in RegionDesc
+        createMemcpyOrMemmoveCallInfo(I, StructTy, Kind,
+                                      /*RegionDescDest=*/RegionDesc,
+                                      /*RegionDescSrc=*/RegionDesc);
+
+        // TODO: For ModRef information of the field, we add the function to the
+        // "Readers" list in the FieldInfo to record that the field may be
+        // referenced.
+        return;
+      }
+    }
+
+    setAllAliasedAndPointeeTypeSafetyData(
+        DstInfo, dtrans::BadMemFuncSize,
+        "memcpy/memmove - could not match size to aggregate type", &I);
+    setAllAliasedAndPointeeTypeSafetyData(
+        SrcInfo, dtrans::BadMemFuncSize,
+        "memcpy/memmove - could not match size to aggregate type", &I);
   }
 
   // Helper function for retrieving information when the \p ValueTypeInfo
@@ -3151,7 +3428,7 @@ private:
   // This routine will set the safety information set on both %struct.B and
   // %struct.A
   void setAllAliasedAndPointeeTypeSafetyData(
-      ValueTypeInfo *PtrInfo, dtrans::SafetyData Data, const char *Reason,
+      ValueTypeInfo *PtrInfo, dtrans::SafetyData Data, StringRef Reason,
       Value *V, SafetyInfoReportCB Callback = nullptr) {
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
     printSafetyDataDebugMessage(Data, Reason, V, PtrInfo, nullptr);
@@ -3316,6 +3593,16 @@ private:
   // memset call.
   void createMemsetCallInfo(Instruction &I, DTransType *ElemTy,
                             dtrans::MemfuncRegion &RegionDesc) {
+    // TODO: create the MemfuncCallInfo when that class support DTransType
+    // objects.
+  }
+
+  // Create a MemfuncCallInfo object that will store the details about a safe
+  // memcpy/memmove call.
+  void createMemcpyOrMemmoveCallInfo(Instruction &I, DTransType *ElemTy,
+                                     dtrans::MemfuncCallInfo::MemfuncKind Kind,
+                                     dtrans::MemfuncRegion &RegionDescDest,
+                                     dtrans::MemfuncRegion &RegionDescSrc) {
     // TODO: create the MemfuncCallInfo when that class support DTransType
     // objects.
   }
