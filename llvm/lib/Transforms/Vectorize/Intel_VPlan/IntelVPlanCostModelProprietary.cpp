@@ -149,23 +149,6 @@ unsigned VPlanCostModelProprietary::getArithmeticInstructionCost(
   return BaseCMCost;
 }
 
-const RegDDRef* VPlanCostModelProprietary::getHIRMemref(
-  const VPInstruction *VPInst) {
-  unsigned Opcode = VPInst->getOpcode();
-  if (Opcode != Instruction::Load && Opcode != Instruction::Store)
-    return nullptr;
-
-  if (!VPInst->HIR.isMaster())
-    return nullptr;
-  auto *HInst = dyn_cast<HLInst>(VPInst->HIR.getUnderlyingNode());
-
-  if (!HInst)
-    return nullptr;
-
-  return Opcode == Instruction::Load ? HInst->getOperandDDRef(1) :
-                                       HInst->getLvalDDRef();
-}
-
 unsigned VPlanCostModelProprietary::getLoadStoreCost(
   const VPInstruction *VPInst, Align Alignment,
   unsigned VF,
@@ -812,18 +795,14 @@ unsigned VPlanCostModelProprietary::getCost() {
     return UnknownCost;
   }
 
-  unsigned TTICost = Cost;
+  unsigned BaseCost = Cost;
   unsigned GatherScatterCost = getGatherScatterCost();
   // Double GatherScatter cost contribution in case Gathers/Scatters take too
   // much to make it harder to choose this VF.
-  if (TTICost * CMGatherScatterThreshold < GatherScatterCost * 100)
+  if (BaseCost * CMGatherScatterThreshold < GatherScatterCost * 100)
     Cost += CMGatherScatterPenaltyFactor * GatherScatterCost;
 
   Cost += getSpillFillCost();
-
-  // Go though all instructions again to find obvious SLP patterns.
-  if (CheckForSLPExtraCost())
-    Cost += (VF - 1) * TTICost;
 
   // getPsadwbPatternCost() can return more than we have in Cost, so check for
   // underflow.
@@ -834,100 +813,6 @@ unsigned VPlanCostModelProprietary::getCost() {
     Cost = 0;
 
   return Cost;
-}
-
-bool VPlanCostModelProprietary::findSLPHIRPattern(
-  SmallVectorImpl<const RegDDRef*> &HIRMemrefs, unsigned PatternSize) {
-
-  if (HIRMemrefs.size() < PatternSize)
-    return false;
-
-  const RegDDRef* baseDDref = HIRMemrefs.back();
-  HIRMemrefs.pop_back();
-
-  unsigned elSize = baseDDref->getDestTypeSizeInBytes();
-  // maintain array of booleans each element of which is indicating
-  // presence of memref with following offsets:
-  // [ -3*elSize, -2*elSize, -1*elSize, 0, elSize, 2*elSize, 3*elSize ]
-  // The middle element is always true, which corresponds to baseDDref.
-  bool offsets[7] = {false, false, false, true, false, false, false};
-
-  for(auto HIRMemref : HIRMemrefs) {
-    int64_t distance = 0;
-    if (HIRMemref->getDestTypeSizeInBytes() == elSize &&
-        DDRefUtils::getConstByteDistance(baseDDref, HIRMemref, &distance) &&
-        (distance % elSize) == 0) {
-      int idx = distance / elSize + 3;
-      if (idx >= 0 && static_cast<unsigned>(idx) < sizeof(offsets))
-        offsets[idx] = true;
-    }
-  }
-
-  // Check if any of PatternSize consecutive elements in offsets are true.
-  unsigned cntTrue = 0;
-  for (unsigned i = 0; i < sizeof(offsets); i++) {
-    if (offsets[i]) {
-      cntTrue++;
-      if (cntTrue >= PatternSize)
-        break;
-    }
-    else
-      cntTrue = 0;
-  }
-
-  if (cntTrue >= PatternSize)
-    return true;
-
-  // Analyze remaining memrefs.
-  return findSLPHIRPattern(HIRMemrefs, PatternSize);
-}
-
-bool VPlanCostModelProprietary::ProcessSLPHIRMemrefs(
-  SmallVectorImpl<const RegDDRef*> const &HIRMemrefs, unsigned PatternSize) {
-
-  unsigned WindowStartIndex = 0;
-  bool PatternFound = false;
-  do {
-    // Prepare vector of VPlanSLPSearchWindowSize or less for further
-    // processing.
-    SmallVector<const RegDDRef*, VPlanSLPSearchWindowSize> HIRMemrefsTmp;
-    for (unsigned i = WindowStartIndex;
-         (i < (WindowStartIndex + VPlanSLPSearchWindowSize)) &&
-           (i < HIRMemrefs.size()); i++)
-      HIRMemrefsTmp.push_back(HIRMemrefs[i]);
-
-    // Break out early if a pattern is found.
-    if (findSLPHIRPattern(HIRMemrefsTmp, PatternSize)) {
-      PatternFound = true;
-      break;
-    }
-  } while ((VPlanSLPSearchWindowSize + WindowStartIndex++) <
-           HIRMemrefs.size());
-  return PatternFound;
-}
-
-bool VPlanCostModelProprietary::CheckForSLPExtraCost() const {
-  if (VF == 1)
-    return false;
-
-  SmallVector<const RegDDRef*, VPlanSLPSearchWindowSize> HIRLoadMemrefs;
-  SmallVector<const RegDDRef*, VPlanSLPSearchWindowSize> HIRStoreMemrefs;
-  // Gather all Store and Load Memrefs since SLP starts pattern search on
-  // stores and on our cases we have consequent loads as well.
-  for (const VPBasicBlock *Block : depth_first(Plan->getEntryBlock()))
-    for (const VPInstruction &VPInst : *Block)
-      if (auto DDRef = getHIRMemref(&VPInst)) {
-        if (VPInst.getOpcode() == Instruction::Store)
-          HIRStoreMemrefs.push_back(DDRef);
-        else if (VPInst.getOpcode() == Instruction::Load)
-          HIRLoadMemrefs.push_back(DDRef);
-      }
-
-  if (ProcessSLPHIRMemrefs(HIRStoreMemrefs, VPlanSLPStorePatternSize) &&
-      ProcessSLPHIRMemrefs(HIRLoadMemrefs,  VPlanSLPLoadPatternSize))
-    return true;
-
-  return false;
 }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
@@ -989,21 +874,21 @@ void VPlanCostModelProprietary::printForVPBasicBlock(
 
 void VPlanCostModelProprietary::print(
   raw_ostream &OS, const std::string &Header) {
-  unsigned TTICost = VPlanCostModel::getCost();
+  unsigned BaseCost = VPlanCostModel::getCost();
   unsigned GatherScatterCost = getGatherScatterCost();
   unsigned SpillFillCost = getSpillFillCost();
   OS << "HIR Cost Model for VPlan " << Header << " with VF = " << VF << ":\n";
   OS << "Total VPlan Cost: " << getCost() << '\n';
-  OS << "VPlan Base Cost before adjustments: " << TTICost << '\n';
+  OS << "VPlan Base Cost before adjustments: " << BaseCost << '\n';
+  if (CheckForSLPExtraCost())
+    OS << "SLP breaking penalty applied to Base Cost.\n";
 
   if (GatherScatterCost > 0)
     OS << "VPlan Base Cost includes Total VPlan GS Cost: " <<
       GatherScatterCost << '\n';
-  if (TTICost * CMGatherScatterThreshold < GatherScatterCost * 100)
+  if (BaseCost * CMGatherScatterThreshold < GatherScatterCost * 100)
     OS << "Total VPlan GS Cost is bumped: +" <<
       CMGatherScatterPenaltyFactor * GatherScatterCost << '\n';
-  if (CheckForSLPExtraCost())
-    OS << "SLP breaking penalty cost: +" << (VF - 1) * TTICost << '\n';
   if (SpillFillCost)
     OS << "Total VPlan spill/fill cost: +" << SpillFillCost << '\n';
   unsigned PsadbwCostAdj = getPsadwbPatternCost();
