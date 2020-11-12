@@ -27,8 +27,8 @@ public:
 MyT::MyT() {
  val = zoo1(0.0);
 }
-// CHECK: define {{.*}}zoo1{{.*}}#[[DECLARE_TARGET]]
-// CHECK: define {{.*}}Comp{{.*}}#[[DECLARE_TARGET]]
+// CHECK: define {{.*}}zoo1{{.*}}#[[DECLARE_TARGET_MUSTPROGRESS:[0-9]+]]
+// CHECK: define {{.*}}Comp{{.*}}#[[DECLARE_TARGET_MUSTPROGRESS]]
 MyT Comp(MyT a, MyT b) { return a.val < b.val ? a : b; }
 
 #pragma omp declare reduction(Min : MyT : omp_out = Comp(omp_out, omp_in))
@@ -48,14 +48,15 @@ void foo()
 // CHECK: define internal{{.*}}.omp.def_constr{{.*}}#[[DECLARE_TARGET1]]
 // CHECK: define internal{{.*}}_ZTS3MyT.omp.destr{{.*}} #[[DECLARE_TARGET1]]
 
-// CHECK: define {{.*}}_Z4initRi{{.*}}#[[DECLARE_TARGET]]
-// CHECK: define {{.*}}_Z3bar{{.*}} #[[DECLARE_TARGET]]
-// CHECK: define {{.*}}_Z3bar{{.*}} #[[DECLARE_TARGET]]
+// CHECK: define {{.*}}_Z4initRi{{.*}}#[[DECLARE_TARGET_MUSTPROGRESS]]
+// CHECK: define {{.*}}_Z3bar{{.*}} #[[DECLARE_TARGET_MUSTPROGRESS]]
+// CHECK: define {{.*}}_Z3bar{{.*}} #[[DECLARE_TARGET_MUSTPROGRESS]]
 // CHECK: define {{.*}}zoo{{.*}}#[[CONTAINS]]
 // CHECK: define internal void @.omp_combiner..1{{.*}}#[[DECLARE_TARGET1]]
 // CHECK: define internal void @.omp_initializer.{{.*}}#[[DECLARE_TARGET1]]
 
 // CHECK: attributes #[[DECLARE_TARGET]] = {{.*}}"openmp-target-declare"="true"
+// CHECK: attributes #[[DECLARE_TARGET_MUSTPROGRESS]] = {{.*}}"openmp-target-declare"="true"
 // CHECK: attributes #[[CONTAINS]] = {{.*}}"contains-openmp-target"="true"
 // CHECK: attributes #[[DECLARE_TARGET1]] = {{.*}}"openmp-target-declare"="true"
 #pragma omp declare target

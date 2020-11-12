@@ -45,7 +45,7 @@ void foo_max_concurrency()
   //CHECK: br{{.*}}!llvm.loop [[MAXC2:![0-9]+]]
   #pragma max_concurrency 4
   for (int i=0;i<32;++i) { bar(i); }
-  //CHECK-NOT:br{{.*}}!llvm.loop
+  //CHECK: br{{.*}}!llvm.loop [[MAXC3:![0-9]+]]
   for (int i=0;i<32;++i) { bar(i); }
 }
 
@@ -58,7 +58,7 @@ void foo_max_interleaving()
   //CHECK: br{{.*}}!llvm.loop [[MAXI2:![0-9]+]]
   #pragma max_interleaving 1
   for (int j=0;j<32;++j) { bar(j); }
-  //CHECK-NOT:br{{.*}}!llvm.loop
+  //CHECK: br{{.*}}!llvm.loop [[MAXI3:![0-9]+]]
   for (int j=0;j<32;++j) { bar(j); }
 }
 
@@ -87,7 +87,7 @@ void foo_speculated_iterations()
   //CHECK: br{{.*}}!llvm.loop [[SPECIT2:![0-9]+]]
   #pragma speculated_iterations 4
   for (int i=0;i<32;++i) {}
-  //CHECK-NOT:br{{.*}}!llvm.loop
+  //CHECK: br{{.*}}!llvm.loop [[SPECIT3:![0-9]+]]
   for (int i=0;i<32;++i) {}
 }
 
@@ -234,70 +234,73 @@ void foo_ivdep(int select)
   for (int i=0;i<32;++i) { myArray[i] = ibar(i); }
 }
 
-//CHECK: [[UNROLL1]] = distinct !{[[UNROLL1]], [[UNROLL1A:![0-9]+]]}
+//CHECK: [[UNROLL1]] = distinct !{[[UNROLL1]], ![[LOOP_MUSTPROGRESS:[0-9]+]], [[UNROLL1A:![0-9]+]]}
 //CHECK: [[UNROLL1A]] = !{!"llvm.loop.unroll.enable"}
-//CHECK: [[UNROLL2]] = distinct !{[[UNROLL2]], [[UNROLL2A:![0-9]+]]}
+//CHECK: [[UNROLL2]] = distinct !{[[UNROLL2]], ![[LOOP_MUSTPROGRESS]], [[UNROLL2A:![0-9]+]]}
 //CHECK: [[UNROLL2A]] = !{!"llvm.loop.unroll.count", i32 4}
-//CHECK: [[COAL1]] = distinct !{[[COAL1]], [[COAL1A:![0-9]+]]}
+//CHECK: [[COAL1]] = distinct !{[[COAL1]], ![[LOOP_MUSTPROGRESS]], [[COAL1A:![0-9]+]]}
 //CHECK: [[COAL1A]] = !{!"llvm.loop.coalesce.enable"}
-//CHECK: [[COAL2]] = distinct !{[[COAL2]], [[COAL2A:![0-9]+]]}
+//CHECK: [[COAL2]] = distinct !{[[COAL2]], ![[LOOP_MUSTPROGRESS]], [[COAL2A:![0-9]+]]}
 //CHECK: [[COAL2A]] = !{!"llvm.loop.coalesce.count", i32 4}
-//CHECK: [[II1]] = distinct !{[[II1]], [[II1A:![0-9]+]]}
+//CHECK: [[II1]] = distinct !{[[II1]], ![[LOOP_MUSTPROGRESS]], [[II1A:![0-9]+]]}
 //CHECK: [[II1A]] = !{!"llvm.loop.ii.count", i32 4}
-//CHECK: [[MAXC1]] = distinct !{[[MAXC1]], [[MAXC1A:![0-9]+]]}
+//CHECK: [[MAXC1]] = distinct !{[[MAXC1]], ![[LOOP_MUSTPROGRESS]], [[MAXC1A:![0-9]+]]}
 //CHECK: [[MAXC1A]] = !{!"llvm.loop.max_concurrency.count", i32 0}
-//CHECK: [[MAXC2]] = distinct !{[[MAXC2]], [[MAXC2A:![0-9]+]]}
+//CHECK: [[MAXC2]] = distinct !{[[MAXC2]], ![[LOOP_MUSTPROGRESS]], [[MAXC2A:![0-9]+]]}
 //CHECK: [[MAXC2A]] = !{!"llvm.loop.max_concurrency.count", i32 4}
-//CHECK: [[MAXI1]] = distinct !{[[MAXI1]], [[MAXI1A:![0-9]+]]}
+//CHECK: [[MAXC3]] = distinct !{[[MAXC3]], ![[LOOP_MUSTPROGRESS]]}
+//CHECK: [[MAXI1]] = distinct !{[[MAXI1]], ![[LOOP_MUSTPROGRESS]], [[MAXI1A:![0-9]+]]}
 //CHECK: [[MAXI1A]] = !{!"llvm.loop.max_interleaving.count", i32 0}
-//CHECK: [[MAXI2]] = distinct !{[[MAXI2]], [[MAXI2A:![0-9]+]]}
+//CHECK: [[MAXI2]] = distinct !{[[MAXI2]], ![[LOOP_MUSTPROGRESS]], [[MAXI2A:![0-9]+]]}
 //CHECK: [[MAXI2A]] = !{!"llvm.loop.max_interleaving.count", i32 1}
-//CHECK: [[IIMOST1]] = distinct !{[[IIMOST1]], [[IIMOST1A:![0-9]+]]}
+//CHECK: [[MAXI3]] = distinct !{[[MAXI3]], ![[LOOP_MUSTPROGRESS]]}
+//CHECK: [[IIMOST1]] = distinct !{[[IIMOST1]], ![[LOOP_MUSTPROGRESS]], [[IIMOST1A:![0-9]+]]}
 //CHECK: [[IIMOST1A]] = !{!"llvm.loop.intel.ii.at.most.count", i32 4}
-//CHECK: [[IILEAST1]] = distinct !{[[IILEAST1]], [[IILEAST1A:![0-9]+]]}
+//CHECK: [[IILEAST1]] = distinct !{[[IILEAST1]], ![[LOOP_MUSTPROGRESS]], [[IILEAST1A:![0-9]+]]}
 //CHECK: [[IILEAST1A]] = !{!"llvm.loop.intel.ii.at.least.count", i32 4}
-//CHECK: [[SPECIT1]] = distinct !{[[SPECIT1]], [[SPECIT1A:![0-9]+]]}
+//CHECK: [[SPECIT1]] = distinct !{[[SPECIT1]], ![[LOOP_MUSTPROGRESS]], [[SPECIT1A:![0-9]+]]}
 //CHECK: [[SPECIT1A]] = !{!"llvm.loop.intel.speculated.iterations.count", i32 0}
-//CHECK: [[SPECIT2]] = distinct !{[[SPECIT2]], [[SPECIT2A:![0-9]+]]}
+//CHECK: [[SPECIT2]] = distinct !{[[SPECIT2]], ![[LOOP_MUSTPROGRESS]], [[SPECIT2A:![0-9]+]]}
 //CHECK: [[SPECIT2A]] = !{!"llvm.loop.intel.speculated.iterations.count", i32 4}
-//CHECK: [[IIMAX1]] = distinct !{[[IIMAX1]], [[IIMAX2:![0-9]+]]}
+//CHECK: [[SPECIT3]] = distinct !{[[SPECIT3]], ![[LOOP_MUSTPROGRESS]]}
+//CHECK: [[IIMAX1]] = distinct !{[[IIMAX1]], ![[LOOP_MUSTPROGRESS]], [[IIMAX2:![0-9]+]]}
 //CHECK: [[IIMAX2]] = !{!"llvm.loop.intel.min.ii.at.target.fmax"}
-//CHECK: [[DISPIP1]] = distinct !{[[DISPIP1]], [[DISPIP2:![0-9]+]]}
+//CHECK: [[DISPIP1]] = distinct !{[[DISPIP1]], ![[LOOP_MUSTPROGRESS]], [[DISPIP2:![0-9]+]]}
 //CHECK: [[DISPIP2]] = !{!"llvm.loop.intel.pipelining.enable", i32 0}
-//CHECK: [[FH1]] = distinct !{[[FH1]], [[FH2:![0-9]+]]}
+//CHECK: [[FH1]] = distinct !{[[FH1]], ![[LOOP_MUSTPROGRESS]], [[FH2:![0-9]+]]}
 //CHECK: [[FH2]] = !{!"llvm.loop.intel.hyperopt"}
-//CHECK: [[FNH1]] = distinct !{[[FNH1]], [[FNH2:![0-9]+]]}
+//CHECK: [[FNH1]] = distinct !{[[FNH1]], ![[LOOP_MUSTPROGRESS]], [[FNH2:![0-9]+]]}
 //CHECK: [[FNH2]] = !{!"llvm.loop.intel.nohyperopt"}
-//CHECK: [[IVDEP1]] = distinct !{[[IVDEP1]], [[IVDEP1A:![0-9]+]]}
+//CHECK: [[IVDEP1]] = distinct !{[[IVDEP1]], ![[LOOP_MUSTPROGRESS]], [[IVDEP1A:![0-9]+]]}
 //CHECK: [[IVDEP1A]] = !{!"llvm.loop.ivdep.enable"}
-//CHECK: [[IVDEP2]] = distinct !{[[IVDEP2]], [[IVDEP2A:![0-9]+]]}
+//CHECK: [[IVDEP2]] = distinct !{[[IVDEP2]], ![[LOOP_MUSTPROGRESS]], [[IVDEP2A:![0-9]+]]}
 //CHECK: [[IVDEP2A]] = !{!"llvm.loop.ivdep.safelen", i32 4}
 //CHECK: [[IVDEP3]] = distinct !{}
-//CHECK: [[IVDEP4]] =  distinct !{[[IVDEP4]], [[IVDEP4A:![0-9]+]]}
+//CHECK: [[IVDEP4]] =  distinct !{[[IVDEP4]], ![[LOOP_MUSTPROGRESS]], [[IVDEP4A:![0-9]+]]}
 //CHECK: [[IVDEP4A]] = !{!"llvm.loop.parallel_access_indices", [[IVDEP3]]}
 //CHECK: [[IVDEP5]] = distinct !{}
-//CHECK: [[IVDEP6]] =  distinct !{[[IVDEP6]], [[IVDEP6A:![0-9]+]]}
+//CHECK: [[IVDEP6]] =  distinct !{[[IVDEP6]], ![[LOOP_MUSTPROGRESS]], [[IVDEP6A:![0-9]+]]}
 //CHECK: [[IVDEP6A]] = !{!"llvm.loop.parallel_access_indices", [[IVDEP5]], i32 8}
 //CHECK: [[IVDEP7]] = distinct !{}
-//CHECK: [[IVDEP8]] = distinct !{[[IVDEP8]], [[IVDEP8A:![0-9]+]], [[UNROLL2A]]}
+//CHECK: [[IVDEP8]] = distinct !{[[IVDEP8]], ![[LOOP_MUSTPROGRESS]], [[IVDEP8A:![0-9]+]], [[UNROLL2A]]}
 //CHECK: [[IVDEP8A]] = !{!"llvm.loop.parallel_access_indices", [[IVDEP7]], i32 8}
 //CHECK: [[IVDEP9]] = distinct !{}
-//CHECK: [[IVDEP10]] = distinct !{[[IVDEP10]], [[IVDEP10A:![0-9]+]], [[UNROLL2A]]}
+//CHECK: [[IVDEP10]] = distinct !{[[IVDEP10]], ![[LOOP_MUSTPROGRESS]], [[IVDEP10A:![0-9]+]], [[UNROLL2A]]}
 //CHECK: [[IVDEP10A]] = !{!"llvm.loop.parallel_access_indices", [[IVDEP9]], i32 8}
 //CHECK: [[IVDEP11]] = distinct !{}
-//CHECK: [[IVDEP12]] =  distinct !{[[IVDEP12]], [[IVDEP12A:![0-9]+]]}
+//CHECK: [[IVDEP12]] =  distinct !{[[IVDEP12]], ![[LOOP_MUSTPROGRESS]], [[IVDEP12A:![0-9]+]]}
 //CHECK: [[IVDEP12A]] = !{!"llvm.loop.parallel_access_indices", [[IVDEP11]]}
 //CHECK: [[IVDEP13]] = distinct !{}
-//CHECK: [[IVDEP14]] =  distinct !{[[IVDEP14]], [[IVDEP14A:![0-9]+]]}
+//CHECK: [[IVDEP14]] =  distinct !{[[IVDEP14]], ![[LOOP_MUSTPROGRESS]], [[IVDEP14A:![0-9]+]]}
 //CHECK: [[IVDEP14A]] = !{!"llvm.loop.parallel_access_indices", [[IVDEP13]]}
 //CHECK: [[IVDEP15]] = distinct !{}
-//CHECK: [[IVDEP16]] =  distinct !{[[IVDEP16]], [[IVDEP16A:![0-9]+]]}
+//CHECK: [[IVDEP16]] =  distinct !{[[IVDEP16]], ![[LOOP_MUSTPROGRESS]], [[IVDEP16A:![0-9]+]]}
 //CHECK: [[IVDEP16A]] = !{!"llvm.loop.parallel_access_indices", [[IVDEP15]]}
 //CHECK: [[IVDEP17]] = distinct !{}
-//CHECK: [[IVDEP18]] =  distinct !{[[IVDEP18]], [[IVDEP18A:![0-9]+]]}
+//CHECK: [[IVDEP18]] =  distinct !{[[IVDEP18]], ![[LOOP_MUSTPROGRESS]], [[IVDEP18A:![0-9]+]]}
 //CHECK: [[IVDEP18A]] = !{!"llvm.loop.parallel_access_indices", [[IVDEP17]]}
 //CHECK: [[IVDEP19]] = distinct !{}
-//CHECK: [[IVDEP20]] =  distinct !{[[IVDEP20]], [[IVDEP20A:![0-9]+]], [[IVDEP20B:![0-9]+]]}
+//CHECK: [[IVDEP20]] =  distinct !{[[IVDEP20]], ![[LOOP_MUSTPROGRESS]], [[IVDEP20A:![0-9]+]], [[IVDEP20B:![0-9]+]]}
 //CHECK: [[IVDEP20A]] = !{!"llvm.loop.ivdep.safelen", i32 8}
 //CHECK: [[IVDEP20B]] = !{!"llvm.loop.parallel_access_indices", [[IVDEP20B1:![0-9]+]], [[IVDEP19]]}
 //CHECK: [[IVDEP20B1]]  = distinct !{}

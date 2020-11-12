@@ -14,7 +14,7 @@ void foo()
   }
   // CHECK: !llvm.loop [[LOOP_OUTER:!.+]]
 }
-// CHECK: [[LOOP_INNER]] = distinct !{[[LOOP_INNER]], [[LOOP_IATTR:!.+]]}
+// CHECK: [[LOOP_INNER]] = distinct !{[[LOOP_INNER]], ![[LOOP_MUSTPROGRESS:[0-9]+]], [[LOOP_IATTR:!.+]]}
 // CHECK: [[LOOP_IATTR]] = !{!"llvm.loop.unroll.count", i32 4}
-// CHECK: [[LOOP_OUTER]] = distinct !{[[LOOP_OUTER]], [[LOOP_OATTR:!.+]]}
+// CHECK: [[LOOP_OUTER]] = distinct !{[[LOOP_OUTER]], ![[LOOP_MUSTPROGRESS]], [[LOOP_OATTR:!.+]]}
 // CHECK: [[LOOP_OATTR]] = !{!"llvm.loop.unroll.enable"}

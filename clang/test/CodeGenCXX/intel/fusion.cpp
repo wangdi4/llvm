@@ -32,13 +32,13 @@ void foo() {
   for (i = 0; i < n; ++i) {
     // CHECK: br label %{{.*}}, !llvm.loop ![[LOOP_5:.*]]
     for (j = 0; j < n; ++j) {
-      // CHECK-NOT: br label %{{.*}}, !llvm.loop !{{.*}}
+      // CHECK: br label %{{.*}}, !llvm.loop ![[LOOP_6:.*]]
       a[i] += a[j];
     }
     bar();
   }
   for (i = 0; i < n; ++i) {
-    // CHECK-NOT: br label %{{.*}}, !llvm.loop !{{.*}}
+    // CHECK: br label %{{.*}}, !llvm.loop ![[LOOP_7:.*]]
     #pragma fusion
     for (j = 0; j < n; ++j) {
       // CHECK: br label %{{.*}}, !llvm.loop ![[LOOP_8:.*]]
@@ -48,10 +48,11 @@ void foo() {
   }
 }
 
-// CHECK: ![[LOOP_1]] = distinct !{![[LOOP_1]], ![[FUSION:.*]]}
+// CHECK: ![[LOOP_1]] = distinct !{![[LOOP_1]], ![[LOOP_MUSTPROGRESS:[0-9]+]], ![[FUSION:.*]]}
 // CHECK: ![[FUSION]] = !{!"llvm.loop.fusion.enable"}
-// CHECK: ![[LOOP_2]] = distinct !{![[LOOP_2]], ![[FUSION]]}
-// CHECK: ![[LOOP_3]] = distinct !{![[LOOP_3]], ![[FUSION]]}
+// CHECK: ![[LOOP_2]] = distinct !{![[LOOP_2]], ![[LOOP_MUSTPROGRESS]], ![[FUSION]]}
+// CHECK: ![[LOOP_3]] = distinct !{![[LOOP_3]], ![[LOOP_MUSTPROGRESS]], ![[FUSION]]}
 // CHECK: ![[LOOP_4]] = distinct !{![[LOOP_4]], ![[FUSION]]}
-// CHECK: ![[LOOP_5]] = distinct !{![[LOOP_5]], ![[FUSION]]}
-// CHECK: ![[LOOP_8]] = distinct !{![[LOOP_8]], ![[FUSION]]}
+// CHECK: ![[LOOP_5]] = distinct !{![[LOOP_5]], ![[LOOP_MUSTPROGRESS]]}
+// CHECK: ![[LOOP_6]] = distinct !{![[LOOP_6]], ![[LOOP_MUSTPROGRESS]], ![[FUSION]]}
+// CHECK: ![[LOOP_7]] = distinct !{![[LOOP_7]], ![[LOOP_MUSTPROGRESS]], ![[FUSION]]}
