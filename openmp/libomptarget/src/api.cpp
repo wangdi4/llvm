@@ -93,7 +93,7 @@ EXTERN void omp_target_free(void *device_ptr, int device_num) {
 
 #if INTEL_COLLAB
   DeviceTy &Device = PM->Devices[device_num];
-  if (Device.is_managed_ptr(device_ptr)) {
+  if (Device.is_device_accessible_ptr(device_ptr)) {
     // Either requires usm or explicit allocation
     Device.data_delete_managed(device_ptr);
     DP("omp_target_free deallocated managed ptr\n");

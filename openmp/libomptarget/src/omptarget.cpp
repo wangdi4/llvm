@@ -383,8 +383,8 @@ int targetDataBegin(DeviceTy &Device, int32_t arg_num, void **args_base,
 #if INTEL_COLLAB
       if (!(PM->RTLs.RequiresFlags & OMP_REQ_UNIFIED_SHARED_MEMORY) ||
           // If the device does not support the concept of managed memory,
-          // do not take into account the result of is_managed_ptr().
-          !(Device.is_managed_ptr(HstPtrBegin) ||
+          // do not take into account the result of is_device_accessible_ptr().
+          !(Device.is_device_accessible_ptr(HstPtrBegin) ||
             !Device.managed_memory_supported()) ||
           HasCloseModifier) {
 #else // INTEL_COLLAB
@@ -567,8 +567,8 @@ int targetDataEnd(DeviceTy &Device, int32_t ArgNum, void **ArgBases,
 #if INTEL_COLLAB
         if (!(PM->RTLs.RequiresFlags & OMP_REQ_UNIFIED_SHARED_MEMORY) ||
             // If the device does not support the concept of managed memory,
-            // do not take into account the result of is_managed_ptr().
-            !(Device.is_managed_ptr(HstPtrBegin) ||
+            // do not take into account the result of is_device_accessible_ptr().
+            !(Device.is_device_accessible_ptr(HstPtrBegin) ||
               !Device.managed_memory_supported()) ||
             HasCloseModifier) {
 #else // INTEL_COLLAB

@@ -382,7 +382,7 @@ public:
   std::vector<std::vector<char>> Names;
   std::vector<bool> Initialized;
   std::vector<cl_ulong> SLMSize;
-  std::vector<std::map<void *, int64_t>> ManagedData;
+  std::vector<std::map<void *, int64_t>> DeviceAccessibleData;
   std::mutex *Mutexes;
   std::mutex *ProfileLocks;
   std::vector<std::vector<DeviceOffloadEntryTy>> OffloadTables;
@@ -1254,7 +1254,7 @@ int32_t __tgt_rtl_number_of_devices() {
   DeviceInfo->Names.resize(DeviceInfo->numDevices);
   DeviceInfo->Initialized.resize(DeviceInfo->numDevices);
   DeviceInfo->SLMSize.resize(DeviceInfo->numDevices);
-  DeviceInfo->ManagedData.resize(DeviceInfo->numDevices);
+  DeviceInfo->DeviceAccessibleData.resize(DeviceInfo->numDevices);
   DeviceInfo->Mutexes = new std::mutex[DeviceInfo->numDevices];
   DeviceInfo->ProfileLocks = new std::mutex[DeviceInfo->numDevices];
   DeviceInfo->OffloadTables.resize(DeviceInfo->numDevices);
@@ -1945,7 +1945,7 @@ EXTERN int32_t __tgt_rtl_data_delete_managed(int32_t device_id, void *ptr) {
   mutex.lock();
   CALL_CL_EXT_RET_FAIL(clMemFreeINTEL, DeviceInfo->clMemFreeINTELFn,
                        DeviceInfo->CTX[device_id], ptr);
-  DeviceInfo->ManagedData[device_id].erase(ptr);
+  DeviceInfo->DeviceAccessibleData[device_id].erase(ptr);
   mutex.unlock();
   IDP("Deleted a managed memory object " DPxMOD "\n", DPxPTR(ptr));
   return OFFLOAD_SUCCESS;
@@ -1953,11 +1953,11 @@ EXTERN int32_t __tgt_rtl_data_delete_managed(int32_t device_id, void *ptr) {
 #endif // INTEL_CUSTOMIZATION
 
 // Check if the pointer belongs to a managed memory addres range.
-EXTERN int32_t __tgt_rtl_is_managed_ptr(int32_t device_id, void *ptr) {
+EXTERN int32_t __tgt_rtl_is_device_accessible_ptr(int32_t device_id, void *ptr) {
   int32_t ret = false;
   auto &mutex = DeviceInfo->Mutexes[device_id];
   mutex.lock();
-  for (auto &range : DeviceInfo->ManagedData[device_id]) {
+  for (auto &range : DeviceInfo->DeviceAccessibleData[device_id]) {
     intptr_t base = (intptr_t)range.first;
     if (base <= (intptr_t)ptr && (intptr_t)ptr < base + range.second) {
       ret = true;
@@ -2004,6 +2004,8 @@ void *tgt_rtl_data_alloc_template(int32_t device_id, int64_t size,
     IDP("Stashing an implicit argument " DPxMOD " for next kernel\n",
        DPxPTR(ret));
     DeviceInfo->Mutexes[device_id].lock();
+    DeviceInfo->DeviceAccessibleData[device_id].emplace(
+                                   std::make_pair(ret, meaningful_size));
     // key "0" for kernel-independent implicit arguments
     DeviceInfo->ImplicitArgs[device_id][0].insert(ret);
     DeviceInfo->Mutexes[device_id].unlock();
@@ -2035,7 +2037,7 @@ EXTERN void *__tgt_rtl_data_alloc_explicit(
                      size, 0);
     if (mem) {
       std::unique_lock<std::mutex> dataLock(mutex);
-      DeviceInfo->ManagedData[device_id].emplace(std::make_pair(mem, size));
+      DeviceInfo->DeviceAccessibleData[device_id].emplace(std::make_pair(mem, size));
       IDP("Allocated a host memory object " DPxMOD "\n", DPxPTR(mem));
     }
     break;
@@ -2049,7 +2051,7 @@ EXTERN void *__tgt_rtl_data_alloc_explicit(
                      nullptr, size, 0);
     if (mem) {
       std::unique_lock<std::mutex> dataLock(mutex);
-      DeviceInfo->ManagedData[device_id].emplace(std::make_pair(mem, size));
+      DeviceInfo->DeviceAccessibleData[device_id].emplace(std::make_pair(mem, size));
       IDP("Allocated a shared memory object " DPxMOD "\n", DPxPTR(mem));
     }
     break;
