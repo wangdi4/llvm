@@ -938,8 +938,13 @@ void VPPredInstPHIRecipe::print(raw_ostream &O, const Twine &Indent,
 
 void VPWidenMemoryInstructionRecipe::print(raw_ostream &O, const Twine &Indent,
                                            VPSlotTracker &SlotTracker) const {
-  O << "\"WIDEN "
-    << Instruction::getOpcodeName(getUnderlyingInstr()->getOpcode()) << " ";
+  O << "\"WIDEN ";
+
+  if (!isStore()) {
+    printAsOperand(O, SlotTracker);
+    O << " = ";
+  }
+  O << Instruction::getOpcodeName(getUnderlyingInstr()->getOpcode()) << " ";
 
   printOperands(O, SlotTracker);
 }
