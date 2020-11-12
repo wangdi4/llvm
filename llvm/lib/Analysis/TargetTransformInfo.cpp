@@ -443,20 +443,20 @@ bool TargetTransformInfo::shouldScalarizeMaskedGather(CallInst *CI) const {
   return TTIImpl->shouldScalarizeMaskedGather(CI);
 }
 bool TargetTransformInfo::shouldOptGatherToLoadPermute(
-    Type *ArrayElemTy, uint32_t ArrayNum, uint32_t GatherNum,
+    Type *ArrayElemTy, uint64_t ArrayNum, uint32_t GatherNum,
     uint32_t *WidenNum) const {
   return TTIImpl->shouldOptGatherToLoadPermute(ArrayElemTy, ArrayNum, GatherNum,
                                                WidenNum);
 }
 bool TargetTransformInfo::isLegalToTransformGather2PermuteLoad(
-    const IntrinsicInst *II, Type *&ArrayElemTy, unsigned &ArrayNum,
+    const IntrinsicInst *II, Type *&ArrayElemTy, uint64_t &ArrayNum,
     unsigned &GatherNum, unsigned &WidenNum) const {
   return TTIImpl->isLegalToTransformGather2PermuteLoad(
       II, ArrayElemTy, ArrayNum, GatherNum, WidenNum);
 }
 bool TargetTransformInfo::isLegalToTransformGather2PermuteLoad(
     Intrinsic::ID ID, Type *DataTy, const Value *Ptr, bool VariableMask,
-    bool UndefPassThru, Type *&ArrayElemTy, unsigned &ArrayNum,
+    bool UndefPassThru, Type *&ArrayElemTy, uint64_t &ArrayNum,
     unsigned &GatherNum, unsigned &WidenNum) const {
   return TTIImpl->isLegalToTransformGather2PermuteLoad(
       ID, DataTy, Ptr, VariableMask, UndefPassThru, ArrayElemTy, ArrayNum,

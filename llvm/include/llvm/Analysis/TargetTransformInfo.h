@@ -665,17 +665,17 @@ public:
   bool isLegalMaskedGather(Type *DataType, Align Alignment) const;
 #if INTEL_CUSTOMIZATION
   bool shouldScalarizeMaskedGather(CallInst *CI) const;
-  bool shouldOptGatherToLoadPermute(Type *ArrayElemTy, uint32_t ArrayNum,
+  bool shouldOptGatherToLoadPermute(Type *ArrayElemTy, uint64_t ArrayNum,
                                     uint32_t GatherNum,
                                     uint32_t *WidenNum) const;
   bool isLegalToTransformGather2PermuteLoad(const IntrinsicInst *II,
                                             Type *&ArrayElemTy,
-                                            unsigned &ArrayNum,
+                                            uint64_t &ArrayNum,
                                             unsigned &GatherNum,
                                             unsigned &WidenNum) const;
   bool isLegalToTransformGather2PermuteLoad(
       Intrinsic::ID ID, Type *DataTy, const Value *Ptr, bool VariableMask,
-      bool UndefPassThru, Type *&ArrayElemTy, unsigned &ArrayNum,
+      bool UndefPassThru, Type *&ArrayElemTy, uint64_t &ArrayNum,
       unsigned &GatherNum, unsigned &WidenNum) const;
 #endif // INTEL_CUSTOMIZATION
   /// Return true if the target supports masked compress store.
@@ -1512,16 +1512,16 @@ public:
 #if INTEL_CUSTOMIZATION
   virtual bool shouldScalarizeMaskedGather(CallInst *CI) = 0;
   virtual bool shouldOptGatherToLoadPermute(Type *ArrayElemTy,
-                                            uint32_t ArrayNum,
+                                            uint64_t ArrayNum,
                                             uint32_t GatherNum,
                                             uint32_t *WidenNum) const = 0;
   virtual bool isLegalToTransformGather2PermuteLoad(
-      const IntrinsicInst *II, Type *&ArrayElemTy, unsigned &ArrayNum,
+      const IntrinsicInst *II, Type *&ArrayElemTy, uint64_t &ArrayNum,
       unsigned &GatherNum, unsigned &WidenNum) const = 0;
 
   virtual bool isLegalToTransformGather2PermuteLoad(
       Intrinsic::ID ID, Type *DataTy, const Value *Ptr, bool VariableMask,
-      bool UndefPassThru, Type *&ArrayElemTy, unsigned &ArrayNum,
+      bool UndefPassThru, Type *&ArrayElemTy, uint64_t &ArrayNum,
       unsigned &GatherNum, unsigned &WidenNum) const = 0;
 #endif // INTEL_CUSTOMIZATION
   virtual bool isLegalMaskedCompressStore(Type *DataType) = 0;
@@ -1893,7 +1893,7 @@ public:
   bool shouldScalarizeMaskedGather(CallInst *CI) override {
     return Impl.shouldScalarizeMaskedGather(CI);
   }
-  bool shouldOptGatherToLoadPermute(Type *ArrayElemTy, uint32_t ArrayNum,
+  bool shouldOptGatherToLoadPermute(Type *ArrayElemTy, uint64_t ArrayNum,
                                     uint32_t GatherNum,
                                     uint32_t *WidenNum) const override {
     return Impl.shouldOptGatherToLoadPermute(ArrayElemTy, ArrayNum, GatherNum,
@@ -1901,7 +1901,7 @@ public:
   }
   bool isLegalToTransformGather2PermuteLoad(const IntrinsicInst *II,
                                             Type *&ArrayElemTy,
-                                            unsigned &ArrayNum,
+                                            uint64_t &ArrayNum,
                                             unsigned &GatherNum,
                                             unsigned &WidenNum) const override {
     return Impl.isLegalToTransformGather2PermuteLoad(II, ArrayElemTy, ArrayNum,
@@ -1909,7 +1909,7 @@ public:
   }
   bool isLegalToTransformGather2PermuteLoad(
       Intrinsic::ID ID, Type *DataTy, const Value *Ptr, bool VariableMask,
-      bool UndefPassThru, Type *&ArrayElemTy, unsigned &ArrayNum,
+      bool UndefPassThru, Type *&ArrayElemTy, uint64_t &ArrayNum,
       unsigned &GatherNum, unsigned &WidenNum) const override {
     return Impl.isLegalToTransformGather2PermuteLoad(
         ID, DataTy, Ptr, VariableMask, UndefPassThru, ArrayElemTy, ArrayNum,
