@@ -925,13 +925,7 @@ void VPWidenMemoryInstructionRecipe::print(raw_ostream &O, const Twine &Indent,
   O << "\"WIDEN "
     << Instruction::getOpcodeName(getUnderlyingInstr()->getOpcode()) << " ";
 
-  bool First = true;
-  for (VPValue *Op : operands()) {
-    if (!First)
-      O << ", ";
-    Op->printAsOperand(O, SlotTracker);
-    First = false;
-  }
+  printOperands(O, SlotTracker);
 }
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 #endif // INTEL_CUSTOMIZATION
@@ -1007,6 +1001,16 @@ void VPValue::printAsOperand(raw_ostream &OS, VPSlotTracker &Tracker) const {
 }
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 #endif // INTEL_CUSTOMIZATION
+
+void VPUser::printOperands(raw_ostream &O, VPSlotTracker &SlotTracker) const {
+  bool First = true;
+  for (VPValue *Op : operands()) {
+    if (!First)
+      O << ", ";
+    Op->printAsOperand(O, SlotTracker);
+    First = false;
+  }
+}
 
 void VPInterleavedAccessInfo::visitRegion(VPRegionBlock *Region,
                                           Old2NewTy &Old2New,
