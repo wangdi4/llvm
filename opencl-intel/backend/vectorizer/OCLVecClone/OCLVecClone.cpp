@@ -557,11 +557,11 @@ static void initializeVectInfo() {
 
   // Add extra vector info for 'sub_group_ballot'
   g_VecInfo.push_back({"intel_sub_group_ballot", KERNEL_CALL_ONCE,
-                       "_ZGVbM4v_sub_group_ballot(intel_sub_group_ballot_vf4)"});
+                       "_ZGVbM4v_intel_sub_group_balloti(intel_sub_group_ballot_vf4)"});
   g_VecInfo.push_back({"intel_sub_group_ballot", KERNEL_CALL_ONCE,
-                       "_ZGVbM8v_sub_group_ballot(intel_sub_group_ballot_vf8)"});
+                       "_ZGVbM8v_intel_sub_group_balloti(intel_sub_group_ballot_vf8)"});
   g_VecInfo.push_back({"intel_sub_group_ballot", KERNEL_CALL_ONCE,
-                       "_ZGVbM16v_sub_group_ballot(intel_sub_group_ballot_vf16)"});
+                       "_ZGVbM16v_intel_sub_group_balloti(intel_sub_group_ballot_vf16)"});
 
   // Add extra vector info for 'sub_group_block_read*', 'sub_group_block_write*'
   std::vector<std::tuple<std::string, reflection::TypePrimitiveEnum,
