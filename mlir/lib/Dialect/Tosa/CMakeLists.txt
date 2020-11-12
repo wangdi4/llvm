@@ -9,13 +9,15 @@ add_mlir_dialect_library(MLIRTosa
   MLIRStandardOpsIncGen
   MLIRTosaOpsIncGen
   MLIRTosaStructsIncGen
-  MLIRTosaInterfaceIncGen
+  MLIRTosaInterfacesIncGen
 
   LINK_LIBS PUBLIC
   MLIRIR
+  MLIRDialect
   MLIRStandard
   MLIRCallInterfaces
   MLIRControlFlowInterfaces
+  MLIRQuant
   MLIRSideEffectInterfaces
   MLIRViewLikeInterface
   )
