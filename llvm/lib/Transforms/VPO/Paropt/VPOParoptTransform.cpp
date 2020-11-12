@@ -4380,29 +4380,54 @@ bool VPOParoptTransform::genNontemporalCode(WRegionNode *W) {
   W->populateBBSet();
   LLVMContext &Context = F->getContext();
   bool Changed = false;
+  MDNode *NtmpMD = nullptr;
 
   // Find all memrefs derived from nontemporal bases in the region and attach
-  // !nontemporal metadata to them. The incoming IR is expected to look like:
+  // !nontemporal metadata to them. The incoming IR may look like:
   //
   //   @llvm.directive.region.entry() [ "QUAL.OMP.NONTEMPORAL"(float* %a.addr)]
   //   %ptridx10 = getelementptr inbounds float, float* %a.addr, i64 %indvars.iv
-  //   store float %conv8, float* %ptridx10
+  //   %bcast = bitcast float* %ptridx10 to i32*
+  //   store i32 %conv8, i32* %bcast
   //   call void @llvm.directive.region.exit(token %2) [ "DIR.OMP.END.SIMD"() ]
   //
-  for (NontemporalItem *VarAddr : W->getNontemporal()) {
-    for (User *VarUse : VarAddr->getOrig()->users()) {
-      if (!isa<GetElementPtrInst>(VarUse))
-        continue;
-      for (User *GepUse : VarUse->users()) {
-        if (!isa<StoreInst>(GepUse) && !isa<LoadInst>(GepUse))
+  for (NontemporalItem *NtmpItem : W->getNontemporal()) {
+    SmallVector<Use *, 4> WorkList;
+    SmallPtrSet<Use *, 8> VisitedSet;
+
+    auto growWorkList = [W, &WorkList, &VisitedSet](Value *V) {
+      for (Use *U = &V->user_begin().getUse(); U; U = U->getNext()) {
+        if (!isa<Instruction>(U->getUser()))
           continue;
-        Instruction *Mrf = cast<Instruction>(GepUse);
-        if (!W->contains(Mrf->getParent()))
+        Instruction *I = cast<Instruction>(U->getUser());
+        if (VisitedSet.contains(U) || !W->contains(I->getParent()))
           continue;
-        Constant *One = ConstantInt::get(Type::getInt32Ty(Context), 1);
-        MDNode *Node = MDNode::get(Context, ConstantAsMetadata::get(One));
-        Mrf->setMetadata(LLVMContext::MD_nontemporal, Node);
-        Changed = true;
+        WorkList.push_back(U);
+        VisitedSet.insert(U);
+      }
+    };
+
+    growWorkList(NtmpItem->getOrig());
+
+    while (!WorkList.empty()) {
+      Use *U = WorkList.pop_back_val();
+      User *Usr = U->getUser();
+
+      // Check if the nontemporal address is passed as a pointer argument to a
+      // store or load instruction.
+      if ((isa<StoreInst>(Usr) && U->getOperandNo() == 1) ||
+          isa<LoadInst>(Usr)) {
+        // Attach !nontemporal metadata to the instruction.
+        Instruction *Mrf = cast<Instruction>(Usr);
+        if (!NtmpMD) {
+          Constant *One = ConstantInt::get(Type::getInt32Ty(Context), 1);
+          NtmpMD = MDNode::get(Context, ConstantAsMetadata::get(One));
+          Changed = true;
+        }
+        Mrf->setMetadata(LLVMContext::MD_nontemporal, NtmpMD);
+      } else if (isa<BitCastInst>(Usr) || isa<GetElementPtrInst>(Usr)) {
+        // Look through getelementptr and bitcast instructions.
+        growWorkList(Usr);
       }
     }
   }

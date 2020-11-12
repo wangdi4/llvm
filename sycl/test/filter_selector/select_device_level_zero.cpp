@@ -1,5 +1,5 @@
 // RUN: %clangxx -fsycl -fsycl-targets=%sycl_triple %s -o %t.out
-// RUN: env SYCL_DEVICE_FILTER=level_zero:gpu %t.out
+// RUN: env SYCL_ENABLE_HOST_DEVICE=1 SYCL_DEVICE_FILTER=level_zero:gpu %t.out
 //
 // Checks if only specified device types can be acquired from select_device
 // when SYCL_DEVICE_FILTER is set

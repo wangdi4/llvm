@@ -8869,47 +8869,48 @@ private:
       markPointerWrittenWithMultipleValue(DstLPI, SetSize);
 
       // Do not set safety issue if the memfunc call affects only one field.
-      StructType *StructType;
+      StructType *OuterStructType;
       size_t FieldNum;
       uint64_t PrePadBytes;
       uint64_t AccessSize;
       bool IsConstantSize = dtrans::isValueConstant(SetSize, &AccessSize);
       bool IsSimple =
-          isSimpleStructureMember(DstPtrToMember ? DstLPI : SrcLPI, &StructType,
-                                  &FieldNum, &PrePadBytes);
+          isSimpleStructureMember(DstPtrToMember ? DstLPI : SrcLPI,
+                                  &OuterStructType, &FieldNum, &PrePadBytes);
 
       // Note: Currently, PrePadBytes should always be 0 if we get here, because
       // currently the local pointer info should only be capturing an access
       // betweeen fields for the memset case, but we will check it, just in
       // case.
-      if (IsConstantSize && IsSimple && PrePadBytes == 0 &&
-          (DL.getTypeStoreSize(StructType->getElementType(FieldNum)) ==
-           AccessSize)) {
-
-        // If write to a structure field.
-        dtrans::MemfuncRegion RegionDesc;
-        RegionDesc.IsCompleteAggregate = false;
-        RegionDesc.FirstField = FieldNum;
-        RegionDesc.LastField = FieldNum;
-
-        // Create memfunc info for a single field access.
-        createMemcpyOrMemmoveCallInfo(
-            I, (DstPtrToMember ? DestParentTy : SrcParentTy), Kind, RegionDesc,
-            RegionDesc);
-
-        auto *StructInfo =
-            cast<dtrans::StructInfo>(DTInfo.getOrCreateTypeInfo(StructType));
-        auto &FieldInfo = StructInfo->getField(FieldNum);
-
-        if (DstPtrToMember) {
-          FieldInfo.setWritten(I);
-        } else {
-          assert(SrcPtrToMember);
-          FieldInfo.setRead(I);
+      if (IsConstantSize && IsSimple && PrePadBytes == 0) {
+        llvm::Type *ElemTy = OuterStructType->getElementType(FieldNum);
+        if (DL.getTypeStoreSize(ElemTy) == AccessSize) {
+          // The read/write is a single field within the structure. If that
+          // element is an aggregate type, collect the info in a MemCallInfo
+          // object. The MemCallInfo object is used by the transformations to
+          // adjust the size parameter of the call for the type being copied.
+          // we need to track that a copy is being made of the inner structure
+          // type to be able to adjust the size if a field gets deleted from it.
+          //
+          // For example:
+          //   %struct.test01a = type { i32, i32, i32, i32, i32 }
+          //   %struct.test01b = type { i32, %struct.test01a }
+          //
+          // A pointer of type %struct.test01a may be copied to/from the field
+          // member of %struct.test01b. If we reach this point, we know that one
+          // of the pointers is the element pointee, and the other is an alias
+          // of %struct.test01a. Set up the MemCallInfo object to record that
+          // the type of the field is being completely copied.
+          dtrans::MemfuncRegion RegionDesc;
+          RegionDesc.IsCompleteAggregate = true;
+          createMemcpyOrMemmoveCallInfo(I, ElemTy, Kind, RegionDesc,
+                                        RegionDesc);
+          auto *ElemInfo = DTInfo.getOrCreateTypeInfo(ElemTy);
+          markAllFieldsWritten(ElemInfo, I);
+          return;
         }
-
-        return;
       }
+
 
       setValueTypeInfoSafetyData(DestArg, dtrans::BadMemFuncManipulation);
       setValueTypeInfoSafetyData(SrcArg, dtrans::BadMemFuncManipulation);

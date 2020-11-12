@@ -147,17 +147,13 @@ static cl::opt<bool>
                                    "are visited while building the tree"));
 
 // Split-loads is a simplified form of Variable-Width SLP.
-// It allows shorter vector-lengths for the loads compared to the rest of the
-// SLP tree
-static cl::opt<bool>
-    EnableSplitLoad("enable-split-load", cl::init(true), cl::Hidden,
-                    cl::desc("Enable Vectorizing Split Loads."));
-
-// The maximum number of smaller loads per TreeEntry.
-// TODO: This value may need tuning.
-static cl::opt<int>
-    MaxSplitLoadGroups("max-split-load", cl::init(4), cl::Hidden,
-                       cl::desc("Max number of split-load groups."));
+// It allows shorter vector-lengths loads which are then combined
+// into final (wider) vector that matches the rest of vectorizable tree.
+// The maximum number of loads per TreeEntry. Zero value disables
+// split loads, otherwise can generate up to PowerOf2Floor(MaxSplitLoads) loads.
+static cl::opt<uint32_t>
+    MaxSplitLoads("max-split-load", cl::init(4), cl::Hidden,
+                  cl::desc("Max number of split-load groups."));
 
 // Enable the formation of Multi-Nodes.
 // Please refer to the following paper for more details on Multi-Nodes.
@@ -2147,16 +2143,21 @@ private:
     /// whole multi-node.
     SmallVector<bool, 4> IsNegativePathSign;
 
-    /// Here is data for load groups (split-load).
-    /// Each load group is represented by a pair of integers:
-    /// first:  starting position index (within vector of scalars).
-    ///         If scalars are sortable by their pointer operand then
-    ///         the index is within vector of sorted scalars and
-    ///         SplitLoadPtrOrder contains their sorted order.
-    /// second: size of the group (aka number of loaded elements)
-    SmallVector<std::pair<int, int>, 1> SplitLoadGroups;
-    SmallVector<unsigned, 4> SplitLoadPtrOrder;
-
+    /// Keeps data about load groups (split-load).
+    /// Each load group is represented by:
+    /// (1)  Index (within a vector of TreeEntry scalars) of the first scalar
+    ///      load which begins a consecutive load group.
+    /// (2)  size of the group (number of loaded scalar elements)
+    /// (3)  Reordering information(optional, i.e. if non-empty).
+    ///      We basicaly have two mutually exclusive options:
+    ///      - when pointer operands of scalars loads in a TreeEntry are
+    ///      comparable (and thus sortable) then SplitLoadPtrOrder
+    ///      may contain their sorted order (if scalars need reordering).
+    ///      Each load group ordering in such a case is not used.
+    ///      Otherwise each load group may have their ordering
+    ///      information (only if reordering is needed).
+    SmallVector<std::tuple<unsigned, unsigned, OrdersType>, 1> SplitLoadGroups;
+    OrdersType SplitLoadOrder;
 #endif // INTEL_CUSTOMIZATION
 
   private:
@@ -2350,15 +2351,20 @@ private:
       dbgs() << "\n";
 
       if (!SplitLoadGroups.empty()) {
-        dbgs() << "Load groups: " << SplitLoadGroups.size() << "\n";
+        dbgs() << "Split load groups: " << SplitLoadGroups.size() << "\n";
         int Cnt = 0;
         for (const auto &Group : SplitLoadGroups) {
-          dbgs() << "Split load group " << Cnt++ << ".\n";
-          for (int i = Group.first; i < Group.first + Group.second; ++i)
-            if (SplitLoadPtrOrder.empty())
-              dbgs() << *Scalars[i] << "\n";
+          dbgs() << "Group " << Cnt++ << ".\n";
+          unsigned First, Size;
+          OrdersType GroupOrder;
+          std::tie(First, Size, GroupOrder) = Group;
+          for (unsigned I = 0; I < Size; ++I)
+            if (!SplitLoadOrder.empty())
+              dbgs() << *Scalars[SplitLoadOrder[First + I]] << "\n";
             else
-              dbgs() << *Scalars[SplitLoadPtrOrder[i]] << "\n";
+              dbgs()
+                  << *Scalars[First + (GroupOrder.empty() ? I : GroupOrder[I])]
+                  << "\n";
         }
       }
 #endif // INTEL_CUSTOMIZATION
@@ -4829,21 +4835,13 @@ void BoUpSLP::buildTreeMultiNode_rec(const InstructionsState &S,
   // skipped leaf is a good permutation, while the one in the trunk is a bad
   // one, then the good leaf is not visited at all.
   // Disabling the 'alreadyInTrunk()' condition should fix this but I am not
-  // sure it is safe to remvoe it.
+  // sure it is safe to remove it.
   if (BuildTreeOrderReverse && DoPSLP) {
-    for (int i = 1; i >= 0; --i) {
-//      UserTreeIdx.EdgeIdx = i;
-//      UserTreeIdx.OpDirection = std::move(OpDirs[i]);
-      // Continue the recursion: try to grow the Multi-Node.
-      buildTree_rec(Operands[i], NextDepth, {NewTE, static_cast<unsigned>(i), OpDirs[i]});
-    }
+    buildTree_rec(Operands[1], NextDepth, {NewTE, 1, OpDirs[1]});
+    buildTree_rec(Operands[0], NextDepth, {NewTE, 0, OpDirs[0]});
   } else {
-    for (unsigned i = 0; i < 2; ++i) {
-//      UserTreeIdx.EdgeIdx = i;
-//      UserTreeIdx.OpDirection = std::move(OpDirs[i]);
-      // Continue the recursion: try to grow the Multi-Node.
-      buildTree_rec(Operands[i], NextDepth, {NewTE, i, OpDirs[i]});
-    }
+    buildTree_rec(Operands[0], NextDepth, {NewTE, 0, OpDirs[0]});
+    buildTree_rec(Operands[1], NextDepth, {NewTE, 1, OpDirs[1]});
   }
 }
 
@@ -5387,77 +5385,81 @@ void BoUpSLP::buildTree_rec(ArrayRef<Value *> VL_, unsigned Depth,
       // Check whether we can issue smaller-wide loads to build up the entire
       // vector (split-load).
 
-      // Just few notes about existing split-load implementation limitations.
-      // We are currently able to handle split-loads when pointer arguments of
-      // scalar loads are not in order but that is only true if all the pointers
-      // have same base address, i.e. they are sortable: non-empty CurrentOrder
-      // is a good indication of that. Otherwise we are still able to handle
-      // split-loads but each group in such a case have to have their pointer
-      // arguments in order. Otherwise it will not be detected as a group and
-      // split loads fails.
-      // For example we have pointers [a+0, a+1, a+2, a+3, b+0, b+1, b+2, b+3]
-      // and their bases "a" and "b" are not SCEV comparable.
-      // llvm::sortPtrAccesses in such a case fails but split-load will detect
-      // two groups: G1: a+0, a+1, a+2, a+3 and G2: b+0, b+1, b+2, b+3
-      // But in a case [a+0, a+2, a+1, a+3, b+0, b+1, b+2, b+3]
-      // current algorithm fails to detect a group that is relative to base "a"
-      // and thus we end up gathering scalar loads to build the entire vector
-      // (this is yet another limitation - partial vector loads combined with
-      // scalar loads for the rest + gathering no supported).
+      if (MaxSplitLoads > 0 &&
+          (CurrentOrder.empty() || CurrentOrder.size() == VL.size())) {
+        // Each consecutive group is represented by
+        // starting index, load size (number of consecutive scalar
+        // elements) and re-ordering information (if any).
+        SmallVector<std::tuple<unsigned, unsigned, OrdersType>, 1> LoadGroups;
+        unsigned VF = VL.size();
+        unsigned MaxSplitNums = Log2_32(MaxSplitLoads);
+        uint64_t ScalarSize = DL->getTypeAllocSize(ScalarTy);
 
-      if (EnableSplitLoad) {
-        // Each consecutive group is represented by a pair of integers:
-        // starting index and load size (number of consecutive scalar
-        // elements).
-        // We go through all elements in order and create a group when
-        // non-consecutive access encountered.
-        SmallVector<std::pair<int, int>, 1> LoadGroups;
+        auto IsConsecutive = [this, ScalarSize](Value *Ptr0, Value *PtrN,
+                                                int Size) -> bool {
+          const SCEV *Scev0 = SE->getSCEV(Ptr0);
+          const SCEV *ScevN = SE->getSCEV(PtrN);
+          const auto *Diff =
+              dyn_cast<SCEVConstant>(SE->getMinusSCEV(ScevN, Scev0));
+          return Diff && Diff->getAPInt() == (Size - 1) * ScalarSize;
+        };
 
-        // Build group [From, Size] as it contains consecutive loads.
-        int VF = VL.size();
-        for (int To = 0, From = 0; To < VF; ++To) {
-          bool EndGroup = To == VF - 1;
-          if (!EndGroup)
-            // Check whether next pair of pointers are adjacent.
-            EndGroup =
-                CurrentOrder.empty()
-                    ? !isConsecutiveAccess(VL[To], VL[To + 1], *DL, *SE)
-                    : !isConsecutiveAccess(VL[CurrentOrder[To]],
-                                           VL[CurrentOrder[To + 1]], *DL, *SE);
-          if (EndGroup) {
-            int GroupSize = To - From + 1;
-            // Only allow groups of sizes that are power of 2.
-            if (GroupSize > 1 && isPowerOf2_32(GroupSize))
-              LoadGroups.emplace_back(From, GroupSize);
-            From = To + 1;
+        // Find out if we are able to build up the entire vector load with
+        // multiple smaller size vector loads (of GroupSize elements each).
+        // Populates LoadGroups with loads information.
+        auto TryGroupSize = [this, VF, &LoadGroups,
+                             IsConsecutive](ArrayRef<Value *> Pointers,
+                                            ArrayRef<unsigned> PointersOrder,
+                                            unsigned GroupSize) {
+          LoadGroups.clear();
+          for (unsigned N = 0; N < VF / GroupSize; N++) {
+            OrdersType GroupOrder;
+            unsigned First = N * GroupSize;
+            unsigned Idx0, IdxN;
+            if (!PointersOrder.empty()) {
+              Idx0 = PointersOrder[First];
+              IdxN = PointersOrder[First + GroupSize - 1];
+            } else {
+              ArrayRef<Value *> Slice =
+                  makeArrayRef(Pointers).slice(First, GroupSize);
+              if (!llvm::sortPtrAccesses(Slice, *DL, *SE, GroupOrder) ||
+                  (!GroupOrder.empty() && GroupOrder.size() != GroupSize))
+                return false;
+
+              Idx0 = First + (GroupOrder.empty() ? 0 : GroupOrder[0]);
+              IdxN = First + (GroupOrder.empty() ? GroupSize - 1
+                                                 : GroupOrder[GroupSize - 1]);
+            }
+            Value *Ptr0 = Pointers[Idx0];
+            Value *PtrN = Pointers[IdxN];
+            if (!IsConsecutive(Ptr0, PtrN, GroupSize))
+              return false;
+            LoadGroups.emplace_back(First, GroupSize, GroupOrder);
+          }
+          return true;
+        };
+
+        bool UseSplitLoad = false;
+        for (unsigned Split = 1; Split <= MaxSplitNums; ++Split) {
+          unsigned GroupSize = VF / (1 << Split);
+          if (GroupSize < 2)
+            break;
+          if (TryGroupSize(PointerOps, CurrentOrder, GroupSize)) {
+            UseSplitLoad = true;
+            break;
           }
         }
 
-        bool UseSplitLoad = true;
-        // Bail out if no groups found or too many small groups or
-        // number of groups is not power of 2.
-        // TODO: relax pow-of-two requirement in codegen.
-        int NumGroups = LoadGroups.size();
-        if (NumGroups == 0 || NumGroups > MaxSplitLoadGroups ||
-            !isPowerOf2_32(NumGroups))
-          UseSplitLoad = false;
-        else
-          // Check all groups are of same size and cover the entire VL.
-          // TODO: We should allow groups of various sizes.
-          for (const auto &Group : LoadGroups)
-            if (Group.second != VF / NumGroups) {
-              UseSplitLoad = false;
-              break;
-            }
-
         if (UseSplitLoad) {
+          LLVM_DEBUG(dbgs() << "SLP: found a split load group of size "
+                            << LoadGroups.size() << ".\n");
           ++NumOpsWantToKeepOriginalOrder;
           TreeEntry *TE =
               newTreeEntry(VL, Bundle, S, UserTreeIdx, ReuseShuffleIndicies);
           TE->setOperandsInOrder();
           VectorizableTree.back()->SplitLoadGroups = LoadGroups;
           if (!CurrentOrder.empty())
-            VectorizableTree.back()->SplitLoadPtrOrder = CurrentOrder;
+            VectorizableTree.back()->SplitLoadOrder = CurrentOrder;
 
           LLVM_DEBUG(dbgs() << "SLP: added a vector of split-loads.\n");
           return;
@@ -5568,8 +5570,11 @@ void BoUpSLP::buildTree_rec(ArrayRef<Value *> VL_, unsigned Depth,
       }
       TE->setOperand(0, Left);
       TE->setOperand(1, Right);
-      buildTree_rec(Left, Depth + 1, {TE, 0, OpDirLeft});   // INTEL
-      buildTree_rec(Right, Depth + 1, {TE, 1, OpDirRight}); // INTEL
+
+#if INTEL_CUSTOMIZATION
+      buildTree_rec(TE->getOperand(0), Depth + 1, {TE, 0, OpDirLeft});
+      buildTree_rec(TE->getOperand(1), Depth + 1, {TE, 1, OpDirRight});
+#endif // INTEL_CUSTOMIZATION
       return;
     }
     case Instruction::Select:
@@ -5884,8 +5889,8 @@ void BoUpSLP::buildTree_rec(ArrayRef<Value *> VL_, unsigned Depth,
                                        OpDirRight, *this);
         TE->setOperand(0, Left);
         TE->setOperand(1, Right);
-        buildTree_rec(Left, Depth + 1, {TE, 0, OpDirLeft});
-        buildTree_rec(Right, Depth + 1, {TE, 1, OpDirRight});
+        buildTree_rec(TE->getOperand(0), Depth + 1, {TE, 0, OpDirLeft});
+        buildTree_rec(TE->getOperand(1), Depth + 1, {TE, 1, OpDirRight});
         return;
       }
 #endif // INTEL_CUSTOMIZATION
@@ -7282,19 +7287,25 @@ Value *BoUpSLP::vectorizeTree(TreeEntry *E) {
 
       setInsertPointAfterBundle(E);
 
-      std::list<Value *> WorkList;
+      std::list<std::tuple<Value *, OrdersType>> WorkList;
       // Go through all split-load groups and emit the vector loads.
       for (const auto &Group : E->SplitLoadGroups) {
-        assert(Group.second > 1 && isPowerOf2_32(Group.second) && "Bad Group");
-        VectorType *VecLdTy = FixedVectorType::get(ScalarTy, Group.second);
-        Value *L0;
-        if (E->SplitLoadPtrOrder.empty())
-          L0 = E->Scalars[Group.first];
-        else
-          L0 = E->Scalars[E->SplitLoadPtrOrder[Group.first]];
-        Value *VecLoad = createVecLoad(E, L0, VecLdTy);
-        WorkList.push_front(VecLoad);
+        unsigned First, Size;
+        OrdersType GroupOrder;
+        std::tie(First, Size, GroupOrder) = Group;
+        assert(Size > 1 && isPowerOf2_32(Size) && "Bad load group");
+
+        VectorType *VecLdTy = FixedVectorType::get(ScalarTy, Size);
+        Value *FirstElementInGroup =
+            !E->SplitLoadOrder.empty()
+                ? E->Scalars[E->SplitLoadOrder[First]]
+                : E->Scalars[GroupOrder.empty() ? First
+                                                : First + GroupOrder[0]];
+        Value *VecLoad = createVecLoad(E, FirstElementInGroup, VecLdTy);
+        WorkList.emplace_front(VecLoad, GroupOrder);
       }
+
+      Value *RetValue = nullptr;
 
       // If we have two or more loads emit the pair-wise shuffles.
       // At the end we build a tree like this:
@@ -7308,30 +7319,67 @@ Value *BoUpSLP::vectorizeTree(TreeEntry *E) {
       while (WorkList.size() >= 2) {
         // Pop front a pair of loads/shuffles from the worklist, create a
         // shuffle, and push it back into the worklist.
-        Value *Vec0 = WorkList.back();
+
+        Value *Vec0, *Vec1;
+        OrdersType VecOrder0, VecOrder1;
+        std::tie(Vec0, VecOrder0) = WorkList.back();
         WorkList.pop_back();
-        Value *Vec1 = WorkList.back();
+        std::tie(Vec1, VecOrder1) = WorkList.back();
         WorkList.pop_back();
 
-        assert(isa<VectorType>(Vec0->getType()) && "Vector expected.");
         size_t NumElements =
             cast<VectorType>(Vec0->getType())->getNumElements();
 
-        SmallVector<int, 8> ShuffleMask(2 * NumElements);
-        // If we are building the last shuffle and loaded elements are not
-        // in same order as the original scalar elements as a result of
-        // sorting by scalar loads pointer argument, we have to build
-        // ShuffleMask to permute elements based on the sorted order.
-        if (WorkList.empty() && !E->SplitLoadPtrOrder.empty())
-          inversePermutation(E->SplitLoadPtrOrder, ShuffleMask);
-        else
+        assert(cast<VectorType>(Vec1->getType())->getNumElements() ==
+                   NumElements &&
+               "Worklist is broken");
+
+        SmallVector<int, 8> ShuffleMask;
+
+        if (WorkList.empty() && !E->SplitLoadOrder.empty()) {
+          // If we are building the last shuffle and loaded elements are not
+          // in same order as they come in a TreeEntry then permute elements
+          // based on their sort order.
+          inversePermutation(E->SplitLoadOrder, ShuffleMask);
+
+        } else if (isa<LoadInst>(Vec0)) {
+          assert(isa<LoadInst>(Vec1) && "Missed second load");
+
+          assert((VecOrder0.empty() || VecOrder0.size() == NumElements) &&
+                 (VecOrder1.empty() || VecOrder1.size() == NumElements) &&
+                 "Vector ordering does not match load size");
+
+          // For loads we use order if provided. Otherwise assume elements
+          // are in order.
+          if (VecOrder0.empty()) {
+            VecOrder0.resize(NumElements);
+            std::iota(VecOrder0.begin(), VecOrder0.end(), 0);
+          }
+
+          if (VecOrder1.empty()) {
+            VecOrder1.resize(NumElements);
+            std::iota(VecOrder1.begin(), VecOrder1.end(), NumElements);
+          } else {
+            for (auto &I : VecOrder1)
+              I += NumElements;
+          }
+
+          VecOrder0.append(VecOrder1.begin(), VecOrder1.end());
+          inversePermutation(VecOrder0, ShuffleMask);
+        } else {
+          ShuffleMask.resize(NumElements * 2);
           std::iota(ShuffleMask.begin(), ShuffleMask.end(), 0);
+        }
+
         Value *Shuffle = Builder.CreateShuffleVector(Vec0, Vec1, ShuffleMask,
                                                      "SplitLoadShuffle");
-        WorkList.push_front(Shuffle);
+        if (WorkList.empty()) {
+          RetValue = Shuffle;
+          break;
+        }
+        VecOrder0.clear();
+        WorkList.emplace_front(Shuffle, VecOrder0);
       }
-
-      Value *RetValue = WorkList.back();
       // When split load support is enabled we may need to shuffle resulting
       // vector.
       if (NeedToShuffleReuses) {

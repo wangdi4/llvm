@@ -683,6 +683,14 @@ unsigned VPlanCostModel::getCost() {
   return Cost;
 }
 
+unsigned VPlanCostModel::getBlockRangeCost(const VPBasicBlock *Begin,
+                                           const VPBasicBlock *End) {
+  unsigned Cost = 0;
+  for (auto *Block : sese_depth_first(Begin, End))
+    Cost += getCost(Block);
+  return Cost;
+}
+
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 void VPlanCostModel::printForVPInstruction(
   raw_ostream &OS, const VPInstruction *VPInst) {

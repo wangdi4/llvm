@@ -91,11 +91,20 @@ using namespace PatternMatch;
 // true if the memcpy should be expanded as individual element copies.
 // The current threshold for the number of elements is 2 because too
 // aggressive mempcy expansion might introduce performance regression.
+
+
+// Note: this is given as a number of field elements copied
 static cl::opt<unsigned>
-    StructCopySizeThreshold("strucure-copy-size-threshold",
-                            cl::desc("Max size for structure copy"),
-                            cl::init(2), cl::Hidden);
-#endif
+    StructCopyCountThresholdC("structure-copy-count-threshold-c",
+                              cl::desc("Max field number for structure copy"),
+                              cl::init(2), cl::Hidden);
+
+// Note: this is given as a number of bytes copied
+static cl::opt<unsigned>
+    StructCopySizeThresholdFortran("structure-copy-size-threshold-fortran",
+                                   cl::desc("Max byte size for structure copy"),
+                                   cl::init(128), cl::Hidden);
+#endif // INTEL_CUSTOMIZATION
 STATISTIC(NumSimplified, "Number of library calls simplified");
 
 static cl::opt<unsigned> GuardWideningWindow(
@@ -115,7 +124,26 @@ static Type *getPromotedType(Type *Ty) {
 }
 
 #if INTEL_CUSTOMIZATION
-// The clang usually translates the structure assignment into the
+//
+// Return 'true' if 'STy' has a non-struct non-single-value type nested
+// in it somewhere (like an ArrayType or VectorType.)
+//
+static bool hasNonStructNonSingleValueType(StructType *STy) {
+  for (unsigned I = 0, E = STy->getNumElements(); I < E; ++I) {
+     Type *TyE = STy->getElementType(I);
+     auto TySE = dyn_cast<StructType>(TyE);
+     if (TySE) {
+       if (hasNonStructNonSingleValueType(TySE))
+         return true;
+     } else if (!TyE->isSingleValueType()) {
+       return true;
+     }
+   }
+   return false;
+}
+
+//
+// For C/C++, clang usually translates the structure assignment into the
 // memcpy annotated with struct type meta data. This transformation hampers
 // the alias analysis and later optimizations. Here this routine
 // checks to see if the memcpy is actually a struct copy or not. If so,
@@ -125,28 +153,33 @@ static Type *getPromotedType(Type *Ty) {
 // to estimate whether the number of load/stores fall into some
 // threshold if the memcpy is transformed. If the number exceeds
 // some threshold, the expansion will give up due to performance reason.
-static bool IsGoodStructMemcpy(MemIntrinsic *MI) {
-  MDNode *M = MI->getMetadata(LLVMContext::MD_tbaa_struct);
-  const DataLayout &DL = MI->getParent()->getModule()->getDataLayout();
-
-  if (!M) {
-    return false;
-  }
+//
+// For Fortran, we lower all struct-to-struct copies, for structs without
+// nested ArrayTypes or VectorTypes, for compatibility with what was done
+// in ifort.
+//
+static bool IsGoodStructMemcpy(MemIntrinsic *MI, uint64_t Size) {
   Value *StrippedSrc = MI->getArgOperand(1)->stripPointerCasts();
-  Value *StrippedDest = MI->getArgOperand(0)->stripPointerCasts();
-
+  Value *StrippedDst = MI->getArgOperand(0)->stripPointerCasts();
   // The following code gets the structure type for the source operand
   // and destination operand in the memcpy.
   Type *SrcPtrTyp = cast<PointerType>(StrippedSrc->getType())->getElementType();
-  Type *DestPtrTyp =
-      cast<PointerType>(StrippedDest->getType())->getElementType();
-
-  unsigned TotalGoodElem = 0;
+  Type *DstPtrTyp = cast<PointerType>(StrippedDst->getType())->getElementType();
   StructType *SrcSTy = dyn_cast<StructType>(&*SrcPtrTyp);
-  StructType *DestSTy = dyn_cast<StructType>(&*DestPtrTyp);
-  if (!SrcSTy || !DestSTy || SrcSTy != DestSTy) {
+  StructType *DstSTy = dyn_cast<StructType>(&*DstPtrTyp);
+  if (!SrcSTy || !DstSTy || SrcSTy != DstSTy) {
     return false;
   }
+  const DataLayout &DL = MI->getParent()->getModule()->getDataLayout();
+  if (MI->getFunction()->isFortran())
+    return DL.getTypeStoreSize(SrcSTy) == Size &&
+        Size <= StructCopySizeThresholdFortran &&
+        !hasNonStructNonSingleValueType(SrcSTy);
+  if ((Size & (Size - 1)) != 0)
+    return false;
+  MDNode *M = MI->getMetadata(LLVMContext::MD_tbaa_struct);
+  if (!M)
+    return false;
   unsigned int ElemNum = SrcSTy->getNumElements();
   // The input memcpy is expected to be annotated with correct type meta data,
   // which is used by the newly generated loads/stores. Without annoating
@@ -155,6 +188,7 @@ static bool IsGoodStructMemcpy(MemIntrinsic *MI) {
   if (M->getNumOperands() != 3 * ElemNum) {
     return false;
   }
+  unsigned TotalGoodElem = 0;
   for (unsigned int i = 0; i < ElemNum; ++i) {
     Type *ElemTy = SrcSTy->getElementType(i);
     if (!ElemTy->isSingleValueType()) {
@@ -164,49 +198,57 @@ static bool IsGoodStructMemcpy(MemIntrinsic *MI) {
     // CMPLRLLVM-8813: the heuristic was limiting the number of fields of the
     // struct to only 2. Now the number of fields can be up to 2*2=4
     // if the struct is <= 64 bits.
-    if ((TotalGoodElem > StructCopySizeThreshold) &&
-        !(DL.getTypeSizeInBits(SrcSTy) <= 64 && (TotalGoodElem <= (StructCopySizeThreshold * 2)))) {
+    if ((TotalGoodElem > StructCopyCountThresholdC) &&
+        !(DL.getTypeSizeInBits(SrcSTy) <= 64 &&
+        (TotalGoodElem <= (StructCopyCountThresholdC * 2)))) {
       return false;
     }
   }
   return true;
 }
 
-// It expands the memcpy of a structure into the copies of structure members.
-void InstCombinerImpl::GenStructFieldsCopyFromMemcpy(MemIntrinsic *MI) {
+//
+// Recursive version of GenStructFieldsCopyFromMemcpy below that extends
+// the original code to handle nested structures. 'Index' is used to index
+// through the (possibly nested) structure in a linear fashion. The number
+// of load/store pairs generated up this point is returned.
+//
+unsigned int
+InstCombinerImpl::GenFieldsForStruct(MemIntrinsic *MI, StructType *STy,
+                                     Value *StrippedSrc, Value *StrippedDest,
+                                     unsigned int Index) {
   MDNode *CopyMD = nullptr;
   Value *GEPSrc, *GEPDest;
   LoadInst *LDSrc;
   StoreInst *STDest;
-  MDNode *M = MI->getMetadata(LLVMContext::MD_tbaa_struct);
-  // The following code gets structure pointer for the source operand
-  // and destination operand in the memcpy.
-  Value *StrippedSrc = MI->getArgOperand(1)->stripPointerCasts();
-  Value *StrippedDest = MI->getArgOperand(0)->stripPointerCasts();
-  Type *PtrTyp = cast<PointerType>(StrippedDest->getType())->getElementType();
-  StructType *STy = dyn_cast<StructType>(&*PtrTyp);
-  assert(STy && "Expected non-empty structure type");
   unsigned int ElemNum = STy->getNumElements();
-
+  MDNode *M = MI->getMetadata(LLVMContext::MD_tbaa_struct);
+  assert((!M || !MI->getFunction()->isFortran()) &&
+      "Not expecting TBAA metadata on Fortran fucntions");
   for (unsigned int i = 0; i < ElemNum; ++i) {
     Type *ElemTy = STy->getElementType(i);
-    SmallVector<Value *, 8> Indices;
-    Indices.push_back(Builder.getInt32(0));
     // In order to build the GEP instruction correctly, we need to
     // provide the current index of structure field.
+    SmallVector<Value *, 8> Indices;
+    Indices.push_back(Builder.getInt32(0));
     Indices.push_back(Builder.getInt32(i));
     GEPSrc = Builder.CreateInBoundsGEP(STy, StrippedSrc, Indices);
+    GEPDest = Builder.CreateInBoundsGEP(STy, StrippedDest, Indices);
+    if (auto SSTy = dyn_cast<StructType>(ElemTy)) {
+      Index = GenFieldsForStruct(MI, SSTy, GEPSrc, GEPDest, Index);
+      continue;
+    }
     LDSrc = Builder.CreateLoad(GEPSrc);
     LDSrc->setAlignment(DL.getABITypeAlign(ElemTy));
-    CopyMD = cast<MDNode>(M->getOperand(2 + i * 3));
-    assert(CopyMD);
-    LDSrc->setMetadata(LLVMContext::MD_tbaa, CopyMD);
-    GEPDest = Builder.CreateInBoundsGEP(STy, StrippedDest, Indices);
-
+    if (M) {
+      CopyMD = cast<MDNode>(M->getOperand(2 + Index * 3));
+      Index++;
+      LDSrc->setMetadata(LLVMContext::MD_tbaa, CopyMD);
+    }
     STDest = Builder.CreateStore(LDSrc, GEPDest);
-    STDest->setMetadata(LLVMContext::MD_tbaa, CopyMD);
+    if (M)
+      STDest->setMetadata(LLVMContext::MD_tbaa, CopyMD);
     STDest->setAlignment(DL.getABITypeAlign(ElemTy));
-
     // Propagate alias.scope and noalias metadata to load and store.
     for (Instruction *I : {static_cast<Instruction *>(LDSrc),
                            static_cast<Instruction *>(STDest)}) {
@@ -216,6 +258,20 @@ void InstCombinerImpl::GenStructFieldsCopyFromMemcpy(MemIntrinsic *MI) {
                      MI->getMetadata(LLVMContext::MD_noalias));
     }
   }
+  return Index;
+}
+
+// It expands the memcpy of a structure into the copies of structure members.
+void InstCombinerImpl::GenStructFieldsCopyFromMemcpy(MemIntrinsic *MI) {
+  // The following code gets structure pointer for the source operand
+  // and destination operand in the memcpy.
+  LLVM_DEBUG(dbgs() << "Generating fields for memcpy " << *MI << "\n");
+  Value *StrippedSrc = MI->getArgOperand(1)->stripPointerCasts();
+  Value *StrippedDest = MI->getArgOperand(0)->stripPointerCasts();
+  Type *PtrTyp = cast<PointerType>(StrippedDest->getType())->getElementType();
+  StructType *STy = dyn_cast<StructType>(&*PtrTyp);
+  assert(STy && "Expected non-empty structure type");
+  (void) GenFieldsForStruct(MI, STy, StrippedSrc, StrippedDest, 0);
 }
 #endif // INTEL_CUSTOMIZATION
 
@@ -259,12 +315,12 @@ Instruction *InstCombinerImpl::SimplifyAnyMemTransfer(AnyMemTransferInst *MI) {
   // Translate the memcpy into structure members copies in certain
   // cases.
   if (auto *MemIntrin = dyn_cast<MemIntrinsic>(MI))
-    if ((Size & (Size - 1)) == 0 && IsGoodStructMemcpy(MemIntrin)) {
+    if (IsGoodStructMemcpy(MemIntrin, Size)) {
       GenStructFieldsCopyFromMemcpy(MemIntrin);
       MI->setArgOperand(2, Constant::getNullValue(MemOpLength->getType()));
       return MI;
     }
-#endif
+#endif // INTEL_CUSTOMIZATION
 
   if (Size > 8 || (Size&(Size-1)))
     return nullptr;  // If not 1/2/4/8 bytes, exit.

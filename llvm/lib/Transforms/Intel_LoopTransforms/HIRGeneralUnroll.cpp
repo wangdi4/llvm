@@ -82,6 +82,7 @@
 #include "llvm/Support/raw_ostream.h"
 
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRDDAnalysis.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRLocalityAnalysis.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRLoopResource.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRLoopStatistics.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRSafeReductionAnalysis.h"
@@ -524,10 +525,17 @@ unsigned HIRGeneralUnroll::computeUnrollFactor(const HLLoop *HLoop,
     return 0;
   }
 
-  // Multi-exit loops have a higher chance of having a low trip count as they
-  // can take early exits. We may cause degradations in those cases by
-  // increasing code size. Unroll factor of 2 is the safest bet.
-  UnrollFactor = (NumExits > 1) ? 2 : MaxUnrollFactor;
+  // If loop has temporal reuse, unrolling with higher factor can expose more
+  // redundant loads/stores.
+  if ((NumExits == 1) || HIRLoopLocality::hasTemporalReuseLocality(
+                             HLoop, MaxUnrollFactor - 1, true)) {
+    UnrollFactor = MaxUnrollFactor;
+  } else {
+    // Multi-exit loops have a higher chance of having a low trip count as they
+    // can take early exits. We may cause degradations in those cases by
+    // increasing code size. Unroll factor of 2 is the safest bet.
+    UnrollFactor = 2;
+  }
 
   while ((UnrollFactor * SelfCost) > MaxUnrolledLoopCost) {
     UnrollFactor /= 2;
@@ -581,16 +589,6 @@ bool HIRGeneralUnroll::isProfitable(const HLLoop *Loop, bool HasEnablingPragma,
       LLVM_DEBUG(
           dbgs()
           << "Skipping unroll of multi-exit loops on 32 bit platform!\n");
-      return false;
-    }
-
-    // Enable this when we find a convincing test case where unrolling helps.
-    // All the current instances where it helps is when we have locality
-    // between memrefs. These should be handled by scalar replacement (captured
-    // in CMPLRS-41981). It is causing degradations in some benchmarks and the
-    // reasons are not quite clear to me.
-    if (Loop->isDoMultiExit()) {
-      LLVM_DEBUG(dbgs() << "Skipping unroll of DO multi-exit loop!\n");
       return false;
     }
 

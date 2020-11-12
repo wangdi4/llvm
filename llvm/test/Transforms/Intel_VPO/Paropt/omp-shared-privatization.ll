@@ -37,6 +37,23 @@
 ;    A[I] = 3.0f * B[I];
 ;}
 ;
+;void test_nested_private(float * A, float * B, int N) {
+;  float X = 3.0f;
+;
+;#pragma omp teams
+;  {
+;#pragma omp distribute parallel for
+;    for (int I = 0; I < N; ++I)
+;      A[I] = X * B[I];
+;
+;#pragma omp distribute parallel for private(X)
+;    for (int I = 0; I < N; ++I) {
+;      X = fabsf(A[I]);
+;      A[I] += X;
+;    }
+;  }
+;}
+;
 ; Check that shared A and B are passed to the outlined function by value. That
 ; depends on A's and B's references to be privatized inside the outlined parallel
 ; region by Paropt and then promoted to values by the argument promotion pass.
@@ -548,11 +565,176 @@ omp.precond.end:                                  ; preds = %omp.loop.exit, %ent
   ret void
 }
 
+define dso_local void @test_nested_private(float* %A, float* %B, i32 %N) {
+entry:
+  %A.addr = alloca float*, align 8
+  %B.addr = alloca float*, align 8
+  %N.addr = alloca i32, align 4
+  %X = alloca float, align 4
+  %tmp = alloca i32, align 4
+  %.capture_expr.0 = alloca i32, align 4
+  %.capture_expr.1 = alloca i32, align 4
+  %.omp.iv = alloca i32, align 4
+  %.omp.lb = alloca i32, align 4
+  %.omp.ub = alloca i32, align 4
+  %I = alloca i32, align 4
+  %tmp9 = alloca i32, align 4
+  %.capture_expr.2 = alloca i32, align 4
+  %.capture_expr.3 = alloca i32, align 4
+  %.omp.iv17 = alloca i32, align 4
+  %.omp.lb18 = alloca i32, align 4
+  %.omp.ub19 = alloca i32, align 4
+  %I23 = alloca i32, align 4
+  store float* %A, float** %A.addr, align 8
+  store float* %B, float** %B.addr, align 8
+  store i32 %N, i32* %N.addr, align 4
+  store float 3.000000e+00, float* %X, align 4
+
+; CHECK: call {{.*}} @__kmpc_fork_teams({{.+}}, i32 4, void (i32*, i32*, ...)* bitcast (void (i32*, i32*, float*, float*, i64, i64)* [[NESTED_PRIVATE_TEAMS:@.+]] to void (i32*, i32*, ...)*), float* %A, float* %B, i64 %{{.+}}, i64 1077936128)
+
+  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.TEAMS"(), "QUAL.OMP.SHARED"(float** %A.addr), "QUAL.OMP.SHARED"(float** %B.addr), "QUAL.OMP.SHARED"(i32* %N.addr), "QUAL.OMP.SHARED"(float* %X), "QUAL.OMP.PRIVATE"(i32* %.capture_expr.1), "QUAL.OMP.PRIVATE"(i32* %.omp.iv), "QUAL.OMP.PRIVATE"(i32* %.omp.lb), "QUAL.OMP.PRIVATE"(i32* %.omp.ub), "QUAL.OMP.PRIVATE"(i32* %I), "QUAL.OMP.PRIVATE"(i32* %.capture_expr.0), "QUAL.OMP.PRIVATE"(i32* %.capture_expr.3), "QUAL.OMP.PRIVATE"(i32* %.omp.iv17), "QUAL.OMP.PRIVATE"(i32* %.omp.lb18), "QUAL.OMP.PRIVATE"(i32* %.omp.ub19), "QUAL.OMP.PRIVATE"(i32* %I23), "QUAL.OMP.PRIVATE"(i32* %.capture_expr.2), "QUAL.OMP.PRIVATE"(i32* %tmp), "QUAL.OMP.PRIVATE"(i32* %tmp9) ]
+  %1 = load i32, i32* %N.addr, align 4
+  store i32 %1, i32* %.capture_expr.0, align 4
+  %2 = load i32, i32* %.capture_expr.0, align 4
+  %sub = sub nsw i32 %2, 0
+  %sub1 = sub nsw i32 %sub, 1
+  %add = add nsw i32 %sub1, 1
+  %div = sdiv i32 %add, 1
+  %sub2 = sub nsw i32 %div, 1
+  store i32 %sub2, i32* %.capture_expr.1, align 4
+  %3 = load i32, i32* %.capture_expr.0, align 4
+  %cmp = icmp slt i32 0, %3
+  br i1 %cmp, label %omp.precond.then, label %omp.precond.end
+
+omp.precond.then:                                 ; preds = %entry
+  store i32 0, i32* %.omp.lb, align 4
+  %4 = load i32, i32* %.capture_expr.1, align 4
+  store i32 %4, i32* %.omp.ub, align 4
+  %5 = call token @llvm.directive.region.entry() [ "DIR.OMP.DISTRIBUTE.PARLOOP"(), "QUAL.OMP.SHARED"(float** %A.addr), "QUAL.OMP.SHARED"(float** %B.addr), "QUAL.OMP.SHARED"(float* %X), "QUAL.OMP.NORMALIZED.IV"(i32* %.omp.iv), "QUAL.OMP.FIRSTPRIVATE"(i32* %.omp.lb), "QUAL.OMP.NORMALIZED.UB"(i32* %.omp.ub), "QUAL.OMP.PRIVATE"(i32* %I) ]
+  %6 = load i32, i32* %.omp.lb, align 4
+  store i32 %6, i32* %.omp.iv, align 4
+  br label %omp.inner.for.cond
+
+omp.inner.for.cond:                               ; preds = %omp.inner.for.inc, %omp.precond.then
+  %7 = load i32, i32* %.omp.iv, align 4
+  %8 = load i32, i32* %.omp.ub, align 4
+  %cmp3 = icmp sle i32 %7, %8
+  br i1 %cmp3, label %omp.inner.for.body, label %omp.inner.for.end
+
+omp.inner.for.body:                               ; preds = %omp.inner.for.cond
+  %9 = load i32, i32* %.omp.iv, align 4
+  %mul = mul nsw i32 %9, 1
+  %add4 = add nsw i32 0, %mul
+  store i32 %add4, i32* %I, align 4
+  %10 = load float, float* %X, align 4
+  %11 = load float*, float** %B.addr, align 8
+  %12 = load i32, i32* %I, align 4
+  %idxprom = sext i32 %12 to i64
+  %ptridx = getelementptr inbounds float, float* %11, i64 %idxprom
+  %13 = load float, float* %ptridx, align 4
+  %mul5 = fmul fast float %10, %13
+  %14 = load float*, float** %A.addr, align 8
+  %15 = load i32, i32* %I, align 4
+  %idxprom6 = sext i32 %15 to i64
+  %ptridx7 = getelementptr inbounds float, float* %14, i64 %idxprom6
+  store float %mul5, float* %ptridx7, align 4
+  br label %omp.body.continue
+
+omp.body.continue:                                ; preds = %omp.inner.for.body
+  br label %omp.inner.for.inc
+
+omp.inner.for.inc:                                ; preds = %omp.body.continue
+  %16 = load i32, i32* %.omp.iv, align 4
+  %add8 = add nsw i32 %16, 1
+  store i32 %add8, i32* %.omp.iv, align 4
+  br label %omp.inner.for.cond
+
+omp.inner.for.end:                                ; preds = %omp.inner.for.cond
+  br label %omp.loop.exit
+
+omp.loop.exit:                                    ; preds = %omp.inner.for.end
+  call void @llvm.directive.region.exit(token %5) [ "DIR.OMP.END.DISTRIBUTE.PARLOOP"() ]
+  br label %omp.precond.end
+
+omp.precond.end:                                  ; preds = %omp.loop.exit, %entry
+  %17 = load i32, i32* %N.addr, align 4
+  store i32 %17, i32* %.capture_expr.2, align 4
+  %18 = load i32, i32* %.capture_expr.2, align 4
+  %sub10 = sub nsw i32 %18, 0
+  %sub11 = sub nsw i32 %sub10, 1
+  %add12 = add nsw i32 %sub11, 1
+  %div13 = sdiv i32 %add12, 1
+  %sub14 = sub nsw i32 %div13, 1
+  store i32 %sub14, i32* %.capture_expr.3, align 4
+  %19 = load i32, i32* %.capture_expr.2, align 4
+  %cmp15 = icmp slt i32 0, %19
+  br i1 %cmp15, label %omp.precond.then16, label %omp.precond.end36
+
+omp.precond.then16:                               ; preds = %omp.precond.end
+  store i32 0, i32* %.omp.lb18, align 4
+  %20 = load i32, i32* %.capture_expr.3, align 4
+  store i32 %20, i32* %.omp.ub19, align 4
+  %21 = call token @llvm.directive.region.entry() [ "DIR.OMP.DISTRIBUTE.PARLOOP"(), "QUAL.OMP.PRIVATE"(float* %X), "QUAL.OMP.SHARED"(float** %A.addr), "QUAL.OMP.NORMALIZED.IV"(i32* %.omp.iv17), "QUAL.OMP.FIRSTPRIVATE"(i32* %.omp.lb18), "QUAL.OMP.NORMALIZED.UB"(i32* %.omp.ub19), "QUAL.OMP.PRIVATE"(i32* %I23) ]
+  %22 = load i32, i32* %.omp.lb18, align 4
+  store i32 %22, i32* %.omp.iv17, align 4
+  br label %omp.inner.for.cond20
+
+omp.inner.for.cond20:                             ; preds = %omp.inner.for.inc32, %omp.precond.then16
+  %23 = load i32, i32* %.omp.iv17, align 4
+  %24 = load i32, i32* %.omp.ub19, align 4
+  %cmp21 = icmp sle i32 %23, %24
+  br i1 %cmp21, label %omp.inner.for.body22, label %omp.inner.for.end34
+
+omp.inner.for.body22:                             ; preds = %omp.inner.for.cond20
+  %25 = load i32, i32* %.omp.iv17, align 4
+  %mul24 = mul nsw i32 %25, 1
+  %add25 = add nsw i32 0, %mul24
+  store i32 %add25, i32* %I23, align 4
+  %26 = load float*, float** %A.addr, align 8
+  %27 = load i32, i32* %I23, align 4
+  %idxprom26 = sext i32 %27 to i64
+  %ptridx27 = getelementptr inbounds float, float* %26, i64 %idxprom26
+  %28 = load float, float* %ptridx27, align 4
+  %29 = call fast float @llvm.fabs.f32(float %28)
+  store float %29, float* %X, align 4
+  %30 = load float, float* %X, align 4
+  %31 = load float*, float** %A.addr, align 8
+  %32 = load i32, i32* %I23, align 4
+  %idxprom28 = sext i32 %32 to i64
+  %ptridx29 = getelementptr inbounds float, float* %31, i64 %idxprom28
+  %33 = load float, float* %ptridx29, align 4
+  %add30 = fadd fast float %33, %30
+  store float %add30, float* %ptridx29, align 4
+  br label %omp.body.continue31
+
+omp.body.continue31:                              ; preds = %omp.inner.for.body22
+  br label %omp.inner.for.inc32
+
+omp.inner.for.inc32:                              ; preds = %omp.body.continue31
+  %34 = load i32, i32* %.omp.iv17, align 4
+  %add33 = add nsw i32 %34, 1
+  store i32 %add33, i32* %.omp.iv17, align 4
+  br label %omp.inner.for.cond20
+
+omp.inner.for.end34:                              ; preds = %omp.inner.for.cond20
+  br label %omp.loop.exit35
+
+omp.loop.exit35:                                  ; preds = %omp.inner.for.end34
+  call void @llvm.directive.region.exit(token %21) [ "DIR.OMP.END.DISTRIBUTE.PARLOOP"() ]
+  br label %omp.precond.end36
+
+omp.precond.end36:                                ; preds = %omp.loop.exit35, %omp.precond.end
+  call void @llvm.directive.region.exit(token %0) [ "DIR.OMP.END.TEAMS"() ]
+  ret void
+}
+
 declare void @llvm.memcpy.p0i8.p0i8.i64(i8* noalias nocapture writeonly, i8* noalias nocapture readonly, i64, i1 immarg)
 
 declare token @llvm.directive.region.entry()
 
 declare void @llvm.directive.region.exit(token)
+
+declare float @llvm.fabs.f32(float)
 
 ; CHECK: define internal void [[OUTLINED_FUNC]](i32* nocapture readonly %tid, i32* nocapture readnone %bid, float* nocapture readonly [[BBASE:%.+]], float* nocapture [[ABASE:%.+]], i64 %{{.+}}, i64 %{{.+}}) #{{[0-9]+}} {
 ; CHECK: omp.inner.for.body:
@@ -606,5 +788,28 @@ declare void @llvm.directive.region.exit(token)
 
 ; CHECK: define internal void [[OUTLINED_BAZ_TEAMS]](i32* nocapture readnone %tid, i32* nocapture readnone %bid, float* nocapture [[ABASE:%.+]], float* nocapture readonly [[BBASE:%.+]], i64 %{{.+}}) #{{[0-9]+}} {
 ; CHECK:   call {{.*}} @__kmpc_fork_call({{.*}}, i32 4, void (i32*, i32*, ...)* bitcast (void (i32*, i32*, float*, float*, i64, i64)* [[OUTLINED_BAZ_LOOP]] to void (i32*, i32*, ...)*), float* [[ABASE]], float* [[BBASE]], i64 0, i64 %{{.+}})
+; CHECK: }
+
+; CHECK: define internal void [[NESTED_PRIVATE_LOOP2:@.+]](i32* nocapture readonly %tid, i32* nocapture readnone %bid, float* nocapture [[ABASE:%.+]], i64 %{{.+}}, i64 %{{.+}}) #{{[0-9]+}} {
+; CHECK: omp.inner.for.body{{.+}}:
+; CHECK:   [[AADDR:%.+]] = getelementptr inbounds float, float* [[ABASE]],
+; CHECK:   [[AVAL:%.+]] = load float, float* [[AADDR]]
+; CHECK:   [[FABS:%.+]] = call fast float @llvm.fabs.f32(float [[AVAL]])
+; CHECK:   [[FADD:%.+]] = fadd fast float [[FABS]], [[AVAL]]
+; CHECK:   store float [[FADD]], float* [[AADDR]]
+; CHECK: }
+
+; CHECK: define internal void [[NESTED_PRIVATE_LOOP1:@.+]](i32* nocapture readonly %tid, i32* nocapture readnone %bid, float* nocapture [[ABASE:%.+]], float* nocapture readonly [[BBASE:%.+]], i64 %{{.+}}, i64 %{{.+}}, i64 %{{.+}}) #{{[0-9]+}} {
+; CHECK: omp.inner.for.body{{.*}}:
+; CHECK:   [[BADDR:%.+]] = getelementptr inbounds float, float* [[BBASE]],
+; CHECK:   [[BVAL:%.+]] = load float, float* [[BADDR]]
+; CHECK:   [[FMUL:%.+]] = fmul fast float [[BVAL]], 3.000000e+00
+; CHECK:   [[AADDR:%.+]] = getelementptr inbounds float, float* [[ABASE]],
+; CHECK:   store float [[FMUL]], float* [[AADDR]]
+; CHECK: }
+
+; CHECK: define internal void [[NESTED_PRIVATE_TEAMS]](i32* nocapture readnone %tid, i32* nocapture readnone %bid, float* nocapture [[ABASE:%.+]], float* nocapture readonly [[BBASE:%.+]], i64 %{{.+}}, i64 %{{.+}}) #{{[0-9]+}} {
+; CHECK:   call {{.*}} @__kmpc_fork_call({{.*}}, i32 5, void (i32*, i32*, ...)* bitcast (void (i32*, i32*, float*, float*, i64, i64, i64)* [[NESTED_PRIVATE_LOOP1]] to void (i32*, i32*, ...)*), float* [[ABASE]], float* [[BBASE]], i64 1077936128, i64 0, i64 %{{.+}})
+; CHECK:   call {{.*}} @__kmpc_fork_call({{.*}}, i32 3, void (i32*, i32*, ...)* bitcast (void (i32*, i32*, float*, i64, i64)* [[NESTED_PRIVATE_LOOP2]] to void (i32*, i32*, ...)*), float* [[ABASE]], i64 0, i64 %{{.+}})
 ; CHECK: }
 

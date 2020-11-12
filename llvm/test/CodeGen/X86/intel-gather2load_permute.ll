@@ -5,6 +5,7 @@
 %struct.6 = type {[6 x float], %struct.6*, %struct.6* }
 %struct.8 = type {[8 x float], %struct.8*, %struct.8* }
 %struct.17 = type {[17 x float], %struct.17*, %struct.17* }
+%struct.4294967304 = type {[4294967304 x float], %struct.4294967304*, %struct.4294967304* }
 
 ; Function Attrs: norecurse nounwind readonly uwtable
 define dso_local <6 x float> @Array2x_Gather6x_AllOneMask(i32* nocapture readonly %index_ptr, %struct.2* nocapture readonly %node) {
@@ -534,6 +535,46 @@ entry:
   ret <17 x float> %res
 }
 
+; Function Attrs: norecurse nounwind readonly uwtable
+define dso_local <16 x float> @Array8x_Gather16x(i32* nocapture readonly %index_ptr, %struct.8* nocapture readonly %node) #0 {
+; X86-AVX512-VL-DQ-LABEL: Array8x_Gather16x:
+; X86-AVX512-VL-DQ:       # %bb.0: # %entry
+; X86-AVX512-VL-DQ-NEXT:    movl {{[0-9]+}}(%esp), %eax
+; X86-AVX512-VL-DQ-NEXT:    movl {{[0-9]+}}(%esp), %ecx
+; X86-AVX512-VL-DQ-NEXT:    vmovups (%ecx), %zmm1
+; X86-AVX512-VL-DQ-NEXT:    kxnorw %k0, %k0, %k1
+; X86-AVX512-VL-DQ-NEXT:    vxorps %xmm0, %xmm0, %xmm0
+; X86-AVX512-VL-DQ-NEXT:    vgatherdps (%eax,%zmm1,4), %zmm0 {%k1}
+; X86-AVX512-VL-DQ-NEXT:    retl
+entry:
+  %bc = bitcast i32* %index_ptr to <16 x i32>*
+  %index = load <16 x i32>, <16 x i32>* %bc, align 4
+  %gep = getelementptr inbounds %struct.8, %struct.8* %node, i64 0, i32 0, <16 x i32> %index
+  %res = call <16 x float> @llvm.masked.gather.v16f32.v16p0f32(<16 x float*> %gep, i32 4, <16 x i1> <i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true>, <16 x float> undef)
+  ret <16 x float> %res
+}
+
+; Function Attrs: norecurse nounwind readonly uwtable
+define dso_local <6 x float> @Array4294967304x_Gather6x_AllOneMask(i32* nocapture readonly %index_ptr, %struct.4294967304* nocapture readonly %node) {
+; X86-AVX512-VL-DQ-LABEL: Array4294967304x_Gather6x_AllOneMask:
+; X86-AVX512-VL-DQ:       # %bb.0: # %entry
+; X86-AVX512-VL-DQ-NEXT:    movl {{[0-9]+}}(%esp), %eax
+; X86-AVX512-VL-DQ-NEXT:    movl {{[0-9]+}}(%esp), %ecx
+; X86-AVX512-VL-DQ-NEXT:    movb $63, %dl
+; X86-AVX512-VL-DQ-NEXT:    kmovb %edx, %k1
+; X86-AVX512-VL-DQ-NEXT:    vmovdqu32 (%ecx), %ymm1 {%k1} {z}
+; X86-AVX512-VL-DQ-NEXT:    vxorps %xmm0, %xmm0, %xmm0
+; X86-AVX512-VL-DQ-NEXT:    vgatherdps (%eax,%ymm1,4), %ymm0 {%k1}
+; X86-AVX512-VL-DQ-NEXT:    retl
+entry:
+  %bc = bitcast i32* %index_ptr to <6 x i32>*
+  %index = load <6 x i32>, <6 x i32>* %bc, align 4
+  %index_i64 = sext <6 x i32> %index to <6 x i64>
+  %gep = getelementptr inbounds %struct.4294967304, %struct.4294967304* %node, i64 0, i32 0, <6 x i64> %index_i64
+  %res = call <6 x float> @llvm.masked.gather.v6f32.v6p0f32(<6 x float*> %gep, i32 4, <6 x i1> <i1 true, i1 true, i1 true, i1 true, i1 true, i1 true>, <6 x float> undef)
+  ret <6 x float> %res
+}
+
 ; Function Attrs: nounwind readonly willreturn
 declare <2 x float> @llvm.masked.gather.v2f32.v2p0f32(<2 x float*>, i32 immarg, <2 x i1>, <2 x float>) #1
 
@@ -544,6 +585,11 @@ declare <6 x float> @llvm.masked.gather.v6f32.v6p0f32(<6 x float*>, i32 immarg, 
 declare <8 x float> @llvm.masked.gather.v8f32.v8p0f32(<8 x float*>, i32 immarg, <8 x i1>, <8 x float>) #1
 
 ; Function Attrs: nounwind readonly willreturn
+declare <16 x float> @llvm.masked.gather.v16f32.v16p0f32(<16 x float*>, i32 immarg, <16 x i1>, <16 x float>) #1
+
+; Function Attrs: nounwind readonly willreturn
 declare <17 x float> @llvm.masked.gather.v17f32.v17p0f32(<17 x float*>, i32 immarg, <17 x i1>, <17 x float>) #1
+
+attributes #0 = { nounwind uwtable "correctly-rounded-divide-sqrt-fp-math"="false" "denormal-fp-math"="preserve-sign,preserve-sign" "denormal-fp-math-f32"="ieee,ieee" "disable-tail-calls"="false" "frame-pointer"="none" "less-precise-fpmad"="false" "may-have-openmp-directive"="false" "min-legal-vector-width"="0" "no-infs-fp-math"="true" "no-jump-tables"="false" "no-nans-fp-math"="true" "no-signed-zeros-fp-math"="true" "no-trapping-math"="true" "prefer-vector-width"="512" "stack-protector-buffer-size"="8" "target-cpu"="skylake-avx512" "target-features"="+adx,+aes,+avx,+avx2,+avx512bw,+avx512cd,+avx512dq,+avx512f,+avx512vl,+bmi,+bmi2,+clflushopt,+clwb,+cx16,+cx8,+f16c,+fma,+fsgsbase,+fxsr,+invpcid,+lzcnt,+mmx,+movbe,+pclmul,+pku,+popcnt,+prfchw,+rdrnd,+rdseed,+sahf,+sse,+sse2,+sse3,+sse4.1,+sse4.2,+ssse3,+x87,+xsave,+xsavec,+xsaveopt,+xsaves" "unsafe-fp-math"="true" "use-soft-float"="false" }
 
 attributes #1 = { nounwind readonly willreturn }

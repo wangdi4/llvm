@@ -1,7 +1,3 @@
-// INTEL_CUSTOMIZATION
-// Disable this test until we can replace homegrown printf.EXE
-// UNSUPPORTED: windows-msvc
-// END_INTEL_CUSTOMIZATION
 RUN: printf '\377lprofR\201' > %t
 RUN: printf '\0\0\0\0\0\0\0\5' >> %t
 RUN: printf '\0\0\0\0\0\0\0\2' >> %t

@@ -1,7 +1,3 @@
-// INTEL_CUSTOMIZATION
-// Disable this test until we can replace homegrown printf.EXE
-// UNSUPPORTED: windows-msvc
-// END_INTEL_CUSTOMIZATION
 RUN: printf '\201rforpl\377' > %t-foo.profraw
 RUN: printf '\5\0\0\0\0\0\0\0' >> %t-foo.profraw
 RUN: printf '\1\0\0\0\0\0\0\0' >> %t-foo.profraw

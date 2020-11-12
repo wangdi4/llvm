@@ -419,7 +419,7 @@ bool VPlanAllZeroBypass::blendTerminatesRegion(const VPBlendInst *Blend,
 void VPlanAllZeroBypass::collectAllZeroBypassNonLoopRegions(
     AllZeroBypassRegionsTy &AllZeroBypassRegions,
     RegionsCollectedTy &RegionsCollected,
-    VPlanCostModelProprietary *CM) {
+    VPlanCostModel *CM) {
 
   VPLoopInfo *VPLI = Plan.getVPLoopInfo();
 

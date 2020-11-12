@@ -33,9 +33,9 @@
 ; CHECK: DO i2 =
 ; CHECK: DO i3 =
 ; CHECK: DO i4 =
-; RESTRICT:   = ([[ALLOC_0]])[i2 + [[SUM]] * i3 + i4];
-; RESTRICT:   = ([[ALLOC_1]])[i2 + [[SUM]] * i3 + i4];
-; RESTRICT:   = ([[ALLOC_2]])[i2 + [[SUM]] * i3 + i4];
+; RESTRICT:   = uitofp.i32.float(([[ALLOC_0]])[i2 + [[SUM]] * i3 + i4]);
+; RESTRICT:   = uitofp.i32.float(([[ALLOC_1]])[i2 + [[SUM]] * i3 + i4]);
+; RESTRICT:   = uitofp.i32.float(([[ALLOC_2]])[i2 + [[SUM]] * i3 + i4]);
 ; NORESTRICT: ([[INNERARRAY]])[i2 + %alpha * i3 + i4].0);
 ; NORESTRICT: ([[INNERARRAY]])[i2 + %alpha * i3 + i4].1);
 ; NORESTRICT: ([[INNERARRAY]])[i2 + %alpha * i3 + i4].2);
