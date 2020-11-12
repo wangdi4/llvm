@@ -229,8 +229,6 @@ struct DeviceTy {
 
 #if INTEL_COLLAB
   int32_t manifest_data_for_region(void *TgtEntryPtr);
-  void *create_buffer(void *HstPtr);
-  int32_t release_buffer(void *TgtBuffer);
   char *get_device_name(char *Buffer, size_t BufferMaxSize);
   void *data_alloc_base(int64_t Size, void *HstPtrBegin, void *HstPtrBase);
   void *data_alloc_user(int64_t Size, void *HstPtrBegin);

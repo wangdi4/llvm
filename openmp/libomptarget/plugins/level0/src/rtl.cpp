@@ -2834,15 +2834,6 @@ EXTERN void *__tgt_rtl_get_context_handle() {
   return (void *)context;
 }
 
-
-EXTERN void *__tgt_rtl_create_buffer(int32_t DeviceId, void *TgtPtr) {
-  return TgtPtr;
-}
-
-EXTERN int32_t __tgt_rtl_release_buffer(void *TgtPtr) {
-  return OFFLOAD_SUCCESS;
-}
-
 EXTERN int32_t __tgt_rtl_synchronize(
     int32_t DeviceId, __tgt_async_info *async_info_ptr) {
   return OFFLOAD_SUCCESS;
