@@ -56,18 +56,17 @@ define dso_local float @ifmax1(i32 %N) local_unnamed_addr #0 {
 ; CHECK-NEXT:     br i1 [[VP8]], [[BB4:BB[0-9]+]], [[BB3]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB4]]: # preds: [[BB2]]
-; CHECK-NEXT:       float [[VP9:%.*]] = phi  [ float [[VP4]], [[BB2]] ]
 ; CHECK-NEXT:       float* [[VP_SUBSCRIPT_1:%.*]] = subscript inbounds [1000 x float]* @C i64 0 i64 [[VP6]]
 ; CHECK-NEXT:       float [[VP_LOAD_1:%.*]] = load float* [[VP_SUBSCRIPT_1]]
-; CHECK-NEXT:       i1 [[VP10:%.*]] = fcmp ogt float [[VP_LOAD_1]] float [[VP9]]
-; CHECK-NEXT:       float [[VP11:%.*]] = select i1 [[VP10]] float [[VP_LOAD_1]] float [[VP9]]
+; CHECK-NEXT:       i1 [[VP9:%.*]] = fcmp ogt float [[VP_LOAD_1]] float [[VP4]]
+; CHECK-NEXT:       float [[VP10:%.*]] = select i1 [[VP9]] float [[VP_LOAD_1]] float [[VP4]]
 ; CHECK-NEXT:       br [[BB3]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB3]]: # preds: [[BB4]], [[BB2]]
-; CHECK-NEXT:     float [[VP5]] = phi  [ float [[VP11]], [[BB4]] ],  [ float [[VP4]], [[BB2]] ]
+; CHECK-NEXT:     float [[VP5]] = phi  [ float [[VP10]], [[BB4]] ],  [ float [[VP4]], [[BB2]] ]
 ; CHECK-NEXT:     i64 [[VP7]] = add i64 [[VP6]] i64 [[VP__IND_INIT_STEP]]
-; CHECK-NEXT:     i1 [[VP12:%.*]] = icmp sle i64 [[VP7]] i64 [[VP2]]
-; CHECK-NEXT:     br i1 [[VP12]], [[BB2]], [[BB5:BB[0-9]+]]
+; CHECK-NEXT:     i1 [[VP11:%.*]] = icmp sle i64 [[VP7]] i64 [[VP2]]
+; CHECK-NEXT:     br i1 [[VP11]], [[BB2]], [[BB5:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB5]]: # preds: [[BB3]]
 ; CHECK-NEXT:     float [[VP__RED_FINAL:%.*]] = reduction-final{fmax} float [[VP5]]
@@ -76,6 +75,9 @@ define dso_local float @ifmax1(i32 %N) local_unnamed_addr #0 {
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB6]]: # preds: [[BB5]]
 ; CHECK-NEXT:     br <External Block>
+; CHECK-EMPTY:
+; CHECK-NEXT:  External Uses:
+; CHECK-NEXT:  Id: 0   float [[VP__RED_FINAL]] -> [[VP12:%.*]] = {%tmax.015}
 ;
 entry:
   %cmp14 = icmp sgt i32 %N, 0

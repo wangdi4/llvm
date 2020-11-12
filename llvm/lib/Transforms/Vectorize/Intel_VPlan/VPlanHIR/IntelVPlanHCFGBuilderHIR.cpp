@@ -687,6 +687,9 @@ void PlainCFGBuilderHIR::buildPlainCFG() {
   ActiveVPBB = nullptr;
   updateActiveVPBB();
 
+  // Create empty PHIs for live-out temps in Plan's exit block.
+  Decomposer.createExitPhisForExternalUses(ActiveVPBB);
+
   // At this point, all the VPBasicBlocks have been built and all the
   // VPInstructions have been created for the loop nest. It's time to fix
   // VPInstructions representing a PHI operation.

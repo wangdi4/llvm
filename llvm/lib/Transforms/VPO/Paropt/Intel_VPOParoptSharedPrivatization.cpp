@@ -128,16 +128,18 @@ bool VPOParoptTransform::privatizeSharedItems(WRegionNode *W) {
   LLVM_DEBUG(dbgs() << "\nEnter VPOParoptTransform::privatizeSharedItems: "
                     << W->getName() << "\n");
 
-  // Returns true if all given users are either load instructions or bitcasts
-  // that are used by the loads.
+  // Returns true if all given users are load instructions, bitcasts/GEPs
+  // that are used by the loads or begin/end directives.
   auto allUsersAreLoads = [W](ArrayRef<Instruction *> Users) {
     SmallVector<Instruction *, 8u> Worklist{Users.begin(), Users.end()};
     while (!Worklist.empty()) {
       Instruction *I = Worklist.pop_back_val();
       if (isa<BitCastInst>(I) || isa<GetElementPtrInst>(I)) {
-        WRegionUtils::findUsersInRegion(W, I, &Worklist, true);
+        WRegionUtils::findUsersInRegion(W, I, &Worklist);
         continue;
       }
+      if (VPOAnalysisUtils::isBeginOrEndDirective(I))
+        continue;
       if (!isa<LoadInst>(I))
         return false;
     }
@@ -167,8 +169,8 @@ bool VPOParoptTransform::privatizeSharedItems(WRegionNode *W) {
     // Check if item's memory is modified inside the region. If not then it
     // should be safe to privatize it.
     MemoryLocation Loc{AI, LocationSize::precise(*Size)};
-    if (any_of(W->blocks(), [&](const BasicBlock *BB) {
-          if (BB == W->getEntryBBlock() || BB == W->getExitBBlock())
+    if (any_of(W->blocks(), [&](BasicBlock *BB) {
+          if (VPOAnalysisUtils::isBeginOrEndDirective(BB))
             return false;
           if (!AA->canBasicBlockModify(*BB, Loc))
             return false;
@@ -188,7 +190,7 @@ bool VPOParoptTransform::privatizeSharedItems(WRegionNode *W) {
         continue;
 
       SmallVector<Instruction *, 8> Users;
-      if (!WRegionUtils::findUsersInRegion(W, AI, &Users, true)) {
+      if (!WRegionUtils::findUsersInRegion(W, AI, &Users)) {
         LLVM_DEBUG(reportSkipped(AI, "no users in the region"));
         continue;
       }
@@ -224,7 +226,7 @@ bool VPOParoptTransform::privatizeSharedItems(WRegionNode *W) {
           continue;
         }
 
-        if (!allUsersAreLoads(BCI)) {
+        if (!allUsersAreLoads(Users)) {
           LLVM_DEBUG(reportSkipped(BCI, "address escapes"));
           continue;
         }

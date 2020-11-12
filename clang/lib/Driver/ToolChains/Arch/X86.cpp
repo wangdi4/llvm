@@ -211,8 +211,16 @@ void x86::getX86TargetFeatures(const Driver &D, const llvm::Triple &Triple,
                                const ArgList &Args,
                                std::vector<StringRef> &Features) {
   // If -march=native, autodetect the feature list.
-  if (const Arg *A = Args.getLastArg(clang::driver::options::OPT_march_EQ)) {
-    if (StringRef(A->getValue()) == "native") {
+#if INTEL_CUSTOMIZATION
+  // if -xHost/QxHost, autodetect the feature list.
+  if (const Arg *A = Args.getLastArg(clang::driver::options::OPT_march_EQ,
+                                     options::OPT_x, options::OPT__SLASH_Qx)) {
+    if ((A->getOption().matches(options::OPT_march_EQ) &&
+         (StringRef(A->getValue()) == "native")) ||
+        ((A->getOption().matches(options::OPT_x) ||
+          A->getOption().matches(options::OPT__SLASH_Qx)) &&
+         ((StringRef(A->getValue())).lower() == "host"))) {
+#endif // INTEL_CUSTOMIZATION
       llvm::StringMap<bool> HostFeatures;
       if (llvm::sys::getHostCPUFeatures(HostFeatures))
         for (auto &F : HostFeatures)
