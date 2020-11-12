@@ -11,15 +11,11 @@
 ;}
 ;
 ; check the encoding of Subdevice and the generation of DeviceID
-; CHECK: Subdevice encoding : Stride before shift: 0x0000000000000004
-; CHECK-NEXT: Subdevice encoding : Stride after shift: 0x0000000400000000
-; CHECK-NEXT: Subdevice encoding : Length before shift: 0x0000000000000003
-; CHECK-NEXT: Subdevice encoding : Length after shift: 0x0000030000000000
-; CHECK-NEXT: Subdevice encoding : Start before shift: 0x0000000000000002
-; CHECK-NEXT: Subdevice encoding : Start after shift: 0x0002000000000000
-; CHECK-NEXT: Subdevice encoding : Level before shift: 0x0000000000000001
-; CHECK-NEXT: Subdevice encoding : Level after shift: 0x0100000000000000
-; CHECK-NEXT: DeviceID before Subdevice encoding: 0x0000000000000002
+; CHECK: Subdevice encoding : Device before shift: 0x0000000000000002, after shift: 0x0000000000000002
+; CHECK-NEXT: Subdevice encoding : Level before shift: 0x0000000000000001, after shift: 0x0100000000000000
+; CHECK-NEXT: Subdevice encoding : Start before shift: 0x0000000000000002, after shift: 0x0002000000000000
+; CHECK-NEXT: Subdevice encoding : Length before shift: 0x0000000000000003, after shift: 0x0000030000000000
+; CHECK-NEXT: Subdevice encoding : Stride before shift: 0x0000000000000004, after shift: 0x0000000400000000
 ; CHECK-NEXT: DeviceID after Subdevice encoding: 0x8102030400000002
 
 source_filename = "subdevice.c"
