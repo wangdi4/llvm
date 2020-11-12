@@ -1,10 +1,3 @@
-# INTEL_CUSTOMIZATION
-# CMPLRLLVM-23608: This test case has been disabled since it is failing in
-# the community. It is marked as UNSUPPORTED rather than XFAIL since it is
-# a flaky failure.
-# UNSUPPORTED: system-windows
-# end INTEL_CUSTOMIZATION
-
 ## .symtab's sh_info contains zero value. First entry in a .symtab is a
 ## zero entry that must exist in a valid object, so sh_info can't be null.
 ## Check we report a proper error for that case.
