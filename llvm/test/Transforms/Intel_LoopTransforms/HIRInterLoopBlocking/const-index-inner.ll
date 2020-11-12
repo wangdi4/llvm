@@ -68,7 +68,8 @@
 ;           |   |   |   %ub_min96 = (2 <= %tile_e_min) ? 2 : %tile_e_min;
 ;           |   |   |   if (i3 <= 0 && 0 <= %tile_e_min92)                   // From, i3 = 0, in the original loop at line 17. See A[i2][0] and B[i2][0].
 ;                                                                            // First dimensions are for i3-loop, thus i3 = 0;
-;                                                                            // guard is ( tile_begin <= i3 <= tile_end) --> (i3 <= 0 <= tile_end)
+;                                                                            // After the transformation i3 becomes i5.
+;                                                                            // guard is ( tile_begin <= i5 <= tile_end) --> (i3 <= 0 <= tile_end)
 ;           |   |   |   {
 ;           |   |   |      + DO i4 = 0, -1 * %lb_max95 + %ub_min96, 1   <DO_LOOP>
 ;           |   |   |      |   %add34 = (%"sub1_$A")[i4 + %lb_max95][0]  +  2.000000e+00;

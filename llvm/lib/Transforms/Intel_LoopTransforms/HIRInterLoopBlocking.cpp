@@ -88,6 +88,7 @@
 #define OPT_DESC "HIR Spatial blocking over multiple loopnests"
 #define DEBUG_TYPE OPT_SWITCH
 #define LLVM_DEBUG_PROFIT_REPORT(X) DEBUG_WITH_TYPE(OPT_SWITCH "-profit", X)
+#define LLVM_DEBUG_DD_EDGES(X) DEBUG_WITH_TYPE(OPT_SWITCH "-dd", X)
 
 using namespace llvm;
 using namespace llvm::loopopt;
@@ -529,8 +530,9 @@ private:
 
     LLVM_DEBUG(dbgs() << CallSiteLoc << " ";
                dbgs() << "Profitable ?: " << Func << ": ";
-               dbgs() << IsProfitable << "\n"; for (auto *Loop
-                                                    : InnermostLoops) {
+               dbgs() << IsProfitable << "\n";
+               dbgs() << "State: " << State << "\n"; for (auto *Loop
+                                                          : InnermostLoops) {
                  dbgs() << Loop->getNumber() << " ";
                } dbgs() << "\n");
 
@@ -1033,8 +1035,8 @@ private:
       return nullptr;
     };
 
-    auto compareRefs = [GetLoadRval, LCA](
-                           const CanonExpr *CE1, const CanonExpr *CE2,
+    auto compareRefs =
+        [GetLoadRval, LCA](const CanonExpr *CE1, const CanonExpr *CE2,
                            const RegDDRef *Ref1, const RegDDRef *Ref2) -> bool {
       // If one is a constant, both should be the same value.
       int64_t Konstant1 = 0;
@@ -1086,30 +1088,15 @@ private:
       const BlobDDRef *BRef1 = Ref1->getBlobDDRef(Index);
       const RegDDRef *LoadRval1 = GetLoadRval(BRef1);
 
-      if (!LoadRval1) {
-        printMarker("!LoadRval1\n Ref1, Ref2: ", {Ref1, Ref2}, true);
-        printMarker("BRef1: ", {BRef1}, true);
-        printMarker("CE1, CE2: ", {CE1, CE2}, true);
-        printMarker("Ref1 Loop, Ref2 Loop, LCA: ",
-                    {Ref1->getParentLoop(), Ref2->getParentLoop(), LCA}, true);
-
-        return false;
-      }
-
-      Index = CE2->getSingleBlobIndex();
-      const BlobDDRef *BRef2 = Ref2->getBlobDDRef(Index);
+      unsigned Index2 = CE2->getSingleBlobIndex();
+      const BlobDDRef *BRef2 = Ref2->getBlobDDRef(Index2);
       const RegDDRef *LoadRval2 = GetLoadRval(BRef2);
-
-      if (!LoadRval2) {
-        printMarker("!LoadRval2\n Ref1, Ref2: ", {Ref1, Ref2}, true, true);
-        printMarker("BRef1, BRef2: ", {BRef1, BRef2}, true);
-        printMarker("Ref1 Loop, Ref2 Loop, LCA: ",
-                    {Ref1->getParentLoop(), Ref2->getParentLoop(), LCA}, true);
-
-        return false;
+      if (!LoadRval1 && !LoadRval2) {
+        return CanonExprUtils::areEqual(CE1, CE2);
       }
 
-      if (!DDRefUtils::areEqual(LoadRval1, LoadRval2)) {
+      if (LoadRval1 && LoadRval2 &&
+          !DDRefUtils::areEqual(LoadRval1, LoadRval2)) {
         printMarker("LoadRval1 != LoadRval2\n Ref1, Ref2: ", {Ref1, Ref2}, true,
                     true);
         printMarker("LoadRval1, LoadRval2: ", {LoadRval1, LoadRval2}, true,
@@ -1587,7 +1574,18 @@ public:
     //       blobDDRefs of loop bounds. Thus, input DDG does
     //       not hold the information to trace back to loads
     //       of temps.
+    //       For example, a loop before alignment
+    //  DO i = 0, M, 1
+    //    A[i + t] = B[i] + 1
+    //       will become
+    //  DO i = t, M + t, 1
+    //    A[i] = B[i - t] + 1
+    //  Notice M has chaned to M + t.
+    //  For the alignment itself, see comments on alignSpatialLoopBody.
     SmallPtrSet<const HLInst *, 32> LoadInstsToClone;
+    SmallVector<std::pair<unsigned, unsigned>, 16> CopyToLoadIndexMap;
+    collectLoadsToClone(AnchorNode->getTopSortNum(), LoadInstsToClone,
+                        CopyToLoadIndexMap);
 
     // Align original spatial loops
     alignSpatialLoops(InnermostLoopToAdjustingRef);
@@ -1598,13 +1596,32 @@ public:
            !isa<HLLoop>(AnchorNode) &&
                AnchorNode->getNodeLevel() == OutermostLoop->getNestingLevel());
 
+    unsigned StartTopSortNum = AnchorNode->getTopSortNum();
+    unsigned LastTopSortNum =
+        InnermostLoopToDimInfos.back().first->getTopSortNum();
+    collectAdditionalLiveInsToByStripLoops(StartTopSortNum, LastTopSortNum);
+
+    // Note that invalidation only happens here because DDG of original
+    // HLNodes are needed before this point. For example,
+    // collectLoadsToClone() uses DDG to traceback load instructions.
     HIRInvalidationUtils::invalidateBody(OutermostLoop);
 
+    DenseMap<unsigned, unsigned> OrigToCloneIndexMap;
     SmallVector<const RegDDRef *, 32> AuxRefsForByStripBounds;
 
-    SmallVector<std::pair<unsigned, unsigned>, 16> IndexMap;
+    cloneAndAddLoadInsts(LoadInstsToClone, AnchorNode, OrigToCloneIndexMap,
+                         AuxRefsForByStripBounds);
 
-    if (!computeByStripLoopBounds(InnermostLoopToAdjustingRef, IndexMap,
+    // Merge CopyToLoadIndexMap into OrigToCloneIndexMap
+    for (auto KV : CopyToLoadIndexMap) {
+      unsigned NewKey = KV.first;
+      unsigned NewVal = OrigToCloneIndexMap[KV.second];
+      assert(NewVal);
+      OrigToCloneIndexMap.insert(std::make_pair(NewKey, NewVal));
+    }
+
+    if (!computeByStripLoopBounds(InnermostLoopToAdjustingRef,
+                                  OrigToCloneIndexMap,
                                   AuxRefsForByStripBounds)) {
 
       LLVM_DEBUG(dbgs() << "== * == Failed computeByStripLoopBounds \n");
@@ -1695,7 +1712,9 @@ public:
       }
     }
 
-    printMarker("After updating inner Loops: ", {OutermostLoop}, true);
+    LLVM_DEBUG_PROFIT_REPORT(dbgs() << "After updating: \n";
+                             OutermostLoop->dump());
+    printMarker("After updating inner Loops: ", {OutermostLoop}, false);
     printMarker("Detail: After updating inner Loops: ", {OutermostLoop}, true,
                 true);
 
@@ -1721,8 +1740,44 @@ private:
     assert(InnermostLoopToRepRef.size() == InnermostLoopToAdjustingRef.size());
   }
 
-  // Increase def@level of Ref by Increase if current def@level is
-  // greater than equal to LevelThreshold.
+  // Collect Lvals in OutermostLoop, that has outgoing edge
+  // into ByStripLoops. StartTopSortNum, and LastTopSortNum indicates
+  // the beginning and ending of ByStripLoops. Lvals in OutermostLoop
+  // before StartTopSortNum, and whose sinks are between StartTopSortNum
+  // and  LastTopSortNum  are collected.
+  void collectAdditionalLiveInsToByStripLoops(unsigned StartTopSortNum,
+                                              unsigned LastTopSortNum) {
+
+    DDGraph DDG = DDA.getGraph(OutermostLoop);
+
+    for (auto &Node :
+         make_range(OutermostLoop->child_begin(), OutermostLoop->child_end())) {
+      const HLDDNode *DDNode = dyn_cast<HLDDNode>(&Node);
+      if (!DDNode)
+        continue;
+      unsigned CurrentNum = DDNode->getTopSortNum();
+
+      if (CurrentNum >= StartTopSortNum)
+        continue;
+
+      const RegDDRef *Lval = DDNode->getLvalDDRef();
+      if (!Lval)
+        continue;
+
+      // Assume no blob ddrefs from Lval
+      for (auto *Edge : DDG.outgoing(Lval)) {
+        const HLDDNode *SinkNode = Edge->getSink()->getHLDDNode();
+        unsigned UseTopSortNum = SinkNode->getTopSortNum();
+
+        if (UseTopSortNum < StartTopSortNum || UseTopSortNum > LastTopSortNum) {
+          continue;
+        }
+
+        LiveInsOfAllSpatialLoop.push_back(Lval->getSymbase());
+      }
+    }
+  }
+
   void updateDefAtLevelOfSpatialLoops(HLNode *Node) const {
 
     // Increase the blob DDRef's defined at level first
@@ -1737,11 +1792,14 @@ private:
         });
   }
 
+  // Increase def@level of Ref by Increase if current def@level is
+  // greater than equal to LevelThreshold.
   static void incDefinedAtLevelBy(RegDDRef *Ref, unsigned Increase,
                                   unsigned LevelThreshold) {
 
-    auto IncreaseDefLevel = [Increase, LevelThreshold]
-                             (unsigned PrevDefLevel, CanonExpr *CE) {
+    auto IncreaseDefLevel = [Increase, LevelThreshold](CanonExpr *CE) {
+      unsigned PrevDefLevel = CE->getDefinedAtLevel();
+
       if (PrevDefLevel < LevelThreshold)
         return;
 
@@ -1752,21 +1810,18 @@ private:
 
     // Increase Def@Level of Blob CEs.
     if (Ref->isSelfBlob() && !Ref->isNonLinear()) {
-      unsigned PrevDefLevel = Ref->getSingleCanonExpr()->getDefinedAtLevel();
       CanonExpr *CE = Ref->getSingleCanonExpr();
 
-      IncreaseDefLevel(PrevDefLevel, CE);
+      IncreaseDefLevel(CE);
     }
 
     for (auto *BRef : make_range(Ref->blob_begin(), Ref->blob_end())) {
-
       CanonExpr *CE = BRef->getSingleCanonExpr();
 
       if (CE->isNonLinear())
         continue;
 
-      unsigned PrevDefLevel = CE->getDefinedAtLevel();
-      IncreaseDefLevel(PrevDefLevel, CE);
+      IncreaseDefLevel(CE);
     }
 
     // Caculate correct def@level using update Blob's def@level
@@ -1825,6 +1880,8 @@ private:
           // For a Ref, go through dimensions, and get IV Level
           // Get the dim and get the CE from RepRef
           for (auto *CE : make_range(Ref->canon_begin(), Ref->canon_end())) {
+
+            assert(CE->numIVs() <= 1);
 
             // get IV Level from CE
             unsigned FoundIVLevel = 0;
@@ -1937,14 +1994,249 @@ private:
     }
   }
 
+  // Start from the RHS of Copy to find the eventual load instruction.
+  // If not found, return nullptr.
+  // Example)
+  //   %t1 = %a[..] -- (1)
+  //   %t2 = %t1    -- (2)
+  // Starting from %t1, a load instruction (1) is found.
+  const HLInst *tracebackToLoad(const HLInst *Copy, DDGraph DDG) const {
+    assert(Copy->isCopyInst());
+    const RegDDRef *Rval = Copy->getRvalDDRef();
+    const HLInst *Load = nullptr;
+
+    while (Rval) {
+      for (auto *Edge : DDG.incoming(Rval)) {
+        if (!Edge->isFlow())
+          continue;
+
+        HLNode *SrcNode = Edge->getSrc()->getHLDDNode();
+        if (const HLInst *LoadOrCopy = dyn_cast<HLInst>(SrcNode)) {
+          if (isa<LoadInst>(LoadOrCopy->getLLVMInstruction())) {
+            // Found Load
+            printMarker(" == Found Load: \n", {LoadOrCopy});
+
+            Load = LoadOrCopy;
+            return Load;
+
+          } else if (LoadOrCopy->isCopyInst()) {
+            printMarker("Found Copy: \n", {SrcNode});
+
+            // Trace-back to load.
+            Rval = LoadOrCopy->getRvalDDRef();
+          }
+        } else {
+          return Load;
+        }
+      }
+      break;
+    } // while
+
+    return Load;
+  }
+
+  // Only for debugging.
+  static void printDDEdges(const HLInst *LoadInst, DDGraph DDG) {
+    auto *RvalOfLoad = LoadInst->getRvalDDRef();
+    if (DDG.incoming_edges_begin(RvalOfLoad) !=
+        DDG.incoming_edges_end(RvalOfLoad)) {
+      dbgs() << "== incoming edges\n";
+      RvalOfLoad->dump();
+      dbgs() << "\n";
+      for (auto *Edge : DDG.incoming(RvalOfLoad)) {
+        Edge->dump();
+      }
+    } else if (DDG.outgoing_edges_begin(RvalOfLoad) !=
+               DDG.outgoing_edges_end(RvalOfLoad)) {
+      dbgs() << "== Outgoing edges\n";
+      RvalOfLoad->dump();
+      dbgs() << "\n";
+    }
+
+    for (auto *BlobRef :
+         make_range(RvalOfLoad->blob_begin(), RvalOfLoad->blob_end())) {
+      if (DDG.incoming_edges_begin(BlobRef) !=
+          DDG.incoming_edges_end(BlobRef)) {
+        dbgs() << "= incoming edges\n";
+        BlobRef->dump();
+        dbgs() << "\n";
+      } else if (DDG.outgoing_edges_begin(BlobRef) !=
+                 DDG.outgoing_edges_end(BlobRef)) {
+        dbgs() << "= Outgoing edges\n";
+        BlobRef->dump();
+        dbgs() << "\n";
+      }
+    }
+  }
+
+  // Find the load instruction starting from SrcNode.
+  // If SrcNode is a load, return it.
+  // If it is a copy, trace back to a load and return it.
+  const std::pair<const HLInst *, const HLInst *>
+  findLoad(const HLDDNode *SrcNode, DDGraph DDG) const {
+
+    const HLInst *LoadOrCopy = dyn_cast<HLInst>(SrcNode);
+    if (!LoadOrCopy)
+      return std::make_pair(nullptr, nullptr);
+
+    if (isa<LoadInst>(LoadOrCopy->getLLVMInstruction())) {
+      LLVM_DEBUG(dbgs() << "Found Load: \n");
+      LLVM_DEBUG(SrcNode->dump());
+      LLVM_DEBUG(dbgs() << "\n");
+
+      return std::make_pair(LoadOrCopy, nullptr);
+    } else if (LoadOrCopy->isCopyInst()) {
+      const HLInst *CopyInst = LoadOrCopy;
+
+      LLVM_DEBUG(dbgs() << "Found Copy: \n");
+      LLVM_DEBUG(SrcNode->dump());
+      LLVM_DEBUG(dbgs() << "\n");
+
+      // Trace-back to load.
+      return std::make_pair(tracebackToLoad(LoadOrCopy, DDG), CopyInst);
+    }
+
+    return std::make_pair(nullptr, nullptr);
+  }
+
+  // Collect all load instructions loading temps in DestRef.
+  // Make sure all such load instructions are after AnchorNode.
+  void findLoadsOfTemp(
+      DDGraph DDG, const RegDDRef *DestRef, unsigned AnchorNodeTopSortNum,
+      SmallPtrSetImpl<const HLInst *> &LoadInsts,
+      std::map<const HLInst *, const HLInst *> &CopyToLoadMap) const {
+
+    for (auto *Edge : DDG.incoming(DestRef)) {
+      if (!Edge->isFlow())
+        continue;
+
+      std::pair<const HLInst *, const HLInst *> LoadAndCopy =
+          findLoad(Edge->getSrc()->getHLDDNode(), DDG);
+
+      if (!LoadAndCopy.first ||
+          LoadAndCopy.first->getTopSortNum() < AnchorNodeTopSortNum)
+        return;
+
+      LLVM_DEBUG_DD_EDGES(printDDEdges(LoadAndCopy.first, DDG));
+
+      if (LoadAndCopy.second)
+        CopyToLoadMap.emplace(LoadAndCopy.second, LoadAndCopy.first);
+
+      LoadInsts.insert(LoadAndCopy.first);
+    }
+
+    for (auto *BlobRef :
+         make_range(DestRef->blob_begin(), DestRef->blob_end())) {
+
+      for (auto *Edge : DDG.incoming(BlobRef)) {
+        if (!Edge->isFlow())
+          continue;
+
+        LLVM_DEBUG(Edge->dump());
+        std::pair<const HLInst *, const HLInst *> LoadAndCopy =
+            findLoad(Edge->getSrc()->getHLDDNode(), DDG);
+
+        if (!LoadAndCopy.first ||
+            LoadAndCopy.first->getTopSortNum() < AnchorNodeTopSortNum)
+          return;
+
+        LLVM_DEBUG_DD_EDGES(printDDEdges(LoadAndCopy.first, DDG));
+
+        if (LoadAndCopy.second)
+          CopyToLoadMap.emplace(LoadAndCopy.second, LoadAndCopy.first);
+
+        LoadInsts.insert(LoadAndCopy.first);
+      }
+    }
+  }
+
+  void collectLoadsToClone(
+      unsigned AnchorNodeTopSortNum,
+      SmallPtrSetImpl<const HLInst *> &LoadInstsToClone,
+      SmallVectorImpl<std::pair<unsigned, unsigned>> &CopyToLoadIndexMap) {
+
+    printMarker("Collect: ", {OutermostLoop}, true);
+    printMarker("Collect-details: ", {OutermostLoop}, true, true);
+
+    DDGraph DDG = DDA.getGraph(OutermostLoop);
+
+    std::map<const HLInst *, const HLInst *> CopyToLoadMap;
+    // Collect loads for RepRef
+    for (auto &E : InnermostLoopToDimInfos) {
+      const HLLoop *InnermostLoop = E.first;
+
+      const RegDDRef *RepRef = InnermostLoopToRepRef.at(InnermostLoop);
+
+      // RepRef is needed because DDG is based on those refs. (aka original refs
+      // before transformation) Assumption: load for BaseCE of RepRef is not
+      // needed.
+      // It is tempting to try collecting load instructions after
+      // alignSpatialLoops because that function has the updated loop bounds by
+      // alignment, and loads required for those loop bounds are what we want to
+      // collect. But, that doesn't work, because after alignment, ddrefs are
+      // updated and we do not have a way to access dependencies in the original
+      // DDG. Thus, we need original refs. Alignment will transform the original
+      // LB to LB + (RepRef's tmp). Of course RepRef's tmp will be cloned in the
+      // newly created LB. But at least we know, before the actual
+      // transformation, that clones of tmps in RepRef may appear in the new
+      // loop bounds.
+      findLoadsOfTemp(DDG, RepRef, AnchorNodeTopSortNum, LoadInstsToClone,
+                      CopyToLoadMap);
+    }
+
+    // Collect loads for Spatial loop's upper bounds
+    // Lowerbounds are skipped because of being "0" by normalization
+    int GlobalNumDims = StripmineSizes.size();
+    for (int DimNum = 1; DimNum <= GlobalNumDims; DimNum++) {
+      if (isNoBlockDim(DimNum))
+        continue;
+
+      // Collect all Lower/AlignedUpperBounds from InnermostLoop
+      for (auto &E : InnermostLoopToDimInfos) {
+        const HLLoop *InnermostLoop = E.first;
+
+        const HLLoop *TargetLoop =
+            getLoopMatchingDimNum(DimNum, E.second, InnermostLoop);
+        if (!TargetLoop)
+          continue;
+
+        findLoadsOfTemp(DDG, TargetLoop->getUpperDDRef(), AnchorNodeTopSortNum,
+                        LoadInstsToClone, CopyToLoadMap);
+      }
+    }
+
+    // Create a map of old to new blob indicies
+    for (auto &CopyToLoad : CopyToLoadMap) {
+      unsigned OldSB = CopyToLoad.first->getLvalDDRef()->getSymbase();
+      unsigned OldIndex =
+          (CopyToLoad.first->getBlobUtils()).findTempBlobIndex(OldSB);
+      unsigned NewIndex = CopyToLoad.second->getLvalDDRef()
+                              ->getSingleCanonExpr()
+                              ->getSingleBlobIndex();
+
+      assert(OldIndex != InvalidBlobIndex);
+      assert(OldIndex != NewIndex);
+      CopyToLoadIndexMap.emplace_back(OldIndex, NewIndex);
+
+      LLVM_DEBUG(dbgs() << "Map OldIndex: " << OldIndex
+                        << ", NewIndex: " << NewIndex << "\n";
+                 CopyToLoad.first->dump(1); dbgs() << "\n";
+                 CopyToLoad.second->dump(1); dbgs() << "\n");
+    }
+  }
+
   // LB(UB) of a By-strip loop is the "min"("max") of all lower bounds of
   // original spatial loop corresponding to the same DimNum.
   // This function collects all LBs(UBs) of original spatial loops, and
   // generate min(max) blobs of them.
   bool computeByStripLoopBounds(
       const LoopToRefTy &InnermostLoopToAdjustingRef,
-      const SmallVectorImpl<std::pair<unsigned, unsigned>> &BlobIndexMap,
+      const DenseMap<unsigned, unsigned> &OrigToCloneIndexMap,
       SmallVectorImpl<const RegDDRef *> &AuxRefs) {
+
+    SmallVector<std::pair<unsigned, unsigned>, 16> BlobIndexMap;
+    std::copy(OrigToCloneIndexMap.begin(), OrigToCloneIndexMap.end(),
+              std::back_inserter(BlobIndexMap));
 
     int GlobalNumDims = StripmineSizes.size();
     SmallVector<SmallVector<CanonExpr *, 32>, 4> AlignedLowerBounds(
@@ -2030,6 +2322,37 @@ private:
     } // end of dimnum
 
     return true;
+  }
+
+  // Replace all use with new Lval
+  void cloneAndAddLoadInsts(
+      SmallPtrSetImpl<const HLInst *> &LoadInstsToClone, HLNode *AnchorNode,
+      DenseMap<unsigned, unsigned> &OrigToCloneIndexMap,
+      SmallVectorImpl<const RegDDRef *> &AuxRefsForByStripBounds
+
+  ) {
+    for (auto *Load : LoadInstsToClone) {
+      HLInst *NewLoad = Load->getHLNodeUtils().createLoad(
+          Load->getRvalDDRef()->clone(), "clone_load");
+
+      unsigned OldIndex =
+          Load->getLvalDDRef()->getSingleCanonExpr()->getSingleBlobIndex();
+
+      unsigned NewIndex =
+          NewLoad->getLvalDDRef()->getSingleCanonExpr()->getSingleBlobIndex();
+
+      assert(OldIndex != NewIndex);
+
+      OrigToCloneIndexMap.insert(std::make_pair(OldIndex, NewIndex));
+
+      printMarker("Orig Load: ", Load, true, true);
+      printMarker("New Load: ", NewLoad, true, true);
+
+      HLNodeUtils::insertBefore(AnchorNode, NewLoad);
+
+      LiveInsOfAllSpatialLoop.push_back(NewLoad->getLvalDDRef()->getSymbase());
+      AuxRefsForByStripBounds.push_back(NewLoad->getLvalDDRef());
+    }
   }
 
   // Generate by-strip loops and insert before AnchorNode.
