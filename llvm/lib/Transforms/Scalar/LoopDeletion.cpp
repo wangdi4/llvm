@@ -529,9 +529,12 @@ static LoopDeletionResult deleteLoopIfDead(Loop *L, DominatorTree &DT,
   // They could be infinite, in which case we'd be changing program behavior.
   const SCEV *S = SE.getConstantMaxBackedgeTakenCount(L);
 #if INTEL_CUSTOMIZATION
-  if (isa<SCEVCouldNotCompute>(S) && !NotInfinite) {
+  if (isa<SCEVCouldNotCompute>(S) &&
+      !L->getHeader()->getParent()->mustProgress() && !hasMustProgress(L) &&
+      !NotInfinite) {
 #endif // INTEL_CUSTOMIZATION
-    LLVM_DEBUG(dbgs() << "Could not compute SCEV MaxBackedgeTakenCount.\n");
+    LLVM_DEBUG(dbgs() << "Could not compute SCEV MaxBackedgeTakenCount and was "
+                         "not required to make progress.\n");
     return Changed ? LoopDeletionResult::Modified
                    : LoopDeletionResult::Unmodified;
   }
