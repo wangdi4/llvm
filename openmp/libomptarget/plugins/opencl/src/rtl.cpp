@@ -1229,7 +1229,8 @@ int32_t __tgt_rtl_number_of_devices() {
     if (rc != CL_SUCCESS || numDevices == 0)
       continue;
 
-    IDP("Platform %s has %" PRIu32 " Devices\n", buf.data(), numDevices);
+    const char *platformName = buf.data() ? buf.data() : "undefined";
+    IDP("Platform %s has %" PRIu32 " Devices\n", platformName, numDevices);
     std::vector<cl_device_id> devices(numDevices);
     CALL_CL_RET_ZERO(clGetDeviceIDs, id, DeviceInfo->DeviceType, numDevices,
                      devices.data(), nullptr);
@@ -1461,7 +1462,8 @@ static void debugPrintBuildLog(cl_program program, cl_device_id did) {
   std::vector<char> buffer(len);
   CALL_CL_RET_VOID(clGetProgramBuildInfo, program, did, CL_PROGRAM_BUILD_LOG,
                    len, buffer.data(), nullptr);
-  IDP("%s\n", buffer.data());
+  const char *buildLog = buffer.data() ? buffer.data() : "empty";
+  IDP("%s\n", buildLog);
 #endif // INTEL_CUSTOMIZATION
 }
 
@@ -1749,8 +1751,9 @@ __tgt_target_table *__tgt_rtl_load_binary(int32_t device_id,
                        buf_size, buf.data(), nullptr);
       CALL_CL_RET_NULL(clGetKernelInfo, kernels[i], CL_KERNEL_NUM_ARGS,
                        sizeof(cl_uint), &kernel_num_args, nullptr);
-      IDP(
-        "Kernel %d: Name = %s, NumArgs = %d\n", i, buf.data(), kernel_num_args);
+      const char *kernelName = buf.data() ? buf.data() : "undefined";
+      IDP("Kernel %d: Name = %s, NumArgs = %d\n", i, kernelName,
+          kernel_num_args);
       for (unsigned idx = 0; idx < kernel_num_args; idx++) {
         CALL_CL_RET_NULL(clGetKernelArgInfo, kernels[i], idx,
                          CL_KERNEL_ARG_TYPE_NAME, 0, nullptr, &buf_size);
@@ -1764,7 +1767,8 @@ __tgt_target_table *__tgt_rtl_load_binary(int32_t device_id,
         buf.resize(buf_size);
         CALL_CL_RET_NULL(clGetKernelArgInfo, kernels[i], idx,
                          CL_KERNEL_ARG_NAME, buf_size, buf.data(), nullptr);
-        IDP("  Arg %2d: %s %s\n", idx, type_name.c_str(), buf.data());
+        const char *argName = buf.data() ? buf.data() : "undefined";
+        IDP("  Arg %2d: %s %s\n", idx, type_name.c_str(), argName);
       }
     }
   }
