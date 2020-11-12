@@ -372,7 +372,7 @@ public:
   std::vector<ExtensionsTy> Extensions;
   std::vector<cl_context> CTX;
   std::vector<cl_command_queue> Queues;
-  std::vector<cl_command_queue> QueuesOOO; // out-of-order queues
+  std::vector<cl_command_queue> QueuesInOrder;
   std::vector<FuncOrGblEntryTy> FuncGblEntries;
   std::vector<std::map<cl_kernel, KernelPropertiesTy>>
       KernelProperties;
@@ -866,9 +866,8 @@ static void closeRTL() {
     if (DeviceInfo->FuncGblEntries[i].Program)
        CALL_CL_EXIT_FAIL(clReleaseProgram, DeviceInfo->FuncGblEntries[i].Program);
     CALL_CL_EXIT_FAIL(clReleaseCommandQueue, DeviceInfo->Queues[i]);
-    if (DeviceInfo->QueuesOOO[i]) {
-      CALL_CL_EXIT_FAIL(clReleaseCommandQueue, DeviceInfo->QueuesOOO[i]);
-    }
+    if (DeviceInfo->QueuesInOrder[i])
+      CALL_CL_EXIT_FAIL(clReleaseCommandQueue, DeviceInfo->QueuesInOrder[i]);
     CALL_CL_EXIT_FAIL(clReleaseContext, DeviceInfo->CTX[i]);
 #endif // !defined(_WIN32)
     DeviceInfo->unloadOffloadTable(i);
@@ -1246,7 +1245,7 @@ int32_t __tgt_rtl_number_of_devices() {
   DeviceInfo->Extensions.resize(DeviceInfo->numDevices);
   DeviceInfo->CTX.resize(DeviceInfo->numDevices);
   DeviceInfo->Queues.resize(DeviceInfo->numDevices);
-  DeviceInfo->QueuesOOO.resize(DeviceInfo->numDevices);
+  DeviceInfo->QueuesInOrder.resize(DeviceInfo->numDevices, nullptr);
   DeviceInfo->FuncGblEntries.resize(DeviceInfo->numDevices);
   DeviceInfo->KernelProperties.resize(DeviceInfo->numDevices);
   DeviceInfo->Buffers.resize(DeviceInfo->numDevices);
@@ -1326,21 +1325,26 @@ int32_t __tgt_rtl_init_device(int32_t device_id) {
     return OFFLOAD_FAIL;
   }
 
-  cl_queue_properties qprops[3] = {CL_QUEUE_PROPERTIES, 0, 0};
-  if (DeviceInfo->Flags.EnableProfile)
-    qprops[1] = CL_QUEUE_PROFILING_ENABLE;
+  // Use out-of-order queue by default.
+  std::vector<cl_queue_properties> qProperties {
+      CL_QUEUE_PROPERTIES,
+      CL_QUEUE_OUT_OF_ORDER_EXEC_MODE_ENABLE
+  };
+  if (DeviceInfo->Flags.EnableProfile) {
+    qProperties.push_back(CL_QUEUE_PROPERTIES);
+    qProperties.push_back(CL_QUEUE_PROFILING_ENABLE);
+  }
+  qProperties.push_back(0);
 
   auto deviceID = DeviceInfo->deviceIDs[device_id];
   auto context = DeviceInfo->CTX[device_id];
-  CALL_CL_RVRC(DeviceInfo->Queues[device_id], clCreateCommandQueueWithProperties,
-               status, context, deviceID, qprops);
-  if (status != 0) {
+  CALL_CL_RVRC(DeviceInfo->Queues[device_id],
+               clCreateCommandQueueWithProperties, status, context, deviceID,
+               qProperties.data());
+  if (status != CL_SUCCESS) {
     IDP("Error: Failed to create CommandQueue: %d\n", status);
     return OFFLOAD_FAIL;
   }
-
-  // Out-of-order queue will be created on demand.
-  DeviceInfo->QueuesOOO[device_id] = nullptr;
 
   DeviceInfo->Extensions[device_id].getExtensionsInfoForDevice(device_id);
 
@@ -1863,36 +1867,34 @@ int32_t __tgt_rtl_manifest_data_for_region(
 }
 
 EXTERN void *__tgt_rtl_create_offload_queue(int32_t device_id, bool is_async) {
-  // Return a shared in-order queue for synchronous case if requested
-  if (!is_async && DeviceInfo->Flags.UseInteropQueueInorderSharedSync) {
-    IDP("%s returns the shared in-order queue " DPxMOD "\n", __func__,
-       DPxPTR(DeviceInfo->Queues[device_id]));
-    return (void *)DeviceInfo->Queues[device_id];
-  }
-
   cl_int status;
-  cl_command_queue queue;
+  cl_command_queue queue = nullptr;
   auto deviceId = DeviceInfo->deviceIDs[device_id];
   auto context = DeviceInfo->CTX[device_id];
 
-  // Return a shared out-of-order queue for asynchronous case by default
-  if (is_async && !DeviceInfo->Flags.UseInteropQueueInorderAsync) {
-    queue = DeviceInfo->QueuesOOO[device_id];
+  // Return a shared in-order queue for synchronous case if requested
+  if (!is_async && DeviceInfo->Flags.UseInteropQueueInorderSharedSync) {
+    std::unique_lock<std::mutex> lock(DeviceInfo->Mutexes[device_id]);
+    queue = DeviceInfo->QueuesInOrder[device_id];
     if (!queue) {
-      cl_queue_properties qprops[3] =
-          {CL_QUEUE_PROPERTIES, CL_QUEUE_OUT_OF_ORDER_EXEC_MODE_ENABLE, 0};
       CALL_CL_RVRC(queue, clCreateCommandQueueWithProperties, status, context,
-                   deviceId, qprops);
+                   deviceId, nullptr);
       if (status != CL_SUCCESS) {
         IDP("Error: Failed to create interop command queue: %d\n", status);
         return nullptr;
       }
-      IDP("%s creates a shared out-of-order queue " DPxMOD "\n", __func__,
-         DPxPTR(queue));
-      DeviceInfo->QueuesOOO[device_id] = queue;
+      DeviceInfo->QueuesInOrder[device_id] = queue;
     }
+    IDP("%s returns a shared in-order queue " DPxMOD "\n", __func__,
+        DPxPTR(queue));
+    return (void *)queue;
+  }
+
+  // Return a shared out-of-order queue for asynchronous case by default
+  if (is_async && !DeviceInfo->Flags.UseInteropQueueInorderAsync) {
+    queue = DeviceInfo->Queues[device_id];
     IDP("%s returns a shared out-of-order queue " DPxMOD "\n", __func__,
-       DPxPTR(queue));
+        DPxPTR(queue));
     return (void *)queue;
   }
 
@@ -1903,23 +1905,22 @@ EXTERN void *__tgt_rtl_create_offload_queue(int32_t device_id, bool is_async) {
     IDP("Error: Failed to create interop command queue\n");
     return nullptr;
   }
-  IDP("%s creates and returns a separate in-order queue " DPxMOD "\n", __func__,
-     DPxPTR(queue));
+  IDP("%s creates and returns a new in-order queue " DPxMOD "\n", __func__,
+      DPxPTR(queue));
   return (void *)queue;
 }
 
 // Release the command queue if it is a new in-order command queue.
 EXTERN int32_t __tgt_rtl_release_offload_queue(int32_t device_id, void *queue) {
-  cl_command_queue tqueue = (cl_command_queue)queue;
-  if (tqueue != DeviceInfo->QueuesOOO[device_id] &&
-      tqueue != DeviceInfo->Queues[device_id]) {
-    CALL_CL_RET_FAIL(clReleaseCommandQueue, tqueue);
-    IDP("%s releases a separate in-order queue " DPxMOD "\n",__func__,
-       DPxPTR(queue));
+  cl_command_queue cmdQueue = (cl_command_queue)queue;
+  std::unique_lock<std::mutex> lock(DeviceInfo->Mutexes[device_id]);
+  if (cmdQueue != DeviceInfo->QueuesInOrder[device_id] &&
+      cmdQueue != DeviceInfo->Queues[device_id]) {
+    CALL_CL_RET_FAIL(clReleaseCommandQueue, cmdQueue);
+    IDP("%s releases an in-order queue " DPxMOD "\n", __func__, DPxPTR(queue));
   }
   return OFFLOAD_SUCCESS;
 }
-
 
 EXTERN void *__tgt_rtl_get_platform_handle(int32_t device_id) {
   auto context = DeviceInfo->CTX[device_id];
