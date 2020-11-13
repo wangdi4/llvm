@@ -5110,6 +5110,8 @@ static bool isZeroInitialized(QualType T, const APValue &V) {
   case APValue::MemberPointer:
     return !V.getMemberPointerDecl();
   }
+
+  llvm_unreachable("Unhandled APValue::ValueKind enum");
 }
 
 void CXXNameMangler::mangleValueInTemplateArg(QualType T, const APValue &V) {
