@@ -3162,6 +3162,19 @@ static void handleStallEnableAttr(Sema &S, Decl *D, const ParsedAttr &Attr) {
   if (!checkAttributeNumArgs(S, Attr, /*NumArgsExpected=*/0))
     return;
 
+  if (Attr.getAttributeSpellingListIndex() ==
+      StallEnableAttr::GNU_stall_enable) {
+    S.Diag(Attr.getLoc(), diag::warn_attribute_spelling_deprecated) << Attr;
+    S.Diag(Attr.getLoc(), diag::note_spelling_suggestion)
+        << "'use_stall_enable_clusters'";
+  } else if (Attr.getAttributeSpellingListIndex() ==
+             StallEnableAttr::CXX11_clang_stall_enable) {
+    S.Diag(Attr.getLoc(), diag::warn_attribute_spelling_deprecated)
+        << "'" + Attr.getNormalizedFullName() + "'";
+    S.Diag(Attr.getLoc(), diag::note_spelling_suggestion)
+        << "'clang::use_stall_enable_clusters'";
+  }
+
   handleSimpleAttribute<StallEnableAttr>(S, D, Attr);
 }
 
@@ -3499,7 +3512,8 @@ static void handleMaxConcurrencyAttr(Sema &S, Decl *D, const ParsedAttr &Attr) {
   }
 
   if (isa<VarDecl>(D)) {
-    S.Diag(Attr.getLoc(), diag::warn_max_concurrency_deprecated) << Attr;
+    S.Diag(Attr.getLoc(), diag::warn_attribute_spelling_deprecated) << Attr;
+    S.Diag(Attr.getLoc(), diag::note_spelling_suggestion) << "'private_copies'";
     if (checkAttrMutualExclusion<IntelFPGAPrivateCopiesAttr>(S, D, Attr))
       return;
   }

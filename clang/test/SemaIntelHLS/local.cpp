@@ -135,7 +135,8 @@ void foo1()
   //CHECK-NEXT: ConstantExpr
   //CHECK-NEXT: value: Int 4
   //CHECK-NEXT: IntegerLiteral{{.*}}4{{$}}
-  //expected-warning@+1{{attribute max_concurrency for variables is deprecated, use the attribute private_copies instead}}
+  //expected-warning@+2 {{attribute 'max_concurrency' is deprecated}}
+  //expected-note@+1 {{did you mean to use 'private_copies' instead?}}
   __attribute__((max_concurrency(4)))
   unsigned int v_five_two[64];
 
@@ -330,7 +331,8 @@ void foo1()
   //expected-note@-2 {{conflicting attribute is here}}
   unsigned int reg_six[64];
 
-  //expected-warning@+3{{attribute max_concurrency for variables is deprecated, use the attribute private_copies instead}}
+  //expected-warning@+4 {{attribute '__max_concurrency__' is deprecated}}
+  //expected-note@+3 {{did you mean to use 'private_copies' instead?}}
   //expected-error@+2{{attributes are not compatible}}
   __attribute__((__register__))
   __attribute__((__max_concurrency__(16)))
@@ -431,7 +433,8 @@ void foo1()
   unsigned int bw_seven[64];
 
   // max_concurrency
-  //expected-warning@+2{{attribute max_concurrency for variables is deprecated, use the attribute private_copies instead}}
+  //expected-warning@+3 {{attribute '__max_concurrency__' is deprecated}}
+  //expected-note@+2 {{did you mean to use 'private_copies' instead?}}
   //expected-error@+2{{attributes are not compatible}}
   __attribute__((__max_concurrency__(16)))
   __attribute__((__register__))
@@ -448,24 +451,28 @@ void foo1()
   //CHECK-NEXT: ConstantExpr
   //CHECK-NEXT: value: Int 16
   //CHECK-NEXT: IntegerLiteral{{.*}}16{{$}}
-  //expected-warning@+3{{attribute max_concurrency for variables is deprecated, use the attribute private_copies instead}}
-  //expected-warning@+3{{attribute max_concurrency for variables is deprecated, use the attribute private_copies instead}}
+  //expected-warning@+6 {{attribute '__max_concurrency__' is deprecated}}
+  //expected-note@+5 {{did you mean to use 'private_copies' instead?}}
+  //expected-warning@+3 {{attribute '__max_concurrency__' is deprecated}}
+  //expected-note@+2 {{did you mean to use 'private_copies' instead?}}
   //expected-warning@+2{{is already applied}}
   __attribute__((__max_concurrency__(8)))
   __attribute__((__max_concurrency__(16)))
   unsigned int mc_two[64];
 
-  //expected-warning@+2{{attribute max_concurrency for variables is deprecated, use the attribute private_copies instead}}
+  //expected-warning@+3 {{attribute '__max_concurrency__' is deprecated}}
+  //expected-note@+2 {{did you mean to use 'private_copies' instead?}}
   //expected-error@+1{{requires integer constant between 0 and 1048576}}
   __attribute__((__max_concurrency__(-4)))
   unsigned int mc_four[64];
 
   int i_max_concurrency = 32;
-  //expected-warning@+4{{attribute max_concurrency for variables is deprecated, use the attribute private_copies instead}}
+  //expected-warning@+4 {{attribute '__max_concurrency__' is deprecated}}
   //expected-error@+3{{is not an integral constant expression}}
   //expected-note@+2{{not allowed in a constant expression}}
   //expected-note@-4{{declared here}}
   __attribute__((__max_concurrency__(i_max_concurrency)))
+  //expected-note@-1 {{did you mean to use 'private_copies' instead?}}
   unsigned int mc_five[64];
 
   //expected-error@+1{{'__max_concurrency__' attribute takes one argument}}
@@ -733,7 +740,8 @@ template <int max_concurrency, unsigned bankwidth, unsigned numbanks,
           int bit1, int bit2, int bit3, int private_copies>
 void tattr() {
 
-  //expected-warning@+2{{attribute max_concurrency for variables is deprecated, use the attribute private_copies instead}}
+  //expected-warning@+3 {{attribute 'max_concurrency' is deprecated}}
+  //expected-note@+2 {{did you mean to use 'private_copies' instead?}}
   //expected-error@+1{{'max_concurrency' attribute requires integer constant between 0 and 1048576 inclusive}}
   __attribute__((max_concurrency(max_concurrency)))
     //expected-error@+1{{'bankwidth' attribute argument must be a constant power of two greater than zero}}
