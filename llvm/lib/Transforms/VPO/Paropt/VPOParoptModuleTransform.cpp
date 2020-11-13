@@ -380,8 +380,7 @@ void VPOParoptModuleTransform::replaceSincosWithOCLBuiltin(Function *F,
 // generated for the target).
 bool VPOParoptModuleTransform::doParoptTransforms(
     std::function<vpo::WRegionInfo &(Function &F, bool *Changed)>
-        WRegionInfoGetter,
-    std::function<TargetLibraryInfo &(Function &F)> TLIGetter) {
+        WRegionInfoGetter) {
 
   bool Changed = false;
   bool IsTargetSPIRV = VPOAnalysisUtils::isTargetSPIRV(&M);

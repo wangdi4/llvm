@@ -1,5 +1,5 @@
-; RUN: opt < %s -mattr=avx512f -loop-rotate -vpo-cfg-restructuring -vpo-paropt-prepare -simplifycfg  -sroa -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -S | FileCheck %s --check-prefixes=CHECK,OldPM
-; RUN: opt < %s -mattr=avx512f -passes='function(loop(loop-rotate),vpo-cfg-restructuring,vpo-paropt-prepare,simplify-cfg,loop-simplifycfg,sroa,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt'  -S | FileCheck %s --check-prefixes=CHECK,NewPM
+; RUN: opt < %s -mattr=avx512f -loop-rotate -vpo-cfg-restructuring -vpo-paropt-prepare -simplifycfg  -sroa -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -S | FileCheck %s --check-prefixes=CHECK
+; RUN: opt < %s -mattr=avx512f -passes='function(loop(loop-rotate),vpo-cfg-restructuring,vpo-paropt-prepare,simplify-cfg,loop-simplifycfg,sroa,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt'  -S | FileCheck %s --check-prefixes=CHECK
 
 ; Original code:
 ; void foo(int *A, int *B, unsigned N) {
@@ -14,12 +14,7 @@
 ; CHECK-SAME:    (i32* [[PTR_A:%.+]], i32* [[PTR_B:%.+]], i32 %{{.+}})
 ; CHECK:         call void @llvm.assume(i1 true) [ "align"(i32* [[PTR_A]], i64 32) ]
 
-; FIXME: Alignment parameter is incorrect (too conservative) when legacy pass
-;        manager is used. The root cause is that in case of legacy pass manager
-;        the correct TTI is not available inside VPOParoptTransform
-;        (CMPLRLLVM-24170).
-; OldPM-NEXT:    call void @llvm.assume(i1 true) [ "align"(i32* [[PTR_B]], i64 4) ]
-; NewPM-NEXT:    call void @llvm.assume(i1 true) [ "align"(i32* [[PTR_B]], i64 64) ]
+; CHECK-NEXT:    call void @llvm.assume(i1 true) [ "align"(i32* [[PTR_B]], i64 64) ]
 
 ; CHECK:         [[TOK:%.+]] = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.ALIGNED"(i32* null, i32 32),
 ; CHECK-NEXT:    br label %[[LOOPBODY:[^,]+]]
