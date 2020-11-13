@@ -1201,6 +1201,11 @@ public:
                                             bool *SignedOverflow = nullptr);
 #endif // INTEL_CUSTOMIZATION
 
+  /// Update no-wrap flags of an AddRec. This may drop the cached info about
+  /// this AddRec (such as range info) in case if new flags may potentially
+  /// sharpen it.
+  void setNoWrapFlags(SCEVAddRecExpr *AddRec, SCEV::NoWrapFlags Flags);
+
 private:
 protected: // INTEL
   /// A CallbackVH to arrange for ScalarEvolution to be notified whenever a
