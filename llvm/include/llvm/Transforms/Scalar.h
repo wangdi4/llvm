@@ -159,7 +159,7 @@ Pass *createLoopInterchangePass();
 //
 // LoopFlatten - This pass flattens nested loops into a single loop.
 //
-Pass *createLoopFlattenPass();
+FunctionPass *createLoopFlattenPass();
 
 //===----------------------------------------------------------------------===//
 //
