@@ -185,6 +185,7 @@ static cl::opt<unsigned> RunVPOOpt("vpoopt", cl::init(InvokeParoptAfterInliner),
 static cl::opt<unsigned> RunVPOParopt("paropt",
   cl::init(0x00000000), cl::Hidden,
   cl::desc("Run VPO Paropt Pass"));
+
 #endif // INTEL_COLLAB
 
 #if INTEL_CUSTOMIZATION
@@ -212,6 +213,10 @@ static cl::opt<bool> EnableVPlanDriver("vplan-driver", cl::init(true),
 static cl::opt<bool> RunVecClone("enable-vec-clone",
   cl::init(true), cl::Hidden,
   cl::desc("Run Vector Function Cloning"));
+
+static cl::opt<bool> EnableDeviceSimd("enable-device-simd",
+  cl::init(false), cl::Hidden,
+  cl::desc("Enable VPlan vectorzer for SIMD on device"));
 
 static cl::opt<bool> EnableVPlanDriverHIR("vplan-driver-hir", cl::init(true),
                                        cl::Hidden,
@@ -1989,8 +1994,26 @@ void PassManagerBuilder::addVPOPasses(legacy::PassManagerBase &PM, bool RunVec,
   //
   // TODO: Issue a warning for any unprocessed directives. Change to
   // assetion failure as the feature matures.
-  if (RunVPOParopt && RunVec)
+  if (RunVPOParopt && RunVec) {
+    if (EnableDeviceSimd) {
+      // VPO CFG restructuring pass makes sure that the directives of #pragma omp
+      // simd ordered are in a separate block. For this reason,
+      // VPlanPragmaOmpOrderedSimdExtract pass should run after VPO CFG
+      // Restructuring.
+      PM.add(createVPOCFGRestructuringPass());
+      PM.add(createVPlanPragmaOmpOrderedSimdExtractPass());
+
+      // Code extractor might add new instructions in the entry block.
+      // If the entry block has a directive, than we have to split
+      // the entry block. VPlan assumes that the directives are in
+      // single-entry single-exit basic blocks.
+      PM.add(createVPOCFGRestructuringPass());
+      PM.add(createVPlanDriverPass());
+    }
+
     PM.add(createVPODirectiveCleanupPass());
+  }
+
   // Paropt transformation pass may produce new AlwaysInline functions.
   // Force inlining for them, if paropt pass runs after the normal inliner.
   if (RunVPOParopt && RunVPOOpt == InvokeParoptAfterInliner) {

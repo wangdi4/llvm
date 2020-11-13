@@ -38,6 +38,15 @@ intel_add_file(INTEL_SOURCE_FILES_TO_BUILD
 # end INTEL_FEATURE_CSA
 # end INTEL_CUSTOMIZATION
 
+get_property(LLVMGenXIntrinsics_SOURCE_DIR GLOBAL 
+             PROPERTY LLVMGenXIntrinsics_SOURCE_PROP)
+get_property(LLVMGenXIntrinsics_BINARY_DIR GLOBAL 
+             PROPERTY LLVMGenXIntrinsics_BINARY_PROP)
+
+include_directories(
+  ${LLVMGenXIntrinsics_SOURCE_DIR}/GenXIntrinsics/include
+  ${LLVMGenXIntrinsics_BINARY_DIR}/GenXIntrinsics/include)
+
 add_llvm_component_library(LLVMVPOTransforms
   VPOTransform.cpp
 
@@ -57,11 +66,21 @@ add_llvm_component_library(LLVMVPOTransforms
   Paropt/VPOParoptTask.cpp
   Paropt/VPOParoptTransform.cpp
   Paropt/VPOParoptUtils.cpp
+  Paropt/VPOParoptLowerSimd.cpp
+
 # INTEL_CUSTOMIZATION
   ${INTEL_SOURCE_FILES_TO_BUILD}
 # end INTEL_CUSTOMIZATION
+
+  ADDITIONAL_HEADER_DIRS
+  ${LLVMGenXIntrinsics_SOURCE_DIR}/GenXIntrinsics/include
+  ${LLVMGenXIntrinsics_BINARY_DIR}/GenXIntrinsics/include
+
+  LINK_LIBS
+  LLVMDemangle
+  LLVMGenXIntrinsics
 )
 
-add_dependencies(LLVMVPOTransforms intrinsics_gen directives_gen)
+add_dependencies(LLVMVPOTransforms intrinsics_gen directives_gen LLVMGenXIntrinsics)
 
 # end INTEL_COLLAB
