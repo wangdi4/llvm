@@ -203,6 +203,16 @@ bool CLWGLoopCreator::runOnFunction(Function& F, Function *vectorFunc,
   assert(WGLoopRegion.m_preHeader && WGLoopRegion.m_exit &&
       "loops entry,exit not initialized");
 
+  // Set the linkage type of the loop boundary function as private, so that it
+  // will get removed after inlining and CodeGen won't generate machine code
+  // for it.
+  Function *EEFunc = m_EECall->getCalledFunction();
+  // Setting private linkage on declarations is illegal. The EEFunc should
+  // never be a declaration in real scenarios, but it can in hand-written IR
+  // such as lit tests. So we add an 'if' check here.
+  if (!EEFunc->isDeclaration())
+    EEFunc->setLinkage(GlobalValue::PrivateLinkage);
+
   // Connect the new entry block with the WG loops.
   BranchInst::Create(WGLoopRegion.m_preHeader, m_newEntry);
 
