@@ -429,7 +429,10 @@ namespace {
     // Return the operand for the loop start instruction. This will be the loop
     // iteration count, or the number of elements if we're tail predicating.
     MachineOperand &getLoopStartOperand() {
-      return IsTailPredicationLegal() ? TPNumElements : Start->getOperand(0);
+      if (IsTailPredicationLegal())
+        return TPNumElements;
+      return Start->getOpcode() == ARM::t2DoLoopStart ? Start->getOperand(1)
+                                                      : Start->getOperand(0);
     }
 
     unsigned getStartOpcode() const {
@@ -495,6 +498,7 @@ namespace {
     bool RevertNonLoops();
 
     void RevertWhile(MachineInstr *MI) const;
+    void RevertDo(MachineInstr *MI) const;
 
     bool RevertLoopDec(MachineInstr *MI) const;
 
@@ -618,8 +622,12 @@ bool LowOverheadLoop::ValidateTailPredicate() {
   // count instead of iteration count, won't affect any other instructions
   // than the LoopStart and LoopDec.
   // TODO: We should try to insert the [W|D]LSTP after any of the other uses.
-  if (StartInsertPt == Start && Start->getOperand(0).getReg() == ARM::LR) {
-    if (auto *IterCount = RDA.getMIOperand(Start, 0)) {
+  Register StartReg = Start->getOpcode() == ARM::t2DoLoopStart
+                          ? Start->getOperand(1).getReg()
+                          : Start->getOperand(0).getReg();
+  if (StartInsertPt == Start && StartReg == ARM::LR) {
+    if (auto *IterCount = RDA.getMIOperand(
+            Start, Start->getOpcode() == ARM::t2DoLoopStart ? 1 : 0)) {
       SmallPtrSet<MachineInstr *, 2> Uses;
       RDA.getGlobalUses(IterCount, MCRegister::from(ARM::LR), Uses);
       for (auto *Use : Uses) {
@@ -658,7 +666,7 @@ bool LowOverheadLoop::ValidateTailPredicate() {
         ElemDef->removeFromParent();
         StartInsertBB->insert(StartInsertPt, ElemDef);
         LLVM_DEBUG(dbgs() << "ARM Loops: Moved element count def: "
-                   << *ElemDef);
+                          << *ElemDef);
       } else if (RDA.isSafeToMoveBackwards(&*StartInsertPt, ElemDef)) {
         StartInsertPt->removeFromParent();
         StartInsertBB->insertAfter(MachineBasicBlock::iterator(ElemDef),
@@ -699,7 +707,7 @@ bool LowOverheadLoop::ValidateTailPredicate() {
     for (; I != E; ++I) {
       if (shouldInspect(*I)) {
         LLVM_DEBUG(dbgs() << "ARM Loops: Instruction blocks [W|D]LSTP"
-                   << " insertion: " << *I);
+                          << " insertion: " << *I);
         return true;
       }
     }
@@ -1017,8 +1025,8 @@ void LowOverheadLoop::Validate(ARMBasicBlockUtils *BBUtils) {
   // can only jump back.
   auto ValidateRanges = [](MachineInstr *Start, MachineInstr *End,
                            ARMBasicBlockUtils *BBUtils, MachineLoop &ML) {
-    if (!End->getOperand(1).isMBB())
-      report_fatal_error("Expected LoopEnd to target basic block");
+    assert(End->getOperand(1).isMBB() &&
+           "Expected LoopEnd to target basic block!");
 
     // TODO Maybe there's cases where the target doesn't have to be the header,
     // but for now be safe and revert.
@@ -1047,57 +1055,18 @@ void LowOverheadLoop::Validate(ARMBasicBlockUtils *BBUtils) {
 
   // Find a suitable position to insert the loop start instruction. It needs to
   // be able to safely define LR.
-  auto FindStartInsertionPoint = [](MachineInstr *Start,
-                                    MachineInstr *Dec,
+  auto FindStartInsertionPoint = [](MachineInstr *Start, MachineInstr *Dec,
                                     MachineBasicBlock::iterator &InsertPt,
                                     MachineBasicBlock *&InsertBB,
                                     ReachingDefAnalysis &RDA,
                                     InstSet &ToRemove) {
-    // We can define LR because LR already contains the same value.
-    if (Start->getOperand(0).getReg() == ARM::LR) {
+    // For a t2DoLoopStart it is always valid to use the start insertion point.
+    // For WLS we can define LR if LR already contains the same value.
+    if (Start->getOpcode() == ARM::t2DoLoopStart ||
+        Start->getOperand(0).getReg() == ARM::LR) {
       InsertPt = MachineBasicBlock::iterator(Start);
       InsertBB = Start->getParent();
       return true;
-    }
-
-    Register CountReg = Start->getOperand(0).getReg();
-    auto IsMoveLR = [&CountReg](MachineInstr *MI) {
-      return MI->getOpcode() == ARM::tMOVr &&
-             MI->getOperand(0).getReg() == ARM::LR &&
-             MI->getOperand(1).getReg() == CountReg &&
-             MI->getOperand(2).getImm() == ARMCC::AL;
-    };
-
-    // Find an insertion point:
-    // - Is there a (mov lr, Count) before Start? If so, and nothing else
-    //   writes to Count before Start, we can insert at start.
-    if (auto *LRDef =
-            RDA.getUniqueReachingMIDef(Start, MCRegister::from(ARM::LR))) {
-      if (IsMoveLR(LRDef) &&
-          RDA.hasSameReachingDef(Start, LRDef, CountReg.asMCReg())) {
-        SmallPtrSet<MachineInstr *, 2> Ignore = { Dec };
-        if (!TryRemove(LRDef, RDA, ToRemove, Ignore))
-          return false;
-        InsertPt = MachineBasicBlock::iterator(Start);
-        InsertBB = Start->getParent();
-        return true;
-      }
-    }
-
-    // - Is there a (mov lr, Count) after Start? If so, and nothing else writes
-    //   to Count after Start, we can insert at that mov (which will now be
-    //   dead).
-    MachineBasicBlock *MBB = Start->getParent();
-    if (auto *LRDef =
-            RDA.getLocalLiveOutMIDef(MBB, MCRegister::from(ARM::LR))) {
-      if (IsMoveLR(LRDef) && RDA.hasSameReachingDef(Start, LRDef, CountReg)) {
-        SmallPtrSet<MachineInstr *, 2> Ignore = { Start, Dec };
-        if (!TryRemove(LRDef, RDA, ToRemove, Ignore))
-          return false;
-        InsertPt = MachineBasicBlock::iterator(LRDef);
-        InsertBB = LRDef->getParent();
-        return true;
-      }
     }
 
     // We've found no suitable LR def and Start doesn't use LR directly. Can we
@@ -1120,7 +1089,7 @@ void LowOverheadLoop::Validate(ARMBasicBlockUtils *BBUtils) {
                dbgs() << "ARM Loops: Will insert LoopStart at end of block\n";
              else
                dbgs() << "ARM Loops: Will insert LoopStart at "
-               << *StartInsertPt
+                      << *StartInsertPt
             );
 
   Revert = !ValidateRanges(Start, End, BBUtils, ML);
@@ -1364,6 +1333,16 @@ void ARMLowOverheadLoops::RevertWhile(MachineInstr *MI) const {
   MI->eraseFromParent();
 }
 
+void ARMLowOverheadLoops::RevertDo(MachineInstr *MI) const {
+  LLVM_DEBUG(dbgs() << "ARM Loops: Reverting to mov: " << *MI);
+  MachineBasicBlock *MBB = MI->getParent();
+  BuildMI(*MBB, MI, MI->getDebugLoc(), TII->get(ARM::tMOVr))
+      .add(MI->getOperand(0))
+      .add(MI->getOperand(1))
+      .add(predOps(ARMCC::AL));
+  MI->eraseFromParent();
+}
+
 bool ARMLowOverheadLoops::RevertLoopDec(MachineInstr *MI) const {
   LLVM_DEBUG(dbgs() << "ARM Loops: Reverting to sub: " << *MI);
   MachineBasicBlock *MBB = MI->getParent();
@@ -1432,7 +1411,7 @@ void ARMLowOverheadLoops::RevertLoopEnd(MachineInstr *MI, bool SkipCmp) const {
 //
 //   $lr = big-itercount-expression
 //   ..
-//   t2DoLoopStart renamable $lr
+//   $lr = t2DoLoopStart renamable $lr
 //   vector.body:
 //     ..
 //     $vpr = MVE_VCTP32 renamable $r3
@@ -1455,7 +1434,8 @@ void ARMLowOverheadLoops::IterationCountDCE(LowOverheadLoop &LoLoop) {
 
   LLVM_DEBUG(dbgs() << "ARM Loops: Trying DCE on loop iteration count.\n");
 
-  MachineInstr *Def = RDA->getMIOperand(LoLoop.Start, 0);
+  MachineInstr *Def = RDA->getMIOperand(
+      LoLoop.Start, LoLoop.Start->getOpcode() == ARM::t2DoLoopStart ? 1 : 0);
   if (!Def) {
     LLVM_DEBUG(dbgs() << "ARM Loops: Couldn't find iteration count.\n");
     return;
@@ -1634,7 +1614,7 @@ void ARMLowOverheadLoops::Expand(LowOverheadLoop &LoLoop) {
     if (LoLoop.Start->getOpcode() == ARM::t2WhileLoopStart)
       RevertWhile(LoLoop.Start);
     else
-      LoLoop.Start->eraseFromParent();
+      RevertDo(LoLoop.Start);
     bool FlagsAlreadySet = RevertLoopDec(LoLoop.Dec);
     RevertLoopEnd(LoLoop.End, FlagsAlreadySet);
   } else {
@@ -1699,7 +1679,7 @@ bool ARMLowOverheadLoops::RevertNonLoops() {
       if (Start->getOpcode() == ARM::t2WhileLoopStart)
         RevertWhile(Start);
       else
-        Start->eraseFromParent();
+        RevertDo(Start);
     }
     for (auto *Dec : Decs)
       RevertLoopDec(Dec);
