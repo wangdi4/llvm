@@ -136,9 +136,9 @@ std::ostream &operator<<(std::ostream &output, const VectEntry &Ent) {
     } else {
       output << "\",\"";
     }
-    reflection::FunctionDescriptor Fdesc = ::demangle(Ent.funcNames[i].c_str());
-    std::string BaseName = Fdesc.isNull() ? Ent.funcNames[i] : Fdesc.name;
-    output << getVectorVariant((unsigned)2 << i, BaseName, Ent.funcNames[i])
+
+    output << getVectorVariant((unsigned)2 << i, Ent.funcNames[0],
+                               Ent.funcNames[i])
                   .toString()
            << "\"},\n";
   }
@@ -359,8 +359,8 @@ void VectInfoGenerator::run(raw_ostream &os) {
 
         std::string fname((*funcIt)->getName());
         size_t m = funcNames.size();
-        reflection::FunctionDescriptor Fdesc = ::demangle(fname.c_str());
-        std::string BaseName = Fdesc.isNull() ? fname : Fdesc.name;
+
+        std::string BaseName((*origIt)->getName());
 
         // for vector variant
         if (m > 0) {
