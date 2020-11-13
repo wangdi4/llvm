@@ -576,6 +576,46 @@ bool OptNoneInstrumentation::shouldRun(StringRef PassID, Any IR) {
   return ShouldRun;
 }
 
+static std::string getBisectDescription(Any IR) {
+  if (any_isa<const Module *>(IR)) {
+    const Module *M = any_cast<const Module *>(IR);
+    assert(M && "module should be valid for printing");
+    return "module (" + M->getName().str() + ")";
+  }
+
+  if (any_isa<const Function *>(IR)) {
+    const Function *F = any_cast<const Function *>(IR);
+    assert(F && "function should be valid for printing");
+    return "function (" + F->getName().str() + ")";
+  }
+
+  if (any_isa<const LazyCallGraph::SCC *>(IR)) {
+    const LazyCallGraph::SCC *C = any_cast<const LazyCallGraph::SCC *>(IR);
+    assert(C && "scc should be valid for printing");
+    return "SCC " + C->getName();
+  }
+
+  if (any_isa<const Loop *>(IR)) {
+    return "loop";
+  }
+
+  llvm_unreachable("Unknown wrapped IR type");
+}
+
+void OptBisectInstrumentation::registerCallbacks(
+    PassInstrumentationCallbacks &PIC) {
+  if (!isEnabled())
+    return;
+
+  std::vector<StringRef> SpecialPasses = {"PassManager", "PassAdaptor"};
+
+  PIC.registerShouldRunOptionalPassCallback(
+      [this, SpecialPasses](StringRef PassID, Any IR) {
+        return isSpecialPass(PassID, SpecialPasses) ||
+               checkPass(PassID, getBisectDescription(IR));
+      });
+}
+
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
 void PrintPassInstrumentation::registerCallbacks(
     PassInstrumentationCallbacks &PIC) {
@@ -819,6 +859,7 @@ void StandardInstrumentations::registerCallbacks(
   PrintPass.registerCallbacks(PIC);
   TimePasses.registerCallbacks(PIC);
   OptNone.registerCallbacks(PIC);
+  OptBisect.registerCallbacks(PIC);
   PreservedCFGChecker.registerCallbacks(PIC);
   PrintChangedIR.registerCallbacks(PIC);
   if (VerifyEach)
