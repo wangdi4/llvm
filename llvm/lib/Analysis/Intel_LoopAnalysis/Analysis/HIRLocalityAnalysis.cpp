@@ -764,7 +764,7 @@ void HIRLoopLocality::populateTemporalLocalityGroups(
     unsigned Level, unsigned ReuseThreshold, RefGroupVecTy &TemporalGroups,
     SmallSet<unsigned, 8> *UniqueGroupSymbases) {
   assert(((Level == 0 && ReuseThreshold == 0) ||
-          CanonExprUtils::isValidLoopLevel(Level)) &&
+          CanonExpr::isValidLoopLevel(Level)) &&
          " Invalid combination of loop level and reuse threhold!");
 
   typedef DDRefGatherer<const RegDDRef, MemRefs | FakeRefs> MemRefGatherer;

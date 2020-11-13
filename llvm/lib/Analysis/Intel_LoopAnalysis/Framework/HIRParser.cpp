@@ -1518,7 +1518,7 @@ void HIRParser::setCanonExprDefLevel(CanonExpr *CE, unsigned NestingLevel,
   // If the CE is already non-linear, DefinedAtLevel cannot be refined any
   // further.
   if (!CE->isNonLinear()) {
-    if (CanonExprUtils::hasNonLinearSemantics(DefLevel, NestingLevel)) {
+    if (CanonExpr::hasNonLinearSemantics(DefLevel, NestingLevel)) {
       // Make non-linear instead.
       CE->setNonLinear();
     } else if (DefLevel > CE->getDefinedAtLevel()) {
@@ -1530,10 +1530,9 @@ void HIRParser::setCanonExprDefLevel(CanonExpr *CE, unsigned NestingLevel,
 void HIRParser::cacheTempBlobLevel(unsigned Index, unsigned NestingLevel,
                                    unsigned DefLevel) {
   // -1 indicates non-linear blob
-  unsigned Level =
-      getCanonExprUtils().hasNonLinearSemantics(DefLevel, NestingLevel)
-          ? NonLinearLevel
-          : DefLevel;
+  unsigned Level = CanonExpr::hasNonLinearSemantics(DefLevel, NestingLevel)
+                       ? NonLinearLevel
+                       : DefLevel;
   CurTempBlobLevelMap.insert(std::make_pair(Index, Level));
 }
 

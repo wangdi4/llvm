@@ -972,7 +972,7 @@ HLIf *HLLoop::extractZtt(unsigned NewLevel) {
     NewLevel = getNestingLevel() - 1;
   }
 
-  assert(CanonExprUtils::isValidLinearDefLevel(NewLevel) &&
+  assert(CanonExpr::isValidLinearDefLevel(NewLevel) &&
          "Invalid nesting level.");
 
   std::for_each(Ztt->ddref_begin(), Ztt->ddref_end(),
