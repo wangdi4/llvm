@@ -1842,10 +1842,12 @@ void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
                                     DisableUnrollLoops, // Unroll small loops
                                     ForgetAllSCEVInLoopUnroll));
   addLoopOptAndAssociatedVPOPasses(PM, true);
+#endif  // INTEL_CUSTOMIZATION
+  PM.add(createLoopDistributePass());
+#if INTEL_CUSTOMIZATION
   if (EnableLV)
     PM.add(createLoopVectorizePass(true, !LoopVectorize));
 #endif  // INTEL_CUSTOMIZATION
-
   // The vectorizer may have significantly shortened a loop body; unroll again.
   PM.add(createLoopUnrollPass(OptLevel, DisableUnrollLoops,
                               ForgetAllSCEVInLoopUnroll));
