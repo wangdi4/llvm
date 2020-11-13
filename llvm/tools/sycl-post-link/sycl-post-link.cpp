@@ -17,6 +17,7 @@
 //     * sorting of the resulting OpenMP offload entry table by entry name
 //     * making OpenMP declare target variables, referenced by OpenMP offload
 //       table, static (i.e. with internal linkage)
+// - OpenMP offload explicit simd adaptor pass invocation
 #endif // INTEL_COLLAB
 //===----------------------------------------------------------------------===//
 
@@ -31,6 +32,7 @@
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/LegacyPassManager.h"
+#include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IRReader/IRReader.h"
 #include "llvm/Support/CommandLine.h"
@@ -43,6 +45,14 @@
 #include "llvm/Transforms/IPO.h"
 #include "llvm/Transforms/IPO/GlobalDCE.h"
 #include "llvm/Transforms/Utils/Cloning.h"
+
+#if INTEL_COLLAB
+#include "llvm/Pass.h"
+#include "llvm/Transforms/VPO/Paropt/VPOParoptLowerSimd.h"
+#include "llvm/Analysis/TargetTransformInfo.h"
+#include "llvm/IR/MDBuilder.h"
+#include "llvm/GenXIntrinsics/GenXSPIRVWriterAdaptor.h"
+#endif // INTEL_COLLAB
 
 #include <memory>
 
@@ -145,6 +155,12 @@ static cl::opt<bool>
                          cl::desc("make OpenMP global variables referenced "
                                   "in the offload table static."),
                          cl::cat(PostLinkCat));
+
+static cl::opt<bool> EnableOmpExplicitSimd(
+    "ompoffload-explicit-simd", cl::init(false),
+    cl::desc("enable OpenMP offload explicit simd. "
+             "Does nothing without -ompoffload-explicit-simd"),
+    cl::cat(PostLinkCat));
 #endif // INTEL_COLLAB
 static cl::opt<bool> EmitKernelParamInfo{
     "emit-param-info", cl::desc("emit kernel parameter optimization info"),
@@ -776,6 +792,9 @@ int main(int argc, char **argv) {
       "    * if -" + MakeOmpGlobalsStatic.ArgStr.str() + " is specified\n"
       "      all OpenMP declare target global variables will be made\n"
       "      static (internal linkage).\n"
+      "    * if -" + EnableOmpExplicitSimd.ArgStr.str() + " is specified\n"
+      "      all kernel functions will be converted to explicit simd\n"
+      "      kernel fcuntions.\n"
 #endif // INTEL_COLLAB
       "Normally, the tool generates a number of files and \"file table\"\n"
       "file listing all generated files in a table manner. For example, if\n"
@@ -802,6 +821,7 @@ int main(int argc, char **argv) {
       OmpOffloadEntriesSymbol.getNumOccurrences() > 0;
   bool DoMakeOmpGlobalsStatic = MakeOmpGlobalsStatic.getNumOccurrences() > 0;
   bool DoSortOmpOffloadEntries = SortOmpOffloadEntries.getNumOccurrences() > 0;
+  bool DoEnableOmpExplicitSimd = EnableOmpExplicitSimd.getNumOccurrences() > 0;
 
   if (DoLinkOmpOffloadEntries && !IROutputOnly)
     // OpenMP offload works with IR output only currently.
@@ -878,11 +898,20 @@ int main(int argc, char **argv) {
     PreservedAnalyses Res = RunSpecConst.run(*MPtr, MAM);
     SpecConstsMet = !Res.areAllPreserved();
   }
+
 #if INTEL_COLLAB
+  if (DoEnableOmpExplicitSimd) {
+    legacy::PassManager Passes;
+    Passes.add(createVPOParoptLowerSimdPass());
+    Passes.add(createGenXSPIRVWriterAdaptorPass());
+    Passes.run(*MPtr);
+  }
+
   if (DoLinkOmpOffloadEntries || DoMakeOmpGlobalsStatic)
     processOmpOffloadEntries(*MPtr, DoLinkOmpOffloadEntries,
                              DoSortOmpOffloadEntries, DoMakeOmpGlobalsStatic);
 #endif // INTEL_COLLAB
+
   if (IROutputOnly) {
     // the result is the transformed input LLVMIR file rather than a file table
     saveModule(*MPtr, OutputFilename);

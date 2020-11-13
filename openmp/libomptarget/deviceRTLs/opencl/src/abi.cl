@@ -186,7 +186,7 @@ EXTERN uint __kmpc_global_thread_num(void *loc) {
 
 /// Check if the current work belong to the master sub group
 EXTERN int __kmpc_master_sub_group() {
-  if (get_sub_group_id() == get_num_sub_groups() - 1)
+  if (__spirv_BuiltInSubgroupId == __spirv_BuiltInNumSubgroups - 1)
     return KMP_TRUE;
   else
     return KMP_FALSE;
@@ -194,7 +194,8 @@ EXTERN int __kmpc_master_sub_group() {
 
 /// Check if the current work is the leader of the master sub group
 EXTERN int __kmpc_master_sub_group_leader() {
-  if (__kmpc_master_sub_group() && get_sub_group_local_id() == 0)
+  if (__kmpc_master_sub_group() &&
+      __spirv_BuiltInSubgroupLocalInvocationId == 0)
     return KMP_TRUE;
   else
     return KMP_FALSE;
@@ -202,7 +203,8 @@ EXTERN int __kmpc_master_sub_group_leader() {
 
 /// Check if current work is the active sub group leader
 EXTERN int __kmpc_active_sub_group_leader() {
-  if (__kmp_get_active_sub_group_leader_id() == get_sub_group_local_id())
+  if (__kmp_get_active_sub_group_leader_id() ==
+      __spirv_BuiltInSubgroupLocalInvocationId)
     return KMP_TRUE;
   else
     return KMP_FALSE;

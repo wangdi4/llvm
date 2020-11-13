@@ -70,6 +70,10 @@ static cl::opt<bool> SimulateGetNumThreadsInTarget(
     cl::desc("Simulate support for omp_get_num_threads in OpenMP target "
              "region. (This may have performance impact)."));
 
+static cl::opt<bool> EnableDeviceSimdCodeGen(
+    "vpo-paropt-enable-device-simd-codegen", cl::Hidden, cl::init(false),
+    cl::desc("Enable explicit SIMD code generation for OpenMP target region"));
+
 // Reset the value in the Map clause to be empty.
 //
 // Do not reset base pointers (including the item's getOrig() pointer),
@@ -334,9 +338,15 @@ Function *VPOParoptTransform::finalizeKernelFunction(WRegionNode *W,
     ++NewArgI;
   }
 
-  if (W->getSPIRVSIMDWidth() > 0) {
+  int simdWidth = W->getSPIRVSIMDWidth();
+  if (EnableDeviceSimdCodeGen) {
+    simdWidth = 1;
+    NFn->setMetadata("omp_simd_kernel", MDNode::get(NFn->getContext(), {}));
+  }
+
+  if (simdWidth > 0) {
     Metadata *AttrMDArgs[] = {
-        ConstantAsMetadata::get(Builder.getInt32(W->getSPIRVSIMDWidth())) };
+        ConstantAsMetadata::get(Builder.getInt32(simdWidth)) };
     NFn->setMetadata("intel_reqd_sub_group_size",
                      MDNode::get(NFn->getContext(), AttrMDArgs));
   }
@@ -378,6 +388,22 @@ static bool isParOrTargetDirective(Instruction *Inst,
       // since there may not be any code between "target" and "teams".
       return true;
   }
+
+  return false;
+}
+
+/// This function checks if the instruction is a SIMD intrinsic instruction,
+static bool isSimdDirective(Instruction *Inst) {
+  auto IntrinInst = dyn_cast<IntrinsicInst>(Inst);
+
+  if (!IntrinInst || !IntrinInst->hasOperandBundles()) {
+    return false;
+  }
+
+  int ID = VPOAnalysisUtils::getDirectiveID(Inst);
+
+  if (ID == DIR_OMP_SIMD || ID == DIR_OMP_END_SIMD)
+     return true;
 
   return false;
 }
@@ -564,10 +590,12 @@ void VPOParoptTransform::guardSideEffectStatements(
       // Distinguish between entry and other directives, since
       // we want to delete the entry directives after their
       // exit companions.
-      if (VPOAnalysisUtils::isBeginDirective(&*I))
-        EntryDirectivesToDelete.push_back(&*I);
-      else
-        ExitDirectivesToDelete.push_back(&*I);
+      if (!EnableDeviceSimdCodeGen || !isSimdDirective(&*I)) {
+        if (VPOAnalysisUtils::isBeginDirective(&*I))
+          EntryDirectivesToDelete.push_back(&*I);
+        else
+          ExitDirectivesToDelete.push_back(&*I);
+      }
     }
 
     if (isParOrTargetDirective(&*I) &&
@@ -873,6 +901,9 @@ void VPOParoptTransform::guardSideEffectStatements(
   KernelEntryDir->replaceAllUsesWith(NewEntryDir);
   KernelEntryDir->eraseFromParent();
   W->setEntryDirective(NewEntryDir);
+
+  if (EnableDeviceSimdCodeGen)
+    VPOUtils::stripDirectives(*KernelExitDir->getParent());
 }
 
 bool VPOParoptTransform::callPopPushNumThreadsAtRegionBoundary(
@@ -1046,6 +1077,7 @@ bool VPOParoptTransform::genTargetOffloadingCode(WRegionNode *W) {
       // were left until this point for guardSideEffectStatements() to work.
       // The extra directive call may prevent address space inferring.
       NewF = finalizeKernelFunction(W, NewF, NewCall);
+
       LLVM_DEBUG(dbgs() << "\nAfter finalizeKernel Dump the function ::"
                         << *NewF << "\n");
     }

@@ -171,6 +171,26 @@ cl_int TRACE_FN(clCompileProgram)(
   return rc;
 }
 
+cl_int TRACE_FN(clBuildProgram)(
+    cl_program program,
+    cl_uint num_devices,
+    const cl_device_id *device_list,
+    const char *options,
+    void (CL_CALLBACK *pfn_notify)(cl_program, void *),
+    void *user_data) {
+  auto rc = clBuildProgram(program, num_devices, device_list, options,
+                           pfn_notify, user_data);
+  TRACE_FN_ARG_BEGIN();
+  TRACE_FN_ARG_PTR(program);
+  TRACE_FN_ARG_UINT(num_devices);
+  TRACE_FN_ARG_PTR(device_list);
+  TRACE_FN_ARG_PTR(options);
+  TRACE_FN_ARG_PTR(pfn_notify);
+  TRACE_FN_ARG_PTR(user_data);
+  TRACE_FN_ARG_END();
+  return rc;
+}
+
 cl_mem TRACE_FN(clCreateBuffer)(
     cl_context context,
     cl_mem_flags flags,

@@ -325,8 +325,9 @@ struct RTLFlagsTy {
   uint64_t UseInteropQueueInorderSharedSync : 1;
   uint64_t UseHostMemForUSM : 1;
   uint64_t UseDriverGroupSizes : 1;
+  uint64_t EnableSimd : 1;
   // Add new flags here
-  uint64_t Reserved : 58;
+  uint64_t Reserved : 57;
   RTLFlagsTy() :
       CollectDataTransferLatency(0),
       EnableProfile(0),
@@ -334,6 +335,7 @@ struct RTLFlagsTy {
       UseInteropQueueInorderSharedSync(0),
       UseHostMemForUSM(0),
       UseDriverGroupSizes(0),
+      EnableSimd(0),
       Reserved(0) {}
 };
 
@@ -532,6 +534,14 @@ public:
         else if (token == "unit_usec" || token == "usec")
           ProfileResolution = 1000000;
       }
+    }
+
+    if (env = readEnvVar("LIBOMPTARGET_ENABLE_SIMD")) {
+      std::string value(env);
+      if (value == "T" || value == "1")
+        Flags.EnableSimd = 1;
+      else
+        WARNING("Invalid or unsupported LIBOMPTARGET_ENABLE_SIMD=%s\n", env);
     }
 
     // Read LIBOMPTARGET_OPENCL_INTEROP_QUEUE
@@ -1553,54 +1563,69 @@ __tgt_target_table *__tgt_rtl_load_binary(int32_t device_id,
     IDP("Error: Failed to create program: %d\n", status);
     return NULL;
   }
-  CALL_CL(status, clCompileProgram, program, 0, nullptr,
-          compilation_options.c_str(), 0, nullptr, nullptr, nullptr, nullptr);
-  if (status != CL_SUCCESS) {
-    debugPrintBuildLog(program, DeviceInfo->deviceIDs[device_id]);
-    IDP("Error: Failed to compile program: %d\n", status);
-    return NULL;
-  }
-  programs.push_back(program);
 
-  // Link libdevice fallback implementations, if needed.
-  auto &libdevice_extensions =
-      DeviceInfo->Extensions[device_id].LibdeviceExtensions;
-
-  for (unsigned i = 0; i < libdevice_extensions.size(); ++i) {
-    auto &desc = libdevice_extensions[i];
-    if (desc.Status != ExtensionStatusEnabled) {
-      // Device runtime does not support this libdevice extension,
-      // so we have to link in the fallback implementation.
-      //
-      // TODO: the device image must specify which libdevice extensions
-      //       are actually required. We should link only the required
-      //       fallback implementations.
-      cl_program program =
-          createProgramFromFile(desc.FallbackLibName, device_id,
-                                compilation_options);
-      if (program)
-        programs.push_back(program);
-    } else
-      IDP("Skipped device RTL: %s\n", desc.FallbackLibName);
-  }
-  CompilationTimer.stop();
-
-  LinkingTimer.start();
-
-  CALL_CL_RVRC(linked_program, clLinkProgram, status,
-      DeviceInfo->CTX[device_id], 1, &DeviceInfo->deviceIDs[device_id],
-      linking_options.c_str(), programs.size(), programs.data(), nullptr,
-      nullptr);
-  if (status != CL_SUCCESS) {
-    debugPrintBuildLog(linked_program, DeviceInfo->deviceIDs[device_id]);
-    IDP("Error: Failed to link program: %d\n", status);
-    return NULL;
+  if (DeviceInfo->Flags.EnableSimd) {
+    CALL_CL(status, clBuildProgram, program, 0, nullptr,
+      (compilation_options+linking_options).c_str(), nullptr, nullptr);
+    if (status != CL_SUCCESS) {
+      debugPrintBuildLog(program, DeviceInfo->deviceIDs[device_id]);
+      IDP("Error: Failed to build program: %d\n", status);
+      return NULL;
+    }
+    linked_program = program;
+    DeviceInfo->FuncGblEntries[device_id].Program = linked_program;
+    CompilationTimer.stop();
   } else {
-    IDP("Successfully linked program.\n");
-  }
-  DeviceInfo->FuncGblEntries[device_id].Program = linked_program;
+    CALL_CL(status, clCompileProgram, program, 0, nullptr,
+      compilation_options.c_str(), 0, nullptr, nullptr, nullptr, nullptr);
+    if (status != CL_SUCCESS) {
+      debugPrintBuildLog(program, DeviceInfo->deviceIDs[device_id]);
+      IDP("Error: Failed to compile program: %d\n", status);
+      return NULL;
+    }
+    programs.push_back(program);
 
-  LinkingTimer.stop();
+    // Link libdevice fallback implementations, if needed.
+    auto &libdevice_extensions =
+        DeviceInfo->Extensions[device_id].LibdeviceExtensions;
+
+    for (unsigned i = 0; i < libdevice_extensions.size(); ++i) {
+      auto &desc = libdevice_extensions[i];
+      if (desc.Status != ExtensionStatusEnabled) {
+        // Device runtime does not support this libdevice extension,
+        // so we have to link in the fallback implementation.
+        //
+        // TODO: the device image must specify which libdevice extensions
+        //       are actually required. We should link only the required
+        //       fallback implementations.
+        cl_program program =
+            createProgramFromFile(desc.FallbackLibName, device_id,
+                                compilation_options);
+        if (program)
+          programs.push_back(program);
+      } else {
+        IDP("Skipped device RTL: %s\n", desc.FallbackLibName);
+      }
+    }
+    CompilationTimer.stop();
+
+    LinkingTimer.start();
+
+    CALL_CL_RVRC(linked_program, clLinkProgram, status,
+        DeviceInfo->CTX[device_id], 1, &DeviceInfo->deviceIDs[device_id],
+        linking_options.c_str(), programs.size(), programs.data(), nullptr,
+        nullptr);
+    if (status != CL_SUCCESS) {
+      debugPrintBuildLog(linked_program, DeviceInfo->deviceIDs[device_id]);
+      IDP("Error: Failed to link program: %d\n", status);
+      return NULL;
+    } else {
+      IDP("Successfully linked program.\n");
+    }
+
+    DeviceInfo->FuncGblEntries[device_id].Program = linked_program;
+    LinkingTimer.stop();
+  }
 
   // create kernel and target entries
   DeviceInfo->FuncGblEntries[device_id].Entries.resize(NumEntries);
@@ -1774,9 +1799,12 @@ __tgt_target_table *__tgt_rtl_load_binary(int32_t device_id,
   }
 
   // Release intermediate programs and store the final program.
-  for (uint32_t i = 0; i < programs.size(); i++) {
-    CALL_CL_EXIT_FAIL(clReleaseProgram, programs[i]);
+  if (!DeviceInfo->Flags.EnableSimd) {
+    for (uint32_t i = 0; i < programs.size(); i++) {
+      CALL_CL_EXIT_FAIL(clReleaseProgram, programs[i]);
+    }
   }
+
   if (DeviceInfo->initProgramData(device_id) != OFFLOAD_SUCCESS)
     return nullptr;
   __tgt_target_table &table = DeviceInfo->FuncGblEntries[device_id].Table;
