@@ -11,7 +11,7 @@ f:
 
 ; We just make sure this pass doesn't crash and generates the definition
 ; following function.
-; CHECK: define private [7 x i64] @WG.boundaries.func(i8 addrspace(1)* %0)
+; CHECK: define [7 x i64] @WG.boundaries.func(i8 addrspace(1)* %0)
 
 !opencl.kernels =  !{!0}
 !0 = !{ void(i8 addrspace(1)*)* @func }

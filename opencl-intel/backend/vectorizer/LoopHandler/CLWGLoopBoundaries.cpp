@@ -244,8 +244,12 @@ Function *CLWGLoopBoundaries::createLoopBoundariesFunctionDcl() {
 
   FunctionType *fType =
     FunctionType::get(retTy, argTypes, false);
+  // Set the linkage type as external, so that it won't be removed before
+  // WGLoopCreator pass. We may change the linkage type to private after
+  // creating WG loop, and then the function will be removed before CodeGen if
+  // inlined.
   Function *condFunc =
-    Function::Create(fType, GlobalValue::PrivateLinkage, EEFuncName, m_M);
+    Function::Create(fType, GlobalValue::ExternalLinkage, EEFuncName, m_M);
   return condFunc;
 }
 

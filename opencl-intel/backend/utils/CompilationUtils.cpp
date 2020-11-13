@@ -631,9 +631,8 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
         break;
 
       case Type::FixedVectorTyID:
-      case Type::ScalableVectorTyID:
         {
-          llvm::FixedVectorType *pVector = llvm::dyn_cast<llvm::FixedVectorType>(arg_it->getType());
+          llvm::FixedVectorType *pVector = llvm::cast<llvm::FixedVectorType>(arg_it->getType());
           curArg.type = CL_KRNL_ARG_VECTOR;
           curArg.size_in_bytes = (unsigned int)(pVector->getNumElements() == 3 ? 4 : pVector->getNumElements());
           curArg.size_in_bytes |= (pVector->getContainedType(0)->getPrimitiveSizeInBits()/8)<<16;
