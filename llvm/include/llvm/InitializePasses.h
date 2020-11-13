@@ -449,7 +449,7 @@ void initializeScalarizeMaskedMemIntrinPass(PassRegistry&);
 void initializeScalarizerLegacyPassPass(PassRegistry&);
 void initializeScavengerTestPass(PassRegistry&);
 void initializeScopedNoAliasAAWrapperPassPass(PassRegistry&);
-void initializeSeparateConstOffsetFromGEPPass(PassRegistry&);
+void initializeSeparateConstOffsetFromGEPLegacyPassPass(PassRegistry &);
 void initializeShadowStackGCLoweringPass(PassRegistry&);
 void initializeShrinkWrapPass(PassRegistry&);
 void initializeSimpleInlinerPass(PassRegistry&);
