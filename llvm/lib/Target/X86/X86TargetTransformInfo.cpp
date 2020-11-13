@@ -3793,7 +3793,9 @@ int X86TTIImpl::getMinMaxCost(Type *Ty, Type *CondTy, bool IsUnsigned) {
   MVT MTy = LT.second;
 
   int ISD;
-  if (Ty->isIntOrIntVectorTy()) {
+#if INTEL_CUSTOMIZATION
+  if (Ty->isIntOrIntVectorTy() || Ty->isPtrOrPtrVectorTy()) {
+#endif // INTEL_CUSTOMIZATION
     ISD = IsUnsigned ? ISD::UMIN : ISD::SMIN;
   } else {
     assert(Ty->isFPOrFPVectorTy() &&
@@ -3899,7 +3901,9 @@ int X86TTIImpl::getMinMaxCost(Type *Ty, Type *CondTy, bool IsUnsigned) {
   if (Ty->isFPOrFPVectorTy()) {
     CmpOpcode = Instruction::FCmp;
   } else {
-    assert(Ty->isIntOrIntVectorTy() &&
+#if INTEL_CUSTOMIZATION
+    assert((Ty->isIntOrIntVectorTy() || Ty->isPtrOrPtrVectorTy()) &&
+#endif // INTEL_CUSTOMIZATION
            "expecting floating point or integer type for min/max reduction");
     CmpOpcode = Instruction::ICmp;
   }
@@ -3925,7 +3929,9 @@ int X86TTIImpl::getMinMaxReductionCost(VectorType *ValTy, VectorType *CondTy,
   MVT MTy = LT.second;
 
   int ISD;
-  if (ValTy->isIntOrIntVectorTy()) {
+#if INTEL_CUSTOMIZATION
+  if (ValTy->isIntOrIntVectorTy() || ValTy->isPtrOrPtrVectorTy()) {
+#endif // INTEL_CUSTOMIZATION
     ISD = IsUnsigned ? ISD::UMIN : ISD::SMIN;
   } else {
     assert(ValTy->isFPOrFPVectorTy() &&

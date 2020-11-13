@@ -1917,7 +1917,9 @@ public:
     if (Ty->isFPOrFPVectorTy()) {
       CmpOpcode = Instruction::FCmp;
     } else {
-      assert(Ty->isIntOrIntVectorTy() &&
+#if INTEL_CUSTOMIZATION
+      assert((Ty->isIntOrIntVectorTy() || Ty->isPtrOrPtrVectorTy()) &&
+#endif // INTEL_CUSTOMIZATION
              "expecting floating point or integer type for min/max reduction");
       CmpOpcode = Instruction::ICmp;
     }
