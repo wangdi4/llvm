@@ -4397,11 +4397,14 @@ bool VPOParoptTransform::genNontemporalCode(WRegionNode *W) {
 
     auto growWorkList = [W, &WorkList, &VisitedSet](Value *V) {
       for (Use *U = &V->user_begin().getUse(); U; U = U->getNext()) {
-        if (!isa<Instruction>(U->getUser()))
+        if (VisitedSet.contains(U))
           continue;
-        Instruction *I = cast<Instruction>(U->getUser());
-        if (VisitedSet.contains(U) || !W->contains(I->getParent()))
+
+        // Consider only those instructions that are inside the region.
+        Instruction *I = dyn_cast<Instruction>(U->getUser());
+        if (I && !W->contains(I->getParent()))
           continue;
+
         WorkList.push_back(U);
         VisitedSet.insert(U);
       }
@@ -4425,8 +4428,8 @@ bool VPOParoptTransform::genNontemporalCode(WRegionNode *W) {
           Changed = true;
         }
         Mrf->setMetadata(LLVMContext::MD_nontemporal, NtmpMD);
-      } else if (isa<BitCastInst>(Usr) || isa<GetElementPtrInst>(Usr)) {
-        // Look through getelementptr and bitcast instructions.
+      } else if (isa<GEPOperator>(Usr) || isa<BitCastOperator>(Usr)) {
+        // Look through getelementptr and bitcast operators.
         growWorkList(Usr);
       }
     }

@@ -284,6 +284,33 @@ public:
   /// no-op depending upon src and dest types.
   void setExtType(bool SExt) { IsSExt = SExt; }
 
+  /// Returns true if the Loop level is in a valid range from
+  /// [1, MaxLoopNestLevel].
+  static bool isValidLoopLevel(unsigned Level) {
+    return (Level > 0 && Level <= MaxLoopNestLevel);
+  }
+
+  /// Returns true if DefLevel is a valid DefinedAtLevel for any CanonExpr.
+  static bool isValidDefLevel(unsigned DefLevel) {
+    return (DefLevel <= NonLinearLevel);
+  }
+
+  /// Returns true if DefLevel is a valid DefinedAtLevel for a linear CanonExpr.
+  static bool isValidLinearDefLevel(unsigned DefLevel) {
+    return (DefLevel <= MaxLoopNestLevel);
+  }
+
+  /// Returns true if this CE should be considered non-linear given DefLevel and
+  /// NestingLevel. DefLevel is the definition level of a blob contained in the
+  /// CE. NestingLevel is the level where the CE is attached to HIR.
+  static bool hasNonLinearSemantics(unsigned DefLevel, unsigned NestingLevel) {
+    assert(isValidDefLevel(DefLevel) && "DefLevel is invalid!");
+    assert(isValidLinearDefLevel(NestingLevel) && "NestingLevel is invalid!");
+
+    return ((DefLevel == NonLinearLevel) ||
+            (DefLevel && (DefLevel >= NestingLevel)));
+  }
+
   /// Returns the innermost level at which some blob present in this canon expr
   /// is defined. The canon expr in linear in all the inner loop levels w.r.t
   /// this level.
@@ -307,7 +334,12 @@ public:
 
   /// Returns true if this is linear at some levels (greater than
   /// DefinedAtLevel) in the current loopnest.
-  bool isLinearAtLevel(unsigned Level) const;
+  bool isLinearAtLevel(unsigned Level) const {
+    assert(CanonExpr::isValidLinearDefLevel(Level) &&
+           "Cannot compute linearity without a valid loop level");
+
+    return DefinedAtLevel < Level;
+  }
 
   /// Returns true if the canon expr is invariant at \p Level.
   /// If \p IgnoreInnerIVs is set to true, inner loop IVs are ignored.

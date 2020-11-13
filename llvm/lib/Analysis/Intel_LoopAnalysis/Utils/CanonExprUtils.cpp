@@ -144,7 +144,7 @@ CanonExpr *CanonExprUtils::createStandAloneBlobCanonExpr(unsigned Index,
           BlobUtils::isConstantDataBlob(Blob) ||
           BlobUtils::isConstantVectorBlob(Blob)) &&
          "Unexpected temp blob!");
-  assert(isValidDefLevel(Level) && "Invalid level!");
+  assert(CanonExpr::isValidDefLevel(Level) && "Invalid level!");
 
   auto CE = createCanonExpr(Blob->getType());
   CE->addBlob(Index, 1);
@@ -559,15 +559,6 @@ CanonExpr *CanonExprUtils::cloneAndNegate(const CanonExpr *CE) {
   return Result;
 }
 
-bool CanonExprUtils::hasNonLinearSemantics(unsigned DefLevel,
-                                           unsigned NestingLevel) {
-  assert(isValidDefLevel(DefLevel) && "DefLevel is invalid!");
-  assert(isValidLinearDefLevel(NestingLevel) && "NestingLevel is invalid!");
-
-  return ((DefLevel == NonLinearLevel) ||
-          (DefLevel && (DefLevel >= NestingLevel)));
-}
-
 bool CanonExprUtils::canReplaceIVByCanonExpr(const CanonExpr *CE1,
                                              unsigned Level,
                                              const CanonExpr *CE2,
@@ -656,7 +647,7 @@ bool CanonExprUtils::getConstIterationDistance(const CanonExpr *CE1,
                                                unsigned LoopLevel,
                                                int64_t *Distance,
                                                bool RelaxedMode) {
-  assert(isValidLoopLevel(LoopLevel) && "Invalid loop level!");
+  assert(CanonExpr::isValidLoopLevel(LoopLevel) && "Invalid loop level!");
 
   int64_t Coeff1, Coeff2;
   unsigned Index1, Index2;

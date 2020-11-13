@@ -396,7 +396,7 @@ public:
                      bool IgnoreIVs)
       : MRC(InitMRC), UnknownAliasingCallInsts(UnknownAliasingCallInsts),
         LoopLevel(InitLevel), SkipMemRefs(CandidateMemRef), IsDone(false) {
-    assert(CanonExprUtils::isValidLoopLevel(InitLevel) &&
+    assert(CanonExpr::isValidLoopLevel(InitLevel) &&
            "LoopLevel is out of bound\n");
 
     if (CandidateMemRef && !collectMemRef(CandidateMemRef, IgnoreIVs)) {
