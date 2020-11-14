@@ -3340,9 +3340,9 @@ RegDDRef *VPOCodeGenHIR::getOrCreateScalarRef(const VPValue *VPVal,
 
   assert(ScalarLaneID < getVF() && "Invalid lane ID.");
   RegDDRef *WideRef = widenRef(VPVal, getVF());
-  std::string Name = "extract." + Twine(ScalarLaneID).str() + ".";
   HLInst *ExtractInst = HLNodeUtilities.createExtractElementInst(
-      WideRef->clone(), (unsigned)ScalarLaneID, Name);
+      WideRef->clone(), (unsigned)ScalarLaneID,
+      "extract." + Twine(ScalarLaneID) + ".");
   addInstUnmasked(ExtractInst);
   ScalarRef = ExtractInst->getLvalDDRef();
   return ScalarRef->clone();
