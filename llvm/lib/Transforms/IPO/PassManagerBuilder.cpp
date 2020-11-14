@@ -2224,10 +2224,10 @@ void PassManagerBuilder::addLoopOptPasses(legacy::PassManagerBase &PM,
 
     if (RunLoopOpts == LoopOptMode::Full) {
       PM.add(createHIRConditionalLoadStoreMotionPass());
-      PM.add(createHIRLMMPass());
-      PM.add(createHIRDeadStoreEliminationPass());
       if (SizeLevel == 0)
         PM.add(createHIRMemoryReductionSinkingPass());
+      PM.add(createHIRLMMPass());
+      PM.add(createHIRDeadStoreEliminationPass());
     }
 
     PM.add(createHIRLastValueComputationPass());
