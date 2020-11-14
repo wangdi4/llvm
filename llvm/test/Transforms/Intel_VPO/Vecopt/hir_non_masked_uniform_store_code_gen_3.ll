@@ -10,8 +10,8 @@
 ; CHECK-LABEL:  *** IR Dump After VPlan Vectorization Driver HIR ***
 ; CHECK:             + DO i1 = 0, 99, 4   <DO_LOOP> <novectorize>
 ; CHECK-NEXT:        |   %.vec = (<4 x i64>*)(%larr)[i1];
-; CHECK-NEXT:        |   %last = extractelement %.vec,  3;
-; CHECK-NEXT:        |   (%unif_p_divval)[0] = %last;
+; CHECK-NEXT:        |   %extract.3. = extractelement %.vec,  3;
+; CHECK-NEXT:        |   (%unif_p_divval)[0] = %extract.3.;
 ; CHECK-NEXT:        |   (%unif_p_iv)[0] = i1 + 3;
 ; CHECK-NEXT:        |   (<4 x i64>*)(%larr)[i1] = i1 + <i64 0, i64 1, i64 2, i64 3>;
 ; CHECK-NEXT:        + END LOOP

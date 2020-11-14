@@ -27,8 +27,8 @@
 ; CHECK: |            |   %.vec = 3 * %0  *  i2 + <i32 0, i32 1, i32 2, i32 3>;
 ; CHECK: |            |   %.vec2 = (3 + (3 * %0)) * i1 + 3 * i2 + 3 * %0 + 3 * <i32 0, i32 1, i32 2, i32 3> + %.vec + 3  *  -1;
 ; CHECK: |            |   %.vec3 = %.unifload + %.vec2  *  3;
-; CHECK: |            |   %last = extractelement %.vec3,  3;
-; CHECK: |            |   (@d)[0] = %last;
+; CHECK: |            |   %extract.3. = extractelement %.vec3,  3;
+; CHECK: |            |   (@d)[0] = %extract.3.;
 ; CHECK: |            + END LOOP
 
 
