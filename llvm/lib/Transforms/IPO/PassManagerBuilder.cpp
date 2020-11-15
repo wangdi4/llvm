@@ -1989,8 +1989,14 @@ void PassManagerBuilder::addVPOPasses(legacy::PassManagerBase &PM, bool RunVec,
   //
   // TODO: Issue a warning for any unprocessed directives. Change to
   // assetion failure as the feature matures.
-  if (RunVPOParopt && RunVec) {
+  if (RunVPOParopt && (RunVec || EnableDeviceSimd)) {
     if (EnableDeviceSimd) {
+      PM.add(createLoopSimplifyPass());
+      PM.add(createLowerSwitchPass(true /*Only for SIMD loops*/));
+      // Add LCSSA pass before VPlan driver
+      PM.add(createLCSSAPass());
+      PM.add(createLICMPass());
+
       // VPO CFG restructuring pass makes sure that the directives of #pragma omp
       // simd ordered are in a separate block. For this reason,
       // VPlanPragmaOmpOrderedSimdExtract pass should run after VPO CFG
