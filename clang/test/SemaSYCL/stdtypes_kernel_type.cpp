@@ -1,7 +1,5 @@
 // RUN: %clang_cc1 -fsycl -fsycl-is-device -sycl-std=2020 -DCHECK_ERROR -verify %s
 
-// INTEL_CUSTOMIZATION comments should be removed once patch is upstreamed to intel/llvm.
-
 #include "Inputs/sycl.hpp"
 
 namespace std {
