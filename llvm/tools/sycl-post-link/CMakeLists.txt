@@ -14,6 +14,10 @@ set(LLVM_LINK_COMPONENTS
   IRReader
   Support
   TransformUtils
+# INTEL_CUSTOMIZATION
+  VPOTransforms
+  GenXIntrinsics
+# end INTEL_CUSTOMIZATION
   )
 
 add_llvm_tool(sycl-post-link
@@ -33,6 +37,7 @@ add_llvm_tool(sycl-post-link
   DEPENDS
   intrinsics_gen
 # INTEL_CUSTOMIZATION
+  LLVMVPOTransforms
   LLVMGenXIntrinsics
 # end INTEL_CUSTOMIZATION
   CUSTOM_WIN_VER

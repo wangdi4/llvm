@@ -77,6 +77,7 @@ add_llvm_component_library(LLVMVPOTransforms
   ${LLVMGenXIntrinsics_BINARY_DIR}/GenXIntrinsics/include
 
   LINK_LIBS
+  LLVMDemangle
   LLVMGenXIntrinsics
 )
 
