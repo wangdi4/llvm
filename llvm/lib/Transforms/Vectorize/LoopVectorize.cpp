@@ -1074,7 +1074,7 @@ public:
 
   /// \return An upper bound for the vectorization factor, or None if
   /// vectorization and interleaving should be avoided up front.
-  Optional<unsigned> computeMaxVF(unsigned UserVF, unsigned UserIC);
+  Optional<ElementCount> computeMaxVF(ElementCount UserVF, unsigned UserIC);
 
   /// \return True if runtime checks are required for vectorization, and false
   /// otherwise.
@@ -1451,7 +1451,7 @@ private:
   /// \return An upper bound for the vectorization factor, a power-of-2 larger
   /// than zero. One is returned if vectorization should best be avoided due
   /// to cost.
-  unsigned computeFeasibleMaxVF(unsigned ConstTripCount);
+  ElementCount computeFeasibleMaxVF(unsigned ConstTripCount);
 
   /// The vectorization cost is a combination of the cost itself and a boolean
   /// indicating whether any of the contributing operations will actually
@@ -5250,8 +5250,8 @@ bool LoopVectorizationCostModel::runtimeChecksRequired() {
   return false;
 }
 
-Optional<unsigned> LoopVectorizationCostModel::computeMaxVF(unsigned UserVF,
-                                                            unsigned UserIC) {
+Optional<ElementCount>
+LoopVectorizationCostModel::computeMaxVF(ElementCount UserVF, unsigned UserIC) {
   if (Legal->getRuntimePointerChecking()->Need && TTI.hasBranchDivergence()) {
     // TODO: It may by useful to do since it's still likely to be dynamically
     // uniform if the target can skip.
@@ -5309,9 +5309,13 @@ Optional<unsigned> LoopVectorizationCostModel::computeMaxVF(unsigned UserVF,
     InterleaveInfo.invalidateGroupsRequiringScalarEpilogue();
   }
 
-  unsigned MaxVF = UserVF ? UserVF : computeFeasibleMaxVF(TC);
-  assert((UserVF || isPowerOf2_32(MaxVF)) && "MaxVF must be a power of 2");
-  unsigned MaxVFtimesIC = UserIC ? MaxVF * UserIC : MaxVF;
+  ElementCount MaxVF = UserVF ? UserVF : computeFeasibleMaxVF(TC);
+  assert(!MaxVF.isScalable() &&
+         "Scalable vectors do not yet support tail folding");
+  assert((UserVF.isNonZero() || isPowerOf2_32(MaxVF.getFixedValue())) &&
+         "MaxVF must be a power of 2");
+  unsigned MaxVFtimesIC =
+      UserIC ? MaxVF.getFixedValue() * UserIC : MaxVF.getFixedValue();
   if (TC > 0 && TC % MaxVFtimesIC == 0) {
     // Accept MaxVF if we do not have a tail.
     LLVM_DEBUG(dbgs() << "LV: No tail will remain for any chosen VF.\n");
@@ -5357,7 +5361,7 @@ Optional<unsigned> LoopVectorizationCostModel::computeMaxVF(unsigned UserVF,
   return None;
 }
 
-unsigned
+ElementCount
 LoopVectorizationCostModel::computeFeasibleMaxVF(unsigned ConstTripCount) {
   MinBWs = computeMinimumValueSizes(TheLoop->getBlocks(), *DB, &TTI);
   unsigned SmallestType, WidestType;
@@ -5386,7 +5390,7 @@ LoopVectorizationCostModel::computeFeasibleMaxVF(unsigned ConstTripCount) {
   if (MaxVectorSize == 0) {
     LLVM_DEBUG(dbgs() << "LV: The target has no vector registers.\n");
     MaxVectorSize = 1;
-    return MaxVectorSize;
+    return ElementCount::getFixed(MaxVectorSize);
   } else if (ConstTripCount && ConstTripCount < MaxVectorSize &&
              isPowerOf2_32(ConstTripCount)) {
     // We need to clamp the VF to be the ConstTripCount. There is no point in
@@ -5394,7 +5398,7 @@ LoopVectorizationCostModel::computeFeasibleMaxVF(unsigned ConstTripCount) {
     LLVM_DEBUG(dbgs() << "LV: Clamping the MaxVF to the constant trip count: "
                       << ConstTripCount << "\n");
     MaxVectorSize = ConstTripCount;
-    return MaxVectorSize;
+    return ElementCount::getFixed(MaxVectorSize);
   }
 
   unsigned MaxVF = MaxVectorSize;
@@ -5432,7 +5436,7 @@ LoopVectorizationCostModel::computeFeasibleMaxVF(unsigned ConstTripCount) {
       }
     }
   }
-  return MaxVF;
+  return ElementCount::getFixed(MaxVF);
 }
 
 VectorizationFactor
@@ -5825,8 +5829,6 @@ LoopVectorizationCostModel::calculateRegisterUsage(ArrayRef<ElementCount> VFs) {
   unsigned MaxSafeDepDist = -1U;
   if (Legal->getMaxSafeDepDistBytes() != -1U)
     MaxSafeDepDist = Legal->getMaxSafeDepDistBytes() * 8;
-  unsigned WidestRegister =
-      std::min(TTI.getRegisterBitWidth(true), MaxSafeDepDist);
   const DataLayout &DL = TheFunction->getParent()->getDataLayout();
 
   SmallVector<RegisterUsage, 8> RUs(VFs.size());
@@ -5835,13 +5837,10 @@ LoopVectorizationCostModel::calculateRegisterUsage(ArrayRef<ElementCount> VFs) {
   LLVM_DEBUG(dbgs() << "LV(REG): Calculating max register usage:\n");
 
   // A lambda that gets the register usage for the given type and VF.
-  auto GetRegUsage = [&DL, WidestRegister](Type *Ty, ElementCount VF) {
+  auto GetRegUsage = [&DL, &TTI=TTI](Type *Ty, ElementCount VF) {
     if (Ty->isTokenTy())
       return 0U;
-    unsigned TypeSize = DL.getTypeSizeInBits(Ty->getScalarType());
-    assert(!VF.isScalable() && "scalable vectors not yet supported.");
-    return std::max<unsigned>(1, VF.getKnownMinValue() * TypeSize /
-                                     WidestRegister);
+    return TTI.getRegUsageForType(VectorType::get(Ty, VF));
   };
 
   for (unsigned int i = 0, s = IdxToInstr.size(); i < s; ++i) {
@@ -7020,8 +7019,7 @@ Optional<VectorizationFactor>
 LoopVectorizationPlanner::plan(ElementCount UserVF, unsigned UserIC) {
   assert(!UserVF.isScalable() && "scalable vectorization not yet handled");
   assert(OrigLoop->isInnermost() && "Inner loop expected.");
-  Optional<unsigned> MaybeMaxVF =
-      CM.computeMaxVF(UserVF.getKnownMinValue(), UserIC);
+  Optional<ElementCount> MaybeMaxVF = CM.computeMaxVF(UserVF, UserIC);
   if (!MaybeMaxVF) // Cases that should not to be vectorized nor interleaved.
     return None;
 
@@ -7052,7 +7050,7 @@ LoopVectorizationPlanner::plan(ElementCount UserVF, unsigned UserIC) {
     return {{UserVF, 0}};
   }
 
-  ElementCount MaxVF = ElementCount::getFixed(MaybeMaxVF.getValue());
+  ElementCount MaxVF = MaybeMaxVF.getValue();
   assert(MaxVF.isNonZero() && "MaxVF is zero.");
 
   for (ElementCount VF = ElementCount::getFixed(1);
