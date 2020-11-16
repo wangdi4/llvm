@@ -475,7 +475,7 @@ def no_device_math_lib_EQ : CommaJoined<["-"], "no-device-math-lib=">,
   Flags<[NoXarchOption]>, Values<"fp32,fp64">;
 #endif // INTEL_CUSTOMIZATION
 
-def _HASH_HASH_HASH : Flag<["-"], "###">, Flags<[NoXarchOption, CoreOption]>,
+def _HASH_HASH_HASH : Flag<["-"], "###">, Flags<[NoXarchOption, CoreOption, FlangOption]>,
     HelpText<"Print (but do not run) the commands to run for this compilation">;
 #if INTEL_CUSTOMIZATION
 def _dryrun : Flag<["-"], "dryrun">, Flags<[NoXarchOption]>, Alias<_HASH_HASH_HASH>,
