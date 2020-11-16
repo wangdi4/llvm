@@ -366,7 +366,8 @@ def HLSMaxInvocationDelay : InheritableAttr {
 }
 
 def StallEnable : InheritableAttr {
-  let Spellings = [Clang<"stall_enable">];
+  let Spellings = [Clang<"stall_enable">,
+                   Clang<"use_stall_enable_clusters">];
   let LangOpts = [OpenCL, HLS];
   let Subjects = SubjectList<[Function]>;
   let PragmaAttributeSupport = 0;

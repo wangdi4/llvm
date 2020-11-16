@@ -3153,6 +3153,31 @@ static void handleClusterAttr(Sema &S, Decl *D, const ParsedAttr &Attr) {
                  ClusterAttr(S.Context, Attr, Str, Attr.isArgExpr(0)));
 }
 
+static void handleStallEnableAttr(Sema &S, Decl *D, const ParsedAttr &Attr) {
+  if (!S.getLangOpts().HLS && !S.getLangOpts().OpenCL) {
+    S.Diag(Attr.getLoc(), diag::warn_unknown_attribute_ignored) << Attr;
+    return;
+  }
+
+  if (!checkAttributeNumArgs(S, Attr, /*NumArgsExpected=*/0))
+    return;
+
+  if (Attr.getAttributeSpellingListIndex() ==
+      StallEnableAttr::GNU_stall_enable) {
+    S.Diag(Attr.getLoc(), diag::warn_attribute_spelling_deprecated) << Attr;
+    S.Diag(Attr.getLoc(), diag::note_spelling_suggestion)
+        << "'use_stall_enable_clusters'";
+  } else if (Attr.getAttributeSpellingListIndex() ==
+             StallEnableAttr::CXX11_clang_stall_enable) {
+    S.Diag(Attr.getLoc(), diag::warn_attribute_spelling_deprecated)
+        << "'" + Attr.getNormalizedFullName() + "'";
+    S.Diag(Attr.getLoc(), diag::note_spelling_suggestion)
+        << "'clang::use_stall_enable_clusters'";
+  }
+
+  handleSimpleAttribute<StallEnableAttr>(S, D, Attr);
+}
+
 static void handleStallLatencyAttr(Sema &S, Decl *D, const ParsedAttr &AL) {
   if (!S.getLangOpts().HLS &&
       !S.Context.getTargetInfo().getTriple().isINTELFPGAEnvironment()) {
@@ -3487,7 +3512,8 @@ static void handleMaxConcurrencyAttr(Sema &S, Decl *D, const ParsedAttr &Attr) {
   }
 
   if (isa<VarDecl>(D)) {
-    S.Diag(Attr.getLoc(), diag::warn_max_concurrency_deprecated) << Attr;
+    S.Diag(Attr.getLoc(), diag::warn_attribute_spelling_deprecated) << Attr;
+    S.Diag(Attr.getLoc(), diag::note_spelling_suggestion) << "'private_copies'";
     if (checkAttrMutualExclusion<IntelFPGAPrivateCopiesAttr>(S, D, Attr))
       return;
   }
@@ -3887,7 +3913,7 @@ static void handleSYCLNumSimdWorkItemsAttr(Sema &S, Decl *D,         // INTEL
 }
 
 // Handles stall_enable
-static void handleStallEnableAttr(Sema &S, Decl *D, const ParsedAttr &Attr) {
+static void handleSYCLStallEnableAttr(Sema &S, Decl *D, const ParsedAttr &Attr) {
   if (D->isInvalidDecl())
     return;
 
@@ -9368,7 +9394,7 @@ static void ProcessDeclAttribute(Sema &S, Scope *scope, Decl *D,
     handleNoGlobalWorkOffsetAttr(S, D, AL);
     break;
   case ParsedAttr::AT_SYCLIntelStallEnable:
-    handleStallEnableAttr(S, D, AL);
+    handleSYCLStallEnableAttr(S, D, AL);
     break;
   case ParsedAttr::AT_VecTypeHint:
     handleVecTypeHint(S, D, AL);
