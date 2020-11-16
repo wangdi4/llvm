@@ -2096,7 +2096,8 @@ void RegDDRef::clear(bool AssumeLvalIfDetached) {
 }
 
 RegDDRef *RegDDRef::simplifyConstArray() {
-  if (!isMemRef() || !accessesConstantArray() || getBitCastDestType()) {
+  if (!isMemRef() || isFake() || !accessesConstantArray() ||
+      getBitCastDestType()) {
     return nullptr;
   }
 
