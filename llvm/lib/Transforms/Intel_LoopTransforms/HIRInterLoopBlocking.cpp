@@ -460,6 +460,9 @@ protected:
     // Collect information for the current innermost loop
     for (auto BaseIndex : Res.knownBaseIndices()) {
       const ArraySectionInfo *Info = Res.get(BaseIndex);
+      if (!Info)
+        return false;
+
       if (Info->isDef())
         CurDefSet.insert(BaseIndex);
       else
