@@ -2393,7 +2393,8 @@ llvm::InlineResult llvm::InlineFunction(CallBase &CB, InlineFunctionInfo &IFI,
   // calculate which instruction they should be inserted before.  We insert the
   // instructions at the end of the current alloca list.
 #if INTEL_COLLAB
-  if (!VPOAnalysisUtils::mayHaveOpenmpDirective(*Caller))
+  bool OpenMPNeedsStackSaveRestore = false;
+  bool IsOpenmp = VPOAnalysisUtils::mayHaveOpenmpDirective(*Caller);
 #endif // INTEL_COLLAB
   {
     BasicBlock::iterator InsertPoint = Caller->begin()->begin();
@@ -2411,6 +2412,12 @@ llvm::InlineResult llvm::InlineFunction(CallBase &CB, InlineFunctionInfo &IFI,
 
       if (!allocaWouldBeStaticInEntry(AI))
         continue;
+#if INTEL_COLLAB
+      if (IsOpenmp) {
+        OpenMPNeedsStackSaveRestore = true;
+        break;
+      }
+#endif // INTEL_COLLAB
 
       // Keep track of the static allocas that we inline into the caller.
       IFI.StaticAllocas.push_back(AI);
@@ -2588,7 +2595,8 @@ llvm::InlineResult llvm::InlineFunction(CallBase &CB, InlineFunctionInfo &IFI,
   // code with llvm.stacksave/llvm.stackrestore intrinsics.
 #if INTEL_COLLAB
   // SPIRV GPU targets might not have a stack (register allocation only)
-  if (InlinedFunctionInfo.ContainsDynamicAllocas && !isTargetSPIRV(Caller)) {
+  if (InlinedFunctionInfo.ContainsDynamicAllocas && !isTargetSPIRV(Caller) ||
+      OpenMPNeedsStackSaveRestore) {
 #else
   if (InlinedFunctionInfo.ContainsDynamicAllocas) {
 #endif // INTEL_COLLAB
