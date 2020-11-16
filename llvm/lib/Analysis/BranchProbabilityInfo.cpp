@@ -998,17 +998,20 @@ bool BranchProbabilityInfo::calcLoopBranchHeuristics(const BasicBlock *BB,
       return false;
 
     unsigned Denom = ADIL_TAKEN_WEIGHT + ADIL_NONTAKEN_WEIGHT;
+    SmallVector<BranchProbability, 4> EdgeProbabilities(
+      BB->getTerminator()->getNumSuccessors(), BranchProbability::getUnknown());
 
     BranchProbability InnerProb = BranchProbability(ADIL_TAKEN_WEIGHT, Denom);
     auto ProbInner = InnerProb / InnerLoopEdges.size();
     for (unsigned SuccIdx : InnerLoopEdges)
-      setEdgeProbability(BB, SuccIdx, ProbInner);
+      EdgeProbabilities[SuccIdx] = ProbInner;
 
     BranchProbability CurProb = BranchProbability(ADIL_NONTAKEN_WEIGHT, Denom);
     auto ProbCur = CurProb / CurrentLoopEdges.size();
     for (unsigned SuccIdx : CurrentLoopEdges)
-      setEdgeProbability(BB, SuccIdx, ProbCur);
+      EdgeProbabilities[SuccIdx] = ProbCur;
 
+    setEdgeProbability(BB, EdgeProbabilities);
     return true;
   }
 
