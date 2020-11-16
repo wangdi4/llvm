@@ -3153,18 +3153,6 @@ static void handleClusterAttr(Sema &S, Decl *D, const ParsedAttr &Attr) {
                  ClusterAttr(S.Context, Attr, Str, Attr.isArgExpr(0)));
 }
 
-static void handleStallEnableAttr(Sema &S, Decl *D, const ParsedAttr &Attr) {
-  if (!S.getLangOpts().HLS && !S.getLangOpts().OpenCL) {
-    S.Diag(Attr.getLoc(), diag::warn_unknown_attribute_ignored) << Attr;
-    return;
-  }
-
-  if (!checkAttributeNumArgs(S, Attr, /*NumArgsExpected=*/0))
-    return;
-
-  handleSimpleAttribute<StallEnableAttr>(S, D, Attr);
-}
-
 static void handleStallLatencyAttr(Sema &S, Decl *D, const ParsedAttr &AL) {
   if (!S.getLangOpts().HLS &&
       !S.Context.getTargetInfo().getTriple().isINTELFPGAEnvironment()) {
@@ -3896,6 +3884,20 @@ static void handleSYCLNumSimdWorkItemsAttr(Sema &S, Decl *D,         // INTEL
 
   S.addIntelSYCLSingleArgFunctionAttr<SYCLIntelNumSimdWorkItemsAttr>(D, Attr,
                                                                      E);
+}
+
+// Handles stall_enable
+static void handleStallEnableAttr(Sema &S, Decl *D, const ParsedAttr &Attr) {
+  if (D->isInvalidDecl())
+    return;
+
+  unsigned NumArgs = Attr.getNumArgs();
+  if (NumArgs > 0) {
+    S.Diag(Attr.getLoc(), diag::warn_attribute_too_many_arguments) << Attr << 0;
+    return;
+  }
+
+  handleSimpleAttribute<SYCLIntelStallEnableAttr>(S, D, Attr);
 }
 
 // Add scheduler_target_fmax_mhz
@@ -9364,6 +9366,9 @@ static void ProcessDeclAttribute(Sema &S, Scope *scope, Decl *D,
     break;
   case ParsedAttr::AT_SYCLIntelNoGlobalWorkOffset:
     handleNoGlobalWorkOffsetAttr(S, D, AL);
+    break;
+  case ParsedAttr::AT_SYCLIntelStallEnable:
+    handleStallEnableAttr(S, D, AL);
     break;
   case ParsedAttr::AT_VecTypeHint:
     handleVecTypeHint(S, D, AL);
