@@ -52,6 +52,14 @@ void func(int foo1[], int foo2[], int foo3[], int foo4[]) {
 #pragma prefetch foo1
   for (int i = 1; i < 100; i++) {
   }
+//
+// CHECK: DIR.PRAGMA.PREFETCH_LOOP
+// CHECK-SAME: "QUAL.PRAGMA.ATTRIB"(i32 1)
+// CHECK-SAME: "QUAL.PRAGMA.VAR"(i32** %foo1.addr)
+// CHECK: "DIR.PRAGMA.END.PREFETCH_LOOP"
+#pragma prefetch (foo1)
+  for (int i = 1; i < 100; i++) {
+  }
 
 // CHECK: DIR.PRAGMA.PREFETCH_LOOP
 // CHECK-SAME: "QUAL.PRAGMA.ATTRIB"(i32 1)
@@ -211,5 +219,53 @@ void func(int foo1[], int foo2[], int foo3[], int foo4[]) {
 #pragma prefetch (*pptr):1
 #pragma prefetch (*pptr):2:10
   for (int i = 1; i < 100; i++) {
+  }
+}
+
+class A {
+public:
+  static int i;
+  static int j[10];
+};
+
+int A::i = 1;
+int A::j[] = {0,1,2,3,4,5,6,7,8,9};
+
+namespace B {
+int i = 1;
+int j[] = {0,1,2,3,4,5,6,7,8,9};
+
+};
+
+void prefetch_test(float *a, float *b, int *j, int n)
+{
+  int i;
+
+// CHECK: DIR.PRAGMA.PREFETCH_LOOP
+// CHECK-SAME: "QUAL.PRAGMA.ATTRIB"(i32 1)
+// CHECK-SAME: "QUAL.PRAGMA.VAR"(i32* @_Z{{[A-Z,a-z,0-9]+}})
+// CHECK: DIR.PRAGMA.PREFETCH_LOOP
+// CHECK-SAME: "QUAL.PRAGMA.ATTRIB"(i32 1)
+// CHECK-SAME: "QUAL.PRAGMA.VAR"([10 x i32]* @_Z{{[A-Z,a-z,0-9]+}})
+// CHECK: "QUAL.PRAGMA.HINT"(i32 1)
+// CHUCK-SAME: "QUAL.PRAGMA.DISTANCE"(i32 10)
+// CHECK: DIR.PRAGMA.PREFETCH_LOOP
+// CHECK-SAME: "QUAL.PRAGMA.VAR"(i32* @_Z{{[A-Z,a-z,0-9]+}})
+// CHECK: DIR.PRAGMA.PREFETCH_LOOP
+// CHECK-SAME: "QUAL.PRAGMA.ATTRIB"(i32 1)
+// CHECK-SAME: "QUAL.PRAGMA.VAR"([10 x i32]* @_Z{{[A-Z,a-z,0-9]+}})
+// CHECK: "DIR.PRAGMA.END.PREFETCH_LOOP"
+// CHECK: "DIR.PRAGMA.END.PREFETCH_LOOP"
+// CHECK: "DIR.PRAGMA.END.PREFETCH_LOOP"
+// CHECK: "DIR.PRAGMA.END.PREFETCH_LOOP"
+#pragma prefetch A::i
+#pragma prefetch A::j:1:10
+#pragma prefetch B::i
+#pragma prefetch B::j
+  for (i=0; i<n; i++)
+  {
+    a[i] = b[i];
+    a[i] = a[i] + 1 + A::i + B::j[i];
+    a[i] = a[i] + 2 + A::j[i] + B::i;
   }
 }

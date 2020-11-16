@@ -96,12 +96,12 @@ def warn_redundant_ivdep_pragma : Warning<
   InGroup<Pragmas>;
 def note_overriding_ivdep_pragma_is_specified_here : Note<
   "overriding ivdep pragma is specified here">;
-def warn_prefetch_hint_out_of_range : Warning<
-  "hint value, %0, must be between %1 and %2, inclusive">,
-  InGroup<Pragmas>;
-def warn_prefetch_distance_greater_than_zero : Warning<
-  "distance value must be greater than zero">,
-  InGroup<Pragmas>;
+def err_prefetch_hint_out_of_range : Error<
+  "hint value, %0, must be between %1 and %2, inclusive">;
+def err_prefetch_distance_greater_than_zero : Error<
+  "distance value must be greater than zero">;
+def err_prefetch_invalid_argument : Error<
+  "invalid expression in '#pragma %0'">;
 def warn_intel_compat_feature : Warning<
   "Intel compatibility feature [%0] %select{used|possible}1">,
   InGroup<Pragmas>;

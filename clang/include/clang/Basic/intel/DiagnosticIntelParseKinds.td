@@ -61,6 +61,8 @@ def warn_multiple_blockloop_clause : Warning<
 def warn_pragma_loop_count_invalid_option
     : Warning<"invalid loop count '#pragma loop_count' - ignored">,
       InGroup<IgnoredPragmas>;
+def err_pragma_expected_integer_const
+    : Error<"expected an integer constant in '#pragma %0'">;
 
 // OpenMP
 def warn_pragma_omp_ignored_for_target : Warning<

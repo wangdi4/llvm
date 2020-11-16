@@ -865,12 +865,13 @@ static Attr *handleIntelPrefetchAttr(Sema &S, Stmt *St,
                                      const ParsedAttr &AA,
                                      const ParsedAttributesView &AttrList,
                                      SourceRange) {
+  SmallString<24> PragmaName = AA.getArgAsIdent(0)->Ident->getName();
   if (St->getStmtClass() != Stmt::DoStmtClass &&
       St->getStmtClass() != Stmt::ForStmtClass &&
       St->getStmtClass() != Stmt::CXXForRangeStmtClass &&
       St->getStmtClass() != Stmt::WhileStmtClass) {
     SmallString<24> DiagStr("#pragma ");
-    DiagStr += AA.getArgAsIdent(0)->Ident->getName();
+    DiagStr += PragmaName;
     S.Diag(St->getBeginLoc(), diag::err_pragma_loop_precedes_nonloop)
         << DiagStr;
     return nullptr;
@@ -878,37 +879,50 @@ static Attr *handleIntelPrefetchAttr(Sema &S, Stmt *St,
 
   SmallVector<Expr *, 2> PrefetchExprs;
   // Check arguments to prefetch and place them on the argument list.
-  //   #pragma prefetch [var [: hint [ : distance ]]] [, var ... ]
-  bool HintSeen = false;
+  //   #pragma prefetch [<var> [: hint [ : distance ]]] [, <var> ... ]
+  // or
+  //   #pragma prefetch * [: hint [ : distance ]]
+  // where <var> will be an lvalue and hint/distance will be integer constants.
+  bool LValArgSeen = AA.getNumArgs() > 1 &&
+                     isa<IntegerLiteral>(AA.getArgAsExpr(1));
+  unsigned IntArgsSeen = 0;
   for (unsigned AI = 1, NumArgs = AA.getNumArgs(); AI < NumArgs; ++AI) {
     Expr *Arg = AA.getArgAsExpr(AI);
-    // Memory reference.
+    // Error cases
+    bool InvalidArg = !Arg->isLValue() && !isa<IntegerLiteral>(Arg);
+    bool ExpectedLValue = !LValArgSeen && !Arg->isLValue() && IntArgsSeen == 2;
+    if (InvalidArg || ExpectedLValue) {
+      S.Diag(Arg->getExprLoc(), diag::err_prefetch_invalid_argument) <<
+        PragmaName;
+      return nullptr;
+    }
     if (Arg->isLValue()) {
-      HintSeen = false;
+      LValArgSeen = true;
+      IntArgsSeen = 0;
       PrefetchExprs.push_back(Arg);
-    } else if (!HintSeen) {
-      // Prefetch hint value.
+      continue;
+    }
+    assert(isa<IntegerLiteral>(Arg));
+    if (IntArgsSeen++ == 0) {
+      // hint
       int32_t Hint = getConstInt(S, AI, AA);
-      HintSeen = true;
-      PrefetchExprs.push_back(Arg);
-      // Hint value must be between 1 and 4
       if (Hint < 1 || Hint > 4) {
         S.Diag(Arg->getExprLoc(),
-          diag::warn_prefetch_hint_out_of_range) << Hint << 1 << 4;
+               diag::err_prefetch_hint_out_of_range) << Hint << 1 << 4;
         return nullptr;
       }
-    } else {
-      // Prefetch distance value, if present, follows the hint value.
-      HintSeen = false;
       PrefetchExprs.push_back(Arg);
+    } else {
+      // distance
       int32_t Distance = getConstInt(S, AI, AA);
-      // Distance must be greater than zero.
       if (Distance == 0) {
         S.Diag(Arg->getExprLoc(),
-          diag::warn_prefetch_distance_greater_than_zero);
+               diag::err_prefetch_distance_greater_than_zero);
         return nullptr;
       }
+      PrefetchExprs.push_back(Arg);
     }
+    LValArgSeen = false;
   }
   const IntelPrefetchAttr *PA = IntelPrefetchAttr::CreateImplicit(
       S.Context, PrefetchExprs.data(), PrefetchExprs.size(), AA);
