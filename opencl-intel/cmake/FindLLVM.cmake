@@ -41,8 +41,6 @@ if (OPENCL_INTREE_BUILD)
     LTO_static
     Remarks
     Remarks_static
-    LLVMSupport_dyn
-    gtest_dyn gtest_main_dyn
   )
 elseif(BUILD_LLVM_FROM_SOURCE )
   set (LLVM_INCLUDE_DIRS ${LLVM_SRC_ROOT}/include ${LLVM_SRC_ROOT}/include/Intel_OptionalComponents ${LLVM_SRC_ROOT}/tools/clang/include ${CMAKE_CURRENT_BINARY_DIR}/llvm/include ${CMAKE_CURRENT_BINARY_DIR}/llvm/tools/clang/include)
