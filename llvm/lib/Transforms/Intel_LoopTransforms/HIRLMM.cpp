@@ -203,6 +203,8 @@ static bool foundRegionDominatingLoadOrStore(DominatorTree &DT,
   return FoundDominatingLoadOrStore;
 }
 
+/* =========================================================== */
+
 void MemRefGroup::analyze(const HLLoop *Lp, DominatorTree *DT,
                           bool LoopNestHoistingOnly) {
   // Only analyze once
@@ -1316,7 +1318,7 @@ void HIRLMM::createStoreInPostexit(HLLoop *Lp, RegDDRef *Ref, RegDDRef *TmpRef,
     for (auto &Goto : Gotos) {
       auto *StoreInst = StoreInPostexit->clone();
 
-      if (Ref->getHLDDNode()->getTopSortNum() < Goto->getTopSortNum()) {
+      if (HLNodeUtils::dominates(Ref->getHLDDNode(), Goto)) {
         HLNodeUtils::insertBefore(Goto, StoreInst);
       } else {
         // Create an inst like %t = 0 and insert it as first prehearder of the

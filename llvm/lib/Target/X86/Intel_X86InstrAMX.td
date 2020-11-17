@@ -35,8 +35,8 @@ let Predicates = [HasAMXBF8, In64BitMode] in {
       // To be translated to the actual instructions in X86ISelLowering.cpp
       def PTDPBF8PS : PseudoI<(outs), (ins u8imm:$src1,
                                u8imm:$src2, u8imm:$src3),
-                               [(int_x86_tdpbf8ps imm:$src1,
-                                 imm:$src2, imm:$src3)]>;
+                               [(int_x86_tdpbf8ps timm:$src1,
+                                 timm:$src2, timm:$src3)]>;
     }
   }
 } // HasAMXTILE, HasAMXBF8

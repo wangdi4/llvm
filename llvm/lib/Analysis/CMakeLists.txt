@@ -68,6 +68,7 @@ add_llvm_component_library(LLVMAnalysis
   Intel_Andersens.cpp
   Intel_ArrayUseAnalysis.cpp
   Intel_DopeVectorAnalysis.cpp
+  Intel_FPValueRange.cpp
   Intel_IPCloningAnalysis.cpp
   Intel_InlineCost.cpp
   Intel_PartialInlineAnalysis.cpp

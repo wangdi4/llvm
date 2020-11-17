@@ -1998,7 +1998,10 @@ bool HIRCompleteUnroll::ProfitabilityAnalyzer::addGEPCost(
       // This ref can be hoisted outside the unrolled loop so we add extra
       // savings.
       if (GEPInfo.DDIndependentInUnrolledLoop) {
-        GEPSavings += (UniqueOccurences * BaseCost);
+        // Ideally, the savings should be outer loop trip count multiplied by
+        // unique occurences but that skews the cost model too much so we only
+        // double the saving.
+        GEPSavings += (2 * UniqueOccurences * BaseCost);
       }
 
       if (IsMemRef) {

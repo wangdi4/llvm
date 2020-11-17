@@ -802,7 +802,13 @@ public:
   void GenStructFieldsCopyFromMemcpy(MemIntrinsic *MI);
   bool ReduceICmpSizeIfPossible(ICmpInst &ICI, Value *Op0, Value *Op1,
                                 unsigned Size);
+
+  // If we can prove both the dividend and divisor of an frem instruction are
+  // both integral and within the range of 64-bit integer, use srem instruction
+  // to replace the frem.
+  Instruction *transformScalarFRemToSRem(Value *Dividend, Value *Divisor);
 #endif // INTEL_CUSTOMIZATION
+
   Instruction *SimplifyAnyMemSet(AnyMemSetInst *MI);
 
   Value *EvaluateInDifferentType(Value *V, Type *Ty, bool isSigned);

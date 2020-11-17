@@ -6243,7 +6243,9 @@ let TargetPrefix = "x86" in {
 #if INTEL_FEATURE_ISA_AMX_BF8
 let TargetPrefix = "x86" in {
   def int_x86_tdpbf8ps : GCCBuiltin<"__builtin_ia32_tdpbf8ps">,
-              Intrinsic<[], [llvm_i8_ty, llvm_i8_ty, llvm_i8_ty], []>;
+              Intrinsic<[], [llvm_i8_ty, llvm_i8_ty, llvm_i8_ty],
+                        [ImmArg<ArgIndex<0>>,
+                         ImmArg<ArgIndex<1>>, ImmArg<ArgIndex<2>>]>;
 }
 #endif // INTEL_FEATURE_ISA_AMX_BF8
 

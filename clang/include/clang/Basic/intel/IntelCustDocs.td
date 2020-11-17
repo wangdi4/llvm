@@ -2351,28 +2351,28 @@ def StallEnableDocs : Documentation {
   let RegressionTest = "SemaIntelHLS/stall_enable.cpp, CodeGenIntelHLS/stall_enable.cpp, SemaOpenCL/intel-fpga-stall_enable.cl, CodeGenOpenCL/intel-fpga-stall_enable.cl";
   let Owner = "eandrews";
   let Content = [{
-The ``stall_enable`` attribute is an FPGA function and lambda function
-attribute used in HLS and OpenCL to generate FPGA hardware for the function
-using stall/enable protocol. The attribute takes no arguments and adds
+The ``use_stall_enable_clusters`` attribute is an FPGA function and lambda
+function attribute used in HLS and OpenCL to generate FPGA hardware for the
+function using stall/enable protocol. The attribute takes no arguments and adds
 metadata to the function/lambda definition.
 
 Syntax:
 
 .. code-block:: text
 
-  __attribute__((stall_enable))
+  __attribute__((use_stall_enable_clusters))
 
 C++11 attribute syntax is also supported on HLS:
 
 .. code-block:: text
 
-  [[clang::stall_enable]]
+  [[clang::use_stall_enable_clusters]]
 
 Example:
 
 .. code-block:: c
 
-  void __attribute__((stall_enable)) foo() {}
+  void __attribute__((use_stall_enable_clusters)) foo() {}
 
 AST:
 
@@ -2398,7 +2398,7 @@ IR:
   !2 = !{i32 1}
   }];
   let UserContent = [{
-The ``stall_enable`` attribute is an FPGA function and lambda function
+The ``use_stall_enable_clusters`` attribute is an FPGA function and lambda function
 attribute used in HLS and OpenCL to generate FPGA hardware for the function
 using stall/enable protocol. The attribute takes no arguments and adds
 metadata to the function/lambda definition.

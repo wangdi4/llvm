@@ -115,6 +115,10 @@ class HoistSinkSet {
   /// in ThenRefs, and in control flow (/reverse control flow) order.
   SmallVector<RegDDRef *, 8> ElseRefs;
 
+  /// If set, use this ref when hoisting/sinking to enable using common temps
+  /// between different sets.
+  RegDDRef *CommonTemp = nullptr;
+
 public:
   /// A default constructor creating an empty set.
   HoistSinkSet() = default;
@@ -159,6 +163,12 @@ public:
   /// Filters refs based on whether they are hoistable or sinkable from \p If
   /// according to \p DDG.
   void filterHoistableOrSinkable(const HLIf *If, const DDGraph &DDG);
+
+  /// Checks whether \p HoistSet (a set of loads to hoist) and \p SinkSet (a set
+  /// of stores to sink) should use a common temp. If so, this sets \ref
+  /// CommonTemp for both sets and returns true.
+  static bool checkAndAssignCommonTemp(HoistSinkSet &HoistSet,
+                                       HoistSinkSet &SinkSet);
 
   /// Hoists/sinks loads/stores from \p If.
   ///
@@ -452,6 +462,33 @@ void HoistSinkSet::filterHoistableOrSinkable(const HLIf *If,
   removeNonHoistableOrSinkable(ElseRefs, *this, If, DDG);
 }
 
+bool HoistSinkSet::checkAndAssignCommonTemp(HoistSinkSet &HoistSet,
+                                            HoistSinkSet &SinkSet) {
+  assert(!HoistSet.empty());
+  const RegDDRef *const HoistRef = HoistSet.ThenRefs.front();
+  assert(HoistRef->isRval());
+  assert(!SinkSet.empty());
+  const RegDDRef *const SinkRef = SinkSet.ThenRefs.front();
+  assert(SinkRef->isLval());
+
+  // Skip any sets that already have a common temp set.
+  if (HoistSet.CommonTemp)
+    return false;
+  if (SinkSet.CommonTemp)
+    return false;
+
+  // Set a common temp if the refs are equivalent.
+  if (DDRefUtils::areEqual(HoistRef, SinkRef)) {
+    HLNodeUtils &HNU = HoistRef->getHLDDNode()->getHLNodeUtils();
+    HoistSet.CommonTemp =
+        HNU.createTemp(HoistRef->getDestType(), "cldst.motioned");
+    SinkSet.CommonTemp = HoistSet.CommonTemp->clone();
+    return true;
+  }
+
+  return false;
+}
+
 /// Inserts a bitcast if needed to convert between the type of \p Ref and the
 /// hoist/sink type \p HSType. A new Lval/Rval ref with the correct type is
 /// returned.
@@ -534,12 +571,14 @@ void HoistSinkSet::hoistOrSinkFrom(HLIf *If) {
   const RegDDRef *HoistedOrSunk;
   if (IsHoist) {
     HLInst *const HoistLoadInst =
-      HNU.createLoad(ThenRefs.front()->clone(), "cldst.hoisted");
+        HNU.createLoad(ThenRefs.front()->clone(), "cldst.hoisted", CommonTemp);
     HLNodeUtils::insertBefore(If, HoistLoadInst);
     HoistedOrSunk = HoistLoadInst->getLvalDDRef();
   } else {
     RegDDRef *const NewSunkRef =
-      HNU.createTemp(ThenRefs.front()->getDestType(), "cldst.sunk");
+        CommonTemp
+            ? CommonTemp
+            : HNU.createTemp(ThenRefs.front()->getDestType(), "cldst.sunk");
     HLInst *const SunkStoreInst =
       HNU.createStore(NewSunkRef, "", ThenRefs.front()->clone());
     HLNodeUtils::insertAfter(If, SunkStoreInst);
@@ -649,6 +688,13 @@ static bool runOnIf(HLIf *If, HIRDDAnalysis &HDDA, const HLLoop *ParentLoop) {
     }
     dbgs() << "\n";
   });
+
+  // Match up any equivalent hoist/sink sets and assign common temps.
+  for (HoistSinkSet &Stores : SinkStores) {
+    for (HoistSinkSet &Loads : HoistLoads)
+      if (HoistSinkSet::checkAndAssignCommonTemp(Loads, Stores))
+        break;
+  }
 
   // Do the hoisting/sinking for eligible refs.
   for (HoistSinkSet &Loads : HoistLoads)

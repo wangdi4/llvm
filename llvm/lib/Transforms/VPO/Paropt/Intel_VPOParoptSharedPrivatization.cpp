@@ -219,12 +219,17 @@ bool VPOParoptTransform::privatizeSharedItems(WRegionNode *W) {
     // Then exclude nested regions where shared item will be privatized. Any
     // modifications in these regions should not inhibit privatization because
     // it will be done on a private instance.
-    // TODO: Need to recurse into all levels of descendants. V maybe be shared
-    // in CW but privatized by CW's child(ren), so blocks belonging to CW's
-    // child(ren) can be removed from the set.
-    for (WRegionNode *CW : W->getChildren())
-      if (IsWRNPrivate(CW, V))
-        for_each(CW->blocks(), [&BBs](BasicBlock *BB) { BBs.erase(BB); });
+    SmallVector<WRegionNode *, 8u> Worklist{W};
+    do {
+      WRegionNode *W = Worklist.pop_back_val();
+      for (WRegionNode *CW : W->getChildren()) {
+        if (IsWRNPrivate(CW, V)) {
+          for_each(CW->blocks(), [&BBs](BasicBlock *BB) { BBs.erase(BB); });
+          continue;
+        }
+        Worklist.push_back(CW);
+      }
+    } while (!Worklist.empty());
 
     return BBs;
   };
