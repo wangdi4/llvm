@@ -81,6 +81,6 @@ add_llvm_component_library(LLVMVPOTransforms
   LLVMGenXIntrinsics
 )
 
-add_dependencies(LLVMVPOTransforms intrinsics_gen directives_gen LLVMGenXIntrinsics)
+add_dependencies(LLVMVPOTransforms intrinsics_gen directives_gen LLVMDemangle LLVMGenXIntrinsics)
 
 # end INTEL_COLLAB
