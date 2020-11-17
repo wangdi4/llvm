@@ -3903,8 +3903,8 @@ int X86TTIImpl::getMinMaxCost(Type *Ty, Type *CondTy, bool IsUnsigned) {
   } else {
 #if INTEL_CUSTOMIZATION
     assert((Ty->isIntOrIntVectorTy() || Ty->isPtrOrPtrVectorTy()) &&
-#endif // INTEL_CUSTOMIZATION
            "expecting floating point or integer type for min/max reduction");
+#endif // INTEL_CUSTOMIZATION
     CmpOpcode = Instruction::ICmp;
   }
 
