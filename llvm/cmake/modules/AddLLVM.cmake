@@ -393,6 +393,21 @@ function(set_windows_version_resource_properties name resource_file)
                "RC_PRODUCT_VERSION=\"${ARG_VERSION_STRING}\"")
 endfunction(set_windows_version_resource_properties)
 
+# INTEL_CUSTOMIZATION
+macro(set_msvc_crt_flags name)
+  # LLVM sets /MT or /MD options globally, and there's no way to change it
+  # for a single target. As a workaround, remove /MT flag for every target
+  # and set it manually.
+  if (WIN32)
+    if (CMAKE_BUILD_TYPE MATCHES "Debug")
+      target_compile_options(${name} PRIVATE "/MTd")
+    else()
+      target_compile_options(${name} PRIVATE "/MT")
+    endif()
+  endif()
+endmacro()
+# end INTEL_CUSTOMIZATION
+
 # llvm_add_library(name sources...
 #   SHARED;STATIC
 #     STATIC by default w/o BUILD_SHARED_LIBS.
@@ -476,6 +491,9 @@ function(llvm_add_library name)
       ${ALL_FILES}
       )
     llvm_update_compile_flags(${obj_name})
+    # INTEL_CUSTOMIZATION
+    set_msvc_crt_flags(${obj_name})
+    # end INTEL_CUSTOMIZATION
     if(CMAKE_GENERATOR STREQUAL "Xcode")
       set(DUMMY_FILE ${CMAKE_CURRENT_BINARY_DIR}/Dummy.c)
       file(WRITE ${DUMMY_FILE} "// This file intentionally empty\n")
@@ -674,6 +692,7 @@ function(llvm_add_library name)
           string(REGEX REPLACE "/MT" "" ${flag_var} "${${flag_var}}")
           set(${flag_var} "${${flag_var}}" CACHE STRING "" FORCE)
         endforeach()
+        target_compile_options(${name} PUBLIC "${ARG_STDLIB}")
         set_property(TARGET ${name} APPEND_STRING PROPERTY
                     COMPILE_FLAGS " ${ARG_STDLIB}")
       endif()
@@ -688,18 +707,7 @@ function(llvm_add_library name)
       endif()
     endif()
   else()
-    # LLVM sets /MT or /MD options globally, and there's no way to change it
-    # for a single target. As a workaround, remove /MT flag for every target
-    # and set it manually.
-    if (WIN32)
-      if (CMAKE_BUILD_PATH MATCHES "Debug")
-        set_property(TARGET ${name} APPEND_STRING PROPERTY
-                    COMPILE_FLAGS " /MTd")
-      else()
-        set_property(TARGET ${name} APPEND_STRING PROPERTY
-                    COMPILE_FLAGS " /MT")
-      endif()
-    endif()
+    set_msvc_crt_flags(${name})
   endif()
   # end INTEL_CUSTOMIZATION
 
@@ -862,6 +870,9 @@ macro(add_llvm_executable name)
     set(ALL_FILES "$<TARGET_OBJECTS:${obj_name}>")
 
     set_target_properties(${obj_name} PROPERTIES FOLDER "Object Libraries")
+    # INTEL_CUSTOMIZATION
+    set_msvc_crt_flags(${obj_name})
+    # end INTEL_CUSTOMIZATION
   endif()
 
   # INTEL_CUSTOMIZATION
@@ -939,6 +950,9 @@ macro(add_llvm_executable name)
   endif()
 
   llvm_codesign(${name} ENTITLEMENTS ${ARG_ENTITLEMENTS} BUNDLE_PATH ${ARG_BUNDLE_PATH})
+  # INTEL_CUSTOMIZATION
+  set_msvc_crt_flags(${name})
+  # end INTEL_CUSTOMIZATION
 endmacro(add_llvm_executable name)
 
 # add_llvm_pass_plugin(name [NO_MODULE] ...)
@@ -1494,6 +1508,7 @@ function(add_unittest test_suite test_name)
   else()
     list(APPEND LLVM_LINK_COMPONENTS Support) # gtest needs it for raw_ostream
     add_llvm_executable(${test_name} IGNORE_EXTERNALIZE_DEBUGINFO NO_INSTALL_RPATH ${ARGN})
+    set_msvc_crt_flags(${test_name})
     set(outdir ${CMAKE_CURRENT_BINARY_DIR}/${CMAKE_CFG_INTDIR})
     set_output_directory(${test_name} BINARY_DIR ${outdir} LIBRARY_DIR ${outdir})
     # libpthreads overrides some standard library symbols, so main

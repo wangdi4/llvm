@@ -6,6 +6,10 @@ add_library(LLVMCFIVerify
   GraphBuilder.h
   )
 
+# INTEL_CUSTOMIZATION
+set_msvc_crt_flags(LLVMCFIVerify)
+# end INTEL_CUSTOMIZATION
+
 llvm_update_compile_flags(LLVMCFIVerify)
 if (LLVM_LINK_LLVM_DYLIB)
   set(libs LLVM)
