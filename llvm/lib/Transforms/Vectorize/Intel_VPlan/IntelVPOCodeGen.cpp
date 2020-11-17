@@ -976,24 +976,32 @@ void VPOCodeGen::vectorizeInstruction(VPInstruction *VPInst) {
     return;
   }
   case Instruction::ICmp: {
-    // FIXME: Proper SVA-driven scalar ICMP codegen.
-    if (!MaskValue &&
-        !Plan->getVPlanDA()->isDivergent(*VPInst)
-        // DA forces icmp corresponding to the original loop exit condition to
-        // be treated as uniform, which is wrong. Don't emit scalar icmp for it.
-        && (!Plan->getVPlanDA()->isDivergent(*VPInst->getOperand(0)) &&
-            !Plan->getVPlanDA()->isDivergent(*VPInst->getOperand(1)))) {
+    // FIXME: Proper SVA-driven scalar ICMP codegen (for needLastScalar).
+    if (!MaskValue && Plan->getVPlanSVA()->instNeedsFirstScalarCode(VPInst)) {
       Value *A = getScalarValue(VPInst->getOperand(0), 0);
       Value *B = getScalarValue(VPInst->getOperand(1), 0);
       auto *Cmp = cast<VPCmpInst>(VPInst);
       VPScalarMap[VPInst][0] = Builder.CreateICmp(Cmp->getPredicate(), A, B);
-      return;
     }
 
-    Value *A = getVectorValue(VPInst->getOperand(0));
-    Value *B = getVectorValue(VPInst->getOperand(1));
-    auto *Cmp = cast<VPCmpInst>(VPInst);
-    VPWidenMap[VPInst] = Builder.CreateICmp(Cmp->getPredicate(), A, B);
+    if (MaskValue || Plan->getVPlanSVA()->instNeedsVectorCode(VPInst) ||
+        Plan->getVPlanSVA()->instNeedsLastScalarCode(VPInst)) {
+      Value *A = getVectorValue(VPInst->getOperand(0));
+      Value *B = getVectorValue(VPInst->getOperand(1));
+      auto *Cmp = cast<VPCmpInst>(VPInst);
+      VPWidenMap[VPInst] = Builder.CreateICmp(Cmp->getPredicate(), A, B);
+      // TODO: We need something like below for the lastScalarCode with
+      // the correction to use the last lane. At the moment we don't process SVA
+      // bits so that scalar value is not used anyway.
+#if 0
+      if (!MaskValue && Plan->getVPlanSVA()->instNeedsLastScalarCode(VPInst)) {
+        Constant *LastL = ConstantInt::get(
+            Type::getInt32Ty(VPInst->getType()->getContext()), VF - 1);
+        VPScalarMap[VPInst][VF - 1] =
+            Builder.CreateExtractElement(getVectorValue(VPInst), LastL);
+      }
+#endif
+    }
     return;
   }
   case Instruction::FCmp: {
