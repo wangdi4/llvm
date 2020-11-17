@@ -482,7 +482,7 @@ KernelProperties *ProgramBuilder::CreateKernelProperties(
   const size_t scalarExecutionLength = skimd.KernelExecutionLength.get();
   const unsigned int scalarBufferStride = skimd.BarrierBufferSize.get();
   unsigned int privateMemorySize = skimd.PrivateMemorySize.get();
-  size_t VF = skimd.VectorizedWidth.get();
+  size_t VF = skimd.VectorizedWidth.hasValue() ? skimd.VectorizedWidth.get() : 1;
 
   size_t vectorExecutionLength = 0;
   unsigned int vectorBufferStride = 0;
