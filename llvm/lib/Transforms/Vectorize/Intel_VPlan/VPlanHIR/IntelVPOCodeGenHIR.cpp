@@ -487,8 +487,6 @@ private:
   unsigned VF;
   bool UnitStrideRefSeen;
   bool MemRefSeen;
-  bool NegativeIVCoeffSeen;
-  bool FieldAccessSeen;
   unsigned LoopLevel;
   VPOCodeGenHIR *CG;
 
@@ -502,8 +500,7 @@ public:
   HandledCheck(const HLLoop *OrigLoop, TargetLibraryInfo *TLI, int VF,
                VPOCodeGenHIR *CG)
       : IsHandled(true), OrigLoop(OrigLoop), TLI(TLI), VF(VF),
-        UnitStrideRefSeen(false), MemRefSeen(false), NegativeIVCoeffSeen(false),
-        FieldAccessSeen(false), CG(CG) {
+        UnitStrideRefSeen(false), MemRefSeen(false), CG(CG) {
     LoopLevel = OrigLoop->getNestingLevel();
   }
 
@@ -525,8 +522,6 @@ public:
   bool isHandled() { return IsHandled; }
   bool getUnitStrideRefSeen() { return UnitStrideRefSeen; }
   bool getMemRefSeen() { return MemRefSeen; }
-  bool getNegativeIVCoeffSeen() { return NegativeIVCoeffSeen; }
-  bool getFieldAccessSeen() { return FieldAccessSeen; }
 };
 
 class HLInstCounter final : public HLNodeVisitorBase {
@@ -731,13 +726,8 @@ void HandledCheck::visitRegDDRef(RegDDRef *RegDD) {
   }
 
   // Visit GEP Base
-  if (RegDD->hasGEPInfo()) {
-    // Track if we see field accesses in the lowest dimension
-    if (RegDD->hasTrailingStructOffsets(1))
-      FieldAccessSeen = true;
-
+  if (RegDD->hasGEPInfo())
     MemRefSeen = true;
-  }
 }
 
 // Checks Canon Expr to see if we support it. Currently, we do not
@@ -748,8 +738,6 @@ void HandledCheck::visitCanonExpr(CanonExpr *CExpr, bool InMemRef,
   if (InMemRef) {
     int64_t ConstCoeff = 0;
     CExpr->getIVCoeff(LoopLevel, nullptr, &ConstCoeff);
-    if (ConstCoeff < 0)
-      NegativeIVCoeffSeen = true;
   }
   if (!EnableBlobCoeffVec && CExpr->hasIVBlobCoeff(LoopLevel)) {
     LLVM_DEBUG(
@@ -855,14 +843,6 @@ bool VPOCodeGenHIR::loopIsHandled(HLLoop *Loop, unsigned int VF) {
       !NodeCheck.getUnitStrideRefSeen()) {
     LLVM_DEBUG(dbgs() << "VPLAN_OPTREPORT: Loop not handled - all mem refs non "
                          "unit-stride\n");
-    return false;
-  }
-
-  // Workaround for performance regressions until cost model can be refined
-  if (NodeCheck.getFieldAccessSeen() && NodeCheck.getNegativeIVCoeffSeen()) {
-    LLVM_DEBUG(
-        dbgs() << "VPLAN_OPTREPORT: Loop not handled - combination of field "
-                  "accesses and negative IV coefficients seen\n");
     return false;
   }
 
