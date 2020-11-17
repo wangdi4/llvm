@@ -232,6 +232,24 @@ public:
     }
 
     /**
+     * Print a list of properties. The list is terminated with 0.
+     * @param properties a list of properties.
+     */
+    template<typename T>
+    void PrintProperties(const T *properties) {
+      if (!properties) {
+        m_strStream << "nullptr";
+        return;
+      }
+      m_strStream << "[" << hex;
+      int i = 0;
+      while (properties[i] != 0) {
+        m_strStream << "0x" << properties[i++] << ", ";
+      }
+      m_strStream << "0]";
+    }
+
+    /**
      * End logging of an API function with a pointer return value
      * @param retVal the return value
      */
