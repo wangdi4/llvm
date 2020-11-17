@@ -28,6 +28,9 @@ required_libraries =
  Instrumentation
  Interpreter
  MCJIT
+ OrcJIT
+ OrcShared
+ OrcTargetProcess
  Native
  NativeCodeGen
  SelectionDAG

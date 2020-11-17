@@ -1058,9 +1058,8 @@ PreservedAnalyses InlinerPass::run(LazyCallGraph::SCC &InitialC,
   }
 #endif // INTEL_CUSTOMIZATION
 
-  // Capture updatable variables for the current SCC and RefSCC.
+  // Capture updatable variable for the current SCC.
   auto *C = &InitialC;
-  auto *RC = &C->getOuterRefSCC();
 
   // When inlining a callee produces new call sites, we want to keep track of
   // the fact that they were inlined from the callee.  This allows us to avoid
@@ -1306,7 +1305,6 @@ PreservedAnalyses InlinerPass::run(LazyCallGraph::SCC &InitialC,
     LazyCallGraph::SCC *OldC = C;
     C = &updateCGAndAnalysisManagerForCGSCCPass(CG, *C, N, AM, UR, FAM);
     LLVM_DEBUG(dbgs() << "Updated inlining SCC: " << *C << "\n");
-    RC = &C->getOuterRefSCC();
 
     // If this causes an SCC to split apart into multiple smaller SCCs, there
     // is a subtle risk we need to prepare for. Other transformations may

@@ -1486,10 +1486,13 @@ analyzeCond(const Loop *L, BranchInst *BI, ScalarEvolution *SE,
     return CannotOptimize;
 
   // Check if there is a loop-invariant predicate equivalent to our check.
-  if (!SE->isLoopInvariantExitCondDuringFirstIterations(
-           Pred, LHSS, RHSS, L, BI, MaxIter, InvariantPred, InvariantLHS,
-           InvariantRHS))
+  auto LIP = SE->getLoopInvariantExitCondDuringFirstIterations(Pred, LHSS, RHSS,
+                                                               L, BI, MaxIter);
+  if (!LIP)
     return CannotOptimize;
+  InvariantPred = LIP->Pred;
+  InvariantLHS = LIP->LHS;
+  InvariantRHS = LIP->RHS;
 
   // Can we prove it to be trivially true?
   if (SE->isKnownPredicateAt(InvariantPred, InvariantLHS, InvariantRHS, BI))
@@ -1579,6 +1582,9 @@ bool IndVarSimplify::optimizeLoopExits(Loop *L, SCEVExpander &Rewriter) {
     Rewriter.setInsertPoint(BI);
     auto *LHSV = Rewriter.expandCodeFor(InvariantLHS);
     auto *RHSV = Rewriter.expandCodeFor(InvariantRHS);
+    bool ExitIfTrue = !L->contains(*succ_begin(ExitingBB));
+    if (ExitIfTrue)
+      InvariantPred = ICmpInst::getInversePredicate(InvariantPred);
     IRBuilder<> Builder(BI);
     auto *NewCond = Builder.CreateICmp(InvariantPred, LHSV, RHSV,
                                        BI->getCondition()->getName());
