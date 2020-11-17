@@ -489,7 +489,7 @@ pushSGBlockBuiltinDivergentVectInfo(const Twine &basename, unsigned int len,
                         true,
                         vf,
                         std::vector<VectorKind>(v_num, VectorKind::vector()),
-                        basename.str(),
+                        scalar_mangle_name,
                         vector_mangle_name};
   std::string variant_repr = variant.toString();
 

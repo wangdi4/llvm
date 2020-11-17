@@ -13,7 +13,7 @@ define void @"_ZTSZZ4mainENK3$_0clERN2cl4sycl7handlerEE4Test"(i32 addrspace(1)*,
 ; CHECK-LABEL: _ZTSZZ4mainENK3$_0clERN2cl4sycl7handlerEE4Test
 
 ; Generated vector version
-; CHECK-LABEL: _ZGVeN16uuuuuuuuuuuuuuuu_TSZZ4mainENK3$_0clERN2cl4sycl7handlerEE4Test
+; CHECK-LABEL: _ZGVeN16uuuuuuuuuuuuuuuu__ZTSZZ4mainENK3$_0clERN2cl4sycl7handlerEE4Test
 
 ; Checks that we do not hit a label from the WRN region.
 ; CHECK-NOT: {{^[._a-zA-Z0-9]*}}:
