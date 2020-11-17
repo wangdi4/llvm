@@ -65,9 +65,17 @@ add_llvm_component_library(LLVMIntel_LoopTransforms
         HIRArrayScalarizationTestLauncher.cpp
         HIRArrayScalarization.cpp
 
-  ADDITIONAL_HEADER_DIRS
-  ${LLVM_MAIN_INCLUDE_DIR}/llvm/Transforms
-  ${LLVM_MAIN_INCLUDE_DIR}/llvm/Transforms/Intel_LoopTransforms
+        ADDITIONAL_HEADER_DIRS
+        ${LLVM_MAIN_INCLUDE_DIR}/llvm/Transforms
+        ${LLVM_MAIN_INCLUDE_DIR}/llvm/Transforms/Intel_LoopTransforms
+
+        LINK_COMPONENTS
+        Analysis
+        Core
+        Intel_LoopAnalysis
+        Intel_OptReport
+        Support
+        TransformUtils
         )
 
 target_link_libraries(LLVMIntel_LoopTransforms PRIVATE LLVMIntel_DTransAnalysis)

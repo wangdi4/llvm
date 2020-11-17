@@ -30,4 +30,22 @@ add_llvm_component_library(LLVMIntel_DTransAnalysis
 
   DEPENDS
   intrinsics_gen
+
+  # FIXME: figure out why LINK_COMPONENTS does not link the libraries,
+  #        and remove this LINK_LIBS.
+  LINK_LIBS
+  LLVMAnalysis
+  LLVMCore
+  LLVMObject
+  LLVMProfileData
+  LLVMSupport
+  LLVMTransformUtils
+
+  LINK_COMPONENTS
+  Analysis
+  Core
+  Object
+  ProfileData
+  Support
+  TransformUtils
 )

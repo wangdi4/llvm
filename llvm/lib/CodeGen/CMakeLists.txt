@@ -218,6 +218,22 @@ add_llvm_component_library(LLVMCodeGen
 # INTEL_CUSTOMIZATION
   directives_gen
 # end INTEL_CUSTOMIZATION
+
+  LINK_COMPONENTS
+  Analysis
+  BitReader
+  BitWriter
+  Core
+# INTEL_CUSTOMIZATION
+  Intel_MapIntrinToIml
+  Intel_OptReport
+# end INTEL_CUSTOMIZATION
+  MC
+  ProfileData
+  Scalar
+  Support
+  Target
+  TransformUtils
   )
 
 add_subdirectory(SelectionDAG)

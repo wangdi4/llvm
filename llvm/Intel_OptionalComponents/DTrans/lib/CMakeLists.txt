@@ -21,6 +21,20 @@ add_llvm_component_library(LLVMIntel_DTrans
   intrinsics_gen
   LLVMIntel_DTransOpt
   LLVMIntel_DTransAnalysis
+
+  # FIXME: figure out why LINK_COMPONENTS does not link the libraries,
+  #        and remove this LINK_LIBS.
+  LINK_LIBS
+  LLVMCore
+  LLVMIntel_DTransAnalysis
+  LLVMIntel_DTransOpt
+  LLVMSupport
+
+  LINK_COMPONENTS
+  Core
+  Intel_DTransAnalysis
+  Intel_DTransOpt
+  Support
   )
 
 add_subdirectory(Analysis)

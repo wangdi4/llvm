@@ -37,6 +37,23 @@ add_llvm_component_library(LLVMAsmPrinter
 
   DEPENDS
   intrinsics_gen
+
+  LINK_COMPONENTS
+  Analysis
+  BinaryFormat
+  CodeGen
+  Core
+  DebugInfoCodeView
+  DebugInfoDWARF
+  DebugInfoMSF
+# INTEL_CUSTOMIZATION
+  DebugInfoTraceBack
+# end INTEL_CUSTOMIZATION
+  MC
+  MCParser
+  Remarks
+  Support
+  Target
   )
 
 if(INTEL_CUSTOMIZATION)
