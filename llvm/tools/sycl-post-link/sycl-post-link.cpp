@@ -48,9 +48,9 @@
 
 #if INTEL_COLLAB
 #include "llvm/Pass.h"
-#include "llvm/Transforms/VPO/Paropt/VPOParoptLowerSimd.h"
 #include "llvm/Analysis/TargetTransformInfo.h"
 #include "llvm/IR/MDBuilder.h"
+#include "llvm/Transforms/VPO/Paropt/VPOParoptLowerSimd.h"
 #include "llvm/GenXIntrinsics/GenXSPIRVWriterAdaptor.h"
 #endif // INTEL_COLLAB
 

@@ -684,6 +684,9 @@ void initializeVPORestoreOperandsPass(PassRegistry &);
 void initializeVPOParoptPass(PassRegistry&);
 // VPO Tpv Transformation
 void initializeVPOParoptTpvPass(PassRegistry&);
+// VPO Paropt LowerSimd Pass
+void initializeVPOParoptLowerSimdPass(PassRegistry&);
+
 #endif // INTEL_COLLAB
 
 #if INTEL_CUSTOMIZATION

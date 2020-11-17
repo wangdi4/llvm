@@ -27,7 +27,7 @@ public:
 };
 
 FunctionPass *createVPOParoptLowerSimdPass();
-void initializeVPOParoptLowerSimdDevicePassPass(PassRegistry &);
+void initializeVPOParoptLowerSimdPass(PassRegistry &);
 
 } /// namespace llvm
 
