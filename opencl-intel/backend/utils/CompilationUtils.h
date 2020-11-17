@@ -325,6 +325,8 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     static bool isWorkGroupMin(const std::string&);
     static bool isWorkGroupMax(const std::string&);
     static bool isWorkGroupUniform(const std::string&);
+    static bool isSubGroupUniform(const std::string &);
+    static bool isWGUniform(const std::string &);
 
     static bool isAtomicBuiltin(const std::string&);
     static bool isWorkItemPipeBuiltin(const std::string&);

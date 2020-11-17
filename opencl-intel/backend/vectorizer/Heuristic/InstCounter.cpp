@@ -278,7 +278,7 @@ int WeightedInstCounter::getPreferredVectorizationWidth(Function &F, DenseMap<Lo
   // are computed slightly more rationally now.
   if (!hasAVX2()) {
     auto kimd = Intel::MetadataAPI::KernelInternalMetadataAPI(&F);
-    // For AVX, there is only x4 subgroup implementation.
+    // For AVX, there is only x4 native sub-group implementation.
     if (kimd.KernelHasSubgroups.hasValue() && kimd.KernelHasSubgroups.get())
       return 4;
     Type* DominantType = estimateDominantType(F, IterMap, ProbMap);

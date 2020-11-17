@@ -31,6 +31,7 @@ set(OCL_BE_PASSES
     InternalizeGlobalVariables
     KernelInfo
     LLVMBarrier
+    SGEmulation
     LLVMVectorizer
     SubGroupAdaptation
     LinearIdResolver
@@ -57,6 +58,7 @@ set(OCL_BE_PASSES
     PrintfArgumentsPromotion
     SYCLPipesHack
     AddNTAttr
+    ResolveVariableTIDCall
 )
 
 # Dependencies of the passes

@@ -47,6 +47,14 @@ static void initializeOCLPasses(llvm::PassRegistry &Registry) {
     intel::initializeWIRelatedValuePass(Registry);
     intel::initializeDataPerBarrierPass(Registry);
     intel::initializeDataPerValuePass(Registry);
+    // SGEmulation
+    intel::initializeSGBuiltinPass(Registry);
+    intel::initializeSGBarrierPropagatePass(Registry);
+    intel::initializeSGBarrierSimplifyPass(Registry);
+    intel::initializeSGValueWidenPass(Registry);
+    intel::initializeSGLoopConstructPass(Registry);
+
+    intel::initializeResolveVariableTIDCallPass(Registry);
     intel::initializeReplaceScalarWithMaskPass(Registry);
     intel::initializePreventDivCrashesPass(Registry);
     intel::initializeBuiltinCallToInstPass(Registry);

@@ -314,38 +314,38 @@ namespace intel{
           // We obtain the number of bytes needed per item from the Metadata
           // which is set by the Barrier pass
           uint64_t SizeInBytes = kimd.BarrierBufferSize.get();
-          // LocalSizeProd = LocalSize(0) * LocalSize(1) * LocalSize(2)
-          // If vectorized masked kernel is used
-          //   non-uniform remainder may store (value x VF) to special buffer.
-          //   BarrierBufferSize := BytesNeededPerWI
-          //                        * ((LocalSizeProd + VF - 1) / VF) * VF
-          // else
-          //   BarrierBufferSize := BytesNeededPerWI * LocalSizeProd
+          // BarrierBufferSize := BytesNeededPerWI
+          //                      * ((LocalSize(0) + VF - 1) / VF) * VF
+          //                      * LocalSize(1) * LocalSize(2)
           Value *BarrierBufferSize = ConstantInt::get(m_SizetTy, SizeInBytes);
           assert(WGInfo && "Work Group Info was not initialized");
           assert(!LocalSize.empty() && "Local group sizes are assumed to be computed already");
+
+          // If sub-group emulation OR vectorization happens, we may store a <VF
+          // x Ty> vector to special buffer in the last iteration of barrier
+          // loop even if there are only part of WIs active (WG_Size % SG_Size
+          // != 0). So we need to round the special buffer size on vec / emu dim
+          // to multiple of vec / emu size. We don't check whether the
+          // Work-Group is vectorized with tail here, in such cases, this action
+          // may waste a little memory.
           Value *LocalSizeProd = LocalSize[0];
-          for (unsigned Dim = 1; Dim < MAX_WORK_DIM; ++Dim)
-            LocalSizeProd =
-                builder.CreateMul(LocalSizeProd, LocalSize[Dim], "",
-                                  /*HasNUW*/ true, /*HasNSW*/ true);
-          LocalSizeProd->setName("LocalSizeProd");
-          Value *Multiple = LocalSizeProd;
-          if (kimd.VectorizedMaskedKernel.hasValue()) {
-            assert(kimd.VectorizedWidth.hasValue() &&
-                   "VF must exist for vectorized masked kernel");
+          if (kimd.VectorizedWidth.hasValue()) {
             unsigned VF = kimd.VectorizedWidth.get();
             if (VF > 1) {
               Value *VFValue = ConstantInt::get(m_SizetTy, VF);
               Value *VFMinus1 = ConstantInt::get(m_SizetTy, VF - 1);
               Value *Sum = builder.CreateAdd(LocalSizeProd, VFMinus1, "",
                                              /*HasNUW*/ true, /*HasNSW*/ true);
-              Multiple = builder.CreateAnd(Sum, builder.CreateNeg(VFValue),
-                                           "RoundUpToMultipleVF");
+              LocalSizeProd = builder.CreateAnd(Sum, builder.CreateNeg(VFValue),
+                                                "RoundUpToMultipleVF");
             }
           }
+          for (unsigned Dim = 1; Dim < MAX_WORK_DIM; ++Dim)
+            LocalSizeProd = builder.CreateMul(LocalSizeProd, LocalSize[Dim], "",
+                                              /*HasNUW*/ true, /*HasNSW*/ true);
+          LocalSizeProd->setName("LocalSizeProd");
           BarrierBufferSize = builder.CreateMul(
-              BarrierBufferSize, Multiple, "BarrierBufferSize",
+              BarrierBufferSize, LocalSizeProd, "BarrierBufferSize",
               /*HasNUW*/ true, /*HasNSW*/ true);
 
           // alloca i8, %BarrierBufferSize

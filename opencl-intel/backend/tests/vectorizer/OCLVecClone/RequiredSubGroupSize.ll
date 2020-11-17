@@ -25,7 +25,7 @@ define void @"_ZTSZZ4mainENK3$_0clERN2cl4sycl7handlerEE4Test"(i32 addrspace(1)*,
 ; CHECK-NOT: {{^[._a-zA-Z0-9]*}}:
 ; get_global_id call should be hoisted outside region!
 ; CHECK: %gid = call i64 @_Z13get_global_idj(i32 0) #1
-; CHECK-NEXT: %slid = call i32 @_Z22get_sub_group_local_idv() #1
+; CHECK-NOT: %slid = call i32 @_Z22get_sub_group_local_idv() #1
 ; CHECK-NEXT: label %simd.begin.region
 
 ; CHECK-LABEL: simd.begin.region:
@@ -35,13 +35,12 @@ define void @"_ZTSZZ4mainENK3$_0clERN2cl4sycl7handlerEE4Test"(i32 addrspace(1)*,
 
 ; CHECK-LABEL:  simd.loop:
 ; CHECK-NEXT:    [[INDEX:%.*]] = phi i32
-; CHECK-NEXT:    [[SLID_LINEAR:%.*]] = add nuw i32 [[INDEX]], %slid
 ; CHECK-NEXT:    [[INDEX_I64:%.*]] = sext i32 [[INDEX]] to i64
 ; CHECK-NEXT:    [[GID_LINEAR:%.*]] = add nuw i64 [[INDEX_I64]], %gid
 ; CHECK-NOT: call
 ; CHECK:         [[GID_LINEAR_I32:%.*]] = trunc i64 [[GID_LINEAR]] to i32
 ; CHECK-NEXT:    store i32 [[GID_LINEAR_I32]]
-; CHECK-NEXT:    store i32 [[SLID_LINEAR]]
+; CHECK-NEXT:    store i32 [[INDEX]]
 ; CHECK-LABEL: simd.end.region:
 ; CHECK-NEXT: call void @llvm.directive.region.exit(token %entry.region)
   %gid = call i64 @_Z13get_global_idj(i32 0) #1

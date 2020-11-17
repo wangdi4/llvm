@@ -16,11 +16,14 @@
 #include "BarrierUtils.h"
 
 #include "llvm/IR/LegacyPassManager.h"
+#include "llvm/IR/Verifier.h"
 #include "llvm/Transforms/Scalar.h"
 #include "llvm/Transforms/Utils.h"
-#include "llvm/IR/Verifier.h"
+#include "llvm/Transforms/Utils/UnifyFunctionExitNodes.h"
 
 using namespace llvm;
+
+extern bool EnableSubGroupEmulation;
 
 extern "C" {
   FunctionPass* createPhiCanon();
@@ -37,8 +40,15 @@ extern "C" {
   void* createReplaceScalarWithMaskPass();
   void *createBarrierPass(bool isNativeDebug, bool useTLSGlobals);
   Pass* createBuiltinLibInfoPass(SmallVector<Module*, 2> builtinsList, std::string type);
-  Pass* createResolveSubGroupWICallPass();
+  Pass *createResolveSubGroupWICallPass(bool ResolveSGBarrier);
   void getBarrierPassStrideSize(Pass *pPass, std::map<std::string, unsigned int>& bufferStrideMap);
+
+  // subgroup emulation passes
+  Pass *createSGBarrierPropagatePass();
+  Pass *createSGBarrierSimplifyPass();
+  Pass *createSGLoopConstructPass();
+  Pass *createSGValueWidenPass(bool EnableDebug);
+  Pass *createSubGroupBuiltinPass();
 }
 
 
@@ -58,7 +68,8 @@ namespace intel {
       // Currently, vectorizer is enabled only when m_optLevel > 0.
       barrierModulePM.add((ModulePass*)createReplaceScalarWithMaskPass());
       // Reslove sub_group call introduced by ReplaceScalarWithMask pass.
-      barrierModulePM.add(createResolveSubGroupWICallPass());
+      barrierModulePM.add(
+          createResolveSubGroupWICallPass(/*ResolveSGBarrier*/ false));
 
       barrierModulePM.add(createDeadCodeEliminationPass());
       barrierModulePM.add(createCFGSimplificationPass());
@@ -78,6 +89,23 @@ namespace intel {
       // calls by deleting them.
       barrierModulePM.add((ModulePass*)createRemoveDuplicationBarrierPass());
     }
+
+    if (EnableSubGroupEmulation) {
+      // Begin sub-group emulation
+      barrierModulePM.add(createSubGroupBuiltinPass());
+      barrierModulePM.add(createSGBarrierPropagatePass());
+      barrierModulePM.add(createSGBarrierSimplifyPass());
+      barrierModulePM.add(createSGValueWidenPass(m_debugType == Native));
+      barrierModulePM.add(createSGLoopConstructPass());
+#ifdef _DEBUG
+      barrierModulePM.add(createVerifierPass());
+#endif
+      // End sub-group emulation
+    }
+    // Since previous passes didn't resolve sub-group barriers, we need to
+    // resolve them here.
+    barrierModulePM.add(
+        createResolveSubGroupWICallPass(/*ResolveSGBarrier*/ true));
 
     barrierModulePM.add((ModulePass*)createSplitBBonBarrierPass());
     if (m_debugType == Native) {

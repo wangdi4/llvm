@@ -434,4 +434,3 @@ namespace intel {
 } // namespace intel
 
 #endif // __BARRIER_PASS_H__
-

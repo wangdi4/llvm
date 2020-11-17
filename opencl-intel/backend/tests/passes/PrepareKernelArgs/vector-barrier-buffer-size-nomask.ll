@@ -66,7 +66,9 @@ SyncBB0:                                          ; preds = %SyncBB1
 define void @__Vectorized_.test(i32 addrspace(1)* noalias %dst, i8 addrspace(3)* noalias %pLocalMemBase, { i64, [3 x i64], [3 x i64], [2 x [3 x i64]], [3 x i64], {}*, {}* }* noalias %pWorkDim, i64* noalias %pWGId, [4 x i64] %BaseGlbId, i8* noalias %pSpecialBuf, {}* noalias %RuntimeHandle) local_unnamed_addr #0 !kernel_arg_addr_space !4 !kernel_arg_access_qual !5 !kernel_arg_type !6 !kernel_arg_base_type !6 !kernel_arg_type_qual !7 !kernel_arg_host_accessible !8 !kernel_arg_pipe_depth !9 !kernel_arg_pipe_io !7 !kernel_arg_buffer_location !7 !kernel_arg_name !10 !vectorized_kernel !12 !no_barrier_path !8 !kernel_has_sub_groups !8 !scalarized_kernel !20 !vectorized_width !21 !vectorization_dimension !9 !can_unite_workgroups !8 !kernel_execution_length !22 !kernel_has_barrier !14 !kernel_has_global_sync !8 !max_wg_dimensions !4 !barrier_buffer_size !4 !private_memory_size !4 !local_buffer_size !9 {
 entry:
 ; CHECK-LABEL: @__Vectorized_.test
-; CHECK: [[MUL01:%[0-9]+]] = mul nuw nsw i64 %LocalSize_0, %LocalSize_1
+; CHECK: [[RELAXED_LS0:%.*]] = add nuw nsw i64 %LocalSize_0, [[#VF_1:]]
+; CHECK-NEXT: [[ROUNDUP:%.*]] = and i64 [[RELAXED_LS0]], -[[#VF_1+1]]
+; CHECK-NEXT: [[MUL01:%[0-9]+]] = mul nuw nsw i64 [[ROUNDUP]], %LocalSize_1
 ; CHECK-NEXT: %LocalSizeProd = mul nuw nsw i64 [[MUL01]], %LocalSize_2
 ; CHECK-NEXT: %BarrierBufferSize = mul nuw nsw i64 1, %LocalSizeProd
   %BaseGlobalID_0 = extractvalue [4 x i64] %BaseGlbId, 0

@@ -33,14 +33,12 @@ entry:
   %19 = call i64 @get_base_global_id.(i32 2)
   %20 = call i64 @_Z12get_group_idj(i32 0) #1
 ; CHECK-NOT: _Z22get_max_sub_group_sizev
-; CHECK-NOT: _Z22get_sub_group_local_idv
   %21 = call i32 @_Z22get_max_sub_group_sizev() #1
   %22 = call i32 @_Z22get_sub_group_local_idv() #1
 ; CHECK: %max.sg.size = trunc i64 16 to i32
   %23 = trunc i64 %20 to i32
 ; CHECK: mul i32 %max.sg.size{{.*}}
   %24 = mul i32 %21, %23
-; CHECK: add i32 0{{.*}}
   %25 = add i32 %22, %24
   %26 = icmp slt i32 %25, %7
   %27 = sext i32 %8 to i64

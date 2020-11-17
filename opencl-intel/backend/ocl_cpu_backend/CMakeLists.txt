@@ -222,6 +222,7 @@ endif( WIN32 )
 
 set( BACKEND_PASSES
     LLVMBarrier
+    SGEmulation
     ImplicitArgsAnalysis
     LLVMVectorizer
     AddFastMath
@@ -275,6 +276,7 @@ set( BACKEND_PASSES
     PrintfArgumentsPromotion
     SYCLPipesHack
     AddNTAttr
+    ResolveVariableTIDCall
 )
 
 set(UTILS_LIBS

@@ -199,6 +199,7 @@ struct KernelInternalMetadataAPI {
   typedef NamedMDValue<bool, MDValueGlobalObjectStrategy> KernelHasGlobalSyncTy;
   typedef NamedMDValue<bool, MDValueGlobalObjectStrategy> KernelHasSubgroupsTy;
   typedef NamedMDValue<bool, MDValueGlobalObjectStrategy> NoBarrierPathTy;
+  typedef NamedMDValue<int32_t, MDValueGlobalObjectStrategy> SubgroupEmuSizeTy;
   typedef NamedMDValue<int32_t, MDValueGlobalObjectStrategy> VectorizedWidthTy;
   typedef NamedMDValue<int32_t, MDValueGlobalObjectStrategy> BlockLiteralSizeTy;
   typedef NamedMDValue<int32_t, MDValueGlobalObjectStrategy>
@@ -224,6 +225,7 @@ struct KernelInternalMetadataAPI {
         KernelHasSubgroups(Func, "kernel_has_sub_groups"),
         NoBarrierPath(Func, "no_barrier_path"),
         VectorizedWidth(Func, "vectorized_width"),
+        SubgroupEmuSize(Func, "sg_emu_size"),
         OclRecommendedVectorLength(Func, "ocl_recommended_vector_length"),
         BlockLiteralSize(Func, "block_literal_size"),
         PrivateMemorySize(Func, "private_memory_size"),
@@ -233,8 +235,7 @@ struct KernelInternalMetadataAPI {
         VectorizedMaskedKernel(Func, "vectorized_masked_kernel"),
         KernelWrapper(Func, "kernel_wrapper"),
         ScalarizedKernel(Func, "scalarized_kernel"),
-        UseFPGAPipes(Func, "use_fpga_pipes")
-    {}
+        UseFPGAPipes(Func, "use_fpga_pipes") {}
 
   // internal attributes
   NamedMDValueAccessor<LocalBufferSizeTy> LocalBufferSize;
@@ -246,6 +247,7 @@ struct KernelInternalMetadataAPI {
   NamedMDValueAccessor<KernelHasSubgroupsTy> KernelHasSubgroups;
   NamedMDValueAccessor<NoBarrierPathTy> NoBarrierPath;
   NamedMDValueAccessor<VectorizedWidthTy> VectorizedWidth;
+  NamedMDValueAccessor<SubgroupEmuSizeTy> SubgroupEmuSize;
   NamedMDValueAccessor<VectorizedWidthTy> OclRecommendedVectorLength;
   NamedMDValueAccessor<BlockLiteralSizeTy> BlockLiteralSize;
   NamedMDValueAccessor<PrivateMemorySizeTy> PrivateMemorySize;
