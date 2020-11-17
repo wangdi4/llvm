@@ -16,6 +16,7 @@
 #define __VECTORIZER_UTILS_H__
 
 #include "llvm/IR/Instructions.h"
+#include "llvm/IR/Intrinsics.h"
 #include "llvm/IR/Constants.h"
 #include <vector>
 
@@ -126,6 +127,21 @@ public:
   /// @param targetType Target type to convert to
   /// @param insertPoint instruction to insert before
   static llvm::Instruction *TruncValToType(llvm::Value *orig, llvm::Type *targetType, llvm::Instruction *insertPoint);
+
+  /// @brief Returns true if the llvm intrinsic is safe to ignore
+  static inline bool isSafeIntrinsic(llvm::Intrinsic::ID IntrinsicID) {
+    switch (IntrinsicID) {
+    case llvm::Intrinsic::lifetime_start: case llvm::Intrinsic::lifetime_end:
+    case llvm::Intrinsic::var_annotation: case llvm::Intrinsic::ptr_annotation:
+    case llvm::Intrinsic::invariant_start: case llvm::Intrinsic::invariant_end:
+    case llvm::Intrinsic::dbg_addr: case llvm::Intrinsic::dbg_label:
+    case llvm::Intrinsic::dbg_declare: case llvm::Intrinsic::dbg_value:
+    case llvm::Intrinsic::annotation: case llvm::Intrinsic::assume:
+      return true;
+    }
+    return false;
+  }
+
 
 private:
 

@@ -599,10 +599,8 @@ void CPUDevice::ReleaseComputeUnits(unsigned int* which, unsigned int how_many)
 }
 
 void CPUDevice::NotifyAffinity(threadid_t tid, unsigned int core_index,
-                               bool relocate)
+                               bool relocate, bool need_mutex)
 {
-    Intel::OpenCL::Utils::OclAutoMutex CS(&m_ComputeUnitScoreboardMutex);
-
     // Don't pin thread if
     // * core_index is not less than m_numCores. For example, for FPGA emulator
     //   we allow to have more TBB workers than the number of CPU cores.
@@ -617,6 +615,8 @@ void CPUDevice::NotifyAffinity(threadid_t tid, unsigned int core_index,
 
     if (relocate)
     {
+        Intel::OpenCL::Utils::OclAutoMutex CS(&m_ComputeUnitScoreboardMutex);
+
         threadid_t other_tid = m_pCoreToThread[core_index];
         int my_prev_core_idx = m_threadToCore[tid];
 
@@ -666,6 +666,18 @@ void CPUDevice::NotifyAffinity(threadid_t tid, unsigned int core_index,
         }
         else
             m_pCoreToThread[my_prev_core_idx] = INVALID_THREAD_HANDLE;
+    }
+    else if (need_mutex)
+    {
+        Intel::OpenCL::Utils::OclAutoMutex CS(&m_ComputeUnitScoreboardMutex);
+        if (m_pCoreToThread[core_index] != tid)
+        {
+            // Update map
+            m_pCoreToThread[core_index] = tid;
+
+            //Set the caller's affinity as requested
+            clSetThreadAffinityToCore(m_pComputeUnitMap[core_index], tid);
+        }
     }
     else
     {

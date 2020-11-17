@@ -103,10 +103,11 @@ protected:
      * @param tid - Thread id
      * @param core_index - Thread position (index) in tbb arena.
      * @param relocate - Whether the previous thread pinned at core_index should
-     * be relocated to previous core of current thread.
+     *                   be relocated to previous core of current thread.
+     * @param need_mutex - Whether mutex is needed.
      */
-    void            NotifyAffinity(threadid_t tid, unsigned int core_index,
-                                   bool relocate = false) override;
+    void NotifyAffinity(threadid_t tid, unsigned int core_index,
+                        bool relocate, bool need_mutex) override;
 
     // Check if master thread will be pinned.
     bool            IsPinMasterAllowed() const override { return m_pinMaster; };

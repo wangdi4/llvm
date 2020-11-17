@@ -164,6 +164,11 @@ void Kernel::CreateWorkDescription(cl_uniform_kernel_args *UniformImplicitArgs,
     // Need to merge WG in the dimension a kernel is vectorized for
     size_t localWorkSizeX = UniformImplicitArgs->LocalSize[UNIFORM_WG_SIZE_INDEX][vectorizeOnDim];
     size_t globalWorkSizeX = UniformImplicitArgs->GlobalSize[vectorizeOnDim];
+
+    // Cannot merge WG if there is non-uniform WG in the dimension.
+    if ((globalWorkSizeX % localWorkSizeX) != 0)
+      return;
+
     // Compute the maximum WG size given that there are N threads to run on.
     unsigned int localSizeUpperLimit = min(globalWorkSizeX / numOfComputeUnits,
              m_pProps->GetMaxWorkGroupSize(maxWorkGroupSize, max_wg_private_size));
@@ -197,7 +202,10 @@ void Kernel::CreateWorkDescription(cl_uniform_kernel_args *UniformImplicitArgs,
         bestLocalSize = currLocalSize;
       }
     }
-    UniformImplicitArgs->LocalSize[UNIFORM_WG_SIZE_INDEX][vectorizeOnDim] = bestLocalSize;
+
+    UniformImplicitArgs->LocalSize[UNIFORM_WG_SIZE_INDEX][vectorizeOnDim] =
+    UniformImplicitArgs->LocalSize[NONUNIFORM_WG_SIZE_INDEX][vectorizeOnDim] =
+        bestLocalSize;
   }
 
   else if (UseAutoGroupSize) {

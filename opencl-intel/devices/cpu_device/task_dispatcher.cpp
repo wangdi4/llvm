@@ -591,7 +591,10 @@ void* TaskDispatcher::OnThreadEntry(bool registerThread)
             if (nullptr != pSubDevID && nullptr != pSubDevID->legal_core_ids)
             {
                 assert((nullptr != pSubDevID->legal_core_ids) && "For BY NAMES there should be an allocated array of legal core indices");
-                m_pObserver->NotifyAffinity( clMyThreadId(), pSubDevID->legal_core_ids[position_in_device] );
+                m_pObserver->NotifyAffinity(
+                    clMyThreadId(),
+                    pSubDevID->legal_core_ids[position_in_device],
+                    /*relocate*/ false, /*need_mutex*/ false);
             }
             else if (registerThread)
             {
@@ -599,7 +602,9 @@ void* TaskDispatcher::OnThreadEntry(bool registerThread)
                 // context. If current thread is just been registered in
                 // ThreadManager, it is not pinned to any CPU core yet and there
                 // is no need to relocate in NotifyAffinity.
-                m_pObserver->NotifyAffinity(clMyThreadId(), position_in_device);
+                m_pObserver->NotifyAffinity(clMyThreadId(), position_in_device,
+                                            /*relocate*/ false,
+                                            /*need_mutex*/ true);
             }
         }
 
