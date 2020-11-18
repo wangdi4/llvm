@@ -4469,7 +4469,7 @@ static bool mayIntersectDueToTypeCast(const RegDDRef *Ref1,
       Ref2->getSrcType()->isSized() ? Ref2->getSrcTypeSizeInBytes() : 0;
 
   // Only proceed if casting changes type size
-  if ((Size1Src == Size1Dst) && (Size2Src == Size2Dst))
+  if ((Size1Src >= Size1Dst) && (Size2Src >= Size2Dst))
     return false;
 
   int64_t Distance;
@@ -4676,6 +4676,11 @@ std::unique_ptr<Dependences> DDTest::depends(const DDRef *SrcDDRef,
     return std::make_unique<Dependences>(Result);
   }
 
+  // Same base subscripts with different types could cause a dependency
+  if (TestingMemRefs && EqualBaseAndShape &&
+      mayIntersectDueToTypeCast(SrcRegDDRef, DstRegDDRef))
+    return std::make_unique<Dependences>(Result);
+
   unsigned Pairs = SrcRegDDRef->getNumDimensions();
 
   LLVM_DEBUG(dbgs() << " # of Pairs " << Pairs << "\n");
@@ -4840,11 +4845,6 @@ std::unique_ptr<Dependences> DDTest::depends(const DDRef *SrcDDRef,
       }
     }
   }
-
-  // same base subscripts with different types could cause a dependency
-  if (TestingMemRefs && EqualBaseAndShape &&
-      mayIntersectDueToTypeCast(SrcRegDDRef, DstRegDDRef))
-    return std::make_unique<Dependences>(Result);
 
   LLVM_DEBUG(dbgs() << "    Separable = ");
   LLVM_DEBUG(dumpSmallBitVector(Separable));

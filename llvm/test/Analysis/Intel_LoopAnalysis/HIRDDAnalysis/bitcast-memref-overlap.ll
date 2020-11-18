@@ -118,3 +118,38 @@ for.end:                                          ; preds = %for.body
   %conv = sext i16 %4 to i32
   ret i32 %conv
 }
+
+; Test checks that output dependence is not calculated between (i16*)(%p)[i1] and (i16*)(%p)[i1 + 1].
+; The type of %p is i32*.
+
+; <17>               + DO i1 = 0, 99, 1   <DO_LOOP>
+; <4>                |   (i16*)(%p)[i1] = i1;
+; <10>               |   (i16*)(%p)[i1 + 1] = i1 + 1;
+; <17>               + END LOOP
+
+; CHECK: DD graph for function quux:
+; CHECK-NOT: (i16*)(%u)[i1] --> (i16*)(%u)[i1 + 1] OUTPUT (*)
+
+define dso_local void @quux(i32* nocapture %u) {
+entry:
+  br label %for.body
+
+for.body:                                         ; preds = %entry, %for.body
+  %indvars.iv = phi i64 [ 0, %entry ], [ %indvars.iv.next, %for.body ]
+  %i.012 = phi i16 [ 0, %entry ], [ %add, %for.body ]
+  %ptridx = getelementptr inbounds i32, i32* %u, i64 %indvars.iv
+  %bc = bitcast i32* %ptridx to i16*
+  store i16 %i.012, i16* %bc, align 2
+  %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
+  %add = add nuw nsw i16 %i.012, 1
+  %ptridx4 = getelementptr inbounds i32, i32* %u, i64 %indvars.iv.next
+  %bc1 = bitcast i32* %ptridx4 to i16*
+  %trunc = trunc i64 %indvars.iv.next to i16
+  store i16 %trunc, i16* %bc1, align 2
+  %exitcond = icmp eq i64 %indvars.iv.next, 100
+  br i1 %exitcond, label %for.end, label %for.body
+
+for.end:                                          ; preds = %for.body
+  ret void
+}
+
