@@ -3066,10 +3066,6 @@ private:
   // line option to do the same.
   bool FullLinearizationForced = false;
 
-  // HIR isn't uplifted for explict vector loop IV - need DA to treat backedge
-  // condition as uniform.
-  bool ForceOuterLoopBackedgeUniformity = false;
-
   // HIR CG handles very limited scalar compute and tends to keep most of things
   // on vectors. As such, the stability issue addressed by
   // VPActiveLane/VPActiveLaneExtract doesn't seem to exist for HIR case. Also,
@@ -3163,12 +3159,6 @@ public:
   void markFullLinearizationForced() { FullLinearizationForced = true; }
   bool isFullLinearizationForced() const { return FullLinearizationForced; }
 
-  void markBackedgeUniformityForced() {
-    ForceOuterLoopBackedgeUniformity = true;
-  }
-  bool isBackedgeUniformityForced() const {
-    return ForceOuterLoopBackedgeUniformity;
-  }
   void disableActiveLaneInstructions() {
     DisableActiveLaneInstructions = true;
   }

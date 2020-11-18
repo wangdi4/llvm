@@ -18,6 +18,7 @@ define void @test_fit_32bitindex_gather() local_unnamed_addr #0 {
 ; VPLAN-HIR-CM-VF8-NEXT:  Analyzing VPBasicBlock [[BB0:BB[0-9]+]], total cost: 0
 ; VPLAN-HIR-CM-VF8-NEXT:    Cost 0 for br [[BB1:BB[0-9]+]]
 ; VPLAN-HIR-CM-VF8-NEXT:  Analyzing VPBasicBlock [[BB1]], total cost: 0
+; VPLAN-HIR-CM-VF8-NEXT:    Cost Unknown for i32 [[VP_VECTOR_TRIP_COUNT:%.*]] = vector-trip-count i32 340, UF = 1
 ; VPLAN-HIR-CM-VF8-NEXT:    Cost Unknown for i32 [[VP__IND_INIT:%.*]] = induction-init{add} i32 live-in0 i32 1
 ; VPLAN-HIR-CM-VF8-NEXT:    Cost Unknown for i32 [[VP__IND_INIT_STEP:%.*]] = induction-init-step{add} i32 1
 ; VPLAN-HIR-CM-VF8-NEXT:    Cost 0 for br [[BB2:BB[0-9]+]]
@@ -57,7 +58,7 @@ define void @test_fit_32bitindex_gather() local_unnamed_addr #0 {
 ; VPLAN-HIR-CM-VF8-NEXT:    Cost 0 for i32* [[VP_SUBSCRIPT_7:%.*]] = subscript inbounds [1024 x i32]* @arr.i32.3 i64 2147483648 i64 [[VP17]]
 ; VPLAN-HIR-CM-VF8-NEXT:    Cost 8000 for store i32 [[VP_LOAD]] i32* [[VP_SUBSCRIPT_7]] ( GS )
 ; VPLAN-HIR-CM-VF8-NEXT:    Cost 1000 for i32 [[VP1]] = add i32 [[VP0]] i32 [[VP__IND_INIT_STEP]]
-; VPLAN-HIR-CM-VF8-NEXT:    Cost 1000 for i1 [[VP18:%.*]] = icmp sle i32 [[VP1]] i32 340
+; VPLAN-HIR-CM-VF8-NEXT:    Cost 1000 for i1 [[VP18:%.*]] = icmp sle i32 [[VP1]] i32 [[VP_VECTOR_TRIP_COUNT]]
 ; VPLAN-HIR-CM-VF8-NEXT:    Cost 0 for br i1 [[VP18]], [[BB2]], [[BB3:BB[0-9]+]]
 ; VPLAN-HIR-CM-VF8-NEXT:  Analyzing VPBasicBlock [[BB3]], total cost: 0
 ; VPLAN-HIR-CM-VF8-NEXT:    Cost Unknown for i32 [[VP__IND_FINAL:%.*]] = induction-final{add} i32 live-in0 i32 1

@@ -23,6 +23,18 @@ namespace vpo {
 
 class VPBuilderHIR : public VPBuilder {
 public:
+  /// Create VPInstruction described by a special class \p T, setting its
+  /// underlying HIR node.
+  template <class T, class NameType, class... Args>
+  T *create(loopopt::HLDDNode *DDNode, const NameType &Name, Args &&... args) {
+    auto *New = VPBuilder::create<T>(Name, std::forward<Args>(args)...);
+    if (DDNode) {
+      New->HIR.setUnderlyingNode(DDNode);
+      New->HIR.setValid();
+    }
+    return New;
+  }
+
   /// Create an N-ary operation with \p Opcode and \p Operands and set \p HInst
   /// as its VPInstructionData.
   VPValue *createNaryOp(unsigned Opcode, ArrayRef<VPValue *> Operands,

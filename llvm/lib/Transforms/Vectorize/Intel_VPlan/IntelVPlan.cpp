@@ -1318,10 +1318,6 @@ std::unique_ptr<VPlan> VPlan::clone(VPAnalysesFactory &VPAF, UpdateDA UDA) {
   if (isFullLinearizationForced())
     ClonedVPlan->markFullLinearizationForced();
 
-  // Update ForceOuterLoopBackedgeUniformity
-  if (isBackedgeUniformityForced())
-    ClonedVPlan->markBackedgeUniformityForced();
-
   if (areActiveLaneInstructionsDisabled())
     ClonedVPlan->disableActiveLaneInstructions();
 
