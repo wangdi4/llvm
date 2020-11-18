@@ -489,6 +489,12 @@ EXTERN int __tgt_get_num_devices(void);
 // Return target memory information
 EXTERN int __tgt_get_target_memory_info(
     void *interop_obj, int32_t num_ptrs, void *ptrs, void *ptr_info);
+
+// Pass target code build options to plugins.
+// This should be called after __tgt_register_lib().
+// TODO: remove this if we choose to modify device image description.
+EXTERN void __tgt_add_build_options(
+    const char *compile_options, const char *link_options);
 #endif // INTEL_COLLAB
 #ifdef __cplusplus
 }
