@@ -392,10 +392,10 @@ function(set_windows_version_resource_properties name resource_file)
 endfunction(set_windows_version_resource_properties)
 
 # INTEL_CUSTOMIZATION
+# LLVM sets /MT or /MD options globally, and there's no way to change it
+# for a single target. As a workaround, remove /MT flag for every target
+# and set it manually.
 macro(set_msvc_crt_flags name)
-  # LLVM sets /MT or /MD options globally, and there's no way to change it
-  # for a single target. As a workaround, remove /MT flag for every target
-  # and set it manually.
   if (WIN32)
     if (CMAKE_BUILD_TYPE MATCHES "Debug")
       target_compile_options(${name} PRIVATE "/MTd")
