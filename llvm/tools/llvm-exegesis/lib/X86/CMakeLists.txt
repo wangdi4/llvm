@@ -8,6 +8,9 @@ add_library(LLVMExegesisX86
   Target.cpp
   X86Counter.cpp
   )
+# INTEL_CUSTOMIZATION
+set_msvc_crt_flags(LLVMExegesisX86)
+# end INTEL_CUSTOMIZATION
 
 llvm_update_compile_flags(LLVMExegesisX86)
 llvm_map_components_to_libnames(libs

@@ -25,6 +25,7 @@ void llvm::initializeVPOTransforms(PassRegistry &Registry) {
   initializeVPOParoptPreparePass(Registry);
   initializeVPOParoptPass(Registry);
   initializeVPOParoptTpvPass(Registry);
+  initializeVPOParoptLowerSimdPass(Registry);
 
   initializeVPORestoreOperandsPass(Registry);
   initializeVPOCFGRestructuringPass(Registry);

@@ -13,6 +13,10 @@ set(LLVM_LINK_COMPONENTS
   IPO
   IRReader
   Support
+# INTEL_CUSTOMIZATION
+  GenXIntrinsics
+  VPOTransforms
+# end INTEL_CUSTOMIZATION
   TransformUtils
 # INTEL_CUSTOMIZATION
   GenXIntrinsics

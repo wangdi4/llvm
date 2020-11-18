@@ -203,6 +203,26 @@ _ce_fscp_read64(unsigned fscp) {
   return __builtin_ia32_icecode_fscp_read_64(fscp);
 }
 
+static __inline__ unsigned __DEFAULT_FN_ATTRS
+_ce_creg_xchg_mt32(unsigned creg, unsigned value) {
+  return __builtin_ia32_icecode_creg_xchg_mt_32(creg, value);
+}
+
+static __inline__ unsigned long long __DEFAULT_FN_ATTRS
+_ce_creg_xchg_mt64(unsigned creg, unsigned long long value) {
+  return __builtin_ia32_icecode_creg_xchg_mt_64(creg, value);
+}
+
+static __inline__ unsigned __DEFAULT_FN_ATTRS
+_ce_creg_read_mt32(unsigned creg) {
+  return __builtin_ia32_icecode_creg_read_mt_32(creg);
+}
+
+static __inline__ unsigned long long __DEFAULT_FN_ATTRS
+_ce_creg_read_mt64(unsigned creg) {
+  return __builtin_ia32_icecode_creg_read_mt_64(creg);
+}
+
 static __inline__ unsigned char __DEFAULT_FN_ATTRS
 _ce_portin8(unsigned long long port) {
   return __builtin_ia32_icecode_portin_8(port);
