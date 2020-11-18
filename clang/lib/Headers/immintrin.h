@@ -805,25 +805,25 @@ _storebe_i64(void * __P, long long __D) {
 /* end INTEL_FEATURE_ISA_ULI */
 
 /* INTEL_FEATURE_ISA_AMX_BF8 */
-#if defined(__AMX_BF8_SUPPORTED__)
+#if defined(__AMXBF8_SUPPORTED__)
 #if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
-    defined(__AMX_BF8__) || defined(__M_INTRINSIC_PROMOTE__)
+    defined(__AMXBF8__) || defined(__M_INTRINSIC_PROMOTE__)
 #include <Intel_amxbf8intrin.h>
 #endif
 #endif
 /* end INTEL_FEATURE_ISA_AMX_BF8 */
 
 /* INTEL_FEATURE_ISA_AMX_MEMADVISE */
-#if defined(__AMX_MEMADVISE_SUPPORTED__)
+#if defined(__AMXMEMADVISE_SUPPORTED__)
 #if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
-    defined(__AMX_MEMADVISE__) || defined(__M_INTRINSIC_PROMOTE__)
+    defined(__AMXMEMADVISE__) || defined(__M_INTRINSIC_PROMOTE__)
 #include <Intel_amxmemadviseintrin.h>
 #endif
 #endif
 /* end INTEL_FEATURE_ISA_AMX_MEMADVISE */
 
 /* INTEL_FEATURE_ISA_AMX_FUTURE */
-#if defined(__AMX_FUTURE_SUPPORTED__)
+#if defined(__AMXFUTURE_SUPPORTED__)
 #if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
     defined(__AMXREDUCE__) || defined(__AMXELEMENT__) ||                       \
     defined(__AMXMEMORY__) || defined(__AMXFORMAT__) ||                        \
@@ -834,7 +834,7 @@ _storebe_i64(void * __P, long long __D) {
 /* end INTEL_FEATURE_ISA_AMX_FUTURE */
 
 /* INTEL_FEATURE_ISA_AMX_LNC */
-#if defined(__AMX_LNC_SUPPORTED__)
+#if defined(__AMXLNC_SUPPORTED__)
 #if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
     defined(__AMXTRANSPOSE__) || defined(__AMXAVX512__) ||                     \
     defined(__M_INTRINSIC_PROMOTE__)
@@ -844,61 +844,61 @@ _storebe_i64(void * __P, long long __D) {
 /* end INTEL_FEATURE_ISA_AMX_LNC */
 
 /* INTEL_FEATURE_ISA_AMX_TRANSPOSE2 */
-#if defined(__AMX_TRANSPOSE2_SUPPORTED__)
+#if defined(__AMXTRANSPOSE2_SUPPORTED__)
 #if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
-    defined(__AMX_TRANSPOSE2__) || defined(__M_INTRINSIC_PROMOTE__)
+    defined(__AMXTRANSPOSE2__) || defined(__M_INTRINSIC_PROMOTE__)
 #include <Intel_amxtranspose2intrin.h>
 #endif
 #endif
 /* end INTEL_FEATURE_ISA_AMX_TRANSPOSE2 */
 
 /* INTEL_FEATURE_ISA_AMX_MEMORY2 */
-#if defined(__AMX_MEMORY2_SUPPORTED__)
+#if defined(__AMXMEMORY2_SUPPORTED__)
 #if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
-    defined(__AMX_MEMORY2__) || defined(__M_INTRINSIC_PROMOTE__)
+    defined(__AMXMEMORY2__) || defined(__M_INTRINSIC_PROMOTE__)
 #include <Intel_amxmemory2intrin.h>
 #endif
 #endif
 /* end INTEL_FEATURE_ISA_AMX_MEMORY2 */
 
 /* INTEL_FEATURE_ISA_AMX_BF16_EVEX */
-#if defined(__AMX_BF16EVEX_SUPPORTED__)
+#if defined(__AMXBF16EVEX_SUPPORTED__)
 #if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
-    defined(__AMX_BF16EVEX__) || defined(__M_INTRINSIC_PROMOTE__)
+    defined(__AMXBF16EVEX__) || defined(__M_INTRINSIC_PROMOTE__)
 #include <Intel_amxbf16evexintrin.h>
 #endif
 #endif
 /* end INTEL_FEATURE_ISA_AMX_BF16_EVEX */
 
 /* INTEL_FEATURE_ISA_AMX_ELEMENT_EVEX */
-#if defined(__AMX_ELEMENTEVEX_SUPPORTED__)
+#if defined(__AMXELEMENTEVEX_SUPPORTED__)
 #if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
-    defined(__AMX_ELEMENTEVEX__) || defined(__M_INTRINSIC_PROMOTE__)
+    defined(__AMXELEMENTEVEX__) || defined(__M_INTRINSIC_PROMOTE__)
 #include <Intel_amxelementevexintrin.h>
 #endif
 #endif
 /* end INTEL_FEATURE_ISA_AMX_ELEMENT_EVEX */
 
 /* INTEL_FEATURE_ISA_AMX_INT8_EVEX */
-#if defined(__AMX_INT8EVEX_SUPPORTED__)
+#if defined(__AMXINT8EVEX_SUPPORTED__)
 #if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
-    defined(__AMX_INT8EVEX__) || defined(__M_INTRINSIC_PROMOTE__)
+    defined(__AMXINT8EVEX__) || defined(__M_INTRINSIC_PROMOTE__)
 #include <Intel_amxint8evexintrin.h>
 #endif
 #endif
 /* end INTEL_FEATURE_ISA_AMX_INT8_EVEX */
 
 /* INTEL_FEATURE_ISA_AMX_TILE_EVEX */
-#if defined(__AMX_TILEEVEX_SUPPORTED__)
+#if defined(__AMXTILEEVEX_SUPPORTED__)
 #if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
-    defined(__AMX_TILEEVEX__) || defined(__M_INTRINSIC_PROMOTE__)
+    defined(__AMXTILEEVEX__) || defined(__M_INTRINSIC_PROMOTE__)
 #include <Intel_amxtileevexintrin.h>
 #endif
 #endif
 /* end INTEL_FEATURE_ISA_AMX_TILE_EVEX */
 
 /* INTEL_FEATURE_ISA_AMX_FP16 */
-#if defined(__AMX_FP16_SUPPORTED__)
+#if defined(__AMXFP16_SUPPORTED__)
 #if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
     defined(__AMXFP16__) || defined(__M_INTRINSIC_PROMOTE__)
 #include <Intel_amxfp16intrin.h>
@@ -907,7 +907,7 @@ _storebe_i64(void * __P, long long __D) {
 /* end INTEL_FEATURE_ISA_AMX_FP16 */
 
 /* INTEL_FEATURE_ISA_AMX_CONVERT */
-#if defined(__AMX_CONVERT_SUPPORTED__)
+#if defined(__AMXCONVERT_SUPPORTED__)
 #if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
     defined(__AMXCONVERT__) || defined(__M_INTRINSIC_PROMOTE__)
 #include <Intel_amxconvertintrin.h>
@@ -916,7 +916,7 @@ _storebe_i64(void * __P, long long __D) {
 /* end INTEL_FEATURE_ISA_AMX_CONVERT */
 
 /* INTEL_FEATURE_ISA_AMX_TILE2 */
-#if defined(__AMX_TILE2_SUPPORTED__)
+#if defined(__AMXTILE2_SUPPORTED__)
 #if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
     defined(__AMXTILE2__) || defined(__M_INTRINSIC_PROMOTE__)
 #include <Intel_amxtile2intrin.h>
