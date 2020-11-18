@@ -382,6 +382,19 @@ static RegDDRef *createReductionInitializer(HLLoop *Lp, unsigned Opcode,
   return RednTemp;
 }
 
+// Returns the corresponding commutative opcode for \p Opcode.
+static unsigned getCommutativeOpcode(unsigned Opcode) {
+  if (Opcode == Instruction::FSub) {
+    return Instruction::FAdd;
+  }
+
+  if (Opcode == Instruction::Sub) {
+    return Instruction::Add;
+  }
+
+  return Opcode;
+}
+
 void HIRMemoryReductionSinking::sinkInvariantReductions(HLLoop *Lp) {
   auto &HNU = Lp->getHLNodeUtils();
   unsigned Level = Lp->getNestingLevel();
@@ -397,7 +410,7 @@ void HIRMemoryReductionSinking::sinkInvariantReductions(HLLoop *Lp) {
     auto *StoreRef = RedIt->StoreRef;
     auto *StoreInst = StoreRef->getHLDDNode();
 
-    unsigned Opcode = RedIt->Opcode;
+    unsigned Opcode = getCommutativeOpcode(RedIt->Opcode);
 
     auto *RednTemp =
         createReductionInitializer(Lp, Opcode, LoadRef->getDestType());
