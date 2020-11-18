@@ -232,14 +232,7 @@ public:
 
   /// \brief Generate a function name corresponding to a vector variant.
   std::string generateFunctionName(StringRef ScalarFuncName) const {
-
-    static StringRef ManglingPrefix("_Z");
-    std::string Name = encode();
-
-    if (ScalarFuncName.startswith(ManglingPrefix))
-      return Name + ScalarFuncName.drop_front(ManglingPrefix.size()).str();
-    else
-      return Name + ScalarFuncName.str();
+    return encode() + ScalarFuncName.str();
   }
 
   Optional<std::string> getName() const {

@@ -2,7 +2,7 @@
 ; RUN: opt -vec-clone -S < %s | FileCheck %s
 ; RUN: opt -passes="vec-clone" -S < %s | FileCheck %s
 
-; CHECK: define dso_local void @_ZGVbN4vl_3barfi
+; CHECK: define dso_local void @_ZGVbN4vl__Z3barfi
 ; CHECK:       simd.loop.preheader:
 ; CHECK-NEXT:    [[LOAD_B0:%.*]] = load i32, i32* [[ALLOCA_B0:%.*]], align 4
 ; CHECK-NEXT:    br label [[SIMD_LOOP0:%.*]]
@@ -16,13 +16,13 @@
 ; CHECK-NEXT:    [[VEC_D_ELEM0:%.*]] = load float, float* [[VEC_D_CAST_GEP0]], align 4
 ; CHECK-NEXT:    [[CMP0:%.*]] = fcmp fast ugt float [[CONV0]], [[VEC_D_ELEM0]]
 ; CHECK-NEXT:    br i1 [[CMP0]], label [[IF_END0:%.*]], label [[IF_THEN0:%.*]]
-; CHECK: define dso_local void @_ZGVcN8vl_3barfi
-; CHECK: define dso_local void @_ZGVdN8vl_3barfi
-; CHECK: define dso_local void @_ZGVeN16vl_3barfi
-; CHECK: define dso_local void @_ZGVbM4vl_3barfi
-; CHECK: define dso_local void @_ZGVcM8vl_3barfi
-; CHECK: define dso_local void @_ZGVdM8vl_3barfi
-; CHECK: define dso_local void @_ZGVeM16vl_3barfi
+; CHECK: define dso_local void @_ZGVcN8vl__Z3barfi
+; CHECK: define dso_local void @_ZGVdN8vl__Z3barfi
+; CHECK: define dso_local void @_ZGVeN16vl__Z3barfi
+; CHECK: define dso_local void @_ZGVbM4vl__Z3barfi
+; CHECK: define dso_local void @_ZGVcM8vl__Z3barfi
+; CHECK: define dso_local void @_ZGVdM8vl__Z3barfi
+; CHECK: define dso_local void @_ZGVeM16vl__Z3barfi
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"

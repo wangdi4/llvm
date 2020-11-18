@@ -2,7 +2,7 @@
 ; RUN: opt -vec-clone -S < %s | FileCheck %s
 ; RUN: opt -passes="vec-clone" -S < %s | FileCheck %s
 
-; CHECK: define dso_local void @_ZGVbN4l_3fooi
+; CHECK: define dso_local void @_ZGVbN4l__Z3fooi
 ; CHECK:       simd.loop.preheader:
 ; CHECK-NEXT:    [[LOAD_A0:%.*]] = load i32, i32* [[ALLOCA_A0:%.*]], align 4
 ; CHECK-NEXT:    br label [[SIMD_LOOP0:%.*]]
@@ -14,13 +14,13 @@
 ; CHECK-NEXT:    [[TOBOOL0:%.*]] = icmp eq i32 [[STRIDE_ADD0]], 0
 ; CHECK-NEXT:    br i1 [[TOBOOL0]], label [[FOR_END_SPLIT0:%.*]], label [[FOR_COND_PREHEADER0:%.*]]
 ;
-; CHECK: define dso_local void @_ZGVcN8l_3fooi
-; CHECK: define dso_local void @_ZGVdN8l_3fooi
-; CHECK: define dso_local void @_ZGVeN16l_3fooi
-; CHECK: define dso_local void @_ZGVbM4l_3fooi
-; CHECK: define dso_local void @_ZGVcM8l_3fooi
-; CHECK: define dso_local void @_ZGVdM8l_3fooi
-; CHECK: define dso_local void @_ZGVeM16l_3fooi
+; CHECK: define dso_local void @_ZGVcN8l__Z3fooi
+; CHECK: define dso_local void @_ZGVdN8l__Z3fooi
+; CHECK: define dso_local void @_ZGVeN16l__Z3fooi
+; CHECK: define dso_local void @_ZGVbM4l__Z3fooi
+; CHECK: define dso_local void @_ZGVcM8l__Z3fooi
+; CHECK: define dso_local void @_ZGVdM8l__Z3fooi
+; CHECK: define dso_local void @_ZGVeM16l__Z3fooi
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
@@ -41,7 +41,7 @@ for.end.split:
   ret void
 }
 
-; CHECK: define dso_local void @_ZGVbN4l_4fooi
+; CHECK: define dso_local void @_ZGVbN4l__Z4fooi
 ; CHECK:       simd.loop.preheader:
 ; CHECK-NEXT:    [[LOAD_A0:%.*]] = load i64, i64* [[ALLOCA_A0:%.*]], align 8
 ; CHECK-NEXT:    br label [[SIMD_LOOP0:%.*]]
@@ -54,13 +54,13 @@ for.end.split:
 ; CHECK-NEXT:    [[TOBOOL0:%.*]] = icmp eq i64 [[STRIDE_ADD0]], 0
 ; CHECK-NEXT:    br i1 [[TOBOOL0]], label [[FOR_END_SPLIT0:%.*]], label [[FOR_COND_PREHEADER0:%.*]]
 ;
-; CHECK: define dso_local void @_ZGVcN8l_4fooi
-; CHECK: define dso_local void @_ZGVdN8l_4fooi
-; CHECK: define dso_local void @_ZGVeN16l_4fooi
-; CHECK: define dso_local void @_ZGVbM4l_4fooi
-; CHECK: define dso_local void @_ZGVcM8l_4fooi
-; CHECK: define dso_local void @_ZGVdM8l_4fooi
-; CHECK: define dso_local void @_ZGVeM16l_4fooi
+; CHECK: define dso_local void @_ZGVcN8l__Z4fooi
+; CHECK: define dso_local void @_ZGVdN8l__Z4fooi
+; CHECK: define dso_local void @_ZGVeN16l__Z4fooi
+; CHECK: define dso_local void @_ZGVbM4l__Z4fooi
+; CHECK: define dso_local void @_ZGVcM8l__Z4fooi
+; CHECK: define dso_local void @_ZGVdM8l__Z4fooi
+; CHECK: define dso_local void @_ZGVeM16l__Z4fooi
 
 ; Function Attrs: norecurse nounwind readnone uwtable
 define dso_local void @_Z4fooi(i64 %a) local_unnamed_addr #1 {
