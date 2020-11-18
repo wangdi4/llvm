@@ -156,6 +156,14 @@ public:
   // current mask value if non-null.
   void widenNode(const VPInstruction *VPInst, RegDDRef *Mask = nullptr);
 
+  /// Vectorize the given instruction that cannot be widened using
+  /// serialization. This is done using a sequence of possible extractelements,
+  /// Scalar Op, InsertElement instructions. Additionally if Mask is non-null
+  /// then predicated serialization is done on-the-fly by creating a HLIf for
+  /// each vector lane's mask value and inserting the generated extractelements,
+  /// scalar op and insertelement instructions into the then branch.
+  void serializeInstruction(const VPInstruction *VPInst, RegDDRef *Mask);
+
   /// Adjust arguments passed to SVML functions to handle masks
   void addMaskToSVMLCall(Function *OrigF, AttributeList OrigAttrs,
                          SmallVectorImpl<RegDDRef *> &VecArgs,
@@ -854,6 +862,11 @@ private:
   // vector-variants.
   HLInst *generateWideCall(const VPCallInstruction *VPCall, RegDDRef *Mask,
                            Intrinsic::ID VectorIntrinID);
+
+  // Helper utility to generate a scalar Call HLInst for given VPCall
+  // instruction. Scalar values of the call arguments for given vector lane are
+  // obtained in this utility.
+  HLInst *generateScalarCall(const VPCallInstruction *VPCall, unsigned LaneID);
 
   // Get scalar version of RegDDRef that represents the VPValue \p VPVal
   // which is either an external definition or a constant. We can build the

@@ -1323,6 +1323,21 @@ HLInst *HLNodeUtils::createFPMinMaxVectorReduce(RegDDRef *VecRef,
   return HInst;
 }
 
+HLInst *HLNodeUtils::createVectorInsert(RegDDRef *OpRef1, RegDDRef *SubVecRef,
+                                        unsigned Idx, const Twine &Name,
+                                        RegDDRef *LvalRef) {
+  assert(OpRef1->getDestType()->isVectorTy() &&
+         SubVecRef->getDestType()->isVectorTy() &&
+         "Illegal operand types for vector.insert");
+  SmallVector<Type *, 2> Tys = {OpRef1->getDestType(),
+                                SubVecRef->getDestType()};
+  Function *F = Intrinsic::getDeclaration(
+      &getModule(), Intrinsic::experimental_vector_insert, Tys);
+  RegDDRef *IdxRef =
+      getDDRefUtils().createConstDDRef(Type::getInt64Ty(getContext()), Idx);
+  return createCall(F, {OpRef1, SubVecRef, IdxRef}, Name, LvalRef);
+}
+
 struct HLNodeUtils::CloneVisitor final : public HLNodeVisitorBase {
 
   HLContainerTy *CloneContainer;

@@ -25,12 +25,33 @@ define void @test_serialized(i32* nocapture %arr) local_unnamed_addr {
 ; LLVM:       LOOP END
 ; LLVM-NEXT:  =================================================================
 
-; FIXME: Call serialization isn't supported for HIR yet.
+; HIR-LABEL: Function: test_serialized
+; HIR-EMPTY:
+; HIR-NEXT:  BEGIN REGION { modified }
+; HIR-NEXT:        + DO i1 = 0, 299, 4   <DO_LOOP> <simd-vectorized> <novectorize>
+; HIR-NEXT:        |   @serial_call();
+; HIR-NEXT:        |   @serial_call();
+; HIR-NEXT:        |   @serial_call();
+; HIR-NEXT:        |   @serial_call();
+; HIR-NEXT:        |   @serial_call();
+; HIR-NEXT:        |   @serial_call();
+; HIR-NEXT:        |   @serial_call();
+; HIR-NEXT:        |   @serial_call();
+; HIR-NEXT:        + END LOOP
+; HIR:             ret ;
+; HIR-NEXT:  END REGION
+
 ; HIR-LABEL: Report from: HIR Loop optimizations framework for : test_serialized
 ; HIR-EMPTY:
 ; HIR-NEXT:  LOOP BEGIN
-; HIR-NEXT:      remark #15436: loop was not vectorized:
-; HIR-NEXT:  LOOP END
+; HIR-NEXT:      remark #15300: LOOP WAS VECTORIZED
+; HIR-NEXT:      remark #15305: vectorization support: vector length 4
+; HIR-NEXT:      remark #15475: --- begin vector loop cost summary ---
+; HIR-NEXT:      remark #15482: vectorized math library calls: 0
+; HIR-NEXT:      remark #15484: vector function calls: 0
+; HIR-NEXT:      remark #15485: serialized function calls: 2
+; HIR-NEXT:      remark #15488: --- end vector loop cost summary ---
+; HIR:       LOOP END
 ; HIR-NEXT:  =================================================================
 
 entry:
@@ -67,13 +88,35 @@ define void @test_vector_variant(i32* nocapture %arr) local_unnamed_addr {
 ; LLVM:       LOOP END
 ; LLVM-NEXT:  =================================================================
 
-; FIXME: Vector-variant isn't supported for HIR yet.
+; FIXME: Vector-variant isn't supported for HIR yet. They are serialized for now.
+; HIR-LABEL: Function: test_vector_variant
+; HIR-EMPTY:
+; HIR-NEXT:  BEGIN REGION { modified }
+; HIR-NEXT:        + DO i1 = 0, 299, 4   <DO_LOOP> <simd-vectorized> <novectorize>
+; HIR-NEXT:        |   @vec_func(i1);
+; HIR-NEXT:        |   %extract.1. = extractelement i1 + <i64 0, i64 1, i64 2, i64 3>,  1;
+; HIR-NEXT:        |   @vec_func(%extract.1.);
+; HIR-NEXT:        |   %extract.2. = extractelement i1 + <i64 0, i64 1, i64 2, i64 3>,  2;
+; HIR-NEXT:        |   @vec_func(%extract.2.);
+; HIR-NEXT:        |   %extract.3. = extractelement i1 + <i64 0, i64 1, i64 2, i64 3>,  3;
+; HIR-NEXT:        |   @vec_func(%extract.3.);
+; HIR-NEXT:        + END LOOP
+; HIR:             ret ;
+; HIR-NEXT:  END REGION
+
 ; HIR-LABEL: Report from: HIR Loop optimizations framework for : test_vector_variant
 ; HIR-EMPTY:
 ; HIR-NEXT:  LOOP BEGIN
-; HIR-NEXT:      remark #15436: loop was not vectorized:
-; HIR-NEXT:  LOOP END
+; HIR-NEXT:      remark #15300: LOOP WAS VECTORIZED
+; HIR-NEXT:      remark #15305: vectorization support: vector length 4
+; HIR-NEXT:      remark #15475: --- begin vector loop cost summary ---
+; HIR-NEXT:      remark #15482: vectorized math library calls: 0
+; HIR-NEXT:      remark #15484: vector function calls: 0
+; HIR-NEXT:      remark #15485: serialized function calls: 1
+; HIR-NEXT:      remark #15488: --- end vector loop cost summary ---
+; HIR:       LOOP END
 ; HIR-NEXT:  =================================================================
+
 entry:
   %tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"() ]
   br label %header

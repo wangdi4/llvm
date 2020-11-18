@@ -632,24 +632,17 @@ void HandledCheck::visit(HLDDNode *Node) {
       StringRef CalledFunc = Fn->getName();
       Intrinsic::ID ID = getVectorIntrinsicIDForCall(Call, TLI);
 
-      bool TrivialVectorIntrinsic =
-          (ID != Intrinsic::not_intrinsic) && isTriviallyVectorizable(ID);
       // Prevent vectorization of loop if masked fabs intrinsic vectorization is
       // not profitable specifically for non-AVX512 targets. Check JIRA :
       // CMPLRLLVM-11468.
-      if (TrivialVectorIntrinsic && ID == Intrinsic::fabs &&
-          !VPlanAssumeMaskedFabsProfitable && !CG->targetHasIntelAVX512())
-        TrivialVectorIntrinsic = false;
-      if (isa<HLIf>(Inst->getParent()) &&
-          (VF > 1 && !TrivialVectorIntrinsic &&
-           !TLI->isFunctionVectorizable(CalledFunc,
-                                        ElementCount::getFixed(VF)))) {
-        // Masked svml calls are supported, but masked non-trivially
-        // vectorizable intrinsics are not at the moment.
+      bool IsUnprofitableFabs = ID == Intrinsic::fabs &&
+                                !VPlanAssumeMaskedFabsProfitable &&
+                                !CG->targetHasIntelAVX512();
+      if (isa<HLIf>(Inst->getParent()) && VF > 1 && IsUnprofitableFabs) {
         DEBUG_WITH_TYPE("VPOCGHIR-bailout", Inst->dump());
         DEBUG_WITH_TYPE("VPOCGHIR-bailout",
                         dbgs() << "VPLAN_OPTREPORT: Loop not handled - masked "
-                                  "non-trivially vectorizable intrinsic\n");
+                                  "fabs intrinsic for non-AVX512.\n");
         IsHandled = false;
         return;
       }
@@ -666,43 +659,6 @@ void HandledCheck::visit(HLDDNode *Node) {
                       "disabled\n");
         IsHandled = false;
         return;
-      }
-
-      // Scalar math library calls without readnone or readonly attributes
-      // cannot be vectorized. Current default behavior is to relax readonly
-      // restriction.
-      if ((VF > 1 &&
-           (!TLI->isFunctionVectorizable(CalledFunc,
-                                         ElementCount::getFixed(VF)) ||
-            (!VPlanVecNonReadonlyLibCalls && !Call->onlyReadsMemory()))) &&
-          !ID) {
-        DEBUG_WITH_TYPE("VPOCGHIR-bailout",
-                        dbgs() << "VPLAN_OPTREPORT: Loop not handled - call "
-                                  "not vectorizable\n");
-        IsHandled = false;
-        return;
-      }
-
-      // If the always scalar operand of vector intrinsic call is loop variant
-      // then we bail out of vectorization.
-      // TODO: In the future such calls should be serialized in outgoing vector
-      // code.
-      if (ID != Intrinsic::not_intrinsic) {
-        unsigned ArgOffset = Inst->hasLval() ? 1 : 0;
-        for (unsigned I = 0; I < Call->getNumArgOperands(); ++I) {
-          if (hasVectorInstrinsicScalarOpd(ID, I)) {
-            auto *OperandCE =
-                Inst->getOperandDDRef(ArgOffset + I)->getSingleCanonExpr();
-            if (!OperandCE->isInvariantAtLevel(OrigLoop->getNestingLevel())) {
-              DEBUG_WITH_TYPE(
-                  "VPOCGHIR-bailout",
-                  dbgs() << "VPLAN_OPTREPORT: Loop not handled - always scalar "
-                            "operand of vector intrinsic is loop variant\n");
-              IsHandled = false;
-              return;
-            }
-          }
-        }
       }
 
       if (!CG->isIgnoredCall(Call))
@@ -2403,6 +2359,30 @@ HLInst *VPOCodeGenHIR::generateWideCall(const VPCallInstruction *VPCall,
   return WideInst;
 }
 
+HLInst *VPOCodeGenHIR::generateScalarCall(const VPCallInstruction *VPCall,
+                                          unsigned LaneID) {
+  // Populate scalar arguments of call for given vector lane.
+  SmallVector<RegDDRef *, 4> ScalarArgs;
+  for (unsigned I = 0; I < VPCall->getNumArgOperands(); ++I) {
+    RegDDRef *ScalarArg = getOrCreateScalarRef(VPCall->getOperand(I), LaneID);
+    assert(ScalarArg && "Unexpected null scalar arg for call.");
+    ScalarArgs.push_back(ScalarArg);
+  }
+
+  Function *ScalarF = VPCall->getCalledFunction();
+  assert(ScalarF && "Expected only direct calls.");
+  FastMathFlags FMF =
+      VPCall->hasFastMathFlags() ? VPCall->getFastMathFlags() : FastMathFlags();
+  auto *ScalarCall = HLNodeUtilities.createCall(
+      ScalarF, ScalarArgs, ScalarF->getName(), nullptr /*Lval*/, {} /*Bundle*/,
+      {} /*BundleOps*/, FMF);
+  CallInst *LLVMCall = const_cast<CallInst *>(ScalarCall->getCallInst());
+  LLVMCall->setCallingConv(VPCall->getOrigCallingConv());
+  LLVMCall->setAttributes(VPCall->getOrigCallAttrs());
+
+  return ScalarCall;
+}
+
 void VPOCodeGenHIR::widenNodeImpl(const HLInst *INode, RegDDRef *Mask,
                                   const VPInstruction *VPInst) {
   auto CurInst = INode->getLLVMInstruction();
@@ -3747,7 +3727,8 @@ RegDDRef *VPOCodeGenHIR::getVLSLoadStoreMask(VectorType *WideValueType,
 
 void VPOCodeGenHIR::generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
                                 bool Widen, unsigned ScalarLaneID) {
-  assert((Widen || isOpcodeForScalarInst(VPInst->getOpcode())) &&
+  assert((Widen || isOpcodeForScalarInst(VPInst->getOpcode()) ||
+          isa<VPCallInstruction>(VPInst)) &&
          "Unxpected instruction for scalar constructs");
 
   HLInst *NewInst = nullptr;
@@ -4427,13 +4408,23 @@ void VPOCodeGenHIR::generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
   }
 
   case Instruction::Call: {
-    assert(Widen && "Below code assumes that calls are always widened.");
+    auto *VPCall = cast<VPCallInstruction>(VPInst);
+
+    // Handle call that should not be widended for given lane ID.
+    if (!Widen) {
+      HLInst *ScalarCall = generateScalarCall(VPCall, ScalarLaneID);
+      addInstUnmasked(ScalarCall);
+      assert((CurMaskValue == nullptr || isa<HLIf>(ScalarCall->getParent())) &&
+             "Scalar calls can be generated only in unmasked context.");
+      if (ScalarCall->hasLval())
+        addVPValueScalRefMapping(VPCall, ScalarCall->getLvalDDRef(),
+                                 ScalarLaneID);
+      return;
+    }
 
     // Calls need to be masked with current mask value if Mask is null.
     if (!Mask)
       Mask = CurMaskValue;
-
-    auto *VPCall = cast<VPCallInstruction>(VPInst);
 
     // For all calls vectorization scenario should be available for current VF.
     assert(VPCall->getVFForScenario() == VF &&
@@ -4455,16 +4446,18 @@ void VPOCodeGenHIR::generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
       ++OptRptStats.VectorMathCalls;
       break;
     }
+    // TODO: Vector variant based CG is not supported yet, serialize
+    // temporarily.
+    case VPCallInstruction::CallVecScenariosTy::VectorVariant:
+    case VPCallInstruction::CallVecScenariosTy::Serialization: {
+      serializeInstruction(VPCall, Mask);
+      ++OptRptStats.SerializedCalls;
+      // Since multiple new instructions are created for this VPInst, explicit
+      // addInst and mapping is not needed. It is handled internally in
+      // serializeInstruction.
+      return;
+    }
     default: {
-      Intrinsic::ID ID =
-          getVectorIntrinsicIDForCall(VPCall->getUnderlyingCallInst(), TLI);
-      // FIXME: We should scalarize calls to @llvm.assume intrinsic instead of
-      // completely ignoring them.
-      if (ID == Intrinsic::assume || ID == Intrinsic::lifetime_end ||
-          ID == Intrinsic::lifetime_start) {
-        return;
-      }
-
       llvm_unreachable("VPCallInstruction does not have a valid decision for "
                        "HIR vectorizer.");
     }
@@ -4988,6 +4981,95 @@ void VPOCodeGenHIR::widenNode(const VPInstruction *VPInst, RegDDRef *Mask) {
   }
 
   widenNodeImpl(VPInst, Mask);
+}
+
+void VPOCodeGenHIR::serializeInstruction(const VPInstruction *VPInst,
+                                         RegDDRef *Mask) {
+  // Temp that represents the final value of VPInst after serialization, it
+  // remains null for void type instructions.
+  RegDDRef *SerialTemp = nullptr;
+
+  // Initialize the temp to undef if it is known to produce a l-val i.e.
+  // non-void return type.
+  if (!VPInst->getType()->isVoidTy()) {
+    RegDDRef *Undef = DDRefUtilities.createUndefDDRef(
+        getWidenedType(VPInst->getType(), getVF()));
+    auto SerialTempInit = HLNodeUtilities.createCopyInst(Undef, "serial.temp");
+    addInstUnmasked(SerialTempInit);
+    SerialTemp = SerialTempInit->getLvalDDRef();
+    // Map VPInst to SerialTemp in vector map.
+    addVPValueWideRefMapping(VPInst, SerialTemp);
+  }
+
+  // Genrate serial instruction for each vector lane.
+  for (unsigned Lane = 0; Lane < getVF(); ++Lane) {
+    // Track marker and HLIf potentially created for masked serialization.
+    HLNode *Marker = nullptr;
+    HLIf *If = nullptr;
+
+    // If the instruction to be serialized is masked then we create HLIf with
+    // predicate "LaneMask == 1" and insert possible extractelements plus the
+    // scalar HLInst and corresponding insertelement into the then branch of the
+    // HLIf. Pseudo-IR -
+    // if (%mask.lane.x == 1) {
+    //   %scalar.operand = extract %vec.op, x
+    //   %scalar.lane.x = opcode %vec.op, ...
+    //   %serial.temp = insert %serial.temp, %scalar.lane.x, x
+    // }
+    if (Mask) {
+      auto ExtractMask = HLNodeUtilities.createExtractElementInst(
+          Mask->clone(), Lane, "mask." + Twine(Lane) + ".");
+      addInstUnmasked(ExtractMask);
+      RegDDRef *LaneMask = ExtractMask->getLvalDDRef();
+
+      // We create the HLIf here and set the insertion point appropriately.
+      If = HLNodeUtilities.createHLIf(
+          PredicateTy::ICMP_EQ, LaneMask->clone(),
+          DDRefUtilities.createConstDDRef(LaneMask->getDestType(), 1));
+      addInst(If, nullptr /*Mask*/);
+      Marker = HLNodeUtilities.getOrCreateMarkerNode();
+      HLNodeUtils::insertAsFirstThenChild(If, Marker);
+      InsertPoint = Marker;
+    }
+
+    // Generate a scalar HLInst for given VPInstruction using operands for
+    // corresponding lane.
+    generateHIR(VPInst, Mask, false /*Widen*/, Lane);
+
+    // If the scalar HLInst produces an l-val then we need to insert it into
+    // SerialTemp at appropriate lane.
+    RegDDRef *ScalarRef = getScalRefForVPVal(VPInst, Lane);
+    if (ScalarRef) {
+      assert(SerialTemp && "Non-null serial temp expected when serialized "
+                           "instruction produces l-val");
+      HLInst *InsertInst = nullptr;
+      if (auto *VecTy = dyn_cast<VectorType>(ScalarRef->getDestType())) {
+        unsigned OrigNumElts = VecTy->getNumElements();
+        InsertInst = HLNodeUtilities.createVectorInsert(
+            SerialTemp->clone(), ScalarRef->clone(), Lane * OrigNumElts,
+            "subvec.insert", SerialTemp->clone());
+      } else {
+        InsertInst = HLNodeUtilities.createInsertElementInst(
+            SerialTemp->clone(), ScalarRef->clone(), Lane, "serial.insert",
+            SerialTemp->clone());
+      }
+      addInstUnmasked(InsertInst);
+    }
+
+    // If the serialization is done under a mask, we would have created an HLIf
+    // to place the generated instructions. We can safely delete the Marker
+    // created inside this HLIf. Subsequent instructions need to be placed after
+    // this HLIf and we update the insertion point accordingly.
+    if (Mask) {
+      assert(If && Marker &&
+             "Expected an HLIf and a Marker for masked serialization.");
+      HLNodeUtils::remove(Marker);
+      InsertPoint = If;
+    }
+  }
+
+  LLVM_DEBUG(dbgs() << "\n[VPOCGHIR] After serialization"; MainLoop->dump();
+             dbgs() << "\n");
 }
 
 void VPOCodeGenHIR::emitBlockLabel(const VPBasicBlock *VPBB) {

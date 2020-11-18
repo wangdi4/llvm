@@ -1,10 +1,25 @@
-; RUN: opt < %s -hir-ssa-deconstruction -hir-vec-dir-insert -print-after=hir-vec-dir-insert \
-; RUN:     -disable-output -vplan-force-vf=4 2>&1 | FileCheck %s --check-prefix=CHECK-DIRECTIVE
+; Test to check handling of @llvm.assume call in VPlan HIR vectorizer.
 
-; RUN: opt -S < %s -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -hir-cg -instcombine -vplan-force-vf=4 | FileCheck %s
-; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec,hir-cg,instcombine" -S < %s -vplan-force-vf=4 | FileCheck %s
+; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -print-after=hir-vec-dir-insert -print-after=hir-vplan-vec -disable-output -vplan-force-vf=4 < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,print<hir>,hir-vplan-vec,print<hir>" -disable-output -vplan-force-vf=4 < %s 2>&1 | FileCheck %s
 
+; Ensure that call to @llvm.assume does not prevent the insertion of vec directives.
+; CHECK-LABEL: BEGIN REGION { }
+; CHECK-NEXT:  @llvm.directive.region.entry(); [ DIR.VPO.AUTO.VEC() ]
+; CHECK:       END REGION
 
+; Ensure that call to @llvm.assume is serialized by vectorizer.
+; CHECK:        BEGIN REGION { modified }
+; CHECK-NEXT:         + DO i1 = 0, 1023, 4   <DO_LOOP> <auto-vectorized> <novectorize>
+; CHECK-NEXT:         |   @llvm.assume(%arg);
+; CHECK-NEXT:         |   @llvm.assume(%arg);
+; CHECK-NEXT:         |   @llvm.assume(%arg);
+; CHECK-NEXT:         |   @llvm.assume(%arg);
+; CHECK-NEXT:         |   %.vec = (<4 x i32>*)(@arr.i32.1)[0][i1];
+; CHECK-NEXT:         |   %.vec1 = (<4 x i32>*)(@arr.i32.3)[0][i1];
+; CHECK-NEXT:         |   (<4 x i32>*)(@arr.i32.2)[0][i1] = %.vec + %.vec1;
+; CHECK-NEXT:         + END LOOP
+; CHECK-NEXT:   END REGION
 
 @arr.i32.1 = common local_unnamed_addr global [1024 x i32] zeroinitializer, align 16
 @arr.i32.2 = common local_unnamed_addr global [1024 x i32] zeroinitializer, align 16
@@ -13,22 +28,6 @@
 declare void @llvm.assume(i1)
 
 define void @doit(i1 %arg) local_unnamed_addr #0 {
-; Ensure that call to @llvm.assume does not prevent the insertion of vec directives.
-; CHECK-DIRECTIVE-LABEL: BEGIN REGION
-; CHECK-DIRECTIVE-NEXT: @llvm.directive.region.entry
-
-
-; CHECK-LABEL: @doit
-;
-; FIXME: We currently ignore @llvm.assume calls completely inside VPlan HIR CG.
-; It'll be better to scalarize them instead so that later passes would have a
-; chance to use the info the assumes provide.
-; CHECK-NOT: @llvm.assume
-;
-; Verify that vectorization happened:
-; CHECK: load <4 x i32>
-; CHECK: load <4 x i32>
-; CHECK: store <4 x i32>
 entry:
   br label %for.body
 

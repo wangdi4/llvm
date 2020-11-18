@@ -2,7 +2,6 @@
 ; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -hir-cg -vplan-force-vf=4 -print-after=hir-vplan-vec -disable-output  < %s 2>&1 | FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec,hir-cg" -vplan-force-vf=4 -print-after=hir-vplan-vec -disable-output < %s 2>&1 | FileCheck %s
 
-
 ; Check that intrinsic calls are vectorized.
 ; CHECK-LABEL: ctlz_f64
 ; CHECK: @llvm.ctlz.v4i64(%.vec,  {{-1|true}})
@@ -13,10 +12,10 @@
 ; CHECK-LABEL: powi_f64
 ; CHECK: @llvm.powi.v4f64.i32(%.vec,  %P)
 
-; Check that loop is not vectorized, when intrinsic with always scalar operand is loop variant.
+; Check that call is serialized, when intrinsic with always scalar operand is loop variant.
 ; CHECK-LABEL: powi_f64_variant
-; CHECK: DO i1 = 0, sext.i32.i64((-1 + %n)), 1   <DO_LOOP>
-; CHECK: %call = @llvm.powi.f64.i32(%0,  i1)
+; CHECK-COUNT-4: [[SERIAL_POW:%.*]] = @llvm.powi.f64.i32([[SCALAR_OP_1:%.*]], [[SCALAR_OP_2:.*]])
+
 
 declare i64  @llvm.ctlz.i64 (i64, i1) nounwind readnone
 
