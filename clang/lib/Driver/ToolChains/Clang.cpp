@@ -4594,6 +4594,18 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
       // be done if any Intel proprietary optimization kicks in,
       // so we have to disable all proprietary optimizations.
       CmdArgs.push_back("-disable-intel-proprietary-opts");
+
+      // Add args specific to -fopenmp-target-simd
+      if (Args.hasArg(options::OPT_fopenmp_target_simd)) {
+        CmdArgs.push_back("-mllvm");
+        CmdArgs.push_back("-vpo-paropt-enable-device-simd-codegen");
+        CmdArgs.push_back("-mllvm");
+        CmdArgs.push_back("-vpo-paropt-emit-spirv-builtins");
+        CmdArgs.push_back("-mllvm");
+        CmdArgs.push_back("-vpo-paropt-gpu-execution-scheme=0");
+        CmdArgs.push_back("-mllvm");
+        CmdArgs.push_back("-enable-device-simd");
+      }
     }
 #endif // INTEL_CUSTOMIZATION
   }
@@ -4753,6 +4765,10 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
     // Set -O0 for OpenMP device compilation for SPIRV target.
     if (D.IsIntelMode() && IsOpenMPDevice && Triple.isSPIR() &&
         !Args.hasArg(options::OPT_O_Group, options::OPT__SLASH_O)) {
+      if (Args.hasArg(options::OPT_fopenmp_target_simd)) {
+        CmdArgs.push_back("-O2");
+        return;
+      }
       CmdArgs.push_back("-O0");
       return;
     }
@@ -8859,6 +8875,8 @@ void SYCLPostLink::ConstructJob(Compilation &C, const JobAction &JA,
     addArgs(CmdArgs, TCArgs, {"--ompoffload-link-entries"});
     addArgs(CmdArgs, TCArgs, {"--ompoffload-sort-entries"});
     addArgs(CmdArgs, TCArgs, {"--ompoffload-make-globals-static"});
+    if (TCArgs.hasArg(options::OPT_fopenmp_target_simd))
+      addArgs(CmdArgs, TCArgs, {"--ompoffload-explicit-simd"});
   }
 #endif // INTEL_CUSTOMIZATION
   // Turn on Dead Parameter Elimination Optimization with early optimizations
