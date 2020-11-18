@@ -1438,6 +1438,11 @@ void PassManagerBuilder::populateModulePassManager(
     MPM.add(createSROAPass());
   }
 #endif // INTEL_FEATURE_CSA
+#endif // INTEL_CUSTOMIZATION
+
+  MPM.add(createAnnotationRemarksLegacyPass());
+
+#if INTEL_CUSTOMIZATION
   MPM.add(createInlineReportEmitterPass(OptLevel, SizeLevel,
                                         PrepareForLTO || PrepareForThinLTO));
 #endif // INTEL_CUSTOMIZATION
@@ -2395,6 +2400,8 @@ void PassManagerBuilder::populateLTOPassManager(legacy::PassManagerBase &PM) {
     addLateLTOOptimizationPasses(PM);
 
   addExtensionsToPM(EP_FullLinkTimeOptimizationLast, PM);
+
+  PM.add(createAnnotationRemarksLegacyPass());
 
   if (VerifyOutput)
     PM.add(createVerifierPass());

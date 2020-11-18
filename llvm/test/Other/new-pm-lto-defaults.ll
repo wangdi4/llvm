@@ -149,6 +149,7 @@
 ; CHECK-O2-NEXT: Running pass: SimplifyCFGPass
 ; CHECK-O2-NEXT: Running pass: EliminateAvailableExternallyPass
 ; CHECK-O2-NEXT: Running pass: GlobalDCEPass
+; CHECK-O-NEXT: Running pass: AnnotationRemarksPass on foo
 ; CHECK-O2-NEXT: Running pass: InlineReportEmitterPass          ;INTEL
 ; CHECK-O-NEXT: Running pass: PrintModulePass
 
