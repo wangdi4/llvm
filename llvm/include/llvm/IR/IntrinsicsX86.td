@@ -6287,6 +6287,15 @@ let TargetPrefix = "x86" in {
   def int_x86_icecode_fscp_read_64 : GCCBuiltin<"__builtin_ia32_icecode_fscp_read_64">,
               Intrinsic<[ llvm_i64_ty ], [ llvm_i32_ty ], []>;
 
+  def int_x86_icecode_creg_xchg_mt_32 : GCCBuiltin<"__builtin_ia32_icecode_creg_xchg_mt_32">,
+              Intrinsic<[ llvm_i32_ty ], [ llvm_i32_ty, llvm_i32_ty ], []>;
+  def int_x86_icecode_creg_xchg_mt_64 : GCCBuiltin<"__builtin_ia32_icecode_creg_xchg_mt_64">,
+              Intrinsic<[ llvm_i64_ty ], [ llvm_i32_ty, llvm_i64_ty ], []>;
+  def int_x86_icecode_creg_read_mt_32 : GCCBuiltin<"__builtin_ia32_icecode_creg_read_mt_32">,
+              Intrinsic<[ llvm_i32_ty ], [ llvm_i32_ty ], []>;
+  def int_x86_icecode_creg_read_mt_64 : GCCBuiltin<"__builtin_ia32_icecode_creg_read_mt_64">,
+              Intrinsic<[ llvm_i64_ty ], [ llvm_i32_ty ], []>;
+
   def int_x86_icecode_portin_8 : GCCBuiltin<"__builtin_ia32_icecode_portin_8">,
               Intrinsic<[ llvm_i8_ty ], [ llvm_i64_ty ], []>;
   def int_x86_icecode_portin_16 : GCCBuiltin<"__builtin_ia32_icecode_portin_16">,

@@ -1339,6 +1339,11 @@ public: // INTEL
   /// Return the Value set from which the SCEV expr is generated.
   SetVector<ValueOffsetPair> *getSCEVValues(const SCEV *S);
 
+  /// External interface for checkValidity. Returns false iff the SCEV has
+  /// been deleted: there are SCEVUnknowns in the ops, and the value is null.
+  bool isValid(const SCEV *S) const {
+    return checkValidity(S);
+  }
 protected: // INTEL
   /// Private helper method for the GetMinTrailingZeros method
   uint32_t GetMinTrailingZerosImpl(const SCEV *S);

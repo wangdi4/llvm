@@ -59,6 +59,7 @@ add_llvm_component_library(LLVMVPOTransforms
   Paropt/VPOParopt.cpp
   Paropt/VPOParoptAtomics.cpp
   Paropt/VPOParoptLoopCollapse.cpp
+  Paropt/VPOParoptLowerSimd.cpp
   Paropt/VPOParoptModuleTransform.cpp
   Paropt/VPOParoptPrepare.cpp
   Paropt/VPOParoptTpv.cpp
@@ -66,7 +67,6 @@ add_llvm_component_library(LLVMVPOTransforms
   Paropt/VPOParoptTask.cpp
   Paropt/VPOParoptTransform.cpp
   Paropt/VPOParoptUtils.cpp
-  Paropt/VPOParoptLowerSimd.cpp
 
 # INTEL_CUSTOMIZATION
   ${INTEL_SOURCE_FILES_TO_BUILD}
@@ -94,6 +94,6 @@ add_llvm_component_library(LLVMVPOTransforms
   VPOAnalysis
 )
 
-add_dependencies(LLVMVPOTransforms intrinsics_gen directives_gen LLVMGenXIntrinsics)
+add_dependencies(LLVMVPOTransforms intrinsics_gen directives_gen LLVMDemangle LLVMGenXIntrinsics)
 
 # end INTEL_COLLAB
