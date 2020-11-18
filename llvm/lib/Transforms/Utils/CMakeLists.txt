@@ -62,7 +62,6 @@ add_llvm_component_library(LLVMTransformUtils
   MatrixUtils.cpp
   Mem2Reg.cpp
   MetaRenamer.cpp
-  MisExpect.cpp
   ModuleUtils.cpp
   NameAnonGlobals.cpp
   PredicateInfo.cpp
