@@ -2192,8 +2192,9 @@ int32_t __tgt_rtl_data_submit_nowait(int32_t device_id, void *tgt_ptr,
       CALL_CL_RET_FAIL(clSetEventCallback, event, CL_COMPLETE,
                        &event_callback_completed, async_data);
     } else {
-      CALL_CL_RET_FAIL(clEnqueueWriteBuffer, queue, mem, CL_TRUE, 0, size,
+      CALL_CL_RET_FAIL(clEnqueueWriteBuffer, queue, mem, CL_FALSE, 0, size,
                        hst_ptr, 0, nullptr, &event);
+      CALL_CL_RET_FAIL(clWaitForEvents, 1, &event);
       CALL_CL_RET_FAIL(clReleaseMemObject, mem);
       if (DeviceInfo->Flags.EnableProfile)
         DeviceInfo->getProfiles(device_id).update("DATA-WRITE", event);
@@ -2291,8 +2292,9 @@ int32_t __tgt_rtl_data_retrieve_nowait(int32_t device_id, void *hst_ptr,
       CALL_CL_RET_FAIL(clSetEventCallback, event, CL_COMPLETE,
                        &event_callback_completed, async_data);
     } else {
-      CALL_CL_RET_FAIL(clEnqueueReadBuffer, queue, mem, CL_TRUE, 0, size,
+      CALL_CL_RET_FAIL(clEnqueueReadBuffer, queue, mem, CL_FALSE, 0, size,
                        hst_ptr, 0, nullptr, &event);
+      CALL_CL_RET_FAIL(clWaitForEvents, 1, &event);
       CALL_CL_RET_FAIL(clReleaseMemObject, mem);
       if (DeviceInfo->Flags.EnableProfile)
         DeviceInfo->getProfiles(device_id).update("DATA-READ", event);
