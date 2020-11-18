@@ -60,13 +60,13 @@ entry:
 }
 
 ; CHECK: define i64 @oneWord(i64 %arg.coerce.high)
-; CHECK: [[ALLOCA:%[a-zA-Z0-9]+]] = alloca %struct.OneWord
+; CHECK: [[ALLOCA:%[a-zA-Z0-9]+]] = alloca %struct.OneWord, align 8
 ; CHECK-NEXT: [[BC:%[a-zA-Z0-9]+]] = bitcast %struct.OneWord* [[ALLOCA]] to i64*
 ; CHECK-NEXT: store i64 %arg.coerce.high, i64* [[BC]]
 ; CHECK-NEXT: getelementptr inbounds %struct.OneWord, %struct.OneWord* [[ALLOCA]], i32 0, i32 0
 
 ; CHECK: define i64 @twoWords(i64 %arg.coerce.high, i64 %arg.coerce.low)
-; CHECK: [[ALLOCA:%[a-zA-Z0-9]+]] = alloca %struct.TwoWords
+; CHECK: [[ALLOCA:%[a-zA-Z0-9]+]] = alloca %struct.TwoWords, align 8
 ; CHECK-NEXT: [[BC:%[a-zA-Z0-9]+]] = bitcast %struct.TwoWords* %0 to %struct.TwoWords.coerce*
 ; CHECK-NEXT: [[GEP:%[a-zA-Z0-9]+]] = getelementptr %struct.TwoWords.coerce, %struct.TwoWords.coerce* [[BC]], i32 0, i32 0
 ; CHECK-NEXT: store i64 %arg.coerce.high, i64* [[GEP]]
@@ -74,9 +74,9 @@ entry:
 ; CHECK-NEXT: store i64 %arg.coerce.low, i64* [[GEP]]
 ; CHECK-NEXT: getelementptr inbounds %struct.TwoWords, %struct.TwoWords* [[ALLOCA]], i32 0, i32 0
 
-define void @checkAllocaAddrspace(%struct.OneWord addrspace(4)* byval(%struct.OneWord) %arg) #0 {
+define void @checkAllocaAddrspace(%struct.OneWord addrspace(4)* byval(%struct.OneWord) align 16 %arg) #0 {
 ; CHECK:  define void @checkAllocaAddrspace(i64 %arg.coerce.high)
-; CHECK-NEXT:  [[ALLOCA:%[a-zA-Z0-9]+]] = alloca %struct.OneWord
+; CHECK-NEXT:  [[ALLOCA:%[a-zA-Z0-9]+]] = alloca %struct.OneWord, align 16
 ; CHECK-NEXT:  %2 = addrspacecast %struct.OneWord* [[ALLOCA]] to %struct.OneWord addrspace(4)*
  ret void
 }

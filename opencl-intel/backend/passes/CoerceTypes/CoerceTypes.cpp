@@ -483,6 +483,9 @@ void CoerceTypes::moveFunctionBody(Function *OldF, Function *NewF,
       AllocaInst *AllocaRes =
         Builder.CreateAlloca(OldArgT->getElementType(),
                              m_pDataLayout->getAllocaAddrSpace());
+      MaybeAlign Alignment = OldArgI->getParamAlign();
+      if (Alignment)
+        AllocaRes->setAlignment(*Alignment);
       if (m_pDataLayout->getAllocaAddrSpace() != OldArgT->getAddressSpace())
         return Builder.CreateAddrSpaceCast(AllocaRes,
                 PointerType::get(OldArgT->getElementType(),
