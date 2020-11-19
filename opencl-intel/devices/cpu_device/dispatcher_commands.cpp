@@ -950,7 +950,15 @@ size_t NDRange::PreferredSequentialItemsPerThread() const
 bool NDRange::Finish(FINISH_REASON reason)
 {
     StopExecutionProfiling();
-    NotifyCommandStatusChanged(m_pCmd, CL_ENDED_RUNNING, m_lastError);
+
+    // Mark command as CL_ENDED_RUNNING if it has any kernel
+    // children. Otherwise, we skip this step and mark command as CL_COMPLETE
+    // later for making profiling time of CL_PROFILING_COMMAND_END equal to
+    // CL_PROFILING_COMMAND_COMPLETE.
+    if (nullptr != m_waitingChildrenForKernelGlobal)
+    {
+        NotifyCommandStatusChanged(m_pCmd, CL_ENDED_RUNNING, m_lastError);
+    }
 
     // Need to notify all kernel children and wait for their completion
     WaitForChildrenCompletion();
