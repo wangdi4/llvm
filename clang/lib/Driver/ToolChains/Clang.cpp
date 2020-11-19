@@ -7716,14 +7716,14 @@ void Clang::AddClangCLArgs(const ArgList &Args, types::ID InputType,
 
 #if INTEL_CUSTOMIZATION
   // Add Intel performance libraries
-  if (Args.hasArg(options::OPT_ipp_EQ))
+  if (Args.hasArg(options::OPT_qipp_EQ))
     getToolChain().AddIPPLibArgs(Args, CmdArgs, "--dependent-lib=");
-  if (Args.hasArg(options::OPT_mkl_EQ))
+  if (Args.hasArg(options::OPT_qmkl_EQ))
     getToolChain().AddMKLLibArgs(Args, CmdArgs, "--dependent-lib=");
-  if (Args.hasArg(options::OPT_tbb, options::OPT_daal_EQ) ||
-      (Args.hasArg(options::OPT_mkl_EQ) && Args.hasArg(options::OPT__dpcpp)))
+  if (Args.hasArg(options::OPT_qtbb, options::OPT_qdaal_EQ) ||
+      (Args.hasArg(options::OPT_qmkl_EQ) && Args.hasArg(options::OPT__dpcpp)))
     getToolChain().AddTBBLibArgs(Args, CmdArgs, "--dependent-lib=");
-  if (Args.hasArg(options::OPT_daal_EQ))
+  if (Args.hasArg(options::OPT_qdaal_EQ))
     getToolChain().AddDAALLibArgs(Args, CmdArgs, "--dependent-lib=");
 
   // Add OpenMP libs
@@ -7738,7 +7738,7 @@ void Clang::AddClangCLArgs(const ArgList &Args, types::ID InputType,
   if (!StubsAdded && (Args.hasFlag(options::OPT_fopenmp,
                                    options::OPT_fopenmp_EQ,
                                    options::OPT_fno_openmp, false) ||
-      Args.hasArg(options::OPT_fiopenmp, options::OPT_mkl_EQ))) {
+      Args.hasArg(options::OPT_fiopenmp, options::OPT_qmkl_EQ))) {
     switch (getToolChain().getDriver().getOpenMPRuntime(Args)) {
     case Driver::OMPRT_OMP:
       CmdArgs.push_back("--dependent-lib=libomp");
