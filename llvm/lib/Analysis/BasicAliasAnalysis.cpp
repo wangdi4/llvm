@@ -1491,9 +1491,9 @@ AliasResult BasicAAResult::aliasGEP(const AddressOperator *GEP1, // INTEL
         aliasCheck(UnderlyingV1, LocationSize::unknown(), AAMDNodes(),
                    UnderlyingV2, LocationSize::unknown(), AAMDNodes(), AAQI);
 
-    // For GEPs with identical sizes and offsets, we can preserve the size
-    // and AAInfo when performing the alias check on the underlying objects.
-    if (BaseAlias == MayAlias && V1Size == V2Size &&
+    // For GEPs with identical offsets, we can preserve the size and AAInfo
+    // when performing the alias check on the underlying objects.
+    if (BaseAlias == MayAlias && GEP1BaseOffset == GEP2BaseOffset &&
         DecompGEP1.Base == UnderlyingV1 && // INTEL
         DecompGEP2.Base == UnderlyingV2 && // INTEL
         GEP1BaseOffset == GEP2BaseOffset &&
