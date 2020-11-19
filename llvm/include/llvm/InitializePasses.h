@@ -106,6 +106,7 @@ void initializeAlwaysInlinerLegacyPassPass(PassRegistry&);
 void initializeAndersensAAWrapperPassPass(PassRegistry&); // INTEL
 void initializeAssumeSimplifyPassLegacyPassPass(PassRegistry &);
 void initializeAssumeBuilderPassLegacyPassPass(PassRegistry &);
+void initializeAnnotation2MetadataLegacyPass(PassRegistry &);
 void initializeAnnotationRemarksLegacyPass(PassRegistry &);
 void initializeOpenMPOptLegacyPassPass(PassRegistry &);
 void initializeArgNoAliasPropPass(PassRegistry &); // INTEL

@@ -876,6 +876,8 @@ void PassManagerBuilder::populateModulePassManager(
   bool DefaultOrPreLinkPipeline = !PerformThinLTO;
 
   MPM.add(createXmainOptLevelWrapperPass(OptLevel)); // INTEL
+  MPM.add(createAnnotation2MetadataLegacyPass());
+
   if (!PGOSampleUse.empty()) {
     MPM.add(createPruneEHPass());
     // In ThinLTO mode, when flattened profile is used, all the available

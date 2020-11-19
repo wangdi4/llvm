@@ -91,6 +91,7 @@
 #include "llvm/Transforms/HelloNew/HelloWorld.h"
 #include "llvm/Transforms/Instrumentation/Intel_FunctionSplitting.h" // INTEL
 #include "llvm/Transforms/IPO/AlwaysInliner.h"
+#include "llvm/Transforms/IPO/Annotation2Metadata.h"
 #include "llvm/Transforms/IPO/ArgumentPromotion.h"
 #include "llvm/Transforms/IPO/Attributor.h"
 #include "llvm/Transforms/IPO/BlockExtractor.h"
@@ -1706,6 +1707,9 @@ PassBuilder::buildPerModuleDefaultPipeline(OptimizationLevel Level,
 
   ModulePassManager MPM(DebugLogging);
 
+  // Convert @llvm.global.annotations to !annotation metadata.
+  MPM.addPass(Annotation2MetadataPass());
+
   // Force any function attributes we want the rest of the pipeline to observe.
   MPM.addPass(ForceFunctionAttrsPass());
 
@@ -1734,6 +1738,9 @@ PassBuilder::buildThinLTOPreLinkDefaultPipeline(OptimizationLevel Level) {
          "Must request optimizations for the default pipeline!");
 
   ModulePassManager MPM(DebugLogging);
+
+  // Convert @llvm.global.annotations to !annotation metadata.
+  MPM.addPass(Annotation2MetadataPass());
 
   // Force any function attributes we want the rest of the pipeline to observe.
   MPM.addPass(ForceFunctionAttrsPass());
@@ -1778,6 +1785,9 @@ PassBuilder::buildThinLTOPreLinkDefaultPipeline(OptimizationLevel Level) {
 ModulePassManager PassBuilder::buildThinLTODefaultPipeline(
     OptimizationLevel Level, const ModuleSummaryIndex *ImportSummary) {
   ModulePassManager MPM(DebugLogging);
+
+  // Convert @llvm.global.annotations to !annotation metadata.
+  MPM.addPass(Annotation2MetadataPass());
 
   if (ImportSummary) {
     // These passes import type identifier resolutions for whole-program
@@ -1834,6 +1844,9 @@ ModulePassManager
 PassBuilder::buildLTODefaultPipeline(OptimizationLevel Level,
                                      ModuleSummaryIndex *ExportSummary) {
   ModulePassManager MPM(DebugLogging);
+
+  // Convert @llvm.global.annotations to !annotation metadata.
+  MPM.addPass(Annotation2MetadataPass());
 
   if (Level == OptimizationLevel::O0) {
 #if INTEL_CUSTOMIZATION

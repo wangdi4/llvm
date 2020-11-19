@@ -62,6 +62,7 @@ MODULE_PASS("agginliner", AggInlinerPass()) // INTEL
 MODULE_PASS("always-inline", AlwaysInlinerPass())
 MODULE_PASS("arg-noalias-prop", ArgNoAliasPropPass()) // INTEL
 MODULE_PASS("attributor", AttributorPass())
+MODULE_PASS("annotation2metadata", Annotation2MetadataPass())
 MODULE_PASS("called-value-propagation", CalledValuePropagationPass())
 MODULE_PASS("canonicalize-aliases", CanonicalizeAliasesPass())
 MODULE_PASS("cg-profile", CGProfilePass())
