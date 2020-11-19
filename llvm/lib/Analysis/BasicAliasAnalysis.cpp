@@ -1838,6 +1838,11 @@ AliasResult BasicAAResult::aliasPHI(const PHINode *PN, LocationSize PNSize,
   // specify that an unknown number of elements after the initial value are
   // potentially accessed.
   bool isRecursive = false;
+#if INTEL_CUSTOMIZATION
+  // Factor some duplicated community code into this lambda.
+  // This function returns true if the incoming phi value is a basic loop IV.
+  // We skip analysis of this value and look at the other incoming value
+  // instead.
   auto CheckForRecPhi = [&](Value *PV) {
     if (!EnableRecPhiAnalysis)
       return false;
@@ -1857,6 +1862,7 @@ AliasResult BasicAAResult::aliasPHI(const PHINode *PN, LocationSize PNSize,
     }
     return false;
   };
+#endif // INTEL_CUSTOMIZATION
 
   if (PV) {
     // If we have PhiValues then use it to get the underlying phi values.
@@ -1884,6 +1890,17 @@ AliasResult BasicAAResult::aliasPHI(const PHINode *PN, LocationSize PNSize,
           if (PV1F->getPointerOperand() == PN) {
             isRecursive = true;
             continue;
+          }
+        }
+        // 24303: If the phi is a loop header, and it is not a simple
+        // basic IV as CheckForRecPhi, we have to analyze it in a
+        // conservative way because V2 and PV1 are from different iterations.
+        // Set isRecursive, and push PV1 on the analysis list below.
+        // This flag will stop tests that assume same-iteration, like
+        // (GEP[%a,i], GEP[%a,i+1]) => NoAlias).
+        if (auto *I = dyn_cast<Instruction>(PV1)) {
+          if (!DT || DT->dominates(PN->getParent(), I->getParent())) {
+            isRecursive = true;
           }
         }
 #endif // INTEL_CUSTOMIZATION
@@ -1919,9 +1936,14 @@ AliasResult BasicAAResult::aliasPHI(const PHINode *PN, LocationSize PNSize,
             continue;
           }
         }
+        // 24303: see comment above.
+        if (auto *I = dyn_cast<Instruction>(PV1)) {
+          if (!DT || DT->dominates(PN->getParent(), I->getParent())) {
+            isRecursive = true;
+          }
+        }
       }
 #endif // INTEL_CUSTOMIZATION
-
       if (UniqueSrc.insert(PV1).second)
         V1Srcs.push_back(PV1);
     }
