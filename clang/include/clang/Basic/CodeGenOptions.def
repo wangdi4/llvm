@@ -53,7 +53,6 @@ ENUM_CODEGENOPT(FramePointer, FramePointerKind, 2, FramePointerKind::None) /// f
 
 CODEGENOPT(DisableFree       , 1, 0) ///< Don't free memory.
 CODEGENOPT(DiscardValueNames , 1, 0) ///< Discard Value Names from the IR (LLVMContext flag)
-CODEGENOPT(DisableGCov       , 1, 0) ///< Don't run the GCov pass, for testing.
 
 #if INTEL_CUSTOMIZATION
 // CMPLRS-47771 - Disable all optimizations that would set the
@@ -161,7 +160,6 @@ CODEGENOPT(IncrementalLinkerCompatible, 1, 0) ///< Emit an object file which can
                                               ///< linker.
 CODEGENOPT(MergeAllConstants , 1, 1) ///< Merge identical constants.
 CODEGENOPT(MergeFunctions    , 1, 0) ///< Set when -fmerge-functions is enabled.
-CODEGENOPT(MemProf           , 1, 0) ///< Set when -fmemory-profile is enabled.
 CODEGENOPT(MSVolatile        , 1, 0) ///< Set when /volatile:ms is enabled.
 CODEGENOPT(NoCommon          , 1, 0) ///< Set when -fno-common or C++ is enabled.
 CODEGENOPT(NoDwarfDirectoryAsm , 1, 0) ///< Set when -fno-dwarf-directory-asm is
@@ -387,9 +385,7 @@ VALUE_CODEGENOPT(TLSSize, 8, 0)
 // CQ#368119
 /// The kind of file to emit MS debug info into.
 ENUM_CODEGENOPT(MSDebugInfoFile, MSDebugInfoFileKind, 2, MSDebugInfoNoFile)
-#endif // INTEL_CUSTOMIZATION
 
-#if INTEL_CUSTOMIZATION
 // Support for Intel customization LangOptions::FArgumentNoalias
 /// No aliasing for all pointer arguments
 CODEGENOPT(NoAliasForPtrArgs, 1, 0)
@@ -401,6 +397,9 @@ CODEGENOPT(DisableCpuDispatchIFuncs, 1, 0) ///< -disable-cpudispatch-ifuncs
 /// single-precision, double-precision and double extended-precision.
 VALUE_CODEGENOPT(X87Precision, 8, 0)
 #endif // INTEL_CUSTOMIZATION
+
+/// The default stack protector guard offset to use.
+VALUE_CODEGENOPT(StackProtectorGuardOffset, 32, (unsigned)-1)
 
 /// Number of path components to strip when emitting checks. (0 == full
 /// filename)

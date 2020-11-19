@@ -85,6 +85,7 @@ X86_CPU_SUBTYPE(INTEL_COREI7_CASCADELAKE,    "cascadelake")
 X86_CPU_SUBTYPE(INTEL_COREI7_TIGERLAKE,      "tigerlake")
 X86_CPU_SUBTYPE(INTEL_COREI7_COOPERLAKE,     "cooperlake")
 X86_CPU_SUBTYPE(INTEL_COREI7_SAPPHIRERAPIDS, "sapphirerapids")
+X86_CPU_SUBTYPE(INTEL_COREI7_ALDERLAKE,      "alderlake")
 #undef X86_CPU_SUBTYPE
 
 
@@ -178,6 +179,7 @@ X86_FEATURE       (SHA,             "sha")
 X86_FEATURE       (SHSTK,           "shstk")
 X86_FEATURE       (TBM,             "tbm")
 X86_FEATURE       (TSXLDTRK,        "tsxldtrk")
+X86_FEATURE       (UINTR,           "uintr")
 X86_FEATURE       (VAES,            "vaes")
 X86_FEATURE       (VZEROUPPER,      "vzeroupper")
 X86_FEATURE       (WAITPKG,         "waitpkg")
@@ -189,15 +191,9 @@ X86_FEATURE       (XSAVEOPT,        "xsaveopt")
 X86_FEATURE       (XSAVES,          "xsaves")
 X86_FEATURE       (HRESET,          "hreset")
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_AVX_VNNI
-X86_FEATURE       (AVXVNNI,         "avxvnni")
-#endif // INTEL_FEATURE_ISA_AVX_VNNI
 #if INTEL_FEATURE_ISA_FP16
 X86_FEATURE       (AVX512FP16,      "avx512fp16")
 #endif // INTEL_FEATURE_ISA_FP16
-#if INTEL_FEATURE_ISA_ULI
-X86_FEATURE       (ULI,             "uli")
-#endif // INTEL_FEATURE_ISA_ULI
 #if INTEL_FEATURE_ISA_AVX_IFMA
 X86_FEATURE       (AVXIFMA,         "avxifma")
 #endif // INTEL_FEATURE_ISA_AVX_IFMA
@@ -276,6 +272,7 @@ X86_FEATURE       (AMX_BF8,          "amx-bf8")
 X86_FEATURE       (AMX_MEMADVISE,    "amx-memadvise")
 #endif // INTEL_FEATURE_ISA_AMX_MEMADVISE
 #endif // INTEL_CUSTOMIZATION
+X86_FEATURE       (AVXVNNI,         "avxvnni")
 // These features aren't really CPU features, but the frontend can set them.
 X86_FEATURE       (RETPOLINE_EXTERNAL_THUNK,    "retpoline-external-thunk")
 X86_FEATURE       (RETPOLINE_INDIRECT_BRANCHES, "retpoline-indirect-branches")

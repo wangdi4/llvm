@@ -334,6 +334,40 @@ bool ISD::matchBinaryPredicate(
   return true;
 }
 
+ISD::NodeType ISD::getVecReduceBaseOpcode(unsigned VecReduceOpcode) {
+  switch (VecReduceOpcode) {
+  default:
+    llvm_unreachable("Expected VECREDUCE opcode");
+  case ISD::VECREDUCE_FADD:
+  case ISD::VECREDUCE_SEQ_FADD:
+    return ISD::FADD;
+  case ISD::VECREDUCE_FMUL:
+    return ISD::FMUL;
+  case ISD::VECREDUCE_ADD:
+    return ISD::ADD;
+  case ISD::VECREDUCE_MUL:
+    return ISD::MUL;
+  case ISD::VECREDUCE_AND:
+    return ISD::AND;
+  case ISD::VECREDUCE_OR:
+    return ISD::OR;
+  case ISD::VECREDUCE_XOR:
+    return ISD::XOR;
+  case ISD::VECREDUCE_SMAX:
+    return ISD::SMAX;
+  case ISD::VECREDUCE_SMIN:
+    return ISD::SMIN;
+  case ISD::VECREDUCE_UMAX:
+    return ISD::UMAX;
+  case ISD::VECREDUCE_UMIN:
+    return ISD::UMIN;
+  case ISD::VECREDUCE_FMAX:
+    return ISD::FMAXNUM;
+  case ISD::VECREDUCE_FMIN:
+    return ISD::FMINNUM;
+  }
+}
+
 ISD::NodeType ISD::getExtForLoadExtType(bool IsFP, ISD::LoadExtType ExtType) {
   switch (ExtType) {
   case ISD::EXTLOAD:
@@ -2067,7 +2101,14 @@ SDValue SelectionDAG::CreateStackTemporary(EVT VT, unsigned minAlign) {
 }
 
 SDValue SelectionDAG::CreateStackTemporary(EVT VT1, EVT VT2) {
-  TypeSize Bytes = std::max(VT1.getStoreSize(), VT2.getStoreSize());
+  TypeSize VT1Size = VT1.getStoreSize();
+  TypeSize VT2Size = VT2.getStoreSize();
+  assert(VT1Size.isScalable() == VT2Size.isScalable() &&
+         "Don't know how to choose the maximum size when creating a stack "
+         "temporary");
+  TypeSize Bytes =
+      VT1Size.getKnownMinSize() > VT2Size.getKnownMinSize() ? VT1Size : VT2Size;
+
   Type *Ty1 = VT1.getTypeForEVT(*getContext());
   Type *Ty2 = VT2.getTypeForEVT(*getContext());
   const DataLayout &DL = getDataLayout();
@@ -5603,8 +5644,8 @@ SDValue SelectionDAG::getNode(unsigned Opcode, const SDLoc &DL, EVT VT,
 
     // EXTRACT_SUBVECTOR of CONCAT_VECTOR can be simplified if the pieces of
     // the concat have the same type as the extract.
-    if (N2C && N1.getOpcode() == ISD::CONCAT_VECTORS &&
-        N1.getNumOperands() > 0 && VT == N1.getOperand(0).getValueType()) {
+    if (N1.getOpcode() == ISD::CONCAT_VECTORS && N1.getNumOperands() > 0 &&
+        VT == N1.getOperand(0).getValueType()) {
       unsigned Factor = VT.getVectorMinNumElements();
       return N1.getOperand(N2C->getZExtValue() / Factor);
     }
@@ -9913,6 +9954,58 @@ SDValue BuildVectorSDNode::getSplatValue(BitVector *UndefElements) const {
   return getSplatValue(DemandedElts, UndefElements);
 }
 
+bool BuildVectorSDNode::getRepeatedSequence(const APInt &DemandedElts,
+                                            SmallVectorImpl<SDValue> &Sequence,
+                                            BitVector *UndefElements) const {
+  unsigned NumOps = getNumOperands();
+  Sequence.clear();
+  if (UndefElements) {
+    UndefElements->clear();
+    UndefElements->resize(NumOps);
+  }
+  assert(NumOps == DemandedElts.getBitWidth() && "Unexpected vector size");
+  if (!DemandedElts || NumOps < 2 || !isPowerOf2_32(NumOps))
+    return false;
+
+  // Set the undefs even if we don't find a sequence (like getSplatValue).
+  if (UndefElements)
+    for (unsigned I = 0; I != NumOps; ++I)
+      if (DemandedElts[I] && getOperand(I).isUndef())
+        (*UndefElements)[I] = true;
+
+  // Iteratively widen the sequence length looking for repetitions.
+  for (unsigned SeqLen = 1; SeqLen < NumOps; SeqLen *= 2) {
+    Sequence.append(SeqLen, SDValue());
+    for (unsigned I = 0; I != NumOps; ++I) {
+      if (!DemandedElts[I])
+        continue;
+      SDValue &SeqOp = Sequence[I % SeqLen];
+      SDValue Op = getOperand(I);
+      if (Op.isUndef()) {
+        if (!SeqOp)
+          SeqOp = Op;
+        continue;
+      }
+      if (SeqOp && !SeqOp.isUndef() && SeqOp != Op) {
+        Sequence.clear();
+        break;
+      }
+      SeqOp = Op;
+    }
+    if (!Sequence.empty())
+      return true;
+  }
+
+  assert(Sequence.empty() && "Failed to empty non-repeating sequence pattern");
+  return false;
+}
+
+bool BuildVectorSDNode::getRepeatedSequence(SmallVectorImpl<SDValue> &Sequence,
+                                            BitVector *UndefElements) const {
+  APInt DemandedElts = APInt::getAllOnesValue(getNumOperands());
+  return getRepeatedSequence(DemandedElts, Sequence, UndefElements);
+}
+
 ConstantSDNode *
 BuildVectorSDNode::getConstantSplatNode(const APInt &DemandedElts,
                                         BitVector *UndefElements) const {
@@ -10046,6 +10139,44 @@ SDValue SelectionDAG::getTokenFactor(const SDLoc &DL,
     Vals.emplace_back(NewTF);
   }
   return getNode(ISD::TokenFactor, DL, MVT::Other, Vals);
+}
+
+SDValue SelectionDAG::getNeutralElement(unsigned Opcode, const SDLoc &DL,
+                                        EVT VT, SDNodeFlags Flags) {
+  switch (Opcode) {
+  default:
+    return SDValue();
+  case ISD::ADD:
+  case ISD::OR:
+  case ISD::XOR:
+  case ISD::UMAX:
+    return getConstant(0, DL, VT);
+  case ISD::MUL:
+    return getConstant(1, DL, VT);
+  case ISD::AND:
+  case ISD::UMIN:
+    return getAllOnesConstant(DL, VT);
+  case ISD::SMAX:
+    return getConstant(APInt::getSignedMinValue(VT.getSizeInBits()), DL, VT);
+  case ISD::SMIN:
+    return getConstant(APInt::getSignedMaxValue(VT.getSizeInBits()), DL, VT);
+  case ISD::FADD:
+    return getConstantFP(-0.0, DL, VT);
+  case ISD::FMUL:
+    return getConstantFP(1.0, DL, VT);
+  case ISD::FMINNUM:
+  case ISD::FMAXNUM: {
+    // Neutral element for fminnum is NaN, Inf or FLT_MAX, depending on FMF.
+    const fltSemantics &Semantics = EVTToAPFloatSemantics(VT);
+    APFloat NeutralAF = !Flags.hasNoNaNs() ? APFloat::getQNaN(Semantics) :
+                        !Flags.hasNoInfs() ? APFloat::getInf(Semantics) :
+                        APFloat::getLargest(Semantics);
+    if (Opcode == ISD::FMAXNUM)
+      NeutralAF.changeSign();
+
+    return getConstantFP(NeutralAF, DL, VT);
+  }
+  }
 }
 
 #ifndef NDEBUG

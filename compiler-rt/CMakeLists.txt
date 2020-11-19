@@ -45,6 +45,8 @@ option(COMPILER_RT_BUILD_LIBFUZZER "Build libFuzzer" ON)
 mark_as_advanced(COMPILER_RT_BUILD_LIBFUZZER)
 option(COMPILER_RT_BUILD_PROFILE "Build profile runtime" ON)
 mark_as_advanced(COMPILER_RT_BUILD_PROFILE)
+option(COMPILER_RT_BUILD_MEMPROF "Build memory profiling runtime" ON)
+mark_as_advanced(COMPILER_RT_BUILD_MEMPROF)
 option(COMPILER_RT_BUILD_XRAY_NO_PREINIT "Build xray with no preinit patching" OFF)
 mark_as_advanced(COMPILER_RT_BUILD_XRAY_NO_PREINIT)
 
@@ -467,6 +469,44 @@ if (SANITIZER_TEST_CXX_LIBNAME STREQUAL "libc++")
   append_libcxx_libs(SANITIZER_TEST_CXX)
 elseif (SANITIZER_TEST_CXX_LIBNAME STREQUAL "libstdc++")
   append_list_if(COMPILER_RT_HAS_LIBSTDCXX stdc++ SANITIZER_TEST_CXX_LIBRARIES)
+endif()
+
+# when cross compiling, COMPILER_RT_TEST_COMPILER_CFLAGS help
+# in compilation and linking of unittests.
+string(REPLACE " " ";" COMPILER_RT_UNITTEST_CFLAGS "${COMPILER_RT_TEST_COMPILER_CFLAGS}")
+set(COMPILER_RT_UNITTEST_LINK_FLAGS ${COMPILER_RT_UNITTEST_CFLAGS})
+
+# Unittests support.
+set(COMPILER_RT_GTEST_PATH ${LLVM_MAIN_SRC_DIR}/utils/unittest/googletest)
+set(COMPILER_RT_GTEST_SOURCE ${COMPILER_RT_GTEST_PATH}/src/gtest-all.cc)
+set(COMPILER_RT_GTEST_CFLAGS
+  -DGTEST_NO_LLVM_SUPPORT=1
+  -DGTEST_HAS_RTTI=0
+  -I${COMPILER_RT_GTEST_PATH}/include
+  -I${COMPILER_RT_GTEST_PATH}
+)
+
+# Mocking support.
+# INTEL: CMPLRTOOLS-21857: gmock-all.cc uses some new c++ features and can not
+#        be compiled by gcc-4.8.5 libraries. Disable it temporarily.
+if(NOT INTEL_CUSTOMIZATION)
+  set(COMPILER_RT_GMOCK_PATH ${LLVM_MAIN_SRC_DIR}/utils/unittest/googlemock)
+  set(COMPILER_RT_GMOCK_SOURCE ${COMPILER_RT_GMOCK_PATH}/src/gmock-all.cc)
+  set(COMPILER_RT_GMOCK_CFLAGS
+    -DGTEST_NO_LLVM_SUPPORT=1
+    -DGTEST_HAS_RTTI=0
+    -I${COMPILER_RT_GMOCK_PATH}/include
+    -I${COMPILER_RT_GMOCK_PATH}
+  )
+endif()
+
+append_list_if(COMPILER_RT_DEBUG -DSANITIZER_DEBUG=1 COMPILER_RT_UNITTEST_CFLAGS)
+append_list_if(COMPILER_RT_HAS_WCOVERED_SWITCH_DEFAULT_FLAG -Wno-covered-switch-default COMPILER_RT_UNITTEST_CFLAGS)
+append_list_if(COMPILER_RT_HAS_WSUGGEST_OVERRIDE_FLAG -Wno-suggest-override COMPILER_RT_UNITTEST_CFLAGS)
+
+if(MSVC)
+  # gtest use a lot of stuff marked as deprecated on Windows.
+  list(APPEND COMPILER_RT_GTEST_CFLAGS -Wno-deprecated-declarations)
 endif()
 
 # Warnings to turn off for all libraries, not just sanitizers.

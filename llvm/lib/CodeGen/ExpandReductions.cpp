@@ -135,6 +135,7 @@ bool expandReductions(Function &F, const TargetTransformInfo *TTI) {
       }
       break;
     }
+
 #if INTEL_CUSTOMIZATION
     case Intrinsic::vector_reduce_and:
     case Intrinsic::vector_reduce_or: {

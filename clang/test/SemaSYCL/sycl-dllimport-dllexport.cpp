@@ -3,8 +3,10 @@
 // RUN: -fsyntax-only -Wno-sycl-2017-compat -DWARNCHECK %s -o /dev/null 2>&1 | FileCheck %s
 // check random triple aux-triple with sycl-device
 
-// RUN: %clang_cc1 -triple spir64-unknown-windows-sycldevice -Wno-sycl-2017-compat -fsyntax-only \
-// RUN: -fms-extensions -DWARNCHECK %s -o /dev/null 2>&1 | FileCheck %s
+// RUN: %clang_cc1 -triple spir64-unknown-windows-sycldevice \
+// RUN: -Wno-sycl-2017-compat -fsyntax-only \
+// RUN: -fms-extensions -DWARNCHECK %s -o /dev/null 2>&1 | \
+// RUN:  FileCheck %s --check-prefixes CHECKALL
 // check without -aux-triple but sycl-device
 
 // RUN: %clang_cc1 -triple spir64-unknown-windows-sycldevice -fsycl \

@@ -1135,8 +1135,8 @@ void DDTest::removeMatchingExtensions(Subscript *Pair) {
 	
   if ((isa<SCEVZeroExtendExpr>(Src) && isa<SCEVZeroExtendExpr>(Dst)) ||
       (isa<SCEVSignExtendExpr>(Src) && isa<SCEVSignExtendExpr>(Dst))) {
-    const SCEVCastExpr *SrcCast = cast<SCEVCastExpr>(Src);
-    const SCEVCastExpr *DstCast = cast<SCEVCastExpr>(Dst);
+    const SCEVIntegralCastExpr *SrcCast = cast<SCEVIntegralCastExpr>(Src);
+    const SCEVIntegralCastExpr *DstCast = cast<SCEVIntegralCastExpr>(Dst);
     const SCEV *SrcCastOp = SrcCast->getOperand();
     const SCEV *DstCastOp = DstCast->getOperand();
     if (SrcCastOp->getType() == DstCastOp->getType()) {

@@ -41,12 +41,6 @@
 ; CHECK-OLD-NOT: INLINE{{.*}}foo{{.*}}Callee has multiple callsites with loops that could be fused
 ; CHECK-OLD-NOT: INLINE{{.*}}foo{{.*}}Callee has multiple callsites with loops that could be fused
 
-; Check for new pass manager with old inline report
-
-; CHECK-CL-NEW: COMPILE FUNC: baz
-; CHECK-CL-NEW-NOT: INLINE{{.*}}foo{{.*}}Callee has multiple callsites with loops that could be fused
-; CHECK-CL-NEW-NOT: INLINE{{.*}}foo{{.*}}Callee has multiple callsites with loops that could be fused
-
 ; Check for old and new pass manager with old inline report
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
@@ -59,6 +53,12 @@ target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 ; CHECK-CL-NEXT: INLINE{{.*}}foo{{.*}}Callee has multiple callsites with loops that could be fused
 ; CHECK-CL-NEXT: INLINE{{.*}}foo{{.*}}Callee has multiple callsites with loops that could be fused
 ; CHECK-CL-NEXT: INLINE{{.*}}foo{{.*}}Callee has multiple callsites with loops that could be fused
+
+; Check for new pass manager with old inline report
+
+; CHECK-CL-NEW: COMPILE FUNC: baz
+; CHECK-CL-NEW-NOT: INLINE{{.*}}foo{{.*}}Callee has multiple callsites with loops that could be fused
+; CHECK-CL-NEW-NOT: INLINE{{.*}}foo{{.*}}Callee has multiple callsites with loops that could be fused
 
 ; Check for old pass manager with old inline report
 

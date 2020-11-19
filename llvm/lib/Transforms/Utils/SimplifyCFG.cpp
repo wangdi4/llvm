@@ -2058,8 +2058,9 @@ static bool validateAndCostRequiredSelects(BasicBlock *BB, BasicBlock *ThenBB,
 #ifndef INTEL_CUSTOMIZATION
     BudgetRemaining -=
         TTI.getCmpSelInstrCost(Instruction::Select, PN.getType(), nullptr,
-                               CostKind);
+                               CmpInst::BAD_ICMP_PREDICATE, CostKind);
 #endif
+
     // Don't convert to selects if we could remove undefined behavior instead.
     if (passingValueIsAlwaysUndefined(OrigV, &PN) ||
         passingValueIsAlwaysUndefined(ThenV, &PN))
@@ -2463,6 +2464,7 @@ static bool FoldCondBranchOnPHI(BranchInst *BI, const DataLayout &DL,
 static bool FoldPHIEntries(PHINode *PN, const TargetTransformInfo &TTI,
                            const DataLayout &DL) {
   BasicBlock *BB = PN->getParent();
+
   bool Changed = false;
 
   // This could be a multiple entry PHI node. Try to fold each pair of entries
@@ -7182,24 +7184,24 @@ bool SimplifyCFGOpt::simplifyOnce(BasicBlock *BB) {
 
   IRBuilder<> Builder(BB);
 
-#if INTEL_CUSTOMIZATION
-  // If there is a PHI node in this basic block, and we can
-  // eliminate some of its entries, do so now.
   if (Options.FoldTwoEntryPHINode) {
+    // If there is a PHI node in this basic block, and we can
+    // eliminate some of its entries, do so now.
     if (auto *PN = dyn_cast<PHINode>(BB->begin()))
-    // FoldPHIEntries is an Intel customized generalized version of the LLVM
-    // open source routine called FoldTwoEntryPHINode(that folds a two-entry
-    // phinode into "select") which is capable of handling any number
-    // of phi entries. It iteratively transforms each conditional into
-    // "select". Any changes (one such change could be regarding cost model)
-    // made by the LLVM community to FoldTwoEntryPHINode will need to be
-    // incorporated to this routine (FoldPHIEntries).
-    // To keep xmain as clean as possible we got rid of the FoldTwoEntryPHINode,
-    // therefore, there might be conflicts during code merge. If resolving
-    // conflicts becomes too cumbersome, we can try something different.
+#if INTEL_CUSTOMIZATION
+      // FoldPHIEntries is an Intel customized generalized version of the LLVM
+      // open source routine called FoldTwoEntryPHINode(that folds a two-entry
+      // phinode into "select") which is capable of handling any number
+      // of phi entries. It iteratively transforms each conditional into
+      // "select". Any changes (one such change could be regarding cost model)
+      // made by the LLVM community to FoldTwoEntryPHINode will need to be
+      // incorporated to this routine (FoldPHIEntries).
+      // To keep xmain as clean as possible we got rid of the FoldTwoEntryPHINode,
+      // therefore, there might be conflicts during code merge. If resolving
+      // conflicts becomes too cumbersome, we can try something different.
       Changed |= FoldPHIEntries(PN, TTI, DL);
-  }
 #endif //INTEL_CUSTOMIZATION
+  }
 
   Instruction *Terminator = BB->getTerminator();
   Builder.SetInsertPoint(Terminator);

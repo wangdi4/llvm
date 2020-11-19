@@ -368,7 +368,6 @@ entry:
   ret void
 
 ; INTEL_CUSTOMIZATION
-; More generic reg-exps
 ; CHECK: Just Ref:  Ptr: i8* %p        <->  call void @a_readonly_func(i8* %p) #{{.*}} [ "unknown"() ]
 ; CHECK: Just Ref:  Ptr: i8* %q        <->  call void @a_readonly_func(i8* %p) #{{.*}} [ "unknown"() ]
 ; CHECK: NoModRef:  Ptr: i8* %p        <->  call void @an_inaccessiblememonly_func() #{{.*}} [ "unknown"() ]
@@ -392,7 +391,8 @@ entry:
 }
 
 
-; CHECK:      attributes #{{.*}} = { argmemonly nounwind willreturn writeonly }
+; CHECK:      attributes #{{.*}} = { argmemonly nofree nosync nounwind willreturn writeonly }
+; CHECK-NEXT: attributes #{{.*}} = { argmemonly nofree nosync nounwind willreturn }
 ; CHECK-NEXT: attributes #{{.*}} = { argmemonly nounwind willreturn }
 ; CHECK-NEXT: attributes #{{.*}} = { noinline nounwind readonly }
 ; CHECK-NEXT: attributes #{{.*}} = { noinline nounwind writeonly }
@@ -400,8 +400,7 @@ entry:
 ; CHECK-NEXT: attributes #{{.*}} = { inaccessiblememonly nounwind }
 ; CHECK-NEXT: attributes #{{.*}} = { inaccessiblemem_or_argmemonly nounwind }
 ; CHECK-NEXT: attributes #{{.*}} = { argmemonly nounwind }
-; CHKSS-NEXT: attributes #{{.*}} = { nounwind readnone speculatable }
-; CHECK-NEXT: attributes #{{.*}} = { readonly }
+; CHECK:      attributes #{{.*}} = { readonly }
 ; CHECK-NEXT: attributes #{{.*}} = { inaccessiblememonly }
 ; CHECK-NEXT: attributes #{{.*}} = { inaccessiblemem_or_argmemonly }
 ; CHECK-NEXT: attributes #{{.*}} = { argmemonly }

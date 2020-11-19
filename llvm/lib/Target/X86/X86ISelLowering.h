@@ -772,15 +772,11 @@ namespace llvm {
     ENQCMD,
     ENQCMDS,
 
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_ULI
-    // User level interrupts - testui
-    TESTUI,
-#endif // INTEL_FEATURE_ISA_ULI
-#endif // INTEL_CUSTOMIZATION
-
     // For avx512-vp2intersect
     VP2INTERSECT,
+
+    // User level interrupts - testui
+    TESTUI,
 
     /// X86 strict FP compare instructions.
     STRICT_FCMP = ISD::FIRST_TARGET_STRICTFP_OPCODE,

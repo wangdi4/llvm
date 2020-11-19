@@ -112,6 +112,9 @@ static cl::opt<bool> GVNEnablePRE("enable-pre", cl::init(true), cl::Hidden);
 static cl::opt<bool> GVNEnableLoadPRE("enable-load-pre", cl::init(true));
 static cl::opt<bool> GVNEnableLoadInLoopPRE("enable-load-in-loop-pre",
                                             cl::init(true));
+static cl::opt<bool>
+GVNEnableSplitBackedgeInLoadPRE("enable-split-backedge-in-load-pre",
+                                cl::init(true));
 static cl::opt<bool> GVNEnableMemDep("enable-gvn-memdep", cl::init(true));
 
 static cl::opt<uint32_t> MaxNumDeps(
@@ -639,6 +642,11 @@ bool GVN::isLoadPREEnabled() const {
 
 bool GVN::isLoadInLoopPREEnabled() const {
   return Options.AllowLoadInLoopPRE.getValueOr(GVNEnableLoadInLoopPRE);
+}
+
+bool GVN::isLoadPRESplitBackedgeEnabled() const {
+  return Options.AllowLoadPRESplitBackedge.getValueOr(
+      GVNEnableSplitBackedgeInLoadPRE);
 }
 
 bool GVN::isMemDepEnabled() const {
@@ -1383,16 +1391,21 @@ bool GVN::PerformLoadPRE(LoadInst *LI, AvailValInBlkVect &ValuesPerBlock,
         return false;
       }
 
+      // Do not split backedge as it will break the canonical loop form.
 #if INTEL_CUSTOMIZATION
-      // Disable splitting the loop backedge before loopopt as it disrupts the
-      // bottom tested structure of loops.
-      if (LoadBB->getParent()->isPreLoopOpt() && DT->dominates(LoadBB, Pred)) {
-        LLVM_DEBUG(
-            dbgs() << "SUPPRESSING PRE TO AVOID SPLITTING LOOP BACKEDGE '"
-                   << Pred->getName() << "': " << *LI << '\n');
-        return false;
-      }
+      // As of now PRESplitBackedge is always enabled in llorg, so we need to
+      // keep customization here. Later, we'd probably need to move it to the
+      // Pass Manager, or wherever it will be disabled in the upstream.
+      if (!isLoadPRESplitBackedgeEnabled() ||
+          LoadBB->getParent()->isPreLoopOpt())
 #endif // INTEL_CUSTOMIZATION
+        if (DT->dominates(LoadBB, Pred)) {
+          LLVM_DEBUG(
+              dbgs()
+              << "COULD NOT PRE LOAD BECAUSE OF A BACKEDGE CRITICAL EDGE '"
+              << Pred->getName() << "': " << *LI << '\n');
+          return false;
+        }
 
       CriticalEdgePred.push_back(Pred);
     } else {
@@ -2651,10 +2664,14 @@ bool GVN::performScalarPRE(Instruction *CurInst) {
   if (isa<GetElementPtrInst>(CurInst))
     return false;
 
-  // We don't currently value number ANY inline asm calls.
-  if (auto *CallB = dyn_cast<CallBase>(CurInst))
+  if (auto *CallB = dyn_cast<CallBase>(CurInst)) {
+    // We don't currently value number ANY inline asm calls.
     if (CallB->isInlineAsm())
       return false;
+    // Don't do PRE on convergent calls.
+    if (CallB->isConvergent())
+      return false;
+  }
 
   uint32_t ValNo = VN.lookup(CurInst);
 

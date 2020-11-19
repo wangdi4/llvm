@@ -253,15 +253,6 @@ Type *TypeMapTy::get(Type *Ty, SmallPtrSet<StructType *, 8> &Visited) {
   bool IsUniqued = !isa<StructType>(Ty) || cast<StructType>(Ty)->isLiteral();
 
   if (!IsUniqued) {
-    StructType *STy = cast<StructType>(Ty);
-    // This is actually a type from the destination module, this can be reached
-    // when this type is loaded in another module, added to DstStructTypesSet,
-    // and then we reach the same type in another module where it has not been
-    // added to MappedTypes. (PR37684)
-    if (STy->getContext().isODRUniquingDebugTypes() && !STy->isOpaque() &&
-        DstStructTypesSet.hasType(STy))
-      return *Entry = STy;
-
 #ifndef NDEBUG
     for (auto &Pair : MappedTypes) {
       assert(!(Pair.first != Ty && Pair.second == Ty) &&
@@ -269,7 +260,7 @@ Type *TypeMapTy::get(Type *Ty, SmallPtrSet<StructType *, 8> &Visited) {
     }
 #endif
 
-    if (!Visited.insert(STy).second) {
+    if (!Visited.insert(cast<StructType>(Ty)).second) {
       StructType *DTy = StructType::create(Ty->getContext());
       return *Entry = DTy;
     }
@@ -593,6 +584,13 @@ Value *IRLinker::materialize(Value *V, bool ForIndirectSymbol) {
   if (!SGV)
     return nullptr;
 
+  // When linking a global from other modules than source & dest, skip
+  // materializing it because it would be mapped later when its containing
+  // module is linked. Linking it now would potentially pull in many types that
+  // may not be mapped properly.
+  if (SGV->getParent() != &DstM && SGV->getParent() != SrcM.get())
+    return nullptr;
+
   Expected<Constant *> NewProto = linkGlobalValueProto(SGV, ForIndirectSymbol);
   if (!NewProto) {
     setError(NewProto.takeError());
@@ -654,14 +652,14 @@ GlobalVariable *IRLinker::copyGlobalVariableProto(const GlobalVariable *SGVar) {
 
 AttributeList IRLinker::mapAttributeTypes(LLVMContext &C, AttributeList Attrs) {
   for (unsigned i = 0; i < Attrs.getNumAttrSets(); ++i) {
-    if (Attrs.hasAttribute(i, Attribute::ByVal)) {
-      Type *Ty = Attrs.getAttribute(i, Attribute::ByVal).getValueAsType();
-      if (!Ty)
-        continue;
-
-      Attrs = Attrs.removeAttribute(C, i, Attribute::ByVal);
-      Attrs = Attrs.addAttribute(
-          C, i, Attribute::getWithByValType(C, TypeMap.get(Ty)));
+    for (Attribute::AttrKind TypedAttr :
+         {Attribute::ByVal, Attribute::StructRet}) {
+      if (Attrs.hasAttribute(i, TypedAttr)) {
+        if (Type *Ty = Attrs.getAttribute(i, TypedAttr).getValueAsType()) {
+          Attrs = Attrs.replaceAttributeType(C, i, TypedAttr, TypeMap.get(Ty));
+          break;
+        }
+      }
     }
   }
   return Attrs;

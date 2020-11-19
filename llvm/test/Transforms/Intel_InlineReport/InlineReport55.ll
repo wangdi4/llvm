@@ -15,17 +15,17 @@
 ; CHECK-OLD: COMPILE FUNC: fn_musttail_always
 ; CHECK-OLD: bf_musttail_always {{.*}}Callee calls branch funnel{{.*}}
 
-; CHECK-NEW: COMPILE FUNC: bf_musttail_always
-; CHECK-NEW: llvm.icall.branch.funnel {{.*}}Callee is intrinsic{{.*}}
-
-; CHECK-NEW: COMPILE FUNC: fn_musttail_always
-; CHECK-NEW: bf_musttail_always {{.*}}Callee calls branch funnel{{.*}}
-
 ; CHECK-NEW: COMPILE FUNC: bf_musttail
 ; CHECK-NEW: llvm.icall.branch.funnel {{.*}}Callee is intrinsic{{.*}}
 
 ; CHECK-NEW: COMPILE FUNC: fn_musttail
 ; CHECK-NEW: bf_musttail {{.*}}Callee calls branch funnel{{.*}}
+
+; CHECK-NEW: COMPILE FUNC: bf_musttail_always
+; CHECK-NEW: llvm.icall.branch.funnel {{.*}}Callee is intrinsic{{.*}}
+
+; CHECK-NEW: COMPILE FUNC: fn_musttail_always
+; CHECK-NEW: bf_musttail_always {{.*}}Callee calls branch funnel{{.*}}
 
 ; CHECK-MOLD: COMPILE FUNC: fn_musttail
 ; CHECK-MOLD: bf_musttail {{.*}}Callee calls branch funnel{{.*}}

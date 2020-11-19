@@ -53,10 +53,10 @@ define i32 @fpext_vXhalf() {
 ; X86_64-AVX2-NEXT:  Cost Model: Found an estimated cost of 113 for instruction: %V33f64 = fpext <33 x half> undef to <33 x double>
 ; X86_64-AVX2-NEXT:  Cost Model: Found an estimated cost of 173 for instruction: %V63f64 = fpext <63 x half> undef to <63 x double>
 ; X86_64-AVX2-NEXT:  Cost Model: Found an estimated cost of 7 for instruction: %V3f32 = fpext <3 x half> undef to <3 x float>
-; X86_64-AVX2-NEXT:  Cost Model: Found an estimated cost of 21 for instruction: %V7f32 = fpext <7 x half> undef to <7 x float>
-; X86_64-AVX2-NEXT:  Cost Model: Found an estimated cost of 27 for instruction: %V9f32 = fpext <9 x half> undef to <9 x float>
-; X86_64-AVX2-NEXT:  Cost Model: Found an estimated cost of 105 for instruction: %V33f32 = fpext <33 x half> undef to <33 x float>
-; X86_64-AVX2-NEXT:  Cost Model: Found an estimated cost of 196 for instruction: %V63f32 = fpext <63 x half> undef to <63 x float>
+; X86_64-AVX2-NEXT:  Cost Model: Found an estimated cost of 23 for instruction: %V7f32 = fpext <7 x half> undef to <7 x float>
+; X86_64-AVX2-NEXT:  Cost Model: Found an estimated cost of 28 for instruction: %V9f32 = fpext <9 x half> undef to <9 x float>
+; X86_64-AVX2-NEXT:  Cost Model: Found an estimated cost of 106 for instruction: %V33f32 = fpext <33 x half> undef to <33 x float>
+; X86_64-AVX2-NEXT:  Cost Model: Found an estimated cost of 205 for instruction: %V63f32 = fpext <63 x half> undef to <63 x float>
 ; X86_64-AVX2-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: ret i32 undef
 ;
 ; X86_64-AVX512-VL-BW-LABEL: 'fpext_vXhalf'
@@ -66,10 +66,10 @@ define i32 @fpext_vXhalf() {
 ; X86_64-AVX512-VL-BW-NEXT:  Cost Model: Found an estimated cost of 129 for instruction: %V33f64 = fpext <33 x half> undef to <33 x double>
 ; X86_64-AVX512-VL-BW-NEXT:  Cost Model: Found an estimated cost of 197 for instruction: %V63f64 = fpext <63 x half> undef to <63 x double>
 ; X86_64-AVX512-VL-BW-NEXT:  Cost Model: Found an estimated cost of 7 for instruction: %V3f32 = fpext <3 x half> undef to <3 x float>
-; X86_64-AVX512-VL-BW-NEXT:  Cost Model: Found an estimated cost of 21 for instruction: %V7f32 = fpext <7 x half> undef to <7 x float>
-; X86_64-AVX512-VL-BW-NEXT:  Cost Model: Found an estimated cost of 29 for instruction: %V9f32 = fpext <9 x half> undef to <9 x float>
-; X86_64-AVX512-VL-BW-NEXT:  Cost Model: Found an estimated cost of 117 for instruction: %V33f32 = fpext <33 x half> undef to <33 x float>
-; X86_64-AVX512-VL-BW-NEXT:  Cost Model: Found an estimated cost of 216 for instruction: %V63f32 = fpext <63 x half> undef to <63 x float>
+; X86_64-AVX512-VL-BW-NEXT:  Cost Model: Found an estimated cost of 23 for instruction: %V7f32 = fpext <7 x half> undef to <7 x float>
+; X86_64-AVX512-VL-BW-NEXT:  Cost Model: Found an estimated cost of 30 for instruction: %V9f32 = fpext <9 x half> undef to <9 x float>
+; X86_64-AVX512-VL-BW-NEXT:  Cost Model: Found an estimated cost of 114 for instruction: %V33f32 = fpext <33 x half> undef to <33 x float>
+; X86_64-AVX512-VL-BW-NEXT:  Cost Model: Found an estimated cost of 221 for instruction: %V63f32 = fpext <63 x half> undef to <63 x float>
 ; X86_64-AVX512-VL-BW-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: ret i32 undef
 ;
   %V3f64 = fpext <3 x half> undef to <3 x double>

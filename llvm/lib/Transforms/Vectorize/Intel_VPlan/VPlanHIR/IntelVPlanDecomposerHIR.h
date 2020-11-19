@@ -225,6 +225,7 @@ private:
     VPValue *visitTruncateExpr(const SCEVTruncateExpr *Expr);
     VPValue *visitZeroExtendExpr(const SCEVZeroExtendExpr *Expr);
     VPValue *visitSignExtendExpr(const SCEVSignExtendExpr *Expr);
+    VPValue *visitPtrToIntExpr(const SCEVPtrToIntExpr *);
     VPValue *visitAddExpr(const SCEVAddExpr *Expr);
     VPValue *visitMulExpr(const SCEVMulExpr *Expr);
     VPValue *visitUDivExpr(const SCEVUDivExpr *Expr);

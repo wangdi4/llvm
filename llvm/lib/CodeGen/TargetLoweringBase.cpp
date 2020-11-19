@@ -774,6 +774,7 @@ void TargetLoweringBase::initActions() {
     setOperationAction(ISD::VECREDUCE_UMIN, VT, Expand);
     setOperationAction(ISD::VECREDUCE_FMAX, VT, Expand);
     setOperationAction(ISD::VECREDUCE_FMIN, VT, Expand);
+    setOperationAction(ISD::VECREDUCE_SEQ_FADD, VT, Expand);
   }
 
   // Most targets ignore the @llvm.prefetch intrinsic.
@@ -1342,7 +1343,7 @@ void TargetLoweringBase::computeRegisterProperties(
         MVT SVT = (MVT::SimpleValueType) nVT;
         // Promote vectors of integers to vectors with the same number
         // of elements, with a wider element type.
-        if (SVT.getScalarSizeInBits() > EltVT.getSizeInBits() &&
+        if (SVT.getScalarSizeInBits() > EltVT.getFixedSizeInBits() &&
             SVT.getVectorElementCount() == EC && isTypeLegal(SVT)) {
           TransformToType[i] = SVT;
           RegisterTypeForVT[i] = SVT;

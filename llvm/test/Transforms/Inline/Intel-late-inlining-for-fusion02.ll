@@ -39,8 +39,8 @@
 ; CHECK-NEW: call void @foo_
 ; CHECK-NEW: define void @baz_
 
-; CHECK-NEW: COMPILE FUNC: baz_
 ; CHECK-NEW: COMPILE FUNC: bar_
+; CHECK-NEW: COMPILE FUNC: baz_
 ; CHECK-NEW: COMPILE FUNC: foo_
 ; CHECK-NEW: baz_{{.*}}Inlining is not profitable
 ; CHECK-NEW: bar_{{.*}}Inlining is not profitable

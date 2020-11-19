@@ -479,6 +479,17 @@ public:
     visit(Op);
   }
 
+  void visitPtrToIntExpr(const SCEVPtrToIntExpr* PtrToInt) {
+    auto Op = PtrToInt->getOperand();
+    if (!TTI ||
+        (TTI->getCastInstrCost(Instruction::PtrToInt, PtrToInt->getType(),
+                               Op->getType(), TTI::CastContextHint::None) !=
+         TargetTransformInfo::TargetCostConstants::TCC_Free)) {
+      ++NumOperations;
+    }
+    visit(Op);
+  }
+
   void visitNAryExpr(const SCEVNAryExpr *NAry) {
     NumOperations += (NAry->getNumOperands() - 1);
     for (const auto *Op : NAry->operands()) {

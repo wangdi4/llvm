@@ -13,6 +13,7 @@
 
 #include "llvm/Transforms/IPO/AlwaysInliner.h"
 #include "llvm/ADT/SetVector.h"
+#include "llvm/Analysis/AliasAnalysis.h"
 #include "llvm/Analysis/AssumptionCache.h"
 #include "llvm/Analysis/InlineCost.h"
 #include "llvm/Analysis/ProfileSummaryInfo.h"
@@ -85,9 +86,9 @@ PreservedAnalyses AlwaysInlinerPass::run(Module &M,
             &FAM.getResult<BlockFrequencyAnalysis>(*(CB->getCaller())),
             &FAM.getResult<BlockFrequencyAnalysis>(F));
 
-        InlineResult Res =
-            InlineFunction(*CB, IFI, getReport(), getMDReport(),   // INTEL
-                           /*CalleeAAR=*/nullptr, InsertLifetime); // INTEL
+        InlineResult Res = InlineFunction(
+            *CB, IFI, getReport(), getMDReport(),          // INTEL
+            &FAM.getResult<AAManager>(F), InsertLifetime); // INTEL
         assert(Res.isSuccess() && "unexpected failure to inline");
         (void)Res;
         Changed = true;

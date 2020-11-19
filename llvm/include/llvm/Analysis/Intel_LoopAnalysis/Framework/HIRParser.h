@@ -319,7 +319,7 @@ class HIRParser {
                       bool IsTop = true, bool UnderCast = false,
                       bool IndicateFailure = false);
 
-  /// Returns true if \p CI's SCEV contains a SCEVCastExpr whose operand is an
+  /// Returns true if \p CI's SCEV contains a SCEVIntegralCastExpr whose operand is an
   /// AddRec with the same type as \p CI's operand.
   bool containsCastedAddRec(const CastInst *CI, const SCEV *SC) const;
 

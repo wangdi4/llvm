@@ -207,21 +207,15 @@ constexpr FeatureBitset FeaturesTigerlake =
     FeatureMOVDIRI | FeatureSHSTK | FeatureKL | FeatureWIDEKL;
 constexpr FeatureBitset FeaturesSapphireRapids =
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_AVX_VNNI
-  FeatureAVXVNNI |
-#endif // INTEL_FEATURE_ISA_AVX_VNNI
 #if INTEL_FEATURE_ISA_FP16
   FeatureAVX512FP16 |
 #endif // INTEL_FEATURE_ISA_FP16
-#if INTEL_FEATURE_ISA_ULI
-  FeatureULI |
-#endif // INTEL_FEATURE_ISA_ULI
 #endif // INTEL_CUSTOMIZATION
     FeaturesICLServer | FeatureAMX_TILE | FeatureAMX_INT8 | FeatureAMX_BF16 |
     FeatureAVX512BF16 | FeatureAVX512VP2INTERSECT | FeatureCLDEMOTE |
     FeatureENQCMD | FeatureMOVDIR64B | FeatureMOVDIRI | FeaturePTWRITE |
-    FeatureSERIALIZE | FeatureSHSTK | FeatureTSXLDTRK | FeatureWAITPKG;
-
+    FeatureSERIALIZE | FeatureSHSTK | FeatureTSXLDTRK | FeatureUINTR |
+    FeatureWAITPKG | FeatureAVXVNNI;
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_CPU_RKL
 static constexpr FeatureBitset FeaturesRocketlake = FeaturesICLClient;
@@ -245,21 +239,23 @@ constexpr FeatureBitset FeaturesTremont =
 
 #if INTEL_CUSTOMIZATION
 static constexpr FeatureBitset FeaturesAnonymousCPU2 =
-#if INTEL_FEATURE_ISA_AVX_VNNI
     FeatureAVXVNNI |
-#endif // INTEL_FEATURE_ISA_AVX_VNNI
     FeatureHRESET |
     FeatureKL | FeatureWIDEKL |
     FeatureSSE2; // To avoid dangling OR.
 #if INTEL_FEATURE_CPU_ADL
 // TODO: set feature of RAO-INT when it's ready
-static constexpr FeatureBitset FeaturesAlderlake =
+constexpr FeatureBitset FeaturesAlderlake =
     FeaturesTremont | FeaturesAnonymousCPU2 | FeatureADX | FeatureAVX |
     FeatureAVX2 | FeatureBMI | FeatureBMI2 | FeatureCLDEMOTE |
     FeatureMOVDIR64B | FeatureMOVDIRI | FeatureF16C | FeatureFMA |
     FeatureINVPCID | FeatureLZCNT | FeaturePCONFIG | FeaturePKU |
     FeatureSERIALIZE | FeatureSHSTK | FeatureVAES | FeatureVPCLMULQDQ |
     FeatureWAITPKG;
+#else // INTEL_FEATURE_CPU_ADL
+constexpr FeatureBitset FeaturesAlderlake =
+    FeaturesSkylakeClient | FeatureCLDEMOTE | FeatureHRESET | FeaturePTWRITE |
+    FeatureSERIALIZE | FeatureWAITPKG | FeatureAVXVNNI;
 #endif // INTEL_FEATURE_CPU_ADL
 #endif // INTEL_CUSTOMIZATION
 
@@ -320,6 +316,9 @@ constexpr FeatureBitset FeaturesZNVER1 =
     FeatureXSAVEOPT | FeatureXSAVES;
 constexpr FeatureBitset FeaturesZNVER2 =
     FeaturesZNVER1 | FeatureCLWB | FeatureRDPID | FeatureWBNOINVD;
+static constexpr FeatureBitset FeaturesZNVER3 = FeaturesZNVER2 |
+                                                FeatureINVPCID | FeaturePKU |
+                                                FeatureVAES | FeatureVPCLMULQDQ;
 
 constexpr ProcInfo Processors[] = {
   // Empty processor. Include X87 and CMPXCHG8 for backwards compatibility.
@@ -360,11 +359,6 @@ constexpr ProcInfo Processors[] = {
   { {"goldmont"}, CK_Goldmont, FEATURE_SSE4_2, FeaturesGoldmont },
   { {"goldmont-plus"}, CK_GoldmontPlus, FEATURE_SSE4_2, FeaturesGoldmontPlus },
   { {"tremont"}, CK_Tremont, FEATURE_SSE4_2, FeaturesTremont },
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_CPU_ADL
-  { {"alderlake"}, CK_Alderlake, ~0U, FeaturesAlderlake },
-#endif // INTEL_FEATURE_CPU_ADL
-#endif // INTEL_CUSTOMIZATION
   // Nehalem microarchitecture based processors.
   { {"nehalem"}, CK_Nehalem, FEATURE_SSE4_2, FeaturesNehalem },
   { {"corei7"}, CK_Nehalem, FEATURE_SSE4_2, FeaturesNehalem },
@@ -410,6 +404,8 @@ constexpr ProcInfo Processors[] = {
 #endif // INTEL_CUSTOMIZATION
   // Sapphire Rapids microarchitecture based processors.
   { {"sapphirerapids"}, CK_SapphireRapids, FEATURE_AVX512VP2INTERSECT, FeaturesSapphireRapids },
+  // Alderlake microarchitecture based processors.
+  { {"alderlake"}, CK_Alderlake, FEATURE_AVX2, FeaturesAlderlake },
   // Knights Landing processor.
   { {"knl"}, CK_KNL, FEATURE_AVX512F, FeaturesKNL },
   // Knights Mill processor.
@@ -447,6 +443,7 @@ constexpr ProcInfo Processors[] = {
   // Zen architecture processors.
   { {"znver1"}, CK_ZNVER1, FEATURE_AVX2, FeaturesZNVER1 },
   { {"znver2"}, CK_ZNVER2, FEATURE_AVX2, FeaturesZNVER2 },
+  { {"znver3"}, CK_ZNVER3, FEATURE_AVX2, FeaturesZNVER3 },
   // Generic 64-bit processor.
   { {"x86-64"}, CK_x86_64, ~0U, FeaturesX86_64 },
   { {"x86-64-v2"}, CK_x86_64_v2, ~0U, FeaturesX86_64_V2 },
@@ -538,6 +535,7 @@ constexpr FeatureBitset ImpliedFeaturesSGX = {};
 constexpr FeatureBitset ImpliedFeaturesSHSTK = {};
 constexpr FeatureBitset ImpliedFeaturesTBM = {};
 constexpr FeatureBitset ImpliedFeaturesTSXLDTRK = {};
+constexpr FeatureBitset ImpliedFeaturesUINTR = {};
 constexpr FeatureBitset ImpliedFeaturesWAITPKG = {};
 constexpr FeatureBitset ImpliedFeaturesWBNOINVD = {};
 constexpr FeatureBitset ImpliedFeaturesVZEROUPPER = {};
@@ -618,12 +616,6 @@ constexpr FeatureBitset ImpliedFeaturesAMX_INT8 = FeatureAMX_TILE;
 constexpr FeatureBitset ImpliedFeaturesHRESET = {};
 
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_ULI
-static constexpr FeatureBitset ImpliedFeaturesULI = {};
-#endif // INTEL_FEATURE_ISA_ULI
-#if INTEL_FEATURE_ISA_AVX_VNNI
-static constexpr FeatureBitset ImpliedFeaturesAVXVNNI = FeatureAVX2;
-#endif // INTEL_FEATURE_ISA_AVX_VNNI
 #if INTEL_FEATURE_ISA_AVX_IFMA
 static constexpr FeatureBitset ImpliedFeaturesAVXIFMA = FeatureAVX2;
 #endif // INTEL_FEATURE_ISA_AVX_IFMA
@@ -717,6 +709,9 @@ static constexpr FeatureBitset ImpliedFeaturesAMX_MEMADVISE = FeatureAMX_TILE;
 // Key Locker Features
 constexpr FeatureBitset ImpliedFeaturesKL = FeatureSSE2;
 constexpr FeatureBitset ImpliedFeaturesWIDEKL = FeatureKL;
+
+// AVXVNNI Features
+constexpr FeatureBitset ImpliedFeaturesAVXVNNI = FeatureAVX2;
 
 constexpr FeatureInfo FeatureInfos[X86::CPU_FEATURE_MAX] = {
 #define X86_FEATURE(ENUM, STR) {{STR}, ImpliedFeatures##ENUM},

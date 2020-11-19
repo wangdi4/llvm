@@ -1,6 +1,6 @@
 //===---------------- Intel_PaddedPtrPropagation.cpp ----------------------===//
 //
-// Copyright (C) 2018-2019 Intel Corporation. All rights reserved.
+// Copyright (C) 2018-2020 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -496,10 +496,11 @@ void insertPaddedMarkUpInt(IRBuilder<> &Builder, Value *V, int Padding) {
   Value *MarkupStrPtr = Builder.CreateGlobalStringPtr(MarkupStr);
   Value *File = Builder.CreateGlobalStringPtr(M->getSourceFileName());
   Constant *LNum = Constant::getIntegerValue(I32Ty, APInt(32, 0, false));
-
+  ConstantPointerNull *CPN = ConstantPointerNull::get(Type::getInt8PtrTy(Ctx));
   auto *F = Intrinsic::getDeclaration(M, Intrinsic::ptr_annotation, PType);
   assert(F && "Can't find appropriate ptr_annotation intrinsic");
-  auto *A = Builder.CreateCall(F, {V, MarkupStrPtr, File, LNum}, V->getName());
+  auto *A = Builder.CreateCall(F, {V, MarkupStrPtr, File, LNum, CPN},
+      V->getName());
   V->replaceAllUsesWith(A);
   cast<IntrinsicInst>(A)->setArgOperand(0, V);
 }

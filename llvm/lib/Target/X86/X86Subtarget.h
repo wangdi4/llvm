@@ -368,6 +368,9 @@ class X86Subtarget final : public X86GenSubtargetInfo {
   /// Processor has AVX-512 Vector Neural Network Instructions
   bool HasVNNI = false;
 
+  /// Processor has AVX Vector Neural Network Instructions
+  bool HasAVXVNNI = false;
+
   /// Processor has AVX-512 bfloat16 floating-point extensions
   bool HasBF16 = false;
 
@@ -416,10 +419,6 @@ class X86Subtarget final : public X86GenSubtargetInfo {
   bool HasPCONFIG = false;
 
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_ULI
-  bool HasULI = false;
-#endif // INTEL_FEATURE_ISA_ULI
-
 #if INTEL_FEATURE_ISA_AMX_BF8
   bool HasAMXBF8 = false;
 #endif // INTEL_FEATURE_ISA_AMX_BF8
@@ -471,10 +470,6 @@ class X86Subtarget final : public X86GenSubtargetInfo {
 #if INTEL_FEATURE_ISA_AVX_CONVERT
   bool HasAVXCONVERT = false;
 #endif // INTEL_FEATURE_ISA_AVX_CONVERT
-
-#if INTEL_FEATURE_ISA_AVX_VNNI
-  bool HasAVXVNNI = false;
-#endif // INTEL_FEATURE_ISA_AVX_VNNI
 
 #if INTEL_FEATURE_ISA_AVX512_DOTPROD
   bool HasDOTPROD = false;
@@ -528,6 +523,9 @@ class X86Subtarget final : public X86GenSubtargetInfo {
   bool HasAMXTILE = false;
   bool HasAMXBF16 = false;
   bool HasAMXINT8 = false;
+
+  /// Processor supports User Level Interrupt instructions
+  bool HasUINTR = false;
 
   /// Processor has a single uop BEXTR implementation.
   bool HasFastBEXTR = false;
@@ -894,16 +892,12 @@ public:
 #endif // INTEL_CUSTOMIZATION
   bool hasINVPCID() const { return HasINVPCID; }
   bool hasENQCMD() const { return HasENQCMD; }
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_ULI
-  bool hasULI() const { return HasULI; }
-#endif // INTEL_FEATURE_ISA_ULI
-#endif // INTEL_CUSTOMIZATION
   bool hasKL() const { return HasKL; }
   bool hasWIDEKL() const { return HasWIDEKL; }
   bool hasHRESET() const { return HasHRESET; }
   bool hasSERIALIZE() const { return HasSERIALIZE; }
   bool hasTSXLDTRK() const { return HasTSXLDTRK; }
+  bool hasUINTR() const { return HasUINTR; }
   bool useRetpolineIndirectCalls() const { return UseRetpolineIndirectCalls; }
   bool useRetpolineIndirectBranches() const {
     return UseRetpolineIndirectBranches;
@@ -952,9 +946,6 @@ public:
 #if INTEL_FEATURE_ISA_AMX_TILE2
   bool hasAMXTILE2() const { return HasAMXTILE2; }
 #endif // INTEL_FEATURE_ISA_AMX_TILE2
-#if INTEL_FEATURE_ISA_AVX_VNNI
-  bool hasAVXVNNI() const { return HasAVXVNNI; }
-#endif // INTEL_FEATURE_ISA_AVX_VNNI
 #if INTEL_FEATURE_ISA_AVX512_DOTPROD_INT8
   bool hasAVX512DOTPRODINT8() const { return HasAVX512DOTPRODINT8; }
 #endif // INTEL_FEATURE_ISA_AVX512_DOTPROD_INT8
@@ -984,6 +975,7 @@ public:
   bool hasAVX512MPSADBW() const { return HasAVX512MPSADBW; }
 #endif // INTEL_FEATURE_ISA_AVX_MPSADBW
 #endif // INTEL_CUSTOMIZATION
+  bool hasAVXVNNI() const { return HasAVXVNNI; }
   bool hasAMXTILE() const { return HasAMXTILE; }
   bool hasAMXBF16() const { return HasAMXBF16; }
   bool hasAMXINT8() const { return HasAMXINT8; }

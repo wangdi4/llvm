@@ -514,6 +514,12 @@ public:
     return getEnvironment() == Triple::MacABI;
   }
 
+  /// Returns true for targets that run on a macOS machine.
+  bool isTargetMachineMac() const {
+    return isMacOSX() || (isOSDarwin() && (isSimulatorEnvironment() ||
+                                           isMacCatalystEnvironment()));
+  }
+
   bool isOSNetBSD() const {
     return getOS() == Triple::NetBSD;
   }
@@ -816,6 +822,9 @@ public:
   bool hasDefaultDataSections() const {
     return isOSBinFormatXCOFF() || isWasm();
   }
+
+  /// Tests if the environment supports dllimport/export annotations.
+  bool hasDLLImportExport() const { return isOSWindows() || isPS4CPU(); }
 
   /// @}
   /// @name Mutators

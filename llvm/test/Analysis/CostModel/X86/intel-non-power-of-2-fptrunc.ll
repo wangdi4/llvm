@@ -14,15 +14,15 @@ define i32 @fpext_vXfloat() {
 ; X86_64-AVX2-LABEL: 'fpext_vXfloat'
 ; X86_64-AVX2-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %V3f64 = fptrunc <3 x double> undef to <3 x float>
 ; X86_64-AVX2-NEXT:  Cost Model: Found an estimated cost of 3 for instruction: %V7f64 = fptrunc <7 x double> undef to <7 x float>
-; X86_64-AVX2-NEXT:  Cost Model: Found an estimated cost of 27 for instruction: %V9f64 = fptrunc <9 x double> undef to <9 x float>
-; X86_64-AVX2-NEXT:  Cost Model: Found an estimated cost of 105 for instruction: %V33f64 = fptrunc <33 x double> undef to <33 x float>
+; X86_64-AVX2-NEXT:  Cost Model: Found an estimated cost of 28 for instruction: %V9f64 = fptrunc <9 x double> undef to <9 x float>
+; X86_64-AVX2-NEXT:  Cost Model: Found an estimated cost of 106 for instruction: %V33f64 = fptrunc <33 x double> undef to <33 x float>
 ; X86_64-AVX2-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: ret i32 undef
 ;
 ; X86_64-AVX512-VL-BW-LABEL: 'fpext_vXfloat'
 ; X86_64-AVX512-VL-BW-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %V3f64 = fptrunc <3 x double> undef to <3 x float>
 ; X86_64-AVX512-VL-BW-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %V7f64 = fptrunc <7 x double> undef to <7 x float>
-; X86_64-AVX512-VL-BW-NEXT:  Cost Model: Found an estimated cost of 29 for instruction: %V9f64 = fptrunc <9 x double> undef to <9 x float>
-; X86_64-AVX512-VL-BW-NEXT:  Cost Model: Found an estimated cost of 117 for instruction: %V33f64 = fptrunc <33 x double> undef to <33 x float>
+; X86_64-AVX512-VL-BW-NEXT:  Cost Model: Found an estimated cost of 30 for instruction: %V9f64 = fptrunc <9 x double> undef to <9 x float>
+; X86_64-AVX512-VL-BW-NEXT:  Cost Model: Found an estimated cost of 114 for instruction: %V33f64 = fptrunc <33 x double> undef to <33 x float>
 ; X86_64-AVX512-VL-BW-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: ret i32 undef
 ;
   %V3f64 = fptrunc <3 x double> undef to <3 x float>

@@ -130,14 +130,11 @@ TARGET_BUILTIN(__builtin_ia32_vmemadvise_avx512_512, "vV64c*Ic", "nc", "avx512me
 #endif // INTEL_CUSTOMIZATION
 TARGET_BUILTIN(__builtin_ia32_directstore_u64, "vULi*ULi", "n", "movdiri")
 
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_ULI
-// ULI
-TARGET_BUILTIN(__builtin_ia32_clui, "v", "n", "uli")
-TARGET_BUILTIN(__builtin_ia32_stui, "v", "n", "uli")
-TARGET_BUILTIN(__builtin_ia32_testui, "Uc", "n", "uli")
-TARGET_BUILTIN(__builtin_ia32_senduipi, "vUWi", "n", "uli")
-#endif // INTEL_FEATURE_ISA_ULI
+// UINTR
+TARGET_BUILTIN(__builtin_ia32_clui, "v", "n", "uintr")
+TARGET_BUILTIN(__builtin_ia32_stui, "v", "n", "uintr")
+TARGET_BUILTIN(__builtin_ia32_testui, "Uc", "n", "uintr")
+TARGET_BUILTIN(__builtin_ia32_senduipi, "vUWi", "n", "uintr")
 
 // AMX
 TARGET_BUILTIN(__builtin_ia32_tile_loadconfig, "vvC*", "n", "amx-tile")
@@ -154,7 +151,9 @@ TARGET_BUILTIN(__builtin_ia32_tdpbsud, "vIUcIUcIUc", "n", "amx-int8")
 TARGET_BUILTIN(__builtin_ia32_tdpbusd, "vIUcIUcIUc", "n", "amx-int8")
 TARGET_BUILTIN(__builtin_ia32_tdpbuud, "vIUcIUcIUc", "n", "amx-int8")
 TARGET_BUILTIN(__builtin_ia32_tdpbf16ps, "vIUcIUcIUc", "n", "amx-bf16")
+TARGET_BUILTIN(__builtin_ia32_ptwrite64, "vUOi", "n", "ptwrite")
 
+#if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_AMX_BF8
 TARGET_BUILTIN(__builtin_ia32_tdpbf8ps, "vIUcIUcIUc", "n", "amx-bf8")
 #endif // INTEL_FEATURE_ISA_AMX_BF8
@@ -402,7 +401,6 @@ LANGBUILTIN(read_pipe, "i.", "tn", OCLC1X_LANG)
 LANGBUILTIN(write_pipe, "i.", "tn", OCLC1X_LANG)
 #undef LANGBUILTIN
 #endif // INTEL_CUSTOMIZATION
-TARGET_BUILTIN(__builtin_ia32_ptwrite64, "vUOi", "n", "ptwrite")
 
 #undef BUILTIN
 #undef TARGET_BUILTIN

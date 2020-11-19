@@ -2142,6 +2142,13 @@ VPValue *VPDecomposerHIR::VPBlobDecompVisitor::visitSignExtendExpr(
                                         Expr->getType());
 }
 
+VPValue *VPDecomposerHIR::VPBlobDecompVisitor::visitPtrToIntExpr(
+    const SCEVPtrToIntExpr *Expr) {
+  VPValue *Src = visit(Expr->getOperand());
+  return Decomposer.decomposeConversion(Src, Instruction::PtrToInt,
+                                        Expr->getType());
+}
+
 VPValue *
 VPDecomposerHIR::VPBlobDecompVisitor::visitAddExpr(const SCEVAddExpr *Expr) {
   return decomposeNAryOp(Expr, Instruction::Add);

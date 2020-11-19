@@ -35,8 +35,8 @@
 ; CHECK-NEW: call void @foo_
 ; CHECK-NEW: define void @baz_
 
-; CHECK-NEW: COMPILE FUNC: baz_
 ; CHECK-NEW: COMPILE FUNC: bar_
+; CHECK-NEW: COMPILE FUNC: baz_
 ; CHECK-NEW: COMPILE FUNC: foo_
 ; CHECK-NEW: baz{{.*}}Inlining is not profitable
 ; CHECK-NEW: INLINE: bar_{{.*}}Callee has multiple callsites with loops that could be fused

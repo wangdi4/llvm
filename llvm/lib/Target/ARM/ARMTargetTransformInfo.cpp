@@ -20,6 +20,7 @@
 #include "llvm/IR/DerivedTypes.h"
 #include "llvm/IR/Instruction.h"
 #include "llvm/IR/Instructions.h"
+#include "llvm/IR/Intrinsics.h"
 #include "llvm/IR/IntrinsicInst.h"
 #include "llvm/IR/IntrinsicsARM.h"
 #include "llvm/IR/PatternMatch.h"
@@ -809,6 +810,7 @@ int ARMTTIImpl::getVectorInstrCost(unsigned Opcode, Type *ValTy,
 }
 
 int ARMTTIImpl::getCmpSelInstrCost(unsigned Opcode, Type *ValTy, Type *CondTy,
+                                   CmpInst::Predicate VecPred,
                                    TTI::TargetCostKind CostKind,
                                    const Instruction *I) {
   int ISD = TLI->InstructionOpcodeToISD(Opcode);
@@ -838,7 +840,8 @@ int ARMTTIImpl::getCmpSelInstrCost(unsigned Opcode, Type *ValTy, Type *CondTy,
   }
 
   if (CostKind != TTI::TCK_RecipThroughput)
-    return BaseT::getCmpSelInstrCost(Opcode, ValTy, CondTy, CostKind, I);
+    return BaseT::getCmpSelInstrCost(Opcode, ValTy, CondTy, VecPred, CostKind,
+                                     I);
 
   // On NEON a vector select gets lowered to vbsl.
   if (ST->hasNEON() && ValTy->isVectorTy() && ISD == ISD::SELECT) {
@@ -865,8 +868,8 @@ int ARMTTIImpl::getCmpSelInstrCost(unsigned Opcode, Type *ValTy, Type *CondTy,
   int BaseCost = ST->hasMVEIntegerOps() && ValTy->isVectorTy()
                      ? ST->getMVEVectorCostFactor()
                      : 1;
-  return BaseCost * BaseT::getCmpSelInstrCost(Opcode, ValTy, CondTy, CostKind,
-                                              I);
+  return BaseCost *
+         BaseT::getCmpSelInstrCost(Opcode, ValTy, CondTy, VecPred, CostKind, I);
 }
 
 int ARMTTIImpl::getAddressComputationCost(Type *Ty, ScalarEvolution *SE,
@@ -1300,7 +1303,8 @@ int ARMTTIImpl::getInterleavedMemoryOpCost(
     // promoted differently). The cost of 2 here is then a load and vrev or
     // vmovn.
     if (ST->hasMVEIntegerOps() && Factor == 2 && NumElts / Factor > 2 &&
-        VecTy->isIntOrIntVectorTy() && DL.getTypeSizeInBits(SubVecTy) <= 64)
+        VecTy->isIntOrIntVectorTy() &&
+        DL.getTypeSizeInBits(SubVecTy).getFixedSize() <= 64)
       return 2 * BaseCost;
   }
 
@@ -1339,7 +1343,7 @@ unsigned ARMTTIImpl::getGatherScatterOpCost(unsigned Opcode, Type *DataTy,
   unsigned ScalarCost =
       NumElems * LT.first + BaseT::getScalarizationOverhead(VTy, {});
 
-  if (Alignment < EltSize / 8)
+  if (EltSize < 8 || Alignment < EltSize / 8)
     return ScalarCost;
 
   unsigned ExtSize = EltSize;
@@ -1406,6 +1410,44 @@ unsigned ARMTTIImpl::getGatherScatterOpCost(unsigned Opcode, Type *DataTy,
     return ScalarCost;
   }
   return ScalarCost;
+}
+
+int ARMTTIImpl::getArithmeticReductionCost(unsigned Opcode, VectorType *ValTy,
+                                           bool IsPairwiseForm,
+                                           TTI::TargetCostKind CostKind) {
+  EVT ValVT = TLI->getValueType(DL, ValTy);
+  int ISD = TLI->InstructionOpcodeToISD(Opcode);
+  if (!ST->hasMVEIntegerOps() || !ValVT.isSimple() || ISD != ISD::ADD)
+    return BaseT::getArithmeticReductionCost(Opcode, ValTy, IsPairwiseForm,
+                                             CostKind);
+
+  std::pair<int, MVT> LT = TLI->getTypeLegalizationCost(DL, ValTy);
+
+  static const CostTblEntry CostTblAdd[]{
+      {ISD::ADD, MVT::v16i8, 1},
+      {ISD::ADD, MVT::v8i16, 1},
+      {ISD::ADD, MVT::v4i32, 1},
+  };
+  if (const auto *Entry = CostTableLookup(CostTblAdd, ISD, LT.second))
+    return Entry->Cost * ST->getMVEVectorCostFactor() * LT.first;
+
+  return BaseT::getArithmeticReductionCost(Opcode, ValTy, IsPairwiseForm,
+                                           CostKind);
+}
+
+int ARMTTIImpl::getIntrinsicInstrCost(const IntrinsicCostAttributes &ICA,
+                                      TTI::TargetCostKind CostKind) {
+  // Currently we make a somewhat optimistic assumption that active_lane_mask's
+  // are always free. In reality it may be freely folded into a tail predicated
+  // loop, expanded into a VCPT or expanded into a lot of add/icmp code. We
+  // may need to improve this in the future, but being able to detect if it
+  // is free or not involves looking at a lot of other code. We currently assume
+  // that the vectorizer inserted these, and knew what it was doing in adding
+  // one.
+  if (ST->hasMVEIntegerOps() && ICA.getID() == Intrinsic::get_active_lane_mask)
+    return 0;
+
+  return BaseT::getIntrinsicInstrCost(ICA, CostKind);
 }
 
 bool ARMTTIImpl::isLoweredToCall(const Function *F) {

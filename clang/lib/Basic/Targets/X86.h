@@ -141,9 +141,6 @@ class LLVM_LIBRARY_VISIBILITY X86TargetInfo : public TargetInfo {
   bool HasINVPCID = false;
   bool HasENQCMD = false;
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_ULI
-  bool HasULI = false;
-#endif // INTEL_FEATURE_ISA_ULI
 #if INTEL_FEATURE_ISA_AMX_BF8
   bool HasAMXBF8 = false;
 #endif // INTEL_FEATURE_ISA_AMX_BF8
@@ -187,9 +184,6 @@ class LLVM_LIBRARY_VISIBILITY X86TargetInfo : public TargetInfo {
 #if INTEL_FEATURE_ISA_AMX_TILE2
   bool HasAMXTILE2 = false;
 #endif // INTEL_FEATURE_ISA_AMX_TILE2
-#if INTEL_FEATURE_ISA_AVX_VNNI
-  bool HasAVXVNNI = false;
-#endif // INTEL_FEATURE_ISA_AVX_VNNI
 #if INTEL_FEATURE_ISA_AVX512_DOTPROD_INT8
   bool HasAVX512DOTPRODINT8 = false;
 #endif // INTEL_FEATURE_ISA_AVX512_DOTPROD_INT8
@@ -222,11 +216,13 @@ class LLVM_LIBRARY_VISIBILITY X86TargetInfo : public TargetInfo {
   bool HasKL = false;      // For key locker
   bool HasWIDEKL = false; // For wide key locker
   bool HasHRESET = false;
+  bool HasAVXVNNI = false;
   bool HasAMXTILE = false;
   bool HasAMXINT8 = false;
   bool HasAMXBF16 = false;
   bool HasSERIALIZE = false;
   bool HasTSXLDTRK = false;
+  bool HasUINTR = false;
 
 protected:
   llvm::X86::CPUKind CPU = llvm::X86::CK_None;

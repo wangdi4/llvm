@@ -87,7 +87,7 @@ entry:
   call void @llvm.memcpy.p0i8.p0i8.i32(i8* align 4 %8, i8* align 4 %9, i32 8, i1 false)
   %10 = bitcast %struct._ZTS2st.st* %agg-temp to i8*
   ; CHECK: %11 = call i8* @llvm.fpga.reg.p0i8(i8* %10)
-  %11 = call i8* @llvm.ptr.annotation.p0i8(i8* %10, i8* getelementptr inbounds ([25 x i8], [25 x i8]* @.str, i32 0, i32 0), i8* getelementptr inbounds ([37 x i8], [37 x i8]* @.str.1, i32 0, i32 0), i32 14)
+  %11 = call i8* @llvm.ptr.annotation.p0i8(i8* %10, i8* getelementptr inbounds ([25 x i8], [25 x i8]* @.str, i32 0, i32 0), i8* getelementptr inbounds ([37 x i8], [37 x i8]* @.str.1, i32 0, i32 0), i32 14, i8* null)
   %12 = bitcast i8* %11 to %struct._ZTS2st.st*
   %13 = bitcast %struct._ZTS2st.st* %ii to i8*
   %14 = bitcast %struct._ZTS2st.st* %12 to i8*
@@ -105,7 +105,7 @@ declare i32 @llvm.annotation.i32(i32, i8*, i8*, i32) #2
 declare void @llvm.memcpy.p0i8.p0i8.i32(i8* nocapture writeonly, i8* nocapture readonly, i32, i1 immarg) #3
 
 ; Function Attrs: nounwind
-declare i8* @llvm.ptr.annotation.p0i8(i8*, i8*, i8*, i32) #2
+declare i8* @llvm.ptr.annotation.p0i8(i8*, i8*, i8*, i32, i8*) #2
 
 ; Function Attrs: argmemonly nounwind
 declare void @llvm.memcpy.p0i8.p0i8.i64(i8* nocapture writeonly, i8* nocapture readonly, i64, i1 immarg) #3

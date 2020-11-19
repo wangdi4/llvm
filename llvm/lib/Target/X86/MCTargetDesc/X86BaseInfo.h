@@ -55,15 +55,18 @@ namespace X86 {
   /// The constants to describe instr prefixes if there are
   enum IPREFIXES {
     IP_NO_PREFIX = 0,
-    IP_HAS_OP_SIZE = 1,
-    IP_HAS_AD_SIZE = 2,
-    IP_HAS_REPEAT_NE = 4,
-    IP_HAS_REPEAT = 8,
-    IP_HAS_LOCK = 16,
-    IP_HAS_NOTRACK = 32,
-    IP_USE_VEX3 = 64,
-    IP_USE_DISP8 = 128,
-    IP_USE_DISP32 = 256,
+    IP_HAS_OP_SIZE =   1U << 0,
+    IP_HAS_AD_SIZE =   1U << 1,
+    IP_HAS_REPEAT_NE = 1U << 2,
+    IP_HAS_REPEAT =    1U << 3,
+    IP_HAS_LOCK =      1U << 4,
+    IP_HAS_NOTRACK =   1U << 5,
+    IP_USE_VEX =       1U << 6,
+    IP_USE_VEX2 =      1U << 7,
+    IP_USE_VEX3 =      1U << 8,
+    IP_USE_EVEX =      1U << 9,
+    IP_USE_DISP8 =     1U << 10,
+    IP_USE_DISP32 =    1U << 11,
   };
 
   enum OperandType : unsigned {
@@ -1008,12 +1011,12 @@ namespace X86II {
 
     // NOTRACK prefix
     NoTrackShift = EVEX_RCShift + 1,
-    NOTRACK = 1ULL << NoTrackShift,  // INTEL
+    NOTRACK = 1ULL << NoTrackShift,
 
-#if INTEL_CUSTOMIZATION
     // Force VEX encoding
     ExplicitVEXShift = NoTrackShift + 1,
     ExplicitVEXPrefix = 1ULL << ExplicitVEXShift,
+#if INTEL_CUSTOMIZATION
 
     // Force EVEX encoding
     ExplicitEVEXShift = ExplicitVEXShift + 1,

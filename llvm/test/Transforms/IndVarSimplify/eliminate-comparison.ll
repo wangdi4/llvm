@@ -577,7 +577,6 @@ define void @func_17(i32* %len.ptr) {
 ; CHECK:       loop.preheader:
 ; CHECK-NEXT:    [[TMP0:%.*]] = icmp sgt i32 [[LEN]], 0
 ; CHECK-NEXT:    [[SMAX:%.*]] = select i1 [[TMP0]], i32 [[LEN]], i32 0
-; INTEL - SCEV improvements prove stronger NoWrap flags
 ; CHECK-NEXT:    [[TMP1:%.*]] = add nsw i32 [[SMAX]], -5
 ; CHECK-NEXT:    br label [[LOOP:%.*]]
 ; CHECK:       loop:

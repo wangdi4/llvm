@@ -1402,8 +1402,10 @@ void HIRParser::printBlob(raw_ostream &OS, BlobTy Blob) const {
       OS << "sext.";
     } else if (isa<SCEVTruncateExpr>(CastSCEV)) {
       OS << "trunc.";
+    } else if (isa<SCEVPtrToIntExpr>(CastSCEV)) {
+      OS << "ptrtoint.";
     } else {
-      llvm_unreachable("Unexptected casting operation!");
+      llvm_unreachable("Unexpected casting operation!");
     }
 
     OS << *SrcType << "." << *DstType << "(";
@@ -2177,7 +2179,7 @@ bool HIRParser::parseRecursive(const SCEV *SC, CanonExpr *CE, unsigned Level,
     parseBlob(SC, CE, Level);
     return true;
 
-  } else if (auto CastSCEV = dyn_cast<SCEVCastExpr>(SC)) {
+  } else if (auto CastSCEV = dyn_cast<SCEVIntegralCastExpr>(SC)) {
 
     bool IsTrunc = isa<SCEVTruncateExpr>(CastSCEV);
     auto *OpTy = CastSCEV->getOperand()->getType();
@@ -2234,7 +2236,7 @@ bool HIRParser::parseRecursive(const SCEV *SC, CanonExpr *CE, unsigned Level,
   } else if (auto RecSCEV = dyn_cast<SCEVAddRecExpr>(SC)) {
     return parseAddRec(RecSCEV, CE, Level, IndicateFailure);
 
-  } else if (isa<SCEVMinMaxExpr>(SC)) {
+  } else if (isa<SCEVMinMaxExpr>(SC) || isa<SCEVPtrToIntExpr>(SC)) {
     // TODO: extend DDRef representation to handle min/max.
     return parseBlob(SC, CE, Level, 0, IndicateFailure);
   }
@@ -2271,7 +2273,7 @@ public:
 
   bool follow(const SCEV *SC) {
 
-    auto CastSC = dyn_cast<SCEVCastExpr>(SC);
+    auto CastSC = dyn_cast<SCEVIntegralCastExpr>(SC);
 
     if (!CastSC) {
       return true;
@@ -2337,7 +2339,7 @@ bool HIRParser::isCastedFromLoopIVType(const CastInst *CI,
   // We should ignore casts on constants like trunc.i64.i8(256) which get
   // simplified to constants like 'i8 0'. Casts on constants are not expected in
   // HIR.
-  if (isa<SCEVCastExpr>(SC) || isa<SCEVConstant>(SC)) {
+  if (isa<SCEVIntegralCastExpr>(SC) || isa<SCEVConstant>(SC)) {
     return false;
   }
 
@@ -3343,7 +3345,7 @@ HIRParser::GEPChain::GEPChain(const HIRParser &Parser,
     if ((!Subs && !NextSubs) ||
         (Subs && NextSubs && Subs->getRank() == NextSubs->getRank())) {
       auto *HighestIndex = Parser.ScopedSE.getSCEV(GEPOp->getIndex(0));
-      auto CastSCEV = dyn_cast<SCEVCastExpr>(HighestIndex);
+      auto CastSCEV = dyn_cast<SCEVIntegralCastExpr>(HighestIndex);
       if (CastSCEV && isa<SCEVAddRecExpr>(CastSCEV->getOperand())) {
         break;
       }
@@ -4074,13 +4076,9 @@ static bool hasLvalRvalBlobMismatch(const HLInst *HInst,
          RefIt != E; ++RefIt) {
       auto *Ref = *RefIt;
 
-      // Call insts with 'returned' attribute can have AddressOf Refs.
-      // Ideally, we should only check the ref for parameter with 'returned'
-      // attribute but it is not straightforward to get its operand number so we
-      // check all the refs.
-      assert((isa<CallInst>(HInst->getLLVMInstruction()) ||
-              Ref->isTerminalRef()) &&
-             "unexpected rval ref for non self blob lval!");
+      // Call insts with 'returned' attribute and ptrtoint inst can have
+      // AddressOf Refs.
+      assert(!Ref->isMemRef() && "unexpected rval ref for non self blob lval!");
 
       if (Ref->usesTempBlob(BlobIndex)) {
         FoundBlob = true;

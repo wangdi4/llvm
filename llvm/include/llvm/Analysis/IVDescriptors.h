@@ -92,6 +92,10 @@ public:
   /// RecurrenceKind.
   static unsigned getRecurrenceBinOp(RecurrenceKind Kind);
 
+  unsigned getRecurrenceBinOp() const {
+    return getRecurrenceBinOp(getRecurrenceKind());
+  }
+
   /// Returns true if the recurrence kind is an integer kind.
   static bool isIntegerRecurrenceKind(RecurrenceKind Kind);
 
@@ -274,6 +278,10 @@ public:
 #if !INTEL_CUSTOMIZATION
   RecurrenceKind getRecurrenceKind() const { return Kind; }
 
+  unsigned getRecurrenceBinOp() const {
+    return getRecurrenceBinOp(getRecurrenceKind());
+  }
+
   MinMaxRecurrenceKind getMinMaxRecurrenceKind() const { return MinMaxKind; }
 
   FastMathFlags getFastMathFlags() const { return FMF; }
@@ -311,7 +319,7 @@ public:
 
 #if !INTEL_CUSTOMIZATION
   /// Returns true if all source operands of the recurrence are SExtInsts.
-  bool isSigned() const{ return IsSigned; }
+  bool isSigned() const { return IsSigned; }
 #endif
 
   /// Attempts to find a chain of operations from Phi to LoopExitInst that can

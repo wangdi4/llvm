@@ -7,7 +7,7 @@
 #include <stdio.h>
 
 int main(int argc, char *argv[]) {
-  const int num_threads = 64, N = 128;
+  enum { num_threads = 64, N = 128 };
   int array[num_threads] = {0};
 
 #pragma omp parallel for

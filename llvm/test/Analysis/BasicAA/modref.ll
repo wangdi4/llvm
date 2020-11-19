@@ -97,6 +97,7 @@ define void @test3a(i8* %P, i8 %X) {
 ; INTEL
 ; Explicit offset, not suitable for llvm.intel.subscript
 ; CHECK-LABEL: @test3a(
+; CHECK-NEXT:    call void @llvm.lifetime.end.p0i8(i64 10, i8* [[P:%.*]])
 ; CHECK-NEXT:    ret void
 ;
   %Y = add i8 %X, 1     ;; Dead, because the only use (the store) is dead.

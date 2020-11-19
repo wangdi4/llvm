@@ -5695,7 +5695,8 @@ TEST_P(ImportSourceLocations, NormalFileBuffer) {
   // Make sure the imported buffer has the original contents.
   SourceManager &ToSM = ToAST->getSourceManager();
   FileID ImportedID = ToSM.getFileID(ImportedLoc);
-  EXPECT_EQ(Source, ToSM.getBuffer(ImportedID, SourceLocation())->getBuffer());
+  EXPECT_EQ(Source,
+            ToSM.getBufferOrFake(ImportedID, SourceLocation()).getBuffer());
 }
 
 TEST_P(ImportSourceLocations, OverwrittenFileBuffer) {
@@ -5729,7 +5730,7 @@ TEST_P(ImportSourceLocations, OverwrittenFileBuffer) {
   SourceManager &ToSM = ToAST->getSourceManager();
   FileID ImportedID = ToSM.getFileID(ImportedLoc);
   EXPECT_EQ(Contents,
-            ToSM.getBuffer(ImportedID, SourceLocation())->getBuffer());
+            ToSM.getBufferOrFake(ImportedID, SourceLocation()).getBuffer());
 }
 
 TEST_P(ASTImporterOptionSpecificTestBase, ImportExprOfAlignmentAttr) {
@@ -5767,35 +5768,11 @@ TEST_P(ASTImporterOptionSpecificTestBase, ImportExprOfAlignmentAttr) {
   EXPECT_TRUE(ToA);
 }
 
-TEST_P(ASTImporterOptionSpecificTestBase, ImportRestrictAttr) {
-  Decl *FromTU = getTuDecl(
-      R"(
-      void *foo(unsigned, unsigned) __attribute__((__malloc__));
-      )",
-      Lang_CXX03, "input.cc");
-  auto *FromD = FirstDeclMatcher<FunctionDecl>().match(
-      FromTU, functionDecl(hasName("foo")));
-  ASSERT_TRUE(FromD);
-
-  auto *ToD = Import(FromD, Lang_CXX03);
-  ASSERT_TRUE(ToD);
-  ToD->dump(); // Should not crash!
-
-  auto *FromAttr = FromD->getAttr<RestrictAttr>();
-  auto *ToAttr = ToD->getAttr<RestrictAttr>();
-  EXPECT_EQ(FromAttr->isInherited(), ToAttr->isInherited());
-  EXPECT_EQ(FromAttr->isPackExpansion(), ToAttr->isPackExpansion());
-  EXPECT_EQ(FromAttr->isImplicit(), ToAttr->isImplicit());
-  EXPECT_EQ(FromAttr->getSyntax(), ToAttr->getSyntax());
-  EXPECT_EQ(FromAttr->getAttributeSpellingListIndex(),
-            ToAttr->getAttributeSpellingListIndex());
-}
-
 TEST_P(ASTImporterOptionSpecificTestBase, ImportFormatAttr) {
   Decl *FromTU = getTuDecl(
       R"(
       int foo(const char * fmt, ...)
-          __attribute__ ((__format__ (__scanf__, 1, 2)));
+      __attribute__ ((__format__ (__scanf__, 1, 2)));
       )",
       Lang_CXX03, "input.cc");
   auto *FromD = FirstDeclMatcher<FunctionDecl>().match(
@@ -5816,7 +5793,6 @@ TEST_P(ASTImporterOptionSpecificTestBase, ImportFormatAttr) {
             ToAttr->getAttributeSpellingListIndex());
   EXPECT_EQ(FromAttr->getType()->getName(), ToAttr->getType()->getName());
 }
-
 template <typename T>
 auto ExtendWithOptions(const T &Values, const std::vector<std::string> &Args) {
   auto Copy = Values;

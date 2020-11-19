@@ -354,10 +354,6 @@ bool X86TargetInfo::handleTargetFeatures(std::vector<std::string> &Features,
     } else if (Feature == "+enqcmd") {
       HasENQCMD = true;
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_ULI
-    } else if (Feature == "+uli") {
-      HasULI = true;
-#endif // INTEL_FEATURE_ISA_ULI
     } else if (Feature == "+hreset") {
       HasHRESET = true;
     } else if (Feature == "+amx-bf16") {
@@ -426,10 +422,6 @@ bool X86TargetInfo::handleTargetFeatures(std::vector<std::string> &Features,
     } else if (Feature == "+amx-tile2") {
       HasAMXTILE2 = true;
 #endif // INTEL_FEATURE_ISA_AMX_TILE2
-#if INTEL_FEATURE_ISA_AVX_VNNI
-    } else if (Feature == "+avxvnni") {
-      HasAVXVNNI = true;
-#endif // INTEL_FEATURE_ISA_AVX_VNNI
 #if INTEL_FEATURE_ISA_AVX512_DOTPROD_INT8
     } else if (Feature == "+avx512dotprodint8") {
       HasAVX512DOTPRODINT8 = true;
@@ -477,10 +469,14 @@ bool X86TargetInfo::handleTargetFeatures(std::vector<std::string> &Features,
       HasAVX512MPSADBW = true;
 #endif // INTEL_FEATURE_ISA_AVX_MPSADBW
 #endif // INTEL_CUSTOMIZATION
+    } else if (Feature == "+avxvnni") {
+      HasAVXVNNI = true;
     } else if (Feature == "+serialize") {
       HasSERIALIZE = true;
     } else if (Feature == "+tsxldtrk") {
       HasTSXLDTRK = true;
+    } else if (Feature == "+uintr") {
+      HasUINTR = true;
     }
     X86SSEEnum Level = llvm::StringSwitch<X86SSEEnum>(Feature)
                            .Case("+avx512f", AVX512F)
@@ -654,16 +650,12 @@ void X86TargetInfo::getTargetDefines(const LangOptions &Opts,
   case CK_IcelakeServer:
   case CK_Tigerlake:
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_CPU_ADL
-  case CK_Alderlake:
-#endif // INTEL_FEATURE_CPU_ADL
-#endif // INTEL_CUSTOMIZATION
-#if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_CPU_RKL
   case CK_Rocketlake:
 #endif // INTEL_FEATURE_CPU_RKL
 #endif // INTEL_CUSTOMIZATION
   case CK_SapphireRapids:
+  case CK_Alderlake:
     // FIXME: Historically, we defined this legacy name, it would be nice to
     // remove it at some point. We've never exposed fine-grained names for
     // recent primary x86 CPUs, and we should keep it that way.
@@ -741,6 +733,9 @@ void X86TargetInfo::getTargetDefines(const LangOptions &Opts,
     break;
   case CK_ZNVER2:
     defineCPUMacros(Builder, "znver2");
+    break;
+  case CK_ZNVER3:
+    defineCPUMacros(Builder, "znver3");
     break;
   case CK_Geode:
     defineCPUMacros(Builder, "geode");
@@ -923,11 +918,6 @@ void X86TargetInfo::getTargetDefines(const LangOptions &Opts,
   if (HasENQCMD)
     Builder.defineMacro("__ENQCMD__");
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_ULI
-  if (HasULI)
-    Builder.defineMacro("__ULI__");
-  Builder.defineMacro("__ULI_SUPPORTED__");
-#endif // INTEL_FEATURE_ISA_ULI
   if (HasHRESET)
     Builder.defineMacro("__HRESET__");
   if (HasAMXTILE)
@@ -1010,11 +1000,6 @@ void X86TargetInfo::getTargetDefines(const LangOptions &Opts,
     Builder.defineMacro("__AMX_TILE2__");
   Builder.defineMacro("__AMX_TILE2_SUPPORTED__");
 #endif // INTEL_FEATURE_ISA_AMX_TILE2
-#if INTEL_FEATURE_ISA_AVX_VNNI
-  if (HasAVXVNNI)
-    Builder.defineMacro("__AVXVNNI__");
-  Builder.defineMacro("__AVXVNNI_SUPPORTED__");
-#endif // INTEL_FEATURE_ISA_AVX_VNNI
 #if INTEL_FEATURE_ISA_AVX512_DOTPROD_INT8
   if (HasAVX512DOTPRODINT8)
     Builder.defineMacro("__AVX512DOTPRODINT8__");
@@ -1085,10 +1070,14 @@ void X86TargetInfo::getTargetDefines(const LangOptions &Opts,
   if (!Opts.OpenMPIsDevice) {
 #endif  // INTEL_FEATURE_CSA
 #endif // INTEL_CUSTOMIZATION
+  if (HasAVXVNNI)
+    Builder.defineMacro("__AVXVNNI__");
   if (HasSERIALIZE)
     Builder.defineMacro("__SERIALIZE__");
   if (HasTSXLDTRK)
     Builder.defineMacro("__TSXLDTRK__");
+  if (HasUINTR)
+    Builder.defineMacro("__UINTR__");
 
   // Each case falls through to the previous one here.
   switch (SSELevel) {
@@ -1267,10 +1256,8 @@ bool X86TargetInfo::isValidFeatureName(StringRef Name) const {
       .Case("avx512vbmi2", true)
       .Case("avx512ifma", true)
       .Case("avx512vp2intersect", true)
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_AVX_VNNI
       .Case("avxvnni", true)
-#endif // INTEL_FEATURE_ISA_AVX_VNNI
+#if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_AVX_IFMA
       .Case("avxifma", true)
 #endif // INTEL_FEATURE_ISA_AVX_IFMA
@@ -1326,11 +1313,7 @@ bool X86TargetInfo::isValidFeatureName(StringRef Name) const {
       .Case("sse4a", true)
       .Case("tbm", true)
       .Case("tsxldtrk", true)
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_ULI
-      .Case("uli", true)
-#endif // INTEL_FEATURE_ISA_ULI
-#endif // INTEL_CUSTOMIZATION
+      .Case("uintr", true)
       .Case("vaes", true)
       .Case("vpclmulqdq", true)
       .Case("wbnoinvd", true)
@@ -1425,9 +1408,6 @@ bool X86TargetInfo::hasFeature(StringRef Feature) const {
 #if INTEL_FEATURE_ISA_AMX_TILE2
       .Case("amx-tile2", HasAMXTILE2)
 #endif // INTEL_FEATURE_ISA_AMX_TILE2
-#if INTEL_FEATURE_ISA_AVX_VNNI
-      .Case("avxvnni", HasAVXVNNI)
-#endif // INTEL_FEATURE_ISA_AVX_VNNI
 #if INTEL_FEATURE_ISA_AVX_IFMA
       .Case("avxifma", HasAVXIFMA)
 #endif // INTEL_FEATURE_ISA_AVX_IFMA
@@ -1435,6 +1415,7 @@ bool X86TargetInfo::hasFeature(StringRef Feature) const {
       .Case("avxbf16", HasAVXBF16)
 #endif // INTEL_FEATURE_ISA_AVX_BF16
 #endif // INTEL_CUSTOMIZATION
+      .Case("avxvnni", HasAVXVNNI)
       .Case("avx", SSELevel >= AVX)
       .Case("avx2", SSELevel >= AVX2)
       .Case("avx512f", SSELevel >= AVX512F)
@@ -1541,11 +1522,7 @@ bool X86TargetInfo::hasFeature(StringRef Feature) const {
       .Case("sse4a", XOPLevel >= SSE4A)
       .Case("tbm", HasTBM)
       .Case("tsxldtrk", HasTSXLDTRK)
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_ULI
-      .Case("uli", HasULI)
-#endif // INTEL_FEATURE_ISA_ULI
-#endif // INTEL_CUSTOMIZATION
+      .Case("uintr", HasUINTR)
       .Case("vaes", HasVAES)
       .Case("vpclmulqdq", HasVPCLMULQDQ)
       .Case("wbnoinvd", HasWBNOINVD)
@@ -1849,12 +1826,6 @@ Optional<unsigned> X86TargetInfo::getCPUCacheLineSize() const {
     case CK_Goldmont:
     case CK_GoldmontPlus:
     case CK_Tremont:
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_CPU_ADL
-    case CK_Alderlake:
-#endif // INTEL_FEATURE_CPU_ADL
-#endif // INTEL_CUSTOMIZATION
-
     case CK_Westmere:
     case CK_SandyBridge:
     case CK_IvyBridge:
@@ -1878,6 +1849,7 @@ Optional<unsigned> X86TargetInfo::getCPUCacheLineSize() const {
 #if INTEL_CUSTOMIZATION
     case CK_CommonAVX512:
 #endif // INTEL_CUSTOMIZATION
+    case CK_Alderlake:
     case CK_KNL:
     case CK_KNM:
     // K7
@@ -1898,6 +1870,7 @@ Optional<unsigned> X86TargetInfo::getCPUCacheLineSize() const {
     // Zen
     case CK_ZNVER1:
     case CK_ZNVER2:
+    case CK_ZNVER3:
     // Deprecated
     case CK_x86_64:
     case CK_x86_64_v2:

@@ -504,6 +504,7 @@ void SYCLToolChain::TranslateTargetOpt(const llvm::opt::ArgList &Args,
 }
 
 static void addImpliedArgs(const llvm::Triple &Triple,
+                           const clang::driver::Driver &Driver, // INTEL
                            const llvm::opt::ArgList &Args,
                            llvm::opt::ArgStringList &CmdArgs) {
   // Current implied args are for debug information and disabling of
@@ -542,7 +543,7 @@ static void addImpliedArgs(const llvm::Triple &Triple,
 void SYCLToolChain::TranslateBackendTargetArgs(const llvm::opt::ArgList &Args,
     llvm::opt::ArgStringList &CmdArgs) const {
   // Add any implied arguments before user defined arguments.
-  addImpliedArgs(getTriple(), Args, CmdArgs);
+  addImpliedArgs(getTriple(), getDriver(), Args, CmdArgs); // INTEL
 
   // Handle -Xs flags.
   for (auto *A : Args) {

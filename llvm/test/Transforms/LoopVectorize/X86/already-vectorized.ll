@@ -1,6 +1,10 @@
-; INTEL - Disabling loopopt as it affects pass pipeline.
-; INTEL - Enable loop vectorizer as it is needed.
-; RUN: opt < %s -loopopt=0 -disable-loop-unrolling -debug-only=loop-vectorize -O3 -enable-lv -S 2>&1 | FileCheck %s
+; INTEL_CUSTOMIZATION
+; Add "-loopopt=0 -enable":
+;   - Disabling loopopt as it affects pass pipeline.
+;   - Enable loop vectorizer as it is needed.
+; RUN: opt < %s -loopopt=0 -enable-lv -disable-loop-unrolling -debug-only=loop-vectorize -passes='default<O3>' -S 2>&1 | FileCheck %s
+; RUN: opt < %s -loopopt=0 -enable-lv -disable-loop-unrolling -debug-only=loop-vectorize -O3 -S 2>&1 | FileCheck %s
+; END INTEL_CUSTOMIZATION
 ; REQUIRES: asserts
 ; We want to make sure that we don't even try to vectorize loops again
 ; The vectorizer used to mark the un-vectorized loop only as already vectorized
@@ -34,7 +38,7 @@ for.body:                                         ; preds = %for.body, %entry
 ; CHECK: vector.body:
 ; CHECK: br {{.*}} label %vector.body, !llvm.loop [[vect:![0-9]+]]
 ; CHECK: for.body:
-; CHECK: br {{.*}} label %for.body, !llvm.loop [[scalar:![0-9]+]]
+; CHECK: br {{.*}} label %for.body{{.*}}, !llvm.loop [[scalar:![0-9]+]]
 
 for.end:                                          ; preds = %for.body
   ret i32 %add

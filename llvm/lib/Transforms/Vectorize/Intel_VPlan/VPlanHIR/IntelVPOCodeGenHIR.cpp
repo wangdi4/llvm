@@ -284,6 +284,7 @@ public:
   RegDDRef *visitTruncateExpr(const SCEVTruncateExpr *Expr);
   RegDDRef *visitZeroExtendExpr(const SCEVZeroExtendExpr *Expr);
   RegDDRef *visitSignExtendExpr(const SCEVSignExtendExpr *Expr);
+  RegDDRef *visitPtrToIntExpr(const SCEVPtrToIntExpr *);
   RegDDRef *visitAddExpr(const SCEVAddExpr *Expr);
   RegDDRef *visitMulExpr(const SCEVMulExpr *Expr);
   RegDDRef *visitUDivExpr(const SCEVUDivExpr *Expr);
@@ -316,7 +317,8 @@ RegDDRef *NestedBlobCG::codegenCoeff(int64_t Coeff, Type *Ty) {
 RegDDRef *NestedBlobCG::codegenConversion(RegDDRef *Src, unsigned ConvOpCode,
                                           Type *DestType) {
   assert((ConvOpCode == Instruction::ZExt || ConvOpCode == Instruction::SExt ||
-          ConvOpCode == Instruction::Trunc) &&
+          ConvOpCode == Instruction::Trunc ||
+          ConvOpCode == Instruction::PtrToInt) &&
          "Unexpected conversion OpCode");
 
   Type *VecTy = FixedVectorType::get(DestType, ACG->getVF());
@@ -404,6 +406,11 @@ RegDDRef *NestedBlobCG::visitZeroExtendExpr(const SCEVZeroExtendExpr *Expr) {
 RegDDRef *NestedBlobCG::visitSignExtendExpr(const SCEVSignExtendExpr *Expr) {
   RegDDRef *Src = visit(Expr->getOperand());
   return codegenConversion(Src, Instruction::SExt, Expr->getType());
+}
+
+RegDDRef *NestedBlobCG::visitPtrToIntExpr(const SCEVPtrToIntExpr *Expr) {
+  RegDDRef *Src = visit(Expr->getOperand());
+  return codegenConversion(Src, Instruction::PtrToInt, Expr->getType());
 }
 
 RegDDRef *NestedBlobCG::visitAddExpr(const SCEVAddExpr *Expr) {

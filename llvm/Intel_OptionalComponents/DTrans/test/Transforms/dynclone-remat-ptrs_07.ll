@@ -30,7 +30,7 @@ target triple = "x86_64-unknown-linux-gnu"
 ; pointers are stored.
 define %struct.test.01* @init() {
   %call0 = call noalias i8* @calloc(i64 1000, i64 32)
-  %call.ptr = call i8* @llvm.ptr.annotation.p0i8(i8* %call0, i8* getelementptr inbounds ([38 x i8], [38 x i8]* @__intel_dtrans_aostosoa_alloc, i32 0, i32 0), i8* null, i32 0)
+  %call.ptr = call i8* @llvm.ptr.annotation.p0i8(i8* %call0, i8* getelementptr inbounds ([38 x i8], [38 x i8]* @__intel_dtrans_aostosoa_alloc, i32 0, i32 0), i8* null, i32 0, i8* null)
   %C01 = getelementptr i8, i8* %call0, i64 0
   %C02 = bitcast i8* %C01 to i64*
   store i64* %C02, i64** getelementptr (%struct.ns, %struct.ns* @n, i64 0, i32 0)
@@ -96,4 +96,4 @@ define void @proc1() {
 
 ; Function Attrs: nounwind
 declare dso_local noalias i8* @calloc(i64, i64)
-declare dso_local noalias i8* @llvm.ptr.annotation.p0i8(i8*, i8*, i8*, i32)
+declare dso_local noalias i8* @llvm.ptr.annotation.p0i8(i8*, i8*, i8*, i32, i8*)

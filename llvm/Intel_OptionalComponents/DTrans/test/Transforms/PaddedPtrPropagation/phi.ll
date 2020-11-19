@@ -39,29 +39,29 @@ entry:
   ]
 
 sw.bb:
-  %1 = tail call i32* @llvm.ptr.annotation.p0i32(i32* nonnull %p, i8* getelementptr inbounds ([15 x i8], [15 x i8]* @0, i64 0, i64 0), i8* getelementptr inbounds ([6 x i8], [6 x i8]* @.str, i64 0, i64 0), i32 5)
+  %1 = tail call i32* @llvm.ptr.annotation.p0i32(i32* nonnull %p, i8* getelementptr inbounds ([15 x i8], [15 x i8]* @0, i64 0, i64 0), i8* getelementptr inbounds ([6 x i8], [6 x i8]* @.str, i64 0, i64 0), i32 5, i8* null)
   br label %sw.epilog
 
 sw.bb1:
-  %2 = tail call i32* @llvm.ptr.annotation.p0i32(i32* nonnull %p, i8* getelementptr inbounds ([15 x i8], [15 x i8]* @1, i64 0, i64 0), i8* getelementptr inbounds ([6 x i8], [6 x i8]* @.str, i64 0, i64 0), i32 8)
+  %2 = tail call i32* @llvm.ptr.annotation.p0i32(i32* nonnull %p, i8* getelementptr inbounds ([15 x i8], [15 x i8]* @1, i64 0, i64 0), i8* getelementptr inbounds ([6 x i8], [6 x i8]* @.str, i64 0, i64 0), i32 8, i8* null)
   br label %sw.epilog
 
 sw.bb2:
-  %3 = tail call i32* @llvm.ptr.annotation.p0i32(i32* nonnull %p, i8* getelementptr inbounds ([15 x i8], [15 x i8]* @4, i64 0, i64 0), i8* getelementptr inbounds ([6 x i8], [6 x i8]* @.str, i64 0, i64 0), i32 11)
+  %3 = tail call i32* @llvm.ptr.annotation.p0i32(i32* nonnull %p, i8* getelementptr inbounds ([15 x i8], [15 x i8]* @4, i64 0, i64 0), i8* getelementptr inbounds ([6 x i8], [6 x i8]* @.str, i64 0, i64 0), i32 11, i8* null)
   br label %sw.epilog
 
 sw.bb3:
-  %4 = tail call i32* @llvm.ptr.annotation.p0i32(i32* nonnull %p, i8* getelementptr inbounds ([15 x i8], [15 x i8]* @2, i64 0, i64 0), i8* getelementptr inbounds ([6 x i8], [6 x i8]* @.str, i64 0, i64 0), i32 14)
+  %4 = tail call i32* @llvm.ptr.annotation.p0i32(i32* nonnull %p, i8* getelementptr inbounds ([15 x i8], [15 x i8]* @2, i64 0, i64 0), i8* getelementptr inbounds ([6 x i8], [6 x i8]* @.str, i64 0, i64 0), i32 14, i8* null)
   br label %sw.epilog
 
 sw.default:
-  %5 = tail call i32* @llvm.ptr.annotation.p0i32(i32* nonnull %p, i8* getelementptr inbounds ([15 x i8], [15 x i8]* @3, i64 0, i64 0), i8* getelementptr inbounds ([6 x i8], [6 x i8]* @.str, i64 0, i64 0), i32 17)
+  %5 = tail call i32* @llvm.ptr.annotation.p0i32(i32* nonnull %p, i8* getelementptr inbounds ([15 x i8], [15 x i8]* @3, i64 0, i64 0), i8* getelementptr inbounds ([6 x i8], [6 x i8]* @.str, i64 0, i64 0), i32 17, i8* null)
   br label %sw.epilog
 
 sw.epilog:
   %x.0 = phi i32* [ %5, %sw.default ], [ %4, %sw.bb3 ], [ %3, %sw.bb2 ], [ %2, %sw.bb1 ], [ %1, %sw.bb ]
-  %x.010 = call i32* @llvm.ptr.annotation.p0i32(i32* %x.0, i8* getelementptr inbounds ([15 x i8], [15 x i8]* @4, i64 0, i64 0), i8* getelementptr inbounds ([6 x i8], [6 x i8]* @.str, i64 0, i64 0), i32 0)
+  %x.010 = call i32* @llvm.ptr.annotation.p0i32(i32* %x.0, i8* getelementptr inbounds ([15 x i8], [15 x i8]* @4, i64 0, i64 0), i8* getelementptr inbounds ([6 x i8], [6 x i8]* @.str, i64 0, i64 0), i32 0, i8* null)
   ret i32* %x.010
 }
 
-declare i32* @llvm.ptr.annotation.p0i32(i32*, i8*, i8*, i32)
+declare i32* @llvm.ptr.annotation.p0i32(i32*, i8*, i8*, i32, i8*)

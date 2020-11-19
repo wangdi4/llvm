@@ -316,13 +316,10 @@ def X86enqcmd : SDNode<"X86ISD::ENQCMD", SDT_X86ENQCMD,
                        [SDNPHasChain, SDNPSideEffect]>;
 def X86enqcmds : SDNode<"X86ISD::ENQCMDS", SDT_X86ENQCMD,
                        [SDNPHasChain, SDNPSideEffect]>;
-
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_ULI
 def X86testui : SDNode<"X86ISD::TESTUI",
-                       SDTypeProfile<1, 0, [SDTCisVT<0, i32>]>, [SDNPHasChain]>;
-#endif // INTEL_FEATURE_ISA_ULI
-#endif // INTEL_CUSTOMIZATION
+                       SDTypeProfile<1, 0, [SDTCisVT<0, i32>]>,
+                       [SDNPHasChain, SDNPSideEffect]>;
+
 def X86aesenc128kl : SDNode<"X86ISD::AESENC128KL", SDT_X86AESENCDECKL,
                             [SDNPHasChain, SDNPMayLoad, SDNPSideEffect,
                              SDNPMemOperand]>;
@@ -989,10 +986,6 @@ def HasBF16      : Predicate<"Subtarget->hasBF16()">;
 def HasAVXBF16   : Predicate<"Subtarget->hasAVXBF16()">;
 def NoVLX_Or_NoBF16 : Predicate<"!Subtarget->hasVLX() || !Subtarget->hasBF16()">;
 #endif // INTEL_FEATURE_ISA_AVX_BF16
-#if INTEL_FEATURE_ISA_AVX_VNNI
-def HasAVXVNNI : Predicate <"Subtarget->hasAVXVNNI()">;
-def NoVLX_Or_NoVNNI : Predicate<"!Subtarget->hasVLX() || !Subtarget->hasVNNI()">;
-#endif // INTEL_FEATURE_ISA_AVX_VNNI
 #endif // INTEL_CUSTOMIZATION
 
 #if INTEL_CUSTOMIZATION
@@ -1038,6 +1031,8 @@ def HasAVX512MPSADBW   : Predicate<"Subtarget->hasAVX512MPSADBW()">;
 def NoVLX_Or_NoMPSADBW : Predicate<"!Subtarget->hasVLX() || !Subtarget->hasAVX512MPSADBW()">;
 #endif // INTEL_FEATURE_ISA_AVX_MPSADBW
 #endif // INTEL_CUSTOMIZATION
+def HasAVXVNNI : Predicate <"Subtarget->hasAVXVNNI()">;
+def NoVLX_Or_NoVNNI : Predicate<"!Subtarget->hasVLX() || !Subtarget->hasVNNI()">;
 
 def HasBITALG    : Predicate<"Subtarget->hasBITALG()">;
 def HasPOPCNT    : Predicate<"Subtarget->hasPOPCNT()">;
@@ -1108,9 +1103,6 @@ def HasCmpxchg16b: Predicate<"Subtarget->hasCmpxchg16b()">;
 def HasPCONFIG   : Predicate<"Subtarget->hasPCONFIG()">;
 def HasENQCMD    : Predicate<"Subtarget->hasENQCMD()">;
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_ULI
-def HasULI : Predicate<"Subtarget->hasULI()">;
-#endif // INTEL_FEATURE_ISA_ULI
 #if INTEL_FEATURE_ISA_AMX_FUTURE
 def HasAMXELEMENT   : Predicate<"Subtarget->hasAMXELEMENT()">;
 def HasAMXREDUCE    : Predicate<"Subtarget->hasAMXREDUCE()">;
@@ -1172,6 +1164,7 @@ def HasTSXLDTRK  : Predicate<"Subtarget->hasTSXLDTRK()">;
 def HasAMXTILE   : Predicate<"Subtarget->hasAMXTILE()">;
 def HasAMXBF16   : Predicate<"Subtarget->hasAMXBF16()">;
 def HasAMXINT8   : Predicate<"Subtarget->hasAMXINT8()">;
+def HasUINTR     : Predicate<"Subtarget->hasUINTR()">;
 def Not64BitMode : Predicate<"!Subtarget->is64Bit()">,
                              AssemblerPredicate<(all_of (not Mode64Bit)), "Not 64-bit mode">;
 def In64BitMode  : Predicate<"Subtarget->is64Bit()">,
@@ -3121,29 +3114,6 @@ let SchedRW = [WriteLoad] in {
 def : InstAlias<"clzero\t{%eax|eax}", (CLZERO32r)>, Requires<[Not64BitMode]>;
 def : InstAlias<"clzero\t{%rax|rax}", (CLZERO64r)>, Requires<[In64BitMode]>;
 
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_ULI
-//===----------------------------------------------------------------------===//
-// ULI Instructions
-//
-let Predicates = [HasULI, In64BitMode] in {
-  def UIRET : I<0x01, MRM_EC, (outs), (ins), "uiret",
-               [(int_x86_uiret)]>, XS;
-  def CLUI : I<0x01, MRM_EE, (outs), (ins), "clui",
-               [(int_x86_clui)]>, XS;
-  def STUI : I<0x01, MRM_EF, (outs), (ins), "stui",
-               [(int_x86_stui)]>, XS;
-
-  def SENDUIPI : I<0xC7, MRM6r, (outs), (ins GR64:$arg), "senduipi\t$arg",
-                   [(int_x86_senduipi GR64:$arg)]>, XS;
-
-  let Defs = [EFLAGS] in
-    def TESTUI : I<0x01, MRM_ED, (outs), (ins), "testui",
-                   [(set EFLAGS, (X86testui))]>, XS;
-}
-#endif // INTEL_FEATURE_ISA_ULI
-#endif // INTEL_CUSTOMIZATION
-
 //===----------------------------------------------------------------------===//
 // HRESET Instruction
 //
@@ -3166,6 +3136,25 @@ let Predicates = [HasTSXLDTRK] in {
                     [(int_x86_xsusldtrk)]>, XD;
   def XRESLDTRK : I<0x01, MRM_E9, (outs), (ins), "xresldtrk",
                     [(int_x86_xresldtrk)]>, XD;
+}
+
+//===----------------------------------------------------------------------===//
+// UINTR Instructions
+//
+let Predicates = [HasUINTR, In64BitMode] in {
+  def UIRET : I<0x01, MRM_EC, (outs), (ins), "uiret",
+               []>, XS;
+  def CLUI : I<0x01, MRM_EE, (outs), (ins), "clui",
+               [(int_x86_clui)]>, XS;
+  def STUI : I<0x01, MRM_EF, (outs), (ins), "stui",
+               [(int_x86_stui)]>, XS;
+
+  def SENDUIPI : I<0xC7, MRM6r, (outs), (ins GR64:$arg), "senduipi\t$arg",
+                   [(int_x86_senduipi GR64:$arg)]>, XS;
+
+  let Defs = [EFLAGS] in
+    def TESTUI : I<0x01, MRM_ED, (outs), (ins), "testui",
+                   [(set EFLAGS, (X86testui))]>, XS;
 }
 
 //===----------------------------------------------------------------------===//

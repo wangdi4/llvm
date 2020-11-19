@@ -40,7 +40,13 @@ LoopRotatePass::LoopRotatePass(bool EnableHeaderDuplication)
 PreservedAnalyses LoopRotatePass::run(Loop &L, LoopAnalysisManager &AM,
                                       LoopStandardAnalysisResults &AR,
                                       LPMUpdater &) {
-  int Threshold = EnableHeaderDuplication ? DefaultRotationThreshold : 0;
+  // Vectorization requires loop-rotation. Use default threshold for loops the
+  // user explicitly marked for vectorization, even when header duplication is
+  // disabled.
+  int Threshold = EnableHeaderDuplication ||
+                          hasVectorizeTransformation(&L) == TM_ForcedByUser
+                      ? DefaultRotationThreshold
+                      : 0;
   const DataLayout &DL = L.getHeader()->getModule()->getDataLayout();
   const SimplifyQuery SQ = getBestSimplifyQuery(AR, DL);
 
@@ -110,9 +116,16 @@ public:
           DefaultRotationThreshold :
           TTI->getLoopRotationDefaultThreshold(true);
 #endif //INTEL_CUSTOMIZATION
+    // Vectorization requires loop-rotation. Use default threshold for loops the
+    // user explicitly marked for vectorization, even when header duplication is
+    // disabled.
+    int Threshold = hasVectorizeTransformation(L) == TM_ForcedByUser
+                        ? DefaultRotationThreshold
+                        : MaxHeaderSize;
+
     return LoopRotation(L, LI, TTI, AC, &DT, &SE,
                         MSSAU.hasValue() ? MSSAU.getPointer() : nullptr, SQ,
-                        false, MaxHeaderSize, false);
+                        false, Threshold, false);
   }
 };
 } // end namespace

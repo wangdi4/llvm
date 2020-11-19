@@ -5,6 +5,7 @@
 ; INTEL - Enable loop vectorizer as it is needed.
 ; RUN: opt < %s  -O3 -enable-lv -loopopt=0 -enable-load-coalescing=false -mcpu=knl -S | FileCheck %s -check-prefix=AVX512
 ; RUN: opt < %s -O3 -enable-lv -loopopt=0 -enable-load-coalescing=false -mcpu=knl -force-vector-width=2 -S | FileCheck %s -check-prefix=FVW2
+; END INTEL_CUSTOMIZATION
 
 ; With a force-vector-width, it is sometimes more profitable to generate
 ; scalarized and predicated stores instead of masked scatter.
@@ -91,7 +92,7 @@ define void @foo1(float* noalias %in, float* noalias %out, i32* noalias %trigger
 ; AVX512-NEXT:    call void @llvm.masked.store.v16f32.p0v16f32(<16 x float> [[TMP37]], <16 x float>* [[TMP39]], i32 4, <16 x i1> [[TMP32]])
 ; AVX512-NEXT:    [[INDEX_NEXT_3]] = add nuw nsw i64 [[INDEX6]], 64
 ; AVX512-NEXT:    [[TMP40:%.*]] = icmp eq i64 [[INDEX_NEXT_3]], 4096
-; AVX512-NEXT:    br i1 [[TMP40]], label [[FOR_END:%.*]], label [[VECTOR_BODY]], !llvm.loop !0
+; AVX512-NEXT:    br i1 [[TMP40]], label [[FOR_END:%.*]], label [[VECTOR_BODY]], [[LOOP0:!llvm.loop !.*]]
 ; AVX512:       for.end:
 ; AVX512-NEXT:    ret void
 ;
@@ -161,7 +162,7 @@ define void @foo1(float* noalias %in, float* noalias %out, i32* noalias %trigger
 ; FVW2-NEXT:    call void @llvm.masked.store.v2f32.p0v2f32(<2 x float> [[TMP37]], <2 x float>* [[TMP39]], i32 4, <2 x i1> [[TMP32]])
 ; FVW2-NEXT:    [[INDEX_NEXT_3]] = add nuw nsw i64 [[INDEX6]], 8
 ; FVW2-NEXT:    [[TMP40:%.*]] = icmp eq i64 [[INDEX_NEXT_3]], 4096
-; FVW2-NEXT:    br i1 [[TMP40]], label [[FOR_END:%.*]], label [[VECTOR_BODY]], !llvm.loop !0
+; FVW2-NEXT:    br i1 [[TMP40]], label [[FOR_END:%.*]], label [[VECTOR_BODY]], [[LOOP0:!llvm.loop !.*]]
 ; FVW2:       for.end:
 ; FVW2-NEXT:    ret void
 ;
@@ -372,6 +373,7 @@ define void @foo2(%struct.In* noalias %in, float* noalias %out, i32* noalias %tr
 ; FVW2-NEXT:  entry:
 ; FVW2-NEXT:    br label [[VECTOR_BODY:%.*]]
 ; FVW2:       vector.body:
+; INTEL_CUSTOMIZATION
 ; FVW2-NEXT:    [[INDEX6:%.*]] = phi i64 [ 0, [[ENTRY:%.*]] ], [ [[INDEX_NEXT_1:%.*]], [[PRED_STORE_CONTINUE8_1:%.*]] ]
 ; FVW2-NEXT:    [[VEC_IND:%.*]] = phi <2 x i64> [ <i64 0, i64 16>, [[ENTRY]] ], [ [[VEC_IND_NEXT_1:%.*]], [[PRED_STORE_CONTINUE8_1]] ]
 ; FVW2-NEXT:    [[OFFSET_IDX:%.*]] = shl i64 [[INDEX6]], 4
@@ -437,7 +439,8 @@ define void @foo2(%struct.In* noalias %in, float* noalias %out, i32* noalias %tr
 ; FVW2-NEXT:    [[INDEX_NEXT_1]] = add nuw nsw i64 [[INDEX6]], 4
 ; FVW2-NEXT:    [[VEC_IND_NEXT_1]] = add <2 x i64> [[VEC_IND]], <i64 64, i64 64>
 ; FVW2-NEXT:    [[TMP32:%.*]] = icmp eq i64 [[INDEX_NEXT_1]], 256
-; FVW2-NEXT:    br i1 [[TMP32]], label [[FOR_END:%.*]], label [[VECTOR_BODY]], !llvm.loop !2
+; FVW2-NEXT:    br i1 [[TMP32]], label [[FOR_END:%.*]], label [[VECTOR_BODY]], [[LOOP2:!llvm.loop !.*]]
+; END INTEL_CUSTOMIZATION
 ;
 entry:
   %in.addr = alloca %struct.In*, align 8
@@ -647,6 +650,7 @@ define void @foo3(%struct.In* noalias %in, %struct.Out* noalias %out, i32* noali
 ; FVW2-NEXT:  entry:
 ; FVW2-NEXT:    br label [[VECTOR_BODY:%.*]]
 ; FVW2:       vector.body:
+; INTEL_CUSTOMIZATION
 ; FVW2-NEXT:    [[INDEX:%.*]] = phi i64 [ 0, [[ENTRY:%.*]] ], [ [[INDEX_NEXT_1:%.*]], [[PRED_STORE_CONTINUE7_1:%.*]] ]
 ; FVW2-NEXT:    [[VEC_IND:%.*]] = phi <2 x i64> [ <i64 0, i64 16>, [[ENTRY]] ], [ [[VEC_IND_NEXT_1:%.*]], [[PRED_STORE_CONTINUE7_1]] ]
 ; FVW2-NEXT:    [[OFFSET_IDX:%.*]] = shl i64 [[INDEX]], 4
@@ -712,7 +716,8 @@ define void @foo3(%struct.In* noalias %in, %struct.Out* noalias %out, i32* noali
 ; FVW2-NEXT:    [[INDEX_NEXT_1]] = add nuw nsw i64 [[INDEX]], 4
 ; FVW2-NEXT:    [[VEC_IND_NEXT_1]] = add <2 x i64> [[VEC_IND]], <i64 64, i64 64>
 ; FVW2-NEXT:    [[TMP32:%.*]] = icmp eq i64 [[INDEX_NEXT_1]], 256
-; FVW2-NEXT:    br i1 [[TMP32]], label [[FOR_END:%.*]], label [[VECTOR_BODY]], !llvm.loop !3
+; FVW2-NEXT:    br i1 [[TMP32]], label [[FOR_END:%.*]], label [[VECTOR_BODY]], [[LOOP3:!llvm.loop !.*]]
+; END INTEL_CUSTOMIZATION
 ;
 entry:
   %in.addr = alloca %struct.In*, align 8
@@ -908,6 +913,7 @@ define void @foo2_addrspace(%struct.In addrspace(1)* noalias %in, float addrspac
 ; FVW2-NEXT:  entry:
 ; FVW2-NEXT:    br label [[VECTOR_BODY:%.*]]
 ; FVW2:       vector.body:
+; INTEL_CUSTOMIZATION
 ; FVW2-NEXT:    [[INDEX6:%.*]] = phi i64 [ 0, [[ENTRY:%.*]] ], [ [[INDEX_NEXT_1:%.*]], [[PRED_STORE_CONTINUE8_1:%.*]] ]
 ; FVW2-NEXT:    [[VEC_IND:%.*]] = phi <2 x i64> [ <i64 0, i64 16>, [[ENTRY]] ], [ [[VEC_IND_NEXT_1:%.*]], [[PRED_STORE_CONTINUE8_1]] ]
 ; FVW2-NEXT:    [[OFFSET_IDX:%.*]] = shl i64 [[INDEX6]], 4
@@ -973,7 +979,8 @@ define void @foo2_addrspace(%struct.In addrspace(1)* noalias %in, float addrspac
 ; FVW2-NEXT:    [[INDEX_NEXT_1]] = add nuw nsw i64 [[INDEX6]], 4
 ; FVW2-NEXT:    [[VEC_IND_NEXT_1]] = add <2 x i64> [[VEC_IND]], <i64 64, i64 64>
 ; FVW2-NEXT:    [[TMP32:%.*]] = icmp eq i64 [[INDEX_NEXT_1]], 256
-; FVW2-NEXT:    br i1 [[TMP32]], label [[FOR_END:%.*]], label [[VECTOR_BODY]], !llvm.loop !4
+; FVW2-NEXT:    br i1 [[TMP32]], label [[FOR_END:%.*]], label [[VECTOR_BODY]], [[LOOP4:!llvm.loop !.*]]
+; END INTEL_CUSTOMIZATION
 ;
 entry:
   %in.addr = alloca %struct.In addrspace(1)*, align 8
@@ -1169,6 +1176,7 @@ define void @foo2_addrspace2(%struct.In addrspace(1)* noalias %in, float addrspa
 ; FVW2-NEXT:  entry:
 ; FVW2-NEXT:    br label [[VECTOR_BODY:%.*]]
 ; FVW2:       vector.body:
+; INTEL_CUSTOMIZATION
 ; FVW2-NEXT:    [[INDEX6:%.*]] = phi i64 [ 0, [[ENTRY:%.*]] ], [ [[INDEX_NEXT_1:%.*]], [[PRED_STORE_CONTINUE8_1:%.*]] ]
 ; FVW2-NEXT:    [[VEC_IND:%.*]] = phi <2 x i64> [ <i64 0, i64 16>, [[ENTRY]] ], [ [[VEC_IND_NEXT_1:%.*]], [[PRED_STORE_CONTINUE8_1]] ]
 ; FVW2-NEXT:    [[OFFSET_IDX:%.*]] = shl i64 [[INDEX6]], 4
@@ -1234,7 +1242,8 @@ define void @foo2_addrspace2(%struct.In addrspace(1)* noalias %in, float addrspa
 ; FVW2-NEXT:    [[INDEX_NEXT_1]] = add nuw nsw i64 [[INDEX6]], 4
 ; FVW2-NEXT:    [[VEC_IND_NEXT_1]] = add <2 x i64> [[VEC_IND]], <i64 64, i64 64>
 ; FVW2-NEXT:    [[TMP32:%.*]] = icmp eq i64 [[INDEX_NEXT_1]], 256
-; FVW2-NEXT:    br i1 [[TMP32]], label [[FOR_END:%.*]], label [[VECTOR_BODY]], !llvm.loop !5
+; FVW2-NEXT:    br i1 [[TMP32]], label [[FOR_END:%.*]], label [[VECTOR_BODY]], [[LOOP5:!llvm.loop !.*]]
+; END INTEL_CUSTOMIZATION
 ;
 entry:
   %in.addr = alloca %struct.In addrspace(1)*, align 8
@@ -1430,6 +1439,7 @@ define void @foo2_addrspace3(%struct.In addrspace(0)* noalias %in, float addrspa
 ; FVW2-NEXT:  entry:
 ; FVW2-NEXT:    br label [[VECTOR_BODY:%.*]]
 ; FVW2:       vector.body:
+; INTEL_CUSTOMIZATION
 ; FVW2-NEXT:    [[INDEX6:%.*]] = phi i64 [ 0, [[ENTRY:%.*]] ], [ [[INDEX_NEXT_1:%.*]], [[PRED_STORE_CONTINUE8_1:%.*]] ]
 ; FVW2-NEXT:    [[VEC_IND:%.*]] = phi <2 x i64> [ <i64 0, i64 16>, [[ENTRY]] ], [ [[VEC_IND_NEXT_1:%.*]], [[PRED_STORE_CONTINUE8_1]] ]
 ; FVW2-NEXT:    [[OFFSET_IDX:%.*]] = shl i64 [[INDEX6]], 4
@@ -1495,7 +1505,8 @@ define void @foo2_addrspace3(%struct.In addrspace(0)* noalias %in, float addrspa
 ; FVW2-NEXT:    [[INDEX_NEXT_1]] = add nuw nsw i64 [[INDEX6]], 4
 ; FVW2-NEXT:    [[VEC_IND_NEXT_1]] = add <2 x i64> [[VEC_IND]], <i64 64, i64 64>
 ; FVW2-NEXT:    [[TMP32:%.*]] = icmp eq i64 [[INDEX_NEXT_1]], 256
-; FVW2-NEXT:    br i1 [[TMP32]], label [[FOR_END:%.*]], label [[VECTOR_BODY]], !llvm.loop !6
+; FVW2-NEXT:    br i1 [[TMP32]], label [[FOR_END:%.*]], label [[VECTOR_BODY]], [[LOOP6:!llvm.loop !.*]]
+; END INTEL_CUSTOMIZATION
 ;
 entry:
   %in.addr = alloca %struct.In addrspace(0)*, align 8
@@ -1551,4 +1562,3 @@ for.inc:                                          ; preds = %if.end
 for.end:                                          ; preds = %for.cond
   ret void
 }
-; end INTEL_CUSTOMIZATION
