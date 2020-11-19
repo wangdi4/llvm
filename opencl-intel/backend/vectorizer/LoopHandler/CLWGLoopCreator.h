@@ -133,7 +133,7 @@ public:
 
   ///@brief LLVM interface.
   virtual void getAnalysisUsage(AnalysisUsage &AU) const {
-    AU.addRequired<UnifyFunctionExitNodes>();
+    AU.addRequired<UnifyFunctionExitNodesLegacyPass>();
     AU.addRequired<BuiltinLibInfo>();
   };
 

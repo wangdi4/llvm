@@ -551,7 +551,7 @@ ReturnInst *CLWGLoopCreator::getFunctionData(Function *F, IVecVec &gids,
   LoopUtils::collectTIDCallInst(GID.c_str(), gids, F);
   LoopUtils::collectTIDCallInst(LID.c_str(), lids, F);
   BasicBlock *SingleRetBB =
-      getAnalysis<UnifyFunctionExitNodes>(*F).getReturnBlock();
+      getAnalysis<UnifyFunctionExitNodesLegacyPass>(*F).getReturnBlock();
   if (!SingleRetBB) {
     // The function has no return instructions at all (it contains an infinite
     // loop for example)

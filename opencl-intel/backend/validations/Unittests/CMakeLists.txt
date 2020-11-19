@@ -94,6 +94,7 @@ target_link_libraries(${TARGET_NAME}
     DataGenerator
     NEAT
     REFALU
+    LLVMInterpreterPluggable
     PlugInNEAT
     OCLBuiltinsRef
     gtest

@@ -283,7 +283,7 @@ static const SCEV *OffsetOfSCEV(const SCEV *S, ScalarEvolution &SE) {
     return SE.getConstant(IntegerType::get(SE.getContext(), 64), 0);
 
   // Travers operands of expressions of all other types and get their offset
-  if (const SCEVCastExpr *Cast = dyn_cast<SCEVCastExpr>(S)) {
+  if (const SCEVIntegralCastExpr *Cast = dyn_cast<SCEVIntegralCastExpr>(S)) {
     return OffsetOfSCEV(Cast->getOperand(), SE);
   }
 
@@ -345,7 +345,7 @@ static const SCEV *SimplifySCEV(const SCEV *S, ScalarEvolution &SE) {
 
   // Travers operands of expressions of all other types and promote them if
   // they are not loop invariants
-  if (const SCEVCastExpr *Cast = dyn_cast<SCEVCastExpr>(S)) {
+  if (const SCEVIntegralCastExpr *Cast = dyn_cast<SCEVIntegralCastExpr>(S)) {
     const SCEV *newSCEV = SimplifySCEV(Cast->getOperand(), SE);
     return newSCEV;
   }
@@ -405,10 +405,10 @@ static const SCEV *PromoteSCEV(const SCEV *S, Loop *L, ScalarEvolution &SE,
 
   // Travers operands of expressions of all other types and promote them if
   // they are not loop invariants
-  if (const SCEVCastExpr *Cast = dyn_cast<SCEVCastExpr>(S)) {
+  if (const SCEVIntegralCastExpr *Cast = dyn_cast<SCEVIntegralCastExpr>(S)) {
     const SCEV *newSCEV = PromoteSCEV(Cast->getOperand(), L, SE, count);
       switch (S->getSCEVType()) {
-        default: llvm_unreachable("Unexpected SCEVCastExpr kind!");
+        default: llvm_unreachable("Unexpected SCEVIntegralCastExpr kind!");
         case scTruncate: return SE.getTruncateExpr(newSCEV, S->getType());
         case scZeroExtend: return SE.getZeroExtendExpr(newSCEV, S->getType());
         case scSignExtend: return SE.getSignExtendExpr(newSCEV, S->getType());
@@ -592,9 +592,8 @@ bool Prefetch::detectReferencesForPrefetch(Function &F) {
 
     // insert to the list BBs dominated by this one
     DomTreeNode *Node = DT->getNode(BB);
-    for (DomTreeNode::iterator CI = Node->begin(), CE = Node->end();
-         CI != CE; ++CI) {
-      domBB.push_back((*CI)->getBlock());
+    for (auto &&CI : Node->children()) {
+      domBB.push_back(CI->getBlock());
     }
 
     // prefetch only inside loops

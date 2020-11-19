@@ -141,7 +141,7 @@ class IBlockToKernelMapper;
 //   LLJIT: use defineAbsolute for each function.
 #define REGISTER_BI_FUNCTION(name, ptr)                                        \
   if (LLJIT) {                                                                 \
-    if (auto Err = LLJIT->define(llvm::orc::absoluteSymbols(                   \
+    if (auto Err = LLJIT->getMainJITDylib().define(llvm::orc::absoluteSymbols( \
             {{LLJIT->mangleAndIntern(name),                                    \
               llvm::JITEvaluatedSymbol(llvm::pointerToJITTargetAddress(&ptr),  \
                                        flag)}})))                              \

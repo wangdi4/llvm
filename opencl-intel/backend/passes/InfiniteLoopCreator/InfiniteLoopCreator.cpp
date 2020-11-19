@@ -36,7 +36,7 @@ OCL_INITIALIZE_PASS_BEGIN(
     InfiniteLoopCreator, "infinite-loop-creator",
     "Wrap body of autorun kernels by while (true) loop if necessary",
     /* Only looks at CFG */false, /* Analysis Pass */false)
-OCL_INITIALIZE_PASS_DEPENDENCY(UnifyFunctionExitNodes)
+OCL_INITIALIZE_PASS_DEPENDENCY(UnifyFunctionExitNodesLegacyPass)
 OCL_INITIALIZE_PASS_END(
     InfiniteLoopCreator, "infinite-loop-creator",
     "Wrap body of autorun kernels by while (true) loop if necessary",
@@ -65,7 +65,7 @@ bool InfiniteLoopCreator::runOnModule(Module &M) {
 
 bool InfiniteLoopCreator::runOnFunction(Function *F) {
   if (BasicBlock *SingleRetBB =
-          getAnalysis<UnifyFunctionExitNodes>(*F).getReturnBlock()) {
+          getAnalysis<UnifyFunctionExitNodesLegacyPass>(*F).getReturnBlock()) {
     BasicBlock *EntryBlock = &F->getEntryBlock();
     BasicBlock *InfiniteLoopEntry = EntryBlock->splitBasicBlock(
         EntryBlock->begin(), "infinite_loop_entry");
@@ -87,7 +87,7 @@ bool InfiniteLoopCreator::runOnFunction(Function *F) {
 }
 
 void InfiniteLoopCreator::getAnalysisUsage(AnalysisUsage &AU) const {
-  AU.addRequired<UnifyFunctionExitNodes>();
+  AU.addRequired<UnifyFunctionExitNodesLegacyPass>();
 }
 
 } // namespace intel
