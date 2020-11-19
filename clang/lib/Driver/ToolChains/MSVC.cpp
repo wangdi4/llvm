@@ -407,23 +407,23 @@ void visualstudio::Linker::ConstructJob(Compilation &C, const JobAction &JA,
   }
   // Add Intel performance libraries. Only add the lib when not in CL-mode as
   // they have already been added via directive in the compilation
-  if (Args.hasArg(options::OPT_ipp_EQ)) {
+  if (Args.hasArg(options::OPT_qipp_EQ)) {
     getToolChain().AddIPPLibPath(Args, CmdArgs, "-libpath:");
     if (!C.getDriver().IsCLMode())
       getToolChain().AddIPPLibArgs(Args, CmdArgs, "-defaultlib:");
   }
-  if (Args.hasArg(options::OPT_mkl_EQ)) {
+  if (Args.hasArg(options::OPT_qmkl_EQ)) {
     getToolChain().AddMKLLibPath(Args, CmdArgs, "-libpath:");
     if (!C.getDriver().IsCLMode())
       getToolChain().AddMKLLibArgs(Args, CmdArgs, "-defaultlib:");
   }
-  if (Args.hasArg(options::OPT_tbb, options::OPT_daal_EQ) ||
-      (Args.hasArg(options::OPT_mkl_EQ) && Args.hasArg(options::OPT__dpcpp))) {
+  if (Args.hasArg(options::OPT_qtbb, options::OPT_qdaal_EQ) ||
+      (Args.hasArg(options::OPT_qmkl_EQ) && Args.hasArg(options::OPT__dpcpp))) {
     getToolChain().AddTBBLibPath(Args, CmdArgs, "-libpath:");
     if (!C.getDriver().IsCLMode())
       getToolChain().AddTBBLibArgs(Args, CmdArgs, "-defaultlib:");
   }
-  if (Args.hasArg(options::OPT_daal_EQ)) {
+  if (Args.hasArg(options::OPT_qdaal_EQ)) {
     getToolChain().AddDAALLibPath(Args, CmdArgs, "-libpath:");
     if (!C.getDriver().IsCLMode())
       getToolChain().AddDAALLibArgs(Args, CmdArgs, "-defaultlib:");
@@ -579,7 +579,7 @@ void visualstudio::Linker::ConstructJob(Compilation &C, const JobAction &JA,
   if (!StubsAdded && (Args.hasFlag(options::OPT_fopenmp,
                                    options::OPT_fopenmp_EQ,
                                    options::OPT_fno_openmp, false)) ||
-      Args.hasArg(options::OPT_fiopenmp, options::OPT_mkl_EQ)) {
+      Args.hasArg(options::OPT_fiopenmp, options::OPT_qmkl_EQ)) {
 #endif // INTEL_CUSTOMIZATION
     CmdArgs.push_back("-nodefaultlib:vcomp.lib");
     CmdArgs.push_back("-nodefaultlib:vcompd.lib");
@@ -1462,20 +1462,20 @@ void MSVCToolChain::AddClangSystemIncludeArgs(const ArgList &DriverArgs,
                      getDriver().Dir + "/../compiler/include");
 
   // Add Intel performance library headers
-  if (DriverArgs.hasArg(clang::driver::options::OPT_mkl_EQ)) {
+  if (DriverArgs.hasArg(clang::driver::options::OPT_qmkl_EQ)) {
     addSystemInclude(DriverArgs, CC1Args,
                      ToolChain::GetMKLIncludePathExtra(DriverArgs));
     addSystemInclude(DriverArgs, CC1Args,
                      ToolChain::GetMKLIncludePath(DriverArgs));
   }
-  if (DriverArgs.hasArg(clang::driver::options::OPT_ipp_EQ))
+  if (DriverArgs.hasArg(clang::driver::options::OPT_qipp_EQ))
     addSystemInclude(DriverArgs, CC1Args,
                      ToolChain::GetIPPIncludePath(DriverArgs));
-  if (DriverArgs.hasArg(clang::driver::options::OPT_tbb) ||
-      DriverArgs.hasArg(clang::driver::options::OPT_daal_EQ))
+  if (DriverArgs.hasArg(clang::driver::options::OPT_qtbb) ||
+      DriverArgs.hasArg(clang::driver::options::OPT_qdaal_EQ))
     addSystemInclude(DriverArgs, CC1Args,
                      ToolChain::GetTBBIncludePath(DriverArgs));
-  if (DriverArgs.hasArg(clang::driver::options::OPT_daal_EQ))
+  if (DriverArgs.hasArg(clang::driver::options::OPT_qdaal_EQ))
     addSystemInclude(DriverArgs, CC1Args,
                      ToolChain::GetDAALIncludePath(DriverArgs));
 #endif // INTEL_CUSTOMIZATION

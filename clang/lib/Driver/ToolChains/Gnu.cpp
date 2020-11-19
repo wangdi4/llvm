@@ -384,7 +384,7 @@ static void addIPPLibs(ArgStringList &CmdArgs,
     const llvm::opt::ArgList &Args, const ToolChain &TC) {
   // default link type is statically link
   bool linkStatic = true;
-  if (const Arg *IL = Args.getLastArg(options::OPT_ipp_link_EQ)) {
+  if (const Arg *IL = Args.getLastArg(options::OPT_qipp_link_EQ)) {
     if (IL->getValue() == StringRef("dynamic") ||
         IL->getValue() == StringRef("shared"))
       linkStatic = false;
@@ -474,14 +474,14 @@ static void addDAALLibs(ArgStringList &CmdArgs,
 // Add performance library search paths.
 static void addPerfLibPaths(ArgStringList &CmdArgs,
     const llvm::opt::ArgList &Args, const ToolChain &TC) {
-  if (Args.hasArg(options::OPT_ipp_EQ))
+  if (Args.hasArg(options::OPT_qipp_EQ))
     TC.AddIPPLibPath(Args, CmdArgs, "-L");
-  if (Args.hasArg(options::OPT_mkl_EQ))
+  if (Args.hasArg(options::OPT_qmkl_EQ))
     TC.AddMKLLibPath(Args, CmdArgs, "-L");
-  if (Args.hasArg(options::OPT_tbb, options::OPT_daal_EQ) ||
-      (Args.hasArg(options::OPT_mkl_EQ) && Args.hasArg(options::OPT__dpcpp)))
+  if (Args.hasArg(options::OPT_qtbb, options::OPT_qdaal_EQ) ||
+      (Args.hasArg(options::OPT_qmkl_EQ) && Args.hasArg(options::OPT__dpcpp)))
     TC.AddTBBLibPath(Args, CmdArgs, "-L");
-  if (Args.hasArg(options::OPT_daal_EQ))
+  if (Args.hasArg(options::OPT_qdaal_EQ))
     TC.AddDAALLibPath(Args, CmdArgs, "-L");
 }
 
@@ -905,14 +905,14 @@ void tools::gnutools::Linker::ConstructJob(Compilation &C, const JobAction &JA,
     // The profile runtime also needs access to system libraries.
     getToolChain().addProfileRTLibs(Args, CmdArgs);
 
-  if (Args.hasArg(options::OPT_ipp_EQ))
+  if (Args.hasArg(options::OPT_qipp_EQ))
     addIPPLibs(CmdArgs, Args, ToolChain);
-  if (Args.hasArg(options::OPT_mkl_EQ))
+  if (Args.hasArg(options::OPT_qmkl_EQ))
     addMKLLibs(CmdArgs, Args, ToolChain);
-  if (Args.hasArg(options::OPT_daal_EQ))
+  if (Args.hasArg(options::OPT_qdaal_EQ))
     addDAALLibs(CmdArgs, Args, ToolChain);
-  if (Args.hasArg(options::OPT_tbb, options::OPT_daal_EQ) ||
-      (Args.hasArg(options::OPT_mkl_EQ) && Args.hasArg(options::OPT__dpcpp)))
+  if (Args.hasArg(options::OPT_qtbb, options::OPT_qdaal_EQ) ||
+      (Args.hasArg(options::OPT_qmkl_EQ) && Args.hasArg(options::OPT__dpcpp)))
     addTBBLibs(CmdArgs, Args, ToolChain);
   if (!Args.hasArg(options::OPT_nostdlib, options::OPT_nodefaultlibs)) {
     addIntelLib("-lsvml", ToolChain, CmdArgs, Args);
@@ -950,7 +950,7 @@ void tools::gnutools::Linker::ConstructJob(Compilation &C, const JobAction &JA,
 #if INTEL_CUSTOMIZATION
   // Add -lm for both C and C++ compilation
   else if (!Args.hasArg(options::OPT_nostdlib, options::OPT_nodefaultlibs) &&
-           (D.IsIntelMode() || Args.hasArg(options::OPT_mkl_EQ))) {
+           (D.IsIntelMode() || Args.hasArg(options::OPT_qmkl_EQ))) {
     if (D.IsIntelMode() || Args.hasArg(options::OPT__dpcpp))
       CmdArgs.push_back("-limf");
     CmdArgs.push_back("-lm");
@@ -961,7 +961,7 @@ void tools::gnutools::Linker::ConstructJob(Compilation &C, const JobAction &JA,
     // Add libirc to resolve any Intel and libimf references
     addIntelLibirc(ToolChain, CmdArgs, Args);
     // Add -ldl
-    if (Args.hasArg(options::OPT_mkl_EQ) || D.IsIntelMode())
+    if (Args.hasArg(options::OPT_qmkl_EQ) || D.IsIntelMode())
       CmdArgs.push_back("-ldl");
   }
 #endif // INTEL_CUSTOMIZATION
@@ -1004,8 +1004,8 @@ void tools::gnutools::Linker::ConstructJob(Compilation &C, const JobAction &JA,
         WantPthread = true;
 
 #if INTEL_CUSTOMIZATION
-      // Use of -mmkl implies pthread
-      if (Args.hasArg(options::OPT_mkl_EQ))
+      // Use of -qmkl implies pthread
+      if (Args.hasArg(options::OPT_qmkl_EQ))
         WantPthread = true;
       // -stdlib=libc++ implies pthread
       if (ToolChain.GetCXXStdlibType(Args) == ToolChain::CST_Libcxx &&

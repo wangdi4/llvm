@@ -6,16 +6,19 @@
 // RUN: %clangxx -target x86_64-unknown-linux-gnu -ipp -### %s 2>&1 \
 // RUN: | FileCheck -check-prefixes=CHECK-IPP,CHECK-IPP-LIN,CHECK-IPP-LIN-COMMON %s
 // RUN: env IPPROOT=/dummy/ipp \
-// RUN: %clangxx -target x86_64-unknown-linux-gnu -ipp=common -### %s 2>&1 \
+// RUN: %clangxx -target x86_64-unknown-linux-gnu -qipp -### %s 2>&1 \
 // RUN: | FileCheck -check-prefixes=CHECK-IPP,CHECK-IPP-LIN,CHECK-IPP-LIN-COMMON %s
 // RUN: env IPPROOT=/dummy/ipp \
-// RUN: %clangxx -target x86_64-unknown-linux-gnu -ipp=nonpic -### %s 2>&1 \
+// RUN: %clangxx -target x86_64-unknown-linux-gnu -qipp=common -### %s 2>&1 \
+// RUN: | FileCheck -check-prefixes=CHECK-IPP,CHECK-IPP-LIN,CHECK-IPP-LIN-COMMON %s
+// RUN: env IPPROOT=/dummy/ipp \
+// RUN: %clangxx -target x86_64-unknown-linux-gnu -qipp=nonpic -### %s 2>&1 \
 // RUN: | FileCheck -check-prefixes=CHECK-IPP,CHECK-IPP-LIN,CHECK-IPP-LIN-NONPIC %s
 // RUN: env IPPCRYPTOROOT=/dummy/ippcp \
-// RUN: %clangxx -target x86_64-unknown-linux-gnu -ipp=crypto -### %s 2>&1 \
+// RUN: %clangxx -target x86_64-unknown-linux-gnu -qipp=crypto -### %s 2>&1 \
 // RUN: | FileCheck -check-prefixes=CHECK-IPP-CRYPTO,CHECK-IPP-LIN-CRYPTO %s
 // RUN: env IPPCRYPTOROOT=/dummy/ippcp \
-// RUN: %clangxx -target x86_64-unknown-linux-gnu -ipp=nonpic_crypto -### %s 2>&1 \
+// RUN: %clangxx -target x86_64-unknown-linux-gnu -qipp=nonpic_crypto -### %s 2>&1 \
 // RUN: | FileCheck -check-prefixes=CHECK-IPP-CRYPTO,CHECK-IPP-LIN-NONPIC-CRYPTO %s
 // RUN: env IPPROOT=/dummy/ipp \
 // RUN: %clang_cl -Qipp -### %s 2>&1 \
@@ -50,31 +53,31 @@
 // RUN: llvm-ar cr %t_dir/mkl/lib/intel64/libmkl_sycl.a %t_mkl.o
 // RUN: llvm-ar cr %t_dir/mkl/lib/intel64/mkl_sycl.lib %t_mkl.obj
 // RUN: env MKLROOT=%t_dir/mkl \
-// RUN: %clangxx -target x86_64-unknown-linux-gnu -mmkl -### %s 2>&1 \
+// RUN: %clangxx -target x86_64-unknown-linux-gnu -qmkl -### %s 2>&1 \
 // RUN: | FileCheck -check-prefixes=CHECK-MKL,CHECK-MKL-LIN,CHECK-MKL-LIN-PARALLEL-OMP %s
 // RUN: env MKLROOT=%t_dir/mkl \
-// RUN: %clangxx -target x86_64-unknown-linux-gnu -mmkl -tbb -### %s 2>&1 \
+// RUN: %clangxx -target x86_64-unknown-linux-gnu -qmkl -qtbb -### %s 2>&1 \
 // RUN: | FileCheck -check-prefixes=CHECK-MKL,CHECK-MKL-LIN,CHECK-MKL-LIN-TBB %s
 // RUN: env MKLROOT=%t_dir/mkl \
-// RUN: %clangxx -target x86_64-unknown-linux-gnu -mmkl -fsycl -static -### %s 2>&1 \
+// RUN: %clangxx -target x86_64-unknown-linux-gnu -qmkl -fsycl -static -### %s 2>&1 \
 // RUN: | FileCheck -check-prefixes=CHECK-MKL,CHECK-MKL-LIN,CHECK-MKL-LIN-PARALLEL-OMP,CHECK-MKL-SYCL,CHECK-MKL-LIN-SYCL %s
 // RUN: env MKLROOT=%t_dir/mkl \
-// RUN: %clangxx -target x86_64-unknown-linux-gnu -mmkl -fsycl -### %s 2>&1 \
+// RUN: %clangxx -target x86_64-unknown-linux-gnu -qmkl -fsycl -### %s 2>&1 \
 // RUN: | FileCheck -check-prefixes=CHECK-MKL,CHECK-MKL-LIN,CHECK-MKL-SYCL,CHECK-MKL-LIN-SYCL-DEFAULT %s
 // RUN: env MKLROOT=%t_dir/mkl TBBROOT=/dummy/tbb \
-// RUN: %clangxx -target x86_64-unknown-linux-gnu -mmkl -fsycl --dpcpp -static -### %s 2>&1 \
+// RUN: %clangxx -target x86_64-unknown-linux-gnu -qmkl -fsycl --dpcpp -static -### %s 2>&1 \
 // RUN: | FileCheck -check-prefixes=CHECK-MKL,CHECK-MKL-LIN,CHECK-MKL-LIN-TBB,CHECK-MKL-SYCL,CHECK-MKL-LIN-SYCL,CHECK-MKL-LIN-DPCPP %s
 // RUN: env MKLROOT=%t_dir/mkl \
-// RUN: %clangxx -target x86_64-unknown-linux-gnu -mmkl=parallel -### %s 2>&1 \
+// RUN: %clangxx -target x86_64-unknown-linux-gnu -qmkl=parallel -### %s 2>&1 \
 // RUN: | FileCheck -check-prefixes=CHECK-MKL,CHECK-MKL-LIN,CHECK-MKL-LIN-PARALLEL-OMP %s
 // RUN: env MKLROOT=%t_dir/mkl \
-// RUN: %clangxx -target x86_64-unknown-linux-gnu -fopenmp -mmkl=parallel -### %s 2>&1 \
+// RUN: %clangxx -target x86_64-unknown-linux-gnu -fopenmp -qmkl=parallel -### %s 2>&1 \
 // RUN: | FileCheck -check-prefixes=CHECK-MKL,CHECK-MKL-LIN,CHECK-MKL-LIN-PARALLEL-OMP %s
 // RUN: env MKLROOT=%t_dir/mkl \
-// RUN: %clangxx -target x86_64-unknown-linux-gnu -mmkl=sequential -### %s 2>&1 \
+// RUN: %clangxx -target x86_64-unknown-linux-gnu -qmkl=sequential -### %s 2>&1 \
 // RUN: | FileCheck -check-prefixes=CHECK-MKL,CHECK-MKL-LIN,CHECK-MKL-LIN-SEQUENTIAL %s
 // RUN: env MKLROOT=%t_dir/mkl \
-// RUN: %clangxx -target x86_64-unknown-linux-gnu -mmkl=cluster -### %s 2>&1 \
+// RUN: %clangxx -target x86_64-unknown-linux-gnu -qmkl=cluster -### %s 2>&1 \
 // RUN: | FileCheck -check-prefixes=CHECK-MKL,CHECK-MKL-LIN,CHECK-MKL-LIN-CLUSTER %s
 // RUN: env MKLROOT=%t_dir/mkl \
 // RUN: %clang_cl -Qmkl -### %s 2>&1 \
@@ -134,6 +137,9 @@
 // RUN: %clangxx -target x86_64-unknown-linux-gnu -tbb -### %s 2>&1 \
 // RUN: | FileCheck -check-prefixes=CHECK-TBB,CHECK-TBB-LIN %s
 // RUN: env TBBROOT=/dummy/tbb \
+// RUN: %clangxx -target x86_64-unknown-linux-gnu -qtbb -### %s 2>&1 \
+// RUN: | FileCheck -check-prefixes=CHECK-TBB,CHECK-TBB-LIN %s
+// RUN: env TBBROOT=/dummy/tbb \
 // RUN: %clang_cl -Qtbb -### %s 2>&1 \
 // RUN: | FileCheck -check-prefixes=CHECK-TBB,CHECK-TBB-WIN %s
 // CHECK-TBB: clang{{.*}} "-internal-isystem" "{{.*}}tbb{{/|\\\\}}include"
@@ -149,13 +155,16 @@
 // RUN: %clangxx -target x86_64-unknown-linux-gnu -daal -### %s 2>&1 \
 // RUN: | FileCheck -check-prefixes=CHECK-DAAL,CHECK-DAAL-LIN,CHECK-DAAL-LIN-PARALLEL %s
 // RUN: env DAALROOT=%t_dir/daal TBBROOT=/dummy/tbb \
-// RUN: %clangxx -target x86_64-unknown-linux-gnu -daal -fsycl -### %s 2>&1 \
-// RUN: | FileCheck -check-prefixes=CHECK-DAAL,CHECK-DAAL-LIN,CHECK-DAAL-LIN-PARALLEL,CHECK-DAAL-SYCL,CHECK-DAAL-LIN-SYCL %s
-// RUN: env DAALROOT=%t_dir/daal TBBROOT=/dummy/tbb \
-// RUN: %clangxx -target x86_64-unknown-linux-gnu -daal=parallel -### %s 2>&1 \
+// RUN: %clangxx -target x86_64-unknown-linux-gnu -qdaal -### %s 2>&1 \
 // RUN: | FileCheck -check-prefixes=CHECK-DAAL,CHECK-DAAL-LIN,CHECK-DAAL-LIN-PARALLEL %s
 // RUN: env DAALROOT=%t_dir/daal TBBROOT=/dummy/tbb \
-// RUN: %clangxx -target x86_64-unknown-linux-gnu -daal=sequential -### %s 2>&1 \
+// RUN: %clangxx -target x86_64-unknown-linux-gnu -qdaal -fsycl -### %s 2>&1 \
+// RUN: | FileCheck -check-prefixes=CHECK-DAAL,CHECK-DAAL-LIN,CHECK-DAAL-LIN-PARALLEL,CHECK-DAAL-SYCL,CHECK-DAAL-LIN-SYCL %s
+// RUN: env DAALROOT=%t_dir/daal TBBROOT=/dummy/tbb \
+// RUN: %clangxx -target x86_64-unknown-linux-gnu -qdaal=parallel -### %s 2>&1 \
+// RUN: | FileCheck -check-prefixes=CHECK-DAAL,CHECK-DAAL-LIN,CHECK-DAAL-LIN-PARALLEL %s
+// RUN: env DAALROOT=%t_dir/daal TBBROOT=/dummy/tbb \
+// RUN: %clangxx -target x86_64-unknown-linux-gnu -qdaal=sequential -### %s 2>&1 \
 // RUN: | FileCheck -check-prefixes=CHECK-DAAL,CHECK-DAAL-LIN,CHECK-DAAL-LIN-SEQUENTIAL %s
 // RUN: env DAALROOT=%t_dir/daal TBBROOT=/dummy/tbb \
 // RUN: %clang_cl -Qdaal -### %s 2>&1 \
@@ -186,9 +195,9 @@
 // CHECK-DAAL-WIN-SYCL: link{{.*}} "-defaultlib:{{.*}}daal{{/|\\\\}}lib{{/|\\\\}}intel64{{/|\\\\}}onedal_sycl.lib"
 // CHECK-DAAL-WIN: "-libpath:{{.*}}tbb{{/|\\\\}}lib{{/|\\\\}}intel64{{/|\\\\}}vc14" "-libpath:{{.*}}daal{{/|\\\\}}lib{{/|\\\\}}intel64"
 
-// Check phases for -mmkl and objects
+// Check phases for -qmkl and objects
 // RUN: touch %t.o
-// RUN: %clang -target x86_64-unknown-linux-gnu -fsycl -fno-sycl-device-lib=all -mmkl %t.o -### -ccc-print-phases 2>&1 \
+// RUN: %clang -target x86_64-unknown-linux-gnu -fsycl -fno-sycl-device-lib=all -qmkl %t.o -### -ccc-print-phases 2>&1 \
 // RUN:  | FileCheck -check-prefix=MKL-SHARED-OBJ-PHASES %s
 // MKL-SHARED-OBJ-PHASES: 0: input, "{{.*}}", object, (host-sycl)
 // MKL-SHARED-OBJ-PHASES: 1: clang-offload-unbundler, {0}, object, (host-sycl)

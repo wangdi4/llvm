@@ -2968,17 +2968,17 @@ void Driver::BuildInputs(const ToolChain &TC, DerivedArgList &Args,
     // Handle Performance library inputs that imply specific libraries that
     // need to be unbundled (i.e. are fat static libraries).  MKL and DAAL
     // are part of this.
-    if ((A->getOption().matches(options::OPT_mkl_EQ) ||
-         A->getOption().matches(options::OPT_daal_EQ)) &&
+    if ((A->getOption().matches(options::OPT_qmkl_EQ) ||
+         A->getOption().matches(options::OPT_qdaal_EQ)) &&
         Args.hasArg(options::OPT_fsycl)) {
       SmallString<128> LibName;
       bool IsMSVC = TC.getTriple().isWindowsMSVCEnvironment();
-      if (A->getOption().matches(options::OPT_mkl_EQ)) {
+      if (A->getOption().matches(options::OPT_qmkl_EQ)) {
         LibName = TC.GetMKLLibPath();
         llvm::sys::path::append(LibName, IsMSVC ? "mkl_sycl.lib"
                                                 : "libmkl_sycl.a");
       }
-      if (A->getOption().matches(options::OPT_daal_EQ)) {
+      if (A->getOption().matches(options::OPT_qdaal_EQ)) {
         LibName = TC.GetDAALLibPath();
         llvm::sys::path::append(LibName, IsMSVC ? "onedal_sycl.lib"
                                                 : "libonedal_sycl.a");
@@ -2986,7 +2986,7 @@ void Driver::BuildInputs(const ToolChain &TC, DerivedArgList &Args,
       // Only add the static lib if used with -static or is Windows.
       // DAAL is also only available in static form.
       if ((Args.hasArg(options::OPT_static) ||
-           A->getOption().matches(options::OPT_daal_EQ) || IsMSVC) &&
+           A->getOption().matches(options::OPT_qdaal_EQ) || IsMSVC) &&
           !LibName.empty()) {
         // Add the library as an offload static library and also add as a lib
         // direct on the command line.
@@ -6646,11 +6646,11 @@ InputInfo Driver::BuildJobsForActionNoCache(
           C.getInputArgs().hasArg(options::OPT_fsycl_link_EQ));
 #if INTEL_CUSTOMIZATION
       // We create list files for unbundling when using -foffload-static-lib.
-      // This is also true for -mmkl and -daal, as they imply additional
+      // This is also true for -qmkl and -daal, as they imply additional
       // fat static libraries.
-      if (((C.getInputArgs().hasArg(options::OPT_mkl_EQ) &&
+      if (((C.getInputArgs().hasArg(options::OPT_qmkl_EQ) &&
             C.getInputArgs().hasArg(options::OPT_static)) ||
-           C.getInputArgs().hasArg(options::OPT_daal_EQ) ||
+           C.getInputArgs().hasArg(options::OPT_qdaal_EQ) ||
            C.getDriver().getOffloadStaticLibSeen() ||
            (JA->getType() == types::TY_Archive && IsMSVCEnv)) &&
 #endif // INTEL_CUSTOMIZATION
