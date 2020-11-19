@@ -46,11 +46,11 @@ namespace clang {
     TSS_unsigned
   };
 
-  enum TypeSpecifiersPipe {
-    TSP_unspecified,
-    TSP_pipe,
+  enum class TypeSpecifiersPipe {
+    Unspecified,
+    Pipe,
 #if INTEL_CUSTOMIZATION
-    TSP_channel,
+    Channel,
 #endif // INTEL_CUSTOMIZATION
   };
 
