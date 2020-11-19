@@ -80,7 +80,7 @@ arrayctor.cont:                                   ; preds = %entry, %arrayctor.l
 ; CHECK-NEXT:  br label %{{.*}}
 ; CHECK-LABEL: priv.constr.body:
 ; CHECK-NEXT:  %priv.cpy.dest.ptr = phi %class.A* [ %[[CONSTR_BEGIN]], %{{.*}} ], [ %priv.cpy.dest.inc, %{{.*}} ]
-; CHECK:  call %class.A addrspace(4)* @_ZTS1A.omp.def_constr(%class.A addrspace(4)* %{{.*}})
+; CHECK:  call spir_func %class.A addrspace(4)* @_ZTS1A.omp.def_constr(%class.A addrspace(4)* %{{.*}})
 ; CHECK:  %priv.cpy.dest.inc = getelementptr %class.A, %class.A* %priv.cpy.dest.ptr, i32 1
 ; CHECK-NEXT:  %priv.cpy.done = icmp eq %class.A* %priv.cpy.dest.inc, %[[END]]
 ; CHECK-NEXT:  br i1 %priv.cpy.done, label %priv.constr.done, label %priv.constr.body

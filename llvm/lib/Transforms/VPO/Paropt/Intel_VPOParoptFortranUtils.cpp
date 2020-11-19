@@ -85,7 +85,7 @@ void VPOParoptUtils::genF90DVInitCode(
   MaybeAlign OrigAlignment =
       SrcV->getPointerAlignment(InsertPt->getModule()->getDataLayout());
   CallInst *DataSize = genF90DVInitCall(SrcV, DstV, InsertPt, IsTargetSPIRV);
-  setFuncCallingConv(DataSize, IsTargetSPIRV);
+  setFuncCallingConv(DataSize, DataSize->getModule());
 
   Instruction *AllocBuilderInsertPt = &*Builder.GetInsertPoint();
 
@@ -196,8 +196,8 @@ void VPOParoptUtils::genF90DVFirstOrLastprivateCopyCallImpl(
       Builder.CreatePointerBitCastOrAddrSpaceCast(OrigV, Int8PtrTy);
   CallInst *F90DVCopy = genCall(InsertBefore->getModule(), FnName,
                                 Builder.getVoidTy(), {NewVCast, OrigVCast});
-  setFuncCallingConv(F90DVCopy, IsTargetSPIRV);
   F90DVCopy->insertBefore(InsertBefore);
+  setFuncCallingConv(F90DVCopy, F90DVCopy->getModule());
 }
 
 void VPOParoptUtils::genF90DVFirstprivateCopyCall(Value *NewV, Value *OrigV,

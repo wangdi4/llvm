@@ -175,7 +175,7 @@ EXTERN void __kmpc_end_single(ident_t *loc, int gtid) {
   // nothing to be done
 }
 
-EXTERN uint __kmpc_global_thread_num(void *loc) {
+EXTERN uint __kmpc_global_thread_num(ident_t *loc) {
   return 0;
 }
 
