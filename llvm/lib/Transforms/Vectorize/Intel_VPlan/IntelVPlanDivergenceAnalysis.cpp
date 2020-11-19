@@ -189,6 +189,9 @@ bool VPlanDivergenceAnalysis::isUnitStridePtr(const VPValue *Ptr) const {
 
 bool VPlanDivergenceAnalysis::isUnitStridePtr(const VPValue *Ptr,
                                               bool &IsNegOneStride) const {
+  // Set IsNegOneStride to false. This will be set to true later if necessary.
+  IsNegOneStride = false;
+
   // Current DA doesn't have any way to propagate linearity into the vector
   // types, e.g. by forming
   //
@@ -211,19 +214,8 @@ bool VPlanDivergenceAnalysis::isUnitStridePtr(const VPValue *Ptr,
 
   // Compute the pointee-size in bytes.
   Type *PointeeTy = Ptr->getType()->getPointerElementType();
-  unsigned PtrNumBytes = getTypeSizeInBytes(PointeeTy);
 
-  // We can't do unit-stride access optimization if pointee type's allocated
-  // size does not match its store size since it implies implicit padding. Check
-  // https://godbolt.org/z/7e1r1j. For example -
-  // Type         SizeInBits  StoreSizeInBits  AllocSizeInBits
-  // ----         ----------  ---------------  ---------------
-  // <3 x i32>        96           96               128
-  //
-  // TODO: This bailout is too conservative since vectorizer codegen can
-  // generate optimal unit-stride accesses for such types by masking out lanes
-  // that access padding bytes. Check JIRA - CMPLRLLVM-22929.
-  if (Plan->getDataLayout()->getTypeStoreSize(PointeeTy) != PtrNumBytes)
+  if (hasIrregularTypeForUnitStride(PointeeTy, Plan->getDataLayout()))
     return false;
 
   auto VectorShape = getVectorShape(Ptr);
@@ -232,13 +224,13 @@ bool VPlanDivergenceAnalysis::isUnitStridePtr(const VPValue *Ptr,
   // IsNegOneStride and return true for unit stride case.
   if (VectorShape.isStrided() && VectorShape.hasKnownStride()) {
     auto StrideVal = VectorShape.getStrideVal();
+    unsigned PtrNumBytes = getTypeSizeInBytes(PointeeTy);
     if (std::abs(StrideVal) == PtrNumBytes) {
       IsNegOneStride = StrideVal < 0;
       return true;
     }
   }
 
-  IsNegOneStride = false;
   return false;
 }
 
