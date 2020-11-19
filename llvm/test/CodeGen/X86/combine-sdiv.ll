@@ -4,8 +4,8 @@
 ; RUN: llc < %s -mtriple=x86_64-unknown-unknown -mattr=+sse4.1 -disable-iml-trans | FileCheck %s --check-prefixes=CHECK,SSE,SSE41
 ; RUN: llc < %s -mtriple=x86_64-unknown-unknown -mattr=+avx -disable-iml-trans | FileCheck %s --check-prefixes=CHECK,AVX,AVX1
 ; RUN: llc < %s -mtriple=x86_64-unknown-unknown -mattr=+avx2 -disable-iml-trans | FileCheck %s --check-prefixes=CHECK,AVX,AVX2ORLATER,AVX2
-; RUN: llc < %s -mtriple=x86_64-unknown-unknown -mattr=+avx512f -disable-iml-trans | FileCheck %s --check-prefixes=CHECK,AVX,AVX2ORLATER,AVX512,AVX512F
-; RUN: llc < %s -mtriple=x86_64-unknown-unknown -mattr=+avx512f,+avx512bw,+avx512vl -disable-iml-trans | FileCheck %s --check-prefixes=CHECK,AVX,AVX2ORLATER,AVX512,AVX512BW
+; RUN: llc < %s -mtriple=x86_64-unknown-unknown -mattr=+avx512f -disable-iml-trans | FileCheck %s --check-prefixes=CHECK,AVX,AVX2ORLATER,AVX512F
+; RUN: llc < %s -mtriple=x86_64-unknown-unknown -mattr=+avx512f,+avx512bw,+avx512vl -disable-iml-trans | FileCheck %s --check-prefixes=CHECK,AVX,AVX2ORLATER,AVX512BW
 ; RUN: llc < %s -mtriple=x86_64-unknown-unknown -mattr=+avx,+xop -disable-iml-trans | FileCheck %s --check-prefixes=CHECK,AVX,XOP
 ; end INTEL_CUSTOMIZATION
 
