@@ -29,10 +29,10 @@
 #include "llvm/Pass.h"
 
 #include "llvm/IR/Function.h"
-#include "llvm/IR/PassManager.h"
 #include "llvm/IR/LegacyPassManager.h"
-#include "llvm/Support/raw_ostream.h"
+#include "llvm/IR/PassManager.h"
 #include "llvm/InitializePasses.h"
+#include "llvm/Support/raw_ostream.h"
 #include "llvm/Transforms/VPO/Paropt/VPOParoptLowerSimd.h"
 
 #include <cctype>
@@ -163,9 +163,9 @@ class SimdIntrinDescTable {
 private:
   IntrinTable Table;
 
-#define DEF_ARG_RULE(Nm, Kind)                                 \
-  static constexpr SimdIntrinDesc::ArgRule Nm(int16_t N) {     \
-    return SimdIntrinDesc::ArgRule{SimdIntrinDesc::Kind, N};   \
+#define DEF_ARG_RULE(Nm, Kind)                                                 \
+  static constexpr SimdIntrinDesc::ArgRule Nm(int16_t N) {                     \
+    return SimdIntrinDesc::ArgRule{SimdIntrinDesc::Kind, N};                   \
   }
   DEF_ARG_RULE(l, SRC_CALL_ALL)
   DEF_ARG_RULE(t, SRC_TMPL_ARG)
@@ -401,7 +401,7 @@ public:
     Ptrs.resize(0);
   }
 
-  template <typename T, typename... Args> T *makeNode(Args &&... args) {
+  template <typename T, typename... Args> T *makeNode(Args &&...args) {
     void *Ptr = std::calloc(1, sizeof(T));
     Ptrs.push_back(Ptr);
     return new (Ptr) T(std::forward<Args>(args)...);
@@ -478,8 +478,8 @@ static APInt parseTemplateArg(id::FunctionEncoding *FE, unsigned int N,
 // and the types of its parameters (some intrinsic names have additional
 // suffixes depending on the parameter types).
 static std::string getSimdIntrinSuffix(id::FunctionEncoding *FE,
-                                        FunctionType *FT,
-                                        const SimdIntrinDesc::NameRule &Rule) {
+                                       FunctionType *FT,
+                                       const SimdIntrinDesc::NameRule &Rule) {
   std::string Suff;
   switch (Rule.Kind) {
   case SimdIntrinDesc::GenXSuffixRuleKind::BIN_OP: {
@@ -723,9 +723,8 @@ static Instruction *addCastInstIfNeeded(Instruction *OldI, Instruction *NewI) {
   Type *NITy = NewI->getType();
   Type *OITy = OldI->getType();
   if (OITy != NITy) {
-    assert(
-        CastInst::isCastable(OITy, NITy) &&
-        "Cannot add cast instruction while translating Simd intrinsic call");
+    assert(CastInst::isCastable(OITy, NITy) &&
+           "Cannot add cast instruction while translating Simd intrinsic call");
     auto CastOpcode = CastInst::getCastOpcode(NewI, false, OITy, false);
     NewI = CastInst::Create(CastOpcode, NewI, OITy,
                             NewI->getName() + ".cast.ty", OldI);
@@ -846,8 +845,8 @@ translateSpirvIntrinsic(CallInst *CI, StringRef SpirvIntrName,
 }
 
 static void createSimdIntrinsicArgs(const SimdIntrinDesc &Desc,
-                                     SmallVector<Value *, 16> &GenXArgs,
-                                     CallInst &CI, id::FunctionEncoding *FE) {
+                                    SmallVector<Value *, 16> &GenXArgs,
+                                    CallInst &CI, id::FunctionEncoding *FE) {
   uint32_t LastCppArgNo = 0; // to implement SRC_CALL_ALL
 
   for (unsigned int I = 0; I < Desc.ArgRules.size(); ++I) {
@@ -1064,7 +1063,7 @@ static std::string getMDString(MDNode *N, unsigned I) {
 }
 
 #define SYCL_GLOBAL_AS 1
-static Value* translateLLVMInst(Instruction *Inst) {
+static Value *translateLLVMInst(Instruction *Inst) {
   LLVMContext &CTX = Inst->getContext();
   IRBuilder<> Builder(Inst);
   if (auto CastOp = dyn_cast<llvm::CastInst>(Inst)) {
@@ -1099,63 +1098,57 @@ static Value* translateLLVMInst(Instruction *Inst) {
       Value *RepI = nullptr;
       if (DTy->isVectorTy()) {
         std::string IntrName =
-          std::string(GenXIntrinsic::getGenXIntrinsicPrefix()) +
-                      "svm.block.ld.unaligned";
+            std::string(GenXIntrinsic::getGenXIntrinsicPrefix()) +
+            "svm.block.ld.unaligned";
         auto ID = GenXIntrinsic::lookupGenXIntrinsicID(IntrName);
         Function *NewFDecl = GenXIntrinsic::getGenXDeclaration(
-          Inst->getModule(), ID, {DTy, PtrV->getType()});
-        RepI = IntrinsicInst::Create(NewFDecl,
-          {PtrV}, "svm.block.ld.unaligned", LoadOp);
-      }
-      else {
+            Inst->getModule(), ID, {DTy, PtrV->getType()});
+        RepI = IntrinsicInst::Create(NewFDecl, {PtrV}, "svm.block.ld.unaligned",
+                                     LoadOp);
+      } else {
         std::string IntrName =
-          std::string(GenXIntrinsic::getGenXIntrinsicPrefix()) + "svm.gather";
+            std::string(GenXIntrinsic::getGenXIntrinsicPrefix()) + "svm.gather";
         auto ID = GenXIntrinsic::lookupGenXIntrinsicID(IntrName);
-        auto EltBytes = DTy->getPrimitiveSizeInBits()/8;
-        int NumBlks = 0;  // (0/1/2/3 for num blocks 1/2/4/8)
+        auto EltBytes = DTy->getPrimitiveSizeInBits() / 8;
+        int NumBlks = 0; // (0/1/2/3 for num blocks 1/2/4/8)
         int RetLen = 1;
         auto EltTy = DTy;
         if (EltBytes == 2) {
           NumBlks = 1;
           EltTy = Type::getInt8Ty(CTX);
           RetLen = 4; // return 4xi8
-        }
-        else if (EltBytes == 1) {
+        } else if (EltBytes == 1) {
           EltTy = Type::getInt8Ty(CTX);
           RetLen = 4; // return 4xi8
-        }
-        else
+        } else
           assert(EltBytes == 4 || EltBytes == 8);
         // create vector type
         auto VDTy = llvm::FixedVectorType::get(EltTy, RetLen);
         auto VPtrTy = llvm::FixedVectorType::get(PtrV->getType(), 1);
         // create constant for predicate
-        auto PredV1Ty = llvm::FixedVectorType::get(
-          IntegerType::getInt1Ty(CTX), 1);
+        auto PredV1Ty =
+            llvm::FixedVectorType::get(IntegerType::getInt1Ty(CTX), 1);
         auto OnePred1 = Constant::getAllOnesValue(PredV1Ty);
         // crease constant for num-blocks
         auto CIntTy = Type::getInt32Ty(CTX);
         auto NumBlksC = ConstantInt::get(CIntTy, NumBlks);
         auto ZeroC = ConstantInt::get(CIntTy, 0);
         // create the intrinsic call
-        Function *NewFDecl =
-          GenXIntrinsic::getGenXDeclaration(Inst->getModule(), ID,
-          {VDTy, PredV1Ty, VPtrTy});
-        auto VecPtr = CastInst::CreateBitOrPointerCast(PtrV,
-          VPtrTy, PtrV->getName(), LoadOp);
-        Instruction *IntrI =
-          IntrinsicInst::Create(NewFDecl,
-          {OnePred1, NumBlksC, VecPtr, UndefValue::get(VDTy)},
-          "svm.gather", LoadOp);
+        Function *NewFDecl = GenXIntrinsic::getGenXDeclaration(
+            Inst->getModule(), ID, {VDTy, PredV1Ty, VPtrTy});
+        auto VecPtr = CastInst::CreateBitOrPointerCast(PtrV, VPtrTy,
+                                                       PtrV->getName(), LoadOp);
+        Instruction *IntrI = IntrinsicInst::Create(
+            NewFDecl, {OnePred1, NumBlksC, VecPtr, UndefValue::get(VDTy)},
+            "svm.gather", LoadOp);
         if (EltBytes == 2) {
           // cast 4xi8 to 2xi16
-          auto I16x2Ty = llvm::FixedVectorType::get(
-          IntegerType::getInt16Ty(CTX), 2);
-          IntrI = CastInst::CreateBitOrPointerCast(IntrI,
-            I16x2Ty, IntrI->getName()+".cast", LoadOp);
+          auto I16x2Ty =
+              llvm::FixedVectorType::get(IntegerType::getInt16Ty(CTX), 2);
+          IntrI = CastInst::CreateBitOrPointerCast(
+              IntrI, I16x2Ty, IntrI->getName() + ".cast", LoadOp);
         }
-        RepI = Builder.CreateExtractElement(
-          IntrI, ZeroC, LoadOp->getName());
+        RepI = Builder.CreateExtractElement(IntrI, ZeroC, LoadOp->getName());
       }
       LoadOp->replaceAllUsesWith(RepI);
       return RepI;
@@ -1175,64 +1168,60 @@ static Value* translateLLVMInst(Instruction *Inst) {
       Value *RepI = nullptr;
       if (DTy->isVectorTy()) {
         std::string IntrName =
-          std::string(GenXIntrinsic::getGenXIntrinsicPrefix()) +
-                      "svm.block.st";
+            std::string(GenXIntrinsic::getGenXIntrinsicPrefix()) +
+            "svm.block.st";
         auto ID = GenXIntrinsic::lookupGenXIntrinsicID(IntrName);
         Function *NewFDecl = GenXIntrinsic::getGenXDeclaration(
-          Inst->getModule(), ID, {PtrV->getType(), DTy});
-        RepI = IntrinsicInst::Create(NewFDecl,
-          {PtrV, DTV}, "svm.block.st", StoreOp);
-      }
-      else {
+            Inst->getModule(), ID, {PtrV->getType(), DTy});
+        RepI = IntrinsicInst::Create(NewFDecl, {PtrV, DTV}, "svm.block.st",
+                                     StoreOp);
+      } else {
         std::string IntrName =
-          std::string(GenXIntrinsic::getGenXIntrinsicPrefix()) + "svm.scatter";
+            std::string(GenXIntrinsic::getGenXIntrinsicPrefix()) +
+            "svm.scatter";
         auto ID = GenXIntrinsic::lookupGenXIntrinsicID(IntrName);
-        auto EltBytes = DTy->getPrimitiveSizeInBits()/8;
-        int NumBlks = 0;  // (0/1/2/3 for num blocks 1/2/4/8)
+        auto EltBytes = DTy->getPrimitiveSizeInBits() / 8;
+        int NumBlks = 0; // (0/1/2/3 for num blocks 1/2/4/8)
         int DataLen = 1;
         auto EltTy = DTy;
         if (EltBytes == 2) {
           NumBlks = 1;
           EltTy = Type::getInt8Ty(CTX);
           DataLen = 4; // return 4xi8
-        }
-        else if (EltBytes == 1) {
+        } else if (EltBytes == 1) {
           EltTy = Type::getInt8Ty(CTX);
           DataLen = 4; // return 4xi8
-        }
-        else
+        } else
           assert(EltBytes == 4 || EltBytes == 8);
         // create vector type
         auto VDTy = llvm::FixedVectorType::get(EltTy, DataLen);
         auto VPtrTy = llvm::FixedVectorType::get(PtrV->getType(), 1);
         // create constant for predicate
-        auto PredV1Ty = llvm::FixedVectorType::get(
-          IntegerType::getInt1Ty(CTX), 1);
+        auto PredV1Ty =
+            llvm::FixedVectorType::get(IntegerType::getInt1Ty(CTX), 1);
         auto OnePred1 = Constant::getAllOnesValue(PredV1Ty);
         // crease constant for num-blocks
         auto CIntTy = Type::getInt32Ty(CTX);
         auto NumBlksC = ConstantInt::get(CIntTy, NumBlks);
         auto ZeroC = ConstantInt::get(CIntTy, 0);
         // create the intrinsic call
-        Function *NewFDecl =
-          GenXIntrinsic::getGenXDeclaration(Inst->getModule(), ID,
-          {PredV1Ty, VPtrTy, VDTy});
-        auto VecPtr = CastInst::CreateBitOrPointerCast(PtrV,
-          VPtrTy, PtrV->getName(), StoreOp);
-        Value* VecDTV = nullptr;
+        Function *NewFDecl = GenXIntrinsic::getGenXDeclaration(
+            Inst->getModule(), ID, {PredV1Ty, VPtrTy, VDTy});
+        auto VecPtr = CastInst::CreateBitOrPointerCast(
+            PtrV, VPtrTy, PtrV->getName(), StoreOp);
+        Value *VecDTV = nullptr;
         if (EltBytes == 2) {
           // cast 2xi16 to 4xi8
           auto I16x2Ty = llvm::FixedVectorType::get(DTy, 2);
-          VecDTV = Builder.CreateInsertElement(
-            UndefValue::get(I16x2Ty), DTV, ZeroC, DTV->getName());
-          VecDTV = CastInst::CreateBitOrPointerCast(VecDTV,
-            VDTy, DTV->getName()+".cast", StoreOp);
-        }
-        else
-          VecDTV = Builder.CreateInsertElement(
-            UndefValue::get(VDTy), DTV, ZeroC, DTV->getName());
-        RepI = Builder.CreateCall(NewFDecl,
-          {OnePred1, NumBlksC, VecPtr, VecDTV});
+          VecDTV = Builder.CreateInsertElement(UndefValue::get(I16x2Ty), DTV,
+                                               ZeroC, DTV->getName());
+          VecDTV = CastInst::CreateBitOrPointerCast(
+              VecDTV, VDTy, DTV->getName() + ".cast", StoreOp);
+        } else
+          VecDTV = Builder.CreateInsertElement(UndefValue::get(VDTy), DTV,
+                                               ZeroC, DTV->getName());
+        RepI =
+            Builder.CreateCall(NewFDecl, {OnePred1, NumBlksC, VecPtr, VecDTV});
       }
       return RepI;
     }
@@ -1240,17 +1229,181 @@ static Value* translateLLVMInst(Instruction *Inst) {
   }
   if (auto CallOp = dyn_cast<llvm::IntrinsicInst>(Inst)) {
     // handle memory intrinsics
-    // masked.load, masked.gather etc
-    // auto ID = CallOp->getIntrinsicID();
-    // switch (ID) {}
+    // masked.gather, masked.scatter etc
+    auto ID = CallOp->getIntrinsicID();
+    switch (ID) {
+    case Intrinsic::masked_load: {
+      auto PtrV = CallOp->getArgOperand(0);
+      assert(PtrV->getType()->isPointerTy());
+      auto AS = cast<PointerType>(PtrV->getType())->getAddressSpace();
+      if (AS == 0) { // thread private memory
+                     // convert to load then select
+        auto VecDT =
+            Builder.CreateLoad(CallOp->getType(), PtrV, CallOp->getName());
+        auto RepI =
+            Builder.CreateSelect(CallOp->getArgOperand(2), VecDT,
+                                 CallOp->getArgOperand(3), CallOp->getName());
+        return RepI;
+      } else if (AS == SYCL_GLOBAL_AS) {
+        auto DTy = CallOp->getType();
+        // convert to unaligned-block-load then select
+        std::string IntrName =
+            std::string(GenXIntrinsic::getGenXIntrinsicPrefix()) +
+            "svm.block.ld.unaligned";
+        auto ID = GenXIntrinsic::lookupGenXIntrinsicID(IntrName);
+        Function *NewFDecl = GenXIntrinsic::getGenXDeclaration(
+            Inst->getModule(), ID, {DTy, PtrV->getType()});
+        auto VecDT = IntrinsicInst::Create(NewFDecl, {PtrV},
+                                           "svm.block.ld.unaligned", CallOp);
+        auto RepI =
+            Builder.CreateSelect(CallOp->getArgOperand(2), VecDT,
+                                 CallOp->getArgOperand(3), CallOp->getName());
+        return RepI;
+      } else
+        return CallOp;
+    } break;
+    case Intrinsic::masked_store: {
+      auto PtrV = CallOp->getArgOperand(1);
+      assert(PtrV->getType()->isPointerTy());
+      auto AS = cast<PointerType>(PtrV->getType())->getAddressSpace();
+      auto DTV = CallOp->getArgOperand(0);
+      if (AS == 0) { // thread private memory
+                     // convert to load then select then store
+        auto VecDT = Builder.CreateLoad(DTV->getType(), PtrV);
+        auto SelI = Builder.CreateSelect(CallOp->getArgOperand(3), DTV, VecDT);
+        auto RepI = Builder.CreateStore(SelI, PtrV);
+        return RepI;
+      } else if (AS == SYCL_GLOBAL_AS) {
+        // convert to unaligned-block-load then select
+        // then block-store
+        std::string IntrName =
+            std::string(GenXIntrinsic::getGenXIntrinsicPrefix()) +
+            "svm.block.ld.unaligned";
+        auto ID = GenXIntrinsic::lookupGenXIntrinsicID(IntrName);
+        Function *NewFDecl = GenXIntrinsic::getGenXDeclaration(
+            Inst->getModule(), ID, {DTV->getType(), PtrV->getType()});
+        auto VecDT = IntrinsicInst::Create(NewFDecl, {PtrV},
+                                           "svm.block.ld.unaligned", CallOp);
+
+        auto SelI = Builder.CreateSelect(CallOp->getArgOperand(3), DTV, VecDT);
+
+        IntrName = std::string(GenXIntrinsic::getGenXIntrinsicPrefix()) +
+                   "svm.block.st";
+        ID = GenXIntrinsic::lookupGenXIntrinsicID(IntrName);
+        NewFDecl = GenXIntrinsic::getGenXDeclaration(
+            Inst->getModule(), ID, {PtrV->getType(), DTV->getType()});
+        auto RepI = IntrinsicInst::Create(NewFDecl, {PtrV, SelI},
+                                          "svm.block.st", CallOp);
+        return RepI;
+      } else
+        return CallOp;
+    } break;
+    case Intrinsic::masked_gather: {
+      auto PtrV = CallOp->getArgOperand(0);
+      auto MaskV = CallOp->getArgOperand(2);
+      auto OldV = CallOp->getArgOperand(3);
+      auto DTy = CallOp->getType();
+      assert(PtrV->getType()->isVectorTy() && DTy->isVectorTy());
+      auto PtrETy = cast<VectorType>(PtrV->getType())->getElementType();
+      assert(PtrETy->isPointerTy());
+      auto AS = cast<PointerType>(PtrETy)->getAddressSpace();
+      if (AS != SYCL_GLOBAL_AS)
+        return CallOp;
+      auto EltTy = cast<VectorType>(DTy)->getElementType();
+      auto NumElts = cast<VectorType>(DTy)->getNumElements();
+      auto EltBytes = EltTy->getPrimitiveSizeInBits() / 8;
+      int EltsPerLane = 1;
+      // for short or byte type, load-data is 4 bytes per lane
+      if (EltBytes < 4) {
+        EltTy = Type::getInt8Ty(CTX);
+        EltsPerLane = 4;
+      }
+      auto VDTy = llvm::FixedVectorType::get(EltTy, NumElts * EltsPerLane);
+      auto CIntTy = Type::getInt32Ty(CTX);
+      int nb = (EltBytes == 2) ? 1 : 0; // 0/1/2/3 means 1/2/4/8 blks
+      auto NumBlksC = ConstantInt::get(CIntTy, nb);
+      Value *RepI = nullptr;
+      // need write-region for old-data in byte or short type
+      if (EltBytes < 4) {
+        if (isa<UndefValue>(OldV))
+          OldV = UndefValue::get(VDTy);
+        else {
+          // zext to i32 type
+          auto VInt32 = llvm::FixedVectorType::get(CIntTy, NumElts);
+          auto ExtI = Builder.CreateZExt(OldV, VInt32, OldV->getName());
+          // bitcast to 4xi8
+          OldV = Builder.CreateBitCast(ExtI, VDTy, ExtI->getName());
+        }
+      }
+      std::string IntrName =
+          std::string(GenXIntrinsic::getGenXIntrinsicPrefix()) + "svm.gather";
+      auto ID = GenXIntrinsic::lookupGenXIntrinsicID(IntrName);
+      Function *NewFDecl = GenXIntrinsic::getGenXDeclaration(
+          Inst->getModule(), ID, {VDTy, MaskV->getType(), PtrV->getType()});
+      RepI = IntrinsicInst::Create(NewFDecl, {MaskV, NumBlksC, PtrV, OldV},
+                                   CallOp->getName(), CallOp);
+      if (EltBytes < 4) {
+        // bitcast to i32 type
+        auto VInt32 = llvm::FixedVectorType::get(CIntTy, NumElts);
+        auto CastI = Builder.CreateBitCast(RepI, VInt32, RepI->getName());
+        // trunc to the dst type
+        RepI = Builder.CreateTrunc(CastI, DTy, CastI->getName());
+      }
+      CallOp->replaceAllUsesWith(RepI);
+      return RepI;
+    } break;
+    case Intrinsic::masked_scatter: {
+      auto PtrV = CallOp->getArgOperand(0);
+      auto MaskV = CallOp->getArgOperand(2);
+      auto DataV = CallOp->getArgOperand(3);
+      auto DTy = DataV->getType();
+      assert(PtrV->getType()->isVectorTy() && DTy->isVectorTy());
+      auto PtrETy = cast<VectorType>(PtrV->getType())->getElementType();
+      assert(PtrETy->isPointerTy());
+      auto AS = cast<PointerType>(PtrETy)->getAddressSpace();
+      if (AS != SYCL_GLOBAL_AS)
+        return CallOp;
+      auto EltTy = cast<VectorType>(DTy)->getElementType();
+      auto NumElts = cast<VectorType>(DTy)->getNumElements();
+      auto EltBytes = EltTy->getPrimitiveSizeInBits() / 8;
+      int EltsPerLane = 1;
+      // for short or byte type, store-data is 4 bytes per lane
+      if (EltBytes < 4) {
+        EltTy = Type::getInt8Ty(CTX);
+        EltsPerLane = 4;
+      }
+      auto VDTy = llvm::FixedVectorType::get(EltTy, NumElts * EltsPerLane);
+      auto CIntTy = Type::getInt32Ty(CTX);
+      int nb = (EltBytes == 2) ? 1 : 0; // 0/1/2/3 means 1/2/4/8 blks
+      auto NumBlksC = ConstantInt::get(CIntTy, nb);
+      Value *RepI = nullptr;
+      // need write-region for old-data in byte or short type
+      if (EltBytes < 4) {
+        // zext to i32 type
+        auto VInt32 = llvm::FixedVectorType::get(CIntTy, NumElts);
+        auto ExtI = Builder.CreateZExt(DataV, VInt32, DataV->getName());
+        // bitcast to 4xi8
+        DataV = Builder.CreateBitCast(ExtI, VDTy, ExtI->getName());
+      }
+      std::string IntrName =
+          std::string(GenXIntrinsic::getGenXIntrinsicPrefix()) + "svm.scatter";
+      auto ID = GenXIntrinsic::lookupGenXIntrinsicID(IntrName);
+      Function *NewFDecl = GenXIntrinsic::getGenXDeclaration(
+          Inst->getModule(), ID, {MaskV->getType(), PtrV->getType(), VDTy});
+      RepI = IntrinsicInst::Create(NewFDecl, {MaskV, NumBlksC, PtrV, DataV},
+                                   CallOp->getName(), CallOp);
+      return RepI;
+    } break;
+    default:
+      break;
+    }
     return CallOp;
   }
   return Inst;
-
 }
 
 PreservedAnalyses VPOParoptLowerSimdPass::run(Function &F,
-                                          FunctionAnalysisManager &FAM) {
+                                              FunctionAnalysisManager &FAM) {
   // Only consider functions marked with !sycl_explicit_simd
   bool isOmpSpirKernel = false;
 
@@ -1260,18 +1413,17 @@ PreservedAnalyses VPOParoptLowerSimdPass::run(Function &F,
     IRBuilder<> Builder(F.getEntryBlock().getFirstNonPHI());
     int simdWidth = 1;
     Metadata *AttrMDArgs[] = {
-              ConstantAsMetadata::get(Builder.getInt32(simdWidth)) };
+        ConstantAsMetadata::get(Builder.getInt32(simdWidth))};
     F.setMetadata("intel_reqd_sub_group_size",
                   MDNode::get(F.getContext(), AttrMDArgs));
     isOmpSpirKernel = true;
-  }
-  else
+  } else
     return PreservedAnalyses::all();
 
   // add module-level meta-data for kernel functions
   if (isOmpSpirKernel) {
     auto M = F.getParent();
-    auto MetaKernels =  M->getOrInsertNamedMetadata(GENX_KERNEL_METADATA);
+    auto MetaKernels = M->getOrInsertNamedMetadata(GENX_KERNEL_METADATA);
 
     LLVMContext &Ctx = M->getContext();
     Type *I32Ty = Type::getInt32Ty(Ctx);
@@ -1315,21 +1467,23 @@ PreservedAnalyses VPOParoptLowerSimdPass::run(Function &F,
       }
 
       ArgKinds.push_back(ValueAsMetadata::get(ConstantInt::get(I32Ty, Kind)));
-      ArgInOutKinds.push_back(ValueAsMetadata::get(ConstantInt::get(I32Ty, IKind)));
+      ArgInOutKinds.push_back(
+          ValueAsMetadata::get(ConstantInt::get(I32Ty, IKind)));
       Idx++;
     }
     MDNode *Kinds = MDNode::get(Ctx, ArgKinds);
     MDNode *IOKinds = MDNode::get(Ctx, ArgInOutKinds);
     MDNode *ArgDescs = MDNode::get(Ctx, ArgTypeDescs);
 
-    Metadata *MDArgs[] = {
-      ValueAsMetadata::get(&F),
-      MDString::get(Ctx, F.getName().str()),
-      Kinds,
-      ValueAsMetadata::get(llvm::ConstantInt::getNullValue(I32Ty)), // SLM size in bytes
-      ValueAsMetadata::get(llvm::ConstantInt::getNullValue(I32Ty)), // arg offsets
-      IOKinds,
-      ArgDescs};
+    Metadata *MDArgs[] = {ValueAsMetadata::get(&F),
+                          MDString::get(Ctx, F.getName().str()),
+                          Kinds,
+                          ValueAsMetadata::get(llvm::ConstantInt::getNullValue(
+                              I32Ty)), // SLM size in bytes
+                          ValueAsMetadata::get(llvm::ConstantInt::getNullValue(
+                              I32Ty)), // arg offsets
+                          IOKinds,
+                          ArgDescs};
 
     // Add this kernel to the root.
     MetaKernels->addOperand(MDNode::get(Ctx, MDArgs));
@@ -1406,7 +1560,7 @@ PreservedAnalyses VPOParoptLowerSimdPass::run(Function &F,
 
   // TODO FIXME Simd figure out less conservative result
   return SimdIntrCalls.size() > 0 ? PreservedAnalyses::none()
-                                   : PreservedAnalyses::all();
+                                  : PreservedAnalyses::all();
 }
 
 #endif // INTEL_COLLAB
