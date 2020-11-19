@@ -134,10 +134,36 @@ void VPLiveInOutCreator::addInOutValues(InitTy *Init, FinalTy *Final,
     Final->replaceStartValue(LIV);
 }
 
+void VPLiveInOutCreator::addOriginalLiveInOut(
+    const VPLoopEntityList *VPLEntityList, Loop *OrigLoop, VPLoopEntity *E,
+    VPExternalUse *ExtUse, ScalarInOutList &ScalarInOuts) {
+  if (!OrigLoop)
+    // TODO: implement for HIR input
+    return;
+  PHINode *Phi = cast<PHINode>(
+      VPLEntityList->getRecurrentVPHINode(*E)->getUnderlyingValue());
+  assert(Phi->getParent() == OrigLoop->getHeader() &&
+         "Unexpected recurrent phi");
+  int StartValOpNum = Phi->getBasicBlockIndex(OrigLoop->getLoopPreheader());
+  const Value *LiveOut = nullptr;
+  if (ExtUse->hasUnderlying())
+    // If the external use exists and it has underlying value, we use it to
+    // set scalar live out. External use or its underlying value may not
+    // exist, e.g. for non-liveout inductions.
+    LiveOut = ExtUse->getUnderlyingOperand(0);
+  else {
+    // Otherwise use phi node incoming operand that comes from latch.
+    assert(Phi->getNumOperands() == 2 && "Unexpected recurrent Phi");
+    LiveOut = Phi->getOperand(StartValOpNum ^ 1);
+  }
+  ScalarInOuts.add(Phi, StartValOpNum, LiveOut, ExtUse->getMergeId());
+}
+
 void VPLiveInOutCreator::createInOutsInductions(
-    const VPLoopEntityList *VPLEntityList) {
+    const VPLoopEntityList *VPLEntityList, Loop *OrigLoop) {
 
   VPExternalValues &ExtVals = Plan.getExternals();
+  ScalarInOutList &ScalarInOuts = ExtVals.getOrCreateScalarLoopInOuts(OrigLoop);
 
   for (auto *Ind : VPLEntityList->vpinductions()) {
     if (Ind->getIsMemOnly())
@@ -156,13 +182,16 @@ void VPLiveInOutCreator::createInOutsInductions(
     }
     addInOutValues(IndInit, IndFinal, IndFinalExternalUse, NeedAddExtUse,
                    IndInit->getStartValueOperand());
+    addOriginalLiveInOut(VPLEntityList, OrigLoop, Ind, IndFinalExternalUse,
+                         ScalarInOuts);
   }
 }
 
 void VPLiveInOutCreator::createInOutsReductions(
-  const  VPLoopEntityList *VPLEntityList) {
+    const VPLoopEntityList *VPLEntityList, Loop *OrigLoop) {
 
   VPExternalValues &ExtVals = Plan.getExternals();
+  ScalarInOutList &ScalarInOuts = ExtVals.getOrCreateScalarLoopInOuts(OrigLoop);
 
   for (auto *Red : VPLEntityList->vpreductions()) {
     if (Red->getIsMemOnly())
@@ -208,10 +237,12 @@ void VPLiveInOutCreator::createInOutsReductions(
       ExtUseAdded = true;
     }
     addInOutValues(RedInit, RedFinal, RedFinalExternalUse, ExtUseAdded, StartV);
+    addOriginalLiveInOut(VPLEntityList, OrigLoop, Red, RedFinalExternalUse,
+                         ScalarInOuts);
   }
 }
 
-void VPLiveInOutCreator::createInOutValues() {
+void VPLiveInOutCreator::createInOutValues(Loop *OrigLoop) {
   const VPLoop *Loop = *Plan.getVPLoopInfo()->begin();
   if (!Loop->getUniqueExitBlock())
     return;
@@ -231,8 +262,8 @@ void VPLiveInOutCreator::createInOutValues() {
   Plan.allocateLiveInValues(ExtUseCount);
   Plan.allocateLiveOutValues(ExtUseCount);
 
-  createInOutsInductions(VPLEntityList);
-  createInOutsReductions(VPLEntityList);
+  createInOutsInductions(VPLEntityList, OrigLoop);
+  createInOutsReductions(VPLEntityList, OrigLoop);
 }
 
 void VPLiveInOutCreator::restoreLiveIns() {
@@ -266,5 +297,19 @@ void VPExternalValues::dumpExternalUses(raw_ostream &FOS,
     FOS << "\n";
   }
 }
+
+void VPExternalValues::dumpScalarInOuts(raw_ostream &FOS, const Loop *L) const {
+  const ScalarInOutList* ScalarLoopInOuts = getScalarLoopInOuts(L);
+  if (ScalarLoopInOuts)
+     ScalarLoopInOuts->dump(FOS);
+}
+
+void ScalarInOutDescr::dump(raw_ostream &OS) const {
+  OS.indent(2) << "Id: " << MergeId << "\n";
+  OS.indent(4) << "Phi: " << *Phi;
+  OS.indent(4) << "Start op: " << StartValOpNum << "\n";
+  OS.indent(4) << "Live-Out: " << *LiveOut;
+}
+
 #endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 

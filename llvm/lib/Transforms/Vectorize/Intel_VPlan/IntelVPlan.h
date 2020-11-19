@@ -2878,7 +2878,6 @@ public:
       return V.get();});
   }
 
-
   const VPLiveOutValue *getLiveOutValue(unsigned MergeId) const {
     return LiveOutValues[MergeId].get();
   }
@@ -2892,7 +2891,6 @@ public:
     return map_range(LiveOutValues, [](const std::unique_ptr<VPLiveOutValue> &V) {
       return V.get();});
   }
-
 
   /// Return an existing or newly created LoopEntities for the loop \p L.
   VPLoopEntityList *getOrCreateLoopEntities(const VPLoop *L) {
@@ -3119,6 +3117,7 @@ private:
                                   BasicBlock *LoopLatchBB);
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   void printLiveIns(raw_ostream &OS) const;
+  void printLiveOuts(raw_ostream &OS) const;
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 };
 

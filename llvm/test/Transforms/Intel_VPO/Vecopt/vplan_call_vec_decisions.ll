@@ -12,8 +12,6 @@ target triple = "x86_64-unknown-linux-gnu"
 ; Function Attrs: nounwind uwtable
 define dso_local void @foo() local_unnamed_addr #0 {
 ; CALLVECDEC-LABEL:  VPlan after CallVecDecisions analysis for VF=4:
-; CALLVECDEC-NEXT:  Live-in values:
-; CALLVECDEC-NEXT:  ID: 0 Value: i64 0
 ; CALLVECDEC-NEXT:    [[BB0:BB[0-9]+]]: # preds:
 ; CALLVECDEC-NEXT:     [DA: Uni] br [[BB1:BB[0-9]+]]
 ; CALLVECDEC-EMPTY:
@@ -73,8 +71,6 @@ define dso_local void @foo() local_unnamed_addr #0 {
 ; CALLVECDEC-NEXT:  Id: 0   no underlying for i64 [[VP_INDVARS_IV_IND_FINAL]]
 ;
 ; SVA-LABEL:  VPlan after ScalVec analysis:
-; SVA-NEXT:  Live-in values:
-; SVA-NEXT:  ID: 0 Value: i64 0
 ; SVA-NEXT:    [[BB0:BB[0-9]+]]: # preds:
 ; SVA-NEXT:     [DA: Uni, SVA: (F  )] br [[BB1:BB[0-9]+]] (SVAOpBits 0->F )
 ; SVA-EMPTY:
@@ -195,8 +191,6 @@ DIR.OMP.END.SIMD.2:                               ; preds = %DIR.OMP.END.SIMD.4
 ; Function Attrs: nounwind uwtable
 define dso_local void @foo_pumping(float* nocapture %A, float* nocapture %B, i32 %N) {
 ; CALLVECDEC-LABEL:  VPlan after CallVecDecisions analysis for VF=128:
-; CALLVECDEC-NEXT:  Live-in values:
-; CALLVECDEC-NEXT:  ID: 0 Value: i32 0
 ; CALLVECDEC-NEXT:    [[BB0:BB[0-9]+]]: # preds:
 ; CALLVECDEC-NEXT:     [DA: Uni] br [[BB1:BB[0-9]+]]
 ; CALLVECDEC-EMPTY:
@@ -232,8 +226,6 @@ define dso_local void @foo_pumping(float* nocapture %A, float* nocapture %B, i32
 ; CALLVECDEC-NEXT:  Id: 0   no underlying for i32 [[VP__OMP_IV_LOCAL_014_IND_FINAL]]
 ;
 ; SVA-LABEL:  VPlan after ScalVec analysis:
-; SVA-NEXT:  Live-in values:
-; SVA-NEXT:  ID: 0 Value: i32 0
 ; SVA-NEXT:    [[BB0:BB[0-9]+]]: # preds:
 ; SVA-NEXT:     [DA: Uni, SVA: (F  )] br [[BB1:BB[0-9]+]] (SVAOpBits 0->F )
 ; SVA-EMPTY:

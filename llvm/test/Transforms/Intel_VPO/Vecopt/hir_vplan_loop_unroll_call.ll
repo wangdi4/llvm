@@ -10,8 +10,6 @@ define dso_local void @_Z3fooPii(float* nocapture %a, i32 %n) local_unnamed_addr
 ; CHECK-NEXT:  External Defs Start:
 ; CHECK-DAG:     [[VP0:%.*]] = {%a}
 ; CHECK-NEXT:  External Defs End:
-; CHECK-NEXT:  Live-in values:
-; CHECK-NEXT:  ID: 0 Value: i64 0
 ; CHECK-NEXT:    [[BB0:BB[0-9]+]]: # preds:
 ; CHECK-NEXT:     [DA: Uni] br [[BB1:BB[0-9]+]]
 ; CHECK-EMPTY:
@@ -62,6 +60,7 @@ define dso_local void @_Z3fooPii(float* nocapture %a, i32 %n) local_unnamed_addr
 ; CHECK-NEXT:           + END LOOP
 ; CHECK-NEXT:     END REGION
 ;
+
 entry:
   %cmp = icmp sgt i32 %n, 0
   br i1 %cmp, label %DIR.OMP.SIMD.2, label %omp.precond.end
