@@ -594,7 +594,12 @@ cl_context CL_API_CALL clCreateContext(const cl_context_properties * properties,
     if (g_pUserLogger->IsApiLoggingEnabled())
     {
         START_LOG_API(clCreateContext);
-        apiLogger << "const cl_context_properties * properties" << properties << "cl_uint num_devices" << num_devices << "const cl_device_id * devices" << devices << "logging_fn pfn_notify" << pfn_notify << "void * user_data" << user_data << "cl_int * errcode_ret" << errcode_ret;
+        apiLogger << "const cl_context_properties * properties";
+        apiLogger.PrintProperties(properties);
+        apiLogger << "cl_uint num_devices" << num_devices
+                  << "const cl_device_id * devices" << devices
+                  << "logging_fn pfn_notify" << pfn_notify << "void * user_data"
+                  << user_data << "cl_int * errcode_ret" << errcode_ret;
         OutputParamsValueProvider provider(apiLogger);
         provider.AddParam("errcode_ret", errcode_ret, false, false);
 	      CALL_TRACED_API_LOGGER(CONTEXT_MODULE, cl_context, CreateContext(properties, num_devices, devices, pfn_notify, user_data, errcode_ret),
@@ -617,7 +622,11 @@ cl_context CL_API_CALL clCreateContextFromType(const cl_context_properties * pro
     if (g_pUserLogger->IsApiLoggingEnabled())
     {
         START_LOG_API(clCreateContextFromType);
-        apiLogger << "const cl_context_properties * properties" << properties << "cl_device_type device_type" << device_type << "logging_fn pfn_notify" << pfn_notify << "void * user_data" << user_data << "cl_int * errcode_ret" << errcode_ret;
+        apiLogger << "const cl_context_properties * properties";
+        apiLogger.PrintProperties(properties);
+        apiLogger << "cl_device_type device_type" << device_type
+                  << "logging_fn pfn_notify" << pfn_notify << "void * user_data"
+                  << user_data << "cl_int * errcode_ret" << errcode_ret;
         OutputParamsValueProvider provider(apiLogger);
         provider.AddParam("errcode_ret", errcode_ret, false, false);
 	      CALL_TRACED_API_LOGGER(CONTEXT_MODULE, cl_context, CreateContextFromType(properties, device_type, pfn_notify, user_data, errcode_ret),
@@ -820,7 +829,11 @@ cl_mem CL_API_CALL clCreateBufferWithPropertiesINTEL(cl_context   context,
     if (g_pUserLogger->IsApiLoggingEnabled())
     {
         START_LOG_API(clCreateBufferWithPropertiesINTEL);
-        apiLogger << "cl_context context" << context << "cl_mem_properties_intel" << properties << "cl_mem_flags flags" << flags << "size_t size" << size << "void * host_ptr" << host_ptr << "cl_int * errcode_ret" << errcode_ret;
+        apiLogger << "cl_context context" << context << "cl_mem_properties_intel";
+        apiLogger.PrintProperties(properties);
+        apiLogger << "cl_mem_flags flags" << flags << "size_t size" << size
+            << "void * host_ptr" << host_ptr
+            << "cl_int * errcode_ret" << errcode_ret;
         OutputParamsValueProvider provider(apiLogger);
         provider.AddParam("errcode_ret", errcode_ret, false, false);
         CALL_INSTRUMENTED_API_LOGGER(CONTEXT_MODULE, cl_mem, CreateBufferWithPropertiesINTEL(context, properties, flags, size, host_ptr, errcode_ret));
@@ -1102,7 +1115,10 @@ cl_sampler CL_API_CALL clCreateSamplerWithProperties(cl_context context,
     if (g_pUserLogger->IsApiLoggingEnabled())
     {
         START_LOG_API(clCreateSamplerWithProperties);
-        apiLogger << "cl_context context" << context << "const cl_sampler_properties *sampler_properties" << sampler_properties << "cl_int *errcode_ret" << errcode_ret;
+        apiLogger << "cl_context context" << context
+            << "const cl_sampler_properties *sampler_properties";
+        apiLogger.PrintProperties(sampler_properties);
+        apiLogger << "cl_int *errcode_ret" << errcode_ret;
         OutputParamsValueProvider provider(apiLogger);
         provider.AddParam("errcode_ret", errcode_ret, false, false);
 	      CALL_TRACED_API_LOGGER(CONTEXT_MODULE, cl_sampler, CreateSamplerWithProperties(context, sampler_properties, errcode_ret),
@@ -2459,7 +2475,12 @@ cl_int CL_API_CALL clCreateSubDevices(cl_device_id device,
     if (g_pUserLogger->IsApiLoggingEnabled())
     {
         START_LOG_API(clCreateSubDevices);
-        apiLogger << "cl_device_id device" << device << "const cl_device_partition_property* properties" << properties << "cl_uint num_entries" << num_entries << "cl_device_id* out_devices" << out_devices << "cl_uint* num_devices" << num_devices;
+        apiLogger << "cl_device_id device" << device
+                  << "const cl_device_partition_property* properties";
+        apiLogger.PrintProperties(properties);
+        apiLogger << "cl_uint num_entries" << num_entries
+                  << "cl_device_id* out_devices" << out_devices
+                  << "cl_uint* num_devices" << num_devices;
         OutputListPrinter<cl_device_id, cl_uint> printer("out_devices", out_devices, num_devices, num_entries);
         OutputParamsValueProvider provider(apiLogger, &printer);
 	      CALL_TRACED_API_LOGGER(PLATFORM_MODULE, cl_int, clCreateSubDevices(device, properties, num_entries, out_devices, num_devices),
@@ -2888,7 +2909,12 @@ cl_mem CL_API_CALL clCreatePipe(cl_context context,
     if (g_pUserLogger->IsApiLoggingEnabled())
     {
         START_LOG_API(clCreatePipe);
-        apiLogger << "cl_context context" << context << "cl_mem_flags flags" << flags << "cl_uint pipe_packet_size" << pipe_packet_size << "cl_uint pipe_max_packets" << pipe_max_packets << "const cl_pipe_properties *properties" << properties << "cl_int *errcode_ret" << errcode_ret;
+        apiLogger << "cl_context context" << context << "cl_mem_flags flags"
+                  << flags << "cl_uint pipe_packet_size" << pipe_packet_size
+                  << "cl_uint pipe_max_packets" << pipe_max_packets
+                  << "const cl_pipe_properties *properties";
+        apiLogger.PrintProperties(properties);
+        apiLogger << "cl_int *errcode_ret" << errcode_ret;
         OutputParamsValueProvider provider(apiLogger);
         provider.AddParam("errcode_ret", errcode_ret, false, false);
 	      CALL_TRACED_API_LOGGER(CONTEXT_MODULE, cl_mem, CreatePipe(context, flags, pipe_packet_size, pipe_max_packets, properties, nullptr, nullptr, errcode_ret),
@@ -2915,7 +2941,13 @@ cl_mem CL_API_CALL clCreatePipeINTEL(
     if (g_pUserLogger->IsApiLoggingEnabled())
     {
         START_LOG_API(clCreatePipeINTEL);
-        apiLogger << "cl_context context" << context << "cl_mem_flags flags" << flags << "cl_uint pipe_packet_size" << pipe_packet_size << "cl_uint pipe_max_packets" << pipe_max_packets << "const cl_pipe_properties* properties" << properties << "void * host_ptr" << host_ptr << "size_t * size_ret" << size_ret << "cl_int * errcode_ret" << errcode_ret;
+        apiLogger << "cl_context context" << context << "cl_mem_flags flags"
+                  << flags << "cl_uint pipe_packet_size" << pipe_packet_size
+                  << "cl_uint pipe_max_packets" << pipe_max_packets
+                  << "const cl_pipe_properties* properties";
+        apiLogger.PrintProperties(properties);
+        apiLogger << "void * host_ptr" << host_ptr << "size_t * size_ret"
+                  << size_ret << "cl_int * errcode_ret" << errcode_ret;
         OutputParamsValueProvider provider(apiLogger);
         provider.AddParam("size_ret", size_ret, false, true);
         provider.AddParam("errcode_ret", errcode_ret, false, false);
@@ -2981,7 +3013,10 @@ cl_command_queue CL_API_CALL clCreateCommandQueueWithProperties(cl_context conte
     if (g_pUserLogger->IsApiLoggingEnabled())
     {
         START_LOG_API(clCreateCommandQueueWithProperties);
-        apiLogger << "cl_context context" << context << "cl_device_id device_id" << device_id << "const cl_queue_properties* properties" << properties << "cl_int* errcode_ret" << errcode_ret;
+        apiLogger << "cl_context context" << context << "cl_device_id device_id"
+            << device_id << "const cl_queue_properties* properties";
+        apiLogger.PrintProperties(properties);
+        apiLogger << "cl_int* errcode_ret" << errcode_ret;
         OutputParamsValueProvider provider(apiLogger);
         provider.AddParam("errcode_ret", errcode_ret, false, false);
 	      CALL_TRACED_API_LOGGER(EXECUTION_MODULE, cl_command_queue, CreateCommandQueue(context, device_id, pCmdQueueProps, errcode_ret),
@@ -3380,10 +3415,11 @@ void* CL_API_CALL clHostMemAllocINTEL(cl_context context,
     if (g_pUserLogger->IsApiLoggingEnabled())
     {
         START_LOG_API(clHostMemAllocINTEL);
-        apiLogger << "cl_context context" << context <<
-            "const cl_mem_properties_intel* properties" << properties <<
-            "size_t size" << size << "unsigned int alignment" << alignment <<
-            "cl_int* errcode_ret" << errcode_ret;
+        apiLogger << "cl_context context" << context
+                  << "const cl_mem_properties_intel* properties";
+        apiLogger.PrintProperties(properties);
+        apiLogger << "size_t size" << size << "unsigned int alignment"
+                  << alignment << "cl_int* errcode_ret" << errcode_ret;
         CALL_INSTRUMENTED_API_LOGGER(CONTEXT_MODULE, void*,
             USMHostAlloc(context, properties, size, alignment, errcode_ret));
     }
@@ -3406,10 +3442,11 @@ void* CL_API_CALL clDeviceMemAllocINTEL(cl_context context,
     if (g_pUserLogger->IsApiLoggingEnabled())
     {
         START_LOG_API(clDeviceMemAllocINTEL);
-        apiLogger << "cl_context context" << context <<
-            "const cl_mem_properties_intel* properties" << properties <<
-            "size_t size" << size << "unsigned int alignment" << alignment <<
-            "cl_int* errcode_ret" << errcode_ret;
+        apiLogger << "cl_context context" << context
+                  << "const cl_mem_properties_intel* properties";
+        apiLogger.PrintProperties(properties);
+        apiLogger << "size_t size" << size << "unsigned int alignment"
+                  << alignment << "cl_int* errcode_ret" << errcode_ret;
         CALL_INSTRUMENTED_API_LOGGER(CONTEXT_MODULE, void*, USMDeviceAlloc(
             context, device, properties, size, alignment, errcode_ret));
     }
@@ -3432,11 +3469,11 @@ void* CL_API_CALL clSharedMemAllocINTEL(cl_context context,
     if (g_pUserLogger->IsApiLoggingEnabled())
     {
         START_LOG_API(clSharedMemAllocINTEL);
-        apiLogger << "cl_context context" << context <<
-            "cl_device_id device" << device <<
-            "const cl_mem_properties_intel* properties" << properties <<
-            "size_t size" << size << "unsigned int alignment" << alignment <<
-            "cl_int* errcode_ret" << errcode_ret;
+        apiLogger << "cl_context context" << context << "cl_device_id device"
+                  << device << "const cl_mem_properties_intel* properties";
+        apiLogger.PrintProperties(properties);
+        apiLogger << "size_t size" << size << "unsigned int alignment"
+                  << alignment << "cl_int* errcode_ret" << errcode_ret;
         CALL_INSTRUMENTED_API_LOGGER(CONTEXT_MODULE, void*, USMSharedAlloc(
             context, device, properties, size, alignment, errcode_ret));
     }
