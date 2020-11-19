@@ -34,20 +34,27 @@ void bar(const FunctorTy &functor) {
   closure.execute();
 }
 
+template <typename Functor>
+void not_used_functor_wrapper(Functor f) { }
+
+void not_used() {
+  not_used_functor_wrapper([=] (int i) { });
+}
+
 void foo() {
   bar([=] (int i) { });
   bar([=] (int i) { });
 }
 
-//CHECK: define {{.*}}_ZNK7ClosureIZ3foovE3$_0E7executeEv
+//CHECK: define {{.*}}_ZNK7ClosureIZ3foovEUliE_E7executeEv
 //CHECK: "DIR.OMP.TARGET"()
 //CHECK: "DIR.OMP.END.TARGET"()
-//CHECK: define {{.*}}_ZNK7ClosureIZ3foovE3$_1E7executeEv
+//CHECK: define {{.*}}_ZNK7ClosureIZ3foovEUliE0_E7executeEv
 //CHECK: "DIR.OMP.TARGET"()
 //CHECK: "DIR.OMP.END.TARGET"()
 
 //CHECK: !omp_offload.info = !{!{{[0-9]+}}, !{{[0-9]+}}}
-//CHECK: !{{[0-9]+}} = !{{{.*}}!"_ZNK7ClosureIZ3foovE3$_0E7executeEv",{{.*}}}
-//CHECK: !{{[0-9]+}} = !{{{.*}}!"_ZNK7ClosureIZ3foovE3$_1E7executeEv",{{.*}}}
+//CHECK: !{{[0-9]+}} = !{{{.*}}!"_ZNK7ClosureIZ3foovEUliE_E7executeEv",{{.*}}}
+//CHECK: !{{[0-9]+}} = !{{{.*}}!"_ZNK7ClosureIZ3foovEUliE0_E7executeEv",{{.*}}}
 
 // end INTEL_COLLAB
