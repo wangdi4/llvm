@@ -59,7 +59,7 @@ public:
 
   __itt_module_object *getModuleObject() { return ModuleObject; }
 
-  __itt_section_info *getSectionInfoVectorBegin(){
+  __itt_section_info *getSectionInfoVectorBegin() {
     if (SectionInfoVector.size())
       return &SectionInfoVector[0];
     return NULL;
@@ -67,7 +67,7 @@ public:
 
   void reportSection(llvm::IttEventType EventType, const char *SectionName,
                      unsigned int SectionSize) {
-    WrapperRef.i_IttNotifyInfo(EventType, SectionName, SectionSize);
+    WrapperRef.iJitIttNotifyInfo(EventType, SectionName, SectionSize);
   }
 
   int fillSectionInformation(const ObjectFile &Obj,
@@ -110,8 +110,8 @@ public:
     // Hereinafter: don't change SectionNamesVector content to avoid vector
     // reallocation - reallocation invalidates all the references, pointers, and
     // iterators referring to the elements in the sequence.
-    for (int i = 0; i < SectionCounter; ++i) {
-      SectionInfoVector[i].name = SectionNamesVector[i].c_str();
+    for (int I = 0; I < SectionCounter; ++I) {
+      SectionInfoVector[I].name = SectionNamesVector[I].c_str();
     }
     return SectionCounter;
   }
@@ -207,9 +207,9 @@ void IntelJITEventListener::notifyObjectLoaded(
       __itt_module_object *ModuleObject = new __itt_module_object();
       ModuleObject->module_name = ModuleIttnotify->getModuleName();
       ModuleObject->module_size = Obj.getMemoryBufferRef().getBufferSize();
-      Wrapper->i_IttNotifyInfo(llvm::LoadBinaryModule,
-                               ModuleObject->module_name,
-                               ModuleObject->module_size);
+      Wrapper->iJitIttNotifyInfo(llvm::LoadBinaryModule,
+                                 ModuleObject->module_name,
+                                 ModuleObject->module_size);
       ModuleObject->module_type = __itt_module_type_elf;
       ModuleObject->section_number =
           ModuleIttnotify->fillSectionInformation(Obj, L);
@@ -233,12 +233,13 @@ void IntelJITEventListener::notifyObjectLoaded(
       return;
 
     // Get the address of the object image for use as a unique identifier
-    const void* ObjData = DebugObj->getData().data();
+    const void *ObjData = DebugObj->getData().data();
     std::unique_ptr<DIContext> Context = DWARFContext::create(*DebugObj);
     MethodAddressVector Functions;
 
     // Use symbol info to iterate functions in the object.
-    for (const std::pair<SymbolRef, uint64_t> &P : computeSymbolSizes(*DebugObj)) {
+    for (const std::pair<SymbolRef, uint64_t> &P :
+         computeSymbolSizes(*DebugObj)) {
       SymbolRef Sym = P.first;
       std::vector<LineNumberInfo> LineInfo;
       std::string SourceFileName;
@@ -281,13 +282,13 @@ void IntelJITEventListener::notifyObjectLoaded(
       uint64_t Index = Sec->getIndex();
 
       // Record this address in a local vector
-      Functions.push_back((void*)Addr);
+      Functions.push_back((void *)Addr);
 
       // Build the function loaded notification message
       iJIT_Method_Load FunctionMessage =
-        FunctionDescToIntelJITFormat(*Wrapper, Name->data(), Addr, Size);
+          FunctionDescToIntelJITFormat(*Wrapper, Name->data(), Addr, Size);
       DILineInfoTable Lines =
-        Context->getLineInfoForAddressRange({Addr, Index}, Size);
+          Context->getLineInfoForAddressRange({Addr, Index}, Size);
       DILineInfoTable::iterator Begin = Lines.begin();
       DILineInfoTable::iterator End = Lines.end();
       for (DILineInfoTable::iterator It = Begin; It != End; ++It) {
@@ -313,14 +314,14 @@ void IntelJITEventListener::notifyObjectLoaded(
 
         SourceFileName = Lines.front().second.FileName;
         FunctionMessage.source_file_name =
-          const_cast<char *>(SourceFileName.c_str());
+            const_cast<char *>(SourceFileName.c_str());
         FunctionMessage.line_number_size = LineInfo.size();
         FunctionMessage.line_number_table = &*LineInfo.begin();
       }
 
       Wrapper->iJIT_NotifyEvent(iJVM_EVENT_TYPE_METHOD_LOAD_FINISHED,
                                 &FunctionMessage);
-      MethodIDs[(void*)Addr] = FunctionMessage.method_id;
+      MethodIDs[(void *)Addr] = FunctionMessage.method_id;
     }
 
     // To support object unload notification, we need to keep a list of
@@ -338,7 +339,7 @@ void IntelJITEventListener::notifyFreeingObject(ObjectKey Key) {
     if (KeyToIttnotify.find(Key) == KeyToIttnotify.end())
       return;
     __itt_module_unload_with_sections(KeyToIttnotify[Key]->getModuleObject());
-    Wrapper->i_IttNotifyInfo(
+    Wrapper->iJitIttNotifyInfo(
         llvm::UnloadBinaryModule,
         KeyToIttnotify[Key]->getModuleObject()->module_name,
         KeyToIttnotify[Key]->getModuleObject()->module_size);
@@ -351,20 +352,19 @@ void IntelJITEventListener::notifyFreeingObject(ObjectKey Key) {
 
     // Get the address of the object image for use as a unique identifier
     const ObjectFile &DebugObj = *DebugObjects[Key].getBinary();
-    const void* ObjData = DebugObj.getData().data();
+    const void *ObjData = DebugObj.getData().data();
 
     // Get the object's function list from LoadedObjectMap
     ObjectMap::iterator OI = LoadedObjectMap.find(ObjData);
     if (OI == LoadedObjectMap.end())
       return;
-    MethodAddressVector& Functions = OI->second;
+    MethodAddressVector &Functions = OI->second;
 
     // Walk the function list, unregistering each function
     for (MethodAddressVector::iterator FI = Functions.begin(),
                                        FE = Functions.end();
-         FI != FE;
-         ++FI) {
-      void* FnStart = const_cast<void*>(*FI);
+         FI != FE; ++FI) {
+      void *FnStart = const_cast<void *>(*FI);
       MethodIDMap::iterator MI = MethodIDs.find(FnStart);
       if (MI != MethodIDs.end()) {
         Wrapper->iJIT_NotifyEvent(iJVM_EVENT_TYPE_METHOD_UNLOAD_START,
