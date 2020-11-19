@@ -762,6 +762,240 @@ TEST_F(MatchSaturationAddSubTest, OutOfRangeSignedSatAddv2i8) {
     "}\n");
   expectPattern(false);
 }
+
+struct IsFPValueIntegralParams {
+  const char *IR;
+  std::vector<const char *> IntValues;
+  std::vector<const char *> NonIntValues;
+};
+
+class IsFPValueIntegralTest
+    : public ValueTrackingTest,
+      public ::testing::WithParamInterface<IsFPValueIntegralParams> {};
+
+const IsFPValueIntegralParams IsFPValueIntegralTests[] = {
+  {R"(
+    define double @test() {
+      %a = fpext float 3.125 to double
+      ret double %a
+    }
+    )",
+   {}, {"a"}},
+
+  {R"(
+    define double @test() {
+      %a = fpext float 3.0 to double
+      ret double %a
+    }
+    )",
+   {"a"}, {}},
+
+  {R"(
+    define double @test() {
+      %a = fpext float 3.125 to double
+      %b = fptosi double %a to i32
+      %c = sitofp i32 %b to double
+      ret double %c
+    }
+    )",
+   {"c"}, {"a"}},
+
+  {R"(
+    @g = global float 0.000000e+00, align 4
+
+    define void @test() {
+    entry:
+      %a = load float, float* @g, align 4
+      %b = fadd float %a, 1.000000e+00
+      store float %b, float* @g, align 4
+      ret void
+    })",
+   {}, {"a", "b"}},
+
+  {R"(
+    @g = global double 0.000000e+00, align 8
+    declare i1 @cond2()
+    declare i1 @cond3()
+
+    define void @test(i32 %arg, i1 %cond1) {
+    entry:
+      %conv = sitofp i32 %arg to double
+      br i1 %cond1, label %if.then, label %lor.lhs.false
+
+    lor.lhs.false:
+      %call = call i1 @cond2()
+      br i1 %call, label %if.then, label %if.else
+
+    if.then:
+      %add = fadd fast double %conv, 3.000000e+00
+      br label %if.end3
+
+    if.else:
+      %call1 = call i1 @cond3()
+      %spec.select = select i1 %call1, double 8.000000e+00, double %conv
+      br label %if.end3
+
+    if.end3:
+      %ret = phi double [ %add, %if.then ], [ %spec.select, %if.else ]
+      store double %ret, double* @g, align 8
+      ret void
+    })",
+   {"ret"}, {}},
+
+  {R"(
+    define double @test() {
+    entry:
+      br label %loop
+
+    loop:
+      %i0 = phi double [ 1.415900e+04, %entry ], [ %b, %loop ]
+      %i1 = phi i32 [ 1, %entry ], [ %i9, %loop ]
+      %i2 = phi double [ 0.000000e+00, %entry ], [ %i8, %loop ]
+      %a = fmul double %i0, 1.680700e+04
+      %b = frem double %a, 0x41DFFFFFFFC00000
+      %c = fmul double %b, 0x3E00000000200000
+      %i6 = fptrunc double %c to float
+      %i7 = fpext float %i6 to double
+      %i8 = fadd double %i2, %i7
+      %i9 = add nuw nsw i32 %i1, 1
+      %i10 = icmp eq i32 %i9, 501
+      br i1 %i10, label %exit, label %loop
+
+    exit:
+      ret double %i8
+    })",
+   { "a", "b" }, {"c"}},
+
+  {R"(
+    define double @test() {
+    entry:
+      br label %loop
+
+    loop:
+      %i0 = phi double [ 1.4159999e+04, %entry ], [ %b, %loop ]
+      %i1 = phi i32 [ 1, %entry ], [ %i9, %loop ]
+      %i2 = phi double [ 0.000000e+00, %entry ], [ %i8, %loop ]
+      %a = fmul double %i0, 1.680700e+04
+      %b = frem double %a, 0x41DFFFFFFFC00000
+      %c = fmul double %b, 0x3E00000000200000
+      %i6 = fptrunc double %c to float
+      %i7 = fpext float %i6 to double
+      %i8 = fadd double %i2, %i7
+      %i9 = add nuw nsw i32 %i1, 1
+      %i10 = icmp eq i32 %i9, 501
+      br i1 %i10, label %exit, label %loop
+
+    exit:
+      ret double %i8
+    })",
+    {}, { "a", "b", "c" }},
+};
+
+TEST_P(IsFPValueIntegralTest, IsFPValueIntegral) {
+  auto M = parseModule(GetParam().IR);
+  Function *F = M->getFunction("test");
+  for (const char *Name : GetParam().IntValues)
+    if (Instruction *I = findInstructionByNameOrNull(F, Name))
+      EXPECT_TRUE(isFPValueIntegral(I));
+  for (const char *Name : GetParam().NonIntValues)
+    if (Instruction *I = findInstructionByNameOrNull(F, Name))
+      EXPECT_FALSE(isFPValueIntegral(I));
+}
+
+INSTANTIATE_TEST_CASE_P(IsFPValueIntegralTest, IsFPValueIntegralTest,
+                        ::testing::ValuesIn(IsFPValueIntegralTests), );
+
+struct ComputeFPValueRangeConstantParams {
+  const char *IR;
+  std::vector<std::tuple<const char *, APFloat, APFloat>> Checks;
+};
+
+class ComputeFPValueRangeConstantTest
+    : public ValueTrackingTest,
+      public ::testing::WithParamInterface<ComputeFPValueRangeConstantParams> {
+};
+
+const ComputeFPValueRangeConstantParams ComputeFPValueRangeConstantTests[] = {
+  {R"(
+    define double @test() {
+      %a = fmul double 4.0, 3.0
+      ret double %a
+    }
+    )",
+   {{"a", APFloat(12.0), APFloat(12.0)}}},
+  {R"(
+    define double @test() {
+    entry:
+      br label %loop
+
+    loop:
+      %i0 = phi double [ 1.415900e+04, %entry ], [ %b, %loop ]
+      %i1 = phi i32 [ 1, %entry ], [ %i9, %loop ]
+      %i2 = phi double [ 0.000000e+00, %entry ], [ %i8, %loop ]
+      %a = fmul double %i0, 1.680700e+04
+      %b = frem double %a, 0x41DFFFFFFFC00000
+      %i5 = fmul double %b, 0x3E00000000200000
+      %i6 = fptrunc double %i5 to float
+      %i7 = fpext float %i6 to double
+      %i8 = fadd double %i2, %i7
+      %i9 = add nuw nsw i32 %i1, 1
+      %i10 = icmp eq i32 %i9, 501
+      br i1 %i10, label %exit, label %loop
+
+    exit:
+      ret double %i8
+    })",
+    {{"a", APFloat(-36092757655129.0), APFloat(36092757655129.0)},
+     {"b", APFloat(-2147483647.0), APFloat(2147483647.0)}}},
+  {R"(
+    define double @test() {
+    entry:
+      br label %loop
+
+    loop:
+      %i0 = phi double [ 1.415900e+04, %entry ], [ %b, %loop ]
+      %i1 = phi i32 [ 1, %entry ], [ %i9, %loop ]
+      %i2 = phi double [ 0.000000e+00, %entry ], [ %i8, %loop ]
+      %a = fmul double %i0, 0x41F0000000000000
+      %b = frem double %a, 0x41F0000000000000
+      %i5 = fmul double %b, 0x3E00000000200000
+      %i6 = fptrunc double %i5 to float
+      %i7 = fpext float %i6 to double
+      %i8 = fadd double %i2, %i7
+      %i9 = add nuw nsw i32 %i1, 1
+      %i10 = icmp eq i32 %i9, 501
+      br i1 %i10, label %exit, label %loop
+
+    exit:
+      ret double %i8
+    })",
+    {{"a", APFloat(-18446744073709551616.0), APFloat(18446744073709551616.0)},
+     {"b", APFloat(-4294967296.0), APFloat(4294967296.0)}}},
+};
+
+TEST_P(ComputeFPValueRangeConstantTest, ComputeValueRange) {
+  auto M = parseModule(GetParam().IR);
+  Function *F = M->getFunction("test");
+  for (const std::tuple<const char *, APFloat, APFloat> &Check : GetParam().Checks) {
+    Instruction *I = &findInstructionByName(F, std::get<0>(Check));
+    FPValueRange Range = computeFPValueRange(I);
+    APFloat Lower = std::get<1>(Check);
+    APFloat Upper = std::get<2>(Check);
+    if (Lower == Upper) {
+      EXPECT_TRUE(Range.isConstantValue());
+      EXPECT_EQ(Range.getConstantValue(), Lower);
+    } else {
+      EXPECT_TRUE(Range.isConstantRange());
+      EXPECT_EQ(Range.getLower(), Lower);
+      EXPECT_EQ(Range.getUpper(), Upper);
+    }
+  }
+}
+
+INSTANTIATE_TEST_CASE_P(
+    ComputeFPValueRangeConstantTest, ComputeFPValueRangeConstantTest,
+    ::testing::ValuesIn(ComputeFPValueRangeConstantTests), );
+
 #endif // INTEL_CUSTOMIZATION
 
 TEST_F(MatchSelectPatternTest, NotNotSMin) {
