@@ -1031,6 +1031,7 @@ bool VPOParoptTransform::genTargetOffloadingCode(WRegionNode *W) {
 
   resetValueInOmpClauseGeneric(W, W->getIf());
   resetValueInOmpClauseGeneric(W, W->getDevice());
+  resetValueInSubdeviceClause(W);
   resetValueInIsDevicePtrClause(W);
   resetValueInPrivateClause(W);
   resetValueInMapClause(W);
@@ -1219,6 +1220,22 @@ void VPOParoptTransform::resetValueInNumTeamsAndThreadsClause(WRegionNode *W) {
   if (W->getIsPar())
     if (auto *NumThreadsPtr = W->getNumThreads())
       resetValueInOmpClauseGeneric(W, NumThreadsPtr);
+}
+
+// Reset the expression value in Subdevice clause to be empty.
+void VPOParoptTransform::resetValueInSubdeviceClause(WRegionNode* W) {
+    if (!W->canHaveSubdevice())
+        return;
+
+    SubdeviceClause& Subdevice = W->getSubdevice();
+    if (Subdevice.empty())
+        return;
+    assert(Subdevice.size() == 1 && "There should be only 1 Subdevice clause");
+    SubdeviceItem* SubdeviceI = Subdevice.front();
+
+    resetValueInOmpClauseGeneric(W, SubdeviceI->getStart());
+    resetValueInOmpClauseGeneric(W, SubdeviceI->getLength());
+    resetValueInOmpClauseGeneric(W, SubdeviceI->getStride());
 }
 
 // Reset the expression value in IsDevicePtr clause to be empty.
