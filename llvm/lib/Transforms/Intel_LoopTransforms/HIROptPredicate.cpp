@@ -774,8 +774,20 @@ void HIROptPredicate::CandidateLookup::visitIfOrSwitch(NodeTy *Node) {
   }
 
   if (IsCandidate && Pass.KeepLoopnestPerfect && Level != 0) {
+    // Suppress single level predicate optimization for complete unroll
+    // candidates as it may complicate the analysis for unrolling and subsequent
+    // passes.
+    // TODO: Should we rename KeepLoopnestPerfect to EarlyPredicateOpt for
+    // better context?
+    uint64_t TC;
+    bool IsCompleteUnrollCandidate =
+        (ParentLoop->isInnermost() &&
+         (Level == ParentLoop->getNestingLevel() - 1) &&
+         ParentLoop->isConstTripLoop(&TC) && TC < 4);
+
     // Check if unswitching breaks the existing loopnest perfectness.
-    IsCandidate = Node->getParentLoopAtLevel(Level)->getNumChildren() > 1;
+    IsCandidate = !IsCompleteUnrollCandidate &&
+                  (Node->getParentLoopAtLevel(Level)->getNumChildren() > 1);
   }
 
   if (IsCandidate && PUC.isPURequired()) {

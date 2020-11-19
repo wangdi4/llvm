@@ -15,8 +15,6 @@ define void @foo(i32* nocapture %ary) {
 ;    ary[i + 1] = t1;
 ;  }
 ; SVA-IR-LABEL:  VPlan after ScalVec analysis:
-; SVA-IR-NEXT:  Live-in values:
-; SVA-IR-NEXT:  ID: 0 Value: i64 0
 ; SVA-IR-NEXT:    [[BB0:BB[0-9]+]]: # preds:
 ; SVA-IR-NEXT:     [DA: Uni, SVA: (F  )] br [[BB1:BB[0-9]+]] (SVAOpBits 0->F )
 ; SVA-IR-EMPTY:
@@ -60,8 +58,6 @@ define void @foo(i32* nocapture %ary) {
 ; SVA-HIR-NEXT:  External Defs Start:
 ; SVA-HIR-DAG:     [[VP0:%.*]] = {%ary}
 ; SVA-HIR-NEXT:  External Defs End:
-; SVA-HIR-NEXT:  Live-in values:
-; SVA-HIR-NEXT:  ID: 0 Value: i64 0
 ; SVA-HIR-NEXT:    [[BB0:BB[0-9]+]]: # preds:
 ; SVA-HIR-NEXT:     [DA: Uni, SVA: (F  )] br [[BB1:BB[0-9]+]] (SVAOpBits 0->F )
 ; SVA-HIR-EMPTY:

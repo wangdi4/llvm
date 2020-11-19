@@ -12,8 +12,6 @@
 ;
 define void @foo(i64* nocapture %larr) {
 ; CHECK-LABEL:  VPlan after predication and linearization:
-; CHECK-NEXT:  Live-in values:
-; CHECK-NEXT:  ID: 0 Value: i64 0
 ; CHECK-NEXT:    [[BB0:BB[0-9]+]]: # preds:
 ; CHECK-NEXT:     [DA: Uni] br [[BB1:BB[0-9]+]]
 ; CHECK-EMPTY:

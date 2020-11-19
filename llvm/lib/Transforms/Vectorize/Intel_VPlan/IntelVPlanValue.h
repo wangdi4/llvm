@@ -59,6 +59,7 @@ class VPValue {
   friend class VPlanScalarEvolutionLLVM;
   friend class VPLoopEntityList;
   friend class IndirectCallCodeGenerator;
+  friend class VPLiveInOutCreator;
 
 private:
   const unsigned char SubclassID; ///< Subclass identifier (for isa/dyn_cast).
@@ -596,6 +597,7 @@ public:
 class VPExternalUse : public VPUser {
 private:
   friend class VPExternalValues;
+  friend class VPLiveInOutCreator;
   friend class VPOCodeGen;
   friend class VPOCodeGenHIR;
   friend class VPDecomposerHIR;
@@ -642,6 +644,10 @@ public:
   }
 
   unsigned getMergeId() const { return MergeId; }
+
+  bool hasUnderlying() const {
+    return getUnderlyingValue() != nullptr || HIROperand != nullptr;
+  }
 
   /// Adds operand with an underlying value. The underlying value points to the
   /// value which should be replaced by the new one generated from vector code.
@@ -854,7 +860,9 @@ public:
   }
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   void print(raw_ostream &OS) const override {
-    OS << "live-out" << getMergeId() << "\n";
+    OS << "live-out" << getMergeId() << "(";
+    getOperand(0)->printAsOperand(OS);
+    OS << ")\n";
   }
 
   void printAsOperand(raw_ostream &OS) const {
