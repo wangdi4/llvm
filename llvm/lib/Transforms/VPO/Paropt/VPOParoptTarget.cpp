@@ -17,6 +17,10 @@
 #include "llvm/Transforms/VPO/Paropt/VPOParoptTransform.h"
 #include "llvm/Transforms/VPO/Utils/VPOUtils.h"
 
+#if INTEL_CUSTOMIZATION
+#include "llvm/Analysis/AliasAnalysis.h"
+#include "llvm/Analysis/CaptureTracking.h"
+#endif // INTEL_CUSTOMIZATION
 #include "llvm/IR/Dominators.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/InstIterator.h"
@@ -73,6 +77,15 @@ static cl::opt<bool> SimulateGetNumThreadsInTarget(
 static cl::opt<bool> EnableDeviceSimdCodeGen(
     "vpo-paropt-enable-device-simd-codegen", cl::Hidden, cl::init(false),
     cl::desc("Enable explicit SIMD code generation for OpenMP target region"));
+
+#if INTEL_CUSTOMIZATION
+// Controls adding noalias attribute to outlined target function arguments.
+static cl::opt<bool>
+    EnableTargetArgsNoAlias("vpo-paropt-enable-target-args-noalias", cl::Hidden,
+                            cl::init(true), cl::ZeroOrMore,
+                            cl::desc("Enable adding noalias attribute to "
+                                     "outlined target function arguments"));
+#endif // INTEL_CUSTOMIZATION
 
 // Reset the value in the Map clause to be empty.
 //
@@ -1083,6 +1096,32 @@ bool VPOParoptTransform::genTargetOffloadingCode(WRegionNode *W) {
                         << *NewF << "\n");
     }
   }
+
+#if INTEL_CUSTOMIZATION
+  if (EnableTargetArgsNoAlias) {
+    // Add noalias attribute to outlined function's pointer arguments. It should
+    // be safe to do it if actual value that is passed to the outlined region
+    // - is function local object that does not alias with any other object
+    // - is not captured before the call
+    // - does not alias with any other actual argument
+    SmallVector<Argument *, 16u> PtrArgs;
+    for (Argument &A : NewF->args())
+      if (isa<PointerType>(A.getType()))
+        PtrArgs.push_back(&A);
+    for (Argument *Arg : PtrArgs) {
+      Value *Ptr = NewCall->getArgOperand(Arg->getArgNo());
+
+      if (isIdentifiedFunctionLocal(Ptr->stripPointerCasts()) &&
+          !PointerMayBeCapturedBefore(Ptr, /*ReturnCaptures=*/true,
+                                      /*StoreCaptures=*/true, NewCall, DT) &&
+          none_of(PtrArgs, [this, Arg, Ptr, NewCall](const Argument *A) {
+            return A != Arg &&
+                   !AA->isNoAlias(Ptr, NewCall->getArgOperand(A->getArgNo()));
+          }))
+        Arg->addAttr(Attribute::NoAlias);
+    }
+  }
+#endif // INTEL_CUSTOMIZATION
 
   if (hasOffloadCompilation())
     // Everything below only makes sense on the host.
