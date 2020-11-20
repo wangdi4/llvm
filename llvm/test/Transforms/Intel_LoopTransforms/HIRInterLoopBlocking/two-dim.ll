@@ -32,6 +32,15 @@
 ; CHECK: Profitable
 ; CHECK: Legal
 
+; i3 - loop LB = min(0,0), UB = max (2, 2)
+; CHECK: ByStripLoop LB at DimNum 1 : 0
+; CHECK: ByStripLoop UB at DimNum 1 : 2
+
+; i2 - loop LB = min(0,0), UB = max (2, 1)
+; CHECK: ByStripLoop LB at DimNum 2 : 0
+; CHECK: ByStripLoop UB at DimNum 2 : 2
+
+
 ;Module Before HIR
 ; ModuleID = 'two-dim.f90'
 source_filename = "two-dim.f90"
