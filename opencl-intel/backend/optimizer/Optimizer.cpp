@@ -127,6 +127,7 @@ llvm::ModulePass* createSGSizeCollectorIndirectPass(const Intel::CPUId &CPUId);
 llvm::ModulePass* createVectorVariantLoweringPass(const Intel::CPUId &CPUId);
 llvm::ModulePass* createVectorVariantFillInPass();
 llvm::ModulePass* createUpdateCallAttrsPass();
+llvm::ModulePass* createIndirectCallLoweringPass();
 
 llvm::ModulePass *createInfiniteLoopCreatorPass();
 llvm::ModulePass *createAutorunReplicatorPass();
@@ -704,6 +705,7 @@ static void populatePassesPostFailCheck(
       PM.add(createAddNTAttrPass());
     PM.add(createCLWGLoopCreatorPass());
   }
+  PM.add(createIndirectCallLoweringPass());
 
   // Clean up scalar kernel after WGLoop for native subgroups.
   if (debugType == intel::None && OptLevel > 0) {

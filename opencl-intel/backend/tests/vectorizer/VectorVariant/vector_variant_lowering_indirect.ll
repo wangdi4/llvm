@@ -7,8 +7,8 @@ define dso_local i32 @_Z3barPii(i32* nocapture readnone %a, i32 %n) {
 entry:
   %foo_simd = alloca %"class.cl::sycl::intel::SimdFunction", align 8
   %0 = bitcast %"class.cl::sycl::intel::SimdFunction"* %foo_simd to i8*
-  %1 = tail call i32 (i32, float)* @llvm.create.simd.variant.p0f_i32i32f32f.p0f_i32i32f32f(i32 (i32, float)* nonnull @_Z3fooif) #5
-  %2 = tail call i32 (i32, float)* @llvm.create.simd.variant.p0f_i32i32f32f.p0f_i32i32f32f(i32 (i32, float)* nonnull @_Z3fooif) #6
+  %1 = tail call i32 (i32, float)* @__intel_create_simd_variant_p0f_i32i32f32f.p0f_i32i32f32f(i32 (i32, float)* nonnull @_Z3fooif) #5
+  %2 = tail call i32 (i32, float)* @__intel_create_simd_variant_p0f_i32i32f32f.p0f_i32i32f32f(i32 (i32, float)* nonnull @_Z3fooif) #6
   %3 = getelementptr inbounds %"class.cl::sycl::intel::SimdFunction", %"class.cl::sycl::intel::SimdFunction"* %foo_simd, i64 0, i32 0, i32 0, i64 0
   store i32 (i32, float)* %1, i32 (i32, float)** %3, align 8
   %4 = getelementptr inbounds %"class.cl::sycl::intel::SimdFunction", %"class.cl::sycl::intel::SimdFunction"* %foo_simd, i64 0, i32 0, i32 0, i64 1
@@ -26,9 +26,9 @@ DIR.OMP.SIMD.1:                                   ; preds = %DIR.OMP.SIMD.2
 omp.inner.for.body:                               ; preds = %omp.inner.for.body, %DIR.OMP.SIMD.1
   %.omp.iv.local.019 = phi i32 [ %add9, %omp.inner.for.body ], [ 0, %DIR.OMP.SIMD.1 ]
   %call.i = call i32 (i32, float)** @_ZNKSt5arrayIPFiifELm2EE4dataEv(%"struct.std::array"* nonnull %ptrs.i)
-  call i32 (i32 (i32, float)**, ...) @llvm.indirect.call.i32.p0p0f_i32i32f32f(i32 (i32, float)** %call.i, i32 5, float 2.000000e+00) #7
-; CHECK: call i32 (i32 (i32, float)**, ...) @llvm.indirect.call.i32.p0p0f_i32i32f32f(i32 (i32, float)** %call.i, i32 5, float 2.000000e+00) #[[ATTRS1:.*]]
-; CHECK: attributes #[[ATTRS1]] = { nounwind "vector-variants"="_ZGVdN0lu_XXX,_ZGVdM0vv_XXX" }
+  call i32 (i32 (i32, float)**, ...) @__intel_indirect_call_i32(i32 (i32, float)** %call.i, i32 5, float 2.000000e+00) #7
+; CHECK: call i32 (i32 (i32, float)**, ...) @__intel_indirect_call_i32(i32 (i32, float)** %call.i, i32 5, float 2.000000e+00) #[[ATTRS1:.*]]
+; CHECK: attributes #[[ATTRS1]] = { nounwind "vector-variants"="_ZGVeN2vv___intel_indirect_call_i32,_ZGVeM2vv___intel_indirect_call_i32,_ZGVcN2vv___intel_indirect_call_i32,_ZGVcM2vv___intel_indirect_call_i32,_ZGVbN2vv___intel_indirect_call_i32,_ZGVbM2vv___intel_indirect_call_i32" }
   %add9 = add nuw nsw i32 %.omp.iv.local.019, 1
   %exitcond = icmp eq i32 %add9, %n
   br i1 %exitcond, label %DIR.OMP.END.SIMD.3, label %omp.inner.for.body
@@ -44,10 +44,10 @@ declare dso_local i32 @_Z3fooif(i32 %i, float %f)
 
 declare dso_local i32 (i32, float)** @_ZNKSt5arrayIPFiifELm2EE4dataEv(%"struct.std::array"*)
 
-declare i32 (i32, float)* @llvm.create.simd.variant.p0f_i32i32f32f.p0f_i32i32f32f(i32 (i32, float)*)
+declare i32 (i32, float)* @__intel_create_simd_variant_p0f_i32i32f32f.p0f_i32i32f32f(i32 (i32, float)*)
 
-declare i32 @llvm.indirect.call.i32.p0p0f_i32i32f32f(i32 (i32, float)**, ...)
+declare i32 @__intel_indirect_call_i32(i32 (i32, float)**, ...)
 
 attributes #5 = { nounwind "vector-variant"="_ZGVxN0lu__Z3fooif" }
 attributes #6 = { nounwind "vector-variant"="_ZGVxM0vv__Z3fooif" }
-attributes #7 = { nounwind "vector-variants"="_ZGVxN0lu_XXX,_ZGVxM0vv_XXX" }
+attributes #7 = { nounwind "vector-variants"="_ZGVeN2vv___intel_indirect_call_i32,_ZGVeM2vv___intel_indirect_call_i32,_ZGVcN2vv___intel_indirect_call_i32,_ZGVcM2vv___intel_indirect_call_i32,_ZGVbN2vv___intel_indirect_call_i32,_ZGVbM2vv___intel_indirect_call_i32" }
