@@ -1496,7 +1496,6 @@ AliasResult BasicAAResult::aliasGEP(const AddressOperator *GEP1, // INTEL
     if (BaseAlias == MayAlias && GEP1BaseOffset == GEP2BaseOffset &&
         DecompGEP1.Base == UnderlyingV1 && // INTEL
         DecompGEP2.Base == UnderlyingV2 && // INTEL
-        GEP1BaseOffset == GEP2BaseOffset &&
         DecompGEP1.VarIndices == DecompGEP2.VarIndices) {
       AliasResult PreciseBaseAlias = aliasCheck(
           UnderlyingV1, V1Size, V1AAInfo, UnderlyingV2, V2Size, V2AAInfo, AAQI);
