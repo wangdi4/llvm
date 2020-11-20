@@ -929,43 +929,43 @@ void X86TargetInfo::getTargetDefines(const LangOptions &Opts,
   Builder.defineMacro("__AMX_SUPPORTED__");
 #if INTEL_FEATURE_ISA_AMX_BF8
   if (HasAMXBF8)
-    Builder.defineMacro("__AMX_BF8__");
-  Builder.defineMacro("__AMX_BF8_SUPPORTED__");
+    Builder.defineMacro("__AMXBF8__");
+  Builder.defineMacro("__AMXBF8_SUPPORTED__");
 #endif // INTEL_FEATURE_ISA_AMX_BF8
 #if INTEL_FEATURE_ISA_AMX_MEMADVISE
   if (HasAMXMEMADVISE)
-    Builder.defineMacro("__AMX_MEMADVISE__");
-  Builder.defineMacro("__AMX_MEMADVISE_SUPPORTED__");
+    Builder.defineMacro("__AMXMEMADVISE__");
+  Builder.defineMacro("__AMXMEMADVISE_SUPPORTED__");
 #endif // INTEL_FEATURE_ISA_AMX_MEMADVISE
 #if INTEL_FEATURE_ISA_AMX_MEMORY2
   if (HasAMXMEMORY2)
-    Builder.defineMacro("__AMX_MEMORY2__");
-  Builder.defineMacro("__AMX_MEMORY2_SUPPORTED__");
+    Builder.defineMacro("__AMXMEMORY2__");
+  Builder.defineMacro("__AMXMEMORY2_SUPPORTED__");
 #endif // INTEL_FEATURE_ISA_AMX_MEMORY2
 #if INTEL_FEATURE_ISA_AMX_BF16_EVEX
   if (HasAMXBF16EVEX)
-    Builder.defineMacro("__AMX_BF16EVEX__");
-  Builder.defineMacro("__AMX_BF16EVEX_SUPPORTED__");
+    Builder.defineMacro("__AMXBF16EVEX__");
+  Builder.defineMacro("__AMXBF16EVEX_SUPPORTED__");
 #endif // INTEL_FEATURE_ISA_AMX_BF16_EVEX
 #if INTEL_FEATURE_ISA_AMX_ELEMENT_EVEX
   if (HasAMXELEMENTEVEX)
-    Builder.defineMacro("__AMX_ELEMENTEVEX__");
-  Builder.defineMacro("__AMX_ELEMENTEVEX_SUPPORTED__");
+    Builder.defineMacro("__AMXELEMENTEVEX__");
+  Builder.defineMacro("__AMXELEMENTEVEX_SUPPORTED__");
 #endif // INTEL_FEATURE_ISA_AMX_ELEMENT_EVEX
 #if INTEL_FEATURE_ISA_AMX_INT8_EVEX
   if (HasAMXINT8EVEX)
-    Builder.defineMacro("__AMX_INT8EVEX__");
-  Builder.defineMacro("__AMX_INT8EVEX_SUPPORTED__");
+    Builder.defineMacro("__AMXINT8EVEX__");
+  Builder.defineMacro("__AMXINT8EVEX_SUPPORTED__");
 #endif // INTEL_FEATURE_ISA_AMX_INT8_EVEX
 #if INTEL_FEATURE_ISA_AMX_TILE_EVEX
   if (HasAMXTILEEVEX)
-    Builder.defineMacro("__AMX_TILEEVEX__");
-  Builder.defineMacro("__AMX_TILEEVEX_SUPPORTED__");
+    Builder.defineMacro("__AMXTILEEVEX__");
+  Builder.defineMacro("__AMXTILEEVEX_SUPPORTED__");
 #endif // INTEL_FEATURE_ISA_AMX_TILE_EVEX
 #if INTEL_FEATURE_ISA_AMX_TRANSPOSE2
   if (HasAMXTRANSPOSE2)
-    Builder.defineMacro("__AMX_TRANSPOSE2__");
-  Builder.defineMacro("__AMX_TRANSPOSE2_SUPPORTED__");
+    Builder.defineMacro("__AMXTRANSPOSE2__");
+  Builder.defineMacro("__AMXTRANSPOSE2_SUPPORTED__");
 #endif // INTEL_FEATURE_ISA_AMX_TRANSPOSE2
 #if INTEL_FEATURE_ISA_AMX_FUTURE
   if (HasAMXREDUCE)
@@ -976,29 +976,29 @@ void X86TargetInfo::getTargetDefines(const LangOptions &Opts,
     Builder.defineMacro("__AMXFORMAT__");
   if (HasAMXELEMENT)
     Builder.defineMacro("__AMXELEMENT__");
-  Builder.defineMacro("__AMX_FUTURE_SUPPORTED__");
+  Builder.defineMacro("__AMXFUTURE_SUPPORTED__");
 #endif // INTEL_FEATURE_ISA_AMX_FUTURE
 #if INTEL_FEATURE_ISA_AMX_LNC
   if (HasAMXTRANSPOSE)
     Builder.defineMacro("__AMXTRANSPOSE__");
   if (HasAMXAVX512)
     Builder.defineMacro("__AMXAVX512__");
-  Builder.defineMacro("__AMX_LNC_SUPPORTED__");
+  Builder.defineMacro("__AMXLNC_SUPPORTED__");
 #endif // INTEL_FEATURE_ISA_AMX_LNC
 #if INTEL_FEATURE_ISA_AMX_FP16
   if (HasAMXFP16)
     Builder.defineMacro("__AMXFP16__");
-  Builder.defineMacro("__AMX_FP16_SUPPORTED__");
+  Builder.defineMacro("__AMXFP16_SUPPORTED__");
 #endif // INTEL_FEATURE_ISA_AMX_FP16
 #if INTEL_FEATURE_ISA_AMX_CONVERT
   if (HasAMXCONVERT)
-    Builder.defineMacro("__AMX_CONVERT__");
-  Builder.defineMacro("__AMX_CONVERT_SUPPORTED__");
+    Builder.defineMacro("__AMXCONVERT__");
+  Builder.defineMacro("__AMXCONVERT_SUPPORTED__");
 #endif // INTEL_FEATURE_ISA_AMX_CONVERT
 #if INTEL_FEATURE_ISA_AMX_TILE2
   if (HasAMXTILE2)
-    Builder.defineMacro("__AMX_TILE2__");
-  Builder.defineMacro("__AMX_TILE2_SUPPORTED__");
+    Builder.defineMacro("__AMXTILE2__");
+  Builder.defineMacro("__AMXTILE2_SUPPORTED__");
 #endif // INTEL_FEATURE_ISA_AMX_TILE2
 #if INTEL_FEATURE_ISA_AVX512_DOTPROD_INT8
   if (HasAVX512DOTPRODINT8)

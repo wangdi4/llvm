@@ -32,7 +32,7 @@ void dorun() {                // neither declare-target nor contains-target
     }();
 }
 
-//CHECK: define {{.*}}ZZ5dorunvENK3$_0clEv{{.*}} #[[CONTAINS_TARGET:[0-9]+]]
+//CHECK: define {{.*}}ZZ5dorunvENKUlvE_clEv{{.*}} #[[CONTAINS_TARGET:[0-9]+]]
 
 
 //CHECK: define {{.*}}barv() #[[CONTAINS_TARGET]]

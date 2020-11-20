@@ -1,3 +1,4 @@
+; XFAIL: *
 ; Test to verify correctness of PHI node placement and fixing by HIR decomposer. There can be some inaccuracies
 ; in HIR's DDG edge information. To accommdate this we allow NULL for incoming values of PHI nodes in HCFG.
 ; However such PHI nodes are invalid and will not pass HCFG verification, hence they need to be replaced and

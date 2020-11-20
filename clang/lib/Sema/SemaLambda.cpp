@@ -463,7 +463,11 @@ void Sema::handleLambdaNumbering(
   std::tie(MCtx, ManglingContextDecl) =
       getCurrentMangleNumberContext(Class->getDeclContext());
   bool HasKnownInternalLinkage = false;
+#if INTEL_COLLAB
+  if (!MCtx && (getLangOpts().CUDA || getLangOpts().OpenMPLateOutline)) {
+#else // INTEL_COLLAB
   if (!MCtx && getLangOpts().CUDA) {
+#endif // INTEL_COLLAB
     // Force lambda numbering in CUDA/HIP as we need to name lambdas following
     // ODR. Both device- and host-compilation need to have a consistent naming
     // on kernel functions. As lambdas are potential part of these `__global__`

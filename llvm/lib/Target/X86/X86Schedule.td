@@ -690,7 +690,8 @@ def SchedWriteVarBlend
 // Vector size wrappers.
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_FP16
-// FIXME: Copy it from PS here, we may refine them later
+// FIXME: Currently PH uses the same schedule method as PS.
+// We may refine them later.
 def SchedWriteFAddSizes
  : X86SchedWriteSizes<SchedWriteFAdd, SchedWriteFAdd, SchedWriteFAdd64>;
 def SchedWriteFCmpSizes

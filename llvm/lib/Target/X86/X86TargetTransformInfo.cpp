@@ -5074,6 +5074,13 @@ bool X86TTIImpl::isLegalMaskedGather(Type *DataTy, Align Alignment) {
   if (ScalarTy->isFloatTy() || ScalarTy->isDoubleTy())
     return true;
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+  if (ScalarTy->isHalfTy() && ST->hasBWI() && ST->hasFP16())
+    return true;
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
+
   if (!ScalarTy->isIntegerTy())
     return false;
 
