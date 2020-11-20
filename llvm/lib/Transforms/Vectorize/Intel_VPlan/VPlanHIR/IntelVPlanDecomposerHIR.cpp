@@ -1216,6 +1216,19 @@ VPValue *VPDecomposerHIR::createLoopIVNextAndBottomTest(HLLoop *HLp,
   // Add IVNext to induction PHI.
   IndVPPhi->addIncoming(IVNext, LpLatch);
 
+  // Get the IV range.
+  CanonExpr *LowerCE = HLp->getLowerCanonExpr();
+  CanonExpr *UpperCE = HLp->getUpperCanonExpr();
+  int64_t Lower;
+  int64_t Upper;
+  VPValue *StartVal = nullptr;
+  VPValue *EndVal = nullptr;
+  if (LowerCE->isIntConstant(&Lower))
+    StartVal = Plan->getVPConstant(ConstantInt::get(HLp->getIVType(), Lower));
+
+  if (UpperCE->isIntConstant(&Upper))
+    EndVal = Plan->getVPConstant(ConstantInt::get(HLp->getIVType(), Upper));
+
   // Add to the induction descriptors. Push it at the beginning as main
   // induction.
   std::unique_ptr<VPInductionHIRList> &IndList = Inductions[HLp];
@@ -1225,7 +1238,8 @@ VPValue *VPDecomposerHIR::createLoopIVNextAndBottomTest(HLLoop *HLp,
       IndList->begin(),
       std::make_unique<VPInductionHIR>(
           IVNext, One,
-          Plan->getVPConstant(Constant::getNullValue(HLp->getIVType()))));
+          Plan->getVPConstant(Constant::getNullValue(HLp->getIVType())),
+          StartVal, EndVal));
 
   // Create VPValue for bottom test condition. If decomposition is needed:
   //   1) decompose UB operand. Decomposed VPInstructions are inserted into the

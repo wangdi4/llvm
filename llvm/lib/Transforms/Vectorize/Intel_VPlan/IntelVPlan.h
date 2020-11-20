@@ -2237,10 +2237,11 @@ protected:
 // Other binary operations are not induction-compatible.
 class VPInductionInit : public VPInstruction {
 public:
-  VPInductionInit(VPValue *Start, VPValue *Step, unsigned Opc)
+  VPInductionInit(VPValue *Start, VPValue *Step, VPValue *StartVal,
+                  VPValue *EndVal, unsigned Opc)
       : VPInstruction(VPInstruction::InductionInit, Start->getType(),
                       {Start, Step}),
-        BinOpcode(Opc) {}
+        BinOpcode(Opc), StartVal(StartVal), EndVal(EndVal) {}
 
   // Method to support type inquiry through isa, cast, and dyn_cast.
   static inline bool classof(const VPInstruction *V) {
@@ -2269,14 +2270,35 @@ public:
   // VPReductionInit, for an easier templatization of some code.
   bool usesStartValue() const {return true;}
 
+  // Return lower/upper value ranges for the induction.
+  VPValue *getStartVal() const { return StartVal; }
+  VPValue *getEndVal() const { return EndVal; }
+
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+  void printDetails(raw_ostream &O) const {
+    O << ", StartVal: ";
+    if (auto *StartVal = cast<const VPInductionInit>(this)->getStartVal())
+      StartVal->printAsOperand(O);
+    else
+      O << "?";
+    O << ", EndVal: ";
+    if (auto *EndVal = cast<const VPInductionInit>(this)->getEndVal())
+      EndVal->printAsOperand(O);
+    else
+      O << "?";
+  }
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
 protected:
   // Clones VPinductionInit.
   virtual VPInductionInit *cloneImpl() const final {
-    return new VPInductionInit(getOperand(0), getOperand(1), getBinOpcode());
+    return new VPInductionInit(getOperand(0), getOperand(1), StartVal,
+                               EndVal, getBinOpcode());
   }
 
 private:
   unsigned BinOpcode;
+  VPValue *StartVal;
+  VPValue *EndVal;
 };
 
 // VPInstruction to initialize vector for induction step.

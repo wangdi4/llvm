@@ -65,6 +65,10 @@ static cl::opt<bool>
                      cl::desc("Print VPlan instructions' details like "
                               "underlying attributes/metadata."));
 
+static cl::opt<bool> VPlanDumpInductionInitDetails(
+  "vplan-dump-induction-init-details", cl::init(false), cl::Hidden,
+  cl::desc("Print induction value range information."));
+
 static cl::opt<bool> UseGetType(
   "vplan-cost-model-use-gettype", cl::init(true), cl::Hidden,
   cl::desc("Use getType() instead of getCMType() if true. "
@@ -496,11 +500,14 @@ void VPInstruction::printWithoutAnalyses(raw_ostream &O) const {
   case VPInstruction::Subscript:
     PrintOpcodeWithInBounds(cast<const VPSubscriptInst>(this));
     break;
-  case VPInstruction::InductionInit:
+  case VPInstruction::InductionInit: {
     O << getOpcodeName(getOpcode()) << "{"
-      << getOpcodeName(cast<const VPInductionInit>(this)->getBinOpcode())
-      << "}";
+      << getOpcodeName(cast<const VPInductionInit>(this)->getBinOpcode());
+    if (VPlanDumpInductionInitDetails)
+      cast<const VPInductionInit>(this)->printDetails(O);
+    O << "}";
     break;
+  }
   case VPInstruction::InductionInitStep:
     O << getOpcodeName(getOpcode()) << "{"
       << getOpcodeName(cast<const VPInductionInitStep>(this)->getBinOpcode())
