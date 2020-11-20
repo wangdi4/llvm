@@ -323,6 +323,31 @@ void HLLoop::printDetails(formatted_raw_ostream &OS, unsigned Depth,
     }
   }
 
+  if (!PrefetchingInfoVec.empty()) {
+    OS << "\n";
+    indent(OS, Depth);
+    OS << "+ Prefetching directives:";
+
+    First = true;
+    for (auto &Info : PrefetchingInfoVec) {
+      if (!First) {
+        OS << ", ";
+      }
+      OS << "{";
+      Info.Var->print(OS, false);
+
+      if (!Info.Dist) {
+        OS << ":"
+           << "disable"
+           << "}";
+      } else {
+        OS << ":" << Info.Hint << ":" << Info.Dist << "}";
+      }
+
+      First = false;
+    }
+  }
+
   OS << "\n";
 #endif // INTEL_PRODUCT_RELEASE
 }
