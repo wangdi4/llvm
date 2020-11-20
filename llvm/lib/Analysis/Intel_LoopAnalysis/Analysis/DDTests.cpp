@@ -3779,7 +3779,26 @@ bool DDTest::tryDelinearize(const RegDDRef *SrcDDRef, const RegDDRef *DstDDRef,
   //   A[i1][i2][i3]
   //
 
-  if (CommonLevels < 2 || Pair.size() != 1) {
+  if (CommonLevels < 2) {
+    return false;
+  }
+
+  const CanonExpr *SrcCE = Pair[0].Src;
+  const CanonExpr *DstCE = Pair[0].Dst;
+  bool HasGlobalBaseValue = false;
+  Type *AuxTy = nullptr;
+  if (Pair.size() == 2) {
+    // If base value is global we have a memref that looks like
+    //       (@s)[0][i3 + nx * i2 + nx * ny * i1].
+    // Skip [0] since it doesn't influence the delinearization.
+    if (SrcDDRef->accessesGlobalVar() && DstDDRef->accessesGlobalVar()) {
+      assert(Pair[1].Src->isZero() && Pair[1].Dst->isZero() && "First subscript must be zero");
+      HasGlobalBaseValue = true;
+      AuxTy = Pair[1].Src->getSrcType();
+    } else {
+      return false;
+    }
+  } else if (Pair.size() != 1) {
     return false;
   }
 
@@ -3789,9 +3808,6 @@ bool DDTest::tryDelinearize(const RegDDRef *SrcDDRef, const RegDDRef *DstDDRef,
                       !isDelinearizeCandidate(DstDDRef))) {
     return false;
   }
-
-  const CanonExpr *SrcCE = Pair[0].Src;
-  const CanonExpr *DstCE = Pair[0].Dst;
 
   SmallVector<const CanonExpr *, 3> SrcSubscripts, DstSubscripts;
   SmallVector<unsigned, 3> SrcIVLevels, DstIVLevels;
@@ -3832,10 +3848,16 @@ bool DDTest::tryDelinearize(const RegDDRef *SrcDDRef, const RegDDRef *DstDDRef,
   }
 
   unsigned Size = SrcSubscripts.size();
-  Pair.resize(Size);
+  unsigned FullSize = HasGlobalBaseValue ? (Size + 1) : Size;
+  Pair.resize(FullSize);
   for (unsigned I = 0; I < Size; ++I) {
     Pair[I].Src = SrcSubscripts[I];
     Pair[I].Dst = DstSubscripts[I];
+  }
+
+  if (HasGlobalBaseValue && AuxTy) {
+    Pair[Size].Src = getConstantWithType(AuxTy, 0);
+    Pair[Size].Dst = getConstantWithType(AuxTy, 0);
   }
 
   return true;
