@@ -175,8 +175,7 @@ CallInst *VPOParoptUtils::genKmpcBeginCall(Function *F, Instruction *AI,
 
   int Flags = KMP_IDENT_KMPC;
 
-  GlobalVariable *KmpcLoc =
-      genKmpcLocfromDebugLoc(F, AI, IdentTy, Flags, &B, &E);
+  Constant *KmpcLoc = genKmpcLocfromDebugLoc(IdentTy, Flags, &B, &E);
 
   ConstantInt *ValueZero = ConstantInt::get(Type::getInt32Ty(C), 0);
 
@@ -187,15 +186,13 @@ CallInst *VPOParoptUtils::genKmpcBeginCall(Function *F, Instruction *AI,
 
   Function *FnKmpcBegin = cast<Function>(FnC.getCallee());
 
-  FnKmpcBegin->setCallingConv(CallingConv::C);
-
   std::vector<Value *> FnKmpcBeginArgs;
   FnKmpcBeginArgs.push_back(KmpcLoc);
   FnKmpcBeginArgs.push_back(ValueZero);
 
   CallInst *KmpcBeginCall =
       CallInst::Create(FnC.getFunctionType(), FnKmpcBegin, FnKmpcBeginArgs);
-  KmpcBeginCall->setCallingConv(CallingConv::C);
+  setFuncCallingConv(KmpcBeginCall, M);
 
   return KmpcBeginCall;
 }
@@ -211,22 +208,19 @@ CallInst *VPOParoptUtils::genKmpcEndCall(Function *F, Instruction *AI,
 
   int Flags = KMP_IDENT_KMPC;
 
-  GlobalVariable *KmpcLoc =
-      genKmpcLocfromDebugLoc(F, AI, IdentTy, Flags, &B, &E);
+  Constant *KmpcLoc = genKmpcLocfromDebugLoc(IdentTy, Flags, &B, &E);
 
   FunctionCallee FnC = M->getOrInsertFunction("__kmpc_end", Type::getVoidTy(C),
                                               PointerType::getUnqual(IdentTy));
 
   Function *FnKmpcEnd = cast<Function>(FnC.getCallee());
 
-  FnKmpcEnd->setCallingConv(CallingConv::C);
-
   std::vector<Value *> FnKmpcEndArgs;
   FnKmpcEndArgs.push_back(KmpcLoc);
 
   CallInst *KmpcEndCall =
       CallInst::Create(FnC.getFunctionType(), FnKmpcEnd, FnKmpcEndArgs);
-  KmpcEndCall->setCallingConv(CallingConv::C);
+  setFuncCallingConv(KmpcEndCall, M);
 
   return KmpcEndCall;
 }
@@ -387,8 +381,7 @@ CallInst *VPOParoptUtils::genKmpcPushNumTeams(WRegionNode *W,
 
   int Flags = KMP_IDENT_KMPC;
 
-  GlobalVariable *Loc =
-      genKmpcLocfromDebugLoc(F, InsertPt, IdentTy, Flags, B, E);
+  Constant *Loc = genKmpcLocfromDebugLoc(IdentTy, Flags, B, E);
 
   LLVM_DEBUG(dbgs() << "\n---- Loop Source Location Info: " << *Loc << "\n\n");
 
@@ -449,8 +442,7 @@ CallInst *VPOParoptUtils::genKmpcPushNumThreads(WRegionNode *W,
 
   int Flags = KMP_IDENT_KMPC;
 
-  GlobalVariable *Loc =
-    genKmpcLocfromDebugLoc(F, InsertPt, IdentTy, Flags, B, E);
+  Constant *Loc = genKmpcLocfromDebugLoc(IdentTy, Flags, B, E);
 
   LLVM_DEBUG(dbgs() << "\n---- Loop Source Location Info: " << *Loc << "\n\n");
 
@@ -501,15 +493,13 @@ CallInst *VPOParoptUtils::genKmpcRedGetNthData(WRegionNode *W, Value *TidPtr,
 
   Function *FnRedGetNthData = M->getFunction(FnName);
 
-  if (!FnRedGetNthData) {
+  if (!FnRedGetNthData)
     FnRedGetNthData =
         Function::Create(FnTy, GlobalValue::ExternalLinkage, FnName, M);
-    FnRedGetNthData->setCallingConv(CallingConv::C);
-  }
 
   CallInst *RedGetNthDataCall =
       CallInst::Create(FnTy, FnRedGetNthData, RedGetNthDataArgs, "", InsertPt);
-  RedGetNthDataCall->setCallingConv(CallingConv::C);
+  setFuncCallingConv(RedGetNthDataCall, M);
   RedGetNthDataCall->setTailCall(false);
 
   return RedGetNthDataCall;
@@ -527,8 +517,7 @@ CallInst *VPOParoptUtils::genKmpcTaskWait(WRegionNode *W, StructType *IdentTy,
   Module *M = F->getParent();
   LLVMContext &C = F->getContext();
   int Flags = KMP_IDENT_KMPC;
-  GlobalVariable *Loc =
-      genKmpcLocfromDebugLoc(F, InsertPt, IdentTy, Flags, B, E);
+  Constant *Loc = genKmpcLocfromDebugLoc(IdentTy, Flags, B, E);
 
   Value *TaskArgs[] = {Loc, Builder.CreateLoad(TidPtr)};
   Type *TypeParams[] = {Loc->getType(), Type::getInt32Ty(C)};
@@ -537,15 +526,13 @@ CallInst *VPOParoptUtils::genKmpcTaskWait(WRegionNode *W, StructType *IdentTy,
   StringRef FnName = "__kmpc_omp_taskwait";
   Function *FnTaskWait = M->getFunction(FnName);
 
-  if (!FnTaskWait) {
+  if (!FnTaskWait)
     FnTaskWait =
         Function::Create(FnTy, GlobalValue::ExternalLinkage, FnName, M);
-    FnTaskWait->setCallingConv(CallingConv::C);
-  }
 
   CallInst *TaskWaitCall =
       CallInst::Create(FnTy, FnTaskWait, TaskArgs, "", InsertPt);
-  TaskWaitCall->setCallingConv(CallingConv::C);
+  setFuncCallingConv(TaskWaitCall, M);
   TaskWaitCall->setTailCall(false);
 
   return TaskWaitCall;
@@ -1021,19 +1008,21 @@ CallInst *VPOParoptUtils::genOCLGenericCall(StringRef FnName,
 
   CallInst *Call =
       genCall(FnName, RetType, FnArgs, ArgType, InsertPt);
-  setFuncCallingConv(Call, true);
+  setFuncCallingConv(Call, Call->getModule());
   return Call;
 }
 
 // Set SPIR_FUNC calling convention for SPIR-V targets, otherwise,
 // do nothing.
-void VPOParoptUtils::setFuncCallingConv(CallInst *CI, bool IsTargetSPIRV) {
-  if (!IsTargetSPIRV)
-    return;
+void VPOParoptUtils::setFuncCallingConv(CallInst *CI, Module *M) {
+  CallingConv::ID Conv = CallingConv::C;
 
-  CI->setCallingConv(CallingConv::SPIR_FUNC);
+  if (VPOAnalysisUtils::isTargetSPIRV(M))
+    Conv = CallingConv::SPIR_FUNC;
+
+  CI->setCallingConv(Conv);
   if (auto *CF = CI->getCalledFunction())
-    CF->setCallingConv(CallingConv::SPIR_FUNC);
+    CF->setCallingConv(Conv);
 }
 
 // Call to i32 __cxa_atexit(void (i8*)*
@@ -1339,8 +1328,7 @@ CallInst *VPOParoptUtils::genKmpcTaskDepsGeneric(
   Module *M = F->getParent();
   LLVMContext &C = F->getContext();
   int Flags = KMP_IDENT_KMPC;
-  GlobalVariable *Loc =
-      genKmpcLocfromDebugLoc(F, InsertPt, IdentTy, Flags, B, E);
+  Constant *Loc = genKmpcLocfromDebugLoc(IdentTy, Flags, B, E);
 
   std::vector<Value *> TaskArgs;
   TaskArgs.push_back(Loc);
@@ -1366,13 +1354,11 @@ CallInst *VPOParoptUtils::genKmpcTaskDepsGeneric(
 
   Function *FnTask = M->getFunction(FnName);
 
-  if (!FnTask) {
+  if (!FnTask)
     FnTask = Function::Create(FnTy, GlobalValue::ExternalLinkage, FnName, M);
-    FnTask->setCallingConv(CallingConv::C);
-  }
 
   CallInst *TaskCall = CallInst::Create(FnTy, FnTask, TaskArgs, "", InsertPt);
-  TaskCall->setCallingConv(CallingConv::C);
+  setFuncCallingConv(TaskCall, M);
   TaskCall->setTailCall(false);
 
   return TaskCall;
@@ -1392,8 +1378,7 @@ CallInst *VPOParoptUtils::genKmpcTaskGeneric(WRegionNode *W,
   Module *M = F->getParent();
   LLVMContext &C = F->getContext();
   int Flags = KMP_IDENT_KMPC;
-  GlobalVariable *Loc =
-      genKmpcLocfromDebugLoc(F, InsertPt, IdentTy, Flags, B, E);
+  Constant *Loc = genKmpcLocfromDebugLoc(IdentTy, Flags, B, E);
 
   Value *TaskArgs[] = {Loc, Builder.CreateLoad(TidPtr), TaskAlloc};
   Type *TypeParams[] = {Loc->getType(), Type::getInt32Ty(C),
@@ -1402,13 +1387,11 @@ CallInst *VPOParoptUtils::genKmpcTaskGeneric(WRegionNode *W,
 
   Function *FnTask = M->getFunction(FnName);
 
-  if (!FnTask) {
+  if (!FnTask)
     FnTask = Function::Create(FnTy, GlobalValue::ExternalLinkage, FnName, M);
-    FnTask->setCallingConv(CallingConv::C);
-  }
 
   CallInst *TaskCall = CallInst::Create(FnTy, FnTask, TaskArgs, "", InsertPt);
-  TaskCall->setCallingConv(CallingConv::C);
+  setFuncCallingConv(TaskCall, M);
   TaskCall->setTailCall(false);
 
   return TaskCall;
@@ -1465,8 +1448,7 @@ CallInst *VPOParoptUtils::genKmpcTaskLoop(WRegionNode *W, StructType *IdentTy,
   Module *M = F->getParent();
   LLVMContext &C = F->getContext();
   int Flags = KMP_IDENT_KMPC;
-  GlobalVariable *Loc =
-      genKmpcLocfromDebugLoc(F, InsertPt, IdentTy, Flags, B, E);
+  Constant *Loc = genKmpcLocfromDebugLoc(IdentTy, Flags, B, E);
 
   Value *Cast = Builder.CreateBitCast(
       TaskAlloc, PointerType::getUnqual(KmpTaskTTWithPrivatesTy),
@@ -1542,15 +1524,13 @@ CallInst *VPOParoptUtils::genKmpcTaskLoop(WRegionNode *W, StructType *IdentTy,
   StringRef FnName = UseTbb ? "__tbb_omp_taskloop" : "__kmpc_taskloop";
   Function *FnTaskLoop = M->getFunction(FnName);
 
-  if (!FnTaskLoop) {
+  if (!FnTaskLoop)
     FnTaskLoop =
         Function::Create(FnTy, GlobalValue::ExternalLinkage, FnName, M);
-    FnTaskLoop->setCallingConv(CallingConv::C);
-  }
 
   CallInst *TaskLoopCall =
       CallInst::Create(FnTy, FnTaskLoop, TaskLoopArgs, "", InsertPt);
-  TaskLoopCall->setCallingConv(CallingConv::C);
+  setFuncCallingConv(TaskLoopCall, M);
   TaskLoopCall->setTailCall(false);
 
   return TaskLoopCall;
@@ -1581,15 +1561,13 @@ CallInst *VPOParoptUtils::genKmpcTaskReductionInit(WRegionNode *W,
 
   Function *FnTaskRedInit = M->getFunction(FnName);
 
-  if (!FnTaskRedInit) {
+  if (!FnTaskRedInit)
     FnTaskRedInit =
         Function::Create(FnTy, GlobalValue::ExternalLinkage, FnName, M);
-    FnTaskRedInit->setCallingConv(CallingConv::C);
-  }
 
   CallInst *TaskRedInitCall = CallInst::Create(
       FnTy, FnTaskRedInit, TaskRedInitArgs, "task.reduction.init", InsertPt);
-  TaskRedInitCall->setCallingConv(CallingConv::C);
+  setFuncCallingConv(TaskRedInitCall, M);
   TaskRedInitCall->setTailCall(false);
 
   return TaskRedInitCall;
@@ -1608,8 +1586,7 @@ CallInst *genKmpcTaskAllocImpl(WRegionNode *W, StructType *IdentTy, Value *Tid,
   Module *M = F->getParent();
   LLVMContext &C = F->getContext();
   int Flags = KMP_IDENT_KMPC;
-  GlobalVariable *Loc =
-      VPOParoptUtils::genKmpcLocfromDebugLoc(F, InsertPt, IdentTy, Flags, B, E);
+  Constant *Loc = VPOParoptUtils::genKmpcLocfromDebugLoc(IdentTy, Flags, B, E);
 
   IRBuilder<> Builder(InsertPt);
   Type *SizeTTy = GeneralUtils::getSizeTTy(F);
@@ -1633,15 +1610,13 @@ CallInst *genKmpcTaskAllocImpl(WRegionNode *W, StructType *IdentTy, Value *Tid,
   StringRef FnName = UseTbb? "__tbb_omp_task_alloc" : "__kmpc_omp_task_alloc";
   Function *FnTaskAlloc = M->getFunction(FnName);
 
-  if (!FnTaskAlloc) {
+  if (!FnTaskAlloc)
     FnTaskAlloc =
         Function::Create(FnTy, GlobalValue::ExternalLinkage, FnName, M);
-    FnTaskAlloc->setCallingConv(CallingConv::C);
-  }
 
   CallInst *TaskAllocCall =
       CallInst::Create(FnTy, FnTaskAlloc, AllocArgs, "", InsertPt);
-  TaskAllocCall->setCallingConv(CallingConv::C);
+  VPOParoptUtils::setFuncCallingConv(TaskAllocCall, M);
   TaskAllocCall->setTailCall(false);
 
   return TaskAllocCall;
@@ -1851,8 +1826,7 @@ CallInst *VPOParoptUtils::genKmpcTeamStaticInit(WRegionNode *W,
   LLVMContext &C = F->getContext();
 
   int Flags = KMP_IDENT_KMPC;
-  GlobalVariable *Loc =
-      genKmpcLocfromDebugLoc(F, InsertPt, IdentTy, Flags, B, E);
+  Constant *Loc = genKmpcLocfromDebugLoc(IdentTy, Flags, B, E);
 
   LLVM_DEBUG(dbgs() << "\n---- Loop Source Location Info: " << *Loc << "\n\n");
 
@@ -1885,11 +1859,9 @@ CallInst *VPOParoptUtils::genKmpcTeamStaticInit(WRegionNode *W,
 
   Function *FnTeamStaticInit = M->getFunction(FnName);
 
-  if (!FnTeamStaticInit) {
+  if (!FnTeamStaticInit)
     FnTeamStaticInit = Function::Create(FnTy, GlobalValue::ExternalLinkage,
                                     FnName, M);
-    FnTeamStaticInit->setCallingConv(CallingConv::C);
-  }
 
   std::vector<Value *> FnTeamStaticInitArgs;
 
@@ -1904,7 +1876,7 @@ CallInst *VPOParoptUtils::genKmpcTeamStaticInit(WRegionNode *W,
 
   CallInst *TeamStaticInitCall = CallInst::Create(
       FnTy, FnTeamStaticInit, FnTeamStaticInitArgs, "", InsertPt);
-  TeamStaticInitCall->setCallingConv(CallingConv::C);
+  setFuncCallingConv(TeamStaticInitCall, M);
   TeamStaticInitCall->setTailCall(false);
 
   return TeamStaticInitCall;
@@ -1963,8 +1935,7 @@ CallInst *VPOParoptUtils::genKmpcStaticInit(
   Function *F = B->getParent();
 
   int Flags = KMP_IDENT_KMPC;
-  GlobalVariable *Loc =
-      genKmpcLocfromDebugLoc(F, InsertPt, IdentTy, Flags, B, E);
+  Constant *Loc = genKmpcLocfromDebugLoc(IdentTy, Flags, B, E);
 
   LLVM_DEBUG(dbgs() << "\n---- Loop Source Location Info: " << *Loc << "\n\n");
 
@@ -2071,8 +2042,7 @@ CallInst *VPOParoptUtils::genKmpcStaticFini(WRegionNode *W,
 
   int Flags = KMP_IDENT_KMPC;
 
-  GlobalVariable *Loc =
-      genKmpcLocfromDebugLoc(F, InsertPt, IdentTy, Flags, B, E);
+  Constant *Loc = genKmpcLocfromDebugLoc(IdentTy, Flags, B, E);
   LLVM_DEBUG(dbgs() << "\n---- Loop Source Location Info: " << *Loc << "\n\n");
 
   // Assert that we used the right type for internally created
@@ -2132,8 +2102,7 @@ CallInst *VPOParoptUtils::genKmpcDispatchInit(WRegionNode *W,
 
   int Flags = KMP_IDENT_KMPC;
 
-  GlobalVariable *Loc =
-      genKmpcLocfromDebugLoc(F, InsertPt, IdentTy, Flags, B, E);
+  Constant *Loc = genKmpcLocfromDebugLoc(IdentTy, Flags, B, E);
 
   LLVM_DEBUG(dbgs() << "\n---- Loop Source Location Info: " << *Loc << "\n\n");
 
@@ -2172,11 +2141,9 @@ CallInst *VPOParoptUtils::genKmpcDispatchInit(WRegionNode *W,
 
   Function *FnDispatchInit = M->getFunction(FnName);
 
-  if (!FnDispatchInit) {
+  if (!FnDispatchInit)
     FnDispatchInit = Function::Create(FnTy, GlobalValue::ExternalLinkage,
                                       FnName, M);
-    FnDispatchInit->setCallingConv(CallingConv::C);
-  }
 
   std::vector<Value *> FnDispatchInitArgs;
 
@@ -2194,7 +2161,7 @@ CallInst *VPOParoptUtils::genKmpcDispatchInit(WRegionNode *W,
 
   CallInst *DispatchInitCall =
       CallInst::Create(FnTy, FnDispatchInit, FnDispatchInitArgs, "", InsertPt);
-  DispatchInitCall->setCallingConv(CallingConv::C);
+  setFuncCallingConv(DispatchInitCall, M);
   DispatchInitCall->setTailCall(false);
 
   return DispatchInitCall;
@@ -2229,8 +2196,7 @@ CallInst *VPOParoptUtils::genKmpcDispatchNext(WRegionNode *W,
 
   int Flags = KMP_IDENT_KMPC;
 
-  GlobalVariable *Loc =
-      genKmpcLocfromDebugLoc(F, InsertPt, IdentTy, Flags, B, E);
+  Constant *Loc = genKmpcLocfromDebugLoc(IdentTy, Flags, B, E);
 
   LLVM_DEBUG(dbgs() << "\n---- Loop Source Location Info: " << *Loc << "\n\n");
 
@@ -2253,11 +2219,9 @@ CallInst *VPOParoptUtils::genKmpcDispatchNext(WRegionNode *W,
 
   Function *FnDispatchNext = M->getFunction(FnName);
 
-  if (!FnDispatchNext) {
+  if (!FnDispatchNext)
     FnDispatchNext = Function::Create(FnTy, GlobalValue::ExternalLinkage,
                                       FnName, M);
-    FnDispatchNext->setCallingConv(CallingConv::C);
-  }
 
   std::vector<Value *> FnDispatchNextArgs;
 
@@ -2270,7 +2234,7 @@ CallInst *VPOParoptUtils::genKmpcDispatchNext(WRegionNode *W,
 
   CallInst *DispatchNextCall =
       CallInst::Create(FnTy, FnDispatchNext, FnDispatchNextArgs, "", InsertPt);
-  DispatchNextCall->setCallingConv(CallingConv::C);
+  setFuncCallingConv(DispatchNextCall, M);
   DispatchNextCall->setTailCall(false);
   return DispatchNextCall;
 }
@@ -2304,8 +2268,7 @@ CallInst *VPOParoptUtils::genKmpcDispatchFini(WRegionNode *W,
 
   int Flags = KMP_IDENT_KMPC;
 
-  GlobalVariable *Loc =
-    genKmpcLocfromDebugLoc(F, InsertPt, IdentTy, Flags, B, E);
+  Constant *Loc = genKmpcLocfromDebugLoc(IdentTy, Flags, B, E);
 
   LLVM_DEBUG(dbgs() << "\n---- Loop Source Location Info: " << *Loc << "\n\n");
 
@@ -2338,8 +2301,7 @@ CallInst *VPOParoptUtils::genKmpcThreadPrivateCachedCall(
 
   int Flags = KMP_IDENT_KMPC;
 
-  GlobalVariable *KmpcLoc =
-      genKmpcLocfromDebugLoc(F, AI, IdentTy, Flags, &B, &E);
+  Constant *KmpcLoc = genKmpcLocfromDebugLoc(IdentTy, Flags, &B, &E);
 
   SmallVector<Value *, 6> FnGetTpvArgs;
   FnGetTpvArgs.push_back(KmpcLoc);
@@ -2380,26 +2342,23 @@ CallInst *VPOParoptUtils::genKmpcGlobalThreadNumCall(Function *F,
 
   int Flags = KMP_IDENT_KMPC;
 
-  GlobalVariable *KmpcLoc =
-      genKmpcLocfromDebugLoc(F, AI, IdentTy, Flags, &B, &E);
+  Constant *KmpcLoc = genKmpcLocfromDebugLoc(IdentTy, Flags, &B, &E);
 
   FunctionType *FnGetTidTy = FunctionType::get(
-      Type::getInt32Ty(C), PointerType::getUnqual(IdentTy), false);
+      Type::getInt32Ty(C), KmpcLoc->getType(), false);
 
   Function *FnGetTid = M->getFunction("__kmpc_global_thread_num");
 
-  if (!FnGetTid) {
+  if (!FnGetTid)
     FnGetTid = Function::Create(FnGetTidTy, GlobalValue::ExternalLinkage,
                                 "__kmpc_global_thread_num", M);
-    FnGetTid->setCallingConv(CallingConv::C);
-  }
 
   std::vector<Value *> FnGetTidArgs;
   FnGetTidArgs.push_back(KmpcLoc);
 
   CallInst *GetTidCall =
       CallInst::Create(FnGetTidTy, FnGetTid, FnGetTidArgs, "tid.val");
-  GetTidCall->setCallingConv(CallingConv::C);
+  setFuncCallingConv(GetTidCall, M);
   GetTidCall->setTailCall(true);
 
   return GetTidCall;
@@ -2463,6 +2422,8 @@ GlobalVariable *VPOParoptUtils::genLocStrfromDebugLoc(Function *F,
   LLVM_DEBUG(dbgs() << "\nSource Location Info: " << LocString << "\n");
 
   Module *M = F->getParent();
+  unsigned GlobalAS = VPOAnalysisUtils::isTargetSPIRV(M) ?
+      vpo::ADDRESS_SPACE_GLOBAL : 0;
   LLVMContext &C = F->getContext();
   // Define the type of loc string. It is an array of i8/char type.
   ArrayType *LocStringTy = ArrayType::get(Type::getInt8Ty(C), LocString.size());
@@ -2472,20 +2433,31 @@ GlobalVariable *VPOParoptUtils::genLocStrfromDebugLoc(Function *F,
   // c";unknown;unknown;0;0;;"
   Constant *LocStringInit = ConstantDataArray::getString(C, LocString, false);
   GlobalVariable *LocStringVar = new GlobalVariable(
-      *M, LocStringTy, true, GlobalValue::PrivateLinkage, LocStringInit,
-      ".source." + Twine(SLine) + "." + Twine(ELine));
+      *M, LocStringTy, /*isConstant=*/true, GlobalValue::PrivateLinkage,
+      LocStringInit, ".source." + Twine(SLine) + "." + Twine(ELine),
+      /*InsertBefore=*/nullptr, GlobalValue::ThreadLocalMode::NotThreadLocal,
+      GlobalAS);
+  // Allows merging of variables with same content.
+  LocStringVar->setUnnamedAddr(GlobalValue::UnnamedAddr::Global);
 
   return LocStringVar;
 }
 
 // This function collects path, file name, line, column information for
 // generating kmpc_location struct needed for OpenMP runtime library
-GlobalVariable *
-VPOParoptUtils::genKmpcLocfromDebugLoc(Function *F, Instruction *AI,
-                                       StructType *IdentTy, int Flags,
-                                       BasicBlock *BS, BasicBlock *BE) {
+Constant *VPOParoptUtils::genKmpcLocfromDebugLoc(StructType *IdentTy,
+                                                 int Flags,
+                                                 BasicBlock *BS,
+                                                 BasicBlock *BE) {
+  Function *F = BS->getParent();
   Module *M = F->getParent();
   LLVMContext &C = F->getContext();
+  unsigned GlobalAS = 0;
+  unsigned GenericAS = 0;
+  if (VPOAnalysisUtils::isTargetSPIRV(M)) {
+    GlobalAS = vpo::ADDRESS_SPACE_GLOBAL;
+    GenericAS = vpo::ADDRESS_SPACE_GENERIC;
+  }
 
   Instruction *SInst = dyn_cast<Instruction>(BS->begin());
   DILocation *Loc1 = SInst ? SInst->getDebugLoc() : nullptr;
@@ -2496,26 +2468,14 @@ VPOParoptUtils::genKmpcLocfromDebugLoc(Function *F, Instruction *AI,
 
   GlobalVariable *LocStringVar = genLocStrfromDebugLoc(F, Loc1, Loc2, Mode);
 
-  // Allows merging of variables with same content.
-  LocStringVar->setUnnamedAddr(GlobalValue::UnnamedAddr::Global);
   Flags |= KMP_IDENT_OPENMP_SPEC_VERSION_5_0; // Enable nonmonotonic scheduling
 
   // Constant Definitions
   ConstantInt *ValueZero = ConstantInt::get(Type::getInt32Ty(C), 0);
   ConstantInt *ValueFlags = ConstantInt::get(Type::getInt32Ty(C), Flags);
-  // Get a pointer to the global variable containing loc string.
-  Constant *Zeros[] = {ValueZero, ValueZero};
-  // TODO: OPAQUEPOINTER: Use opaque pointer compliant APIs when added.
-  // GlobalVariable will eventually contain the ElementType information
-  // somewhere else, eg: in GlobalValue
-  Type *Ty = cast<PointerType>(LocStringVar->getType()->getScalarType())
-                 ->getElementType();
-  Constant *LocStringPtr =
-      ConstantExpr::getGetElementPtr(Ty, LocStringVar, Zeros);
-  if (VPOAnalysisUtils::isTargetSPIRV(F->getParent()))
-    // TODO: OPAQUEPOINTER: PointerBitcast will not be needed.
-    LocStringPtr = ConstantExpr::getPointerBitCastOrAddrSpaceCast(
-        LocStringPtr, Type::getInt8PtrTy(C, vpo::ADDRESS_SPACE_GENERIC));
+  // TODO: OPAQUEPOINTER: PointerBitcast will not be needed.
+  Constant *LocStringPtr = ConstantExpr::getPointerBitCastOrAddrSpaceCast(
+      LocStringVar, IdentTy->getTypeAtIndex(4));
 
   unsigned SLine =
       (Loc1 != nullptr && Mode != SRC_LOC_NONE) ? Loc1->getLine() : 0;
@@ -2532,16 +2492,22 @@ VPOParoptUtils::genKmpcLocfromDebugLoc(Function *F, Instruction *AI,
       IdentTy, {ValueZero, ValueFlags, ValueZero, ValueZero, LocStringPtr});
   GlobalVariable *KmpcLoc = new GlobalVariable(
       *M, IdentTy, /*isConstant=*/false, GlobalValue::PrivateLinkage,
-      StructInit, ".kmpc_loc." + Twine(SLine) + "." + Twine(ELine));
+      StructInit, ".kmpc_loc." + Twine(SLine) + "." + Twine(ELine),
+      /*InsertBefore=*/nullptr, GlobalValue::ThreadLocalMode::NotThreadLocal,
+      GlobalAS);
   // Allows merging of variables with same content.
   KmpcLoc->setUnnamedAddr(GlobalValue::UnnamedAddr::Global);
 
-  return KmpcLoc;
+  // The returned value will be used as an argument for a function call.
+  // We have to make sure that it is a generic address space pointer,
+  // which is the address space for pointer arguments of __kmpc functions.
+  return ConstantExpr::getPointerBitCastOrAddrSpaceCast(
+      KmpcLoc, PointerType::get(IdentTy, GenericAS));
 }
 
 // Generate source location information for Explicit barrier
-GlobalVariable *VPOParoptUtils::genKmpcLocforExplicitBarrier(
-                   Instruction *AI, StructType *IdentTy, BasicBlock *BB) {
+Constant *VPOParoptUtils::genKmpcLocforExplicitBarrier(StructType *IdentTy,
+                                                       BasicBlock *BB) {
   int Flags = KMP_IDENT_KMPC | KMP_IDENT_BARRIER_EXPL; // bits 0x2 | 0x20
 
 #if 0
@@ -2549,15 +2515,12 @@ GlobalVariable *VPOParoptUtils::genKmpcLocforExplicitBarrier(
     flags |= KMP_IDENT_CLOMP;  // bit 0x4
 #endif
 
-  Function *F = BB->getParent();
-  GlobalVariable *KmpcLoc =
-      VPOParoptUtils::genKmpcLocfromDebugLoc(F, AI, IdentTy, Flags, BB, BB);
-  return KmpcLoc;
+  return genKmpcLocfromDebugLoc(IdentTy, Flags, BB, BB);
 }
 
 // Generate source location information for Implicit barrier
-GlobalVariable *VPOParoptUtils::genKmpcLocforImplicitBarrier(
-    WRegionNode *W, Instruction *AI, StructType *IdentTy, BasicBlock *BB) {
+Constant *VPOParoptUtils::genKmpcLocforImplicitBarrier(
+    WRegionNode *W, StructType *IdentTy, BasicBlock *BB) {
   int Flags = 0;
 
   switch (W->getWRegionKindID()) {
@@ -2592,10 +2555,7 @@ GlobalVariable *VPOParoptUtils::genKmpcLocforImplicitBarrier(
     Flags |= KMP_IDENT_CLOMP;  // bit 0x4
 #endif
 
-  Function *F = BB->getParent();
-  GlobalVariable *KmpcLoc =
-      VPOParoptUtils::genKmpcLocfromDebugLoc(F, AI, IdentTy, Flags, BB, BB);
-  return KmpcLoc;
+  return genKmpcLocfromDebugLoc(IdentTy, Flags, BB, BB);
 }
 
 // Insert kmpc_[cancel_]barrier(...) call before InsertPt. If the call emitted
@@ -2660,13 +2620,11 @@ CallInst *VPOParoptUtils::genSpmdKernelInit(WRegionNode *W,
   Function *Fn = M->getFunction(FnName);
   FunctionType *FnTy = FunctionType::get(RetTy, TypeParams, false);
 
-  if (!Fn) {
+  if (!Fn)
     Fn = Function::Create(FnTy, GlobalValue::ExternalLinkage, FnName, M);
-    Fn->setCallingConv(CallingConv::C);
-  }
 
   CallInst *Call = CallInst::Create(FnTy, Fn, Args, "", InsertPt);
-  Call->setCallingConv(CallingConv::C);
+  setFuncCallingConv(Call, M);
   return Call;
 }
 
@@ -2687,13 +2645,11 @@ CallInst *VPOParoptUtils::genSpmdKernelFini(WRegionNode *W,
   Function *Fn = M->getFunction(FnName);
   FunctionType *FnTy = FunctionType::get(RetTy, TypeParams, false);
 
-  if (!Fn) {
+  if (!Fn)
     Fn = Function::Create(FnTy, GlobalValue::ExternalLinkage, FnName, M);
-    Fn->setCallingConv(CallingConv::C);
-  }
 
   CallInst *Call = CallInst::Create(FnTy, Fn, Args, "", InsertPt);
-  Call->setCallingConv(CallingConv::C);
+  setFuncCallingConv(Call, M);
   return Call;
 }
 
@@ -2713,13 +2669,11 @@ CallInst *VPOParoptUtils::genKernelInit(WRegionNode *W, Instruction *InsertPt,
   Function *Fn = M->getFunction(FnName);
   FunctionType *FnTy = FunctionType::get(RetTy, TypeParams, false);
 
-  if (!Fn) {
+  if (!Fn)
     Fn = Function::Create(FnTy, GlobalValue::ExternalLinkage, FnName, M);
-    Fn->setCallingConv(CallingConv::C);
-  }
 
   CallInst *Call = CallInst::Create(FnTy, Fn, Args, "", InsertPt);
-  Call->setCallingConv(CallingConv::C);
+  setFuncCallingConv(Call, M);
   return Call;
 }
 
@@ -2739,13 +2693,11 @@ CallInst *VPOParoptUtils::genKernelFini(WRegionNode *W, Instruction *InsertPt,
   Function *Fn = M->getFunction(FnName);
   FunctionType *FnTy = FunctionType::get(RetTy, TypeParams, false);
 
-  if (!Fn) {
+  if (!Fn)
     Fn = Function::Create(FnTy, GlobalValue::ExternalLinkage, FnName, M);
-    Fn->setCallingConv(CallingConv::C);
-  }
 
   CallInst *Call = CallInst::Create(FnTy, Fn, Args, "", InsertPt);
-  Call->setCallingConv(CallingConv::C);
+  setFuncCallingConv(Call, M);
   return Call;
 }
 
@@ -2766,13 +2718,11 @@ CallInst *VPOParoptUtils::genGetSharingVariables(WRegionNode *W,
   Function *Fn = M->getFunction(FnName);
   FunctionType *FnTy = FunctionType::get(RetTy, TypeParams, false);
 
-  if (!Fn) {
+  if (!Fn)
     Fn = Function::Create(FnTy, GlobalValue::ExternalLinkage, FnName, M);
-    Fn->setCallingConv(CallingConv::C);
-  }
 
   CallInst *Call = CallInst::Create(FnTy, Fn, Args, "", InsertPt);
-  Call->setCallingConv(CallingConv::C);
+  setFuncCallingConv(Call, M);
   return Call;
 }
 
@@ -2815,13 +2765,11 @@ CallInst *VPOParoptUtils::genKernelParallel(WRegionNode *W,
   Function *Fn = M->getFunction(FnName);
   FunctionType *FnTy = FunctionType::get(RetTy, TypeParams, false);
 
-  if (!Fn) {
+  if (!Fn)
     Fn = Function::Create(FnTy, GlobalValue::ExternalLinkage, FnName, M);
-    Fn->setCallingConv(CallingConv::C);
-  }
 
   CallInst *Call = CallInst::Create(FnTy, Fn, Args, "", InsertPt);
-  Call->setCallingConv(CallingConv::C);
+  setFuncCallingConv(Call, M);
   return Call;
 }
 
@@ -2863,13 +2811,11 @@ CallInst *VPOParoptUtils::genBeginSharingVariables(WRegionNode *W,
   Function *Fn = M->getFunction(FnName);
   FunctionType *FnTy = FunctionType::get(RetTy, TypeParams, false);
 
-  if (!Fn) {
+  if (!Fn)
     Fn = Function::Create(FnTy, GlobalValue::ExternalLinkage, FnName, M);
-    Fn->setCallingConv(CallingConv::C);
-  }
 
   CallInst *Call = CallInst::Create(FnTy, Fn, Args, "", InsertPt);
-  Call->setCallingConv(CallingConv::C);
+  setFuncCallingConv(Call, M);
   return Call;
 }
 
@@ -2900,16 +2846,16 @@ CallInst *VPOParoptUtils::genKmpcBarrierImpl(
     // and insert it above InsertPt
     CallInst *BarrierCall = genEmptyCall(M, FnName, RetTy, InsertPt);
     BarrierCall->getCalledFunction()->setConvergent();
-    setFuncCallingConv(BarrierCall, IsTargetSPIRV);
+    setFuncCallingConv(BarrierCall, M);
     return BarrierCall;
   }
 
   // Create the arg for Loc
-  GlobalVariable *Loc;
+  Constant *Loc;
   if (IsExplicit)
-    Loc = genKmpcLocforExplicitBarrier(InsertPt, IdentTy, B);
+    Loc = genKmpcLocforExplicitBarrier(IdentTy, B);
   else // Implicit
-    Loc = genKmpcLocforImplicitBarrier(W, InsertPt, IdentTy, B);
+    Loc = genKmpcLocforImplicitBarrier(W, IdentTy, B);
 
   // Create the arg for Tid
   Type *I32Ty = Type::getInt32Ty(C);
@@ -3693,8 +3639,7 @@ CallInst *VPOParoptUtils::genKmpcCall(WRegionNode *W, StructType *IdentTy,
     Flags |= KMP_IDENT_ATOMIC_REDUCE;
 
   // Before emitting the KMPC call, we need the Loc information.
-  GlobalVariable *Loc =
-      genKmpcLocfromDebugLoc(F, InsertPt, IdentTy, Flags, B, E);
+  Constant *Loc = genKmpcLocfromDebugLoc(IdentTy, Flags, B, E);
   LLVM_DEBUG(dbgs() << __FUNCTION__ << ": Loc: " << *Loc << "\n");
 
   // At this point, we have all the function args: loc + incoming Args. We bind
@@ -3710,24 +3655,28 @@ CallInst *VPOParoptUtils::genKmpcCall(WRegionNode *W, StructType *IdentTy,
   if (!Insert)
     InsertPt = nullptr; // do not emit the call into the IR
 
-  return genCall(M, IntrinsicName, ReturnTy, FnArgs, InsertPt);
+  CallInst *CI = genCall(M, IntrinsicName, ReturnTy, FnArgs, InsertPt);
+  setFuncCallingConv(CI, M);
+  return CI;
 }
 
 // Genetates a CallInst for the given FunctionCallee FnC and its argument list.
 // FnC is assumed to have a non-null callee.
 // If InsertPt!=null, the Call is emitted before InsertPt.
-CallInst *VPOParoptUtils::genCall(FunctionCallee FnC, ArrayRef<Value *> FnArgs,
+CallInst *VPOParoptUtils::genCall(Module *M,
+                                  FunctionCallee FnC,
+                                  ArrayRef<Value *> FnArgs,
                                   ArrayRef<Type *> FnArgTypes,
-                                  Instruction *InsertPt, bool IsTail,
-                                  bool IsVarArg) {
+                                  Instruction *InsertPt,
+                                  bool IsTail) {
   assert(FnC.getCallee() && "Function callee is null.");
   CallInst *Call = CallInst::Create(FnC, FnArgs, "", InsertPt);
   // Note: if InsertPt!=nullptr, Call is emitted into the IR as well.
-  assert(Call != nullptr && "Failed to generate Function Call");
+  assert(Call && "Failed to generate Function Call");
 
-  if (InsertPt != nullptr)
+  if (InsertPt)
     Call->setDebugLoc(InsertPt->getDebugLoc());
-  Call->setCallingConv(CallingConv::C);
+  setFuncCallingConv(Call, M);
   Call->setTailCall(IsTail);
   LLVM_DEBUG(dbgs() << __FUNCTION__ << ": Function call: " << *Call << "\n");
 
@@ -3779,7 +3728,7 @@ CallInst *VPOParoptUtils::genCall(Module *M, StringRef FnName, Type *ReturnTy,
   if (isa<Function>(FnCallee) ||
       (AllowMismatchingPointerArgs &&
        NewAndExistingFunctionsDifferOnlyByPointerTypeOfArgs()))
-    return genCall(FnC, FnArgs, FnArgTypes, InsertPt, IsTail, IsVarArg);
+    return genCall(M, FnC, FnArgs, FnArgTypes, InsertPt, IsTail);
 
   std::string Msg =
       ("Function '" + FnName + "' exists, but has an unexpected type.").str();
@@ -4062,9 +4011,9 @@ bool VPOParoptUtils::genKmpcCriticalSectionImpl(WRegionNode *W,
   if (IsTargetSPIRV) {
     // __kmpc_[end_]critical calls must be convergent for SPIR-V targets.
     BeginCritical->getCalledFunction()->setConvergent();
-    setFuncCallingConv(BeginCritical, IsTargetSPIRV);
+    setFuncCallingConv(BeginCritical, M);
     EndCritical->getCalledFunction()->setConvergent();
-    setFuncCallingConv(EndCritical, IsTargetSPIRV);
+    setFuncCallingConv(EndCritical, M);
   }
 
   BeginCritical->insertBefore(BeginInst);
@@ -4134,7 +4083,7 @@ bool VPOParoptUtils::genCriticalLoopForSPIRHelper(Instruction *BeginInst,
   ConstantInt *OneVal = PreheaderBuilder.getInt32(1);
   CallInst *SGSize = genCall(M, "_Z18get_sub_group_sizev", IVTy, {},
                              &*PreheaderBuilder.GetInsertPoint());
-  setFuncCallingConv(SGSize, true);
+  setFuncCallingConv(SGSize, M);
 
   // HeaderBB:
   //   %simdlane.id = phi i32 [ 0, %PreheaderBB ]
@@ -4186,7 +4135,7 @@ bool VPOParoptUtils::genCriticalLoopForSPIRHelper(Instruction *BeginInst,
   //   ...
   CallInst *SGLocalId =
       genCall(M, "_Z22get_sub_group_local_idv", IVTy, {}, LoopBodyInsertPt);
-  setFuncCallingConv(SGLocalId, true);
+  setFuncCallingConv(SGLocalId, M);
   Value *SkipPred = new ICmpInst(LoopBodyInsertPt, ICmpInst::ICMP_NE,
                                  IVPHI, SGLocalId, "skip.pred");
 
@@ -4371,7 +4320,7 @@ bool VPOParoptUtils::genCriticalLoopForSPIR(WRegionNode *W,
     CallInst *SGId = genCall(M, "_Z16get_sub_group_idv",
                              CondBuilder.getInt32Ty(), {},
                              &*CondBuilder.GetInsertPoint());
-    setFuncCallingConv(SGId, true);
+    setFuncCallingConv(SGId, M);
     Value *Cond = CondBuilder.CreateTrunc(
         SGId, CondBuilder.getInt1Ty(), "sub_group_id_parity");
     // TODO: since the odd and even branches are identical, we need
@@ -4519,9 +4468,9 @@ VPOParoptUtils::genKmpcSpmdPushPopNumThreadsCalls(Module *M,
   assert(PopCall && "Could not emit __kmpc_spmd_pop_num_threads");
 
   PushCall->getCalledFunction()->setConvergent();
-  setFuncCallingConv(PushCall, true);
+  setFuncCallingConv(PushCall, M);
   PopCall->getCalledFunction()->setConvergent();
-  setFuncCallingConv(PopCall, true);
+  setFuncCallingConv(PopCall, M);
 
   LLVM_DEBUG(dbgs() << __FUNCTION__
                     << ": Push/Pop num_threads calls generated.\n");
@@ -4548,7 +4497,7 @@ CallInst *VPOParoptUtils::genConstructorCall(Function *Ctor, Value *V,
     return nullptr;
 
   Type *ValType = V->getType();
-  CallInst *Call = genCall(Ctor, {V}, {ValType}, nullptr);
+  CallInst *Call = genCall(Ctor->getParent(), Ctor, {V}, {ValType}, nullptr);
   Instruction *InsertAfterPt = cast<Instruction>(PrivAlloca);
   Call->insertAfter(InsertAfterPt);
   Call->setDebugLoc(InsertAfterPt->getDebugLoc());
@@ -4569,7 +4518,7 @@ CallInst *VPOParoptUtils::genDestructorCall(Function *Dtor, Value *V,
     V = Builder.CreateBitCast(V, ArgTy);
     ValType = ArgTy;
   }
-  CallInst *Call = genCall(Dtor, {V}, {ValType}, nullptr);
+  CallInst *Call = genCall(Dtor->getParent(), Dtor, {V}, {ValType}, nullptr);
   Call->insertBefore(InsertBeforePt);
   Call->setDebugLoc(InsertBeforePt->getDebugLoc());
   LLVM_DEBUG(dbgs() << "DESTRUCTOR: " << *Call << "\n");
@@ -4585,7 +4534,8 @@ CallInst *VPOParoptUtils::genCopyConstructorCall(Function *Cctor, Value *D,
   Type *DTy = D->getType();
   Type *STy = S->getType();
 
-  CallInst *Call = genCall(Cctor, {D,S}, {DTy, STy}, nullptr);
+  CallInst *Call =
+      genCall(Cctor->getParent(), Cctor, {D,S}, {DTy, STy}, nullptr);
   Call->insertBefore(InsertBeforePt);
   Call->setDebugLoc(InsertBeforePt->getDebugLoc());
   LLVM_DEBUG(dbgs() << "COPY CONSTRUCTOR: " << *Call << "\n");
@@ -4602,7 +4552,7 @@ CallInst *VPOParoptUtils::genCopyAssignCall(Function *Cp, Value *D, Value *S,
   Type *DTy = D->getType();
   Type *STy = S->getType();
 
-  CallInst *Call = genCall(Cp, {D,S}, {DTy, STy}, nullptr);
+  CallInst *Call = genCall(Cp->getParent(), Cp, {D,S}, {DTy, STy}, nullptr);
   Call->insertBefore(InsertBeforePt);
   Call->setDebugLoc(InsertBeforePt->getDebugLoc());
   LLVM_DEBUG(dbgs() << "COPY ASSIGN: " << *Call << "\n");
@@ -5513,11 +5463,7 @@ Function *VPOParoptUtils::genOutlineFunction(
   DT->verify(DominatorTree::VerificationLevel::Full);
 
   // Set up the calling convention used by OpenMP runtime library.
-  CallingConv::ID CC = CallingConv::C;
-  // Adjust the calling convention for both the function and the
-  // call site.
-  NewFunction->setCallingConv(CC);
-  CallSite->setCallingConv(CC);
+  setFuncCallingConv(CallSite, CallSite->getModule());
 
   return NewFunction;
 }
@@ -5637,7 +5583,7 @@ Value *VPOParoptUtils::genSPIRVHorizontalReduction(
 
   auto *HRCall = genCall(RedDef->getModule(), Name, CallArgRetTy,  { Result },
                          &*Builder.GetInsertPoint());
-  setFuncCallingConv(HRCall, true);
+  setFuncCallingConv(HRCall, HRCall->getModule());
 
   LLVM_DEBUG(dbgs() << __FUNCTION__ <<
              ": SPIRV horizontal reduction is used "

@@ -18,7 +18,7 @@ target device_triples = "spir64"
 
 @llvm.global_ctors = appending global [1 x { i32, void ()*, i8* }] [{ i32, void ()*, i8* } { i32 0, void ()* @.omp_offloading.requires_reg, i8* null }]
 
-; CHECK: [[SRC_STR:@[^ ]+]] = private constant [18 x i8] c";unknown;foo;3;4;;"
+; CHECK: [[SRC_STR:@[^ ]+]] = private unnamed_addr constant [18 x i8] c";unknown;foo;3;4;;"
 
 ; Function Attrs: noinline nounwind optnone uwtable
 define dso_local void @foo(i32* %p) #0 !dbg !8 {

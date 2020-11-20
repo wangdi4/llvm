@@ -2551,7 +2551,7 @@ bool VPOParoptTransform::genReductionUdrFini(ReductionItem *RedI,
   assert((RedI->getCombiner() != nullptr) &&
          "NULL combiner for user defined reduction.");
 
-  CallInst *Res = VPOParoptUtils::genCall(
+  CallInst *Res = VPOParoptUtils::genCall(RedI->getCombiner()->getParent(),
       RedI->getCombiner(), {ReductionVar, ReductionValueLoc},
       {ReductionVar->getType(), ReductionValueLoc->getType()}, nullptr);
   Builder.Insert(Res);
@@ -8702,8 +8702,6 @@ CallInst* VPOParoptTransform::genForkCallInst(WRegionNode *W, CallInst *CI) {
     else
       ForkCallFn = Function::Create(FnTy, GlobalValue::ExternalLinkage,
                                     "__kmpc_fork_call", M);
-
-    ForkCallFn->setCallingConv(CallingConv::C);
   }
 
 #if INTEL_CUSTOMIZATION
@@ -8733,8 +8731,8 @@ CallInst* VPOParoptTransform::genForkCallInst(WRegionNode *W, CallInst *CI) {
   BasicBlock *EntryBB = W->getEntryBBlock();
   BasicBlock *ExitBB = W->getExitBBlock();
 
-  GlobalVariable *KmpcLoc = VPOParoptUtils::genKmpcLocfromDebugLoc(
-      F, CI, IdentTy, KMP_IDENT_KMPC, EntryBB, ExitBB);
+  Constant *KmpcLoc = VPOParoptUtils::genKmpcLocfromDebugLoc(
+      IdentTy, KMP_IDENT_KMPC, EntryBB, ExitBB);
 
   ConstantInt *NumArgs =
       ConstantInt::get(Type::getInt32Ty(C), CI->getNumArgOperands() - 2);
@@ -8758,7 +8756,7 @@ CallInst* VPOParoptTransform::genForkCallInst(WRegionNode *W, CallInst *CI) {
 
   // CI->replaceAllUsesWith(NewCI);
 
-  ForkCallInst->setCallingConv(CallingConv::C);
+  VPOParoptUtils::setFuncCallingConv(ForkCallInst, ForkCallInst->getModule());
   ForkCallInst->setTailCall(false);
   ForkCallInst->setDebugLoc(CI->getDebugLoc());
 

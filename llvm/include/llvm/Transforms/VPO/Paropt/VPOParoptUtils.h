@@ -266,10 +266,13 @@ public:
                                                   Value *Tid, Value *GV,
                                                   Value *GVSize, Value *TpvGV);
 
-  /// Generate source location information from Instruction \p AI's `DebugLoc`.
-  static GlobalVariable *genKmpcLocfromDebugLoc(Function *F, Instruction *AI,
-                                                StructType *IdentTy, int Flags,
-                                                BasicBlock *BS, BasicBlock *BE);
+  /// Generate source location information from the debug locations
+  /// (Instruction::getDebugLoc()) of the first instructions in the given
+  /// \p BS and \p BE. The returned value is a pointer to an aggregate
+  /// variable of type \p IdentTy that is initialized with the
+  /// source locations and the given \p Flags.
+  static Constant *genKmpcLocfromDebugLoc(StructType *IdentTy, int Flags,
+                                          BasicBlock *BS, BasicBlock *BE);
 
   /// Generate source location String from debug location \p Loc1 and \p Loc2.
   static GlobalVariable *genLocStrfromDebugLoc(Function *F, DILocation *Loc1,
@@ -450,16 +453,18 @@ public:
                                      bool Prepare);
 
 
-  /// Generate source location information for \b explicit barrier.
-  static GlobalVariable *genKmpcLocforExplicitBarrier(Instruction *InsertPt,
-                                                      StructType *IdentTy,
-                                                      BasicBlock *BB);
+  /// Generate source location information of type \p IdentTy
+  /// for an explicit barrier. The source location information
+  /// is taken from \p BB.
+  static Constant *genKmpcLocforExplicitBarrier(StructType *IdentTy,
+                                                BasicBlock *BB);
 
-  /// Generate source location information for \b implicit barrier.
-  static GlobalVariable *genKmpcLocforImplicitBarrier(WRegionNode *W,
-                                                      Instruction *InsertPt,
-                                                      StructType *IdentTy,
-                                                      BasicBlock *BB);
+  /// Generate source location information of type \p IdentTy
+  /// for an implicit barrier implied by \p W.
+  /// The source location information is taken from \p BB.
+  static Constant *genKmpcLocforImplicitBarrier(WRegionNode *W,
+                                                StructType *IdentTy,
+                                                BasicBlock *BB);
 
   /// Insert `kmpc_[cancel]_barrier` call (based on whether parent WRegion has
   /// a cancel construct) before \p InsertPt and return it.
@@ -1489,9 +1494,12 @@ public:
                                      ArrayRef<Value *> FnArgs,
                                      Instruction *InsertPt);
 
+  /// Set the calling convention for \p CI.
   /// Set SPIR_FUNC calling convention for SPIR-V targets, otherwise,
-  /// do nothing.
-  static void setFuncCallingConv(CallInst *CI, bool IsTargetSPIRV);
+  /// set C calling convention.
+  /// Since \p CI may not be inserted into any Module yet, \p M
+  /// specifies a Module that is used to undentify the target.
+  static void setFuncCallingConv(CallInst *CI, Module *M);
 
   /// \name Helper methods for generating calls.
   /// @{
@@ -1515,9 +1523,10 @@ public:
 
   /// Generate a CallInst for the given FunctionCallee \p FnC and its argument
   /// list. \p FnC must have a non-null Callee.
-  static CallInst *genCall(FunctionCallee FnC, ArrayRef<Value *> FnArgs,
+  static CallInst *genCall(Module *M,
+                           FunctionCallee FnC, ArrayRef<Value *> FnArgs,
                            ArrayRef<Type *> FnArgTypes, Instruction *InsertPt,
-                           bool IsTail = false, bool IsVarArg = false);
+                           bool IsTail = false);
 
   /// Generate a call to the function \p FnName.
   /// If the function is not already declared in the module \p M, then it is

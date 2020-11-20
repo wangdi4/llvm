@@ -352,7 +352,7 @@ void VPOParoptModuleTransform::replaceSincosWithOCLBuiltin(Function *F,
 
       CallInst *NewCall = CallInst::Create(
           FnTy, OCLSincosDecl, {FnArgs[0], FnArgs[2]}, "sine", OldCall);
-      VPOParoptUtils::setFuncCallingConv(NewCall, /*IsTargetSPIRV=*/true);
+      VPOParoptUtils::setFuncCallingConv(NewCall, NewCall->getModule());
 
       LLVM_DEBUG(dbgs() << __FUNCTION__ << ": OCL sincos: " << *NewCall
                         << "\n");
