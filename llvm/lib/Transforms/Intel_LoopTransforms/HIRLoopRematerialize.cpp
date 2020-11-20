@@ -1289,6 +1289,7 @@ bool HIRLoopRematerialize::materializeALoop(
 
   // Finally, materialize a loop around NewLoopInsts after removing
   // insts in ToBeRemovedInsts
+  HIRInvalidationUtils::invalidateNonLoopRegion(Parent);
   HLLoop *NewLoop = replaceInstsWithLoop(
       RerollFactor, FirstNodeOfFirstLoopIter->getIterator(),
       std::next(LastNodeOfLastLoopIter->getIterator()), NewLoopInsts,

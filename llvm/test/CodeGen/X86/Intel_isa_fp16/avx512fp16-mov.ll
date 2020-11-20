@@ -1347,7 +1347,7 @@ define half @extract_f16_7(<8 x half> %x) {
 define i16 @extract_i16_0(<8 x i16> %x) {
 ; CHECK-LABEL: extract_i16_0:
 ; CHECK:       # %bb.0:
-; CHECK-NEXT:    vmovd %xmm0, %eax
+; CHECK-NEXT:    vmovw %xmm0, %eax
 ; CHECK-NEXT:    # kill: def $ax killed $ax killed $eax
 ; CHECK-NEXT:    ret{{[l|q]}}
    %res = extractelement <8 x i16> %x, i32 0

@@ -2301,7 +2301,7 @@ bool X86FastISel::X86FastEmitPseudoSelect(MVT RetVT, const Instruction *I) {
   case MVT::i16: Opc = X86::CMOV_GR16; break;
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_FP16
-  case MVT::f16: Opc = X86::CMOV_FR16; break;
+  case MVT::f16: Opc = X86::CMOV_FR16X; break;
 #endif // INTEL_FEATURE_ISA_FP16
 #endif // INTEL_CUSTOMIZATION
   case MVT::i32: Opc = X86::CMOV_GR32; break;

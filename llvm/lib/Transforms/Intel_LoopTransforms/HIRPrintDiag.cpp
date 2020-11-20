@@ -25,9 +25,12 @@ void printDiag(StringRef FuncNameKnobFromCommandLine,
 #endif
 }
 
-void printMarker(StringRef Marker, ArrayRef<const HLNode *> Nodes,
-                 bool DumpNode, bool Detail) {
+void printMarker(bool PrintInfo, StringRef Marker,
+                 ArrayRef<const HLNode *> Nodes, bool DumpNode, bool Detail) {
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+  if (!PrintInfo)
+    return;
+
   dbgs() << Marker;
   for (auto Node : Nodes) {
     if (!DumpNode)
@@ -41,9 +44,12 @@ void printMarker(StringRef Marker, ArrayRef<const HLNode *> Nodes,
 #endif
 }
 
-void printMarker(StringRef Marker, ArrayRef<const RegDDRef *> Refs, bool Detail,
-                 bool PrintDim) {
+void printMarker(bool PrintInfo, StringRef Marker,
+                 ArrayRef<const RegDDRef *> Refs, bool Detail, bool PrintDim) {
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+  if (!PrintInfo)
+    return;
+
   dbgs() << Marker;
   if (!PrintDim) {
     for (auto Ref : Refs) {

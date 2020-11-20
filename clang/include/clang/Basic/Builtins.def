@@ -25,6 +25,11 @@
 //  s -> short
 //  i -> int
 //  h -> half
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+//  g -> _Float16
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
 //  f -> float
 //  d -> double
 //  z -> size_t

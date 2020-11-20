@@ -1440,7 +1440,7 @@ void test_mm_store_sh(void * A, __m128h B) {
 void test_mm_mask_store_sh(void * __P, __mmask8 __U, __m128h __A)
 {
   // CHECK-LABEL: @test_mm_mask_store_sh
-  // CHECK: call void @llvm.masked.store.v8f16.p0v8f16(<8 x half> %{{.*}}, <8 x half>* %{{.*}}, i32 1, <8 x i1> %{{.*}}) 
+  // CHECK: call void @llvm.masked.store.v8f16.p0v8f16(<8 x half> %{{.*}}, <8 x half>* %{{.*}}, i32 1, <8 x i1> %{{.*}})
   _mm_mask_store_sh(__P, __U, __A);
 }
 

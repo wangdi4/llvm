@@ -4,7 +4,7 @@
 ; Simple test to make sure folding for special constants (like half zero)
 ; isn't completely broken.
 
-; CHECK: vdivsh	LCPI0
+; CHECK: vdivsh LCPI0
 
 %0 = type { half, half, half, half, half, half, half, half }
 
