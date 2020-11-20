@@ -163,7 +163,7 @@ void VPLiveInOutCreator::createInOutsInductions(
     const VPLoopEntityList *VPLEntityList, Loop *OrigLoop) {
 
   VPExternalValues &ExtVals = Plan.getExternals();
-  ScalarInOutList &ScalarInOuts = ExtVals.getOrCreateScalarLoopInOuts(OrigLoop);
+  ScalarInOutList &ScalarInOuts = *ExtVals.getOrCreateScalarLoopInOuts(OrigLoop);
 
   for (auto *Ind : VPLEntityList->vpinductions()) {
     if (Ind->getIsMemOnly())
@@ -191,7 +191,7 @@ void VPLiveInOutCreator::createInOutsReductions(
     const VPLoopEntityList *VPLEntityList, Loop *OrigLoop) {
 
   VPExternalValues &ExtVals = Plan.getExternals();
-  ScalarInOutList &ScalarInOuts = ExtVals.getOrCreateScalarLoopInOuts(OrigLoop);
+  ScalarInOutList &ScalarInOuts = *ExtVals.getOrCreateScalarLoopInOuts(OrigLoop);
 
   for (auto *Red : VPLEntityList->vpreductions()) {
     if (Red->getIsMemOnly())
