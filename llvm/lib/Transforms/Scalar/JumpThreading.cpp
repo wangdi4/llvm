@@ -2970,12 +2970,8 @@ void JumpThreadingPass::threadThroughTwoBasicBlocks(BasicBlock *PredPredBB,
       cloneInstructions(PredBB->begin(), PredBB->end(), NewBB, PredPredBB);
 
   // Copy the edge probabilities from PredBB to NewBB.
-  if (HasProfileData) {
-    SmallVector<BranchProbability, 4> Probs;
-    for (BasicBlock *Succ : successors(PredBB))
-      Probs.push_back(BPI->getEdgeProbability(PredBB, Succ));
-    BPI->setEdgeProbability(NewBB, Probs);
-  }
+  if (HasProfileData)
+    BPI->copyEdgeProbabilities(PredBB, NewBB);
 
   // Update the terminator of PredPredBB to jump to NewBB instead of PredBB.
   // This eliminates predecessors from PredPredBB, which requires us to simplify
@@ -3818,6 +3814,8 @@ bool JumpThreadingPass::duplicateCondBranchOnPHIIntoPred(
 
   // Remove the unconditional branch at the end of the PredBB block.
   OldPredBranch->eraseFromParent();
+  if (HasProfileData)
+    BPI->copyEdgeProbabilities(BB, PredBB);
   DTU->applyUpdatesPermissive(Updates);
 
   ++NumDupes;

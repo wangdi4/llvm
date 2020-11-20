@@ -9252,6 +9252,9 @@ void AMDGPUTargetCodeGenInfo::setTargetAttributes(
     if (NumVGPR != 0)
       F->addFnAttr("amdgpu-num-vgpr", llvm::utostr(NumVGPR));
   }
+
+  if (M.getContext().getTargetInfo().allowAMDGPUUnsafeFPAtomics())
+    F->addFnAttr("amdgpu-unsafe-fp-atomics", "true");
 }
 
 unsigned AMDGPUTargetCodeGenInfo::getOpenCLKernelCallingConv() const {

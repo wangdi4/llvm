@@ -7065,6 +7065,11 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
 #endif // INTEL_COLLAB
 
   HandleAmdgcnLegacyOptions(D, Args, CmdArgs);
+  if (Triple.isAMDGPU()) {
+    if (Args.hasFlag(options::OPT_munsafe_fp_atomics,
+                     options::OPT_mno_unsafe_fp_atomics))
+      CmdArgs.push_back("-munsafe-fp-atomics");
+  }
 
   // For all the host OpenMP offloading compile jobs we need to pass the targets
   // information using -fopenmp-targets= option.

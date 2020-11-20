@@ -60,6 +60,7 @@ llvm_map_components_to_libnames(libs
   MCParser
   Object
   ObjectYAML
+  RuntimeDyld
   Support
   )
 
