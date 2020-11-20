@@ -3993,7 +3993,7 @@ public:
     return MapRefTemps.find(VD) != MapRefTemps.end();
   }
   void clearMappedRefTemps() { MapRefTemps.clear(); }
-  bool requiresImplicitTask(const OMPExecutableDirective &S);
+  static bool requiresImplicitTask(const OMPExecutableDirective &S);
   void EmitLateOutlineOMPUncollapsedLoop(const OMPLoopDirective &S,
                                          OpenMPDirectiveKind Kind,
                                          unsigned Depth);

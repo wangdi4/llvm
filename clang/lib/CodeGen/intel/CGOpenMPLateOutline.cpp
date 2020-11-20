@@ -2103,7 +2103,7 @@ void OpenMPLateOutliner::emitOMPTargetExitDataDirective() {
 }
 void OpenMPLateOutliner::emitOMPTaskDirective() {
   startDirectiveIntrinsicSet("DIR.OMP.TASK", "DIR.OMP.END.TASK", OMPD_task);
-  if (CGF.requiresImplicitTask(Directive)) {
+  if (CodeGenFunction::requiresImplicitTask(Directive)) {
     bool NeedIf = Directive.hasClausesOfKind<OMPDependClause>();
     NeedIf = NeedIf && !Directive.hasClausesOfKind<OMPNowaitClause>();
     if (NeedIf) {
@@ -2269,6 +2269,9 @@ bool OpenMPLateOutliner::isFirstDirectiveInSet(const OMPExecutableDirective &S,
   if (Kind == OMPD_unknown)
     return true;
 
+  if (CodeGenFunction::requiresImplicitTask(S))
+    return Kind == OMPD_task;
+
   OpenMPDirectiveKind DKind = S.getDirectiveKind();
   if (Kind == DKind)
     return true;
@@ -2289,9 +2292,6 @@ bool OpenMPLateOutliner::isFirstDirectiveInSet(const OMPExecutableDirective &S,
   case OMPD_target_enter_data:
   case OMPD_target_exit_data:
   case OMPD_target_update:
-    if (S.hasClausesOfKind<OMPDependClause>() ||
-        S.hasClausesOfKind<OMPNowaitClause>())
-      return Kind == OMPD_task;
     return Kind == OMPD_target;
 
   case OMPD_teams_distribute:
@@ -2427,7 +2427,7 @@ static void EmitBody(CodeGenFunction &CGF, const OMPExecutableDirective &D) {
 
 /// Return true if processing the part of an implicit task corresponding to K.
 bool OpenMPLateOutliner::isImplicitTask(OpenMPDirectiveKind K) {
-  if (!CGF.requiresImplicitTask(Directive))
+  if (!CodeGenFunction::requiresImplicitTask(Directive))
      return false;
    return K == CurrentDirectiveKind;
 }
