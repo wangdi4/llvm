@@ -111,13 +111,17 @@ bool IndirectCallLowering::runOnModule(Module &M) {
       Type *RetTy = FTy->getReturnType();
       VectorType *VecRetTy = VectorType::get(RetTy, VecLen, false);
 
-      FunctionType *VecFTy = FunctionType::get(VecRetTy, VecArgTy, false);
-      PointerType *VecFPtrTy = PointerType::getUnqual(VecFTy);
-      PointerType *VecFPtrPtrTy = PointerType::getUnqual(VecFPtrTy);
-      PointerType *VecFPtrPtrPtrTy = PointerType::getUnqual(VecFPtrPtrTy);
+      Value *GV = Call.getArgOperand(0);
+      PointerType *GVTy = cast<PointerType>(GV->getType());
+      unsigned AS = GVTy->getAddressSpace();
 
-      Value *TablePtr = CastInst::CreateZExtOrBitCast(
-          Call.getArgOperand(0), VecFPtrPtrPtrTy, "", &Call);
+      FunctionType *VecFTy = FunctionType::get(VecRetTy, VecArgTy, false);
+      PointerType *VecFPtrTy = PointerType::get(VecFTy, AS);
+      PointerType *VecFPtrPtrTy = PointerType::get(VecFPtrTy, AS);
+      PointerType *VecFPtrPtrPtrTy = PointerType::get(VecFPtrPtrTy, AS);
+
+      Value *TablePtr =
+          CastInst::CreateZExtOrBitCast(GV, VecFPtrPtrPtrTy, "", &Call);
       Value *Table = new LoadInst(VecFPtrPtrTy, TablePtr, "", &Call);
 
       Value *FPtrPtr = GetElementPtrInst::Create(
