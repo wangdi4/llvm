@@ -1,6 +1,6 @@
 ; REQUIRES: asserts
-; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-inter-loop-blocking -debug-only=hir-inter-loop-blocking-profit -print-before=hir-inter-loop-blocking  < %s 2>&1 | FileCheck %s
-; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,print<hir>,hir-inter-loop-blocking" -aa-pipeline="basic-aa" -debug-only=hir-inter-loop-blocking-profit 2>&1 < %s | FileCheck %s
+; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-inter-loop-blocking -debug-only=hir-inter-loop-blocking-profit -print-before=hir-inter-loop-blocking -hir-inter-loop-blocking-stripmine-size=2 -print-after=hir-inter-loop-blocking   < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,print<hir>,hir-inter-loop-blocking,print<hir>" -aa-pipeline="basic-aa" -debug-only=hir-inter-loop-blocking-profit -hir-inter-loop-blocking-stripmine-size=2 2>&1 < %s | FileCheck %s
 
 ; Verify that the input is a profitable candidate of spatial inter loop blocking.
 ; Array B is used in the first i2-i3 loopnest, while is written in the second loop nest.
@@ -40,6 +40,43 @@
 ; CHECK: ByStripLoop LB at DimNum 2 : 0
 ; CHECK: ByStripLoop UB at DimNum 2 : 2
 
+; CHECK:Function: sub1_
+; CHECK:      BEGIN REGION { modified }
+; CHECK:            + DO i1 = 0, zext.i32.i64(%"sub1_$NTIMES_fetch") + -1, 1   <DO_LOOP>  <MAX_TC_EST = 429496729
+; CHECK:            |   + DO i2 = 0, 2, 2   <DO_LOOP>
+; CHECK:            |   |   [[TILE_1:%tile_e_min[0-9]*]] = (i2 + 1 <= 2) ? i2 + 1 : 2;
+; CHECK:            |   |
+; CHECK:            |   |   + DO i3 = 0, 2, 2   <DO_LOOP>
+; CHECK:            |   |   |   [[TILE_2:%tile_e_min[0-9]+]] = (i3 + 1 <= 2) ? i3 + 1 : 2;
+; CHECK:            |   |   |   [[LBMAX:%lb_max[0-9]+]] = (0 <= i2) ? i2 : 0;
+; CHECK:            |   |   |   [[UBMIN:%ub_min[0-9]+]] = (2 <= [[TILE_1]]) ? 2 : [[TILE_1]];
+; CHECK:            |   |   |
+; CHECK:            |   |   |   + DO i4 = 0, -1 * [[LBMAX]] + [[UBMIN]], 1   <DO_LOOP>
+; CHECK:            |   |   |   |   [[LBMAX_1:%lb_max[0-9]*]] = (0 <= i3) ? i3 : 0;
+; CHECK:            |   |   |   |   [[UBMIN_1:%ub_min[0-9]*]] = (2 <= [[TILE_2]]) ? 2 : [[TILE_2]];
+; CHECK:            |   |   |   |
+; CHECK:            |   |   |   |   + DO i5 = 0, -1 * [[LBMAX_1]] + [[UBMIN_1]], 1   <DO_LOOP>
+; CHECK:            |   |   |   |   |   %add6 = (%"sub1_$B")[i4 + [[LBMAX]]][i5 + [[LBMAX_1]]]  +  1.000000e+00;
+; CHECK:            |   |   |   |   |   (%"sub1_$A")[i4 + [[LBMAX]]][i5 + [[LBMAX_1]]] = %add6;
+; CHECK:            |   |   |   |   + END LOOP
+; CHECK:            |   |   |   + END LOOP
+; CHECK:            |   |   |
+; CHECK:            |   |   |   [[LBMAX_2:%lb_max[0-9]+]] = (0 <= i2) ? i2 : 0;
+; CHECK:            |   |   |   [[UBMIN_2:%ub_min[0-9]+]] = (1 <= [[TILE_1]]) ? 1 : [[TILE_1]];
+; CHECK:            |   |   |
+; CHECK:            |   |   |   + DO i4 = 0, -1 * [[LBMAX_2]] + [[UBMIN_2]], 1   <DO_LOOP>
+; CHECK:            |   |   |   |   [[LBMAX_3:%lb_max[0-9]+]] = (0 <= i3) ? i3 : 0;
+; CHECK:            |   |   |   |   [[UBMIN_3:%ub_min[0-9]+]] = (2 <= [[TILE_2]]) ? 2 : [[TILE_2]];
+; CHECK:            |   |   |   |
+; CHECK:            |   |   |   |   + DO i5 = 0, -1 * [[LBMAX_3]] + [[UBMIN_3]], 1   <DO_LOOP>
+; CHECK:            |   |   |   |   |   %add34 = (%"sub1_$A")[i4 + [[LBMAX_2]]][i5 + [[LBMAX_3]]]  +  2.000000e+0
+; CHECK:            |   |   |   |   |   (%"sub1_$B")[i4 + [[LBMAX_2]]][i5 + [[LBMAX_3]]] = %add34;
+; CHECK:            |   |   |   |   + END LOOP
+; CHECK:            |   |   |   + END LOOP
+; CHECK:            |   |   + END LOOP
+; CHECK:            |   + END LOOP
+; CHECK:            + END LOOP
+; CHECK:      END REGION
 
 ;Module Before HIR
 ; ModuleID = 'two-dim.f90'
