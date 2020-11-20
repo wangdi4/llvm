@@ -120,9 +120,14 @@ public:
   /// Insert all-zero bypasses for \p Plan.
   void insertAllZeroBypasses(VPlan *Plan, unsigned VF);
 
+  /// Return Loop Unroll Factor either forced by option or pragma
+  /// or advised by optimizations.
+  /// \p Forced indicates that Unroll Factor is forced.
+  virtual unsigned getLoopUnrollFactor(bool *Forced = nullptr);
+
   /// Perform VPlan loop unrolling if needed
   void
-  unroll(VPlan &Plan, unsigned UF,
+  unroll(VPlan &Plan,
          VPlanLoopUnroller::VPInstUnrollPartTy *VPInstUnrollPart = nullptr);
 
   template <typename CostModelTy = VPlanCostModel>
