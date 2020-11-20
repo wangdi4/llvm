@@ -19,9 +19,6 @@
 #include "opencl-c-platform-12.h"
 #endif
 
-// Disable any extensions we may have enabled previously.
-#pragma OPENCL EXTENSION all : disable
-
 #undef __purefn
 #undef __cnfn
 #undef __ovld
