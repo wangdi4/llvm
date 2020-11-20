@@ -6,7 +6,7 @@ void __attribute__((use_stall_enable_clusters)) foo1() {}
 void foo2() {
   auto lambda = []() __attribute__((use_stall_enable_clusters)){};
   lambda();
-  // CHECK: @"_ZZ4foo2vENK3$_0clEv"(%class.anon* %this){{.*}}!stall_enable [[CFOO1]]
+  // CHECK: @"_ZZ4foo2vENK3$_0clEv"(%class.anon* {{[^,]*}} %this){{.*}}!stall_enable [[CFOO1]]
 }
 
 //CHECK: [[CFOO1]] = !{i32 1}

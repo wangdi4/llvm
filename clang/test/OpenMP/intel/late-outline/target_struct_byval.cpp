@@ -68,7 +68,7 @@ int Caller() {
   //CHECK: call {{.*}}_Z3Foo7Default([[DT]] [[AS]]* byval([[DT]]){{.*}}[[ATDA]])
 
   // Copy construct the agg.tmp calling copy constructor.
-  //CHECK: call {{.*}}_ZN8CopyCtorC1ERKS_([[CT]] [[AS]]* [[ATCA]],
+  //CHECK: call {{.*}}_ZN8CopyCtorC1ERKS_([[CT]] [[AS]]* {{[^,]*}} [[ATCA]],
   //CHECK-SAME: [[CT]] [[AS]]* align 4 dereferenceable(4) [[CA]])
 
   //Call passing address of agg.tmp

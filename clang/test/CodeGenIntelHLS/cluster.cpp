@@ -12,7 +12,7 @@ void __attribute__((cluster(""))) foo3() {}
 void foo4() {
   auto lambda = []() __attribute__((cluster("lambdaattr"))){};
   lambda();
-  // CHECK: @"_ZZ4foo4vENK3$_0clEv"(%class.anon* %this){{.*}}!cluster [[LAMBDA:![0-9]+]]
+  // CHECK: @"_ZZ4foo4vENK3$_0clEv"(%class.anon* {{[^,]*}} %this){{.*}}!cluster [[LAMBDA:![0-9]+]]
 }
 
 //CHECK: [[CFOO1]] = !{!"", i32 0}

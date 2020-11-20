@@ -82,7 +82,7 @@ void oneA() {
   // CHECK: store {{.*}}[[ONEA_IV]]
   // Update it1
   // CHECK: call{{.*}} %class.GoodIter* @_ZN8GoodIterpLEi
-  // CHECK-SAME: (%class.GoodIter* [[ONEA_IT1]]
+  // CHECK-SAME: (%class.GoodIter* {{[^,]*}} [[ONEA_IT1]]
   // Update i
   // CHECK: store {{.*}}[[ONEA_I]]
   // CHECK: {{.*}} call{{.*}}baz
@@ -112,7 +112,7 @@ void oneB() {
   // CHECK: store {{.*}}[[ONEB_I]]
   // Update it1
   // CHECK: call{{.*}} %class.GoodIter* @_ZN8GoodIterpLEi
-  // CHECK-SAME: (%class.GoodIter* [[ONEB_IT1]]
+  // CHECK-SAME: (%class.GoodIter* {{[^,]*}} [[ONEB_IT1]]
   // CHECK: {{.*}} call{{.*}}baz
   // Increment IV
   // CHECK: store {{.*}}[[ONEB_IV]]

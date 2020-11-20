@@ -236,7 +236,7 @@ SYCL_EXTERNAL auto bar()
 
 // Call operator
 //CHECK: define {{.*}}i32 {{.*}}_EEEclEOiOf
-//CHECK-SAME: class{{.*}}SimdFunction{{.*}}* %this
+//CHECK-SAME: class{{.*}}SimdFunction{{.*}}* {{[^,]*}} %this
 //CHECK-SAME: i32 [[AS4:addrspace\(4\)]]* align 4 dereferenceable(4) %args
 //CHECK-SAME: float [[AS4]]* align 4 dereferenceable(4) %args
 //CHECK: [[THISARG:%this.addr.*]] = alloca {{.*}}class{{.*}}SimdFunction{{.*}}*,
