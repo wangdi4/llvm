@@ -210,7 +210,7 @@ static cl::opt<int>
 // 512 is the first power of 2 TC value showed performance gain
 // via loop blocking for two 512 by 512 square matrices multiplication.
 // 384 = (256 + 512) / 2 gained some performance through loop blocking.
-static cl::opt<int> LoopBlockingTCThreshold(
+static cl::opt<uint64_t> LoopBlockingTCThreshold(
     OPT_SWITCH "-tc-threshold", cl::init(384), cl::Hidden,
     cl::desc("Threshold of trip counts in " OPT_DESC " pass"));
 
@@ -645,33 +645,22 @@ void populateTCs(LoopNestTCTy &LoopNestTC) {
   }
 }
 
-// From InnermostLoop to OutermostLoop, return the consecutive depth
-// where TC is at least a certain threshold.
-// NewOutermost will be updated if the given OutermostLoop's TC
-// is smaller then the threshold.
-unsigned calcConsecutiveDepthOverTCThreshold(const LoopNestTCTy &LoopToTC,
-                                             HLLoop *&NewOutermost) {
-
-  // Scan from Innermost outerward
-  // See if TC is constant and over a certain threshold
-  NewOutermost = const_cast<HLLoop *>(LoopToTC.Innermost);
-  unsigned ConsecutiveDepth = 0;
+HLLoop *getHighestAncestorWithTCThreshold(const LoopNestTCTy &LoopToTC) {
+  HLLoop *NewOutermost = const_cast<HLLoop *>(LoopToTC.Innermost);
   unsigned Level = LoopToTC.Innermost->getNestingLevel();
   for (const HLLoop *Lp = LoopToTC.Innermost,
-                    *ELp = LoopToTC.Outermost->getParentLoop();
-       Lp != ELp; Lp = Lp->getParentLoop(), Level--) {
+                  *ELp = LoopToTC.Outermost->getParentLoop();
+     Lp != ELp; Lp = Lp->getParentLoop(), Level--) {
     uint64_t TCAtLevel = LoopToTC[Level];
     // non-const TC has TCAtLevel zero
-    if (TCAtLevel < (uint64_t)LoopBlockingTCThreshold) {
+    if (TCAtLevel < LoopBlockingTCThreshold) {
       if (!EnableLoopBlockingNonConstTC || LoopNestTCTy::isConstTC(TCAtLevel)) {
         break;
       }
     }
-    ConsecutiveDepth++;
     NewOutermost = const_cast<HLLoop *>(Lp);
   }
-
-  return ConsecutiveDepth;
+  return NewOutermost;
 }
 
 // Authored by Pankaj
@@ -769,7 +758,7 @@ bool isLegalToInterchange(const LoopMapTy &StripmineCandidateMap,
 static RefAnalysisResult analyzeRefs(SmallVectorImpl<RegDDRef *> &Refs,
                                      HLLoop *Loop, bool ReplaceRefs = true) {
   bool HasNonLinear = false;
-  for (const auto Ref : make_range(Refs.begin(), Refs.end())) {
+  for (const auto Ref : Refs) {
     unsigned SB = Ref->getSymbase();
     if (Ref->isNonLinear()) {
       HasNonLinear = true;
@@ -1027,10 +1016,10 @@ public:
     countProBlockingRefs(Refs);
   }
 
-  void check(unsigned LoopNestDepth, unsigned ConsecutiveDepth,
-             const HLLoop *InnermostLoop, const HLLoop *OutermostLoop,
+  void check(const HLLoop *InnermostLoop, const HLLoop *OutermostLoop,
              LoopMapTy &StripmineCandidateMap) {
 
+    unsigned LoopNestDepth = InnermostLoop->getNestingLevel() - OutermostLoop->getNestingLevel() + 1;
     assert(StripmineCandidateMap.empty());
 
     // Temporary comment-out for cactus
@@ -1051,14 +1040,6 @@ public:
         // No more innerloop nest.
         return;
       }
-    }
-
-    if (ConsecutiveDepth <= MaxDimension) {
-      LLVM_DEBUG(dbgs() << "Failed: at MaxDimension < ConsecutiveDepth "
-                        << MaxDimension << "," << ConsecutiveDepth << "\n");
-      printDiag(NO_KANDR_DEPTH_TEST_2, Func, OutermostLoop, "No Blocking: ", 2);
-      // No more innerloop nest.
-      return;
     }
 
     determineProfitableStripmineLoop(InnermostLoop, OutermostLoop,
@@ -1265,14 +1246,10 @@ private:
 // To be used with memoryfootprint-based stripmine size explorer.
 template <typename T>
 HLLoop *exploreLoopNest(HLLoop *InnermostLoop, HLLoop *OutermostLoop,
-                        unsigned ConsecutiveDepth,
                         KAndRChecker &KAndRProfitability,
                         T &StripmineSizeExplorer, HIRDDAnalysis &DDA,
                         HIRSafeReductionAnalysis &SRA, StringRef Func,
                         LoopMapTy &LoopMap) {
-
-  unsigned LoopNestDepth =
-      InnermostLoop->getNestingLevel() - OutermostLoop->getNestingLevel() + 1;
 
   for (HLLoop *Lp = OutermostLoop; Lp != InnermostLoop;
        Lp = cast<HLLoop>(Lp->getFirstChild())) {
@@ -1285,11 +1262,8 @@ HLLoop *exploreLoopNest(HLLoop *InnermostLoop, HLLoop *OutermostLoop,
     }
 
     LoopMap.clear();
-    KAndRProfitability.check(LoopNestDepth, ConsecutiveDepth, InnermostLoop, Lp,
+    KAndRProfitability.check(InnermostLoop, Lp,
                              LoopMap);
-    LoopNestDepth--;
-    ConsecutiveDepth--;
-
     // Try inner loopnest
     if (LoopMap.empty()) {
       printDiag(NO_MISSING_IVS_OR_SMALL_STRIDES, Func);
@@ -1398,7 +1372,7 @@ HLLoop *exploreLoopNest(HLLoop *InnermostLoop, HLLoop *OutermostLoop,
 
 HLLoop *tryKAndRWithFixedStripmineSizes(
     const MemRefGatherer::VectorTy &Refs, const LoopNestTCTy &LoopNestTC,
-    HLLoop *InnermostLoop, HLLoop *OutermostLoop, unsigned ConsecutiveDepth,
+    HLLoop *InnermostLoop, HLLoop *OutermostLoop,
     HIRDDAnalysis &DDA, HIRSafeReductionAnalysis &SRA, StringRef Func,
     LoopMapTy &LoopMap) {
 
@@ -1410,7 +1384,7 @@ HLLoop *tryKAndRWithFixedStripmineSizes(
 
   StripmineSizeExplorerByDefault StripmineExplorer(StripmineSizes);
   HLLoop *ValidOutermost = exploreLoopNest(
-      InnermostLoop, OutermostLoop, ConsecutiveDepth, KAndRProfitability,
+      InnermostLoop, OutermostLoop, KAndRProfitability,
       StripmineExplorer, DDA, SRA, Func, LoopMap);
   if (ValidOutermost) {
     return ValidOutermost;
@@ -1425,8 +1399,8 @@ HLLoop *tryKAndRWithFixedStripmineSizes(
 // Blocking outer loop only doesn't help, because it is
 // mere strip-mining.
 bool isTrivialAntiPattern(const MemRefGatherer::VectorTy &Refs,
-                          unsigned InnermostLevel, unsigned ConsecutiveDepth) {
-  if (ConsecutiveDepth > 2)
+                          unsigned InnermostLevel, unsigned OutermostLevel) {
+  if (InnermostLevel - OutermostLevel > 1)
     return false;
 
   int Count = 0;
@@ -1514,7 +1488,7 @@ HLLoop *findLoopNestToBlock(HIRFramework &HIRF, HIRDDAnalysis &DDA,
 
   RefAnalysisResult RefKind = analyzeRefs(Refs, InnermostLoop, DelinearizeRefs);
 
-  // If any Ref is a non-linear, give up here.
+  // If any lval Ref is a non-linear, give up here.
   if (RefKind == RefAnalysisResult::NON_LINEAR) {
     printDiag(NON_LINEAR_REFS, Func);
     return nullptr;
@@ -1523,18 +1497,10 @@ HLLoop *findLoopNestToBlock(HIRFramework &HIRF, HIRDDAnalysis &DDA,
   LoopNestTCTy LoopNestTC(HighestAncestor, InnermostLoop);
   LoopNestTC.populateLoops();
   populateTCs(LoopNestTC);
-  HLLoop *AdjustedHighestAncestor = InnermostLoop;
-
-  // TODO: This logic is not directly relavant to StencilChecker or
-  //       MemFootPrint-based stripmine-size explorer.
-  //       Move/adjust.
-  //       As this logic is moved/modified LoopNestTC can be moved.
-  unsigned ConsecutiveDepth =
-      calcConsecutiveDepthOverTCThreshold(LoopNestTC, AdjustedHighestAncestor);
-  LLVM_DEBUG(dbgs() << "ConsecutiveDepth: " << ConsecutiveDepth << "\n");
+  HLLoop *AdjustedHighestAncestor = getHighestAncestorWithTCThreshold(LoopNestTC);
 
   if (isTrivialAntiPattern(Refs, InnermostLoop->getNestingLevel(),
-                           ConsecutiveDepth)) {
+                           AdjustedHighestAncestor->getNestingLevel())) {
     LLVM_DEBUG(dbgs() << "Trivial anti-pattern\n");
     return nullptr;
   }
@@ -1543,7 +1509,7 @@ HLLoop *findLoopNestToBlock(HIRFramework &HIRF, HIRDDAnalysis &DDA,
   // All linear refs and LoopTC above minimum threshold for blocked loops.
   HLLoop *ValidOutermost = tryKAndRWithFixedStripmineSizes(
       Refs, LoopNestTC, InnermostLoop, AdjustedHighestAncestor,
-      ConsecutiveDepth, DDA, SRA, Func, LoopMap);
+      DDA, SRA, Func, LoopMap);
 
   if (ValidOutermost) {
     printDiag(SUCCESS_NON_SIV_OR_NON_ADVANCED, Func, AdjustedHighestAncestor,
