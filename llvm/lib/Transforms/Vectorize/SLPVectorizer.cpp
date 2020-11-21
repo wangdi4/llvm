@@ -4885,6 +4885,7 @@ void BoUpSLP::buildTree_rec(ArrayRef<Value *> VL_, unsigned Depth,
         ++POIter;
       }
 
+      bool CandidateForGatherLoad = false; // INTEL
       OrdersType CurrentOrder;
       // Check the order of pointer operands.
       if (llvm::sortPtrAccesses(PointerOps, *DL, *SE, CurrentOrder)) {
@@ -4923,13 +4924,10 @@ void BoUpSLP::buildTree_rec(ArrayRef<Value *> VL_, unsigned Depth,
           }
           return;
         }
-        // Vectorizing non-consecutive loads with `llvm.masked.gather`.
-        TreeEntry *TE = newTreeEntry(VL, TreeEntry::ScatterVectorize, Bundle, S,
-                                     UserTreeIdx, ReuseShuffleIndicies);
-        TE->setOperandsInOrder();
-        buildTree_rec(PointerOps, Depth + 1, {TE, 0});
-        LLVM_DEBUG(dbgs() << "SLP: added a vector of non-consecutive loads.\n");
-        return;
+#if INTEL_CUSTOMIZATION
+        // Issue gather load only if split load fails
+        CandidateForGatherLoad = true;
+#endif // INTEL_CUSTOMIZATION
       }
 #if INTEL_CUSTOMIZATION
       // Check whether we can issue smaller-wide loads to build up the entire
@@ -5014,6 +5012,18 @@ void BoUpSLP::buildTree_rec(ArrayRef<Value *> VL_, unsigned Depth,
           LLVM_DEBUG(dbgs() << "SLP: added a vector of split-loads.\n");
           return;
         }
+      }
+      if (CandidateForGatherLoad) {
+          SmallVector<int, 4> OpDirection(VL.size(), 0);
+#endif // INTEL_CUSTOMIZATION
+        // Vectorizing non-consecutive loads with `llvm.masked.gather`.
+        TreeEntry *TE = newTreeEntry(VL, TreeEntry::ScatterVectorize, Bundle, S,
+                                     UserTreeIdx, ReuseShuffleIndicies);
+        TE->setOperandsInOrder();
+        buildTree_rec(PointerOps, Depth + 1, {TE, 0, OpDirection}); // INTEL
+        LLVM_DEBUG(dbgs() << "SLP: added a vector of non-consecutive loads.\n");
+        return;
+#if INTEL_CUSTOMIZATION
       }
 #endif // INTEL_CUSTOMIZATION
 
