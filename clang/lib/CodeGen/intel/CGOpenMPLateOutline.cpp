@@ -1096,6 +1096,18 @@ void OpenMPLateOutliner::emitOMPReductionClauseCommon(const RedClause *Cl,
       }
       break;
     }
+    if (const auto *C = dyn_cast<OMPReductionClause>(Cl))
+      switch (C->getModifier()) {
+      case OMPC_REDUCTION_task:
+        CSB.setTask();
+        break;
+      case OMPC_REDUCTION_inscan:
+        CSB.setInScan();
+        break;
+      case OMPC_REDUCTION_default:
+      case OMPC_REDUCTION_unknown:
+        break;
+      }
     if (PVD->getType()->isAnyComplexType())
       CSB.setCmplx();
     if (IsRef)

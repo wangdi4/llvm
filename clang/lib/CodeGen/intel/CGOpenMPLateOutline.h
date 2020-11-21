@@ -92,6 +92,8 @@ class OpenMPLateOutliner {
     bool Cmplx = false;
     bool PtrToPtr = false;
     bool Chain = false;
+    bool InScan = false;
+    bool Task = false;
 
     void addSeparated(StringRef QualString) {
       Str += Separator;
@@ -126,6 +128,10 @@ class OpenMPLateOutliner {
         addSeparated("PTR_TO_PTR");
       if (Chain)
         addSeparated("CHAIN");
+      if (InScan)
+        addSeparated("INSCAN");
+      if (Task)
+        addSeparated("TASK");
     }
 
   public:
@@ -144,6 +150,8 @@ class OpenMPLateOutliner {
     void setCmplx() { Cmplx = true; }
     void setPtrToPtr() {PtrToPtr = true; }
     void setChain() { Chain = true; }
+    void setInScan() { InScan = true; }
+    void setTask() { Task = true; }
 
     void add(StringRef S) { Str += S; }
     StringRef getString() {

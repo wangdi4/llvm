@@ -2260,6 +2260,12 @@ Parser::ParseOpenMPDeclarativeOrExecutableDirective(ParsedStmtContext StmtCtx) {
       (InTBBSubset && getLangOpts().OpenMPTBBDisabled)) {
     DisallowedDirective = true;
   }
+  if (getLangOpts().OpenMPLateOutline && DKind == OMPD_scan) {
+    Diag(Tok, diag::warn_pragma_omp_unimplemented)
+        << getOpenMPDirectiveName(DKind);
+    SkipUntil(tok::annot_pragma_openmp_end);
+    return Directive;
+  }
   if (DisallowedDirective) {
     if (!Diags.isIgnored(diag::warn_pragma_omp_ignored, Loc)) {
       Diag(Tok, diag::warn_pragma_omp_ignored);
@@ -3655,6 +3661,14 @@ bool Parser::ParseOpenMPVarList(OpenMPDirectiveKind DKind,
       assert(Tok.is(tok::comma) && "Expected comma.");
       (void)ConsumeToken();
     }
+#if INTEL_COLLAB
+    if (getLangOpts().OpenMPLateOutline &&
+        Data.ExtraModifier == OMPC_REDUCTION_inscan) {
+      Diag(Tok, diag::warn_pragma_unsupported_modifier) <<
+          getOpenMPSimpleClauseTypeName(Kind, OMPC_REDUCTION_inscan);
+      Data.ExtraModifier = OMPC_REDUCTION_default;
+    }
+#endif // INTEL_COLLAB
     ColonProtectionRAIIObject ColonRAII(*this);
     if (getLangOpts().CPlusPlus)
       ParseOptionalCXXScopeSpecifier(Data.ReductionOrMapperIdScopeSpec,
