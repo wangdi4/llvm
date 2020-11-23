@@ -57,6 +57,8 @@ raw_ostream &llvm::operator<<(raw_ostream &OS, const VPValue &V) {
   V.print(OS, SlotTracker);
   return OS;
 }
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
+#endif // INTEL_CUSTOMIZATION
 
 VPValue::VPValue(const unsigned char SC, Value *UV, VPDef *Def)
     : SubclassID(SC), UnderlyingVal(UV), Def(Def) {
@@ -70,6 +72,8 @@ VPValue::~VPValue() {
     Def->removeDefinedValue(this);
 }
 
+#if INTEL_CUSTOMIZATION
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 void VPValue::print(raw_ostream &OS, VPSlotTracker &SlotTracker) const {
   if (const VPInstruction *Instr = dyn_cast<VPInstruction>(this))
     Instr->print(OS, SlotTracker);
