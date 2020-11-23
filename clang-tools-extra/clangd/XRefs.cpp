@@ -1157,15 +1157,21 @@ std::vector<LocatedSymbol> findImplementations(ParsedAST &AST, Position Pos,
   if (Req.Subjects.empty())
     return Results;
   Index->relations(Req, [&](const SymbolID &Subject, const Symbol &Object) {
-    if (auto DeclLoc =
-            indexToLSPLocation(Object.CanonicalDeclaration, *MainFilePath)) {
-      LocatedSymbol Loc;
-      Loc.Name = Object.Name.str();
-      Loc.PreferredDeclaration = *DeclLoc;
-      if (auto DefLoc = indexToLSPLocation(Object.Definition, *MainFilePath))
-        Loc.Definition = *DefLoc;
-      Results.push_back(Loc);
+    auto DeclLoc =
+        indexToLSPLocation(Object.CanonicalDeclaration, *MainFilePath);
+    if (!DeclLoc) {
+      elog("Find implementation: {0}", DeclLoc.takeError());
+      return;
     }
+    LocatedSymbol Loc;
+    Loc.Name = Object.Name.str();
+    Loc.PreferredDeclaration = *DeclLoc;
+    auto DefLoc = indexToLSPLocation(Object.Definition, *MainFilePath);
+    if (DefLoc)
+      Loc.Definition = *DefLoc;
+    else
+      llvm::consumeError(DefLoc.takeError());
+    Results.push_back(Loc);
   });
   return Results;
 }
