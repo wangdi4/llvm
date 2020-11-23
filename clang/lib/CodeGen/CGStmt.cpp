@@ -896,57 +896,67 @@ CodeGenFunction::IntelBlockLoopExprHandler::~IntelBlockLoopExprHandler() {
 CodeGenFunction::IntelPrefetchExprHandler::IntelPrefetchExprHandler(
     CodeGenFunction &CGF, ArrayRef<const Attr *> Attrs)
     : CGF(CGF) {
-  for (const auto AI : Attrs) {
-    // Ignore other loop attributes
-    if (const IntelPrefetchAttr *IPA = dyn_cast<IntelPrefetchAttr>(AI)) {
-      SmallVector<llvm::OperandBundleDef, 8> OpBundles;
+  decltype(Attrs)::iterator AttrItr =
+      std::find_if(std::begin(Attrs), std::end(Attrs), [](const Attr *A) {
+        return A->getKind() == attr::IntelPrefetch;
+      });
+
+  if (AttrItr == std::end(Attrs))
+    return;
+
+  SmallVector<llvm::OperandBundleDef, 8> OpBundles;
+  for (auto End = std::end(Attrs); AttrItr != End; ++AttrItr) {
+    if (OpBundles.empty())
       OpBundles.push_back(llvm::OperandBundleDef("DIR.PRAGMA.PREFETCH_LOOP",
                                                  ArrayRef<llvm::Value *>{}));
-
-      bool IsNoPrefetchLoop = (IPA->getSemanticSpelling() ==
-                               IntelPrefetchAttr::Pragma_noprefetch);
-      llvm::IntegerType *Int32Ty = CGF.CGM.Int32Ty;
-      OpBundles.push_back(llvm::OperandBundleDef(
-          "QUAL.PRAGMA.ATTRIB",
-           llvm::ConstantInt::get(Int32Ty, IsNoPrefetchLoop ? 0 : 1)));
-      bool HintSeen = false;
-      for (const auto *PrefetchExpr : IPA->prefetchExprs()) {
-        SmallVector<llvm::Value *, 4> BundleValues;
-        if (const IntegerLiteral *IL = dyn_cast<IntegerLiteral>(PrefetchExpr)) {
-          llvm::IntegerType *Int32Ty = CGF.CGM.Int32Ty;
-          const llvm::APInt &V = IL->getValue();
-          if (HintSeen) {
-            OpBundles.push_back(llvm::OperandBundleDef(
-                "QUAL.PRAGMA.DISTANCE", llvm::ConstantInt::get(Int32Ty, V)));
-          } else {
-            OpBundles.push_back(llvm::OperandBundleDef(
-                "QUAL.PRAGMA.HINT", llvm::ConstantInt::get(Int32Ty, V)));
-            HintSeen = true;
-          }
+    const IntelPrefetchAttr *IPA = dyn_cast<IntelPrefetchAttr>(*AttrItr);
+    bool IsNoPrefetchLoop = (IPA->getSemanticSpelling() ==
+                             IntelPrefetchAttr::Pragma_noprefetch);
+    llvm::IntegerType *Int32Ty = CGF.CGM.Int32Ty;
+    OpBundles.push_back(llvm::OperandBundleDef(
+        "QUAL.PRAGMA.ENABLE",
+         llvm::ConstantInt::get(Int32Ty, IsNoPrefetchLoop ? 0 : 1)));
+    bool HintSeen = false;
+    for (const auto *PrefetchExpr : IPA->prefetchExprs()) {
+      SmallVector<llvm::Value *, 4> BundleValues;
+      if (const IntegerLiteral *IL = dyn_cast<IntegerLiteral>(PrefetchExpr)) {
+        llvm::IntegerType *Int32Ty = CGF.CGM.Int32Ty;
+        const llvm::APInt &V = IL->getValue();
+        if (HintSeen) {
+          OpBundles.push_back(llvm::OperandBundleDef(
+              "QUAL.PRAGMA.DISTANCE", llvm::ConstantInt::get(Int32Ty, V)));
         } else {
-          BundleValues.push_back(CGF.EmitLValue(PrefetchExpr).getPointer(CGF));
-          OpBundles.push_back(llvm::OperandBundleDef("QUAL.PRAGMA.VAR",
-                              BundleValues));
-          HintSeen = false;
+          OpBundles.push_back(llvm::OperandBundleDef(
+              "QUAL.PRAGMA.HINT", llvm::ConstantInt::get(Int32Ty, V)));
+          HintSeen = true;
         }
+      } else {
+        // We'll have either an lvalue or, if variable reference omitted
+        // from the prefetch argument list, a null pointer.
+        if (isa<CXXNullPtrLiteralExpr>(PrefetchExpr))
+          BundleValues.push_back(CGF.EmitScalarExpr(PrefetchExpr));
+        else
+          BundleValues.push_back(CGF.EmitLValue(PrefetchExpr).getPointer(CGF));
+        OpBundles.push_back(llvm::OperandBundleDef("QUAL.PRAGMA.VAR",
+                            BundleValues));
+        HintSeen = false;
       }
-      CallEntries.push_back(CGF.Builder.CreateCall(
-          CGF.CGM.getIntrinsic(llvm::Intrinsic::directive_region_entry), {},
-          OpBundles));
     }
   }
+  CallEntry = CGF.Builder.CreateCall(
+      CGF.CGM.getIntrinsic(llvm::Intrinsic::directive_region_entry), {},
+      OpBundles);
 }
 
 CodeGenFunction::IntelPrefetchExprHandler::~IntelPrefetchExprHandler() {
-
-  for(auto *Call : CallEntries) {
+  if (CallEntry) {
     SmallVector<llvm::OperandBundleDef, 1> OpBundles{
       llvm::OperandBundleDef("DIR.PRAGMA.END.PREFETCH_LOOP",
                            ArrayRef<llvm::Value *>{})};
 
     CGF.Builder.CreateCall(
         CGF.CGM.getIntrinsic(llvm::Intrinsic::directive_region_exit),
-        SmallVector<llvm::Value *, 1>{Call}, OpBundles);
+        SmallVector<llvm::Value *, 1>{CallEntry}, OpBundles);
   }
 }
 #endif // INTEL_CUSTOMIZATION

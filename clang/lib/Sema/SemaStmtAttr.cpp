@@ -889,27 +889,50 @@ static Attr *handleIntelPrefetchAttr(Sema &S, Stmt *St,
         << DiagStr;
     return nullptr;
   }
-
+  const unsigned MaxIntArgs = 2;
   SmallVector<Expr *, 2> PrefetchExprs;
-  // Check arguments to prefetch and place them on the argument list.
-  //   #pragma prefetch [<var> [: hint [ : distance ]]] [, <var> ... ]
-  // or
-  //   #pragma prefetch * [: hint [ : distance ]]
-  // where <var> will be an lvalue and hint/distance will be integer constants.
-  bool LValArgSeen = AA.getNumArgs() > 1 &&
-                     isa<IntegerLiteral>(AA.getArgAsExpr(1));
+
+  // Default value for missing hint or distance is negative one.
+  auto addDefaultIntValues = [&](unsigned NumArgsSeen) {
+    Expr *NegOne =
+        IntegerLiteral::Create(S.Context, llvm::APInt(32, -1),
+                               S.Context.IntTy, St->getBeginLoc());
+    for (unsigned Arg = NumArgsSeen; Arg < MaxIntArgs; ++Arg) {
+      PrefetchExprs.push_back(NegOne);
+    }
+    return;
+  };
+
+  // Default for a missing lvalue (#pragma prefetch) is a null pointer.
+  auto addDefaultLValue = [&] {
+    ExprResult NullPtr = S.ActOnCXXNullPtrLiteral(St->getBeginLoc());
+    PrefetchExprs.push_back(NullPtr.get());
+    return;
+  };
+
+  bool LValArgSeen = false;
   unsigned IntArgsSeen = 0;
+  bool HasArgs = AA.getNumArgs() > 1;
+  bool IsStar = HasArgs && isa<IntegerLiteral>(AA.getArgAsExpr(1));
+  // Add arguments to prefetch pragma argument list. For a prefetch with no
+  // explicit lvalue argument, add a null pointer. For any missing integer
+  // values (hint/distance), add a negative one.
   for (unsigned AI = 1, NumArgs = AA.getNumArgs(); AI < NumArgs; ++AI) {
     Expr *Arg = AA.getArgAsExpr(AI);
     // Error cases
     bool InvalidArg = !Arg->isLValue() && !isa<IntegerLiteral>(Arg);
-    bool ExpectedLValue = !LValArgSeen && !Arg->isLValue() && IntArgsSeen == 2;
+    bool ExpectedLValue = !LValArgSeen &&
+        !Arg->isLValue() && IntArgsSeen == MaxIntArgs;
     if (InvalidArg || ExpectedLValue) {
       S.Diag(Arg->getExprLoc(), diag::err_prefetch_invalid_argument) <<
         PragmaName;
       return nullptr;
     }
     if (Arg->isLValue()) {
+      // If current lvalue argument immediately follows an lvalue, add required
+      // default integer values. Otherwise, add remaining defaults as needed.
+      if (LValArgSeen || IntArgsSeen)
+        addDefaultIntValues(IntArgsSeen);
       LValArgSeen = true;
       IntArgsSeen = 0;
       PrefetchExprs.push_back(Arg);
@@ -924,10 +947,15 @@ static Attr *handleIntelPrefetchAttr(Sema &S, Stmt *St,
                diag::err_prefetch_hint_out_of_range) << Hint << 1 << 4;
         return nullptr;
       }
+      // For prefetch *, add default first argument.
+      if (IsStar) {
+        addDefaultLValue();
+      }
       PrefetchExprs.push_back(Arg);
     } else {
       // distance
       int32_t Distance = getConstInt(S, AI, AA);
+      // Unspecified distance is represented by a -1 value.
       if (Distance == 0) {
         S.Diag(Arg->getExprLoc(),
                diag::err_prefetch_distance_greater_than_zero);
@@ -937,6 +965,12 @@ static Attr *handleIntelPrefetchAttr(Sema &S, Stmt *St,
     }
     LValArgSeen = false;
   }
+  // A prefetch pragma with no arguments needs default first argument.
+  if (!HasArgs) {
+    addDefaultLValue();
+  }
+  // Add default integer values, if needed, after last prefetch argument.
+  addDefaultIntValues(IntArgsSeen);
   const IntelPrefetchAttr *PA = IntelPrefetchAttr::CreateImplicit(
       S.Context, PrefetchExprs.data(), PrefetchExprs.size(), AA);
   return const_cast<IntelPrefetchAttr *>(PA);
