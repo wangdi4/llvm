@@ -3913,8 +3913,9 @@ static void handleSYCLNumSimdWorkItemsAttr(Sema &S, Decl *D,         // INTEL
                                                                      E);
 }
 
-// Handles stall_enable
-static void handleSYCLStallEnableAttr(Sema &S, Decl *D, const ParsedAttr &Attr) {
+// Handles use_stall_enable_clusters
+static void handleUseStallEnableClustersAttr(Sema &S, Decl *D,
+                                             const ParsedAttr &Attr) {
   if (D->isInvalidDecl())
     return;
 
@@ -3924,7 +3925,7 @@ static void handleSYCLStallEnableAttr(Sema &S, Decl *D, const ParsedAttr &Attr) 
     return;
   }
 
-  handleSimpleAttribute<SYCLIntelStallEnableAttr>(S, D, Attr);
+  handleSimpleAttribute<SYCLIntelUseStallEnableClustersAttr>(S, D, Attr);
 }
 
 // Add scheduler_target_fmax_mhz
@@ -9395,8 +9396,8 @@ static void ProcessDeclAttribute(Sema &S, Scope *scope, Decl *D,
   case ParsedAttr::AT_SYCLIntelNoGlobalWorkOffset:
     handleNoGlobalWorkOffsetAttr(S, D, AL);
     break;
-  case ParsedAttr::AT_SYCLIntelStallEnable:
-    handleSYCLStallEnableAttr(S, D, AL);
+  case ParsedAttr::AT_SYCLIntelUseStallEnableClusters:
+    handleUseStallEnableClustersAttr(S, D, AL);
     break;
   case ParsedAttr::AT_VecTypeHint:
     handleVecTypeHint(S, D, AL);
