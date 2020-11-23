@@ -2243,10 +2243,18 @@ static void addDeclareVariantAttributes(CodeGenModule &CGM,
           for (const auto &Sel : TS.Selectors) {
             if (Sel.Kind == llvm::omp::TraitSelector::device_arch) {
               for (const auto &Prop : Sel.Properties) {
-                if (Prop.Kind == llvm::omp::TraitProperty::device_arch_gen) {
+                switch (Prop.Kind) {
+                case llvm::omp::TraitProperty::device_arch_gen:
+                case llvm::omp::TraitProperty::device_arch_gen9:
+                case llvm::omp::TraitProperty::device_arch_gen12lp:
+                case llvm::omp::TraitProperty::device_arch_gen12hp:
                   if (NumDevices++ != 0)
                     Devices += ',';
-                  Devices += "gen";
+                  Devices += llvm::omp::getOpenMPContextTraitPropertyName(
+                      Prop.Kind, "");
+                  break;
+                default:
+                  llvm_unreachable("unhandled device arch type");
                 }
               }
             }
