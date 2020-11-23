@@ -220,6 +220,7 @@ protected:
   MCSection *XDataSection = nullptr;
   MCSection *SXDataSection = nullptr;
   MCSection *GFIDsSection = nullptr;
+  MCSection *GIATsSection = nullptr;
   MCSection *GLJMPSection = nullptr;
 
 #if INTEL_CUSTOMIZATION
@@ -409,6 +410,7 @@ public:
   MCSection *getXDataSection() const { return XDataSection; }
   MCSection *getSXDataSection() const { return SXDataSection; }
   MCSection *getGFIDsSection() const { return GFIDsSection; }
+  MCSection *getGIATsSection() const { return GIATsSection; }
   MCSection *getGLJMPSection() const { return GLJMPSection; }
 
   // XCOFF specific sections
