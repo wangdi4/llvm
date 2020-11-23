@@ -2145,15 +2145,34 @@ void CodeViewDebug::clear() {
   ScopeGlobals.clear();
 }
 
+#if INTEL_CUSTOMIZATION
+// Only add constant members to the list supported by the current CodeView emission.
+// If we add unsupported types to the list then an empty symbols section may be
+// emitted which will cause the Microsoft Linker to crash.
+static bool isSupportedStaticConstMember(const DIDerivedType *DTy) {
+  if ((DTy->getFlags() & DINode::FlagStaticMember) != DINode::FlagStaticMember)
+    return false;
+  Constant *C = DTy->getConstant();
+  if (!C || (!isa<ConstantInt>(C) && !isa<ConstantFP>(C)))
+    return false;
+  return true;
+}
+#endif // INTEL_CUSTOMIZATION
+
 void CodeViewDebug::collectMemberInfo(ClassInfo &Info,
                                       const DIDerivedType *DDTy) {
   if (!DDTy->getName().empty()) {
     Info.Members.push_back({DDTy, 0});
 
     // Collect static const data members.
+#if INTEL_CUSTOMIZATION
+    if (isSupportedStaticConstMember(DDTy))
+      StaticConstMembers.push_back(DDTy);
+#else
     if ((DDTy->getFlags() & DINode::FlagStaticMember) ==
         DINode::FlagStaticMember)
       StaticConstMembers.push_back(DDTy);
+#endif // INTEL_CUSTOMIZATION
 
     return;
   }
