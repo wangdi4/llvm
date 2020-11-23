@@ -1195,7 +1195,7 @@ def SYCLSimdAccessorPtr : InheritableAttr {
   let Spellings = [];
   let Subjects = SubjectList<[ParmVar]>;
   let LangOpts = [SYCLExplicitSIMD];
-  let Documentation = [SYCLSimdAccessorPtrDocs];
+  let Documentation = [Undocumented];
   let PragmaAttributeSupport = 0;
 }
 
