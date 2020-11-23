@@ -8,6 +8,7 @@ set(LLVM_LINK_COMPONENTS
   ScalarOpts
 # end INTEL_CUSTOMIZATION
   TransformUtils
+  ScalarOpts
   )
 
 add_llvm_unittest(IRTests
