@@ -2310,6 +2310,8 @@ struct DOTGraphTraits<DOTFuncMSSAInfo *> : public DefaultDOTGraphTraits {
   }
 
   std::string getNodeLabel(const BasicBlock *Node, DOTFuncMSSAInfo *CFGInfo) {
+#if INTEL_CUSTOMIZATION
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
     return DOTGraphTraits<DOTFuncInfo *>::getCompleteNodeLabel(
         Node, nullptr,
         [CFGInfo](raw_string_ostream &OS, const BasicBlock &BB) -> void {
@@ -2323,6 +2325,10 @@ struct DOTGraphTraits<DOTFuncMSSAInfo *> : public DefaultDOTGraphTraits {
             return;
           DOTGraphTraits<DOTFuncInfo *>::eraseComment(S, I, Idx);
         });
+#else
+    return {};
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
+#endif // INTEL_CUSTOMIZATION
   }
 
   static std::string getEdgeSourceLabel(const BasicBlock *Node,
