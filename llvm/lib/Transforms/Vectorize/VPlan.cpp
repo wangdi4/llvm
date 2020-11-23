@@ -1050,8 +1050,6 @@ void VPValue::printAsOperand(raw_ostream &OS, VPSlotTracker &Tracker) const {
   else
     OS << "vp<%" << Tracker.getSlot(this) << ">";
 }
-#endif // !NDEBUG || LLVM_ENABLE_DUMP
-#endif // INTEL_CUSTOMIZATION
 
 void VPUser::printOperands(raw_ostream &O, VPSlotTracker &SlotTracker) const {
   bool First = true;
@@ -1062,6 +1060,8 @@ void VPUser::printOperands(raw_ostream &O, VPSlotTracker &SlotTracker) const {
     First = false;
   }
 }
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
+#endif // INTEL_CUSTOMIZATION
 
 void VPInterleavedAccessInfo::visitRegion(VPRegionBlock *Region,
                                           Old2NewTy &Old2New,

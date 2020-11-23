@@ -177,8 +177,12 @@ class VPUser {
   SmallVector<VPValue *, 2> Operands;
 
 protected:
+#if INTEL_CUSTOMIZATION
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   /// Print the operands to \p O.
   void printOperands(raw_ostream &O, VPSlotTracker &SlotTracker) const;
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
+#endif // INTEL_CUSTOMIZATION
 
 public:
   VPUser() {}
