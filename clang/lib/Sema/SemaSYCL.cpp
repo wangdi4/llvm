@@ -1220,7 +1220,9 @@ void KernelObjVisitor::visitRecord(const CXXRecordDecl *Owner, ParentTy &Parent,
                                    const CXXRecordDecl *Wrapper,
                                    QualType RecordTy,
                                    HandlerTys &... Handlers) {
-  if (RecordTy->getAsRecordDecl()->hasAttr<SYCLRequiresDecompositionAttr>()) {
+  RecordDecl *RD = RecordTy->getAsRecordDecl();
+  assert(RD && "should not be null.");
+  if (RD->hasAttr<SYCLRequiresDecompositionAttr>()) {
     // If this container requires decomposition, we have to visit it as
     // 'complex', so all handlers are called in this case with the 'complex'
     // case.
@@ -1589,6 +1591,7 @@ public:
   bool leaveStruct(const CXXRecordDecl *, FieldDecl *, QualType Ty) final {
     if (CollectionStack.pop_back_val()) {
       RecordDecl *RD = Ty->getAsRecordDecl();
+      assert(RD && "should not be null.");
       if (!RD->hasAttr<SYCLRequiresDecompositionAttr>())
         RD->addAttr(SYCLRequiresDecompositionAttr::CreateImplicit(
             SemaRef.getASTContext()));
@@ -1607,6 +1610,7 @@ public:
                    QualType Ty) final {
     if (CollectionStack.pop_back_val()) {
       RecordDecl *RD = Ty->getAsRecordDecl();
+      assert(RD && "should not be null.");
       if (!RD->hasAttr<SYCLRequiresDecompositionAttr>())
         RD->addAttr(SYCLRequiresDecompositionAttr::CreateImplicit(
             SemaRef.getASTContext()));
