@@ -2278,35 +2278,25 @@ private:
   };
 
 #if INTEL_CUSTOMIZATION
-  // Return true if all VL are instructions compatible with Multi-Node.
-  static bool areMultiNodeCompatibleOpcodes(ArrayRef<Value *> VL) {
-    auto isMultiNodeCompatibleValue = [](Value *V) {
-      Instruction *I = dyn_cast<Instruction>(V);
-      if (!I)
-        return false;
-      switch (I->getOpcode()) {
-      case Instruction::Add:
-      case Instruction::Sub:
-        return true;
-      }
-      return false;
-    };
-    return llvm::all_of(VL, isMultiNodeCompatibleValue);
-  }
-
   // Add VL as a leaf node of the Multi-Node currently under construction.
-  void addMultiNodeLeaf(ArrayRef<Value *> VL,
-                        const EdgeInfo &UserTreeIdx) {
-    assert(VL.size() == CurrentMultiNode->getNumLanes() &&
-           "Changing vector-length within the Multi-Node is not allowed");
-    for (unsigned Lane = 0, Lanes = VL.size(); Lane != Lanes; ++Lane) {
-      TreeEntry *UserTE = UserTreeIdx.UserTE;
-      assert(!CurrentMultiNode->empty() && "finalization already run?");
+  // When it is not legal to do return false.
+  bool addMultiNodeLeafIfLegal(ArrayRef<Value *> VL, const EdgeInfo &UserTreeIdx) {
+
+    // Vector length has to be consistent along MultiNode
+    if (VL.size() != CurrentMultiNode->getNumLanes() ||
+        // The Leaves should not match any of the Trunk nodes.
+        alreadyInTrunk(VL))
+      return false;
+
+    assert(!CurrentMultiNode->empty() && "finalization already run?");
+    TreeEntry *UserTE = UserTreeIdx.UserTE;
+
+    for (unsigned Lane = 0; Lane != VL.size(); ++Lane)
       CurrentMultiNode->append(
           Lane, OperandData(VL[Lane], cast<Instruction>(UserTE->Scalars[Lane]),
                             UserTreeIdx.OpDirection[Lane], Lane));
-    }
     AllMultiNodeLeaves.insert(VL.begin(), VL.end());
+    return true;
   }
 #endif // INTEL_CUSTOMIZATION
 
@@ -2337,15 +2327,11 @@ private:
     // to the Multi-Node and return.
     if (EnableMultiNodeSLP && BuildingMultiNode &&
         EntryState == TreeEntry::NeedToGather &&
-        // Skip if the vector length changed
-        VL.size() == CurrentMultiNode->getNumLanes() &&
-        // The Leaves should not match any of the Trunk nodes.
-        !alreadyInTrunk(VL)) {
-      addMultiNodeLeaf(VL, UserTreeIdx);
-      // FIXME: we need to coordinate newTreeEntry with addMultiNodeLeaf. Either
-      // at the call places or making newTreeEntry void. At the moment, the
-      // newTreeEntry()'s return value is not used anywhere so it's safe to use
-      // nullptr.
+        addMultiNodeLeafIfLegal(VL, UserTreeIdx)) {
+      // FIXME: we need to coordinate newTreeEntry with addMultiNodeLeafIfLegal.
+      // Either at the call places or making newTreeEntry void. At the moment,
+      // the newTreeEntry()'s return value is not used anywhere so it's safe to
+      // use nullptr.
       return nullptr;
     }
 #endif // INTEL_CUSTOMIZATION
@@ -2986,10 +2972,6 @@ private:
   void rebuildBSStateUntil(int currIdx,
                            Optional<ScheduleData *> &BundleToUpdate);
 
-  /// Returns true if all legality checks passed to begin building a
-  /// Multi-Node.
-  bool isLegalToBuildMultiNode(ArrayRef<Value *> VL);
-
   /// Builds the TreeEntries for a Multi-Node.
   void buildTreeMultiNode_rec(const InstructionsState &S,
                               Optional<ScheduleData *> Bundle,
@@ -2997,17 +2979,11 @@ private:
                               EdgeInfo UserTreeIdx,
                               ArrayRef<unsigned> ReuseShuffleIndices);
 
-  /// \returns true if VL has uses external to the Multi-Node.
-  bool hasExternalUsesToMultiNode(ArrayRef<Value *> VL);
-
-  /// \returns true if any value is already part of the tree.
-  bool alreadyInTrunk(ArrayRef<Value *> VL);
-
-  /// \returns true if any value is already part of a Multi-Node.
-  bool areOperandsInExistingMultiNode(ArrayRef<Value *> VL);
-
-  /// \returns true if all instructions in VL are in the same BB as the root.
-  bool areInSameBB(ArrayRef<Value *> VL, int RootIdx);
+  /// \returns true if any value is already a part of the tree.
+  bool alreadyInTrunk(ArrayRef<Value *> VL) const {
+    return llvm::any_of(VL,
+                        [this](Value *V) -> bool { return getTreeEntry(V); });
+  }
 
   /// \returns the cost-model score of the subtrees rooted at v1 and v2.
   int getScoreAtLevel(Value *v1, Value *v2, int Level, int MaxLevel);
@@ -3025,9 +3001,6 @@ private:
   /// check whether it is legal to swap operands (aka Multi-Node leaves)
   /// between their frontier instructions (aka Multi-Node trunk instructions).
   bool isLegalToMoveLeaf(OperandData *Op1, OperandData *Op2);
-
-  /// \returns true if /p V is not a trunk value.
-  bool isLeafValue(Value *V);
 
   /// \returns a high score if \p LHS and \p RHS are consecutive instructions
   /// and good for vectorization.
@@ -3558,30 +3531,6 @@ void BoUpSLP::rebuildBSStateUntil(int UntilIdx,
   replaySchedulerStateUpTo(UntilIdx, BundleToUpdate, BundleToUpdateVL);
 }
 
-bool BoUpSLP::isLegalToBuildMultiNode(ArrayRef<Value *> VL) {
-  if (!areMultiNodeCompatibleOpcodes(VL))
-    return false;
-
-  auto *BB = cast<Instruction>(VL[0])->getParent();
-  // Do not begin building Multi-Node if block is too big.
-  if ((BB->size() - llvm::count_if(DeletedInstructions, [BB](const auto &Pair) {
-         return Pair.getFirst()->getParent() == BB;
-       })) > MaxBBSizeForMultiNodeSLP)
-    return false;
-
-  return
-      // Don't allow opcodes of different families at the root.
-      // For example don't allow [MUL, ADD]
-      !areOperandsInExistingMultiNode(VL) &&
-      // Disable overlapping Multi-Nodes
-      llvm::none_of(VL,
-                    [this](Value *V) { return AllMultiNodeValues.count(V); }) &&
-      // Allow no more than this many multi-nodes per tree.
-      // TODO: This is a workaround for the broken save/undo
-      // instruction scheduling.
-      MultiNodes.size() < MaxNumOfMultiNodesPerTree;
-}
-
 /// We move all Multi-Node trunk (frontier) instructions to the root, so that
 /// operand reordering can take place without any scheduling problems (e.g.,
 /// def-after-use). We perform this code motion in a bottom-up breadth-first
@@ -3757,13 +3706,6 @@ bool BoUpSLP::isLegalToMoveLeaf(OperandData *Op1, OperandData *Op2) {
       (Leaf2 && !DT->dominates(Leaf2, Op1->getFrontier())))
     return false;
   return true;
-}
-
-// Returns true if V is not a trunk value.
-// NOTE: We assume that a leaf node is not in VectorizableTree.
-bool BoUpSLP::isLeafValue(Value *V) {
-  TreeEntry *TE = getTreeEntry(V);
-  return !TE;
 }
 
 // Returns the look-ahead score, which tells us how much the sub-trees rooted at
@@ -4405,8 +4347,8 @@ void BoUpSLP::buildTreeMultiNode_rec(const InstructionsState &S,
   NewTE->setOperand(0, Operands[0]);
   NewTE->setOperand(1, Operands[1]);
 
-  // TODO: This is a workaround. Currently we don't addMultiNodeLeaf() to the
-  // Multi-Node if its values are alreadyInTrunk(). The problem is that if the
+  // TODO: This is a workaround. Currently we don't add a MultiNode leaf
+  // if its values are already in trunk. The problem is that if the
   // skipped leaf is a good permutation, while the one in the trunk is a bad
   // one, then the good leaf is not visited at all.
   // Disabling the 'alreadyInTrunk()' condition should fix this but I am not
@@ -4418,59 +4360,6 @@ void BoUpSLP::buildTreeMultiNode_rec(const InstructionsState &S,
     buildTree_rec(Operands[0], NextDepth, {NewTE, 0, OpDirs[0]});
     buildTree_rec(Operands[1], NextDepth, {NewTE, 1, OpDirs[1]});
   }
-}
-
-// Return true if any value in VL has external uses.
-bool BoUpSLP::hasExternalUsesToMultiNode(ArrayRef<Value *> VL) {
-  assert((!getTreeEntry(VL[0]) || getTreeEntry(VL[0])->Idx != 0) &&
-         "This VL is at the root!");
-  for (Value *Scalar : VL) {
-    for (User *U : Scalar->users()) {
-      // If the user not in ScalarToTreeEntry, then it is not even in the
-      // SLP-tree, so definitely not in the Multi-Node.
-      if (!ScalarToTreeEntry.count(U) ||
-          // If the user is not in the MultiNode, then it has an external use.
-          !CurrentMultiNode->containsTrunk(ScalarToTreeEntry[U]->Idx))
-        return true;
-    }
-  }
-  return false;
-}
-
-bool BoUpSLP::alreadyInTrunk(ArrayRef<Value *> VL) {
-  for (Value *V : VL)
-    if (getTreeEntry(V))
-      return true;
-  return false;
-}
-
-bool BoUpSLP::areOperandsInExistingMultiNode(ArrayRef<Value *> VL) {
-  for (Value *V : VL) {
-    if (Instruction *I = dyn_cast<Instruction>(V)) {
-      for (Value *Op : I->operands()) {
-        if (AllMultiNodeValues.count(Op))
-          return true;
-      }
-    }
-  }
-  return false;
-}
-
-bool BoUpSLP::areInSameBB(ArrayRef<Value *> VL, int RootIdx) {
-  assert((int)VectorizableTree.size() > RootIdx);
-  TreeEntry *RootTE = VectorizableTree[RootIdx].get();
-  // For each lane
-  for (int Lane = 0; Lane != (int)VL.size(); ++Lane) {
-    // Check if the value at lane is dominated by existing operands in the FN
-    Value *V = VL[Lane];
-    if (Instruction *I = dyn_cast<Instruction>(V)) {
-      Instruction *RootI = dyn_cast<Instruction>(RootTE->Scalars[Lane]);
-      if (RootI && RootI->getParent() != I->getParent()) {
-        return false;
-      }
-    }
-  }
-  return true;
 }
 
 void BoUpSLP::buildTree_rec(ArrayRef<Value *> VL_, unsigned Depth,
@@ -4633,10 +4522,19 @@ void BoUpSLP::buildTree_rec(ArrayRef<Value *> VL_, unsigned Depth,
   BlockScheduling &BS = *BSRef.get();
 
 #if INTEL_CUSTOMIZATION
+  // Return true if all VL are instructions compatible with Multi-Node.
+  auto MultiNodeCompatibleInstructions = [](ArrayRef<Value *> VL) {
+    return llvm::all_of(VL, [](Value *V) {
+      auto *I = dyn_cast<Instruction>(V);
+      return I && (I->getOpcode() == Instruction::Add ||
+                   I->getOpcode() == Instruction::Sub);
+    });
+  };
+
   // tryScheduleBundle() fails to schedule bundles with phi-nodes in some of the
   // lanes. We therefore check S.Opcode and bail out early.
   if (!S.getOpcode() &&
-      (!EnableMultiNodeSLP || !areMultiNodeCompatibleOpcodes(VL))) {
+      (!EnableMultiNodeSLP || !MultiNodeCompatibleInstructions(VL))) {
     LLVM_DEBUG(dbgs() << "SLP: Gathering due to O. \n");
     newTreeEntry(VL, None, S, UserTreeIdx, ReuseShuffleIndicies);
     return;
@@ -4657,6 +4555,109 @@ void BoUpSLP::buildTree_rec(ArrayRef<Value *> VL_, unsigned Depth,
 
 #if INTEL_CUSTOMIZATION
   if (EnableMultiNodeSLP) {
+    // Return true if any value is already a part of an existing Multi-Node.
+    auto OperandsInExistingMultiNode = [this](ArrayRef<Value *> VL) {
+      for (Value *V : VL) {
+        auto *I = cast<Instruction>(V);
+        if (llvm::any_of(I->operands(), [this](Value *Op) {
+              return AllMultiNodeValues.count(Op);
+            }))
+          return true;
+      }
+      return false;
+    };
+
+    /// Return true if all checks passed to begin building a Multi-Node.
+    auto CanBeginNewMultiNode = [this, MultiNodeCompatibleInstructions,
+                                 OperandsInExistingMultiNode](
+                                    ArrayRef<Value *> VL) {
+      if (!MultiNodeCompatibleInstructions(VL))
+        return false;
+
+      auto *BB = cast<Instruction>(VL[0])->getParent();
+      // Do not begin building Multi-Node if block is too big.
+      if ((BB->size() -
+           llvm::count_if(DeletedInstructions, [BB](const auto &Pair) {
+             return Pair.getFirst()->getParent() == BB;
+           })) > MaxBBSizeForMultiNodeSLP)
+        return false;
+
+      return !OperandsInExistingMultiNode(VL) &&
+             // Disable overlapping Multi-Nodes
+             llvm::none_of(
+                 VL,
+                 [this](Value *V) { return AllMultiNodeValues.count(V); }) &&
+             // Allow no more than this many multi-nodes per tree.
+             // TODO: This is a workaround for the broken save/undo
+             // instruction scheduling.
+             MultiNodes.size() < MaxNumOfMultiNodesPerTree;
+    };
+
+    // Check and return true if we can further grow current Multi-Node.
+    auto CanExtendMultiNode = [this, MultiNodeCompatibleInstructions,
+                               OperandsInExistingMultiNode](
+                                  ArrayRef<Value *> VL) {
+      auto WithinSameBB = [this](ArrayRef<Value *> VL,
+                                 const TreeEntry *RootTE) {
+        // At this point we do expect that (1) the MultiNode root node scalars
+        // are all within same block and (2) those scalars currently being
+        // evaluated are also all within same block. We do only need to check
+        // that those two are the same.
+        assert(allSameBlock(RootTE->Scalars) &&
+               "MN root instructions must be in same block?");
+        assert(allSameBlock(VL) && "VL instructions must be in same block?");
+
+        auto *RootI0 = cast<Instruction>(RootTE->Scalars[0]);
+        auto *I0 = cast<Instruction>(VL[0]);
+        return I0->getParent() == RootI0->getParent();
+      };
+
+      auto HasExternalUsesToMultiNode = [this](ArrayRef<Value *> VL) {
+        assert((!getTreeEntry(VL[0]) || getTreeEntry(VL[0])->Idx != 0) &&
+               "This VL is at the root!");
+
+        for (Value *Scalar : VL) {
+          if (llvm::any_of(Scalar->users(), [this](User *U) {
+                // If a user is not in ScalarToTreeEntry, then it is not even in
+                // the SLP-tree, so definitely not in the Multi-Node.
+                // If the user is not in current MultiNode, then it is
+                // an external user.
+                return !ScalarToTreeEntry.count(U) ||
+                       !CurrentMultiNode->containsTrunk(
+                           ScalarToTreeEntry[U]->Idx);
+              }))
+            return true;
+        }
+        return false;
+      };
+
+      if (CurrentMultiNode->numOfTrunks() >= MultiNodeSizeLimit ||
+          !MultiNodeCompatibleInstructions(VL) ||
+          // If operands are trunk instructions of a Multi-Node, then cleanup
+          // may fail when we restore this MN's operands, because it may use
+          // the updated Trunk instruction, not the one from the original code.
+          OperandsInExistingMultiNode(VL))
+        return false;
+
+      // Empty Multi-Node may always grow.
+      if (CurrentMultiNode->numOfTrunks() == 0)
+        return true;
+
+      // Here are few additional checks for a non-empty ones.
+      // We have to keep the vector-length constant across the Multi-Node.
+      return VL.size() == CurrentMultiNode->getNumLanes() &&
+             // We don't allow values to appear more than once in the Trunk
+             !alreadyInTrunk(VL) &&
+             // Only the root can have external uses.
+             !HasExternalUsesToMultiNode(VL) &&
+             // Should not cross BB
+             // TODO: we should remove this restriction in the future.
+             // Note that we likely want to take BB size into account once the
+             // restriction is removed.
+             WithinSameBB(VL,
+                          VectorizableTree[CurrentMultiNode->getRoot()].get());
+    };
+
     // If we are already building a Multi-Node.
     // Try to continue the buildTree recursion in order to grow the Multi-Node.
     if (BuildingMultiNode) {
@@ -4665,49 +4666,23 @@ void BoUpSLP::buildTree_rec(ArrayRef<Value *> VL_, unsigned Depth,
         BS.cancelScheduling(VL, VL0);
         return;
       }
-      // Early check if we should stop growing the Multi-Node
-      bool ReachedMultiNodeSizeLimit =
-          (CurrentMultiNode->numOfTrunks() >= MultiNodeSizeLimit);
-      bool CanExtendMultiNode =
-          !ReachedMultiNodeSizeLimit && areMultiNodeCompatibleOpcodes(VL) &&
-          // If operands are trunk instructions of a Multi-Node, then cleanup
-          // may fail when we restore this MN's operands, because it may use
-          // the updated Trunk instruction, not the one from the original code.
-          !areOperandsInExistingMultiNode(VL) &&
-          // Empty Multi-Node may always grow.
-          (CurrentMultiNode->numOfTrunks() == 0 ||
-           // We have to keep the vector-length constant across the Multi-Node.
-           (VL.size() == CurrentMultiNode->getNumLanes() &&
-            // We don't allow values to appear more than once in the Trunk
-            !alreadyInTrunk(VL) &&
-            // Only the root can have external uses.
-            !hasExternalUsesToMultiNode(VL) &&
-            // Should not cross BB
-            // TODO: we should remove this restriction in the future.
-            // Note that we likely want to take BB size into account once the
-            // restriction is removed.
-            areInSameBB(VL, CurrentMultiNode->getRoot())));
-
-      if (!CanExtendMultiNode) {
-        // Early checks failed, VL will be a leaf node.
-        // We have to keep the vector-length constant across the Multi-Node.
-        if (VL.size() == CurrentMultiNode->getNumLanes() &&
-            // The Leaves should not match any of the Trunk nodes.
-            !alreadyInTrunk(VL))
-          addMultiNodeLeaf(VL, UserTreeIdx);
+      // Check if we should stop growing the Multi-Node
+      if (!CanExtendMultiNode(VL)) {
+        // VL may probably be a leaf node.
+        (void)addMultiNodeLeafIfLegal(VL, UserTreeIdx);
         BS.cancelScheduling(VL, VL0);
         return;
       }
       // The early checks show that we can grow the Multi-Node, so proceed.
       // NOTE: The checks in buildTree_rec() may also prohibit the growth of the
       // Multi-Node. Therefore there is a second point in newTreeEntr() where
-      // addMultiNodeLeaf() is called.
+      // addMultiNodeLeafIfLegal() is called.
       buildTreeMultiNode_rec(S, Bundle, VL, Depth + 1, UserTreeIdx,
                              ReuseShuffleIndicies);
       return;
     }
     // No Multi-Node is being built, try to see if we can build one.
-    else if (isLegalToBuildMultiNode(VL)) {
+    else if (CanBeginNewMultiNode(VL)) {
       // Allocate space for the new CurrentMultiNode.
       MultiNodes.resize(MultiNodes.size() + 1);
       CurrentMultiNode = &MultiNodes.back();
