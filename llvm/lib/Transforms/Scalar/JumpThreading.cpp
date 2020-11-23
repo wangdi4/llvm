@@ -394,6 +394,11 @@ PreservedAnalyses JumpThreadingPass::run(Function &F,
   bool Changed = runImpl(F, &TLI, &LVI, &AA, &DTU, F.hasProfileData(),
                          std::move(BFI), std::move(BPI), &PDT); // INTEL
 
+  if (PrintLVIAfterJumpThreading) {
+    dbgs() << "LVI for function '" << F.getName() << "':\n";
+    LVI.printLVI(F, DTU.getDomTree(), dbgs());
+  }
+
   if (!Changed)
     return PreservedAnalyses::all();
   PreservedAnalyses PA;
