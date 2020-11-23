@@ -18,7 +18,7 @@ entry:
 ; CHECK-LABEL: _Z30ParallelForNDRangeImplKernel1DPiS_
 
 ;; Generated vector version
-; CHECK-LABEL: _ZGVeN16uu_30ParallelForNDRangeImplKernel1DPiS_
+; CHECK-LABEL: _ZGVeN16uu__Z30ParallelForNDRangeImplKernel1DPiS_
 ; CHECK-NEXT: entry:
 
 ;; Checks that we do not hit a label from the WRN region.
