@@ -5346,8 +5346,6 @@ bool X86TargetLowering::getTgtMemIntrinsic(IntrinsicInfo &Info,
 #if INTEL_FEATURE_ISA_AVX_MEMADVISE
     case Intrinsic::x86_avx2_vmovadvisew_load_128:
     case Intrinsic::x86_avx2_vmovadvisew_load_256:
-    case Intrinsic::x86_avx512_vmovadvisew_load_128:
-    case Intrinsic::x86_avx512_vmovadvisew_load_256:
     case Intrinsic::x86_avx512_vmovadvisew_load_512: {
       Info.opc = ISD::INTRINSIC_W_CHAIN;
       Info.ptrVal = I.getArgOperand(0);
@@ -5358,13 +5356,9 @@ bool X86TargetLowering::getTgtMemIntrinsic(IntrinsicInfo &Info,
     }
     case Intrinsic::x86_avx2_vmemadvise_128:
     case Intrinsic::x86_avx2_vmemadvise_256:
-    case Intrinsic::x86_avx512_vmemadvise_128:
-    case Intrinsic::x86_avx512_vmemadvise_256:
     case Intrinsic::x86_avx512_vmemadvise_512:
     case Intrinsic::x86_avx2_vmovadvisew_store_128:
     case Intrinsic::x86_avx2_vmovadvisew_store_256:
-    case Intrinsic::x86_avx512_vmovadvisew_store_128:
-    case Intrinsic::x86_avx512_vmovadvisew_store_256:
     case Intrinsic::x86_avx512_vmovadvisew_store_512: {
       Info.opc = ISD::INTRINSIC_VOID;
       Info.ptrVal = I.getArgOperand(0);
