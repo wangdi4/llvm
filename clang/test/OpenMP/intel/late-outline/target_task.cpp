@@ -59,4 +59,27 @@ void foo2() {
       y = 3;
    }
 }
+
+// CHECK: define {{.*}}_ZN1AC2Ev
+// CHECK: DIR.OMP.TASK
+// CHECK-SAME: "QUAL.OMP.TARGET.TASK"
+// CHECK: DIR.OMP.TARGET
+// CHECK-SAME: "QUAL.OMP.DEVICE"
+// CHECK: DIR.OMP.END.TARGET
+// CHECK: DIR.OMP.END.TASK
+
+struct A {
+  A() {
+    char b;
+    #pragma omp target device(b) nowait
+    ;
+  }
+};
+
+#pragma omp declare target
+void foo3()
+{
+  A avar;
+}
+#pragma omp end declare target
 // end INTEL_COLLAB
