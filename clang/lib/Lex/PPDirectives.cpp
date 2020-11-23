@@ -2694,7 +2694,7 @@ void Preprocessor::HandleMicrosoftImportIntelDirective(SourceLocation HashLoc,
   // directives we've seen so far (since they can depend on each other).
   // The wrapper file is compiled by the Microsoft compiler.
   //
-  int WrapperFileDesc;
+  int WrapperFileDesc = 0;
   if (WrapperFilename.empty()) {
     SmallString<128> WrapperFilenameImpl;
     if (std::error_code ErrorCode = llvm::sys::fs::createTemporaryFile(
@@ -2726,7 +2726,7 @@ void Preprocessor::HandleMicrosoftImportIntelDirective(SourceLocation HashLoc,
   // Create a response file for the arguments needed to compile the
   // wrapper file.
   //
-  int ArgFileDesc;
+  int ArgFileDesc = 0;
   SmallString<128> ArgFilename;
   if (std::error_code ErrorCode = llvm::sys::fs::createTemporaryFile(
           llvm::sys::path::stem(TypelibHeaderName), "arg", ArgFileDesc,

@@ -16,6 +16,7 @@
 
 #include <algorithm>
 #include <CL/cl.h>
+#include <CL/cl_ext_intel.h>
 #include <cassert>
 #include <cctype>
 #include <cstdlib>
@@ -47,56 +48,6 @@
 #define DEBUG_PREFIX "Target " GETNAME(TARGET_NAME) " RTL"
 
 int DebugLevel = 0;
-
-#if INTEL_CUSTOMIZATION
-// FIXME: find a way to include cl_usm_ext.h to get these definitions
-//        from there.
-#define CL_MEM_ALLOC_TYPE_INTEL         0x419A
-#define CL_MEM_TYPE_UNKNOWN_INTEL       0x4196
-#define CL_MEM_TYPE_HOST_INTEL          0x4197
-#define CL_MEM_TYPE_DEVICE_INTEL        0x4198
-#define CL_MEM_TYPE_SHARED_INTEL        0x4199
-
-#define CL_MEM_ALLOC_FLAGS_INTEL        0x4195
-
-#define CL_KERNEL_EXEC_INFO_INDIRECT_HOST_ACCESS_INTEL      0x4200
-#define CL_KERNEL_EXEC_INFO_INDIRECT_DEVICE_ACCESS_INTEL    0x4201
-#define CL_KERNEL_EXEC_INFO_INDIRECT_SHARED_ACCESS_INTEL    0x4202
-#define CL_KERNEL_EXEC_INFO_USM_PTRS_INTEL                  0x4203
-
-typedef cl_uint cl_mem_info_intel;
-typedef cl_uint cl_unified_shared_memory_type_intel;
-typedef cl_bitfield cl_mem_properties_intel;
-typedef cl_int  (CL_API_CALL *clGetMemAllocInfoINTELTy)(
-    cl_context context,
-    const void* ptr,
-    cl_mem_info_intel param_name,
-    size_t param_value_size,
-    void* param_value,
-    size_t* param_value_size_ret);
-typedef void * (CL_API_CALL *clHostMemAllocINTELTy)(
-    cl_context context,
-    cl_mem_properties_intel *properties,
-    size_t size,
-    cl_uint alignment,
-    cl_int *errcodeRet);
-typedef void * (CL_API_CALL *clSharedMemAllocINTELTy)(
-    cl_context context,
-    cl_device_id device,
-    const cl_mem_properties_intel *properties,
-    size_t size,
-    cl_uint alignment,
-    cl_int *errcode_ret);
-typedef cl_int (CL_API_CALL *clMemFreeINTELTy)(
-    cl_context context,
-    const void *ptr);
-typedef cl_int (CL_API_CALL *clGetDeviceGlobalVariablePointerINTELTy)(
-    cl_device_id,
-    cl_program,
-    const char *,
-    size_t *,
-    void **);
-#endif // INTEL_CUSTOMIZATION
 
 #ifdef __cplusplus
 extern "C" {
@@ -209,6 +160,32 @@ struct ProfileDataTy {
   }
 }; // ProfileDataTy
 
+// Platform-dependent information -- context and INTEL extension API
+struct PlatformInfoTy {
+  cl_platform_id Platform = nullptr;
+  cl_context Context = nullptr;
+  std::vector<const char *> ExtensionFunctionNames {
+#define EXTENSION_FN_NAME(Fn) TO_STRING(Fn##INTEL),
+      FOR_EACH_EXTENSION_FN(EXTENSION_FN_NAME)
+  };
+  std::vector<void *> ExtensionFunctionPointers;
+
+  PlatformInfoTy(cl_platform_id platform, cl_context context) {
+    Platform = platform;
+    Context = context;
+    ExtensionFunctionPointers.resize(ExtensionFunctionNames.size(), nullptr);
+    for (int i = 0; i < ExtensionIdLast; i++) {
+      CALL_CL_RV(ExtensionFunctionPointers[i],
+                 clGetExtensionFunctionAddressForPlatform, platform,
+                 ExtensionFunctionNames[i]);
+      if (ExtensionFunctionPointers[i])
+        IDP("Extension %s is found.\n", ExtensionFunctionNames[i]);
+      else
+        IDP("Warning: Extension %s is not found.\n", ExtensionFunctionNames[i]);
+    }
+  }
+};
+
 // OpenCL extensions status.
 enum ExtensionStatusTy : uint8_t {
   // Default value.  It is unknown if the extension is supported.
@@ -225,13 +202,9 @@ enum ExtensionStatusTy : uint8_t {
 
 // A descriptor of OpenCL extensions with their statuses.
 struct ExtensionsTy {
+  ExtensionStatusTy UnifiedSharedMemory = ExtensionStatusUnknown;
 #if INTEL_CUSTOMIZATION
-  // clGetDeviceGlobalVariablePointerINTEL API:
   ExtensionStatusTy GetDeviceGlobalVariablePointer = ExtensionStatusUnknown;
-  ExtensionStatusTy GetMemAllocInfoINTELPointer = ExtensionStatusUnknown;
-  ExtensionStatusTy HostMemAllocINTELPointer = ExtensionStatusUnknown;
-  ExtensionStatusTy SharedMemAllocINTELPointer = ExtensionStatusUnknown;
-  ExtensionStatusTy MemFreeINTELPointer = ExtensionStatusUnknown;
   ExtensionStatusTy SuggestedGroupSize = ExtensionStatusUnknown;
 #endif  // INTEL_CUSTOMIZATION
 
@@ -364,15 +337,17 @@ class RTLDeviceInfoTy {
 public:
   cl_uint numDevices;
 
+  // Contains context and extension API
+  std::vector<PlatformInfoTy> PlatformInfos;
+
   // per device information
-  std::vector<cl_platform_id> platformIDs;
+  std::vector<PlatformInfoTy *> Platforms;
   std::vector<cl_device_id> deviceIDs;
   std::vector<int32_t> maxExecutionUnits;
   std::vector<size_t> maxWorkGroupSize;
 
   // A vector of descriptors of OpenCL extensions for each device.
   std::vector<ExtensionsTy> Extensions;
-  std::vector<cl_context> CTX;
   std::vector<cl_command_queue> Queues;
   std::vector<cl_command_queue> QueuesInOrder;
   std::vector<FuncOrGblEntryTy> FuncGblEntries;
@@ -409,19 +384,6 @@ public:
 #if INTEL_CUSTOMIZATION
   std::string InternalCompilationOptions;
   std::string InternalLinkingOptions;
-
-  // A pointer to clGetMemAllocInfoINTEL extension API.
-  // It can be used to distinguish SVM and USM pointers.
-  // It is available on the whole platform, so it is not
-  // device-specific within the same platform.
-  clGetMemAllocInfoINTELTy clGetMemAllocInfoINTELFn = nullptr;
-  clHostMemAllocINTELTy clHostMemAllocINTELFn = nullptr;
-  clSharedMemAllocINTELTy clSharedMemAllocINTELFn = nullptr;
-  clMemFreeINTELTy clMemFreeINTELFn = nullptr;
-  clGetDeviceGlobalVariablePointerINTELTy
-      clGetDeviceGlobalVariablePointerINTELFn = nullptr;
-  clGetKernelSuggestedLocalWorkSizeINTELTy
-      clGetKernelSuggestedLocalWorkSizeINTELFn = nullptr;
 #endif  // INTEL_CUSTOMIZATION
 
   // Limit for the number of WIs in a WG.
@@ -648,6 +610,41 @@ public:
     auto &profileData = profiles[gtid];
     ProfileLocks[DeviceId].unlock();
     return profileData;
+  }
+
+  /// Return context for the given device ID
+  cl_context getContext(int32_t DeviceId) {
+    return Platforms[DeviceId]->Context;
+  }
+
+  /// Return the extension function pointer for the given ID
+  void *getExtensionFunctionPtr(int32_t DeviceId, int32_t ExtensionId) {
+    return Platforms[DeviceId]->ExtensionFunctionPointers[ExtensionId];
+  }
+
+  /// Check if extension function is available and enabled.
+  bool isExtensionFunctionEnabled(int32_t DeviceId, int32_t ExtensionId) {
+    if (!getExtensionFunctionPtr(DeviceId, ExtensionId))
+      return false;
+
+    switch (ExtensionId) {
+    case clGetMemAllocInfoId:
+    case clHostMemAllocId:
+    case clSharedMemAllocId:
+    case clMemFreeId:
+    case clSetKernelArgMemPointerId:
+    case clEnqueueMemcpyId:
+      return Extensions[DeviceId].UnifiedSharedMemory == ExtensionStatusEnabled;
+#if INTEL_CUSTOMIZATION
+    case clGetDeviceGlobalVariablePointerId:
+      return Extensions[DeviceId].GetDeviceGlobalVariablePointer ==
+          ExtensionStatusEnabled;
+    case clGetKernelSuggestedLocalWorkSizeId:
+      return Extensions[DeviceId].SuggestedGroupSize == ExtensionStatusEnabled;
+#endif // INTEL_CUSTOMIZATION
+    default:
+      return true;
+    }
   }
 
   /// Loads the device version of the offload table for device \p DeviceId.
@@ -878,10 +875,13 @@ static void closeRTL() {
     CALL_CL_EXIT_FAIL(clReleaseCommandQueue, DeviceInfo->Queues[i]);
     if (DeviceInfo->QueuesInOrder[i])
       CALL_CL_EXIT_FAIL(clReleaseCommandQueue, DeviceInfo->QueuesInOrder[i]);
-    CALL_CL_EXIT_FAIL(clReleaseContext, DeviceInfo->CTX[i]);
 #endif // !defined(_WIN32)
     DeviceInfo->unloadOffloadTable(i);
   }
+#ifndef _WIN32
+  for (auto platformInfo : DeviceInfo->PlatformInfos)
+    CALL_CL_EXIT_FAIL(clReleaseContext, platformInfo.Context);
+#endif
   delete[] DeviceInfo->Mutexes;
   delete[] DeviceInfo->ProfileLocks;
   IDP("Closed RTL successfully\n");
@@ -920,7 +920,9 @@ int32_t RTLDeviceInfoTy::initProgramData(int32_t deviceId) {
     deviceId             // Device ID
   };
 
-  if (!clGetDeviceGlobalVariablePointerINTELFn) {
+#if INTEL_CUSTOMIZATION
+  if (!isExtensionFunctionEnabled(
+        deviceId, clGetDeviceGlobalVariablePointerId)) {
     IDP("Warning: cannot initialize program data on device.\n");
     return OFFLOAD_SUCCESS;
   }
@@ -934,6 +936,7 @@ int32_t RTLDeviceInfoTy::initProgramData(int32_t deviceId) {
 
   CALL_CL_RET_FAIL(clEnqueueSVMMemcpy, Queues[deviceId], CL_TRUE, dataPtr,
                    &hostData, sizeof(hostData), 0, nullptr, nullptr);
+#endif // INTEL_CUSTOMIZATION
 
   return OFFLOAD_SUCCESS;
 }
@@ -977,12 +980,18 @@ void *RTLDeviceInfoTy::getVarDeviceAddr(
      "Looking up device global variable '%s' of size %zu bytes on device %d.\n",
      Name, Size, DeviceId);
 #if INTEL_CUSTOMIZATION
-  if (!clGetDeviceGlobalVariablePointerINTELFn)
+  if (!isExtensionFunctionEnabled(DeviceId, clGetDeviceGlobalVariablePointerId))
     return nullptr;
 
-  if (clGetDeviceGlobalVariablePointerINTELFn(
-          deviceIDs[DeviceId], FuncGblEntries[DeviceId].Program,
-          Name, &DeviceSize, &TgtAddr) != CL_SUCCESS) {
+  cl_int rc;
+  auto clGetDeviceGlobalVariablePointerINTELFn =
+      reinterpret_cast<clGetDeviceGlobalVariablePointerINTEL_fn>(
+          getExtensionFunctionPtr(
+              DeviceId, clGetDeviceGlobalVariablePointerId));
+  rc = clGetDeviceGlobalVariablePointerINTELFn(deviceIDs[DeviceId],
+      FuncGblEntries[DeviceId].Program, Name, &DeviceSize, &TgtAddr);
+
+  if (rc != CL_SUCCESS) {
     DPI("Warning: clGetDeviceGlobalVariablePointerINTEL API returned "
         "nullptr for global variable '%s'.\n", Name);
     DeviceSize = 0;
@@ -1151,6 +1160,11 @@ int32_t ExtensionsTy::getExtensionsInfoForDevice(int32_t DeviceNum) {
   std::string Extensions(Data.get());
   IDP("Device extensions: %s\n", Extensions.c_str());
 
+  if (UnifiedSharedMemory == ExtensionStatusUnknown &&
+      Extensions.find("cl_intel_unified_shared_memory") != std::string::npos) {
+    UnifiedSharedMemory = ExtensionStatusEnabled;
+    IDP("Extension UnifiedSharedMemory enabled.\n");
+  }
 #if INTEL_CUSTOMIZATION
   // Check if the extension was not explicitly disabled, i.e.
   // that its current status is unknown.
@@ -1161,27 +1175,13 @@ int32_t ExtensionsTy::getExtensionsInfoForDevice(int32_t DeviceNum) {
       DPI("Extension clGetDeviceGlobalVariablePointerINTEL enabled.\n");
     }
 
-  if (GetMemAllocInfoINTELPointer == ExtensionStatusUnknown)
-    if (Extensions.find("cl_intel_unified_shared_memory") !=
-        std::string::npos) {
-      GetMemAllocInfoINTELPointer = ExtensionStatusEnabled;
-      DPI("Extension clGetMemAllocInfoINTEL enabled.\n");
-    }
-
-  if (Extensions.find("cl_intel_unified_shared_memory_preview") !=
-      std::string::npos) {
-    HostMemAllocINTELPointer = ExtensionStatusEnabled;
-    SharedMemAllocINTELPointer = ExtensionStatusEnabled;
-    MemFreeINTELPointer = ExtensionStatusEnabled;
-  }
-
   if (SuggestedGroupSize == ExtensionStatusUnknown)
     // FIXME: use the right extension name.
     if (Extensions.find("") != std::string::npos) {
       SuggestedGroupSize = ExtensionStatusEnabled;
       DPI("Extension clGetKernelSuggestedLocalWorkSizeINTEL enabled.\n");
     }
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_CUSTOMIZATION
 
   std::for_each(LibdeviceExtensions.begin(), LibdeviceExtensions.end(),
                 [&Extensions](LibdeviceExtDescTy &Desc) {
@@ -1244,9 +1244,21 @@ int32_t __tgt_rtl_number_of_devices() {
     std::vector<cl_device_id> devices(numDevices);
     CALL_CL_RET_ZERO(clGetDeviceIDs, id, DeviceInfo->DeviceType, numDevices,
                      devices.data(), nullptr);
+    cl_context_properties contextProperties[] = {
+        CL_CONTEXT_PLATFORM,
+        (cl_context_properties)id,
+        0
+    };
+    cl_context context = nullptr;
+    CALL_CL_RVRC(context, clCreateContext, rc, contextProperties,
+                 devices.size(), devices.data(), nullptr, nullptr);
+    if (rc != CL_SUCCESS)
+      continue;
+
+    DeviceInfo->PlatformInfos.emplace_back(PlatformInfoTy(id, context));
     for (auto device : devices) {
       DeviceInfo->deviceIDs.push_back(device);
-      DeviceInfo->platformIDs.push_back(id);
+      DeviceInfo->Platforms.push_back(&DeviceInfo->PlatformInfos.back());
     }
     DeviceInfo->numDevices += numDevices;
   }
@@ -1254,7 +1266,6 @@ int32_t __tgt_rtl_number_of_devices() {
   DeviceInfo->maxExecutionUnits.resize(DeviceInfo->numDevices);
   DeviceInfo->maxWorkGroupSize.resize(DeviceInfo->numDevices);
   DeviceInfo->Extensions.resize(DeviceInfo->numDevices);
-  DeviceInfo->CTX.resize(DeviceInfo->numDevices);
   DeviceInfo->Queues.resize(DeviceInfo->numDevices);
   DeviceInfo->QueuesInOrder.resize(DeviceInfo->numDevices, nullptr);
   DeviceInfo->FuncGblEntries.resize(DeviceInfo->numDevices);
@@ -1324,18 +1335,6 @@ int32_t __tgt_rtl_init_device(int32_t device_id) {
   assert(device_id >= 0 && (cl_uint)device_id < DeviceInfo->numDevices &&
          "bad device id");
 
-  // create context
-  auto PlatformID = DeviceInfo->platformIDs[device_id];
-  cl_context_properties props[] = {
-      CL_CONTEXT_PLATFORM,
-      (cl_context_properties)PlatformID, 0};
-  CALL_CL_RVRC(DeviceInfo->CTX[device_id], clCreateContext, status, props, 1,
-               &DeviceInfo->deviceIDs[device_id], nullptr, nullptr);
-  if (status != CL_SUCCESS) {
-    IDP("Error: Failed to create context: %d\n", status);
-    return OFFLOAD_FAIL;
-  }
-
   // Use out-of-order queue by default.
   std::vector<cl_queue_properties> qProperties {
       CL_QUEUE_PROPERTIES,
@@ -1348,7 +1347,7 @@ int32_t __tgt_rtl_init_device(int32_t device_id) {
   qProperties.push_back(0);
 
   auto deviceID = DeviceInfo->deviceIDs[device_id];
-  auto context = DeviceInfo->CTX[device_id];
+  auto context = DeviceInfo->getContext(device_id);
   CALL_CL_RVRC(DeviceInfo->Queues[device_id],
                clCreateCommandQueueWithProperties, status, context, deviceID,
                qProperties.data());
@@ -1358,38 +1357,6 @@ int32_t __tgt_rtl_init_device(int32_t device_id) {
   }
 
   DeviceInfo->Extensions[device_id].getExtensionsInfoForDevice(device_id);
-
-#if INTEL_CUSTOMIZATION
-  // Find extension function pointers
-  auto &ext = DeviceInfo->Extensions[device_id];
-  auto platformID = DeviceInfo->platformIDs[device_id];
-  if (ext.HostMemAllocINTELPointer == ExtensionStatusEnabled) {
-    void *fn = nullptr;
-    CALL_CL_RV(fn, clGetExtensionFunctionAddressForPlatform, platformID,
-               "clHostMemAllocINTEL");
-    DeviceInfo->clHostMemAllocINTELFn =
-        reinterpret_cast<clHostMemAllocINTELTy>(fn);
-    if (DeviceInfo->clHostMemAllocINTELFn)
-      IDP("Extension clHostMemAllocINTEL enabled.\n");
-  }
-  if (ext.SharedMemAllocINTELPointer == ExtensionStatusEnabled) {
-    void *fn = nullptr;
-    CALL_CL_RV(fn, clGetExtensionFunctionAddressForPlatform, platformID,
-               "clSharedMemAllocINTEL");
-    DeviceInfo->clSharedMemAllocINTELFn =
-        reinterpret_cast<clSharedMemAllocINTELTy>(fn);
-    if (DeviceInfo->clSharedMemAllocINTELFn)
-      IDP("Extension clSharedMemAllocINTEL enabled.\n");
-  }
-  if (ext.MemFreeINTELPointer == ExtensionStatusEnabled) {
-    void *fn = nullptr;
-    CALL_CL_RV(fn, clGetExtensionFunctionAddressForPlatform, platformID,
-               "clMemFreeINTEL");
-    DeviceInfo->clMemFreeINTELFn = reinterpret_cast<clMemFreeINTELTy>(fn);
-    if (DeviceInfo->clMemFreeINTELFn)
-      IDP("Extension clMemFreeINTEL enabled.\n");
-  }
-#endif // INTEL_CUSTOMIZATION
 
   OMPT_CALLBACK(ompt_callback_device_initialize, device_id,
                 DeviceInfo->Names[device_id].data(),
@@ -1498,7 +1465,8 @@ static cl_program createProgramFromFile(
     cl_int status;
     cl_program program;
     CALL_CL_RVRC(program, clCreateProgramWithIL, status,
-      DeviceInfo->CTX[device_id], device_rtl_bin.c_str(), device_rtl_len);
+                 DeviceInfo->getContext(device_id), device_rtl_bin.c_str(),
+                 device_rtl_len);
     if (status != CL_SUCCESS) {
       IDP("Error: Failed to create device RTL from IL: %d\n", status);
       return nullptr;
@@ -1557,7 +1525,7 @@ __tgt_target_table *__tgt_rtl_load_binary(int32_t device_id,
   dumpImageToFile(image->ImageStart, ImageSize, "OpenMP");
   cl_program program;
   CALL_CL_RVRC(program, clCreateProgramWithIL, status,
-               DeviceInfo->CTX[device_id], image->ImageStart, ImageSize);
+               DeviceInfo->getContext(device_id), image->ImageStart, ImageSize);
   if (status != CL_SUCCESS) {
     debugPrintBuildLog(program, DeviceInfo->deviceIDs[device_id]);
     IDP("Error: Failed to create program: %d\n", status);
@@ -1612,7 +1580,7 @@ __tgt_target_table *__tgt_rtl_load_binary(int32_t device_id,
     LinkingTimer.start();
 
     CALL_CL_RVRC(linked_program, clLinkProgram, status,
-        DeviceInfo->CTX[device_id], 1, &DeviceInfo->deviceIDs[device_id],
+        DeviceInfo->getContext(device_id), 1, &DeviceInfo->deviceIDs[device_id],
         linking_options.c_str(), programs.size(), programs.data(), nullptr,
         nullptr);
     if (status != CL_SUCCESS) {
@@ -1622,7 +1590,6 @@ __tgt_target_table *__tgt_rtl_load_binary(int32_t device_id,
     } else {
       IDP("Successfully linked program.\n");
     }
-
     DeviceInfo->FuncGblEntries[device_id].Program = linked_program;
     LinkingTimer.stop();
   }
@@ -1634,55 +1601,6 @@ __tgt_target_table *__tgt_rtl_load_binary(int32_t device_id,
       DeviceInfo->FuncGblEntries[device_id].Entries;
   std::vector<cl_kernel> &kernels =
       DeviceInfo->FuncGblEntries[device_id].Kernels;
-
-#if INTEL_CUSTOMIZATION
-  auto platformID = DeviceInfo->platformIDs[device_id];
-  if (!DeviceInfo->clGetDeviceGlobalVariablePointerINTELFn &&
-      DeviceInfo->Extensions[device_id].GetDeviceGlobalVariablePointer ==
-      ExtensionStatusEnabled) {
-    void *fn = nullptr;
-    CALL_CL_RV(fn, clGetExtensionFunctionAddressForPlatform, platformID,
-               "clGetDeviceGlobalVariablePointerINTEL");
-    DeviceInfo->clGetDeviceGlobalVariablePointerINTELFn =
-        reinterpret_cast<clGetDeviceGlobalVariablePointerINTELTy>(fn);
-
-    if (!DeviceInfo->clGetDeviceGlobalVariablePointerINTELFn) {
-      DPI("Warning: clGetDeviceGlobalVariablePointerINTEL API "
-          "is nullptr.  Direct references to declare target variables "
-          "will not work properly.\n");
-    }
-  }
-
-  if (!DeviceInfo->clGetMemAllocInfoINTELFn &&
-      DeviceInfo->Extensions[device_id].GetMemAllocInfoINTELPointer ==
-      ExtensionStatusEnabled && DeviceInfo->DeviceType == CL_DEVICE_TYPE_CPU) {
-    // TODO: limit this to CPU devices for the time being.
-    void *fn = nullptr;
-    CALL_CL_RV(fn, clGetExtensionFunctionAddressForPlatform, platformID,
-               "clGetMemAllocInfoINTEL");
-    DeviceInfo->clGetMemAllocInfoINTELFn =
-        reinterpret_cast<clGetMemAllocInfoINTELTy>(fn);
-
-    if (!DeviceInfo->clGetMemAllocInfoINTELFn) {
-      DPI("Warning: clGetMemAllocInfoINTEL API is nullptr.  Direct references "
-          "to declare target variables will not work properly.\n");
-    }
-  }
-
-  if (!DeviceInfo->clGetKernelSuggestedLocalWorkSizeINTELFn &&
-      DeviceInfo->Extensions[device_id].SuggestedGroupSize ==
-      ExtensionStatusEnabled) {
-    void *fn = nullptr;
-    CALL_CL_RV(fn, clGetExtensionFunctionAddressForPlatform, platformID,
-               "clGetKernelSuggestedLocalWorkSizeINTEL");
-    DeviceInfo->clGetKernelSuggestedLocalWorkSizeINTELFn =
-        reinterpret_cast<clGetKernelSuggestedLocalWorkSizeINTELTy>(fn);
-
-    if (!DeviceInfo->clGetKernelSuggestedLocalWorkSizeINTELFn &&
-        DeviceInfo->Flags.UseDriverGroupSizes)
-      DPI("Warning: clGetKernelSuggestedLocalWorkSizeINTEL API is nullptr.\n");
-  }
-#endif  // INTEL_CUSTOMIZATION
 
   ProfileIntervalTy EntriesTimer("Offload entries init", device_id);
   EntriesTimer.start();
@@ -1902,7 +1820,7 @@ EXTERN void *__tgt_rtl_create_offload_queue(int32_t device_id, bool is_async) {
   cl_int status;
   cl_command_queue queue = nullptr;
   auto deviceId = DeviceInfo->deviceIDs[device_id];
-  auto context = DeviceInfo->CTX[device_id];
+  auto context = DeviceInfo->getContext(device_id);
 
   // Return a shared in-order queue for synchronous case if requested
   if (!is_async && DeviceInfo->Flags.UseInteropQueueInorderSharedSync) {
@@ -1955,11 +1873,10 @@ EXTERN int32_t __tgt_rtl_release_offload_queue(int32_t device_id, void *queue) {
 }
 
 EXTERN void *__tgt_rtl_get_platform_handle(int32_t device_id) {
-  auto context = DeviceInfo->CTX[device_id];
+  auto context = DeviceInfo->getContext(device_id);
   return (void *) context;
 }
 
-#if INTEL_CUSTOMIZATION
 // Allocate a managed memory object.
 EXTERN void *__tgt_rtl_data_alloc_managed(int32_t device_id, int64_t size) {
   int32_t kind = DeviceInfo->Flags.UseHostMemForUSM ? TARGET_ALLOC_HOST
@@ -1969,20 +1886,19 @@ EXTERN void *__tgt_rtl_data_alloc_managed(int32_t device_id, int64_t size) {
 
 // Delete a managed memory object.
 EXTERN int32_t __tgt_rtl_data_delete_managed(int32_t device_id, void *ptr) {
-  if (!DeviceInfo->clMemFreeINTELFn) {
+  if (!DeviceInfo->isExtensionFunctionEnabled(device_id, clMemFreeId)) {
     IDP("clMemFreeINTEL is not available\n");
     return OFFLOAD_FAIL;
   }
   auto &mutex = DeviceInfo->Mutexes[device_id];
   mutex.lock();
-  CALL_CL_EXT_RET_FAIL(clMemFreeINTEL, DeviceInfo->clMemFreeINTELFn,
-                       DeviceInfo->CTX[device_id], ptr);
+  CALL_CL_EXT_RET_FAIL(device_id, clMemFree, DeviceInfo->getContext(device_id),
+                       ptr);
   DeviceInfo->DeviceAccessibleData[device_id].erase(ptr);
   mutex.unlock();
   IDP("Deleted a managed memory object " DPxMOD "\n", DPxPTR(ptr));
   return OFFLOAD_SUCCESS;
 }
-#endif // INTEL_CUSTOMIZATION
 
 // Check if the pointer belongs to a managed memory addres range.
 EXTERN int32_t __tgt_rtl_is_device_accessible_ptr(int32_t device_id, void *ptr) {
@@ -2018,8 +1934,8 @@ void *tgt_rtl_data_alloc_template(int32_t device_id, int64_t size,
       offset < 0 && abs(offset) >= size ? abs(offset) + 1 : size;
 
   void *base = nullptr;
-  CALL_CL_RV(base, clSVMAlloc, DeviceInfo->CTX[device_id], CL_MEM_READ_WRITE,
-             meaningful_size + meaningful_offset, 0);
+  CALL_CL_RV(base, clSVMAlloc, DeviceInfo->getContext(device_id),
+             CL_MEM_READ_WRITE, meaningful_size + meaningful_offset, 0);
   if (!base) {
     IDP("Error: Failed to allocate base buffer\n");
     return nullptr;
@@ -2046,11 +1962,10 @@ void *tgt_rtl_data_alloc_template(int32_t device_id, int64_t size,
   return ret;
 }
 
-#if INTEL_CUSTOMIZATION
 EXTERN void *__tgt_rtl_data_alloc_explicit(
     int32_t device_id, int64_t size, int32_t kind) {
   auto device = DeviceInfo->deviceIDs[device_id];
-  auto context = DeviceInfo->CTX[device_id];
+  auto context = DeviceInfo->getContext(device_id);
   cl_int rc;
   void *mem = nullptr;
   auto &mutex = DeviceInfo->Mutexes[device_id];
@@ -2060,13 +1975,12 @@ EXTERN void *__tgt_rtl_data_alloc_explicit(
     mem = tgt_rtl_data_alloc_template(device_id, size, nullptr, nullptr, 0);
     break;
   case TARGET_ALLOC_HOST:
-    if (!DeviceInfo->clHostMemAllocINTELFn) {
+    if (!DeviceInfo->isExtensionFunctionEnabled(device_id, clHostMemAllocId)) {
       IDP("Host memory allocator is not available\n");
       return nullptr;
     }
-    CALL_CL_EXT_RVRC(mem, clHostMemAllocINTEL,
-                     DeviceInfo->clHostMemAllocINTELFn, rc, context, nullptr,
-                     size, 0);
+    CALL_CL_EXT_RVRC(device_id, mem, clHostMemAlloc, rc, context, nullptr, size,
+                     0);
     if (mem) {
       std::unique_lock<std::mutex> dataLock(mutex);
       DeviceInfo->DeviceAccessibleData[device_id].emplace(std::make_pair(mem, size));
@@ -2074,12 +1988,12 @@ EXTERN void *__tgt_rtl_data_alloc_explicit(
     }
     break;
   case TARGET_ALLOC_SHARED:
-    if (!DeviceInfo->clSharedMemAllocINTELFn) {
+    if (!DeviceInfo->isExtensionFunctionEnabled(
+          device_id, clSharedMemAllocId)) {
       IDP("Shared memory allocator is not available\n");
       return nullptr;
     }
-    CALL_CL_EXT_RVRC(mem, clSharedMemAllocINTEL,
-                     DeviceInfo->clSharedMemAllocINTELFn, rc, context, device,
+    CALL_CL_EXT_RVRC(device_id, mem, clSharedMemAlloc, rc, context, device,
                      nullptr, size, 0);
     if (mem) {
       std::unique_lock<std::mutex> dataLock(mutex);
@@ -2098,7 +2012,6 @@ EXTERN void *__tgt_rtl_data_alloc_explicit(
 
   return mem;
 }
-#endif // INTEL_CUSTOMIZATION
 
 EXTERN
 void *__tgt_rtl_data_alloc(int32_t device_id, int64_t size, void *hst_ptr) {
@@ -2178,7 +2091,7 @@ int32_t __tgt_rtl_data_submit_nowait(int32_t device_id, void *tgt_ptr,
     cl_event event;
     cl_int rc;
     cl_mem mem = nullptr;
-    CALL_CL_RVRC(mem, clCreateBuffer, rc, DeviceInfo->CTX[device_id],
+    CALL_CL_RVRC(mem, clCreateBuffer, rc, DeviceInfo->getContext(device_id),
                  CL_MEM_USE_HOST_PTR, size, tgt_ptr);
     if (rc != CL_SUCCESS) {
       IDP("Error: Failed to create a buffer from a SVM pointer " DPxMOD "\n",
@@ -2278,7 +2191,7 @@ int32_t __tgt_rtl_data_retrieve_nowait(int32_t device_id, void *hst_ptr,
     cl_int rc;
     cl_event event;
     cl_mem mem = nullptr;
-    CALL_CL_RVRC(mem, clCreateBuffer, rc, DeviceInfo->CTX[device_id],
+    CALL_CL_RVRC(mem, clCreateBuffer, rc, DeviceInfo->getContext(device_id),
                  CL_MEM_USE_HOST_PTR, size, tgt_ptr);
     if (rc != CL_SUCCESS) {
       IDP("Error: Failed to create a buffer from a SVM pointer " DPxMOD "\n",
@@ -2335,7 +2248,7 @@ int32_t __tgt_rtl_data_delete(int32_t device_id, void *tgt_ptr) {
     J.second.erase(tgt_ptr);
   DeviceInfo->Mutexes[device_id].unlock();
 
-  CALL_CL_VOID(clSVMFree, DeviceInfo->CTX[device_id], base);
+  CALL_CL_VOID(clSVMFree, DeviceInfo->getContext(device_id), base);
   return OFFLOAD_SUCCESS;
 }
 
@@ -2428,11 +2341,11 @@ static void decideLoopKernelGroupArguments(
     size_t suggestedGroupSizes[3] = {1, 1, 1};
 #if INTEL_CUSTOMIZATION
     if (DeviceInfo->Flags.UseDriverGroupSizes &&
-        DeviceInfo->clGetKernelSuggestedLocalWorkSizeINTELFn) {
-      CALL_CL_EXT(rc, clGetKernelSuggestedLocalWorkSizeINTEL,
-                  DeviceInfo->clGetKernelSuggestedLocalWorkSizeINTELFn,
-                  DeviceInfo->Queues[DeviceId], Kernel,
-                  3, nullptr, globalSizes, suggestedGroupSizes);
+        DeviceInfo->isExtensionFunctionEnabled(
+            DeviceId, clGetKernelSuggestedLocalWorkSizeId)) {
+      CALL_CL_EXT(DeviceId, rc, clGetKernelSuggestedLocalWorkSize,
+                  DeviceInfo->Queues[DeviceId], Kernel, 3, nullptr, globalSizes,
+                  suggestedGroupSizes);
     }
 #endif // INTEL_CUSTOMIZATION
     if (rc == CL_SUCCESS) {
@@ -2668,12 +2581,8 @@ static inline int32_t run_target_team_nd_region(
 
   // Set implicit kernel args
   std::vector<void *> implicit_args;
-#if INTEL_CUSTOMIZATION
-  // Device pointers to global variables returned by
-  // clGetDeviceGlobalVariablePointerINTEL are USM pointers
-  // and they have to be reported to the runtime in a special way.
+  // USM Implicit arguments to be reported to the runtime.
   std::vector<void *> implicit_usm_args;
-#endif  // INTEL_CUSTOMIZATION
 
   // Array sections of zero size may result in nullptr target pointer,
   // which will not be accepted by clSetKernelExecInfo, so we should
@@ -2724,11 +2633,10 @@ static inline int32_t run_target_team_nd_region(
     (void)ArgType;
   }
 
-#if INTEL_CUSTOMIZATION
   bool hasUSMArgDevice = false;
   bool hasUSMArgHost = false;
   bool hasUSMArgShared = false;
-  if (DeviceInfo->clGetMemAllocInfoINTELFn) {
+  if (DeviceInfo->isExtensionFunctionEnabled(device_id, clGetMemAllocInfoId)) {
     // Reserve space for USM pointers.
     implicit_usm_args.reserve(num_implicit_args);
     // Move USM pointers into a separate list, since they need to be
@@ -2738,11 +2646,9 @@ static inline int32_t run_target_team_nd_region(
                        implicit_args.end(),
                        [&](void *ptr) {
                          cl_unified_shared_memory_type_intel type = 0;
-                         CALL_CL_EXT_RET(false,
-                             clGetMemAllocInfoINTEL,
-                             DeviceInfo->clGetMemAllocInfoINTELFn,
-                             DeviceInfo->CTX[device_id],
-                             ptr, CL_MEM_ALLOC_TYPE_INTEL,
+                         CALL_CL_EXT_RET(device_id, false, clGetMemAllocInfo,
+                             DeviceInfo->getContext(device_id), ptr,
+                             CL_MEM_ALLOC_TYPE_INTEL,
                              sizeof(cl_unified_shared_memory_type_intel),
                              &type, nullptr);
                          DPI("clGetMemAllocInfoINTEL API returned %d "
@@ -2765,7 +2671,6 @@ static inline int32_t run_target_team_nd_region(
                        }),
         implicit_args.end());
   }
-#endif  // INTEL_CUSTOMIZATION
 
   if (implicit_args.size() > 0) {
     IDP("Calling clSetKernelExecInfo to pass %zu implicit SVM arguments "
@@ -2775,7 +2680,6 @@ static inline int32_t run_target_team_nd_region(
                      implicit_args.data());
   }
 
-#if INTEL_CUSTOMIZATION
   if (implicit_usm_args.size() > 0) {
     // Report non-argument USM pointers to the runtime.
     IDP("Calling clSetKernelExecInfo to pass %zu implicit USM arguments "
@@ -2800,7 +2704,6 @@ static inline int32_t run_target_team_nd_region(
                        CL_KERNEL_EXEC_INFO_INDIRECT_SHARED_ACCESS_INTEL,
                        sizeof(cl_bool), &KernelSupportsUSM);
   }
-#endif  // INTEL_CUSTOMIZATION
 
   if (OMPT_ENABLED) {
     // Push current work size

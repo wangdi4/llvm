@@ -49,6 +49,7 @@ namespace storage {
 // irsymtab::Reader class.
 
 using Word = support::ulittle32_t;
+using LongWord = support::ulittle64_t; // INTEL
 
 /// A reference to a string in the string table.
 struct Str {
@@ -116,7 +117,8 @@ struct Symbol {
 /// This data structure contains rarely used symbol fields and is optionally
 /// referenced by a Symbol.
 struct Uncommon {
-  Word CommonSize, CommonAlign;
+  LongWord CommonSize; // INTEL (Needs to be 64-bits for Fortran commons)
+  Word CommonAlign;    // INTEL
 
   /// COFF-specific: the name of the symbol that a weak external resolves to
   /// if not defined.
@@ -170,7 +172,8 @@ struct Symbol {
   uint32_t Flags;
 
   // Copied from storage::Uncommon.
-  uint32_t CommonSize, CommonAlign;
+  uint64_t CommonSize;    // INTEL (Needs to be 64-bits for Fortran commons)
+  uint32_t CommonAlign;   // INTEL
   StringRef COFFWeakExternFallbackName;
   StringRef SectionName;
 
