@@ -117,8 +117,9 @@ bool clCheckVectorizingDim1AndUniteWG(bool hasNonUniformWG) {
     // Set kernel arguments.
     iRet = clSetKernelArg(kernel, 0, sizeof(buffer), &buffer);
     CheckException("clSetKernelArg", CL_SUCCESS, iRet);
+    cl_ulong gw_size_ulong = global_work_size;
     iRet =
-        clSetKernelArg(kernel, 1, sizeof(global_work_size), &global_work_size);
+        clSetKernelArg(kernel, 1, sizeof(gw_size_ulong), &gw_size_ulong);
     CheckException("clSetKernelArg", CL_SUCCESS, iRet);
 
     // Enqueue kernel.
