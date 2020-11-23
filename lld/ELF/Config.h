@@ -137,7 +137,6 @@ struct Configuration {
                   uint64_t>
       callGraphProfile;
   bool allowMultipleDefinition;
-  bool allowShlibUndefined;
   bool androidPackDynRelocs;
   bool armHasBlx = false;
   bool armHasMovtMovw = false;
@@ -250,6 +249,7 @@ struct Configuration {
   SortSectionPolicy sortSection;
   StripPolicy strip;
   UnresolvedPolicy unresolvedSymbols;
+  UnresolvedPolicy unresolvedSymbolsInShlib;
   Target2Policy target2;
   ARMVFPArgKind armVFPArgs = ARMVFPArgKind::Default;
   BuildIdKind buildId = BuildIdKind::None;
