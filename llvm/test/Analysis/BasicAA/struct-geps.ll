@@ -121,15 +121,12 @@ define void @test_in_3d_array([1 x [1 x [1 x %struct]]]* %st, i64 %i, i64 %j, i6
 ; CHECK-DAG: NoAlias: i32* %y, i32* %y2
 ; CHECK-DAG: NoAlias: i32* %z, i32* %z2
 
-; INTEL
 ; CHECK-DAG: NoAlias: i32* %x, i32* %y2
 ; CHECK-DAG: NoAlias: i32* %x, i32* %z2
 
-; INTEL
 ; CHECK-DAG: NoAlias: i32* %x2, i32* %y
 ; CHECK-DAG: NoAlias: i32* %y, i32* %z2
 
-; INTEL
 ; CHECK-DAG: NoAlias: i32* %x2, i32* %z
 ; CHECK-DAG: NoAlias: i32* %y2, i32* %z
 
@@ -150,15 +147,12 @@ define void @test_same_underlying_object_same_indices(%struct* %st, i64 %i, i64 
 ; CHECK-DAG: MayAlias: i32* %y, i32* %y2
 ; CHECK-DAG: MayAlias: i32* %z, i32* %z2
 
-; INTEL
 ; CHECK-DAG: NoAlias: i32* %x, i32* %y2
 ; CHECK-DAG: NoAlias: i32* %x, i32* %z2
 
-; INTEL
 ; CHECK-DAG: NoAlias: i32* %x2, i32* %y
 ; CHECK-DAG: NoAlias: i32* %y, i32* %z2
 
-; INTEL
 ; CHECK-DAG: NoAlias: i32* %x2, i32* %z
 ; CHECK-DAG: NoAlias: i32* %y2, i32* %z
 
