@@ -59,6 +59,9 @@ public:
 										cl_dev_program* OUT prog
                                        );
 
+    cl_dev_err_code CreateLibraryKernelProgram(cl_dev_program *OUT Prog,
+                                               char **OUT KernelNames);
+
     cl_dev_err_code BuildProgram( cl_dev_program IN prog,
                                         const char* IN options,
                                         cl_build_status* OUT buildStatus
@@ -145,10 +148,10 @@ public:
 
 protected:
     typedef std::map<std::string, KernelMapEntry>            TName2IdMap;
-    enum tProgramType
-    {
+    enum tProgramType {
         PTCompiledProgram = 0,
-        PTBuiltInProgram
+        PTBuiltInProgram,
+        PTBackendLibraryProgram,
     };
     struct  TProgramEntry
     {

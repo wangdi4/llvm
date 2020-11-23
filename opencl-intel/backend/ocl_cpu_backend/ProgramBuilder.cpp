@@ -571,4 +571,92 @@ KernelProperties *ProgramBuilder::CreateKernelProperties(
 
   return pProps;
 }
+
+cl_dev_err_code ProgramBuilder::BuildLibraryProgram(std::string &LibraryName,
+                                                    Program *Prog,
+                                                    char **KernelNames) {
+  assert(Prog && "Program parameter must not be nullptr");
+  ProgramBuildResult buildResult;
+  try {
+    Compiler *Cmplr = GetCompiler();
+
+    char ModuleName[MAX_PATH];
+    Utils::SystemInfo::GetModuleDirectory(ModuleName, MAX_PATH);
+    std::string BaseName = std::string(ModuleName) + LibraryName;
+    std::string CPUPrefix = Cmplr->GetCpuId().GetCPUPrefix();
+    std::string RtlFilePath = BaseName + OCL_OUTPUT_EXTENSION;
+    std::string ObjectFilePath =
+        BaseName + CPUPrefix + OCL_PRECOMPILED_OUTPUT_EXTENSION;
+    assert(llvm::sys::fs::exists(RtlFilePath) &&
+           "Library rtl file is not found");
+    assert(llvm::sys::fs::exists(ObjectFilePath) &&
+           "Library object file is not found");
+
+    // Load module file.
+    llvm::ErrorOr<std::unique_ptr<llvm::MemoryBuffer>> rtlBufferOrErr =
+        llvm::MemoryBuffer::getFile(RtlFilePath);
+    if (!rtlBufferOrErr)
+      throw Exceptions::DeviceBackendExceptionBase(
+          std::string("Failed to load the library kernel rtl file"));
+    // Load object file.
+    llvm::ErrorOr<std::unique_ptr<llvm::MemoryBuffer>> objBufferOrErr =
+        llvm::MemoryBuffer::getFile(ObjectFilePath);
+    if (!objBufferOrErr)
+      throw Exceptions::DeviceBackendExceptionBase(
+          std::string("Failed to load the library kernel object file"));
+
+    // Create JIT and add object buffer to JIT.
+    std::unique_ptr<llvm::Module> M =
+        Cmplr->ParseModuleIR(rtlBufferOrErr.get().get());
+    auto LLJIT = Cmplr->CreateLLJIT(M.get(), nullptr, nullptr);
+    if (auto Err = LLJIT->addObjectFile(std::move(objBufferOrErr.get()))) {
+      llvm::logAllUnhandledErrors(std::move(Err), llvm::errs());
+      throw Exceptions::CompilerException("Failed to addObjectFile");
+    }
+    Prog->SetLLJIT(std::move(LLJIT));
+
+    // Set IR.
+    BitCodeContainer *BCC =
+        new BitCodeContainer(std::move(rtlBufferOrErr.get()));
+    Prog->SetBitCodeContainer(BCC);
+    Prog->SetModule(std::move(M));
+
+    // Init runtime service.
+    RuntimeServiceSharedPtr RTService =
+        RuntimeServiceSharedPtr(new RuntimeServiceImpl);
+    Prog->SetRuntimeService(RTService);
+
+    KernelSet *Kernels = CreateKernels(Prog, nullptr, buildResult);
+
+    // Get kernel names.
+    size_t NumKernels = Kernels->GetCount();
+    std::string KNames;
+    for (size_t i = 0; i < NumKernels; ++i) {
+      KNames += Kernels->GetKernel(i)->GetKernelName();
+      if (i < (NumKernels - 1))
+        KNames += ";";
+    }
+    *KernelNames = STRDUP(KNames.c_str());
+
+    // Update kernels with RuntimeService.
+    Utils::UpdateKernelsWithRuntimeService(RTService, Kernels);
+
+    Prog->SetKernelSet(Kernels);
+
+    buildResult.SetBuildResult(CL_DEV_SUCCESS);
+
+  } catch (Exceptions::DeviceBackendExceptionBase &e) {
+    // if an exception is caught, the LLVM error handler should be removed
+    // safely on windows, the LLVM error handler will not be removed
+    // automatically and will cause assertion failure in debug mode
+    llvm::remove_fatal_error_handler();
+
+    buildResult.LogS() << e.what() << "\n";
+    buildResult.SetBuildResult(e.GetErrorCode());
+    Prog->SetBuildLog(buildResult.GetBuildLog());
+    throw e;
+  }
+
+  return buildResult.GetBuildResult();
+}
 }}}

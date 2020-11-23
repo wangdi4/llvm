@@ -117,6 +117,15 @@
 #       Applies only when CL_CONFIG_AUTO_MEMORY = True
 #       example: 512KB, 1MB (default), 2MB
 #       This value is the extra stack size for execution of builtin and third-party functions.
+#
+# CL_CONFIG_ENABLE_PARALLEL_COPY [bool]
+#       True: (default) parallel copy/fill is enabled. Memory copy/fill in
+#             clEnqueueReadBuffer, clEnqueueWriteBuffer, clEnqueueCopyBuffer,
+#             clEnqueueSVMMemcpy, clEnqueueMemcpyINTEL, clEnqueueSVMMemFill,
+#             clEnqueueMemsetINTEL and clEnqueueMemFillINTEL is executed
+#             parallelly using internal kernels.
+#       False: parallel copy/fill is disabled.
+
 #CL_CONFIG_LOG_FILE = C:\cl.log
 
 #CL_CONFIG_USER_LOGGER = stderr
@@ -146,3 +155,4 @@ CL_GPA_CONFIG_SHOW_COMPLETED_MARKER = True
 #CL_CONFIG_CPU_RT_LOOP_UNROLL_FACTOR = 1
 #CL_CONFIG_CPU_TBB_NUM_WORKERS = 32
 #CL_CONFIG_CPU_VECTORIZER_MODE = 0
+#CL_CONFIG_ENABLE_PARALLEL_COPY = True

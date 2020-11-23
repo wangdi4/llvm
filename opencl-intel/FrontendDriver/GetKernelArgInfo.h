@@ -14,6 +14,7 @@
 
 #pragma once
 
+#include "cl_device_api.h"
 #include "frontend_api.h"
 #include <string>
 #include <vector>
@@ -22,26 +23,16 @@ namespace Intel {
 namespace OpenCL {
 namespace ClangFE {
 
-struct CachedArgInfo {
-  std::string typeName;
-  std::string name;
-  cl_kernel_arg_address_qualifier addressQualifier;
-  cl_kernel_arg_access_qualifier accessQualifier;
-  cl_kernel_arg_type_qualifier typeQualifier;
-  cl_bool hostAccessible;
-  cl_int localMemSize;
-};
-
 class OCLFEKernelArgInfo : public IOCLFEKernelArgInfo {
 public:
   ~OCLFEKernelArgInfo() { Release(); }
 
   size_t getNumArgs() const override { return m_argsInfo.size(); }
   const char *getArgName(size_t index) const override {
-    return m_argsInfo[index].name.c_str();
+    return m_argsInfo[index].name;
   }
   const char *getArgTypeName(size_t index) const override {
-    return m_argsInfo[index].typeName.c_str();
+    return m_argsInfo[index].typeName;
   }
   cl_kernel_arg_address_qualifier
   getArgAdressQualifier(size_t index) const override {
@@ -61,13 +52,19 @@ public:
   cl_int getArgLocalMemSize(size_t index) const override {
     return m_argsInfo[index].localMemSize;
   }
-  void Release() override { m_argsInfo.clear(); }
-  void addInfo(const CachedArgInfo &info) {
-      m_argsInfo.push_back(info);
+  void Release() override {
+    for (auto &argInfo : m_argsInfo) {
+      free(argInfo.name);
+      free(argInfo.typeName);
+    }
+    m_argsInfo.clear();
+  }
+  void addInfo(const cl_kernel_argument_info &info) {
+    m_argsInfo.push_back(info);
   }
 
 private:
-  std::vector<CachedArgInfo> m_argsInfo;
+  std::vector<cl_kernel_argument_info> m_argsInfo;
 };
 
 class ClangFECompilerGetKernelArgInfoTask {

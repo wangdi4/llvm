@@ -62,6 +62,9 @@ public:
      */
     void ParseProgram(Program* pProgram);
 
+    cl_dev_err_code BuildLibraryProgram(std::string &LibraryName, Program *Prog,
+                                        char **KernelNames);
+
 protected:
 
     virtual Compiler* GetCompiler() = 0;

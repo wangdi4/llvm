@@ -82,6 +82,21 @@ public:
         const char* pBuildOpts) = 0;
 
     /**
+     * Creates program from backend library kernels.
+     *
+     * @param Prog will be modified to point to the generated program
+     *
+     * @returns in case of success CL_DEV_SUCCESS will be returned and Prog
+     *  will be modified to point to the generated program; otherwise Prog will
+     *  point to NULL and will return:
+     *  CL_DEV_OUT_OF_MEMORY if there's no sufficient memory.
+     *  CL_DEV_INVALID_VALUE if Prog is nullptr.
+     *  CL_DEV_ERROR_FAIL If other internal exceptions are throwed.
+     */
+    virtual cl_dev_err_code CreateLibraryProgram(ICLDevBackendProgram_ **Prog,
+                                                 char **KernelNames) = 0;
+
+    /**
      * Dumps the content of the given code container
      * using the options passed in pOptions parameter
      *

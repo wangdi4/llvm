@@ -31,6 +31,10 @@ endif()
 # This value should be incremented each time cached binary format changes.
 add_definitions(-DOCL_CACHED_BINARY_VERSION=10)
 
+set(OCL_OUTPUT_EXTENSION .rtl)
+set(OCL_PRECOMPILED_OUTPUT_EXTENSION .o)
+set(OCL_LIBRARY_KERNEL_TARGET_NAME clkernel)
+
 remove_definitions( -D_UNICODE -DUNICODE )
 
 #
@@ -61,7 +65,7 @@ if (LLVM_BUILD_OCL_CPU_BACKEND)
     add_subdirectory(ocl_cpu_backend   "${CMAKE_CURRENT_BINARY_DIR}/ocl_cpu_backend")
     add_subdirectory(ocl_cpu_debugging "${CMAKE_CURRENT_BINARY_DIR}/ocl_cpu_debugging")
     add_subdirectory(ocl_opt           "${CMAKE_CURRENT_BINARY_DIR}/ocl_opt")
-    add_subdirectory(libraries/ocl_builtins "${CMAKE_CURRENT_BINARY_DIR}/ocl_builtins")
+    add_subdirectory(libraries         "${CMAKE_CURRENT_BINARY_DIR}/libraries")
     add_subdirectory(plugin_manager    "${CMAKE_CURRENT_BINARY_DIR}/plugin_manager")
     add_subdirectory(dynamic_lib       "${CMAKE_CURRENT_BINARY_DIR}/dynamic_lib")
     add_subdirectory(name_mangling     "${CMAKE_CURRENT_BINARY_DIR}/name_mangling")
