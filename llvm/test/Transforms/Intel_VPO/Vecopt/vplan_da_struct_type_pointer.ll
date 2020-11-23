@@ -19,7 +19,7 @@ define dso_local void @foo(%struct.S* nocapture %SArr) local_unnamed_addr {
 ; CHECK-NEXT:  Divergent: [Shape: Unit Stride, Stride: i64 1] i64 [[VP_INDVARS_IV:%.*]] = phi  [ i64 [[VP_INDVARS_IV_NEXT:%.*]], [[BB0]] ],  [ i64 [[VP_INDVARS_IV_IND_INIT:%.*]], [[BB1]] ]
 ; CHECK-NEXT:  Divergent: [Shape: Strided, Stride: i64 8] %struct.S* [[VP_A:%.*]] = getelementptr inbounds %struct.S* [[SARR0:%.*]] i64 [[VP_INDVARS_IV]]
 ; CHECK-NEXT:  Divergent: [Shape: Strided, Stride: i64 8] i32* [[VP_A_PTR:%.*]] = getelementptr inbounds %struct.S* [[VP_A]] i32 0 i32 0
-; CHECK-NEXT:  Divergent: [Shape: Random] i32 [[VP0:%.*]] = trunc i64 [[VP_INDVARS_IV]] to i32
+; CHECK-NEXT:  Divergent: [Shape: Unit Stride, Stride: i64 1] i32 [[VP0:%.*]] = trunc i64 [[VP_INDVARS_IV]] to i32
 ; CHECK-NEXT:  Divergent: [Shape: Random] store i32 [[VP0]] i32* [[VP_A_PTR]]
 ; CHECK-NEXT:  Divergent: [Shape: Random] i32* [[VP_B:%.*]] = getelementptr inbounds %struct.S* [[SARR0]] i64 [[VP_INDVARS_IV]] i32 0
 ; CHECK-NEXT:  Divergent: [Shape: Random] store i32 42 i32* [[VP_B]]

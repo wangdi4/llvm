@@ -1,19 +1,10 @@
 ; RUN: opt -S -VPlanDriver < %s | FileCheck %s
 ; RUN: opt -S -passes="vplan-driver" < %s | FileCheck %s
 
-; Test parameter mismatch on argument #2 of @foo call. Currently, DA returns a conversative
-; answer of random for trunc and this results in a mismatch between simd function caller/
-; callee. Check to make sure codegen serializes calls to @foo. Once CMPLRLLVM-19845 is fixed,
-; the test should be updated to check for call to the simd variant.
+; Test that caller/callee parameter matching results in call to simd variant.
 
-; CHECK-LABEL: vector.body
-; CHECK: call i32 @foo
-; CHECK-NEXT: insertelement
-; CHECK-NEXT: call i32 @foo
-; CHECK-NEXT: insertelement
-; CHECK-NEXT: call i32 @foo
-; CHECK-NEXT: insertelement
-; CHECK-NEXT: call i32 @foo
+; CHECK-LABEL: vector.body:
+; CHECK: call <4 x i32> @_ZGVbN4ulv_foo
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"

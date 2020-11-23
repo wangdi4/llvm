@@ -17,15 +17,14 @@ define dso_local void @foo(i32 %arg0) local_unnamed_addr #0 {
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Basic Block: [[BB0]]
 ; CHECK-NEXT:  Divergent: [Shape: Unit Stride, Stride: i64 1] i64 [[VP0:%.*]] = phi  [ i64 [[VP__IND_INIT:%.*]], [[BB1:BB[0-9]+]] ],  [ i64 [[VP1:%.*]], [[BB0]] ]
-; FIXME: IV range info can be used to retain Shape of this trunc.
-; CHECK-NEXT:  Divergent: [Shape: Random] i32 [[VP2:%.*]] = trunc i64 [[VP0]] to i32
-; CHECK-NEXT:  Divergent: [Shape: Random] i32 [[VP3:%.*]] = add i32 [[ARG00:%.*]] i32 [[VP2]]
-; CHECK-NEXT:  Divergent: [Shape: Random] i64 [[VP4:%.*]] = sext i32 [[VP3]] to i64
-; CHECK-NEXT:  Divergent: [Shape: Random] i64* [[VP_SUBSCRIPT:%.*]] = subscript inbounds [1024 x i64]* @a i64 0 i64 [[VP4]]
+; CHECK-NEXT:  Divergent: [Shape: Unit Stride, Stride: i64 1] i32 [[VP2:%.*]] = trunc i64 [[VP0]] to i32
+; CHECK-NEXT:  Divergent: [Shape: Unit Stride, Stride: i64 1] i32 [[VP3:%.*]] = add i32 [[ARG00:%.*]] i32 [[VP2]]
+; CHECK-NEXT:  Divergent: [Shape: Unit Stride, Stride: i64 1] i64 [[VP4:%.*]] = sext i32 [[VP3]] to i64
+; CHECK-NEXT:  Divergent: [Shape: Strided, Stride: i64 8] i64* [[VP_SUBSCRIPT:%.*]] = subscript inbounds [1024 x i64]* @a i64 0 i64 [[VP4]]
 ; CHECK-NEXT:  Divergent: [Shape: Random] i64 [[VP_LOAD:%.*]] = load i64* [[VP_SUBSCRIPT]]
-; CHECK-NEXT:  Divergent: [Shape: Random] i32 [[VP5:%.*]] = trunc i64 [[VP0]] to i32
-; CHECK-NEXT:  Divergent: [Shape: Random] i32 [[VP6:%.*]] = add i32 [[ARG00]] i32 [[VP5]]
-; CHECK-NEXT:  Divergent: [Shape: Random] i64 [[VP7:%.*]] = sext i32 [[VP6]] to i64
+; CHECK-NEXT:  Divergent: [Shape: Unit Stride, Stride: i64 1] i32 [[VP5:%.*]] = trunc i64 [[VP0]] to i32
+; CHECK-NEXT:  Divergent: [Shape: Unit Stride, Stride: i64 1] i32 [[VP6:%.*]] = add i32 [[ARG00]] i32 [[VP5]]
+; CHECK-NEXT:  Divergent: [Shape: Unit Stride, Stride: i64 1] i64 [[VP7:%.*]] = sext i32 [[VP6]] to i64
 ; CHECK-NEXT:  Divergent: [Shape: Strided, Stride: i64 8] i64* [[VP_SUBSCRIPT_1:%.*]] = subscript inbounds [1024 x i64]* @b i64 0 i64 [[VP7]]
 ; CHECK-NEXT:  Divergent: [Shape: Random] store i64 [[VP_LOAD]] i64* [[VP_SUBSCRIPT_1]]
 ;

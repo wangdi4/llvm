@@ -18,11 +18,10 @@ define dso_local void @foo(i32 %arg0) local_unnamed_addr #0 {
 ; CHECK-NEXT:  Basic Block: [[BB0]]
 ; CHECK-NEXT:  Uniform: [Shape: Uniform] i64 [[VP_VECTOR_LOOP_IV:%.*]] = phi  [ i64 0, [[BB1:BB[0-9]+]] ],  [ i64 [[VP_VECTOR_LOOP_IV_NEXT:%.*]], [[BB0]] ]
 ; CHECK-NEXT:  Divergent: [Shape: Unit Stride, Stride: i64 1] i64 [[VP_INDVARS_IV:%.*]] = phi  [ i64 [[VP_INDVARS_IV_IND_INIT:%.*]], [[BB1]] ],  [ i64 [[VP_INDVARS_IV_NEXT:%.*]], [[BB0]] ]
-; FIXME: IV range info can be used to retain Shape of this trunc.
-; CHECK-NEXT:  Divergent: [Shape: Random] i32 [[VP_INDVARS_IV_TRUNC:%.*]] = trunc i64 [[VP_INDVARS_IV]] to i32
-; CHECK-NEXT:  Divergent: [Shape: Random] i64* [[VP_ARRAYIDX:%.*]] = getelementptr inbounds [1024 x i64]* @a i64 0 i32 [[VP_INDVARS_IV_TRUNC]]
+; CHECK-NEXT:  Divergent: [Shape: Unit Stride, Stride: i64 1] i32 [[VP_INDVARS_IV_TRUNC:%.*]] = trunc i64 [[VP_INDVARS_IV]] to i32
+; CHECK-NEXT:  Divergent: [Shape: Strided, Stride: i64 8] i64* [[VP_ARRAYIDX:%.*]] = getelementptr inbounds [1024 x i64]* @a i64 0 i32 [[VP_INDVARS_IV_TRUNC]]
 ; CHECK-NEXT:  Divergent: [Shape: Random] i64 [[VP_VAL:%.*]] = load i64* [[VP_ARRAYIDX]]
-; CHECK-NEXT:  Divergent: [Shape: Random] i64* [[VP_ARRAYIDX2:%.*]] = getelementptr inbounds [1024 x i64]* @b i64 0 i32 [[VP_INDVARS_IV_TRUNC]]
+; CHECK-NEXT:  Divergent: [Shape: Strided, Stride: i64 8] i64* [[VP_ARRAYIDX2:%.*]] = getelementptr inbounds [1024 x i64]* @b i64 0 i32 [[VP_INDVARS_IV_TRUNC]]
 ; CHECK-NEXT:  Divergent: [Shape: Random] store i64 [[VP_VAL]] i64* [[VP_ARRAYIDX2]]
 ;
 entry:

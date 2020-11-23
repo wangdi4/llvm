@@ -976,6 +976,37 @@ VPVectorShape VPlanDivergenceAnalysis::computeVectorShapeForCastInst(
       // there is a 'value'-cast. The returned shape has to be random.
       return getRandomVectorShape();
     }
+    case Instruction::Trunc: {
+      if (VPPHINode *PhiOp = dyn_cast<VPPHINode>(Op0)) {
+        for (VPValue *V : PhiOp->operands()) {
+          if (!isa<VPInductionInit>(V))
+            continue;
+
+          // Get lower/upper iv range info from VPInductionInit and check to
+          // see if that range falls within the truncated to type. If it does,
+          // we can prevent a conservative random shape from being applied.
+          // This most commonly affects i64 to i32 bit truncation, which is
+          // handled below.
+          // TODO: Add more cases (like i64->i16) later when needed.
+          VPInductionInit *Init = cast<VPInductionInit>(V);
+          Type *ToTy = I->getType();
+          unsigned ToSize = ToTy->getScalarSizeInBits();
+          VPConstant *StartVal = cast_or_null<VPConstant>(Init->getStartVal());
+          VPConstant *EndVal = cast_or_null<VPConstant>(Init->getEndVal());
+          if (StartVal && EndVal && ToSize == 32) {
+            int64_t Lower = StartVal->getSExtValue();
+            int64_t Upper = EndVal->getSExtValue();
+            // If stride is negative, swap lower/upper
+            if (Lower > Upper)
+              std::swap(Lower, Upper);
+            if ((Lower >= 0 && Upper <= UINT_MAX) ||
+                (Lower >= INT_MIN && Upper <= INT_MAX))
+              return Shape0;
+          }
+        }
+      }
+      return getRandomVectorShape();
+    }
     default:
       return getRandomVectorShape();
   }
