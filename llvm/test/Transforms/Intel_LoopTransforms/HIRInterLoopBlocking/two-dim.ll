@@ -29,6 +29,7 @@
 ; CHECK:     END REGION
 
 ; CHECK: Profitable
+; CHECK: Legal
 
 ;Module Before HIR
 ; ModuleID = 'two-dim.f90'
