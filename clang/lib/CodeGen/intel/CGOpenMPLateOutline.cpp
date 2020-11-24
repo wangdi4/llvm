@@ -1691,7 +1691,14 @@ void OpenMPLateOutliner::emitOMPAllMapClauses() {
       CSB.setChain();
     else if (I.Var) {
       QualType Ty = I.Var->getType();
-      if (!isImplicitTask(OMPD_task))
+      if (isImplicitTask(OMPD_task)) {
+        // Variables used in the "QUAL.OMP.MAP" clause on the
+        // "DIR.OMP.TARGET" should be marked as shared on the
+        // "DIR.OMP.TASK"
+        if (isImplicit(I.Var))
+          ImplicitMap.erase(ImplicitMap.find(I.Var));
+        ImplicitMap.insert(std::make_pair(I.Var, ICK_shared));
+      } else
         addExplicit(I.Var, OMPC_map);
       if (CurrentDirectiveKind == OMPD_target)
         if ((Ty->isReferenceType() || Ty->isAnyPointerType()) &&
