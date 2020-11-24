@@ -64,6 +64,9 @@ static cl::opt<bool> PrepareDisableOffload(
 INITIALIZE_PASS_BEGIN(VPOParoptPrepare, "vpo-paropt-prepare",
                      "VPO Paropt Prepare Function Pass", false, false)
 INITIALIZE_PASS_DEPENDENCY(LoopSimplify)
+INITIALIZE_PASS_DEPENDENCY(AssumptionCacheTracker)
+INITIALIZE_PASS_DEPENDENCY(TargetTransformInfoWrapperPass)
+INITIALIZE_PASS_DEPENDENCY(TargetLibraryInfoWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(WRegionInfoWrapperPass)
 #if INTEL_CUSTOMIZATION
 INITIALIZE_PASS_DEPENDENCY(OptReportOptionsPass)
@@ -91,6 +94,9 @@ VPOParoptPreparePass::VPOParoptPreparePass(unsigned MyMode)
 
 void VPOParoptPrepare::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.addRequiredID(LoopSimplifyID);
+  AU.addRequired<AssumptionCacheTracker>();
+  AU.addRequired<TargetTransformInfoWrapperPass>();
+  AU.addRequired<TargetLibraryInfoWrapperPass>();
   AU.addRequired<WRegionInfoWrapperPass>();
 #if INTEL_CUSTOMIZATION
   AU.addRequired<OptReportOptionsPass>();
@@ -111,6 +117,12 @@ bool VPOParoptPrepare::runOnFunction(Function &F) {
   }
 
   WRegionInfo &WI = getAnalysis<WRegionInfoWrapperPass>().getWRegionInfo();
+  auto &TTI = getAnalysis<TargetTransformInfoWrapperPass>().getTTI(F);
+  auto &AC = getAnalysis<AssumptionCacheTracker>().getAssumptionCache(F);
+  auto &TLI = getAnalysis<TargetLibraryInfoWrapperPass>().getTLI(F);
+  WI.setTargetTransformInfo(&TTI);
+  WI.setAssumptionCache(&AC);
+  WI.setTargetLibraryInfo(&TLI);
 
 #if INTEL_CUSTOMIZATION
   ORVerbosity = getAnalysis<OptReportOptionsPass>().getVerbosity();
@@ -201,6 +213,12 @@ PreservedAnalyses VPOParoptPreparePass::run(Function &F,
   }
 
   auto &WI = AM.getResult<WRegionInfoAnalysis>(F);
+  auto &TTI = AM.getResult<TargetIRAnalysis>(F);
+  auto &AC = AM.getResult<AssumptionAnalysis>(F);
+  auto &TLI = AM.getResult<TargetLibraryAnalysis>(F);
+  WI.setTargetTransformInfo(&TTI);
+  WI.setAssumptionCache(&AC);
+  WI.setTargetLibraryInfo(&TLI);
 
 #if INTEL_CUSTOMIZATION
   ORVerbosity = AM.getResult<OptReportOptionsAnalysis>(F).getVerbosity();

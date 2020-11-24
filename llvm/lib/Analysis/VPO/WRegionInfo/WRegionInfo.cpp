@@ -38,13 +38,10 @@ WRegionInfo WRegionInfoAnalysis::run(Function &F, FunctionAnalysisManager &AM) {
   auto *DT   = WRC.getDomTree();
   auto *LI   = WRC.getLoopInfo();
   auto *SE   = WRC.getSE();
-  auto *TTI  = WRC.getTargetTransformInfo();
-  auto *AC   = WRC.getAssumptionCache();
-  auto *TLI  = WRC.getTargetLibraryInfo();
   auto *AA   = WRC.getAliasAnalysis();
   auto &ORE  = AM.getResult<OptimizationRemarkEmitterAnalysis>(F);
 
-  WRegionInfo WRI(&F, DT, LI, SE, TTI, AC, TLI, AA, &WRC, ORE);
+  WRegionInfo WRI(&F, DT, LI, SE, AA, &WRC, ORE);
 
   LLVM_DEBUG(dbgs() << "\n}EXIT WRegionInfoAnalysis::run: " << F.getName()
                     << "\n");
@@ -83,13 +80,10 @@ bool WRegionInfoWrapperPass::runOnFunction(Function &F) {
   auto *DT   = WRC.getDomTree();
   auto *LI   = WRC.getLoopInfo();
   auto *SE   = WRC.getSE();
-  auto *TTI  = WRC.getTargetTransformInfo();
-  auto *AC   = WRC.getAssumptionCache();
-  auto *TLI  = WRC.getTargetLibraryInfo();
   auto *AA   = WRC.getAliasAnalysis();
   auto &ORE  = getAnalysis<OptimizationRemarkEmitterWrapperPass>().getORE();
 
-  WRI.reset(new WRegionInfo(&F, DT, LI, SE, TTI, AC, TLI, AA, &WRC, ORE));
+  WRI.reset(new WRegionInfo(&F, DT, LI, SE, AA, &WRC, ORE));
 
   LLVM_DEBUG(dbgs() << "\n}EXIT WRegionInfoWrapperPass::runOnFunction: "
                     << F.getName() << "\n");
@@ -99,12 +93,9 @@ bool WRegionInfoWrapperPass::runOnFunction(Function &F) {
 void WRegionInfoWrapperPass::releaseMemory() { WRI.reset(); }
 
 WRegionInfo::WRegionInfo(Function *F, DominatorTree *DT, LoopInfo *LI,
-                         ScalarEvolution *SE, const TargetTransformInfo *TTI,
-                         AssumptionCache *AC, const TargetLibraryInfo *TLI,
-                         AAResults *AA, WRegionCollection *WRC,
-                         OptimizationRemarkEmitter &ORE)
-    : Func(F), DT(DT), LI(LI), SE(SE), TTI(TTI), AC(AC), TLI(TLI), AA(AA),
-      WRC(WRC), ORE(ORE) {}
+                         ScalarEvolution *SE, AAResults *AA,
+                         WRegionCollection *WRC, OptimizationRemarkEmitter &ORE)
+    : Func(F), DT(DT), LI(LI), SE(SE), AA(AA), WRC(WRC), ORE(ORE) {}
 
 #if INTEL_CUSTOMIZATION
 void WRegionInfo::buildWRGraph(IRKind IR) {
