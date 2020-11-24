@@ -337,8 +337,8 @@ EXTERN void __tgt_target_data_update_mapper(ident_t *loc, int64_t device_id,
   OMPT_TRACE(targetDataUpdateBegin(device_id));
 #endif // INTEL_COLLAB
   DeviceTy &Device = PM->Devices[device_id];
-  int rc = target_data_update(Device, arg_num, args_base, args, arg_sizes,
-                              arg_types, arg_names, arg_mappers);
+  int rc = targetDataUpdate(Device, arg_num, args_base, args, arg_sizes,
+                            arg_types, arg_names, arg_mappers);
   HandleTargetOutcome(rc == OFFLOAD_SUCCESS, loc);
 #if INTEL_COLLAB
   OMPT_TRACE(targetDataUpdateEnd(device_id));
