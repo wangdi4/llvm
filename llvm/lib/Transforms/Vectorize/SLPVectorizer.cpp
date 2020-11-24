@@ -2319,10 +2319,10 @@ private:
                           const EdgeInfo &UserTreeIdx,
                           ArrayRef<unsigned> ReuseShuffleIndices = None,
                           ArrayRef<unsigned> ReorderIndices = None) {
-#if INTEL_CUSTOMIZATION
     assert(((!Bundle && EntryState == TreeEntry::NeedToGather) ||
             (Bundle && EntryState != TreeEntry::NeedToGather)) &&
            "Need to vectorize gather entry?");
+#if INTEL_CUSTOMIZATION
     // If we cannot proceed in adding a new tree entry, then add the leaf nodes
     // to the Multi-Node and return.
     if (EnableMultiNodeSLP && BuildingMultiNode &&
