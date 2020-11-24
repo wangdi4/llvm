@@ -641,8 +641,9 @@ bool BasicAAResult::DecomposeGEPExpression(const Value *V,
         const ConstantInt *CStride = dyn_cast<ConstantInt>(Stride);
         if (!CStride) {
           Decomposed.Base = V;
-          // The decomposed indices must be constants. Bail out:
-          // (true=>limit hit)
+          // The decomposed indices must be constants. Bail out.
+          // true result: analysis limit is hit.
+          Decomposed.HasCompileTimeConstantScale = false;
           return true;
         }
 
