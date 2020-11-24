@@ -2276,15 +2276,19 @@ private:
   // Add VL as a leaf node of the Multi-Node currently under construction.
   // When it is not legal to do return false.
   bool addMultiNodeLeafIfLegal(ArrayRef<Value *> VL, const EdgeInfo &UserTreeIdx) {
+    TreeEntry *UserTE = UserTreeIdx.UserTE;
 
     // Vector length has to be consistent along MultiNode
     if (VL.size() != CurrentMultiNode->getNumLanes() ||
         // The Leaves should not match any of the Trunk nodes.
-        alreadyInTrunk(VL))
+        alreadyInTrunk(VL) ||
+        // No frontier can be a MultiNode leaf at the same time
+        llvm::any_of(UserTE->Scalars, [this](Value *V) -> bool {
+          return AllMultiNodeLeaves.count(V);
+        }))
       return false;
 
     assert(!CurrentMultiNode->empty() && "finalization already run?");
-    TreeEntry *UserTE = UserTreeIdx.UserTE;
 
     for (unsigned Lane = 0; Lane != VL.size(); ++Lane)
       CurrentMultiNode->append(
