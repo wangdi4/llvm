@@ -124,10 +124,9 @@ private:
 public:
   Mapper (T* p) : ptr(p) {
     int *axx;
-  // CHECK: [[L7:%[0-9]+]] = sdiv
   // CHECK: [[T:%[0-9]+]] = {{.*}}region.entry{{.*}}DIR.OMP.TARGET
   // CHECK-SAME: "QUAL.OMP.MAP.TO"(i32** %axx, i32** %axx, i64 8, i64 33)
-  // CHECK-SAME: "QUAL.OMP.MAP.TOFROM"(%class.Mapper* %this1, %class.AOO** %ptr4, i64 [[L7]], i64 32)
+  // CHECK-SAME: "QUAL.OMP.MAP.TOFROM"(%class.Mapper* %this1, %class.AOO** %ptr4, i64 8, i64 547)
   // CHECK: [[L:%[0-9]+]] = {{.*}}region.entry{{.*}}DIR.OMP.PARALLEL.LOOP
   // CHECK-SAME: "QUAL.OMP.REDUCTION.ADD:ARRSECT"(i32** %pt3
 #pragma omp target parallel for map(to:axx) reduction(+:pt[0:9])
