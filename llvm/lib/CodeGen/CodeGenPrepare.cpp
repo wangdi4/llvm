@@ -572,7 +572,7 @@ bool CodeGenPrepare::runOnFunction(Function &F) {
 
       for (SmallVectorImpl<BasicBlock*>::iterator
              II = Successors.begin(), IE = Successors.end(); II != IE; ++II)
-        if (pred_begin(*II) == pred_end(*II))
+        if (pred_empty(*II))
           WorkList.insert(*II);
     }
 
@@ -586,7 +586,7 @@ bool CodeGenPrepare::runOnFunction(Function &F) {
 
       for (SmallVectorImpl<BasicBlock*>::iterator
              II = Successors.begin(), IE = Successors.end(); II != IE; ++II)
-        if (pred_begin(*II) == pred_end(*II))
+        if (pred_empty(*II))
           WorkList.insert(*II);
     }
 
@@ -2318,7 +2318,7 @@ bool CodeGenPrepare::dupRetToEnableTailCallOpts(BasicBlock *BB, bool &ModifiedDT
   }
 
   // If we eliminated all predecessors of the block, delete the block now.
-  if (Changed && !BB->hasAddressTaken() && pred_begin(BB) == pred_end(BB))
+  if (Changed && !BB->hasAddressTaken() && pred_empty(BB))
     BB->eraseFromParent();
 
   return Changed;
