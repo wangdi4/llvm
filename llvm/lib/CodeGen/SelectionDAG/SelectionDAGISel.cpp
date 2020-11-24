@@ -2809,6 +2809,7 @@ void SelectionDAGISel::SelectCodeCommon(SDNode *NodeToMatch,
   case ISD::NOTIFY_LABEL: // INTEL
   case ISD::LIFETIME_START:
   case ISD::LIFETIME_END:
+  case ISD::PSEUDO_PROBE:
     NodeToMatch->setNodeId(-1); // Mark selected.
     return;
   case ISD::AssertSext:
