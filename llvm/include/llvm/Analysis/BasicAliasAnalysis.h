@@ -74,6 +74,20 @@ class BasicAAResult : public AAResultBase<BasicAAResult> {
   /// optimization level is >= 3 or if this option was explicitly specified
   /// in command line.
   static cl::opt<unsigned> OptPtrMaxUsesToExplore;
+
+public:
+  /// Do opt-level based variable initialization for a BasicAAResult instance.
+  void setupWithOptLevel(unsigned OptLevel) {
+    DEBUG_WITH_TYPE("basicaa-opt-level",
+                    dbgs() << "BasicAAResult: using OptLevel = " << OptLevel
+                           << "\n");
+    PtrCaptureMaxUses =
+        OptLevel < 3 && OptPtrMaxUsesToExplore.getNumOccurrences() == 0
+            ? getDefaultMaxUsesToExploreForCaptureTracking()
+            : OptPtrMaxUsesToExplore;
+  }
+
+private:
 #endif // INTEL_CUSTOMIZATION
 
 public:
@@ -84,10 +98,7 @@ public:
       : AAResultBase(), DL(DL), F(F), TLI(TLI), AC(AC), DT(DT), LI(LI), PV(PV)
 #if INTEL_CUSTOMIZATION
   {
-    PtrCaptureMaxUses =
-        OptLevel < 3 && OptPtrMaxUsesToExplore.getNumOccurrences() == 0
-            ? getDefaultMaxUsesToExploreForCaptureTracking()
-            : OptPtrMaxUsesToExplore;
+    setupWithOptLevel(OptLevel);
   }
 #endif // INTEL_CUSTOMIZATION
 
