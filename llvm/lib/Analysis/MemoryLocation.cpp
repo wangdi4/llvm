@@ -330,7 +330,7 @@ static void getMemLocsForPtrVec(const Value *PtrVec,
       Constant *Elt = CV->getAggregateElement(i);
       if(!Elt)
         return;
-      Results[i] = MemoryLocation(Elt);
+      Results[i] = MemoryLocation(Elt, LocationSize::unknown());
     }
     Resolved = true;
     return;
@@ -353,7 +353,7 @@ static void getMemLocsForPtrVec(const Value *PtrVec,
     if (BasePtr->getType()->isVectorTy())
       getMemLocsForPtrVec(BasePtr, Results, Resolved, Depth - 1);
     else
-      Results.assign(NumElts, MemoryLocation(BasePtr));
+      Results.assign(NumElts, MemoryLocation(BasePtr, LocationSize::unknown()));
     }
     break;
   case Instruction::InsertElement:
@@ -366,7 +366,7 @@ static void getMemLocsForPtrVec(const Value *PtrVec,
     if (auto *IndexOp = dyn_cast<ConstantInt>(Op->getOperand(2))) {
       int64_t Idx = IndexOp->getSExtValue();
       if (Idx >= 0 && Idx < NumElts && !isMemLocResolved(Results[Idx]))
-        Results[Idx] = MemoryLocation(Op->getOperand(1));
+        Results[Idx] = MemoryLocation(Op->getOperand(1), LocationSize::unknown());
     } else {
       Results.assign(NumElts, MemoryLocation());
       Resolved = true;
