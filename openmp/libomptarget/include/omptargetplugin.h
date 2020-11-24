@@ -262,9 +262,6 @@ void *__tgt_rtl_get_context_handle();
 // Allocate a managed memory object.
 EXTERN void *__tgt_rtl_data_alloc_managed(int32_t ID, int64_t Size);
 
-// Delete a managed memory object.
-EXTERN int32_t __tgt_rtl_data_delete_managed(int32_t ID, void *Ptr);
-
 // Check if the pointer can be accessed by the device.
 // Include host, device and shared
 EXTERN int32_t __tgt_rtl_is_device_accessible_ptr(int32_t ID, void *Ptr);
