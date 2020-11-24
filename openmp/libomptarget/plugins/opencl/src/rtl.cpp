@@ -299,8 +299,9 @@ struct RTLFlagsTy {
   uint64_t UseHostMemForUSM : 1;
   uint64_t UseDriverGroupSizes : 1;
   uint64_t EnableSimd : 1;
+  uint64_t UseSVM : 1;
   // Add new flags here
-  uint64_t Reserved : 57;
+  uint64_t Reserved : 56;
   RTLFlagsTy() :
       CollectDataTransferLatency(0),
       EnableProfile(0),
@@ -309,6 +310,7 @@ struct RTLFlagsTy {
       UseHostMemForUSM(0),
       UseDriverGroupSizes(0),
       EnableSimd(0),
+      UseSVM(1), // TODO: Set it to 0 when MKL is ready.
       Reserved(0) {}
 };
 
@@ -354,7 +356,7 @@ public:
   std::vector<std::map<cl_kernel, KernelPropertiesTy>>
       KernelProperties;
   std::vector<std::map<void *, BufferInfoTy> > Buffers;
-  std::vector<std::map<cl_kernel, std::set<void *> > > ImplicitArgs;
+  std::vector<std::map<cl_kernel, std::set<void *>>> ImplicitArgs;
   std::vector<std::map<int32_t, ProfileDataTy>> Profiles;
   std::vector<std::vector<char>> Names;
   std::vector<bool> Initialized;
@@ -556,6 +558,16 @@ public:
         Flags.UseHostMemForUSM = 1;
     }
 
+    // Read LIBOMPTARGET_OPENCL_USE_SVM
+    if (env = readEnvVar("LIBOMPTARGET_OPENCL_USE_SVM")) {
+      if (env[0] == 'T' || env[0] == 't' || env[0] == '1')
+        // This is current default. TODO: remove this comment after we switch
+        // to Flags.UseSVM=0 by default.
+        Flags.UseSVM = 1;
+      else if (env[0] == 'F' || env[0] == 'f' || env[0] == '0')
+        Flags.UseSVM = 0;
+    }
+
 #if INTEL_INTERNAL_BUILD
     // Force work group sizes -- for internal experiments
     if (env = readEnvVar("LIBOMPTARGET_LOCAL_WG_SIZE")) {
@@ -622,6 +634,11 @@ public:
     return Platforms[DeviceId]->ExtensionFunctionPointers[ExtensionId];
   }
 
+  /// Return the extension function name for the given ID
+  const char *getExtensionFunctionName(int32_t DeviceId, int32_t ExtensionId) {
+    return Platforms[DeviceId]->ExtensionFunctionNames[ExtensionId];
+  }
+
   /// Check if extension function is available and enabled.
   bool isExtensionFunctionEnabled(int32_t DeviceId, int32_t ExtensionId) {
     if (!getExtensionFunctionPtr(DeviceId, ExtensionId))
@@ -630,6 +647,7 @@ public:
     switch (ExtensionId) {
     case clGetMemAllocInfoId:
     case clHostMemAllocId:
+    case clDeviceMemAllocId:
     case clSharedMemAllocId:
     case clMemFreeId:
     case clSetKernelArgMemPointerId:
@@ -1918,45 +1936,58 @@ EXTERN int32_t __tgt_rtl_is_device_accessible_ptr(int32_t device_id, void *ptr) 
   return ret;
 }
 
-static inline
-void *tgt_rtl_data_alloc_template(int32_t device_id, int64_t size,
-                                  void *hst_ptr, void *hst_base,
-                                  int32_t is_implicit_arg) {
-  intptr_t offset = (intptr_t)hst_ptr - (intptr_t)hst_base;
+static inline void *dataAlloc(int32_t DeviceId, int64_t Size, void *hstPtr,
+    void *hostBase, int32_t ImplicitArg) {
+  intptr_t offset = (intptr_t)hstPtr - (intptr_t)hostBase;
   // If the offset is negative, then for our practical purposes it can be
   // considered 0 because the base address of an array will be contained
   // within or after the allocated memory.
-  intptr_t meaningful_offset = offset >= 0 ? offset : 0;
+  intptr_t meaningfulOffset = offset >= 0 ? offset : 0;
   // If the offset is negative and the size we map is not large enough to reach
   // the base, then we must allocate extra memory up to the base (+1 to include
   // at least the first byte the base is pointing to).
-  int64_t meaningful_size =
-      offset < 0 && abs(offset) >= size ? abs(offset) + 1 : size;
+  int64_t meaningfulSize =
+      offset < 0 && abs(offset) >= Size ? abs(offset) + 1 : Size;
 
   void *base = nullptr;
-  CALL_CL_RV(base, clSVMAlloc, DeviceInfo->getContext(device_id),
-             CL_MEM_READ_WRITE, meaningful_size + meaningful_offset, 0);
+  auto context = DeviceInfo->getContext(DeviceId);
+  size_t allocSize = meaningfulSize + meaningfulOffset;
+
+  if (DeviceInfo->Flags.UseSVM) {
+    CALL_CL_RV(base, clSVMAlloc, context, CL_MEM_READ_WRITE, allocSize, 0);
+  } else {
+    if (!DeviceInfo->isExtensionFunctionEnabled(DeviceId, clDeviceMemAllocId)) {
+      IDP("Error: Extension %s is not supported\n",
+          DeviceInfo->getExtensionFunctionName(DeviceId, clDeviceMemAllocId));
+      return nullptr;
+    }
+    cl_int rc;
+    CALL_CL_EXT_RVRC(DeviceId, base, clDeviceMemAlloc, rc, context,
+                     DeviceInfo->deviceIDs[DeviceId], nullptr, allocSize, 0);
+    if (rc != CL_SUCCESS)
+      return nullptr;
+  }
   if (!base) {
     IDP("Error: Failed to allocate base buffer\n");
     return nullptr;
   }
   IDP("Created base buffer " DPxMOD " during data alloc\n", DPxPTR(base));
 
-  void *ret = (void *)((intptr_t)base + meaningful_offset);
+  void *ret = (void *)((intptr_t)base + meaningfulOffset);
 
   // Store allocation information
-  DeviceInfo->Buffers[device_id][ret] = {base, meaningful_size};
+  DeviceInfo->Buffers[DeviceId][ret] = {base, meaningfulSize};
 
   // Store list of pointers to be passed to kernel implicitly
-  if (is_implicit_arg) {
+  if (ImplicitArg) {
     IDP("Stashing an implicit argument " DPxMOD " for next kernel\n",
-       DPxPTR(ret));
-    DeviceInfo->Mutexes[device_id].lock();
-    DeviceInfo->DeviceAccessibleData[device_id].emplace(
-                                   std::make_pair(ret, meaningful_size));
+        DPxPTR(ret));
+    DeviceInfo->Mutexes[DeviceId].lock();
+    DeviceInfo->DeviceAccessibleData[DeviceId].emplace(
+        std::make_pair(ret, meaningfulSize));
     // key "0" for kernel-independent implicit arguments
-    DeviceInfo->ImplicitArgs[device_id][0].insert(ret);
-    DeviceInfo->Mutexes[device_id].unlock();
+    DeviceInfo->ImplicitArgs[DeviceId][0].insert(ret);
+    DeviceInfo->Mutexes[DeviceId].unlock();
   }
 
   return ret;
@@ -1972,7 +2003,7 @@ EXTERN void *__tgt_rtl_data_alloc_explicit(
 
   switch (kind) {
   case TARGET_ALLOC_DEVICE:
-    mem = tgt_rtl_data_alloc_template(device_id, size, nullptr, nullptr, 0);
+    mem = dataAlloc(device_id, size, nullptr, nullptr, 0);
     break;
   case TARGET_ALLOC_HOST:
     if (!DeviceInfo->isExtensionFunctionEnabled(device_id, clHostMemAllocId)) {
@@ -2015,21 +2046,21 @@ EXTERN void *__tgt_rtl_data_alloc_explicit(
 
 EXTERN
 void *__tgt_rtl_data_alloc(int32_t device_id, int64_t size, void *hst_ptr) {
-  return tgt_rtl_data_alloc_template(device_id, size, hst_ptr, hst_ptr, 0);
+  return dataAlloc(device_id, size, hst_ptr, hst_ptr, 0);
 }
 
 // Allocate a base buffer with the given information.
 EXTERN
 void *__tgt_rtl_data_alloc_base(int32_t device_id, int64_t size, void *hst_ptr,
                                 void *hst_base) {
-  return tgt_rtl_data_alloc_template(device_id, size, hst_ptr, hst_base, 0);
+  return dataAlloc(device_id, size, hst_ptr, hst_base, 0);
 }
 
 // Allocation was initiated by user (omp_target_alloc)
 EXTERN
 void *__tgt_rtl_data_alloc_user(int32_t device_id, int64_t size,
                                 void *hst_ptr) {
-  return tgt_rtl_data_alloc_template(device_id, size, hst_ptr, hst_ptr, 1);
+  return dataAlloc(device_id, size, hst_ptr, hst_ptr, 1);
 }
 
 EXTERN
@@ -2049,6 +2080,26 @@ int32_t __tgt_rtl_data_submit_nowait(int32_t device_id, void *tgt_ptr,
   AsyncDataTy *async_data = nullptr;
   if (async_event && ((AsyncEventTy *)async_event)->handler) {
     async_data = new AsyncDataTy((AsyncEventTy *)async_event, device_id);
+  }
+
+  if (!DeviceInfo->Flags.UseSVM) {
+    if (!DeviceInfo->isExtensionFunctionEnabled(device_id, clEnqueueMemcpyId)) {
+      IDP("Error: Extension %s is not supported\n",
+          DeviceInfo->getExtensionFunctionName(device_id, clEnqueueMemcpyId));
+      return OFFLOAD_FAIL;
+    }
+    cl_event event;
+    CALL_CL_EXT_RET_FAIL(device_id, clEnqueueMemcpy, queue, CL_FALSE, tgt_ptr,
+                         hst_ptr, size, 0, nullptr, &event);
+    if (async_data) {
+      CALL_CL_RET_FAIL(clSetEventCallback, event, CL_COMPLETE,
+                       &event_callback_completed, async_data);
+    } else {
+      CALL_CL_RET_FAIL(clWaitForEvents, 1, &event);
+      if (DeviceInfo->Flags.EnableProfile)
+        DeviceInfo->getProfiles(device_id).update("DATA-WRITE", event);
+    }
+    return OFFLOAD_SUCCESS;
   }
 
   switch (DeviceInfo->DataTransferMethod) {
@@ -2151,6 +2202,26 @@ int32_t __tgt_rtl_data_retrieve_nowait(int32_t device_id, void *hst_ptr,
     async_data = new AsyncDataTy((AsyncEventTy *)async_event, device_id);
   }
 
+  if (!DeviceInfo->Flags.UseSVM) {
+    if (!DeviceInfo->isExtensionFunctionEnabled(device_id, clEnqueueMemcpyId)) {
+      IDP("Error: Extension %s is not supported\n",
+          DeviceInfo->getExtensionFunctionName(device_id, clEnqueueMemcpyId));
+      return OFFLOAD_FAIL;
+    }
+    cl_event event;
+    CALL_CL_EXT_RET_FAIL(device_id, clEnqueueMemcpy, queue, CL_FALSE, hst_ptr,
+                         tgt_ptr, size, 0, nullptr, &event);
+    if (async_data) {
+      CALL_CL_RET_FAIL(clSetEventCallback, event, CL_COMPLETE,
+                       &event_callback_completed, async_data);
+    } else {
+      CALL_CL_RET_FAIL(clWaitForEvents, 1, &event);
+      if (DeviceInfo->Flags.EnableProfile)
+        DeviceInfo->getProfiles(device_id).update("DATA-READ", event);
+    }
+    return OFFLOAD_SUCCESS;
+  }
+
   switch (DeviceInfo->DataTransferMethod) {
   case DATA_TRANSFER_METHOD_SVMMAP: {
     if (async_data) {
@@ -2233,22 +2304,27 @@ __tgt_rtl_data_retrieve_async(int32_t device_id, void *hst_ptr, void *tgt_ptr,
                                         nullptr);
 }
 
-EXTERN
-int32_t __tgt_rtl_data_delete(int32_t device_id, void *tgt_ptr) {
-  if (DeviceInfo->Buffers[device_id].count(tgt_ptr) == 0) {
-    IDP("Cannot find allocation information for " DPxMOD "\n", DPxPTR(tgt_ptr));
+EXTERN int32_t __tgt_rtl_data_delete(int32_t DeviceId, void *TgtPtr) {
+  if (DeviceInfo->Buffers[DeviceId].count(TgtPtr) == 0) {
+    IDP("Cannot find allocation information for " DPxMOD "\n", DPxPTR(TgtPtr));
     return OFFLOAD_FAIL;
   }
-  void *base = DeviceInfo->Buffers[device_id][tgt_ptr].Base;
-  DeviceInfo->Buffers[device_id].erase(tgt_ptr);
+  void *base = DeviceInfo->Buffers[DeviceId][TgtPtr].Base;
+  DeviceInfo->Buffers[DeviceId].erase(TgtPtr);
 
-  DeviceInfo->Mutexes[device_id].lock();
+  DeviceInfo->Mutexes[DeviceId].lock();
   // Erase from the internal list
-  for (auto &J : DeviceInfo->ImplicitArgs[device_id])
-    J.second.erase(tgt_ptr);
-  DeviceInfo->Mutexes[device_id].unlock();
+  for (auto &J : DeviceInfo->ImplicitArgs[DeviceId])
+    J.second.erase(TgtPtr);
+  DeviceInfo->Mutexes[DeviceId].unlock();
 
-  CALL_CL_VOID(clSVMFree, DeviceInfo->getContext(device_id), base);
+  auto context = DeviceInfo->getContext(DeviceId);
+  if (DeviceInfo->Flags.UseSVM) {
+    CALL_CL_VOID(clSVMFree, context, base);
+  } else {
+    CALL_CL_EXT_VOID(DeviceId, clMemFree, context, base);
+  }
+
   return OFFLOAD_SUCCESS;
 }
 
@@ -2626,7 +2702,19 @@ static inline int32_t run_target_team_nd_region(
       ArgType = "Scalar";
     } else {
       void *ptr = (void *)((intptr_t)tgt_args[i] + offset);
-      CALL_CL_RET_FAIL(clSetKernelArgSVMPointer, *kernel, i, ptr);
+      if (DeviceInfo->Flags.UseSVM) {
+        CALL_CL_RET_FAIL(clSetKernelArgSVMPointer, *kernel, i, ptr);
+      } else {
+        if (!DeviceInfo->isExtensionFunctionEnabled(
+                device_id, clSetKernelArgMemPointerId)) {
+          IDP("Error: Extension %s is not supported\n",
+              DeviceInfo->getExtensionFunctionName(
+                  device_id, clSetKernelArgMemPointerId));
+          return OFFLOAD_FAIL;
+        }
+        CALL_CL_EXT_RET_FAIL(
+            device_id, clSetKernelArgMemPointer, *kernel, i, ptr);
+      }
       ArgType = "Pointer";
     }
     IDP("Kernel %s Arg %d set successfully\n", ArgType, i);

@@ -1062,6 +1062,107 @@ static std::string getMDString(MDNode *N, unsigned I) {
   return "";
 }
 
+static Value *translateReduceOpIntrinsic(CallInst *CI) {
+  assert(isa<llvm::IntrinsicInst>(CI));
+  LLVMContext &CTX = CI->getContext();
+  // TODO: introduce GenXIRBuilder helper
+  auto GetReduceSeq = [&](Value *Src, unsigned Size,
+                          unsigned ElemOffset) -> Value * {
+    if (Size == 1) {
+      if (Src->getType()->isVectorTy()) {
+        Value *Index = ConstantInt::get(Type::getInt32Ty(CTX), ElemOffset);
+        return ExtractElementInst::Create(Src, Index, ".reduce.single",
+                                          CI /*InsertBefore*/);
+      }
+      assert(ElemOffset == 0);
+      return Src;
+    }
+
+    Type *SrcType = Src->getType();
+    Type *SrcElementType = cast<FixedVectorType>(SrcType)->getElementType();
+
+    Type *Tys[] = {FixedVectorType::get(SrcElementType, Size), SrcType,
+                   Type::getInt16Ty(CTX)};
+    auto *Decl = GenXIntrinsic::getGenXDeclaration(
+        CI->getModule(), GenXIntrinsic::genx_rdregioni, Tys);
+
+    Value *Args[] = {
+        Src,
+        ConstantInt::get(Type::getInt32Ty(CTX), 0),    // VStride
+        ConstantInt::get(Type::getInt32Ty(CTX), Size), // Width
+        ConstantInt::get(Type::getInt32Ty(CTX), 1u),   // Stride
+        ConstantInt::get(Type::getInt16Ty(CTX),
+                         ElemOffset *
+                             (SrcElementType->getPrimitiveSizeInBits() /
+                              8)),                  // Offset in bytes
+        ConstantInt::get(Type::getInt32Ty(CTX), 0), // Parent width (ignored)
+    };
+
+    return CallInst::Create(Decl, Args, Src->getName() + ".reduce.seq",
+                            CI /*InsertBefore*/);
+  };
+
+  Instruction::BinaryOps ReduceOp;
+  switch (CI->getIntrinsicID()) {
+  default:
+    llvm_unreachable("unimplemented intrinsic");
+  case Intrinsic::vector_reduce_add:
+    ReduceOp = Instruction::Add;
+    break;
+  case Intrinsic::vector_reduce_mul:
+    ReduceOp = Instruction::Mul;
+    break;
+  case Intrinsic::vector_reduce_xor:
+    ReduceOp = Instruction::Xor;
+    break;
+  case Intrinsic::vector_reduce_or:
+    ReduceOp = Instruction::Or;
+    break;
+  }
+
+  Value *OperandToReduce = CI->getOperand(0);
+  unsigned N =
+      cast<FixedVectorType>(OperandToReduce->getType())->getNumElements();
+  // Split vector into two parts. First part's size  is alwayas a power of two
+  // so we can simply apply reduction by spliiting it into parts. Reduction with
+  // a second part is applicable it's size equals to the first part size
+  unsigned N1, N2;
+  if (llvm::isPowerOf2_32(N)) {
+    N1 = N;
+    N2 = 0;
+  } else {
+    N1 = 1u << llvm::Log2_32(N);
+    N2 = N - N1;
+  }
+
+  Value *CurrentReduceRes = OperandToReduce;
+  IRBuilder<> Builder(CI);
+  for (unsigned i = N1 / 2; i >= 1; i /= 2) {
+    auto *RSeq1 = GetReduceSeq(CurrentReduceRes, i, 0);
+    auto *RSeq2 = GetReduceSeq(CurrentReduceRes, i, i);
+    CurrentReduceRes = Builder.CreateBinOp(ReduceOp, RSeq1, RSeq2);
+
+    unsigned CurrentReduceSize;
+    if (auto *VT = dyn_cast<FixedVectorType>(CurrentReduceRes->getType()))
+      CurrentReduceSize = VT->getNumElements();
+    else
+      CurrentReduceSize = 1;
+    // Continue reducing if second part has suitable size, fall back
+    // to reducing first part otherwise
+    if (CurrentReduceSize > N2)
+      continue;
+
+    // Reduction across parts
+    auto *RSeq21 = GetReduceSeq(CurrentReduceRes, i, 0);
+    auto *RSeq22 = GetReduceSeq(OperandToReduce, i, N - N2);
+    CurrentReduceRes = Builder.CreateBinOp(ReduceOp, RSeq21, RSeq22);
+    N2 -= i;
+  }
+  assert(CurrentReduceRes->getType() == CI->getType());
+  CI->replaceAllUsesWith(CurrentReduceRes);
+  return CurrentReduceRes;
+}
+
 #define SYCL_GLOBAL_AS 1
 static Value *translateLLVMInst(Instruction *Inst) {
   LLVMContext &CTX = Inst->getContext();
@@ -1394,6 +1495,11 @@ static Value *translateLLVMInst(Instruction *Inst) {
                                    CallOp->getName(), CallOp);
       return RepI;
     } break;
+    case Intrinsic::vector_reduce_add:
+    case Intrinsic::vector_reduce_mul:
+    case Intrinsic::vector_reduce_xor:
+    case Intrinsic::vector_reduce_or:
+      return translateReduceOpIntrinsic(CallOp);
     default:
       break;
     }
