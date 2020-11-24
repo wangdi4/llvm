@@ -100,6 +100,7 @@ class VPlanCostModel; // INTEL: to be later declared as a friend
 class VPlanCostModelProprietary; // INTEL: to be later declared as a friend
 class VPlanDivergenceAnalysis;
 class VPlanBranchDependenceAnalysis;
+class VPValueMapper;
 typedef SmallPtrSet<VPValue *, 8> UniformsTy;
 
 // Class names mapping to minimize the diff:
@@ -2956,6 +2957,8 @@ public:
       return V.get();});
   }
 
+  size_t getLiveOutValuesSize() const { return LiveOutValues.size(); }
+
   /// Return an existing or newly created LoopEntities for the loop \p L.
   VPLoopEntityList *getOrCreateLoopEntities(const VPLoop *L) {
     // Sanity check
@@ -3173,6 +3176,9 @@ private:
     assert(LiveOutValues.size() == 0 && "The list is not empty");
     LiveOutValues.resize(Count);
   }
+
+  /// Clone live-out values from OrigVPlan and add them in LiveOutValues.
+  void cloneLiveOutValues(const VPlan &OrigPlan, VPValueMapper &Mapper);
 
   /// Add to the given dominator tree the header block and every new basic block
   /// that was created between it and the latch block, inclusive.

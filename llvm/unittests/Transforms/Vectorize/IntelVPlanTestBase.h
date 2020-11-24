@@ -16,6 +16,7 @@
 #define LLVM_UNITTESTS_TRANSFORMS_VECTORIZE_INTELVPLANTESTBASE_H
 
 #include "../lib/Transforms/Vectorize/Intel_VPlan/IntelLoopVectorizationLegality.h"
+#include "../lib/Transforms/Vectorize/Intel_VPlan/IntelLoopVectorizationPlanner.h"
 #include "../lib/Transforms/Vectorize/Intel_VPlan/IntelVPOCodeGen.h"
 #include "../lib/Transforms/Vectorize/Intel_VPlan/IntelVPlan.h"
 #include "../lib/Transforms/Vectorize/Intel_VPlan/IntelVPlanHCFGBuilder.h"
@@ -48,6 +49,7 @@ protected:
   std::unique_ptr<PredicatedScalarEvolution> PSE;
   std::unique_ptr<VPOVectorizationLegality> Legal;
   std::unique_ptr<VPExternalValues> Externals;
+  std::unique_ptr<LoopVectorizationPlanner> LVP;
 
   VPlanTestBase() : Ctx(new LLVMContext) {}
 
@@ -71,11 +73,17 @@ protected:
     PSE.reset(new PredicatedScalarEvolution(*SE, *Loop));
     Legal.reset(new VPOVectorizationLegality(Loop, *PSE, &F));
     Externals.reset(new VPExternalValues(Ctx.get(), DL.get()));
+    LVP.reset(new LoopVectorizationPlanner(
+        nullptr /* no WRLp */, Loop, LI.get(), TLI.get(), TTI.get(), DL.get(),
+        DT.get(), Legal.get(), nullptr /* no VLSA */));
   }
 
   std::unique_ptr<VPlan> buildHCFG(BasicBlock *LoopHeader) {
     auto F = LoopHeader->getParent();
     doAnalysis(*F, LoopHeader);
+
+    // Needed for induction importing
+    Legal.get()->canVectorize(*DT, nullptr /* use auto induction detection */);
 
     auto Plan = std::make_unique<VPlan>(*Externals);
     VPlanHCFGBuilder HCFGBuilder(LI->getLoopFor(LoopHeader), LI.get(), *DL,
@@ -88,6 +96,10 @@ protected:
         *static_cast<VPlanScalarEvolutionLLVM *>(Plan.get()->getVPSE());
     Plan->setVPVT(
         std::make_unique<VPlanValueTrackingLLVM>(VPSE, *DL, &*AC, &*DT));
+
+    LVP->runInitialVecSpecificTransforms(Plan.get());
+    LVP->createLiveInOutLists(*Plan.get());
+
     return Plan;
   }
 
