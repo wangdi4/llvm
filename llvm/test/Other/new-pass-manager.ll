@@ -361,7 +361,10 @@
 ; RUN:     -passes='default<O0>' %s 2>&1 \
 ; RUN:     | FileCheck %s --check-prefix=CHECK-O0 --check-prefix=%llvmcheckext
 ; CHECK-O0: Starting llvm::Module pass manager run
-; CHECK-EXT-NEXT: Running analysis: InnerAnalysisManagerProxy<{{.*}}>
+; CHECK-O0-NEXT: Running pass: InlineListsPass ;INTEL
+; CHECK-O0-NEXT: Running pass: AlwaysInlinerPass
+; CHECK-O0-NEXT: Running analysis: InnerAnalysisManagerProxy<{{.*}}>
+; CHECK-O0-NEXT: Running analysis: ProfileSummaryAnalysis
 ; CHECK-EXT-NEXT: Starting llvm::Function pass manager run.
 ; CHECK-EXT-NEXT: Running pass: {{.*}}Bye
 ; CHECK-EXT-NEXT: Finished llvm::Function pass manager run.
