@@ -1128,6 +1128,23 @@ promoteArguments(Function *F, function_ref<AAResults &(Function &F)> AARGetter,
     bool isSafeToPromote = PtrArg->hasByValAttr() && !isCallback && // INTEL
                            (ArgumentPromotionPass::isDenselyPacked(AgTy, DL) ||
                             !canPaddingBeAccessed(PtrArg));
+#if INTEL_COLLAB
+    if (cast<PointerType>(PtrArg->getType())->getAddressSpace() !=
+        DL.getAllocaAddrSpace()) {
+      // Replacing arguments with non-default address space is incorrect:
+      //   define void @foo(
+      //       %struct.ty addrspace(4)* byval(%struct.ty) %x' argument) {
+      //   entry:
+      //     <use of %struct.ty addrspace(4)* %x>
+      //   }
+      //
+      // The following alloca will be created to replace %x:
+      //   %new.x = alloca %struct.ty
+      //
+      // Since the new value's type is '%struct.ty*' the RAUW will fail.
+      isSafeToPromote = false;
+    }
+#endif // INTEL_COLLAB
     if (isSafeToPromote) {
       if (StructType *STy = dyn_cast<StructType>(AgTy)) {
         if (MaxElements > 0 && STy->getNumElements() > MaxElements) {
