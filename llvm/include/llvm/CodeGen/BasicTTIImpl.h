@@ -1493,6 +1493,7 @@ public:
     case Intrinsic::directive_region_entry:
     case Intrinsic::directive_region_exit:
 #endif // INTEL_CUSTOMIZATION
+    case Intrinsic::pseudoprobe:
       return 0;
     case Intrinsic::masked_store: {
       Type *Ty = Tys[0];

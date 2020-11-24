@@ -445,6 +445,7 @@ void AliasSetTracker::addUnknown(Instruction *Inst) {
       // FIXME: Add lifetime/invariant intrinsics (See: PR30807).
     case Intrinsic::assume:
     case Intrinsic::sideeffect:
+    case Intrinsic::pseudoprobe:
       return;
     }
   }
