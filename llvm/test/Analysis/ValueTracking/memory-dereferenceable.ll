@@ -1,4 +1,4 @@
-; RUN: opt -print-memderefs -analyze -S <%s | FileCheck %s
+; RUN: opt -print-memderefs -analyze -S < %s -enable-new-pm=0 | FileCheck %s
 ; INTEL
 ; RUN: opt -S -convert-to-subscript < %s | opt -S -print-memderefs -analyze  | FileCheck %s
 
