@@ -791,10 +791,10 @@ public:
 
   Instruction *SimplifyAnyMemTransfer(AnyMemTransferInst *MI);
 #if INTEL_CUSTOMIZATION
-  unsigned int GenFieldsForStruct(MemIntrinsic *MI, StructType *STy,
+  unsigned int GenFieldsForStruct(AnyMemTransferInst *MI, StructType *STy,
                                   Value *StrippedSrc, Value *StrippedDest,
                                   unsigned Index);
-  void GenStructFieldsCopyFromMemcpy(MemIntrinsic *MI);
+  void GenStructFieldsCopyFromMemcpy(AnyMemTransferInst *MI);
   bool ReduceICmpSizeIfPossible(ICmpInst &ICI, Value *Op0, Value *Op1,
                                 unsigned Size);
 
