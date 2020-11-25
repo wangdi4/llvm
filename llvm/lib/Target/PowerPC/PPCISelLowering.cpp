@@ -6968,6 +6968,16 @@ static bool CC_AIX(unsigned ValNo, MVT ValVT, MVT LocVT,
   const Align PtrAlign = IsPPC64 ? Align(8) : Align(4);
   const MVT RegVT = IsPPC64 ? MVT::i64 : MVT::i32;
 
+  if (ValVT.isVector() && !State.getMachineFunction()
+                               .getTarget()
+                               .Options.EnableAIXExtendedAltivecABI)
+    report_fatal_error("the default Altivec AIX ABI is not yet supported");
+
+  if (ValVT.isVector() && State.getMachineFunction()
+                              .getTarget()
+                              .Options.EnableAIXExtendedAltivecABI)
+    report_fatal_error("the extended Altivec AIX ABI is not yet supported");
+
   assert((!ValVT.isInteger() ||
           (ValVT.getFixedSizeInBits() <= RegVT.getFixedSizeInBits())) &&
          "Integer argument exceeds register size: should have been legalized");
@@ -8411,6 +8421,13 @@ bool PPCTargetLowering::canReuseLoadAddress(SDValue Op, EVT MemVT,
       LD->isNonTemporal())
     return false;
   if (LD->getMemoryVT() != MemVT)
+    return false;
+
+  // If the result of the load is an illegal type, then we can't build a
+  // valid chain for reuse since the legalised loads and token factor node that
+  // ties the legalised loads together uses a different output chain then the
+  // illegal load.
+  if (!isTypeLegal(LD->getValueType(0)))
     return false;
 
   RLI.Ptr = LD->getBasePtr();
