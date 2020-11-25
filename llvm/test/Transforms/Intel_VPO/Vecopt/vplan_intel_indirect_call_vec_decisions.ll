@@ -30,7 +30,7 @@ define void @_ZGVbN4_direct() #1 {
 ; CHECK-NEXT:    [[BB2]]: # preds: [[BB1]], [[BB3:BB[0-9]+]]
 ; CHECK-NEXT:     [DA: Uni] i32 [[VP_VECTOR_LOOP_IV:%.*]] = phi  [ i32 0, [[BB1]] ],  [ i32 [[VP_VECTOR_LOOP_IV_NEXT:%.*]], [[BB3]] ]
 ; CHECK-NEXT:     [DA: Div] i32 [[VP_INDEX:%.*]] = phi  [ i32 [[VP_INDEX_IND_INIT]], [[BB1]] ],  [ i32 [[VP_INDVAR:%.*]], [[BB3]] ]
-; CHECK-NEXT:     [DA: Div] i32 (i32, float)** [[VP_CALL_I:%.*]] = call _ZGVbN4_NKSt5arrayIPFiifELm2EE4dataEv [x 1]
+; CHECK-NEXT:     [DA: Div] i32 (i32, float)** [[VP_CALL_I:%.*]] = call _ZGVbN4_ZNKSt5arrayIPFiifELm2EE4dataEv [x 1]
 ; CHECK-NEXT:     [DA: Div] i32 [[VP0:%.*]] = call i32 (i32, float)** [[VP_CALL_I]] i32 5 float 2.000000e+00 _ZGVbN4vv___intel_indirect_call_i32_p0p0f_i32i32f32f [x 1]
 ; CHECK-NEXT:     [DA: Uni] br [[BB3]]
 ; CHECK-EMPTY:
@@ -65,7 +65,7 @@ define void @_ZGVbN4_direct() #1 {
 ; CHECK-NEXT:    [[UNI_PHI0:%.*]] = phi i32 [ 0, [[VECTOR_PH0]] ], [ [[TMP8:%.*]], [[INDIRECT_CALL_LOOP_EXIT0:%.*]] ]
 ; CHECK-NEXT:    [[UNI_PHI10:%.*]] = phi i32 [ 0, [[VECTOR_PH0]] ], [ [[TMP7:%.*]], [[INDIRECT_CALL_LOOP_EXIT0]] ]
 ; CHECK-NEXT:    [[VEC_PHI0:%.*]] = phi <4 x i32> [ <i32 0, i32 1, i32 2, i32 3>, [[VECTOR_PH0]] ], [ [[TMP6:%.*]], [[INDIRECT_CALL_LOOP_EXIT0]] ]
-; CHECK-NEXT:    [[TMP0:%.*]] = call <4 x i32 (i32, float)**> @_ZGVbN4_NKSt5arrayIPFiifELm2EE4dataEv()
+; CHECK-NEXT:    [[TMP0:%.*]] = call <4 x i32 (i32, float)**> @_ZGVbN4_ZNKSt5arrayIPFiifELm2EE4dataEv()
 ; CHECK-NEXT:    br label [[INDIRECT_CALL_LOOP_ENTRY0:%.*]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  indirect.call.loop.entry:
@@ -135,6 +135,6 @@ return:                                           ; preds = %simd.end.region
 }
 
 attributes #1 = { "vector-variants"="_ZGVbM4_direct,_ZGVbN4_direct" }
-attributes #2 = { "vector-variants"="_ZGVbM4_NKSt5arrayIPFiifELm2EE4dataEv,_ZGVbN4_NKSt5arrayIPFiifELm2EE4dataEv" }
+attributes #2 = { "vector-variants"="_ZGVbM4_ZNKSt5arrayIPFiifELm2EE4dataEv,_ZGVbN4_ZNKSt5arrayIPFiifELm2EE4dataEv" }
 attributes #3 = { "vector-variants"="_ZGVbM4vv___intel_indirect_call_i32_p0p0f_i32i32f32f,_ZGVbN4vv___intel_indirect_call_i32_p0p0f_i32i32f32f" }
 attributes #4 = { nounwind }
