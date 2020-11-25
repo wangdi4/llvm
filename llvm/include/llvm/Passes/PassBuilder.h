@@ -129,6 +129,8 @@ public:
 
 #if INTEL_CUSTOMIZATION
   bool PrepareForLTO; // We are in the compile step of an LTO compilation
+  /// We are after SLP pass.
+  bool AfterSLPVectorizer;
 #endif // INTEL_CUSTOMIZATION
 
   /// A struct to capture parsed pass pipeline names.
@@ -523,6 +525,11 @@ public:
 
   /// Returns true if the pass name is the name of a (non-alias) analysis pass.
   bool isAnalysisPassName(StringRef PassName);
+
+#if INTEL_CUSTOMIZATION
+  /// Add Inst Combine Pass
+  void addInstCombinePass(FunctionPassManager &FPM) const;
+#endif // INTEL_CUSTOMIZATION
 
   /// Register a callback for a default optimizer pipeline extension
   /// point
