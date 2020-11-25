@@ -53,6 +53,7 @@ VERS1.0 {
     omp_target_alloc_device;
     omp_target_alloc_host;
     omp_target_alloc_shared;
+    omp_target_get_context;
 # end INTEL_COLLAB
     __kmpc_push_target_tripcount;
   local:

@@ -2862,7 +2862,7 @@ EXTERN void *__tgt_rtl_get_device_handle(int32_t DeviceId) {
   return (void *)device;
 }
 
-EXTERN void *__tgt_rtl_get_context_handle() {
+EXTERN void *__tgt_rtl_get_context_handle(int32_t DeviceId) {
   auto context = DeviceInfo->Context;
   return (void *)context;
 }
