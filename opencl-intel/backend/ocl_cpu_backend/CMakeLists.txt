@@ -105,7 +105,6 @@ set (OCL_CPU_BACKEND_INCLUDE_FILES
     Serializer.h
     ServiceFactory.h
     StaticObjectLoader.h
-    TargetDescription.h
 
     debuggingservicewrapper.h
     opencl_printf_ext.h
@@ -151,7 +150,6 @@ set (OCL_CPU_BACKEND_SOURCE_FILES
     ObjectCodeContainer.cpp
     ProgramBuilder.cpp
     ServiceFactory.cpp
-    TargetDescription.cpp
     cpu_builtin_functions.cpp
     debuggingservicewrapper.cpp
     dllmain.cpp
