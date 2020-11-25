@@ -355,7 +355,7 @@ public:
   std::vector<FuncOrGblEntryTy> FuncGblEntries;
   std::vector<std::map<cl_kernel, KernelPropertiesTy>>
       KernelProperties;
-  std::vector<std::map<void *, BufferInfoTy> > Buffers;
+  std::vector<std::map<void *, BufferInfoTy>> Buffers;
   std::vector<std::map<cl_kernel, std::set<void *>>> ImplicitArgs;
   std::vector<std::map<int32_t, ProfileDataTy>> Profiles;
   std::vector<std::vector<char>> Names;
@@ -1902,22 +1902,6 @@ EXTERN void *__tgt_rtl_data_alloc_managed(int32_t device_id, int64_t size) {
   return __tgt_rtl_data_alloc_explicit(device_id, size, kind);
 }
 
-// Delete a managed memory object.
-EXTERN int32_t __tgt_rtl_data_delete_managed(int32_t device_id, void *ptr) {
-  if (!DeviceInfo->isExtensionFunctionEnabled(device_id, clMemFreeId)) {
-    IDP("clMemFreeINTEL is not available\n");
-    return OFFLOAD_FAIL;
-  }
-  auto &mutex = DeviceInfo->Mutexes[device_id];
-  mutex.lock();
-  CALL_CL_EXT_RET_FAIL(device_id, clMemFree, DeviceInfo->getContext(device_id),
-                       ptr);
-  DeviceInfo->DeviceAccessibleData[device_id].erase(ptr);
-  mutex.unlock();
-  IDP("Deleted a managed memory object " DPxMOD "\n", DPxPTR(ptr));
-  return OFFLOAD_SUCCESS;
-}
-
 // Check if the pointer belongs to a managed memory addres range.
 EXTERN int32_t __tgt_rtl_is_device_accessible_ptr(int32_t device_id, void *ptr) {
   int32_t ret = false;
@@ -2305,21 +2289,29 @@ __tgt_rtl_data_retrieve_async(int32_t device_id, void *hst_ptr, void *tgt_ptr,
 }
 
 EXTERN int32_t __tgt_rtl_data_delete(int32_t DeviceId, void *TgtPtr) {
-  if (DeviceInfo->Buffers[DeviceId].count(TgtPtr) == 0) {
-    IDP("Cannot find allocation information for " DPxMOD "\n", DPxPTR(TgtPtr));
-    return OFFLOAD_FAIL;
-  }
-  void *base = DeviceInfo->Buffers[DeviceId][TgtPtr].Base;
-  DeviceInfo->Buffers[DeviceId].erase(TgtPtr);
+  void *base = TgtPtr;
+
+  // Internal allocation may have different base pointer, so look it up first
+  auto &buffers = DeviceInfo->Buffers[DeviceId];
 
   DeviceInfo->Mutexes[DeviceId].lock();
+
+  // Retrieve base pointer and erase buffer information
+  bool hasBufferInfo = false;
+  if (buffers.count(TgtPtr) > 0) {
+    base = buffers[TgtPtr].Base;
+    buffers.erase(TgtPtr);
+    hasBufferInfo = true;
+  }
+
   // Erase from the internal list
   for (auto &J : DeviceInfo->ImplicitArgs[DeviceId])
     J.second.erase(TgtPtr);
+
   DeviceInfo->Mutexes[DeviceId].unlock();
 
   auto context = DeviceInfo->getContext(DeviceId);
-  if (DeviceInfo->Flags.UseSVM) {
+  if (DeviceInfo->Flags.UseSVM && hasBufferInfo) {
     CALL_CL_VOID(clSVMFree, context, base);
   } else {
     CALL_CL_EXT_VOID(DeviceId, clMemFree, context, base);
@@ -2943,19 +2935,19 @@ EXTERN int32_t __tgt_rtl_synchronize(int32_t device_id,
 }
 
 EXTERN int32_t __tgt_rtl_get_data_alloc_info(
-    int32_t device_id, int32_t num_ptrs, void *tgt_ptrs, void *alloc_info) {
-  auto &buffer = DeviceInfo->Buffers[device_id];
-  void **tgtPtrs = static_cast<void **>(tgt_ptrs);
-  __tgt_memory_info *allocInfo = static_cast<__tgt_memory_info *>(alloc_info);
-  for (int32_t i = 0; i < num_ptrs; i++) {
-    if (buffer.count(tgtPtrs[i]) == 0) {
+    int32_t DeviceId, int32_t NumPtrs, void *TgtPtrs, void *AllocInfo) {
+  auto &buffers = DeviceInfo->Buffers[DeviceId];
+  void **tgtPtrs = static_cast<void **>(TgtPtrs);
+  __tgt_memory_info *allocInfo = static_cast<__tgt_memory_info *>(AllocInfo);
+  for (int32_t i = 0; i < NumPtrs; i++) {
+    if (buffers.count(tgtPtrs[i]) == 0) {
       IDP("%s cannot find allocation information for " DPxMOD "\n", __func__,
-         DPxPTR(tgtPtrs[i]));
+          DPxPTR(tgtPtrs[i]));
       return OFFLOAD_FAIL;
     }
-    allocInfo[i].Base = buffer[tgtPtrs[i]].Base;
+    allocInfo[i].Base = buffers[tgtPtrs[i]].Base;
     allocInfo[i].Offset = (uintptr_t)tgtPtrs[i] - (uintptr_t)allocInfo[i].Base;
-    allocInfo[i].Size = buffer[tgtPtrs[i]].Size;
+    allocInfo[i].Size = buffers[tgtPtrs[i]].Size;
   }
   return OFFLOAD_SUCCESS;
 }

@@ -1979,10 +1979,6 @@ EXTERN void *__tgt_rtl_data_alloc_managed(int32_t DeviceId, int64_t Size) {
   return __tgt_rtl_data_alloc_explicit(DeviceId, Size, kind);
 }
 
-EXTERN int32_t __tgt_rtl_data_delete_managed(int32_t DeviceId, void *Ptr) {
-  return __tgt_rtl_data_delete(DeviceId, Ptr);
-}
-
 EXTERN int32_t __tgt_rtl_is_device_accessible_ptr(int32_t DeviceId, void *Ptr) {
   ze_memory_allocation_properties_t properties = {
     ZE_STRUCTURE_TYPE_MEMORY_ALLOCATION_PROPERTIES,

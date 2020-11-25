@@ -260,7 +260,6 @@ void RTLsTy::LoadRTLs() {
     SET_OPTIONAL_INTERFACE_FN(data_alloc_user);
     SET_OPTIONAL_INTERFACE_FN(data_alloc_explicit);
     SET_OPTIONAL_INTERFACE_FN(data_alloc_managed);
-    SET_OPTIONAL_INTERFACE_FN(data_delete_managed);
     SET_OPTIONAL_INTERFACE_FN(data_submit_nowait);
     SET_OPTIONAL_INTERFACE_FN(data_retrieve_nowait);
     SET_OPTIONAL_INTERFACE_FN(create_offload_queue);

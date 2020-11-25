@@ -808,13 +808,6 @@ void *DeviceTy::data_alloc_managed(int64_t Size) {
     return nullptr;
 }
 
-int32_t DeviceTy::data_delete_managed(void *Ptr) {
-  if (RTL->data_delete_managed)
-    return RTL->data_delete_managed(RTLDeviceID, Ptr);
-  else
-    return OFFLOAD_FAIL;
-}
-
 int32_t DeviceTy::is_device_accessible_ptr(void *Ptr) {
   if (RTL->is_device_accessible_ptr)
     return RTL->is_device_accessible_ptr(RTLDeviceID, Ptr);

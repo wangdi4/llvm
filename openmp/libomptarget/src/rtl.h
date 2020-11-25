@@ -79,7 +79,6 @@ struct RTLInfoTy {
   typedef void *(get_context_handle_ty)();
   typedef int32_t(release_offload_queue_ty)(int32_t, void *);
   typedef void *(data_alloc_managed_ty)(int32_t, int64_t);
-  typedef int32_t(data_delete_managed_ty)(int32_t, void *);
   typedef int32_t(is_device_accessible_ptr_ty)(int32_t, void *);
   typedef void *(data_alloc_explicit_ty)(int32_t, int64_t, int32_t);
   typedef void (init_ompt_ty)(void *);
@@ -141,7 +140,6 @@ struct RTLInfoTy {
   get_context_handle_ty *get_context_handle = nullptr;
   release_offload_queue_ty *release_offload_queue = nullptr;
   data_alloc_managed_ty *data_alloc_managed = nullptr;
-  data_delete_managed_ty *data_delete_managed = nullptr;
   is_device_accessible_ptr_ty *is_device_accessible_ptr = nullptr;
   data_alloc_explicit_ty *data_alloc_explicit = nullptr;
   init_ompt_ty *init_ompt = nullptr;
@@ -207,7 +205,6 @@ struct RTLInfoTy {
     get_context_handle = r.get_context_handle;
     release_offload_queue = r.release_offload_queue;
     data_alloc_managed = r.data_alloc_managed;
-    data_delete_managed = r.data_delete_managed;
     is_device_accessible_ptr = r.is_device_accessible_ptr;
     data_alloc_explicit = r.data_alloc_explicit;
     init_ompt = r.init_ompt;
