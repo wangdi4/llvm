@@ -6646,8 +6646,6 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
         A->getOption().matches(options::OPT_Ofast)) {
       CmdArgs.push_back("-mllvm");
       CmdArgs.push_back("-enable-gvn-hoist");
-      CmdArgs.push_back("-mllvm");
-      CmdArgs.push_back("-enable-npm-gvn-hoist");
     }
   }
 #endif // INTEL_CUSTOMIZATION
