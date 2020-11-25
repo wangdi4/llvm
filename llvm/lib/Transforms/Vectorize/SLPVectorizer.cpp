@@ -8194,7 +8194,8 @@ LLVM_DUMP_METHOD void BoUpSLP::OperandData::dumpDot(raw_ostream &OS, int OpI) co
   OS << "\""
      << "L" << getLane() << "." << getFrontier() << "\"[label=\"";
   OS << getOpcodeSign(getFrontier()->getOpcode());
-  OS << " L" << getLane();
+  OS << " L" << getLane() << ": ";
+  getFrontier()->printAsOperand(OS, /*PrintType=*/false);
   OS << "\"];\n";
 
   // "L0.0x12345678"->"L0.0x12345679"
