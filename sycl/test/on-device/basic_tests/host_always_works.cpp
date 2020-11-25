@@ -1,8 +1,10 @@
 // RUN: %clangxx -fsycl %s -o %t1.out
-// RUN: env SYCL_DEVICE_TYPE=HOST env SYCL_ENABLE_HOST_DEVICE=0N %t1.out
+// INTEL_CUSTOMIZATION
+// RUN: %RUN_ON_HOST env SYCL_ENABLE_HOST_DEVICE=0N %t1.out
 // RUN: %CPU_RUN_PLACEHOLDER env SYCL_ENABLE_HOST_DEVICE=0N %t1.out
 // RUN: %GPU_RUN_PLACEHOLDER env SYCL_ENABLE_HOST_DEVICE=0N %t1.out
 // RUN: %ACC_RUN_PLACEHOLDER env SYCL_ENABLE_HOST_DEVICE=0N %t1.out
+// end INTEL_CUSTOMIZATION
 
 //==------ host_always_works.cpp - Host Device Availability test -----------==//
 //
