@@ -494,6 +494,14 @@
 #include <avxmemadvise/avx512memadviseintrin.h>
 #endif
 #endif
+#if defined(__AVXMEMADVISE_SUPPORTED__) || defined(__AVX512MEMADVISE_SUPPORTED__)
+#if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
+    (defined(__AVXMEMADVISE__) ||                                              \
+     (defined(__AVX512MEMADVISE__) && defined(__AVX512VL__))) ||                \
+    defined(__M_INTRINSIC_PROMOTE__)
+#include <avxmemadvise/avx512vlmemadviseintrin.h>
+#endif
+#endif
 /* end INTEL_FEATURE_ISA_AVX_MEMADVISE */
 /* INTEL_FEATURE_ISA_AVX_MPSADBW */
 #if defined(__AVX512MPSADBW_SUPPORTED__)

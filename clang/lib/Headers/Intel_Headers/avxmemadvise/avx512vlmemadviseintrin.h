@@ -1,4 +1,4 @@
-/*===-------- avx512memadviseintrin.h - AVXMEMADVISE intrinsics -------------===
+/*===----- avx512vlmemadviseintrin.h - AVXMEMADVISE intrinsics -------------===
  *
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -22,20 +22,29 @@
  *===-----------------------------------------------------------------------===
  */
 #ifndef __IMMINTRIN_H
-#error "Never use <avx512memadviseintrin.h> directly; include <immintrin.h> instead."
+#error "Never use <avx512vlmemadviseintrin.h> directly; include <immintrin.h> instead."
 #endif
 
-#ifndef __AVX512MEMADVISEINTRIN_H
-#define __AVX512MEMADVISEINTRIN_H
+#ifndef __AVX512VLMEMADVISEINTRIN_H
+#define __AVX512VLMEMADVISEINTRIN_H
 #ifdef __x86_64__
 
-#define _mm512_vmovadvisew_load_epi8(A, I) \
-   (__m512i)__builtin_ia32_vmovadvisew_load_512((const __v16si *)(A), (I))
+#define _mm_vmovadvisew_load_epi8(A, I) \
+   (__m128i)__builtin_ia32_vmovadvisew_load_128((const __v4si *)(A), (I))
 
-#define _mm512_vmovadvisew_store_epi8(A, B, I) \
-   __builtin_ia32_vmovadvisew_store_512((__v16si *)(A), (__v16si)(B), (I))
+#define _mm_vmovadvisew_store_epi8(A, B, I) \
+   __builtin_ia32_vmovadvisew_store_128((__v4si *)(A), (__v4si)(B), (I))
 
-#define _mm512_vmemadvise_epi8(A, I) \
-   __builtin_ia32_vmemadvise_512((const __v64qi *)(A), (I))
+#define _mm256_vmovadvisew_load_epi8(A, I) \
+   (__m256i)__builtin_ia32_vmovadvisew_load_256((const __v8si *)(A), (I))
+
+#define _mm256_vmovadvisew_store_epi8(A, B, I) \
+   __builtin_ia32_vmovadvisew_store_256((__v8si *)(A), (__v8si)(B), (I))
+
+#define _mm_vmemadvise_epi8(A, I) \
+   __builtin_ia32_vmemadvise_128((const __v16qi *)(A), (I))
+
+#define _mm256_vmemadvise_epi8(A, I) \
+   __builtin_ia32_vmemadvise_256((const __v32qi *)(A), (I))
 #endif /* __x86_64__ */
-#endif /* __AVX512MEMADVISEINTRIN_H */
+#endif /* __AVX512VLMEMADVISEINTRIN_H */

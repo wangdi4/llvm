@@ -198,6 +198,7 @@ intel_add_file(INTEL_HEADERS
 intel_add_file(INTEL_HEADERS
   FEATURE ${LLVM_INTELFEATURE_PREFIX}_ISA_AVX_MEMADVISE
   Intel_Headers/avxmemadvise/avx512memadviseintrin.h
+  Intel_Headers/avxmemadvise/avx512vlmemadviseintrin.h
   )
 # end INTEL_FEATURE_ISA_AVX_MEMADVISE
 #if INTEL_FEATURE_ISA_AVX_MPSADBW
