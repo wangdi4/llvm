@@ -254,6 +254,11 @@ void LLDJIT::LoadDLL(Module *M) {
   buildDllFromObjs(LoadedObjects, DLLFile.FileName(), PDBFile.FileName());
   DLLPath = DLLFile.FileName();
   this->DeleteTempFiles(LoadedObjects);
+
+  // keep *.dll & *.pdb for use by vtune.
+  DLLFile.keep();
+  PDBFile.keep();
+
   OwnedTempFiles.emplace_back(std::move(DLLFile));
   OwnedTempFiles.emplace_back(std::move(PDBFile));
 
