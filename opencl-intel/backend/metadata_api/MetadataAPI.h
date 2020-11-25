@@ -69,6 +69,11 @@ struct KernelMetadataAPI {
   typedef NamedMDList<llvm::StringRef, MDValueGlobalObjectStrategy> ArgNameListTy;
   typedef NamedMDList<std::string, MDValueGlobalObjectStrategy>
       ArgIOAttributeListTy;
+  typedef NamedMDList<llvm::StringRef, MDValueGlobalObjectStrategy>
+      ArgBufferLocationListTy;
+  typedef NamedMDList<bool, MDValueGlobalObjectStrategy>
+      ArgHostAccessibleListTy;
+  typedef NamedMDList<int32_t, MDValueGlobalObjectStrategy> ArgPipeDepthListTy;
 
   // optional attributes
   typedef NamedMDList<int32_t, MDValueGlobalObjectStrategy> WorkGroupSizeHintTy;
@@ -89,6 +94,9 @@ struct KernelMetadataAPI {
         ArgTypeQualifierList(Func, "kernel_arg_type_qual"),
         ArgNameList(Func, "kernel_arg_name"),
         ArgIOAttributeList(Func, "kernel_arg_pipe_io"),
+        ArgBufferLocationList(Func, "kernel_arg_buffer_location"),
+        ArgHostAccessibleList(Func, "kernel_arg_host_accessible"),
+        ArgPipeDepthTyList(Func, "kernel_arg_pipe_depth"),
 
         WorkGroupSizeHint(Func, "work_group_size_hint"),
         ReqdWorkGroupSize(Func, "reqd_work_group_size"),
@@ -113,6 +121,9 @@ struct KernelMetadataAPI {
   ArgTypeQualifierListTy ArgTypeQualifierList;
   ArgNameListTy ArgNameList;
   ArgIOAttributeListTy ArgIOAttributeList;
+  ArgBufferLocationListTy ArgBufferLocationList;
+  ArgHostAccessibleListTy ArgHostAccessibleList;
+  ArgPipeDepthListTy ArgPipeDepthTyList;
 
   // optional attributes
   WorkgroupSizeMDAccessor<WorkGroupSizeHintTy> WorkGroupSizeHint;
@@ -138,6 +149,10 @@ public:
         ArgTypeQualifierList.getID(),
         ArgNameList.getID(),
         ArgIOAttributeList.getID(),
+        ArgBufferLocationList.getID(),
+        ArgHostAccessibleList.getID(),
+        ArgPipeDepthTyList.getID(),
+
         WorkGroupSizeHint.getID(),
         ReqdWorkGroupSize.getID(),
         ReqdNumSubGroups.getID(),
