@@ -115,9 +115,9 @@ static cl::opt<bool>
                        cl::desc("Run SROA pass after the SLP vectorizer"));
 
 #endif // INTEL_CUSTOMIZATION
-static cl::opt<bool>
-    RunPartialInlining("enable-partial-inlining", cl::init(false), cl::Hidden,
-                       cl::ZeroOrMore, cl::desc("Run Partial inlinining pass"));
+cl::opt<bool> RunPartialInlining("enable-partial-inlining", cl::init(false),
+                                 cl::Hidden, cl::ZeroOrMore,
+                                 cl::desc("Run Partial inlinining pass"));
 
 #if INTEL_CUSTOMIZATION
 // Enable partial inlining during LTO
@@ -144,8 +144,8 @@ static cl::opt<bool>
     SYCLOptimizationMode("sycl-opt", cl::init(false), cl::Hidden,
                          cl::desc("Enable SYCL optimization mode."));
 
-static cl::opt<bool> RunNewGVN("enable-newgvn", cl::init(false), cl::Hidden,
-                               cl::desc("Run the NewGVN pass"));
+cl::opt<bool> RunNewGVN("enable-newgvn", cl::init(false), cl::Hidden,
+                        cl::desc("Run the NewGVN pass"));
 
 // Experimental option to use CFL-AA
 enum class CFLAAType { None, Steensgaard, Andersen, Both };
@@ -164,11 +164,11 @@ static cl::opt<bool> EnableLoopInterchange(
     "enable-loopinterchange", cl::init(false), cl::Hidden,
     cl::desc("Enable the new, experimental LoopInterchange Pass"));
 
-static cl::opt<bool> EnableUnrollAndJam("enable-unroll-and-jam",
-                                        cl::init(false), cl::Hidden,
-                                        cl::desc("Enable Unroll And Jam Pass"));
+cl::opt<bool> EnableUnrollAndJam("enable-unroll-and-jam", cl::init(false),
+                                 cl::Hidden,
+                                 cl::desc("Enable Unroll And Jam Pass"));
 
-static cl::opt<bool> EnableLoopFlatten("enable-loop-flatten", cl::init(false),
+cl::opt<bool> EnableLoopFlatten("enable-loop-flatten", cl::init(false),
                                        cl::Hidden,
                                        cl::desc("Enable the LoopFlatten Pass"));
 #if INTEL_COLLAB
@@ -364,14 +364,14 @@ cl::opt<bool>
     DisablePreInliner("disable-preinline", cl::init(false), cl::Hidden,
                       cl::desc("Disable pre-instrumentation inliner"));
 
-static cl::opt<int> PreInlineThreshold(
+cl::opt<int> PreInlineThreshold(
     "preinline-threshold", cl::Hidden, cl::init(75), cl::ZeroOrMore,
     cl::desc("Control the amount of inlining in pre-instrumentation inliner "
              "(default = 75)"));
 
-static cl::opt<bool> EnableGVNHoist(
-    "enable-gvn-hoist", cl::init(false), cl::ZeroOrMore,
-    cl::desc("Enable the GVN hoisting pass (default = off)"));
+cl::opt<bool>
+    EnableGVNHoist("enable-gvn-hoist", cl::init(false), cl::ZeroOrMore,
+                   cl::desc("Enable the GVN hoisting pass (default = off)"));
 
 static cl::opt<bool>
     DisableLibCallsShrinkWrap("disable-libcalls-shrinkwrap", cl::init(false),
@@ -383,13 +383,13 @@ static cl::opt<bool> EnableSimpleLoopUnswitch(
     cl::desc("Enable the simple loop unswitch pass. Also enables independent "
              "cleanup passes integrated into the loop pass manager pipeline."));
 
-static cl::opt<bool> EnableGVNSink(
-    "enable-gvn-sink", cl::init(false), cl::ZeroOrMore,
-    cl::desc("Enable the GVN sinking pass (default = off)"));
+cl::opt<bool>
+    EnableGVNSink("enable-gvn-sink", cl::init(false), cl::ZeroOrMore,
+                  cl::desc("Enable the GVN sinking pass (default = off)"));
 
 // This option is used in simplifying testing SampleFDO optimizations for
 // profile loading.
-static cl::opt<bool>
+cl::opt<bool>
     EnableCHR("enable-chr", cl::init(true), cl::Hidden,
               cl::desc("Enable control height reduction optimization (CHR)"));
 
