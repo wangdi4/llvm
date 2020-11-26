@@ -4611,10 +4611,7 @@ public:
   RValue EmitBuiltinCallSIMDVariant(const CallExpr *E);
 #endif  // INTEL_CUSTOMIZATION
 
-private:
   enum class MSVCIntrin;
-
-public:
   llvm::Value *EmitMSVCBuiltinExpr(MSVCIntrin BuiltinID, const CallExpr *E);
 
   llvm::Value *EmitBuiltinAvailable(const VersionTuple &Version);
