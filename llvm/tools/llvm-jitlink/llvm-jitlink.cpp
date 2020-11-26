@@ -733,7 +733,7 @@ Error LLVMJITLinkRemoteTargetProcessControl::disconnect() {
   });
   ListenerThread.join();
   return joinErrors(std::move(Err), F.get());
-} // INTEL
+}
 
 class PhonyExternalsGenerator : public DefinitionGenerator {
 public:
