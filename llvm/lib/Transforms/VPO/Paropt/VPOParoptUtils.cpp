@@ -1013,7 +1013,7 @@ CallInst *VPOParoptUtils::genOCLGenericCall(StringRef FnName,
 }
 
 // Set SPIR_FUNC calling convention for SPIR-V targets, otherwise,
-// do nothing.
+// set C calling convention.
 void VPOParoptUtils::setFuncCallingConv(CallInst *CI, Module *M) {
   CallingConv::ID Conv = CallingConv::C;
 
