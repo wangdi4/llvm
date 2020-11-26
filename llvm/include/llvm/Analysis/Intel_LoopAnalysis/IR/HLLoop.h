@@ -45,6 +45,20 @@ struct BlockingPragmaInfo {
   SmallVector<RegDDRef *, 4> Privates;
 };
 
+// Prefetching pragma info data structure:
+// Var is null when omitted in the directive
+// Hint is -1 when omitted in the directive
+// Distance is -1 when omitted in the directive
+// Distance of 0 indicates prefetching is disabled
+struct PrefetchingPragmaInfo {
+  RegDDRef *Var;
+  int Hint;
+  int Dist;
+
+  PrefetchingPragmaInfo(RegDDRef *Var, int Hint, int Dist)
+      : Var(Var), Hint(Hint), Dist(Dist) {}
+};
+
 /// High level node representing a loop
 class HLLoop final : public HLDDNode {
 public:
@@ -158,6 +172,9 @@ private:
   // Contains info specified in blocking pragma.
   std::unique_ptr<BlockingPragmaInfo> BlockingInfo;
 
+  // Contains info specified in prefetching pragma.
+  std::vector<PrefetchingPragmaInfo> PrefetchingInfoVec;
+
 protected:
   HLLoop(HLNodeUtils &HNU, const Loop *LLVMLoop);
   HLLoop(HLNodeUtils &HNU, HLIf *ZttIf, RegDDRef *LowerDDRef,
@@ -244,6 +261,12 @@ protected:
       BlockingInfo.reset(new BlockingPragmaInfo);
     }
     BlockingInfo->Privates.push_back(Private);
+  }
+
+  /// Adds prefetch pragma info specified in the prefetching pragma vector for
+  /// this loop.
+  void addPrefetchingPragmaInfo(RegDDRef *Var, int Hint, int Dist) {
+    PrefetchingInfoVec.emplace_back(Var, Hint, Dist);
   }
 
 public:

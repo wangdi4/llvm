@@ -85,6 +85,7 @@ struct RTLInfoTy {
   typedef int32_t(get_data_alloc_info_ty)(int32_t, int32_t, void *, void *);
   typedef int32_t(push_subdevice_ty)(int64_t);
   typedef int32_t(pop_subdevice_ty)(void);
+  typedef void (add_build_options_ty)(const char *, const char *);
 #endif // INTEL_COLLAB
 
   int32_t Idx = -1;             // RTL index, index is the number of devices
@@ -146,6 +147,7 @@ struct RTLInfoTy {
   get_data_alloc_info_ty *get_data_alloc_info = nullptr;
   push_subdevice_ty *push_subdevice = nullptr;
   pop_subdevice_ty *pop_subdevice = nullptr;
+  add_build_options_ty *add_build_options = nullptr;
 #endif // INTEL_COLLAB
 
   // Are there images associated with this RTL.
@@ -211,6 +213,7 @@ struct RTLInfoTy {
     get_data_alloc_info = r.get_data_alloc_info;
     push_subdevice = r.push_subdevice;
     pop_subdevice = r.pop_subdevice;
+    add_build_options = r.add_build_options;
 #endif // INTEL_COLLAB
     isUsed = r.isUsed;
     synchronize = r.synchronize;

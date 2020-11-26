@@ -278,6 +278,10 @@ EXTERN int32_t __tgt_rtl_push_subdevice(int64_t ID);
 
 // Pop subdevice encoding
 EXTERN int32_t __tgt_rtl_pop_subdevice(void);
+
+// Add target code build options
+EXTERN void __tgt_rtl_add_build_options(
+    const char * CompileOptions, const char *LinkOptions);
 #endif // INTEL_COLLAB
 #ifdef __cplusplus
 }

@@ -1244,8 +1244,8 @@ __OMP_TRAIT_PROPERTY(device, arch, nvptx64)
 #if INTEL_COLLAB
 __OMP_TRAIT_PROPERTY(device, arch, gen)
 __OMP_TRAIT_PROPERTY(device, arch, gen9)
-__OMP_TRAIT_PROPERTY(device, arch, gen12lp)
-__OMP_TRAIT_PROPERTY(device, arch, gen12hp)
+__OMP_TRAIT_PROPERTY(device, arch, XeLP)
+__OMP_TRAIT_PROPERTY(device, arch, XeHP)
 #endif // INTEL_COLLAB
 
 __OMP_TRAIT_SET(implementation)

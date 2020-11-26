@@ -381,7 +381,8 @@ public:
   // builtins. Otherwise, SPIR-V will be converted to LLVM IR with OpenCL 1.2
   // builtins.
   std::string CompilationOptions = "-cl-std=CL2.0 ";
-  std::string LinkingOptions;
+  std::string UserCompilationOptions;
+  std::string UserLinkingOptions;
 
 #if INTEL_CUSTOMIZATION
   std::string InternalCompilationOptions;
@@ -530,10 +531,10 @@ public:
     }
 
     if (env = readEnvVar("LIBOMPTARGET_OPENCL_COMPILATION_OPTIONS")) {
-      CompilationOptions += env;
+      UserCompilationOptions += env;
     }
     if (env = readEnvVar("LIBOMPTARGET_OPENCL_LINKING_OPTIONS")) {
-      LinkingOptions += env;
+      UserLinkingOptions += env;
     }
 #if INTEL_CUSTOMIZATION
     // OpenCL CPU compiler complains about unsupported option.
@@ -1523,8 +1524,9 @@ __tgt_target_table *__tgt_rtl_load_binary(int32_t device_id,
   cl_int status;
   std::vector<cl_program> programs;
   cl_program linked_program;
-  std::string compilation_options(DeviceInfo->CompilationOptions);
-  std::string linking_options(DeviceInfo->LinkingOptions);
+  std::string compilation_options(
+      DeviceInfo->CompilationOptions + DeviceInfo->UserCompilationOptions);
+  std::string linking_options(DeviceInfo->UserLinkingOptions);
 
   IDP("OpenCL compilation options: %s\n", compilation_options.c_str());
   IDP("OpenCL linking options: %s\n", linking_options.c_str());
@@ -2950,6 +2952,28 @@ EXTERN int32_t __tgt_rtl_get_data_alloc_info(
     allocInfo[i].Size = buffers[tgtPtrs[i]].Size;
   }
   return OFFLOAD_SUCCESS;
+}
+
+EXTERN void __tgt_rtl_add_build_options(
+    const char *CompileOptions, const char *LinkOptions) {
+  if (CompileOptions) {
+    auto &compileOptions = DeviceInfo->UserCompilationOptions;
+    if (compileOptions.empty()) {
+      compileOptions = std::string(CompileOptions) + " ";
+    } else {
+      IDP("Respecting LIBOMPTARGET_OPENCL_COMPILATION_OPTIONS=%s\n",
+          compileOptions.c_str());
+    }
+  }
+  if (LinkOptions) {
+    auto &linkOptions = DeviceInfo->UserLinkingOptions;
+    if (linkOptions.empty()) {
+      linkOptions = std::string(LinkOptions) + " ";
+    } else {
+      IDP("Respecting LIBOMPTARGET_OPENCL_LINKING_OPTIONS=%s\n",
+          linkOptions.c_str());
+    }
+  }
 }
 
 #ifdef __cplusplus

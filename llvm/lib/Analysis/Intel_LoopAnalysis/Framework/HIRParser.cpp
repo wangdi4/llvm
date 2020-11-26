@@ -2670,9 +2670,7 @@ void HIRParser::parse(HLLoop *HLoop) {
   }
 }
 
-void HIRParser::postParse(HLLoop *HLoop) {
-  --CurLevel;
-}
+void HIRParser::postParse(HLLoop *HLoop) { --CurLevel; }
 
 void HIRParser::parseCompare(const Value *Cond, unsigned Level,
                              SmallVectorImpl<HLPredicate> &Preds,
@@ -3211,9 +3209,7 @@ public:
     return Dimensions[Idx];
   }
 
-  void pop_back() {
-    Dimensions.pop_back();
-  }
+  void pop_back() { Dimensions.pop_back(); }
 
   const DimInfo &getDim(unsigned Idx) const {
     assert(Idx >= getMinRank() && Idx <= getMaxRank() && "Invalid rank");
@@ -3368,7 +3364,7 @@ std::list<ArrayInfo> HIRParser::GEPChain::parseGEPOp(const SubscriptInst *Sub) {
   Dim.setStride(Sub->getStride());
   Dim.addIndex(Sub->getIndex(), Sub->getLowerBound());
 
-  return { Arr };
+  return {Arr};
 }
 
 /// This function returns restructured one-past-the-end GEPOperator if
@@ -3430,7 +3426,7 @@ std::list<ArrayInfo> HIRParser::GEPChain::parseGEPOp(const HIRParser &Parser,
                                                      const GEPOperator *GEPOp) {
   assert(GEPOp->getNumIndices() > 0 && "Corrupted GEP operator");
 
-  std::list<ArrayInfo> Output = { ArrayInfo() };
+  std::list<ArrayInfo> Output = {ArrayInfo()};
 
   GEPOperator *RestructuredGep = restructureOnePastTheEndGEP(GEPOp);
   if (RestructuredGep) {
@@ -4360,6 +4356,30 @@ static bool isBlockLoopEndDirective(const IntrinsicInst *Intrin) {
   return TagName.equals("DIR.PRAGMA.END.BLOCK_LOOP");
 }
 
+static bool isPrefetchLoopBeginDirective(const IntrinsicInst *Intrin) {
+  if (!Intrin->hasOperandBundles()) {
+    return false;
+  }
+
+  OperandBundleUse BU = Intrin->getOperandBundleAt(0);
+
+  StringRef TagName = BU.getTagName();
+
+  return TagName.equals("DIR.PRAGMA.PREFETCH_LOOP");
+}
+
+static bool isPrefetchLoopEndDirective(const IntrinsicInst *Intrin) {
+  if (!Intrin->hasOperandBundles()) {
+    return false;
+  }
+
+  OperandBundleUse BU = Intrin->getOperandBundleAt(0);
+
+  StringRef TagName = BU.getTagName();
+
+  return TagName.equals("DIR.PRAGMA.END.PREFETCH_LOOP");
+}
+
 bool HIRParser::processedRemovableIntrinsic(HLInst *HInst) {
   auto *Intrin = dyn_cast<IntrinsicInst>(HInst->getLLVMInstruction());
 
@@ -4374,7 +4394,7 @@ bool HIRParser::processedRemovableIntrinsic(HLInst *HInst) {
 
   bool IsBegin;
 
-  if (isBlockLoopEndDirective(Intrin)) {
+  if (isBlockLoopEndDirective(Intrin) || isPrefetchLoopEndDirective(Intrin)) {
     IsBegin = false;
 
   } else if (!isDistributePoint(Intrin, IsBegin)) {
@@ -4403,11 +4423,11 @@ static HLLoop *getNextLexicalLoop(HLNode *Node) {
   return cast_or_null<HLLoop>(NextNode);
 }
 
-void HIRParser::processBlockLoopBeginDirective(HLInst *HInst) {
+bool HIRParser::processBlockLoopBeginDirective(HLInst *HInst) {
   auto *Intrin = dyn_cast<IntrinsicInst>(HInst->getLLVMInstruction());
 
   if (!Intrin || !isBlockLoopBeginDirective(Intrin)) {
-    return;
+    return false;
   }
 
   // We ignore pragma if loop is not found. This can happen when ztt is not
@@ -4432,6 +4452,50 @@ void HIRParser::processBlockLoopBeginDirective(HLInst *HInst) {
         PragmaLp->addBlockingPragmaLevelAndFactor(
             (int)Level, *HInst->bundle_op_ddref_begin(I));
         LevelFound = false;
+      }
+    }
+  }
+
+  // Remove refs' link to the instruction now that they are stored inside loop.
+  for (unsigned I = 0, E = HInst->getNumOperands(); I < E; ++I) {
+    HInst->removeOperandDDRef(I);
+  }
+
+  // Do not need explicit block_loop intrinsic in HIR.
+  HLNodeUtils::erase(HInst);
+  return true;
+}
+
+void HIRParser::processPrefetchLoopBeginDirective(HLInst *HInst) {
+  auto *Intrin = dyn_cast<IntrinsicInst>(HInst->getLLVMInstruction());
+
+  if (!Intrin || !isPrefetchLoopBeginDirective(Intrin)) {
+    return;
+  }
+
+  // We ignore pragma if loop is not found. This can happen when ztt is not
+  // recognized.
+  if (auto *PragmaLp = getNextLexicalLoop(HInst)) {
+    int64_t Enable = 0;
+    RegDDRef *Var = nullptr;
+    int64_t Hint = 0;
+    int64_t Dist = 0;
+
+    for (unsigned I = 0, E = HInst->getNumOperandBundles(); I < E; ++I) {
+      StringRef TagName = HInst->getOperandBundleAt(I).getTagName();
+
+      if (TagName.equals("QUAL.PRAGMA.ENABLE")) {
+        (*HInst->bundle_op_ddref_begin(I))->isIntConstant(&Enable);
+      } else if (TagName.equals("QUAL.PRAGMA.VAR")) {
+        Var = *HInst->bundle_op_ddref_begin(I);
+      } else if (TagName.equals("QUAL.PRAGMA.HINT")) {
+        (*HInst->bundle_op_ddref_begin(I))->isIntConstant(&Hint);
+      } else if (TagName.equals("QUAL.PRAGMA.DISTANCE")) {
+        (*HInst->bundle_op_ddref_begin(I))->isIntConstant(&Dist);
+        if (!Enable) {
+          Dist = 0;
+        }
+        PragmaLp->addPrefetchingPragmaInfo(Var, Hint, Dist);
       }
     }
   }
@@ -4529,7 +4593,11 @@ void HIRParser::parse(HLInst *HInst, bool IsPhase1, unsigned Phase2Level) {
         {CInst->getPredicate(), parseFMF(CInst), CInst->getDebugLoc()});
   }
 
-  processBlockLoopBeginDirective(HInst);
+  bool IsBlockingDirective = processBlockLoopBeginDirective(HInst);
+
+  if (!IsBlockingDirective) {
+    processPrefetchLoopBeginDirective(HInst);
+  }
 }
 
 void HIRParser::phase1Parse(HLNode *Node) {
@@ -4584,7 +4652,6 @@ void HIRParser::phase2Parse() {
       HLNodeUtils::erase(InstIt->first);
     }
   }
-
 
   for (auto *Call : DistributePoints) {
     auto *NextNode = Call->getNextNode();
@@ -4727,7 +4794,7 @@ HIRParser::delinearizeBlobIndex(Type *IndexType, unsigned BlobIndex,
 
   unsigned LastDim = DimSizes.size();
   assert(Subscripts.size() <= LastDim &&
-      "Subscripts size do not match generated ref");
+         "Subscripts size do not match generated ref");
 
   for (unsigned DimI = 0, DimE = Subscripts.size(); DimI < DimE; ++DimI) {
     int64_t NewCoeff = 0;
@@ -4803,7 +4870,7 @@ RegDDRef *HIRParser::delinearizeSingleRef(const RegDDRef *Ref,
   // Handle IV part
   unsigned IVLevel = 0;
   for (auto &IV :
-      make_range(LinearIndexCE->iv_begin(), LinearIndexCE->iv_end())) {
+       make_range(LinearIndexCE->iv_begin(), LinearIndexCE->iv_end())) {
     ++IVLevel;
     if (IV.Coeff == 0) {
       continue;
@@ -4825,7 +4892,7 @@ RegDDRef *HIRParser::delinearizeSingleRef(const RegDDRef *Ref,
 
   // Handle blob part
   for (auto &BlobCoeff :
-      make_range(LinearIndexCE->blob_begin(), LinearIndexCE->blob_end())) {
+       make_range(LinearIndexCE->blob_begin(), LinearIndexCE->blob_end())) {
 
     auto NewIndex = delinearizeBlobIndex(IndexType, BlobCoeff.Index, DimSizes);
     if (!NewIndex) {
@@ -4933,7 +5000,8 @@ bool HIRParser::delinearizeRefs(ArrayRef<const loopopt::RegDDRef *> GepRefs,
   }
 
   LLVM_DEBUG(dbgs() << "Delinearized refs:\n");
-  LLVM_DEBUG(for (auto Pair : zip(GepRefs, NewRefs)) {
+  LLVM_DEBUG(for (auto Pair
+                  : zip(GepRefs, NewRefs)) {
     std::get<0>(Pair)->dump();
     dbgs() << " -> ";
     std::get<1>(Pair)->dump();

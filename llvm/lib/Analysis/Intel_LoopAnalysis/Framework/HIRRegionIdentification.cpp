@@ -177,11 +177,13 @@ static bool isKnownLoopDirective(const Instruction *Inst, bool BeginDir,
   return BeginDir ? (TagName.equals("DIR.OMP.PARALLEL.LOOP") ||
                      TagName.equals("DIR.OMP.SIMD") ||
                      TagName.equals("DIR.PRAGMA.BLOCK_LOOP") ||
+                     TagName.equals("DIR.PRAGMA.PREFETCH_LOOP") ||
                      (!SkipDistributePoint &&
                       TagName.equals("DIR.PRAGMA.DISTRIBUTE_POINT")))
                   : (TagName.equals("DIR.OMP.END.PARALLEL.LOOP") ||
                      TagName.equals("DIR.OMP.END.SIMD") ||
                      TagName.equals("DIR.PRAGMA.END.BLOCK_LOOP") ||
+                     TagName.equals("DIR.PRAGMA.END.PREFETCH_LOOP") ||
                      (!SkipDistributePoint &&
                       TagName.equals("DIR.PRAGMA.END.DISTRIBUTE_POINT")));
 
@@ -518,9 +520,7 @@ static void printOptReportRemark(const Loop *Lp, const Twine &Remark) {
   LLVM_DEBUG(Lp->getHeader()->printAsOperand(dbgs(), false));
 
   if (const DebugLoc Loc = Lp->getStartLoc()) {
-    LLVM_DEBUG(dbgs() << " at ";
-               Loc.print(dbgs());
-    );
+    LLVM_DEBUG(dbgs() << " at "; Loc.print(dbgs()););
   }
 
   LLVM_DEBUG(dbgs() << ": " << Remark << "\n");
