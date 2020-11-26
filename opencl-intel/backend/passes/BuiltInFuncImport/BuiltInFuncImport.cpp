@@ -177,8 +177,8 @@ namespace intel {
 
   static void ExploreOperand(Value *Op,
                              SmallVectorImpl<Module*> &Modules,
-                             SmallPtrSetImpl<GlobalValue*> &UsedFunctions,
-                             SmallPtrSetImpl<GlobalVariable*> &UsedGlobals) {
+                             SetVector<GlobalValue*> &UsedFunctions,
+                             SetVector<GlobalVariable*> &UsedGlobals) {
     // operand may be a ConstantExpr, so we need to recursively check its
     // operands
     if (auto *CE = dyn_cast<ConstantExpr>(Op)) {
@@ -197,8 +197,8 @@ namespace intel {
 
   void BIImport::ExploreUses(Function *Root,
                              SmallVectorImpl<Module*> &Modules,
-                             SmallPtrSetImpl<GlobalValue*> &UsedFunctions,
-                             SmallPtrSetImpl<GlobalVariable*> &UsedGlobals,
+                             SetVector<GlobalValue*> &UsedFunctions,
+                             SetVector<GlobalVariable*> &UsedGlobals,
                              FunctionsVec &SvmlFunctions) {
     assert(Root && "Invalid function.");
 
@@ -213,7 +213,7 @@ namespace intel {
       }
     }
 
-    bool FirstUse = UsedFunctions.insert(Root).second;
+    bool FirstUse = UsedFunctions.insert(Root);
     if (!FirstUse) {
       return;
     }
@@ -237,8 +237,8 @@ namespace intel {
 
   static std::unique_ptr<Module>
   CloneModuleOnlyRequired(const Module *M, ValueToValueMapTy &VMap,
-                          SmallPtrSetImpl<GlobalValue*> &ReqFunctions,
-                          SmallPtrSetImpl<GlobalVariable*> &ReqGlobals) {
+                          SetVector<GlobalValue*> &ReqFunctions,
+                          SetVector<GlobalVariable*> &ReqGlobals) {
     std::unique_ptr<Module> New =
       std::make_unique<Module>(M->getModuleIdentifier(), M->getContext());
 
@@ -326,10 +326,8 @@ namespace intel {
       if (!F.isDeclaration())
         UserModuleFunctions.insert(&F);
 
-    const int EST_FUNCTIONS_NUM = 32;
-    const int EST_GLOBALS_NUM = 32;
-    SmallPtrSet<GlobalValue*, EST_GLOBALS_NUM> UsedFunctions;
-    SmallPtrSet<GlobalVariable*, EST_FUNCTIONS_NUM> UsedGlobals;
+    SetVector<GlobalValue*> UsedFunctions;
+    SetVector<GlobalVariable*> UsedGlobals;
     FunctionsVec SvmlFunctions; // shared svml functions
 
     for (auto &F : M) {
