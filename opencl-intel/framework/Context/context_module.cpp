@@ -16,6 +16,7 @@
 #include "context_module.h"
 #include "Context.hpp"
 #include "program.h"
+#include "program_with_library_kernels.h"
 #include "kernel.h"
 #include "sampler.h"
 #include "MemoryAllocator/MemoryObject.h"
@@ -358,6 +359,12 @@ cl_context    ContextModule::CreateContext(const cl_context_properties * clPrope
         return CL_INVALID_HANDLE;
     }
 
+    if (FrameworkProxy::Instance()->GetOCLConfig()->EnableParallelCopy()) {
+        clErrRet = initializeLibraryProgram(pContext, uiNumDevices, ppDevices);
+        if (CL_FAILED(clErrRet))
+            return CL_INVALID_HANDLE;
+    }
+
     delete[] ppDevices;
 
     cl_context clContextId = (cl_context)m_mapContexts.AddObject(pContext);
@@ -496,13 +503,22 @@ cl_err_code ContextModule::ReleaseContext(cl_context context)
 {
     LOG_INFO(TEXT("ContextModule::ReleaseContext enter. context=%d"), context);    
 
+    // Release library program on the first attempt of ReleaseContext. Library
+    // program should be released at the last attempt, however, it is tricky to
+    // track reference count of context within library program.
+    cl_err_code err = releaseLibraryProgram(context);
+    if (CL_FAILED(err)) {
+        LOG_ERROR(TEXT("releaseLibraryProgram failed, err %d"), err);
+        return CL_OUT_OF_RESOURCES;
+    }
+
     SharedPtr<OCLObject<_cl_context_int> > pContext = m_mapContexts.GetOCLObject((_cl_context_int*)context);
     if (pContext.GetRefCnt() > 2)
     {
         LOG_INFO(TEXT("Warning: context %d will not have been deleted after this call - the user might have forgotten to release some objects"), context);
     }
 
-    cl_err_code err = m_mapContexts.ReleaseObject((_cl_context_int*)context);
+    err = m_mapContexts.ReleaseObject((_cl_context_int*)context);
     return ((CL_ERR_KEY_NOT_FOUND == err) ? CL_INVALID_CONTEXT : err);
 }
 
@@ -810,7 +826,7 @@ cl_err_code    ContextModule::RetainProgram(cl_program clProgram)
 //////////////////////////////////////////////////////////////////////////
 cl_err_code ContextModule::ReleaseProgram(cl_program clProgram)
 {
-    LOG_INFO(TEXT("Enter ReleaseProgram (clProgram=%d)"), clProgram);
+    LOG_INFO(TEXT("Enter ReleaseProgram (clProgram=%p)"), (void*)clProgram);
 
     SharedPtr<Program> pProgram = m_mapPrograms.GetOCLObject((_cl_program_int*)clProgram).DynamicCast<Program>();
     if (NULL == pProgram)
@@ -821,12 +837,14 @@ cl_err_code ContextModule::ReleaseProgram(cl_program clProgram)
     SharedPtr<Context> pContext = pProgram->GetContext();
     if (NULL == pContext)
     {
+        LOG_ERROR(TEXT("pProgram->GetContext returned NULL"), "");
         return CL_INVALID_PROGRAM;
     }
 
     long newRef = pProgram->Release();
     if (newRef < 0)
     {
+        LOG_ERROR(TEXT("pProgram->Release() failed, newRef %ld"), newRef);
         return CL_INVALID_PROGRAM;
     }
     else if (0 == newRef)
@@ -834,12 +852,15 @@ cl_err_code ContextModule::ReleaseProgram(cl_program clProgram)
         cl_err_code clErrRet = pContext->RemoveProgram(clProgram);
         if (CL_FAILED(clErrRet))
         {
+            LOG_ERROR(TEXT("pContext->RemoveProgram failed, err %d"), clErrRet);
             return CL_ERR_OUT(clErrRet);
         }
 
         clErrRet = m_mapPrograms.RemoveObject((_cl_program_int*)clProgram);
         if (CL_FAILED(clErrRet))
         {
+            LOG_ERROR(TEXT("m_mapPrograms.RemoveObject failed, err %d"),
+                      clErrRet);
             return CL_ERR_OUT(clErrRet);
         }
     }
@@ -1352,6 +1373,7 @@ cl_int ContextModule::ReleaseKernel(cl_kernel clKernel)
     SharedPtr<Program> pProgram = pKernel->GetProgram();
     if (NULL == pProgram)
     {
+        LOG_ERROR(TEXT("pKernel->GetProgram returned nullptr"), "");
         return CL_INVALID_KERNEL;
     }
 
@@ -1367,12 +1389,14 @@ cl_int ContextModule::ReleaseKernel(cl_kernel clKernel)
         clErr = pProgram->RemoveKernel(clKernel);
         if (CL_FAILED(clErr))
         {
+            LOG_ERROR(TEXT("pProgram->RemoveKernel returned %ld"), clErr);
             return CL_ERR_OUT(clErr);
         }
-        // remove kernel form kernels list and add it to the dirty kernels list        
+        // remove kernel form kernels list and add it to the dirty kernels list
         clErr = m_mapKernels.RemoveObject((_cl_kernel_int*)clKernel);
         if (CL_FAILED(clErr))
         {
+            LOG_ERROR(TEXT("m_mapKernels.RemoveObject returned %ld"), clErr);
             return CL_ERR_OUT(clErr);
         }
     }
@@ -2912,6 +2936,79 @@ cl_err_code ContextModule::CheckContextSpecificParameters(SharedPtr<Context>pCon
     }
 
     return CL_SUCCESS;
+}
+
+cl_int
+ContextModule::initializeLibraryProgram(SharedPtr<Context> &Ctx,
+                                        cl_uint NumDevices,
+                                        SharedPtr<FissionableDevice> *Devices) {
+  LOG_INFO(TEXT("%s"), TEXT("initializeLibraryProgram enter"));
+  // Create program.
+  SharedPtr<Program> Prog;
+  std::string KernelNames;
+  cl_int err = Ctx->CreateProgramWithLibraryKernels(NumDevices, Devices, &Prog,
+                                                    KernelNames);
+  if (CL_FAILED(err)) {
+      LOG_ERROR(TEXT("CreateProgramWithLibraryKernels failed, err %d"), err);
+      return CL_INVALID_HANDLE;
+  }
+  err = m_mapPrograms.AddObject(Prog, false);
+  if (CL_FAILED(err)) {
+      LOG_ERROR(TEXT("m_mapPrograms.AddObject failed, err %d"), err);
+      Ctx->RemoveProgram(Prog->GetHandle());
+      Prog->Release();
+      return CL_INVALID_HANDLE;
+  }
+
+  cl_program ProgHandle = Prog->GetHandle();
+  cl_context CtxHandle = Ctx->GetHandle();
+
+  // Create Kernels.
+  std::vector<std::string> KernelNamesVec = SplitString(KernelNames, ';');
+  for (auto &KName : KernelNamesVec) {
+      cl_kernel K = CreateKernel(ProgHandle, KName.c_str(), &err);
+      if (CL_FAILED(err)) {
+          LOG_ERROR(TEXT("Failed to create library kernel, err %d"), err);
+          return err;
+      }
+      m_backendLibraryKernels[CtxHandle][KName] = K;
+  }
+
+  m_backendLibraryProgram[CtxHandle] = ProgHandle;
+
+  return err;
+}
+
+cl_int ContextModule::releaseLibraryProgram(cl_context Ctx) {
+    LOG_INFO(TEXT("%s"), TEXT("releaseLibraryProgram enter"));
+
+    OclAutoMutex mu(&m_backendLibraryMutex);
+
+    if (!m_backendLibraryProgram.count(Ctx))
+        return CL_SUCCESS;
+
+    cl_int err;
+    for (auto &K : m_backendLibraryKernels[Ctx]) {
+        err = ReleaseKernel(K.second);
+        if (CL_FAILED(err))
+            return err;
+    }
+    m_backendLibraryKernels.erase(Ctx);
+
+    err = ReleaseProgram(m_backendLibraryProgram[Ctx]);
+    m_backendLibraryProgram.erase(Ctx);
+    return err;
+}
+
+SharedPtr<Kernel> ContextModule::GetLibraryKernel(cl_context Ctx,
+                                                  std::string &Name) {
+    assert(m_backendLibraryKernels.count(Ctx) &&
+           m_backendLibraryKernels.at(Ctx).count(Name) &&
+           "Invalid context or kernel name");
+
+    cl_kernel K = m_backendLibraryKernels.at(Ctx).at(Name);
+
+    return GetKernel(K);
 }
 
 /////////////////////////////////////////////////////////////////////

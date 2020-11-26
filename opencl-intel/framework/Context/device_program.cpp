@@ -293,6 +293,7 @@ cl_build_status DeviceProgram::GetBuildStatus() const
     case DEVICE_PROGRAM_LINKED:
     case DEVICE_PROGRAM_BUILD_DONE:
     case DEVICE_PROGRAM_BUILTIN_KERNELS:
+    case DEVICE_PROGRAM_LIBRARY_KERNELS:
         return CL_BUILD_SUCCESS;
     }
 
@@ -341,6 +342,7 @@ cl_err_code DeviceProgram::GetBuildInfo(cl_program_build_info clParamName, size_
         case DEVICE_PROGRAM_LOADED_IR:
         case DEVICE_PROGRAM_CUSTOM_BINARY:
         case DEVICE_PROGRAM_BUILTIN_KERNELS:
+        case DEVICE_PROGRAM_LIBRARY_KERNELS:
         case DEVICE_PROGRAM_FE_COMPILING:
         case DEVICE_PROGRAM_FE_LINKING:
         case DEVICE_PROGRAM_BE_BUILDING:

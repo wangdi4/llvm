@@ -46,7 +46,8 @@ namespace Intel { namespace OpenCL { namespace Framework {
         DEVICE_PROGRAM_BUILD_DONE,              // Build complete, executable code ready
         DEVICE_PROGRAM_CUSTOM_BINARY,           // Program contains device specific binary
         DEVICE_PROGRAM_BUILD_FAILED,            // Build failed
-        DEVICE_PROGRAM_CREATING_AUTORUN         // Currently creating instances of autorun kernels
+        DEVICE_PROGRAM_CREATING_AUTORUN,        // Currently creating instances of autorun kernels
+        DEVICE_PROGRAM_LIBRARY_KERNELS          // Program contains backend library kernels
     };
 
     class DeviceProgram

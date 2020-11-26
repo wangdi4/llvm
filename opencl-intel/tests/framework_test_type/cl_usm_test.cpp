@@ -270,6 +270,10 @@ TEST_F(USMTest, enqueueMemset) {
   char *data = new char[size];
   err = clEnqueueMemsetINTEL(m_queue, data, value1, size, 0, NULL, NULL);
   ASSERT_OCL_SUCCESS(err, "clEnqueueMemsetINTEL");
+
+  err = clFinish(m_queue);
+  ASSERT_OCL_SUCCESS(err, "clFinish");
+
   countErrors = 0;
   for (size_t i = 0; i < num; i++)
     if (data[i] != (char)value1)

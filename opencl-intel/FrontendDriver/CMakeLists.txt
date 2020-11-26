@@ -44,6 +44,7 @@ set( INCLUDE_DIRS
             ${OCL_SOURCE_DIR}/backend/plugin_manager
             ${OCL_SOURCE_DIR}/backend/ocl_cpu_backend/export
             ${OCL_SOURCE_DIR}/backend/dynamic_lib
+            ${OCL_SOURCE_DIR}/backend/utils
             ${OCL_SOURCE_DIR}/externals/khronos/spirv/headers/include
             ${OCL_SOURCE_DIR}/utils/cl_sys_utils/export
             ${OCL_SOURCE_DIR}/utils/cache_binary_handler
@@ -99,6 +100,7 @@ add_subdirectory(pre_release_header)
 include(itt)
 
 set(LINK_LIBS
+    OclBackendUtils
     OclPluginManager
     CacheBinaryHandler
     CLElfLib

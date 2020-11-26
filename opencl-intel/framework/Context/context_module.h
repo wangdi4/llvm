@@ -185,6 +185,22 @@ namespace Intel { namespace OpenCL { namespace Framework {
         virtual cl_int ReleaseSampler(cl_sampler clSampler);
         virtual cl_int GetSamplerInfo(cl_sampler clSampler, cl_sampler_info clParamName, size_t szParamValueSize, void * pParamValue, size_t * pszParamValueSizeRet);
 
+        /// Initialize backend libray program.
+        cl_int initializeLibraryProgram(SharedPtr<Context> &Ctx,
+                                        cl_uint NumDevices,
+                                        SharedPtr<FissionableDevice>* Devices);
+
+        /// Release backend libray program.
+        cl_int releaseLibraryProgram(cl_context Ctx);
+
+        /**
+         * Get a kernel from library program.
+         * @param Ctx Associated context.
+         * @param Name Kernel name.
+           @return Kernel shared object and nullptr if failed.
+         */
+        SharedPtr<Kernel> GetLibraryKernel(cl_context Ctx, std::string &Name);
+
         /////////////////////////////////////////////////////////////////////
         // OpenCL 1.2 functions
         /////////////////////////////////////////////////////////////////////
@@ -362,6 +378,12 @@ namespace Intel { namespace OpenCL { namespace Framework {
         std::map<void*, SharedPtr<Context> >    m_mapSVMBuffers;   // map list of all svm objects
         // map list of all unified shared memory objects
         std::map<void*, SharedPtr<Context> >    m_mapUSMBuffers;
+
+        // Holds the backend library program.
+        std::map<cl_context, cl_program>        m_backendLibraryProgram;
+        std::map<cl_context, std::map<std::string, cl_kernel>>
+            m_backendLibraryKernels;
+        Intel::OpenCL::Utils::OclMutex          m_backendLibraryMutex;
 
         Intel::OpenCL::Utils::LifetimeObjectContainer<OclCommandQueue> m_setQueues; // set of all queues including invisible to user
         Intel::OpenCL::Utils::LifetimeObjectContainer<MemoryObject>    m_setMappedMemObjects; // set of all memory objects that were mapped at least once in a history

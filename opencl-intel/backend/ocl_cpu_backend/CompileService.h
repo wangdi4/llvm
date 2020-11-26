@@ -46,14 +46,13 @@ public:
      *  CL_DEV_OUT_OF_MEMORY if there's no sufficient memory
      *  CL_DEV_ERROR_FAIL in any other error
      */
-    cl_dev_err_code CreateProgram( const void* pBinary,
-                                   size_t uiBinarySize,
-                                   ICLDevBackendProgram_** ppProgram);
+    cl_dev_err_code CreateProgram(const void *pBinary, size_t uiBinarySize,
+                                  ICLDevBackendProgram_ **ppProgram) override;
 
     /**
      * Releases Program instance
      */
-    void ReleaseProgram( ICLDevBackendProgram_* pProgram) const;
+    void ReleaseProgram(ICLDevBackendProgram_ *pProgram) const override;
 
     /**
      * Builds the program
@@ -71,9 +70,23 @@ public:
      *  CL_DEV_OUT_OF_MEMORY          - if the there is a failure to allocate memory
      *  CL_DEV_BUILD_ALREADY_COMPLETE - if the program has been already compiled
      */
-    cl_dev_err_code BuildProgram( ICLDevBackendProgram_* pProgram,
-                                  const ICLDevBackendOptions* pOptions,
-                                  const char* pBuildOpts);
+    cl_dev_err_code BuildProgram(ICLDevBackendProgram_ *pProgram,
+                                 const ICLDevBackendOptions *pOptions,
+                                 const char *pBuildOpts) override;
+
+    /**
+     * Create program from backend library kernel module and object files.
+     *
+     * @param pProgram pointer to created program.
+     *
+     * @returns
+     *  CL_DEV_SUCCESS        - the build succeeded
+     *  CL_DEV_OUT_OF_MEMORY  - if the there is a failure to allocate memory
+     *  CL_DEV_INVALID_VALUE  - if Prog is nullptr
+     *  CL_DEV_ERROR_FAIL     - if other internal exceptions are throwed
+     */
+    cl_dev_err_code CreateLibraryProgram(ICLDevBackendProgram_ **Prog,
+                                         char **KernelNames) override;
 
     /**
      * Dumps the content of the given code container

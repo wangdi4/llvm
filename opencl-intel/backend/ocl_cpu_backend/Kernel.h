@@ -122,6 +122,11 @@ public:
   virtual const cl_kernel_argument_info *GetKernelArgInfo() const;
 
   /**
+   * Set the kernel parameters extended information.
+   */
+  virtual void SetKernelArgInfo(std::vector<cl_kernel_argument_info> argInfos);
+
+  /**
    * Gets the description of the kernel body, the returned object contains all
    *the kernel
    * body proporties
@@ -315,6 +320,7 @@ protected:
   unsigned int m_CSRMask;  // Mask to be applied to set the execution flags
   unsigned int m_CSRFlags; // Flags to be set during execution
   std::vector<cl_kernel_argument> m_explicitArgs;
+  std::vector<cl_kernel_argument_info> m_explicitArgsInfo;
   unsigned int m_explicitArgsSizeInBytes;
   unsigned int m_RequiredUniformKernelArgsAlignment;
   std::vector<unsigned int> m_memArgs;

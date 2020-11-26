@@ -72,7 +72,7 @@ ProgramWithBuiltInKernels::ProgramWithBuiltInKernels(SharedPtr<Context>         
                 cl_dev_program pDevProg = m_ppDevicePrograms[j]->GetDeviceProgramHandle();
                 if(nullptr != pDevProg)
                 {
-                    pDevices[i]->GetDeviceAgent()->clDevReleaseProgram(pDevProg);
+                    pDevices[j]->GetDeviceAgent()->clDevReleaseProgram(pDevProg);
                 }
             }
         }

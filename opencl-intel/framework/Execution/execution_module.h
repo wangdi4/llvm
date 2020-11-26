@@ -197,6 +197,25 @@ namespace Intel { namespace OpenCL { namespace Framework {
         cl_err_code         EnqueueMarkerWithWaitList(const SharedPtr<IOclCommandQueueBase>& clCommandQueue, cl_uint uiNumEvents, const cl_event* pEventList, cl_event* pEvent, ApiLogger* pApiLogger);
         cl_err_code         EnqueueMarker(const SharedPtr<IOclCommandQueueBase>& clCommandQueue, cl_event *pEvent, ApiLogger* pApiLogger);
 
+        /// Enqueue parallel copy.
+        cl_err_code EnqueueLibraryCopy(SharedPtr<IOclCommandQueueBase> &queue,
+                                       void *dst, const void *src, size_t size,
+                                       bool is_dst_svm, bool is_dst_usm,
+                                       bool is_src_svm, bool is_src_usm,
+                                       cl_bool blocking,
+                                       cl_uint num_events_in_wait_list,
+                                       const cl_event *event_wait_list,
+                                       cl_event *event, ApiLogger *api_logger);
+
+        // Enqueue parallel set.
+        cl_err_code EnqueueLibrarySet(SharedPtr<IOclCommandQueueBase> &queue,
+                                      void *dst, unsigned char value,
+                                      size_t size, bool is_dst_svm,
+                                      bool is_dst_usm,
+                                      cl_uint num_events_in_wait_list,
+                                      const cl_event *event_wait_list,
+                                      cl_event *event, ApiLogger *api_logger);
+
         PlatformModule*     m_pPlatfromModule;                                                  // Pointer to the platform operation. This is the internal interface of the module.
         ContextModule*      m_pContextModule;                                                   // Pointer to the context operation. This is the internal interface of the module.
         OCLObjectsMap<_cl_command_queue_int, _cl_context_int>*      m_pOclCommandQueueMap;      // Holds the set of active queues.
@@ -210,6 +229,9 @@ namespace Intel { namespace OpenCL { namespace Framework {
         ocl_gpa_data *      m_pGPAData;
 
         OPENCL_VERSION      m_opencl_ver;
+
+        // Whether parallel copy is enabled.
+        bool m_enableParallelCopy;
 
         DECLARE_LOGGER_CLIENT; // Logger client for logging operations.
 

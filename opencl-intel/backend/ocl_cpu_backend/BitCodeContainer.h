@@ -37,6 +37,7 @@ class BitCodeContainer : public ICLDevBackendCodeContainer
 {
 public:
     BitCodeContainer(const void *pBinary, size_t uiBinarySize, const char* name = "");
+    BitCodeContainer(std::unique_ptr<llvm::MemoryBuffer> memBuffer);
     ~BitCodeContainer();
 
     const void* GetCode() const;
