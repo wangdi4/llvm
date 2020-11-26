@@ -5548,7 +5548,7 @@ static void printNotesHelper(
                             typename ELFT::Addr)>
         StartNotesFn,
     llvm::function_ref<void(const typename ELFT::Note &)> ProcessNoteFn,
-    llvm::function_ref<void()> FinishNotesFn = []() {}) {
+    llvm::function_ref<void()> FinishNotesFn) {
   const ELFFile<ELFT> &Obj = *Dumper.getElfObject().getELFFile();
 
   ArrayRef<typename ELFT::Shdr> Sections = cantFail(Obj.sections());
@@ -5562,7 +5562,10 @@ static void printNotesHelper(
       for (const typename ELFT::Note &Note : Obj.notes(S, Err))
         ProcessNoteFn(Note);
       if (Err)
-        reportError(std::move(Err), Dumper.getElfObject().getFileName());
+        reportError(createError("unable to read notes from the " +
+                                describe(Obj, S) + ": " +
+                                toString(std::move(Err))),
+                    Dumper.getElfObject().getFileName());
       FinishNotesFn();
     }
     return;
@@ -5584,7 +5587,10 @@ static void printNotesHelper(
     for (const typename ELFT::Note Note : Obj.notes(P, Err))
       ProcessNoteFn(Note);
     if (Err)
-      reportError(std::move(Err), Dumper.getElfObject().getFileName());
+      reportError(
+          createError("unable to read notes from the PT_NOTE segment: " +
+                      toString(std::move(Err))),
+          Dumper.getElfObject().getFileName());
     FinishNotesFn();
   }
 }
@@ -5651,7 +5657,7 @@ template <class ELFT> void GNUStyle<ELFT>::printNotes() {
     }
   };
 
-  printNotesHelper(this->dumper(), PrintHeader, ProcessNote);
+  printNotesHelper(this->dumper(), PrintHeader, ProcessNote, []() {});
 }
 
 template <class ELFT> void GNUStyle<ELFT>::printELFLinkerOptions() {
