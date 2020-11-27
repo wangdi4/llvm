@@ -162,6 +162,8 @@ STATISTIC(
     NumLookupTablesHoles,
     "Number of switch instructions turned into lookup tables (holes checked)");
 STATISTIC(NumTableCmpReuses, "Number of reused switch table lookup compares");
+STATISTIC(NumFoldBranchToCommonDest,
+          "Number of branches folded into predecessor basic block");
 STATISTIC(
     NumHoistCommonCode,
     "Number of common instruction 'blocks' hoisted up to the begin block");
@@ -3330,6 +3332,12 @@ bool llvm::FoldBranchToCommonDest(BranchInst *BI, MemorySSAUpdater *MSSAU,
   const unsigned PredCount = pred_size(BB);
 
   bool Changed = false;
+
+  auto _ = make_scope_exit([&]() {
+    if (Changed)
+      ++NumFoldBranchToCommonDest;
+  });
+
   TargetTransformInfo::TargetCostKind CostKind =
     BB->getParent()->hasMinSize() ? TargetTransformInfo::TCK_CodeSize
                                   : TargetTransformInfo::TCK_SizeAndLatency;
