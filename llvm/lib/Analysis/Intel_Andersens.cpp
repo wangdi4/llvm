@@ -5836,7 +5836,7 @@ ModRefInfo IntelModRefImpl::getLibFuncModRefInfo(LibFunc TheLibFunc,
       const Value *Object =
           getUnderlyingObject(Call->getArgOperand(ArgNo));
 
-      MemoryLocation Loc2 = MemoryLocation(Object, LocationSize::unknown());
+      MemoryLocation Loc2 = MemoryLocation(Object, LocationSize::beforeOrAfterPointer());
       AAQueryInfo AAQIP;
       AliasResult AR = Ander->alias(Loc, Loc2, AAQIP);
       if (AR == NoAlias)

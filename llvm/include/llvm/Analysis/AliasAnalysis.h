@@ -423,7 +423,8 @@ public:
 
   /// A convenience wrapper around the primary \c alias interface.
   AliasResult alias(const Value *V1, const Value *V2) {
-    return alias(V1, LocationSize::unknown(), V2, LocationSize::unknown());
+    return alias(MemoryLocation::getBeforeOrAfter(V1),
+                 MemoryLocation::getBeforeOrAfter(V2));
   }
 
   /// A trivial helper function to check to see if the specified pointers are
@@ -453,8 +454,8 @@ public:
 
   /// A convenience wrapper around the \c loopCarriedAlias interface.
   AliasResult loopCarriedAlias(const Value *V1, const Value *V2) {
-    return loopCarriedAlias(V1, LocationSize::unknown(), V2,
-                            LocationSize::unknown());
+    return loopCarriedAlias(MemoryLocation::getBeforeOrAfter(V1),
+                            MemoryLocation::getBeforeOrAfter(V2));
   }
 
   /// A trivial helper function to check to see if the specified pointers are
@@ -473,8 +474,8 @@ public:
 
   /// A convenience wrapper around the \c isLoopCarriedNoAlias helper interface.
   bool isLoopCarriedNoAlias(const Value *V1, const Value *V2) {
-    return isLoopCarriedNoAlias(MemoryLocation(V1, LocationSize::unknown()),
-                                MemoryLocation(V2, LocationSize::unknown()));
+    return isLoopCarriedNoAlias(MemoryLocation::getBeforeOrAfter(V1),
+                                MemoryLocation::getBeforeOrAfter(V2));
   }
 
   /// A trivial helper function to check to see if the specified pointers are
@@ -500,8 +501,8 @@ public:
 
   /// A convenience wrapper around the \c isNoAlias helper interface.
   bool isNoAlias(const Value *V1, const Value *V2) {
-    return isNoAlias(MemoryLocation(V1, LocationSize::unknown()),
-                     MemoryLocation(V2, LocationSize::unknown()));
+    return isNoAlias(MemoryLocation::getBeforeOrAfter(V1),
+                     MemoryLocation::getBeforeOrAfter(V2));
   }
 
   /// A trivial helper function to check to see if the specified pointers are
@@ -526,8 +527,7 @@ public:
   /// A convenience wrapper around the primary \c pointsToConstantMemory
   /// interface.
   bool pointsToConstantMemory(const Value *P, bool OrLocal = false) {
-    return pointsToConstantMemory(MemoryLocation(P, LocationSize::unknown()),
-                                  OrLocal);
+    return pointsToConstantMemory(MemoryLocation::getBeforeOrAfter(P), OrLocal);
   }
 
   /// @}

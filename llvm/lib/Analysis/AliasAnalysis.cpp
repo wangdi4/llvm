@@ -726,7 +726,7 @@ ModRefInfo AAResults::getModRefInfoForMaskedScatter(const IntrinsicInst *MS,
     MemoryLocation::getForPtrVec(BasePtr, PtrVecMemLocs,
                                  PtrVectorMemLocCheckDepth);
   else
-    PtrVecMemLocs.assign(NumElts, MemoryLocation(BasePtr, LocationSize::unknown()));
+    PtrVecMemLocs.assign(NumElts, MemoryLocation(BasePtr, LocationSize::afterPointer()));
 
   // If any pointer on an unmasked lane may alias with Loc, return MRI_Mod.
   // Treat all lanes as unmasked if Mask is not a constant vector.
