@@ -17,6 +17,7 @@
 #include "llvm/Pass.h"
 
 #include "llvm/Analysis/BasicAliasAnalysis.h"
+#include "llvm/Analysis/GlobalsModRef.h"
 #include "llvm/Analysis/Intel_Andersens.h"
 #include "llvm/Analysis/Intel_StdContainerAA.h"
 #include "llvm/Analysis/ScalarEvolution.h"
@@ -105,6 +106,10 @@ HIRDDAnalysis HIRDDAnalysisPass::run(Function &F, FunctionAnalysisManager &AM) {
     AAR->addAAResult(*AAResult);
   }
 
+  if (auto *AAResult = MAMProxy.getCachedResult<GlobalsAA>(*F.getParent())) {
+    AAR->addAAResult(*AAResult);
+  }
+
   if (auto *AAResult = AM.getCachedResult<BasicAA>(F)) {
     AAR->addAAResult(*AAResult);
   }
@@ -138,7 +143,6 @@ void HIRDDAnalysisWrapperPass::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.addUsedIfAvailable<TypeBasedAAWrapperPass>();
   AU.addUsedIfAvailable<StdContainerAAWrapperPass>();
   AU.addUsedIfAvailable<BasicAAWrapperPass>();
-  // TODO: Do we need to add scev alias analysis??
 }
 
 // \brief Because the graph is evaluated lazily, runOnFunction doesn't
@@ -160,6 +164,10 @@ bool HIRDDAnalysisWrapperPass::runOnFunction(Function &F) {
   }
 
   if (auto *Pass = getAnalysisIfAvailable<AndersensAAWrapperPass>()) {
+    AAR->addAAResult(Pass->getResult());
+  }
+
+  if (auto *Pass = getAnalysisIfAvailable<GlobalsAAWrapperPass>()) {
     AAR->addAAResult(Pass->getResult());
   }
 
