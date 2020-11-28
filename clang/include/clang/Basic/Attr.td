@@ -1310,7 +1310,7 @@ def SYCLIntelMaxWorkGroupSize : InheritableAttr {
 def SYCLIntelMaxGlobalWorkDim : InheritableAttr {
   let Spellings = [CXX11<"intelfpga","max_global_work_dim">,
                    CXX11<"intel","max_global_work_dim">];
-  let Args = [UnsignedArgument<"Number">];
+  let Args = [ExprArgument<"Value">];
   let LangOpts = [SYCLIsDevice, SYCLIsHost];
   let Subjects = SubjectList<[Function], ErrorDiag>;
   let Documentation = [SYCLIntelMaxGlobalWorkDimAttrDocs];
