@@ -699,12 +699,13 @@ Syntax:
 
 .. code-block:: text
 
-  #pragma vector {always[assert]|aligned|unaligned|temporal|nontemporal|[no]vecremainder|[no]mask_readwrite}
+  #pragma vector {always[assert]|aligned|unaligned|temporal|nontemporal|[no]vecremainder|[no]mask_readwrite|[no]dynamic_align}
 
 ``pragma vector`` with no other keyword will do nothing.
 
-Currently we only support ``pragma vector``, ``pragma vector always`` and
-``pragma vector aligned``.
+Currently we only support ``pragma vector``, ``pragma vector always``,
+``pragma vector aligned`` ,``pragma vector dynamic_align`` and
+``prgama vector nodynamic_align``.
 When the 'aligned' keyword is used, it indicates to the compiler that the loop
 should be vectorized using aligned data movement instructions for all array
 references inside the loop.
@@ -719,6 +720,10 @@ Example:
     #pragma vector always
     for(int j=lb; j<ub; j++) { a[j]=a[j]+b[j]; }
     #pragma vector aligned
+    for(int j=lb; j<ub; j++) { a[j]=a[j]+b[j]; }
+    #pragma vector dynamic_align
+    for(int j=lb; j<ub; j++) { a[j]=a[j]+b[j]; }
+    #pragma vector nodynamic_align
     for(int j=lb; j<ub; j++) { a[j]=a[j]+b[j]; }
   }
 
@@ -748,6 +753,15 @@ AST:
   | `-<<<NULL>>>
 
 
+  AttributedStmt 0x2d888a37748 <line:6:11, line:7:46>
+  |-LoopHintAttr 0x2d888a37708 <line:6:11> Implicit vector VectorizeDynamicAlign Enable
+  | |-<<<NULL>>>
+  | `-<<<NULL>>>
+
+  AttributedStmt 0x2d888a37748 <line:6:11, line:7:46>
+  |-LoopHintAttr 0x2d888a37708 <line:6:11> Implicit vector VectorizeNoDynamicAlign Enable
+  | |-<<<NULL>>>
+  | `-<<<NULL>>>
 Note that ``#pragma vector always`` and ``#pragma vector aligned`` are
 represented as two LoopHint attributes.
 
@@ -761,13 +775,22 @@ IR:
 .. code-block:: llvm
 
   br label %for.cond6, !llvm.loop !2
-  br label %for.cond20, !llvm.loop !5
+  br label %for.cond6, !llvm.loop !4
+  br label %for.cond20, !llvm.loop !7
+  br label %for.cond34, !llvm.loop !9
+  br label %for.cond48, !llvm.loop !11
 
-  !2 = distinct !{!2, !3, !4}
-  !3 = !{!"llvm.loop.vectorize.ignore_profitability"}
-  !4 = !{!"llvm.loop.vectorize.enable", i1 true}
-  !5 = distinct !{!5, !6}
-  !6 = !{!"llvm.loop.intel.vector.aligned"}
+  !2 = distinct !{!2, !3}
+  !3 = !{!"llvm.loop.mustprogress"}
+  !4 = distinct !{!4, !3, !5, !6}
+  !5 = !{!"llvm.loop.vectorize.ignore_profitability"}
+  !6 = !{!"llvm.loop.vectorize.enable", i1 true}
+  !7 = distinct !{!7, !3, !8}
+  !8 = !{!"llvm.loop.intel.vector.aligned"}
+  !9 = distinct !{!9, !3, !10}
+  !10 = !{!"llvm.loop.intel.vector.dynamic_align", !"true"}
+  !11 = distinct !{!11, !3, !12}
+  !12 = !{!"llvm.loop.intel.vector.nodynamic_align", !"true"}
 
   }];
   let UserContent = [{

@@ -150,8 +150,13 @@ void foo4() {
   int n = 10;
   #pragma vector always
   #pragma vector aligned
+  #pragma vector dynamic_align
   for(int i = 0;i < n; ++i) {
     // CHECK: br label %{{.*}}, !llvm.loop ![[LOOP_32:[0-9]+]]
+  }
+  #pragma vector nodynamic_align
+  for(int i = 0;i < n; ++i) {
+    // CHECK: br label %{{.*}}, !llvm.loop ![[LOOP_33:[0-9]+]]
   }
 }
 
@@ -177,4 +182,7 @@ void foo4() {
 // CHECK: ![[LOOP_7]] = distinct !{![[LOOP_7]], ![[LOOP_MUSTPROGRESS]], ![[NOVECTOR]]}
 // CHECK: ![[LOOP_8]] = distinct !{![[LOOP_8]], ![[LOOP_MUSTPROGRESS]], ![[NOVECTOR]]}
 // CHECK: ![[LOOP_31]] = distinct !{![[LOOP_31]], ![[LOOP_MUSTPROGRESS]], ![[VALWAYS]], ![[VENABLE]], ![[VALIGNED]]}
-// CHECK: ![[LOOP_32]] = distinct !{![[LOOP_32]], ![[LOOP_MUSTPROGRESS]], ![[VALWAYS]], ![[VENABLE]], ![[VALIGNED]]}
+// CHECK: ![[LOOP_32]] = distinct !{![[LOOP_32]], ![[LOOP_MUSTPROGRESS]], ![[VALWAYS]], ![[VENABLE]], ![[VALIGNED]], ![[DYNAMICALIGN:[0-9]+]]}
+// CHECK: ![[DYNAMICALIGN]] = !{!"llvm.loop.intel.vector.dynamic_align", !"true"}
+// CHECK: ![[LOOP_33]] = distinct !{![[LOOP_33]], ![[LOOP_MUSTPROGRESS]], ![[NODYNAMICALIGN:[0-9]+]]}
+// CHECK: ![[NODYNAMICALIGN]] = !{!"llvm.loop.intel.vector.nodynamic_align", !"true"}

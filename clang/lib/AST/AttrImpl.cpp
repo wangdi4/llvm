@@ -113,9 +113,13 @@ LoopHintAttr::getDiagnosticName(const PrintingPolicy &Policy) const {
     return "#pragma fusion";
   else if (SpellingIndex == Pragma_novector)
     return "#pragma novector";
-  else if (SpellingIndex == Pragma_vector)
+  else if (SpellingIndex == Pragma_vector) {
+    if (option != clang::LoopHintAttr::Vectorize) {
+      std::string Name = "#pragma vector ";
+      return Name + getOptionName(option);
+    }
     return "#pragma vector";
-  else if (SpellingIndex == Pragma_loop_count)
+  } else if (SpellingIndex == Pragma_loop_count)
     return getOptionName(option) + getValueString(Policy);
 #endif // INTEL_CUSTOMIZATION
 

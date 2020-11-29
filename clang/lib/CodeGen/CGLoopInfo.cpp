@@ -614,6 +614,20 @@ MDNode *LoopInfo::createMetadata(
     Metadata *Vals[] = {MDString::get(Ctx, "llvm.loop.intel.vector.aligned")};
     LoopProperties.push_back(MDNode::get(Ctx, Vals));
   }
+  if (Attrs.VectorizeDynamicAlignEnable) {
+    LLVMContext &Ctx = Header->getContext();
+    llvm::SmallVector<llvm::Metadata *, 4> Vals;
+    Vals.push_back(MDString::get(Ctx, "llvm.loop.intel.vector.dynamic_align"));
+    Vals.push_back(MDString::get(Ctx, "true"));
+    LoopProperties.push_back(MDNode::get(Ctx, Vals));
+  }
+  if (Attrs.VectorizeNoDynamicAlignEnable) {
+    LLVMContext &Ctx = Header->getContext();
+    llvm::SmallVector<llvm::Metadata *, 4> Vals;
+    Vals.push_back(MDString::get(Ctx, "llvm.loop.intel.vector.nodynamic_align"));
+    Vals.push_back(MDString::get(Ctx, "true"));
+    LoopProperties.push_back(MDNode::get(Ctx, Vals));
+  }
   // Setting loop_count count
   if (Attrs.LoopCount.size() > 0) {
     LLVMContext &Ctx = Header->getContext();
@@ -740,7 +754,9 @@ LoopAttributes::LoopAttributes(bool IsParallel)
       ForceHyperoptEnable(LoopAttributes::Unspecified),
       FusionEnable(LoopAttributes::Unspecified), IVDepLoop(false),
       IVDepBack(false), VectorizeAlwaysEnable(false),
-      VectorizeAlignedEnable(false), LoopCountMin(0), LoopCountMax(0),
+      VectorizeAlignedEnable(false), VectorizeDynamicAlignEnable(false),
+      VectorizeNoDynamicAlignEnable(false),
+      LoopCountMin(0), LoopCountMax(0),
       LoopCountAvg(0),
 #endif // INTEL_CUSTOMIZATION
       UnrollEnable(LoopAttributes::Unspecified),
@@ -773,6 +789,8 @@ void LoopAttributes::clear() {
   IVDepBack = false;
   VectorizeAlwaysEnable = false;
   VectorizeAlignedEnable = false;
+  VectorizeDynamicAlignEnable = false;
+  VectorizeNoDynamicAlignEnable = false;
   LoopCount.clear();
   LoopCountMin = 0;
   LoopCountMax = 0;
@@ -829,6 +847,8 @@ LoopInfo::LoopInfo(BasicBlock *Header, const LoopAttributes &Attrs,
       Attrs.FusionEnable == LoopAttributes::Unspecified &&
       !Attrs.VectorizeAlwaysEnable && Attrs.LoopCount.size() == 0 &&
       !Attrs.VectorizeAlignedEnable &&
+      !Attrs.VectorizeDynamicAlignEnable &&
+      !Attrs.VectorizeNoDynamicAlignEnable &&
       Attrs.LoopCountMin == 0 && Attrs.LoopCountMax == 0 &&
       Attrs.LoopCountAvg == 0 &&
 #endif // INTEL_CUSTOMIZATION
@@ -1042,6 +1062,8 @@ void LoopInfoStack::push(BasicBlock *Header, clang::ASTContext &Ctx,
       case LoopHintAttr::MinIIAtFmax:
       case LoopHintAttr::VectorizeAlways:
       case LoopHintAttr::VectorizeAligned:
+      case LoopHintAttr::VectorizeDynamicAlign:
+      case LoopHintAttr::VectorizeNoDynamicAlign:
       case LoopHintAttr::LoopCount:
       case LoopHintAttr::LoopCountMax:
       case LoopHintAttr::LoopCountMin:
@@ -1106,6 +1128,12 @@ void LoopInfoStack::push(BasicBlock *Header, clang::ASTContext &Ctx,
       case LoopHintAttr::VectorizeAligned:
         setVectorizeAlignedEnable();
         break;
+      case LoopHintAttr::VectorizeDynamicAlign:
+        setVectorizeDynamicAlignEnable();
+        break;
+      case LoopHintAttr::VectorizeNoDynamicAlign:
+        setVectorizeNoDynamicAlignEnable();
+        break;
       case LoopHintAttr::IIAtMost:
       case LoopHintAttr::IIAtLeast:
       case LoopHintAttr::LoopCount:
@@ -1144,6 +1172,8 @@ void LoopInfoStack::push(BasicBlock *Header, clang::ASTContext &Ctx,
       case LoopHintAttr::Fusion:
       case LoopHintAttr::VectorizeAlways:
       case LoopHintAttr::VectorizeAligned:
+      case LoopHintAttr::VectorizeDynamicAlign:
+      case LoopHintAttr::VectorizeNoDynamicAlign:
       case LoopHintAttr::LoopCount:
       case LoopHintAttr::LoopCountMin:
       case LoopHintAttr::LoopCountMax:
@@ -1186,6 +1216,8 @@ void LoopInfoStack::push(BasicBlock *Header, clang::ASTContext &Ctx,
       case LoopHintAttr::IVDepHLSIntel:
       case LoopHintAttr::VectorizeAlways:
       case LoopHintAttr::VectorizeAligned:
+      case LoopHintAttr::VectorizeDynamicAlign:
+      case LoopHintAttr::VectorizeNoDynamicAlign:
       case LoopHintAttr::LoopCount:
       case LoopHintAttr::LoopCountMin:
       case LoopHintAttr::LoopCountMax:
@@ -1265,6 +1297,8 @@ void LoopInfoStack::push(BasicBlock *Header, clang::ASTContext &Ctx,
       case LoopHintAttr::IVDepHLSIntel:
       case LoopHintAttr::VectorizeAlways:
       case LoopHintAttr::VectorizeAligned:
+      case LoopHintAttr::VectorizeDynamicAlign:
+      case LoopHintAttr::VectorizeNoDynamicAlign:
 #endif // INTEL_CUSTOMIZATION
       case LoopHintAttr::Unroll:
       case LoopHintAttr::UnrollAndJam:
@@ -1305,6 +1339,8 @@ void LoopInfoStack::push(BasicBlock *Header, clang::ASTContext &Ctx,
       case LoopHintAttr::IVDepHLSIntel:
       case LoopHintAttr::VectorizeAlways:
       case LoopHintAttr::VectorizeAligned:
+      case LoopHintAttr::VectorizeDynamicAlign:
+      case LoopHintAttr::VectorizeNoDynamicAlign:
       case LoopHintAttr::LoopCount:
       case LoopHintAttr::LoopCountMax:
       case LoopHintAttr::LoopCountMin:
