@@ -2095,11 +2095,14 @@ bool Sema::isOpenMPCapturedByRef(const ValueDecl *D, unsigned Level,
           // clause on a combined target construct then it is treated as if
           // it also appears in a map clause with a map-type of tofrom.
           // So these clauses will treated as if mapped and byref captured.
-          LangOpts.OpenMPLateOutline && DSAStack->hasExplicitDSA(
-              D, [](OpenMPClauseKind K, bool AppliedToPointee) {
-                 return K == OMPC_reduction ||
-                        K == OMPC_lastprivate ||
-                        K == OMPC_linear; }, Level) ||
+          (LangOpts.OpenMPLateOutline &&
+           DSAStack->hasExplicitDSA(
+               D,
+               [](OpenMPClauseKind K, bool AppliedToPointee) {
+                 return K == OMPC_reduction || K == OMPC_lastprivate ||
+                        K == OMPC_linear;
+               },
+               Level)) ||
 #endif // INTEL_COLLAB
           DSAStack->hasExplicitDSA(
               D,

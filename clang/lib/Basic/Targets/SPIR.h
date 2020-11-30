@@ -335,7 +335,7 @@ public:
   }
 
 #if INTEL_CUSTOMIZATION
-  virtual bool shouldDiagnoseVariadicCall(void) const {
+  virtual bool shouldDiagnoseVariadicCall(void) const override {
     return false;
   }
 #endif // INTEL_CUSTOMIZATION
@@ -388,7 +388,7 @@ public:
   }
 
 #if INTEL_CUSTOMIZATION
-  virtual bool shouldDiagnoseVariadicCall(void) const {
+  virtual bool shouldDiagnoseVariadicCall(void) const override {
     return false;
   }
 #endif // INTEL_CUSTOMIZATION
