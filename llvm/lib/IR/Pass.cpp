@@ -64,7 +64,7 @@ bool ModulePass::skipModule(Module &M) const {
 }
 
 bool Pass::mustPreserveAnalysisID(char &AID) const {
-  return Resolver->getAnalysisIfAvailable(&AID, true) != nullptr;
+  return Resolver->getAnalysisIfAvailable(&AID) != nullptr;
 }
 
 #if !INTEL_PRODUCT_RELEASE
