@@ -764,13 +764,15 @@ public:
       if (!PtrDomTy) {
         IsMismatched = true;
         BadcastReason = "Dominant type of pointer not resolved";
-      } else if (PtrDomTy->getPointerElementType() != ValTy ||
+      } else if ((PtrDomTy->getPointerElementType() != ValTy &&
+                  !PtrInfo->getIsPartialPointerUse()) ||
                  (PtrInfo->canAliasMultipleAggregatePointers() &&
                   hasIncompatibleAggregateDecl(PtrDomTy, PtrInfo))) {
         IsMismatched = true;
         BadcastReason =
             "Dominant types for value and pointer are not compatible";
-      } else if (!ValInfo || !ValInfo->canAliasToAggregatePointer()) {
+      } else if (!PtrInfo->getIsPartialPointerUse() &&
+                 (!ValInfo || !ValInfo->canAliasToAggregatePointer())) {
         // If we reach here, the pointer has multiple levels of indirection to
         // an aggregate type, but the value loaded did not involve an aggregate
         // type.
@@ -1033,21 +1035,17 @@ public:
       if (!PtrDomTy) {
         IsMismatched = true;
         BadcastReason = "Dominant type of pointer not resolved";
-      } else if (PtrDomTy->getPointerElementType() != ValTy ||
+      } else if ((PtrDomTy->getPointerElementType() != ValTy &&
+                  !PtrInfo->getIsPartialPointerUse()) ||
                  (PtrInfo->canAliasMultipleAggregatePointers() &&
                   hasIncompatibleAggregateDecl(PtrDomTy, PtrInfo))) {
         IsMismatched = true;
         BadcastReason =
             "Dominant types for value and pointer are not compatible";
-      } else if (!ValInfo) {
+      } else if (!ValInfo && !PtrInfo->getIsPartialPointerUse()) {
         IsMismatched = true;
         BadcastReason =
             "Dominant type of value pointer being stored not resolved";
-      } else if (!ValTy->isPointerTy() &&
-                 hasIncompatibleAggregateDecl(ValTy->getPointerElementType(),
-                                              ValInfo)) {
-        IsMismatched = true;
-        BadcastReason = "Incompatible type for ptr-to-ptr store";
       }
     }
 
