@@ -76,7 +76,7 @@ struct RTLInfoTy {
   typedef void *(create_offload_queue_ty)(int32_t, bool);
   typedef void *(get_platform_handle_ty)(int32_t);
   typedef void *(get_device_handle_ty)(int32_t);
-  typedef void *(get_context_handle_ty)();
+  typedef void *(get_context_handle_ty)(int32_t);
   typedef int32_t(release_offload_queue_ty)(int32_t, void *);
   typedef void *(data_alloc_managed_ty)(int32_t, int64_t);
   typedef int32_t(is_device_accessible_ptr_ty)(int32_t, void *);

@@ -1295,7 +1295,8 @@ int32_t __tgt_rtl_number_of_devices() {
   DeviceInfo->Names.resize(DeviceInfo->numDevices);
   DeviceInfo->Initialized.resize(DeviceInfo->numDevices);
   DeviceInfo->SLMSize.resize(DeviceInfo->numDevices);
-  DeviceInfo->DeviceAccessibleData.resize(DeviceInfo->numDevices);
+  if (DeviceInfo->Flags.UseSVM && DeviceInfo->DeviceType == CL_DEVICE_TYPE_CPU)
+    DeviceInfo->DeviceAccessibleData.resize(DeviceInfo->numDevices);
   DeviceInfo->Mutexes = new std::mutex[DeviceInfo->numDevices];
   DeviceInfo->ProfileLocks = new std::mutex[DeviceInfo->numDevices];
   DeviceInfo->OffloadTables.resize(DeviceInfo->numDevices);
@@ -1897,6 +1898,11 @@ EXTERN void *__tgt_rtl_get_platform_handle(int32_t device_id) {
   return (void *) context;
 }
 
+EXTERN void *__tgt_rtl_get_context_handle(int32_t DeviceId) {
+  auto context = DeviceInfo->getContext(DeviceId);
+  return (void *)context;
+}
+
 // Allocate a managed memory object.
 EXTERN void *__tgt_rtl_data_alloc_managed(int32_t device_id, int64_t size) {
   int32_t kind = DeviceInfo->Flags.UseHostMemForUSM ? TARGET_ALLOC_HOST
@@ -1904,21 +1910,43 @@ EXTERN void *__tgt_rtl_data_alloc_managed(int32_t device_id, int64_t size) {
   return __tgt_rtl_data_alloc_explicit(device_id, size, kind);
 }
 
-// Check if the pointer belongs to a managed memory addres range.
-EXTERN int32_t __tgt_rtl_is_device_accessible_ptr(int32_t device_id, void *ptr) {
+// Check if the pointer belongs to a device-accessible pointer ranges
+EXTERN int32_t __tgt_rtl_is_device_accessible_ptr(
+    int32_t DeviceId, void *Ptr) {
+  // What we want here is to check if Ptr is a SVM/USM pointer.
+  // For GPU device, use the USM API to allow use of external memory allocation.
+  // For CPU device, use the existing internal data when SVM is enabled since
+  // USM API does not return consistent result.
   int32_t ret = false;
-  auto &mutex = DeviceInfo->Mutexes[device_id];
-  mutex.lock();
-  for (auto &range : DeviceInfo->DeviceAccessibleData[device_id]) {
-    intptr_t base = (intptr_t)range.first;
-    if (base <= (intptr_t)ptr && (intptr_t)ptr < base + range.second) {
+  if (DeviceInfo->Flags.UseSVM &&
+      DeviceInfo->DeviceType == CL_DEVICE_TYPE_CPU) {
+    std::unique_lock<std::mutex> lock(DeviceInfo->Mutexes[DeviceId]);
+    for (auto &range : DeviceInfo->DeviceAccessibleData[DeviceId]) {
+      intptr_t base = (intptr_t)range.first;
+      if (base <= (intptr_t)Ptr && (intptr_t)Ptr < base + range.second) {
+        ret = true;
+        break;
+      }
+    }
+  } else {
+    cl_unified_shared_memory_type_intel memType = 0;
+    CALL_CL_EXT_RET(DeviceId, false, clGetMemAllocInfo,
+                    DeviceInfo->getContext(DeviceId), Ptr,
+                    CL_MEM_ALLOC_TYPE_INTEL, sizeof(memType), &memType,
+                    nullptr);
+    switch (memType) {
+    case CL_MEM_TYPE_HOST_INTEL:
+    case CL_MEM_TYPE_DEVICE_INTEL:
+    case CL_MEM_TYPE_SHARED_INTEL:    // Includes SVM on GPU
       ret = true;
       break;
+    case CL_MEM_TYPE_UNKNOWN_INTEL:   // Normal host memory
+    default:
+      ret = false;
     }
   }
-  mutex.unlock();
-  IDP("Ptr " DPxMOD " is %sa managed memory pointer.\n", DPxPTR(ptr),
-     ret ? "" : "not ");
+  IDP("Ptr " DPxMOD " is %sa device-accessible pointer.\n", DPxPTR(Ptr),
+      ret ? "" : "not ");
   return ret;
 }
 
@@ -1969,8 +1997,10 @@ static inline void *dataAlloc(int32_t DeviceId, int64_t Size, void *hstPtr,
     IDP("Stashing an implicit argument " DPxMOD " for next kernel\n",
         DPxPTR(ret));
     DeviceInfo->Mutexes[DeviceId].lock();
-    DeviceInfo->DeviceAccessibleData[DeviceId].emplace(
-        std::make_pair(ret, meaningfulSize));
+    if (DeviceInfo->Flags.UseSVM &&
+        DeviceInfo->DeviceType == CL_DEVICE_TYPE_CPU)
+      DeviceInfo->DeviceAccessibleData[DeviceId].emplace(
+          std::make_pair(ret, meaningfulSize));
     // key "0" for kernel-independent implicit arguments
     DeviceInfo->ImplicitArgs[DeviceId][0].insert(ret);
     DeviceInfo->Mutexes[DeviceId].unlock();
@@ -1999,8 +2029,12 @@ EXTERN void *__tgt_rtl_data_alloc_explicit(
     CALL_CL_EXT_RVRC(device_id, mem, clHostMemAlloc, rc, context, nullptr, size,
                      0);
     if (mem) {
-      std::unique_lock<std::mutex> dataLock(mutex);
-      DeviceInfo->DeviceAccessibleData[device_id].emplace(std::make_pair(mem, size));
+      if (DeviceInfo->Flags.UseSVM &&
+          DeviceInfo->DeviceType == CL_DEVICE_TYPE_CPU) {
+        std::unique_lock<std::mutex> dataLock(mutex);
+        DeviceInfo->DeviceAccessibleData[device_id].emplace(
+            std::make_pair(mem, size));
+      }
       IDP("Allocated a host memory object " DPxMOD "\n", DPxPTR(mem));
     }
     break;
@@ -2013,8 +2047,12 @@ EXTERN void *__tgt_rtl_data_alloc_explicit(
     CALL_CL_EXT_RVRC(device_id, mem, clSharedMemAlloc, rc, context, device,
                      nullptr, size, 0);
     if (mem) {
-      std::unique_lock<std::mutex> dataLock(mutex);
-      DeviceInfo->DeviceAccessibleData[device_id].emplace(std::make_pair(mem, size));
+      if (DeviceInfo->Flags.UseSVM &&
+          DeviceInfo->DeviceType == CL_DEVICE_TYPE_CPU) {
+        std::unique_lock<std::mutex> dataLock(mutex);
+        DeviceInfo->DeviceAccessibleData[device_id].emplace(
+            std::make_pair(mem, size));
+      }
       IDP("Allocated a shared memory object " DPxMOD "\n", DPxPTR(mem));
     }
     break;

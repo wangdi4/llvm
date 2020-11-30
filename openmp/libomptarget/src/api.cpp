@@ -373,5 +373,21 @@ EXTERN void *omp_target_alloc_host(size_t size, int device_num) {
 EXTERN void *omp_target_alloc_shared(size_t size, int device_num) {
   return target_alloc_explicit(size, device_num, TARGET_ALLOC_SHARED, __func__);
 }
+
+EXTERN void *omp_target_get_context(int device_num) {
+  if (device_num == omp_get_initial_device()) {
+    REPORT("%s returns null for the host device\n", __func__);
+    return nullptr;
+  }
+
+  if (!device_is_ready(device_num)) {
+    REPORT("%s returns null for device %d\n", __func__, device_num);
+  }
+
+  void *context = PM->Devices[device_num].get_context_handle();
+  DP("%s returns " DPxMOD " for device %d\n", __func__, DPxPTR(context),
+     device_num);
+  return context;
+}
 #endif  // INTEL_COLLAB
 

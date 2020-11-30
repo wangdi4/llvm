@@ -265,6 +265,9 @@ void * omp_get_mapped_ptr(void *host_ptr, int device_num);
 EXTERN void *omp_target_alloc_device(size_t size, int device_num);
 EXTERN void *omp_target_alloc_host(size_t size, int device_num);
 EXTERN void *omp_target_alloc_shared(size_t size, int device_num);
+
+/// Get target device context
+EXTERN void *omp_target_get_context(int device_num);
 #endif  // INTEL_COLLAB
 
 /// add the clauses of the requires directives in a given file

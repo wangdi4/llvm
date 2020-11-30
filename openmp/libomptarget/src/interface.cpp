@@ -722,14 +722,8 @@ EXTERN void *__tgt_create_interop_obj(
   obj->async_handler = &__tgt_offload_proxy_task_complete_ooo;
   obj->queue = Device.create_offload_queue(is_async);
   obj->platform_handle = Device.get_platform_handle();
-  if (plugin == INTEROP_PLUGIN_LEVEL0) {
-     obj->device_handle = Device.get_device_handle();
-     obj->context_handle = Device.get_context_handle();
-  }
-  else {
-     obj->device_handle = NULL;
-     obj->context_handle = NULL;
-  }
+  obj->context_handle = Device.get_context_handle();
+  obj->device_handle = Device.get_device_handle();
   obj->plugin_interface = plugin;
 
   return obj;
