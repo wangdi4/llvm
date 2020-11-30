@@ -380,5 +380,15 @@ static bool CC_SVML_Mask(unsigned ValNo, MVT ValVT, MVT LocVT,
 }
 #endif
 
+static bool CC_X86_64_Pointer(unsigned &ValNo, MVT &ValVT, MVT &LocVT,
+                              CCValAssign::LocInfo &LocInfo,
+                              ISD::ArgFlagsTy &ArgFlags, CCState &State) {
+  if (LocVT != MVT::i64) {
+    LocVT = MVT::i64;
+    LocInfo = CCValAssign::ZExt;
+  }
+  return false;
+}
+
 // Provides entry points of CC_X86 and RetCC_X86.
 #include "X86GenCallingConv.inc"
