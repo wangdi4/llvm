@@ -169,7 +169,7 @@ bool VPOParoptTransform::privatizeSharedItems(WRegionNode *W) {
           LLVM_DEBUG(reportSkipped(AI, "not a single value type"));
           return false;
         }
-        Optional<uint64_t> Size =
+        Optional<TypeSize> Size =
             AI->getAllocationSizeInBits(F->getParent()->getDataLayout());
         if (!Size) {
           LLVM_DEBUG(reportSkipped(AI, "unknown size"));
