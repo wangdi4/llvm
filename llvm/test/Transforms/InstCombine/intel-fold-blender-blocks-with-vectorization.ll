@@ -80,15 +80,32 @@ define hidden fastcc i32 @fold-blender-test(%struct.VBVHNode* %node, %struct.Ise
 ; CHECK-NEXT:    [[CMP59:%.*]] = fcmp fast ogt float [[MUL22]], [[MUL52]]
 ; CHECK-NEXT:    [[OR_COND132:%.*]] = or i1 [[CMP59]], [[OR_COND131]]
 ; CHECK-NEXT:    [[CMP61:%.*]] = fcmp fast olt float [[MUL32]], [[MUL42]]
+; CHECK-NEXT:    [[BVINDEXPTR:%.*]] = bitcast i32* [[ARRAYIDX]] to <6 x i32>*
+; CHECK-NEXT:    [[BVINDEXV:%.*]] = load <6 x i32>, <6 x i32>* [[BVINDEXPTR]], align 1
+; CHECK-NEXT:    [[BBPTR:%.*]] = getelementptr inbounds [6 x float], [6 x float]* [[BB]], i64 0, <6 x i32> [[BVINDEXV]]
+; CHECK-NEXT:    [[BBV:%.*]] = call <6 x float> @llvm.masked.gather.v6f32.v6p0f32(<6 x float*> [[BBPTR]], i32 1, <6 x i1> <i1 true, i1 true, i1 true, i1 true, i1 true, i1 true>, <6 x float> undef)
+; CHECK-NEXT:    [[STARTPTR:%.*]] = bitcast float* [[ARRAYIDX1]] to <3 x float>*
+; CHECK-NEXT:    [[STARTV:%.*]] = load <3 x float>, <3 x float>* [[STARTPTR]], align 1
+; CHECK-NEXT:    [[STARTWIDENV:%.*]] = shufflevector <3 x float> [[STARTV]], <3 x float> undef, <6 x i32> <i32 0, i32 0, i32 1, i32 1, i32 2, i32 2>
+; CHECK-NEXT:    [[IDOTAXISPTR:%.*]] = bitcast float* [[ARRAYIDX2]] to <3 x float>*
+; CHECK-NEXT:    [[IDOTAXISV:%.*]] = load <3 x float>, <3 x float>* [[IDOTAXISPTR]], align 1
+; CHECK-NEXT:    [[IDOTAXISWIDENV:%.*]] = shufflevector <3 x float> [[IDOTAXISV]], <3 x float> undef, <6 x i32> <i32 0, i32 0, i32 1, i32 1, i32 2, i32 2>
+; CHECK-NEXT:    [[TMP0:%.*]] = fsub <6 x float> [[BBV]], [[STARTWIDENV]]
+; CHECK-NEXT:    [[T:%.*]] = fmul <6 x float> [[TMP0]], [[IDOTAXISWIDENV]]
+; CHECK-NEXT:    [[T1:%.*]] = shufflevector <6 x float> [[T]], <6 x float> undef, <8 x i32> <i32 0, i32 0, i32 2, i32 2, i32 4, i32 4, i32 4, i32 4>
+; CHECK-NEXT:    [[T2:%.*]] = shufflevector <6 x float> [[T]], <6 x float> undef, <8 x i32> <i32 3, i32 5, i32 5, i32 1, i32 1, i32 3, i32 1, i32 3>
+; CHECK-NEXT:    [[T1CMPT2:%.*]] = fcmp ogt <8 x float> [[T1]], [[T2]]
+; CHECK-NEXT:    [[T2LT0:%.*]] = fcmp olt <8 x float> [[T2]], zeroinitializer
+; CHECK-NEXT:    [[OR:%.*]] = or <8 x i1> [[T1CMPT2]], [[T2LT0]]
+; CHECK-NEXT:    [[TMP1:%.*]] = call i1 @llvm.vector.reduce.or.v8i1(<8 x i1> [[OR]])
 ; CHECK-NEXT:    [[OR_COND133:%.*]] = or i1 [[CMP61]], [[OR_COND132]]
-; CHECK-NEXT:    br i1 [[OR_COND133]], label [[CLEANUP:%.*]], label [[IF_END:%.*]]
-; CHECK:       if.end:
 ; CHECK-NEXT:    [[CMP62:%.*]] = fcmp fast olt float [[MUL12]], 0.000000e+00
 ; CHECK-NEXT:    [[CMP64:%.*]] = fcmp fast olt float [[MUL32]], 0.000000e+00
 ; CHECK-NEXT:    [[OR_COND:%.*]] = or i1 [[CMP62]], [[CMP64]]
 ; CHECK-NEXT:    [[CMP66:%.*]] = fcmp fast olt float [[MUL52]], 0.000000e+00
 ; CHECK-NEXT:    [[OR_COND84:%.*]] = or i1 [[OR_COND]], [[CMP66]]
-; CHECK-NEXT:    br i1 [[OR_COND84]], label [[CLEANUP]], label [[_ZL17BVH_NODE_HIT_TESTI8VBVHNODEEIPT_P5ISECT_EXIT:%.*]]
+; CHECK-NEXT:    [[OR_COND4:%.*]] = or i1 [[OR_COND133]], [[OR_COND84]]
+; CHECK-NEXT:    br i1 [[TMP1]], label [[CLEANUP:%.*]], label [[_ZL17BVH_NODE_HIT_TESTI8VBVHNODEEIPT_P5ISECT_EXIT:%.*]], !unpredictable !0
 ; CHECK:       _ZL17bvh_node_hit_testI8VBVHNodeEiPT_P5Isect.exit:
 ; CHECK-NEXT:    [[DIST_PTR:%.*]] = getelementptr inbounds [[STRUCT_ISECT]], %struct.Isect* [[ISEC]], i64 0, i32 2
 ; CHECK-NEXT:    [[DIST:%.*]] = load float, float* [[DIST_PTR]], align 8
@@ -96,8 +113,12 @@ define hidden fastcc i32 @fold-blender-test(%struct.VBVHNode* %node, %struct.Ise
 ; CHECK-NEXT:    [[CMP72:%.*]] = fcmp fast ogt float [[MUL22]], [[DIST]]
 ; CHECK-NEXT:    [[OR_COND134:%.*]] = or i1 [[CMP69]], [[CMP72]]
 ; CHECK-NEXT:    [[CMP75:%.*]] = fcmp fast ogt float [[MUL42]], [[DIST]]
+; CHECK-NEXT:    [[SPLATDIST_SPLATINSERT:%.*]] = insertelement <8 x float> undef, float [[DIST]], i32 0
+; CHECK-NEXT:    [[SPLATDIST_SPLAT:%.*]] = shufflevector <8 x float> [[SPLATDIST_SPLATINSERT]], <8 x float> undef, <8 x i32> zeroinitializer
+; CHECK-NEXT:    [[T2GTDIST:%.*]] = fcmp ogt <8 x float> [[T1]], [[SPLATDIST_SPLAT]]
+; CHECK-NEXT:    [[TMP2:%.*]] = call i1 @llvm.vector.reduce.or.v8i1(<8 x i1> [[T2GTDIST]])
 ; CHECK-NEXT:    [[OR_COND135:%.*]] = or i1 [[CMP75]], [[OR_COND134]]
-; CHECK-NEXT:    [[NOT_OR_COND135:%.*]] = xor i1 [[OR_COND135]], true
+; CHECK-NEXT:    [[NOT_OR_COND135:%.*]] = xor i1 [[TMP2]], true
 ; CHECK-NEXT:    [[ZEXT_0:%.*]] = zext i1 [[NOT_OR_COND135]] to i32
 ; CHECK-NEXT:    [[TOBOOL6:%.*]] = icmp eq i32 [[ZEXT_0]], 0
 ; CHECK-NEXT:    [[SPEC_SELECT:%.*]] = select i1 [[TOBOOL6]], i32 0, i32 1
