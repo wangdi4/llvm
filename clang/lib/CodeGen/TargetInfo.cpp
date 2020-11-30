@@ -4682,7 +4682,7 @@ ABIArgInfo AIXABIInfo::classifyReturnType(QualType RetTy) const {
     return ABIArgInfo::getDirect();
 
   if (RetTy->isVectorType())
-    llvm::report_fatal_error("vector type is not supported on AIX yet");
+    return ABIArgInfo::getDirect();
 
   if (RetTy->isVoidType())
     return ABIArgInfo::getIgnore();
@@ -4701,7 +4701,7 @@ ABIArgInfo AIXABIInfo::classifyArgumentType(QualType Ty) const {
     return ABIArgInfo::getDirect();
 
   if (Ty->isVectorType())
-    llvm::report_fatal_error("vector type is not supported on AIX yet");
+    return ABIArgInfo::getDirect();
 
   if (isAggregateTypeForABI(Ty)) {
     // Records with non-trivial destructors/copy-constructors should not be
@@ -4726,7 +4726,7 @@ CharUnits AIXABIInfo::getParamTypeAlignment(QualType Ty) const {
     Ty = CTy->getElementType();
 
   if (Ty->isVectorType())
-    llvm::report_fatal_error("vector type is not supported on AIX yet");
+    return CharUnits::fromQuantity(16);
 
   // If the structure contains a vector type, the alignment is 16.
   if (isRecordWithSIMDVectorType(getContext(), Ty))
@@ -4741,7 +4741,8 @@ Address AIXABIInfo::EmitVAArg(CodeGenFunction &CGF, Address VAListAddr,
     llvm::report_fatal_error("complex type is not supported on AIX yet");
 
   if (Ty->isVectorType())
-    llvm::report_fatal_error("vector type is not supported on AIX yet");
+    llvm::report_fatal_error(
+        "vector types are not yet supported for variadic functions on AIX");
 
   auto TypeInfo = getContext().getTypeInfoInChars(Ty);
   TypeInfo.Align = getParamTypeAlignment(Ty);
