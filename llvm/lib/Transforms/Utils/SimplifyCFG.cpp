@@ -2809,6 +2809,648 @@ static bool tryCSEWithPredecessor(Instruction *Inst, BasicBlock *PB) {
 }
 
 #if INTEL_CUSTOMIZATION
+// This function is going to match function 'rayobject_bb_intersect_test'
+// in spec2k17's 526.blender:
+// int rayobject_bb_intersect_test(const Isect *isec, const float *_bb) {
+//  const float *bb = _bb;
+//  float t1x = (bb[isec->bv_index[0]] - isec->start[0]) * isec->idot_axis[0];
+//  float t2x = (bb[isec->bv_index[1]] - isec->start[0]) * isec->idot_axis[0];
+//  float t1y = (bb[isec->bv_index[2]] - isec->start[1]) * isec->idot_axis[1];
+//  float t2y = (bb[isec->bv_index[3]] - isec->start[1]) * isec->idot_axis[1];
+//  float t1z = (bb[isec->bv_index[4]] - isec->start[2]) * isec->idot_axis[2];
+//  float t2z = (bb[isec->bv_index[5]] - isec->start[2]) * isec->idot_axis[2];
+//  if (t1x > t2y || t2x < t1y || t1x > t2z ||
+//      t2x < t1z || t1y > t2z || t2y < t1z) return 0;
+//  if (t2x < 0.0f || t2y < 0.0f || t2z < 0.0f) return 0;
+//  if (t1x > isec->dist || t1y > isec->dist || t1z > isec->dist) return 0;
+//  return 1;
+// }
+//
+// Then try to transform this function to such intrinsic-like code:
+// int rayobject_bb_intersect_test(const Isect *isec, const float *_bb) {
+//  __m256i index = _mm256_maskz_loadu_epi32(0x3f, isec->bv_index);
+//  __m256 start_half = _mm256_maskz_loadu_ps(0x7, isec->start);
+//  __m256 idot_axis_half = _mm256_maskz_loadu_ps(0x7, isec->idot_axis);
+//  __m256 bb = _mm256_maskz_gather_ps(_bb, index, 0x3f);
+//  __m256 start = _mm256_permutexvar_ps({0, 0, 1, 1, 2, 2, 0, 0}, start_half);
+//  __m256 idot_axis = _mm256_permutexvar_ps({0, 0, 1, 1, 2, 2, 0, 0},
+//                                           idot_axis_half);
+//  // t: t1x t2x t1y t2y t1z t2z
+//  __m256 t = _mm256_mul_ps(_mm256_sub_ps(bb, start), idot_axis);
+//  // t1x>t2y || t1x>t2z || t1y>t2z || t2x<t1y || t2x<t1z || t2y<t1z
+//  // ==>
+//  // t1: t1x t1x t1y t1y t1z t1z
+//  //      >   >   >   >   >   >
+//  // t2: t2y t2z t2z t2x t2x t2y
+//  __m256 t1 = _mm256_permutexvar_ps({0, 0, 2, 2, 4, 4, 4, 4}, t);
+//  __m256 t2 = _mm256_permutexvar_ps({3, 5, 5, 1, 1, 3, 1, 3}, t);
+//  __mmask8 t1cmpt2 = _mm256_cmp_ps_mask(t1, t2, _CMP_GT_OQ);
+//  // t2x < 0.0f || t2y < 0.0f || t2z < 0.0f
+//  const __mmask8 t2lt0 = _mm256_fpclass_ps_mask(t2, 0x40);
+//  uint8_t ret0 = _kortestz_mask8_u8(t1cmpt2, t2lt0);
+//  if (!ret0) return 0;
+//  // t1x > isec->dist || t1y > isec->dist || t1z > isec->dist
+//  const __m256 dist = _mm256_set1_ps (isec->dist);
+//  __mmask8 t1gtdist = _mm256_cmp_ps_mask(t1, dist, _CMP_GT_OQ);
+//  if (t1gtdist) return 0;
+//  return 1;
+// }
+//
+// This trasformation will combine two blocks in one,
+// so put the optimization here.
+static bool foldReductionBlockWithVectorization(BranchInst *BI) {
+  struct Group {
+    GetElementPtrInst *BVIndexPtr[2];
+    LoadInst *BVIndexVal[2];
+    SExtInst *BVIndexValSExt[2];
+    GetElementPtrInst *BBPtr[2];
+    LoadInst *BBVal[2];
+    BinaryOperator *FSub[2];
+    BinaryOperator *FMul[2];
+
+    GetElementPtrInst *StartPtr;
+    LoadInst *StartVal;
+    GetElementPtrInst *IdotAxisPtr;
+    LoadInst *IdotAxisVal;
+  };
+
+  // Recognize the pattern of reduce.or with fcmp.
+  // LHS save fcmp's LHS operand.
+  // RHS save fcmp's RHS opernad.
+  // If Pred is equal to Fcmp's swapped predicate, swap LHS and RHS.
+  // Iter record the previous instruction we processed.
+  // Eg:
+  //  %cmp62.i.i = fcmp fast olt float %mul12.i.i, 0.000000e+00
+  //  %cmp64.i.i = fcmp fast olt float %mul32.i.i, 0.000000e+00
+  //  %or.cond.i.i = or i1 %cmp62.i.i, %cmp64.i.i
+  //  %cmp66.i.i = fcmp fast olt float %mul52.i.i, 0.000000e+00
+  //  %or.cond84.i.i = or i1 %or.cond.i.i, %cmp66.i.i
+  auto recognizeFCmpReduceOr = [](Instruction *&Root, CmpInst::Predicate Pred,
+                                  SmallVectorImpl<Value *> &LHS,
+                                  SmallVectorImpl<Value *> &RHS,
+                                  Instruction *&Iter) {
+    SmallVector<Value *, 8> InstList;
+
+    LHS.clear();
+    RHS.clear();
+
+    Value *NextOr = Root;
+    while (true) {
+      auto Or = dyn_cast_or_null<BinaryOperator>(NextOr);
+      if (!Or || Or->getOpcode() != Instruction::Or || !Or->hasOneUse() ||
+          Root->getParent() != Or->getParent())
+        return false;
+
+      int FCmpNum = 0;
+      int OrIndex = -1;
+
+      // If there are 2 fcmp instructions: Have found the reduce.or pattern.
+      // return true.
+      // If there is 1 fcmp instruciton: continue to find reduce.or
+      // pattern from the other operand, recursively.
+      // If there is no fcmp instruction: unsupport this pattern, just return
+      // false;
+      for (int i = 0; i < 2; ++i) {
+        auto FCmp = dyn_cast<FCmpInst>(Or->getOperand(i));
+        if (!FCmp) {
+          OrIndex = i;
+          continue;
+        }
+
+        if (!FCmp->isFast() || !FCmp->hasOneUse() ||
+            Root->getParent() != FCmp->getParent() ||
+            (FCmp->getPredicate() != Pred &&
+             FCmp->getSwappedPredicate() != Pred))
+          return false;
+
+        unsigned LHSIndex = FCmp->getPredicate() == Pred ? 0 : 1;
+        unsigned RHSIndex = FCmp->getPredicate() == Pred ? 1 : 0;
+        LHS.push_back(FCmp->getOperand(LHSIndex));
+        RHS.push_back(FCmp->getOperand(RHSIndex));
+        Iter = FCmp->getPrevNonDebugInstruction();
+        FCmpNum++;
+      }
+
+      if (FCmpNum == 2)
+        break;
+
+      if (FCmpNum == 0)
+        return false;
+
+      NextOr = Or->getOperand(OrIndex);
+    }
+    return true;
+  };
+
+  // Check if GEP is indexing an element in an array and the array element
+  // number is equal to ArrayNum.
+  auto legalArrayType = [](const GetElementPtrInst *GEP, uint64_t ArrayNum) {
+    // Only handle in bound GEP.
+    if (!GEP->isInBounds())
+      return false;
+
+    // Check if it is an array type.
+    SmallVector<Value *, 4> Ops(GEP->idx_begin(), GEP->idx_end() - 1);
+    Type *IndexedTy =
+        GetElementPtrInst::getIndexedType(GEP->getSourceElementType(), Ops);
+    auto *IndexedArrayTy = dyn_cast<ArrayType>(IndexedTy);
+    if (!IndexedArrayTy)
+      return false;
+
+    return ArrayNum == IndexedArrayTy->getArrayNumElements();
+  };
+
+  // Recognize the following pattern bottom-up:
+  // t1 = (bb[isec->bv_index[x0]] - isec->start[y]) * isec->idot_axis[z];
+  // t2 = (bb[isec->bv_index[x1]] - isec->start[y]) * isec->idot_axis[z];
+  // If IsHead is true, it will try to match the base GEP of idot_axis
+  // and start additionally.
+  // Here is the example:
+  // /********************i == 0*******************/
+  // %BVIndexPtr.0 = getelementptr inbounds [6 x i32], [6 x i32]* %bv_index,
+  //               i64 0, BVIndexPtrIndex[0]               // BVIndexPtr[0]
+  // %BVIndexVal.0 = load i32, i32* %BVIndexPtr.0, align 4 // BVIndexVal[0]
+  // %BBIndexValSExt.0 = sext i32 %BVIndexVal.0 to i64     // BBIndexValSExt[0]
+  // %BBPtr.0 = getelementptr inbounds float, float* %BBPtrBase,
+  //               i64 %BBIndexValSExt.0                   // BBPtr[0]
+  // %BBVal.0 = load float, float* %BBPtr.0, align 4       // BBVal[0]
+  // %StartBasePtr = getelementptr inbounds %struct.Isect,
+  //      %struct.Isect* %isec, i64 0, i32 0            // StartBasePtr (IsHead)
+  // %StartPtr = getelementptr inbounds [3 x float], [3 x float]*
+  //                %StartBasePtr, i64 0, StartPtrIndex    // StartPtr
+  // %Start = load float, float* %StartPtr, align 8        // StartVal
+  // %SubStart.0 = fsub fast float %BBVal.0, %Start        // FSub[0]
+  // %IdotAxisBasePtr = getelementptr inbounds %struct.Isect,
+  //            %struct.Isect* %isec, i64 0, i32 6   // IdotAxisBasePtr (IsHead)
+  // %IdotAxisPtr = getelementptr inbounds [3 x float],
+  //      [3 x float]* %IdotAxisBasePtr, i64 0, IdotAxisPtrIndex // IdotAxisPtr
+  // %IdotAxis = load float, float* %IdotAxisPtr, align 4  // IdotAxisVal
+  // %T1 = fmul fast float %SubStart.0, %IdotAxis          // FMul[0]
+  // /********************i == 1*******************/
+  // %BVIndexPtr.1 = getelementptr inbounds [6 x i32], [6 x i32]* %bv_index,
+  //                 i64 0, BVIndexPtrIndex[1]             // BVIndexPtr[1]
+  // %BVIndexVal.1 = load i32, i32* %BVIndexPtr.1, align 4 // BVIndexVal[1]
+  // %BVIndexValSExt.1 = sext i32 %BVIndexVal.1 to i64     // BVIndexValSExt[1]
+  // %BBPtr.1 = getelementptr inbounds float, float* %BBPtrBase,
+  //               i64 %BVIndexValSExt.1                   // BBPtr[1]
+  // %BBVal.1 = load float, float* %BBPtr.1, align 4       // BBVal[1]
+  // %SubStart.1 = fsub fast float %BBVal.1, %Start        // FSub[1]
+  // %T2 = fmul fast float %SubStart.1, %IdotAxis          // FMul[1]
+  auto recognizeTnX = [&](Group &Group, Instruction *&Iter,
+                          const ArrayRef<uint64_t> BVIndexPtrIndex,
+                          const uint64_t StartPtrIndex,
+                          const uint64_t IdotAxisPtrIndex,
+                          const bool IsHead = false) {
+    for (int i = 1; i >= 0; --i) {
+      // PrevInst is for checking the instruction order.
+      // For different iteration, the previous instruction is
+      // different for 'FSub' and 'BBVal'.
+      Instruction *PrevInst = nullptr;
+
+      // Try to match "%T1/%T2 = fmul fast float %SubStart.0/%SubStart.1,
+      // %IdotAxis"
+      Group.FMul[i] = dyn_cast_or_null<BinaryOperator>(Iter);
+      if (!Group.FMul[i] || Group.FMul[i]->getOpcode() != Instruction::FMul ||
+          Group.FMul[i]->getNumUses() != 3 || !Group.FMul[i]->isFast() ||
+          !Group.FMul[i]->getType()->isFloatTy())
+        return false;
+
+      PrevInst = Group.FMul[i];
+      if (i == 0) {
+        // Try to match "%IdotAxis = load float, float* %IdotAxisPtr"
+        Group.IdotAxisVal = dyn_cast<LoadInst>(Group.FMul[0]->getOperand(1));
+        if (!Group.IdotAxisVal || Group.IdotAxisVal->getNumUses() != 2 ||
+            Group.IdotAxisVal->getNextNonDebugInstruction() != Group.FMul[0] ||
+            Group.IdotAxisVal != Group.FMul[1]->getOperand(1) ||
+            !Group.IdotAxisVal->isSimple())
+          return false;
+
+        // Try to match "%IdotAxisPtr = getelementptr inbounds [3 x float], [3 x
+        // float]* %IdotAxisBasePtr, i64 0, IdotAxisPtrIndex"
+        Group.IdotAxisPtr =
+            dyn_cast<GetElementPtrInst>(Group.IdotAxisVal->getPointerOperand());
+        if (!Group.IdotAxisPtr || !Group.IdotAxisPtr->hasOneUse() ||
+            Group.IdotAxisPtr->getNextNonDebugInstruction() !=
+                Group.IdotAxisVal ||
+            Group.IdotAxisPtr->getNumIndices() != 2 ||
+            !Group.IdotAxisPtr->hasAllConstantIndices() ||
+            !legalArrayType(Group.IdotAxisPtr, 3))
+          return false;
+
+        // Is the last index of IdotAxisPtr equal to IdotAxisPtrIndex?
+        auto LastIdx = cast<ConstantInt>(Group.IdotAxisPtr->idx_end() - 1);
+        if (!LastIdx->equalsInt(IdotAxisPtrIndex))
+          return false;
+        PrevInst = Group.IdotAxisPtr;
+
+        if (IsHead) {
+          // Try to match the base pointer of IdotAxisPtr.
+          // %IdotAxisBasePtr = getelementptr inbounds %struct.Isect,
+          //     %struct.Isect* %isec, i64 0, i32 6
+          auto IdotAxisBasePtr = dyn_cast<GetElementPtrInst>(
+              Group.IdotAxisPtr->getPointerOperand());
+          if (!IdotAxisBasePtr || IdotAxisBasePtr->getNumUses() != 3 ||
+              IdotAxisBasePtr->getNextNonDebugInstruction() !=
+                  Group.IdotAxisPtr ||
+              !IdotAxisBasePtr->isInBounds())
+            return false;
+
+          PrevInst = IdotAxisBasePtr;
+        }
+      }
+
+      // Try to match "SubStart.0/SubStart.1 = fsub fast float
+      // %BBVal.0/%BBVal.1, %Start"
+      Group.FSub[i] = dyn_cast<BinaryOperator>(Group.FMul[i]->getOperand(0));
+      if (!Group.FSub[i] || Group.FSub[i]->getOpcode() != Instruction::FSub ||
+          !Group.FSub[i]->hasOneUse() || !Group.FSub[i]->isFast() ||
+          Group.FSub[i]->getNextNonDebugInstruction() != PrevInst)
+        return false;
+
+      PrevInst = Group.FSub[i];
+      if (i == 0) {
+        // Try to match "%Start = load float, float* %StartPtr, align 8"
+        Group.StartVal = dyn_cast<LoadInst>(Group.FSub[0]->getOperand(1));
+        if (!Group.StartVal || Group.StartVal->getNumUses() != 2 ||
+            Group.StartVal->getNextNonDebugInstruction() != Group.FSub[0] ||
+            Group.StartVal != Group.FSub[1]->getOperand(1) ||
+            !Group.StartVal->isSimple())
+          return false;
+
+        // Try to match "%StartPtr = getelementptr inbounds [3 x float],
+        // [3 x float]* %StartBasePtr, ..."
+        Group.StartPtr =
+            dyn_cast<GetElementPtrInst>(Group.StartVal->getPointerOperand());
+        if (!Group.StartPtr || !Group.StartPtr->hasOneUse() ||
+            Group.StartPtr->getNextNonDebugInstruction() != Group.StartVal ||
+            Group.StartPtr->getNumIndices() != 2 ||
+            !Group.StartPtr->hasAllConstantIndices() ||
+            !legalArrayType(Group.StartPtr, 3))
+          return false;
+
+        // Is the last index of StartPtr equal to StartPtrIndex?
+        auto LastIdx = cast<ConstantInt>(Group.StartPtr->idx_end() - 1);
+        if (!LastIdx->equalsInt(StartPtrIndex))
+          return false;
+
+        PrevInst = Group.StartPtr;
+
+        if (IsHead) {
+          // Try to match the base pointer of StartPtr.
+          // "%StartBasePtr = getelementptr inbounds %struct.Isect,
+          // %struct.Isect* %isec, i64 0, i32 0"
+          auto StartBasePtr =
+              dyn_cast<GetElementPtrInst>(Group.StartPtr->getPointerOperand());
+          if (!StartBasePtr || StartBasePtr->getNumUses() != 3 ||
+              StartBasePtr->getNextNonDebugInstruction() != Group.StartPtr ||
+              !StartBasePtr->isInBounds())
+            return false;
+
+          PrevInst = StartBasePtr;
+        }
+      }
+
+      // Try to match "%BBVal.0/%BBVal.1 = load float, float* %BBPtr.0/%BBPtr.1,
+      // align 4"
+      Group.BBVal[i] = dyn_cast<LoadInst>(Group.FSub[i]->getOperand(0));
+      if (!Group.BBVal[i] || !Group.BBVal[i]->hasOneUse() ||
+          Group.BBVal[i]->getNextNonDebugInstruction() != PrevInst ||
+          !Group.BBVal[i]->isSimple())
+        return false;
+
+      // Try to match "%BBPtr.0/%BBPtr.1 = getelementptr inbounds float, float*
+      // %BBPtrBase, i64 %BVIndexValSExt.0/%BVIndexValSExt.1"
+      Group.BBPtr[i] =
+          dyn_cast<GetElementPtrInst>(Group.BBVal[i]->getPointerOperand());
+      if (!Group.BBPtr[i] || !Group.BBPtr[i]->hasOneUse() ||
+          Group.BBPtr[i]->getNextNonDebugInstruction() != Group.BBVal[i] ||
+          !Group.BBPtr[i]->isInBounds() || Group.BBPtr[i]->getNumIndices() != 1)
+        return false;
+
+      // BBPtrBase must be an fixed size array.
+      auto *BBPtrBase =
+          dyn_cast<GetElementPtrInst>(Group.BBPtr[i]->getPointerOperand());
+      if (!BBPtrBase || !legalArrayType(BBPtrBase, 6))
+        return false;
+
+      // Try to match "%BVIndexValSExt.0/%BVIndexValSExt.1 = sext i32
+      // %BVIndexVal.0/%BVIndexVal.1 to i64"
+      Group.BVIndexValSExt[i] =
+          dyn_cast<SExtInst>(Group.BBPtr[i]->getOperand(1));
+      if (!Group.BVIndexValSExt[i] || !Group.BVIndexValSExt[i]->hasOneUse() ||
+          Group.BVIndexValSExt[i]->getNextNonDebugInstruction() !=
+              Group.BBPtr[i] ||
+          !Group.BVIndexValSExt[i]->getType()->isIntegerTy(64) ||
+          !Group.BVIndexValSExt[i]->getSrcTy()->isIntegerTy(32))
+        return false;
+
+      // Try to match "%BVIndexVal.0/%BVIndexVal.1 = load i32, i32*
+      // %BVIndexPtr.0/%BVIndexPtr.1, align 4"
+      Group.BVIndexVal[i] =
+          dyn_cast<LoadInst>(Group.BVIndexValSExt[i]->getOperand(0));
+      if (!Group.BVIndexVal[i] || !Group.BVIndexVal[i]->hasOneUse() ||
+          Group.BVIndexVal[i]->getNextNonDebugInstruction() !=
+              Group.BVIndexValSExt[i] ||
+          !Group.BVIndexVal[i]->isSimple())
+        return false;
+
+
+      // Try to match "%BVIndexPtr.0/%BVIndexPtr.1 = getelementptr inbounds [6 x
+      // i32], [6 x i32]* %bv_index, ..."
+      Group.BVIndexPtr[i] =
+          dyn_cast<GetElementPtrInst>(Group.BVIndexVal[i]->getPointerOperand());
+      if (!Group.BVIndexPtr[i] || !Group.BVIndexPtr[i]->hasOneUse() ||
+          Group.BVIndexPtr[i]->getNextNonDebugInstruction() !=
+              Group.BVIndexVal[i] ||
+          Group.BVIndexPtr[i]->getNumIndices() != 2 ||
+          !Group.BVIndexPtr[i]->hasAllConstantIndices() ||
+          !legalArrayType(Group.BVIndexPtr[i], 6))
+        return false;
+
+      // Check the index of bv_index array.
+      auto *LastIdx = cast<ConstantInt>(Group.BVIndexPtr[i]->idx_end() - 1);
+      if (!LastIdx->equalsInt(BVIndexPtrIndex[i]))
+        return false;
+
+      Iter = Group.BVIndexPtr[i]->getPrevNonDebugInstruction();
+    }
+
+    return true;
+  };
+
+  // Check if each operand from op_begin() to op_end()-1 is equal between GEPA
+  // and GEPB.
+  auto equalGEPPrefix = [](const GetElementPtrInst *GEPA,
+                           const GetElementPtrInst *GEPB) {
+    return std::equal(GEPA->op_begin(), GEPA->op_end() - 1, GEPB->op_begin(),
+                      GEPB->op_end() - 1);
+  };
+
+  // This function is used to check if it is legal between groups or in same
+  // group with different iteration.
+  auto checkInGroups = [&](ArrayRef<Group> Groups) {
+    // Check if all the GEP instruction is legal.
+    for (int i = 0, e = Groups.size(); i < e; ++i) {
+      if (!equalGEPPrefix(Groups[i].BVIndexPtr[0], Groups[i].BVIndexPtr[1]))
+        return false;
+
+      if (!equalGEPPrefix(Groups[i].BBPtr[0], Groups[i].BBPtr[1]))
+        return false;
+
+      if (!equalGEPPrefix(Groups[0].BBPtr[0], Groups[i].BBPtr[0]))
+        return false;
+
+      if (!equalGEPPrefix(Groups[0].BVIndexPtr[0], Groups[i].BVIndexPtr[0]))
+        return false;
+
+      if (!equalGEPPrefix(Groups[0].StartPtr, Groups[i].StartPtr))
+        return false;
+
+      if (!equalGEPPrefix(Groups[0].IdotAxisPtr, Groups[i].IdotAxisPtr))
+        return false;
+    }
+
+    return true;
+  };
+
+  if (BI->getNumSuccessors() != 2)
+    return false;
+
+  Group Group0, Group1, Group2;
+  SmallVector<Value *, 8> LHS;
+  SmallVector<Value *, 8> RHS;
+
+  Instruction *Iter = BI;
+  Instruction *RootT1CmpT2 = BI->getPrevNonDebugInstruction();
+
+  if (BI->getCondition() != RootT1CmpT2)
+    return false;
+
+  // Try to match "t1x > t2y || t2x < t1y || t1x > t2z ||
+  // "t2x < t1z || t1y > t2z || t2y < t1z"
+  if (!recognizeFCmpReduceOr(RootT1CmpT2, CmpInst::FCMP_OLT, LHS, RHS, Iter))
+    return false;
+
+  if (LHS.size() != 6)
+    return false;
+
+  // Recognize t1z and t2z.
+  // float t1z = (bb[isec->bv_index[4]] - isec->start[2]) * isec->idot_axis[2];
+  // float t2z = (bb[isec->bv_index[5]] - isec->start[2]) * isec->idot_axis[2];
+  if (!recognizeTnX(Group2, Iter, {4, 5}, 2, 2))
+    return false;
+
+  // Recognize t1y and t2y.
+  // float t1y = (bb[isec->bv_index[2]] - isec->start[1]) * isec->idot_axis[1];
+  // float t2y = (bb[isec->bv_index[3]] - isec->start[1]) * isec->idot_axis[1];
+  if (!recognizeTnX(Group1, Iter, {2, 3}, 1, 1))
+    return false;
+
+  // Recognize t1x and t2x.
+  // float t1x = (bb[isec->bv_index[0]] - isec->start[0]) * isec->idot_axis[0];
+  // float t2x = (bb[isec->bv_index[1]] - isec->start[0]) * isec->idot_axis[0];
+  if (!recognizeTnX(Group0, Iter, {0, 1}, 0, 0, true))
+    return false;
+
+  if (!checkInGroups({Group0, Group1, Group2}))
+    return false;
+
+  // Check if LHS[0:5] is the first and second use of t2x/t2y/t2z,
+  // and RHS[0:5] is the first and second use of t1x/t1y/t1z.
+  if (LHS[0] != Group1.FMul[1] || LHS[1] != Group2.FMul[1] ||
+      LHS[2] != Group0.FMul[1] || LHS[3] != Group2.FMul[1] ||
+      LHS[4] != Group0.FMul[1] || LHS[5] != Group1.FMul[1] ||
+      RHS[0] != Group2.FMul[0] || RHS[1] != Group1.FMul[0] ||
+      RHS[2] != Group2.FMul[0] || RHS[3] != Group0.FMul[0] ||
+      RHS[4] != Group1.FMul[0] || RHS[5] != Group0.FMul[0])
+    return false;
+
+  BasicBlock *CmpZeroBlock = BI->getSuccessor(0);
+  BasicBlock *CurFailBlock = BI->getSuccessor(1);
+  if (!Group0.FMul[1]->isUsedInBasicBlock(CmpZeroBlock))
+    std::swap(CmpZeroBlock, CurFailBlock);
+
+  // t2x/t2y/t2z are all used in CmpDistBlock:
+  // "t2x < 0.0f || t2y < 0.0f || t2z < 0.0f"
+  if (!Group0.FMul[1]->isUsedInBasicBlock(CmpZeroBlock) ||
+      !Group1.FMul[1]->isUsedInBasicBlock(CmpZeroBlock) ||
+      !Group2.FMul[1]->isUsedInBasicBlock(CmpZeroBlock))
+    return false;
+
+  if (!CmpZeroBlock->getSinglePredecessor())
+    return false;
+
+  auto* CmpZeroTerm = dyn_cast<BranchInst>(CmpZeroBlock->getTerminator());
+  if (!CmpZeroTerm || !CmpZeroTerm->isConditional() ||
+    CmpZeroTerm->getNumSuccessors() != 2)
+    return false;
+
+  // Try to match "t2x < 0.0f || t2y < 0.0f || t2z < 0.0f"
+  Instruction *RootCmpZero =
+    CmpZeroTerm->getPrevNonDebugInstruction();
+
+  if (RootCmpZero != CmpZeroTerm->getCondition())
+    return false;
+
+  if (!recognizeFCmpReduceOr(RootCmpZero, CmpInst::FCMP_OLT, LHS, RHS, Iter))
+    return false;
+
+  if (LHS.size() != 3)
+    return false;
+
+  // Check if LHS is the third use of t2x/t2y/t2z.
+  if (LHS[0] != Group2.FMul[1] || LHS[1] != Group0.FMul[1] ||
+      LHS[2] != Group1.FMul[1])
+    return false;
+
+  // Check if RHS is zero.
+  for (auto V : RHS) {
+    auto *C = dyn_cast<Constant>(V);
+    if (!(C && C->isZeroValue()))
+      return false;
+  }
+
+  BasicBlock *CmpDistBlock = CmpZeroTerm->getSuccessor(0);
+  BasicBlock *CmpZeroFailBlock = CmpZeroTerm->getSuccessor(1);
+
+  // If fmul[0] has no uses in CmpDistBlock,
+  // it must not be the true CmpDistBlock.
+  if (!Group0.FMul[0]->isUsedInBasicBlock(CmpDistBlock))
+    std::swap(CmpDistBlock, CmpZeroFailBlock);
+
+  // They should have common dest.
+  if (CmpZeroFailBlock != CurFailBlock)
+    return false;
+
+  // t1x/t1y/t1z are all used in CmpDistBlock:
+  // "t1x > isec->dist || t1y > isec->dist || t1z > isec->dist"
+  if (!Group0.FMul[0]->isUsedInBasicBlock(CmpDistBlock) ||
+      !Group1.FMul[0]->isUsedInBasicBlock(CmpDistBlock) ||
+      !Group2.FMul[0]->isUsedInBasicBlock(CmpDistBlock))
+    return false;
+
+  if (!CmpDistBlock->getSinglePredecessor())
+    return false;
+
+  // Try to match "t1x > isec->dist || t1y > isec->dist || t1z > isec->dist"
+  Instruction *RootCmpDist = CmpDistBlock->getTerminator();
+  // Find the first 'Or' instruction backward.
+  while (RootCmpDist && RootCmpDist->getOpcode() != Instruction::Or)
+    RootCmpDist = RootCmpDist->getPrevNonDebugInstruction();
+  if (!recognizeFCmpReduceOr(RootCmpDist, CmpInst::FCMP_OGT, LHS, RHS, Iter))
+    return false;
+
+  if (LHS.size() != 3)
+    return false;
+
+  // Check if LHS is the third use of t1x/t1y/t1z.
+  if (LHS[0] != Group2.FMul[0] || LHS[1] != Group0.FMul[0] ||
+      LHS[2] != Group1.FMul[0])
+    return false;
+
+  // Check if RHS is splat value.
+  for (auto V : RHS)
+    if (V != RHS[0])
+      return false;
+
+  // Combine current BB with CmpZero block.
+  if (!FoldBranchToCommonDest(CmpZeroTerm, nullptr, nullptr, 4))
+    return false;
+
+  // Start to transform.
+  IRBuilder<> Builder(RootT1CmpT2);
+
+  // %BVIndexPtr = bitcast i32* "Group0.BVIndexPtr[0]" to <6 x i32>*
+  // %BVIndexV = load <6 x i32>, <6 x i32>* %BVIndexPtr, align 1
+  auto *BVIndexPtr = Builder.CreateBitCast(
+      Group0.BVIndexPtr[0],
+      PointerType::get(
+          FixedVectorType::get(
+              Group0.BVIndexPtr[0]->getType()->getPointerElementType(), 6),
+          Group0.BVIndexPtr[0]->getAddressSpace()),
+      "BVIndexPtr");
+  auto *BVIndexV = Builder.CreateAlignedLoad(BVIndexPtr, Align(1), "BVIndexV");
+
+  // %BBPtr = getelementptr inbounds , ... , <6 x i64> %BVIndexV
+  // %BBV = call <6 x float> @llvm.masked.gather.v6f32.v6p0f32(%BBPtr)
+  auto *BBPtrBase =
+      cast<GetElementPtrInst>(Group0.BBPtr[0]->getPointerOperand());
+  SmallVector<Value *, 8> Indices(BBPtrBase->indices());
+  Indices[Indices.size() - 1] = BVIndexV;
+  auto *BBPtr = Builder.CreateInBoundsGEP(BBPtrBase->getPointerOperand(),
+                                          Indices, "BBPtr");
+  auto *BBV =
+      Builder.CreateMaskedGather(BBPtr, Align(1), nullptr, nullptr, "BBV");
+
+  // %StartPtr = bitcast float* "Group0.StartPtr" to <3 x float>*
+  // %StartV = load <3 x float>, <3 x float>* %StartPtr, align 1
+  // %StartWidenV = shufflevector <3 x float> %StartV, <3 x float> undef,
+  //                  <6 x i32> <i32 0, i32 0, i32 1, i32 1, i32 2, i32 2>
+  auto *StartPtr = Builder.CreateBitCast(
+      Group0.StartPtr,
+      PointerType::get(
+          FixedVectorType::get(
+              Group0.StartPtr->getType()->getPointerElementType(), 3),
+          Group0.StartPtr->getAddressSpace()),
+      "StartPtr");
+  auto *StartV = Builder.CreateAlignedLoad(StartPtr, Align(1), "StartV");
+  auto *StartWidenV =
+      Builder.CreateShuffleVector(StartV, {0, 0, 1, 1, 2, 2}, "StartWidenV");
+
+  // %IdotAxisPtr = bitcast float* "Group0.IdotAxisPtr" to <3 x float>*
+  // %IdotAxisV = load <3 x float>, <3 x float>* %IdotAxisPtr, align 1
+  // %IdotAxisWidenV = shufflevector <3 x float> %IdotAxisV, <3 x float> undef,
+  //                     <6 x i32> <i32 0, i32 0, i32 1, i32 1, i32 2, i32 2>
+  auto *IdotAxisPtr = Builder.CreateBitCast(
+      Group0.IdotAxisPtr,
+      PointerType::get(
+          FixedVectorType::get(
+              Group0.IdotAxisPtr->getType()->getPointerElementType(), 3),
+          Group0.IdotAxisPtr->getAddressSpace()),
+      "IdotAxisPtr");
+  auto *IdotAxisV =
+      Builder.CreateAlignedLoad(IdotAxisPtr, Align(1), "IdotAxisV");
+  auto *IdotAxisWidenV = Builder.CreateShuffleVector(
+      IdotAxisV, {0, 0, 1, 1, 2, 2}, "IdotAxisWidenV");
+
+  // %FSub = fsub <6 x float> %BBV, %StartWidenV
+  // %T = fmul <6 x float> %FSub, %IdotAxisWidenV
+  auto *Tn = Builder.CreateFMul(Builder.CreateFSub(BBV, StartWidenV),
+                                IdotAxisWidenV, "T");
+
+  // %T1 = shufflevector <6 x float> %T, <6 x float> undef,
+  //         <8 x i32> <i32 0, i32 0, i32 2, i32 2, i32 4, i32 4, i32 4, i32 4>
+  // %T2 = shufflevector <6 x float> %T, <6 x float> undef,
+  //         <8 x i32> <i32 3, i32 5, i32 5, i32 1, i32 1, i32 3, i32 1, i32 3>
+  auto *T1 = Builder.CreateShuffleVector(Tn, {0, 0, 2, 2, 4, 4, 4, 4}, "T1");
+  auto *T2 = Builder.CreateShuffleVector(Tn, {3, 5, 5, 1, 1, 3, 1, 3}, "T2");
+
+  // %T1CmpT2 = fcmp ogt <8 x float> %T1, %T2
+  // %T2LT0 = fcmp olt <8 x float> %T2, zeroinitializer
+  // %Or = or <8 x i1> %T1CmpT2, %T2LT0
+  // %OrReduce = tail call i1 @llvm.vector.reduce.or.v8i1(<8 x i1> %Or)
+  auto *T1CmpT2 = Builder.CreateFCmp(CmpInst::FCMP_OGT, T1, T2, "T1CmpT2");
+  auto *T2LT0 = Builder.CreateFCmp(
+      CmpInst::FCMP_OLT, T2, Constant::getNullValue(T2->getType()), "T2LT0");
+  auto *CmpOr = Builder.CreateOr(T1CmpT2, T2LT0, "Or");
+  auto *OrReduce = Builder.CreateOrReduce(CmpOr);
+  BI->setCondition(OrReduce);
+
+  // CG will split the block if branch doesn't have MD_unpredictable flag.
+  BI->setMetadata(LLVMContext::MD_unpredictable,
+                  MDBuilder(BI->getContext()).createUnpredictable());
+
+  // %T2GTDist = fcmp.ogt <8 x float> T1, SplatDist
+  // %Res = reduce.or.v8i1(%T2GTDist)
+  Builder.SetInsertPoint(RootCmpDist);
+  auto *SplatDist = Builder.CreateVectorSplat(8, RHS[0], "SplatDist");
+  auto *T1GTDist = Builder.CreateFCmp(CmpInst::FCMP_OGT, T1, SplatDist, "T2GTDist");
+  auto *ResDist = Builder.CreateOrReduce(T1GTDist);
+  RootCmpDist->replaceAllUsesWith(ResDist);
+
+  return true;
+}
+
 // We transform this:
 //
 // if (t1x > t2y  || t2x < t1y  || t1x > t2z || t2x < t1z ||
@@ -7020,7 +7662,12 @@ bool SimplifyCFGOpt::simplifyCondBranch(BranchInst *BI, IRBuilder<> &Builder) {
   }
 
 #if INTEL_CUSTOMIZATION
-  if (foldFcmpLadder(BI)) {
+  // foldReductionBlockWithVectorization only support AVX512 currently.
+  if (TTI.isAdvancedOptEnabled(
+          TargetTransformInfo::AdvancedOptLevel::AO_TargetHasIntelAVX512)) {
+    if (foldReductionBlockWithVectorization(BI))
+      return true;
+  } else if (foldFcmpLadder(BI)) {
     return true;
   }
 #endif // INTEL_CUSTOMIZATION
