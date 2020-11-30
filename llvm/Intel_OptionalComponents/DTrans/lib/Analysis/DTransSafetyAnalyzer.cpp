@@ -1774,9 +1774,115 @@ public:
       }
     };
 
+    // Check that one operand is an instruction and the other is an integer
+    // constant.
+    auto HasInstAndConstOperand = [](Instruction *I) {
+      assert((isa<BinaryOperator>(I) || isa<ICmpInst>(I)) &&
+             "Expected BinaryOperator");
+      Value *Op0 = I->getOperand(0);
+      Value *Op1 = I->getOperand(1);
+      return ((isa<Instruction>(Op0) && isa<ConstantInt>(Op1)) ||
+              (isa<Instruction>(Op1) && isa<ConstantInt>(Op0)));
+    };
+
+    // This function is checking that the only uses of the binary operation are
+    // one of the following:
+    // 1) another bitmask binary operator, which applies a constant
+    //    value for the mask
+    // 2) a comparison to a constant.
+    auto IsBitmaskAndCompareSequenceOnly =
+        [&HasInstAndConstOperand](BinaryOperator *I) {
+          SmallVector<Instruction *, 4> WorkList;
+          WorkList.push_back(I);
+
+          while (!WorkList.empty()) {
+            Instruction *NextI = WorkList.back();
+            WorkList.pop_back();
+            switch (NextI->getOpcode()) {
+            default:
+              return false;
+            case Instruction::Or:
+            case Instruction::And:
+            case Instruction::Xor:
+              if (!HasInstAndConstOperand(NextI))
+                return false;
+              for (auto *U : NextI->users()) {
+                // We don't need to check the users of the ICmp.
+                if (auto *Cmp = dyn_cast<ICmpInst>(U)) {
+                  if (!HasInstAndConstOperand(Cmp))
+                    return false;
+                  continue;
+                }
+                // We do need to check the users of binary operators.
+                if (isa<BinaryOperator>(U)) {
+                  WorkList.push_back(cast<Instruction>(U));
+                  continue;
+                }
+                // Anything else breaks the pattern.
+                return false;
+              }
+            }
+          }
+
+          return true;
+        };
+
+    // Check whether the bitmask instruction is supported. If not, mark the
+    // operands as UnhandledUse
+    //
+    // BitMask computations that appear to be used for checking the alignment of
+    // a pointer value that is being tracked are allowed. Other cases will be
+    // marked as Unhandled.
+    //
+    // Allow a case such as:
+    //   %5 = ptrtoint p0 %0 to i64
+    //   %6 = or i64 %5, 8
+    //   %7 = and i64 %6, 7
+    //   %8 = icmp eq i64 %7, 0
+    auto AnalyzeBitMask =
+        [this, &HasInstAndConstOperand, &SetBinaryOperatorUnhandledUse,
+         &IsBitmaskAndCompareSequenceOnly](BinaryOperator &BinOp) {
+          Value *LHS = BinOp.getOperand(0);
+          Value *RHS = BinOp.getOperand(1);
+          ValueTypeInfo *LHSInfo = PTA.getValueTypeInfo(LHS);
+          ValueTypeInfo *RHSInfo = PTA.getValueTypeInfo(RHS);
+
+          // The PointerTypeAnalyzer may create a ValueTypeInfo object for
+          // some values that do not represent pointer types, so we use
+          // this check to determine whether the instruction has some
+          // pointer type information associated with it.
+          if ((!LHSInfo || LHSInfo->empty()) && (!RHSInfo || RHSInfo->empty()))
+            return;
+
+          // Only support a binary operation with a constant integer
+          if (!HasInstAndConstOperand(&BinOp)) {
+            SetBinaryOperatorUnhandledUse(BinOp);
+            return;
+          }
+
+          // Do not allow alignment checks on the address of field members
+          ValueTypeInfo *InfoOfInterest =
+              (LHSInfo && !LHSInfo->empty()) ? LHSInfo : RHSInfo;
+          assert(InfoOfInterest && "Expected operand of interest");
+          if (InfoOfInterest->pointsToSomeElement()) {
+            SetBinaryOperatorUnhandledUse(BinOp);
+            return;
+          }
+
+          if (IsBitmaskAndCompareSequenceOnly(&BinOp))
+            return;
+
+          SetBinaryOperatorUnhandledUse(BinOp);
+        };
+
     switch (I.getOpcode()) {
     case Instruction::Sub:
       AnalyzeSubtraction(I);
+      break;
+    case Instruction::Or:
+    case Instruction::And:
+    case Instruction::Xor:
+      AnalyzeBitMask(I);
       break;
     default:
       SetBinaryOperatorUnhandledUse(I);
