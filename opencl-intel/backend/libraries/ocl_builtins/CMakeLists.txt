@@ -220,19 +220,11 @@ function( add_ocl_library OUTPUT_FILE_VAR PRECOMPILED_OUTPUT_FILE_VAR CLANG_COMP
 
   # compile the rtl file to native objects
   if(${ENABLE_PRECOMPILE})
-    # Initialize the llc parameter "-mattr" based on PROC
-    SET (MATTR "-mattr=")
-    if (${PROC} MATCHES ".*avx2$")
-      set (MATTR "${MATTR}+avx2")
-    else()
-      if (${PROC} MATCHES ".*avx$")
-        set (MATTR "${MATTR}+avx")
-      endif ()
-    endif ()
-
     add_custom_command(OUTPUT ${BUILTINS_OUTPUT_DIR}/${PRECOMPILED_OUTPUT_FILE}
       COMMENT "Building static object ${PRECOMPILED_OUTPUT_FILE}"
-      COMMAND ${LLC} ${LLC_PARAMS} ${MATTR} -mcpu=${PROC} -o ${BUILTINS_OUTPUT_DIR}/${PRECOMPILED_OUTPUT_FILE} < ${BUILTINS_OUTPUT_DIR}/${OUTPUT_FILE}
+      COMMAND ${LLC} ${LLC_PARAMS} -mcpu=${PROC} -o
+              ${BUILTINS_OUTPUT_DIR}/${PRECOMPILED_OUTPUT_FILE} <
+              ${BUILTINS_OUTPUT_DIR}/${OUTPUT_FILE}
       DEPENDS ${LLC} ${BUILTINS_OUTPUT_DIR}/${OUTPUT_FILE}
       VERBATIM
       )

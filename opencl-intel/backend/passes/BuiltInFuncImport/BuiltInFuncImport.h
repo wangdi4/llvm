@@ -17,7 +17,7 @@
 
 #include "BuiltinLibInfo.h"
 
-#include <llvm/ADT/DenseSet.h>
+#include <llvm/ADT/SetVector.h>
 #include <llvm/Pass.h>
 #include <llvm/IR/Constants.h>
 #include <llvm/Transforms/Utils/ValueMapper.h>
@@ -86,8 +86,8 @@ namespace intel {
     /// @param [OUT] SvmlFunctions Shared svml functions used by the \p Root
     void ExploreUses(Function *Root,
                      SmallVectorImpl<Module *> &Modules,
-                     SmallPtrSetImpl<GlobalValue *> &UsedFunctions,
-                     SmallPtrSetImpl<GlobalVariable *> &UsedGlobals,
+                     SetVector<GlobalValue *> &UsedFunctions,
+                     SetVector<GlobalVariable *>  &UsedGlobals,
                      FunctionsVec &SvmlFunctions);
   protected:
     /// @brief holds cpu perfix that would replace 'shared' substr in svml funcs

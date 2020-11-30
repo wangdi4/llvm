@@ -60,24 +60,13 @@ function(create_ocl_kernel_rtl_target INPUT_RTL OUTPUT_DIR)
 endfunction()
 
 function(create_ocl_kernel_target INPUT_RTL PROC ARCH OUTPUT_DIR)
-  # Initialize the llc parameter "-mattr" based on PROC
-  SET (MATTR "-mattr=")
-  if (${PROC} MATCHES ".*avx2$")
-    set (MATTR "${MATTR}+avx2")
-  else()
-    if (${PROC} MATCHES ".*avx$")
-      set (MATTR "${MATTR}+avx")
-    endif ()
-  endif ()
-
   set(TARGET_NAME ${TARGET_NAME_PREFIX}${ARCH})
   set(OUTPUT_OBJ
       ${OUTPUT_DIR}/${TARGET_NAME}${OCL_PRECOMPILED_OUTPUT_EXTENSION})
 
   add_custom_command(OUTPUT ${OUTPUT_OBJ}
     DEPENDS ${LLC} ${TMP_RTL_TARGET_NAME} ${INPUT_RTL}
-    COMMAND ${LLC} ${LLC_PARAMS} ${MATTR} -mcpu=${PROC} ${INPUT_RTL}
-            -o ${OUTPUT_OBJ}
+    COMMAND ${LLC} ${LLC_PARAMS} -mcpu=${PROC} ${INPUT_RTL} -o ${OUTPUT_OBJ}
     COMMENT "Building object ${TARGET_NAME}${OCL_PRECOMPILED_OUTPUT_EXTENSION}"
   )
 
