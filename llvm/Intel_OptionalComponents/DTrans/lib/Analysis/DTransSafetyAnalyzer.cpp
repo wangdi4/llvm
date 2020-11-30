@@ -65,13 +65,15 @@ using SafetyInfoReportCB = std::function<void()>;
 // collect the field usage information for structure fields.
 class DTransSafetyInstVisitor : public InstVisitor<DTransSafetyInstVisitor> {
 public:
+  // TODO: Making this public temporarly for upcoming code development.
+  DTransAllocAnalyzer &DTAA;
   DTransSafetyInstVisitor(LLVMContext &Ctx, const DataLayout &DL,
                           DTransSafetyInfo::GetTLIFnType GetTLI,
                           DTransSafetyInfo &DTInfo, PtrTypeAnalyzer &PTA,
                           DTransTypeManager &TM, TypeMetadataReader &MDReader,
                           DTransAllocAnalyzer &DTAA)
-      : DL(DL), GetTLI(GetTLI), DTInfo(DTInfo), PTA(PTA), TM(TM),
-        MDReader(MDReader), DTAA(DTAA) {
+      :  DTAA(DTAA), DL(DL), GetTLI(GetTLI), DTInfo(DTInfo), PTA(PTA),
+         MDReader(MDReader), TM(TM) {
     DTransI8Type = TM.getOrCreateAtomicType(llvm::Type::getInt8Ty(Ctx));
     DTransI8PtrType = TM.getOrCreatePointerType(DTransI8Type);
     LLVMPtrSizedIntType = llvm::Type::getIntNTy(Ctx, DL.getPointerSizeInBits());
@@ -1208,7 +1210,7 @@ public:
         // For example:
         //   %x = bitcast i64* %p to %struct*
         //   store %struct* %x, %struct** %y
-        if (ValTy && ValTy->isPointerTy())
+        if (ValTy && ValTy->isPointerTy()) {
           if (ValTy->getPointerElementType()->isAggregateType()) {
             if (hasIncompatibleAggregateDecl(ValTy->getPointerElementType(),
                                              ValInfo)) {
@@ -1221,8 +1223,8 @@ public:
             TypesCompatible = false;
             BadCasting = true;
           }
+        }
       }
-
       // With opaque pointers, we will not see explicit pointer bitcasts
       // occurring, but the effect here is the same as is a bitcast had
       // occurred, so we need to set the BadCasting safety bit for
@@ -3740,9 +3742,8 @@ private:
   DTransSafetyInfo::GetTLIFnType GetTLI;
   DTransSafetyInfo &DTInfo;
   PtrTypeAnalyzer &PTA;
-  DTransTypeManager &TM;
   TypeMetadataReader &MDReader;
-  DTransAllocAnalyzer &DTAA;
+  DTransTypeManager &TM;
 
   // Types that are frequently needed for comparing type aliases against
   // known types.

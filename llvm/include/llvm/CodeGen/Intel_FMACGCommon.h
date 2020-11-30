@@ -435,7 +435,7 @@ public:
 
   /// The last instruction using this register term must have <kill> attribute
   /// set for the first operand that is using this term.
-  void setIsKilledAttribute() {
+  void setIsKilledAttribute() override {
     if (IsEverKilled)
       FMATerm::setIsKilledAttribute();
   }

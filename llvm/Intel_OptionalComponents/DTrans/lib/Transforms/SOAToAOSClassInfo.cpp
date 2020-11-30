@@ -2156,7 +2156,7 @@ FunctionKind ClassInfo::recognizeDestructor(Function *Fn) {
   // Look at all callsites of "Callee" in "F" recursively and return true if 1
   // is passed as "ArgNo"-th argument at all the callsites.
   CheckAllCallSitesInStructMethods =
-      [this, &CheckAllCallSitesInStructMethods](
+      [&CheckAllCallSitesInStructMethods](
           Function *F, Function *Callee, int32_t ArgNo,
           SmallPtrSetImpl<Function *> &ProcessedFunctions) {
         if (!F || F->isDeclaration())

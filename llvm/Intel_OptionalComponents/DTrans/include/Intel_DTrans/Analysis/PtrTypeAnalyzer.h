@@ -363,13 +363,6 @@ private:
   LPIState AnalysisState = LPIS_NotAnalyzed;
 };
 
-#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-static raw_ostream &operator<<(raw_ostream &OS, const ValueTypeInfo &Info) {
-  Info.print(OS);
-  return OS;
-}
-#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-
 // Comparator for ValueTypeInfo::PointeeLoc to enable using type within
 // std::set.
 inline bool operator<(const ValueTypeInfo::PointeeLoc &A,
