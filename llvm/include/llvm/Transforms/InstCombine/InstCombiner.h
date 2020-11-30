@@ -55,9 +55,13 @@ public:
   using BuilderTy = IRBuilder<TargetFolder, IRBuilderCallbackInserter>;
   BuilderTy &Builder;
 
-  bool allowTypeLoweringOpts() const { return TypeLoweringOpts; } // INTEL
+#if INTEL_CUSTOMIZATION
+  bool allowTypeLoweringOpts() const { return TypeLoweringOpts; }
 
-  bool preserveAddrCompute() const { return PreserveAddrCompute; } // INTEL
+  bool preserveAddrCompute() const { return PreserveAddrCompute; }
+
+  bool enableFcmpMinMaxCombine() const { return EnableFcmpMinMaxCombine; }
+#endif // INTEL_CUSTOMIZATION
 
 protected:
   /// A worklist of the instructions that need to be simplified.
@@ -70,6 +74,10 @@ protected:
   /// Enable optimizations like GEP merging, zero element GEP removal and
   /// pointer type bitcasts
   const bool TypeLoweringOpts;
+
+  /// Enable optimizations which recognize min/max semantics in (fcmp)&(fcmp)
+  /// and (fcmp)|(fcmp).
+  const bool EnableFcmpMinMaxCombine;
 
   /// If true, avoid doing transformations that significantly change address
   /// computation expressions for load and store instructions to preserve
@@ -101,13 +109,14 @@ public:
   InstCombiner(InstCombineWorklist &Worklist, BuilderTy &Builder,
 #if INTEL_CUSTOMIZATION
                bool MinimizeSize, bool TypeLoweringOpts,
-               bool PreserveAddrCompute, AAResults *AA, AssumptionCache &AC,
-               TargetLibraryInfo &TLI, TargetTransformInfo &TTI,
-               DominatorTree &DT, OptimizationRemarkEmitter &ORE,
-               BlockFrequencyInfo *BFI, ProfileSummaryInfo *PSI,
-               const DataLayout &DL, LoopInfo *LI)
+               bool EnableFcmpMinMaxCombine, bool PreserveAddrCompute,
+               AAResults *AA, AssumptionCache &AC, TargetLibraryInfo &TLI,
+               TargetTransformInfo &TTI, DominatorTree &DT,
+               OptimizationRemarkEmitter &ORE, BlockFrequencyInfo *BFI,
+               ProfileSummaryInfo *PSI, const DataLayout &DL, LoopInfo *LI)
       : TTI(TTI), Builder(Builder), Worklist(Worklist),
         MinimizeSize(MinimizeSize), TypeLoweringOpts(TypeLoweringOpts),
+        EnableFcmpMinMaxCombine(EnableFcmpMinMaxCombine),
         PreserveAddrCompute(PreserveAddrCompute), AA(AA), AC(AC), TLI(TLI),
         DT(DT), DL(DL), SQ(DL, &TLI, &DT, &AC, nullptr, true, true, &TTI),
         ORE(ORE), BFI(BFI), PSI(PSI), LI(LI) {

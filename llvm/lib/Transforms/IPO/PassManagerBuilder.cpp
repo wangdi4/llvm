@@ -453,6 +453,7 @@ PassManagerBuilder::PassManagerBuilder() {
     DivergentTarget = false;
 #if INTEL_CUSTOMIZATION
     DisableIntelProprietaryOpts = false;
+    AfterSLPVectorizer = false;
 #endif // INTEL_CUSTOMIZATION
     CallGraphProfile = true;
 }
@@ -551,6 +552,9 @@ void PassManagerBuilder::addInitialAliasAnalysisPasses(
 #if INTEL_CUSTOMIZATION
 void PassManagerBuilder::addInstructionCombiningPass(
     legacy::PassManagerBase &PM) const {
+  // Enable it when SLP Vectorizer is off or after SLP Vectorizer pass.
+  bool EnableFcmpMinMaxCombine =
+      (!PrepareForLTO && !SLPVectorize) || AfterSLPVectorizer;
 #if INTEL_INCLUDE_DTRANS
   // Configure the instruction combining pass to avoid some transformations
   // that lose type information for DTrans.
@@ -558,8 +562,9 @@ void PassManagerBuilder::addInstructionCombiningPass(
 #else
   bool GEPInstOptimizations = true;
 #endif // INTEL_INCLUDE_DTRANS
-  PM.add(createInstructionCombiningPass(
-      GEPInstOptimizations, PrepareForLTO && EnableIPArrayTranspose));
+  PM.add(createInstructionCombiningPass(GEPInstOptimizations,
+                                        PrepareForLTO && EnableIPArrayTranspose,
+                                        EnableFcmpMinMaxCombine));
 }
 #endif // INTEL_CUSTOMIZATION
 
@@ -1317,6 +1322,7 @@ void PassManagerBuilder::populateModulePassManager(
       if (SLPVectorize) {
         MPM.add(createSLPVectorizerPass()); // Vectorize parallel scalar chains.
 #if INTEL_CUSTOMIZATION
+        AfterSLPVectorizer = true;
         if (EnableLoadCoalescing)
           MPM.add(createLoadCoalescingPass());
         if (EnableSROAAfterSLP)
@@ -1891,6 +1897,7 @@ void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
   if (SLPVectorize) { // INTEL
     PM.add(createSLPVectorizerPass()); // Vectorize parallel scalar chains.
 #if INTEL_CUSTOMIZATION
+    AfterSLPVectorizer = true;
     if (EnableLoadCoalescing)
       PM.add(createLoadCoalescingPass());
     if (EnableSROAAfterSLP)
