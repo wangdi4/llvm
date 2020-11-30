@@ -187,11 +187,11 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
         /// Initialize backend libray program.
         cl_int initializeLibraryProgram(SharedPtr<Context> &Ctx,
-                                        cl_uint NumDevices,
+                                        const cl_uint NumDevices,
                                         SharedPtr<FissionableDevice>* Devices);
 
         /// Release backend libray program.
-        cl_int releaseLibraryProgram(cl_context Ctx);
+        cl_int releaseLibraryProgram(const cl_context Ctx);
 
         /**
          * Get a kernel from library program.
@@ -199,7 +199,8 @@ namespace Intel { namespace OpenCL { namespace Framework {
          * @param Name Kernel name.
            @return Kernel shared object and nullptr if failed.
          */
-        SharedPtr<Kernel> GetLibraryKernel(cl_context Ctx, std::string &Name);
+        SharedPtr<Kernel> GetLibraryKernel(const cl_context Ctx,
+                                           const std::string &Name);
 
         /////////////////////////////////////////////////////////////////////
         // OpenCL 1.2 functions
@@ -368,6 +369,10 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
         bool Check2DImageFromBufferPitch(const ConstSharedPtr<GenericMemObject>& pBuffer, const cl_image_desc& desc, const cl_image_format& format) const;
 
+        cl_int CreateLibraryKernelForThread(const cl_context Ctx,
+                                            const threadid_t TID,
+                                            const std::string &Name);
+
         PlatformModule *                        m_pPlatformModule; // handle to the platform module
 
         OCLObjectsMap<_cl_context_int>          m_mapContexts;     // map list of contexts
@@ -381,7 +386,8 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
         // Holds the backend library program.
         std::map<cl_context, cl_program>        m_backendLibraryProgram;
-        std::map<cl_context, std::map<std::string, cl_kernel>>
+        std::map<cl_context,
+                 std::map<threadid_t, std::map<std::string, cl_kernel>>>
             m_backendLibraryKernels;
         Intel::OpenCL::Utils::OclMutex          m_backendLibraryMutex;
 

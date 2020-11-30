@@ -2940,9 +2940,11 @@ cl_err_code ContextModule::CheckContextSpecificParameters(SharedPtr<Context>pCon
 
 cl_int
 ContextModule::initializeLibraryProgram(SharedPtr<Context> &Ctx,
-                                        cl_uint NumDevices,
+                                        const cl_uint NumDevices,
                                         SharedPtr<FissionableDevice> *Devices) {
   LOG_INFO(TEXT("%s"), TEXT("initializeLibraryProgram enter"));
+  OclAutoMutex mu(&m_backendLibraryMutex);
+
   // Create program.
   SharedPtr<Program> Prog;
   std::string KernelNames;
@@ -2962,53 +2964,75 @@ ContextModule::initializeLibraryProgram(SharedPtr<Context> &Ctx,
 
   cl_program ProgHandle = Prog->GetHandle();
   cl_context CtxHandle = Ctx->GetHandle();
+  m_backendLibraryProgram[CtxHandle] = ProgHandle;
 
-  // Create Kernels.
+  // Create Kernels for current thread.
+  threadid_t TID = clMyThreadId();
   std::vector<std::string> KernelNamesVec = SplitString(KernelNames, ';');
   for (auto &KName : KernelNamesVec) {
-      cl_kernel K = CreateKernel(ProgHandle, KName.c_str(), &err);
+      cl_int err = CreateLibraryKernelForThread(CtxHandle, TID, KName);
       if (CL_FAILED(err)) {
           LOG_ERROR(TEXT("Failed to create library kernel, err %d"), err);
           return err;
       }
-      m_backendLibraryKernels[CtxHandle][KName] = K;
   }
-
-  m_backendLibraryProgram[CtxHandle] = ProgHandle;
 
   return err;
 }
 
-cl_int ContextModule::releaseLibraryProgram(cl_context Ctx) {
-    LOG_INFO(TEXT("%s"), TEXT("releaseLibraryProgram enter"));
+cl_int ContextModule::releaseLibraryProgram(const cl_context Ctx) {
+  LOG_INFO(TEXT("%s"), TEXT("releaseLibraryProgram enter"));
 
-    OclAutoMutex mu(&m_backendLibraryMutex);
+  OclAutoMutex mu(&m_backendLibraryMutex);
 
-    if (!m_backendLibraryProgram.count(Ctx))
-        return CL_SUCCESS;
+  if (!m_backendLibraryProgram.count(Ctx))
+    return CL_SUCCESS;
 
-    cl_int err;
-    for (auto &K : m_backendLibraryKernels[Ctx]) {
-        err = ReleaseKernel(K.second);
-        if (CL_FAILED(err))
-            return err;
+  // Release kernels.
+  cl_int err;
+  for (auto &NK : m_backendLibraryKernels[Ctx]) {
+    for (auto &K : NK.second) {
+      err = ReleaseKernel(K.second);
+      if (CL_FAILED(err))
+        return err;
     }
-    m_backendLibraryKernels.erase(Ctx);
+  }
+  m_backendLibraryKernels.erase(Ctx);
 
-    err = ReleaseProgram(m_backendLibraryProgram[Ctx]);
-    m_backendLibraryProgram.erase(Ctx);
-    return err;
+  err = ReleaseProgram(m_backendLibraryProgram[Ctx]);
+  m_backendLibraryProgram.erase(Ctx);
+  return err;
 }
 
-SharedPtr<Kernel> ContextModule::GetLibraryKernel(cl_context Ctx,
-                                                  std::string &Name) {
-    assert(m_backendLibraryKernels.count(Ctx) &&
-           m_backendLibraryKernels.at(Ctx).count(Name) &&
-           "Invalid context or kernel name");
+cl_int ContextModule::CreateLibraryKernelForThread(const cl_context Ctx,
+                                                   const threadid_t TID,
+                                                   const std::string &Name) {
+  assert(m_backendLibraryProgram.count(Ctx) && "Invalid context");
+  cl_program P = m_backendLibraryProgram[Ctx];
+  cl_int err;
+  cl_kernel K = CreateKernel(P, Name.c_str(), &err);
+  if (CL_FAILED(err)) {
+    LOG_ERROR(TEXT("Failed to create library kernel, err %d"), err);
+    return CL_INVALID_VALUE;
+  }
+  m_backendLibraryKernels[Ctx][TID][Name] = K;
+  return CL_SUCCESS;
+}
 
-    cl_kernel K = m_backendLibraryKernels.at(Ctx).at(Name);
+SharedPtr<Kernel> ContextModule::GetLibraryKernel(const cl_context Ctx,
+                                                  const std::string &Name) {
+  threadid_t TID = clMyThreadId();
+  if (!m_backendLibraryKernels.count(Ctx) ||
+      !m_backendLibraryKernels[Ctx].count(TID) ||
+      !m_backendLibraryKernels[Ctx][TID].count(Name)) {
+    OclAutoMutex mu(&m_backendLibraryMutex);
+    cl_int err = CreateLibraryKernelForThread(Ctx, TID, Name);
+    if (CL_FAILED(err))
+      return nullptr;
+  }
+  cl_kernel K = m_backendLibraryKernels[Ctx][TID][Name];
 
-    return GetKernel(K);
+  return GetKernel(K);
 }
 
 /////////////////////////////////////////////////////////////////////
