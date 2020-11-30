@@ -107,6 +107,11 @@ void ArraySectionInfo::print(raw_ostream &OS) const {
     OS << "[";
 
     auto &IndicesVec = std::get<2>(Triplet);
+
+    if (IndicesVec.empty()) {
+      OS << "*";
+    }
+
     for (auto IndexI : enumerate(IndicesVec)) {
       IndexI.value()->print(OS, false);
       if (IndexI.index() != IndicesVec.size() - 1) {
@@ -265,21 +270,27 @@ computeSectionsFromGroup(ArrayRef<const RegDDRef *> Group,
   }
 
   // Find MinCE and MaxCE across every dimension within a group.
-  for (int I = 0, E = SeedRef->getNumDimensions(); I < E; ++I) {
+  for (unsigned I = 0, E = SeedRef->getNumDimensions(); I < E; ++I) {
     auto IsDimLinearAtLevel = [&](const RegDDRef *Ref) {
+      if (I >= Ref->getNumDimensions()) {
+        return false;
+      }
+
       return Ref->getDimensionStride(I + 1)->isLinearAtLevel(OuterLoopLevel) &&
              Ref->getDimensionLower(I + 1)->isLinearAtLevel(OuterLoopLevel) &&
              Ref->getDimensionIndex(I + 1)->isLinearAtLevel(OuterLoopLevel);
     };
 
     // If there are non-linear CEs return conservative result.
-    if (std::all_of(Group.begin(), Group.end(), IsDimLinearAtLevel)) {
-      std::tie(Info.lowers()[I], Info.uppers()[I]) =
-          computeMinMaxSection(Group, OuterLoopLevel, I + 1);
-    } else {
+    if (!std::all_of(Group.begin(), Group.end(), IsDimLinearAtLevel)) {
       Info.lowers()[I] = nullptr;
       Info.uppers()[I] = nullptr;
+      continue;
     }
+
+    // Capture min/max offsets.
+    std::tie(Info.lowers()[I], Info.uppers()[I]) =
+        computeMinMaxSection(Group, OuterLoopLevel, I + 1);
 
     // Capture all indices of the dimension.
     SmallVector<const CanonExpr *, 8> Indices;
