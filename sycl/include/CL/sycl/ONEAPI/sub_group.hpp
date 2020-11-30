@@ -26,6 +26,7 @@
 /* INTEL_CUSTOMIZATION */
 #ifdef DPCPP_HOST_DEVICE_PERF_NATIVE
 extern "C" unsigned int __builtin_get_max_sub_group_size();
+extern "C" unsigned int __builtin_get_sub_group_local_id();
 #endif
 /* end INTEL_CUSTOMIZATION */
 
@@ -116,6 +117,10 @@ struct sub_group {
   id_type get_local_id() const {
 #ifdef __SYCL_DEVICE_ONLY__
     return __spirv_SubgroupLocalInvocationId();
+/* INTEL_CUSTOMIZATION */
+#elif defined(DPCPP_HOST_DEVICE_PERF_NATIVE)
+    return __builtin_get_sub_group_local_id();
+/* end INTEL_CUSTOMIZATION */
 #else
     throw runtime_error("Sub-groups are not supported on host device.",
                         PI_INVALID_DEVICE);
