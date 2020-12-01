@@ -218,8 +218,8 @@ static bool checkPtrNoAlias(const Value *V1, const Value *V2,
     return false;
   }
 
-  return V1PtrNoAlias && isEscapeSource(V2) ||
-         V2PtrNoAlias && isEscapeSource(V1);
+  return (V1PtrNoAlias && isEscapeSource(V2)) ||
+          (V2PtrNoAlias && isEscapeSource(V1));
 }
 #endif // INTEL_CUSTOMIZATION
 

@@ -1456,12 +1456,12 @@ void HIROptPredicate::transformCandidate(HLLoop *TargetLoop,
         bool IsEquiv =
             C.Level == Candidate.Level && C.isIf() == Candidate.isIf() &&
             // Have same condition
-            (C.isIf() && HLNodeUtils::areEqualConditions(C.getIf(),
-                                                         Candidate.getIf()) ||
-             !C.isIf() && HLNodeUtils::areEqualConditions(
-                              C.getSwitch(), Candidate.getSwitch())) &&
-            // And are in the same target loop
-            HLNodeUtils::contains(TargetLoop, C.getNode(), false);
+            ((C.isIf() &&
+              HLNodeUtils::areEqualConditions(C.getIf(), Candidate.getIf())) ||
+             (!C.isIf() && HLNodeUtils::areEqualConditions(
+                               C.getSwitch(), Candidate.getSwitch()))) &&
+          // And are in the same target loop
+          HLNodeUtils::contains(TargetLoop, C.getNode(), false);
 
         if (!IsEquiv) {
           return false;

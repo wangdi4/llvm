@@ -58,7 +58,6 @@ private:
 
   DominatorTree &DT;
   LoopInfo &LI;
-  HIRRegionIdentification &RI;
   ScopedScalarEvolution &ScopedSE;
   HIRCreation &HIRCr;
   HIRCleanup &HIRC;
@@ -125,7 +124,7 @@ private:
 public:
   HIRLoopFormation(DominatorTree &DT, LoopInfo &LI, HIRRegionIdentification &RI,
                    HIRCreation &HIRCr, HIRCleanup &HIRC, HLNodeUtils &HNU)
-      : DT(DT), LI(LI), RI(RI), ScopedSE(RI.getScopedSE()), HIRCr(HIRCr),
+      : DT(DT), LI(LI), ScopedSE(RI.getScopedSE()), HIRCr(HIRCr),
         HIRC(HIRC), HNU(HNU) {}
 
   void run();
