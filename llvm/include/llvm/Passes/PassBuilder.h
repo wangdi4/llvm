@@ -361,6 +361,7 @@ public:
 #if INTEL_CUSTOMIZATION
                                                 // Intel: Add InlPass.
                                                 ThinLTOPhase Phase,
+                                                bool MandatoryOnly,
                                                 InlinerPass *InlPass);
 #endif // INTEL_CUSTOMIZATION
 

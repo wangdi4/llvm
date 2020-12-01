@@ -472,6 +472,11 @@ static cl::opt<bool> EnableMemProfiler("enable-mem-prof", cl::init(false),
                                        cl::Hidden, cl::ZeroOrMore,
                                        cl::desc("Enable memory profiler"));
 
+static cl::opt<bool> PerformMandatoryInliningsFirst(
+    "mandatory-inlining-first", cl::init(true), cl::Hidden, cl::ZeroOrMore,
+    cl::desc("Perform mandatory inlinings module-wide, before performing "
+             "inlining."));
+
 PipelineTuningOptions::PipelineTuningOptions() {
   LoopInterleaving = true;
   LoopVectorization = true;
@@ -1195,6 +1200,7 @@ getInlineParamsFromOptLevel(PassBuilder::OptimizationLevel Level) {
 ModuleInlinerWrapperPass
 #if INTEL_CUSTOMIZATION
 PassBuilder::buildInlinerPipeline(OptimizationLevel Level, ThinLTOPhase Phase,
+                                  bool MandatoryOnly,
                                   // Intel: Add InlP paramter.
                                   InlinerPass *InlP) {
 #endif // INTEL_CUSTOMIZATION
@@ -1206,8 +1212,13 @@ PassBuilder::buildInlinerPipeline(OptimizationLevel Level, ThinLTOPhase Phase,
   if (PGOOpt)
     IP.EnableDeferral = EnablePGOInlineDeferral;
 
-  ModuleInlinerWrapperPass MIWP(IP, DebugLogging, UseInlineAdvisor,
-                                MaxDevirtIterations, InlP);
+  ModuleInlinerWrapperPass MIWP(
+      IP, DebugLogging,
+      (MandatoryOnly ? InliningAdvisorMode::MandatoryOnly : UseInlineAdvisor),
+      MaxDevirtIterations, InlP); // INTEL
+
+  if (MandatoryOnly)
+    return MIWP;
 
   // Require the GlobalsAA analysis for the module so we can query it within
   // the CGSCC pipeline.
@@ -1423,7 +1434,11 @@ PassBuilder::buildModuleSimplificationPipeline(OptimizationLevel Level,
 #endif // INTEL_CUSTOMIZATION
 
 #if INTEL_CUSTOMIZATION
-  MPM.addPass(buildInlinerPipeline(Level, Phase, &InlPass));
+  if (PerformMandatoryInliningsFirst)
+    MPM.addPass(
+        buildInlinerPipeline(Level, Phase, /*MandatoryOnly=*/true, &InlPass));
+  MPM.addPass(
+      buildInlinerPipeline(Level, Phase, /*MandatoryOnly=*/false, &InlPass));
 #endif // INTEL_CUSTOMIZATION
 
   if (EnableMemProfiler && Phase != ThinLTOPhase::PreLink) {
@@ -2107,6 +2122,12 @@ PassBuilder::buildLTODefaultPipeline(OptimizationLevel Level,
   if (EnableInlineAggAnalysis) {
     MPM.addPass(AggInlinerPass());
   }
+
+  MPM.addPass(ModuleInlinerWrapperPass(getInlineParamsFromOptLevel(Level),
+                                       DebugLogging,
+                                       InliningAdvisorMode::MandatoryOnly,
+                                       0 /*MaxDevirtIterations*/,    // INTEL
+                                       &InlPass));                   // INTEL
   // Note: historically, the PruneEH pass was run first to deduce nounwind and
   // generally clean up exception handling overhead. It isn't clear this is
   // valuable as the inliner doesn't currently care whether it is inlining an

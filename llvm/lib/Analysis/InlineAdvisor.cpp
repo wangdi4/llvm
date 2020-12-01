@@ -174,6 +174,9 @@ bool InlineAdvisorAnalysis::Result::tryCreate(InlineParams Params,
   case InliningAdvisorMode::Default:
     Advisor.reset(new DefaultInlineAdvisor(FAM, Params));
     break;
+  case InliningAdvisorMode::MandatoryOnly:
+    Advisor.reset(new MandatoryInlineAdvisor(FAM));
+    break;
   case InliningAdvisorMode::Development:
 #ifdef LLVM_HAVE_TF_API
     Advisor =
@@ -479,4 +482,43 @@ void llvm::emitInlinedInto(OptimizationRemarkEmitter &ORE, DebugLoc DLoc,
     addLocationToRemarks(Remark, DLoc);
     return Remark;
   });
+}
+
+#if INTEL_CUSTOMIZATION
+std::unique_ptr<InlineAdvice>
+MandatoryInlineAdvisor::getAdvice(CallBase &CB, InliningLoopInfoCache *ILIC,
+                                  WholeProgramInfo *WPI, InlineCost **IC) {
+#endif // INTEL_CUSTOMIZATION
+  auto &Caller = *CB.getCaller();
+  auto &Callee = *CB.getCalledFunction();
+  auto &ORE = FAM.getResult<OptimizationRemarkEmitterAnalysis>(Caller);
+
+  bool Advice = MandatoryInliningKind::Always ==
+                    MandatoryInlineAdvisor::getMandatoryKind(CB, FAM, ORE) &&
+                &Caller != &Callee;
+  return std::make_unique<InlineAdvice>(this, CB, ORE, Advice);
+}
+
+MandatoryInlineAdvisor::MandatoryInliningKind
+MandatoryInlineAdvisor::getMandatoryKind(CallBase &CB,
+                                         FunctionAnalysisManager &FAM,
+                                         OptimizationRemarkEmitter &ORE) {
+  auto &Callee = *CB.getCalledFunction();
+
+  auto GetTLI = [&](Function &F) -> const TargetLibraryInfo & {
+    return FAM.getResult<TargetLibraryAnalysis>(F);
+  };
+
+  auto &TIR = FAM.getResult<TargetIRAnalysis>(Callee);
+
+  auto TrivialDecision =
+      llvm::getAttributeBasedInliningDecision(CB, &Callee, TIR, GetTLI);
+
+  if (TrivialDecision.hasValue()) {
+    if (TrivialDecision->isSuccess())
+      return MandatoryInliningKind::Always;
+    else
+      return MandatoryInliningKind::Never;
+  }
+  return MandatoryInliningKind::NotMandatory;
 }
