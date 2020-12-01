@@ -279,7 +279,7 @@ cl_dev_err_code ProgramService::CreateProgram( size_t IN binSize,
 
 cl_dev_err_code
 ProgramService::CreateLibraryKernelProgram(cl_dev_program *OUT Prog,
-                                           char **OUT KernelNames) {
+                                           const char **OUT KernelNames) {
   CpuInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%S"),
              TEXT("CreateLibraryKernelProgram enter"));
 
@@ -291,7 +291,7 @@ ProgramService::CreateLibraryKernelProgram(cl_dev_program *OUT Prog,
 
   assert(m_pBackendCompiler && "Invalid backend compile service");
   cl_dev_err_code err =
-      m_pBackendCompiler->CreateLibraryProgram(&Entry->pProgram, KernelNames);
+      m_pBackendCompiler->GetLibraryProgram(&Entry->pProgram, KernelNames);
   if (CL_DEV_FAILED(err)) {
     CpuErrLog(m_pLogDescriptor, m_iLogHandle,
               TEXT("CreateLibraryProgram failed with %x"), err);

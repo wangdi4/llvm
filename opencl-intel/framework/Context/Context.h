@@ -30,6 +30,7 @@
 #include "cl_heap.h"
 #include "cl_shared_ptr.h"
 #include "sampler.h"
+#include "tbb/concurrent_map.h"
 
 namespace Intel { namespace OpenCL { namespace Framework {
 
@@ -558,6 +559,26 @@ namespace Intel { namespace OpenCL { namespace Framework {
         cl_int USMDeviceAllocGlobalVariable(cl_device_id device,
                                             size_t gvSize,
                                             void* gvPtr);
+        /// Get backend library program.
+        cl_program GetLibraryProgram() { return m_backendLibraryProgram; }
+
+        /// Get backend library kernels.
+        tbb::concurrent_map<threadid_t, std::map<std::string, cl_kernel>>
+            &GetLibraryKernels() {
+          return m_backendLibraryKernels;
+        }
+
+        /// Set backend library kernel.
+        void SetLibraryKernel(const threadid_t TID, const std::string &Name,
+                              cl_kernel K) {
+          m_backendLibraryKernels[TID][Name] = K;
+        }
+
+        // Reset backend library program and kernels.
+        void ResetLibraryProgramKernels() {
+          m_backendLibraryProgram = nullptr;
+          m_backendLibraryKernels.clear();
+        }
 
     protected:
         /******************************************************************************************
@@ -690,6 +711,11 @@ namespace Intel { namespace OpenCL { namespace Framework {
         bool                                    m_bSupportsUsmSharedSystem;
         std::map<void*, SharedPtr<USMBuffer> >  m_usmBuffers;
         mutable Intel::OpenCL::Utils::OclReaderWriterLock m_usmBuffersRwlock;
+
+        // Holds the backend library program.
+        cl_program                              m_backendLibraryProgram;
+        tbb::concurrent_map<threadid_t, std::map<std::string, cl_kernel>>
+            m_backendLibraryKernels;
 
 #if OCL_EVENT_WAIT_STRATEGY == OCL_EVENT_WAIT_OS_DEPENDENT
         typedef Intel::OpenCL::Utils::OclNaiveConcurrentQueue<Intel::OpenCL::Utils::OclOsDependentEvent*> t_OsEventPool;

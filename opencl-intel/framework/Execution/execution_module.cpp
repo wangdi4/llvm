@@ -957,7 +957,8 @@ cl_err_code ExecutionModule::EnqueueReadBuffer(cl_command_queue clCommandQueue, 
         errVal = EnqueueLibraryCopy(pCommandQueue, pOutData, &clBuffer, szCb,
                                     false, true, false, false, bBlocking,
                                     uNumEventsInWaitList, cpEventWaitList,
-                                    pEvent, apiLogger);
+                                    pEvent, apiLogger, CL_COMMAND_READ_BUFFER,
+                                    "CL_COMMAND_READ_BUFFER");
         if (CL_SUCCEEDED(errVal))
             return errVal;
     }
@@ -1149,7 +1150,8 @@ cl_err_code ExecutionModule::EnqueueWriteBuffer(cl_command_queue clCommandQueue,
         errVal = EnqueueLibraryCopy(pCommandQueue, &clBuffer, cpSrcData, szCb,
                                     false, false, false, true, bBlocking,
                                     uNumEventsInWaitList, cpEventWaitList,
-                                    pEvent, apiLogger);
+                                    pEvent, apiLogger, CL_COMMAND_WRITE_BUFFER,
+                                    "CL_COMMAND_WRITE_BUFFER");
         if (CL_SUCCEEDED(errVal))
             return errVal;
     }
@@ -1468,7 +1470,8 @@ cl_err_code ExecutionModule::EnqueueCopyBuffer(
         errVal = EnqueueLibraryCopy(pCommandQueue, &clDstBuffer, &clSrcBuffer,
                                     szCb, false, false, false, false, CL_FALSE,
                                     uNumEventsInWaitList, cpEventWaitList,
-                                    pEvent, apiLogger);
+                                    pEvent, apiLogger, CL_COMMAND_COPY_BUFFER,
+                                    "CL_COMMAND_COPY_BUFFER");
         if (CL_SUCCEEDED(errVal))
             return errVal;
     }
@@ -3460,7 +3463,9 @@ cl_int ExecutionModule::EnqueueSVMMemcpy(cl_command_queue clCommandQueue, cl_boo
         err = EnqueueLibraryCopy(pQueue, pDstPtr, pSrcPtr, size,
                                  true, false, true, false, bBlockingCopy,
                                  uiNumEventsInWaitList,
-                                 pEventWaitList, pEvent, apiLogger);
+                                 pEventWaitList, pEvent, apiLogger,
+                                 CL_COMMAND_SVM_MEMCPY,
+                                 "CL_COMMAND_SVM_MEMCPY");
         if (CL_SUCCEEDED(err))
             return err;
     }
@@ -3560,7 +3565,8 @@ cl_int ExecutionModule::EnqueueSVMMemFill(cl_command_queue clCommandQueue, void*
         if (sameValue) {
             err = EnqueueLibrarySet(
                 pQueue, pSvmPtr, v, size, true, false, uiNumEventsInWaitList,
-                pEventWaitList, pEvent, apiLogger);
+                pEventWaitList, pEvent, apiLogger, CL_COMMAND_SVM_MEMFILL,
+                "CL_COMMAND_SVM_MEMFILL");
             if (CL_SUCCEEDED(err))
                 return err;
         }
@@ -3771,7 +3777,8 @@ cl_err_code ExecutionModule::EnqueueUSMMemset(cl_command_queue command_queue,
         unsigned char *v = (unsigned char*)&value;
         err = EnqueueLibrarySet(
             queue, dst_ptr, v[0], size, false, true, num_events_in_wait_list,
-            event_wait_list, event, api_logger);
+            event_wait_list, event, api_logger, CL_COMMAND_MEMSET_INTEL,
+            "CL_COMMAND_MEMSET_INTEL");
         if (CL_SUCCEEDED(err))
             return err;
     }
@@ -3852,7 +3859,8 @@ cl_err_code ExecutionModule::EnqueueUSMMemFill(cl_command_queue command_queue,
         if (sameValue) {
             err = EnqueueLibrarySet(
                 queue, dst_ptr, v, size, false, true, num_events_in_wait_list,
-                event_wait_list, event, api_logger);
+                event_wait_list, event, api_logger, CL_COMMAND_MEMFILL_INTEL,
+                "CL_COMMAND_MEMFILL_INTEL");
             if (CL_SUCCEEDED(err))
                 return err;
         }
@@ -3938,7 +3946,8 @@ cl_err_code ExecutionModule::EnqueueUSMMemcpy(cl_command_queue command_queue,
     if (m_enableParallelCopy) {
         err = EnqueueLibraryCopy(
             queue, dst_ptr, src_ptr, size, false, true, false, true, blocking,
-            num_events_in_wait_list, event_wait_list, event, api_logger);
+            num_events_in_wait_list, event_wait_list, event, api_logger,
+            CL_COMMAND_MEMCPY_INTEL, "CL_COMMAND_MEMCPY_INTEL");
         if (CL_SUCCEEDED(err))
             return err;
     }
@@ -4094,14 +4103,14 @@ cl_err_code ExecutionModule::EnqueueLibraryCopy(
     void *dst, const void *src, size_t size, bool is_dst_svm, bool is_dst_usm,
     bool is_src_svm, bool is_src_usm, cl_bool blocking,
     cl_uint num_events_in_wait_list, const cl_event *event_wait_list,
-    cl_event *event, ApiLogger *api_logger) {
+    cl_event *event, ApiLogger *api_logger, cl_command_type cmdType,
+    std::string cmdTypeStr) {
     LOG_DEBUG(TEXT("%s"), TEXT("EnqueueLibraryCopy enter"));
     SharedPtr<Context> context = queue->GetContext();
     // Setup kernel.
     std::string kernelName = "copy";
     SharedPtr<Kernel> kernel =
-        context->GetContextModule().GetLibraryKernel(context->GetHandle(),
-                                                     kernelName);
+        context->GetContextModule().GetLibraryKernel(context, kernelName);
     if (!kernel) {
         LOG_ERROR(TEXT("EnqueueLibraryCopy GetLibraryKernel failed"), "");
         return CL_OUT_OF_RESOURCES;
@@ -4131,8 +4140,8 @@ cl_err_code ExecutionModule::EnqueueLibraryCopy(
     cl_uint ndim = 1;
 
     const SharedPtr<FissionableDevice>& device = queue->GetDefaultDevice();
-    Command* cmd = new NDRangeKernelCommand(queue, m_pOclEntryPoints, kernel,
-                                            ndim, offset, gdim, ldim);
+    NDRangeKernelCommand* cmd = new NDRangeKernelCommand(
+        queue, m_pOclEntryPoints, kernel, ndim, offset, gdim, ldim);
     cmd->SetDevice(device);
     err = cmd->Init();
     if (CL_FAILED(err)) {
@@ -4140,6 +4149,7 @@ cl_err_code ExecutionModule::EnqueueLibraryCopy(
         delete cmd;
         return err;
     }
+    cmd->SetCustomCommandType(cmdType, cmdTypeStr);
     err = cmd->EnqueueSelf(blocking, num_events_in_wait_list, event_wait_list,
                            event, api_logger);
     if(CL_FAILED(err)) {
@@ -4155,15 +4165,15 @@ cl_err_code ExecutionModule::EnqueueLibrarySet(
     SharedPtr<IOclCommandQueueBase> &queue,
     void *dst, unsigned char value, size_t size, bool is_dst_svm, bool is_dst_usm,
     cl_uint num_events_in_wait_list, const cl_event *event_wait_list,
-    cl_event *event, ApiLogger *api_logger) {
+    cl_event *event, ApiLogger *api_logger, cl_command_type cmdType,
+    std::string cmdTypeStr) {
     LOG_DEBUG(TEXT("%s"), TEXT("EnqueueLibrarySet enter"));
     SharedPtr<Context> context = queue->GetContext();
 
     // Setup kernel.
     std::string kernelName = (value == 0) ? "set_zero" : "set";
     SharedPtr<Kernel> kernel =
-        context->GetContextModule().GetLibraryKernel(context->GetHandle(),
-                                                     kernelName);
+        context->GetContextModule().GetLibraryKernel(context, kernelName);
     if (!kernel) {
         LOG_ERROR(TEXT("EnqueueLibrarySet GetLibraryKernel failed"), "");
         return CL_OUT_OF_RESOURCES;
@@ -4196,8 +4206,8 @@ cl_err_code ExecutionModule::EnqueueLibrarySet(
     cl_uint ndim = 1;
 
     const SharedPtr<FissionableDevice>& device = queue->GetDefaultDevice();
-    Command* cmd = new NDRangeKernelCommand(queue, m_pOclEntryPoints, kernel,
-                                            ndim, offset, gdim, ldim);
+    NDRangeKernelCommand* cmd = new NDRangeKernelCommand(
+        queue, m_pOclEntryPoints, kernel, ndim, offset, gdim, ldim);
     cmd->SetDevice(device);
     err = cmd->Init();
     if (CL_FAILED(err)) {
@@ -4205,6 +4215,7 @@ cl_err_code ExecutionModule::EnqueueLibrarySet(
         delete cmd;
         return err;
     }
+    cmd->SetCustomCommandType(cmdType, cmdTypeStr);
     err = cmd->EnqueueSelf(false, num_events_in_wait_list, event_wait_list,
                            event, api_logger);
     if(CL_FAILED(err)) {

@@ -205,7 +205,9 @@ namespace Intel { namespace OpenCL { namespace Framework {
                                        cl_bool blocking,
                                        cl_uint num_events_in_wait_list,
                                        const cl_event *event_wait_list,
-                                       cl_event *event, ApiLogger *api_logger);
+                                       cl_event *event, ApiLogger *api_logger,
+                                       cl_command_type cmdType,
+                                       std::string cmdTypeStr);
 
         // Enqueue parallel set.
         cl_err_code EnqueueLibrarySet(SharedPtr<IOclCommandQueueBase> &queue,
@@ -214,7 +216,9 @@ namespace Intel { namespace OpenCL { namespace Framework {
                                       bool is_dst_usm,
                                       cl_uint num_events_in_wait_list,
                                       const cl_event *event_wait_list,
-                                      cl_event *event, ApiLogger *api_logger);
+                                      cl_event *event, ApiLogger *api_logger,
+                                      cl_command_type cmdType,
+                                      std::string cmdTypeStr);
 
         PlatformModule*     m_pPlatfromModule;                                                  // Pointer to the platform operation. This is the internal interface of the module.
         ContextModule*      m_pContextModule;                                                   // Pointer to the context operation. This is the internal interface of the module.

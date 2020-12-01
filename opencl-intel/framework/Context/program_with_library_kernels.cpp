@@ -37,7 +37,7 @@ ProgramWithLibraryKernels::ProgramWithLibraryKernels(
       DevProgram.reset(new DeviceProgram());
 
       cl_dev_program DevProg;
-      char *KNames = nullptr;
+      const char *KNames = nullptr;
       cl_dev_err_code err =
           Devices[i]->GetDeviceAgent()->clDevCreateLibraryKernelProgram(
               &DevProg, &KNames);
@@ -48,9 +48,6 @@ ProgramWithLibraryKernels::ProgramWithLibraryKernels(
       }
       // KNames is a list of kernel names separated by comma.
       KernelNames = KNames;
-      // TODO following code segfault on windows. KNames is allocated in backend
-      // dll and freed in framework dll.
-      //free(KNames);
 
       DevProgram->SetDevice(Devices[i]);
       DevProgram->SetHandle(GetHandle());

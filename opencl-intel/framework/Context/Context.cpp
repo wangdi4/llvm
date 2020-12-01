@@ -67,7 +67,8 @@ Context::Context(const cl_context_properties * clProperties, cl_uint uiNumDevice
     m_pOriginalDeviceIds(nullptr), m_devTypeMask(0),
     m_pclContextProperties(nullptr), m_fpgaEmulator(false), m_eyeqEmulator(false),
     m_pfnNotify(nullptr), m_pUserData(nullptr), m_ulMaxMemAllocSize(0),
-    m_MemObjectsHeap(nullptr), m_contextModule(contextModule)
+    m_MemObjectsHeap(nullptr), m_contextModule(contextModule),
+    m_backendLibraryProgram(nullptr)
 {
 
     INIT_LOGGER_CLIENT(TEXT("Context"), LL_DEBUG);
@@ -859,10 +860,10 @@ cl_err_code Context::CreateProgramWithLibraryKernels(
   }
 
   Prog->SetLoggerClient(GET_LOGGER_CLIENT);
-
   m_mapPrograms.AddObject(Prog);
   *ProgPtr = Prog;
-  return Err;
+  m_backendLibraryProgram = Prog->GetHandle();
+  return CL_SUCCESS;
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////

@@ -24,7 +24,6 @@
 #include "common_utils.h"
 #include "cpu_dev_limits.h"
 #include "ocl_config.h"
-#include <CL/cl.h>
 #include <gtest/gtest.h>
 
 extern cl_device_type gDeviceType;
@@ -101,6 +100,15 @@ protected:
     return checkResultBuffer(buffer, m_checkSize, value);
   }
 
+  void checkCmdType(cl_event event, cl_command_type expected) {
+    // Check command type.
+    cl_command_type commandType;
+    cl_int err = clGetEventInfo(event, CL_EVENT_COMMAND_TYPE,
+                                sizeof(cl_command_type), &commandType, nullptr);
+    ASSERT_EQ(err, CL_SUCCESS) << "clGetEventInfo CL_EVENT_COMMAND_TYPE failed";
+    ASSERT_EQ(commandType, expected);
+  }
+
 protected:
   cl_platform_id m_platform;
   cl_device_id m_device;
@@ -130,6 +138,9 @@ TEST_P(ParallelCopySetTest, readBuffer) {
   // Check result.
   ASSERT_TRUE(checkBuffer(dst));
 
+  // Check command type.
+  ASSERT_NO_FATAL_FAILURE(checkCmdType(event, CL_COMMAND_READ_BUFFER));
+
   // Test event profiling.
   cl_ulong start, end;
   err = clGetEventProfilingInfo(event, CL_PROFILING_COMMAND_START,
@@ -148,6 +159,41 @@ TEST_P(ParallelCopySetTest, readBuffer) {
 
 TEST_P(ParallelCopySetTest, writeBuffer) {
   cl_int err;
+
+  // Create and initialize buffer.
+  char *src = new char[m_size];
+  initBuffer(src);
+
+  char *dst = new char[m_size];
+  cl_mem buffer =
+      clCreateBuffer(m_context, CL_MEM_USE_HOST_PTR, m_size, dst, &err);
+  ASSERT_OCL_SUCCESS(err, "clCreateBuffer");
+
+  cl_event event;
+  err = clEnqueueWriteBuffer(m_queue, buffer, CL_TRUE, 0, m_size, src, 0,
+                             nullptr, &event);
+  ASSERT_OCL_SUCCESS(err, "clEnqueueReadBuffer");
+
+  // Check result.
+  ASSERT_TRUE(checkBuffer(dst));
+
+  // Check command type.
+  ASSERT_NO_FATAL_FAILURE(checkCmdType(event, CL_COMMAND_WRITE_BUFFER));
+
+  err = clReleaseMemObject(buffer);
+  ASSERT_OCL_SUCCESS(err, "clReleaseBuffer");
+  delete[] src;
+  delete[] dst;
+}
+
+TEST_P(ParallelCopySetTest, writeBufferRetainReleaseContext) {
+  cl_int err;
+
+  err = clRetainContext(m_context);
+  ASSERT_OCL_SUCCESS(err, "clRetainContext");
+
+  err = clReleaseContext(m_context);
+  ASSERT_OCL_SUCCESS(err, "clReleaseContext");
 
   // Create and initialize buffer.
   char *src = new char[m_size];
@@ -214,8 +260,9 @@ TEST_P(ParallelCopySetTest, copyBuffer) {
   ASSERT_OCL_SUCCESS(err, "clCreateBuffer");
 
   // Copy from buffer to buffer.
+  cl_event event;
   err = clEnqueueCopyBuffer(m_queue, bufferSrc, bufferDst, 0, 0, m_size, 0,
-                            nullptr, nullptr);
+                            nullptr, &event);
   ASSERT_OCL_SUCCESS(err, "clEnqueueReadBuffer");
 
   // Copy from buffer to buffer
@@ -232,6 +279,9 @@ TEST_P(ParallelCopySetTest, copyBuffer) {
 
   // Check result.
   ASSERT_TRUE(checkBuffer(dst));
+
+  // Check command type.
+  ASSERT_NO_FATAL_FAILURE(checkCmdType(event, CL_COMMAND_COPY_BUFFER));
 
   err = clReleaseMemObject(bufferSrc);
   ASSERT_OCL_SUCCESS(err, "clReleaseBuffer");
@@ -265,13 +315,20 @@ TEST_P(ParallelCopySetTest, svmMemcpy) {
   ASSERT_OCL_SUCCESS(err, "clEnqueueSVMMemcpy");
 
   // Copy from SVM buffer to host.
+  cl_event event;
   char *dst = new char[m_size];
-  err = clEnqueueSVMMemcpy(m_queue, CL_TRUE, dst, svmBuffer2, m_size, 0,
-                           nullptr, nullptr);
+  err = clEnqueueSVMMemcpy(m_queue, CL_FALSE, dst, svmBuffer2, m_size, 0,
+                           nullptr, &event);
   ASSERT_OCL_SUCCESS(err, "clEnqueueSVMMemcpy");
+
+  err = clWaitForEvents(1, &event);
+  ASSERT_OCL_SUCCESS(err, "clWaitForEvents");
 
   // Check result.
   ASSERT_TRUE(checkBuffer(dst));
+
+  // Check command type.
+  ASSERT_NO_FATAL_FAILURE(checkCmdType(event, CL_COMMAND_SVM_MEMCPY));
 
   clSVMFree(m_context, svmBuffer);
   clSVMFree(m_context, svmBuffer2);
@@ -299,8 +356,9 @@ TEST_P(ParallelCopySetTest, svmMemFill) {
 
   // Fill with 0.
   char value = 0;
+  cl_event event;
   err = clEnqueueSVMMemFill(m_queue, svmBuffer, (const void *)&value,
-                            sizeof(value), m_size, 0, nullptr, nullptr);
+                            sizeof(value), m_size, 0, nullptr, &event);
   ASSERT_OCL_SUCCESS(err, "clEnqueueSVMMemFill");
 
   // Copy from SVM buffer to host.
@@ -310,6 +368,9 @@ TEST_P(ParallelCopySetTest, svmMemFill) {
 
   // Check result.
   ASSERT_TRUE(checkBuffer(dst, value));
+
+  // Check command type.
+  ASSERT_NO_FATAL_FAILURE(checkCmdType(event, CL_COMMAND_SVM_MEMFILL));
 
   clSVMFree(m_context, svmBuffer);
   delete[] dst;
@@ -355,13 +416,17 @@ TEST_P(ParallelCopySetTest, usmMemcpy) {
   ASSERT_OCL_SUCCESS(err, "clEnqueueMemcpyINTEL");
 
   // Copy from shared USM to host.
+  cl_event event;
   memset(dst, 0, m_size);
   err = clEnqueueMemcpyINTEL(m_queue, CL_TRUE, dst, sharedUSM, m_size, 0,
-                             nullptr, nullptr);
+                             nullptr, &event);
   ASSERT_OCL_SUCCESS(err, "clEnqueueMemcpyINTEL");
 
   // Check result.
   ASSERT_TRUE(checkBuffer(dst));
+
+  // Check command type.
+  ASSERT_NO_FATAL_FAILURE(checkCmdType(event, CL_COMMAND_MEMCPY_INTEL));
 
   err = clMemFreeINTEL(m_context, hostUSM);
   ASSERT_OCL_SUCCESS(err, "clMemFreeINTEL");
@@ -396,9 +461,10 @@ TEST_P(ParallelCopySetTest, usmMemFill) {
   ASSERT_TRUE(checkBuffer(dst));
 
   // Fill with 0.
+  cl_event event;
   char value = 0;
   err = clEnqueueMemFillINTEL(m_queue, deviceUSM, &value, sizeof(value), m_size,
-                              0, nullptr, nullptr);
+                              0, nullptr, &event);
   ASSERT_OCL_SUCCESS(err, "clEnqueueMemFillINTEL");
   err = clEnqueueMemcpyINTEL(m_queue, CL_TRUE, dst, deviceUSM, m_size, 0,
                              nullptr, nullptr);
@@ -406,6 +472,9 @@ TEST_P(ParallelCopySetTest, usmMemFill) {
 
   // Check result.
   ASSERT_TRUE(checkBuffer(dst, value));
+
+  // Check command type.
+  ASSERT_NO_FATAL_FAILURE(checkCmdType(event, CL_COMMAND_MEMFILL_INTEL));
 
   err = clMemFreeINTEL(m_context, deviceUSM);
   ASSERT_OCL_SUCCESS(err, "clMemFreeINTEL");
@@ -437,9 +506,11 @@ TEST_P(ParallelCopySetTest, usmMemset) {
   ASSERT_TRUE(checkBuffer(dst));
 
   // memset with 0.
+  cl_event event;
   value = 0;
   err = clEnqueueMemsetINTEL(m_queue, sharedUSM, value, m_size, 0, nullptr,
-                             nullptr);
+                             &event);
+  ;
   ASSERT_OCL_SUCCESS(err, "clEnqueueMemFillINTEL");
   err = clEnqueueMemcpyINTEL(m_queue, CL_TRUE, dst, sharedUSM, m_size, 0,
                              nullptr, nullptr);
@@ -447,6 +518,9 @@ TEST_P(ParallelCopySetTest, usmMemset) {
 
   // Check result.
   ASSERT_TRUE(checkBuffer(dst, (char)value));
+
+  // Check command type.
+  ASSERT_NO_FATAL_FAILURE(checkCmdType(event, CL_COMMAND_MEMSET_INTEL));
 
   err = clMemFreeINTEL(m_context, sharedUSM);
   ASSERT_OCL_SUCCESS(err, "clMemFreeINTEL");
