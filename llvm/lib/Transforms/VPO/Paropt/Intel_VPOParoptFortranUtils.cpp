@@ -82,8 +82,8 @@ void VPOParoptUtils::genF90DVInitCode(
 
   IRBuilder<> Builder(InsertPt);
 
-  MaybeAlign OrigAlignment =
-      SrcV->getPointerAlignment(InsertPt->getModule()->getDataLayout());
+  auto &DL = InsertPt->getModule()->getDataLayout();
+  MaybeAlign OrigAlignment = SrcV->getPointerAlignment(DL);
   CallInst *DataSize = genF90DVInitCall(SrcV, DstV, InsertPt, IsTargetSPIRV);
   setFuncCallingConv(DataSize, DataSize->getModule());
 
@@ -136,7 +136,7 @@ void VPOParoptUtils::genF90DVInitCode(
   auto *NumElements = Builder.CreateUDiv(
       DataSize,
       Builder.getIntN(DataSize->getType()->getPrimitiveSizeInBits(),
-                      ElementTy->getPrimitiveSizeInBits() / 8),
+                      DL.getTypeSizeInBits(ElementTy) / 8),
       NamePrefix + ".num_elements");
   I->setF90DVNumElements(NumElements);
 
