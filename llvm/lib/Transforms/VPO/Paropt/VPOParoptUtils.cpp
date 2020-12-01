@@ -111,7 +111,8 @@ StructType *VPOParoptUtils::getStructTypeWithNameAndElementsFromModule(
   assert(!Name.empty() && "Empty struct name.");
   assert(!ElementTypes.empty() && "Empty element types array.");
 
-  StructType *StructTypeWithMatchingName = M->getTypeByName(Name);
+  StructType *StructTypeWithMatchingName =
+      StructType::getTypeByName(M->getContext(), Name);
   if (!StructTypeWithMatchingName)
     return nullptr;
 

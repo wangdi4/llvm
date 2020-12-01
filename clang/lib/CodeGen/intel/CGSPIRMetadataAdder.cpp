@@ -210,7 +210,7 @@ void clang::CodeGen::addSPIRMetadata(Module &M, int OCLVersion,
   // check if image types are defined
   for (size_t i = 0;
        i < sizeof(ImageTypeNames) / sizeof(ImageTypeNames[0]); i++) {
-    if (M.getTypeByName(ImageTypeNames[i])) {
+    if (StructType::getTypeByName(M.getContext(), ImageTypeNames[i])) {
       UseImages = true;
       break;
     }
@@ -219,7 +219,7 @@ void clang::CodeGen::addSPIRMetadata(Module &M, int OCLVersion,
   // check if depth image types are defined
   for (size_t i = 0;
        i < sizeof(ImageDepthTypeNames) / sizeof(ImageDepthTypeNames[0]); i++) {
-    if (M.getTypeByName(ImageDepthTypeNames[i])) {
+    if (StructType::getTypeByName(M.getContext(), ImageDepthTypeNames[i])) {
       UsedExts._cl_khr_depth_images = true;
       break;
     }
@@ -228,7 +228,7 @@ void clang::CodeGen::addSPIRMetadata(Module &M, int OCLVersion,
   // check if msaa image types are defined
   for (size_t i = 0;
        i < sizeof(ImageMSAATypeNames) / sizeof(ImageMSAATypeNames[0]); i++) {
-    if (M.getTypeByName(ImageMSAATypeNames[i])) {
+    if (StructType::getTypeByName(M.getContext(), ImageMSAATypeNames[i])) {
       UsedExts._cl_khr_gl_msaa_sharing = true;
       break;
     }

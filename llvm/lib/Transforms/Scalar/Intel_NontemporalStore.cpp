@@ -152,7 +152,7 @@ void NontemporalStore::run() {
       ArrayType::get(Builder.getInt8Ty(), 0) // Source data pointer
   };
   StructType *StoreBufferType =
-    F.getParent()->getTypeByName("__nontemporal_buffer_data");
+    StructType::getTypeByName(F.getContext(), "__nontemporal_buffer_data");
   if (!StoreBufferType || StoreBufferType->elements() != ArrayRef<Type*>(Tys)) {
     StoreBufferType = StructType::create(Tys, "__nontemporal_buffer_data");
   }

@@ -111,7 +111,7 @@ public:
 
     SmallPtrSet<llvm::StructType *, 2> TypesToConvert;
     for (auto &Name : SubStrings) {
-      Type *Ty = M.getTypeByName(Name);
+      Type *Ty = StructType::getTypeByName(M.getContext(), Name);
       if (Ty) {
 
         if (isTypeRelatedToAnotherType(Ty))

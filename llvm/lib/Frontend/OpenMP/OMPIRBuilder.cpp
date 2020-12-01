@@ -1380,7 +1380,7 @@ void OpenMPIRBuilder::initializeTypes(Module &M) {
 #if INTEL_COLLAB
 #define OMP_STRUCT_TYPE(VarName, StructName, ...)                              \
   SmallVector<llvm::Type *, 5> VarName##Types = {__VA_ARGS__};                 \
-  T = M.getTypeByName(StructName);                                             \
+  T = StructType::getTypeByName(Ctx, StructName);                                             \
   if (!T) {                                                                    \
     if (unsigned PointerAS = getPointerAddressSpace(M))                        \
       for (unsigned I = 0, E = VarName##Types.size(); I < E; ++I)              \
@@ -1392,7 +1392,7 @@ void OpenMPIRBuilder::initializeTypes(Module &M) {
   VarName##Ptr = PointerType::getUnqual(T);
 #else // INTEL_COLLAB
 #define OMP_STRUCT_TYPE(VarName, StructName, ...)                              \
-  T = M.getTypeByName(StructName);                                             \
+  T = StructType::getTypeByName(Ctx, StructName);                              \
   if (!T)                                                                      \
     T = StructType::create(Ctx, {__VA_ARGS__}, StructName);                    \
   VarName = T;                                                                 \

@@ -2971,7 +2971,7 @@ bool AOSToSOAPass::qualifyHeuristics(StructInfoVecImpl &CandidateTypes,
   if (!DTransAOSToSOAHeurOverride.empty()) {
     SplitString(DTransAOSToSOAHeurOverride, SubStrings, ",");
     for (auto &Name : SubStrings) {
-      Type *Ty = M.getTypeByName(Name);
+      Type *Ty = StructType::getTypeByName(M.getContext(), Name);
       if (auto *StructTy = dyn_cast_or_null<StructType>(Ty)) {
         LLVM_DEBUG(
             dbgs()
