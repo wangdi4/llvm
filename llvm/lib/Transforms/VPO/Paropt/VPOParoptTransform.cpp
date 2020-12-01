@@ -1156,7 +1156,7 @@ bool VPOParoptTransform::genOCLParallelLoop(
   Instruction *TeamST = nullptr;
   const WRNScheduleKind DistSchedKind = getSchedKindForMultiLevelLoops(
       W, VPOParoptUtils::getDistLoopScheduleKind(W),
-      WRNScheduleDistributeStaticEven);;
+      WRNScheduleDistributeStaticEven);
 
   bool ChunkForTeams =
       (W->getIsDistribute() &&
@@ -1173,7 +1173,30 @@ bool VPOParoptTransform::genOCLParallelLoop(
   IRBuilder<> AllocaBuilder(
       VPOParoptUtils::getInsertionPtForAllocas(W, F, /*OutsideRegion=*/false));
 
+  bool DoNotPartition = false;
+  // Do not partition parallel loop(s) lexically nested in other
+  // parallel loop(s). The current partitioning will produce incorrect
+  // results for such loops. For the time being, we execute them serially.
+  if (W->getIsParLoop() &&
+      WRegionUtils::getParentRegion(W,
+          [](WRegionNode *W) { return W->getIsParLoop(); },
+          [](WRegionNode *W) { return true; }))
+    DoNotPartition = true;
+
   for (unsigned I = W->getWRNLoopInfo().getNormIVSize(); I > 0; --I) {
+
+    if (DoNotPartition) {
+      Value *IsLastLoc = AllocaBuilder.CreateAlloca(
+          AllocaBuilder.getInt32Ty(), nullptr,
+          "loop" + Twine(I - 1) + ".is.last");
+      // Since each "thread" will execute the loop completely, and
+      // the last iteration check only matters after the loop, we may
+      // always initialize the last iteration predicate to true
+      // before the loop.
+      AllocaBuilder.CreateStore(AllocaBuilder.getInt32(1), IsLastLoc);
+      IsLastLocs.push_back(IsLastLoc);
+      continue;
+    }
 
     IsLastLocs.push_back(nullptr);
 

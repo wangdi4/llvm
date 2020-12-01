@@ -1497,7 +1497,7 @@ public:
   /// Set SPIR_FUNC calling convention for SPIR-V targets, otherwise,
   /// set C calling convention.
   /// Since \p CI may not be inserted into any Module yet, \p M
-  /// specifies a Module that is used to undentify the target.
+  /// specifies a Module that is used to identify the target.
   static void setFuncCallingConv(CallInst *CI, Module *M);
 
   /// \name Helper methods for generating calls.
