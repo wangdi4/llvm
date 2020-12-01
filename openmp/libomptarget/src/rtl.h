@@ -79,13 +79,13 @@ struct RTLInfoTy {
   typedef void *(get_context_handle_ty)();
   typedef int32_t(release_offload_queue_ty)(int32_t, void *);
   typedef void *(data_alloc_managed_ty)(int32_t, int64_t);
-  typedef int32_t(data_delete_managed_ty)(int32_t, void *);
   typedef int32_t(is_device_accessible_ptr_ty)(int32_t, void *);
   typedef void *(data_alloc_explicit_ty)(int32_t, int64_t, int32_t);
   typedef void (init_ompt_ty)(void *);
   typedef int32_t(get_data_alloc_info_ty)(int32_t, int32_t, void *, void *);
   typedef int32_t(push_subdevice_ty)(int64_t);
   typedef int32_t(pop_subdevice_ty)(void);
+  typedef void (add_build_options_ty)(const char *, const char *);
 #endif // INTEL_COLLAB
 
   int32_t Idx = -1;             // RTL index, index is the number of devices
@@ -141,13 +141,13 @@ struct RTLInfoTy {
   get_context_handle_ty *get_context_handle = nullptr;
   release_offload_queue_ty *release_offload_queue = nullptr;
   data_alloc_managed_ty *data_alloc_managed = nullptr;
-  data_delete_managed_ty *data_delete_managed = nullptr;
   is_device_accessible_ptr_ty *is_device_accessible_ptr = nullptr;
   data_alloc_explicit_ty *data_alloc_explicit = nullptr;
   init_ompt_ty *init_ompt = nullptr;
   get_data_alloc_info_ty *get_data_alloc_info = nullptr;
   push_subdevice_ty *push_subdevice = nullptr;
   pop_subdevice_ty *pop_subdevice = nullptr;
+  add_build_options_ty *add_build_options = nullptr;
 #endif // INTEL_COLLAB
 
   // Are there images associated with this RTL.
@@ -207,13 +207,13 @@ struct RTLInfoTy {
     get_context_handle = r.get_context_handle;
     release_offload_queue = r.release_offload_queue;
     data_alloc_managed = r.data_alloc_managed;
-    data_delete_managed = r.data_delete_managed;
     is_device_accessible_ptr = r.is_device_accessible_ptr;
     data_alloc_explicit = r.data_alloc_explicit;
     init_ompt = r.init_ompt;
     get_data_alloc_info = r.get_data_alloc_info;
     push_subdevice = r.push_subdevice;
     pop_subdevice = r.pop_subdevice;
+    add_build_options = r.add_build_options;
 #endif // INTEL_COLLAB
     isUsed = r.isUsed;
     synchronize = r.synchronize;

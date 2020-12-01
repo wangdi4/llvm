@@ -2245,8 +2245,8 @@ static void addDeclareVariantAttributes(CodeGenModule &CGM,
                 switch (Prop.Kind) {
                 case llvm::omp::TraitProperty::device_arch_gen:
                 case llvm::omp::TraitProperty::device_arch_gen9:
-                case llvm::omp::TraitProperty::device_arch_gen12lp:
-                case llvm::omp::TraitProperty::device_arch_gen12hp:
+                case llvm::omp::TraitProperty::device_arch_XeLP:
+                case llvm::omp::TraitProperty::device_arch_XeHP:
                   if (NumDevices++ != 0)
                     Devices += ',';
                   Devices += llvm::omp::getOpenMPContextTraitPropertyName(

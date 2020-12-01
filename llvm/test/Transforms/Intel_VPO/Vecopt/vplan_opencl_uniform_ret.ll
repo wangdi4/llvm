@@ -78,7 +78,7 @@ attributes #3 = { convergent "correctly-rounded-divide-sqrt-fp-math"="false" "de
 attributes #4 = { nounwind }
 attributes #5 = { convergent nounwind readnone }
 attributes #6 = { convergent nounwind }
-attributes #7 = { convergent nounwind "vector-variants"="_ZGVbN4v_13sub_group_alli(_Z13sub_group_allDv4_i)" }
+attributes #7 = { convergent nounwind "vector-variants"="_ZGVbN4v_Z13sub_group_alli(_Z13sub_group_allDv4_i)" }
 
 !llvm.module.flags = !{!0}
 !opencl.enable.FP_CONTRACT = !{}

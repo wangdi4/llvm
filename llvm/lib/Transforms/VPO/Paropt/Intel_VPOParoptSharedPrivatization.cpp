@@ -189,25 +189,44 @@ bool VPOParoptTransform::privatizeSharedItems(WRegionNode *W) {
         return true;
       };
 
+  auto ContainsValue = [](auto *C, Value *V) {
+    return any_of(C->items(), [V](auto *I) { return I->getOrig() == V; });
+  };
+
+  // Returns true if value V is private in the work region W.
+  auto IsWRNPrivate = [&ContainsValue](WRegionNode *W, Value *V) {
+    if (PrivateClause *C = W->getPrivIfSupported())
+      if (ContainsValue(C, V))
+        return true;
+    if (FirstprivateClause *C = W->getFprivIfSupported())
+      if (ContainsValue(C, V))
+        return true;
+    return false;
+  };
+
+  // Returns true if value V is captured by any nested 'omp task' construct.
+  auto IsCapturedByNestedTask = [&, W](Value *V) {
+    SmallVector<WRegionNode *, 8u> Worklist{W};
+    do {
+      WRegionNode *W = Worklist.pop_back_val();
+      for (WRegionNode *CW : W->getChildren()) {
+        if (IsWRNPrivate(CW, V))
+          continue;
+        if (CW->getIsTask() && ContainsValue(&CW->getShared(), V)) {
+          LLVM_DEBUG(reportSkipped(V, "is captured by a nested task"));
+          return true;
+        }
+        Worklist.push_back(CW);
+      }
+    } while (!Worklist.empty());
+    return false;
+  };
+
   // Collects set of work region blocks where we will be checking if item's
   // memory is modified. This set does not include blocks with directives (all
   // directives have their own basic blocks now) and nested regions where item
   // is private.
-  auto FindWRNBlocks = [W](Value *V) {
-    // Returns true if value V is private in the work region W.
-    auto IsWRNPrivate = [](WRegionNode *W, Value *V) {
-      auto ContainsValue = [V](auto *C) {
-        return any_of(C->items(), [V](auto *I) { return I->getOrig() == V; });
-      };
-      if (PrivateClause *C = W->getPrivIfSupported())
-        if (ContainsValue(C))
-          return true;
-      if (FirstprivateClause *C = W->getFprivIfSupported())
-        if (ContainsValue(C))
-          return true;
-      return false;
-    };
-
+  auto FindWRNBlocks = [&, W](Value *V) {
     // Build set of work region blocks where we will be checking if item's
     // memory is modified. Exclude blocks with directives (all directives have
     // their own basic blocks now).
@@ -246,6 +265,18 @@ bool VPOParoptTransform::privatizeSharedItems(WRegionNode *W) {
   SmallVector<AllocaInst*, 8> ToPrivatize;
   for (SharedItem *I : W->getShared().items()) {
     if (auto *AI = dyn_cast<AllocaInst>(I->getOrig())) {
+      // Do not do privatization for a shared item if it is captured by a nested
+      // task.
+      //
+      //  PARALLEL SHARED(X)         =>      PARALLEL FIRSTPRIVATE(X)
+      //    TASK SHARED(X)                     TASK SHARED(X)
+      //
+      // Such transformation is illegal since it may cause thread executing task
+      // to access X allocated on the stack of thread that created the task when
+      // its stack frame is freed.
+      if (IsCapturedByNestedTask(AI))
+        continue;
+
       auto BBs = FindWRNBlocks(AI);
 
       if (!IsPrivatizationCandidate(AI, BBs) || !allUsersAreLoads(AI, BBs))
@@ -265,6 +296,9 @@ bool VPOParoptTransform::privatizeSharedItems(WRegionNode *W) {
         // live-into the inner region without fixing up all the outer
         // regions with map and/or explicit shared. Just disable for now.
         if (W->getParent() && W->needsOutlining())
+          continue;
+
+        if (IsCapturedByNestedTask(BCI))
           continue;
 
         auto BBs = FindWRNBlocks(AI);

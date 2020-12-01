@@ -82,4 +82,20 @@ void foo3()
   A avar;
 }
 #pragma omp end declare target
+void foo3(float *vx_in, float *vx_out) {
+  // CHECK: [[IN:%.+]] = alloca float*,
+  // CHECK: [[OUT:%.+]] = alloca float*,
+  // CHECK: DIR.OMP.TASK
+  // CHECK: "QUAL.OMP.TARGET.TASK"
+  // CHECK-NOT: "QUAL.OMP.FIRSTPRIVATE"(float** [[IN]])
+  // CHECK-NOT: "QUAL.OMP.FIRSTPRIVATE"(float** [[OUT]])
+  // CHECK: "QUAL.OMP.SHARED"(float** [[IN]])
+  // CHECK: "QUAL.OMP.SHARED"(float** [[OUT]])
+  // CHECK: DIR.OMP.TARGET
+  // CHECK: DIR.OMP.END.TARGET
+  // CHECK: DIR.OMP.END.TASK
+  #pragma omp target nowait depend (in: vx_in) depend (out: vx_out)
+  for (int i = 0; i < 10; ++i)
+     vx_out[i] = vx_in[i] + 10;
+}
 // end INTEL_COLLAB

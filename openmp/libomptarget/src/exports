@@ -37,6 +37,7 @@ VERS1.0 {
     __tgt_push_code_location;
     __tgt_get_num_devices;
     __tgt_get_target_memory_info;
+    __tgt_add_build_options;
 # end INTEL_COLLAB
     omp_get_num_devices;
     omp_get_initial_device;

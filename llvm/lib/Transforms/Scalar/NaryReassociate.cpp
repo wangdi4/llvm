@@ -490,6 +490,17 @@ Instruction *NaryReassociatePass::tryReassociatedBinaryOp(const SCEV *LHSExpr,
   if (LHS == nullptr)
     return nullptr;
 
+#if INTEL_CUSTOMIZATION
+  // SCEV may return a candidate that has skipped some casting.
+  if (LHS->getType() != RHS->getType()) {
+    IRBuilder<> Builder(I);
+    // findClosest returns an Instruction type, so the bitcast should be an
+    // instruction also.
+    LHS =
+        cast<Instruction>(Builder.CreateBitOrPointerCast(LHS, RHS->getType()));
+  }
+#endif // INTEL_CUSTOMIZATION
+
   Instruction *NewI = nullptr;
   switch (I->getOpcode()) {
   case Instruction::Add:

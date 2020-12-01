@@ -848,4 +848,19 @@ EXTERN void __tgt_push_code_location(const char *location, void *codeptr_ra) {
 EXTERN int __tgt_get_num_devices(void) {
   return omp_get_num_devices();
 }
+
+EXTERN void __tgt_add_build_options(
+    const char *compile_options, const char *link_options) {
+
+  int64_t device_num = omp_get_default_device();
+
+  if (!device_is_ready(device_num)) {
+    REPORT("Device %" PRId64 " is not ready.\n", device_num);
+    return;
+  }
+
+  auto RTLInfo = PM->Devices[device_num].RTL;
+  if (RTLInfo->add_build_options)
+    RTLInfo->add_build_options(compile_options, link_options);
+}
 #endif // INTEL_COLLAB

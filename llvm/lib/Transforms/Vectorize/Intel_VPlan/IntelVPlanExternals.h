@@ -169,7 +169,7 @@ class VPExternalValues {
   SmallVector<VPValue*, 16> OriginalIncomingValues;
 
   // Holds live-in/out descriptors of scalar loops.
-  DenseMap<const Loop *, ScalarInOutList> ScalarLoopsInOut;
+  std::map<const Loop *, ScalarInOutList> ScalarLoopsInOut;
 
 public:
   VPExternalValues(LLVMContext *Ctx, const DataLayout *L) : DL(L), Context(Ctx) {}
@@ -371,8 +371,8 @@ public:
 
 private:
   /// Non const getter for scalar in/out descriptors.
-  ScalarInOutList &getOrCreateScalarLoopInOuts(const Loop *OrigLoop) {
-    return ScalarLoopsInOut[OrigLoop];
+  ScalarInOutList *getOrCreateScalarLoopInOuts(const Loop *OrigLoop) {
+    return &ScalarLoopsInOut[OrigLoop];
   }
 
   // Insert new ExternalUse into table.

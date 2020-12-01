@@ -1,9 +1,11 @@
-; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-pre-vec-complete-unroll -disable-output -print-after=hir-pre-vec-complete-unroll 2>&1 < %s | FileCheck %s
+;REQUIRES: asserts
 
-; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-pre-vec-complete-unroll,print<hir>" -disable-output 2>&1 < %s | FileCheck %s
+; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-pre-vec-complete-unroll -disable-output -print-after=hir-pre-vec-complete-unroll -debug-only=hir-transform-utils 2>&1 < %s | FileCheck %s
 
-; Check that constants are substituted from global array and
-; folded completely in unrolled loop.
+; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-pre-vec-complete-unroll,print<hir>" -disable-output -debug-only=hir-transform-utils 2>&1 < %s | FileCheck %s
+
+; Check that constants are substituted from global array and folded
+; completely in unrolled loop.
 
 ;          BEGIN REGION { }
 ;               + DO i1 = 0, %n + -1, 1
@@ -17,10 +19,15 @@
 ;               + END LOOP
 ;          END REGION
 
+;CHECK: NumPropagated: 4
+;CHECK: NumFolded: 3
+;CHECK: NumConstGlobalLoads: 3
+;CHECK: NumInstsRemoved: 4
+
 
 ;CHECK:    BEGIN REGION { modified }
 ;CHECK:         + DO i1 = 0, %n + -1, 1
-;CHECK:         |   %sum.021 = 7.000000e+00  +  %sum.021;
+;CHECK:         |   %sum.021 = 6.000000e+00  +  %sum.021;
 ;CHECK:         + END LOOP
 ;CHECK:    END REGION
 
@@ -29,7 +36,7 @@
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
-@_ZL4glob = internal unnamed_addr constant [3 x double] [double 1.000000e+00, double 2.000000e+00, double 4.000000e+00], align 16
+@_ZL4glob = internal unnamed_addr constant [3 x double] [double 0.000000e+00, double 2.000000e+00, double 4.000000e+00], align 16
 
 ; Function Attrs: norecurse nounwind readnone uwtable
 define dso_local double @_Z3fooi(i32 %n) local_unnamed_addr #0 {

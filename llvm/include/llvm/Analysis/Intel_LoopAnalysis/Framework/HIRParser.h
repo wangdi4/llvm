@@ -503,9 +503,11 @@ class HIRParser {
   void clearRegionData();
 
   /// Processes a block_loop begin directive by copying over information to the
-  /// relevant loop.
-  void processBlockLoopBeginDirective(HLInst *HInst);
+  /// relevant loop. Return true, if it is processed.
+  bool processBlockLoopBeginDirective(HLInst *HInst);
 
+  /// Processes prefetching directive.
+  void processPrefetchLoopBeginDirective(HLInst *HInst);
   // ---------------------------------------------------------------------
   // External interface follows. The following functions are called by the
   // framework utilities or other passes.

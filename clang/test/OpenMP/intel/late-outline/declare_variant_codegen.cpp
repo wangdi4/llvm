@@ -45,7 +45,7 @@ void bar_targ(float *A, int dnum) { }
 
 //HOST: define{{.*}}bar_base{{.*}}#[[BARBASE:[0-9]*]]
 #pragma omp declare variant(bar_targ) \
-    match(construct={target variant dispatch}, device={arch(gen9,gen12hp)})
+    match(construct={target variant dispatch}, device={arch(gen9,XeHP)})
 void bar_base(float *A, int dnum) {
 }
 
@@ -53,7 +53,7 @@ void baz_targ(float *A, int dnum) { }
 
 //HOST: define{{.*}}baz_base{{.*}}#[[BAZBASE:[0-9]*]]
 #pragma omp declare variant(baz_targ) \
-    match(construct={target variant dispatch}, device={arch(gen12lp)})
+    match(construct={target variant dispatch}, device={arch(XeLP)})
 void baz_base(float *A, int dnum) {
 }
 
@@ -144,9 +144,9 @@ void caller2(int n, float* x, int dnum)
 
 //ALL: attributes #[[BARBASE]] = {{.*}}"openmp-variant"=
 //ALL-SAME:name:{{.*}}bar_targ
-//ALL-SAME:construct:target_variant_dispatch;arch:gen9,gen12hp
+//ALL-SAME:construct:target_variant_dispatch;arch:gen9,XeHP
 
 //ALL: attributes #[[BAZBASE]] = {{.*}}"openmp-variant"=
 //ALL-SAME:name:{{.*}}baz_targ
-//ALL-SAME:construct:target_variant_dispatch;arch:gen12lp
+//ALL-SAME:construct:target_variant_dispatch;arch:XeLP
 // end INTEL_COLLAB

@@ -65,6 +65,7 @@ typedef cl_int (CL_API_CALL *clGetKernelSuggestedLocalWorkSizeINTEL_fn)(
 #define FOR_EACH_EXTENSION_FN(M)                                               \
   M(clGetMemAllocInfo)                                                         \
   M(clHostMemAlloc)                                                            \
+  M(clDeviceMemAlloc)                                                          \
   M(clSharedMemAlloc)                                                          \
   M(clMemFree)                                                                 \
   M(clSetKernelArgMemPointer)                                                  \
@@ -75,6 +76,7 @@ typedef cl_int (CL_API_CALL *clGetKernelSuggestedLocalWorkSizeINTEL_fn)(
 #define FOR_EACH_EXTENSION_FN(M)                                               \
   M(clGetMemAllocInfo)                                                         \
   M(clHostMemAlloc)                                                            \
+  M(clDeviceMemAlloc)                                                          \
   M(clSharedMemAlloc)                                                          \
   M(clMemFree)                                                                 \
   M(clSetKernelArgMemPointer)                                                  \
@@ -428,6 +430,31 @@ cl_int TRACE_FN(clEnqueueSVMMemcpy)(
   return rc;
 }
 
+cl_int TRACE_FN(clEnqueueMemcpyINTEL)(
+    clEnqueueMemcpyINTEL_fn funcptr,
+    cl_command_queue command_queue,
+    cl_bool blocking,
+    void *dst_ptr,
+    const void *src_ptr,
+    size_t size,
+    cl_uint num_events_in_wait_list,
+    const cl_event *event_wait_list,
+    cl_event *event) {
+  auto rc = (*funcptr)(command_queue, blocking, dst_ptr, src_ptr, size,
+                       num_events_in_wait_list, event_wait_list, event);
+  TRACE_FN_ARG_BEGIN();
+  TRACE_FN_ARG_PTR(command_queue);
+  TRACE_FN_ARG_UINT(blocking);
+  TRACE_FN_ARG_PTR(dst_ptr);
+  TRACE_FN_ARG_PTR(src_ptr);
+  TRACE_FN_ARG_SIZE(size);
+  TRACE_FN_ARG_UINT(num_events_in_wait_list);
+  TRACE_FN_ARG_PTR(event_wait_list);
+  TRACE_FN_ARG_PTR(event);
+  TRACE_FN_ARG_END();
+  return rc;
+}
+
 cl_int TRACE_FN(clEnqueueSVMUnmap)(
     cl_command_queue command_queue,
     void *svm_ptr,
@@ -725,6 +752,27 @@ void *TRACE_FN(clHostMemAllocINTEL)(
   return ret;
 }
 
+void *TRACE_FN(clDeviceMemAllocINTEL)(
+    clDeviceMemAllocINTEL_fn funcptr,
+    cl_context context,
+    cl_device_id device,
+    const cl_mem_properties_intel *properties,
+    size_t size,
+    cl_uint alignment,
+    cl_int *errcode_ret) {
+  auto ret = (*funcptr)(context, device, properties, size, alignment,
+                        errcode_ret);
+  TRACE_FN_ARG_BEGIN();
+  TRACE_FN_ARG_PTR(context);
+  TRACE_FN_ARG_PTR(device);
+  TRACE_FN_ARG_PTR(properties);
+  TRACE_FN_ARG_SIZE(size);
+  TRACE_FN_ARG_UINT(alignment);
+  TRACE_FN_ARG_PTR(errcode_ret);
+  TRACE_FN_ARG_END();
+  return ret;
+}
+
 cl_program TRACE_FN(clLinkProgram)(
     cl_context context,
     cl_uint num_devices,
@@ -843,6 +891,20 @@ cl_int TRACE_FN(clSetKernelArgSVMPointer)(
     cl_uint arg_index,
     const void *arg_value) {
   auto rc = clSetKernelArgSVMPointer(kernel, arg_index, arg_value);
+  TRACE_FN_ARG_BEGIN();
+  TRACE_FN_ARG_PTR(kernel);
+  TRACE_FN_ARG_UINT(arg_index);
+  TRACE_FN_ARG_PTR(arg_value);
+  TRACE_FN_ARG_END();
+  return rc;
+}
+
+cl_int TRACE_FN(clSetKernelArgMemPointerINTEL)(
+    clSetKernelArgMemPointerINTEL_fn funcptr,
+    cl_kernel kernel,
+    cl_uint arg_index,
+    const void *arg_value) {
+  auto rc = (*funcptr)(kernel, arg_index, arg_value);
   TRACE_FN_ARG_BEGIN();
   TRACE_FN_ARG_PTR(kernel);
   TRACE_FN_ARG_UINT(arg_index);
@@ -1042,6 +1104,20 @@ cl_int TRACE_FN(clGetKernelSuggestedLocalWorkSizeINTEL)(
       TRACE_FN(Fn)(__VA_ARGS__);                                               \
     } else {                                                                   \
       Fn(__VA_ARGS__);                                                         \
+    }                                                                          \
+  } while (0)
+
+/// Call extension function, return nothing
+#define CALL_CL_EXT_VOID(DeviceId, Name, ...)                                  \
+  do {                                                                         \
+    Name##INTEL_fn Fn = reinterpret_cast<Name##INTEL_fn>(                      \
+        DeviceInfo->getExtensionFunctionPtr(DeviceId, Name##Id));              \
+    if (DebugLevel > 1) {                                                      \
+      IDP1("CL_CALLER: %s %s\n",                                               \
+           TO_STRING(Name##INTEL), TO_STRING(( __VA_ARGS__ )));                \
+      TRACE_FN(Name##INTEL)(Fn, __VA_ARGS__);                                  \
+    } else {                                                                   \
+      (*Fn)(__VA_ARGS__);                                                      \
     }                                                                          \
   } while (0)
 

@@ -744,6 +744,7 @@ public:
   // builtins.
   std::string CompilationOptions = "-cl-std=CL2.0 ";
   std::string InternalCompilationOptions;
+  std::string UserCompilationOptions;
 
   RTLDeviceInfoTy() {
     NumDevices = 0;
@@ -833,7 +834,7 @@ public:
 
     // Compilation options for IGC
     if (char *env = readEnvVar("LIBOMPTARGET_LEVEL0_COMPILATION_OPTIONS"))
-      CompilationOptions += env;
+      UserCompilationOptions += env;
 
     if (DeviceType == ZE_DEVICE_TYPE_GPU) {
       // Intel Graphics compilers that do not support that option
@@ -1699,7 +1700,8 @@ __tgt_target_table *__tgt_rtl_load_binary(int32_t DeviceId,
   size_t numEntries = (size_t)(Image->EntriesEnd - Image->EntriesBegin);
   IDP("Expecting to have %zu entries defined\n", numEntries);
 
-  std::string compilationOptions(DeviceInfo->CompilationOptions);
+  std::string compilationOptions(
+      DeviceInfo->CompilationOptions + DeviceInfo->UserCompilationOptions);
   IDP("Module compilation options: %s\n", compilationOptions.c_str());
   compilationOptions += " " + DeviceInfo->InternalCompilationOptions;
   IDPI("Final module compilation options: %s\n", compilationOptions.c_str());
@@ -1977,10 +1979,6 @@ EXTERN void *__tgt_rtl_data_alloc_managed(int32_t DeviceId, int64_t Size) {
   int32_t kind = DeviceInfo->Flags.UseHostMemForUSM ? TARGET_ALLOC_HOST
                                                     : TARGET_ALLOC_SHARED;
   return __tgt_rtl_data_alloc_explicit(DeviceId, Size, kind);
-}
-
-EXTERN int32_t __tgt_rtl_data_delete_managed(int32_t DeviceId, void *Ptr) {
-  return __tgt_rtl_data_delete(DeviceId, Ptr);
 }
 
 EXTERN int32_t __tgt_rtl_is_device_accessible_ptr(int32_t DeviceId, void *Ptr) {
@@ -2887,6 +2885,20 @@ EXTERN int32_t __tgt_rtl_push_subdevice(int64_t DeviceIds) {
 EXTERN int32_t __tgt_rtl_pop_subdevice() {
   SubDeviceCode = 0;
   return OFFLOAD_SUCCESS;
+}
+
+EXTERN void __tgt_rtl_add_build_options(
+    const char *CompileOptions, const char *LinkOptions) {
+  auto &options = DeviceInfo->UserCompilationOptions;
+  if (!options.empty()) {
+    IDP("Respecting LIBOMPTARGET_LEVEL0_COMPILATION_OPTIONS=%s\n",
+        options.c_str());
+    return;
+  }
+  if (CompileOptions)
+    options = std::string(CompileOptions) + " ";
+  if (LinkOptions)
+    options += std::string(LinkOptions) + " ";
 }
 
 void *RTLDeviceInfoTy::getOffloadVarDeviceAddr(

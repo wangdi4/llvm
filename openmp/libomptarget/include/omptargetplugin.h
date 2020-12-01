@@ -262,9 +262,6 @@ void *__tgt_rtl_get_context_handle();
 // Allocate a managed memory object.
 EXTERN void *__tgt_rtl_data_alloc_managed(int32_t ID, int64_t Size);
 
-// Delete a managed memory object.
-EXTERN int32_t __tgt_rtl_data_delete_managed(int32_t ID, void *Ptr);
-
 // Check if the pointer can be accessed by the device.
 // Include host, device and shared
 EXTERN int32_t __tgt_rtl_is_device_accessible_ptr(int32_t ID, void *Ptr);
@@ -281,6 +278,10 @@ EXTERN int32_t __tgt_rtl_push_subdevice(int64_t ID);
 
 // Pop subdevice encoding
 EXTERN int32_t __tgt_rtl_pop_subdevice(void);
+
+// Add target code build options
+EXTERN void __tgt_rtl_add_build_options(
+    const char * CompileOptions, const char *LinkOptions);
 #endif // INTEL_COLLAB
 #ifdef __cplusplus
 }
