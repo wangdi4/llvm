@@ -21,6 +21,7 @@
 #include "program_with_source.h"
 #include "program_with_binary.h"
 #include "program_with_il.h"
+#include "program_with_library_kernels.h"
 #include "program_builtin_kernels.h"
 #include "program_for_link.h"
 #include "program_service.h"
@@ -461,7 +462,9 @@ cl_err_code Context::GetInfo(cl_int param_name, size_t param_value_size, void *p
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 cl_err_code Context::CreateProgramWithIL(const unsigned char* pIL, const size_t length, SharedPtr<Program>* ppProgram)
 {
-    LOG_DEBUG(TEXT("CreateProgramWithSource enter. pIL=%d, length=%d, ppProgram=%d"), pIL, length, ppProgram);
+    LOG_DEBUG(
+        TEXT("CreateProgramWithIL enter. pIL=%p, length=%zu, ppProgram=%p"),
+        (void *)pIL, length, (void *)ppProgram);
 
     // check input parameters
     if (nullptr == ppProgram)
@@ -837,6 +840,31 @@ cl_err_code Context::CreateProgramWithBinary(cl_uint uiNumDevices, const cl_devi
     return clErrRet;
 }
 
+cl_err_code Context::CreateProgramWithLibraryKernels(
+    cl_uint NumDevices, SharedPtr<FissionableDevice> *Devices,
+    SharedPtr<Program> *ProgPtr, std::string &KernelNames) {
+  LOG_DEBUG(TEXT("CreateProgramWithBuiltInKernels enter. uiNumDevices=%u, "
+                 "pclDeviceList=%p"),
+            NumDevices, (void*)Devices);
+  assert(NumDevices > 0 && "Invalid uiNumDevices");
+  assert(Devices && "Invalid Devices");
+
+  // create program object
+  cl_int Err;
+  SharedPtr<Program> Prog = ProgramWithLibraryKernels::Allocate(
+      this, NumDevices, Devices, KernelNames, &Err);
+  if (CL_SUCCESS != Err) {
+    LOG_ERROR(TEXT("%S"), TEXT("Failed to create library program"));
+    return Err;
+  }
+
+  Prog->SetLoggerClient(GET_LOGGER_CLIENT);
+
+  m_mapPrograms.AddObject(Prog);
+  *ProgPtr = Prog;
+  return Err;
+}
+
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // Context::CreateProgramWithBuiltInKernels
 ///////////////////////////////////////////////////////////////////////////////////////////////////
@@ -845,8 +873,9 @@ cl_err_code Context::CreateProgramWithBuiltInKernels(cl_uint IN uiNumDevices,
                                                     const char IN *szKernelNames,
                                                     SharedPtr<Program>* OUT ppProgram)
 {
-    LOG_DEBUG(TEXT("CreateProgramWithBuiltInKernels enter. uiNumDevices=%d, pclDeviceList=%d, ppProgram=%p"),
-        uiNumDevices, pclDeviceList, ppProgram);
+    LOG_DEBUG(TEXT("CreateProgramWithBuiltInKernels enter. uiNumDevices=%d, "
+                   "pclDeviceList=%p, ppProgram=%p"),
+              uiNumDevices, pclDeviceList, ppProgram);
 
     cl_err_code clErrRet = CL_SUCCESS;
 

@@ -700,6 +700,7 @@ cl_err_code Kernel::CreateDeviceKernels(std::vector<unique_ptr<DeviceProgram>>& 
         EDeviceProgramState program_state= ppDevicePrograms[i]->GetStateInternal();
         if ((CL_BUILD_SUCCESS != clBuildStatus) &&
             (DEVICE_PROGRAM_BUILTIN_KERNELS != program_state) &&
+            (DEVICE_PROGRAM_LIBRARY_KERNELS != program_state) &&
             (DEVICE_PROGRAM_CREATING_AUTORUN != program_state))
         {
             continue;
@@ -797,7 +798,7 @@ cl_err_code Kernel::SetKernelArgumentInfo(const DeviceKernel* pDeviceKernel)
 
     cl_err_code clErrCode = CL_SUCCESS;
 
-    if ( (NULL != pFECompiler) || (NULL != pBin) )
+    if ( (NULL != pFECompiler) && (NULL != pBin) )
     {
         // First use Front-end compiler for the information
         ClangFE::IOCLFEKernelArgInfo* pArgsInfo;
@@ -820,7 +821,8 @@ cl_err_code Kernel::SetKernelArgumentInfo(const DeviceKernel* pDeviceKernel)
              
             argInfo.accessQualifier = pArgsInfo->getArgAccessQualifier(i);
             argInfo.addressQualifier = pArgsInfo->getArgAdressQualifier(i);
-            argInfo.name            = pArgsInfo->getArgName(i);
+            const char *name = pArgsInfo->getArgName(i);
+            argInfo.name            = name ? name : "";
             argInfo.typeName        = pArgsInfo->getArgTypeName(i);
             argInfo.typeQualifier   = pArgsInfo->getArgTypeQualifier(i);
             argInfo.hostAccessible  = pArgsInfo->getArgHostAccessible(i);
@@ -851,9 +853,11 @@ cl_err_code Kernel::SetKernelArgumentInfo(const DeviceKernel* pDeviceKernel)
              
             argInfo.accessQualifier = argInfoArray[i].accessQualifier;
             argInfo.addressQualifier = argInfoArray[i].addressQualifier;
-            argInfo.name            = argInfoArray[i].name;
+            argInfo.name = argInfoArray[i].name ? argInfoArray[i].name : "";
             argInfo.typeName        = argInfoArray[i].typeName;
             argInfo.typeQualifier   = argInfoArray[i].typeQualifier;
+            argInfo.hostAccessible  = argInfoArray[i].hostAccessible;
+            argInfo.localMemSize    = argInfoArray[i].localMemSize;
         }
     }
 
@@ -938,7 +942,9 @@ cl_err_code Kernel::SetKernelArg(cl_uint uiIndex, size_t szSize,
                                  const void * pValue, bool bIsSvmPtr,
                                  bool bIsUsmPtr)
 {
-    LOG_DEBUG(TEXT("Enter SetKernelArg (uiIndex=%d, szSize=%d, pValue=%d"), uiIndex, szSize, pValue);
+    LOG_DEBUG(TEXT("Enter SetKernelArg (uiIndex=%u, szSize=%zu, pValue=%p, "
+                   "bIsSvmPtr=%d, bIsUsmPtr=%d)"),
+              uiIndex, szSize, pValue, bIsSvmPtr, bIsUsmPtr);
 
     size_t argCount = m_sKernelPrototype.m_vArguments.size();
     // check argument's index
@@ -1017,7 +1023,7 @@ cl_err_code Kernel::SetKernelArg(cl_uint uiIndex, size_t szSize,
                     return CL_INVALID_ARG_SIZE;
                 }
                 cl_mem clMemId = *((cl_mem*)(pValue));
-                LOG_DEBUG(TEXT("SetKernelArg buffer (cl_mem=%d)"), clMemId);
+                LOG_DEBUG(TEXT("SetKernelArg buffer (cl_mem=%p)"), clMemId);
                 clArg.SetSvmObject( nullptr );
                 clArg.SetUsmObject(nullptr);
                 if (nullptr == clMemId)
@@ -1052,7 +1058,7 @@ cl_err_code Kernel::SetKernelArg(cl_uint uiIndex, size_t szSize,
 
         cl_mem clMemId = *((cl_mem*)(pValue));
 
-        LOG_DEBUG(TEXT("SetKernelArg image (cl_mem=%d)"), clMemId);
+        LOG_DEBUG(TEXT("SetKernelArg image (cl_mem=%p)"), clMemId);
 
         const SharedPtr<MemoryObject>& pMemObj = pContext->GetMemObject(clMemId);
         if (NULL == pMemObj)

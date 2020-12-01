@@ -153,12 +153,12 @@ std::string ImageCallbackLibrary::getLibraryBasename()
 
 std::string ImageCallbackLibrary::getLibraryObjectName()
 {
-  return getLibraryBasename() + ".o";
+  return getLibraryBasename() + OCL_PRECOMPILED_OUTPUT_EXTENSION;
 }
 
 std::string ImageCallbackLibrary::getLibraryRtlName()
 {
-  return getLibraryBasename() + ".rtl";
+  return getLibraryBasename() + OCL_OUTPUT_EXTENSION;
 }
 UndefCbkDesc::UndefCbkDesc(UndefCbkType _type, VecSize _vecSize):
 Type(_type),

@@ -650,6 +650,8 @@ cl_err_code Program::CreateKernel(const char * psKernelName, SharedPtr<Kernel>* 
         if ((CL_BUILD_SUCCESS == m_ppDevicePrograms[i]->GetBuildStatus()) ||
             (DEVICE_PROGRAM_BUILTIN_KERNELS ==
                 m_ppDevicePrograms[i]->GetStateInternal()) ||
+            (DEVICE_PROGRAM_LIBRARY_KERNELS ==
+                m_ppDevicePrograms[i]->GetStateInternal()) ||
             (DEVICE_PROGRAM_CREATING_AUTORUN ==
                 m_ppDevicePrograms[i]->GetStateInternal()))
 		{

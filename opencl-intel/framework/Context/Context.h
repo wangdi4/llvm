@@ -193,6 +193,16 @@ namespace Intel { namespace OpenCL { namespace Framework {
                                                     const char IN *szKernelNames,
                                                     SharedPtr<Program>* OUT ppProgram);
 
+        /***********************************************************************
+        * Function:     CreateProgramWithLibraryKernels
+        * Description:  creates new program object with backend library kernels.
+        * Arguments:
+        * Return value:
+        ***********************************************************************/
+        cl_err_code CreateProgramWithLibraryKernels(
+            cl_uint NumDevices, SharedPtr<FissionableDevice> *Devices,
+            SharedPtr<Program> *ProgPtr, std::string &KernelNames);
+
         /******************************************************************************************
         * Function:     CreateProgramForLink    
         * Description:  creates an empty program

@@ -25,6 +25,10 @@ BitCodeContainer::BitCodeContainer(const void *pBinary, size_t uiBinarySize,
     m_pBuffer = llvm::MemoryBuffer::getMemBufferCopy(llvm::StringRef((const char*)pBinary, uiBinarySize), name);
 }
 
+BitCodeContainer::BitCodeContainer(
+    std::unique_ptr<llvm::MemoryBuffer> memBuffer)
+    : m_pBuffer(std::move(memBuffer)) {}
+
 BitCodeContainer::~BitCodeContainer()
 {
     llvm::Module *pModule = GetModule();

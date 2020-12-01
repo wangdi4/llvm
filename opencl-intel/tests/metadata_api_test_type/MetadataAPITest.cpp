@@ -264,6 +264,78 @@ TEST_F(MetadataTest, Test_UnsetKernelArgTypeQual) {
   }
 }
 
+/// KernelArgBufferLocation
+
+TEST_F(MetadataTest, Test_RetrieveKernelArgBufferLocationFromNotAKernel) {
+  auto pModule = GetTestModule();
+
+  KernelMetadataAPI kernelMDApi(pModule->getFunction("metatest_plain_func"));
+
+  EXPECT_FALSE(kernelMDApi.ArgBufferLocationList.hasValue());
+}
+
+TEST_F(MetadataTest, Test_RetrieveKernelArgBufferLocationThroughIndex) {
+  auto pModule = GetTestModule();
+
+  const std::vector<llvm::StringRef> expected = {"", "", ""};
+
+  KernelMetadataAPI kernelMDApi(pModule->getFunction("metatest_kernel"));
+
+  EXPECT_TRUE(kernelMDApi.ArgBufferLocationList.hasValue());
+
+  for (size_t i = 0; i < kernelMDApi.ArgBufferLocationList.size(); i++) {
+    EXPECT_EQ(expected[i], kernelMDApi.ArgBufferLocationList.getItem(i));
+  }
+}
+
+/// KernelArgHostAccessible
+
+TEST_F(MetadataTest, Test_RetrieveKernelArgHostAccessibleFromNotAKernel) {
+  auto pModule = GetTestModule();
+
+  KernelMetadataAPI kernelMDApi(pModule->getFunction("metatest_plain_func"));
+
+  EXPECT_FALSE(kernelMDApi.ArgHostAccessibleList.hasValue());
+}
+
+TEST_F(MetadataTest, Test_RetrieveKernelArgHostAccessibleThroughIndex) {
+  auto pModule = GetTestModule();
+
+  const std::vector<bool> expected = {false, false, false};
+
+  KernelMetadataAPI kernelMDApi(pModule->getFunction("metatest_kernel"));
+
+  EXPECT_TRUE(kernelMDApi.ArgHostAccessibleList.hasValue());
+
+  for (size_t i = 0; i < kernelMDApi.ArgHostAccessibleList.size(); i++) {
+    EXPECT_EQ(expected[i], kernelMDApi.ArgHostAccessibleList.getItem(i));
+  }
+}
+
+/// KernelArgPipeDepth
+
+TEST_F(MetadataTest, Test_RetrieveKernelArgPipeDepthFromNotAKernel) {
+  auto pModule = GetTestModule();
+
+  KernelMetadataAPI kernelMDApi(pModule->getFunction("metatest_plain_func"));
+
+  EXPECT_FALSE(kernelMDApi.ArgPipeDepthTyList.hasValue());
+}
+
+TEST_F(MetadataTest, Test_RetrieveKernelArgPipeDepthThroughIndex) {
+  auto pModule = GetTestModule();
+
+  const std::vector<int32_t> expected = {0, 0, 0};
+
+  KernelMetadataAPI kernelMDApi(pModule->getFunction("metatest_kernel"));
+
+  EXPECT_TRUE(kernelMDApi.ArgPipeDepthTyList.hasValue());
+
+  for (size_t i = 0; i < kernelMDApi.ArgPipeDepthTyList.size(); i++) {
+    EXPECT_EQ(expected[i], kernelMDApi.ArgPipeDepthTyList.getItem(i));
+  }
+}
+
 /// work_group_size_hint
 
 TEST_F(MetadataTest, Test_RetrieveWorkGroupSizeHint) {

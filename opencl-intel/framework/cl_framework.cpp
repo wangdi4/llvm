@@ -3571,6 +3571,8 @@ CL_API_ENTRY cl_int CL_API_CALL clEnqueueMemsetINTEL(
             "size_t size" << size << "cl_uint num_events_in_wait_list" <<
             num_events_in_wait_list << "const cl_event* event_wait_list" <<
             event_wait_list << "cl_event* event" << event;
+        OutputParamsValueProvider provider(apiLogger);
+        provider.AddParam("event", event, true);
         CALL_INSTRUMENTED_API_LOGGER(EXECUTION_MODULE, cl_int, EnqueueUSMMemset(
             command_queue, dst_ptr, value, size, num_events_in_wait_list,
             event_wait_list, event, &apiLogger));
@@ -3604,6 +3606,8 @@ CL_API_ENTRY cl_int CL_API_CALL clEnqueueMemFillINTEL(
             "size_t size" << size << "cl_uint num_events_in_wait_list" <<
             num_events_in_wait_list << "const cl_event* event_wait_list" <<
             event_wait_list << "cl_event* event" << event;
+        OutputParamsValueProvider provider(apiLogger);
+        provider.AddParam("event", event, true);
         CALL_INSTRUMENTED_API_LOGGER(EXECUTION_MODULE, cl_int,
             EnqueueUSMMemFill(command_queue, dst_ptr, pattern, pattern_size,
                               size, num_events_in_wait_list, event_wait_list,
@@ -3638,6 +3642,8 @@ CL_API_ENTRY cl_int CL_API_CALL clEnqueueMemcpyINTEL(
         "cl_uint num_events_in_wait_list" << num_events_in_wait_list <<
         "const cl_event* event_wait_list" << event_wait_list <<
         "cl_event* event" << event;
+        OutputParamsValueProvider provider(apiLogger);
+        provider.AddParam("event", event, true);
         CALL_INSTRUMENTED_API_LOGGER(EXECUTION_MODULE, cl_int, EnqueueUSMMemcpy(
             command_queue, blocking, dst_ptr, src_ptr, size,
             num_events_in_wait_list, event_wait_list, event, &apiLogger));
@@ -3670,6 +3676,8 @@ CL_API_ENTRY cl_int CL_API_CALL clEnqueueMigrateMemINTEL(
         "cl_uint num_events_in_wait_list" << num_events_in_wait_list <<
         "const cl_event* event_wait_list" << event_wait_list <<
         "cl_event* event" << event;
+        OutputParamsValueProvider provider(apiLogger);
+        provider.AddParam("event", event, true);
         CALL_INSTRUMENTED_API_LOGGER(EXECUTION_MODULE, cl_int,
             EnqueueUSMMigrateMem(command_queue, ptr, size, flags,
             num_events_in_wait_list, event_wait_list, event, &apiLogger));
@@ -3703,6 +3711,8 @@ CL_API_ENTRY cl_int CL_API_CALL clEnqueueMemAdviseINTEL(
         "cl_uint num_events_in_wait_list" << num_events_in_wait_list <<
         "const cl_event* event_wait_list" << event_wait_list <<
         "cl_event* event" << event;
+        OutputParamsValueProvider provider(apiLogger);
+        provider.AddParam("event", event, true);
         CALL_INSTRUMENTED_API_LOGGER(EXECUTION_MODULE, cl_int,
             EnqueueUSMMemAdvise(command_queue, ptr, size, advice,
             num_events_in_wait_list, event_wait_list, event, &apiLogger));

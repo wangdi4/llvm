@@ -38,6 +38,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
     /*! \struct cl_kernel_arg_info
      *  \brief Defines extended information for a kernel arguments.
      */
+    // TODO use cl_kernel_argument_info instead.
     struct SKernelArgumentInfo
     {
         std::string                     name;               //!< String specifies the name of the argument

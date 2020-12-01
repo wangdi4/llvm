@@ -277,6 +277,31 @@ cl_dev_err_code ProgramService::CreateProgram( size_t IN binSize,
 	return CL_DEV_SUCCESS;
 }
 
+cl_dev_err_code
+ProgramService::CreateLibraryKernelProgram(cl_dev_program *OUT Prog,
+                                           char **OUT KernelNames) {
+  CpuInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%S"),
+             TEXT("CreateLibraryKernelProgram enter"));
+
+  // Create new program
+  TProgramEntry *Entry = new TProgramEntry;
+  Entry->programType = PTBackendLibraryProgram;
+  Entry->pProgram = nullptr;
+  Entry->clBuildStatus = CL_BUILD_SUCCESS;
+
+  assert(m_pBackendCompiler && "Invalid backend compile service");
+  cl_dev_err_code err =
+      m_pBackendCompiler->CreateLibraryProgram(&Entry->pProgram, KernelNames);
+  if (CL_DEV_FAILED(err)) {
+    CpuErrLog(m_pLogDescriptor, m_iLogHandle,
+              TEXT("CreateLibraryProgram failed with %x"), err);
+    return err;
+  }
+
+  *Prog = (cl_dev_program)Entry;
+  return CL_DEV_SUCCESS;
+}
+
 /*******************************************************************************************************************
 clDevBuildProgram
     Description

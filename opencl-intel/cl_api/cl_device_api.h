@@ -93,11 +93,13 @@ typedef struct _ndrange_t
  */
 struct cl_kernel_argument_info
 {
-    const char*                     name;               //!< String specifies the name of the argument
-    const char*                     typeName;           //!< String specifies the argument type
+    char*                           name;               //!< String specifies the name of the argument
+    char*                           typeName;           //!< String specifies the argument type
     cl_kernel_arg_address_qualifier addressQualifier;   //!< Argument's address qualifier
     cl_kernel_arg_access_qualifier  accessQualifier;    //!< Argument's access qualifier
     cl_kernel_arg_type_qualifier    typeQualifier;      //!< Argument's type qualifier
+    bool                            hostAccessible;     //!< Argument's host accessible flag
+    int                             localMemSize;       //!< Argument's local_mem_size
 };
 
 /*! \struct cl_prog_binary_desc
@@ -1373,6 +1375,18 @@ public:
                                            const char* IN szBuiltInNames,
                                            cl_dev_program* OUT prog
                                            ) = 0;
+
+    //! Creates a device specific program entity from backend library kernels.
+    /*!
+        \param[out] Prog A valid (non zero) handle to created program object.
+        \retval     CL_DEV_SUCCESS The function was executed successfully.
+        \retval     CL_DEV_OUT_OF_MEMORY If device failed to allocate memory.
+        \retval     CL_DEV_INVALID_VALUE If Prog is nullptr.
+        \retval     CL_DEV_ERROR_FAIL If other internal exceptions are throwed.
+        \param[out] KernelNames A list of kernel names separated by comma.
+    */
+    virtual cl_dev_err_code clDevCreateLibraryKernelProgram(
+        cl_dev_program * OUT Prog, char **OUT KernelNames) = 0;
 
     //! Builds (compiles & links) a program executable from the program intermediate or binary.
     /*!

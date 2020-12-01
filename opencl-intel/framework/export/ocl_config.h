@@ -45,7 +45,9 @@ namespace Intel { namespace OpenCL { namespace Framework {
 #define	CL_ITT_CONFIG_SHOW_SUBMITTED_MARKER		"CL_ITT_CONFIG_SHOW_SUBMITTED_MARKER"	  // bool
 #define	CL_ITT_CONFIG_SHOW_RUNNING_MARKER		"CL_ITT_CONFIG_SHOW_RUNNING_MARKER"		  // bool
 #define	CL_ITT_CONFIG_SHOW_COMPLETED_MARKER		"CL_ITT_CONFIG_SHOW_COMPLETED_MARKER"	  // bool
-	
+
+#define CL_CONFIG_ENABLE_PARALLEL_COPY "CL_CONFIG_ENABLE_PARALLEL_COPY"
+
 	/**********************************************************************************************
 	* Class name:	OCLConfig
 	*
@@ -81,6 +83,10 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
 		bool      EnableITT() const { return m_pConfigFile->Read<bool>(CL_CONFIG_USE_ITT_API, false); }
 
+                bool EnableParallelCopy() const {
+                  return m_pConfigFile->Read<bool>(
+                      CL_CONFIG_ENABLE_PARALLEL_COPY, true);
+                }
     };  
 
 }}}

@@ -14,10 +14,11 @@
 
 #include "CompilationUtils.h"
 #include "ImplicitArgsUtils.h"
-#include "NameMangleAPI.h"
 #include "MetadataAPI.h"
+#include "NameMangleAPI.h"
 #include "ParameterType.h"
 #include "TypeAlignment.h"
+#include "cl_sys_defines.h"
 #include "cl_types.h"
 
 #include "CL/cl.h"
@@ -657,6 +658,116 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
       arguments.push_back(curArg);
       ++arg_it;
     }
+  }
+
+  std::vector<cl_kernel_argument_info>
+  CompilationUtils::parseKernelArgumentInfos(Function *F) {
+    assert(F && "Invalid function");
+
+    std::vector<cl_kernel_argument_info> ArgInfos;
+
+    llvm::MDNode *AddressQualifiers = F->getMetadata("kernel_arg_addr_space");
+    llvm::MDNode *AccessQualifiers = F->getMetadata("kernel_arg_access_qual");
+    llvm::MDNode *TypeNames = F->getMetadata("kernel_arg_type");
+    llvm::MDNode *TypeQualifiers = F->getMetadata("kernel_arg_type_qual");
+    llvm::MDNode *ArgNames = F->getMetadata("kernel_arg_name");
+    llvm::MDNode *HostAccessible = F->getMetadata("kernel_arg_host_accessible");
+    llvm::MDNode *LocalMemSize = F->getMetadata("local_mem_size");
+    if (!AddressQualifiers || !AccessQualifiers || !TypeNames ||
+        !TypeQualifiers)
+      return ArgInfos;
+
+    for (unsigned int i = 0; i < AddressQualifiers->getNumOperands(); ++i) {
+      cl_kernel_argument_info ArgInfo;
+      memset(&ArgInfo, 0, sizeof(ArgInfo));
+
+      // Address qualifier
+      llvm::ConstantInt *AddressQualifier =
+          llvm::mdconst::dyn_extract<llvm::ConstantInt>(
+              AddressQualifiers->getOperand(i));
+      assert(AddressQualifier &&
+             "AddressQualifier is not a valid ConstantInt*");
+
+      uint64_t AddrQ = AddressQualifier->getZExtValue();
+      switch (AddrQ) {
+      case 0:
+        ArgInfo.addressQualifier = CL_KERNEL_ARG_ADDRESS_PRIVATE;
+        break;
+      case 1:
+        ArgInfo.addressQualifier = CL_KERNEL_ARG_ADDRESS_GLOBAL;
+        break;
+      case 2:
+        ArgInfo.addressQualifier = CL_KERNEL_ARG_ADDRESS_CONSTANT;
+        break;
+      case 3:
+        ArgInfo.addressQualifier = CL_KERNEL_ARG_ADDRESS_LOCAL;
+        break;
+      default:
+        throw std::string("Invalid address qualifier: ") +
+            std::to_string(AddrQ);
+        break;
+      }
+      // Access qualifier
+      llvm::MDString *AccessQualifier =
+          llvm::cast<llvm::MDString>(AccessQualifiers->getOperand(i));
+
+      ArgInfo.accessQualifier =
+          llvm::StringSwitch<cl_kernel_arg_access_qualifier>(
+              AccessQualifier->getString())
+              .Case("read_only", CL_KERNEL_ARG_ACCESS_READ_ONLY)
+              .Case("write_only", CL_KERNEL_ARG_ACCESS_WRITE_ONLY)
+              .Case("read_write", CL_KERNEL_ARG_ACCESS_READ_ONLY)
+              .Default(CL_KERNEL_ARG_ACCESS_NONE);
+
+      // Type qualifier
+      llvm::MDString *pTypeQualifier =
+          llvm::cast<llvm::MDString>(TypeQualifiers->getOperand(i));
+      ArgInfo.typeQualifier = 0;
+      llvm::StringRef typeQualStr = pTypeQualifier->getString();
+      if (typeQualStr.find("const") != llvm::StringRef::npos)
+        ArgInfo.typeQualifier |= CL_KERNEL_ARG_TYPE_CONST;
+      if (typeQualStr.find("restrict") != llvm::StringRef::npos)
+        ArgInfo.typeQualifier |= CL_KERNEL_ARG_TYPE_RESTRICT;
+      if (typeQualStr.find("volatile") != llvm::StringRef::npos)
+        ArgInfo.typeQualifier |= CL_KERNEL_ARG_TYPE_VOLATILE;
+      if (typeQualStr.find("pipe") != llvm::StringRef::npos)
+        ArgInfo.typeQualifier |= CL_KERNEL_ARG_TYPE_PIPE;
+
+      // Type name
+      llvm::MDString *pTypeName =
+          llvm::cast<llvm::MDString>(TypeNames->getOperand(i));
+      ArgInfo.typeName = STRDUP(pTypeName->getString().str().c_str());
+
+      if (ArgNames) {
+        // Parameter name
+        llvm::MDString *pArgName =
+            llvm::cast<llvm::MDString>(ArgNames->getOperand(i));
+
+        ArgInfo.name = STRDUP(pArgName->getString().str().c_str());
+      }
+
+      if (HostAccessible) {
+        auto *HostAccessibleFlag =
+            llvm::cast<llvm::ConstantAsMetadata>(HostAccessible->getOperand(i));
+
+        ArgInfo.hostAccessible =
+            HostAccessibleFlag &&
+            llvm::cast<llvm::ConstantInt>(HostAccessibleFlag->getValue())
+                ->isOne();
+      }
+
+      if (LocalMemSize) {
+        auto *LocalMemSizeFlag =
+            llvm::cast<llvm::ConstantAsMetadata>(LocalMemSize->getOperand(i));
+
+        ArgInfo.localMemSize =
+            llvm::cast<llvm::ConstantInt>(LocalMemSizeFlag->getValue())
+                ->getZExtValue();
+      }
+
+      ArgInfos.push_back(ArgInfo);
+    }
+    return ArgInfos;
   }
 
   unsigned CompilationUtils::fetchCLVersionFromMetadata(const Module &M) {

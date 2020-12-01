@@ -132,6 +132,11 @@ Kernel::~Kernel() {
     free(s);
     m_stackMem.pop();
   }
+
+  for (auto &argInfo : m_explicitArgsInfo) {
+    free(argInfo.name);
+    free(argInfo.typeName);
+  }
 }
 
 void Kernel::AddKernelJIT(IKernelJITContainer *pJIT) { m_JITs.push_back(pJIT); }
@@ -376,7 +381,13 @@ size_t Kernel::GetArgumentBufferRequiredAlignment() const {
   return m_RequiredUniformKernelArgsAlignment;
 }
 
-const cl_kernel_argument_info *Kernel::GetKernelArgInfo() const { return nullptr; }
+const cl_kernel_argument_info *Kernel::GetKernelArgInfo() const {
+  return m_explicitArgsInfo.empty() ? nullptr : &m_explicitArgsInfo[0];
+}
+
+void Kernel::SetKernelArgInfo(std::vector<cl_kernel_argument_info> argInfos) {
+  m_explicitArgsInfo = std::move(argInfos);
+}
 
 const ICLDevBackendKernelProporties *Kernel::GetKernelProporties() const {
   return m_pProps;

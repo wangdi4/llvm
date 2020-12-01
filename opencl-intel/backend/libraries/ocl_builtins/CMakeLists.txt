@@ -12,25 +12,6 @@
 #     OCL_HOST_LLVM_LINK            overrides 'llvm-link' tool selection. The default is to use 'llvm-link' tool from the same build
 #
 
-# In this project we use binaries from OpenCL prject (e.g. oclopt), LLVM for
-# front-end compiler (e.g. clang) and LLVM for back-end compiler (e.g. llc).
-# oclopt utility is built with LLVM version for the back-end compiler, so when
-# applies passes to the RTL it converts LLVM IR to newer version. This restrict
-# the tools we use after oclopt to the tools from LLVM for back-end compiler.
-# So we have to set path to tools directory for BE version of LLVM.
-# We know that LLVM for the back-end compiler is already configured, so just
-# save LLVM_BINARY_DIR for later use by LLVM tools running after oclopt.
-# TODO: to make this file more self contained we should not rely on the
-# assumption above and configure LLVM for the back-end right here.
-set(BE_LLVM_BINARY_DIR ${LLVM_BINARY_DIR})
-
-if( NOT DEFINED LLVM_PATH_FE )
-  message( FATAL_ERROR "LLVM_PATH_FE is not specified. Please specify LLVM library location for fronted using LLVM_PATH_FE parameter to CMAKE" )
-endif()
-
-set(LLVM_PATH ${LLVM_PATH_FE})
-find_package(LLVM REQUIRED)
-
 project(cl_builtins)
 
 # target name prefix to be used for generated binaries
@@ -67,21 +48,6 @@ set (CL_BUILTIN_SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR})
 set (BUILTINS_OUTPUT_DIR ${OCL_OUTPUT_LIBRARY_DIR})
 set (BUILTINS_SHARED_OUTPUT_DIR ${OCL_LIBRARY_DIR})
 
-# global headers
-if (DEFINED OCL_CLANG_HEADERS)
-  set (CLANG_HEADERS ${OCL_CLANG_HEADERS})
-else ()
-  set (CLANG_HEADERS ${CL_BUILTIN_SOURCE_DIR}/../../clang_headers)
-endif()
-if (NOT EXISTS ${CLANG_HEADERS})
-  message (FATAL_ERROR "Cannot find Clang headers (${CLANG_HEADERS})!")
-endif()
-
-if (NOT DEFINED OCL_GLOBAL_INCLUDE)
-  message (FATAL_ERROR "CL API directory path is not set!")
-endif ()
-set (IMPORT_DIR ${OCL_GLOBAL_INCLUDE})
-
 # svml directories
 set (SVML_DLL_DIR ${CL_BUILTIN_SOURCE_DIR}/bin/svml/${PLATFORM})
 if (NOT EXISTS ${SVML_DLL_DIR})
@@ -90,71 +56,9 @@ endif()
 set (SVML_NAME_PREFIX __ocl_svml_)
 set (SDE_NAME_PREFIX __sde_svml_)
 
-set(TOOL_BINARY_DIR "${BE_LLVM_BINARY_DIR}" )
-
-if (NOT OPENCL_INTREE_BUILD)
-  # LLVM tools are assumed to be pre-built within the global project
-  if (NOT DEFINED OCL_HOST_CLANG)
-    set (CLANG "${LLVM_BINARY_DIR}/clang")
-  else()
-    set (CLANG ${OCL_HOST_CLANG})
-  endif()
-else()
-  set(CLANG clang)
-endif()
-
-if (NOT DEFINED OCL_HOST_OPT)
-  set (OPT oclopt)
-  set (OPT_DEP oclopt)
-  set (OCL-TBLGEN ocl-tblgen)
-  set (OCL-TBLGEN-DEP ocl-tblgen)
-else ()
-  set (OPT OCL_HOST_OPT)
-endif()
-if (NOT DEFINED OCL_HOST_LLVM_LINK)
-  set (LLVM_LINK "${TOOL_BINARY_DIR}/llvm-link")
-else()
-  set (LLVM_LINK OCL_HOST_LLVM_LINK)
-endif()
-if (NOT DEFINED OCL_HOST_LLC)
-  set (LLC "${TOOL_BINARY_DIR}/llc")
-else()
-  set (LLC OCL_HOST_LLC)
-endif()
-
-# LLVM triple is per OS and Arch (keep consistent with Materializer),
-# also, note that -elf postfix is added to windows triples later in the file.
-# adding "-elf" postfix to the triple for Win32 to codegen ELF with llc later (to be consistent with Backend Materializer)
-if (WIN32)
-  if (CMAKE_SIZEOF_VOID_P EQUAL 4)
-    set (DEVICE_TRIPLE i686-pc-win32-gnu-elf)
-    set (HOST_TRIPLE   i686-pc-win32-gnu)
-  else ()
-    set (DEVICE_TRIPLE x86_64-pc-win32-gnu-elf)
-    set (HOST_TRIPLE   x86_64-pc-win32-gnu)
-  endif (CMAKE_SIZEOF_VOID_P EQUAL 4)
-else (WIN32)
-  if (CMAKE_SIZEOF_VOID_P EQUAL 4)
-    set (DEVICE_TRIPLE i686-pc-linux)
-    set (HOST_TRIPLE   i686-pc-linux)
-  else ()
-    set (DEVICE_TRIPLE x86_64-pc-linux)
-    set (HOST_TRIPLE   x86_64-pc-linux)
-  endif (CMAKE_SIZEOF_VOID_P EQUAL 4)
-endif (WIN32)
-
 #
 # Tool environment and options
 #
-
-# clang
-set (OCL_OUTPUT_EXTENSION .rtl)
-set (OCL_PRECOMPILED_OUTPUT_EXTENSION .o)
-set (CLANG_LLVM_INCLUDE_DIRS)
-string( REPLACE  \${CMAKE_CFG_INTDIR} ${CMAKE_CFG_INTDIR} LLVM_INCLUDE_DIRS "${LLVM_INCLUDE_DIRS}" )
-foreach( LLVM_INCLUDE_DIR_ITEM ${LLVM_INCLUDE_DIRS} )
-  set(CLANG_LLVM_INCLUDE_DIRS ${CLANG_LLVM_INCLUDE_DIRS} -I ${LLVM_INCLUDE_DIR_ITEM})
-endforeach( LLVM_INCLUDE_DIR_ITEM)
 
 # options for clang to compile OpenCL 2.0 code
 
@@ -162,11 +66,10 @@ endforeach( LLVM_INCLUDE_DIR_ITEM)
 # opencl.enable.FP_CONTRACT will not appear with  open source frontend. So in order to keep FMA
 # folding in built-ins this attribute is required. It places 'contract' attribute that will perform
 # FMAs even in 'standard' CodeGen setting.
-set (CLANG_CL_COMMON_COMPILER_FLAGS
-  -cc1 -triple ${DEVICE_TRIPLE} -emit-llvm-bc -fwrapv -O3 -disable-intel-proprietary-opts
-  -x cl -I ${IMPORT_DIR} -I ${CLANG_HEADERS} -I ${CCLANG_USER_INCLUDE_DIRS} -I ${CL_BUILTIN_SOURCE_DIR} ${CLANG_LLVM_INCLUDE_DIRS} -include opencl-c.h -include long_vector_types.h -include opencl_cth_pre_release.h
-  -cl-std=CL2.0 -D __OPENCL_C_VERSION__=200 -fopencl-force-vector-abi
-  -fblocks -ffake-address-space-map -faddress-space-map-mangling=yes -mstackrealign -ffp-contract=fast
+set(CLANG_CL_COMMON_COMPILER_FLAGS
+  ${CLANG_CL_COMMON_FLAGS}
+  -I ${CL_BUILTIN_SOURCE_DIR} -include long_vector_types.h -include opencl_cth_pre_release.h
+  -fopencl-force-vector-abi -fblocks -faddress-space-map-mangling=yes -mstackrealign -ffp-contract=fast
   -cl-ext=+cl_khr_fp16
   -D float_atomics_enable
   -Wno-psabi
@@ -196,16 +99,6 @@ set (LLVM_OPT_PARAMS -verify -sroa -function-attrs)
 # images optimization options
 set (LLVM_IMAGES_OPT_PARAMS -verify -builtin-import -builtin-call-to-inst -verify -O3 -disable-intel-proprietary-opts)
 
-# llvm-link parameters
-set (LLVM_LINK_PARAMS -suppress-warnings)
-
-# llc parameters
-set (LLC_PARAMS -filetype=obj)
-if (CMAKE_SIZEOF_VOID_P EQUAL 4)
-  set (LLC_PARAMS ${LLC_PARAMS} -relocation-model=static)
-else (CMAKE_SIZEOF_VOID_P EQUAL 4)
-  set (LLC_PARAMS ${LLC_PARAMS} -code-model=large -relocation-model=pic)
-endif (CMAKE_SIZEOF_VOID_P EQUAL 4)
 #------------------- Utility functions ---------------------------
 
 #
@@ -327,19 +220,11 @@ function( add_ocl_library OUTPUT_FILE_VAR PRECOMPILED_OUTPUT_FILE_VAR CLANG_COMP
 
   # compile the rtl file to native objects
   if(${ENABLE_PRECOMPILE})
-    # Initialize the llc parameter "-mattr" based on PROC
-    SET (MATTR "-mattr=")
-    if (${PROC} MATCHES ".*avx2$")
-      set (MATTR "${MATTR}+avx2")
-    else()
-      if (${PROC} MATCHES ".*avx$")
-        set (MATTR "${MATTR}+avx")
-      endif ()
-    endif ()
-
     add_custom_command(OUTPUT ${BUILTINS_OUTPUT_DIR}/${PRECOMPILED_OUTPUT_FILE}
       COMMENT "Building static object ${PRECOMPILED_OUTPUT_FILE}"
-      COMMAND ${LLC} ${LLC_PARAMS} ${MATTR} -mcpu=${PROC} -o ${BUILTINS_OUTPUT_DIR}/${PRECOMPILED_OUTPUT_FILE} < ${BUILTINS_OUTPUT_DIR}/${OUTPUT_FILE}
+      COMMAND ${LLC} ${LLC_PARAMS} -mcpu=${PROC} -o
+              ${BUILTINS_OUTPUT_DIR}/${PRECOMPILED_OUTPUT_FILE} <
+              ${BUILTINS_OUTPUT_DIR}/${OUTPUT_FILE}
       DEPENDS ${LLC} ${BUILTINS_OUTPUT_DIR}/${OUTPUT_FILE}
       VERBATIM
       )
@@ -608,8 +493,9 @@ add_custom_command(OUTPUT clbltpipeinfo.obj
   COMMAND ${CLANG} ${CLANG_CL_COMMON_COMPILER_FLAGS} -triple ${HOST_TRIPLE}
   ${CMAKE_CURRENT_SOURCE_DIR}/pipes-info.cl -o pipes-info.bc
 
-  COMMAND ${LLC} ${LLC_PARAMS} -mcpu=corei7 pipes-info.bc
-  -o clbltpipeinfo.obj)
+  COMMAND ${LLC} ${LLC_PARAMS} -mcpu=corei7 pipes-info.bc -o clbltpipeinfo.obj
+  COMMENT "Compiling clbltpipeinfo.obj"
+)
 
 add_library(clbltpipeinfo STATIC IMPORTED GLOBAL)
 add_dependencies(clbltpipeinfo clbltpipeinfo_target)

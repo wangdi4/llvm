@@ -226,6 +226,13 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
                          std::vector<cl_kernel_argument> & /* OUT */ arguments,
                          std::vector<unsigned int> & /* OUT */ memoryArguments);
 
+    /// @brief Returns a vector of cl_kernel_argument_info with arguments
+    ///        representing F's OpenCL level argument info.
+    /// @param F The kernel for which to create argument info vector.
+    /// @return a vector of cl_kernel_argument_info.
+    static std::vector<cl_kernel_argument_info>
+    parseKernelArgumentInfos(Function *F);
+
     static Function *AddMoreArgsToFunc(Function *F, ArrayRef<Type *> NewTypes,
                                        ArrayRef<const char *> NewNames,
                                        ArrayRef<AttributeSet> NewAttrs,
