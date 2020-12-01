@@ -248,6 +248,7 @@ EXTERN
 int32_t __tgt_rtl_release_offload_queue(int32_t ID, void *Queue);
 
 // Creates an opaque handle to the platform handle.
+// TODO: remove this if it is not necessary.
 EXTERN
 void *__tgt_rtl_get_platform_handle(int32_t ID);
 
@@ -256,8 +257,7 @@ EXTERN
 void *__tgt_rtl_get_device_handle(int32_t ID);
 
 // Creates an opaque handle to the  context handle.
-EXTERN
-void *__tgt_rtl_get_context_handle();
+EXTERN void *__tgt_rtl_get_context_handle(int32_t ID);
 
 // Allocate a managed memory object.
 EXTERN void *__tgt_rtl_data_alloc_managed(int32_t ID, int64_t Size);

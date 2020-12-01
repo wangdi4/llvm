@@ -605,27 +605,23 @@ struct KernelPropertiesTy {
 
 /// Events for kernel profiling
 struct KernelProfileEventsTy {
-  ze_event_pool_handle_t Pool = nullptr;
+  std::vector<ze_event_pool_handle_t> Pools;
   size_t Size = 0;
   std::map<int32_t, ze_event_handle_t> Events;  // Per-thread events
   std::mutex *EventLock = nullptr;
+  ze_context_handle_t Context = nullptr;
 
-  void init(ze_context_handle_t Context) {
+  void init(ze_context_handle_t ContextHandle) {
     Size = omp_get_max_threads();
-    ze_event_pool_desc_t poolDesc = {
-      ZE_STRUCTURE_TYPE_EVENT_POOL_DESC,
-      nullptr,
-      ZE_EVENT_POOL_FLAG_KERNEL_TIMESTAMP,
-      (uint32_t)Size
-    };
-    CALL_ZE_EXIT_FAIL(zeEventPoolCreate, Context, &poolDesc, 0, nullptr, &Pool);
     EventLock = new std::mutex();
+    Context = ContextHandle;
   }
 
   void deinit() {
     for (auto event : Events)
       CALL_ZE_EXIT_FAIL(zeEventDestroy, event.second);
-    CALL_ZE_EXIT_FAIL(zeEventPoolDestroy, Pool);
+    for (auto pool : Pools)
+      CALL_ZE_EXIT_FAIL(zeEventPoolDestroy, pool);
     delete EventLock;
   }
 
@@ -633,19 +629,31 @@ struct KernelProfileEventsTy {
     int32_t gtid = __kmpc_global_thread_num(nullptr);
     std::unique_lock<std::mutex> lock(*EventLock);
     if (Events.count(gtid) == 0) {
-      if (Events.size() == Size) {
-        IDP("Cannot create profiling events more than %zu.\n", Size);
-        return nullptr;
+      size_t eventId = Events.size() % Size;
+      if (eventId == 0) {
+        // This is the first event, or the pools are fully used.
+        IDP("Creating a new profiling event pool.\n");
+        ze_event_pool_desc_t poolDesc = {
+          ZE_STRUCTURE_TYPE_EVENT_POOL_DESC,
+          nullptr,
+          ZE_EVENT_POOL_FLAG_KERNEL_TIMESTAMP,
+          (uint32_t)Size
+        };
+        ze_event_pool_handle_t pool = nullptr;
+        CALL_ZE_RET_NULL(
+            zeEventPoolCreate, Context, &poolDesc, 0, nullptr, &pool);
+        Pools.push_back(pool);
       }
+      auto pool = Pools.back();
       ze_event_desc_t eventDesc = {
         ZE_STRUCTURE_TYPE_EVENT_DESC,
         nullptr,
-        (uint32_t)Events.size(), // index
+        (uint32_t)eventId,
         0,
         0
       };
       ze_event_handle_t event;
-      CALL_ZE_RET_NULL(zeEventCreate, Pool, &eventDesc, &event);
+      CALL_ZE_RET_NULL(zeEventCreate, pool, &eventDesc, &event);
       Events[gtid] = event;
     }
     return Events[gtid];
@@ -2862,7 +2870,7 @@ EXTERN void *__tgt_rtl_get_device_handle(int32_t DeviceId) {
   return (void *)device;
 }
 
-EXTERN void *__tgt_rtl_get_context_handle() {
+EXTERN void *__tgt_rtl_get_context_handle(int32_t DeviceId) {
   auto context = DeviceInfo->Context;
   return (void *)context;
 }
