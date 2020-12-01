@@ -48,7 +48,9 @@ ProgramWithLibraryKernels::ProgramWithLibraryKernels(
       }
       // KNames is a list of kernel names separated by comma.
       KernelNames = KNames;
-      free(KNames);
+      // TODO following code segfault on windows. KNames is allocated in backend
+      // dll and freed in framework dll.
+      //free(KNames);
 
       DevProgram->SetDevice(Devices[i]);
       DevProgram->SetHandle(GetHandle());

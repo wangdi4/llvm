@@ -19,6 +19,7 @@
 // problem reports or change requests be submitted to it directly
 
 #include "FrameworkTest.h"
+#include "FrameworkTestThreads.h"
 #include "TestsHelpClasses.h"
 #include "common_utils.h"
 #include "cpu_dev_limits.h"
@@ -29,6 +30,14 @@
 extern cl_device_type gDeviceType;
 
 enum TestKind { NoEnv, DisableParralel };
+
+static bool checkResultBuffer(char *buffer, size_t size, char value) {
+  for (size_t i = 0; i < size; i++) {
+    if (buffer[i] != value)
+      return false;
+  }
+  return true;
+}
 
 class ParallelCopySetTest : public ::testing::TestWithParam<TestKind> {
 protected:
@@ -89,11 +98,7 @@ protected:
   bool checkBuffer(char *buffer) { return checkBuffer(buffer, m_value); }
 
   bool checkBuffer(char *buffer, char value) {
-    for (size_t i = 0; i < m_checkSize; i++) {
-      if (buffer[i] != value)
-        return false;
-    }
-    return true;
+    return checkResultBuffer(buffer, m_checkSize, value);
   }
 
 protected:
@@ -446,6 +451,82 @@ TEST_P(ParallelCopySetTest, usmMemset) {
   err = clMemFreeINTEL(m_context, sharedUSM);
   ASSERT_OCL_SUCCESS(err, "clMemFreeINTEL");
   delete[] dst;
+}
+
+class ReadBufferThread : public SynchronizedThread {
+public:
+  ReadBufferThread(cl_context context, cl_device_id device)
+      : m_context(context), m_device(device), m_result(false) {}
+
+  virtual ~ReadBufferThread() {}
+
+  bool GetResult() const { return m_result; }
+
+protected:
+  virtual void ThreadRoutine() {
+    cl_int err;
+    cl_command_queue queue =
+        clCreateCommandQueueWithProperties(m_context, m_device, nullptr, &err);
+    if (!CL_SUCCEEDED(err))
+      return;
+    // Create and initialize buffer.
+    size_t size = 1024 * 1024;
+    char value = 16;
+    char *src = new char[size];
+    for (size_t i = 0; i < size; i++)
+      src[i] = value;
+    cl_mem buffer =
+        clCreateBuffer(m_context, CL_MEM_USE_HOST_PTR, size, src, &err);
+    if (!CL_SUCCEEDED(err))
+      return;
+
+    char *dst = new char[size];
+    err = clEnqueueReadBuffer(queue, buffer, CL_TRUE, 0, size, dst, 0, nullptr,
+                              nullptr);
+    if (!CL_SUCCEEDED(err))
+      return;
+
+    err = clReleaseMemObject(buffer);
+    if (!CL_SUCCEEDED(err))
+      return;
+
+    err = clReleaseCommandQueue(queue);
+    if (!CL_SUCCEEDED(err))
+      return;
+
+    // Check result.
+    m_result = checkResultBuffer(dst, size, value);
+
+    delete[] src;
+    delete[] dst;
+  }
+
+  cl_context m_context;
+  cl_device_id m_device;
+  bool m_result;
+};
+
+TEST_P(ParallelCopySetTest, readBufferMultiThreads) {
+  size_t numThreads = 10;
+
+  std::vector<SynchronizedThread *> threads(numThreads);
+
+  for (size_t i = 0; i < numThreads; ++i)
+    threads[i] = new ReadBufferThread(m_context, m_device);
+
+  SynchronizedThreadPool pool;
+  pool.Init(&threads[0], numThreads);
+  pool.StartAll();
+  pool.WaitAll();
+
+  bool res = true;
+  for (size_t i = 0; i < numThreads && res; ++i) {
+    res &= static_cast<ReadBufferThread *>(threads[i])->GetResult();
+  }
+  ASSERT_TRUE(res) << "readBufferMultiThreads test fails";
+
+  for (size_t i = 0; i < numThreads; ++i)
+    delete threads[i];
 }
 
 INSTANTIATE_TEST_CASE_P(KernelLibrary, ParallelCopySetTest,

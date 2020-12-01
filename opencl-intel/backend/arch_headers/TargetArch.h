@@ -88,9 +88,6 @@ public:
     bool operator<(const CPUId& RHS) const {
         return std::make_pair(unsigned(m_CPU),m_CPUFeatures) < std::make_pair(unsigned(RHS.m_CPU), RHS.m_CPUFeatures);
     }
-    unsigned GetCPUFeatureSupport() const {
-        return m_CPUFeatures;
-    }
 
     TransposeSizeSupport
     isTransposeSizeSupported(ETransposeSize transposeSize) const {

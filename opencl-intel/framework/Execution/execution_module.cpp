@@ -4169,7 +4169,7 @@ cl_err_code ExecutionModule::EnqueueLibrarySet(
         return CL_OUT_OF_RESOURCES;
     }
     if (kernel->GetContext()->GetId() != queue->GetContextId()) {
-        LOG_ERROR(TEXT("EnqueueLibraryCopy kernel context is invalid"), "");
+        LOG_ERROR(TEXT("EnqueueLibrarySet kernel context is invalid"), "");
         return CL_INVALID_CONTEXT;
     }
     size_t argsCount = kernel->GetKernelArgsCount();
