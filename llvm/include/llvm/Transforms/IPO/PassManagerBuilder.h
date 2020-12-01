@@ -177,6 +177,8 @@ public:
 
 #if INTEL_CUSTOMIZATION
   bool DisableIntelProprietaryOpts;
+  /// We are after SLP pass.
+  bool AfterSLPVectorizer;
 #endif // INTEL_CUSTOMIZATION
 
   /// Enable profile instrumentation pass.

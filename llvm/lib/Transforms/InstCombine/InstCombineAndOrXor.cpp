@@ -1949,8 +1949,9 @@ Instruction *InstCombinerImpl::visitAnd(BinaryOperator &I) {
     return SelectInst::Create(NewICmpInst, X, ConstantInt::getNullValue(Ty));
   }
 #if INTEL_CUSTOMIZATION
-  if (Instruction *X = recognizeFCmpMinMaxIdiom(I))
-    return X;
+  if (enableFcmpMinMaxCombine())
+    if (Instruction *X = recognizeFCmpMinMaxIdiom(I))
+      return X;
 #endif // INTEL_CUSTOMIZATION
 
   return nullptr;
@@ -2834,8 +2835,9 @@ Instruction *InstCombinerImpl::visitOr(BinaryOperator &I) {
     }
   }
 #if INTEL_CUSTOMIZATION
-  if (Instruction *X = recognizeFCmpMinMaxIdiom(I))
-    return X;
+  if (enableFcmpMinMaxCombine())
+    if (Instruction *X = recognizeFCmpMinMaxIdiom(I))
+      return X;
 #endif // INTEL_CUSTOMIZATION
 
   if (Instruction *V =
