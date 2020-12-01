@@ -771,7 +771,7 @@ void PacketizeFunction::duplicateNonPacketizableInst(Instruction *I)
       // For some llvm intrinsics, such as llvm.lifetime.start, we need to cast
       // the pointer argument to exact i8* type.
       Function *CalledFunc = CI->getCalledFunction();
-      if (CalledFunc->isIntrinsic() &&
+      if (CalledFunc && CalledFunc->isIntrinsic() &&
           VectorizerUtils::isSafeIntrinsic(CalledFunc->getIntrinsicID())) {
         if (PointerType *PtrTy =
                 dyn_cast<PointerType>(multiOperands[0]->getType())) {

@@ -227,11 +227,12 @@ OCL_INITIALIZE_PASS(SoaAllocaAnalysis, "SoaAllocaAnalysis", "SoaAllocaAnalysis p
 
   bool SoaAllocaAnalysis::isSupportedMemset(const CallInst *CI) {
     V_ASSERT(CI && "CI cannot be null");
-    V_ASSERT(CI->getCalledFunction() &&
-             "Unexpected indirect function invocation");
 
     Function *CalledFunc = CI->getCalledFunction();
-    if (!CalledFunc->isIntrinsic() ||
+    V_ASSERT(CalledFunc &&
+             "Unexpected indirect function invocation");
+
+    if (!CalledFunc || !CalledFunc->isIntrinsic() ||
         CalledFunc->getIntrinsicID() != Intrinsic::memset)
       return  false;
 
