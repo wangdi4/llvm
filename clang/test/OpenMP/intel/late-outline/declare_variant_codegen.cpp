@@ -53,7 +53,7 @@ void baz_targ(float *A, int dnum) { }
 
 //HOST: define{{.*}}baz_base{{.*}}#[[BAZBASE:[0-9]*]]
 #pragma omp declare variant(baz_targ) \
-    match(construct={target variant dispatch}, device={arch(XeLP)})
+    match(construct={target variant dispatch}, device={arch(XeLP,x86_64)})
 void baz_base(float *A, int dnum) {
 }
 
@@ -148,5 +148,5 @@ void caller2(int n, float* x, int dnum)
 
 //ALL: attributes #[[BAZBASE]] = {{.*}}"openmp-variant"=
 //ALL-SAME:name:{{.*}}baz_targ
-//ALL-SAME:construct:target_variant_dispatch;arch:XeLP
+//ALL-SAME:construct:target_variant_dispatch;arch:XeLP,x86_64
 // end INTEL_COLLAB
