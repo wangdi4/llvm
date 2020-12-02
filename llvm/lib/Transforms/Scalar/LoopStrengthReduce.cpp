@@ -3437,7 +3437,7 @@ LSRInstance::CollectLoopInvariantFixupsAndFormulae() {
 #if INTEL_CUSTOMIZATION
   // Return "true" if "V" is an operand of "PN" and incoming predecessor
   // block of "V" that ends in an EHPad.
-  auto IsPHIIncomingBBEndsWithEHPad = [this](const PHINode *PN,
+  auto IsPHIIncomingBBEndsWithEHPad = [](const PHINode *PN,
                                              const Value *V) {
     if (!PN)
       return false;
