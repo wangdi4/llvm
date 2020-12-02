@@ -27,11 +27,10 @@ namespace intel {
 using namespace llvm;
 
 class ResolveSubGroupWICall : public ModulePass {
-
 public:
   static char ID;
 
-  ResolveSubGroupWICall();
+  ResolveSubGroupWICall(bool ResolveSGBarrier = true);
 
   llvm::StringRef getPassName() const override {
     return "ResolveSubGroupWICall";
@@ -47,8 +46,6 @@ private:
   Value *replaceGetSubGroupSize(Instruction *insertBefore, Value *VF,
                                 int32_t VD);
   Value *replaceGetMaxSubGroupSize(Instruction *insertBefore, Value *VF,
-                                   int32_t VD);
-  Value *replaceGetSubGroupLocalId(Instruction *insertBefore, Value *VF,
                                    int32_t VD);
 
   Value *replaceGetEnqueuedNumSubGroups(Instruction *insertBefore, Value *VF,
@@ -68,6 +65,16 @@ private:
   ConstantInt *createVFConstant(LLVMContext &, const DataLayout &, size_t VF);
 
 private:
+  // This pass will run twice, the first time is after vectorizer and before
+  // WGLoopCreater / Barrier, all sub-group WI built-ins except sub_group
+  // barrier will be resolved. The second time is after sub-group emulation
+  // passes, all sub-group barriers and get_sub_group_size introduced by
+  // emulation passes will be resolved. The flag is used to control whether
+  // sub-group barrier should be resolved. We can't resolve sub-group barriers
+  // at the first time, since sub-group barriers in kernels to be emulated must
+  // be visible to emulation passes.
+  bool ResolveSGBarrier;
+
   // Constant values to be used by function calls
   Value *m_zero;
   Value *m_one;

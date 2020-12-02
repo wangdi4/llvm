@@ -33,8 +33,8 @@ using namespace Intel::OpenCL::DeviceBackend;
 using namespace Intel::MetadataAPI;
 
 extern "C" {
-void *createResolveSubGroupWICallPass() {
-  return new intel::ResolveSubGroupWICall();
+void *createResolveSubGroupWICallPass(bool ResolveSGBarrier) {
+  return new intel::ResolveSubGroupWICall(ResolveSGBarrier);
 }
 }
 
@@ -48,9 +48,9 @@ OCL_INITIALIZE_PASS_DEPENDENCY(BuiltinLibInfo)
 OCL_INITIALIZE_PASS_END(ResolveSubGroupWICall, "resolve-sub-group-wi-call",
                         "Resolve Sub Group WI functions", false, false)
 
-ResolveSubGroupWICall::ResolveSubGroupWICall()
-    : ModulePass(ID), m_zero(nullptr), m_one(nullptr), m_two(nullptr),
-      m_ret(nullptr), m_rtServices(nullptr) {}
+ResolveSubGroupWICall::ResolveSubGroupWICall(bool ResolveSGBarrier)
+    : ModulePass(ID), ResolveSGBarrier(ResolveSGBarrier), m_zero(nullptr),
+      m_one(nullptr), m_two(nullptr), m_ret(nullptr), m_rtServices(nullptr) {}
 
 bool ResolveSubGroupWICall::runOnModule(Module &M) {
 
@@ -93,13 +93,17 @@ bool ResolveSubGroupWICall::runOnModule(Module &M) {
       {CompilationUtils::mangledGetSubGroupSize(),
        &ResolveSubGroupWICall::replaceGetSubGroupSize},
       {CompilationUtils::mangledGetMaxSubGroupSize(),
-       &ResolveSubGroupWICall::replaceGetMaxSubGroupSize},
-      {CompilationUtils::mangledGetSubGroupLocalId(),
-       &ResolveSubGroupWICall::replaceGetSubGroupLocalId},
-      {CompilationUtils::mangledSGBarrier(CompilationUtils::BARRIER_WITH_SCOPE),
-       &ResolveSubGroupWICall::replaceSubGroupBarrier},
-      {CompilationUtils::mangledSGBarrier(CompilationUtils::BARRIER_NO_SCOPE),
-       &ResolveSubGroupWICall::replaceSubGroupBarrier}};
+       &ResolveSubGroupWICall::replaceGetMaxSubGroupSize}};
+
+  if (ResolveSGBarrier) {
+    SubGroupFuncToResolver.insert(
+        {CompilationUtils::mangledSGBarrier(
+             CompilationUtils::BARRIER_WITH_SCOPE),
+         &ResolveSubGroupWICall::replaceSubGroupBarrier});
+    SubGroupFuncToResolver.insert(
+        {CompilationUtils::mangledSGBarrier(CompilationUtils::BARRIER_NO_SCOPE),
+         &ResolveSubGroupWICall::replaceSubGroupBarrier});
+  }
 
   // Collect all called subgroup functions.
   std::set<Function *> SubGroupFunctions;
@@ -124,17 +128,21 @@ bool ResolveSubGroupWICall::runOnModule(Module &M) {
       OrigFunc = EEFuncToKernel[OrigFunc];
     if (Kernels.count(OrigFunc)) {
       // Get the VF for kernel.
-      auto kimd = KernelInternalMetadataAPI(OrigFunc);
-      auto VF =
-          kimd.VectorizedWidth.hasValue() ? kimd.VectorizedWidth.get() : 1;
-      auto VecDim = kimd.VectorizationDimension.hasValue()
-                        ? kimd.VectorizationDimension.get()
+      auto KIMD = KernelInternalMetadataAPI(OrigFunc);
+      auto VF = 1;
+      if (KIMD.VectorizedWidth.hasValue())
+        VF = KIMD.VectorizedWidth.get();
+      else if (KIMD.SubgroupEmuSize.hasValue())
+        VF = KIMD.SubgroupEmuSize.get();
+
+      auto VecDim = KIMD.VectorizationDimension.hasValue()
+                        ? KIMD.VectorizationDimension.get()
                         : 0;
       // TODO: After moving the computation related to VD to runtime, we should
       // remove this check and support other VDs in ChooseVectorizationDimension
       // when subgroups existing.
       assert(VecDim == 0 && "Only support vectorization at Dim 0");
-      auto VectorizedKernelMetadata = kimd.VectorizedKernel;
+      auto VectorizedKernelMetadata = KIMD.VectorizedKernel;
       auto *VecKernel = VectorizedKernelMetadata.hasValue()
                             ? VectorizedKernelMetadata.get()
                             : nullptr;
@@ -165,7 +173,7 @@ bool ResolveSubGroupWICall::runOnModule(Module &M) {
     // factor.
     LLVM_DEBUG(dbgs() << "Patching function: " << OrigFunc->getName() << "\n");
     Function *PatchedFunc = CompilationUtils::AddMoreArgsToFunc(
-        OrigFunc, {m_ret}, {"vf"}, {{}}, "ResolveSubGroupWICall");
+        OrigFunc, m_ret, "vf", None, "ResolveSubGroupWICall");
     OrigF2PatchedF[OrigFunc] = PatchedFunc;
   }
 
@@ -173,7 +181,8 @@ bool ResolveSubGroupWICall::runOnModule(Module &M) {
   for (CallInst *CI : CallsToBeFixed) {
     Function *Caller = CI->getCaller();
     Function *Callee = CI->getCalledFunction();
-    assert(OrigF2PatchedF.find(Callee) != OrigF2PatchedF.end());
+    assert(OrigF2PatchedF.find(Callee) != OrigF2PatchedF.end() &&
+           "Patching unexpected call");
 
     Value *ArgVF = nullptr;
     if (Kernels.count(Caller)) {
@@ -273,13 +282,6 @@ ResolveSubGroupWICall::replaceGetMaxSubGroupSize(Instruction *InsertBefore,
   return CastInst::CreateTruncOrBitCast(
       VFVal, IntegerType::get(m_pModule->getContext(), 32), "max.sg.size",
       InsertBefore);
-}
-
-Value *
-ResolveSubGroupWICall::replaceGetSubGroupLocalId(Instruction *InsertBefore,
-                                                 Value *VFVal, int32_t VD) {
-  // Gets expanded to <0, 1, ..., VF - 1> by Vectorizer.
-  return ConstantInt::get(IntegerType::get(m_pModule->getContext(), 32), 0);
 }
 
 Value *ResolveSubGroupWICall::replaceGetEnqueuedNumSubGroups(

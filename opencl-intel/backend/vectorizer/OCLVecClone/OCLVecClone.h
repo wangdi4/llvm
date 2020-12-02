@@ -52,6 +52,7 @@ private:
     // specific dimension
     MoveOnly,            // Moves to entry block only
     AssertIfEncountered, // Assert false.
+    UpdateOnly,          // Update use with ind
   };
 
 public:

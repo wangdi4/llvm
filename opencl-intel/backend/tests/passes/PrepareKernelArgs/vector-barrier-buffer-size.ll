@@ -21,11 +21,11 @@ declare void @llvm.masked.scatter.v16i32.v16p1i32(<16 x i32>, <16 x i32 addrspac
 define void @test(i32 addrspace(1)* noalias %src, i8 addrspace(3)* noalias %pLocalMemBase, { i64, [3 x i64], [3 x i64], [2 x [3 x i64]], [3 x i64], {}*, {}* }* noalias %pWorkDim, i64* noalias %pWGId, [4 x i64] %BaseGlbId, i8* noalias %pSpecialBuf, {}* noalias %RuntimeHandle) local_unnamed_addr #1 !kernel_arg_addr_space !7 !kernel_arg_access_qual !8 !kernel_arg_type !9 !kernel_arg_base_type !9 !kernel_arg_type_qual !10 !kernel_arg_host_accessible !11 !kernel_arg_pipe_depth !12 !kernel_arg_pipe_io !10 !kernel_arg_buffer_location !10 !kernel_arg_name !13 !vectorized_kernel !14 !vectorized_masked_kernel !15 !no_barrier_path !11 !kernel_has_sub_groups !16 !opencl.stats.Vectorizer.CanVect !7 !opencl.stats.Vectorizer.Chosen_Vectorization_Dim !12 !vectorized_width !17 !vectorization_dimension !12 !scalarized_kernel !18 !can_unite_workgroups !11 !kernel_execution_length !19 !kernel_has_barrier !16 !kernel_has_global_sync !11 !barrier_buffer_size !20 !private_memory_size !20 !local_buffer_size !12 {
 FirstBB:
 ; CHECK-LABEL: @test
-; CHECK: [[MUL01:%[0-9]+]] = mul nuw nsw i64 %LocalSize_0, %LocalSize_1
+; CHECK: [[RELAXED_LS0:%.*]] = add nuw nsw i64 %LocalSize_0, [[#VF_1:]]
+; CHECK-NEXT: [[ROUNDUP:%.*]] = and i64 [[RELAXED_LS0]], -[[#VF_1+1]]
+; CHECK-NEXT: [[MUL01:%[0-9]+]] = mul nuw nsw i64 [[ROUNDUP]], %LocalSize_1
 ; CHECK-NEXT: %LocalSizeProd = mul nuw nsw i64 [[MUL01]], %LocalSize_2
-; CHECK-NEXT: [[ADD0:%[0-9]+]] = add nuw nsw i64 %LocalSizeProd, 15
-; CHECK-NEXT: %RoundUpToMultipleVF = and i64 [[ADD0]], -16
-; CHECK-NEXT: %BarrierBufferSize = mul nuw nsw i64 8, %RoundUpToMultipleVF
+; CHECK-NEXT: %BarrierBufferSize = mul nuw nsw i64 8, %LocalSizeProd
   %0 = getelementptr { i64, [3 x i64], [3 x i64], [2 x [3 x i64]], [3 x i64], {}*, {}* }, { i64, [3 x i64], [3 x i64], [2 x [3 x i64]], [3 x i64], {}*, {}* }* %pWorkDim, i64 0, i32 4, i64 0
   %NumGroups_0 = load i64, i64* %0, align 1
   %GroupID_0 = load i64, i64* %pWGId, align 1
@@ -200,7 +200,9 @@ SyncBB0:                                          ; preds = %LoopEnd_1
 define void @_ZGVeN16u_test(i32 addrspace(1)* noalias %src, i8 addrspace(3)* noalias %pLocalMemBase, { i64, [3 x i64], [3 x i64], [2 x [3 x i64]], [3 x i64], {}*, {}* }* noalias %pWorkDim, i64* noalias %pWGId, [4 x i64] %BaseGlbId, i8* noalias %pSpecialBuf, {}* noalias %RuntimeHandle) local_unnamed_addr #1 !kernel_arg_addr_space !7 !kernel_arg_access_qual !8 !kernel_arg_type !9 !kernel_arg_base_type !9 !kernel_arg_type_qual !10 !kernel_arg_host_accessible !11 !kernel_arg_pipe_depth !12 !kernel_arg_pipe_io !10 !kernel_arg_buffer_location !10 !kernel_arg_name !13 !vectorized_kernel !18 !no_barrier_path !11 !kernel_has_sub_groups !16 !ocl_recommended_vector_length !17 !opencl.stats.Vectorizer.CanVect !7 !opencl.stats.Vectorizer.Chosen_Vectorization_Dim !12 !vectorized_width !17 !vectorization_dimension !12 !scalarized_kernel !15 !can_unite_workgroups !11 !kernel_execution_length !21 !kernel_has_barrier !16 !kernel_has_global_sync !11 !barrier_buffer_size !7 !private_memory_size !7 !local_buffer_size !12 {
 entry:
 ; CHECK-LABEL: @_ZGVeN16u_test
-; CHECK: [[MUL01:%[0-9]+]] = mul nuw nsw i64 %LocalSize_0, %LocalSize_1
+; CHECK: [[RELAXED_LS0:%.*]] = add nuw nsw i64 %LocalSize_0, [[#VF_1:]]
+; CHECK-NEXT: [[ROUNDUP:%.*]] = and i64 [[RELAXED_LS0]], -[[#VF_1+1]]
+; CHECK-NEXT: [[MUL01:%[0-9]+]] = mul nuw nsw i64 [[ROUNDUP]], %LocalSize_1
 ; CHECK-NEXT: %LocalSizeProd = mul nuw nsw i64 [[MUL01]], %LocalSize_2
 ; CHECK-NEXT: %BarrierBufferSize = mul nuw nsw i64 1, %LocalSizeProd
   %pLocalIds = alloca [3 x i64], align 8

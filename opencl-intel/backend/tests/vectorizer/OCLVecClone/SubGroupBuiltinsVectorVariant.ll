@@ -12,7 +12,8 @@ define spir_kernel void @a(i32 addrspace(1)* nocapture readonly %a, i32 addrspac
 entry:
 ; CHECK-LABEL: vector.body
 ; CHECK: [[VEC_IND:%.*]] = phi <4 x i32> [ <i32 0, i32 1, i32 2, i32 3>, {{.*}} ], [ [[VEC_IND_NEXT:%.*]], {{.*}} ]
-; CHECK-NEXT: [[VSLID:%.*]] = add nuw <4 x i32> [[VEC_IND]], [[SLID_BROADCAST:%.*]]
+; CHECK-NEXT: [[VEC_IND_I64:%.*]] = sext <4 x i32> [[VEC_IND]] to <4 x i64>
+; CHECK-NEXT: [[VGID:%.*]] = add nuw <4 x i64> [[VEC_IND_I64]], [[GID_BROADCAST:%.*]]
 ;
   %call = tail call spir_func i64 @_Z13get_global_idj(i32 0) #3
   %slid = tail call i32 @_Z22get_sub_group_local_idv() #3
@@ -113,7 +114,7 @@ entry:
 ; CHECK: store <4 x i32> [[VECTOR_ALL]]
 
   %cmp = icmp eq i32 %slid, 0
-; CHECK: [[VICMP:%.*]] = icmp eq <4 x i32> [[VSLID]], zeroinitializer
+; CHECK: [[VICMP:%.*]] = icmp eq <4 x i32> [[VEC_IND]], zeroinitializer
 ; CHECK: [[MASK:%.*]] = xor <4 x i1> [[VICMP]], <i1 true, i1 true, i1 true, i1 true>
 ; CHECK: [[MASKEXT:%.*]] = sext <4 x i1> [[MASK]] to <4 x i32>
   br i1 %cmp, label %slid.zero, label %slid.nonzero

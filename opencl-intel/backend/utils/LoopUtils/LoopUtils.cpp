@@ -12,18 +12,18 @@
 // or implied warranties, other than those that are expressly stated in the
 // License.
 
-#include "CompilationUtils.h"
 #include "LoopUtils.h"
+#include "CompilationUtils.h"
 #include "OpenclRuntime.h"
 
+#include "llvm/IR/Constants.h"
 #include "llvm/IR/DebugInfoMetadata.h"
 #include "llvm/IR/Dominators.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/Module.h"
-#include "llvm/IR/Constants.h"
 #include "llvm/Support/Debug.h"
-#include "llvm/Support/raw_ostream.h"
 #include "llvm/Support/TypeSize.h"
+#include "llvm/Support/raw_ostream.h"
 #include "llvm/Transforms/Utils/Cloning.h"
 
 namespace intel {
@@ -54,7 +54,7 @@ CallInst *getWICall(Module *M, StringRef funcName, Type *retTy, unsigned dim,
 
 Type *getIndTy(Module *M) {
   unsigned pointerSizeInBits = M->getDataLayout().getPointerSizeInBits(0);
-  assert((32 == pointerSizeInBits  || 64 == pointerSizeInBits) &&
+  assert((32 == pointerSizeInBits || 64 == pointerSizeInBits) &&
          "Unsopported pointer size");
   return IntegerType::get(M->getContext(), pointerSizeInBits);
 }
@@ -87,9 +87,9 @@ bool inSubLoop(Loop *L, Instruction *I) {
   return inSubLoop(L, BB);
 }
 
-void
-getBlocksExecutedExactlyOnce(Loop *L, DominatorTree *DT,
-                             SmallVectorImpl<BasicBlock *> &alwaysExecuteOnce) {
+void getBlocksExecutedExactlyOnce(
+    Loop *L, DominatorTree *DT,
+    SmallVectorImpl<BasicBlock *> &alwaysExecuteOnce) {
   assert(DT && "NULL dominator tree");
   alwaysExecuteOnce.clear();
   // Get the exit blocks for the current loop.
@@ -309,41 +309,60 @@ loopRegion createLoop(BasicBlock *head, BasicBlock *latch, Value *begin,
   return loopRegion(preHead, exit);
 }
 
-Value* generateRemainderMask(unsigned packetWidth, Value* loopLen, BasicBlock* BB) {
+Value *generateRemainderMask(unsigned PacketWidth, Value *LoopLen,
+                             IRBuilder<> &Builder, Module *M) {
+  auto *IndTy = getIndTy(M);
+  auto *MaskTy = FixedVectorType::get(Builder.getInt32Ty(), PacketWidth);
 
-  Module* m = BB->getModule();
+  // Generate sequential vector 0 ... PacketWidth-1.
+  SmallVector<Constant *, 16> IndVec;
+  for (unsigned Ind = 0; Ind < PacketWidth; ++Ind)
+    IndVec.push_back(ConstantInt::get(IndTy, Ind));
+  Constant *SequenceVec = ConstantVector::get(IndVec);
 
-  auto IndTy = getIndTy(m);
-  auto Int32Ty = Type::getInt32Ty(m->getContext());
-  auto MaskTy = FixedVectorType::get(Int32Ty, packetWidth);
-
-  ConstantInt* constZero = ConstantInt::get(Int32Ty, 0);
-
-  // Generate sequential vector 0 ... packetWidth-1.
-  SmallVector<Constant*, 16> indVec;
-  Constant *indVar = nullptr;
-  for (unsigned ind = 0; ind < packetWidth; ++ind) {
-    indVar = ConstantInt::get(IndTy, ind);
-    indVec.push_back(indVar);
-  }
-  Constant* sequenceVec = ConstantVector::get(indVec);
-
-  // Generate splat vector loopLen ... loopLen.
-  Value* loopLenVec = UndefValue::get(FixedVectorType::get(IndTy, packetWidth));
-  Instruction* lenInsertVec = InsertElementInst::Create(loopLenVec, loopLen, constZero, "", BB);
-
-  Constant *shuffleMask =
-      ConstantVector::getSplat(ElementCount::getFixed(packetWidth), constZero);
-  Instruction* lenSplatVec = new ShuffleVectorInst(lenInsertVec, loopLenVec, shuffleMask, "", BB);
+  // Generate splat vector LoopLen ... LoopLen.
+  if (LoopLen->getType() != IndTy)
+    LoopLen = Builder.CreateZExtOrTrunc(LoopLen, IndTy);
+  auto *SplatVec = Builder.CreateVectorSplat(PacketWidth, LoopLen);
 
   // Generate mask.
-  Instruction* vecCmp = new ICmpInst(*BB, CmpInst::ICMP_ULT, sequenceVec, lenSplatVec, "mask.bool");
-  Value* mask = new SExtInst(vecCmp, MaskTy, "mask.i32", BB);
+  auto *VecCmp = Builder.CreateICmpULT(SequenceVec, SplatVec, "mask.i1");
+  auto *Mask = Builder.CreateSExt(VecCmp, MaskTy, "mask.i32");
 
-  return mask;
+  return Mask;
 }
 
-void inlineMaskToScalar(Function* scalarKernel, Function* maskedKernel) {
+Value *generateRemainderMask(unsigned PacketWidth, Value *LoopLen,
+                             Instruction *IP) {
+  IRBuilder<> Builder(IP);
+  return generateRemainderMask(PacketWidth, LoopLen, Builder, IP->getModule());
+}
+
+Value *generateRemainderMask(unsigned PacketWidth, unsigned LoopLen,
+                             BasicBlock *BB) {
+  auto *IndTy = getIndTy(BB->getModule());
+  auto *LoopLenVal = ConstantInt::get(IndTy, LoopLen);
+  IRBuilder<> Builder(BB);
+  return generateRemainderMask(PacketWidth, LoopLenVal, Builder,
+                               BB->getModule());
+}
+
+Value *generateRemainderMask(unsigned PacketWidth, unsigned LoopLen,
+                             Instruction *IP) {
+  auto *IndTy = getIndTy(IP->getModule());
+  auto *LoopLenVal = ConstantInt::get(IndTy, LoopLen);
+  IRBuilder<> Builder(IP);
+  return generateRemainderMask(PacketWidth, LoopLenVal, Builder,
+                               IP->getModule());
+}
+
+Value *generateRemainderMask(unsigned PacketWidth, Value *LoopLen,
+                             BasicBlock *BB) {
+  IRBuilder<> Builder(BB);
+  return generateRemainderMask(PacketWidth, LoopLen, Builder, BB->getModule());
+}
+
+void inlineMaskToScalar(Function *scalarKernel, Function *maskedKernel) {
 
   auto pModule = scalarKernel->getParent();
   assert(pModule == maskedKernel->getParent() &&
@@ -351,13 +370,13 @@ void inlineMaskToScalar(Function* scalarKernel, Function* maskedKernel) {
   LLVMContext &context = pModule->getContext();
 
   // Prepare args for masked kernel.
-  SmallVector<Value*, 4> args;
+  SmallVector<Value *, 4> args;
   for (auto arg = scalarKernel->arg_begin(), arg_end = scalarKernel->arg_end();
        arg != arg_end; ++arg)
     args.push_back(arg);
 
   // Mask argument is handled in generateRemainderMask.
-  auto dummyMaskArg = UndefValue::get((maskedKernel->arg_end()-1)->getType());
+  auto dummyMaskArg = UndefValue::get((maskedKernel->arg_end() - 1)->getType());
   args.push_back(dummyMaskArg);
 
   auto *entry = BasicBlock::Create(context, "", scalarKernel,
@@ -374,12 +393,12 @@ void inlineMaskToScalar(Function* scalarKernel, Function* maskedKernel) {
 
   // Inline the masked kernel to scalar kernel.
   InlineFunctionInfo inlineInfo;
-  CallBase* callBase = dyn_cast<CallBase>(call);
+  CallBase *callBase = dyn_cast<CallBase>(call);
   assert(callBase && "unexpected call");
   InlineFunction(*callBase, inlineInfo);
 
   // Erase the masked kernel.
   maskedKernel->eraseFromParent();
 }
-} // LoopUtils
+} // namespace LoopUtils
 } // namespace intel

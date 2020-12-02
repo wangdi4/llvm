@@ -12,11 +12,12 @@
 // or implied warranties, other than those that are expressly stated in the
 // License.
 
-#include "OCLPassSupport.h"
 #include "KernelSubGroupInfoPass.h"
 #include "CompilationUtils.h"
 #include "MetadataAPI.h"
+#include "OCLPassSupport.h"
 
+#include "llvm/ADT/DepthFirstIterator.h"
 #include "llvm/IR/InstIterator.h"
 #include "llvm/IR/Instructions.h"
 
@@ -25,49 +26,53 @@ using namespace Intel::MetadataAPI;
 
 namespace intel {
 
-  char KernelSubGroupInfo::ID = 0;
+char KernelSubGroupInfo::ID = 0;
 
-  OCL_INITIALIZE_PASS(KernelSubGroupInfo, "kernel-sub-group-info",
-                      "mark kernels with subgroups", false, false)
+OCL_INITIALIZE_PASS(KernelSubGroupInfo, "kernel-sub-group-info",
+                    "mark kernels with subgroups", false, false)
 
-  bool KernelSubGroupInfo::runOnFunction(Function &F) const {
-    auto kimd = KernelInternalMetadataAPI(&F);
-    bool HasSubGroups = containsSubGroups(&F);
-    kimd.KernelHasSubgroups.set(HasSubGroups);
-    return true;
-  }
+bool KernelSubGroupInfo::runOnFunction(Function &F) const {
+  auto kimd = KernelInternalMetadataAPI(&F);
+  bool HasSubGroups = containsSubGroups(&F);
+  kimd.KernelHasSubgroups.set(HasSubGroups);
+  return HasSubGroups;
+}
 
-  bool KernelSubGroupInfo::containsSubGroups(Function *pFunc) const {
-    for (const auto& I : instructions(pFunc)) {
-      if (const auto* Call = dyn_cast<CallInst>(&I)) {
-        if (auto *Func = Call->getCalledFunction()) {
-          auto Name = Func->getName().str();
-          if (Name.find("sub_group") != std::string::npos)
-            return true;
-        }
-      }
+bool KernelSubGroupInfo::containsSubGroups(Function *pFunc) const {
+  CallGraphNode *Node = (*CG)[pFunc];
+  for (auto It = df_begin(Node), End = df_end(Node); It != End;) {
+    Function *Fn = It->getFunction();
+    if (Fn && Fn->isDeclaration()) {
+      if (Fn->getName().contains("sub_group"))
+        return true;
+      It = It.skipChildren();
+    } else {
+      It++;
     }
-    return false;
+  }
+  return false;
+}
+
+bool KernelSubGroupInfo::runOnModule(Module &M) {
+  // Get all kernels
+  CompilationUtils::FunctionSet kernelsFunctionSet;
+  CompilationUtils::getAllKernels(kernelsFunctionSet, &M);
+
+  CG = &getAnalysis<CallGraphWrapperPass>().getCallGraph();
+
+  bool Changed = false;
+  // Run on all scalar functions for handling and handle them
+  for (auto *F : kernelsFunctionSet) {
+    Changed |= runOnFunction(*F);
   }
 
-  bool KernelSubGroupInfo::runOnModule(Module &M) {
-    // Get all kernels
-    CompilationUtils::FunctionSet kernelsFunctionSet;
-    CompilationUtils::getAllKernels(kernelsFunctionSet, &M);
-
-    bool Changed = false;
-    // Run on all scalar functions for handling and handle them
-    for (auto *F : kernelsFunctionSet) {
-      Changed |= runOnFunction(*F);
-    }
-
-    return Changed;
-  }
+  return Changed;
+}
 
 } // namespace intel
 
 extern "C" {
-  ModulePass* createKernelSubGroupInfoPass() {
-    return new intel::KernelSubGroupInfo();
-  }
+ModulePass *createKernelSubGroupInfoPass() {
+  return new intel::KernelSubGroupInfo();
+}
 }

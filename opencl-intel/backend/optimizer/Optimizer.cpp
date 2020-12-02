@@ -186,7 +186,7 @@ llvm::Pass *createSmartGVNPass(bool);
 llvm::ModulePass *createSinCosFoldPass();
 llvm::ModulePass *createResolveWICallPass(bool isUniformWGSize,
                                           bool useTLSGlobals);
-llvm::Pass       *createResolveSubGroupWICallPass();
+llvm::Pass *createResolveSubGroupWICallPass(bool ResolveSGBarrier);
 llvm::ModulePass *createDetectRecursionPass();
 llvm::Pass *createResolveBlockToStaticCallPass();
 llvm::ImmutablePass *createOCLAliasAnalysisPass();
@@ -200,6 +200,7 @@ llvm::FunctionPass *createAddNTAttrPass();
 llvm::ModulePass *createChooseVectorizationDimensionModulePass();
 llvm::ModulePass *createCoerceWin64TypesPass();
 llvm::FunctionPass *createAddFastMathPass();
+llvm::Pass *createResolveVariableTIDCallPass();
 }
 
 using namespace intel;
@@ -524,6 +525,9 @@ static void populatePassesPostFailCheck(
     // No need to run function inlining pass here, because if there are still
     // non-inlined functions left - then we don't have to inline new ones.
   }
+
+  PM.add(createResolveVariableTIDCallPass());
+
   // Run few more passes after GenericAddressStaticResolution
   PM.add(createOclFunctionAttrsPass());
   PM.add(llvm::createUnifyFunctionExitNodesPass());
@@ -641,16 +645,19 @@ static void populatePassesPostFailCheck(
     }
 
   } else {
-    // When forced VF equals 1 or in O0 case, check subgroup semantics.
-    if (UseVplan && EnableNativeOpenCLSubgroups)
+    // When forced VF equals 1 or in O0 case, check subgroup semantics AND
+    // prepare subgroup_emu_size for sub-group emulation.
+    if (UseVplan && EnableNativeOpenCLSubgroups) {
+      PM.add(createOCLReqdSubGroupSizePass());
       PM.add(createOCLVPOCheckVFPass(*pConfig, kernelVFStates));
+    }
   }
 #ifdef _DEBUG
   PM.add(llvm::createVerifierPass());
 #endif
 
   if (EnableNativeOpenCLSubgroups)
-    PM.add(createResolveSubGroupWICallPass());
+    PM.add(createResolveSubGroupWICallPass(/*ResolveSGBarrier*/ false));
 
   // Unroll small loops with unknown trip count.
   PM.add(llvm::createLoopUnrollPass(OptLevel, false, false, 16, 0, 0, 1));
@@ -721,6 +728,7 @@ static void populatePassesPostFailCheck(
   // directives
   PM.add(llvm::createRemoveRegionDirectivesLegacyPass());
 
+  PM.add(createUnifyFunctionExitNodesPass());
   PM.add(createBarrierMainPass(OptLevel, debugType, UseTLSGlobals));
 
   // After adding loops run loop optimizations.

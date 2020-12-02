@@ -32,7 +32,8 @@ namespace intel {
     m_util.init(&M);
 
     //Find all synchronize instructions
-    TInstructionVector& syncInstructions = m_util.getAllSynchronizeInstructuons();
+    TInstructionVector &syncInstructions =
+        m_util.getAllSynchronizeInstructions();
 
     for (TInstructionVector::iterator ii = syncInstructions.begin(),
       ie = syncInstructions.end(); ii != ie; ++ii ) {

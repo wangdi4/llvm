@@ -189,7 +189,7 @@ namespace intel {
     if ( CompilationUtils::isWorkGroupScan(origWGFuncName) ) {
       // WG scan functions are WI Id related
       return true;
-    } else if ( CompilationUtils::isWorkGroupUniform(origWGFuncName) ) {
+    } else if (CompilationUtils::isWGUniform(origWGFuncName)) {
       // WG uniform functions are WI Id unrelated
       return false;
     }

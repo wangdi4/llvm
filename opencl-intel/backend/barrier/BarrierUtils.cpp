@@ -53,6 +53,7 @@ namespace intel {
     m_dummyBarrierFunc = 0;
     m_getSpecialBufferFunc = 0;
     m_getGIDFunc = 0;
+    m_getLIDFunc = nullptr;
     m_getSGSizeFunc = nullptr;
     m_getBaseGIDFunc = 0;
     m_getLocalSizeFunc = 0;
@@ -132,7 +133,7 @@ namespace intel {
     return getSynchronizeType(&*pBB->begin());
   }
 
-  TInstructionVector& BarrierUtils::getAllSynchronizeInstructuons() {
+  TInstructionVector &BarrierUtils::getAllSynchronizeInstructions() {
     //Initialize sync data if it is not done yet
     initializeSyncData();
 
@@ -191,9 +192,9 @@ namespace intel {
     return m_WGcallInstructions;
   }
 
-  //TBasicBlockVector& BarrierUtils::getAllSynchronizeBasicBlocks() {
+  // TBasicBlockVector& BarrierUtils::getAllSynchronizeBasicBlocks() {
   //  //Initialize m_syncInstructions
-  //  getAllSynchronizeInstructuons();
+  //  getAllSynchronizeInstructions();
 
   //  //Clear old collected data!
   //  m_syncBasicBlocks.clear();
@@ -207,7 +208,7 @@ namespace intel {
 
   TFunctionSet& BarrierUtils::getAllFunctionsWithSynchronization() {
     //Initialize m_syncInstructions
-    getAllSynchronizeInstructuons();
+    getAllSynchronizeInstructions();
 
     //Clear old collected data!
     m_syncFunctions.clear();
@@ -322,14 +323,14 @@ namespace intel {
     return CallInst::Create(m_dummyBarrierFunc, "", pInsertBefore);
   }
 
-  bool BarrierUtils::isDummyBarrierCall(CallInst *pCallInstr) {
+  bool BarrierUtils::isDummyBarrierCall(Instruction *pCallInstr) {
     assert(pCallInstr && "Instruction should not be NULL!");
     //Initialize sync data if it is not done yet
     initializeSyncData();
     return m_dummyBarriers.count(pCallInstr);
   }
 
-  bool BarrierUtils::isBarrierCall(CallInst *pCallInstr) {
+  bool BarrierUtils::isBarrierCall(Instruction *pCallInstr) {
     assert(pCallInstr && "Instruction should not be NULL!");
     //Initialize sync data if it is not done yet
     initializeSyncData();
@@ -422,7 +423,27 @@ namespace intel {
     return CallInst::Create(m_getSGSizeFunc, "sg.size", pBB);
   }
 
-  Instruction* BarrierUtils::createGetGlobalId(unsigned dim, IRBuilder<> &B) {
+  Instruction *BarrierUtils::createGetLocalId(unsigned dim, IRBuilderBase &B) {
+    const std::string strLID = CompilationUtils::mangledGetLID();
+    if (!m_getLIDFunc) {
+      // Get existing get_local_id function
+      m_getLIDFunc = m_pModule->getFunction(strLID);
+    }
+    if (!m_getLIDFunc) {
+      // Create one
+      Type *pResult = IntegerType::get(m_pModule->getContext(), m_uiSizeT);
+      std::vector<Type *> funcTyArgs;
+      funcTyArgs.push_back(IntegerType::get(m_pModule->getContext(), 32));
+      m_getLIDFunc = createFunctionDeclaration(strLID, pResult, funcTyArgs);
+      SetFunctionAttributeReadNone(m_getLIDFunc);
+    }
+    Type *uintType = IntegerType::get(m_pModule->getContext(), 32);
+    Value *constDim = ConstantInt::get(uintType, dim, false);
+    return B.CreateCall(m_getLIDFunc, constDim,
+                        AppendWithDimension("LocalID_", dim));
+  }
+
+  Instruction *BarrierUtils::createGetGlobalId(unsigned dim, IRBuilderBase &B) {
     const std::string strGID = CompilationUtils::mangledGetGID();
     if ( !m_getGIDFunc ) {
       // Get existing get_global_id function
@@ -436,10 +457,10 @@ namespace intel {
       m_getGIDFunc = createFunctionDeclaration(strGID, pResult, funcTyArgs);
       SetFunctionAttributeReadNone(m_getGIDFunc);
     }
-    Type* uint_type = IntegerType::get(m_pModule->getContext(), 32);
-    Value* const_dim = ConstantInt::get(uint_type, dim, false);
-    return B.CreateCall(m_getGIDFunc, const_dim,
-                            AppendWithDimension("GlobalID_", dim));
+    Type *uintType = IntegerType::get(m_pModule->getContext(), 32);
+    Value *constDim = ConstantInt::get(uintType, dim, false);
+    return B.CreateCall(m_getGIDFunc, constDim,
+                        AppendWithDimension("GlobalID_", dim));
   }
 
   bool BarrierUtils::doesCallModuleFunction(Function *pFunc) {
@@ -562,9 +583,9 @@ namespace intel {
     pFunc->setAttributes(func_factorial_PAL);
   }
 
-  bool BarrierUtils::isCrossedByBarrier(TInstructionSet & SyncInstructions,
-                                        BasicBlock * ValUsageBB,
-                                        BasicBlock * ValBB) {
+  bool BarrierUtils::isCrossedByBarrier(const TInstructionSet &SyncInstructions,
+                                        BasicBlock *ValUsageBB,
+                                        BasicBlock *ValBB) {
     if (ValUsageBB == ValBB) {
       // This can happen when pValUsage is a PHINode
       return false;
@@ -610,4 +631,3 @@ namespace intel {
     return false;
   }
 } // namespace intel
-

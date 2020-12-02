@@ -189,8 +189,8 @@ static void updateMetadata(Function &F, Function *Clone,
 // Updates all the uses of TID calls with TID + new induction variable.
 static void updateAndMoveTID(Instruction *TIDCallInstr, PHINode *Phi,
                              BasicBlock *EntryBlock) {
-  IRBuilder<> IRB(Phi);
-  IRB.SetInsertPoint(Phi->getNextNode());
+  Instruction *IP = &*Phi->getParent()->getFirstInsertionPt();
+  IRBuilder<> IRB(IP);
   // Update the uses of the TID with TID+ind.
   Instruction *InductionSExt =
       cast<Instruction>(IRB.CreateSExtOrTrunc(Phi, TIDCallInstr->getType()));
@@ -201,6 +201,15 @@ static void updateAndMoveTID(Instruction *TIDCallInstr, PHINode *Phi,
   Add->setOperand(1, TIDCallInstr);
   // Move TID call outside of the loop.
   TIDCallInstr->moveBefore(EntryBlock->getTerminator());
+}
+
+static void updateTID(Instruction *TIDCallInstr, PHINode *Phi) {
+  Instruction *IP = &*Phi->getParent()->getFirstInsertionPt();
+  IRBuilder<> IRB(IP);
+  // Update the uses of the TID with ind.
+  Instruction *InductionSExt =
+      cast<Instruction>(IRB.CreateSExtOrTrunc(Phi, TIDCallInstr->getType()));
+  TIDCallInstr->replaceAllUsesWith(InductionSExt);
 }
 
 // Find all paths with shl/op.../ashr pattern by DFS, where op can be
@@ -605,7 +614,7 @@ void OCLVecCloneImpl::handleLanguageSpecifics(Function &F, PHINode *Phi,
       std::make_pair(CompilationUtils::mangledGetLID(),
                      FnAction::MoveAndUpdateUsesForDim),
       std::make_pair(CompilationUtils::mangledGetSubGroupLocalId(),
-                     FnAction::MoveAndUpdateUses),
+                     FnAction::UpdateOnly),
       std::make_pair(CompilationUtils::mangledGetGlobalSize(),
                      FnAction::MoveOnly),
       std::make_pair(CompilationUtils::mangledGetGlobalOffset(),
@@ -632,6 +641,7 @@ void OCLVecCloneImpl::handleLanguageSpecifics(Function &F, PHINode *Phi,
     CanUniteWorkgroups = false;
   }
 
+  SmallVector<Instruction *, 4> InstsToRemove;
   // Collect all OpenCL function built-ins.
   for (const auto &Pair : FunctionsAndActions) {
     const auto &FuncName = Pair.first;
@@ -668,6 +678,10 @@ void OCLVecCloneImpl::handleLanguageSpecifics(Function &F, PHINode *Phi,
       case FnAction::MoveAndUpdateUses:
         updateAndMoveTID(CI, Phi, EntryBlock);
         break;
+      case FnAction::UpdateOnly:
+        updateTID(CI, Phi);
+        InstsToRemove.push_back(CI);
+        break;
       case FnAction::MoveOnly:
         // All the other OpenCL function built-ins should just be moved at
         // the entry block.
@@ -685,6 +699,9 @@ void OCLVecCloneImpl::handleLanguageSpecifics(Function &F, PHINode *Phi,
       }
     }
   }
+
+  for (auto *I : InstsToRemove)
+    I->eraseFromParent();
 
   updateMetadata(F, Clone, VecDim, CanUniteWorkgroups);
 
