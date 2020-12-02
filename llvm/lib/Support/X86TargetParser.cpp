@@ -238,12 +238,12 @@ constexpr FeatureBitset FeaturesTremont =
     FeaturesGoldmontPlus | FeatureCLWB | FeatureGFNI;
 
 #if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CPU_ADL
 static constexpr FeatureBitset FeaturesAnonymousCPU2 =
     FeatureAVXVNNI |
     FeatureHRESET |
     FeatureKL | FeatureWIDEKL |
-    FeatureSSE2; // To avoid dangling OR.
-#if INTEL_FEATURE_CPU_ADL
+    FeatureSSE2;
 // TODO: set feature of RAO-INT when it's ready
 constexpr FeatureBitset FeaturesAlderlake =
     FeaturesTremont | FeaturesAnonymousCPU2 | FeatureADX | FeatureAVX |
