@@ -854,7 +854,7 @@ cl_err_code Kernel::SetKernelArgumentInfo(const DeviceKernel* pDeviceKernel)
             argInfo.accessQualifier = argInfoArray[i].accessQualifier;
             argInfo.addressQualifier = argInfoArray[i].addressQualifier;
             argInfo.name = argInfoArray[i].name ? argInfoArray[i].name : "";
-            argInfo.typeName        = argInfoArray[i].typeName;
+            argInfo.typeName        = argInfoArray[i].typeName ? argInfoArray[i].typeName : "";
             argInfo.typeQualifier   = argInfoArray[i].typeQualifier;
             argInfo.hostAccessible  = argInfoArray[i].hostAccessible;
             argInfo.localMemSize    = argInfoArray[i].localMemSize;

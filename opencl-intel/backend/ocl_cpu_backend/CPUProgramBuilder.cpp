@@ -213,14 +213,7 @@ Kernel *CPUProgramBuilder::CreateKernel(llvm::Function *pFunc,
                                            pFunc, useTLSGlobals, arguments,
                                            memoryArguments);
 
-    Kernel *kernel = m_pBackendFactory->CreateKernel(funcName, arguments,
-                                                     memoryArguments, pProps);
-
-    std::vector<cl_kernel_argument_info> argInfos =
-        CompilationUtils::parseKernelArgumentInfos(pFunc);
-    kernel->SetKernelArgInfo(std::move(argInfos));
-
-    return kernel;
+    return m_pBackendFactory->CreateKernel(funcName, arguments, memoryArguments, pProps);
 }
 
 KernelSet* CPUProgramBuilder::CreateKernels(Program* pProgram,
