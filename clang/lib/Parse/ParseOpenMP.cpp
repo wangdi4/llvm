@@ -3312,7 +3312,6 @@ OMPClause *Parser::ParseOpenMPSingleExprWithArgClause(OpenMPDirectiveKind DKind,
 OMPClause *Parser::ParseOpenMPExprListClause(OpenMPClauseKind Kind,
                                              bool ParseOnly) {
   SourceLocation Loc = ConsumeToken();
-  SourceLocation DelimLoc;
   // Parse '('.
   BalancedDelimiterTracker T(*this, tok::l_paren, tok::annot_pragma_openmp_end);
   if (T.expectAndConsume(diag::err_expected_lparen_after,
@@ -4073,7 +4072,6 @@ OMPClause *Parser::ParseOpenMPDataflowClause(OpenMPClauseKind Kind,
 OMPClause *Parser::ParseOpenMPSubdeviceClause(bool ParseOnly) {
   bool IsInvalid = false;
   SourceLocation Loc = ConsumeToken();
-  SourceLocation DelimLoc;
   // Parse '('.
   BalancedDelimiterTracker T(*this, tok::l_paren, tok::annot_pragma_openmp_end);
   if (T.expectAndConsume(diag::err_expected_lparen_after,
