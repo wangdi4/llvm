@@ -1508,7 +1508,7 @@ bool CompilationUtils::isWorkGroupUniform(const std::string& S) {
 bool CompilationUtils::isImagesUsed(const Module &M) {
   for (unsigned i = 0,
        e = sizeof(ImageTypeNames)/sizeof(ImageTypeNames[0]); i < e; ++i) {
-    if (M.getTypeByName(ImageTypeNames[i]))
+    if (StructType::getTypeByName(M.getContext(), ImageTypeNames[i]))
       return true;
   }
 

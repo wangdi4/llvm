@@ -51,7 +51,7 @@ OCL_INITIALIZE_PASS_END(SYCLPipesHack, "sycl-pipes-hack",
 static void findPipeStorageGlobals(Module *M,
                                    SmallVectorImpl<GlobalVariable *> &StorageVars) {
   const char *StorageTypeName = "struct._ZTS19ConstantPipeStorage.ConstantPipeStorage";
-  Type *StorageTy = M->getTypeByName(StorageTypeName);
+  Type *StorageTy = StructType::getTypeByName(M->getContext(), StorageTypeName);
   if (!StorageTy) {
     LLVM_DEBUG(dbgs() << "Could not find pipe storage type \"" << StorageTypeName
                       << "\" in the module\n");
@@ -127,7 +127,7 @@ bool SYCLPipesHack::runOnModule(Module &M) {
   }
 
   auto RWPipeTyName = "opencl.pipe_rw_t";
-  auto *RWPipeValueTy = M.getTypeByName(RWPipeTyName);
+  auto *RWPipeValueTy = StructType::getTypeByName(M.getContext(), RWPipeTyName);
   if (!RWPipeValueTy)
     RWPipeValueTy = StructType::create(M.getContext(), RWPipeTyName);
   auto *RWPipeTy = PointerType::get(RWPipeValueTy, Utils::OCLAddressSpace::Global);

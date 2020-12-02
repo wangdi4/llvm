@@ -107,7 +107,7 @@ enum SPIRAddressSpace {
 
 static PointerType *getOrCreateOpaquePtrType(Module *M, const std::string &Name,
                                              const SPIRAddressSpace AS) {
-  auto OpaqueType = M->getTypeByName(Name);
+  auto OpaqueType = StructType::getTypeByName(M->getContext(), Name);
   if (!OpaqueType)
     OpaqueType = StructType::create(M->getContext(), Name);
   return PointerType::get(OpaqueType, AS);
