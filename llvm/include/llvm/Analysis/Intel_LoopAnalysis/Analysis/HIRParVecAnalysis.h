@@ -101,12 +101,6 @@ private:
   // DD Edges preventing vectorization
   SmallVector<DDEdge *, 1> VecEdges;
 
-  // If set, at least one of the inner loops is an unknown loop.
-  HLLoop *InnerUnknownLoop;
-
-  // If set, at least one switch-case construct exists.
-  HLSwitch *Switch;
-
   /// \brief Non-diagnostic strings. Analysis incomplete or
   /// diagnostic has to come from threadizer/vectorizer.
   static const std::string LoopTypeString[];
@@ -129,6 +123,11 @@ private:
   void printIndent(raw_ostream &OS, bool ZeroBase) const;
 
 public:
+  // If set, at least one of the inner loops is an unknown loop.
+  HLLoop *InnerUnknownLoop;
+  // If set, at least one switch-case construct exists.
+  HLSwitch *Switch;
+
   ParVecInfo(AnalysisMode Mode, HLLoop *HLoop);
 
   // Field accessors

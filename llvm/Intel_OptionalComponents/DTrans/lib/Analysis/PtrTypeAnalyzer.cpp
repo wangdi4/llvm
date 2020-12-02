@@ -97,6 +97,9 @@ static bool isTypeOfInterest(llvm::Type *Ty) {
   return false;
 }
 
+#if 0
+// TODO: This commented out code will be needed when opaque pointers are
+// unabled.
 // Check whether the DTransType \p has a pointer. This is similar to the
 // utility function dtrans::hasPointerType(llvm::Type* Ty), which operates
 // on llvm Types.
@@ -138,7 +141,8 @@ static bool hasPointerType(dtrans::DTransType *Ty) {
 
   return false;
 }
-
+#endif
+  
 // Helper to get the base object type that makes up an array/vector/array nest
 // type.
 static DTransType *getSequentialObjectBaseType(DTransSequentialType *Ty) {
@@ -2659,9 +2663,14 @@ private:
         if (PropAlias)
           LocalChanged |= DestInfo->addTypeAlias(Kind, PropAlias);
         else
-          LLVM_DEBUG(dbgs() << "Warning: Could not create element of requested "
-                               "deref level when propagating.\nFrom: "
-                            << *SrcInfo << "\nTo: " << *DestInfo << "\n");
+          LLVM_DEBUG({
+            dbgs() << "Warning: Could not create element of requested "
+                      "deref level when propagating.\nFrom: ";
+            SrcInfo->dump();
+            dbgs() << "\nTo: ";
+            DestInfo->dump();
+            dbgs() << "\n";
+          });
       }
 
       // The element pointer set does not need to be transferred when the level
