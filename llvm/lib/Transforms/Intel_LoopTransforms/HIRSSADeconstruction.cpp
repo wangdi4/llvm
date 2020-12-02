@@ -307,7 +307,15 @@ bool HIRSSADeconstruction::isIVUpdateLiveInCopy(Instruction *Inst) const {
     return false;
   }
 
-  return isa<SCEVAddRecExpr>(ScopedSE->getSCEV(Inst));
+  auto *Phi = dyn_cast<PHINode>(Inst->getOperand(0));
+  // IV update instruction is typically something like an add/sub/gep etc.
+  // Header phis as livein copy operand indicate phi dependency and treating
+  // them as IV update can result in incorrect deconstruction.
+  if (Phi && RI->isHeaderPhi(Phi)) {
+    return false;
+  }
+
+  return SCCF->isConsideredLinear(Inst);
 }
 
 void HIRSSADeconstruction::insertLiveInCopy(Value *Val, BasicBlock *BB,
