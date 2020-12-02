@@ -327,19 +327,44 @@ endif( )
 
 set(OCL_SYS_DEPENDENT_SUBDIR        ${OS}${ADDR}_${INSTALL_SUBDIR})
 set(OCL_SYS_DEPENDENT_IMPLIB_SUBDIR ${IMPLIB_SUBDIR}/${OCL_SYS_DEPENDENT_SUBDIR})
-
-if (WIN32)
-    set( TBB_LIB_DIR ${OCL_SOURCE_DIR}/externals/tbb/${IMPLIB_SUBDIR}/vc14${TBB_BINARIES_POSTFIX}/${OCL_SYS_DEPENDENT_SUBDIR} )
-else (WIN32)
-    set( TBB_LIB_DIR ${OCL_SOURCE_DIR}/externals/tbb/${OCL_SYS_DEPENDENT_IMPLIB_SUBDIR} )
-endif (WIN32)
 # END OF set OS-dependent source tree elements
 
 SET_UNICODE_OFF()
 
+# TBB library and include path
+set( TBB_ROOT_DIR $ENV{TBBROOT}/$ENV{TBBVER} )
+message(STATUS "Environment TBBROOT: $ENV{TBBROOT}")
+message(STATUS "Environment TBBVER: $ENV{TBBVER}")
+
+if (CMAKE_SIZEOF_VOID_P EQUAL 4)
+    set( TBB_ARCH "ia32")
+else ()
+    set( TBB_ARCH "intel64")
+endif()
+
+# TBB_LIBRARY_DIR - Used for LIT environment
+if (WIN32)
+    set( TBB_LIB_DIR ${TBB_ROOT_DIR}/lib/${TBB_ARCH}/vc14 )
+    set( TBB_LIBRARY_DIR ${TBB_ROOT_DIR}/redist/${TBB_ARCH}/vc14 )
+else (WIN32)
+    set( TBB_LIB_DIR ${TBB_ROOT_DIR}/lib/${TBB_ARCH}/gcc4.8 )
+    set( TBB_LIBRARY_DIR ${TBB_LIB_DIR} )
+endif (WIN32)
+
+if ((NOT TBB_LIB_DIR) OR (NOT EXISTS ${TBB_LIB_DIR}))
+    message(FATAL_ERROR "TBB library path is not found: ${TBB_LIB_DIR}")
+endif()
+
+set( TBB_INC_DIR ${TBB_ROOT_DIR}/include )
+
+if ((NOT TBB_INC_DIR) OR (NOT EXISTS ${TBB_INC_DIR}))
+    message(FATAL_ERROR "TBB include path is not found: ${TBB_INC_DIR}")
+endif()
+
+set( TBB_INCLUDE_DIRS ${TBB_INC_DIR} utils/task_executor/enhancements )
+
 # paths
 
-set( TBB_INCLUDE_DIRS externals/tbb/include externals/tbb/enhancements )
 set( CL_API_HEADERS ${OpenCL_INCLUDE_DIR}
                     ${OCL_SOURCE_DIR}/framework/inc )
 
