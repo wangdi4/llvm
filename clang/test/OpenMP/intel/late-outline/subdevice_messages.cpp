@@ -6,13 +6,14 @@
 
 void func() {
   int level, start, len, str;
+  unsigned int ulevel;
   #pragma omp target subdevice // expected-error {{expected '(' after 'subdevice'}}
   for (int i = 0; i < 16; ++i) {
   }
   #pragma omp target subdevice() // expected-error {{expected expression}}
   for (int i = 0; i < 16; ++i) {
   }
-  #pragma omp target subdevice(start,len,str) // expected-warning {{expected nonnegative integer for level in 'subdevice' clause - ignored}}
+  #pragma omp target subdevice(start,len,str) // expected-warning {{expected nonnegative constant integer for level in 'subdevice' clause - ignored}}
                                               // expected-warning@-1 {{missing ':' after argument - ignoring}}
   for (int i = 0; i < 16; ++i) {
   }
@@ -24,7 +25,7 @@ void func() {
                                               // expected-note@-2 {{to match this '('}}
   for (int i = 0; i < 16; ++i) {
   }
-  #pragma omp target subdevice(start,,) // expected-warning {{expected nonnegative integer for level in 'subdevice' clause - ignored}}
+  #pragma omp target subdevice(start,,) // expected-warning {{expected nonnegative constant integer for level in 'subdevice' clause - ignored}}
                                         // expected-error@-1 {{expected expression}}
                                         // expected-warning@-2 {{missing ':' after argument - ignoring}}
   for (int i = 0; i < 16; ++i) {
@@ -34,6 +35,9 @@ void func() {
   for (int i = 0; i < 16; ++i) {
   }
   #pragma omp target subdevice(-1) // expected-error {{argument to 'subdevice' clause must be a non-negative integer value}}
+  for (int i = 0; i < 16; ++i) {
+  }
+  #pragma omp target subdevice(-1,start) // expected-warning {{missing ':' after argument - ignoring}}
   for (int i = 0; i < 16; ++i) {
   }
   #pragma omp target subdevice(1:0) // expected-error {{argument to 'subdevice' clause must be a strictly positive integer value}}
@@ -55,6 +59,15 @@ void func() {
   }
   #pragma omp parallel for subdevice(start:len) // expected-error {{unexpected OpenMP clause 'subdevice' in directive '#pragma omp parallel for'}}
   for(int i=0; i<10; i++) {
+  }
+  #pragma omp target subdevice(ulevel,start:len:str) // expected-warning {{expected nonnegative constant integer for level in 'subdevice' clause - ignored}}
+  for (int i = 0; i < 16; ++i) {
+  }
+  #pragma omp target subdevice(2,start:len:str) // expected-warning {{'subdevice' level value must be 0 or 1 - ignored, assuming 0}}
+  for (int i = 0; i < 16; ++i) {
+  }
+  #pragma omp target subdevice(2147483647,start:len:str) // expected-warning {{'subdevice' level value must be 0 or 1 - ignored, assuming 0}}
+  for (int i = 0; i < 16; ++i) {
   }
 
   // must have only one subdevice clause
