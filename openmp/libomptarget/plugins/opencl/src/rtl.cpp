@@ -47,6 +47,60 @@
 #define TARGET_NAME OPENCL
 #define DEBUG_PREFIX "Target " GETNAME(TARGET_NAME) " RTL"
 
+/// Device type enumeration common to compiler and runtime
+enum DeviceArch : uint64_t {
+  DeviceArch_None   = 0,
+  DeviceArch_Gen9   = 0x0001,
+  DeviceArch_XeLP   = 0x0002,
+  DeviceArch_XeHP   = 0x0004,
+  DeviceArch_x86_64 = 0x0100
+};
+
+/// Mapping from device arch to GPU runtime's device identifiers
+#ifdef _WIN32
+/// For now, we need to depend on known published product names
+std::map<uint64_t, std::vector<const char *>> DeviceArchMap {
+  {
+    DeviceArch_Gen9, {
+      "HD Graphics",
+      "UHD Graphics",
+      "Pro Graphics",
+      "Plus Graphics"
+    }
+  },
+  {
+    DeviceArch_XeLP, {
+      "Xe MAX Graphics"
+    }
+  }
+  // TODO: how to detect XeHP?
+  // Using XeHP on Windows seems to be a rare case.
+};
+#else // !defined(_WIN32)
+std::map<uint64_t, std::vector<uint32_t>> DeviceArchMap {
+  {
+    DeviceArch_Gen9, {
+      0x0901, 0x0902, 0x0903, 0x0904, 0x1900, // SKL
+      0x5900, // KBL
+      0x3E00, 0x9B00, // CFL
+    }
+  },
+  {
+    DeviceArch_XeLP, {
+      0xFF20, 0x9A00, // TGL
+      0x4900, // DG1
+      0x4C00, // RKL
+      0x4600, // ADLS
+    }
+  },
+  {
+    DeviceArch_XeHP, {
+      0x0200, // ATS
+    }
+  }
+};
+#endif // !defined(_WIN32)
+
 int DebugLevel = 0;
 
 #ifdef __cplusplus
@@ -345,6 +399,8 @@ public:
   // per device information
   std::vector<PlatformInfoTy *> Platforms;
   std::vector<cl_device_id> deviceIDs;
+  // Internal device type ID
+  std::vector<uint64_t> DeviceArchs;
   std::vector<int32_t> maxExecutionUnits;
   std::vector<size_t> maxWorkGroupSize;
 
@@ -1223,6 +1279,38 @@ int32_t __tgt_rtl_is_valid_binary(__tgt_device_image *image) {
   return ret;
 }
 
+/// Convert device name to device arch.
+static uint64_t getDeviceArch(const char *DeviceName) {
+  if (DeviceInfo->DeviceType == CL_DEVICE_TYPE_CPU)
+    return DeviceArch_x86_64;
+
+  std::string name(DeviceName);
+#ifdef _WIN32
+  // Windows: Device name contains published product name.
+  for (auto &arch : DeviceArchMap)
+    for (auto str : arch.second)
+      if (name.find(str) != std::string::npos)
+        return arch.first;
+#else
+  // Linux: Device name contains "[0xABCD]" device identifier.
+  auto pos = name.rfind("[");
+  uint32_t OCLDeviceId = 0;
+
+  if (pos != std::string::npos && name.size() - pos >= 8)
+    OCLDeviceId = std::strtol(name.substr(pos + 1, 6).c_str(), nullptr, 16);
+
+  if (OCLDeviceId != 0) {
+    for (auto &arch : DeviceArchMap)
+      for (auto id : arch.second)
+        if (OCLDeviceId == id || (OCLDeviceId & 0xFF00) == id)
+          return arch.first;  // Exact match or prefix match
+  }
+#endif
+
+  IDP("Warning: Cannot decide device arch for %s.\n", DeviceName);
+  return DeviceArch_None;
+}
+
 EXTERN
 int32_t __tgt_rtl_number_of_devices() {
   // Assume it is thread safe, since it is called once.
@@ -1293,6 +1381,7 @@ int32_t __tgt_rtl_number_of_devices() {
   DeviceInfo->ImplicitArgs.resize(DeviceInfo->numDevices);
   DeviceInfo->Profiles.resize(DeviceInfo->numDevices);
   DeviceInfo->Names.resize(DeviceInfo->numDevices);
+  DeviceInfo->DeviceArchs.resize(DeviceInfo->numDevices);
   DeviceInfo->Initialized.resize(DeviceInfo->numDevices);
   DeviceInfo->SLMSize.resize(DeviceInfo->numDevices);
   if (DeviceInfo->Flags.UseSVM && DeviceInfo->DeviceType == CL_DEVICE_TYPE_CPU)
@@ -1315,6 +1404,7 @@ int32_t __tgt_rtl_number_of_devices() {
             DeviceInfo->Names[i].data(), nullptr);
     if (rc != CL_SUCCESS)
       continue;
+    DeviceInfo->DeviceArchs[i] = getDeviceArch(DeviceInfo->Names[i].data());
     IDP("Device %d: %s\n", i, DeviceInfo->Names[i].data());
     CALL_CL_RET_ZERO(clGetDeviceInfo, deviceId, CL_DEVICE_MAX_COMPUTE_UNITS, 4,
                      &DeviceInfo->maxExecutionUnits[i], nullptr);
@@ -3010,6 +3100,17 @@ EXTERN void __tgt_rtl_add_build_options(
           linkOptions.c_str());
     }
   }
+}
+
+EXTERN bool __tgt_rtl_is_supported_device(int32_t DeviceId, void *DeviceType) {
+  if (!DeviceType)
+    return true;
+
+  uint64_t deviceArch = DeviceInfo->DeviceArchs[DeviceId];
+  bool ret = (uint64_t)(deviceArch & (uint64_t)DeviceType) == deviceArch;
+  IDP("Device %" PRIu32 " does%s match the requested device types " DPxMOD "\n",
+      DeviceId, ret ? "" : " not", DPxPTR(DeviceType));
+  return ret;
 }
 
 #ifdef __cplusplus

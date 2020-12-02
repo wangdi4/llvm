@@ -559,7 +559,7 @@ EXTERN bool __tgt_is_device_available(int64_t device_num, void *device_type) {
     return false;
   }
 
-  return (device_num >= 0 && device_num < omp_get_num_devices());
+  return PM->Devices[device_num].isSupportedDevice(device_type);
 }
 
 EXTERN char *__tgt_get_device_name(

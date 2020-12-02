@@ -846,6 +846,13 @@ int32_t DeviceTy::popSubDevice(void) {
   else
     return OFFLOAD_SUCCESS;
 }
+
+bool DeviceTy::isSupportedDevice(void *DeviceType) {
+  if (RTL->is_supported_device)
+    return RTL->is_supported_device(RTLDeviceID, DeviceType);
+  else
+    return false;
+}
 #endif // INTEL_COLLAB
 
 // Whether data can be copied to DstDevice directly

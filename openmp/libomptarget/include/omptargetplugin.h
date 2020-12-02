@@ -282,6 +282,9 @@ EXTERN int32_t __tgt_rtl_pop_subdevice(void);
 // Add target code build options
 EXTERN void __tgt_rtl_add_build_options(
     const char * CompileOptions, const char *LinkOptions);
+
+// Check if the specified device type is supported
+EXTERN bool __tgt_rtl_is_supported_device(int32_t ID, void *DeviceType);
 #endif // INTEL_COLLAB
 #ifdef __cplusplus
 }
