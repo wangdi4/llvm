@@ -30,7 +30,7 @@ TEST_F(VPlanVPCGTest, TestVPlanCGLoopCloning) {
       SIMD1:
         br label %for.body
       for.body:
-        %iv = phi i64 [ %iv.next, %for.body ], [ 0, %SIMD1 ]
+        %iv = phi i64 [ %iv.next, %test.cond ], [ 0, %SIMD1 ]
         br label %seq.body.1
       seq.body.1:
         %if = icmp eq i64 %iv, 10
