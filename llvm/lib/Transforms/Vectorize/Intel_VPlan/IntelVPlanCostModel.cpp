@@ -392,8 +392,9 @@ unsigned VPlanCostModel::getIntrinsicInstrCost(
   // Intrinsics which have 0 cost are not lowered to actual code during ASM CG.
   // They are meant for intermediate analysis/transforms and will be deleted
   // before CG. Do not account the cost of serializing them.
-  if (TTI->getIntrinsicInstrCost(IntrinsicCostAttributes(ID, CB, 1),
-                                 TTI::TCK_RecipThroughput) == 0)
+  if (TTI->getIntrinsicInstrCost(
+          IntrinsicCostAttributes(ID, CB, ElementCount::getFixed(1)),
+          TTI::TCK_RecipThroughput) == 0)
     return 0;
 
   switch (VS) {
@@ -404,9 +405,9 @@ unsigned VPlanCostModel::getIntrinsicInstrCost(
       // The calls that missed the analysis have Unknown cost.
       return UnknownCost;
     case VPCallInstruction::CallVecScenariosTy::DoNotWiden:
-      return
-        TTI->getIntrinsicInstrCost(IntrinsicCostAttributes(ID, CB, 1),
-                                   TTI::TCK_RecipThroughput);
+      return TTI->getIntrinsicInstrCost(
+          IntrinsicCostAttributes(ID, CB, ElementCount::getFixed(1)),
+          TTI::TCK_RecipThroughput);
     case VPCallInstruction::CallVecScenariosTy::Serialization: {
       // For a serialized call, such as: float call @foo(double arg1, int arg2)
       // calculate the cost of vectorized code that way:
@@ -418,27 +419,31 @@ unsigned VPlanCostModel::getIntrinsicInstrCost(
       // Here we ignore the fact that when serialized code feeds another
       // serialized code insert + extract in between can be optimized out.
       unsigned Cost =
-        // The sum of costs of 'devectorizing' all args of the call.
-        std::accumulate(CB.arg_begin(), CB.arg_end(), 0,
-          [=](unsigned Cost, const Use& Arg) {
-            Type *ArgTy = Arg.get()->getType();
-            // If Arg is not expected to be vectorized
-            // (isVectorizableTy(ArgTy) is false) then it contributes 0.
-            //
-            // TODO:
-            // In general there are can be call arguments that are not
-            // vectorized.  SVA should help here.
-            return Cost + (isVectorizableTy(ArgTy) ?
-              getInsertExtractElementsCost(Instruction::ExtractElement,
-                                           ArgTy, VF) : 0);
-          }) +
-        // The cost of VF calls to the scalar function.
-        VF * TTI->getIntrinsicInstrCost(IntrinsicCostAttributes(ID, CB, 1),
-                                        TTI::TCK_RecipThroughput) +
-        // The cost of 'vectorizing' function's result if any.
-        (isVectorizableTy(CB.getType()) && !CB.getType()->isVoidTy() ?
-         getInsertExtractElementsCost(
-           Instruction::InsertElement, CB.getType(), VF) : 0);
+          // The sum of costs of 'devectorizing' all args of the call.
+          std::accumulate(
+              CB.arg_begin(), CB.arg_end(), 0,
+              [=](unsigned Cost, const Use &Arg) {
+                Type *ArgTy = Arg.get()->getType();
+                // If Arg is not expected to be vectorized
+                // (isVectorizableTy(ArgTy) is false) then it contributes 0.
+                //
+                // TODO:
+                // In general there are can be call arguments that are not
+                // vectorized.  SVA should help here.
+                return Cost + (isVectorizableTy(ArgTy)
+                                   ? getInsertExtractElementsCost(
+                                         Instruction::ExtractElement, ArgTy, VF)
+                                   : 0);
+              }) +
+          // The cost of VF calls to the scalar function.
+          VF * TTI->getIntrinsicInstrCost(
+                   IntrinsicCostAttributes(ID, CB, ElementCount::getFixed(1)),
+                   TTI::TCK_RecipThroughput) +
+          // The cost of 'vectorizing' function's result if any.
+          (isVectorizableTy(CB.getType()) && !CB.getType()->isVoidTy()
+               ? getInsertExtractElementsCost(Instruction::InsertElement,
+                                              CB.getType(), VF)
+               : 0);
       return Cost;
     }
 
@@ -460,7 +465,8 @@ unsigned VPlanCostModel::getIntrinsicInstrCost(
       break;
   }
   return TTI->getIntrinsicInstrCost(
-    IntrinsicCostAttributes(ID, CB, VF), TTI::TCK_RecipThroughput);
+      IntrinsicCostAttributes(ID, CB, ElementCount::getFixed(VF)),
+      TTI::TCK_RecipThroughput);
 }
 
 unsigned VPlanCostModel::getCost(const VPInstruction *VPInst) {
