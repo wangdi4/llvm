@@ -4286,3 +4286,23 @@ def Builtin : InheritableAttr {
   let SemaHandler = 0;
   let Documentation = [Undocumented];
 }
+
+// INTEL_CUSTOMIZATION
+def PreferDSP : InheritableAttr {
+  let Spellings = [CXX11<"intel", "prefer_dsp">, GNU<"prefer_dsp">];
+  let Subjects = SubjectList<[Function], ErrorDiag>;
+  let Documentation = [Undocumented];
+}
+
+def PreferSoftLogic : InheritableAttr {
+  let Spellings = [CXX11<"intel", "prefer_softlogic">, GNU<"prefer_softlogic">];
+  let Subjects = SubjectList<[Function], ErrorDiag>;
+  let Documentation = [Undocumented];
+}
+def PropagateDSPPreference : InheritableAttr {
+  let Spellings = [CXX11<"intel", "propagate_dsp_preference">, GNU<"propagate_dsp_preference">];
+  let Subjects = SubjectList<[Function], ErrorDiag>;
+  let Documentation = [Undocumented];
+  let SimpleHandler = 1;
+}
+// end INTEL_CUSTOMIZATION

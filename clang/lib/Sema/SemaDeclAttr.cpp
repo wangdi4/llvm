@@ -5443,6 +5443,21 @@ SpeculativeLoadHardeningAttr *Sema::mergeSpeculativeLoadHardeningAttr(
   return ::new (Context) SpeculativeLoadHardeningAttr(Context, AL);
 }
 
+PreferDSPAttr *Sema::mergePreferDSPAttr(Decl *D, const PreferDSPAttr &AL) {
+  if (checkAttrMutualExclusion<PreferSoftLogicAttr>(*this, D, AL))
+    return nullptr;
+
+  return ::new (Context) PreferDSPAttr(Context, AL);
+}
+
+PreferSoftLogicAttr *Sema::mergePreferSoftLogicAttr(
+    Decl *D, const PreferSoftLogicAttr &AL) {
+  if (checkAttrMutualExclusion<PreferDSPAttr>(*this, D, AL))
+    return nullptr;
+
+  return ::new (Context) PreferSoftLogicAttr(Context, AL);
+}
+
 static void handleAlwaysInlineAttr(Sema &S, Decl *D, const ParsedAttr &AL) {
   if (checkAttrMutualExclusion<NotTailCalledAttr>(S, D, AL))
     return;
@@ -9194,6 +9209,14 @@ static void ProcessDeclAttribute(Sema &S, Scope *scope, Decl *D,
 #if INTEL_CUSTOMIZATION
   case ParsedAttr::AT_HLSDevice:
     handleSimpleAttribute<HLSDeviceAttr>(S, D, AL);
+    break;
+  case ParsedAttr::AT_PreferDSP:
+    handleSimpleAttributeWithExclusions<PreferDSPAttr,
+                                        PreferSoftLogicAttr>(S, D, AL);
+    break;
+  case ParsedAttr::AT_PreferSoftLogic:
+    handleSimpleAttributeWithExclusions<PreferSoftLogicAttr,
+                                        PreferDSPAttr>(S, D, AL);
     break;
 #endif // INTEL_CUSTOMIZATION
   case ParsedAttr::AT_SYCLKernel:

@@ -1016,6 +1016,18 @@ void CodeGenFunction::StartFunction(GlobalDecl GD, QualType RetTy,
     Fn->addFnAttr("cfi-canonical-jump-table");
 
 #if INTEL_CUSTOMIZATION
+  if (D && (D->hasAttr<PreferDSPAttr>() || D->hasAttr<PreferSoftLogicAttr>())) {
+    auto *MDValueWrapper = llvm::ConstantAsMetadata::get(
+        Builder.getInt32(D->hasAttr<PreferDSPAttr>() ? 1 : 0));
+    Fn->addMetadata("prefer_dsp",
+                    *llvm::MDNode::get(getLLVMContext(), MDValueWrapper));
+  }
+  if (D && D->hasAttr<PropagateDSPPreferenceAttr>()) {
+    auto *MDValueWrapper = llvm::ConstantAsMetadata::get(Builder.getInt32(1));
+    Fn->addMetadata("propagate_dsp_preference",
+                    *llvm::MDNode::get(getLLVMContext(), MDValueWrapper));
+  }
+
   if (getLangOpts().HLS) {
     // Add metadata for HLS components
     if (const auto *FD = dyn_cast_or_null<FunctionDecl>(D))

@@ -2617,6 +2617,10 @@ static bool mergeDeclAttribute(Sema &S, NamedDecl *D,
     NewAttr = S.mergeSpeculativeLoadHardeningAttr(D, *SLHA);
   else if (const auto *SLHA = dyn_cast<NoSpeculativeLoadHardeningAttr>(Attr))
     NewAttr = S.mergeNoSpeculativeLoadHardeningAttr(D, *SLHA);
+  else if (const auto *PDA = dyn_cast<PreferDSPAttr>(Attr))
+    NewAttr = S.mergePreferDSPAttr(D, *PDA);
+  else if (const auto *PSLA = dyn_cast<PreferSoftLogicAttr>(Attr))
+    NewAttr = S.mergePreferSoftLogicAttr(D, *PSLA);
   else if (const auto *IMA = dyn_cast<WebAssemblyImportModuleAttr>(Attr))
     NewAttr = S.mergeImportModuleAttr(D, *IMA);
   else if (const auto *INA = dyn_cast<WebAssemblyImportNameAttr>(Attr))
