@@ -106,6 +106,13 @@ function(add_sycl_rt_library LIB_NAME)
                                 "${LIB_NAME}.dll"
                                 "Intel(R) oneAPI DPC++ Library"
                                 "Intel(R) oneAPI DPC++ Library")
+
+  check_cxx_compiler_flag(-Winstantiation-after-specialization
+    HAS_INST_AFTER_SPEC)
+  if (HAS_INST_AFTER_SPEC)
+    target_compile_options(${LIB_OBJ_NAME} PRIVATE
+      -Winstantiation-after-specialization)
+  endif()
 endfunction(add_sycl_rt_library)
 
 set(SYCL_SOURCES
