@@ -86,20 +86,39 @@ namespace Intel { namespace OpenCL { namespace Utils {
 		m_pLoggerClient = nullptr;			\
 	}
 
-#ifdef _DEBUG
-#define LogDebugA(DBG_PRINT, ...)		\
-	if (m_pLoggerClient) (m_pLoggerClient)->Log(Intel::OpenCL::Utils::LL_DEBUG		, __FILE__, __FUNCTION__, __LINE__, DBG_PRINT,  __VA_ARGS__);
+#ifndef INTEL_PRODUCT_RELEASE
+#define LogDebugA(DBG_PRINT, ...)                                              \
+  if (m_pLoggerClient)                                                         \
+    (m_pLoggerClient)                                                          \
+        ->Log(Intel::OpenCL::Utils::LL_DEBUG, __FILE__, __FUNCTION__,          \
+              __LINE__, DBG_PRINT, __VA_ARGS__);
+#define LogInfoA(DBG_PRINT, ...)                                               \
+  if (m_pLoggerClient)                                                         \
+    (m_pLoggerClient)                                                          \
+        ->Log(Intel::OpenCL::Utils::LL_INFO, __FILE__, __FUNCTION__, __LINE__, \
+              DBG_PRINT, __VA_ARGS__);
+#define LogErrorA(DBG_PRINT, ...)                                              \
+  if (m_pLoggerClient)                                                         \
+    (m_pLoggerClient)                                                          \
+        ->Log(Intel::OpenCL::Utils::LL_ERROR, __FILE__, __FUNCTION__,          \
+              __LINE__, DBG_PRINT, __VA_ARGS__);
+#define LogCriticalA(DBG_PRINT, ...)                                           \
+  if (m_pLoggerClient)                                                         \
+    (m_pLoggerClient)                                                          \
+        ->Log(Intel::OpenCL::Utils::LL_CRITICAL, __FILE__, __FUNCTION__,       \
+              __LINE__, DBG_PRINT, __VA_ARGS__);
+#define LogStatisticA(DBG_PRINT, ...)                                          \
+  if (m_pLoggerClient)                                                         \
+    (m_pLoggerClient)                                                          \
+        ->Log(Intel::OpenCL::Utils::LL_STATISTIC, __FILE__, __FUNCTION__,      \
+              __LINE__, DBG_PRINT, __VA_ARGS__);
 #else
 #define LogDebugA(DBG_PRINT, ...)
+#define LogInfoA(DBG_PRINT, ...)
+#define LogErrorA(DBG_PRINT, ...)
+#define LogCriticalA(DBG_PRINT, ...)
+#define LogStatisticA(DBG_PRINT, ...)
 #endif
-#define LogInfoA(DBG_PRINT, ...)		\
-	if (m_pLoggerClient) (m_pLoggerClient)->Log(Intel::OpenCL::Utils::LL_INFO		, __FILE__, __FUNCTION__, __LINE__, DBG_PRINT,  __VA_ARGS__);
-#define LogErrorA(DBG_PRINT, ...)		\
-	if (m_pLoggerClient) (m_pLoggerClient)->Log(Intel::OpenCL::Utils::LL_ERROR		, __FILE__, __FUNCTION__, __LINE__, DBG_PRINT,  __VA_ARGS__);
-#define LogCriticalA(DBG_PRINT, ...)		\
-	if (m_pLoggerClient) (m_pLoggerClient)->Log(Intel::OpenCL::Utils::LL_CRITICAL	, __FILE__, __FUNCTION__, __LINE__, DBG_PRINT,  __VA_ARGS__);
-#define LogStatisticA(DBG_PRINT, ...)		\
-	if (m_pLoggerClient) (m_pLoggerClient)->Log(Intel::OpenCL::Utils::LL_STATISTIC	, __FILE__, __FUNCTION__, __LINE__, DBG_PRINT,  __VA_ARGS__);
 
 #ifdef _DEBUG
 #define DbgLogA(CLIENT, DBG_PRINT, ...)			\

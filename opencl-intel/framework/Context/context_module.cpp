@@ -486,6 +486,7 @@ cl_err_code ContextModule::RetainContext(cl_context context)
 {
     LOG_INFO(TEXT("ContextModule::RetainContext enter. context=%d"), context);
     cl_err_code clErrRet = CL_SUCCESS;
+    (void)clErrRet;
     SharedPtr<Context> pContext = m_mapContexts.GetOCLObject((_cl_context_int*)context).DynamicCast<Context>();
     if (NULL == pContext)
     {
@@ -1108,6 +1109,7 @@ cl_int ContextModule::GetProgramInfo(cl_program clProgram,
         clProgram, clParamName, szParamValueSize, pParamValue, pszParamValueSizeRet);
     
     cl_err_code clErrRet = CL_SUCCESS;
+    (void)clErrRet;
     SharedPtr<Program> pProgram = m_mapPrograms.GetOCLObject((_cl_program_int*)clProgram).DynamicCast<Program>();
     if (NULL == pProgram)
     {
@@ -1153,6 +1155,7 @@ cl_int ContextModule::GetProgramBuildInfo(cl_program clProgram,
         clProgram, clDevice, clParamName, szParamValueSize, pParamValue, pszParamValueSizeRet);
     
     cl_err_code clErrRet = CL_SUCCESS;
+    (void)clErrRet;
     SharedPtr<Program> pProgram = m_mapPrograms.GetOCLObject((_cl_program_int*)clProgram).DynamicCast<Program>();
     if (NULL == pProgram)
     {
@@ -1653,6 +1656,7 @@ cl_int ContextModule::GetKernelInfo(cl_kernel clKernel,
         clKernel, clParamName, szParamValueSize, pParamValue, pszParamValueSizeRet);
 
     cl_err_code clErr = CL_SUCCESS;
+    (void)clErr;
     SharedPtr<Kernel> pKernel = m_mapKernels.GetOCLObject((_cl_kernel_int*)clKernel).DynamicCast<Kernel>();
     if (NULL == pKernel)
     {
@@ -2270,6 +2274,7 @@ cl_int ContextModule::RetainMemObject(cl_mem clMemObj)
     LOG_DEBUG(TEXT("Enter RetainMemObject (clMemObj=%d)"), clMemObj);
 
     cl_err_code clErr = CL_SUCCESS;
+    (void)clErr;
     SharedPtr<MemoryObject> pMemObj = m_mapMemObjects.GetOCLObject((_cl_mem_int*)clMemObj).DynamicCast<MemoryObject>();
     if (NULL == pMemObj)
     {
@@ -2409,6 +2414,7 @@ cl_int ContextModule::GetMemObjectInfo(cl_mem clMemObj,
         clMemObj, clParamName, szParamValueSize, pParamValue, pszParamValueSizeRet);
 
     cl_err_code clErr = CL_SUCCESS;
+    (void)clErr;
     SharedPtr<MemoryObject> pMemObj = m_mapMemObjects.GetOCLObject((_cl_mem_int*)clMemObj).DynamicCast<MemoryObject>();
     if (NULL == pMemObj)
     {
@@ -2431,6 +2437,7 @@ cl_int ContextModule::GetImageInfo(cl_mem clImage,
         clImage, clParamName, szParamValueSize, pParamValue, pszParamValueSizeRet);
 
     cl_err_code clErr = CL_SUCCESS;
+    (void)clErr;
     SharedPtr<MemoryObject> pMemObj = m_mapMemObjects.GetOCLObject((_cl_mem_int*)clImage).DynamicCast<MemoryObject>();
     if (NULL == pMemObj)
     {
@@ -3061,6 +3068,7 @@ cl_int ContextModule::GetKernelArgInfo(cl_kernel clKernel,
         clKernel, argIndx, paramName, szParamValueSize, pParamValue, pszParamValueSizeRet);
 
     cl_err_code clErr = CL_SUCCESS;
+    (void)clErr;
     SharedPtr<Kernel> pKernel = m_mapKernels.GetOCLObject((_cl_kernel_int*)clKernel).DynamicCast<Kernel>();
     if (NULL == pKernel)
     {
