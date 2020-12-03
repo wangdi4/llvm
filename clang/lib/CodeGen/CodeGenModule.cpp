@@ -2250,6 +2250,7 @@ static void addDeclareVariantAttributes(CodeGenModule &CGM,
             if (Sel.Kind == llvm::omp::TraitSelector::device_arch) {
               for (const auto &Prop : Sel.Properties) {
                 switch (Prop.Kind) {
+                case llvm::omp::TraitProperty::device_arch_x86_64:
                 case llvm::omp::TraitProperty::device_arch_gen:
                 case llvm::omp::TraitProperty::device_arch_gen9:
                 case llvm::omp::TraitProperty::device_arch_XeLP:
