@@ -550,8 +550,22 @@ protected:
       return false;
     }
 
-    // UseHistory and DefHistory should have no intersection
-    assert(!ConvertFromUseToDef || !MaintainedAsDef);
+    // Some uses are converted to defs, and some defs
+    // continue to be defs (or vice versa).
+    // Example:
+    // CurDefSet = {13 15 25 26 27}
+    // UseHistory = {10 13 14}
+    // CurUseSet = {16 17 18 19}
+    // DefHistory = {15 16 17}
+    // "15" is MaintainedAsDef, while "13" is ConvertFromUseToDef.
+    // We just bail out. In the future, more refinements can come.
+    // How many are Converted vs. Maintained could be used as a criteria.
+    if (ConvertFromUseToDef && MaintainedAsDef ||
+        ConvertFromDefToUse && MaintainedAsUse) {
+      LLVM_DEBUG_PROFIT_REPORT(
+          dbgs() << "Not profitable due to sustained Defs or Uses.\n");
+      return false;
+    }
 
     if (ConvertFromUseToDef) {
       if (State != FIRSTHALF) {
