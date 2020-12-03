@@ -336,11 +336,17 @@ public:
   void print(bool IsAlwaysInline) const;
 
   /// Test if the current inline report has been printed, and if not, print it.
-  void testAndPrint(void *Inliner, bool IsAlwaysInline);
+  /// If this is not the legacy pass manager, and it is the always inline pass,
+  /// defer printing until the normal inlining pass has been run.
+  void testAndPrint(void *Inliner, bool IsAlwaysInline,
+                    bool IsLegacyPassManager = true);
 
   /// If a new 'Inliner' has been invoked, dump the inlining report for the
   /// previous inliner and update 'IsAlwaysInline' for the new one.
-  void printIfNewInliner(void *Inliner, bool IsAlwaysInline);
+  /// NOTE: We make an exception if this is not the legacy pass manager.
+  /// See the comment for testAndPrint() above.
+  void printIfNewInliner(void *Inliner, bool IsAlwaysInline,
+                         bool IsLegacyPassManager = true);
 
   /// Check if report has data
   bool isEmpty() { return IRFunctionMap.empty(); }

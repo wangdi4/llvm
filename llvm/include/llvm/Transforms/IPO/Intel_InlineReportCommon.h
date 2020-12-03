@@ -241,6 +241,8 @@ const static InlPrtRecord InlineReasonText[] = {
     {InlPrtSimple, "Callee has exception handling"},
     // NinlrIsCrossLanguage
     {InlPrtSimple, "Caller and Callee have different source languages"},
+    // NinlrNotMandatory
+    {InlPrtSimple, "Inlining is not mandatory"},
     // NinlrLast
     {InlPrtNone, nullptr}};
 

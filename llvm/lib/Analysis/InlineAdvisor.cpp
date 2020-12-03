@@ -53,8 +53,8 @@ static cl::opt<int>
 namespace {
 class DefaultInlineAdvice : public InlineAdvice {
 public:
-  DefaultInlineAdvice(DefaultInlineAdvisor *Advisor, CallBase &CB,
 #if INTEL_CUSTOMIZATION
+  DefaultInlineAdvice(InlineAdvisor *Advisor, CallBase &CB,
                       InlineCost IC, OptimizationRemarkEmitter &ORE)
       : InlineAdvice(Advisor, CB, ORE, IC.getIsRecommended()), OriginalCB(&CB),
         IC(IC) {}
@@ -492,11 +492,21 @@ MandatoryInlineAdvisor::getAdvice(CallBase &CB, InliningLoopInfoCache *ILIC,
   auto &Caller = *CB.getCaller();
   auto &Callee = *CB.getCalledFunction();
   auto &ORE = FAM.getResult<OptimizationRemarkEmitterAnalysis>(Caller);
-
-  bool Advice = MandatoryInliningKind::Always ==
-                    MandatoryInlineAdvisor::getMandatoryKind(CB, FAM, ORE) &&
-                &Caller != &Callee;
-  return std::make_unique<InlineAdvice>(this, CB, ORE, Advice);
+#if INTEL_CUSTOMIZATION
+  auto MIK = MandatoryInlineAdvisor::getMandatoryKind(CB, FAM, ORE);
+  bool Advice = MandatoryInliningKind::Always == MIK && &Caller != &Callee;
+  bool IsAlways = Advice && (&Caller != &Callee);
+  InlineCost MIC = IsAlways ?
+      llvm::InlineCost::getAlways("always inline", InlrAlwaysInline) :
+      MandatoryInliningKind::Never == MIK ? 
+      llvm::InlineCost::getNever("never inline", NinlrNeverInline) :
+      llvm::InlineCost::getNever("not mandatory", NinlrNotMandatory);
+  if (IsAlways)
+    MIC.setIsRecommended(true);
+  auto UP = std::make_unique<DefaultInlineAdvice>(nullptr, CB, MIC, ORE);
+  *IC = UP->getInlineCost();
+  return UP;
+#endif // INTEL_CUSTOMIZATION
 }
 
 MandatoryInlineAdvisor::MandatoryInliningKind

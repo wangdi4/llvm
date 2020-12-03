@@ -905,9 +905,10 @@ bool LegacyInlinerBase::removeDeadFunctions(CallGraph &CG,
 }
 
 #if INTEL_CUSTOMIZATION
-InlinerPass::InlinerPass() {
+InlinerPass::InlinerPass(bool IsAlwaysInline) {
   Report = getInlineReport();
   MDReport = getMDInlineReport();
+  IsAlwaysInline = IsAlwaysInline;
 }
 #endif  // INTEL_CUSTOMIZATION
 
@@ -917,7 +918,8 @@ InlinerPass::~InlinerPass() {
     ImportedFunctionsStats->dump(InlinerFunctionImportStats ==
                                  InlinerFunctionImportStatsOpts::Verbose);
   }
-  getReport()->testAndPrint(this, /*IsAlwaysInline=*/false);
+  getReport()->testAndPrint(this, IsAlwaysInline,
+                            /*IsLegacyPassManager=*/ false);
 }
 
 InlineAdvisor &
@@ -1397,11 +1399,12 @@ ModuleInlinerWrapperPass::ModuleInlinerWrapperPass(InlineParams Params,
   // because it makes profile annotation in the backend inaccurate.
 #if INTEL_CUSTOMIZATION
   if (InlP) {
+    InlP->setIsAlwaysInline(Mode == InliningAdvisorMode::MandatoryOnly);
     PM.addPass(std::move(*InlP));
     return;
   }
 #endif // INTEL_CUSTOMIZATION
-  PM.addPass(InlinerPass());
+  PM.addPass(InlinerPass(Mode == InliningAdvisorMode::MandatoryOnly));
 }
 
 PreservedAnalyses ModuleInlinerWrapperPass::run(Module &M,

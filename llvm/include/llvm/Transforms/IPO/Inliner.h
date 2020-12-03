@@ -111,19 +111,23 @@ protected:
 /// passes be composed to achieve the same end result.
 class InlinerPass : public PassInfoMixin<InlinerPass> {
 public:
-  InlinerPass(); // INTEL
+  InlinerPass(bool IsAlwaysInline = false); // INTEL
   ~InlinerPass();
   InlinerPass(InlinerPass &&Arg)
       : ImportedFunctionsStats(std::move(Arg.ImportedFunctionsStats)), // INTEL
         Report(std::move(Arg.Report)),                                 // INTEL
-        MDReport(std::move(Arg.MDReport))                              // INTEL
+        MDReport(std::move(Arg.MDReport)),                             // INTEL
+        IsAlwaysInline(Arg.IsAlwaysInline)                             // INTEL
   {}                                                                   // INTEL
 
   PreservedAnalyses run(LazyCallGraph::SCC &C, CGSCCAnalysisManager &AM,
                         LazyCallGraph &CG, CGSCCUpdateResult &UR);
-
-  InlineReport *getReport() { return Report; } // INTEL
-  InlineReportBuilder *getMDReport() { return MDReport; } // INTEL
+#if INTEL_CUSTOMIZATION
+  InlineReport *getReport() { return Report; }
+  InlineReportBuilder *getMDReport() { return MDReport; }
+  bool getIsAlwaysInline() { return IsAlwaysInline; }
+  void setIsAlwaysInline(bool AlwaysInline) { IsAlwaysInline = AlwaysInline; }
+#endif // INTEL_CUSTOMIZATION
 private:
   InlineAdvisor &getAdvisor(const ModuleAnalysisManagerCGSCCProxy::Result &MAM,
                             FunctionAnalysisManager &FAM, Module &M);
@@ -133,6 +137,7 @@ private:
   // INTEL The inline report
   InlineReport *Report; // INTEL
   InlineReportBuilder *MDReport; // INTEL
+  bool IsAlwaysInline; // INTEL
 };
 
 /// Module pass, wrapping the inliner pass. This works in conjunction with the

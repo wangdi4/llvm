@@ -422,10 +422,12 @@ InlineReportCallSite *InlineReport::addNewCallSite(CallBase *Call) {
 }
 
 void InlineReport::printIfNewInliner(void *Inliner,
-                                      bool IsAlwaysInline) {
+                                     bool IsAlwaysInline,
+                                     bool IsLegacyPassManager) {
   if (Inliner != ActiveInliner) {
     if (ActiveInliner)
-      testAndPrint(ActiveInliner, ActiveInlinerIsAlwaysInline);
+      testAndPrint(ActiveInliner, ActiveInlinerIsAlwaysInline,
+          IsLegacyPassManager);
     ActiveInliner = Inliner;
     ActiveInlinerIsAlwaysInline = IsAlwaysInline;
     IsAlreadyPrinted = false;
@@ -436,7 +438,7 @@ void InlineReport::beginSCC(CallGraphSCC &SCC, void *Inliner,
                             bool IsAlwaysInline) {
   if (!isClassicIREnabled())
     return;
-  printIfNewInliner(Inliner, IsAlwaysInline);
+  printIfNewInliner(Inliner, IsAlwaysInline, true);
   M = &SCC.getCallGraph().getModule();
   for (CallGraphNode *Node : SCC) {
     Function *F = Node->getFunction();
@@ -450,7 +452,7 @@ void InlineReport::beginSCC(LazyCallGraph::SCC &SCC, void *Inliner,
                             bool IsAlwaysInline) {
   if (!isClassicIREnabled())
     return;
-  printIfNewInliner(Inliner, IsAlwaysInline);
+  printIfNewInliner(Inliner, IsAlwaysInline, false);
   LazyCallGraph::Node &LCGN = *(SCC.begin());
   M = LCGN.getFunction().getParent();
   for (auto &Node : SCC) {
@@ -713,8 +715,11 @@ void InlineReport::print(bool IsAlwaysInline) const {
   llvm::errs() << "---- End Inlining Report ------\n";
 }
 
-void InlineReport::testAndPrint(void *Inliner, bool IsAlwaysInline) {
-  if (IsAlreadyPrinted || Inliner != ActiveInliner)
+void InlineReport::testAndPrint(void *Inliner, bool IsAlwaysInline,
+                                bool IsLegacyPassManager) {
+  if (IsAlreadyPrinted)
+    return;
+  if (Inliner != ActiveInliner && !(IsAlwaysInline && !IsLegacyPassManager))
     return;
   print(IsAlwaysInline);
   IsAlreadyPrinted = true;

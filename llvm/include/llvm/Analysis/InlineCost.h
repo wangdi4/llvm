@@ -182,6 +182,7 @@ typedef enum {
    NinlrPreferPartialInline,
    NinlrCalleeHasExceptionHandling,
    NinlrIsCrossLanguage,
+   NinlrNotMandatory,
    NinlrLast // Just a marker placed after the last non-inlining reason
 } InlineReason;
 
