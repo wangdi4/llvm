@@ -1,0 +1,749 @@
+//=------------------------- SGValueWiden.cpp -*- C++ -*---------------------=//
+//
+// Copyright (C) 2020 Intel Corporation. All rights reserved.
+//
+// The information and source code contained herein is the exclusive property
+// of Intel Corporation and may not be disclosed, examined or reproduced in
+// whole or in part without explicit written authorization from the company.
+//
+// ===--------------------------------------------------------------------=== //
+
+#include "SGValueWiden.h"
+
+#include "CompilationUtils.h"
+#include "InitializePasses.h"
+#include "LoopUtils/LoopUtils.h"
+#include "MetadataAPI.h"
+#include "OCLPassSupport.h"
+#include "SGFunctionWiden.h"
+
+#include "llvm/ADT/SetVector.h"
+#include "llvm/ADT/SmallVector.h"
+#include "llvm/ADT/StringExtras.h"
+#include "llvm/ADT/iterator_range.h"
+#include "llvm/Analysis/VectorUtils.h"
+#include "llvm/IR/DIBuilder.h"
+#include "llvm/IR/IRBuilder.h"
+#include "llvm/IR/InstIterator.h"
+#include "llvm/IR/Instructions.h"
+#include "llvm/Support/Debug.h"
+#include "llvm/Transforms/Utils/Local.h"
+
+#include <set>
+#include <string>
+
+#define DEBUG_TYPE "sg-value-widen"
+
+using namespace Intel::OpenCL::DeviceBackend;
+
+static cl::opt<bool> OptEnableDebug("enable-debug", cl::init(false), cl::Hidden,
+                                    cl::desc("enable debug"));
+namespace intel {
+
+OCL_INITIALIZE_PASS_BEGIN(SGValueWiden, DEBUG_TYPE, "Widen values", false,
+                          false)
+OCL_INITIALIZE_PASS_DEPENDENCY(SGSizeAnalysis)
+OCL_INITIALIZE_PASS_DEPENDENCY(WIRelatedValue)
+OCL_INITIALIZE_PASS_END(SGValueWiden, DEBUG_TYPE, "Widen values", false, false)
+
+char SGValueWiden::ID = 0;
+
+bool SGValueWiden::runOnModule(Module &M) {
+  Helper.initialize(M);
+  FunctionsToBeWidened = Helper.getAllFunctionsNeedEmulation();
+
+  if (FunctionsToBeWidened.empty())
+    return false;
+
+  EnableDebug |= OptEnableDebug;
+
+  SizeAnalysis = &getAnalysis<SGSizeAnalysis>();
+  WIRelatedAnalysis = &getAnalysis<WIRelatedValue>();
+
+  ConstZero = Helper.getZero();
+
+  // Kernels to be emulated must be scalar kernels, no need to
+  // find all kernels.
+  using namespace Intel::MetadataAPI;
+  auto Kernels = KernelList(M).getList();
+  auto KernelRange = make_range(Kernels.begin(), Kernels.end());
+
+  for (auto *Fn : FunctionsToBeWidened) {
+    // Add vector-variants attribute.
+    unsigned EmuSize = *SizeAnalysis->getEmuSizes(Fn).begin();
+    std::string Buffer;
+    llvm::raw_string_ostream Out(Buffer);
+    Out << "_ZGVbN" << EmuSize;
+
+    // Encode. TODO: We can enable uniformity analysis to mark some parameters
+    // as uniform.
+    const char *KindStr = find(KernelRange, Fn) != Kernels.end() ? "u" : "v";
+    SmallVector<StringRef, 4> KindStrs(Fn->arg_size(), KindStr);
+    Out << join(KindStrs.begin(), KindStrs.end(), "");
+    Out << '_' << Fn->getName();
+    Out.flush();
+
+    Fn->addFnAttr("vector-variants", Out.str());
+  }
+
+  // Add sub-group functions to FunctionsToBeWidened.
+  for (auto &Fn : M)
+    if (Fn.isDeclaration() && Fn.getName().contains("sub_group") &&
+        Fn.hasFnAttribute("vector-variants"))
+      FunctionsToBeWidened.insert(&Fn);
+
+  FunctionWidener FWImpl{EnableDebug};
+  FWImpl.run(FunctionsToBeWidened, FuncMap);
+
+  // Initialize barrier utils.
+  Utils.init(&M);
+
+  // Process dummy region.
+  // 1) Move original instructions located in dummybarrier region (if exists).
+  //    to WGExcludeBB
+  // 2) Move the first dummybarrier (if exists) to the begin of SGExcludeBB;
+  //    Move the second dummybarier (if exists) to the begin of WGExcludeBB.
+  for (auto &Pair : FuncMap) {
+    auto *EmulateFunc = Pair.second;
+    // Skip sub-group functions.
+    if (EmulateFunc->isDeclaration())
+      continue;
+    auto *SGExcludeBB = &EmulateFunc->getEntryBlock();
+
+    auto *SGLoopHeader = SGExcludeBB->getSingleSuccessor();
+    assert(SGLoopHeader && "Get single successor failed");
+    auto *FirstI = &*SGLoopHeader->begin();
+    SGExcludeBBMap[EmulateFunc] = SGExcludeBB;
+
+    if (Utils.isDummyBarrierCall(FirstI)) {
+      auto DummyRegion = Helper.findDummyRegion(*EmulateFunc);
+      if (!DummyRegion.empty()) {
+        BasicBlock *WGExcludeBB = SGExcludeBB;
+        std::string SGExcludeBBName = SGExcludeBB->getName().str();
+        WGExcludeBB->setName("wg.loop.exclude");
+        SGExcludeBB = SGExcludeBB->splitBasicBlock(&*SGExcludeBB->begin(),
+                                                   SGExcludeBBName);
+        SGExcludeBBMap[EmulateFunc] = SGExcludeBB;
+        WGExcludeBBMap[EmulateFunc] = WGExcludeBB;
+        Instruction *IP = WGExcludeBB->getTerminator();
+        InstVec InstsToMove;
+        for (auto &Inst : DummyRegion)
+          InstsToMove.push_back(&Inst);
+        for (auto *Inst : InstsToMove)
+          Inst->moveBefore(IP);
+        // Move the dummyBarrier to the begin of WGExcludeBB.
+        InstsToMove.back()->moveBefore(&*WGExcludeBB->begin());
+      }
+      // Move the dummyBarrier to the begin of SGExcludeBB.
+      FirstI->moveBefore(&*SGExcludeBB->begin());
+    }
+  }
+
+  collectWideCalls(M);
+
+  // Re-initialize for emulated functions.
+  Helper.initialize(M);
+
+  for (auto *Fn : FunctionsToBeWidened) {
+    auto *WideFn = cast<Function>(FuncMap[Fn]);
+    // Skip sub-group functions.
+    if (WideFn->isDeclaration())
+      continue;
+    runOnFunction(*WideFn, SizeAnalysis->getEmuSizes(Fn));
+    // If the function should be emulated, then it must directly /
+    // indirectly call sub-group built-ins. It's meaningless to
+    // preserve these scalar functions.
+    Fn->deleteBody();
+    auto It = find(KernelRange, Fn);
+    if (It != Kernels.end()) {
+      Kernels.erase(It);
+      Kernels.push_back(WideFn);
+      std::string FName = Fn->getName().str();
+      Fn->setName(FName + "after_value_widen");
+      WideFn->setName(FName);
+    }
+  }
+  KernelList(&M).set(Kernels);
+
+  widenCalls();
+
+  for (auto *I : InstsToBeRemoved)
+    I->eraseFromParent();
+  return true;
+}
+
+void SGValueWiden::collectWideCalls(Module &M) {
+  FuncSet EmulateFuncs;
+  for (auto &Pair : FuncMap)
+    EmulateFuncs.insert(Pair.second);
+
+  for (Function *F : FunctionsToBeWidened) {
+    for (User *U : F->users())
+      if (CallInst *CI = dyn_cast<CallInst>(U))
+        if (EmulateFuncs.count(CI->getCaller()))
+          WideCalls.insert(CI);
+  }
+}
+
+bool SGValueWiden::isCrossBarrier(Instruction *I,
+                                  const InstSet &SyncInsts) const {
+  BasicBlock *DefBB = I->getParent();
+
+  for (User *U : I->users()) {
+    auto *UI = dyn_cast<Instruction>(U);
+    if (!UI)
+      continue;
+    BasicBlock *UseBB = UI->getParent();
+    if (BarrierUtils::isCrossedByBarrier(SyncInsts, UseBB, DefBB))
+      return true;
+  }
+
+  return false;
+}
+
+bool SGValueWiden::isWIRelated(Value *V) {
+  if (CallInst *CI = dyn_cast<CallInst>(V)) {
+    if (Function *F = CI->getCalledFunction()) {
+      const std::string Name = F->getName().str();
+      if (CompilationUtils::isSubGroupUniform(Name))
+        return false;
+    }
+  }
+
+  return true;
+  // TODO: WIRelatedAnalysis pass should be improved to analyze uniformity for
+  // sub-group emulation.
+  // return WIRelatedAnalysis->isWIRelated(V);
+}
+
+void SGValueWiden::runOnFunction(Function &F, const std::set<unsigned> &Sizes) {
+
+  // TODO: Support mutilple SG Emulation Size.
+  assert(Sizes.size() == 1 && "Multiple SG emu size is unsupported");
+  auto Size = *Sizes.begin();
+
+  LLVM_DEBUG(dbgs() << "Begin widening: " << F.getName() << "\n");
+
+  InstSet SyncInsts = Helper.getSyncInstsForFunction(&F);
+  assert(!SyncInsts.empty() && "Can't find sync insts!");
+
+  DebugAIMap.clear();
+
+  BasicBlock *WGExcludeBB =
+      WGExcludeBBMap.count(&F) ? WGExcludeBBMap[&F] : nullptr;
+  BasicBlock *SGExcludeBB = SGExcludeBBMap[&F];
+  Instruction *FirstI = SGExcludeBB->getTerminator();
+
+  InstVec WorkList;
+
+  // Collect all instructions to be handled first, we can't process the
+  // instructions while iterating function because we will insert new
+  // instructions.
+  for (auto &I : instructions(F)) {
+    // Skip WGExcludeBB and SGExcludeBB, they are not in sub-group loop.
+    if (I.getParent() == WGExcludeBB || I.getParent() == SGExcludeBB ||
+        I.use_empty())
+      continue;
+    WorkList.push_back(&I);
+  }
+
+  for (auto *I : WorkList) {
+    if (isa<AllocaInst>(I)) {
+      widenAlloca(I, FirstI, Size);
+    } else if (isCrossBarrier(I, SyncInsts)) {
+      if (isWIRelated(I))
+        widenValue(I, FirstI, Size);
+      else
+        hoistUniformValue(I, FirstI);
+    }
+  }
+
+  // For every local variables with debug info attached, we will store
+  // it's new address to DebugAI in every sub-group loop.
+  for (auto &Pair : DebugAIMap) {
+    AllocaInst *AI = Pair.first;
+    AllocaInst *DebugAI = Pair.second;
+    AllocaInst *WideAI = cast<AllocaInst>(VecValueMap[AI]);
+
+    auto *ArraySize = dyn_cast<ConstantInt>(AI->getArraySize());
+    assert(ArraySize && "Array Size is not constant");
+    for (Instruction *SyncInst : SyncInsts) {
+      auto *IP = SyncInst->getNextNode();
+      // Skip non-loop region.
+      // FIXME: isa<ReturnInst>(IP) doesn't work because wide loads for return
+      // values are here.
+      if (isWideCall(IP) || isa<ReturnInst>(IP))
+        continue;
+      auto *Idx = Helper.createGetSubGroupLId(IP);
+      IRBuilder<> Builder(IP);
+      auto *Offset = ArraySize->getZExtValue() > 1
+                         ? Builder.CreateMul(Idx, ArraySize)
+                         : Idx;
+      auto *NewV = Builder.CreateGEP(WideAI, {ConstZero, Offset});
+      Builder.CreateStore(NewV, DebugAI);
+    }
+  }
+}
+
+void SGValueWiden::hoistUniformValue(Instruction *V, Instruction *FirstI) {
+  LLVM_DEBUG(dbgs() << "Update Uniform Instruction" << *V << "\n");
+  IRBuilder<> Builder(FirstI);
+  Type *VType = V->getType();
+  auto *VPtr = Builder.CreateAlloca(VType, nullptr, "u." + V->getName());
+  UniValueMap[V] = VPtr;
+
+  // Update Use.
+  InstSet UsersToUpdate;
+  for (auto *U : V->users()) {
+    auto *UI = dyn_cast<Instruction>(U);
+    // ReturnInst has been processed in FunctionWidener
+    if (!UI || isWideCall(UI) || isa<ReturnInst>(UI))
+      continue;
+    UsersToUpdate.insert(UI);
+  }
+
+  for (auto *UI : UsersToUpdate) {
+    LLVM_DEBUG(dbgs() << "Updating Use:" << *UI << "\n");
+    Builder.SetInsertPoint(getInsertPoint(UI, V));
+    auto *NewV = Builder.CreateLoad(VType, VPtr);
+    UI->replaceUsesOfWith(V, NewV);
+  }
+
+  // We will store the vector return value in WidenCalls.
+  if (!isWideCall(V))
+    setWIValue(V);
+}
+
+static Type *getVectorType(Type *T, unsigned Size) {
+  if (auto *VecType = dyn_cast<VectorType>(T)) {
+    return FixedVectorType::get(VecType->getScalarType(),
+                                Size * VecType->getNumElements());
+  }
+  // Only allow non-agg Type.
+  return FixedVectorType::get(T, Size);
+}
+
+static Type *getVectorType(Value *V, unsigned Size) {
+  return getVectorType(V->getType(), Size);
+}
+
+Value *SGValueWiden::getVectorValuePtr(Value *V, unsigned Size,
+                                       Instruction *IP) {
+  assert(VecValueMap.count(V) && "Can't find value in VecValueMap");
+  auto *WideValuePtr = cast<AllocaInst>(VecValueMap[V]);
+  Type *DestType = getVectorType(V, Size);
+  IRBuilder<> Builder(IP);
+
+  // eg. V = alloca i32 DestType shold be <16 x i32*>
+  if (isa<AllocaInst>(V)) {
+    // Generate sequential vector 0 ... Size-1.
+    SmallVector<Constant *, 16> IndVec;
+    for (unsigned Ind = 0; Ind < Size; ++Ind)
+      IndVec.push_back(ConstantInt::get(Builder.getInt32Ty(), Ind));
+    Constant *SequenceVec = ConstantVector::get(IndVec);
+
+    return Builder.CreateGEP(WideValuePtr, {ConstZero, SequenceVec});
+  }
+
+  auto *WideType = WideValuePtr->getAllocatedType();
+  if (WideType->isVectorTy())
+    return WideValuePtr;
+
+  auto *VectorValType = cast<FixedVectorType>(V->getType());
+  unsigned OrigNumElem = VectorValType->getNumElements();
+  // For type3 shuffle, look like this cast doesn't work.
+  if ((OrigNumElem & (OrigNumElem - 1)) == 0)
+    return Builder.CreateBitCast(WideValuePtr, PointerType::get(DestType, 0));
+  return nullptr;
+}
+
+static void storeVectorByVecElement(Value *Addr, Value *Data, Type *OrigValType,
+                                    unsigned VF, IRBuilderBase &Builder) {
+  Value *ConstZero = Builder.getInt32(0);
+  auto *VectorValType = cast<FixedVectorType>(OrigValType);
+  unsigned OrigNumElem = VectorValType->getNumElements();
+  for (unsigned Idx = 0; Idx < VF; ++Idx) {
+    for (unsigned Id = 0; Id < OrigNumElem; ++Id) {
+      Value *ElemVal =
+          Builder.CreateExtractElement(Data, Idx * OrigNumElem + Id);
+      Value *ElemPtr = Builder.CreateGEP(
+          Addr, {ConstZero, Builder.getInt32(Idx), Builder.getInt32(Id)});
+      Builder.CreateStore(ElemVal, ElemPtr);
+    }
+  }
+}
+
+static Value *loadVectorByVecElement(Value *Addr, Type *OrigValType,
+                                     unsigned VF, IRBuilderBase &Builder) {
+  Value *ConstZero = Builder.getInt32(0);
+  auto *VectorValType = cast<FixedVectorType>(OrigValType);
+  Type *ScalarEleType = VectorValType->getScalarType();
+  unsigned OrigNumElem = VectorValType->getNumElements();
+  Type *DestType = getVectorType(OrigValType, VF);
+  Value *Res = UndefValue::get(DestType);
+  for (unsigned Idx = 0; Idx < VF; ++Idx) {
+    for (unsigned Id = 0; Id < OrigNumElem; ++Id) {
+      Value *ElemPtr = Builder.CreateGEP(
+          Addr, {ConstZero, Builder.getInt32(Idx), Builder.getInt32(Id)});
+      Value *ElemVal = Builder.CreateLoad(ScalarEleType, ElemPtr);
+      Res = Builder.CreateInsertElement(Res, ElemVal, Idx * OrigNumElem + Id);
+    }
+  }
+  return Res;
+}
+
+void SGValueWiden::setVectorValue(Value *Data, Value *V, unsigned Size,
+                                  Instruction *IP) {
+  IRBuilder<> Builder(IP);
+  Type *OrigValType = V->getType();
+
+  if (UniValueMap.count(V)) {
+    Value *ElemVal =
+        isa<FixedVectorType>(OrigValType)
+            ? generateExtractSubVector(Data, 1, 16, Builder, "extract.sub.")
+            : Builder.CreateExtractElement(Data, ConstZero);
+    Builder.CreateStore(ElemVal, UniValueMap[V]);
+    return;
+  }
+  assert(VecValueMap.count(V) && "Can't find Value in VecValueMap");
+  Value *Ptr = getVectorValuePtr(V, Size, IP);
+  if (Ptr != nullptr) {
+    auto *IntVType = dyn_cast<IntegerType>(OrigValType);
+    if (!IntVType) {
+      Builder.CreateStore(Data, Ptr);
+      return;
+    }
+    auto &DL = IP->getModule()->getDataLayout();
+    unsigned StoreSize = DL.getTypeStoreSizeInBits(OrigValType);
+    if (IntVType->getBitWidth() == StoreSize) {
+      Builder.CreateStore(Data, Ptr);
+      return;
+    }
+
+    // For <VF x i1> type, since we will get the value one by one via GEP, we
+    // will be actually getting value from <VF x i8>*, so we need to store it as
+    // <VF x i8>.
+    Type *ExtVType = Type::getIntNTy(V->getContext(), StoreSize);
+    Type *ExtWideVType = FixedVectorType::get(ExtVType, Size);
+    Value *CastPtr =
+        Builder.CreateBitCast(Ptr, PointerType::get(ExtWideVType, 0));
+    Value *CastVal = Builder.CreateZExt(Data, ExtWideVType);
+    Builder.CreateStore(CastVal, CastPtr);
+    return;
+  } else {
+    // Do we need to fix vector memory access here?
+    storeVectorByVecElement(VecValueMap[V], Data, OrigValType, Size, Builder);
+  }
+}
+
+Value *SGValueWiden::getVectorValue(Value *V, unsigned Size, Instruction *IP) {
+  auto *OrigValType = V->getType();
+  assert(!OrigValType->isVoidTy() && "Get vector counterpart of void type!");
+
+  if (isa<AllocaInst>(V))
+    return getVectorValuePtr(V, Size, IP);
+
+  IRBuilder<> Builder(IP);
+  if (VecValueMap.count(V)) {
+    Value *WideValPtr = getVectorValuePtr(V, Size, IP);
+    // Process type3 shuffle.
+    if (WideValPtr == nullptr)
+      return loadVectorByVecElement(VecValueMap[V], OrigValType, Size, Builder);
+
+    // For <VF x i1> type, since we were storing it one by one , we were
+    // actually setting value to <VF x i8>*, so we need to load it as <VF x i8>.
+    return fixIntNVector(getVectorType(V, Size), WideValPtr, IP);
+  } else {
+    if (UniValueMap.count(V))
+      V = Builder.CreateLoad(OrigValType, UniValueMap[V]);
+    if (isa<FixedVectorType>(OrigValType))
+      return replicateVector(V, Size, Builder, "splat.");
+    return Builder.CreateVectorSplat(Size, V);
+  }
+}
+
+Value *SGValueWiden::getScalarValue(Value *V, Instruction *IP) {
+  IRBuilder<> Builder(IP);
+  auto *OrigValType = V->getType();
+  if (UniValueMap.count(V))
+    return Builder.CreateLoad(OrigValType, UniValueMap[V]);
+
+  // This value should be constant.
+  if (!VecValueMap.count(V))
+    return V;
+
+  auto *WideValuePtr = cast<AllocaInst>(VecValueMap[V]);
+  auto *ScalarValuePtr =
+      Builder.CreateGEP(WideValuePtr, {ConstZero, ConstZero});
+  return Builder.CreateLoad(OrigValType, ScalarValuePtr);
+}
+
+void SGValueWiden::setWIValue(Value *V) {
+  Instruction *IP = cast<Instruction>(V)->getNextNode();
+  // It's safe to do this, because if the use of V is before this store then
+  // the use itself must be a PHINode in this BB, so we won't load from
+  // ValueMap for that use.
+  if (isa<PHINode>(IP))
+    IP = IP->getParent()->getFirstNonPHI();
+  IRBuilder<> Builder(IP);
+  Value *Offset = VecValueMap.count(V)   ? getWIOffset(IP, VecValueMap[V])
+                  : UniValueMap.count(V) ? UniValueMap[V]
+                                         : nullptr;
+  assert(Offset && "Can't find value in ValueMap");
+  Builder.CreateStore(V, Offset);
+}
+
+Value *SGValueWiden::getWIValue(Instruction *U, Value *V) {
+  // If all the path from V to U don't cross barrier, we can return V. But for
+  // wide calls, they will be removed later, so we can't use the scalar one.
+  // TODO: Can we replace this approximate analyis (Use and Def are in the same
+  // BB) with Cross-Barrier analysis?
+  if (U->getParent() == cast<Instruction>(V)->getParent() && !isWideCall(V))
+    return V;
+  assert(VecValueMap.count(V) && "Can't find value in VecValueMap");
+  Value *Src = VecValueMap[V];
+  Instruction *IP = getInsertPoint(U, V);
+  auto *Offset = getWIOffset(IP, Src);
+  return new LoadInst(Offset->getType()->getPointerElementType(), Offset, "",
+                      IP);
+}
+
+Value *SGValueWiden::getWIOffset(Instruction *IP, Value *Src) {
+  assert(Src->getType()->isPointerTy() && "get offest for a non-pointer value");
+  auto *Idx = Helper.createGetSubGroupLId(IP);
+  IRBuilder<> Builder(IP);
+  return Builder.CreateGEP(Src, {ConstZero, Idx});
+}
+
+Instruction *SGValueWiden::getInsertPoint(Instruction *I, Value *V) {
+
+  if (isWideCall(I) || isa<ReturnInst>(I)) {
+    auto *IP = I->getPrevNode();
+    // The ending barrier may be deleted before
+    // sg_barrier
+    // %0 = sub_group_all(1)
+    // dummy_sg_barrier
+    // sg_barrier
+    // ret %0
+    if (!Helper.isBarrier(IP))
+      IP = Helper.insertBarrierBefore(I);
+    return getInsertPoint(IP, V);
+  }
+
+  // Barrier and dummy barrier should always be the first instruction in a
+  // BasicBlock.
+  if (Helper.isBarrier(I) || Helper.isDummyBarrier(I)) {
+    auto *SyncBB = I->getParent();
+    std::string BBName = SyncBB->getName().str();
+    SyncBB->setName("");
+    SyncBB->splitBasicBlock(I, BBName);
+    return SyncBB->getTerminator();
+  }
+
+  if (!isa<PHINode>(I))
+    return I;
+
+  auto *PHI = cast<PHINode>(I);
+  auto *BB = PHI->getParent();
+  for (auto BI = pred_begin(BB), BE = pred_end(BB); BI != BE; BI++) {
+    auto *BV = PHI->getIncomingValueForBlock(*BI);
+    if (BV == V)
+      return (*BI)->getTerminator();
+  }
+  llvm_unreachable("Can't find incoming basicblock for value");
+}
+
+void SGValueWiden::widenCalls() {
+  for (auto *I : WideCalls) {
+    auto *CI = cast<CallInst>(I);
+    LLVM_DEBUG(dbgs() << "Widening Call: " << *CI);
+    assert(CI->hasFnAttr("vector-variants") &&
+           "wide call doesn't have vector-variants attribute");
+    Function *WideFunc = FuncMap[CI->getCalledFunction()];
+
+    IRBuilder<> Builder(CI);
+    // Get vector-variants attribute
+    StringRef VecVariantStringValue =
+        CI->getFnAttr("vector-variants").getValueAsString();
+    SmallVector<StringRef, 4> VariantStrs;
+    VecVariantStringValue.split(VariantStrs, ",");
+
+    // Select Variant
+    VectorVariant Variant(VariantStrs[0]);
+
+    unsigned Size = Variant.getVlen();
+    std::vector<VectorKind> Params = Variant.getParameters();
+
+    SmallVector<Value *, 4> NewArgs;
+    SmallVector<Type *, 4> NewArgTypes;
+    for (auto &Pair : enumerate(CI->args())) {
+      VectorKind Param = Params[Pair.index()];
+      Value *Arg = Pair.value(), *NewArg = nullptr;
+      if (Param.isUniform()) {
+        NewArg = getScalarValue(Arg, CI);
+      } else {
+        assert(Param.isVector() && "Unsupported VectorKind");
+        NewArg = getVectorValue(Arg, Size, CI);
+      }
+
+      NewArgs.push_back(NewArg);
+      NewArgTypes.push_back(NewArg->getType());
+    }
+
+    // Add mask argument
+    if (Variant.isMasked()) {
+      // Currently all mask is <i32 x VF>.
+      auto *SGSize = Helper.createGetSubGroupSize(CI);
+      Value *Mask = LoopUtils::generateRemainderMask(Size, SGSize, CI);
+      NewArgs.push_back(Mask);
+      NewArgTypes.push_back(Mask->getType());
+    }
+
+    // Create new call.
+    auto *NewReturnVal = Builder.CreateCall(WideFunc, NewArgs);
+    LLVM_DEBUG(dbgs() << "  -> " << *NewReturnVal << "\n");
+    if (UniValueMap.count(CI) || VecValueMap.count(CI)) {
+      // Store the vectorized return value.
+      setVectorValue(NewReturnVal, CI, Size, CI);
+    }
+
+    CI->dropAllReferences();
+    InstsToBeRemoved.push_back(CI);
+  }
+}
+
+void SGValueWiden::widenValue(Instruction *V, Instruction *FirstI,
+                              unsigned Size) {
+  // Skip value w/o any user.
+  if (V->user_empty())
+    return;
+
+  LLVM_DEBUG(dbgs() << "Widening Value:" << *V << "\n");
+  IRBuilder<> Builder(FirstI);
+
+  Type *VType = V->getType();
+  std::string NewName = "w." + V->getName().str();
+
+  AllocaInst *WideValueAddr = nullptr;
+  if (VType->isAggregateType() || VType->isVectorTy()) {
+    Type *WideType = ArrayType::get(VType, Size);
+    WideValueAddr = Builder.CreateAlloca(WideType, nullptr, NewName);
+    // We may convert ths addr to pointer of vector and then load the vector
+    // from it. This behaviour will cause aligned vector move, so we need to
+    // update the alignment here.
+    WideValueAddr->setAlignment(Align(WideValueAddr->getAlignment() * Size));
+  } else {
+    Type *WideType = getVectorType(VType, Size);
+    WideValueAddr = Builder.CreateAlloca(WideType, nullptr, NewName);
+  }
+
+  VecValueMap[V] = WideValueAddr;
+  LLVM_DEBUG(dbgs() << "To:" << *WideValueAddr << "\n");
+
+  // Update Use.
+  InstSet UsersToUpdate;
+  for (auto *U : V->users()) {
+    auto *UI = dyn_cast<Instruction>(U);
+    if (!UI || isWideCall(UI) || isa<ReturnInst>(UI))
+      continue;
+    UsersToUpdate.insert(UI);
+  }
+
+  for (auto *UI : UsersToUpdate) {
+    LLVM_DEBUG(dbgs() << "Updating Use:" << *UI << "\n");
+    auto *NewV = getWIValue(UI, V);
+    UI->replaceUsesOfWith(V, NewV);
+  }
+
+  // We will store the vector return value in WidenCalls.
+  if (!isWideCall(V))
+    setWIValue(V);
+}
+
+void SGValueWiden::widenAlloca(Instruction *V, Instruction *FirstI,
+                               unsigned Size) {
+  // Skip value w/o any user.
+  if (V->user_empty())
+    return;
+
+  LLVM_DEBUG(dbgs() << "Widening Value(alloca):" << *V << "\n");
+  AllocaInst *AI = cast<AllocaInst>(V);
+
+  auto *ArraySize = dyn_cast<ConstantInt>(AI->getArraySize());
+  assert(ArraySize && "Array Size is not constant");
+
+  IRBuilder<> Builder(FirstI);
+  unsigned NewSize = Size * ArraySize->getZExtValue();
+  Type *AllocatedType = AI->getAllocatedType();
+  auto AddrSpace = AI->getType()->getAddressSpace();
+  std::string NewName = "w." + V->getName().str();
+
+  AllocaInst *WideValue = nullptr;
+  if (AllocatedType->isAggregateType() || AllocatedType->isVectorTy()) {
+    Type *WideType = ArrayType::get(AllocatedType, NewSize);
+    WideValue = Builder.CreateAlloca(WideType, AddrSpace, nullptr, NewName);
+    // We may convert ths addr to pointer of vector and then load the vector
+    // from it. This behaviour will cause aligned vector move, so we need to
+    // update the alignment here.
+    WideValue->setAlignment(Align(AI->getAlignment() * Size));
+  } else {
+    Type *WideType = getVectorType(AllocatedType, NewSize);
+    WideValue = Builder.CreateAlloca(WideType, AddrSpace, nullptr, NewName);
+  }
+  VecValueMap[V] = WideValue;
+  LLVM_DEBUG(dbgs() << "To:" << *WideValue << "\n");
+
+  InstSet UsersToUpdate;
+  for (auto *U : AI->users()) {
+    auto *UI = dyn_cast<Instruction>(U);
+    if (!UI || isWideCall(UI) || isa<ReturnInst>(UI))
+      continue;
+    UsersToUpdate.insert(UI);
+  }
+
+  // Create a new llvm.dbg.declare which describes the address of original
+  // local variable. And so we should prepend deref to DIExpression.
+  auto DbgDeclares = FindDbgDeclareUses(AI);
+  if (EnableDebug && !DbgDeclares.empty()) {
+    Builder.SetInsertPoint(FirstI);
+    AllocaInst *AIAddrDbg =
+        Builder.CreateAlloca(AI->getType(), nullptr, "dbg." + AI->getName());
+
+    DbgDeclareInst *DI = DbgDeclares.front();
+    DIBuilder DIB(*FirstI->getModule(), false);
+    DILocalVariable *Variable = DI->getVariable();
+    DIExpression *Expression =
+        DIExpression::prepend(DI->getExpression(), DIExpression::DerefBefore);
+    const DILocation *Location = DI->getDebugLoc().get();
+    DIB.insertDeclare(AIAddrDbg, Variable, Expression, Location,
+                      AIAddrDbg->getNextNode());
+    DebugAIMap[AI] = AIAddrDbg;
+  }
+
+  // We always need to do this even if we disable debug, otherwise,
+  // when we remove AI, these debug intrinsics are still using it.
+  for (auto *DI : DbgDeclares)
+    DI->eraseFromParent();
+
+  for (auto *UI : UsersToUpdate) {
+    LLVM_DEBUG(dbgs() << "Updating Use:" << *UI << "\n");
+    auto *IP = getInsertPoint(UI, V);
+    auto *Idx = Helper.createGetSubGroupLId(IP);
+    // This action also sets Debug Location.
+    Builder.SetInsertPoint(IP);
+    auto *Offset =
+        ArraySize->getZExtValue() > 1 ? Builder.CreateMul(Idx, ArraySize) : Idx;
+    auto *NewV = Builder.CreateGEP(WideValue, {ConstZero, Offset});
+    UI->replaceUsesOfWith(V, NewV);
+  }
+
+  InstsToBeRemoved.push_back(AI);
+}
+
+} // namespace intel
+
+extern "C" {
+llvm::Pass *createSGValueWidenPass(bool EnableDebug) {
+  return new intel::SGValueWiden(EnableDebug);
+}
+}

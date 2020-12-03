@@ -57,6 +57,15 @@ void initializeWIRelatedValuePass(llvm::PassRegistry&);
 void initializeSinCosFoldPass(llvm::PassRegistry&);
 void initializeDataPerBarrierPass(llvm::PassRegistry&);
 void initializeDataPerValuePass(llvm::PassRegistry&);
+// SGEmulation passes
+void initializeSGBuiltinPass(llvm::PassRegistry &);
+void initializeSGSizeAnalysisPass(llvm::PassRegistry &);
+void initializeSGBarrierPropagatePass(llvm::PassRegistry &);
+void initializeSGBarrierSimplifyPass(llvm::PassRegistry &);
+void initializeSGValueWidenPass(llvm::PassRegistry &);
+void initializeSGLoopConstructPass(llvm::PassRegistry &);
+
+void initializeResolveVariableTIDCallPass(llvm::PassRegistry &);
 void initializeReplaceScalarWithMaskPass(llvm::PassRegistry&);
 void initializePreventDivCrashesPass(llvm::PassRegistry&);
 void initializeBuiltinCallToInstPass(llvm::PassRegistry&);

@@ -15,8 +15,9 @@
 #ifndef __KERNEL_SUB_GROUP_INFO_H
 #define __KERNEL_SUB_GROUP_INFO_H
 
-#include "llvm/Pass.h"
+#include "llvm/Analysis/CallGraph.h"
 #include "llvm/IR/Module.h"
+#include "llvm/Pass.h"
 
 using namespace llvm;
 
@@ -29,7 +30,7 @@ namespace intel {
     static char ID;
 
     /// @brief Constructor
-    KernelSubGroupInfo() : ModulePass(ID) {}
+    KernelSubGroupInfo() : ModulePass(ID), CG(nullptr) {}
 
     /// @brief Provides name of pass
     virtual llvm::StringRef getPassName() const override {
@@ -37,6 +38,7 @@ namespace intel {
     }
 
     virtual void getAnalysisUsage(AnalysisUsage &AU) const override {
+      AU.addRequired<CallGraphWrapperPass>();
       AU.setPreservesAll();
     }
 
@@ -50,6 +52,8 @@ namespace intel {
     bool containsSubGroups(Function*) const;
 
     bool runOnFunction(Function&) const;
+
+    CallGraph *CG;
   };
 
 } // namespace intel

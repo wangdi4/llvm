@@ -870,7 +870,9 @@ Function *CompilationUtils::AddMoreArgsToFunc(
     Function *F, ArrayRef<Type *> NewTypes, ArrayRef<const char *> NewNames,
     ArrayRef<AttributeSet> NewAttrs, StringRef Prefix) {
   assert(NewTypes.size() == NewNames.size());
-  assert(NewTypes.size() == NewAttrs.size());
+  SmallVector<AttributeSet, 16> NAttrs;
+  NAttrs.assign(NewAttrs.begin(), NewAttrs.end());
+  NAttrs.append(NewTypes.size() - NewAttrs.size(), {});
   // Initialize with all original arguments in the function sugnature
   SmallVector<llvm::Type *, 16> Types;
 
@@ -898,9 +900,8 @@ Function *CompilationUtils::AddMoreArgsToFunc(
   for (unsigned I = 0, E = NewNames.size(); I < E; ++I, ++NewI) {
     Argument *A = &*NewI;
     A->setName(NewNames[I]);
-    if (!NewAttrs.empty())
-      for (auto Attr : NewAttrs[I])
-        A->addAttr(Attr);
+    for (auto Attr : NAttrs[I])
+      A->addAttr(Attr);
   }
   // Since we have now created the new function, splice the body of the old
   // function right into the new function, leaving the old body of the function empty.
@@ -1494,6 +1495,20 @@ bool CompilationUtils::isWorkGroupMax(const std::string& S) {
   return isWorkGroupReduceMax(S)             ||
          isWorkGroupScanExclusiveMax(S) ||
          isWorkGroupScanInclusiveMax(S);
+}
+
+// TODO: add ballot function, refactor OCLVecClone - opencl-vec-uniform-return.
+bool CompilationUtils::isSubGroupUniform(const std::string &S) {
+  return isGetSubGroupSize(S) || isGetSubGroupId(S) ||
+         isGetMaxSubGroupSize(S) || isGetNumSubGroups(S) ||
+         isGetEnqueuedNumSubGroups(S) || isSubGroupAll(S) || isSubGroupAny(S) ||
+         isSubGroupBroadCast(S) || isSubGroupReduceAdd(S) ||
+         isSubGroupReduceMin(S) || isSubGroupReduceMax(S);
+}
+
+bool CompilationUtils::isWGUniform(const std::string &S) {
+  return isWorkGroupUniform(S) || isGetMaxSubGroupSize(S) ||
+         isGetNumSubGroups(S) || isGetEnqueuedNumSubGroups(S);
 }
 
 bool CompilationUtils::isWorkGroupUniform(const std::string& S) {

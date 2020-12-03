@@ -30,9 +30,6 @@ define void @__Vectorized_.testKernel(i32 addrspace(1)* %sub_group_local_ids, i3
 entry:
   %call = tail call i64 @_Z13get_global_idj(i32 0) #3
   %call1 = tail call i32 @_Z22get_sub_group_local_idv() #4
-; CHECK-NOT: @_Z22get_sub_group_local_idv
-; CHECK: insertelement <16 x i32> undef
-; CHECK-SAME: i32 0, i32 0
   %temp2 = insertelement <16 x i32> undef, i32 %call1, i32 0
   %vector1 = shufflevector <16 x i32> %temp2, <16 x i32> undef, <16 x i32> zeroinitializer
   %0 = add <16 x i32> %vector1, <i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7, i32 8, i32 9, i32 10, i32 11, i32 12, i32 13, i32 14, i32 15>

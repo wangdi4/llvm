@@ -32,10 +32,10 @@ class OCLVPOCheckVF : public llvm::ModulePass {
 public:
   static char ID;
 
-  OCLVPOCheckVF(const OptimizerConfig &config, TStringToVFState &checkState)
-      : llvm::ModulePass(ID), m_cpuId(config.GetCpuId()),
-        m_transposeSize(config.GetTransposeSize()), m_canFallBack(false),
-        m_checkState(checkState) {}
+  OCLVPOCheckVF(const OptimizerConfig &Config, TStringToVFState &CheckState)
+      : llvm::ModulePass(ID), CpuId(Config.GetCpuId()),
+        TransposeSize(Config.GetTransposeSize()), CanFallBack(false),
+        CheckState(CheckState) {}
 
   ~OCLVPOCheckVF() {}
 
@@ -48,15 +48,29 @@ public:
   }
 
 private:
-  const Intel::CPUId &m_cpuId;
+  const Intel::CPUId &CpuId;
 
-  ETransposeSize m_transposeSize;
+  ETransposeSize TransposeSize;
 
-  bool m_canFallBack;
+  bool CanFallBack;
 
-  TStringToVFState &m_checkState;
+  TStringToVFState &CheckState;
 
-  std::map<llvm::Function *, unsigned> m_kernelToVF;
+  std::map<llvm::Function *, unsigned> KernelToVF;
+  std::map<llvm::Function *, unsigned> KernelToSGEmuSize;
+
+  /// Return the subgroup emulation size when InstCounter didn't run.
+  // TODO: Refactor InstCounter to add sg_emu_size metadata.
+  unsigned getAutoEmuSize() {
+    // SSE42/AVX -> 4
+    if (!CpuId.HasAVX2())
+      return 4;
+    // AVX2 -> 8
+    if (!CpuId.HasAVX512Core())
+      return 8;
+    // AVX512 -> 16
+    return 16;
+  }
 
   /// Check whether the VF are multi-contraint.
   /// Return true if VF is not multi-constraint.

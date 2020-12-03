@@ -126,7 +126,7 @@ namespace intel {
 
     /// @brief return all synchronize instructions in the module
     /// @returns container with all synchronize instructions
-    TInstructionVector& getAllSynchronizeInstructuons();
+    TInstructionVector &getAllSynchronizeInstructions();
 
     /// @brief return all synchronize basic blocks in the module
     /// @returns container with all synchronize basic blocks
@@ -165,7 +165,7 @@ namespace intel {
     /// @brief Checks whether call instruction calls barrier()
     /// @param pCallInstr instruction of interest
     /// @returns true if this is barrier() call and false otherwise
-    bool isBarrierCall(CallInst *pCallInstr);
+    bool isBarrierCall(Instruction *pCallInstr);
 
     /// @brief Create new call instruction to dummyBarrier()
     /// @param pInsertBefore instruction to insert new call instruction before
@@ -175,7 +175,7 @@ namespace intel {
     /// @brief Checks whether call instruction calls dummyBarrier()
     /// @param pCallInstr instruction of interest
     /// @returns true if this is dummyBarrier() call and false otherwise
-    bool isDummyBarrierCall(CallInst *pCallInstr);
+    bool isDummyBarrierCall(Instruction *pCallInstr);
 
     /// @brief Create new call instruction to get_special_buffer()
     /// @param pInsertBefore instruction to insert new call instruction before
@@ -195,11 +195,17 @@ namespace intel {
     /// @returns container with all get_global_id call instructions
     TInstructionVector& getAllGetGlobalId();
 
-    /// @brief Create new call instruction to get_global_id()
-    /// @param dim dimensionality of kernel
-    /// @param pInsertBefore instruction to insert new call instruction before
+    /// @brief Create new call instruction to get_global_id
+    /// @param dim argument of get_global_id call
+    /// @param Builder IRBuilder used to create new instructions.
     /// @returns new created call instruction
-    Instruction *createGetGlobalId(unsigned dim, IRBuilder<> &);
+    Instruction *createGetGlobalId(unsigned dim, IRBuilderBase &Builder);
+
+    /// @brief Create new call instruction to get_local_id
+    /// @param dim argument of get_local_id call
+    /// @param Builder IRBuilder used to create new instructions.
+    /// @returns new created call instruction
+    Instruction *createGetLocalId(unsigned dim, IRBuilderBase &Builder);
 
     /// @brief return an indicator regarding given function calls
     /// a function defined in the module (that was not inlined)
@@ -215,13 +221,17 @@ namespace intel {
     /// @param ValBB basic block to stop searching the path when reach it.
     /// @returns true if and only if find a barrier in one of the searched
     ///   pathes.
-    bool isCrossedByBarrier(TInstructionSet &SyncInstructions,
-                            BasicBlock *ValUsageBB, BasicBlock *ValBB);
+    static bool isCrossedByBarrier(const TInstructionSet &SyncInstructions,
+                                   BasicBlock *ValUsageBB, BasicBlock *ValBB);
 
     /// @brief Check whether instruction is implicit GID.
     /// @param AI Alloca instruction.
     /// @return true if the instruction is implicit GID, false otherwise.
     bool isImplicitGID(AllocaInst *AI);
+
+    Type *getInt32Ty() const { return m_I32Ty; }
+
+    Type *getSizetTy() const { return m_SizetTy; }
 
   private:
     /// @brief Clean all collected values and assure
@@ -269,6 +279,8 @@ namespace intel {
     Function  *m_getLocalSizeFunc;
     /// This holds the get_global_id() function
     Function  *m_getGIDFunc;
+    /// This holds the get_local_id() function
+    Function *m_getLIDFunc;
     /// This holds the get_sub_group_size() function
     Function  *m_getSGSizeFunc;
     /// This holds the get_base_global_id() function
@@ -285,7 +297,6 @@ namespace intel {
     /// This holds all the WG function calls in the module
     TInstructionVector  m_WGcallInstructions;
     TFunctionToUnsigned m_kernelVectorizationWidths;
-    
 
     /// This indecator for synchronize data initialization
     bool m_bSyncDataInitialized;

@@ -33,7 +33,8 @@ namespace intel {
     m_hasFiber = false;
 
     //Find all synchronize instructions
-    TInstructionVector& syncInstructions = m_util.getAllSynchronizeInstructuons();
+    TInstructionVector &syncInstructions =
+        m_util.getAllSynchronizeInstructions();
 
     for (TInstructionVector::iterator ii = syncInstructions.begin(),
       ie = syncInstructions.end(); ii != ie; ++ii ) {
