@@ -364,7 +364,6 @@ cl_context    ContextModule::CreateContext(const cl_context_properties * clPrope
         if (CL_FAILED(clErrRet))
             return CL_INVALID_HANDLE;
     }
-
     delete[] ppDevices;
 
     cl_context clContextId = (cl_context)m_mapContexts.AddObject(pContext);
@@ -487,6 +486,7 @@ cl_err_code ContextModule::RetainContext(cl_context context)
 {
     LOG_INFO(TEXT("ContextModule::RetainContext enter. context=%d"), context);
     cl_err_code clErrRet = CL_SUCCESS;
+    (void)clErrRet;
     SharedPtr<Context> pContext = m_mapContexts.GetOCLObject((_cl_context_int*)context).DynamicCast<Context>();
     if (NULL == pContext)
     {
@@ -1109,6 +1109,7 @@ cl_int ContextModule::GetProgramInfo(cl_program clProgram,
         clProgram, clParamName, szParamValueSize, pParamValue, pszParamValueSizeRet);
     
     cl_err_code clErrRet = CL_SUCCESS;
+    (void)clErrRet;
     SharedPtr<Program> pProgram = m_mapPrograms.GetOCLObject((_cl_program_int*)clProgram).DynamicCast<Program>();
     if (NULL == pProgram)
     {
@@ -1154,6 +1155,7 @@ cl_int ContextModule::GetProgramBuildInfo(cl_program clProgram,
         clProgram, clDevice, clParamName, szParamValueSize, pParamValue, pszParamValueSizeRet);
     
     cl_err_code clErrRet = CL_SUCCESS;
+    (void)clErrRet;
     SharedPtr<Program> pProgram = m_mapPrograms.GetOCLObject((_cl_program_int*)clProgram).DynamicCast<Program>();
     if (NULL == pProgram)
     {
@@ -1654,6 +1656,7 @@ cl_int ContextModule::GetKernelInfo(cl_kernel clKernel,
         clKernel, clParamName, szParamValueSize, pParamValue, pszParamValueSizeRet);
 
     cl_err_code clErr = CL_SUCCESS;
+    (void)clErr;
     SharedPtr<Kernel> pKernel = m_mapKernels.GetOCLObject((_cl_kernel_int*)clKernel).DynamicCast<Kernel>();
     if (NULL == pKernel)
     {
@@ -2271,6 +2274,7 @@ cl_int ContextModule::RetainMemObject(cl_mem clMemObj)
     LOG_DEBUG(TEXT("Enter RetainMemObject (clMemObj=%d)"), clMemObj);
 
     cl_err_code clErr = CL_SUCCESS;
+    (void)clErr;
     SharedPtr<MemoryObject> pMemObj = m_mapMemObjects.GetOCLObject((_cl_mem_int*)clMemObj).DynamicCast<MemoryObject>();
     if (NULL == pMemObj)
     {
@@ -2410,6 +2414,7 @@ cl_int ContextModule::GetMemObjectInfo(cl_mem clMemObj,
         clMemObj, clParamName, szParamValueSize, pParamValue, pszParamValueSizeRet);
 
     cl_err_code clErr = CL_SUCCESS;
+    (void)clErr;
     SharedPtr<MemoryObject> pMemObj = m_mapMemObjects.GetOCLObject((_cl_mem_int*)clMemObj).DynamicCast<MemoryObject>();
     if (NULL == pMemObj)
     {
@@ -2432,6 +2437,7 @@ cl_int ContextModule::GetImageInfo(cl_mem clImage,
         clImage, clParamName, szParamValueSize, pParamValue, pszParamValueSizeRet);
 
     cl_err_code clErr = CL_SUCCESS;
+    (void)clErr;
     SharedPtr<MemoryObject> pMemObj = m_mapMemObjects.GetOCLObject((_cl_mem_int*)clImage).DynamicCast<MemoryObject>();
     if (NULL == pMemObj)
     {
@@ -2943,94 +2949,103 @@ ContextModule::initializeLibraryProgram(SharedPtr<Context> &Ctx,
                                         const cl_uint NumDevices,
                                         SharedPtr<FissionableDevice> *Devices) {
   LOG_INFO(TEXT("%s"), TEXT("initializeLibraryProgram enter"));
-  OclAutoMutex mu(&m_backendLibraryMutex);
 
   // Create program.
   SharedPtr<Program> Prog;
   std::string KernelNames;
-  cl_int err = Ctx->CreateProgramWithLibraryKernels(NumDevices, Devices, &Prog,
+  cl_int Err = Ctx->CreateProgramWithLibraryKernels(NumDevices, Devices, &Prog,
                                                     KernelNames);
-  if (CL_FAILED(err)) {
-      LOG_ERROR(TEXT("CreateProgramWithLibraryKernels failed, err %d"), err);
-      return CL_INVALID_HANDLE;
-  }
-  err = m_mapPrograms.AddObject(Prog, false);
-  if (CL_FAILED(err)) {
-      LOG_ERROR(TEXT("m_mapPrograms.AddObject failed, err %d"), err);
-      Ctx->RemoveProgram(Prog->GetHandle());
-      Prog->Release();
-      return CL_INVALID_HANDLE;
+  if (CL_FAILED(Err)) {
+      LOG_ERROR(TEXT("CreateProgramWithLibraryKernels failed, err %d"), Err);
+      return Err;
   }
 
-  cl_program ProgHandle = Prog->GetHandle();
-  cl_context CtxHandle = Ctx->GetHandle();
-  m_backendLibraryProgram[CtxHandle] = ProgHandle;
+  Err = m_mapPrograms.AddObject(Prog, false);
+  if (CL_FAILED(Err)) {
+      LOG_ERROR(TEXT("m_mapPrograms.AddObject failed, err %d"), Err);
+      Ctx->RemoveProgram(Prog->GetHandle());
+      Prog->Release();
+      return Err;
+  }
 
   // Create Kernels for current thread.
   threadid_t TID = clMyThreadId();
   std::vector<std::string> KernelNamesVec = SplitString(KernelNames, ';');
   for (auto &KName : KernelNamesVec) {
-      cl_int err = CreateLibraryKernelForThread(CtxHandle, TID, KName);
-      if (CL_FAILED(err)) {
-          LOG_ERROR(TEXT("Failed to create library kernel, err %d"), err);
-          return err;
+      cl_kernel K = CreateLibraryKernelForThread(Ctx, TID, KName);
+      if (!K) {
+          LOG_ERROR(TEXT("Failed to create library kernel %s"), KName.c_str());
+          return CL_OUT_OF_RESOURCES;
       }
   }
-
-  return err;
+  return Err;
 }
 
 cl_int ContextModule::releaseLibraryProgram(const cl_context Ctx) {
   LOG_INFO(TEXT("%s"), TEXT("releaseLibraryProgram enter"));
-
   OclAutoMutex mu(&m_backendLibraryMutex);
-
-  if (!m_backendLibraryProgram.count(Ctx))
+  SharedPtr<Context> C = m_mapContexts.GetOCLObject((_cl_context_int*)Ctx).DynamicCast<Context>();
+  if (!C) {
+    // Ctx could be already released.
     return CL_SUCCESS;
-
+  }
+  cl_program P = C->GetLibraryProgram();
+  if (!P) {
+    // TODO replace with assert when context reference count issue is solved.
+    return CL_SUCCESS;
+  }
   // Release kernels.
-  cl_int err;
-  for (auto &NK : m_backendLibraryKernels[Ctx]) {
-    for (auto &K : NK.second) {
-      err = ReleaseKernel(K.second);
-      if (CL_FAILED(err))
-        return err;
+  auto &Kernels = C->GetLibraryKernels();
+  cl_int Err;
+  for (auto I = Kernels.begin(), E = Kernels.end(); I != E; ++I) {
+    for (auto &K : I->second) {
+      Err = ReleaseKernel(K.second);
+      if (CL_FAILED(Err))
+        return Err;
     }
   }
-  m_backendLibraryKernels.erase(Ctx);
 
-  err = ReleaseProgram(m_backendLibraryProgram[Ctx]);
-  m_backendLibraryProgram.erase(Ctx);
-  return err;
+  Err = ReleaseProgram(P);
+
+  // TODO not needed when context reference count issue is solved.
+  C->ResetLibraryProgramKernels();
+
+  return Err;
 }
 
-cl_int ContextModule::CreateLibraryKernelForThread(const cl_context Ctx,
-                                                   const threadid_t TID,
+cl_kernel ContextModule::CreateLibraryKernelForThread(SharedPtr<Context> &Ctx,
+                                                      threadid_t TID,
                                                    const std::string &Name) {
-  assert(m_backendLibraryProgram.count(Ctx) && "Invalid context");
-  cl_program P = m_backendLibraryProgram[Ctx];
+  cl_program P = Ctx->GetLibraryProgram();
+  if (!P) {
+    // This could happen after CreateContext, RetainContext and then
+    // ReleaseContext. TODO replace with assert when context reference count
+    // issue is solved.
+    return nullptr;
+  }
+
   cl_int err;
   cl_kernel K = CreateKernel(P, Name.c_str(), &err);
   if (CL_FAILED(err)) {
     LOG_ERROR(TEXT("Failed to create library kernel, err %d"), err);
-    return CL_INVALID_VALUE;
+    return nullptr;
   }
-  m_backendLibraryKernels[Ctx][TID][Name] = K;
-  return CL_SUCCESS;
+  Ctx->SetLibraryKernel(TID, Name, K);
+  return K;
 }
 
-SharedPtr<Kernel> ContextModule::GetLibraryKernel(const cl_context Ctx,
+SharedPtr<Kernel> ContextModule::GetLibraryKernel(SharedPtr<Context> &Ctx,
                                                   const std::string &Name) {
   threadid_t TID = clMyThreadId();
-  if (!m_backendLibraryKernels.count(Ctx) ||
-      !m_backendLibraryKernels[Ctx].count(TID) ||
-      !m_backendLibraryKernels[Ctx][TID].count(Name)) {
-    OclAutoMutex mu(&m_backendLibraryMutex);
-    cl_int err = CreateLibraryKernelForThread(Ctx, TID, Name);
-    if (CL_FAILED(err))
+  auto &Kernels = Ctx->GetLibraryKernels();
+  cl_kernel K = (Kernels.count(TID) && Kernels[TID].count(Name))
+                    ? Kernels[TID][Name]
+                    : nullptr;
+  if (!K) {
+    K = CreateLibraryKernelForThread(Ctx, TID, Name);
+    if (!K)
       return nullptr;
   }
-  cl_kernel K = m_backendLibraryKernels[Ctx][TID][Name];
 
   return GetKernel(K);
 }
@@ -3053,6 +3068,7 @@ cl_int ContextModule::GetKernelArgInfo(cl_kernel clKernel,
         clKernel, argIndx, paramName, szParamValueSize, pParamValue, pszParamValueSizeRet);
 
     cl_err_code clErr = CL_SUCCESS;
+    (void)clErr;
     SharedPtr<Kernel> pKernel = m_mapKernels.GetOCLObject((_cl_kernel_int*)clKernel).DynamicCast<Kernel>();
     if (NULL == pKernel)
     {

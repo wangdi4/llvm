@@ -572,9 +572,8 @@ KernelProperties *ProgramBuilder::CreateKernelProperties(
   return pProps;
 }
 
-cl_dev_err_code ProgramBuilder::BuildLibraryProgram(std::string &LibraryName,
-                                                    Program *Prog,
-                                                    char **KernelNames) {
+cl_dev_err_code ProgramBuilder::BuildLibraryProgram(Program *Prog,
+                                                    std::string &KernelNames) {
   assert(Prog && "Program parameter must not be nullptr");
   ProgramBuildResult buildResult;
   try {
@@ -582,7 +581,8 @@ cl_dev_err_code ProgramBuilder::BuildLibraryProgram(std::string &LibraryName,
 
     char ModuleName[MAX_PATH];
     Utils::SystemInfo::GetModuleDirectory(ModuleName, MAX_PATH);
-    std::string BaseName = std::string(ModuleName) + LibraryName;
+    std::string BaseName =
+        std::string(ModuleName) + OCL_LIBRARY_KERNEL_TARGET_NAME;
     std::string CPUPrefix = Cmplr->GetCpuId().GetCPUPrefix();
     std::string RtlFilePath = BaseName + OCL_OUTPUT_EXTENSION;
     std::string ObjectFilePath =
@@ -631,12 +631,13 @@ cl_dev_err_code ProgramBuilder::BuildLibraryProgram(std::string &LibraryName,
     // Get kernel names.
     size_t NumKernels = Kernels->GetCount();
     std::string KNames;
+    std::ostringstream O;
     for (size_t i = 0; i < NumKernels; ++i) {
-      KNames += Kernels->GetKernel(i)->GetKernelName();
+      O << Kernels->GetKernel(i)->GetKernelName();
       if (i < (NumKernels - 1))
-        KNames += ";";
+        O << ";";
     }
-    *KernelNames = STRDUP(KNames.c_str());
+    KernelNames = O.str();
 
     // Update kernels with RuntimeService.
     Utils::UpdateKernelsWithRuntimeService(RTService, Kernels);

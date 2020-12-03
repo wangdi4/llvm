@@ -16,6 +16,7 @@
 #include "CompilationUtils.h"
 #include "CPUCompileService.h"
 #include "CPUDeviceBackendFactory.h"
+#include "LibraryProgramManager.h"
 #include "ObjectCodeContainer.h"
 #include "ObjectDump.h"
 #include "SystemInfo.h"
@@ -47,7 +48,10 @@ static int getAsmDumpFileId() {
 CPUCompileService::CPUCompileService(const ICompilerConfig& config)
     :m_programBuilder(CPUDeviceBackendFactory::GetInstance(), config)
 {
-     m_backendFactory = CPUDeviceBackendFactory::GetInstance();
+    m_backendFactory = CPUDeviceBackendFactory::GetInstance();
+    LibraryProgramManager::getInstance().createProgram(
+        static_cast<CPUDeviceBackendFactory *>(m_backendFactory),
+        m_programBuilder);
 }
 
 cl_dev_err_code CPUCompileService::DumpJITCodeContainer(

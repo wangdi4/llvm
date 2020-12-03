@@ -116,13 +116,6 @@ TEST(FrameworkTestType, Test_clOutOfOrderTest)
     EXPECT_TRUE(clOutOfOrderTest());
 }
 
-
-TEST(FrameworkTestType, Test_clCreateContextTest)
-{
-    EXPECT_TRUE(clCreateContextTest());
-}
-
-
 TEST(FrameworkTestType, Test_clBuildProgramWithBinaryTest)
 {
     std::map<cl_device_type, openBcFunc>::iterator iter = gBcfuncMap.find(gDeviceType);

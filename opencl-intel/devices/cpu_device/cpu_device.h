@@ -158,8 +158,8 @@ public:
     cl_dev_err_code clDevCheckProgramBinary( size_t IN binSize, const void* IN bin );
     cl_dev_err_code clDevCreateProgram( size_t IN binSize, const void* IN bin, cl_dev_binary_prop IN prop, cl_dev_program* OUT prog );
     cl_dev_err_code clDevCreateBuiltInKernelProgram( const char* IN szBuiltInNames, cl_dev_program* OUT prog );
-    cl_dev_err_code clDevCreateLibraryKernelProgram(cl_dev_program *OUT Prog,
-                                                    char **OUT KernelNames);
+    cl_dev_err_code clDevCreateLibraryKernelProgram(
+        cl_dev_program * OUT Prog, const char **OUT KernelNames) override;
     cl_dev_err_code clDevBuildProgram( cl_dev_program IN prog, const char* IN options, cl_build_status* OUT buildStatus);
     cl_dev_err_code clDevReleaseProgram( cl_dev_program IN prog );
     cl_dev_err_code clDevUnloadCompiler();

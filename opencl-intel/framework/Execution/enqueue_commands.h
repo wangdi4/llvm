@@ -1204,15 +1204,25 @@ namespace Intel { namespace OpenCL { namespace Framework {
         virtual cl_err_code     Init();
         virtual cl_err_code     Execute();
         virtual cl_err_code     CommandDone();
-        virtual cl_command_type GetCommandType() const  { return CL_COMMAND_NDRANGE_KERNEL; }
+        virtual cl_command_type GetCommandType() const  { return m_type; }
         ECommandExecutionType   GetExecutionType() const{ return DEVICE_EXECUTION_TYPE;     }
-        const char*             GetCommandName() const  { return "CL_COMMAND_NDRANGE_KERNEL"; }
+        const char*             GetCommandName() const {
+          return m_typeStr.c_str();
+        }
         
         // GPA related functions
         virtual const char*     GPA_GetCommandName() const { return m_pKernel->GetName(); }
         virtual void            GPA_WriteCommandMetadata();
         
+        virtual void            SetCustomCommandType(cl_command_type Type,
+                                                     std::string &TypeStr) {
+          m_type = Type;
+          m_typeStr = TypeStr;
+        }
+
     protected:
+        cl_command_type         m_type;
+        std::string             m_typeStr;
         cl_dev_cmd_param_kernel m_kernelParams;
         // Private members
         SharedPtr<Kernel>       m_pKernel;

@@ -1386,7 +1386,7 @@ public:
         \param[out] KernelNames A list of kernel names separated by comma.
     */
     virtual cl_dev_err_code clDevCreateLibraryKernelProgram(
-        cl_dev_program * OUT Prog, char **OUT KernelNames) = 0;
+        cl_dev_program * OUT Prog, const char **OUT KernelNames) = 0;
 
     //! Builds (compiles & links) a program executable from the program intermediate or binary.
     /*!

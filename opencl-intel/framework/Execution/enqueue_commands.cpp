@@ -1552,6 +1552,8 @@ NDRangeKernelCommand::NDRangeKernelCommand(
     const size_t*   cpszLocalWorkSize
     ):
 Command(cmdQueue),
+m_type(CL_COMMAND_NDRANGE_KERNEL),
+m_typeStr("CL_COMMAND_NDRANGE_KERNEL"),
 m_pKernel(pKernel),
 m_pDeviceKernel(nullptr),
 m_uiWorkDim(uiWorkDim),

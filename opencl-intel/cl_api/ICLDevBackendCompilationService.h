@@ -90,11 +90,11 @@ public:
      *  will be modified to point to the generated program; otherwise Prog will
      *  point to NULL and will return:
      *  CL_DEV_OUT_OF_MEMORY if there's no sufficient memory.
-     *  CL_DEV_INVALID_VALUE if Prog is nullptr.
+     *  CL_DEV_INVALID_VALUE if Prog or KernelNames is nullptr.
      *  CL_DEV_ERROR_FAIL If other internal exceptions are throwed.
      */
-    virtual cl_dev_err_code CreateLibraryProgram(ICLDevBackendProgram_ **Prog,
-                                                 char **KernelNames) = 0;
+    virtual cl_dev_err_code GetLibraryProgram(ICLDevBackendProgram_ **Prog,
+                                              const char **KernelNames) = 0;
 
     /**
      * Dumps the content of the given code container

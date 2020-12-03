@@ -2824,7 +2824,7 @@ cl_dev_err_code CPUDevice::clDevCreateBuiltInKernelProgram( const char* IN szBui
 
 cl_dev_err_code
 CPUDevice::clDevCreateLibraryKernelProgram(cl_dev_program *OUT Prog,
-                                           char **OUT KernelNames) {
+                                           const char **OUT KernelNames) {
   CpuInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%S"),
              TEXT("clDevCreateLibraryKernelProgram Function enter"));
   return (cl_dev_err_code)m_pProgramService->CreateLibraryKernelProgram(

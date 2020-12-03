@@ -62,8 +62,9 @@ public:
      */
     void ParseProgram(Program* pProgram);
 
-    cl_dev_err_code BuildLibraryProgram(std::string &LibraryName, Program *Prog,
-                                        char **KernelNames);
+    /// Build backend library program and kernels.
+    cl_dev_err_code BuildLibraryProgram(Program *Prog,
+                                        std::string &KernelNames);
 
 protected:
 
