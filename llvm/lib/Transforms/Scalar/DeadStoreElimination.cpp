@@ -2506,7 +2506,7 @@ bool eliminateDeadStoresMemorySSA(Function &F, AliasAnalysis &AA,
       continue;
     Instruction *SI = KillingDef->getMemoryInst();
 
-    auto MaybeSILoc = State.getLocForWriteEx(SI);
+    Optional<MemoryLocation> MaybeSILoc;
     if (State.isMemTerminatorInst(SI))
       MaybeSILoc = State.getLocForTerminator(SI).map(
           [](const std::pair<MemoryLocation, bool> &P) { return P.first; });
