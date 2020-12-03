@@ -60,7 +60,7 @@ public:
                                        );
 
     cl_dev_err_code CreateLibraryKernelProgram(cl_dev_program *OUT Prog,
-                                               char **OUT KernelNames);
+                                               const char **OUT KernelNames);
 
     cl_dev_err_code BuildProgram( cl_dev_program IN prog,
                                         const char* IN options,

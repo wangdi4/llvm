@@ -99,6 +99,7 @@ set (OCL_CPU_BACKEND_INCLUDE_FILES
     ImageCallbackServices.h
     Kernel.h
     KernelProperties.h
+    LibraryProgramManager.h
     Program.h
     ProgramBuilder.h
     RuntimeService.h
@@ -142,6 +143,7 @@ set (OCL_CPU_BACKEND_SOURCE_FILES
     ImageCallbackServices.cpp
     Kernel.cpp
     KernelProperties.cpp
+    LibraryProgramManager.cpp
     Logger.cpp
     Program.cpp
     Serializer.cpp

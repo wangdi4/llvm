@@ -80,13 +80,13 @@ public:
      * @param pProgram pointer to created program.
      *
      * @returns
-     *  CL_DEV_SUCCESS        - the build succeeded
-     *  CL_DEV_OUT_OF_MEMORY  - if the there is a failure to allocate memory
-     *  CL_DEV_INVALID_VALUE  - if Prog is nullptr
-     *  CL_DEV_ERROR_FAIL     - if other internal exceptions are throwed
+     *  CL_DEV_SUCCESS        - the build succeeded.
+     *  CL_DEV_OUT_OF_MEMORY  - if the there is a failure to allocate memory.
+     *  CL_DEV_INVALID_VALUE  - if Prog or KernelNames is nullptr.
+     *  CL_DEV_ERROR_FAIL     - if other internal exceptions are throwed.
      */
-    cl_dev_err_code CreateLibraryProgram(ICLDevBackendProgram_ **Prog,
-                                         char **KernelNames) override;
+    cl_dev_err_code GetLibraryProgram(ICLDevBackendProgram_ **Prog,
+                                      const char **KernelNames) override;
 
     /**
      * Dumps the content of the given code container

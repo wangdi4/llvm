@@ -16,6 +16,7 @@
 #include "CompileService.h"
 #include "Program.h"
 #include "BitCodeContainer.h"
+#include "LibraryProgramManager.h"
 #include "ObjectCodeContainer.h"
 #include "elf_binary.h"
 #include "cache_binary_handler.h"
@@ -103,7 +104,8 @@ void CompileService::ReleaseProgram(ICLDevBackendProgram_* pProgram) const
 #ifdef OCL_DEV_BACKEND_PLUGINS
     m_pluginManager.OnReleaseProgram(pProgram);
 #endif
-    delete pProgram;
+    if (pProgram != LibraryProgramManager::getInstance().getProgram())
+        delete pProgram;
 }
 
 cl_dev_err_code CompileService::BuildProgram( ICLDevBackendProgram_* pProgram,
@@ -134,26 +136,18 @@ cl_dev_err_code CompileService::BuildProgram( ICLDevBackendProgram_* pProgram,
 }
 
 cl_dev_err_code
-CompileService::CreateLibraryProgram(ICLDevBackendProgram_ **Prog,
-                                     char **KernelNames) {
+CompileService::GetLibraryProgram(ICLDevBackendProgram_ **Prog,
+                                  const char **KernelNames) {
   assert(m_backendFactory && "m_backendFactory not initialized");
-  if (!Prog)
+  if (!Prog || !KernelNames)
     return CL_DEV_INVALID_VALUE;
 
-  try {
-    std::unique_ptr<Program> P(m_backendFactory->CreateProgram());
-    std::string LibraryName = OCL_LIBRARY_KERNEL_TARGET_NAME;
-    cl_dev_err_code err = GetProgramBuilder()->BuildLibraryProgram(
-        LibraryName, P.get(), KernelNames);
-    if (CL_DEV_SUCCEEDED(err))
-      *Prog = P.release();
-
-    return err;
-  } catch (Exceptions::DeviceBackendExceptionBase &e) {
-    return e.GetErrorCode();
-  } catch (std::bad_alloc &) {
+  auto &LPM = LibraryProgramManager::getInstance();
+  *Prog = LPM.getProgram();
+  if (!*Prog)
     return CL_DEV_OUT_OF_MEMORY;
-  }
+  *KernelNames = LPM.getKernelNames();
+  return CL_DEV_SUCCESS;
 }
 
 cl_dev_err_code CompileService::DumpCodeContainer( const ICLDevBackendCodeContainer* pCodeContainer,
@@ -202,6 +196,7 @@ cl_dev_err_code CompileService::DumpCodeContainer( const ICLDevBackendCodeContai
 
 void CompileService::Release()
 {
+    LibraryProgramManager::getInstance().release();
     delete this;
 }
 

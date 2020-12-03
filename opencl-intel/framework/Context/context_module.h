@@ -199,7 +199,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
          * @param Name Kernel name.
            @return Kernel shared object and nullptr if failed.
          */
-        SharedPtr<Kernel> GetLibraryKernel(const cl_context Ctx,
+        SharedPtr<Kernel> GetLibraryKernel(SharedPtr<Context> &Ctx,
                                            const std::string &Name);
 
         /////////////////////////////////////////////////////////////////////
@@ -369,9 +369,9 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
         bool Check2DImageFromBufferPitch(const ConstSharedPtr<GenericMemObject>& pBuffer, const cl_image_desc& desc, const cl_image_format& format) const;
 
-        cl_int CreateLibraryKernelForThread(const cl_context Ctx,
-                                            const threadid_t TID,
-                                            const std::string &Name);
+        cl_kernel CreateLibraryKernelForThread(SharedPtr<Context> &Ctx,
+                                               const threadid_t TID,
+                                               const std::string &Name);
 
         PlatformModule *                        m_pPlatformModule; // handle to the platform module
 
@@ -383,12 +383,6 @@ namespace Intel { namespace OpenCL { namespace Framework {
         std::map<void*, SharedPtr<Context> >    m_mapSVMBuffers;   // map list of all svm objects
         // map list of all unified shared memory objects
         std::map<void*, SharedPtr<Context> >    m_mapUSMBuffers;
-
-        // Holds the backend library program.
-        std::map<cl_context, cl_program>        m_backendLibraryProgram;
-        std::map<cl_context,
-                 std::map<threadid_t, std::map<std::string, cl_kernel>>>
-            m_backendLibraryKernels;
         Intel::OpenCL::Utils::OclMutex          m_backendLibraryMutex;
 
         Intel::OpenCL::Utils::LifetimeObjectContainer<OclCommandQueue> m_setQueues; // set of all queues including invisible to user
