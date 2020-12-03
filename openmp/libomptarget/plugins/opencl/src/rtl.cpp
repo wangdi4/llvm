@@ -1360,10 +1360,8 @@ int32_t __tgt_rtl_init_device(int32_t device_id) {
       CL_QUEUE_PROPERTIES,
       CL_QUEUE_OUT_OF_ORDER_EXEC_MODE_ENABLE
   };
-  if (DeviceInfo->Flags.EnableProfile) {
-    qProperties.push_back(CL_QUEUE_PROPERTIES);
-    qProperties.push_back(CL_QUEUE_PROFILING_ENABLE);
-  }
+  if (DeviceInfo->Flags.EnableProfile)
+    qProperties.back() |= CL_QUEUE_PROFILING_ENABLE;
   qProperties.push_back(0);
 
   auto deviceID = DeviceInfo->deviceIDs[device_id];

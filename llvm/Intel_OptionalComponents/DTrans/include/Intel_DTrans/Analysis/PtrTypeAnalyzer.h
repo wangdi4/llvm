@@ -293,6 +293,9 @@ public:
   void setUnknownByteFlattenedGEP();
   bool getUnknownByteFlattenedGEP() const { return UnknownByteFlattenedGEP; }
 
+  void setIsPartialPointerUse();
+  bool getIsPartialPointerUse() const { return IsPartialPointerUse; }
+
   // These control the state machine that tracks the progress of analyzing the
   // value.
   void setPartiallyAnalyzed();
@@ -358,17 +361,17 @@ private:
   // to mark the types with a safety flag.
   bool UnknownByteFlattenedGEP = false;
 
+  // Indicates this value matched the partial pointer use idiom. This is a
+  // specific pattern that is checked for where a pointer object is copied from
+  // one memory location to another using two or more instructions that
+  // load/store a portion of the pointer value. See the implementation that sets
+  // the value for the specific pattern that is being matched.
+  bool IsPartialPointerUse = false;
+
   // Used for handling cyclic dependencies that require multiple rounds of the
   // analysis routine.
   LPIState AnalysisState = LPIS_NotAnalyzed;
 };
-
-#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-static raw_ostream &operator<<(raw_ostream &OS, const ValueTypeInfo &Info) {
-  Info.print(OS);
-  return OS;
-}
-#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 
 // Comparator for ValueTypeInfo::PointeeLoc to enable using type within
 // std::set.

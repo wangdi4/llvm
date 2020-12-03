@@ -589,7 +589,7 @@ void HIROptVarPredicate::splitLoop(
 
   // Invalidate the loop before it would be split.
   HIRInvalidationUtils::invalidateBounds(Loop);
-  HIRInvalidationUtils::invalidateBody(Loop);
+  NodesToInvalidate.erase(Loop);
 
   Loop->extractZttPreheaderAndPostexit();
 
@@ -601,6 +601,11 @@ void HIROptVarPredicate::splitLoop(
   ElseContainers.resize(Candidates.size());
 
   for (auto CI : enumerate(Candidates)) {
+    // Invalidate If's container before moving nodes around.
+    HLLoop *ParentLoop = CI.value()->getParentLoop();
+    HIRInvalidationUtils::invalidateBody(ParentLoop);
+    NodesToInvalidate.erase(ParentLoop);
+
     auto &ThenContainer = ThenContainers[CI.index()];
     auto &ElseContainer = ElseContainers[CI.index()];
 
@@ -821,8 +826,7 @@ bool HIROptVarPredicate::processLoop(HLLoop *Loop, bool SetRegionModified,
   IfLookup Lookup(Candidates, Level);
   HLNodeUtils::visitRange(Lookup, Loop->child_begin(), Loop->child_end());
 
-  for (const EqualCandidates &Candidate :
-       llvm::make_range(Candidates.begin(), Candidates.end())) {
+  for (const EqualCandidates &Candidate : Candidates) {
     LLVM_DEBUG(dbgs() << "Processing Ifs:\n");
     LLVM_DEBUG(Candidate.dump());
     LLVM_DEBUG(dbgs() << "\n");

@@ -484,7 +484,7 @@ void Driver::addIntelOMPDeviceLibs(const ToolChain &TC, Driver::InputList &Input
   };
   bool addOmpLibs = false;
   if (Arg *A = Args.getLastArg(options::OPT_fopenmp_targets_EQ)) {
-    for (const StringRef &Val : A->getValues())
+    for (StringRef Val : A->getValues())
       if (Val.startswith("spir64"))
         addOmpLibs = true;
   }
@@ -5649,7 +5649,7 @@ void Driver::BuildActions(Compilation &C, DerivedArgList &Args,
         Current, InputArg, phases::Link, PL.back(), PL);
   };
 #if INTEL_CUSTOMIZATION
-  for (const StringRef &tLA : LinkArgs) {
+  for (StringRef tLA : LinkArgs) {
     // Augment the current argument to add additional directory information
     // in case the location of the lib is not in CWD.
     StringRef LA(resolveLib(tLA, Args, C));

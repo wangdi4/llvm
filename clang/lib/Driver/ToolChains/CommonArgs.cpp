@@ -658,7 +658,7 @@ void tools::addLTOOptions(const ToolChain &ToolChain, const ArgList &Args,
     addAdvancedOptimFlag(*A, options::OPT__SLASH_Qx);
   addIntelOptimizationArgs(ToolChain, Args, CmdArgs, true);
   // All -mllvm flags as provided by the user will be passed through.
-  for (const StringRef &AV : Args.getAllArgValues(options::OPT_mllvm))
+  for (StringRef AV : Args.getAllArgValues(options::OPT_mllvm))
     CmdArgs.push_back(Args.MakeArgString(Twine("-plugin-opt=") + AV));
 #endif // INTEL_CUSTOMIZATION
 
@@ -817,7 +817,7 @@ void tools::addIntelOptimizationArgs(const ToolChain &TC,
     if (!Args.hasArg(options::OPT_ffreestanding, options::OPT_i_no_use_libirc))
       addllvmOption("-intel-libirc-allowed");
     bool AddLoopOpt = true;
-    for (const StringRef &AV : Args.getAllArgValues(options::OPT_mllvm))
+    for (StringRef AV : Args.getAllArgValues(options::OPT_mllvm))
       if (AV.startswith("-loopopt=") || AV.equals("-loopopt"))
         AddLoopOpt = false;
     if (AddLoopOpt) {

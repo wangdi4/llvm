@@ -1152,11 +1152,12 @@ static void InitializePredefinedMacros(const TargetInfo &TI,
     }
   }
 #if INTEL_COLLAB
-  if (LangOpts.OpenMPLateOutline)
+  if (LangOpts.OpenMPLateOutline) {
     if (LangOpts.OpenMPIsDevice)
       Builder.defineMacro("__INTEL_TARGET_OPENMP");
     else
       Builder.defineMacro("__INTEL_HOST_OPENMP");
+  }
 #endif // INTEL_COLLAB
   // CUDA device path compilaton
   if (LangOpts.CUDAIsDevice && !LangOpts.HIP) {

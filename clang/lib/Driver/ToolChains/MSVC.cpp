@@ -576,10 +576,10 @@ void visualstudio::Linker::ConstructJob(Compilation &C, const JobAction &JA,
       StubsAdded = true;
     }
   }
-  if (!StubsAdded && (Args.hasFlag(options::OPT_fopenmp,
+  if (!StubsAdded && ((Args.hasFlag(options::OPT_fopenmp,
                                    options::OPT_fopenmp_EQ,
                                    options::OPT_fno_openmp, false)) ||
-      Args.hasArg(options::OPT_fiopenmp, options::OPT_qmkl_EQ)) {
+                      Args.hasArg(options::OPT_fiopenmp, options::OPT_qmkl_EQ))) {
 #endif // INTEL_CUSTOMIZATION
     CmdArgs.push_back("-nodefaultlib:vcomp.lib");
     CmdArgs.push_back("-nodefaultlib:vcompd.lib");
@@ -696,7 +696,7 @@ void visualstudio::Linker::ConstructJob(Compilation &C, const JobAction &JA,
     addIntelOptimizationArgs(TC, Args, CmdArgs, true);
     // Using lld-link and -flto, we need to add any additional -mllvm options
     // and implied options.
-    for (const StringRef &AV : Args.getAllArgValues(options::OPT_mllvm))
+    for (StringRef AV : Args.getAllArgValues(options::OPT_mllvm))
       CmdArgs.push_back(Args.MakeArgString(Twine("-mllvm:") + AV));
   }
 #endif // INTEL_CUSTOMIZATION

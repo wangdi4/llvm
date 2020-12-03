@@ -129,13 +129,12 @@ public:
 
   /// Returns the Load-Buckets to the clients.
   BBLoadBucketsTy const &getLoadBuckets() { return BBLoadBuckets; }
-
+  const DataLayout &DL;
   BasicBlockMemRefAnalysis(ScalarEvolution &SE, const DataLayout &DL)
-      : SE(SE), DL(DL) {}
+    : DL(DL), SE(SE) {}
 
 private:
   ScalarEvolution &SE;
-  const DataLayout &DL;
 
   BBLoadBucketsTy BBLoadBuckets;
 
