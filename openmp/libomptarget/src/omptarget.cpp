@@ -792,7 +792,8 @@ static int targetDataNonContiguous(DeviceTy &Device, void *ArgsBase,
     }
   } else {
     char *Ptr = (char *)ArgsBase + Offset;
-    DP("Transfer of non-contiguous : host ptr %lx offset %ld len %ld\n",
+    DP("Transfer of non-contiguous : host ptr %" PRIx64 "offset %" PRIu64 // INTEL
+       " len %" PRIu64 "\n",                                              // INTEL
        (uint64_t)Ptr, Offset, Size);
     Ret = targetDataContiguous(Device, ArgsBase, Ptr, Size, ArgType);
   }
