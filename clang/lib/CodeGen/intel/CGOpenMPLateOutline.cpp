@@ -52,6 +52,9 @@ llvm::Value *OpenMPLateOutliner::emitOpenMPDefaultConstructor(const Expr *IPriv,
   // threadprivate copy of the variable VD
   QualType PtrTy = Ctx.getPointerType(Ty);
   CodeGenFunction NewCGF(CGM);
+
+  NewCGF.disableDebugInfo(); // No valid locations for this routine.
+
   FunctionArgList Args;
   ImplicitParamDecl Dst(CGM.getContext(), /*DC=*/nullptr, SourceLocation(),
                         /*Id=*/nullptr, PtrTy, ImplicitParamDecl::Other);
@@ -115,6 +118,9 @@ OpenMPLateOutliner::emitOpenMPDestructor(QualType Ty, bool IsUDR) {
   // of the variable VD
   QualType PtrTy = Ctx.getPointerType(Ty);
   CodeGenFunction NewCGF(CGM);
+
+  NewCGF.disableDebugInfo(); // No valid locations for this routine.
+
   FunctionArgList Args;
   ImplicitParamDecl Dst(CGM.getContext(), /*DC=*/nullptr, SourceLocation(),
                         /*Id=*/nullptr, PtrTy, ImplicitParamDecl::Other);
@@ -191,6 +197,9 @@ llvm::Value *OpenMPLateOutliner::emitOpenMPCopyConstructor(const Expr *IPriv) {
   QualType ObjPtrTy = C.getPointerType(Ty);
 
   CodeGenFunction NewCGF(CGM);
+
+  NewCGF.disableDebugInfo(); // No valid locations for this routine.
+
   FunctionArgList Args;
   ImplicitParamDecl DstDecl(C, FD, SourceLocation(), nullptr, ObjPtrTy,
                             ImplicitParamDecl::Other);
@@ -291,6 +300,9 @@ llvm::Value *OpenMPLateOutliner::emitOpenMPCopyAssign(QualType Ty,
   QualType ObjPtrTy = C.getPointerType(Ty);
 
   CodeGenFunction NewCGF(CGM);
+
+  NewCGF.disableDebugInfo(); // No valid locations for this routine.
+
   FunctionArgList Args;
   ImplicitParamDecl DstDecl(C, FD, SourceLocation(), nullptr, ObjPtrTy,
                             ImplicitParamDecl::Other);
