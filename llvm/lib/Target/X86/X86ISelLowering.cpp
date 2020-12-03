@@ -47926,6 +47926,38 @@ static SDValue combineFaddFsub(SDNode *N, SelectionDAG &DAG,
                                         DAG.getUNDEF(VT), PostShuffleMask);
     return HorizBinOp;
   }
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+  //  Try to combine the following nodes
+  //  t21: v16f32 = X86ISD::VFMULC t7, t8
+  //  t15: v32f16 = bitcast t21
+  //  t16: v32f16 = fadd nnan ninf nsz arcp contract afn reassoc t15, t2
+  //  into X86ISD::VFMADDC if possible:
+  //  t22: v16f32 = bitcast t2
+  //  t23: v16f32 = fadd nnan ninf nsz arcp contract afn reassoc X86ISD::VFMADDC
+  //  t7, t8, t22
+  //  t24: v32f16 = bitcast t23
+  const TargetOptions &Options = DAG.getTarget().Options;
+  if ((Options.AllowFPOpFusion == FPOpFusion::Fast || Options.UnsafeFPMath) &&
+      Subtarget.hasFP16() && N->getOpcode() == ISD::FADD &&
+      VT.getSimpleVT().getVectorElementType() == MVT::f16 &&
+      LHS->getOpcode() == ISD::BITCAST && LHS.hasOneUse()) {
+    SDValue FAddOp1 = N->getOperand(1);
+    SDValue MULC = LHS->getOperand(0);
+    MVT ComplexType = MVT::getVectorVT(MVT::f32, VT.getVectorNumElements() / 2);
+    if (MULC->getOpcode() == X86ISD::VFMULC && MULC.hasOneUse() &&
+        MULC->getValueType(0) == ComplexType) {
+      SelectionDAG::FlagInserter FlagsInserter(DAG, N);
+      FAddOp1 = DAG.getBitcast(ComplexType, FAddOp1);
+      SDValue FMAddC =
+          DAG.getNode(X86ISD::VFMADDC, SDLoc(N), ComplexType, FAddOp1,
+                      MULC.getOperand(0), MULC.getOperand(1));
+      SDValue Res = DAG.getBitcast(VT, FMAddC);
+      return Res;
+    }
+  }
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
 
   return SDValue();
 }
