@@ -1406,3 +1406,61 @@ let Predicates = [HasAMXMEMADVISE, In64BitMode],
 } // HasAMXMEMADVISE
 
 #endif // INTEL_FEATURE_ISA_AMX_MEMADVISE
+
+#if INTEL_FEATURE_ISA_AMX_COMPLEX
+let Predicates = [HasAMXCOMPLEX, In64BitMode] in {
+  let SchedRW = [WriteSystem] in {
+    let Constraints = "$src1 = $dst" in {
+      def TCMMIMFP16PS   : I<0x6c, MRMSrcReg4VOp3, (outs TILE:$dst),
+                            (ins TILE:$src1, TILE:$src2, TILE:$src3),
+                            "tcmmimfp16ps\t{$src3, $src2, $src1|$src1, $src2, $src3}",
+                            []>, T8PD, VEX_4V;
+      def TCMMRLFP16PS : I<0x6c, MRMSrcReg4VOp3, (outs TILE:$dst),
+                            (ins TILE:$src1, TILE:$src2, TILE:$src3),
+                            "tcmmrlfp16ps\t{$src3, $src2, $src1|$src1, $src2, $src3}",
+                            []>, VEX_4V, VEX_WIG, T8PS;
+      def TCONJCMMIMFP16PS : I<0x6b, MRMSrcReg4VOp3, (outs TILE:$dst),
+                            (ins TILE:$src1, TILE:$src2, TILE:$src3),
+                            "tconjcmmimfp16ps\t{$src3, $src2, $src1|$src1, $src2, $src3}",
+                            []>, VEX_4V, VEX_WIG, T8PS;
+      def TTCMMIMFP16PS : I<0x6b, MRMSrcReg4VOp3, (outs TILE:$dst),
+                            (ins TILE:$src1, TILE:$src2, TILE:$src3),
+                            "ttcmmimfp16ps\t{$src3, $src2, $src1|$src1, $src2, $src3}",
+                            []>, VEX_4V, T8XD;
+      def TTCMMRLFP16PS: I<0x6b, MRMSrcReg4VOp3, (outs TILE:$dst),
+                           (ins TILE:$src1, TILE:$src2, TILE:$src3),
+                           "ttcmmrlfp16ps\t{$src3, $src2, $src1|$src1, $src2, $src3}",
+                           []>, VEX_4V, T8XS;
+
+    } // Constraints = "$src1 = $dst"
+    def TCONJFP16   : I<0x6b, MRMSrcReg, (outs TILE:$dst), (ins TILE:$src),
+                        "tconjfp16\t{$src, $dst|$dst, $src}",
+                        []>, VEX, T8PD;
+
+    let usesCustomInserter = 1 in {
+      def PTCMMIMFP16PS : PseudoI<(outs), (ins u8imm:$src1,
+                                u8imm:$src2, u8imm:$src3),
+                                [(int_x86_tcmmimfp16ps timm:$src1,
+                                  timm:$src2, timm:$src3)]>;
+      def PTCMMRLFP16PS : PseudoI<(outs), (ins u8imm:$src1,
+                                u8imm:$src2, u8imm:$src3),
+                                [(int_x86_tcmmrlfp16ps timm:$src1,
+                                  timm:$src2, timm:$src3)]>;
+      def PTCONJCMMIMFP16PS : PseudoI<(outs), (ins u8imm:$src1,
+                                u8imm:$src2, u8imm:$src3),
+                                [(int_x86_tconjcmmimfp16ps timm:$src1,
+                                  timm:$src2, timm:$src3)]>;
+      def PTCONJFP16 : PseudoI<(outs), (ins u8imm:$dst, u8imm:$src),
+                              [(int_x86_tconjfp16 timm:$dst, timm:$src)]>;
+      def PTTCMMIMFP16PS : PseudoI<(outs), (ins u8imm:$src1,
+                                u8imm:$src2, u8imm:$src3),
+                                [(int_x86_ttcmmimfp16ps timm:$src1,
+                                  timm:$src2, timm:$src3)]>;
+      def PTTCMMRLFP16PS : PseudoI<(outs), (ins u8imm:$src1,
+                                u8imm:$src2, u8imm:$src3),
+                                [(int_x86_ttcmmrlfp16ps timm:$src1,
+                                  timm:$src2, timm:$src3)]>;
+    }
+  } // SchedRW = [WriteSystem]
+}
+#endif // INTEL_FEATURE_ISA_AMX_COMPLEX

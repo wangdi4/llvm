@@ -422,6 +422,10 @@ bool X86TargetInfo::handleTargetFeatures(std::vector<std::string> &Features,
     } else if (Feature == "+amx-tile2") {
       HasAMXTILE2 = true;
 #endif // INTEL_FEATURE_ISA_AMX_TILE2
+#if INTEL_FEATURE_ISA_AMX_COMPLEX
+    } else if (Feature == "+amx-complex") {
+      HasAMXCOMPLEX = true;
+#endif // INTEL_FEATURE_ISA_AMX_COMPLEX
 #if INTEL_FEATURE_ISA_AVX512_DOTPROD_INT8
     } else if (Feature == "+avx512dotprodint8") {
       HasAVX512DOTPRODINT8 = true;
@@ -1000,6 +1004,11 @@ void X86TargetInfo::getTargetDefines(const LangOptions &Opts,
     Builder.defineMacro("__AMXTILE2__");
   Builder.defineMacro("__AMXTILE2_SUPPORTED__");
 #endif // INTEL_FEATURE_ISA_AMX_TILE2
+#if INTEL_FEATURE_ISA_AMX_COMPLEX
+  if (HasAMXCOMPLEX)
+    Builder.defineMacro("__AMXCOMPLEX__");
+  Builder.defineMacro("__AMXCOMPLEX_SUPPORTED__");
+#endif // INTEL_FEATURE_ISA_AMX_COMPLEX
 #if INTEL_FEATURE_ISA_AVX512_DOTPROD_INT8
   if (HasAVX512DOTPRODINT8)
     Builder.defineMacro("__AVX512DOTPRODINT8__");
@@ -1228,6 +1237,9 @@ bool X86TargetInfo::isValidFeatureName(StringRef Name) const {
 #if INTEL_FEATURE_ISA_AMX_TILE2
       .Case("amx-tile2", true)
 #endif // INTEL_FEATURE_ISA_AMX_TILE2
+#if INTEL_FEATURE_ISA_AMX_COMPLEX
+      .Case("amx-complex", true)
+#endif // INTEL_FEATURE_ISA_AMX_COMPLEX
 #endif // INTEL_CUSTOMIZATION
       .Case("avx", true)
       .Case("avx2", true)
@@ -1408,6 +1420,9 @@ bool X86TargetInfo::hasFeature(StringRef Feature) const {
 #if INTEL_FEATURE_ISA_AMX_TILE2
       .Case("amx-tile2", HasAMXTILE2)
 #endif // INTEL_FEATURE_ISA_AMX_TILE2
+#if INTEL_FEATURE_ISA_AMX_COMPLEX
+      .Case("amx-complex", HasAMXCOMPLEX)
+#endif // INTEL_FEATURE_ISA_AMX_COMPLEX
 #if INTEL_FEATURE_ISA_AVX_IFMA
       .Case("avxifma", HasAVXIFMA)
 #endif // INTEL_FEATURE_ISA_AVX_IFMA
