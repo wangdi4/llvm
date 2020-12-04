@@ -622,6 +622,12 @@ void VPlanAllZeroBypass::insertAllZeroBypasses(
     assert(PDT->dominates(BypassRegion.second, BypassRegion.first) &&
            "Region exit does not post-dominate region entry");
   }
+
+  // AZB modifies CFG if bypass regions list is non-empty.
+  if (!AllZeroBypassRegions.empty()) {
+    // AZB explicitly preserves DA, but not SVA.
+    Plan.invalidateAnalyses({VPAnalysisID::SVA});
+  }
 }
 
 } // end namespace vpo

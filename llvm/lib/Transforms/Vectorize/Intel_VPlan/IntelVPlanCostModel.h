@@ -20,6 +20,7 @@
 #ifndef LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_INTELVPLANCOSTMODEL_H
 #define LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_INTELVPLANCOSTMODEL_H
 
+#include "IntelVPlanCallVecDecisions.h"
 #include "IntelVPlanTTIWrapper.h"
 #include "IntelVPlanVLSAnalysis.h"
 #include "llvm/Analysis/Intel_OptVLS.h"
@@ -75,6 +76,15 @@ public:
       // Unlike LLVM IR VPBB has no LLVMContext, because Type is not yet
       // implemented
       VLSCM = std::make_shared<VPlanVLSCostModel>(*this, *TTI, VLSA->getContext());
+
+    // CallVecDecisions analysis invocation.
+    VPlanCallVecDecisions CallVecDecisions(*const_cast<VPlan *>(Plan));
+    // Pass native TTI into CallVecDecisions analysis.
+    CallVecDecisions.run(VF, TLI, &VPTTI->getTTI());
+
+    // Compute SVA results for current VPlan in order to compute cost accurately
+    // in CM.
+    const_cast<VPlan *>(Plan)->runSVA(VF, TLI);
   }
 #else
   VPlanCostModel(const VPlan *Plan, const unsigned VF,

@@ -148,6 +148,19 @@ public:
   const DataLayout *getDataLayout() { return DL; }
 };
 
+/// Enumeration to uniquely identify various VPlan analyses.
+// TODO: Consider introducing an inheritance hierarchy for VPlan analyses i.e. a
+// VPAnalysis base class and DA, VLS and SVA inheriting from this base class.
+// This enum can be then converted into subclass ID mechanism and virtual
+// functionalities like running/clearing analyses will be specialized in the
+// derived classes.
+enum class VPAnalysisID {
+  DA = 0,
+  VLS = 1,
+  SVA = 2,
+  LastVPAnalysis = SVA
+};
+
 template <typename ParentTy, typename NodeTy>
 ParentTy *getListOwner(ilist_traits<NodeTy> *NodeList) {
   size_t Offset(
@@ -2903,6 +2916,9 @@ public:
   // Compute SVA results for this VPlan.
   void runSVA(unsigned VF, const TargetLibraryInfo *TLI);
 
+  // Clear SVA results for this VPlan.
+  void clearSVA() { VPlanSVA.reset(); }
+
   void markFullLinearizationForced() { FullLinearizationForced = true; }
   bool isFullLinearizationForced() const { return FullLinearizationForced; }
 
@@ -2927,6 +2943,13 @@ public:
 
   /// Return \true if SOA-analysis is enabled.
   bool isSOAAnalysisEnabled() const { return EnableSOAAnalysis; }
+
+  /// Utility to run/recompute results of analyses specified by \p Analyses.
+  // TODO : Implementation is missing.
+  void requiredAnalyses(ArrayRef<VPAnalysisID> Analyses);
+
+  /// Utility to invalidate results of analyses specified by \p Analyses.
+  void invalidateAnalyses(ArrayRef<VPAnalysisID> Analyses);
 
   const DataLayout *getDataLayout() const { return Externals.getDataLayout(); }
 

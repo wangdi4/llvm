@@ -651,6 +651,20 @@ void VPlan::runSVA(unsigned VF, const TargetLibraryInfo *TLI) {
   VPlanSVA->compute(this, VF, TLI);
 }
 
+void VPlan::invalidateAnalyses(ArrayRef<VPAnalysisID> Analyses) {
+  for (auto ID : Analyses) {
+    switch (ID) {
+    case VPAnalysisID::SVA:
+      clearSVA();
+      break;
+    case VPAnalysisID::DA:
+    case VPAnalysisID::VLS:
+    default:
+      llvm_unreachable("Add invalidation support for analysis.");
+    }
+  }
+}
+
 // Generate the code inside the body of the vectorized loop. Assumes a single
 // LoopVectorBody basic block was created for this; introduces additional
 // basic blocks as needed, and fills them all.
