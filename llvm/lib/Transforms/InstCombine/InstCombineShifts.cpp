@@ -1186,6 +1186,12 @@ Instruction *InstCombinerImpl::visitLShr(BinaryOperator &I) {
       }
     }
 
+    // lshr i32 (X -nsw Y), 31 --> zext (X < Y)
+    Value *Y;
+    if (ShAmt == BitWidth - 1 &&
+        match(Op0, m_OneUse(m_NSWSub(m_Value(X), m_Value(Y)))))
+      return new ZExtInst(Builder.CreateICmpSLT(X, Y), Ty);
+
     if (match(Op0, m_LShr(m_Value(X), m_APInt(ShOp1)))) {
       unsigned AmtSum = ShAmt + ShOp1->getZExtValue();
       // Oversized shifts are simplified to zero in InstSimplify.
@@ -1359,6 +1365,12 @@ Instruction *InstCombinerImpl::visitAShr(BinaryOperator &I) {
       return SelectInst::Create(Cond, AllOnes, Zero);
     }
 #endif // INTEL_CUSTOMIZATION
+
+    // ashr i32 (X -nsw Y), 31 --> sext (X < Y)
+    Value *Y;
+    if (ShAmt == BitWidth - 1 &&
+        match(Op0, m_OneUse(m_NSWSub(m_Value(X), m_Value(Y)))))
+      return new SExtInst(Builder.CreateICmpSLT(X, Y), Ty);
 
     // If the shifted-out value is known-zero, then this is an exact shift.
     if (!I.isExact() &&
