@@ -4455,9 +4455,6 @@ static bool mayIntersectDueToTypeCast(const RegDDRef *Ref1,
                                       const RegDDRef *Ref2) {
   assert(Ref1->isMemRef() && Ref2->isMemRef() && "Memref expected");
 
-  if (Ref1->isFake() || Ref2->isFake())
-    return false;
-
   if (!Ref1->getBitCastDestType() && !Ref2->getBitCastDestType())
     return false;
 
@@ -4665,8 +4662,9 @@ std::unique_ptr<Dependences> DDTest::depends(const DDRef *SrcDDRef,
 
   //  Number of dimemsion are different or different base: need to bail out,
   //  except for IVDEP
-  if (TestingMemRefs && !EqualBaseAndShape) {
-    adjustDV(Result, false, SrcRegDDRef, DstRegDDRef); // SameBase = false
+  if (TestingMemRefs &&
+      (!EqualBaseAndShape || SrcRegDDRef->isFake() || DstRegDDRef->isFake())) {
+    adjustDV(Result, EqualBaseAndShape, SrcRegDDRef, DstRegDDRef);
     return std::make_unique<Dependences>(Result);
   }
 
