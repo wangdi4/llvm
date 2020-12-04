@@ -342,6 +342,14 @@ TARGET_BUILTIN(__builtin_ia32_tcvtps2ph, "vv*zIUc", "n", "amx-convert")
 // AMX_TILE2
 TARGET_BUILTIN(__builtin_ia32_tilemov, "vIUcIUc", "n", "amx-tile2")
 #endif // INTEL_FEATURE_ISA_AMX_TILE2
+#if INTEL_FEATURE_ISA_AMX_COMPLEX
+TARGET_BUILTIN(__builtin_ia32_tcmmimfp16ps, "vIUcIUcIUc", "n", "amx-complex")
+TARGET_BUILTIN(__builtin_ia32_tcmmrlfp16ps, "vIUcIUcIUc", "n", "amx-complex")
+TARGET_BUILTIN(__builtin_ia32_tconjcmmimfp16ps, "vIUcIUcIUc", "n", "amx-complex")
+TARGET_BUILTIN(__builtin_ia32_tconjfp16, "vIUcIUc", "n", "amx-complex")
+TARGET_BUILTIN(__builtin_ia32_ttcmmimfp16ps, "vIUcIUcIUc", "n", "amx-complex")
+TARGET_BUILTIN(__builtin_ia32_ttcmmrlfp16ps, "vIUcIUcIUc", "n", "amx-complex")
+#endif // INTEL_FEATURE_ISA_AMX_COMPLEX
 #endif // INTEL_CUSTOMIZATION
 
 #if INTEL_CUSTOMIZATION

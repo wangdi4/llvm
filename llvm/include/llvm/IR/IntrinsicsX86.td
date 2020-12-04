@@ -6864,6 +6864,29 @@ let TargetPrefix = "x86" in {
 }
 #endif // INTEL_FEATURE_ISA_AMX_MEMADVISE
 
+#if INTEL_FEATURE_ISA_AMX_COMPLEX
+let TargetPrefix = "x86" in {
+  def int_x86_tcmmimfp16ps : GCCBuiltin<"__builtin_ia32_tcmmimfp16ps">,
+        Intrinsic<[], [llvm_i8_ty, llvm_i8_ty, llvm_i8_ty],
+        [ImmArg<ArgIndex<0>>, ImmArg<ArgIndex<1>>, ImmArg<ArgIndex<2>>]>;
+  def int_x86_tcmmrlfp16ps : GCCBuiltin<"__builtin_ia32_tcmmrlfp16ps">,
+        Intrinsic<[], [llvm_i8_ty, llvm_i8_ty, llvm_i8_ty],
+        [ImmArg<ArgIndex<0>>, ImmArg<ArgIndex<1>>, ImmArg<ArgIndex<2>>]>;
+  def int_x86_tconjcmmimfp16ps : GCCBuiltin<"__builtin_ia32_tconjcmmimfp16ps">,
+        Intrinsic<[], [llvm_i8_ty, llvm_i8_ty, llvm_i8_ty],
+        [ImmArg<ArgIndex<0>>, ImmArg<ArgIndex<1>>, ImmArg<ArgIndex<2>>]>;
+  def int_x86_tconjfp16 : GCCBuiltin<"__builtin_ia32_tconjfp16">,
+        Intrinsic<[], [llvm_i8_ty, llvm_i8_ty],
+        [ImmArg<ArgIndex<0>>, ImmArg<ArgIndex<1>>]>;
+  def int_x86_ttcmmimfp16ps : GCCBuiltin<"__builtin_ia32_ttcmmimfp16ps">,
+        Intrinsic<[], [llvm_i8_ty, llvm_i8_ty, llvm_i8_ty],
+        [ImmArg<ArgIndex<0>>, ImmArg<ArgIndex<1>>, ImmArg<ArgIndex<2>>]>;
+  def int_x86_ttcmmrlfp16ps : GCCBuiltin<"__builtin_ia32_ttcmmrlfp16ps">,
+        Intrinsic<[], [llvm_i8_ty, llvm_i8_ty, llvm_i8_ty],
+        [ImmArg<ArgIndex<0>>, ImmArg<ArgIndex<1>>, ImmArg<ArgIndex<2>>]>;
+}
+#endif // INTEL_FEATURE_ISA_AMX_COMPLEX
+
 #endif // INTEL_CUSTOMIZATION
 //===----------------------------------------------------------------------===//
 // UINTR - User Level Interrupt
