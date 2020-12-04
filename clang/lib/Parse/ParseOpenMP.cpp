@@ -4089,7 +4089,7 @@ OMPClause *Parser::ParseOpenMPSubdeviceClause(bool ParseOnly) {
       Level = Actions.ActOnNumericConstant(Tok, /*UDLScope*/getCurScope());
     } else {
       IsInvalid = true;
-      Diag(Tok, diag::warn_omp_expected_nonneg_integer) <<
+      Diag(Tok, diag::warn_omp_expected_nonneg_const_int) <<
         getOpenMPClauseName(OMPC_subdevice);
     }
     ConsumeToken();

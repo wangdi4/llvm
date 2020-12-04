@@ -20461,17 +20461,21 @@ OMPClause *Sema::ActOnOpenMPSubdeviceClause(Expr *Level,
   Expr *StrideExpr = Stride;
   Stmt *HelperValStmt = nullptr;
 
-  if (!LevelExpr && !StartExpr && !LengthExpr && !StrideExpr)
+  // Start value is only required argument to subdevice clause.
+  if (!StartExpr)
     return nullptr;
 
-  //  The level expression must evaluate to a non-negative integer value.
-  if (LevelExpr && !isNonNegativeIntegerValue(LevelExpr, *this, OMPC_subdevice,
-                                              /*StrictlyPositive=*/false))
-    return nullptr;
+  // The level expression, if present, must evaluate to a non-negative
+  // constant integer, and is further restricted to being zero or one.
+  const IntegerLiteral *LevelVal = dyn_cast_or_null<IntegerLiteral>(LevelExpr);
+  if (LevelVal && LevelVal->getValue() != 0 && LevelVal->getValue() != 1) {
+    Diag(Level->getExprLoc(), diag::warn_omp_subdevice_level);
+    LevelExpr = nullptr;
+  }
 
   //  The start expression must evaluate to a non-negative integer value.
-  if (StartExpr && !isNonNegativeIntegerValue(StartExpr, *this, OMPC_subdevice,
-                                              /*StrictlyPositive=*/false))
+  if (!isNonNegativeIntegerValue(StartExpr, *this, OMPC_subdevice,
+                                 /*StrictlyPositive=*/false))
     return nullptr;
 
   //  The length expression must evaluate to a positive integer value.
