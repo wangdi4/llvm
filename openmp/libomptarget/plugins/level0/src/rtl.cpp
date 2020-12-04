@@ -88,6 +88,39 @@ int __kmpc_global_thread_num(void *) __attribute__((weak));
 #define SUBDEVICE_USE_ROOT_MEMORY 0
 #endif
 
+/// Device type enumeration common to compiler and runtime
+enum DeviceArch : uint64_t {
+  DeviceArch_None   = 0,
+  DeviceArch_Gen9   = 0x0001,
+  DeviceArch_XeLP   = 0x0002,
+  DeviceArch_XeHP   = 0x0004,
+  DeviceArch_x86_64 = 0x0100
+};
+
+/// Mapping from device arch to GPU runtime's device identifiers
+std::map<uint64_t, std::vector<uint32_t>> DeviceArchMap {
+  {
+    DeviceArch_Gen9, {
+      0x0901, 0x0902, 0x0903, 0x0904, 0x1900, // SKL
+      0x5900, // KBL
+      0x3E00, 0x9B00, // CFL
+    }
+  },
+  {
+    DeviceArch_XeLP, {
+      0xFF20, 0x9A00, // TGL
+      0x4900, // DG1
+      0x4C00, // RKL
+      0x4600, // ADLS
+    }
+  },
+  {
+    DeviceArch_XeHP, {
+      0x0200, // ATS
+    }
+  }
+};
+
 int DebugLevel = 0;
 
 #if INTEL_INTERNAL_BUILD
@@ -704,6 +737,8 @@ public:
   KernelProfileEventsTy ProfileEvents;
   std::vector<ze_device_properties_t> DeviceProperties;
   std::vector<ze_device_compute_properties_t> ComputeProperties;
+  // Internal device type ID
+  std::vector<uint64_t> DeviceArchs;
   std::vector<ze_device_handle_t> Devices;
   // Subdevice IDs. It maps users' subdevice IDs to internal subdevice IDs
   std::vector<SubDeviceIdsTy> SubDeviceIds;
@@ -1501,6 +1536,16 @@ static int32_t getSubDevices(
   return OFFLOAD_SUCCESS;
 }
 
+static uint64_t getDeviceArch(uint32_t L0DeviceId) {
+  for (auto &arch : DeviceArchMap)
+    for (auto id : arch.second)
+      if (L0DeviceId == id || (L0DeviceId & 0xFF00) == id)
+        return arch.first; // Exact match or prefix match
+
+  IDP("Warning: Cannot decide device arch for %" PRIx32 ".\n", L0DeviceId);
+  return DeviceArch_None;
+}
+
 EXTERN
 int32_t __tgt_rtl_number_of_devices() {
   IDP("Looking for Level0 devices...\n");
@@ -1546,6 +1591,7 @@ int32_t __tgt_rtl_number_of_devices() {
       if (deviceMode == DEVICE_MODE_TOP || deviceMode == DEVICE_MODE_ALL) {
         DeviceInfo->Devices.push_back(device);
         DeviceInfo->DeviceProperties.push_back(properties);
+        DeviceInfo->DeviceArchs.push_back(getDeviceArch(properties.deviceId));
         DeviceInfo->ComputeProperties.push_back(computeProperties);
         DeviceInfo->DeviceIdStr.push_back(std::to_string(i));
       }
@@ -1574,6 +1620,7 @@ int32_t __tgt_rtl_number_of_devices() {
           DeviceInfo->Devices.push_back(subDevice);
           CALL_ZE_RET_ZERO(zeDeviceGetProperties, subDevice, &properties);
           DeviceInfo->DeviceProperties.push_back(properties);
+          DeviceInfo->DeviceArchs.push_back(getDeviceArch(properties.deviceId));
           CALL_ZE_RET_ZERO(zeDeviceGetComputeProperties, subDevice,
                            &computeProperties);
           DeviceInfo->ComputeProperties.push_back(computeProperties);
@@ -2907,6 +2954,17 @@ EXTERN void __tgt_rtl_add_build_options(
     options = std::string(CompileOptions) + " ";
   if (LinkOptions)
     options += std::string(LinkOptions) + " ";
+}
+
+EXTERN bool __tgt_rtl_is_supported_device(int32_t DeviceId, void *DeviceType) {
+  if (!DeviceType)
+    return true;
+
+  uint64_t deviceArch = DeviceInfo->DeviceArchs[DeviceId];
+  bool ret = (uint64_t)(deviceArch & (uint64_t)DeviceType) == deviceArch;
+  IDP("Device %" PRIu32 " does%s match the requested device types " DPxMOD "\n",
+      DeviceId, ret ? "" : " not", DPxPTR(DeviceType));
+  return ret;
 }
 
 void *RTLDeviceInfoTy::getOffloadVarDeviceAddr(
