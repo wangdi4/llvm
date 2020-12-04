@@ -1157,9 +1157,7 @@ Instruction *KernelBarrier::createOOBCheckGetLocalId(CallInst *Call) {
   IRBuilder<> B(GetWIProperties->getTerminator());
   B.SetCurrentDebugLocation(Call->getDebugLoc());
   Value *LocalIds = nullptr;
-  if (UseTLSGlobals) {
-    LocalIds = LocalIds;
-  } else {
+  if (!UseTLSGlobals) {
     LocalIds = CurrentBarrierKeyValues->LocalIdValues;
   }
   Instruction *Result = createGetLocalId(LocalIds, Call->getArgOperand(0), B);
