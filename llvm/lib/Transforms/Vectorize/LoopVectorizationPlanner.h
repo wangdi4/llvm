@@ -184,6 +184,10 @@ struct VectorizationFactor {
   bool operator==(const VectorizationFactor &rhs) const {
     return Width == rhs.Width && Cost == rhs.Cost;
   }
+
+  bool operator!=(const VectorizationFactor &rhs) const {
+    return !(*this == rhs);
+  }
 };
 
 /// Planner drives the vectorization process after having passed
@@ -268,6 +272,18 @@ public:
   }
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 #endif // INTEL_CUSTOMIZATION
+
+  /// Look through the existing plans and return true if we have one with all
+  /// the vectorization factors in question.
+  bool hasPlanWithVFs(const ArrayRef<ElementCount> VFs) const {
+    return any_of(VPlans, [&](const VPlanPtr &Plan) {
+      return all_of(VFs, [&](const ElementCount &VF) {
+        if (Plan->hasVF(VF))
+          return true;
+        return false;
+      });
+    });
+  }
 
   /// Test a \p Predicate on a \p Range of VF's. Return the value of applying
   /// \p Predicate on Range.Start, possibly decreasing Range.End such that the
