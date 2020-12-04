@@ -129,15 +129,14 @@ scalar_kernel_entry:                              ; preds = %scalar_kernel_entry
 ; CHECK: %35 = insertelement <4 x i32> undef, i32 %conv.i, i32 0
 ; CHECK-NEXT: %36 = insertelement <4 x i32> undef, i32 %conv8.i, i32 0
 ; CHECK-NEXT: %37 = insertelement <4 x i32> zeroinitializer, i32 1, i32 0
-; CHECK-NEXT: %38 = bitcast i32 (i32, i32)* addrspace(4)* %34 to <4 x i32> (<4 x i32>, <4 x i32>, <4 x i32>) addrspace(4)* addrspace(4)* addrspace(4)*
-; CHECK-NEXT: %39 = load <4 x i32> (<4 x i32>, <4 x i32>, <4 x i32>) addrspace(4)* addrspace(4)*, <4 x i32> (<4 x i32>, <4 x i32>, <4 x i32>) addrspace(4)* addrspace(4)* addrspace(4)* %38, align 8
-; CHECK-NEXT: %40 = getelementptr <4 x i32> (<4 x i32>, <4 x i32>, <4 x i32>) addrspace(4)*, <4 x i32> (<4 x i32>, <4 x i32>, <4 x i32>) addrspace(4)* addrspace(4)* %39, i32 0
-; CHECK-NEXT: %41 = load <4 x i32> (<4 x i32>, <4 x i32>, <4 x i32>) addrspace(4)*, <4 x i32> (<4 x i32>, <4 x i32>, <4 x i32>) addrspace(4)* addrspace(4)* %40, align 8
-; CHECK-NEXT: %42 = call addrspace(4) <4 x i32> %41(<4 x i32> %35, <4 x i32> %36, <4 x i32> %37)
-; CHECK-NEXT: %43 = extractelement <4 x i32> %42, i32 0
+; CHECK-NEXT: %38 = bitcast i32 (i32, i32)* addrspace(4)* %34 to <4 x i32> (<4 x i32>, <4 x i32>, <4 x i32>) addrspace(4)* addrspace(4)*
+; CHECK-NEXT: %39 = getelementptr <4 x i32> (<4 x i32>, <4 x i32>, <4 x i32>) addrspace(4)*, <4 x i32> (<4 x i32>, <4 x i32>, <4 x i32>) addrspace(4)* addrspace(4)* %38, i32 0
+; CHECK-NEXT: %40 = load <4 x i32> (<4 x i32>, <4 x i32>, <4 x i32>) addrspace(4)*, <4 x i32> (<4 x i32>, <4 x i32>, <4 x i32>) addrspace(4)* addrspace(4)* %39, align 8
+; CHECK-NEXT: %41 = call addrspace(4) <4 x i32> %40(<4 x i32> %35, <4 x i32> %36, <4 x i32> %37)
+; CHECK-NEXT: %42 = extractelement <4 x i32> %41, i32 0
   %35 = tail call i32 (i32 (i32, i32)* addrspace(4)*, i32, i32, ...) @__intel_indirect_call(i32 (i32, i32)* addrspace(4)* %34, i32 %conv.i, i32 %conv8.i) #16
 ; CHECK-NOT: call {{.*}} @__intel_indirect_call
-; CHECK-NEXT: %conv10.i = sext i32 %43 to i64
+; CHECK-NEXT: %conv10.i = sext i32 %42 to i64
   %conv10.i = sext i32 %35 to i64
   store i64 %conv10.i, i64 addrspace(1)* %ptridx.i24.i, align 8
   %dim_0_inc_ind_var = add nuw nsw i64 %dim_0_ind_var, 1

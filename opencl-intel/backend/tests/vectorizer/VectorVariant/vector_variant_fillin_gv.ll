@@ -23,10 +23,8 @@ $I1B = comdat any
 @V1A = constant { [3 x i8*] } { [3 x i8*] [i8* null, i8* bitcast ({ i8*, i8* }* @I1A to i8*), i8* bitcast ([1 x i32 (%class.S1A.A addrspace(4)*, i32)*]* @"A_foo$SIMDTable" to i8*)] }
 @"A_foo$SIMDTable" = weak global [1 x i32 (%class.S1A.A addrspace(4)*, i32)*] [i32 (%class.S1A.A addrspace(4)*, i32)* @A_foo]
 
-; CHECK: @"B_foo$SIMDTable.new_init" = weak constant [2 x i32 (%class.S1B.B addrspace(4)*, i32)*] [i32 (%class.S1B.B addrspace(4)*, i32)* bitcast (<2 x i32> (%class.S1B.B addrspace(4)*, <2 x i32>)* @_ZGVbM8vv_B_foo to i32 (%class.S1B.B addrspace(4)*, i32)*), i32 (%class.S1B.B addrspace(4)*, i32)* bitcast (<2 x i32> (%class.S1B.B addrspace(4)*, <2 x i32>)* @_ZGVbN8vv_B_foo to i32 (%class.S1B.B addrspace(4)*, i32)*)]
-; CHECK: @"B_foo$SIMDTable" = weak constant [1 x i32 (%class.S1B.B addrspace(4)*, i32)*] [i32 (%class.S1B.B addrspace(4)*, i32)* bitcast ([2 x i32 (%class.S1B.B addrspace(4)*, i32)*]* @"B_foo$SIMDTable.new_init" to i32 (%class.S1B.B addrspace(4)*, i32)*)]
-; CHECK: @"A_foo$SIMDTable.new_init" = weak constant [2 x i32 (%class.S1A.A addrspace(4)*, i32)*] [i32 (%class.S1A.A addrspace(4)*, i32)* bitcast (<2 x i32> (%class.S1A.A addrspace(4)*, <2 x i32>)* @_ZGVbM8vv_A_foo to i32 (%class.S1A.A addrspace(4)*, i32)*), i32 (%class.S1A.A addrspace(4)*, i32)* bitcast (<2 x i32> (%class.S1A.A addrspace(4)*, <2 x i32>)* @_ZGVbN8vv_A_foo to i32 (%class.S1A.A addrspace(4)*, i32)*)]
-; CHECK: @"A_foo$SIMDTable" = weak constant [1 x i32 (%class.S1A.A addrspace(4)*, i32)*] [i32 (%class.S1A.A addrspace(4)*, i32)* bitcast ([2 x i32 (%class.S1A.A addrspace(4)*, i32)*]* @"A_foo$SIMDTable.new_init" to i32 (%class.S1A.A addrspace(4)*, i32)*)]
+; CHECK: @"B_foo$SIMDTable" = weak global [2 x i32 (%class.S1B.B addrspace(4)*, i32)*] [i32 (%class.S1B.B addrspace(4)*, i32)* bitcast (<2 x i32> (%class.S1B.B addrspace(4)*, <2 x i32>)* @_ZGVbM8vv_B_foo to i32 (%class.S1B.B addrspace(4)*, i32)*), i32 (%class.S1B.B addrspace(4)*, i32)* bitcast (<2 x i32> (%class.S1B.B addrspace(4)*, <2 x i32>)* @_ZGVbN8vv_B_foo to i32 (%class.S1B.B addrspace(4)*, i32)*)]
+; CHECK: @"A_foo$SIMDTable" = weak global [2 x i32 (%class.S1A.A addrspace(4)*, i32)*] [i32 (%class.S1A.A addrspace(4)*, i32)* bitcast (<2 x i32> (%class.S1A.A addrspace(4)*, <2 x i32>)* @_ZGVbM8vv_A_foo to i32 (%class.S1A.A addrspace(4)*, i32)*), i32 (%class.S1A.A addrspace(4)*, i32)* bitcast (<2 x i32> (%class.S1A.A addrspace(4)*, <2 x i32>)* @_ZGVbN8vv_A_foo to i32 (%class.S1A.A addrspace(4)*, i32)*)]
 
 define void @test() !intel_reqd_sub_group_size !0 {
 entry:

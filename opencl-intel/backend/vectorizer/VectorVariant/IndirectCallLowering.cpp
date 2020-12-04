@@ -118,12 +118,8 @@ bool IndirectCallLowering::runOnModule(Module &M) {
       FunctionType *VecFTy = FunctionType::get(VecRetTy, VecArgTy, false);
       PointerType *VecFPtrTy = PointerType::get(VecFTy, AS);
       PointerType *VecFPtrPtrTy = PointerType::get(VecFPtrTy, AS);
-      PointerType *VecFPtrPtrPtrTy = PointerType::get(VecFPtrPtrTy, AS);
 
-      Value *TablePtr =
-          CastInst::CreateZExtOrBitCast(GV, VecFPtrPtrPtrTy, "", &Call);
-      Value *Table = new LoadInst(VecFPtrPtrTy, TablePtr, "", &Call);
-
+      Value *Table = CastInst::CreateZExtOrBitCast(GV, VecFPtrPtrTy, "", &Call);
       Value *FPtrPtr = GetElementPtrInst::Create(
           VecFPtrTy, Table,
           {ConstantInt::get(M.getContext(), APInt(32, Index, true))}, "",

@@ -153,15 +153,14 @@ scalar_kernel_entry:                              ; preds = %scalar_kernel_entry
 ; CHECK: %36 = insertelement <16 x i32> undef, i32 %conv.i, i32 0
 ; CHECK-NEXT: %37 = insertelement <16 x i32> undef, i32 %conv7.i, i32 0
 ; CHECK-NEXT: %38 = insertelement <16 x i32> zeroinitializer, i32 1, i32 0
-; CHECK-NEXT: %39 = bitcast i32 (i32, i32)** %35 to <16 x i32> (<16 x i32>, <16 x i32>, <16 x i32>)***
-; CHECK-NEXT: %40 = load <16 x i32> (<16 x i32>, <16 x i32>, <16 x i32>)**, <16 x i32> (<16 x i32>, <16 x i32>, <16 x i32>)*** %39, align 8
-; CHECK-NEXT: %41 = getelementptr <16 x i32> (<16 x i32>, <16 x i32>, <16 x i32>)*, <16 x i32> (<16 x i32>, <16 x i32>, <16 x i32>)** %40, i32 0
-; CHECK-NEXT: %42 = load <16 x i32> (<16 x i32>, <16 x i32>, <16 x i32>)*, <16 x i32> (<16 x i32>, <16 x i32>, <16 x i32>)** %41, align 8
-; CHECK-NEXT: %43 = call <16 x i32> %42(<16 x i32> %36, <16 x i32> %37, <16 x i32> %38)
-; CHECK-NEXT: %44 = extractelement <16 x i32> %43, i32 0
+; CHECK-NEXT: %39 = bitcast i32 (i32, i32)** %35 to <16 x i32> (<16 x i32>, <16 x i32>, <16 x i32>)**
+; CHECK-NEXT: %40 = getelementptr <16 x i32> (<16 x i32>, <16 x i32>, <16 x i32>)*, <16 x i32> (<16 x i32>, <16 x i32>, <16 x i32>)** %39, i32 0
+; CHECK-NEXT: %41 = load <16 x i32> (<16 x i32>, <16 x i32>, <16 x i32>)*, <16 x i32> (<16 x i32>, <16 x i32>, <16 x i32>)** %40, align 8
+; CHECK-NEXT: %42 = call <16 x i32> %41(<16 x i32> %36, <16 x i32> %37, <16 x i32> %38)
+; CHECK-NEXT: %43 = extractelement <16 x i32> %42, i32 0
   %36 = tail call i32 (i32 (i32, i32)**, i32, i32, ...) @__intel_indirect_call(i32 (i32, i32)** %35, i32 %conv.i, i32 %conv7.i) #7
 ; CHECK-NOT: call {{.*}} @__intel_indirect_call
-; CHECK-NEXT: %conv8.i = sext i32 %44 to i64
+; CHECK-NEXT: %conv8.i = sext i32 %43 to i64
   %conv8.i = sext i32 %36 to i64
   store i64 %conv8.i, i64 addrspace(1)* %ptridx.i19.i, align 8
   %dim_0_inc_ind_var = add nuw nsw i64 %dim_0_ind_var, 1

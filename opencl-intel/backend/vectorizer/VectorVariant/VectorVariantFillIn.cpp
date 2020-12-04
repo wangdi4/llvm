@@ -103,20 +103,19 @@ bool VectorVariantFillIn::runOnModule(Module &M) {
           // to re-initialize the global variable that corresponds to the
           // pointer.
           GlobalVariable *GVNewInit = new GlobalVariable(
-              M, ArrTy, true, GV->getLinkage(), FPtrArray,
-              GV->getName() + ".new_init", GV, GV->getThreadLocalMode(),
-              GV->getAddressSpace());
-
-          ArrayType *GVArrTy = cast<ArrayType>(GV->getValueType());
-          Constant *FuncAddr =
-              ConstantExpr::getBitCast(GVNewInit, GVArrTy->getElementType());
-          Constant *NewInit = ConstantArray::get(GVArrTy, FuncAddr);
-
-          GlobalVariable *GGV = new GlobalVariable(
-              M, NewInit->getType(), true, GV->getLinkage(), NewInit, "", GV,
+              M, ArrTy, GV->isConstant(), GV->getLinkage(), FPtrArray, "", GV,
               GV->getThreadLocalMode(), GV->getAddressSpace());
 
-          GV->replaceAllUsesWith(GGV);
+          SmallVector<User *, 16> UsersToUpdate(GV->users());
+          for (User *U : UsersToUpdate) {
+            if (Constant *C = dyn_cast<Constant>(U)) {
+              if (!isa<GlobalValue>(C)) {
+                C->handleOperandChange(GV, GVNewInit);
+                continue;
+              }
+            }
+            U->replaceUsesOfWith(GV, GVNewInit);
+          }
 
           Constant *Initializer = GV->getInitializer();
           GV->setInitializer(nullptr);
@@ -124,9 +123,9 @@ bool VectorVariantFillIn::runOnModule(Module &M) {
 
           std::string Name = GV->getName().str();
           GV->eraseFromParent();
-          GGV->setName(Name);
+          GVNewInit->setName(Name);
 
-          UpdatedGV.insert(GGV);
+          UpdatedGV.insert(GVNewInit);
           Modified = true;
         }
 
