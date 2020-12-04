@@ -653,7 +653,7 @@ void OCLVecCloneImpl::handleLanguageSpecifics(Function &F, PHINode *Phi,
     for (User *U : Func->users()) {
       CallInst *CI = dyn_cast<CallInst>(U);
       assert(CI && "Unexpected use of OpenCL function built-ins.");
-      Function *parentFunc = CI->getParent()->getParent();
+      Function *parentFunc = CI->getFunction();
       if (parentFunc != Clone)
         continue;
       switch (Action) {
@@ -663,11 +663,14 @@ void OCLVecCloneImpl::handleLanguageSpecifics(Function &F, PHINode *Phi,
         unsigned dim = C->getValue().getZExtValue();
         assert(dim < 3 && "Argument is not in range");
         if (dim == VecDim) {
-          if (FuncName == CompilationUtils::mangledGetLID() &&
-              LT2GigWorkGroupSize)
-            optimizedUpdateAndMoveTID(CI, Phi, EntryBlock);
-          else if (FuncName == CompilationUtils::mangledGetGID() &&
-                   (LT2GigGlobalWorkSize || TIDFitsInInt32(CI)))
+          // If the get-id calls return i32 (e.g., on 32-bit target), there's
+          // no truncation, so we don't need to do special optimization.
+          bool TIDIsInt32 = CI->getType()->isIntegerTy(32);
+          if (!TIDIsInt32 &&
+              ((FuncName == CompilationUtils::mangledGetLID() &&
+                LT2GigWorkGroupSize) ||
+               (FuncName == CompilationUtils::mangledGetGID() &&
+                (LT2GigGlobalWorkSize || TIDFitsInInt32(CI)))))
             optimizedUpdateAndMoveTID(CI, Phi, EntryBlock);
           else
             updateAndMoveTID(CI, Phi, EntryBlock);
