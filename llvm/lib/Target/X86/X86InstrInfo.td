@@ -1155,6 +1155,9 @@ def HasAMXBF8    : Predicate<"Subtarget->hasAMXBF8()">;
 #if INTEL_FEATURE_ISA_AMX_MEMADVISE
 def HasAMXMEMADVISE    : Predicate<"Subtarget->hasAMXMEMADVISE()">;
 #endif // INTEL_FEATURE_ISA_AMX_MEMADVISE
+#if INTEL_FEATURE_ISA_AMX_COMPLEX
+def HasAMXCOMPLEX : Predicate<"Subtarget->hasAMXCOMPLEX()">;
+#endif // INTEL_FEATURE_ISA_AMX_COMPLEX
 #endif // INTEL_CUSTOMIZATION
 def HasKL        : Predicate<"Subtarget->hasKL()">;
 def HasWIDEKL    : Predicate<"Subtarget->hasWIDEKL()">;

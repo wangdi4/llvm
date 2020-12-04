@@ -278,6 +278,9 @@ def warn_omp_simdlen_in_target_spir: Warning<
 def warn_collapse_ignored_with_tile : Warning<
   "'collapse' clause ignored when using 'tile' clause">, InGroup<OpenMPClauses>;
 def note_omp_tile_expr : Note<"as specified in 'tile' clause">;
+def warn_omp_subdevice_level: Warning<
+  "'subdevice' level value must be 0 or 1 - ignored, assuming 0">,
+  InGroup<Pragmas>;
 
 #if INTEL_FEATURE_CSA
 // Intel CSA extensions

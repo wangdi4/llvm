@@ -3228,6 +3228,10 @@ X86
 .. option:: -mamx-bf8, -mno-amx-bf8
 
 .. end INTEL_FEATURE_ISA_AMX_BF8
+.. INTEL_FEATURE_ISA_AMX_COMPLEX
+.. option:: -mamx-complex, -mno-amx-complex
+
+.. end INTEL_FEATURE_ISA_AMX_COMPLEX
 .. INTEL_FEATURE_ISA_AMX_MEMADVISE
 .. option:: -mamx-memadvise, -mno-amx-memadvise
 

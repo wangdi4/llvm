@@ -31,21 +31,35 @@
 ; CHECK: }
 ; CHECK: END REGION
 
+; Check that we throttle loop when number of ifs is greater than threshold.
+; RUN: opt < %s -analyze -hir-framework -hir-loop-if-threshold=1 -hir-region-print-cost-model-stats -debug-only=hir-region-identification 2>&1 | FileCheck -check-prefix=COST-MODEL %s
+; COST-MODEL: Loop throttled due to presence of too many ifs.
+
+; Verify that the second conditional branch condition %cmp2 which is invariant
+; w.r.t to the loop is not counted in the stats.
+
+; COST-MODEL: Loop if count: 2
+
 
 ; Function Attrs: norecurse nounwind uwtable
-define void @foo(i32* nocapture %A, i32 %n, i32 %a, i32 %b, i32 %c) local_unnamed_addr #0 {
+define void @foo(i32* nocapture %A, i32 %n, i32 %a) local_unnamed_addr #0 {
 entry:
   %cmp21 = icmp sgt i32 %n, 0
   br i1 %cmp21, label %for.body.lr.ph, label %for.end
 
 for.body.lr.ph:                                   ; preds = %entry
-  %cmp1 = icmp sgt i32 %a, 0
-  %cmp2 = icmp eq i32 %b, 4
-  %cmp7 = icmp eq i32 %c, 2
+  %cmp2 = icmp eq i32 %a, 4
   br label %for.body
 
 for.body:                                         ; preds = %for.inc, %for.body.lr.ph
   %indvars.iv = phi i64 [ 0, %for.body.lr.ph ], [ %indvars.iv.next, %for.inc ]
+  %arrayidxld = getelementptr inbounds i32, i32* %A, i64 0
+  %ld = load i32, i32* %arrayidxld, align 4
+  %cmp1 = icmp sgt i32 %ld, 0
+  %cmp7 = icmp eq i32 %ld, 2
+  br label %uncond.jump
+
+uncond.jump:
   br i1 %cmp1, label %if.then, label %if.end
 
 if.then:                                          ; preds = %for.body

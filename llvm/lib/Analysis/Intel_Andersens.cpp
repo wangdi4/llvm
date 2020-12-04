@@ -2149,7 +2149,7 @@ void AndersensAAResult::visitStoreInst(StoreInst &SI) {
   //      %5 = bitcast %struct.p** %0 to i64*
   //      %6 = load i64, i64* %5
   //
-  auto IsLoadingPtrAsInt = [this](Value *V) {
+  auto IsLoadingPtrAsInt = [](Value *V) {
     auto *LI = dyn_cast<LoadInst>(V);
     // Make sure load has single use to simplify the implementation.
     if (!LI || !LI->getType()->isIntegerTy() || !LI->hasOneUse())

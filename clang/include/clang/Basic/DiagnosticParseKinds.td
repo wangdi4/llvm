@@ -1323,8 +1323,8 @@ def err_omp_bad_context_selector : Error<
   "unknown or unsupported '%0' context selector, expecting %1">;
 def err_omp_bad_device_selector : Error<
  "unknown or unsupported '%0' selector, expecting %1">;
-def warn_omp_expected_nonneg_integer : Warning<
-  "expected nonnegative integer for level in '%0' clause - ignored">,
+def warn_omp_expected_nonneg_const_int : Warning<
+  "expected nonnegative constant integer for level in '%0' clause - ignored">,
   InGroup<IgnoredPragmas>;
 // end INTEL_COLLAB
 def err_omp_map_type_missing : Error<

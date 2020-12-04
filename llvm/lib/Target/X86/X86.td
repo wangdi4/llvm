@@ -439,6 +439,11 @@ def FeatureAMXTILE2 : SubtargetFeature<"amx-tile2", "HasAMXTILE2", "true",
                                        "Support AMX amx-tile2 instructions",
                                        [FeatureAMXTILE]>;
 #endif // INTEL_FEATURE_ISA_AMX_TILE2
+#if INTEL_FEATURE_ISA_AMX_COMPLEX
+def FeatureAMXCOMPLEX : SubtargetFeature<"amx-complex", "HasAMXCOMPLEX", "true",
+                                          "Support AMX-COMPLEX instructions",
+                                          [FeatureAMXTILE]>;
+#endif // INTEL_FEATURE_ISA_AMX_COMPLEX
 #endif // INTEL_CUSTOMIZATION
 def FeatureLEAForSP : SubtargetFeature<"lea-sp", "UseLeaForSP", "true",
                                      "Use LEA for adjusting the stack pointer">;

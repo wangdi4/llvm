@@ -77,14 +77,18 @@ static cl::opt<unsigned> HugeLoopSize("hir-huge-loop-size", cl::init(42),
                                       cl::Hidden,
                                       cl::desc("Threshold for huge loop size"));
 static cl::opt<unsigned>
-    MaxInstThresholdOption("hir-region-inst-threshold", cl::init(0), cl::Hidden,
+    MaxInstThresholdOption("hir-loop-inst-threshold", cl::init(0), cl::Hidden,
                            cl::desc("Threshold for maximum number of "
-                                    "instructions allowed in a HIR region"));
+                                    "instructions allowed in a HIR loop"));
+
+static cl::opt<unsigned> MaxIfThresholdOption(
+    "hir-loop-if-threshold", cl::init(0), cl::Hidden,
+    cl::desc("Threshold for maximum number of ifs allowed in a HIR loop"));
 
 static cl::opt<unsigned> MaxIfNestThresholdOption(
-    "hir-region-if-nest-threshold", cl::init(0), cl::Hidden,
+    "hir-loop-if-nest-threshold", cl::init(0), cl::Hidden,
     cl::desc(
-        "Threshold for maximum number of nested ifs allowed in a HIR region"));
+        "Threshold for maximum number of nested ifs allowed in a HIR loop"));
 
 static cl::opt<bool>
     PrintCostModelStats("hir-region-print-cost-model-stats", cl::init(false),
@@ -615,7 +619,8 @@ bool HIRRegionIdentification::containsUnsupportedTy(const Instruction *Inst,
 
 const unsigned O2MaxInstThreshold = 200;
 const unsigned O3MaxInstThreshold = 400;
-const unsigned MaxIfThreshold = 7;
+const unsigned OuterLoopMaxIfThreshold = 7;
+const unsigned InnermostLoopMaxIfThreshold = 15;
 const unsigned O2MaxIfNestThreshold = 3;
 const unsigned O3MaxIfNestThreshold = 7;
 const unsigned SmallTripThreshold = 16;
@@ -627,6 +632,7 @@ class HIRRegionIdentification::CostModelAnalyzer
   DomTreeNode *HeaderDomNode;
 
   const bool IsInnermostLoop;
+  const bool IsSingleExitLoop;
   const bool IsUnknownLoop;
   bool IsSmallTripLoop;
   bool IsProfitable;
@@ -637,6 +643,7 @@ class HIRRegionIdentification::CostModelAnalyzer
   unsigned IfCount;               // Approximates number of ifs in HIR.
 
   unsigned MaxInstThreshold;
+  unsigned MaxIfThreshold;
   unsigned MaxIfNestThreshold;
 
 public:
@@ -661,6 +668,7 @@ HIRRegionIdentification::CostModelAnalyzer::CostModelAnalyzer(
     const HIRRegionIdentification &RI, const Loop &Lp, const SCEV *BECount,
     bool &ThrottleParentLoop)
     : RI(RI), Lp(Lp), IsInnermostLoop(Lp.isInnermost()),
+      IsSingleExitLoop(Lp.getExitingBlock()),
       IsUnknownLoop(isa<SCEVCouldNotCompute>(BECount)), IsProfitable(true),
       OptLevel(RI.OptLevel), InstCount(0), UnstructuredJumpCount(0),
       IfCount(0) {
@@ -669,6 +677,16 @@ HIRRegionIdentification::CostModelAnalyzer::CostModelAnalyzer(
     MaxInstThreshold = MaxInstThresholdOption;
   } else {
     MaxInstThreshold = (OptLevel > 2) ? O3MaxInstThreshold : O2MaxInstThreshold;
+  }
+
+  if (MaxIfThresholdOption.getNumOccurrences() != 0) {
+    MaxIfThreshold = MaxIfThresholdOption;
+  } else {
+    // Use higher threshold for single-exit countable innermost loops at O3.
+    MaxIfThreshold =
+        (OptLevel > 2 && IsInnermostLoop && IsSingleExitLoop && !IsUnknownLoop)
+            ? InnermostLoopMaxIfThreshold
+            : OuterLoopMaxIfThreshold;
   }
 
   if (MaxIfNestThresholdOption.getNumOccurrences() != 0) {
@@ -710,7 +728,7 @@ void HIRRegionIdentification::CostModelAnalyzer::analyze() {
   }
 
   // Only allow innermost multi-exit loops for now.
-  if (!Lp.getExitingBlock() && !Lp.isInnermost()) {
+  if (!IsSingleExitLoop && !IsInnermostLoop) {
     printOptReportRemark(
         &Lp, "Outer multi-exit loop throttled for compile time reasons.");
     IsProfitable = false;
@@ -723,7 +741,7 @@ void HIRRegionIdentification::CostModelAnalyzer::analyze() {
   // ready yet. Innermost unknown loops embedded inside other loops are
   // throttled for compile time reasons.
   if (IsUnknownLoop &&
-      (((OptLevel < 3) && (Lp.getNumBlocks() != 1)) || !Lp.isInnermost())) {
+      (((OptLevel < 3) && (Lp.getNumBlocks() != 1)) || !IsInnermostLoop)) {
     printOptReportRemark(
         &Lp, "Non-countable loop throttled for compile time reasons.");
     IsProfitable = false;
@@ -860,18 +878,17 @@ bool HIRRegionIdentification::CostModelAnalyzer::visitBranchInst(
   auto ParentBB = BI.getParent();
 
   // Complex CFG checks do not apply to headers/latches.
+  // Note: This ignores the very first conditional branch in the loop which for
+  // many outer loops is the ztt of the inner loop. This has the (probably
+  // unintentional) effect of being able to create deep loopnests without
+  // bailing out, based on if nesting threshold.
   if ((ParentBB == Lp.getHeader()) || (ParentBB == Lp.getLoopLatch())) {
     return true;
   }
 
-  if (++IfCount > MaxIfThreshold) {
-    printOptReportRemark(&Lp, "Throttled due to presence of too many ifs.");
-    return false;
-  }
+  auto *DomNode = RI.DT.getNode(const_cast<BasicBlock *>(ParentBB));
 
   unsigned IfNestCount = 0;
-  auto DomNode = RI.DT.getNode(const_cast<BasicBlock *>(ParentBB));
-
   while (DomNode != HeaderDomNode) {
     assert(DomNode && "Dominator tree node of a loop bblock is null!");
 
@@ -904,6 +921,16 @@ bool HIRRegionIdentification::CostModelAnalyzer::visitBranchInst(
     DomNode = DomNode->getIDom();
   }
 
+  // Ignore top level loop invariant branches in innermost loops as these are
+  // likely to be unswitched.
+  if ((IfNestCount == 0) && IsInnermostLoop) {
+    auto *Cond = dyn_cast<Instruction>(BI.getCondition());
+
+    if (!Cond || !Lp.contains(Cond)) {
+      return true;
+    }
+  }
+
   // Add 1 to include reaching header node.
   if ((IfNestCount + 1) > MaxIfNestThreshold) {
     printOptReportRemark(
@@ -911,8 +938,14 @@ bool HIRRegionIdentification::CostModelAnalyzer::visitBranchInst(
     return false;
   }
 
+  if (++IfCount > MaxIfThreshold) {
+    printOptReportRemark(&Lp,
+                         "Loop throttled due to presence of too many ifs.");
+    return false;
+  }
+
   // Skip goto check for multi-exit loops.
-  if (!Lp.getExitingBlock()) {
+  if (!IsSingleExitLoop) {
     return true;
   }
 
