@@ -4705,6 +4705,8 @@ pi_result piextUSMHostAlloc(void **ResultPtr, pi_context Context,
   ZE_CALL(
       zeMemAllocHost(Context->ZeContext, &ZeDesc, Size, Alignment, ResultPtr));
 
+  assert(Alignment == 0 ||
+         reinterpret_cast<std::uintptr_t>(*ResultPtr) % Alignment == 0);
   return PI_SUCCESS;
 }
 
@@ -4731,6 +4733,8 @@ pi_result USMDeviceAllocImpl(void **ResultPtr, pi_context Context,
   ZE_CALL(zeMemAllocDevice(Context->ZeContext, &ZeDesc, Size, Alignment,
                            Device->ZeDevice, ResultPtr));
 
+  assert(Alignment == 0 ||
+         reinterpret_cast<std::uintptr_t>(*ResultPtr) % Alignment == 0);
   return PI_SUCCESS;
 }
 
@@ -4752,6 +4756,8 @@ pi_result USMSharedAllocImpl(void **ResultPtr, pi_context Context,
   ZE_CALL(zeMemAllocShared(Context->ZeContext, &ZeDevDesc, &ZeHostDesc, Size,
                            Alignment, Device->ZeDevice, ResultPtr));
 
+  assert(Alignment == 0 ||
+         reinterpret_cast<std::uintptr_t>(*ResultPtr) % Alignment == 0);
   return PI_SUCCESS;
 }
 
