@@ -728,6 +728,7 @@ MapBufferCommand::MapBufferCommand(    const SharedPtr<IOclCommandQueueBase>& cm
                                     const SharedPtr<MemoryObject>& pBuffer, cl_map_flags clMapFlags, size_t szOffset, size_t szCb):
     MapMemObjCommand(cmdQueue, pOclEntryPoints, pBuffer, clMapFlags, nullptr, nullptr, nullptr, nullptr)
 {
+    m_commandType = CL_COMMAND_MAP_BUFFER;
     m_szOrigin[0] = szOffset;
     m_szRegion[0] = szCb;
 }
@@ -754,6 +755,7 @@ MapImageCommand::MapImageCommand(
             ):
 MapMemObjCommand(cmdQueue, pOclEntryPoints, pImage, clMapFlags, pOrigin, pRegion, pszImageRowPitch, pszImageSlicePitch)
 {
+    m_commandType = CL_COMMAND_MAP_IMAGE;
 }
 
 /******************************************************************
@@ -1109,6 +1111,7 @@ UnmapMemObjectCommand::UnmapMemObjectCommand(const SharedPtr<IOclCommandQueueBas
     m_pOclEntryPoints(pOclEntryPoints),
     m_bResourcesAllocated(false)
 {
+    m_commandType = CL_COMMAND_UNMAP_MEM_OBJECT;
     AddToMemoryObjectArgList( m_MemOclObjects, pMemObject, MemoryObject::READ_WRITE );
 }
 
@@ -1401,6 +1404,7 @@ NativeKernelCommand::NativeKernelCommand(
     m_ppMemObjList(ppMemObjList),
     m_ppArgsMemLoc(ppArgsMemLoc)
 {
+    m_commandType = CL_COMMAND_NATIVE_KERNEL;
 }
 
 /******************************************************************
@@ -1552,8 +1556,6 @@ NDRangeKernelCommand::NDRangeKernelCommand(
     const size_t*   cpszLocalWorkSize
     ):
 Command(cmdQueue),
-m_type(CL_COMMAND_NDRANGE_KERNEL),
-m_typeStr("CL_COMMAND_NDRANGE_KERNEL"),
 m_pKernel(pKernel),
 m_pDeviceKernel(nullptr),
 m_uiWorkDim(uiWorkDim),
@@ -1561,6 +1563,7 @@ m_cpszGlobalWorkOffset(cpszGlobalWorkOffset),
 m_cpszGlobalWorkSize(cpszGlobalWorkSize),
 m_cpszLocalWorkSize(cpszLocalWorkSize)
 {
+    m_commandType = CL_COMMAND_NDRANGE_KERNEL;
 }
 
 /******************************************************************
@@ -1953,6 +1956,7 @@ cl_err_code NDRangeKernelCommand::Init()
                                                                         m_cpszLocalWorkSize[i];
         }
     }
+    pKernelParam->parallel_copy_cmd_type = getCommandDevType(m_commandType);
 
     // Set GPA data
     GPA_InitCommand();
@@ -2145,6 +2149,7 @@ ReadMemObjCommand::ReadMemObjCommand(
     m_szDstRowPitch(szDstRowPitch),
     m_szDstSlicePitch(szDstSlicePitch)
 {
+    m_commandType = CL_COMMAND_READ_MEM_OBJECT;
 //    size_t uiDimCount = m_pMemObj->GetNumDimensions();
     AddToMemoryObjectArgList( m_MemOclObjects, pMemObj, MemoryObject::READ_ONLY );
 
@@ -2258,7 +2263,7 @@ TaskCommand::TaskCommand( const SharedPtr<IOclCommandQueueBase>& cmdQueue, ocl_e
     NDRangeKernelCommand(cmdQueue, pOclEntryPoints, pKernel, 1, nullptr, &m_szStaticWorkSize, &m_szStaticWorkSize),
     m_szStaticWorkSize(1)
 {
-
+    m_commandType = CL_COMMAND_TASK;
 }
 
 /******************************************************************
@@ -2405,6 +2410,7 @@ WriteMemObjCommand::WriteMemObjCommand(
     m_szSrcRowPitch(szSrcRowPitch),
     m_szSrcSlicePitch(szSrcSlicePitch)
 {
+    m_commandType = CL_COMMAND_WRITE_MEM_OBJECT;
     AddToMemoryObjectArgList( m_MemOclObjects, pMemObj, MemoryObject::READ_WRITE );
     // Set region
     for( cl_uint i =0; i<MAX_WORK_DIM; i++)
@@ -2619,7 +2625,7 @@ FillMemObjCommand::FillMemObjCommand(
     m_numOfDimms(numOfDimms), m_pattern_size(pattern_size),
     m_internalErr(CL_SUCCESS)
 {
-    m_commandType = CL_DEV_CMD_FILL_IMAGE;
+    m_commandType = CL_COMMAND_FILL_MEM_OBJECT;
 
     // Set region
     for( int i=0 ; i<MAX_WORK_DIM ; ++i)
@@ -2766,6 +2772,7 @@ MigrateSVMMemCommand::MigrateSVMMemCommand(
     assert( nullptr != pMemObjects );
     assert( nullptr != pContextModule );
 
+    m_commandType = CL_COMMAND_MIGRATE_SVM_MEM_OBJECTS;
     memset( &m_migrateCmdParams, 0, sizeof(cl_dev_cmd_param_migrate));
     m_migrateCmdParams.flags    = clFlags;
     m_migrateCmdParams.mem_num  = uNumMemObjects;
@@ -2880,6 +2887,7 @@ MigrateMemObjCommand::MigrateMemObjCommand(
     assert( nullptr != pMemObjects );
     assert( nullptr != pContextModule );
 
+    m_commandType = CL_COMMAND_MIGRATE_MEM_OBJECTS;
     memset( &m_migrateCmdParams, 0, sizeof(cl_dev_cmd_param_migrate));
     m_migrateCmdParams.flags    = clFlags;
     m_migrateCmdParams.mem_num  = uNumMemObjects;
@@ -2988,6 +2996,7 @@ MigrateUSMMemCommand::MigrateUSMMemCommand(
     assert(nullptr != ptr);
     assert(nullptr != contextModule);
 
+    m_commandType = CL_COMMAND_MIGRATEMEM_INTEL;
     memset(&m_migrateCmdParams, 0, sizeof(m_migrateCmdParams));
     m_migrateCmdParams.flags = clFlags;
     m_migrateCmdParams.size = size;
@@ -3083,6 +3092,7 @@ AdviseUSMMemCommand::AdviseUSMMemCommand(
     assert(nullptr != ptr);
     assert(nullptr != contextModule);
 
+    m_commandType = CL_COMMAND_MEMADVISE_INTEL;
     memset(&m_adviseCmdParams, 0, sizeof(m_adviseCmdParams));
 
     // Advice hints for GPU could be:

@@ -803,10 +803,20 @@ int NDRange::Init(size_t region[], unsigned int &dimCount, size_t numberOfThread
     // Start execution task
     if ((nullptr != m_pGPAData) && (m_pGPAData->bUseGPA))
     {
-        cl_dev_cmd_param_kernel *cmdParams = (cl_dev_cmd_param_kernel*)m_pCmd->params;
-
-        __itt_task_begin(m_pGPAData->pDeviceDomain, m_ittID, __itt_null,
-            ((const ProgramService::KernelMapEntry*)cmdParams->kernel)->ittTaskNameHandle);
+        __itt_string_handle *h;
+        cl_dev_cmd_type t = cmdParams->parallel_copy_cmd_type;
+        if (CL_DEV_CMD_READ == t)
+          h = m_pGPAData->pReadHandle;
+        else if (CL_DEV_CMD_WRITE == t)
+          h = m_pGPAData->pWriteHandle;
+        else if (CL_DEV_CMD_COPY == t)
+          h = m_pGPAData->pCopyHandle;
+        else if (CL_DEV_CMD_FILL_BUFFER == t || CL_DEV_CMD_FILL_IMAGE == t)
+          h = m_pGPAData->pFillHandle;
+        else
+          h = ((const ProgramService::KernelMapEntry *)cmdParams->kernel)
+              ->ittTaskNameHandle;
+        __itt_task_begin(m_pGPAData->pDeviceDomain, m_ittID, __itt_null, h);
     }
 #endif
 

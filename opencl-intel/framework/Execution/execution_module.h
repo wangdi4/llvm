@@ -198,27 +198,20 @@ namespace Intel { namespace OpenCL { namespace Framework {
         cl_err_code         EnqueueMarker(const SharedPtr<IOclCommandQueueBase>& clCommandQueue, cl_event *pEvent, ApiLogger* pApiLogger);
 
         /// Enqueue parallel copy.
-        cl_err_code EnqueueLibraryCopy(SharedPtr<IOclCommandQueueBase> &queue,
-                                       void *dst, const void *src, size_t size,
-                                       bool is_dst_svm, bool is_dst_usm,
-                                       bool is_src_svm, bool is_src_usm,
-                                       cl_bool blocking,
-                                       cl_uint num_events_in_wait_list,
-                                       const cl_event *event_wait_list,
-                                       cl_event *event, ApiLogger *api_logger,
-                                       cl_command_type cmdType,
-                                       std::string cmdTypeStr);
+        cl_err_code EnqueueLibraryCopy(
+            SharedPtr<IOclCommandQueueBase> & queue, void *dst, const void *src,
+            size_t size, bool is_dst_svm, bool is_dst_usm, bool is_src_svm,
+            bool is_src_usm, cl_bool blocking, cl_uint num_events_in_wait_list,
+            const cl_event *event_wait_list, cl_event *event,
+            ApiLogger *api_logger, cl_command_type cmdType);
 
         // Enqueue parallel set.
-        cl_err_code EnqueueLibrarySet(SharedPtr<IOclCommandQueueBase> &queue,
-                                      void *dst, unsigned char value,
-                                      size_t size, bool is_dst_svm,
-                                      bool is_dst_usm,
-                                      cl_uint num_events_in_wait_list,
-                                      const cl_event *event_wait_list,
-                                      cl_event *event, ApiLogger *api_logger,
-                                      cl_command_type cmdType,
-                                      std::string cmdTypeStr);
+        cl_err_code EnqueueLibrarySet(
+            SharedPtr<IOclCommandQueueBase> & queue, void *dst,
+            const void *pattern, size_t pattern_size, size_t size,
+            bool is_dst_svm, bool is_dst_usm, cl_uint num_events_in_wait_list,
+            const cl_event *event_wait_list, cl_event *event,
+            ApiLogger *api_logger, cl_command_type cmdType);
 
         PlatformModule*     m_pPlatfromModule;                                                  // Pointer to the platform operation. This is the internal interface of the module.
         ContextModule*      m_pContextModule;                                                   // Pointer to the context operation. This is the internal interface of the module.
