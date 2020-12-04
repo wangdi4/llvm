@@ -106,9 +106,11 @@ typedef void (CL_CALLBACK *mem_dtor_fn)(cl_mem, void *);
 #define CL_NOT_READY  0x8
 #define CL_DONE_ON_RUNTIME  0x9
 // cl_command_type (internal use)
-#define CL_COMMAND_READ_MEM_OBJECT	 1500
-#define	CL_COMMAND_WRITE_MEM_OBJECT  1501
-#define	CL_COMMAND_FILL_MEM_OBJECT   1502
+#define CL_COMMAND_READ_MEM_OBJECT   1500
+#define CL_COMMAND_WRITE_MEM_OBJECT  1501
+#define CL_COMMAND_FILL_MEM_OBJECT   1502
+#define CL_COMMAND_RUNTIME           1503
+#define CL_COMMAND_WAIT_FOR_EVENTS   1504
 
 ///////////////////////////////////////
 // Memory runtime declaration

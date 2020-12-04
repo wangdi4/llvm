@@ -12,7 +12,7 @@
 // or implied warranties, other than those that are expressly stated in the
 // License.
 
-#define DEBUG_TYPE "Vectorizer"
+#define DEBUG_TYPE "InstCounter"
 
 #include "InstCounter.h"
 #include "WIAnalysis.h"
@@ -188,7 +188,7 @@ bool WeightedInstCounter::runOnFunction(Function &F) {
   // functions runs. Once we have this, we can multiply the count
   // by each instruction's weight.
   DenseMap<Loop*, int> IterMap;
-  estimateIterations(F, IterMap);
+  estimateIterations(IterMap);
 
   // Now compute some estimation of the probability of each basic block
   // being executed in a run.
@@ -200,6 +200,8 @@ bool WeightedInstCounter::runOnFunction(Function &F) {
 
   LoopInfo *LI = &getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
   // For each basic block, add up its weight
+  LLVM_DEBUG(dbgs() << "********************\nCalculating cost for function "
+                    << F.getName() << '\n');
   for (Function::iterator BBIter = F.begin(), BBEndIter = F.end(); BBIter != BBEndIter; ++BBIter) {
 
     BasicBlock* const BB = &*BBIter;
@@ -232,6 +234,7 @@ bool WeightedInstCounter::runOnFunction(Function &F) {
     float Probability = ProbMap.lookup(BB);
 
     // And now, sum up all the instructions
+    LLVM_DEBUG(dbgs() << "Calculating cost for BB " << BB->getName() << '\n');
     for (BasicBlock::iterator IIter = BB->begin(), IE=BB->end(); IIter != IE; ++IIter){
       Instruction* const I = &*IIter;
       if (discardPhis && dyn_cast<PHINode>(I))
@@ -240,14 +243,25 @@ bool WeightedInstCounter::runOnFunction(Function &F) {
         continue;
 
       int instWeight = getInstructionWeight(I, MemOpCostMap);
-      m_totalWeight += Probability * TripCount * instWeight;
+      float Cost = Probability * TripCount * instWeight;
+      m_totalWeight += Cost;
+      LLVM_DEBUG(dbgs() << "  [" << format_decimal(instWeight, 4) << ']');
+      LLVM_DEBUG(I->dump());
       blockWeights += instWeight; // for statisical purposes.
     }
+    LLVM_DEBUG(dbgs() << "Cost of BB " << BB->getName() << ':'
+                      << " Final Cost: "
+                      << format("%6.2f", blockWeights * Probability * TripCount)
+                      << " Block Weight: " << blockWeights
+                      << " Prob: " << format("%4.2f", Probability)
+                      << " TripCount: " << TripCount << '\n');
     // for statistics:
     OCLSTAT_GATHER_CHECK(
       m_blockCosts[BB] = blockWeights;
     );
   }
+  LLVM_DEBUG(dbgs() << "Cost of function " << F.getName() << ": "
+                    << format("%.2f", m_totalWeight) << '\n');
 
   // If we are pre-vectorization, decide what the vectorization width should be.
   // Note that v16 support was already decided earlier. The reason the code is split
@@ -412,17 +426,38 @@ int WeightedInstCounter::estimateCall(CallInst *Call)
     if(services->isTIDGenerator(Call, &err, &dim))
       return DEFAULT_WEIGHT;
 
+    Function *Callee = Call->getCalledFunction();
+
     // Handle the special case of unnamed functions (call through a bitcast)
-    if (!Call->getCalledFunction())
+    if (!Callee)
       return CALL_WEIGHT;
 
-    StringRef Name = Call->getCalledFunction()->getName();
+    StringRef Name = Callee->getName();
+    bool isIntrinsic = Callee->isIntrinsic();
+
+    // For volcano
+    bool isOCLLoad = Mangler::isMangledLoad(Name.str());
+    bool isOCLStore = Mangler::isMangledStore(Name.str());
+    // For VPlan
+    bool isLoadIntrinsic =
+        isIntrinsic && Callee->getIntrinsicID() == Intrinsic::masked_load;
+    bool isStoreIntrinsic =
+       isIntrinsic && Callee->getIntrinsicID() == Intrinsic::masked_store;
+
     // Since we run before the resolver, masked load/stores should count
     // as load/stores, not calls. Maybe slightly better or worse.
-    if (Mangler::isMangledLoad(std::string(Name)) || Mangler::isMangledStore(std::string(Name))) {
+    if (isOCLLoad || isOCLStore || isLoadIntrinsic || isStoreIntrinsic) {
       // If the mask is non-scalar, this will become a lot of memops,
       // since the CPU doesn't have gathers.
-      Value *Mask = Call->getArgOperand(0);
+      unsigned MaskIdx;
+      if (isOCLLoad || isOCLStore) {
+        MaskIdx = 0;
+      } else if (isLoadIntrinsic) {
+        MaskIdx = 2;
+      } else { // isStoreIntrinsic
+        MaskIdx = 3;
+      }
+      Value *Mask = Call->getArgOperand(MaskIdx);
       Type* MaskType = Mask->getType();
 
       // apperently, masked stores to a memory location that was retrieved via
@@ -435,9 +470,17 @@ int WeightedInstCounter::estimateCall(CallInst *Call)
       // So yes, this is a hack for this purpose.
       // The check is very specific trying to catch LuxMark::Sampler.
       // alone without causing collateral damage.
-      if (Mangler::isMangledStore(std::string(Name)) && !MaskType->isVectorTy()) {
+      //
+      // FIXME:
+      // I checked the IR in LuxMark/Luxball_HDR and LuxMark/Microphone, and
+      // there's no call to masked_load/maskd_store with this kind of gep at
+      // all. This kind of gep's are directly used by 'load' instructions. I
+      // suggest removing this piece of code or making it fit in more general
+      // cases. E.g., penalize gep's with more than 6 operands instead of exact
+      // 6 operands.
+      if ((isOCLStore || isStoreIntrinsic) && !MaskType->isVectorTy()) {
         V_ASSERT(Call->getNumArgOperands() == 3 && "expected 3 params in masked store");
-        if (GetElementPtrInst* gep = dyn_cast<GetElementPtrInst>(Call->getOperand(2))) {
+        if (auto * gep = dyn_cast<GetElementPtrInst>(Call->getArgOperand(1))) {
           if (gep->getNumOperands() == NUMBER_OF_PARAMETERS_IN_GEP_PENALTY_HACK) {
             BasicBlock* BB = Call->getParent();
             for (succ_iterator it = succ_begin(BB), e = succ_end(BB);
@@ -460,19 +503,34 @@ int WeightedInstCounter::estimateCall(CallInst *Call)
       // TODO: if the vector is really large, still need to multiply...
     }
 
-    if (Mangler::isMangledGather(std::string(Name)) || Mangler::isMangledScatter(std::string(Name))) {
+    // For volcano
+    bool isOCLGather = Mangler::isMangledGather(Name.str());
+    bool isOCLScatter = Mangler::isMangledScatter(Name.str());
+    // For VPlan
+    bool isGatherIntrinsic =
+        isIntrinsic && Callee->getIntrinsicID() == Intrinsic::masked_gather;
+    bool isScatterIntrinsic =
+       isIntrinsic && Callee->getIntrinsicID() == Intrinsic::masked_scatter;
+
+    if (isOCLGather || isOCLScatter ||
+        isGatherIntrinsic || isScatterIntrinsic) {
       // 16 x 32bit element gather/scatter with 64 bit indices will turn
       // into 2 gathers/scatters, so adjust weight accordingly.
 
       int Weight;
-      if (Mangler::isMangledGather(std::string(Name)))
+      if (isOCLGather || isGatherIntrinsic)
         Weight = GATHER_WEIGHT;
       else
         Weight = SCATTER_WEIGHT;
 
+      // FIXME: For Volcano-style ocl_masked_gather/scatter, the address is
+      // calculated by ptr + indices, so we can check if the indices are in 64
+      // bits; while LLVM gather/scatter intrinsic simply accepts a vector of
+      // address, so we simply return the Weight.
+      if (isGatherIntrinsic || isScatterIntrinsic)
+        return Weight;
+
       Value *Index = Call->getArgOperand(2);
-      assert(isa<VectorType>(Index->getType()) &&
-        "Expect vector index in gather/scatter!");
       auto Ty = cast<VectorType>(Index->getType());
       if (Ty->getScalarSizeInBits() > 32)
         // return doubled weight for 64 bit indices
@@ -482,12 +540,32 @@ int WeightedInstCounter::estimateCall(CallInst *Call)
     }
 
     // vloads and vstores also count as loads/stores.
+    //
+    // FIXME:
+    // What about maskedf__Z6vload and maskedf__Z6vstore? I checked the IR, and
+    // the cost of these 2 functions are 30 returned by 'getFuncCost' at the
+    // last line of this function. But the maskedf__Z6vload is actually
+    // expanded to the following IR in the later pass.
+    //   bb:
+    //     br i1 %mask, %preload, %postload
+    //   preload:
+    //     %loaded = call <3 x float> @_Z6vload3mPU3AS1Kf(i64 0, float addrspace(1)* %ptr)
+    //     br %postload
+    //   postload:
+    //     %val = phi <3 x float> [ zeroinitializer, %bb ], [ %loaded, %preload ]
+    // The pass just fails to identify vload/vstore/... functions with
+    // maskedf_ prefix, and it treats them as unknown functions calls, whose
+    // cost is 25. But the pass does know adding mask-check overhead for
+    // maskdf_* functions, and the cost for mask check is 5. Then 5+25 = 30.
+    // But we set the cost of vload as 6, so the correct cost should be 5+6 =
+    // 11 IMO.
     if (Name.startswith("vload") || Name.startswith("_Z6vload") ||
         Name.startswith("vstore") || Name.startswith("_Z7vstore")) {
       return MEM_OP_WEIGHT;
     }
 
     // Ugly hacks start here.
+    // FIXME: What about masked versions?
     if (Name.startswith("_Z5clamp") || Name.startswith("clamp"))
       return CALL_CLAMP_WEIGHT;
 
@@ -539,28 +617,41 @@ int WeightedInstCounter::estimateBinOp(BinaryOperator *I)
     return Weight;
 
   FixedVectorType* VecType = cast<FixedVectorType>(OpType);
-  int OpWidth = 0;
-
-  if (hasAVX512())
-    OpWidth = getOpWidth(VecType, 16, 8, 8, 16);
-  else if (hasAVX2())
-    OpWidth = getOpWidth(VecType, 8, 4, 4, 8);
-  else if (hasAVX())
-    // Only AVX, 4-wide on ints, 2-wide on i64
-    OpWidth = getOpWidth(VecType, 8, 4, 2, 4);
-  else
-    // SSE
-    OpWidth = getOpWidth(VecType, 4, 2, 2, 4);
+  unsigned OpWidth = getOpWidth(VecType);
 
   return Weight * OpWidth;
 }
 
-int WeightedInstCounter::getOpWidth(FixedVectorType* VecType,
-      int Float, int Double, int LongInt, int ShortInt) const
+unsigned WeightedInstCounter::getOpWidth(FixedVectorType* VecType) const
 {
   Type* BaseType = VecType->getScalarType();
-  int BaseWidth = VecType->getScalarSizeInBits();
-  int ElemCount = VecType->getNumElements();
+  unsigned BaseWidth = VecType->getScalarSizeInBits();
+  unsigned ElemCount = VecType->getNumElements();
+
+  unsigned Float, Double, LongInt, ShortInt;
+  if (hasAVX512()) {
+    Float = 16;
+    Double = 8;
+    LongInt = 8;
+    ShortInt = 16;
+  } else if (hasAVX2()) {
+    Float = 8;
+    Double = 4;
+    LongInt = 4;
+    ShortInt = 8;
+  } else if (hasAVX()) {
+    // Only AVX, 4-wide on ints, 2-wide on i64
+    Float = 8;
+    Double = 4;
+    LongInt = 2;
+    ShortInt = 4;
+  } else {
+    // SSE
+    Float = 4;
+    Double = 2;
+    LongInt = 2;
+    ShortInt = 4;
+  }
 
   //ceil_div(x,y) is ceil(x/y) for positive integers.
   if (BaseType->isFloatingPointTy())
@@ -610,23 +701,19 @@ int WeightedInstCounter::getInstructionWeight(Instruction *I, DenseMap<Instructi
     if (all_of(Mask, [](int Elt) { return Elt == 0; }))
       return BROADCAST_WEIGHT;
 
+    unsigned NumSpilt = getOpWidth(OpType);
+
     // A shuffle between different types won't be cheap, even if
     // the types are sensible. This should, amongst other things,
     // make revectorization from 4 to 8 less appealing.
     if (ResType != OpType)
-      return EXPENSIVE_SHUFFLE_WEIGHT;
+      return EXPENSIVE_SHUFFLE_WEIGHT * NumSpilt;
 
-    // TODO: shuffles from <8 x i32> are not cheap on SSE,
-    // but it is not taken into account here.
-    if (((OpType->getNumElements() == 4) ||
-         (OpType->getNumElements() == 8) ||
-         ((hasAVX512()) && (OpType->getNumElements() == 16)))
-       &&
-        ((OpType->getElementType()->isFloatTy()) ||
-          OpType->getElementType()->isIntegerTy(32)))
-      return CHEAP_SHUFFLE_WEIGHT;
+    if ((OpType->getElementType()->isFloatTy()) ||
+         OpType->getElementType()->isIntegerTy(32))
+      return CHEAP_SHUFFLE_WEIGHT * NumSpilt;
 
-    return EXPENSIVE_SHUFFLE_WEIGHT;
+    return EXPENSIVE_SHUFFLE_WEIGHT * NumSpilt;
   }
 
   if (isa<ExtractElementInst>(I)) {
@@ -703,9 +790,8 @@ int WeightedInstCounter::getInstructionWeight(Instruction *I, DenseMap<Instructi
   return DEFAULT_WEIGHT;
 }
 
-void WeightedInstCounter::estimateIterations(Function &F,
-                                              DenseMap<Loop*, int> &IterMap)
-                                              const
+void WeightedInstCounter::estimateIterations(
+    DenseMap<Loop*, int> &IterMap) const
 {
   // Walk the loop tree, "estimating" the total number of loop
   // iterations for each loop. Since we assume control flow is sane
@@ -822,6 +908,27 @@ void WeightedInstCounter::
     PostDominanceFrontier::DomSetType &Frontier = iter->second;
     // Before vectorization, the probability is simple 1/(2^k) where k
     // is the number of branches the block is control-dependent on.
+    //
+    // FIXME:
+    // The code below doesn't do what the comments above goes. The k of a basic
+    // block is calculated as the number of its post-dominance frontiers, which
+    // is absolutely wrong. Given a CFG as follows,
+    //         A
+    //        / \
+    //       B   C
+    //          / \
+    //         D   E
+    // and assuming that the probability of each branch is 1/2. So,
+    //   Prob(C) := 1/2
+    //   Prob(D) := 1/2 * Prob(C)
+    //           := 1/4
+    // However, the number of D's post-dominance frontiers is 1 (C), i.e.,
+    //   k(D) = 1
+    // and 1/2^k(D) = 1/2, which doesn't equal to 1/4 we conclude above.
+    // AFAIC, The right way to estimate the probability of a BB is,
+    //   Prob(X) := \sum_{Y in S(X)}{1/n(X) * Prob(Y)}
+    // where S(X) and n(x) are the set of post-dominance frontiers and the
+    // successor number of X, respectively.
     int count = (int)Frontier.size();
 
     // since we do not want the allones optimization to influence heuristics
@@ -883,6 +990,58 @@ void WeightedInstCounter::
           continue;
 
         Value* Cond = BR->getCondition();
+
+        // For VPlan, detect the following pattern of all-zero bypass,
+        //   %bc = bitcast <8 x i1> %mask to i8
+        //   %az = icmp eq i8 %bc, 0
+        //   br i1 %az, label %VPlannedBB.end, label %VPlannedBB
+        //
+        // We also detect the serialized masked operations, and assume the mask
+        // is always 1,
+        //   %Pred = extractelement <8 x i1> %mask, i64 0
+        //   br i1 %Pred, label %VPlannedBB, label %VPlannedBB.end
+        // The reason I do this is to follow a bug of the cost model in
+        // Volcano. In Volcano, function calls which cannot be vectorized are
+        // mangled to maskdf_*, and are expanded to serialized ones in later
+        // passes. But the cost model here fails to idenitfy those maskedf_*
+        // functions, and assumes they're always executed, and even returns
+        // very high cost values for them. See FIXME in estimateCall(). If the
+        // bug is fixed, we need to adjust cost values accordingly. But for
+        // now, I just follow what Volcano does.
+        Instruction *BitCastOrExtract = nullptr;
+        if (auto *Cmp = dyn_cast<ICmpInst>(Cond)) {
+          BitCastInst *BitCastOrExtract;
+          ConstantInt *Zero;
+
+          Value *Op0 = Cmp->getOperand(0),
+                *Op1 = Cmp->getOperand(1);
+          if ((Zero = dyn_cast<ConstantInt>(Op0)))
+            BitCastOrExtract = dyn_cast<BitCastInst>(Op1);
+          else if ((Zero = dyn_cast<ConstantInt>(Op1)))
+            BitCastOrExtract = dyn_cast<BitCastInst>(Op0);
+          else
+            continue;
+
+          if (!BitCastOrExtract || !Zero->isZero())
+            continue;
+        }
+
+        if (!BitCastOrExtract)
+          BitCastOrExtract = dyn_cast<ExtractElementInst>(Cond);
+
+        if (BitCastOrExtract) {
+          Value *Mask = BitCastOrExtract->getOperand(0);
+          FixedVectorType *MaskTy = dyn_cast<FixedVectorType>(Mask->getType());
+          if (!MaskTy ||
+              MaskTy->getScalarType() !=
+                  IntegerType::getInt1Ty(MaskTy->getContext()))
+            continue;
+
+          if (DepSet.find(BitCastOrExtract) != DepSet.end())
+            count--;
+          continue;
+        }
+
         CallInst* CondCall = dyn_cast<CallInst>(Cond);
         if (!CondCall)
           // A branch, but not directly based on a call.
@@ -1078,6 +1237,13 @@ void WeightedInstCounter::estimateMemOpCosts(Function &F, DenseMap<Instruction*,
   // Could run a DFS, instead support one level of phi.
   // Mark the expensive ones first, since if something is reachable through both types of paths,
   // it should be cheap.
+  //
+  // FIXME:
+  // Ahh!!! A gep can propagate through bitcast, extractelement, etc.
+  // Besides, the costs of masked_load, masked_store, masked_gather,
+  // masked_scatter, vload and vstore are estimated here by 'gep', but they're
+  // not used at all. Why do we estimate them using anothor method in
+  // estimateCall()?
   for (std::vector<Instruction*>::iterator I = ExpensiveGEP.begin(), E = ExpensiveGEP.end();
     I != E; ++I) {
     for (Instruction::user_iterator U = (*I)->user_begin(), UE = (*I)->user_end();
@@ -1469,4 +1635,3 @@ extern "C" {
 
 
 } // namespace intel
-

@@ -562,6 +562,7 @@ struct  cl_dev_cmd_param_kernel
     cl_uint               uiNonArgSvmBuffersCount;               //!< number of entries in ppNonArgSvmBuffers
     IOCLDevMemoryObject** ppNonArgUsmBuffers;                    //!< an array of pointers to IOCLDevMemoryObjects representing USM buffers that are used by Kernel, but not passed as arguments to it (or nullptr if they are not needed)
     cl_uint               uiNonArgUsmBuffersCount;               //!< number of entries in ppNonArgUsmBuffers
+    cl_dev_cmd_type     parallel_copy_cmd_type;                  //!< command type of parallel copy.
 };
 
 

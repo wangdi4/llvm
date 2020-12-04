@@ -15,6 +15,7 @@
 #pragma once
 
 #include "cl_object.h"
+#include "command_name.h"
 #include "observer.h"
 #include "Device.h"
 #include "queue_event.h"
@@ -31,9 +32,7 @@
 #include <list>
 
 namespace Intel { namespace OpenCL { namespace Framework {
-    
-    #define CL_COMMAND_RUNTIME          0
-    #define CL_COMMAND_WAIT_FOR_EVENTS  2
+
     // Forward declarations
     class QueueEvent;
     class MemoryObject;
@@ -89,7 +88,10 @@ namespace Intel { namespace OpenCL { namespace Framework {
         //
         // Returns the command type for GetInfo requests and execution needs
         //
-        virtual cl_command_type GetCommandType() const = 0;
+        virtual cl_command_type GetCommandType() const {
+          return m_commandType;
+        }
+
         //
         // set command type (some commands like ReadBuffer/ReadImage change to MARKER on their Execute() if decided not to go to device)
         //
@@ -142,14 +144,18 @@ namespace Intel { namespace OpenCL { namespace Framework {
         virtual bool IsDependentOnEvents() const { return false; }
 
         // Debug functions
-        virtual const char*     GetCommandName() const =0;
+        virtual const char* GetCommandName() const {
+          return getCommandName(m_commandType);
+        }
         
         // GPA related functions
         virtual ocl_gpa_command* GPA_GetCommand() { return m_pGpaCommand; }
         virtual void             GPA_InitCommand();
         virtual void             GPA_DestroyCommand();
         virtual void             GPA_WriteCommandMetadata() {}
-        virtual const char*      GPA_GetCommandName() const { return nullptr; }
+        virtual const char*      GPA_GetCommandName() const {
+          return getCommandNameGPA(m_commandType);
+        }
 
         /**
          * @return whether this Command is already being deleted (useful for m_Event, which when destroyed deletes its Command, which is usually the one that contains it)
@@ -314,14 +320,12 @@ namespace Intel { namespace OpenCL { namespace Framework {
             const size_t*   pszDstOrigin    = nullptr,
             const size_t    szDstRowPitch   = 0,
             const size_t    szDstSlicePitch = 0);
-        
+
         virtual ~ReadMemObjCommand();
-        
-        virtual cl_command_type         GetCommandType() const  { return CL_COMMAND_READ_MEM_OBJECT; }
+
         virtual ECommandExecutionType GetExecutionType() const
         { return m_commandType != CL_COMMAND_MARKER ? DEVICE_EXECUTION_TYPE : RUNTIME_EXECUTION_TYPE; }
-        virtual const char*             GetCommandName() const  { return "CL_COMMAND_READ_MEM_OBJECT"; }
-        
+
         virtual cl_err_code             Init();
         virtual cl_err_code             Execute();
         virtual cl_err_code             CommandDone();
@@ -357,12 +361,6 @@ namespace Intel { namespace OpenCL { namespace Framework {
             void*             pDst
         );
         virtual ~ReadBufferRectCommand();
-        
-        cl_command_type         GetCommandType() const  { return m_commandType; }
-        const char*             GetCommandName() const  { return "CL_COMMAND_READ_BUFFER_RECT"; }
-        
-        // GPA related functions
-        virtual const char*     GPA_GetCommandName() const { return "Read Buffer Rect"; }
     };
     
     
@@ -378,12 +376,6 @@ namespace Intel { namespace OpenCL { namespace Framework {
             void*             pDst
         );
         virtual ~ReadBufferCommand();
-        
-        cl_command_type         GetCommandType() const  { return m_commandType; }
-        const char*             GetCommandName() const  { return "CL_COMMAND_READ_BUFFER"; }
-        
-        // GPA related functions
-        virtual const char*     GPA_GetCommandName() const { return "Read Buffer"; }
     };
 
     class ReadSvmBufferCommand : public ReadBufferCommand
@@ -396,11 +388,10 @@ namespace Intel { namespace OpenCL { namespace Framework {
             const size_t      pszOffset[MAX_WORK_DIM],
             const size_t      pszCb[MAX_WORK_DIM],
             void*             pDst
-            ) : ReadBufferCommand(cmdQueue, pOclEntryPoints, pBuffer, pszOffset, pszCb, pDst) { }
-
-        cl_command_type         GetCommandType() const  { return CL_COMMAND_SVM_MEMCPY; }
-        const char*             GetCommandName() const  { return "CL_COMMAND_SVM_MEMCPY"; }
-        virtual const char*     GPA_GetCommandName() const { return "SVM memcpy"; }
+            ) : ReadBufferCommand(cmdQueue, pOclEntryPoints, pBuffer, pszOffset,
+                                  pszCb, pDst) {
+            m_commandType = CL_COMMAND_SVM_MEMCPY;
+        }
     };
     
     class ReadUsmBufferCommand : public ReadBufferCommand
@@ -414,16 +405,8 @@ namespace Intel { namespace OpenCL { namespace Framework {
             const size_t      pszCb[MAX_WORK_DIM],
             void*             pDst
             ) : ReadBufferCommand(cmdQueue, pOclEntryPoints, pBuffer, pszOffset,
-                                  pszCb, pDst) {}
-
-        cl_command_type         GetCommandType() const {
-            return CL_COMMAND_MEMCPY_INTEL;
-        }
-        const char*             GetCommandName() const {
-            return "CL_COMMAND_MEMCPY_INTEL";
-        }
-        virtual const char*     GPA_GetCommandName() const {
-            return "USM memcpy";
+                                  pszCb, pDst) {
+            m_commandType = CL_COMMAND_MEMCPY_INTEL;
         }
     };
 
@@ -445,12 +428,6 @@ namespace Intel { namespace OpenCL { namespace Framework {
             void*           pDst
         );
         virtual ~ReadImageCommand();
-        
-        cl_command_type         GetCommandType() const  { return m_commandType; }
-        const char*             GetCommandName() const  { return "CL_COMMAND_READ_IMAGE"; }
-        
-        // GPA related functions
-        virtual const char*     GPA_GetCommandName() const { return "Read Image"; }
     };
     
     /******************************************************************
@@ -474,14 +451,11 @@ namespace Intel { namespace OpenCL { namespace Framework {
             const size_t    szSrcRowPitch   = 0,
             const size_t    szSrcSlicePitch = 0
         );
-        
+
         virtual ~WriteMemObjCommand();
-        
-        virtual cl_command_type         GetCommandType() const  { return CL_COMMAND_WRITE_MEM_OBJECT; }
+
         virtual ECommandExecutionType   GetExecutionType() const{ return DEVICE_EXECUTION_TYPE;   }
-        virtual const char*             GetCommandName() const  { return "CL_COMMAND_WRITE_MEM_OBJECT"; }
-        
-        
+
         virtual cl_err_code   Init();
         virtual cl_err_code   Execute();
         virtual cl_err_code   CommandDone();
@@ -552,12 +526,9 @@ namespace Intel { namespace OpenCL { namespace Framework {
         );
 
         virtual ~FillMemObjCommand();
-        
-        virtual cl_command_type         GetCommandType() const  { return CL_COMMAND_FILL_MEM_OBJECT; }
+
         virtual ECommandExecutionType   GetExecutionType() const{ return DEVICE_EXECUTION_TYPE;   }
-        virtual const char*             GetCommandName() const  { return "CL_COMMAND_FILL_MEM_OBJECT"; }
-        
-        
+
         virtual cl_err_code   Init();
         virtual cl_err_code   Execute();
         virtual cl_err_code   CommandDone();
@@ -592,15 +563,8 @@ namespace Intel { namespace OpenCL { namespace Framework {
             const size_t    pszCb[MAX_WORK_DIM],
             const void*     cpSrc
         );
-        
+
         virtual ~WriteBufferCommand();
-        
-        
-        cl_command_type         GetCommandType() const  { return CL_COMMAND_WRITE_BUFFER; }
-        const char*             GetCommandName() const  { return "CL_COMMAND_WRITE_BUFFER"; }
-        
-        // GPA related functions
-        virtual const char*     GPA_GetCommandName() const { return "Write Buffer"; }
     };
 
     class WriteSvmBufferCommand : public WriteBufferCommand
@@ -615,11 +579,10 @@ namespace Intel { namespace OpenCL { namespace Framework {
             const size_t    pszOffset[MAX_WORK_DIM],
             const size_t    pszCb[MAX_WORK_DIM],
             const void*     cpSrc
-            ) : WriteBufferCommand(cmdQueue, pOclEntryPoints, bBlocking, pBuffer, pszOffset, pszCb, cpSrc) { }
-
-        cl_command_type         GetCommandType() const  { return CL_COMMAND_SVM_MEMCPY; }
-        const char*             GetCommandName() const  { return "CL_COMMAND_SVM_MEMCPY"; }        
-        virtual const char*     GPA_GetCommandName() const { return "SVM memcpy"; }
+            ) : WriteBufferCommand(cmdQueue, pOclEntryPoints, bBlocking,
+                                   pBuffer, pszOffset, pszCb, cpSrc) {
+            m_commandType = CL_COMMAND_SVM_MEMCPY;
+        }
     };
     
     class WriteUsmBufferCommand : public WriteBufferCommand
@@ -635,15 +598,9 @@ namespace Intel { namespace OpenCL { namespace Framework {
             const size_t    pszCb[MAX_WORK_DIM],
             const void*     cpSrc
             ) : WriteBufferCommand(cmdQueue, pOclEntryPoints, bBlocking,
-                                   pBuffer, pszOffset, pszCb, cpSrc) {}
-
-        cl_command_type     GetCommandType() const {
-            return CL_COMMAND_MEMCPY_INTEL;
+                                   pBuffer, pszOffset, pszCb, cpSrc) {
+            m_commandType = CL_COMMAND_MEMCPY_INTEL;
         }
-        const char*         GetCommandName() const {
-            return "CL_COMMAND_MEMCPY_INTEL";
-        }
-        virtual const char* GPA_GetCommandName() const { return "USM memcpy"; }
     };
 
     class FillBufferCommand : public FillMemObjCommand
@@ -657,17 +614,10 @@ namespace Intel { namespace OpenCL { namespace Framework {
             size_t pattern_size,
             size_t offset,
             size_t size);
-        
+
         virtual ~FillBufferCommand();
-        
-        
-        cl_command_type         GetCommandType() const  { return CL_COMMAND_FILL_BUFFER; }
-        const char*             GetCommandName() const  { return "CL_COMMAND_FILL_BUFFER"; }
-        
-        // GPA related functions
-        virtual const char*     GPA_GetCommandName() const { return "Fill Buffer"; }
     };
-    
+
     class FillSvmBufferCommand : public FillBufferCommand
     {
     public:
@@ -679,11 +629,10 @@ namespace Intel { namespace OpenCL { namespace Framework {
             size_t pattern_size,
             size_t offset,
             size_t size
-        ) : FillBufferCommand(cmdQueue, pOclEntryPoints, pBuffer, pattern, pattern_size, offset, size) { }
-
-        cl_command_type         GetCommandType() const  { return CL_COMMAND_SVM_MEMFILL; }
-        const char*             GetCommandName() const  { return "CL_COMMAND_SVM_MEMFILL"; }        
-        virtual const char*     GPA_GetCommandName() const { return "Fill SVM Buffer"; }
+        ) : FillBufferCommand(cmdQueue, pOclEntryPoints, pBuffer, pattern,
+                              pattern_size, offset, size) {
+            m_commandType = CL_COMMAND_SVM_MEMFILL;
+        }
     };
 
     class MemFillUsmBufferCommand : public FillBufferCommand
@@ -698,16 +647,8 @@ namespace Intel { namespace OpenCL { namespace Framework {
             size_t offset,
             size_t size
         ) : FillBufferCommand(cmdQueue, pOclEntryPoints, pBuffer, pattern,
-                              pattern_size, offset, size) {}
-
-        cl_command_type         GetCommandType() const {
-            return CL_COMMAND_MEMFILL_INTEL;
-        }
-        const char*             GetCommandName() const {
-            return "CL_COMMAND_MEMFILL_INTEL";
-        }
-        virtual const char*     GPA_GetCommandName() const {
-            return "MemFill USM Buffer";
+                              pattern_size, offset, size) {
+            m_commandType = CL_COMMAND_MEMFILL_INTEL;
         }
     };
 
@@ -729,12 +670,6 @@ namespace Intel { namespace OpenCL { namespace Framework {
             const void*       pDst
         );
         virtual ~WriteBufferRectCommand();
-        
-        cl_command_type         GetCommandType() const  { return m_commandType; }
-        const char*             GetCommandName() const  { return "CL_COMMAND_WRITE_BUFFER_RECT"; }
-        
-        // GPA related functions
-        virtual const char*     GPA_GetCommandName() const { return "Write Buffer Rect"; }
     };
     
     /******************************************************************
@@ -755,14 +690,8 @@ namespace Intel { namespace OpenCL { namespace Framework {
             size_t          szSlicePitch,
             const void *    cpSrc
         );
-        
+
         virtual ~WriteImageCommand();
-        
-        cl_command_type         GetCommandType() const  { return CL_COMMAND_WRITE_IMAGE; }
-        const char*             GetCommandName() const  { return "CL_COMMAND_WRITE_IMAGE"; }
-        
-        // GPA related functions
-        virtual const char*     GPA_GetCommandName() const { return "Write Image"; }
     };
     
     
@@ -780,13 +709,6 @@ namespace Intel { namespace OpenCL { namespace Framework {
             const size_t *size);
 
         virtual ~FillImageCommand();
-
-
-        cl_command_type         GetCommandType() const  { return CL_COMMAND_FILL_IMAGE; }
-        const char*             GetCommandName() const  { return "CL_COMMAND_FILL_IMAGE"; }
-
-        // GPA related functions
-        virtual const char*     GPA_GetCommandName() const { return "Fill Image"; }
     };
 
     /******************************************************************
@@ -856,13 +778,6 @@ namespace Intel { namespace OpenCL { namespace Framework {
             const size_t    szRegion[MAX_WORK_DIM]
         );
         virtual ~CopyBufferCommand();
-        
-        cl_command_type         GetCommandType() const  { return m_commandType; }
-        const char*             GetCommandName() const  { return "CL_COMMAND_COPY_BUFFER"; }
-        
-        // GPA related functions
-        virtual const char*     GPA_GetCommandName() const { return "Copy Buffer"; }
-        
     };
 
     class CopySvmBufferCommand : public CopyBufferCommand
@@ -877,11 +792,10 @@ namespace Intel { namespace OpenCL { namespace Framework {
             const size_t    szSrcOrigin[MAX_WORK_DIM],
             const size_t    szDstOrigin[MAX_WORK_DIM],
             const size_t    szRegion[MAX_WORK_DIM]
-        ) : CopyBufferCommand(cmdQueue, pOclEntryPoints, pSrcBuffer, pDstBuffer, szSrcOrigin, szDstOrigin, szRegion) { }
-
-        cl_command_type         GetCommandType() const  { return CL_COMMAND_SVM_MEMCPY; }
-        const char*             GetCommandName() const  { return "CL_COMMAND_SVM_MEMCPY"; }        
-        virtual const char*     GPA_GetCommandName() const { return "SVM memcpy"; }
+        ) : CopyBufferCommand(cmdQueue, pOclEntryPoints, pSrcBuffer, pDstBuffer,
+                              szSrcOrigin, szDstOrigin, szRegion) {
+            m_commandType = CL_COMMAND_SVM_MEMCPY;
+        }
     };
     
     class CopyUsmBufferCommand : public CopyBufferCommand
@@ -897,15 +811,9 @@ namespace Intel { namespace OpenCL { namespace Framework {
             const size_t    szDstOrigin[MAX_WORK_DIM],
             const size_t    szRegion[MAX_WORK_DIM]
         ) : CopyBufferCommand(cmdQueue, pOclEntryPoints, pSrcBuffer, pDstBuffer,
-                              szSrcOrigin, szDstOrigin, szRegion) {}
-
-        cl_command_type     GetCommandType() const {
-            return CL_COMMAND_MEMCPY_INTEL;
+                              szSrcOrigin, szDstOrigin, szRegion) {
+            m_commandType = CL_COMMAND_MEMCPY_INTEL;
         }
-        const char*         GetCommandName() const {
-            return "CL_COMMAND_MEMCPY_INTEL";
-        }
-        virtual const char* GPA_GetCommandName() const { return "USM memcpy"; }
     };
 
     /******************************************************************
@@ -929,13 +837,6 @@ namespace Intel { namespace OpenCL { namespace Framework {
             const size_t    szDstSlicePitch
         );
         virtual ~CopyBufferRectCommand();
-        
-        cl_command_type         GetCommandType() const  { return m_commandType; }
-        const char*             GetCommandName() const  { return "CL_COMMAND_COPY_BUFFER_RECT"; }
-        
-        // GPA related functions
-        virtual const char*     GPA_GetCommandName() const { return "Copy Buffer Rect"; }
-        
     };
     
     /******************************************************************
@@ -955,12 +856,6 @@ namespace Intel { namespace OpenCL { namespace Framework {
             const size_t*   pszRegion
         );
         virtual ~CopyImageCommand();
-        
-        cl_command_type         GetCommandType() const  { return m_commandType; }
-        const char*             GetCommandName() const  { return "CL_COMMAND_COPY_IMAGE"; }
-        
-        // GPA related functions
-        virtual const char*     GPA_GetCommandName() const { return "Copy Image"; }
     };
     
     /******************************************************************
@@ -979,12 +874,6 @@ namespace Intel { namespace OpenCL { namespace Framework {
             size_t          pszDstOffset[MAX_WORK_DIM]
         );
         virtual ~CopyImageToBufferCommand();
-        
-        cl_command_type         GetCommandType() const  { return m_commandType; }
-        const char*             GetCommandName() const  { return "CL_COMMAND_COPY_IMAGE_TO_BUFFER"; }
-        
-        // GPA related functions
-        virtual const char*     GPA_GetCommandName() const { return "Copy Image To Buffer"; }
     };
     
     /******************************************************************
@@ -1005,13 +894,6 @@ namespace Intel { namespace OpenCL { namespace Framework {
         );
         
         virtual ~CopyBufferToImageCommand();
-        
-        cl_command_type         GetCommandType() const  { return m_commandType; }
-        const char*             GetCommandName() const  { return "CL_COMMAND_COPY_BUFFER_TO_IMAGE"; }
-        
-        // GPA related functions
-        virtual const char*     GPA_GetCommandName() const { return "Copy Buffer To Image"; }
-        
     };
     
     
@@ -1082,13 +964,6 @@ namespace Intel { namespace OpenCL { namespace Framework {
             size_t          szCb
         );
         virtual ~MapBufferCommand();
-        
-        cl_command_type         GetCommandType() const  { return CL_COMMAND_MAP_BUFFER; }
-        const char*             GetCommandName() const  { return "CL_COMMAND_MAP_BUFFER"; }
-        
-        // GPA related functions
-        virtual const char*     GPA_GetCommandName() const { return "Map Buffer"; }
-    protected:
     };
 
     class MapSvmBufferCommand : public MapBufferCommand
@@ -1102,11 +977,9 @@ namespace Intel { namespace OpenCL { namespace Framework {
             cl_map_flags    clMapFlags,
             size_t          szOffset,
             size_t          szCb
-            ) : MapBufferCommand(cmdQueue, pOclEntryPoints, pBuffer, clMapFlags, szOffset, szCb) { }
-
-        cl_command_type         GetCommandType() const  { return CL_COMMAND_SVM_MAP; }
-        const char*             GetCommandName() const  { return "CL_COMMAND_SVM_MAP"; }
-        virtual const char*     GPA_GetCommandName() const { return "Map SVM Buffer"; }
+            ) : MapBufferCommand(cmdQueue, pOclEntryPoints, pBuffer, clMapFlags, szOffset, szCb) {
+            m_commandType = CL_COMMAND_SVM_MAP;
+        }
     };
     
     /******************************************************************
@@ -1126,12 +999,6 @@ namespace Intel { namespace OpenCL { namespace Framework {
             size_t*         pszImageSlicePitch
         );
         virtual ~MapImageCommand();
-        
-        cl_command_type         GetCommandType() const  { return CL_COMMAND_MAP_IMAGE; }
-        const char*             GetCommandName() const  { return "CL_COMMAND_MAP_IMAGE"; }
-        
-        // GPA related functions
-        virtual const char*     GPA_GetCommandName() const { return "Map Image"; }
     };
     
     /******************************************************************
@@ -1155,12 +1022,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
         cl_err_code                EnqueueSelf(cl_bool bBlocking, cl_uint uNumEventsInWaitList, const cl_event* cpEeventWaitList, cl_event* pEvent, ApiLogger* apiLogger);
         cl_err_code                PrefixExecute();
 
-        cl_command_type         GetCommandType() const  { return CL_COMMAND_UNMAP_MEM_OBJECT; }
         ECommandExecutionType   GetExecutionType() const{ return m_ExecutionType; }
-        const char*             GetCommandName() const  { return "CL_COMMAND_UNMAP_MEM_OBJECT"; }
-        
-        // GPA related functions
-        virtual const char*     GPA_GetCommandName() const { return "Unmap"; }
         
     private:
         void*                   m_pMappedPtr;
@@ -1185,11 +1047,9 @@ namespace Intel { namespace OpenCL { namespace Framework {
             ocl_entry_points *    pOclEntryPoints,
             const SharedPtr<MemoryObject>&          pMemObject,
             void*                  pMappedRegion
-            ) : UnmapMemObjectCommand(cmdQueue, pOclEntryPoints, pMemObject, pMappedRegion) { }
-
-        cl_command_type         GetCommandType() const  { return CL_COMMAND_SVM_UNMAP; }
-        const char*             GetCommandName() const  { return "CL_COMMAND_SVM_UNMAP"; }
-        virtual const char*     GPA_GetCommandName() const { return "Unmap SVM Buffer"; }
+            ) : UnmapMemObjectCommand(cmdQueue, pOclEntryPoints, pMemObject, pMappedRegion) {
+            m_commandType = CL_COMMAND_SVM_UNMAP;
+        }
     };
 
     /******************************************************************
@@ -1204,25 +1064,18 @@ namespace Intel { namespace OpenCL { namespace Framework {
         virtual cl_err_code     Init();
         virtual cl_err_code     Execute();
         virtual cl_err_code     CommandDone();
-        virtual cl_command_type GetCommandType() const  { return m_type; }
         ECommandExecutionType   GetExecutionType() const{ return DEVICE_EXECUTION_TYPE;     }
-        const char*             GetCommandName() const {
-          return m_typeStr.c_str();
-        }
         
         // GPA related functions
-        virtual const char*     GPA_GetCommandName() const { return m_pKernel->GetName(); }
+        virtual const char*     GPA_GetCommandName() const override {
+          return (CL_COMMAND_NDRANGE_KERNEL == m_commandType)
+                     ? m_pKernel->GetName()
+                     : Command::GPA_GetCommandName();
+        }
         virtual void            GPA_WriteCommandMetadata();
         
-        virtual void            SetCustomCommandType(cl_command_type Type,
-                                                     std::string &TypeStr) {
-          m_type = Type;
-          m_typeStr = TypeStr;
-        }
 
     protected:
-        cl_command_type         m_type;
-        std::string             m_typeStr;
         cl_dev_cmd_param_kernel m_kernelParams;
         // Private members
         SharedPtr<Kernel>       m_pKernel;
@@ -1253,10 +1106,8 @@ namespace Intel { namespace OpenCL { namespace Framework {
         
         // Override Init only to set a different device type
         cl_err_code             Init();
-        cl_command_type         GetCommandType() const  { return CL_COMMAND_TASK;       }
         ECommandExecutionType   GetExecutionType() const{ return DEVICE_EXECUTION_TYPE; }
-        const char*             GetCommandName() const  { return "CL_COMMAND_TASK"; }
-        
+
     private:
         size_t m_szStaticWorkSize; // Set to 1 to support NDRangeKernel execution with work_size=1
     };
@@ -1284,9 +1135,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
         cl_err_code             Init();
         cl_err_code             Execute();
         cl_err_code             CommandDone();
-        cl_command_type         GetCommandType() const  { return CL_COMMAND_NATIVE_KERNEL;  }
         ECommandExecutionType   GetExecutionType() const{ return DEVICE_EXECUTION_TYPE;     }
-        const char*             GetCommandName() const  { return "CL_COMMAND_NATIVE_KERNEL"; }
         
     protected:
         cl_dev_cmd_param_native m_nativeParams;
@@ -1317,16 +1166,11 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
         virtual                         ~MigrateSVMMemCommand();
 
-        virtual cl_command_type         GetCommandType()   const  { return CL_COMMAND_MIGRATE_SVM_MEM_OBJECTS; }
         virtual ECommandExecutionType   GetExecutionType() const  { return DEVICE_EXECUTION_TYPE; }
-        virtual const char*             GetCommandName()   const  { return "CL_COMMAND_MIGRATE_SVM_MEM_OBJECTS"; }
 
         virtual cl_err_code             Init();
         virtual cl_err_code             Execute();
         virtual cl_err_code             CommandDone();
-
-        // GPA related functions
-        virtual const char*             GPA_GetCommandName() const { return "Migrate SVM Memory Object"; }
 
     protected:
 
@@ -1354,17 +1198,12 @@ namespace Intel { namespace OpenCL { namespace Framework {
         );
 
         virtual                         ~MigrateMemObjCommand();
-        
-        virtual cl_command_type         GetCommandType() const  { return CL_COMMAND_MIGRATE_MEM_OBJECTS; }
+
         virtual ECommandExecutionType   GetExecutionType() const{ return DEVICE_EXECUTION_TYPE;   }
-        virtual const char*             GetCommandName() const  { return "CL_COMMAND_MIGRATE_MEM_OBJECTS"; }
-        
+
         virtual cl_err_code             Init();
         virtual cl_err_code             Execute();
         virtual cl_err_code             CommandDone();
-        
-        // GPA related functions
-        virtual const char*             GPA_GetCommandName() const { return "Migrate Memory Object"; }
 
     protected:
 
@@ -1392,24 +1231,13 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
         virtual                         ~MigrateUSMMemCommand() {}
 
-        virtual cl_command_type         GetCommandType() const {
-            return CL_COMMAND_MIGRATEMEM_INTEL;
-        }
         virtual ECommandExecutionType   GetExecutionType() const {
             return DEVICE_EXECUTION_TYPE;
-        }
-        virtual const char*             GetCommandName() const {
-            return "CL_COMMAND_MIGRATEMEM_INTEL";
         }
 
         virtual cl_err_code             Init();
         virtual cl_err_code             Execute();
         virtual cl_err_code             CommandDone();
-
-        // GPA related functions
-        virtual const char*             GPA_GetCommandName() const {
-            return "Migrate USM Memory Object";
-        }
 
     protected:
 
@@ -1435,24 +1263,13 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
         virtual                         ~AdviseUSMMemCommand() {}
 
-        virtual cl_command_type         GetCommandType() const {
-            return CL_COMMAND_MEMADVISE_INTEL;
-        }
         virtual ECommandExecutionType   GetExecutionType() const {
             return DEVICE_EXECUTION_TYPE;
-        }
-        virtual const char*             GetCommandName() const {
-            return "CL_COMMAND_MEMADVISE_INTEL";
         }
 
         virtual cl_err_code             Init();
         virtual cl_err_code             Execute();
         virtual cl_err_code             CommandDone();
-
-        // GPA related functions
-        virtual const char*             GPA_GetCommandName() const {
-            return "Advise USM Memory Object";
-        }
 
     protected:
 
@@ -1473,14 +1290,14 @@ namespace Intel { namespace OpenCL { namespace Framework {
     public:
         RuntimeCommand( const SharedPtr<IOclCommandQueueBase>& cmdQueue,
             bool bIsDependentOnEvents = false) : Command(cmdQueue),
-            m_bIsDependentOnEvents(bIsDependentOnEvents) {}
+            m_bIsDependentOnEvents(bIsDependentOnEvents) {
+            m_commandType = CL_COMMAND_RUNTIME;
+        }
         virtual ~RuntimeCommand()                               {}
         virtual cl_err_code             Init()                  { return CL_SUCCESS; }
         virtual cl_err_code             Execute();
         virtual cl_err_code             CommandDone()           { return CL_SUCCESS; }
-        virtual cl_command_type         GetCommandType() const  { return CL_COMMAND_RUNTIME; }
         virtual ECommandExecutionType   GetExecutionType() const{ return RUNTIME_EXECUTION_TYPE;  }
-        virtual const char*             GetCommandName() const  { return "CL_COMMAND_RUNTIME"; }
         virtual bool isControlCommand() const { return true; }
         virtual bool IsDependentOnEvents() const { return m_bIsDependentOnEvents; }
 
@@ -1497,11 +1314,10 @@ namespace Intel { namespace OpenCL { namespace Framework {
         
     public:
         MarkerCommand( const SharedPtr<IOclCommandQueueBase>& cmdQueue, bool bIsDependentOnEvents ) :
-          RuntimeCommand(cmdQueue, bIsDependentOnEvents) {}
+          RuntimeCommand(cmdQueue, bIsDependentOnEvents) {
+            m_commandType = CL_COMMAND_MARKER;
+        }
         virtual ~MarkerCommand() {}
-        
-        cl_command_type         GetCommandType() const  { return CL_COMMAND_MARKER;  }
-        const char*             GetCommandName() const  { return "CL_COMMAND_MARKER";}
     };
     
     /******************************************************************
@@ -1512,12 +1328,11 @@ namespace Intel { namespace OpenCL { namespace Framework {
         
     public:
         WaitForEventsCommand( const SharedPtr<IOclCommandQueueBase>& cmdQueue, bool bIsDependentOnEvents ) :
-          RuntimeCommand(cmdQueue, bIsDependentOnEvents) {}
+          RuntimeCommand(cmdQueue, bIsDependentOnEvents) {
+            m_commandType = CL_COMMAND_WAIT_FOR_EVENTS;
+        }
+
         virtual ~WaitForEventsCommand() {}
-        
-        cl_command_type GetCommandType() const  { return CL_COMMAND_WAIT_FOR_EVENTS; }
-        const char*     GetCommandName() const  { return "CL_COMMAND_WAIT_FOR_EVENTS"; }
-        
     };
     
     /******************************************************************
@@ -1528,11 +1343,10 @@ namespace Intel { namespace OpenCL { namespace Framework {
         
     public:
         BarrierCommand( const SharedPtr<IOclCommandQueueBase>& cmdQueue, bool bIsDependentOnEvents ) :
-          RuntimeCommand(cmdQueue, bIsDependentOnEvents) {}
+          RuntimeCommand(cmdQueue, bIsDependentOnEvents) {
+            m_commandType = CL_COMMAND_BARRIER;
+        }
         virtual ~BarrierCommand() {}
-        
-        cl_command_type         GetCommandType() const  { return CL_COMMAND_BARRIER; }
-        const char*             GetCommandName() const  { return "CL_COMMAND_BARRIER"; }
     };
 
     /******************************************************************
@@ -1545,12 +1359,10 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
     public:
         SVMMAP_Command_NOOP( const SharedPtr<IOclCommandQueueBase>& cmdQueue, bool bIsDependentOnEvents ) :
-          RuntimeCommand(cmdQueue, bIsDependentOnEvents) {}
+          RuntimeCommand(cmdQueue, bIsDependentOnEvents) {
+            m_commandType = CL_COMMAND_SVM_MAP;
+        }
         virtual ~SVMMAP_Command_NOOP() {}
-
-        cl_command_type         GetCommandType()     const { return CL_COMMAND_SVM_MAP;   }
-        const char*             GetCommandName()     const { return "CL_COMMAND_SVM_MAP"; }
-        virtual const char*     GPA_GetCommandName() const { return "Map SVM Buffer";     }
     };
 
     /******************************************************************
@@ -1563,12 +1375,10 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
     public:
         SVMUNMAP_Command_NOOP( const SharedPtr<IOclCommandQueueBase>& cmdQueue, bool bIsDependentOnEvents ) :
-          RuntimeCommand(cmdQueue, bIsDependentOnEvents) {}
+          RuntimeCommand(cmdQueue, bIsDependentOnEvents) {
+            m_commandType = CL_COMMAND_SVM_UNMAP;
+        }
         virtual ~SVMUNMAP_Command_NOOP() {}
-
-        cl_command_type         GetCommandType()     const { return CL_COMMAND_SVM_UNMAP;   }
-        const char*             GetCommandName()     const { return "CL_COMMAND_SVM_UNMAP"; }
-        virtual const char*     GPA_GetCommandName() const { return "Unmap SVM Buffer";     }
     };
     
     /******************************************************************
@@ -1657,8 +1467,10 @@ namespace Intel { namespace OpenCL { namespace Framework {
         void                    ErrorEnqueue(cl_event* intermediate_pEvent, cl_event* user_pEvent, cl_err_code err_to_force_return );
         cl_err_code                GetForcedErrorCode() const { return m_force_error_return; };
 
-        cl_command_type         GetCommandType() const  { return m_relatedUserCommand->GetCommandType(); };
-        const char*             GetCommandName() const
+        cl_command_type         GetCommandType() const override {
+            return m_relatedUserCommand->GetCommandType();
+        };
+        const char*             GetCommandName() const override
         { 
             if (m_working_mode == PREFIX_MODE)
             {
