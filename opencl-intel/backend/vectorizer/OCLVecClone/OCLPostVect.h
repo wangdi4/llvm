@@ -33,10 +33,6 @@ private:
   /// kernel was vectorized.
   bool isKernelVectorized(Function *F);
 
-  /// Make sure the cloned vectorized kernel (if there's one) is binded to
-  /// the original function correctly. Return true if module is modified.
-  bool rebindVectorizedKernel(Module &M, Function *F);
-
 public:
   static char ID;
 

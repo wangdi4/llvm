@@ -54,8 +54,10 @@ bool OCLPostVect::isKernelVectorized(Function *Clone) {
 // A cloned vectorized kernel may not be binded to original function
 // metadata if it "isSimpleFunction()".
 // In such case metadata updating was skipped, so we need to recover
-// here, otherwise the VectorizationWidth may be set to zero.
-bool OCLPostVect::rebindVectorizedKernel(Module &M, Function *F) {
+// here, otherwise the VectorizedWidth may be set to zero.
+// Also, if the vectorizer doesn't run, the original kernel's VectorizedWidth
+// won't be set, we need to update it here.
+static bool rebindVectorizedKernel(Module &M, Function *F) {
   bool ModifiedModule = false;
 
   auto FMD = KernelInternalMetadataAPI(F);
@@ -72,6 +74,14 @@ bool OCLPostVect::rebindVectorizedKernel(Module &M, Function *F) {
 
   auto VL = FMD.OclRecommendedVectorLength.get();
   Function *Clone = nullptr;
+
+  // Set origin's metadata if vectorizer didn't run.
+  if (!FMD.VectorizedWidth.hasValue()) {
+    FMD.VectorizedWidth.set(1);
+    FMD.ScalarizedKernel.set(nullptr);
+    ModifiedModule = true;
+  }
+
   for (auto &VariantName : VecVariants) {
     Clone = M.getFunction(VariantName);
     if (nullptr == Clone)
@@ -83,10 +93,6 @@ bool OCLPostVect::rebindVectorizedKernel(Module &M, Function *F) {
     CloneMD.VectorizedKernel.set(nullptr);
     CloneMD.VectorizedWidth.set(VL);
     CloneMD.ScalarizedKernel.set(F);
-
-    // Set origin's metadata
-    FMD.VectorizedWidth.set(1);
-    FMD.ScalarizedKernel.set(nullptr);
 
     if (F->getFunctionType() == Clone->getFunctionType()) {
       assert(nullptr == FMD.VectorizedKernel.get() &&
