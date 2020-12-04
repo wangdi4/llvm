@@ -232,7 +232,7 @@ class PagePoolTy {
 
   std::vector<std::vector<ChunkedPageTy>> Buckets;
   int32_t DeviceId = 0;
-  int32_t TargetAllocKind = TARGET_ALLOC_SHARED;
+  int32_t TargetAllocKind = TARGET_ALLOC_DEFAULT;
   ze_context_handle_t Context = nullptr;
   ze_device_handle_t Device = nullptr;
 
@@ -633,7 +633,7 @@ struct RTLFlagsTy {
 struct KernelPropertiesTy {
   uint32_t Width = 0;
   uint32_t MaxThreadGroupSize = 0;
-  bool RequiresIndirectAccess = false;
+  ze_kernel_indirect_access_flags_t IndirectAccessFlags = 0;
 };
 
 /// Events for kernel profiling
@@ -739,6 +739,8 @@ public:
   std::vector<ze_device_compute_properties_t> ComputeProperties;
   // Internal device type ID
   std::vector<uint64_t> DeviceArchs;
+  // Devices' default target allocation kinds
+  std::vector<int32_t> AllocKinds;
   std::vector<ze_device_handle_t> Devices;
   // Subdevice IDs. It maps users' subdevice IDs to internal subdevice IDs
   std::vector<SubDeviceIdsTy> SubDeviceIds;
@@ -770,7 +772,7 @@ public:
   int32_t DeviceType;
   uint32_t ThreadLimit = 0; // Global thread limit
   uint32_t NumTeams = 0; // Global max number of teams
-  int32_t TargetAllocKind = TARGET_ALLOC_SHARED;
+  int32_t TargetAllocKind = TARGET_ALLOC_DEFAULT;
   uint32_t SubscriptionRate = 4;
   uint32_t ForcedKernelWidth = 0;
   int32_t DeviceMode = DEVICE_MODE_TOP;
@@ -951,6 +953,19 @@ public:
                                "LIBOMPTARGET_SAVE_TEMPS")) {
       if (env[0] == 'T' || env[0] == 't' || env[0] == '1')
         Flags.DumpTargetImage = 1;
+    }
+
+    // Global default target memory that overrides device-specific default
+    if (char *env = readEnvVar("LIBOMPTARGET_LEVEL0_DEFAULT_TARGET_MEM")) {
+      std::string mem(env);
+      if (mem == "host" || mem == "HOST")
+        TargetAllocKind = TARGET_ALLOC_HOST;
+      else if (mem == "shared" || mem == "SHARED")
+        TargetAllocKind = TARGET_ALLOC_SHARED;
+      else if (mem == "device" || mem == "DEVICE")
+        TargetAllocKind = TARGET_ALLOC_DEVICE;
+      else
+        IDP("Warning: Ignoring unknown target memory kind %s.\n", env);
     }
 
     // Target allocation kind
@@ -1267,7 +1282,8 @@ static void closeRTL() {
 
 static int32_t copyData(int32_t DeviceId, void *Dest, void *Src, size_t Size,
                         std::unique_lock<std::mutex> &copyLock) {
-  if (DeviceInfo->TargetAllocKind == TARGET_ALLOC_SHARED) {
+  int32_t allocKind = DeviceInfo->AllocKinds[DeviceId];
+  if (allocKind == TARGET_ALLOC_SHARED || allocKind == TARGET_ALLOC_HOST) {
     char *src = static_cast<char *>(Src);
     std::copy(src, src + Size, static_cast<char *>(Dest));
   } else {
@@ -1386,13 +1402,10 @@ void RTLDeviceInfoTy::removeImplicitArgs(int32_t DeviceId, void *Ptr) {
 /// Get kernel indirect access flags
 ze_kernel_indirect_access_flags_t RTLDeviceInfoTy::getKernelIndirectAccessFlags(
     ze_kernel_handle_t Kernel, uint32_t DeviceId) {
-  ze_kernel_indirect_access_flags_t flags = 0;
+  // Kernel-dependent flags
+  auto flags = KernelProperties[DeviceId][Kernel].IndirectAccessFlags;
 
-  if (KernelProperties[DeviceId][Kernel].RequiresIndirectAccess)
-    flags |= TargetAllocKind == TARGET_ALLOC_SHARED
-             ? ZE_KERNEL_INDIRECT_ACCESS_FLAG_SHARED
-             : ZE_KERNEL_INDIRECT_ACCESS_FLAG_DEVICE;
-
+  // Other flags due to users' memory allocation
   if (!ImplicitArgsDevice[DeviceId].empty())
     flags |= ZE_KERNEL_INDIRECT_ACCESS_FLAG_DEVICE;
   if (!ImplicitArgsHost[DeviceId].empty())
@@ -1546,6 +1559,18 @@ static uint64_t getDeviceArch(uint32_t L0DeviceId) {
   return DeviceArch_None;
 }
 
+// Decide device's default target allocation method
+static int32_t getAllocKinds(uint32_t L0DeviceId) {
+  if (DeviceInfo->TargetAllocKind != TARGET_ALLOC_DEFAULT)
+    return DeviceInfo->TargetAllocKind; // Respect global setting
+
+  uint32_t prefix = L0DeviceId & 0xFF00;
+  if (prefix == 0x4900 || prefix == 0x0200)
+    return TARGET_ALLOC_DEVICE; // Discrete device
+  else
+    return TARGET_ALLOC_SHARED; // Integrated device
+}
+
 EXTERN
 int32_t __tgt_rtl_number_of_devices() {
   IDP("Looking for Level0 devices...\n");
@@ -1592,6 +1617,7 @@ int32_t __tgt_rtl_number_of_devices() {
         DeviceInfo->Devices.push_back(device);
         DeviceInfo->DeviceProperties.push_back(properties);
         DeviceInfo->DeviceArchs.push_back(getDeviceArch(properties.deviceId));
+        DeviceInfo->AllocKinds.push_back(getAllocKinds(properties.deviceId));
         DeviceInfo->ComputeProperties.push_back(computeProperties);
         DeviceInfo->DeviceIdStr.push_back(std::to_string(i));
       }
@@ -1621,6 +1647,7 @@ int32_t __tgt_rtl_number_of_devices() {
           CALL_ZE_RET_ZERO(zeDeviceGetProperties, subDevice, &properties);
           DeviceInfo->DeviceProperties.push_back(properties);
           DeviceInfo->DeviceArchs.push_back(getDeviceArch(properties.deviceId));
+          DeviceInfo->AllocKinds.push_back(getAllocKinds(properties.deviceId));
           CALL_ZE_RET_ZERO(zeDeviceGetComputeProperties, subDevice,
                            &computeProperties);
           DeviceInfo->ComputeProperties.push_back(computeProperties);
@@ -1702,7 +1729,7 @@ int32_t __tgt_rtl_init_device(int32_t DeviceId) {
       DeviceInfo->Initialized[subId] = true;
       if (DeviceInfo->Flags.UseMemoryPool)
         DeviceInfo->PagePools[subId].initialize(subId, DeviceInfo->Context,
-            DeviceInfo->Devices[subId], DeviceInfo->TargetAllocKind);
+            DeviceInfo->Devices[subId], DeviceInfo->AllocKinds[subId]);
     }
   }
   if (numSubDevices > 0) {
@@ -1732,7 +1759,7 @@ int32_t __tgt_rtl_init_device(int32_t DeviceId) {
   }
   if (DeviceInfo->Flags.UseMemoryPool)
     DeviceInfo->PagePools[DeviceId].initialize(DeviceId, DeviceInfo->Context,
-        DeviceInfo->Devices[DeviceId], DeviceInfo->TargetAllocKind);
+        DeviceInfo->Devices[DeviceId], DeviceInfo->AllocKinds[DeviceId]);
 
   DeviceInfo->Initialized[DeviceId] = true;
 
@@ -1988,14 +2015,15 @@ static void *allocData(int32_t DeviceId, int64_t Size, void *HstPtr,
        "from memory pool for host ptr " DPxMOD "\n",
        DPxPTR(mem), DPxPTR(base), size, DPxPTR(HstPtr));
     if (IsImplicitArg)
-      DeviceInfo->addImplicitArgs(DeviceId, mem, DeviceInfo->TargetAllocKind);
+      DeviceInfo->addImplicitArgs(DeviceId, mem,
+                                  DeviceInfo->AllocKinds[DeviceId]);
 
     return mem;
   }
 
   // We use shared USM to avoid overheads coming from explicit data copy to
   // device memory.
-  base = allocDataExplicit(DeviceId, size, DeviceInfo->TargetAllocKind);
+  base = allocDataExplicit(DeviceId, size, DeviceInfo->AllocKinds[DeviceId]);
   mem = (void *)((intptr_t)base + offset);
 
   if (DebugLevel > 0) {
@@ -2009,7 +2037,8 @@ static void *allocData(int32_t DeviceId, int64_t Size, void *HstPtr,
        actualSize, DPxPTR(HstPtr));
   }
   if (IsImplicitArg)
-    DeviceInfo->addImplicitArgs(DeviceId, mem, DeviceInfo->TargetAllocKind);
+    DeviceInfo->addImplicitArgs(DeviceId, mem,
+                                DeviceInfo->AllocKinds[DeviceId]);
 
   return mem;
 }
@@ -2884,10 +2913,35 @@ EXTERN int32_t __tgt_rtl_manifest_data_for_region(
     int32_t DeviceId, void *TgtEntryPtr, void **TgtPtrs, size_t NumPtrs) {
   if (NumPtrs == 0)
     return OFFLOAD_SUCCESS;
-  // We only have a binary switch.
   ze_kernel_handle_t kernel = *static_cast<ze_kernel_handle_t *>(TgtEntryPtr);
   std::unique_lock<std::mutex> dataLock(DeviceInfo->Mutexes[DeviceId]);
-  DeviceInfo->KernelProperties[DeviceId][kernel].RequiresIndirectAccess = true;
+
+  // We don't know how TgtPtrs are allocated, so set the flag based on L0 API
+  ze_memory_allocation_properties_t properties = {
+    ZE_STRUCTURE_TYPE_MEMORY_ALLOCATION_PROPERTIES,
+    nullptr,
+    ZE_MEMORY_TYPE_UNKNOWN,
+    0,
+    0
+  };
+  auto &flags =
+      DeviceInfo->KernelProperties[DeviceId][kernel].IndirectAccessFlags;
+
+  ScopedTimerTy tmManifestData(DeviceId, "DataManifest");
+  for (size_t i = 0; i < NumPtrs; i++) {
+    CALL_ZE_RET_FAIL(zeMemGetAllocProperties, DeviceInfo->Context, TgtPtrs[i],
+                     &properties, nullptr);
+    if (properties.type == ZE_MEMORY_TYPE_HOST)
+      flags |= ZE_KERNEL_INDIRECT_ACCESS_FLAG_HOST;
+    else if (properties.type == ZE_MEMORY_TYPE_SHARED)
+      flags |= ZE_KERNEL_INDIRECT_ACCESS_FLAG_SHARED;
+    else if (properties.type == ZE_MEMORY_TYPE_DEVICE)
+      flags |= ZE_KERNEL_INDIRECT_ACCESS_FLAG_DEVICE;
+    if (flags == (ZE_KERNEL_INDIRECT_ACCESS_FLAG_HOST |
+                  ZE_KERNEL_INDIRECT_ACCESS_FLAG_SHARED |
+                  ZE_KERNEL_INDIRECT_ACCESS_FLAG_DEVICE))
+      break;
+  }
   return OFFLOAD_SUCCESS;
 }
 
