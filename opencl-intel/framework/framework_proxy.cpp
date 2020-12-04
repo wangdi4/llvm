@@ -360,6 +360,7 @@ void FrameworkProxy::Initialize()
 		m_GPAData.pReadHandle = __itt_string_handle_create("Read MemoryObject");
 		m_GPAData.pWriteHandle = __itt_string_handle_create("Write MemoryObject");
 		m_GPAData.pCopyHandle = __itt_string_handle_create("Copy MemoryObject");
+		m_GPAData.pFillHandle = __itt_string_handle_create("Fill MemoryObject");
 		m_GPAData.pMapHandle = __itt_string_handle_create("Map MemoryObject");
 		m_GPAData.pUnmapHandle = __itt_string_handle_create("Unmap MemoryObject");
 		m_GPAData.pSyncDataHandle = __itt_string_handle_create("Sync Data");

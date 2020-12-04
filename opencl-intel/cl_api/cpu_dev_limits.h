@@ -94,3 +94,6 @@
 #define CPU_DEV_STACK_DEFAULT_SIZE  (4*1024*1024)
 // Extra stack size for execution of builtins and third-party functions
 #define CPU_DEV_STACK_EXTRA_SIZE (1024*1024)
+
+// Minmum size in bytes that triggers parallel mem copy/fill.
+#define DEV_PARALLEL_COPY_MIN_SIZE (512)
