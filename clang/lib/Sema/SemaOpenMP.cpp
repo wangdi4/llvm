@@ -18811,6 +18811,7 @@ static void checkMappableExpressionList(
     auto &DeclNames = SemaRef.getASTContext().DeclarationNames;
     MapperId.setName(DeclNames.getIdentifier(
         &SemaRef.getASTContext().Idents.get("default")));
+    MapperId.setLoc(StartLoc);
   }
 
   // Iterators to find the current unresolved mapper expression.
