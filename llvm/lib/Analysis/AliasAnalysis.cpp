@@ -85,6 +85,14 @@ AAResults::~AAResults() {
     AA->setAAResults(nullptr);
 #endif
 }
+#if INTEL_CUSTOMIZATION
+
+// Do opt-level based initialization for each AAResult.
+void AAResults::setupWithOptLevel(unsigned OptLevel) {
+  for (auto &AA : AAs)
+    AA->setupWithOptLevel(OptLevel);
+}
+#endif // INTEL_CUSTOMIZATION
 
 bool AAResults::invalidate(Function &F, const PreservedAnalyses &PA,
                            FunctionAnalysisManager::Invalidator &Inv) {

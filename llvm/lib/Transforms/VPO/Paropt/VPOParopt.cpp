@@ -91,6 +91,9 @@ bool VPOParopt::runOnModule(Module &M) {
   auto &MTTI = getAnalysis<TargetTransformInfoWrapperPass>();
   auto &MAC = getAnalysis<AssumptionCacheTracker>();
   auto &MTLI = getAnalysis<TargetLibraryInfoWrapperPass>();
+#if INTEL_CUSTOMIZATION
+  auto OptLevel = getAnalysis<XmainOptLevelWrapperPass>().getOptLevel();
+#endif // INTEL_CUSTOMIZATION
 
   auto WRegionInfoGetter = [&](Function &F, bool *Changed) -> WRegionInfo & {
     assert(!F.isDeclaration() && "Cannot get analysis on declaration.");
@@ -100,11 +103,13 @@ bool VPOParopt::runOnModule(Module &M) {
     WRI.setTargetTransformInfo(&MTTI.getTTI(F));
     WRI.setAssumptionCache(&MAC.getAssumptionCache(F));
     WRI.setTargetLibraryInfo(&MTLI.getTLI(F));
+#if INTEL_CUSTOMIZATION
+    WRI.setupAAWithOptLevel(OptLevel);
+#endif // INTEL_CUSTOMIZATION
     return WRI;
   };
 
 #if INTEL_CUSTOMIZATION
-  auto OptLevel = getAnalysis<XmainOptLevelWrapperPass>().getOptLevel();
   ORVerbosity = getAnalysis<OptReportOptionsPass>().getVerbosity();
   return Impl.runImpl(M, WRegionInfoGetter, OptLevel);
 #else

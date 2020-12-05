@@ -87,6 +87,10 @@ public:
   DominatorTree *getDomTree() { return DT; }
   LoopInfo *getLoopInfo()     { return LI; }
   ScalarEvolution *getSE()    { return SE; }
+#if INTEL_CUSTOMIZATION
+  /// Propagate \p OptLevel to AA.
+  void setupAAWithOptLevel(unsigned OptLevel);
+#endif // INTEL_CUSTOMIZATION
   void setTargetTransformInfo(TargetTransformInfo *TTI) { this->TTI = TTI; }
   const TargetTransformInfo *getTargetTransformInfo() { return TTI; }
   void setAssumptionCache(AssumptionCache *AC) { this->AC = AC; }
