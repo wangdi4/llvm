@@ -20,6 +20,9 @@
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/Dominators.h"
 #include "llvm/InitializePasses.h"
+#if INTEL_CUSTOMIZATION
+#include "llvm/Analysis/AliasAnalysis.h"
+#endif // INTEL_CUSTOMIZATION
 #include "llvm/Analysis/PostDominators.h"
 
 using namespace llvm;
@@ -98,6 +101,11 @@ WRegionInfo::WRegionInfo(Function *F, DominatorTree *DT, LoopInfo *LI,
     : Func(F), DT(DT), LI(LI), SE(SE), AA(AA), WRC(WRC), ORE(ORE) {}
 
 #if INTEL_CUSTOMIZATION
+void WRegionInfo::setupAAWithOptLevel(unsigned OptLevel) {
+  if (AA)
+    AA->setupWithOptLevel(OptLevel);
+}
+
 void WRegionInfo::buildWRGraph(IRKind IR) {
 #else
 void WRegionInfo::buildWRGraph() {

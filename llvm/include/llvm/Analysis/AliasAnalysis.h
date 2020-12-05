@@ -382,6 +382,10 @@ public:
   AAResults(const TargetLibraryInfo &TLI) : TLI(TLI) {}
   AAResults(AAResults &&Arg);
   ~AAResults();
+#if INTEL_CUSTOMIZATION
+  // Do opt-level based initialization for each AAResult.
+  void setupWithOptLevel(unsigned OptLevel);
+#endif // INTEL_CUSTOMIZATION
 
   /// Register a specific AA result.
   template <typename AAResultT> void addAAResult(AAResultT &AAResult) {
@@ -992,6 +996,10 @@ public:
   /// An update API used internally by the AAResults to provide
   /// a handle back to the top level aggregation.
   virtual void setAAResults(AAResults *NewAAR) = 0;
+#if INTEL_CUSTOMIZATION
+  /// Do opt-level based initialization for each AAResult.
+  virtual void setupWithOptLevel(unsigned OptLevel) = 0;
+#endif // INTEL_CUSTOMIZATION
 
   //===--------------------------------------------------------------------===//
   /// \name Alias Queries
@@ -1082,6 +1090,11 @@ public:
   }
 
 #if INTEL_CUSTOMIZATION
+  // Do opt-level based initialization for each AAResult.
+  void setupWithOptLevel(unsigned OptLevel) {
+    Result.setupWithOptLevel(OptLevel);
+  }
+
   // Returns true if the given value V is escaped.
   bool escapes(const Value *V) override { 
     return Result.escapes(V); 
@@ -1186,6 +1199,12 @@ protected:
                  : CurrentResult.pointsToConstantMemory(Loc, AAQI, OrLocal);
     }
 #if INTEL_CUSTOMIZATION
+    // Do opt-level based initialization for each AAResult.
+    void setupWithOptLevel(unsigned OptLevel) {
+      if (AAR)
+        AAR->setupWithOptLevel(OptLevel);
+    }
+
     // Returns true if the given value V is escaped.
     bool escapes(const Value *V) 
     {
@@ -1268,6 +1287,9 @@ public:
   }
 
 #if INTEL_CUSTOMIZATION
+  // Do opt-level based initialization for each AAResult.
+  void setupWithOptLevel(unsigned OptLevel) {}
+
   // Returns true if the given value V is escaped.
   bool escapes(const Value *V) {
     return true;
