@@ -1931,13 +1931,21 @@ EXTERN void *__tgt_rtl_create_offload_queue(int32_t device_id, bool is_async) {
   auto deviceId = DeviceInfo->deviceIDs[device_id];
   auto context = DeviceInfo->getContext(device_id);
 
+  // Queue properties for profiling
+  cl_queue_properties qProperties[] = {
+    CL_QUEUE_PROPERTIES,
+    CL_QUEUE_PROFILING_ENABLE,
+    0
+  };
+  auto enableProfile = DeviceInfo->Flags.EnableProfile;
+
   // Return a shared in-order queue for synchronous case if requested
   if (!is_async && DeviceInfo->Flags.UseInteropQueueInorderSharedSync) {
     std::unique_lock<std::mutex> lock(DeviceInfo->Mutexes[device_id]);
     queue = DeviceInfo->QueuesInOrder[device_id];
     if (!queue) {
       CALL_CL_RVRC(queue, clCreateCommandQueueWithProperties, status, context,
-                   deviceId, nullptr);
+                   deviceId, enableProfile ? qProperties : nullptr);
       if (status != CL_SUCCESS) {
         IDP("Error: Failed to create interop command queue: %d\n", status);
         return nullptr;
@@ -1959,7 +1967,7 @@ EXTERN void *__tgt_rtl_create_offload_queue(int32_t device_id, bool is_async) {
 
   // Return a new in-order queue for other cases
   CALL_CL_RVRC(queue, clCreateCommandQueueWithProperties, status, context,
-               deviceId, nullptr);
+               deviceId, enableProfile ? qProperties : nullptr);
   if (status != CL_SUCCESS) {
     IDP("Error: Failed to create interop command queue\n");
     return nullptr;
