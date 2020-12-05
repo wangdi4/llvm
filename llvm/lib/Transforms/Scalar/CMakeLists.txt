@@ -34,6 +34,7 @@ add_llvm_component_library(LLVMScalarOpts
   Intel_StdContainerOpt.cpp
   Intel_TbaaMDPropagation.cpp
   Intel_TransformFPGAReg.cpp
+  Intel_TransformSinAndCosCalls.cpp
   Intel_MultiVersioning.cpp
   Intel_AddSubReassociate.cpp
   Intel_ForcedCMOVGeneration.cpp

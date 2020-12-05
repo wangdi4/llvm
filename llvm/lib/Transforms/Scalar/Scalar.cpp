@@ -137,6 +137,7 @@ void llvm::initializeScalarOpts(PassRegistry &Registry) {
   initializeTransformFPGARegPass(Registry);
   initializeAddSubReassociateLegacyPassPass(Registry);
   initializeForcedCMOVGenerationLegacyPassPass(Registry);
+  initializeTransformSinAndCosCallsLegacyPassPass(Registry);
 #if INTEL_FEATURE_CSA
   initializeCSAScalarPasses(Registry);
 #endif // INTEL_FEATURE_CSA
@@ -275,6 +276,12 @@ void LLVMAddAddSubReassociatePass(LLVMPassManagerRef PM) {
 #if INTEL_CUSTOMIZATION
 void LLVMAddForcedCMOVGenerationPass(LLVMPassManagerRef PM) {
   unwrap(PM)->add(createForcedCMOVGenerationPass());
+}
+#endif // INTEL_CUSTOMIZATION
+
+#if INTEL_CUSTOMIZATION
+void LLVMAddTransformSinAndCosCallsPass(LLVMPassManagerRef PM) {
+  unwrap(PM)->add(createTransformSinAndCosCallsPass());
 }
 #endif // INTEL_CUSTOMIZATION
 
