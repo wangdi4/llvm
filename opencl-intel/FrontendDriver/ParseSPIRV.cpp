@@ -194,8 +194,13 @@ bool ClangFECompilerParseSPIRVTask::isSPIRVSupported(std::string &error) const {
     case spv::CapabilityUnstructuredLoopControlsINTEL:
       // Arbitrary Precision Integers
     case spv::CapabilityArbitraryPrecisionIntegersINTEL:
+      // SPV_INTEL_fp_fast_math_mode extension
+    case spv::CapabilityFPFastMathModeINTEL:
+      // SPV_EXT_shader_atomic_float_add extension
+    case spv::CapabilityAtomicFloat32AddEXT:
       break;
     case spv::CapabilityInt64Atomics:
+    case spv::CapabilityAtomicFloat64AddEXT:
       if (m_sDeviceInfo.bIsFPGAEmu) {
         error = "64bit atomics are not supported on FPGA emulator.";
         return false;
@@ -214,6 +219,8 @@ bool ClangFECompilerParseSPIRVTask::isSPIRVSupported(std::string &error) const {
     case spv::CapabilityIOPipeINTEL:
     case spv::CapabilityUSMStorageClassesINTEL:
     case spv::CapabilityFPGABufferLocationINTEL:
+    case spv::CapabilityFPGAClusterAttributesINTEL:
+    case spv::CapabilityLoopFuseINTEL:
       if (!m_sDeviceInfo.bIsFPGAEmu) {
         errStr << capability << " is only supported on FPGA emulator";
         error = errStr.str();
