@@ -132,6 +132,7 @@ namespace {
       (void) llvm::createAddSubReassociatePass();
       (void) llvm::createForcedCMOVGenerationPass();
       (void) llvm::createTransformFPGARegPass();
+      (void) llvm::createTransformSinAndCosCallsPass();
 #endif // INTEL_CUSTOMIZATION
       (void) llvm::createBasicAAWrapperPass();
       (void) llvm::createSCEVAAWrapperPass();
