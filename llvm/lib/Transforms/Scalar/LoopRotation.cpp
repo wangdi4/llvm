@@ -12,6 +12,7 @@
 
 #include "llvm/Transforms/Scalar/LoopRotation.h"
 #include "llvm/ADT/Statistic.h"
+#include "llvm/Analysis/AssumptionCache.h"
 #include "llvm/Analysis/InstructionSimplify.h"
 #include "llvm/Analysis/Intel_Andersens.h"                  // INTEL
 #include "llvm/Analysis/LoopPass.h"

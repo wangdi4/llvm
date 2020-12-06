@@ -85,6 +85,7 @@
 
 #include "llvm/ADT/ScopeExit.h"
 #include "llvm/ADT/Statistic.h"
+#include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/MDBuilder.h"
 #include "llvm/InitializePasses.h"

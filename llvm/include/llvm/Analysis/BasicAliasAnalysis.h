@@ -18,9 +18,7 @@
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/Analysis/AliasAnalysis.h"
-#include "llvm/Analysis/AssumptionCache.h"
 #include "llvm/Analysis/CaptureTracking.h" // INTEL
-#include "llvm/Analysis/MemoryLocation.h"
 #include "llvm/IR/InstrTypes.h"
 #include "llvm/IR/PassManager.h"
 #include "llvm/Pass.h"
