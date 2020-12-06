@@ -141,8 +141,8 @@ namespace llvm {
           EnableMachineFunctionSplitter(false), SupportsDefaultOutlining(false),
           EmitAddrsig(false), EmitCallSiteInfo(false),
           SupportsDebugEntryValues(false), EnableDebugEntryValues(false),
-          ValueTrackingVariableLocations(false), ForceDwarfFrameSection(false),
-          XRayOmitFunctionIndex(false),
+          PseudoProbeForProfiling(false), ValueTrackingVariableLocations(false),
+          ForceDwarfFrameSection(false), XRayOmitFunctionIndex(false),
           FPDenormalMode(DenormalMode::IEEE, DenormalMode::IEEE) {}
 
     /// DisableFramePointerElim - This returns true if frame pointer elimination
@@ -328,6 +328,9 @@ namespace llvm {
     /// NOTE: There are targets that still do not support the debug entry values
     /// production.
     bool ShouldEmitDebugEntryValues() const;
+
+    /// Emit pseudo probes into the binary for sample profiling
+    unsigned PseudoProbeForProfiling : 1;
 
     // When set to true, use experimental new debug variable location tracking,
     // which seeks to follow the values of variables rather than their location,

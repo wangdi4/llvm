@@ -90,6 +90,7 @@ extern "C" LLVM_EXTERNAL_VISIBILITY void LLVMInitializeX86Target() {
   initializeX86LoadValueInjectionRetHardeningPassPass(PR);
   initializeX86OptimizeLEAPassPass(PR);
   initializeX86PartialReductionPass(PR);
+  initializePseudoProbeInserterPass(PR);
 #if INTEL_CUSTOMIZATION
   initializeX86GlobalFMAPass(PR);
   initializeGenerateLEAPassPass(PR);
