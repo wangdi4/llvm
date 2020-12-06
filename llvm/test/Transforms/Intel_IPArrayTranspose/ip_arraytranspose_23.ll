@@ -1,5 +1,7 @@
 ; This test verifies that the transformations are done correctly for memory
 ; references and pointer increments are updated.
+; This test also verifies that kmp_set_blocktime is NOT inserted in main
+; due to a heuristic related to __kmpc_fork_call call.
 ;
 ; SCEV before:  {(152 + %in1)<nsw>,+,160}<nsw><%b1>
 ;
@@ -22,6 +24,7 @@ target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16
 target triple = "x86_64-unknown-linux-gnu"
 
 ; CHECK:  define i32 @main()
+; CHECK-NOT:  call void @kmp_set_blocktime(i32 0)
 ; CHECK:  %pinc = getelementptr inbounds i8, i8* %p1, i64 0
 ; CHECK-NOT:  %pinc = getelementptr inbounds i8, i8* %p1, i64 320000
 

@@ -1162,6 +1162,7 @@ TEST_F(TargetLibraryInfoTest, ValidProto) {
       "declare double @j0(double)\n"
       "declare double @j1(double)\n"
       "declare i32 @kill(i32, i32)\n"
+      "declare void @kmp_set_blocktime(i32)\n"
       "declare i32 @link(i8*, i8*)\n"
       "declare i8* @localeconv()\n"
       "declare i8* @localtime(i8*)\n"

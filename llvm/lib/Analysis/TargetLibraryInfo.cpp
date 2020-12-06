@@ -4931,6 +4931,10 @@ case LibFunc_under_commit:
             FTy.getParamType(0)->isIntegerTy() &&
             FTy.getParamType(1)->isIntegerTy());
 
+  case LibFunc_kmp_set_blocktime:
+    return (NumParams == 1 && FTy.getReturnType()->isVoidTy() &&
+            FTy.getParamType(0)->isIntegerTy());
+
   case LibFunc_link:
     return (NumParams == 2 && FTy.getReturnType()->isIntegerTy() &&
             FTy.getParamType(0)->isPointerTy() &&
