@@ -2112,6 +2112,9 @@ bool llvm::inferLibFuncAttributes(Function &F, const TargetLibraryInfo &TLI) {
   case LibFunc_kill:
     Changed |= setDoesNotThrow(F);
     return Changed;
+  case LibFunc_kmp_set_blocktime:
+    Changed |= setDoesNotThrow(F);
+    return Changed;
   case LibFunc_LeaveCriticalSection:
     Changed |= setDoesNotThrow(F);
     return Changed;

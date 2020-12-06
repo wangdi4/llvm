@@ -1,5 +1,7 @@
 ; This test verifies that the transformations are done correctly for memory
 ; references when SCEV expression is unoptimized.
+; This test also verifies that kmp_set_blocktime is inserted at beginning
+; of "main" routine.
 ;
 ; SCEV before: ((8 * (sext i32 {{{(-1599981 + (800000 * %tmp9)),+,800000}<%bb14>,+,4000}<%bb19>,+,20}<%bb25> to i64))<nsw> + %arg2)<nsw>
 ;
@@ -16,6 +18,9 @@
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
+
+; CHECK: define i32 @main()
+; CHECK:  call void @kmp_set_blocktime(i32 0)
 
 ; CHECK: bb12:
 ; CHECK: [[M0:%[0-9]+]] = mul i32 %tmp9, 40000

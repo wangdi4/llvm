@@ -2738,6 +2738,9 @@ TLI_DEFINE_STRING_INTERNAL("j1")
 /// int kill(pid_t pid, int sig);
 TLI_DEFINE_ENUM_INTERNAL(kill)
 TLI_DEFINE_STRING_INTERNAL("kill")
+/// void kmp_set_blocktime(int arg);
+TLI_DEFINE_ENUM_INTERNAL(kmp_set_blocktime)
+TLI_DEFINE_STRING_INTERNAL("kmp_set_blocktime")
 #endif // INTEL_CUSTOMIZATION
 
 /// long int labs(long int j);
