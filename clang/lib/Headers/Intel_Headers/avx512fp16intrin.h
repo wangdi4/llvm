@@ -3571,6 +3571,69 @@ _mm512_maskz_fmadd_pch(__mmask16 __U, __m512h __A, __m512h __B, __m512h __C)
                                             (__v16sf)(__m512h) (C), \
                                             (__mmask16) (U), \
                                             (int)(R))
+#define _mm512_mask_reduce_operator(op)                                        \
+  __m256h __t1 = (__m256h)_mm512_extractf64x4_pd((__m512d)__W, 0);             \
+  __m256h __t2 = (__m256h)_mm512_extractf64x4_pd((__m512d)__W, 1);             \
+  __m256h __t3 = __t1 op __t2;                                                 \
+  __m128h __t4 = (__m128h)_mm256_extractf128_pd((__m256d)__t3, 0);             \
+  __m128h __t5 = (__m128h)_mm256_extractf128_pd((__m256d)__t3, 1);             \
+  __m128h __t6 = __t4 op __t5;                                                 \
+  __m128h __t7 =                                                               \
+      (__m128h)__builtin_shufflevector((__m128d)__t6, (__m128d)__t6, 1, 0);    \
+  __m128h __t8 = __t6 op __t7;                                                 \
+  __m128h __t9 = (__m128h)__builtin_shufflevector((__m128)__t8, (__m128)__t8,  \
+                                                  1, 0, 2, 3);                 \
+  __m128h __t10 = __t8 op __t9;                                                \
+  __m128h __t11 = (__m128h)__builtin_shufflevector(                            \
+      (__m128h)__t10, (__m128h)__t10, 1, 0, 2, 3, 4, 5, 6, 7);                 \
+  __m128h __t12 = __t10 op __t11;                                              \
+  return __t12[0]
+
+// TODO: We will implement this intrinsic with llvm.reduction intrinsics.
+static __inline__ _Float16 __DEFAULT_FN_ATTRS512
+_mm512_reduce_add_ph(__m512h __W) {
+  _mm512_mask_reduce_operator(+);
+}
+
+// TODO: We will implement this intrinsic with llvm.reduction intrinsics.
+static __inline__ _Float16 __DEFAULT_FN_ATTRS512
+_mm512_reduce_mul_ph(__m512h __W) {
+  _mm512_mask_reduce_operator(*);
+}
+
+#undef _mm512_mask_reduce_operator
+#define _mm512_mask_reduce_operator(op)                                        \
+  __m512h __t1 = (__m512h)__builtin_shufflevector((__m512d)__V, (__m512d)__V,  \
+                                                  4, 5, 6, 7, 0, 0, 0, 0);     \
+  __m512h __t2 = _mm512_##op(__t1, __V);                                       \
+  __m512h __t3 = (__m512h)__builtin_shufflevector(                             \
+      (__m512d)__t2, (__m512d)__t2, 2, 3, 0, 0, 0, 0, 0, 0);                   \
+  __m512h __t4 = _mm512_##op(__t2, __t3);                                      \
+  __m512h __t5 = (__m512h)__builtin_shufflevector(                             \
+      (__m512d)__t4, (__m512d)__t4, 1, 0, 0, 0, 0, 0, 0, 0);                   \
+  __m512h __t6 = _mm512_##op(__t4, __t5);                                      \
+  __m512h __t7 =                                                               \
+      (__m512h)__builtin_shufflevector((__m512)__t6, (__m512)__t6, 1, 0, 0, 0, \
+                                       0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);    \
+  __m512h __t8 = _mm512_##op(__t6, __t7);                                      \
+  __m512h __t9 = (__m512h)__builtin_shufflevector(                             \
+      (__m512h)__t8, (__m512h)__t8, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,  \
+      0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);                   \
+  __m512h __t10 = _mm512_##op(__t8, __t9);                                     \
+  return __t10[0]
+
+// TODO: We will implement this intrinsic with llvm.reduction intrinsics.
+static __inline__ _Float16 __DEFAULT_FN_ATTRS512
+_mm512_reduce_max_ph(__m512h __V) {
+  _mm512_mask_reduce_operator(max_ph);
+}
+
+// TODO: We will implement this intrinsic with llvm.reduction intrinsics.
+static __inline__ _Float16 __DEFAULT_FN_ATTRS512
+_mm512_reduce_min_ph(__m512h __V) {
+  _mm512_mask_reduce_operator(min_ph);
+}
+#undef _mm512_mask_reduce_operator
 #undef __DEFAULT_FN_ATTRS128
 #undef __DEFAULT_FN_ATTRS256
 #undef __DEFAULT_FN_ATTRS512
