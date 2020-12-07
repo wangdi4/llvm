@@ -1893,6 +1893,9 @@ private:
   /// Indicates whether the InlineParams / InlineBindings storage has been used.
   unsigned InlineStorageUsed : 1;
 
+  /// Indicates whether this declarator has an initializer.
+  unsigned HasInitializer : 1;
+
   /// Attrs - Attributes.
   ParsedAttributes Attrs;
 
@@ -1941,8 +1944,8 @@ public:
                                    FunctionDefinitionKind::Declaration)),
         Redeclaration(false), Extension(false), ObjCIvar(false),
         ObjCWeakProperty(false), InlineStorageUsed(false),
-        Attrs(ds.getAttributePool().getFactory()), AsmLabel(nullptr),
-        TrailingRequiresClause(nullptr),
+        HasInitializer(false), Attrs(ds.getAttributePool().getFactory()),
+        AsmLabel(nullptr), TrailingRequiresClause(nullptr),
         InventedTemplateParameterList(nullptr) {}
 
   ~Declarator() {
@@ -2025,6 +2028,7 @@ public:
     Attrs.clear();
     AsmLabel = nullptr;
     InlineStorageUsed = false;
+    HasInitializer = false;
     ObjCIvar = false;
     ObjCWeakProperty = false;
     CommaLoc = SourceLocation();
@@ -2625,6 +2629,9 @@ public:
   FunctionDefinitionKind getFunctionDefinitionKind() const {
     return (FunctionDefinitionKind)FunctionDefinition;
   }
+
+  void setHasInitializer(bool Val = true) { HasInitializer = Val; }
+  bool hasInitializer() const { return HasInitializer; }
 
   /// Returns true if this declares a real member and not a friend.
   bool isFirstDeclarationOfMember() {
