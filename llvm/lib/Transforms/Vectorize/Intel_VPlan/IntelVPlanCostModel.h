@@ -20,6 +20,7 @@
 #ifndef LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_INTELVPLANCOSTMODEL_H
 #define LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_INTELVPLANCOSTMODEL_H
 
+#include "IntelVPlanTTIWrapper.h"
 #include "IntelVPlanVLSAnalysis.h"
 #include "llvm/Analysis/Intel_OptVLS.h"
 
@@ -66,7 +67,8 @@ public:
                  const TargetLibraryInfo *TLI,
                  const DataLayout *DL,
                  VPlanVLSAnalysis *VLSA)
-    : Plan(Plan), VF(VF), TTI(TTI), TLI(TLI), DL(DL), VLSA(VLSA) {
+    : Plan(Plan), VF(VF), TLI(TLI), DL(DL), VLSA(VLSA) {
+    VPTTI = std::make_unique<VPlanTTIWrapper>(*TTI);
     if (VLSA)
       // FIXME: Really ugly to get LLVMContext from VLSA, which may not
       // even exist, but so far there's no other simple way to pass it here.
@@ -79,7 +81,9 @@ public:
                  const TargetTransformInfo *TTI,
                  const TargetLibraryInfo *TLI,
                  const DataLayout *DL)
-    : Plan(Plan), VF(VF), TTI(TTI), TLI(TLI), DL(DL) {}
+    : Plan(Plan), VF(VF), TLI(TLI), DL(DL) {
+    VPTTI = std::make_unique<VPlanTTIWrapper>(*TTI);
+  }
 #endif // INTEL_CUSTOMIZATION
   virtual unsigned getCost();
   virtual unsigned getLoadStoreCost(
@@ -96,7 +100,7 @@ public:
 protected:
   const VPlan *Plan;
   unsigned VF;
-  const TargetTransformInfo *TTI;
+  std::unique_ptr<VPlanTTIWrapper> VPTTI;
   const TargetLibraryInfo *TLI;
   const DataLayout *DL;
 #if INTEL_CUSTOMIZATION
