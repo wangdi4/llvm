@@ -47809,7 +47809,7 @@ static SDValue combineFaddFsub(SDNode *N, SelectionDAG &DAG,
   const TargetOptions &Options = DAG.getTarget().Options;
   if ((Options.AllowFPOpFusion == FPOpFusion::Fast || Options.UnsafeFPMath) &&
       Subtarget.hasFP16() && N->getOpcode() == ISD::FADD &&
-      VT.getSimpleVT().getVectorElementType() == MVT::f16 &&
+      (VT == MVT::v32f16 || VT == MVT::v16f16 || VT == MVT::v8f16) &&
       LHS->getOpcode() == ISD::BITCAST && LHS.hasOneUse()) {
     SDValue FAddOp1 = N->getOperand(1);
     SDValue MULC = LHS->getOperand(0);
