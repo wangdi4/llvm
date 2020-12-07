@@ -3078,10 +3078,6 @@ void HIRCompleteUnroll::transformLoop(HLLoop *Loop, CanonExprUpdater &CEUpdater,
   int64_t UB = computeUB(Loop, CEUpdater.TopLoopLevel, IVValues);
   int64_t Step = Loop->getStrideCanonExpr()->getConstant();
 
-  // This may be different than UB when Step is not 1.
-  int64_t LastIVVal = LB + (((UB - LB) / Step) * Step);
-  bool ZttHasBlob = false;
-
   // At this point loop preheader has been visited already but postexit is
   // not, so we need to handle postexit explicitly.
 
@@ -3092,20 +3088,24 @@ void HIRCompleteUnroll::transformLoop(HLLoop *Loop, CanonExprUpdater &CEUpdater,
     return;
   }
 
-  // Check if ZTT has blob. If so, we have to hoist it.
-  for (auto DDIt = Loop->ztt_ddref_begin(), E = Loop->ztt_ddref_end();
-       DDIt != E; ++DDIt) {
-    if ((*DDIt)->hasBlobDDRefs() || (*DDIt)->isSelfBlob()) {
-      ZttHasBlob = true;
-      break;
-    }
-  }
+  // Always preserve Ztt during unroll because it may be more restrictive
+  // than what the loop upper implies. For example-
+  //
+  // for (i = 30; i > 1; --i){
+  //   // This condition acts as the ztt and prevents the loop from executing
+  //   // when (8 <= i <= 13).
+  //   if (i <= 7){
+  //     for (j = i; j < 14; j++){
+  //       m[j]++;
+  //     }
+  //   }
+  // }
+  //
+  // removeRedundantNodes() utility should be able to eliminate most Ztts
+  // after unrolling.
 
-  if (ZttHasBlob) {
-    HLNodeUtils::visit<false>(CEUpdater,
-                              Loop->extractZtt(CEUpdater.TopLoopLevel));
-  } else {
-    Loop->removeZtt();
+  if (auto *Ztt = Loop->extractZtt(CEUpdater.TopLoopLevel)) {
+    HLNodeUtils::visit<false>(CEUpdater, Ztt);
   }
 
   HLNode *Marker = nullptr;
@@ -3130,6 +3130,9 @@ void HIRCompleteUnroll::transformLoop(HLLoop *Loop, CanonExprUpdater &CEUpdater,
 
   // Container for cloning body.
   HLContainerTy LoopBody;
+
+  // This may be different than UB when Step is not 1.
+  int64_t LastIVVal = LB + (((UB - LB) / Step) * Step);
 
   // Iterate over Loop Child for unrolling with trip value incremented
   // each time. Thus, loop body will be expanded by no. of stmts x TripCount.

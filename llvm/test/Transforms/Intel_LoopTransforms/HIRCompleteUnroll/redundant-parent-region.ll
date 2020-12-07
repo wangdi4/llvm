@@ -34,7 +34,7 @@
 ; DEBUG: Statistics Collected
 ; DEBUG:  1 hir-hlnode-utils          - Number of regions invalidated by utility
 ; DEBUG:  2 hir-hlnode-utils          - Number of empty Loops removed by utility
-; DEBUG: 45 hir-hlnode-utils          - Number of redundant predicates removed by utility
+; DEBUG: 54 hir-hlnode-utils          - Number of redundant predicates removed by utility
 ; DEBUG-NOT: hir-hlnode-utils
 
 ; ModuleID = '1.ll'
