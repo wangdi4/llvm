@@ -21,7 +21,7 @@
 #include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRRegionIdentification.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/HLNodeUtils.h"
 
-#include "llvm/IR/IRPrintingPasses.h"
+#include "llvm/IR/PrintPasses.h"
 #include "llvm/IR/PassManager.h"
 #include "llvm/Pass.h"
 
@@ -227,7 +227,7 @@ public:
       : OS(OS), PrintDetails(PrintDetails) {}
 
   PreservedAnalyses run(Function &F, FunctionAnalysisManager &AM) {
-    if (llvm::isFunctionInPrintList(F.getName())) {
+    if (isFunctionInPrintList(F.getName())) {
       OS << "Function: " << F.getName() << "\n";
 
       AM.getResult<HIRFrameworkAnalysis>(F).print(PrintDetails, OS);

@@ -15,13 +15,14 @@
 #include "llvm/Passes/StandardInstrumentations.h"
 #include "llvm/ADT/Any.h"
 #include "llvm/ADT/Optional.h"
+#include "llvm/ADT/StringRef.h"
 #include "llvm/Analysis/CallGraphSCCPass.h"
 #include "llvm/Analysis/LazyCallGraph.h"
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/IR/Function.h"
-#include "llvm/IR/IRPrintingPasses.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/PassInstrumentation.h"
+#include "llvm/IR/PrintPasses.h"
 #include "llvm/IR/Verifier.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Debug.h"
@@ -95,7 +96,7 @@ unwrapModule(Any IR, bool Force = false) {
 
   if (any_isa<const Function *>(IR)) {
     const Function *F = any_cast<const Function *>(IR);
-    if (!Force && !llvm::isFunctionInPrintList(F->getName()))
+    if (!Force && !isFunctionInPrintList(F->getName()))
       return None;
 
     const Module *M = F->getParent();
@@ -137,7 +138,7 @@ void printIR(raw_ostream &OS, const Function *F, StringRef Banner,
     return;
   }
 
-  if (!llvm::isFunctionInPrintList(F->getName()))
+  if (!isFunctionInPrintList(F->getName()))
     return;
   OS << Banner << Extra << "\n" << static_cast<const Value &>(*F);
 }
@@ -150,7 +151,7 @@ void printIR(raw_ostream &OS, const Module *M, StringRef Banner,
     return;
   }
 
-  if (llvm::isFunctionInPrintList("*") || llvm::forcePrintModuleIR()) {
+  if (isFunctionInPrintList("*") || forcePrintModuleIR()) {
     OS << Banner << Extra << "\n";
     M->print(OS, nullptr, ShouldPreserveUseListOrder);
   } else {
@@ -170,7 +171,7 @@ void printIR(raw_ostream &OS, const LazyCallGraph::SCC *C, StringRef Banner,
   bool BannerPrinted = false;
   for (const LazyCallGraph::Node &N : *C) {
     const Function &F = N.getFunction();
-    if (!F.isDeclaration() && llvm::isFunctionInPrintList(F.getName())) {
+    if (!F.isDeclaration() && isFunctionInPrintList(F.getName())) {
       if (!BannerPrinted) {
         OS << Banner << Extra << "\n";
         BannerPrinted = true;
@@ -188,9 +189,9 @@ void printIR(raw_ostream &OS, const Loop *L, StringRef Banner,
   }
 
   const Function *F = L->getHeader()->getParent();
-  if (!llvm::isFunctionInPrintList(F->getName()))
+  if (!isFunctionInPrintList(F->getName()))
     return;
-  llvm::printLoop(const_cast<Loop &>(*L), OS, std::string(Banner));
+  printLoop(const_cast<Loop &>(*L), OS, std::string(Banner));
 }
 
 /// Generic IR-printing helper that unpacks a pointer to IRUnit wrapped into
@@ -251,7 +252,7 @@ ChangeReporter<IRUnitT>::~ChangeReporter<IRUnitT>() {
 
 template <typename IRUnitT>
 bool ChangeReporter<IRUnitT>::isInterestingFunction(const Function &F) {
-  return llvm::isFunctionInPrintList(F.getName());
+  return isFunctionInPrintList(F.getName());
 }
 
 template <typename IRUnitT>
@@ -431,7 +432,7 @@ void IRChangedPrinter::handleAfter(StringRef PassID, std::string &Name,
     Out << "*** IR Dump Before" << Banner.substr(17);
     // LazyCallGraph::SCC already has "(scc:..." in banner so only add
     // in the name if it isn't already there.
-    if (Name.substr(0, 6) != " (scc:" && !llvm::forcePrintModuleIR())
+    if (Name.substr(0, 6) != " (scc:" && !forcePrintModuleIR())
       Out << Name;
 
     StringRef BeforeRef = Before;
@@ -442,7 +443,7 @@ void IRChangedPrinter::handleAfter(StringRef PassID, std::string &Name,
 
   // LazyCallGraph::SCC already has "(scc:..." in banner so only add
   // in the name if it isn't already there.
-  if (Name.substr(0, 6) != " (scc:" && !llvm::forcePrintModuleIR())
+  if (Name.substr(0, 6) != " (scc:" && !forcePrintModuleIR())
     Out << Name;
 
   Out << After.substr(Banner.size());
@@ -481,14 +482,14 @@ void PrintIRInstrumentation::printBeforePass(StringRef PassID, Any IR) {
   // Note: here we rely on a fact that we do not change modules while
   // traversing the pipeline, so the latest captured module is good
   // for all print operations that has not happen yet.
-  if (StoreModuleDesc && llvm::shouldPrintAfterPass(PassID))
+  if (StoreModuleDesc && shouldPrintAfterPass(PassID))
     pushModuleDesc(PassID, IR);
 
-  if (!llvm::shouldPrintBeforePass(PassID))
+  if (!shouldPrintBeforePass(PassID))
     return;
 
   SmallString<20> Banner = formatv("*** IR Dump Before {0} ***", PassID);
-  unwrapAndPrint(dbgs(), IR, Banner, llvm::forcePrintModuleIR());
+  unwrapAndPrint(dbgs(), IR, Banner, forcePrintModuleIR());
   return;
 }
 
@@ -496,18 +497,19 @@ void PrintIRInstrumentation::printAfterPass(StringRef PassID, Any IR) {
   if (PassID.startswith("PassManager<") || PassID.contains("PassAdaptor<"))
     return;
 
-  if (!llvm::shouldPrintAfterPass(PassID))
+  if (!shouldPrintAfterPass(PassID))
     return;
 
   if (StoreModuleDesc)
     popModuleDesc(PassID);
 
   SmallString<20> Banner = formatv("*** IR Dump After {0} ***", PassID);
-  unwrapAndPrint(dbgs(), IR, Banner, llvm::forcePrintModuleIR());
+  unwrapAndPrint(dbgs(), IR, Banner, forcePrintModuleIR());
 }
 
 void PrintIRInstrumentation::printAfterPassInvalidated(StringRef PassID) {
-  if (!StoreModuleDesc || !llvm::shouldPrintAfterPass(PassID))
+  StringRef PassName = PIC->getPassNameForClassName(PassID);
+  if (!StoreModuleDesc || !shouldPrintAfterPass(PassName))
     return;
 
   if (PassID.startswith("PassManager<") || PassID.contains("PassAdaptor<"))
@@ -527,16 +529,42 @@ void PrintIRInstrumentation::printAfterPassInvalidated(StringRef PassID) {
   printIR(dbgs(), M, Banner, Extra);
 }
 
+bool PrintIRInstrumentation::shouldPrintBeforePass(StringRef PassID) {
+  if (shouldPrintBeforeAll())
+    return true;
+
+  StringRef PassName = PIC->getPassNameForClassName(PassID);
+  for (const auto &P : printBeforePasses()) {
+    if (PassName == P)
+      return true;
+  }
+  return false;
+}
+
+bool PrintIRInstrumentation::shouldPrintAfterPass(StringRef PassID) {
+  if (shouldPrintAfterAll())
+    return true;
+
+  StringRef PassName = PIC->getPassNameForClassName(PassID);
+  for (const auto &P : printAfterPasses()) {
+    if (PassName == P)
+      return true;
+  }
+  return false;
+}
+
 void PrintIRInstrumentation::registerCallbacks(
     PassInstrumentationCallbacks &PIC) {
+  this->PIC = &PIC;
+
   // BeforePass callback is not just for printing, it also saves a Module
   // for later use in AfterPassInvalidated.
-  StoreModuleDesc = llvm::forcePrintModuleIR() && llvm::shouldPrintAfterPass();
-  if (llvm::shouldPrintBeforePass() || StoreModuleDesc)
+  StoreModuleDesc = forcePrintModuleIR() && shouldPrintAfterSomePass();
+  if (shouldPrintBeforeSomePass() || StoreModuleDesc)
     PIC.registerBeforeNonSkippedPassCallback(
         [this](StringRef P, Any IR) { this->printBeforePass(P, IR); });
 
-  if (llvm::shouldPrintAfterPass()) {
+  if (shouldPrintAfterSomePass()) {
     PIC.registerAfterPassCallback(
         [this](StringRef P, Any IR, const PreservedAnalyses &) {
           this->printAfterPass(P, IR);

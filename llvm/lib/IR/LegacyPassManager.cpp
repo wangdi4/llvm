@@ -20,6 +20,7 @@
 #include "llvm/IR/LegacyPassNameParser.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/PassTimingInfo.h"
+#include "llvm/IR/PrintPasses.h"
 #include "llvm/IR/StructuralHash.h"
 #include "llvm/Support/Chrono.h"
 #include "llvm/Support/CommandLine.h"
@@ -50,7 +51,7 @@ namespace {
 enum PassDebugLevel {
   Disabled, Arguments, Structure, Executions, Details
 };
-}
+} // namespace
 
 static cl::opt<enum PassDebugLevel>
 PassDebugging("debug-pass", cl::Hidden,
@@ -63,102 +64,6 @@ PassDebugging("debug-pass", cl::Hidden,
   clEnumVal(Details   , "print pass details when it is executed")));
 #endif  // !INTEL_PRODUCT_RELEASE
 
-namespace {
-typedef llvm::cl::list<const llvm::PassInfo *, bool, PassNameParser>
-PassOptionList;
-}
-
-#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
-// Print IR out before/after specified passes.
-static PassOptionList
-PrintBefore("print-before",
-            llvm::cl::desc("Print IR before specified passes"),
-            cl::Hidden);
-
-static PassOptionList
-PrintAfter("print-after",
-           llvm::cl::desc("Print IR after specified passes"),
-           cl::Hidden);
-
-static cl::opt<bool> PrintBeforeAll("print-before-all",
-                                    llvm::cl::desc("Print IR before each pass"),
-                                    cl::init(false), cl::Hidden);
-static cl::opt<bool> PrintAfterAll("print-after-all",
-                                   llvm::cl::desc("Print IR after each pass"),
-                                   cl::init(false), cl::Hidden);
-
-#if INTEL_CUSTOMIZATION
-static cl::opt<bool> HIRPrintBeforeAll("hir-print-before-all",
-            llvm::cl::desc("Prints IR before each pass starting with 'hir'"),
-            cl::init(false), cl::Hidden);
-
-static cl::opt<bool> HIRPrintAfterAll("hir-print-after-all",
-            llvm::cl::desc("Prints IR after each pass starting with 'hir'"),
-            cl::init(false), cl::Hidden);
-#endif //INTEL_CUSTOMIZATION
-static cl::opt<bool>
-    PrintModuleScope("print-module-scope",
-                     cl::desc("When printing IR for print-[before|after]{-all} "
-                              "and change reporters, always print a module IR"),
-                     cl::init(false), cl::Hidden);
-
-static cl::list<std::string>
-    PrintFuncsList("filter-print-funcs", cl::value_desc("function names"),
-                   cl::desc("Only print IR for functions whose name "
-                            "match this for all print-[before|after][-all] "
-                            "and change reporter options"),
-                   cl::CommaSeparated, cl::Hidden);
-
-/// This is a helper to determine whether to print IR before or
-/// after a pass.
-
-bool llvm::shouldPrintBeforePass() {
-  return PrintBeforeAll || !PrintBefore.empty();
-}
-
-bool llvm::shouldPrintAfterPass() {
-  return PrintAfterAll || !PrintAfter.empty();
-}
-
-static bool ShouldPrintBeforeOrAfterPass(StringRef PassID,
-                                         PassOptionList &PassesToPrint) {
-  for (auto *PassInf : PassesToPrint) {
-    if (PassInf)
-      if (PassInf->getPassArgument() == PassID) {
-        return true;
-      }
-  }
-  return false;
-}
-
-bool llvm::shouldPrintBeforePass(StringRef PassID) {
-#if INTEL_CUSTOMIZATION
-  return PrintBeforeAll || ShouldPrintBeforeOrAfterPass(PassID, PrintBefore)
-           || (HIRPrintBeforeAll && PassID.startswith("hir"));
-#endif //INTEL_CUSTOMIZATION
-}
-
-bool llvm::shouldPrintAfterPass(StringRef PassID) {
-#if INTEL_CUSTOMIZATION
-  return PrintAfterAll || ShouldPrintBeforeOrAfterPass(PassID, PrintAfter)
-           || (HIRPrintAfterAll && PassID.startswith("hir"));
-#endif //INTEL_CUSTOMIZATION
-}
-
-bool llvm::forcePrintModuleIR() { return PrintModuleScope; }
-
-#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
-
-bool llvm::isFunctionInPrintList(StringRef FunctionName) {
-#if defined(NDEBUG) && !defined(LLVM_ENABLE_DUMP) // INTEL
-  return false;
-#else // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
-  static std::unordered_set<std::string> PrintFuncNames(PrintFuncsList.begin(),
-                                                        PrintFuncsList.end());
-  return PrintFuncNames.empty() ||
-         PrintFuncNames.count(std::string(FunctionName));
-#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
-}
 /// isPassDebuggingExecutionsOrMore - Return true if -debug-pass=Executions
 /// or higher is specified.
 bool PMDataManager::isPassDebuggingExecutionsOrMore() const {
