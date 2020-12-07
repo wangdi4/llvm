@@ -1,14 +1,14 @@
 ; RUN: opt -S -VPlanDriver -vplan-print-after-evaluator -disable-output %s 2>&1 | FileCheck %s
 
 ; CHECK: There is no peel loop.
-; CHECK-NEXT: The main loop is vectorized with vector factor 4. The vector cost is 128(32 x 4).
-; CHECK-NEXT: The remainder loop is scalar with trip count 3. The scalar cost is 12(3 x 4).
+; CHECK-NEXT: The main loop is vectorized with vector factor 4. The vector cost is 128000(32 x 4000).
+; CHECK-NEXT: The remainder loop is scalar with trip count 3. The scalar cost is 12000(3 x 4000).
 
 ; RUN: opt -S -VPlanDriver -vplan-print-after-evaluator -vplan-disable-vector-peel-and-vector-remainder=false -disable-output %s 2>&1 | FileCheck %s --check-prefix=VECTOR-CHECK
 
 ; VECTOR-CHECK: There is no peel loop.
-; VECTOR-CHECK-NEXT: The main loop is vectorized with vector factor 4. The vector cost is 128(32 x 4).
-; VECTOR-CHECK-NEXT: The remainder loop has trip count 2 and it is vectorized with vector factor 2. The vector cost is 8.
+; VECTOR-CHECK-NEXT: The main loop is vectorized with vector factor 4. The vector cost is 128000(32 x 4000).
+; VECTOR-CHECK-NEXT: The remainder loop has trip count 2 and it is vectorized with vector factor 2. The vector cost is 8000.
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
