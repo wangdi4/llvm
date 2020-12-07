@@ -3141,6 +3141,15 @@ Tool *Generic_GCC::buildLinker() const {
   return new tools::gcc::Linker(*this);
 }
 
+#if INTEL_CUSTOMIZATION
+Tool *Generic_GCC::buildBackendCompiler() const {
+  if (getTriple().getSubArch() == llvm::Triple::SPIRSubArch_gen)
+    return new tools::SYCL::gen::BackendCompiler(*this);
+  // fall through is CPU.
+  return new tools::SYCL::x86_64::BackendCompiler(*this);
+}
+#endif // INTEL_CUSTOMIZATION
+
 void Generic_GCC::printVerboseInfo(raw_ostream &OS) const {
   // Print the information about how we detected the GCC installation.
   GCCInstallation.print(OS);
