@@ -2121,22 +2121,28 @@ public:
         // declared in the signature of the called function, so if we can
         // resolve a unique usage type for the parameter, then the parameter
         // matches the expected type.
+        DTransType *DomTy = PTA.getDominantAggregateUsageType(*ParamInfo);
         if (ArgExpectedDTransTy == getDTransI8PtrType()) {
-          // TODO: Check whether the i8* argument usage type in the callee match
-          // the dominant type of the parameter because in those cases there is
-          // no need to set the MismatchedArgUse safety flag.
+          Value *TargetArg = F->getArg(ArgNum);
+          ValueTypeInfo *ArgInfo = PTA.getValueTypeInfo(TargetArg);
+          assert(ArgInfo &&
+            "Expected pointer type analyzer to analyze pointer");
+
+          DTransType *TargDomTy =
+              PTA.getDominantType(*ArgInfo, ValueTypeInfo::VAT_Use);
+          if (DomTy && TargDomTy == DomTy)
+            continue;
+
+          // The dominant type the pointer is used as in the callee does not
+          // match the type of the parameter is used as elsewhere.
           setAllAliasedTypeSafetyData(
               ParamInfo, dtrans::MismatchedArgUse,
               "Type passed to i8* argument of local function", &Call,
               DumpCallback);
 
-          // The safety data also needs to be set on the types aliases within
+          // The safety data also needs to be set on the type aliases within
           // the callee, because the ValueTypeInfo for the parameter only knows
-          // about the types aliases of the caller.
-          Value *TargetArg = F->getArg(ArgNum);
-          ValueTypeInfo *ArgInfo = PTA.getValueTypeInfo(TargetArg);
-          assert(ArgInfo &&
-                 "Expected pointer type analyzer to analyze pointer");
+          // about the type aliases used within the caller.
           setAllAliasedTypeSafetyData(
               ArgInfo, dtrans::MismatchedArgUse,
               "Type passed to i8* argument of local function", &Call,
@@ -2148,7 +2154,6 @@ public:
         // i8*, then it is safe because the dominant type is formed as a union
         // of the type the parameter is used as within the calling function and
         // the type that function is declared as taking.
-        DTransType *DomTy = PTA.getDominantAggregateUsageType(*ParamInfo);
         if (DomTy)
           continue;
 
