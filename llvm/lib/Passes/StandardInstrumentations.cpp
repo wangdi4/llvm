@@ -475,7 +475,7 @@ PrintIRInstrumentation::popModuleDesc(StringRef PassID) {
 }
 
 void PrintIRInstrumentation::printBeforePass(StringRef PassID, Any IR) {
-  if (PassID.startswith("PassManager<") || PassID.contains("PassAdaptor<"))
+  if (isIgnored(PassID))
     return;
 
   // Saving Module for AfterPassInvalidated operations.
@@ -494,7 +494,7 @@ void PrintIRInstrumentation::printBeforePass(StringRef PassID, Any IR) {
 }
 
 void PrintIRInstrumentation::printAfterPass(StringRef PassID, Any IR) {
-  if (PassID.startswith("PassManager<") || PassID.contains("PassAdaptor<"))
+  if (isIgnored(PassID))
     return;
 
   if (!shouldPrintAfterPass(PassID))
@@ -512,7 +512,7 @@ void PrintIRInstrumentation::printAfterPassInvalidated(StringRef PassID) {
   if (!StoreModuleDesc || !shouldPrintAfterPass(PassName))
     return;
 
-  if (PassID.startswith("PassManager<") || PassID.contains("PassAdaptor<"))
+  if (isIgnored(PassID))
     return;
 
   const Module *M;
@@ -663,13 +663,9 @@ void OptBisectInstrumentation::registerCallbacks(
   if (!isEnabled())
     return;
 
-  std::vector<StringRef> SpecialPasses = {"PassManager", "PassAdaptor"};
-
-  PIC.registerShouldRunOptionalPassCallback(
-      [this, SpecialPasses](StringRef PassID, Any IR) {
-        return isSpecialPass(PassID, SpecialPasses) ||
-               checkPass(PassID, getBisectDescription(IR));
-      });
+  PIC.registerShouldRunOptionalPassCallback([this](StringRef PassID, Any IR) {
+    return isIgnored(PassID) || checkPass(PassID, getBisectDescription(IR));
+  });
 }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL

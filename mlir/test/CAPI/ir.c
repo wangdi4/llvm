@@ -13,11 +13,11 @@
 #include "mlir-c/IR.h"
 #include "mlir-c/AffineExpr.h"
 #include "mlir-c/AffineMap.h"
+#include "mlir-c/BuiltinAttributes.h"
+#include "mlir-c/BuiltinTypes.h"
 #include "mlir-c/Diagnostics.h"
 #include "mlir-c/Registration.h"
-#include "mlir-c/StandardAttributes.h"
 #include "mlir-c/StandardDialect.h"
-#include "mlir-c/StandardTypes.h"
 
 #include <assert.h>
 #include <math.h>
@@ -549,12 +549,12 @@ static void buildWithInsertionsAndPrint(MlirContext ctx) {
   // clang-format on
 }
 
-/// Dumps instances of all standard types to check that C API works correctly.
-/// Additionally, performs simple identity checks that a standard type
+/// Dumps instances of all builtin types to check that C API works correctly.
+/// Additionally, performs simple identity checks that a builtin type
 /// constructed with C API can be inspected and has the expected type. The
-/// latter achieves full coverage of C API for standard types. Returns 0 on
+/// latter achieves full coverage of C API for builtin types. Returns 0 on
 /// success and a non-zero error code on failure.
-static int printStandardTypes(MlirContext ctx) {
+static int printBuiltinTypes(MlirContext ctx) {
   // Integer types.
   MlirType i32 = mlirIntegerTypeGet(ctx, 32);
   MlirType si32 = mlirIntegerTypeSignedGet(ctx, 32);
@@ -739,7 +739,7 @@ bool stringIsEqual(const char *lhs, MlirStringRef rhs) {
   return !strncmp(lhs, rhs.data, rhs.length);
 }
 
-int printStandardAttributes(MlirContext ctx) {
+int printBuiltinAttributes(MlirContext ctx) {
   MlirAttribute floating =
       mlirFloatAttrDoubleGet(ctx, mlirF64TypeGet(ctx), 2.0);
   if (!mlirAttributeIsAFloat(floating) ||
@@ -1332,9 +1332,9 @@ int main() {
     return 1;
   buildWithInsertionsAndPrint(ctx);
 
-  if (printStandardTypes(ctx))
+  if (printBuiltinTypes(ctx))
     return 2;
-  if (printStandardAttributes(ctx))
+  if (printBuiltinAttributes(ctx))
     return 3;
   if (printAffineMap(ctx))
     return 4;
