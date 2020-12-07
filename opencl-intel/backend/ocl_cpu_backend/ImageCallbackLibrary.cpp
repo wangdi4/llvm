@@ -158,8 +158,14 @@ std::string ImageCallbackLibrary::getLibraryObjectName()
 
 std::string ImageCallbackLibrary::getLibraryRtlName()
 {
-  return getLibraryBasename() + OCL_OUTPUT_EXTENSION;
+  char ModuleName[MAX_PATH];
+  Utils::SystemInfo::GetModuleDirectory(ModuleName, MAX_PATH);
+  // Just use an arbitrary rtl (clkernel.rtl) which is only used to instantiate
+  // LLDJIT.
+  return std::string(ModuleName) + OCL_LIBRARY_KERNEL_TARGET_NAME +
+         OCL_OUTPUT_EXTENSION;
 }
+
 UndefCbkDesc::UndefCbkDesc(UndefCbkType _type, VecSize _vecSize):
 Type(_type),
 Size(_vecSize)
@@ -321,16 +327,7 @@ ImageCallbackFunctions::ImageCallbackFunctions(CompiledModule* pCompiledModule)
 void* ImageCallbackFunctions::GetCbkPtr(const CbkDesc& _desc)
 {
     std::string name = _desc.GetName();
-    llvm::StringRef fName(name);
-    llvm::Function* fncPtr = m_pCompiledModule->getFunction(fName);
-    if(fncPtr == nullptr)
-    {
-        std::stringstream ss;
-        ss << "Image function " << _desc.GetName() << " wasn't found in the module. Make sure image libraries are valid";
-        throw Exceptions::DeviceBackendExceptionBase(ss.str());
-    }
-
-    void* ptr = m_pCompiledModule->getPointerToFunction(fncPtr);
+    void* ptr = m_pCompiledModule->getPointerToFunction(name);
     if(ptr == nullptr)
     {
         std::stringstream ss;

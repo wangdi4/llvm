@@ -50,9 +50,8 @@ public:
       return m_M->getFunction(name);
   }
 
-  /// Looks up a function pointer (to compiled code) in the ExecutionEngine
-  void* getPointerToFunction(llvm::Function* func) {
-    llvm::StringRef name = func->getName();
+  /// Looks up a function pointer (to compiled code) in JIT.
+  void* getPointerToFunction(std::string &name) {
     void *addr;
     if (m_LLJIT) {
       auto sym = m_LLJIT->lookup(name);
@@ -64,7 +63,7 @@ public:
             sym->getAddress()));
     } else
       addr = reinterpret_cast<void *>(static_cast<uintptr_t>(
-          m_EE->getFunctionAddress(name.str())));
+          m_EE->getFunctionAddress(name)));
     return addr;
   }
 
