@@ -1721,7 +1721,9 @@ X86TargetLowering::X86TargetLowering(const X86TargetMachine &TM,
     }
 
     if (Subtarget.hasVBMI2()) {
-      for (auto VT : { MVT::v32i16, MVT::v16i32, MVT::v8i64 }) {
+      for (auto VT : { MVT::v8i16, MVT::v4i32, MVT::v2i64,
+                       MVT::v16i16, MVT::v8i32, MVT::v4i64,
+                       MVT::v32i16, MVT::v16i32, MVT::v8i64 }) {
         setOperationAction(ISD::FSHL, VT, Custom);
         setOperationAction(ISD::FSHR, VT, Custom);
       }
@@ -2095,15 +2097,6 @@ X86TargetLowering::X86TargetLowering(const X86TargetMachine &TM,
     }
 #endif // INTEL_FEATURE_ISA_FP16
 #endif // INTEL_CUSTOMIZATION
-
-    if (Subtarget.hasVBMI2()) {
-      // TODO: Make these legal even without VLX?
-      for (auto VT : { MVT::v8i16,  MVT::v4i32, MVT::v2i64,
-                       MVT::v16i16, MVT::v8i32, MVT::v4i64 }) {
-        setOperationAction(ISD::FSHL, VT, Custom);
-        setOperationAction(ISD::FSHR, VT, Custom);
-      }
-    }
 
     setOperationAction(ISD::TRUNCATE, MVT::v16i32, Custom);
     setOperationAction(ISD::TRUNCATE, MVT::v8i64, Custom);
@@ -19990,15 +19983,29 @@ static SDValue LowerFunnelShift(SDValue Op, const X86Subtarget &Subtarget,
     if (IsFSHR)
       std::swap(Op0, Op1);
 
-    APInt APIntShiftAmt;
-    if (X86::isConstantSplat(Amt, APIntShiftAmt)) {
-      uint64_t ShiftAmt = APIntShiftAmt.urem(VT.getScalarSizeInBits());
-      return DAG.getNode(IsFSHR ? X86ISD::VSHRD : X86ISD::VSHLD, DL, VT, Op0,
-                         Op1, DAG.getTargetConstant(ShiftAmt, DL, MVT::i8));
+    // With AVX512, but not VLX we need to widen to get a 512-bit result type.
+    if (!Subtarget.hasVLX() && !VT.is512BitVector()) {
+      Op0 = widenSubVector(Op0, false, Subtarget, DAG, DL, 512);
+      Op1 = widenSubVector(Op1, false, Subtarget, DAG, DL, 512);
     }
 
-    return DAG.getNode(IsFSHR ? X86ISD::VSHRDV : X86ISD::VSHLDV, DL, VT,
-                       Op0, Op1, Amt);
+    SDValue Funnel;
+    APInt APIntShiftAmt;
+    MVT ResultVT = Op0.getSimpleValueType();
+    if (X86::isConstantSplat(Amt, APIntShiftAmt)) {
+      uint64_t ShiftAmt = APIntShiftAmt.urem(VT.getScalarSizeInBits());
+      Funnel =
+          DAG.getNode(IsFSHR ? X86ISD::VSHRD : X86ISD::VSHLD, DL, ResultVT, Op0,
+                      Op1, DAG.getTargetConstant(ShiftAmt, DL, MVT::i8));
+    } else {
+      if (!Subtarget.hasVLX() && !VT.is512BitVector())
+        Amt = widenSubVector(Amt, false, Subtarget, DAG, DL, 512);
+      Funnel = DAG.getNode(IsFSHR ? X86ISD::VSHRDV : X86ISD::VSHLDV, DL,
+                           ResultVT, Op0, Op1, Amt);
+    }
+    if (!Subtarget.hasVLX() && !VT.is512BitVector())
+      Funnel = extractSubVector(Funnel, 0, DAG, DL, VT.getSizeInBits());
+    return Funnel;
   }
   assert(
       (VT == MVT::i8 || VT == MVT::i16 || VT == MVT::i32 || VT == MVT::i64) &&
