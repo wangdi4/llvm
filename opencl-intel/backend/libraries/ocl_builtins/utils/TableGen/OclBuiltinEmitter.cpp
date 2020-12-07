@@ -1066,8 +1066,6 @@ OclBuiltinImpl::appendImpl(const Record* R)
       assert(IV && "Invalid OclBuiltinImpl record.");
       if (StringInit *SI = dyn_cast<StringInit>(IV->getValue()))
         impl->m_Code = std::string(SI->getValue());
-      else if(CodeInit *CI = dyn_cast<CodeInit>(IV->getValue()))
-        impl->m_Code = std::string(CI->getValue());
       else
         llvm_unreachable("Invalid OclBuiltinImpl record.");
     } else
