@@ -82,7 +82,6 @@ add_llvm_unittest(SupportTests
   TimerTest.cpp
   ToolOutputFileTest.cpp
   TypeNameTest.cpp
-  TypeTraitsTest.cpp
   TrailingObjectsTest.cpp
   TrigramIndexTest.cpp
   UnicodeTest.cpp
