@@ -1397,11 +1397,28 @@ multiclass m_tmovadvise {
 
 defm TMOVADVISE : m_tmovadvise;
 
+multiclass ADVISE_BASE {
+  let Predicates = [HasAMXMEMADVISE, In64BitMode], SchedRW = [WriteSystem] in {
+    def Z0ADVISE : Ii8<0x76, MRMSrcMemFSIB, (outs TILEPair:$dst),
+                      (ins sibmem:$src1, i32u8imm:$src2),
+                      "t2rpntlvwz0advise\t{$src2, $src1, $dst|$dst, $src1, $src2}",
+                      []>, VEX, TAPS;
+    def Z1ADVISE : Ii8<0x76, MRMSrcMemFSIB, (outs TILEPair:$dst),
+                      (ins sibmem:$src1, i32u8imm:$src2),
+                      "t2rpntlvwz1advise\t{$src2, $src1, $dst|$dst, $src1, $src2}",
+                      []>, VEX, TAPD;
+  }
+}
+
+defm T2RPNTLVW : ADVISE_BASE;
+
 let Predicates = [HasAMXMEMADVISE, In64BitMode],
     SchedRW = [WriteSystem] in {
   let  usesCustomInserter = 1 in {
     def PTMOVADVISErmi: PseudoI<(outs), (ins u8imm:$dst, sibmem:$src1, u8imm:$src2), []>;
     def PTMOVADVISEmri: PseudoI<(outs), (ins sibmem:$dst, u8imm:$src1, u8imm:$src2), []>;
+    def PT2RPNTLVWZ0ADVISE : PseudoI<(outs), (ins u8imm:$dst, sibmem:$src1, i32u8imm:$src2), []>;
+    def PT2RPNTLVWZ1ADVISE : PseudoI<(outs), (ins u8imm:$dst, sibmem:$src1, i32u8imm:$src2), []>;
   }
 } // HasAMXMEMADVISE
 

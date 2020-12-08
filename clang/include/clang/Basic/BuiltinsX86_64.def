@@ -154,6 +154,8 @@ TARGET_BUILTIN(__builtin_ia32_tdpbf8ps, "vIUcIUcIUc", "n", "amx-bf8")
 #if INTEL_FEATURE_ISA_AMX_MEMADVISE
 TARGET_BUILTIN(__builtin_ia32_tmovadvise_load, "vIUcvC*zIc", "n", "amx-memadvise")
 TARGET_BUILTIN(__builtin_ia32_tmovadvise_store, "vv*zIUcIc", "n", "amx-memadvise")
+TARGET_BUILTIN(__builtin_ia32_t2rpntlvwz0advise, "vIUcvC*zIUi", "n", "amx-memadvise")
+TARGET_BUILTIN(__builtin_ia32_t2rpntlvwz1advise, "vIUcvC*zIUi", "n", "amx-memadvise")
 #endif // INTEL_FEATURE_ISA_AMX_MEMADVISE
 
 #if INTEL_FEATURE_ISA_AMX_FUTURE
