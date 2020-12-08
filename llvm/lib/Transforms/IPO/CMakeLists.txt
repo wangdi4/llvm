@@ -48,6 +48,7 @@ add_llvm_component_library(LLVMipo
   PartialInlining.cpp
   PassManagerBuilder.cpp
   PruneEH.cpp
+  SampleContextTracker.cpp
   SampleProfile.cpp
   SampleProfileProbe.cpp
   SCCP.cpp
