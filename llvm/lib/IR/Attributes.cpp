@@ -2059,10 +2059,10 @@ static void adjustFunctionRecognizerAttr(Function &Caller,
   // are leaf functions and do not need to be handled here.
   //
   if (Caller.hasFnAttribute("is-qsort-spec_qsort")) {
-    if (!(Callee.hasFnAttribute("must-be-qsort-med3") &&
-        Callee.hasFnAttribute("is-qsort-med3") ||
-        Callee.hasFnAttribute("must-be-qsort-swapfunc") &&
-        Callee.hasFnAttribute("is-qsort-swapfunc")))
+    if (!((Callee.hasFnAttribute("must-be-qsort-med3") &&
+           Callee.hasFnAttribute("is-qsort-med3")) ||
+          (Callee.hasFnAttribute("must-be-qsort-swapfunc") &&
+           Callee.hasFnAttribute("is-qsort-swapfunc"))))
       Caller.removeFnAttr("is-qsort-spec_qsort");
   } else if (Caller.hasFnAttribute("is-qsort-med3")) {
     Caller.removeFnAttr("is-qsort-med3");

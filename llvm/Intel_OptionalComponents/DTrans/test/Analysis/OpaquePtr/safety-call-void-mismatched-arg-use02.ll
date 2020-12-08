@@ -1,0 +1,135 @@
+; REQUIRES: asserts
+; RUN: opt -whole-program-assume -dtrans-safetyanalyzer -dtrans-print-types -disable-output %s 2>&1 | FileCheck %s
+; RUN: opt -whole-program-assume -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types -disable-output %s 2>&1 | FileCheck %s
+
+; Test passing a pointer to an aggregate type as an i8* type which results in a
+; "Mismatched argument use" safety flag.
+
+; Test with using the i8* parameter as an aggregate type that is incompatible
+; with the use in the caller.
+%struct.test01.a = type { i64, i32, i32 }
+%struct.test01.b = type { i32, i32, i32, i32 }
+define i1 @test01less(i8* %p0, i8* %p1) !dtrans_type !3 {
+  %ps0 = bitcast i8* %p0 to %struct.test01.b*
+  %ps1 = bitcast i8* %p1 to %struct.test01.b*
+  %fs0 = getelementptr %struct.test01.b, %struct.test01.b* %ps0, i64 0, i32 0
+  %fs1 = getelementptr %struct.test01.b, %struct.test01.b* %ps1, i64 0, i32 0
+  %v0 = load i32, i32* %fs0
+  %v1 = load i32, i32* %fs1
+  %cmp = icmp slt i32 %v0, %v1
+  ret i1 %cmp
+}
+
+define void @test01(%struct.test01.a** %pStruct) !dtrans_type !6 {
+  %ps_addr0 = getelementptr %struct.test01.a*, %struct.test01.a** %pStruct, i64 0
+  %ps_addr1 = getelementptr %struct.test01.a*, %struct.test01.a** %pStruct, i64 1
+  %ps0 = load %struct.test01.a*, %struct.test01.a** %ps_addr0
+  %ps1 = load %struct.test01.a*, %struct.test01.a** %ps_addr1
+  %less = call i1 bitcast (i1 (i8*, i8*)* @test01less to
+               i1 (%struct.test01.a*, %struct.test01.a*)*)(%struct.test01.a* %ps0, %struct.test01.a* %ps1)
+  ret void
+}
+; CHECK-LABEL: DTRANS_StructInfo:
+; CHECK: Name: struct.test01.a
+; CHECK: Safety data: Mismatched argument use{{ *}}
+
+; CHECK-LABEL: DTRANS_StructInfo:
+; CHECK: Name: struct.test01.b
+; CHECK: Safety data: Mismatched argument use{{ *}}
+
+; Test with using the i8* parameter as a non-aggregate type that is incompatible
+; with the use in the caller.
+%struct.test02 = type { i32, i32 }
+define void @test02(%struct.test02** %pStruct) !dtrans_type !10 {
+  %ps_addr0 = getelementptr %struct.test02*, %struct.test02** %pStruct, i64 0
+  %ps_addr1 = getelementptr %struct.test02*, %struct.test02** %pStruct, i64 1
+  %ps0 = load %struct.test02*, %struct.test02** %ps_addr0
+  %ps1 = load %struct.test02*, %struct.test02** %ps_addr1
+  %less = call i1 bitcast (i1 (i8*, i8*)* @test02less to
+               i1 (%struct.test02*, %struct.test02*)*)(%struct.test02* %ps0, %struct.test02* %ps1)
+  ret void
+}
+
+define i1 @test02less(i8* %p0, i8* %p1) !dtrans_type !3 {
+  %ps0 = bitcast i8* %p0 to i32*
+  %ps1 = bitcast i8* %p1 to i32*
+  %v0 = load i32, i32* %ps0
+  %v1 = load i32, i32* %ps1
+  %cmp = icmp slt i32 %v0, %v1
+  ret i1 %cmp
+}
+; CHECK-LABEL: DTRANS_StructInfo:
+; CHECK: Name: struct.test02
+; CHECK: Safety data: Mismatched argument use{{ *}}
+
+
+; Test with using the i8* parameter as an ambiguous aggregate type in the callee.
+%struct.test03.a = type { i64, i32, i32 }
+%struct.test03.b = type { i32, i32, i32, i32 }
+%struct.test03.c = type { i32, i32, i64 }
+define i1 @test03less(i8* %p0, i8* %p1) !dtrans_type !3 {
+  %ps0 = bitcast i8* %p0 to %struct.test03.b*
+  %ps1 = bitcast i8* %p1 to %struct.test03.b*
+  %fs0 = getelementptr %struct.test03.b, %struct.test03.b* %ps0, i64 0, i32 0
+  %fs1 = getelementptr %struct.test03.b, %struct.test03.b* %ps1, i64 0, i32 0
+  %v0 = load i32, i32* %fs0
+  %v1 = load i32, i32* %fs1
+  %cmp0 = icmp slt i32 %v0, %v1
+
+  %ps2 = bitcast i8* %p0 to %struct.test03.c*
+  %ps3 = bitcast i8* %p1 to %struct.test03.c*
+  %fs2 = getelementptr %struct.test03.c, %struct.test03.c* %ps2, i64 0, i32 2
+  %fs3 = getelementptr %struct.test03.c, %struct.test03.c* %ps3, i64 0, i32 2
+  %v2 = load i64, i64* %fs2
+  %v3 = load i64, i64* %fs3
+  %cmp1 = icmp slt i64 %v2, %v3
+
+  %cmp = or i1 %cmp0, %cmp1
+  ret i1 %cmp
+}
+
+define void @test03(%struct.test03.a** %pStruct) !dtrans_type !13 {
+  %ps_addr0 = getelementptr %struct.test03.a*, %struct.test03.a** %pStruct, i64 0
+  %ps_addr1 = getelementptr %struct.test03.a*, %struct.test03.a** %pStruct, i64 1
+  %ps0 = load %struct.test03.a*, %struct.test03.a** %ps_addr0
+  %ps1 = load %struct.test03.a*, %struct.test03.a** %ps_addr1
+  %less = call i1 bitcast (i1 (i8*, i8*)* @test03less to
+               i1 (%struct.test03.a*, %struct.test03.a*)*)(%struct.test03.a* %ps0, %struct.test03.a* %ps1)
+  ret void
+}
+; CHECK-LABEL: DTRANS_StructInfo:
+; CHECK: Name: struct.test03.a
+; CHECK: Safety data: Mismatched argument use{{ *}}
+
+; CHECK-LABEL: DTRANS_StructInfo:
+; CHECK: Name: struct.test03.b
+; CHECK: Safety data: Ambiguous GEP | Mismatched argument use{{ *}}
+
+; CHECK-LABEL: DTRANS_StructInfo:
+; CHECK: Name: struct.test03.c
+; CHECK: Safety data: Ambiguous GEP | Mismatched argument use{{ *}}
+
+
+!1 = !{i64 0, i32 0}  ; i64
+!2 = !{i32 0, i32 0}  ; i32
+!3 = !{!"F", i1 false, i32 2, !4, !5, !5}  ; i1 (i8*, i8*)
+!4 = !{i1 0, i32 0}  ; i1
+!5 = !{i8 0, i32 1}  ; i8*
+!6 = !{!"F", i1 false, i32 1, !7, !8}  ; void (%struct.test01.a**)
+!7 = !{!"void", i32 0}  ; void
+!8 = !{!9, i32 2}  ; %struct.test01.a**
+!9 = !{!"R", %struct.test01.a zeroinitializer, i32 0}  ; %struct.test01.a
+!10 = !{!"F", i1 false, i32 1, !7, !11}  ; void (%struct.test02**)
+!11 = !{!12, i32 2}  ; %struct.test02**
+!12 = !{!"R", %struct.test02 zeroinitializer, i32 0}  ; %struct.test02
+!13 = !{!"F", i1 false, i32 1, !7, !14}  ; void (%struct.test03.a**)
+!14 = !{!15, i32 2}  ; %struct.test03.a**
+!15 = !{!"R", %struct.test03.a zeroinitializer, i32 0}  ; %struct.test03.a
+!16 = !{!"S", %struct.test01.a zeroinitializer, i32 3, !1, !2, !2} ; { i64, i32, i32 }
+!17 = !{!"S", %struct.test01.b zeroinitializer, i32 4, !2, !2, !2, !2} ; { i32, i32, i32, i32 }
+!18 = !{!"S", %struct.test02 zeroinitializer, i32 2, !2, !2} ; { i32, i32 }
+!19 = !{!"S", %struct.test03.a zeroinitializer, i32 3, !1, !2, !2} ; { i64, i32, i32 }
+!20 = !{!"S", %struct.test03.b zeroinitializer, i32 4, !2, !2, !2, !2} ; { i32, i32, i32, i32 }
+!21 = !{!"S", %struct.test03.c zeroinitializer, i32 3, !2, !2, !1} ; { i32, i32, i64 }
+
+!dtrans_types = !{!16, !17, !18, !19, !20, !21}

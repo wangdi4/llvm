@@ -639,6 +639,12 @@ void tools::addLTOOptions(const ToolChain &ToolChain, const ArgList &Args,
   addX86AlignBranchArgs(D, Args, CmdArgs, /*IsLTO=*/true);
 
 #if INTEL_CUSTOMIZATION
+  // Add -code-model for -mcmodel settings.
+  if (Arg *A = Args.getLastArg(options::OPT_mcmodel_EQ)) {
+    StringRef CM = A->getValue();
+    CmdArgs.push_back(
+        Args.MakeArgString(Twine("-plugin-opt=-code-model=") + CM));
+  }
   if (D.IsIntelMode()) {
     if (Arg * A = Args.getLastArg(options::OPT_fveclib))
       CmdArgs.push_back(Args.MakeArgString(

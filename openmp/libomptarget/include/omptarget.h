@@ -93,7 +93,8 @@ enum OpenMPOffloadingRequiresDirFlags {
 enum TargetAllocTy : int32_t {
   TARGET_ALLOC_DEVICE = 0,
   TARGET_ALLOC_HOST,
-  TARGET_ALLOC_SHARED
+  TARGET_ALLOC_SHARED,
+  TARGET_ALLOC_DEFAULT
 };
 
 enum InteropPropertyTy : int32_t {
