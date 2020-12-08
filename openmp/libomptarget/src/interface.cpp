@@ -720,7 +720,7 @@ EXTERN void *__tgt_create_interop_obj(
   obj->is_async = is_async;
   obj->async_obj = async_obj;
   obj->async_handler = &__tgt_offload_proxy_task_complete_ooo;
-  obj->queue = Device.create_offload_queue(is_async);
+  obj->queue = nullptr; // Will be created when property is requested.
   obj->platform_handle = Device.get_platform_handle();
   obj->context_handle = Device.get_context_handle();
   obj->device_handle = Device.get_device_handle();
@@ -740,7 +740,8 @@ EXTERN int __tgt_release_interop_obj(void *interop_obj) {
 
   __tgt_interop_obj *obj = static_cast<__tgt_interop_obj *>(interop_obj);
   DeviceTy &Device = PM->Devices[obj->device_id];
-  Device.release_offload_queue(obj->queue);
+  if (obj->queue)
+    Device.release_offload_queue(obj->queue);
   free(interop_obj);
 
   return OFFLOAD_SUCCESS;
@@ -797,6 +798,9 @@ EXTERN int __tgt_get_interop_property(
     *property_value = (void *)interop->async_handler;
     break;
   case INTEROP_OFFLOAD_QUEUE:
+    if (!interop->queue)
+      interop->queue = PM->Devices[interop->device_id].
+          create_offload_queue(interop->is_async);
     *property_value = interop->queue;
     break;
   case INTEROP_PLATFORM_HANDLE:
