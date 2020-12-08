@@ -181,7 +181,7 @@ define dso_local signext i32 @f2(float* noalias %A, float* noalias %B, i32 signe
 ; CHECK-NEXT:    [[SCEVGEP:%.*]] = getelementptr float, float* [[A]], i64 [[WIDE_TRIP_COUNT]]
 ; CHECK-NEXT:    [[SCEVGEP2:%.*]] = bitcast float* [[SCEVGEP]] to i8*
 ; CHECK-NEXT:    [[TMP12:%.*]] = sext i32 [[TMP0]] to i64
-; CHECK-NEXT:    [[TMP13:%.*]] = add i64 [[TMP12]], 1
+; CHECK-NEXT:    [[TMP13:%.*]] = add nsw i64 [[TMP12]], 1
 ; CHECK-NEXT:    [[TMP14:%.*]] = sub i64 [[TMP13]], [[WIDE_TRIP_COUNT]]
 ; CHECK-NEXT:    [[SCEVGEP3:%.*]] = getelementptr float, float* [[B:%.*]], i64 [[TMP14]]
 ; CHECK-NEXT:    [[SCEVGEP34:%.*]] = bitcast float* [[SCEVGEP3]] to i8*
