@@ -106,6 +106,12 @@ public:
   /// \p IsNegOneStride is set to true if stride is -1 and false otherwise.
   bool isUnitStridePtr(const VPValue *VPPtr, bool &IsNegOneStride) const;
 
+  /// Return true if the given variable has a SOA VectorShape.
+  bool isSOAShape(const VPValue *Val) const;
+
+  /// Return true if the given variable has SOA unit-stride.
+  bool isSOAUnitStride(const VPValue *Val) const;
+
   void updateDivergence(VPValue &Val) {
     assert(isa<VPInstruction>(&Val) &&
            "Expected a VPInstruction as input argument.");
@@ -302,9 +308,6 @@ private:
 
   /// Returns a strided vector shape with the given stride.
   VPVectorShape getStridedVectorShape(int64_t Stride);
-
-  /// Return true if the given variable has VectorShape.
-  bool isSOAShape(const VPValue *Val) const;
 
   /// Returns a SOASequential vector shape with the given stride.
   VPVectorShape getSOASequentialVectorShape(int64_t Stride);

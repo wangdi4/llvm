@@ -16,8 +16,10 @@
 #include "llvm/Transforms/Vectorize/IntelVPlanDriver.h"
 #include "IntelLoopVectorizationLegality.h"
 #include "IntelLoopVectorizationPlanner.h"
+#include "IntelVPMemRefTransform.h"
 #include "IntelVPOCodeGen.h"
 #include "IntelVPOLoopAdapters.h"
+#include "IntelVPSOAAnalysis.h"
 #include "IntelVPlan.h"
 #include "IntelVPlanAllZeroBypass.h"
 #include "IntelVPlanCostModel.h"
@@ -376,6 +378,12 @@ bool VPlanDriverImpl::processLoop(Loop *Lp, Function &Fn,
 
   // Run VLS analysis before IR for the current loop is modified.
   VCodeGen.getVLS()->getOVLSMemrefs(Plan, VF);
+
+  // Transform SOA-GEPs.
+  if (EnableSOAAnalysis) {
+    VPMemRefTransform VPMemRefTrans(*Plan);
+    VPMemRefTrans.transformSOAGEPs(VF);
+  }
 
   LVP.executeBestPlan(VCodeGen);
 

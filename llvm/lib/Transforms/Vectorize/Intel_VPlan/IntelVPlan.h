@@ -727,6 +727,7 @@ public:
       VectorTripCountCalculation,
       ActiveLane,
       ActiveLaneExtract,
+      ConstStepVector
   };
 
 private:
@@ -1390,6 +1391,20 @@ public:
 
   static bool classof(const VPValue *V) {
     return isa<VPInstruction>(V) && classof(cast<VPInstruction>(V));
+  }
+
+  // Iterators to access indices.
+  inline decltype(auto) idx_begin() { return op_begin() + 1; }
+  inline decltype(auto) idx_begin() const { return op_begin() + 1; }
+  inline decltype(auto) idx_end() { return op_end(); }
+  inline decltype(auto) idx_end() const { return op_end(); }
+
+  inline decltype(auto) indices() {
+    return make_range(idx_begin(), idx_end());
+  }
+
+  inline decltype(auto) indices() const {
+    return make_range(idx_begin(), idx_end());
   }
 
 protected:
@@ -2518,6 +2533,53 @@ protected:
 private:
   unsigned BinOpcode;
   bool Signed;
+};
+
+/// Concrete class for representing a vector of steps of arithmetic progression.
+class VPConstStepVector : public VPInstruction {
+public:
+  VPConstStepVector(Type *Ty, int Start, int Step, int NumSteps)
+      : VPInstruction(VPInstruction::ConstStepVector, Ty, {}), Start(Start),
+        Step(Step), NumSteps(NumSteps) {}
+
+  // Method to support type inquiry through isa, cast, and dyn_cast.
+  static inline bool classof(const VPInstruction *V) {
+    return V->getOpcode() == VPInstruction::ConstStepVector;
+  }
+
+  // Method to support type inquiry through isa, cast, and dyn_cast.
+  static inline bool classof(const VPValue *V) {
+    return isa<VPInstruction>(V) && classof(cast<VPInstruction>(V));
+  }
+
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+  void printImpl(raw_ostream &O) const {
+    O << "const-step-vector: { Start:" << Start << ", Step:" << Step
+      << ", NumSteps:" << NumSteps << "}";
+  }
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
+
+  /// Get the start-value of the constant-vector.
+  int getStart() const { return Start; }
+
+  /// Get the step-value of the constant-vector.
+  int getStep() const { return Step; }
+
+  /// Get the upper-bound of the constant-vector.
+  int getNumSteps() const { return NumSteps; }
+
+private:
+  int Start;
+  int Step;
+  int NumSteps;
+
+protected:
+  // Clones VPConstStepVector.
+  virtual VPConstStepVector *cloneImpl() const final {
+    llvm_unreachable("This instruction should not be cloned. It sould be "
+                     "regenerated for a different VF.");
+    return nullptr;
+  }
 };
 
 /// Instruction representing trip count of the scalar loop (OrigLoop member).
