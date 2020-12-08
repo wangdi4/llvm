@@ -4338,7 +4338,8 @@ int X86TTIImpl::getScatterOverhead() const {
   return 1024;
 }
 
-// Return an average cost of Gather / Scatter instruction, maybe improved later
+// Return an average cost of Gather / Scatter instruction, maybe improved later.
+// FIXME: Add TargetCostKind support.
 int X86TTIImpl::getGSVectorCost(unsigned Opcode, Type *SrcVTy, const Value *Ptr,
                                 Align Alignment, unsigned AddressSpace) {
 
@@ -4522,6 +4523,8 @@ int X86TTIImpl::getGSVectorCost(unsigned Opcode, Type *SrcVTy,
 /// Alignment - Alignment for one element.
 /// AddressSpace - pointer[s] address space.
 ///
+/// FIXME: Add TargetCostKind support.
+
 #if INTEL_CUSTOMIZATION
 int X86TTIImpl::getGSScalarCost(unsigned Opcode, Type *PtrTy, Type *SrcVTy,
                                 bool VariableMask, Align Alignment,
@@ -4586,9 +4589,15 @@ int X86TTIImpl::getGatherScatterOpCost(unsigned Opcode, Type *SrcVTy,
                                        TTI::TargetCostKind CostKind,
                                        const Instruction *I = nullptr, // INTEL
                                        bool UndefPassThru = false) { // INTEL
-
-  if (CostKind != TTI::TCK_RecipThroughput)
-    return 1;
+  if (CostKind != TTI::TCK_RecipThroughput) {
+    if ((Opcode == Instruction::Load &&
+         isLegalMaskedGather(SrcVTy, Align(Alignment))) ||
+        (Opcode == Instruction::Store &&
+         isLegalMaskedScatter(SrcVTy, Align(Alignment))))
+      return 1;
+    return BaseT::getGatherScatterOpCost(Opcode, SrcVTy, Ptr, VariableMask,
+                                         Alignment, CostKind, I);
+  }
 
   assert(SrcVTy->isVectorTy() && "Unexpected data type for Gather/Scatter");
   unsigned VF = cast<FixedVectorType>(SrcVTy)->getNumElements();
