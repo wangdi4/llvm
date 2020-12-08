@@ -158,6 +158,11 @@ TARGET_BUILTIN(__builtin_ia32_t2rpntlvwz0advise, "vIUcvC*zIUi", "n", "amx-memadv
 TARGET_BUILTIN(__builtin_ia32_t2rpntlvwz1advise, "vIUcvC*zIUi", "n", "amx-memadvise")
 #endif // INTEL_FEATURE_ISA_AMX_MEMADVISE
 
+#if INTEL_FEATURE_ISA_AMX_MEMADVISE_EVEX
+TARGET_BUILTIN(__builtin_ia32_t2rpntlvwz0advisee, "vIUcvC*zIUi", "n", "amx-memadvise-evex")
+TARGET_BUILTIN(__builtin_ia32_t2rpntlvwz1advisee, "vIUcvC*zIUi", "n", "amx-memadvise-evex")
+#endif // INTEL_FEATURE_ISA_AMX_MEMADVISE_EVEX
+
 #if INTEL_FEATURE_ISA_AMX_FUTURE
 // AMX_FUTURE Reduce
 TARGET_BUILTIN(__builtin_ia32_tcoladdbcastps, "vIUcIUc", "n", "amx-reduce")

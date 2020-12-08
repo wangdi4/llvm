@@ -4230,6 +4230,12 @@ bool Sema::CheckX86BuiltinTileArguments(unsigned BuiltinID, CallExpr *TheCall) {
     return CheckX86BuiltinTileArgumentsRange(TheCall, 0) ||
            CheckX86BuiltinTileArgumentsRange(TheCall, 3, 0, 255);
 #endif // INTEL_FEATURE_ISA_AMX_MEMADVISE
+#if INTEL_FEATURE_ISA_AMX_MEMADVISE
+  case X86::BI__builtin_ia32_t2rpntlvwz0advisee:
+  case X86::BI__builtin_ia32_t2rpntlvwz1advisee:
+    return CheckX86BuiltinTileArgumentsRange(TheCall, 0, 0, 31) ||
+           CheckX86BuiltinTileArgumentsRange(TheCall, 3, 0, 255);
+#endif // INTEL_FEATURE_ISA_AMX_MEMADVISE
 #if INTEL_FEATURE_ISA_AMX_FUTURE
   case X86::BI__builtin_ia32_tcoladdps:
     return CheckX86BuiltinTileArgumentsRange(TheCall, 1);

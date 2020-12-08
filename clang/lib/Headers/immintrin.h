@@ -821,6 +821,15 @@ _storebe_i64(void * __P, long long __D) {
 #endif
 /* end INTEL_FEATURE_ISA_AMX_MEMADVISE */
 
+/* INTEL_FEATURE_ISA_AMX_MEMADVISE_EVEX */
+#if defined(__AMXMEMADVISEEVEX_SUPPORTED__)
+#if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
+    defined(__AMXMEMADVISEEVEX__) || defined(__M_INTRINSIC_PROMOTE__)
+#include <amxmemadviseevex/amxmemadviseevexintrin.h>
+#endif
+#endif
+/* end INTEL_FEATURE_ISA_AMX_MEMADVISE_EVEX */
+
 /* INTEL_FEATURE_ISA_AMX_FUTURE */
 #if defined(__AMXFUTURE_SUPPORTED__)
 #if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \

@@ -355,6 +355,11 @@ def FeatureAMXMEMADVISE   : SubtargetFeature<"amx-memadvise", "HasAMXMEMADVISE",
                                     "Support AMX-MEMADVISE instructions",
                                     [FeatureAMXTILE]>;
 #endif // INTEL_FEATURE_ISA_AMX_MEMADVISE
+#if INTEL_FEATURE_ISA_AMX_MEMADVISE_EVEX
+def FeatureAMXMEMADVISEEVEX : SubtargetFeature<"amx-memadvise-evex", "HasAMXMEMADVISEEVEX", "true",
+                                  "Support AMX-MEMADVISE-EVEX instructions",
+                                  [FeatureAMXTILE]>;
+#endif // INTEL_FEATURE_ISA_AMX_MEMADVISE_EVEX
 #if INTEL_FEATURE_ISA_AMX_FUTURE
 def FeatureAMXELEMENT     : SubtargetFeature<"amx-element", "HasAMXELEMENT", "true",
                                       "Support AMX amx-element instructions",

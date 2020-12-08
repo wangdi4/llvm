@@ -1424,6 +1424,31 @@ let Predicates = [HasAMXMEMADVISE, In64BitMode],
 
 #endif // INTEL_FEATURE_ISA_AMX_MEMADVISE
 
+#if INTEL_FEATURE_ISA_AMX_MEMADVISE_EVEX
+multiclass ADVISEE_BASE {
+  let Predicates = [HasAMXMEMADVISEEVEX, In64BitMode], SchedRW = [WriteSystem] in {
+    def Z0ADVISEE : Ii8<0x76, MRMSrcMemFSIB, (outs TILEPair:$dst),
+                      (ins sibmem:$src1, i32u8imm:$src2),
+                      "t2rpntlvwz0advisee\t{$src2, $src1, $dst|$dst, $src1, $src2}",
+                      []>, EVEX, TAPS;
+    def Z1ADVISEE : Ii8<0x76, MRMSrcMemFSIB, (outs TILEPair:$dst),
+                      (ins sibmem:$src1, i32u8imm:$src2),
+                      "t2rpntlvwz1advisee\t{$src2, $src1, $dst|$dst, $src1, $src2}",
+                      []>, EVEX, TAPD;
+  }
+}
+
+defm T2RPNTLVW : ADVISEE_BASE;
+
+let Predicates = [HasAMXMEMADVISEEVEX, In64BitMode],
+    SchedRW = [WriteSystem] in {
+  let  usesCustomInserter = 1 in {
+    def PT2RPNTLVWZ0ADVISEE : PseudoI<(outs), (ins u8imm:$dst, sibmem:$src1, i32u8imm:$src2), []>;
+    def PT2RPNTLVWZ1ADVISEE : PseudoI<(outs), (ins u8imm:$dst, sibmem:$src1, i32u8imm:$src2), []>;
+  }
+} // HasAMXMEMADVISEEVEX
+#endif // INTEL_FEATURE_ISA_AMX_MEMADVISE_EVEX
+
 #if INTEL_FEATURE_ISA_AMX_COMPLEX
 let Predicates = [HasAMXCOMPLEX, In64BitMode] in {
   let SchedRW = [WriteSystem] in {
