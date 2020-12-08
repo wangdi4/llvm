@@ -5769,6 +5769,30 @@ static void handleSYCLDeviceIndirectlyCallableAttr(Sema &S, Decl *D,
   handleSimpleAttribute<SYCLDeviceIndirectlyCallableAttr>(S, D, AL);
 }
 
+#if INTEL_CUSTOMIZATION
+static void handleSYCLUnmaskedAttr(Sema &S, Decl *D, const ParsedAttr &AL) {
+  if (S.LangOpts.SYCLIsHost)
+    return;
+
+  auto *FD = cast<FunctionDecl>(D);
+  // Function must have at least one parameter.
+  if (getFunctionOrMethodNumParams(D) < 1) {
+    S.Diag(FD->getLocation(), diag::warn_sycl_unmasked_num_of_function_params);
+    return;
+  }
+
+  if (!FD->isExternallyVisible()) {
+    S.Diag(AL.getLoc(), diag::err_sycl_attibute_cannot_be_applied_here) << AL;
+    return;
+  }
+
+  D->addAttr(SYCLDeviceAttr::CreateImplicit(S.Context));
+  D->addAttr(SYCLDeviceIndirectlyCallableAttr::CreateImplicit(S.Context));
+
+  handleSimpleAttribute<SYCLUnmaskedAttr>(S, D, AL);
+}
+#endif // INTEL_CUSTOMIZATION
+
 static void handleSYCLRegisterNumAttr(Sema &S, Decl *D, const ParsedAttr &AL) {
   auto *VD = cast<VarDecl>(D);
   if (!VD->hasGlobalStorage()) {
@@ -9575,6 +9599,11 @@ static void ProcessDeclAttribute(Sema &S, Scope *scope, Decl *D,
   case ParsedAttr::AT_SYCLDeviceIndirectlyCallable:
     handleSYCLDeviceIndirectlyCallableAttr(S, D, AL);
     break;
+#if INTEL_CUSTOMIZATION
+  case ParsedAttr::AT_SYCLUnmasked:
+    handleSYCLUnmaskedAttr(S, D, AL);
+    break;
+#endif // INTEL_CUSTOMIZATION
   case ParsedAttr::AT_SYCLRegisterNum:
     handleSYCLRegisterNumAttr(S, D, AL);
     break;

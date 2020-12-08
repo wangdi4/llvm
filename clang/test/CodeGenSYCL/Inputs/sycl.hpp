@@ -494,5 +494,18 @@ public:
   }
 };
 
+#ifdef INTEL_CUSTOMIZATION
+namespace INTEL {
+class non_uniform_sub_group {
+public:
+  using mask_type = unsigned int;
+  template <typename Callable, typename... T>
+  auto invoke_unmasked(Callable &&f, T... args) {
+    mask_type active_mask = 0;
+    return f(active_mask, args...);
+  }
+};
+} // namespace INTEL
+#endif // INTEL_CUSTOMIZATION
 } // namespace sycl
 } // namespace cl

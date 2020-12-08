@@ -105,6 +105,12 @@ public:
   /// \param Name  the function name to be checked against.
   static bool isSyclFunction(const FunctionDecl *FD, StringRef Name);
 
+#ifdef INTEL_CUSTOMIZATION
+  /// Checks whether given function is
+  /// cl::sycl::INTEL::non_uniform_sub_group::invoke_unmasked API.
+  static bool isSyclInvokeUnmaskedFunction(const FunctionDecl *FD);
+#endif // INTEL_CUSTOMIZATION
+
   /// Checks whether given clang type is a full specialization of the SYCL
   /// specialization constant class.
   static bool isSyclSpecConstantType(const QualType &Ty);
@@ -496,15 +502,23 @@ public:
   FunctionDecl *
   CollectPossibleKernelAttributes(FunctionDecl *SYCLKernel,
                                   llvm::SmallPtrSet<Attr *, 4> &Attrs) {
-    typedef std::pair<FunctionDecl *, FunctionDecl *> ChildParentPair;
+#ifdef INTEL_CUSTOMIZATION
+    typedef std::tuple<FunctionDecl *, FunctionDecl *, Expr *>
+        ChildParentCall;
+#endif // INTEL_CUSTOMIZATION
     llvm::SmallPtrSet<FunctionDecl *, 16> Visited;
-    llvm::SmallVector<ChildParentPair, 16> WorkList;
-    WorkList.push_back({SYCLKernel, nullptr});
+#ifdef INTEL_CUSTOMIZATION
+    llvm::SmallVector<ChildParentCall, 16> WorkList;
+    WorkList.push_back({SYCLKernel, nullptr, nullptr});
+#endif // INTEL_CUSTOMIZATION
     FunctionDecl *KernelBody = nullptr;
 
     while (!WorkList.empty()) {
-      FunctionDecl *FD = WorkList.back().first;
-      FunctionDecl *ParentFD = WorkList.back().second;
+#ifdef INTEL_CUSTOMIZATION
+      FunctionDecl *FD = std::get<0>(WorkList.back());
+      FunctionDecl *ParentFD = std::get<1>(WorkList.back());
+      Expr *CE = std::get<2>(WorkList.back());
+#endif // INTEL_CUSTOMIZATION
 
       // To implement rounding-up of a parallel-for range the
       // SYCL header implementation modifies the kernel call like this:
@@ -584,20 +598,34 @@ public:
         }
       }
 
+#if INTEL_CUSTOMIZATION
+      if (FD->hasAttr<SYCLUnmaskedAttr>()) {
+        if (ParentFD && !Util::isSyclInvokeUnmaskedFunction(ParentFD)) {
+          SemaRef.Diag(CE->getExprLoc(),
+                       diag::warn_sycl_unmasked_improper_caller);
+          SemaRef.Diag(ParentFD->getLocation(), diag::note_called_by)
+              << ParentFD;
+        }
+      }
+#endif // INTEL_CUSTOMIZATION
+
       // TODO: vec_len_hint should be handled here
 
       CallGraphNode *N = SYCLCG.getNode(FD);
       if (!N)
         continue;
 
-      for (const CallGraphNode *CI : *N) {
+#if INTEL_CUSTOMIZATION
+      for (const CallGraphNode::CallRecord CR : *N) {
+        CallGraphNode *CI = CR.Callee;
         if (auto *Callee = dyn_cast<FunctionDecl>(CI->getDecl())) {
           Callee = Callee->getMostRecentDecl();
           if (!Visited.count(Callee))
-            WorkList.push_back({Callee, FD});
+            WorkList.push_back({Callee, FD, CR.CallExpr});
         }
       }
     }
+#endif // INTEL_CUSTOMIZATION
     return KernelBody;
   }
 
@@ -4119,6 +4147,27 @@ bool Util::isSyclFunction(const FunctionDecl *FD, StringRef Name) {
       Util::DeclContextDesc{clang::Decl::Kind::Namespace, "sycl"}};
   return matchContext(DC, Scopes);
 }
+
+#if INTEL_CUSTOMIZATION
+bool Util::isSyclInvokeUnmaskedFunction(const FunctionDecl *FD) {
+  const StringRef &Name = "invoke_unmasked";
+  if (!FD->isFunctionOrMethod() || !FD->getIdentifier() ||
+      FD->getName().empty() || Name != FD->getName())
+    return false;
+
+  const DeclContext *DC = FD->getDeclContext();
+  if (DC->isTranslationUnit())
+    return false;
+
+  const StringRef &NonUniformSubGroupName = "non_uniform_sub_group";
+  std::array<DeclContextDesc, 4> Scopes = {
+      Util::DeclContextDesc{clang::Decl::Kind::Namespace, "cl"},
+      Util::DeclContextDesc{clang::Decl::Kind::Namespace, "sycl"},
+      Util::DeclContextDesc{clang::Decl::Kind::Namespace, "INTEL"},
+      Util::DeclContextDesc{Decl::Kind::CXXRecord, NonUniformSubGroupName}};
+  return matchContext(DC, Scopes);
+}
+#endif // INTEL_CUSTOMIZATION
 
 bool Util::isAccessorPropertyListType(const QualType &Ty) {
   const StringRef &Name = "accessor_property_list";

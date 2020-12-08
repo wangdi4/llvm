@@ -11217,6 +11217,15 @@ def warn_sycl_kernel_return_type : Warning<
   "function template with 'sycl_kernel' attribute must have a 'void' return type">,
   InGroup<IgnoredAttributes>;
 
+// if INTEL_CUSTOMIZATION
+def warn_sycl_unmasked_num_of_function_params : Warning<
+  "function with 'unmasked' attribute must have at least one parameter">,
+  InGroup<IgnoredAttributes>;
+def warn_sycl_unmasked_improper_caller : Warning<"function with 'unmasked' attribute "
+  "can be called only by 'non_uniform_sub_group::invoke_unmasked()'">,
+  InGroup<AcceptedAttributes>;
+// endif // INTEL_CUSTOMIZATION
+
 def err_ext_int_bad_size : Error<"%select{signed|unsigned}0 _ExtInt must "
                                  "have a bit size of at least %select{2|1}0">;
 def err_ext_int_max_size : Error<"%select{signed|unsigned}0 _ExtInt of bit "
