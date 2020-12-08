@@ -30,7 +30,7 @@ using namespace llvm;
 // insert the bypass.
 static cl::opt<unsigned> RegionThreshold(
     "vplan-all-zero-bypass-region-threshold",
-    cl::init(125 * VPlanTTIWrapper::Multiplier), cl::Hidden,
+    cl::init(30 * VPlanTTIWrapper::Multiplier), cl::Hidden,
     cl::desc("Tune bypass insertion based on cost of instructions in region"));
 
 namespace llvm {
