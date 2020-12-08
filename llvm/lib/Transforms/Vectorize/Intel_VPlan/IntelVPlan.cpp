@@ -326,7 +326,8 @@ bool VPInstruction::mayHaveSideEffects() const {
       Opcode == VPInstruction::AllZeroCheck ||
       Opcode == VPInstruction::InductionInit || Opcode == Instruction::Br ||
       Opcode == VPInstruction::HIRCopy || Opcode == VPInstruction::ActiveLane ||
-      Opcode == VPInstruction::ActiveLaneExtract)
+      Opcode == VPInstruction::ActiveLaneExtract ||
+      Opcode == VPInstruction::ConstStepVector)
     return false;
 
   return true;
@@ -465,6 +466,10 @@ void VPInstruction::printWithoutAnalyses(raw_ostream &O) const {
   }
   case Instruction::Call: {
     cast<VPCallInstruction>(this)->printImpl(O);
+    break;
+  }
+  case VPInstruction::ConstStepVector: {
+    cast<VPConstStepVector>(this)->printImpl(O);
     break;
   }
   case Instruction::GetElementPtr:

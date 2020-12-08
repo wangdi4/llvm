@@ -561,6 +561,7 @@ static ze_module_handle_t createModule(
   return module;
 }
 
+#if ENABLE_LIBDEVICE_LINKING
 /// Create a module from a file name
 static ze_module_handle_t createModule(
     ze_context_handle_t Context, ze_device_handle_t Device,
@@ -607,6 +608,7 @@ static ze_module_handle_t createModule(
   }
   return createModule(Context, Device, size, (uint8_t *)image.data(), Flags);
 }
+#endif // ENABLE_LIBDEVICE_LINKING
 
 /// RTL flags
 struct RTLFlagsTy {
@@ -977,7 +979,7 @@ public:
     // Subscription rate
     if (char *env = readEnvVar("LIBOMPTARGET_LEVEL0_SUBSCRIPTION_RATE")) {
       int32_t value = std::stoi(env);
-      if (value > 0 || value <= 0xFFFF)
+      if (value > 0 && value <= 0xFFFF)
         SubscriptionRate = value;
     }
 
@@ -1637,8 +1639,8 @@ int32_t __tgt_rtl_number_of_devices() {
       for (size_t j = 0; j < subDeviceLists.size(); j++) {
         subDeviceIds.emplace_back(std::vector<int32_t>());
         for (size_t k = 0; k < subDeviceLists[j].size(); k++) {
-          if (deviceMode == DEVICE_MODE_SUB && j != 0 ||
-              deviceMode == DEVICE_MODE_SUBSUB && j != 1)
+          if ((deviceMode == DEVICE_MODE_SUB && j != 0) ||
+              (deviceMode == DEVICE_MODE_SUBSUB && j != 1))
             continue;
           // All other cases require these internal data.
           auto subDevice = subDeviceLists[j][k];
@@ -1716,8 +1718,8 @@ int32_t __tgt_rtl_number_of_devices() {
 EXTERN
 int32_t __tgt_rtl_init_device(int32_t DeviceId) {
   if (DeviceId < 0 || DeviceId >= (int32_t)DeviceInfo->NumDevices ||
-      DeviceInfo->DeviceMode == DEVICE_MODE_TOP &&
-          DeviceId >= (int32_t)DeviceInfo->NumRootDevices) {
+      (DeviceInfo->DeviceMode == DEVICE_MODE_TOP &&
+       DeviceId >= (int32_t)DeviceInfo->NumRootDevices)) {
     IDP("Bad device ID %" PRId32 "\n", DeviceId);
     return OFFLOAD_FAIL;
   }

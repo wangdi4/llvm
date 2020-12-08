@@ -205,6 +205,10 @@ bool VPlanDivergenceAnalysis::isUnitStridePtr(const VPValue *Ptr,
 
   assert(isa<PointerType>(Ptr->getType()) &&
          "Expect argument of isUnitStridePtr to be of PointerType.");
+
+  if (isSOAUnitStride(Ptr))
+    return true;
+
   // Compute the pointee-size in bytes.
   Type *PointeeTy = Ptr->getType()->getPointerElementType();
   unsigned PtrNumBytes = getTypeSizeInBytes(PointeeTy);
@@ -236,6 +240,13 @@ bool VPlanDivergenceAnalysis::isUnitStridePtr(const VPValue *Ptr,
 
   IsNegOneStride = false;
   return false;
+}
+
+// Return true of the given variable has SOA unit-stride.
+bool VPlanDivergenceAnalysis::isSOAUnitStride(const VPValue *Ptr) const {
+  if (isa<VectorType>(Ptr->getType()))
+    return false;
+  return getVectorShape(Ptr).isSOAUnitStride();
 }
 
 #if INTEL_CUSTOMIZATION
