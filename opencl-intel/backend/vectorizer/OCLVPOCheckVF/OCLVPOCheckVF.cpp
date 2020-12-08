@@ -249,54 +249,66 @@ bool OCLVPOCheckVF::runOnModule(Module &M) {
   std::set<Function *> sgIndirectUsers;
   collectSubGroupIndirectUsers(&M, sgIndirectUsers);
 
-  for (Function *kernel : Kernels) {
-    auto KMD = KernelMetadataAPI(kernel);
-    std::string kernelName = std::string(kernel->getName());
+  for (Function *Kernel : Kernels) {
+    auto KMD = KernelMetadataAPI(Kernel);
+    std::string KernelName = std::string(Kernel->getName());
     CanFallBack = false;
 
-    LLVM_DEBUG(dbgs() << "\nProcessing " << kernelName << "\n");
+    LLVM_DEBUG(dbgs() << "\nProcessing " << KernelName << "\n");
 
-    if (!checkVFConstraints(kernel)) {
-      CheckState[kernelName].isMultiConstraint = true;
+    if (!checkVFConstraints(Kernel)) {
+      CheckState[KernelName].isMultiConstraint = true;
       CheckFail = true;
     }
 
-    applyVFConstraints(kernel);
+    applyVFConstraints(Kernel);
 
-    CheckState[kernelName].hasUnsupportedPatterns =
-        hasUnsupportedPatterns(kernel);
+    CheckState[KernelName].hasUnsupportedPatterns =
+        hasUnsupportedPatterns(Kernel);
 
-    auto unimplementOps = checkHorizontalOps(kernel);
+    auto unimplementOps = checkHorizontalOps(Kernel);
     if (!unimplementOps.empty()) {
-      CheckState[kernelName].unimplementOps = unimplementOps;
+      CheckState[KernelName].unimplementOps = unimplementOps;
       CheckFail = true;
     }
 
     if (EnableSubGroupEmulation) {
-      KernelToSGEmuSize[kernel] = KernelToVF[kernel];
-      LLVM_DEBUG(dbgs() << "Initial SGEmuSize: " << KernelToSGEmuSize[kernel]
+      KernelToSGEmuSize[Kernel] = KernelToVF[Kernel];
+      LLVM_DEBUG(dbgs() << "Initial SGEmuSize: " << KernelToSGEmuSize[Kernel]
                         << "\n");
     }
 
-    if (!checkSGSemantics(kernel, sgIndirectUsers)) {
-      CheckFail = true;
-      if (!EnableSubGroupEmulation)
-        CheckState[kernelName].isSubGroupBroken = true;
+    if (!checkSGSemantics(Kernel, sgIndirectUsers)) {
+      // Even if sub-group emulation is enabled, intel_reqd_sub_group_size
+      // can't be 1 because we only support sub-group size 4, 8, 16, 32, 64.
+      // intel_reqd_sub_group_size is different from vectorization mode and
+      // intel_vec_len_hint, it must match the implementation of sub-group
+      // built-ins while the later two don't have this limitation.
+      auto KIMD = KernelInternalMetadataAPI(Kernel);
+      unsigned ReqdSGSize =
+          KMD.ReqdIntelSGSize.hasValue() ? KMD.ReqdIntelSGSize.get() : 0;
+      if (!EnableSubGroupEmulation || ReqdSGSize == 1) {
+        CheckState[KernelName].isSubGroupBroken = true;
+        CheckFail = true;
+      }
+      // The check failure may come from "sub-group calls in a subroutine", so
+      // we need to explicitly disable vectorization.
+      KernelToVF[Kernel] = 1;
     } else {
       // Subgroup semantics is maintained, no need to do emulation.
       if (EnableSubGroupEmulation) {
-        KernelToSGEmuSize[kernel] = 0;
+        KernelToSGEmuSize[Kernel] = 0;
         LLVM_DEBUG(dbgs() << "No need to do SG Emulation\n");
       }
     }
 
-    if (KernelToSGEmuSize[kernel] == 1) {
-      if (KMD.hasVecLength()) {
-        KernelToSGEmuSize[kernel] = KMD.getVecLength();
+    if (KernelToSGEmuSize[Kernel] == 1) {
+      if (KMD.hasVecLength() && KMD.getVecLength() != 1) {
+        KernelToSGEmuSize[Kernel] = KMD.getVecLength();
         LLVM_DEBUG(dbgs() << "Get SG Emulation size from Metadata: "
-                          << KernelToSGEmuSize[kernel] << "\n");
+                          << KernelToSGEmuSize[Kernel] << "\n");
       } else {
-        KernelToSGEmuSize[kernel] = AutoEmuSize;
+        KernelToSGEmuSize[Kernel] = AutoEmuSize;
         LLVM_DEBUG(dbgs() << "Get auto SG Emulation size: " << AutoEmuSize
                           << "\n");
       }
@@ -325,20 +337,22 @@ bool OCLVPOCheckVF::runOnModule(Module &M) {
     LLVM_DEBUG(dbgs() << Kernel->getName() << " Final VF is: " << VF << "\n");
   }
 
-  for (auto &Item : KernelToSGEmuSize) {
-    Function *Kernel = Item.first;
-    unsigned SGEmuSize = Item.second;
-    if (SGEmuSize == 0)
-      continue;
-    auto KIMD = KernelInternalMetadataAPI(Kernel);
-    assert(!KIMD.SubgroupEmuSize.hasValue() &&
-           "Unexpected subgroup_emu_size metadata");
-    KIMD.SubgroupEmuSize.set(SGEmuSize);
-    // Go thru barrier passes when the kernel will be sg-emulated.
-    KIMD.NoBarrierPath.set(false);
-    LLVM_DEBUG(dbgs() << Kernel->getName()
-                      << " Final SG Emulation size is: " << SGEmuSize << "\n");
-    Changed = true;
+  if (!CheckFail) {
+    for (auto &Item : KernelToSGEmuSize) {
+      Function *Kernel = Item.first;
+      unsigned SGEmuSize = Item.second;
+      if (SGEmuSize == 0)
+        continue;
+      auto KIMD = KernelInternalMetadataAPI(Kernel);
+      assert(!KIMD.SubgroupEmuSize.hasValue() &&
+             "Unexpected subgroup_emu_size metadata");
+      KIMD.SubgroupEmuSize.set(SGEmuSize);
+      // Go thru barrier passes when the kernel will be sg-emulated.
+      KIMD.NoBarrierPath.set(false);
+      LLVM_DEBUG(dbgs() << Kernel->getName() << " Final SG Emulation size is: "
+                        << SGEmuSize << "\n");
+      Changed = true;
+    }
   }
 
   return Changed;
