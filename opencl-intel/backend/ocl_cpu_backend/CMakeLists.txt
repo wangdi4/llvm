@@ -179,15 +179,6 @@ else (WIN32)
     )
 endif (WIN32)
 
-if (CMAKE_SIZEOF_VOID_P EQUAL 8)
-    if (WIN32)
-        set (ASM_SOURCES kernel_execute_64.asm)
-        CREATE_ASM_RULES( ASM_ADD_TO_SOURCES_LIST ${ASM_SOURCES} )
-    else (WIN32)
-        CREATE_ASM_RULES(ASM_ADD_TO_SOURCES_LIST linux64_utils.s)
-    endif (WIN32)
-endif (CMAKE_SIZEOF_VOID_P EQUAL 8)
-
 # Add include directories
 set (INCLUDE_DIRS
     ${LLVM_INCLUDE_DIRS}
