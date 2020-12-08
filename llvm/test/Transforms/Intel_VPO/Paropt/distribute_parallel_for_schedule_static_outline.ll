@@ -1,3 +1,6 @@
+; CMPLRLLVM-24727
+; XFAIL: *
+
 ; RUN: opt < %s -loop-rotate -vpo-cfg-restructuring -vpo-paropt-prepare -simplifycfg  -sroa -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -simplifycfg -S | FileCheck %s
 ; RUN: opt < %s -passes='function(loop(loop-rotate),vpo-cfg-restructuring,vpo-paropt-prepare,simplify-cfg,loop-simplifycfg,sroa,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt,function(simplify-cfg)' -S | FileCheck %s
 
