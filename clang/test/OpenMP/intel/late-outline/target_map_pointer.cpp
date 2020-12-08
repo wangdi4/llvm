@@ -150,3 +150,28 @@ void foo_five(int &y)
   #pragma omp target map(tofrom:yp[0:size])  nowait depend(out:y)
    y = 3;
 }
+
+void foo_six(int &y) {
+// CHECK: [[Y_ADDR:%y.addr]] = alloca i32*,
+// CHECK-NEXT: [[Y_MAP:%y.map.ptr.tmp]] = alloca i32*, align 8
+// CHECK: [[L:%[0-9]+]] = load i32*, i32** [[Y_ADDR]]
+// CHECK: [[TV:%[0-9]+]] = call token{{.*}}region.entry{{.*}}DIR.OMP.TARGET
+// CHECK-SAME: "QUAL.OMP.FIRSTPRIVATE"(i32* [[L]]
+// CHECK-SAME: "QUAL.OMP.PRIVATE"(i32** [[Y_MAP]]
+// CHECK:  store i32* [[L]],  i32** [[Y_MAP]]
+// CHECK: region.exit(token [[TV]]) [ "DIR.OMP.END.TARGET"() ]
+  #pragma omp target
+  y = 3;
+}
+void foo_seven(int *&y) {
+// CHECK: [[Y_ADDR:%y.addr]] = alloca i32**,
+// CHECK-NEXT: [[Y_MAP:%y.map.ptr.tmp]] = alloca i32**, align 8
+// CHECK: [[L:%[0-9]+]] = load i32**, i32*** [[Y_ADDR]]
+// CHECK: [[TV:%[0-9]+]] = call token{{.*}}region.entry{{.*}}DIR.OMP.TARGET
+// CHECK-SAME: "QUAL.OMP.MAP.TOFROM"(i32** [[L]]
+// CHECK-SAME: "QUAL.OMP.PRIVATE"(i32*** [[Y_MAP]]
+// CHECK:  store i32** [[L]],  i32*** [[Y_MAP]]
+// CHECK: region.exit(token [[TV]]) [ "DIR.OMP.END.TARGET"() ]
+  #pragma omp target
+  (*y) = 3;
+}

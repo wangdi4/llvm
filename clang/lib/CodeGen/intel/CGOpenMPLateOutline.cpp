@@ -606,6 +606,31 @@ void OpenMPLateOutliner::emitClause(OpenMPClauseKind CK,
   clearBundleTemps();
 }
 
+void OpenMPLateOutliner::emitImplicit(llvm::Value *V, ImplicitClauseKind K) {
+
+  switch (K) {
+  case ICK_private:
+  case ICK_linear_private:
+    addArg("QUAL.OMP.PRIVATE");
+    break;
+  case ICK_specified_firstprivate:
+  case ICK_firstprivate:
+    addArg("QUAL.OMP.FIRSTPRIVATE");
+    break;
+  case ICK_lastprivate:
+  case ICK_linear_lastprivate:
+    addArg("QUAL.OMP.LASTPRIVATE");
+    break;
+  case ICK_shared:
+    addArg("QUAL.OMP.SHARED");
+    break;
+  default:
+    llvm_unreachable("Clause not allowed");
+  }
+  ClauseEmissionHelper CEH(*this, OMPC_unknown);
+  addArg(V);
+}
+
 void OpenMPLateOutliner::emitImplicit(Expr *E, ImplicitClauseKind K) {
   if (K == ICK_linear || K == ICK_linear_private ||
       K == ICK_linear_lastprivate) {
@@ -1708,12 +1733,7 @@ void OpenMPLateOutliner::emitOMPAllMapClauses() {
     OpenMPClauseKind CK = OMPC_map;
     if (CurrentDirectiveKind == OMPD_target_update)
       CK = I.MapType == OMPC_MAP_to ? OMPC_to : OMPC_from;
-    ClauseEmissionHelper CEH(*this, CK);
-    ClauseStringBuilder &CSB = CEH.getBuilder();
-    buildMapQualifier(CSB, I.MapType, I.Modifiers);
-    if (I.IsChain)
-      CSB.setChain();
-    else if (I.Var) {
+    if (!I.IsChain && I.Var) {
       QualType Ty = I.Var->getType();
       if (isImplicitTask(OMPD_task)) {
         // Variables used in the "QUAL.OMP.MAP" clause on the
@@ -1726,9 +1746,23 @@ void OpenMPLateOutliner::emitOMPAllMapClauses() {
         addExplicit(I.Var, OMPC_map);
       if (CurrentDirectiveKind == OMPD_target)
         if ((Ty->isReferenceType() || Ty->isAnyPointerType()) &&
-            isa<llvm::LoadInst>(I.Base))
+            isa<llvm::LoadInst>(I.Base)) {
           MapTemps.emplace_back(I.Base, I.Var);
+          if (isImplicit(I.Var) && Ty->isReferenceType() &&
+              Ty.getNonReferenceType()->isScalarType() &&
+              !Ty.getNonReferenceType()->isPointerType()) {
+            // Emit implicit clause instead map clause for
+            // variable with reference type to non-pointer scalar.
+            emitImplicit(I.Base, ImplicitMap[I.Var]);
+            continue;
+          }
+        }
     }
+    ClauseEmissionHelper CEH(*this, CK);
+    ClauseStringBuilder &CSB = CEH.getBuilder();
+    buildMapQualifier(CSB, I.MapType, I.Modifiers);
+    if (I.IsChain)
+      CSB.setChain();
     addArg(CSB.getString());
     addArg(I.Base);
     addArg(I.Pointer);
