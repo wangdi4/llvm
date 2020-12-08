@@ -70,14 +70,12 @@ void FunctionWidener::RemoveByValAttr(Function &F) {
         Builder.CreateAlloca(PointeeType, ArgType->getAddressSpace());
     auto *ArgPointeeVal = Builder.CreateLoad(PointeeType, Arg);
     Builder.CreateStore(ArgPointeeVal, ArgPtr);
-    Pair.value().replaceUsesWithIf(ArgPtr, [ArgPointeeVal](Use &U) {
+    Arg->replaceUsesWithIf(ArgPtr, [ArgPointeeVal](Use &U) {
       return U.getUser() != ArgPointeeVal;
     });
 
     // Fix DebugInfo. llvm.dbg.declare attached this parameter describes
     // the original argument.
-    // FIXME: Compile NAMD with -g -O0, EnableDebug is still false. Looks
-    // like a bug in debuggingservicetype.cpp
     if (EnableDebug) {
       DIBuilder Builder(*F.getParent(), false);
       replaceDbgDeclare(Arg, ArgPtr, Builder, 0, 0);
@@ -280,6 +278,8 @@ void FunctionWidener::expandVectorParameters(Function *Clone, VectorVariant &V,
   IRBuilder<> Builder(&*Clone->getEntryBlock().begin());
   ArrayRef<VectorKind> ParamKinds = V.getParameters();
 
+  InstSet SyncInsts = Helper.getSyncInstsForFunction(Clone);
+
   for (auto &ArgIt : enumerate(Clone->args())) {
     // TODO: For alloca instructions for uniform parameters, we can move the
     // alloca to SGExcludeBB.
@@ -288,7 +288,7 @@ void FunctionWidener::expandVectorParameters(Function *Clone, VectorVariant &V,
 
     Argument *Arg = &ArgIt.value();
 
-    LLVM_DEBUG(dbgs() << "Expanding vector arg: " << Arg->getName() << "\n");
+    LLVM_DEBUG(dbgs() << "Expanding vector arg:" << *Arg << "\n");
 
     // Can't just getScalarType of Arg, original type may be a vector too.
     Type *OrigArgType = nullptr;
@@ -298,9 +298,6 @@ void FunctionWidener::expandVectorParameters(Function *Clone, VectorVariant &V,
         break;
       }
     assert(OrigArgType && "Can't find original type");
-
-    if (Arg->user_empty())
-      continue;
 
     InstSet InstUsers;
     for (User *U : Arg->users())
@@ -336,6 +333,38 @@ void FunctionWidener::expandVectorParameters(Function *Clone, VectorVariant &V,
         LLVM_DEBUG(dbgs() << "To:" << *I << "\n");
       }
     }
+
+    // Create a new llvm.dbg.declare which describes the address of original
+    // pointer-type argument.
+    auto DbgDeclares = FindDbgDeclareUses(Arg);
+    if (EnableDebug && !DbgDeclares.empty()) {
+      IRBuilder<> Builder(&*Clone->getEntryBlock().begin());
+      AllocaInst *AddrDbg = Builder.CreateAlloca(OrigArgType, nullptr,
+                                                 "dbg.param." + Arg->getName());
+
+      DbgDeclareInst *DI = DbgDeclares.front();
+      DIBuilder DIB(*Clone->getParent(), false);
+      DILocalVariable *Variable = DI->getVariable();
+      DIExpression *Expression =
+          DIExpression::prepend(DI->getExpression(), DIExpression::DerefBefore);
+      const DILocation *Location = DI->getDebugLoc().get();
+      DIB.insertDeclare(AddrDbg, Variable, Expression, Location,
+                        AddrDbg->getNextNode());
+
+      for (Instruction *SyncInst : SyncInsts) {
+        Instruction *IP = SyncInst->getNextNode();
+        // Skip non-loop region.
+        if (isWideCall(IP) || isa<ReturnInst>(IP))
+          continue;
+        Builder.SetInsertPoint(IP);
+        auto *Idx = Helper.createGetSubGroupLId(IP);
+        auto *EleVal = Builder.CreateExtractElement(Arg, Idx);
+        Builder.CreateStore(EleVal, AddrDbg);
+      }
+    }
+    // Remove invalid debug intrinsics.
+    for (auto *DI : DbgDeclares)
+      DI->eraseFromParent();
   }
 }
 
