@@ -69,15 +69,6 @@ include_directories(
     ${BACKEND_ROOT_DIR}/arch_headers
 )
 
-# Include the ASM sources
-if(BUILD_X64)
-    if (WIN32)
-        CREATE_ASM_RULES( UTILS_ASM_ADD_TO_SOURCES_LIST ../ocl_cpu_backend/kernel_execute_64.asm )
-    else ()
-        CREATE_ASM_RULES(UTILS_ASM_ADD_TO_SOURCES_LIST ../ocl_cpu_backend/linux64_utils.s)
-    endif ()
-endif(BUILD_X64)
-
 add_library(${TARGET_NAME} STATIC
     ${TARGET_INCLUDE_FILES}
     ${TARGET_SOURCE_FILES}
