@@ -44,6 +44,21 @@ entry:
   ret <8 x half> %add.i.i
 }
 
+
+define dso_local <8 x half> @test4(<8 x half> %acc.coerce, <8 x half> %lhs.coerce, <8 x half> %rhs.coerce) {
+; CHECK-LABEL: test4:
+; CHECK:       # %bb.0: # %entry
+; CHECK-NEXT:    vfmaddcph %xmm2, %xmm1, %xmm0
+; CHECK-NEXT:    retq
+entry:
+  %0 = bitcast <8 x half> %lhs.coerce to <4 x float>
+  %1 = bitcast <8 x half> %rhs.coerce to <4 x float>
+  %2 = tail call fast <4 x float> @llvm.x86.avx512fp16.mask.vfmulc.ph.128(<4 x float> %0, <4 x float> %1, <4 x float> zeroinitializer, i8 -1)
+  %3 = bitcast <4 x float> %2 to <8 x half>
+  %add.i.i = fadd fast <8 x half> %acc.coerce, %3
+  ret <8 x half> %add.i.i
+}
+
 declare <16 x float> @llvm.x86.avx512fp16.mask.vfmulc.ph.512(<16 x float>, <16 x float>, <16 x float>, i16, i32 immarg)
 declare <8 x float> @llvm.x86.avx512fp16.mask.vfmulc.ph.256(<8 x float>, <8 x float>, <8 x float>, i8)
 declare <4 x float> @llvm.x86.avx512fp16.mask.vfmulc.ph.128(<4 x float>, <4 x float>, <4 x float>, i8)
