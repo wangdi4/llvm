@@ -3,6 +3,9 @@
 // RUN: %clang -target powerpc64le-linux-musl -c -### %s -mlong-double-64 2>&1 | FileCheck %s
 // RUN: %clang -target i686-linux-gnu -c -### %s -mlong-double-64 2>&1 | FileCheck %s
 // RUN: %clang -target x86_64-linux-musl -c -### %s -mlong-double-64 2>&1 | FileCheck %s
+// INTEL_CUSTOMIZATION
+// RUN: %clang -target spir64 -c -### %s -mlong-double-64 2>&1 | FileCheck %s
+// end INTEL_CUSTOMIZATION
 
 // CHECK: "-mlong-double-64"
 
