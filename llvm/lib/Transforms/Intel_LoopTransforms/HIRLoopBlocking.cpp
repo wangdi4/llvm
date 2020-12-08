@@ -486,7 +486,8 @@ HLLoop *stripmineSelectedLoops(HLLoop *InnermostLoop, HLLoop *OutermostLoop,
   // Once it is hoisted, def@level has to be updated.
   for (auto CurLoopInfo : CurLoopNests) {
     HLLoop *CurLoop = CurLoopInfo.first;
-    if (!LoopMap.count(CurLoop)) {
+    auto It = LoopMap.find(CurLoop);
+    if (It == LoopMap.end() || It->second == 0) {
       continue;
     }
 
@@ -1596,7 +1597,7 @@ HLLoop *setupPragmaBlocking(HIRDDAnalysis &DDA, HIRSafeReductionAnalysis &SRA,
       RegDDRef *Factor = LevelFactorPair.second;
 
       int64_t IntBlockSize;
-      if (!Factor->isIntConstant(&IntBlockSize) && IntBlockSize > 0) {
+      if (!Factor->isIntConstant(&IntBlockSize) || IntBlockSize <= 0) {
         // TODO : enable variable blocksizes
 
         LLVM_DEBUG(dbgs() << "Ignoring block_loop directive due to invalid "

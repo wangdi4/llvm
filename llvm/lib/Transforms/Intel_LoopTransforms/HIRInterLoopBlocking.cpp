@@ -340,6 +340,53 @@ protected:
     return true;
   }
 
+  // Returns whether a structural check is passed.
+  // Depending on conditions, different subsequent actions
+  // can occur. (e.g. reset/bailout/skipnode)
+  // TODO: Some of the conditions incurs reset(), while
+  // others bailout() or nothing.
+  // See if breaking this function further can help.
+  bool checkStructure(HLLoop *Loop) {
+
+    // If already blocked or
+    // has any loop blocking related pragma, skip this loop and its
+    // children loops.
+    if (Loop->isBlocked() ||
+        !(Loop->getBlockingPragmaLevelAndFactors()).empty()) {
+
+      LLVM_DEBUG_PROFIT_REPORT(dbgs() << "Not profitable : loop is already "
+                                         "blocked or has blocking pragma\n");
+
+      SkipNode = Loop;
+      reset();
+      return false;
+    }
+
+    if (!Loop->isInnermost()) {
+      // Simply recurse into.
+      return false;
+    }
+
+    if (Loop->getNestingLevel() == 1) {
+      reset();
+      return false;
+    }
+
+    // TODO: do a double check
+    if (Loop->isUnknown()) {
+      stopAndWork(1, nullptr);
+      SkipNode = Loop;
+      return false;
+    }
+
+    if (!isCleanCut(LastSpatialLoop, Loop)) {
+      bailOut();
+      return false;
+    }
+
+    return true;
+  }
+
 protected:
   HIRFramework &HIRF;
   HIRArraySectionAnalysis &HASA;
@@ -412,18 +459,7 @@ public:
   void visit(HLLoop *Loop) {
     markVisited(Loop);
 
-    if (!Loop->isInnermost()) {
-      // Simply recurse into.
-      return;
-    }
-
-    if (Loop->getNestingLevel() == 1) {
-      reset();
-      return;
-    }
-
-    if (!isCleanCut(LastSpatialLoop, Loop)) {
-      bailOut();
+    if (!checkStructure(Loop)) {
       return;
     }
 
@@ -1474,32 +1510,6 @@ public:
     HLNodeUtils::visit(*this, OutermostLoop);
 
     return FoundGoodCand;
-  }
-
-  bool checkStructure(HLLoop *Loop) {
-    if (!Loop->isInnermost()) {
-      // Simply recurse into.
-      return false;
-    }
-
-    if (Loop->getNestingLevel() == 1) {
-      reset();
-      return false;
-    }
-
-    // TODO: do a double check
-    if (Loop->isUnknown()) {
-      stopAndWork(1, nullptr);
-      SkipNode = Loop;
-      return false;
-    }
-
-    if (!isCleanCut(LastSpatialLoop, Loop)) {
-      bailOut();
-      return false;
-    }
-
-    return true;
   }
 
   bool analyzeLegality(HLLoop *Loop) {

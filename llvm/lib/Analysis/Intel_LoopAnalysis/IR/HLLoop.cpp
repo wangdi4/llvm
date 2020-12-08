@@ -1403,6 +1403,25 @@ void HLLoop::markDoNotUnrollAndJam() {
       Context, MDString::get(Context, "llvm.loop.unroll_and_jam.disable")));
 }
 
+void HLLoop::markDoNotBlock() {
+  // Currently, the only user of this util is HIRInterLoopBlocking.
+  // Because inter loop blocking is avoided over loops with any loop blocking
+  // pragma, this assertion can be added.
+  // Without this assertion, careful checks might be needed to see if
+  // the existing pragma information is conflicting with noblock_loop.
+  // Also, BlockingInfo is a vector containing information for this loop and
+  // all its children loops. Exisiting pragma could be a vector of the size
+  // larger than one.
+  assert(!BlockingInfo);
+
+  // Set information strictly only for the loop, not for any children loops.
+  // Factor 0 indicates noblock.
+  BlockingInfo.reset(new BlockingPragmaInfo);
+  BlockingInfo->LevelsAndFactors.push_back(
+    std::make_pair(1 /* Level */, getDDRefUtils().createConstDDRef(
+        Type::getInt32Ty(getHLNodeUtils().getContext()), 0) /* Factor */));
+}
+
 bool HLLoop::canNormalize(const CanonExpr *LowerCE) const {
 
   if (isUnknown()) {

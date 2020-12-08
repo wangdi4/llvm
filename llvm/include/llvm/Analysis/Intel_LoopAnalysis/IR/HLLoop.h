@@ -1184,6 +1184,9 @@ public:
   /// Marks loop to do not unroll & jam.
   void markDoNotUnrollAndJam();
 
+  /// Marks loop not to block.
+  void markDoNotBlock();
+
   /// Supply Loop Lower Bound CanonExpr when normalization is using
   /// that instead of the one in the Loop
   bool canNormalize(const CanonExpr *LowerCE = nullptr) const;
