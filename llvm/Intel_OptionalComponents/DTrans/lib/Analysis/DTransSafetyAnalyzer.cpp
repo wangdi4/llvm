@@ -3135,16 +3135,42 @@ public:
   }
 
   void visitICmpInst(ICmpInst &I) {
-    // TODO: Check that types are the same, otherwise some bad casting has
-    // occurred. i.e. pointers are to same type if aggregate pointer types.
+    // Compare instructions are always safe because the comparison is not
+    // accessing any memory. It does not matter if the pointers represent
+    // different types. This visitor method is included here so that base
+    // visitInstruction does not mark operands as unhandled.
   }
 
-  // All instructions not handled by other visit functions.
+  void visitIntToPtrInst(IntToPtrInst &I) {
+    ValueTypeInfo *Info = PTA.getValueTypeInfo(&I);
+    assert(Info && "Expected pointer type analyzer to analyze pointer");
+
+    // TODO: There may be some cases where a pointer to integer conversion can
+    // be analyzed as safe if the integer can be traced back to a pointer of
+    // the same type as the type this instruction will be used as, but offset
+    // by a multiple of the size of the structure.
+    setAllAliasedAndPointeeTypeSafetyData(Info, dtrans::BadCasting,
+                                          "Integer type cast to pointer", &I);
+  }
+
+  // Process any instruction not handled by other visit functions.
   void visitInstruction(Instruction &I) {
-    // TODO: If the pointer type analyzer collected types for the instruction
-    // and there were aggregate types involved, then the aliases and element
-    // pointees need to be marked as unhandled, if the instruction reaches this
-    // visit routine.
+    ValueTypeInfo *Info = PTA.getValueTypeInfo(&I);
+    assert((!hasPointerType(I.getType()) || Info) &&
+           "Expected pointer type analyzer to analyze pointer result");
+
+    if (Info && Info->canAliasToAggregatePointer()) {
+      setAllAliasedAndPointeeTypeSafetyData(Info, dtrans::UnhandledUse,
+                                            "Unhandled instruction", &I);
+    }
+
+    for (unsigned OpNum = 0; OpNum < I.getNumOperands(); ++OpNum) {
+      ValueTypeInfo *OpInfo = PTA.getValueTypeInfo(&I, OpNum);
+      if (OpInfo && OpInfo->canAliasToAggregatePointer())
+        setAllAliasedAndPointeeTypeSafetyData(
+            OpInfo, dtrans::UnhandledUse,
+            "Operand used in unhandled instruction", &I);
+    }
   }
 
 private:
