@@ -4376,3 +4376,29 @@ _Float16 test_mm512_reduce_min_ph(__m512h __W){
   // CHECK:  %{{.*}} = extractelement <32 x half> %{{.*}}, i32 0
   return _mm512_reduce_min_ph(__W);
 }
+
+__m512h test_mm512_mask_blend_ph(__mmask32 __U, __m512h __A, __m512h __W) {
+  // CHECK-LABEL: @test_mm512_mask_blend_ph
+  // CHECK:  %{{.*}} = bitcast i32 %{{.*}} to <32 x i1>
+  // CHECK:  %{{.*}} = select <32 x i1> %{{.*}}, <32 x half> %{{.*}}, <32 x half> %{{.*}}
+  return _mm512_mask_blend_ph(__U,__A,__W);
+}
+
+__m512h test_mm512_permutex2var_ph(__m512h __A, __m512i __I, __m512h __B) {
+  // CHECK-LABEL: @test_mm512_permutex2var_ph
+  // CHECK:  %{{.*}} = bitcast <32 x half> %{{.*}} to <32 x i16>
+  // CHECK:  %{{.*}} = bitcast <8 x i64> %{{.*}} to <32 x i16>
+  // CHECK:  %{{.*}} = bitcast <32 x half> %{{.*}} to <32 x i16>
+  // CHECK:  %{{.*}} = call <32 x i16> @llvm.x86.avx512.vpermi2var.hi.512(<32 x i16> %{{.*}}, <32 x i16> %{{.*}}, <32 x i16> %{{.*}})
+  // CHECK:  %{{.*}} = bitcast <32 x i16> %{{.*}} to <32 x half>
+  return _mm512_permutex2var_ph(__A,__I,__B);
+}
+
+__m512h test_mm512_permutexvar_epi16(__m512i __A, __m512h __B) {
+  // CHECK-LABEL: @test_mm512_permutexvar_epi16
+  // CHECK:  %{{.*}} = bitcast <32 x half> %{{.*}} to <32 x i16>
+  // CHECK:  %{{.*}} = bitcast <8 x i64> %{{.*}} to <32 x i16>
+  // CHECK:  %{{.*}} = call <32 x i16> @llvm.x86.avx512.permvar.hi.512(<32 x i16> %{{.*}}, <32 x i16> %{{.*}})
+  // CHECK:  %{{.*}} = bitcast <32 x i16> %{{.*}} to <32 x half>
+ return _mm512_permutexvar_ph(__A, __B);
+}

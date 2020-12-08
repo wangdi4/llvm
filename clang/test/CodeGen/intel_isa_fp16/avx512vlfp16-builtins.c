@@ -2954,3 +2954,54 @@ __m256h test_mm256_maskz_fmadd_pch(__mmask8 __U, __m256h __A, __m256h __B, __m25
   return _mm256_maskz_fmadd_pch(__U, __A, __B, __C);
 }
 
+__m128h test_mm_mask_blend_ph(__mmask8 __U, __m128h __A, __m128h __W) {
+  // CHECK-LABEL: @test_mm_mask_blend_ph
+  // CHECK:  %{{.*}} = bitcast i8 %{{.*}} to <8 x i1>
+  // CHECK:  %{{.*}} = select <8 x i1> %{{.*}}, <8 x half> %{{.*}}, <8 x half> %{{.*}}
+  return _mm_mask_blend_ph(__U,__A,__W);
+}
+
+__m256h test_mm256_mask_blend_ph(__mmask16 __U, __m256h __A, __m256h __W) {
+  // CHECK-LABEL: @test_mm256_mask_blend_ph
+  // CHECK:  %{{.*}} = bitcast i16 %{{.*}} to <16 x i1>
+  // CHECK:  %{{.*}} = select <16 x i1> %{{.*}}, <16 x half> %{{.*}}, <16 x half> %{{.*}}
+  return _mm256_mask_blend_ph(__U,__A,__W);
+}
+
+__m128h test_mm_permutex2var_ph(__m128h __A, __m128i __I, __m128h __B) {
+  // CHECK-LABEL: @test_mm_permutex2var_ph
+  // CHECK:  %{{.*}} = bitcast <8 x half> %{{.*}} to <8 x i16>
+  // CHECK:  %{{.*}} = bitcast <2 x i64> %{{.*}} to <8 x i16>
+  // CHECK:  %{{.*}} = bitcast <8 x half> %{{.*}} to <8 x i16>
+  // CHECK:  %{{.*}} = call <8 x i16> @llvm.x86.avx512.vpermi2var.hi.128(<8 x i16> %{{.*}}, <8 x i16> %{{.*}}, <8 x i16> %{{.*}})
+  // CHECK:  %{{.*}} = bitcast <8 x i16> %{{.*}} to <8 x half>
+  return _mm_permutex2var_ph(__A,__I,__B);
+}
+
+__m256h test_mm256_permutex2var_ph(__m256h __A, __m256i __I, __m256h __B) {
+  // CHECK-LABEL: @test_mm256_permutex2var_ph
+  // CHECK:  %{{.*}} = bitcast <16 x half> %{{.*}} to <16 x i16>
+  // CHECK:  %{{.*}} = bitcast <4 x i64> %{{.*}} to <16 x i16>
+  // CHECK:  %{{.*}} = bitcast <16 x half> %{{.*}} to <16 x i16>
+  // CHECK:  %{{.*}} = call <16 x i16> @llvm.x86.avx512.vpermi2var.hi.256(<16 x i16> %{{.*}}, <16 x i16> %{{.*}}, <16 x i16> %{{.*}})
+  // CHECK:  %{{.*}} = bitcast <16 x i16> %{{.*}} to <16 x half>
+  return _mm256_permutex2var_ph(__A,__I,__B);
+}
+
+__m128h test_mm_permutexvar_ph(__m128i __A, __m128h __B) {
+  // CHECK-LABEL: @test_mm_permutexvar_ph
+  // CHECK:  %{{.*}} = bitcast <8 x half> %{{.*}} to <8 x i16>
+  // CHECK:  %{{.*}} = bitcast <2 x i64> %{{.*}} to <8 x i16>
+  // CHECK:  %{{.*}} = call <8 x i16> @llvm.x86.avx512.permvar.hi.128(<8 x i16> %{{.*}}, <8 x i16> %{{.*}})
+  // CHECK:  %{{.*}} = bitcast <8 x i16> %{{.*}} to <8 x half>
+  return _mm_permutexvar_ph(__A, __B);
+}
+
+__m256h test_mm256_permutexvar_ph(__m256i __A, __m256h __B) {
+  // CHECK-LABEL: @test_mm256_permutexvar_ph
+  // CHECK:  %{{.*}} = bitcast <16 x half> %{{.*}} to <16 x i16>
+  // CHECK:  %{{.*}} = bitcast <4 x i64> %{{.*}} to <16 x i16>
+  // CHECK:  %{{.*}} = call <16 x i16> @llvm.x86.avx512.permvar.hi.256(<16 x i16> %{{.*}}, <16 x i16> %{{.*}})
+  // CHECK:  %{{.*}} = bitcast <16 x i16> %{{.*}} to <16 x half>
+  return _mm256_permutexvar_ph(__A, __B);
+}
