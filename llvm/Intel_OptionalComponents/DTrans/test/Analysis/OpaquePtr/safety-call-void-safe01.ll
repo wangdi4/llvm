@@ -29,10 +29,7 @@ define void @test01() {
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
 ; CHECK: Name: struct.test01
-; TODO: When void pointers are analyzed in the callee this case should no
-;       longer trigger any safety flags.
-; TODO: Safety data: No issues found
-; CHECK: Safety data: Mismatched argument use{{ *$}}
+; CHECK: Safety data: No issues found
 
 declare i8* @malloc(i64)
 declare void @free(i8*)
