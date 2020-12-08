@@ -24,4 +24,14 @@ define dso_local spir_kernel void @test_svm_scatter(i32 %val, i32 addrspace(1)* 
   ret void
 }
 
+define dso_local spir_kernel <8 x float>  @test_generic_as_infer(float addrspace(1)* %ptr) {
+; CHECK: [[CAST:%.*]]  = bitcast float addrspace(1)* %ptr to <8 x float> addrspace(1)*
+; CHECK-NEXT: [[LOAD:%.*]] = call <8 x float> @llvm.genx.svm.block.ld.unaligned.v8f32.p1v8f32(<8 x float> addrspace(1)* [[CAST]])
+  %cast = bitcast float addrspace(1)* %ptr to <8 x float> addrspace(1)*
+  %as_cast = addrspacecast <8 x float> addrspace(1)* %cast to <8 x float> addrspace(4)*
+  %load = load <8 x float>, <8 x float> addrspace(4)* %as_cast
+  ret <8 x float> %load
+}
+
+
 declare void @llvm.masked.store.v8i32.p0v8i32(<8 x i32>, <8 x i32>*, i32 immarg, <8 x i1>) #1
