@@ -19242,7 +19242,7 @@ RValue CodeGenFunction::EmitBuiltinGenerateSIMDVariant(const CallExpr *E) {
       CGM.CreateRuntimeFunction(FTy, CGM.GetIntelSimdVariantFnName(FTy));
   llvm::CallInst *CI = Builder.CreateCall(Fn, {Arg});
   CI->addAttribute(llvm::AttributeList::FunctionIndex,
-                   llvm::Attribute::get(getLLVMContext(), "vector-variant",
+                   llvm::Attribute::get(getLLVMContext(), "vector-variants",
                                         MangledVariantName));
   return RValue::get(CI);
 }

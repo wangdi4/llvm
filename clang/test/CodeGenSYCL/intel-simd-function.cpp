@@ -268,7 +268,7 @@ SYCL_EXTERNAL auto bar()
 //CHECK: @__intel_create_simd_variant_0{{.*}}@_Z3fooif) #[[MASK8:[0-9]+]]
 
 //CHECK: attributes #[[CALL]] = { "vector-variants"="_ZGVxN4lu__$U0,_ZGVxM4vv__$U0,_ZGVxN8lu__$U0,_ZGVxM8vv__$U0" }
-//CHECK: attributes #[[UNMASK4]] = { "vector-variant"="_ZGVxN4lu__Z3fooif" }
-//CHECK: attributes #[[MASK4]] = { "vector-variant"="_ZGVxM4vv__Z3fooif" }
-//CHECK: attributes #[[UNMASK8]] = { "vector-variant"="_ZGVxN8lu__Z3fooif" }
-//CHECK: attributes #[[MASK8]] = { "vector-variant"="_ZGVxM8vv__Z3fooif" }
+//CHECK: attributes #[[UNMASK4]] = { "vector-variants"="_ZGVxN4lu__Z3fooif" }
+//CHECK: attributes #[[MASK4]] = { "vector-variants"="_ZGVxM4vv__Z3fooif" }
+//CHECK: attributes #[[UNMASK8]] = { "vector-variants"="_ZGVxN8lu__Z3fooif" }
+//CHECK: attributes #[[MASK8]] = { "vector-variants"="_ZGVxM8vv__Z3fooif" }
