@@ -585,7 +585,7 @@ void SGValueWiden::widenCalls() {
         assert(Param.isVector() && "Unsupported VectorKind");
         NewArg = getVectorValue(Arg, Size, CI);
       }
-
+      assert(NewArg && "Vector value is null!");
       NewArgs.push_back(NewArg);
       NewArgTypes.push_back(NewArg->getType());
     }

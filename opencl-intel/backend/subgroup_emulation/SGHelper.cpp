@@ -106,7 +106,7 @@ bool SGHelper::isSyncCall(Instruction *I) {
 void SGHelper::findBarriers() {
   static SmallVector<std::string, 2> BarrierNames = {BarrierNameNoScope,
                                                      BarrierNameWithScope};
-  for (auto BarrierName : BarrierNames) {
+  for (auto &BarrierName : BarrierNames) {
     auto *SGBarrierFunc = M->getFunction(BarrierName);
     if (SGBarrierFunc == nullptr)
       continue;
@@ -350,7 +350,7 @@ void SGHelper::insertPrintf(const Twine &Prefix, Instruction *IP,
   FormatStr += "\n";
 
   Constant *StrVal =
-      ConstantDataArray::getString(IP->getContext(), FormatStr.c_str(), true);
+      ConstantDataArray::getString(IP->getContext(), FormatStr, true);
   auto *ArrayType = StrVal->getType();
   auto *FormatStrGV = new GlobalVariable(
       *IP->getModule(), ArrayType, true, GlobalValue::InternalLinkage, StrVal,
