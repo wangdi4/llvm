@@ -30,7 +30,7 @@
 using namespace Intel::OpenCL::DeviceBackend;
 using namespace Intel::MetadataAPI;
 
-bool EnableSubGroupEmulation = true;
+bool EnableSubGroupEmulation = false;
 static cl::opt<bool, true> EnableSubGroupEmulationOpt(
     "enable-subgroup-emulation", cl::location(EnableSubGroupEmulation),
     cl::Hidden, cl::desc("Enable sub-group emulation"));

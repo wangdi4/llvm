@@ -43,7 +43,6 @@ namespace Validation
         RC_BR_MEASURE_PERFORMANCE,
         RC_BR_VECTORIZER_TYPE,
         RC_BR_NATIVE_SUBGROUPS,
-        RC_BR_ENABLE_SUBGROUP_EMULATION,
         RC_BR_TRANSPOSE_SIZE,
         RC_BR_VERBOSE,
         RC_BR_USE_SDE,
@@ -115,7 +114,6 @@ namespace Validation
         bool m_dumpHeuristcIR;
         VectorizerType m_vectorizerType;
         bool m_nativeSubgroups;
-        bool m_enableSubgroupEmulation;
     };
 
     template<> bool BERunOptions::GetValue<bool>(RunConfigurationOption rc, bool defaultValue) const;

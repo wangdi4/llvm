@@ -44,9 +44,6 @@ BuildIterations;
 extern llvm::cl::opt<bool>
 NativeSubgroups;
 
-extern llvm::cl::opt<bool>
-EnableSubgroupEmulation;
-
 extern llvm::cl::opt<VectorizerType>
 OptVectorizerType;
 
@@ -141,8 +138,7 @@ namespace Validation
         m_TimePasses(::TimePasses),
         m_dumpHeuristcIR(::DumpHeuristicIR),
         m_vectorizerType(::OptVectorizerType),
-        m_nativeSubgroups(::NativeSubgroups),
-        m_enableSubgroupEmulation(::EnableSubgroupEmulation)
+        m_nativeSubgroups(::NativeSubgroups)
     {
     }
 
@@ -173,8 +169,6 @@ namespace Validation
             return m_dumpHeuristcIR;
         case RC_BR_NATIVE_SUBGROUPS :
             return m_nativeSubgroups;
-        case RC_BR_ENABLE_SUBGROUP_EMULATION:
-            return m_enableSubgroupEmulation;
         default:
             return defaultValue;
         }
@@ -335,7 +329,6 @@ namespace Validation
         m_verbose = ::Verbose;
         m_vectorizerType = ::OptVectorizerType;
         m_nativeSubgroups = ::NativeSubgroups;
-        m_enableSubgroupEmulation = ::EnableSubgroupEmulation;
     }
 
     ComparatorRunOptions::ComparatorRunOptions():
