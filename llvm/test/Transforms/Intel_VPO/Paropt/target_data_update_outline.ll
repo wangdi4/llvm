@@ -1,5 +1,5 @@
-; RUN: opt < %s -loop-rotate -vpo-cfg-restructuring -vpo-paropt-prepare -simplifycfg  -sroa -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -S | FileCheck %s
-; RUN: opt < %s -passes='function(loop(loop-rotate),vpo-cfg-restructuring,vpo-paropt-prepare,simplify-cfg,loop-simplifycfg,sroa,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt'  -S | FileCheck %s
+; RUN: opt < %s -loop-rotate -vpo-cfg-restructuring -vpo-paropt-prepare -sroa -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -S | FileCheck %s
+; RUN: opt < %s -passes='function(loop(loop-rotate),vpo-cfg-restructuring,vpo-paropt-prepare,loop-simplify,sroa,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt'  -S | FileCheck %s
 
 ; Original code:
 ; #pragma omp declare target
@@ -31,7 +31,7 @@ target device_triples = "spir64"
 
 @a = dso_local target_declare global [100 x i32] zeroinitializer, align 16
 
-; Function Attrs: noinline optnone uwtable
+; Function Attrs: noinline uwtable
 define dso_local void @_Z6updatev() #0 {
 entry:
   call void @_Z22modify_array_on_targetv()
@@ -48,7 +48,7 @@ declare token @llvm.directive.region.entry() #2
 ; Function Attrs: nounwind
 declare void @llvm.directive.region.exit(token) #2
 
-attributes #0 = { noinline optnone uwtable "may-have-openmp-directive"="true" }
+attributes #0 = { noinline uwtable "may-have-openmp-directive"="true" }
 attributes #2 = { nounwind }
 
 !omp_offload.info = !{!0}
