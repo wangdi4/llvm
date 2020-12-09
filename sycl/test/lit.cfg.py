@@ -61,6 +61,11 @@ elif platform.system() == "Darwin":
 
 llvm_config.with_environment('PATH', config.sycl_tools_dir, append_path=True)
 
+# INTEL_CUSTOMIZATION
+# Tests assume that the host device is always available
+llvm_config.with_environment('SYCL_ENABLE_HOST_DEVICE', "1")
+# end INTEL_CUSTOMIZATION
+
 config.substitutions.append( ('%threads_lib', config.sycl_threads_lib) )
 config.substitutions.append( ('%sycl_libs_dir',  config.sycl_libs_dir ) )
 config.substitutions.append( ('%sycl_include',  config.sycl_include ) )
