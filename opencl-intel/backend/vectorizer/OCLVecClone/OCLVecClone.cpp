@@ -661,7 +661,6 @@ void OCLVecCloneImpl::handleLanguageSpecifics(Function &F, PHINode *Phi,
         ConstantInt *C = dyn_cast<ConstantInt>(CI->getArgOperand(0));
         assert(C && "The function argument must be constant");
         unsigned dim = C->getValue().getZExtValue();
-        assert(dim < 3 && "Argument is not in range");
         if (dim == VecDim) {
           // If the get-id calls return i32 (e.g., on 32-bit target), there's
           // no truncation, so we don't need to do special optimization.
