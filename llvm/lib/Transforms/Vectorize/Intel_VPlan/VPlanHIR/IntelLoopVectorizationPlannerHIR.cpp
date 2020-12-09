@@ -129,3 +129,30 @@ bool LoopVectorizationPlannerHIR::canProcessLoopBody(const VPlan &Plan,
   const VPLoopEntityList *LE = Plan.getLoopEntities(&Loop);
   return !LE->hasInMemoryEntity();
 }
+
+unsigned LoopVectorizationPlannerHIR::getLoopUnrollFactor(bool *Forced) {
+  bool ForcedValue = false;
+  unsigned UF = LoopVectorizationPlanner::getLoopUnrollFactor(&ForcedValue);
+
+  if (!ForcedValue) {
+    UF = TheLoop->getUnrollPragmaCount();
+
+    if (UF > 0)
+      ForcedValue = true;
+    else {
+      // getUnrollPragmaCount() returns negative value, which means no
+      // #pragma unroll N is specified for TheLoop.  Leave ForcedValue
+      // to be false then.
+      // Capture UF that could be specified internally by other LoopOpt
+      // transforms.
+      UF = TheLoop->getForcedVectorUnrollFactor();
+      if (UF == 0)
+        UF = 1;
+    }
+  }
+
+  if (Forced)
+    *Forced = ForcedValue;
+
+  return UF;
+}

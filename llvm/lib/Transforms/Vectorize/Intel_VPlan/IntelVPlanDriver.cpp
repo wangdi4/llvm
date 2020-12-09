@@ -96,9 +96,6 @@ static cl::opt<unsigned> VPlanVectCand(
     cl::desc(
         "Construct VPlan for vectorization candidates (CG stress testing)"));
 
-static cl::opt<unsigned> VPlanForceUF("vplan-force-uf", cl::init(0),
-                                      cl::desc("Force VPlan to use given UF"));
-
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 static cl::opt<bool>
     VPlanPrintInit("vplan-print-after-init", cl::init(false),
@@ -325,10 +322,8 @@ bool VPlanDriverImpl::processLoop(Loop *Lp, Function &Fn,
   // tuning is not yet implemented and we don't want to prevent vectorization.
   LVP.insertAllZeroBypasses(Plan, VF);
 
-  unsigned UF = VPlanForceUF;
-  if (UF == 0)
-    UF = 1;
-  LVP.unroll(*Plan, UF);
+  unsigned UF = LVP.getLoopUnrollFactor();
+  LVP.unroll(*Plan);
 
   // Workaround for kernel vectorization. Kernel vectorization is done through
   // loop creation inside vec-clone) followed by loop vectorization. That
@@ -1138,17 +1133,10 @@ bool VPlanDriverHIRImpl::processLoop(HLLoop *Lp, Function &Fn,
   // tuning is not yet implemented and we don't want to prevent vectorization.
   LVP.insertAllZeroBypasses(Plan, VF);
 
-  unsigned UF = HLoop->getUnrollPragmaCount();
-  if (VPlanForceUF)
-    UF = VPlanForceUF;
-  // Unroll factor set as a hint from prior LoopOpt transforms.
-  if (UF == 0)
-    UF = HLoop->getForcedVectorUnrollFactor();
-  if (UF == 0)
-    UF = 1;
+  unsigned UF = LVP.getLoopUnrollFactor();
 
   VPlanLoopUnroller::VPInstUnrollPartTy VPInstUnrollPart;
-  LVP.unroll(*Plan, UF, &VPInstUnrollPart);
+  LVP.unroll(*Plan, &VPInstUnrollPart);
 
   bool ModifiedLoop = false;
   if (!DisableCodeGen) {

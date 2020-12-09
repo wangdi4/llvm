@@ -79,6 +79,9 @@ static cl::opt<bool>
     EnableAllLiveOuts("vplan-enable-all-liveouts", cl::init(false),
                            cl::Hidden, cl::desc("Enable all liveouts, including private."));
 
+static cl::opt<unsigned> VPlanForceUF("vplan-force-uf", cl::init(0),
+                                      cl::desc("Force VPlan to use given UF"));
+
 static LoopVPlanDumpControl LCSSADumpControl("lcssa", "LCSSA transformation");
 static LoopVPlanDumpControl LoopCFUDumpControl("loop-cfu",
                                                "LoopCFU transformation");
@@ -337,10 +340,9 @@ unsigned LoopVectorizationPlanner::buildInitialVPlans(LLVMContext *Context,
     EndRangeVF = MaxVF + 1;
   }
 
-  // Scalar VPlan is not necessary when VF was forced.
-  // TODO: Need it later for optreport to print potential speedup.
-  if (!ForcedVF)
-    VPlans[1] = VPlans[MinVF];
+  // Always capture scalar VPlan to handle cases where vectorization
+  // is not possible with VF > 1 (such as when forced VF greater than TC).
+  VPlans[1] = VPlans[MinVF];
 
   return i;
 }
@@ -378,29 +380,23 @@ void LoopVectorizationPlanner::selectBestPeelingVariants() {
   }
 }
 
+unsigned LoopVectorizationPlanner::getLoopUnrollFactor(bool *Forced) {
+  if (VPlanForceUF == 0) {
+    if (Forced)
+      *Forced = false;
+    return 1;
+  }
+
+  if (Forced)
+    *Forced = true;
+  return VPlanForceUF;
+}
+
 /// Evaluate cost model for available VPlans and find the best one.
 /// \Returns VF which corresponds to the best VPlan (could be VF = 1).
 template <typename CostModelTy>
 unsigned LoopVectorizationPlanner::selectBestPlan() {
   LLVM_DEBUG(dbgs() << "Selecting VF for VPlan #" << VPlanOrderNumber << '\n');
-  if (VPlans.size() == 1) {
-    unsigned ForcedVF = getForcedVF(WRLp);
-    assert(ForcedVF &&
-           "Only one VPlan was constructed with non-forced vectorization.");
-    BestVF = ForcedVF;
-    // FIXME: this code should be revisited later to select best UF
-    // even with forced VF.
-    BestUF = 1;
-    LLVM_DEBUG(dbgs() << "There is only VPlan with VF=" << BestVF
-                      << ", selecting it.\n");
-
-    return ForcedVF;
-  }
-
-  // FIXME: This value of MaxVF has to be aligned with value of MaxVF in
-  // buildInitialVPlan.
-  // TODO: Add options to set MinVF and MaxVF.
-  const unsigned MaxVF = 32;
   VPlan *ScalarPlan = getVPlanForVF(1);
   assert(ScalarPlan && "There is no scalar VPlan!");
   // FIXME: Without peel and remainder vectorization, it's ok to get trip count
@@ -415,6 +411,31 @@ unsigned LoopVectorizationPlanner::selectBestPlan() {
   VPLoop *OuterMostVPLoop = *VPLI->begin();
   uint64_t TripCount = std::min(OuterMostVPLoop->getTripCountInfo().TripCount,
                                 (uint64_t)std::numeric_limits<unsigned>::max());
+  unsigned UF = getLoopUnrollFactor();
+  unsigned ForcedVF = getForcedVF(WRLp);
+  if (ForcedVF > 0) {
+    BestVF = ForcedVF;
+
+    if (BestVF * UF > TripCount) {
+      LLVM_DEBUG(dbgs() << "Bailing out to scalar VPlan because ForcedVF("
+                 << ForcedVF << ") * UF(" << UF << ") > TripCount("
+                 << TripCount << ")\n");
+      return 1;
+    }
+
+    // FIXME: this code should be revisited later to select best UF
+    // even with forced VF.
+    // FIXME: We may want to use BestUF in the Unroller.
+    BestUF = 1;
+    LLVM_DEBUG(dbgs() << "There is only VPlan with VF=" << BestVF
+                      << ", selecting it.\n");
+    return ForcedVF;
+  }
+
+  // FIXME: This value of MaxVF has to be aligned with value of MaxVF in
+  // buildInitialVPlan.
+  // TODO: Add options to set MinVF and MaxVF.
+  const unsigned MaxVF = 32;
 #if INTEL_CUSTOMIZATION
   CostModelTy ScalarCM(ScalarPlan, 1, TTI, TLI, DL, VLSA);
 #else
@@ -455,7 +476,7 @@ unsigned LoopVectorizationPlanner::selectBestPlan() {
     if (!hasVPlanForVF(VF))
       continue;
 
-    if (TripCount < VF)
+    if (TripCount < VF * UF)
       continue; // FIXME: Consider masked low trip later.
 
     VPlan *Plan = getVPlanForVF(VF);
@@ -636,8 +657,9 @@ void LoopVectorizationPlanner::insertAllZeroBypasses(VPlan *Plan, unsigned VF) {
 }
 
 void LoopVectorizationPlanner::unroll(
-    VPlan &Plan, unsigned UF,
+    VPlan &Plan,
     VPlanLoopUnroller::VPInstUnrollPartTy *VPInstUnrollPart) {
+  unsigned UF = getLoopUnrollFactor();
   if (UF > 1) {
     VPlanLoopUnroller Unroller(Plan, UF);
     Unroller.run(VPInstUnrollPart);
