@@ -35882,6 +35882,31 @@ X86TargetLowering::EmitInstrWithCustomInserter(MachineInstr &MI,
     MI.eraseFromParent(); // The pseudo is gone now.
     return BB;
   }
+  case X86::PT2RPNTLVWZ0ADVISE:
+  case X86::PT2RPNTLVWZ1ADVISE: {
+    const DebugLoc &DL = MI.getDebugLoc();
+    unsigned Opc;
+    switch (MI.getOpcode()) {
+    default:
+      llvm_unreachable("Unexpected instruction!");
+    case X86::PT2RPNTLVWZ0ADVISE:
+      Opc = X86::T2RPNTLVWZ0ADVISE;
+      break;
+    case X86::PT2RPNTLVWZ1ADVISE:
+      Opc = X86::T2RPNTLVWZ1ADVISE;
+      break;
+    }
+    MachineInstrBuilder MIB = BuildMI(*BB, MI, DL, TII->get(Opc));
+    MIB.addReg(TMMImmToTMMPair(MI.getOperand(0).getImm()), RegState::Define);
+    MIB.add(MI.getOperand(1)); // base
+    MIB.add(MI.getOperand(2)); // scale
+    MIB.add(MI.getOperand(3)); // index
+    MIB.add(MI.getOperand(4)); // displacement
+    MIB.add(MI.getOperand(5)); // segment
+    MIB.addImm(MI.getOperand(6).getImm());
+    MI.eraseFromParent(); // The pseudo is gone now.
+    return BB;
+  }
 #endif // INTEL_FEATURE_ISA_AMX_MEMADVISE
 #if INTEL_FEATURE_ISA_AMX_COMPLEX
   case X86::PTCONJFP16:
