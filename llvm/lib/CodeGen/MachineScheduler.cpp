@@ -3160,12 +3160,51 @@ void GenericScheduler::tryCandidate(SchedCandidate &Cand,
                                                DAG->MF))
     return;
 
+#if INTEL_CUSTOMIZATION
+  // FIXME: Another possible corner cases (nerver met so far) similar to this
+  // issue is listed in CMPLRLLVM-25083.
+  // Related JIRA: CMPLRLLVM-23868, CMPLRLLVM-23879.
+  // If boundary is same and Cand.RPDelta.Excess is valid and positive, TryCand
+  // and Cand must have the same PSet(Called "PSet A") exceed pressure limit. If
+  // only one of the cand's CriticalMax is valid and the valid one (The
+  // corresponding PSet is called "PSet B") increases pressure, the invalid one
+  // will always be selected by RegCritical. "PSet A" and "PSet B" must not be
+  // the same PSet, so "PSet A" must not exceed pressure limit with original
+  // instruction sequence. It implies there are some unscheduled instructions to
+  // decrease pressure of "PSet A". In this case, we don't want to check
+  // RegCritical because it always select the cand with invalid CriticalMax and
+  // this cand may not be the best choice.
+  auto checkCritical = [](const SchedCandidate &TryCand,
+                          const SchedCandidate &Cand) -> bool {
+    const PressureChange &CandExcess = Cand.RPDelta.Excess;
+    if (!(Cand.AtTop == TryCand.AtTop && CandExcess.isValid() &&
+          CandExcess.getUnitInc() > 0))
+      return true;
+
+    assert(TryCand.RPDelta.Excess == CandExcess &&
+           "Must be same PSet with same UnitInc exceed limit");
+    const PressureChange &CandCriticalMax = Cand.RPDelta.CriticalMax;
+    const PressureChange &TryCandCriticalMax = TryCand.RPDelta.CriticalMax;
+    auto hasOneInc = [&](const PressureChange &CM1,
+                         const PressureChange &CM2) -> bool {
+      if (!CM1.isValid() && CM2.isValid()) {
+        assert(CM2.getUnitInc() > 0 && "Valid CriticalMax must be positive");
+        assert(CM2.getPSet() != CandExcess.getPSet() &&
+               "PSet in CriticalMax must not be the same PSet in Excess");
+        return true;
+      }
+      return false;
+    };
+    return !hasOneInc(CandCriticalMax, TryCandCriticalMax) &&
+           !hasOneInc(TryCandCriticalMax, CandCriticalMax);
+  };
+
   // Avoid increasing the max critical pressure in the scheduled region.
-  if (DAG->isTrackingPressure() && tryPressure(TryCand.RPDelta.CriticalMax,
-                                               Cand.RPDelta.CriticalMax,
-                                               TryCand, Cand, RegCritical, TRI,
-                                               DAG->MF))
+  if (DAG->isTrackingPressure() && checkCritical(TryCand, Cand) &&
+      tryPressure(TryCand.RPDelta.CriticalMax, Cand.RPDelta.CriticalMax,
+                  TryCand, Cand, RegCritical, TRI, DAG->MF))
     return;
+#endif // INTEL_CUSTOMIZATION
 
   // We only compare a subset of features when comparing nodes between
   // Top and Bottom boundary. Some properties are simply incomparable, in many
