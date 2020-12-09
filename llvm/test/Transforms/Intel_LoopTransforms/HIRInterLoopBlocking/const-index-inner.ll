@@ -31,6 +31,54 @@
 
 ; CHECK: Profitable
 ; CHECK: Legal
+; CHECK: ByStripLoop LB at DimNum 1 : 0
+; CHECK: ByStripLoop UB at DimNum 1 : 2
+; CHECK: ByStripLoop LB at DimNum 2 : 0
+; CHECK: ByStripLoop UB at DimNum 2 : 2
+
+; Blocking i2 and i3 loops, by stripmine size 2.
+; Notice that i2-loop at line 16 above is actually, i2 and i3 loop, where i3-loop's LB, UB, and inc are 0, 0, and 1.
+;
+; After transformation - after normalization
+;           + DO i1 = 0, zext.i32.i64(%"sub1_$NTIMES_fetch") + -1, 1   <DO_LOOP>  <MAX_TC_EST = 4294967295>
+;           |   + DO i2 = 0, 2, 2   <DO_LOOP>       // By-strip loop of the original i2-loop. Stripmine size is 2, and loop normalization was not applied.
+;           |   |   %tile_e_min = (i2 + 1 <= 2) ? i2 + 1 : 2;  // Loop tile begin is i2, and end will be (i2 + 1). The guard is for taking care of the last tile,
+;                                                              // in case iteration range is not divisible by the tile size. Typical for any loop blocking.
+;           |   |
+;           |   |   + DO i3 = 0, 2, 2   <DO_LOOP>   // By-strip loop of the original i3-loop. Stripmine size is 2, and loop normalization was not applied.
+;           |   |   |   %tile_e_min92 = (i3 + 1 <= 2) ? i3 + 1 : 2; // Loop tile begin is i3, and end will be (i3 + 1). The guard is for taking care of the last tile,
+;                                                                   // in case iteration range is not divisible by the tile size. Typical for any loop blocking.
+;
+;                       // Intersection of [tile_begin, tile_end] and global [LB, UB]
+;                       // Global [LB, UB] = [minimum of all spatial LB of this level, maximum of all spatial UB of this level].
+;           |   |   |   %lb_max93 = (0 <= i2) ? i2 : 0;  // unit-strided loop's LB = max(0, i2), where 0 = min of LB of original two i2 loops (0 = min(0,0))
+;           |   |   |   %ub_min94 = (2 <= %tile_e_min) ? 2 : %tile_e_min; // unit-strided loops' UB = min(2, %tile_e_min), where 2 = max(UB of original i2-loop = 2, UB of original i2 loop = 2)
+;           |   |   |
+;           |   |   |   + DO i4 = 0, -1 * %lb_max93 + %ub_min94, 1   <DO_LOOP> // unit-strided loop [lb_max93, ub_min94] after loop normalization.
+;           |   |   |   |   %lb_max = (0 <= i3) ? i3 : 0;                      // Similar to the above changes, now for original loop level at i3 (Loop at line 9)
+;           |   |   |   |   %ub_min = (2 <= %tile_e_min92) ? 2 : %tile_e_min92;
+;           |   |   |   |
+;           |   |   |   |   + DO i5 = 0, -1 * %lb_max + %ub_min, 1   <DO_LOOP>
+;           |   |   |   |   |   %add6 = (%"sub1_$B")[i4 + %lb_max93][i5 + %lb_max]  +  1.000000e+00;
+;           |   |   |   |   |   (%"sub1_$A")[i4 + %lb_max93][i5 + %lb_max] = %add6;
+;           |   |   |   |   + END LOOP
+;           |   |   |   + END LOOP
+;           |   |   |
+;           |   |   |   %lb_max95 = (0 <= i2) ? i2 : 0;                      // Similar to the above changes, now for the original loop at line 16.
+;           |   |   |   %ub_min96 = (2 <= %tile_e_min) ? 2 : %tile_e_min;
+;           |   |   |   if (i3 <= 0 && 0 <= %tile_e_min92)                   // From, i3 = 0, in the original loop at line 17. See A[i2][0] and B[i2][0].
+;                                                                            // First dimensions are for i3-loop, thus i3 = 0;
+;                                                                            // guard is ( tile_begin <= i3 <= tile_end) --> (i3 <= 0 <= tile_end)
+;           |   |   |   {
+;           |   |   |      + DO i4 = 0, -1 * %lb_max95 + %ub_min96, 1   <DO_LOOP>
+;           |   |   |      |   %add34 = (%"sub1_$A")[i4 + %lb_max95][0]  +  2.000000e+00;
+;           |   |   |      |   (%"sub1_$B")[i4 + %lb_max95][0] = %add34;
+;           |   |   |      + END LOOP
+;           |   |   |   }
+;           |   |   + END LOOP
+;           |   + END LOOP
+;           + END LOOP
+
 
 ;Module Before HIR
 ; ModuleID = 'const-index-inner.f90'

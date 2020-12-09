@@ -95,6 +95,15 @@ using namespace llvm::loopopt;
 static cl::opt<bool> DisablePass("disable-" OPT_SWITCH, cl::init(false),
                                  cl::Hidden, cl::desc("Disable " OPT_DESC "."));
 
+static cl::opt<int>
+    PresetStripmineSize(OPT_SWITCH "-stripmine-size", cl::init(2),
+                        cl::ReallyHidden,
+                        cl::desc("Preset stripmine size for " OPT_DESC));
+
+static cl::opt<bool> SkipNormalizingByStripLoops(
+    OPT_SWITCH "-skip-normalize", cl::init(true), cl::Hidden,
+    cl::desc("Skip normalization of byStripLoops in " OPT_DESC "."));
+
 static cl::opt<std::string>
     FilterFunc(OPT_SWITCH "-filter-func", cl::ReallyHidden,
                cl::desc("Run " OPT_DESC " only on the specified function."));
@@ -1152,7 +1161,6 @@ private:
       //      %3824 <--> %x, %3825 <--> %y
       const CanonExpr* Stride1 = Ref1->getDimensionStride(DimNum);
       const CanonExpr* Stride2 = Ref2->getDimensionStride(DimNum);
-
       if (!compareRefs(Stride1, Stride2, Ref1, Ref2)) return false;
 #endif
     }
@@ -1479,6 +1487,565 @@ typedef std::vector<LoopAndDimInfoTy> LoopToDimInfoTy;
 typedef std::map<const HLLoop *, RegDDRef *> LoopToRefTy;
 typedef std::map<const HLLoop *, const RegDDRef *> LoopToConstRefTy;
 
+// Find the lowest ancestor of InnermostLoop, which is deeper than Limit.
+// It is not necessarily a HLLoop.
+HLNode *findTheLowestAncestor(HLLoop *InnermostLoop, const HLLoop *Limit) {
+
+  assert(Limit->getNestingLevel() < InnermostLoop->getNestingLevel());
+
+  HLNode *Node = InnermostLoop;
+  HLNode *Prev = InnermostLoop;
+  while (Node != Limit) {
+    Prev = Node;
+    Node = Node->getParent();
+  }
+
+  return Prev;
+}
+
+class Transformer {
+public:
+  // Entry value 0 denotes no-blocking.
+  // Size of StripmineSizes should be the same as global NumDims
+  Transformer(ArrayRef<unsigned> StripmineSizes,
+              const LoopToDimInfoTy &InnermostLoopToDimInfos,
+              const LoopToConstRefTy &InnermostLoopToRepRef,
+              HLLoop *OutermostLoop, HIRDDAnalysis &DDA)
+      : StripmineSizes(StripmineSizes),
+        InnermostLoopToDimInfos(InnermostLoopToDimInfos),
+        InnermostLoopToRepRef(InnermostLoopToRepRef),
+        OutermostLoop(OutermostLoop), DDA(DDA), NumByStripLoops(0) {
+    unsigned NumDims = StripmineSizes.size();
+    ByStripLoopLowerBlobs.resize(NumDims);
+    ByStripLoopUpperBlobs.resize(NumDims);
+    ByStripLoops.resize(NumDims, 0x0);
+
+    // Initialize the number of ByStripLoops.
+    NumByStripLoops =
+        count_if(StripmineSizes, [](unsigned Size) { return Size; });
+  }
+
+  bool rewrite() {
+
+    printMarker("Initial: ", {OutermostLoop}, true);
+
+    LLVM_DEBUG(dbgs() << "== * == AAAA \n"; for (auto &LoopAndDimInfo
+                                                 : InnermostLoopToDimInfos) {
+      dbgs() << LoopAndDimInfo.first->getNumber() << "\n";
+    });
+
+    LoopToRefTy InnermostLoopToAdjustingRef;
+    prepareAdjustingRefs(InnermostLoopToAdjustingRef);
+
+    HLNode *AnchorNode = findTheLowestAncestor(
+        (*InnermostLoopToDimInfos.begin()).first, OutermostLoop);
+
+    printMarker("AnchorNode: ", {AnchorNode});
+
+    // Collect load instructions for loop bounds and RepRefs.
+    // NOTE: This collection should be done before alignment.
+    //       Alignment of loop bounds potentially modifies
+    //       blobDDRefs of loop bounds. Thus, input DDG does
+    //       not hold the information to trace back to loads
+    //       of temps.
+    SmallPtrSet<const HLInst *, 32> LoadInstsToClone;
+
+    // Align original spatial loops
+    alignSpatialLoops(InnermostLoopToAdjustingRef);
+
+    assert(isa<HLLoop>(AnchorNode) &&
+               AnchorNode->getNodeLevel() ==
+                   (OutermostLoop->getNestingLevel() + 1) ||
+           !isa<HLLoop>(AnchorNode) &&
+               AnchorNode->getNodeLevel() == OutermostLoop->getNestingLevel());
+
+    HIRInvalidationUtils::invalidateBody(OutermostLoop);
+
+    SmallVector<const RegDDRef *, 32> AuxRefsForByStripBounds;
+
+    SmallVector<std::pair<unsigned, unsigned>, 16> IndexMap;
+
+    if (!computeByStripLoopBounds(InnermostLoopToAdjustingRef, IndexMap,
+                                  AuxRefsForByStripBounds)) {
+
+      LLVM_DEBUG(dbgs() << "== * == Failed computeByStripLoopBounds \n");
+
+      return false;
+    }
+
+    return true;
+  }
+
+private:
+  // Given a representative ref, RepRef, come up with a ref where IVs are
+  // cleared. Example: RepRef = A[i][j + 1] --> an AdjustingRef = A[0][1]
+  //
+  // Later, resulting AdjustingRefs are used for alignment of loops, where
+  // a memref B[i + 1][j] will adjusted by A[0][1] being subtracted from
+  // and become B[i+1][j-1].
+  void prepareAdjustingRefs(LoopToRefTy &InnermostLoopToAdjustingRef) const {
+    for (auto &Pair : InnermostLoopToRepRef) {
+      RegDDRef *AdjustingRef = Pair.second->clone();
+      llvm::for_each(
+          make_range(AdjustingRef->canon_begin(), AdjustingRef->canon_end()),
+          [](CanonExpr *CE) { CE->clearIVs(); });
+      InnermostLoopToAdjustingRef.emplace(Pair.first, AdjustingRef);
+    }
+    assert(InnermostLoopToRepRef.size() == InnermostLoopToAdjustingRef.size());
+  }
+
+  // Increase def@level of Ref by Increase if current def@level is
+  // greater than equal to LevelThreshold.
+  static void incDefinedAtLevelBy(RegDDRef *Ref, unsigned Increase,
+                                  unsigned LevelThreshold) {
+
+    auto IncreaseDefLevel = [Increase, LevelThreshold,
+                             Ref](unsigned PrevDefLevel, CanonExpr *CE) {
+      if (PrevDefLevel < LevelThreshold)
+        return;
+
+      assert(PrevDefLevel + Increase <= MaxLoopNestLevel);
+
+      CE->setDefinedAtLevel(PrevDefLevel + Increase);
+    };
+
+    // Increase Def@Level of Blob CEs.
+    if (Ref->isSelfBlob() && !Ref->isNonLinear()) {
+      unsigned PrevDefLevel = Ref->getSingleCanonExpr()->getDefinedAtLevel();
+      CanonExpr *CE = Ref->getSingleCanonExpr();
+
+      IncreaseDefLevel(PrevDefLevel, CE);
+    }
+
+    for (auto *BRef : make_range(Ref->blob_begin(), Ref->blob_end())) {
+
+      CanonExpr *CE = BRef->getSingleCanonExpr();
+
+      if (CE->isNonLinear())
+        continue;
+
+      unsigned PrevDefLevel = CE->getDefinedAtLevel();
+      IncreaseDefLevel(PrevDefLevel, CE);
+    }
+
+    // Caculate correct def@level using update Blob's def@level
+    Ref->updateDefLevel();
+  }
+
+  // Subtract AdjustingRef from a ref in loop's body.
+  // by the same def location.
+  // Example:
+  // Input loop before alignment
+  // for i = 0, N
+  //  for j = 0, M
+  //   a[i][j+1] = b[i][j] + 3;
+  //
+  // After alignment
+  // for i = 0, N
+  //  for j = 1, M + 1
+  //   a[i][j] = b[i][j - 1] + 3;
+  //
+  // This function only takes care of loop's body. Loop bounds are taken care
+  // of another function.
+  // The alignment is achieved by subtracting AdjustingRef, base[0][1] from
+  // a memref.
+  void
+  alignSpatialLoopBody(const LoopAndDimInfoTy &LoopAndDimInfo,
+                       const LoopToRefTy &InnermostLoopToAdjustingRef) const {
+
+    HLLoop *InnermostLoop = LoopAndDimInfo.first;
+    // Get a Ref to be used for Adjusting
+    const RegDDRef *AdjustingRef =
+        InnermostLoopToAdjustingRef.at(InnermostLoop);
+
+    LLVM_DEBUG(dbgs() << "*** AdjustingRef for Loop:"
+                      << InnermostLoop->getNumber() << "\n");
+    LLVM_DEBUG(AdjustingRef->dump(); dbgs() << "\n");
+
+    const RegDDRef *RepRef = InnermostLoopToRepRef.at(InnermostLoop);
+    unsigned Level = InnermostLoop->getNestingLevel();
+    const auto &DimInfo = LoopAndDimInfo.second;
+    DenseMap<unsigned, unsigned> MapFromLevelToDim;
+    for (unsigned I = 0, Size = LoopAndDimInfo.second.size(); I < Size; I++) {
+      if (!DimInfo[I].hasIV())
+        continue;
+
+      MapFromLevelToDim.insert({Level - DimInfo[I].LevelOffset, I + 1});
+    }
+
+    printMarker("AdjustingRef at alignRefs: ", {AdjustingRef});
+    printMarker("RepRef at alignRefs: ", {RepRef});
+
+    ForEach<RegDDRef>::visitRange(
+        InnermostLoop->child_begin(), InnermostLoop->child_end(),
+        [AdjustingRef, &MapFromLevelToDim, InnermostLoop](RegDDRef *Ref) {
+          std::unique_ptr<RegDDRef> OrigRef(Ref->clone());
+
+          // For a Ref, go through dimensions, and get IV Level
+          // Get the dim and get the CE from RepRef
+          for (auto *CE : make_range(Ref->canon_begin(), Ref->canon_end())) {
+
+            // get IV Level from CE
+            unsigned FoundIVLevel = 0;
+            for (auto Level : make_range(AllLoopLevelRange::begin(),
+                                         AllLoopLevelRange::end())) {
+              int64_t Coeff = 0;
+              unsigned Index = 0;
+              CE->getIVCoeff(Level, &Index, &Coeff);
+              if (Coeff != 0) {
+                FoundIVLevel = Level;
+                break;
+              }
+            }
+
+            if (!FoundIVLevel)
+              continue;
+
+            auto It = MapFromLevelToDim.find(FoundIVLevel);
+            assert(It != MapFromLevelToDim.end());
+            unsigned Dim = It->second;
+            const CanonExpr *AdjustCE = AdjustingRef->getDimensionIndex(Dim);
+
+            CanonExprUtils::subtract(CE, AdjustCE);
+          }
+
+          // Initial makeConsistent using original refs.
+          // After this point, nonlinear is truly nonlinear.
+          // Also, IV + const should have Def@Level zero.
+          printMarker("Orig Ref: ", {OrigRef.get()}, true);
+          printMarker("AdjustingRef: ", {AdjustingRef}, true);
+          printMarker("Ref: ", {Ref}, true);
+          printMarker("InnermostLoop Number: ", {InnermostLoop});
+
+          // Cannot use RepRef here as an auxiliary ref
+          // because RepRef itself is aligned by this function
+          // and get changed. Instead, use AdjustingRef,
+          // since it is a RepRef minus IVs.
+          // It contains all the blobs.
+          Ref->makeConsistent({OrigRef.get(), AdjustingRef});
+        });
+  }
+
+  // Add AdjustingRef to loop's bounds.
+  CanonExpr *alignSpatialLoopBounds(RegDDRef *Ref, const RegDDRef *AdjustingRef,
+                                    unsigned DimNum) const {
+
+    std::unique_ptr<RegDDRef> OrigRef(Ref->clone());
+    CanonExpr *CE = Ref->getSingleCanonExpr();
+    const CanonExpr *AdjustCE = AdjustingRef->getDimensionIndex(DimNum);
+    bool Success = CanonExprUtils::add(CE, AdjustCE);
+    assert(Success);
+    (void)Success;
+
+    Ref->makeConsistent({OrigRef.get(), AdjustingRef});
+
+    return CE;
+  }
+
+  // Adjust a loops LB, and UB and subscripts so that
+  // all Lval ddrefs has only IVs but no constant of blob
+  // in every dimension.
+  // For example, if a lval was a[i + const1][j + blob]
+  // it will become a[i][j] by subtraction const1, blob
+  // Example:
+  // Input loop before alignment
+  // for i = 0, N
+  //  for j = 0, M
+  //   a[i][j+1] = b[i][j] + 3;
+  //
+  // After alignment
+  // for i = 0, N
+  //  for j = 1, M + 1
+  //   a[i][j] = b[i][j - 1] + 3;
+  void alignSpatialLoops(const LoopToRefTy &InnermostLoopToAdjustingRef) const {
+
+    // TODO: Why only innermost loop?
+    //       This is under the assumption, no other loop body contains
+    //       non-loop-invariant memrefs. At least make sure if that is true.
+    for (auto &LoopAndDimInfo : InnermostLoopToDimInfos) {
+      alignSpatialLoopBody(LoopAndDimInfo, InnermostLoopToAdjustingRef);
+    }
+
+    int GlobalNumDims = StripmineSizes.size();
+    for (int DimNum = 1; DimNum <= GlobalNumDims; DimNum++) {
+
+      // Alignment should be done at all levels, regardless of
+      // being loop-tiled or not.
+
+      // Collect all Lower/AlignedUpperBounds from InnermostLoop
+      for (auto &LoopAndDimInfoVec : InnermostLoopToDimInfos) {
+        const HLLoop *InnermostLoop = LoopAndDimInfoVec.first;
+
+        const HLLoop *TargetLoop = getLoopMatchingDimNum(
+            DimNum, LoopAndDimInfoVec.second, InnermostLoop);
+        if (!TargetLoop)
+          continue;
+
+        const RegDDRef *AdjustingRef =
+            InnermostLoopToAdjustingRef.at(InnermostLoop);
+        RegDDRef *LBRef = const_cast<RegDDRef *>(TargetLoop->getLowerDDRef());
+
+        printMarker("LB before: ", {LBRef}, true);
+
+        alignSpatialLoopBounds(LBRef, AdjustingRef, DimNum);
+
+        RegDDRef *UBRef = const_cast<RegDDRef *>(TargetLoop->getUpperDDRef());
+        alignSpatialLoopBounds(UBRef, AdjustingRef, DimNum);
+        printMarker("LB After: ", {TargetLoop->getLowerDDRef()});
+      }
+    }
+  }
+
+  // LB(UB) of a By-strip loop is the "min"("max") of all lower bounds of
+  // original spatial loop corresponding to the same DimNum.
+  // This function collects all LBs(UBs) of original spatial loops, and
+  // generate min(max) blobs of them.
+  bool computeByStripLoopBounds(
+      const LoopToRefTy &InnermostLoopToAdjustingRef,
+      const SmallVectorImpl<std::pair<unsigned, unsigned>> &BlobIndexMap,
+      SmallVectorImpl<const RegDDRef *> &AuxRefs) {
+
+    int GlobalNumDims = StripmineSizes.size();
+    SmallVector<SmallVector<CanonExpr *, 32>, 4> AlignedLowerBounds(
+        GlobalNumDims);
+    SmallVector<SmallVector<CanonExpr *, 32>, 4> AlignedUpperBounds(
+        GlobalNumDims);
+    for (int DimNum = 1; DimNum <= GlobalNumDims; DimNum++) {
+      if (isNoBlockDim(DimNum))
+        continue;
+
+      // Collect all Lower/AlignedUpperBounds from InnermostLoop
+      for (auto &E : InnermostLoopToDimInfos) {
+        const HLLoop *InnermostLoop = E.first;
+
+        const HLLoop *TargetLoop =
+            getLoopMatchingDimNum(DimNum, E.second, InnermostLoop);
+        if (!TargetLoop)
+          continue;
+
+        RegDDRef *NewLBRef = TargetLoop->getLowerDDRef()->clone();
+        bool Replaced = NewLBRef->replaceTempBlobs(BlobIndexMap);
+        (void)Replaced;
+        AlignedLowerBounds[DimNum - 1].push_back(
+            NewLBRef->getSingleCanonExpr());
+        AuxRefs.push_back(TargetLoop->getLowerDDRef());
+
+        LLVM_DEBUG(dbgs() << "LB after (" << Replaced << ") ";
+                   NewLBRef->dump(1); dbgs() << "\n");
+
+        RegDDRef *NewUBRef = TargetLoop->getUpperDDRef()->clone();
+        Replaced = NewUBRef->replaceTempBlobs(BlobIndexMap);
+        AlignedUpperBounds[DimNum - 1].push_back(
+            NewUBRef->getSingleCanonExpr());
+        AuxRefs.push_back(TargetLoop->getUpperDDRef());
+
+        LLVM_DEBUG(dbgs() << "UB after (" << Replaced << ") ");
+        LLVM_DEBUG(NewUBRef->dump(1); dbgs() << "\n");
+      } // end of InnermostLoop
+
+      // Uniq and get minimum of AlignedLowerBounds
+      removeDupCanonExprs(AlignedLowerBounds[DimNum - 1]);
+      std::pair<BlobTy, unsigned> MinBlob =
+          getGlobalMinMaxBlob<true>(AlignedLowerBounds[DimNum - 1]);
+      if (!MinBlob.first)
+        return false;
+
+      // Uniq and get maxium of AlignedLowerBounds
+      removeDupCanonExprs(AlignedUpperBounds[DimNum - 1]);
+      std::pair<BlobTy, unsigned> MaxBlob =
+          getGlobalMinMaxBlob<false>(AlignedUpperBounds[DimNum - 1]);
+      if (!MaxBlob.first)
+        return false;
+
+      LLVM_DEBUG(dbgs() << "== Alinged LowerBounds == \n";
+                 for (auto *Ref
+                      : AlignedLowerBounds[DimNum - 1]) {
+                   Ref->dump();
+                   dbgs() << "\n";
+                 });
+      LLVM_DEBUG(dbgs() << "= Aligned UpperBounds == \n";
+                 for (auto *Ref
+                      : AlignedUpperBounds[DimNum - 1]) {
+                   Ref->dump();
+                   dbgs() << "\n";
+                 });
+
+      ByStripLoopLowerBlobs[DimNum - 1] = MinBlob;
+      ByStripLoopUpperBlobs[DimNum - 1] = MaxBlob;
+
+      LLVM_DEBUG_PROFIT_REPORT(dbgs() << "ByStripLoop LB at DimNum " << DimNum
+                                      << " : ");
+      LLVM_DEBUG_PROFIT_REPORT(
+          BlobUtils &BU =
+              AlignedUpperBounds[DimNum - 1].front()->getBlobUtils();
+          BU.printBlob(dbgs(), MinBlob.first); dbgs() << "\n";);
+      LLVM_DEBUG_PROFIT_REPORT(dbgs() << "ByStripLoop UB at DimNum " << DimNum
+                                      << " : ");
+      LLVM_DEBUG_PROFIT_REPORT(
+          BlobUtils &BU =
+              AlignedUpperBounds[DimNum - 1].front()->getBlobUtils();
+          BU.printBlob(dbgs(), MaxBlob.first); dbgs() << "\n";);
+
+    } // end of dimnum
+
+    return true;
+  }
+
+  // For a dimension, where blocking is not done for the corresponding loop,
+  // stripmine size is set to zero.
+  bool isNoBlockDim(unsigned DimNum) const {
+    return StripmineSizes[DimNum - 1] == 0;
+  }
+
+  static void removeDupCanonExprs(SmallVectorImpl<CanonExpr *> &CEs) {
+    std::sort(CEs.begin(), CEs.end(),
+              [](const CanonExpr *R1, const CanonExpr *R2) {
+                return CanonExprUtils::compare(R1, R2);
+              });
+
+    auto Last = std::unique(CEs.begin(), CEs.end(),
+                            [](const CanonExpr *R1, const CanonExpr *R2) {
+                              return CanonExprUtils::areEqual(R1, R2);
+                            });
+
+    CEs.erase(Last, CEs.end());
+  }
+
+  // Return the loop matching DimNum.
+  // InnermostLoop and DimInfos are data to consult with.
+  const HLLoop *getLoopMatchingDimNum(unsigned DimNum,
+                                      ArrayRef<DimInfoTy> DimInfos,
+                                      const HLLoop *InnermostLoop) const {
+
+    // Subscript is either constant or blobs.
+    if (!DimInfos[DimNum - 1].hasIV())
+      return nullptr;
+
+    const HLLoop *TargetLoop = InnermostLoop;
+    for (int I = 0; I < DimInfos[DimNum - 1].LevelOffset; I++) {
+      TargetLoop = TargetLoop->getParentLoop();
+    }
+
+    return TargetLoop;
+  }
+
+  HLLoop *getLoopMatchingDimNum(unsigned DimNum, ArrayRef<DimInfoTy> DimInfos,
+                                HLLoop *InnermostLoop) {
+
+    return const_cast<HLLoop *>(
+        static_cast<const Transformer &>(*this).getLoopMatchingDimNum(
+            DimNum, DimInfos, const_cast<HLLoop *>(InnermostLoop)));
+  }
+
+  // Given a CE, get a corresponding blob.
+  static std::pair<BlobTy, unsigned>
+  getConstantOrSingleBlob(const CanonExpr *CE) {
+    BlobUtils &BU = CE->getBlobUtils();
+
+    int64_t Val;
+    if (CE->isIntConstant(&Val)) {
+      return std::make_pair(BU.createBlob(Val, CE->getDestType()),
+                            InvalidBlobIndex);
+    } else {
+      return std::make_pair(BU.getBlob(CE->getSingleBlobIndex()),
+                            CE->getSingleBlobIndex());
+    }
+  }
+
+  // Given an array of CEs, get a min(max) blob of all CEs.
+  template <bool IsMin>
+  static std::pair<BlobTy, unsigned>
+  getGlobalMinMaxBlob(ArrayRef<CanonExpr *> Bounds) {
+    assert(!Bounds.empty());
+
+    // TODO: eventually something similar has to go into
+    //       the legality checks. What is not so straightforward is that
+    //       when legality is checked, adjusted Loop Bounds are not
+    //       available.
+    for (auto *CE : make_range(Bounds.begin(), Bounds.end())) {
+      if (!CE->isIntConstant() && !CE->convertToStandAloneBlob()) {
+        return std::make_pair(nullptr, InvalidBlobIndex);
+      }
+    }
+
+    if (Bounds.size() == 1) {
+      return getConstantOrSingleBlob(Bounds[0]);
+    }
+
+    std::pair<BlobTy, unsigned> Blob1 = getConstantOrSingleBlob(Bounds[0]);
+    std::pair<BlobTy, unsigned> Blob2 = getConstantOrSingleBlob(Bounds[1]);
+    bool BlobsAreConstant =
+        isa<SCEVConstant>(Blob1.first) && isa<SCEVConstant>(Blob2.first);
+
+    BlobUtils &BU = Bounds[0]->getBlobUtils();
+    unsigned BlobIndex;
+    BlobTy LowerBlob = IsMin ? BU.createSMinBlob(Blob1.first, Blob2.first,
+                                                 !BlobsAreConstant, &BlobIndex)
+                             : BU.createSMaxBlob(Blob1.first, Blob2.first,
+                                                 !BlobsAreConstant, &BlobIndex);
+
+    for (auto *CE : make_range(std::next(Bounds.begin(), 2), Bounds.end())) {
+
+      std::pair<BlobTy, unsigned> Blob = getConstantOrSingleBlob(CE);
+      bool BlobsAreConstant =
+          isa<SCEVConstant>(LowerBlob) && isa<SCEVConstant>(Blob.first);
+      LowerBlob = IsMin ? BU.createSMinBlob(LowerBlob, Blob.first,
+                                            !BlobsAreConstant, &BlobIndex)
+                        : BU.createSMaxBlob(LowerBlob, Blob.first,
+                                            !BlobsAreConstant, &BlobIndex);
+    }
+
+    return std::make_pair(LowerBlob, BlobIndex);
+  }
+
+  // Given a ByStrip Loop, calculate the UB of the inner unit-strided loop
+  //    min (IV + step - 1, UB)
+  // where IV, step, and UB are induction var, loop step, and upperbound of
+  // the ByStrip loop.
+  // TODO: A candidate for a lambda function
+  HLInst *createTileEnd(HLLoop *ByStrip) const {
+    int64_t LoopStrideVal;
+    if (!ByStrip->getStrideCanonExpr()->isIntConstant(&LoopStrideVal)) {
+      llvm_unreachable("Only const stripmine sizes are supported!");
+    }
+
+    RegDDRef *MinOpr1 = ByStrip->getDDRefUtils().createConstDDRef(
+        ByStrip->getIVType(), LoopStrideVal - 1);
+    MinOpr1->getSingleCanonExpr()->addIV(ByStrip->getNestingLevel(),
+                                         InvalidBlobIndex, 1, true);
+    MinOpr1->makeConsistent({}, ByStrip->getNestingLevel());
+
+    // createMin is by-default Smin
+    HLInst *TileEnd = ByStrip->getHLNodeUtils().createMin(
+        MinOpr1, ByStrip->getUpperDDRef()->clone(), nullptr, true, true,
+        FastMathFlags(), "tile_e_min");
+
+    return TileEnd;
+  }
+
+private:
+  // In the order of DimNum, [DimNum = 1][DimNum = 2] .. and so on.
+  ArrayRef<unsigned> StripmineSizes;
+
+  const LoopToDimInfoTy &InnermostLoopToDimInfos;
+  const LoopToConstRefTy &InnermostLoopToRepRef;
+  // Loop enclosing all the spatial loopnests.
+  // Inside OutermostLoop, by-strip loops are generated.
+  HLLoop *OutermostLoop;
+  HIRDDAnalysis &DDA;
+
+  SmallVector<std::pair<BlobTy, unsigned>, 4> ByStripLoopLowerBlobs;
+  SmallVector<std::pair<BlobTy, unsigned>, 4> ByStripLoopUpperBlobs;
+
+  // Newly generated by-strip loops
+  SmallVector<HLLoop *, 4> ByStripLoops;
+  SmallVector<unsigned, 4> LiveInsOfAllSpatialLoop;
+
+  // Number of ByStrip loops. Could be different from StripmineSizes.size()
+  // because StripmineSizes can contain zeros.
+  unsigned NumByStripLoops;
+};
+
 // Collects a candidate set of spatial loops by
 // applying profitablity and legality checks.
 // Visitor is employed to collect a candidate sequence through
@@ -1511,6 +2078,48 @@ public:
 
     return FoundGoodCand;
   }
+
+  LoopToDimInfoTy getInnermostLoopToDimInfos() {
+    return InnermostLoopToDimInfos;
+  }
+
+  LoopToConstRefTy getInnermostLoopToRepRef() { return InnermostLoopToRepRef; }
+
+public:
+  void visit(HLLoop *Loop) {
+    markVisited(Loop);
+
+    if (!checkStructure(Loop)) {
+      return;
+    }
+
+    // Do profitablity check by adding the current loop.
+    if (!analyzeProfitablity(Loop)) {
+      // Profitablitly check failed with the current loop.
+      // See if the candidates so far without current loop
+      // look good.
+      stopAndWork(10, Loop);
+      SkipNode = Loop;
+      return;
+    }
+
+    // Do legality check by adding the current loop.
+    analyzeLegality(Loop);
+
+    // Adding the current loop to the exisiting candidates
+    // were both profitable and legal.
+    // The candidate set was extended by dding the current loop
+    // at this point.
+
+    // Innermost loop's body is already scanned by InnermostLoopAnalyzer.
+    SkipNode = Loop;
+  }
+
+  void visit(HLIf *HIf) { CheckerVisitor::visit(HIf); }
+  void visit(HLInst *HInst) { CheckerVisitor::visit(HInst); }
+  void visit(HLNode *Node) { CheckerVisitor::visit(Node); }
+
+private:
 
   bool analyzeLegality(HLLoop *Loop) {
 
@@ -1582,40 +2191,6 @@ public:
     return true;
   }
 
-  void visit(HLLoop *Loop) {
-    markVisited(Loop);
-
-    if (!checkStructure(Loop)) {
-      return;
-    }
-
-    // Do profitablity check by adding the current loop.
-    if (!analyzeProfitablity(Loop)) {
-      // Profitablitly check failed with the current loop.
-      // See if the candidates so far without current loop
-      // look good.
-      stopAndWork(10, Loop);
-      SkipNode = Loop;
-      return;
-    }
-
-    // Do legality check by adding the current loop.
-    analyzeLegality(Loop);
-
-    // Adding the current loop to the exisiting candidates
-    // were both profitable and legal.
-    // The candidate set was extended by dding the current loop
-    // at this point.
-
-    // Innermost loop's body is already scanned by InnermostLoopAnalyzer.
-    SkipNode = Loop;
-  }
-
-  void visit(HLIf *HIf) { CheckerVisitor::visit(HIf); }
-  void visit(HLInst *HInst) { CheckerVisitor::visit(HInst); }
-  void visit(HLNode *Node) { CheckerVisitor::visit(Node); }
-
-private:
   void reset() {
 
     ProfitabilityChecker::reset();
@@ -1654,9 +2229,21 @@ private:
     LLVM_DEBUG(PrevLCA->dump());
     LLVM_DEBUG_PROFIT_REPORT(dbgs() << "Legal\n");
 
-    bailOut();
+    setDone(true);
 
     FoundGoodCand = true;
+    return true;
+  }
+
+  bool verifyTopSortOrderOfInnermostLoops() const {
+    unsigned PrevNum = 0;
+    for (auto &Pair : InnermostLoopToDimInfos) {
+      unsigned Num = Pair.first->getTopSortNum();
+      if (PrevNum >= Num) {
+        return false;
+      }
+      PrevNum = Num;
+    }
     return true;
   }
 
@@ -1686,6 +2273,9 @@ private:
       return false;
     }
 
+    assert(verifyTopSortOrderOfInnermostLoops() &&
+           "InnermostLoops are not in Order.");
+
     // Legality check: check if any of ReadOnlyBasePtr is
     // in DefinedBasePtr.
     if (llvm::any_of(ReadOnlyBasePtr, [this](unsigned BasePtrIndex) {
@@ -1696,12 +2286,6 @@ private:
 
     return true;
   }
-
-  LoopToDimInfoTy getInnermostLoopToDimInfos() {
-    return InnermostLoopToDimInfos;
-  }
-
-  LoopToConstRefTy getInnermostLoopToRepRef() { return InnermostLoopToRepRef; }
 
 private:
   // OutermostLoop should be the same with PrevLCP.
@@ -1721,6 +2305,40 @@ private:
 
 bool isOptVarPredNeeded(const ProfitabilityChecker &PC) {
   return PC.hasIOCall();
+}
+
+bool doTransformation(const LoopToDimInfoTy &InnermostLoopToDimInfos,
+                      const LoopToConstRefTy &InnermostLoopToRepRef,
+                      HLLoop *OutermostLoop, HIRDDAnalysis &DDA,
+                      StringRef Func) {
+
+  if (DisableTransform) {
+    LLVM_DEBUG(dbgs() << "Transformation is disabled.\n");
+
+    return false;
+  }
+
+  if (!RewriteFilterFunc.empty() && !Func.equals(RewriteFilterFunc)) {
+    LLVM_DEBUG(dbgs() << "Transformation is disabled for function " << Func
+                      << "\n");
+
+    return false;
+  }
+
+  // Magic numbers.
+  unsigned Size = InnermostLoopToDimInfos.begin()->second.size();
+  SmallVector<unsigned, 4> PreSetStripmineSizes(Size, PresetStripmineSize);
+  if (Size == 3) {
+    PreSetStripmineSizes[0] = 0;
+    PreSetStripmineSizes[1] = 1;
+    PreSetStripmineSizes[2] = 8;
+  }
+
+  Transformer(PreSetStripmineSizes, InnermostLoopToDimInfos,
+              InnermostLoopToRepRef, OutermostLoop, DDA)
+      .rewrite();
+
+  return true;
 }
 
 // Main driver for HIRInterLoopBlocking.
@@ -1754,12 +2372,15 @@ bool driver(HIRFramework &HIRF, HIRArraySectionAnalysis &HASA,
   if (!isOptVarPredNeeded(PC)) {
     // Needed to lit-test cases
     LLVM_DEBUG(PC.getOutermostLoop()->dump());
-    bool FoundLegalAndProfitableCand =
-        ProfitablityAndLegalityChecker(HIRF, HASA, DDA, PC.getOutermostLoop(),
-                                       FuncName)
-            .run();
 
-    return FoundLegalAndProfitableCand;
+    ProfitablityAndLegalityChecker Checker(HIRF, HASA, DDA,
+                                           PC.getOutermostLoop(), FuncName);
+    bool FoundLegalAndProfitableCand = Checker.run();
+    if (FoundLegalAndProfitableCand) {
+      return doTransformation(Checker.getInnermostLoopToDimInfos(),
+                              Checker.getInnermostLoopToRepRef(),
+                              Checker.getOutermostLoop(), DDA, FuncName);
+    }
   }
 
   SmallVector<HLLoop *, 3> OutLoops;
@@ -1792,12 +2413,16 @@ bool driver(HIRFramework &HIRF, HIRArraySectionAnalysis &HASA,
   }
 
   // Heuristic: try to work only on OutLoops.back()
-  bool FoundLegalAndProfitableCand =
-      ProfitablityAndLegalityChecker(HIRF, HASA, DDA,
-                                     OutLoops[OutLoops.size() - 1], FuncName)
-          .run();
+  ProfitablityAndLegalityChecker Checker(
+      HIRF, HASA, DDA, OutLoops[OutLoops.size() - 1], FuncName);
+  bool FoundLegalAndProfitableCand = Checker.run();
+  if (FoundLegalAndProfitableCand) {
+    return doTransformation(Checker.getInnermostLoopToDimInfos(),
+                            Checker.getInnermostLoopToRepRef(),
+                            Checker.getOutermostLoop(), DDA, FuncName);
+  }
 
-  return FoundLegalAndProfitableCand;
+  return false;
 }
 } // namespace
 
