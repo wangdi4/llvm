@@ -1,14 +1,15 @@
 set (TARGET_NAME_PREFIX ${OCL_LIBRARY_KERNEL_TARGET_NAME})
 project(${TARGET_NAME_PREFIX})
 
-set(RTL_TARGET_NAME ${TARGET_NAME_PREFIX}${OCL_OUTPUT_EXTENSION})
-set(TMP_RTL_TARGET_NAME ${TARGET_NAME_PREFIX}_tmp${OCL_OUTPUT_EXTENSION})
+set(RTL_TARGET_NAME ${TARGET_NAME_PREFIX})
+set(TMP_RTL_TARGET_NAME ${TARGET_NAME_PREFIX}_tmp)
 set(INTERMEDIATE_OUTPUT_DIR ${CMAKE_CURRENT_BINARY_DIR})
 # target directory for OCL .rtl and .o files
 set (LIBRARY_OUTPUT_DIR ${OCL_OUTPUT_LIBRARY_DIR})
 
 function(add_ocl_kernel_tmp_rtl CLANG_FLAGS INPUT_CL TMP_DIR OUTPUT_RTL)
-  set(OUTPUT_FILE ${TMP_DIR}/${TMP_RTL_TARGET_NAME})
+  set(TMP_RTL_FILE ${TMP_RTL_TARGET_NAME}${OCL_OUTPUT_EXTENSION})
+  set(OUTPUT_FILE ${TMP_DIR}/${TMP_RTL_FILE})
   get_filename_component(FILENAME ${INPUT_CL} NAME)
   set(OUTPUT_BC_FILE ${FILENAME}.bc)
   add_custom_command(OUTPUT ${OUTPUT_FILE}
@@ -21,7 +22,7 @@ function(add_ocl_kernel_tmp_rtl CLANG_FLAGS INPUT_CL TMP_DIR OUTPUT_RTL)
             -prepare-kernel-args -inline -dce -globaldce -instcombine
             -cleanup-wrapped-kernels
             -o ${OUTPUT_FILE}
-    COMMENT "Compiling ${TMP_RTL_TARGET_NAME}"
+    COMMENT "Compiling ${TMP_RTL_FILE}"
   )
 
   add_custom_target(${TMP_RTL_TARGET_NAME} ALL
@@ -37,11 +38,12 @@ function(add_ocl_kernel_tmp_rtl CLANG_FLAGS INPUT_CL TMP_DIR OUTPUT_RTL)
 endfunction()
 
 function(create_ocl_kernel_rtl_target INPUT_RTL OUTPUT_DIR)
-  set(OUTPUT_FILE ${OUTPUT_DIR}/${RTL_TARGET_NAME})
+  set(RTL_FILE ${RTL_TARGET_NAME}${OCL_OUTPUT_EXTENSION})
+  set(OUTPUT_FILE ${OUTPUT_DIR}/${RTL_FILE})
   add_custom_command(OUTPUT ${OUTPUT_FILE}
     DEPENDS  ${OPT} ${TMP_RTL_TARGET_NAME} ${INPUT_RTL}
     COMMAND ${OPT} ${INPUT_RTL} -strip-intel-ip -o ${OUTPUT_FILE}
-    COMMENT "Compiling ${RTL_TARGET_NAME}"
+    COMMENT "Compiling ${RTL_FILE}"
   )
 
   add_custom_target(${RTL_TARGET_NAME} ALL
