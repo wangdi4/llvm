@@ -62,12 +62,6 @@ NativeSubgroups("native-subgroups",
                                "Default value - false."),
                 llvm::cl::init(false));
 
-llvm::cl::opt<bool>
-EnableSubgroupEmulation("enable-subgroup-emulation",
-                llvm::cl::desc("Enable subgroup emulation. "
-                               "Default value - true."),
-                llvm::cl::init(true));
-
 llvm::cl::opt<VectorizerType>
 OptVectorizerType("vectorizer-type",
                llvm::cl::desc("Specify vectorizer type. "

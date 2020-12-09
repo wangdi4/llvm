@@ -36,7 +36,6 @@ public:
         m_vectorizerType =
           runConfig.GetValue<VectorizerType>(RC_BR_VECTORIZER_TYPE, DEFAULT_VECTORIZER);
         m_nativeSubgroups = runConfig.GetValue<bool>(RC_BR_NATIVE_SUBGROUPS, false);
-        m_enableSubgroupEmulation = runConfig.GetValue<bool>(RC_BR_ENABLE_SUBGROUP_EMULATION, true);
     }
 
 
@@ -59,8 +58,6 @@ public:
             return m_DisableStackDump;
         case CL_DEV_BACKEND_OPTION_NATIVE_SUBGROUPS:
             return m_nativeSubgroups;
-        case CL_DEV_BACKEND_OPTION_SUBGROUP_EMULATION:
-            return m_enableSubgroupEmulation;
         default:
             return defaultValue;
         }
@@ -88,7 +85,6 @@ private:
     bool        m_DisableStackDump;
     VectorizerType m_vectorizerType;
     bool        m_nativeSubgroups;
-    bool        m_enableSubgroupEmulation;
 };
 
 
