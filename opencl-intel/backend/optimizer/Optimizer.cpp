@@ -1047,9 +1047,7 @@ Optimizer::GetInvalidFunctions(InvalidFunctionType Ty) {
 }
 
 void Optimizer::initializePasses() {
-  // Initialize passes so that -print-after/-print-before work. In release
-  // build, dumping IR is not allowed, so there's no need to do initialization.
-#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
+  // Initialize passes so that -print-after/-print-before work.
   PassRegistry &Registry = *PassRegistry::getPassRegistry();
   initializeCore(Registry);
   initializeCoroutines(Registry);
@@ -1092,7 +1090,6 @@ void Optimizer::initializePasses() {
   initializeOptimizeDynamicCastsWrapperPass(Registry);
 
   initializeOCLPasses(Registry);
-#endif
 }
 
 }}}
