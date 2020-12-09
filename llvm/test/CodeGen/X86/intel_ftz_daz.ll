@@ -20,8 +20,8 @@ define dso_local i32 @main() #0 {
 ;
 ; NO-INIT-LABEL: main:
 ; NO-INIT:       # %bb.0: # %entry
-; NO-INIT-NEXT:    movl $0, -{{[0-9]+}}(%rsp)
 ; NO-INIT-NEXT:    xorl %eax, %eax
+; NO-INIT-NEXT:    movl $0, -{{[0-9]+}}(%rsp)
 ; NO-INIT-NEXT:    retq
 ;
 ; CHECK-PINIT-FTZ-LABEL: main:
