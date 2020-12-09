@@ -269,7 +269,7 @@ private:
 
     size_t getSize() const override {
       const auto *Var = cast<GlobalVariable>(getAddress());
-      auto *VarType = Var->getType()->getPointerElementType();
+      auto *VarType = Var->getValueType();
       // Global variables have pointer type always.
       // For the purpose of the size calculation, we have to
       // get the pointee's type.
