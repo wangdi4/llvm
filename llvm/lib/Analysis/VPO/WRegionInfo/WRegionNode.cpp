@@ -847,13 +847,17 @@ void WRegionNode::extractQualOpndList(const Use *Args, unsigned NumArgs,
                                       ClauseTy &C) {
   bool IsUseDeviceAddr = false;
   int ClauseID = ClauseInfo.getId();
+  bool IsPointerToPointer = ClauseInfo.getIsPointerToPointer();
   if (ClauseID == QUAL_OMP_USE_DEVICE_ADDR) {
     ClauseID = QUAL_OMP_USE_DEVICE_PTR;
     IsUseDeviceAddr = true;
+    if (ClauseInfo.getIsArraySection())
+      if (PointerType *PtrTy = cast<PointerType>(Args[0]->getType()))
+        if (isa<PointerType>(PtrTy->getElementType()))
+          IsPointerToPointer = true;
   }
   C.setClauseID(ClauseID);
   bool IsByRef = ClauseInfo.getIsByRef();
-  bool IsPointerToPointer = ClauseInfo.getIsPointerToPointer();
   for (unsigned I = 0; I < NumArgs; ++I) {
     Value *V = Args[I];
     C.add(V);
@@ -861,10 +865,6 @@ void WRegionNode::extractQualOpndList(const Use *Args, unsigned NumArgs,
       C.back()->setIsByRef(true);
     if (IsPointerToPointer)
       C.back()->setIsPointerToPointer(true);
-    if (IsUseDeviceAddr) {
-      UseDevicePtrItem *UDPI = cast<UseDevicePtrItem>(C.back());
-      UDPI->setIsUseDeviceAddr(true);
-    }
 #if INTEL_CUSTOMIZATION
     if (!CurrentBundleDDRefs.empty() &&
         WRegionUtils::supportsRegDDRefs(ClauseID))
@@ -874,6 +874,14 @@ void WRegionNode::extractQualOpndList(const Use *Args, unsigned NumArgs,
     C.back()->setIsCptr(ClauseInfo.getIsCptr());
     C.back()->setIsWILocal(ClauseInfo.getIsWILocal());
 #endif // INTEL_CUSTOMIZATION
+    if (IsUseDeviceAddr) {
+      UseDevicePtrItem *UDPI = cast<UseDevicePtrItem>(C.back());
+      UDPI->setIsUseDeviceAddr(true);
+      if (ClauseInfo.getIsArraySection())
+      // For array section operands to use_device_addr clause, only the
+      // base pointer operand is relevant, rest is ignored.
+        break;
+    }
   }
 }
 
