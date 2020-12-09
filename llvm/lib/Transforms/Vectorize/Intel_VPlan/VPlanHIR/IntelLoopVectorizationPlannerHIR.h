@@ -73,6 +73,11 @@ public:
   /// successful, false if there was any late bailout during CG.
   bool executeBestPlan(VPOCodeGenHIR *CG, unsigned UF);
 
+  /// Return Loop Unroll Factor either forced by option or pragma
+  /// or advised by optimizations.
+  /// \p Forced indicates that Unroll Factor is forced.
+  virtual unsigned getLoopUnrollFactor(bool *Forced = nullptr);
+
   /// Return a pair of the <min, max> types' width used in the underlying loop.
   std::pair<unsigned, unsigned> getTypesWidthRangeInBits() const final {
     // FIXME: Implement this!
