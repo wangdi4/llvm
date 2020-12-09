@@ -680,6 +680,12 @@ __m512h test_mm512_maskz_max_round_ph(__mmask32 __U, __m512h __A, __m512h __B) {
   return _mm512_maskz_max_round_ph(__U,__A,__B,_MM_FROUND_NO_EXC);
 }
 
+__m512h test_mm512_abs_ph(__m512h a) {
+  // CHECK-LABEL: @test_mm512_abs_ph
+  // CHECK: and <16 x i32>
+  return _mm512_abs_ph(a);
+}
+
 __m512h test_mm512_conj_pch(__m512h __A) {
   // CHECK-LABEL: @test_mm512_conj_pch
   // CHECK:  %{{.*}} = bitcast <32 x half> %{{.*}} to <16 x float>
@@ -1472,6 +1478,48 @@ __m128h test_mm_maskz_load_sh(__mmask8 __U, const void * __W)
   return _mm_maskz_load_sh (__U, __W);
 }
 
+__m512h test_mm512_load_ph(void *p)
+{
+  // CHECK-LABEL: @test_mm512_load_ph
+  // CHECK: load <32 x half>, <32 x half>* %{{.*}}, align 64
+  return _mm512_load_ph(p);
+}
+
+__m256h test_mm256_load_ph(void *p)
+{
+  // CHECK-LABEL: @test_mm256_load_ph
+  // CHECK: load <16 x half>, <16 x half>* %{{.*}}, align 32
+  return _mm256_load_ph(p);
+}
+
+__m128h test_mm_load_ph(void *p)
+{
+  // CHECK-LABEL: @test_mm_load_ph
+  // CHECK: load <8 x half>, <8 x half>* %{{.*}}, align 16
+  return _mm_load_ph(p);
+}
+
+__m512h test_mm512_loadu_ph(void *p)
+{
+  // CHECK-LABEL: @test_mm512_loadu_ph
+  // CHECK: load <32 x half>, <32 x half>* {{.*}}, align 1{{$}}
+  return _mm512_loadu_ph(p);
+}
+
+__m256h test_mm256_loadu_ph(void *p)
+{
+  // CHECK-LABEL: @test_mm256_loadu_ph
+  // CHECK: load <16 x half>, <16 x half>* {{.*}}, align 1{{$}}
+  return _mm256_loadu_ph(p);
+}
+
+__m128h test_mm_loadu_ph(void *p)
+{
+  // CHECK-LABEL: @test_mm_loadu_ph
+  // CHECK: load <8 x half>, <8 x half>* {{.*}}, align 1{{$}}
+  return _mm_loadu_ph(p);
+}
+
 void test_mm_store_sh(void * A, __m128h B) {
   // CHECK-LABEL: test_mm_store_sh
   // CHECK: extractelement <8 x half> %{{.*}}, i32 0
@@ -1484,6 +1532,51 @@ void test_mm_mask_store_sh(void * __P, __mmask8 __U, __m128h __A)
   // CHECK-LABEL: @test_mm_mask_store_sh
   // CHECK: call void @llvm.masked.store.v8f16.p0v8f16(<8 x half> %{{.*}}, <8 x half>* %{{.*}}, i32 1, <8 x i1> %{{.*}})
   _mm_mask_store_sh(__P, __U, __A);
+}
+
+void test_mm512_store_ph(void *p, __m512h a)
+{
+  // CHECK-LABEL: @test_mm512_store_ph
+  // CHECK: store <32 x half> %{{.*}}, <32 x half>* %{{.*}}, align 64
+  _mm512_store_ph(p, a);
+}
+
+void test_mm256_store_ph(void *p, __m256h a)
+{
+  // CHECK-LABEL: @test_mm256_store_ph
+  // CHECK: store <16 x half> %{{.*}}, <16 x half>* %{{.*}}, align 32
+  _mm256_store_ph(p, a);
+}
+
+void test_mm_store_ph(void *p, __m128h a)
+{
+  // CHECK-LABEL: @test_mm_store_ph
+  // CHECK: store <8 x half> %{{.*}}, <8 x half>* %{{.*}}, align 16
+  _mm_store_ph(p, a);
+}
+
+void test_mm512_storeu_ph(void *p, __m512h a)
+{
+  // CHECK-LABEL: @test_mm512_storeu_ph
+  // CHECK: store <32 x half> %{{.*}}, <32 x half>* %{{.*}}, align 1{{$}}
+  // CHECK-NEXT: ret void
+  _mm512_storeu_ph(p, a);
+}
+
+void test_mm256_storeu_ph(void *p, __m256h a)
+{
+  // CHECK-LABEL: @test_mm256_storeu_ph
+  // CHECK: store <16 x half> %{{.*}}, <16 x half>* %{{.*}}, align 1{{$}}
+  // CHECK-NEXT: ret void
+  _mm256_storeu_ph(p, a);
+}
+
+void test_mm_storeu_ph(void *p, __m128h a)
+{
+  // CHECK-LABEL: @test_mm_storeu_ph
+  // CHECK: store <8 x half> %{{.*}}, <8 x half>* %{{.*}}, align 1{{$}}
+  // CHECK-NEXT: ret void
+  _mm_storeu_ph(p, a);
 }
 
 __m128h test_mm_move_sh(__m128h A, __m128h B) {
