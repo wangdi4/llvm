@@ -1136,6 +1136,17 @@ void VPCallInstruction::printImpl(raw_ostream &O) const {
     O << " [x " << getPumpFactor() << "]";
     break;
   }
+  case CallVecScenarios::UnmaskedWiden: {
+    if (VecProperties.MatchedVecVariant) {
+      O << getVectorVariant()->toString();
+    } else {
+      O << "<VecVariant for ";
+      CalledValue->printAsOperand(O);
+      O << ">";
+    }
+    O << " [UnmaskedWiden]";
+    break;
+  }
   default:
     llvm_unreachable("Unexpected VecScenario.");
   }

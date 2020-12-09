@@ -1107,6 +1107,25 @@ void VPOCodeGen::vectorizeInstruction(VPInstruction *VPInst) {
       ++OptRptStats.VectorMathCalls;
       return;
     }
+    case VPCallInstruction::CallVecScenariosTy::UnmaskedWiden: {
+      auto *NotAllZero = getMaskNotAllZero();
+      VectorVariant *MatchedVariant =
+          const_cast<VectorVariant *>(VPCall->getVectorVariant());
+      if (!MatchedVariant)
+        report_fatal_error("No matching vector variant for an unmasked call!");
+      SmallVector<Value *, 4> CallResults;
+      generateVectorCalls(VPCall, 1 /* PumpFactor */, false /* IsMasked */, MatchedVariant,
+                          Intrinsic::not_intrinsic /*No vector intrinsic*/,
+                          CallResults);
+      assert(CallResults.size() == 1 && "Pumping is unexpected for unmasked functions!");
+      VPWidenMap[VPCall] = CallResults[0];
+
+      PredicatedInstructions.emplace_back(cast<Instruction>(CallResults[0]),
+                                          NotAllZero);
+      // TODO: Is that good enough?
+      ++OptRptStats.VectorVariantCalls;
+      return;
+    }
     case VPCallInstruction::CallVecScenariosTy::VectorVariant: {
       // Call that can be vectorized using SIMD vector-variants.
       vectorizeVecVariant(VPCall);

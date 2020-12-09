@@ -1892,7 +1892,12 @@ private:
     // intrinsics with scalar-only semantics.
     // B) uniformity of operands when used in deterministic function calls with
     // no side-effects.
-    DoNotWiden
+    DoNotWiden,
+    // Use associated vector-variants but ignore the mask at the call side - the
+    // purpose is to "switch" vectorization dimension and the callee is expected
+    // to start with all-ones mask. No pumping is allowed here as well and the
+    // inability to match vector-variant isn't expected.
+    UnmaskedWiden
   };
 
   /// Tracks the decision taken on how to vectorize this VPCallInst for given
@@ -1918,6 +1923,9 @@ public:
     // serialized.
     if (OrigCall->hasFnAttr("kernel-uniform-call"))
       VecScenario = CallVecScenarios::DoNotWiden;
+
+    if (OrigCall->hasFnAttr("unmasked"))
+      VecScenario = CallVecScenarios::UnmaskedWiden;
   }
 
   /// Helper utility to access underlying CallInst corresponding to this
@@ -1999,7 +2007,12 @@ public:
     if (VecScenario == CallVecScenarios::DoNotWiden)
       return;
 
-    VecScenario = CallVecScenarios::Undefined;
+    if (VecScenario != CallVecScenarios::UnmaskedWiden) {
+      // UnmaskedWiden needs the resets below (mainly the MatchedVecvariant),
+      // but the scenario itself is set in stone.
+      VecScenario = CallVecScenarios::Undefined;
+    }
+
     VecProperties.MatchedVecVariant = nullptr;
     VecProperties.MatchedVecVariantIndex = 0;
     VecProperties.VectorLibraryFn = None;
@@ -2009,7 +2022,8 @@ public:
   }
 
   /// Setter functions for different possible states of VecScenario.
-  // Scenario 1 : Serialization.
+
+  // Serialization.
   void setShouldBeSerialized() {
     assert(VecScenario == CallVecScenarios::Undefined &&
            "Inconsistent scenario update.");
@@ -2018,7 +2032,8 @@ public:
           "Calls with kernel-call-once attributes cannot be serialized.");
     VecScenario = CallVecScenarios::Serialization;
   }
-  // Scenario 2 : Vectorization using vector library functions (like SVML).
+
+  // Vectorization using vector library functions (like SVML).
   void setVectorizeWithLibraryFn(StringRef VecLibFn, unsigned PumpFactor = 1) {
     assert(!VecLibFn.empty() && "Invalid VecLibFn.");
     assert(VecScenario == CallVecScenarios::Undefined &&
@@ -2030,7 +2045,19 @@ public:
     VecProperties.VectorLibraryFn = VecLibFn;
     VecProperties.PumpFactor = PumpFactor;
   }
-  // Scenario 3 : Vectorization using SIMD vector variant.
+
+  // Unmasked widening - the scenario itself is immutable, but some data is
+  // VF-dependent.
+  void setUnmaskedVectorVariant(std::unique_ptr<VectorVariant> &VecVariant,
+                                unsigned VecVariantIndex) {
+    assert(VecVariant && "Can't set null vector variant.");
+    assert(VecScenario == CallVecScenarios::UnmaskedWiden &&
+           "Inconsistent scenario update.");
+    VecProperties.MatchedVecVariant = VecVariant.release();
+    VecProperties.MatchedVecVariantIndex = VecVariantIndex;
+  }
+
+  // Vectorization using SIMD vector variant.
   void setVectorizeWithVectorVariant(std::unique_ptr<VectorVariant> &VecVariant,
                                      unsigned VecVariantIndex,
                                      bool UseMaskedForUnmasked = false,
@@ -2047,14 +2074,16 @@ public:
     VecProperties.UseMaskedForUnmasked = UseMaskedForUnmasked;
     VecProperties.PumpFactor = PumpFactor;
   }
-  // Scenario 4 : Trivially vectorizable calls using intrinsics.
+
+  // Trivially vectorizable calls using intrinsics.
   void setVectorizeWithIntrinsic(Intrinsic::ID VectorInrinID) {
     assert(VecScenario == CallVecScenarios::Undefined &&
            "Inconsistent scenario update.");
     VecScenario = CallVecScenarios::TrivialVectorIntrinsic;
     VecProperties.VectorIntrinsic = VectorInrinID;
   }
-  // Scenario 5 : Call should not be widened in outgoing IR.
+
+  // Call should not be widened in outgoing IR.
   void setShouldNotBeWidened() {
     assert(VecScenario == CallVecScenarios::Undefined &&
            "Inconsistent scenario update.");
@@ -2073,7 +2102,8 @@ public:
   }
   /// Getters for matched vector variant.
   const VectorVariant *getVectorVariant() const {
-    assert(VecScenario == CallVecScenarios::VectorVariant &&
+    assert((VecScenario == CallVecScenarios::VectorVariant ||
+            VecScenario == CallVecScenarios::UnmaskedWiden) &&
            "Can't get VectorVariant for mismatched scenario.");
     return VecProperties.MatchedVecVariant;
   }
