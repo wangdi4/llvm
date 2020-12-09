@@ -838,6 +838,9 @@ void PassManagerBuilder::addFunctionSimplificationPasses(
 #endif // INTEL_CUSTOMIZATION
   MPM.add(createSCCPPass());                  // Constant prop with SCCP
 
+  if (EnableConstraintElimination)
+    MPM.add(createConstraintEliminationPass());
+
   // Delete dead bit computations (instcombine runs after to fold away the dead
   // computations, and then ADCE will run later to exploit any new DCE
   // opportunities that creates).
@@ -1858,6 +1861,9 @@ void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
   PM.add(createLoopDeletionPass());
   if (EnableLoopInterchange)
     PM.add(createLoopInterchangePass());
+
+  if (EnableConstraintElimination)
+    PM.add(createConstraintEliminationPass());
 
 #if INTEL_CUSTOMIZATION
   // HIR complete unroll pass replaces LLVM's simple loop unroll pass.
