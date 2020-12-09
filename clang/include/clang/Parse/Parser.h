@@ -48,7 +48,6 @@ namespace clang {
   class PoisonSEHIdentifiersRAIIObject;
   class OMPClause;
   class ObjCTypeParamList;
-  class ObjCTypeParameter;
   struct OMPTraitProperty;
   struct OMPTraitSelector;
   struct OMPTraitSet;
@@ -701,10 +700,6 @@ private:
   /// Handle the annotation token produced for
   /// #pragma ms_struct...
   void HandlePragmaMSStruct();
-
-  /// Handle the annotation token produced for
-  /// #pragma comment...
-  void HandlePragmaMSComment();
 
   void HandlePragmaMSPointersToMembers();
 
@@ -1764,7 +1759,6 @@ private:
 
   ParsedType ParseObjCTypeName(ObjCDeclSpec &DS, DeclaratorContext Ctx,
                                ParsedAttributes *ParamAttrs);
-  void ParseObjCMethodRequirement();
   Decl *ParseObjCMethodPrototype(
             tok::ObjCKeywordKind MethodImplKind = tok::objc_not_keyword,
             bool MethodDefinition = true);
@@ -1861,7 +1855,6 @@ private:
                                                      ParsedType &CastTy,
                                                      SourceRange &CastRange);
 
-  typedef SmallVector<Expr*, 20> ExprListTy;
   typedef SmallVector<SourceLocation, 20> CommaLocsTy;
 
   /// ParseExpressionList - Used for C/C++ (argument-)expression-list.
@@ -3454,8 +3447,6 @@ private:
   NamedDecl *ParseNonTypeTemplateParameter(unsigned Depth, unsigned Position);
   bool isTypeConstraintAnnotation();
   bool TryAnnotateTypeConstraint();
-  NamedDecl *
-  ParseConstrainedTemplateTypeParameter(unsigned Depth, unsigned Position);
   void DiagnoseMisplacedEllipsis(SourceLocation EllipsisLoc,
                                  SourceLocation CorrectLoc,
                                  bool AlreadyHasEllipsis,
