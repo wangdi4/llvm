@@ -202,6 +202,9 @@ private:
   /// Serialize instruction that requires predication.
   void serializeWithPredication(VPInstruction *VPInst);
 
+  /// Create a series of instruction resulting in !all-zero(current-block-mask).
+  Value *getMaskNotAllZero();
+
   /// Specialized method to handle predication of a uniform instruction. This
   /// function generates a single scalar instruction predicated by a
   /// not all-zero check.
