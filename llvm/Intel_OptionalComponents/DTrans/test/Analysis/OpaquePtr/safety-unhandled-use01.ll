@@ -2,6 +2,13 @@
 ; RUN: opt -whole-program-assume -dtrans-safetyanalyzer -dtrans-print-types -disable-output %s 2>&1 | FileCheck %s
 ; RUN: opt -whole-program-assume -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types -disable-output %s 2>&1 | FileCheck %s
 
+; Test that instructions not explicitly modeled in the DTransSafetyAnalyzer
+; result in the "Unhandled use" safety flag.
+
+; The 'trunc' instruction is not modeled because there are no known ways that it
+; can produce a safe result for DTrans when the operand represents a pointer
+; value. This should result in the structure type being marked as "Unhandled
+; use".
 %struct.test01 = type { i32, i32 }
 define i32 @test01(%struct.test01* %pStruct) !dtrans_type !2 {
   %full = ptrtoint %struct.test01* %pStruct to i64
