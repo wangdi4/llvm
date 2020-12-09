@@ -18,8 +18,8 @@ omp.inner.for.body:
   %indvars.iv = phi i64 [ 0, %DIR.OMP.SIMD.1 ], [ %indvars.iv.next, %omp.inner.for.body ]
   %trunc = trunc i64 %indvars.iv to i32
   %call = tail call i32 @foo(i32 %trunc)
-; FIXME: Calling convention mismatch is UB and the call will be changed into unreachable by later passes.
-; CHECK: call <4 x i32> @_ZGVbN4v_foo(<4 x i32> {{.*}})
+; Ensure that calling convention matches that of the function declaration.
+; CHECK: call fastcc <4 x i32> @_ZGVbN4v_foo(<4 x i32> {{.*}})
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, 1000
   br i1 %exitcond, label %omp.loop.exit, label %omp.inner.for.body

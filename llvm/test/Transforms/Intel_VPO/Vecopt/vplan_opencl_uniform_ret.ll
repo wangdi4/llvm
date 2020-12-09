@@ -43,7 +43,7 @@ loop:                                             ; preds = %loop, %simd.loop
   ; now we don't have the masked versions with run-time all-zero bypass check
   ; for the mask).
   %all = tail call spir_func i32 @_Z13sub_group_alli(i32 %1) #7
-  ; CHECK: call <4 x i32> @_Z13sub_group_allDv4_i(<4 x i32> %wide.load)
+  ; CHECK: call spir_func <4 x i32> @_Z13sub_group_allDv4_i(<4 x i32> %wide.load)
   %cond = icmp eq i32 %all, 0
   br i1 %cond, label %loop, label %exit
 

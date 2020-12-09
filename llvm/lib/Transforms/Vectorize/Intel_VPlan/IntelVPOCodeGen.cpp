@@ -2714,6 +2714,7 @@ void VPOCodeGen::generateVectorCalls(VPCallInstruction *VPCall,
                                   VectorIntrinID, MatchedVariant, IsMasked);
     assert(VectorF && "Can't create vector function.");
     CallInst *VecCall = Builder.CreateCall(VectorF, VecArgs);
+    VecCall->setCallingConv(VectorF->getCallingConv());
     CallResults.push_back(VecCall);
 
     // Copy fast math flags represented in VPInstruction.
