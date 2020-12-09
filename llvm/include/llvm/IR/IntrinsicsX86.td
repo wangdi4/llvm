@@ -6861,6 +6861,14 @@ let TargetPrefix = "x86" in {
       : GCCBuiltin<"__builtin_ia32_tmovadvise_store">,
         Intrinsic<[], [llvm_ptr_ty, llvm_i64_ty, llvm_i8_ty, llvm_i8_ty],
                   [ImmArg<ArgIndex<2>>, ImmArg<ArgIndex<3>>]>;
+  def int_x86_t2rpntlvwz0advise
+      : GCCBuiltin<"__builtin_ia32_t2rpntlvwz0advise">,
+        Intrinsic<[], [llvm_i8_ty, llvm_ptr_ty, llvm_i64_ty, llvm_i32_ty],
+        [ImmArg<ArgIndex<0>>, ImmArg<ArgIndex<3>>]>;
+  def int_x86_t2rpntlvwz1advise
+      : GCCBuiltin<"__builtin_ia32_t2rpntlvwz1advise">,
+        Intrinsic<[], [llvm_i8_ty, llvm_ptr_ty, llvm_i64_ty, llvm_i32_ty],
+        [ImmArg<ArgIndex<0>>, ImmArg<ArgIndex<3>>]>;
 }
 #endif // INTEL_FEATURE_ISA_AMX_MEMADVISE
 
