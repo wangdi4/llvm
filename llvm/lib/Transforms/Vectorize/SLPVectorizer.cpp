@@ -5905,14 +5905,30 @@ int BoUpSLP::getEntryCost(TreeEntry *E) {
         ReuseShuffleCost -= (ReuseShuffleNumbers - VL.size()) * ScalarEltCost;
       }
       int ScalarLdCost = VecTy->getNumElements() * ScalarEltCost;
-#if INTEL_CUSTOMIZATION
-      // TODO: Cost modeling for split-load is definitely missed.
-      // Need to implement it.
-#endif // INTEL_CUSTOMIZATION
       int VecLdCost;
       if (E->State == TreeEntry::Vectorize) {
         VecLdCost = TTI->getMemoryOpCost(Instruction::Load, VecTy, alignment, 0,
                                          CostKind, VL0);
+#if INTEL_CUSTOMIZATION
+        // Cost modeling for split-load.
+        if (!E->SplitLoadGroups.empty()) {
+          // Cost of all loads.
+          unsigned Size = std::get<1>(E->SplitLoadGroups.back());
+          unsigned NumElems = E->SplitLoadGroups.size();
+          VecLdCost = NumElems *
+                      TTI->getMemoryOpCost(Instruction::Load,
+                                           FixedVectorType::get(ScalarTy, Size),
+                                           alignment, 0, CostKind, VL0);
+          // Cost of shuffles.
+          do {
+            Size *= 2;
+            NumElems /= 2;
+            VecLdCost += NumElems * TTI->getShuffleCost(
+                                        TargetTransformInfo::SK_PermuteTwoSrc,
+                                        FixedVectorType::get(ScalarTy, Size));
+          } while (NumElems > 1);
+        }
+#endif // INTEL_CUSTOMIZATION
       } else {
         assert(E->State == TreeEntry::ScatterVectorize && "Unknown EntryState");
         VecLdCost = TTI->getGatherScatterOpCost(
