@@ -6872,6 +6872,19 @@ let TargetPrefix = "x86" in {
 }
 #endif // INTEL_FEATURE_ISA_AMX_MEMADVISE
 
+#if INTEL_FEATURE_ISA_AMX_MEMADVISE_EVEX
+let TargetPrefix = "x86" in {
+  def int_x86_t2rpntlvwz0advisee
+      : GCCBuiltin<"__builtin_ia32_t2rpntlvwz0advisee">,
+        Intrinsic<[], [llvm_i8_ty, llvm_ptr_ty, llvm_i64_ty, llvm_i32_ty],
+                  [ImmArg<ArgIndex<0>>, ImmArg<ArgIndex<3>>]>;
+  def int_x86_t2rpntlvwz1advisee
+      : GCCBuiltin<"__builtin_ia32_t2rpntlvwz1advisee">,
+        Intrinsic<[], [llvm_i8_ty, llvm_ptr_ty, llvm_i64_ty, llvm_i32_ty],
+                  [ImmArg<ArgIndex<0>>, ImmArg<ArgIndex<3>>]>;
+}
+#endif // INTEL_FEATURE_ISA_AMX_MEMADVISE_EVEX
+
 #if INTEL_FEATURE_ISA_AMX_COMPLEX
 let TargetPrefix = "x86" in {
   def int_x86_tcmmimfp16ps : GCCBuiltin<"__builtin_ia32_tcmmimfp16ps">,

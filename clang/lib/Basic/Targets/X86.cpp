@@ -370,6 +370,10 @@ bool X86TargetInfo::handleTargetFeatures(std::vector<std::string> &Features,
     } else if (Feature == "+amx-memadvise") {
       HasAMXMEMADVISE = true;
 #endif // INTEL_FEATURE_ISA_AMX_MEMADVISE
+#if INTEL_FEATURE_ISA_AMX_MEMADVISE_EVEX
+    } else if (Feature == "+amx-memadvise-evex") {
+      HasAMXMEMADVISEEVEX = true;
+#endif // INTEL_FEATURE_ISA_AMX_MEMADVISE_EVEX
 #if INTEL_FEATURE_ISA_AMX_FUTURE
     } else if (Feature == "+amx-reduce") {
       HasAMXREDUCE = true;
@@ -941,6 +945,11 @@ void X86TargetInfo::getTargetDefines(const LangOptions &Opts,
     Builder.defineMacro("__AMXMEMADVISE__");
   Builder.defineMacro("__AMXMEMADVISE_SUPPORTED__");
 #endif // INTEL_FEATURE_ISA_AMX_MEMADVISE
+#if INTEL_FEATURE_ISA_AMX_MEMADVISE_EVEX
+  if (HasAMXMEMADVISEEVEX)
+    Builder.defineMacro("__AMXMEMADVISEEVEX__");
+  Builder.defineMacro("__AMXMEMADVISEEVEX_SUPPORTED__");
+#endif // INTEL_FEATURE_ISA_AMX_MEMADVISE_EVEX
 #if INTEL_FEATURE_ISA_AMX_MEMORY2
   if (HasAMXMEMORY2)
     Builder.defineMacro("__AMXMEMORY2__");
@@ -1200,6 +1209,10 @@ bool X86TargetInfo::isValidFeatureName(StringRef Name) const {
 #if INTEL_FEATURE_ISA_AMX_MEMADVISE
       .Case("amx-memadvise", true)
 #endif // INTEL_FEATURE_ISA_AMX_MEMADVISE
+#if INTEL_FEATURE_ISA_AMX_MEMADVISE_EVEX
+      .Case("amx-memadvise-evex", true)
+#endif // INTEL_FEATURE_ISA_AMX_MEMADVISE_EVEX
+
 #if INTEL_FEATURE_ISA_AMX_FUTURE
       .Case("amx-reduce", true)
       .Case("amx-memory", true)
@@ -1383,6 +1396,9 @@ bool X86TargetInfo::hasFeature(StringRef Feature) const {
 #if INTEL_FEATURE_ISA_AMX_MEMADVISE
       .Case("amx-memadvise", HasAMXMEMADVISE)
 #endif // INTEL_FEATURE_ISA_AMX_MEMADVISE
+#if INTEL_FEATURE_ISA_AMX_MEMADVISE_EVEX
+      .Case("amx-memadvise-evex", HasAMXMEMADVISEEVEX)
+#endif // INTEL_FEATURE_ISA_AMX_MEMADVISE_EVEX
 #if INTEL_FEATURE_ISA_AMX_FUTURE
       .Case("amx-reduce", HasAMXREDUCE)
       .Case("amx-memory", HasAMXMEMORY)

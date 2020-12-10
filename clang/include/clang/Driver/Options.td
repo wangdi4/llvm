@@ -3759,6 +3759,10 @@ def mno_amx_complex : Flag<["-"], "mno-amx-complex">, Group<m_x86_Features_Group
 def mamx_memadvise : Flag<["-"], "mamx-memadvise">, Group<m_x86_Features_Group>;
 def mno_amx_memadvise : Flag<["-"], "mno-amx-memadvise">, Group<m_x86_Features_Group>;
 #endif // INTEL_FEATURE_ISA_AMX_MEMADVISE
+#if INTEL_FEATURE_ISA_AMX_MEMADVISE_EVEX
+def mamx_memadvise_evex : Flag<["-"], "mamx-memadvise-evex">, Group<m_x86_Features_Group>;
+def mno_amx_memadvise_evex : Flag<["-"], "mno-amx-memadvise-evex">, Group<m_x86_Features_Group>;
+#endif // INTEL_FEATURE_ISA_AMX_MEMADVISE_EVEX
 #if INTEL_FEATURE_ISA_AMX_FUTURE
 def mamx_reduce : Flag<["-"], "mamx-reduce">, Group<m_x86_Features_Group>;
 def mno_amx_reduce : Flag<["-"], "mno-amx-reduce">, Group<m_x86_Features_Group>;
