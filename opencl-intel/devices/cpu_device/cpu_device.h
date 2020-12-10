@@ -67,6 +67,7 @@ protected:
     // if DPCPP_CPU_CU_AFFINITY env is correctly set.
     bool                        m_pinMaster;
 
+    bool                        m_disableMasterJoin;  // Check whether master join is disabled or not
     unsigned long               m_numCores;           // Architectural data on the underlying HW
     unsigned int*               m_pComputeUnitMap;    // A mapping between an OpenCL-defined core ID (1 is first CPU on second socket) and OS-defined core ID
     std::map<threadid_t, int>   m_threadToCore;       // Maps OS thread ID to core ID

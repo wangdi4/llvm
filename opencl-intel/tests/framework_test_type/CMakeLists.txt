@@ -39,6 +39,10 @@ set_source_files_properties( cl_device_local_mem_size.cpp PROPERTIES COMPILE_DEF
 # and scalar kernel, our compiler can works with maximum width equals to 17. So we have to allocate additional stack
 # size equals to 17MB.
 set_source_files_properties( cl_device_private_mem_size.cpp PROPERTIES COMPILE_DEFINITIONS STACK_SIZE=17825792 )
+# In test with disabling master join we allocate 15MB for array. And allocate stack size with size 8MB = 8388608,
+# set private mem size 16MB via CL_CONFIG_CPU_FORCE_PRIVATE_MEM_SIZE env. It will have no stack overflow since master
+# thread dose not participate in kernel computations on O0 mode for Windows.
+set_source_files_properties( clDisableMasterJoinTest.cpp PROPERTIES COMPILE_DEFINITIONS STACK_SIZE=8388608 )
 
 set(INPUT_FILE test.cl)
 set(SPIRV_OUTPUT_FILE test.spv)
