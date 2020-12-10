@@ -143,7 +143,7 @@ static bool isQsortCompare(Function &F) {
   // 'Val' to its value. If 'Val ' != UnknownIndex, return 'true' if 'V' is a
   // ConstantInt and has the value 'Val'.
   //
-  auto IsCIVal = [&UnknownIndex](Value *V, uint64_t &Val) -> bool {
+  auto IsCIVal = [UnknownIndex](Value *V, uint64_t &Val) -> bool {
     auto CI = dyn_cast<ConstantInt>(V);
     if (!CI)
       return false;
@@ -2183,7 +2183,7 @@ static bool isQsortSpecQsort(Function &F, Function **FSwapFunc,
   // If we return 'true', set the values of 'PHISWCO', 'PHIIO', 'VOO', and
   // 'BBO'.
   //
-  auto IsPvtOuterIncBlock = [&GetBFGEP, &IsPvtInnerIncBlock](
+  auto IsPvtOuterIncBlock = [&IsPvtInnerIncBlock](
                                 Function &F, BasicBlock *BBI, PHINode *PHIII,
                                 PHINode *PHIOI, Value *VSWPI, Value *GEPI,
                                 bool IsFwd, PHINode **PHISWCO, PHINode **PHIIO,

@@ -2058,7 +2058,7 @@ static int handleLoopForFusion(Loop *LL, int ArgCnt) {
         PtrOp = GEPI->getPointerOperand();
       } else if (SubscriptInst *SI = dyn_cast<SubscriptInst>(&I)) {
         PtrOp = SI->getPointerOperand();
-        while (SI = dyn_cast<SubscriptInst>(PtrOp))
+        while ((SI = dyn_cast<SubscriptInst>(PtrOp)))
           PtrOp = SI->getPointerOperand();
       }
       if (PtrOp) {

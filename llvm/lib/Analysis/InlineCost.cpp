@@ -929,7 +929,7 @@ public:
 #if INTEL_CUSTOMIZATION
   int getEarlyExitThreshold() { return EarlyExitThreshold; }
   int getEarlyExitCost() { return EarlyExitCost; }
-  bool onDynamicAllocaInstException(AllocaInst &I);
+  bool onDynamicAllocaInstException(AllocaInst &I) override;
 #endif // INTEL_CUSTOMIZATION
 
 };
@@ -2629,7 +2629,7 @@ Optional<InlineResult> llvm::getAttributeBasedInliningDecision(
   }
   bool CallerIsFort = Call.getCaller()->isFortran();
   bool CalleeIsFort = Callee->isFortran();
-  if (CallerIsFort && !CalleeIsFort || !CallerIsFort && CalleeIsFort)
+  if ((CallerIsFort && !CalleeIsFort) || (!CallerIsFort && CalleeIsFort))
     return InlineResult::failure("is cross language")
         .setIntelInlReason(NinlrIsCrossLanguage);
 #endif // INTEL_CUSTOMIZATION
