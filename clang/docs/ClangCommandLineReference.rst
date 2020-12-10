@@ -3232,6 +3232,10 @@ X86
 .. option:: -mamx-memadvise, -mno-amx-memadvise
 
 .. end INTEL_FEATURE_ISA_AMX_MEMADVISE
+.. INTEL_FEATURE_ISA_AMX_MEMADVISE_EVEX
+.. option:: -mamx-memadvise-evex, -mno-amx-memadvise-evex
+
+.. end INTEL_FEATURE_ISA_AMX_MEMADVISE_EVEX
 .. INTEL_FEATURE_ISA_AMX_FUTURE
 .. option:: -mamx-reduce, -mno-amx-reduce
 
