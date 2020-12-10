@@ -313,23 +313,9 @@ unsigned LoopVectorizationPlanner::buildInitialVPlans(LLVMContext *Context,
 
     auto VPDA = std::make_unique<VPlanDivergenceAnalysis>();
     Plan->setVPlanDA(std::move(VPDA));
-    auto *VPLInfo = Plan->getVPLoopInfo();
-    VPLoop *CandidateLoop = *VPLInfo->begin();
     Plan->computeDT();
     Plan->computePDT();
-    Plan->getVPlanDA()->compute(Plan.get(), CandidateLoop, VPLInfo,
-                                *Plan->getDT(), *Plan->getPDT(),
-                                false /*Not in LCSSA form*/);
-
-    if (Plan->isSOAAnalysisEnabled()) {
-      // Do SOA-analysis for loop-privates.
-      // TODO: Consider moving SOA-analysis to VPAnalysesFactory.
-      VPSOAAnalysis VPSOAA(*Plan.get(), *CandidateLoop);
-      SmallPtrSet<VPInstruction *, 32> SOAVars;
-      VPSOAA.doSOAAnalysis(SOAVars);
-      Plan->getVPlanDA()->recomputeShapes(SOAVars,
-                                          true /*EnableVerifyAndPrintDA*/);
-    }
+    Plan->computeDA();
 
     // TODO: Insert initial run of SVA here for any new users before CM & CG.
 
