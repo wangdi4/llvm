@@ -1500,34 +1500,15 @@ __tgt_target_table *__tgt_rtl_load_binary(int32_t DeviceId,
     entries[i].name = name;
 
     // Retrieve kernel group size info.
-    // L0 does not have API for accessing kernel's sub group size, so it is
-    // decided from kernel property's "requiredGroupSize"; it returns values
-    // that appear to be sub group size in most cases, but can also return other
-    // values that do not belong to the supported sub group sizes.
-    auto &computeProperties = DeviceInfo->ComputeProperties[DeviceId];
-    auto &subGroupSizes = computeProperties.subGroupSizes;
-    auto numSubGroupSizes = computeProperties.numSubGroupSizes;
     ze_kernel_properties_t kernelProperties;
-    uint32_t rc;
-    CALL_ZE(rc, zeKernelGetProperties, kernels[i], &kernelProperties);
+    CALL_ZE_RET_NULL(zeKernelGetProperties, kernels[i], &kernelProperties);
+
     if (DeviceInfo->ForcedKernelWidth > 0) {
       DeviceInfo->KernelProperties[DeviceId][kernels[i]].Width =
           DeviceInfo->ForcedKernelWidth;
     } else {
-      uint32_t kernelWidth = subGroupSizes[numSubGroupSizes / 2]; // default
-      if (rc == ZE_RESULT_SUCCESS) {
-        auto requiredGroupSize = kernelProperties.requiredGroupSizeX;
-        for (uint32_t k = numSubGroupSizes - 1; k >= 0; k--) {
-          // Choose the greatest sub group size that divides the required group
-          // size evenly
-          if (requiredGroupSize > 0 &&
-              requiredGroupSize % subGroupSizes[k] == 0) {
-            kernelWidth = subGroupSizes[k];
-            break;
-          }
-        }
-      }
-      DeviceInfo->KernelProperties[DeviceId][kernels[i]].Width = kernelWidth;
+      DeviceInfo->KernelProperties[DeviceId][kernels[i]].Width =
+          kernelProperties.maxSubgroupSize;
     }
     if (DebugLevel > 0) {
       void *entryAddr = Image->EntriesBegin[i].addr;
