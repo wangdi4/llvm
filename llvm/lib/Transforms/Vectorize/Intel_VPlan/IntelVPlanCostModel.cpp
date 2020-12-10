@@ -385,6 +385,36 @@ unsigned VPlanCostModel::getInsertExtractElementsCost(
   return Cost;
 }
 
+Intrinsic::ID
+VPlanCostModel::getIntrinsicForSVMLCall(const VPCallInstruction *VPCall) const {
+  assert(VPCall->getVectorizationScenario() ==
+             VPCallInstruction::CallVecScenariosTy::LibraryFunc &&
+         "Expected library function call here.");
+  assert(isSVMLFunction(TLI, VPCall->getCalledFunction()->getName(),
+                        VPCall->getVectorLibraryFunc()) &&
+         "Expected SVML function call.");
+
+  LibFunc Func;
+  if (!TLI->getLibFunc(*VPCall->getUnderlyingCallInst(), Func))
+    return Intrinsic::not_intrinsic;
+
+  // Table to provide alternate similar intrinsics for given library function.
+  // NOTE: LLORG has predefined LibFunc_sinpi/LibFunc_cospi for __sinpi/__cospi
+  // instead of sinpi/cospi that is used by xmain. Hence new LibFunc definitions
+  // - LibFunc_intel_sinpi/LibFunc_intel_cospi - are introduced and used in this
+  // table.
+  switch (Func) {
+  case LibFunc_intel_sinpi:
+  case LibFunc_intel_sinpif:
+    return Intrinsic::sin;
+  case LibFunc_intel_cospi:
+  case LibFunc_intel_cospif:
+    return Intrinsic::cos;
+  default:
+    return Intrinsic::not_intrinsic;
+  }
+}
+
 unsigned VPlanCostModel::getIntrinsicInstrCost(
   Intrinsic::ID ID, const CallBase &CB, unsigned VF,
   VPCallInstruction::CallVecScenariosTy VS) {
@@ -649,6 +679,15 @@ unsigned VPlanCostModel::getCostForVF(
     auto *CI = VPCall->getUnderlyingCallInst();
     assert(CI && "Expected non-null underlying call instruction");
     Intrinsic::ID ID = getIntrinsicForCallSite(*CI, TLI);
+
+    // If call is expected to be vectorized using SVML then obtain alternate
+    // intrinsic version (if available) which will be used for cost computation
+    // purpose.
+    if (ID == Intrinsic::not_intrinsic &&
+        VPCall->getVectorizationScenario() ==
+            VPCallInstruction::CallVecScenariosTy::LibraryFunc) {
+      ID = getIntrinsicForSVMLCall(VPCall);
+    }
 
     if (ID == Intrinsic::not_intrinsic)
       return UnknownCost;

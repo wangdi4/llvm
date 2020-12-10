@@ -2257,6 +2257,14 @@ TLI_DEFINE_STRING_INTERNAL("coshl")
 /// long double cosl(long double x);
 TLI_DEFINE_ENUM_INTERNAL(cosl)
 TLI_DEFINE_STRING_INTERNAL("cosl")
+#if INTEL_CUSTOMIZATION
+// double cospi(double x);
+TLI_DEFINE_ENUM_INTERNAL(intel_cospi)
+TLI_DEFINE_STRING_INTERNAL("cospi")
+// float cospif(float x);
+TLI_DEFINE_ENUM_INTERNAL(intel_cospif)
+TLI_DEFINE_STRING_INTERNAL("cospif")
+#endif // INTEL_CUSTOMIZATION
 /// char *ctermid(char *s);
 TLI_DEFINE_ENUM_INTERNAL(ctermid)
 TLI_DEFINE_STRING_INTERNAL("ctermid")
@@ -3479,6 +3487,14 @@ TLI_DEFINE_STRING_INTERNAL("sinhl")
 /// long double sinl(long double x);
 TLI_DEFINE_ENUM_INTERNAL(sinl)
 TLI_DEFINE_STRING_INTERNAL("sinl")
+#if INTEL_CUSTOMIZATION
+// double sinpi(double x);
+TLI_DEFINE_ENUM_INTERNAL(intel_sinpi)
+TLI_DEFINE_STRING_INTERNAL("sinpi")
+// float sinpif(float x);
+TLI_DEFINE_ENUM_INTERNAL(intel_sinpif)
+TLI_DEFINE_STRING_INTERNAL("sinpif")
+#endif // INTEL_CUSTOMIZATION
 /// int siprintf(char *str, const char *format, ...);
 TLI_DEFINE_ENUM_INTERNAL(siprintf)
 TLI_DEFINE_STRING_INTERNAL("siprintf")
