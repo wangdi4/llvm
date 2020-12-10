@@ -2225,6 +2225,110 @@ _mm256_permutexvar_ph (__m256i __A, __m256h __B)
 {
   return (__m256h)__builtin_ia32_permvarhi256((__v16hi) __B, (__v16hi) __A);
 }
+
+#define _mm256_mask_reduce_operator(op)                                        \
+  __m128h __t1 = (__m128h)_mm256_extracti128_si256((__m256i)__W, 0);           \
+  __m128h __t2 = (__m128h)_mm256_extracti128_si256((__m256i)__W, 1);           \
+  __m128h __t3 = __t1 op __t2;                                                 \
+  __m128h __t4 =                                                               \
+      (__m128h)__builtin_shufflevector(__t3, __t3, 4, 5, 6, 7, 4, 5, 6, 7);    \
+  __m128h __t5 = __t3 op __t4;                                                 \
+  __m128h __t6 =                                                               \
+      (__m128h)__builtin_shufflevector(__t5, __t5, 2, 3, 2, 3, 4, 5, 6, 7);    \
+  __m128h __t7 = __t5 op __t6;                                                 \
+  __m128h __t8 =                                                               \
+      (__m128h)__builtin_shufflevector(__t7, __t7, 1, 1, 2, 3, 4, 5, 6, 7);    \
+  __m128h __t9 = __t7 op __t8;                                                 \
+  return __t9[0]
+
+// TODO: We will implement this intrinsic with llvm.reduction intrinsics.
+static __inline__ _Float16 __DEFAULT_FN_ATTRS256
+_mm256_reduce_add_ph(__m256h __W) {
+  _mm256_mask_reduce_operator(+);
+}
+
+// TODO: We will implement this intrinsic with llvm.reduction intrinsics.
+static __inline__ _Float16 __DEFAULT_FN_ATTRS256
+_mm256_reduce_mul_ph(__m256h __W) {
+  _mm256_mask_reduce_operator(*);
+}
+#undef _mm256_mask_reduce_operator
+
+#define _mm256_mask_reduce_operator(op)                                        \
+  __m128h __t1 = (__m128h)_mm256_extracti128_si256((__m256i)__V, 0);           \
+  __m128h __t2 = (__m128h)_mm256_extracti128_si256((__m256i)__V, 1);           \
+  __m128h __t3 = _mm_##op(__t1, __t2);                                         \
+  __m128h __t4 = (__m128h)__builtin_shufflevector((__v8hf)__t3, (__v8hf)__t3,  \
+                                                  4, 5, 6, 7, 4, 5, 6, 7);     \
+  __m128h __t5 = _mm_##op(__t3, __t4);                                         \
+  __m128h __t6 = (__m128h)__builtin_shufflevector((__v8hf)__t5, (__v8hf)__t5,  \
+                                                  2, 3, 2, 3, 4, 5, 6, 7);     \
+  __m128h __t7 = _mm_##op(__t5, __t6);                                         \
+  __m128h __t8 = (__m128h)__builtin_shufflevector((__v8hf)__t7, (__v8hf)__t7,  \
+                                                  1, 1, 2, 3, 4, 5, 6, 7);     \
+  __m128h __t9 = _mm_##op(__t7, __t8);                                         \
+  return __t9[0]
+
+// TODO: We will implement this intrinsic with llvm.reduction intrinsics.
+static __inline__ _Float16 __DEFAULT_FN_ATTRS256
+_mm256_reduce_max_ph(__m256h __V) {
+  _mm256_mask_reduce_operator(max_ph);
+}
+
+// TODO: We will implement this intrinsic with llvm.reduction intrinsics.
+static __inline__ _Float16 __DEFAULT_FN_ATTRS256
+_mm256_reduce_min_ph(__m256h __V) {
+  _mm256_mask_reduce_operator(min_ph);
+}
+#undef _mm256_mask_reduce_operator
+
+#define _mm_mask_reduce_operator(op)                                           \
+  __m128h __t1 = __builtin_shufflevector(__W, __W, 4, 5, 6, 7, 4, 5, 6, 7);    \
+  __m128h __t2 = __t1 op __W;                                                  \
+  __m128h __t3 = __builtin_shufflevector(__t2, __t2, 2, 3, 2, 3, 4, 5, 6, 7);  \
+  __m128h __t4 = __t2 op __t3;                                                 \
+  __m128h __t5 = __builtin_shufflevector(__t4, __t4, 1, 1, 2, 3, 4, 5, 6, 7);  \
+  __m128h __t6 = __t4 op __t5;                                                 \
+  return __t6[0]
+
+// TODO: We will implement this intrinsic with llvm.reduction intrinsics.
+static __inline__ _Float16 __DEFAULT_FN_ATTRS128
+_mm_reduce_add_ph(__m128h __W) {
+  _mm_mask_reduce_operator(+);
+}
+
+// TODO: We will implement this intrinsic with llvm.reduction intrinsics.
+static __inline__ _Float16 __DEFAULT_FN_ATTRS128
+_mm_reduce_mul_ph(__m128h __W) {
+  _mm_mask_reduce_operator(*);
+}
+#undef _mm_mask_reduce_operator
+
+#define _mm_mask_reduce_operator(op)                                           \
+  __m128h __t1 = (__m128h)__builtin_shufflevector((__v8hf)__V, (__v8hf)__V, 4, \
+                                                  5, 6, 7, 4, 5, 6, 7);        \
+  __m128h __t2 = _mm_##op(__V, __t1);                                          \
+  __m128h __t3 = (__m128h)__builtin_shufflevector((__v8hf)__t2, (__v8hf)__t2,  \
+                                                  2, 3, 2, 3, 4, 5, 6, 7);     \
+  __m128h __t4 = _mm_##op(__t2, __t3);                                         \
+  __m128h __t5 = (__m128h)__builtin_shufflevector((__v8hf)__t4, (__v8hf)__t4,  \
+                                                  1, 1, 2, 3, 4, 5, 6, 7);     \
+  __m128h __t6 = _mm_##op(__t4, __t5);                                         \
+  return __t6[0]
+
+// TODO: We will implement this intrinsic with llvm.reduction intrinsics.
+static __inline__ _Float16 __DEFAULT_FN_ATTRS128
+_mm_reduce_max_ph(__m128h __V) {
+  _mm_mask_reduce_operator(max_ph);
+}
+
+// TODO: We will implement this intrinsic with llvm.reduction intrinsics.
+static __inline__ _Float16 __DEFAULT_FN_ATTRS128
+_mm_reduce_min_ph(__m128h __V) {
+  _mm_mask_reduce_operator(min_ph);
+}
+#undef _mm_mask_reduce_operator
+
 #undef __DEFAULT_FN_ATTRS128
 #undef __DEFAULT_FN_ATTRS256
 
