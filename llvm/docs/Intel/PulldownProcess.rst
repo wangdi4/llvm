@@ -33,6 +33,43 @@ private Intel repositories.
 
 .. image:: llorg-pdown-flow.png
 
+Pulldown Coordinator Role
+=========================
+
+Pulldown coordinator is a compiler engineer, whose goals are:
+
+#. Keep blue line on the chart close to zero. This corresponds to minimal delay
+   between change committed in the community and this change merged to
+   xmain-web, ready for the next pulldown.
+#. Keep green line on the chart below ~2000. This corresponds to ~2 weeks delay
+   between change committed in the community and this change merged to xmain.
+
+Responsibilities of pulldown coordinator are:
+
+#. Resolve conflicts and pulldown issues, which don't require specific
+   component deep expertise.
+#. Open bug reports and assign to component issues which require expertise.
+   Usually these bugs are Critical or High exposure if they are blocking
+   pulldown process.
+#. Coordinate fixes delivery between all parties to corresponding branches.
+#. Form and lead taskforce of engineers to resolve complex problems.
+#. Escalate issues to management early if fixes are not progressing forward as
+   expected.
+#. Stabilize and merge stabilized pulldown candidate to xmain branch.
+#. Train next pulldown coordinator and ensure smooth duty transition.
+#. Suggest pulldown process improvements and contribute to these improvements,
+   as well as maintain this document in up to date state.
+
+Pulldown coordination duties are usually split between two coordinators from
+different timezones (US and PRC or Russia) to have 24 hours coverage.
+Coordinators have equal responsibilities and sync daily on pulldown progress.
+For effective switch on conflicts or build breakages which cannot be resolved by
+end of workday it is recommended to upload partial changes to gerrit for the
+partner to pick it up and continue.
+
+Names of the current and previous pulldown coordinators can be found `here
+<https://wiki.ith.intel.com/display/ITSCompilersDevOps/Pulldown+coordinators+and+gatekeepers>`_.
+
 .. _automated-merge-tool:
 
 Automated Merge Tool
@@ -247,6 +284,9 @@ review. However there are several exceptions when you can review after a commit:
 #. Merge conflict caused by reverted commit (the merge conflict of which was
    previously resolved).
 
+If conflict is resolved with LIT tests failing it is recommended to record
+failed LIT tests in gerrit comments. This makes triaging easier, since the time
+interval when new LIT failure occured can be easily detected.
 
 .. _xmain-web-stabilization:
 
@@ -386,7 +426,13 @@ Selecting a Revision of ``xmain-web`` to Stabilize
 --------------------------------------------------
 The pulldown coordinator can decide which revision of ``xmain-web`` is a good
 candidate for stabilization and promotion based on the results from regular
-alloy testing. Once a revision is selected, the ``xmain-cand`` branch is
+alloy testing.
+
+It is recommended to build local xmain-web workspaces with “-Werror" enabled
+for chosen revision. This allow promptly catching warnings that will be exposed
+as errors once “-Werror” flag will be enabled (in xmain-cand).
+
+Once a revision is selected, the ``xmain-cand`` branch is
 updated to that revision using the following process.
 
    .. code-block:: bash
@@ -416,7 +462,6 @@ used (you might want to use origin/xmain-web instead of HEAD):
 
 You might want to use bare "git merge" command if you need to merge
 a required commit.
-
 
 Stabilizing and Promoting ``xmain-cand``
 ----------------------------------------
@@ -498,23 +543,6 @@ opposite to generated code performance):
   Some deeper initial analysis is welcome as it will ease the gatekeeper's work
   on assessing the severeness of the fails and will allow to get an approve for
   the pulldown faster, so such analysis is worth doing.
-
-Recommendations for pulldown coordinators
-=========================================
-
-* Build local xmain-web workspaces with “-Werror” enabled. This allow promptly
-  catching warnings that will be exposed as errors once “-Werror” flag will be
-  enabled (in xmain-cand).
-
-* Copy failed LIT tests in gerrit comments after each conflict resolution.
-  This makes triaging easier, since the time interval when new LIT failure
-  occured can be easily detected.
-
-* Pulldown coordination duties are usually split between two coordinators from
-  different timezones (US and PRC or Russia) to have 24 hours coverage. So, for
-  complicated conflicts or build breakages which cannot be resolved by end of
-  workday upload partial changes to gerrit for the partner to pick it up and
-  continue.
 
 Xmain Pulldown History
 ======================
