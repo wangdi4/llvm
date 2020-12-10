@@ -146,10 +146,10 @@ static bool isRecProgressionCloneArgument1(bool TestCountForConstant,
       auto P = CMI->getPredicate();
       BasicBlock *BBTrue = BI->getSuccessor(0);
       BasicBlock *BBFalse = BI->getSuccessor(1);
-      if (!OutBlocks.count(BBTrue) && OutBlocks.count(BBFalse) &&
-          P == ICmpInst::ICMP_EQ ||
-          OutBlocks.count(BBTrue) && !OutBlocks.count(BBFalse) &&
-          P == ICmpInst::ICMP_NE) {
+      if ((!OutBlocks.count(BBTrue) && OutBlocks.count(BBFalse) &&
+           P == ICmpInst::ICMP_EQ) ||
+          (OutBlocks.count(BBTrue) && !OutBlocks.count(BBFalse) &&
+           P == ICmpInst::ICMP_NE)) {
         if (CMI->getOperand(0) == LI)
           ECI = dyn_cast<ConstantInt>(CMI->getOperand(1));
         else if (CMI->getOperand(1) == LI)

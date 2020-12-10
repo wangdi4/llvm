@@ -1573,6 +1573,94 @@ public:
       return false;
     }
 
+    HLLoop *InnermostByStripLoop =
+        addByStripLoops(AnchorNode, LoadInstsToClone, AuxRefsForByStripBounds);
+
+    LLVM_DEBUG(dbgs() << "InnermostByStripLoop: \n");
+    LLVM_DEBUG(InnermostByStripLoop->dump());
+    // Step 1. Create a map from NodeToMove to InnermostLoop
+    // The vector of OuterNode should be enough, innermost loop is for
+    // debugging.
+    SmallVector<std::pair<HLNode *, HLNode *>, 16> OuterNodeToInnermostLoop;
+
+    for (auto &LoopAndDimInfo : InnermostLoopToDimInfos) {
+      HLNode *NodeToMove =
+          findTheLowestAncestor(LoopAndDimInfo.first, OutermostLoop);
+
+      OuterNodeToInnermostLoop.emplace_back(NodeToMove, LoopAndDimInfo.first);
+    }
+
+    // Step 2. Move all the HLNodes [AnchorNode, last NodeToMove] into
+    // ByStripLoops.
+    // There could be nodes (e.g HLInsts outside loops), which are
+    // not related to any innermost loops or NodeToMoves
+    // Note: Step 2. should come after Step 1. Once moved, findTheLowestAncestor
+    //       returns different values.
+    assert(AnchorNode == OuterNodeToInnermostLoop.front().first);
+
+    HLNodeUtils::moveAsLastChildren(
+        InnermostByStripLoop, AnchorNode->getIterator(),
+        std::next(OuterNodeToInnermostLoop.back().first->getIterator()));
+
+    // Cover all the HLNodes in the range of [AnchorNode, last NodeToMove].
+    for (HLNode &Node : make_range(
+             AnchorNode->getIterator(),
+             std::next(OuterNodeToInnermostLoop.back().first->getIterator()))) {
+      updateSpatialIVs(&Node, NumByStripLoops);
+      updateDefAtLevelOfSpatialLoops(&Node);
+    }
+
+    // Step 3. apply blocking guards to target loops
+    // Note: Step 3 should come after Step 2.
+    assert(OuterNodeToInnermostLoop.size() == InnermostLoopToDimInfos.size());
+
+    for (int I = 0, E = OuterNodeToInnermostLoop.size(); I < E; I++) {
+      assert(OuterNodeToInnermostLoop[I].second ==
+             InnermostLoopToDimInfos[I].first);
+
+      applyBlockingGuardsToSpatialLoops(InnermostLoopToDimInfos[I].first,
+                                        InnermostLoopToDimInfos[I].second,
+                                        InnermostLoopToAdjustingRef);
+    }
+
+    // Normalize all spatial Loops and byStripLoops.
+    for (auto &LoopAndDimInfo : InnermostLoopToDimInfos) {
+      HLLoop *InnermostLoop = LoopAndDimInfo.first;
+      SmallVector<HLLoop *, 4> Loops;
+
+      auto CollectSpatialLoops = [InnermostLoop,
+                                  &Loops](HLLoop *Limit) -> HLLoop * {
+        HLLoop *Lp = InnermostLoop;
+        HLLoop *PrevLp = nullptr;
+        while (Lp != Limit) {
+          PrevLp = Lp;
+          Loops.push_back(PrevLp);
+          Lp = Lp->getParentLoop();
+        }
+        return PrevLp;
+      };
+
+      if (SkipNormalizingByStripLoops) {
+        CollectSpatialLoops(InnermostByStripLoop);
+      } else {
+        CollectSpatialLoops(OutermostLoop);
+      }
+
+      SmallVector<unsigned, 8> LiveInsFromNormalization;
+      // SL will be all spatial loops and/or by strip loops.
+      for (HLLoop *SL : make_range(Loops.rbegin(), Loops.rend())) {
+        SL->normalize();
+        SL->getLowerDDRef()->populateTempBlobSymbases(LiveInsFromNormalization);
+        SL->getUpperDDRef()->populateTempBlobSymbases(LiveInsFromNormalization);
+        SL->addLiveInTemp(LiveInsFromNormalization);
+      }
+    }
+
+    printMarker("After updating inner Loops: ", {OutermostLoop}, true);
+    printMarker("Detail: After updating inner Loops: ", {OutermostLoop}, true,
+                true);
+
+    OutermostLoop->getParentRegion()->setGenCode();
     return true;
   }
 
@@ -1596,6 +1684,20 @@ private:
 
   // Increase def@level of Ref by Increase if current def@level is
   // greater than equal to LevelThreshold.
+  void updateDefAtLevelOfSpatialLoops(HLNode *Node) const {
+
+    // Increase the blob DDRef's defined at level first
+
+    unsigned ThresholdLoopLevel = OutermostLoop->getNestingLevel();
+    unsigned ByStripLoopDepth = NumByStripLoops;
+
+    ForEach<RegDDRef>::visit(
+        Node, [ThresholdLoopLevel, ByStripLoopDepth](RegDDRef *Ref) {
+          Transformer::incDefinedAtLevelBy(Ref, ByStripLoopDepth,
+                                           ThresholdLoopLevel);
+        });
+  }
+
   static void incDefinedAtLevelBy(RegDDRef *Ref, unsigned Increase,
                                   unsigned LevelThreshold) {
 
@@ -1891,6 +1993,256 @@ private:
     return true;
   }
 
+  // Generate by-strip loops and insert before AnchorNode.
+  // Returns the innermost by-strip loop, where spatial loops will be added.
+  // Add ByStrip loops, and also compute UBs of unit-strided Loop
+  //   e.g. DO IV = by_strip_lb, by_strip_ub, by_strip_step
+  //          tile_end = min(IV + by_strip_step - 1, by_strip_ub)
+  //   IV is the tile's begin.
+  //   tile_end is the last element of tile, not the past the last.
+  HLLoop *
+  addByStripLoops(HLNode *AnchorNode,
+                  const SmallPtrSetImpl<const HLInst *> &LoadInstsToClone,
+                  ArrayRef<const RegDDRef *> AuxRefsFromSpatialLoops) {
+
+    // Use computed Global Loop bounds
+    // A higher dimension corresponds to an outer loop
+    // Process from the outermost loop to innermost loop.
+
+    SmallVector<const RegDDRef *, 32> AuxRefs;
+    for (auto Load : LoadInstsToClone) {
+      AuxRefs.push_back(Load->getLvalDDRef());
+    }
+
+    AuxRefs.insert(AuxRefs.end(), AuxRefsFromSpatialLoops.begin(),
+                   AuxRefsFromSpatialLoops.end());
+
+    LLVM_DEBUG(dbgs() << "Auxrefs ...\n"; for (auto *Aux
+                                               : AuxRefs) {
+      Aux->dump(1);
+      dbgs() << " @" << Aux->getDefinedAtLevel() << "\n";
+    });
+
+    HLLoop *ParentByStripLoop = nullptr;
+    unsigned PrevTileEndSymbase = 0;
+    for (unsigned DimNum = StripmineSizes.size(); DimNum >= 1; DimNum--) {
+      if (isNoBlockDim(DimNum))
+        continue;
+
+      HLLoop *ByStrip = (*InnermostLoopToDimInfos.begin()).first->cloneEmpty();
+
+      // Ztt will be added later. Make it clean first in case src had ztt.
+      ByStrip->removeZtt();
+
+      HIRTransformUtils::setSelfBlobDDRef(
+          ByStrip->getLowerDDRef(), ByStripLoopLowerBlobs[DimNum - 1].first,
+          ByStripLoopLowerBlobs[DimNum - 1].second);
+      HIRTransformUtils::setSelfBlobDDRef(
+          ByStrip->getUpperDDRef(), ByStripLoopUpperBlobs[DimNum - 1].first,
+          ByStripLoopUpperBlobs[DimNum - 1].second);
+
+      ByStrip->getLowerDDRef()->populateTempBlobSymbases(
+          LiveInsOfAllSpatialLoop);
+      ByStrip->getUpperDDRef()->populateTempBlobSymbases(
+          LiveInsOfAllSpatialLoop);
+
+      CanonExpr *StrideCE = ByStrip->getStrideCanonExpr();
+      StrideCE->clear();
+      StrideCE->setConstant(StripmineSizes[DimNum - 1]);
+      ByStrip->getStrideDDRef()->setSymbase(ConstantSymbase);
+
+      if (!ParentByStripLoop) {
+        HLNodeUtils::insertBefore(AnchorNode, ByStrip);
+      } else {
+        HLNodeUtils::insertAsLastChild(ParentByStripLoop, ByStrip);
+      }
+
+      // This if where, Lval refs are passed as AuxRefs.
+      // makeConsistent's logic needed some changes.
+      unsigned L = ByStrip->getNestingLevel();
+      ByStrip->getLowerDDRef()->makeConsistent(AuxRefs, L);
+      ByStrip->getUpperDDRef()->makeConsistent(AuxRefs, L);
+      ByStrip->createZtt(false, true);
+
+      LLVM_DEBUG(dbgs() << "ByStrip Loop (Number, Level, Def@) "
+                        << ByStrip->getNumber() << ", "
+                        << ByStrip->getNestingLevel() << ", "
+                        << ByStrip->getLowerDDRef()->getDefinedAtLevel()
+                        << "\n");
+      printMarker(" ", {ByStrip->getLowerDDRef()});
+
+      if (ParentByStripLoop) {
+        LiveInsOfAllSpatialLoop.push_back(PrevTileEndSymbase);
+      }
+      ByStrip->addLiveInTemp(LiveInsOfAllSpatialLoop);
+      ByStrip->addLiveInTemp(ArrayRef<unsigned>(OutermostLoop->live_in_begin(),
+                                                OutermostLoop->live_in_end()));
+
+      // TileEnd is IV + (step capped by UB
+      HLInst *TileEnd = createTileEnd(ByStrip);
+      HLNodeUtils::insertAsFirstChild(ByStrip, TileEnd);
+      PrevTileEndSymbase = TileEnd->getLvalDDRef()->getSymbase();
+
+      ByStripLoops[DimNum - 1] = ByStrip;
+
+      ParentByStripLoop = ByStrip;
+    }
+
+    // ParentByStripLoop designate the innermost by-strip loop
+    return ParentByStripLoop;
+  }
+
+  // IV update caused by stripmining.
+  // Increase all IV levels greater than equal to LowestSpatialLoopLevel
+  // by ByStripLoopDepth.
+  // For example, if ByStripLoopDepth = 3, and LowestSpatialLoopLevel = 2
+  // i1, i2, i3, i4 becomes
+  // --> i1, i5, i6, i7
+  void updateSpatialIVs(HLNode *Node, unsigned ByStripLoopDepth) {
+
+    // Now loop levels get as deep as by-strip loopnests
+    unsigned OutermostLoopLevel = OutermostLoop->getNestingLevel();
+    ForEach<RegDDRef>::visit(Node, [OutermostLoopLevel,
+                                    ByStripLoopDepth](RegDDRef *Ref) {
+      for (auto *CE : make_range(Ref->canon_begin(), Ref->canon_end())) {
+        for (unsigned Lvl = MaxLoopNestLevel; Lvl > OutermostLoopLevel; Lvl--) {
+          unsigned Index;
+          int64_t Coeff;
+          CE->getIVCoeff(Lvl, &Index, &Coeff);
+          if (Coeff == 0)
+            continue;
+
+          CE->removeIV(Lvl);
+          CE->setIVCoeff(Lvl + ByStripLoopDepth, Index, Coeff);
+        }
+      }
+    });
+  }
+
+  // TODO: Make it a local lambda.
+  std::pair<const RegDDRef *, unsigned>
+  findAuxRefWithCE(const HLLoop *InnermostLoop, const CanonExpr *TargetCE) {
+
+    for (const HLNode &Node :
+         make_range(InnermostLoop->child_begin(), InnermostLoop->child_end())) {
+      const HLDDNode *DDNode = dyn_cast<HLDDNode>(&Node);
+      for (const RegDDRef *Ref :
+           make_range(DDNode->ddref_begin(), DDNode->ddref_end())) {
+        if (!Ref->isMemRef())
+          continue;
+
+        for (const CanonExpr *CE :
+             make_range(Ref->canon_begin(), Ref->canon_end())) {
+          if (CanonExprUtils::areEqual(CE, TargetCE, false, true))
+            return std::make_pair(Ref, CE->getDefinedAtLevel());
+        }
+      }
+    }
+
+    LLVM_DEBUG(InnermostLoop->dump(1));
+    LLVM_DEBUG(TargetCE->dump(1); dbgs() << "\n");
+    llvm_unreachable("blob CE should have been found.");
+  }
+
+  // Add blocking guards to loop bounds or as an if-stmt.
+  // When index CEs are constant or blob, i.e., no loop exists corresponding to
+  // that dimension, if-stmt is added.
+  // Also, update live-in temps.
+  void applyBlockingGuardsToSpatialLoops(
+      HLLoop *InnermostLoop, ArrayRef<DimInfoTy> DimInfos,
+      const LoopToRefTy &InnermostLoopToAdjustingRef) {
+
+    SmallVector<unsigned, 2> ConstOrBlobDimNums;
+
+    SmallVector<unsigned, 4> AllNewLiveIn;
+    SmallVector<HLLoop *, 3> SpatialLoops;
+
+    // Scan through from the innermost spatial loop to facilitate adding LiveIns
+    for (unsigned DimNum = 1, Sizes = DimInfos.size(); DimNum <= Sizes;
+         DimNum++) {
+
+      if (isNoBlockDim(DimNum))
+        continue;
+
+      HLLoop *TargetLoop =
+          getLoopMatchingDimNum(DimNum, DimInfos, InnermostLoop);
+      if (!TargetLoop) {
+        ConstOrBlobDimNums.push_back(DimNum);
+        continue;
+      }
+      SpatialLoops.push_back(TargetLoop);
+
+      HIRInvalidationUtils::invalidateBounds(TargetLoop);
+      HIRInvalidationUtils::invalidateBody(TargetLoop);
+
+      unsigned NewLiveIn = addLoopBoundsGuards(TargetLoop, DimNum);
+      AllNewLiveIn.push_back(NewLiveIn);
+      TargetLoop->addLiveInTemp(AllNewLiveIn);
+      TargetLoop->createZtt(true, true);
+
+      // After addLoopBoundsGuards,
+      // Lower and Upper bounds are always self blobs.
+      assert(TargetLoop->getLowerDDRef()->isSelfBlob() &&
+             TargetLoop->getUpperDDRef()->isSelfBlob());
+    }
+
+    const RegDDRef *AdjustingRef =
+        InnermostLoopToAdjustingRef.at(InnermostLoop);
+    HLLoop *OutermostSpatialLoop = SpatialLoops.back();
+
+    for (auto DimNum : ConstOrBlobDimNums) {
+
+      assert(ByStripLoops.size() >= DimNum);
+
+      const HLLoop *ByStripLoop = ByStripLoops[DimNum - 1];
+      CanonExpr *CE = AdjustingRef->getDimensionIndex(DimNum)->clone();
+
+      if (DimInfos[DimNum - 1].isConstant()) {
+        RegDDRef *Ref = AdjustingRef->getDDRefUtils().createConstDDRef(
+            ByStripLoop->getIVType(), CE->getConstant());
+
+        // TODO: OutermostSpatialLoop is not always correct.
+        //       Hoisting might not be valid.
+        //       SpatialLoops contains only the blocked loops.
+        addIfGuards(Ref, ByStripLoop, OutermostSpatialLoop);
+
+      } else {
+        // blob or blob + constant
+        RegDDRef *Ref = AdjustingRef->getDDRefUtils().createScalarRegDDRef(
+            GenericRvalSymbase, CE->clone());
+
+        // Look for a ref in the innermost
+        // TODO: Consider return a AuxRef, which is a copy of CE.
+        //       We only need CE, not whole AuxRef.
+        std::pair<const RegDDRef *, unsigned> AuxRef =
+            findAuxRefWithCE(InnermostLoop, CE);
+
+        addIfGuards(Ref, ByStripLoop, OutermostSpatialLoop, AuxRef.first);
+
+        // Add AuxRef's BlobDDRef's symbase to LiveInTemp of ByStripLoop
+        // Using getTempBlobSymbase from CE->getSingleBlobIndex() does not
+        // work. For example, CE, sext.i32.i64(%2677) + 1, temp blob symbase
+        // could be InvalidSymbase.
+        // unsigned AuxTempSymbase = AuxRef->getBlobUtils().getTempBlobSymbase(
+        //  CE->getSingleBlobIndex());
+        // Can use CE->collectTempBlobIndices(.), but we can approximate with
+        // blob ddrefs of AuxRef.
+        SmallVector<unsigned, 4> AuxTempSymbases;
+        for (auto *BRef :
+             make_range(AuxRef.first->blob_begin(), AuxRef.first->blob_end())) {
+          AuxTempSymbases.push_back(BRef->getSymbase());
+        }
+
+        llvm::for_each(ByStripLoops, [AuxTempSymbases](HLLoop *Lp) {
+          if (!Lp)
+            return;
+
+          Lp->addLiveInTemp(AuxTempSymbases);
+        });
+      }
+    }
+  }
+
   // For a dimension, where blocking is not done for the corresponding loop,
   // stripmine size is set to zero.
   bool isNoBlockDim(unsigned DimNum) const {
@@ -1935,6 +2287,104 @@ private:
     return const_cast<HLLoop *>(
         static_cast<const Transformer &>(*this).getLoopMatchingDimNum(
             DimNum, DimInfos, const_cast<HLLoop *>(InnermostLoop)));
+  }
+
+  // Add "if (ByStripIV <= Ref <= TileEndRef)"
+  // Ref: dimension index, either constant or a blob.
+  // ByStripIV: tile begin,
+  // TileEndRef : last element of the tile.
+  void addIfGuards(RegDDRef *Ref, const HLLoop *ByStripLoop,
+                   HLNode *NodeToEnclose,
+                   const RegDDRef *AuxRef = nullptr) const {
+    RegDDRef *ByStripIV = ByStripLoop->getDDRefUtils().createConstDDRef(
+        ByStripLoop->getIVType(), 0);
+    ByStripIV->getSingleCanonExpr()->addIV(ByStripLoop->getNestingLevel(),
+                                           InvalidBlobIndex, 1, true);
+
+    RegDDRef *TileEndRef =
+        cast<HLInst>(ByStripLoop->getFirstChild())->getLvalDDRef()->clone();
+
+    HLIf *Guard = NodeToEnclose->getHLNodeUtils().createHLIf(
+        PredicateTy::ICMP_SLE, ByStripIV, Ref->clone());
+    Guard->addPredicate(PredicateTy::ICMP_SLE, Ref->clone(), TileEndRef);
+    if (HLLoop *Loop = dyn_cast<HLLoop>(NodeToEnclose)) {
+      Loop->extractPreheaderAndPostexit();
+    }
+    NodeToEnclose->getHLNodeUtils().insertBefore(NodeToEnclose, Guard);
+    HLNodeUtils::moveAsFirstThenChild(Guard, NodeToEnclose);
+
+    SmallVector<const RegDDRef *, 2> AuxRefs({TileEndRef});
+    if (AuxRef)
+      AuxRefs.push_back(AuxRef);
+
+    // Consistency of if-conditions
+    for (auto PI = Guard->pred_begin(), E = Guard->pred_end(); PI != E; PI++) {
+      Guard->getPredicateOperandDDRef(PI, true)->makeConsistent(AuxRefs);
+      Guard->getPredicateOperandDDRef(PI, false)->makeConsistent(AuxRefs);
+    }
+  }
+
+  // Add guards to the original spatial loop
+  // DO i = LB', UB'
+  // -->
+  // Do i = max(LB', by-strip-loop's IV), min(UB', min(by-strip-loop's IV + step
+  // - 1, by-strip-loop's UB)) TileEnd =
+  // min(by-strip-loop's IV + step - 1,
+  // by-strip-loop's UB) is already available as the first child of the
+  // corresponding by-strip loop.
+  // TODO: consider make it a lambda to its caller. It is used only in that
+  // context
+  unsigned addLoopBoundsGuards(HLLoop *Loop, unsigned DimNum) const {
+
+    // Sweep through all rvals by calling makeConsistent().
+    // Added to take care of operands of createMin/Max
+    // createMin/Max generates extra operands than passed arguments.
+    // Temp blobs defAtLevels are all up to date already.
+    auto MakeConsistentRvals = [](HLInst *HInst) {
+      for (auto *Ref :
+           make_range(HInst->op_ddref_begin(), HInst->op_ddref_end())) {
+        Ref->makeConsistent({});
+      }
+    };
+
+    const HLLoop *ByStripLoop = ByStripLoops[DimNum - 1];
+
+    RegDDRef *ByStripIV = ByStripLoop->getDDRefUtils().createConstDDRef(
+        ByStripLoop->getIVType(), 0);
+    ByStripIV->getSingleCanonExpr()->addIV(ByStripLoop->getNestingLevel(),
+                                           InvalidBlobIndex, 1, true);
+
+    HLNodeUtils &HNU = Loop->getHLNodeUtils();
+    // By default, signed min/max
+    RegDDRef *MaxOp1 = Loop->getLowerDDRef()->clone();
+    HLInst *LBInst = HNU.createMax(MaxOp1, ByStripIV, nullptr, true, true,
+                                   FastMathFlags(), "lb_max");
+    HLNodeUtils::insertBefore(Loop, LBInst);
+    MakeConsistentRvals(LBInst);
+
+    // min(UB', min(by-strip-loop's IV + step - 1, by-strip-loop's UB))
+    // min(UB', TileEnd)
+    RegDDRef *TileEndRef =
+        cast<HLInst>(ByStripLoop->getFirstChild())->getLvalDDRef()->clone();
+    RegDDRef *MinOp1 = Loop->getUpperDDRef()->clone();
+    HLInst *UBInst = HNU.createMin(MinOp1, TileEndRef, nullptr, true, true,
+                                   FastMathFlags(), "ub_min");
+    HLNodeUtils::insertBefore(Loop, UBInst);
+    MakeConsistentRvals(UBInst);
+
+    Loop->setLowerDDRef(LBInst->getLvalDDRef()->clone());
+    Loop->addLiveInTemp(LBInst->getLvalDDRef()->getSymbase());
+    Loop->setUpperDDRef(UBInst->getLvalDDRef()->clone());
+    Loop->addLiveInTemp(UBInst->getLvalDDRef()->getSymbase());
+
+    Loop->getLowerDDRef()->makeConsistent({});
+    Loop->getLowerDDRef()->getSingleCanonExpr()->setDefinedAtLevel(
+        Loop->getNestingLevel() - 1);
+    Loop->getUpperDDRef()->makeConsistent({});
+    Loop->getUpperDDRef()->getSingleCanonExpr()->setDefinedAtLevel(
+        Loop->getNestingLevel() - 1);
+
+    return TileEndRef->getSymbase();
   }
 
   // Given a CE, get a corresponding blob.
