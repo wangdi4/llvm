@@ -58,6 +58,7 @@ set(TARGET_EXTRA_INCLUDE_FILES
 )
 
 set(TARGET_INCLUDE_FILES
+  ChooseVectorizationDimension/ChooseVectorizationDimension.h
   Heuristic/InstCounter.h
   IRPrinter/IRPrinter.h
   LoopHandler/CLBuiltinLICM.h
@@ -69,6 +70,7 @@ set(TARGET_INCLUDE_FILES
   LoopHandler/LoopPeeling.h
   LoopHandler/LoopStridedCodeMotion.h
   LoopHandler/LoopWIAnalysis.h
+  OCLBranchProbability/OCLBranchProbability.h
   OCLVecClone/OCLPrepareKernelForVecClone.h
   OCLVecClone/OCLVecClone.h
   OCLVecClone/OCLPostVect.h
@@ -89,6 +91,7 @@ set(TARGET_INCLUDE_FILES
   Utils/VecConfig.h
   Utils/VectorizerCommon.h
   Utils/VectorizerCore.h
+  VectorKernelDiscard/VectorKernelDiscard.h
   VectorVariant/SGSizeCollector.h
   VectorVariant/SGSizeCollectorIndirect.h
   VectorVariant/VectorVariantLowering.h
@@ -97,12 +100,11 @@ set(TARGET_INCLUDE_FILES
   VectorVariant/IndirectCallLowering.h
   VolcanoWrapper/Main.h
   WIAnalysis/WIAnalysis.h
-  OCLBranchProbability/OCLBranchProbability.h
-  ChooseVectorizationDimension/ChooseVectorizationDimension.h
   ${TARGET_EXTRA_INCLUDE_FILES}
 )
 
 set(TARGET_SOURCE_FILES
+  ChooseVectorizationDimension/ChooseVectorizationDimension.cpp
   Heuristic/InstCounter.cpp
   IRPrinter/IRPrinter.cpp
   LoopHandler/CLBuiltinLICM.cpp
@@ -114,6 +116,7 @@ set(TARGET_SOURCE_FILES
   LoopHandler/LoopPeeling.cpp
   LoopHandler/LoopStridedCodeMotion.cpp
   LoopHandler/LoopWIAnalysis.cpp
+  OCLBranchProbability/OCLBranchProbability.cpp
   OCLVecClone/OCLPrepareKernelForVecClone.cpp
   OCLVecClone/OCLVecClone.cpp
   OCLVecClone/OCLPostVect.cpp
@@ -133,6 +136,7 @@ set(TARGET_SOURCE_FILES
   SoaAllocaAnalysis/SoaAllocaAnalysis.cpp
   Utils/SimplifyGEP.cpp
   Utils/VectorizerCore.cpp
+  VectorKernelDiscard/VectorKernelDiscard.cpp
   VectorVariant/SGSizeCollector.cpp
   VectorVariant/SGSizeCollectorIndirect.cpp
   VectorVariant/VectorVariantLowering.cpp
@@ -141,8 +145,6 @@ set(TARGET_SOURCE_FILES
   VectorVariant/IndirectCallLowering.cpp
   VolcanoWrapper/Main.cpp
   WIAnalysis/WIAnalysis.cpp
-  OCLBranchProbability/OCLBranchProbability.cpp
-  ChooseVectorizationDimension/ChooseVectorizationDimension.cpp
   ${TARGET_EXTRA_SOURCE_FILES}
   ${VECTORIZATION_INFO_GEN}
 )

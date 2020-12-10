@@ -124,5 +124,6 @@ static void initializeOCLPasses(llvm::PassRegistry &Registry) {
     intel::initializeUpdateCallAttrsPass(Registry);
     intel::initializeIndirectCallLoweringPass(Registry);
     intel::initializeAddFastMathPass(Registry);
+    intel::initializeVectorKernelDiscardPass(Registry);
 }
 #endif //INITIALIZE_OCL_PASSES_H
