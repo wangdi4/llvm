@@ -31,7 +31,7 @@ define void @simd_test(%complex_64bit* %uni.src, %complex_64bit* %uni.dest) loca
 ; CHECK-NEXT:    [[TMP4]] = add nsw <2 x i32> [[VEC_PHI]], <i32 2, i32 2>
 ; CHECK-NEXT:    [[TMP5]] = add nsw i32 [[UNI_PHI1]], 2
 ; CHECK-NEXT:    [[TMP6]] = add i32 [[UNI_PHI]], 2
-; CHECK-NEXT:    [[TMP7:%.*]] = icmp ne i32 [[TMP6]], 6
+; CHECK-NEXT:    [[TMP7:%.*]] = icmp ult i32 [[TMP6]], 6
 ; CHECK-NEXT:    br i1 [[TMP7]], label [[VECTOR_BODY]], label [[VPLANNEDBB:%.*]]
 ;
 alloca:

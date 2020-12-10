@@ -23,7 +23,7 @@ define void @foo(i32* nocapture %ip, i32 %N) local_unnamed_addr #0 {
 ; CHECK-NEXT:    [[TMP2]] = add nuw nsw <4 x i64> [[VEC_PHI]], <i64 4, i64 4, i64 4, i64 4>
 ; CHECK-NEXT:    [[TMP3]] = add nuw nsw i64 [[UNI_PHI1]], 4
 ; CHECK-NEXT:    [[TMP5]] = add i64 [[UNI_PHI]], 4
-; CHECK-NEXT:    [[TMP6:%.*]] = icmp eq i64 [[TMP5]], [[N_VEC]]
+; CHECK-NEXT:    [[TMP6:%.*]] = icmp uge i64 [[TMP5]], [[N_VEC]]
 ; CHECK-NEXT:    br i1 [[TMP6]], label [[VPLANNEDBB:%.*]], label [[VECTOR_BODY]]
 ; CHECK:       scalar.ph:
 ; CHECK-NEXT:    [[BC_RESUME_VAL:%.*]] = phi i64 [ 0, [[FOR_BODY_PREHEADER:%.*]] ], [ [[TMP8:%.*]], [[MIDDLE_BLOCK:%.*]] ]

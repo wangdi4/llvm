@@ -23,7 +23,7 @@ define void @foo(i32* %src1, i32 %src2, i32* %dest1, i32* %dest2, i32* %dest3) {
 ; CHECK-NEXT:    [[TMP1]] = add nuw nsw <4 x i64> [[VEC_PHI]], <i64 4, i64 4, i64 4, i64 4>
 ; CHECK-NEXT:    [[TMP2]] = add nuw nsw i64 [[UNI_PHI1]], 4
 ; CHECK-NEXT:    [[TMP4]] = add i64 [[UNI_PHI]], 4
-; CHECK-NEXT:    [[TMP5:%.*]] = icmp ne i64 [[TMP4]], 1024
+; CHECK-NEXT:    [[TMP5:%.*]] = icmp ult i64 [[TMP4]], 1024
 ; CHECK-NEXT:    br i1 [[TMP5]], label [[VECTOR_BODY]], label [[VPLANNEDBB:%.*]]
 ;
 entry:

@@ -60,7 +60,7 @@ define void @test_predicated_index_operand(i32 *%p, i64 %n) {
 ; CHECK-NEXT:    [[TMP19:%.*]] = add nuw nsw <2 x i64> [[VEC_PHI:%.*]], <i64 2, i64 2>
 ; CHECK-NEXT:    [[TMP20:%.*]] = add nuw nsw i64 [[UNI_PHI1]], 2
 ; CHECK-NEXT:    [[TMP21:%.*]] = add i64 [[UNI_PHI:%.*]], 2
-; CHECK-NEXT:    [[TMP22:%.*]] = icmp eq i64 [[TMP21]], [[N_VEC:%.*]]
+; CHECK-NEXT:    [[TMP22:%.*]] = icmp uge i64 [[TMP21]], [[N_VEC:%.*]]
 ; CHECK-NEXT:    br i1 [[TMP22]], label [[VPLANNEDBB:%.*]], label [[VECTOR_BODY]], !llvm.loop !0
 ;
 entry:
@@ -147,7 +147,7 @@ define void @test_predicated_value_operand(i32 *%p, i64 %n) {
 ; CHECK-NEXT:    [[TMP21]] = add nuw nsw <2 x i64> [[VEC_PHI]], <i64 2, i64 2>
 ; CHECK-NEXT:    [[TMP22]] = add nuw nsw i64 [[UNI_PHI1]], 2
 ; CHECK-NEXT:    [[TMP23]] = add i64 [[UNI_PHI]], 2
-; CHECK-NEXT:    [[TMP24:%.*]] = icmp eq i64 [[TMP23]], [[N_VEC:%.*]]
+; CHECK-NEXT:    [[TMP24:%.*]] = icmp uge i64 [[TMP23]], [[N_VEC:%.*]]
 ; CHECK-NEXT:    br i1 [[TMP24]], label [[VPLANNEDBB:%.*]], label [[VECTOR_BODY]], !llvm.loop !4
 ;
 entry:
