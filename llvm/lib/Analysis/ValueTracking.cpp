@@ -28,7 +28,6 @@
 #include "llvm/Analysis/AssumptionCache.h"
 #include "llvm/Analysis/GuardUtils.h"
 #include "llvm/Analysis/InstructionSimplify.h"
-#include "llvm/Analysis/Intel_FPValueRange.h" // INTEL
 #include "llvm/Analysis/Loads.h"
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/Analysis/OptimizationRemarkEmitter.h"
@@ -2604,62 +2603,6 @@ static bool isKnownNonEqual(const Value *V1, const Value *V2, const Query &Q) {
 }
 
 #if INTEL_CUSTOMIZATION
-
-FPValueRange llvm::computeFPValueRange(const Value *V, unsigned Depth) {
-  assert(V->getType()->isFloatingPointTy() &&
-         "computeFPValueRange expects an FP value");
-  // Bail out if it goes too deep
-  if (Depth == 16)
-    return FPValueRange::createUnknown(V);
-
-  const APFloat *C;
-  if (match(V, m_APFloat(C)))
-    return FPValueRange::createConstant(*C, C->isNaN(), C->isInfinity());
-
-  if (isa<UndefValue>(V))
-    return FPValueRange::createUndef(false, false,
-                                     V->getType()->getFltSemantics());
-
-  if (const auto *Op = dyn_cast<FPMathOperator>(V)) {
-    FastMathFlags FMF = Op->getFastMathFlags();
-    switch (Op->getOpcode()) {
-    case Instruction::FMul: {
-      Value *LHS = Op->getOperand(0);
-      Value *RHS = Op->getOperand(1);
-      FPValueRange LHSResult =
-          computeFPValueRange(LHS, Depth + 1).applyFastMathFlags(FMF);
-      FPValueRange RHSResult =
-          computeFPValueRange(RHS, Depth + 1).applyFastMathFlags(FMF);
-
-      return FPValueRange::multiply(LHSResult, RHSResult)
-          .applyFastMathFlags(Op);
-    }
-    case Instruction::FRem: {
-      Value *LHS = Op->getOperand(0);
-      Value *RHS = Op->getOperand(1);
-      FPValueRange LHSResult =
-          computeFPValueRange(LHS, Depth + 1).applyFastMathFlags(FMF);
-      FPValueRange RHSResult =
-          computeFPValueRange(RHS, Depth + 1).applyFastMathFlags(FMF);
-
-      return FPValueRange::mod(LHSResult, RHSResult).applyFastMathFlags(Op);
-    }
-    case Instruction::PHI: {
-      const auto *P = cast<PHINode>(Op);
-      auto Result = FPValueRange::createEmpty(V->getType()->getFltSemantics());
-      for (Value *V : P->incoming_values())
-        Result = FPValueRange::merge(
-            Result, computeFPValueRange(V, Depth + 1).applyFastMathFlags(FMF));
-      return Result.applyFastMathFlags(Op);
-    }
-    default:
-      return FPValueRange::createUnknown(V);
-    }
-  }
-
-  return FPValueRange::createUnknown(V);
-}
-
 static bool isFPValueIntegral(const Value *V,
                              SmallPtrSetImpl<const PHINode *> &ProcessedPHIs,
                              unsigned Depth) {

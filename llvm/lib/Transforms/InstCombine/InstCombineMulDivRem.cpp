@@ -15,6 +15,7 @@
 #include "llvm/ADT/APFloat.h"
 #include "llvm/ADT/APInt.h"
 #include "llvm/ADT/SmallVector.h"
+#include "llvm/Analysis/Intel_FPValueRangeAnalysis.h" // INTEL
 #include "llvm/Analysis/InstructionSimplify.h"
 #include "llvm/IR/BasicBlock.h"
 #include "llvm/IR/Constant.h"
@@ -1572,8 +1573,9 @@ Instruction *InstCombinerImpl::transformScalarFRemToSRem(Value *Dividend,
   if (!(isFPValueIntegral(Dividend) && isFPValueIntegral(Divisor)))
     return nullptr;
   // Value of both operands must be in range of int64_t
-  FPValueRange DividendRange = computeFPValueRange(Dividend),
-               DivisorRange = computeFPValueRange(Divisor);
+  FPValueRangeAnalysis RangeAnalysis;
+  FPValueRange DividendRange = RangeAnalysis.computeRange(Dividend),
+               DivisorRange = RangeAnalysis.computeRange(Divisor);
   if (!DividendRange.isInBitRange(64).getValueOr(false) ||
       !DivisorRange.isInBitRange(64).getValueOr(false))
     return nullptr;

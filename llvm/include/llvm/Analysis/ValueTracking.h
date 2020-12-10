@@ -17,7 +17,6 @@
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/Optional.h"
 #include "llvm/ADT/SmallSet.h"
-#include "llvm/Analysis/Intel_FPValueRange.h" // INTEL
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/DataLayout.h"
 #include "llvm/IR/InstrTypes.h"
@@ -178,9 +177,6 @@ constexpr unsigned MaxAnalysisRecursionDepth = 6;
 #if INTEL_CUSTOMIZATION
   /// Returns true if the given floating-point value is a whole number.
   bool isFPValueIntegral(const Value *V);
-
-  /// Determine the possible range of an floating-point value.
-  FPValueRange computeFPValueRange(const Value *V, unsigned Depth = 0);
 
   /// isKnownWithinIntRange - Return true if the given integer value is within 
   /// the given bit range, for either signed or unsigned cases. For signed 
