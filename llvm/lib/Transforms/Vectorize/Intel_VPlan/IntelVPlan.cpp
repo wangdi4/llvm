@@ -1175,6 +1175,21 @@ using VPPostDomTree = PostDomTreeBase<VPBasicBlock>;
 template void DomTreeBuilder::Calculate<VPPostDomTree>(VPPostDomTree &PDT);
 #endif
 
+void VPlan::computeDA() {
+  VPLoopInfo *VPLInfo = getVPLoopInfo();
+  VPLoop *CandidateLoop = *VPLInfo->begin();
+  getVPlanDA()->compute(this, CandidateLoop, VPLInfo, *getDT(), *getPDT(),
+                        false /*Not in LCSSA form*/);
+  if (isSOAAnalysisEnabled()) {
+    // Do SOA-analysis for loop-privates.
+    // TODO: Consider moving SOA-analysis to VPAnalysesFactory.
+    VPSOAAnalysis VPSOAA(*this, *CandidateLoop);
+    SmallPtrSet<VPInstruction *, 32> SOAVars;
+    VPSOAA.doSOAAnalysis(SOAVars);
+    getVPlanDA()->recomputeShapes(SOAVars, true /*EnableVerifyAndPrintDA*/);
+  }
+}
+
 std::unique_ptr<VPlan> VPlan::clone(VPAnalysesFactory &VPAF,
                                     bool RecalculateDA) {
   // Create new VPlan
@@ -1228,17 +1243,7 @@ std::unique_ptr<VPlan> VPlan::clone(VPAnalysesFactory &VPAF,
   if (RecalculateDA) {
     auto VPDA = std::make_unique<VPlanDivergenceAnalysis>();
     ClonedVPlan->setVPlanDA(std::move(VPDA));
-    auto *VPLInfo = ClonedVPlan->getVPLoopInfo();
-    VPLoop *CandidateLoop = *VPLInfo->begin();
-    ClonedVPlan->getVPlanDA()->compute(
-        ClonedVPlan.get(), CandidateLoop, VPLInfo, *ClonedVPlan->getDT(),
-        *ClonedVPlan->getPDT(), false /*Not in LCSSA form*/);
-    if (ClonedVPlan->isSOAAnalysisEnabled()) {
-      VPSOAAnalysis VPSOAA(*this, *CandidateLoop);
-      SmallPtrSet<VPInstruction *, 32> SOAVars;
-      VPSOAA.doSOAAnalysis(SOAVars);
-      ClonedVPlan->getVPlanDA()->recomputeShapes(SOAVars);
-    }
+    ClonedVPlan->computeDA();
   } else {
     auto ClonedVPlanDA = std::make_unique<VPlanDivergenceAnalysis>();
     ClonedVPlan->setVPlanDA(std::move(ClonedVPlanDA));

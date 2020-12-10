@@ -1462,7 +1462,7 @@ void VPOParoptTransform::genTgtInformationForPtrs(
   }
 
   if (isa<WRNTargetNode>(W) && W->getParLoopNdInfoAlloca() == V) {
-    Type *T = W->getParLoopNdInfoAlloca()->getType()->getPointerElementType();
+    Type *T = W->getParLoopNdInfoAlloca()->getAllocatedType();
     ConstSizes.push_back(ConstantInt::get(Type::getInt64Ty(C),
                                           DL.getTypeAllocSize(T)));
     MapTypes.push_back(TGT_MAP_ND_DESC);

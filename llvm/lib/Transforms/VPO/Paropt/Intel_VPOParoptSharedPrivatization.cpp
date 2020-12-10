@@ -165,7 +165,7 @@ bool VPOParoptTransform::privatizeSharedItems(WRegionNode *W) {
       [&](AllocaInst *AI, const SmallPtrSetImpl<BasicBlock *> &BBs) {
         // Do not attempt to promote arrays or structures.
         if (AI->isArrayAllocation() ||
-            !AI->getType()->getElementType()->isSingleValueType()) {
+            !AI->getAllocatedType()->isSingleValueType()) {
           LLVM_DEBUG(reportSkipped(AI, "not a single value type"));
           return false;
         }

@@ -943,10 +943,10 @@ void VPOParoptTransform::copySharedStructToTaskThunk(
     const DataLayout DL = F->getParent()->getDataLayout();
     if (DL.getIntPtrType(Builder.getInt8PtrTy())->getIntegerBitWidth() == 64)
       Size = Builder.getInt64(
-          DL.getTypeAllocSize(Src->getType()->getPointerElementType()));
+          DL.getTypeAllocSize(Src->getAllocatedType()));
     else
       Size = Builder.getInt32(
-          DL.getTypeAllocSize(Src->getType()->getPointerElementType()));
+          DL.getTypeAllocSize(Src->getAllocatedType()));
 
     MaybeAlign Align(DL.getABITypeAlignment(Src->getAllocatedType()));
     Builder.CreateMemCpy(LI, Align, SrcCast, Align, Size);

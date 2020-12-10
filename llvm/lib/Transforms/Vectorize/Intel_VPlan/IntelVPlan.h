@@ -2881,6 +2881,8 @@ public:
     VPlanDA = std::move(VPDA);
   }
 
+  void computeDA();
+
   void setVPSE(std::unique_ptr<VPlanScalarEvolution> A);
 
   void setVPVT(std::unique_ptr<VPlanValueTracking> A) {
