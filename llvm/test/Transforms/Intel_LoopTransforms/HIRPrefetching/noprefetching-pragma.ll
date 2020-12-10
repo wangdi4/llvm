@@ -1,29 +1,50 @@
-; RUN: opt < %s -hir-ssa-deconstruction | opt -analyze -hir-framework -hir-details -hir-framework-debug=parser | FileCheck %s
-; RUN: opt < %s -passes=hir-ssa-deconstruction | opt -passes="print<hir-framework>" -hir-details -hir-framework-debug=parser 2>&1 | FileCheck %s
+; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-prefetching -print-after=hir-prefetching < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-prefetching,print<hir>" 2>&1 < %s | FileCheck %s
 ;
 ; Source code
 ;void *  sub(float *A, float *B, float *C,  int N) {
 ;int i;
-;  #pragma  noprefetch C
-;  #pragma  prefetch A:1:40
-;  #pragma  prefetch B
+;  #pragma  noprefetch *
 ;  for (i=0; i< N; i++) {
 ;    A[i] = B[i] + C[i] *  2.0;
 ;  }
 ;}
 ;
-;Verify that DIR.PRAGMA.PREFETCH_LOOP is handled by loopopt framework.
-; CHECK: BEGIN REGION
+;*** IR Dump Before HIR Prefetching ***
+;Function: sub
 ;
-; region entry/exit intrinsics are eliminated by parser
-; CHECK-NOT: llvm.directive.region.entry
+;<0>          BEGIN REGION { }
+;<9>                   %2 = (%C.addr)[0];
+;<10>                  %3 = (%A.addr)[0];
+;<37>               + DO i1 = 0, zext.i32.i64(%N) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 4294967295>
+;<17>               |   %conv = fpext.float.double((%3)[i1]);
+;<20>               |   %conv3 = fpext.float.double((%2)[i1]);
+;<21>               |   %mul = %conv3  *  2.000000e+00;
+;<22>               |   %add = %mul  +  %conv;
+;<23>               |   %conv4 = fptrunc.double.float(%add);
+;<25>               |   (%3)[i1] = %conv4;
+;<37>               + END LOOP
+;<37>
+;<36>               ret &((undef)[0]);
+;<0>          END REGION
 ;
-; CHECK:   + Prefetching directives:{&((%C.addr)[0]):disable}, {&((%A.addr)[0]):1:40}, {&((%B.addr)[0]):-1:-1}
-; CHECK:   + DO i64 i1
+;*** IR Dump After HIR Prefetching ***
+;Function: sub
 ;
-; CHECK-NOT: llvm.directive.region.exit
+; CHECK:     BEGIN REGION { }
+; CHECK:              %2 = (%C.addr)[0];
+; CHECK:              %3 = (%A.addr)[0];
+; CHECK:           + DO i1 = 0, zext.i32.i64(%N) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 4294967295>
+; CHECK:           |   %conv = fpext.float.double((%3)[i1]);
+; CHECK:           |   %conv3 = fpext.float.double((%2)[i1]);
+; CHECK:           |   %mul = %conv3  *  2.000000e+00;
+; CHECK:           |   %add = %mul  +  %conv;
+; CHECK:           |   %conv4 = fptrunc.double.float(%add);
+; CHECK:           |   (%3)[i1] = %conv4;
+; CHECK:           + END LOOP
 ;
-; CHECK: END REGION
+; CHECK:           ret &((undef)[0]);
+; CHECK:     END REGION
 ;
 ;Module Before HIR
 ; ModuleID = 't1.c'
@@ -40,7 +61,7 @@ entry:
   store float* %A, float** %A.addr, align 8, !tbaa !2
   store float* %B, float** %B.addr, align 8, !tbaa !2
   store float* %C, float** %C.addr, align 8, !tbaa !2
-  %0 = call token @llvm.directive.region.entry() [ "DIR.PRAGMA.PREFETCH_LOOP"(), "QUAL.PRAGMA.ENABLE"(i32 0), "QUAL.PRAGMA.VAR"(float** %C.addr), "QUAL.PRAGMA.HINT"(i32 -1), "QUAL.PRAGMA.DISTANCE"(i32 -1), "QUAL.PRAGMA.ENABLE"(i32 1), "QUAL.PRAGMA.VAR"(float** %A.addr), "QUAL.PRAGMA.HINT"(i32 1), "QUAL.PRAGMA.DISTANCE"(i32 40), "QUAL.PRAGMA.ENABLE"(i32 1), "QUAL.PRAGMA.VAR"(float** %B.addr), "QUAL.PRAGMA.HINT"(i32 -1), "QUAL.PRAGMA.DISTANCE"(i32 -1)]
+  %0 = call token @llvm.directive.region.entry() [ "DIR.PRAGMA.PREFETCH_LOOP"(), "QUAL.PRAGMA.ENABLE"(i32 0), "QUAL.PRAGMA.VAR"(i8* null), "QUAL.PRAGMA.HINT"(i32 -1), "QUAL.PRAGMA.DISTANCE"(i32 -1)]
   %cmp12 = icmp sgt i32 %N, 0
   br i1 %cmp12, label %for.body.lr.ph, label %for.end
 
@@ -72,7 +93,7 @@ for.end.loopexit:                                 ; preds = %for.body
   br label %for.end
 
 for.end:                                          ; preds = %for.end.loopexit, %entry
-  call void @llvm.directive.region.exit(token %0) [ "DIR.PRAGMA.END.PREFETCH_LOOP"()]
+  call void @llvm.directive.region.exit(token %0) [ "DIR.PRAGMA.END.PREFETCH_LOOP"() ]
   ret i8* undef
 }
 
