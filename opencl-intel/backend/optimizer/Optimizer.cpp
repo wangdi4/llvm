@@ -52,11 +52,10 @@
 #include "llvm/Transforms/Utils.h"
 #include "llvm/Transforms/Utils/UnifyFunctionExitNodes.h"
 
-// TODO: vromanov to fix:
+// TODO:
 // #include "llvm/Transforms/Intel_OpenCLTransforms/Passes.h"
 llvm::FunctionPass* createFMASplitterPass();
 
-// INTEL VPO BEGIN
 #include "llvm/Transforms/Intel_MapIntrinToIml/MapIntrinToIml.h"
 #include "llvm/Transforms/Utils/Intel_VecClone.h"
 #include "llvm/Transforms/VPO/Paropt/VPOParopt.h"
@@ -95,8 +94,6 @@ static cl::opt<bool>
                               cl::Hidden,
                               cl::desc("Enable a default Kernel Vectorizer "
                                        "(Volcano or Vplan)"));
-
-// INTEL VPO END
 
 // TODO: The switch is required until subgroup implementation passes
 // the conformance test fully (meaning that masked kernel is integrated).
@@ -201,12 +198,10 @@ llvm::ModulePass *createChooseVectorizationDimensionModulePass();
 llvm::ModulePass *createCoerceWin64TypesPass();
 llvm::FunctionPass *createAddFastMathPass();
 llvm::Pass *createResolveVariableTIDCallPass();
+llvm::ModulePass *createVectorKernelDiscardPass(const intel::OptimizerConfig *);
 }
 
 using namespace intel;
-// INTEL VPO BEGIN
-using namespace vpo;
-// INTEL VPO END
 namespace Intel {
 namespace OpenCL {
 namespace DeviceBackend {
@@ -629,6 +624,16 @@ static void populatePassesPostFailCheck(
         PM.add(createCFGSimplificationPass());
         PM.add(createPromoteMemoryToRegisterPass());
         PM.add(createAggressiveDCEPass());
+
+        // Add cost model to discard vectorized kernels if they have higher
+        // cost. This is done only for native OpenCL program. In SYCL, unless
+        // programmer explicitly asks not to vectorize (SG size of 1, OCL env
+        // to disable vectorization, etc), compiler shall vectorize along the
+        // fastest moving dimension (that maps to get_global_id(0) for LLVM IR
+        // in our implementation). The vec/no-vec decision belongs to the
+        // programmer.
+        if (!IsSYCL)
+          PM.add(createVectorKernelDiscardPass(pConfig));
       } else {
         if (EmitKernelVectorizerSignOn)
           dbgs() << "OpenCL Kernel Vectorizer\n";
