@@ -16,7 +16,7 @@
 #include "llvm/ADT/Twine.h"
 #include "llvm/Analysis/TargetTransformInfo.h"
 #include "llvm/Analysis/VectorUtils.h" // INTEL
-#include "llvm/CodeGen/TargetSubtargetInfo.h"
+#include "llvm/CodeGen/Passes.h"       // INTEL
 #include "llvm/IR/BasicBlock.h"
 #include "llvm/IR/Constant.h"
 #include "llvm/IR/Constants.h"
