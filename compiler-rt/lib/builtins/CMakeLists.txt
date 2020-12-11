@@ -190,6 +190,7 @@ set(GENERIC_TF_SOURCES
   divtc3.c
   divtf3.c
   extenddftf2.c
+  extendhftf2.c
   extendsftf2.c
   fixtfdi.c
   fixtfsi.c
@@ -208,6 +209,7 @@ set(GENERIC_TF_SOURCES
   powitf2.c
   subtf3.c
   trunctfdf2.c
+  trunctfhf2.c
   trunctfsf2.c
 )
 
