@@ -134,6 +134,12 @@ static cl::opt<uint32_t> FastReductionCtrl("vpo-paropt-fast-reduction-ctrl",
                                                     "default on): similar with"
                                                     " bit 0, but for array "
                                                     "reduction."));
+
+static cl::opt<bool> EmitTargetFPCtorDtors(
+    "vpo-paropt-emit-target-fp-ctor-dtor", cl::Hidden, cl::init(false),
+    cl::desc("Enable emission of constructors/destructors for firstprivate "
+             "operands on target constructs, during target compilation."));
+
 //
 // Use with the WRNVisitor class (in WRegionUtils.h) to walk the WRGraph
 // (DFS) to gather all WRegion Nodes;
@@ -5744,25 +5750,34 @@ bool VPOParoptTransform::genFirstPrivatizationCode(WRegionNode *W) {
         // map in addition to a firstprivate clause. We need to honor both.
         if (!FprivI->getIsF90DopeVector())
 #endif // INTEL_CUSTOMIZATION
-        // For some reason clang may put a variable both into map() and
-        // firstprivate clause, e.g.:
-        // void foo(int n) {
-        //   #pragma omp target map(from:n)
-        //   #pragma omp teams num_teams(n)
-        //   ...
-        // }
+        // In some cases, clang may put a variable both into map and
+        // firstprivate clauses. Usually, in such cases, we do not need to
+        // generate any for firstprivate clause, as all the data movement
+        // is handled by the map clause processing.
+        //
+        // But for NONPODs, we need to emit constructors/destructors for them
+        // while handling the firstprivate clause (at least for the host
+        // fallback function). Whether these are emitted for target compilation
+        // is determined based on EmitTargetFPCtorDtors.
+        //
+        //   Class C;
+        //   void foo() {
+        //     C c1;
+        //     #pragma omp target firstprivate(c1)
+        //     ...
+        //   }
         //
         // The generated region will look like this:
-        // %0 = call token @llvm.directive.region.entry() [
-        //          "DIR.OMP.TARGET"(),
-        //          "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 0),
-        //          "QUAL.OMP.MAP.FROM"(i32* %n.addr),
-        //          "QUAL.OMP.FIRSTPRIVATE"(i32* %n.addr) ]
+        //   call token @llvm.directive.region.entry() [
+        //   "DIR.OMP.TARGET"(), ...,
+        //   "QUAL.OMP.FIRSTPRIVATE:NONPOD"(%class.C* %c1,
+        //     void (%class.C*, %class.C*)* @_ZTS1C.omp.copy_constr,
+        //     void (%class.C*)* @_ZTS1C.omp.destr),
+        //   "QUAL.OMP.MAP.TO"(%class.C* %c1, %class.C* %c1, i64 4, i64 161) ]
         //
-        // We do not need to generate any special code for firstprivate()
-        // clause, as long as all the data movement will be handled
-        // by the map() processing.
-        continue;
+        if (!FprivI->getIsNonPod() ||
+            (isTargetSPIRV() && !EmitTargetFPCtorDtors))
+          continue;
 
       Value *NewPrivInst = nullptr;
       Value *Orig = FprivI->getOrig();
@@ -6151,8 +6166,11 @@ bool VPOParoptTransform::genDestructorCode(WRegionNode *W) {
   if (W->canHaveFirstprivate())
     for (FirstprivateItem *FI : W->getFpriv().items())
       if (auto *Dtor = FI->getDestructor())
-        genPrivatizationInitOrFini(FI, Dtor, FK_Dtor, FI->getNew(), nullptr,
-                                   InsertBeforePt, DT);
+        if (auto *FNew = FI->getNew()) // getNew() can be null for firstprivate
+                                       // on target constructs based on
+                                       // EmitTargetFPCtorDtors.
+          genPrivatizationInitOrFini(FI, Dtor, FK_Dtor, FNew, nullptr,
+                                     InsertBeforePt, DT);
 
   // Destructors for lastprivates (that are not also firstprivate)
   if (W->canHaveLastprivate())
