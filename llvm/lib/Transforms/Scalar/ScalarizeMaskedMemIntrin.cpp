@@ -16,7 +16,6 @@
 #include "llvm/ADT/Twine.h"
 #include "llvm/Analysis/TargetTransformInfo.h"
 #include "llvm/Analysis/VectorUtils.h" // INTEL
-#include "llvm/CodeGen/Passes.h"       // INTEL
 #include "llvm/IR/BasicBlock.h"
 #include "llvm/IR/Constant.h"
 #include "llvm/IR/Constants.h"
@@ -33,6 +32,7 @@
 #include "llvm/InitializePasses.h"
 #include "llvm/Pass.h"
 #include "llvm/Support/Casting.h"
+#include "llvm/Transforms/Scalar.h"
 #include "llvm/Transforms/Utils/Local.h" // INTEL
 #include <algorithm>
 #include <cassert>

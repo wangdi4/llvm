@@ -656,6 +656,14 @@ FunctionPass *createIVSplitLegacyPass();
 // instruction in a function.
 //
 FunctionPass *createInstSimplifyLegacyPass();
+
+
+//===----------------------------------------------------------------------===//
+//
+// createScalarizeMaskedMemIntrinPass - Replace masked load, store, gather
+// and scatter intrinsics with scalar code when target doesn't support them.
+//
+FunctionPass *createScalarizeMaskedMemIntrinPass();
 } // End llvm namespace
 
 #endif
