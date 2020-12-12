@@ -1067,6 +1067,26 @@ static bool ParseCodeGenArgs(CodeGenOptions &Opts, ArgList &Args, InputKind IK,
       Opts.setFramePointer(FP);
   }
 
+  if (const Arg *A = Args.getLastArg(OPT_ftime_report, OPT_ftime_report_EQ)) {
+    Opts.TimePasses = true;
+
+    // -ftime-report= is only for new pass manager.
+    if (A->getOption().getID() == OPT_ftime_report_EQ) {
+      if (!Opts.ExperimentalNewPassManager)
+        Diags.Report(diag::err_drv_argument_only_allowed_with)
+            << A->getAsString(Args) << "-fexperimental-new-pass-manager";
+
+      StringRef Val = A->getValue();
+      if (Val == "per-pass")
+        Opts.TimePassesPerRun = false;
+      else if (Val == "per-pass-run")
+        Opts.TimePassesPerRun = true;
+      else
+        Diags.Report(diag::err_drv_invalid_value)
+            << A->getAsString(Args) << A->getValue();
+    }
+  }
+
 #ifdef INTEL_CUSTOMIZATION
   Opts.DisableFree =
       Args.hasFlag(OPT_disable_free, OPT_no_disable_free, /*Default=*/false);
