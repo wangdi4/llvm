@@ -21,6 +21,7 @@
 // supply our own plugin api.
 #include "llvm/Config/config.h" // plugin-api.h requires HAVE_STDINT_H
 #endif // INTEL_CUSTOMIZATION
+#include "llvm/Config/llvm-config.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/DiagnosticPrinter.h"
 #include "llvm/LTO/Caching.h"
@@ -210,7 +211,7 @@ namespace options {
   // Sample profile file path
   static std::string sample_profile;
   // New pass manager
-  static bool new_pass_manager = false;
+  static bool new_pass_manager = LLVM_ENABLE_NEW_PASS_MANAGER;
   // Debug new pass manager
   static bool debug_pass_manager = false;
   // Directory to store the .dwo files.
