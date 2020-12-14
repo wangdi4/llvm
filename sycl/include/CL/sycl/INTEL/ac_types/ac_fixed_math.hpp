@@ -89,11 +89,6 @@
 #include "ac_fixed.hpp"
 #include "ac_fixed_math_internal.hpp"
 
-#if defined(HLS_X86) ||                                                        \
-    ((defined(__SYCL_COMPILER_VERSION) && defined(FPGA_EMULATOR)))
-#define __EMULATION_FLOW__
-#endif
-
 template <int W, int I, bool S>
 typename ac_fixed_math_private::rt<W, I, S>::sqrt_r
 sqrt_fixed(ac_fixed<W, I, S> x);
@@ -401,9 +396,9 @@ void sincos_fixed(ac_fixed<W, I, S> x,
   ac_private::ap_int<W> op = x.get_op_signed();
   r = __spirv_FixedSinCosINTEL<W, RET_W>(
       op, S, I, ac_fixed_math_private::rt<W, I, S>::sin_i);
-  ac_fixed<2 * RET_W, I, true> r_ac_fixed = (long)r;
-  ac_fixed<RET_W, I, true> cos_v = r_ac_fixed.template slc<RET_W>(0);
-  ac_fixed<RET_W, I, true> sin_v = r_ac_fixed.template slc<RET_W>(RET_W);
+  ac_fixed<2 * RET_W, I, true> r_ac_fixed(r);
+  ac_fixed<RET_W, I, true> sin_v = r_ac_fixed;
+  ac_fixed<RET_W, I, true> cos_v = (r_ac_fixed << RET_W);
   r_cos = cos_v.get_op_signed();
   r_sin = sin_v.get_op_signed();
 #endif
@@ -482,9 +477,9 @@ void sincospi_fixed(
   ac_private::ap_int<W> op = x.get_op_signed();
   r = __spirv_FixedSinCosPiINTEL<W, RET_W>(
       op, S, I, ac_fixed_math_private::rt<W, I, S>::sinpi_i);
-  ac_fixed<2 * RET_W, I, true> r_ac_fixed = (long)r;
-  ac_fixed<RET_W, I, true> cos_v = r_ac_fixed.template slc<RET_W>(0);
-  ac_fixed<RET_W, I, true> sin_v = r_ac_fixed.template slc<RET_W>(RET_W);
+  ac_fixed<2 * RET_W, I, true> r_ac_fixed(r);
+  ac_fixed<RET_W, I, true> sin_v = r_ac_fixed;
+  ac_fixed<RET_W, I, true> cos_v = (r_ac_fixed << RET_W);
   r_cos = cos_v.get_op_signed();
   r_sin = sin_v.get_op_signed();
 #endif
