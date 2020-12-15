@@ -1567,7 +1567,14 @@ static int32_t getAllocKinds(uint32_t L0DeviceId) {
     return DeviceInfo->TargetAllocKind; // Respect global setting
 
   uint32_t prefix = L0DeviceId & 0xFF00;
+#if 0
   if (prefix == 0x4900 || prefix == 0x0200)
+  // FIXME: We have multiple issues when using device mem by default on DG1
+  // including device offload table loading.
+  // Stay with shared mem on DG1 until all issues are resolved.
+#else
+  if (prefix == 0x0200)
+#endif
     return TARGET_ALLOC_DEVICE; // Discrete device
   else
     return TARGET_ALLOC_SHARED; // Integrated device
