@@ -14,7 +14,7 @@
 #ifndef __HLS_FLOAT_MATH__0H__
 #define __HLS_FLOAT_MATH__0H__
 
-#include "hls_float.h"
+#include "hls_float.hpp"
 
 namespace ihc {
 

@@ -14,7 +14,7 @@
 #ifndef _INTEL_IHC_HLS_INTERNAL_HLS_FLOAT_FPGA
 #define _INTEL_IHC_HLS_INTERNAL_HLS_FLOAT_FPGA
 
-#include "_hls_float_common_inc.h"
+#include "_hls_float_common_inc.hpp"
 
 // Dummy definitions for math functions to be used when compiling the host code.
 // These are needed when compiling with the dpcpp compiler. SYCL requires

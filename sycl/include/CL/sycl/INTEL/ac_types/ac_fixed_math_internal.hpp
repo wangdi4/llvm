@@ -14,7 +14,7 @@
 #ifndef __HLS_AC_FIXED_MATH_INTERNAL_H__
 #define __HLS_AC_FIXED_MATH_INTERNAL_H__
 
-#include "ac_fixed.h"
+#include "ac_fixed.hpp"
 
 // Emulation flow signatures need to be tagged with SYCL_EXTERNAL when using
 // this header with the SYCL compiler.
