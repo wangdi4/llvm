@@ -806,6 +806,10 @@ static void populatePassesPostFailCheck(
       PM.add(llvm::createFunctionInliningPass(4096)); // Inline (not only small) functions.
     else
       PM.add(llvm::createFunctionInliningPass());     // Inline small functions
+  } else if (isOcl20) {
+    // Ensure that the built-in functions to be processed by PatchCallbackArgsPass
+    // are inlined.
+    PM.add(llvm::createAlwaysInlinerLegacyPass());
   }
   // Some built-in functions contain calls to external functions which take
   // arguments that are retrieved from the function's implicit arguments.
